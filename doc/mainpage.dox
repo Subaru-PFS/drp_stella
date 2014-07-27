@@ -1,0 +1,16 @@
+/**
+\mainpage pfs::drp::stella;  The PFS version of Andreas Ritter's STELLA code
+
+\section drpStellaSecIntro Introduction
+
+STELLA is a spectroscopic reduction code, some of which is being reused for the PFS project.
+
+*/
+
+//-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+
+namespace pfs { namespace drp { namespace stella {
+/**
+
+*/
+}}}
