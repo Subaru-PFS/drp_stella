@@ -3,7 +3,7 @@
 
 #include "ndarray.h"
 #include "ndarray/eigen.h"
-#include "blitz/Array.h"
+#include "blitz/array.h"
 
 namespace pfs { namespace drp { namespace stella {
 namespace utils {
