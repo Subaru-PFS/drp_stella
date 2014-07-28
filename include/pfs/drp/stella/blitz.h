@@ -9,7 +9,7 @@ namespace pfs { namespace drp { namespace stella {
 namespace utils {
 
 /**
- * \brief Make a shallow copy of an Eigen::Array as a blitz::Array
+ * \brief Make a shallow copy of an ndarray::Array as a blitz::Array
  *
  * \note The ownership of the memory is not transferred to blitz
  */
@@ -26,7 +26,7 @@ ndarrayToBlitz(ndarray::Array<T, 2, 1> arr)
 }
 
 /**
- * \brief Make a shallow copy of an blitz::Array as an Eigen::Array
+ * \brief Make a shallow copy of an blitz::Array as an ndarray::Array
  *
  * \note The ownership of the memory is not transferred to eigen
  */
