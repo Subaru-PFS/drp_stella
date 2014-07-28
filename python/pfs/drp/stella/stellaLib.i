@@ -32,4 +32,6 @@ Interface to Stella
    %template(addImagesWithEigen) pfs::drp::stella::addImagesWithEigen<PIXEL_TYPE>;
 %enddef
 
+%addImages(double);
+%addImages(int);
 %addImages(float);

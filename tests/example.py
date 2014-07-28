@@ -29,8 +29,8 @@ class ExampleTestCase(tests.TestCase):
 
     def setUp(self):
         self.val1, self.val2 = 10, 90
+        bim1 = afwImage.ImageD(10, 20)
         self.im1 = afwImage.ImageF(2, 3); self.im1[:] = self.val1
-        bim1 = afwImage.ImageF(10, 20)
         self.im1 = bim1[2:4, 3:6];        self.im1[:] = self.val1 # i.e. memory is not contiguous
         self.im1.setXY0(0, 0)
         self.im2 = self.im1.clone();      self.im2[:] = self.val2

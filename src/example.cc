@@ -132,6 +132,8 @@ lsst::afw::image::Image<T> \
 addImagesWithEigen(lsst::afw::image::Image<T> const &, \
                    lsst::afw::image::Image<T> const &)
 
+INSTANTIATE(double);
 INSTANTIATE(float);
+INSTANTIATE(int);
 /// \endcond
 }}}
