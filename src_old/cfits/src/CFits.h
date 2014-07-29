@@ -35,8 +35,8 @@ basis machine: Ubuntu Linux 6.06
   #include <blitz/vecwhere.h>
   #include <blitz/tinyvec.h>
   #include <blitz/tinyvec-et.h>
-  #include "./cfitsio3-3.230/fitsio.h"
-  #include "./cfitsio3-3.230/fitsio2.h"
+  #include <fitsio.h>
+  #include <fitsio2.h>
 //  #include "/home/azuri/setup/cfitsio/include/fitsio.h"
   #include <fstream>
 //  #include <numerical_recipes/nr.h>
@@ -177,7 +177,7 @@ basis machine: Ubuntu Linux 6.06
 //  #define MAXAPERTURES 1000
 //  #define SWAP(a,b) double
   using namespace std;
-  using namespace blitz;
+//  using namespace blitz;
 
   class CFits: public CAny
   {
@@ -204,88 +204,88 @@ basis machine: Ubuntu Linux 6.06
       fitsfile *P_FitsFile;
 
       /// Pixel array
-      Array<double, 2> *P_D_A2_PixArray;/// NRows x NCols
+      blitz::Array<double, 2> *P_D_A2_PixArray;/// NRows x NCols
 
       /// Slit profile array
-      Array<double, 2> *P_D_A2_ProfArray;/// NRows x NCols
+      blitz::Array<double, 2> *P_D_A2_ProfArray;/// NRows x NCols
 
       /// Uncertainty per pixel array
-      Array<double, 2> *P_D_A2_ErrArray;/// NRows x NCols
+      blitz::Array<double, 2> *P_D_A2_ErrArray;/// NRows x NCols
 
       /// Reconstructed Sky array
-      Array<double, 2> *P_D_A2_RecSkyArray;/// NRows x NCols
-      Array<double, 2> *P_D_A2_RecSkyFitArray;/// NRows x NCols
+      blitz::Array<double, 2> *P_D_A2_RecSkyArray;/// NRows x NCols
+      blitz::Array<double, 2> *P_D_A2_RecSkyFitArray;/// NRows x NCols
 
       /// Reconstructed array
-      Array<double, 2> *P_D_A2_RecArray;/// NRows x NCols
+      blitz::Array<double, 2> *P_D_A2_RecArray;/// NRows x NCols
 
       /// Reconstructed array from Fit
-      Array<double, 2> *P_D_A2_RecFitArray;/// NRows x NCols
+      blitz::Array<double, 2> *P_D_A2_RecFitArray;/// NRows x NCols
 
       /// Mask array
-      Array<int, 2> *P_I_A2_MaskArray;/// NRows x NCols
+      blitz::Array<int, 2> *P_I_A2_MaskArray;/// NRows x NCols
 
       /// Coefficients for the polynomial trace functions
-      Array<double, 2> *P_D_A2_Coeffs;  /// NApertures x max(P_I_A1_NCoeffs)
+      blitz::Array<double, 2> *P_D_A2_Coeffs;  /// NApertures x max(P_I_A1_NCoeffs)
 
       /// Centres of the apertures in x(cols)
-      Array<double, 2> *P_D_A2_XCenters;/// NApertures x NRows
+      blitz::Array<double, 2> *P_D_A2_XCenters;/// NApertures x NRows
 
       /// Blaze functions for every aperture
-      Array<double, 2> *P_D_A2_Blaze;   /// NApertures x NRows
+      blitz::Array<double, 2> *P_D_A2_Blaze;   /// NApertures x NRows
 
       /// extracted spectrum from fit
-      Array<double, 2> *P_D_A2_SP_Fit;   /// NApertures x NRows
+      blitz::Array<double, 2> *P_D_A2_SP_Fit;   /// NApertures x NRows
 
       /// errors for every aperture calculated from profile
-      Array<double, 2> *P_D_A2_Errors_Ec;   /// NApertures x NRows
+      blitz::Array<double, 2> *P_D_A2_Errors_Ec;   /// NApertures x NRows
 
       /// errors for every aperture calculated from fit
-      Array<double, 2> *P_D_A2_Errors_EcFit;   /// NApertures x NRows
+      blitz::Array<double, 2> *P_D_A2_Errors_EcFit;   /// NApertures x NRows
 
       /// errors for every aperture
-      Array<double, 2> *P_D_A2_LastExtracted;   /// NApertures x NRows
+      blitz::Array<double, 2> *P_D_A2_LastExtracted;   /// NApertures x NRows
 
       /// sky for every aperture
-      Array<double, 2> *P_D_A2_Sky;   /// NApertures x NRows
-      Array<double, 2> *P_D_A2_SkyFit;   /// NApertures x NRows
+      blitz::Array<double, 2> *P_D_A2_Sky;   /// NApertures x NRows
+      blitz::Array<double, 2> *P_D_A2_SkyFit;   /// NApertures x NRows
 
       /// sky error for every aperture
-      Array<double, 2> *P_D_A2_SkyError;   /// NApertures x NRows
-      Array<double, 2> *P_D_A2_SkyFitError;   /// NApertures x NRows
+      blitz::Array<double, 2> *P_D_A2_SkyError;   /// NApertures x NRows
+      blitz::Array<double, 2> *P_D_A2_SkyFitError;   /// NApertures x NRows
 
       /// Wavelength for every aperture NOTE: use only when P_D_A2_PixArray is in the format (aperture, row)
-      Array<double, 2> *P_D_A2_WLen; /// NRows x NCol
+      blitz::Array<double, 2> *P_D_A2_WLen; /// NRows x NCol
 
       /// lower aperture limit for every aperture relative to center including sky (< 0.), cols
-      Array<double, 1> *P_D_A1_XLow;     /// NApertures
+      blitz::Array<double, 1> *P_D_A1_XLow;     /// NApertures
 
       /// higher aperture limit for every aperture relative to center including sky (> 0.), cols
-      Array<double, 1> *P_D_A1_XHigh;    /// NApertures
+      blitz::Array<double, 1> *P_D_A1_XHigh;    /// NApertures
 
       /// lower aperture limit for every aperture (< 0.), rows
-      Array<double, 1> *P_D_A1_YLow;     /// NApertures
+      blitz::Array<double, 1> *P_D_A1_YLow;     /// NApertures
 
       /// higher aperture limit for every aperture (> 0.), rows
-      Array<double, 1> *P_D_A1_YHigh;    /// NApertures
+      blitz::Array<double, 1> *P_D_A1_YHigh;    /// NApertures
 
       /// center position in x (column) for every aperture
-      Array<double, 1> *P_D_A1_XCenter; /// NApertures
+      blitz::Array<double, 1> *P_D_A1_XCenter; /// NApertures
 
       /// center position in y (row) for every aperture
-      Array<double, 1> *P_D_A1_YCenter; /// NApertures
+      blitz::Array<double, 1> *P_D_A1_YCenter; /// NApertures
 
       /// aperture lower limit relative to center for determining the background
-      Array<double, 1> *P_D_A1_XMin;    /// NApertures
+      blitz::Array<double, 1> *P_D_A1_XMin;    /// NApertures
 
       /// aperture upper limit relative to center for determining the background
-      Array<double, 1> *P_D_A1_XMax;    /// NApertures
+      blitz::Array<double, 1> *P_D_A1_XMax;    /// NApertures
 
       /// polynomial order of aperture trace function
-      Array<int, 1>    *P_I_A1_Orders;  /// NApertures
+      blitz::Array<int, 1>    *P_I_A1_Orders;  /// NApertures
 
       /// number of coefficients for polynomial trace function
-      Array<int, 1>    *P_I_A1_NCoeffs; /// NApertures
+      blitz::Array<int, 1>    *P_I_A1_NCoeffs; /// NApertures
 
       /// Name of function used to trace the apertures
       ///  0: chebyshev
@@ -293,7 +293,7 @@ basis machine: Ubuntu Linux 6.06
       ///  2: cubic
       ///  3: linear
       ///  4: polynomial
-      Array<CString, 1> *P_CS_A1_Functions; /// NApertures
+      blitz::Array<CString, 1> *P_CS_A1_Functions; /// NApertures
       int NRows;
       int NCols;
       int I_DispAxis;
@@ -389,7 +389,7 @@ basis machine: Ubuntu Linux 6.06
       /**
       subtract D_A2_Sub from this->P_D_A2_PixArray
       **/
-      CFits& operator-=(const Array<double, 2> &D_A2_Sub);
+      CFits& operator-=(const blitz::Array<double, 2> &D_A2_Sub);
 
       /**
         add PixArray from one CFits instance to this one
@@ -421,35 +421,35 @@ basis machine: Ubuntu Linux 6.06
       bool SetNCols(int nco);
       bool Set_DispAxis(int I_DispAxis_In);
       bool Set_NApertures(int I_NApertures_In);
-      bool Set_XHigh(const Array<double, 1>& D_A1_In);
-      bool Set_XLow(const Array<double, 1>& D_A1_In);
-      bool Set_YHigh(const Array<double, 1>& D_A1_In);
-      bool Set_YLow(const Array<double, 1>& D_A1_In);
-      bool Set_XMax(const Array<double, 1>& D_A1_In);
-      bool Set_XMin(const Array<double, 1>& D_A1_In);
-      bool Set_Coeffs(const Array<double, 2>& D_A2_In);
-      bool Set_XCenters(const Array<double, 2>& D_A2_In);
-      bool Set_XCenter(const Array<double, 1>& D_A1_In);
-      bool Set_YCenter(const Array<double, 1>& D_A1_In);
-      bool Set_Orders(const Array<int, 1>& I_A1_In);
-      bool Set_NCoeffs(const Array<int, 1>& I_A1_In);
-      bool Set_Functions(const Array<CString, 1> CS_A1_Functions_In);
-      bool Set_SubArray(Array<double, 1> &D_A1_InOut, Array<int, 1> &I_A1_Indices_In, Array<double, 1> &D_A1_In) const;
-      bool Set_SubArray(Array<int, 1> &I_A1_InOut, Array<int, 1> &I_A1_Indices_In, Array<int, 1> &I_A1_In) const;
-      bool Set_ProfArray(const Array<double, 2> &D_A2_ProfArray_In);
+      bool Set_XHigh(const blitz::Array<double, 1>& D_A1_In);
+      bool Set_XLow(const blitz::Array<double, 1>& D_A1_In);
+      bool Set_YHigh(const blitz::Array<double, 1>& D_A1_In);
+      bool Set_YLow(const blitz::Array<double, 1>& D_A1_In);
+      bool Set_XMax(const blitz::Array<double, 1>& D_A1_In);
+      bool Set_XMin(const blitz::Array<double, 1>& D_A1_In);
+      bool Set_Coeffs(const blitz::Array<double, 2>& D_A2_In);
+      bool Set_XCenters(const blitz::Array<double, 2>& D_A2_In);
+      bool Set_XCenter(const blitz::Array<double, 1>& D_A1_In);
+      bool Set_YCenter(const blitz::Array<double, 1>& D_A1_In);
+      bool Set_Orders(const blitz::Array<int, 1>& I_A1_In);
+      bool Set_NCoeffs(const blitz::Array<int, 1>& I_A1_In);
+      bool Set_Functions(const blitz::Array<CString, 1> CS_A1_Functions_In);
+      bool Set_SubArray(blitz::Array<double, 1> &D_A1_InOut, blitz::Array<int, 1> &I_A1_Indices_In, blitz::Array<double, 1> &D_A1_In) const;
+      bool Set_SubArray(blitz::Array<int, 1> &I_A1_InOut, blitz::Array<int, 1> &I_A1_Indices_In, blitz::Array<int, 1> &I_A1_In) const;
+      bool Set_ProfArray(const blitz::Array<double, 2> &D_A2_ProfArray_In);
       bool Read_ProfArray(const CString &CS_FitsFileName_In);
 
       /// I_A3_Indices_In: (*,0): row_InOut
       /// I_A3_Indices_In: (*,1): col_InOut
       /// I_A3_Indices_In: (*,2): row_In
       /// I_A3_Indices_In: (*,3): col_In
-      bool Set_SubArray(Array<double, 2> &D_A2_InOut, Array<int, 2> &I_A2_Indices_In, Array<double, 2> &D_A2_In) const;
-      bool Set_SubArray(Array<int, 2> &I_A2_InOut, Array<int, 2> &I_A2_Indices_In, Array<int, 2> &I_A2_In) const;
+      bool Set_SubArray(blitz::Array<double, 2> &D_A2_InOut, blitz::Array<int, 2> &I_A2_Indices_In, blitz::Array<double, 2> &D_A2_In) const;
+      bool Set_SubArray(blitz::Array<int, 2> &I_A2_InOut, blitz::Array<int, 2> &I_A2_Indices_In, blitz::Array<int, 2> &I_A2_In) const;
 
       /// I_A3_Indices_In: (*,0): row_InOut
       /// I_A3_Indices_In: (*,1): col_InOut
-      bool Set_SubArray(Array<double, 2> &D_A2_InOut, Array<int, 2> &I_A2_Indices_In, Array<double, 1> &D_A1_In) const;
-      bool Set_SubArray(Array<int, 2> &I_A2_InOut, Array<int, 2> &I_A2_Indices_In, Array<int, 1> &I_A1_In) const;
+      bool Set_SubArray(blitz::Array<double, 2> &D_A2_InOut, blitz::Array<int, 2> &I_A2_Indices_In, blitz::Array<double, 1> &D_A1_In) const;
+      bool Set_SubArray(blitz::Array<int, 2> &I_A2_InOut, blitz::Array<int, 2> &I_A2_Indices_In, blitz::Array<int, 1> &I_A1_In) const;
 
       bool Set_Gain(double D_Gain_In);
       bool Set_ReadOutNoise(double D_ReadOutNoise_In);
@@ -480,39 +480,39 @@ basis machine: Ubuntu Linux 6.06
       CString& GetDatabaseFileName() const;
       int GetNCols() const;
       int GetNRows() const;
-      Array<double, 2>& GetPixArray(); /// NRows x NCols
-      Array<double, 2>& GetRecArray(); /// NRows x NCols
-      Array<double, 2>& GetRecFitArray(); /// NRows x NCols
-      Array<double, 2>& GetProfArray();/// NRows x NCols
-      Array<double, 2>& GetErrArray(); /// NRows x NCols
-      Array<double, 2>& GetRecSkyArray(); /// NRows x NCols
-      Array<int, 2>& GetMaskArray(); /// NRows x NCols
-      Array<double, 2>& GetSpec();     /// NApertures x NRows
-      Array<double, 2>& GetSpecFit();  /// NApertures x NRows
-      Array<double, 2>& GetSky();      /// NApertures x NRows
-      Array<double, 2>& GetSkyError(); /// NApertures x NRows
-      Array<double, 2>& GetSkyFitError();
-      Array<double, 2>& GetSkyFit();
-      Array<double, 2>& GetErrorsEcFit();
-      Array<double, 2>& GetRecSkyFitArray();
-      Array<double, 2>& GetLastExtracted(); /// NApertures x NRows
-      Array<double, 2>& GetErrorsEc(); /// NApertures x NRows
-      Array<double, 2>& GetWavelengths(); /// NApertures x NRows
+      blitz::Array<double, 2>& GetPixArray(); /// NRows x NCols
+      blitz::Array<double, 2>& GetRecArray(); /// NRows x NCols
+      blitz::Array<double, 2>& GetRecFitArray(); /// NRows x NCols
+      blitz::Array<double, 2>& GetProfArray();/// NRows x NCols
+      blitz::Array<double, 2>& GetErrArray(); /// NRows x NCols
+      blitz::Array<double, 2>& GetRecSkyArray(); /// NRows x NCols
+      blitz::Array<int, 2>& GetMaskArray(); /// NRows x NCols
+      blitz::Array<double, 2>& GetSpec();     /// NApertures x NRows
+      blitz::Array<double, 2>& GetSpecFit();  /// NApertures x NRows
+      blitz::Array<double, 2>& GetSky();      /// NApertures x NRows
+      blitz::Array<double, 2>& GetSkyError(); /// NApertures x NRows
+      blitz::Array<double, 2>& GetSkyFitError();
+      blitz::Array<double, 2>& GetSkyFit();
+      blitz::Array<double, 2>& GetErrorsEcFit();
+      blitz::Array<double, 2>& GetRecSkyFitArray();
+      blitz::Array<double, 2>& GetLastExtracted(); /// NApertures x NRows
+      blitz::Array<double, 2>& GetErrorsEc(); /// NApertures x NRows
+      blitz::Array<double, 2>& GetWavelengths(); /// NApertures x NRows
       int Get_DispAxis() const;
       int Get_NApertures() const;
-      Array<double, 1>* Get_XHigh() const;    /// NApertures (Upper limit of aperture relative to center including sky)
-      Array<double, 1>* Get_XLow() const;     /// NApertures (Upper limit of aperture relative to including sky)
-      Array<double, 1>* Get_YHigh() const;    /// NApertures
-      Array<double, 1>* Get_YLow() const;     /// NApertures
-      Array<double, 1>* Get_XMax() const;    /// NApertures (Upper limit of aperture relative to center excluding sky)
-      Array<double, 1>* Get_XMin() const;    /// NApertures (Upper limit of aperture relative to center excluding sky)
-      Array<double, 2>* Get_Coeffs() const;  /// NApertures x max(NCoeffs)
-      Array<double, 2>* Get_XCenters() const;/// NApertures x NRows
-      Array<double, 1>* Get_XCenter() const; /// NApertures
-      Array<double, 1>* Get_YCenter() const; /// NApertures
-      Array<int, 1>* Get_Orders() const;     /// NApertures
-      Array<int, 1>* Get_NCoeffs() const;    /// NApertures
-      Array<CString, 1>* Get_Functions() const;         /// NApertures
+      blitz::Array<double, 1>* Get_XHigh() const;    /// NApertures (Upper limit of aperture relative to center including sky)
+      blitz::Array<double, 1>* Get_XLow() const;     /// NApertures (Upper limit of aperture relative to including sky)
+      blitz::Array<double, 1>* Get_YHigh() const;    /// NApertures
+      blitz::Array<double, 1>* Get_YLow() const;     /// NApertures
+      blitz::Array<double, 1>* Get_XMax() const;    /// NApertures (Upper limit of aperture relative to center excluding sky)
+      blitz::Array<double, 1>* Get_XMin() const;    /// NApertures (Upper limit of aperture relative to center excluding sky)
+      blitz::Array<double, 2>* Get_Coeffs() const;  /// NApertures x max(NCoeffs)
+      blitz::Array<double, 2>* Get_XCenters() const;/// NApertures x NRows
+      blitz::Array<double, 1>* Get_XCenter() const; /// NApertures
+      blitz::Array<double, 1>* Get_YCenter() const; /// NApertures
+      blitz::Array<int, 1>* Get_Orders() const;     /// NApertures
+      blitz::Array<int, 1>* Get_NCoeffs() const;    /// NApertures
+      blitz::Array<CString, 1>* Get_Functions() const;         /// NApertures
       double Get_Gain() const;
       double Get_ReadOutNoise() const;
       double Get_SaturationLevel() const;
@@ -563,8 +563,8 @@ basis machine: Ubuntu Linux 6.06
                   const double XMax,
                   const int Order) const;
 
-      bool LinearSpline(Array<double, 1> &D_A1_XCenters_Out,
-                        const Array<double, 1> &D_A1_Coeffs_In,
+      bool LinearSpline(blitz::Array<double, 1> &D_A1_XCenters_Out,
+                        const blitz::Array<double, 1> &D_A1_Coeffs_In,
                         double D_XCenter_In,
                         double D_YCenter_In,
                         double D_YMin_In,
@@ -574,8 +574,8 @@ basis machine: Ubuntu Linux 6.06
                         int I_Order_In,
                         int I_NCols_In);
 
-      bool CubicSpline(Array<double, 1> &D_A1_XCenters_Out,
-                       const Array<double, 1> &D_A1_Coeffs_In,
+      bool CubicSpline(blitz::Array<double, 1> &D_A1_XCenters_Out,
+                       const blitz::Array<double, 1> &D_A1_Coeffs_In,
                        double D_XCenter_In,
                        double D_YCenter_In,
                        double D_YMin_In,
@@ -587,10 +587,10 @@ basis machine: Ubuntu Linux 6.06
 
 //      bool ChebyLegend(double D_Normalised_In, double )
 
-      bool ChebyLegend(Array<double, 1> &D_A1_XCenters_Out,
+      bool ChebyLegend(blitz::Array<double, 1> &D_A1_XCenters_Out,
                        double *P_D_YMin_Out,
                        double *P_D_YMax_Out,
-                       const Array<double, 1> &D_A1_Coeffs_In,
+                       const blitz::Array<double, 1> &D_A1_Coeffs_In,
                        double D_XCenter_In,
                        double D_YCenter_In,
                        double D_YMin_In,
@@ -601,10 +601,10 @@ basis machine: Ubuntu Linux 6.06
                        int I_NCols_In,
                        const CString &CS_Function_In);
 
-      bool Legendre(Array<double, 1> &D_A1_XCenters_Out,
+      bool Legendre(blitz::Array<double, 1> &D_A1_XCenters_Out,
                     double *P_D_YMin_Out,
                     double *P_D_YMax_Out,
-                    const Array<double, 1> &D_A1_Coeffs_In,
+                    const blitz::Array<double, 1> &D_A1_Coeffs_In,
                     double D_XCenter_In,
                     double D_YCenter_In,
                     double D_YMin_In,
@@ -614,10 +614,10 @@ basis machine: Ubuntu Linux 6.06
                     int I_Order_In,
                     int I_NCols_In);
 
-      bool Chebyshev(Array<double, 1> &D_A1_XCenters_Out,
+      bool Chebyshev(blitz::Array<double, 1> &D_A1_XCenters_Out,
                      double *P_D_YMin_Out,
                      double *P_D_YMax_Out,
-                     const Array<double, 1> &D_A1_Coeffs_In,
+                     const blitz::Array<double, 1> &D_A1_Coeffs_In,
                      double D_XCenter_In,
                      double D_YCenter_In,
                      double D_YMin_In,
@@ -629,20 +629,20 @@ basis machine: Ubuntu Linux 6.06
 
       bool ShiftApertures(double D_Shift_In);
 
-//      bool FitGaussianArea(const Array<double, 1> &D_A1_X_In,
-//                           const Array<double, 1> &D_A1_Y_In,
-//                           const Array<double, 1> &D_A1_SigY_In,
-//                           const Array<double, 1> &D_A1_Guess_In,//with constant background: (background, mean, sigma, area)
+//      bool FitGaussianArea(const blitz::Array<double, 1> &D_A1_X_In,
+//                           const blitz::Array<double, 1> &D_A1_Y_In,
+//                           const blitz::Array<double, 1> &D_A1_SigY_In,
+//                           const blitz::Array<double, 1> &D_A1_Guess_In,//with constant background: (background, mean, sigma, area)
 //                                                                 //without background: (mean, sigma, area)
 //                           bool B_WithBackground,
-//                           Array<double, 1> &D_A1_Coeffs_Out) const;
+//                           blitz::Array<double, 1> &D_A1_Coeffs_Out) const;
 
-      bool Fit2DGaussianCB(const Array<double, 1> &D_A1_X_In,
-                           const Array<double, 1> &D_A1_Y_In,
-                           const Array<double, 1> &D_A1_SigY_In,
-                           const Array<double, 1> &D_A1_Guess_In,//(background, peak, mean_x, mean_y, sigma)
-                           const Array<double, 2> &D_A2_Limits_In,//(background, peak, mean_x, mean_y, sigma)
-                           Array<double, 1> &D_A1_Coeffs_Out) const;
+      bool Fit2DGaussianCB(const blitz::Array<double, 1> &D_A1_X_In,
+                           const blitz::Array<double, 1> &D_A1_Y_In,
+                           const blitz::Array<double, 1> &D_A1_SigY_In,
+                           const blitz::Array<double, 1> &D_A1_Guess_In,//(background, peak, mean_x, mean_y, sigma)
+                           const blitz::Array<double, 2> &D_A2_Limits_In,//(background, peak, mean_x, mean_y, sigma)
+                           blitz::Array<double, 1> &D_A1_Coeffs_Out) const;
 
       /**
        Fit Gaussian to spatial profile (NTerms=3)
@@ -674,16 +674,16 @@ basis machine: Ubuntu Linux 6.06
       bool CalcTraceFunctions();
 
       bool ExtractErrors();
-      bool ExtractErrors(const Array<CString, 1> &CS_A1_Args_In,
+      bool ExtractErrors(const blitz::Array<CString, 1> &CS_A1_Args_In,
                          void* PP_Args_In[]);
       /// Args:
-      /// APERTURES: Array<int, 1>
+      /// APERTURES: blitz::Array<int, 1>
 
       bool ExtractSimpleSum();
-      bool ExtractSimpleSum(const Array<CString, 1> &CS_A1_Args_In,       ///: in
+      bool ExtractSimpleSum(const blitz::Array<CString, 1> &CS_A1_Args_In,       ///: in
                             void *ArgV_In[]);
       /// Args:
-      /// AREA: Array<int, 1>(4)
+      /// AREA: blitz::Array<int, 1>(4)
       ///    I_XMin = I_A1_Area(0);
       ///    I_XMax = I_A1_Area(1);
       ///    I_YMin = I_A1_Area(2);
@@ -694,20 +694,20 @@ basis machine: Ubuntu Linux 6.06
       ///                                    && ((*(this->P_D_A1_YCenter))(iap)+(*(this->P_D_A1_YLow))(iap) <= I_YMax))
       ///                                   || (((*(this->P_D_A1_YCenter))(iap)+(*(this->P_D_A1_YHigh))(iap) >= I_YMin)
       ///                                    && ((*(this->P_D_A1_YCenter))(iap)+(*(this->P_D_A1_YHigh))(iap) <= I_YMax))) get extracted
-      /// APERTURES: Array<int, 1>
+      /// APERTURES: blitz::Array<int, 1>
 
-      bool ExtractSimpleSum(const Array<double, 2> &D_A2_ArrayToExtract_In,
-                            const Array<CString, 1> &CS_A1_Args_In,       ///: in
+      bool ExtractSimpleSum(const blitz::Array<double, 2> &D_A2_ArrayToExtract_In,
+                            const blitz::Array<CString, 1> &CS_A1_Args_In,       ///: in
                             void *ArgV_In[]);
       /// Args:
-      /// AREA: Array<int, 1>(4)
+      /// AREA: blitz::Array<int, 1>(4)
       ///    I_XMin = I_A1_Area(0);
       ///    I_XMax = I_A1_Area(1);
       ///    I_YMin = I_A1_Area(2);
       ///    I_YMax = I_A1_Area(3);
-      /// APERTURES: Array<int, 1>
+      /// APERTURES: blitz::Array<int, 1>
 
-      bool GaussExtract(const Array<double, 2> &D_A2_ArrayToExtract_In,
+      bool GaussExtract(const blitz::Array<double, 2> &D_A2_ArrayToExtract_In,
                         bool B_WithBackground,
                         const double D_ApertureOffset);
 
@@ -715,61 +715,61 @@ basis machine: Ubuntu Linux 6.06
       /// D_A1_SDevLimits_In(1) = maximum standard deviation of Gauss curve
       /// D_A1_MeanLimits_In(0) = maximum difference to the left of aperture center
       /// D_A1_MeanLimits_In(1) = maximum difference to the right of aperture center
-      bool MPFitGaussExtract(const Array<double, 2> &D_A2_ArrayToExtract_In,
-                             const Array<double, 1> &D_A1_SDevLimits_In,
-                             const Array<double, 1> &D_A1_MeanLimits_In,
+      bool MPFitGaussExtract(const blitz::Array<double, 2> &D_A2_ArrayToExtract_In,
+                             const blitz::Array<double, 1> &D_A1_SDevLimits_In,
+                             const blitz::Array<double, 1> &D_A1_MeanLimits_In,
                              const bool B_WithBackground_In);
 
       /// D_A1_SDevLimits_In(0) = minimum standard deviation of Gauss curve
       /// D_A1_SDevLimits_In(1) = maximum standard deviation of Gauss curve
       /// D_A1_MeanLimits_In(0) = maximum difference to the left of aperture center
       /// D_A1_MeanLimits_In(1) = maximum difference to the right of aperture center
-      bool MPFitTwoGaussExtract(const Array<double, 2> &D_A2_ArrayToExtract_In,
-                                const Array<double, 1> &D_A1_SDevLimits_In,
-                                const Array<double, 1> &D_A1_MeanLimits_In,
+      bool MPFitTwoGaussExtract(const blitz::Array<double, 2> &D_A2_ArrayToExtract_In,
+                                const blitz::Array<double, 1> &D_A1_SDevLimits_In,
+                                const blitz::Array<double, 1> &D_A1_MeanLimits_In,
                                 const bool B_WithBackground_In);
 
       /// D_A1_SDevLimits_In(0) = minimum standard deviation of Gauss curve
       /// D_A1_SDevLimits_In(1) = maximum standard deviation of Gauss curve
       /// D_A1_MeanLimits_In(0) = maximum difference to the left of aperture center
       /// D_A1_MeanLimits_In(1) = maximum difference to the right of aperture center
-      bool MPFitTwoGaussExtract(const Array<double, 2> &D_A2_ArrayToExtract_In,
-                                const Array<double, 1> &D_A1_SDevLimits_In,
-                                const Array<double, 1> &D_A1_MeanLimits_In,
+      bool MPFitTwoGaussExtract(const blitz::Array<double, 2> &D_A2_ArrayToExtract_In,
+                                const blitz::Array<double, 1> &D_A1_SDevLimits_In,
+                                const blitz::Array<double, 1> &D_A1_MeanLimits_In,
                                 const bool B_WithBackground_In,
-                                const Array<CString, 1> &CS_A1_Args_In,
+                                const blitz::Array<CString, 1> &CS_A1_Args_In,
                                 void *ArgV_In[]);
 
       /// D_A1_SDevLimits_In(0) = minimum standard deviation of Gauss curve
       /// D_A1_SDevLimits_In(1) = maximum standard deviation of Gauss curve
       /// D_A1_MeanLimits_In(0) = maximum difference to the left of aperture center
       /// D_A1_MeanLimits_In(1) = maximum difference to the right of aperture center
-      bool MPFitThreeGaussExtract(const Array<double, 2> &D_A2_ArrayToExtract_In,
-                                  const Array<double, 1> &D_A1_SDevLimits_In,
-                                  const Array<double, 1> &D_A1_MeanLimits_In,
+      bool MPFitThreeGaussExtract(const blitz::Array<double, 2> &D_A2_ArrayToExtract_In,
+                                  const blitz::Array<double, 1> &D_A1_SDevLimits_In,
+                                  const blitz::Array<double, 1> &D_A1_MeanLimits_In,
                                   const bool B_WithBackground_In);
 
       /// D_A1_SDevLimits_In(0) = minimum standard deviation of Gauss curve
       /// D_A1_SDevLimits_In(1) = maximum standard deviation of Gauss curve
       /// D_A1_MeanLimits_In(0) = maximum difference to the left of aperture center
       /// D_A1_MeanLimits_In(1) = maximum difference to the right of aperture center
-      bool MPFitThreeGaussExtract(const Array<double, 2> &D_A2_ArrayToExtract_In,
-                                  const Array<double, 1> &D_A1_SDevLimits_In,
-                                  const Array<double, 1> &D_A1_MeanLimits_In,
+      bool MPFitThreeGaussExtract(const blitz::Array<double, 2> &D_A2_ArrayToExtract_In,
+                                  const blitz::Array<double, 1> &D_A1_SDevLimits_In,
+                                  const blitz::Array<double, 1> &D_A1_MeanLimits_In,
                                   const bool B_WithBackground_In,
-                                  const Array<CString, 1> &CS_A1_Args_In,
+                                  const blitz::Array<CString, 1> &CS_A1_Args_In,
                                   void *ArgV_In[]);
 
       /// No fitting, simply apply weights from Profile to spectrum and sum up (no sky!!!)
-      bool ExtractFromProfile(const Array<double, 2> &D_A2_ArrayToExtract);
-      bool ExtractFromProfile(const Array<double, 2> &D_A2_ArrayToExtract, const Array<CString, 1> &CS_A1_Args_In, void *ArgV_In[]);
+      bool ExtractFromProfile(const blitz::Array<double, 2> &D_A2_ArrayToExtract);
+      bool ExtractFromProfile(const blitz::Array<double, 2> &D_A2_ArrayToExtract, const blitz::Array<CString, 1> &CS_A1_Args_In, void *ArgV_In[]);
       /// Args:
-      /// AREA: Array<int, 1>(4)
+      /// AREA: blitz::Array<int, 1>(4)
       ///    I_XMin = I_A1_Area(0);
       ///    I_XMax = I_A1_Area(1);
       ///    I_YMin = I_A1_Area(2);
       ///    I_YMax = I_A1_Area(3);
-      /// APERTURES: Array<int, 1>
+      /// APERTURES: blitz::Array<int, 1>
 
       /// performs linear fitting to profile, with sky
       bool ExtractSpecFromProfile();
@@ -778,19 +778,19 @@ basis machine: Ubuntu Linux 6.06
       bool ExtractSpecFromProfile(bool B_WithSky);
 
       /// performs linear fitting to profile, with sky
-      bool ExtractSpecFromProfile(const Array<double, 2> &D_A2_ArrayToExtract);
+      bool ExtractSpecFromProfile(const blitz::Array<double, 2> &D_A2_ArrayToExtract);
 
       /// performs linear fitting to profile, with or without sky
-      bool ExtractSpecFromProfile(const Array<double, 2> &D_A2_ArrayToExtract,
-                                  const Array<CString, 1> &CS_A1_Args_In,
+      bool ExtractSpecFromProfile(const blitz::Array<double, 2> &D_A2_ArrayToExtract,
+                                  const blitz::Array<CString, 1> &CS_A1_Args_In,
                                   void* PP_Args_In[]);
       /// Args:
-      /// AREA: Array<int, 1>(4)
+      /// AREA: blitz::Array<int, 1>(4)
       ///    I_XMin = I_A1_Area(0);
       ///    I_XMax = I_A1_Area(1);
       ///    I_YMin = I_A1_Area(2);
       ///    I_YMax = I_A1_Area(3);
-      /// APERTURES: Array<int, 1>
+      /// APERTURES: blitz::Array<int, 1>
 
       bool ReadApertureData(double **PP_XArr,
                             double **PP_PixelValue,
@@ -810,24 +810,24 @@ basis machine: Ubuntu Linux 6.06
 
       bool WriteErrArray() const;
 
-      bool WriteFits(const Array<double,2>* P_D_A2_Image_In, const CString CS_FileName_In) const;
+      bool WriteFits(const blitz::Array<double,2>* P_D_A2_Image_In, const CString CS_FileName_In) const;
 
-      bool WriteFits(const Array<double,1>* P_D_A1_Image_In, const CString CS_FileName_In) const;
+      bool WriteFits(const blitz::Array<double,1>* P_D_A1_Image_In, const CString CS_FileName_In) const;
 
-      bool WriteFits(const Array<int,2>* P_I_A2_Image_In, const CString CS_FileName_In) const;
+      bool WriteFits(const blitz::Array<int,2>* P_I_A2_Image_In, const CString CS_FileName_In) const;
 
-      bool WriteFits(const Array<int,1>* P_I_A1_Image_In, const CString CS_FileName_In) const;
+      bool WriteFits(const blitz::Array<int,1>* P_I_A1_Image_In, const CString CS_FileName_In) const;
 
       bool WriteApHead(CString CS_FileName_Out) const;
 
-      bool WriteApertures(const CString &CS_FitsFileName_Out_Root, Array<CString, 1> &CS_A1_FileNames_Out) const;
+      bool WriteApertures(const CString &CS_FitsFileName_Out_Root, blitz::Array<CString, 1> &CS_A1_FileNames_Out) const;
 
-      bool WriteApertures(const CString &CS_FitsFileName_Out_Root, Array<CString, 1> &CS_A1_FileNames_Out, const Array<int, 1> &I_A1_Apertures) const;
+      bool WriteApertures(const CString &CS_FitsFileName_Out_Root, blitz::Array<CString, 1> &CS_A1_FileNames_Out, const blitz::Array<int, 1> &I_A1_Apertures) const;
 
       bool WriteApCenters(const CString &CS_TextFileName_Out) const;
 
       bool WriteApCenters(const CString &CS_TextFileName_Out,
-                          const Array<int, 1> &I_A1_Apertures) const;
+                          const blitz::Array<int, 1> &I_A1_Apertures) const;
 
       bool WriteApCenters(const CString &CS_FitsFileName_In,
                           const CString &CS_DatabaseFileName_In,
@@ -836,7 +836,7 @@ basis machine: Ubuntu Linux 6.06
       bool WriteApCenters(const CString &CS_FitsFileName_In,
                           const CString &CS_DatabaseFileName_In,
                           const CString &CS_TextFileName_Out,
-                          const Array<int, 1> &I_A1_Apertures) const;
+                          const blitz::Array<int, 1> &I_A1_Apertures) const;
 
       bool Access() const;
 
@@ -869,22 +869,22 @@ basis machine: Ubuntu Linux 6.06
                      allow to verify if the OSAMPLE
                      is good enough.
        **/
-      bool MkSlitFunc(const Array<double, 1> &D_A1_ScatterBelow,  //: in
-                      const Array<double, 1> &D_A1_XScatterBelow, //: in
-                      const Array<double, 1> &D_A1_ScatterAbove,  //: in
-                      const Array<double, 1> &D_A1_XScatterAbove, //: in
-                      Array<double, 1> &D_A1_XSlitF,        //: out
-                      Array<double, 2> &D_A2_SlitF,         //: out
-                      Array<double, 1> &D_A1_BinCen,        //: out
+      bool MkSlitFunc(const blitz::Array<double, 1> &D_A1_ScatterBelow,  //: in
+                      const blitz::Array<double, 1> &D_A1_XScatterBelow, //: in
+                      const blitz::Array<double, 1> &D_A1_ScatterAbove,  //: in
+                      const blitz::Array<double, 1> &D_A1_XScatterAbove, //: in
+                      blitz::Array<double, 1> &D_A1_XSlitF,        //: out
+                      blitz::Array<double, 2> &D_A2_SlitF,         //: out
+                      blitz::Array<double, 1> &D_A1_BinCen,        //: out
                       const int I_IAperture_In,                    //: in
-                      const Array<CString, 1> &CS_A1_Args,     //: in
+                      const blitz::Array<CString, 1> &CS_A1_Args,     //: in
                       void *ArgV[]);                        //: in
 /* KeyWords and Values:      LAMBDA_SF   : double          : in
                              LAMBDA_SP   : int             : out
                              WING_SMOOTH_FACTOR = double  : in
                              SWATH_WIDTH : int             : in
-                             BLZ         : Array<double, 1>: out
-                             MASK        : Array<double, 2>: in
+                             BLZ         : blitz::Array<double, 1>: out
+                             MASK        : blitz::Array<double, 2>: in
                              CCD_GAIN    : double          : in
                              CCD_READN   : double          : in
                              NO_SCATTER  : void
@@ -897,19 +897,19 @@ basis machine: Ubuntu Linux 6.06
       MkSlitFunc old version
       Make Slit Function
       **/
-      bool MkSlitFunc_Old(Array<double, 1> &D_A1_ScatterBelow,  //: in
-                           Array<double, 1> &D_A1_XScatterBelow, //: in
-                           Array<double, 1> &D_A1_ScatterAbove,  //: in
-                           Array<double, 1> &D_A1_XScatterAbove, //: in
-                           //                       Array<double, 1> &D_A1_XCenters,      ///: in //
+      bool MkSlitFunc_Old(blitz::Array<double, 1> &D_A1_ScatterBelow,  //: in
+                           blitz::Array<double, 1> &D_A1_XScatterBelow, //: in
+                           blitz::Array<double, 1> &D_A1_ScatterAbove,  //: in
+                           blitz::Array<double, 1> &D_A1_XScatterAbove, //: in
+                           //                       blitz::Array<double, 1> &D_A1_XCenters,      ///: in //
                            //                       double &D_XLeftLim,                      ///: in //
                            //                       double &D_XRightLim,                     ///: in //
-                           Array<double, 1> &D_A1_XSlitF,        //: out
-                           Array<double, 2> &D_A2_SlitF,         //: out
-                           Array<double, 1> &D_A1_BinCen,        //: out
+                           blitz::Array<double, 1> &D_A1_XSlitF,        //: out
+                           blitz::Array<double, 2> &D_A2_SlitF,         //: out
+                           blitz::Array<double, 1> &D_A1_BinCen,        //: out
                            int I_IAperture_In,                   //: in
                            //                       int I_NArgs,                          //: in
-                           const Array<CString, 1> &CS_A1_Args,           //: in
+                           const blitz::Array<CString, 1> &CS_A1_Args,           //: in
                            void *ArgV[]);                  //: in
 
 
@@ -917,13 +917,13 @@ basis machine: Ubuntu Linux 6.06
       SlitFunc old version
       SlitFunc
       **/
-      bool SlitFunc_Old(Array<double, 2> &D_A2_ImM,
+      bool SlitFunc_Old(blitz::Array<double, 2> &D_A2_ImM,
                      int I_IAperture_In,
-                     Array<double, 1> &D_A1_XCenters_In, //: in
-                     Array<double, 1> &SPVecArr,   //: out
-                     Array<double, 1> &SFVecArr,   //: out
+                     blitz::Array<double, 1> &D_A1_XCenters_In, //: in
+                     blitz::Array<double, 1> &SPVecArr,   //: out
+                     blitz::Array<double, 1> &SFVecArr,   //: out
                      //                     int NArgs,                //: in
-                     const Array<CString, 1> &CS_A1_Args,   //: in
+                     const blitz::Array<CString, 1> &CS_A1_Args,   //: in
                      void *ArgV[]);     //: in
 
 
@@ -932,47 +932,47 @@ basis machine: Ubuntu Linux 6.06
       Make Profile Image
       **/
       bool MkProfIm_Old();
-      bool MkProfIm_Old(const Array<CString, 1> &CS_A1_Args_In,       ///: in
+      bool MkProfIm_Old(const blitz::Array<CString, 1> &CS_A1_Args_In,       ///: in
                                void *ArgV[]);                                  ///: in
 
       /**
       SlitFunc
       Calculates slit function for one swath
        **/
-      bool SlitFunc(const Array<double, 2> &D_A2_ImM,         ///: in
+      bool SlitFunc(const blitz::Array<double, 2> &D_A2_ImM,         ///: in
                     int I_IAperture_In,                       ///: in
-                    const Array<double, 1> &D_A1_XCenOffset,  ///: in
-                    Array<double, 1> &D_A1_SP_Out,                     ///: out
-                    Array<double, 2> &D_A2_SF_Out,                     ///: out
-                    const Array<CString, 1> &Args,            ///: in
+                    const blitz::Array<double, 1> &D_A1_XCenOffset,  ///: in
+                    blitz::Array<double, 1> &D_A1_SP_Out,                     ///: out
+                    blitz::Array<double, 2> &D_A2_SF_Out,                     ///: out
+                    const blitz::Array<CString, 1> &Args,            ///: in
                     void *ArgV[]);                            ///: in
 /** KeyWords and Values:  NOISE      = double          : in
                           OVERSAMPLE = int             : in
-                          IM_OUT     = Array<double, 2>: out
-                          PROF_OUT   = Array<double, 2>: out
+                          IM_OUT     = blitz::Array<double, 2>: out
+                          PROF_OUT   = blitz::Array<double, 2>: out
                           LAMBDA_SF  = double          : in
                           LAMBDA_SP  = int             : in
                           WING_SMOOTH_FACTOR = double  : in
                           USE_ROW    = int             : in
-                          BAD        = Array<int, 1>   : out
-                          MASK       = Array<double, 2>: in/out
+                          BAD        = blitz::Array<int, 1>   : out
+                          MASK       = blitz::Array<double, 2>: in/out
                           TELLURIC   = int [0-none,1-Piskunov,2-mine]     : in
                           STOP       = int [0,1]                          : in
-                          SKY        = Array<double, 1>(D_A2_ImM.rows())  : out
-                          ERRORS     = Array<double, 2>(D_A2_ImM.rows(), D_A2_ImM.cols()): in/out
-                          ERRORS_OUT = Array<double, 1>(D_A2_ImM.rows())  : out
-                          ERR_SKY    = Array<double, 1>(D_A2_ImM.rows())  : out
-                          SP_FIT     = Array<double, 1>(D_A2_ImM.rows())  : out
+                          SKY        = blitz::Array<double, 1>(D_A2_ImM.rows())  : out
+                          ERRORS     = blitz::Array<double, 2>(D_A2_ImM.rows(), D_A2_ImM.cols()): in/out
+                          ERRORS_OUT = blitz::Array<double, 1>(D_A2_ImM.rows())  : out
+                          ERR_SKY    = blitz::Array<double, 1>(D_A2_ImM.rows())  : out
+                          SP_FIT     = blitz::Array<double, 1>(D_A2_ImM.rows())  : out
                           I_BIN      = int
       **/
 
-  bool SlitFunc_2D(//const Array<double, 2> &D_A2_Im_In,
-			//const Array<double, 1> &D_A1_XCenters_In,
-			//Array<double, 1> &D_A1_SP_Out,
-			//Array<double, 2> &D_A2_SF_Out,
+  bool SlitFunc_2D(//const blitz::Array<double, 2> &D_A2_Im_In,
+			//const blitz::Array<double, 1> &D_A1_XCenters_In,
+			//blitz::Array<double, 1> &D_A1_SP_Out,
+			//blitz::Array<double, 2> &D_A2_SF_Out,
 			//int I_Delta_X_In,
 			//double D_Shear_X_In,
-			const Array<CString, 1> &CS_A1_Args_In,            ///: in
+			const blitz::Array<CString, 1> &CS_A1_Args_In,            ///: in
                         void *PP_ArgsV_In[]);
 
       /**
@@ -985,16 +985,16 @@ basis machine: Ubuntu Linux 6.06
       MkProfIm
       Calculate Profile Image and optimally extract orders
        **/
-      bool MkProfIm(const Array<CString, 1> &CS_A1_Args,  ///: in
+      bool MkProfIm(const blitz::Array<CString, 1> &CS_A1_Args,  ///: in
                     void *ArgV[]);                        ///: in
 /** KeyWords and Values:   SWATH_WIDTH:              int: in
                            LAMBDA_SP  :              int: in (Smoothing along dispersion)
-                           BLZ        : Array<double, 1>: out
+                           BLZ        : blitz::Array<double, 1>: out
                            FLAT       :             bool: in
                            TELLURIC   :             bool: in
                            WING_SMOOTH_FACTOR :   double: in
                            XCOR_PROF  : int: in
-                           APERTURES  : Array<int, 1>: in (Apertures to extract)
+                           APERTURES  : blitz::Array<int, 1>: in (Apertures to extract)
  **/
 
 
@@ -1003,11 +1003,11 @@ basis machine: Ubuntu Linux 6.06
       Make Profile for Normalized Flat
        **/
       bool MkNormFlatProf(int I_LambdaSP_In,
-                          Array<CString, 1> CS_A1_Args,
+                          blitz::Array<CString, 1> CS_A1_Args,
                           void *ArgV[]);
       /**
        * Keywords and Values: SWATH_WIDTH:                 int: in
-       *                      AREA:        Array<double, 1>(4): in
+       *                      AREA:        blitz::Array<double, 1>(4): in
        *                      LAMBDA_SF:                double: in
        * **/
 
@@ -1017,7 +1017,7 @@ basis machine: Ubuntu Linux 6.06
        **
       bool MkScatter(//back,                                ///out
                      //yback,                               ///out
-                     const Array<CString, 1> &CS_A1_Args, ///: in
+                     const blitz::Array<CString, 1> &CS_A1_Args, ///: in
                      void *ArgV[]);                       ///in
       /** KeyWords and Values: COLRANGE=colrange
                                LAMBDA_SF=lam_sf...double
@@ -1035,10 +1035,10 @@ basis machine: Ubuntu Linux 6.06
        KeyWord_Set(const CString *p_cstr, const CString &cstr) const
        Returns Position of <cstr> in Array of CStrings <p_cstr>, if <p_cstr> contains CString <cstr>, else returns -1.
        **/
-      int KeyWord_Set(const Array<CString, 1> &CS_A1_In, const CString &cstr) const;
+      int KeyWord_Set(const blitz::Array<CString, 1> &CS_A1_In, const CString &cstr) const;
 
       /**
-      BandSol(Array<double, 2> &D_A2_A_In, Array<double, 1> &D_A1_R_In, int N, int I_ND) const
+      BandSol(blitz::Array<double, 2> &D_A2_A_In, blitz::Array<double, 1> &D_A1_R_In, int N, int I_ND) const
 
       bandsol solve a sparse system of linear equations with
       band-diagonal matrix.
@@ -1062,7 +1062,7 @@ basis machine: Ubuntu Linux 6.06
                     | X X X X 0 |
                     \ X X X 0 0 /
       D_A1_R_In is the array of RHS of size I_N.
-      Argv: Array<double, 2> &D_A2_A_InOut, Array<double, 1> &D_A1_R_InOut, int N, int I_ND
+      Argv: blitz::Array<double, 2> &D_A2_A_InOut, blitz::Array<double, 1> &D_A1_R_InOut, int N, int I_ND
   **/
       int BandSol(int Argc, void *Argv[]) const;
 
@@ -1074,7 +1074,7 @@ basis machine: Ubuntu Linux 6.06
       /**
       FIndGenArr(int len) const
        **/
-      Array<float, 1>* FIndGenArr(int len) const;
+      blitz::Array<float, 1>* FIndGenArr(int len) const;
 
       /**
       DIndGen(int len) const
@@ -1084,7 +1084,7 @@ basis machine: Ubuntu Linux 6.06
       /**
       DIndGenArr(int len) const
       **/
-      Array<double, 1>* DIndGenArr(int len) const;
+      blitz::Array<double, 1>* DIndGenArr(int len) const;
 
       /**
       LIndGen(int len) const
@@ -1094,7 +1094,7 @@ basis machine: Ubuntu Linux 6.06
       /**
       LIndGenArr(int len) const
        **/
-      Array<long, 1>* LIndGenArr(int len) const;
+      blitz::Array<long, 1>* LIndGenArr(int len) const;
 
       /**
       IndGen(int len) const
@@ -1104,7 +1104,7 @@ basis machine: Ubuntu Linux 6.06
       /**
       IndGenArr(int len) const
        **/
-      Array<int, 1>* IndGenArr(int len) const;
+      blitz::Array<int, 1>* IndGenArr(int len) const;
 
       /**
 ; NAME:
@@ -1156,7 +1156,7 @@ basis machine: Ubuntu Linux 6.06
       ;       Compute the mean, variance, skewness and kurtosis.
       ;         result = moment(x)
 ;       The result should be the 4-element vector:
-      double Moment(Array<double, 1>) const;
+      double Moment(blitz::Array<double, 1>) const;
       ;       [66.7333, 7.06667, -0.0942851, -1.18258]
       ;
       ;
@@ -1173,67 +1173,67 @@ basis machine: Ubuntu Linux 6.06
       FUNCTION Moment, X, Double = Double, Mdev = Mdev, Sdev = Sdev, $
       Maxmoment = Maxmoment, NaN = nan
        **/
-      Array<double,1>* Moment(const Array<double, 1> &D_A1_Arr_In, int I_MaxMoment_In) const;
-      Array<double,1>* Moment(const Array<double, 2> &D_A2_Arr_In, int I_MaxMoment_In) const;
+      blitz::Array<double,1>* Moment(const blitz::Array<double, 1> &D_A1_Arr_In, int I_MaxMoment_In) const;
+      blitz::Array<double,1>* Moment(const blitz::Array<double, 2> &D_A2_Arr_In, int I_MaxMoment_In) const;
 
       /**
-      double StdDev(Array<double, 1>) const;
+      double StdDev(blitz::Array<double, 1>) const;
        **/
-      double StdDev(const Array<double, 1> &Arr) const;
-      double StdDev(const Array<double, 2> &Arr) const;
-      double StdDev(const Array<double, 2> &Arr, bool B_IgnoreZeros) const;
+      double StdDev(const blitz::Array<double, 1> &Arr) const;
+      double StdDev(const blitz::Array<double, 2> &Arr) const;
+      double StdDev(const blitz::Array<double, 2> &Arr, bool B_IgnoreZeros) const;
 
       /**
-      double Median(Array<double, 1>) const;
+      double Median(blitz::Array<double, 1>) const;
       **/
-      int Median(const Array<int, 1> &Arr) const;
-      double Median(const Array<double, 1> &Arr) const;
+      int Median(const blitz::Array<int, 1> &Arr) const;
+      double Median(const blitz::Array<double, 1> &Arr) const;
 
       /**
-      double Median(Array<double, 2>) const;
+      double Median(blitz::Array<double, 2>) const;
       **/
-      double Median(const Array<double, 2> &Arr, bool B_IgnoreZeros) const;
+      double Median(const blitz::Array<double, 2> &Arr, bool B_IgnoreZeros) const;
 
       /**
-      double Median(Array<double, 1>, CString &Mode) const;
+      double Median(blitz::Array<double, 1>, CString &Mode) const;
       Args: MODE(CString)
-            ERRORS_IN(Array<double, 1>)
+            ERRORS_IN(blitz::Array<double, 1>)
             ERR_OUT(double)
        **/
-      int Median(const Array<int, 1> &Arr, const Array<CString, 1> &CS_A1_Args_In, void *PP_Args[]) const;
-      double Median(const Array<double, 1> &Arr, const Array<CString, 1> &CS_A1_Args_In, void *PP_Args[]) const;
+      int Median(const blitz::Array<int, 1> &Arr, const blitz::Array<CString, 1> &CS_A1_Args_In, void *PP_Args[]) const;
+      double Median(const blitz::Array<double, 1> &Arr, const blitz::Array<CString, 1> &CS_A1_Args_In, void *PP_Args[]) const;
 
       /**
-      MedianVec(Array<double, 1>, int Width, CString "Even");
+      MedianVec(blitz::Array<double, 1>, int Width, CString "Even");
        **/
-      Array<double, 1>* MedianVec(const Array<double, 1> &arr, int Width, const CString &Mode) const;
+      blitz::Array<double, 1>* MedianVec(const blitz::Array<double, 1> &arr, int Width, const CString &Mode) const;
 
       /**
-      MedianVec(Array<double, 1>, int Width");
+      MedianVec(blitz::Array<double, 1>, int Width");
        **/
-      Array<double, 1>* MedianVec(const Array<double, 1> &arr, int Width) const;
+      blitz::Array<double, 1>* MedianVec(const blitz::Array<double, 1> &arr, int Width) const;
 
       /**
-      LinearRegression(Array<double, 1> y, const Array<double, 1> x, a1, a0);
+      LinearRegression(blitz::Array<double, 1> y, const blitz::Array<double, 1> x, a1, a0);
       calculates a0 and a1 for the system of equations yvec = a0 + a1 * xvec
        **/
-      bool LinearRegression(const Array<double, 1> &D_A1_CCD_In,
-                            const Array<double, 1> &D_A1_SF_In,
+      bool LinearRegression(const blitz::Array<double, 1> &D_A1_CCD_In,
+                            const blitz::Array<double, 1> &D_A1_SF_In,
                             double &D_SP_FIT,
                             double &D_Sky_Out,
                             double &D_STDDEV_Out,/// double &D_CorrelationCoefficient_Out,
                             double &D_Covariance_Out) const;
 
       /**
-      LinearRegression(Array<double, 1> y, const Array<double, 1> x, a1, a0);
+      LinearRegression(blitz::Array<double, 1> y, const blitz::Array<double, 1> x, a1, a0);
       calculates a0 and a1 for the system of equations yvec = a0 + a1 * xvec
        **/
-      bool LinearRegression(const Array<double, 2> &D_A2_CCD_In,
-                            const Array<double, 2> &D_A2_SF_In,
-                            Array<double,1> &D_A1_SP_Out,
-                            Array<double,1> &D_A1_Sky_Out,
-                            Array<double,1> &D_A1_STDDEV_Out,/// double &D_CorrelationCoefficient_Out
-                            Array<double,1> &D_A1_Covariance_Out) const;
+      bool LinearRegression(const blitz::Array<double, 2> &D_A2_CCD_In,
+                            const blitz::Array<double, 2> &D_A2_SF_In,
+                            blitz::Array<double,1> &D_A1_SP_Out,
+                            blitz::Array<double,1> &D_A1_Sky_Out,
+                            blitz::Array<double,1> &D_A1_STDDEV_Out,/// double &D_CorrelationCoefficient_Out
+                            blitz::Array<double,1> &D_A1_Covariance_Out) const;
 
       /**
       ; PURPOSE:
@@ -1323,50 +1323,50 @@ basis machine: Ubuntu Linux 6.06
       ;       ISBN 0-521-43108-5
       ;
 
-      LinFit(Array<double, 1> y, const Array<double, 1> x, a1, a0);
+      LinFit(blitz::Array<double, 1> y, const blitz::Array<double, 1> x, a1, a0);
       calculates a0 and a1 for the system of equations yvec = a0 + a1 * xvec
 
       based on IDL
        **/
-      bool LinFit(const Array<double, 1> &D_A1_CCD_In,      /// y: in
-                  const Array<double, 1> &D_A1_SF_In,       /// x: in
+      bool LinFit(const blitz::Array<double, 1> &D_A1_CCD_In,      /// y: in
+                  const blitz::Array<double, 1> &D_A1_SF_In,       /// x: in
                   double &D_SP_Out,                         /// a1: out
                   double &D_Sky_Out,                        /// a0: out
-                  const Array<CString, 1> &CS_A1_Args_In,   ///: in
+                  const blitz::Array<CString, 1> &CS_A1_Args_In,   ///: in
                   void *ArgV_In[]) const;                   ///: in/out
-      ///            SDEV_IN = Array<double,1>(D_A1_CCD_In.size)        : in
-      ///            MEASURE_ERRORS = Array<double,1>(D_A1_CCD_In.size) : in
-      ///            MASK = Array<int,1>(D_A1_CCD_In.size)              : in/out
+      ///            SDEV_IN = blitz::Array<double,1>(D_A1_CCD_In.size)        : in
+      ///            MEASURE_ERRORS = blitz::Array<double,1>(D_A1_CCD_In.size) : in
+      ///            MASK = blitz::Array<int,1>(D_A1_CCD_In.size)              : in/out
       ///            REJECT = double                                    : in
       ///            CHISQ = double                                     : out
       ///            PROB = double                                      : out
-      ///            SIGMA = Array<double,1>(2)                         : out
-      ///            COVAR = Array<double,2>(2,2)                       : out
-      ///            YFIT = Array<double,1>(D_A1_CCD_In.size)           : out
+      ///            SIGMA = blitz::Array<double,1>(2)                         : out
+      ///            COVAR = blitz::Array<double,2>(2,2)                       : out
+      ///            YFIT = blitz::Array<double,1>(D_A1_CCD_In.size)           : out
 
       /**
-      LinFit(Array<double, 1> y, const Array<double, 1> x, a1, a0);
+      LinFit(blitz::Array<double, 1> y, const blitz::Array<double, 1> x, a1, a0);
       calculates a0 and a1 for the system of equations yvec = a0 + a1 * xvec
 
       based on IDL
        **/
-      bool LinFit(const Array<double, 2> &D_A2_CCD_In,      /// y: in
-                  const Array<double, 2> &D_A2_SF_In,       /// x: in
-                  Array<double,1> &D_A1_SP_Out,             /// a1: out
-                  Array<double,1> &D_A1_Sky_Out,            /// a0: out
-                  const Array<CString, 1> &CS_A1_Args_In,   ///: in
+      bool LinFit(const blitz::Array<double, 2> &D_A2_CCD_In,      /// y: in
+                  const blitz::Array<double, 2> &D_A2_SF_In,       /// x: in
+                  blitz::Array<double,1> &D_A1_SP_Out,             /// a1: out
+                  blitz::Array<double,1> &D_A1_Sky_Out,            /// a0: out
+                  const blitz::Array<CString, 1> &CS_A1_Args_In,   ///: in
                   void *ArgV_In[]) const;                   ///: in/out
-  /// SDEV_IN = Array<double,2>(D_A2_CCD_In.rows, D_A2_CCD_In.cols)        : in
-  /// MEASURE_ERRORS = Array<double,2>(D_A2_CCD_In.rows, D_A2_CCD_In.cols) : in
+  /// SDEV_IN = blitz::Array<double,2>(D_A2_CCD_In.rows, D_A2_CCD_In.cols)        : in
+  /// MEASURE_ERRORS = blitz::Array<double,2>(D_A2_CCD_In.rows, D_A2_CCD_In.cols) : in
   /// REJECT = double                                                      : in
-  /// MASK = Array<int,2>(D_A2_CCD_In.rows, D_A2_CCD_In.cols)              : in/out
-  /// CHISQ = Array<double,1>(D_A2_CCD_In.rows)                            : out
-  /// PROB = Array<double,1>(D_A2_CCD_In.rows)                             : out
-  /// SIGMA = Array<double,2>(D_A2_CCD_In.rows, 2)                         : out
-  /// COVAR = Array<double,3>(D_A2_CCD_In.rows, 2, 2)                      : out
-  /// YFIT = Array<double,2>(D_A2_CCD_In.rows, D_A2_CCD_In.cols)           : out
+  /// MASK = blitz::Array<int,2>(D_A2_CCD_In.rows, D_A2_CCD_In.cols)              : in/out
+  /// CHISQ = blitz::Array<double,1>(D_A2_CCD_In.rows)                            : out
+  /// PROB = blitz::Array<double,1>(D_A2_CCD_In.rows)                             : out
+  /// SIGMA = blitz::Array<double,2>(D_A2_CCD_In.rows, 2)                         : out
+  /// COVAR = blitz::Array<double,3>(D_A2_CCD_In.rows, 2, 2)                      : out
+  /// YFIT = blitz::Array<double,2>(D_A2_CCD_In.rows, D_A2_CCD_In.cols)           : out
 
-      /**;  Fit(Array<double, 1> y, const Array<double, 1> x, a1, a0);
+      /**;  Fit(blitz::Array<double, 1> y, const blitz::Array<double, 1> x, a1, a0);
             calculates a0 and a1 for the system of equations yvec = a0 + a1 * xvec
 
             Given a set of data points x[0..ndata-1], y[0..ndata-1] with individual standard deviations sig[0..ndata-1], fit them to a straight line y = a + bx by minimizing Chi^2. Returned are a, b, and their respective probable uncertainties siga and sigb, the chi-square chi2, and the goodness-of-fit probability q (that the fit would have Chi^2 this large or larger). if mwt=0 on input, then the standard deviations are assumed to be unavailable: q is returned as 1.0 and the normalization of chi2 is to unit standard deviation on all points.
@@ -1379,59 +1379,59 @@ basis machine: Ubuntu Linux 6.06
               * added REJECT_In as optinal parameter to reject cosmic rays from fit
               * added MASK_INOUT as optional parameter
       **/
-      bool Fit(const Array<double, 1> &D_A1_CCD_In,      /// y: in
-               const Array<double, 1> &D_A1_SF_In,       /// x: in
+      bool Fit(const blitz::Array<double, 1> &D_A1_CCD_In,      /// y: in
+               const blitz::Array<double, 1> &D_A1_SF_In,       /// x: in
                double &D_SP_Out,                         /// a1: out
                double &D_Sky_Out,                        /// a0: in/out
-               const Array<CString, 1> &CS_A1_Args_In,   ///: in
+               const blitz::Array<CString, 1> &CS_A1_Args_In,   ///: in
                void *ArgV_In[]) const;                   ///: in/out
-    /// MEASURE_ERRORS_IN = Array<double,1>(D_A1_CCD_In.size)             : in
+    /// MEASURE_ERRORS_IN = blitz::Array<double,1>(D_A1_CCD_In.size)             : in
     /// REJECT_IN = double                                                : in
-    /// MASK_INOUT = Array<int,1>(D_A1_CCD_In.size)                    : in/out
+    /// MASK_INOUT = blitz::Array<int,1>(D_A1_CCD_In.size)                    : in/out
     /// CHISQ_OUT = double                                                : out
     /// Q_OUT = double                                                    : out
-    /// SIGMA_OUT = Array<double,1>(2): [*,0]: sigma_sp, [*,1]: sigma_sky : out
-    /// YFIT_OUT = Array<double, 1>(D_A1_CCD_In.size)                     : out
+    /// SIGMA_OUT = blitz::Array<double,1>(2): [*,0]: sigma_sp, [*,1]: sigma_sky : out
+    /// YFIT_OUT = blitz::Array<double, 1>(D_A1_CCD_In.size)                     : out
 
-      bool Fit(const Array<double, 1> &D_A1_CCD_In,      /// y: in
-               const Array<double, 1> &D_A1_SF_In,       /// x: in
+      bool Fit(const blitz::Array<double, 1> &D_A1_CCD_In,      /// y: in
+               const blitz::Array<double, 1> &D_A1_SF_In,       /// x: in
                double &D_SP_Out,                         /// a1: out
                double &D_Sky_Out,                        /// a0: in/out
                bool B_WithSky,                           /// with sky: in
-               const Array<CString, 1> &CS_A1_Args_In,   ///: in
+               const blitz::Array<CString, 1> &CS_A1_Args_In,   ///: in
                void *ArgV_In[]) const;                   ///: in/out
 
       /**
-      Fit(Array<double, 2> y, const Array<double, 2> x, const Array<double, 1>a1, const Array<double, 1>a0);
+      Fit(blitz::Array<double, 2> y, const blitz::Array<double, 2> x, const blitz::Array<double, 1>a1, const blitz::Array<double, 1>a0);
             calculates a0 and a1 for the system of equations yvec = a0 + a1 * xvec
        **/
-      bool Fit(const Array<double, 2> &D_A2_CCD_In,      ///: in
-               const Array<double, 2> &D_A2_SF_In,       ///: in
-               Array<double,1> &D_A1_SP_Out,             ///: out
-               Array<double,1> &D_A1_Sky_Out,            ///: in/out
-               const Array<CString, 1> &CS_A1_Args_In,   ///: in
+      bool Fit(const blitz::Array<double, 2> &D_A2_CCD_In,      ///: in
+               const blitz::Array<double, 2> &D_A2_SF_In,       ///: in
+               blitz::Array<double,1> &D_A1_SP_Out,             ///: out
+               blitz::Array<double,1> &D_A1_Sky_Out,            ///: in/out
+               const blitz::Array<CString, 1> &CS_A1_Args_In,   ///: in
                void *ArgV_In[]) const;                   ///: in/out
 
-  /// MEASURE_ERRORS_IN = Array<double,2>(D_A2_CCD_In.rows, D_A2_CCD_In.cols) : in
+  /// MEASURE_ERRORS_IN = blitz::Array<double,2>(D_A2_CCD_In.rows, D_A2_CCD_In.cols) : in
   /// REJECT_IN = double                                                      : in
-  /// MASK_INOUT = Array<double,2>(D_A1_CCD_In.rows,D_A1_CCD_In.cols)         : in/out
-  /// CHISQ_OUT = Array<double,1>(D_A2_CCD_In.rows)                           : out
-  /// Q_OUT = Array<double,1>(D_A2_CCD_In.rows)                               : out
-  /// SIGMA_OUT = Array<double,2>(D_A2_CCD_In.rows, 2): [*,0]: sigma_sp, [*,1]: sigma_sky : out
-      bool Fit(const Array<double, 2> &D_A2_CCD_In,      ///: in
-               const Array<double, 2> &D_A2_SF_In,       ///: in
-               Array<double,1> &D_A1_SP_Out,             ///: out
-               Array<double,1> &D_A1_Sky_Out,            ///: in/out
+  /// MASK_INOUT = blitz::Array<double,2>(D_A1_CCD_In.rows,D_A1_CCD_In.cols)         : in/out
+  /// CHISQ_OUT = blitz::Array<double,1>(D_A2_CCD_In.rows)                           : out
+  /// Q_OUT = blitz::Array<double,1>(D_A2_CCD_In.rows)                               : out
+  /// SIGMA_OUT = blitz::Array<double,2>(D_A2_CCD_In.rows, 2): [*,0]: sigma_sp, [*,1]: sigma_sky : out
+      bool Fit(const blitz::Array<double, 2> &D_A2_CCD_In,      ///: in
+               const blitz::Array<double, 2> &D_A2_SF_In,       ///: in
+               blitz::Array<double,1> &D_A1_SP_Out,             ///: out
+               blitz::Array<double,1> &D_A1_Sky_Out,            ///: in/out
                bool B_WithSky,                           ///: with sky: in
-               const Array<CString, 1> &CS_A1_Args_In,   ///: in
+               const blitz::Array<CString, 1> &CS_A1_Args_In,   ///: in
                void *ArgV_In[]) const;                   ///: in/out
-    /// MEASURE_ERRORS_IN = Array<double,1>(D_A1_CCD_In.size)             : in
+    /// MEASURE_ERRORS_IN = blitz::Array<double,1>(D_A1_CCD_In.size)             : in
     /// REJECT_IN = double                                                : in
-    /// MASK_INOUT = Array<int,1>(D_A1_CCD_In.size)                    : in/out
+    /// MASK_INOUT = blitz::Array<int,1>(D_A1_CCD_In.size)                    : in/out
     /// CHISQ_OUT = double                                                : out
     /// Q_OUT = double                                                    : out
-    /// SIGMA_OUT = Array<double,1>(2): [*,0]: sigma_sp, [*,1]: sigma_sky : out
-    /// YFIT_OUT = Array<double, 1>(D_A1_CCD_In.size)                     : out
+    /// SIGMA_OUT = blitz::Array<double,1>(2): [*,0]: sigma_sp, [*,1]: sigma_sky : out
+    /// YFIT_OUT = blitz::Array<double, 1>(D_A1_CCD_In.size)                     : out
 
     /**
      * D_A1_CCD_In(N): N pixels
@@ -1439,20 +1439,20 @@ basis machine: Ubuntu Linux 6.06
      * D_A1_SP_Out(2): spectrum values for profiles in D_A2_SF_In
      * D_Sky_Out: constant sky under both profiles
      **/
-      bool LinFitBevingtonTwoProfiles(const Array<double, 1> &D_A1_CCD_In,      /// y: in
-                                      const Array<double, 2> &D_A2_SF_In,       /// x: in
-                                      Array<double, 1> &D_A1_SP_Out,                         /// a1: out
+      bool LinFitBevingtonTwoProfiles(const blitz::Array<double, 1> &D_A1_CCD_In,      /// y: in
+                                      const blitz::Array<double, 2> &D_A2_SF_In,       /// x: in
+                                      blitz::Array<double, 1> &D_A1_SP_Out,                         /// a1: out
                                       double &D_Sky_Out,                        /// a0: in/out
                                       bool B_WithSky,                           /// with sky: in
-                                      const Array<CString, 1> &CS_A1_Args_In,   ///: in
+                                      const blitz::Array<CString, 1> &CS_A1_Args_In,   ///: in
                                       void *ArgV_In[]) const;                   ///: in/out
-    /// MEASURE_ERRORS_IN = Array<double,1>(D_A1_CCD_In.size)             : in
+    /// MEASURE_ERRORS_IN = blitz::Array<double,1>(D_A1_CCD_In.size)             : in
     /// REJECT_IN = double                                                : in
-    /// MASK_INOUT = Array<int,1>(D_A1_CCD_In.size)                    : in/out
+    /// MASK_INOUT = blitz::Array<int,1>(D_A1_CCD_In.size)                    : in/out
     /// CHISQ_OUT = double                                                : out
     /// Q_OUT = double                                                    : out
-    /// SIGMA_OUT = Array<double,2>(2,2): [*,0]: sigma_sp, [*,1]: sigma_sky : out
-    /// YFIT_OUT = Array<double, 1>(D_A1_CCD_In.size)                     : out
+    /// SIGMA_OUT = blitz::Array<double,2>(2,2): [*,0]: sigma_sp, [*,1]: sigma_sky : out
+    /// YFIT_OUT = blitz::Array<double, 1>(D_A1_CCD_In.size)                     : out
     /// ALLOW_SKY_LT_ZERO = 1
     /// ALLOW_SPEC_LT_ZERO = 1
     
@@ -1463,20 +1463,20 @@ basis machine: Ubuntu Linux 6.06
               * added REJECT_IN as optinal parameter to reject cosmic rays from fit (times sigma)
               * added MASK_INOUT as optional parameter
       **/
-      bool LinFitBevington(const Array<double, 1> &D_A1_CCD_In,      /// y: in
-                           const Array<double, 1> &D_A1_SF_In,       /// x: in
+      bool LinFitBevington(const blitz::Array<double, 1> &D_A1_CCD_In,      /// y: in
+                           const blitz::Array<double, 1> &D_A1_SF_In,       /// x: in
                            double &D_SP_Out,                         /// a1: out
                            double &D_Sky_Out,                        /// a0: in/out
                            bool B_WithSky,                           /// with sky: in
-                           const Array<CString, 1> &CS_A1_Args_In,   ///: in
+                           const blitz::Array<CString, 1> &CS_A1_Args_In,   ///: in
                            void *ArgV_In[]) const;                   ///: in/out
-    /// MEASURE_ERRORS_IN = Array<double,1>(D_A1_CCD_In.size)             : in
+    /// MEASURE_ERRORS_IN = blitz::Array<double,1>(D_A1_CCD_In.size)             : in
     /// REJECT_IN = double                                                : in
-    /// MASK_INOUT = Array<int,1>(D_A1_CCD_In.size)                    : in/out
+    /// MASK_INOUT = blitz::Array<int,1>(D_A1_CCD_In.size)                    : in/out
     /// CHISQ_OUT = double                                                : out
     /// Q_OUT = double                                                    : out
-    /// SIGMA_OUT = Array<double,1>(2): [*,0]: sigma_sp, [*,1]: sigma_sky : out
-    /// YFIT_OUT = Array<double, 1>(D_A1_CCD_In.size)                     : out
+    /// SIGMA_OUT = blitz::Array<double,1>(2): [*,0]: sigma_sp, [*,1]: sigma_sky : out
+    /// YFIT_OUT = blitz::Array<double, 1>(D_A1_CCD_In.size)                     : out
     /// ALLOW_SKY_LT_ZERO = 1
     /// ALLOW_SPEC_LT_ZERO = 1
 
@@ -1488,24 +1488,24 @@ basis machine: Ubuntu Linux 6.06
               * added REJECT_IN as optinal parameter to reject cosmic rays from fit (times sigma)
               * added MASK_INOUT as optional parameter
       **/
-      bool LinFitBevington(const Array<double, 1> &D_A1_CCD_In,      /// y: in
-                           const Array<double, 1> &D_A1_SF_In,       /// x: in
+      bool LinFitBevington(const blitz::Array<double, 1> &D_A1_CCD_In,      /// y: in
+                           const blitz::Array<double, 1> &D_A1_SF_In,       /// x: in
                            double &D_SP_Out,                         /// a1: out
                            double &D_Sky_Out,                        /// a0: in/out
-                           const Array<CString, 1> &CS_A1_Args_In,   ///: in
+                           const blitz::Array<CString, 1> &CS_A1_Args_In,   ///: in
                            void *ArgV_In[]) const;                   ///: in/out
-    /// MEASURE_ERRORS_IN = Array<double,1>(D_A1_CCD_In.size)             : in
+    /// MEASURE_ERRORS_IN = blitz::Array<double,1>(D_A1_CCD_In.size)             : in
     /// REJECT_IN = double                                                : in
-    /// MASK_INOUT = Array<int,1>(D_A1_CCD_In.size)                    : in/out
+    /// MASK_INOUT = blitz::Array<int,1>(D_A1_CCD_In.size)                    : in/out
     /// CHISQ_OUT = double                                                : out
     /// Q_OUT = double                                                    : out
-    /// SIGMA_OUT = Array<double,1>(2): [*,0]: sigma_sp, [*,1]: sigma_sky : out
-    /// YFIT_OUT = Array<double, 1>(D_A1_CCD_In.size)                     : out
+    /// SIGMA_OUT = blitz::Array<double,1>(2): [*,0]: sigma_sp, [*,1]: sigma_sky : out
+    /// YFIT_OUT = blitz::Array<double, 1>(D_A1_CCD_In.size)                     : out
     /// ALLOW_SKY_LT_ZERO = 1
     /// ALLOW_SPEC_LT_ZERO = 1
 
       /**
-      Fit(Array<double, 2> y, const Array<double, 2> x, const Array<double, 1>a1, const Array<double, 1>a0);
+      Fit(blitz::Array<double, 2> y, const blitz::Array<double, 2> x, const blitz::Array<double, 1>a1, const blitz::Array<double, 1>a0);
             calculates a0 and a1 for the system of equations yvec = a0 + a1 * xvec
        **/
      /**
@@ -1516,33 +1516,33 @@ basis machine: Ubuntu Linux 6.06
               * added REJECT_IN as optinal parameter to reject cosmic rays from fit (times sigma)
               * added MASK_INOUT as optional parameter
       **/
-      bool LinFitBevington(const Array<double, 2> &D_A2_CCD_In,      ///: in
-                           const Array<double, 2> &D_A2_SF_In,       ///: in
-                           Array<double,1> &D_A1_SP_Out,             ///: out
-                           Array<double,1> &D_A1_Sky_Out,            ///: in/out
-                           const Array<CString, 1> &CS_A1_Args_In,   ///: in
+      bool LinFitBevington(const blitz::Array<double, 2> &D_A2_CCD_In,      ///: in
+                           const blitz::Array<double, 2> &D_A2_SF_In,       ///: in
+                           blitz::Array<double,1> &D_A1_SP_Out,             ///: out
+                           blitz::Array<double,1> &D_A1_Sky_Out,            ///: in/out
+                           const blitz::Array<CString, 1> &CS_A1_Args_In,   ///: in
                            void *ArgV_In[]) const;                   ///: in/out
-  /// MEASURE_ERRORS_IN = Array<double,2>(D_A2_CCD_In.rows, D_A2_CCD_In.cols) : in
+  /// MEASURE_ERRORS_IN = blitz::Array<double,2>(D_A2_CCD_In.rows, D_A2_CCD_In.cols) : in
   /// REJECT_IN = double                                                      : in
-  /// MASK_INOUT = Array<double,2>(D_A1_CCD_In.rows,D_A1_CCD_In.cols)         : in/out
-  /// CHISQ_OUT = Array<double,1>(D_A2_CCD_In.rows)                           : out
-  /// Q_OUT = Array<double,1>(D_A2_CCD_In.rows)                               : out
-  /// SIGMA_OUT = Array<double,2>(D_A2_CCD_In.rows, 2): [*,0]: sigma_sp, [*,1]: sigma_sky : out
+  /// MASK_INOUT = blitz::Array<double,2>(D_A1_CCD_In.rows,D_A1_CCD_In.cols)         : in/out
+  /// CHISQ_OUT = blitz::Array<double,1>(D_A2_CCD_In.rows)                           : out
+  /// Q_OUT = blitz::Array<double,1>(D_A2_CCD_In.rows)                               : out
+  /// SIGMA_OUT = blitz::Array<double,2>(D_A2_CCD_In.rows, 2): [*,0]: sigma_sp, [*,1]: sigma_sky : out
 
-      bool LinFitBevington(const Array<double, 2> &D_A2_CCD_In,      ///: in
-                           const Array<double, 2> &D_A2_SF_In,       ///: in
-                           Array<double,1> &D_A1_SP_Out,             ///: out
-                           Array<double,1> &D_A1_Sky_Out,            ///: in/out
+      bool LinFitBevington(const blitz::Array<double, 2> &D_A2_CCD_In,      ///: in
+                           const blitz::Array<double, 2> &D_A2_SF_In,       ///: in
+                           blitz::Array<double,1> &D_A1_SP_Out,             ///: out
+                           blitz::Array<double,1> &D_A1_Sky_Out,            ///: in/out
                            bool B_WithSky,                           ///: with sky: in
-                           const Array<CString, 1> &CS_A1_Args_In,   ///: in
+                           const blitz::Array<CString, 1> &CS_A1_Args_In,   ///: in
                            void *ArgV_In[]) const;                   ///: in/out
-    /// MEASURE_ERRORS_IN = Array<double,1>(D_A1_CCD_In.size)             : in
+    /// MEASURE_ERRORS_IN = blitz::Array<double,1>(D_A1_CCD_In.size)             : in
     /// REJECT_IN = double                                                : in
-    /// MASK_INOUT = Array<int,1>(D_A1_CCD_In.size)                    : in/out
+    /// MASK_INOUT = blitz::Array<int,1>(D_A1_CCD_In.size)                    : in/out
     /// CHISQ_OUT = double                                                : out
     /// Q_OUT = double                                                    : out
-    /// SIGMA_OUT = Array<double,1>(2): [*,0]: sigma_sp, [*,1]: sigma_sky : out
-    /// YFIT_OUT = Array<double, 1>(D_A1_CCD_In.size)                     : out
+    /// SIGMA_OUT = blitz::Array<double,1>(2): [*,0]: sigma_sp, [*,1]: sigma_sky : out
+    /// YFIT_OUT = blitz::Array<double, 1>(D_A1_CCD_In.size)                     : out
     
      /**
       print,'syntax: bottom,f,{filter/order}[,ITER=iter[,EPS=eps $'
@@ -1555,10 +1555,10 @@ basis machine: Ubuntu Linux 6.06
       print,'      eps    is convergence level [def: 0.001]'
       print,'      mn     minimum function values to be considered [def: min(f)]'
       print,'      mx     maximum function values to be considered [def: max(f)]'
-      double Bottom(Array<double, 1>) const;
+      double Bottom(blitz::Array<double, 1>) const;
        **/
-      bool Bottom(const Array<double,1> D_A1_Arr_In, int I_Filter_In, const Array<CString, 1> &CS_A1_Args, ///: in
-                  void *ArgV[], Array<double, 1>* P_D_A1_Out) const;
+      bool Bottom(const blitz::Array<double,1> D_A1_Arr_In, int I_Filter_In, const blitz::Array<CString, 1> &CS_A1_Args, ///: in
+                  void *ArgV[], blitz::Array<double, 1>* P_D_A1_Out) const;
 
 /**Function middle,f,filter,ITER=iter,EPS=eps,POLY=pol,MIN=mn1,MAX=mx1
       ; middle tries to fit a smooth curve that is located
@@ -1583,8 +1583,8 @@ basis machine: Ubuntu Linux 6.06
       print,'      mx     maximum function values to be considered [def: max(f)]'
       return,0
       endif**/
-      bool Middle(const Array<double,1> D_A1_Arr_In, int I_Filter_In, const Array<CString, 1> &CS_A1_Args, ///: in
-                  void *ArgV[], Array<double,1>* P_D_A1_Out) const;
+      bool Middle(const blitz::Array<double,1> D_A1_Arr_In, int I_Filter_In, const blitz::Array<CString, 1> &CS_A1_Args, ///: in
+                  void *ArgV[], blitz::Array<double,1>* P_D_A1_Out) const;
 
       /**
       Function Opt_Filter,y,par,par1,DOUBLE=dbl,MAXIT=maxiter
@@ -1605,15 +1605,15 @@ basis machine: Ubuntu Linux 6.06
       print,'Opt_Filter solves the optimization problem for r:'
       print,'        total((f - r)^2) + width*total((r(i) - r(i-1))^2) = min'
        **/
-      Array<double,1>* OptFilter(const Array<double,1> &D_A1_In, int I_Width) const;
-      Array<double,2>* OptFilter(const Array<double,2> &D_A2_In, int I_XWidth, int I_YWidth, int I_MaxIter) const;
+      blitz::Array<double,1>* OptFilter(const blitz::Array<double,1> &D_A1_In, int I_Width) const;
+      blitz::Array<double,2>* OptFilter(const blitz::Array<double,2> &D_A2_In, int I_XWidth, int I_YWidth, int I_MaxIter) const;
 
       /**
-      Select(Array<double, int> &arr, int KThSmallest) const;
+      Select(blitz::Array<double, int> &arr, int KThSmallest) const;
       Returns the <KThSmallest> value of <Arr>.
        **/
-      int Select(const Array<int, 1> &arr, int KThSmallest) const;
-      double Select(const Array<double, 1> &arr, int KThSmallest) const;
+      int Select(const blitz::Array<int, 1> &arr, int KThSmallest) const;
+      double Select(const blitz::Array<double, 1> &arr, int KThSmallest) const;
 
       /**
         bool IsOddNumber(long No) const
@@ -1633,89 +1633,89 @@ basis machine: Ubuntu Linux 6.06
 
       /**
       Replicate(double val, int Len);
-      Out: Array<double, 1>(Len)
+      Out: blitz::Array<double, 1>(Len)
        **/
-      Array<double, 1>* Replicate(double val, int Len) const;
+      blitz::Array<double, 1>* Replicate(double val, int Len) const;
 
       /**
       Replicate(double val, int Len);
-      Out: Array<double, 1>(Len)
+      Out: blitz::Array<double, 1>(Len)
        **/
-      Array<int, 1>* Replicate(int val, int Len) const;
+      blitz::Array<int, 1>* Replicate(int val, int Len) const;
 
       /**
-      MatrixATimesB(Array<double, 2> &Arr, Array<double, 2> &B);
-      Out: Array<double, 2>(A.rows(), B.cols())
+      MatrixATimesB(blitz::Array<double, 2> &Arr, blitz::Array<double, 2> &B);
+      Out: blitz::Array<double, 2>(A.rows(), B.cols())
        **/
-      Array<double, 2>* MatrixATimesB(Array<double, 2> &A, Array<double, 2> &B) const;
+      blitz::Array<double, 2>* MatrixATimesB(blitz::Array<double, 2> &A, blitz::Array<double, 2> &B) const;
 
       /**
-      MatrixBTimesA(Array<double, 2> &Arr, Array<double, 2> &B);
-      Out: Array<double, 2>(B.rows(), A.cols())
+      MatrixBTimesA(blitz::Array<double, 2> &Arr, blitz::Array<double, 2> &B);
+      Out: blitz::Array<double, 2>(B.rows(), A.cols())
        **/
-      Array<double, 2>* MatrixBTimesA(Array<double, 2> &A, Array<double, 2> &B) const;
+      blitz::Array<double, 2>* MatrixBTimesA(blitz::Array<double, 2> &A, blitz::Array<double, 2> &B) const;
 
       /**
-      MatrixTimesVecArr(Array<double, 2> &Arr, Array<double, 1> &B);
-      Out: Array<double, 1>(A.rows())
+      MatrixTimesVecArr(blitz::Array<double, 2> &Arr, blitz::Array<double, 1> &B);
+      Out: blitz::Array<double, 1>(A.rows())
        **/
-      Array<double, 1>* MatrixTimesVecArr(Array<double, 2> &A, Array<double, 1> &B) const;
+      blitz::Array<double, 1>* MatrixTimesVecArr(blitz::Array<double, 2> &A, blitz::Array<double, 1> &B) const;
 
       /**
-      VecArrTimesMatrix(Array<double, 1> &Arr, Array<double, 2> &B);
-      Out: Array<double, 1>(B.cols())
+      VecArrTimesMatrix(blitz::Array<double, 1> &Arr, blitz::Array<double, 2> &B);
+      Out: blitz::Array<double, 1>(B.cols())
       equivalent to IDL::operator #
       computes array elements by multiplying the rows of the first array by the columns of the second array
        **/
-      Array<double, 1>* VecArrTimesMatrix(Array<double, 1> &A, Array<double, 2> &B) const;
+      blitz::Array<double, 1>* VecArrTimesMatrix(blitz::Array<double, 1> &A, blitz::Array<double, 2> &B) const;
 
       /**
-      VecArrACrossB(Array<double, 1> &Arr, Array<double, 1> &B);
-      Out: Array<double, 2>(A.size(), B.size())
+      VecArrACrossB(blitz::Array<double, 1> &Arr, blitz::Array<double, 1> &B);
+      Out: blitz::Array<double, 2>(A.size(), B.size())
        **/
-      Array<double, 2>* VecArrACrossB(Array<double, 1> &A, Array<double, 1> &B) const;
+      blitz::Array<double, 2>* VecArrACrossB(blitz::Array<double, 1> &A, blitz::Array<double, 1> &B) const;
 
       /**
-      VecArrACrossB(Array<int, 1> &Arr, Array<int, 1> &B);
-      Out: Array<int, 2>(A.size(), B.size())
+      VecArrACrossB(blitz::Array<int, 1> &Arr, blitz::Array<int, 1> &B);
+      Out: blitz::Array<int, 2>(A.size(), B.size())
        **/
-      Array<int, 2>* VecArrACrossB(Array<int, 1> &A, Array<int, 1> &B) const;
+      blitz::Array<int, 2>* VecArrACrossB(blitz::Array<int, 1> &A, blitz::Array<int, 1> &B) const;
 
       /**
-      VecArrAScalarB(Array<double, 1> &Arr, Array<double, 1> &B);
+      VecArrAScalarB(blitz::Array<double, 1> &Arr, blitz::Array<double, 1> &B);
       Out: double
        **/
-      double VecArrAScalarB(Array<double, 1> &A, Array<double, 1> &B) const;
+      double VecArrAScalarB(blitz::Array<double, 1> &A, blitz::Array<double, 1> &B) const;
 
       /**
-      Reform(Array<double, 1> &Arr, int DimA, int DimB);
+      Reform(blitz::Array<double, 1> &Arr, int DimA, int DimB);
       Reformats Vector to Array of given size
        **/
-      Array<double, 2>* Reform(Array<double, 1> &Arr, int DimA, int DimB) const;
+      blitz::Array<double, 2>* Reform(blitz::Array<double, 1> &Arr, int DimA, int DimB) const;
 
       /**
-      Reform(Array<double, 2> &Arr);
+      Reform(blitz::Array<double, 2> &Arr);
       Reformates an Array to a Vector
        **/
-      Array<double, 1>* Reform(Array<double, 2> &Arr) const;
+      blitz::Array<double, 1>* Reform(blitz::Array<double, 2> &Arr) const;
 
       /**
-      Reform(Array<int, 2> &Arr);
+      Reform(blitz::Array<int, 2> &Arr);
       Reformates an Array to a Vector
        **/
-      Array<int, 1>* Reform(Array<int, 2> &Arr) const;
+      blitz::Array<int, 1>* Reform(blitz::Array<int, 2> &Arr) const;
 
       /**
-      Reform(Array<double, 2> &Arr, int DimA, int DimB);
+      Reform(blitz::Array<double, 2> &Arr, int DimA, int DimB);
       Reformates an Array
        **
-      Array<double, 2>* Reform(Array<double, 2> &Arr, int DimA, int DimB) const;*/
+      blitz::Array<double, 2>* Reform(blitz::Array<double, 2> &Arr, int DimA, int DimB) const;*/
 
-//      Array<double, 2>* Transpose(Array<double, 2> &Arr) const;
+//      blitz::Array<double, 2>* Transpose(blitz::Array<double, 2> &Arr) const;
 
       /**
        bool TriDag
-       Solves for a vector Array<double, N> UVecArr the tridiagonal
+       Solves for a vector blitz::Array<double, N> UVecArr the tridiagonal
        linear set given by equation
 [ b_1  c_1  0  ...                       ]   [  u_1  ]   [  r_1  ]
 [ a_2  b_2  c_2 ...                      ]   [  u_2  ]   [  r_2  ]
@@ -1725,12 +1725,12 @@ basis machine: Ubuntu Linux 6.06
       BVecArr, CVecArr, and RVecArr are input vectors and are not
       modified.
       **/
-      bool TriDag(Array<double, 1> &AVecArr, Array<double, 1> &BVecArr, Array<double, 1> &CVecArr, Array<double, 1> &RVecArr, Array<double, 1> &UVecArr) const;
+      bool TriDag(blitz::Array<double, 1> &AVecArr, blitz::Array<double, 1> &BVecArr, blitz::Array<double, 1> &CVecArr, blitz::Array<double, 1> &RVecArr, blitz::Array<double, 1> &UVecArr) const;
 
       /**
         LsToFit
        **/
-      bool LsToFit(const Array<double, 1> &XXVecArr, const Array<double, 1> &YVecArr, const double &XM, double &D_Out) const;
+      bool LsToFit(const blitz::Array<double, 1> &XXVecArr, const blitz::Array<double, 1> &YVecArr, const double &XM, double &D_Out) const;
 
       /**
         InvertGaussJ(AArray, BArray)
@@ -1742,7 +1742,7 @@ basis machine: Ubuntu Linux 6.06
         BArray is replaced by the corresponding set of solution
         vectors.
        **/
-      bool InvertGaussJ(Array<double, 2> &AArray, Array<double, 2> &BArray) const;
+      bool InvertGaussJ(blitz::Array<double, 2> &AArray, blitz::Array<double, 2> &BArray) const;
 
       /**
         InvertGaussJ(AArray)
@@ -1751,7 +1751,7 @@ basis machine: Ubuntu Linux 6.06
         AArray(0:N-1, 0:N-1) is the input matrix.
         On output, AArray is replaced by its matrix inverse.
        **/
-      bool InvertGaussJ(Array<double, 2> &AArray) const;
+      bool InvertGaussJ(blitz::Array<double, 2> &AArray) const;
 
       /**
       Spline
@@ -1766,11 +1766,11 @@ basis machine: Ubuntu Linux 6.06
       boundary condition for a natural spline, with zero second
       derivative on that boundary.
        **/
-      bool Spline(Array<double, 1> &XVecArr,
-                  Array<double, 1> &YVecArr,
+      bool Spline(blitz::Array<double, 1> &XVecArr,
+                  blitz::Array<double, 1> &YVecArr,
                   double YP1,
                   double YPN,
-                  Array<double, 1> &Y2VecArr) const;
+                  blitz::Array<double, 1> &Y2VecArr) const;
 
       /**
       Spline
@@ -1782,9 +1782,9 @@ basis machine: Ubuntu Linux 6.06
       corresponding boundary condition for a natural spline, with
       zero second derivative on that boundary.
       **/
-      bool Spline(Array<double, 1> &XVecArr,
-                  Array<double, 1> &YVecArr,
-                  Array<double, 1> &Y2VecArr) const;
+      bool Spline(blitz::Array<double, 1> &XVecArr,
+                  blitz::Array<double, 1> &YVecArr,
+                  blitz::Array<double, 1> &Y2VecArr) const;
 
       /**
       SplInt
@@ -1794,9 +1794,9 @@ basis machine: Ubuntu Linux 6.06
       Spline above, and given a value of X, this routine returns a
       cubic-spline interpolated value Y;
       **/
-      bool SplInt(Array<double, 1> &XAVecArr,
-                  Array<double, 1> &YAVecArr,
-                  Array<double, 1> &Y2AVecArr,
+      bool SplInt(blitz::Array<double, 1> &XAVecArr,
+                  blitz::Array<double, 1> &YAVecArr,
+                  blitz::Array<double, 1> &Y2AVecArr,
                   double X,
                   double *Y) const;
 
@@ -1884,54 +1884,54 @@ basis machine: Ubuntu Linux 6.06
       /**
        InterPol linear, not regular
       **/
-      bool InterPol(const Array<double, 1> &VVecArr,
-                    const Array<double, 1> &XVecArr,
-                    const Array<double, 1> &UVecArr,
-                    Array<double, 1> *P_D_A1_Out) const;
+      bool InterPol(const blitz::Array<double, 1> &VVecArr,
+                    const blitz::Array<double, 1> &XVecArr,
+                    const blitz::Array<double, 1> &UVecArr,
+                    blitz::Array<double, 1> *P_D_A1_Out) const;
 
-      bool InterPol(const Array<double, 1> &VVecArr,
-                    const Array<double, 1> &XVecArr,
-                    const Array<double, 1> &UVecArr,
-                    Array<double, 1> *P_D_A1_Out,
+      bool InterPol(const blitz::Array<double, 1> &VVecArr,
+                    const blitz::Array<double, 1> &XVecArr,
+                    const blitz::Array<double, 1> &UVecArr,
+                    blitz::Array<double, 1> *P_D_A1_Out,
                     bool B_PreserveFlux) const;
 
       /**
         InterPol
          The InterPol function performs linear, quadratic, or spline interpolation on vectors with an irregular grid.
        **/
-      bool InterPol(const Array<double, 1> &VVecArr,
-                    const Array<double, 1> &XVecArr,
-                    const Array<double, 1> &UVecArr,
-                    const Array<CString, 1> &CS_A1_In,
-                    Array<double,1> *P_D_A1_Out) const;
+      bool InterPol(const blitz::Array<double, 1> &VVecArr,
+                    const blitz::Array<double, 1> &XVecArr,
+                    const blitz::Array<double, 1> &UVecArr,
+                    const blitz::Array<CString, 1> &CS_A1_In,
+                    blitz::Array<double,1> *P_D_A1_Out) const;
 
       /**
         InterPol
          This function performs linear, quadratic, or spline interpolation on vectors with a regular grid.
        **/
-      bool InterPol(Array<double, 1> &VVecArr,
+      bool InterPol(blitz::Array<double, 1> &VVecArr,
                     long N,
-                    const Array<CString, 1> &CS_A1_In,
-                    Array<double,1> *P_D_A1_Out) const;
+                    const blitz::Array<CString, 1> &CS_A1_In,
+                    blitz::Array<double,1> *P_D_A1_Out) const;
 
       /**
         HInterPol
         Help function for InterPol methods
        **/
-      bool HInterPol(const Array<double, 1> &VVecArr,
-                     const Array<double, 1> &XVecArr,
-                     Array<int, 1> &SVecArr,
-                     const Array<double, 1> &UVecArr,
-                     const Array<CString, 1> &CS_A1_In,
-                     Array<double,1> *P_D_A1_Out) const;
+      bool HInterPol(const blitz::Array<double, 1> &VVecArr,
+                     const blitz::Array<double, 1> &XVecArr,
+                     blitz::Array<int, 1> &SVecArr,
+                     const blitz::Array<double, 1> &UVecArr,
+                     const blitz::Array<CString, 1> &CS_A1_In,
+                     blitz::Array<double,1> *P_D_A1_Out) const;
 
       /**
        InterPolate
        This Method returns an Array of linear interpolates.
        The returned Array has the same type of D_A1_P and its dimension depends on those of the location parameter D_A1_X.
-       INPUTS: Array<double, 1> D_A1_P(N)
+       INPUTS: blitz::Array<double, 1> D_A1_P(N)
                  The array of data values.
-               Array<double, 1> D_A1_X(M)
+               blitz::Array<double, 1> D_A1_X(M)
                  The array of interpolation locations.
         NOTE: InterPolate considers location points with values
               between 0 and N, where N is the number of values in the
@@ -1940,11 +1940,11 @@ basis machine: Ubuntu Linux 6.06
               Location points in the Range N-1 <= x < N return the
               last data value in the array D_A1_P.
 
-        OUTPUTS: Array<double, 1> (M)
+        OUTPUTS: blitz::Array<double, 1> (M)
                    The array of interpolates.
        **/
-      Array<double, 1>* InterPolate(const Array<double, 1> &D_A1_V,
-                                    const Array<double, 1> &D_A1_X) const;
+      blitz::Array<double, 1>* InterPolate(const blitz::Array<double, 1> &D_A1_V,
+                                    const blitz::Array<double, 1> &D_A1_X) const;
 
 /**      ; NAME:
 ;       POLY
@@ -1980,10 +1980,10 @@ basis machine: Ubuntu Linux 6.06
 ; PROCEDURE:
 ;       Straightforward.
 **/
-      Array<double, 1>* Poly(const Array<double, 1> &VecArr,
-			     const Array<double, 1> &VecCoeffs) const;
+      blitz::Array<double, 1>* Poly(const blitz::Array<double, 1> &VecArr,
+			     const blitz::Array<double, 1> &VecCoeffs) const;
       double Poly(const double D_X_In,
-                  const Array<double, 1> &D_A1_Coeffs) const;
+                  const blitz::Array<double, 1> &D_A1_Coeffs) const;
                              
                              
       /**
@@ -1994,7 +1994,7 @@ basis machine: Ubuntu Linux 6.06
        * D_XStep_In:         initial step for search (<0: go left, >0: go right)
        * CS_Function_In:     [Poly,Chebyshev,Legendre]
        * **/
-      bool PolyRoot(const Array<double, 1> &D_A1_PolyCoeffs_In,
+      bool PolyRoot(const blitz::Array<double, 1> &D_A1_PolyCoeffs_In,
                     const double &D_Y_In,
                     const double &D_XStart_In,
                     const double &D_XStep_In,
@@ -2076,59 +2076,59 @@ basis machine: Ubuntu Linux 6.06
     ;   None.
     FUNCTION POLY_FIT, x, y, ndegree, $
     CHISQ=chisq: double: out
-    COVAR=covar: Array<double, 2>(I_Degree+1, I_Degree+1): out
-    MEASURE_ERRORS=measure_errors: Array<double, 1>(D_A1_X_In.size()): in
-    SIGMA=sigma: Array<double, 1>(I_Degree+1): out
+    COVAR=covar: blitz::Array<double, 2>(I_Degree+1, I_Degree+1): out
+    MEASURE_ERRORS=measure_errors: blitz::Array<double, 1>(D_A1_X_In.size()): in
+    SIGMA=sigma: blitz::Array<double, 1>(I_Degree+1): out
     STATUS=status: int: out
-    YBAND=yband: Array<double, 1>(D_A1_X.size()): in
+    YBAND=yband: blitz::Array<double, 1>(D_A1_X.size()): in
     YERROR=yerror: in
-    YFIT=yfit: Array<double, 1>(D_A1_X_In.size()): out
+    YFIT=yfit: blitz::Array<double, 1>(D_A1_X_In.size()): out
     ;**/
-    bool PolyFit(const Array<double, 1> &D_A1_X_In,
-		 const Array<double, 1> &D_A1_Y_In,
+    bool PolyFit(const blitz::Array<double, 1> &D_A1_X_In,
+		 const blitz::Array<double, 1> &D_A1_Y_In,
 		 int I_Degree,
-		 const Array<CString, 1> &CS_A1_Args,
+		 const blitz::Array<CString, 1> &CS_A1_Args,
 		 void *ArgV[],
-		 Array<double, 1>* P_D_A1_Out) const;
+		 blitz::Array<double, 1>* P_D_A1_Out) const;
 
-    bool PolyFit(const Array<double, 1> &D_A1_X_In,
-		 const Array<double, 1> &D_A1_Y_In,
+    bool PolyFit(const blitz::Array<double, 1> &D_A1_X_In,
+		 const blitz::Array<double, 1> &D_A1_Y_In,
 		 int I_Degree,
-		 Array<double, 1>* P_D_A1_Out) const;
+		 blitz::Array<double, 1>* P_D_A1_Out) const;
 /** Additional Keywords:
-    REJECTED=Array<int, 1>
-    NOT_REJECTED=Array<int, 1>
+    REJECTED=blitz::Array<int, 1>
+    NOT_REJECTED=blitz::Array<int, 1>
     N_REJECTED=int
     **/
-    bool PolyFit(const Array<double, 1> &D_A1_X_In,
-                 const Array<double, 1> &D_A1_Y_In,
+    bool PolyFit(const blitz::Array<double, 1> &D_A1_X_In,
+                 const blitz::Array<double, 1> &D_A1_Y_In,
                  const int I_Degree,
                  const double D_Reject,
-                 const Array<CString, 1> &CS_A1_Args,
+                 const blitz::Array<CString, 1> &CS_A1_Args,
                  void *ArgV[],
-                 Array<double, 1>* P_D_A1_Out) const;
-    bool PolyFit(const Array<double, 1> &D_A1_X_In,
-                 const Array<double, 1> &D_A1_Y_In,
+                 blitz::Array<double, 1>* P_D_A1_Out) const;
+    bool PolyFit(const blitz::Array<double, 1> &D_A1_X_In,
+                 const blitz::Array<double, 1> &D_A1_Y_In,
                  const int I_Degree,
                  const double D_LReject,
                  const double D_HReject,
                  const int I_NIter,
-                 const Array<CString, 1> &CS_A1_Args,
+                 const blitz::Array<CString, 1> &CS_A1_Args,
                  void *ArgV[],
-                 Array<double, 1>* P_D_A1_Out) const;
+                 blitz::Array<double, 1>* P_D_A1_Out) const;
 
-    bool PolyFit(const Array<double, 1> &D_A1_X_In,
-                 const Array<double, 1> &D_A1_Y_In,
+    bool PolyFit(const blitz::Array<double, 1> &D_A1_X_In,
+                 const blitz::Array<double, 1> &D_A1_Y_In,
                  const int I_Degree,
                  const double D_Reject,
-                 Array<double, 1>* P_D_A1_Out) const;
-    bool PolyFit(const Array<double, 1> &D_A1_X_In,
-                 const Array<double, 1> &D_A1_Y_In,
+                 blitz::Array<double, 1>* P_D_A1_Out) const;
+    bool PolyFit(const blitz::Array<double, 1> &D_A1_X_In,
+                 const blitz::Array<double, 1> &D_A1_Y_In,
                  const int I_Degree,
                  const double D_LReject,
                  const double D_HReject,
                  const int I_NIter,
-                 Array<double, 1>* P_D_A1_Out) const;
+                 blitz::Array<double, 1>* P_D_A1_Out) const;
 
 /**
 ; PURPOSE:
@@ -2264,10 +2264,10 @@ basis machine: Ubuntu Linux 6.06
 ;   The width is found by searching out from the extrema until
 ;   a point is found less than the 1/e value.
 **/
-    bool GaussFit(const Array<double, 1> &D_A1_X,
-		  const Array<double, 1> &D_A1_Y,
-		  Array<double,1> &D_A1_A,
-		  const Array<CString, 1> &CS_A1_Args_In,
+    bool GaussFit(const blitz::Array<double, 1> &D_A1_X,
+		  const blitz::Array<double, 1> &D_A1_Y,
+		  blitz::Array<double,1> &D_A1_A,
+		  const blitz::Array<CString, 1> &CS_A1_Args_In,
 		  void *ArgV[]) const;
 ///                  CHISQ=variable,
 ///                  ESTIMATES=array,
@@ -2275,11 +2275,11 @@ basis machine: Ubuntu Linux 6.06
 ///                  NTERMS=integer{3 to 6},
 ///                  SIGMA=double,
 ///                  YERROR=double,
-///                  YFIT=Array<double, 1>*)
+///                  YFIT=blitz::Array<double, 1>*)
 
-    bool GaussFit(const Array<double, 1> &D_A1_X,
-		  const Array<double, 1> &D_A1_Y,
-		  Array<double,1> &D_A1_A) const;
+    bool GaussFit(const blitz::Array<double, 1> &D_A1_X,
+		  const blitz::Array<double, 1> &D_A1_Y,
+		  blitz::Array<double,1> &D_A1_A) const;
 
     /**
     ; NAME:
@@ -2444,19 +2444,19 @@ basis machine: Ubuntu Linux 6.06
 ;         print, yfit
 ;       end
 **/
-    bool CurveFit(const Array<double, 1> &D_A1_X,
-		  const Array<double, 1> &D_A1_Y,
-		  const Array<double, 1> &D_A1_WeightsIn,
-		  Array<double, 1> &D_A1_A,
-		  Array<double, 1> &D_A1_Sigma,
-		  const Array<CString, 1> &CS_A1_ArgsIn,
+    bool CurveFit(const blitz::Array<double, 1> &D_A1_X,
+		  const blitz::Array<double, 1> &D_A1_Y,
+		  const blitz::Array<double, 1> &D_A1_WeightsIn,
+		  blitz::Array<double, 1> &D_A1_A,
+		  blitz::Array<double, 1> &D_A1_Sigma,
+		  const blitz::Array<CString, 1> &CS_A1_ArgsIn,
 		  void* PP_ArgsIn[]) const;
 		  /// FUNCTION_NAME = *CString,
 		  /// STATUS = *integer
 		  /// TOL = *double
 		  /// ITMAX = *integer
 		  /// CHISQ = *double
-		  /// FITA = Array<int, 1>*
+		  /// FITA = blitz::Array<int, 1>*
 		  /// NODERIVATIVE
 
 /**
@@ -2500,20 +2500,20 @@ basis machine: Ubuntu Linux 6.06
 ;	F = A(0)*EXP(-Z^2/2) + A(3) + A(4)*X + A(5)*X^2
 ;	Z = (X-A(1))/A(2)
 **/
-    bool Funct(const Array<double, 1> &D_A1_X,
-	       const Array<double, 1> &D_A1_A,
-	       Array<double, 1> &D_A1_YFit) const;
+    bool Funct(const blitz::Array<double, 1> &D_A1_X,
+	       const blitz::Array<double, 1> &D_A1_A,
+	       blitz::Array<double, 1> &D_A1_YFit) const;
 
-    bool Funct(const Array<double, 1> &D_A1_X,
-	       const Array<double, 1> &D_A1_A,
-	       Array<double, 1> &D_A1_YFit,
-	       Array<double, 1> &D_A1_EZ,
-	       Array<double, 1> &D_A1_Z) const;
+    bool Funct(const blitz::Array<double, 1> &D_A1_X,
+	       const blitz::Array<double, 1> &D_A1_A,
+	       blitz::Array<double, 1> &D_A1_YFit,
+	       blitz::Array<double, 1> &D_A1_EZ,
+	       blitz::Array<double, 1> &D_A1_Z) const;
 
-    bool Funct(const Array<double, 1> &D_A1_X,
-	       const Array<double, 1> &D_A1_A,
-	       Array<double, 1> &D_A1_YFit,
-	       Array<double, 2> &D_A2_PDer) const;
+    bool Funct(const blitz::Array<double, 1> &D_A1_X,
+	       const blitz::Array<double, 1> &D_A1_A,
+	       blitz::Array<double, 1> &D_A1_YFit,
+	       blitz::Array<double, 2> &D_A2_PDer) const;
 
 /**; NAME:
 ;   GAUSS_FUNCT
@@ -2551,23 +2551,23 @@ basis machine: Ubuntu Linux 6.06
 ;
 PRO GAUSS_FUNCT,X,A,F,PDER
 **/
-    bool GaussFunct(const Array<double, 1> &D_A1_X,
-		    const Array<double, 1> &D_A1_A,
-		    Array<double, 1> &D_A1_F,
-		    Array<double, 2> &D_A2_PDer) const;
+    bool GaussFunct(const blitz::Array<double, 1> &D_A1_X,
+		    const blitz::Array<double, 1> &D_A1_A,
+		    blitz::Array<double, 1> &D_A1_F,
+		    blitz::Array<double, 2> &D_A2_PDer) const;
 
-    bool GaussFunct(const Array<double, 1> &D_A1_X,
-		    const Array<double, 1> &D_A1_A,
-		    Array<double, 1> &D_A1_F) const;
+    bool GaussFunct(const blitz::Array<double, 1> &D_A1_X,
+		    const blitz::Array<double, 1> &D_A1_A,
+		    blitz::Array<double, 1> &D_A1_F) const;
 
-    bool GaussFunct(const Array<double, 1> &D_A1_X,
-		    const Array<double, 1> &D_A1_A,
-		    Array<double, 1> &D_A1_F,
-		    Array<double, 1> &D_A1_Z,
-		    Array<double, 1> &D_A1_EZ) const;
+    bool GaussFunct(const blitz::Array<double, 1> &D_A1_X,
+		    const blitz::Array<double, 1> &D_A1_A,
+		    blitz::Array<double, 1> &D_A1_F,
+		    blitz::Array<double, 1> &D_A1_Z,
+		    blitz::Array<double, 1> &D_A1_EZ) const;
 
     void GaussFunct(double D_X,
-		    const Array<double, 1> &D_A1_A,
+		    const blitz::Array<double, 1> &D_A1_A,
 		    double D_Y) const;
 
     /**
@@ -2579,9 +2579,9 @@ PRO GAUSS_FUNCT,X,A,F,PDER
      * D_A1_Coeffs_In.size() == 9: three Gauss, no background (NOTE: Not yet implemented)
      * D_A1_Coeffs_In.size() == 10: three Gauss, constant background (NOTE: Not yet implemented)
      **/
-     bool GaussArea(const Array<double, 1> &D_A1_X_In,
-                  const Array<double, 1> &D_A1_Coeffs_In,
-                  Array<double, 1> &D_A1_YFit_Out) const;
+     bool GaussArea(const blitz::Array<double, 1> &D_A1_X_In,
+                  const blitz::Array<double, 1> &D_A1_Coeffs_In,
+                  blitz::Array<double, 1> &D_A1_YFit_Out) const;
     /**
       ValueLocate
       Returns the Start Index of the Range of the two indixes of the monotonically increasing or decreasing Vector VecArr, in which Val falls.
@@ -2595,8 +2595,8 @@ PRO GAUSS_FUNCT,X,A,F,PDER
       if 0 <= j < N-1 VecArr(j+1) <= Value(i) < VecArr(j)
       if j = N-1      Value(i) < Vector(N-1)
     **/
-    Array<int, 1>* ValueLocate(const Array<double, 1> &VecArr,
-			       const Array<double, 1> &ValArr) const;
+    blitz::Array<int, 1>* ValueLocate(const blitz::Array<double, 1> &VecArr,
+			       const blitz::Array<double, 1> &ValArr) const;
 
     /**
      * Fix(double)
@@ -2605,95 +2605,95 @@ PRO GAUSS_FUNCT,X,A,F,PDER
     int Fix(double D_In) const;
 
     /**
-      Fix(Array<double, 1> &VecArr, CString Mode)
+      Fix(blitz::Array<double, 1> &VecArr, CString Mode)
       Returns an Array of the same size containing the integer values of VecArr. If <Mode> is set to "ROUND" the double values are rounded, else cut.
     **/
-    Array<int, 1>* Fix(const Array<double, 1> &VecArr,
+    blitz::Array<int, 1>* Fix(const blitz::Array<double, 1> &VecArr,
 		       const CString &Mode) const;
 
     /**
-      Fix(Array<double, 1> &VecArr, CString Mode)
+      Fix(blitz::Array<double, 1> &VecArr, CString Mode)
       Returns an Array of the same size containing the not rounded integer values of VecArr.
     **/
-    Array<int, 1>* Fix(const Array<double, 1> &VecArr) const;
+    blitz::Array<int, 1>* Fix(const blitz::Array<double, 1> &VecArr) const;
 
       /**
-      FixDF(Array<double, 1> &VecArr, CString Mode)
+      FixDF(blitz::Array<double, 1> &VecArr, CString Mode)
       Returns an Array of the same size containing the float values of VecArr.
        **/
-      Array<float, 1>* FixDF(const Array<double, 1> &VecArr) const;
+      blitz::Array<float, 1>* FixDF(const blitz::Array<double, 1> &VecArr) const;
 
       /**
-       Fix(Array<double, 2> &Arr, CString Mode)
+       Fix(blitz::Array<double, 2> &Arr, CString Mode)
        Returns an Array of the same size containing the integer values of Arr. If <Mode> is set to "ROUND" the double values are rounded, else cut.
        **/
-      Array<int, 2>* Fix(const Array<double, 2> &Arr,
+      blitz::Array<int, 2>* Fix(const blitz::Array<double, 2> &Arr,
                          const CString &Mode) const;
 
       /**
-       Fix(Array<double, 2> &Arr)
+       Fix(blitz::Array<double, 2> &Arr)
        Returns an Array of the same size containing the not rounded integer values of Arr.
        **/
-      Array<int, 2>* Fix(const Array<double, 2> &Arr) const;
+      blitz::Array<int, 2>* Fix(const blitz::Array<double, 2> &Arr) const;
 
       /**
-      FixL(Array<double, 1> &VecArr, CString Mode)
+      FixL(blitz::Array<double, 1> &VecArr, CString Mode)
       Returns an Array of the same size containing the long integer values of VecArr. If <Mode> is set to "ROUND" the double values are rounded, else cut.
        **/
-      Array<long, 1>* FixL(const Array<double, 1> &VecArr,
+      blitz::Array<long, 1>* FixL(const blitz::Array<double, 1> &VecArr,
                            const CString &Mode) const;
 
       /**
-      FixL(Array<double, 1> &VecArr, CString Mode)
+      FixL(blitz::Array<double, 1> &VecArr, CString Mode)
       Returns an Array of the same size containing the not rounded long integer values of VecArr.
        **/
-      Array<long, 1>* FixL(const Array<double, 1> &VecArr) const;
+      blitz::Array<long, 1>* FixL(const blitz::Array<double, 1> &VecArr) const;
 
       /**
-      FixL(Array<double, 2> &Arr, CString Mode)
+      FixL(blitz::Array<double, 2> &Arr, CString Mode)
       Returns an Array of the same size containing the long integer values of Arr. If <Mode> is set to "ROUND" the double values are rounded, else cut.
        **/
-      Array<long, 2>* FixL(const Array<double, 2> &Arr,
+      blitz::Array<long, 2>* FixL(const blitz::Array<double, 2> &Arr,
                            const CString &Mode) const;
 
       /**
-      FixL(Array<double, 2> &Arr)
+      FixL(blitz::Array<double, 2> &Arr)
       Returns an Array of the same size containing the not rounded long integer values of Arr.
        **/
-      Array<long, 2>* FixL(const Array<double, 2> &Arr) const;
+      blitz::Array<long, 2>* FixL(const blitz::Array<double, 2> &Arr) const;
 
       /**
-      FixD(Array<long, 1> &VecArr)
-      Returns an Array of the same size containing the double values of Array<long, 1> Arr.
+      FixD(blitz::Array<long, 1> &VecArr)
+      Returns an Array of the same size containing the double values of blitz::Array<long, 1> Arr.
        **/
-      Array<double, 1>* FixD(const Array<long, 1> &VecArr) const;
+      blitz::Array<double, 1>* FixD(const blitz::Array<long, 1> &VecArr) const;
 
       /**
-      FixD(Array<int, 1> &VecArr)
-      Returns an Array of the same size containing the double values of Array<int, 1> Arr.
+      FixD(blitz::Array<int, 1> &VecArr)
+      Returns an Array of the same size containing the double values of blitz::Array<int, 1> Arr.
        **/
-      Array<double, 1>* FixD(const Array<int, 1> &VecArr) const;
+      blitz::Array<double, 1>* FixD(const blitz::Array<int, 1> &VecArr) const;
 
       /**
-      FixIL(Array<int, 1> &VecArr)
-      Returns an Array of the same size containing the long integer values of Array<int, 1> Arr.
+      FixIL(blitz::Array<int, 1> &VecArr)
+      Returns an Array of the same size containing the long integer values of blitz::Array<int, 1> Arr.
        **/
-      Array<long, 1>* FixIL(const Array<int, 1> &VecArr) const;
+      blitz::Array<long, 1>* FixIL(const blitz::Array<int, 1> &VecArr) const;
 
       /**
-      FixLI(Array<long, 1> &VecArr)
-      Returns an Array of the same size containing the integer values of Array<long, 1> Arr.
+      FixLI(blitz::Array<long, 1> &VecArr)
+      Returns an Array of the same size containing the integer values of blitz::Array<long, 1> Arr.
        **/
-      Array<int, 1>* FixLI(const Array<long, 1> &VecArr) const;
+      blitz::Array<int, 1>* FixLI(const blitz::Array<long, 1> &VecArr) const;
 
       double Round(const double ToRound, int DigitsBehindDot) const;
 
       int Round(const double ToRound) const;
 
-//      Array<int, 1>* Round(const Array<double, 1> D_A1_ToRound) const;
+//      blitz::Array<int, 1>* Round(const blitz::Array<double, 1> D_A1_ToRound) const;
 
       long RoundToLong(const double ToRound) const;
-      Array<int, 1>* Round(const Array<double, 1> &D_A1_ToRound_In) const;
+      blitz::Array<int, 1>* Round(const blitz::Array<double, 1> &D_A1_ToRound_In) const;
 
       /**
         NAME:
@@ -2708,22 +2708,22 @@ PRO GAUSS_FUNCT,X,A,F,PDER
             Array manipulation.
 
         CALLING SEQUENCE:
-            Uniq(Array<int, 1> IA1_In, Array<int, 1> IA1_Out)
+            Uniq(blitz::Array<int, 1> IA1_In, blitz::Array<int, 1> IA1_Out)
 
         INPUTS:
-            Array<int, 1> IA1_In:  The array to be scanned. The number of dimensions of the array is not important.  The array must be sorted into monotonic order.
+            blitz::Array<int, 1> IA1_In:  The array to be scanned. The number of dimensions of the array is not important.  The array must be sorted into monotonic order.
 
         OUTPUTS:
-            An array of indicies into ARRAY (Array<int, 1> IA1_Out) is returned.  The expression:
+            An array of indicies into ARRAY (blitz::Array<int, 1> IA1_Out) is returned.  The expression:
 
             Uniq(IA1_In, IA1_Out);
-            Array<int, 1> SubArr(this->GetSubArr(IA1_In, I_A1_Out))
+            blitz::Array<int, 1> SubArr(this->GetSubArr(IA1_In, I_A1_Out))
 
         will be a copy of the sorted Array with duplicate adjacent elements removed.
 
        **/
-      bool Uniq(const Array<int, 1> &IA1_In,
-                Array<int, 1> &IA1_Out) const;
+      bool Uniq(const blitz::Array<int, 1> &IA1_In,
+                blitz::Array<int, 1> &IA1_Out) const;
 
       /**
       CrossCorrelate
@@ -2734,15 +2734,15 @@ PRO GAUSS_FUNCT,X,A,F,PDER
             I_NPixMaxDown: Maximum number of elements DA1_Moving is shifted downwards compared to DA1_Static (>=0)
         OUT: I_Out: Number of elements DA1_Moving was shifted where ChiSq is minimal (neg: up, pos: down)
       **/
-      bool CrossCorrelate(const Array<double, 1> &DA1_Static, 
-                          const Array<double, 1> &DA1_Moving, 
+      bool CrossCorrelate(const blitz::Array<double, 1> &DA1_Static, 
+                          const blitz::Array<double, 1> &DA1_Moving, 
                           int I_NPixMaxUp, 
                           int I_NPixMaxDown, 
                           int &I_Out, 
                           double &D_ChiSquareMin_Out) const;
 
-      bool CrossCorrelate(const Array<double, 1> &DA1_Static, 
-                          const Array<double, 1> &DA1_Moving, 
+      bool CrossCorrelate(const blitz::Array<double, 1> &DA1_Static, 
+                          const blitz::Array<double, 1> &DA1_Moving, 
                           int I_NPixMaxUp, 
                           int I_NPixMaxDown, 
                           double &D_Out, 
@@ -2756,8 +2756,8 @@ PRO GAUSS_FUNCT,X,A,F,PDER
       bool CrossCorrelateAllApertureColsToColNo(int I_Col,
                                                 int I_NPixMaxUp,
                                                 int I_NPixMaxDown,
-                                                Array<int, 1> &IA1_Out,
-                                                Array<int, 2> &IA2_Out) const;
+                                                blitz::Array<int, 1> &IA1_Out,
+                                                blitz::Array<int, 2> &IA2_Out) const;
 
       /**
       CalcFeatureOffsets
@@ -2775,9 +2775,9 @@ PRO GAUSS_FUNCT,X,A,F,PDER
                               int I_NPixMaxUp,
                               int I_NPixMaxDown,
                               int I_Order,
-                              Array<int, 1> &I_A1_X_Out,
-                              Array<int, 2> &I_A2_ColsMinMax,
-                              Array<double, 1> &D_A1_Out,
+                              blitz::Array<int, 1> &I_A1_X_Out,
+                              blitz::Array<int, 2> &I_A2_ColsMinMax,
+                              blitz::Array<double, 1> &D_A1_Out,
                               const CString &CS_Mode) const;
 
       /**
@@ -2790,9 +2790,9 @@ PRO GAUSS_FUNCT,X,A,F,PDER
         D_Offset < 0: shift up
         D_Offset > 0: shift down
        **/
-      bool Shift(Array<double, 1> &D_A1_InOut,
+      bool Shift(blitz::Array<double, 1> &D_A1_InOut,
                  double D_Offset,
-                 const Array<CString, 1> &CS_A1_In) const;
+                 const blitz::Array<CString, 1> &CS_A1_In) const;
 
       /**
       ShiftColumns
@@ -2801,10 +2801,10 @@ PRO GAUSS_FUNCT,X,A,F,PDER
       D_Offset < 0: shift up
       D_Offset > 0: shift down
        **/
-      bool ShiftColumns(Array<double, 2> &D_A2_InOut,
-                        const Array<int, 1> &I_A1_Cols,
-                        const Array<double, 1> &D_A1_Offset,
-                        const Array<CString, 1> &CS_A1_In) const;
+      bool ShiftColumns(blitz::Array<double, 2> &D_A2_InOut,
+                        const blitz::Array<int, 1> &I_A1_Cols,
+                        const blitz::Array<double, 1> &D_A1_Offset,
+                        const blitz::Array<CString, 1> &CS_A1_In) const;
 
       /**
       ShiftColumns
@@ -2813,9 +2813,9 @@ PRO GAUSS_FUNCT,X,A,F,PDER
       D_Offset < 0: shift up
       D_Offset > 0: shift down
        **/
-      bool ShiftColumns(const Array<int, 1> &I_A1_Cols,
-                        const Array<double, 1> &D_A1_Offset,
-                        const Array<CString, 1> &CS_A1_In);
+      bool ShiftColumns(const blitz::Array<int, 1> &I_A1_Cols,
+                        const blitz::Array<double, 1> &D_A1_Offset,
+                        const blitz::Array<CString, 1> &CS_A1_In);
 
       /**
        CalculateFeatureOffsetAndShiftAllImages
@@ -2830,104 +2830,104 @@ PRO GAUSS_FUNCT,X,A,F,PDER
                                                    int I_NPixMaxUp,
                                                    int I_NPixMaxDown,
                                                    int I_FitOrder,
-//                                                   Array<int, 1> &I_A1_X_Out,
-//                                                   Array<int, 2> &I_A2_ColsMinMax,
-//                                                   Array<double, 1> &D_A1_Out,
+//                                                   blitz::Array<int, 1> &I_A1_X_Out,
+//                                                   blitz::Array<int, 2> &I_A2_ColsMinMax,
+//                                                   blitz::Array<double, 1> &D_A1_Out,
                                                    const CString &CS_Mode) const;
 
-      bool CastIntArrToDblArr(const Array<int, 1> &I_A1_In, Array<double, 1> &D_A1_Out) const;
-      bool CastIntArrToDblArr(const Array<int, 2> &I_A2_In, Array<double, 2> &D_A2_Out) const;
+      bool CastIntArrToDblArr(const blitz::Array<int, 1> &I_A1_In, blitz::Array<double, 1> &D_A1_Out) const;
+      bool CastIntArrToDblArr(const blitz::Array<int, 2> &I_A2_In, blitz::Array<double, 2> &D_A2_Out) const;
 
       /**
-        GetSubArrCopy(Array<double, 1> &DA1_In, Array<int, 1> &IA1_Indices, Array<double, 1> &DA1_Out) const
+        GetSubArrCopy(blitz::Array<double, 1> &DA1_In, blitz::Array<int, 1> &IA1_Indices, blitz::Array<double, 1> &DA1_Out) const
         Copies the values of DA1_In(IA1_Indices) to DA1_Out
       **/
-      bool GetSubArrCopy(const Array<double, 1> &DA1_In,
-                         const Array<int, 1> &IA1_Indices,
-                         Array<double, 1> &DA1_Out) const;
+      bool GetSubArrCopy(const blitz::Array<double, 1> &DA1_In,
+                         const blitz::Array<int, 1> &IA1_Indices,
+                         blitz::Array<double, 1> &DA1_Out) const;
 
       /**
-        GetSubArr(Array<double, 1> &DA1_In, Array<double, 1> &IA1_Indices) const
+        GetSubArr(blitz::Array<double, 1> &DA1_In, blitz::Array<double, 1> &IA1_Indices) const
         Copies the adresses of DA1_In(IA1_Indices) to DA1_Out
       **/
-      Array<double, 1>& GetSubArr(const Array<double, 1> &D_A1_In,
-                                  const Array<int, 1> &I_A1_Indices) const;
+      blitz::Array<double, 1>& GetSubArr(const blitz::Array<double, 1> &D_A1_In,
+                                  const blitz::Array<int, 1> &I_A1_Indices) const;
 
       /**
-      GetSubArrCopy(Array<int, 1> &IA1_In, Array<int, 1> &IA1_Indices, Array<int, 1> &IA1_Out) const
+      GetSubArrCopy(blitz::Array<int, 1> &IA1_In, blitz::Array<int, 1> &IA1_Indices, blitz::Array<int, 1> &IA1_Out) const
       Copies the values of IA1_In(IA1_Indices) to IA1_Out
        **/
 
-      bool GetSubArrCopy(const Array<int, 1> &IA1_In,
-                         const Array<int, 1> &IA1_Indices,
-                         Array<int, 1> &IA1_Out) const;
+      bool GetSubArrCopy(const blitz::Array<int, 1> &IA1_In,
+                         const blitz::Array<int, 1> &IA1_Indices,
+                         blitz::Array<int, 1> &IA1_Out) const;
 
       /**
-        GetSubArr(Array<int, 1> &IA1_In, Array<int, 1> &IA1_Indices,
-        Array<int, 1> &IA1_Out) const
+        GetSubArr(blitz::Array<int, 1> &IA1_In, blitz::Array<int, 1> &IA1_Indices,
+        blitz::Array<int, 1> &IA1_Out) const
         Copies the adresses of IA1_In(IA1_Indices) to IA1_Out
        **/
-      Array<int, 1>& GetSubArr(const Array<int, 1> &IA1_In,
-                               const Array<int, 1> &IA1_Indices) const;
+      blitz::Array<int, 1>& GetSubArr(const blitz::Array<int, 1> &IA1_In,
+                               const blitz::Array<int, 1> &IA1_Indices) const;
 
       /**
-        GetSubArrCopy(Array<double, 2> &DA2_In, Array<int, 1> &IA1_Indices, int I_Mode_In, Array<double, 2> &DA2_Out) const
+        GetSubArrCopy(blitz::Array<double, 2> &DA2_In, blitz::Array<int, 1> &IA1_Indices, int I_Mode_In, blitz::Array<double, 2> &DA2_Out) const
         Copies the values of DA1_In(IA1_Indices) to DA2_Out
         I_Mode_In: 0: IA1_Indices are row numbers
                    1: IA1_Indices are column numbers
        **/
-      bool GetSubArrCopy(const Array<double, 2> &DA2_In,
-                         const Array<int, 1> &IA1_Indices,
+      bool GetSubArrCopy(const blitz::Array<double, 2> &DA2_In,
+                         const blitz::Array<int, 1> &IA1_Indices,
                          int I_Mode_In,
-                         Array<double, 2> &DA2_Out) const;
+                         blitz::Array<double, 2> &DA2_Out) const;
 
       /**
-        GetSubArrCopy(Array<double, 2> &DA2_In, Array<int, 1> &IA1_Indices, int I_Mode_In, Array<double, 1> &DA1_Out) const
+        GetSubArrCopy(blitz::Array<double, 2> &DA2_In, blitz::Array<int, 1> &IA1_Indices, int I_Mode_In, blitz::Array<double, 1> &DA1_Out) const
         Copies the values of DA1_In(IA1_Indices) to DA1_Out
         I_Mode_In: 0: IA1_Indices are running numbers going through rows, then cols: rows=5, cols=7, Ind=10 => (0,2)
                    1: IA1_Indices are running numbers going through cols, then rows: rows=5, cols=7, Ind=10 => (1,3)
        **/
-      bool GetSubArrCopy(const Array<double, 2> &DA2_In,
-                         const Array<int, 1> &IA1_Indices,
+      bool GetSubArrCopy(const blitz::Array<double, 2> &DA2_In,
+                         const blitz::Array<int, 1> &IA1_Indices,
                          int I_Mode_In,
-                         Array<double, 1> &DA1_Out) const;
+                         blitz::Array<double, 1> &DA1_Out) const;
 
       /**
-        GetSubArr(Array<double, 2> &DA2_In, Array<double, 1> &IA1_Indices, int I_Mode_In) const
+        GetSubArr(blitz::Array<double, 2> &DA2_In, blitz::Array<double, 1> &IA1_Indices, int I_Mode_In) const
         Copies the adresses of DA1_In(IA1_Indices) to DA1_Out
         I_Mode_In: 0: IA1_Indices are row numbers
                    1: IA1_Indices are column numbers
                    2: IA1_Indices are running numbers going through rows, then cols: rows=5, cols=7, Ind=10 => (0,2)
                    3: IA1_Indices are running numbers going through cols, then rows: rows=5, cols=7, Ind=10 => (1,3)
       **/
-      Array<double, 2>& GetSubArr(const Array<double, 2> &D_A2_In,
-                                  const Array<int, 1> &I_A1_Indices,
+      blitz::Array<double, 2>& GetSubArr(const blitz::Array<double, 2> &D_A2_In,
+                                  const blitz::Array<int, 1> &I_A1_Indices,
                                   int I_Mode_In) const;
 
       /**
-      GetSubArrCopy(Array<int, 2> &IA2_In, Array<int, 1> &IA1_Indices, int I_Mode_In, Array<int, 2> &IA2_Out) const
+      GetSubArrCopy(blitz::Array<int, 2> &IA2_In, blitz::Array<int, 1> &IA1_Indices, int I_Mode_In, blitz::Array<int, 2> &IA2_Out) const
       Copies the values of IA1_In(IA1_Indices) to IA2_Out
         I_Mode_In: 0: IA1_Indices are row numbers
                    1: IA1_Indices are column numbers
                    **/
-      bool GetSubArrCopy(const Array<int, 2> &I_A2_In,
-                         const Array<int, 1> &I_A1_Indices,
+      bool GetSubArrCopy(const blitz::Array<int, 2> &I_A2_In,
+                         const blitz::Array<int, 1> &I_A1_Indices,
                          int I_Mode_In,
-                         Array<int, 2> &I_A2_Out) const;
+                         blitz::Array<int, 2> &I_A2_Out) const;
 
       /**
-      GetSubArrCopy(Array<int, 2> &IA2_In, Array<int, 1> &IA1_Indices, int I_Mode_In, Array<int, 1> &IA1_Out) const
+      GetSubArrCopy(blitz::Array<int, 2> &IA2_In, blitz::Array<int, 1> &IA1_Indices, int I_Mode_In, blitz::Array<int, 1> &IA1_Out) const
       Copies the values of IA1_In(IA1_Indices) to IA2_Out
         I_Mode_In: 0: IA1_Indices are running numbers going through rows, then cols: rows=5, cols=7, Ind=10 => (0,2)
                    1: IA1_Indices are running numbers going through cols, then rows: rows=5, cols=7, Ind=10 => (1,3)
        **/
-      bool GetSubArrCopy(const Array<int, 2> &I_A2_In,
-                         const Array<int, 1> &I_A1_Indices,
+      bool GetSubArrCopy(const blitz::Array<int, 2> &I_A2_In,
+                         const blitz::Array<int, 1> &I_A1_Indices,
                          int I_Mode_In,
-                         Array<int, 1> &I_A1_Out) const;
+                         blitz::Array<int, 1> &I_A1_Out) const;
 
       /**
-        GetSubArr(Array<int, 2> &IA2_In, Array<int, 1> &IA1_Indices,
+        GetSubArr(blitz::Array<int, 2> &IA2_In, blitz::Array<int, 1> &IA1_Indices,
         int I_Mode_In) const
         Copies the adresses of IA2_In(IA1_Indices) to IA1_Out
         I_Mode_In: 0: IA1_Indices are row numbers
@@ -2935,33 +2935,33 @@ PRO GAUSS_FUNCT,X,A,F,PDER
                    2: IA1_Indices are running numbers going through rows, then cols: rows=5, cols=7, Ind=10 => (0,2)
                    3: IA1_Indices are running numbers going through cols, then rows: rows=5, cols=7, Ind=10 => (1,3)
        **/
-      Array<int, 2>& GetSubArr(const Array<int, 2> &I_A2_In,
-                               const Array<int, 1> &IA1_Indices,
+      blitz::Array<int, 2>& GetSubArr(const blitz::Array<int, 2> &I_A2_In,
+                               const blitz::Array<int, 1> &IA1_Indices,
                                int I_Mode_In) const;
 
       /**
-        GetSubArr(Array<double, 2> &DA1_In, Array<int, 3> &I_A3_Indices) const
+        GetSubArr(blitz::Array<double, 2> &DA1_In, blitz::Array<int, 3> &I_A3_Indices) const
         Copies the adresses of D_A2_In(I_A3_Indices(row,col,0), I_A3_Indices(row,col,1)) to D_A2_Out
       **/
-      Array<double, 2>& GetSubArr(const Array<double, 2> &D_A2_In,
-                                  const Array<int, 3> &I_A3_Indices) const;
+      blitz::Array<double, 2>& GetSubArr(const blitz::Array<double, 2> &D_A2_In,
+                                  const blitz::Array<int, 3> &I_A3_Indices) const;
 
       /**
-        GetSubArr(Array<int, 2> &I_A2_In, Array<int, 1> &I_A3_Indices) const
+        GetSubArr(blitz::Array<int, 2> &I_A2_In, blitz::Array<int, 1> &I_A3_Indices) const
         Copies the adresses of I_A1_In(I_A3_Indices(row,col,0), I_A3_Indices(row,col,1)) to I_A2_Out
       **/
-      Array<int, 2>& GetSubArr(const Array<int, 2> &I_A2_In,
-                               const Array<int, 3> &I_A3_Indices) const;
+      blitz::Array<int, 2>& GetSubArr(const blitz::Array<int, 2> &I_A2_In,
+                               const blitz::Array<int, 3> &I_A3_Indices) const;
 
-      bool GetSubArrCopy(const Array<double, 2> &D_A2_In,
-                         const Array<int, 2> &I_A2_Indices,
-                         Array<double, 1> &D_A1_Out) const;
+      bool GetSubArrCopy(const blitz::Array<double, 2> &D_A2_In,
+                         const blitz::Array<int, 2> &I_A2_Indices,
+                         blitz::Array<double, 1> &D_A1_Out) const;
 
       /**
         Find
-        Returns and Array<int, 1> containing the
+        Returns and blitz::Array<int, 1> containing the
       **
-      Array<int,1>* Find(const TinyVector<int,1> &I_TV_Index) const;**/
+      blitz::Array<int,1>* Find(const TinyVector<int,1> &I_TV_Index) const;**/
 
       /**
        Ceil(double D_In)
@@ -2971,11 +2971,11 @@ PRO GAUSS_FUNCT,X,A,F,PDER
       long Ceil(double D_In) const;
 
       /**
-      Ceil(Array<double, 1> D_A1_In)
+      Ceil(blitz::Array<double, 1> D_A1_In)
       Returns the closest long integer greater than or equal to its
       argument.
        **/
-      Array<long, 1>* Ceil(Array<double, 1> &D_A1_In) const;
+      blitz::Array<long, 1>* Ceil(blitz::Array<double, 1> &D_A1_In) const;
 
       /**
       Floor(double D_In)
@@ -2985,11 +2985,11 @@ PRO GAUSS_FUNCT,X,A,F,PDER
       long Floor(double D_In) const;
 
       /**
-      Floor(Array<double, 1> D_A1_In)
+      Floor(blitz::Array<double, 1> D_A1_In)
       Returns the closest long integer lower than or equal to its
       argument.
        **/
-      Array<long, 1>* Floor(Array<double, 1> &D_A1_In) const;
+      blitz::Array<long, 1>* Floor(blitz::Array<double, 1> &D_A1_In) const;
 
       /**
       Signum(double D_In)
@@ -2998,11 +2998,11 @@ PRO GAUSS_FUNCT,X,A,F,PDER
       int Signum(double D_In) const;
 
       /**
-      SortIndices(Array<double, 1> D_A1_In)
+      SortIndices(blitz::Array<double, 1> D_A1_In)
       Returns an integer array of the same size like <D_A1_In>,
       containing the indixes of <D_A1_In> in sorted order.
        **/
-      Array<int, 1>* SortIndices(const Array<double, 1> &D_A1_In) const;
+      blitz::Array<int, 1>* SortIndices(const blitz::Array<double, 1> &D_A1_In) const;
 
       /** Show methods:
           =============
@@ -3028,7 +3028,7 @@ PRO GAUSS_FUNCT,X,A,F,PDER
        *      task: Writes Array <I_A1_In> to file <CS_FileName_In>
        *      CS_Mode: [binary, ascii]
        **/
-      bool WriteArrayToFile(const Array<int, 1> &I_A1_In,
+      bool WriteArrayToFile(const blitz::Array<int, 1> &I_A1_In,
                             const CString &CS_FileName_In,
                             const CString &CS_Mode) const;
 
@@ -3036,7 +3036,7 @@ PRO GAUSS_FUNCT,X,A,F,PDER
       task: Writes Array <D_A1_In> to file <CS_FileName_In>
       CS_Mode: [binary, ascii]
        **/
-      bool WriteArrayToFile(const Array<double, 1> &D_A1_In,
+      bool WriteArrayToFile(const blitz::Array<double, 1> &D_A1_In,
                             const CString &CS_FileName_In,
                             const CString &CS_Mode) const;
 
@@ -3044,7 +3044,7 @@ PRO GAUSS_FUNCT,X,A,F,PDER
       task: Writes Array <D_A2_In> to file <CS_FileName_In>
       CS_Mode: [binary, ascii]
        **/
-      bool WriteArrayToFile(const Array<double, 2> &D_A2_In,
+      bool WriteArrayToFile(const blitz::Array<double, 2> &D_A2_In,
                             const CString &CS_FileName_In,
                             const CString &CS_Mode) const;
 
@@ -3052,124 +3052,124 @@ PRO GAUSS_FUNCT,X,A,F,PDER
       task: Writes Array <I_A2_In> to file <CS_FileName_In>
       CS_Mode: [binary, ascii]
        **/
-      bool WriteArrayToFile(const Array<int, 2> &D_A2_In,
+      bool WriteArrayToFile(const blitz::Array<int, 2> &D_A2_In,
                             const CString &CS_FileName_In,
                             const CString &CS_Mode) const;
 
       /**
         function Bubble Sort
        **/
-      Array<int, 1>* BubbleSort(const Array<int, 1> &I_A1_ArrIn) const;
-      Array<double, 1>* BubbleSort(const Array<double, 1> &D_A1_ArrIn) const;
+      blitz::Array<int, 1>* BubbleSort(const blitz::Array<int, 1> &I_A1_ArrIn) const;
+      blitz::Array<double, 1>* BubbleSort(const blitz::Array<double, 1> &D_A1_ArrIn) const;
 
       /**
         function Sort - seems faster than Bubble Sort
         **/
-      Array<double, 1>* Sort(const Array<double, 1> &D_A1_ArrIn) const;
+      blitz::Array<double, 1>* Sort(const blitz::Array<double, 1> &D_A1_ArrIn) const;
 
       /**
         function CountPixGTZero
         replaces input vector with vector of the same size where values are zero where the input vector is zero and all other values represent the number of non-zero values since the last zero value
        **/
-      bool CountPixGTZero(Array<int, 1> &I_A1_VecInOut) const;
+      bool CountPixGTZero(blitz::Array<int, 1> &I_A1_VecInOut) const;
 
       /**
         function FirstIndexWithValueGE
         returns first index of integer input vector where value is greater than or equal to I_MinValue
         returns -1 if values are always smaller than I_MinValue
        **/
-      int FirstIndexWithValueGE(const Array<int, 1> &I_A1_VecIn, const int I_MinValue) const;
+      int FirstIndexWithValueGE(const blitz::Array<int, 1> &I_A1_VecIn, const int I_MinValue) const;
 
       /**
        *        function FirstIndexWithValueGE
        *        returns first index of double input vector where value is greater than or equal to D_MinValue_In
        *        returns -1 if values are always smaller than D_MinValue_In
        **/
-      int FirstIndexWithValueGE(const Array<double, 1> &D_A1_VecIn, const double D_MinValue_In) const;
+      int FirstIndexWithValueGE(const blitz::Array<double, 1> &D_A1_VecIn, const double D_MinValue_In) const;
 
       /**
         function FirstIndexWithValueGEFrom
         returns first index of integer input vector where value is greater than or equal to I_MinValue, starting at index I_FromIndex
         returns -1 if values are always smaller than I_MinValue
        **/
-      int FirstIndexWithValueGEFrom(const Array<int, 1> &I_A1_VecIn, const int I_MinValue, const int I_FromIndex) const;
+      int FirstIndexWithValueGEFrom(const blitz::Array<int, 1> &I_A1_VecIn, const int I_MinValue, const int I_FromIndex) const;
 
       /**
        *        function FirstIndexWithValueGEFrom
        *        returns first index of double input vector where value is greater than or equal to D_MinValue_In, starting at index I_FromIndex
        *        returns -1 if values are always smaller than D_MinValue_In
        **/
-      int FirstIndexWithValueGEFrom(const Array<double, 1> &D_A1_VecIn, const double D_MinValue_In, const int I_FromIndex) const;
+      int FirstIndexWithValueGEFrom(const blitz::Array<double, 1> &D_A1_VecIn, const double D_MinValue_In, const int I_FromIndex) const;
 
       /**
         function FirstIndexWithValueGT
         returns first index of integer input vector where value is greater than I_MinValue
         returns -1 if values are always smaller than or equal to I_MinValue
        **/
-      int FirstIndexWithValueGT(const Array<int, 1> &I_A1_VecIn, const int I_MinValue) const;
+      int FirstIndexWithValueGT(const blitz::Array<int, 1> &I_A1_VecIn, const int I_MinValue) const;
 
       /**
        *        function FirstIndexWithValueGT
        *        returns first index of double input vector where value is greater than D_MinValue_In
        *        returns -1 if values are always smaller than or equal to D_MinValue_In
        **/
-      int FirstIndexWithValueGT(const Array<double, 1> &D_A1_VecIn, const double D_MinValue_In) const;
+      int FirstIndexWithValueGT(const blitz::Array<double, 1> &D_A1_VecIn, const double D_MinValue_In) const;
 
       /**
         function FirstIndexWithValueGTFrom
         returns first index of integer input vector where value is greater than I_MinValue, starting at index I_FromIndex
         returns -1 if values are always smaller than or equal to I_MinValue
        **/
-      int FirstIndexWithValueGTFrom(const Array<int, 1> &I_A1_VecIn, const int I_MinValue, const int I_FromIndex) const;
+      int FirstIndexWithValueGTFrom(const blitz::Array<int, 1> &I_A1_VecIn, const int I_MinValue, const int I_FromIndex) const;
 
       /**
        *        function FirstIndexWithValueGTFrom
        *        returns first index of double input vector where value is greater than D_MinValue_In, starting at index I_FromIndex
        *        returns -1 if values are always smaller than or equal to D_MinValue_In
        **/
-      int FirstIndexWithValueGTFrom(const Array<double, 1> &D_A1_VecIn, const double D_MinValue_In, const int I_FromIndex) const;
+      int FirstIndexWithValueGTFrom(const blitz::Array<double, 1> &D_A1_VecIn, const double D_MinValue_In, const int I_FromIndex) const;
 
       /**
         function LastIndexWithZeroValueBefore
         returns last index of integer input vector where value is equal to zero, starting at index I_StartPos
         returns -1 if values are always greater than 0 before I_StartPos
        **/
-      int LastIndexWithZeroValueBefore(const Array<int, 1> &I_A1_VecIn, const int I_StartPos) const;
+      int LastIndexWithZeroValueBefore(const blitz::Array<int, 1> &I_A1_VecIn, const int I_StartPos) const;
 
       /**
        *        function LastIndexWithZeroValueBefore
        *        returns last index of double input vector where value is equal to zero, starting at index I_StartPos
        *        returns -1 if values are always greater than 0 before I_StartPos
        **/
-      int LastIndexWithZeroValueBefore(const Array<double, 1> &D_A1_VecIn, const int I_StartPos) const;
+      int LastIndexWithZeroValueBefore(const blitz::Array<double, 1> &D_A1_VecIn, const int I_StartPos) const;
 
       /**
         function FirstIndexWithZeroValueFrom
         returns first index of integer input vector where value is equal to zero, starting at index I_StartPos
         returns -1 if values are always greater than 0 past I_StartPos
        **/
-      int FirstIndexWithZeroValueFrom(const Array<int, 1> &I_A1_VecIn, const int I_StartPos) const;
+      int FirstIndexWithZeroValueFrom(const blitz::Array<int, 1> &I_A1_VecIn, const int I_StartPos) const;
 
       /**
        *        function FirstIndexWithZeroValueFrom
        *        returns first index of double input vector where value is equal to zero, starting at index I_StartPos
        *        returns -1 if values are always greater than 0 past I_StartPos
        **/
-      int FirstIndexWithZeroValueFrom(const Array<double, 1> &D_A1_VecIn, const int I_StartPos) const;
+      int FirstIndexWithZeroValueFrom(const blitz::Array<double, 1> &D_A1_VecIn, const int I_StartPos) const;
 
       /**
        *        function LastIndexWithNonZeroValueBefore
        *        returns last index of integer input vector where value is not equal to zero, starting at index I_StartPos
        *        returns -1 if values are always equal to 0 before I_StartPos
        **/
-      int LastIndexWithNonZeroValueBefore(const Array<int, 1> &I_A1_VecIn, const int I_StartPos) const;
+      int LastIndexWithNonZeroValueBefore(const blitz::Array<int, 1> &I_A1_VecIn, const int I_StartPos) const;
 
       /**
        *        function LastIndexWithNonZeroValueBefore
        *        returns last index of double input vector where value is not equal to zero, starting at index I_StartPos
        *        returns -1 if values are always equal to 0 before I_StartPos
        **/
-      int LastIndexWithNonZeroValueBefore(const Array<double, 1> &D_A1_VecIn, const int I_StartPos) const;
+      int LastIndexWithNonZeroValueBefore(const blitz::Array<double, 1> &D_A1_VecIn, const int I_StartPos) const;
 
       /**
        function GetRowFromIndex(int I_Index_In, int I_NRows_In) const
@@ -3187,46 +3187,46 @@ PRO GAUSS_FUNCT,X,A,F,PDER
        **/
       int GetColFromIndex(int I_Index_In, int I_NRows_In) const;
 
-      bool InsertAt(Array<double,1> *P_D_A1_In, double D_ToInsert, int I_Pos) const;
-      bool InsertAt(Array<int,1> *P_D_A1_In, int D_ToInsert, int I_Pos) const;
+      bool InsertAt(blitz::Array<double,1> *P_D_A1_In, double D_ToInsert, int I_Pos) const;
+      bool InsertAt(blitz::Array<int,1> *P_D_A1_In, int D_ToInsert, int I_Pos) const;
 
       /**
         Returns Indexes of I_A1_Where where I_A1_Where equals 1 and writes sum(I_A1_Where) to I_NInd_Out
       **/
-      Array<int,1>* GetIndex(const Array<int,1> &I_A1_Where, int &I_NInd_Out) const;
+      blitz::Array<int,1>* GetIndex(const blitz::Array<int,1> &I_A1_Where, int &I_NInd_Out) const;
 
       /**
       Returns Indexes of I_A1_Where where I_A1_Where equals 1 and writes sum(I_A1_Where) to I_NInd_Out
        **/
-      bool GetIndex(const Array<int,1> &I_A1_Where, int &I_NInd_Out, Array<int, 1> &I_IndArr_Out) const;
+      bool GetIndex(const blitz::Array<int,1> &I_A1_Where, int &I_NInd_Out, blitz::Array<int, 1> &I_IndArr_Out) const;
 
       /**
       Returns Indexes of I_A2_Where where I_A2_Where equals 1 and writes sum(I_A2_Where) to I_NInd_Out
-      Array<int, 2> *P_I_A2_Out(I_NInd_Out, 2)
+      blitz::Array<int, 2> *P_I_A2_Out(I_NInd_Out, 2)
       **/
-      Array<int,2>* GetIndex(const Array<int,2> &I_A2_Where, int &I_NInd_Out) const;
+      blitz::Array<int,2>* GetIndex(const blitz::Array<int,2> &I_A2_Where, int &I_NInd_Out) const;
 
       /**
       Returns Indexes of I_A2_Where where I_A2_Where equals 1 and writes sum(I_A2_Where) to I_NInd_Out
-      Array<int, 2> I_IndArr_Out(I_NInd_Out, 2)
+      blitz::Array<int, 2> I_IndArr_Out(I_NInd_Out, 2)
       **/
-      bool GetIndex(const Array<int,2> &I_A2_Where, int &I_NInd_Out, Array<int, 2> &I_IndArr_Out) const;
+      bool GetIndex(const blitz::Array<int,2> &I_A2_Where, int &I_NInd_Out, blitz::Array<int, 2> &I_IndArr_Out) const;
 
       /**
-      Returns I_TV_Index as Array<int,1>
+      Returns I_TV_Index as blitz::Array<int,1>
        **/
-      Array<int,1>* MaxIndex(TinyVector<int,1> &I_TV_Index) const;
+      blitz::Array<int,1>* MaxIndex(TinyVector<int,1> &I_TV_Index) const;
 
       /**
-      Returns I_A1_Index as Array<int,2>
+      Returns I_A1_Index as blitz::Array<int,2>
       I_Mode == 0: IA1_Indices are running numbers going through rows, then cols: rows=5, cols=7, Ind=10 => (0,2)
                 1: IA1_Indices are running numbers going through cols, then rows: rows=5, cols=7, Ind=10 => (1,3) **/
-      bool A1ToA2(Array<int,1> &I_A1_Indices, int I_NRows, int I_NCols, Array<int,2>& I_A2_Out, int I_Mode) const;
+      bool A1ToA2(blitz::Array<int,1> &I_A1_Indices, int I_NRows, int I_NCols, blitz::Array<int,2>& I_A2_Out, int I_Mode) const;
 
       /**
         Returns integer array containing the number of elements in D_A1_In within bin i
       **/
-      Array<int, 1>* Histogram(const Array<double,1> &D_A1_In, double D_BinSize_In) const;
+      blitz::Array<int, 1>* Histogram(const blitz::Array<double,1> &D_A1_In, double D_BinSize_In) const;
 
       /**
        Helper function to calculate incomplete Gamma Function
@@ -3256,7 +3256,7 @@ PRO GAUSS_FUNCT,X,A,F,PDER
       /**
       Solves A*X=B for a vector X, where A is specified by the Arrays U[0...M-1][0...N-1], W[0...N-1], V[0...N-1][0...N-1] as returned by SVDCMP. M and N are the dimensions of A, and will be equal for square matrices. B[0...M-1] is the input right-hand side. X[0...N-1] is the output solution vector. No input quantities are destroyed, so the routine may be called sequentially with different B's.
        **/
-      bool SVBKSB(const Array<double, 2> &U, const Array<double, 1> &W, const Array<double, 2> &V, int M, int N, const Array<double, 1> &B, Array<double, 1> &X) const;
+      bool SVBKSB(const blitz::Array<double, 2> &U, const blitz::Array<double, 1> &W, const blitz::Array<double, 2> &V, int M, int N, const blitz::Array<double, 1> &B, blitz::Array<double, 1> &X) const;
 
       /**
       Given a matrix a[0..m-1][0..n-1], this routine computes its singular value
@@ -3264,7 +3264,7 @@ PRO GAUSS_FUNCT,X,A,F,PDER
       matrix of singular values W is output as a vector W[0..n-1].  The matrix V (not
       the transpose VT) is output as V[0..N-1][0..N-1].
        **/
-      bool SVDCMP(Array<double, 2> &A, int M, int N, Array<double, 1> &W, Array<double, 2> &V) const;
+      bool SVDCMP(blitz::Array<double, 2> &A, int M, int N, blitz::Array<double, 1> &W, blitz::Array<double, 2> &V) const;
 
       /**
       Computes sqrt(a^2 + b^2) without distructive underflow or overflow
@@ -3274,53 +3274,53 @@ PRO GAUSS_FUNCT,X,A,F,PDER
       /**
       Given a set of data points X[0..n-1], Y[0..n-1] with individual standard deviations Sig[0..n-1], use Chi^2 minimization to determine the coefficients a[0..ma-1] of the fitting function y = sum(a_i * aFunc_i(X), i). Here we solve the fitting equations using singular value decomposition of the n by ma matrix, as in $2.6. Arrays U[0..n-1][0..ma-1], V[0..ma-1][0..ma-1], and W[0..ma] provide workspace on input; on output they define the singular value decomposition, and can be used to obtain the covariance matrix. The program returns values for the ma fit parameters A, and Chi^2, ChiSq. The user supplies a routine Funcs(X, AFunc, ma) that returns the ma basis functions evaluated at x = X in the array AFunc[0..ma].
        **/
-      bool SVDFit(const Array<double, 1> &X,
-		  const Array<double, 1> &Y,
-		  const Array<double, 1> &Sig,
-		  Array<double, 1> &A,
-		  Array<double, 2> &U,
-		  Array<double, 2> &V,
-		  Array<double, 1> &W,
-		  Array<double, 1> &ChiSq,
-		  void (*Funcs)(double, Array<double, 1>, int)) const;
+      bool SVDFit(const blitz::Array<double, 1> &X,
+		  const blitz::Array<double, 1> &Y,
+		  const blitz::Array<double, 1> &Sig,
+		  blitz::Array<double, 1> &A,
+		  blitz::Array<double, 2> &U,
+		  blitz::Array<double, 2> &V,
+		  blitz::Array<double, 1> &W,
+		  blitz::Array<double, 1> &ChiSq,
+		  void (*Funcs)(double, blitz::Array<double, 1>, int)) const;
 
       bool ReadFileToStrArr(const CString &CS_FileName_In,
-                            Array<CString, 2> &CS_A2_Out,
+                            blitz::Array<CString, 2> &CS_A2_Out,
                             const CString &CS_Delimiter) const;
 
       bool ReadFileToDblArr(const CString &CS_FileName_In,
-                            Array<double, 2> &D_A2_Out,
+                            blitz::Array<double, 2> &D_A2_Out,
                             const CString &CS_Delimiter) const;
 
       bool ReadFileLinesToStrArr(const CString &CS_FileName_In,
-                                 Array<CString, 1> &CS_A1_Out) const;
+                                 blitz::Array<CString, 1> &CS_A1_Out) const;
 
-      bool BoxCarFilter(Array<double, 2> D_A2_Data_InOut,
+      bool BoxCarFilter(blitz::Array<double, 2> D_A2_Data_InOut,
                         int I_BoxCarWidth_In,
                         bool B_IgnoreZeros_In) const;
 
       bool Set_ApertureDataToZero(const int I_PlusNPixels_X, const int I_PlusNPixels_Y);
-      bool Set_ApertureDataToZero(Array<double, 2> &D_A2_InOut, const int I_PlusNPixels_X, const int I_PlusNPixels_Y) const;
+      bool Set_ApertureDataToZero(blitz::Array<double, 2> &D_A2_InOut, const int I_PlusNPixels_X, const int I_PlusNPixels_Y) const;
 
       ///Mode: 0: Median
       ///      1: Mean
-      bool FindNonZeroClusters(Array<double, 2> &D_A2_InOut_PixArray,
+      bool FindNonZeroClusters(blitz::Array<double, 2> &D_A2_InOut_PixArray,
                                int I_In_BoxSize_X,
                                int I_In_BoxSize_Y,
                                int I_In_Mode,
-                               Array<double, 2> &D_A2_Out) const;
+                               blitz::Array<double, 2> &D_A2_Out) const;
 
       /// Sets Pixel values to zero and the centers of the Rectangles to the mean value of the Rectangle
       bool FindMeanValuesOfRectangles(int I_In_WidthX, int I_In_WidthY);
 
-      bool ScaleImageToFitBackground(const Array<double, 2> &D_A2_Scatter_In,
+      bool ScaleImageToFitBackground(const blitz::Array<double, 2> &D_A2_Scatter_In,
                                      double &D_Fact_Out) const;
 
-      bool ScaleImageToFitBackground(const Array<double, 2> &D_A2_Image,
-                                     const Array<double, 2> &D_A2_Scatter_In,
+      bool ScaleImageToFitBackground(const blitz::Array<double, 2> &D_A2_Image,
+                                     const blitz::Array<double, 2> &D_A2_Scatter_In,
                                      double &D_Fact_Out) const;
 
-      Array<double, 1>* MakeVector(const Array<double, 2> &D_A2_In) const;
+      blitz::Array<double, 1>* MakeVector(const blitz::Array<double, 2> &D_A2_In) const;
 
       /// Calculate Scattered Light using Kriging Algorithm
       /// IntArr_ClusterSizes_X_Y_In: Array(NClusterRuns, 2)
@@ -3332,13 +3332,13 @@ PRO GAUSS_FUNCT,X,A,F,PDER
       /// FileName_Clustered_Out=<CString>
       /// FileName_ScatterFit_Out=<CString>
 
-      bool CalcScatterKriging(const Array<int, 2> &IntArr_ClusterSizes_X_Y_In,
+      bool CalcScatterKriging(const blitz::Array<int, 2> &IntArr_ClusterSizes_X_Y_In,
                               const int I_AddNPixToAp_X,
                               const int I_AddNPixToAp_Y,
                               const int I_NRectangles_X,
                               const int I_NRectangles_Y,
-                              Array<double, 2> &D_A2_ScatteredLight_Out,
-                              Array<CString, 1> &CS_A1_Args_In,
+                              blitz::Array<double, 2> &D_A2_ScatteredLight_Out,
+                              blitz::Array<CString, 1> &CS_A1_Args_In,
                               void *PP_Args_In[]) const;
 
       /// Estimate Scattered Light using Kriging Algorithm by taking the minimum value per rectangle
@@ -3347,30 +3347,30 @@ PRO GAUSS_FUNCT,X,A,F,PDER
       /// I_NRectangles_Y: number of rectangles in Y direction
       bool EstScatterKriging(const int I_NRectangles_X,
                              const int I_NRectangles_Y,
-                             Array<double, 2> &D_A2_ScatteredLight_Out);//,
-//                             Array<CString, 1> &CS_A1_Args_In,
+                             blitz::Array<double, 2> &D_A2_ScatteredLight_Out);//,
+//                             blitz::Array<CString, 1> &CS_A1_Args_In,
 //                             void *PP_Args_In[]) const;
 
       bool EstScatterKriging(const int I_NRectangles_X,
                              const int I_NRectangles_Y,
-                             Array<double, 2> &D_A2_ScatteredLight_Out,
-                             Array<CString, 1> &CS_A1_Args_In,
+                             blitz::Array<double, 2> &D_A2_ScatteredLight_Out,
+                             blitz::Array<CString, 1> &CS_A1_Args_In,
                              void *PP_Args_In[]) const;
-                              /// AREA = Array<int, 1>(4) 0: I_XMin, 1: I_XMax, 2: I_YMin, 3: I_YMax
+                              /// AREA = blitz::Array<int, 1>(4) 0: I_XMin, 1: I_XMax, 2: I_YMin, 3: I_YMax
 
-      bool EstScatterKriging(const Array<double, 2> &D_A2_PixArray_In,
+      bool EstScatterKriging(const blitz::Array<double, 2> &D_A2_PixArray_In,
                              const int I_NRectangles_X,
                              const int I_NRectangles_Y,
-                             Array<double, 2> &D_A2_ScatteredLight_Out,
-                             Array<CString, 1> &CS_A1_Args_In,
+                             blitz::Array<double, 2> &D_A2_ScatteredLight_Out,
+                             blitz::Array<CString, 1> &CS_A1_Args_In,
                              void *PP_Args_In[]) const;
-                              /// AREA = Array<int, 1>(4) 0: I_XMin, 1: I_XMax, 2: I_YMin, 3: I_YMax
+                              /// AREA = blitz::Array<int, 1>(4) 0: I_XMin, 1: I_XMax, 2: I_YMin, 3: I_YMax
 
       /**
        * WriteApToFile
        * Writes aperture I_Aperture_In from double array D_A2_Spectra_In(NApertures, NRows), using aperture definitions of this (YCenter, YLow, YHigh), to fits file CS_FitsFileName_Out
        **/
-      bool WriteApToFile(const Array<double, 2> &D_A2_Spectra_In,
+      bool WriteApToFile(const blitz::Array<double, 2> &D_A2_Spectra_In,
                          const int I_Aperture_In,
                          const CString &CS_FitsFileName_Out) const;
 
@@ -3380,9 +3380,9 @@ PRO GAUSS_FUNCT,X,A,F,PDER
        * + fits polynomials to Stretches and Shifts with 3sigma rejection
        * + applies shifts and stretches to D_A2_LineList_WLenPix_In to calculate D_A2_LineList_WLenPix_Out
        **/
-      bool StretchAndCrossCorrelateSpec(const Array<double, 1> &D_A1_Spec_In,
-                                        const Array<double, 1> &D_A1_SpecRef_In,
-                                        const Array<double, 2> &D_A2_LineList_WLenPix_In,
+      bool StretchAndCrossCorrelateSpec(const blitz::Array<double, 1> &D_A1_Spec_In,
+                                        const blitz::Array<double, 1> &D_A1_SpecRef_In,
+                                        const blitz::Array<double, 2> &D_A2_LineList_WLenPix_In,
                                         const int I_Radius_XCor_In,
                                         const int I_Stretch_Min_Length_In,
                                         const int I_Stretch_Max_Length_In,
@@ -3392,17 +3392,17 @@ PRO GAUSS_FUNCT,X,A,F,PDER
                                         const int I_PolyFitOrder_Stretch_In,
                                         const int I_PolyFitOrder_Shift_In,
                                         const CString &CS_FName_In,
-                                        Array<double, 2> &D_A2_LineList_WLenPix_Out) const;
+                                        blitz::Array<double, 2> &D_A2_LineList_WLenPix_Out) const;
 
-      bool StretchAndCrossCorrelate(const Array<double, 1> &D_A1_Spec_In,
-                                    const Array<double, 1> &D_A1_SpecRef_In,
+      bool StretchAndCrossCorrelate(const blitz::Array<double, 1> &D_A1_Spec_In,
+                                    const blitz::Array<double, 1> &D_A1_SpecRef_In,
                                     const int I_Radius_XCor_In,
                                     const int I_Stretch_Min_Length_In,
                                     const int I_Stretch_Max_Length_In,
                                     const int I_N_Stretches_In,
                                     double &D_Stretch_Out,
                                     double &D_Shift_Out,
-                                    Array<double, 2> &D_A2_SpecStretched_MinChiSq) const;
+                                    blitz::Array<double, 2> &D_A2_SpecStretched_MinChiSq) const;
 
       /**
        * Identify
@@ -3417,120 +3417,120 @@ PRO GAUSS_FUNCT,X,A,F,PDER
        * to keep in case a weak line close to a strong line gets wrongly identified as the strong
        * line
        **/
-      bool Identify(const Array<double, 1> &D_A1_Spec_In,
-                    const Array<double, 2> &D_A2_LineList_In,
+      bool Identify(const blitz::Array<double, 1> &D_A1_Spec_In,
+                    const blitz::Array<double, 2> &D_A2_LineList_In,
                     const int I_Radius_In,
                     const double D_FWHM_In,
                     const int I_PolyFitOrder_In,
                     const CString &CS_FName_In,
-                    Array<double, 2> &D_A2_CalibratedSpec_Out,
-                    Array<double, 1> &D_A1_PolyFitCoeffs_Out,
+                    blitz::Array<double, 2> &D_A2_CalibratedSpec_Out,
+                    blitz::Array<double, 1> &D_A1_PolyFitCoeffs_Out,
                     double &D_RMS_Out,
-		    Array<double, 2> &D_A2_PixWLen_Out) const;
+		    blitz::Array<double, 2> &D_A2_PixWLen_Out) const;
 
       /**
        * DispCor
        * Applies dispersion correction to spectrum and returns wavelength-calibrated
        * two-dimensional spectrum (D_A1_Spec_In.size(), 2) [WLen, Flux]
        **/
-      bool DispCor(const Array<double, 1> &D_A1_Spec_In,
-                   const Array<double, 1> &D_A1_PolyFitCoeffs_In,
-                   Array<double, 2> &D_A2_Spec_Out);
+      bool DispCor(const blitz::Array<double, 1> &D_A1_Spec_In,
+                   const blitz::Array<double, 1> &D_A1_PolyFitCoeffs_In,
+                   blitz::Array<double, 2> &D_A2_Spec_Out);
 
       /**
        * apply pixel shift to index positions (<0: shift object spectra down, >0: shift object spectra up)
        **/
-      bool DispCor(const Array<double, 1> &D_A1_Spec_In,
-                   const Array<double, 1> &D_A1_PolyFitCoeffs_In,
+      bool DispCor(const blitz::Array<double, 1> &D_A1_Spec_In,
+                   const blitz::Array<double, 1> &D_A1_PolyFitCoeffs_In,
                    const double D_PixShift_In,
-                   Array<double, 2> &D_A2_Spec_Out);
+                   blitz::Array<double, 2> &D_A2_Spec_Out);
       
       /**
        * NOTE: Use only when P_D_A2_PixArray contains the spectra in the format
        * (I_NApertures, I_NRows)
        * Writes wavelengths for each spectrum to P_D_A2_WLen
        */
-      bool DispCorList(const Array<CString, 1>& CS_A1_TextFiles_Coeffs_In,
-                       const Array<CString, 1>& CS_A1_TextFiles_EcD_Out,
+      bool DispCorList(const blitz::Array<CString, 1>& CS_A1_TextFiles_Coeffs_In,
+                       const blitz::Array<CString, 1>& CS_A1_TextFiles_EcD_Out,
                        const double D_MaxRMS_In);
 
-      bool DispCorList(const Array<CString, 1>& CS_A1_TextFiles_Coeffs_In,
-                       const Array<CString, 1>& CS_A1_TextFiles_EcD_Out,
+      bool DispCorList(const blitz::Array<CString, 1>& CS_A1_TextFiles_Coeffs_In,
+                       const blitz::Array<CString, 1>& CS_A1_TextFiles_EcD_Out,
                        const double D_MaxRMS_In,
-                       const Array<int, 1> &I_A1_Apertures);
+                       const blitz::Array<int, 1> &I_A1_Apertures);
 
       /**
        * Apply pixel shift to original object spectra
        **/      
-      bool DispCorList(const Array<CString, 1>& CS_A1_TextFiles_Coeffs_In,
-                       const Array<CString, 1>& CS_A1_TextFiles_EcD_Out,
+      bool DispCorList(const blitz::Array<CString, 1>& CS_A1_TextFiles_Coeffs_In,
+                       const blitz::Array<CString, 1>& CS_A1_TextFiles_EcD_Out,
                        const double D_MaxRMS_In,
                        const double D_PixShift_In,
-                       const Array<int, 1> &I_A1_Apertures);
+                       const blitz::Array<int, 1> &I_A1_Apertures);
       
-      bool RebinTextList(const Array<CString, 1> &CS_A1_TextFileNames_EcD_List_In,
-                         const Array<CString, 1> &CS_A1_TextFileNames_EcDR_List_Out,
+      bool RebinTextList(const blitz::Array<CString, 1> &CS_A1_TextFileNames_EcD_List_In,
+                         const blitz::Array<CString, 1> &CS_A1_TextFileNames_EcDR_List_Out,
                          const CString &CS_FitsFileName_EcDR_Out,
                          double D_Lambda_Start,
                          double D_Lambda_End,
                          double D_DLambda) const;
 
-      bool RebinTextList(const Array<CString, 1> &CS_A1_TextFileNames_EcD_List_In,
-                         const Array<CString, 1> &CS_A1_TextFileNames_EcDR_List_Out,
+      bool RebinTextList(const blitz::Array<CString, 1> &CS_A1_TextFileNames_EcD_List_In,
+                         const blitz::Array<CString, 1> &CS_A1_TextFileNames_EcDR_List_Out,
                          const CString &CS_FitsFileName_EcDR_Out,
                          double D_Lambda_Start,
                          double D_Lambda_End,
                          double D_DLambda,
                          bool B_PreserveFlux) const;
 
-      bool CollapseSpectra(const Array<CString, 1> &CS_A1_TextFileNameList_ap_x_y_In,
+      bool CollapseSpectra(const blitz::Array<CString, 1> &CS_A1_TextFileNameList_ap_x_y_In,
                            const CString &CS_TextFileName_Out) const;
 
       /**
-       * bool WriteCube(Array<double, 3> &D_A3_In, CString &CS_FitsFileName_Out) const
+       * bool WriteCube(blitz::Array<double, 3> &D_A3_In, CString &CS_FitsFileName_Out) const
        **/
-      bool WriteCube(Array<double, 3> &D_A3_In, CString &CS_FitsFileName_Out) const;
+      bool WriteCube(blitz::Array<double, 3> &D_A3_In, CString &CS_FitsFileName_Out) const;
 
       /** find nearest neighbour to D_ReferencePoint_In in D_A1_ArrayToLookForNeighbour_In, and returns index of nearest neighbour
        * */
       int FindNearestNeighbour(const double &D_ReferencePoint_In,
-                                const Array<double, 1> &D_A1_ArrayToLookForNeighbour_In) const;
+                                const blitz::Array<double, 1> &D_A1_ArrayToLookForNeighbour_In) const;
       
       /**
        * find nearest neighbour to D_A1_ReferencePoint_In(x,y) in D_A2_ArrayToLookForNeighbour_In and write coordinates to D_A1_NearestNeighbour_Out
        **/
-      bool FindNearestNeighbour(const Array<double, 1> &D_A1_ReferencePoint_In,
-                                const Array<double, 2> &D_A2_ArrayToLookForNeighbour_In,
-                                Array<double, 1> &D_A1_NearestNeighbour_Out,
+      bool FindNearestNeighbour(const blitz::Array<double, 1> &D_A1_ReferencePoint_In,
+                                const blitz::Array<double, 2> &D_A2_ArrayToLookForNeighbour_In,
+                                blitz::Array<double, 1> &D_A1_NearestNeighbour_Out,
                                 int &I_Pos_Out) const;
                                 
       /**
        * I_A1_Area = [x_min, x_max, y_min, y_max]
        * **/
-      bool FindNearestNeighbour(const Array<double, 1> &D_A1_ReferencePoint_In,
-                                const Array<double, 2> &D_A2_ArrayToLookForNeighbour_In,
-                                const Array<int, 1> &I_A1_Area,
-                                Array<double, 1> &D_A1_NearestNeighbour_Out,
+      bool FindNearestNeighbour(const blitz::Array<double, 1> &D_A1_ReferencePoint_In,
+                                const blitz::Array<double, 2> &D_A2_ArrayToLookForNeighbour_In,
+                                const blitz::Array<int, 1> &I_A1_Area,
+                                blitz::Array<double, 1> &D_A1_NearestNeighbour_Out,
                                 int &I_Pos) const;
 
       /**
        * find I_N nearest neighbours to D_A1_ReferencePoint_In(x,y) in D_A2_ArrayToLookForNeighbour_In and write coordinates to D_A2_NearestNeighbour_Out
        **/
-      bool FindNearestNeighbours(const Array<double, 1> &D_A1_ReferencePoint_In,
-                                 const Array<double, 2> &D_A2_ArrayToLookForNeighbour_In,
+      bool FindNearestNeighbours(const blitz::Array<double, 1> &D_A1_ReferencePoint_In,
+                                 const blitz::Array<double, 2> &D_A2_ArrayToLookForNeighbour_In,
                                  const int I_N,
-                                 Array<double, 2> &D_A2_NearestNeighbours_Out,
-                                 Array<int, 1> &I_A1_Pos) const;
+                                 blitz::Array<double, 2> &D_A2_NearestNeighbours_Out,
+                                 blitz::Array<int, 1> &I_A1_Pos) const;
 
       /**
        * find I_N nearest neighbours to D_A1_ReferencePoint_In(x,y) in D_A2_ArrayToLookForNeighbour_In and write coordinates to D_A2_NearestNeighbour_Out
        **/
-      bool FindNearestNeighbours(const Array<double, 1> &D_A1_ReferencePoint_In,
-                                 const Array<double, 2> &D_A2_ArrayToLookForNeighbour_In,
+      bool FindNearestNeighbours(const blitz::Array<double, 1> &D_A1_ReferencePoint_In,
+                                 const blitz::Array<double, 2> &D_A2_ArrayToLookForNeighbour_In,
                                  const int I_N,
-                                 const Array<int, 1> &D_A1_Area_In,
-                                 Array<double, 2> &D_A2_NearestNeighbours_Out,
-                                 Array<int, 1> &I_A1_Pos) const;
+                                 const blitz::Array<int, 1> &D_A1_Area_In,
+                                 blitz::Array<double, 2> &D_A2_NearestNeighbours_Out,
+                                 blitz::Array<int, 1> &I_A1_Pos) const;
 
       /**
        * Calculate Integral under line between two points
@@ -3539,13 +3539,13 @@ PRO GAUSS_FUNCT,X,A,F,PDER
        * D_A2_Coords_In(1,0) = x1
        * D_A2_Coords_In(1,1) = y1
        * **/
-      bool IntegralUnderLine(const Array<double, 2> &D_A2_Coords_In,
+      bool IntegralUnderLine(const blitz::Array<double, 2> &D_A2_Coords_In,
                              double &D_Integral_Out) const;
 
       /**
        * Calculate Integral in Triangle
        * **/
-      bool IntegralInTriangle(const Array<double, 2> &D_A2_Coords_In,
+      bool IntegralInTriangle(const blitz::Array<double, 2> &D_A2_Coords_In,
                               double &D_Integral_Out) const;
 
       /**
@@ -3558,81 +3558,81 @@ PRO GAUSS_FUNCT,X,A,F,PDER
        *           *
        *           *
        * **/
-      bool IntegralInClosedStructure(const Array<double, 2> &D_A2_Coords_In,
+      bool IntegralInClosedStructure(const blitz::Array<double, 2> &D_A2_Coords_In,
                                      double &D_Integral_Out) const;
 
       /**
        * Calculate Integral under curve from D_A1_XInt(0) to D_A1_XInt(1)
        **/
-      bool IntegralUnderCurve(const Array<double, 1> &D_A1_XIn,
-	                      const Array<double, 1> &D_A1_YIn,
-			      const Array<double, 1> &D_A1_XInt,
+      bool IntegralUnderCurve(const blitz::Array<double, 1> &D_A1_XIn,
+	                      const blitz::Array<double, 1> &D_A1_YIn,
+			      const blitz::Array<double, 1> &D_A1_XInt,
 			      double &D_Integral_Out) const;
 
       /**
        * Integral-normalise a function
        **/
-      bool IntegralNormalise(const Array<double, 1> &D_A1_XIn,
-	                     const Array<double, 1> &D_A1_YIn,
-			     Array<double, 1> &D_A1_YOut) const;
+      bool IntegralNormalise(const blitz::Array<double, 1> &D_A1_XIn,
+	                     const blitz::Array<double, 1> &D_A1_YIn,
+			     blitz::Array<double, 1> &D_A1_YOut) const;
 
       /**
        * Integral-normalise a function
        **/
-      bool IntegralNormalise(const Array<double, 1> &D_A1_XIn,
-	                     Array<double, 1> &D_A1_YInOut) const;
+      bool IntegralNormalise(const blitz::Array<double, 1> &D_A1_XIn,
+	                     blitz::Array<double, 1> &D_A1_YInOut) const;
 
       /**
        * Sort 6 coordinates to create hexagon
        * **/
-      bool SortCoordinatesToCreateHexagon(const Array<double, 2> &D_A2_Coords_In,
-                                          Array<double, 2> &D_A2_Coords_Out) const;
+      bool SortCoordinatesToCreateHexagon(const blitz::Array<double, 2> &D_A2_Coords_In,
+                                          blitz::Array<double, 2> &D_A2_Coords_Out) const;
 
       /**
        * Sort Coordinates to create closed structure, starting with lower left corner
        * **/
-      bool SortCoordinatesCounterClockWise(const Array<double, 2> &D_A2_Corners_In,
-                                           Array<double, 2> &D_A2_Corners_Out) const;
+      bool SortCoordinatesCounterClockWise(const blitz::Array<double, 2> &D_A2_Corners_In,
+                                           blitz::Array<double, 2> &D_A2_Corners_Out) const;
 
-      bool Remove_SubArrayFromArray(Array<int, 1> &A1_Array_InOut, const Array<int, 1> &A1_SubArray) const;
+      bool Remove_SubArrayFromArray(blitz::Array<int, 1> &A1_Array_InOut, const blitz::Array<int, 1> &A1_SubArray) const;
       
-      bool Remove_ElementsFromArray(Array<int, 1> &I_A1_Array_InOut, const Array<int, 1> &I_A1_ElementIndicesToRemove_In) const;
+      bool Remove_ElementsFromArray(blitz::Array<int, 1> &I_A1_Array_InOut, const blitz::Array<int, 1> &I_A1_ElementIndicesToRemove_In) const;
       
-      bool Remove_ElementsFromArray(Array<double, 1> &D_A1_Array_InOut, const Array<int, 1> &I_A1_ElementIndicesToRemove_In) const;
+      bool Remove_ElementsFromArray(blitz::Array<double, 1> &D_A1_Array_InOut, const blitz::Array<int, 1> &I_A1_ElementIndicesToRemove_In) const;
       
-      bool Remove_Ith_ElementFromArray(Array<double, 1> &D_A1_Array_InOut,
+      bool Remove_Ith_ElementFromArray(blitz::Array<double, 1> &D_A1_Array_InOut,
                                        int I_Pos_In) const;
 
-      bool Remove_Ith_ElementFromArray(Array<int, 1> &I_A1_Array_InOut,
+      bool Remove_Ith_ElementFromArray(blitz::Array<int, 1> &I_A1_Array_InOut,
                                        int I_Pos_In) const;
 
-      bool Remove_Ith_RowFromArray(Array<double, 2> &D_A2_Array_InOut,
+      bool Remove_Ith_RowFromArray(blitz::Array<double, 2> &D_A2_Array_InOut,
                                    int I_Row_In) const;
 
-      bool Remove_Ith_RowFromArray(Array<int, 2> &I_A2_Array_InOut,
+      bool Remove_Ith_RowFromArray(blitz::Array<int, 2> &I_A2_Array_InOut,
                                    int I_Row_In) const;
 
       /**
        * Returns distance between two points in 2D coordinate system
        * **/
-      double Distance(const Array<double, 1> &D_A1_PointA_In,
-                      const Array<double, 1> &D_A1_PointB_In) const;
+      double Distance(const blitz::Array<double, 1> &D_A1_PointA_In,
+                      const blitz::Array<double, 1> &D_A1_PointB_In) const;
 
       /**
        * Calculate end coordinate which extends the line from D_A1_StartPos_In through
        * D_A1_ThroughPos_In to length D_Length_In
        * **/
-      bool ExtendLineToLength(const Array<double, 1> &D_A1_StartPos_In,
-                              const Array<double, 1> &D_A1_ThroughPos_In,
+      bool ExtendLineToLength(const blitz::Array<double, 1> &D_A1_StartPos_In,
+                              const blitz::Array<double, 1> &D_A1_ThroughPos_In,
                               const double D_Length_In,
-                              Array<double, 1> &D_A1_EndPos_Out) const;
+                              blitz::Array<double, 1> &D_A1_EndPos_Out) const;
 
       /**
        * Returns TRUE if point D_A1_PixCoords_In is in triangular area defined by
        * D_A2_Triag_In((x0,y0),(x1,y1),(x2,y2))
        * **/
-      bool PixelIsInTriangle(const Array<double, 1> &D_A1_PixCoords_In,
-                             const Array<double, 2> &D_A2_Triag_In) const;
+      bool PixelIsInTriangle(const blitz::Array<double, 1> &D_A1_PixCoords_In,
+                             const blitz::Array<double, 2> &D_A2_Triag_In) const;
 
       /**
        * Returns TRUE if point D_A1_PixCoords_In is in rectangular area defined by
@@ -3641,8 +3641,8 @@ PRO GAUSS_FUNCT,X,A,F,PDER
        *              pix_upper_right(x1,y1)
        *              pix_upper_left(x0,y1))
        * **/
-      bool PixelIsInRectangle(const Array<double, 1> &D_A1_PixCoords_In,
-                              const Array<double, 2> &D_A2_Rect_In) const;
+      bool PixelIsInRectangle(const blitz::Array<double, 1> &D_A1_PixCoords_In,
+                              const blitz::Array<double, 2> &D_A2_Rect_In) const;
 
       /**
        * Returns TRUE if point D_A1_PixCoords_In is in area defined by
@@ -3651,15 +3651,15 @@ PRO GAUSS_FUNCT,X,A,F,PDER
        *              pix_upper_right(x1,y1)
        *              pix_upper_left(x0,y1))
        * **/
-      bool PixelIsInFigure(const Array<double, 1> &D_A1_PixCoords_In,
-                           const Array<double, 2> &D_A2_Rect_In) const;
+      bool PixelIsInFigure(const blitz::Array<double, 1> &D_A1_PixCoords_In,
+                           const blitz::Array<double, 2> &D_A2_Rect_In) const;
 
       /**
        * Calculate m and n for line y=mx+n from 2 points D_A1_PointA_In(x,y) and
        * D_A1_PointB_In(x,y)
        * **/
-      bool CalculateLine(const Array<double, 1> &D_A1_PointA_In,
-                         const Array<double, 1> &D_A1_PointB_In,
+      bool CalculateLine(const blitz::Array<double, 1> &D_A1_PointA_In,
+                         const blitz::Array<double, 1> &D_A1_PointB_In,
                          double &D_M_Out,
                          double &D_N_Out) const;
 
@@ -3669,33 +3669,33 @@ PRO GAUSS_FUNCT,X,A,F,PDER
        * writes point to D_A1_Cross_Out and returns true, if found,
        * else returns false
        * **/
-      bool FindCrossPoint(const Array<double, 2> &D_A2_LineA_In,
-                          const Array<double, 2> &D_A2_LineB_In,
-                          Array<double, 1> &D_A1_Cross_Out) const;
+      bool FindCrossPoint(const blitz::Array<double, 2> &D_A2_LineA_In,
+                          const blitz::Array<double, 2> &D_A2_LineB_In,
+                          blitz::Array<double, 1> &D_A1_Cross_Out) const;
 
       bool FindApsInCircle(const int I_CenterX_In,
                            const int I_CenterY_In,
                            const int I_Radius_In,
-                           Array<int, 1> &I_A1_Apertures_Out) const;
+                           blitz::Array<int, 1> &I_A1_Apertures_Out) const;
 
       bool FindApsInCircle(const int I_CenterX_In,
                            const int I_CenterY_In,
                            const int I_Radius_In,
-                           const Array<int, 1> &I_A1_Area_In,
-                           Array<int, 1> &I_A1_Apertures_Out) const;
+                           const blitz::Array<int, 1> &I_A1_Area_In,
+                           blitz::Array<int, 1> &I_A1_Apertures_Out) const;
 
       bool FindApsInRing(const int I_CenterX_In,
                          const int I_CenterY_In,
                          const int I_InnerRadius_In,
                          const int I_OuterRadius_In,
-                         Array<int, 1> &I_A1_Apertures_Out) const;
+                         blitz::Array<int, 1> &I_A1_Apertures_Out) const;
 
       bool FindApsInRing(const int I_CenterX_In,
                          const int I_CenterY_In,
                          const int I_InnerRadius_In,
                          const int I_OuterRadius_In,
-                         const Array<int, 1> &I_A1_Area,
-                         Array<int, 1> &I_A1_Apertures_Out) const;
+                         const blitz::Array<int, 1> &I_A1_Area,
+                         blitz::Array<int, 1> &I_A1_Apertures_Out) const;
 
       /**
        * CalcOverlapFig
@@ -3704,18 +3704,18 @@ PRO GAUSS_FUNCT,X,A,F,PDER
        * NOTE::Coordinates of both figures must be ordered counterclockwise
        * Returns TRUE if figures overlap, else returns FALSE
        * **/
-      bool CalcOverlapFig(const Array<double, 2> &D_A2_FigA_In,
-                          const Array<double, 2> &D_A2_FigB_In,
-                          Array<double, 2> &D_A2_OverlapFig_Out) const;
+      bool CalcOverlapFig(const blitz::Array<double, 2> &D_A2_FigA_In,
+                          const blitz::Array<double, 2> &D_A2_FigB_In,
+                          blitz::Array<double, 2> &D_A2_OverlapFig_Out) const;
 
-      bool PixIsInArray(const Array<double, 1> &D_A1_Pix, const Array<double, 2> &D_A2_Corners) const;
+      bool PixIsInArray(const blitz::Array<double, 1> &D_A1_Pix, const blitz::Array<double, 2> &D_A2_Corners) const;
 
-      void ResizeAndPreserve(Array<double, 1> &D_A1_Arr_InOut, int I_NewSize);
-      void ResizeAndPreserve(Array<double, 2> &D_A2_Arr_InOut, int I_NewRows, int I_NewCols);
-      void ResizeAndPreserve(Array<int, 1> &I_A1_Arr_InOut, int I_NewSize);
-      void ResizeAndPreserve(Array<int, 2> &I_A2_Arr_InOut, int I_NewRows, int I_NewCols);
-      void ResizeAndPreserve(Array<CString, 1> &CS_A1_Arr_InOut, int I_NewSize);
-      void ResizeAndPreserve(Array<CString, 2> &CS_A2_Arr_InOut, int I_NewRows, int I_NewCols);
+      void ResizeAndPreserve(blitz::Array<double, 1> &D_A1_Arr_InOut, int I_NewSize);
+      void ResizeAndPreserve(blitz::Array<double, 2> &D_A2_Arr_InOut, int I_NewRows, int I_NewCols);
+      void ResizeAndPreserve(blitz::Array<int, 1> &I_A1_Arr_InOut, int I_NewSize);
+      void ResizeAndPreserve(blitz::Array<int, 2> &I_A2_Arr_InOut, int I_NewRows, int I_NewCols);
+      void ResizeAndPreserve(blitz::Array<CString, 1> &CS_A1_Arr_InOut, int I_NewSize);
+      void ResizeAndPreserve(blitz::Array<CString, 2> &CS_A2_Arr_InOut, int I_NewRows, int I_NewCols);
 
 //      bool GetBias(&D_BiasValue_Out) const;
       bool CreateErrorImage();
@@ -3723,39 +3723,39 @@ PRO GAUSS_FUNCT,X,A,F,PDER
       bool AddHeaderToFitsFile(const CString &CS_FitsFileName_In, const CString &CS_HeaderFile_In) const;
 
       /// reverses order of elements in D_A1_InOut
-      bool Reverse(Array<double, 1> D_A1_InOut) const;
+      bool Reverse(blitz::Array<double, 1> D_A1_InOut) const;
 
       /// reverses order of rows in D_A1_InOut
-      bool Reverse(Array<double, 2> D_A2_InOut) const;
+      bool Reverse(blitz::Array<double, 2> D_A2_InOut) const;
 
       /// converts Number of Photons vs Wavelength to Flux vs Wavelength
-      bool PhotonsToFlux(const Array<double, 2> &D_A2_WLen_NPhotons_In,
+      bool PhotonsToFlux(const blitz::Array<double, 2> &D_A2_WLen_NPhotons_In,
 			 const double D_ExpTime_In,
 			 const double D_ATel_In,
-			 Array<double, 2> &D_A2_WLenFlux_Out) const;
+			 blitz::Array<double, 2> &D_A2_WLenFlux_Out) const;
 
-      bool PhotonsToFlux(const Array<double, 2> &D_A2_NPhotons_In, /// NAps x NRows
+      bool PhotonsToFlux(const blitz::Array<double, 2> &D_A2_NPhotons_In, /// NAps x NRows
 			 const double D_ExpTime_In,                /// Exposure time
 			 const double D_ATel_In,                   /// Telescope effective surface
-			 const Array<int, 1> &I_A1_Apertures_In,   /// Apertures to convert
-			 Array<double, 2> &D_A2_Flux_Out);         /// NAps x NRows
+			 const blitz::Array<int, 1> &I_A1_Apertures_In,   /// Apertures to convert
+			 blitz::Array<double, 2> &D_A2_Flux_Out);         /// NAps x NRows
 
-      bool CalculateLensletCorners(Array<double, 3> &D_A3_LensletCorners_Out);
+      bool CalculateLensletCorners(blitz::Array<double, 3> &D_A3_LensletCorners_Out);
 
-      bool Rebin2D(const Array<double, 2> &D_A2_XYZ_In,///(NPoints, 3)
-                   const Array<double, 1> &D_A1_XNew_In,///(NPointsNew)
-                   const Array<double, 1> &D_A1_YNew_In,///(NPointsNew)
-                   Array<double, 2> &D_A2_XYZ_Out,
+      bool Rebin2D(const blitz::Array<double, 2> &D_A2_XYZ_In,///(NPoints, 3)
+                   const blitz::Array<double, 1> &D_A1_XNew_In,///(NPointsNew)
+                   const blitz::Array<double, 1> &D_A1_YNew_In,///(NPointsNew)
+                   blitz::Array<double, 2> &D_A2_XYZ_Out,
                    int I_NNearestNeighbours) const;///(NPointsNew, 3)
 
-      bool InterPol3D(const Array<double, 2> &D_A2_RefPoints,///(NPoints, 3)
-                      const Array<double, 1> &D_A1_XY_In,
+      bool InterPol3D(const blitz::Array<double, 2> &D_A2_RefPoints,///(NPoints, 3)
+                      const blitz::Array<double, 1> &D_A1_XY_In,
                       double &D_Z_Out) const;
 
       /// D_A2_Moving must be bigger than D_A2_Static
       /// D_A2_Static will be moved from the lower left edge around up to the upper right edge
-      bool CrossCorrelate2D(const Array<double, 2> &D_A2_Static,
-                            const Array<double, 2> &D_A2_Moving,
+      bool CrossCorrelate2D(const blitz::Array<double, 2> &D_A2_Static,
+                            const blitz::Array<double, 2> &D_A2_Moving,
 //                            const int &I_NPixMaxShift_X_Left,
 //                            const int &I_NPixMaxShift_X_Right,
 //                            const int &I_NPixMaxShift_Y_Down,
@@ -3765,24 +3765,24 @@ PRO GAUSS_FUNCT,X,A,F,PDER
                             int &I_XCor_X_Out,
                             int &I_XCor_Y_Out) const;
 
-      bool GetApertureCenters(const Array<int, 1> &I_A1_Apertures_In,
-                              Array<double, 2> &D_A2_ApertureCenters_Out) const;
+      bool GetApertureCenters(const blitz::Array<int, 1> &I_A1_Apertures_In,
+                              blitz::Array<double, 2> &D_A2_ApertureCenters_Out) const;
 
-      bool GetApertureCenters(Array<double, 2> &D_A2_ApertureCenters_Out) const;
+      bool GetApertureCenters(blitz::Array<double, 2> &D_A2_ApertureCenters_Out) const;
 
       /**
        * Returns -1 if D_A1_Array_In is monotonically decreasing
        *         0  if D_A1_Array_In is non monotonic
        *         +1 if D_A1_Array_In is monotonically increasing
        */
-      int IsMonotonic(const Array<double, 1> &D_A1_Array_In) const;
+      int IsMonotonic(const blitz::Array<double, 1> &D_A1_Array_In) const;
       
       /**
        * Calculates aperture minimum pixel, central position, and maximum pixel for aperture number I_Aperture_In,
        * and writes result to I_A2_MinCenMax_Out
        **/
       bool CalcMinCenMax(const int I_Aperture_In,
-			 Array<int, 2> &I_A2_MinCenMax_Out) const;
+			 blitz::Array<int, 2> &I_A2_MinCenMax_Out) const;
 
       /**
        * Calculates Slit Function for each pixel in an aperture row from oversampled Slit Function D_A1_OSF_In,
@@ -3790,34 +3790,34 @@ PRO GAUSS_FUNCT,X,A,F,PDER
        **/
       bool CalcSF(const int I_Aperture_In,
                   const int I_Row_In,
-                  const Array<double, 1> &D_A1_OSF_In,
-                  Array<double, 1> &D_A1_SF_Out) const;
+                  const blitz::Array<double, 1> &D_A1_OSF_In,
+                  blitz::Array<double, 1> &D_A1_SF_Out) const;
 
       /**
        * Corrects a given input spectrum D_A2_Spec_In(col0: Wavelength, col1: spectrum) observed at 
        * airmass D_AirMass for the atmospheric extinction given in D_A2_Extinction_In(col0: Wavelength, col1: Extinction)
        * */
-      bool RemoveAtmosphericExtinction(const Array<double, 2> &D_A2_Spec_In,
+      bool RemoveAtmosphericExtinction(const blitz::Array<double, 2> &D_A2_Spec_In,
                                        const double &D_AirMass,
-                                       const Array<double, 2> &D_A2_Extinction_In,
-                                       Array<double, 2> &D_A2_Spec_Out) const;
+                                       const blitz::Array<double, 2> &D_A2_Extinction_In,
+                                       blitz::Array<double, 2> &D_A2_Spec_Out) const;
       
       /* Calculate Airmass using Hardie Function
        * D_A1_ZenithDist_Deg_In: input zenith distances in degrees
        * */
-      bool AirMass_Hardie_Deg(const Array<double, 1> &D_A1_ZenithDist_Deg_In,
-                              Array<double, 1> &D_A1_AirMass_Out) const;
+      bool AirMass_Hardie_Deg(const blitz::Array<double, 1> &D_A1_ZenithDist_Deg_In,
+                              blitz::Array<double, 1> &D_A1_AirMass_Out) const;
       
       /* Calculate Airmass using Hardie Function
        * D_A1_ZenithDist_Rad_In: input zenith distances in radians
        * */
-      bool AirMass_Hardie_Rad(const Array<double, 1> &D_A1_ZenithDist_Rad_In,
-                              Array<double, 1> &D_A1_AirMass_Out) const;
+      bool AirMass_Hardie_Rad(const blitz::Array<double, 1> &D_A1_ZenithDist_Rad_In,
+                              blitz::Array<double, 1> &D_A1_AirMass_Out) const;
                                        
     #ifdef __WITH_PLOTS__
-      bool ArrayToMGLArray(const Array<double, 1> &D_A1_Array_In,
+      bool ArrayToMGLArray(const blitz::Array<double, 1> &D_A1_Array_In,
                            mglData *P_D_A1_MGLArray_Out) const;
-      bool ArrayToMGLArray(const Array<double, 2> &D_A2_Array_In,
+      bool ArrayToMGLArray(const blitz::Array<double, 2> &D_A2_Array_In,
                            mglData *P_D_A2_MGLArray_Out) const;
     #endif
 

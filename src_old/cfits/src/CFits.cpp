@@ -60,123 +60,123 @@ CFits::CFits()
   I_MaxIterSig = 3;
 
   /// PixArray
-  this->P_D_A2_PixArray = new Array<double, 2>(this->NRows, this->NCols);
+  this->P_D_A2_PixArray = new blitz::Array<double, 2>(this->NRows, this->NCols);
   *this->P_D_A2_PixArray = 0.;
 
   /// ProfArray
-  this->P_D_A2_ProfArray = new Array<double, 2>(this->NRows, this->NCols);
+  this->P_D_A2_ProfArray = new blitz::Array<double, 2>(this->NRows, this->NCols);
   (*this->P_D_A2_ProfArray) = 0.;
 
   /// ErrArray
-  this->P_D_A2_ErrArray = new Array<double, 2>(this->NRows, this->NCols);
+  this->P_D_A2_ErrArray = new blitz::Array<double, 2>(this->NRows, this->NCols);
   (*this->P_D_A2_ErrArray) = 0.;
 
   /// RecSkyArray
-  this->P_D_A2_RecSkyArray = new Array<double, 2>(this->NRows, this->NCols);
+  this->P_D_A2_RecSkyArray = new blitz::Array<double, 2>(this->NRows, this->NCols);
   (*this->P_D_A2_RecSkyArray) = 0.;
-//  this->P_D_A2_RecSkyFitArray = new Array<double, 2>(this->NRows, this->NCols);
+//  this->P_D_A2_RecSkyFitArray = new blitz::Array<double, 2>(this->NRows, this->NCols);
 //  (*this->P_D_A2_RecSkyFitArray) = 0.;
 
   /// Reconstructed array
-  this->P_D_A2_RecArray = new Array<double, 2>(this->NRows, this->NCols);
+  this->P_D_A2_RecArray = new blitz::Array<double, 2>(this->NRows, this->NCols);
   (*this->P_D_A2_RecArray) = 0.;
 
   /// Reconstructed array from Fit
-  this->P_D_A2_RecFitArray = new Array<double, 2>(this->NRows, this->NCols);
+  this->P_D_A2_RecFitArray = new blitz::Array<double, 2>(this->NRows, this->NCols);
   (*this->P_D_A2_RecFitArray) = 0.;
 
-  this->P_D_A2_RecSkyFitArray = new Array<double, 2>(this->NRows, this->NCols);
+  this->P_D_A2_RecSkyFitArray = new blitz::Array<double, 2>(this->NRows, this->NCols);
   *(this->P_D_A2_RecSkyFitArray) = 0.;/// NRows x NCols
 
   /// MaskArray
-  this->P_I_A2_MaskArray = new Array<int, 2>(this->NRows, this->NCols);
+  this->P_I_A2_MaskArray = new blitz::Array<int, 2>(this->NRows, this->NCols);
   (*this->P_I_A2_MaskArray) = 1;
 
   /// Coeffs
-  this->P_D_A2_Coeffs = new Array<double, 2>(this->I_NApertures, 3);
+  this->P_D_A2_Coeffs = new blitz::Array<double, 2>(this->I_NApertures, 3);
   *this->P_D_A2_Coeffs = 0.;
 
   /// Blaze Functions
-  this->P_D_A2_Blaze = new Array<double, 2>(this->I_NApertures, this->NRows);
+  this->P_D_A2_Blaze = new blitz::Array<double, 2>(this->I_NApertures, this->NRows);
   *this->P_D_A2_Blaze = 0.;
 
   /// Blaze Functions from Fit
-  this->P_D_A2_SP_Fit = new Array<double, 2>(this->I_NApertures, this->NRows);
+  this->P_D_A2_SP_Fit = new blitz::Array<double, 2>(this->I_NApertures, this->NRows);
   *this->P_D_A2_SP_Fit = 0.;
 
   /// extracted errors
-  this->P_D_A2_LastExtracted = new Array<double, 2>(this->I_NApertures, this->NRows);
+  this->P_D_A2_LastExtracted = new blitz::Array<double, 2>(this->I_NApertures, this->NRows);
   *this->P_D_A2_LastExtracted = 0.;
 
   /// extracted errors
-  this->P_D_A2_Errors_Ec = new Array<double, 2>(this->I_NApertures, this->NRows);
+  this->P_D_A2_Errors_Ec = new blitz::Array<double, 2>(this->I_NApertures, this->NRows);
   *this->P_D_A2_Errors_Ec = 0.;
 
   /// sky
-  this->P_D_A2_Sky = new Array<double, 2>(this->I_NApertures, this->NRows);
+  this->P_D_A2_Sky = new blitz::Array<double, 2>(this->I_NApertures, this->NRows);
   *this->P_D_A2_Sky = 0.;
 
   /// sky error
-  this->P_D_A2_SkyError = new Array<double, 2>(this->I_NApertures, this->NRows);
+  this->P_D_A2_SkyError = new blitz::Array<double, 2>(this->I_NApertures, this->NRows);
   *this->P_D_A2_SkyError = 0.;
-  this->P_D_A2_SkyFitError = new Array<double, 2>(this->I_NApertures, this->NRows);
+  this->P_D_A2_SkyFitError = new blitz::Array<double, 2>(this->I_NApertures, this->NRows);
   *(this->P_D_A2_SkyFitError) = 0.;
-  this->P_D_A2_SkyFit = new Array<double, 2>(this->I_NApertures, this->NRows);
+  this->P_D_A2_SkyFit = new blitz::Array<double, 2>(this->I_NApertures, this->NRows);
   *(this->P_D_A2_SkyFit) = 0.;
-  this->P_D_A2_Errors_EcFit = new Array<double, 2>(this->I_NApertures, this->NRows);
+  this->P_D_A2_Errors_EcFit = new blitz::Array<double, 2>(this->I_NApertures, this->NRows);
   *(this->P_D_A2_Errors_EcFit) = 0.;
 
   /// Wavelength
-  this->P_D_A2_WLen = new Array<double, 2>(this->NRows, this->NCols);
+  this->P_D_A2_WLen = new blitz::Array<double, 2>(this->NRows, this->NCols);
   (*(this->P_D_A2_WLen)) = 0.;
 
   /// XCenters
-  this->P_D_A2_XCenters = new Array<double, 2>(this->I_NApertures, this->NRows);
+  this->P_D_A2_XCenters = new blitz::Array<double, 2>(this->I_NApertures, this->NRows);
   *this->P_D_A2_XCenters = 0.;
 
   /// XCenter
-  this->P_D_A1_XCenter = new Array<double, 1>(this->I_NApertures);
+  this->P_D_A1_XCenter = new blitz::Array<double, 1>(this->I_NApertures);
   *this->P_D_A1_XCenter = 0.;
 
   /// YCenter
-  this->P_D_A1_YCenter = new Array<double, 1>(this->I_NApertures);
+  this->P_D_A1_YCenter = new blitz::Array<double, 1>(this->I_NApertures);
   *this->P_D_A1_YCenter = 0.;
 
   /// XLow
-  this->P_D_A1_XLow = new Array<double, 1>(this->I_NApertures);
+  this->P_D_A1_XLow = new blitz::Array<double, 1>(this->I_NApertures);
   *this->P_D_A1_XLow = 0.;
 
   /// XHigh
-  this->P_D_A1_XHigh = new Array<double, 1>(this->I_NApertures);
+  this->P_D_A1_XHigh = new blitz::Array<double, 1>(this->I_NApertures);
   *this->P_D_A1_XHigh = 0.;
 
   /// YLow
-  this->P_D_A1_YLow = new Array<double, 1>(this->I_NApertures);
+  this->P_D_A1_YLow = new blitz::Array<double, 1>(this->I_NApertures);
   *this->P_D_A1_YLow = 0.;
 
   /// YHigh
-  this->P_D_A1_YHigh = new Array<double, 1>(this->I_NApertures);
+  this->P_D_A1_YHigh = new blitz::Array<double, 1>(this->I_NApertures);
   *this->P_D_A1_YHigh = 0.;
 
   /// Orders
-  this->P_I_A1_Orders = new Array<int, 1>(this->I_NApertures);
+  this->P_I_A1_Orders = new blitz::Array<int, 1>(this->I_NApertures);
   *this->P_I_A1_Orders = 0;
 
   /// NCoeffs
-  this->P_I_A1_NCoeffs = new Array<int, 1>(this->I_NApertures);
+  this->P_I_A1_NCoeffs = new blitz::Array<int, 1>(this->I_NApertures);
   *this->P_I_A1_NCoeffs = 0;
 
   /// XMin
-  P_D_A1_XMin = new Array<double, 1>(this->I_NApertures);
+  P_D_A1_XMin = new blitz::Array<double, 1>(this->I_NApertures);
   *this->P_D_A1_XMin = 0.;
 
   /// XMax
-  P_D_A1_XMax = new Array<double, 1>(this->I_NApertures);
+  P_D_A1_XMax = new blitz::Array<double, 1>(this->I_NApertures);
   *this->P_D_A1_XMax = 0.;
 
   /// Functions
   /// realloc when database entry is read
-  P_CS_A1_Functions = new Array<CString, 1>(this->I_NApertures);
+  P_CS_A1_Functions = new blitz::Array<CString, 1>(this->I_NApertures);
   //  PP_CS_A1_Functions = (CString**)malloc(sizeof(CString*) * this->I_NApertures);
   //  for (int m = 0; m < I_NApertures; m++)
   //    PP_CS_A1_Functions[m] = new CString();
@@ -254,121 +254,121 @@ CFits::CFits(const CString &fn, int nrow, int ncol)
   I_MaxIterSig = 3;
 
   /// PixArray
-  this->P_D_A2_PixArray = new Array<double, 2>(this->NRows, this->NCols);
+  this->P_D_A2_PixArray = new blitz::Array<double, 2>(this->NRows, this->NCols);
   *this->P_D_A2_PixArray = 0.;
 
   /// ProfArray
-  this->P_D_A2_ProfArray = new Array<double, 2>(this->NRows, this->NCols);
+  this->P_D_A2_ProfArray = new blitz::Array<double, 2>(this->NRows, this->NCols);
   *this->P_D_A2_ProfArray = 0.;
 
   /// ErrArray
-  this->P_D_A2_ErrArray = new Array<double, 2>(this->NRows, this->NCols);
+  this->P_D_A2_ErrArray = new blitz::Array<double, 2>(this->NRows, this->NCols);
   (*this->P_D_A2_ErrArray) = 0.;
 
   /// RecSkyArray
-  this->P_D_A2_RecSkyArray = new Array<double, 2>(this->NRows, this->NCols);
+  this->P_D_A2_RecSkyArray = new blitz::Array<double, 2>(this->NRows, this->NCols);
   (*this->P_D_A2_RecSkyArray) = 0.;
 
   /// Reconstructed array
-  this->P_D_A2_RecArray = new Array<double, 2>(this->NRows, this->NCols);
+  this->P_D_A2_RecArray = new blitz::Array<double, 2>(this->NRows, this->NCols);
   (*this->P_D_A2_RecArray) = 0.;
 
   /// Reconstructed array from Fit
-  this->P_D_A2_RecFitArray = new Array<double, 2>(this->NRows, this->NCols);
+  this->P_D_A2_RecFitArray = new blitz::Array<double, 2>(this->NRows, this->NCols);
   (*this->P_D_A2_RecFitArray) = 0.;
 
   /// MaskArray
-  this->P_I_A2_MaskArray = new Array<int, 2>(this->NRows, this->NCols);
+  this->P_I_A2_MaskArray = new blitz::Array<int, 2>(this->NRows, this->NCols);
   (*this->P_I_A2_MaskArray) = 1;
 
   /// Coeffs
-  this->P_D_A2_Coeffs = new Array<double, 2>(this->I_NApertures, 3);
+  this->P_D_A2_Coeffs = new blitz::Array<double, 2>(this->I_NApertures, 3);
   *this->P_D_A2_Coeffs = 0.;
 
   /// Blaze Functions
-  this->P_D_A2_Blaze = new Array<double, 2>(this->I_NApertures, this->NRows);
+  this->P_D_A2_Blaze = new blitz::Array<double, 2>(this->I_NApertures, this->NRows);
   *this->P_D_A2_Blaze = 0.;
 
   /// Blaze Functions from Fit
-  this->P_D_A2_SP_Fit = new Array<double, 2>(this->I_NApertures, this->NRows);
+  this->P_D_A2_SP_Fit = new blitz::Array<double, 2>(this->I_NApertures, this->NRows);
   *this->P_D_A2_SP_Fit = 0.;
 
   /// extracted Functions
-  this->P_D_A2_LastExtracted = new Array<double, 2>(this->I_NApertures, this->NRows);
+  this->P_D_A2_LastExtracted = new blitz::Array<double, 2>(this->I_NApertures, this->NRows);
   *this->P_D_A2_LastExtracted = 0.;
 
   /// extracted errors
-  this->P_D_A2_Errors_Ec = new Array<double, 2>(this->I_NApertures, this->NRows);
+  this->P_D_A2_Errors_Ec = new blitz::Array<double, 2>(this->I_NApertures, this->NRows);
   *this->P_D_A2_Errors_Ec = 0.;
 
   /// sky
-  this->P_D_A2_Sky = new Array<double, 2>(this->I_NApertures, this->NRows);
+  this->P_D_A2_Sky = new blitz::Array<double, 2>(this->I_NApertures, this->NRows);
   *this->P_D_A2_Sky = 0.;
 
   /// sky error
-  this->P_D_A2_SkyError = new Array<double, 2>(this->I_NApertures, this->NRows);
+  this->P_D_A2_SkyError = new blitz::Array<double, 2>(this->I_NApertures, this->NRows);
   *this->P_D_A2_SkyError = 0.;
-  this->P_D_A2_SkyFitError = new Array<double, 2>(this->I_NApertures, this->NRows);
+  this->P_D_A2_SkyFitError = new blitz::Array<double, 2>(this->I_NApertures, this->NRows);
   *(this->P_D_A2_SkyFitError) = 0.;
-  this->P_D_A2_SkyFit = new Array<double, 2>(this->I_NApertures, this->NRows);
+  this->P_D_A2_SkyFit = new blitz::Array<double, 2>(this->I_NApertures, this->NRows);
   *(this->P_D_A2_SkyFit) = 0.;
-  this->P_D_A2_Errors_EcFit = new Array<double, 2>(this->I_NApertures, this->NRows);
+  this->P_D_A2_Errors_EcFit = new blitz::Array<double, 2>(this->I_NApertures, this->NRows);
   *(this->P_D_A2_Errors_EcFit) = 0.;
 
   /// Wavelength
-  this->P_D_A2_WLen = new Array<double, 2>(this->NRows, this->NCols);
+  this->P_D_A2_WLen = new blitz::Array<double, 2>(this->NRows, this->NCols);
   (*(this->P_D_A2_WLen)) = 0.;
 
-  this->P_D_A2_RecSkyFitArray = new Array<double, 2>(this->NRows, this->NCols);
+  this->P_D_A2_RecSkyFitArray = new blitz::Array<double, 2>(this->NRows, this->NCols);
   *(this->P_D_A2_RecSkyFitArray) = 0.;/// NRows x NCols
 
   /// XCenters
-  this->P_D_A2_XCenters = new Array<double, 2>(this->I_NApertures, this->NRows);
+  this->P_D_A2_XCenters = new blitz::Array<double, 2>(this->I_NApertures, this->NRows);
   *this->P_D_A2_XCenters = 0.;
 
   /// XCenter
-  this->P_D_A1_XCenter = new Array<double, 1>(this->I_NApertures);
+  this->P_D_A1_XCenter = new blitz::Array<double, 1>(this->I_NApertures);
   *this->P_D_A1_XCenter = 0.;
 
   /// YCenter
-  this->P_D_A1_YCenter = new Array<double, 1>(this->I_NApertures);
+  this->P_D_A1_YCenter = new blitz::Array<double, 1>(this->I_NApertures);
   *this->P_D_A1_YCenter = 0.;
 
   /// XLow
-  this->P_D_A1_XLow = new Array<double, 1>(this->I_NApertures);
+  this->P_D_A1_XLow = new blitz::Array<double, 1>(this->I_NApertures);
   *this->P_D_A1_XLow = 0.;
 
   /// XHigh
-  this->P_D_A1_XHigh = new Array<double, 1>(this->I_NApertures);
+  this->P_D_A1_XHigh = new blitz::Array<double, 1>(this->I_NApertures);
   *this->P_D_A1_XHigh = 0.;
 
   /// YLow
-  this->P_D_A1_YLow = new Array<double, 1>(this->I_NApertures);
+  this->P_D_A1_YLow = new blitz::Array<double, 1>(this->I_NApertures);
   *this->P_D_A1_YLow = 0.;
 
   /// YHigh
-  this->P_D_A1_YHigh = new Array<double, 1>(this->I_NApertures);
+  this->P_D_A1_YHigh = new blitz::Array<double, 1>(this->I_NApertures);
   *this->P_D_A1_YHigh = 0.;
 
   /// Orders
-  this->P_I_A1_Orders = new Array<int, 1>(this->I_NApertures);
+  this->P_I_A1_Orders = new blitz::Array<int, 1>(this->I_NApertures);
   *this->P_I_A1_Orders = 0;
 
   /// NCoeffs
-  this->P_I_A1_NCoeffs = new Array<int, 1>(this->I_NApertures);
+  this->P_I_A1_NCoeffs = new blitz::Array<int, 1>(this->I_NApertures);
   *this->P_I_A1_NCoeffs = 0;
 
   /// XMin
-  this->P_D_A1_XMin = new Array<double, 1>(this->I_NApertures);
+  this->P_D_A1_XMin = new blitz::Array<double, 1>(this->I_NApertures);
   *this->P_D_A1_XMin = 0.;
 
   /// XMax
-  this->P_D_A1_XMax = new Array<double, 1>(this->I_NApertures);
+  this->P_D_A1_XMax = new blitz::Array<double, 1>(this->I_NApertures);
   *this->P_D_A1_XMax = 0.;
 
   /// Functions
   /// realloc when database entry is read
-  this->P_CS_A1_Functions = new Array<CString, 1>(this->I_NApertures);
+  this->P_CS_A1_Functions = new blitz::Array<CString, 1>(this->I_NApertures);
   //  this->PP_CS_A1_Functions = (CString**)malloc(sizeof(CString*) * this->I_NApertures);
   //  for (int m = 0; m < I_NApertures; m++)
   //    PP_CS_A1_Functions[m] = new CString();
@@ -444,123 +444,123 @@ CFits::CFits(const CFits &fit)
   I_MaxIterSig = 3;
 
   /// PixArray
-  this->P_D_A2_PixArray = new Array<double, 2>(this->NRows, this->NCols);
+  this->P_D_A2_PixArray = new blitz::Array<double, 2>(this->NRows, this->NCols);
   *this->P_D_A2_PixArray = 0.;
 
   /// ProfArray
-  this->P_D_A2_ProfArray = new Array<double, 2>(this->NRows, this->NCols);
+  this->P_D_A2_ProfArray = new blitz::Array<double, 2>(this->NRows, this->NCols);
   *this->P_D_A2_ProfArray = 0.;
 
   /// ErrArray
-  this->P_D_A2_ErrArray = new Array<double, 2>(this->NRows, this->NCols);
+  this->P_D_A2_ErrArray = new blitz::Array<double, 2>(this->NRows, this->NCols);
   (*this->P_D_A2_ErrArray) = 0.;
 
   /// RecSkyArray
-  this->P_D_A2_RecSkyArray = new Array<double, 2>(this->NRows, this->NCols);
+  this->P_D_A2_RecSkyArray = new blitz::Array<double, 2>(this->NRows, this->NCols);
   (*this->P_D_A2_RecSkyArray) = 0.;
 
   /// Reconstructed array
-  this->P_D_A2_RecArray = new Array<double, 2>(this->NRows, this->NCols);
+  this->P_D_A2_RecArray = new blitz::Array<double, 2>(this->NRows, this->NCols);
   (*this->P_D_A2_RecArray) = 0.;
 
   /// Reconstructed array from Fit
-  this->P_D_A2_RecFitArray = new Array<double, 2>(this->NRows, this->NCols);
+  this->P_D_A2_RecFitArray = new blitz::Array<double, 2>(this->NRows, this->NCols);
   (*this->P_D_A2_RecFitArray) = 0.;
 
   /// MaskArray
-  this->P_I_A2_MaskArray = new Array<int, 2>(this->NRows, this->NCols);
+  this->P_I_A2_MaskArray = new blitz::Array<int, 2>(this->NRows, this->NCols);
   (*this->P_I_A2_MaskArray) = 1;
 
   /// Coeffs
-  Array<int, 1> *P_tempOrders = fit.Get_Orders();
-  this->P_D_A2_Coeffs = new Array<double, 2>(this->I_NApertures, max(*P_tempOrders));
+  blitz::Array<int, 1> *P_tempOrders = fit.Get_Orders();
+  this->P_D_A2_Coeffs = new blitz::Array<double, 2>(this->I_NApertures, max(*P_tempOrders));
   *this->P_D_A2_Coeffs = 0.;
   delete(P_tempOrders);
 
   /// Blaze Functions
-  this->P_D_A2_Blaze = new Array<double, 2>(this->I_NApertures, this->NRows);
+  this->P_D_A2_Blaze = new blitz::Array<double, 2>(this->I_NApertures, this->NRows);
   *this->P_D_A2_Blaze = 0.;
 
   /// Blaze Functions from Fit
-  this->P_D_A2_SP_Fit = new Array<double, 2>(this->I_NApertures, this->NRows);
+  this->P_D_A2_SP_Fit = new blitz::Array<double, 2>(this->I_NApertures, this->NRows);
   *this->P_D_A2_SP_Fit = 0.;
 
   /// extracted Functions
-  this->P_D_A2_LastExtracted = new Array<double, 2>(this->I_NApertures, this->NRows);
+  this->P_D_A2_LastExtracted = new blitz::Array<double, 2>(this->I_NApertures, this->NRows);
   *this->P_D_A2_LastExtracted = 0.;
 
   /// extracted errors
-  this->P_D_A2_Errors_Ec = new Array<double, 2>(this->I_NApertures, this->NRows);
+  this->P_D_A2_Errors_Ec = new blitz::Array<double, 2>(this->I_NApertures, this->NRows);
   *this->P_D_A2_Errors_Ec = 0.;
 
   /// sky
-  this->P_D_A2_Sky = new Array<double, 2>(this->I_NApertures, this->NRows);
+  this->P_D_A2_Sky = new blitz::Array<double, 2>(this->I_NApertures, this->NRows);
   *this->P_D_A2_Sky = 0.;
 
   /// sky error
-  this->P_D_A2_SkyError = new Array<double, 2>(this->I_NApertures, this->NRows);
+  this->P_D_A2_SkyError = new blitz::Array<double, 2>(this->I_NApertures, this->NRows);
   *this->P_D_A2_SkyError = 0.;
-  this->P_D_A2_SkyFitError = new Array<double, 2>(this->I_NApertures, this->NRows);
+  this->P_D_A2_SkyFitError = new blitz::Array<double, 2>(this->I_NApertures, this->NRows);
   *(this->P_D_A2_SkyFitError) = 0.;
-  this->P_D_A2_SkyFit = new Array<double, 2>(this->I_NApertures, this->NRows);
+  this->P_D_A2_SkyFit = new blitz::Array<double, 2>(this->I_NApertures, this->NRows);
   *(this->P_D_A2_SkyFit) = 0.;
-  this->P_D_A2_Errors_EcFit = new Array<double, 2>(this->I_NApertures, this->NRows);
+  this->P_D_A2_Errors_EcFit = new blitz::Array<double, 2>(this->I_NApertures, this->NRows);
   *(this->P_D_A2_Errors_EcFit) = 0.;
 
-  this->P_D_A2_RecSkyFitArray = new Array<double, 2>(this->NRows, this->NCols);
+  this->P_D_A2_RecSkyFitArray = new blitz::Array<double, 2>(this->NRows, this->NCols);
   *(this->P_D_A2_RecSkyFitArray) = 0.;/// NRows x NCols
 
   /// Wavelength
-  this->P_D_A2_WLen = new Array<double, 2>(this->NRows, this->NCols);
+  this->P_D_A2_WLen = new blitz::Array<double, 2>(this->NRows, this->NCols);
   (*(this->P_D_A2_WLen)) = 0.;
 
   /// XCenters
-  this->P_D_A2_XCenters = new Array<double, 2>(this->I_NApertures, this->NRows);
+  this->P_D_A2_XCenters = new blitz::Array<double, 2>(this->I_NApertures, this->NRows);
   *this->P_D_A2_XCenters = 0.;
 
   /// XCenter
-  this->P_D_A1_XCenter = new Array<double, 1>(this->I_NApertures);
+  this->P_D_A1_XCenter = new blitz::Array<double, 1>(this->I_NApertures);
   *this->P_D_A1_XCenter = 0.;
 
   /// YCenter
-  this->P_D_A1_YCenter = new Array<double, 1>(this->I_NApertures);
+  this->P_D_A1_YCenter = new blitz::Array<double, 1>(this->I_NApertures);
   *this->P_D_A1_YCenter = 0.;
 
   /// XLow
-  this->P_D_A1_XLow = new Array<double, 1>(this->I_NApertures);
+  this->P_D_A1_XLow = new blitz::Array<double, 1>(this->I_NApertures);
   *this->P_D_A1_XLow = 0.;
 
   /// XHigh
-  this->P_D_A1_XHigh = new Array<double, 1>(this->I_NApertures);
+  this->P_D_A1_XHigh = new blitz::Array<double, 1>(this->I_NApertures);
   *this->P_D_A1_XHigh = 0.;
 
   /// YLow
-  this->P_D_A1_YLow = new Array<double, 1>(this->I_NApertures);
+  this->P_D_A1_YLow = new blitz::Array<double, 1>(this->I_NApertures);
   *this->P_D_A1_YLow = 0.;
 
   /// YHigh
-  this->P_D_A1_YHigh = new Array<double, 1>(this->I_NApertures);
+  this->P_D_A1_YHigh = new blitz::Array<double, 1>(this->I_NApertures);
   *this->P_D_A1_YHigh = 0.;
 
   /// Orders
-  this->P_I_A1_Orders = new Array<int, 1>(this->I_NApertures);
+  this->P_I_A1_Orders = new blitz::Array<int, 1>(this->I_NApertures);
   *this->P_I_A1_Orders = 0;
 
   /// NCoeffs
-  this->P_I_A1_NCoeffs = new Array<int, 1>(this->I_NApertures);
+  this->P_I_A1_NCoeffs = new blitz::Array<int, 1>(this->I_NApertures);
   *this->P_I_A1_NCoeffs = 0;
 
   /// XMin
-  this->P_D_A1_XMin = new Array<double, 1>(this->I_NApertures);
+  this->P_D_A1_XMin = new blitz::Array<double, 1>(this->I_NApertures);
   *this->P_D_A1_XMin = 0.;
 
   /// XMax
-  this->P_D_A1_XMax = new Array<double, 1>(this->I_NApertures);
+  this->P_D_A1_XMax = new blitz::Array<double, 1>(this->I_NApertures);
   *this->P_D_A1_XMax = 0.;
 
   /// Functions
   /// realloc when database entry is read
-  this->P_CS_A1_Functions = new Array<CString, 1>(this->I_NApertures);
+  this->P_CS_A1_Functions = new blitz::Array<CString, 1>(this->I_NApertures);
   //this->PP_CS_A1_Functions = (CString**)malloc(sizeof(CString*) * this->I_NApertures);
   //for (int m = 0; m < I_NApertures; m++)
   //  PP_CS_A1_Functions[m] = new CString();
@@ -1412,7 +1412,7 @@ bool CFits::EqualValue(const CAny &any) const
   }
 
   /// XCenters
-  Array<double, 2> *P_tempxcenters = p_fit->Get_XCenters();
+  blitz::Array<double, 2> *P_tempxcenters = p_fit->Get_XCenters();
   if (P_D_A2_XCenters->size() != P_tempxcenters->size())
   {
 #ifdef __DEBUG_FITS_EQUALVALUE__
@@ -1435,7 +1435,7 @@ bool CFits::EqualValue(const CAny &any) const
   delete(P_tempxcenters);
 
   /// XCenter
-  Array<double, 1> *P_tempxcenter = p_fit->Get_XCenter();
+  blitz::Array<double, 1> *P_tempxcenter = p_fit->Get_XCenter();
   if (P_D_A1_XCenter->size() != P_tempxcenter->size())
   {
 #ifdef __DEBUG_FITS_EQUALVALUE__
@@ -1458,7 +1458,7 @@ bool CFits::EqualValue(const CAny &any) const
   delete(P_tempxcenters);
 
   /// YCenter
-  Array<double, 1> *P_tempycenter = p_fit->Get_YCenter();
+  blitz::Array<double, 1> *P_tempycenter = p_fit->Get_YCenter();
   if (P_D_A1_YCenter->size() != P_tempycenter->size())
   {
 #ifdef __DEBUG_FITS_EQUALVALUE__
@@ -1481,7 +1481,7 @@ bool CFits::EqualValue(const CAny &any) const
   delete(P_tempycenter);
 
   /// NCoeffs
-  Array<int, 1> *P_tempncoeffs = p_fit->Get_NCoeffs();
+  blitz::Array<int, 1> *P_tempncoeffs = p_fit->Get_NCoeffs();
   if (P_I_A1_NCoeffs->size() != P_tempncoeffs->size())
   {
 #ifdef __DEBUG_FITS_EQUALVALUE__
@@ -1504,7 +1504,7 @@ bool CFits::EqualValue(const CAny &any) const
   delete(P_tempncoeffs);
 
   /// Coeffs
-  Array<double, 2> *P_tempcoeffs = p_fit->Get_Coeffs();
+  blitz::Array<double, 2> *P_tempcoeffs = p_fit->Get_Coeffs();
   if (P_D_A2_Coeffs->size() != P_tempcoeffs->size())
   {
 #ifdef __DEBUG_FITS_EQUALVALUE__
@@ -1527,7 +1527,7 @@ bool CFits::EqualValue(const CAny &any) const
   delete(P_tempcoeffs);
 
   /// XMin
-  Array<double, 1> *P_tempxmin = p_fit->Get_XMin();
+  blitz::Array<double, 1> *P_tempxmin = p_fit->Get_XMin();
   if (P_D_A1_XMin->size() != P_tempxmin->size())
   {
 #ifdef __DEBUG_FITS_EQUALVALUE__
@@ -1550,7 +1550,7 @@ bool CFits::EqualValue(const CAny &any) const
   delete(P_tempxmin);
 
   /// XMax
-  Array<double, 1> *P_tempxmax = p_fit->Get_XMax();
+  blitz::Array<double, 1> *P_tempxmax = p_fit->Get_XMax();
   if (P_D_A1_XMax->size() != P_tempxmax->size())
   {
 #ifdef __DEBUG_FITS_EQUALVALUE__
@@ -1573,7 +1573,7 @@ bool CFits::EqualValue(const CAny &any) const
   delete(P_tempxmax);
 
   /// XLow
-  Array<double, 1> *P_templow(p_fit->Get_XLow());
+  blitz::Array<double, 1> *P_templow(p_fit->Get_XLow());
   if (P_D_A1_XLow->size() != P_templow->size())
   {
 #ifdef __DEBUG_FITS_EQUALVALUE__
@@ -1596,7 +1596,7 @@ bool CFits::EqualValue(const CAny &any) const
   delete(P_templow);
 
   /// XHigh
-  Array<double, 1> *P_temphigh(p_fit->Get_XHigh());
+  blitz::Array<double, 1> *P_temphigh(p_fit->Get_XHigh());
   if (P_D_A1_XHigh->size() != P_temphigh->size())
   {
 #ifdef __DEBUG_FITS_EQUALVALUE__
@@ -1665,7 +1665,7 @@ bool CFits::EqualValue(const CAny &any) const
   delete(P_temphigh);
 
   /// Orders
-  Array<int, 1> *P_temporders = p_fit->Get_Orders();
+  blitz::Array<int, 1> *P_temporders = p_fit->Get_Orders();
   if (P_I_A1_Orders->size() != P_temporders->size())
   {
 #ifdef __DEBUG_FITS_EQUALVALUE__
@@ -1687,7 +1687,7 @@ bool CFits::EqualValue(const CAny &any) const
   delete(P_temporders);
 
   /// Functions
-  Array<CString, 1> *P_tempfunctions = p_fit->Get_Functions();
+  blitz::Array<CString, 1> *P_tempfunctions = p_fit->Get_Functions();
   for (int m = 0; m < this->I_NApertures; m++)
   {
     /*    if ((*this->P_CS_A1_Functions)(m) == NULL)
@@ -2015,42 +2015,42 @@ bool CFits::DoCopy(const CFits &CF_ToCopy){
   this->ApplyDimension();
 
   /// PixArray
-  Array<double, 2> tempPixArr(const_cast<CFits*>(&CF_ToCopy)->GetPixArray());
+  blitz::Array<double, 2> tempPixArr(const_cast<CFits*>(&CF_ToCopy)->GetPixArray());
   (*(this->P_D_A2_PixArray)) = tempPixArr;
   tempPixArr.resize(0,0);
 
   /// ProfArray
-  Array<double, 2> tempProfArr(const_cast<CFits*>(&CF_ToCopy)->GetProfArray());
+  blitz::Array<double, 2> tempProfArr(const_cast<CFits*>(&CF_ToCopy)->GetProfArray());
   (*(this->P_D_A2_ProfArray)) = tempProfArr;
   tempProfArr.resize(0,0);
 
   /// ErrArray
-  Array<double, 2> tempErrArr(const_cast<CFits*>(&CF_ToCopy)->GetErrArray());
+  blitz::Array<double, 2> tempErrArr(const_cast<CFits*>(&CF_ToCopy)->GetErrArray());
   (*(this->P_D_A2_ErrArray)) = tempErrArr;
   tempErrArr.resize(0,0);
 
   /// RecSkyArray
-  Array<double, 2> tempSkyArr(const_cast<CFits*>(&CF_ToCopy)->GetRecSkyArray());
+  blitz::Array<double, 2> tempSkyArr(const_cast<CFits*>(&CF_ToCopy)->GetRecSkyArray());
   (*(this->P_D_A2_RecSkyArray)) = tempSkyArr;
   tempSkyArr.resize(0,0);
 
   /// RecArray
-  Array<double, 2> tempRecArr(const_cast<CFits*>(&CF_ToCopy)->GetRecArray());
+  blitz::Array<double, 2> tempRecArr(const_cast<CFits*>(&CF_ToCopy)->GetRecArray());
   (*(this->P_D_A2_RecArray)) = tempRecArr;
   tempRecArr.resize(0,0);
 
   /// RecFitArray
-  Array<double, 2> tempRecFitArr(const_cast<CFits*>(&CF_ToCopy)->GetRecFitArray());
+  blitz::Array<double, 2> tempRecFitArr(const_cast<CFits*>(&CF_ToCopy)->GetRecFitArray());
   (*(this->P_D_A2_RecFitArray)) = tempRecFitArr;
   tempRecFitArr.resize(0,0);
 
   /// MaskArray
-  Array<int, 2> tempMaskArr(const_cast<CFits*>(&CF_ToCopy)->GetMaskArray());
+  blitz::Array<int, 2> tempMaskArr(const_cast<CFits*>(&CF_ToCopy)->GetMaskArray());
   (*(this->P_I_A2_MaskArray)) = tempMaskArr;
   tempMaskArr.resize(0,0);
 
   /// XLow
-  Array<double, 1> *P_templow = CF_ToCopy.Get_XLow();
+  blitz::Array<double, 1> *P_templow = CF_ToCopy.Get_XLow();
   if (!this->Set_XLow(*P_templow))
   {
     cout << "CFits::DoCopy: Set_XLow(CF_ToCopy.Get_XLow(=" << *P_templow << ")) retuned FALSE => Returning FALSE" << endl;
@@ -2061,7 +2061,7 @@ bool CFits::DoCopy(const CFits &CF_ToCopy){
 //  templow.resize(0);
 
   /// XHigh
-  Array<double, 1> *P_temphigh = CF_ToCopy.Get_XHigh();
+  blitz::Array<double, 1> *P_temphigh = CF_ToCopy.Get_XHigh();
   if (!this->Set_XHigh(*P_temphigh))
   {
     cout << "CFits::DoCopy: Set_XHigh(CF_ToCopy.Get_XHigh(=" << *P_temphigh << ")) retuned FALSE => Returning FALSE" << endl;
@@ -2094,7 +2094,7 @@ bool CFits::DoCopy(const CFits &CF_ToCopy){
   delete(P_temphigh);
 
   /// XMin
-  Array<double, 1> *P_tempxmin = CF_ToCopy.Get_XMin();
+  blitz::Array<double, 1> *P_tempxmin = CF_ToCopy.Get_XMin();
   if (!this->Set_XMin(*P_tempxmin))
   {
     cout << "CFits::DoCopy: Set_XMin(CF_ToCopy.Get_XMin(=" << *P_tempxmin << ")) retuned FALSE => Returning FALSE" << endl;
@@ -2105,7 +2105,7 @@ bool CFits::DoCopy(const CFits &CF_ToCopy){
   delete(P_tempxmin);
 
   /// XMax
-  Array<double, 1> *P_tempxmax = CF_ToCopy.Get_XMax();
+  blitz::Array<double, 1> *P_tempxmax = CF_ToCopy.Get_XMax();
   if (!this->Set_XMax(*P_tempxmax))
   {
     cout << "CFits::DoCopy: Set_XMax(CF_ToCopy.Get_XMax(=" << *P_tempxmax << ")) retuned FALSE => Returning FALSE" << endl;
@@ -2116,7 +2116,7 @@ bool CFits::DoCopy(const CFits &CF_ToCopy){
   delete(P_tempxmax);
 
   /// Orders
-  Array<int, 1> *P_temporders = CF_ToCopy.Get_Orders();
+  blitz::Array<int, 1> *P_temporders = CF_ToCopy.Get_Orders();
   if (!this->Set_Orders(*P_temporders))
   {
     cout << "CFits::DoCopy: Set_Orders(CF_ToCopy.Get_Orders(=" << *P_temporders << ")) retuned FALSE => Returning FALSE" << endl;
@@ -2128,7 +2128,7 @@ bool CFits::DoCopy(const CFits &CF_ToCopy){
 
   /// Coeffs
   //  this->P_D_A2_Coeffs->resize(this->I_NApertures, max(*this->P_I_A1_Orders));
-  Array<double, 2> *P_tempcoeffs = CF_ToCopy.Get_Coeffs();
+  blitz::Array<double, 2> *P_tempcoeffs = CF_ToCopy.Get_Coeffs();
   if (!this->Set_Coeffs(*P_tempcoeffs))
   {
     cout << "CFits::DoCopy: Set_Coeffs(tempcoeffs(=" << *P_tempcoeffs << ")) retuned FALSE => Returning FALSE" << endl;
@@ -2139,7 +2139,7 @@ bool CFits::DoCopy(const CFits &CF_ToCopy){
   delete(P_tempcoeffs);
 
   /// NCoeffs
-  Array<int, 1> *P_tempncoeffs = CF_ToCopy.Get_NCoeffs();
+  blitz::Array<int, 1> *P_tempncoeffs = CF_ToCopy.Get_NCoeffs();
   if (!this->Set_NCoeffs(*P_tempncoeffs))
   {
     cout << "CFits::DoCopy: Set_NCoeffs(CF_ToCopy.Get_NCoeffs(=" << CF_ToCopy.Get_NCoeffs() << ")) retuned FALSE => Returning FALSE" << endl;
@@ -2150,7 +2150,7 @@ bool CFits::DoCopy(const CFits &CF_ToCopy){
   delete(P_tempncoeffs);
 
   /// XCenters
-  Array<double, 2> *P_tempxcenters = CF_ToCopy.Get_XCenters();
+  blitz::Array<double, 2> *P_tempxcenters = CF_ToCopy.Get_XCenters();
   if (!this->Set_XCenters(*P_tempxcenters))
   {
     cout << "CFits::DoCopy: Set_XCenters(CF_ToCopy.Get_XCenters(=" << *P_tempxcenters << ")) retuned FALSE => Returning FALSE" << endl;
@@ -2161,7 +2161,7 @@ bool CFits::DoCopy(const CFits &CF_ToCopy){
   delete(P_tempxcenters);
 
   /// XCenter
-  Array<double, 1> *P_tempxcenter = CF_ToCopy.Get_XCenter();
+  blitz::Array<double, 1> *P_tempxcenter = CF_ToCopy.Get_XCenter();
   if (!this->Set_XCenter(*P_tempxcenter))
   {
     cout << "CFits::DoCopy: Set_XCenter(CF_ToCopy.Get_XCenter(=" << *P_tempxcenter << ")) retuned FALSE => Returning FALSE" << endl;
@@ -2172,7 +2172,7 @@ bool CFits::DoCopy(const CFits &CF_ToCopy){
   delete(P_tempxcenter);
 
   /// YCenter
-  Array<double, 1> *P_tempycenter = CF_ToCopy.Get_YCenter();
+  blitz::Array<double, 1> *P_tempycenter = CF_ToCopy.Get_YCenter();
   if (!this->Set_YCenter(*P_tempycenter))
   {
     cout << "CFits::DoCopy: Set_YCenter(CF_ToCopy.Get_YCenter(=" << *P_tempycenter << ")) retuned FALSE => Returning FALSE" << endl;
@@ -2182,7 +2182,7 @@ bool CFits::DoCopy(const CFits &CF_ToCopy){
   delete(P_tempycenter);
 
   /// Functions
-  Array<CString, 1> *P_tempfunctions = CF_ToCopy.Get_Functions();
+  blitz::Array<CString, 1> *P_tempfunctions = CF_ToCopy.Get_Functions();
   if (this->P_CS_A1_Functions->size() != P_tempfunctions->size())
   {
     cout << "CFits::DoCopy: ERROR: size of P_CS_A1_Functions(=" << P_CS_A1_Functions->size() << ") != size of tempfunctions(=" << P_tempfunctions->size() << ")" << endl;
@@ -2260,7 +2260,7 @@ CFits& CFits::operator-=(CFits &fit){
 /**
 subtract D_A2_Sub from this->P_D_A2_PixArray
 **/
-CFits& CFits::operator-=(const Array<double, 2> &D_A2_Sub){
+CFits& CFits::operator-=(const blitz::Array<double, 2> &D_A2_Sub){
   if (this->NRows != D_A2_Sub.rows())
     exit (EXIT_FAILURE);
   if (this->NCols != D_A2_Sub.cols())
@@ -2550,7 +2550,7 @@ bool CFits::Set_NApertures(int I_NApertures_In)
 
   /// Orders
   oldsize = this->P_I_A1_Orders->size();
-  Array<int, 1> tempIntArr(oldsize);
+  blitz::Array<int, 1> tempIntArr(oldsize);
   tempIntArr = (*P_I_A1_Orders);
   this->P_I_A1_Orders->resize(this->I_NApertures);
   if (oldsize < this->P_I_A1_Orders->size())
@@ -2564,7 +2564,7 @@ bool CFits::Set_NApertures(int I_NApertures_In)
   }
   /// Functions
   oldsize = this->P_CS_A1_Functions->size();
-  Array<CString, 1> cs_a1_temp(oldsize);
+  blitz::Array<CString, 1> cs_a1_temp(oldsize);
   cs_a1_temp = (*this->P_CS_A1_Functions);
   this->P_CS_A1_Functions->resize(this->I_NApertures);
   (*P_CS_A1_Functions) = CString(" ");
@@ -2595,7 +2595,7 @@ bool CFits::Set_NApertures(int I_NApertures_In)
 
 /** ****************************************************** **/
 
-bool CFits::Set_XHigh(const Array<double, 1>& D_A1_In)
+bool CFits::Set_XHigh(const blitz::Array<double, 1>& D_A1_In)
 {
   /// Check input
   if (D_A1_In.rows() != this->I_NApertures)
@@ -2612,7 +2612,7 @@ bool CFits::Set_XHigh(const Array<double, 1>& D_A1_In)
 
 /** ****************************************************** **/
 
-bool CFits::Set_XLow(const Array<double, 1>& D_A1_In)
+bool CFits::Set_XLow(const blitz::Array<double, 1>& D_A1_In)
 {
   /// Check input
   if (D_A1_In.rows() != this->I_NApertures)
@@ -2632,7 +2632,7 @@ bool CFits::Set_XLow(const Array<double, 1>& D_A1_In)
 
 /** ****************************************************** **/
 
-bool CFits::Set_YHigh(const Array<double, 1>& D_A1_In)
+bool CFits::Set_YHigh(const blitz::Array<double, 1>& D_A1_In)
 {
   /// Check input
   if (D_A1_In.rows() != this->I_NApertures)
@@ -2649,7 +2649,7 @@ bool CFits::Set_YHigh(const Array<double, 1>& D_A1_In)
 
 /** ****************************************************** **/
 
-bool CFits::Set_YLow(const Array<double, 1>& D_A1_In)
+bool CFits::Set_YLow(const blitz::Array<double, 1>& D_A1_In)
 {
   cout << "CFits::Set_YLow: old this->P_D_A1_YLow = " << *this->P_D_A1_YLow << endl;
 //  return false;
@@ -2672,7 +2672,7 @@ bool CFits::Set_YLow(const Array<double, 1>& D_A1_In)
 
 /** ****************************************************** **/
 
-bool CFits::Set_XMax(const Array<double, 1>& D_A1_In)
+bool CFits::Set_XMax(const blitz::Array<double, 1>& D_A1_In)
 {
   /// Check input
   if (D_A1_In.rows() != this->I_NApertures)
@@ -2689,7 +2689,7 @@ bool CFits::Set_XMax(const Array<double, 1>& D_A1_In)
 
 /** ****************************************************** **/
 
-bool CFits::Set_XMin(const Array<double, 1>& D_A1_In)
+bool CFits::Set_XMin(const blitz::Array<double, 1>& D_A1_In)
 {
   /// Check input
   if (D_A1_In.rows() != this->I_NApertures)
@@ -2706,7 +2706,7 @@ bool CFits::Set_XMin(const Array<double, 1>& D_A1_In)
 
 /** ****************************************************** **/
 
-bool CFits::Set_Coeffs(const Array<double, 2>& D_A2_In)
+bool CFits::Set_Coeffs(const blitz::Array<double, 2>& D_A2_In)
 {
   /// Check input
   if (D_A2_In.rows() != this->I_NApertures)
@@ -2730,7 +2730,7 @@ bool CFits::Set_Coeffs(const Array<double, 2>& D_A2_In)
 
 /** ****************************************************** **/
 
-bool CFits::Set_XCenters(const Array<double, 2>& D_A2_In)
+bool CFits::Set_XCenters(const blitz::Array<double, 2>& D_A2_In)
 {
   /// Check input
   if (D_A2_In.rows() != this->I_NApertures)
@@ -2757,7 +2757,7 @@ bool CFits::Set_XCenters(const Array<double, 2>& D_A2_In)
 
 /** ****************************************************** **/
 
-bool CFits::Set_XCenter(const Array<double, 1>& D_A1_In)
+bool CFits::Set_XCenter(const blitz::Array<double, 1>& D_A1_In)
 {
   /// Check input
   if (D_A1_In.size() != this->I_NApertures)
@@ -2777,7 +2777,7 @@ bool CFits::Set_XCenter(const Array<double, 1>& D_A1_In)
 
 /** ****************************************************** **/
 
-bool CFits::Set_YCenter(const Array<double, 1>& D_A1_In)
+bool CFits::Set_YCenter(const blitz::Array<double, 1>& D_A1_In)
 {
   /// Check input
   if (D_A1_In.size() != this->I_NApertures)
@@ -2797,7 +2797,7 @@ bool CFits::Set_YCenter(const Array<double, 1>& D_A1_In)
 
 /** ****************************************************** **/
 
-bool CFits::Set_Orders(const Array<int, 1>& I_A1_In)
+bool CFits::Set_Orders(const blitz::Array<int, 1>& I_A1_In)
 {
   /// Check input
   if (I_A1_In.rows() != this->I_NApertures)
@@ -2815,7 +2815,7 @@ bool CFits::Set_Orders(const Array<int, 1>& I_A1_In)
 
 /** ****************************************************** **/
 
-bool CFits::Set_NCoeffs(const Array<int, 1>& I_A1_In)
+bool CFits::Set_NCoeffs(const blitz::Array<int, 1>& I_A1_In)
 {
   /// Check input
   if (I_A1_In.rows() != this->I_NApertures)
@@ -2833,7 +2833,7 @@ bool CFits::Set_NCoeffs(const Array<int, 1>& I_A1_In)
 /** ****************************************************** **/
 
 //bool CFits::Set_Functions(const CString** PP_CS_A1_Functions_In)
-bool CFits::Set_Functions(const Array<CString, 1> CS_A1_Functions_In)
+bool CFits::Set_Functions(const blitz::Array<CString, 1> CS_A1_Functions_In)
 {
   if (P_CS_A1_Functions->size() != CS_A1_Functions_In.size())
   {
@@ -2860,7 +2860,7 @@ bool CFits::Set_Functions(const Array<CString, 1> CS_A1_Functions_In)
 
 /** *********************************************************/
 
-bool CFits::Set_SubArray(Array<double, 1> &D_A1_InOut, Array<int, 1> &I_A1_Indices_In, Array<double, 1> &D_A1_In) const
+bool CFits::Set_SubArray(blitz::Array<double, 1> &D_A1_InOut, blitz::Array<int, 1> &I_A1_Indices_In, blitz::Array<double, 1> &D_A1_In) const
 {
   if (D_A1_InOut.size() < D_A1_In.size())
   {
@@ -2874,9 +2874,9 @@ bool CFits::Set_SubArray(Array<double, 1> &D_A1_InOut, Array<int, 1> &I_A1_Indic
     (*P_OFS_Log) << "CFits::Set_SubArray(double): D_A1_In.size(=" << D_A1_In.size() << ") != I_A1_Indices_In.size(=" << I_A1_Indices_In.size() << ") => Returning FALSE" << endl;
     return false;
   }
-  Array<double, 1>::iterator pdm1 = const_cast<Array<double, 1>*>(&D_A1_In)->begin();
-  Array<int, 1>::iterator pend = I_A1_Indices_In.end();
-  Array<int, 1>::iterator pind = const_cast<Array<int, 1>*>(&I_A1_Indices_In)->begin();
+  blitz::Array<double, 1>::iterator pdm1 = const_cast<blitz::Array<double, 1>*>(&D_A1_In)->begin();
+  blitz::Array<int, 1>::iterator pend = I_A1_Indices_In.end();
+  blitz::Array<int, 1>::iterator pind = const_cast<blitz::Array<int, 1>*>(&I_A1_Indices_In)->begin();
   for (; pind != pend; ++pdm1, ++pind)
     D_A1_InOut(*pind) = *pdm1;
   return true;
@@ -2884,7 +2884,7 @@ bool CFits::Set_SubArray(Array<double, 1> &D_A1_InOut, Array<int, 1> &I_A1_Indic
 
 /** *********************************************************/
 
-bool CFits::Set_SubArray(Array<int, 1> &I_A1_InOut, Array<int, 1> &I_A1_Indices_In, Array<int, 1> &I_A1_In) const
+bool CFits::Set_SubArray(blitz::Array<int, 1> &I_A1_InOut, blitz::Array<int, 1> &I_A1_Indices_In, blitz::Array<int, 1> &I_A1_In) const
 {
   if (I_A1_InOut.size() < I_A1_In.size())
   {
@@ -2898,9 +2898,9 @@ bool CFits::Set_SubArray(Array<int, 1> &I_A1_InOut, Array<int, 1> &I_A1_Indices_
     (*P_OFS_Log) << "CFits::Set_SubArray(int): I_A1_In.size(=" << I_A1_In.size() << ") != I_A1_Indices_In.size(=" << I_A1_Indices_In.size() << ") => Returning FALSE" << endl;
     return false;
   }
-  Array<int, 1>::iterator pdm1 = const_cast<Array<int, 1>*>(&I_A1_In)->begin();
-  Array<int, 1>::iterator pend = I_A1_Indices_In.end();
-  Array<int, 1>::iterator pind = const_cast<Array<int, 1>*>(&I_A1_Indices_In)->begin();
+  blitz::Array<int, 1>::iterator pdm1 = const_cast<blitz::Array<int, 1>*>(&I_A1_In)->begin();
+  blitz::Array<int, 1>::iterator pend = I_A1_Indices_In.end();
+  blitz::Array<int, 1>::iterator pind = const_cast<blitz::Array<int, 1>*>(&I_A1_Indices_In)->begin();
   for (; pind != pend; ++pdm1, ++pind)
     I_A1_InOut(*pind) = *pdm1;
   return true;
@@ -2908,7 +2908,7 @@ bool CFits::Set_SubArray(Array<int, 1> &I_A1_InOut, Array<int, 1> &I_A1_Indices_
 
 /** *********************************************************/
 
-bool CFits::Set_SubArray(Array<double, 2> &D_A2_InOut, Array<int, 2> &I_A2_Indices_In, Array<double, 2> &D_A2_In) const
+bool CFits::Set_SubArray(blitz::Array<double, 2> &D_A2_InOut, blitz::Array<int, 2> &I_A2_Indices_In, blitz::Array<double, 2> &D_A2_In) const
 {
   if (I_A2_Indices_In.cols() < 4){
     cout << "CFits::Set_SubArray: ERROR: I_A2_Indices_In.cols() < 4" << endl;
@@ -2944,7 +2944,7 @@ bool CFits::Set_SubArray(Array<double, 2> &D_A2_InOut, Array<int, 2> &I_A2_Indic
 
 /** *********************************************************/
 
-bool CFits::Set_SubArray(Array<int, 2> &I_A2_InOut, Array<int, 2> &I_A2_Indices_In, Array<int, 2> &I_A2_In) const
+bool CFits::Set_SubArray(blitz::Array<int, 2> &I_A2_InOut, blitz::Array<int, 2> &I_A2_Indices_In, blitz::Array<int, 2> &I_A2_In) const
 {
   if (I_A2_Indices_In.cols() < 4){
     cout << "CFits::Set_SubArray: ERROR: I_A2_Indices_In.cols() < 4" << endl;
@@ -2980,7 +2980,7 @@ bool CFits::Set_SubArray(Array<int, 2> &I_A2_InOut, Array<int, 2> &I_A2_Indices_
 
 /** *********************************************************/
 
-bool CFits::Set_SubArray(Array<double, 2> &D_A2_InOut, Array<int, 2> &I_A2_Indices_In, Array<double, 1> &D_A1_In) const
+bool CFits::Set_SubArray(blitz::Array<double, 2> &D_A2_InOut, blitz::Array<int, 2> &I_A2_Indices_In, blitz::Array<double, 1> &D_A1_In) const
 {
   if (I_A2_Indices_In.cols() < 2){
     cout << "CFits::Set_SubArray: ERROR: I_A2_Indices_In.cols() < 2" << endl;
@@ -3006,7 +3006,7 @@ bool CFits::Set_SubArray(Array<double, 2> &D_A2_InOut, Array<int, 2> &I_A2_Indic
 
 /** *********************************************************/
 
-bool CFits::Set_SubArray(Array<int, 2> &I_A2_InOut, Array<int, 2> &I_A2_Indices_In, Array<int, 1> &I_A1_In) const
+bool CFits::Set_SubArray(blitz::Array<int, 2> &I_A2_InOut, blitz::Array<int, 2> &I_A2_Indices_In, blitz::Array<int, 1> &I_A1_In) const
 {
   if (I_A2_Indices_In.cols() < 2){
     cout << "CFits::Set_SubArray: ERROR: I_A2_Indices_In.cols() < 2" << endl;
@@ -3206,114 +3206,114 @@ CString& CFits::GetDatabaseFileName() const
 
 /** ********************************************************/
 
-Array<double, 2>& CFits::GetPixArray()
+blitz::Array<double, 2>& CFits::GetPixArray()
 {
   return (*(this->P_D_A2_PixArray));
 }
 
 /** ********************************************************/
 
-Array<double, 2>& CFits::GetProfArray()
+blitz::Array<double, 2>& CFits::GetProfArray()
 {
   return (*(this->P_D_A2_ProfArray));
 }
 
 /** ********************************************************/
 
-Array<double, 2>& CFits::GetErrArray()
+blitz::Array<double, 2>& CFits::GetErrArray()
 {
   return (*(this->P_D_A2_ErrArray));
 }
 
 /** ********************************************************/
 
-Array<double, 2>& CFits::GetRecSkyArray()
+blitz::Array<double, 2>& CFits::GetRecSkyArray()
 {
   return (*(this->P_D_A2_RecSkyArray));
 }
 
 /** ********************************************************/
 
-Array<double, 2>& CFits::GetRecArray()
+blitz::Array<double, 2>& CFits::GetRecArray()
 {
   return (*(this->P_D_A2_RecArray));
 }
 
 /** ********************************************************/
 
-Array<double, 2>& CFits::GetRecFitArray()
+blitz::Array<double, 2>& CFits::GetRecFitArray()
 {
   return (*(this->P_D_A2_RecFitArray));
 }
 
 /** ********************************************************/
 
-Array<int, 2>& CFits::GetMaskArray()
+blitz::Array<int, 2>& CFits::GetMaskArray()
 {
   return (*(this->P_I_A2_MaskArray));
 }
 
 /** ********************************************************/
 
-Array<double, 2>& CFits::GetSpec()
+blitz::Array<double, 2>& CFits::GetSpec()
 {
   return (*(this->P_D_A2_Blaze));
 }
 
 /** ********************************************************/
 
-Array<double, 2>& CFits::GetSpecFit()
+blitz::Array<double, 2>& CFits::GetSpecFit()
 {
   return (*(this->P_D_A2_SP_Fit));
 }
 
 /** ********************************************************/
 
-Array<double, 2>& CFits::GetLastExtracted()
+blitz::Array<double, 2>& CFits::GetLastExtracted()
 {
   return (*(this->P_D_A2_LastExtracted));
 }
 
 /** ********************************************************/
 
-Array<double, 2>& CFits::GetErrorsEc()
+blitz::Array<double, 2>& CFits::GetErrorsEc()
 {
   return (*(this->P_D_A2_Errors_Ec));
 }
 
 /** ********************************************************/
 
-Array<double, 2>& CFits::GetSky()
+blitz::Array<double, 2>& CFits::GetSky()
 {
   return (*(this->P_D_A2_Sky));
 }
 
 /** ********************************************************/
 
-Array<double, 2>& CFits::GetSkyError()
+blitz::Array<double, 2>& CFits::GetSkyError()
 {
   return (*(this->P_D_A2_SkyError));
 }
 
-Array<double, 2>& CFits::GetSkyFitError(){
+blitz::Array<double, 2>& CFits::GetSkyFitError(){
   return (*(this->P_D_A2_SkyFitError));
 }
 
-Array<double, 2>& CFits::GetSkyFit(){
+blitz::Array<double, 2>& CFits::GetSkyFit(){
   return (*(this->P_D_A2_SkyFit));
 }
 
-Array<double, 2>& CFits::GetErrorsEcFit(){
+blitz::Array<double, 2>& CFits::GetErrorsEcFit(){
   return (*(this->P_D_A2_Errors_EcFit));
 }
 
-Array<double, 2>& CFits::GetRecSkyFitArray(){
+blitz::Array<double, 2>& CFits::GetRecSkyFitArray(){
   return (*(this->P_D_A2_RecSkyFitArray));
 }
 
 /** ****************************************************** **/
 
-Array<double, 2>& CFits::GetWavelengths(){ /// NApertures x NRows
+blitz::Array<double, 2>& CFits::GetWavelengths(){ /// NApertures x NRows
   return (*(this->P_D_A2_WLen));
 }
 
@@ -3333,98 +3333,98 @@ int CFits::Get_NApertures() const
 
 /** ****************************************************** **/
 
-Array<double, 1>* CFits::Get_XHigh() const
+blitz::Array<double, 1>* CFits::Get_XHigh() const
 {
-  return (new Array<double, 1>(this->P_D_A1_XHigh->copy()));
+  return (new blitz::Array<double, 1>(this->P_D_A1_XHigh->copy()));
 }
 
 /** ****************************************************** **/
 
-Array<double, 1>* CFits::Get_XLow() const
+blitz::Array<double, 1>* CFits::Get_XLow() const
 {
-  return (new Array<double, 1>(this->P_D_A1_XLow->copy()));
+  return (new blitz::Array<double, 1>(this->P_D_A1_XLow->copy()));
 }
 
 /** ****************************************************** **/
 
-Array<double, 1>* CFits::Get_YHigh() const
+blitz::Array<double, 1>* CFits::Get_YHigh() const
 {
-  return (new Array<double, 1>(this->P_D_A1_YHigh->copy()));
+  return (new blitz::Array<double, 1>(this->P_D_A1_YHigh->copy()));
 }
 
 /** ****************************************************** **/
 
 blitz::Array< double, 1 >* CFits::Get_YLow() const
 {
-  return (new Array<double, 1>(this->P_D_A1_YLow->copy()));
+  return (new blitz::Array<double, 1>(this->P_D_A1_YLow->copy()));
 }
 
 /** ****************************************************** **/
 
-Array<double, 1>* CFits::Get_XMax() const
+blitz::Array<double, 1>* CFits::Get_XMax() const
 {
-  return (new Array<double, 1>(this->P_D_A1_XMax->copy()));
+  return (new blitz::Array<double, 1>(this->P_D_A1_XMax->copy()));
 }
 
 /** ****************************************************** **/
 
-Array<double, 1>* CFits::Get_XMin() const
+blitz::Array<double, 1>* CFits::Get_XMin() const
 {
-  return (new Array<double, 1>(this->P_D_A1_XMin->copy()));
+  return (new blitz::Array<double, 1>(this->P_D_A1_XMin->copy()));
 }
 
 /** ****************************************************** **/
 
-Array<double, 2>* CFits::Get_Coeffs() const
+blitz::Array<double, 2>* CFits::Get_Coeffs() const
 {
-  return (new Array<double, 2>(this->P_D_A2_Coeffs->copy()));
+  return (new blitz::Array<double, 2>(this->P_D_A2_Coeffs->copy()));
 }
 
 /** ****************************************************** **/
 
-Array<double, 2>* CFits::Get_XCenters() const
+blitz::Array<double, 2>* CFits::Get_XCenters() const
 {
-  //Array<double, 2> *P_D_A2_Temp = new Array<double, 2>();
+  //blitz::Array<double, 2> *P_D_A2_Temp = new blitz::Array<double, 2>();
   //(*P_D_A2_Temp) = this->P_D_A2_XCenters->copy();
-  return (new Array<double, 2>(this->P_D_A2_XCenters->copy()));
+  return (new blitz::Array<double, 2>(this->P_D_A2_XCenters->copy()));
 }
 
 /** ****************************************************** **/
 
-Array<double, 1>* CFits::Get_XCenter() const
+blitz::Array<double, 1>* CFits::Get_XCenter() const
 {
-  //Array<double, 2> *P_D_A2_Temp = new Array<double, 2>();
+  //blitz::Array<double, 2> *P_D_A2_Temp = new blitz::Array<double, 2>();
   //(*P_D_A2_Temp) = this->P_D_A2_XCenters->copy();
-  return (new Array<double, 1>(this->P_D_A1_XCenter->copy()));
+  return (new blitz::Array<double, 1>(this->P_D_A1_XCenter->copy()));
 }
 
 /** ****************************************************** **/
 
-Array<double, 1>* CFits::Get_YCenter() const
+blitz::Array<double, 1>* CFits::Get_YCenter() const
 {
-  //Array<double, 2> *P_D_A2_Temp = new Array<double, 2>();
+  //blitz::Array<double, 2> *P_D_A2_Temp = new blitz::Array<double, 2>();
   //(*P_D_A2_Temp) = this->P_D_A2_XCenters->copy();
-  return (new Array<double, 1>(this->P_D_A1_YCenter->copy()));
+  return (new blitz::Array<double, 1>(this->P_D_A1_YCenter->copy()));
 }
 
 /** ****************************************************** **/
 
-Array<int, 1>* CFits::Get_Orders() const
+blitz::Array<int, 1>* CFits::Get_Orders() const
 {
-  return (new Array<int, 1>(this->P_I_A1_Orders->copy()));
+  return (new blitz::Array<int, 1>(this->P_I_A1_Orders->copy()));
 }
 
 /** ****************************************************** **/
 
-Array<int, 1>* CFits::Get_NCoeffs() const
+blitz::Array<int, 1>* CFits::Get_NCoeffs() const
 {
-  return (new Array<int, 1>(this->P_I_A1_NCoeffs->copy()));
+  return (new blitz::Array<int, 1>(this->P_I_A1_NCoeffs->copy()));
 }
 
 /** ****************************************************** **/
 
 //CString** CFits::Get_Functions() const
-Array<CString, 1>* CFits::Get_Functions() const
+blitz::Array<CString, 1>* CFits::Get_Functions() const
 {
   /*  CString **PP_CS_A1_Functions_Temp = (CString**)malloc(sizeof(CString*) * this->I_NApertures);
     for (int m = 0; m < this->I_NApertures; m++)
@@ -3436,7 +3436,7 @@ Array<CString, 1>* CFits::Get_Functions() const
         cout << "CFits::Get_Functions: PP_CS_A1_Functions[" << m << "] == NULL!!!!!!!!!!!!!!!!!!" << endl;
     }
     return PP_CS_A1_Functions;*/
-  Array<CString, 1> *P_CS_A1_Functions_Temp = new Array<CString, 1>(this->I_NApertures);
+  blitz::Array<CString, 1> *P_CS_A1_Functions_Temp = new blitz::Array<CString, 1>(this->I_NApertures);
   (*P_CS_A1_Functions_Temp) = (*this->P_CS_A1_Functions);
   return P_CS_A1_Functions_Temp;
 }
@@ -4252,8 +4252,8 @@ double CFits::GetS(const double XVal, const double XMin, const double XMax, cons
 /**       */
 /**       */
 /** **************************************************/
-bool CFits::LinearSpline(Array<double, 1> &D_A1_XCenters_Out,
-                         const Array<double, 1> &D_A1_Coeffs_In,
+bool CFits::LinearSpline(blitz::Array<double, 1> &D_A1_XCenters_Out,
+                         const blitz::Array<double, 1> &D_A1_Coeffs_In,
                          double D_XCenter_In,
                          double D_YCenter_In,
                          double D_YMin_In,
@@ -4280,8 +4280,8 @@ bool CFits::LinearSpline(Array<double, 1> &D_A1_XCenters_Out,
 /**       */
 /**       */
 /** **************************************************/
-bool CFits::CubicSpline(Array<double, 1> &D_A1_XCenters_Out,
-                        const Array<double, 1> &D_A1_Coeffs_In,
+bool CFits::CubicSpline(blitz::Array<double, 1> &D_A1_XCenters_Out,
+                        const blitz::Array<double, 1> &D_A1_Coeffs_In,
                         double D_XCenter_In,
                         double D_YCenter_In,
                         double D_YMin_In,
@@ -4294,7 +4294,7 @@ bool CFits::CubicSpline(Array<double, 1> &D_A1_XCenters_Out,
   //  long i, j, k;
   int m, o;
   double D_Normalized;
-  Array<double, 1> D_A1_ZArr(4);
+  blitz::Array<double, 1> D_A1_ZArr(4);
 
   printf("CFits::CubicSpline: D_A1_XCenters_Out.size() returned %d\n", D_A1_XCenters_Out.size());
 
@@ -4336,10 +4336,10 @@ bool CFits::CubicSpline(Array<double, 1> &D_A1_XCenters_Out,
 /**       */
 /**       */
 /** **************************************************/
-bool CFits::ChebyLegend(Array<double, 1> &D_A1_XCenters_Out,
+bool CFits::ChebyLegend(blitz::Array<double, 1> &D_A1_XCenters_Out,
                         double *P_D_YMin_Out,
                         double *P_D_YMax_Out,
-                        const Array<double, 1> &D_A1_Coeffs_In,
+                        const blitz::Array<double, 1> &D_A1_Coeffs_In,
                         double D_XCenter_In,
                         double D_YCenter_In,
                         double D_YMin_In,
@@ -4359,7 +4359,7 @@ bool CFits::ChebyLegend(Array<double, 1> &D_A1_XCenters_Out,
   double D_Normalized;
   bool B_XMax_Set = false;
   bool B_Begin_Found = false;
-  Array<double, 1> D_A1_ZArr(3);
+  blitz::Array<double, 1> D_A1_ZArr(3);
 
   #ifdef __DEBUG_FITS_TRACEFUNC__
     cout << "CFits::ChebyLegend: started: CS_Function_In = " << CS_Function_In << ", D_XCenter_In = " << D_XCenter_In << ", D_YCenter_In = " << D_YCenter_In << ", D_YMin_In = " << D_YMin_In << ", D_YMax_In = " << D_YMax_In << ", D_XLow_In = " << D_XLow_In << ", D_XHigh_In = " << D_XHigh_In << ", I_Order_In = " << I_Order_In << ", Coeffs = " << D_A1_Coeffs_In << endl;
@@ -4474,10 +4474,10 @@ bool CFits::ChebyLegend(Array<double, 1> &D_A1_XCenters_Out,
 /*       */
 /*       */
 /*****************************************************************/
-bool CFits::Legendre(Array<double, 1> &D_A1_XCenters_Out,
+bool CFits::Legendre(blitz::Array<double, 1> &D_A1_XCenters_Out,
                      double *P_D_YMin_Out,
                      double *P_D_YMax_Out,
-                     const Array<double, 1> &D_A1_Coeffs_In,
+                     const blitz::Array<double, 1> &D_A1_Coeffs_In,
                      double D_XCenter_In,
                      double D_YCenter_In,
                      double D_YMin_In,
@@ -4511,10 +4511,10 @@ bool CFits::Legendre(Array<double, 1> &D_A1_XCenters_Out,
 /*       */
 /*       */
 /*****************************************************************/
-bool CFits::Chebyshev(Array<double, 1> &D_A1_XCenters_Out,
+bool CFits::Chebyshev(blitz::Array<double, 1> &D_A1_XCenters_Out,
                       double *P_D_YMin_Out,
                       double *P_D_YMax_Out,
-                      const Array<double, 1> &D_A1_Coeffs_In,
+                      const blitz::Array<double, 1> &D_A1_Coeffs_In,
                       double D_XCenter_In,
                       double D_YCenter_In,
                       double D_YMin_In,
@@ -4575,30 +4575,30 @@ bool CFits::FindAndTraceApertures(int I_In_NTermsGaussFit,
   double D_Max;
   bool B_ApertureFound, B_AperturesInArray;
   bool B_STOP = false;
-  Array<double, 1> *P_D_A1_IndexCol = this->DIndGenArr(this->P_D_A2_PixArray->cols());
-  Array<double, 1> D_A1_X(10);
-  Array<double, 1> D_A1_Y(10);
-  Array<double, 1> D_A1_MeasureErrors(10);
-  Array<double, 1> D_A1_Guess(I_In_NTermsGaussFit);
-  Array<double, 1> D_A1_GaussFit_Coeffs(I_In_NTermsGaussFit);
-  Array<double, 1> D_A1_GaussFit_Coeffs_Bak(I_In_NTermsGaussFit);
-  Array<int, 1> I_A1_Signal(P_D_A2_PixArray->cols());
-  Array<double, 1> D_A1_ApertureCenter(this->P_D_A2_PixArray->rows());
-  Array<int, 1> I_A1_ApertureCenterInd(this->P_D_A2_PixArray->rows());
-  Array<double, 1> D_A1_ApertureCenterIndex(this->P_D_A2_PixArray->rows());
-  Array<int, 1> I_A1_ApertureCenterIndex(this->P_D_A2_PixArray->rows());
-  Array<double, 1> D_A1_ApertureCenterPos(1);
-  Array<double, 1> *P_D_A1_PolyFitCoeffs = new Array<double, 1>(I_In_PolyFitOrder);
-  Array<int, 1> I_A1_IndSignal(2);
+  blitz::Array<double, 1> *P_D_A1_IndexCol = this->DIndGenArr(this->P_D_A2_PixArray->cols());
+  blitz::Array<double, 1> D_A1_X(10);
+  blitz::Array<double, 1> D_A1_Y(10);
+  blitz::Array<double, 1> D_A1_MeasureErrors(10);
+  blitz::Array<double, 1> D_A1_Guess(I_In_NTermsGaussFit);
+  blitz::Array<double, 1> D_A1_GaussFit_Coeffs(I_In_NTermsGaussFit);
+  blitz::Array<double, 1> D_A1_GaussFit_Coeffs_Bak(I_In_NTermsGaussFit);
+  blitz::Array<int, 1> I_A1_Signal(P_D_A2_PixArray->cols());
+  blitz::Array<double, 1> D_A1_ApertureCenter(this->P_D_A2_PixArray->rows());
+  blitz::Array<int, 1> I_A1_ApertureCenterInd(this->P_D_A2_PixArray->rows());
+  blitz::Array<double, 1> D_A1_ApertureCenterIndex(this->P_D_A2_PixArray->rows());
+  blitz::Array<int, 1> I_A1_ApertureCenterIndex(this->P_D_A2_PixArray->rows());
+  blitz::Array<double, 1> D_A1_ApertureCenterPos(1);
+  blitz::Array<double, 1> *P_D_A1_PolyFitCoeffs = new blitz::Array<double, 1>(I_In_PolyFitOrder);
+  blitz::Array<int, 1> I_A1_IndSignal(2);
   #ifdef __DEBUG_FITS_FINDANDTRACE__
     cout << "CFits::FindAndTraceApertures: started" << endl;
-    Array<double, 2> D_A2_PixArrayNew(this->NRows, this->NCols);
+    blitz::Array<double, 2> D_A2_PixArrayNew(this->NRows, this->NCols);
     D_A2_PixArrayNew = 0.;
   #endif
-  Array<int, 1> I_A1_Ind(1);
-  Array<int, 1> I_A1_Where(1);
+  blitz::Array<int, 1> I_A1_Ind(1);
+  blitz::Array<int, 1> I_A1_Where(1);
 
-  Array<CString, 1> CS_A1_KeyWords_GaussFit(4);
+  blitz::Array<CString, 1> CS_A1_KeyWords_GaussFit(4);
   void **PP_Args_GaussFit = (void**)malloc(sizeof(void*) * 4);
   CS_A1_KeyWords_GaussFit = CString(" ");
 
@@ -5169,12 +5169,12 @@ bool CFits::CalcTraceFunction(int I_Aperture_In)
 //const int Order,
 //const char* P_Function) const
 {
-  //  Array<CString, 1> CS_A1_Functions(5);
+  //  blitz::Array<CString, 1> CS_A1_Functions(5);
   int i;
   double *P_D_YMin = new double();
   double *P_D_YMax = new double();
-  Array<double, 1> D_A1_TempCen = (*this->P_D_A2_XCenters)(I_Aperture_In, Range::all());
-  Array<double, 1> D_A1_TempCoef = (*this->P_D_A2_Coeffs)(I_Aperture_In, Range(0,(*this->P_I_A1_NCoeffs)(I_Aperture_In)-1));
+  blitz::Array<double, 1> D_A1_TempCen = (*this->P_D_A2_XCenters)(I_Aperture_In, Range::all());
+  blitz::Array<double, 1> D_A1_TempCoef = (*this->P_D_A2_Coeffs)(I_Aperture_In, Range(0,(*this->P_I_A1_NCoeffs)(I_Aperture_In)-1));
 
   #ifdef __DEBUG_FITS_TRACEFUNC__
     cout << "CFits::CalcTraceFunction: (*this->P_CS_A1_Functions)(I_Aperture_In=" << I_Aperture_In << ") = " << (*this->P_CS_A1_Functions)(I_Aperture_In) << endl;
@@ -5338,25 +5338,25 @@ bool CFits::CalcTraceFunction(int I_Aperture_In)
       cout << "CFits::CalcTraceFunction: I_Aperture_In = " << I_Aperture_In << ": Coeffs = " << D_A1_TempCoef << endl;
     #endif
 ///    D_A1_YCenB = *(this->Poly(D_A1_XRow, (*this->P_D_A2_Coeffs)(0,Range(0,(*this->P_I_A1_NCoeffs)(0)-1))));
-    Array<double,1> D_A1_XRow(this->NRows);
+    blitz::Array<double,1> D_A1_XRow(this->NRows);
     for (i=0; i < this->NRows; i++){
       D_A1_XRow(i) = double(i);
     }
     #ifdef __DEBUG_FITS_TRACEFUNC__
       cout << "CFits::CalcTraceFunction: I_Aperture_In = " << I_Aperture_In << ": D_A1_TempCoef = " << D_A1_TempCoef << endl;
     #endif
-    Array<double,1> *P_D_A1_TempCen = this->Poly(D_A1_XRow, D_A1_TempCoef);
+    blitz::Array<double,1> *P_D_A1_TempCen = this->Poly(D_A1_XRow, D_A1_TempCoef);
     D_A1_TempCen = (*P_D_A1_TempCen);
     delete(P_D_A1_TempCen);
     (*this->P_D_A2_XCenters)(I_Aperture_In,Range::all()) = D_A1_TempCen;
-    Array<double, 1> D_A1_XLow(this->P_D_A2_XCenters->cols());
+    blitz::Array<double, 1> D_A1_XLow(this->P_D_A2_XCenters->cols());
     D_A1_XLow = D_A1_TempCen + (*(this->P_D_A1_XLow))(I_Aperture_In);
-    Array<double, 1> D_A1_XHigh(this->P_D_A2_XCenters->cols());
+    blitz::Array<double, 1> D_A1_XHigh(this->P_D_A2_XCenters->cols());
     D_A1_XHigh = D_A1_TempCen + (*(this->P_D_A1_XHigh))(I_Aperture_In);
-    Array<int, 1> I_A1_Where(this->P_D_A2_XCenters->cols());
+    blitz::Array<int, 1> I_A1_Where(this->P_D_A2_XCenters->cols());
     I_A1_Where = where(D_A1_XLow < 0., 0, 1);
     int I_NInd;
-    Array<int, 1> *P_I_A1_WhereInd = this->GetIndex(I_A1_Where, I_NInd);
+    blitz::Array<int, 1> *P_I_A1_WhereInd = this->GetIndex(I_A1_Where, I_NInd);
     *P_D_YMin = (*P_I_A1_WhereInd)(0);
     delete(P_I_A1_WhereInd);
     I_A1_Where = where(D_A1_XHigh < this->NCols, 1, 0);
@@ -5602,7 +5602,7 @@ bool CFits::WriteDatabaseEntry() const//const CString &CS_FileName_In)//, char**
   printf("CFits.WriteDatabaseEntry: function started\n");
   #endif
 
-  Array<CString, 1>CS_A1_Functions(5);
+  blitz::Array<CString, 1>CS_A1_Functions(5);
   CS_A1_Functions(0).Set("chebyshev");
   CS_A1_Functions(1).Set("legendre");
   CS_A1_Functions(2).Set("cubic");
@@ -5759,7 +5759,7 @@ bool CFits::ReadArray()
   }
   if (P_D_A2_PixArray != NULL)
     delete P_D_A2_PixArray;
-  this->P_D_A2_PixArray = new Array<double,2>(p_Array, shape(this->NRows, this->NCols), duplicateData);
+  this->P_D_A2_PixArray = new blitz::Array<double,2>(p_Array, shape(this->NRows, this->NCols), duplicateData);
   // --- set all negative pixels to 0
   #ifdef __DEBUG_FITS_READARRAY__
     cout << "CFits::ReadArray: this->NCols = <" << this->NCols << ">, this->NRows = <" << this->NRows << ">, nelements = " << nelements << endl;
@@ -5862,7 +5862,7 @@ bool CFits::ReadErrArray()
   }
   if (P_D_A2_ErrArray != NULL)
     delete P_D_A2_ErrArray;
-  this->P_D_A2_ErrArray = new Array<double,2>(p_Array, shape(this->NRows, this->NCols), duplicateData);
+  this->P_D_A2_ErrArray = new blitz::Array<double,2>(p_Array, shape(this->NRows, this->NCols), duplicateData);
   free(p_Array);
   // --- set all negative pixels to 0
 
@@ -5920,14 +5920,14 @@ bool CFits::ReadErrArray()
  * Task: Writes P_D_A2_Image_In to fitsfile
  *       CS_FileName_In
  **/
-bool CFits::WriteFits(const Array<double,1>* P_D_A1_Image_In, const CString CS_FileName_In) const
+bool CFits::WriteFits(const blitz::Array<double,1>* P_D_A1_Image_In, const CString CS_FileName_In) const
 {
-  Array<double, 2> D_A2_Image(P_D_A1_Image_In->size(), 1);
+  blitz::Array<double, 2> D_A2_Image(P_D_A1_Image_In->size(), 1);
   D_A2_Image(Range::all(), 0) = (*P_D_A1_Image_In);
   return this->WriteFits(&D_A2_Image, CS_FileName_In);
 }
 
-bool CFits::WriteFits(const Array<double,2>* P_D_A2_Image_In, const CString CS_FileName_In) const
+bool CFits::WriteFits(const blitz::Array<double,2>* P_D_A2_Image_In, const CString CS_FileName_In) const
 {
   #ifdef __DEBUG_FITS_WRITEFITS__
     (*P_OFS_Log) << "CFits::WriteFits: started: CS_FileName_In = " << CS_FileName_In << endl;
@@ -5980,7 +5980,7 @@ bool CFits::WriteFits(const Array<double,2>* P_D_A2_Image_In, const CString CS_F
   nullval = 0.;
   nelements = P_D_A2_Image_In->cols() * P_D_A2_Image_In->rows();
 
-  p_void = (const_cast<Array<double, 2>*>(P_D_A2_Image_In))->data();// = new Array<double,2>(p_Array, shape(naxes[0], naxes[1]),
+  p_void = (const_cast<blitz::Array<double, 2>*>(P_D_A2_Image_In))->data();// = new blitz::Array<double,2>(p_Array, shape(naxes[0], naxes[1]),
   #ifdef __DEBUG_FITS_WRITEFITS__
     cout << "CFits::WriteFits: p_void = <" << (*((double*)p_void)) << ">" << endl;
   #endif
@@ -6022,14 +6022,14 @@ bool CFits::WriteFits(const Array<double,2>* P_D_A2_Image_In, const CString CS_F
  * Task: Writes P_D_A2_Image_In to fitsfile
  *       CS_FileName_In
  **/
-bool CFits::WriteFits(const Array<int,1>* P_I_A1_Image_In, const CString CS_FileName_In) const
+bool CFits::WriteFits(const blitz::Array<int,1>* P_I_A1_Image_In, const CString CS_FileName_In) const
 {
-  Array<int, 2> I_A2_Image(P_I_A1_Image_In->size(), 1);
+  blitz::Array<int, 2> I_A2_Image(P_I_A1_Image_In->size(), 1);
   I_A2_Image(Range::all(), 0) = (*P_I_A1_Image_In);
   return this->WriteFits(&I_A2_Image, CS_FileName_In);
 }
 
-bool CFits::WriteFits(const Array<int,2>* P_I_A2_Image_In, const CString CS_FileName_In) const
+bool CFits::WriteFits(const blitz::Array<int,2>* P_I_A2_Image_In, const CString CS_FileName_In) const
 {
   #ifdef __DEBUG_FITS_WRITEFITS__
     (*P_OFS_Log) << "CFits::WriteFits: started: CS_FileName_In = " << CS_FileName_In << endl;
@@ -6083,7 +6083,7 @@ bool CFits::WriteFits(const Array<int,2>* P_I_A2_Image_In, const CString CS_File
   nullval = 0.;
   nelements = P_I_A2_Image_In->cols() * P_I_A2_Image_In->rows();
 
-  p_void = (const_cast<Array<int, 2>*>(P_I_A2_Image_In))->data();// = new Array<double,2>(p_Array, shape(naxes[0], naxes[1]),
+  p_void = (const_cast<blitz::Array<int, 2>*>(P_I_A2_Image_In))->data();// = new blitz::Array<double,2>(p_Array, shape(naxes[0], naxes[1]),
   #ifdef __DEBUG_FITS_READ__
     cout << "CFits::WriteFits: p_void = <" << (*((double*)p_void)) << ">" << endl;
   #endif
@@ -6468,7 +6468,7 @@ bool CFits::SetZerosToUnity()
     (*P_OFS_Log) << "CFits::SetZerosToUnity: this->ClassInvariant retuned FALSE => Returning FALSE" << endl;
     return false;
   }
-  Array<int, 2> *P_IntArr = new Array<int, 2>(this->NRows, this->NCols);
+  blitz::Array<int, 2> *P_IntArr = new blitz::Array<int, 2>(this->NRows, this->NCols);
   (*P_IntArr) = where(fabs(*(this->P_D_A2_PixArray)) < 0.00000000000000001, 1., 0.);
   for (int i = 0; i < this->NRows; i++)
   {
@@ -6888,19 +6888,19 @@ end
   MkSlitFunc
   Make Slit Function
  **/
-bool CFits::MkSlitFunc(const Array<double, 1> &D_A1_ScatterBelow,  //: in
-                       const Array<double, 1> &D_A1_XScatterBelow, //: in
-                       const Array<double, 1> &D_A1_ScatterAbove,  //: in
-                       const Array<double, 1> &D_A1_XScatterAbove, //: in
-                       //                       Array<double, 1> &D_A1_XCenters,      ///: in //
+bool CFits::MkSlitFunc(const blitz::Array<double, 1> &D_A1_ScatterBelow,  //: in
+                       const blitz::Array<double, 1> &D_A1_XScatterBelow, //: in
+                       const blitz::Array<double, 1> &D_A1_ScatterAbove,  //: in
+                       const blitz::Array<double, 1> &D_A1_XScatterAbove, //: in
+                       //                       blitz::Array<double, 1> &D_A1_XCenters,      ///: in //
                        //                       double &D_XLeftLim,                      ///: in //
                        //                       double &D_XRightLim,                     ///: in //
-                       Array<double, 1> &D_A1_XSlitF,        //: out
-                       Array<double, 2> &D_A2_SlitF,         //: out
-                       Array<double, 1> &D_A1_BinCen,        //: out
+                       blitz::Array<double, 1> &D_A1_XSlitF,        //: out
+                       blitz::Array<double, 2> &D_A2_SlitF,         //: out
+                       blitz::Array<double, 1> &D_A1_BinCen,        //: out
                        const int I_IAperture_In,                   //: in
                        //                       int I_NArgs,                          //: in
-                       const Array<CString, 1> &CS_A1_Args_In,           //: in
+                       const blitz::Array<CString, 1> &CS_A1_Args_In,           //: in
                        void *ArgV_In[])                  //: in
 /**                     //PLOT        =
                        Y_LOWER_LIM = int             : in
@@ -6909,8 +6909,8 @@ bool CFits::MkSlitFunc(const Array<double, 1> &D_A1_ScatterBelow,  //: in
                        LAMBDA_SP   = int             : in
                        WING_SMOOTH_FACTOR = double   : in
                        SWATH_WIDTH = int             : in
-                       BLZ         = Array<double, 1>: out
-///                       MASK        = Array<double, 2>: in
+                       BLZ         = blitz::Array<double, 1>: out
+///                       MASK        = blitz::Array<double, 2>: in
                        CCD_GAIN    = double          : in
                        CCD_READN   = double          : in
                        NO_SCATTER  = void
@@ -6991,32 +6991,32 @@ bool CFits::MkSlitFunc(const Array<double, 1> &D_A1_ScatterBelow,  //: in
   ;30-Mar-01 NP       I will write down what I have done. I promise.
   */
   /**
-    Array<double, 1> bincen   => Array<double, 1> D_A1_BinCen
-  ! Array<double, 1> BLZ=blz = fltarr(ncol)  => Array<double, 1> *P_D_A1_BLZ
+    blitz::Array<double, 1> bincen   => blitz::Array<double, 1> D_A1_BinCen
+  ! blitz::Array<double, 1> BLZ=blz = fltarr(ncol)  => blitz::Array<double, 1> *P_D_A1_BLZ
     FILENAME=filename
   ! double GAIN=gain=CCD_gain       => double D_CCDGain       ; Gain
-    Array<long, 1>/int i      => Array<int, 1> I_A1_I / int I_I ;Points of row crossing
+    blitz::Array<long, 1>/int i      => blitz::Array<int, 1> I_A1_I / int I_I ;Points of row crossing
   ! long ib                   => int I_IB
   ! long ie                   => int I_IE
-  ! Array<long, 1> ibeg      => Array<int, 1> I_A1_IBeg
-  ! Array<double, 1> ibound  => Array<double, 1> D_A1_IBound
+  ! blitz::Array<long, 1> ibeg      => blitz::Array<int, 1> I_A1_IBeg
+  ! blitz::Array<double, 1> ibound  => blitz::Array<double, 1> D_A1_IBound
   ! int icen = yc(ib+j)     => int I_ICen
-  ! Array<long, 1> iend      => Array<int, 1> I_A1_IEnd
-  ! Array<double, 2> im              => CFits P_CF_Im
+  ! blitz::Array<long, 1> iend      => blitz::Array<int, 1> I_A1_IEnd
+  ! blitz::Array<double, 2> im              => CFits P_CF_Im
   ! int imask = 0                    => int I_IMask
-//  ! Array<long, 1> imax      => Array<int, 1> I_A2_MinCenMax(*,2)
-//  ! Array<long, 1> imin      => Array<int, 1> I_A2_MinCenMax(*,0)
-    Array<double, 1> irow    => Array<double, 1> D_A1_ICol
-  ! Array<long, 1> j0        => Array<int, 1> I_A1_J0
-  ! Array<long, 1> j1        => Array<ing, 1> I_A1_J1
-   ! Array<int, 1> jbad      => Array<int, 1> I_A1_JBad
+//  ! blitz::Array<long, 1> imax      => blitz::Array<int, 1> I_A2_MinCenMax(*,2)
+//  ! blitz::Array<long, 1> imin      => blitz::Array<int, 1> I_A2_MinCenMax(*,0)
+    blitz::Array<double, 1> irow    => blitz::Array<double, 1> D_A1_ICol
+  ! blitz::Array<long, 1> j0        => blitz::Array<int, 1> I_A1_J0
+  ! blitz::Array<long, 1> j1        => blitz::Array<ing, 1> I_A1_J1
+   ! blitz::Array<int, 1> jbad      => blitz::Array<int, 1> I_A1_JBad
     !int jgood               => int I_JGood
   ! long k0                 => int I_A2_MinCenMax(I_IB + n, 0)
   ! long k1                 => int I_A2_MinCenMax(I_IB + n, 2)
   ! double LAMBDA_SF=lam_sf              => double D_LambdaSF
   ! int LAMBDA_SP=lam_sp                 => int I_LambdaSP
-  ! Array<double, 2> MASK=mask            => Array<double, 2> I_A2_Mask
-  ! bytarr msk(nc,nysf) / = 0  => Array<double, 2> I_A2_Msk
+  ! blitz::Array<double, 2> MASK=mask            => blitz::Array<double, 2> I_A2_Mask
+  ! bytarr msk(nc,nysf) / = 0  => blitz::Array<double, 2> I_A2_Msk
   ! int nbad                 => int I_NBad
   ! int nbin                 => int I_NBin
   ! long nc                  => int I_NR
@@ -7031,32 +7031,32 @@ bool CFits::MkSlitFunc(const Array<double, 1> &D_A1_ScatterBelow,  //: in
   PLOT=iplot
   ! double READN=readn=CCD_readn=0. => double D_CCDReadN      ; Readout noise
   ! int OSAMPLE=osample                  => int I_OverSample
-  Array<double, 1> dy_scatter         => Array<double, 1> D_A1_DXScatter
-  Array<double, 1> yscatter_below     => Array<double, 1> D_A1_XScatterBelow
-  Array<double, 1> yscatter_above     => Array<double, 1> D_A1_XScatterAbove
-  Array<double, 1> scatter            => Array<double, 1> D_A1_Scatter
-  Array<double, 1> scatter_above      => Array<double, 1> D_A1_ScatterAbove
-  Array<double, 1> scatter_below      => Array<double, 1> D_A1_ScatterBelow
-  ! Array<double, 2> sf(nc,nysf)      => Array<double, 2> D_A2_SlitFunc_Im_In
-  ! Array<double, 2> sfbin            => Array<double, 2> D_A2_SFOut;
-  ! Array<double, 1> sfpnt(nsf)       => Array<double, 1> D_A1_SFPnt
-  ! Array<double, 1> sfsm             => Array<double, 1> D_A1_SFSM
-  Array<double, 2> slitf
-  ! Array<double, 1> ssf               => Array<double, 1> D_A1_SSF
+  blitz::Array<double, 1> dy_scatter         => blitz::Array<double, 1> D_A1_DXScatter
+  blitz::Array<double, 1> yscatter_below     => blitz::Array<double, 1> D_A1_XScatterBelow
+  blitz::Array<double, 1> yscatter_above     => blitz::Array<double, 1> D_A1_XScatterAbove
+  blitz::Array<double, 1> scatter            => blitz::Array<double, 1> D_A1_Scatter
+  blitz::Array<double, 1> scatter_above      => blitz::Array<double, 1> D_A1_ScatterAbove
+  blitz::Array<double, 1> scatter_below      => blitz::Array<double, 1> D_A1_ScatterBelow
+  ! blitz::Array<double, 2> sf(nc,nysf)      => blitz::Array<double, 2> D_A2_SlitFunc_Im_In
+  ! blitz::Array<double, 2> sfbin            => blitz::Array<double, 2> D_A2_SFOut;
+  ! blitz::Array<double, 1> sfpnt(nsf)       => blitz::Array<double, 1> D_A1_SFPnt
+  ! blitz::Array<double, 1> sfsm             => blitz::Array<double, 1> D_A1_SFSM
+  blitz::Array<double, 2> slitf
+  ! blitz::Array<double, 1> ssf               => blitz::Array<double, 1> D_A1_SSF
   ! int SWATH_WIDTH=swath_width       => int I_SwathWidth
-  Array<double, 1> tel                => Array<double, 1> D_A1_Tel
+  blitz::Array<double, 1> tel                => blitz::Array<double, 1> D_A1_Tel
   TELLURIC=telluric
   ! long X_LEFT_LIM=x_left_lim        => int (int)((*this->P_D_A1_XMin)(I_IAperture_In))
   ! long X_RIGHT_LIM=x_right_lim       => int (int)((*this->P_D_A1_XMax)(I_IAperture_In))
-  ! Array<int, 1> yc                   => Array<int, 1> I_A1_XC
+  ! blitz::Array<int, 1> yc                   => blitz::Array<int, 1> I_A1_XC
   yscatter_below
   yscatter_above
-  ! Array<double, 1> ysfpnt(nsf)      => Array<double, 1> D_A1_XSFPnt
-  ! Array<double, 1> ycen(ncol)        => Array<double, 1> this->P_D_A2_XCenters(I_IAperture_In)
-  ! Array<double, 1> ycene             => Array<double, 1> D_A1_XCentersE
+  ! blitz::Array<double, 1> ysfpnt(nsf)      => blitz::Array<double, 1> D_A1_XSFPnt
+  ! blitz::Array<double, 1> ycen(ncol)        => blitz::Array<double, 1> this->P_D_A2_XCenters(I_IAperture_In)
+  ! blitz::Array<double, 1> ycene             => blitz::Array<double, 1> D_A1_XCentersE
   ! long y_lower_lim                   => int 0. - (*this->P_D_A1_XLow)(I_IAperture_In), this->P_D_A1_XLow(I_IAperture_In)
   ! long y_upper_lim                   => int (*this->P_D_A1_XHigh)(I_IAperture_In), this->P_D_A1_XHigh(I_IAperture_In)
-  Array<double, 1> yslitf
+  blitz::Array<double, 1> yslitf
   ! long yslitf0 = -y_lower_lim        => int I_XSlitFunc0
   ! long yslitf1 =  y_upper_lim        => int I_XSlitFunc1
    **/
@@ -7074,12 +7074,12 @@ bool CFits::MkSlitFunc(const Array<double, 1> &D_A1_ScatterBelow,  //: in
   int I_MaxIterSig_Temp = this->I_MaxIterSig;
 
   //  CFits *P_CF_Im = new CFits(*this);
-  //  Array<double, 1> D_A1_BinCen;
+  //  blitz::Array<double, 1> D_A1_BinCen;
 
-  //  Array<double, 1> D_A1_ScatterBelow(this->GetNRows(), this->GetNCols());  //: in
-  //  Array<double, 1> D_A1_XScatterBelow(this->GetNRows(), this->GetNCols()); //: in
-  //  Array<double, 1> D_A1_ScatterAbove(this->GetNRows(), this->GetNCols());  //: in
-  //  Array<double, 1> D_A1_XScatterAbove(this->GetNRows(), this->GetNCols()); //: in
+  //  blitz::Array<double, 1> D_A1_ScatterBelow(this->GetNRows(), this->GetNCols());  //: in
+  //  blitz::Array<double, 1> D_A1_XScatterBelow(this->GetNRows(), this->GetNCols()); //: in
+  //  blitz::Array<double, 1> D_A1_ScatterAbove(this->GetNRows(), this->GetNCols());  //: in
+  //  blitz::Array<double, 1> D_A1_XScatterAbove(this->GetNRows(), this->GetNCols()); //: in
 
   //  D_A1_ScatterBelow = 0.;
   //  D_A1_XScatterBelow = 0.;
@@ -7088,16 +7088,16 @@ bool CFits::MkSlitFunc(const Array<double, 1> &D_A1_ScatterBelow,  //: in
 
   CString CS_SF_DebugFilesSuffix(" ");
 
-  Array<double, 1> *P_D_A1_BLZ = new Array<double, 1>(1);
+  blitz::Array<double, 1> *P_D_A1_BLZ = new blitz::Array<double, 1>(1);
   (*P_D_A1_BLZ) = 0.;
 
-  Array<double, 1> D_A1_DXScatter(1);
+  blitz::Array<double, 1> D_A1_DXScatter(1);
   D_A1_DXScatter = 0.;
 
-  Array<int, 2> I_A2_IBinBoundY(1,1);
+  blitz::Array<int, 2> I_A2_IBinBoundY(1,1);
     I_A2_IBinBoundY = 0.;
 
-  Array<double, 1> D_A1_ICol(1);
+  blitz::Array<double, 1> D_A1_ICol(1);
   D_A1_ICol = 0.;
 
   int I_IR0;
@@ -7106,169 +7106,169 @@ bool CFits::MkSlitFunc(const Array<double, 1> &D_A1_ScatterBelow,  //: in
   int I_IR1;
   I_IR1 = 0;
 
-  Array<int, 2> I_A2_Mask(1, 1);
+  blitz::Array<int, 2> I_A2_Mask(1, 1);
   I_A2_Mask = 0;
 
-  Array<double, 2> D_A2_Mask(1, 1);
+  blitz::Array<double, 2> D_A2_Mask(1, 1);
   D_A2_Mask = 0.;
 
-  Array<int, 2> I_A2_MaskApTemp(1, 1);
+  blitz::Array<int, 2> I_A2_MaskApTemp(1, 1);
   I_A2_MaskApTemp = 0;
 
-  Array<int, 2> I_A2_Msk(1, 1);
+  blitz::Array<int, 2> I_A2_Msk(1, 1);
   I_A2_Msk = 0.;
 
-  Array<double, 1> D_A1_SC(1);
+  blitz::Array<double, 1> D_A1_SC(1);
   D_A1_SC = 0.;
 
-  Array<double, 1> D_A1_Scatter(1);
+  blitz::Array<double, 1> D_A1_Scatter(1);
   D_A1_Scatter = 0.;
 
-//  Array<double, 2> D_A2_SFOut(1, 1);
+//  blitz::Array<double, 2> D_A2_SFOut(1, 1);
 //  D_A2_SFOut = 0.;
 
-  Array<double, 1> D_A1_SF(1);
+  blitz::Array<double, 1> D_A1_SF(1);
   D_A1_SF = 0.;
 
-  Array<double, 2> D_A2_SlitFunc_Im_In(1, 1);
+  blitz::Array<double, 2> D_A2_SlitFunc_Im_In(1, 1);
   D_A2_SlitFunc_Im_In = 0.;
 
-  Array<double, 2> D_A2_CCD_Ap(2,2);
+  blitz::Array<double, 2> D_A2_CCD_Ap(2,2);
   D_A2_CCD_Ap = 0.;
 
-  Array<double, 2> D_A2_Err(1, 1);
+  blitz::Array<double, 2> D_A2_Err(1, 1);
   D_A2_Err = 0.;
-  Array<double, 2> D_A2_Err_AllRows(1, 1);
+  blitz::Array<double, 2> D_A2_Err_AllRows(1, 1);
   D_A2_Err_AllRows = 0.;
-  Array<int, 2> I_A2_Mask_AllRows(1, 1);
+  blitz::Array<int, 2> I_A2_Mask_AllRows(1, 1);
   I_A2_Mask_AllRows = 1;
 
-  Array<double, 1> D_A1_Err(1);
+  blitz::Array<double, 1> D_A1_Err(1);
   D_A1_Err = 0.;
 
-//  Array<double, 1> D_A1_SFPnt(1);
+//  blitz::Array<double, 1> D_A1_SFPnt(1);
 //  D_A1_SFPnt = 0.;
 
-  Array<double, 2> D_A2_SFSM(1,1);
+  blitz::Array<double, 2> D_A2_SFSM(1,1);
   D_A2_SFSM = 0.;
-  Array<double, 3> D_A3_SFSM(1,1,1);
+  blitz::Array<double, 3> D_A3_SFSM(1,1,1);
   D_A3_SFSM = 0.;
 
-//  Array<double, 1> D_A1_SFSM2(1);
+//  blitz::Array<double, 1> D_A1_SFSM2(1);
 //  D_A1_SFSM2 = 0.;
 
-//  Array<double, 1> D_A1_SFSM2Temp(1);
+//  blitz::Array<double, 1> D_A1_SFSM2Temp(1);
 //  D_A1_SFSM2Temp = 0.;
 
-  Array<double, 2> D_A2_SlitFTemp(1,1);
+  blitz::Array<double, 2> D_A2_SlitFTemp(1,1);
   D_A2_SlitFTemp = 0.;
 
-  Array<double, 1> D_A1_SP(1);
+  blitz::Array<double, 1> D_A1_SP(1);
   D_A1_SP = 0.;
-  Array<double, 2> D_A2_SP(1,1);
+  blitz::Array<double, 2> D_A2_SP(1,1);
   D_A2_SP = 0.;
-  Array<double, 2> D_A2_Errors_SP_Out(1,1);
+  blitz::Array<double, 2> D_A2_Errors_SP_Out(1,1);
   D_A2_Errors_SP_Out = 0.;
-  Array<double, 2> D_A2_XCorProf(1,1);
+  blitz::Array<double, 2> D_A2_XCorProf(1,1);
   D_A2_XCorProf = 0.;
   bool B_Run_XCor = false;
 
-  Array<double, 2> D_A2_Sky(1,1);
-  Array<double, 2> D_A2_ErrSky(1,1);
+  blitz::Array<double, 2> D_A2_Sky(1,1);
+  blitz::Array<double, 2> D_A2_ErrSky(1,1);
 
-  Array<double, 1> D_A1_SSF(1);
+  blitz::Array<double, 1> D_A1_SSF(1);
   D_A1_SSF = 0.;
 
-  Array<double, 1> D_A1_Tel(1);
+  blitz::Array<double, 1> D_A1_Tel(1);
   D_A1_Tel = 0.;
 
-  Array<double, 2> D_A2_Tel(1,1);
+  blitz::Array<double, 2> D_A2_Tel(1,1);
   D_A2_Tel = 0.;
 
-  Array<double, 1> D_A1_Temp(1);
+  blitz::Array<double, 1> D_A1_Temp(1);
   D_A1_Temp = 0.;
 
-  Array<double, 1> D_A1_TempArr(1);
+  blitz::Array<double, 1> D_A1_TempArr(1);
   D_A1_TempArr = 0.;
 
-  Array<double, 1> D_A1_TempArrA(1);
+  blitz::Array<double, 1> D_A1_TempArrA(1);
   D_A1_TempArrA = 0.;
 
-  Array<double, 1> D_A1_TempArrB(1);
+  blitz::Array<double, 1> D_A1_TempArrB(1);
   D_A1_TempArrB = 0.;
 
-  Array<double, 1> D_A1_TempArrC(1);
+  blitz::Array<double, 1> D_A1_TempArrC(1);
   D_A1_TempArrC = 0.;
 
-  Array<double, 1> D_A1_TempArrD(1);
+  blitz::Array<double, 1> D_A1_TempArrD(1);
   D_A1_TempArrD = 0.;
 
-  Array<double, 1> D_A1_XCenMXC(1);
+  blitz::Array<double, 1> D_A1_XCenMXC(1);
   D_A1_XCenMXC = 0.;
-//  Array<double, 1> D_A1_XCenMXC_TelTemp(1);
+//  blitz::Array<double, 1> D_A1_XCenMXC_TelTemp(1);
 //  D_A1_XCenMXC_TelTemp = 0.;
 
-  Array<double, 1> D_A1_XCentersE(1);
+  blitz::Array<double, 1> D_A1_XCentersE(1);
   D_A1_XCentersE = 0.;
 
-  Array<double, 1> D_A1_XInt(1);
+  blitz::Array<double, 1> D_A1_XInt(1);
   D_A1_XInt = 0.;
 
-//  Array<double, 1> D_A1_XSFPnt(1);
+//  blitz::Array<double, 1> D_A1_XSFPnt(1);
 //  D_A1_XSFPnt = 0.;
 
-  Array<double, 1> D_A1_XSlitFTemp(1);
+  blitz::Array<double, 1> D_A1_XSlitFTemp(1);
   D_A1_XSlitFTemp = 0.;
 
-  Array<int, 1> I_A1_I(1);
+  blitz::Array<int, 1> I_A1_I(1);
   I_A1_I = 0;
 
-//  Array<int, 1> I_A1_IBeg(1);
+//  blitz::Array<int, 1> I_A1_IBeg(1);
 //  I_A1_IBeg = 0;
 
-//  Array<int, 1> I_A1_IEnd(1);
+//  blitz::Array<int, 1> I_A1_IEnd(1);
 //  I_A1_IEnd = 0;
 
-//  Array<int, 1> I_A1_IMax(1);
+//  blitz::Array<int, 1> I_A1_IMax(1);
 //  I_A1_IMax = 0;
 
-//  Array<int, 1> I_A1_IMin(1);
+//  blitz::Array<int, 1> I_A1_IMin(1);
 //  I_A1_IMin = 0;
 
-  Array<int, 1> I_A1_ISort(1);
+  blitz::Array<int, 1> I_A1_ISort(1);
   I_A1_ISort = 0;
 
-  Array<int, 1> I_A1_ITel(1);
+  blitz::Array<int, 1> I_A1_ITel(1);
   I_A1_ITel = 0;
 
-  Array<int, 1> I_A1_IX(1);
+  blitz::Array<int, 1> I_A1_IX(1);
   I_A1_IX = 0;
 
-//  Array<int, 1> I_A1_J0(1);
+//  blitz::Array<int, 1> I_A1_J0(1);
 //  I_A1_J0 = 0;
 
-//  Array<int, 1> I_A1_J1(1);
+//  blitz::Array<int, 1> I_A1_J1(1);
 //  I_A1_J1 = 0;
 
-//  Array<int, 1> I_A1_JBad(1);
+//  blitz::Array<int, 1> I_A1_JBad(1);
 //  I_A1_JBad = 0;
 
-//  Array<int, 1> I_A1_Temp(1);
+//  blitz::Array<int, 1> I_A1_Temp(1);
 //  I_A1_Temp = 0;
 
-//  Array<int, 1> I_A1_TempA(1);
+//  blitz::Array<int, 1> I_A1_TempA(1);
 //  I_A1_TempA = 0;
 
-  Array<double, 2> D_A2_ErrTel(1);
-  Array<double, 1> D_A1_ErrTel(1);
-  Array<int, 1> I_A1_ErrInd(1);
-  Array<double, 1> D_A1_ErrTelSub(1);
-  Array<double, 2> D_A2_SF(1,1);
-  Array<double, 1> D_A1_ErrSky(1);
-  Array<double, 1> D_A1_ErrOut(1);
+  blitz::Array<double, 2> D_A2_ErrTel(1);
+  blitz::Array<double, 1> D_A1_ErrTel(1);
+  blitz::Array<int, 1> I_A1_ErrInd(1);
+  blitz::Array<double, 1> D_A1_ErrTelSub(1);
+  blitz::Array<double, 2> D_A2_SF(1,1);
+  blitz::Array<double, 1> D_A1_ErrSky(1);
+  blitz::Array<double, 1> D_A1_ErrOut(1);
   D_A1_ErrOut = 0.;
-  Array<double, 1> D_A1_ErrFit(1);
-  Array<int, 2> I_A2_MinCenMax(this->NRows, 3);
+  blitz::Array<double, 1> D_A1_ErrFit(1);
+  blitz::Array<int, 2> I_A2_MinCenMax(this->NRows, 3);
   I_A2_MinCenMax = 0;
   int I_NPixCut_Left = 1;
   int I_NPixCut_Right = 1;
@@ -7276,7 +7276,7 @@ bool CFits::MkSlitFunc(const Array<double, 1> &D_A1_ScatterBelow,  //: in
   CString *P_CS_Temp;
   CString CS_TempNum(" ");
 
-  Array<CString, 1> CS_A1_Args_Median(3);
+  blitz::Array<CString, 1> CS_A1_Args_Median(3);
   CS_A1_Args_Median = CString(" ");
   CS_A1_Args_Median(0) = CString("NORMAL");
   void **PP_Args_Median = (void**)malloc(sizeof(void*) * 3);
@@ -7289,7 +7289,7 @@ bool CFits::MkSlitFunc(const Array<double, 1> &D_A1_ScatterBelow,  //: in
     PP_Args_Median[2] = &D_Val_ErrOutMedian;
   }
 
-//  Array<int, 1> *P_I_A1_XC;
+//  blitz::Array<int, 1> *P_I_A1_XC;
 
 //  char* tmpstr = new char[5];
 
@@ -7333,41 +7333,41 @@ bool CFits::MkSlitFunc(const Array<double, 1> &D_A1_ScatterBelow,  //: in
   double d_tmp = 0.;
 
 
-  Array<double,1> D_A1_SF_Median(1);
-  Array<double,1> D_A1_Sky(1);
-  Array<double,1> D_A1_SPFit(1);
-  Array<double,1> D_A1_SP_Out(1);
-  Array<int, 2> I_A2_Mask_Tel(1,1);
-  Array<int, 2> I_A2_Mask_TelTemp(1,1);
-  Array<int, 1> I_A1_UseRow_Tel(1);
-  Array<int, 1> I_A1_UseRow_TelTemp(1);
-  Array<double, 2> D_A2_ErrIn_Tel(1,1);
-  Array<double, 2> D_A2_Err_Temp(1,1);
-  Array<double, 2> D_A2_SlitFuncOrig(1,1);
-  Array<double, 2> D_A2_TempIm(1,1);
-  Array<double, 1> D_A1_SFMax(1);
+  blitz::Array<double,1> D_A1_SF_Median(1);
+  blitz::Array<double,1> D_A1_Sky(1);
+  blitz::Array<double,1> D_A1_SPFit(1);
+  blitz::Array<double,1> D_A1_SP_Out(1);
+  blitz::Array<int, 2> I_A2_Mask_Tel(1,1);
+  blitz::Array<int, 2> I_A2_Mask_TelTemp(1,1);
+  blitz::Array<int, 1> I_A1_UseRow_Tel(1);
+  blitz::Array<int, 1> I_A1_UseRow_TelTemp(1);
+  blitz::Array<double, 2> D_A2_ErrIn_Tel(1,1);
+  blitz::Array<double, 2> D_A2_Err_Temp(1,1);
+  blitz::Array<double, 2> D_A2_SlitFuncOrig(1,1);
+  blitz::Array<double, 2> D_A2_TempIm(1,1);
+  blitz::Array<double, 1> D_A1_SFMax(1);
   double D_DevOld = 0.;
   double D_DevTemp = 0.;
   int nind_temp;
-  Array<int,1> I_A1_IndA(1);
-//  Array<double,2> D_A2_SlitFunc_Im_In_Max(1,1);
-//  Array<double,2> D_A2_SlitFunc_Im_In_MaxTemp(1, 1);
-  Array<double, 1> *P_D_A1_Col;
-  Array<int, 1> *P_I_A1_Ind;
-  Array<int, 1> *P_I_A1_Ind_Last;
-  Array<int, 1> I_A1_UseRow_Tel_AllRows(1);
-  Array<int, 1> I_A1_Ind_Temp(1);
-  Array<int, 1> I_A1_SFMaxInd(1);
+  blitz::Array<int,1> I_A1_IndA(1);
+//  blitz::Array<double,2> D_A2_SlitFunc_Im_In_Max(1,1);
+//  blitz::Array<double,2> D_A2_SlitFunc_Im_In_MaxTemp(1, 1);
+  blitz::Array<double, 1> *P_D_A1_Col;
+  blitz::Array<int, 1> *P_I_A1_Ind;
+  blitz::Array<int, 1> *P_I_A1_Ind_Last;
+  blitz::Array<int, 1> I_A1_UseRow_Tel_AllRows(1);
+  blitz::Array<int, 1> I_A1_Ind_Temp(1);
+  blitz::Array<int, 1> I_A1_SFMaxInd(1);
   int I_NGood;
-  Array<int, 1> *P_I_A1_SFMaxInd;
-//  Array<double, 2> D_A2_Ind_TempA(1, 1);
+  blitz::Array<int, 1> *P_I_A1_SFMaxInd;
+//  blitz::Array<double, 2> D_A2_Ind_TempA(1, 1);
   int I_RunMax = 1;
   int I_Run_Tel = 0;
-  Array<double, 2> D_A2_SlitFunc_Im_In_Tel(1,1);
-  Array<double, 1> D_A1_Sky_Temp(1);
-  Array<double, 2> D_A2_SFOld(1,1);
+  blitz::Array<double, 2> D_A2_SlitFunc_Im_In_Tel(1,1);
+  blitz::Array<double, 1> D_A1_Sky_Temp(1);
+  blitz::Array<double, 2> D_A2_SFOld(1,1);
   double D_SFDev = 0.;
-  Array<int, 2> I_A2_Mask_Temp(1,1);
+  blitz::Array<int, 2> I_A2_Mask_Temp(1,1);
 
   int tempppos = 0;
   int tempm = 0;
@@ -7376,10 +7376,10 @@ bool CFits::MkSlitFunc(const Array<double, 1> &D_A1_ScatterBelow,  //: in
   bool B_MaximaOnly = false;
 
   CString CS_Temp("Y_LOWER_LIM");
-//  Array<double, 1> D_A1_TempXMin(this->NRows);
-  Array<int, 1> *P_I_A1_Temp;
+//  blitz::Array<double, 1> D_A1_TempXMin(this->NRows);
+  blitz::Array<int, 1> *P_I_A1_Temp;
 
-  Array<CString, 1> cs_a1(23);
+  blitz::Array<CString, 1> cs_a1(23);
   void **args = (void**)malloc(sizeof(void*) * 23);
 
 ///  cs_a1(pppos) = CString("NOISE");
@@ -7410,7 +7410,7 @@ bool CFits::MkSlitFunc(const Array<double, 1> &D_A1_ScatterBelow,  //: in
   */
   ///CCD gain
   CS_Temp.Set("CCD_GAIN");
-  if ((I_Pos = this->KeyWord_Set(*(const_cast<const Array<CString, 1>*>(&CS_A1_Args_In)), CS_Temp)) >= 0)
+  if ((I_Pos = this->KeyWord_Set(*(const_cast<const blitz::Array<CString, 1>*>(&CS_A1_Args_In)), CS_Temp)) >= 0)
   {
     D_CCDGain = *(double*)ArgV_In[I_Pos];
 #ifdef __DEBUG_FITS_MKSLITFUNC__
@@ -7428,7 +7428,7 @@ bool CFits::MkSlitFunc(const Array<double, 1> &D_A1_ScatterBelow,  //: in
   */
   ///Readout noise
   CS_Temp.Set("CCD_READN");
-  if ((I_Pos = this->KeyWord_Set(*(const_cast<const Array<CString, 1>*>(&CS_A1_Args_In)), CS_Temp)) >= 0)
+  if ((I_Pos = this->KeyWord_Set(*(const_cast<const blitz::Array<CString, 1>*>(&CS_A1_Args_In)), CS_Temp)) >= 0)
   {
     D_CCDReadN = *(double*)ArgV_In[I_Pos];
 #ifdef __DEBUG_FITS_MKSLITFUNC__
@@ -7453,9 +7453,9 @@ bool CFits::MkSlitFunc(const Array<double, 1> &D_A1_ScatterBelow,  //: in
   */
   ///Mask
 //  CS_Temp.Set("MASK");
-//  if ((I_Pos = this->KeyWord_Set(*(const_cast<const Array<CString, 1>*>(&CS_A1_Args_In)), CS_Temp)) >= 0)
+//  if ((I_Pos = this->KeyWord_Set(*(const_cast<const blitz::Array<CString, 1>*>(&CS_A1_Args_In)), CS_Temp)) >= 0)
 //  {
-//    I_A2_Mask = *(Array<double, 2>*)ArgV_In[I_Pos];
+//    I_A2_Mask = *(blitz::Array<double, 2>*)ArgV_In[I_Pos];
 //    cout << "CFits::MkSlitFunc: KeyWord_Set(MASK): I_A2_Mask set to " << I_A2_Mask << endl;//.transpose(secondDim, firstDim) << endl;
 // #ifdef __DEBUG_FITS_MKSLITFUNC__
 //    (*P_OFS_Log) << "CFits::MkSlitFunc: KeyWord_Set(MASK): I_A2_Mask set to " << I_A2_Mask << endl;//.transpose(secondDim, firstDim) << endl;
@@ -7484,7 +7484,7 @@ bool CFits::MkSlitFunc(const Array<double, 1> &D_A1_ScatterBelow,  //: in
   {
     if (P_D_A1_BLZ != NULL)
       delete P_D_A1_BLZ;
-    P_D_A1_BLZ = (Array<double, 1>*)ArgV_In[I_Pos];
+    P_D_A1_BLZ = (blitz::Array<double, 1>*)ArgV_In[I_Pos];
     #ifdef __DEBUG_FITS_MKSLITFUNC__
       cout << "CFits::MkSlitFunc: KeyWord_Set(BLZ): P_D_A1_BLZ set to " << *P_D_A1_BLZ << endl;
       (*P_OFS_Log) << "CFits::MkSlitFunc: KeyWord_Set(BLZ): P_D_A1_BLZ set to " << *P_D_A1_BLZ << endl;
@@ -7505,7 +7505,7 @@ bool CFits::MkSlitFunc(const Array<double, 1> &D_A1_ScatterBelow,  //: in
     lambda_sf=lam_sf
   */
   CS_Temp.Set("LAMBDA_SF");
-  if ((I_Pos = this->KeyWord_Set(*(const_cast<const Array<CString, 1>*>(&CS_A1_Args_In)), CS_Temp)) >= 0)
+  if ((I_Pos = this->KeyWord_Set(*(const_cast<const blitz::Array<CString, 1>*>(&CS_A1_Args_In)), CS_Temp)) >= 0)
   {
     #ifdef __DEBUG_FITS_MKSLITFUNC__
       cout << "CFits::MkSlitFunc: I_Pos = " << I_Pos << endl;
@@ -7518,7 +7518,7 @@ bool CFits::MkSlitFunc(const Array<double, 1> &D_A1_ScatterBelow,  //: in
   }
 
   CS_Temp.Set("WING_SMOOTH_FACTOR");
-  if ((I_Pos = this->KeyWord_Set(*(const_cast<const Array<CString, 1>*>(&CS_A1_Args_In)), CS_Temp)) >= 0)
+  if ((I_Pos = this->KeyWord_Set(*(const_cast<const blitz::Array<CString, 1>*>(&CS_A1_Args_In)), CS_Temp)) >= 0)
   {
     #ifdef __DEBUG_FITS_MKSLITFUNC__
       cout << "CFits::MkSlitFunc: I_Pos = " << I_Pos << endl;
@@ -7537,7 +7537,7 @@ bool CFits::MkSlitFunc(const Array<double, 1> &D_A1_ScatterBelow,  //: in
     lambda_sp=lam_sp
   */
   CS_Temp.Set("LAMBDA_SP");
-  if ((I_Pos = this->KeyWord_Set(*(const_cast<const Array<CString, 1>*>(&CS_A1_Args_In)), CS_Temp)) >= 0)
+  if ((I_Pos = this->KeyWord_Set(*(const_cast<const blitz::Array<CString, 1>*>(&CS_A1_Args_In)), CS_Temp)) >= 0)
   {
     I_LambdaSP = *(int*)ArgV_In[I_Pos];
     cout << "CFits::MkSlitFunc: KeyWord_Set(LAMBDA_SP): I_LambdaSP set to " << I_LambdaSP << endl;
@@ -7548,7 +7548,7 @@ bool CFits::MkSlitFunc(const Array<double, 1> &D_A1_ScatterBelow,  //: in
 
   int I_XCorProf = 0;
   CS_Temp.Set("XCOR_PROF");
-  if ((I_Pos = this->KeyWord_Set(*(const_cast<const Array<CString, 1>*>(&CS_A1_Args_In)), CS_Temp)) >= 0)
+  if ((I_Pos = this->KeyWord_Set(*(const_cast<const blitz::Array<CString, 1>*>(&CS_A1_Args_In)), CS_Temp)) >= 0)
   {
     I_XCorProf = *(int*)ArgV_In[I_Pos];
     cout << "CFits::MkSlitFunc: KeyWord_Set(XCOR_PROF): I_XCorProf set to " << I_XCorProf << endl;
@@ -7562,7 +7562,7 @@ bool CFits::MkSlitFunc(const Array<double, 1> &D_A1_ScatterBelow,  //: in
 
   CS_Temp.Set("TELLURIC");
 //  int I_Telluric_Temp = 0;
-  if ((I_Pos = this->KeyWord_Set(*(const_cast<const Array<CString, 1>*>(&CS_A1_Args_In)), CS_Temp)) >= 0)
+  if ((I_Pos = this->KeyWord_Set(*(const_cast<const blitz::Array<CString, 1>*>(&CS_A1_Args_In)), CS_Temp)) >= 0)
   {
     I_Telluric = *(int*)ArgV_In[I_Pos];
     cout << "CFits::MkSlitFunc: KeyWord_Set(Telluric): I_Telluric set to " << I_Telluric << endl;
@@ -7580,7 +7580,7 @@ bool CFits::MkSlitFunc(const Array<double, 1> &D_A1_ScatterBelow,  //: in
 
   int I_YProfStart = -1;
   CS_Temp.Set("Y_PROF_START");
-  if ((I_Pos = this->KeyWord_Set(*(const_cast<const Array<CString, 1>*>(&CS_A1_Args_In)), CS_Temp)) >= 0)
+  if ((I_Pos = this->KeyWord_Set(*(const_cast<const blitz::Array<CString, 1>*>(&CS_A1_Args_In)), CS_Temp)) >= 0)
   {
     I_YProfStart = *(int*)ArgV_In[I_Pos];
     cout << "CFits::MkSlitFunc: KeyWord_Set(Y_PROF_START): I_YProfStart set to " << I_YProfStart << endl;
@@ -7596,7 +7596,7 @@ bool CFits::MkSlitFunc(const Array<double, 1> &D_A1_ScatterBelow,  //: in
 
   int I_YProfEnd = -1;
   CS_Temp.Set("Y_PROF_END");
-  if ((I_Pos = this->KeyWord_Set(*(const_cast<const Array<CString, 1>*>(&CS_A1_Args_In)), CS_Temp)) >= 0)
+  if ((I_Pos = this->KeyWord_Set(*(const_cast<const blitz::Array<CString, 1>*>(&CS_A1_Args_In)), CS_Temp)) >= 0)
   {
     I_YProfEnd = *(int*)ArgV_In[I_Pos];
     cout << "CFits::MkSlitFunc: KeyWord_Set(Y_PROF_END): I_YProfEnd set to " << I_YProfEnd << endl;
@@ -7612,7 +7612,7 @@ bool CFits::MkSlitFunc(const Array<double, 1> &D_A1_ScatterBelow,  //: in
   
   ///Internal program parameters.
 
-  Array<double, 1> D_A1_XCorProf_Out(this->NRows);
+  blitz::Array<double, 1> D_A1_XCorProf_Out(this->NRows);
   D_A1_XCorProf_Out = 0.;
   if (I_XCorProf > 0){
     cs_a1(pppos) = CString("XCOR_PROF");
@@ -7662,7 +7662,7 @@ bool CFits::MkSlitFunc(const Array<double, 1> &D_A1_ScatterBelow,  //: in
     pppos++;
   }
 
-  Array<double, 1> D_A1_Errors_SP_Out(1);
+  blitz::Array<double, 1> D_A1_Errors_SP_Out(1);
 
   if (this->ErrorsRead){
     cs_a1(pppos) = CString("ERRORS");
@@ -7703,8 +7703,8 @@ bool CFits::MkSlitFunc(const Array<double, 1> &D_A1_ScatterBelow,  //: in
 
 
 
-  Array<double, 1> D_A1_XCenters(this->NRows);
-//  Array<double, 1> D_A1_XCenters((*(this->P_D_A1_YHigh))(I_IAperture_In) - (*(this->P_D_A1_YLow))(I_IAperture_In)+1);
+  blitz::Array<double, 1> D_A1_XCenters(this->NRows);
+//  blitz::Array<double, 1> D_A1_XCenters((*(this->P_D_A1_YHigh))(I_IAperture_In) - (*(this->P_D_A1_YLow))(I_IAperture_In)+1);
   #ifdef __DEBUG_FITS_MKSLITFUNC__
     cout << "CFits::MkSlitFunc: D_A1_XCenters.size() = " << D_A1_XCenters.size() << endl;
   #endif
@@ -7731,7 +7731,7 @@ bool CFits::MkSlitFunc(const Array<double, 1> &D_A1_ScatterBelow,  //: in
 
 
   CS_Temp.Set("SWATH_WIDTH");
-  if ((I_Pos = this->KeyWord_Set(*(const_cast<const Array<CString, 1>*>(&CS_A1_Args_In)), CS_Temp)) >= 0)
+  if ((I_Pos = this->KeyWord_Set(*(const_cast<const blitz::Array<CString, 1>*>(&CS_A1_Args_In)), CS_Temp)) >= 0)
   {
     /// If swath width is preset
     I_SwathWidth = *(int*)ArgV_In[I_Pos];
@@ -7765,7 +7765,7 @@ bool CFits::MkSlitFunc(const Array<double, 1> &D_A1_ScatterBelow,  //: in
       cout << "CFits::MkSlitFunc: !KeyWord_Set(SWATH_WIDTH): D_A1_XCenters = " << D_A1_XCenters << endl;
       (*P_OFS_Log) << "CFits::MkSlitFunc: !KeyWord_Set(SWATH_WIDTH): D_A1_XCenters = " << D_A1_XCenters << endl;
     #endif
-    Array<int, 1> *p_tempIntArrA = Fix(D_A1_XCenters(Range((*this->P_D_A1_YCenter)(I_IAperture_In)+(*this->P_D_A1_YHigh)(I_IAperture_In)), (*this->P_D_A1_YCenter)(I_IAperture_In)+(*this->P_D_A1_YLow)(I_IAperture_In)));
+    blitz::Array<int, 1> *p_tempIntArrA = Fix(D_A1_XCenters(Range((*this->P_D_A1_YCenter)(I_IAperture_In)+(*this->P_D_A1_YHigh)(I_IAperture_In)), (*this->P_D_A1_YCenter)(I_IAperture_In)+(*this->P_D_A1_YLow)(I_IAperture_In)));
     #ifdef __DEBUG_FITS_MKSLITFUNC__
       cout << "CFits::MkSlitFunc: !KeyWord_Set(SWATH_WIDTH): p_tempIntArrA = " << *p_tempIntArrA << endl;
       (*P_OFS_Log) << "CFits::MkSlitFunc: !KeyWord_Set(SWATH_WIDTH): p_tempIntArrA = " << *p_tempIntArrA << endl;
@@ -7865,9 +7865,9 @@ bool CFits::MkSlitFunc(const Array<double, 1> &D_A1_ScatterBelow,  //: in
 //  return false;
 
 
-//  Array<int, 2> I_A2_IndexArrays(1,1);
+//  blitz::Array<int, 2> I_A2_IndexArrays(1,1);
 
-//  Array<int, 2> I_A2_MinCenMax((*(this->P_D_A1_YHigh))(I_IAperture_In) - (*(this->P_D_A1_YLow))(I_IAperture_In)+1, 3);
+//  blitz::Array<int, 2> I_A2_MinCenMax((*(this->P_D_A1_YHigh))(I_IAperture_In) - (*(this->P_D_A1_YLow))(I_IAperture_In)+1, 3);
 
   //I_A1_XC.resize(D_A1_XCenters.size());
 
@@ -7921,18 +7921,18 @@ bool CFits::MkSlitFunc(const Array<double, 1> &D_A1_ScatterBelow,  //: in
 //  ///  imax = yc + y_upper_lim                       ;top row of order
 //  //I_A1_IMax.resize(I_A2_MinCenMax.rows());
 // ///  D_A1_TempXC = (*P_D_A2_XCenters)(I_IAperture_In, Range::all()) + (*this->P_D_A1_XHigh)(I_IAperture_In);
-// ///  Array<long, 1> *P_L_A1_Temp;
+// ///  blitz::Array<long, 1> *P_L_A1_Temp;
 // ///  P_L_A1_Temp = Ceil(D_A1_TempXC); /// Right column of order
 // ///  P_I_A1_Temp = FixLI(*P_L_A1_Temp);
 // ///  I_A1_IMax = (*P_I_A1_Temp);
 // ///  I_A2_MinCenMax(Range::all(), 2) = I_A2_MinCenMax(Range::all(), 0) + I_BinWidth - 1;
-// //  Array<int, 1> I_A1_TempB(this->NRows);
+// //  blitz::Array<int, 1> I_A1_TempB(this->NRows);
 // //  I_A1_TempB = where(I_A2_MinCenMax(Range::all(), 0) >= 0 && I_A2_MinCenMax(Range::all(), 2) < this->NCols, 1, 0);
-// //  Array<int, 1> *P_I_A1_TempB;
+// //  blitz::Array<int, 1> *P_I_A1_TempB;
 // //  int I_NInd;
 // //  P_I_A1_TempB = this->GetIndex(I_A1_TempB, I_NInd);
-// //  Array<int, 1> I_A1_IMinS = this->GetSubArr(I_A1_IMin, *P_I_A1_TempB);
-// //  Array<int, 1> I_A1_IMaxS = this->GetSubArr(I_A1_IMax, *P_I_A1_TempB);
+// //  blitz::Array<int, 1> I_A1_IMinS = this->GetSubArr(I_A1_IMin, *P_I_A1_TempB);
+// //  blitz::Array<int, 1> I_A1_IMaxS = this->GetSubArr(I_A1_IMax, *P_I_A1_TempB);
 
 // ///  cout << "MkSlitFunc: I_A2_MinCenMax set to " << I_A2_MinCenMax << endl;
 // //  if (I_IAperture_In == 2)
@@ -7959,7 +7959,7 @@ bool CFits::MkSlitFunc(const Array<double, 1> &D_A1_ScatterBelow,  //: in
 
 
 // ///  I_A1_IMax = (*P_I_A1_XC) + (*this->P_D_A1_XHigh)(I_IAperture_In); /// Right column of order
-//  Array<double, 1> D_A1_IMax(I_A2_MinCenMax.rows());
+//  blitz::Array<double, 1> D_A1_IMax(I_A2_MinCenMax.rows());
 //  D_A1_IMax = D_A1_XCenters+(*this->P_D_A1_XHigh)(I_IAperture_In);
 //  P_I_A1_Temp = this->Fix(D_A1_IMax);
 // //  I_A1_IMax = (*P_I_A1_Temp);// - I_NPixCut_Right; /// Right column of order
@@ -7968,10 +7968,10 @@ bool CFits::MkSlitFunc(const Array<double, 1> &D_A1_ScatterBelow,  //: in
 //  I_A2_MinCenMax(Range::all(), 2) = (*P_I_A1_Temp);
 //  delete(P_I_A1_Temp);
 
-// //  Array<int, 1> I_A1_WhereA(I_A2_MinCenMax.rows());
+// //  blitz::Array<int, 1> I_A1_WhereA(I_A2_MinCenMax.rows());
 // //  I_A1_WhereA = where(I_A2_MinCenMax(Range::all(), 0) < 0, 1, 0);
 // //  int I_NIndA = 0;
-// //  Array<int, 1> *P_I_A1_Ind_WhereA = this->GetIndex(I_A1_WhereA, I_NIndA);
+// //  blitz::Array<int, 1> *P_I_A1_Ind_WhereA = this->GetIndex(I_A1_WhereA, I_NIndA);
 // //  if (I_NIndA > 0){
 // //    for (int ii = 0; ii < P_I_A1_Ind_WhereA->size(); ii++)
 // //      I_A2_MinCenMax((*P_I_A1_Ind_WhereA)(ii), 0) = 0;
@@ -7988,13 +7988,13 @@ bool CFits::MkSlitFunc(const Array<double, 1> &D_A1_ScatterBelow,  //: in
 // //  delete(P_I_A1_Ind_WhereA);
 
 
-//  Array<int, 1> I_A1_NPixLeft(I_A2_MinCenMax.rows());
+//  blitz::Array<int, 1> I_A1_NPixLeft(I_A2_MinCenMax.rows());
 //  I_A1_NPixLeft = I_A2_MinCenMax(Range::all(),1) - I_A2_MinCenMax(Range::all(),0);
-//  Array<int, 1> I_A1_NPixRight(I_A2_MinCenMax.rows());
+//  blitz::Array<int, 1> I_A1_NPixRight(I_A2_MinCenMax.rows());
 //  I_A1_NPixRight = I_A2_MinCenMax(Range::all(),2) - I_A2_MinCenMax(Range::all(),1);
 //  cout << "CFits::MkSlitFunc: I_A1_NPixLeft(=" << I_A1_NPixLeft << endl;
 //  cout << "CFits::MkSlitFunc: I_A1_NPixRight(=" << I_A1_NPixRight << endl;
-//  Array<int, 1> I_A1_I_NPixX(I_A2_MinCenMax.rows());
+//  blitz::Array<int, 1> I_A1_I_NPixX(I_A2_MinCenMax.rows());
 //  I_A1_I_NPixX = I_A2_MinCenMax(Range::all(), 2) - I_A2_MinCenMax(Range::all(), 0) + 1;
 //  cout << "CFits::MkSlitFunc: I_A1_I_NPixX = " << I_A1_I_NPixX << endl;
 //  cout << "CFits::MkSlitFunc: I_A2_MinCenMax(*, 0)  = " << I_A2_MinCenMax(Range::all(), 0) << endl;
@@ -8192,8 +8192,8 @@ bool CFits::MkSlitFunc(const Array<double, 1> &D_A1_ScatterBelow,  //: in
 //    return false;
 //  }
 //  D_A1_Temp = I_A2_IBound(Range(0, I_NBin-1), 0);
-//  Array<long, 1> *p_ceil = this->Ceil(D_A1_Temp);
-//  Array<int, 1> *p_iceil = FixLI(*p_ceil);
+//  blitz::Array<long, 1> *p_ceil = this->Ceil(D_A1_Temp);
+//  blitz::Array<int, 1> *p_iceil = FixLI(*p_ceil);
 //  I_A1_IBeg = (*p_iceil);
 //  delete p_iceil;
 //  delete p_ceil;
@@ -8215,7 +8215,7 @@ bool CFits::MkSlitFunc(const Array<double, 1> &D_A1_ScatterBelow,  //: in
   /// End of each bin
   ///  iend = floor(ibound(1:nbin))                  ;end of each bin
 //  I_A1_IEnd.resize(I_NBin);
-//  Array<int, 1> *p_tempIntArrB = Fix(D_A1_IBound(Range(1, I_NBin)));
+//  blitz::Array<int, 1> *p_tempIntArrB = Fix(D_A1_IBound(Range(1, I_NBin)));
 //  I_A1_IEnd = (*p_tempIntArrB);
 //  delete p_tempIntArrB;
 //  #ifdef __DEBUG_FITS_MKSLITFUNC__
@@ -8247,7 +8247,7 @@ bool CFits::MkSlitFunc(const Array<double, 1> &D_A1_ScatterBelow,  //: in
   */
   /// Initialize default parameters and arrays.
   /*  CS_Temp.Set("OVERSAMPLE");
-    if ((I_Pos = this->KeyWord_Set(*(const_cast<const Array<CString, 1>*>(&CS_A1_Args_In)), CS_Temp)) >= 0)
+    if ((I_Pos = this->KeyWord_Set(*(const_cast<const blitz::Array<CString, 1>*>(&CS_A1_Args_In)), CS_Temp)) >= 0)
     {
       /// SlitF pixels / real pixel
       I_OverSample = *(int*)ArgV_In[I_Pos];
@@ -8338,7 +8338,7 @@ bool CFits::MkSlitFunc(const Array<double, 1> &D_A1_ScatterBelow,  //: in
 
   D_A2_CCD_Ap.resize(D_A3_SFSM.rows(), D_A3_SFSM.cols());
 
-//  Array<double, 2> D_A2_ErrAll(D_A3_SFSM.rows(), D_A3_SFSM.cols());
+//  blitz::Array<double, 2> D_A2_ErrAll(D_A3_SFSM.rows(), D_A3_SFSM.cols());
   D_A2_Err_AllRows.resize(this->NRows, D_A3_SFSM.cols());
   I_A2_Mask_AllRows.resize(this->NRows, D_A3_SFSM.cols());
   I_A2_Mask_AllRows = 1;
@@ -8492,9 +8492,9 @@ bool CFits::MkSlitFunc(const Array<double, 1> &D_A1_ScatterBelow,  //: in
     /// loop thru rows in region
     ///    for j=0, nc-1 do begin              ;loop thru rows in region
 //    I_A2_IndexArrays.resize(I_NR, 2);
-//    Array<int, 1> I_A1_Pix_SF_Beg(I_NR);
-//    Array<int, 1> I_A1_Pix_SF_End(I_NR);
-//    Array<int, 1> I_A1_NPix_SF(I_NR);
+//    blitz::Array<int, 1> I_A1_Pix_SF_Beg(I_NR);
+//    blitz::Array<int, 1> I_A1_Pix_SF_End(I_NR);
+//    blitz::Array<int, 1> I_A1_NPix_SF(I_NR);
     for (int n = 0; n < I_NR; n++)
     {
 
@@ -8567,7 +8567,7 @@ bool CFits::MkSlitFunc(const Array<double, 1> &D_A1_ScatterBelow,  //: in
       }
       ///      if(keyword_set(no_scatter)) then begin
       CS_Temp.Set("NO_SCATTER");
-      if ((I_Pos = this->KeyWord_Set(*(const_cast<const Array<CString, 1>*>(&CS_A1_Args_In)), CS_Temp)) >= 0 && *(int*)ArgV_In[I_Pos] != 0)
+      if ((I_Pos = this->KeyWord_Set(*(const_cast<const blitz::Array<CString, 1>*>(&CS_A1_Args_In)), CS_Temp)) >= 0 && *(int*)ArgV_In[I_Pos] != 0)
       {
         ///        ssf = im(ib+j,k0:k1)
         #ifdef __DEBUG_FITS_MKSLITFUNC__
@@ -8742,7 +8742,7 @@ bool CFits::MkSlitFunc(const Array<double, 1> &D_A1_ScatterBelow,  //: in
 	cout << "CFits::MkSlitFunc: I_IBin = " << I_IBin << ": for (int n = 0; n < I_NR(=" << I_NR << "; n++): I_NBin = " << I_NBins << endl;
 	cout << "CFits::MkSlitFunc: I_IBin = " << I_IBin << ": for (int n = 0; n < I_NR(=" << I_NR << "; n++): I_A2_IBinBoundY(*,0) = " << I_A2_IBinBoundY(Range::all(), 0) << endl;
 	cout << "CFits::MkSlitFunc: I_IBin = " << I_IBin << ": for (int n = 0; n < I_NR(=" << I_NR << "; n++): I_A2_IBinBoundY(*,1) = " << I_A2_IBinBoundY(Range::all(), 1) << endl;
-	Array<int, 1> I_A1_IBinBoundYTemp(I_A2_IBinBoundY.rows());
+	blitz::Array<int, 1> I_A1_IBinBoundYTemp(I_A2_IBinBoundY.rows());
 	I_A1_IBinBoundYTemp = I_A2_IBinBoundY(Range::all(),1) - I_A2_IBinBoundY(Range::all(),0);
 	cout << "CFits::MkSlitFunc: I_IBin = " << I_IBin << ": for (int n = 0; n < I_NR(=" << I_NR << "; n++): I_A2_IBinBoundY(*,1) - I_A2_IBinBoundY(*,0) = " << I_A1_IBinBoundYTemp << endl;
 
@@ -8793,7 +8793,7 @@ bool CFits::MkSlitFunc(const Array<double, 1> &D_A1_ScatterBelow,  //: in
         return false;
       }
       if (this->ErrorsRead){
-	Array<int, 1> I_A1_NPixX(I_A2_MinCenMax.rows());
+	blitz::Array<int, 1> I_A1_NPixX(I_A2_MinCenMax.rows());
 	I_A1_NPixX = I_A2_MinCenMax(Range::all(), 2)  - I_A2_MinCenMax(Range::all(), 0) + 1;
         #ifdef __DEBUG_FITS_MKSLITFUNC__
           cout << "CFits::MkSlitFunc: I_IBin = " << I_IBin << ": I_A1_NPixX = " << I_A1_NPixX << endl;
@@ -8889,7 +8889,7 @@ bool CFits::MkSlitFunc(const Array<double, 1> &D_A1_ScatterBelow,  //: in
 
 
 
-//    Array<double, 2> D_A2_SlitFuncTemp(I_NR, I_NXSF-I_NPixCut_Left-I_NPixCut_Right);
+//    blitz::Array<double, 2> D_A2_SlitFuncTemp(I_NR, I_NXSF-I_NPixCut_Left-I_NPixCut_Right);
 //    D_A2_SlitFuncTemp = D_A2_SlitFunc_Im_In(Range::all(), Range(I_NPixCut_Left, D_A2_SlitFunc_Im_In.cols()-1-I_NPixCut_Right));
 //    D_A2_SlitFunc_Im_In.resize(I_NR, I_NXSF-I_NPixCut_Left-I_NPixCut_Right);
 //    D_A2_SlitFunc_Im_In = D_A2_SlitFuncTemp;
@@ -8899,7 +8899,7 @@ bool CFits::MkSlitFunc(const Array<double, 1> &D_A1_ScatterBelow,  //: in
 //      D_A2_Err = D_A2_SlitFuncTemp;
 //    }
 //    D_A2_SlitFuncTemp.resize(1,1);
-//    Array<int, 2> I_A2_SlitFuncTemp(I_NR, I_NXSF-I_NPixCut_Left-I_NPixCut_Right);
+//    blitz::Array<int, 2> I_A2_SlitFuncTemp(I_NR, I_NXSF-I_NPixCut_Left-I_NPixCut_Right);
 //    I_A2_SlitFuncTemp = I_A2_Msk(Range::all(), Range(I_NPixCut_Left, D_A2_SlitFunc_Im_In.cols()-1-I_NPixCut_Right));
 //    I_A2_Msk.resize(I_NR, I_NXSF - I_NPixCut_Left - I_NPixCut_Right);
 //    I_A2_Msk = I_A2_SlitFuncTemp;
@@ -9029,13 +9029,13 @@ bool CFits::MkSlitFunc(const Array<double, 1> &D_A1_ScatterBelow,  //: in
       //    }
       ///      sf = sf - sc#replicate(1,yslitf1-yslitf0+1)
 
-      Array<double, 1> *p_tempDblVecArr = this->Replicate(1., I_A2_MinCenMax(0, 2) - I_A2_MinCenMax(0, 0) + 1);
+      blitz::Array<double, 1> *p_tempDblVecArr = this->Replicate(1., I_A2_MinCenMax(0, 2) - I_A2_MinCenMax(0, 0) + 1);
       if (D_A2_SlitFunc_Im_In.cols() != p_tempDblVecArr->size()){
 	cout << "CFits::MkSlitFunc: I_IBin = " << I_IBin << ": ERROR: D_A2_SlitFunc_Im_In.cols()=" << D_A2_SlitFunc_Im_In.cols() << " != p_tempDblVecArr->size()=" <<  p_tempDblVecArr->size() << " => Returning FALSE" << endl;
 	return false;
       }
 //      D_A2_SlitFunc_Im_In.resizeAndPreserve(I_NR, p_tempDblVecArr->size());
-      Array<double, 2> *p_d2mata = VecArrACrossB(D_A1_SC, *p_tempDblVecArr);
+      blitz::Array<double, 2> *p_d2mata = VecArrACrossB(D_A1_SC, *p_tempDblVecArr);
 
       #ifdef __DEBUG_FITS_MKSLITFUNC__
         cout << "CFits::MkSlitFunc: KeyWord_Set(TELLURIC): I_IBin = " << I_IBin << ": I_NR = " << I_NR << ", p_tempDblVecArr->size() = " << p_tempDblVecArr->size() << endl;
@@ -9095,7 +9095,7 @@ bool CFits::MkSlitFunc(const Array<double, 1> &D_A1_ScatterBelow,  //: in
 //        (*P_OFS_Log) << "CFits::MkSlitFunc: ERROR: D_A1_SFPnt.size(=" << D_A1_SFPnt.size() << ") != D_A2_SlitFunc_Im_In.size(=" << D_A2_SlitFunc_Im_In.size() << ")" << endl;
 //        return false;
 //      }
-//      Array<double, 1> *p_D_A1_SFPnt = this->Reform(D_A2_SlitFunc_Im_In);
+//      blitz::Array<double, 1> *p_D_A1_SFPnt = this->Reform(D_A2_SlitFunc_Im_In);
 //      if (p_D_A1_SFPnt->size() != I_NSF)
 //      {
 //        cout << "CFits::MkSlitFunc: ERROR: p_D_A1_SFPnt->size(=" << p_D_A1_SFPnt->size() << ") != I_NSF(=" << I_NSF << ")" << endl;
@@ -9124,7 +9124,7 @@ bool CFits::MkSlitFunc(const Array<double, 1> &D_A1_ScatterBelow,  //: in
 	return false;
       }
 
-      Array<int, 1> *P_I_A1_UseRow_Tel = this->IndGenArr(I_A2_Msk.rows());
+      blitz::Array<int, 1> *P_I_A1_UseRow_Tel = this->IndGenArr(I_A2_Msk.rows());
       I_A1_UseRow_Tel.resize(I_A2_Msk.rows());
       I_A1_UseRow_Tel = (*P_I_A1_UseRow_Tel);
       delete(P_I_A1_UseRow_Tel);
@@ -9134,11 +9134,11 @@ bool CFits::MkSlitFunc(const Array<double, 1> &D_A1_ScatterBelow,  //: in
 
       D_A2_TempIm.resize(D_A2_SlitFunc_Im_In.rows(), D_A2_SlitFunc_Im_In.cols());
 
-      Array<int, 1> I_A1_MaxPos(D_A2_SlitFunc_Im_In.rows());
+      blitz::Array<int, 1> I_A1_MaxPos(D_A2_SlitFunc_Im_In.rows());
       I_A1_MaxPos = 0;
-      Array<int, 1> I_A1_MaxPosCol(D_A2_SlitFunc_Im_In.cols());
+      blitz::Array<int, 1> I_A1_MaxPosCol(D_A2_SlitFunc_Im_In.cols());
       I_A1_MaxPosCol = 0;
-      Array<int, 1> *P_I_A1_MaxPosColInd;
+      blitz::Array<int, 1> *P_I_A1_MaxPosColInd;
       int I_NMax = 0;
 
       D_A1_SFMax.resize(D_A2_SlitFunc_Im_In.rows());
@@ -9260,7 +9260,7 @@ bool CFits::MkSlitFunc(const Array<double, 1> &D_A1_ScatterBelow,  //: in
 
       /// TODO: ONLY TAKE HIGHEST VALUES, NOT MIDDLE ONES?!? <- Already did median filtering!
       /// --- remove elements from D_A1_SFMax which are outside the median value +/- 2sigma
-      //P_I_A1_Ind = new Array<int, 1>(1);
+      //P_I_A1_Ind = new blitz::Array<int, 1>(1);
       P_I_A1_Ind_Last = this->IndGenArr(D_A2_SlitFunc_Im_In.rows());
       I_A1_UseRow_Tel_AllRows.resize(D_A2_SlitFunc_Im_In.rows());
       I_A1_UseRow_Tel_AllRows = (*P_I_A1_Ind_Last);
@@ -9300,12 +9300,12 @@ bool CFits::MkSlitFunc(const Array<double, 1> &D_A1_ScatterBelow,  //: in
           cout << "CFits::MkSlitFunc: I_IBin = " << I_IBin << ": TELLURIC == 3: while: I_A1_IndA set to " << I_A1_IndA << endl;
           cout << "CFits::MkSlitFunc: I_IBin = " << I_IBin << ": TELLURIC == 3: while: *P_I_A1_Ind set to " << *P_I_A1_Ind << endl;
         #endif
-        Array<double, 2> D_A2_SFMax(2,2);
+        blitz::Array<double, 2> D_A2_SFMax(2,2);
         this->GetSubArrCopy(D_A2_SlitFunc_Im_In,
                             *P_I_A1_Ind,
 			    0,
                             D_A2_SFMax);
-	Array<double, 1> *P_D_A1_SFMa;
+	blitz::Array<double, 1> *P_D_A1_SFMa;
 	for (int i_c=0; i_c<D_A2_SlitFunc_Im_In.cols(); i_c++){
 	  P_D_A1_SFMa = this->MedianVec(D_A2_SFMax(Range::all(), i_c),5);
 	  D_A2_SFMax(Range::all(), i_c) = (*P_D_A1_SFMa);
@@ -9364,8 +9364,8 @@ bool CFits::MkSlitFunc(const Array<double, 1> &D_A1_ScatterBelow,  //: in
         #endif
 
 
-	Array<double, 1> D_A1_SFMax_SumRows(D_A2_SlitFunc_Im_In.cols());
-	Array<double, 2> D_A2_SlitFunc_Im_In_Times_Mask(D_A2_SlitFunc_Im_In.rows(), D_A2_SlitFunc_Im_In.cols());
+	blitz::Array<double, 1> D_A1_SFMax_SumRows(D_A2_SlitFunc_Im_In.cols());
+	blitz::Array<double, 2> D_A2_SlitFunc_Im_In_Times_Mask(D_A2_SlitFunc_Im_In.rows(), D_A2_SlitFunc_Im_In.cols());
 	D_A2_SlitFunc_Im_In_Times_Mask = D_A2_SlitFunc_Im_In * I_A2_Mask_TelTemp;
 	D_A1_SFMax_SumRows = sum(D_A2_SlitFunc_Im_In_Times_Mask(j,i),j);
 	CString CS_SFMax_SumRows("SFMax_SumRows_");
@@ -9682,7 +9682,7 @@ bool CFits::MkSlitFunc(const Array<double, 1> &D_A1_ScatterBelow,  //: in
       args[pppos] = &I_A2_Mask_Temp;
       #ifdef __DEBUG_FITS_MKSLITFUNC__
         cout << "CFits::MkSlitFunc: I_IBin = " << I_IBin << ": I_A2_Mask_Temp = " << I_A2_Mask_Temp << endl;//.transpose(secondDim, firstDim) << endl;
-        cout << "CFits::MkSlitFunc: I_IBin = " << I_IBin << ": args[" << pppos << "] set to " << *((Array<int, 2>*)(args[pppos])) << endl;
+        cout << "CFits::MkSlitFunc: I_IBin = " << I_IBin << ": args[" << pppos << "] set to " << *((blitz::Array<int, 2>*)(args[pppos])) << endl;
 //	if (!B_MaximaOnly)
 //          return false;
       #endif
@@ -9711,7 +9711,7 @@ bool CFits::MkSlitFunc(const Array<double, 1> &D_A1_ScatterBelow,  //: in
 /// **        args[pppos] = &D_A2_ErrIn_Tel;
         #ifdef __DEBUG_FITS_MKSLITFUNC__
           cout << "CFits::MkSlitFunc: I_IBin = " << I_IBin << ": D_A2_Err = " << D_A2_Err << endl;//.transpose(secondDim, firstDim) << endl;
-          cout << "CFits::MkSlitFunc: I_IBin = " << I_IBin << ": args[" << pppos << "] set to " << *((Array<double, 2>*)(args[pppos])) << endl;
+          cout << "CFits::MkSlitFunc: I_IBin = " << I_IBin << ": args[" << pppos << "] set to " << *((blitz::Array<double, 2>*)(args[pppos])) << endl;
 //	  return false;
         #endif
         pppos++;
@@ -9721,7 +9721,7 @@ bool CFits::MkSlitFunc(const Array<double, 1> &D_A1_ScatterBelow,  //: in
         args[pppos] = &D_A1_ErrOut;
         #ifdef __DEBUG_FITS_MKSLITFUNC__
           cout << "CFits::MkSlitFunc: I_IBin = " << I_IBin << ": D_A1_ErrOut = " << D_A1_ErrOut << endl;//.transpose(secondDim, firstDim) << endl;
-//          cout << "CFits::MkSlitFunc: args[" << pppos << "] set to " << *((Array<double, 1>*)(args[pppos])) << endl;
+//          cout << "CFits::MkSlitFunc: args[" << pppos << "] set to " << *((blitz::Array<double, 1>*)(args[pppos])) << endl;
         #endif
         pppos++;
 
@@ -9730,7 +9730,7 @@ bool CFits::MkSlitFunc(const Array<double, 1> &D_A1_ScatterBelow,  //: in
         args[pppos] = &D_A1_Errors_SP_Out;
         #ifdef __DEBUG_FITS_MKSLITFUNC__
           cout << "CFits::MkSlitFunc: I_IBin = " << I_IBin << ": D_A1_Errors_SP_Out = " << D_A1_Errors_SP_Out << endl;//.transpose(secondDim, firstDim) << endl;
-//          cout << "CFits::MkSlitFunc: args[" << pppos << "] set to " << *((Array<double, 1>*)(args[pppos])) << endl;
+//          cout << "CFits::MkSlitFunc: args[" << pppos << "] set to " << *((blitz::Array<double, 1>*)(args[pppos])) << endl;
         #endif
         pppos++;
 
@@ -9785,7 +9785,7 @@ bool CFits::MkSlitFunc(const Array<double, 1> &D_A1_ScatterBelow,  //: in
     ///          USE_COL=jgood,
     ///          BAD=jbad,
     ///          MASK=msk
-    //    Array<double, 1> D_A1_SF(D_A2_SlitFunc_Im_In.cols());
+    //    blitz::Array<double, 1> D_A1_SF(D_A2_SlitFunc_Im_In.cols());
     //    D_A1_SF = D_A2_SlitFunc_Im_In(0,Range::all());
 //return false;
 
@@ -9846,9 +9846,9 @@ bool CFits::MkSlitFunc(const Array<double, 1> &D_A1_ScatterBelow,  //: in
 	delete(P_CS_IRunTel);
       #endif
 
-      Array<double, 2> D_A2_SlitFunc_Im_In_SumRows(D_A2_SlitFunc_Im_In.rows(), D_A2_SlitFunc_Im_In.cols());
+      blitz::Array<double, 2> D_A2_SlitFunc_Im_In_SumRows(D_A2_SlitFunc_Im_In.rows(), D_A2_SlitFunc_Im_In.cols());
       D_A2_SlitFunc_Im_In_SumRows = D_A2_SlitFunc_Im_In_Tel * I_A2_Mask_Temp;
-      Array<double, 1> D_A1_SlitFunc_Im_In_SumRows(D_A2_SlitFunc_Im_In_SumRows.cols());
+      blitz::Array<double, 1> D_A1_SlitFunc_Im_In_SumRows(D_A2_SlitFunc_Im_In_SumRows.cols());
       D_A1_SlitFunc_Im_In_SumRows = sum(D_A2_SlitFunc_Im_In_SumRows(j,i),j);
       #ifdef __DEBUG_FITS_MkSLITFUNC_FILES__
         CString CS_Sum("SlitFuncImInTel_SumCols");
@@ -9874,7 +9874,7 @@ bool CFits::MkSlitFunc(const Array<double, 1> &D_A1_ScatterBelow,  //: in
         cout << "CFits::MkSlitFunc: I_IAperture_In = " << I_IAperture_In << ", I_IBin = " << I_IBin << ": D_A1_SP_Out = " << D_A1_SP_Out << endl;
         cout << "CFits::MkSlitFunc: I_IAperture_In = " << I_IAperture_In << ", I_IBin = " << I_IBin << ": D_A1_Errors_SP_Out = " << D_A1_Errors_SP_Out << endl;
       #endif
-      Array<double, 1> D_A1_SNR(D_A1_SP.size());
+      blitz::Array<double, 1> D_A1_SNR(D_A1_SP.size());
       D_A1_SNR = D_A1_SP / D_A1_SP_Out;
       #ifdef __DEBUG_FITS_SLITFUNC_FILES__
         cout << "CFits::MkSlitFunc: I_IAperture_In = " << I_IAperture_In << ", I_IBin = " << I_IBin << ": D_A1_SP / D_A1_SP_Out = " << D_A1_SNR << endl;
@@ -9893,7 +9893,7 @@ bool CFits::MkSlitFunc(const Array<double, 1> &D_A1_ScatterBelow,  //: in
 
 
       #ifdef __DEBUG_FITS_MKSLITFUNC__
-        Array<double, 2> D_A2_MaskTimesSlitFunc(I_A2_Mask_Temp.rows(), I_A2_Mask_Temp.cols());
+        blitz::Array<double, 2> D_A2_MaskTimesSlitFunc(I_A2_Mask_Temp.rows(), I_A2_Mask_Temp.cols());
         D_A2_MaskTimesSlitFunc = D_A2_SlitFunc_Im_In_Tel * I_A2_Mask_Temp;
         CString CS_MaskOut("SlitFuncTimesMask_just_after_SlitFunc");
         CS_MaskOut.Add(CS_SF_DebugFilesSuffix);
@@ -9981,14 +9981,14 @@ bool CFits::MkSlitFunc(const Array<double, 1> &D_A1_ScatterBelow,  //: in
 	  CS_DebugFileName.Add(CString(".fits"));
 	  this->WriteArrayToFile(D_A1_XCorProf_Out, CS_DebugFileName, CString("ascii"));
 	  int I_NDeg = 5;
-	  Array<double, 1> *P_D_A1_PolyCoeffs = new Array<double, 1>(6);
-	  Array<CString, 1> CS_A1_Args_PolyFit(1);
+	  blitz::Array<double, 1> *P_D_A1_PolyCoeffs = new blitz::Array<double, 1>(6);
+	  blitz::Array<CString, 1> CS_A1_Args_PolyFit(1);
 	  CS_A1_Args_PolyFit(0) = CString("YFIT");
           void **PP_Args_PolyFit = (void**)malloc(sizeof(void*) * 1);
-	  Array<double, 1> D_A1_Fit(D_A1_XCorProf_Out.size());
+	  blitz::Array<double, 1> D_A1_Fit(D_A1_XCorProf_Out.size());
 	  D_A1_Fit = 0.;
 	  PP_Args_PolyFit[0] = &D_A1_Fit;
-	  Array<double, 1> *P_D_A1_X = this->DIndGenArr(D_A1_XCorProf_Out.size());
+	  blitz::Array<double, 1> *P_D_A1_X = this->DIndGenArr(D_A1_XCorProf_Out.size());
 	  if (!this->PolyFit(*P_D_A1_X, D_A1_XCorProf_Out, I_NDeg, CS_A1_Args_PolyFit, PP_Args_PolyFit, P_D_A1_PolyCoeffs)){
 	    cout << "CFits::MkSlitFunc: ERROR: this->PolyFit(XCorProf) returned FALSE => Returning FALSE" << endl;
 	    delete(P_D_A1_PolyCoeffs);
@@ -10002,7 +10002,7 @@ bool CFits::MkSlitFunc(const Array<double, 1> &D_A1_ScatterBelow,  //: in
 	  cout << "CFits::MkSlitFunc: after PolyFit: D_A1_XCorProf_Out = " << D_A1_XCorProf_Out << endl;
 	  cout << "CFits::MkSlitFunc: after PolyFit: D_A1_Fit = " << D_A1_Fit << endl;
   	  D_A2_XCorProf(Range(I_A2_IBinBoundY(I_IBin, 0) - I_A2_IBinBoundY(0,0), I_A2_IBinBoundY(I_IBin, 1) - I_A2_IBinBoundY(0,0)), I_IBin) = D_A1_Fit;
-	  Array<double, 1> D_A1_Diff(D_A1_XCorProf_Out.size());
+	  blitz::Array<double, 1> D_A1_Diff(D_A1_XCorProf_Out.size());
 	  D_A1_Diff = D_A1_XCorProf_Out - D_A1_Fit;
 	  CS_DebugFileName.Set(DEBUGDIR);
 	  CS_DebugFileName.Add(CString("D_A1_XCorProf_Diff_"));
@@ -10118,7 +10118,7 @@ bool CFits::MkSlitFunc(const Array<double, 1> &D_A1_ScatterBelow,  //: in
 
 
 	  /// TODO: Only include pixels which are not marked as bad (old strategy with some border pixels equal to zero)
-//	  Array<double, 1> D_A1_SF_FindMin(sum(I_A2_Mask_Temp(q, Range::all())));
+//	  blitz::Array<double, 1> D_A1_SF_FindMin(sum(I_A2_Mask_Temp(q, Range::all())));
 //	  int I_PosTemp = 0;
 //	  for (int w=0; w<I_A2_Mask_Temp.cols(); w++){
 //	    if (I_A2_Mask_Temp(q,w) == 1){
@@ -10299,7 +10299,7 @@ bool CFits::MkSlitFunc(const Array<double, 1> &D_A1_ScatterBelow,  //: in
       }/// end if ((I_Run_Tel == (I_RunMax-1)) || (D_SFDev < mean(D_A2_SFSM) / 5000.))
 
       if (I_Telluric == 3){
-        Array<CString, 1> CS_A1_Args_Fit(4);
+        blitz::Array<CString, 1> CS_A1_Args_Fit(4);
         void **PP_Args_Fit;
         PP_Args_Fit = (void**)malloc(sizeof(void*) * 4);
         CS_A1_Args_Fit = CString(" ");
@@ -10332,7 +10332,7 @@ bool CFits::MkSlitFunc(const Array<double, 1> &D_A1_ScatterBelow,  //: in
 //        return false;
 
         CS_A1_Args_Fit(2) = CString("SIGMA_OUT");
-        Array<double, 2> D_A2_Sigma_Fit(D_A2_SFSM.rows(),2);
+        blitz::Array<double, 2> D_A2_Sigma_Fit(D_A2_SFSM.rows(),2);
 	D_A2_Sigma_Fit = 0.;
         PP_Args_Fit[2] = &D_A2_Sigma_Fit;
 
@@ -10363,12 +10363,12 @@ bool CFits::MkSlitFunc(const Array<double, 1> &D_A1_ScatterBelow,  //: in
                                    true,                   ///: with sky: in
                                    CS_A1_Args_Fit,         ///: in
                                    PP_Args_Fit)){          ///: in/out
-  /// MEASURE_ERRORS_IN = Array<double,2>(D_A2_CCD_In.rows, D_A2_CCD_In.cols) : in
+  /// MEASURE_ERRORS_IN = blitz::Array<double,2>(D_A2_CCD_In.rows, D_A2_CCD_In.cols) : in
   /// REJECT_IN = double                                                      : in
-  /// MASK_INOUT = Array<double,2>(D_A1_CCD_In.rows,D_A1_CCD_In.cols)         : in/out
-  /// CHISQ_OUT = Array<double,1>(D_A2_CCD_In.rows)                           : out
-  /// Q_OUT = Array<double,1>(D_A2_CCD_In.rows)                               : out
-  /// SIGMA_OUT = Array<double,2>(D_A2_CCD_In.rows, 2): [*,0]: sigma_sp, [*,1]: sigma_sky : out
+  /// MASK_INOUT = blitz::Array<double,2>(D_A1_CCD_In.rows,D_A1_CCD_In.cols)         : in/out
+  /// CHISQ_OUT = blitz::Array<double,1>(D_A2_CCD_In.rows)                           : out
+  /// Q_OUT = blitz::Array<double,1>(D_A2_CCD_In.rows)                               : out
+  /// SIGMA_OUT = blitz::Array<double,2>(D_A2_CCD_In.rows, 2): [*,0]: sigma_sp, [*,1]: sigma_sky : out
           cout << "CFits::MkSlitFunc: I_IBin = " << I_IBin << ": 1. I_Telluric == 2: ERROR: this->Fit(...) returned FALSE => Returning FALSE" << endl;
 	  return false;
         }
@@ -10381,7 +10381,7 @@ bool CFits::MkSlitFunc(const Array<double, 1> &D_A1_ScatterBelow,  //: in
         D_A1_Sky = D_A1_Sky_Temp;
 
         #ifdef __DEBUG_FITS_MKSLITFUNC__
-	  Array<double, 2> D_A2_MaskTimesSFOrig(D_A2_SlitFuncOrig.rows(), D_A2_SlitFuncOrig.cols());
+	  blitz::Array<double, 2> D_A2_MaskTimesSFOrig(D_A2_SlitFuncOrig.rows(), D_A2_SlitFuncOrig.cols());
 	  D_A2_MaskTimesSFOrig = D_A2_SlitFuncOrig * I_A2_Mask;
   	  CString CS_MaskFitOut("SFOrigTimesMaskAfterFit");
           CS_MaskFitOut.Add(CS_SF_DebugFilesSuffix);
@@ -10798,7 +10798,7 @@ bool CFits::MkSlitFunc(const Array<double, 1> &D_A1_ScatterBelow,  //: in
 
 
 
-  Array<CString, 1> CS_A1_Args_Fit(3);
+  blitz::Array<CString, 1> CS_A1_Args_Fit(3);
   void **PP_Args_Fit;
   PP_Args_Fit = (void**)malloc(sizeof(void*) * 3);
   CS_A1_Args_Fit = CString(" ");
@@ -10807,7 +10807,7 @@ bool CFits::MkSlitFunc(const Array<double, 1> &D_A1_ScatterBelow,  //: in
     cout << "CFits::MkSlitFunc: D_A2_Err = " << D_A2_Err << endl;
   #endif
 
-  Array<double, 2> D_A2_ErrAp(I_A2_IBinBoundY(I_NBins-1, 1) - I_A2_IBinBoundY(0,0) + 1, D_A2_Err_AllRows.cols());
+  blitz::Array<double, 2> D_A2_ErrAp(I_A2_IBinBoundY(I_NBins-1, 1) - I_A2_IBinBoundY(0,0) + 1, D_A2_Err_AllRows.cols());
   D_A2_ErrAp = 0.;
   if (this->ErrorsRead){
     CS_A1_Args_Fit(0) = CString("MEASURE_ERRORS_IN");
@@ -10819,7 +10819,7 @@ bool CFits::MkSlitFunc(const Array<double, 1> &D_A1_ScatterBelow,  //: in
   }
 
   CS_A1_Args_Fit(1) = CString("MASK_INOUT");
-  Array<int, 2> I_A2_MaskAp(I_A2_IBinBoundY(I_NBins-1, 1) - I_A2_IBinBoundY(0,0) + 1, I_A2_Mask_AllRows.cols());
+  blitz::Array<int, 2> I_A2_MaskAp(I_A2_IBinBoundY(I_NBins-1, 1) - I_A2_IBinBoundY(0,0) + 1, I_A2_Mask_AllRows.cols());
   I_A2_MaskAp = I_A2_Mask_AllRows(Range(I_A2_IBinBoundY(0,0), I_A2_IBinBoundY(I_NBins-1, 1)), Range::all());
   PP_Args_Fit[1] = &I_A2_MaskAp;
   #ifdef __DEBUG_FITS_MKSLITFUNC__
@@ -10828,13 +10828,13 @@ bool CFits::MkSlitFunc(const Array<double, 1> &D_A1_ScatterBelow,  //: in
         //return false;
 
   CS_A1_Args_Fit(2) = CString("SIGMA_OUT");
-  Array<double, 2> D_A2_Sigma_Fit(D_A2_SF.rows(),2);
+  blitz::Array<double, 2> D_A2_Sigma_Fit(D_A2_SF.rows(),2);
   PP_Args_Fit[2] = &D_A2_Sigma_Fit;
 
 
 
 
-  Array<double, 1> D_A1_SkyFit(D_A1_SPFit.size());
+  blitz::Array<double, 1> D_A1_SkyFit(D_A1_SPFit.size());
   D_A1_SkyFit = 0.;
   bool B_WithSky = false;
   if (I_Telluric > 0){
@@ -10870,12 +10870,12 @@ bool CFits::MkSlitFunc(const Array<double, 1> &D_A1_ScatterBelow,  //: in
                              B_WithSky,                   ///: with sky: in
                              CS_A1_Args_Fit,         ///: in
                              PP_Args_Fit)){          ///: in/out
-  /// MEASURE_ERRORS_IN = Array<double,2>(D_A2_CCD_In.rows, D_A2_CCD_In.cols) : in
+  /// MEASURE_ERRORS_IN = blitz::Array<double,2>(D_A2_CCD_In.rows, D_A2_CCD_In.cols) : in
   /// REJECT_IN = double                                                      : in
-  /// MASK_INOUT = Array<double,2>(D_A1_CCD_In.rows,D_A1_CCD_In.cols)         : in/out
-  /// CHISQ_OUT = Array<double,1>(D_A2_CCD_In.rows)                           : out
-  /// Q_OUT = Array<double,1>(D_A2_CCD_In.rows)                               : out
-  /// SIGMA_OUT = Array<double,2>(D_A2_CCD_In.rows, 2): [*,0]: sigma_sp, [*,1]: sigma_sky : out
+  /// MASK_INOUT = blitz::Array<double,2>(D_A1_CCD_In.rows,D_A1_CCD_In.cols)         : in/out
+  /// CHISQ_OUT = blitz::Array<double,1>(D_A2_CCD_In.rows)                           : out
+  /// Q_OUT = blitz::Array<double,1>(D_A2_CCD_In.rows)                               : out
+  /// SIGMA_OUT = blitz::Array<double,2>(D_A2_CCD_In.rows, 2): [*,0]: sigma_sp, [*,1]: sigma_sky : out
     cout << "CFits::MkSlitFunc: 2. ERROR: this->Fit(...) returned FALSE => Returning FALSE" << endl;
     return false;
   }
@@ -10991,10 +10991,10 @@ bool CFits::MkSlitFunc(const Array<double, 1> &D_A1_ScatterBelow,  //: in
 
 
   if (ErrorsRead){
-/**  Array<CString, 1> CS_A1_Args_ExtractErrors(1);
+/**  blitz::Array<CString, 1> CS_A1_Args_ExtractErrors(1);
   CS_A1_Args_ExtractErrors(0).Set(CString("APERTURES"));
   void **PP_Args_ExtractErrors;
-  Array<int, 1> I_A1_Apertures(1);
+  blitz::Array<int, 1> I_A1_Apertures(1);
   I_A1_Apertures(0) = I_IAperture_In;
   PP_Args_ExtractErrors = (void**)malloc(sizeof(void*) * 1);
   PP_Args_ExtractErrors[0] = &I_A1_Apertures;
@@ -11021,14 +11021,14 @@ bool CFits::MkSlitFunc(const Array<double, 1> &D_A1_ScatterBelow,  //: in
 
 
 
-  Array<double, 1> *P_D_A1_BLZSmooth;
+  blitz::Array<double, 1> *P_D_A1_BLZSmooth;
   if (this->KeyWord_Set(CS_A1_Args_In, CString("FLAT")) >= 0)
   {
     P_D_A1_BLZSmooth = this->MedianVec(*P_D_A1_BLZ, I_LambdaSP);
   }
   else
   {
-    P_D_A1_BLZSmooth = new Array<double, 1>(1);
+    P_D_A1_BLZSmooth = new blitz::Array<double, 1>(1);
     (*P_D_A1_BLZSmooth) = 0.;
   }
   double fac = 1.;// / sum(D_A1_SF);
@@ -11099,7 +11099,7 @@ bool CFits::MkSlitFunc(const Array<double, 1> &D_A1_ScatterBelow,  //: in
       CS_D_A2_SlitFTemp.Add(*P_CS_NumTemp);
       CS_D_A2_SlitFTemp.Add(CString(".dat"));
       delete(P_CS_NumTemp);
-      Array<double, 1> D_A1_SlitFunc(I_A2_MinCenMax(irow, 2) - I_A2_MinCenMax(irow, 0) + 1);
+      blitz::Array<double, 1> D_A1_SlitFunc(I_A2_MinCenMax(irow, 2) - I_A2_MinCenMax(irow, 0) + 1);
       D_A1_SlitFunc = (*(this->P_D_A2_PixArray))(irow, Range(I_A2_MinCenMax(irow, 0), I_A2_MinCenMax(irow, 2)));
       this->WriteArrayToFile(D_A1_SlitFunc, CS_D_A2_SlitFTemp, CString("ascii"));
       cout << "CFits::MkSlitFunc: " << CS_D_A2_SlitFTemp << " written" << endl;
@@ -11140,7 +11140,7 @@ bool CFits::MkSlitFunc(const Array<double, 1> &D_A1_ScatterBelow,  //: in
       P_CS_NumA = CS_D_A1_SF.IToA(irow);
       CS_D_A1_SF.Add(*P_CS_NumA);
       CS_D_A1_SF.Add(CString(".dat"));
-      Array<double, 1> D_A1_SkyRow(1);
+      blitz::Array<double, 1> D_A1_SkyRow(1);
       if (I_Row >= D_A1_SkyFit.rows()){
 	cout << "CFits::MkSlitFunc: ERROR: I_Row = " << I_Row << " >= D_A1_SkyFit.rows() = " << D_A1_SkyFit.rows() << " => Returning FALSE" << endl;
 	return false;
@@ -11276,7 +11276,7 @@ bool CFits::MkSlitFunc(const Array<double, 1> &D_A1_ScatterBelow,  //: in
       delete(P_CS_NumTemp);
       P_CS_NumTemp = CS_D_A2_SlitFTemp.IToA(irow);
       CS_D_A2_SlitFTemp += (*P_CS_NumTemp) + CString(".dat");
-      Array<double, 1> D_A1_SlitFunc(I_A2_MinCenMax(irow, 2) - I_A2_MinCenMax(irow, 0) + 1);
+      blitz::Array<double, 1> D_A1_SlitFunc(I_A2_MinCenMax(irow, 2) - I_A2_MinCenMax(irow, 0) + 1);
       D_A1_SlitFunc = (*(this->P_D_A2_PixArray))(irow, Range(I_A2_MinCenMax(irow, 0), I_A2_MinCenMax(irow, 2)));
       this->WriteArrayToFile(D_A1_SlitFunc, CS_D_A2_SlitFTemp, CString("ascii"));
 
@@ -11344,7 +11344,7 @@ bool CFits::MkSlitFunc(const Array<double, 1> &D_A1_ScatterBelow,  //: in
       ///      isort = sort(abs(binc - icol))                  ;sort by distance
       D_A1_TempArr.resize(D_A1_BinCen.size());
       D_A1_TempArr = abs(D_A1_BinCen - irow);
-      Array<int, 1> *p_I_A1_ISort = this->SortIndices(D_A1_TempArr);
+      blitz::Array<int, 1> *p_I_A1_ISort = this->SortIndices(D_A1_TempArr);
       //      cout << "CFits::MkSlitFunc: p_I_A1_ISort set to " << *p_I_A1_ISort << endl;
       I_A1_ISort.resize(p_I_A1_ISort->size());//.resize(D_A1_BinCen.size());
       I_A1_ISort = (*p_I_A1_ISort);
@@ -11437,7 +11437,7 @@ bool CFits::MkSlitFunc(const Array<double, 1> &D_A1_ScatterBelow,  //: in
       this->WriteArrayToFile(D_A1_XInt, CS_D_A2_SlitFTemp, CString("ascii"));
 
       ///       D_A1_XInt = (I_A1_IX - D_A1_XCenters(irow) - D_XSFMin) / D_DXSF;
-      Array<double, 1> *p_D_A1_SF0 = this->InterPolate(D_A1_TempArrA, D_A1_XInt);
+      blitz::Array<double, 1> *p_D_A1_SF0 = this->InterPolate(D_A1_TempArrA, D_A1_XInt);
 
       D_A1_TempArrA.resize(0);
       CS_D_A2_SlitFTemp.Set(DEBUGDIR);
@@ -11456,7 +11456,7 @@ bool CFits::MkSlitFunc(const Array<double, 1> &D_A1_ScatterBelow,  //: in
       delete(P_CS_NumTemp);
       P_CS_NumTemp = CS_D_A2_SlitFTemp.IToA(irow);
       CS_D_A2_SlitFTemp += (*P_CS_NumTemp) + CString(".dat");
-      Array<double, 1> D_A1_SlitFunc(I_A2_MinCenMax(irow, 2) - I_A2_MinCenMax(irow, 0) + 1);
+      blitz::Array<double, 1> D_A1_SlitFunc(I_A2_MinCenMax(irow, 2) - I_A2_MinCenMax(irow, 0) + 1);
       D_A1_SlitFunc = (*(this->P_D_A2_PixArray))(irow, Range(I_A2_MinCenMax(irow, 0), I_A2_MinCenMax(irow, 2)));
       this->WriteArrayToFile(D_A1_SlitFunc, CS_D_A2_SlitFTemp, CString("ascii"));
 
@@ -11467,7 +11467,7 @@ bool CFits::MkSlitFunc(const Array<double, 1> &D_A1_ScatterBelow,  //: in
       delete(P_CS_NumTemp);
       P_CS_NumTemp = CS_D_A2_SlitFTemp.IToA(irow);
       CS_D_A2_SlitFTemp += (*P_CS_NumTemp) + CString(".dat");
-      Array<double, 1> D_A1_XX(I_A2_MinCenMax(irow, 2) - I_A2_MinCenMax(irow, 0) + 1);
+      blitz::Array<double, 1> D_A1_XX(I_A2_MinCenMax(irow, 2) - I_A2_MinCenMax(irow, 0) + 1);
       cout << "D_A1_XCenMXC = " << D_A1_XCenMXC << endl;
       for (int iiii=0; iiii<D_A1_XX.size(); iiii++)
         D_A1_XX(iiii) = (double(iiii)+D_A1_XCenMXC(irow)-1.)*double(this->I_OverSample);
@@ -11494,7 +11494,7 @@ bool CFits::MkSlitFunc(const Array<double, 1> &D_A1_ScatterBelow,  //: in
         (*P_OFS_Log) << "CFits::MkSlitFunc: for (int irow(=" << irow << ") = 0; irow < this->NRows(=" << this->NRows << "); irow++): D_A1_TempArrB = " << D_A1_TempArrB << endl;
       #endif
 
-      Array<double, 1> *p_D_A1_SF1 = this->InterPolate(D_A1_TempArrB, D_A1_XInt);
+      blitz::Array<double, 1> *p_D_A1_SF1 = this->InterPolate(D_A1_TempArrB, D_A1_XInt);
       D_A1_TempArrB.resize(0);
       CS_D_A2_SlitFTemp.Set(DEBUGDIR);
       delete(P_CS_NumTemp);
@@ -11628,7 +11628,7 @@ bool CFits::MkSlitFunc(const Array<double, 1> &D_A1_ScatterBelow,  //: in
       delete(P_CS_NumA);
       P_CS_NumA = CS_D_A1_SF.IToA(irow);
       CS_D_A1_SF += (*P_CS_NumA) + CString(".dat");
-      Array<double, 1> D_A1_SkyRow(I_A2_MinCenMax(irow, 2) - I_A2_MinCenMax(irow, 0) + 1);
+      blitz::Array<double, 1> D_A1_SkyRow(I_A2_MinCenMax(irow, 2) - I_A2_MinCenMax(irow, 0) + 1);
       D_A1_SkyRow = D_A1_SkyFit(irow);
       this->WriteArrayToFile(D_A1_SkyRow, CS_D_A1_SF, CString("ascii"));
       delete(P_CS_NumA);
@@ -11668,7 +11668,7 @@ bool CFits::MkSlitFunc(const Array<double, 1> &D_A1_ScatterBelow,  //: in
 
 
   //  /// Vector containing the interpolated column
-  //  Array<double, 1> D_A1_InterPol(I_NXSF);
+  //  blitz::Array<double, 1> D_A1_InterPol(I_NXSF);
   /*  /// Fill Profile Array
     /// Loop through Bins
     for (int m = -1; m < I_NBin; m++)
@@ -11835,7 +11835,7 @@ bool CFits::MkSlitFunc(const Array<double, 1> &D_A1_ScatterBelow,  //: in
 
   /// FILENAME
   CS_Temp.Set("FILENAME");
-  if ((I_Pos = this->KeyWord_Set(*(const_cast<const Array<CString, 1>*>(&CS_A1_Args_In)), CS_Temp)) >= 0)
+  if ((I_Pos = this->KeyWord_Set(*(const_cast<const blitz::Array<CString, 1>*>(&CS_A1_Args_In)), CS_Temp)) >= 0)
   {
     CString CS_TempFileName(*(CString*)ArgV_In[I_Pos]);
     #ifdef __DEBUG_FITS_MKSLITFUNC__
@@ -11928,7 +11928,7 @@ bool CFits::MkSlitFunc(const Array<double, 1> &D_A1_ScatterBelow,  //: in
  **/
 bool CFits::MkProfIm()
 {
-  Array<CString, 1> CS_A1_Args(1);
+  blitz::Array<CString, 1> CS_A1_Args(1);
   CS_A1_Args = CString(" ");
   void **PP_Args;
   PP_Args = (void**)malloc(sizeof(void*) * 1);
@@ -11949,7 +11949,7 @@ bool CFits::MkProfIm()
   MkProfIm
   Make Profile Image
  **/
-bool CFits::MkProfIm(const Array<CString, 1> &CS_A1_Args_In,       ///: in
+bool CFits::MkProfIm(const blitz::Array<CString, 1> &CS_A1_Args_In,       ///: in
                      void *ArgV_In[])                                  ///: in
 /** KeyWords and Values:   SWATH_WIDTH:              int: in
                            LAMBDA_SF  :              int: in (Smoothing across dispersion)
@@ -11957,10 +11957,10 @@ bool CFits::MkProfIm(const Array<CString, 1> &CS_A1_Args_In,       ///: in
                            FLAT       :             bool: in
                            TELLURIC   :             int(0-none, 1-Piskunov, 2-mine, 3-mine with sky continuum): in (subtract sky lines)
                            OLD: none (use old version of SlitFunc)
-                           AREA        = Array<int, 1>(4): [xmin, xmax, ymin, ymax]: in
+                           AREA        = blitz::Array<int, 1>(4): [xmin, xmax, ymin, ymax]: in
                            WING_SMOOTH_FACTOR = double  : in
                            XCOR_PROF  : int: in
-                           APERTURES  : Array<int, 1>: in (Apertures to extract)
+                           APERTURES  : blitz::Array<int, 1>: in (Apertures to extract)
                            **/
 {
   #ifdef __DEBUG_FITS_MKPROFIM__
@@ -11971,16 +11971,16 @@ bool CFits::MkProfIm(const Array<CString, 1> &CS_A1_Args_In,       ///: in
     (*P_OFS_Log) << "CFits::MkProfIm: P_D_A1_XLow = " << (*this->P_D_A1_XLow) << endl;
   #endif
 
-  Array<double, 1> D_A1_ScatterBelow(this->NRows);
+  blitz::Array<double, 1> D_A1_ScatterBelow(this->NRows);
   D_A1_ScatterBelow = 0.;
 
-  Array<double, 1> D_A1_XScatterBelow(this->NRows);
+  blitz::Array<double, 1> D_A1_XScatterBelow(this->NRows);
   D_A1_XScatterBelow = 0.;
 
-  Array<double, 1> D_A1_ScatterAbove(this->NRows);
+  blitz::Array<double, 1> D_A1_ScatterAbove(this->NRows);
   D_A1_ScatterAbove = 0.;
 
-  Array<double, 1> D_A1_XScatterAbove(this->NRows);
+  blitz::Array<double, 1> D_A1_XScatterAbove(this->NRows);
   D_A1_XScatterAbove = 0.;
 
   //  double D_XLeftLim;
@@ -11999,15 +11999,15 @@ bool CFits::MkProfIm(const Array<CString, 1> &CS_A1_Args_In,       ///: in
   int I_YMin = 0;
   int I_YMax = this->NRows-1;
 
-  Array<double, 1> D_A1_XSlitF(1);
-  Array<double, 2> D_A2_SlitF(1,1);
-  Array<double, 1> D_A1_BinCen(1);
+  blitz::Array<double, 1> D_A1_XSlitF(1);
+  blitz::Array<double, 2> D_A2_SlitF(1,1);
+  blitz::Array<double, 1> D_A1_BinCen(1);
   D_A1_BinCen = 0.;
-  Array<double, 1> D_A1_BLZ(this->NRows);
+  blitz::Array<double, 1> D_A1_BLZ(this->NRows);
   D_A1_BLZ = 0.;
 
 
-  Array<CString, 1> CS_A1_Args_MkSlitF(14);
+  blitz::Array<CString, 1> CS_A1_Args_MkSlitF(14);
   CS_A1_Args_MkSlitF = CString(" ");
 
   void **PP_Args;
@@ -12041,7 +12041,7 @@ bool CFits::MkProfIm(const Array<CString, 1> &CS_A1_Args_In,       ///: in
   int I_XCorProf = 0;
   CString CS_Temp(" ");
   CS_Temp.Set("XCOR_PROF");
-//  if ((I_Pos = this->KeyWord_Set(*(const_cast<const Array<CString, 1>*>(&CS_A1_Args_In)), CS_Temp)) >= 0)
+//  if ((I_Pos = this->KeyWord_Set(*(const_cast<const blitz::Array<CString, 1>*>(&CS_A1_Args_In)), CS_Temp)) >= 0)
   if ((I_Pos = this->KeyWord_Set(CS_A1_Args_In, CS_Temp)) >= 0)
   {
     I_XCorProf = *(int*)(ArgV_In[I_Pos]);
@@ -12058,12 +12058,12 @@ bool CFits::MkProfIm(const Array<CString, 1> &CS_A1_Args_In,       ///: in
 //    return false;
   }
 
-  Array<int, 1> *P_I_A1_AperturesToExtract = this->IndGenArr(this->I_NApertures);
+  blitz::Array<int, 1> *P_I_A1_AperturesToExtract = this->IndGenArr(this->I_NApertures);
   CS_Temp.Set("APERTURES");
   if ((I_Pos = this->KeyWord_Set(CS_A1_Args_In, CS_Temp)) >= 0)
   {
     delete(P_I_A1_AperturesToExtract);
-    P_I_A1_AperturesToExtract = (Array<int, 1>*)(ArgV_In[I_Pos]);
+    P_I_A1_AperturesToExtract = (blitz::Array<int, 1>*)(ArgV_In[I_Pos]);
     cout << "CFits::MkProfIm: KeyWord_Set(APERTURES): P_I_A1_AperturesToExtract set to " << *P_I_A1_AperturesToExtract << endl;
     #ifdef __DEBUG_FITS_MKSLITFUNC__
       (*P_OFS_Log) << "CFits::MkProfIm: KeyWord_Set(APERTURES): P_I_A1_AperturesToExtract set to " << *P_I_A1_AperturesToExtract << endl;
@@ -12090,8 +12090,8 @@ bool CFits::MkProfIm(const Array<CString, 1> &CS_A1_Args_In,       ///: in
   ///Area to extract
   if ((I_Pos = this->KeyWord_Set(CS_A1_Args_In, CString("AREA"))) >= 0)
   {
-    Array<int, 1> I_A1_Area(4);
-    I_A1_Area = *(Array<int, 1>*)ArgV_In[I_Pos];
+    blitz::Array<int, 1> I_A1_Area(4);
+    I_A1_Area = *(blitz::Array<int, 1>*)ArgV_In[I_Pos];
     //#ifdef __DEBUG_FITS_MKSLITFUNC__
       cout << "CFits::MkProfIm: KeyWord_Set(AREA): I_A1_Area set to " << I_A1_Area << endl;
       //(*P_OFS_Log) << "CFits::MkProfIm: KeyWord_Set(AREA): I_A1_Area set to " << I_A1_Area << endl;
@@ -12208,7 +12208,7 @@ bool CFits::MkProfIm(const Array<CString, 1> &CS_A1_Args_In,       ///: in
       //    cout << "CFits::MkProfIm: for (i_ord(=" << i_ord << ") = 0; i_ord < this->I_NApertures; i_ord++): this->P_D_A2_XCenters = " << *this->P_D_A2_XCenters << endl;
       //    (*P_OFS_Log) << "CFits::MkProfIm: for (i_ord(=" << i_ord << ") = 0; i_ord < this->I_NApertures; i_ord++): this->P_D_A2_XCenters = " << *this->P_D_A2_XCenters << endl;
       // #endif
-      //    Array<double, 1> D_A1_XCenters((*this->P_D_A2_XCenters)(i_ord, Range::all()));
+      //    blitz::Array<double, 1> D_A1_XCenters((*this->P_D_A2_XCenters)(i_ord, Range::all()));
 
       // #ifdef __DEBUG_FITS_MKPROFIM__
       //    cout << "CFits::MkProfIm: for (i_ord(=" << i_ord << ") = 0; i_ord < this->I_NApertures; i_ord++): D_A1_XCenters set to " << D_A1_XCenters << endl;
@@ -12292,9 +12292,9 @@ bool CFits::MkProfIm(const Array<CString, 1> &CS_A1_Args_In,       ///: in
       LAMBDA_SF   = double          : in
       LAMBDA_SP   = int             : in
       SWATH_WIDTH = int             : in
-      BLZ         = Array<double, 1>: out
+      BLZ         = blitz::Array<double, 1>: out
       OVERSAMPLE  = int             : in
-      MASK        = Array<double, 2>: in
+      MASK        = blitz::Array<double, 2>: in
       CCD_GAIN    = double          : in
       CCD_READN   = double          : in
       NO_SCATTER  = void
@@ -12359,16 +12359,16 @@ bool CFits::MkProfIm(const Array<CString, 1> &CS_A1_Args_In,       ///: in
   Make Normalized Flat Profile
  **/
 bool CFits::MkNormFlatProf(int I_LambdaSP_In,
-                           Array<CString, 1> CS_A1_Args_In,
+                           blitz::Array<CString, 1> CS_A1_Args_In,
                            void *Args_In[])
 /**
  * Keywords and Values: SWATH_WIDTH:                 int: in
- *                      AREA:        Array<double, 1>(4): in
+ *                      AREA:        blitz::Array<double, 1>(4): in
  *                      LAMBDA_SF:                double: in
  * **/
 {
   int I_NArgs = 0;
-  Array<CString, 1> CS_A1_Args_MkProfIm(5);
+  blitz::Array<CString, 1> CS_A1_Args_MkProfIm(5);
   CS_A1_Args_MkProfIm = CString(" ");
   void **PP_Args;
   PP_Args = (void**)malloc(sizeof(void*) * 5);
@@ -12421,7 +12421,7 @@ bool CFits::MkNormFlatProf(int I_LambdaSP_In,
   if ((I_Pos = this->KeyWord_Set(CS_A1_Args_In, CString("AREA"))) >= 0)
   {
     CS_A1_Args_MkProfIm(I_NArgs) = CString("AREA");
-    Array<int, 1> I_A1_Area = *(Array<int, 1>*)Args_In[I_Pos];
+    blitz::Array<int, 1> I_A1_Area = *(blitz::Array<int, 1>*)Args_In[I_Pos];
     PP_Args[I_NArgs] = &I_A1_Area;
     I_NArgs++;
   }
@@ -12455,7 +12455,7 @@ bool CFits::MkNormFlatProf(int I_LambdaSP_In,
 
 
 /**
-bool CFits::MkScatter(const Array<CString, 1> &CS_A1_Args_In,           //: in
+bool CFits::MkScatter(const blitz::Array<CString, 1> &CS_A1_Args_In,           //: in
                       void *ArgV_In[]){                  //: in{
   /**
   orders...dblarr(order+1,nord)   -> P_D_A2_Coeffs(I_NApertures, 3)
@@ -12547,7 +12547,7 @@ bool CFits::MkScatter(const Array<CString, 1> &CS_A1_Args_In,           //: in
 
 ///  ;Initialize arrays.
 ///  xcol = dindgen(ncol)                          ;indices of all columns
-  Array<double,1> D_A1_XRow(this->NRows);
+  blitz::Array<double,1> D_A1_XRow(this->NRows);
   for (i=0; i < this->NRows; i++){
     D_A1_XRow(i) = double(i);
   }
@@ -12555,35 +12555,35 @@ bool CFits::MkScatter(const Array<CString, 1> &CS_A1_Args_In,           //: in
   cout << "CFits::MkScatter: D_A1_XRow.rows() = " << D_A1_XRow.rows() << endl;
 #endif
 ///  back = fltarr(ncol,nord+1)                    ;fitted scattered light model
-  Array<double, 2> D_A2_Back(this->NRows, this->I_NApertures+1);
+  blitz::Array<double, 2> D_A2_Back(this->NRows, this->I_NApertures+1);
   D_A2_Back = 0.;
 #ifdef __DEBUG_FITS_MKSCATTER__
   cout << "CFits::MkScatter: D_A2_Back.rows() = " << D_A2_Back.rows() << ", D_A2_Back.cols() = " << D_A2_Back.cols() << endl;
 #endif
 ///  back_data = back                              ;scattered light data
-  Array<double, 2> D_A2_BackData(this->NRows, this->I_NApertures+1);
+  blitz::Array<double, 2> D_A2_BackData(this->NRows, this->I_NApertures+1);
   D_A2_BackData = 0.;
 #ifdef __DEBUG_FITS_MKSCATTER__
   cout << "CFits::MkScatter: D_A2_BackData.rows() = " << D_A2_BackData.rows() << ", D_A2_BackData.cols() = " << D_A2_BackData.cols() << endl;
 #endif
 
 ///  yback = intarr(ncol,nord+1)                   ;scattered light coordinates
-  Array<int, 2> I_A2_YBack(this->NRows, this->I_NApertures+1);
+  blitz::Array<int, 2> I_A2_YBack(this->NRows, this->I_NApertures+1);
   I_A2_YBack = 0;
 #ifdef __DEBUG_FITS_MKSCATTER__
   cout << "CFits::MkScatter: I_A2_YBack.rows() = " << I_A2_YBack.rows() << ", I_A2_YBack.cols() = " << I_A2_YBack.cols() << endl;
 #endif
 
-  Array<double, 2>* P_D_A2_SF;// = new Array<int, 2>(2,2);
-  Array<double, 1> D_A1_SP(this->NRows);// = new Array<int, 2>(2,2);
-  Array<double, 1> D_A1_SFSM(this->NRows);// = new Array<int, 2>(2,2);
+  blitz::Array<double, 2>* P_D_A2_SF;// = new blitz::Array<int, 2>(2,2);
+  blitz::Array<double, 1> D_A1_SP(this->NRows);// = new blitz::Array<int, 2>(2,2);
+  blitz::Array<double, 1> D_A1_SFSM(this->NRows);// = new blitz::Array<int, 2>(2,2);
 //  cout << "CFits::MkScatter: P_I_A2_SF->rows() = " << P_I_A2_SF->rows() << ", P_I_A2_SF->cols() = " << P_I_A2_SF->cols() << endl;
 
-  Array<double, 1> D_A1_YCen(this->NRows);
-  Array<double, 1> D_A1_YCenA(this->NRows);
-  Array<double, 1> D_A1_YCenB(this->NRows);
-  Array<int,1>* P_I_A1_YMin;///(this->NRows)
-  Array<int,1>* P_I_A1_YMax;///(this->NRows)
+  blitz::Array<double, 1> D_A1_YCen(this->NRows);
+  blitz::Array<double, 1> D_A1_YCenA(this->NRows);
+  blitz::Array<double, 1> D_A1_YCenB(this->NRows);
+  blitz::Array<int,1>* P_I_A1_YMin;///(this->NRows)
+  blitz::Array<int,1>* P_I_A1_YMax;///(this->NRows)
 #ifdef __DEBUG_FITS_MKSCATTER__
   cout << "CFits::MkScatter: D_A1_YCenA.rows() = " << D_A1_YCenA.rows() << endl;
 #endif
@@ -12620,7 +12620,7 @@ bool CFits::MkScatter(const Array<CString, 1> &CS_A1_Args_In,           //: in
   CString CS_Temp("OSample");
 ///  if(keyword_set(osample)) then osamp=osample $ ;slitf pixels / real pixel
 ///  else                          osamp = 10
-  if ((I_Pos = this->KeyWord_Set(*(const_cast<const Array<CString, 1>*>(&CS_A1_Args_In)), CS_Temp)) >= 0)
+  if ((I_Pos = this->KeyWord_Set(*(const_cast<const blitz::Array<CString, 1>*>(&CS_A1_Args_In)), CS_Temp)) >= 0)
   {
     if (!this->Set_OverSample(*(double*)ArgV_In[I_Pos])){
       cout << "CFits::MkScatter: KeyWord_Set(" << CS_Temp << "): this.Set_OverSample(" << *(double*)ArgV_In[I_Pos] << ") returned FALSE!!! => Returning" << endl;
@@ -12633,7 +12633,7 @@ bool CFits::MkScatter(const Array<CString, 1> &CS_A1_Args_In,           //: in
 
 ///  if(not keyword_set(lam_sf)) then lambda_sf=1.
   CS_Temp.Set("LAMBDA_SF");
-  if ((I_Pos = this->KeyWord_Set(*(const_cast<const Array<CString, 1>*>(&CS_A1_Args_In)), CS_Temp)) >= 0)
+  if ((I_Pos = this->KeyWord_Set(*(const_cast<const blitz::Array<CString, 1>*>(&CS_A1_Args_In)), CS_Temp)) >= 0)
   {
     D_Lambda_SF = *(double*)ArgV_In[I_Pos];
     cout << "CFits::MkScatter: KeyWord_Set(" << CS_Temp << "): D_Lambda_SF set to " << D_Lambda_SF << endl;
@@ -12641,19 +12641,19 @@ bool CFits::MkScatter(const Array<CString, 1> &CS_A1_Args_In,           //: in
 
 ///  if(not keyword_set(lam_sf)) then lambda_sf=1.
   CS_Temp.Set("LAMBDA_SP");
-  if ((I_Pos = this->KeyWord_Set(*(const_cast<const Array<CString, 1>*>(&CS_A1_Args_In)), CS_Temp)) >= 0)
+  if ((I_Pos = this->KeyWord_Set(*(const_cast<const blitz::Array<CString, 1>*>(&CS_A1_Args_In)), CS_Temp)) >= 0)
   {
     D_Lambda_SP = *(double*)ArgV_In[I_Pos];
     cout << "CFits::MkScatter: KeyWord_Set(" << CS_Temp << "): D_Lambda_SP set to " << D_Lambda_SP << endl;
   }
 //  return false;
 
-  Array<int, 2> I_A2_Mask(this->NRows, this->NCols);
-  Array<int, 2> I_A2_Msk(this->NRows, this->NCols);
+  blitz::Array<int, 2> I_A2_Mask(this->NRows, this->NCols);
+  blitz::Array<int, 2> I_A2_Msk(this->NRows, this->NCols);
   CS_Temp.Set("MASK");
-  if ((I_Pos = this->KeyWord_Set(*(const_cast<const Array<CString, 1>*>(&CS_A1_Args_In)), CS_Temp)) >= 0)
+  if ((I_Pos = this->KeyWord_Set(*(const_cast<const blitz::Array<CString, 1>*>(&CS_A1_Args_In)), CS_Temp)) >= 0)
   {
-    I_A2_Mask = *(Array<int, 2>*)ArgV_In[I_Pos];
+    I_A2_Mask = *(blitz::Array<int, 2>*)ArgV_In[I_Pos];
 #ifdef __DEBUG_FITS_MKSCATTER__
     cout << "CFits::MkScatter: KeyWord_Set(MASK): I_A2_Mask set to " << I_A2_Mask << endl;
 #endif
@@ -12677,78 +12677,78 @@ bool CFits::MkScatter(const Array<CString, 1> &CS_A1_Args_In,           //: in
 #endif
   }
 
-  Array<CString, 1> CS_A1_Args_SlitFunc(10);
+  blitz::Array<CString, 1> CS_A1_Args_SlitFunc(10);
   CS_A1_Args_SlitFunc = CString(" ");
   void **PP_Args_SlitFunc = (void**)malloc(sizeof(void*) * 10);
 
-  Array<CString, 1> CS_A1_Args_Bottom(10);
+  blitz::Array<CString, 1> CS_A1_Args_Bottom(10);
   CS_A1_Args_Bottom = CString(" ");
   void **PP_Args_Bottom = (void**)malloc(sizeof(void*) * 10);
 
-  Array<CString, 1> CS_A1_Args_Middle(10);
+  blitz::Array<CString, 1> CS_A1_Args_Middle(10);
   CS_A1_Args_Middle = CString(" ");
   void **PP_Args_Middle = (void**)malloc(sizeof(void*) * 10);
 
-  Array<double, 2> D_A2_Im_Out(1,1);
-  Array<int,1> *P_I_A1_YCenFix = new Array<int,1>(1);
-  Array<double,1> D_A1_YCen_minus_YCenFix(1);
+  blitz::Array<double, 2> D_A2_Im_Out(1,1);
+  blitz::Array<int,1> *P_I_A1_YCenFix = new blitz::Array<int,1>(1);
+  blitz::Array<double,1> D_A1_YCen_minus_YCenFix(1);
   int I_NSlitF = 0;
-  Array<double, 1> D_A1_YSlitF(1);
-  Array<double,1> D_A1_SFSM_Temp(1);
-  Array<double,1> D_A1_YSlitF_k(1);
+  blitz::Array<double, 1> D_A1_YSlitF(1);
+  blitz::Array<double,1> D_A1_SFSM_Temp(1);
+  blitz::Array<double,1> D_A1_YSlitF_k(1);
   double D_SFSM_Median = 0;
-  Array<double,1> *P_D_A1_JBack = new Array<double,1>(1);
+  blitz::Array<double,1> *P_D_A1_JBack = new blitz::Array<double,1>(1);
   int I_Temp;
-  Array<int,1> I_A1_Ind_k(1);
+  blitz::Array<int,1> I_A1_Ind_k(1);
   double D_Median_SFSM;// = this->Median(D_A1_SFSM)+0.5*D_Var;
-  Array<int,1> I_A1_Index_k(1);
+  blitz::Array<int,1> I_A1_Index_k(1);
   int I_NBack = 0;
   int I_N1=0;
   int I_N2=0;
-  Array<double,1> *P_D_A1_Middle_SFSM = new Array<double,1>(1);
+  blitz::Array<double,1> *P_D_A1_Middle_SFSM = new blitz::Array<double,1>(1);
 
   int I_Ind_Min1 = 0;
   int I_Ind_Min2 = 0;
-  Array<double,1> D_A1_TempInd(1);
-  Array<int, 1> I_A1_JBack(1);
-  Array<double,1> D_A1_YSlitF_k_jback(I_N1);
+  blitz::Array<double,1> D_A1_TempInd(1);
+  blitz::Array<int, 1> I_A1_JBack(1);
+  blitz::Array<double,1> D_A1_YSlitF_k_jback(I_N1);
 
-  Array<int,1> *P_I_A1_IMax1;
+  blitz::Array<int,1> *P_I_A1_IMax1;
   TinyVector<int,1> I_TV_IMax1;
   double D_IMax1 = 0.;
   int I_IMax1 = 0;
   double D_M1 = 0.;
-  Array<int,1> I_A1_JBack1(1);
+  blitz::Array<int,1> I_A1_JBack1(1);
   int I_IMax2 = 0;
   double D_M2 = 0.;
-  Array<int,1> I_A1_IBack_Where(1);
-  Array<int,1> *P_I_A1_IBackInd = new Array<int,1>(1);
-  Array<double,1> D_A1_SF1(1);
+  blitz::Array<int,1> I_A1_IBack_Where(1);
+  blitz::Array<int,1> *P_I_A1_IBackInd = new blitz::Array<int,1>(1);
+  blitz::Array<double,1> D_A1_SF1(1);
   double D_Step = 0.;
   double d_temp = 0.;
-  Array<int,1>* P_I_A1_H = new Array<int,1>(1);
+  blitz::Array<int,1>* P_I_A1_H = new blitz::Array<int,1>(1);
   int I_NH = 0;
 
-  Array<int,1> *P_I_A1_IHMax;
+  blitz::Array<int,1> *P_I_A1_IHMax;
   int I_IHMax = 0;
   double D_HMax = 0.;
-  Array<int,1> I_A1_TempH(1);
-  Array<int,1> I_A1_I0_Where(1);
+  blitz::Array<int,1> I_A1_TempH(1);
+  blitz::Array<int,1> I_A1_I0_Where(1);
   int I_I0 = 0;
   int I_I1 = 0;
-  Array<int,1> I_A1_II_Where(1);
+  blitz::Array<int,1> I_A1_II_Where(1);
   int I_NII1;
-  Array<int,1> *P_I_A1_II = new Array<int,1>(1);
-  Array<double,1> D_A1_YSlitF_II(1);
+  blitz::Array<int,1> *P_I_A1_II = new blitz::Array<int,1>(1);
+  blitz::Array<double,1> D_A1_YSlitF_II(1);
   long L_Y1 = 0;
   long L_Y2 = 0;
   int I_YY1;
   int I_YY2;
-  Array<double,1> D_A1_Scatter(1);
+  blitz::Array<double,1> D_A1_Scatter(1);
   double D_YY;
   TinyVector<int,1> I_TV_IMax2;
-  Array<double,1> D_A1_YBack_k(1);
-  Array<double,1> D_A1_Temp_A(1);
+  blitz::Array<double,1> D_A1_YBack_k(1);
+  blitz::Array<double,1> D_A1_Temp_A(1);
 
 ///  for ord=1,nord-1 do begin
   for (i_ord = 1; i_ord < this->I_NApertures; i_ord++){
@@ -12759,7 +12759,7 @@ bool CFits::MkScatter(const Array<CString, 1> &CS_A1_Args_In,           //: in
 ///    if(not keyword_set(swath_width)) then width = 400 $    ; CCD rdnoise
 ///    else width = swath_width
     CS_Temp.Set("SWATH_WIDTH");
-    if ((I_Pos = this->KeyWord_Set(*(const_cast<const Array<CString, 1>*>(&CS_A1_Args_In)), CS_Temp)) >= 0)
+    if ((I_Pos = this->KeyWord_Set(*(const_cast<const blitz::Array<CString, 1>*>(&CS_A1_Args_In)), CS_Temp)) >= 0)
     {
       D_Width = *(double*)ArgV_In[I_Pos];
 #ifdef __DEBUG_FITS_MKSCATTER__
@@ -12920,7 +12920,7 @@ bool CFits::MkScatter(const Array<CString, 1> &CS_A1_Args_In,           //: in
 ///Copy the region of interest to sf
 ///sf = fltarr(nc,nr)
 //    delete(P_I_A2_SF);
-    P_D_A2_SF = new Array<double, 2>(I_NC, I_NR);
+    P_D_A2_SF = new blitz::Array<double, 2>(I_NC, I_NR);
 #ifdef __DEBUG_FITS_MKSCATTER__
     cout << "CFits::MkScatter: P_D_A2_SF->rows() = " << P_D_A2_SF->rows() << ", P_D_A2_SF->cols() = " << P_D_A2_SF->cols() << endl;
 #endif
@@ -13125,10 +13125,10 @@ bool CFits::MkScatter(const Array<CString, 1> &CS_A1_Args_In,           //: in
 
 //    delete(P_D_A1_JBack);
 #ifdef __DEBUG_FITS_MKSCATTER__
-    cout << "CFits::MkScatter: Starting 1. Bottom(D_A1_SFSM_Temp,1,(*const_cast<const Array<CString, 1>*>(&CS_A1_Args_Bottom)),PP_Args_Bottom, P_D_A1_JBack)" << endl;
+    cout << "CFits::MkScatter: Starting 1. Bottom(D_A1_SFSM_Temp,1,(*const_cast<const blitz::Array<CString, 1>*>(&CS_A1_Args_Bottom)),PP_Args_Bottom, P_D_A1_JBack)" << endl;
 #endif
-    if (!this->Bottom(D_A1_SFSM_Temp,1,(*const_cast<const Array<CString, 1>*>(&CS_A1_Args_Bottom)),PP_Args_Bottom, P_D_A1_JBack)){
-      cout << "CFits::MkScatter: ERROR: 1. Bottom(D_A1_SFSM_Temp,1,(*const_cast<const Array<CString, 1>*>(&CS_A1_Args_Bottom)),PP_Args_Bottom, P_D_A1_JBack) returned FALSE" << endl;
+    if (!this->Bottom(D_A1_SFSM_Temp,1,(*const_cast<const blitz::Array<CString, 1>*>(&CS_A1_Args_Bottom)),PP_Args_Bottom, P_D_A1_JBack)){
+      cout << "CFits::MkScatter: ERROR: 1. Bottom(D_A1_SFSM_Temp,1,(*const_cast<const blitz::Array<CString, 1>*>(&CS_A1_Args_Bottom)),PP_Args_Bottom, P_D_A1_JBack) returned FALSE" << endl;
       P_D_A1_JBack->resize(D_A1_SFSM_Temp.size());
       (*P_D_A1_JBack) = -100000;
       return false;
@@ -13190,7 +13190,7 @@ bool CFits::MkScatter(const Array<CString, 1> &CS_A1_Args_In,           //: in
 
 ///    m1=where(yslitf(k) lt 0, n1) ;Part of the gap which is below the central line
 ///    m2=where(yslitf(k) gt 0, n2) ;Part of the gap which is above the central line
-//  Array<int,1> I_A1_M1(I_A1_Index_k.size());
+//  blitz::Array<int,1> I_A1_M1(I_A1_Index_k.size());
     for (i=0;i<I_A1_Index_k.size();i++){
 #ifdef __DEBUG_FITS_MKSCATTER__
       cout << "CFits::MkScatter: D_A1_YSlitF(I_A1_Index_k(i)=" << I_A1_Index_k(i) << ") = " << D_A1_YSlitF(I_A1_Index_k(i)) << endl;
@@ -13260,7 +13260,7 @@ bool CFits::MkScatter(const Array<CString, 1> &CS_A1_Args_In,           //: in
 ///      m2=where(yslitf(k) gt 0, n2)
       I_N1 = 0;
       I_N2 = 0;
-//  Array<int,1> I_A1_M1(I_A1_Index_k.size());
+//  blitz::Array<int,1> I_A1_M1(I_A1_Index_k.size());
       for (i=0;i<I_A1_Index_k.size();i++){
 #ifdef __DEBUG_FITS_MKSCATTER__
         cout << "CFits::MkScatter: 2. D_A1_YSlitF(I_A1_Index_k(i)=" << I_A1_Index_k(i) << ") = " << D_A1_YSlitF(I_A1_Index_k(i)) << endl;
@@ -13296,7 +13296,7 @@ bool CFits::MkScatter(const Array<CString, 1> &CS_A1_Args_In,           //: in
       #ifdef __DEBUG_FITS_MKSCATTER__
         cout << "CFits::MkScatter: Starting 2. Middle(D_A1_SFSM, 1, CS_A1_Args_Middle, PP_Args_Middle, P_D_A1_Middle_SFSM)" << endl;
       #endif
-      P_D_A1_Middle_SFSM = new Array<double, 1>(1);
+      P_D_A1_Middle_SFSM = new blitz::Array<double, 1>(1);
       if (!this->Middle(D_A1_SFSM, 1, CS_A1_Args_Middle, PP_Args_Middle, P_D_A1_Middle_SFSM)){
 #ifdef __DEBUG_FITS_MKSCATTER__
         cout << "CFits::MkScatter: ERROR: 2. Middle(D_A1_SFSM, 1, CS_A1_Args_Middle, PP_Args_Middle, P_D_A1_Middle_SFSM) returned FALSE" << endl;
@@ -13337,7 +13337,7 @@ bool CFits::MkScatter(const Array<CString, 1> &CS_A1_Args_In,           //: in
 ///      m2=where(yslitf(k) gt 0, n2)
       I_N1 = 0;
       I_N2 = 0;
-//  Array<int,1> I_A1_M1(I_A1_Index_k.size());
+//  blitz::Array<int,1> I_A1_M1(I_A1_Index_k.size());
       for (i=0;i<I_A1_Index_k.size();i++){
 #ifdef __DEBUG_FITS_MKSCATTER__
         cout << "CFits::MkScatter: 2a. D_A1_YSlitF(I_A1_Index_k(i)=" << I_A1_Index_k(i) << ") = " << D_A1_YSlitF(I_A1_Index_k(i)) << endl;
@@ -13360,9 +13360,9 @@ bool CFits::MkScatter(const Array<CString, 1> &CS_A1_Args_In,           //: in
 ///      k=(sort(abs(yslitf)))(0:4)
 ///    endif
 //      return false;
-    Array<double,1> D_A1_Abs(D_A1_YSlitF.size());
+    blitz::Array<double,1> D_A1_Abs(D_A1_YSlitF.size());
     D_A1_Abs = abs(D_A1_YSlitF);
-    Array<double,1> *P_D_A1_Sort = this->BubbleSort(D_A1_Abs);
+    blitz::Array<double,1> *P_D_A1_Sort = this->BubbleSort(D_A1_Abs);
     I_A1_Index_k.resize(5);
     D_A1_YSlitF_k.resize(5);
     for (i=0; i<5; i++){
@@ -13514,7 +13514,7 @@ bool CFits::MkScatter(const Array<CString, 1> &CS_A1_Args_In,           //: in
 #ifdef __DEBUG_FITS_MKSCATTER__
     cout << "CFits::MkScatter: 1. I_IMax1 set to " << I_IMax1 << endl;
 #endif
-//  Array<double,1> D_A1_M1(I_A1_IMax1.size());
+//  blitz::Array<double,1> D_A1_M1(I_A1_IMax1.size());
 //  for (i=0;i<I_A1_IMax1.size()-1;i++){
 //    D_A1_M1(i) = D_A1_YSlitF_k_jback(I_A1_IMax1(i));
 ///    imax1 = k(jback(imax1))
@@ -13579,7 +13579,7 @@ bool CFits::MkScatter(const Array<CString, 1> &CS_A1_Args_In,           //: in
 #ifdef __DEBUG_FITS_MKSCATTER__
     cout << "CFits::MkScatter: 2. I_IMax2 set to " << I_IMax2 << endl;
 #endif
-//  Array<double,1> D_A1_M2(I_A1_IMax2.size());
+//  blitz::Array<double,1> D_A1_M2(I_A1_IMax2.size());
 //  for (i=0;i<I_A1_IMax2.size()-1;i++){
 //    D_A1_M2(i) = D_A1_YSlitF_k_jback(I_A1_IMax2(i));
 ///    imax2 = k(jback(imax2))
@@ -13635,7 +13635,7 @@ bool CFits::MkScatter(const Array<CString, 1> &CS_A1_Args_In,           //: in
 #endif
 
 ///    iback = where(sfsm(k(0):k(1)) le jback, nback)             ;Find all the points below
-//  Array<double,1> D_A1_TempSFSM(I_A1_Index_k(1) - I_A1_Index_k(0) + 1);
+//  blitz::Array<double,1> D_A1_TempSFSM(I_A1_Index_k(1) - I_A1_Index_k(0) + 1);
 //  D_A1_TempSFSM = D_A1_SFSM(Range(I_A1_Index_k(0),I_A1_Index_k(1)));
 
     I_A1_IBack_Where.resize(P_D_A1_JBack->size());
@@ -14082,13 +14082,13 @@ bool CFits::MkScatter(const Array<CString, 1> &CS_A1_Args_In,           //: in
 
 ///;Interpolate missing data from the adjacent troffs
 ///  for i=0,ncol-1 do begin
-  Array<double,1> D_A1_Y(I_A2_YBack.cols());
-  Array<int,1> I_A1_Index_k_Where(D_A2_BackData.rows());
-  Array<int,1> *P_I_A1_Index_k;
-  Array<double,1> *P_D_A1_InterPol = new Array<double,1>(1);
-  Array<double,1> D_A1_BackData_k(1);
-//  Array<int,1> I_A1_YBack_k(1);
-  Array<double,1> D_A1_YBack(1);
+  blitz::Array<double,1> D_A1_Y(I_A2_YBack.cols());
+  blitz::Array<int,1> I_A1_Index_k_Where(D_A2_BackData.rows());
+  blitz::Array<int,1> *P_I_A1_Index_k;
+  blitz::Array<double,1> *P_D_A1_InterPol = new blitz::Array<double,1>(1);
+  blitz::Array<double,1> D_A1_BackData_k(1);
+//  blitz::Array<int,1> I_A1_YBack_k(1);
+  blitz::Array<double,1> D_A1_YBack(1);
   int i_nind;
 #ifdef __DEBUG_FITS_MKSCATTER__
   cout << "CFits::MkScatter: I_A2_YBack.rows() = " << I_A2_YBack.rows() << ", I_A2_YBack.cols() = " << I_A2_YBack.cols() << endl;
@@ -14156,7 +14156,7 @@ bool CFits::MkScatter(const Array<CString, 1> &CS_A1_Args_In,           //: in
       cout << "CFits::MkScatter: ERROR: InterPol returned FALSE" << endl;
 #endif
       delete(P_D_A1_InterPol);
-      P_D_A1_InterPol = new Array<double,1>(D_A1_YBack.size());
+      P_D_A1_InterPol = new blitz::Array<double,1>(D_A1_YBack.size());
       (*P_D_A1_InterPol) = -100000.;
 //      return false;
     }
@@ -14185,7 +14185,7 @@ bool CFits::MkScatter(const Array<CString, 1> &CS_A1_Args_In,           //: in
 
 ///;Filter out noise: 0th background troff
 ///  range = [colrange(0,0),colrange(1,0)]
-  Array<int,1> I_A1_Range(2);
+  blitz::Array<int,1> I_A1_Range(2);
   I_A1_Range(0) = (*this->P_D_A1_YCenter)(0)+(*this->P_D_A1_YLow)(0);
   I_A1_Range(1) = (*this->P_D_A1_YCenter)(0)+(*this->P_D_A1_YHigh)(0);
 #ifdef __DEBUG_FITS_MKSCATTER__
@@ -14204,8 +14204,8 @@ bool CFits::MkScatter(const Array<CString, 1> &CS_A1_Args_In,           //: in
   cout << "CFits::MkScatter: 1. *P_I_VecArr_X set to " << P_I_VecArr_X->length() << ": " << *P_I_VecArr_X << endl;
 #endif
 ///  b = middle(back_data(x,0),10.,eps=dev)
-  Array<double,1> D_A1_BackData_x(P_I_VecArr_X->length());
-  Array<int,1> I_A1_X(P_I_VecArr_X->length());
+  blitz::Array<double,1> D_A1_BackData_x(P_I_VecArr_X->length());
+  blitz::Array<int,1> I_A1_X(P_I_VecArr_X->length());
   for (i=0; i<I_A1_X.size(); i++)
     I_A1_X(i) = (*P_I_VecArr_X)(i);
 // #ifdef __DEBUG_FITS_MKSCATTER__
@@ -14230,7 +14230,7 @@ bool CFits::MkScatter(const Array<CString, 1> &CS_A1_Args_In,           //: in
   cout << "CFits::MkScatter: CS_A1_Args_Middle set to " << CS_A1_Args_Middle << endl;
 #endif
 
-  Array<double, 1> *P_D_A1_B = new Array<double,1>(1);
+  blitz::Array<double, 1> *P_D_A1_B = new blitz::Array<double,1>(1);
   if (!this->Middle(D_A1_BackData_x, 10, CS_A1_Args_Middle, PP_Args_Middle, P_D_A1_B)){
     cout << "CFits::MkScatter: ERROR: 3. Middle(D_A1_BackData_x, 10, CS_A1_Args_Middle, PP_Args_Middle, P_D_A1_B) returned FALSE" << endl;
     P_D_A1_B->resize(D_A1_BackData_x.size());
@@ -14241,7 +14241,7 @@ bool CFits::MkScatter(const Array<CString, 1> &CS_A1_Args_In,           //: in
 #endif
 
 ///  if(keyword_set(pol)) then $
-  Array<double,1> *P_D_A1_Back = new Array<double,1>(1);
+  blitz::Array<double,1> *P_D_A1_Back = new blitz::Array<double,1>(1);
   double D_Min = 0.;
   CS_A1_Args_Middle(2).Set("MIN");
   PP_Args_Middle[2] = &D_Min;
@@ -14474,7 +14474,7 @@ I_A1_Range(1) = (*this->P_D_A1_YCenter)(I_NApertures-1)+(*this->P_D_A1_YHigh)(I_
 #endif
   delete(P_D_A1_YCen);
 ///  for j = 0,ncol-1 do begin
-  Array<double,1> D_A1_B(1);
+  blitz::Array<double,1> D_A1_B(1);
   for (j=0; j < this->NRows; j++){
 ///    b = reform(back(j,*))
     D_A1_B.resize(D_A2_Back.cols());
@@ -14644,35 +14644,35 @@ int CFits::BandSol(int Argc, void *Argv[]) const
  SlitFunc
  SlitFunc
  **/
-  bool CFits::SlitFunc(const Array<double, 2> &D_A2_ImM,
+  bool CFits::SlitFunc(const blitz::Array<double, 2> &D_A2_ImM,
 		       int I_IAperture_In,
-		       const Array<double, 1> &D_A1_XCenters_In, //: in
-		       Array<double, 1> &SPVecArr,   //: out
-		       Array<double, 2> &D_A2_SF,   //: out
-		       const Array<CString, 1> &CS_A1_Args_In,   //: in
+		       const blitz::Array<double, 1> &D_A1_XCenters_In, //: in
+		       blitz::Array<double, 1> &SPVecArr,   //: out
+		       blitz::Array<double, 2> &D_A2_SF,   //: out
+		       const blitz::Array<CString, 1> &CS_A1_Args_In,   //: in
 		       void *ArgV_In[])     //: in
 /**
  *              TELLURIC   = int [0-none,1-Piskunov,2-mine]     : in
- *              IM_OUT     = Array<double, 2>: out
- *              PROF_OUT   = Array<double, 2>: out
+ *              IM_OUT     = blitz::Array<double, 2>: out
+ *              PROF_OUT   = blitz::Array<double, 2>: out
  *              LAMBDA_SF  = double          : in
  *              LAMBDA_SP  = int             : in
  *              WING_SMOOTH_FACTOR = double  : in
  *              USE_ROW    = int             : in
- *              BAD        = Array<int, 1>   : out
- *              MASK       = Array<double, 2>: in/out
+ *              BAD        = blitz::Array<int, 1>   : out
+ *              MASK       = blitz::Array<double, 2>: in/out
  *              STOP       = int [0,1]                          : in
- *              SKY        = Array<double, 1>(D_A2_ImM.rows())  : out
- *              ERRORS     = Array<double, 2>(D_A2_ImM.rows(), D_A2_ImM.cols()): in/out
- *              ERRORS_OUT = Array<double, 1>(D_A2_ImM.rows())  : out
- *              ERR_SKY    = Array<double, 1>(D_A2_ImM.rows())  : out
- *              SP_FIT     = Array<double, 1>(D_A2_ImM.rows())  : out
+ *              SKY        = blitz::Array<double, 1>(D_A2_ImM.rows())  : out
+ *              ERRORS     = blitz::Array<double, 2>(D_A2_ImM.rows(), D_A2_ImM.cols()): in/out
+ *              ERRORS_OUT = blitz::Array<double, 1>(D_A2_ImM.rows())  : out
+ *              ERR_SKY    = blitz::Array<double, 1>(D_A2_ImM.rows())  : out
+ *              SP_FIT     = blitz::Array<double, 1>(D_A2_ImM.rows())  : out
  *              I_BIN      = int                                : in
  *              DEBUGFILES_SUFFIX = CString: in
- *              ERRORS_SP_OUT = Array<double, 1>(D_A2_ImM.rows()) : out
- *              SP_OUT     = Array<double, 1>(D_A2_ImM.rows()) : out
+ *              ERRORS_SP_OUT = blitz::Array<double, 1>(D_A2_ImM.rows()) : out
+ *              SP_OUT     = blitz::Array<double, 1>(D_A2_ImM.rows()) : out
  *              XLOW       = double                            : in
- *              SFO_OUT    = Array<double, 1>(D_A2_ImM.cols()*I_OverSample)
+ *              SFO_OUT    = blitz::Array<double, 1>(D_A2_ImM.cols()*I_OverSample)
  **/
 {
   /**
@@ -14680,52 +14680,52 @@ int CFits::BandSol(int Argc, void *Argv[]) const
   **/
 
   /**
-  Array Akl                      -> Array<double, 2> AKLArr
-  Array bkl (size=[N,2*OverSample+1])-> Array<double, 2> BKLArr
-  Vector bklind (size=osample+1) -> Array<int, 1> BKLIndVecArr
-  Vector Bl                      -> Array<double, 1> BLVecArr
+  Array Akl                      -> blitz::Array<double, 2> AKLArr
+  Array bkl (size=[N,2*OverSample+1])-> blitz::Array<double, 2> BKLArr
+  Vector bklind (size=osample+1) -> blitz::Array<int, 1> BKLIndVecArr
+  Vector Bl                      -> blitz::Array<double, 1> BLVecArr
   double dev                     -> double Dev
   int    i                       -> int m
-  int/Vector i1                  -> int IFirst/Array<double, 1> IFirstVecArr
-  int/Vector i2                  -> int ILast/Array<double, 1> ILastVecArr
-  Array  im                      -> Array<double, 2> D_A2_ImM
-  Vector(use_col set)/Array imm  -> Array<double, 2> D_A2_ImM->(UseRowVecArr)
-  Array  im_out                  -> Array<double, 2> *P_D_A2_Prof_Out
-  Vector ind                     -> Array<double, 1> IndVecArr
+  int/Vector i1                  -> int IFirst/blitz::Array<double, 1> IFirstVecArr
+  int/Vector i2                  -> int ILast/blitz::Array<double, 1> ILastVecArr
+  Array  im                      -> blitz::Array<double, 2> D_A2_ImM
+  Vector(use_col set)/Array imm  -> blitz::Array<double, 2> D_A2_ImM->(UseRowVecArr)
+  Array  im_out                  -> blitz::Array<double, 2> *P_D_A2_Prof_Out
+  Vector ind                     -> blitz::Array<double, 1> IndVecArr
   int    iter                    -> int  I_Iter_SF
-  Vector/long   jbad             -> Array<int, 1> *P_I_A1_JBadVecArr / (*P_I_A1_JBadVecArr)(0)
+  Vector/long   jbad             -> blitz::Array<int, 1> *P_I_A1_JBadVecArr / (*P_I_A1_JBadVecArr)(0)
   int    l                       -> int I_NPixSlitF
   double lamb_sf                 -> double Lamb_SF [: in]
   double lamb_sp                 -> double Lamb_SP [: in]
   double lambda                  -> double Lambda
-  Array  mask, mmsk              -> Array<long, 2> P_Mask->PixArray: in
-  Vector(use_col set)/Array msk  -> Array<double, 2> Mask(UseRowVecArr)
+  Array  mask, mmsk              -> blitz::Array<long, 2> P_Mask->PixArray: in
+  Vector(use_col set)/Array msk  -> blitz::Array<double, 2> Mask(UseRowVecArr)
   int    n                       -> int I_NPixSlitF
   int    ncol                    -> ImM->cols, NColsOut -> OutArr->NCols
   int    nind                    -> int  NInd
   int    nrow                    -> ImM->rows
-  Array/Vector  o                -> Array<double, 2> OArr
-  Vector oo                      -> Array<double, 1> OOVecArr
-  Vector oind                    -> Array<int, 1> OIndVecArr
-  Vector olind  (size=osample+1) -> Array<int, 1> OLIndVecArr
-  Vector omega                   -> Array<double, 1> OmegaVecArr
+  Array/Vector  o                -> blitz::Array<double, 2> OArr
+  Vector oo                      -> blitz::Array<double, 1> OOVecArr
+  Vector oind                    -> blitz::Array<int, 1> OIndVecArr
+  Vector olind  (size=osample+1) -> blitz::Array<int, 1> OLIndVecArr
+  Vector omega                   -> blitz::Array<double, 1> OmegaVecArr
   long   osample                 -> int  OverSample [: in]
   int    oversample              -> int  OverSample [: in]
-  Vector r                       -> Array<double, 1> RVecArr
-  Vector sf                      -> Array<double, 2> D_A2_SF out
-  Vector sp                      -> Array<double, 1> SPVecArr: out
-  Vector sp_old                  -> Array<double, 1> SPOldVecArr
-  Array  ssf                     -> Array<double, 2> SSFArr
-  int    use_col                 -> Array<long, 1> UseRowVecArr: in
+  Vector r                       -> blitz::Array<double, 1> RVecArr
+  Vector sf                      -> blitz::Array<double, 2> D_A2_SF out
+  Vector sp                      -> blitz::Array<double, 1> SPVecArr: out
+  Vector sp_old                  -> blitz::Array<double, 1> SPOldVecArr
+  Array  ssf                     -> blitz::Array<double, 2> SSFArr
+  int    use_col                 -> blitz::Array<long, 1> UseRowVecArr: in
   double weight                  -> double Weight
-  Vector y (size=n)              -> Array<double, 1> XVecArr
-  Vector ycen                    -> Array<double, 1> XCenVecArr: in
-  Vector yy (size=n)             -> Array<double, 1> XXVecArr
-  int(use_col set)/Vector yycen  -> Array<double, 1> XCenVecArr(0) <- XCenter: in
+  Vector y (size=n)              -> blitz::Array<double, 1> XVecArr
+  Vector ycen                    -> blitz::Array<double, 1> XCenVecArr: in
+  Vector yy (size=n)             -> blitz::Array<double, 1> XXVecArr
+  int(use_col set)/Vector yycen  -> blitz::Array<double, 1> XCenVecArr(0) <- XCenter: in
   double yyy                     -> double XXX
   IDL:     array(Column, Row)
   BLITZ++: array(Row, Column) !!!!!!!!!!!!!!!!!!!
-  reform(Array, NCols, NRows)  -> Array<double, 2>& Reform(Array<double, 1>, NRows, NCols) <NOTE: Dim1 <=> Dim2>
+  reform(Array, NCols, NRows)  -> blitz::Array<double, 2>& Reform(blitz::Array<double, 1>, NRows, NCols) <NOTE: Dim1 <=> Dim2>
   replicate(Value, Dim)      -> Replicate(Value, Dim)
   Matrix#Matrix              -> MatrixBTimesA()
   Vector#Vector              -> VecArrACrossB()
@@ -14737,8 +14737,8 @@ int CFits::BandSol(int Argc, void *Argv[]) const
 
   CString CS_FileName_ImIn = CString(" ");
 
-  Array<double, 1> *P_D_A1_SPErrOut = new Array<double, 1>(D_A2_ImM.rows());
-  Array<double, 1> *P_D_A1_SPOut = new Array<double, 1>(D_A2_ImM.rows());
+  blitz::Array<double, 1> *P_D_A1_SPErrOut = new blitz::Array<double, 1>(D_A2_ImM.rows());
+  blitz::Array<double, 1> *P_D_A1_SPOut = new blitz::Array<double, 1>(D_A2_ImM.rows());
   CString CS_SP("SPVecArr1Final");
 
   D_A2_SF.resize(D_A2_ImM.rows(), D_A2_ImM.cols());
@@ -14757,7 +14757,7 @@ int CFits::BandSol(int Argc, void *Argv[]) const
     delete(p_testfitsP);
   #endif
 
-  Array<double,2> D_A2_Im(D_A2_ImM.rows(), D_A2_ImM.cols());
+  blitz::Array<double,2> D_A2_Im(D_A2_ImM.rows(), D_A2_ImM.cols());
   D_A2_Im = D_A2_ImM;
   #ifdef __DEBUG_FITS_SLITFUNC__
     cout << "CFits::SlitFunc: I_IAperture_In = " << I_IAperture_In << ": D_A2_Im = " << D_A2_Im << endl;
@@ -14784,186 +14784,186 @@ int CFits::BandSol(int Argc, void *Argv[]) const
   int I_NCols_Im = D_A2_Im.cols();
   double d_sump;
 
-  Array<double, 1> D_A1_Range(2);
-  Array<int, 1> *P_I_A1_JBadVecArr = new Array<int, 1>(1);
+  blitz::Array<double, 1> D_A1_Range(2);
+  blitz::Array<int, 1> *P_I_A1_JBadVecArr = new blitz::Array<int, 1>(1);
   (*P_I_A1_JBadVecArr) = 0;
 
-  Array<double, 1> a(1);
+  blitz::Array<double, 1> a(1);
   a = 0.;
 
-  Array<double, 2> AKLArr(1,1);
+  blitz::Array<double, 2> AKLArr(1,1);
   AKLArr = 0.;
 
-  Array<double, 1> b(1);
+  blitz::Array<double, 1> b(1);
   b = 0.;
 
-  Array<double, 2> BKLArr(1,1);
+  blitz::Array<double, 2> BKLArr(1,1);
   BKLArr = 0.;
 
-  Array<int, 1> BKLIndVecArr(1);
+  blitz::Array<int, 1> BKLIndVecArr(1);
   BKLIndVecArr = 0;
 
-  Array<double, 1> BLVecArr(1);
+  blitz::Array<double, 1> BLVecArr(1);
   BLVecArr = 0.;
 
-  Array<double, 1> c(1);
+  blitz::Array<double, 1> c(1);
   c = 0.;
 
-  Array<double, 1> D_A1_Ind(1);
+  blitz::Array<double, 1> D_A1_Ind(1);
   D_A1_Ind = 0.;
 
-  Array<double, 2> D_A2_AKLT(1,1);
+  blitz::Array<double, 2> D_A2_AKLT(1,1);
   D_A2_AKLT = 0.;
 
-//  Array<double, 1> D_A1_AKL_Data(10);
+//  blitz::Array<double, 1> D_A1_AKL_Data(10);
 //  D_A1_AKL_Data = 0.;
 //  double *D_A1_AKL_Data;
 
-  Array<int, 2> I_A2_Indarr_AKL;
+  blitz::Array<int, 2> I_A2_Indarr_AKL;
 
-  Array<double, 2> D_A2_OT(1,1);
+  blitz::Array<double, 2> D_A2_OT(1,1);
   D_A2_OT = 0.;
 
-  Array<double, 2> D_A2_SPVecTimesBKLArr(1, 1);
+  blitz::Array<double, 2> D_A2_SPVecTimesBKLArr(1, 1);
   D_A2_SPVecTimesBKLArr = 0.;
 
-  Array<int, 1> IFirstVecArr(1);
+  blitz::Array<int, 1> IFirstVecArr(1);
   IFirstVecArr = 0;
 
-  Array<int, 1> ILastVecArr(1);
+  blitz::Array<int, 1> ILastVecArr(1);
   ILastVecArr = 0;
 
   //  (*P_OFS_Log) << "CFits::SlitFunc: 0A. this->NRows = " << this->NRows << ", this->NCols = " << this->NCols << endl;
 
-  Array<double, 2> *P_D_A2_Prof_Out = new Array<double, 2> (I_NRows_Im, I_NCols_Im);
+  blitz::Array<double, 2> *P_D_A2_Prof_Out = new blitz::Array<double, 2> (I_NRows_Im, I_NCols_Im);
   (*P_D_A2_Prof_Out) = 0.;
 
-  Array<double, 2> *P_D_A2_Im_Out = new Array<double, 2> (I_NRows_Im, I_NCols_Im);
+  blitz::Array<double, 2> *P_D_A2_Im_Out = new blitz::Array<double, 2> (I_NRows_Im, I_NCols_Im);
   (*P_D_A2_Im_Out) = 0.;
 
-  Array<int, 1> IndVecArr(1);
+  blitz::Array<int, 1> IndVecArr(1);
   IndVecArr = 0;
 
-//  Array<double, 2> Mask(1,1);
+//  blitz::Array<double, 2> Mask(1,1);
 //  Mask = 0.;
 
-  Array<double, 2> OArr(1,1);
+  blitz::Array<double, 2> OArr(1,1);
   OArr = 0.;
 
-  Array<int, 1> OIndVecArr(1);
+  blitz::Array<int, 1> OIndVecArr(1);
   OIndVecArr = 0;
 
-  Array<int, 1> OLIndVecArr(1);
+  blitz::Array<int, 1> OLIndVecArr(1);
   OLIndVecArr = 0;
 
-  Array<double, 1> OOVecArr(1);
+  blitz::Array<double, 1> OOVecArr(1);
   OOVecArr = 0.;
 
-  Array<double, 1> OmegaVecArr(1);
+  blitz::Array<double, 1> OmegaVecArr(1);
   OmegaVecArr = 0.;
 
-  Array<double, 2> OmegaArr(1,1);
+  blitz::Array<double, 2> OmegaArr(1,1);
   OmegaArr = 0.;
 
-  Array<double, 2> D_A2_TempAA(1, 1);
+  blitz::Array<double, 2> D_A2_TempAA(1, 1);
   D_A2_TempAA = 0.;
 
-  Array<double, 1> D_A1_TempDVecArr(1);
+  blitz::Array<double, 1> D_A1_TempDVecArr(1);
   D_A1_TempDVecArr = 0.;
 
-  Array<double, 1> D_A1_TempDVecArr_Err(1);
+  blitz::Array<double, 1> D_A1_TempDVecArr_Err(1);
   D_A1_TempDVecArr_Err = 0.;
 
-  Array<double, 1> D_A1_TempDVecArrAA(1);
+  blitz::Array<double, 1> D_A1_TempDVecArrAA(1);
   D_A1_TempDVecArrAA = 0.;
 
-//  Array<double, 2> ProductArr(1,1);
+//  blitz::Array<double, 2> ProductArr(1,1);
 //  ProductArr = 0.;
 
-  Array<double, 1> RVecArr(1);
+  blitz::Array<double, 1> RVecArr(1);
   RVecArr = 0.;
 
-  Array<double, 1> RVecArr_Err(1);
+  blitz::Array<double, 1> RVecArr_Err(1);
   RVecArr_Err = 0.;
 
-  Array<double, 1> SFVecArr(I_NCols_Im);
-  Array<double, 1> SPOldVecArr(1);
+  blitz::Array<double, 1> SFVecArr(I_NCols_Im);
+  blitz::Array<double, 1> SPOldVecArr(1);
   SPOldVecArr = 0.;
-  //  Array<double, 1> SPVecArr(SP.copy());
+  //  blitz::Array<double, 1> SPVecArr(SP.copy());
 
-//  Array<double, 2> D_A2_SFO(1,1);
-  Array<double, 2> SSFArr(1,1);
+//  blitz::Array<double, 2> D_A2_SFO(1,1);
+  blitz::Array<double, 2> SSFArr(1,1);
   SSFArr = 0.;
 
-  Array<double, 2> TempArray(1,1);
+  blitz::Array<double, 2> TempArray(1,1);
   TempArray = 0.;
 
-  Array<double, 1> TempDVecArr(1);
+  blitz::Array<double, 1> TempDVecArr(1);
   TempDVecArr = 0.;
 
-//  Array<double, 1> TempDVecArrA(1);
+//  blitz::Array<double, 1> TempDVecArrA(1);
 //  TempDVecArrA = 0.;
 
-  Array<double, 1> TempDVecArrB(1);
+  blitz::Array<double, 1> TempDVecArrB(1);
   TempDVecArrB = 0.;
 
-  Array<double, 1> TempDVecArrC(1);
+  blitz::Array<double, 1> TempDVecArrC(1);
   TempDVecArrC = 0.;
 
-  Array<double, 1> TempDVecArrD(1);
+  blitz::Array<double, 1> TempDVecArrD(1);
   TempDVecArrD = 0.;
 
-  Array<double, 2> TempDArr(1,1);
+  blitz::Array<double, 2> TempDArr(1,1);
   TempDArr = 0.;
 
-  Array<int, 1> TempIVecArr(1);
+  blitz::Array<int, 1> TempIVecArr(1);
   TempIVecArr = 0;
 
-  Array<int, 2> *P_I_A2_Mask = new Array<int, 2>(1,1);
-  Array<int, 2> *P_I_A2_MaskIn;// = new Array<double, 2>(1,1);
+  blitz::Array<int, 2> *P_I_A2_Mask = new blitz::Array<int, 2>(1,1);
+  blitz::Array<int, 2> *P_I_A2_MaskIn;// = new blitz::Array<double, 2>(1,1);
 //  (*P_TempMask) = 0.;
 
-  Array<int, 1> UseRowVecArr(1);
+  blitz::Array<int, 1> UseRowVecArr(1);
   UseRowVecArr = 0;
 
-  Array<int, 1> IVecArr(1);
+  blitz::Array<int, 1> IVecArr(1);
   IVecArr = 0;
 
-  Array<double, 1> XVecArr(1);
+  blitz::Array<double, 1> XVecArr(1);
   XVecArr = 0.;
 
-  Array<double, 1> XCenVecArr(1);
+  blitz::Array<double, 1> XCenVecArr(1);
   XCenVecArr = 0.;
 
-  Array<double, 2> D_A2_XX(1,1);
+  blitz::Array<double, 2> D_A2_XX(1,1);
   D_A2_XX = 0.;
 
-  Array<double, 2> D_A2_Sky(this->NRows, this->NCols);
+  blitz::Array<double, 2> D_A2_Sky(this->NRows, this->NCols);
   D_A2_Sky = 0.;
 
-  Array<double, 1> D_A1_MySF(1);
-  Array<double, 1> D_A1_MySP(1);
-  Array<double, 1> *P_D_A1_MySky = new Array<double,1>(1);
-  Array<double, 2> D_A2_MySF(1,1);
-  Array<double, 2> D_A2_MySP(1,1);
-  Array<double, 2> D_A2_MySky(1,1);
-  Array<double, 2> D_A2_ImTimesMask(I_NRows_Im,I_NCols_Im);
-  Array<double, 2> D_A2_SFTimesMask(I_NRows_Im,I_NCols_Im);
-  Array<double, 1> D_A1_OldSky(I_NRows_Im);
-  Array<double, 2> *P_D_A2_Errors;
-  Array<double, 1> *P_D_A1_ErrOut;
-  Array<double, 1> *P_D_A1_ErrSky = new Array<double, 1>(1);
-  Array<double, 1> *P_D_A1_SFO_Out = new Array<double, 1>(1);
-  Array<double, 1> D_A1_ChiSquare_LinFit(1);
-  Array<double, 1> D_A1_Probability_LinFit(1);
-  Array<double, 2> D_A2_Sigma_LinFit(1,1);
-  Array<double, 3> D_A3_CoVar_LinFit(1,1,1);
+  blitz::Array<double, 1> D_A1_MySF(1);
+  blitz::Array<double, 1> D_A1_MySP(1);
+  blitz::Array<double, 1> *P_D_A1_MySky = new blitz::Array<double,1>(1);
+  blitz::Array<double, 2> D_A2_MySF(1,1);
+  blitz::Array<double, 2> D_A2_MySP(1,1);
+  blitz::Array<double, 2> D_A2_MySky(1,1);
+  blitz::Array<double, 2> D_A2_ImTimesMask(I_NRows_Im,I_NCols_Im);
+  blitz::Array<double, 2> D_A2_SFTimesMask(I_NRows_Im,I_NCols_Im);
+  blitz::Array<double, 1> D_A1_OldSky(I_NRows_Im);
+  blitz::Array<double, 2> *P_D_A2_Errors;
+  blitz::Array<double, 1> *P_D_A1_ErrOut;
+  blitz::Array<double, 1> *P_D_A1_ErrSky = new blitz::Array<double, 1>(1);
+  blitz::Array<double, 1> *P_D_A1_SFO_Out = new blitz::Array<double, 1>(1);
+  blitz::Array<double, 1> D_A1_ChiSquare_LinFit(1);
+  blitz::Array<double, 1> D_A1_Probability_LinFit(1);
+  blitz::Array<double, 2> D_A2_Sigma_LinFit(1,1);
+  blitz::Array<double, 3> D_A3_CoVar_LinFit(1,1,1);
 
-  Array<CString, 1> CS_A1_Args_LinFit(10);
+  blitz::Array<CString, 1> CS_A1_Args_LinFit(10);
   CS_A1_Args_LinFit = CString(" ");
   void **PP_Args_LinFit = (void**)malloc(sizeof(void*) * 10);
 
-  Array<CString, 1> CS_A1_Args_Fit(10);
+  blitz::Array<CString, 1> CS_A1_Args_Fit(10);
   CS_A1_Args_Fit = CString(" ");
   void **PP_Args_Fit = (void**)malloc(sizeof(void*) * 10);
 
@@ -15021,12 +15021,12 @@ int CFits::BandSol(int Argc, void *Argv[]) const
     Pos = this->KeyWord_Set(CS_A1_Args_In,CString("ERRORS"));
     if (Pos >= 0)
     {
-      P_D_A2_Errors = (Array<double, 2>*)ArgV_In[Pos];
+      P_D_A2_Errors = (blitz::Array<double, 2>*)ArgV_In[Pos];
     }
     Pos = this->KeyWord_Set(CS_A1_Args_In,CString("ERRORS_OUT"));
     if (Pos >= 0)
     {
-      P_D_A1_ErrOut = (Array<double, 1>*)ArgV_In[Pos];
+      P_D_A1_ErrOut = (blitz::Array<double, 1>*)ArgV_In[Pos];
       P_D_A1_ErrOut->resize(D_A2_Im.rows());
       (*P_D_A1_ErrOut) = 0.;
     }
@@ -15034,7 +15034,7 @@ int CFits::BandSol(int Argc, void *Argv[]) const
     if (Pos >= 0)
     {
       delete(P_D_A1_SPErrOut);
-      P_D_A1_SPErrOut = (Array<double, 1>*)ArgV_In[Pos];
+      P_D_A1_SPErrOut = (blitz::Array<double, 1>*)ArgV_In[Pos];
       P_D_A1_SPErrOut->resize(D_A2_Im.rows());
       (*P_D_A1_SPErrOut) = 0.;
     }
@@ -15044,7 +15044,7 @@ int CFits::BandSol(int Argc, void *Argv[]) const
   if (Pos >= 0)
   {
     delete(P_D_A1_SPOut);
-    P_D_A1_SPOut = (Array<double, 1>*)ArgV_In[Pos];
+    P_D_A1_SPOut = (blitz::Array<double, 1>*)ArgV_In[Pos];
     P_D_A1_SPOut->resize(D_A2_Im.rows());
     (*P_D_A1_SPOut) = 0.;
   }
@@ -15053,22 +15053,22 @@ int CFits::BandSol(int Argc, void *Argv[]) const
   if (Pos >= 0)
   {
     delete(P_D_A1_SFO_Out);
-    P_D_A1_SFO_Out = (Array<double, 1>*)ArgV_In[Pos];
+    P_D_A1_SFO_Out = (blitz::Array<double, 1>*)ArgV_In[Pos];
     P_D_A1_SFO_Out->resize(D_A2_Im.cols() * this->I_OverSample);
     (*P_D_A1_SFO_Out) = 0.;
   }
 
-  Array<double, 1> SFVecArrTemp(1);
+  blitz::Array<double, 1> SFVecArrTemp(1);
   SFVecArrTemp = 1.;
-  Array<double, 1> *P_D_A1_XCorProfOut;
+  blitz::Array<double, 1> *P_D_A1_XCorProfOut;
   int I_XCorProf = 0;
   int I_Pos = 0;
   CString CS_Temp;
   CS_Temp.Set("XCOR_PROF");
-  if ((I_Pos = this->KeyWord_Set(*(const_cast<const Array<CString, 1>*>(&CS_A1_Args_In)), CS_Temp)) >= 0)
+  if ((I_Pos = this->KeyWord_Set(*(const_cast<const blitz::Array<CString, 1>*>(&CS_A1_Args_In)), CS_Temp)) >= 0)
   {
     I_XCorProf = *(int*)ArgV_In[I_Pos];
-    P_D_A1_XCorProfOut = (Array<double, 1>*)ArgV_In[I_Pos+1];
+    P_D_A1_XCorProfOut = (blitz::Array<double, 1>*)ArgV_In[I_Pos+1];
     P_D_A1_XCorProfOut->resize(I_NRows_Im);
     (*P_D_A1_XCorProfOut) = 0.;
     cout << "CFits::SlitFunc: I_IAperture_In = " << I_IAperture_In << ": I_Bin = " << I_Bin << ": KeyWord_Set(XCOR_PROF): I_XCorProf set to " << I_XCorProf << endl;
@@ -15078,7 +15078,7 @@ int CFits::BandSol(int Argc, void *Argv[]) const
 //    return false;
   }
   else{
-    P_D_A1_XCorProfOut = new Array<double, 1>(I_NRows_Im);
+    P_D_A1_XCorProfOut = new blitz::Array<double, 1>(I_NRows_Im);
   }
 
 //  #ifdef __DEBUG_FITS_SLITFUNC__
@@ -15111,7 +15111,7 @@ int CFits::BandSol(int Argc, void *Argv[]) const
   {
 //    if (P_TempMask != NULL)
 //      delete P_TempMask;
-    P_I_A2_MaskIn = (Array<int, 2>*)ArgV_In[Pos];
+    P_I_A2_MaskIn = (blitz::Array<int, 2>*)ArgV_In[Pos];
     P_I_A2_Mask->resize(P_I_A2_MaskIn->rows(), P_I_A2_MaskIn->cols());
     (*P_I_A2_Mask) = (*P_I_A2_MaskIn);
     #ifdef __DEBUG_FITS_SLITFUNC__
@@ -15160,7 +15160,7 @@ int CFits::BandSol(int Argc, void *Argv[]) const
     //  (*P_OFS_Log) << "CFits::SlitFunc: !KeyWord_Set(MASK): D_A2_Im = " << D_A2_Im << endl;
 //      #endif
     }
-    P_I_A2_MaskIn = new Array<int, 2>(I_NRows_Im, I_NCols_Im);
+    P_I_A2_MaskIn = new blitz::Array<int, 2>(I_NRows_Im, I_NCols_Im);
     (*P_I_A2_MaskIn) = 1;
     P_I_A2_Mask->resize(I_NRows_Im, I_NCols_Im);
     (*P_I_A2_Mask) = 1;
@@ -15179,7 +15179,7 @@ int CFits::BandSol(int Argc, void *Argv[]) const
   {
     if (P_D_A2_Prof_Out != NULL)
       delete P_D_A2_Prof_Out;
-    P_D_A2_Prof_Out = (Array<double, 2>*)ArgV_In[Pos];
+    P_D_A2_Prof_Out = (blitz::Array<double, 2>*)ArgV_In[Pos];
     #ifdef __DEBUG_FITS_SLITFUNC_N__
       cout << "CFits::SlitFunc: I_IAperture_In = " << I_IAperture_In << ": I_Bin = " << I_Bin << ": KeyWord_Set(PROF_OUT): P_D_A2_Prof_Out read " << endl;// to " << *P_D_A2_Prof_Out << endl;
       cout << "CFits::SlitFunc: I_IAperture_In = " << I_IAperture_In << ": I_Bin = " << I_Bin << ": KeyWord_Set(PROF_OUT): P_D_A2_Prof_Out->size() = " << P_D_A2_Prof_Out->size() << endl;// to " << *P_D_A2_Prof_Out << endl;
@@ -15204,33 +15204,33 @@ int CFits::BandSol(int Argc, void *Argv[]) const
   #endif
 //return false;
   double D_SFMax = 0.;
-  Array<double,1> D_A1_SFMax(I_NRows_Im);
-  Array<double,1> D_A1_Sky(I_NRows_Im);
+  blitz::Array<double,1> D_A1_SFMax(I_NRows_Im);
+  blitz::Array<double,1> D_A1_Sky(I_NRows_Im);
   D_A1_Sky = 0.;
   int I_NGoodSF = 0;
-  Array<double,2> D_A2_MySFBest(1,1);
-  Array<double,1> *P_D_A1_SFMax;
-  Array<int,1> I_A1_SFMaxInd(1);
+  blitz::Array<double,2> D_A2_MySFBest(1,1);
+  blitz::Array<double,1> *P_D_A1_SFMax;
+  blitz::Array<int,1> I_A1_SFMaxInd(1);
   int I_NGood;
-  Array<int,1> *P_I_A1_SFMaxInd;
-  Array<double,2> D_A2_MySF_Max(1);
-  Array<double,1> *P_D_A1_IndGen = this->Replicate(1., I_NRows_Im);
-  Array<double,2> *P_D_A2_MySF;
-  Array<double,1> D_A1_STDDEV(1);
-  Array<double,1> D_A1_Covariance(1);
-  Array<double, 2> D_A2_ImBak(D_A2_Im.rows(), D_A2_Im.cols());
-  Array<double, 2> D_A2_ImBak_minus_Im(D_A2_Im.rows(), D_A2_Im.cols());
+  blitz::Array<int,1> *P_I_A1_SFMaxInd;
+  blitz::Array<double,2> D_A2_MySF_Max(1);
+  blitz::Array<double,1> *P_D_A1_IndGen = this->Replicate(1., I_NRows_Im);
+  blitz::Array<double,2> *P_D_A2_MySF;
+  blitz::Array<double,1> D_A1_STDDEV(1);
+  blitz::Array<double,1> D_A1_Covariance(1);
+  blitz::Array<double, 2> D_A2_ImBak(D_A2_Im.rows(), D_A2_Im.cols());
+  blitz::Array<double, 2> D_A2_ImBak_minus_Im(D_A2_Im.rows(), D_A2_Im.cols());
   int argpos=0;
-  Array<double, 1> D_A1_Dev(D_A2_Im.cols());
+  blitz::Array<double, 1> D_A1_Dev(D_A2_Im.cols());
   D_A1_Dev = 0.;
   double D_Dev = 0.;
   double D_Dev_New = 0.;
-  Array<double, 2> D_A2_Mask(2,2);
+  blitz::Array<double, 2> D_A2_Mask(2,2);
 
-  Array<int, 1> I_A1_Mask(1);
+  blitz::Array<int, 1> I_A1_Mask(1);
   I_A1_Mask = 0.;
 
-  Array<double, 1> D_A1_Mask(1);
+  blitz::Array<double, 1> D_A1_Mask(1);
   D_A1_Mask = 0.;
 
   CString *P_CS_MySF;
@@ -15262,7 +15262,7 @@ int CFits::BandSol(int Argc, void *Argv[]) const
     if (Pos >= 0)
     {
       delete(P_D_A1_MySky);
-      P_D_A1_MySky = (Array<double,1>*)(ArgV_In[Pos]);
+      P_D_A1_MySky = (blitz::Array<double,1>*)(ArgV_In[Pos]);
     }
     P_D_A1_MySky->resize(D_A2_Im.rows());
     (*P_D_A1_MySky) = 0.;
@@ -15273,7 +15273,7 @@ int CFits::BandSol(int Argc, void *Argv[]) const
       if (Pos >= 0)
       {
         delete(P_D_A1_ErrSky);
-        P_D_A1_ErrSky = (Array<double,1>*)(ArgV_In[Pos]);
+        P_D_A1_ErrSky = (blitz::Array<double,1>*)(ArgV_In[Pos]);
       }
       P_D_A1_ErrSky->resize(D_A2_Im.rows());
       (*P_D_A1_ErrSky) = 0.;
@@ -15348,13 +15348,13 @@ int CFits::BandSol(int Argc, void *Argv[]) const
     double D_DevOld = 0.;
     double D_DevTemp = 0.;
     int nind_temp;
-    Array<int,1> I_A1_IndA(1);
-    Array<int,1> *P_I_A1_Ind;
-    Array<double,2> D_A2_MySF_Max(I_NRows_Im, I_NCols_Im);
-    Array<double,2> D_A2_MySF_MaxTemp(1, 1);
+    blitz::Array<int,1> I_A1_IndA(1);
+    blitz::Array<int,1> *P_I_A1_Ind;
+    blitz::Array<double,2> D_A2_MySF_Max(I_NRows_Im, I_NCols_Im);
+    blitz::Array<double,2> D_A2_MySF_MaxTemp(1, 1);
 ///      D_A1_SFMax.resize(P_D_A1_SFMax->size());
 ///      D_A1_SFMax = (*P_D_A1_SFMax);
-    Array<double, 1> *P_D_A1_Col;
+    blitz::Array<double, 1> *P_D_A1_Col;
     for (int nn=0; nn < I_NCols_Im; nn++)
     {
       P_D_A1_Col = this->MedianVec(D_A2_MySF(Range::all(), nn), 5);
@@ -15422,12 +15422,12 @@ int CFits::BandSol(int Argc, void *Argv[]) const
 
 
 
-      Array<int,1> *P_I_A1_Ind = this->GetIndex(I_A1_IndA, nind_temp);
+      blitz::Array<int,1> *P_I_A1_Ind = this->GetIndex(I_A1_IndA, nind_temp);
       #ifdef __DEBUG_FITS_TELLURIC__
         cout << "CFits::SlitFunc: I_IAperture_In = " << I_IAperture_In << ": I_Bin = " << I_Bin << ": TELLURIC == 2: while: I_A1_IndA set to " << I_A1_IndA << endl;
         cout << "CFits::SlitFunc: I_IAperture_In = " << I_IAperture_In << ": I_Bin = " << I_Bin << ": TELLURIC == 2: while: *P_I_A1_Ind set to " << *P_I_A1_Ind << endl;
       #endif
-      P_D_A1_SFMax = new Array<double, 1>(D_A1_SFMax.size());
+      P_D_A1_SFMax = new blitz::Array<double, 1>(D_A1_SFMax.size());
       *P_D_A1_SFMax = D_A1_SFMax;
       if (!this->GetSubArrCopy(*P_D_A1_SFMax, *P_I_A1_Ind, D_A1_SFMax)){
 	cout << "CFits::SlitFunc: I_IAperture_In = " << I_IAperture_In << ": I_Bin = " << I_Bin << ": ERROR: GetSubArrCopy(P_D_A1_SFMax, P_I_A1_Ind, D_A1_SFMax) returned FALSE" << endl;
@@ -15606,19 +15606,19 @@ int CFits::BandSol(int Argc, void *Argv[]) const
 
 
 
-      /**       bool LinFit(const Array<double, 2> &D_A2_CCD_In,
-                          const Array<double, 2> &D_A2_SF_In,
-                          Array<double,1> &D_A1_SPFit,
-                          Array<double,1> &D_A1_Sky_Out,
-                          const Array<CString, 1> &CS_A1_Args_In,   //: in
+      /**       bool LinFit(const blitz::Array<double, 2> &D_A2_CCD_In,
+                          const blitz::Array<double, 2> &D_A2_SF_In,
+                          blitz::Array<double,1> &D_A1_SPFit,
+                          blitz::Array<double,1> &D_A1_Sky_Out,
+                          const blitz::Array<CString, 1> &CS_A1_Args_In,   //: in
                           void *ArgV_In[]) const;    //: in/out
-    ///            SDEV_IN = Array<double,2>(D_A2_CCD_In.rows, D_A2_CCD_In.cols)        : in
-    ///            MEASURE_ERRORS = Array<double,2>(D_A2_CCD_In.rows, D_A2_CCD_In.cols) : in
-    ///            CHISQ = Array<double,1>(D_A2_CCD_In.rows)                            : out
-    ///            PROB = Array<double,1>(D_A2_CCD_In.rows)                             : out
-    ///            SIGMA = Array<double,2>(D_A2_CCD_In.rows, 2)                         : out
-    ///            COVAR = Array<double,3>(D_A2_CCD_In.rows, 2, 2)                      : out
-    ///            YFIT = Array<double,2>(D_A2_CCD_In.rows, D_A2_CCD_In.cols)           : out
+    ///            SDEV_IN = blitz::Array<double,2>(D_A2_CCD_In.rows, D_A2_CCD_In.cols)        : in
+    ///            MEASURE_ERRORS = blitz::Array<double,2>(D_A2_CCD_In.rows, D_A2_CCD_In.cols) : in
+    ///            CHISQ = blitz::Array<double,1>(D_A2_CCD_In.rows)                            : out
+    ///            PROB = blitz::Array<double,1>(D_A2_CCD_In.rows)                             : out
+    ///            SIGMA = blitz::Array<double,2>(D_A2_CCD_In.rows, 2)                         : out
+    ///            COVAR = blitz::Array<double,3>(D_A2_CCD_In.rows, 2, 2)                      : out
+    ///            YFIT = blitz::Array<double,2>(D_A2_CCD_In.rows, D_A2_CCD_In.cols)           : out
     **/
     argpos = 0;
     if (this->ErrorsRead)
@@ -15807,7 +15807,7 @@ int CFits::BandSol(int Argc, void *Argv[]) const
 ///  weight=1./float(osample)
   Weight = 1. / (double)this->I_OverSample;
 
-  /// Set OIndVecArr to Array<int,1>(I_OverSample + 1) with values = index * (I_OverSample + 2)
+  /// Set OIndVecArr to blitz::Array<int,1>(I_OverSample + 1) with values = index * (I_OverSample + 2)
 ///  oind=lindgen(osample+1L)*(osample+2L)
   UseRowVecArr = i;//Range(0, I_NCols_Im-1);
   OIndVecArr.resize(this->I_OverSample + 1);
@@ -15855,7 +15855,7 @@ int CFits::BandSol(int Argc, void *Argv[]) const
   {
     if (P_I_A1_JBadVecArr != NULL)
       delete P_I_A1_JBadVecArr;
-    P_I_A1_JBadVecArr = (Array<int, 1>*)ArgV_In[Pos];
+    P_I_A1_JBadVecArr = (blitz::Array<int, 1>*)ArgV_In[Pos];
     #ifdef __DEBUG_FITS_SLITFUNC_N__
       cout << "CFits::SlitFunc: I_IAperture_In = " << I_IAperture_In << ": I_Bin = " << I_Bin << ": KeyWord_Set(BAD): P_I_A1_JBadVecArr set to " << *P_I_A1_JBadVecArr << endl;
   //  (*P_OFS_Log) << "CFits::SlitFunc: KeyWord_Set(BAD): P_I_A1_JBadVecArr set to " << *P_I_A1_JBadVecArr << endl;
@@ -15875,14 +15875,14 @@ int CFits::BandSol(int Argc, void *Argv[]) const
   P_TempString->Set("USE_ROWS");
   if ((Pos = this->KeyWord_Set(CS_A1_Args_In, *P_TempString)) >= 0)
   {
-    Array<int, 1> *P_I_A1_UseRows = (Array<int, 1>*)ArgV_In[Pos];
+    blitz::Array<int, 1> *P_I_A1_UseRows = (blitz::Array<int, 1>*)ArgV_In[Pos];
     UseRowVecArr.resize(P_I_A1_UseRows->size());
     UseRowVecArr = *P_I_A1_UseRows;
     #ifdef __DEBUG_FITS_SLITFUNC_N__
       cout << "CFits::SlitFunc: I_IAperture_In = " << I_IAperture_In << ": I_Bin = " << I_Bin << ": KeyWord_Set(USE_ROW): ArgV_In[Pos=" << Pos << "]=" << *(int*)(ArgV_In[Pos]) << " => UseRowVecArr set to " << UseRowVecArr << endl;
     //  (*P_OFS_Log) << "CFits::SlitFunc: KeyWord_Set(USE_ROW): ArgV_In[Pos=" << Pos << "]=" << *(int*)(ArgV_In[Pos]) << " => UseRowVecArr set to " << UseRowVecArr << endl;
     #endif
-    Array<double, 2> D_A2_ImUseRows(UseRowVecArr.size(), D_A2_Im.cols());
+    blitz::Array<double, 2> D_A2_ImUseRows(UseRowVecArr.size(), D_A2_Im.cols());
     if (!this->GetSubArrCopy(D_A2_Im, UseRowVecArr, 0, D_A2_ImUseRows)){
       cout << "CFits::SlitFunc: I_IAperture_In = " << I_IAperture_In << ": I_Bin = " << I_Bin << ": this->GetSubArrCopy(D_A2_Im, UseRowVecArr) returned FALSE" << endl;
       return false;
@@ -15895,7 +15895,7 @@ int CFits::BandSol(int Argc, void *Argv[]) const
     //  (*P_OFS_Log) << "CFits::SlitFunc: D_A2_Im = " << D_A2_Im << endl;//.transpose(secondDim, firstDim) << endl;
     #endif
 
-    Array<double, 1> D_A1_XCentersUseRow(UseRowVecArr.size());
+    blitz::Array<double, 1> D_A1_XCentersUseRow(UseRowVecArr.size());
     if (!this->GetSubArrCopy(XCenVecArr, UseRowVecArr, D_A1_XCentersUseRow)){
       cout << "CFits::SlitFunc: I_IAperture_In = " << I_IAperture_In << ": I_Bin = " << I_Bin << ": this->GetSubArrCopy(XCenVecArr, UseRowVecArr) returned FALSE" << endl;
       return false;
@@ -15906,7 +15906,7 @@ int CFits::BandSol(int Argc, void *Argv[]) const
       cout << "CFits::SlitFunc: I_IAperture_In = " << I_IAperture_In << ": I_Bin = " << I_Bin << ": XCenVecArr = " << XCenVecArr << endl;
     #endif
 
-    Array<int, 2> I_A2_MaskUseRow(UseRowVecArr.size(), P_I_A2_Mask->cols());
+    blitz::Array<int, 2> I_A2_MaskUseRow(UseRowVecArr.size(), P_I_A2_Mask->cols());
     if (!this->GetSubArrCopy(*P_I_A2_Mask, UseRowVecArr, 0, I_A2_MaskUseRow)){
       cout << "CFits::SlitFunc: I_IAperture_In = " << I_IAperture_In << ": I_Bin = " << I_Bin << ": this->GetSubArrCopy(*P_I_A2_Mask, UseRowVecArr) returned FALSE" << endl;
       return false;
@@ -15958,9 +15958,9 @@ int CFits::BandSol(int Argc, void *Argv[]) const
 //  (*P_OFS_Log) << "CFits::SlitFunc: Norm set to " << Norm << endl;
   #endif
 
-  Array<double, 2> D_A2_SPTemp(SPVecArr.size(), 1);
+  blitz::Array<double, 2> D_A2_SPTemp(SPVecArr.size(), 1);
 
-  Array<double, 2> D_A2_ImMedian(D_A2_Im.rows(), D_A2_Im.cols());
+  blitz::Array<double, 2> D_A2_ImMedian(D_A2_Im.rows(), D_A2_Im.cols());
   D_A2_ImMedian = D_A2_Im;
   if (I_Telluric != 2)
   {
@@ -15976,7 +15976,7 @@ int CFits::BandSol(int Argc, void *Argv[]) const
 **/
       SFVecArr.resize(D_A2_Im.cols());
       SPVecArr.resize(D_A2_Im.rows());
-      Array<double, 2> D_A2_ImTimesMask_Guess(D_A2_Im.rows(), D_A2_Im.cols());
+      blitz::Array<double, 2> D_A2_ImTimesMask_Guess(D_A2_Im.rows(), D_A2_Im.cols());
       D_A2_ImTimesMask_Guess = (D_A2_Im * (*P_I_A2_Mask));
       SFVecArr = sum(D_A2_ImTimesMask_Guess(j,i),j);
       #ifdef __DEBUG_FITS_SLITFUNC_PISKUNOV__
@@ -15988,15 +15988,15 @@ int CFits::BandSol(int Argc, void *Argv[]) const
         CS_SFOut.Add(".fits");
         this->WriteFits(&SFVecArr, CS_SFOut);
       #endif
-      Array<double, 1> *P_D_A1_SF;
+      blitz::Array<double, 1> *P_D_A1_SF;
       if ((I_OverSample > 2) && (SFVecArr.size() > 5)){
-//	Array<int, 1> I_A1_GoodRows(D_A2_Im.rows());
+//	blitz::Array<int, 1> I_A1_GoodRows(D_A2_Im.rows());
 //	I_A1_GoodRows = 1;
 //	for (int i_row=0; i_row<D_A2_Im.rows(); i_row++){
 //	  if (sum((*P_I_A2_Mask)(i_row, Range::all())) < 1)
 //	    I_A1_GoodRows(i_row) = 0;
 //	}
-//	Array<double, 2> D_A2_SFTempMedian(sum(I_A1_GoodRows, D_A2_Im.cols()));
+//	blitz::Array<double, 2> D_A2_SFTempMedian(sum(I_A1_GoodRows, D_A2_Im.cols()));
 //	int I_Row = 0;
 //	for (int i_row = 0; i_row < D_A2_Im.rows(); i_row++){
 //	  if (I_A1_GoodRows(i_row) > 0){
@@ -16008,7 +16008,7 @@ int CFits::BandSol(int Argc, void *Argv[]) const
 	delete(P_D_A1_SF);
       }
       if (mean(sum(D_A2_Im(i,j),j)) < 1000.){
-	Array<double, 1> *P_D_A1_IndGenCols = this->DIndGenArr(D_A2_Im.cols());
+	blitz::Array<double, 1> *P_D_A1_IndGenCols = this->DIndGenArr(D_A2_Im.cols());
 	SFVecArr = exp(0. - pow2(((*P_D_A1_IndGenCols) + D_XLow) / (D_A2_Im.cols() / 4.)));
 	delete(P_D_A1_IndGenCols);
       }
@@ -16021,8 +16021,8 @@ int CFits::BandSol(int Argc, void *Argv[]) const
         cout << "CFits::SlitFunc: PiskunovOrig: D_XLow = " << D_XLow << endl;
         cout << "CFits::SlitFunc: PiskunovOrig: 2. SFVecArr set to " << SFVecArr << endl;
       #endif
-      Array<double, 1> *P_D_A1_Rep = this->Replicate(1., D_A2_Im.rows());
-      Array<double, 2> *P_D_A2_Mat = this->VecArrACrossB((*P_D_A1_Rep), SFVecArr);
+      blitz::Array<double, 1> *P_D_A1_Rep = this->Replicate(1., D_A2_Im.rows());
+      blitz::Array<double, 2> *P_D_A2_Mat = this->VecArrACrossB((*P_D_A1_Rep), SFVecArr);
       D_A2_ImTimesMask_Guess = D_A2_ImTimesMask_Guess * (*P_D_A2_Mat);
       SPVecArr = sum(D_A2_ImTimesMask_Guess(i,j),j) * P_I_A2_Mask->rows() * P_I_A2_Mask->cols() / sum(*P_I_A2_Mask);
       delete(P_D_A1_Rep);
@@ -16055,9 +16055,9 @@ int CFits::BandSol(int Argc, void *Argv[]) const
         cout << "CFits::SlitFunc: PiskunovOrig: D_Dev set to " << D_Dev << endl;
       #endif
       int I_NBad = 0;
-      Array<int, 1> I_A1_WhereDev(D_A2_Im.cols());
-      Array<double, 1> D_A1_WhereDev(D_A2_Im.cols());
-      Array<int, 1> *P_I_A1_WhereDev;
+      blitz::Array<int, 1> I_A1_WhereDev(D_A2_Im.cols());
+      blitz::Array<double, 1> D_A1_WhereDev(D_A2_Im.cols());
+      blitz::Array<int, 1> *P_I_A1_WhereDev;
       I_A1_WhereDev = 0;
       for (int i_row = 0; i_row < D_A2_Im.rows(); i_row++){
 	D_A1_WhereDev = fabs(D_A2_Im(i_row, Range::all()) - (*P_D_A2_Mat)(i_row, Range::all()));
@@ -16106,7 +16106,7 @@ int CFits::BandSol(int Argc, void *Argv[]) const
       if (this->I_MaxIterSig > 0){
         for (int p = 0; p < I_NCols_Im; p++)
         {
-          Array<double, 1> *p_d1temp = MedianVec(D_A2_Im(Range::all(),p), 5, CString("NORMAL"));
+          blitz::Array<double, 1> *p_d1temp = MedianVec(D_A2_Im(Range::all(),p), 5, CString("NORMAL"));
           D_A2_ImMedian(Range::all(), p) = (*p_d1temp);             /// Spectrum
           delete p_d1temp;
         }
@@ -16155,7 +16155,7 @@ int CFits::BandSol(int Argc, void *Argv[]) const
 
 /// --- instead of Piskunov:
     ///      sf=median(sf,5)                                    ; the spectrum
-///    Array<double, 1> *p_d1temp = MedianVec(SFVecArr, 5, CString("NORMAL"));
+///    blitz::Array<double, 1> *p_d1temp = MedianVec(SFVecArr, 5, CString("NORMAL"));
 ///    SFVecArr = (*p_d1temp);             /** Spectrum **/
 ///    delete p_d1temp;
 //    #ifdef __DEBUG_FITS_SLITFUNC_N__
@@ -16234,8 +16234,8 @@ int CFits::BandSol(int Argc, void *Argv[]) const
       #endif
 
     /** weight rows of im_in with slit function, sum to estimate the spectrum, multiply with Norm, take median over 5 pixels, normalize to sum(row)=1, and multiply with sum of im_in **/
-      Array<double, 1> *p_d1rep = this->Replicate(1., I_NRows_Im);
-      Array<double, 2> *p_d2mat = this->VecArrACrossB(*p_d1rep, SFVecArr);
+      blitz::Array<double, 1> *p_d1rep = this->Replicate(1., I_NRows_Im);
+      blitz::Array<double, 2> *p_d2mat = this->VecArrACrossB(*p_d1rep, SFVecArr);
       TempArray *= (*p_d2mat);
       #ifdef __DEBUG_FITS_SLITFUNC_N__
         cout << "CFits::SlitFunc: I_IAperture_In = " << I_IAperture_In << ": I_Bin = " << I_Bin << ": TempArray = TempArray*(VecArrACrossB(Replicate(1.,D_A2_Im.rows(=" << I_NRows_Im << "))=" << *p_d1rep << ", SFVecArr(=" << SFVecArr << "))=" << *p_d2mat << ") = " << TempArray << endl;
@@ -16338,7 +16338,7 @@ int CFits::BandSol(int Argc, void *Argv[]) const
 
     /// used to be before SPVecArr /= sum(SPVecArr)
     ///  sp=median(sp,5)                                    ; the spectrum
-////////    Array<double, 1> *p_d1sptemp = (MedianVec(SPVecArr, 5, (CString("NORMAL"))));
+////////    blitz::Array<double, 1> *p_d1sptemp = (MedianVec(SPVecArr, 5, (CString("NORMAL"))));
 ////////    SPVecArr = (*p_d1sptemp);
 ////////    delete p_d1sptemp;
 ////////    #ifdef __DEBUG_FITS_SLITFUNC_N__
@@ -16387,7 +16387,7 @@ int CFits::BandSol(int Argc, void *Argv[]) const
 ///  endif
   P_TempString->Set("NOISE");
   Pos = this->KeyWord_Set(CS_A1_Args_In, *P_TempString);
-  Array<double, 2> D_A2_TempBB(P_I_A2_Mask->rows(), P_I_A2_Mask->cols());
+  blitz::Array<double, 2> D_A2_TempBB(P_I_A2_Mask->rows(), P_I_A2_Mask->cols());
   if (Pos >= 0)
   {
     Dev = *(double*)ArgV_In[Pos];
@@ -16412,33 +16412,33 @@ int CFits::BandSol(int Argc, void *Argv[]) const
     cout << "CFits::SlitFunc: I_IAperture_In = " << I_IAperture_In << ": I_Bin = " << I_Bin << ": SFVecArr = " << SFVecArr << endl;
   #endif
 //    return false;
-//  Array<int, 1> I_A1_Ind_SFNoZero(SFVecArr.size());
+//  blitz::Array<int, 1> I_A1_Ind_SFNoZero(SFVecArr.size());
 //  I_A1_Ind_SFNoZero = where(SFVecArr > 0., 1, 0);
 //  int I_NSFNoZero = 0;
-//  Array<int, 1> *P_I_A1_Ind_SFNoZero = this->GetIndex(I_A1_Ind_SFNoZero, I_NSFNoZero);
+//  blitz::Array<int, 1> *P_I_A1_Ind_SFNoZero = this->GetIndex(I_A1_Ind_SFNoZero, I_NSFNoZero);
 
 //  TempArray.resize(I_NRows_Im, I_NCols_Im);
   if (D_A2_Im.cols() != SFVecArr.size()){
     cout << "CFits::SlitFunc: ERROR: D_A2_Im.cols() != SFVecArr.size() => Returning FALSE" << endl;
     return false;
   }
-  Array<double, 1> D_A1_SP_Tmp(D_A2_Im.rows());
-//  Array<double, 1> D_A1_SP_times_SF_Temp(P_I_A1_Ind_SFNoZero->size());
+  blitz::Array<double, 1> D_A1_SP_Tmp(D_A2_Im.rows());
+//  blitz::Array<double, 1> D_A1_SP_times_SF_Temp(P_I_A1_Ind_SFNoZero->size());
   D_A1_SP_Tmp = 0.;
   double D_Reject = 4.;
-  Array<CString, 1> CS_A1_Args_FitSig(3);
+  blitz::Array<CString, 1> CS_A1_Args_FitSig(3);
   void **PP_Void_FitSig = (void**)malloc(sizeof(void*) * 3);
   CS_A1_Args_FitSig(0) = CString("REJECT_IN");
   PP_Void_FitSig[0] = &D_Reject;
   CS_A1_Args_FitSig(1) = CString("MEASURE_ERRORS_IN");
   PP_Void_FitSig[1] = P_D_A2_Errors;
-  Array<int, 2> I_A2_MaskFit(D_A2_Im.rows(), D_A2_Im.cols());
+  blitz::Array<int, 2> I_A2_MaskFit(D_A2_Im.rows(), D_A2_Im.cols());
   I_A2_MaskFit = (*P_I_A2_Mask);
   CS_A1_Args_FitSig(2) = CString("MASK_INOUT");
   PP_Void_FitSig[2] = &I_A2_MaskFit;
-  Array<double, 1> *p_Rep = this->Replicate(1., D_A2_Im.rows());
-  Array<double, 2> *p_SFArr = this->VecArrACrossB(*p_Rep, SFVecArr);
-  Array<double, 1> D_A1_Sky_Tmp(D_A2_Im.rows());
+  blitz::Array<double, 1> *p_Rep = this->Replicate(1., D_A2_Im.rows());
+  blitz::Array<double, 2> *p_SFArr = this->VecArrACrossB(*p_Rep, SFVecArr);
+  blitz::Array<double, 1> D_A1_Sky_Tmp(D_A2_Im.rows());
   bool B_WithSky = true;
   if (I_Telluric == 1 || I_Telluric == 3)
     B_WithSky = false;
@@ -16490,10 +16490,10 @@ int CFits::BandSol(int Argc, void *Argv[]) const
 //  }
     cout << "CFits::SlitFunc: D_A1_SP_Tmp = " << D_A1_SP_Tmp << endl;
   #endif
-//  Array<double, 2> *p_tempMatA = this->VecArrACrossB(SPVecArr, SFVecArr);
-  Array<double, 2> *p_tempMatA = this->VecArrACrossB(D_A1_SP_Tmp, SFVecArr);
-  Array<double, 2> *p_tempMat = new Array<double, 2>(D_A2_Im.rows(), D_A2_Im.cols());
-  Array<double, 2> *p_tempMatB = new Array<double, 2>(D_A2_Im.rows(), D_A2_Im.cols());
+//  blitz::Array<double, 2> *p_tempMatA = this->VecArrACrossB(SPVecArr, SFVecArr);
+  blitz::Array<double, 2> *p_tempMatA = this->VecArrACrossB(D_A1_SP_Tmp, SFVecArr);
+  blitz::Array<double, 2> *p_tempMat = new blitz::Array<double, 2>(D_A2_Im.rows(), D_A2_Im.cols());
+  blitz::Array<double, 2> *p_tempMatB = new blitz::Array<double, 2>(D_A2_Im.rows(), D_A2_Im.cols());
   *p_tempMat = D_A2_Im - (*p_tempMatA);
   #ifdef __DEBUG_FITS_SLITFUNC_FILES__
     CString CS_ImMinusRec("ImMinusRec_");
@@ -16639,7 +16639,7 @@ int CFits::BandSol(int Argc, void *Argv[]) const
       cout << "sum(*P_I_A2_Mask) = " << sum(*P_I_A2_Mask) << endl;
 //    cout << "CFits::SlitFunc: I_IAperture_In = " << I_IAperture_In << ": I_Bin = " << I_Bin << ": D_A2_Im = " << D_A2_Im << endl;
 //    cout << "CFits::SlitFunc: I_IAperture_In = " << I_IAperture_In << ": I_Bin = " << I_Bin << ": SPVecArr x SFVecArr = " << *p_tempMatA << endl;
-      Array<double,2> D_A2_ImTemp(D_A2_Im.rows(), D_A2_Im.cols());
+      blitz::Array<double,2> D_A2_ImTemp(D_A2_Im.rows(), D_A2_Im.cols());
       D_A2_ImTemp = D_A2_Im - (*p_tempMatA);
       cout << "CFits::SlitFunc: I_IAperture_In = " << I_IAperture_In << ": I_Bin = " << I_Bin << ": D_A2_Im[" << D_A2_Im.rows() << ", " << D_A2_Im.cols() << "]" << ", p_tempMatA[" << p_tempMatA->rows() << ", " << p_tempMatA->cols() << "]" << endl;
       cout << "CFits::SlitFunc: I_IAperture_In = " << I_IAperture_In << ": I_Bin = " << I_Bin << ": D_A2_Im - SPVecArr x SFVecArr = " << D_A2_ImTemp << endl;
@@ -16682,7 +16682,7 @@ int CFits::BandSol(int Argc, void *Argv[]) const
 
   /** --- just here to add another set of bad pixels per col to Mask
   if (I_Telluric > 1){
-    Array<double, 2> D_A2_SFTemp(D_A2_Im.rows(), D_A2_Im.cols());
+    blitz::Array<double, 2> D_A2_SFTemp(D_A2_Im.rows(), D_A2_Im.cols());
     D_A2_SFTemp = D_A2_Im;
     for (int o = 0; o < D_A2_Im.rows(); o++){
       if (sum(D_A2_SFTemp(o, Range::all())) > 0.)
@@ -16822,9 +16822,9 @@ int CFits::BandSol(int Argc, void *Argv[]) const
 //  cout << "CFits::SlitFunc: D_A2_Mask = " << D_A2_Mask << endl;
 //  return false;
 
-  Array<double, 1> D_A1_SFO(2);
+  blitz::Array<double, 1> D_A1_SFO(2);
   D_A1_SFO = 0.;
-  Array<double, 2> D_A2_Weights(D_A2_Im.rows(), this->I_OverSample + 1);
+  blitz::Array<double, 2> D_A2_Weights(D_A2_Im.rows(), this->I_OverSample + 1);
   D_A2_Weights = 0.;
   do
   {
@@ -16961,7 +16961,7 @@ int CFits::BandSol(int Argc, void *Argv[]) const
           BKLArr = 0.;
 
           ///      o=omega#omega
-          Array<double, 2> *p_OArr = VecArrACrossB(OmegaVecArr, OmegaVecArr);
+          blitz::Array<double, 2> *p_OArr = VecArrACrossB(OmegaVecArr, OmegaVecArr);
           OArr.resize(p_OArr->rows(),p_OArr->cols());//OmegaVecArr.size(), OmegaVecArr.size());
           OArr = (*p_OArr);
           delete p_OArr;
@@ -17254,7 +17254,7 @@ int CFits::BandSol(int Argc, void *Argv[]) const
 	    P_CS_NumB = CS_OArr.IToA(I_Telluric);
 	    CS_OArr += (*P_CS_NumB);
 	    CS_OArr += CString(".dat");
-	    Array<double, 1> D_A1_OArrBySF(OArr.rows());
+	    blitz::Array<double, 1> D_A1_OArrBySF(OArr.rows());
 	    D_A1_OArrBySF = OArr(Range::all(),0) * double(this->I_OverSample) / sum(D_A2_Im(m, Range::all()));
 	    cout << "CFits::SlitFunc: I_IAperture_In = " << I_IAperture_In << ": I_Bin = " << I_Bin << ": Writing file " << CS_OArr << endl;
 	    this->WriteArrayToFile(D_A1_OArrBySF, CS_OArr, CString("ascii"));
@@ -17374,7 +17374,7 @@ int CFits::BandSol(int Argc, void *Argv[]) const
         Lambda = Lamb_SF * sum(AKLArr(Range::all(), I_OverSample)) / I_NPixSlitF;
         P_TempString->Set("WING_SMOOTH_FACTOR");
         Pos = this->KeyWord_Set(CS_A1_Args_In, *P_TempString);
-        Array<double, 1> D_A1_Lamb_SF(I_NPixSlitF);
+        blitz::Array<double, 1> D_A1_Lamb_SF(I_NPixSlitF);
         if (Pos >= 0)
         {
           D_WingSmoothFactor = *(double*)ArgV_In[Pos];
@@ -17383,7 +17383,7 @@ int CFits::BandSol(int Argc, void *Argv[]) const
         }
         if (Pos >= 0 && D_WingSmoothFactor > 0.){
 	  if (I_Iter_SF == 1){
-            Array<double, 1> *P_D_A1_DIndGen = this->DIndGenArr(I_NPixSlitF);
+            blitz::Array<double, 1> *P_D_A1_DIndGen = this->DIndGenArr(I_NPixSlitF);
 	    D_A1_Lamb_SF = Lambda * (1. + D_WingSmoothFactor * pow2(2. * (*P_D_A1_DIndGen) / (I_NPixSlitF - 1) - 1.));
 	    delete(P_D_A1_DIndGen);
 	  }
@@ -17413,7 +17413,7 @@ int CFits::BandSol(int Argc, void *Argv[]) const
 //          return false;
         }/// end if (Pos >= 0 && D_WingSmoothFactor > 0.){
         else{
-          Array<double, 1> *P_D_A1_Lamb_SF = this->Replicate(Lambda, I_NPixSlitF);
+          blitz::Array<double, 1> *P_D_A1_Lamb_SF = this->Replicate(Lambda, I_NPixSlitF);
           D_A1_Lamb_SF = (*P_D_A1_Lamb_SF);
           delete(P_D_A1_Lamb_SF);
         }
@@ -17666,7 +17666,7 @@ int CFits::BandSol(int Argc, void *Argv[]) const
             cout << "CFits::SlitFunc: I_IAperture_In = " << I_IAperture_In << ": I_Bin = " << I_Bin << ": I_Iter_SF = " << I_Iter_SF << ": for(m==" << m << "): 1. TempDVecArr set to " << TempDVecArr << endl;
             cout << "CFits::SlitFunc: I_IAperture_In = " << I_IAperture_In << ": I_Bin = " << I_Bin << ": Starting Reform: I_NCols_Im = " << I_NCols_Im << ", I_OverSample = " << I_OverSample << endl;
           #endif
-          Array<double, 2> *p_SSFTArr = this->Reform(TempDVecArr, (int)I_NCols_Im, this->I_OverSample);
+          blitz::Array<double, 2> *p_SSFTArr = this->Reform(TempDVecArr, (int)I_NCols_Im, this->I_OverSample);
           #ifdef __DEBUG_FITS_SLITFUNC__
             cout << "CFits::SlitFunc: I_IAperture_In = " << I_IAperture_In << ": I_Bin = " << I_Bin << ": I_IAperture_In = " << I_IAperture_In << endl;
 	    cout << "CFits::SlitFunc: I_IAperture_In = " << I_IAperture_In << ": I_Bin = " << I_Bin << ": Reform finished: p_SSFTArr set to " << *p_SSFTArr << endl;
@@ -17690,7 +17690,7 @@ int CFits::BandSol(int Argc, void *Argv[]) const
           D_A2_TempAA = SSFArr.transpose(secondDim,firstDim);
 
           //TempDVecArr.resize(tempint);
-          Array<double, 1> *p_TempDVecArrBB = this->MatrixTimesVecArr(D_A2_TempAA,
+          blitz::Array<double, 1> *p_TempDVecArrBB = this->MatrixTimesVecArr(D_A2_TempAA,
                                                                       OmegaVecArr);
           #ifdef __DEBUG_FITS_SLITFUNC_N__
             cout << "CFits::SlitFunc: I_IAperture_In = " << I_IAperture_In << ": I_Bin = " << I_Bin << ": I_Iter_SF = " << I_Iter_SF << ": for(m==" << m << "): 2. TempDVecArr set to " << *p_TempDVecArrBB << endl;
@@ -17866,7 +17866,7 @@ int CFits::BandSol(int Argc, void *Argv[]) const
 ///        if(nj lt nrow) then msk[i,b]=1B*(mmsk[use_col,*])[i,b]
 ///        dev_new=dev_new+total(msk[i,*]*(imm[i,*]-norm*o)^2)
               double D_Norm = RVecArr(m) / SPVecArr(m);
-	      Array<int, 1> I_A1_IndArr(D_A2_Im.cols());
+	      blitz::Array<int, 1> I_A1_IndArr(D_A2_Im.cols());
 	      I_A1_IndArr = where(fabs(D_A2_Im(m, Range::all()) - (D_Norm * TempDVecArrB)) > 6. * D_Dev, 1, 0);
               for (int i_ind=0; i_ind<D_A2_Im.cols(); i_ind++){
                 if (I_A1_IndArr(i_ind) == 1){
@@ -18223,7 +18223,7 @@ int CFits::BandSol(int Argc, void *Argv[]) const
         }/// end if (I_Iter_SF != 1)
       }/// end else if (I_Iter_SF != 1 && max(abs(SPVecArr-SPOldVecArr)/max(SPVecArr)) <= 0.00001)
   //    return false;
-      Array<double, 2> D_A2_ImTimesMask_SF(D_A2_Im.rows(), D_A2_Im.cols());
+      blitz::Array<double, 2> D_A2_ImTimesMask_SF(D_A2_Im.rows(), D_A2_Im.cols());
       D_A2_ImTimesMask_SF = D_A2_Im * (*P_I_A2_Mask);
       #ifdef __DEBUG_FITS_SLITFUNC_FILES__
         CString CS_ImTimesMaskSF("ImTimesMask_IterSF");
@@ -18250,7 +18250,7 @@ int CFits::BandSol(int Argc, void *Argv[]) const
     {
       if (P_D_A2_Im_Out != NULL)
         delete P_D_A2_Im_Out;
-      P_D_A2_Im_Out = (Array<double, 2>*)ArgV_In[Pos];
+      P_D_A2_Im_Out = (blitz::Array<double, 2>*)ArgV_In[Pos];
       P_D_A2_Im_Out->resize(D_A2_Im.rows(), D_A2_Im.cols());
       (*P_D_A2_Im_Out) = 0.;
     }
@@ -18277,12 +18277,12 @@ int CFits::BandSol(int Argc, void *Argv[]) const
       //        cout << "CFits::SlitFunc: I_IAperture_In = " << I_IAperture_In << ": I_Bin = " << I_Bin << ": KeyWord_Set(PROF_OUT): KeyWord_Set(USE_ROW): MARK: INTERPOL: FixD(UseRowVecArr) = " << FixD(UseRowVecArr) << endl;
       //        (*P_OFS_Log) << "CFits::SlitFunc: MARK: INTERPOL: KeyWord_Set(PROF_OUT): KeyWord_Set(USE_ROW): FixD(UseRowVecArr) = " << FixD(UseRowVecArr) << endl;
       #endif
-      Array<double, 1> *p_tempDblVecArrA = FixD(UseRowVecArr);
+      blitz::Array<double, 1> *p_tempDblVecArrA = FixD(UseRowVecArr);
       #ifdef __DEBUG_FITS_SLITFUNC__
         cout << "CFits::SlitFunc: I_IAperture_In = " << I_IAperture_In << ": I_Bin = " << I_Bin << ": p_tempDblVecArrA = " << *p_tempDblVecArrA << endl;
         cout << "CFits::SlitFunc: I_IAperture_In = " << I_IAperture_In << ": I_Bin = " << I_Bin << ": D_A1_Ind = " << D_A1_Ind << endl;
       #endif
-      Array<double, 1> *p_tempDblVecArrB = new Array<double,1>(1);
+      blitz::Array<double, 1> *p_tempDblVecArrB = new blitz::Array<double,1>(1);
       if (!this->InterPol(SPVecArr, *p_tempDblVecArrA, D_A1_Ind, p_tempDblVecArrB)){
         cout << "CFits::SlitFunc: I_IAperture_In = " << I_IAperture_In << ": I_Bin = " << I_Bin << ": ERROR: InterPol returned FALSE" << endl;
         return false;
@@ -18393,7 +18393,7 @@ int CFits::BandSol(int Argc, void *Argv[]) const
         (*P_OFS_Log) << "CFits::SlitFunc: ERROR: size of TempDVecArr(=" << TempDVecArr.size() << ") != D_A2_Im.cols(=" << I_NCols_Im << ") * this->I_OverSample(=" << this->I_OverSample << ")" << endl;
         return false;
       }
-      Array<double, 2> *p_D_A2_SSFT = Reform(TempDVecArr, I_NCols_Im, this->I_OverSample);
+      blitz::Array<double, 2> *p_D_A2_SSFT = Reform(TempDVecArr, I_NCols_Im, this->I_OverSample);
       TempDVecArr.resize(0);
       SSFArr = p_D_A2_SSFT->transpose(secondDim, firstDim);
       delete p_D_A2_SSFT;
@@ -18414,7 +18414,7 @@ int CFits::BandSol(int Argc, void *Argv[]) const
         (*P_OFS_Log) << "CFits::SlitFunc: ERROR: OArr.rows(=" << OArr.rows() << ") != D_A2_OT.rows(=" << D_A2_OT.rows() << ")" << endl;
         return false;
       }
-      Array<double, 1> *p_TempDVecArrAA = this->MatrixTimesVecArr(D_A2_OT, OmegaVecArr);
+      blitz::Array<double, 1> *p_TempDVecArrAA = this->MatrixTimesVecArr(D_A2_OT, OmegaVecArr);
       OArr(Range::all(), 0) = (*p_TempDVecArrAA);
       delete p_TempDVecArrAA;
       #ifdef __DEBUG_FITS_SLITFUNC__
@@ -18507,10 +18507,10 @@ int CFits::BandSol(int Argc, void *Argv[]) const
       /** i => m, j => IFirstVecArr, b => TempIVecArr, nj => NInd **/
       #ifdef __PISKUNOV_ORIG__
 //        if (I_Telluric == 1){
-          Array<double, 1> D_A1_TempWhere(D_A2_Im.cols());
-          Array<int, 1> I_A1_IndDev(D_A2_Im.cols());
+          blitz::Array<double, 1> D_A1_TempWhere(D_A2_Im.cols());
+          blitz::Array<int, 1> I_A1_IndDev(D_A2_Im.cols());
 	  I_A1_IndDev = where(fabs(D_A2_Im(m, Range::all()) - SPVecArr(m) * OArr(Range::all(), 0)) < 3. * D_Dev, 1, 0);
-  	  Array<int, 1> *P_I_A1_IndDev = this->GetIndex(I_A1_IndDev, I_NInd);
+  	  blitz::Array<int, 1> *P_I_A1_IndDev = this->GetIndex(I_A1_IndDev, I_NInd);
 
 //        (*P_I_A2_Mask)(m,Range::all())
 ///        if(nj gt 2) then begin
@@ -18521,7 +18521,7 @@ int CFits::BandSol(int Argc, void *Argv[]) const
           double D_SS = 0.;
 	  double D_XX = 0.;
 	  if (I_NInd > 2){
-	    Array<double, 1> D_A1_OArr(I_NInd);
+	    blitz::Array<double, 1> D_A1_OArr(I_NInd);
 	    for (int i_ind=0; i_ind<I_NInd; i_ind++){
 	      D_A1_OArr(i_ind) = OArr((*P_I_A1_IndDev)(i_ind), 0);
 	    }
@@ -18713,7 +18713,7 @@ int CFits::BandSol(int Argc, void *Argv[]) const
 //	cout << "CFits::SlitFunc: I_IAperture_In = " << I_IAperture_In << ": I_Bin = " << I_Bin << ": ERROR: D_A2_SFO.cols(=" << D_A2_SFO.cols() << ") != SFVecArr.size(=" << SFVecArr.size() << ")" << endl;
 //	return false;
 //      }
-      Array<double, 1> D_A1_XX(D_A2_XX.cols());
+      blitz::Array<double, 1> D_A1_XX(D_A2_XX.cols());
       double D_Error = 0.;
       double D_MinError = 10000000000000.;
       double D_Offset = -1.;
@@ -18771,7 +18771,7 @@ int CFits::BandSol(int Argc, void *Argv[]) const
 //      return false;
     } /// end for (int m = 0; m < I_NRows_Im; m++)
 
-    Array<double, 1> D_A1_Fit(P_D_A1_XCorProfOut->size());
+    blitz::Array<double, 1> D_A1_Fit(P_D_A1_XCorProfOut->size());
     D_A1_Fit = 0.;
     if (I_XCorProf > 0){
       #ifdef __DEBUG_FITS_SLITFUNC_N__
@@ -18781,12 +18781,12 @@ int CFits::BandSol(int Argc, void *Argv[]) const
         this->WriteArrayToFile((*P_D_A1_XCorProfOut), CS_DebugFileName, CString("ascii"));
       #endif
       int I_NDeg = 3;
-      Array<double, 1> *P_D_A1_PolyCoeffs = new Array<double, 1>(6);
-      Array<CString, 1> CS_A1_Args_PolyFit(1);
+      blitz::Array<double, 1> *P_D_A1_PolyCoeffs = new blitz::Array<double, 1>(6);
+      blitz::Array<CString, 1> CS_A1_Args_PolyFit(1);
       CS_A1_Args_PolyFit(0) = CString("YFIT");
       void **PP_Args_PolyFit = (void**)malloc(sizeof(void*) * 1);
       PP_Args_PolyFit[0] = &D_A1_Fit;
-      Array<double, 1> *P_D_A1_X = this->DIndGenArr(P_D_A1_XCorProfOut->size());
+      blitz::Array<double, 1> *P_D_A1_X = this->DIndGenArr(P_D_A1_XCorProfOut->size());
       if (!this->PolyFit(*P_D_A1_X,
                          *P_D_A1_XCorProfOut,
                          I_NDeg,
@@ -18804,7 +18804,7 @@ int CFits::BandSol(int Argc, void *Argv[]) const
         this->WriteArrayToFile(D_A1_Fit, CS_DebugFileName, CString("ascii"));
         cout << "CFits::SlitFunc: after PolyFit: P_D_A1_XCorProfOut = " << *P_D_A1_XCorProfOut << endl;
         cout << "CFits::SlitFunc: after PolyFit: D_A1_Fit = " << D_A1_Fit << endl;
-        Array<double, 1> D_A1_Diff(P_D_A1_XCorProfOut->size());
+        blitz::Array<double, 1> D_A1_Diff(P_D_A1_XCorProfOut->size());
         D_A1_Diff = (*P_D_A1_XCorProfOut) - D_A1_Fit;
         CS_DebugFileName.Set("D_A1_XCorProf_Diff");
         CS_DebugFileName.Add(CS_DebugFilesSuffix);
@@ -18818,7 +18818,7 @@ int CFits::BandSol(int Argc, void *Argv[]) const
       (*P_D_A1_XCorProfOut) = D_A1_Fit;
     }
     for (int m=0; m < I_NRows_Im; m++){
-      Array<double, 1> D_A1_XX(D_A2_XX.cols());
+      blitz::Array<double, 1> D_A1_XX(D_A2_XX.cols());
       D_A1_XX = D_A2_XX(m, Range::all()) + D_A1_Fit(m);
 //      D_A1_SFO = D_A2_SFO(m,Range::all());
 //      cout << "CFits::SlitFunc: I_IAperture_In = " << I_IAperture_In << ": I_Bin = " << I_Bin << ": Before IntegralNormalise: D_A1_SFO = " << D_A1_SFO << endl;
@@ -18902,9 +18902,9 @@ int CFits::BandSol(int Argc, void *Argv[]) const
       #endif
 
   ///    y=(dindgen(n)+0.5d0)/float(osample)-1.d0
-      Array<double, 1> *p_tempDblVecArrB = new Array<double,1>(1);
-      Array<int, 1> I_A1_WhereA(XVecArr.size());
-      Array<int, 1> *P_I_A1_IndA;
+      blitz::Array<double, 1> *p_tempDblVecArrB = new blitz::Array<double,1>(1);
+      blitz::Array<int, 1> I_A1_WhereA(XVecArr.size());
+      blitz::Array<int, 1> *P_I_A1_IndA;
       for (int m=0; m < I_NRows_Im, m++){
         for (int mm=0; mm < I_NCols_Im; mm++)
         {
@@ -19020,11 +19020,11 @@ int CFits::BandSol(int Argc, void *Argv[]) const
       int I_RangeMinRow, I_RangeMaxRow, I_RangeMinCol, I_RangeMaxCol;
       int I_RangeWidth = 5;
       int xxx, yyy, zzz, indexRange, i_nrows, i_ncols, i_row, i_col, i_indexTemp;
-      Array<int,1> I_A1_IndicesRange(2 * I_RangeWidth + 1);
-      Array<int,3> I_A3_IndicesRange(1,1,1);//(2 * I_RangeWidth + 1, 2 * I_RangeWidth + 1, 2);
-      Array<int, 2> I_A2_TempArrA(1,1);
-      Array<int, 2> I_A2_TempArr(1,1);
-      Array<int, 2> I_A2_Temp(1,1);
+      blitz::Array<int,1> I_A1_IndicesRange(2 * I_RangeWidth + 1);
+      blitz::Array<int,3> I_A3_IndicesRange(1,1,1);//(2 * I_RangeWidth + 1, 2 * I_RangeWidth + 1, 2);
+      blitz::Array<int, 2> I_A2_TempArrA(1,1);
+      blitz::Array<int, 2> I_A2_TempArr(1,1);
+      blitz::Array<int, 2> I_A2_Temp(1,1);
 
       for (xxx = 0; xxx < P_I_A2_Mask->rows(); xxx++){
         for (yyy = 0; yyy < P_I_A2_Mask->cols(); yyy++){
@@ -19346,18 +19346,18 @@ int CFits::BandSol(int Argc, void *Argv[]) const
 
 
 
-  Array<double, 1> D_A1_CY(D_A2_Im.rows());
+  blitz::Array<double, 1> D_A1_CY(D_A2_Im.rows());
   D_A1_CY = 0.;
-  Array<double, 1> D_A1_CY_SP(D_A2_Im.rows());
+  blitz::Array<double, 1> D_A1_CY_SP(D_A2_Im.rows());
   D_A1_CY_SP = 0.;
-  Array<double, 1> D_A1_DY(D_A2_Im.rows());
+  blitz::Array<double, 1> D_A1_DY(D_A2_Im.rows());
   D_A1_DY = 0.;
 
-  Array<double, 1> D_A1_SumMaskProf(D_A2_Im.rows());
+  blitz::Array<double, 1> D_A1_SumMaskProf(D_A2_Im.rows());
   D_A1_SumMaskProf = 0.;
-  Array<double, 1> D_A1_SumMaskProfSquaredDivByErr(D_A2_Im.rows());
+  blitz::Array<double, 1> D_A1_SumMaskProfSquaredDivByErr(D_A2_Im.rows());
   D_A1_SumMaskProfSquaredDivByErr = 0.;
-  Array<double, 1> D_A1_SPErrHorne(D_A2_Im.rows());
+  blitz::Array<double, 1> D_A1_SPErrHorne(D_A2_Im.rows());
   D_A1_SPErrHorne = 0.;
 
 
@@ -19386,7 +19386,7 @@ int CFits::BandSol(int Argc, void *Argv[]) const
     this->WriteFits(&SFVecArr, CS_SF);
   #endif
 
-/**    Array<double, 1> *P_D_A1_XX = this->DIndGenArr(SFVecArr.size());
+/**    blitz::Array<double, 1> *P_D_A1_XX = this->DIndGenArr(SFVecArr.size());
     SFVecArrTemp.resize(SFVecArr.size());
     SFVecArrTemp = 0.;
     if (!this->IntegralNormalise(*P_D_A1_XX, SFVecArr, SFVecArrTemp)){
@@ -19398,7 +19398,7 @@ int CFits::BandSol(int Argc, void *Argv[]) const
 
 
 
-//  Array<double, 1> D_A1_Axy(D_A2_Im.rows());
+//  blitz::Array<double, 1> D_A1_Axy(D_A2_Im.rows());
 //  D_A1_Axy = 0.;
   double D_Sum_AxySquared = 0.;
   double D_Sum_SigmaSquared_AxySquared = 0.;
@@ -19485,7 +19485,7 @@ int CFits::BandSol(int Argc, void *Argv[]) const
     cout << "CFits::SlitFunc: SPVecArr = " << SPVecArr << endl;
     cout << "CFits::SlitFunc: P_D_A1_SPOut = " << *P_D_A1_SPOut << endl;
     cout << "CFits::SlitFunc: P_D_A1_SPErrOut = " << *P_D_A1_SPErrOut << endl;
-    Array<double, 1> D_A1_SNR(SPVecArr.size());
+    blitz::Array<double, 1> D_A1_SNR(SPVecArr.size());
     D_A1_SNR = SPVecArr / (*P_D_A1_SPErrOut);
     cout << "CFits::SlitFunc: SNR(SPVecArr / P_D_A1_SPErrOut) = " << D_A1_SNR << endl;
     D_A1_SNR = (*P_D_A1_SPOut) / (*P_D_A1_SPErrOut);
@@ -19571,7 +19571,7 @@ int CFits::BandSol(int Argc, void *Argv[]) const
   Pos = this->KeyWord_Set(CS_A1_Args_In,CString("SP_FIT"));
   if (Pos >= 0)
   {
-    Array<double, 1> *P_D_A1_SPFit = (Array<double, 1>*)ArgV_In[Pos];
+    blitz::Array<double, 1> *P_D_A1_SPFit = (blitz::Array<double, 1>*)ArgV_In[Pos];
     P_D_A1_SPFit->resize(D_A1_MySP.size());
     *P_D_A1_SPFit = D_A1_MySP;
   }
@@ -19700,15 +19700,15 @@ Pro slit_func_2d,im,ycen,sp,sf,delta_x,shear_x,OVERSAMPLE=oversample $
              ,MODEL_ONLY=model,WING_SMOOTH_FACTOR=wing_smooth_factor $
              ,UNCERTAINTY=unc
              **/
-bool CFits::SlitFunc_2D(//const Array<double, 2> &D_A2_Im_In,
-			//const Array<double, 1> &D_A1_XCenters_In,
-			//Array<double, 1> &D_A1_SP_Out,
-			//Array<double, 2> &D_A2_SF_Out,
+bool CFits::SlitFunc_2D(//const blitz::Array<double, 2> &D_A2_Im_In,
+			//const blitz::Array<double, 1> &D_A1_XCenters_In,
+			//blitz::Array<double, 1> &D_A1_SP_Out,
+			//blitz::Array<double, 2> &D_A2_SF_Out,
 			//int I_Delta_X_In,
 			//double D_Shear_X_In,
-			const Array<CString, 1> &CS_A1_Args_In,            ///: in
+			const blitz::Array<CString, 1> &CS_A1_Args_In,            ///: in
                         void *PP_ArgsV_In[]){
-  Array<double, 1> D_A1_SF(8);
+  blitz::Array<double, 1> D_A1_SF(8);
   D_A1_SF(0) = 1.;
   D_A1_SF(1) = 2.;
   D_A1_SF(2) = 3.;
@@ -19717,15 +19717,15 @@ bool CFits::SlitFunc_2D(//const Array<double, 2> &D_A2_Im_In,
   D_A1_SF(5) = 2.;
   D_A1_SF(6) = 1.;
   D_A1_SF(7) = 0.;
-  Array<double, 1> D_A1_SP(6);
+  blitz::Array<double, 1> D_A1_SP(6);
   D_A1_SP(0) = 100.;
   D_A1_SP(1) = 120.;
   D_A1_SP(2) = 140.;
   D_A1_SP(3) = 150.;
   D_A1_SP(4) = 160.;
   D_A1_SP(5) = 170.;
-  Array<double, 2> D_A2_Im_In(D_A1_SP.size(), D_A1_SF.size());
-  Array<double, 2> *P_D_A2_Im_In = this->VecArrACrossB(D_A1_SP, D_A1_SF);
+  blitz::Array<double, 2> D_A2_Im_In(D_A1_SP.size(), D_A1_SF.size());
+  blitz::Array<double, 2> *P_D_A2_Im_In = this->VecArrACrossB(D_A1_SP, D_A1_SF);
   cout << "CFits::SlitFunc_2D: P_D_A2_Im_In = " << *P_D_A2_Im_In << endl;
   if (P_D_A2_Im_In->rows() != D_A2_Im_In.rows()){
     cout << "rows wrong" << endl;
@@ -19736,17 +19736,17 @@ bool CFits::SlitFunc_2D(//const Array<double, 2> &D_A2_Im_In,
     return false;
   }
   D_A2_Im_In = (*P_D_A2_Im_In);
-  Array<double, 1> D_A1_XCenters_In(D_A1_SP.size());
+  blitz::Array<double, 1> D_A1_XCenters_In(D_A1_SP.size());
   D_A1_XCenters_In(0) = 0.1;
   D_A1_XCenters_In(1) = 0.25;
   D_A1_XCenters_In(2) = 0.32;
   D_A1_XCenters_In(3) = 0.4;
   D_A1_XCenters_In(4) = 0.45;
   D_A1_XCenters_In(5) = 0.48;
-			//Array<double, 1> &D_A1_SP_Out,
-			//Array<double, 2> &D_A2_SF_Out,
+			//blitz::Array<double, 1> &D_A1_SP_Out,
+			//blitz::Array<double, 2> &D_A2_SF_Out,
   int I_Delta_X_In = 2;
-  Array<double, 1> D_A1_Shear_X_In(D_A1_SP.size());
+  blitz::Array<double, 1> D_A1_Shear_X_In(D_A1_SP.size());
   D_A1_Shear_X_In (0) = 1.7;
   D_A1_Shear_X_In (1) = 1.6;
   D_A1_Shear_X_In (2) = 1.5;
@@ -19757,15 +19757,15 @@ bool CFits::SlitFunc_2D(//const Array<double, 2> &D_A2_Im_In,
   double D_Lambda_SF = 0.1;
   double D_Lambda_SP = 1.;
   double D_Lambda = 0.;
-  Array<double, 1> D_A1_Lambda(1);
+  blitz::Array<double, 1> D_A1_Lambda(1);
   D_A1_Lambda = 0.;
   double D_WingSmoothFactor = 0.;
 
 /// int oversample                        -> int I_OverSample
 /// long osample                          -> int I_OverSample
-/// Array<int, 2> mask (input mask)       -> Array<int, 2> *P_I_A2_Mask_In
-/// Array<int, 2> mmsk (working mask)     -> Array<int, 2> I_A2_Mask
-/// Array<long, 1> oind                   -> Array<long, 1> P_L_A1_OInd
+/// blitz::Array<int, 2> mask (input mask)       -> blitz::Array<int, 2> *P_I_A2_Mask_In
+/// blitz::Array<int, 2> mmsk (working mask)     -> blitz::Array<int, 2> I_A2_Mask
+/// blitz::Array<long, 1> oind                   -> blitz::Array<long, 1> P_L_A1_OInd
 /// double weight                         -> double D_Weight
 /// int ncol                              -> int I_NCols_Im
 /// int nrow                              -> int I_NRows_Im
@@ -19810,7 +19810,7 @@ common bandsolv,band_solv_name
     I_OverSample = 1;
   cout << "CFits::SlitFunc_2D: I_OverSample set to " << I_OverSample << endl;
 
-  Array<long, 1> *P_L_A1_OInd = this->LIndGenArr(I_OverSample+1);
+  blitz::Array<long, 1> *P_L_A1_OInd = this->LIndGenArr(I_OverSample+1);
   *P_L_A1_OInd = (*P_L_A1_OInd) * (I_OverSample + 2);
   cout << "CFits::SlitFunc_2D: P_L_A1_OInd set to " << *P_L_A1_OInd << endl;
   double D_Weight = 1. / double(I_OverSample);
@@ -19829,13 +19829,13 @@ common bandsolv,band_solv_name
   endelse
   **/
 
-  Array<int, 2> *P_I_A2_Mask_In = new Array<int, 2>(D_A2_Im_In.rows(), D_A2_Im_In.cols());
+  blitz::Array<int, 2> *P_I_A2_Mask_In = new blitz::Array<int, 2>(D_A2_Im_In.rows(), D_A2_Im_In.cols());
   *P_I_A2_Mask_In = 1;
   CS_KeyWord.Set("MASK");
   I_Pos = this->KeyWord_Set(CS_A1_Args_In, CS_KeyWord);
   if (I_Pos >= 0){
     delete(P_I_A2_Mask_In);
-    P_I_A2_Mask_In = (Array<int, 2>*)PP_ArgsV_In[I_Pos];
+    P_I_A2_Mask_In = (blitz::Array<int, 2>*)PP_ArgsV_In[I_Pos];
     cout << "CFits::SlitFunc_2D: KeyWord_Set(MASK): P_I_A2_Mask_In set to " << *P_I_A2_Mask_In << endl;
   }
   if ((P_I_A2_Mask_In->size() != D_A2_Im_In.size()) ||
@@ -19845,7 +19845,7 @@ common bandsolv,band_solv_name
     delete(P_I_A2_Mask_In);
     return false;
   }
-  Array<int, 2> I_A2_Mask(D_A2_Im_In.rows(), D_A2_Im_In.cols());
+  blitz::Array<int, 2> I_A2_Mask(D_A2_Im_In.rows(), D_A2_Im_In.cols());
   I_A2_Mask = (*P_I_A2_Mask_In);
 //  delete(P_I_A2_Mask_In)
   cout << "CFits::SlitFunc_2D: I_A2_Mask set to " << I_A2_Mask << endl;
@@ -19900,8 +19900,8 @@ common bandsolv,band_solv_name
 /**
     yslit=dindgen(n_sf)/float(osample)-1.
 **/
-  Array<double, 1> *P_D_A1_IndGen_NSF = this->DIndGenArr(I_NSF);
-  Array<double, 1> D_A1_YSlit(I_NSF);
+  blitz::Array<double, 1> *P_D_A1_IndGen_NSF = this->DIndGenArr(I_NSF);
+  blitz::Array<double, 1> D_A1_YSlit(I_NSF);
   D_A1_YSlit = (*P_D_A1_IndGen_NSF) / double(I_OverSample) - 1.;
   cout << "CFits::SlitFunc_2D: D_A1_YSlit set to " << D_A1_YSlit << endl;
   delete(P_D_A1_IndGen_NSF);
@@ -19911,10 +19911,10 @@ common bandsolv,band_solv_name
     for i=0L,osample do Akl_ind_sf[*,i]=Akl_ind_sf[*,i]+(osample-i)*n_sf+i
     Akl_ind_sf=reform(Akl_ind_sf,n_elements(Akl_ind_sf))
 **/
-  Array<int, 1> *P_I_A1_IndGen_OSample = this->IndGenArr(I_OverSample+1);
+  blitz::Array<int, 1> *P_I_A1_IndGen_OSample = this->IndGenArr(I_OverSample+1);
   *P_I_A1_IndGen_OSample = (*P_I_A1_IndGen_OSample) * I_NSF;
-  Array<int, 1> *P_I_A1_Rep = this->Replicate(1, I_OverSample+1);
-  Array<int, 2> *P_I_A2_AKL_Ind_SF = this->VecArrACrossB(*P_I_A1_Rep,*P_I_A1_IndGen_OSample);
+  blitz::Array<int, 1> *P_I_A1_Rep = this->Replicate(1, I_OverSample+1);
+  blitz::Array<int, 2> *P_I_A2_AKL_Ind_SF = this->VecArrACrossB(*P_I_A1_Rep,*P_I_A1_IndGen_OSample);
   cout << "CFits::SlitFunc_2D: P_I_A2_AKL_Ind_SF set to " << *P_I_A2_AKL_Ind_SF << endl;
   delete(P_I_A1_IndGen_OSample);
   delete(P_I_A1_Rep);
@@ -19922,7 +19922,7 @@ common bandsolv,band_solv_name
     (*P_I_A2_AKL_Ind_SF)(ii, Range::all()) = (*P_I_A2_AKL_Ind_SF)(ii, Range::all()) + ((I_OverSample-ii) * I_NSF) + ii;
   }
   cout << "CFits::SlitFunc_2D: P_I_A2_AKL_Ind_SF set to " << *P_I_A2_AKL_Ind_SF << endl;
-  Array<int, 1> *P_I_A1_AKL_Ind_SF = this->Reform(*P_I_A2_AKL_Ind_SF);
+  blitz::Array<int, 1> *P_I_A1_AKL_Ind_SF = this->Reform(*P_I_A2_AKL_Ind_SF);
   cout << "CFits::SlitFunc_2D: P_I_A1_AKL_Ind_SF set to " << *P_I_A1_AKL_Ind_SF << endl;
   delete(P_I_A2_AKL_Ind_SF);
 
@@ -19935,7 +19935,7 @@ common bandsolv,band_solv_name
   cout << "CFits::SlitFunc_2D: P_I_A1_IndGen = " << *P_I_A1_IndGen_OSample << endl;
   P_I_A1_Rep = this->Replicate(1, I_NX+1);
   cout << "CFits::SlitFunc_2D: P_I_A1_Rep = " << *P_I_A1_Rep << endl;
-  Array<int, 2> *P_I_A2_AKL_Ind_SP = this->VecArrACrossB(*P_I_A1_Rep, *P_I_A1_IndGen_OSample);
+  blitz::Array<int, 2> *P_I_A2_AKL_Ind_SP = this->VecArrACrossB(*P_I_A1_Rep, *P_I_A1_IndGen_OSample);
   cout << "CFits::SlitFunc_2D: P_I_A2_AKL_Ind_SP set to " << *P_I_A2_AKL_Ind_SP << endl;
   for (int ii=0; ii<=I_NX; ii++){
     int I_Temp = ((I_NX - ii)*I_NRows_Im) + ii;
@@ -19958,14 +19958,14 @@ common bandsolv,band_solv_name
       sp=sp/total(sp)*total(imm*msk)
     endif
 **/
-//  Array<double, 1> D_A1_SF(I_NCols_Im);
+//  blitz::Array<double, 1> D_A1_SF(I_NCols_Im);
 
   firstIndex i;
   secondIndex j;
   CS_KeyWord.Set("MODEL");
   I_Pos = this->KeyWord_Set(CS_A1_Args_In, CS_KeyWord);
   if (I_Pos < 0){
-    Array<double, 2> D_A2_ImTimesMask(I_NRows_Im, I_NCols_Im);
+    blitz::Array<double, 2> D_A2_ImTimesMask(I_NRows_Im, I_NCols_Im);
     D_A2_ImTimesMask = D_A2_Im_In * I_A2_Mask;
     D_A1_SF = sum(D_A2_ImTimesMask(j,i), j);
     cout << "CFits::SlitFunc_2D: 1. D_A1_SF set to " << D_A1_SF << endl;
@@ -19974,18 +19974,18 @@ common bandsolv,band_solv_name
       return false;
     }
     if ((I_OverSample > 2) && (D_A1_SF.size() > 5)){
-      Array<double, 1> *P_D_A1_SFMedian = this->MedianVec(D_A1_SF, 5);
+      blitz::Array<double, 1> *P_D_A1_SFMedian = this->MedianVec(D_A1_SF, 5);
       D_A1_SF = (*P_D_A1_SFMedian);
       delete(P_D_A1_SFMedian);
     }
     cout << "CFits::SlitFunc_2D: 2. D_A1_SF set to " << D_A1_SF << endl;
-    Array<double, 1> D_A1_Im_Mean_Rows(I_NCols_Im);
+    blitz::Array<double, 1> D_A1_Im_Mean_Rows(I_NCols_Im);
     D_A1_Im_Mean_Rows = sum(D_A2_Im_In(j,i),j);
     cout << "CFits::SlitFunc_2D: D_A1_Im_Mean_Rows to " << D_A1_Im_Mean_Rows << endl;
-    Array<double, 1> *P_D_A1_Moment = this->Moment(D_A1_Im_Mean_Rows, 1);
+    blitz::Array<double, 1> *P_D_A1_Moment = this->Moment(D_A1_Im_Mean_Rows, 1);
     cout << "CFits::SlitFunc_2D: P_D_A1_Moment set to " << *P_D_A1_Moment << endl;
     if ((*P_D_A1_Moment)(0) < 1000.){
-      Array<double, 1> *P_D_A1_IndGenArr = this->DIndGenArr(I_NCols_Im);
+      blitz::Array<double, 1> *P_D_A1_IndGenArr = this->DIndGenArr(I_NCols_Im);
       *P_D_A1_IndGenArr = pow2(((*P_D_A1_IndGenArr) - I_NCols_Im/2.) / (I_NCols_Im/4.));
       cout << "CFits::SlitFunc_2D: P_D_A1_IndGenArr set to " << *P_D_A1_IndGenArr << endl;
       D_A1_SF = exp(0.-(*P_D_A1_IndGenArr));
@@ -19999,13 +19999,13 @@ common bandsolv,band_solv_name
 //      sp=total((imm*msk)*(replicate(1.,ncol)#sf),2)*norm ; Initial guess for
 //      if(osample gt 2) then sp=median(sp,5)              ; the spectrum
 //      sp=sp/total(sp)*total(imm*msk)
-    Array<double, 1> *P_D_A1_Rep = this->Replicate(1.,I_NRows_Im);
-    Array<double, 2> *P_D_A2_Temp = this->VecArrACrossB(D_A1_SF, *P_D_A1_Rep);
+    blitz::Array<double, 1> *P_D_A1_Rep = this->Replicate(1.,I_NRows_Im);
+    blitz::Array<double, 2> *P_D_A2_Temp = this->VecArrACrossB(D_A1_SF, *P_D_A1_Rep);
     cout << "CFits::SlitFunc_2D: P_D_A2_Temp = " << *P_D_A2_Temp << endl;
     cout << "CFits::SlitFunc_2D: D_A2_ImTimesMask = " << D_A2_ImTimesMask << endl;
-    Array<double, 2> D_A2_Temp(P_D_A2_Temp->rows(), P_D_A2_Temp->cols());
+    blitz::Array<double, 2> D_A2_Temp(P_D_A2_Temp->rows(), P_D_A2_Temp->cols());
     ///(imm*msk)*(replicate(1.,ncol)#sf)
-    Array<double, 2> D_A2_TempA(D_A2_ImTimesMask.cols(), D_A2_ImTimesMask.rows());
+    blitz::Array<double, 2> D_A2_TempA(D_A2_ImTimesMask.cols(), D_A2_ImTimesMask.rows());
     D_A2_TempA = D_A2_ImTimesMask.transpose(secondDim, firstDim);
     cout << "CFits::SlitFunc_2D: D_A2_TempA = " << D_A2_TempA << endl;
     D_A2_Temp = D_A2_TempA * (*P_D_A2_Temp);
@@ -20015,7 +20015,7 @@ common bandsolv,band_solv_name
     D_A1_SP = sum(D_A2_Temp(j,i),j) * D_Norm;
     cout << "CFits::SlitFunc_2D: 1. D_A1_SP = " << D_A1_SP << endl;
     if (I_OverSample > 2){
-      Array<double, 1> *P_D_A1_SPMedian = this->MedianVec(D_A1_SP, 5);
+      blitz::Array<double, 1> *P_D_A1_SPMedian = this->MedianVec(D_A1_SP, 5);
       D_A1_SP = (*P_D_A1_SPMedian);
       delete(P_D_A1_SPMedian);
     }
@@ -20030,8 +20030,8 @@ common bandsolv,band_solv_name
       **/
   int I_Outliers = 0;
   double D_Dev = 0.;
-  Array<double, 2> *P_D_A2_SP_X_SF = this->VecArrACrossB(D_A1_SP, D_A1_SF);
-  Array<double, 2> D_A2_Im_Minus_Rec(I_NRows_Im, I_NCols_Im);
+  blitz::Array<double, 2> *P_D_A2_SP_X_SF = this->VecArrACrossB(D_A1_SP, D_A1_SF);
+  blitz::Array<double, 2> D_A2_Im_Minus_Rec(I_NRows_Im, I_NCols_Im);
   D_A2_Im_Minus_Rec = D_A2_Im_In - (*P_D_A2_SP_X_SF);
   delete(P_D_A2_SP_X_SF);
   cout << "CFits::SlitFunc_2D: D_A2_Im_In - (*P_D_A2_SP_X_SF) = " << D_A2_Im_Minus_Rec << endl;
@@ -20043,7 +20043,7 @@ common bandsolv,band_solv_name
     cout << "CFits::SlitFunc_2D: KeyWord_Set(NOISE): D_Dev set to " << D_Dev << endl;
   }
   else{
-    Array<double, 2> D_A2_Temp(I_NRows_Im, I_NCols_Im);
+    blitz::Array<double, 2> D_A2_Temp(I_NRows_Im, I_NCols_Im);
     D_A2_Temp = pow2(D_A2_Im_Minus_Rec);
     cout << "CFits::SlitFunc_2D: pow2(D_A2_Im_In - (*P_D_A2_SP_X_SF)) = " << D_A2_Temp << endl;
     D_A2_Temp = I_A2_Mask * D_A2_Temp;
@@ -20059,9 +20059,9 @@ common bandsolv,band_solv_name
 ;      stop
     endif
     **/
-  Array<int, 2> I_A2_Where_Outliers(I_NRows_Im, I_NCols_Im);
+  blitz::Array<int, 2> I_A2_Where_Outliers(I_NRows_Im, I_NCols_Im);
   I_A2_Where_Outliers = where(fabs(D_A2_Im_Minus_Rec) > 3. * D_Dev, 1, 0);
-  Array<int, 2> I_A2_Indarr_Outliers(2,2);
+  blitz::Array<int, 2> I_A2_Indarr_Outliers(2,2);
   int I_NInd = 0;
   if (!this->GetIndex(I_A2_Where_Outliers, I_NInd, I_A2_Indarr_Outliers)){
     cout << "CFits::SlitFunc_2D: ERROR: GetIndex(I_A2_Where_Outliers) returned FALSE => Returning FALSE" << endl;
@@ -20083,7 +20083,7 @@ common bandsolv,band_solv_name
     omega=dblarr(nx,osample+1,ncol,nrow)      ; Intermediate values of omega are identical
     omega[delta_x,*,*,*]=weight
     **/
-  Array<double, 4> D_A4_Omega(I_NX, I_OverSample+1, I_NRows_Im, I_NCols_Im);
+  blitz::Array<double, 4> D_A4_Omega(I_NX, I_OverSample+1, I_NRows_Im, I_NCols_Im);
   D_A4_Omega = 0.;
   D_A4_Omega(I_Delta_X_In, Range::all(), Range::all(), Range::all()) = D_Weight;
   cout << "CFits::SlitFunc_2D: D_A4_Omega = " << D_A4_Omega << endl;
@@ -20099,10 +20099,10 @@ common bandsolv,band_solv_name
     iybottom=intarr(ncol)
     **/
   int I_IX = I_Delta_X_In;
-  Array<int, 1> I_A1_SF_Ind(1);
+  blitz::Array<int, 1> I_A1_SF_Ind(1);
   I_A1_SF_Ind = 0;
-  Array<int, 1> I_A1_SF_Ind_Ind(I_NRows_Im);
-  Array<int, 1> I_A1_IYBottom(I_NRows_Im);
+  blitz::Array<int, 1> I_A1_SF_Ind_Ind(I_NRows_Im);
+  blitz::Array<int, 1> I_A1_IYBottom(I_NRows_Im);
 
 /**
     for x=0L,ncol-1L do begin                  ; Omega depends on x through the shift of the central line
@@ -20167,8 +20167,8 @@ common bandsolv,band_solv_name
       }
       D_A4_Omega(I_JX, Range(0, I_I1), i_x, 0) = D_Weight_Bottom;
       cout << "CFits::SlitFunc_2D: i_x = " << i_x << ": i_ix = " << i_ix << ": D_A4_Omega(I_JX=" << I_JX << ", Range(0, I_I1), i_x, 0) = " << D_A4_Omega(I_JX, Range(0, I_I1), i_x, 0) << endl;
-      Array<int, 1> *P_I_A1_IndGenTemp = this->IndGenArr(I_OverSample+1);
-      Array<int, 1> I_A1_SF_Ind_Temp(I_A1_SF_Ind.size()+P_I_A1_IndGenTemp->size());
+      blitz::Array<int, 1> *P_I_A1_IndGenTemp = this->IndGenArr(I_OverSample+1);
+      blitz::Array<int, 1> I_A1_SF_Ind_Temp(I_A1_SF_Ind.size()+P_I_A1_IndGenTemp->size());
       I_A1_SF_Ind_Temp(Range(0, I_A1_SF_Ind.size()-1)) = I_A1_SF_Ind;
       I_A1_SF_Ind_Temp(Range(I_A1_SF_Ind.size(),I_A1_SF_Ind_Temp.size()-1)) = (*P_I_A1_IndGenTemp) + I_I1;
       I_A1_SF_Ind.resize(I_A1_SF_Ind_Temp.size());
@@ -20204,7 +20204,7 @@ common bandsolv,band_solv_name
     sf_ind=sf_ind[1:*]
     sf_ind_ind=[sf_ind_ind-1L,n_elements(sf_ind)]
     **/
-  Array<int, 1> I_A1_SF_Ind_Temp(I_A1_SF_Ind.size()-1);
+  blitz::Array<int, 1> I_A1_SF_Ind_Temp(I_A1_SF_Ind.size()-1);
   I_A1_SF_Ind_Temp = I_A1_SF_Ind(Range(1,toEnd));
   I_A1_SF_Ind.resize(I_A1_SF_Ind_Temp.size());
   I_A1_SF_Ind = I_A1_SF_Ind_Temp;
@@ -20239,13 +20239,13 @@ common bandsolv,band_solv_name
     if (I_IX2 > I_Delta_X_In)
       I_IX2 = I_Delta_X_In;
     cout << "CFits::SlitFunc_2D: i_x = " << i_x << ": I_IX2 = " << I_IX2 << endl;
-    Array<double, 1> D_A1_YY((I_OverSample + 1) * I_NCols_Im);
+    blitz::Array<double, 1> D_A1_YY((I_OverSample + 1) * I_NCols_Im);
     D_A1_YY = 0.;
-    Array<double, 2> D_A2_Om(D_A4_Omega.extent(1), D_A4_Omega.extent(3));
+    blitz::Array<double, 2> D_A2_Om(D_A4_Omega.extent(1), D_A4_Omega.extent(3));
     D_A2_Om = D_A4_Omega(I_Delta_X_In, Range::all(), i_x, Range::all());
     D_A2_Om.transposeSelf(secondDim, firstDim);
-    Array<double, 1> *P_D_A1_Ref = this->Reform(D_A2_Om);
-    Array<double, 1> D_A1_O(P_D_A1_Ref->size());
+    blitz::Array<double, 1> *P_D_A1_Ref = this->Reform(D_A2_Om);
+    blitz::Array<double, 1> D_A1_O(P_D_A1_Ref->size());
     D_A1_O = (*P_D_A1_Ref);
     delete(P_D_A1_Ref);
     cout << "CFits::SlitFunc_2D: i_x = " << i_x << ": D_A1_O = " << D_A1_O << endl;
@@ -20265,26 +20265,26 @@ common bandsolv,band_solv_name
     }
     cout << "CFits::SlitFunc_2D: i_x = " << i_x << ": D_A1_YY = " << D_A1_YY << endl;
 
-    Array<double, 1> D_A1_Shear(D_A1_YY.size());
+    blitz::Array<double, 1> D_A1_Shear(D_A1_YY.size());
     D_A1_Shear = D_A1_Shear_X_In(i_x) * D_A1_YY;
     cout << "CFits::SlitFunc_2D: i_x = " << i_x << ": D_A1_Shear = " << D_A1_Shear << endl;
-    Array<int, 1> *P_I_A1_IX1 = this->Fix(D_A1_Shear);
-    Array<int, 1> I_A1_IX1(P_I_A1_IX1->size());
+    blitz::Array<int, 1> *P_I_A1_IX1 = this->Fix(D_A1_Shear);
+    blitz::Array<int, 1> I_A1_IX1(P_I_A1_IX1->size());
     I_A1_IX1 = (*P_I_A1_IX1);
     delete(P_I_A1_IX1);
     cout << "CFits::SlitFunc_2D: i_x = " << i_x << ": I_A1_IX1 = " << I_A1_IX1 << endl;
-    Array<int, 1> I_A1_Where(D_A1_Shear.size());
+    blitz::Array<int, 1> I_A1_Where(D_A1_Shear.size());
     I_A1_Where = where(D_A1_Shear >= 0., 1, 0);
     int I_NII = 0;
     int I_NJJ = 0;
-    Array<int, 1> *P_I_A1_II = this->GetIndex(I_A1_Where, I_NII);
+    blitz::Array<int, 1> *P_I_A1_II = this->GetIndex(I_A1_Where, I_NII);
     cout << "CFits::SlitFunc_2D: i_x = " << i_x << ": I_NII = " << I_NII << endl;
     cout << "CFits::SlitFunc_2D: i_x = " << i_x << ": P_I_A1_II = " << *P_I_A1_II << endl;
     I_A1_Where = where(D_A1_Shear < 0., 1, 0);
-    Array<int, 1> *P_I_A1_JJ = this->GetIndex(I_A1_Where, I_NJJ);
+    blitz::Array<int, 1> *P_I_A1_JJ = this->GetIndex(I_A1_Where, I_NJJ);
     cout << "CFits::SlitFunc_2D: i_x = " << i_x << ": I_NJJ = " << I_NJJ << endl;
     cout << "CFits::SlitFunc_2D: i_x = " << i_x << ": P_I_A1_JJ = " << *P_I_A1_JJ << endl;
-    Array<int, 1> I_A1_IX2(I_A1_IX1.size());
+    blitz::Array<int, 1> I_A1_IX2(I_A1_IX1.size());
     I_A1_IX2 = I_A1_IX1;
     if (I_NII > 0){
       for (int i_ind = 0; i_ind < P_I_A1_II->size(); i_ind++){
@@ -20345,16 +20345,16 @@ next:
 ;     Compute the new PSF
 ;
       **/
-  Array<double, 1> *P_D_A1_U = this->Replicate(1., I_OverSample+1);
-  Array<double, 1> D_A1_SP_Old(1);
-  Array<double, 1> D_A1_R(1);
+  blitz::Array<double, 1> *P_D_A1_U = this->Replicate(1., I_OverSample+1);
+  blitz::Array<double, 1> D_A1_SP_Old(1);
+  blitz::Array<double, 1> D_A1_R(1);
 
   void **PP_Args_BandSol;
   PP_Args_BandSol = (void**)malloc(sizeof(void*) * 4);
-  Array<int, 1> I_A1_Ind(P_I_A1_AKL_Ind_SF->size());
-  Array<int, 2> I_A2_Ind(P_I_A1_AKL_Ind_SF->size(),2);
-  Array<double, 2> D_A2_Akl(I_NSF, 2*I_OverSample+1);
-  Array<double, 1> D_A1_Bl(I_NSF);
+  blitz::Array<int, 1> I_A1_Ind(P_I_A1_AKL_Ind_SF->size());
+  blitz::Array<int, 2> I_A2_Ind(P_I_A1_AKL_Ind_SF->size(),2);
+  blitz::Array<double, 2> D_A2_Akl(I_NSF, 2*I_OverSample+1);
+  blitz::Array<double, 1> D_A1_Bl(I_NSF);
   int I_X1 = 0;
   int I_X2 = 0;
   int I_JX1 = 0;
@@ -20426,14 +20426,14 @@ next:
 	    cout << "CFits::SlitFunc_2D: I_Iter = " << I_Iter << ": i_x = " << i_x << ": i_y = " << i_y << ": AKL=(" << D_A2_Akl.rows() << "x" << D_A2_Akl.cols() << "): I_A1_Ind(" << i_ind << ") = " << I_A1_Ind(i_ind) << ": I_A2_Ind(" << i_ind << ", *) = " << I_A2_Ind(i_ind, Range::all()) << endl;
 	  }
 //	return false;
-	  Array<double, 1> D_A1_SPTemp(I_IX2 - I_IX1 + 1);
+	  blitz::Array<double, 1> D_A1_SPTemp(I_IX2 - I_IX1 + 1);
 	  D_A1_SPTemp = D_A1_SP(Range(i_x + I_IX1, i_x + I_IX2));
-	  Array<double, 2> *P_D_A2_Tmp = this->VecArrACrossB(D_A1_SPTemp, *P_D_A1_U);
+	  blitz::Array<double, 2> *P_D_A2_Tmp = this->VecArrACrossB(D_A1_SPTemp, *P_D_A1_U);
           cout << "CFits::SlitFunc_2D: I_Iter = " << I_Iter << ": i_x = " << i_x << ": i_y = " << i_y << ": *P_D_A2_Tmp = " << *P_D_A2_Tmp << endl;
           cout << "CFits::SlitFunc_2D: I_Iter = " << I_Iter << ": i_x = " << i_x << ": i_y = " << i_y << ": D_A4_Omega(I_JX1:I_JX2,*,i_x,i_y) = " << D_A4_Omega(Range(I_JX1, I_JX2), Range::all(), i_x, i_y) << endl;
-	  Array<double, 2> D_A2_DummyTemp(P_D_A2_Tmp->rows(), P_D_A2_Tmp->cols());
+	  blitz::Array<double, 2> D_A2_DummyTemp(P_D_A2_Tmp->rows(), P_D_A2_Tmp->cols());
 	  D_A2_DummyTemp = (*P_D_A2_Tmp) * D_A4_Omega(Range(I_JX1, I_JX2), Range::all(), i_x, i_y);
-	  Array<double, 1> D_A1_Dummy(D_A2_DummyTemp.cols());
+	  blitz::Array<double, 1> D_A1_Dummy(D_A2_DummyTemp.cols());
 	  D_A1_Dummy = sum(D_A2_DummyTemp(j,i),j);
           cout << "CFits::SlitFunc_2D: I_Iter = " << I_Iter << ": i_x = " << i_x << ": i_y = " << i_y << ": D_A1_Dummy = " << D_A1_Dummy << endl;
           delete(P_D_A2_Tmp);
@@ -20486,12 +20486,12 @@ next:
       if (I_Pos >= 0){
         D_WingSmoothFactor = *(double*)PP_ArgsV_In[I_Pos];
         cout << "CFits::SlitFunc_2D: I_Iter = " << I_Iter << ": KeyWord_Set(WING_SMOOTH_FACTOR): D_WingSmoothFactor = " << D_WingSmoothFactor << endl;
-        Array<double, 1> *P_D_A1_IndGenN = this->DIndGenArr(I_NSF);
+        blitz::Array<double, 1> *P_D_A1_IndGenN = this->DIndGenArr(I_NSF);
         D_A1_Lambda = D_Lambda * (1. + D_WingSmoothFactor * pow2(2. * (*P_D_A1_IndGenN) / (I_NSF - 1) - 1.));
         delete(P_D_A1_IndGenN);
       }
       else{
-        Array<double, 1> *P_D_A1_RepL = this->Replicate(D_Lambda, I_NSF);
+        blitz::Array<double, 1> *P_D_A1_RepL = this->Replicate(D_Lambda, I_NSF);
         D_A1_Lambda = (*P_D_A1_RepL);
        delete(P_D_A1_RepL);
       }
@@ -20558,7 +20558,7 @@ next:
                     Akl, Bl, n_sf, 2L*osample+1L)
     sf=Bl/total(Bl)*osample
 **/
-      Array<double, 2> D_A2_AklT(D_A2_Akl.cols(), D_A2_Akl.rows());
+      blitz::Array<double, 2> D_A2_AklT(D_A2_Akl.cols(), D_A2_Akl.rows());
       D_A2_AklT = D_A2_Akl.transpose(secondDim, firstDim);
       cout << "CFits::SlitFunc_2D: I_Iter = " << I_Iter << ": Before BandSol: D_A2_AklT = " << D_A2_AklT << endl;
       PP_Args_BandSol[0] = D_A2_AklT.data();
@@ -20640,30 +20640,30 @@ next:
      **/
         for (int i_y = 0; i_y < I_NCols_Im; i_y++){
           cout << "CFits::SlitFunc_2D: I_Iter = " << I_Iter << ": i_x = " << i_x << ": i_y = " << i_y << ": D_A4_Omega(Range(I_JX1, I_JX2), Range::all(), i_x, i_y) = " << D_A4_Omega(Range(I_JX1, I_JX2), Range::all(), i_x, i_y) << endl;
-	  Array<double, 2> D_A2_Om(I_JX2 - I_JX1 + 1, D_A4_Omega.cols());
+	  blitz::Array<double, 2> D_A2_Om(I_JX2 - I_JX1 + 1, D_A4_Omega.cols());
 	  D_A2_Om = D_A4_Omega(Range(I_JX1, I_JX2), Range::all(), i_x, i_y);
-	  Array<int, 1> I_A1_SF_Ind_Temp(I_A1_SF_Ind_Ind(i_x+1)-I_A1_SF_Ind_Ind(i_x));
+	  blitz::Array<int, 1> I_A1_SF_Ind_Temp(I_A1_SF_Ind_Ind(i_x+1)-I_A1_SF_Ind_Ind(i_x));
 	  I_A1_SF_Ind_Temp = I_A1_SF_Ind(Range(I_A1_SF_Ind_Ind(i_x), I_A1_SF_Ind_Ind(i_x+1) - 1)) + i_y * I_OverSample;
 //	cout << "CFits::SlitFunc_2D: i_x = " << i_x << ": i_y = " << i_y << ": I_A1_SF_Ind = " << I_A1_SF_Ind << endl;
 //	cout << "CFits::SlitFunc_2D: i_x = " << i_x << ": i_y = " << i_y << ": I_A1_SF_Ind_Ind = " << I_A1_SF_Ind_Ind << endl;
           cout << "CFits::SlitFunc_2D: I_Iter = " << I_Iter << ": i_x = " << i_x << ": i_y = " << i_y << ": I_A1_SF_Ind_Temp = " << I_A1_SF_Ind_Temp << endl;
-	  Array<double, 1> D_A1_SF_Temp(1);
+	  blitz::Array<double, 1> D_A1_SF_Temp(1);
 	  if (!this->GetSubArrCopy(D_A1_SF, I_A1_SF_Ind_Temp, D_A1_SF_Temp)){
 	    cout << "CFits::SlitFunc_2D: I_Iter = " << I_Iter << ": i_x = " << i_x << ": i_y = " << i_y << ": ERROR: GetSubArrCopy returned FALSE => Returning FALSE" << endl;
 	    return false;
 	  }
 	  cout << "CFits::SlitFunc_2D: I_Iter = " << I_Iter << ": i_x = " << i_x << ": i_y = " << i_y << ": D_A1_SF_Temp = " << D_A1_SF_Temp << endl;
-	  Array<double, 2> *P_D_A2_SF_Ref = this->Reform(D_A1_SF_Temp, I_IX2-I_IX1+1, I_OverSample+1);
+	  blitz::Array<double, 2> *P_D_A2_SF_Ref = this->Reform(D_A1_SF_Temp, I_IX2-I_IX1+1, I_OverSample+1);
 	  cout << "CFits::SlitFunc_2D: I_Iter = " << I_Iter << ": i_x = " << i_x << ": i_y = " << i_y << ": *P_D_A2_SF_Ref = " << *P_D_A2_SF_Ref << endl;
 	  cout << "CFits::SlitFunc_2D: I_Iter = " << I_Iter << ": i_x = " << i_x << ": i_y = " << i_y << ": D_A2_Om = " << D_A2_Om << endl;
-	  Array<double, 1> D_A1_Dummy(P_D_A2_SF_Ref->rows());
-	  Array<double, 2> D_A2_Om_times_SF_Ref(D_A2_Om.rows(), D_A2_Om.cols());
+	  blitz::Array<double, 1> D_A1_Dummy(P_D_A2_SF_Ref->rows());
+	  blitz::Array<double, 2> D_A2_Om_times_SF_Ref(D_A2_Om.rows(), D_A2_Om.cols());
 	  D_A2_Om_times_SF_Ref = D_A2_Om*(*P_D_A2_SF_Ref);
 	  cout << "CFits::SlitFunc_2D: I_Iter = " << I_Iter << ": i_x = " << i_x << ": i_y = " << i_y << ": D_A2_Om_times_SF_Ref = " << D_A2_Om_times_SF_Ref << endl;
 	  D_A1_Dummy = sum(D_A2_Om_times_SF_Ref,j);
 	  cout << "CFits::SlitFunc_2D: I_Iter = " << I_Iter << ": i_x = " << i_x << ": i_y = " << i_y << ": D_A1_Dummy = " << D_A1_Dummy << endl;
 	  delete(P_D_A2_SF_Ref);
-	  Array<double, 2> *P_D_A2_Dum = this->VecArrACrossB(D_A1_Dummy, D_A1_Dummy);
+	  blitz::Array<double, 2> *P_D_A2_Dum = this->VecArrACrossB(D_A1_Dummy, D_A1_Dummy);
 
 	/**
 ;        Aij[x1:x2,x1:x2]=Aij[x1:x2,x1:x2]+(dummy#dummy)*msk[x,y]
@@ -20756,7 +20756,7 @@ next:
       jx2=ix2+delta_x
       **/
       double D_Dev_New = 0.;
-      Array<double, 2> D_A2_Model(D_A2_Im_In.rows(), D_A2_Im_In.cols());
+      blitz::Array<double, 2> D_A2_Model(D_A2_Im_In.rows(), D_A2_Im_In.cols());
       D_A2_Model = 0.;
       for (int i_x = 0; i_x < I_NRows_Im; i_x++){
         I_IX1 = 0 - i_x;
@@ -20782,25 +20782,25 @@ next:
     endfor
     **/
         for (int i_y = 0; i_y < I_NCols_Im; i_y++){
-  	  Array<double, 1> D_A1_SP_Temp(I_IX2 - I_IX1 + 1);
+  	  blitz::Array<double, 1> D_A1_SP_Temp(I_IX2 - I_IX1 + 1);
 	  D_A1_SP_Temp = D_A1_SP(Range(i_x + I_IX1, i_x + I_IX2));
-	  Array<double, 2> *P_D_A2_SP_x_U = this->VecArrACrossB(D_A1_SP_Temp, (*P_D_A1_U));
+	  blitz::Array<double, 2> *P_D_A2_SP_x_U = this->VecArrACrossB(D_A1_SP_Temp, (*P_D_A1_U));
 	  cout << "CFits::SlitFunc_2D: I_Iter = " << I_Iter << ": i_x = " << i_x << ": i_y = " << i_y << ": *P_D_A2_SP_x_U = " << *P_D_A2_SP_x_U << endl;
-	  Array<double, 2> D_A2_Om(I_JX2 - I_JX1 + 1, D_A4_Omega.cols());
+	  blitz::Array<double, 2> D_A2_Om(I_JX2 - I_JX1 + 1, D_A4_Omega.cols());
 	  D_A2_Om = D_A4_Omega(Range(I_JX1, I_JX2), Range::all(), i_x, i_y);
-	  Array<int, 1> I_A1_SF_Ind_Temp(I_A1_SF_Ind_Ind(i_x+1)-I_A1_SF_Ind_Ind(i_x));
+	  blitz::Array<int, 1> I_A1_SF_Ind_Temp(I_A1_SF_Ind_Ind(i_x+1)-I_A1_SF_Ind_Ind(i_x));
 	  I_A1_SF_Ind_Temp = I_A1_SF_Ind(Range(I_A1_SF_Ind_Ind(i_x), I_A1_SF_Ind_Ind(i_x+1) - 1)) + i_y * I_OverSample;
 	  cout << "CFits::SlitFunc_2D: I_Iter = " << I_Iter << ": i_x = " << i_x << ": i_y = " << i_y << ": I_A1_SF_Ind_Temp = " << I_A1_SF_Ind_Temp << endl;
-	  Array<double, 1> D_A1_SF_Temp(1);
+	  blitz::Array<double, 1> D_A1_SF_Temp(1);
 	  if (!this->GetSubArrCopy(D_A1_SF, I_A1_SF_Ind_Temp, D_A1_SF_Temp)){
 	    cout << "CFits::SlitFunc_2D: I_Iter = " << I_Iter << ": i_x = " << i_x << ": i_y = " << i_y << ": ERROR: GetSubArrCopy returned FALSE => Returning FALSE" << endl;
 	    return false;
 	  }
 	  cout << "CFits::SlitFunc_2D: I_Iter = " << I_Iter << ": i_x = " << i_x << ": i_y = " << i_y << ": D_A1_SF_Temp = " << D_A1_SF_Temp << endl;
-	  Array<double, 2> *P_D_A2_SF_Ref = this->Reform(D_A1_SF_Temp, I_IX2-I_IX1+1, I_OverSample+1);
+	  blitz::Array<double, 2> *P_D_A2_SF_Ref = this->Reform(D_A1_SF_Temp, I_IX2-I_IX1+1, I_OverSample+1);
 	  cout << "CFits::SlitFunc_2D: I_Iter = " << I_Iter << ": i_x = " << i_x << ": i_y = " << i_y << ": *P_D_A2_SF_Ref = " << *P_D_A2_SF_Ref << endl;
 	  cout << "CFits::SlitFunc_2D: I_Iter = " << I_Iter << ": i_x = " << i_x << ": i_y = " << i_y << ": D_A2_Om = " << D_A2_Om << endl;
-	  Array<double, 2> D_A2_TempC(D_A2_Om.rows(), D_A2_Om.cols());
+	  blitz::Array<double, 2> D_A2_TempC(D_A2_Om.rows(), D_A2_Om.cols());
 	  D_A2_TempC = (*P_D_A2_SP_x_U) * D_A2_Om * (*P_D_A2_SF_Ref);
 	  cout << "CFits::SlitFunc_2D: I_Iter = " << I_Iter << ": i_x = " << i_x << ": i_y = " << i_y << ": D_A2_TempC = " << D_A2_TempC << endl;
 	  D_A2_Model(i_x, i_y) = sum(D_A2_TempC);
@@ -20838,10 +20838,10 @@ next:
     endfor
 **/
       for (int i_x = 0; i_x < I_NRows_Im; i_x++){
-        Array<int, 1> I_A1_WhereB(D_A2_Im_In.cols());
+        blitz::Array<int, 1> I_A1_WhereB(D_A2_Im_In.cols());
         I_A1_WhereB = where(fabs(D_A2_Im_In(i_x, Range::all()) - D_A2_Model(i_x, Range::all())) > 3. * D_Dev, 1, 0);
         int I_NIndB = 0;
-        Array<int, 1> *P_I_A1_Ind_Where = this->GetIndex(I_A1_WhereB, I_NIndB);
+        blitz::Array<int, 1> *P_I_A1_Ind_Where = this->GetIndex(I_A1_WhereB, I_NIndB);
         if (I_NIndB > 0){
 	  for (int i_ind = 0; i_ind < I_NIndB; i_ind++){
             I_A2_Mask(i_x, (*P_I_A1_Ind_Where)(i_ind)) = 0;
@@ -20892,9 +20892,9 @@ model_only:
         jx1=ix1+delta_x
         jx2=ix2+delta_x
         **/
-    Array<double, 1> D_A1_Unc(I_NRows_Im);
+    blitz::Array<double, 1> D_A1_Unc(I_NRows_Im);
     D_A1_Unc = 0.;
-    Array<double, 2> *P_D_A2_Im_Out = (Array<double, 2>*)PP_ArgsV_In[I_Pos];
+    blitz::Array<double, 2> *P_D_A2_Im_Out = (blitz::Array<double, 2>*)PP_ArgsV_In[I_Pos];
     P_D_A2_Im_Out->resize(I_NRows_Im, I_NCols_Im);
     (*P_D_A2_Im_Out) = 0.;
     for (int i_x = 0; i_x < I_NRows_Im; i_x++){
@@ -20924,25 +20924,25 @@ model_only:
       endfor
       **/
       for (int i_y = 0; i_y < I_NCols_Im; i_y++){
-	Array<double, 1> D_A1_SP_Temp(I_IX2 - I_IX1 + 1);
+	blitz::Array<double, 1> D_A1_SP_Temp(I_IX2 - I_IX1 + 1);
 	D_A1_SP_Temp = D_A1_SP(Range(i_x + I_IX1, i_x + I_IX2));
-	Array<double, 2> *P_D_A2_SP_x_U = this->VecArrACrossB(D_A1_SP_Temp, (*P_D_A1_U));
+	blitz::Array<double, 2> *P_D_A2_SP_x_U = this->VecArrACrossB(D_A1_SP_Temp, (*P_D_A1_U));
 	cout << "CFits::SlitFunc_2D: i_x = " << i_x << ": i_y = " << i_y << ": *P_D_A2_SP_x_U = " << *P_D_A2_SP_x_U << endl;
-	Array<double, 2> D_A2_Om(I_JX2 - I_JX1 + 1, D_A4_Omega.cols());
+	blitz::Array<double, 2> D_A2_Om(I_JX2 - I_JX1 + 1, D_A4_Omega.cols());
 	D_A2_Om = D_A4_Omega(Range(I_JX1, I_JX2), Range::all(), i_x, i_y);
-	Array<int, 1> I_A1_SF_Ind_Temp(I_A1_SF_Ind_Ind(i_x+1)-I_A1_SF_Ind_Ind(i_x));
+	blitz::Array<int, 1> I_A1_SF_Ind_Temp(I_A1_SF_Ind_Ind(i_x+1)-I_A1_SF_Ind_Ind(i_x));
 	I_A1_SF_Ind_Temp = I_A1_SF_Ind(Range(I_A1_SF_Ind_Ind(i_x), I_A1_SF_Ind_Ind(i_x+1) - 1)) + i_y * I_OverSample;
 	cout << "CFits::SlitFunc_2D: i_x = " << i_x << ": i_y = " << i_y << ": I_A1_SF_Ind_Temp = " << I_A1_SF_Ind_Temp << endl;
-	Array<double, 1> D_A1_SF_Temp(1);
+	blitz::Array<double, 1> D_A1_SF_Temp(1);
 	if (!this->GetSubArrCopy(D_A1_SF, I_A1_SF_Ind_Temp, D_A1_SF_Temp)){
 	  cout << "CFits::SlitFunc_2D: i_x = " << i_x << ": i_y = " << i_y << ": ERROR: GetSubArrCopy returned FALSE => Returning FALSE" << endl;
 	  return false;
 	}
 	cout << "CFits::SlitFunc_2D: i_x = " << i_x << ": i_y = " << i_y << ": D_A1_SF_Temp = " << D_A1_SF_Temp << endl;
-	Array<double, 2> *P_D_A2_SF_Ref = this->Reform(D_A1_SF_Temp, I_IX2-I_IX1+1, I_OverSample+1);
+	blitz::Array<double, 2> *P_D_A2_SF_Ref = this->Reform(D_A1_SF_Temp, I_IX2-I_IX1+1, I_OverSample+1);
 	cout << "CFits::SlitFunc_2D: i_x = " << i_x << ": i_y = " << i_y << ": *P_D_A2_SF_Ref = " << *P_D_A2_SF_Ref << endl;
 	cout << "CFits::SlitFunc_2D: i_x = " << i_x << ": i_y = " << i_y << ": D_A2_Om = " << D_A2_Om << endl;
-	Array<double, 2> D_A2_TempC(D_A2_Om.rows(), D_A2_Om.cols());
+	blitz::Array<double, 2> D_A2_TempC(D_A2_Om.rows(), D_A2_Om.cols());
 	D_A2_TempC = (*P_D_A2_SP_x_U) * D_A2_Om * (*P_D_A2_SF_Ref);
 	cout << "CFits::SlitFunc_2D: i_x = " << i_x << ": i_y = " << i_y << ": D_A2_TempC = " << D_A2_TempC << endl;
 	(*P_D_A2_Im_Out)(i_x, i_y) = sum(D_A2_TempC);
@@ -20989,7 +20989,7 @@ end
   KeyWord_Set(const CString &cstr) const
   Returns Position of <cstr> in Array of CStrings <p_cstr>, if <p_cstr> contains CString <cstr>, else returns -1.
  **/
-int CFits::KeyWord_Set(const Array<CString, 1> &CS_A1_In, const CString &cstr) const
+int CFits::KeyWord_Set(const blitz::Array<CString, 1> &CS_A1_In, const CString &cstr) const
 {
   //CString KeyWord("");
   for (int m = 0; m < CS_A1_In.size(); m++)
@@ -21044,7 +21044,7 @@ CString** CFits::CharArrayToCStringArray(char* p_chArr[], int len) const
 
 /**
  FIndGen(int len) const
- Returns Pointer to Array<float> with
+ Returns Pointer to blitz::Array<float> with
  **/
 Vector<float>* CFits::FIndGen(int len) const
 {
@@ -21058,11 +21058,11 @@ Vector<float>* CFits::FIndGen(int len) const
 
 /**
  FIndGenArr(int len) const
- Returns Pointer to Array<float> with
+ Returns Pointer to blitz::Array<float> with
  **/
-Array<float, 1>* CFits::FIndGenArr(int len) const
+blitz::Array<float, 1>* CFits::FIndGenArr(int len) const
 {
-  Array<float, 1> *P_D_A1_Return = new Array<float, 1>(len);
+  blitz::Array<float, 1> *P_D_A1_Return = new blitz::Array<float, 1>(len);
   for (int i=0; i<len; i++)
     (*P_D_A1_Return)(i) = float(i);   // [ -3 -2 -1  0  1  2  3 ]
   return (P_D_A1_Return);
@@ -21070,7 +21070,7 @@ Array<float, 1>* CFits::FIndGenArr(int len) const
 
 /**
 DIndGen(int len) const
-Returns Pointer to Array<double> with
+Returns Pointer to blitz::Array<double> with
 **/
 Vector<double>* CFits::DIndGen(int len) const
 {
@@ -21084,11 +21084,11 @@ Vector<double>* CFits::DIndGen(int len) const
 
 /**
 DIndGenArr(int len) const
-Returns Pointer to Array<double> with
+Returns Pointer to blitz::Array<double> with
 **/
-Array<double, 1>* CFits::DIndGenArr(int len) const
+blitz::Array<double, 1>* CFits::DIndGenArr(int len) const
 {
-  Array<double, 1> *P_D_A1_Return = new Array<double, 1>(len);
+  blitz::Array<double, 1> *P_D_A1_Return = new blitz::Array<double, 1>(len);
   for (int i=0; i<len; i++)
     (*P_D_A1_Return)(i) = double(i);   // [ -3 -2 -1  0  1  2  3 ]
     return (P_D_A1_Return);
@@ -21096,7 +21096,7 @@ Array<double, 1>* CFits::DIndGenArr(int len) const
 
 /**
  LIndGen(int len) const
- Returns Pointer to Array<long> with
+ Returns Pointer to blitz::Array<long> with
  **/
 Vector<long>* CFits::LIndGen(int len) const
 {
@@ -21107,18 +21107,18 @@ Vector<long>* CFits::LIndGen(int len) const
 
 /**
  LIndGenArr(int len) const
- Returns Pointer to Array<long> with
+ Returns Pointer to blitz::Array<long> with
  **/
-Array<long, 1>* CFits::LIndGenArr(int len) const
+blitz::Array<long, 1>* CFits::LIndGenArr(int len) const
 {
-  Array<long, 1> *P_L_A1_Return = new Array<long, 1>(len);
+  blitz::Array<long, 1> *P_L_A1_Return = new blitz::Array<long, 1>(len);
   (*(P_L_A1_Return)) = Range(0,len-1);   // [ -3 -2 -1  0  1  2  3 ]
   return (P_L_A1_Return);
 }
 
 /**
  IndGen(int len) const
- Returns Pointer to Array<long> with
+ Returns Pointer to blitz::Array<long> with
  **/
 Vector<int>* CFits::IndGen(int len) const
 {
@@ -21131,11 +21131,11 @@ Vector<int>* CFits::IndGen(int len) const
 
 /**
  IndGenArr(int len) const
- Returns Pointer to Array<long> with
+ Returns Pointer to blitz::Array<long> with
  **/
-Array<int, 1>* CFits::IndGenArr(int len) const
+blitz::Array<int, 1>* CFits::IndGenArr(int len) const
 {
-  Array<int, 1> *P_I_A1_Result = new Array<int, 1>(len);
+  blitz::Array<int, 1> *P_I_A1_Result = new blitz::Array<int, 1>(len);
   for (int i=0; i<len; i++){
     (*(P_I_A1_Result))(i) = i;   // [ -3 -2 -1  0  1  2  3 ]
   }
@@ -21146,11 +21146,11 @@ Array<int, 1>* CFits::IndGenArr(int len) const
 }
 
 /**
- double Moment(Array<double, 1>) const;
+ double Moment(blitz::Array<double, 1>) const;
  **/
-Array<double,1>* CFits::Moment(const Array<double, 1> &D_A1_Arr_In, int I_MaxMoment_In) const
+blitz::Array<double,1>* CFits::Moment(const blitz::Array<double, 1> &D_A1_Arr_In, int I_MaxMoment_In) const
 {
-  Array<double,1>* P_D_A1_Out = new Array<double,1>(4);
+  blitz::Array<double,1>* P_D_A1_Out = new blitz::Array<double,1>(4);
   *P_D_A1_Out = 0.;
   if ((I_MaxMoment_In < 1) && (D_A1_Arr_In.size() < 2)){
     cout << "CFits::Moment: ERROR: D_A1_Arr_In must contain 2 OR more elements." << endl;
@@ -21163,10 +21163,10 @@ Array<double,1>* CFits::Moment(const Array<double, 1> &D_A1_Arr_In, int I_MaxMom
   double D_Skew = 0.;
 
   if (I_MaxMoment_In > 1){
-    Array<double,1> D_A1_Resid(I_NElements);
+    blitz::Array<double,1> D_A1_Resid(I_NElements);
     D_A1_Resid = D_A1_Arr_In - D_Mean;
 
-    Array<double,1> D_A1_Pow(D_A1_Resid.size());
+    blitz::Array<double,1> D_A1_Pow(D_A1_Resid.size());
     D_A1_Pow = pow(D_A1_Resid,2);
     D_Var = (sum(D_A1_Pow) - (pow2(sum(D_A1_Resid)))/double(I_NElements)) / (double(I_NElements)-1.);
 
@@ -21189,11 +21189,11 @@ Array<double,1>* CFits::Moment(const Array<double, 1> &D_A1_Arr_In, int I_MaxMom
 }
 
 /**
- double Moment(Array<double, 1>) const;
+ double Moment(blitz::Array<double, 1>) const;
  **/
-Array<double,1>* CFits::Moment(const Array<double, 2> &D_A2_Arr_In, int I_MaxMoment_In) const
+blitz::Array<double,1>* CFits::Moment(const blitz::Array<double, 2> &D_A2_Arr_In, int I_MaxMoment_In) const
 {
-  Array<double, 1> D_A1_Temp(D_A2_Arr_In.rows() * D_A2_Arr_In.cols());
+  blitz::Array<double, 1> D_A1_Temp(D_A2_Arr_In.rows() * D_A2_Arr_In.cols());
   for (int i=0; i<D_A2_Arr_In.cols(); i++){
     D_A1_Temp(Range(i*D_A2_Arr_In.rows(), (i+1)*D_A2_Arr_In.rows()-1)) = D_A2_Arr_In(Range::all(), i);
   }
@@ -21201,28 +21201,28 @@ Array<double,1>* CFits::Moment(const Array<double, 2> &D_A2_Arr_In, int I_MaxMom
 }
 
 /**
- double StdDev(Array<double, 1>) const;
+ double StdDev(blitz::Array<double, 1>) const;
  **/
-double CFits::StdDev(const Array<double, 1> &D_A1_Arr_In) const
+double CFits::StdDev(const blitz::Array<double, 1> &D_A1_Arr_In) const
 {
-  Array<double,1>* P_D_A1_Moment = this->Moment(D_A1_Arr_In, 2);
+  blitz::Array<double,1>* P_D_A1_Moment = this->Moment(D_A1_Arr_In, 2);
   double D_Out = sqrt((*P_D_A1_Moment)(1));
   delete(P_D_A1_Moment);
   return D_Out;
 }
 
-double CFits::StdDev(const Array<double, 2> &D_A2_Arr_In) const
+double CFits::StdDev(const blitz::Array<double, 2> &D_A2_Arr_In) const
 {
-  Array<double, 1> D_A1_Temp(D_A2_Arr_In.rows() * D_A2_Arr_In.cols());
+  blitz::Array<double, 1> D_A1_Temp(D_A2_Arr_In.rows() * D_A2_Arr_In.cols());
   for (int i=0; i<D_A2_Arr_In.cols(); i++){
     D_A1_Temp(Range(i*D_A2_Arr_In.rows(), (i+1)*D_A2_Arr_In.rows()-1)) = D_A2_Arr_In(Range::all(), i);
   }
   return this->StdDev(D_A1_Temp);
 }
 
-double CFits::StdDev(const Array<double, 2> &D_A2_Arr_In, bool B_IgnoreZeros) const
+double CFits::StdDev(const blitz::Array<double, 2> &D_A2_Arr_In, bool B_IgnoreZeros) const
 {
-  Array<double, 1> D_A1_Temp(D_A2_Arr_In.rows() * D_A2_Arr_In.cols());
+  blitz::Array<double, 1> D_A1_Temp(D_A2_Arr_In.rows() * D_A2_Arr_In.cols());
   int I_NGood = 0;
   if (!B_IgnoreZeros){
     for (int i=0; i<D_A2_Arr_In.cols(); i++){
@@ -21230,7 +21230,7 @@ double CFits::StdDev(const Array<double, 2> &D_A2_Arr_In, bool B_IgnoreZeros) co
     }
   }
   else{
-    Array<double, 1> D_A1_Tem(D_A2_Arr_In.rows() * D_A2_Arr_In.cols());
+    blitz::Array<double, 1> D_A1_Tem(D_A2_Arr_In.rows() * D_A2_Arr_In.cols());
     D_A1_Tem = 0.;
     for (int i_row = 0; i_row<D_A2_Arr_In.rows(); i_row++){
       for (int i_col = 0; i_col<D_A2_Arr_In.cols(); i_col++){
@@ -21247,11 +21247,11 @@ double CFits::StdDev(const Array<double, 2> &D_A2_Arr_In, bool B_IgnoreZeros) co
 }
 
 /**
- double Median(Array<double, int>) const;
+ double Median(blitz::Array<double, int>) const;
  **/
-int CFits::Median(const Array<int, 1> &Arr) const
+int CFits::Median(const blitz::Array<int, 1> &Arr) const
 {
-  Array<CString, 1> CS_A1_Args_Median(1);
+  blitz::Array<CString, 1> CS_A1_Args_Median(1);
   void **PP_Args_Median;
   PP_Args_Median = (void**)malloc(sizeof(void*) * 1);
 
@@ -21267,9 +21267,9 @@ int CFits::Median(const Array<int, 1> &Arr) const
   return I_Out;
 }
 
-double CFits::Median(const Array<double, 1> &Arr) const
+double CFits::Median(const blitz::Array<double, 1> &Arr) const
 {
-  Array<CString, 1> CS_A1_Args_Median(1);
+  blitz::Array<CString, 1> CS_A1_Args_Median(1);
   void **PP_Args_Median;
   PP_Args_Median = (void**)malloc(sizeof(void*) * 1);
 
@@ -21286,10 +21286,10 @@ double CFits::Median(const Array<double, 1> &Arr) const
 }
 
 /**
-double Median(Array<double, 2>) const;
+double Median(blitz::Array<double, 2>) const;
 **/
-double CFits::Median(const Array<double, 2> &Arr, bool B_IgnoreZeros) const{
-  Array<double, 1> D_A1_Arr(Arr.rows() * Arr.cols());
+double CFits::Median(const blitz::Array<double, 2> &Arr, bool B_IgnoreZeros) const{
+  blitz::Array<double, 1> D_A1_Arr(Arr.rows() * Arr.cols());
   int I_Pos=0;
   int I_N_NoZeros = 0;
   for (int i_row=0; i_row<Arr.rows(); i_row++){
@@ -21311,17 +21311,17 @@ double CFits::Median(const Array<double, 2> &Arr, bool B_IgnoreZeros) const{
 }
 
 /**
-  double Median(Array<double, int> &Arr, CString &Mode) const;
+  double Median(blitz::Array<double, int> &Arr, CString &Mode) const;
   Args: MODE(CString)
-        ERRORS_IN(Array<double, 1>)
+        ERRORS_IN(blitz::Array<double, 1>)
         ERR_OUT(double)
  **/
-int CFits::Median(const Array<int, 1> &Arr, const Array<CString, 1> &CS_A1_Args_In, void *PP_Args_In[]) const
+int CFits::Median(const blitz::Array<int, 1> &Arr, const blitz::Array<CString, 1> &CS_A1_Args_In, void *PP_Args_In[]) const
 {
   int Length = Arr.size();
   int median;
   CString Mode("NORMAL");
-  Array<double, 1> *P_D_A1_Errors;
+  blitz::Array<double, 1> *P_D_A1_Errors;
   double *P_D_ErrOut;
 
   int I_Pos = this->KeyWord_Set(CS_A1_Args_In, CString("MODE"));
@@ -21330,7 +21330,7 @@ int CFits::Median(const Array<int, 1> &Arr, const Array<CString, 1> &CS_A1_Args_
 
   I_Pos = this->KeyWord_Set(CS_A1_Args_In, CString("ERRORS_IN"));
   if (I_Pos >= 0){
-    P_D_A1_Errors = (Array<double, 1>*)PP_Args_In[I_Pos];
+    P_D_A1_Errors = (blitz::Array<double, 1>*)PP_Args_In[I_Pos];
 
     I_Pos = this->KeyWord_Set(CS_A1_Args_In, CString("ERR_OUT"));
     if (I_Pos >= 0)
@@ -21349,7 +21349,7 @@ int CFits::Median(const Array<int, 1> &Arr, const Array<CString, 1> &CS_A1_Args_
 //      *P_D_ErrOut = this->Select(*P_D_A1_Errors, (int)((double)Length / 2.) + 1);
 //    }
 #ifdef __DEBUG_FITS_MEDIAN__
-    cout << "CFits::Median(Array<double, int Length = " << Length << ">, Mode = " << Mode << "): IsOddNumber: median(Arr=" << Arr << ") from Select(" << (int)((double)Length / 2.) + 1 << ") = " << median << endl;
+    cout << "CFits::Median(blitz::Array<double, int Length = " << Length << ">, Mode = " << Mode << "): IsOddNumber: median(Arr=" << Arr << ") from Select(" << (int)((double)Length / 2.) + 1 << ") = " << median << endl;
 #endif
 //    return (median);
   }
@@ -21361,7 +21361,7 @@ int CFits::Median(const Array<int, 1> &Arr, const Array<CString, 1> &CS_A1_Args_
       median = ((this->Select(Arr, (int)((double)Length / 2.))) +
                 (this->Select(Arr, (int)((double)Length / 2.) + 1))) / 2.;
 #ifdef __DEBUG_FITS_MEDIAN__
-      cout << "CFits::Median(Array<double, int Length = " << Length << ">, Mode = " << Mode << "): !IsOddNumber: mean of medians(" << this->Select(Arr, (int)((double)Length / 2.)) << " and " << this->Select(Arr, (int)((double)Length / 2.) + 1) << ") from Select() = " << median << endl;
+      cout << "CFits::Median(blitz::Array<double, int Length = " << Length << ">, Mode = " << Mode << "): !IsOddNumber: mean of medians(" << this->Select(Arr, (int)((double)Length / 2.)) << " and " << this->Select(Arr, (int)((double)Length / 2.) + 1) << ") from Select() = " << median << endl;
 #endif
 //      if (this->KeyWord_Set(CS_A1_Args_In, CString("ERRORS_IN")) >= 0){
 //        *P_D_ErrOut = ((this->Select(*P_D_A1_Errors, (int)((double)Length / 2.))) +
@@ -21373,7 +21373,7 @@ int CFits::Median(const Array<int, 1> &Arr, const Array<CString, 1> &CS_A1_Args_
     {
       median = this->Select(Arr, (int)((double)Length / 2.));
 #ifdef __DEBUG_FITS_MEDIAN__
-      cout << "CFits::Median(Array<double, int Length = " << Length << ">, Mode = " << Mode << "): !IsOddNumber: median from Select(" << (int)((double)Length / 2.) << ") = " << median << endl;
+      cout << "CFits::Median(blitz::Array<double, int Length = " << Length << ">, Mode = " << Mode << "): !IsOddNumber: median from Select(" << (int)((double)Length / 2.) << ") = " << median << endl;
 #endif
 //      if (this->KeyWord_Set(CS_A1_Args_In, CString("ERRORS_IN")) >= 0){
 //        *P_D_ErrOut = this->Select(*P_D_A1_Errors, (int)((double)Length / 2.));
@@ -21394,12 +21394,12 @@ int CFits::Median(const Array<int, 1> &Arr, const Array<CString, 1> &CS_A1_Args_
   return (median);
 }
 
-double CFits::Median(const Array<double, 1> &Arr, const Array<CString, 1> &CS_A1_Args_In, void *PP_Args_In[]) const
+double CFits::Median(const blitz::Array<double, 1> &Arr, const blitz::Array<CString, 1> &CS_A1_Args_In, void *PP_Args_In[]) const
 {
   int Length = Arr.size();
   double median;
   CString Mode("NORMAL");
-  Array<double, 1> *P_D_A1_Errors;
+  blitz::Array<double, 1> *P_D_A1_Errors;
   double *P_D_ErrOut;
 
   int I_Pos = this->KeyWord_Set(CS_A1_Args_In, CString("MODE"));
@@ -21408,7 +21408,7 @@ double CFits::Median(const Array<double, 1> &Arr, const Array<CString, 1> &CS_A1
 
   I_Pos = this->KeyWord_Set(CS_A1_Args_In, CString("ERRORS_IN"));
   if (I_Pos >= 0){
-    P_D_A1_Errors = (Array<double, 1>*)PP_Args_In[I_Pos];
+    P_D_A1_Errors = (blitz::Array<double, 1>*)PP_Args_In[I_Pos];
 
     I_Pos = this->KeyWord_Set(CS_A1_Args_In, CString("ERR_OUT"));
     if (I_Pos >= 0)
@@ -21427,7 +21427,7 @@ double CFits::Median(const Array<double, 1> &Arr, const Array<CString, 1> &CS_A1
 //      *P_D_ErrOut = this->Select(*P_D_A1_Errors, (int)((double)Length / 2.) + 1);
 //    }
 #ifdef __DEBUG_FITS_MEDIAN__
-    cout << "CFits::Median(Array<double, int Length = " << Length << ">, Mode = " << Mode << "): IsOddNumber: median(Arr=" << Arr << ") from Select(" << (int)((double)Length / 2.) + 1 << ") = " << median << endl;
+    cout << "CFits::Median(blitz::Array<double, int Length = " << Length << ">, Mode = " << Mode << "): IsOddNumber: median(Arr=" << Arr << ") from Select(" << (int)((double)Length / 2.) + 1 << ") = " << median << endl;
 #endif
 //    return (median);
   }
@@ -21439,7 +21439,7 @@ double CFits::Median(const Array<double, 1> &Arr, const Array<CString, 1> &CS_A1
       median = ((this->Select(Arr, (int)((double)Length / 2.))) +
                 (this->Select(Arr, (int)((double)Length / 2.) + 1))) / 2.;
 #ifdef __DEBUG_FITS_MEDIAN__
-      cout << "CFits::Median(Array<double, int Length = " << Length << ">, Mode = " << Mode << "): !IsOddNumber: mean of medians(" << this->Select(Arr, (int)((double)Length / 2.)) << " and " << this->Select(Arr, (int)((double)Length / 2.) + 1) << ") from Select() = " << median << endl;
+      cout << "CFits::Median(blitz::Array<double, int Length = " << Length << ">, Mode = " << Mode << "): !IsOddNumber: mean of medians(" << this->Select(Arr, (int)((double)Length / 2.)) << " and " << this->Select(Arr, (int)((double)Length / 2.) + 1) << ") from Select() = " << median << endl;
 #endif
 //      if (this->KeyWord_Set(CS_A1_Args_In, CString("ERRORS_IN")) >= 0){
 //        *P_D_ErrOut = ((this->Select(*P_D_A1_Errors, (int)((double)Length / 2.))) +
@@ -21451,7 +21451,7 @@ double CFits::Median(const Array<double, 1> &Arr, const Array<CString, 1> &CS_A1
     {
       median = this->Select(Arr, (int)((double)Length / 2.));
 #ifdef __DEBUG_FITS_MEDIAN__
-      cout << "CFits::Median(Array<double, int Length = " << Length << ">, Mode = " << Mode << "): !IsOddNumber: median from Select(" << (int)((double)Length / 2.) << ") = " << median << endl;
+      cout << "CFits::Median(blitz::Array<double, int Length = " << Length << ">, Mode = " << Mode << "): !IsOddNumber: median from Select(" << (int)((double)Length / 2.) << ") = " << median << endl;
 #endif
 //      if (this->KeyWord_Set(CS_A1_Args_In, CString("ERRORS_IN")) >= 0){
 //        *P_D_ErrOut = this->Select(*P_D_A1_Errors, (int)((double)Length / 2.));
@@ -21473,15 +21473,15 @@ double CFits::Median(const Array<double, 1> &Arr, const Array<CString, 1> &CS_A1
 }
 
 /**
-  MedianVec(Array<double, int>, int Width, CString &Mode) const;
+  MedianVec(blitz::Array<double, int>, int Width, CString &Mode) const;
  **/
-Array<double, 1>* CFits::MedianVec(const Array<double, 1> &VecArr, int Width, const CString &Mode) const
+blitz::Array<double, 1>* CFits::MedianVec(const blitz::Array<double, 1> &VecArr, int Width, const CString &Mode) const
 {
 #ifdef __DEBUG_FITS_MEDIAN__
   cout << "CFits::MedianVec: VecArr = " << VecArr << endl;
 #endif
   //  CString *P_TempMode = new CString(Mode);
-  Array<double, 1> *P_TempVecArr = new Array<double, 1>(VecArr.size());
+  blitz::Array<double, 1> *P_TempVecArr = new blitz::Array<double, 1>(VecArr.size());
   (*P_TempVecArr) = VecArr;
 #ifdef __DEBUG_FITS_MEDIAN__
   cout << "CFits::MedianVec: TempVecArr = " << TempVecArr << endl;
@@ -21490,7 +21490,7 @@ Array<double, 1>* CFits::MedianVec(const Array<double, 1> &VecArr, int Width, co
   int              m;
   int              Start, End, Length;
   bool             Odd;
-  Array<CString, 1> CS_A1_Args_Median(1);
+  blitz::Array<CString, 1> CS_A1_Args_Median(1);
   CS_A1_Args_Median = CString(" ");
   CS_A1_Args_Median(0) = CString("MODE");
   void **PP_Args_Median = (void**)malloc(sizeof(void*) * 1);
@@ -21504,7 +21504,7 @@ Array<double, 1>* CFits::MedianVec(const Array<double, 1> &VecArr, int Width, co
   if (Width < 2)
     return (P_TempVecArr);
   /** Calculate Median for every Pixel**/
-  Array<double, 1> *P_TmpVecArr = new Array<double, 1>(Length);
+  blitz::Array<double, 1> *P_TmpVecArr = new blitz::Array<double, 1>(Length);
   (*P_TmpVecArr) = (*P_TempVecArr);
   for (m = Width/2; m < Length - Width/2; m++)
   {
@@ -21548,16 +21548,16 @@ Array<double, 1>* CFits::MedianVec(const Array<double, 1> &VecArr, int Width, co
 }
 
 /**
- MedianVec(Array<double, int>, int Width") const;
+ MedianVec(blitz::Array<double, int>, int Width") const;
 **/
-Array<double, 1>* CFits::MedianVec(const Array<double, 1> &arr, int Width) const
+blitz::Array<double, 1>* CFits::MedianVec(const blitz::Array<double, 1> &arr, int Width) const
 {
   CString Mode("NORMAL");
   return this->MedianVec(arr, Width, Mode);
 }
 
-bool CFits::Bottom(const Array<double,1> D_A1_Arr_In, int I_Filter_In, const Array<CString, 1> &CS_A1_Args_In, ///: in
-                   void *ArgV_In[], Array<double,1>* P_D_A1_Out) const
+bool CFits::Bottom(const blitz::Array<double,1> D_A1_Arr_In, int I_Filter_In, const blitz::Array<CString, 1> &CS_A1_Args_In, ///: in
+                   void *ArgV_In[], blitz::Array<double,1>* P_D_A1_Out) const
 {
 #ifdef __DEBUG_FITS_BOTTOM__
   cout << "CFits::Bottom: D_A1_Arr_In = " << D_A1_Arr_In << endl;
@@ -21575,7 +21575,7 @@ bool CFits::Bottom(const Array<double,1> D_A1_Arr_In, int I_Filter_In, const Arr
   double D_Eps, D_MN, D_MX;
   P_D_A1_Out->resize(D_A1_Arr_In.size());
   (*P_D_A1_Out) = D_A1_Arr_In;
-  if ((I_Pos = this->KeyWord_Set(*(const_cast<const Array<CString, 1>*>(&CS_A1_Args_In)), CS_Temp)) >= 0)
+  if ((I_Pos = this->KeyWord_Set(*(const_cast<const blitz::Array<CString, 1>*>(&CS_A1_Args_In)), CS_Temp)) >= 0)
   {
     I_Iter = *(int*)ArgV_In[I_Pos];
 #ifdef __DEBUG_FITS_BOTTOM__
@@ -21590,7 +21590,7 @@ bool CFits::Bottom(const Array<double,1> D_A1_Arr_In, int I_Filter_In, const Arr
   }
 
   CS_Temp.Set("EPS");
-  if ((I_Pos = this->KeyWord_Set(*(const_cast<const Array<CString, 1>*>(&CS_A1_Args_In)), CS_Temp)) >= 0)
+  if ((I_Pos = this->KeyWord_Set(*(const_cast<const blitz::Array<CString, 1>*>(&CS_A1_Args_In)), CS_Temp)) >= 0)
   {
     D_Eps = *(double*)ArgV_In[I_Pos];
 #ifdef __DEBUG_FITS_BOTTOM__
@@ -21605,7 +21605,7 @@ bool CFits::Bottom(const Array<double,1> D_A1_Arr_In, int I_Filter_In, const Arr
   }
 
   CS_Temp.Set("MIN");
-  if ((I_Pos = this->KeyWord_Set(*(const_cast<const Array<CString, 1>*>(&CS_A1_Args_In)), CS_Temp)) >= 0)
+  if ((I_Pos = this->KeyWord_Set(*(const_cast<const blitz::Array<CString, 1>*>(&CS_A1_Args_In)), CS_Temp)) >= 0)
   {
     D_MN = *(double*)ArgV_In[I_Pos];
 #ifdef __DEBUG_FITS_BOTTOM__
@@ -21620,7 +21620,7 @@ bool CFits::Bottom(const Array<double,1> D_A1_Arr_In, int I_Filter_In, const Arr
   }
 
   CS_Temp.Set("MAX");
-  if ((I_Pos = this->KeyWord_Set(*(const_cast<const Array<CString, 1>*>(&CS_A1_Args_In)), CS_Temp)) >= 0)
+  if ((I_Pos = this->KeyWord_Set(*(const_cast<const blitz::Array<CString, 1>*>(&CS_A1_Args_In)), CS_Temp)) >= 0)
   {
     D_MX = *(double*)ArgV_In[I_Pos];
 #ifdef __DEBUG_FITS_BOTTOM__
@@ -21641,15 +21641,15 @@ bool CFits::Bottom(const Array<double,1> D_A1_Arr_In, int I_Filter_In, const Arr
   if(not keyword_set(mx1)) then mx=max(f) else mx=mx1
   if(keyword_set(pol)) then begin**/
 
-  Array<double,1> D_A1_Temp(1);
-  Array<double,1> D_A1_XX(1);
-  Array<double,1> D_A1_F(1);
-  Array<double,1> D_A1_FF(1);
-  Array<double,1> *P_D_A1_FFF = new Array<double,1>(1);
-  Array<double,1> *P_D_A1_TempB;
-  Array<double,1> D_A1_FF_Old(1);
-  Array<int,1> I_A1_Ind(D_A1_Arr_In.size());
-  Array<CString, 1> CS_A1_Args_Middle(10);
+  blitz::Array<double,1> D_A1_Temp(1);
+  blitz::Array<double,1> D_A1_XX(1);
+  blitz::Array<double,1> D_A1_F(1);
+  blitz::Array<double,1> D_A1_FF(1);
+  blitz::Array<double,1> *P_D_A1_FFF = new blitz::Array<double,1>(1);
+  blitz::Array<double,1> *P_D_A1_TempB;
+  blitz::Array<double,1> D_A1_FF_Old(1);
+  blitz::Array<int,1> I_A1_Ind(D_A1_Arr_In.size());
+  blitz::Array<CString, 1> CS_A1_Args_Middle(10);
   CS_A1_Args_Middle = CString(" ");
   void **PP_Args = (void**)malloc(sizeof(void*) * 10);
   int I_Sum,I_N;
@@ -21657,7 +21657,7 @@ bool CFits::Bottom(const Array<double,1> D_A1_Arr_In, int I_Filter_In, const Arr
   int i;
   double D_FMin, D_FMax;
   CS_Temp.Set("POLY");
-  if ((I_Pos = this->KeyWord_Set(*(const_cast<const Array<CString, 1>*>(&CS_A1_Args_In)), CS_Temp)) >= 0)
+  if ((I_Pos = this->KeyWord_Set(*(const_cast<const blitz::Array<CString, 1>*>(&CS_A1_Args_In)), CS_Temp)) >= 0)
   {
 ///    j=where(f ge mn and f le mx, n)
     I_A1_Ind = where(D_A1_Arr_In >= D_MN && D_A1_Arr_In <= D_MX,1,0);
@@ -21728,13 +21728,13 @@ bool CFits::Bottom(const Array<double,1> D_A1_Arr_In, int I_Filter_In, const Arr
     PP_Args[1] = &eps;
 
 #ifdef __DEBUG_FITS_BOTTOM__
-    cout << "CFits::Bottom: !KeyWord_Set(POLY): starting this->Middle(D_A1_F,I_Filter_In,(*const_cast<const Array<CString, 1>*>(&CS_A1_Args_Middle)),PP_Args, P_D_A1_FFF) " << D_A1_FF_Old << endl;
+    cout << "CFits::Bottom: !KeyWord_Set(POLY): starting this->Middle(D_A1_F,I_Filter_In,(*const_cast<const blitz::Array<CString, 1>*>(&CS_A1_Args_Middle)),PP_Args, P_D_A1_FFF) " << D_A1_FF_Old << endl;
 #endif
     D_A1_F.resize(D_A1_Arr_In.size());
     D_A1_F = D_A1_Arr_In;
 
-    if (!this->Middle(D_A1_F,I_Filter_In,(*const_cast<const Array<CString, 1>*>(&CS_A1_Args_Middle)),PP_Args, P_D_A1_FFF)){
-      cout << "CFits::Bottom: ERROR: 1. Middle(D_A1_F,I_Filter_In,(*const_cast<const Array<CString, 1>*>(&CS_A1_Args_Middle)),PP_Args, P_D_A1_FFF) retuned FALSE" << endl;
+    if (!this->Middle(D_A1_F,I_Filter_In,(*const_cast<const blitz::Array<CString, 1>*>(&CS_A1_Args_Middle)),PP_Args, P_D_A1_FFF)){
+      cout << "CFits::Bottom: ERROR: 1. Middle(D_A1_F,I_Filter_In,(*const_cast<const blitz::Array<CString, 1>*>(&CS_A1_Args_Middle)),PP_Args, P_D_A1_FFF) retuned FALSE" << endl;
       P_D_A1_FFF->resize(D_A1_F.size());
       (*P_D_A1_FFF) = -100000;
       return false;
@@ -21784,14 +21784,14 @@ bool CFits::Bottom(const Array<double,1> D_A1_Arr_In, int I_Filter_In, const Arr
   i = 0;
   j = 0;
 ///        next:i=i+1
-//  Array<double,1> *P_D_A1_T = new Array<double,1>(1);
-  Array<double,1> *P_D_A1_PolyFitRes = new Array<double,1>(1);
-  Array<double,1> *P_D_A1_PolyRes;
-  Array<double,1> D_A1_Dev(1);
-  //Array<double,1> D_A1_Temp(1);
+//  blitz::Array<double,1> *P_D_A1_T = new blitz::Array<double,1>(1);
+  blitz::Array<double,1> *P_D_A1_PolyFitRes = new blitz::Array<double,1>(1);
+  blitz::Array<double,1> *P_D_A1_PolyRes;
+  blitz::Array<double,1> D_A1_Dev(1);
+  //blitz::Array<double,1> D_A1_Temp(1);
   double D_Dev;
 //  CS_Temp.Set("POLY");
-//  I_Pos = this->KeyWord_Set(*(const_cast<const Array<CString, 1>*>(&CS_A1_Args_In)), CS_Temp);
+//  I_Pos = this->KeyWord_Set(*(const_cast<const blitz::Array<CString, 1>*>(&CS_A1_Args_In)), CS_Temp);
   while (j < 1){
     i = i+1;
 #ifdef __DEBUG_FITS_BOTTOM__
@@ -21929,7 +21929,7 @@ bool CFits::Bottom(const Array<double,1> D_A1_Arr_In, int I_Filter_In, const Arr
 
 ///          dev=sqrt(opt_filter((t-ff)^2,filter))
       delete(P_D_A1_PolyFitRes);
-      P_D_A1_PolyFitRes = new Array<double,1>(P_D_A1_Out->size());
+      P_D_A1_PolyFitRes = new blitz::Array<double,1>(P_D_A1_Out->size());
       (*P_D_A1_PolyFitRes) = (*P_D_A1_Out)-D_A1_FF;
       (*P_D_A1_PolyFitRes) = where((*P_D_A1_PolyFitRes) < 0., 0., (*P_D_A1_PolyFitRes));
 
@@ -22090,8 +22090,8 @@ bool CFits::Bottom(const Array<double,1> D_A1_Arr_In, int I_Filter_In, const Arr
     print,'      mx     maximum function values to be considered [def: max(f)]'
     return,0
   endif**/
-bool CFits::Middle(const Array<double,1> D_A1_Arr_In, int I_Filter_In, const Array<CString, 1> &CS_A1_Args_In, ///: in
-                   void *ArgV[], Array<double,1>* P_D_A1_Out) const
+bool CFits::Middle(const blitz::Array<double,1> D_A1_Arr_In, int I_Filter_In, const blitz::Array<CString, 1> &CS_A1_Args_In, ///: in
+                   void *ArgV[], blitz::Array<double,1>* P_D_A1_Out) const
 {
   #ifdef __DEBUG_FITS_MIDDLE__
   cout << "CFits::Middle started" << endl;
@@ -22108,17 +22108,17 @@ bool CFits::Middle(const Array<double,1> D_A1_Arr_In, int I_Filter_In, const Arr
   double D_Eps, D_MN, D_MX;
   double D_FMin, D_FMax;
   P_D_A1_Out->resize(D_A1_Arr_In.size());
-  Array<double,1> D_A1_F(1);
-  Array<double,1> D_A1_FF(1);
-  Array<double,1> D_A1_FF_Old(1);
-  Array<double,1> D_A1_XX(1);
-  Array<double,1> *P_D_A1_TempB;
+  blitz::Array<double,1> D_A1_F(1);
+  blitz::Array<double,1> D_A1_FF(1);
+  blitz::Array<double,1> D_A1_FF_Old(1);
+  blitz::Array<double,1> D_A1_XX(1);
+  blitz::Array<double,1> *P_D_A1_TempB;
   (*P_D_A1_Out) = D_A1_Arr_In;
 
   cout << "CFits::Middle: checking for keywords" << endl;
 
   CS_Temp.Set("ITER");
-  if ((I_Pos = this->KeyWord_Set(*(const_cast<const Array<CString, 1>*>(&CS_A1_Args_In)), CS_Temp)) >= 0)
+  if ((I_Pos = this->KeyWord_Set(*(const_cast<const blitz::Array<CString, 1>*>(&CS_A1_Args_In)), CS_Temp)) >= 0)
   {
     I_Iter = *(int*)ArgV[I_Pos];
     #ifdef __DEBUG_FITS_MIDDLE__
@@ -22134,7 +22134,7 @@ bool CFits::Middle(const Array<double,1> D_A1_Arr_In, int I_Filter_In, const Arr
 
   ///        if(not keyword_set(eps)) then eps=0.001
   CS_Temp.Set("EPS");
-  if ((I_Pos = this->KeyWord_Set(*(const_cast<const Array<CString, 1>*>(&CS_A1_Args_In)), CS_Temp)) >= 0)
+  if ((I_Pos = this->KeyWord_Set(*(const_cast<const blitz::Array<CString, 1>*>(&CS_A1_Args_In)), CS_Temp)) >= 0)
   {
     D_Eps = *(double*)ArgV[I_Pos];
     #ifdef __DEBUG_FITS_MIDDLE__
@@ -22150,7 +22150,7 @@ bool CFits::Middle(const Array<double,1> D_A1_Arr_In, int I_Filter_In, const Arr
 
   ///        if(not keyword_set(mn1)) then mn=min(f) else mn=mn1
   CS_Temp.Set("MIN");
-  if ((I_Pos = this->KeyWord_Set(*(const_cast<const Array<CString, 1>*>(&CS_A1_Args_In)), CS_Temp)) >= 0)
+  if ((I_Pos = this->KeyWord_Set(*(const_cast<const blitz::Array<CString, 1>*>(&CS_A1_Args_In)), CS_Temp)) >= 0)
   {
     D_MN = *(double*)ArgV[I_Pos];
     #ifdef __DEBUG_FITS_MIDDLE__
@@ -22166,7 +22166,7 @@ bool CFits::Middle(const Array<double,1> D_A1_Arr_In, int I_Filter_In, const Arr
 
 ///        if(not keyword_set(mx1)) then mx=max(f) else mx=mx1
   CS_Temp.Set("MAX");
-  if ((I_Pos = this->KeyWord_Set(*(const_cast<const Array<CString, 1>*>(&CS_A1_Args_In)), CS_Temp)) >= 0)
+  if ((I_Pos = this->KeyWord_Set(*(const_cast<const blitz::Array<CString, 1>*>(&CS_A1_Args_In)), CS_Temp)) >= 0)
   {
     D_MX = *(double*)ArgV[I_Pos];
     #ifdef __DEBUG_FITS_MIDDLE__
@@ -22181,11 +22181,11 @@ bool CFits::Middle(const Array<double,1> D_A1_Arr_In, int I_Filter_In, const Arr
   }
 ///        if(keyword_set(pol)) then begin
 
-  Array<int, 1> I_A1_Ind(D_A1_Arr_In.size());
+  blitz::Array<int, 1> I_A1_Ind(D_A1_Arr_In.size());
 
   CS_Temp.Set("POLY");
   cout << "CFits::Middle: CS_A1_Args_In = " << CS_A1_Args_In << endl;
-  if ((I_Pos = this->KeyWord_Set(*(const_cast<const Array<CString, 1>*>(&CS_A1_Args_In)), CS_Temp)) >= 0)
+  if ((I_Pos = this->KeyWord_Set(*(const_cast<const blitz::Array<CString, 1>*>(&CS_A1_Args_In)), CS_Temp)) >= 0)
   {
     #ifdef __DEBUG_FITS_MIDDLE__
     cout << "CFits::Middle: KeyWord_Set(POLY) " << endl;
@@ -22209,7 +22209,7 @@ bool CFits::Middle(const Array<double,1> D_A1_Arr_In, int I_Filter_In, const Arr
     }
 
 ///    xx=(2*dindgen(n_elements(f))/(n_elements(f)-1)-1)(j)
-    P_D_A1_TempB = new Array<double,1>(D_A1_Arr_In.size());
+    P_D_A1_TempB = new blitz::Array<double,1>(D_A1_Arr_In.size());
     P_D_A1_Out->resize(P_D_A1_TempB->size());
     (*P_D_A1_Out) = (*P_D_A1_TempB);
     delete(P_D_A1_TempB);
@@ -22297,14 +22297,14 @@ bool CFits::Middle(const Array<double,1> D_A1_Arr_In, int I_Filter_In, const Arr
   i = 0;
   j = 0;
 ///        next:i=i+1
-///  Array<double,1> *P_D_A1_T = new Array<double,1>(1);
-  Array<double,1> *P_D_A1_PolyFitRes = new Array<double,1>(1);
-  Array<double,1> *P_D_A1_PolyRes = new Array<double,1>(1);
-  Array<double,1> D_A1_Dev(1);
-  Array<double,1> D_A1_Temp(1);
+///  blitz::Array<double,1> *P_D_A1_T = new blitz::Array<double,1>(1);
+  blitz::Array<double,1> *P_D_A1_PolyFitRes = new blitz::Array<double,1>(1);
+  blitz::Array<double,1> *P_D_A1_PolyRes = new blitz::Array<double,1>(1);
+  blitz::Array<double,1> D_A1_Dev(1);
+  blitz::Array<double,1> D_A1_Temp(1);
   double D_Dev;
   CS_Temp.Set("POLY");
-  I_Pos = this->KeyWord_Set(*(const_cast<const Array<CString, 1>*>(&CS_A1_Args_In)), CS_Temp);
+  I_Pos = this->KeyWord_Set(*(const_cast<const blitz::Array<CString, 1>*>(&CS_A1_Args_In)), CS_Temp);
   while (j < 1){
     i = i+1;
 ///        if(keyword_set(pol)) then begin
@@ -22468,7 +22468,7 @@ bool CFits::Middle(const Array<double,1> D_A1_Arr_In, int I_Filter_In, const Arr
 
 /** ********************************************************************************/
 
-Array<double,1>* CFits::OptFilter(const Array<double,1> &D_A1_In, int I_Width) const{
+blitz::Array<double,1>* CFits::OptFilter(const blitz::Array<double,1> &D_A1_In, int I_Width) const{
 ///  if((size(y))(0) eq 1 or $
 ///      ((size(y))(0) eq 2 and ((size(y))(1) eq n_elements(y) or $
 ///      (size(y))(2) eq n_elements(y)))) then begin**/
@@ -22476,7 +22476,7 @@ Array<double,1>* CFits::OptFilter(const Array<double,1> &D_A1_In, int I_Width) c
 ///  n=n_elements(y)
   int I_N = D_A1_In.size();
 
-  Array<double,1> *P_D_A1_Out = new Array<double,1>(I_N);
+  blitz::Array<double,1> *P_D_A1_Out = new blitz::Array<double,1>(I_N);
   (*P_D_A1_Out) = D_A1_In;
 ///  if(par eq 0) then return,y
   if (I_Width == 0)
@@ -22484,10 +22484,10 @@ Array<double,1>* CFits::OptFilter(const Array<double,1> &D_A1_In, int I_Width) c
 
 ///  if(keyword_set(dbl)) then begin
 ///  a=replicate(-double(abs(par)),n)
-  Array<double,1>* P_D_A1_A = this->Replicate(-double(abs(I_Width)),I_N);
+  blitz::Array<double,1>* P_D_A1_A = this->Replicate(-double(abs(I_Width)),I_N);
 
   ///  b=[1.d0+abs(par),replicate(1.d0+2.d0*abs(par),n-2),1.d0+abs(par)]
-  Array<double,1>* P_D_A1_B = this->Replicate(1. + 2.*abs(I_Width),I_N);
+  blitz::Array<double,1>* P_D_A1_B = this->Replicate(1. + 2.*abs(I_Width),I_N);
   (*P_D_A1_B)(0) = 1.+abs(I_Width);
   (*P_D_A1_B)(I_N-1) = 1.+abs(I_Width);
 ///  endif else begin
@@ -22496,9 +22496,9 @@ Array<double,1>* CFits::OptFilter(const Array<double,1> &D_A1_In, int I_Width) c
 ///  endelse
 
 ///  f = trisol(a, b, a, double(reform(y)), DOUBLE=dbl)
-  Array<double,1> *P_D_A1_Temp = new Array<double,1>(D_A1_In.size());
+  blitz::Array<double,1> *P_D_A1_Temp = new blitz::Array<double,1>(D_A1_In.size());
   (*P_D_A1_Temp) = D_A1_In;///NO REFORM NEEDED HERE!
-  Array<double,1> *P_D_A1_F = new Array<double,1>(P_D_A1_Temp->size());
+  blitz::Array<double,1> *P_D_A1_F = new blitz::Array<double,1>(P_D_A1_Temp->size());
   if (!this->TriDag(*P_D_A1_A, *P_D_A1_B, *P_D_A1_A, *P_D_A1_Temp, *P_D_A1_F)){
     cout << "CFits::OptFilter: ERROR: TriDag retuned FALSE!" << endl;
     exit(EXIT_FAILURE);
@@ -22511,7 +22511,7 @@ Array<double,1>* CFits::OptFilter(const Array<double,1> &D_A1_In, int I_Width) c
   return(P_D_A1_F);
 }
 
-Array<double,2>* CFits::OptFilter(const Array<double,2> &D_A2_In, int I_XWidth, int I_YWidth, int I_MaxIter) const{
+blitz::Array<double,2>* CFits::OptFilter(const blitz::Array<double,2> &D_A2_In, int I_XWidth, int I_YWidth, int I_MaxIter) const{
 /**
   Function Opt_Filter,y,par,par1,DOUBLE=dbl,MAXIT=maxiter
   print,'Optimal filtering routine:'
@@ -22531,7 +22531,7 @@ Array<double,2>* CFits::OptFilter(const Array<double,2> &D_A2_In, int I_XWidth, 
 ///    if(not keyword_set(par1)) then par1=par
   if (I_YWidth == 0)
     I_YWidth = I_XWidth;
-  Array<double,2> *P_D_A2_Out = new Array<double,2>(D_A2_In.rows(), D_A2_In.cols());
+  blitz::Array<double,2> *P_D_A2_Out = new blitz::Array<double,2>(D_A2_In.rows(), D_A2_In.cols());
   (*P_D_A2_Out) = D_A2_In;
 ///    if(par eq 0 and par1 eq 0) then return,y
 //  if (I_XWidth == 0 and I_YWidth == 0)
@@ -22601,12 +22601,12 @@ Array<double,2>* CFits::OptFilter(const Array<double,2> &D_A2_In, int I_XWidth, 
 }
 
 /**
-  Select(Array<double, int> &Arr, int KThSmallest) const;
+  Select(blitz::Array<double, int> &Arr, int KThSmallest) const;
   Returns the <KThSmallest> value of <Arr>.
  **/
-int CFits::Select(const Array<int, 1> &Arr, int KThSmallest) const
+int CFits::Select(const blitz::Array<int, 1> &Arr, int KThSmallest) const
 {
-  Array<int, 1> *p_TempArr = this->BubbleSort(Arr);
+  blitz::Array<int, 1> *p_TempArr = this->BubbleSort(Arr);
   if (KThSmallest == 0)
     KThSmallest = 1;
   int result = (*p_TempArr)(KThSmallest-1);
@@ -22614,9 +22614,9 @@ int CFits::Select(const Array<int, 1> &Arr, int KThSmallest) const
   delete p_TempArr;
   return result;
 }
-double CFits::Select(const Array<double, 1> &Arr, int KThSmallest) const
+double CFits::Select(const blitz::Array<double, 1> &Arr, int KThSmallest) const
 {
-  Array<double, 1> *p_TempArr = this->BubbleSort(Arr);
+  blitz::Array<double, 1> *p_TempArr = this->BubbleSort(Arr);
   if (KThSmallest == 0)
     KThSmallest = 1;
   double result = (*p_TempArr)(KThSmallest-1);
@@ -22657,9 +22657,9 @@ void CFits::Swap(int &A,int &B) const{
 /**
   Replicate(double Val, int Len);
  **/
-Array<double, 1>* CFits::Replicate(double Val, int Len) const
+blitz::Array<double, 1>* CFits::Replicate(double Val, int Len) const
 {
-  Array<double, 1> *P_TempVecArr = new Array<double, 1>(Len);
+  blitz::Array<double, 1> *P_TempVecArr = new blitz::Array<double, 1>(Len);
   (*P_TempVecArr) = Val;
   return (P_TempVecArr);
 }
@@ -22667,22 +22667,22 @@ Array<double, 1>* CFits::Replicate(double Val, int Len) const
 /**
   Replicate(int Val, int Len);
  **/
-Array<int, 1>* CFits::Replicate(int Val, int Len) const
+blitz::Array<int, 1>* CFits::Replicate(int Val, int Len) const
 {
-  Array<int, 1> *P_TempVecArr = new Array<int, 1>(Len);
+  blitz::Array<int, 1> *P_TempVecArr = new blitz::Array<int, 1>(Len);
   (*P_TempVecArr) = Val;
   return (P_TempVecArr);
 }
 
 /**
- MatrixATimesB(Array<double, 2> &Arr, Array<double, 2> &B);
+ MatrixATimesB(blitz::Array<double, 2> &Arr, blitz::Array<double, 2> &B);
  **/
-Array<double, 2>* CFits::MatrixATimesB(Array<double, 2> &A, Array<double, 2> &B) const
+blitz::Array<double, 2>* CFits::MatrixATimesB(blitz::Array<double, 2> &A, blitz::Array<double, 2> &B) const
 {
 #ifdef __DEBUG_FITS_MULT__
   cout << "CFits::MatrixATimesB(A = " << A << ", B = " << B << ") started" << endl;
 #endif
-  Array<double, 2> *P_TempArray = new Array<double, 2>(A.rows(), B.cols());
+  blitz::Array<double, 2> *P_TempArray = new blitz::Array<double, 2>(A.rows(), B.cols());
   int m, n, o;
   double dtemp;
   (*P_TempArray) = 0.;
@@ -22708,21 +22708,21 @@ Array<double, 2>* CFits::MatrixATimesB(Array<double, 2> &A, Array<double, 2> &B)
 }
 
 /**
- MatrixBTimesA(Array<double, 2> &Arr, Array<double, 2> &B);
+ MatrixBTimesA(blitz::Array<double, 2> &Arr, blitz::Array<double, 2> &B);
  **/
-Array<double, 2>* CFits::MatrixBTimesA(Array<double, 2> &A, Array<double, 2> &B) const
+blitz::Array<double, 2>* CFits::MatrixBTimesA(blitz::Array<double, 2> &A, blitz::Array<double, 2> &B) const
 {
   return this->MatrixATimesB(B, A);
 }
 
 /**
- MatrixTimesVecArr(Array<double, 2> &Arr, Array<double, 1> &B);
+ MatrixTimesVecArr(blitz::Array<double, 2> &Arr, blitz::Array<double, 1> &B);
  **/
-Array<double, 1>* CFits::MatrixTimesVecArr(Array<double, 2> &A, Array<double, 1> &B) const
+blitz::Array<double, 1>* CFits::MatrixTimesVecArr(blitz::Array<double, 2> &A, blitz::Array<double, 1> &B) const
 {
   if (B.size() != A.extent(secondDim))
-    return (new Array<double, 1>(A.extent(firstDim)));
-  Array<double, 2> ProductArr(B.size(), 1);
+    return (new blitz::Array<double, 1>(A.extent(firstDim)));
+  blitz::Array<double, 2> ProductArr(B.size(), 1);
   for (int m = 0; m < B.size(); m++)
     ProductArr(m, 0) = B(m);
 #ifdef __DEBUG_FITS_MULT__
@@ -22730,30 +22730,30 @@ Array<double, 1>* CFits::MatrixTimesVecArr(Array<double, 2> &A, Array<double, 1>
   cout << "CFits::MatrixTimesVecArr: B = " << B << endl;
   cout << "CFits::MatrixTimesVecArr: ProductArr = " << ProductArr << endl;
 #endif
-  //  Array<double, 2> TempMatrix(A.rows(), ProductArr.cols());
-  Array<double, 2> *p_TempMatrix = this->MatrixATimesB(A, ProductArr);
+  //  blitz::Array<double, 2> TempMatrix(A.rows(), ProductArr.cols());
+  blitz::Array<double, 2> *p_TempMatrix = this->MatrixATimesB(A, ProductArr);
 #ifdef __DEBUG_FITS_MULT__
   cout << "CFits::MatrixTimesVecArr: TempMatrix = " << *p_TempMatrix << endl;
 #endif
 //  ProductArr.resize(0,0);
-  Array<double, 1> *p_RefArr = this->Reform(*p_TempMatrix);
+  blitz::Array<double, 1> *p_RefArr = this->Reform(*p_TempMatrix);
   delete p_TempMatrix;
   return p_RefArr;
 }
 
 /**
- VecArrTimesMatrix(Array<double, 1> &Arr, Array<double, 2> &B);
+ VecArrTimesMatrix(blitz::Array<double, 1> &Arr, blitz::Array<double, 2> &B);
  **/
-Array<double, 1>* CFits::VecArrTimesMatrix(Array<double, 1> &A, Array<double, 2> &B) const
+blitz::Array<double, 1>* CFits::VecArrTimesMatrix(blitz::Array<double, 1> &A, blitz::Array<double, 2> &B) const
 {
   if (A.size() != B.extent(firstDim))
   {
 #ifdef __DEBUG_FITS_MULT__
     cout << "CFits::VecArrTimesMatrix: A(=" << A << ").size(=" << A.size() << ") != B(=" << B << ").extent(firstDim)=" << B.extent(firstDim) << " => Returning new VecArr(" << B.extent(secondDim) << ")" << endl;
 #endif
-    return (new Array<double, 1>(B.extent(secondDim)));
+    return (new blitz::Array<double, 1>(B.extent(secondDim)));
   }
-  Array<double, 2> ProductArr(1, A.size());
+  blitz::Array<double, 2> ProductArr(1, A.size());
   for (int m = 0; m < A.size(); m++)
     ProductArr(0, m) = A(m);
 #ifdef __DEBUG_FITS_MULT__
@@ -22761,21 +22761,21 @@ Array<double, 1>* CFits::VecArrTimesMatrix(Array<double, 1> &A, Array<double, 2>
   cout << "CFits::VecArrTimesMatrix: B = " << B << endl;
   cout << "CFits::VecArrTimesMatrix: ProductArr = " << ProductArr << endl;
 #endif
-  Array<double, 2> *p_temp = this->MatrixATimesB(ProductArr, B);
-  Array<double, 1> *p_tempA = this->Reform(*p_temp);
+  blitz::Array<double, 2> *p_temp = this->MatrixATimesB(ProductArr, B);
+  blitz::Array<double, 1> *p_tempA = this->Reform(*p_temp);
   delete p_temp;
   return p_tempA;
 }
 
 /**
- VecArrACrossB(Array<double, 1> &Arr, Array<double, 1> &B);
+ VecArrACrossB(blitz::Array<double, 1> &Arr, blitz::Array<double, 1> &B);
  **/
-Array<double, 2>* CFits::VecArrACrossB(Array<double, 1> &A, Array<double, 1> &B) const
+blitz::Array<double, 2>* CFits::VecArrACrossB(blitz::Array<double, 1> &A, blitz::Array<double, 1> &B) const
 {
   //  if (this->P_TempArray != NULL)
   //    delete(this->P_TempArray);
 
-  Array<double, 2> *P_TempArray = new Array<double, 2>(A.size(), B.size());
+  blitz::Array<double, 2> *P_TempArray = new blitz::Array<double, 2>(A.size(), B.size());
   int m, n;
   double dtemp;
   (*P_TempArray) = 0.;
@@ -22792,14 +22792,14 @@ Array<double, 2>* CFits::VecArrACrossB(Array<double, 1> &A, Array<double, 1> &B)
 }
 
 /**
- VecArrACrossB(Array<int, 1> &Arr, Array<int, 1> &B);
+ VecArrACrossB(blitz::Array<int, 1> &Arr, blitz::Array<int, 1> &B);
  **/
-Array<int, 2>* CFits::VecArrACrossB(Array<int, 1> &A, Array<int, 1> &B) const
+blitz::Array<int, 2>* CFits::VecArrACrossB(blitz::Array<int, 1> &A, blitz::Array<int, 1> &B) const
 {
   //  if (this->P_TempArray != NULL)
   //    delete(this->P_TempArray);
 
-  Array<int, 2> *P_TempArray = new Array<int, 2>(A.size(), B.size());
+  blitz::Array<int, 2> *P_TempArray = new blitz::Array<int, 2>(A.size(), B.size());
   int m, n;
   int dtemp;
   (*P_TempArray) = 0.;
@@ -22816,9 +22816,9 @@ Array<int, 2>* CFits::VecArrACrossB(Array<int, 1> &A, Array<int, 1> &B) const
 }
 
 /**
- VecArrAScalarB(Array<double, 1> &Arr, Array<double, 1> &B);
+ VecArrAScalarB(blitz::Array<double, 1> &Arr, blitz::Array<double, 1> &B);
  **/
-double CFits::VecArrAScalarB(Array<double, 1> &A, Array<double, 1> &B) const
+double CFits::VecArrAScalarB(blitz::Array<double, 1> &A, blitz::Array<double, 1> &B) const
 {
   if (A.extent(firstDim) != B.extent(firstDim))
     return 0.;
@@ -22826,9 +22826,9 @@ double CFits::VecArrAScalarB(Array<double, 1> &A, Array<double, 1> &B) const
 }
 
 /**
- Reform(Array<double, 1> &Arr, int DimA, int DimB);
+ Reform(blitz::Array<double, 1> &Arr, int DimA, int DimB);
  **/
-Array<double, 2>* CFits::Reform(Array<double, 1> &VecArr, int NRow, int NCol) const
+blitz::Array<double, 2>* CFits::Reform(blitz::Array<double, 1> &VecArr, int NRow, int NCol) const
 {
   double *data = //(double*)malloc(sizeof(double) * VecArr.size());
     //data =
@@ -22838,8 +22838,8 @@ Array<double, 2>* CFits::Reform(Array<double, 1> &VecArr, int NRow, int NCol) co
     for (int m = 0; m < VecArr.size(); m++)
       cout << "CFits::Reform(VecArr, NRow, NCol): data[m=" << m << "]=<" << data[m] << ">" << endl;
   #endif
-//  Array<double, 2> *P_TempArray = new Array<double, 2>(data, shape(NRow, NCol), duplicateData);
-  Array<double, 2> *P_TempArray = new Array<double, 2>(NRow, NCol);
+//  blitz::Array<double, 2> *P_TempArray = new blitz::Array<double, 2>(data, shape(NRow, NCol), duplicateData);
+  blitz::Array<double, 2> *P_TempArray = new blitz::Array<double, 2>(NRow, NCol);
   for (int i_row=0; i_row < NRow; i_row++){
     for (int i_col=0; i_col < NCol; i_col++){
       (*P_TempArray)(i_row, i_col) = data[(i_row*NCol) + i_col];
@@ -22856,10 +22856,10 @@ Array<double, 2>* CFits::Reform(Array<double, 1> &VecArr, int NRow, int NCol) co
 }
 
 /**
- Reform(Array<double, 1> &Arr, int DimA, int DimB);
+ Reform(blitz::Array<double, 1> &Arr, int DimA, int DimB);
  Reformates a 2-dimensional array into a vector
  **/
-Array<double, 1>* CFits::Reform(Array<double, 2> &Arr) const
+blitz::Array<double, 1>* CFits::Reform(blitz::Array<double, 2> &Arr) const
 {
   int na = Arr.extent(firstDim);
   int nb = Arr.extent(secondDim);
@@ -22874,7 +22874,7 @@ Array<double, 1>* CFits::Reform(Array<double, 2> &Arr) const
   }
   else
     n = na * nb;
-  Array<double, 1> *P_TempVecArr = new Array<double, 1>(n);
+  blitz::Array<double, 1> *P_TempVecArr = new blitz::Array<double, 1>(n);
   if (na == 1 || nb == 1)
   {
     for (int m = 0; m < n; m++)
@@ -22901,10 +22901,10 @@ Array<double, 1>* CFits::Reform(Array<double, 2> &Arr) const
 }
 
 /**
- Reform(Array<int, 1> &Arr, int DimA, int DimB);
+ Reform(blitz::Array<int, 1> &Arr, int DimA, int DimB);
  Reformates a 2-dimensional array into a Vector
  **/
-Array<int, 1>* CFits::Reform(Array<int, 2> &Arr) const
+blitz::Array<int, 1>* CFits::Reform(blitz::Array<int, 2> &Arr) const
 {
   int na = Arr.extent(firstDim);
   int nb = Arr.extent(secondDim);
@@ -22919,7 +22919,7 @@ Array<int, 1>* CFits::Reform(Array<int, 2> &Arr) const
   }
   else
     n = na * nb;
-  Array<int, 1> *P_TempVecArr = new Array<int, 1>(n);
+  blitz::Array<int, 1> *P_TempVecArr = new blitz::Array<int, 1>(n);
   if (na == 1 || nb == 1)
   {
     for (int m = 0; m < n; m++)
@@ -22946,16 +22946,16 @@ Array<int, 1>* CFits::Reform(Array<int, 2> &Arr) const
 }
 
 /**
-  Reform(Array<double, 2> &Arr, int DimA, int DimB);
+  Reform(blitz::Array<double, 2> &Arr, int DimA, int DimB);
   Reformates an Array
  **
-Array<double, 2>* CFits::Reform(Array<double, 2> &Arr, int DimA, int DimB) const{
+blitz::Array<double, 2>* CFits::Reform(blitz::Array<double, 2> &Arr, int DimA, int DimB) const{
 
 }**/
 
 /**
  void TriDag
- Solves for a vector Array<double, N> UVecArr the tridiagonal linear set given by equation
+ Solves for a vector blitz::Array<double, N> UVecArr the tridiagonal linear set given by equation
   [ b_1  c_1  0  ...                       ]   [  u_1  ]   [  r_1  ]
   [ a_2  b_2  c_2 ...                      ]   [  u_2  ]   [  r_2  ]
   [            ...                         ] * [  ...  ] = [  ...  ]
@@ -22963,12 +22963,12 @@ Array<double, 2>* CFits::Reform(Array<double, 2> &Arr, int DimA, int DimB) const
   [            ...     0     a_N      b_N  ]   [  u_N  ]   [  r_N  ]
  BVecArr(0..N-1), CVecArr(0..N-1), and RVecArr(0..N-1) are input vectors and are not modified.
  **/
-bool CFits::TriDag(Array<double, 1> &AVecArr, Array<double, 1> &BVecArr, Array<double, 1> &CVecArr, Array<double, 1> &RVecArr, Array<double, 1> &UVecArr) const
+bool CFits::TriDag(blitz::Array<double, 1> &AVecArr, blitz::Array<double, 1> &BVecArr, blitz::Array<double, 1> &CVecArr, blitz::Array<double, 1> &RVecArr, blitz::Array<double, 1> &UVecArr) const
 {
   int m;
   double Bet;
   int N = UVecArr.size();
-  Array<double, 1> Gam(N);
+  blitz::Array<double, 1> Gam(N);
 
   if (BVecArr(0) == 0.0)
   {
@@ -23003,7 +23003,7 @@ bool CFits::TriDag(Array<double, 1> &AVecArr, Array<double, 1> &BVecArr, Array<d
 /**
   LsToFit
  **/
-bool CFits::LsToFit(const Array<double, 1> &XXVecArr, const Array<double, 1> &YVecArr, const double &XM, double &D_Out) const
+bool CFits::LsToFit(const blitz::Array<double, 1> &XXVecArr, const blitz::Array<double, 1> &YVecArr, const double &XM, double &D_Out) const
 {
 #ifdef __DEBUG_FITS_INTERPOL__
   (*P_OFS_Log) << "CFits::LsToFit(XXVecArr = " << XXVecArr << ", YVecArr = " << YVecArr << ", XM = " << XM << ") Started" << endl;
@@ -23014,7 +23014,7 @@ bool CFits::LsToFit(const Array<double, 1> &XXVecArr, const Array<double, 1> &YV
 
   //x = xx - xx[0]
   ///Normalize to preserve significance.
-  Array<double, 1> XVecArr(XXVecArr.size());
+  blitz::Array<double, 1> XVecArr(XXVecArr.size());
   XVecArr = XXVecArr - XXVecArr(0);
 
   //ndegree = 2L
@@ -23031,10 +23031,10 @@ bool CFits::LsToFit(const Array<double, 1> &XXVecArr, const Array<double, 1> &YV
 
   //corrm = fltarr(ndegree+1, ndegree+1)
   ///Correlation matrix
-  Array<double, 2> CorrMArr(NDegree + 1, NDegree + 1);
+  blitz::Array<double, 2> CorrMArr(NDegree + 1, NDegree + 1);
 
   //b = fltarr(ndegree+1)
-  Array<double, 1> BVecArr(NDegree + 1);
+  blitz::Array<double, 1> BVecArr(NDegree + 1);
 
   //corrm[0,0] = n
   ///0 - Form the normal equations
@@ -23051,14 +23051,14 @@ bool CFits::LsToFit(const Array<double, 1> &XXVecArr, const Array<double, 1> &YV
 
   //z = x
   ///1
-  Array<double, 1> ZVecArr(XXVecArr.size());
+  blitz::Array<double, 1> ZVecArr(XXVecArr.size());
   ZVecArr = XVecArr;
 #ifdef __DEBUG_FITS_LSTOFIT__
   cout << "CFits::LsToFit: ZVecArr set to " << ZVecArr << endl;
 #endif
 
   //b[1] = total(y*z)
-  Array<double, 1> TempVecArr(YVecArr.size());
+  blitz::Array<double, 1> TempVecArr(YVecArr.size());
   TempVecArr = YVecArr;
   TempVecArr *= ZVecArr;
   BVecArr(1) = sum(TempVecArr);
@@ -23126,7 +23126,7 @@ bool CFits::LsToFit(const Array<double, 1> &XXVecArr, const Array<double, 1> &YV
 #endif
 
   //c = b # invert(corrm)
-  Array<double, 2> CorrInvMArr;
+  blitz::Array<double, 2> CorrInvMArr;
   CorrInvMArr.resize(CorrMArr.rows(), CorrMArr.cols());
   CorrInvMArr = CorrMArr;
   if (!InvertGaussJ(CorrInvMArr)){
@@ -23136,7 +23136,7 @@ bool CFits::LsToFit(const Array<double, 1> &XXVecArr, const Array<double, 1> &YV
 #ifdef __DEBUG_FITS_LSTOFIT__
   cout << "CFits::LsToFit: CorrInvMArr set to " << CorrInvMArr << endl;
 #endif
-  Array<double, 1> *p_CVecArr = this->VecArrTimesMatrix(BVecArr, CorrInvMArr);
+  blitz::Array<double, 1> *p_CVecArr = this->VecArrTimesMatrix(BVecArr, CorrInvMArr);
 #ifdef __DEBUG_FITS_LSTOFIT__
   cout << "CFits::LsToFit: p_CVecArr set to " << *p_CVecArr << endl;
 #endif
@@ -23164,12 +23164,12 @@ bool CFits::LsToFit(const Array<double, 1> &XXVecArr, const Array<double, 1> &YV
 /**
   HInterPol
  **/
-bool CFits::HInterPol(const Array<double, 1> &VVecArr,
-                      const Array<double, 1> &XVecArr,
-                      Array<int, 1> &SVecArr,
-                      const Array<double, 1> &UVecArr,
-                      const Array<CString, 1> &CS_A1_In,
-                      Array<double,1>* P_D1_Out) const
+bool CFits::HInterPol(const blitz::Array<double, 1> &VVecArr,
+                      const blitz::Array<double, 1> &XVecArr,
+                      blitz::Array<int, 1> &SVecArr,
+                      const blitz::Array<double, 1> &UVecArr,
+                      const blitz::Array<CString, 1> &CS_A1_In,
+                      blitz::Array<double,1>* P_D1_Out) const
 {
 #ifdef __DEBUG_FITS_INTERPOL__
   cout << "CFits::HInterPol: VVecArr.size() = " << VVecArr.size() << endl;
@@ -23183,58 +23183,58 @@ bool CFits::HInterPol(const Array<double, 1> &VVecArr,
   int M = VVecArr.size();
   firstIndex i;
 
-  Array<int, 1> IA1_Temp(SVecArr.size());
+  blitz::Array<int, 1> IA1_Temp(SVecArr.size());
   IA1_Temp = 0;
 
-  Array<double, 1> DA1_Temp(SVecArr.size());
+  blitz::Array<double, 1> DA1_Temp(SVecArr.size());
   DA1_Temp = 0.;
 
-  Array<double, 1> DA1_TempA(SVecArr.size());
+  blitz::Array<double, 1> DA1_TempA(SVecArr.size());
   DA1_TempA = 0.;
 
-  Array<double, 1> DA1_VTempP1(SVecArr.size());
+  blitz::Array<double, 1> DA1_VTempP1(SVecArr.size());
   DA1_VTempP1 = 0.;
 
-  Array<double, 1> DA1_VTemp(SVecArr.size());
+  blitz::Array<double, 1> DA1_VTemp(SVecArr.size());
   DA1_VTemp = 0.;
 
-  Array<double, 1> DA1_XTempP1(SVecArr.size());
+  blitz::Array<double, 1> DA1_XTempP1(SVecArr.size());
   DA1_XTempP1 = 0.;
 
-  Array<double, 1> DA1_XTemp(SVecArr.size());
+  blitz::Array<double, 1> DA1_XTemp(SVecArr.size());
   DA1_XTemp = 0.;
 
-  Array<int, 1> IA1_STemp(SVecArr.size());
+  blitz::Array<int, 1> IA1_STemp(SVecArr.size());
   IA1_STemp = 0;
 
-  Array<double, 1> PVecArr(SVecArr.size());
+  blitz::Array<double, 1> PVecArr(SVecArr.size());
   PVecArr = 0.;
 
-  Array<double, 1> TmpVecArr(4);
+  blitz::Array<double, 1> TmpVecArr(4);
   TmpVecArr = i;
 
-  Array<double, 1> T1VecArr(4);
+  blitz::Array<double, 1> T1VecArr(4);
   T1VecArr = 0.;
 
-  Array<double, 1> T2VecArr(4);
+  blitz::Array<double, 1> T2VecArr(4);
   T2VecArr = 0.;
 
-  Array<double, 1> X1VecArr(SVecArr.size());
+  blitz::Array<double, 1> X1VecArr(SVecArr.size());
   X1VecArr = 0.;
 
-  Array<double, 1> X0VecArr(SVecArr.size());
+  blitz::Array<double, 1> X0VecArr(SVecArr.size());
   X0VecArr = 0.;
 
-  Array<double, 1> X2VecArr(SVecArr.size());
+  blitz::Array<double, 1> X2VecArr(SVecArr.size());
   X2VecArr = 0.;
 
-  Array<double, 1> X0Arr(4);
+  blitz::Array<double, 1> X0Arr(4);
   X0Arr = 0.;
 
-  Array<double, 1> V0Arr(4);
+  blitz::Array<double, 1> V0Arr(4);
   V0Arr = 0.;
 
-  Array<double, 1> QArr(SVecArr.size());
+  blitz::Array<double, 1> QArr(SVecArr.size());
   QArr = 0.;
 
   /**
@@ -23276,7 +23276,7 @@ bool CFits::HInterPol(const Array<double, 1> &VVecArr,
 #ifdef __DEBUG_FITS_INTERPOL__
       cout << "CFits::HInterPol: Starting LsToFit(T1VecArr, T2VecArr, UVecArr(m)" << endl;
 #endif
-      if (!LsToFit(*(const_cast<const Array<double, 1>*>(&T1VecArr)), *(const_cast<const Array<double, 1>*>(&T2VecArr)), UVecArr(m), PVecArr(m)))
+      if (!LsToFit(*(const_cast<const blitz::Array<double, 1>*>(&T1VecArr)), *(const_cast<const blitz::Array<double, 1>*>(&T2VecArr)), UVecArr(m), PVecArr(m)))
         return false;
     }
   }
@@ -23490,13 +23490,13 @@ bool CFits::HInterPol(const Array<double, 1> &VVecArr,
   V0Arr.resize(0);
   QArr.resize(0);
 **/
-  Array<double, 1> *P_PVecArr = new Array<double, 1>(PVecArr.size());
+  blitz::Array<double, 1> *P_PVecArr = new blitz::Array<double, 1>(PVecArr.size());
   (*P_PVecArr) = PVecArr;
 
   PVecArr.resize(0);
 
   if (P_D1_Out == NULL)
-    P_D1_Out = new Array<double, 1>(1);
+    P_D1_Out = new blitz::Array<double, 1>(1);
   P_D1_Out->resize(P_PVecArr->size());
   (*P_D1_Out) = (*P_PVecArr);
   delete(P_PVecArr);
@@ -23506,26 +23506,26 @@ bool CFits::HInterPol(const Array<double, 1> &VVecArr,
 /**
   InterPol linear, not regular
  **/
-bool CFits::InterPol(const Array<double, 1> &VVecArr,
-                     const Array<double, 1> &XVecArr,
-                     const Array<double, 1> &UVecArr,
-                     Array<double,1>* P_A1_Out) const
+bool CFits::InterPol(const blitz::Array<double, 1> &VVecArr,
+                     const blitz::Array<double, 1> &XVecArr,
+                     const blitz::Array<double, 1> &UVecArr,
+                     blitz::Array<double,1>* P_A1_Out) const
 {
   return this->InterPol(VVecArr, XVecArr, UVecArr, P_A1_Out, false);
 }
 
-bool CFits::InterPol(const Array<double, 1> &VVecArr,
-                     const Array<double, 1> &XVecArr,
-                     const Array<double, 1> &UVecArr,
-                     Array<double,1>* P_D_A1_Out,
+bool CFits::InterPol(const blitz::Array<double, 1> &VVecArr,
+                     const blitz::Array<double, 1> &XVecArr,
+                     const blitz::Array<double, 1> &UVecArr,
+                     blitz::Array<double,1>* P_D_A1_Out,
                      bool B_PreserveFlux) const
 {
-  Array<CString, 1> cs_a1(1);
+  blitz::Array<CString, 1> cs_a1(1);
   cs_a1 = CString(" ");
   P_D_A1_Out->resize(UVecArr.size());
   if (B_PreserveFlux){
-    Array<double, 1> D_A1_U(2);
-    Array<double, 1> D_A1_X(XVecArr.size() + 1);
+    blitz::Array<double, 1> D_A1_U(2);
+    blitz::Array<double, 1> D_A1_X(XVecArr.size() + 1);
     D_A1_X(0) = XVecArr(0) - ((XVecArr(1) - XVecArr(0))/2.);
     D_A1_X(D_A1_X.size()-1) = XVecArr(XVecArr.size()-1) + ((XVecArr(XVecArr.size()-1) - XVecArr(XVecArr.size()-2))/2.);
     for (int i_pix=1; i_pix<XVecArr.size(); i_pix++){
@@ -23536,8 +23536,8 @@ bool CFits::InterPol(const Array<double, 1> &VVecArr,
       cout << "CFits::InterPol: D_A1_X = " << D_A1_X << endl;
     #endif
 
-    Array<int, 1> I_A1_Ind(D_A1_X.size());
-    Array<int, 1> *P_I_A1_Ind;
+    blitz::Array<int, 1> I_A1_Ind(D_A1_X.size());
+    blitz::Array<int, 1> *P_I_A1_Ind;
     int I_Start = 0;
     int I_End = 0;
     int I_NInd = 0;
@@ -23633,7 +23633,7 @@ bool CFits::InterPol(const Array<double, 1> &VVecArr,
     return true;
   }
 
-  if (!this->InterPol(VVecArr, XVecArr, UVecArr, *(const_cast<const Array<CString, 1>*>(&cs_a1)), P_D_A1_Out)){
+  if (!this->InterPol(VVecArr, XVecArr, UVecArr, *(const_cast<const blitz::Array<CString, 1>*>(&cs_a1)), P_D_A1_Out)){
     cout << "CFits::InterPol: ERROR: InterPol returned FALSE" << endl;
     return false;
   }
@@ -23650,11 +23650,11 @@ bool CFits::InterPol(const Array<double, 1> &VVecArr,
 /**
   InterPol irregular
  **/
-bool CFits::InterPol(const Array<double, 1> &VVecArr,
-                     const Array<double, 1> &XVecArr,
-                     const Array<double, 1> &UVecArr,
-                     const Array<CString, 1> &CS_A1_In,
-                     Array<double,1> *P_D_A1_Out) const
+bool CFits::InterPol(const blitz::Array<double, 1> &VVecArr,
+                     const blitz::Array<double, 1> &XVecArr,
+                     const blitz::Array<double, 1> &UVecArr,
+                     const blitz::Array<CString, 1> &CS_A1_In,
+                     blitz::Array<double,1> *P_D_A1_Out) const
 {
 #ifdef __DEBUG_FITS_INTERPOL__
   cout << "CFits::InterPol: VVecArr.size() = " << VVecArr.size() << endl;
@@ -23802,11 +23802,11 @@ bool CFits::InterPol(const Array<double, 1> &VVecArr,
     cout << "CFits::InterPol: ERROR: XVecArr and VVecArr must have same # of elements!" << endl;
     return false;
   }
-  Array<int, 1> *p_SVecArr = this->ValueLocate(XVecArr, UVecArr);
+  blitz::Array<int, 1> *p_SVecArr = this->ValueLocate(XVecArr, UVecArr);
   #ifdef __DEBUG_FITS_INTERPOL__
     cout << "CFits::InterPol(D_A1_V, D_A1_X, D_A1_U, CS_A1_In): SVecArr set to " << *p_SVecArr << endl;
   #endif
-  Array<int, 1> SVecArr(p_SVecArr->size());
+  blitz::Array<int, 1> SVecArr(p_SVecArr->size());
   SVecArr = (*p_SVecArr);
   delete p_SVecArr;
   SVecArr = where(SVecArr < 0, 0, SVecArr);
@@ -23822,7 +23822,7 @@ bool CFits::InterPol(const Array<double, 1> &VVecArr,
 #ifdef __DEBUG_FITS_INTERPOL__
   cout << "CFits::InterPol(D_A1_V, D_A1_X, D_A1_U, CS_A1_In): Starting HInterPol " << endl;
 #endif
-//  Array<double, 1> *P_ResultVecArr;
+//  blitz::Array<double, 1> *P_ResultVecArr;
   if (!this->HInterPol(VVecArr, XVecArr, SVecArr, UVecArr, CS_A1_In, P_D_A1_Out)){
     cout << "CFits::InterPol: ERROR: HInterPol returned FALSE" << endl;
     return false;
@@ -23839,10 +23839,10 @@ bool CFits::InterPol(const Array<double, 1> &VVecArr,
 /**
   InterPol
  **/
-bool CFits::InterPol(Array<double, 1> &VVecArr,
+bool CFits::InterPol(blitz::Array<double, 1> &VVecArr,
                      long N,
-                     const Array<CString, 1> &CS_A1_In,
-                     Array<double,1> *P_D_A1_Out) const
+                     const blitz::Array<CString, 1> &CS_A1_In,
+                     blitz::Array<double,1> *P_D_A1_Out) const
 {
   /*
   FUNCTION INTERPOL, V, N, SPLINE=spline, LSQUADRATIC=ls2, QUADRATIC=quad
@@ -23930,24 +23930,24 @@ bool CFits::InterPol(Array<double, 1> &VVecArr,
     endif
     */
   firstIndex i;
-  Array<double, 1> UVecArr(N);       /// Grid points
+  blitz::Array<double, 1> UVecArr(N);       /// Grid points
   UVecArr = i;
   double divisor = N - 1.0;
 # ifdef __DEBUG_FITS_INTERPOL__
   cout << "CFits::InterPol: divisor set to " << divisor << endl;
 #endif
-  Array<double, 1> RVecArr(N);
+  blitz::Array<double, 1> RVecArr(N);
   RVecArr = i;
-  Array<int, 1> SVecArr(UVecArr.size());
+  blitz::Array<int, 1> SVecArr(UVecArr.size());
   UVecArr = 0;
-  Array<double, 1> DifVecArr(VVecArr.size() - 1);
+  blitz::Array<double, 1> DifVecArr(VVecArr.size() - 1);
   VVecArr = 0.;
-  Array<double, 1> DA1_VTemp(RVecArr.size());
+  blitz::Array<double, 1> DA1_VTemp(RVecArr.size());
   DA1_VTemp = 0.;
-  Array<double, 1> DA1_DifTemp(RVecArr.size());
+  blitz::Array<double, 1> DA1_DifTemp(RVecArr.size());
   DA1_DifTemp = 0.;
   double n = (double)N;
-  Array<double,1> *P_D_A1_TempB;
+  blitz::Array<double,1> *P_D_A1_TempB;
 
   if (this->KeyWord_Set(CS_A1_In, CString("LSQUADRATIC")) < 0
       && this->KeyWord_Set(CS_A1_In, CString("QUADRATIC")) < 0
@@ -23960,7 +23960,7 @@ bool CFits::InterPol(Array<double, 1> &VVecArr,
     cout << "CFits::InterPol: RVecArr set to " << RVecArr << endl;
 #endif
 
-    Array<int, 1> *p_RLVecArr = Fix(RVecArr);   // Conversion to Integer
+    blitz::Array<int, 1> *p_RLVecArr = Fix(RVecArr);   // Conversion to Integer
     SVecArr = VVecArr.size();
 # ifdef __DEBUG_FITS_INTERPOL__
     cout << "CFits::InterPol: SVecArr set to " << SVecArr << endl;
@@ -23972,7 +23972,7 @@ bool CFits::InterPol(Array<double, 1> &VVecArr,
     */
     if (SVecArr(SVecArr(0) + 1) == 1)
     {
-      Array<int, 1> *p_tempFix = Fix(VVecArr);
+      blitz::Array<int, 1> *p_tempFix = Fix(VVecArr);
       DifVecArr(Range::all()) = VVecArr(Range(1, VVecArr.size() - 1)) - (*p_tempFix)(Range(1, VVecArr.size() - 1));
       delete p_tempFix;
     }
@@ -23990,7 +23990,7 @@ bool CFits::InterPol(Array<double, 1> &VVecArr,
                         *p_RLVecArr,
                         DA1_DifTemp);
 
-    P_D_A1_TempB = new Array<double, 1>(DA1_VTemp + (RVecArr - (*p_RLVecArr)) * DA1_DifTemp);
+    P_D_A1_TempB = new blitz::Array<double, 1>(DA1_VTemp + (RVecArr - (*p_RLVecArr)) * DA1_DifTemp);
     P_D_A1_Out->resize(P_D_A1_TempB->size());
     (*P_D_A1_Out) = (*P_D_A1_TempB);
     delete(P_D_A1_TempB);
@@ -24020,13 +24020,13 @@ bool CFits::InterPol(Array<double, 1> &VVecArr,
 # ifdef __DEBUG_FITS_INTERPOL__
   cout << "CFits::InterPol: UVecArr set to " << UVecArr << endl;
 #endif
-  Array<int, 1> *p_tempFixA = Fix(UVecArr);
+  blitz::Array<int, 1> *p_tempFixA = Fix(UVecArr);
   SVecArr = (*p_tempFixA);   /// Subscripts
   delete p_tempFixA;
-  Array<double, 1> XVecArr(1);
+  blitz::Array<double, 1> XVecArr(1);
   XVecArr = N;
 
-//  Array<double, 1> *P_PResultArr;
+//  blitz::Array<double, 1> *P_PResultArr;
   if (!this->HInterPol(VVecArr, XVecArr, SVecArr, UVecArr, CS_A1_In, P_D_A1_Out)){
     cout << "CFits::InterPol: ERROR: HInterPol returned FALSE" << endl;
     return false;
@@ -24047,23 +24047,23 @@ bool CFits::InterPol(Array<double, 1> &VVecArr,
  This Method returns an Array of linear interpolates.
  The returned Array has the same type of D_A1_P and its dimension depends on those of the location parameter D_A1_X.
 
- INPUTS: Array<double, 1> D_A1_P(N)
+ INPUTS: blitz::Array<double, 1> D_A1_P(N)
            The array of data values.
-         Array<double, 1> D_A1_X(M)
+         blitz::Array<double, 1> D_A1_X(M)
            The array of interpolation locations.
 
-  OUTPUTS: Array<double, 1> (M)
+  OUTPUTS: blitz::Array<double, 1> (M)
              The array of interpolates.
  **/
-Array<double, 1>* CFits::InterPolate(const Array<double, 1> &D_A1_V, const Array<double, 1> &D_A1_X) const
+blitz::Array<double, 1>* CFits::InterPolate(const blitz::Array<double, 1> &D_A1_V, const blitz::Array<double, 1> &D_A1_X) const
 {
 #ifdef __DEBUG_FITS_INTERPOL__
   (*P_OFS_Log) << "CFits::InterPolate(D_A1_V(=" << D_A1_V << "), D_A1_X(=" << D_A1_X << ")) Started" << endl;
 #endif
 
-  Array<double,1>* P_D_A1_Out = new Array<double, 1>(D_A1_X.size());
+  blitz::Array<double,1>* P_D_A1_Out = new blitz::Array<double, 1>(D_A1_X.size());
 
-  Array<double, 1> XArr(D_A1_X.size());
+  blitz::Array<double, 1> XArr(D_A1_X.size());
   XArr = D_A1_X;
 
 //  double D_V0, D_V1;
@@ -24157,10 +24157,10 @@ Array<double, 1>* CFits::InterPolate(const Array<double, 1> &D_A1_V, const Array
 
 end
 **/
-Array<double, 1>* CFits::Poly(const Array<double, 1> &VecArr,
-                              const Array<double, 1> &VecCoeffs) const{
+blitz::Array<double, 1>* CFits::Poly(const blitz::Array<double, 1> &VecArr,
+                              const blitz::Array<double, 1> &VecCoeffs) const{
   int ii = 0;
-  Array<double, 1>* P_D_A1_Out = new Array<double, 1>(VecArr.size());
+  blitz::Array<double, 1>* P_D_A1_Out = new blitz::Array<double, 1>(VecArr.size());
   #ifdef __DEBUG_FITS_POLY__
     cout << "CFits::Poly: VecArr = " << VecArr << endl;
     cout << "CFits::Poly: VecCoeffs = " << VecCoeffs << endl;
@@ -24191,10 +24191,10 @@ Array<double, 1>* CFits::Poly(const Array<double, 1> &VecArr,
 }
 
 double CFits::Poly(const double D_X_In,
-                   const Array<double, 1> &D_A1_Coeffs) const{
-  Array<double, 1> D_A1_X(1);
+                   const blitz::Array<double, 1> &D_A1_Coeffs) const{
+  blitz::Array<double, 1> D_A1_X(1);
   D_A1_X = D_X_In;
-  Array<double, 1> *P_D_A1_Y = this->Poly(D_A1_X, D_A1_Coeffs);
+  blitz::Array<double, 1> *P_D_A1_Y = this->Poly(D_A1_X, D_A1_Coeffs);
   double D_Y = (*P_D_A1_Y)(0);
   delete(P_D_A1_Y);
   return D_Y;
@@ -24213,12 +24213,12 @@ double CFits::Poly(const double D_X_In,
     LSIGMA=lsigma: lower sigma rejection threshold
     USIGMA=usigma:
     ;**/
-bool CFits::PolyFit(const Array<double, 1> &D_A1_X_In,
-                    const Array<double, 1> &D_A1_Y_In,
+bool CFits::PolyFit(const blitz::Array<double, 1> &D_A1_X_In,
+                    const blitz::Array<double, 1> &D_A1_Y_In,
                     int I_Degree_In,
-                    const Array<CString, 1> &CS_A1_Args_In,
+                    const blitz::Array<CString, 1> &CS_A1_Args_In,
                     void *ArgV[],
-                    Array<double, 1>* P_D_A1_Out) const{
+                    blitz::Array<double, 1>* P_D_A1_Out) const{
 
   #ifdef __DEBUG_FITS_POLYFIT__
     cout << "CFits::PolyFit: Starting " << endl;
@@ -24229,7 +24229,7 @@ bool CFits::PolyFit(const Array<double, 1> &D_A1_X_In,
     cout << "CFits::PolyFit: I_M set to " << I_M << endl;
   #endif
   if (P_D_A1_Out == NULL)
-    P_D_A1_Out = new Array<double, 1>(1);
+    P_D_A1_Out = new blitz::Array<double, 1>(1);
   P_D_A1_Out->resize(I_M);
   (*P_D_A1_Out) = 0.;
   int i,j,I_Pos;
@@ -24248,9 +24248,9 @@ bool CFits::PolyFit(const Array<double, 1> &D_A1_X_In,
   }
 
 ///    sdev = 1d
-  Array<double, 1> D_A1_SDev(D_A1_X_In.size());
+  blitz::Array<double, 1> D_A1_SDev(D_A1_X_In.size());
   D_A1_SDev= 1.;
-  Array<double, 1> D_A1_SDevSquare(D_A1_X_In.size());
+  blitz::Array<double, 1> D_A1_SDevSquare(D_A1_X_In.size());
   
 
   CString CS_Temp(" ");
@@ -24259,14 +24259,14 @@ bool CFits::PolyFit(const Array<double, 1> &D_A1_X_In,
 
 ///    haveMeasureError = (N_ELEMENTS(measure_errors) gt 0)
   bool B_HaveMeasureError = false;
-  Array<double, 1> *P_D_A1_MeasureErrors = new Array<double, 1>(D_A1_X_In.size());
+  blitz::Array<double, 1> *P_D_A1_MeasureErrors = new blitz::Array<double, 1>(D_A1_X_In.size());
   *P_D_A1_MeasureErrors = 1.;
   CS_Temp.Set("MEASURE_ERRORS");
-  if ((I_Pos = this->KeyWord_Set(*(const_cast<const Array<CString, 1>*>(&CS_A1_Args_In)), CS_Temp)) >= 0)
+  if ((I_Pos = this->KeyWord_Set(*(const_cast<const blitz::Array<CString, 1>*>(&CS_A1_Args_In)), CS_Temp)) >= 0)
   {
     B_HaveMeasureError = true;
     delete(P_D_A1_MeasureErrors);
-    P_D_A1_MeasureErrors = (Array<double, 1>*)ArgV[I_Pos];
+    P_D_A1_MeasureErrors = (blitz::Array<double, 1>*)ArgV[I_Pos];
 ///    if (haveMeasureError) then $
 ///        sdev *= measure_errors
     #ifdef __DEBUG_FITS_POLYFIT__
@@ -24282,7 +24282,7 @@ bool CFits::PolyFit(const Array<double, 1> &D_A1_X_In,
   double D_Reject = 0.;
   bool B_Reject = false;
   CS_Temp.Set("REJECT");
-  if ((I_Pos = this->KeyWord_Set(*(const_cast<const Array<CString, 1>*>(&CS_A1_Args_In)), CS_Temp)) >= 0)
+  if ((I_Pos = this->KeyWord_Set(*(const_cast<const blitz::Array<CString, 1>*>(&CS_A1_Args_In)), CS_Temp)) >= 0)
   {
     B_Reject = true;
     D_Reject = *(double*)ArgV[I_Pos];
@@ -24301,9 +24301,9 @@ bool CFits::PolyFit(const Array<double, 1> &D_A1_X_In,
   bool B_HaveYBand = false;
   double D_YBand;
   double D_YBandOld;
-  Array<double,1> *P_D_A1_YFit;
+  blitz::Array<double,1> *P_D_A1_YFit;
   CS_Temp.Set("YBAND");
-  if ((I_Pos = this->KeyWord_Set(*(const_cast<const Array<CString, 1>*>(&CS_A1_Args_In)), CS_Temp)) >= 0)
+  if ((I_Pos = this->KeyWord_Set(*(const_cast<const blitz::Array<CString, 1>*>(&CS_A1_Args_In)), CS_Temp)) >= 0)
   {
     B_HaveYBand = true;
     D_YBand = *(double*)ArgV[I_Pos];
@@ -24313,7 +24313,7 @@ bool CFits::PolyFit(const Array<double, 1> &D_A1_X_In,
     #endif
   }
   CS_Temp.Set("YBAND_OLD");
-  if ((I_Pos = this->KeyWord_Set(*(const_cast<const Array<CString, 1>*>(&CS_A1_Args_In)), CS_Temp)) >= 0)
+  if ((I_Pos = this->KeyWord_Set(*(const_cast<const blitz::Array<CString, 1>*>(&CS_A1_Args_In)), CS_Temp)) >= 0)
   {
     B_HaveYBand = true;
     D_YBandOld = *(double*)ArgV[I_Pos];
@@ -24323,28 +24323,28 @@ bool CFits::PolyFit(const Array<double, 1> &D_A1_X_In,
     #endif
   }
   CS_Temp.Set("YFIT");
-  if ((I_Pos = this->KeyWord_Set(*(const_cast<const Array<CString, 1>*>(&CS_A1_Args_In)), CS_Temp)) >= 0)
+  if ((I_Pos = this->KeyWord_Set(*(const_cast<const blitz::Array<CString, 1>*>(&CS_A1_Args_In)), CS_Temp)) >= 0)
   {
-    P_D_A1_YFit = (Array<double,1>*)ArgV[I_Pos];
+    P_D_A1_YFit = (blitz::Array<double,1>*)ArgV[I_Pos];
     P_D_A1_YFit->resize(D_A1_X_In.size());
     #ifdef __DEBUG_FITS_POLYFIT__
       cout << "CFits::PolyFit: KeyWord_Set(YFIT)" << endl;
     #endif
   }
   else{
-    P_D_A1_YFit = new Array<double,1>(D_A1_X_In.size());
+    P_D_A1_YFit = new blitz::Array<double,1>(D_A1_X_In.size());
     #ifdef __DEBUG_FITS_POLYFIT__
       cout << "CFits::PolyFit: !KeyWord_Set(YFIT)" << endl;
     #endif
   }
   (*P_D_A1_YFit) = 0.;
 
-  Array<double,1>* P_D_A1_Sigma = new Array<double,1>(1);
+  blitz::Array<double,1>* P_D_A1_Sigma = new blitz::Array<double,1>(1);
   CS_Temp.Set("SIGMA");
-  if ((I_Pos = this->KeyWord_Set(*(const_cast<const Array<CString, 1>*>(&CS_A1_Args_In)), CS_Temp)) >= 0)
+  if ((I_Pos = this->KeyWord_Set(*(const_cast<const blitz::Array<CString, 1>*>(&CS_A1_Args_In)), CS_Temp)) >= 0)
   {
     delete(P_D_A1_Sigma);
-    P_D_A1_Sigma = (Array<double,1>*)ArgV[I_Pos];
+    P_D_A1_Sigma = (blitz::Array<double,1>*)ArgV[I_Pos];
     #ifdef __DEBUG_FITS_POLYFIT__
       cout << "CFits::PolyFit: KeyWord_Set(SIGMA): *P_D_A1_Sigma set to " << (*P_D_A1_Sigma) << endl;
     #endif
@@ -24352,34 +24352,34 @@ bool CFits::PolyFit(const Array<double, 1> &D_A1_X_In,
 
 ///    ; construct work arrays
 ///    covar = DBLARR(m,m) ; least square matrix, weighted matrix
-  Array<double, 2> *P_D_A2_Covar = new Array<double,2>(I_M,I_M);
+  blitz::Array<double, 2> *P_D_A2_Covar = new blitz::Array<double,2>(I_M,I_M);
   CS_Temp.Set("COVAR");
 //  bool B_WithCoVar = false;
-  if ((I_Pos = this->KeyWord_Set(*(const_cast<const Array<CString, 1>*>(&CS_A1_Args_In)), CS_Temp)) >= 0)
+  if ((I_Pos = this->KeyWord_Set(*(const_cast<const blitz::Array<CString, 1>*>(&CS_A1_Args_In)), CS_Temp)) >= 0)
   {
 //    B_WithCoVar = true;
     delete(P_D_A2_Covar);
-    P_D_A2_Covar = (Array<double,2>*)ArgV[I_Pos];
+    P_D_A2_Covar = (blitz::Array<double,2>*)ArgV[I_Pos];
     #ifdef __DEBUG_FITS_POLYFIT__
       cout << "CFits::PolyFit: KeyWord_Set(COVAR): *P_D_A2_Covar set to " << (*P_D_A2_Covar) << endl;
     #endif
   }
 
 ///    b = DBLARR(m)   ; will contain sum weights*y*x^j
-  Array<double, 1> D_A1_B(I_M);
+  blitz::Array<double, 1> D_A1_B(I_M);
 
 ///    z = 1d          ; polynomial term (guarantees double precision calc)
   #ifdef __DEBUG_FITS_POLYFIT__
     cout << "CFits::PolyFit: D_A1_X_In.size() = " << D_A1_X_In.size() << endl;
   #endif
-  Array<double, 1> D_A1_Z(D_A1_X_In.size());
+  blitz::Array<double, 1> D_A1_Z(D_A1_X_In.size());
   D_A1_Z = 1.;
   #ifdef __DEBUG_FITS_POLYFIT__
     cout << "CFits::PolyFit: D_A1_Z set to " << D_A1_Z << endl;
   #endif
 
 ///    wy = DOUBLE(y)
-  Array<double, 1> D_A1_WY(D_A1_Y_In.size());
+  blitz::Array<double, 1> D_A1_WY(D_A1_Y_In.size());
   D_A1_WY = D_A1_Y_In;
   #ifdef __DEBUG_FITS_POLYFIT__
     cout << "CFits::PolyFit: D_A1_WY set to " << D_A1_WY << endl;
@@ -24504,7 +24504,7 @@ bool CFits::PolyFit(const Array<double, 1> &D_A1_X_In,
     cout << "CFits::PolyFit: MatrixTimesVecArr: (*P_D_A2_Covar) = " << (*P_D_A2_Covar) << endl;
     cout << "CFits::PolyFit: MatrixTimesVecArr: D_A1_B = " << D_A1_B.size() << ": " << D_A1_B << endl;
   #endif
-  Array<double,1> *P_D_A1_TempA = MatrixTimesVecArr(*P_D_A2_Covar, D_A1_B);
+  blitz::Array<double,1> *P_D_A1_TempA = MatrixTimesVecArr(*P_D_A2_Covar, D_A1_B);
   P_D_A1_Out->resize(P_D_A1_TempA->size());
   (*P_D_A1_Out) = (*P_D_A1_TempA);
   delete(P_D_A1_TempA);
@@ -24516,7 +24516,7 @@ bool CFits::PolyFit(const Array<double, 1> &D_A1_X_In,
 
 ///    ; one-standard deviation error estimates, init
 ///    yfit = result[ndegree]
-///  Array<double,1> P_D_A1_YFit = (*P_D_A1_Out)(I_Degree_In);
+///  blitz::Array<double,1> P_D_A1_YFit = (*P_D_A1_Out)(I_Degree_In);
   (*P_D_A1_YFit) = (*P_D_A1_Out)(I_Degree_In);
   #ifdef __DEBUG_FITS_POLYFIT__
     cout << "CFits::PolyFit: InvertGaussJ: (*P_D_A1_YFit) set to " << (*P_D_A1_YFit) << endl;
@@ -24548,7 +24548,7 @@ bool CFits::PolyFit(const Array<double, 1> &D_A1_X_In,
   if (B_HaveMeasureError){
 ///        ; Only do this computation once.
 ///        diff = (yfit - y)^2
-    Array<double,1> D_A1_Diff(D_A1_Y_In.size());
+    blitz::Array<double,1> D_A1_Diff(D_A1_Y_In.size());
     D_A1_Diff = pow(D_A1_Y_In - (*P_D_A1_YFit),2);
     #ifdef __DEBUG_FITS_POLYFIT__
       cout << "CFits::PolyFit: B_HaveMeasureError: D_A1_Diff set to " << D_A1_Diff << endl;
@@ -24652,17 +24652,17 @@ bool CFits::PolyFit(const Array<double, 1> &D_A1_X_In,
   #endif
 
   CS_Temp.Set("YFIT");
-  if ((I_Pos = this->KeyWord_Set(*(const_cast<const Array<CString, 1>*>(&CS_A1_Args_In)), CS_Temp)) < 0)
+  if ((I_Pos = this->KeyWord_Set(*(const_cast<const blitz::Array<CString, 1>*>(&CS_A1_Args_In)), CS_Temp)) < 0)
   {
     delete(P_D_A1_YFit);
   }
   CS_Temp.Set("SIGMA");
-  if ((I_Pos = this->KeyWord_Set(*(const_cast<const Array<CString, 1>*>(&CS_A1_Args_In)), CS_Temp)) < 0)
+  if ((I_Pos = this->KeyWord_Set(*(const_cast<const blitz::Array<CString, 1>*>(&CS_A1_Args_In)), CS_Temp)) < 0)
   {
     delete(P_D_A1_Sigma);
   }
   CS_Temp.Set("COVAR");
-  if ((I_Pos = this->KeyWord_Set(*(const_cast<const Array<CString, 1>*>(&CS_A1_Args_In)), CS_Temp)) < 0)
+  if ((I_Pos = this->KeyWord_Set(*(const_cast<const blitz::Array<CString, 1>*>(&CS_A1_Args_In)), CS_Temp)) < 0)
   {
     delete(P_D_A2_Covar);
   }
@@ -24673,14 +24673,14 @@ bool CFits::PolyFit(const Array<double, 1> &D_A1_X_In,
 
 /** **********************************************************************/
 
-bool CFits::PolyFit(const Array<double, 1> &D_A1_X_In,
-                    const Array<double, 1> &D_A1_Y_In,
+bool CFits::PolyFit(const blitz::Array<double, 1> &D_A1_X_In,
+                    const blitz::Array<double, 1> &D_A1_Y_In,
                     int I_Degree_In,
-                    Array<double, 1>* P_D_A1_Out) const{
+                    blitz::Array<double, 1>* P_D_A1_Out) const{
   #ifdef __DEBUG_FITS_POLYFIT__
     cout << "CFits::PolyFit: Starting " << endl;
   #endif
-  Array<CString, 1> CS_A1_Args(1);
+  blitz::Array<CString, 1> CS_A1_Args(1);
   CS_A1_Args = CString(" ");
   void **PP_Args = (void**)malloc(sizeof(void*) * 1);
   if (!PolyFit(D_A1_X_In, D_A1_Y_In, I_Degree_In, CS_A1_Args, PP_Args, P_D_A1_Out)){
@@ -24708,17 +24708,17 @@ bool CFits::PolyFit(const Array<double, 1> &D_A1_X_In,
     YBAND=yband, $
     YERROR=yerror, $
     YFIT=yfit
-    REJECTED=Array<int, 1>
-    NOT_REJECTED=Array<int, 1>
+    REJECTED=blitz::Array<int, 1>
+    NOT_REJECTED=blitz::Array<int, 1>
     N_REJECTED=int
     ;**/
-bool CFits::PolyFit(const Array<double, 1> &D_A1_X_In,
-                    const Array<double, 1> &D_A1_Y_In,
+bool CFits::PolyFit(const blitz::Array<double, 1> &D_A1_X_In,
+                    const blitz::Array<double, 1> &D_A1_Y_In,
                     const int I_Degree_In,
                     const double D_Reject_In,
-                    const Array<CString, 1> &CS_A1_Args_In,
+                    const blitz::Array<CString, 1> &CS_A1_Args_In,
                     void *ArgV[],
-                    Array<double, 1>* P_D_A1_Out) const{
+                    blitz::Array<double, 1>* P_D_A1_Out) const{
   return this->PolyFit(D_A1_X_In,
                        D_A1_Y_In,
                        I_Degree_In,
@@ -24729,30 +24729,30 @@ bool CFits::PolyFit(const Array<double, 1> &D_A1_X_In,
                        ArgV,
                        P_D_A1_Out);
 }
-bool CFits::PolyFit(const Array<double, 1> &D_A1_X_In,
-                    const Array<double, 1> &D_A1_Y_In,
+bool CFits::PolyFit(const blitz::Array<double, 1> &D_A1_X_In,
+                    const blitz::Array<double, 1> &D_A1_Y_In,
                     const int I_Degree_In,
                     const double D_LReject_In,
                     const double D_UReject_In,
                     const int I_NIter,
-                    const Array<CString, 1> &CS_A1_Args_In,
+                    const blitz::Array<CString, 1> &CS_A1_Args_In,
                     void *ArgV[],
-                    Array<double, 1>* P_D_A1_Out) const{
+                    blitz::Array<double, 1>* P_D_A1_Out) const{
 
   #ifdef __DEBUG_FITS_POLYFIT__
     cout << "CFits::PolyFit: Starting " << endl;
   #endif
 
   int I_NReject = 0;
-  Array<double, 1> D_A1_X(D_A1_X_In.size());
+  blitz::Array<double, 1> D_A1_X(D_A1_X_In.size());
   D_A1_X = D_A1_X_In;
-  Array<double, 1> D_A1_Y(D_A1_Y_In.size());
+  blitz::Array<double, 1> D_A1_Y(D_A1_Y_In.size());
   D_A1_Y = D_A1_Y_In;
-  Array<double, 1> D_A1_X_New(D_A1_X.size());
-  Array<double, 1> D_A1_Y_New(D_A1_Y.size());
-  Array<double, 1> D_A1_MeasureErrors(D_A1_X.size());
-  Array<double, 1> D_A1_MeasureErrors_New(D_A1_X.size());
-  Array<double, 1> *P_D_A1_MeasureErrors = new Array<double, 1>(D_A1_X_In.size());
+  blitz::Array<double, 1> D_A1_X_New(D_A1_X.size());
+  blitz::Array<double, 1> D_A1_Y_New(D_A1_Y.size());
+  blitz::Array<double, 1> D_A1_MeasureErrors(D_A1_X.size());
+  blitz::Array<double, 1> D_A1_MeasureErrors_New(D_A1_X.size());
+  blitz::Array<double, 1> *P_D_A1_MeasureErrors = new blitz::Array<double, 1>(D_A1_X_In.size());
   int I_DataValues_New = 0;
   int I_NRejected = 0;
   D_A1_MeasureErrors = sqrt(D_A1_Y_In);
@@ -24763,7 +24763,7 @@ bool CFits::PolyFit(const Array<double, 1> &D_A1_X_In,
   I_Pos = this->KeyWord_Set(CS_A1_Args_In, CString("MEASURE_ERRORS"));
   if (I_Pos >= 0){
     delete(P_D_A1_MeasureErrors);
-    P_D_A1_MeasureErrors = (Array<double,1>*)ArgV[I_Pos];
+    P_D_A1_MeasureErrors = (blitz::Array<double,1>*)ArgV[I_Pos];
     D_A1_MeasureErrors = *P_D_A1_MeasureErrors;
     B_HaveMeasureErrors = true;
     if (P_D_A1_MeasureErrors->size() != D_A1_X_In.size()){
@@ -24772,13 +24772,13 @@ bool CFits::PolyFit(const Array<double, 1> &D_A1_X_In,
     }
   }
 
-  Array<int, 1> *P_I_A1_NotRejected;
+  blitz::Array<int, 1> *P_I_A1_NotRejected;
   bool B_KeyWordSet_NotRejected = false;
   I_Pos = this->KeyWord_Set(CS_A1_Args_In, CString("NOT_REJECTED"));
   if (I_Pos >= 0){
     cout << "CFits::PolyFit: Reading KeyWord NOT_REJECTED" << endl;
     cout << "CFits::PolyFit: I_Pos = " << I_Pos << endl;
-    P_I_A1_NotRejected = (Array<int,1>*)(ArgV[I_Pos]);
+    P_I_A1_NotRejected = (blitz::Array<int,1>*)(ArgV[I_Pos]);
     cout << "CFits::PolyFit: *P_I_A1_NotRejected = " << *P_I_A1_NotRejected << endl;
 //    P_I_A1_NotRejected->resize(D_A1_X_In.size());
 //    *P_I_A1_NotRejected = -1;
@@ -24786,15 +24786,15 @@ bool CFits::PolyFit(const Array<double, 1> &D_A1_X_In,
     cout << "CFits::PolyFit: KeyWord NOT_REJECTED read" << endl;
   }
 
-  Array<int, 1> *P_I_A1_Rejected;
-  Array<int, 1> I_A1_Rejected(D_A1_X_In.size());
+  blitz::Array<int, 1> *P_I_A1_Rejected;
+  blitz::Array<int, 1> I_A1_Rejected(D_A1_X_In.size());
   I_A1_Rejected = 0;
   bool B_KeyWordSet_Rejected = false;
   I_Pos = this->KeyWord_Set(CS_A1_Args_In, CString("REJECTED"));
   if (I_Pos >= 0){
     cout << "CFits::PolyFit: Reading KeyWord REJECTED" << endl;
     cout << "CFits::PolyFit: I_Pos = " << I_Pos << endl;
-    P_I_A1_Rejected = (Array<int,1>*)(ArgV[I_Pos]);
+    P_I_A1_Rejected = (blitz::Array<int,1>*)(ArgV[I_Pos]);
     cout << "CFits::PolyFit: *P_I_A1_Rejected = " << *P_I_A1_Rejected << endl;
 //    P_I_A1_Rejected->resize(D_A1_X_In.size());
 //    *P_I_A1_Rejected = -1;
@@ -24814,10 +24814,10 @@ bool CFits::PolyFit(const Array<double, 1> &D_A1_X_In,
     cout << "CFits::PolyFit: KeyWord N_REJECTED read" << endl;
   }
 
-  Array<int, 1> *P_I_A1_OrigPos = this->IndGenArr(D_A1_X_In.size());
-  Array<double, 1> *P_D_A1_PolyRes;
+  blitz::Array<int, 1> *P_I_A1_OrigPos = this->IndGenArr(D_A1_X_In.size());
+  blitz::Array<double, 1> *P_D_A1_PolyRes;
   int I_NRejected_Old=0;
-  Array<int, 1> I_A1_Rejected_Old(D_A1_X_In.size());
+  blitz::Array<int, 1> I_A1_Rejected_Old(D_A1_X_In.size());
   bool B_Run = true;
   int i_iter = 0;
 //  if (I_NIter > 0)
@@ -24842,7 +24842,7 @@ bool CFits::PolyFit(const Array<double, 1> &D_A1_X_In,
     #ifdef __DEBUG_FITS_POLYFIT__
       cout << "CFits::PolyFit: PolyFit(D_A1_X, D_A1_Y, I_Degree_In, CS_A1_Args_In, ArgV, P_D_A1_Out) returned *P_D_A1_Out = " << *P_D_A1_Out << endl;
     #endif
-    Array<double, 1> *P_D_A1_YFit = this->Poly(D_A1_X, *P_D_A1_Out);
+    blitz::Array<double, 1> *P_D_A1_YFit = this->Poly(D_A1_X, *P_D_A1_Out);
     double D_SDev = sqrt(sum(pow2(D_A1_Y - (*P_D_A1_YFit)) / D_A1_Y.size()));
 
     P_D_A1_PolyRes = this->Poly(D_A1_X_In, *P_D_A1_Out);
@@ -24897,7 +24897,7 @@ bool CFits::PolyFit(const Array<double, 1> &D_A1_X_In,
 //  }
 
   cout << "CFits::PolyFit: I_DataValues_New = " << I_DataValues_New << endl;
-  Array<int, 1> I_A1_NotRejected(I_DataValues_New);
+  blitz::Array<int, 1> I_A1_NotRejected(I_DataValues_New);
   I_A1_NotRejected = (*P_I_A1_OrigPos)(Range(0, I_DataValues_New-1));
   if (B_KeyWordSet_NotRejected){
     P_I_A1_NotRejected->resize(I_DataValues_New);
@@ -24925,15 +24925,15 @@ bool CFits::PolyFit(const Array<double, 1> &D_A1_X_In,
 
 /** **********************************************************************/
 
-bool CFits::PolyFit(const Array<double, 1> &D_A1_X_In,
-                    const Array<double, 1> &D_A1_Y_In,
+bool CFits::PolyFit(const blitz::Array<double, 1> &D_A1_X_In,
+                    const blitz::Array<double, 1> &D_A1_Y_In,
                     const int I_Degree_In,
                     const double D_Reject_In,
-                    Array<double, 1>* P_D_A1_Out) const{
+                    blitz::Array<double, 1>* P_D_A1_Out) const{
   #ifdef __DEBUG_FITS_POLYFIT__
     cout << "CFits::PolyFit: Starting " << endl;
   #endif
-  Array<CString, 1> CS_A1_Args(1);
+  blitz::Array<CString, 1> CS_A1_Args(1);
   CS_A1_Args = CString(" ");
   void **PP_Args = (void**)malloc(sizeof(void*) * 1);
   if (!PolyFit(D_A1_X_In, D_A1_Y_In, I_Degree_In, D_Reject_In, CS_A1_Args, PP_Args, P_D_A1_Out)){
@@ -24952,17 +24952,17 @@ bool CFits::PolyFit(const Array<double, 1> &D_A1_X_In,
 
 /** **********************************************************************/
 
-bool CFits::PolyFit(const Array<double, 1> &D_A1_X_In,
-                    const Array<double, 1> &D_A1_Y_In,
+bool CFits::PolyFit(const blitz::Array<double, 1> &D_A1_X_In,
+                    const blitz::Array<double, 1> &D_A1_Y_In,
                     const int I_Degree_In,
                     const double D_LReject_In,
                     const double D_HReject_In,
                     const int I_NIter,
-                    Array<double, 1>* P_D_A1_Out) const{
+                    blitz::Array<double, 1>* P_D_A1_Out) const{
   #ifdef __DEBUG_FITS_POLYFIT__
     cout << "CFits::PolyFit: Starting " << endl;
   #endif
-  Array<CString, 1> CS_A1_Args(1);
+  blitz::Array<CString, 1> CS_A1_Args(1);
   CS_A1_Args = CString(" ");
   void **PP_Args = (void**)malloc(sizeof(void*) * 1);
   if (!PolyFit(D_A1_X_In, 
@@ -24989,10 +24989,10 @@ bool CFits::PolyFit(const Array<double, 1> &D_A1_X_In,
 
 /** GaussFit
 **/
-bool CFits::GaussFit(const Array<double, 1> &D_A1_X,
-                     const Array<double, 1> &D_A1_Y,
-                     Array<double,1> &D_A1_A,
-                     const Array<CString, 1> &CS_A1_Args_In,
+bool CFits::GaussFit(const blitz::Array<double, 1> &D_A1_X,
+                     const blitz::Array<double, 1> &D_A1_Y,
+                     blitz::Array<double,1> &D_A1_A,
+                     const blitz::Array<CString, 1> &CS_A1_Args_In,
                      void *ArgV[]) const{
 ///                  CHISQ=variable,
 ///                  ESTIMATES=array,
@@ -25000,22 +25000,22 @@ bool CFits::GaussFit(const Array<double, 1> &D_A1_X,
 ///                  NTERMS=integer{3 to 6},
 ///                  SIGMA=double,
 ///                  YERROR=double,
-///                  YFIT=Array<double, 1>*)
+///                  YFIT=blitz::Array<double, 1>*)
   int I_NT = 0;
   int i,I_Pos, I_I0;
   double c, xmin, xmax, ymin, ymax;
   double D_DY, D_Del;
-  Array<double, 1> *P_D_A1_MeasureErrors;
-  Array<double, 1> *P_D_A1_Estimates;
-  Array<double, 1> *P_D_A1_YFit;
-  Array<double, 1> *P_D_A1_Sigma;
+  blitz::Array<double, 1> *P_D_A1_MeasureErrors;
+  blitz::Array<double, 1> *P_D_A1_Estimates;
+  blitz::Array<double, 1> *P_D_A1_YFit;
+  blitz::Array<double, 1> *P_D_A1_Sigma;
   bool B_NeedToDelete_P_D_A1_YFit = false;
   I_Pos = this->KeyWord_Set(CS_A1_Args_In, CString("YFIT"));
   if (I_Pos >= 0){
-    P_D_A1_YFit = (Array<double, 1>*)ArgV[I_Pos];
+    P_D_A1_YFit = (blitz::Array<double, 1>*)ArgV[I_Pos];
   }
   else{
-    P_D_A1_YFit = new Array<double, 1>(1);
+    P_D_A1_YFit = new blitz::Array<double, 1>(1);
     *P_D_A1_YFit = 0.;
     B_NeedToDelete_P_D_A1_YFit = true;
   }
@@ -25023,19 +25023,19 @@ bool CFits::GaussFit(const Array<double, 1> &D_A1_X,
   bool B_NeedToDelete_P_D_A1_Sigma = false;
   I_Pos = this->KeyWord_Set(CS_A1_Args_In, CString("SIGMA"));
   if (I_Pos >= 0){
-    P_D_A1_Sigma = (Array<double, 1>*)ArgV[I_Pos];
+    P_D_A1_Sigma = (blitz::Array<double, 1>*)ArgV[I_Pos];
   }
   else{
-    P_D_A1_Sigma = new Array<double, 1>(1);
+    P_D_A1_Sigma = new blitz::Array<double, 1>(1);
     *P_D_A1_Sigma = 0.;
     B_NeedToDelete_P_D_A1_Sigma = true;
   }
-  Array<double, 1> *P_D_A1_PolyFitOut = new Array<double, 1>(1);
-  Array<double, 1> D_A1_YD(D_A1_Y.size());
+  blitz::Array<double, 1> *P_D_A1_PolyFitOut = new blitz::Array<double, 1>(1);
+  blitz::Array<double, 1> D_A1_YD(D_A1_Y.size());
   TinyVector<int, 1> TV_Index;
-  Array<int, 1> *P_I_A1_MinIndex;
-  Array<int, 1> *P_I_A1_MaxIndex;
-  Array<CString, 1> CS_A1_ArgsPolyFit(1);
+  blitz::Array<int, 1> *P_I_A1_MinIndex;
+  blitz::Array<int, 1> *P_I_A1_MaxIndex;
+  blitz::Array<CString, 1> CS_A1_ArgsPolyFit(1);
   CS_A1_ArgsPolyFit(0) = CString("YFIT");
   void **PP_ArgsPolyFit = (void**)malloc(sizeof(void*));
   PP_ArgsPolyFit[0] = P_D_A1_YFit;
@@ -25101,9 +25101,9 @@ bool CFits::GaussFit(const Array<double, 1> &D_A1_X,
   bool B_NeedToDelete_P_D_A1_MeasureErrors = false;
   I_Pos = this->KeyWord_Set(CS_A1_Args_In, CString("MEASURE_ERRORS"));
   if (I_Pos >= 0)
-    P_D_A1_MeasureErrors = (Array<double, 1>*)ArgV[I_Pos];
+    P_D_A1_MeasureErrors = (blitz::Array<double, 1>*)ArgV[I_Pos];
   else{
-    P_D_A1_MeasureErrors = new Array<double, 1>(1);
+    P_D_A1_MeasureErrors = new blitz::Array<double, 1>(1);
     B_NeedToDelete_P_D_A1_MeasureErrors = true;
   }
   int I_NMeas = P_D_A1_MeasureErrors->size();
@@ -25128,9 +25128,9 @@ bool CFits::GaussFit(const Array<double, 1> &D_A1_X,
   bool B_NeedToDelete_P_D_A1_Estimates = false;
   I_Pos = this->KeyWord_Set(CS_A1_Args_In, CString("ESTIMATES"));
   if (I_Pos >= 0)
-    P_D_A1_Estimates = (Array<double, 1>*)ArgV[I_Pos];
+    P_D_A1_Estimates = (blitz::Array<double, 1>*)ArgV[I_Pos];
   else{
-    P_D_A1_Estimates = new Array<double, 1>(1);
+    P_D_A1_Estimates = new blitz::Array<double, 1>(1);
     B_NeedToDelete_P_D_A1_Estimates = true;
   }
   int I_NEst = P_D_A1_Estimates->size();
@@ -25298,7 +25298,7 @@ bool CFits::GaussFit(const Array<double, 1> &D_A1_X,
 ///            tmp[2] = a[2]
 ///        a = tmp
 ///    endif
-  Array<double, 1> D_A1_Temp(P_D_A1_Estimates->size());
+  blitz::Array<double, 1> D_A1_Temp(P_D_A1_Estimates->size());
   if (I_NEst > 1){
     D_A1_Temp = (*P_D_A1_Estimates);
     if ((*P_D_A1_Estimates)(2) == 0.)
@@ -25314,7 +25314,7 @@ bool CFits::GaussFit(const Array<double, 1> &D_A1_X,
   #ifdef __DEBUG_FITS_GAUSSFIT__
     cout << "CFits::GaussFit: I_NMeas = " << I_NMeas << endl;
   #endif
-  Array<double, 1> D_A1_Weights(I_NMeas);
+  blitz::Array<double, 1> D_A1_Weights(I_NMeas);
   if (I_NMeas > 1){
     D_A1_Weights = 1. / pow2(*P_D_A1_MeasureErrors);
   }
@@ -25328,7 +25328,7 @@ bool CFits::GaussFit(const Array<double, 1> &D_A1_X,
 ///    yfit = CURVEFIT(x,y,weights,a,sigma, $
 ///        CHISQ=chisq, YERROR=yerror, $
 ///        FUNCTION_NAME = "GAUSS_FUNCT") ;call curvefit
-  Array<CString, 1> CS_A1_ArgsCurveFit(4);
+  blitz::Array<CString, 1> CS_A1_ArgsCurveFit(4);
   void **PP_ArgsCurveFit = (void**)malloc(sizeof(void*) * 4);
   CS_A1_ArgsCurveFit(0).Set("YFIT");
   PP_ArgsCurveFit[0] = P_D_A1_YFit;
@@ -25388,10 +25388,10 @@ bool CFits::GaussFit(const Array<double, 1> &D_A1_X,
 
 /** **************************************************/
 
-bool CFits::GaussFit(const Array<double, 1> &D_A1_X,
-                     const Array<double, 1> &D_A1_Y,
-                     Array<double,1> &D_A1_A) const{
-  Array<CString, 1> CS_A1_Args(1);
+bool CFits::GaussFit(const blitz::Array<double, 1> &D_A1_X,
+                     const blitz::Array<double, 1> &D_A1_Y,
+                     blitz::Array<double,1> &D_A1_A) const{
+  blitz::Array<CString, 1> CS_A1_Args(1);
   CS_A1_Args = CString(" ");
   CS_A1_Args(0).Set("FUNCTION_NAME");
   void **PP_Args = (void**)malloc(sizeof(void*) * 1);
@@ -25400,12 +25400,12 @@ bool CFits::GaussFit(const Array<double, 1> &D_A1_X,
 
 /** **************************************************/
 
-bool CFits::CurveFit(const Array<double, 1> &D_A1_X,
-                     const Array<double, 1> &D_A1_Y,
-                     const Array<double, 1> &D_A1_WeightsIn,
-                     Array<double, 1> &D_A1_A,
-                     Array<double, 1> &D_A1_Sigma,
-                     const Array<CString, 1> &CS_A1_ArgsIn,
+bool CFits::CurveFit(const blitz::Array<double, 1> &D_A1_X,
+                     const blitz::Array<double, 1> &D_A1_Y,
+                     const blitz::Array<double, 1> &D_A1_WeightsIn,
+                     blitz::Array<double, 1> &D_A1_A,
+                     blitz::Array<double, 1> &D_A1_Sigma,
+                     const blitz::Array<CString, 1> &CS_A1_ArgsIn,
                      void* PP_ArgsIn[]) const{
   /**
   FUNCTION CURVEFIT, x, y, weightsIn, a, sigma, FUNCTION_NAME = Function_Name, $
@@ -25420,7 +25420,7 @@ bool CFits::CurveFit(const Array<double, 1> &D_A1_X,
   int I_Status;
   CString CS_Comp("FUNCTION_NAME");
   CString CS_Function_In(" ");
-  Array<double, 1> D_A1_B(D_A1_A.size());
+  blitz::Array<double, 1> D_A1_B(D_A1_A.size());
 
 ///  ;Name of function to fit
 ///  IF n_elements(function_name) LE 0 THEN function_name = "FUNCT"
@@ -25503,12 +25503,12 @@ bool CFits::CurveFit(const Array<double, 1> &D_A1_X,
 ///  if (nparam eq 0) then $
 ///  MESSAGE, 'FITA must contain at least one parameter to fit.'
   int I_NTerms = D_A1_A.size();
-  Array<int, 1> *P_I_A1_FitA;
+  blitz::Array<int, 1> *P_I_A1_FitA;
   bool B_NeedToDelete_P_I_A1_FitA = false;
   CS_Comp = CString("FITA");
   I_Pos = this->KeyWord_Set(CS_A1_ArgsIn, CS_Comp);
   if (I_Pos >= 0){
-    P_I_A1_FitA = (Array<int, 1>*)(PP_ArgsIn[I_Pos]);
+    P_I_A1_FitA = (blitz::Array<int, 1>*)(PP_ArgsIn[I_Pos]);
     if (P_I_A1_FitA->size() != I_NTerms){
       delete(P_I_A1_FitA);
       P_I_A1_FitA = this->Replicate(1, I_NTerms);
@@ -25520,10 +25520,10 @@ bool CFits::CurveFit(const Array<double, 1> &D_A1_X,
     B_NeedToDelete_P_I_A1_FitA = true;
   }
 
-  Array<int, 1> I_A1_TempC(P_I_A1_FitA->size());
+  blitz::Array<int, 1> I_A1_TempC(P_I_A1_FitA->size());
   I_A1_TempC = where(*P_I_A1_FitA != 0, 1, 0);
   int I_NParam;
-  Array<int, 1> *P_I_A1_IParam = this->GetIndex(I_A1_TempC, I_NParam);
+  blitz::Array<int, 1> *P_I_A1_IParam = this->GetIndex(I_A1_TempC, I_NParam);
   if (I_NParam == 0){
     cout << "CFits::CurveFit: ERROR: FITA must contain at least one parameter to fit" << endl;
 
@@ -25572,7 +25572,7 @@ bool CFits::CurveFit(const Array<double, 1> &D_A1_X,
 ///  diag = LINDGEN(nparam)*(nparam + 1) ; Subscripts of diagonal elements
   Vector<int> *P_I_V_Diag = this->IndGen(I_NParam);
   *P_I_V_Diag *= I_NParam + 1;
-  Array<int, 1> I_A1_Diag(P_I_V_Diag->length());
+  blitz::Array<int, 1> I_A1_Diag(P_I_V_Diag->length());
   for (int m = 0; m < I_A1_Diag.size(); m++)
     I_A1_Diag(m) = (*P_I_V_Diag)(m);
 #ifdef __DEBUG_FITS_CURVEFIT__
@@ -25586,7 +25586,7 @@ bool CFits::CurveFit(const Array<double, 1> &D_A1_X,
 
 ///  ;      Define the partial derivative array
 ///  pder = double ? dblarr(nY, nterms) : fltarr(nY, nterms)
-  Array<double, 2> D_A2_PDer(I_NY, I_NTerms);
+  blitz::Array<double, 2> D_A2_PDer(I_NY, I_NTerms);
   D_A2_PDer = 0.;
 
 ///  noWeighting = N_ELEMENTS(weightsIn) eq 0
@@ -25594,8 +25594,8 @@ bool CFits::CurveFit(const Array<double, 1> &D_A1_X,
   bool B_NoWeighting = false;
   if (D_A1_WeightsIn.size() == 1 && D_A1_WeightsIn(0) == 0.)
     B_NoWeighting = true;
-  Array<double, 1> D_A1_Weights(I_NY);
-  Array<double, 1> *P_D_A1_Rep = this->Replicate(1., I_NY);
+  blitz::Array<double, 1> D_A1_Weights(I_NY);
+  blitz::Array<double, 1> *P_D_A1_Rep = this->Replicate(1., I_NY);
   if (B_NoWeighting)
     D_A1_Weights = *P_D_A1_Rep;
   else
@@ -25608,38 +25608,38 @@ bool CFits::CurveFit(const Array<double, 1> &D_A1_X,
   bool B_Done = false;
   bool B_DoneEarly = false;
 
-  Array<double, 1> D_A1_ArrayDiag(1);
-  Array<double, 1>* P_D_A1_YFit;
-  Array<double, 1> D_A1_YFit1(D_A1_X.size());
-  Array<double, 1> D_A1_P(D_A1_A.size());
-  Array<double, 1> *P_D_A1_TempE;
-  Array<double, 1> D_A1_TempA(D_A2_PDer.cols());
-  Array<double, 1> D_A1_Beta(1);
-  Array<double, 1> D_A1_TempB(D_A1_Y.size());
-  Array<double, 1> *P_D_A1_TempF;
-  Array<double, 1> D_A1_Temp(D_A1_Y.size());
-  Array<double, 1> *P_D_A1_TempC;
-  Array<double, 1> *P_D_A1_TempD;
-  Array<double, 2> *P_D_A2_TempA;
-  Array<double, 2> D_A2_TempB(1,1);
-  Array<double, 2> *P_D_A2_TempC;
-  Array<double, 2> D_A2_Alpha(1,1);
-  Array<double, 1> D_A1_Sigma1(1);
-  Array<double, 1> D_A1_AlphaDiag(1);
-  Array<double, 1> D_A1_SigmaIParam(1);
-  Array<double, 1> D_A1_C(1);
-  Array<double, 2> *P_D_A2_C;
-  Array<double, 2> D_A2_Array(1,1);
-  Array<int, 2> I_A2_Diag(1,1);
-  Array<int, 2> I_A2_IndDiag(1,1);
-  Array<double, 2> D_A2_ArrayTemp(1,1);
-  Array<double, 2>* P_D_A2_ArrayTemp;
-  Array<double, 1> D_A1_AIParam(2);
-  Array<double, 1> D_A1_BIParam(1);
-  Array<double, 2> D_A2_Temp(1,1);
-  Array<double, 1> *P_D_A1_MTV;
-  Array<double, 1> D_A1_TempPDer;
-  Array<double, 2> D_A2_TempPDer(1,1);
+  blitz::Array<double, 1> D_A1_ArrayDiag(1);
+  blitz::Array<double, 1>* P_D_A1_YFit;
+  blitz::Array<double, 1> D_A1_YFit1(D_A1_X.size());
+  blitz::Array<double, 1> D_A1_P(D_A1_A.size());
+  blitz::Array<double, 1> *P_D_A1_TempE;
+  blitz::Array<double, 1> D_A1_TempA(D_A2_PDer.cols());
+  blitz::Array<double, 1> D_A1_Beta(1);
+  blitz::Array<double, 1> D_A1_TempB(D_A1_Y.size());
+  blitz::Array<double, 1> *P_D_A1_TempF;
+  blitz::Array<double, 1> D_A1_Temp(D_A1_Y.size());
+  blitz::Array<double, 1> *P_D_A1_TempC;
+  blitz::Array<double, 1> *P_D_A1_TempD;
+  blitz::Array<double, 2> *P_D_A2_TempA;
+  blitz::Array<double, 2> D_A2_TempB(1,1);
+  blitz::Array<double, 2> *P_D_A2_TempC;
+  blitz::Array<double, 2> D_A2_Alpha(1,1);
+  blitz::Array<double, 1> D_A1_Sigma1(1);
+  blitz::Array<double, 1> D_A1_AlphaDiag(1);
+  blitz::Array<double, 1> D_A1_SigmaIParam(1);
+  blitz::Array<double, 1> D_A1_C(1);
+  blitz::Array<double, 2> *P_D_A2_C;
+  blitz::Array<double, 2> D_A2_Array(1,1);
+  blitz::Array<int, 2> I_A2_Diag(1,1);
+  blitz::Array<int, 2> I_A2_IndDiag(1,1);
+  blitz::Array<double, 2> D_A2_ArrayTemp(1,1);
+  blitz::Array<double, 2>* P_D_A2_ArrayTemp;
+  blitz::Array<double, 1> D_A1_AIParam(2);
+  blitz::Array<double, 1> D_A1_BIParam(1);
+  blitz::Array<double, 2> D_A2_Temp(1,1);
+  blitz::Array<double, 1> *P_D_A1_MTV;
+  blitz::Array<double, 1> D_A1_TempPDer;
+  blitz::Array<double, 2> D_A2_TempPDer(1,1);
   double D_Inc;
   double D_Chisq1;
   double d_temp;
@@ -25648,9 +25648,9 @@ bool CFits::CurveFit(const Array<double, 1> &D_A1_X,
   CS_Comp = CString("YFIT");
   I_Pos = this->KeyWord_Set(CS_A1_ArgsIn, CS_Comp);
   if (I_Pos >= 0)
-    P_D_A1_YFit = (Array<double, 1>*)(PP_ArgsIn[I_Pos]);
+    P_D_A1_YFit = (blitz::Array<double, 1>*)(PP_ArgsIn[I_Pos]);
   else{
-    P_D_A1_YFit = new Array<double, 1>(D_A1_X.size());
+    P_D_A1_YFit = new blitz::Array<double, 1>(D_A1_X.size());
     bool B_NeedToDelete_P_D_A1_YFit = true;
   }
 ///  FOR iter = 1, itmax DO BEGIN      ; Iteration loop
@@ -25905,7 +25905,7 @@ bool CFits::CurveFit(const Array<double, 1> &D_A1_X,
         cout << "CFits::CurveFit: D_A1_Temp = " << D_A1_Temp << endl;
 #endif
         P_D_A1_TempC = VecArrTimesMatrix(D_A1_Temp, D_A2_TempPDer);
-//      Array<double, 1> *P_D_A1_TempC = MatrixTimesVecArr(D_A2_TempPDer, D_A1_Temp);
+//      blitz::Array<double, 1> *P_D_A1_TempC = MatrixTimesVecArr(D_A2_TempPDer, D_A1_Temp);
 #ifdef __DEBUG_FITS_CURVEFIT__
         cout << "CFits::CurveFit: P_D_A1_TempC = " << *P_D_A1_TempC << endl;
 #endif
@@ -26281,7 +26281,7 @@ bool CFits::CurveFit(const Array<double, 1> &D_A1_X,
 
 ///  sigma[iparam] = SQRT(array[diag]/alpha[diag])      ; New sigma
         //D_A1_SigmaIParam = this->GetSubArr(D_A1_Sigma, *P_I_A1_IParam);
-//        Array<double, 2> D_A2_AlphaDiag = this->GetSubArr(D_A2_Alpha, I_A1_Diag, 2);
+//        blitz::Array<double, 2> D_A2_AlphaDiag = this->GetSubArr(D_A2_Alpha, I_A1_Diag, 2);
           if (!this->GetSubArrCopy(D_A2_Array,
                                    I_A1_Diag,
                                    0,
@@ -26489,19 +26489,19 @@ bool CFits::CurveFit(const Array<double, 1> &D_A1_X,
   return true;
 }
 
-bool CFits::Funct(const Array<double, 1> &D_A1_X,
-                  const Array<double, 1> &D_A1_A,
-                  Array<double, 1> &D_A1_YFit) const{
-  Array<double, 1> D_A1_EZ(1);
-  Array<double, 1> D_A1_Z(1);
+bool CFits::Funct(const blitz::Array<double, 1> &D_A1_X,
+                  const blitz::Array<double, 1> &D_A1_A,
+                  blitz::Array<double, 1> &D_A1_YFit) const{
+  blitz::Array<double, 1> D_A1_EZ(1);
+  blitz::Array<double, 1> D_A1_Z(1);
   return this->Funct(D_A1_X, D_A1_A, D_A1_YFit, D_A1_EZ, D_A1_Z);
 }
 
-bool CFits::Funct(const Array<double, 1> &D_A1_X,
-                  const Array<double, 1> &D_A1_A,
-                  Array<double, 1> &D_A1_YFit,
-                  Array<double, 1> &D_A1_EZ,
-                  Array<double, 1> &D_A1_Z) const{
+bool CFits::Funct(const blitz::Array<double, 1> &D_A1_X,
+                  const blitz::Array<double, 1> &D_A1_A,
+                  blitz::Array<double, 1> &D_A1_YFit,
+                  blitz::Array<double, 1> &D_A1_EZ,
+                  blitz::Array<double, 1> &D_A1_Z) const{
 ///PRO  FUNCT,X,A,F,PDER
 ///     if a[2] ne 0.0 then Z = (X-A[1])/A[2] $ ;GET Z
 ///     else z= 10.
@@ -26530,12 +26530,12 @@ bool CFits::Funct(const Array<double, 1> &D_A1_X,
 }
 
 
-bool CFits::Funct(const Array<double, 1> &D_A1_X,
-                  const Array<double, 1> &D_A1_A,
-                  Array<double, 1> &D_A1_YFit,
-                  Array<double, 2> &D_A2_PDer) const{
-  Array<double, 1> D_A1_EZ(1);
-  Array<double, 1> D_A1_Z(1);
+bool CFits::Funct(const blitz::Array<double, 1> &D_A1_X,
+                  const blitz::Array<double, 1> &D_A1_A,
+                  blitz::Array<double, 1> &D_A1_YFit,
+                  blitz::Array<double, 2> &D_A2_PDer) const{
+  blitz::Array<double, 1> D_A1_EZ(1);
+  blitz::Array<double, 1> D_A1_Z(1);
   if (!this->Funct(D_A1_X, D_A1_A, D_A1_YFit, D_A1_EZ, D_A1_Z)){
     cout << "CFits::Funct: ERROR: this->Funct returned FALSE" << endl;
     return false;
@@ -26565,12 +26565,12 @@ bool CFits::Funct(const Array<double, 1> &D_A1_X,
   return true;
 }
 
-bool CFits::GaussFunct(const Array<double, 1> &D_A1_X,
-                       const Array<double, 1> &D_A1_A,
-                       Array<double, 1> &D_A1_F,
-                       Array<double, 2> &D_A2_PDer) const{
-  Array<double, 1> D_A1_Z(1);
-  Array<double, 1> D_A1_EZ(1);
+bool CFits::GaussFunct(const blitz::Array<double, 1> &D_A1_X,
+                       const blitz::Array<double, 1> &D_A1_A,
+                       blitz::Array<double, 1> &D_A1_F,
+                       blitz::Array<double, 2> &D_A2_PDer) const{
+  blitz::Array<double, 1> D_A1_Z(1);
+  blitz::Array<double, 1> D_A1_EZ(1);
   if (!this->GaussFunct(D_A1_X, D_A1_A, D_A1_F, D_A1_Z, D_A1_EZ)){
     cout << "CFits::GaussFunct: ERROR: GaussFunct return FALSE" << endl;
     return false;
@@ -26616,19 +26616,19 @@ bool CFits::GaussFunct(const Array<double, 1> &D_A1_X,
   return true;
 }
 
-bool CFits::GaussFunct(const Array<double, 1> &D_A1_X,
-                       const Array<double, 1> &D_A1_A,
-                       Array<double, 1> &D_A1_F) const{
-  Array<double, 1> D_A1_Z(1);
-  Array<double, 1> D_A1_EZ(1);
+bool CFits::GaussFunct(const blitz::Array<double, 1> &D_A1_X,
+                       const blitz::Array<double, 1> &D_A1_A,
+                       blitz::Array<double, 1> &D_A1_F) const{
+  blitz::Array<double, 1> D_A1_Z(1);
+  blitz::Array<double, 1> D_A1_EZ(1);
   return this->GaussFunct(D_A1_X, D_A1_A, D_A1_F, D_A1_Z, D_A1_EZ);
 }
 
-bool CFits::GaussFunct(const Array<double, 1> &D_A1_X,
-                       const Array<double, 1> &D_A1_A,
-                       Array<double, 1> &D_A1_F,
-                       Array<double, 1> &D_A1_Z,
-                       Array<double, 1> &D_A1_EZ) const{
+bool CFits::GaussFunct(const blitz::Array<double, 1> &D_A1_X,
+                       const blitz::Array<double, 1> &D_A1_A,
+                       blitz::Array<double, 1> &D_A1_F,
+                       blitz::Array<double, 1> &D_A1_Z,
+                       blitz::Array<double, 1> &D_A1_EZ) const{
 ///    n = n_elements(a)
 ///    nx = N_ELEMENTS(x)
   #ifdef __DEBUG_FITS_GAUSSFIT__
@@ -26651,7 +26651,7 @@ bool CFits::GaussFunct(const Array<double, 1> &D_A1_X,
   }
   else{
 ///        z = REPLICATE(FIX(100, TYPE=SIZE(x,/TYPE)), nx)
-    Array<double, 1> *P_D_A1_Z = this->Replicate(100., nx);
+    blitz::Array<double, 1> *P_D_A1_Z = this->Replicate(100., nx);
     D_A1_Z = (*P_D_A1_Z);
     delete(P_D_A1_Z);
 ///        ez = z*0
@@ -26685,7 +26685,7 @@ bool CFits::GaussFunct(const Array<double, 1> &D_A1_X,
 
 
 void CFits::GaussFunct(double D_X,
-                       const Array<double, 1> &D_A1_A,
+                       const blitz::Array<double, 1> &D_A1_A,
                        double D_Y) const{
   int n = D_A1_A.size();
   int nx = 1;
@@ -26729,9 +26729,9 @@ void CFits::GaussFunct(double D_X,
  * D_A1_Coeffs_In.size() == 9: three Gauss, no background (NOTE: Not yet implemented)
  * D_A1_Coeffs_In.size() == 10: three Gauss, constant background (NOTE: Not yet implemented)
  **/
-bool CFits::GaussArea(const Array<double, 1> &D_A1_X_In,
-                      const Array<double, 1> &D_A1_Coeffs_In,
-                      Array<double, 1> &D_A1_YFit_Out) const{
+bool CFits::GaussArea(const blitz::Array<double, 1> &D_A1_X_In,
+                      const blitz::Array<double, 1> &D_A1_Coeffs_In,
+                      blitz::Array<double, 1> &D_A1_YFit_Out) const{
   D_A1_YFit_Out.resize(D_A1_X_In.size());
   D_A1_YFit_Out = 0.;
   if ((D_A1_Coeffs_In.size() < 3) || (D_A1_Coeffs_In.size() > 4)){
@@ -26750,11 +26750,11 @@ bool CFits::GaussArea(const Array<double, 1> &D_A1_X_In,
   Spline
   Given Arrays XVecArr(0:N-1) and YVecArr(0:N-1) containing a tabulated function, i.e., y_i = f(x_i), with x_1 < x_2 < ... < x_N, and given values YP1 and YPN for the first derivative of the interpolating function at points 1 and N, respectively, this routine returns an Array y2(0:N-1) that contains the second derivatives of the interpolating function at the tabulated points x_i. If YP1 and/or YPN are equal to 1x10^30 or larger, the routine is signaled to set the corresponding boundary condition for a natural spline, with zero second derivative on that boundary.
  **/
-bool CFits::Spline(Array<double, 1> &XVecArr, Array<double, 1> &YVecArr, double YP1, double YPN, Array<double, 1> &Y2VecArr) const
+bool CFits::Spline(blitz::Array<double, 1> &XVecArr, blitz::Array<double, 1> &YVecArr, double YP1, double YPN, blitz::Array<double, 1> &Y2VecArr) const
 {
   int m, o, N = XVecArr.size();
   double p, qn, sig, un;
-  Array<double, 1> UVecArr(N-1);
+  blitz::Array<double, 1> UVecArr(N-1);
   Y2VecArr.resize(N);
 
   if (YP1 > 0.99e30)  /// The lower boundary condition is set either to be "natural"
@@ -26800,7 +26800,7 @@ bool CFits::Spline(Array<double, 1> &XVecArr, Array<double, 1> &YVecArr, double 
   Spline
   Given Arrays XVecArr(0:N-1) and YVecArr(0:N-1) containing a tabulated function, i.e., y_i = f(x_i), with x_1 < x_2 < ... < x_N, this routine returns an Array y2(0:N-1) that contains the second derivatives of the interpolating function at the tabulated points x_i. The routine is signaled to set the corresponding boundary condition for a natural spline, with zero second derivative on that boundary.
  **/
-bool CFits::Spline(Array<double, 1> &XVecArr, Array<double, 1> &YVecArr, Array<double, 1> &Y2VecArr) const
+bool CFits::Spline(blitz::Array<double, 1> &XVecArr, blitz::Array<double, 1> &YVecArr, blitz::Array<double, 1> &Y2VecArr) const
 {
   return this->Spline(XVecArr, YVecArr, 1.0e30, 1.0e30, Y2VecArr);
 }
@@ -26809,7 +26809,7 @@ bool CFits::Spline(Array<double, 1> &XVecArr, Array<double, 1> &YVecArr, Array<d
   SplInt
   Given the Arrays XAVecArr(0:N-1) and YAVecArr(0:N-1), which tabulate a function (whith the XAVecArr(i)'s in order), and given the array Y2AVecArr(0:N-1), which is the output from Spline above, and given a value of X, this routine returns a cubic-spline interpolated value Y;
  **/
-bool CFits::SplInt(Array<double, 1> &XAVecArr, Array<double, 1> &YAVecArr, Array<double, 1> &Y2AVecArr, double X, double *Y) const
+bool CFits::SplInt(blitz::Array<double, 1> &XAVecArr, blitz::Array<double, 1> &YAVecArr, blitz::Array<double, 1> &Y2AVecArr, double X, double *Y) const
 {
   int klo, khi, o, N;
   double h, b, a;
@@ -26847,12 +26847,12 @@ bool CFits::SplInt(Array<double, 1> &XAVecArr, Array<double, 1> &YAVecArr, Array
   AArray(0:N-1, 0:N-1) is the input matrix. BArray(0:N-1, 0:M-1) is input containing the m right-hand side vectors.
   On output, AArray is replaced by its matrix inverse, and BArray is replaced by the corresponding set of solution vectors.
  **/
-bool CFits::InvertGaussJ(Array<double, 2> &AArray, Array<double, 2> &BArray) const
+bool CFits::InvertGaussJ(blitz::Array<double, 2> &AArray, blitz::Array<double, 2> &BArray) const
 {
   /// The integer arrays IPivVecArr, IndXCVecArr, and IndXRVecArr are used for bookkeeping on the pivoting
-  Array<int, 1> IndXCVecArr(AArray.extent(firstDim));
-  Array<int, 1> IndXRVecArr(AArray.extent(firstDim));
-  Array<int, 1> IPivVecArr(AArray.extent(firstDim));
+  blitz::Array<int, 1> IndXCVecArr(AArray.extent(firstDim));
+  blitz::Array<int, 1> IndXRVecArr(AArray.extent(firstDim));
+  blitz::Array<int, 1> IPivVecArr(AArray.extent(firstDim));
 
   #ifdef __DEBUG_FITS_INVERT__
     cout << "CFits::InvertGaussJ: AArray = " << AArray << endl;
@@ -26985,7 +26985,7 @@ bool CFits::InvertGaussJ(Array<double, 2> &AArray, Array<double, 2> &BArray) con
   AArray(0:N-1, 0:N-1) is the input matrix.
   On output, AArray is replaced by its matrix inverse.
  **/
-bool CFits::InvertGaussJ(Array<double, 2> &AArray) const
+bool CFits::InvertGaussJ(blitz::Array<double, 2> &AArray) const
 {
   int N = AArray.cols();
   if (N != AArray.rows())
@@ -26994,7 +26994,7 @@ bool CFits::InvertGaussJ(Array<double, 2> &AArray) const
     (*P_OFS_Log) << "CFits::InvertGaussJ(AArray=" << AArray << "): ERROR: AArray is not quadratic!" << endl;
     return false;
   }
-  Array<double, 2> Unity(N, N);
+  blitz::Array<double, 2> Unity(N, N);
   Unity = 0.;
   for (int m = 0; m < N; m ++)
   {
@@ -27023,7 +27023,7 @@ bool CFits::InvertGaussJ(Array<double, 2> &AArray) const
    if 0 <= j < N-1 VecArr(j+1) <= ValVecArr(i) < VecArr(j)
    if j = N-1      ValVecArr(i) < VecArr(N-1)
 **/
-Array<int, 1>* CFits::ValueLocate(const Array<double, 1> &VecArr, const Array<double, 1> &ValVecArr) const
+blitz::Array<int, 1>* CFits::ValueLocate(const blitz::Array<double, 1> &VecArr, const blitz::Array<double, 1> &ValVecArr) const
 {
   #ifdef __DEBUG_FITS_INTERPOL__
     cout << "CFits::ValueLocate: VecArr = " << VecArr << endl;
@@ -27037,7 +27037,7 @@ Array<int, 1>* CFits::ValueLocate(const Array<double, 1> &VecArr, const Array<do
     cout << "CFits::ValueLocate: ERROR: ValVecArr.size() < 1 => Returning FALSE" << endl;
     exit(EXIT_FAILURE);
   }
-  Array<int, 1> IntVecArr(ValVecArr.size());
+  blitz::Array<int, 1> IntVecArr(ValVecArr.size());
 
   int n;
   int N = VecArr.size();
@@ -27115,7 +27115,7 @@ Array<int, 1>* CFits::ValueLocate(const Array<double, 1> &VecArr, const Array<do
   #ifdef __DEBUG_FITS_INTERPOL__
     cout << "CFits::ValueLocate: IntVecArr = " << IntVecArr << endl;
   #endif
-  Array<int, 1> *P_I_Result = new Array<int, 1>(IntVecArr.size());
+  blitz::Array<int, 1> *P_I_Result = new blitz::Array<int, 1>(IntVecArr.size());
   (*P_I_Result) = IntVecArr;
   #ifdef __DEBUG_FITS_INTERPOL__
     cout << "CFits::ValueLocate: *P_I_Result = " << (*P_I_Result) << endl;
@@ -27125,12 +27125,12 @@ Array<int, 1>* CFits::ValueLocate(const Array<double, 1> &VecArr, const Array<do
 }
 
 /**
- FixDF(Array<double, 1> &VecArr, CString Mode)
+ FixDF(blitz::Array<double, 1> &VecArr, CString Mode)
  Returns an Array of the same size containing the float values of VecArr.
  **/
-Array<float, 1>* CFits::FixDF(const Array<double, 1> &VecArr) const
+blitz::Array<float, 1>* CFits::FixDF(const blitz::Array<double, 1> &VecArr) const
 {
-  Array<float, 1> *P_TempFloatVecArr = new Array<float, 1>(VecArr.size());
+  blitz::Array<float, 1> *P_TempFloatVecArr = new blitz::Array<float, 1>(VecArr.size());
   for (int m = 0; m < VecArr.size(); m++)
   {
     (*P_TempFloatVecArr)(m) = (float)VecArr(m);
@@ -27147,12 +27147,12 @@ int CFits::Fix(double D_In) const{
 }
 
 /**
- Fix(Array<double, 1> &VecArr, CString Mode)
+ Fix(blitz::Array<double, 1> &VecArr, CString Mode)
  Returns an Array of the same size containing the integer values of VecArr. If <Mode> is set to "ROUND" the double values are rounded, else cut.
  **/
-Array<int, 1>* CFits::Fix(const Array<double, 1> &VecArr, const CString &Mode) const
+blitz::Array<int, 1>* CFits::Fix(const blitz::Array<double, 1> &VecArr, const CString &Mode) const
 {
-  Array<int, 1> *P_TempIntVecArr = new Array<int, 1>(VecArr.size());
+  blitz::Array<int, 1> *P_TempIntVecArr = new blitz::Array<int, 1>(VecArr.size());
   for (int m = 0; m < VecArr.size(); m++)
   {
 //    if (Mode.EqualValue(*(new CString("ROUND"))))
@@ -27167,21 +27167,21 @@ Array<int, 1>* CFits::Fix(const Array<double, 1> &VecArr, const CString &Mode) c
 }
 
 /**
-  Fix(Array<double, 1> &VecArr)
+  Fix(blitz::Array<double, 1> &VecArr)
   Returns an Array of the same size containing the not rounded integer values of VecArr.
  **/
-Array<int, 1>* CFits::Fix(const Array<double, 1> &VecArr) const
+blitz::Array<int, 1>* CFits::Fix(const blitz::Array<double, 1> &VecArr) const
 {
   return (this->Fix(VecArr, CString("NORMAL")));
 }
 
 /**
- Fix(Array<double, 2> &Arr, CString Mode)
+ Fix(blitz::Array<double, 2> &Arr, CString Mode)
  Returns an Array of the same size containing the integer values of Arr. If <Mode> is set to "ROUND" the double values are rounded, else cut.
  **/
-Array<int, 2>* CFits::Fix(const Array<double, 2> &Arr, const CString &Mode) const
+blitz::Array<int, 2>* CFits::Fix(const blitz::Array<double, 2> &Arr, const CString &Mode) const
 {
-  Array<int, 2> *P_TempIntArr = new Array<int, 2>(Arr.rows(), Arr.cols());
+  blitz::Array<int, 2> *P_TempIntArr = new blitz::Array<int, 2>(Arr.rows(), Arr.cols());
 
   firstIndex i;
   secondIndex j;
@@ -27202,21 +27202,21 @@ Array<int, 2>* CFits::Fix(const Array<double, 2> &Arr, const CString &Mode) cons
 }
 
 /**
-  Fix(Array<double, 2> &Arr)
+  Fix(blitz::Array<double, 2> &Arr)
   Returns an Array of the same size containing the not rounded integer values of VecArr.
  **/
-Array<int, 2>* CFits::Fix(const Array<double, 2> &Arr) const
+blitz::Array<int, 2>* CFits::Fix(const blitz::Array<double, 2> &Arr) const
 {
   return (this->Fix(Arr, CString("NORMAL")));
 }
 
 /**
- FixL(Array<double, 1> &VecArr, CString Mode)
+ FixL(blitz::Array<double, 1> &VecArr, CString Mode)
  Returns an Array of the same size containing the long integer values of VecArr. If <Mode> is set to "ROUND" the double values are rounded, else cut.
  **/
-Array<long, 1>* CFits::FixL(const Array<double, 1> &VecArr, const CString &Mode) const
+blitz::Array<long, 1>* CFits::FixL(const blitz::Array<double, 1> &VecArr, const CString &Mode) const
 {
-  Array<long, 1> *P_TempLongVecArr = new Array<long, 1>(VecArr.size());
+  blitz::Array<long, 1> *P_TempLongVecArr = new blitz::Array<long, 1>(VecArr.size());
   for (int m = 0; m < VecArr.size(); m++)
   {
     if (Mode.EqualValue(CString("ROUND")))
@@ -27230,21 +27230,21 @@ Array<long, 1>* CFits::FixL(const Array<double, 1> &VecArr, const CString &Mode)
 }
 
 /**
- FixL(Array<double, 1> &VecArr)
+ FixL(blitz::Array<double, 1> &VecArr)
  Returns an Array of the same size containing the not rounded long integer values of VecArr.
  **/
-Array<long, 1>* CFits::FixL(const Array<double, 1> &VecArr) const
+blitz::Array<long, 1>* CFits::FixL(const blitz::Array<double, 1> &VecArr) const
 {
   return (this->FixL(VecArr, CString("NORMAL")));
 }
 
 /**
- FixL(Array<double, 2> &Arr, CString Mode)
+ FixL(blitz::Array<double, 2> &Arr, CString Mode)
  Returns an Array of the same size containing the long integer values of Arr. If <Mode> is set to "ROUND" the double values are rounded, else cut.
  **/
-Array<long, 2>* CFits::FixL(const Array<double, 2> &Arr, const CString &Mode) const
+blitz::Array<long, 2>* CFits::FixL(const blitz::Array<double, 2> &Arr, const CString &Mode) const
 {
-  Array<long, 2> *P_TempIntArr = new Array<long, 2>(Arr.rows(), Arr.cols());
+  blitz::Array<long, 2> *P_TempIntArr = new blitz::Array<long, 2>(Arr.rows(), Arr.cols());
 
   firstIndex i;
   secondIndex j;
@@ -27265,21 +27265,21 @@ Array<long, 2>* CFits::FixL(const Array<double, 2> &Arr, const CString &Mode) co
 }
 
 /**
- FixL(Array<double, 2> &Arr)
+ FixL(blitz::Array<double, 2> &Arr)
  Returns an Array of the same size containing the not rounded long integer values of Arr.
  **/
-Array<long, 2>* CFits::FixL(const Array<double, 2> &Arr) const
+blitz::Array<long, 2>* CFits::FixL(const blitz::Array<double, 2> &Arr) const
 {
   return (this->FixL(Arr, CString("NORMAL")));
 }
 
 /**
- FixD(Array<long, 1> &VecArr)
- Returns an Array of the same size containing the double values of Array<long, 1> Arr.
+ FixD(blitz::Array<long, 1> &VecArr)
+ Returns an Array of the same size containing the double values of blitz::Array<long, 1> Arr.
  **/
-Array<double, 1>* CFits::FixD(const Array<long, 1> &VecArr) const
+blitz::Array<double, 1>* CFits::FixD(const blitz::Array<long, 1> &VecArr) const
 {
-  Array<double, 1> *P_TempDoubleVecArr = new Array<double, 1>(VecArr.size());
+  blitz::Array<double, 1> *P_TempDoubleVecArr = new blitz::Array<double, 1>(VecArr.size());
   for (int m = 0; m < VecArr.size(); m++)
   {
     (*P_TempDoubleVecArr)(m) = (double)VecArr(m);
@@ -27288,12 +27288,12 @@ Array<double, 1>* CFits::FixD(const Array<long, 1> &VecArr) const
 }
 
 /**
- FixD(Array<int, 1> &VecArr)
- Returns an Array of the same size containing the double values of Array<int, 1> Arr.
+ FixD(blitz::Array<int, 1> &VecArr)
+ Returns an Array of the same size containing the double values of blitz::Array<int, 1> Arr.
  **/
-Array<double, 1>* CFits::FixD(const Array<int, 1> &VecArr) const
+blitz::Array<double, 1>* CFits::FixD(const blitz::Array<int, 1> &VecArr) const
 {
-  Array<double, 1> *P_TempDoubleVecArr = new Array<double, 1>(VecArr.size());
+  blitz::Array<double, 1> *P_TempDoubleVecArr = new blitz::Array<double, 1>(VecArr.size());
   for (int m = 0; m < VecArr.size(); m++)
   {
     (*P_TempDoubleVecArr)(m) = (double)VecArr(m);
@@ -27302,12 +27302,12 @@ Array<double, 1>* CFits::FixD(const Array<int, 1> &VecArr) const
 }
 
 /**
- FixIL(Array<int, 1> &VecArr)
- Returns an Array of the same size containing the long integer values of Array<int, 1> Arr.
+ FixIL(blitz::Array<int, 1> &VecArr)
+ Returns an Array of the same size containing the long integer values of blitz::Array<int, 1> Arr.
  **/
-Array<long, 1>* CFits::FixIL(const Array<int, 1> &VecArr) const
+blitz::Array<long, 1>* CFits::FixIL(const blitz::Array<int, 1> &VecArr) const
 {
-  Array<long, 1> *P_TempLongVecArr = new Array<long, 1>(VecArr.size());
+  blitz::Array<long, 1> *P_TempLongVecArr = new blitz::Array<long, 1>(VecArr.size());
   for (int m = 0; m < VecArr.size(); m++)
   {
     (*P_TempLongVecArr)(m) = (long)VecArr(m);
@@ -27316,12 +27316,12 @@ Array<long, 1>* CFits::FixIL(const Array<int, 1> &VecArr) const
 }
 
 /**
- FixLI(Array<long, 1> &VecArr)
- Returns an Array of the same size containing the integer values of Array<long, 1> Arr.
+ FixLI(blitz::Array<long, 1> &VecArr)
+ Returns an Array of the same size containing the integer values of blitz::Array<long, 1> Arr.
  **/
-Array<int, 1>* CFits::FixLI(const Array<long, 1> &VecArr) const
+blitz::Array<int, 1>* CFits::FixLI(const blitz::Array<long, 1> &VecArr) const
 {
-  Array<int, 1> *P_TempIntVecArr = new Array<int, 1>(VecArr.size());
+  blitz::Array<int, 1> *P_TempIntVecArr = new blitz::Array<int, 1>(VecArr.size());
   for (int m = 0; m < VecArr.size(); m++)
   {
     (*P_TempIntVecArr)(m) = (int)VecArr(m);
@@ -27353,8 +27353,8 @@ double CFits::Round(const double ToRound, int DigitsBehindDot) const
   return (double(TempLong) / pow(10., DigitsBehindDot));
 }
 /*
-Array<int, 1>* CFits::Round(const Array<double, 1> D_A1_ToRound) const{
-  Array<int, 1> *P_I_A1_Out = new Array<int, 1>(D_A1_ToRound.size());
+blitz::Array<int, 1>* CFits::Round(const blitz::Array<double, 1> D_A1_ToRound) const{
+  blitz::Array<int, 1> *P_I_A1_Out = new blitz::Array<int, 1>(D_A1_ToRound.size());
   for (int i_pos=0; i_pos<D_A1_ToRound.size(); i_pos++){
     (*P_I_A1_Out)(i_pos) = this->Round(D_A1_ToRound(i_pos));
   }
@@ -27377,7 +27377,7 @@ int CFits::Round(const double ToRound) const
 
 /************************************************************/
 
-Array<int, 1>* CFits::Round(const Array<double, 1> &D_A1_ToRound_In) const
+blitz::Array<int, 1>* CFits::Round(const blitz::Array<double, 1> &D_A1_ToRound_In) const
 {
   return this->Fix(D_A1_ToRound_In, CString("ROUND"));
 }
@@ -27385,7 +27385,7 @@ Array<int, 1>* CFits::Round(const Array<double, 1> &D_A1_ToRound_In) const
 /**
  Uniq
  **/
-bool CFits::Uniq(const Array<int, 1> &IA1_In, Array<int, 1> &IA1_Result) const
+bool CFits::Uniq(const blitz::Array<int, 1> &IA1_In, blitz::Array<int, 1> &IA1_Result) const
 {
   /**
     NAME:
@@ -27429,10 +27429,10 @@ bool CFits::Uniq(const Array<int, 1> &IA1_In, Array<int, 1> &IA1_Result) const
       else return, n_elements(ARRAY)-1
     endelse
   end*/
-  //  Array<int, 1> IA1_Indices;
+  //  blitz::Array<int, 1> IA1_Indices;
   int I_Size = IA1_In.size();
   int I_Count;
-  Array<int, 1> IA1_Res(IA1_In.size()-1);
+  blitz::Array<int, 1> IA1_Res(IA1_In.size()-1);
   if (I_Size == 0)
   {
     cout << "CFits::Uniq: ERROR: Size of input array == 0" << endl;
@@ -27468,14 +27468,14 @@ bool CFits::Uniq(const Array<int, 1> &IA1_In, Array<int, 1> &IA1_Result) const
     }
   }
   IA1_Res.resize(0);
-  return true;// (*(new Array<int, 1>(IA1_Indices.copy())));
+  return true;// (*(new blitz::Array<int, 1>(IA1_Indices.copy())));
 }
 
 /**
   CrossCorrelate
  **/
-bool CFits::CrossCorrelate(const Array<double, 1> &DA1_Static,
-                           const Array<double, 1> &DA1_Moving,
+bool CFits::CrossCorrelate(const blitz::Array<double, 1> &DA1_Static,
+                           const blitz::Array<double, 1> &DA1_Moving,
                            int I_NPixMaxLeft,
                            int I_NPixMaxRight,
                            int &I_Out,
@@ -27506,11 +27506,11 @@ bool CFits::CrossCorrelate(const Array<double, 1> &DA1_Static,
     cout << "CFits::CrossCorrelate: I_NPixMove = " << I_NPixMove << endl;
   #endif
 
-  Array<double, 1> DA1_StaticTemp(1);
-  Array<double, 1> DA1_MovingTemp(1);
-  Array<double, 1> DA1_Diff(1);
-  Array<double, 1> DA1_ChiSquare(I_NPixMove);
-  Array<int, 1> IA1_NPix(I_NPixMove);
+  blitz::Array<double, 1> DA1_StaticTemp(1);
+  blitz::Array<double, 1> DA1_MovingTemp(1);
+  blitz::Array<double, 1> DA1_Diff(1);
+  blitz::Array<double, 1> DA1_ChiSquare(I_NPixMove);
+  blitz::Array<int, 1> IA1_NPix(I_NPixMove);
 
   for (int i = I_Pix; i <= I_NPixMaxRight; i++){
     if (i < 0){
@@ -27591,8 +27591,8 @@ bool CFits::CrossCorrelate(const Array<double, 1> &DA1_Static,
 /**
   CrossCorrelate with Gauss fit to ChiSquare to find subpixel of minimum
  **/
-bool CFits::CrossCorrelate(const Array<double, 1> &DA1_Static,
-                           const Array<double, 1> &DA1_Moving,
+bool CFits::CrossCorrelate(const blitz::Array<double, 1> &DA1_Static,
+                           const blitz::Array<double, 1> &DA1_Moving,
                            int I_NPixMaxLeft,
                            int I_NPixMaxRight,
                            double &D_Out,
@@ -27623,11 +27623,11 @@ bool CFits::CrossCorrelate(const Array<double, 1> &DA1_Static,
     cout << "CFits::CrossCorrelate: I_NPixMove = " << I_NPixMove << endl;
   #endif
 
-  Array<double, 1> DA1_StaticTemp(1);
-  Array<double, 1> DA1_MovingTemp(1);
-  Array<double, 1> DA1_Diff(1);
-  Array<double, 1> DA1_ChiSquare(I_NPixMove);
-  Array<int, 1> IA1_NPix(I_NPixMove);
+  blitz::Array<double, 1> DA1_StaticTemp(1);
+  blitz::Array<double, 1> DA1_MovingTemp(1);
+  blitz::Array<double, 1> DA1_Diff(1);
+  blitz::Array<double, 1> DA1_ChiSquare(I_NPixMove);
+  blitz::Array<int, 1> IA1_NPix(I_NPixMove);
 
   for (int i = I_Pix; i <= I_NPixMaxRight; i++){
     if (i < 0){
@@ -27689,7 +27689,7 @@ bool CFits::CrossCorrelate(const Array<double, 1> &DA1_Static,
     run++;
   }
   /// Normalise DA1_ChiSquare to number of pixels
-//  Array<double, 1> DA1_NPix(IA1_NPix.size());
+//  blitz::Array<double, 1> DA1_NPix(IA1_NPix.size());
 //  if (!this->CastIntArrToDblArr(IA1_NPix, DA1_NPix)){
 //    cout << "CFits::CrossCorrelate: ERROR: CastIntArrToDblArr(IA1_NPix) returned FALSE" << endl;
 //    returm false;
@@ -27715,19 +27715,19 @@ bool CFits::CrossCorrelate(const Array<double, 1> &DA1_Static,
   int I_End = TV_MinIndex(0) + 2;
   if (I_End >= DA1_ChiSquare.size())
     I_End = DA1_ChiSquare.size()-1;
-  Array<double, 1> *P_D_A1_X = this->DIndGenArr(DA1_ChiSquare.size());
-  Array<double, 1> D_A1_X(I_End - I_Start + 1);
+  blitz::Array<double, 1> *P_D_A1_X = this->DIndGenArr(DA1_ChiSquare.size());
+  blitz::Array<double, 1> D_A1_X(I_End - I_Start + 1);
   D_A1_X = (*P_D_A1_X)(Range(I_Start, I_End));
   delete(P_D_A1_X);
-  Array<double, 1> D_A1_ChiSqu(I_End - I_Start + 1);
+  blitz::Array<double, 1> D_A1_ChiSqu(I_End - I_Start + 1);
   D_A1_ChiSqu = DA1_ChiSquare(Range(I_Start, I_End));
-  Array<double, 1> *P_D_A1_MeasureErrors = this->Replicate(1., D_A1_ChiSqu.size());
-  Array<double, 1> D_A1_Guess(4);
+  blitz::Array<double, 1> *P_D_A1_MeasureErrors = this->Replicate(1., D_A1_ChiSqu.size());
+  blitz::Array<double, 1> D_A1_Guess(4);
   D_A1_Guess(0) = max(DA1_ChiSquare);
   D_A1_Guess(1) = 0. - (max(DA1_ChiSquare) - DA1_ChiSquare(TV_MinIndex(0)));
   D_A1_Guess(2) = double(TV_MinIndex(0));
   D_A1_Guess(3) = 2.;
-  Array<int, 2> I_A2_Limited(4,2);
+  blitz::Array<int, 2> I_A2_Limited(4,2);
   I_A2_Limited(0,0) = 1;
   I_A2_Limited(0,1) = 1;
   I_A2_Limited(1,0) = 1;
@@ -27736,7 +27736,7 @@ bool CFits::CrossCorrelate(const Array<double, 1> &DA1_Static,
   I_A2_Limited(2,1) = 1;
   I_A2_Limited(3,0) = 1;
   I_A2_Limited(3,1) = 1;
-  Array<double, 2> D_A2_Limits(4,2);
+  blitz::Array<double, 2> D_A2_Limits(4,2);
   D_A2_Limits(0,0) = D_A1_Guess(0) / 2.;
   D_A2_Limits(0,1) = D_A1_Guess(0) * 1.1;
   if (D_A2_Limits(0,1) < D_A2_Limits(0,0)){
@@ -27761,9 +27761,9 @@ bool CFits::CrossCorrelate(const Array<double, 1> &DA1_Static,
     cout << "CFits::CrossCorrelate: ERROR: D_A2_Limits(3,1) < D_A2_Limits(3,0)" << endl;
     return false;
   }
-  Array<double, 1> D_A1_GaussCoeffs(4);
+  blitz::Array<double, 1> D_A1_GaussCoeffs(4);
   D_A1_GaussCoeffs = 0.;
-  Array<double, 1> D_A1_EGaussCoeffs(4);
+  blitz::Array<double, 1> D_A1_EGaussCoeffs(4);
   D_A1_EGaussCoeffs = 0.;
   if (!MPFitGaussLim(D_A1_X,
                      D_A1_ChiSqu,
@@ -27797,7 +27797,7 @@ bool CFits::CrossCorrelate(const Array<double, 1> &DA1_Static,
 /**
   CrossCorrelateAllApertureColsToColNo
  **/
-bool CFits::CrossCorrelateAllApertureColsToColNo(int I_Col, int I_NPixMaxUp, int I_NPixMaxDown, Array<int, 1> &IA1_Out, Array<int, 2> &IA2_Out) const{
+bool CFits::CrossCorrelateAllApertureColsToColNo(int I_Col, int I_NPixMaxUp, int I_NPixMaxDown, blitz::Array<int, 1> &IA1_Out, blitz::Array<int, 2> &IA2_Out) const{
   int I_NRowsIn = this->P_D_A2_PixArray->rows();
   int I_NColsIn = this->P_D_A2_PixArray->cols();
   int I_Result;
@@ -27856,9 +27856,9 @@ bool CFits::CalcFeatureOffsets(int I_Col,
                                int I_NPixMaxUp,
                                int I_NPixMaxDown,
                                int I_Order,
-                               Array<int, 1> &I_A1_X_Out,
-                               Array<int, 2> &I_A2_ColsMinMax,
-                               Array<double, 1> &D_A1_Out,
+                               blitz::Array<int, 1> &I_A1_X_Out,
+                               blitz::Array<int, 2> &I_A2_ColsMinMax,
+                               blitz::Array<double, 1> &D_A1_Out,
                                const CString &CS_Mode) const{
   /// Cross-correlate all Aperture columns to column I_Col
   #ifdef __DEBUG_CFITS_CALCFEATUREOFFSETS__
@@ -27868,7 +27868,7 @@ bool CFits::CalcFeatureOffsets(int I_Col,
     cout << "CFits::CalcFeatureOffsets: I_Order = " << I_Order << endl;
     cout << "CFits::CalcFeatureOffsets: CS_Mode = " << CS_Mode << endl;
   #endif
-  Array<int, 1> I_A1_MeasuredOffsets(1);
+  blitz::Array<int, 1> I_A1_MeasuredOffsets(1);
   #ifdef __DEBUG_CFITS_CALCFEATUREOFFSETS__
     cout << "CFits::CalcFeatureOffsets: starting CrossCorrelateAllApertureColsToColNo()" << endl;
   #endif
@@ -27881,12 +27881,12 @@ bool CFits::CalcFeatureOffsets(int I_Col,
   #endif
 
   /// popluate Arrays D_A1_X and D_A1_Y for fitting procedure
-  Array<int, 1> I_A1_Where(I_A1_MeasuredOffsets.size());
+  blitz::Array<int, 1> I_A1_Where(I_A1_MeasuredOffsets.size());
   int I_NInd = 0;
   int I_NIndThisRun;
-  Array<int, 1> I_A1_Ind(this->GetNCols());
-//  Array<int, 1> I_A1_IndThisRun(1);
-//  Array<int, 1> *P_I_A1_XAll = this->IndGenArr(this->GetNCols());
+  blitz::Array<int, 1> I_A1_Ind(this->GetNCols());
+//  blitz::Array<int, 1> I_A1_IndThisRun(1);
+//  blitz::Array<int, 1> *P_I_A1_XAll = this->IndGenArr(this->GetNCols());
   #ifdef __DEBUG_CFITS_CALCFEATUREOFFSETS__
     cout << "CFits::CalcFeatureOffsets: Starting for(i_ap=0; i_ap < this->Get_NApertures(=" << this->Get_NApertures() << "); i_ap++)" << endl;
   #endif
@@ -27920,9 +27920,9 @@ bool CFits::CalcFeatureOffsets(int I_Col,
 
   I_A1_X_Out.resize(I_A1_Ind.size());
   I_A1_X_Out = I_A1_Ind;
-  Array<double, 1> D_A1_X(1);
-  Array<double, 1> D_A1_Y(1);
-  Array<double, 1> D_A1_MeasuredOffsets(1);
+  blitz::Array<double, 1> D_A1_X(1);
+  blitz::Array<double, 1> D_A1_Y(1);
+  blitz::Array<double, 1> D_A1_MeasuredOffsets(1);
   CastIntArrToDblArr(I_A1_MeasuredOffsets, D_A1_MeasuredOffsets);
   CastIntArrToDblArr(I_A1_Ind, D_A1_X);
   if (!this->GetSubArrCopy(D_A1_MeasuredOffsets,
@@ -27946,11 +27946,11 @@ bool CFits::CalcFeatureOffsets(int I_Col,
 /// also include and try legendre and chebyshev polynomials!!!
 
 
-  Array<CString, 1> CS_A1_Args(1);
+  blitz::Array<CString, 1> CS_A1_Args(1);
   CS_A1_Args(0) = CString("YFIT");
   void **PP_Args = (void**)malloc(sizeof(void*));
   PP_Args[0] = &D_A1_Out;
-  Array<double, 1> D_A1_Coeffs(I_Order + 1);
+  blitz::Array<double, 1> D_A1_Coeffs(I_Order + 1);
   if (CS_Mode.EqualValue(CString("Poly"))){
     if (!this->PolyFit(D_A1_X, D_A1_Y, I_Order, CS_A1_Args, PP_Args, &D_A1_Coeffs)){
       cout << "CFits::CalcFeatureOffsets: ERROR: PolyFit returned FALSE" << endl;
@@ -28002,7 +28002,7 @@ bool CFits::CalcFeatureOffsets(int I_Col,
   #endif
 
   /// check result
-  Array<double, 1> D_A1_Diff(D_A1_Y.size());
+  blitz::Array<double, 1> D_A1_Diff(D_A1_Y.size());
   D_A1_Diff = D_A1_Y - D_A1_Out;
   #ifdef __DEBUG_FITS_CALCFEATUREOFFSETS__
     cout << "CFits::CalcFeatureOffsets: D_A1_Diff = " << D_A1_Diff << endl;
@@ -28016,19 +28016,19 @@ bool CFits::CalcFeatureOffsets(int I_Col,
         D_Offset < 0: shift up
         D_Offset > 0: shift down
  **/
-bool CFits::Shift(Array<double, 1> &D_A1_InOut,
+bool CFits::Shift(blitz::Array<double, 1> &D_A1_InOut,
                   double D_Offset,
-                  const Array<CString, 1> &CS_A1_In) const{
+                  const blitz::Array<CString, 1> &CS_A1_In) const{
 #ifdef __DEBUG_FITS_SHIFT__
   cout << "CFits::Shift: D_A1_InOut = " << D_A1_InOut << endl;
   cout << "CFits::Shift: D_Offset = " << D_Offset << endl;
 #endif
   int len = D_A1_InOut.size();
-  Array<double, 1> *P_D_A1_Row = this->DIndGenArr(len);
-  Array<double, 1> D_A1_XNew(len);
+  blitz::Array<double, 1> *P_D_A1_Row = this->DIndGenArr(len);
+  blitz::Array<double, 1> D_A1_XNew(len);
   D_A1_XNew = (*P_D_A1_Row) - D_Offset;
 
-  Array<double, 1> *P_D_A1_InterPol = new Array<double, 1>(1);
+  blitz::Array<double, 1> *P_D_A1_InterPol = new blitz::Array<double, 1>(1);
   if (!this->InterPol(D_A1_InOut, *P_D_A1_Row, D_A1_XNew, CS_A1_In, P_D_A1_InterPol)){
     cout << "CFits::Shift: ERROR: InterPol returned FALSE" << endl;
     return false;
@@ -28051,16 +28051,16 @@ bool CFits::Shift(Array<double, 1> &D_A1_InOut,
     D_Offset < 0: shift up
     D_Offset > 0: shift down
  **/
-bool CFits::ShiftColumns(Array<double, 2> &D_A2_InOut,
-                         const Array<int, 1> &I_A1_Cols,
-                         const Array<double, 1> &D_A1_Offset,
-                         const Array<CString, 1> &CS_A1_In) const{
+bool CFits::ShiftColumns(blitz::Array<double, 2> &D_A2_InOut,
+                         const blitz::Array<int, 1> &I_A1_Cols,
+                         const blitz::Array<double, 1> &D_A1_Offset,
+                         const blitz::Array<CString, 1> &CS_A1_In) const{
 //  cout << "CFits::Shift: D_A2_InOut = " << D_A2_InOut << endl;
 #ifdef __DEBUG_FITS_SHIFT__
   cout << "CFits::ShiftColumns(3): I_A1_Cols = " << I_A1_Cols << endl;
   cout << "CFits::ShiftColumns(3): D_A1_Offset = " << D_A1_Offset << endl;
 #endif
-  Array<double, 2> D_A2_Temp(D_A2_InOut.rows(), D_A2_InOut.cols());
+  blitz::Array<double, 2> D_A2_Temp(D_A2_InOut.rows(), D_A2_InOut.cols());
   D_A2_Temp = D_A2_InOut;
   /// check sizes of I_A1_Cols and D_A1_Offset
   if (I_A1_Cols.size() < 1 || I_A1_Cols.size() >= D_A2_InOut.cols()){
@@ -28071,7 +28071,7 @@ bool CFits::ShiftColumns(Array<double, 2> &D_A2_InOut,
     cout << "CFits::ShiftColumns: ERROR: sizes of I_A1_Cols and D_A1_Offset not the same" << endl;
     return false;
   }
-  Array<double, 1> D_A1_Col(D_A2_InOut.rows());
+  blitz::Array<double, 1> D_A1_Col(D_A2_InOut.rows());
   for (int i=0; i<I_A1_Cols.size(); i++){
     D_A1_Col = D_A2_InOut(Range::all(), I_A1_Cols(i));
     if (!this->Shift(D_A1_Col, D_A1_Offset(i), CS_A1_In)){
@@ -28091,9 +28091,9 @@ bool CFits::ShiftColumns(Array<double, 2> &D_A2_InOut,
     D_Offset < 0: shift up
     D_Offset > 0: shift down
   **/
-bool CFits::ShiftColumns(const Array<int, 1> &I_A1_Cols,
-                         const Array<double, 1> &D_A1_Offset,
-                         const Array<CString, 1> &CS_A1_In){
+bool CFits::ShiftColumns(const blitz::Array<int, 1> &I_A1_Cols,
+                         const blitz::Array<double, 1> &D_A1_Offset,
+                         const blitz::Array<CString, 1> &CS_A1_In){
 #ifdef __DEBUG_FITS_SHIFT__
   cout << "CFits::ShiftColumns(2): I_A1_Cols = " << I_A1_Cols << endl;
   cout << "CFits::ShiftColumns(2): D_A1_Offset = " << D_A1_Offset << endl;
@@ -28115,12 +28115,12 @@ bool CFits::CalculateFeatureOffsetAndShiftAllImages(const CString &CS_ArcFile,
                                                     int I_NPixMaxDown,
                                                     int I_FitOrder,
                                                     const CString &CS_Mode) const{
-  Array<CString, 2> CS_A2_FileListIn(2,2);
+  blitz::Array<CString, 2> CS_A2_FileListIn(2,2);
   if (!this->ReadFileToStrArr(CS_FileListToShift, CS_A2_FileListIn, CString(" "))){
     cout << "CFits::CalculateFeatureOffsetAndShiftAllImages: ERROR: ReadFileToStrArr returned FALSE" << endl;
     return false;
   }
-  Array<CString, 2> CS_A2_FileListOut(2,2);
+  blitz::Array<CString, 2> CS_A2_FileListOut(2,2);
   if (!this->ReadFileToStrArr(CS_FileListOut, CS_A2_FileListOut, CString(" "))){
     cout << "CFits::CalculateFeatureOffsetAndShiftAllImages: ERROR: ReadFileToStrArr returned FALSE" << endl;
     return false;
@@ -28151,9 +28151,9 @@ bool CFits::CalculateFeatureOffsetAndShiftAllImages(const CString &CS_ArcFile,
   }
 
   ///Calculate Feature Offsets for every column in an aperture
-  Array<int, 1> I_A1_X(1);
-  Array<int, 2> I_A2_ColsMinMax(2,2);
-  Array<double, 1> D_A1_FeatureOffsets(1);
+  blitz::Array<int, 1> I_A1_X(1);
+  blitz::Array<int, 2> I_A2_ColsMinMax(2,2);
+  blitz::Array<double, 1> D_A1_FeatureOffsets(1);
 
   if (!CF_ArcFile.CalcFeatureOffsets(I_ColWithRespectTo, I_NPixMaxUp, I_NPixMaxDown, I_FitOrder, I_A1_X, I_A2_ColsMinMax, D_A1_FeatureOffsets, CString("Poly"))){
     cout << "CFits::CalculateFeatureOffsetAndShiftAllImages: ERROR: CF_ArcFile.CalcFeatureOffsets() returned FALSE" << endl;
@@ -28161,11 +28161,11 @@ bool CFits::CalculateFeatureOffsetAndShiftAllImages(const CString &CS_ArcFile,
   }
 
   /// Calculate minimum shift per aperture
-  Array<int, 1> I_A1_Where(I_A1_X.size());
-  Array<int, 1> I_A1_Indices(1);
+  blitz::Array<int, 1> I_A1_Where(I_A1_X.size());
+  blitz::Array<int, 1> I_A1_Indices(1);
   double D_MinShift, D_MaxShift, D_Shift, D_ShiftOffset;
   int I_NInd, I_MinInd, I_MaxInd;
-  Array<double, 1> D_A1_Temp(2);
+  blitz::Array<double, 1> D_A1_Temp(2);
   for (int i=0; i < this->Get_NApertures(); i++){
     cout << "i = " << i << ": I_A1_X = " << I_A1_X << endl;
     cout << "i = " << i << ": I_A2_ColsMinMax(i,0) = " << I_A2_ColsMinMax(i,0) << endl;
@@ -28224,7 +28224,7 @@ bool CFits::CalculateFeatureOffsetAndShiftAllImages(const CString &CS_ArcFile,
   }
 
   ///Shift columns in every aperture for every image in CS_A2_FileListIn
-  Array<CString, 1> CS_A1_Temp(1);
+  blitz::Array<CString, 1> CS_A1_Temp(1);
   CS_A1_Temp(0) = CString(" ");
   for (int i_file=0; i_file < CS_A2_FileListIn.rows(); i_file++){
     if (!CF_ToShift.SetFileName(CS_A2_FileListIn(i_file,0))){
@@ -28252,7 +28252,7 @@ bool CFits::CalculateFeatureOffsetAndShiftAllImages(const CString &CS_ArcFile,
   return true;
 }
 
-bool CFits::CastIntArrToDblArr(const Array<int, 1> &I_A1_In, Array<double, 1> &D_A1_Out) const{
+bool CFits::CastIntArrToDblArr(const blitz::Array<int, 1> &I_A1_In, blitz::Array<double, 1> &D_A1_Out) const{
   D_A1_Out.resize(I_A1_In.size());
   for (int i=0; i<I_A1_In.size(); i++){
     D_A1_Out(i) = I_A1_In(i);
@@ -28260,7 +28260,7 @@ bool CFits::CastIntArrToDblArr(const Array<int, 1> &I_A1_In, Array<double, 1> &D
   return true;
 }
 
-bool CFits::CastIntArrToDblArr(const Array<int, 2> &I_A2_In, Array<double, 2> &D_A2_Out) const{
+bool CFits::CastIntArrToDblArr(const blitz::Array<int, 2> &I_A2_In, blitz::Array<double, 2> &D_A2_Out) const{
   D_A2_Out.resize(I_A2_In.rows(), I_A2_In.cols());
   for (int i_row=0; i_row<I_A2_In.rows(); i_row++){
     for (int i_col=0; i_col<I_A2_In.cols(); i_col++){
@@ -28271,11 +28271,11 @@ bool CFits::CastIntArrToDblArr(const Array<int, 2> &I_A2_In, Array<double, 2> &D
 }
 
 /**
-  GetSubArrCopy(Array<double, 1> &DA1_In, Array<int, 1> &IA1_Indices, Array<double, 1> &DA1_Out) const
+  GetSubArrCopy(blitz::Array<double, 1> &DA1_In, blitz::Array<int, 1> &IA1_Indices, blitz::Array<double, 1> &DA1_Out) const
  **/
-bool CFits::GetSubArrCopy(const Array<double, 1> &DA1_In,
-                          const Array<int, 1> &IA1_Indices,
-                          Array<double, 1> &DA1_Out) const
+bool CFits::GetSubArrCopy(const blitz::Array<double, 1> &DA1_In,
+                          const blitz::Array<int, 1> &IA1_Indices,
+                          blitz::Array<double, 1> &DA1_Out) const
 {
 #ifdef __DEBUG_FITS_GETSUBARRCOPY__
   cout << "CFits::GetSubArrCopy: IA1_Indices = " << IA1_Indices << endl;
@@ -28293,18 +28293,18 @@ bool CFits::GetSubArrCopy(const Array<double, 1> &DA1_In,
 }
 
 /**
-  GetSubArr(Array<double, 1> &DA1_In, Array<int, 1> &IA1_Indices) const
+  GetSubArr(blitz::Array<double, 1> &DA1_In, blitz::Array<int, 1> &IA1_Indices) const
   Copies the adresses of DA1_In(IA1_Indices) to IA1_Out
  **/
-Array<double, 1>& CFits::GetSubArr(const Array<double, 1> &D_A1_In, const Array<int, 1> &I_A1_Indices) const
+blitz::Array<double, 1>& CFits::GetSubArr(const blitz::Array<double, 1> &D_A1_In, const blitz::Array<int, 1> &I_A1_Indices) const
 {
-  Array<double, 1> *P_D_A1_Out = new Array<double, 1>(I_A1_Indices.size());
+  blitz::Array<double, 1> *P_D_A1_Out = new blitz::Array<double, 1>(I_A1_Indices.size());
 ///  for (int l=0; l < I_A1_Indices.size(); l++)
 ///    &((*P_D_A1_Out)(l)) = &(D_A1_In(I_A1_Indices(l)));
-  //  Array<double, 1>::iterator pdm1 = const_cast<Array<double, 1>*>(&D_A1_In)->begin();
-  Array<double, 1>::iterator pdm2 = P_D_A1_Out->begin();
-  Array<double, 1>::iterator pend = P_D_A1_Out->end();
-  Array<int, 1>::iterator pind = const_cast<Array<int, 1>*>(&I_A1_Indices)->begin();
+  //  blitz::Array<double, 1>::iterator pdm1 = const_cast<blitz::Array<double, 1>*>(&D_A1_In)->begin();
+  blitz::Array<double, 1>::iterator pdm2 = P_D_A1_Out->begin();
+  blitz::Array<double, 1>::iterator pend = P_D_A1_Out->end();
+  blitz::Array<int, 1>::iterator pind = const_cast<blitz::Array<int, 1>*>(&I_A1_Indices)->begin();
   for (; pdm2 != pend; ++pdm2, ++pind)
     *pdm2 = D_A1_In(*pind);
 /**  double d_temp = D_A1_In(I_A1_Indices(0));
@@ -28318,12 +28318,12 @@ Array<double, 1>& CFits::GetSubArr(const Array<double, 1> &D_A1_In, const Array<
 }
 
 /**
-  GetSubArrCopy(Array<int, 1> &IA1_In, Array<int, 1> &IA1_Indices, Array<int, 1> &IA1_Out) const
+  GetSubArrCopy(blitz::Array<int, 1> &IA1_In, blitz::Array<int, 1> &IA1_Indices, blitz::Array<int, 1> &IA1_Out) const
   Copies the values of IA1_In(IA1_Indices) to IA1_Out
  **/
-bool CFits::GetSubArrCopy(const Array<int, 1> &IA1_In,
-                          const Array<int, 1> &IA1_Indices,
-                          Array<int, 1> &IA1_Out) const
+bool CFits::GetSubArrCopy(const blitz::Array<int, 1> &IA1_In,
+                          const blitz::Array<int, 1> &IA1_Indices,
+                          blitz::Array<int, 1> &IA1_Out) const
 {
   if (IA1_In.size() < max(IA1_Indices)){
     cout << "CFits::GetSubArrCopy: ERROR: IA1_In.size() < max(IA1_Indices)." << endl;
@@ -28346,15 +28346,15 @@ bool CFits::GetSubArrCopy(const Array<int, 1> &IA1_In,
 }
 
 /**
-  GetSubArr(Array<int, 1> &IA1_In, Array<int, 1> &IA1_Indices, Array<int, 1> &IA1_Out) const
+  GetSubArr(blitz::Array<int, 1> &IA1_In, blitz::Array<int, 1> &IA1_Indices, blitz::Array<int, 1> &IA1_Out) const
   Copies the adresses of IA1_In(IA1_Indices) to IA1_Out
  **/
-Array<int, 1>& CFits::GetSubArr(const Array<int, 1> &I_A1_In, const Array<int, 1> &I_A1_Indices) const
+blitz::Array<int, 1>& CFits::GetSubArr(const blitz::Array<int, 1> &I_A1_In, const blitz::Array<int, 1> &I_A1_Indices) const
 {
-  Array<int, 1> *P_I_A1_Out = new Array<int, 1>(I_A1_Indices.size());
-  Array<int, 1>::iterator pdm2 = P_I_A1_Out->begin();
-  Array<int, 1>::iterator pend = P_I_A1_Out->end();
-  Array<int, 1>::iterator pind = const_cast<Array<int, 1>*>(&I_A1_Indices)->begin();
+  blitz::Array<int, 1> *P_I_A1_Out = new blitz::Array<int, 1>(I_A1_Indices.size());
+  blitz::Array<int, 1>::iterator pdm2 = P_I_A1_Out->begin();
+  blitz::Array<int, 1>::iterator pend = P_I_A1_Out->end();
+  blitz::Array<int, 1>::iterator pind = const_cast<blitz::Array<int, 1>*>(&I_A1_Indices)->begin();
   for (; pdm2 != pend; ++pdm2, ++pind)
     *pdm2 = I_A1_In(*pind);
   return *P_I_A1_Out;
@@ -28362,15 +28362,15 @@ Array<int, 1>& CFits::GetSubArr(const Array<int, 1> &I_A1_In, const Array<int, 1
 
 
 /**
-  GetSubArrCopy(Array<double, 2> &DA2_In, Array<int, 1> &IA1_Indices, int I_Mode_In, Array<double, 2> &DA2_Out) const
+  GetSubArrCopy(blitz::Array<double, 2> &DA2_In, blitz::Array<int, 1> &IA1_Indices, int I_Mode_In, blitz::Array<double, 2> &DA2_Out) const
   Copies the values of DA2_In(*,IA1_Indices) or DA2_In(IA1_Indices,*) to DA1_Out
   I_Mode_In: 0: IA1_Indices are row numbers
              1: IA1_Indices are column numbers
  **/
-bool CFits::GetSubArrCopy(const Array<double, 2> &DA2_In,
-                          const Array<int, 1> &I_A1_Indices,
+bool CFits::GetSubArrCopy(const blitz::Array<double, 2> &DA2_In,
+                          const blitz::Array<int, 1> &I_A1_Indices,
                           int I_Mode_In,
-                          Array<double, 2> &DA2_Out) const
+                          blitz::Array<double, 2> &DA2_Out) const
 {
   int row, col;
   if (I_Mode_In > 1){
@@ -28410,15 +28410,15 @@ bool CFits::GetSubArrCopy(const Array<double, 2> &DA2_In,
 }
 
 /**
-  GetSubArrCopy(Array<double, 2> &DA2_In, Array<int, 1> &IA1_Indices, int I_Mode_In, Array<double, 1> &DA1_Out) const
+  GetSubArrCopy(blitz::Array<double, 2> &DA2_In, blitz::Array<int, 1> &IA1_Indices, int I_Mode_In, blitz::Array<double, 1> &DA1_Out) const
   Copies the values of DA2_In(*,IA1_Indices) or DA2_In(IA1_Indices,*) to DA1_Out
   I_Mode_In: 0: IA1_Indices are running numbers going through rows, then cols
              1: IA1_Indices are running numbers going through cols, then rows
  **/
-bool CFits::GetSubArrCopy(const Array<double, 2> &DA2_In,
-                          const Array<int, 1> &I_A1_Indices,
+bool CFits::GetSubArrCopy(const blitz::Array<double, 2> &DA2_In,
+                          const blitz::Array<int, 1> &I_A1_Indices,
                           int I_Mode_In,
-                          Array<double, 1> &DA1_Out) const
+                          blitz::Array<double, 1> &DA1_Out) const
 {
   int row, col;
   if (I_Mode_In > 1){
@@ -28477,15 +28477,15 @@ bool CFits::GetSubArrCopy(const Array<double, 2> &DA2_In,
 }
 
 /**
-  GetSubArr(Array<double, 1> &DA1_In, Array<double, 1> &IA1_Indices) const
+  GetSubArr(blitz::Array<double, 1> &DA1_In, blitz::Array<double, 1> &IA1_Indices) const
   Copies the adresses of DA1_In(IA1_Indices) to IA1_Out
   I_Mode_In: 0: IA1_Indices are row numbers
              1: IA1_Indices are column numbers
              2: IA1_Indices are running numbers going through rows, then cols: rows=5, cols=7, Ind=10 => (0,2)
              3: IA1_Indices are running numbers going through cols, then rows: rows=5, cols=7, Ind=10 => (1,3)
  **/
-Array<double, 2>& CFits::GetSubArr(const Array<double, 2> &D_A2_In,
-                                   const Array<int, 1> &I_A1_Indices,
+blitz::Array<double, 2>& CFits::GetSubArr(const blitz::Array<double, 2> &D_A2_In,
+                                   const blitz::Array<int, 1> &I_A1_Indices,
                                    int I_Mode_In) const
 {
   int nrows,ncols,row,col;
@@ -28502,7 +28502,7 @@ Array<double, 2>& CFits::GetSubArr(const Array<double, 2> &D_A2_In,
     ncols = 1;
   }
 
-  Array<double,2> *P_D_A2_Out = new Array<double,2>(nrows,ncols);
+  blitz::Array<double,2> *P_D_A2_Out = new blitz::Array<double,2>(nrows,ncols);
 
   for (int m=0; m < I_A1_Indices.size(); m++){
     if (I_Mode_In == 0){
@@ -28534,15 +28534,15 @@ Array<double, 2>& CFits::GetSubArr(const Array<double, 2> &D_A2_In,
 }
 
 /**
-  GetSubArrCopy(Array<int, 2> &IA2_In, Array<int, 1> &IA1_Indices, int I_Mode_In, Array<int, 2> &IA2_Out) const
+  GetSubArrCopy(blitz::Array<int, 2> &IA2_In, blitz::Array<int, 1> &IA1_Indices, int I_Mode_In, blitz::Array<int, 2> &IA2_Out) const
   Copies the values of IA1_In(IA1_Indices) to IA1_Out
   I_Mode_In: 0: IA1_Indices are row numbers
              1: IA1_Indices are column numbers
  **/
-bool CFits::GetSubArrCopy(const Array<int, 2> &I_A2_In,
-                          const Array<int, 1> &I_A1_Indices,
+bool CFits::GetSubArrCopy(const blitz::Array<int, 2> &I_A2_In,
+                          const blitz::Array<int, 1> &I_A1_Indices,
                           int I_Mode_In,
-                          Array<int, 2> &I_A2_Out) const
+                          blitz::Array<int, 2> &I_A2_Out) const
 {
   int row, col;
   if (I_Mode_In > 1){
@@ -28576,15 +28576,15 @@ bool CFits::GetSubArrCopy(const Array<int, 2> &I_A2_In,
 }
 
 /**
-  GetSubArrCopy(Array<int, 2> &IA2_In, Array<int, 1> &IA1_Indices, int I_Mode_In, Array<int, 1> &IA1_Out) const
+  GetSubArrCopy(blitz::Array<int, 2> &IA2_In, blitz::Array<int, 1> &IA1_Indices, int I_Mode_In, blitz::Array<int, 1> &IA1_Out) const
   Copies the values of IA1_In(IA1_Indices) to IA1_Out
   I_Mode_In: 0: IA1_Indices are running numbers going through rows, then cols: rows=5, cols=7, Ind=10 => (0,2)
              1: IA1_Indices are running numbers going through cols, then rows: rows=5, cols=7, Ind=10 => (1,3)
  **/
-bool CFits::GetSubArrCopy(const Array<int, 2> &I_A2_In,
-                          const Array<int, 1> &I_A1_Indices,
+bool CFits::GetSubArrCopy(const blitz::Array<int, 2> &I_A2_In,
+                          const blitz::Array<int, 1> &I_A1_Indices,
                           int I_Mode_In,
-                          Array<int, 1> &I_A1_Out) const
+                          blitz::Array<int, 1> &I_A1_Out) const
 {
   int row, col;
   if (I_Mode_In > 1){
@@ -28621,16 +28621,16 @@ bool CFits::GetSubArrCopy(const Array<int, 2> &I_A2_In,
 }
 
 /**
-  GetSubArr(Array<int, 1> &IA1_In, Array<int, 1> &IA1_Indices,
-  Array<int, 1> &IA1_Out) const
+  GetSubArr(blitz::Array<int, 1> &IA1_In, blitz::Array<int, 1> &IA1_Indices,
+  blitz::Array<int, 1> &IA1_Out) const
   Copies the adresses of IA1_In(IA1_Indices) to IA1_Out
   I_Mode_In: 0: IA1_Indices are row numbers
              1: IA1_Indices are column numbers
              2: IA1_Indices are running numbers going through rows, then cols: rows=5, cols=7, Ind=10 => (0,2)
              3: IA1_Indices are running numbers going through cols, then rows: rows=5, cols=7, Ind=10 => (1,3)
  **/
-Array<int, 2>& CFits::GetSubArr(const Array<int, 2> &I_A2_In,
-                                const Array<int, 1> &I_A1_Indices,
+blitz::Array<int, 2>& CFits::GetSubArr(const blitz::Array<int, 2> &I_A2_In,
+                                const blitz::Array<int, 1> &I_A1_Indices,
                                 int I_Mode_In) const
 {
   int nrows,ncols,row,col;
@@ -28647,7 +28647,7 @@ Array<int, 2>& CFits::GetSubArr(const Array<int, 2> &I_A2_In,
     ncols = 1;
   }
 
-  Array<int,2> *P_I_A2_Out = new Array<int,2>(nrows,ncols);
+  blitz::Array<int,2> *P_I_A2_Out = new blitz::Array<int,2>(nrows,ncols);
 
   for (int m=0; m < I_A1_Indices.size(); m++){
     if (I_Mode_In == 0){
@@ -28679,11 +28679,11 @@ Array<int, 2>& CFits::GetSubArr(const Array<int, 2> &I_A2_In,
 }
 
 /**
-  GetSubArr(Array<double, 1> &DA1_In, Array<int, 3> &I_A3_Indices) const
+  GetSubArr(blitz::Array<double, 1> &DA1_In, blitz::Array<int, 3> &I_A3_Indices) const
   Copies the adresses of DA1_In(I_A3_Indices(row,col,0), I_A3_Indices(row,col,1)) to D_A2_Out
 **/
-Array<double, 2>& CFits::GetSubArr(const Array<double, 2> &D_A2_In, const Array<int, 3> &I_A3_Indices) const{
-  Array<double, 2> *P_D_A2_Out = new Array<double, 2>(I_A3_Indices.rows(), I_A3_Indices.cols());
+blitz::Array<double, 2>& CFits::GetSubArr(const blitz::Array<double, 2> &D_A2_In, const blitz::Array<int, 3> &I_A3_Indices) const{
+  blitz::Array<double, 2> *P_D_A2_Out = new blitz::Array<double, 2>(I_A3_Indices.rows(), I_A3_Indices.cols());
   for (int u=0; u < I_A3_Indices.rows(); u++){
     for (int v=0; v < I_A3_Indices.cols(); v++){
       (*P_D_A2_Out)(u,v) = D_A2_In(I_A3_Indices(u,v,0), I_A3_Indices(u,v,1));
@@ -28693,11 +28693,11 @@ Array<double, 2>& CFits::GetSubArr(const Array<double, 2> &D_A2_In, const Array<
 }
 
 /**
-  GetSubArr(Array<int, 2> &I_A2_In, Array<int, 1> &I_A3_Indices) const
+  GetSubArr(blitz::Array<int, 2> &I_A2_In, blitz::Array<int, 1> &I_A3_Indices) const
   Copies the adresses of I_A1_In(I_A3_Indices(row,col,0), I_A3_Indices(row,col,1)) to I_A2_Out
   **/
-Array<int, 2>& CFits::GetSubArr(const Array<int, 2> &I_A2_In, const Array<int, 3> &I_A3_Indices) const{
-  Array<int, 2> *P_I_A2_Out = new Array<int, 2>(I_A3_Indices.rows(), I_A3_Indices.cols());
+blitz::Array<int, 2>& CFits::GetSubArr(const blitz::Array<int, 2> &I_A2_In, const blitz::Array<int, 3> &I_A3_Indices) const{
+  blitz::Array<int, 2> *P_I_A2_Out = new blitz::Array<int, 2>(I_A3_Indices.rows(), I_A3_Indices.cols());
   for (int u=0; u < I_A3_Indices.rows(); u++){
     for (int v=0; v < I_A3_Indices.cols(); v++){
       (*P_I_A2_Out)(u,v) = I_A2_In(I_A3_Indices(u,v,0), I_A3_Indices(u,v,1));
@@ -28706,9 +28706,9 @@ Array<int, 2>& CFits::GetSubArr(const Array<int, 2> &I_A2_In, const Array<int, 3
   return (*P_I_A2_Out);
 }
 
-bool CFits::GetSubArrCopy(const Array<double, 2> &D_A2_In,
-                          const Array<int, 2> &I_A2_Indices,
-                          Array<double, 1> &D_A1_Out) const{
+bool CFits::GetSubArrCopy(const blitz::Array<double, 2> &D_A2_In,
+                          const blitz::Array<int, 2> &I_A2_Indices,
+                          blitz::Array<double, 1> &D_A1_Out) const{
   D_A1_Out.resize(I_A2_Indices.rows());
   for (int i=0; i<I_A2_Indices.rows(); i++){
     if (I_A2_Indices(i,0) >= D_A2_In.rows()){
@@ -28737,13 +28737,13 @@ long CFits::Ceil(double D_In) const
 }
 
 /**
- Ceil(Array<double, 1> &D_A1_In)
+ Ceil(blitz::Array<double, 1> &D_A1_In)
  Returns the closest long integer greater than or equal to its argument.
  **/
-Array<long, 1>* CFits::Ceil(Array<double, 1> &D_A1_In) const
+blitz::Array<long, 1>* CFits::Ceil(blitz::Array<double, 1> &D_A1_In) const
 {
   int I_Size = D_A1_In.size();
-  Array<long, 1> *P_L_A1_Temp = new Array<long, 1>(I_Size);
+  blitz::Array<long, 1> *P_L_A1_Temp = new blitz::Array<long, 1>(I_Size);
   for (int m = 0; m < I_Size; m++)
     (*P_L_A1_Temp)(m) = this->Ceil(D_A1_In(m));
   return (P_L_A1_Temp);
@@ -28762,13 +28762,13 @@ long CFits::Floor(double D_In) const{
 }
 
 /**
-  Floor(Array<double, 1> D_A1_In)
+  Floor(blitz::Array<double, 1> D_A1_In)
   Returns the closest long integer lower than or equal to its
   argument.
  **/
-Array<long, 1>* CFits::Floor(Array<double, 1> &D_A1_In) const{
+blitz::Array<long, 1>* CFits::Floor(blitz::Array<double, 1> &D_A1_In) const{
   int I_Size = D_A1_In.size();
-  Array<long, 1> *P_L_A1_Temp = new Array<long, 1>(I_Size);
+  blitz::Array<long, 1> *P_L_A1_Temp = new blitz::Array<long, 1>(I_Size);
   for (int m = 0; m < I_Size; m++)
     (*P_L_A1_Temp)(m) = this->Floor(D_A1_In(m));
   return (P_L_A1_Temp);
@@ -28785,10 +28785,10 @@ int CFits::Signum(double D_In) const{
 }
 
 /**
- SortIndices(Array<double, 1> D_A1_In)
+ SortIndices(blitz::Array<double, 1> D_A1_In)
  Returns an integer array of the same size like <D_A1_In>, containing the indixes of <D_A1_In> in sorted order.
  **/
-Array<int, 1>* CFits::SortIndices(const Array<double, 1> &D_A1_In) const
+blitz::Array<int, 1>* CFits::SortIndices(const blitz::Array<double, 1> &D_A1_In) const
 {
 #ifdef __DEBUG_FITS_SORT__
   cout << "CFits::SortIndices(D_A1_In = " << D_A1_In << ") started" << endl;
@@ -28799,8 +28799,8 @@ Array<int, 1>* CFits::SortIndices(const Array<double, 1> &D_A1_In) const
 
   int I_I, I_Indxt, I_Ir, I_J, I_K, I_L, I_SizeIn;
   int I_JStack = 0;
-  Array<int, 1> I_A1_IStack(I_NStack);
-  Array<int, 1> *P_I_A1_Indx = new Array<int, 1>();
+  blitz::Array<int, 1> I_A1_IStack(I_NStack);
+  blitz::Array<int, 1> *P_I_A1_Indx = new blitz::Array<int, 1>();
   double D_A;
 
   I_SizeIn = D_A1_In.size();
@@ -29013,7 +29013,7 @@ Array<int, 1>* CFits::SortIndices(const Array<double, 1> &D_A1_In) const
 **/
 
 bool CFits::ReadApertureDefinition(int I_Aperture_In)
-//                           Array<double, 1> &D_A1_CoeffArr_Out,
+//                           blitz::Array<double, 1> &D_A1_CoeffArr_Out,
 //                           double &D_Center_Out,
 //                           double &D_Low_Out,
 //                           double &D_High_Out,
@@ -29042,7 +29042,7 @@ bool CFits::ReadApertureDefinition(int I_Aperture_In)
   CString CS_KeyWordXMin("xmin");
   CString CS_KeyWordXMax("xmax");
   CString CS_KeyWordFunction("function");
-  //  Array<CString, 1> CS_A1_Functions;
+  //  blitz::Array<CString, 1> CS_A1_Functions;
 
   #ifdef __DEBUG_FITS_READAPERTURES__
     cout << "CFits::ReadApertureDefinition: CS_KeyWordAperture = " << CS_KeyWordAperture << endl;
@@ -29053,7 +29053,7 @@ bool CFits::ReadApertureDefinition(int I_Aperture_In)
     cout << "CFits::ReadApertureDefinition: CS_KeyWordHigh = " << CS_KeyWordHigh << endl;
   #endif
 
-  Array<CString, 1>CS_A1_Functions(5);
+  blitz::Array<CString, 1>CS_A1_Functions(5);
   CS_A1_Functions(0).Set("chebyshev");
   CS_A1_Functions(1).Set("legendre");
   CS_A1_Functions(2).Set("cubic");
@@ -29496,7 +29496,7 @@ void CFits::Show (ostream &os) const
  **/
 bool CFits::MarkCenters()
 {
-  Array<int, 1> I_A1_Temp(this->NRows);
+  blitz::Array<int, 1> I_A1_Temp(this->NRows);
   I_A1_Temp = 0;
   int m = 0, lin, i_start, i_end;
   for (m = 0; m < this->I_NApertures; m++)
@@ -29554,7 +29554,7 @@ bool CFits::WriteCenters(int iap, CString &fn)
 /**
  task: Writes Array <I_A1_In> to file <CS_FileName_In>
  **/
-bool CFits::WriteArrayToFile(const Array<int, 1> &I_A1_In, const CString &CS_FileName_In, const CString &CS_Mode) const
+bool CFits::WriteArrayToFile(const blitz::Array<int, 1> &I_A1_In, const CString &CS_FileName_In, const CString &CS_Mode) const
 {
   FILE *p_file;
   p_file = fopen(CS_FileName_In.Get(), "w");
@@ -29574,7 +29574,7 @@ bool CFits::WriteArrayToFile(const Array<int, 1> &I_A1_In, const CString &CS_Fil
 /**
  * task: Writes Array <D_A1_In> to file <CS_FileName_In>
  **/
-bool CFits::WriteArrayToFile(const Array<double, 1> &D_A1_In, const CString &CS_FileName_In, const CString &CS_Mode) const
+bool CFits::WriteArrayToFile(const blitz::Array<double, 1> &D_A1_In, const CString &CS_FileName_In, const CString &CS_Mode) const
 {
   FILE *p_file;
   p_file = fopen(CS_FileName_In.Get(), "w");
@@ -29603,7 +29603,7 @@ bool CFits::WriteArrayToFile(const Array<double, 1> &D_A1_In, const CString &CS_
 /**
   task: Writes Array <D_A2_In> to file <CS_FileName_In>
  **/
-bool CFits::WriteArrayToFile(const Array<double, 2> &D_A2_In, const CString &CS_FileName_In, const CString &CS_Mode) const
+bool CFits::WriteArrayToFile(const blitz::Array<double, 2> &D_A2_In, const CString &CS_FileName_In, const CString &CS_Mode) const
 {
   int m, n;
   ofstream ofs(CS_FileName_In.Get());
@@ -29622,7 +29622,7 @@ bool CFits::WriteArrayToFile(const Array<double, 2> &D_A2_In, const CString &CS_
     }
   }
   else{
-    Array<bool, 1> B_A1_Exp(D_A2_In.cols());
+    blitz::Array<bool, 1> B_A1_Exp(D_A2_In.cols());
     B_A1_Exp = false;
     for (m=0; m<D_A2_In.cols(); m++){
       if (max(D_A2_In(Range::all(), m)) < 1e-7)
@@ -29647,7 +29647,7 @@ bool CFits::WriteArrayToFile(const Array<double, 2> &D_A2_In, const CString &CS_
 /**
   task: Writes Array <I_A2_In> to file <CS_FileName_In>
  **/
-bool CFits::WriteArrayToFile(const Array<int, 2> &D_A2_In, const CString &CS_FileName_In, const CString &CS_Mode) const
+bool CFits::WriteArrayToFile(const blitz::Array<int, 2> &D_A2_In, const CString &CS_FileName_In, const CString &CS_Mode) const
 {
   int m, n;
   ofstream ofs(CS_FileName_In.Get());
@@ -29682,10 +29682,10 @@ bool CFits::WriteArrayToFile(const Array<int, 2> &D_A2_In, const CString &CS_Fil
 /**
 function Bubble Sort
  **/
-Array<int, 1>* CFits::BubbleSort(const Array<int, 1> &I_A1_ArrIn) const
+blitz::Array<int, 1>* CFits::BubbleSort(const blitz::Array<int, 1> &I_A1_ArrIn) const
 {
   long Size = I_A1_ArrIn.size();
-  Array<int, 1> *P_I_A1_Out = new Array<int, 1>();
+  blitz::Array<int, 1> *P_I_A1_Out = new blitz::Array<int, 1>();
   P_I_A1_Out->resize(Size);
   (*P_I_A1_Out) = I_A1_ArrIn;
   long UpperLimit = Size - 1;
@@ -29711,10 +29711,10 @@ Array<int, 1>* CFits::BubbleSort(const Array<int, 1> &I_A1_ArrIn) const
   return (P_I_A1_Out);
 }
 
-Array<double, 1>* CFits::BubbleSort(const Array<double, 1> &D_A1_ArrIn) const
+blitz::Array<double, 1>* CFits::BubbleSort(const blitz::Array<double, 1> &D_A1_ArrIn) const
 {
   long Size = D_A1_ArrIn.size();
-  Array<double, 1> *P_D_A1_Out = new Array<double, 1>();
+  blitz::Array<double, 1> *P_D_A1_Out = new blitz::Array<double, 1>();
   P_D_A1_Out->resize(Size);
   (*P_D_A1_Out) = D_A1_ArrIn;
   long UpperLimit = Size - 1;
@@ -29743,8 +29743,8 @@ Array<double, 1>* CFits::BubbleSort(const Array<double, 1> &D_A1_ArrIn) const
 /**
 function Sort - seems faster than Bubble Sort
 **/
-Array<double, 1>* CFits::Sort(const Array<double, 1> &D_A1_ArrIn) const{
-  Array<double, 1> *P_D_A1_Sorted = new Array<double, 1>(D_A1_ArrIn.size());
+blitz::Array<double, 1>* CFits::Sort(const blitz::Array<double, 1> &D_A1_ArrIn) const{
+  blitz::Array<double, 1> *P_D_A1_Sorted = new blitz::Array<double, 1>(D_A1_ArrIn.size());
   (*P_D_A1_Sorted) = D_A1_ArrIn;
   for (size_t i = 0;i < D_A1_ArrIn.size();i++)
   {
@@ -29764,7 +29764,7 @@ Array<double, 1>* CFits::Sort(const Array<double, 1> &D_A1_ArrIn) const{
   function CountPixGTZero
   replaces input vector with vector of the same size where values are zero where the input vector is zero and all other values represent the number of non-zero values since the last zero value
  **/
-bool CFits::CountPixGTZero(Array<int, 1> &I_A1_VecInOut) const{
+bool CFits::CountPixGTZero(blitz::Array<int, 1> &I_A1_VecInOut) const{
   int count = 0;
   if (I_A1_VecInOut.size() < 1)
     return false;
@@ -29792,7 +29792,7 @@ bool CFits::CountPixGTZero(Array<int, 1> &I_A1_VecInOut) const{
   Returns first index of integer input vector where value is greater than or equal to I_MinValue
   Returns -1 if values are always smaller than I_MinValue
  **/
-int CFits::FirstIndexWithValueGE(const Array<int, 1> &I_A1_VecIn, const int I_MinValue) const{
+int CFits::FirstIndexWithValueGE(const blitz::Array<int, 1> &I_A1_VecIn, const int I_MinValue) const{
   return this->FirstIndexWithValueGEFrom(I_A1_VecIn, I_MinValue, 0);
 }
 
@@ -29801,7 +29801,7 @@ int CFits::FirstIndexWithValueGE(const Array<int, 1> &I_A1_VecIn, const int I_Mi
  *        returns first index of double input vector where value is greater than or equal to D_MinValue_In
  *        returns -1 if values are always smaller than D_MinValue_In
  **/
-int CFits::FirstIndexWithValueGE(const Array<double, 1> &D_A1_VecIn, const double D_MinValue_In) const{
+int CFits::FirstIndexWithValueGE(const blitz::Array<double, 1> &D_A1_VecIn, const double D_MinValue_In) const{
   return this->FirstIndexWithValueGEFrom(D_A1_VecIn, D_MinValue_In, 0);
 }
 
@@ -29811,7 +29811,7 @@ int CFits::FirstIndexWithValueGE(const Array<double, 1> &D_A1_VecIn, const doubl
   Returns first index of integer input vector where value is greater than or equal to I_MinValue, starting at index I_FromIndex
   Returns -1 if values are always smaller than I_MinValue
  **/
-int CFits::FirstIndexWithValueGEFrom(const Array<int, 1> &I_A1_VecIn, const int I_MinValue, const int I_FromIndex) const{
+int CFits::FirstIndexWithValueGEFrom(const blitz::Array<int, 1> &I_A1_VecIn, const int I_MinValue, const int I_FromIndex) const{
   //cout << "CFits::FirstIndexWithValueGEFrom: I_A1_VecIn = " << I_A1_VecIn << endl;
   //cout << "CFits::FirstIndexWithValueGEFrom: I_MinValue = " << I_MinValue << endl;
   //cout << "CFits::FirstIndexWithValueGEFrom: I_FromIndex = " << I_FromIndex << endl;
@@ -29832,7 +29832,7 @@ int CFits::FirstIndexWithValueGEFrom(const Array<int, 1> &I_A1_VecIn, const int 
  *        returns first index of double input vector where value is greater than or equal to D_MinValue_In, starting at index I_FromIndex
  *        returns -1 if values are always smaller than D_MinValue_In
  **/
-int CFits::FirstIndexWithValueGEFrom(const Array<double, 1> &D_A1_VecIn, const double D_MinValue_In, const int I_FromIndex) const{
+int CFits::FirstIndexWithValueGEFrom(const blitz::Array<double, 1> &D_A1_VecIn, const double D_MinValue_In, const int I_FromIndex) const{
   if (D_A1_VecIn.size() < 1 || I_FromIndex >= D_A1_VecIn.size()){
     cout << "CFits::FirstIndexWithValueGEFrom: Error: D_A1_VecIn.size(=" << D_A1_VecIn.size() << ") < 1 or I_FromIndex >= I_A1_VecIn.size() => Returning -1" << endl;
     return -1;
@@ -29850,7 +29850,7 @@ int CFits::FirstIndexWithValueGEFrom(const Array<double, 1> &D_A1_VecIn, const d
   Returns first index of integer input vector where value is greater than I_MinValue
   Returns -1 if values are always smaller than or equal to I_MinValue
  **/
-int CFits::FirstIndexWithValueGT(const Array<int, 1> &I_A1_VecIn, const int I_MinValue) const{
+int CFits::FirstIndexWithValueGT(const blitz::Array<int, 1> &I_A1_VecIn, const int I_MinValue) const{
   return this->FirstIndexWithValueGTFrom(I_A1_VecIn, I_MinValue, 0);
 }
 
@@ -29859,7 +29859,7 @@ int CFits::FirstIndexWithValueGT(const Array<int, 1> &I_A1_VecIn, const int I_Mi
  *        returns first index of double input vector where value is greater than D_MinValue_In
  *        returns -1 if values are always smaller than or equal to D_MinValue_In
  **/
-int CFits::FirstIndexWithValueGT(const Array<double, 1> &D_A1_VecIn, const double D_MinValue_In) const{
+int CFits::FirstIndexWithValueGT(const blitz::Array<double, 1> &D_A1_VecIn, const double D_MinValue_In) const{
   return this->FirstIndexWithValueGTFrom(D_A1_VecIn, D_MinValue_In, 0);
 }
 
@@ -29868,7 +29868,7 @@ int CFits::FirstIndexWithValueGT(const Array<double, 1> &D_A1_VecIn, const doubl
   Returns first index of integer input vector where value is greater than I_MinValue, starting at index I_FromIndex
   Returns -1 if values are always smaller than or equal to I_MinValue
  **/
-int CFits::FirstIndexWithValueGTFrom(const Array<int, 1> &I_A1_VecIn, const int I_MinValue, const int I_FromIndex) const{
+int CFits::FirstIndexWithValueGTFrom(const blitz::Array<int, 1> &I_A1_VecIn, const int I_MinValue, const int I_FromIndex) const{
   if (I_A1_VecIn.size() < 1 || I_FromIndex >= I_A1_VecIn.size())
     return -1;
   for (int i=I_FromIndex; i < I_A1_VecIn.size(); i++){
@@ -29883,7 +29883,7 @@ int CFits::FirstIndexWithValueGTFrom(const Array<int, 1> &I_A1_VecIn, const int 
  *        returns first index of double input vector where value is greater than D_MinValue_In, starting at index I_FromIndex
  *        returns -1 if values are always smaller than or equal to D_MinValue_In
  **/
-int CFits::FirstIndexWithValueGTFrom(const Array<double, 1> &D_A1_VecIn, const double D_MinValue_In, const int I_FromIndex) const{
+int CFits::FirstIndexWithValueGTFrom(const blitz::Array<double, 1> &D_A1_VecIn, const double D_MinValue_In, const int I_FromIndex) const{
   if (D_A1_VecIn.size() < 1 || I_FromIndex >= D_A1_VecIn.size())
     return -1;
   for (int i=I_FromIndex; i < D_A1_VecIn.size(); i++){
@@ -29898,7 +29898,7 @@ int CFits::FirstIndexWithValueGTFrom(const Array<double, 1> &D_A1_VecIn, const d
   returns last index of integer input vector where value is equal to zero before index I_StartPos
   returns -1 if values are always greater than 0 before I_StartPos
  **/
-int CFits::LastIndexWithZeroValueBefore(const Array<int, 1> &I_A1_VecIn, const int I_StartPos) const{
+int CFits::LastIndexWithZeroValueBefore(const blitz::Array<int, 1> &I_A1_VecIn, const int I_StartPos) const{
   if (I_StartPos < 0 || I_StartPos >= I_A1_VecIn.size())
     return -1;
   for (int i=I_StartPos; i >= 0; i--){
@@ -29913,7 +29913,7 @@ int CFits::LastIndexWithZeroValueBefore(const Array<int, 1> &I_A1_VecIn, const i
  *        returns last index of double input vector where value is equal to zero, starting at index I_StartPos
  *        returns -1 if values are always greater than 0 before I_StartPos
  **/
-int CFits::LastIndexWithZeroValueBefore(const Array<double, 1> &D_A1_VecIn, const int I_StartPos) const{
+int CFits::LastIndexWithZeroValueBefore(const blitz::Array<double, 1> &D_A1_VecIn, const int I_StartPos) const{
   if (I_StartPos < 0 || I_StartPos >= D_A1_VecIn.size())
     return -1;
   for (int i=I_StartPos; i >= 0; i--){
@@ -29928,7 +29928,7 @@ int CFits::LastIndexWithZeroValueBefore(const Array<double, 1> &D_A1_VecIn, cons
   returns first index of integer input vector where value is equal to zero, starting at index I_StartPos
   returns -1 if values are always greater than 0
  **/
-int CFits::FirstIndexWithZeroValueFrom(const Array<int, 1> &I_A1_VecIn, const int I_StartPos) const{
+int CFits::FirstIndexWithZeroValueFrom(const blitz::Array<int, 1> &I_A1_VecIn, const int I_StartPos) const{
   if (I_StartPos < 0 || I_StartPos >= I_A1_VecIn.size())
     return -1;
   for (int i=I_StartPos; i < I_A1_VecIn.size(); i++){
@@ -29947,7 +29947,7 @@ int CFits::FirstIndexWithZeroValueFrom(const Array<int, 1> &I_A1_VecIn, const in
  *        returns first index of double input vector where value is equal to zero, starting at index I_StartPos
  *        returns -1 if values are always greater than 0 past I_StartPos
  **/
-int CFits::FirstIndexWithZeroValueFrom(const Array<double, 1> &D_A1_VecIn, const int I_StartPos) const{
+int CFits::FirstIndexWithZeroValueFrom(const blitz::Array<double, 1> &D_A1_VecIn, const int I_StartPos) const{
   if (I_StartPos < 0 || I_StartPos >= D_A1_VecIn.size())
     return -1;
   for (int i=I_StartPos; i < D_A1_VecIn.size(); i++){
@@ -29966,7 +29966,7 @@ int CFits::FirstIndexWithZeroValueFrom(const Array<double, 1> &D_A1_VecIn, const
  *        returns last index of integer input vector where value is not equal to zero, starting at index I_StartPos
  *        returns -1 if values are always equal to 0 before I_StartPos
  **/
-int CFits::LastIndexWithNonZeroValueBefore(const Array<int, 1> &I_A1_VecIn, const int I_StartPos) const{
+int CFits::LastIndexWithNonZeroValueBefore(const blitz::Array<int, 1> &I_A1_VecIn, const int I_StartPos) const{
   if (I_StartPos < 0 || I_StartPos >= I_A1_VecIn.size())
     return -1;
   for (int i=I_StartPos; i >= 0; i--){
@@ -29981,7 +29981,7 @@ int CFits::LastIndexWithNonZeroValueBefore(const Array<int, 1> &I_A1_VecIn, cons
  *        returns last index of double input vector where value is not equal to zero, starting at index I_StartPos
  *        returns -1 if values are always equal to 0 before I_StartPos
  **/
-int CFits::LastIndexWithNonZeroValueBefore(const Array<double, 1> &D_A1_VecIn, const int I_StartPos) const{
+int CFits::LastIndexWithNonZeroValueBefore(const blitz::Array<double, 1> &D_A1_VecIn, const int I_StartPos) const{
   if (I_StartPos < 0 || I_StartPos >= D_A1_VecIn.size())
     return -1;
   for (int i=I_StartPos; i >= 0; i--){
@@ -30015,7 +30015,7 @@ int CFits::GetColFromIndex(int I_Index_In, int I_NRows_In) const
 
 /** ***********************************************************/
 
-bool CFits::InsertAt(Array<double,1> *P_D_A1_In, double D_ToInsert, int I_Pos) const
+bool CFits::InsertAt(blitz::Array<double,1> *P_D_A1_In, double D_ToInsert, int I_Pos) const
 {
   int size_old = P_D_A1_In->size();
   if (I_Pos > size_old || I_Pos < 0)
@@ -30025,7 +30025,7 @@ bool CFits::InsertAt(Array<double,1> *P_D_A1_In, double D_ToInsert, int I_Pos) c
     (*P_D_A1_In)(size_old) = D_ToInsert;
     return true;
   }
-  Array<double,1> D_A1_Temp(size_old);
+  blitz::Array<double,1> D_A1_Temp(size_old);
   D_A1_Temp = (*P_D_A1_In)(Range(I_Pos,size_old-1));
   (*P_D_A1_In)(Range(I_Pos+1,size_old)) = D_A1_Temp;
   (*P_D_A1_In)(I_Pos) = D_ToInsert;
@@ -30034,7 +30034,7 @@ bool CFits::InsertAt(Array<double,1> *P_D_A1_In, double D_ToInsert, int I_Pos) c
 
 /** ***********************************************************/
 
-bool CFits::InsertAt(Array<int,1> *P_I_A1_In, int I_ToInsert, int I_Pos) const{
+bool CFits::InsertAt(blitz::Array<int,1> *P_I_A1_In, int I_ToInsert, int I_Pos) const{
   cout << "CFits::InsertAt: START: (*P_I_A1_In) = " << (*P_I_A1_In) << endl;
   int size_old = P_I_A1_In->size();
   if (I_Pos > size_old || I_Pos < 0){
@@ -30048,7 +30048,7 @@ bool CFits::InsertAt(Array<int,1> *P_I_A1_In, int I_ToInsert, int I_Pos) const{
     cout << "CFits::InsertAt: (*P_I_A1_In) set to " << (*P_I_A1_In) << endl;
     return true;
   }
-  Array<int,1> I_A1_Temp(size_old);
+  blitz::Array<int,1> I_A1_Temp(size_old);
   I_A1_Temp = (*P_I_A1_In)(Range(I_Pos,size_old-1));
   cout << "CFits::InsertAt: I_A1_Temp set to " << I_A1_Temp << endl;
   (*P_I_A1_In)(Range(I_Pos+1,size_old)) = I_A1_Temp;
@@ -30064,14 +30064,14 @@ bool CFits::InsertAt(Array<int,1> *P_I_A1_In, int I_ToInsert, int I_Pos) const{
 /**
   Returns Indexes of I_A1_Where where I_A1_Where equals 1 and writes of sum(I_A1_Where) to I_NInd_Out
  **/
-Array<int,1>* CFits::GetIndex(const Array<int,1> &I_A1_Where, int &I_NInd_Out) const
+blitz::Array<int,1>* CFits::GetIndex(const blitz::Array<int,1> &I_A1_Where, int &I_NInd_Out) const
 {
   I_NInd_Out = sum(I_A1_Where);
   int arrsize = I_NInd_Out;
   if (arrsize == 0){
     arrsize = 1;
   }
-  Array<int,1> *P_Index_Out = new Array<int,1>(arrsize);
+  blitz::Array<int,1> *P_Index_Out = new blitz::Array<int,1>(arrsize);
   (*P_Index_Out) = -1;
   int j=0;
   for (int i=0;i<I_A1_Where.size();i++){
@@ -30086,7 +30086,7 @@ Array<int,1>* CFits::GetIndex(const Array<int,1> &I_A1_Where, int &I_NInd_Out) c
 /**
   Returns Indexes of I_A1_Where where I_A1_Where equals 1 and writes of sum(I_A1_Where) to I_NInd_Out
  **/
-bool CFits::GetIndex(const Array<int,1> &I_A1_Where, int &I_NInd_Out, Array<int, 1> &I_IndArr_Out) const
+bool CFits::GetIndex(const blitz::Array<int,1> &I_A1_Where, int &I_NInd_Out, blitz::Array<int, 1> &I_IndArr_Out) const
 {
   I_NInd_Out = sum(I_A1_Where);
   int arrsize = I_NInd_Out;
@@ -30109,13 +30109,13 @@ bool CFits::GetIndex(const Array<int,1> &I_A1_Where, int &I_NInd_Out, Array<int,
 /**
 Returns Indexes of I_A2_Where where I_A2_Where equals 1 and writes of sum(I_A2_Where) to I_NInd_Out
 **/
-Array<int,2>* CFits::GetIndex(const Array<int,2> &I_A2_Where, int &I_NInd_Out) const
+blitz::Array<int,2>* CFits::GetIndex(const blitz::Array<int,2> &I_A2_Where, int &I_NInd_Out) const
 {
   I_NInd_Out = sum(I_A2_Where);
   int arrsize = I_NInd_Out;
   if (arrsize == 0)
     arrsize = 1;
-  Array<int,2> *P_Index_Out = new Array<int,2>(arrsize,2);
+  blitz::Array<int,2> *P_Index_Out = new blitz::Array<int,2>(arrsize,2);
   (*P_Index_Out) = -1;
   int j=0;
   for (int i_row = 0; i_row < I_A2_Where.rows(); i_row++){
@@ -30133,7 +30133,7 @@ Array<int,2>* CFits::GetIndex(const Array<int,2> &I_A2_Where, int &I_NInd_Out) c
 /**
 Returns Indexes of I_A2_Where where I_A2_Where equals 1 and writes of sum(I_A2_Where) to I_NInd_Out
 **/
-bool CFits::GetIndex(const Array<int,2> &I_A2_Where, int &I_NInd_Out, Array<int, 2> &I_IndArr_Out) const
+bool CFits::GetIndex(const blitz::Array<int,2> &I_A2_Where, int &I_NInd_Out, blitz::Array<int, 2> &I_IndArr_Out) const
 {
   I_NInd_Out = sum(I_A2_Where);
   int arrsize = I_NInd_Out;
@@ -30159,7 +30159,7 @@ bool CFits::GetIndex(const Array<int,2> &I_A2_Where, int &I_NInd_Out, Array<int,
 /**
   Returns integer array containing the number of elements in D_A1_In within bin i
  **/
-Array<int, 1>* CFits::Histogram(const Array<double,1> &D_A1_In, double D_BinSize_In) const
+blitz::Array<int, 1>* CFits::Histogram(const blitz::Array<double,1> &D_A1_In, double D_BinSize_In) const
 {
 #ifdef __DEBUG_FITS_HISTOGRAM__
   cout << "CFits::Histogram: Start: D_A1_In = " << D_A1_In << endl;
@@ -30179,13 +30179,13 @@ Array<int, 1>* CFits::Histogram(const Array<double,1> &D_A1_In, double D_BinSize
   int nbins = int((d_max-d_min)/D_BinSize_In) + 1;
 #ifdef __DEBUG_FITS_HISTOGRAM__
   cout << "CFits::Histogram: nbins set to " << nbins << endl;
-  Array<double,1> D_A1_Debug(1);
-  Array<int,1> *P_I_A1_Debug;
+  blitz::Array<double,1> D_A1_Debug(1);
+  blitz::Array<int,1> *P_I_A1_Debug;
   int nn;
 #endif
 
-  Array<int, 1> *P_I_A1_Out = new Array<int,1>(nbins);
-  Array<int, 1> I_A1_Ind(D_A1_In.size());
+  blitz::Array<int, 1> *P_I_A1_Out = new blitz::Array<int,1>(nbins);
+  blitz::Array<int, 1> I_A1_Ind(D_A1_In.size());
   double bin_min = d_min;
   double bin_max = bin_min + D_BinSize_In;
   for (int i=0; i < nbins; i++){
@@ -30219,24 +30219,24 @@ Array<int, 1>* CFits::Histogram(const Array<double,1> &D_A1_In, double D_BinSize
 
 /**
   Find
-  Returns and Array<int, 1> containing the
+  Returns and blitz::Array<int, 1> containing the
  **
-Array<int,1>* CFits::Find(const TinyVector<int,1> &I_TV_Index) const
+blitz::Array<int,1>* CFits::Find(const TinyVector<int,1> &I_TV_Index) const
 {
-//  Array<int,1> I_A1_Where(I_TV_Index.size());
+//  blitz::Array<int,1> I_A1_Where(I_TV_Index.size());
 //  int i_nind;
-  Array<int,1> *P_I_A1_Index = this->GetIndex(expr,1,0);
+  blitz::Array<int,1> *P_I_A1_Index = this->GetIndex(expr,1,0);
 //  cout << "CFits::Find: P_I_A1_Index set to " << *P_I_A1_Index << endl;
   return P_I_A1_Index;
 }
 
 
 /**
- Returns Array<int,1> with values of I_TV_Index
+ Returns blitz::Array<int,1> with values of I_TV_Index
  **/
-Array<int,1>* CFits::MaxIndex(TinyVector<int,1> &I_TV_Index) const
+blitz::Array<int,1>* CFits::MaxIndex(TinyVector<int,1> &I_TV_Index) const
 {
-  Array<int,1> *P_Index_Out = new Array<int,1>(I_TV_Index.length());
+  blitz::Array<int,1> *P_Index_Out = new blitz::Array<int,1>(I_TV_Index.length());
   for (int i=0; i<I_TV_Index.length(); i++){
     (*P_Index_Out)(i) = I_TV_Index(i);
   }
@@ -30244,10 +30244,10 @@ Array<int,1>* CFits::MaxIndex(TinyVector<int,1> &I_TV_Index) const
 }
 
 /**
-  Returns I_A1_Index as Array<int,2>
+  Returns I_A1_Index as blitz::Array<int,2>
   I_Mode == 0: IA1_Indices are running numbers going through rows, then cols: rows=5, cols=7, Ind=10 => (0,2)
             1: IA1_Indices are running numbers going through cols, then rows: rows=5, cols=7, Ind=10 => (1,3) **/
-bool CFits::A1ToA2(Array<int,1> &I_A1_Indices, int I_NRows, int I_NCols, Array<int,2>& I_A2_Out, int I_Mode) const{
+bool CFits::A1ToA2(blitz::Array<int,1> &I_A1_Indices, int I_NRows, int I_NCols, blitz::Array<int,2>& I_A2_Out, int I_Mode) const{
   int row, col;
   I_A2_Out.resize(I_A1_Indices.size(), 2);
   for (int m = 0; m < I_A1_Indices.size(); m++){
@@ -30282,11 +30282,11 @@ bool CFits::A1ToA2(Array<int,1> &I_A1_Indices, int I_NRows, int I_NCols, Array<i
 }
 
 /**
-  LinearRegression(Array<double, 1> y, const Array<double, 1> x, a1, a0);
+  LinearRegression(blitz::Array<double, 1> y, const blitz::Array<double, 1> x, a1, a0);
   calculates a0 and a1 for the system of equations yvec = a0 + a1 * xvec
  **/
-bool CFits::LinearRegression(const Array<double, 1> &D_A1_CCD_In,
-                             const Array<double, 1> &D_A1_SF_In,
+bool CFits::LinearRegression(const blitz::Array<double, 1> &D_A1_CCD_In,
+                             const blitz::Array<double, 1> &D_A1_SF_In,
                              double &D_SP_Out,
                              double &D_Sky_Out,
                              double &D_STDDEV_Out,/// double &D_CorrelationCoefficient_Out,
@@ -30302,7 +30302,7 @@ bool CFits::LinearRegression(const Array<double, 1> &D_A1_CCD_In,
   }
 
   /// Set D_A1_SF_In to zero where D_A1_CCD_In == zero
-  Array<double, 1> D_A1_SF(D_A1_SF_In.size());
+  blitz::Array<double, 1> D_A1_SF(D_A1_SF_In.size());
   D_A1_SF = where(fabs(D_A1_CCD_In) < 0.000000001, 0., D_A1_SF_In);
 
   double y_mean = sum(D_A1_CCD_In) / D_A1_CCD_In.size();
@@ -30313,7 +30313,7 @@ bool CFits::LinearRegression(const Array<double, 1> &D_A1_CCD_In,
   double sum_yi = sum(D_A1_CCD_In);
   D_SP_Out = (sum_xi_yi - y_mean * sum_xi)/(sum_xi_sqared - x_mean * sum_xi);
   D_Sky_Out = y_mean - x_mean * D_SP_Out;
-  Array<double,1> D_A1_CCD_Theoretical(D_A1_CCD_In.size());
+  blitz::Array<double,1> D_A1_CCD_Theoretical(D_A1_CCD_In.size());
   D_A1_CCD_Theoretical = D_SP_Out * (D_A1_SF - x_mean) + y_mean;
   D_STDDEV_Out = sqrt((sum(pow(D_A1_CCD_In - D_A1_CCD_Theoretical,2)))/(D_A1_SF.size()-2));
 ///  D_CorrelationCoefficient_Out = sum((D_A1_SF - x_mean) * (D_A1_CCD_In - y_mean)) / sqrt(sum(pow(D_A1_SF - x,2)) + sum(D_A1_CCD_In - ;
@@ -30322,15 +30322,15 @@ bool CFits::LinearRegression(const Array<double, 1> &D_A1_CCD_In,
 }
 
 /**
-  LinearRegression(Array<double, 1> y, const Array<double, 1> x, a1, a0);
+  LinearRegression(blitz::Array<double, 1> y, const blitz::Array<double, 1> x, a1, a0);
   calculates a0 and a1 for the system of equations yvec = a0 + a1 * xvec
  **/
-bool CFits::LinearRegression(const Array<double, 2> &D_A2_CCD_In,
-                             const Array<double, 2> &D_A2_SF_In,
-                             Array<double,1> &D_A1_SP_Out,
-                             Array<double,1> &D_A1_Sky_Out,
-                             Array<double,1> &D_A1_STDDEV_Out,/// double &D_CorrelationCoefficient_Out,
-                             Array<double,1> &D_A1_Covariance_Out) const
+bool CFits::LinearRegression(const blitz::Array<double, 2> &D_A2_CCD_In,
+                             const blitz::Array<double, 2> &D_A2_SF_In,
+                             blitz::Array<double,1> &D_A1_SP_Out,
+                             blitz::Array<double,1> &D_A1_Sky_Out,
+                             blitz::Array<double,1> &D_A1_STDDEV_Out,/// double &D_CorrelationCoefficient_Out,
+                             blitz::Array<double,1> &D_A1_Covariance_Out) const
 {
   if (D_A2_CCD_In.rows() != D_A2_SF_In.rows()){
     cout << "CFits::LinearRegression: ERROR: D_A2_CCD_In.rows(=" << D_A2_CCD_In.rows() << ") != D_A2_SF_In.rows(=" << D_A2_SF_In.rows() << ") => returning false" << endl;
@@ -30370,24 +30370,24 @@ bool CFits::LinearRegression(const Array<double, 2> &D_A2_CCD_In,
 
 
 /**
-  LinFit(Array<double, 1> y, const Array<double, 1> x, a1, a0);
+  LinFit(blitz::Array<double, 1> y, const blitz::Array<double, 1> x, a1, a0);
   calculates a0 and a1 for the system of equations yvec = a0 + a1 * xvec
  **/
-bool CFits::LinFit(const Array<double, 1> &D_A1_CCD_In,      /// yvec: in
-                   const Array<double, 1> &D_A1_SF_In,       /// xvec: in
+bool CFits::LinFit(const blitz::Array<double, 1> &D_A1_CCD_In,      /// yvec: in
+                   const blitz::Array<double, 1> &D_A1_SF_In,       /// xvec: in
                    double &D_SP_Out,                         /// a1: out
                    double &D_Sky_Out,                        /// a0: out
-                   const Array<CString, 1> &CS_A1_Args_In,   ///: in
+                   const blitz::Array<CString, 1> &CS_A1_Args_In,   ///: in
                    void *ArgV_In[]) const                    ///: in
     ///            COVAR =   double &D_Covariance_Out) const          : out
-    ///            SDEV_IN = Array<double,1>(D_A1_CCD_In.size)        : in
+    ///            SDEV_IN = blitz::Array<double,1>(D_A1_CCD_In.size)        : in
     ///            REJECT = double                                    : in
-    ///            MEASURE_ERRORS = Array<double,1>(D_A1_CCD_In.size) : in
+    ///            MEASURE_ERRORS = blitz::Array<double,1>(D_A1_CCD_In.size) : in
     ///            CHISQ = double                                     : out
     ///            PROB = double                                      : out
-    ///            SIGMA = Array<double,1>(2)                         : out
-    ///            COVAR = Array<double,2>(2,2)                       : out
-    ///            YFIT = Array<double,1>(D_A1_CCD_In.size)           : out
+    ///            SIGMA = blitz::Array<double,1>(2)                         : out
+    ///            COVAR = blitz::Array<double,2>(2,2)                       : out
+    ///            YFIT = blitz::Array<double,1>(D_A1_CCD_In.size)           : out
 {
   int I_KeywordSet_SDev, I_KeywordSet_MeasureErrors, I_KeywordSet_Mask, I_KeywordSet_Reject, I_KeywordSet_YFit, I_KeywordSet_Prob, I_KeywordSet_ChiSq;
 
@@ -30416,22 +30416,22 @@ bool CFits::LinFit(const Array<double, 1> &D_A1_CCD_In,      /// yvec: in
   }
 
   /// Set D_A1_SF_In to zero where D_A1_CCD_In == zero
-///  Array<double, 1> D_A1_SF(D_A1_SF_In.size());
+///  blitz::Array<double, 1> D_A1_SF(D_A1_SF_In.size());
 ///  D_A1_SF = where(fabs(D_A1_CCD_In) < 0.000000001, 0., D_A1_SF_In);
 ///  #ifdef __DEBUG_FITS_LINFIT__
 ///    cout << "CFits::LinFit: D_A1_SF set to " << D_A1_SF << endl;
 ///  #endif
 
   int I_Pos;
-  Array<double, 1> D_A1_SF(1);
-  Array<double, 1> D_A1_CCD(1);//D_A1_CCD_In.size());
+  blitz::Array<double, 1> D_A1_SF(1);
+  blitz::Array<double, 1> D_A1_CCD(1);//D_A1_CCD_In.size());
 
-  Array<int, 1> *P_I_A1_Mask = new Array<int, 1>(nX);
-  Array<int, 1> I_A1_Mask_Orig(nX);
+  blitz::Array<int, 1> *P_I_A1_Mask = new blitz::Array<int, 1>(nX);
+  blitz::Array<int, 1> I_A1_Mask_Orig(nX);
   I_KeywordSet_Mask = KeyWord_Set(CS_A1_Args_In,CString("MASK"));
   if (I_KeywordSet_Mask >= 0){
     delete(P_I_A1_Mask);
-    P_I_A1_Mask = (Array<int, 1>*)ArgV_In[I_KeywordSet_Mask];
+    P_I_A1_Mask = (blitz::Array<int, 1>*)ArgV_In[I_KeywordSet_Mask];
   }
   else{
     *P_I_A1_Mask = 1;
@@ -30465,11 +30465,11 @@ bool CFits::LinFit(const Array<double, 1> &D_A1_CCD_In,      /// yvec: in
 ///  double = (N_ELEMENTS(doubleIn) gt 0) ? KEYWORD_SET(doubleIn) : $
 ///    (SIZE(x, /TYPE) eq 5) || (SIZE(y, /TYPE) eq 5)
 
-  Array<double,1> *P_D_A1_SDev = new Array<double, 1>(1);
-  Array<double,1> D_A1_SDev(1);
-  Array<double,1> D_A1_WT(1);
-  Array<double,1> D_A1_T(1);
-  Array<int,1> I_A1_Mask(1);
+  blitz::Array<double,1> *P_D_A1_SDev = new blitz::Array<double, 1>(1);
+  blitz::Array<double,1> D_A1_SDev(1);
+  blitz::Array<double,1> D_A1_WT(1);
+  blitz::Array<double,1> D_A1_T(1);
+  blitz::Array<int,1> I_A1_Mask(1);
 
   int nSDev;
   double D_SDev = 0.;
@@ -30500,9 +30500,9 @@ bool CFits::LinFit(const Array<double, 1> &D_A1_CCD_In,      /// yvec: in
     ///    sdev = isMeasure ? measure_errors : sdevIn
     delete(P_D_A1_SDev);
     if (I_KeywordSet_MeasureErrors >= 0)
-      P_D_A1_SDev = (Array<double,1> *)ArgV_In[I_KeywordSet_MeasureErrors];
+      P_D_A1_SDev = (blitz::Array<double,1> *)ArgV_In[I_KeywordSet_MeasureErrors];
     else
-      P_D_A1_SDev = (Array<double,1> *)ArgV_In[I_KeywordSet_SDev];//this->Replicate(*((double*)ArgV_In[I_KeywordSet_SDev]), nX);
+      P_D_A1_SDev = (blitz::Array<double,1> *)ArgV_In[I_KeywordSet_SDev];//this->Replicate(*((double*)ArgV_In[I_KeywordSet_SDev]), nX);
 
     ///    nsdev = N_ELEMENTS(sdev)
     nSDev = P_D_A1_SDev->size();
@@ -30543,9 +30543,9 @@ bool CFits::LinFit(const Array<double, 1> &D_A1_CCD_In,      /// yvec: in
 
   double D_sdevdat;
   double D_CoVar;
-  Array<double,2> D_A2_CoVar(2,2);
-  Array<double,1> D_A1_Check(nX);
-  Array<int,1> I_A1_LastMask(nX);
+  blitz::Array<double,2> D_A2_CoVar(2,2);
+  blitz::Array<double,1> D_A1_Check(nX);
+  blitz::Array<int,1> I_A1_LastMask(nX);
 
   double D_st2;
   double D_sdeva;
@@ -30554,12 +30554,12 @@ bool CFits::LinFit(const Array<double, 1> &D_A1_CCD_In,      /// yvec: in
   int I_NRejected, I_SumMaskLast;
   double D_ss, D_sx, D_sy, D_b, D_a;
 
-  Array<double,1> *P_D_A1_YFit = new Array<double,1>(1);
-  Array<double,1> D_A1_YFit(1);
+  blitz::Array<double,1> *P_D_A1_YFit = new blitz::Array<double,1>(1);
+  blitz::Array<double,1> D_A1_YFit(1);
   I_KeywordSet_YFit = KeyWord_Set(CS_A1_Args_In,CString("YFIT"));
   if (I_KeywordSet_YFit >= 0){
     delete(P_D_A1_YFit);
-    P_D_A1_YFit = (Array<double,1>*)ArgV_In[I_KeywordSet_YFit];
+    P_D_A1_YFit = (blitz::Array<double,1>*)ArgV_In[I_KeywordSet_YFit];
   }
   P_D_A1_YFit->resize(nX);
   #ifdef __DEBUG_FITS_LINFIT__
@@ -30576,7 +30576,7 @@ bool CFits::LinFit(const Array<double, 1> &D_A1_CCD_In,      /// yvec: in
     cout << "CFits::LinFit: *P_D_ChiSq set to " << *P_D_ChiSqr << endl;
   #endif
 
-  Array<double, 1> D_A1_YFitTemp(D_A1_CCD_In.size());
+  blitz::Array<double, 1> D_A1_YFitTemp(D_A1_CCD_In.size());
 
   ///; for explanation of constants see Numerical Recipes sec. 15-2
   ///  if nsdev eq nX then begin ;Standard deviations are supplied.
@@ -30738,7 +30738,7 @@ bool CFits::LinFit(const Array<double, 1> &D_A1_CCD_In,      /// yvec: in
     #endif
     I_Pos = KeyWord_Set(CS_A1_Args_In,CString("COVAR"));
     if (I_Pos >= 0)
-      *((Array<double, 2>*)ArgV_In[I_Pos]) = D_A2_CoVar;
+      *((blitz::Array<double, 2>*)ArgV_In[I_Pos]) = D_A2_CoVar;
 
     ///  yfit = b*x + a
     D_A1_YFit = D_b * D_A1_SF + D_a;
@@ -30847,7 +30847,7 @@ bool CFits::LinFit(const Array<double, 1> &D_A1_CCD_In,      /// yvec: in
   ///  sigma = (sig_ab = [sdeva, sdevb])
   I_Pos = KeyWord_Set(CS_A1_Args_In, CString("SIGMA"));
   if (I_Pos >= 0){
-    Array<double,1> *P_D_A1_Sigma = (Array<double,1>*)ArgV_In[I_Pos];
+    blitz::Array<double,1> *P_D_A1_Sigma = (blitz::Array<double,1>*)ArgV_In[I_Pos];
     (*P_D_A1_Sigma)(0) = D_sdevb;
     (*P_D_A1_Sigma)(1) = D_sdeva;
     #ifdef __DEBUG_FITS_LINFIT__
@@ -30932,34 +30932,34 @@ bool CFits::LinFit(const Array<double, 1> &D_A1_CCD_In,      /// yvec: in
 }
 
 /**
-  LinFit(Array<double, 1> y, const Array<double, 1> x, a1, a0);
+  LinFit(blitz::Array<double, 1> y, const blitz::Array<double, 1> x, a1, a0);
   calculates a0 and a1 for the system of equations yvec = a0 + a1 * xvec
  **/
-bool CFits::LinFit(const Array<double, 2> &D_A2_CCD_In,      ///: in
-                   const Array<double, 2> &D_A2_SF_In,       ///: in
-                   Array<double,1> &D_A1_SP_Out,             ///: out
-                   Array<double,1> &D_A1_Sky_Out,            ///: out
-                   const Array<CString, 1> &CS_A1_Args_In,   ///: in
+bool CFits::LinFit(const blitz::Array<double, 2> &D_A2_CCD_In,      ///: in
+                   const blitz::Array<double, 2> &D_A2_SF_In,       ///: in
+                   blitz::Array<double,1> &D_A1_SP_Out,             ///: out
+                   blitz::Array<double,1> &D_A1_Sky_Out,            ///: out
+                   const blitz::Array<CString, 1> &CS_A1_Args_In,   ///: in
                    void *ArgV_In[]) const                    ///: in
-    ///            SDEV_IN = Array<double,2>(D_A2_CCD_In.rows, D_A2_CCD_In.cols)        : in
-    ///            MEASURE_ERRORS = Array<double,2>(D_A2_CCD_In.rows, D_A2_CCD_In.cols) : in
+    ///            SDEV_IN = blitz::Array<double,2>(D_A2_CCD_In.rows, D_A2_CCD_In.cols)        : in
+    ///            MEASURE_ERRORS = blitz::Array<double,2>(D_A2_CCD_In.rows, D_A2_CCD_In.cols) : in
     ///            REJECT = double                                    : in
-    ///            CHISQ = Array<double,1>(D_A2_CCD_In.rows)                            : out
-    ///            PROB = Array<double,1>(D_A2_CCD_In.rows)                             : out
-    ///            SIGMA = Array<double,2>(D_A2_CCD_In.rows, 2)                         : out
-    ///            COVAR = Array<double,3>(D_A2_CCD_In.rows, 2, 2)                      : out
-    ///            YFIT = Array<double,2>(D_A2_CCD_In.rows, D_A2_CCD_In.cols)           : out
+    ///            CHISQ = blitz::Array<double,1>(D_A2_CCD_In.rows)                            : out
+    ///            PROB = blitz::Array<double,1>(D_A2_CCD_In.rows)                             : out
+    ///            SIGMA = blitz::Array<double,2>(D_A2_CCD_In.rows, 2)                         : out
+    ///            COVAR = blitz::Array<double,3>(D_A2_CCD_In.rows, 2, 2)                      : out
+    ///            YFIT = blitz::Array<double,2>(D_A2_CCD_In.rows, D_A2_CCD_In.cols)           : out
 {
   #ifdef __DEBUG_FITS_LINFIT__
     cout << "CFits::LinFit2D: starting " << endl;
   #endif
 
-  Array<double,2> *P_D_A2_CoVar;
-  Array<double,1> *P_D_A1_SDev;
-  Array<double,1> *P_D_A1_MeasureErrors;
-  Array<double,1> *P_D_A1_Sigma;
-  Array<double,1> *P_D_A1_YFit;
-  Array<int, 1> *P_I_A1_Mask;
+  blitz::Array<double,2> *P_D_A2_CoVar;
+  blitz::Array<double,1> *P_D_A1_SDev;
+  blitz::Array<double,1> *P_D_A1_MeasureErrors;
+  blitz::Array<double,1> *P_D_A1_Sigma;
+  blitz::Array<double,1> *P_D_A1_YFit;
+  blitz::Array<int, 1> *P_I_A1_Mask;
   double *P_D_Reject;
 
   if (D_A2_CCD_In.rows() != D_A2_SF_In.rows()){
@@ -30978,7 +30978,7 @@ bool CFits::LinFit(const Array<double, 2> &D_A2_CCD_In,      ///: in
   D_A1_SP_Out.resize(D_A2_CCD_In.rows());
   D_A1_Sky_Out.resize(D_A2_CCD_In.rows());
 
-  Array<CString,1> CS_A1_Args_LinFit(10);
+  blitz::Array<CString,1> CS_A1_Args_LinFit(10);
   CS_A1_Args_LinFit = CString(" ");
   void **PP_Args_LinFit = (void**)malloc(sizeof(void*) * 10);
 
@@ -30986,7 +30986,7 @@ bool CFits::LinFit(const Array<double, 2> &D_A2_CCD_In,      ///: in
   int pos = 0;
 
   /// input paramters
-  Array<double,2> *P_D_A2_SDev;
+  blitz::Array<double,2> *P_D_A2_SDev;
   I_Pos = KeyWord_Set(CS_A1_Args_In, CString("SDEV_IN"));
   #ifdef __DEBUG_FITS_LINFIT__
     cout << "CFits::LinFit2D: starting " << endl;
@@ -30996,7 +30996,7 @@ bool CFits::LinFit(const Array<double, 2> &D_A2_CCD_In,      ///: in
       cout << "CFits::LinFit2D: checking SDEV_IN" << endl;
     #endif
     CS_A1_Args_LinFit(pos).Set("SDEV_IN");
-    P_D_A2_SDev = (Array<double,2>*)ArgV_In[I_Pos];
+    P_D_A2_SDev = (blitz::Array<double,2>*)ArgV_In[I_Pos];
     if (P_D_A2_SDev->rows() != D_A2_CCD_In.rows()){
       cout << "CFits::LinFit2D: ERROR: P_D_A2_SDev->rows() != D_A2_CCD_In.rows() => returning FALSE" << endl;
       return false;
@@ -31009,13 +31009,13 @@ bool CFits::LinFit(const Array<double, 2> &D_A2_CCD_In,      ///: in
   }
 
   I_Pos = KeyWord_Set(CS_A1_Args_In, CString("MEASURE_ERRORS"));
-  Array<double,2> *P_D_A2_MeasureErrors;
+  blitz::Array<double,2> *P_D_A2_MeasureErrors;
   if (I_Pos >= 0){
     #ifdef __DEBUG_FITS_LINFIT__
       cout << "CFits::LinFit2D: checking MEASURE_ERRORS" << endl;
     #endif
     CS_A1_Args_LinFit(pos).Set("MEASURE_ERRORS");
-    P_D_A2_MeasureErrors = (Array<double,2>*)ArgV_In[I_Pos];
+    P_D_A2_MeasureErrors = (blitz::Array<double,2>*)ArgV_In[I_Pos];
     if (P_D_A2_MeasureErrors->rows() != D_A2_CCD_In.rows()){
       cout << "CFits::LinFit2D: ERROR: P_D_A2_MeasureErrors->rows() != D_A2_CCD_In.rows() => returning FALSE" << endl;
       return false;
@@ -31027,14 +31027,14 @@ bool CFits::LinFit(const Array<double, 2> &D_A2_CCD_In,      ///: in
     pos++;
   }
 
-  Array<int,2> *P_I_A2_Mask;
+  blitz::Array<int,2> *P_I_A2_Mask;
   I_Pos = KeyWord_Set(CS_A1_Args_In, CString("MASK"));
   if (I_Pos >= 0){
     #ifdef __DEBUG_FITS_LINFIT__
       cout << "CFits::LinFit2D: checking MASK" << endl;
     #endif
     CS_A1_Args_LinFit(pos).Set("MASK");
-    P_I_A2_Mask = (Array<int,2>*)ArgV_In[I_Pos];
+    P_I_A2_Mask = (blitz::Array<int,2>*)ArgV_In[I_Pos];
     if (P_I_A2_Mask->rows() != D_A2_CCD_In.rows()){
       cout << "CFits::LinFit2D: ERROR: P_I_A2_Mask->rows() != D_A2_CCD_In.rows() => returning FALSE" << endl;
       return false;
@@ -31058,65 +31058,65 @@ bool CFits::LinFit(const Array<double, 2> &D_A2_CCD_In,      ///: in
 
   /// output parameters
   I_Pos = KeyWord_Set(CS_A1_Args_In, CString("COVAR"));
-  Array<double,3> *P_D_A3_CoVar;
+  blitz::Array<double,3> *P_D_A3_CoVar;
   if (I_Pos >= 0){
     #ifdef __DEBUG_FITS_LINFIT__
       cout << "CFits::LinFit2D: checking COVAR" << endl;
     #endif
     CS_A1_Args_LinFit(pos).Set("COVAR");
-    P_D_A3_CoVar = (Array<double,3>*)ArgV_In[I_Pos];
+    P_D_A3_CoVar = (blitz::Array<double,3>*)ArgV_In[I_Pos];
     P_D_A3_CoVar->resize(D_A2_CCD_In.rows(), 2, 2);
     *P_D_A3_CoVar = 0.;
     pos++;
   }
 
   I_Pos = KeyWord_Set(CS_A1_Args_In, CString("CHISQ"));
-  Array<double,1> *P_D_A1_ChiSq;
+  blitz::Array<double,1> *P_D_A1_ChiSq;
   if (I_Pos >= 0){
     #ifdef __DEBUG_FITS_LINFIT__
       cout << "CFits::LinFit2D: checking CHISQ" << endl;
     #endif
     CS_A1_Args_LinFit(pos).Set("CHISQ");
-    P_D_A1_ChiSq = (Array<double,1>*)ArgV_In[I_Pos];
+    P_D_A1_ChiSq = (blitz::Array<double,1>*)ArgV_In[I_Pos];
     P_D_A1_ChiSq->resize(D_A2_CCD_In.rows());
     (*P_D_A1_ChiSq) = 0.;
     pos++;
   }
 
   I_Pos = KeyWord_Set(CS_A1_Args_In, CString("PROB"));
-  Array<double,1> *P_D_A1_Prob;
+  blitz::Array<double,1> *P_D_A1_Prob;
   if (I_Pos >= 0){
     #ifdef __DEBUG_FITS_LINFIT__
       cout << "CFits::LinFit2D: checking PROB" << endl;
     #endif
     CS_A1_Args_LinFit(pos).Set("PROB");
-    P_D_A1_Prob = (Array<double,1>*)ArgV_In[I_Pos];
+    P_D_A1_Prob = (blitz::Array<double,1>*)ArgV_In[I_Pos];
     P_D_A1_Prob->resize(D_A2_CCD_In.rows());
     (*P_D_A1_Prob) = 0.;
     pos++;
   }
 
   I_Pos = KeyWord_Set(CS_A1_Args_In, CString("SIGMA"));
-  Array<double,2> *P_D_A2_Sigma;
+  blitz::Array<double,2> *P_D_A2_Sigma;
   if (I_Pos >= 0){
     #ifdef __DEBUG_FITS_LINFIT__
       cout << "CFits::LinFit2D: checking SIGMA" << endl;
     #endif
     CS_A1_Args_LinFit(pos).Set("SIGMA");
-    P_D_A2_Sigma = (Array<double,2>*)ArgV_In[I_Pos];
+    P_D_A2_Sigma = (blitz::Array<double,2>*)ArgV_In[I_Pos];
     P_D_A2_Sigma->resize(D_A2_CCD_In.rows(), 2);
     *P_D_A2_Sigma = 0.;
     pos++;
   }
 
   I_Pos = KeyWord_Set(CS_A1_Args_In, CString("YFIT"));
-  Array<double,2> *P_D_A2_YFit;
+  blitz::Array<double,2> *P_D_A2_YFit;
   if (I_Pos >= 0){
     #ifdef __DEBUG_FITS_LINFIT__
       cout << "CFits::LinFit2D: checking YFIT" << endl;
     #endif
     CS_A1_Args_LinFit(pos).Set("YFIT");
-    P_D_A2_YFit = (Array<double,2>*)ArgV_In[I_Pos];
+    P_D_A2_YFit = (blitz::Array<double,2>*)ArgV_In[I_Pos];
     P_D_A2_YFit->resize(D_A2_CCD_In.rows(), D_A2_CCD_In.cols());
     *P_D_A2_YFit = 0.;
     pos++;
@@ -31127,21 +31127,21 @@ bool CFits::LinFit(const Array<double, 2> &D_A2_CCD_In,      ///: in
     I_Pos = KeyWord_Set(CS_A1_Args_In, CString("SDEV_IN"));
     if (I_Pos >= 0){
 ///      delete(P_D_A1_SDev);
-      P_D_A1_SDev = new Array<double,1>((*P_D_A2_SDev)(m, Range::all()));
+      P_D_A1_SDev = new blitz::Array<double,1>((*P_D_A2_SDev)(m, Range::all()));
       PP_Args_LinFit[pos] = P_D_A1_SDev;
       pos++;
     }
 
     I_Pos = KeyWord_Set(CS_A1_Args_In, CString("MEASURE_ERRORS"));
     if (I_Pos >= 0){
-      P_D_A1_MeasureErrors = new Array<double,1>((*P_D_A2_MeasureErrors)(m, Range::all()));
+      P_D_A1_MeasureErrors = new blitz::Array<double,1>((*P_D_A2_MeasureErrors)(m, Range::all()));
       PP_Args_LinFit[pos] = P_D_A1_MeasureErrors;
       pos++;
     }
 
     I_Pos = KeyWord_Set(CS_A1_Args_In, CString("MASK"));
     if (I_Pos >= 0){
-      P_I_A1_Mask = new Array<int,1>((*P_I_A2_Mask)(m, Range::all()));
+      P_I_A1_Mask = new blitz::Array<int,1>((*P_I_A2_Mask)(m, Range::all()));
       PP_Args_LinFit[pos] = P_I_A1_Mask;
       pos++;
     }
@@ -31154,7 +31154,7 @@ bool CFits::LinFit(const Array<double, 2> &D_A2_CCD_In,      ///: in
 
     I_Pos = KeyWord_Set(CS_A1_Args_In, CString("COVAR"));
     if (I_Pos >= 0){
-      P_D_A2_CoVar = new Array<double,2>((*P_D_A3_CoVar)(m, Range::all(), Range::all()));
+      P_D_A2_CoVar = new blitz::Array<double,2>((*P_D_A3_CoVar)(m, Range::all(), Range::all()));
       PP_Args_LinFit[pos] = P_D_A2_CoVar;
       pos++;
     }
@@ -31173,14 +31173,14 @@ bool CFits::LinFit(const Array<double, 2> &D_A2_CCD_In,      ///: in
 
     I_Pos = KeyWord_Set(CS_A1_Args_In, CString("SIGMA"));
     if (I_Pos >= 0){
-      P_D_A1_Sigma = new Array<double,1>((*P_D_A2_Sigma)(m,Range::all()));
+      P_D_A1_Sigma = new blitz::Array<double,1>((*P_D_A2_Sigma)(m,Range::all()));
       PP_Args_LinFit[pos] = P_D_A1_Sigma;
       pos++;
     }
 
     I_Pos = KeyWord_Set(CS_A1_Args_In, CString("YFIT"));
     if (I_Pos >= 0){
-      P_D_A1_YFit = new Array<double,1>((*P_D_A2_YFit)(m, Range::all()));
+      P_D_A1_YFit = new blitz::Array<double,1>((*P_D_A2_YFit)(m, Range::all()));
       PP_Args_LinFit[pos] = P_D_A1_YFit;
       pos++;
     }
@@ -31243,14 +31243,14 @@ bool CFits::LinFit(const Array<double, 2> &D_A2_CCD_In,      ///: in
 
 
 /**
-Fit(Array<double, 1> y, const Array<double, 1> x, a1, a0);
+Fit(blitz::Array<double, 1> y, const blitz::Array<double, 1> x, a1, a0);
 calculates a0 and a1 for the system of equations yvec = a0 + a1 * xvec
 **/
-bool CFits::Fit(const Array<double, 1> &D_A1_CCD_In,      /// yvec: in
-                const Array<double, 1> &D_A1_SF_In,       /// xvec: in
+bool CFits::Fit(const blitz::Array<double, 1> &D_A1_CCD_In,      /// yvec: in
+                const blitz::Array<double, 1> &D_A1_SF_In,       /// xvec: in
                 double &D_SP_Out,                         /// a1: out
                 double &D_Sky_Out,                        /// a0: in/out
-                const Array<CString, 1> &CS_A1_Args_In,   ///: in
+                const blitz::Array<CString, 1> &CS_A1_Args_In,   ///: in
                 void *ArgV_In[]) const                    ///: in
 {
   bool B_WithSky = true;
@@ -31260,23 +31260,23 @@ bool CFits::Fit(const Array<double, 1> &D_A1_CCD_In,      /// yvec: in
 }
 
 /**
-  Fit(Array<double, 1> y, const Array<double, 1> x, a1, a0);
+  Fit(blitz::Array<double, 1> y, const blitz::Array<double, 1> x, a1, a0);
   calculates a0 and a1 for the system of equations yvec = a0 + a1 * xvec
  **/
-bool CFits::Fit(const Array<double, 1> &D_A1_CCD_In,      /// yvec: in
-                const Array<double, 1> &D_A1_SF_In,       /// xvec: in
+bool CFits::Fit(const blitz::Array<double, 1> &D_A1_CCD_In,      /// yvec: in
+                const blitz::Array<double, 1> &D_A1_SF_In,       /// xvec: in
                 double &D_SP_Out,                         /// a1: out
                 double &D_Sky_Out,                        /// a0: in/out
                 bool B_WithSky,                        /// with sky: in
-                const Array<CString, 1> &CS_A1_Args_In,   ///: in
+                const blitz::Array<CString, 1> &CS_A1_Args_In,   ///: in
                 void *ArgV_In[]) const                    ///: in
-    /// MEASURE_ERRORS_IN = Array<double,1>(D_A1_CCD_In.size)
+    /// MEASURE_ERRORS_IN = blitz::Array<double,1>(D_A1_CCD_In.size)
     /// REJECT_IN = double
-    /// MASK_INOUT = Array<double,1>(D_A1_CCD_In.size)
+    /// MASK_INOUT = blitz::Array<double,1>(D_A1_CCD_In.size)
     /// CHISQ_OUT = double
     /// Q_OUT = double
-    /// SIGMA_OUT = Array<double,1>(2): [0]: sigma_sp, [1]: sigma_sky
-    /// YFIT_OUT = Array<double, 1>(D_A1_CCD_In.size)
+    /// SIGMA_OUT = blitz::Array<double,1>(2): [0]: sigma_sp, [1]: sigma_sky
+    /// YFIT_OUT = blitz::Array<double, 1>(D_A1_CCD_In.size)
 {
 //  #ifdef __DEBUG_FITS_FIT__
     cout << "CFits::Fit(Array, Array, double, double, bool, CSArr, PPArr) started" << endl;
@@ -31292,9 +31292,9 @@ bool CFits::Fit(const Array<double, 1> &D_A1_CCD_In,      /// yvec: in
   }
 
 //  /// Set D_A1_SF_In to zero where D_A1_CCD_In == zero
-  Array<double, 1> D_A1_SF(D_A1_SF_In.size());
+  blitz::Array<double, 1> D_A1_SF(D_A1_SF_In.size());
   D_A1_SF = D_A1_SF_In;//(fabs(D_A1_CCD_In) < 0.000000001, 0., D_A1_SF_In);
-  Array<double, 1> D_A1_CCD(D_A1_CCD_In.size());
+  blitz::Array<double, 1> D_A1_CCD(D_A1_CCD_In.size());
   D_A1_CCD = D_A1_CCD_In;//(fabs(D_A1_CCD_In) < 0.000000001, 0., D_A1_SF_In);
 
   if (sum(D_A1_CCD_In) == 0. || sum(D_A1_SF) == 0.){
@@ -31307,10 +31307,10 @@ bool CFits::Fit(const Array<double, 1> &D_A1_CCD_In,      /// yvec: in
   int I_KeywordSet_Reject, I_KeywordSet_Mask, I_KeywordSet_MeasureErrors, I_KeywordSet_SigmaOut, I_KeywordSet_ChiSqOut, I_KeywordSet_QOut, I_KeywordSet_YFitOut;
   double wtmax, wtmin, t, sxoss, sx=0.0, sy=0.0, st2=0.0, ss=0.0, sigdat, sxy=0.0, sxx=0.0;
   int ndata = D_A1_CCD_In.size();
-  Array<double, 1> *P_D_A1_Sig = new Array<double, 1>(D_A1_CCD_In.size());
+  blitz::Array<double, 1> *P_D_A1_Sig = new blitz::Array<double, 1>(D_A1_CCD_In.size());
   (*P_D_A1_Sig) = 0.;
-  Array<double, 1> D_A1_Sig(D_A1_CCD_In.size());
-  Array<double, 1> D_A1_WT(ndata);
+  blitz::Array<double, 1> D_A1_Sig(D_A1_CCD_In.size());
+  blitz::Array<double, 1> D_A1_WT(ndata);
 
   /// a: D_Sky_Out
   /// b: D_SP_Out
@@ -31329,16 +31329,16 @@ bool CFits::Fit(const Array<double, 1> &D_A1_CCD_In,      /// yvec: in
   if (*P_D_Reject > 0.)
     B_Reject = true;
 
-  Array<int, 1> *P_I_A1_Mask = new Array<int, 1>(D_A1_CCD_In.size());
-  Array<int, 1> I_A1_Mask_Orig(D_A1_CCD_In.size());
-  //Array<int, 1> I_A1_Mask(D_A1_CCD_In.size());
+  blitz::Array<int, 1> *P_I_A1_Mask = new blitz::Array<int, 1>(D_A1_CCD_In.size());
+  blitz::Array<int, 1> I_A1_Mask_Orig(D_A1_CCD_In.size());
+  //blitz::Array<int, 1> I_A1_Mask(D_A1_CCD_In.size());
   *P_I_A1_Mask = 1;
 
   I_KeywordSet_Mask = this->KeyWord_Set(CS_A1_Args_In, CString("MASK_INOUT"));
   if (I_KeywordSet_Mask >= 0)
   {
     delete(P_I_A1_Mask);
-    P_I_A1_Mask = (Array<int, 1>*)ArgV_In[I_KeywordSet_Mask];
+    P_I_A1_Mask = (blitz::Array<int, 1>*)ArgV_In[I_KeywordSet_Mask];
   }
   //I_A1_Mask = (*P_I_A1_Mask);
   I_A1_Mask_Orig = (*P_I_A1_Mask);
@@ -31348,17 +31348,17 @@ bool CFits::Fit(const Array<double, 1> &D_A1_CCD_In,      /// yvec: in
     cout << "CFits::Fit: I_A1_Mask_Orig set to " << I_A1_Mask_Orig << endl;
   #endif
 
-  Array<double, 1> *P_D_A1_Sigma_Out;
-  Array<double, 1> D_A1_Sigma_Out(2);
+  blitz::Array<double, 1> *P_D_A1_Sigma_Out;
+  blitz::Array<double, 1> D_A1_Sigma_Out(2);
   I_KeywordSet_SigmaOut = this->KeyWord_Set(CS_A1_Args_In, CString("SIGMA_OUT"));
   if (I_KeywordSet_SigmaOut >= 0)
   {
-    P_D_A1_Sigma_Out = (Array<double, 1>*)ArgV_In[I_KeywordSet_SigmaOut];
+    P_D_A1_Sigma_Out = (blitz::Array<double, 1>*)ArgV_In[I_KeywordSet_SigmaOut];
     P_D_A1_Sigma_Out->resize(2);
   }
   else
   {
-    P_D_A1_Sigma_Out = new Array<double, 1>(2);
+    P_D_A1_Sigma_Out = new blitz::Array<double, 1>(2);
   }
   *P_D_A1_Sigma_Out = 0.;
   D_A1_Sigma_Out = *P_D_A1_Sigma_Out;
@@ -31395,9 +31395,9 @@ bool CFits::Fit(const Array<double, 1> &D_A1_CCD_In,      /// yvec: in
   {
     /// Accumulate sums...
     delete(P_D_A1_Sig);
-    P_D_A1_Sig = (Array<double, 1>*)ArgV_In[I_KeywordSet_MeasureErrors];
+    P_D_A1_Sig = (blitz::Array<double, 1>*)ArgV_In[I_KeywordSet_MeasureErrors];
     #ifdef __DEBUG_FITS_FIT__
-      cout << "CFits::Fit: ArgV_In[I_KeywordSet_MeasureErrors=" << I_KeywordSet_MeasureErrors << "] = " << *((Array<double,1>*)ArgV_In[I_KeywordSet_MeasureErrors]) << endl;
+      cout << "CFits::Fit: ArgV_In[I_KeywordSet_MeasureErrors=" << I_KeywordSet_MeasureErrors << "] = " << *((blitz::Array<double,1>*)ArgV_In[I_KeywordSet_MeasureErrors]) << endl;
       cout << "CFits::Fit: *P_D_A1_Sig = " << *P_D_A1_Sig << endl;
     #endif
     if (D_A1_CCD_In.size() != P_D_A1_Sig->size()){
@@ -31408,13 +31408,13 @@ bool CFits::Fit(const Array<double, 1> &D_A1_CCD_In,      /// yvec: in
     }
   }
 
-  Array<double, 1> D_A1_YFit(1);
-  Array<double, 1> *P_D_A1_YFit = new Array<double, 1>(D_A1_CCD_In.size());
+  blitz::Array<double, 1> D_A1_YFit(1);
+  blitz::Array<double, 1> *P_D_A1_YFit = new blitz::Array<double, 1>(D_A1_CCD_In.size());
   I_KeywordSet_YFitOut = this->KeyWord_Set(CS_A1_Args_In, CString("YFIT_OUT"));
   if (I_KeywordSet_YFitOut >= 0)
   {
     delete(P_D_A1_YFit);
-    P_D_A1_YFit = (Array<double, 1>*)ArgV_In[I_KeywordSet_YFitOut];
+    P_D_A1_YFit = (blitz::Array<double, 1>*)ArgV_In[I_KeywordSet_YFitOut];
     P_D_A1_YFit->resize(D_A1_CCD_In.size());
     (*P_D_A1_YFit) = 0.;
   }
@@ -31427,9 +31427,9 @@ bool CFits::Fit(const Array<double, 1> &D_A1_CCD_In,      /// yvec: in
 
   int I_SumMaskLast;
   double D_SDevReject;
-  Array<double, 1> D_A1_Check(D_A1_CCD_In.size());
-  Array<int, 1> I_A1_LastMask(P_I_A1_Mask->size());
-  Array<double, 1> D_A1_Diff(D_A1_CCD_In.size());
+  blitz::Array<double, 1> D_A1_Check(D_A1_CCD_In.size());
+  blitz::Array<int, 1> I_A1_LastMask(P_I_A1_Mask->size());
+  blitz::Array<double, 1> D_A1_Diff(D_A1_CCD_In.size());
   D_A1_Diff = 0.;
 
   bool B_Run = true;
@@ -31579,7 +31579,7 @@ bool CFits::Fit(const Array<double, 1> &D_A1_CCD_In,      /// yvec: in
 
       if (st2 == 0.){
         D_SP_Out = 0.;
-        Array<double, 1> *P_D_A1_Moment = this->Moment(D_A1_CCD, 2);
+        blitz::Array<double, 1> *P_D_A1_Moment = this->Moment(D_A1_CCD, 2);
         D_Sky_Out = (*P_D_A1_Moment)(0);
         (*P_D_A1_Sigma_Out)(0) = (*P_D_A1_Moment)(1);
         (*P_D_A1_Sigma_Out)(1) = (*P_D_A1_Moment)(1);
@@ -31765,14 +31765,14 @@ bool CFits::Fit(const Array<double, 1> &D_A1_CCD_In,      /// yvec: in
 }
 
 /**
-Fit(Array<double, 1> y, const Array<double, 1> x, a1, a0);
+Fit(blitz::Array<double, 1> y, const blitz::Array<double, 1> x, a1, a0);
 calculates a0 and a1 for the system of equations yvec = a0 + a1 * xvec
 **/
-bool CFits::Fit(const Array<double, 2> &D_A2_CCD_In,      /// yvec: in
-                const Array<double, 2> &D_A2_SF_In,       /// xvec: in
-                Array<double, 1> &D_A1_SP_Out,                         /// a1: out
-                Array<double, 1> &D_A1_Sky_Out,                        /// a0: out
-                const Array<CString, 1> &CS_A1_Args_In,   ///: in
+bool CFits::Fit(const blitz::Array<double, 2> &D_A2_CCD_In,      /// yvec: in
+                const blitz::Array<double, 2> &D_A2_SF_In,       /// xvec: in
+                blitz::Array<double, 1> &D_A1_SP_Out,                         /// a1: out
+                blitz::Array<double, 1> &D_A1_Sky_Out,                        /// a0: out
+                const blitz::Array<CString, 1> &CS_A1_Args_In,   ///: in
                 void *ArgV_In[]) const                    ///: in
 {
   bool B_WithSky = true;
@@ -31782,23 +31782,23 @@ bool CFits::Fit(const Array<double, 2> &D_A2_CCD_In,      /// yvec: in
 }
 
 /**
-  Fit(Array<double, 1> y, const Array<double, 1> x, a1, a0);
+  Fit(blitz::Array<double, 1> y, const blitz::Array<double, 1> x, a1, a0);
   calculates a0 and a1 for the system of equations yvec = a0 + a1 * xvec
  **/
-bool CFits::Fit(const Array<double, 2> &D_A2_CCD_In,      /// yvec: in
-                const Array<double, 2> &D_A2_SF_In,       /// xvec: in
-                Array<double, 1> &D_A1_SP_Out,                         /// a1: out
-                Array<double, 1> &D_A1_Sky_Out,                        /// a0: out
+bool CFits::Fit(const blitz::Array<double, 2> &D_A2_CCD_In,      /// yvec: in
+                const blitz::Array<double, 2> &D_A2_SF_In,       /// xvec: in
+                blitz::Array<double, 1> &D_A1_SP_Out,                         /// a1: out
+                blitz::Array<double, 1> &D_A1_Sky_Out,                        /// a0: out
                 bool B_WithSky,                           /// with sky: in
-                const Array<CString, 1> &CS_A1_Args_In,   ///: in
+                const blitz::Array<CString, 1> &CS_A1_Args_In,   ///: in
                 void *ArgV_In[]) const                    ///: in
-    /// MEASURE_ERRORS_IN = Array<double, 2>(D_A2_CCD_In.rows(), D_A2_CCD_In.cols())
+    /// MEASURE_ERRORS_IN = blitz::Array<double, 2>(D_A2_CCD_In.rows(), D_A2_CCD_In.cols())
     /// REJECT_IN         = double
-    /// MASK_INOUT        = Array<double, 2>(D_A2_CCD_In.rows(), D_A2_CCD_In.cols())
-    /// CHISQ_OUT         = Array<double, 1>(D_A2_CCD_In.rows())
-    /// Q_OUT             = Array<double, 1>(D_A2_CCD_In.rows())
-    /// SIGMA_OUT         = Array<double, 2>(D_A2_CCD_In.rows(),2)
-    /// YFIT_OUT          = Array<double, 2>(D_A2_CCD_In.rows(), D_A2_CCD_In.cols())
+    /// MASK_INOUT        = blitz::Array<double, 2>(D_A2_CCD_In.rows(), D_A2_CCD_In.cols())
+    /// CHISQ_OUT         = blitz::Array<double, 1>(D_A2_CCD_In.rows())
+    /// Q_OUT             = blitz::Array<double, 1>(D_A2_CCD_In.rows())
+    /// SIGMA_OUT         = blitz::Array<double, 2>(D_A2_CCD_In.rows(),2)
+    /// YFIT_OUT          = blitz::Array<double, 2>(D_A2_CCD_In.rows(), D_A2_CCD_In.cols())
 {
   #ifdef __DEBUG_FITS_FIT__
     cout << "CFits::Fit(Array, Array, Array, Array, bool, CSArr, PPArr) started" << endl;
@@ -31826,22 +31826,22 @@ bool CFits::Fit(const Array<double, 2> &D_A2_CCD_In,      /// yvec: in
 
   double *P_D_Reject;
 
-  Array<double, 1> *P_D_A1_YFit;
-  Array<double, 2> *P_D_A2_YFit;
-  Array<int, 1> *P_I_A1_Mask;
-  Array<int, 2> *P_I_A2_Mask;
+  blitz::Array<double, 1> *P_D_A1_YFit;
+  blitz::Array<double, 2> *P_D_A2_YFit;
+  blitz::Array<int, 1> *P_I_A1_Mask;
+  blitz::Array<int, 2> *P_I_A2_Mask;
 
-  Array<double, 1> *P_D_A1_Sigma;
-  Array<double, 1> *P_D_A1_Sigma_Out;
-  Array<CString, 1> CS_A1_Args_Fit(10);
+  blitz::Array<double, 1> *P_D_A1_Sigma;
+  blitz::Array<double, 1> *P_D_A1_Sigma_Out;
+  blitz::Array<CString, 1> CS_A1_Args_Fit(10);
   CS_A1_Args_Fit = CString(" ");
   void **PP_Args_Fit = (void**)malloc(sizeof(void*) * 10);
 
-  Array<double, 2> *P_D_A2_Sigma;
+  blitz::Array<double, 2> *P_D_A2_Sigma;
   I_KeywordSet_MeasureErrors = this->KeyWord_Set(CS_A1_Args_In, CString("MEASURE_ERRORS_IN"));
   if (I_KeywordSet_MeasureErrors >= 0)
   {
-    P_D_A2_Sigma = (Array<double,2>*)ArgV_In[I_KeywordSet_MeasureErrors];
+    P_D_A2_Sigma = (blitz::Array<double,2>*)ArgV_In[I_KeywordSet_MeasureErrors];
     #ifdef __DEBUG_FITS_FIT__
       cout << "CFits::Fit(Array, Array, Array, Array): P_D_A2_Sigma = " << *P_D_A2_Sigma << endl;
     #endif
@@ -31849,31 +31849,31 @@ bool CFits::Fit(const Array<double, 2> &D_A2_CCD_In,      /// yvec: in
     I_ArgPos++;
   }
 
-  Array<double, 1> *P_D_A1_ChiSq;
+  blitz::Array<double, 1> *P_D_A1_ChiSq;
   I_KeywordSet_ChiSq = this->KeyWord_Set(CS_A1_Args_In, CString("CHISQ_OUT"));
   if (I_KeywordSet_ChiSq >= 0)
   {
-    P_D_A1_ChiSq = (Array<double,1>*)ArgV_In[I_KeywordSet_ChiSq];
+    P_D_A1_ChiSq = (blitz::Array<double,1>*)ArgV_In[I_KeywordSet_ChiSq];
     P_D_A1_ChiSq->resize(D_A2_CCD_In.rows());
     CS_A1_Args_Fit(I_ArgPos) = CString("CHISQ_OUT");
     I_ArgPos++;
   }
 
-  Array<double, 1> *P_D_A1_Q;
+  blitz::Array<double, 1> *P_D_A1_Q;
   I_KeywordSet_Q = this->KeyWord_Set(CS_A1_Args_In, CString("Q_OUT"));
   if (I_KeywordSet_Q >= 0)
   {
-    P_D_A1_Q = (Array<double,1>*)ArgV_In[I_KeywordSet_Q];
+    P_D_A1_Q = (blitz::Array<double,1>*)ArgV_In[I_KeywordSet_Q];
     P_D_A1_Q->resize(D_A2_CCD_In.rows());
     CS_A1_Args_Fit(I_ArgPos) = CString("Q_OUT");
     I_ArgPos++;
   }
 
-  Array<double, 2> *P_D_A2_Sigma_Out;
+  blitz::Array<double, 2> *P_D_A2_Sigma_Out;
   I_KeywordSet_Sigma = this->KeyWord_Set(CS_A1_Args_In, CString("SIGMA_OUT"));
   if (I_KeywordSet_Sigma >= 0)
   {
-    P_D_A2_Sigma_Out = (Array<double,2>*)ArgV_In[I_KeywordSet_Sigma];
+    P_D_A2_Sigma_Out = (blitz::Array<double,2>*)ArgV_In[I_KeywordSet_Sigma];
     P_D_A2_Sigma_Out->resize(D_A2_CCD_In.rows(), 2);
     CS_A1_Args_Fit(I_ArgPos) = CString("SIGMA_OUT");
     I_ArgPos++;
@@ -31882,7 +31882,7 @@ bool CFits::Fit(const Array<double, 2> &D_A2_CCD_In,      /// yvec: in
   I_KeywordSet_YFit = this->KeyWord_Set(CS_A1_Args_In, CString("YFIT_OUT"));
   if (I_KeywordSet_YFit >= 0)
   {
-    P_D_A2_YFit = (Array<double,2>*)ArgV_In[I_KeywordSet_YFit];
+    P_D_A2_YFit = (blitz::Array<double,2>*)ArgV_In[I_KeywordSet_YFit];
     #ifdef __DEBUG_FITS_FIT__
     cout << "CFits::Fit2D: P_D_A2_YFit = " << *P_D_A2_YFit << endl;
     #endif
@@ -31904,7 +31904,7 @@ bool CFits::Fit(const Array<double, 2> &D_A2_CCD_In,      /// yvec: in
   I_KewordSet_Mask = this->KeyWord_Set(CS_A1_Args_In, CString("MASK_INOUT"));
   if (I_KewordSet_Mask >= 0)
   {
-    P_I_A2_Mask = (Array<int,2>*)ArgV_In[I_KewordSet_Mask];
+    P_I_A2_Mask = (blitz::Array<int,2>*)ArgV_In[I_KewordSet_Mask];
     #ifdef __DEBUG_FITS_FIT__
       cout << "CFits::Fit2D: P_I_A2_Mask = " << *P_I_A2_Mask << endl;
     #endif
@@ -31917,14 +31917,14 @@ bool CFits::Fit(const Array<double, 2> &D_A2_CCD_In,      /// yvec: in
   {
     I_ArgPos = 0;
     if (I_KeywordSet_MeasureErrors >= 0){
-      P_D_A1_Sigma = new Array<double,1>((*P_D_A2_Sigma)(i, Range::all()));
+      P_D_A1_Sigma = new blitz::Array<double,1>((*P_D_A2_Sigma)(i, Range::all()));
       #ifdef __DEBUG_FITS_FIT__
 //        cout << "CFits::Fit(Array, Array, Array, Array): 2. P_D_A2_Sigma = " << *P_D_A2_Sigma << endl;
         cout << "CFits::Fit(Array, Array, Array, Array): P_D_A1_Sigma set to " << *P_D_A1_Sigma << endl;
       #endif
       PP_Args_Fit[I_ArgPos] = P_D_A1_Sigma;
       #ifdef __DEBUG_FITS_FIT__
-        cout << "CFits::Fit(Array, Array, Array, Array): PP_Args_Fit[I_ArgPos=" << I_ArgPos << "] = " << *((Array<double,1>*)PP_Args_Fit[I_ArgPos]) << endl;
+        cout << "CFits::Fit(Array, Array, Array, Array): PP_Args_Fit[I_ArgPos=" << I_ArgPos << "] = " << *((blitz::Array<double,1>*)PP_Args_Fit[I_ArgPos]) << endl;
       #endif
       I_ArgPos++;
     }
@@ -31940,13 +31940,13 @@ bool CFits::Fit(const Array<double, 2> &D_A2_CCD_In,      /// yvec: in
     }
 
     if (I_KeywordSet_Sigma >= 0){
-      P_D_A1_Sigma_Out = new Array<double,1>((*P_D_A2_Sigma_Out)(i, Range::all()));
+      P_D_A1_Sigma_Out = new blitz::Array<double,1>((*P_D_A2_Sigma_Out)(i, Range::all()));
       PP_Args_Fit[I_ArgPos] = P_D_A1_Sigma_Out;
       I_ArgPos++;
     }
 
     if (I_KeywordSet_YFit >= 0){
-      P_D_A1_YFit = new Array<double,1>((*P_D_A2_YFit)(i, Range::all()));
+      P_D_A1_YFit = new blitz::Array<double,1>((*P_D_A2_YFit)(i, Range::all()));
       PP_Args_Fit[I_ArgPos] = P_D_A1_YFit;
       I_ArgPos++;
     }
@@ -31958,7 +31958,7 @@ bool CFits::Fit(const Array<double, 2> &D_A2_CCD_In,      /// yvec: in
 
     B_DoFit = true;
     if (I_KewordSet_Mask >= 0){
-      P_I_A1_Mask = new Array<int,1>((*P_I_A2_Mask)(i, Range::all()));
+      P_I_A1_Mask = new blitz::Array<int,1>((*P_I_A2_Mask)(i, Range::all()));
       PP_Args_Fit[I_ArgPos] = P_I_A1_Mask;
       I_ArgPos++;
       if (sum(*P_I_A1_Mask) == 0)
@@ -32045,20 +32045,20 @@ bool CFits::Fit(const Array<double, 2> &D_A2_CCD_In,      /// yvec: in
  * D_A1_SP_Out(2): spectrum values for profiles in D_A2_SF_In
  * D_Sky_Out: constant sky under both profiles
  **/
-bool CFits::LinFitBevingtonTwoProfiles(const Array<double, 1> &D_A1_CCD_In,      /// y: in
-                                       const Array<double, 2> &D_A2_SF_In,       /// x: in
-                                       Array<double, 1> &D_A1_SP_Out,                         /// a1: out
+bool CFits::LinFitBevingtonTwoProfiles(const blitz::Array<double, 1> &D_A1_CCD_In,      /// y: in
+                                       const blitz::Array<double, 2> &D_A2_SF_In,       /// x: in
+                                       blitz::Array<double, 1> &D_A1_SP_Out,                         /// a1: out
                                        double &D_Sky_Out,                        /// a0: in/out
                                        bool B_WithSky,                           /// with sky: in
-                                       const Array<CString, 1> &CS_A1_Args_In,   ///: in
+                                       const blitz::Array<CString, 1> &CS_A1_Args_In,   ///: in
                                        void *ArgV_In[]) const{                   ///: in/out
-                                   /// MEASURE_ERRORS_IN = Array<double,1>(D_A1_CCD_In.size)             : in
+                                   /// MEASURE_ERRORS_IN = blitz::Array<double,1>(D_A1_CCD_In.size)             : in
                                    /// REJECT_IN = double                                                : in
-                                   /// MASK_INOUT = Array<int,1>(D_A1_CCD_In.size)                    : in/out
+                                   /// MASK_INOUT = blitz::Array<int,1>(D_A1_CCD_In.size)                    : in/out
                                    /// CHISQ_OUT = double                                                : out
                                    /// Q_OUT = double                                                    : out
-                                   /// SIGMA_OUT = Array<double,2>(2,2): [*,0]: sigma_sp, [*,1]: sigma_sky : out
-                                   /// YFIT_OUT = Array<double, 1>(D_A1_CCD_In.size)                     : out
+                                   /// SIGMA_OUT = blitz::Array<double,2>(2,2): [*,0]: sigma_sp, [*,1]: sigma_sky : out
+                                   /// YFIT_OUT = blitz::Array<double, 1>(D_A1_CCD_In.size)                     : out
                                    /// ALLOW_SKY_LT_ZERO = 1
                                    /// ALLOW_SPEC_LT_ZERO = 1
   #ifdef __DEBUG_FITS_FIT__
@@ -32079,9 +32079,9 @@ bool CFits::LinFitBevingtonTwoProfiles(const Array<double, 1> &D_A1_CCD_In,     
   }
 
 //  /// Set D_A1_SF_In to zero where D_A1_CCD_In == zero
-  Array<double, 2> D_A2_SF(D_A2_SF_In.rows(), D_A2_SF_In.cols());
+  blitz::Array<double, 2> D_A2_SF(D_A2_SF_In.rows(), D_A2_SF_In.cols());
   D_A2_SF = D_A2_SF_In;//(fabs(D_A1_CCD_In) < 0.000000001, 0., D_A1_SF_In);
-  Array<double, 1> D_A1_CCD(D_A1_CCD_In.size());
+  blitz::Array<double, 1> D_A1_CCD(D_A1_CCD_In.size());
   D_A1_CCD = D_A1_CCD_In;//(fabs(D_A1_CCD_In) < 0.000000001, 0., D_A1_SF_In);
 
   if (sum(D_A1_CCD_In) == 0. || sum(D_A2_SF) == 0.){
@@ -32094,10 +32094,10 @@ bool CFits::LinFitBevingtonTwoProfiles(const Array<double, 1> &D_A1_CCD_In,     
   int I_KeywordSet_Reject, I_KeywordSet_Mask, I_KeywordSet_MeasureErrors, I_KeywordSet_SigmaOut, I_KeywordSet_ChiSqOut, I_KeywordSet_QOut, I_KeywordSet_YFitOut, I_KeywordSet_AllowSkyLTZero, I_KeywordSet_AllowSpecLTZero;
   double sigdat;
   int ndata = D_A1_CCD_In.size();
-  Array<double, 1> *P_D_A1_Sig = new Array<double, 1>(D_A1_CCD_In.size());
+  blitz::Array<double, 1> *P_D_A1_Sig = new blitz::Array<double, 1>(D_A1_CCD_In.size());
   (*P_D_A1_Sig) = 0.;
-  Array<double, 1> D_A1_Sig(D_A1_CCD_In.size());
-  Array<double, 1> D_A1_WT(ndata);
+  blitz::Array<double, 1> D_A1_Sig(D_A1_CCD_In.size());
+  blitz::Array<double, 1> D_A1_WT(ndata);
 
   /// a: D_Sky_Out
   /// b: D_SP_Out
@@ -32145,16 +32145,16 @@ bool CFits::LinFitBevingtonTwoProfiles(const Array<double, 1> &D_A1_CCD_In,     
   if (*P_D_Reject > 0.)
     B_Reject = true;
 
-  Array<int, 1> *P_I_A1_Mask = new Array<int, 1>(D_A1_CCD_In.size());
-  Array<int, 1> I_A1_Mask_Orig(D_A1_CCD_In.size());
-  //Array<int, 1> I_A1_Mask(D_A1_CCD_In.size());
+  blitz::Array<int, 1> *P_I_A1_Mask = new blitz::Array<int, 1>(D_A1_CCD_In.size());
+  blitz::Array<int, 1> I_A1_Mask_Orig(D_A1_CCD_In.size());
+  //blitz::Array<int, 1> I_A1_Mask(D_A1_CCD_In.size());
   *P_I_A1_Mask = 1;
 
   I_KeywordSet_Mask = this->KeyWord_Set(CS_A1_Args_In, CString("MASK_INOUT"));
   if (I_KeywordSet_Mask >= 0)
   {
     delete(P_I_A1_Mask);
-    P_I_A1_Mask = (Array<int, 1>*)ArgV_In[I_KeywordSet_Mask];
+    P_I_A1_Mask = (blitz::Array<int, 1>*)ArgV_In[I_KeywordSet_Mask];
     cout << "CFits::LinFitBevingtonTwoProfiles: KeyWord_Set(MASK_INOUT): *P_I_A1_Mask = " << *P_I_A1_Mask << endl;
   }
   //I_A1_Mask = (*P_I_A1_Mask);
@@ -32165,18 +32165,18 @@ bool CFits::LinFitBevingtonTwoProfiles(const Array<double, 1> &D_A1_CCD_In,     
     cout << "CFits::LinFitBevingtonTwoProfiles: I_A1_Mask_Orig set to " << I_A1_Mask_Orig << endl;
   #endif
 
-  Array<double, 2> *P_D_A2_Sigma_Out;
-  Array<double, 2> D_A2_Sigma_Out(2,2);
+  blitz::Array<double, 2> *P_D_A2_Sigma_Out;
+  blitz::Array<double, 2> D_A2_Sigma_Out(2,2);
   I_KeywordSet_SigmaOut = this->KeyWord_Set(CS_A1_Args_In, CString("SIGMA_OUT"));
   if (I_KeywordSet_SigmaOut >= 0)
   {
-    P_D_A2_Sigma_Out = (Array<double, 2>*)ArgV_In[I_KeywordSet_SigmaOut];
+    P_D_A2_Sigma_Out = (blitz::Array<double, 2>*)ArgV_In[I_KeywordSet_SigmaOut];
     P_D_A2_Sigma_Out->resize(2,2);
     cout << "CFits::LinFitBevingtonTwoProfiles: KeyWord_Set(SIGMA_OUT)" << endl;
   }
   else
   {
-    P_D_A2_Sigma_Out = new Array<double, 2>(2,2);
+    P_D_A2_Sigma_Out = new blitz::Array<double, 2>(2,2);
   }
   *P_D_A2_Sigma_Out = 0.;
   D_A2_Sigma_Out = *P_D_A2_Sigma_Out;
@@ -32216,9 +32216,9 @@ bool CFits::LinFitBevingtonTwoProfiles(const Array<double, 1> &D_A1_CCD_In,     
   {
     /// Accumulate sums...
     delete(P_D_A1_Sig);
-    P_D_A1_Sig = (Array<double, 1>*)ArgV_In[I_KeywordSet_MeasureErrors];
+    P_D_A1_Sig = (blitz::Array<double, 1>*)ArgV_In[I_KeywordSet_MeasureErrors];
     #ifdef __DEBUG_FITS_FIT__
-      cout << "CFits::LinFitBevingtonTwoProfiles: ArgV_In[I_KeywordSet_MeasureErrors=" << I_KeywordSet_MeasureErrors << "] = " << *((Array<double,1>*)ArgV_In[I_KeywordSet_MeasureErrors]) << endl;
+      cout << "CFits::LinFitBevingtonTwoProfiles: ArgV_In[I_KeywordSet_MeasureErrors=" << I_KeywordSet_MeasureErrors << "] = " << *((blitz::Array<double,1>*)ArgV_In[I_KeywordSet_MeasureErrors]) << endl;
       cout << "CFits::LinFitBevingtonTwoProfiles: *P_D_A1_Sig = " << *P_D_A1_Sig << endl;
     #endif
     if (D_A1_CCD_In.size() != P_D_A1_Sig->size()){
@@ -32230,13 +32230,13 @@ bool CFits::LinFitBevingtonTwoProfiles(const Array<double, 1> &D_A1_CCD_In,     
     cout << "CFits::LinFitBevingtonTwoProfiles: KeyWord_Set(MEASURE_ERRORS_IN): *P_D_A1_Sig = " << *P_D_A1_Sig << endl;
   }
 
-  Array<double, 1> D_A1_YFit(1);
-  Array<double, 1> *P_D_A1_YFit = new Array<double, 1>(D_A1_CCD_In.size());
+  blitz::Array<double, 1> D_A1_YFit(1);
+  blitz::Array<double, 1> *P_D_A1_YFit = new blitz::Array<double, 1>(D_A1_CCD_In.size());
   I_KeywordSet_YFitOut = this->KeyWord_Set(CS_A1_Args_In, CString("YFIT_OUT"));
   if (I_KeywordSet_YFitOut >= 0)
   {
     delete(P_D_A1_YFit);
-    P_D_A1_YFit = (Array<double, 1>*)ArgV_In[I_KeywordSet_YFitOut];
+    P_D_A1_YFit = (blitz::Array<double, 1>*)ArgV_In[I_KeywordSet_YFitOut];
     P_D_A1_YFit->resize(D_A1_CCD_In.size());
     (*P_D_A1_YFit) = 0.;
   }
@@ -32249,9 +32249,9 @@ bool CFits::LinFitBevingtonTwoProfiles(const Array<double, 1> &D_A1_CCD_In,     
 
   int I_SumMaskLast;
   double D_SDevReject;
-  Array<double, 1> D_A1_Check(D_A1_CCD_In.size());
-  Array<int, 1> I_A1_LastMask(P_I_A1_Mask->size());
-  Array<double, 1> D_A1_Diff(D_A1_CCD_In.size());
+  blitz::Array<double, 1> D_A1_Check(D_A1_CCD_In.size());
+  blitz::Array<int, 1> I_A1_LastMask(P_I_A1_Mask->size());
+  blitz::Array<double, 1> D_A1_Diff(D_A1_CCD_In.size());
   D_A1_Diff = 0.;
   double D_Sum_Weights = 0.;
   double D_Sum_X1SquareTimesWeight = 0;
@@ -32605,14 +32605,14 @@ bool CFits::LinFitBevingtonTwoProfiles(const Array<double, 1> &D_A1_CCD_In,     
 }
 
 /**
-Fit(Array<double, 1> y, const Array<double, 1> x, a1, a0);
+Fit(blitz::Array<double, 1> y, const blitz::Array<double, 1> x, a1, a0);
 calculates a0 and a1 for the system of equations yvec = a0 + a1 * xvec
 **/
-bool CFits::LinFitBevington(const Array<double, 1> &D_A1_CCD_In,      /// yvec: in
-                            const Array<double, 1> &D_A1_SF_In,       /// xvec: in
+bool CFits::LinFitBevington(const blitz::Array<double, 1> &D_A1_CCD_In,      /// yvec: in
+                            const blitz::Array<double, 1> &D_A1_SF_In,       /// xvec: in
                             double &D_SP_Out,                         /// a1: out
                             double &D_Sky_Out,                        /// a0: in/out
-                            const Array<CString, 1> &CS_A1_Args_In,   ///: in
+                            const blitz::Array<CString, 1> &CS_A1_Args_In,   ///: in
                             void *ArgV_In[]) const                    ///: in
 {
   bool B_WithSky = true;
@@ -32628,14 +32628,14 @@ bool CFits::LinFitBevington(const Array<double, 1> &D_A1_CCD_In,      /// yvec: 
 }
 
 /**
-Fit(Array<double, 1> y, const Array<double, 1> x, a1, a0);
+Fit(blitz::Array<double, 1> y, const blitz::Array<double, 1> x, a1, a0);
 calculates a0 and a1 for the system of equations yvec = a0 + a1 * xvec
 **/
-bool CFits::LinFitBevington(const Array<double, 2> &D_A2_CCD_In,      /// yvec: in
-                            const Array<double, 2> &D_A2_SF_In,       /// xvec: in
-                            Array<double, 1> &D_A1_SP_Out,                         /// a1: out
-                            Array<double, 1> &D_A1_Sky_Out,                        /// a0: out
-                            const Array<CString, 1> &CS_A1_Args_In,   ///: in
+bool CFits::LinFitBevington(const blitz::Array<double, 2> &D_A2_CCD_In,      /// yvec: in
+                            const blitz::Array<double, 2> &D_A2_SF_In,       /// xvec: in
+                            blitz::Array<double, 1> &D_A1_SP_Out,                         /// a1: out
+                            blitz::Array<double, 1> &D_A1_Sky_Out,                        /// a0: out
+                            const blitz::Array<CString, 1> &CS_A1_Args_In,   ///: in
                             void *ArgV_In[]) const                    ///: in
 {
   bool B_WithSky = true;
@@ -32651,23 +32651,23 @@ bool CFits::LinFitBevington(const Array<double, 2> &D_A2_CCD_In,      /// yvec: 
 }
 
 /**
-  Fit(Array<double, 1> y, const Array<double, 1> x, a1, a0);
+  Fit(blitz::Array<double, 1> y, const blitz::Array<double, 1> x, a1, a0);
   calculates a0 and a1 for the system of equations yvec = a0 + a1 * xvec
  **/
-bool CFits::LinFitBevington(const Array<double, 2> &D_A2_CCD_In,      /// yvec: in
-                            const Array<double, 2> &D_A2_SF_In,       /// xvec: in
-                            Array<double, 1> &D_A1_SP_Out,                         /// a1: out
-                            Array<double, 1> &D_A1_Sky_Out,                        /// a0: out
+bool CFits::LinFitBevington(const blitz::Array<double, 2> &D_A2_CCD_In,      /// yvec: in
+                            const blitz::Array<double, 2> &D_A2_SF_In,       /// xvec: in
+                            blitz::Array<double, 1> &D_A1_SP_Out,                         /// a1: out
+                            blitz::Array<double, 1> &D_A1_Sky_Out,                        /// a0: out
                             bool B_WithSky,                           /// with sky: in
-                            const Array<CString, 1> &CS_A1_Args_In,   ///: in
+                            const blitz::Array<CString, 1> &CS_A1_Args_In,   ///: in
                             void *ArgV_In[]) const                    ///: in
-    /// MEASURE_ERRORS_IN = Array<double, 2>(D_A2_CCD_In.rows(), D_A2_CCD_In.cols())
+    /// MEASURE_ERRORS_IN = blitz::Array<double, 2>(D_A2_CCD_In.rows(), D_A2_CCD_In.cols())
     /// REJECT_IN         = double
-    /// MASK_INOUT        = Array<double, 2>(D_A2_CCD_In.rows(), D_A2_CCD_In.cols())
-    /// CHISQ_OUT         = Array<double, 1>(D_A2_CCD_In.rows())
-    /// Q_OUT             = Array<double, 1>(D_A2_CCD_In.rows())
-    /// SIGMA_OUT         = Array<double, 2>(D_A2_CCD_In.rows(),2)
-    /// YFIT_OUT          = Array<double, 2>(D_A2_CCD_In.rows(), D_A2_CCD_In.cols())
+    /// MASK_INOUT        = blitz::Array<double, 2>(D_A2_CCD_In.rows(), D_A2_CCD_In.cols())
+    /// CHISQ_OUT         = blitz::Array<double, 1>(D_A2_CCD_In.rows())
+    /// Q_OUT             = blitz::Array<double, 1>(D_A2_CCD_In.rows())
+    /// SIGMA_OUT         = blitz::Array<double, 2>(D_A2_CCD_In.rows(),2)
+    /// YFIT_OUT          = blitz::Array<double, 2>(D_A2_CCD_In.rows(), D_A2_CCD_In.cols())
 {
   #ifdef __DEBUG_FITS_FIT__
     cout << "CFits::LinFitBevington(Array, Array, Array, Array, bool, CSArr, PPArr) started" << endl;
@@ -32695,22 +32695,22 @@ bool CFits::LinFitBevington(const Array<double, 2> &D_A2_CCD_In,      /// yvec: 
 
   double *P_D_Reject;
 
-  Array<double, 1> *P_D_A1_YFit;
-  Array<double, 2> *P_D_A2_YFit;
-  Array<int, 1> *P_I_A1_Mask;
-  Array<int, 2> *P_I_A2_Mask;
+  blitz::Array<double, 1> *P_D_A1_YFit;
+  blitz::Array<double, 2> *P_D_A2_YFit;
+  blitz::Array<int, 1> *P_I_A1_Mask;
+  blitz::Array<int, 2> *P_I_A2_Mask;
 
-  Array<double, 1> *P_D_A1_Sigma;
-  Array<double, 1> *P_D_A1_Sigma_Out;
-  Array<CString, 1> CS_A1_Args_Fit(10);
+  blitz::Array<double, 1> *P_D_A1_Sigma;
+  blitz::Array<double, 1> *P_D_A1_Sigma_Out;
+  blitz::Array<CString, 1> CS_A1_Args_Fit(10);
   CS_A1_Args_Fit = CString(" ");
   void **PP_Args_Fit = (void**)malloc(sizeof(void*) * 10);
 
-  Array<double, 2> *P_D_A2_Sigma;
+  blitz::Array<double, 2> *P_D_A2_Sigma;
   I_KeywordSet_MeasureErrors = this->KeyWord_Set(CS_A1_Args_In, CString("MEASURE_ERRORS_IN"));
   if (I_KeywordSet_MeasureErrors >= 0)
   {
-    P_D_A2_Sigma = (Array<double,2>*)ArgV_In[I_KeywordSet_MeasureErrors];
+    P_D_A2_Sigma = (blitz::Array<double,2>*)ArgV_In[I_KeywordSet_MeasureErrors];
     #ifdef __DEBUG_FITS_FIT__
       cout << "CFits::LinFitBevington(Array, Array, Array, Array): P_D_A2_Sigma = " << *P_D_A2_Sigma << endl;
     #endif
@@ -32718,31 +32718,31 @@ bool CFits::LinFitBevington(const Array<double, 2> &D_A2_CCD_In,      /// yvec: 
     I_ArgPos++;
   }
 
-  Array<double, 1> *P_D_A1_ChiSq;
+  blitz::Array<double, 1> *P_D_A1_ChiSq;
   I_KeywordSet_ChiSq = this->KeyWord_Set(CS_A1_Args_In, CString("CHISQ_OUT"));
   if (I_KeywordSet_ChiSq >= 0)
   {
-    P_D_A1_ChiSq = (Array<double,1>*)ArgV_In[I_KeywordSet_ChiSq];
+    P_D_A1_ChiSq = (blitz::Array<double,1>*)ArgV_In[I_KeywordSet_ChiSq];
     P_D_A1_ChiSq->resize(D_A2_CCD_In.rows());
     CS_A1_Args_Fit(I_ArgPos) = CString("CHISQ_OUT");
     I_ArgPos++;
   }
 
-  Array<double, 1> *P_D_A1_Q;
+  blitz::Array<double, 1> *P_D_A1_Q;
   I_KeywordSet_Q = this->KeyWord_Set(CS_A1_Args_In, CString("Q_OUT"));
   if (I_KeywordSet_Q >= 0)
   {
-    P_D_A1_Q = (Array<double,1>*)ArgV_In[I_KeywordSet_Q];
+    P_D_A1_Q = (blitz::Array<double,1>*)ArgV_In[I_KeywordSet_Q];
     P_D_A1_Q->resize(D_A2_CCD_In.rows());
     CS_A1_Args_Fit(I_ArgPos) = CString("Q_OUT");
     I_ArgPos++;
   }
 
-  Array<double, 2> *P_D_A2_Sigma_Out;
+  blitz::Array<double, 2> *P_D_A2_Sigma_Out;
   I_KeywordSet_Sigma = this->KeyWord_Set(CS_A1_Args_In, CString("SIGMA_OUT"));
   if (I_KeywordSet_Sigma >= 0)
   {
-    P_D_A2_Sigma_Out = (Array<double,2>*)ArgV_In[I_KeywordSet_Sigma];
+    P_D_A2_Sigma_Out = (blitz::Array<double,2>*)ArgV_In[I_KeywordSet_Sigma];
     P_D_A2_Sigma_Out->resize(D_A2_CCD_In.rows(), 2);
     CS_A1_Args_Fit(I_ArgPos) = CString("SIGMA_OUT");
     I_ArgPos++;
@@ -32751,7 +32751,7 @@ bool CFits::LinFitBevington(const Array<double, 2> &D_A2_CCD_In,      /// yvec: 
   I_KeywordSet_YFit = this->KeyWord_Set(CS_A1_Args_In, CString("YFIT_OUT"));
   if (I_KeywordSet_YFit >= 0)
   {
-    P_D_A2_YFit = (Array<double,2>*)ArgV_In[I_KeywordSet_YFit];
+    P_D_A2_YFit = (blitz::Array<double,2>*)ArgV_In[I_KeywordSet_YFit];
     #ifdef __DEBUG_FITS_FIT__
       cout << "CFits::LinFitBevington2D: P_D_A2_YFit = " << *P_D_A2_YFit << endl;
     #endif
@@ -32773,7 +32773,7 @@ bool CFits::LinFitBevington(const Array<double, 2> &D_A2_CCD_In,      /// yvec: 
   I_KewordSet_Mask = this->KeyWord_Set(CS_A1_Args_In, CString("MASK_INOUT"));
   if (I_KewordSet_Mask >= 0)
   {
-    P_I_A2_Mask = (Array<int,2>*)ArgV_In[I_KewordSet_Mask];
+    P_I_A2_Mask = (blitz::Array<int,2>*)ArgV_In[I_KewordSet_Mask];
     #ifdef __DEBUG_FITS_FIT__
       cout << "CFits::LinFitBevington2D: P_I_A2_Mask = " << *P_I_A2_Mask << endl;
     #endif
@@ -32786,14 +32786,14 @@ bool CFits::LinFitBevington(const Array<double, 2> &D_A2_CCD_In,      /// yvec: 
   {
     I_ArgPos = 0;
     if (I_KeywordSet_MeasureErrors >= 0){
-      P_D_A1_Sigma = new Array<double,1>((*P_D_A2_Sigma)(i, Range::all()));
+      P_D_A1_Sigma = new blitz::Array<double,1>((*P_D_A2_Sigma)(i, Range::all()));
       #ifdef __DEBUG_FITS_FIT__
 //        cout << "CFits::LinFitBevington(Array, Array, Array, Array): 2. P_D_A2_Sigma = " << *P_D_A2_Sigma << endl;
         cout << "CFits::LinFitBevington(Array, Array, Array, Array): P_D_A1_Sigma set to " << *P_D_A1_Sigma << endl;
       #endif
       PP_Args_Fit[I_ArgPos] = P_D_A1_Sigma;
       #ifdef __DEBUG_FITS_FIT__
-        cout << "CFits::LinFitBevington(Array, Array, Array, Array): PP_Args_Fit[I_ArgPos=" << I_ArgPos << "] = " << *((Array<double,1>*)PP_Args_Fit[I_ArgPos]) << endl;
+        cout << "CFits::LinFitBevington(Array, Array, Array, Array): PP_Args_Fit[I_ArgPos=" << I_ArgPos << "] = " << *((blitz::Array<double,1>*)PP_Args_Fit[I_ArgPos]) << endl;
       #endif
       I_ArgPos++;
     }
@@ -32809,13 +32809,13 @@ bool CFits::LinFitBevington(const Array<double, 2> &D_A2_CCD_In,      /// yvec: 
     }
 
     if (I_KeywordSet_Sigma >= 0){
-      P_D_A1_Sigma_Out = new Array<double,1>((*P_D_A2_Sigma_Out)(i, Range::all()));
+      P_D_A1_Sigma_Out = new blitz::Array<double,1>((*P_D_A2_Sigma_Out)(i, Range::all()));
       PP_Args_Fit[I_ArgPos] = P_D_A1_Sigma_Out;
       I_ArgPos++;
     }
 
     if (I_KeywordSet_YFit >= 0){
-      P_D_A1_YFit = new Array<double,1>((*P_D_A2_YFit)(i, Range::all()));
+      P_D_A1_YFit = new blitz::Array<double,1>((*P_D_A2_YFit)(i, Range::all()));
       PP_Args_Fit[I_ArgPos] = P_D_A1_YFit;
       I_ArgPos++;
     }
@@ -32827,7 +32827,7 @@ bool CFits::LinFitBevington(const Array<double, 2> &D_A2_CCD_In,      /// yvec: 
 
     B_DoFit = true;
     if (I_KewordSet_Mask >= 0){
-      P_I_A1_Mask = new Array<int,1>((*P_I_A2_Mask)(i, Range::all()));
+      P_I_A1_Mask = new blitz::Array<int,1>((*P_I_A2_Mask)(i, Range::all()));
       PP_Args_Fit[I_ArgPos] = P_I_A1_Mask;
       I_ArgPos++;
       if (sum(*P_I_A1_Mask) == 0)
@@ -32910,23 +32910,23 @@ bool CFits::LinFitBevington(const Array<double, 2> &D_A2_CCD_In,      /// yvec: 
 }
 
 /**
-  Fit(Array<double, 1> y, const Array<double, 1> x, a1, a0);
+  Fit(blitz::Array<double, 1> y, const blitz::Array<double, 1> x, a1, a0);
   calculates a0 and a1 for the system of equations yvec = a0 + a1 * xvec
  **/
-bool CFits::LinFitBevington(const Array<double, 1> &D_A1_CCD_In,      /// yvec: in
-                            const Array<double, 1> &D_A1_SF_In,       /// xvec: in
+bool CFits::LinFitBevington(const blitz::Array<double, 1> &D_A1_CCD_In,      /// yvec: in
+                            const blitz::Array<double, 1> &D_A1_SF_In,       /// xvec: in
                             double &D_SP_Out,                         /// a1: out
                             double &D_Sky_Out,                        /// a0: in/out
                             bool B_WithSky,                        /// with sky: in
-                            const Array<CString, 1> &CS_A1_Args_In,   ///: in
+                            const blitz::Array<CString, 1> &CS_A1_Args_In,   ///: in
                             void *ArgV_In[]) const                    ///: in
-    /// MEASURE_ERRORS_IN = Array<double,1>(D_A1_CCD_In.size)
+    /// MEASURE_ERRORS_IN = blitz::Array<double,1>(D_A1_CCD_In.size)
     /// REJECT_IN = double
-    /// MASK_INOUT = Array<double,1>(D_A1_CCD_In.size)
+    /// MASK_INOUT = blitz::Array<double,1>(D_A1_CCD_In.size)
     /// CHISQ_OUT = double
     /// Q_OUT = double
-    /// SIGMA_OUT = Array<double,1>(2): [0]: sigma_sp, [1]: sigma_sky
-    /// YFIT_OUT = Array<double, 1>(D_A1_CCD_In.size)
+    /// SIGMA_OUT = blitz::Array<double,1>(2): [0]: sigma_sp, [1]: sigma_sky
+    /// YFIT_OUT = blitz::Array<double, 1>(D_A1_CCD_In.size)
     /// ALLOW_SKY_LT_ZERO = 1
     /// ALLOW_SPEC_LT_ZERO = 1
 {
@@ -32944,9 +32944,9 @@ bool CFits::LinFitBevington(const Array<double, 1> &D_A1_CCD_In,      /// yvec: 
   }
 
 //  /// Set D_A1_SF_In to zero where D_A1_CCD_In == zero
-  Array<double, 1> D_A1_SF(D_A1_SF_In.size());
+  blitz::Array<double, 1> D_A1_SF(D_A1_SF_In.size());
   D_A1_SF = D_A1_SF_In;//(fabs(D_A1_CCD_In) < 0.000000001, 0., D_A1_SF_In);
-  Array<double, 1> D_A1_CCD(D_A1_CCD_In.size());
+  blitz::Array<double, 1> D_A1_CCD(D_A1_CCD_In.size());
   D_A1_CCD = D_A1_CCD_In;//(fabs(D_A1_CCD_In) < 0.000000001, 0., D_A1_SF_In);
 
   if (sum(D_A1_CCD_In) == 0. || sum(D_A1_SF) == 0.){
@@ -32959,10 +32959,10 @@ bool CFits::LinFitBevington(const Array<double, 1> &D_A1_CCD_In,      /// yvec: 
   int I_KeywordSet_Reject, I_KeywordSet_Mask, I_KeywordSet_MeasureErrors, I_KeywordSet_SigmaOut, I_KeywordSet_ChiSqOut, I_KeywordSet_QOut, I_KeywordSet_YFitOut, I_KeywordSet_AllowSkyLTZero, I_KeywordSet_AllowSpecLTZero;
   double sigdat;
   int ndata = D_A1_CCD_In.size();
-  Array<double, 1> *P_D_A1_Sig = new Array<double, 1>(D_A1_CCD_In.size());
+  blitz::Array<double, 1> *P_D_A1_Sig = new blitz::Array<double, 1>(D_A1_CCD_In.size());
   (*P_D_A1_Sig) = 0.;
-  Array<double, 1> D_A1_Sig(D_A1_CCD_In.size());
-  Array<double, 1> D_A1_WT(ndata);
+  blitz::Array<double, 1> D_A1_Sig(D_A1_CCD_In.size());
+  blitz::Array<double, 1> D_A1_WT(ndata);
 
   /// a: D_Sky_Out
   /// b: D_SP_Out
@@ -33010,16 +33010,16 @@ bool CFits::LinFitBevington(const Array<double, 1> &D_A1_CCD_In,      /// yvec: 
   if (*P_D_Reject > 0.)
     B_Reject = true;
 
-  Array<int, 1> *P_I_A1_Mask = new Array<int, 1>(D_A1_CCD_In.size());
-  Array<int, 1> I_A1_Mask_Orig(D_A1_CCD_In.size());
-  //Array<int, 1> I_A1_Mask(D_A1_CCD_In.size());
+  blitz::Array<int, 1> *P_I_A1_Mask = new blitz::Array<int, 1>(D_A1_CCD_In.size());
+  blitz::Array<int, 1> I_A1_Mask_Orig(D_A1_CCD_In.size());
+  //blitz::Array<int, 1> I_A1_Mask(D_A1_CCD_In.size());
   *P_I_A1_Mask = 1;
 
   I_KeywordSet_Mask = this->KeyWord_Set(CS_A1_Args_In, CString("MASK_INOUT"));
   if (I_KeywordSet_Mask >= 0)
   {
     delete(P_I_A1_Mask);
-    P_I_A1_Mask = (Array<int, 1>*)ArgV_In[I_KeywordSet_Mask];
+    P_I_A1_Mask = (blitz::Array<int, 1>*)ArgV_In[I_KeywordSet_Mask];
     cout << "CFits::LinFitBevington: KeyWord_Set(MASK_INOUT): *P_I_A1_Mask = " << *P_I_A1_Mask << endl;
   }
   //I_A1_Mask = (*P_I_A1_Mask);
@@ -33030,12 +33030,12 @@ bool CFits::LinFitBevington(const Array<double, 1> &D_A1_CCD_In,      /// yvec: 
     cout << "CFits::LinFitBevington: I_A1_Mask_Orig set to " << I_A1_Mask_Orig << endl;
   #endif
 
-  Array<double, 1> *P_D_A1_Sigma_Out;
-  Array<double, 1> D_A1_Sigma_Out(2);
+  blitz::Array<double, 1> *P_D_A1_Sigma_Out;
+  blitz::Array<double, 1> D_A1_Sigma_Out(2);
   I_KeywordSet_SigmaOut = this->KeyWord_Set(CS_A1_Args_In, CString("SIGMA_OUT"));
   if (I_KeywordSet_SigmaOut >= 0)
   {
-    P_D_A1_Sigma_Out = (Array<double, 1>*)ArgV_In[I_KeywordSet_SigmaOut];
+    P_D_A1_Sigma_Out = (blitz::Array<double, 1>*)ArgV_In[I_KeywordSet_SigmaOut];
     P_D_A1_Sigma_Out->resize(2);
     #ifdef __DEBUG_FITS_FIT__
       cout << "CFits::LinFitBevington: KeyWord_Set(SIGMA_OUT)" << endl;
@@ -33043,7 +33043,7 @@ bool CFits::LinFitBevington(const Array<double, 1> &D_A1_CCD_In,      /// yvec: 
   }
   else
   {
-    P_D_A1_Sigma_Out = new Array<double, 1>(2);
+    P_D_A1_Sigma_Out = new blitz::Array<double, 1>(2);
   }
   *P_D_A1_Sigma_Out = 0.;
   D_A1_Sigma_Out = *P_D_A1_Sigma_Out;
@@ -33084,9 +33084,9 @@ bool CFits::LinFitBevington(const Array<double, 1> &D_A1_CCD_In,      /// yvec: 
   {
     /// Accumulate sums...
     delete(P_D_A1_Sig);
-    P_D_A1_Sig = (Array<double, 1>*)ArgV_In[I_KeywordSet_MeasureErrors];
+    P_D_A1_Sig = (blitz::Array<double, 1>*)ArgV_In[I_KeywordSet_MeasureErrors];
     #ifdef __DEBUG_FITS_FIT__
-      cout << "CFits::LinFitBevington: ArgV_In[I_KeywordSet_MeasureErrors=" << I_KeywordSet_MeasureErrors << "] = " << *((Array<double,1>*)ArgV_In[I_KeywordSet_MeasureErrors]) << endl;
+      cout << "CFits::LinFitBevington: ArgV_In[I_KeywordSet_MeasureErrors=" << I_KeywordSet_MeasureErrors << "] = " << *((blitz::Array<double,1>*)ArgV_In[I_KeywordSet_MeasureErrors]) << endl;
       cout << "CFits::LinFitBevington: *P_D_A1_Sig = " << *P_D_A1_Sig << endl;
     #endif
     if (D_A1_CCD_In.size() != P_D_A1_Sig->size()){
@@ -33100,13 +33100,13 @@ bool CFits::LinFitBevington(const Array<double, 1> &D_A1_CCD_In,      /// yvec: 
     #endif
   }
 
-  Array<double, 1> D_A1_YFit(1);
-  Array<double, 1> *P_D_A1_YFit = new Array<double, 1>(D_A1_CCD_In.size());
+  blitz::Array<double, 1> D_A1_YFit(1);
+  blitz::Array<double, 1> *P_D_A1_YFit = new blitz::Array<double, 1>(D_A1_CCD_In.size());
   I_KeywordSet_YFitOut = this->KeyWord_Set(CS_A1_Args_In, CString("YFIT_OUT"));
   if (I_KeywordSet_YFitOut >= 0)
   {
     delete(P_D_A1_YFit);
-    P_D_A1_YFit = (Array<double, 1>*)ArgV_In[I_KeywordSet_YFitOut];
+    P_D_A1_YFit = (blitz::Array<double, 1>*)ArgV_In[I_KeywordSet_YFitOut];
     P_D_A1_YFit->resize(D_A1_CCD_In.size());
     (*P_D_A1_YFit) = 0.;
   }
@@ -33119,9 +33119,9 @@ bool CFits::LinFitBevington(const Array<double, 1> &D_A1_CCD_In,      /// yvec: 
 
   int I_SumMaskLast;
   double D_SDevReject;
-  Array<double, 1> D_A1_Check(D_A1_CCD_In.size());
-  Array<int, 1> I_A1_LastMask(P_I_A1_Mask->size());
-  Array<double, 1> D_A1_Diff(D_A1_CCD_In.size());
+  blitz::Array<double, 1> D_A1_Check(D_A1_CCD_In.size());
+  blitz::Array<int, 1> I_A1_LastMask(P_I_A1_Mask->size());
+  blitz::Array<double, 1> D_A1_Diff(D_A1_CCD_In.size());
   D_A1_Diff = 0.;
   double D_Sum_Weights = 0.;
   double D_Sum_XSquareTimesWeight = 0;
@@ -33455,13 +33455,13 @@ bool CFits::LinFitBevington(const Array<double, 1> &D_A1_CCD_In,      /// yvec: 
 
 bool CFits::ExtractErrors()
 {
-  Array<CString, 1> CS_A1_Args(1);
+  blitz::Array<CString, 1> CS_A1_Args(1);
   CS_A1_Args = CString(" ");
   void **PP_Args = (void**)malloc(sizeof(void*) * 1);
   return this->ExtractErrors(CS_A1_Args, PP_Args);
 }
 
-bool CFits::ExtractErrors(const Array<CString, 1> &CS_A1_Args_In, void *ArgV_In[]){
+bool CFits::ExtractErrors(const blitz::Array<CString, 1> &CS_A1_Args_In, void *ArgV_In[]){
   if (!this->ErrorsRead){
     cout << "CFits::ExtractErrors: Errors not read yet" << endl;
     return false;
@@ -33472,13 +33472,13 @@ bool CFits::ExtractErrors(const Array<CString, 1> &CS_A1_Args_In, void *ArgV_In[
     cout << "CFits::ExtractErrors: ERRORS: this->ExtractFromProfile returned false" << endl;
     return false;
   }
-  Array<int, 1> *P_I_A1_Apertures = new Array<int, 1>(1);
+  blitz::Array<int, 1> *P_I_A1_Apertures = new blitz::Array<int, 1>(1);
   (*P_I_A1_Apertures)(0) = 0;
   int I_Pos = 0;
   I_Pos = this->KeyWord_Set(CS_A1_Args_In, CString("APERTURES"));
   if (I_Pos >= 0){
     delete(P_I_A1_Apertures);
-    P_I_A1_Apertures = (Array<int, 1>*)ArgV_In[I_Pos];
+    P_I_A1_Apertures = (blitz::Array<int, 1>*)ArgV_In[I_Pos];
     for (int i=0; i<P_I_A1_Apertures->size(); i++){
       (*this->P_D_A2_Errors_Ec)((*P_I_A1_Apertures)(i), Range::all()) = (*this->P_D_A2_LastExtracted)((*P_I_A1_Apertures)(i), Range::all());
       (*(this->P_D_A2_Errors_Ec))((*P_I_A1_Apertures)(i), Range::all()) = (*(this->P_D_A2_Errors_Ec))((*P_I_A1_Apertures)(i), Range::all()) * (*(this->P_D_A2_Blaze))((*P_I_A1_Apertures)(i), Range::all());
@@ -33495,7 +33495,7 @@ bool CFits::ExtractErrors(const Array<CString, 1> &CS_A1_Args_In, void *ArgV_In[
 
 bool CFits::ExtractSimpleSum()
 {
-  Array<CString, 1> CS_A1_Args(1);
+  blitz::Array<CString, 1> CS_A1_Args(1);
   CS_A1_Args = CString(" ");
   void **PP_Args = (void**)malloc(sizeof(void*) * 1);
   return this->ExtractSimpleSum(*this->P_D_A2_PixArray, CS_A1_Args, PP_Args);
@@ -33503,7 +33503,7 @@ bool CFits::ExtractSimpleSum()
 
 /** ****************************************************************/
 
-bool CFits::ExtractSimpleSum(const Array<CString, 1> &CS_A1_Args_In,       ///: in
+bool CFits::ExtractSimpleSum(const blitz::Array<CString, 1> &CS_A1_Args_In,       ///: in
                              void *ArgV_In[])
 {
   return this->ExtractSimpleSum(*this->P_D_A2_PixArray, CS_A1_Args_In, ArgV_In);
@@ -33511,8 +33511,8 @@ bool CFits::ExtractSimpleSum(const Array<CString, 1> &CS_A1_Args_In,       ///: 
 
 /** ****************************************************************/
 
-bool CFits::ExtractSimpleSum(const Array<double, 2> &D_A2_ArrayToExtract,
-                             const Array<CString, 1> &CS_A1_Args_In,       ///: in
+bool CFits::ExtractSimpleSum(const blitz::Array<double, 2> &D_A2_ArrayToExtract,
+                             const blitz::Array<CString, 1> &CS_A1_Args_In,       ///: in
                              void *ArgV_In[])
 {
 
@@ -33534,14 +33534,14 @@ bool CFits::ExtractSimpleSum(const Array<double, 2> &D_A2_ArrayToExtract,
   int I_XMax = this->NCols-1;
   int I_YMin = 0;
   int I_YMax = this->NRows-1;
-  Array<int, 1> *P_I_A1_AperturesToExtract = this->IndGenArr(this->I_NApertures);
+  blitz::Array<int, 1> *P_I_A1_AperturesToExtract = this->IndGenArr(this->I_NApertures);
 
   ///Area to extract
   I_Pos = this->KeyWord_Set(CS_A1_Args_In, CString("AREA"));
   if (I_Pos >= 0)
   {
-    Array<int, 1> I_A1_Area(4);
-    I_A1_Area = *(Array<int, 1>*)ArgV_In[I_Pos];
+    blitz::Array<int, 1> I_A1_Area(4);
+    I_A1_Area = *(blitz::Array<int, 1>*)ArgV_In[I_Pos];
 //    #ifdef __DEBUG_FITS_MKSLITFUNC__
       cout << "CFits::ExtractSimpleSum: KeyWord_Set(AREA): I_A1_Area set to " << I_A1_Area << endl;
       (*P_OFS_Log) << "CFits::ExtractSimpleSum: KeyWord_Set(AREA): I_A1_Area set to " << I_A1_Area << endl;
@@ -33559,11 +33559,11 @@ bool CFits::ExtractSimpleSum(const Array<double, 2> &D_A2_ArrayToExtract,
   if ((I_Pos = this->KeyWord_Set(CS_A1_Args_In, CString("APERTURES"))) >= 0)
   {
     delete(P_I_A1_AperturesToExtract);
-    P_I_A1_AperturesToExtract = (Array<int, 1>*)ArgV_In[I_Pos];
+    P_I_A1_AperturesToExtract = (blitz::Array<int, 1>*)ArgV_In[I_Pos];
   }
 
-  Array<double, 2> D_A2_ArrayTemp(this->NRows, this->NCols);
-  Array<double, 1> D_A1_Deb(1);
+  blitz::Array<double, 2> D_A2_ArrayTemp(this->NRows, this->NCols);
+  blitz::Array<double, 1> D_A1_Deb(1);
   D_A2_ArrayTemp = D_A2_ArrayToExtract;
   int XFirst, XLast;
   double D_WeightFirst, D_WeightLast;
@@ -33641,9 +33641,9 @@ bool CFits::ExtractSimpleSum(const Array<double, 2> &D_A2_ArrayToExtract,
 
 /** ****************************************************************/
 
-bool CFits::ExtractFromProfile(const Array<double, 2> &D_A2_ArrayToExtract)
+bool CFits::ExtractFromProfile(const blitz::Array<double, 2> &D_A2_ArrayToExtract)
 {
-  Array<CString, 1> CS_A1_Args(1);
+  blitz::Array<CString, 1> CS_A1_Args(1);
   CS_A1_Args = CString(" ");
   void **PP_Args = (void**)malloc(sizeof(void*) * 1);
 
@@ -33658,7 +33658,7 @@ bool CFits::ExtractFromProfile(const Array<double, 2> &D_A2_ArrayToExtract)
 
 /** ****************************************************************/
 
-bool CFits::ExtractFromProfile(const Array<double, 2> &D_A2_ArrayToExtract, const Array<CString, 1> &CS_A1_Args_In, void *ArgV_In[])
+bool CFits::ExtractFromProfile(const blitz::Array<double, 2> &D_A2_ArrayToExtract, const blitz::Array<CString, 1> &CS_A1_Args_In, void *ArgV_In[])
 {
   if (D_A2_ArrayToExtract.cols() != this->NCols){
     cout << "CFits::ExtractFromProfile: ERROR: D_A2_ArrayToExtract.cols(=" << D_A2_ArrayToExtract.cols() << ") != this->NCols(=" << this->NCols << endl;
@@ -33676,16 +33676,16 @@ bool CFits::ExtractFromProfile(const Array<double, 2> &D_A2_ArrayToExtract, cons
   int I_YMax = this->NRows-1;
   int I_Pos;
 
-  Array<int, 1> *P_I_A1_AperturesToExtract = this->IndGenArr(this->I_NApertures);
-  Array<CString, 1> CS_A1_Args_MkProfIm(1);
+  blitz::Array<int, 1> *P_I_A1_AperturesToExtract = this->IndGenArr(this->I_NApertures);
+  blitz::Array<CString, 1> CS_A1_Args_MkProfIm(1);
   CS_A1_Args_MkProfIm = CString(" ");
   void **PP_Args_MkProfIm = (void**)malloc(sizeof(void*) * 1);
 
   ///Area to extract
   if ((I_Pos = this->KeyWord_Set(CS_A1_Args_In, CString("AREA"))) >= 0)
   {
-    Array<int, 1> I_A1_Area(4);
-    I_A1_Area = *(Array<int, 1>*)ArgV_In[I_Pos];
+    blitz::Array<int, 1> I_A1_Area(4);
+    I_A1_Area = *(blitz::Array<int, 1>*)ArgV_In[I_Pos];
     #ifdef __DEBUG_FITS_EXTRACTFROMPROFILE__
       cout << "CFits::ExtractFromProfile: KeyWord_Set(AREA): I_A1_Area set to " << I_A1_Area << endl;
       (*P_OFS_Log) << "CFits::ExtractFromProfile: KeyWord_Set(AREA): I_A1_Area set to " << I_A1_Area << endl;
@@ -33705,7 +33705,7 @@ bool CFits::ExtractFromProfile(const Array<double, 2> &D_A2_ArrayToExtract, cons
   if ((I_Pos = this->KeyWord_Set(CS_A1_Args_In, CString("APERTURES"))) >= 0)
   {
     delete(P_I_A1_AperturesToExtract);
-    P_I_A1_AperturesToExtract = (Array<int, 1>*)ArgV_In[I_Pos];
+    P_I_A1_AperturesToExtract = (blitz::Array<int, 1>*)ArgV_In[I_Pos];
     #ifdef __DEBUG_FITS_EXTRACTFROMPROFILE__
       cout << "CFits::ExtractFromProfile: KeyWord_Set(APERTURES): P_I_A1_AperturesToExtract set to " << *P_I_A1_AperturesToExtract << endl;
       (*P_OFS_Log) << "CFits::ExtractFromProfile: KeyWord_Set(APERTURES): P_I_A1_AperturesToExtract set to " << *P_I_A1_AperturesToExtract << endl;
@@ -33726,7 +33726,7 @@ bool CFits::ExtractFromProfile(const Array<double, 2> &D_A2_ArrayToExtract, cons
     cout << "CFits::ExtractFromProfile: ProfileCalculated == TRUE" << endl;
   }
 
-  Array<double,2> D_A2_ArrayTemp(D_A2_ArrayToExtract.rows(), D_A2_ArrayToExtract.cols());
+  blitz::Array<double,2> D_A2_ArrayTemp(D_A2_ArrayToExtract.rows(), D_A2_ArrayToExtract.cols());
   D_A2_ArrayTemp = D_A2_ArrayToExtract * (*(this->P_D_A2_ProfArray));
 //  #ifdef __DEBUG_FITS_EXTRACTFROMPROFILE__
 //    cout << "CFits::ExtractFromProfile: D_A2_ArrayTemp set to " << D_A2_ArrayTemp << endl;
@@ -33736,7 +33736,7 @@ bool CFits::ExtractFromProfile(const Array<double, 2> &D_A2_ArrayToExtract, cons
   int XFirst, XLast, npix;
 
   /// input paramters
-//  Array<double,2> *P_D_A2_SDev;
+//  blitz::Array<double,2> *P_D_A2_SDev;
   int iap = 0;
   for (int i_ap = 0; i_ap < P_I_A1_AperturesToExtract->size(); i_ap++){
     #ifdef __DEBUG_FITS_EXTRACTFROMPROFILE__
@@ -33860,7 +33860,7 @@ bool CFits::ExtractSpecFromProfile(bool B_WithSky)
     cout << "CFits::ExtractSpecFromProfile: Trace Functions not calculated yet" << endl;
     return false;
   }
-  Array<CString,1> CS_A1_Args(1);
+  blitz::Array<CString,1> CS_A1_Args(1);
   CS_A1_Args(0) = CString("WITH_SKY");
   void **PP_Args = (void**)malloc(sizeof(void*) * 1);
   PP_Args[0] = &B_WithSky;
@@ -33871,9 +33871,9 @@ bool CFits::ExtractSpecFromProfile(bool B_WithSky)
 /** ****************************************************************/
 
 /// performs linear fitting to profile, with sky
-bool CFits::ExtractSpecFromProfile(const Array<double, 2> &D_A2_ArrayToExtract)
+bool CFits::ExtractSpecFromProfile(const blitz::Array<double, 2> &D_A2_ArrayToExtract)
 {
-  Array<CString, 1> CS_A1_Args(1);
+  blitz::Array<CString, 1> CS_A1_Args(1);
   CS_A1_Args(0) = CString("WITH_SKY");
   void** PP_Args = (void**)malloc(sizeof(void*) * 1);
   bool B_WithSky = true;
@@ -33884,8 +33884,8 @@ bool CFits::ExtractSpecFromProfile(const Array<double, 2> &D_A2_ArrayToExtract)
 /** ****************************************************************/
 
 /// performs linear fitting to profile, with or without sky
-bool CFits::ExtractSpecFromProfile(const Array<double, 2> &D_A2_ArrayToExtract,
-                                   const Array<CString, 1> &CS_A1_Args_In,
+bool CFits::ExtractSpecFromProfile(const blitz::Array<double, 2> &D_A2_ArrayToExtract,
+                                   const blitz::Array<CString, 1> &CS_A1_Args_In,
                                    void* PP_Args_In[])
 {
   if (D_A2_ArrayToExtract.cols() != this->NCols){
@@ -33898,7 +33898,7 @@ bool CFits::ExtractSpecFromProfile(const Array<double, 2> &D_A2_ArrayToExtract,
     return false;
   }
 
-  Array<double,2> D_A2_ArrayTemp(D_A2_ArrayToExtract.rows(), D_A2_ArrayToExtract.cols());
+  blitz::Array<double,2> D_A2_ArrayTemp(D_A2_ArrayToExtract.rows(), D_A2_ArrayToExtract.cols());
   D_A2_ArrayTemp = D_A2_ArrayToExtract;/// * (*this->P_D_A2_ProfArray);
   #ifdef __DEBUG_EXTRACT_ERRORS__
     cout << "CFits::ExtractSpecFromProfile: D_A2_ArrayTemp set to " << D_A2_ArrayTemp << endl;
@@ -33907,7 +33907,7 @@ bool CFits::ExtractSpecFromProfile(const Array<double, 2> &D_A2_ArrayToExtract,
   double WeightFirst, WeightLast;
   int XFirst, XLast, npix;
   bool B_WithSky = false;
-  Array<CString,1> CS_A1_Args_Fit(5);
+  blitz::Array<CString,1> CS_A1_Args_Fit(5);
   CS_A1_Args_Fit = CString(" ");
   void **PP_Args_Fit = (void**)malloc(sizeof(void*) * 5);
 
@@ -33917,7 +33917,7 @@ bool CFits::ExtractSpecFromProfile(const Array<double, 2> &D_A2_ArrayToExtract,
   int I_YMax = this->NRows-1;
   int I_Pos;
 
-  Array<int, 1> *P_I_A1_AperturesToExtract = this->IndGenArr(this->I_NApertures);
+  blitz::Array<int, 1> *P_I_A1_AperturesToExtract = this->IndGenArr(this->I_NApertures);
 
   ///Extract with sky?
   if ((I_Pos = this->KeyWord_Set(CS_A1_Args_In, CString("WITH_SKY"))) >= 0)
@@ -33928,8 +33928,8 @@ bool CFits::ExtractSpecFromProfile(const Array<double, 2> &D_A2_ArrayToExtract,
   ///Area to extract
   if ((I_Pos = this->KeyWord_Set(CS_A1_Args_In, CString("AREA"))) >= 0)
   {
-    Array<int, 1> I_A1_Area(4);
-    I_A1_Area = *(Array<int, 1>*)PP_Args_In[I_Pos];
+    blitz::Array<int, 1> I_A1_Area(4);
+    I_A1_Area = *(blitz::Array<int, 1>*)PP_Args_In[I_Pos];
     #ifdef __DEBUG_EXTRACTSPECFROMPROFILE__
       cout << "CFits::ExtractSpecFromProfile: KeyWord_Set(AREA): I_A1_Area set to " << I_A1_Area << endl;
       (*P_OFS_Log) << "CFits::ExtractSpecFromProfile: KeyWord_Set(AREA): I_A1_Area set to " << I_A1_Area << endl;
@@ -33944,14 +33944,14 @@ bool CFits::ExtractSpecFromProfile(const Array<double, 2> &D_A2_ArrayToExtract,
     #endif
   }
 
-  Array<CString, 1> CS_A1_Args_MkProfIm(1);
+  blitz::Array<CString, 1> CS_A1_Args_MkProfIm(1);
   CS_A1_Args_MkProfIm = CString(" ");
   void **PP_Args_MkProfIm = (void**)malloc(sizeof(void*) * 1);
   ///Apertures to extract
   if ((I_Pos = this->KeyWord_Set(CS_A1_Args_In, CString("APERTURES"))) >= 0)
   {
     delete(P_I_A1_AperturesToExtract);
-    P_I_A1_AperturesToExtract = (Array<int, 1>*)PP_Args_In[I_Pos];
+    P_I_A1_AperturesToExtract = (blitz::Array<int, 1>*)PP_Args_In[I_Pos];
     #ifdef __DEBUG_FITS_EXTRACTFROMPROFILE__
       cout << "CFits::ExtractFromProfile: KeyWord_Set(APERTURES): P_I_A1_AperturesToExtract set to " << *P_I_A1_AperturesToExtract << endl;
       (*P_OFS_Log) << "CFits::ExtractFromProfile: KeyWord_Set(APERTURES): P_I_A1_AperturesToExtract set to " << *P_I_A1_AperturesToExtract << endl;
@@ -33969,30 +33969,30 @@ bool CFits::ExtractSpecFromProfile(const Array<double, 2> &D_A2_ArrayToExtract,
 
 
   /// input paramters
-  Array<double,2> *P_D_A2_SDev;
+  blitz::Array<double,2> *P_D_A2_SDev;
   CS_A1_Args_Fit(0).Set("MEASURE_ERRORS_IN");
-  Array<double,1> D_A1_ErrTemp(1);
+  blitz::Array<double,1> D_A1_ErrTemp(1);
   PP_Args_Fit[0] = &D_A1_ErrTemp;
   #ifdef __DEBUG_EXTRACTSPECFROMPROFILE__
     cout << "CFits::ExtractSpecFromProfile: MEASURE_ERRORS_IN set" << endl;
   #endif
 
   CS_A1_Args_Fit(1).Set("YFIT_OUT");
-  Array<double,1> D_A1_YFit(1);
+  blitz::Array<double,1> D_A1_YFit(1);
   PP_Args_Fit[1] = &D_A1_YFit;
   #ifdef __DEBUG_EXTRACTSPECFROMPROFILE__
     cout << "CFits::ExtractSpecFromProfile: YFIT_OUT set" << endl;
   #endif
 
   CS_A1_Args_Fit(2).Set("SIGMA_OUT");
-  Array<double,1> D_A1_Sigma(2);
+  blitz::Array<double,1> D_A1_Sigma(2);
   PP_Args_Fit[2] = &D_A1_Sigma;
   #ifdef __DEBUG_EXTRACTSPECFROMPROFILE__
     cout << "CFits::ExtractSpecFromProfile: SIGMA_OUT set" << endl;
   #endif
 
   CS_A1_Args_Fit(3).Set("MASK_INOUT");
-  Array<int,1> I_A1_Mask(1);
+  blitz::Array<int,1> I_A1_Mask(1);
   PP_Args_Fit[3] = &I_A1_Mask;
   #ifdef __DEBUG_EXTRACTSPECFROMPROFILE__
     cout << "CFits::ExtractSpecFromProfile: MASK_INOUT set" << endl;
@@ -34366,10 +34366,10 @@ bool CFits::GammQ(double a, double x, double* D_Out) const{
  From Numerical Recipes in C, 2.6.
  Solves A*X=B for a vector X, where A is specified by the Arrays U[0...M-1][0...N-1], W[0...N-1], V[0...N-1][0...N-1] as returned by SVDCMP. M and N are the dimensions of A, and will be equal for square matrices. B[0...M-1] is the input right-hand side. X[0...N-1] is the output solution vector. No input quantities are destroyed, so the routine may be called sequentially with different B's.
   **/
-bool CFits::SVBKSB(const Array<double, 2> &U, const Array<double, 1> &W, const Array<double, 2> &V, int M, int N, const Array<double, 1> &B, Array<double, 1> &X) const{
+bool CFits::SVBKSB(const blitz::Array<double, 2> &U, const blitz::Array<double, 1> &W, const blitz::Array<double, 2> &V, int M, int N, const blitz::Array<double, 1> &B, blitz::Array<double, 1> &X) const{
   int jj, j, i;
   double s;
-  Array<double, 1> D_A1_Tmp(N);
+  blitz::Array<double, 1> D_A1_Tmp(N);
 
   /// Calculate U^T B
   for (j = 0; j < N; j++){
@@ -34400,11 +34400,11 @@ bool CFits::SVBKSB(const Array<double, 2> &U, const Array<double, 1> &W, const A
     matrix of singular values W is output as a vector w[1..n].  The matrix V (not
     the transpose VT) is output as v[1..n][1..n].
 *******************************************************************************/
-bool CFits::SVDCMP(Array<double, 2> &A, int M, int N, Array<double, 1> &W, Array<double, 2> &V) const
+bool CFits::SVDCMP(blitz::Array<double, 2> &A, int M, int N, blitz::Array<double, 1> &W, blitz::Array<double, 2> &V) const
 {
   int flag,i,its,j,jj,k,l,nm;
   double anorm,c,f,g,h,s,scale,x,y,z;
-  Array<double, 1> rv1(N);
+  blitz::Array<double, 1> rv1(N);
 
   g=scale=anorm=0.0; /// Householder reduction to bidiagonal form
   for (i=0;i<N;i++) {
@@ -34636,22 +34636,22 @@ double CFits::Pythag(double a, double b) const{
   From Numerical Recipes in C $15.4
   Given a set of data points X[0..n-1], Y[0..n-1] with individual standard deviations Sig[0..n-1], use Chi^2 minimization to determine the coefficients a[0..ma-1] of the fitting function y = sum(a_i * aFunc_i(X), i). Here we solve the fitting equations using singular value decomposition of the n by ma matrix, as in $2.6. Arrays U[0..n-1][0..ma-1], V[0..ma-1][0..ma-1], and W[0..ma] provide workspace on input; on output they define the singular value decomposition, and can be used to obtain the covariance matrix. The program returns values for the ma fit parameters A, and Chi^2, ChiSq. The user supplies a routine Funcs(X, AFunc, ma) that returns the ma basis functions evaluated at x = X in the array AFunc[0..ma].
   **/
-bool CFits::SVDFit(const Array<double, 1> &X,
-                   const Array<double, 1> &Y,
-                   const Array<double, 1> &Sig,
-                   Array<double, 1> &A,
-                   Array<double, 2> &U,
-                   Array<double, 2> &V,
-                   Array<double, 1> &W,
-                   Array<double, 1> &ChiSq,
-                   void (*Funcs)(double, Array<double, 1>, int)) const{
+bool CFits::SVDFit(const blitz::Array<double, 1> &X,
+                   const blitz::Array<double, 1> &Y,
+                   const blitz::Array<double, 1> &Sig,
+                   blitz::Array<double, 1> &A,
+                   blitz::Array<double, 2> &U,
+                   blitz::Array<double, 2> &V,
+                   blitz::Array<double, 1> &W,
+                   blitz::Array<double, 1> &ChiSq,
+                   void (*Funcs)(double, blitz::Array<double, 1>, int)) const{
   double TOL = 1.0e-5; /// Default value for single precision and variables scaled to order unity
   int i,j;
   int ndata = X.size();
   int ma = A.size();
   double D_WMax, D_Tmp, D_Thresh, D_Sum;
-  Array<double, 1> D_A1_B(ndata);
-  Array<double, 1> D_A1_AFunc(ma);
+  blitz::Array<double, 1> D_A1_B(ndata);
+  blitz::Array<double, 1> D_A1_AFunc(ma);
   for (i = 0; i < ndata; i++){      /// Accumulate coefficients of the fitting matrix
     (*Funcs)(X(i), D_A1_AFunc, ma);
     D_Tmp = 1.0 / Sig(i);
@@ -34689,13 +34689,13 @@ bool CFits::SVDFit(const Array<double, 1> &X,
   return true;
 }
 
-//void CFits::Funcs(double X, Array<double, 1> &P, int n){
+//void CFits::Funcs(double X, blitz::Array<double, 1> &P, int n){
   /// TODO: Fill in function
 //  return;
 //}
 
 bool CFits::ReadFileToStrArr(const CString &CS_FileName_In,
-                             Array<CString, 2> &CS_A2_Out,
+                             blitz::Array<CString, 2> &CS_A2_Out,
                              const CString &CS_Delimiter) const{
   CString CS("");
   return CS.ReadFileToStrArr(CS_FileName_In, CS_A2_Out, CS_Delimiter);
@@ -34819,12 +34819,12 @@ bool CFits::ReadFileToStrArr(const CString &CS_FileName_In,
 }
 
 bool CFits::ReadFileToDblArr(const CString &CS_FileName_In,
-                             Array<double, 2> &D_A2_Out,
+                             blitz::Array<double, 2> &D_A2_Out,
                              const CString &CS_Delimiter) const{
   CString CS("");
   return CS.ReadFileToDblArr(CS_FileName_In, D_A2_Out, CS_Delimiter);
   /**
-  Array<CString, 2> CS_A2_Arr(2,2);
+  blitz::Array<CString, 2> CS_A2_Arr(2,2);
   if (!this->ReadFileToStrArr(CS_FileName_In, CS_A2_Arr, CS_Delimiter)){
     cout << "CFits::ReadFileToDblArr: ERROR: ReadFileToStrArr returned FALSE" << endl;
     return false;
@@ -34842,7 +34842,7 @@ bool CFits::ReadFileToDblArr(const CString &CS_FileName_In,
 /** *******************************************************/
 
 bool CFits::ReadFileLinesToStrArr(const CString &CS_FileName_In,
-                                  Array<CString, 1> &CS_A1_Out) const{
+                                  blitz::Array<CString, 1> &CS_A1_Out) const{
   CString CS("");
   return CS.ReadFileLinesToStrArr(CS_FileName_In, CS_A1_Out);
 /**
@@ -34973,23 +34973,23 @@ bool CFits::CalculateScatteredLight(int I_FittingOrder_In, int I_BoxCarWidth_In)
 //  #endif
 
   /// Fit scattered light for each row
-  Array<int, 1> I_A1_Where(this->NCols);
-  Array<int, 1> I_A1_IndArr(1);
-  Array<double, 1> D_A1_IndArr(1);
-  Array<double, 1> D_A1_NonZero(1);
-  Array<double, 1> *P_D_A1_DInd;// = this->DIndGenArr(this->NCols);
-  Array<double, 1> D_A1_MeasureErrors(1);
-  Array<double, 1> *P_D_A1_Coeffs = new Array<double, 1>(I_FittingOrder_In+1);
-  Array<double, 2> D_A2_Fit_Rows(this->NRows, this->NCols);
+  blitz::Array<int, 1> I_A1_Where(this->NCols);
+  blitz::Array<int, 1> I_A1_IndArr(1);
+  blitz::Array<double, 1> D_A1_IndArr(1);
+  blitz::Array<double, 1> D_A1_NonZero(1);
+  blitz::Array<double, 1> *P_D_A1_DInd;// = this->DIndGenArr(this->NCols);
+  blitz::Array<double, 1> D_A1_MeasureErrors(1);
+  blitz::Array<double, 1> *P_D_A1_Coeffs = new blitz::Array<double, 1>(I_FittingOrder_In+1);
+  blitz::Array<double, 2> D_A2_Fit_Rows(this->NRows, this->NCols);
   D_A2_Fit_Rows = 0.;
-  Array<double, 2> D_A2_Fit_Cols(this->NRows, this->NCols);
+  blitz::Array<double, 2> D_A2_Fit_Cols(this->NRows, this->NCols);
   D_A2_Fit_Cols = 0.;
-  Array<double, 2> D_A2_Fit_Rows_Cols(this->NRows, this->NCols);
+  blitz::Array<double, 2> D_A2_Fit_Rows_Cols(this->NRows, this->NCols);
   D_A2_Fit_Rows_Cols = 0.;
-  Array<double, 2> D_A2_Fit_Cols_Rows(this->NRows, this->NCols);
+  blitz::Array<double, 2> D_A2_Fit_Cols_Rows(this->NRows, this->NCols);
   D_A2_Fit_Cols_Rows = 0.;
-  Array<double, 2> D_A2_Fit(this->NRows, this->NCols);
-  Array<double, 1> *P_D_A1_Fit = new Array<double, 1>(this->NCols);
+  blitz::Array<double, 2> D_A2_Fit(this->NRows, this->NCols);
+  blitz::Array<double, 1> *P_D_A1_Fit = new blitz::Array<double, 1>(this->NCols);
   int I_NInd_Out;
   int I_FittingOrder = 4;
   int I_LoopEnd;
@@ -35004,11 +35004,11 @@ bool CFits::CalculateScatteredLight(int I_FittingOrder_In, int I_BoxCarWidth_In)
   YERROR=yerror, $
   YFIT=yfit
   ;**/
-//  Array<CString, 1> CS_A1_KeyWords_Fit(1);
+//  blitz::Array<CString, 1> CS_A1_KeyWords_Fit(1);
 //  void **PP_Args_Fit = (void**)malloc(sizeof(void*) * 1);
 //  CS_A1_KeyWords_Fit(0) = CString("MEASURE_ERRORS");
 
-  Array<double, 1> D_A1_Y(1);
+  blitz::Array<double, 1> D_A1_Y(1);
 
   /// Fist run for rows, 2nd run for columns
   for (int i=0; i<4; i++){
@@ -35170,8 +35170,8 @@ bool CFits::CalculateScatteredLight(int I_FittingOrder_In, int I_BoxCarWidth_In)
   }
 
   /// take median of all scattered light images as real scattered light, use another box-car filter, and subtract from this->P_D_A2_PixArray
-  Array<double, 2> D_A2_ScatteredLight(this->NRows, this->NCols);
-  Array<double, 1> D_A1_PixScatter(4);
+  blitz::Array<double, 2> D_A2_ScatteredLight(this->NRows, this->NCols);
+  blitz::Array<double, 1> D_A1_PixScatter(4);
   for (int i_row=0; i_row < this->NRows; i_row++){
     for (int i_col=0; i_col < this->NCols; i_col++){
       D_A1_PixScatter(0) = D_A2_Fit_Rows(i_row, i_col);
@@ -35203,7 +35203,7 @@ bool CFits::CalculateScatteredLight(int I_FittingOrder_In, int I_BoxCarWidth_In)
   return true;
 }
 
-bool CFits::BoxCarFilter(Array<double, 2> D_A2_Data_InOut,
+bool CFits::BoxCarFilter(blitz::Array<double, 2> D_A2_Data_InOut,
                          int I_BoxCarWidth_In,
                          bool B_IgnoreZeros) const{
   #ifdef __DEBUG_FITS_BOXCARFILTER__
@@ -35214,8 +35214,8 @@ bool CFits::BoxCarFilter(Array<double, 2> D_A2_Data_InOut,
   int I_NRows = D_A2_Data_InOut.rows();
   int I_NCols = D_A2_Data_InOut.cols();
   int I_Row_Start, I_Row_End, I_Col_Start, I_Col_End;
-  Array<double, 2> D_A2_Smoothed(I_NRows, I_NCols);
-  Array<double, 2> D_A2_ToSmooth(1,1);
+  blitz::Array<double, 2> D_A2_Smoothed(I_NRows, I_NCols);
+  blitz::Array<double, 2> D_A2_ToSmooth(1,1);
   int I_Width_Half = int(I_BoxCarWidth_In/2.);
   for (int i_row=0; i_row<I_NRows; i_row++){
     #ifdef __DEBUG_FITS_BOXCARFILTER__
@@ -35283,7 +35283,7 @@ bool CFits::Set_ApertureDataToZero(const int I_PlusNPixels_X, const int I_PlusNP
   return this->Set_ApertureDataToZero((*this->P_D_A2_PixArray), I_PlusNPixels_X, I_PlusNPixels_Y);
 }
 
-bool CFits::Set_ApertureDataToZero(Array<double, 2> &D_A2_InOut, const int I_PlusNPixels_X, const int I_PlusNPixels_Y) const{
+bool CFits::Set_ApertureDataToZero(blitz::Array<double, 2> &D_A2_InOut, const int I_PlusNPixels_X, const int I_PlusNPixels_Y) const{
   if (!this->TraceFunctionsCalculated){
     cout << "CFits::Set_ApertureDataToZero: ERROR: Trace functions not calculated!" << endl;
     return false;
@@ -35330,7 +35330,7 @@ bool CFits::Set_ApertureDataToZero(Array<double, 2> &D_A2_InOut, const int I_Plu
 ///Mode: 0: Median
 ///      1: Mean
 ///      2: Mininum
-bool CFits::FindNonZeroClusters(Array<double, 2> &D_A2_InOut_PixArray, int I_In_BoxSize_X, int I_In_BoxSize_Y, int I_In_Mode, Array<double, 2> &D_A2_Out) const{
+bool CFits::FindNonZeroClusters(blitz::Array<double, 2> &D_A2_InOut_PixArray, int I_In_BoxSize_X, int I_In_BoxSize_Y, int I_In_Mode, blitz::Array<double, 2> &D_A2_Out) const{
 //  this->WriteFits(&D_A2_InOut_PixArray, CString("/home/azuri/spectra/SEDIFU/SEDM-deep-sim-flat-2012-05-14_ScatterOnly_apZero3.fits"));
   cout << "CFits::FindNonZeroClusters: I_In_BoxSize_X = " << I_In_BoxSize_X << ", I_In_BoxSize_Y = " << I_In_BoxSize_Y << endl;
 
@@ -35340,8 +35340,8 @@ bool CFits::FindNonZeroClusters(Array<double, 2> &D_A2_InOut_PixArray, int I_In_
 
   ///find clusters, starting at [0,0]
   int i_x, i_y, sum_where, boxel, I_NClusters;
-  Array<double, 2> D_A2_Box(I_In_BoxSize_X, I_In_BoxSize_Y);
-  Array<int, 2> I_A2_Box_Where(I_In_BoxSize_X, I_In_BoxSize_Y);
+  blitz::Array<double, 2> D_A2_Box(I_In_BoxSize_X, I_In_BoxSize_Y);
+  blitz::Array<int, 2> I_A2_Box_Where(I_In_BoxSize_X, I_In_BoxSize_Y);
   boxel = I_In_BoxSize_X * I_In_BoxSize_Y;
   I_NClusters = 0;
   for (int i_row = 0; i_row <= D_A2_InOut_PixArray.rows() - I_In_BoxSize_Y; i_row++){
@@ -35392,10 +35392,10 @@ bool CFits::FindMeanValuesOfRectangles(int I_In_WidthX, int I_In_WidthY){
     return false;
   if (I_In_WidthY >= this->NRows)
     return false;
-  Array<double, 2> D_A2_MeanArray(2,2);
-  Array<int, 2> I_A2_Where(2,2);
-  Array<int, 2> I_A2_IndArr(2,2);
-  Array<double, 1> D_A1_GoodPix(2);
+  blitz::Array<double, 2> D_A2_MeanArray(2,2);
+  blitz::Array<int, 2> I_A2_Where(2,2);
+  blitz::Array<int, 2> I_A2_IndArr(2,2);
+  blitz::Array<double, 1> D_A1_GoodPix(2);
   int I_NGoodPix;
   while (i_row_start < this->NRows){
     while (i_col_start < this->NCols){
@@ -35451,12 +35451,12 @@ bool CFits::FindMeanValuesOfRectangles(int I_In_WidthX, int I_In_WidthY){
   return true;
 }
 
-bool CFits::ScaleImageToFitBackground(const Array<double, 2> &D_A2_Scatter_In, double &D_Fact_Out) const{
+bool CFits::ScaleImageToFitBackground(const blitz::Array<double, 2> &D_A2_Scatter_In, double &D_Fact_Out) const{
   return this->ScaleImageToFitBackground(*P_D_A2_PixArray, D_A2_Scatter_In, D_Fact_Out);
 }
 
-bool CFits::ScaleImageToFitBackground(const Array<double, 2> &D_A2_Image,
-                                      const Array<double, 2> &D_A2_Scatter_In,
+bool CFits::ScaleImageToFitBackground(const blitz::Array<double, 2> &D_A2_Image,
+                                      const blitz::Array<double, 2> &D_A2_Scatter_In,
                                       double &D_Fact_Out) const{
   if (D_A2_Scatter_In.rows() != D_A2_Image.rows()){
     cout << "CFits::ScaleImageToFitBackground: ERROR: Number of rows of input scattered-light image (=" << D_A2_Scatter_In.rows() << ") does not agree with input image (= " << D_A2_Image.rows() << ") => Returning FALSE" << endl;
@@ -35464,18 +35464,18 @@ bool CFits::ScaleImageToFitBackground(const Array<double, 2> &D_A2_Image,
   if (D_A2_Scatter_In.cols() != D_A2_Image.cols()){
     cout << "CFits::ScaleImageToFitBackground: ERROR: Number of columns of input scattered-light image (=" << D_A2_Scatter_In.cols() << ") does not agree with input image (= " << D_A2_Image.cols() << ") => Returning FALSE" << endl;
   }
-  Array<double, 2> D_A2_Div(D_A2_Image.rows(), D_A2_Image.cols());
+  blitz::Array<double, 2> D_A2_Div(D_A2_Image.rows(), D_A2_Image.cols());
   D_A2_Div = D_A2_Image / D_A2_Scatter_In;
-  Array<double, 1> *P_D_A1_Div = this->MakeVector(D_A2_Div);
-  Array<double, 1> *P_D_A1_Div_Sort = this->BubbleSort(*P_D_A1_Div);
+  blitz::Array<double, 1> *P_D_A1_Div = this->MakeVector(D_A2_Div);
+  blitz::Array<double, 1> *P_D_A1_Div_Sort = this->BubbleSort(*P_D_A1_Div);
   D_Fact_Out = mean((*P_D_A1_Div_Sort)(Range(0, int(P_D_A1_Div->size()/10))));
   delete(P_D_A1_Div);
   delete(P_D_A1_Div_Sort);
   return true;
 }
 
-Array<double, 1> *CFits::MakeVector(const Array<double, 2> &D_A2_In) const{
-  Array<double, 1> *P_D_A1_Out = new Array<double, 1>(D_A2_In.rows() * D_A2_In.cols());
+blitz::Array<double, 1> *CFits::MakeVector(const blitz::Array<double, 2> &D_A2_In) const{
+  blitz::Array<double, 1> *P_D_A1_Out = new blitz::Array<double, 1>(D_A2_In.rows() * D_A2_In.cols());
   int i_start, i_end;
   i_start = 0;
   for (int i_row=0; i_row<D_A2_In.rows(); i_row++){
@@ -35496,13 +35496,13 @@ Array<double, 1> *CFits::MakeVector(const Array<double, 2> &D_A2_In) const{
 /// FileName_ApZero_Out=<CString>
 /// FileName_Clustered_Out=<CString>
 /// FileName_ScatterFit_Out=<CString>
-bool CFits::CalcScatterKriging(const Array<int, 2> &IntArr_ClusterSizes_X_Y_In,
+bool CFits::CalcScatterKriging(const blitz::Array<int, 2> &IntArr_ClusterSizes_X_Y_In,
                                const int I_AddNPixToAp_X,
                                const int I_AddNPixToAp_Y,
                                const int I_NRectangles_X,
                                const int I_NRectangles_Y,
-                               Array<double, 2> &D_A2_ScatteredLight_Out,
-                               Array<CString, 1> &CS_A1_Args_In,
+                               blitz::Array<double, 2> &D_A2_ScatteredLight_Out,
+                               blitz::Array<CString, 1> &CS_A1_Args_In,
                                void *PP_Args_In[]) const{
   if (IntArr_ClusterSizes_X_Y_In.cols() != 2){
     cout << "CFits::CalcScatterKriging: ERROR: IntArr_ClusterSizes_X_Y_In.cols() != 2 => Returning FALSE" << endl;
@@ -35513,7 +35513,7 @@ bool CFits::CalcScatterKriging(const Array<int, 2> &IntArr_ClusterSizes_X_Y_In,
 
   double tmp, pred, var;
   const size_t dim_cspace = 2;
-  Array<double, 2> D_A2_PixArrayBak(this->NRows, this->NCols);
+  blitz::Array<double, 2> D_A2_PixArrayBak(this->NRows, this->NCols);
   D_A2_PixArrayBak = (*this->P_D_A2_PixArray);
 
   cout << "CFits::CalcScatterKriging: Starting Set_ApertureDataToZero()" << endl;
@@ -35532,13 +35532,13 @@ bool CFits::CalcScatterKriging(const Array<int, 2> &IntArr_ClusterSizes_X_Y_In,
 //    delete(P_CS_FileName);
   }
 
-  Array<double, 2> D_A2_Clustered(2,2);
-  Array<double, 2> D_A2_ToCluster(this->NRows, this->NCols);
+  blitz::Array<double, 2> D_A2_Clustered(2,2);
+  blitz::Array<double, 2> D_A2_ToCluster(this->NRows, this->NCols);
   D_A2_ToCluster = const_cast<CFits*>(this)->GetPixArray();
-  Array<int, 2> I_A2_ClusterCoords(2,2);
-  Array<int, 2> I_A2_WhereCluster(this->NRows, this->NCols);
-  Array<double, 2> D_A2_WhereClusterFAbs(this->NRows, this->NCols);
-  Array<double, 2> D_A2_Clustered_Final(this->NRows, this->NCols);
+  blitz::Array<int, 2> I_A2_ClusterCoords(2,2);
+  blitz::Array<int, 2> I_A2_WhereCluster(this->NRows, this->NCols);
+  blitz::Array<double, 2> D_A2_WhereClusterFAbs(this->NRows, this->NCols);
+  blitz::Array<double, 2> D_A2_Clustered_Final(this->NRows, this->NCols);
   D_A2_Clustered_Final = 0.;
   int I_NClusters, I_ClusterSize_X, I_ClusterSize_Y;
 
@@ -35573,11 +35573,11 @@ bool CFits::CalcScatterKriging(const Array<int, 2> &IntArr_ClusterSizes_X_Y_In,
   cout << "CFits::CalcScatterKriging: I_RectangleSize_Y set to " << I_RectangleSize_Y << endl;
   if (!const_cast<CFits*>(this)->FindMeanValuesOfRectangles(I_RectangleSize_X,I_RectangleSize_Y))
     return false;
-  Array<int, 2> I_A2_WhereZero(this->NRows, this->NCols);
+  blitz::Array<int, 2> I_A2_WhereZero(this->NRows, this->NCols);
   cout << "CFits::CalcScatterKriging: starting where2" << endl;
   I_A2_WhereZero = where(fabs(const_cast<CFits*>(this)->GetPixArray()) > 0.000001, 1, 0);
 
-  Array<int, 2> I_A2_IndZero(2,2);
+  blitz::Array<int, 2> I_A2_IndZero(2,2);
 
   int I_NGood;
   this->GetIndex(I_A2_WhereZero, I_NGood, I_A2_IndZero);
@@ -35698,10 +35698,10 @@ bool CFits::CalcScatterKriging(const Array<int, 2> &IntArr_ClusterSizes_X_Y_In,
 /// I_NRectangles_Y: number of rectangles in Y direction
 bool CFits::EstScatterKriging(const int I_NRectangles_X,
                               const int I_NRectangles_Y,
-                              Array<double, 2> &D_A2_ScatteredLight_Out){
-  Array<double, 2> D_A2_PixArray(this->NRows, this->NCols);
+                              blitz::Array<double, 2> &D_A2_ScatteredLight_Out){
+  blitz::Array<double, 2> D_A2_PixArray(this->NRows, this->NCols);
   D_A2_PixArray = this->GetPixArray();
-  Array<CString, 1> CS_A1_Args(1);
+  blitz::Array<CString, 1> CS_A1_Args(1);
   CS_A1_Args(0) = CString(" ");
   void **PP_Args = (void**)malloc(sizeof(void*) * 1);
   return this->EstScatterKriging(D_A2_PixArray, I_NRectangles_X, I_NRectangles_Y, D_A2_ScatteredLight_Out, CS_A1_Args, PP_Args);
@@ -35709,21 +35709,21 @@ bool CFits::EstScatterKriging(const int I_NRectangles_X,
 
 bool CFits::EstScatterKriging(const int I_NRectangles_X,
                               const int I_NRectangles_Y,
-                              Array<double, 2> &D_A2_ScatteredLight_Out,
-                              Array<CString, 1> &CS_A1_Args_In,
+                              blitz::Array<double, 2> &D_A2_ScatteredLight_Out,
+                              blitz::Array<CString, 1> &CS_A1_Args_In,
                               void *PP_Args_In[]) const{
-  Array<double, 2> D_A2_PixArray(this->NRows, this->NCols);
+  blitz::Array<double, 2> D_A2_PixArray(this->NRows, this->NCols);
   D_A2_PixArray = (*(this->P_D_A2_PixArray));
   return this->EstScatterKriging(D_A2_PixArray, I_NRectangles_X, I_NRectangles_Y, D_A2_ScatteredLight_Out, CS_A1_Args_In, PP_Args_In);
 }
 
-bool CFits::EstScatterKriging(const Array<double, 2> &D_A2_PixArray_In,
+bool CFits::EstScatterKriging(const blitz::Array<double, 2> &D_A2_PixArray_In,
                               const int I_NRectangles_X,
                               const int I_NRectangles_Y,
-                              Array<double, 2> &D_A2_ScatteredLight_Out,
-                              Array<CString, 1> &CS_A1_Args_In,
+                              blitz::Array<double, 2> &D_A2_ScatteredLight_Out,
+                              blitz::Array<CString, 1> &CS_A1_Args_In,
                               void *PP_Args_In[]) const{
-                              /// AREA = Array<int, 1>(4) 0: I_XMin, 1: I_XMax, 2: I_YMin, 3: I_YMax
+                              /// AREA = blitz::Array<int, 1>(4) 0: I_XMin, 1: I_XMax, 2: I_YMin, 3: I_YMax
   int I_Pos = 0;
   int I_XMin = 0;
   int I_XMax = D_A2_PixArray_In.cols()-1;
@@ -35731,8 +35731,8 @@ bool CFits::EstScatterKriging(const Array<double, 2> &D_A2_PixArray_In,
   int I_YMax = D_A2_PixArray_In.rows()-1;
   if ((I_Pos = this->KeyWord_Set(CS_A1_Args_In, CString("AREA"))) >= 0)
   {
-    Array<int, 1> I_A1_Area(4);
-    I_A1_Area = *(Array<int, 1>*)PP_Args_In[I_Pos];
+    blitz::Array<int, 1> I_A1_Area(4);
+    I_A1_Area = *(blitz::Array<int, 1>*)PP_Args_In[I_Pos];
     //#ifdef __DEBUG_FITS_MKSLITFUNC__
       cout << "CFits::EstScatterKriging: KeyWord_Set(AREA): I_A1_Area set to " << I_A1_Area << endl;
       //(*P_OFS_Log) << "CFits::MkProfIm: KeyWord_Set(AREA): I_A1_Area set to " << I_A1_Area << endl;
@@ -35752,7 +35752,7 @@ bool CFits::EstScatterKriging(const Array<double, 2> &D_A2_PixArray_In,
   cout << "CFits::EstScatterKriging: I_YMin = " << I_YMin << endl;
   cout << "CFits::EstScatterKriging: I_YMax = " << I_YMax << endl;
 //  return false;
-  Array<double, 2> D_A2_PixArray_Temp(I_YMax - I_YMin + 1, I_XMax - I_XMin + 1);
+  blitz::Array<double, 2> D_A2_PixArray_Temp(I_YMax - I_YMin + 1, I_XMax - I_XMin + 1);
   D_A2_PixArray_Temp = D_A2_PixArray_In(Range(I_YMin, I_YMax), Range(I_XMin, I_XMax));
 
   cout << "CFits::EstScatterKriging: I_NRectangles_X = " << I_NRectangles_X << endl;
@@ -35767,8 +35767,8 @@ bool CFits::EstScatterKriging(const Array<double, 2> &D_A2_PixArray_In,
   int I_EndX=(I_ClusterSizeX)-1;
   int I_StartY=0;
   int I_EndY=(I_ClusterSizeY)-1;
-  Array<double, 2> D_A2_Scatter(I_NRectangles_X, I_NRectangles_Y);
-  Array<int, 3> I_A3_ClusterCenter(I_NRectangles_X, I_NRectangles_Y, 2);
+  blitz::Array<double, 2> D_A2_Scatter(I_NRectangles_X, I_NRectangles_Y);
+  blitz::Array<int, 3> I_A3_ClusterCenter(I_NRectangles_X, I_NRectangles_Y, 2);
   D_A2_Scatter = 0.;
   D_A2_ScatteredLight_Out.resize(D_A2_PixArray_Temp.rows(), D_A2_PixArray_Temp.cols());
 
@@ -35890,7 +35890,7 @@ bool CFits::EstScatterKriging(const Array<double, 2> &D_A2_PixArray_In,
 }
 
 
-bool CFits::Set_ProfArray(const Array<double, 2> &D_A2_ProfArray_In){
+bool CFits::Set_ProfArray(const blitz::Array<double, 2> &D_A2_ProfArray_In){
   if (D_A2_ProfArray_In.rows() != this->NRows){
     cout << "CFits::Set_ProfArray: ERROR: D_A2_ProfArray_In.rows()=" << D_A2_ProfArray_In.rows() << " != this->NRows=" << this->NRows << endl;
     return false;
@@ -35926,19 +35926,19 @@ bool CFits::Read_ProfArray(const CString &CS_FitsFileName_In){
   MkSlitFunc old version
   Make Slit Function
  **/
-bool CFits::MkSlitFunc_Old(Array<double, 1> &D_A1_ScatterBelow,  //: in
-                       Array<double, 1> &D_A1_XScatterBelow, //: in
-                       Array<double, 1> &D_A1_ScatterAbove,  //: in
-                       Array<double, 1> &D_A1_XScatterAbove, //: in
-                       //                       Array<double, 1> &D_A1_XCenters,      ///: in //
+bool CFits::MkSlitFunc_Old(blitz::Array<double, 1> &D_A1_ScatterBelow,  //: in
+                       blitz::Array<double, 1> &D_A1_XScatterBelow, //: in
+                       blitz::Array<double, 1> &D_A1_ScatterAbove,  //: in
+                       blitz::Array<double, 1> &D_A1_XScatterAbove, //: in
+                       //                       blitz::Array<double, 1> &D_A1_XCenters,      ///: in //
                        //                       double &D_XLeftLim,                      ///: in //
                        //                       double &D_XRightLim,                     ///: in //
-                       Array<double, 1> &D_A1_XSlitF,        //: out
-                       Array<double, 2> &D_A2_SlitF,         //: out
-                       Array<double, 1> &D_A1_BinCen,        //: out
+                       blitz::Array<double, 1> &D_A1_XSlitF,        //: out
+                       blitz::Array<double, 2> &D_A2_SlitF,         //: out
+                       blitz::Array<double, 1> &D_A1_BinCen,        //: out
                        int I_IAperture_In,                   //: in
                        //                       int I_NArgs,                          //: in
-                       const Array<CString, 1> &CS_A1_Args,           //: in
+                       const blitz::Array<CString, 1> &CS_A1_Args,           //: in
                        void *ArgV[])                  //: in
 /*                     //PLOT        =
                        Y_LOWER_LIM = int             : in
@@ -35946,8 +35946,8 @@ bool CFits::MkSlitFunc_Old(Array<double, 1> &D_A1_ScatterBelow,  //: in
                        LAMBDA_SF   = double          : in
                        LAMBDA_SP   = int             : out
                        SWATH_WIDTH = int             : in
-                       BLZ         = Array<double, 1>: out
-                       MASK        = Array<double, 2>: in
+                       BLZ         = blitz::Array<double, 1>: out
+                       MASK        = blitz::Array<double, 2>: in
                        CCD_GAIN    = double          : in
                        CCD_READN   = double          : in
                        NO_SCATTER  = void
@@ -36025,32 +36025,32 @@ bool CFits::MkSlitFunc_Old(Array<double, 1> &D_A1_ScatterBelow,  //: in
   ;30-Mar-01 NP       I will write down what I have done. I promise.
   */
   /**
-    Array<double, 1> bincen   => Array<double, 1> D_A1_BinCen
-  ! Array<double, 1> BLZ=blz = fltarr(ncol)  => Array<double, 1> *P_D_A1_BLZ
+    blitz::Array<double, 1> bincen   => blitz::Array<double, 1> D_A1_BinCen
+  ! blitz::Array<double, 1> BLZ=blz = fltarr(ncol)  => blitz::Array<double, 1> *P_D_A1_BLZ
     FILENAME=filename
   ! double GAIN=gain=CCD_gain       => double D_CCDGain       ; Gain
-    Array<long, 1>/int i      => Array<int, 1> I_A1_I / int I_I ;Points of row crossing
+    blitz::Array<long, 1>/int i      => blitz::Array<int, 1> I_A1_I / int I_I ;Points of row crossing
   ! long ib                   => int I_IB
   ! long ie                   => int I_IE
-  ! Array<long, 1> ibeg      => Array<int, 1> I_A1_IBeg
-  ! Array<double, 1> ibound  => Array<double, 1> D_A1_IBound
+  ! blitz::Array<long, 1> ibeg      => blitz::Array<int, 1> I_A1_IBeg
+  ! blitz::Array<double, 1> ibound  => blitz::Array<double, 1> D_A1_IBound
   ! int icen = yc(ib+j)     => int I_ICen
-  ! Array<long, 1> iend      => Array<int, 1> I_A1_IEnd
-  ! Array<double, 2> im              => CFits P_CF_Im
+  ! blitz::Array<long, 1> iend      => blitz::Array<int, 1> I_A1_IEnd
+  ! blitz::Array<double, 2> im              => CFits P_CF_Im
   ! int imask = 0                    => int I_IMask
-  ! Array<long, 1> imax      => Array<int, 1> I_A1_IMax
-  ! Array<long, 1> imin      => Array<int, 1> I_A1_IMin
-    Array<double, 1> irow    => Array<double, 1> D_A1_ICol
-  ! Array<long, 1> j0        => Array<int, 1> I_A1_J0
-  ! Array<long, 1> j1        => Array<ing, 1> I_A1_J1
-   ! Array<int, 1> jbad      => Array<int, 1> I_A1_JBad
+  ! blitz::Array<long, 1> imax      => blitz::Array<int, 1> I_A1_IMax
+  ! blitz::Array<long, 1> imin      => blitz::Array<int, 1> I_A1_IMin
+    blitz::Array<double, 1> irow    => blitz::Array<double, 1> D_A1_ICol
+  ! blitz::Array<long, 1> j0        => blitz::Array<int, 1> I_A1_J0
+  ! blitz::Array<long, 1> j1        => blitz::Array<ing, 1> I_A1_J1
+   ! blitz::Array<int, 1> jbad      => blitz::Array<int, 1> I_A1_JBad
     int jgood               => int I_JGood
   ! long k0                 => int I_K0
   ! long k1                 => int I_K1
   ! double LAMBDA_SF=lam_sf              => double D_LambdaSF
   ! int LAMBDA_SP=lam_sp                 => int I_LambdaSP
-  ! Array<double, 2> MASK=mask            => Array<double, 2> D_A2_Mask
-  ! bytarr msk(nc,nysf) / = 0  => Array<double, 2> D_A2_Msk
+  ! blitz::Array<double, 2> MASK=mask            => blitz::Array<double, 2> D_A2_Mask
+  ! bytarr msk(nc,nysf) / = 0  => blitz::Array<double, 2> D_A2_Msk
   ! int nbad                 => int I_NBad
   ! int nbin                 => int I_NBin
   ! long nc                  => int I_NR
@@ -36065,33 +36065,33 @@ bool CFits::MkSlitFunc_Old(Array<double, 1> &D_A1_ScatterBelow,  //: in
   PLOT=iplot
   ! double READN=readn=CCD_readn=0. => double D_CCDReadN      ; Readout noise
   ! int OSAMPLE=osample                  => int I_OverSample
-  Array<double, 1> dy_scatter         => Array<double, 1> D_A1_DXScatter
-  Array<double, 1> yscatter_below     => Array<double, 1> D_A1_XScatterBelow
-  Array<double, 1> yscatter_above     => Array<double, 1> D_A1_XScatterAbove
-  Array<double, 1> scatter            => Array<double, 1> D_A1_Scatter
-  Array<double, 1> scatter_above      => Array<double, 1> D_A1_ScatterAbove
-  Array<double, 1> scatter_below      => Array<double, 1> D_A1_ScatterBelow
-  ! Array<double, 2> sf(nc,nysf)      => Array<double, 2> D_A2_SF
-  ! Array<double, 2> sfbin            => Array<double, 2> D_A2_SFBin;
-  ! Array<double, 1> sfpnt(nsf)       => Array<double, 1> D_A1_SFPnt
-  ! Array<double, 1> sfsm             => Array<double, 1> D_A1_SFSM
-  Array<double, 2> slitf
-  ! Array<double, 1> ssf               => Array<double, 1> D_A1_SSF
+  blitz::Array<double, 1> dy_scatter         => blitz::Array<double, 1> D_A1_DXScatter
+  blitz::Array<double, 1> yscatter_below     => blitz::Array<double, 1> D_A1_XScatterBelow
+  blitz::Array<double, 1> yscatter_above     => blitz::Array<double, 1> D_A1_XScatterAbove
+  blitz::Array<double, 1> scatter            => blitz::Array<double, 1> D_A1_Scatter
+  blitz::Array<double, 1> scatter_above      => blitz::Array<double, 1> D_A1_ScatterAbove
+  blitz::Array<double, 1> scatter_below      => blitz::Array<double, 1> D_A1_ScatterBelow
+  ! blitz::Array<double, 2> sf(nc,nysf)      => blitz::Array<double, 2> D_A2_SF
+  ! blitz::Array<double, 2> sfbin            => blitz::Array<double, 2> D_A2_SFBin;
+  ! blitz::Array<double, 1> sfpnt(nsf)       => blitz::Array<double, 1> D_A1_SFPnt
+  ! blitz::Array<double, 1> sfsm             => blitz::Array<double, 1> D_A1_SFSM
+  blitz::Array<double, 2> slitf
+  ! blitz::Array<double, 1> ssf               => blitz::Array<double, 1> D_A1_SSF
   ! int SWATH_WIDTH=swath_width       => int I_SwathWidth
-  Array<double, 1> tel                => Array<double, 1> D_A1_Tel
+  blitz::Array<double, 1> tel                => blitz::Array<double, 1> D_A1_Tel
   TELLURIC=telluric
   ! long X_LEFT_LIM=x_left_lim        => int (int)((*this->P_D_A1_XMin)(I_IAperture_In))
   ! long X_RIGHT_LIM=x_right_lim       => int (int)((*this->P_D_A1_XMax)(I_IAperture_In))
-  ! Array<int, 1> yc                   => Array<int, 1> I_A1_XC
+  ! blitz::Array<int, 1> yc                   => blitz::Array<int, 1> I_A1_XC
   yscatter_below
   yscatter_above
-  ! Array<double, 1> ysfpnt(nsf)      => Array<double, 1> D_A1_XSFPnt
-  ! Array<double, 1> ycen(ncol)        => Array<double, 1> this->P_D_A2_XCenters(I_IAperture_In)
-  ! Array<double, 1> ycene             => Array<double, 1> D_A1_XCentersE
+  ! blitz::Array<double, 1> ysfpnt(nsf)      => blitz::Array<double, 1> D_A1_XSFPnt
+  ! blitz::Array<double, 1> ycen(ncol)        => blitz::Array<double, 1> this->P_D_A2_XCenters(I_IAperture_In)
+  ! blitz::Array<double, 1> ycene             => blitz::Array<double, 1> D_A1_XCentersE
   ! long y_lower_lim                   => int 0. -
   (*this->P_D_A1_XLow)(I_IAperture_In), this->P_D_A1_XLow(I_IAperture_In)
   ! long y_upper_lim                   => int (*this->P_D_A1_XHigh)(I_IAperture_In), this->P_D_A1_XHigh(I_IAperture_In)
-  Array<double, 1> yslitf
+  blitz::Array<double, 1> yslitf
   ! long yslitf0 = -y_lower_lim        => int I_XSlitFunc0
   ! long yslitf1 =  y_upper_lim        => int I_XSlitFunc1
    **/
@@ -36105,157 +36105,157 @@ bool CFits::MkSlitFunc_Old(Array<double, 1> &D_A1_ScatterBelow,  //: in
 
 
   //  CFits *P_CF_Im = new CFits(*this);
-  //  Array<double, 1> D_A1_BinCen;
+  //  blitz::Array<double, 1> D_A1_BinCen;
 
-  //  Array<double, 1> D_A1_ScatterBelow(this->GetNRows(), this->GetNCols());  //: in
-  //  Array<double, 1> D_A1_XScatterBelow(this->GetNRows(), this->GetNCols()); //: in
-  //  Array<double, 1> D_A1_ScatterAbove(this->GetNRows(), this->GetNCols());  //: in
-  //  Array<double, 1> D_A1_XScatterAbove(this->GetNRows(), this->GetNCols()); //: in
+  //  blitz::Array<double, 1> D_A1_ScatterBelow(this->GetNRows(), this->GetNCols());  //: in
+  //  blitz::Array<double, 1> D_A1_XScatterBelow(this->GetNRows(), this->GetNCols()); //: in
+  //  blitz::Array<double, 1> D_A1_ScatterAbove(this->GetNRows(), this->GetNCols());  //: in
+  //  blitz::Array<double, 1> D_A1_XScatterAbove(this->GetNRows(), this->GetNCols()); //: in
 
   //  D_A1_ScatterBelow = 0.;
   //  D_A1_XScatterBelow = 0.;
   //  D_A1_ScatterAbove = 0.;
   //  D_A1_XScatterAbove = 0.;
 
-  Array<double, 1> *P_D_A1_BLZ = new Array<double, 1>(1);
+  blitz::Array<double, 1> *P_D_A1_BLZ = new blitz::Array<double, 1>(1);
   (*P_D_A1_BLZ) = 0.;
 
-  Array<double, 1> D_A1_DXScatter(1);
+  blitz::Array<double, 1> D_A1_DXScatter(1);
   D_A1_DXScatter = 0.;
 
-  Array<double, 1> D_A1_IBound(1);
+  blitz::Array<double, 1> D_A1_IBound(1);
   D_A1_IBound = 0.;
 
-  Array<double, 1> D_A1_ICol(1);
+  blitz::Array<double, 1> D_A1_ICol(1);
   D_A1_ICol = 0.;
 
-  Array<double, 1> D_A1_IR0(1);
+  blitz::Array<double, 1> D_A1_IR0(1);
   D_A1_IR0 = 0.;
 
-  Array<double, 1> D_A1_IR1(1);
+  blitz::Array<double, 1> D_A1_IR1(1);
   D_A1_IR1 = 0.;
 
-  Array<double, 2> D_A2_Mask(1, 1);
+  blitz::Array<double, 2> D_A2_Mask(1, 1);
   D_A2_Mask = 0.;
 
-  Array<double, 2> D_A2_Msk(1, 1);
+  blitz::Array<double, 2> D_A2_Msk(1, 1);
   D_A2_Msk = 0.;
 
-  Array<double, 1> D_A1_SC(1);
+  blitz::Array<double, 1> D_A1_SC(1);
   D_A1_SC = 0.;
 
-  Array<double, 1> D_A1_Scatter(1);
+  blitz::Array<double, 1> D_A1_Scatter(1);
   D_A1_Scatter = 0.;
 
-  Array<double, 2> D_A2_SFBin(1, 1);
+  blitz::Array<double, 2> D_A2_SFBin(1, 1);
   D_A2_SFBin = 0.;
 
-  Array<double, 1> D_A1_SF(1);
+  blitz::Array<double, 1> D_A1_SF(1);
   D_A1_SF = 0.;
 
-  Array<double, 2> D_A2_SF(1, 1);
+  blitz::Array<double, 2> D_A2_SF(1, 1);
   D_A2_SF = 0.;
 
-  Array<double, 1> D_A1_SFPnt(1);
+  blitz::Array<double, 1> D_A1_SFPnt(1);
   D_A1_SFPnt = 0.;
 
-  Array<double, 1> D_A1_SFSM(1);
+  blitz::Array<double, 1> D_A1_SFSM(1);
   D_A1_SFSM = 0.;
 
-  Array<double, 1> D_A1_SFSM2(1);
+  blitz::Array<double, 1> D_A1_SFSM2(1);
   D_A1_SFSM2 = 0.;
 
-  Array<double, 1> D_A1_SFSM2Temp(1);
+  blitz::Array<double, 1> D_A1_SFSM2Temp(1);
   D_A1_SFSM2Temp = 0.;
 
-  Array<double, 2> D_A2_SlitFTemp(1,1);
+  blitz::Array<double, 2> D_A2_SlitFTemp(1,1);
   D_A2_SlitFTemp = 0.;
 
-  Array<double, 1> D_A1_SP(1);
+  blitz::Array<double, 1> D_A1_SP(1);
   D_A1_SP = 0.;
 
-  Array<double, 1> D_A1_SSF(1);
+  blitz::Array<double, 1> D_A1_SSF(1);
   D_A1_SSF = 0.;
 
-  Array<double, 1> D_A1_Tel(1);
+  blitz::Array<double, 1> D_A1_Tel(1);
   D_A1_Tel = 0.;
 
-  Array<double, 2> D_A2_Tel(1,1);
+  blitz::Array<double, 2> D_A2_Tel(1,1);
   D_A2_Tel = 0.;
 
-  Array<double, 1> D_A1_Temp(1);
+  blitz::Array<double, 1> D_A1_Temp(1);
   D_A1_Temp = 0.;
 
-  Array<double, 1> D_A1_TempArr(1);
+  blitz::Array<double, 1> D_A1_TempArr(1);
   D_A1_TempArr = 0.;
 
-  Array<double, 1> D_A1_TempArrA(1);
+  blitz::Array<double, 1> D_A1_TempArrA(1);
   D_A1_TempArrA = 0.;
 
-  Array<double, 1> D_A1_TempArrB(1);
+  blitz::Array<double, 1> D_A1_TempArrB(1);
   D_A1_TempArrB = 0.;
 
-  Array<double, 1> D_A1_TempArrC(1);
+  blitz::Array<double, 1> D_A1_TempArrC(1);
   D_A1_TempArrC = 0.;
 
-  Array<double, 1> D_A1_TempArrD(1);
+  blitz::Array<double, 1> D_A1_TempArrD(1);
   D_A1_TempArrD = 0.;
 
-  Array<double, 1> D_A1_XCenMXC(1);
+  blitz::Array<double, 1> D_A1_XCenMXC(1);
   D_A1_XCenMXC = 0.;
 
-  Array<double, 1> D_A1_XCentersE(1);
+  blitz::Array<double, 1> D_A1_XCentersE(1);
   D_A1_XCentersE = 0.;
 
-  Array<double, 1> D_A1_XInt(1);
+  blitz::Array<double, 1> D_A1_XInt(1);
   D_A1_XInt = 0.;
 
-  Array<double, 1> D_A1_XSFPnt(1);
+  blitz::Array<double, 1> D_A1_XSFPnt(1);
   D_A1_XSFPnt = 0.;
 
-  Array<double, 1> D_A1_XSlitFTemp(1);
+  blitz::Array<double, 1> D_A1_XSlitFTemp(1);
   D_A1_XSlitFTemp = 0.;
 
-  Array<int, 1> I_A1_I(1);
+  blitz::Array<int, 1> I_A1_I(1);
   I_A1_I = 0;
 
-  Array<int, 1> I_A1_IBeg(1);
+  blitz::Array<int, 1> I_A1_IBeg(1);
   I_A1_IBeg = 0;
 
-  Array<int, 1> I_A1_IEnd(1);
+  blitz::Array<int, 1> I_A1_IEnd(1);
   I_A1_IEnd = 0;
 
-  Array<int, 1> I_A1_IMax(1);
+  blitz::Array<int, 1> I_A1_IMax(1);
   I_A1_IMax = 0;
 
-  Array<int, 1> I_A1_IMin(1);
+  blitz::Array<int, 1> I_A1_IMin(1);
   I_A1_IMin = 0;
 
-  Array<int, 1> I_A1_ISort(1);
+  blitz::Array<int, 1> I_A1_ISort(1);
   I_A1_ISort = 0;
 
-  Array<int, 1> I_A1_ITel(1);
+  blitz::Array<int, 1> I_A1_ITel(1);
   I_A1_ITel = 0;
 
-  Array<int, 1> I_A1_IX(1);
+  blitz::Array<int, 1> I_A1_IX(1);
   I_A1_IX = 0;
 
-  Array<int, 1> I_A1_J0(1);
+  blitz::Array<int, 1> I_A1_J0(1);
   I_A1_J0 = 0;
 
-  Array<int, 1> I_A1_J1(1);
+  blitz::Array<int, 1> I_A1_J1(1);
   I_A1_J1 = 0;
 
-  Array<int, 1> I_A1_JBad(1);
+  blitz::Array<int, 1> I_A1_JBad(1);
   I_A1_JBad = 0;
 
-  Array<int, 1> I_A1_Temp(1);
+  blitz::Array<int, 1> I_A1_Temp(1);
   I_A1_Temp = 0;
 
-  Array<int, 1> I_A1_TempA(1);
+  blitz::Array<int, 1> I_A1_TempA(1);
   I_A1_TempA = 0;
 
-  Array<int, 1> *P_I_A1_XC;
+  blitz::Array<int, 1> *P_I_A1_XC;
 
   char* tmpstr = new char[4];
 
@@ -36302,7 +36302,7 @@ bool CFits::MkSlitFunc_Old(Array<double, 1> &D_A1_ScatterBelow,  //: in
   double d_tmp = 0.;
 
   CString CS_Temp("Y_LOWER_LIM");
-  Array<CString, 1> cs_a1(8);
+  blitz::Array<CString, 1> cs_a1(8);
 
   void **args = (void**)malloc(sizeof(void*) * 8);
 
@@ -36365,7 +36365,7 @@ bool CFits::MkSlitFunc_Old(Array<double, 1> &D_A1_ScatterBelow,  //: in
     x_left_lim  = 0
   */
   ///first column to extract
-  //  if ((I_Pos = this->KeyWord_Set(*(const_cast<const Array<CString, 1>*>(&CS_A1_Args)), CS_Temp)) >= 0)
+  //  if ((I_Pos = this->KeyWord_Set(*(const_cast<const blitz::Array<CString, 1>*>(&CS_A1_Args)), CS_Temp)) >= 0)
   //  {
   //    I_YLowerLim = *(int*)ArgV[I_Pos];
   //#ifdef __DEBUG_FITS_PISKUNOV__
@@ -36380,7 +36380,7 @@ bool CFits::MkSlitFunc_Old(Array<double, 1> &D_A1_ScatterBelow,  //: in
   */
   ///last column to extract
   //  CS_Temp.Set("Y_UPPER_LIM");
-  //  if ((I_Pos = this->KeyWord_Set(*(const_cast<const Array<CString, 1>*>(&CS_A1_Args)), CS_Temp)) >= 0)
+  //  if ((I_Pos = this->KeyWord_Set(*(const_cast<const blitz::Array<CString, 1>*>(&CS_A1_Args)), CS_Temp)) >= 0)
   //  {
   //    I_YUpperLim = *(int*)ArgV[I_Pos];
   //#ifdef __DEBUG_FITS_PISKUNOV__
@@ -36397,7 +36397,7 @@ bool CFits::MkSlitFunc_Old(Array<double, 1> &D_A1_ScatterBelow,  //: in
   */
   ///CCD gain
   CS_Temp.Set("CCD_GAIN");
-  if ((I_Pos = this->KeyWord_Set(*(const_cast<const Array<CString, 1>*>(&CS_A1_Args)), CS_Temp)) >= 0)
+  if ((I_Pos = this->KeyWord_Set(*(const_cast<const blitz::Array<CString, 1>*>(&CS_A1_Args)), CS_Temp)) >= 0)
   {
     D_CCDGain = *(double*)ArgV[I_Pos];
 #ifdef __DEBUG_FITS_PISKUNOV__
@@ -36415,7 +36415,7 @@ bool CFits::MkSlitFunc_Old(Array<double, 1> &D_A1_ScatterBelow,  //: in
   */
   ///Readout noise
   CS_Temp.Set("CCD_READN");
-  if ((I_Pos = this->KeyWord_Set(*(const_cast<const Array<CString, 1>*>(&CS_A1_Args)), CS_Temp)) >= 0)
+  if ((I_Pos = this->KeyWord_Set(*(const_cast<const blitz::Array<CString, 1>*>(&CS_A1_Args)), CS_Temp)) >= 0)
   {
     D_CCDReadN = *(double*)ArgV[I_Pos];
 #ifdef __DEBUG_FITS_PISKUNOV__
@@ -36440,9 +36440,9 @@ bool CFits::MkSlitFunc_Old(Array<double, 1> &D_A1_ScatterBelow,  //: in
   */
   ///Mask
   CS_Temp.Set("MASK");
-  if ((I_Pos = this->KeyWord_Set(*(const_cast<const Array<CString, 1>*>(&CS_A1_Args)), CS_Temp)) >= 0)
+  if ((I_Pos = this->KeyWord_Set(*(const_cast<const blitz::Array<CString, 1>*>(&CS_A1_Args)), CS_Temp)) >= 0)
   {
-    D_A2_Mask = *(Array<double, 2>*)ArgV[I_Pos];
+    D_A2_Mask = *(blitz::Array<double, 2>*)ArgV[I_Pos];
     cout << "CFits::MkSlitFunc: KeyWord_Set(MASK): D_A2_Mask set to " << D_A2_Mask << endl;//.transpose(secondDim, firstDim) << endl;
     (*P_OFS_Log) << "CFits::MkSlitFunc: KeyWord_Set(MASK): D_A2_Mask set to " << D_A2_Mask << endl;//.transpose(secondDim, firstDim) << endl;
     if (D_A2_Mask.rows() != 1 && D_A2_Mask.cols() != 1 && D_A2_Mask(0,0) != 0)
@@ -36464,7 +36464,7 @@ bool CFits::MkSlitFunc_Old(Array<double, 1> &D_A1_ScatterBelow,  //: in
   }
   ///Internal program parameters.
   CS_Temp.Set("SWATH_WIDTH");
-  if ((I_Pos = this->KeyWord_Set(*(const_cast<const Array<CString, 1>*>(&CS_A1_Args)), CS_Temp)) >= 0)
+  if ((I_Pos = this->KeyWord_Set(*(const_cast<const blitz::Array<CString, 1>*>(&CS_A1_Args)), CS_Temp)) >= 0)
   {
     /// If swath width is preset
     I_SwathWidth = *(int*)ArgV[I_Pos];
@@ -36497,7 +36497,7 @@ bool CFits::MkSlitFunc_Old(Array<double, 1> &D_A1_ScatterBelow,  //: in
     cout << "CFits::MkSlitFunc: !KeyWord_Set(SWATH_WIDTH): this->P_D_A2_XCenters(I_IAperture_In=" << I_IAperture_In << ") = " << (*P_D_A2_XCenters)(I_IAperture_In, Range::all()) << endl;
     (*P_OFS_Log) << "CFits::MkSlitFunc: !KeyWord_Set(SWATH_WIDTH): this->P_D_A2_XCenters(I_IAperture_In=" << I_IAperture_In << ") = " << (*P_D_A2_XCenters)(I_IAperture_In, Range::all()) << endl;
 #endif
-    Array<int, 1> *p_tempIntArrA = Fix((*this->P_D_A2_XCenters)(I_IAperture_In, Range::all()));
+    blitz::Array<int, 1> *p_tempIntArrA = Fix((*this->P_D_A2_XCenters)(I_IAperture_In, Range::all()));
 #ifdef __DEBUG_FITS_PISKUNOV__
     cout << "CFits::MkSlitFunc: !KeyWord_Set(SWATH_WIDTH): p_tempIntArrA = " << *p_tempIntArrA << endl;
     (*P_OFS_Log) << "CFits::MkSlitFunc: !KeyWord_Set(SWATH_WIDTH): p_tempIntArrA = " << *p_tempIntArrA << endl;
@@ -36668,8 +36668,8 @@ cout << "CFits::MkSlitFunc: (*P_D_A2_XCenters)(I_IAperture_In=" << I_IAperture_I
     return false;
   }
   D_A1_Temp = D_A1_IBound(Range(0, I_NBin-1));
-  Array<long, 1> *p_ceil = this->Ceil(D_A1_Temp);
-  Array<int, 1> *p_iceil = FixLI(*p_ceil);
+  blitz::Array<long, 1> *p_ceil = this->Ceil(D_A1_Temp);
+  blitz::Array<int, 1> *p_iceil = FixLI(*p_ceil);
   I_A1_IBeg = (*p_iceil);
   delete p_iceil;
   delete p_ceil;
@@ -36689,7 +36689,7 @@ cout << "CFits::MkSlitFunc: (*P_D_A2_XCenters)(I_IAperture_In=" << I_IAperture_I
   /// End of each bin
   ///  iend = floor(ibound(1:nbin))                  ;end of each bin
   I_A1_IEnd.resize(I_NBin);
-  Array<int, 1> *p_tempIntArrB = Fix(D_A1_IBound(Range(1, I_NBin)));
+  blitz::Array<int, 1> *p_tempIntArrB = Fix(D_A1_IBound(Range(1, I_NBin)));
   I_A1_IEnd = (*p_tempIntArrB);
   delete p_tempIntArrB;
 #ifdef __DEBUG_FITS_PISKUNOV__
@@ -36719,7 +36719,7 @@ cout << "CFits::MkSlitFunc: (*P_D_A2_XCenters)(I_IAperture_In=" << I_IAperture_I
   */
   /// Initialize default parameters and arrays.
   /*  CS_Temp.Set("OVERSAMPLE");
-    if ((I_Pos = this->KeyWord_Set(*(const_cast<const Array<CString, 1>*>(&CS_A1_Args)), CS_Temp)) >= 0)
+    if ((I_Pos = this->KeyWord_Set(*(const_cast<const blitz::Array<CString, 1>*>(&CS_A1_Args)), CS_Temp)) >= 0)
     {
       /// SlitF pixels / real pixel
       I_OverSample = *(int*)ArgV[I_Pos];
@@ -36742,7 +36742,7 @@ cout << "CFits::MkSlitFunc: (*P_D_A2_XCenters)(I_IAperture_In=" << I_IAperture_I
   {
     if (P_D_A1_BLZ != NULL)
       delete P_D_A1_BLZ;
-    P_D_A1_BLZ = (Array<double, 1>*)ArgV[I_Pos];
+    P_D_A1_BLZ = (blitz::Array<double, 1>*)ArgV[I_Pos];
 #ifdef __DEBUG_FITS_PISKUNOV__
     cout << "CFits::MkSlitFunc: KeyWord_Set(BLZ): P_D_A1_BLZ set to " << *P_D_A1_BLZ << endl;
     (*P_OFS_Log) << "CFits::MkSlitFunc: KeyWord_Set(BLZ): P_D_A1_BLZ set to " << *P_D_A1_BLZ << endl;
@@ -36766,7 +36766,7 @@ cout << "CFits::MkSlitFunc: (*P_D_A2_XCenters)(I_IAperture_In=" << I_IAperture_I
   */
   CS_Temp.Set("LAMBDA_SF");
   cout << "CFits::MkSlitFunc: CS_A1_Args = " << CS_A1_Args << endl;
-  if ((I_Pos = this->KeyWord_Set(*(const_cast<const Array<CString, 1>*>(&CS_A1_Args)), CS_Temp)) >= 0)
+  if ((I_Pos = this->KeyWord_Set(*(const_cast<const blitz::Array<CString, 1>*>(&CS_A1_Args)), CS_Temp)) >= 0)
   {
     cout << "CFits::MkSlitFunc: I_Pos = " << I_Pos << endl;
     D_LambdaSF = *(double*)ArgV[I_Pos];
@@ -36785,7 +36785,7 @@ cout << "CFits::MkSlitFunc: (*P_D_A2_XCenters)(I_IAperture_In=" << I_IAperture_I
     lambda_sp=lam_sp
   */
   CS_Temp.Set("LAMBDA_SP");
-  if ((I_Pos = this->KeyWord_Set(*(const_cast<const Array<CString, 1>*>(&CS_A1_Args)), CS_Temp)) >= 0)
+  if ((I_Pos = this->KeyWord_Set(*(const_cast<const blitz::Array<CString, 1>*>(&CS_A1_Args)), CS_Temp)) >= 0)
   {
     I_LambdaSP = *(int*)ArgV[I_Pos];
     //#ifdef __DEBUG_FITS_PISKUNOV__
@@ -37013,7 +37013,7 @@ cout << "CFits::MkSlitFunc: (*P_D_A2_XCenters)(I_IAperture_In=" << I_IAperture_I
       D_A1_SSF.resize(I_K1 - I_K0 + 1);
       ///      if(keyword_set(no_scatter)) then begin
       CS_Temp.Set("NO_SCATTER");
-      if ((I_Pos = this->KeyWord_Set(*(const_cast<const Array<CString, 1>*>(&CS_A1_Args)), CS_Temp)) >= 0 && *(int*)ArgV[I_Pos] != 0)
+      if ((I_Pos = this->KeyWord_Set(*(const_cast<const blitz::Array<CString, 1>*>(&CS_A1_Args)), CS_Temp)) >= 0 && *(int*)ArgV[I_Pos] != 0)
       {
         ///        ssf = im(ib+j,k0:k1)
         D_A1_SSF = (*(const_cast<CFits*>(this)->P_D_A2_PixArray))(I_IB + n, Range(I_K0, I_K1));
@@ -37215,7 +37215,7 @@ cout << "CFits::MkSlitFunc: (*P_D_A2_XCenters)(I_IAperture_In=" << I_IAperture_I
 
     ///      if(keyword_set(telluric)) then begin
     CS_Temp.Set("TELLURIC");
-    if ((I_Pos = this->KeyWord_Set(*(const_cast<const Array<CString, 1>*>(&CS_A1_Args)), CS_Temp)) >= 0)
+    if ((I_Pos = this->KeyWord_Set(*(const_cast<const blitz::Array<CString, 1>*>(&CS_A1_Args)), CS_Temp)) >= 0)
     {
 
       ///      tel=total(sf,1)
@@ -37284,8 +37284,8 @@ cout << "CFits::MkSlitFunc: (*P_D_A2_XCenters)(I_IAperture_In=" << I_IAperture_I
       I_A1_Temp = 1;
       D_A2_SF.resizeAndPreserve(I_NR, I_A1_Temp.size());
 
-      Array<double, 1> *p_tempDblVecArr = FixD(I_A1_Temp);
-      Array<double, 2> *p_d2mata = VecArrACrossB(D_A1_SC, *p_tempDblVecArr);
+      blitz::Array<double, 1> *p_tempDblVecArr = FixD(I_A1_Temp);
+      blitz::Array<double, 2> *p_d2mata = VecArrACrossB(D_A1_SC, *p_tempDblVecArr);
       delete p_tempDblVecArr;
 
 #ifdef __DEBUG_FITS_PISKUNOV__
@@ -37336,7 +37336,7 @@ cout << "CFits::MkSlitFunc: (*P_D_A2_XCenters)(I_IAperture_In=" << I_IAperture_I
         (*P_OFS_Log) << "CFits::MkSlitFunc: ERROR: D_A1_SFPnt.size(=" << D_A1_SFPnt.size() << ") != D_A2_SF.size(=" << D_A2_SF.size() << ")" << endl;
         return false;
       }
-      Array<double, 1> *p_D_A1_SFPnt = this->Reform(D_A2_SF);
+      blitz::Array<double, 1> *p_D_A1_SFPnt = this->Reform(D_A2_SF);
       D_A1_SFPnt.resize(p_D_A1_SFPnt->size());
       D_A1_SFPnt = (*p_D_A1_SFPnt);
       delete p_D_A1_SFPnt;
@@ -37392,7 +37392,7 @@ cout << "CFits::MkSlitFunc: (*P_D_A2_XCenters)(I_IAperture_In=" << I_IAperture_I
     args[pppos] = &D_A2_Msk;
 #ifdef __DEBUG_FITS_PISKUNOV__
     cout << "CFits::MkSlitFunc: D_A2_Mask = " << D_A2_Mask << endl;//.transpose(secondDim, firstDim) << endl;
-    cout << "CFits::MkSlitFunc: args[" << pppos << "] set to " << *(Array<double, 2>*)args[pppos] << endl;
+    cout << "CFits::MkSlitFunc: args[" << pppos << "] set to " << *(blitz::Array<double, 2>*)args[pppos] << endl;
 #endif
     pppos++;
 
@@ -37410,7 +37410,7 @@ cout << "CFits::MkSlitFunc: (*P_D_A2_XCenters)(I_IAperture_In=" << I_IAperture_I
     ///          USE_COL=jgood,
     ///          BAD=jbad,
     ///          MASK=msk
-    //    Array<double, 1> D_A1_SF(D_A2_SF.cols());
+    //    blitz::Array<double, 1> D_A1_SF(D_A2_SF.cols());
     //    D_A1_SF = D_A2_SF(0,Range::all());
 
     D_A1_XCenMXC.resize(I_IE - I_IB + 1);
@@ -37456,7 +37456,7 @@ cout << "CFits::MkSlitFunc: (*P_D_A2_XCenters)(I_IAperture_In=" << I_IAperture_I
                         D_A1_SP,
                         D_A1_SFSM,
                         //                        pppos,
-                        *(const_cast<const Array<CString, 1>*>(&cs_a1)),
+                        *(const_cast<const blitz::Array<CString, 1>*>(&cs_a1)),
                         args))
     {
       /*      for (int ipos = 0; ipos < pppos; ipos++)
@@ -37675,14 +37675,14 @@ cout << "CFits::MkSlitFunc: (*P_D_A2_XCenters)(I_IAperture_In=" << I_IAperture_I
       return false;
     }
     D_A1_SFSM2Temp.resize(0);
-    Array<double, 1> *p_D_A1_SFSM2Temp = this->Reform(D_A2_SFBin);
+    blitz::Array<double, 1> *p_D_A1_SFSM2Temp = this->Reform(D_A2_SFBin);
 #ifdef __DEBUG_FITS_PISKUNOV__
     cout << "CFits::MkSlitFunc: for (int m(=" << m << ") = 0; m < I_NBin(=" << I_NBin << "); m++): D_A1_SFSM2Temp set to " << *p_D_A1_SFSM2Temp<< endl;
     (*P_OFS_Log) << "CFits::MkSlitFunc: for (int m(=" << m << ") = 0; m < I_NBin(=" << I_NBin << "); m++): D_A1_SFSM2Temp = " << *p_D_A1_SFSM2Temp << endl;
 #endif
 
     ///    j = sort(ysfpnt)
-    Array<int, 1> *p_I_A1_Temp = this->SortIndices(D_A1_XSFPnt);
+    blitz::Array<int, 1> *p_I_A1_Temp = this->SortIndices(D_A1_XSFPnt);
     I_A1_Temp.resize(p_I_A1_Temp->size());//D_A1_XSFPnt.size());
     I_A1_Temp = (*p_I_A1_Temp);
     delete p_I_A1_Temp;
@@ -37701,8 +37701,8 @@ cout << "CFits::MkSlitFunc: (*P_D_A2_XCenters)(I_IAperture_In=" << I_IAperture_I
         (*P_OFS_Log) << "CFits::MkSlitFunc: ERROR: I_A1_Temp.size(=" << I_A1_Temp.size() << ") < I_A1_JBad.size(=" << I_A1_JBad.size() << ")" << endl;
         return false;
       }
-      Array<double, 1> *p_da1tempfix = FixD(I_A1_Temp);
-      Array<int, 1> *p_ia1temp = this->SortIndices(*p_da1tempfix);
+      blitz::Array<double, 1> *p_da1tempfix = FixD(I_A1_Temp);
+      blitz::Array<int, 1> *p_ia1temp = this->SortIndices(*p_da1tempfix);
       delete p_da1tempfix;
       this->GetSubArrCopy(*p_ia1temp, I_A1_JBad, I_A1_TempA);
       delete p_ia1temp;
@@ -37795,37 +37795,37 @@ cout << "CFits::MkSlitFunc: (*P_D_A2_XCenters)(I_IAperture_In=" << I_IAperture_I
 #endif
 
   /*  /// Write slit function to (profile) image this->PixArray
-    Array<double, 2> D_A2_Profile;
+    blitz::Array<double, 2> D_A2_Profile;
     D_A2_Profile.resize(I_NXSF, I_NR);
     D_A2_Profile = 0.;
 
     /// Vector of Slit Function Points at BinCenters
-    Array<double, 1> D_A1_Bins(2);
+    blitz::Array<double, 1> D_A1_Bins(2);
 
     /// Vector of y_start(==0) and y_end(==1)
-    Array<double, 1> D_A1_YBin;
+    blitz::Array<double, 1> D_A1_YBin;
     D_A1_YBin.resize(2);
 
     int I_StartInd = 0;
     int I_EndInd = 0;
     int i_nrows;
 
-    Array<double, 1> D_A1_SlitPixA;
+    blitz::Array<double, 1> D_A1_SlitPixA;
     D_A1_SlitPixA.resize(D_A2_SlitF.rows());
 
-    Array<double, 1> D_A1_SlitPixB;
+    blitz::Array<double, 1> D_A1_SlitPixB;
     D_A1_SlitPixB.resize(D_A2_SlitF.rows());
 
-    Array<double, 1> D_A1_SlitPixBinA;
-    Array<double, 1> D_A1_SlitPixBinB;
-    Array<double, 1> D_A1_Ind;
+    blitz::Array<double, 1> D_A1_SlitPixBinA;
+    blitz::Array<double, 1> D_A1_SlitPixBinB;
+    blitz::Array<double, 1> D_A1_Ind;
 
     int OffSet = 0;
     int npix;// = XLast - XFirst + 1;
-    Array<int, 1> temp_ind_arr;//(D_A1_XSlitF.size());
+    blitz::Array<int, 1> temp_ind_arr;//(D_A1_XSlitF.size());
     temp_ind_arr.resize(D_A1_XSlitF.size());
 
-    Array<int, 1> ind_arr;
+    blitz::Array<int, 1> ind_arr;
     double WeightFirst = 0.;// = (*this->P_D_A2_XCenters)(I_IAperture_In, m) + (double)((*this->P_D_A1_XLow)(I_IAperture_In));
     double WeightLast = 0.;// = (*this->P_D_A2_XCenters)(I_IAperture_In, m) + (*this->P_D_A1_XHigh)(I_IAperture_In);
     int XFirst = 0;// = (int)WeightFirst;
@@ -37907,14 +37907,14 @@ cout << "CFits::MkSlitFunc: (*P_D_A2_XCenters)(I_IAperture_In=" << I_IAperture_I
   ///    for icol=cole0,cole1 do begin                     ;loop thru image columns
 
 
-  Array<double, 1> *P_D_A1_BLZSmooth;
+  blitz::Array<double, 1> *P_D_A1_BLZSmooth;
   if (this->KeyWord_Set(CS_A1_Args, CString("FLAT")) >= 0)
   {
     P_D_A1_BLZSmooth = this->MedianVec(*P_D_A1_BLZ, I_LambdaSP);
   }
   else
   {
-    P_D_A1_BLZSmooth = new Array<double, 1>(1);
+    P_D_A1_BLZSmooth = new blitz::Array<double, 1>(1);
     (*P_D_A1_BLZSmooth) = 0.;
   }
   for (irow = 0; irow < this->NRows; irow++)
@@ -37994,7 +37994,7 @@ cout << "CFits::MkSlitFunc: (*P_D_A2_XCenters)(I_IAperture_In=" << I_IAperture_I
       ///      isort = sort(abs(binc - icol))                  ;sort by distance
       D_A1_TempArr.resize(D_A1_BinCen.size());
       D_A1_TempArr = abs(D_A1_BinCen - irow);
-      Array<int, 1> *p_I_A1_ISort = this->SortIndices(D_A1_TempArr);
+      blitz::Array<int, 1> *p_I_A1_ISort = this->SortIndices(D_A1_TempArr);
       //      cout << "CFits::MkSlitFunc: p_I_A1_ISort set to " << *p_I_A1_ISort << endl;
       I_A1_ISort.resize(p_I_A1_ISort->size());//.resize(D_A1_BinCen.size());
       I_A1_ISort = (*p_I_A1_ISort);
@@ -38076,7 +38076,7 @@ cout << "CFits::MkSlitFunc: (*P_D_A2_XCenters)(I_IAperture_In=" << I_IAperture_I
       (*P_OFS_Log) << "CFits::MkSlitFunc: for (int irow(=" << irow << ") = 0; irow < this->NRows(=" << this->NRows << "); irow++): D_A1_TempArrA = " << D_A1_TempArrA << endl;
 #endif
 
-      Array<double, 1> *p_D_A1_SF0 = this->InterPolate(D_A1_TempArrA, D_A1_XInt);
+      blitz::Array<double, 1> *p_D_A1_SF0 = this->InterPolate(D_A1_TempArrA, D_A1_XInt);
       D_A1_TempArrA.resize(0);
 
 #ifdef __DEBUG_FITS_PISKUNOV__
@@ -38099,7 +38099,7 @@ cout << "CFits::MkSlitFunc: (*P_D_A2_XCenters)(I_IAperture_In=" << I_IAperture_I
       (*P_OFS_Log) << "CFits::MkSlitFunc: for (int irow(=" << irow << ") = 0; irow < this->NRows(=" << this->NRows << "); irow++): D_A1_TempArrB = " << D_A1_TempArrB << endl;
 #endif
 
-      Array<double, 1> *p_D_A1_SF1 = this->InterPolate(D_A1_TempArrB, D_A1_XInt);
+      blitz::Array<double, 1> *p_D_A1_SF1 = this->InterPolate(D_A1_TempArrB, D_A1_XInt);
       D_A1_TempArrB.resize(0);
 
 #ifdef __DEBUG_FITS_PISKUNOV__
@@ -38186,7 +38186,7 @@ cout << "CFits::MkSlitFunc: (*P_D_A2_XCenters)(I_IAperture_In=" << I_IAperture_I
 
 
   //  /// Vector containing the interpolated column
-  //  Array<double, 1> D_A1_InterPol(I_NXSF);
+  //  blitz::Array<double, 1> D_A1_InterPol(I_NXSF);
   /*  /// Fill Profile Array
     /// Loop through Bins
     for (int m = -1; m < I_NBin; m++)
@@ -38353,7 +38353,7 @@ cout << "CFits::MkSlitFunc: (*P_D_A2_XCenters)(I_IAperture_In=" << I_IAperture_I
 
   /// FILENAME
   CS_Temp.Set("FILENAME");
-  if ((I_Pos = this->KeyWord_Set(*(const_cast<const Array<CString, 1>*>(&CS_A1_Args)), CS_Temp)) >= 0)
+  if ((I_Pos = this->KeyWord_Set(*(const_cast<const blitz::Array<CString, 1>*>(&CS_A1_Args)), CS_Temp)) >= 0)
   {
     CString CS_TempFileName(*(CString*)ArgV[I_Pos]);
 #ifdef __DEBUG_FITS_PISKUNOV__
@@ -38472,22 +38472,22 @@ cout << "CFits::MkSlitFunc: (*P_D_A2_XCenters)(I_IAperture_In=" << I_IAperture_I
  SlitFunc old version
  SlitFunc
  **/
-bool CFits::SlitFunc_Old(Array<double, 2> &D_A2_ImM,
+bool CFits::SlitFunc_Old(blitz::Array<double, 2> &D_A2_ImM,
                      int I_IAperture_In,
-                     Array<double, 1> &D_A1_XCenters_In, //: in
-                     Array<double, 1> &SPVecArr,   //: out
-                     Array<double, 1> &SFVecArr,   //: out
+                     blitz::Array<double, 1> &D_A1_XCenters_In, //: in
+                     blitz::Array<double, 1> &SPVecArr,   //: out
+                     blitz::Array<double, 1> &SFVecArr,   //: out
                      //                     int NArgs,                //: in
-                     const Array<CString, 1> &CS_A1_Args,   //: in
+                     const blitz::Array<CString, 1> &CS_A1_Args,   //: in
                      void *ArgV[])     //: in
 /*            NOISE      = double          : in
               OVERSAMPLE = int             : in
-              IM_OUT     = Array<double, 2>: out
+              IM_OUT     = blitz::Array<double, 2>: out
               LAMBDA_SF  = double          : in
               LAMBDA_SP  = int             : in
               USE_ROW    = int             : in
-              BAD        = Array<int, 1>   : out
-              MASK       = Array<double, 2>: in
+              BAD        = blitz::Array<int, 1>   : out
+              MASK       = blitz::Array<double, 2>: in
 */
 {
   cout << "CFits::SlitFunc_Old: CS_A1_Args = " << CS_A1_Args << endl;
@@ -38512,52 +38512,52 @@ bool CFits::SlitFunc_Old(Array<double, 2> &D_A2_ImM,
   **/
 
   /**
-  Array Akl                      -> Array<double, 2> AKLArr
-  Array bkl (size=[N,2*OverSample+1])-> Array<double, 2> BKLArr
-  Vector bklind (size=osample+1) -> Array<int, 1> BKLIndVecArr
-  Vector Bl                      -> Array<double, 1> BLVecArr
+  Array Akl                      -> blitz::Array<double, 2> AKLArr
+  Array bkl (size=[N,2*OverSample+1])-> blitz::Array<double, 2> BKLArr
+  Vector bklind (size=osample+1) -> blitz::Array<int, 1> BKLIndVecArr
+  Vector Bl                      -> blitz::Array<double, 1> BLVecArr
   double dev                     -> double Dev
   int    i                       -> int m
-  int/Vector i1                  -> int IFirst/Array<double, 1> IFirstVecArr
-  int/Vector i2                  -> int ILast/Array<double, 1> ILastVecArr
-  Array  im                      -> Array<double, 2> D_A2_ImM
-  Vector(use_col set)/Array imm  -> Array<double, 2> D_A2_ImM->(UseRowVecArr)
-  Array  im_out                  -> Array<double, 2> *P_D_A2_ImOut
-  Vector ind                     -> Array<double, 1> IndVecArr
+  int/Vector i1                  -> int IFirst/blitz::Array<double, 1> IFirstVecArr
+  int/Vector i2                  -> int ILast/blitz::Array<double, 1> ILastVecArr
+  Array  im                      -> blitz::Array<double, 2> D_A2_ImM
+  Vector(use_col set)/Array imm  -> blitz::Array<double, 2> D_A2_ImM->(UseRowVecArr)
+  Array  im_out                  -> blitz::Array<double, 2> *P_D_A2_ImOut
+  Vector ind                     -> blitz::Array<double, 1> IndVecArr
   int    iter                    -> int  Iter
-  Vector/long   jbad             -> Array<int, 1> *P_I_A1_JBadVecArr / (*P_I_A1_JBadVecArr)(0)
+  Vector/long   jbad             -> blitz::Array<int, 1> *P_I_A1_JBadVecArr / (*P_I_A1_JBadVecArr)(0)
   int    l                       -> int n
   double lamb_sf                 -> double Lamb_SF [: in]
   double lamb_sp                 -> double Lamb_SP [: in]
   double lambda                  -> double Lambda
-  Array  mask, mmsk              -> Array<long, 2> P_Mask->PixArray: in
-  Vector(use_col set)/Array msk  -> Array<double, 2> Mask(UseRowVecArr)
+  Array  mask, mmsk              -> blitz::Array<long, 2> P_Mask->PixArray: in
+  Vector(use_col set)/Array msk  -> blitz::Array<double, 2> Mask(UseRowVecArr)
   int    n                       -> int N
   int    ncol                    -> ImM->cols, NColsOut -> OutArr->NCols
   int    nind                    -> int  NInd
   int    nrow                    -> ImM->rows
-  Array/Vector  o                -> Array<double, 2> OArr
-  Vector oo                      -> Array<double, 1> OOVecArr
-  Vector oind                    -> Array<int, 1> OIndVecArr
-  Vector olind  (size=osample+1) -> Array<int, 1> OLIndVecArr
-  Vector omega                   -> Array<double, 1> OmegaVecArr
+  Array/Vector  o                -> blitz::Array<double, 2> OArr
+  Vector oo                      -> blitz::Array<double, 1> OOVecArr
+  Vector oind                    -> blitz::Array<int, 1> OIndVecArr
+  Vector olind  (size=osample+1) -> blitz::Array<int, 1> OLIndVecArr
+  Vector omega                   -> blitz::Array<double, 1> OmegaVecArr
   long   osample                 -> int  OverSample [: in]
   int    oversample              -> int  OverSample [: in]
-  Vector r                       -> Array<double, 1> RVecArr
-  Vector sf                      -> Array<double, 1> SFVecArr: in
-  Vector sp                      -> Array<double, 1> SPVecArr: out
-  Vector sp_old                  -> Array<double, 1> SPOldVecArr
-  Array  ssf                     -> Array<double, 2> SSFArr
-  int    use_col                 -> Array<long, 1> UseRowVecArr: in
+  Vector r                       -> blitz::Array<double, 1> RVecArr
+  Vector sf                      -> blitz::Array<double, 1> SFVecArr: in
+  Vector sp                      -> blitz::Array<double, 1> SPVecArr: out
+  Vector sp_old                  -> blitz::Array<double, 1> SPOldVecArr
+  Array  ssf                     -> blitz::Array<double, 2> SSFArr
+  int    use_col                 -> blitz::Array<long, 1> UseRowVecArr: in
   double weight                  -> double Weight
-  Vector y (size=n)              -> Array<double, 1> XVecArr
-  Vector ycen                    -> Array<double, 1> XCenVecArr: in
-  Vector yy (size=n)             -> Array<double, 1> XXVecArr
-  int(use_col set)/Vector yycen  -> Array<double, 1> XCenVecArr(0) <- XCenter: in
+  Vector y (size=n)              -> blitz::Array<double, 1> XVecArr
+  Vector ycen                    -> blitz::Array<double, 1> XCenVecArr: in
+  Vector yy (size=n)             -> blitz::Array<double, 1> XXVecArr
+  int(use_col set)/Vector yycen  -> blitz::Array<double, 1> XCenVecArr(0) <- XCenter: in
   double yyy                     -> double XXX
   IDL:     array(Column, Row)
   BLITZ++: array(Row, Column) !!!!!!!!!!!!!!!!!!!
-  reform(Array, NCols, NRows)  -> Array<double, 2>& Reform(Array<double, 1>, NRows, NCols) <NOTE: Dim1 <=> Dim2>
+  reform(Array, NCols, NRows)  -> blitz::Array<double, 2>& Reform(blitz::Array<double, 1>, NRows, NCols) <NOTE: Dim1 <=> Dim2>
   replicate(Value, Dim)      -> Replicate(Value, Dim)
   Matrix#Matrix              -> MatrixBTimesA()
   Vector#Vector              -> VecArrACrossB()
@@ -38584,137 +38584,137 @@ bool CFits::SlitFunc_Old(Array<double, 2> &D_A2_ImM,
   int i_tmp_sum;
   long TempLong;
 
-  Array<int, 1> *P_I_A1_JBadVecArr = new Array<int, 1>(1);
+  blitz::Array<int, 1> *P_I_A1_JBadVecArr = new blitz::Array<int, 1>(1);
   (*P_I_A1_JBadVecArr) = 0;
 
-  Array<double, 1> a(1);
+  blitz::Array<double, 1> a(1);
   a = 0.;
 
-  Array<double, 2> AKLArr(1,1);
+  blitz::Array<double, 2> AKLArr(1,1);
   AKLArr = 0.;
 
-  Array<double, 1> b(1);
+  blitz::Array<double, 1> b(1);
   b = 0.;
 
-  Array<double, 2> BKLArr(1,1);
+  blitz::Array<double, 2> BKLArr(1,1);
   BKLArr = 0.;
 
-  Array<int, 1> BKLIndVecArr(1);
+  blitz::Array<int, 1> BKLIndVecArr(1);
   BKLIndVecArr = 0;
 
-  Array<double, 1> BLVecArr(1);
+  blitz::Array<double, 1> BLVecArr(1);
   BLVecArr = 0.;
 
-  Array<double, 1> c(1);
+  blitz::Array<double, 1> c(1);
   c = 0.;
 
-  Array<double, 1> D_A1_Ind(1);
+  blitz::Array<double, 1> D_A1_Ind(1);
   D_A1_Ind = 0.;
 
-  Array<double, 2> D_A2_AKLT(1,1);
+  blitz::Array<double, 2> D_A2_AKLT(1,1);
   D_A2_AKLT = 0.;
 
-  Array<double, 2> D_A2_OT(1,1);
+  blitz::Array<double, 2> D_A2_OT(1,1);
   D_A2_OT = 0.;
 
-  Array<double, 2> D_A2_SPVecTimesBKLArr(1, 1);
+  blitz::Array<double, 2> D_A2_SPVecTimesBKLArr(1, 1);
   D_A2_SPVecTimesBKLArr = 0.;
 
-  Array<int, 1> IFirstVecArr(1);
+  blitz::Array<int, 1> IFirstVecArr(1);
   IFirstVecArr = 0;
 
-  Array<int, 1> ILastVecArr(1);
+  blitz::Array<int, 1> ILastVecArr(1);
   ILastVecArr = 0;
 
   //  (*P_OFS_Log) << "CFits::SlitFunc: 0A. this->NRows = " << this->NRows << ", this->NCols = " << this->NCols << endl;
 
-  Array<double, 2> *P_D_A2_ImOut = new Array<double, 2> (D_A2_ImM.rows(), D_A2_ImM.cols());
+  blitz::Array<double, 2> *P_D_A2_ImOut = new blitz::Array<double, 2> (D_A2_ImM.rows(), D_A2_ImM.cols());
   (*P_D_A2_ImOut) = 0.;
 
-  Array<int, 1> IndVecArr(1);
+  blitz::Array<int, 1> IndVecArr(1);
   IndVecArr = 0;
 
-  Array<double, 2> Mask(1,1);
+  blitz::Array<double, 2> Mask(1,1);
   Mask = 0.;
 
-  Array<double, 2> OArr(1,1);
+  blitz::Array<double, 2> OArr(1,1);
   OArr = 0.;
 
-  Array<int, 1> OIndVecArr(1);
+  blitz::Array<int, 1> OIndVecArr(1);
   OIndVecArr = 0;
 
-  Array<int, 1> OLIndVecArr(1);
+  blitz::Array<int, 1> OLIndVecArr(1);
   OLIndVecArr = 0;
 
-  Array<double, 1> OOVecArr(1);
+  blitz::Array<double, 1> OOVecArr(1);
   OOVecArr = 0.;
 
-  Array<double, 1> OmegaVecArr(1);
+  blitz::Array<double, 1> OmegaVecArr(1);
   OmegaVecArr = 0.;
 
-  Array<double, 2> OmegaArr(1,1);
+  blitz::Array<double, 2> OmegaArr(1,1);
   OmegaArr = 0.;
 
-  Array<double, 2> D_A2_TempAA(1, 1);
+  blitz::Array<double, 2> D_A2_TempAA(1, 1);
   D_A2_TempAA = 0.;
 
-  Array<double, 1> D_A1_TempDVecArr(1);
+  blitz::Array<double, 1> D_A1_TempDVecArr(1);
   D_A1_TempDVecArr = 0.;
 
-  Array<double, 1> D_A1_TempDVecArrAA(1);
+  blitz::Array<double, 1> D_A1_TempDVecArrAA(1);
   D_A1_TempDVecArrAA = 0.;
 
-  Array<double, 2> ProductArr(1,1);
+  blitz::Array<double, 2> ProductArr(1,1);
   ProductArr = 0.;
 
-  Array<double, 1> RVecArr(1);
+  blitz::Array<double, 1> RVecArr(1);
   RVecArr = 0.;
 
-  //  Array<double, 1> SFVecArr(SF.copy());
-  Array<double, 1> SPOldVecArr(1);
+  //  blitz::Array<double, 1> SFVecArr(SF.copy());
+  blitz::Array<double, 1> SPOldVecArr(1);
   SPOldVecArr = 0.;
-  //  Array<double, 1> SPVecArr(SP.copy());
+  //  blitz::Array<double, 1> SPVecArr(SP.copy());
 
-  Array<double, 2> SSFArr(1,1);
+  blitz::Array<double, 2> SSFArr(1,1);
   SSFArr = 0.;
 
-  Array<double, 2> TempArray(1,1);
+  blitz::Array<double, 2> TempArray(1,1);
   TempArray = 0.;
 
-  Array<double, 1> TempDVecArr(1);
+  blitz::Array<double, 1> TempDVecArr(1);
   TempDVecArr = 0.;
 
-  Array<double, 1> TempDVecArrA(1);
+  blitz::Array<double, 1> TempDVecArrA(1);
   TempDVecArrA = 0.;
 
-  Array<double, 1> TempDVecArrB(1);
+  blitz::Array<double, 1> TempDVecArrB(1);
   TempDVecArrB = 0.;
 
-  Array<double, 1> TempDVecArrC(1);
+  blitz::Array<double, 1> TempDVecArrC(1);
   TempDVecArrC = 0.;
 
-  Array<double, 2> TempDArr(1,1);
+  blitz::Array<double, 2> TempDArr(1,1);
   TempDArr = 0.;
 
-  Array<int, 1> TempIVecArr(1);
+  blitz::Array<int, 1> TempIVecArr(1);
   TempIVecArr = 0;
 
-  Array<double, 2> *P_TempMask = new Array<double, 2>(1,1);
+  blitz::Array<double, 2> *P_TempMask = new blitz::Array<double, 2>(1,1);
   (*P_TempMask) = 0.;
 
-  Array<long, 1> UseRowVecArr(1);
+  blitz::Array<long, 1> UseRowVecArr(1);
   UseRowVecArr = 0;
 
-  Array<int, 1> IVecArr(1);
+  blitz::Array<int, 1> IVecArr(1);
   IVecArr = 0;
 
-  Array<double, 1> XVecArr(1);
+  blitz::Array<double, 1> XVecArr(1);
   XVecArr = 0.;
 
-  Array<double, 1> XCenVecArr(1);
+  blitz::Array<double, 1> XCenVecArr(1);
   XCenVecArr = 0.;
 
-  Array<double, 1> XXVecArr(1);
+  blitz::Array<double, 1> XXVecArr(1);
   XXVecArr = 0.;
 
   double Weight, Norm, Dev, tmpdbl, Lambda, XXX;
@@ -38794,7 +38794,7 @@ bool CFits::SlitFunc_Old(Array<double, 2> &D_A2_ImM,
   {
     if (P_TempMask != NULL)
       delete P_TempMask;
-    P_TempMask = (Array<double, 2>*)ArgV[Pos];
+    P_TempMask = (blitz::Array<double, 2>*)ArgV[Pos];
 #ifdef __DEBUG_FITS_SLITFUNC__
     cout << "CFits::SlitFunc: I_IAperture_In = " << I_IAperture_In << ": KeyWord_Set(MASK): P_TempMask read = " << *P_TempMask << endl;
     (*P_OFS_Log) << "CFits::SlitFunc: KeyWord_Set(MASK): P_TempMask read = " << *P_TempMask << endl;
@@ -38878,7 +38878,7 @@ bool CFits::SlitFunc_Old(Array<double, 2> &D_A2_ImM,
   {
     if (P_I_A1_JBadVecArr != NULL)
       delete P_I_A1_JBadVecArr;
-    P_I_A1_JBadVecArr = (Array<int, 1>*)ArgV[Pos];
+    P_I_A1_JBadVecArr = (blitz::Array<int, 1>*)ArgV[Pos];
 #ifdef __DEBUG_FITS_SLITFUNC__
     cout << "CFits::SlitFunc: I_IAperture_In = " << I_IAperture_In << ": KeyWord_Set(BAD): P_I_A1_JBadVecArr set to " << *P_I_A1_JBadVecArr << endl;
     (*P_OFS_Log) << "CFits::SlitFunc: KeyWord_Set(BAD): P_I_A1_JBadVecArr set to " << *P_I_A1_JBadVecArr << endl;
@@ -38994,7 +38994,7 @@ bool CFits::SlitFunc_Old(Array<double, 2> &D_A2_ImM,
   cout << "CFits::SlitFunc: I_IAperture_In = " << I_IAperture_In << ": SFVecArr = " << SFVecArr << endl;
   (*P_OFS_Log) << "CFits::SlitFunc: SFVecArr = " << SFVecArr << endl;
 #endif
-  Array<double, 1> *p_d1temp = MedianVec(SFVecArr, 5, (CString("NORMAL")));
+  blitz::Array<double, 1> *p_d1temp = MedianVec(SFVecArr, 5, (CString("NORMAL")));
   SFVecArr = (*p_d1temp);             /** Spectrum **/
   delete p_d1temp;
 #ifdef __DEBUG_FITS_SLITFUNC__
@@ -39029,8 +39029,8 @@ bool CFits::SlitFunc_Old(Array<double, 2> &D_A2_ImM,
   cout << "CFits::SlitFunc: I_IAperture_In = " << I_IAperture_In << ": TempArray = ImM*Mask = " << TempArray << endl;
   (*P_OFS_Log) << "CFits::SlitFunc: TempArray = ImM*Mask = " << TempArray << endl;
 #endif
-  Array<double, 1> *p_d1rep = this->Replicate(1., D_A2_ImM.rows());
-  Array<double, 2> *p_d2mat = this->VecArrACrossB(*p_d1rep, SFVecArr);
+  blitz::Array<double, 1> *p_d1rep = this->Replicate(1., D_A2_ImM.rows());
+  blitz::Array<double, 2> *p_d2mat = this->VecArrACrossB(*p_d1rep, SFVecArr);
   TempArray *= (*p_d2mat);
 #ifdef __DEBUG_FITS_SLITFUNC__
   cout << "CFits::SlitFunc: I_IAperture_In = " << I_IAperture_In << ": TempArray = TempArray*(VecArrACrossB(Replicate(1.,D_A2_ImM.rows(=" << D_A2_ImM.rows() << "))=" << *p_d1rep << ", SFVecArr(=" << SFVecArr << "))=" << *p_d2mat << ") = " << TempArray << endl;
@@ -39049,7 +39049,7 @@ bool CFits::SlitFunc_Old(Array<double, 2> &D_A2_ImM,
   cout << "CFits::SlitFunc: I_IAperture_In = " << I_IAperture_In << ": SPVecArr (*Norm=" << Norm << ") = " << SPVecArr << endl;
   (*P_OFS_Log) << "CFits::SlitFunc: SPVecArr (*Norm=" << Norm << ") = " << SPVecArr << endl;
 #endif
-  Array<double, 1> *p_d1sptemp = (MedianVec(SPVecArr, 5, (CString("NORMAL"))));
+  blitz::Array<double, 1> *p_d1sptemp = (MedianVec(SPVecArr, 5, (CString("NORMAL"))));
   SPVecArr = (*p_d1sptemp);
   delete p_d1sptemp;
 #ifdef __DEBUG_FITS_SLITFUNC__
@@ -39102,7 +39102,7 @@ bool CFits::SlitFunc_Old(Array<double, 2> &D_A2_ImM,
       (*P_OFS_Log) << "CFits::SlitFunc: ERROR: sum(Mask=" << Mask << ") == 0" << endl;
       return false;
     }
-    Array<double, 2> *p_tempMat = this->VecArrACrossB(SPVecArr, SFVecArr);
+    blitz::Array<double, 2> *p_tempMat = this->VecArrACrossB(SPVecArr, SFVecArr);
     Dev = sqrt(sum(Mask * pow2(D_A2_ImM - (*p_tempMat))) / sum(Mask));
     delete p_tempMat;
 #ifdef __DEBUG_FITS_SLITFUNC__
@@ -39115,7 +39115,7 @@ bool CFits::SlitFunc_Old(Array<double, 2> &D_A2_ImM,
   //    (*P_OFS_Log) << "CFits::SlitFunc: 3. this->NRows = " << this->NRows << ", this->NCols = " << this->NCols << endl;
 
   TempArray.resize(D_A2_ImM.rows(), D_A2_ImM.cols());
-  Array<double, 2> *p_tempMatA = this->VecArrACrossB(SPVecArr, SFVecArr);
+  blitz::Array<double, 2> *p_tempMatA = this->VecArrACrossB(SPVecArr, SFVecArr);
   TempArray = where(fabs(D_A2_ImM - (*p_tempMatA)) > (3. * Dev), 0, 1);
   delete p_tempMatA;
 #ifdef __DEBUG_FITS_SLITFUNC__
@@ -39373,7 +39373,7 @@ bool CFits::SlitFunc_Old(Array<double, 2> &D_A2_ImM,
         BKLArr = 0.;
 
         ///      o=omega#omega
-        Array<double, 2> *p_OArr = VecArrACrossB(OmegaVecArr, OmegaVecArr);
+        blitz::Array<double, 2> *p_OArr = VecArrACrossB(OmegaVecArr, OmegaVecArr);
         OArr.resize(p_OArr->rows(),p_OArr->cols());//OmegaVecArr.size(), OmegaVecArr.size());
         OArr = (*p_OArr);
         delete p_OArr;
@@ -39917,7 +39917,7 @@ bool CFits::SlitFunc_Old(Array<double, 2> &D_A2_ImM,
         cout << "CFits::SlitFunc: I_IAperture_In = " << I_IAperture_In << ": for(m==" << m << "): TempDVecArr set to " << TempDVecArr << endl;
         (*P_OFS_Log) << "CFits::SlitFunc: for(m==" << m << "): TempDVecArr set to " << TempDVecArr << endl;
 #endif
-        Array<double, 2> *p_SSFTArr = this->Reform(TempDVecArr, (int)D_A2_ImM.cols(), this->I_OverSample);
+        blitz::Array<double, 2> *p_SSFTArr = this->Reform(TempDVecArr, (int)D_A2_ImM.cols(), this->I_OverSample);
         SSFArr.resize(this->I_OverSample, (int)D_A2_ImM.cols());
         SSFArr = p_SSFTArr->transpose(secondDim, firstDim);
         delete p_SSFTArr;
@@ -39935,7 +39935,7 @@ bool CFits::SlitFunc_Old(Array<double, 2> &D_A2_ImM,
           SSFArr.transpose(secondDim,firstDim);
 
         //TempDVecArr.resize(tempint);
-        Array<double, 1> *p_TempDVecArrBB = this->MatrixTimesVecArr(D_A2_TempAA,
+        blitz::Array<double, 1> *p_TempDVecArrBB = this->MatrixTimesVecArr(D_A2_TempAA,
                                             OmegaVecArr);
 #ifdef __DEBUG_FITS_SLITFUNC__
         cout << "CFits::SlitFunc: I_IAperture_In = " << I_IAperture_In << ": for(m==" << m << "): TempDVecArr set to " << *p_TempDVecArrBB << endl;
@@ -40210,7 +40210,7 @@ bool CFits::SlitFunc_Old(Array<double, 2> &D_A2_ImM,
   {
     if (P_D_A2_ImOut != NULL)
       delete P_D_A2_ImOut;
-    P_D_A2_ImOut = (Array<double, 2>*)ArgV[Pos];
+    P_D_A2_ImOut = (blitz::Array<double, 2>*)ArgV[Pos];
 #ifdef __DEBUG_FITS_SLITFUNC__
     cout << "CFits::SlitFunc: I_IAperture_In = " << I_IAperture_In << ": KeyWord_Set(IM_OUT): P_D_A2_ImOut read " << endl;// to " << *P_D_A2_ImOut << endl;
     (*P_OFS_Log) << "CFits::SlitFunc: KeyWord_Set(IM_OUT): P_D_A2_ImOut read" << endl;// to " << *P_D_A2_ImOut << endl;
@@ -40245,8 +40245,8 @@ bool CFits::SlitFunc_Old(Array<double, 2> &D_A2_ImM,
       //        cout << "CFits::SlitFunc: I_IAperture_In = " << I_IAperture_In << ": KeyWord_Set(IM_OUT): KeyWord_Set(USE_ROW): MARK: INTERPOL: FixD(UseRowVecArr) = " << FixD(UseRowVecArr) << endl;
       //        (*P_OFS_Log) << "CFits::SlitFunc: MARK: INTERPOL: KeyWord_Set(IM_OUT): KeyWord_Set(USE_ROW): FixD(UseRowVecArr) = " << FixD(UseRowVecArr) << endl;
 #endif
-      Array<double, 1> *p_tempDblVecArrA = FixD(UseRowVecArr);
-      Array<double, 1> *p_tempDblVecArrB = new Array<double, 1>(3);
+      blitz::Array<double, 1> *p_tempDblVecArrA = FixD(UseRowVecArr);
+      blitz::Array<double, 1> *p_tempDblVecArrB = new blitz::Array<double, 1>(3);
       this->InterPol(SPVecArr, *p_tempDblVecArrA, D_A1_Ind,p_tempDblVecArrB);
       SPVecArr = (*p_tempDblVecArrB);
       delete p_tempDblVecArrA;
@@ -40357,7 +40357,7 @@ bool CFits::SlitFunc_Old(Array<double, 2> &D_A2_ImM,
         (*P_OFS_Log) << "CFits::SlitFunc: ERROR: size of TempDVecArr(=" << TempDVecArr.size() << ") != D_A2_ImM.cols(=" << D_A2_ImM.cols() << ") * this->I_OverSample(=" << this->I_OverSample << ")" << endl;
         return false;
       }
-      Array<double, 2> *p_D_A2_SSFT = Reform(TempDVecArr, D_A2_ImM.cols(), this->I_OverSample);
+      blitz::Array<double, 2> *p_D_A2_SSFT = Reform(TempDVecArr, D_A2_ImM.cols(), this->I_OverSample);
       TempDVecArr.resize(0);
       SSFArr = p_D_A2_SSFT->transpose(secondDim, firstDim);
       delete p_D_A2_SSFT;
@@ -40378,7 +40378,7 @@ bool CFits::SlitFunc_Old(Array<double, 2> &D_A2_ImM,
         (*P_OFS_Log) << "CFits::SlitFunc: ERROR: OArr.rows(=" << OArr.rows() << ") != D_A2_OT.rows(=" << D_A2_OT.rows() << ")" << endl;
         return false;
       }
-      Array<double, 1> *p_TempDVecArrAA = this->MatrixTimesVecArr(D_A2_OT, OmegaVecArr);
+      blitz::Array<double, 1> *p_TempDVecArrAA = this->MatrixTimesVecArr(D_A2_OT, OmegaVecArr);
       OArr(Range::all(), 0) = (*p_TempDVecArrAA);
       delete p_TempDVecArrAA;
 #ifdef __DEBUG_FITS_SLITFUNC__
@@ -40650,7 +40650,7 @@ bool CFits::SlitFunc_Old(Array<double, 2> &D_A2_ImM,
  **/
 bool CFits::MkProfIm_Old()
 {
-  Array<CString, 1> CS_A1_Args(1);
+  blitz::Array<CString, 1> CS_A1_Args(1);
   CS_A1_Args(0) = CString("");
   void **PP_Args;
   PP_Args = (void**)malloc(sizeof(void*) * 1);
@@ -40671,7 +40671,7 @@ bool CFits::MkProfIm_Old()
   MkProfIm Old version
   Make Profile Image
  **/
-bool CFits::MkProfIm_Old(const Array<CString, 1> &CS_A1_Args_In,       ///: in
+bool CFits::MkProfIm_Old(const blitz::Array<CString, 1> &CS_A1_Args_In,       ///: in
                      void *ArgV[])                                  ///: in
 /** KeyWords and Values:   SWATH_WIDTH:              int: in
                            LAMBDA_SP  :              int: in (Smoothing along dispersion)
@@ -40685,16 +40685,16 @@ bool CFits::MkProfIm_Old(const Array<CString, 1> &CS_A1_Args_In,       ///: in
 
   (*P_OFS_Log) << "CFits::MkProfIm: P_D_A1_XLow = " << (*this->P_D_A1_XLow) << endl;
 #endif
-  Array<double, 1> D_A1_ScatterBelow(this->NRows);
+  blitz::Array<double, 1> D_A1_ScatterBelow(this->NRows);
   D_A1_ScatterBelow = 0.;
 
-  Array<double, 1> D_A1_XScatterBelow(this->NRows);
+  blitz::Array<double, 1> D_A1_XScatterBelow(this->NRows);
   D_A1_XScatterBelow = 0.;
 
-  Array<double, 1> D_A1_ScatterAbove(this->NRows);
+  blitz::Array<double, 1> D_A1_ScatterAbove(this->NRows);
   D_A1_ScatterAbove = 0.;
 
-  Array<double, 1> D_A1_XScatterAbove(this->NRows);
+  blitz::Array<double, 1> D_A1_XScatterAbove(this->NRows);
   D_A1_XScatterAbove = 0.;
 
   //  double D_XLeftLim;
@@ -40709,13 +40709,13 @@ bool CFits::MkProfIm_Old(const Array<CString, 1> &CS_A1_Args_In,       ///: in
   int I_Pos = 0;
   int I_NArgs = 0;
 
-  Array<double, 1> D_A1_XSlitF(1);
-  Array<double, 2> D_A2_SlitF(1,1);
-  Array<double, 1> D_A1_BinCen(1);
-  Array<double, 1> D_A1_BLZ(this->NRows);
+  blitz::Array<double, 1> D_A1_XSlitF(1);
+  blitz::Array<double, 2> D_A2_SlitF(1,1);
+  blitz::Array<double, 1> D_A1_BinCen(1);
+  blitz::Array<double, 1> D_A1_BLZ(this->NRows);
 
 
-  Array<CString, 1> CS_A1_Args(8);
+  blitz::Array<CString, 1> CS_A1_Args(8);
 
   void **PP_Args;
   PP_Args = (void**)malloc(sizeof(void*) * 8);
@@ -40805,7 +40805,7 @@ bool CFits::MkProfIm_Old(const Array<CString, 1> &CS_A1_Args_In,       ///: in
     //    cout << "CFits::MkProfIm: for (i_ord(=" << i_ord << ") = 0; i_ord < this->I_NApertures; i_ord++): this->P_D_A2_XCenters = " << *this->P_D_A2_XCenters << endl;
     //    (*P_OFS_Log) << "CFits::MkProfIm: for (i_ord(=" << i_ord << ") = 0; i_ord < this->I_NApertures; i_ord++): this->P_D_A2_XCenters = " << *this->P_D_A2_XCenters << endl;
     //#endif
-    //    Array<double, 1> D_A1_XCenters((*this->P_D_A2_XCenters)(i_ord, Range::all()));
+    //    blitz::Array<double, 1> D_A1_XCenters((*this->P_D_A2_XCenters)(i_ord, Range::all()));
 
     //#ifdef __DEBUG_FITS_PISKUNOV__
     //    cout << "CFits::MkProfIm: for (i_ord(=" << i_ord << ") = 0; i_ord < this->I_NApertures; i_ord++): D_A1_XCenters set to " << D_A1_XCenters << endl;
@@ -40855,7 +40855,7 @@ bool CFits::MkProfIm_Old(const Array<CString, 1> &CS_A1_Args_In,       ///: in
                     D_A1_BinCen,        //: out
                     i_ord,     //: in
                     //I_NArgs,            //: in
-                    *(const_cast<const Array<CString, 1>*>(&CS_A1_Args)),  //: in
+                    *(const_cast<const blitz::Array<CString, 1>*>(&CS_A1_Args)),  //: in
                     PP_Args))
     {
       //      delete PP_CString;
@@ -40877,9 +40877,9 @@ bool CFits::MkProfIm_Old(const Array<CString, 1> &CS_A1_Args_In,       ///: in
     LAMBDA_SF   = double          : in
     LAMBDA_SP   = int             : in
     SWATH_WIDTH = int             : in
-    BLZ         = Array<double, 1>: out
+    BLZ         = blitz::Array<double, 1>: out
     OVERSAMPLE  = int             : in
-    MASK        = Array<double, 2>: in
+    MASK        = blitz::Array<double, 2>: in
     CCD_GAIN    = double          : in
     CCD_READN   = double          : in
     NO_SCATTER  = void
@@ -40934,7 +40934,7 @@ bool CFits::MkProfIm_Old(const Array<CString, 1> &CS_A1_Args_In,       ///: in
  * WriteApToFile
  * Writes aperture I_Aperture_In to fits file CS_FileNameOut
  **/
-bool CFits::WriteApToFile(const Array<double, 2> &D_A2_Spectra_In,
+bool CFits::WriteApToFile(const blitz::Array<double, 2> &D_A2_Spectra_In,
                           const int I_Aperture_In,
                           const CString &CS_FitsFileName_Out) const{
   if (I_Aperture_In < 0 || I_Aperture_In >= this->I_NApertures){
@@ -40947,7 +40947,7 @@ bool CFits::WriteApToFile(const Array<double, 2> &D_A2_Spectra_In,
   int I_YMin = int((*(this->P_D_A1_YCenter))(I_Aperture_In) + (*(this->P_D_A1_YLow))(I_Aperture_In));
   int I_YMax = int((*(this->P_D_A1_YCenter))(I_Aperture_In) + (*(this->P_D_A1_YHigh))(I_Aperture_In));
   CF.SetNCols(I_YMax - I_YMin + 1);
-//  Array<double, 1> D_A1_Temp(I_YMax-I_YMin+1);
+//  blitz::Array<double, 1> D_A1_Temp(I_YMax-I_YMin+1);
   (CF.GetPixArray())(0,Range::all()) = D_A2_Spectra_In(I_Aperture_In, Range(I_YMin, I_YMax));
 //  CF.GetPixArray() = D_A1_Temp;
   CF.WriteArray();
@@ -40960,9 +40960,9 @@ bool CFits::WriteApToFile(const Array<double, 2> &D_A2_Spectra_In,
  * + fits polynomials to Stretches and Shifts with 3sigma rejection
  * + applies shifts and stretches to D_A2_LineList_WLenPix_In to calculate D_A2_LineList_WLenPix_Out
  **/
-bool CFits::StretchAndCrossCorrelateSpec(const Array<double, 1> &D_A1_Spec_In,
-                                         const Array<double, 1> &D_A1_SpecRef_In,
-                                         const Array<double, 2> &D_A2_LineList_WLenPix_In,
+bool CFits::StretchAndCrossCorrelateSpec(const blitz::Array<double, 1> &D_A1_Spec_In,
+                                         const blitz::Array<double, 1> &D_A1_SpecRef_In,
+                                         const blitz::Array<double, 2> &D_A2_LineList_WLenPix_In,
                                          const int I_Radius_XCor_In,
                                          const int I_Stretch_Min_Length_In,
                                          const int I_Stretch_Max_Length_In,
@@ -40972,22 +40972,22 @@ bool CFits::StretchAndCrossCorrelateSpec(const Array<double, 1> &D_A1_Spec_In,
                                          const int I_PolyFitOrder_Stretch_In,
                                          const int I_PolyFitOrder_Shift_In,
                                          const CString &CS_FName_In,
-                                         Array<double, 2> &D_A2_LineList_WLenPix_Out) const{
+                                         blitz::Array<double, 2> &D_A2_LineList_WLenPix_Out) const{
   if (D_A1_Spec_In.size() != D_A1_SpecRef_In.size()){
     cout << "CFits::StretchAndCrossCorrelate: ERROR: D_A1_Spec_In.size(=" << D_A1_Spec_In.size() << " != D_A1_SpecRef_In.size(=" << D_A1_SpecRef_In.size() << ") => Returning FALSE" << endl;
     return false;
   }
-  Array<double, 1> D_A1_ChiSqMin_Stretch(I_NCalcs_In);
+  blitz::Array<double, 1> D_A1_ChiSqMin_Stretch(I_NCalcs_In);
   D_A1_ChiSqMin_Stretch = 0.;
-  Array<double, 1> D_A1_ChiSqMin_Shift(I_NCalcs_In);
+  blitz::Array<double, 1> D_A1_ChiSqMin_Shift(I_NCalcs_In);
   D_A1_ChiSqMin_Shift = 0.;
-  Array<double, 1> D_A1_XCenter(I_NCalcs_In);
+  blitz::Array<double, 1> D_A1_XCenter(I_NCalcs_In);
   D_A1_XCenter = 0.;
-  Array<double, 1> D_A1_SpecPiece(I_LengthPieces_In);
-  Array<double, 1> D_A1_SpecRefPiece(I_LengthPieces_In);
+  blitz::Array<double, 1> D_A1_SpecPiece(I_LengthPieces_In);
+  blitz::Array<double, 1> D_A1_SpecRefPiece(I_LengthPieces_In);
   int I_Start = 0;
   int I_End = 0;
-  Array<double, 2> D_A2_SpecPieceStretched_MinChiSq(2,2);
+  blitz::Array<double, 2> D_A2_SpecPieceStretched_MinChiSq(2,2);
 
   /// create html file for the plots
   #ifdef __WITH_PLOTS__
@@ -41000,11 +41000,11 @@ bool CFits::StretchAndCrossCorrelateSpec(const Array<double, 1> &D_A1_Spec_In,
 //    CS_FName_In.MkDir(CString("plots"));
   #endif
 
-  Array<double, 2> D_A2_LineList_Pixels_AllPieces(D_A2_LineList_WLenPix_In.rows(), I_NCalcs_In);
+  blitz::Array<double, 2> D_A2_LineList_Pixels_AllPieces(D_A2_LineList_WLenPix_In.rows(), I_NCalcs_In);
   D_A2_LineList_Pixels_AllPieces = 0.;
-  Array<double, 1> *P_D_A1_X = this->DIndGenArr(D_A1_SpecRef_In.size());
-  Array<double, 1> D_A1_XPiece(1);
-  Array<double, 1> D_A1_XPieceStretched(1);
+  blitz::Array<double, 1> *P_D_A1_X = this->DIndGenArr(D_A1_SpecRef_In.size());
+  blitz::Array<double, 1> D_A1_XPiece(1);
+  blitz::Array<double, 1> D_A1_XPieceStretched(1);
 
   for (int i_run = 0; i_run < I_NCalcs_In; i_run++){
     I_End = I_Start + I_LengthPieces_In;
@@ -41064,7 +41064,7 @@ bool CFits::StretchAndCrossCorrelateSpec(const Array<double, 1> &D_A1_Spec_In,
       cout << "CFits::StretchAndCrossCorrelateSpec: i_run=" << i_run << ": D_A1_XPieceStretched = " << D_A1_XPieceStretched << endl;
     #endif
 
-    Array<int, 1> *P_I_A1_ValueLocate;
+    blitz::Array<int, 1> *P_I_A1_ValueLocate;
     double D_WeightLeft = 0.;
     double D_WeightRight = 0.;
     P_I_A1_ValueLocate = this->ValueLocate(D_A1_XPieceStretched, D_A2_LineList_WLenPix_In(Range::all(), 1));
@@ -41090,7 +41090,7 @@ bool CFits::StretchAndCrossCorrelateSpec(const Array<double, 1> &D_A1_Spec_In,
     #ifdef __WITH_PLOTS__
       mglGraph gr;
       P_CS_Num = CS_HTML_FileName.IToA(i_run);
-      Array<double, 1> *P_D_A1_XPiece = this->DIndGenArr(D_A1_SpecPiece.size());
+      blitz::Array<double, 1> *P_D_A1_XPiece = this->DIndGenArr(D_A1_SpecPiece.size());
       *P_D_A1_XPiece += I_Start;
       mglData MGLData1_PieceX;
       MGLData1_PieceX.Link(P_D_A1_XPiece->data(), D_A1_SpecPiece.size(), 0, 0);
@@ -41098,7 +41098,7 @@ bool CFits::StretchAndCrossCorrelateSpec(const Array<double, 1> &D_A1_Spec_In,
       MGLData_SpecPiece.Link(D_A1_SpecPiece.data(), D_A1_SpecPiece.size(), 0, 0);
       mglData MGLData_SpecRefPiece;// = new mglData(2);
       MGLData_SpecRefPiece.Link(D_A1_SpecRefPiece.data(), D_A1_SpecRefPiece.size(), 0, 0);
-      Array<double, 1> D_A1_X(D_A2_SpecPieceStretched_MinChiSq.rows());
+      blitz::Array<double, 1> D_A1_X(D_A2_SpecPieceStretched_MinChiSq.rows());
       D_A1_X = D_A2_SpecPieceStretched_MinChiSq(Range::all(), 0) + D_A1_ChiSqMin_Shift(i_run);
 
       #ifdef __DEBUG_FITS_STRETCHANDCROSSCORRELATESPEC__
@@ -41107,10 +41107,10 @@ bool CFits::StretchAndCrossCorrelateSpec(const Array<double, 1> &D_A1_Spec_In,
 
       mglData MGLData1_X_Stretched, MGLData1_Y_Stretched;// = new mglData(2,2);
       mglData MGLData1_X_StretchedAndShifted, MGLData1_Y_StretchedAndShifted;// = new mglData(2,2);
-      Array<double, 1> D_A1_Plot_Stretched_X(D_A1_X.size());
-      Array<double, 1> D_A1_Plot_Stretched_Y(D_A1_X.size());
-      Array<double, 1> D_A1_Plot_StretchedAndShifted_X(D_A1_X.size());
-      Array<double, 1> D_A1_Plot_StretchedAndShifted_Y(D_A1_X.size());
+      blitz::Array<double, 1> D_A1_Plot_Stretched_X(D_A1_X.size());
+      blitz::Array<double, 1> D_A1_Plot_Stretched_Y(D_A1_X.size());
+      blitz::Array<double, 1> D_A1_Plot_StretchedAndShifted_X(D_A1_X.size());
+      blitz::Array<double, 1> D_A1_Plot_StretchedAndShifted_Y(D_A1_X.size());
       D_A1_Plot_Stretched_X(Range::all()) = D_A1_X + double(I_Start);
       D_A1_Plot_StretchedAndShifted_X(Range::all()) = D_A2_SpecPieceStretched_MinChiSq(Range::all(), 0) + double(I_Start);
       #ifdef __DEBUG_FITS_STRETCHANDCROSSCORRELATESPEC__
@@ -41132,17 +41132,17 @@ bool CFits::StretchAndCrossCorrelateSpec(const Array<double, 1> &D_A1_Spec_In,
         cout << "CFits::ArrayToMGLArray: MGLData1_X_StretchedAndShifted(0,0,0) = " << MGLData1_X_StretchedAndShifted.GetVal(0,0,0) << endl;
       #endif
 
-      Array<double, 1> D_A1_MaxY(3);
+      blitz::Array<double, 1> D_A1_MaxY(3);
       D_A1_MaxY(0) = max(D_A1_Plot_Stretched_Y);
       D_A1_MaxY(1) = max(D_A1_SpecRefPiece);
       D_A1_MaxY(2) = max(D_A1_SpecPiece);
 
-      Array<double, 1> D_A1_MinX(3);
+      blitz::Array<double, 1> D_A1_MinX(3);
       D_A1_MinX(0) = min(D_A1_Plot_Stretched_X);
       D_A1_MinX(1) = min(D_A1_Plot_StretchedAndShifted_X);
       D_A1_MinX(2) = min(*P_D_A1_XPiece);
 
-      Array<double, 1> D_A1_MaxX(3);
+      blitz::Array<double, 1> D_A1_MaxX(3);
       D_A1_MaxX(0) = max(D_A1_Plot_Stretched_X);
       D_A1_MaxX(1) = max(D_A1_Plot_StretchedAndShifted_X);
       D_A1_MaxX(2) = max(*P_D_A1_XPiece);
@@ -41199,8 +41199,8 @@ bool CFits::StretchAndCrossCorrelateSpec(const Array<double, 1> &D_A1_Spec_In,
     cout << "CFits::StretchAndCrossCorrelateSpec: D_A2_LineList_Pixels_AllPieces = " << D_A2_LineList_Pixels_AllPieces << endl;
   #endif
 
-  Array<int, 1> I_A1_Where(D_A2_LineList_Pixels_AllPieces.cols());
-  Array<int, 1> *P_I_A1_IndWhere;
+  blitz::Array<int, 1> I_A1_Where(D_A2_LineList_Pixels_AllPieces.cols());
+  blitz::Array<int, 1> *P_I_A1_IndWhere;
   int I_NInd = 0;
   D_A2_LineList_WLenPix_Out.resize(D_A2_LineList_WLenPix_In.rows(), D_A2_LineList_WLenPix_In.cols());
   D_A2_LineList_WLenPix_Out = 0.;
@@ -41224,7 +41224,7 @@ bool CFits::StretchAndCrossCorrelateSpec(const Array<double, 1> &D_A1_Spec_In,
   cout << "CFits::StretchAndCrossCorrelateSpec: D_A2_LineList_WLenPix_Out = " << D_A2_LineList_WLenPix_Out << endl;
 
   /// Check positions
-  Array<double, 2> D_A2_Dist(D_A2_LineList_Pixels_AllPieces.rows(), D_A2_LineList_Pixels_AllPieces.cols());
+  blitz::Array<double, 2> D_A2_Dist(D_A2_LineList_Pixels_AllPieces.rows(), D_A2_LineList_Pixels_AllPieces.cols());
   D_A2_Dist = 0.;
   for (int i_row=0; i_row<D_A2_LineList_Pixels_AllPieces.rows(); i_row++){
     for (int i_col = 0; i_col < D_A2_LineList_Pixels_AllPieces.cols(); i_col++){
@@ -41233,7 +41233,7 @@ bool CFits::StretchAndCrossCorrelateSpec(const Array<double, 1> &D_A1_Spec_In,
     }
   }
   cout << "CFits::StretchAndCrossCorrelateSpec: D_A2_Dist = " << D_A2_Dist << endl;
-/*  Array<CString, 1> CS_A1_Args_LinFit(3);
+/*  blitz::Array<CString, 1> CS_A1_Args_LinFit(3);
   CS_A1_Args_LinFit(0).Set(CString("N_REJECTED"));
 //  CS_A1_Args_LinFit(1).Set(CString("SIGMA"));
   CS_A1_Args_LinFit(1).Set(CString("YFIT"));
@@ -41243,19 +41243,19 @@ bool CFits::StretchAndCrossCorrelateSpec(const Array<double, 1> &D_A1_Spec_In,
   double D_Reject = 4.5;
   int I_NRejected = 0;
   double D_Sigma_Fit = 0.;
-  Array<double, 1> D_A1_FitOut(D_A1_Dist.size());
-  Array<int, 1> I_A1_Rejected(1);
+  blitz::Array<double, 1> D_A1_FitOut(D_A1_Dist.size());
+  blitz::Array<int, 1> I_A1_Rejected(1);
   I_A1_Rejected = -1;
   D_A1_FitOut = 0.;
   PP_Args_LinFit[0] = &I_NRejected;
 //  PP_Args_LinFit[1] = &D_Sigma_Fit;
   PP_Args_LinFit[1] = &D_A1_FitOut;
   PP_Args_LinFit[2] = &I_A1_Rejected;
-  Array<double, 1> D_A1_DistX(D_A1_Dist.size());
+  blitz::Array<double, 1> D_A1_DistX(D_A1_Dist.size());
   D_A1_DistX = D_A2_LineList_WLenPix_In(Range::all(), 1);
   double D_A = 1.;
   double D_B = 1.;
-  Array<double, 1> *P_D_A1_Coeffs = new Array<double, 1>(3);
+  blitz::Array<double, 1> *P_D_A1_Coeffs = new blitz::Array<double, 1>(3);
   (*P_D_A1_Coeffs) = 0.;
   if (!this->PolyFit(D_A1_DistX,
                      D_A1_Dist,
@@ -41272,12 +41272,12 @@ bool CFits::StretchAndCrossCorrelateSpec(const Array<double, 1> &D_A1_Spec_In,
   cout << "CFits::StretchAndCrossCorrelateSpec: *P_D_A1_Coeffs = " << *P_D_A1_Coeffs << endl;
   delete(P_D_A1_Coeffs);
 **/
-  Array<int, 2> I_A2_Where(D_A2_LineList_Pixels_AllPieces.rows(), D_A2_LineList_Pixels_AllPieces.cols());
+  blitz::Array<int, 2> I_A2_Where(D_A2_LineList_Pixels_AllPieces.rows(), D_A2_LineList_Pixels_AllPieces.cols());
   I_A2_Where = where(fabs(D_A2_LineList_Pixels_AllPieces) > 0.000001, 1, 0);
   #ifdef __DEBUG_FITS_STRETCHANDCROSSCORRELATESPEC__
     cout << "CFits::StretchAndCrossCorrelateSpec: I_A2_Where = " << I_A2_Where << endl;
   #endif
-  Array<int, 2> I_A2_IndWhere(2,2);
+  blitz::Array<int, 2> I_A2_IndWhere(2,2);
   if (!this->GetIndex(I_A2_Where, I_NInd, I_A2_IndWhere)){
     cout << "CFits::StretchAndCrossCorrelateSpec: ERROR: GetIndex returned FALSE" << endl;
     return false;
@@ -41285,7 +41285,7 @@ bool CFits::StretchAndCrossCorrelateSpec(const Array<double, 1> &D_A1_Spec_In,
   #ifdef __DEBUG_FITS_STRETCHANDCROSSCORRELATESPEC__
     cout << "CFits::StretchAndCrossCorrelateSpec: I_A2_IndWhere = " << I_A2_IndWhere << endl;
   #endif
-  Array<double, 1> D_A1_Dist_SubArr(2);
+  blitz::Array<double, 1> D_A1_Dist_SubArr(2);
   if (!this->GetSubArrCopy(D_A2_Dist, I_A2_IndWhere, D_A1_Dist_SubArr)){
     cout << "CFits::StretchAndCrossCorrelateSpec: ERROR: GetSubArrCopy returned FALSE" << endl;
     return false;
@@ -41294,12 +41294,12 @@ bool CFits::StretchAndCrossCorrelateSpec(const Array<double, 1> &D_A1_Spec_In,
     cout << "CFits::StretchAndCrossCorrelateSpec: D_A1_Dist_SubArr = " << D_A1_Dist_SubArr << endl;
   #endif
   double D_MedianDiff = this->Median(D_A1_Dist_SubArr);
-  Array<double, 1> *P_D_A1_Sort = this->BubbleSort(D_A1_Dist_SubArr);
+  blitz::Array<double, 1> *P_D_A1_Sort = this->BubbleSort(D_A1_Dist_SubArr);
   #ifdef __DEBUG_FITS_STRETCHANDCROSSCORRELATESPEC__
     cout << "CFits::StretchAndCrossCorrelateSpec: D_MedianDiff = " << D_MedianDiff << endl;
     cout << "CFits::StretchAndCrossCorrelateSpec: *P_D_A1_Sort = " << *P_D_A1_Sort << endl;
   #endif
-  Array<double, 1> D_A1_Dist_Temp(D_A1_Dist_SubArr.size()-4);
+  blitz::Array<double, 1> D_A1_Dist_Temp(D_A1_Dist_SubArr.size()-4);
   D_A1_Dist_Temp = (*P_D_A1_Sort)(Range(2, D_A1_Dist_SubArr.size()-3));
   #ifdef __DEBUG_FITS_STRETCHANDCROSSCORRELATESPEC__
     cout << "CFits::StretchAndCrossCorrelateSpec: D_A1_Dist_Temp = " << D_A1_Dist_Temp << endl;
@@ -41313,7 +41313,7 @@ bool CFits::StretchAndCrossCorrelateSpec(const Array<double, 1> &D_A1_Spec_In,
   #ifdef __DEBUG_FITS_STRETCHANDCROSSCORRELATESPEC__
     cout << "CFits::StretchAndCrossCorrelateSpec: I_A1_Where = " << I_A1_Where << endl;
   #endif
-  Array<int, 1> I_A1_IndWhere(2);
+  blitz::Array<int, 1> I_A1_IndWhere(2);
   int I_NBad = 0;
   if (max(I_A1_Where) > 0){
     if (!this->GetIndex(I_A1_Where, I_NBad, I_A1_IndWhere)){
@@ -41363,7 +41363,7 @@ bool CFits::StretchAndCrossCorrelateSpec(const Array<double, 1> &D_A1_Spec_In,
   }
 //  if (I_NBad > 0)
 //    return false;
-/**  Array<int, 1>
+/**  blitz::Array<int, 1>
   for (int i_line=0; i_line<I_NRejected; i_line++){
     cout << "CFits::StretchAndCrossCorrelateSpec: Position of line " << I_A1_Rejected(i_line) << " was " << D_A2_LineList_WLenPix_Out(I_A1_Rejected(i_line), 1) << endl;
     D_A2_LineList_WLenPix_Out(I_A1_Rejected(i_line), 1) = D_A2_LineList_WLenPix_In(I_A1_Rejected(i_line), 1) - D_A1_FitOut(I_A1_Rejected(i_line));
@@ -41375,17 +41375,17 @@ bool CFits::StretchAndCrossCorrelateSpec(const Array<double, 1> &D_A1_Spec_In,
   ///plot whole spectra
   #ifdef __WITH_PLOTS__
     mglData MGLData1_SpecRef;// = new mglData(2);
-    Array<double, 1> D_A1_SpecRef_Temp(D_A1_SpecRef_In.size());
+    blitz::Array<double, 1> D_A1_SpecRef_Temp(D_A1_SpecRef_In.size());
     D_A1_SpecRef_Temp = D_A1_SpecRef_In;
     MGLData1_SpecRef.Link(D_A1_SpecRef_Temp.data(), D_A1_SpecRef_In.size());
 
     mglData MGLData1_Spec;// = new mglData(2);
-    Array<double, 1> D_A1_Spec_Temp(D_A1_Spec_In.size());
+    blitz::Array<double, 1> D_A1_Spec_Temp(D_A1_Spec_In.size());
     D_A1_Spec_Temp = D_A1_Spec_In;
     MGLData1_Spec.Link(D_A1_Spec_Temp.data(), D_A1_Spec_In.size());
 
     mglGraph gr;
-    Array<double, 1> D_A1_Max(2);
+    blitz::Array<double, 1> D_A1_Max(2);
     D_A1_Max(0) = max(D_A1_Spec_In);
     D_A1_Max(1) = max(D_A1_SpecRef_In);
     gr.SetRanges(0,D_A1_Spec_Temp.rows(),0,max(D_A1_Max));
@@ -41399,8 +41399,8 @@ bool CFits::StretchAndCrossCorrelateSpec(const Array<double, 1> &D_A1_Spec_In,
     gr.Plot(MGLData1_Spec, "b");
     gr.AddLegend("Spec", "b");
 
-    Array<double, 1> D_A1_Line_X(2);
-    Array<double, 1> D_A1_Line_Y(2);
+    blitz::Array<double, 1> D_A1_Line_X(2);
+    blitz::Array<double, 1> D_A1_Line_Y(2);
     mglData D_MGL1_X, D_MGL1_Y;// = new mglData(2,2);
     for (int i_ref=0; i_ref<2; i_ref++){
       for (int i_line=0; i_line<D_A2_LineList_WLenPix_In.rows(); i_line++){
@@ -41455,38 +41455,38 @@ bool CFits::StretchAndCrossCorrelateSpec(const Array<double, 1> &D_A1_Spec_In,
   return true;
 }
 
-bool CFits::StretchAndCrossCorrelate(const Array<double, 1> &D_A1_Spec_In,
-                                     const Array<double, 1> &D_A1_SpecRef_In,
+bool CFits::StretchAndCrossCorrelate(const blitz::Array<double, 1> &D_A1_Spec_In,
+                                     const blitz::Array<double, 1> &D_A1_SpecRef_In,
                                      const int I_Radius_XCor_In,
                                      const int I_Stretch_Min_Length_In,
                                      const int I_Stretch_Max_Length_In,
                                      const int I_N_Stretches_In,
                                      double &D_Stretch_Out,
                                      double &D_Shift_Out,
-                                     Array<double, 2> &D_A2_SpecStretched_MinChiSq) const{
+                                     blitz::Array<double, 2> &D_A2_SpecStretched_MinChiSq) const{
   /// Stretch Reference Spectrum
-  Array<double, 1> *P_D_A1_Ref_X = this->DIndGenArr(D_A1_SpecRef_In.size());
+  blitz::Array<double, 1> *P_D_A1_Ref_X = this->DIndGenArr(D_A1_SpecRef_In.size());
   #ifdef __DEBUG_FITS_STRETCHANDCROSSCORRELATE__
     cout << "CFits::StretchAndCrossCorrelate: *P_D_A1_Ref_X = " << *P_D_A1_Ref_X << endl;
     cout << "CFits::StretchAndCrossCorrelate: D_A1_SpecRef_In = " << D_A1_SpecRef_In << endl;
     #endif
 
-  Array<double, 1> D_A1_SpecTemp(1);
+  blitz::Array<double, 1> D_A1_SpecTemp(1);
   D_A1_SpecTemp = 0.;
-  Array<double, 1> D_A1_SpecRefTemp(1);
+  blitz::Array<double, 1> D_A1_SpecRefTemp(1);
   D_A1_SpecRefTemp = 0.;
-  Array<double, 2> D_A2_SpecCalib_Out(2,2);
+  blitz::Array<double, 2> D_A2_SpecCalib_Out(2,2);
   D_A2_SpecCalib_Out = 0.;
   double D_RMS_Out = 0.;
 //  int I_PixShift = 0;
   int I_LinePos = 0;
   int i_line_temp = 0;
   int i_nlines = 0;
-  Array<double, 1> *P_D_A1_Ref_Y = new Array<double, 1>(1);
-  Array<double, 1> D_A1_Ref_X_Stretched(1);
-  Array<double, 1> D_A1_XCorChiSq(I_N_Stretches_In);
-  Array<int, 1> I_A1_RefStretchLength(I_N_Stretches_In);
-  Array<int, 1> I_A1_PixShift(I_N_Stretches_In);
+  blitz::Array<double, 1> *P_D_A1_Ref_Y = new blitz::Array<double, 1>(1);
+  blitz::Array<double, 1> D_A1_Ref_X_Stretched(1);
+  blitz::Array<double, 1> D_A1_XCorChiSq(I_N_Stretches_In);
+  blitz::Array<int, 1> I_A1_RefStretchLength(I_N_Stretches_In);
+  blitz::Array<int, 1> I_A1_PixShift(I_N_Stretches_In);
   I_A1_RefStretchLength = 0;
   D_A1_XCorChiSq = 0.;
   I_A1_RefStretchLength(0) = I_Stretch_Min_Length_In;
@@ -41575,7 +41575,7 @@ bool CFits::StretchAndCrossCorrelate(const Array<double, 1> &D_A1_Spec_In,
     cout << "CFits::StretchAndCrossCorrelate: I_MinXCorChiSqPos = " << I_MinXCorChiSqPos << ": I_RefStretchLength = " << I_A1_RefStretchLength(I_MinXCorChiSqPos) << ": ERROR: InterPol(D_A1_SpecRef=" << D_A1_SpecRef_In << ", *P_D_A1_Ref_X=" << *P_D_A1_Ref_X << ", D_A1_Ref_X_Stretched=" << D_A1_Ref_X_Stretched << ", P_D_A1_Ref_Y) returned FALSE" << endl;
     exit(EXIT_FAILURE);
   }
-  Array<double, 1> *P_D_A1_Ref_X_Temp = this->DIndGenArr(P_D_A1_Ref_Y->size());
+  blitz::Array<double, 1> *P_D_A1_Ref_X_Temp = this->DIndGenArr(P_D_A1_Ref_Y->size());
   D_A1_Ref_X_Stretched.resize(P_D_A1_Ref_Y->size());
   D_A1_Ref_X_Stretched = (*P_D_A1_Ref_X_Temp) - D_Shift_Out;
   delete(P_D_A1_Ref_X_Temp);
@@ -41603,16 +41603,16 @@ bool CFits::StretchAndCrossCorrelate(const Array<double, 1> &D_A1_Spec_In,
  * to keep in case a weak line close to a strong line gets wrongly identified as the strong
  * line
  **/
-bool CFits::Identify(const Array<double, 1> &D_A1_Spec_In,
-                     const Array<double, 2> &D_A2_LineList_In,
+bool CFits::Identify(const blitz::Array<double, 1> &D_A1_Spec_In,
+                     const blitz::Array<double, 2> &D_A2_LineList_In,
                      const int I_Radius_In,
                      const double D_FWHM_In,
                      const int I_PolyFitOrder_In,
                      const CString &CS_FName_In,
-                     Array<double, 2> &D_A2_CalibratedSpec_Out,
-                     Array<double, 1> &D_A1_PolyFitCoeffs_Out,
+                     blitz::Array<double, 2> &D_A2_CalibratedSpec_Out,
+                     blitz::Array<double, 1> &D_A1_PolyFitCoeffs_Out,
                      double &D_RMS_Out,
-		     Array<double, 2> &D_A2_PixWLen_Out) const{
+		     blitz::Array<double, 2> &D_A2_PixWLen_Out) const{
 
   /// Initialise output parameters
   D_A1_PolyFitCoeffs_Out.resize(I_PolyFitOrder_In+1);
@@ -41631,36 +41631,36 @@ bool CFits::Identify(const Array<double, 1> &D_A1_Spec_In,
   int I_NTerms = 4;
   double D_Max = 0.;
   double D_Min = 0.;
-  Array<int, 1> I_A1_Index(2*I_Radius_In + 1);
+  blitz::Array<int, 1> I_A1_Index(2*I_Radius_In + 1);
   I_A1_Index = 0;
-  Array<int, 1> I_A1_IndexPos(1);
+  blitz::Array<int, 1> I_A1_IndexPos(1);
   I_A1_IndexPos = 0;
-  Array<double, 1> D_A1_GaussSpec(1);
+  blitz::Array<double, 1> D_A1_GaussSpec(1);
   D_A1_GaussSpec = 0.;
-  Array<double, 1> D_A1_GaussCoeffs(I_NTerms);
+  blitz::Array<double, 1> D_A1_GaussCoeffs(I_NTerms);
   D_A1_GaussCoeffs = 0.;
-  Array<double, 1> D_A1_EGaussCoeffs(D_A1_GaussCoeffs.size());
+  blitz::Array<double, 1> D_A1_EGaussCoeffs(D_A1_GaussCoeffs.size());
   D_A1_EGaussCoeffs = 0.;
-  Array<int, 2> I_A2_Limited(I_NTerms,2);
+  blitz::Array<int, 2> I_A2_Limited(I_NTerms,2);
   I_A2_Limited = 1;
-  Array<double, 2> D_A2_Limits(I_NTerms,2);
+  blitz::Array<double, 2> D_A2_Limits(I_NTerms,2);
   D_A2_Limits = 0.;
-  Array<double, 1> D_A1_Guess(I_NTerms);
-//  Array<CString, 1> CS_A1_KeyWords(2);
+  blitz::Array<double, 1> D_A1_Guess(I_NTerms);
+//  blitz::Array<CString, 1> CS_A1_KeyWords(2);
 //  CS_A1_KeyWords(0) = CString("MEASURE_ERRORS");
 //  CS_A1_KeyWords(1) = CString("NTERMS");
 //  CS_A1_KeyWords(2) = CString("ESTIMATES");
 //  void **PP_Args = (void**)malloc(sizeof(void*) * 2);
-  Array<double, 1> D_A1_MeasureErrors(2);
+  blitz::Array<double, 1> D_A1_MeasureErrors(2);
   D_A1_MeasureErrors = 0.;
 //  PP_Args[0] = &D_A1_MeasureErrors;
 //  PP_Args[1] = &I_NTerms;
-//  Array<double, 1> D_A1_Estimates(I_NTerms);
+//  blitz::Array<double, 1> D_A1_Estimates(I_NTerms);
 //  PP_Args[2] = &D_A1_Estimates;
-  Array<double, 1> *P_D_A1_Ind = this->DIndGenArr(D_A1_Spec_In.size());
-  Array<double, 1> D_A1_X(1);
+  blitz::Array<double, 1> *P_D_A1_Ind = this->DIndGenArr(D_A1_Spec_In.size());
+  blitz::Array<double, 1> D_A1_X(1);
   D_A1_X = 0.;
-  Array<double, 1> D_A1_GaussPos(D_A2_LineList_In.rows());
+  blitz::Array<double, 1> D_A1_GaussPos(D_A2_LineList_In.rows());
   D_A1_GaussPos = 0.;
   #ifdef __WITH_PLOTS__
     CString CS_PlotName("");
@@ -41829,9 +41829,9 @@ bool CFits::Identify(const Array<double, 1> &D_A1_Spec_In,
     return false;
   }
   else{
-    Array<double, 1> D_A1_FittedWLen(I_NInd);
-    Array<double, 1> D_A1_WLen(D_A2_LineList_In.rows());
-    Array<double, 1> D_A1_FittedPos(I_NInd);
+    blitz::Array<double, 1> D_A1_FittedWLen(I_NInd);
+    blitz::Array<double, 1> D_A1_WLen(D_A2_LineList_In.rows());
+    blitz::Array<double, 1> D_A1_FittedPos(I_NInd);
 
     if (!this->GetSubArrCopy(D_A1_GaussPos, I_A1_IndexPos, D_A1_FittedPos)){
       cout << "CFits::Identify: ERROR: GetSubArr(" << D_A1_GaussPos << ", " << I_A1_IndexPos << ") returned FALSE" << endl;
@@ -41852,9 +41852,9 @@ bool CFits::Identify(const Array<double, 1> &D_A1_Spec_In,
     D_A2_PixWLen_Out(Range::all(), 0) = D_A1_FittedPos;
     D_A2_PixWLen_Out(Range::all(), 1) = D_A1_FittedWLen;
 
-//  Array<CString, 1> CS_A1_PolyFit_KeyWords(1);
+//  blitz::Array<CString, 1> CS_A1_PolyFit_KeyWords(1);
 //  CS_A1_PolyFit_KeyWords(0) = CString("YFIT");
-//  Array<double, 1> D_A1_YFit(D_A1_FittedPos.size());
+//  blitz::Array<double, 1> D_A1_YFit(D_A1_FittedPos.size());
 //  void **PP_Args_PolyFit = (void**)malloc(sizeof(void*) * 1);
 //  PP_Args_PolyFit[0] = &D_A1_YFit;
     if (!this->PolyFit(D_A1_FittedPos,
@@ -41866,12 +41866,12 @@ bool CFits::Identify(const Array<double, 1> &D_A1_Spec_In,
       cout << "CFits::Identify: ERROR: PolyFit returned FALSE" << endl;
       return false;
     }
-    Array<double, 1> *P_D_A1_WLen_Gauss = this->Poly(D_A1_FittedPos, D_A1_PolyFitCoeffs_Out);
+    blitz::Array<double, 1> *P_D_A1_WLen_Gauss = this->Poly(D_A1_FittedPos, D_A1_PolyFitCoeffs_Out);
     cout << "CFits::Identify: P_D_A1_WLen_PolyFit = " << *P_D_A1_WLen_Gauss << endl;
     D_A2_PixWLen_Out(Range::all(), 2) = *P_D_A1_WLen_Gauss;
 
     ///Calculate RMS
-    Array<double, 1> D_A1_WLenMinusFit(P_D_A1_WLen_Gauss->size());
+    blitz::Array<double, 1> D_A1_WLenMinusFit(P_D_A1_WLen_Gauss->size());
     D_A1_WLenMinusFit = D_A1_FittedWLen-(*P_D_A1_WLen_Gauss);
     cout << "CFits::Identify: D_A1_WLenMinusFit = " << D_A1_WLenMinusFit << endl;
     D_RMS_Out=sqrt(sum(pow2(D_A1_FittedWLen-(*P_D_A1_WLen_Gauss)))/D_A1_FittedPos.size());
@@ -41879,7 +41879,7 @@ bool CFits::Identify(const Array<double, 1> &D_A1_Spec_In,
     cout << "======================================" << endl;
 
     ///calibrate spectrum
-    Array<double, 1> *P_D_A1_WLen_Out;// = new Array<double, 1>(D_A1_Spec_In.size());
+    blitz::Array<double, 1> *P_D_A1_WLen_Out;// = new blitz::Array<double, 1>(D_A1_Spec_In.size());
     #ifdef __DEBUG_FITS_IDENTIFY__
       cout << "CFits::Identify: *P_D_A1_Ind = " << *P_D_A1_Ind << endl;
     #endif
@@ -41954,23 +41954,23 @@ bool CFits::Identify(const Array<double, 1> &D_A1_Spec_In,
  * Applies dispersion correction to spectrum and returns wavelength-calibrated
  * two-dimensional spectrum (D_A1_Spec_In.size(), 2) [WLen, Flux]
  **/
-bool CFits::DispCor(const Array<double, 1> &D_A1_Spec_In,
-                    const Array<double, 1> &D_A1_PolyFitCoeffs_In,
-                    Array<double, 2> &D_A2_Spec_Out){
+bool CFits::DispCor(const blitz::Array<double, 1> &D_A1_Spec_In,
+                    const blitz::Array<double, 1> &D_A1_PolyFitCoeffs_In,
+                    blitz::Array<double, 2> &D_A2_Spec_Out){
   return this->DispCor(D_A1_Spec_In, D_A1_PolyFitCoeffs_In, 0., D_A2_Spec_Out);
 }
 
-bool CFits::DispCor(const Array<double, 1> &D_A1_Spec_In,
-                    const Array<double, 1> &D_A1_PolyFitCoeffs_In,
+bool CFits::DispCor(const blitz::Array<double, 1> &D_A1_Spec_In,
+                    const blitz::Array<double, 1> &D_A1_PolyFitCoeffs_In,
                     const double D_PixShift_In,
-                    Array<double, 2> &D_A2_Spec_Out){
+                    blitz::Array<double, 2> &D_A2_Spec_Out){
   D_A2_Spec_Out.resize(D_A1_Spec_In.size(), 2);
-  Array<double, 1> *P_D_A1_PixNumber = this->DIndGenArr(D_A1_Spec_In.size());
+  blitz::Array<double, 1> *P_D_A1_PixNumber = this->DIndGenArr(D_A1_Spec_In.size());
   *P_D_A1_PixNumber = *P_D_A1_PixNumber + D_PixShift_In;
   #ifdef __DEBUG_FITS_DISPCOR__
     cout << "CFits::DispCor: *P_D_A1_PixNumber = " << *P_D_A1_PixNumber << endl;
   #endif
-  Array<double, 1> *P_D_A1_WLen_Out = this->Poly((*P_D_A1_PixNumber), D_A1_PolyFitCoeffs_In);
+  blitz::Array<double, 1> *P_D_A1_WLen_Out = this->Poly((*P_D_A1_PixNumber), D_A1_PolyFitCoeffs_In);
   #ifdef __DEBUG_FITS_DISPCOR__
     cout << "CFits::DispCor: *P_D_A1_WLen_Out = " << *P_D_A1_WLen_Out << endl;
   #endif
@@ -41984,9 +41984,9 @@ bool CFits::DispCor(const Array<double, 1> &D_A1_Spec_In,
 }
 
 /**
- * bool WriteCube(Array<double, 3> D_A3_In, CString CS_FitsFileName_Out) const
+ * bool WriteCube(blitz::Array<double, 3> D_A3_In, CString CS_FitsFileName_Out) const
  **/
-bool CFits::WriteCube(Array<double, 3> &D_A3_In, CString &CS_FitsFileName_Out) const{
+bool CFits::WriteCube(blitz::Array<double, 3> &D_A3_In, CString &CS_FitsFileName_Out) const{
   fitsfile *fptr;       /* pointer to the FITS file, defined in fitsio.h */
   int status, ii, jj, kk;
   long  fpixel, nelements, exposure;
@@ -42051,7 +42051,7 @@ bool CFits::WriteCube(Array<double, 3> &D_A3_In, CString &CS_FitsFileName_Out) c
 
   fpixel = 1;                               /* first pixel to write      */
   nelements = naxes[0] * naxes[1] * naxes[2];          /* number of pixels to write */
-  p_void = D_A3_In.data();// = new Array<double,2>(p_Array, shape(naxes[0],
+  p_void = D_A3_In.data();// = new blitz::Array<double,2>(p_Array, shape(naxes[0],
 
   /* write the array of unsigned integers to the FITS file */
   fits_write_img(fptr, TDOUBLE, fpixel, nelements, p_void, &status);
@@ -42097,8 +42097,8 @@ bool CFits::WriteCube(Array<double, 3> &D_A3_In, CString &CS_FitsFileName_Out) c
  * neighbour to I_Pos_Out
  * */
 int CFits::FindNearestNeighbour(const double &D_ReferencePoint_In,
-                                 const Array<double, 1> &D_A1_ArrayToLookForNeighbour_In) const{
-  Array<double, 1> D_A1_Diff(D_A1_ArrayToLookForNeighbour_In.size());
+                                 const blitz::Array<double, 1> &D_A1_ArrayToLookForNeighbour_In) const{
+  blitz::Array<double, 1> D_A1_Diff(D_A1_ArrayToLookForNeighbour_In.size());
   D_A1_Diff = D_A1_ArrayToLookForNeighbour_In - D_ReferencePoint_In;
   TinyVector<int, 1> TV_Index = minIndex(D_A1_Diff);
   return TV_Index(0);
@@ -42107,10 +42107,10 @@ int CFits::FindNearestNeighbour(const double &D_ReferencePoint_In,
 /**
  * find nearest neighbour to D_A1_ReferencePoint_In(x,y) in D_A2_ArrayToLookForNeighbour_In and write coordinates to D_A1_NearestNeighbour_Out
  **/
-bool CFits::FindNearestNeighbour(const Array<double, 1> &D_A1_ReferencePoint_In,
-                                 const Array<double, 2> &D_A2_ArrayToLookForNeighbour_In, Array<double, 1> &D_A1_NearestNeighbour_Out,
+bool CFits::FindNearestNeighbour(const blitz::Array<double, 1> &D_A1_ReferencePoint_In,
+                                 const blitz::Array<double, 2> &D_A2_ArrayToLookForNeighbour_In, blitz::Array<double, 1> &D_A1_NearestNeighbour_Out,
                                  int &I_Pos) const{
-  Array<int, 1> I_A1_Area(4);
+  blitz::Array<int, 1> I_A1_Area(4);
   I_A1_Area(0) = 0;
   I_A1_Area(1) = this->NCols;
   I_A1_Area(2) = 0;
@@ -42122,13 +42122,13 @@ bool CFits::FindNearestNeighbour(const Array<double, 1> &D_A1_ReferencePoint_In,
                                     I_Pos);
 }
 
-bool CFits::FindNearestNeighbour(const Array<double, 1> &D_A1_ReferencePoint_In,
-                                 const Array<double, 2> &D_A2_ArrayToLookForNeighbour_In,
-                                 const Array<int, 1> &I_A1_Area,
-                                 Array<double, 1> &D_A1_NearestNeighbour_Out,
+bool CFits::FindNearestNeighbour(const blitz::Array<double, 1> &D_A1_ReferencePoint_In,
+                                 const blitz::Array<double, 2> &D_A2_ArrayToLookForNeighbour_In,
+                                 const blitz::Array<int, 1> &I_A1_Area,
+                                 blitz::Array<double, 1> &D_A1_NearestNeighbour_Out,
                                  int &I_Pos) const{
 //  cout << "CFits::FindNearestNeighbour: D_A1_Dist = " << D_A1_Dist << endl;
-  Array<int, 1> I_A1_IndicesInArea_Where(D_A2_ArrayToLookForNeighbour_In.rows());
+  blitz::Array<int, 1> I_A1_IndicesInArea_Where(D_A2_ArrayToLookForNeighbour_In.rows());
   I_A1_IndicesInArea_Where = where(D_A2_ArrayToLookForNeighbour_In(Range::all(), 0) >= I_A1_Area(0) && D_A2_ArrayToLookForNeighbour_In(Range::all(), 0) <= I_A1_Area(1) && D_A2_ArrayToLookForNeighbour_In(Range::all(), 1) >= I_A1_Area(2) && D_A2_ArrayToLookForNeighbour_In(Range::all(), 1) <= I_A1_Area(3), 1, 0);
   #ifdef __DEBUG_FITS_FINDNEARESTNEIGHBOUR__
     cout << "CFits::FindNearestNeighbour: D_A1_ReferencePoint_In = " << D_A1_ReferencePoint_In << endl;
@@ -42137,8 +42137,8 @@ bool CFits::FindNearestNeighbour(const Array<double, 1> &D_A1_ReferencePoint_In,
     cout << "CFits::FindNearestNeighbour: I_A1_IndicesInArea_Where = " << I_A1_IndicesInArea_Where << endl;
   #endif
   int I_NIndicesInArea = 0;
-  Array<int, 1> *P_I_A1_IndicesInArea = this->GetIndex(I_A1_IndicesInArea_Where, I_NIndicesInArea);
-  Array<double, 2> D_A2_ArrayToLookForNeighbour_InArea(I_NIndicesInArea, D_A2_ArrayToLookForNeighbour_In.cols());
+  blitz::Array<int, 1> *P_I_A1_IndicesInArea = this->GetIndex(I_A1_IndicesInArea_Where, I_NIndicesInArea);
+  blitz::Array<double, 2> D_A2_ArrayToLookForNeighbour_InArea(I_NIndicesInArea, D_A2_ArrayToLookForNeighbour_In.cols());
   for (int i_ind=0; i_ind< I_NIndicesInArea; i_ind++){
     if (((*P_I_A1_IndicesInArea)(i_ind) < 0) || ((*P_I_A1_IndicesInArea)(i_ind) >= D_A2_ArrayToLookForNeighbour_In.rows())){
       cout << "CFits::FindNearestNeighbour: ERROR: ((*P_I_A1_IndicesInArea)(i_ind=" << i_ind << ")=" << (*P_I_A1_IndicesInArea)(i_ind) << " < 0) || ((*P_I_A1_IndicesInArea)(i_ind) >= D_A2_ArrayToLookForNeighbour_In.rows()=" << D_A2_ArrayToLookForNeighbour_In.rows() << ")" << endl;
@@ -42146,14 +42146,14 @@ bool CFits::FindNearestNeighbour(const Array<double, 1> &D_A1_ReferencePoint_In,
     }
     D_A2_ArrayToLookForNeighbour_InArea(i_ind, Range::all()) = D_A2_ArrayToLookForNeighbour_In((*P_I_A1_IndicesInArea)(i_ind), Range::all());
   }
-  Array<double, 2> D_A2_Temp(D_A2_ArrayToLookForNeighbour_InArea.rows(), D_A2_ArrayToLookForNeighbour_InArea.cols());
+  blitz::Array<double, 2> D_A2_Temp(D_A2_ArrayToLookForNeighbour_InArea.rows(), D_A2_ArrayToLookForNeighbour_InArea.cols());
   D_A2_Temp(Range::all(),0) = D_A2_ArrayToLookForNeighbour_InArea(Range::all(),0) - D_A1_ReferencePoint_In(0);
   D_A2_Temp(Range::all(),1) = D_A2_ArrayToLookForNeighbour_InArea(Range::all(),1) - D_A1_ReferencePoint_In(1);
-  Array<double, 1> D_A1_Dist(D_A2_Temp.rows());
+  blitz::Array<double, 1> D_A1_Dist(D_A2_Temp.rows());
   D_A1_Dist = sqrt(sqr(D_A2_Temp(Range::all(),0)) + sqr(D_A2_Temp(Range::all(),1)));
-  Array<int, 1> I_A1_Where(D_A1_Dist.rows());
+  blitz::Array<int, 1> I_A1_Where(D_A1_Dist.rows());
   I_A1_Where = where(fabs(D_A1_Dist - min(D_A1_Dist)) < 0.00001, 1, 0);
-  Array<int, 1> I_A1_WherePos(sum(I_A1_Where));
+  blitz::Array<int, 1> I_A1_WherePos(sum(I_A1_Where));
   int I_NInd;
   if (!this->GetIndex(I_A1_Where, I_NInd, I_A1_WherePos)){
     cout << "CFits::FindNearestNeighbour: ERROR: GetIndex(I_A1_Where) returned FALSE" << endl;
@@ -42180,12 +42180,12 @@ bool CFits::FindNearestNeighbour(const Array<double, 1> &D_A1_ReferencePoint_In,
 /**
  * find I_N nearest neighbours to D_A1_ReferencePoint_In(x,y) in D_A2_ArrayToLookForNeighbour_In and write coordinates to D_A2_NearestNeighbour_Out
  **/
-bool CFits::FindNearestNeighbours(const Array<double, 1> &D_A1_ReferencePoint_In,
-                                  const Array<double, 2> &D_A2_ArrayToLookForNeighbour_In,
+bool CFits::FindNearestNeighbours(const blitz::Array<double, 1> &D_A1_ReferencePoint_In,
+                                  const blitz::Array<double, 2> &D_A2_ArrayToLookForNeighbour_In,
                                   const int I_N,
-                                  Array<double, 2> &D_A2_NearestNeighbours_Out,
-                                  Array<int, 1> &I_A1_Pos) const{
-  Array<int, 1> I_A1_Area(4);
+                                  blitz::Array<double, 2> &D_A2_NearestNeighbours_Out,
+                                  blitz::Array<int, 1> &I_A1_Pos) const{
+  blitz::Array<int, 1> I_A1_Area(4);
   I_A1_Area(0) = 0;
   I_A1_Area(1) = this->NCols-1;
   I_A1_Area(2) = 0;
@@ -42201,24 +42201,24 @@ bool CFits::FindNearestNeighbours(const Array<double, 1> &D_A1_ReferencePoint_In
 /**
  * find I_N nearest neighbours to D_A1_ReferencePoint_In(x,y) in D_A2_ArrayToLookForNeighbour_In and write coordinates to D_A2_NearestNeighbour_Out
  **/
-bool CFits::FindNearestNeighbours(const Array<double, 1> &D_A1_ReferencePoint_In,
-                                  const Array<double, 2> &D_A2_ArrayToLookForNeighbour_In,
+bool CFits::FindNearestNeighbours(const blitz::Array<double, 1> &D_A1_ReferencePoint_In,
+                                  const blitz::Array<double, 2> &D_A2_ArrayToLookForNeighbour_In,
                                   const int I_N,
-                                  const Array<int, 1> &D_A1_Area_In,
-                                  Array<double, 2> &D_A2_NearestNeighbours_Out,
-                                  Array<int, 1> &I_A1_Pos) const{
+                                  const blitz::Array<int, 1> &D_A1_Area_In,
+                                  blitz::Array<double, 2> &D_A2_NearestNeighbours_Out,
+                                  blitz::Array<int, 1> &I_A1_Pos) const{
                            
 //  cout << "CFits::FindNearestNeighbours: D_A2_ArrayToLookForNeighbour_In = " << D_A2_ArrayToLookForNeighbour_In << endl;
   D_A2_NearestNeighbours_Out.resize(I_N,2);
   I_A1_Pos.resize(I_N);
   I_A1_Pos = -1;
-  Array<double, 2> D_A2_ArrayToLookForNeighbour_Temp(D_A2_ArrayToLookForNeighbour_In.rows(), D_A2_ArrayToLookForNeighbour_In.cols());
-  Array<double, 2> D_A2_Temp(2,2);
-  Array<double, 1> D_A1_NearestNeighbour_Out(2);
+  blitz::Array<double, 2> D_A2_ArrayToLookForNeighbour_Temp(D_A2_ArrayToLookForNeighbour_In.rows(), D_A2_ArrayToLookForNeighbour_In.cols());
+  blitz::Array<double, 2> D_A2_Temp(2,2);
+  blitz::Array<double, 1> D_A1_NearestNeighbour_Out(2);
   D_A2_ArrayToLookForNeighbour_Temp = D_A2_ArrayToLookForNeighbour_In;
   int I_Pos, I_NInd;
-  Array<int, 1> I_A1_Ind(D_A2_ArrayToLookForNeighbour_In.rows());
-  Array<int, 1> *P_I_A1_Ind;
+  blitz::Array<int, 1> I_A1_Ind(D_A2_ArrayToLookForNeighbour_In.rows());
+  blitz::Array<int, 1> *P_I_A1_Ind;
   for (int i=0; i<I_N; i++){
     #ifdef __DEBUG_FITS_FINDNEARESTNEIGHBOUR__
       cout << "CFits::FindNearestNeighbour: i=" << i << ": D_A1_ReferencePoint_In = " << D_A1_ReferencePoint_In << endl;
@@ -42267,14 +42267,14 @@ bool CFits::FindNearestNeighbours(const Array<double, 1> &D_A1_ReferencePoint_In
 /**
  * Calculate Integral under line between two points
  * **/
-bool CFits::IntegralUnderLine(const Array<double, 2> &D_A2_Coords_In,
+bool CFits::IntegralUnderLine(const blitz::Array<double, 2> &D_A2_Coords_In,
                               double &D_Integral_Out) const{
   if (D_A2_Coords_In(0,0) == D_A2_Coords_In(1,0)){
     D_Integral_Out = 0.;
     return true;
   }
-  Array<double, 1> D_A1_X(2);
-  Array<double, 1> D_A1_Y(2);
+  blitz::Array<double, 1> D_A1_X(2);
+  blitz::Array<double, 1> D_A1_Y(2);
   if (D_A2_Coords_In(0,0) > D_A2_Coords_In(1,0)){
     D_A1_X(0) = D_A2_Coords_In(1,0);
     D_A1_Y(0) = D_A2_Coords_In(1,1);
@@ -42296,7 +42296,7 @@ bool CFits::IntegralUnderLine(const Array<double, 2> &D_A2_Coords_In,
     return true;
   }
   double D_BinStart_X, D_BinEnd_X, D_Bin_Ya, D_Bin_Yb;
-  Array<double, 1> *P_D_A1_YFit;
+  blitz::Array<double, 1> *P_D_A1_YFit;
   D_Integral_Out = 0.;
 
   D_BinStart_X = D_A1_X(0);
@@ -42306,7 +42306,7 @@ bool CFits::IntegralUnderLine(const Array<double, 2> &D_A2_Coords_In,
   if (fabs(D_A1_X(0) - D_A1_X(1)) < 0.000002){
     return true;
   }
-  Array<double, 1> *P_D_A1_Coeffs = new Array<double, 1>(2);
+  blitz::Array<double, 1> *P_D_A1_Coeffs = new blitz::Array<double, 1>(2);
   if (!this->PolyFit(D_A1_X,
                      D_A1_Y,
                      1,
@@ -42340,7 +42340,7 @@ bool CFits::IntegralUnderLine(const Array<double, 2> &D_A2_Coords_In,
 /**
  * Calculate Integral in Triangle
  * **/
-bool CFits::IntegralInTriangle(const Array<double, 2> &D_A2_Coords_In,
+bool CFits::IntegralInTriangle(const blitz::Array<double, 2> &D_A2_Coords_In,
                                double &D_Integral_Out) const{
   if (D_A2_Coords_In.rows() != 3){
     cout << "CFits::IntegralInTriangle: ERROR: D_A2_Coords_In does not contain 3 coordinates" << endl;
@@ -42348,12 +42348,12 @@ bool CFits::IntegralInTriangle(const Array<double, 2> &D_A2_Coords_In,
     return false;
   }
 /**  cout << "CFits::IntegralInTriangle: D_A2_Coords_In = " << D_A2_Coords_In << endl;
-  Array<int, 1> I_A1_Where(3);
+  blitz::Array<int, 1> I_A1_Where(3);
   I_A1_Where = where(fabs(D_A2_Coords_In(Range::all(), 1) - max(D_A2_Coords_In(Range::all(), 1))) < 0.0000000001, 1, 0);
   cout << "CFits::IntegralInTriangle: I_A1_Where = " << I_A1_Where << endl;
   double D_Integral = 0.;
   D_Integral_Out = 0.;
-  Array<double, 2> D_A2_Line(2,2);
+  blitz::Array<double, 2> D_A2_Line(2,2);
   int I_PosA, I_PosB;
   for (int i=0; i<3; i++){
     if (i == 0){
@@ -42410,11 +42410,11 @@ bool CFits::IntegralInTriangle(const Array<double, 2> &D_A2_Coords_In,
  *           *
  * NOTE: Coordinates must go either in clockwise or counterclockwise direction!
  * **/
-bool CFits::IntegralInClosedStructure(const Array<double, 2> &D_A2_Coords_In,
+bool CFits::IntegralInClosedStructure(const blitz::Array<double, 2> &D_A2_Coords_In,
                                       double &D_Integral_Out) const{
   D_Integral_Out = 0.;
   double D_IntegralInTriangle = 0.;
-  Array<double, 2> D_A2_Coords_Triangle(3,2);
+  blitz::Array<double, 2> D_A2_Coords_Triangle(3,2);
   D_A2_Coords_Triangle(0,Range::all()) = D_A2_Coords_In(0,Range::all());
   for (int i_triag=0; i_triag < D_A2_Coords_In.rows()-2; i_triag++){
     D_A2_Coords_Triangle(1,Range::all()) = D_A2_Coords_In(i_triag+1, Range::all());
@@ -42436,9 +42436,9 @@ bool CFits::IntegralInClosedStructure(const Array<double, 2> &D_A2_Coords_In,
 /**
  * Calculate Integral under curve from D_A1_XInt(0) to D_A1_XInt(1)
  **/
-bool CFits::IntegralUnderCurve(const Array<double, 1> &D_A1_XIn,
-                               const Array<double, 1> &D_A1_YIn,
-                               const Array<double, 1> &D_A1_XInt,
+bool CFits::IntegralUnderCurve(const blitz::Array<double, 1> &D_A1_XIn,
+                               const blitz::Array<double, 1> &D_A1_YIn,
+                               const blitz::Array<double, 1> &D_A1_XInt,
 			       double &D_Integral_Out) const{
   #ifdef __DEBUG_FITS_INTEGRAL__
     cout << "DFits::IntegralUnderCurve: D_A1_XIn = " << D_A1_XIn << endl;
@@ -42483,7 +42483,7 @@ bool CFits::IntegralUnderCurve(const Array<double, 1> &D_A1_XIn,
     return true;
   }
 
-  Array<double, 1> D_A1_XTemp(D_A1_XIn.size() + 2);
+  blitz::Array<double, 1> D_A1_XTemp(D_A1_XIn.size() + 2);
   D_A1_XTemp = 0.;
   int I_IndXIn = 0;
   int I_IndX = 1;
@@ -42516,17 +42516,17 @@ bool CFits::IntegralUnderCurve(const Array<double, 1> &D_A1_XIn,
     cout << "CFits::IntegralUnderCurve: D_A1_XTemp set to " << D_A1_XTemp << endl;
   #endif
   D_A1_XTemp(I_IndX) = D_A1_XInt(1);
-  Array<double, 1> D_A1_X(I_IndX+1);
+  blitz::Array<double, 1> D_A1_X(I_IndX+1);
   D_A1_X = D_A1_XTemp(Range(0, I_IndX));
   #ifdef __DEBUG_FITS_INTEGRAL__
     cout << "CFits::IntegralUnderCurve: D_A1_X set to " << D_A1_X << endl;
   #endif
 
 
-/**  Array<int, 1> I_A1_Where(D_A1_XIn.size());
+/**  blitz::Array<int, 1> I_A1_Where(D_A1_XIn.size());
   I_A1_Where = where(D_A1_XIn <= D_A1_XInt(0), 1, 0);
   int I_NIndA;
-  Array<int, 1> I_A1_IndA(1);
+  blitz::Array<int, 1> I_A1_IndA(1);
   if (!this->GetIndex(I_A1_Where, I_NIndA, I_A1_IndA)){
     D_Integral_Out = 0.;
     cout << "CFits::IntegralUnderCurve: WARNING: D_A1_Xin = " << D_A1_XIn << ", D_A1_XInt = " << D_A1_XInt << ": GetIndex() returned FALSE" << endl;
@@ -42552,7 +42552,7 @@ bool CFits::IntegralUnderCurve(const Array<double, 1> &D_A1_XIn,
     cout << "CFits::IntegralUnderCurve: I_A1_Where = " << I_A1_Where << endl;
   #endif
   int I_NIndB = 0;
-  Array<int, 1> I_A1_IndB(1);
+  blitz::Array<int, 1> I_A1_IndB(1);
   this->GetIndex(I_A1_Where, I_NIndB, I_A1_IndB);
 //    D_Integral_Out = 0.;
 /    cout << "CFits::IntegralUnderCurve: WARNING: 2. GetIndex(I_A1_Where=" << I_A1_Where << ") returned FALSE" << endl;
@@ -42581,15 +42581,15 @@ bool CFits::IntegralUnderCurve(const Array<double, 1> &D_A1_XIn,
   if (I_NIndB == 0)
     I_XSize--;
 
-  Array<double, 1> D_A1_X(I_Index1 - I_Index0 + 1);
+  blitz::Array<double, 1> D_A1_X(I_Index1 - I_Index0 + 1);
   D_A1_X = D_A1_XIn(Range(I_Index0, I_Index1));
 //  D_A1_X(Range(1,I_A1_IndB.size())) = D_A1_XIn(Range(I_A1_IndA(I_A1_IndB(0)), I_A1_IndA(I_A1_IndB(I_A1_IndB.size()-1))));
 //  D_A1_X(D_A1_X.size()-1) = D_A1_XInt(1);
   #ifdef __DEBUG_FITS_INTEGRAL__
     cout << "CFits::IntegralUnderCurve: D_A1_X set to " << D_A1_X << endl;
   #endif */
-  Array<double, 1> D_A1_Y(D_A1_X.size());
-  Array<double, 1> *P_D_A1_Y = new Array<double, 1>(D_A1_X.size());
+  blitz::Array<double, 1> D_A1_Y(D_A1_X.size());
+  blitz::Array<double, 1> *P_D_A1_Y = new blitz::Array<double, 1>(D_A1_X.size());
   if (!this->InterPol(D_A1_YIn, D_A1_XIn, D_A1_X, P_D_A1_Y)){
     cout << "CFits::IntegralUnderCurve: ERROR: InterPol returned FALSE" << endl;
     return false;
@@ -42603,7 +42603,7 @@ bool CFits::IntegralUnderCurve(const Array<double, 1> &D_A1_XIn,
 //  return false;
   D_Integral_Out = 0.;
   double D_Integral = 0.;
-  Array<double, 2> D_A2_Coords(2,2);
+  blitz::Array<double, 2> D_A2_Coords(2,2);
   for (int i=1; i<D_A1_X.size(); i++){
     D_A2_Coords(0,0) = D_A1_X(i-1);
     D_A2_Coords(1,0) = D_A1_X(i);
@@ -42624,9 +42624,9 @@ bool CFits::IntegralUnderCurve(const Array<double, 1> &D_A1_XIn,
 /**
  * Integral-normalise a function
  **/
-bool CFits::IntegralNormalise(const Array<double, 1> &D_A1_XIn,
-                              const Array<double, 1> &D_A1_YIn,
-			      Array<double, 1> &D_A1_YOut) const{
+bool CFits::IntegralNormalise(const blitz::Array<double, 1> &D_A1_XIn,
+                              const blitz::Array<double, 1> &D_A1_YIn,
+			      blitz::Array<double, 1> &D_A1_YOut) const{
   if (D_A1_XIn.size() < 2){
     cout << "CFits::IntegralNormalise: ERROR: D_A1_XIn.size() < 2" << endl;
     return false;
@@ -42637,7 +42637,7 @@ bool CFits::IntegralNormalise(const Array<double, 1> &D_A1_XIn,
   }
   D_A1_YOut.resize(D_A1_YIn.size());
   double D_Integral;
-  Array<double, 1> D_A1_XInt(2);
+  blitz::Array<double, 1> D_A1_XInt(2);
   D_A1_XInt(0) = D_A1_XIn(0);
   D_A1_XInt(1) = D_A1_XIn(D_A1_XIn.size()-1);
   #ifdef __DEBUG_FITS_INTEGRAL__
@@ -42664,9 +42664,9 @@ bool CFits::IntegralNormalise(const Array<double, 1> &D_A1_XIn,
 /**
  * Integral-normalise a function
  **/
-bool CFits::IntegralNormalise(const Array<double, 1> &D_A1_XIn,
-	                      Array<double, 1> &D_A1_YInOut) const{
-  Array<double, 1> D_A1_YTemp(D_A1_YInOut.size());
+bool CFits::IntegralNormalise(const blitz::Array<double, 1> &D_A1_XIn,
+	                      blitz::Array<double, 1> &D_A1_YInOut) const{
+  blitz::Array<double, 1> D_A1_YTemp(D_A1_YInOut.size());
   #ifdef __DEBUG_FITS_INTEGRAL__
     cout << "CFits::IntegralNormalise: D_A1_XIn = " << D_A1_XIn << endl;
     cout << "CFits::IntegralNormalise: D_A1_YInOut = " << D_A1_YInOut << endl;
@@ -42684,19 +42684,19 @@ bool CFits::IntegralNormalise(const Array<double, 1> &D_A1_XIn,
 /**
  * Sort 6 coordinates to create hexagon
  * **/
-bool CFits::SortCoordinatesToCreateHexagon(const Array<double, 2> &D_A2_Coords_In,
-                                           Array<double, 2> &D_A2_Coords_Out) const{
+bool CFits::SortCoordinatesToCreateHexagon(const blitz::Array<double, 2> &D_A2_Coords_In,
+                                           blitz::Array<double, 2> &D_A2_Coords_Out) const{
   if (D_A2_Coords_In.rows() != 6 || D_A2_Coords_In.cols() != 2){
     cout << "CFits::SortCoordinatesToCreateHexagon: ERROR: D_A2_Coords_In(=" << D_A2_Coords_In << ") does not have 6x2 format" << endl;
     return false;
   }
   cout << "CFits::SortCoordinatesToCreateHexagon: D_A2_Coords_In = " << D_A2_Coords_In << endl;
 /**  double D_XMin = min(D_A2_Coords_In(Range::all(),0));
-  Array<double, 2> D_A2_Coords_Left(D_A2_Coords_In.rows(), 2);
+  blitz::Array<double, 2> D_A2_Coords_Left(D_A2_Coords_In.rows(), 2);
   D_A2_Coords_Left = D_A2_Coords_In;
-  Array<int, 1> I_A1_Where(D_A2_Coords_In.rows());
+  blitz::Array<int, 1> I_A1_Where(D_A2_Coords_In.rows());
   I_A1_Where = where(fabs(D_A2_Coords_In(Range::all(),1) - D_YMin) < 0.000001, 1, 0);
-  Array<int, 1> I_A1_Index(1);
+  blitz::Array<int, 1> I_A1_Index(1);
   int I_NInd;
   if (!this->GetIndex(I_A1_Where, I_NInd, I_A1_Index)){
     cout << "CFits::SortCoordinatesToCreateHexagon: ERROR: GetIndex(I_A1_Where) returned FALSE" << endl;
@@ -42713,8 +42713,8 @@ bool CFits::SortCoordinatesToCreateHexagon(const Array<double, 2> &D_A2_Coords_I
   }
   cout << "CFits::SortCoordinatesToCreateHexagon: D_A2_Coords_Left = " << D_A2_Coords_Left << endl;
 
-  Array<double, 1> D_A1_Next(2);
-  Array<double, 1> D_A1_Ref(2);
+  blitz::Array<double, 1> D_A1_Next(2);
+  blitz::Array<double, 1> D_A1_Ref(2);
   int I_Pos=0;
 
   for (int i=1; i<D_A2_Coords_In.rows()-1; i++){
@@ -42742,8 +42742,8 @@ bool CFits::SortCoordinatesToCreateHexagon(const Array<double, 2> &D_A2_Coords_I
   return this->SortCoordinatesCounterClockWise(D_A2_Coords_In, D_A2_Coords_Out);
 }
 
-bool CFits::SortCoordinatesCounterClockWise(const Array<double, 2> &D_A2_Corners_In,
-                                            Array<double, 2> &D_A2_Corners_Out) const{
+bool CFits::SortCoordinatesCounterClockWise(const blitz::Array<double, 2> &D_A2_Corners_In,
+                                            blitz::Array<double, 2> &D_A2_Corners_Out) const{
   if (D_A2_Corners_In.rows() < 3 || D_A2_Corners_In.cols() != 2){
     cout << "CFits::SortCoordinatesCounterClockWise: ERROR: D_A2_Corners_In(=" << D_A2_Corners_In << ") does not contain 2 columns or at least 2 rows" << endl;
     return false;
@@ -42753,23 +42753,23 @@ bool CFits::SortCoordinatesCounterClockWise(const Array<double, 2> &D_A2_Corners
   #endif
   D_A2_Corners_Out.resize(D_A2_Corners_In.rows(),2);
 
-  Array<double, 1> D_A1_Pix(2);
+  blitz::Array<double, 1> D_A1_Pix(2);
 
   /// Start with lower most left corner
-  Array<int, 1> I_A1_Where_X(D_A2_Corners_In.rows());
-  Array<int, 1> I_A1_Where_Y(D_A2_Corners_In.rows());
-  Array<int, 1> I_A1_Ind_X(1);
-  Array<int, 1> I_A1_Ind_Y(1);
-  Array<double, 1> D_A1_Out(1);
-  Array<double, 2> D_A2_Out(2,2);
+  blitz::Array<int, 1> I_A1_Where_X(D_A2_Corners_In.rows());
+  blitz::Array<int, 1> I_A1_Where_Y(D_A2_Corners_In.rows());
+  blitz::Array<int, 1> I_A1_Ind_X(1);
+  blitz::Array<int, 1> I_A1_Ind_Y(1);
+  blitz::Array<double, 1> D_A1_Out(1);
+  blitz::Array<double, 2> D_A2_Out(2,2);
   int I_NInd, I_Run;
   int I_NCorners_New = 0;
   int I_RightMostCorner = 0;
   int I_LeftMostCorner = 0;
   I_Run = 0;
-  Array<double, 2> D_A2_Corners(D_A2_Corners_In.rows(),2);
+  blitz::Array<double, 2> D_A2_Corners(D_A2_Corners_In.rows(),2);
   D_A2_Corners = 0.;
-  Array<double, 2> D_A2_CornersTemp(D_A2_Corners_In.rows(),2);
+  blitz::Array<double, 2> D_A2_CornersTemp(D_A2_Corners_In.rows(),2);
   D_A2_CornersTemp = D_A2_Corners_In;
 
   I_A1_Where_X = where(fabs(D_A2_Corners_In(Range::all(),0) - min(D_A2_Corners_In(Range::all(), 0))) < 0.000000001, 1, 0);
@@ -43024,8 +43024,8 @@ bool CFits::SortCoordinatesCounterClockWise(const Array<double, 2> &D_A2_Corners
   return true;
 }
 
-bool CFits::Remove_SubArrayFromArray(Array<int, 1> &A1_Array_InOut, const Array<int, 1> &A1_SubArray) const{
-  Array<int, 1> A1_Array_Out(A1_Array_InOut.size());
+bool CFits::Remove_SubArrayFromArray(blitz::Array<int, 1> &A1_Array_InOut, const blitz::Array<int, 1> &A1_SubArray) const{
+  blitz::Array<int, 1> A1_Array_Out(A1_Array_InOut.size());
   int I_NElements = 0;
   bool B_InSubArray = false;
   for (int i_orig=0; i_orig<A1_Array_InOut.size(); i_orig++){
@@ -43044,12 +43044,12 @@ bool CFits::Remove_SubArrayFromArray(Array<int, 1> &A1_Array_InOut, const Array<
   return true;
 }
 
-bool CFits::Remove_ElementsFromArray(Array<int, 1> &I_A1_InOut, const Array<int, 1> &I_A1_ElementIndicesToRemove_In) const{
+bool CFits::Remove_ElementsFromArray(blitz::Array<int, 1> &I_A1_InOut, const blitz::Array<int, 1> &I_A1_ElementIndicesToRemove_In) const{
   if (I_A1_ElementIndicesToRemove_In.size() >= I_A1_InOut.size()){
     cout << "CString::RemoveElementFromArray: ERROR: I_A1_ElementsToRemove_In.size()=" << I_A1_ElementIndicesToRemove_In.size() << " >= I_A1_InOut.size()=" << I_A1_InOut.size() << endl;
     return false;
   }
-  Array<int, 1> I_A1_Temp(I_A1_InOut.size()-I_A1_ElementIndicesToRemove_In.size());
+  blitz::Array<int, 1> I_A1_Temp(I_A1_InOut.size()-I_A1_ElementIndicesToRemove_In.size());
   int I_El = 0;
   bool B_Found = false;
   for (int i_el=0; i_el<I_A1_InOut.size(); i_el++){
@@ -43069,12 +43069,12 @@ bool CFits::Remove_ElementsFromArray(Array<int, 1> &I_A1_InOut, const Array<int,
   return true;
 }
 
-bool CFits::Remove_ElementsFromArray(Array<double, 1> &D_A1_InOut, const Array<int, 1> &I_A1_ElementIndicesToRemove_In) const{
+bool CFits::Remove_ElementsFromArray(blitz::Array<double, 1> &D_A1_InOut, const blitz::Array<int, 1> &I_A1_ElementIndicesToRemove_In) const{
   if (I_A1_ElementIndicesToRemove_In.size() >= D_A1_InOut.size()){
     cout << "CString::RemoveElementFromArray: ERROR: I_A1_ElementsToRemove_In.size()=" << I_A1_ElementIndicesToRemove_In.size() << " >= D_A1_InOut.size()=" << D_A1_InOut.size() << endl;
     return false;
   }
-  Array<double, 1> D_A1_Temp(D_A1_InOut.size()-I_A1_ElementIndicesToRemove_In.size());
+  blitz::Array<double, 1> D_A1_Temp(D_A1_InOut.size()-I_A1_ElementIndicesToRemove_In.size());
   int I_El = 0;
   bool B_Found = false;
   for (int i_el=0; i_el<D_A1_InOut.size(); i_el++){
@@ -43094,11 +43094,11 @@ bool CFits::Remove_ElementsFromArray(Array<double, 1> &D_A1_InOut, const Array<i
   return true;
 }
 
-bool CFits::Remove_Ith_ElementFromArray(Array<double, 1> &D_A1_Array_InOut,
+bool CFits::Remove_Ith_ElementFromArray(blitz::Array<double, 1> &D_A1_Array_InOut,
 int I_Pos_In) const{
   if (I_Pos_In < 0 || I_Pos_In >= D_A1_Array_InOut.size())
     return false;
-  Array<double, 1> D_A1_Temp(D_A1_Array_InOut.size()-1);
+  blitz::Array<double, 1> D_A1_Temp(D_A1_Array_InOut.size()-1);
   if (I_Pos_In > 0){
     D_A1_Temp(Range(0,I_Pos_In-1)) = D_A1_Array_InOut(Range(0,I_Pos_In-1));
   }
@@ -43110,11 +43110,11 @@ int I_Pos_In) const{
   return true;
 }
 
-bool CFits::Remove_Ith_ElementFromArray(Array<int, 1> &I_A1_Array_InOut,
+bool CFits::Remove_Ith_ElementFromArray(blitz::Array<int, 1> &I_A1_Array_InOut,
 int I_Pos_In) const{
   if (I_Pos_In < 0 || I_Pos_In >= I_A1_Array_InOut.size())
     return false;
-  Array<int, 1> I_A1_Temp(I_A1_Array_InOut.size()-1);
+  blitz::Array<int, 1> I_A1_Temp(I_A1_Array_InOut.size()-1);
   if (I_Pos_In > 0){
     I_A1_Temp(Range(0,I_Pos_In-1)) = I_A1_Array_InOut(Range(0,I_Pos_In-1));
   }
@@ -43126,11 +43126,11 @@ int I_Pos_In) const{
   return true;
 }
 
-bool CFits::Remove_Ith_RowFromArray(Array<double, 2> &D_A2_Array_InOut,
+bool CFits::Remove_Ith_RowFromArray(blitz::Array<double, 2> &D_A2_Array_InOut,
 int I_Row_In) const{
   if (I_Row_In < 0 || I_Row_In >= D_A2_Array_InOut.rows())
     return false;
-  Array<double, 2> D_A2_Temp(D_A2_Array_InOut.rows()-1,D_A2_Array_InOut.cols());
+  blitz::Array<double, 2> D_A2_Temp(D_A2_Array_InOut.rows()-1,D_A2_Array_InOut.cols());
   if (I_Row_In > 0){
     D_A2_Temp(Range(0,I_Row_In-1), Range::all()) = D_A2_Array_InOut(Range(0,I_Row_In-1), Range::all());
   }
@@ -43143,11 +43143,11 @@ int I_Row_In) const{
 
 }
 
-bool CFits::Remove_Ith_RowFromArray(Array<int, 2> &I_A2_Array_InOut,
+bool CFits::Remove_Ith_RowFromArray(blitz::Array<int, 2> &I_A2_Array_InOut,
 int I_Row_In) const{
   if (I_Row_In < 0 || I_Row_In >= I_A2_Array_InOut.rows())
     return false;
-  Array<int, 2> I_A2_Temp(I_A2_Array_InOut.rows()-1,I_A2_Array_InOut.cols());
+  blitz::Array<int, 2> I_A2_Temp(I_A2_Array_InOut.rows()-1,I_A2_Array_InOut.cols());
   if (I_Row_In > 0){
     I_A2_Temp(Range(0,I_Row_In-1), Range::all()) = I_A2_Array_InOut(Range(0,I_Row_In-1), Range::all());
   }
@@ -43163,8 +43163,8 @@ int I_Row_In) const{
 /**
  * Returns distance between two points in 2D coordinate system
  * **/
-double CFits::Distance(const Array<double, 1> &D_A1_PointA_In,
-                       const Array<double, 1> &D_A1_PointB_In) const{
+double CFits::Distance(const blitz::Array<double, 1> &D_A1_PointA_In,
+                       const blitz::Array<double, 1> &D_A1_PointB_In) const{
   double D_SumSqr = 0;
   for (int i=0; i<D_A1_PointA_In.size(); i++)
     D_SumSqr += pow2(D_A1_PointA_In(i) - D_A1_PointB_In(i));
@@ -43175,15 +43175,15 @@ double CFits::Distance(const Array<double, 1> &D_A1_PointA_In,
  * Calculate end coordinate which extends the line from D_A1_StartPos_In through
  * D_A1_ThroughPos_In to length D_Length_In
  * **/
-bool CFits::ExtendLineToLength(const Array<double, 1> &D_A1_StartPos_In,
-                               const Array<double, 1> &D_A1_ThroughPos_In,
+bool CFits::ExtendLineToLength(const blitz::Array<double, 1> &D_A1_StartPos_In,
+                               const blitz::Array<double, 1> &D_A1_ThroughPos_In,
                                const double D_Length_In,
-                               Array<double, 1> &D_A1_EndPos_Out) const{
+                               blitz::Array<double, 1> &D_A1_EndPos_Out) const{
   if ((D_A1_StartPos_In.size() != 2) || (D_A1_ThroughPos_In.size() != 2))
     return false;
   double D_Length = this->Distance(D_A1_StartPos_In, D_A1_ThroughPos_In);
   double D_Ratio = D_Length_In / D_Length;
-  Array<double, 1> D_A1_ThroughPos_RelativeToStart(2);
+  blitz::Array<double, 1> D_A1_ThroughPos_RelativeToStart(2);
   D_A1_ThroughPos_RelativeToStart = D_A1_ThroughPos_In - D_A1_StartPos_In;
   D_A1_EndPos_Out = D_A1_ThroughPos_RelativeToStart * D_Ratio;
   D_A1_EndPos_Out = D_A1_EndPos_Out + D_A1_StartPos_In;
@@ -43194,8 +43194,8 @@ bool CFits::ExtendLineToLength(const Array<double, 1> &D_A1_StartPos_In,
  * Returns TRUE if point D_A1_PixCoords_In is in triangular area defined by
  * D_A2_Triag_In((x0,y0),(x1,y1),(x2,y2))
  * **/
-bool CFits::PixelIsInTriangle(const Array<double, 1> &D_A1_PixCoords_In,
-                              const Array<double, 2> &D_A2_Triag_In) const{
+bool CFits::PixelIsInTriangle(const blitz::Array<double, 1> &D_A1_PixCoords_In,
+                              const blitz::Array<double, 2> &D_A2_Triag_In) const{
   if (D_A2_Triag_In.rows() != 3){
     cout << "CFits::PixelIsInTriangle: ERROR: D_A2_Triag_In does not contain 3 coordinates" << endl;
     return false;
@@ -43207,7 +43207,7 @@ bool CFits::PixelIsInTriangle(const Array<double, 1> &D_A1_PixCoords_In,
   double D_Area_Triangle = 0.;
   double D_Area_Triangles = 0.;
   double D_Area_Temp = 0.;
-  Array<double, 2> D_A2_Triag(3,2);
+  blitz::Array<double, 2> D_A2_Triag(3,2);
   if (!this->IntegralInTriangle(D_A2_Triag_In, D_Area_Triangle)){
     cout << "CFits::PixelIsInTriangle: ERROR: IntegralInClosedStructure returned FALSE" << endl;
     return false;
@@ -43254,8 +43254,8 @@ bool CFits::PixelIsInTriangle(const Array<double, 1> &D_A1_PixCoords_In,
  *              pix_upper_right(x1,y1)
  *              pix_upper_left(x0,y1))
  * **/
-bool CFits::PixelIsInRectangle(const Array<double, 1> &D_A1_PixCoords_In,
-                               const Array<double, 2> &D_A2_Rect_In) const{
+bool CFits::PixelIsInRectangle(const blitz::Array<double, 1> &D_A1_PixCoords_In,
+                               const blitz::Array<double, 2> &D_A2_Rect_In) const{
   return ((D_A1_PixCoords_In(0) >= D_A2_Rect_In(0,0))
        && (D_A1_PixCoords_In(0) <= D_A2_Rect_In(1,0))
        && (D_A1_PixCoords_In(1) >= D_A2_Rect_In(0,1))
@@ -43269,9 +43269,9 @@ bool CFits::PixelIsInRectangle(const Array<double, 1> &D_A1_PixCoords_In,
  *              pix_upper_right(x1,y1)
  *              pix_upper_left(x0,y1))
  * **/
-bool CFits::PixelIsInFigure(const Array<double, 1> &D_A1_PixCoords_In,
-                            const Array<double, 2> &D_A2_Rect_In) const{
-  Array<double, 2> D_A2_Triag(3,2);
+bool CFits::PixelIsInFigure(const blitz::Array<double, 1> &D_A1_PixCoords_In,
+                            const blitz::Array<double, 2> &D_A2_Rect_In) const{
+  blitz::Array<double, 2> D_A2_Triag(3,2);
   D_A2_Triag(0,Range::all()) = D_A2_Rect_In(0,Range::all());
   for (int i=0; i<D_A2_Rect_In.rows()-2; i++){
     D_A2_Triag(1,Range::all()) = D_A2_Rect_In(i+1,Range::all());
@@ -43298,8 +43298,8 @@ bool CFits::PixelIsInFigure(const Array<double, 1> &D_A1_PixCoords_In,
  * Calculate m and n for line y=mx+n from 2 points D_A1_PointA_In(x,y) and
  * D_A1_PointB_In(x,y)
  * **/
-bool CFits::CalculateLine(const Array<double, 1> &D_A1_PointA_In,
-                          const Array<double, 1> &D_A1_PointB_In,
+bool CFits::CalculateLine(const blitz::Array<double, 1> &D_A1_PointA_In,
+                          const blitz::Array<double, 1> &D_A1_PointB_In,
                           double &D_M_Out,
                           double &D_N_Out) const{
   if (fabs(D_A1_PointA_In(0) - D_A1_PointB_In(0)) < 0.000000000001)
@@ -43315,9 +43315,9 @@ bool CFits::CalculateLine(const Array<double, 1> &D_A1_PointA_In,
  * writes point to D_A1_Cross_Out and returns true, if found,
  * else returns false
  * **/
-bool CFits::FindCrossPoint(const Array<double, 2> &D_A2_LineA_In,
-                           const Array<double, 2> &D_A2_LineB_In,
-                           Array<double, 1> &D_A1_Cross_Out) const{
+bool CFits::FindCrossPoint(const blitz::Array<double, 2> &D_A2_LineA_In,
+                           const blitz::Array<double, 2> &D_A2_LineB_In,
+                           blitz::Array<double, 1> &D_A1_Cross_Out) const{
   #ifdef __DEBUG_FITS_FINDCROSSPOINT____
     cout << "CFits::FindCrossPoint: D_A2_LineA_In = " << D_A2_LineA_In << endl;
     cout << "CFits::FindCrossPoint: D_A2_LineB_In = " << D_A2_LineB_In << endl;
@@ -43326,8 +43326,8 @@ bool CFits::FindCrossPoint(const Array<double, 2> &D_A2_LineA_In,
     cout << "CFits::FindCrossPoint: ERROR: input lines don't have 2 rows and 2 columns" << endl;
     return false;
   }
-  Array<double, 2> D_A2_LineA(2,2);
-  Array<double, 2> D_A2_LineB(2,2);
+  blitz::Array<double, 2> D_A2_LineA(2,2);
+  blitz::Array<double, 2> D_A2_LineB(2,2);
   D_A1_Cross_Out.resize(2);
   D_A1_Cross_Out = 0.;
 
@@ -43357,7 +43357,7 @@ bool CFits::FindCrossPoint(const Array<double, 2> &D_A2_LineA_In,
 
   /// if vertical LineB => Swap LineA and LineB
   if (fabs(D_A2_LineB(0,0) - D_A2_LineB(1,0)) < 0.00000000001){
-    Array<double, 2> D_A2_Temp(2,2);
+    blitz::Array<double, 2> D_A2_Temp(2,2);
     D_A2_Temp = D_A2_LineA;
     D_A2_LineA = D_A2_LineB;
     D_A2_LineB = D_A2_Temp;
@@ -43367,8 +43367,8 @@ bool CFits::FindCrossPoint(const Array<double, 2> &D_A2_LineA_In,
   }
 
   /// vertical LineA
-  Array<double, 1> D_A1_Cross_Temp(2);
-  Array<double, 1> D_A1_Temp(2);
+  blitz::Array<double, 1> D_A1_Cross_Temp(2);
+  blitz::Array<double, 1> D_A1_Temp(2);
   if (fabs(D_A2_LineA(0,0) - D_A2_LineA(1,0)) < 0.00000000001){
     if (D_A2_LineA(0,1) > D_A2_LineA(1,1)){
       D_A1_Temp = D_A2_LineA(0,Range::all());
@@ -43513,9 +43513,9 @@ bool CFits::FindCrossPoint(const Array<double, 2> &D_A2_LineA_In,
  * NOTE::Coordinates of both figures must be ordered counterclockwise
  * Returns TRUE if figures overlap, else returns FALSE
  * **/
-bool CFits::CalcOverlapFig(const Array<double, 2> &D_A2_FigA_In,
-                           const Array<double, 2> &D_A2_FigB_In,
-                           Array<double, 2> &D_A2_OverlapFig_Out) const{
+bool CFits::CalcOverlapFig(const blitz::Array<double, 2> &D_A2_FigA_In,
+                           const blitz::Array<double, 2> &D_A2_FigB_In,
+                           blitz::Array<double, 2> &D_A2_OverlapFig_Out) const{
   if (D_A2_FigA_In.rows() < 3 || D_A2_FigB_In.rows() < 3){
     cout << "CFits::CalcOverlapFig: ERROR: Input figures have less than 3 data points" << endl;
     return false;
@@ -43524,16 +43524,16 @@ bool CFits::CalcOverlapFig(const Array<double, 2> &D_A2_FigA_In,
     cout << "CFits::CalcOverlapFig: D_A2_FigA_In = " << D_A2_FigA_In << endl;
     cout << "CFits::CalcOverlapFig: D_A2_FigB_In = " << D_A2_FigB_In << endl;
   #endif
-  Array<double, 2> D_A2_Corners(D_A2_FigA_In.rows() + D_A2_FigB_In.rows(),2);
-  Array<double, 2> D_A2_FigA(2,2);
-  Array<double, 2> D_A2_FigB(2,2);
-  Array<double, 2> D_A2_LineA(2,2);
-  Array<double, 2> D_A2_LineB(2,2);
-  Array<double, 1> D_A1_Pix(2);
-  Array<double, 1> D_A1_PixA_A(2);
-  Array<double, 1> D_A1_PixA_B(2);
-  Array<double, 1> D_A1_PixB_A(2);
-  Array<double, 1> D_A1_PixB_B(2);
+  blitz::Array<double, 2> D_A2_Corners(D_A2_FigA_In.rows() + D_A2_FigB_In.rows(),2);
+  blitz::Array<double, 2> D_A2_FigA(2,2);
+  blitz::Array<double, 2> D_A2_FigB(2,2);
+  blitz::Array<double, 2> D_A2_LineA(2,2);
+  blitz::Array<double, 2> D_A2_LineB(2,2);
+  blitz::Array<double, 1> D_A1_Pix(2);
+  blitz::Array<double, 1> D_A1_PixA_A(2);
+  blitz::Array<double, 1> D_A1_PixA_B(2);
+  blitz::Array<double, 1> D_A1_PixB_A(2);
+  blitz::Array<double, 1> D_A1_PixB_B(2);
   int I_NCorners_New=0;
   D_A2_Corners = 0.;
   bool B_LastCornerWasInside=false;
@@ -43675,19 +43675,19 @@ bool CFits::CalcOverlapFig(const Array<double, 2> &D_A2_FigA_In,
   return true;
 }
 
-bool CFits::PixIsInArray(const Array<double, 1> &D_A1_Pix, const Array<double, 2> &D_A2_Corners) const{
-  Array<int, 1> I_A1_Where(D_A2_Corners.rows());
+bool CFits::PixIsInArray(const blitz::Array<double, 1> &D_A1_Pix, const blitz::Array<double, 2> &D_A2_Corners) const{
+  blitz::Array<int, 1> I_A1_Where(D_A2_Corners.rows());
   I_A1_Where = where(fabs(D_A2_Corners(Range::all(),0) - D_A1_Pix(0)) < 0.000001, 1, 0);
   if (sum(I_A1_Where) == 0)
     return false;
   int I_NInd;
-  Array<int, 1> I_A1_Ind(2);
+  blitz::Array<int, 1> I_A1_Ind(2);
   if (!this->GetIndex(I_A1_Where, I_NInd, I_A1_Ind)){
     cout << "CFits::PixIsInArray: ERROR: GetIndex returned FALSE" << endl;
     return false;
   }
   I_A1_Where.resize(I_A1_Ind.size());
-  Array<double, 1> D_A1_Y(2);
+  blitz::Array<double, 1> D_A1_Y(2);
   if (!this->GetSubArrCopy(D_A2_Corners(Range::all(),1), I_A1_Ind, D_A1_Y)){
     cout << "CFits::PixIsInArray: ERROR: GetSubArrCopy returned FALSE" << endl;
     return false;
@@ -43698,8 +43698,8 @@ bool CFits::PixIsInArray(const Array<double, 1> &D_A1_Pix, const Array<double, 2
   return false;
 }
 
-void CFits::ResizeAndPreserve(Array<double, 1> &D_A1_Arr_InOut, int I_NewSize){
-  Array<double, 1> D_A1_Temp(I_NewSize);
+void CFits::ResizeAndPreserve(blitz::Array<double, 1> &D_A1_Arr_InOut, int I_NewSize){
+  blitz::Array<double, 1> D_A1_Temp(I_NewSize);
   D_A1_Temp = 0.;
   if (I_NewSize < D_A1_Arr_InOut.size()){
     D_A1_Temp = D_A1_Arr_InOut(Range(0,I_NewSize-1));
@@ -43714,8 +43714,8 @@ void CFits::ResizeAndPreserve(Array<double, 1> &D_A1_Arr_InOut, int I_NewSize){
   return;
 }
 
-void CFits::ResizeAndPreserve(Array<double, 2> &D_A2_Arr_InOut, int I_NewRows, int I_NewCols){
-  Array<double, 2> D_A2_Temp(I_NewRows, I_NewCols);
+void CFits::ResizeAndPreserve(blitz::Array<double, 2> &D_A2_Arr_InOut, int I_NewRows, int I_NewCols){
+  blitz::Array<double, 2> D_A2_Temp(I_NewRows, I_NewCols);
   D_A2_Temp = 0.;
   if (I_NewRows < D_A2_Arr_InOut.rows()){
     if (I_NewCols < D_A2_Arr_InOut.cols()){
@@ -43744,8 +43744,8 @@ void CFits::ResizeAndPreserve(Array<double, 2> &D_A2_Arr_InOut, int I_NewRows, i
   return;
 }
 
-void CFits::ResizeAndPreserve(Array<int, 1> &I_A1_Arr_InOut, int I_NewSize){
-  Array<int, 1> I_A1_Temp(I_NewSize);
+void CFits::ResizeAndPreserve(blitz::Array<int, 1> &I_A1_Arr_InOut, int I_NewSize){
+  blitz::Array<int, 1> I_A1_Temp(I_NewSize);
   I_A1_Temp = 0;
   if (I_NewSize < I_A1_Arr_InOut.size()){
     I_A1_Temp = I_A1_Arr_InOut(Range(0,I_NewSize-1));
@@ -43760,8 +43760,8 @@ void CFits::ResizeAndPreserve(Array<int, 1> &I_A1_Arr_InOut, int I_NewSize){
   return;
 }
 
-void CFits::ResizeAndPreserve(Array<int, 2> &I_A2_Arr_InOut, int I_NewRows, int I_NewCols){
-  Array<int, 2> I_A2_Temp(I_NewRows, I_NewCols);
+void CFits::ResizeAndPreserve(blitz::Array<int, 2> &I_A2_Arr_InOut, int I_NewRows, int I_NewCols){
+  blitz::Array<int, 2> I_A2_Temp(I_NewRows, I_NewCols);
   I_A2_Temp = 0;
   if (I_NewRows < I_A2_Arr_InOut.rows()){
     if (I_NewCols < I_A2_Arr_InOut.cols()){
@@ -43790,8 +43790,8 @@ void CFits::ResizeAndPreserve(Array<int, 2> &I_A2_Arr_InOut, int I_NewRows, int 
   return;
 }
 
-void CFits::ResizeAndPreserve(Array<CString, 1> &CS_A1_Arr_InOut, int I_NewSize){
-  Array<CString, 1> CS_A1_Temp(I_NewSize);
+void CFits::ResizeAndPreserve(blitz::Array<CString, 1> &CS_A1_Arr_InOut, int I_NewSize){
+  blitz::Array<CString, 1> CS_A1_Temp(I_NewSize);
   CS_A1_Temp = CString(" ");
   if (I_NewSize < CS_A1_Arr_InOut.size()){
     CS_A1_Temp = CS_A1_Arr_InOut(Range(0,I_NewSize-1));
@@ -43809,8 +43809,8 @@ void CFits::ResizeAndPreserve(Array<CString, 1> &CS_A1_Arr_InOut, int I_NewSize)
   return;
 }
 
-void CFits::ResizeAndPreserve(Array<CString, 2> &CS_A2_Arr_InOut, int I_NewRows, int I_NewCols){
-  Array<CString, 2> CS_A2_Temp(I_NewRows, I_NewCols);
+void CFits::ResizeAndPreserve(blitz::Array<CString, 2> &CS_A2_Arr_InOut, int I_NewRows, int I_NewCols){
+  blitz::Array<CString, 2> CS_A2_Temp(I_NewRows, I_NewCols);
   CS_A2_Temp = CString(" ");
   if (I_NewRows < CS_A2_Arr_InOut.rows()){
     if (I_NewCols < CS_A2_Arr_InOut.cols()){
@@ -43842,11 +43842,11 @@ return;
 /**bool CFits::GetBias(&D_BiasValue_Out) const{
   if (!this->TraceFunctionsCalculated)
     return false;
-  Array<double, 2> D_A2_Temp(this->NRows, this->NCols);
+  blitz::Array<double, 2> D_A2_Temp(this->NRows, this->NCols);
   D_A2_Temp = this->PixArray;
   if (!Set_ApertureDataToZero(D_A2_Temp, 1, 1))
     return false;
-  Array<double, 1> D_A1_Temp(this->I_NRows * this->I_NCols);
+  blitz::Array<double, 1> D_A1_Temp(this->I_NRows * this->I_NCols);
   int i_pix=0;
   for (int i_row=0; i_row<this->I_NRows; i_row++){
     for (int i_col=0; i_col < this->I_NCols; i_col++){
@@ -43856,7 +43856,7 @@ return;
       }
     }
   }
-  Array<double, 1> D_A1_Bias(i_pix-1);
+  blitz::Array<double, 1> D_A1_Bias(i_pix-1);
   D_A1_Bias = D_A1_Temp(Range(0,i_pix-1));
   D_BiasValue_Out = mean(D_A1_Bias);
   return true;
@@ -43870,8 +43870,8 @@ bool CFits::CreateErrorImage()
   return true;
 }
 
-//Array<double, 2>* CFits::Transpose(Array<double, 2> &Arr) const{
-//  Array<double, 2> *P_D_A2_Out = new Array<double, 2>(Arr.cols(), Arr.rows());
+//blitz::Array<double, 2>* CFits::Transpose(blitz::Array<double, 2> &Arr) const{
+//  blitz::Array<double, 2> *P_D_A2_Out = new blitz::Array<double, 2>(Arr.cols(), Arr.rows());
 //
 //}
 /*
@@ -44315,10 +44315,10 @@ bool CFits::AddHeaderToFitsFile(const CString &CS_FitsFileName_In, const CString
 
 
 bool CFits::WriteApertures(const CString &CS_FitsFileName_Out_Root, 
-                           Array<CString, 1> &CS_A1_FileNames_Out) const{
+                           blitz::Array<CString, 1> &CS_A1_FileNames_Out) const{
   cout << "CFits::WriteApertures: this->I_NApertures = " << this->I_NApertures << endl;
-  Array<int, 1> *P_I_A1_Apertures = this->IndGenArr(this->I_NApertures);
-  Array<int, 1> I_A1_Apertures(P_I_A1_Apertures->size());
+  blitz::Array<int, 1> *P_I_A1_Apertures = this->IndGenArr(this->I_NApertures);
+  blitz::Array<int, 1> I_A1_Apertures(P_I_A1_Apertures->size());
   I_A1_Apertures = (*P_I_A1_Apertures);
   cout << "CFits::WriteApertures: I_A1_Apertures set to " << I_A1_Apertures << endl;
   delete(P_I_A1_Apertures);
@@ -44326,14 +44326,14 @@ bool CFits::WriteApertures(const CString &CS_FitsFileName_Out_Root,
 }
 
 bool CFits::WriteApertures(const CString &CS_FitsFileName_Out_Root, 
-                           Array<CString, 1> &CS_A1_FileNames_Out, 
-                           const Array<int, 1> &I_A1_Apertures) const{
+                           blitz::Array<CString, 1> &CS_A1_FileNames_Out, 
+                           const blitz::Array<int, 1> &I_A1_Apertures) const{
   if (!this->TraceFunctionsCalculated){
     cout << "CFits::WriteApertures: ERROR: Trace Functions not calculated yet" << endl;
     return false;
   }
-  Array<double, 1> D_A1_Ap(this->GetNCols());
-  Array<double, 2> D_A2_Spec(1,1);
+  blitz::Array<double, 1> D_A1_Ap(this->GetNCols());
+  blitz::Array<double, 2> D_A2_Spec(1,1);
   int I_FirstSignal, I_LastSignal;
   CString* P_CS = new CString(" ");
   CString CS_FitsFileName_Out(" ");
@@ -44406,7 +44406,7 @@ bool CFits::WriteApertures(const CString &CS_FitsFileName_Out_Root,
       }
     }
   }
-//  Array<CString, 1> CS_A1_Temp(I_ArrPos);
+//  blitz::Array<CString, 1> CS_A1_Temp(I_ArrPos);
 //  CS_A1_Temp = CS_A1_FileNames_Out(Range(0,I_ArrPos-1));
 //  CS_A1_FileNames_Out.resize(I_ArrPos);
 //  CS_A1_FileNames_Out = CS_A1_Temp;
@@ -44414,17 +44414,17 @@ bool CFits::WriteApertures(const CString &CS_FitsFileName_Out_Root,
 }
 
 bool CFits::WriteApCenters(const CString &CS_TextFileName_Out) const{
-  Array<int, 1> *P_I_A1_Apertures = this->IndGenArr(this->I_NApertures);
-  Array<int, 1> I_A1_Apertures(P_I_A1_Apertures->size());
+  blitz::Array<int, 1> *P_I_A1_Apertures = this->IndGenArr(this->I_NApertures);
+  blitz::Array<int, 1> I_A1_Apertures(P_I_A1_Apertures->size());
   I_A1_Apertures = (*P_I_A1_Apertures);
   delete(P_I_A1_Apertures);
   return this->WriteApCenters(CS_TextFileName_Out, I_A1_Apertures);
 }
 
 bool CFits::WriteApCenters(const CString &CS_TextFileName_Out,
-                           const Array<int, 1> &I_A1_Apertures) const{
+                           const blitz::Array<int, 1> &I_A1_Apertures) const{
 
-  Array<double, 2> D_A2_ApCenters_Out(2,2);
+  blitz::Array<double, 2> D_A2_ApCenters_Out(2,2);
   if (!this->GetApertureCenters(I_A1_Apertures, D_A2_ApCenters_Out)){
     cout << "CFits::WriteApCenters: ERROR: GetApertureCenters returned FALSE" << endl;
     return false;
@@ -44440,8 +44440,8 @@ bool CFits::WriteApCenters(const CString &CS_TextFileName_Out,
 bool CFits::WriteApCenters(const CString &CS_FitsFileName_In,
                            const CString &CS_DatabaseFileName_In,
                            const CString &CS_TextFileName_Out) const{
-  Array<int, 1> *P_I_A1_Apertures = this->IndGenArr(this->I_NApertures);
-  Array<int, 1> I_A1_Apertures(P_I_A1_Apertures->size());
+  blitz::Array<int, 1> *P_I_A1_Apertures = this->IndGenArr(this->I_NApertures);
+  blitz::Array<int, 1> I_A1_Apertures(P_I_A1_Apertures->size());
   I_A1_Apertures = (*P_I_A1_Apertures);
   delete(P_I_A1_Apertures);
   return this->WriteApCenters(CS_FitsFileName_In, CS_DatabaseFileName_In, CS_TextFileName_Out, I_A1_Apertures);
@@ -44450,7 +44450,7 @@ bool CFits::WriteApCenters(const CString &CS_FitsFileName_In,
 bool CFits::WriteApCenters(const CString &CS_FitsFileName_In,
                            const CString &CS_DatabaseFileName_In,
                            const CString &CS_TextFileName_Out,
-                           const Array<int, 1> &I_A1_Apertures) const{
+                           const blitz::Array<int, 1> &I_A1_Apertures) const{
   CFits F_Image;
   /// Set DatabaseFileName_In
   #ifdef __DEBUG_FITS_WRITEAPCENTERS__
@@ -44497,20 +44497,20 @@ bool CFits::WriteApCenters(const CString &CS_FitsFileName_In,
 
 }
 
-bool CFits::DispCorList(const Array<CString, 1>& CS_A1_TextFiles_Coeffs_In,
-                        const Array<CString, 1>& CS_A1_TextFiles_EcD_Out,
+bool CFits::DispCorList(const blitz::Array<CString, 1>& CS_A1_TextFiles_Coeffs_In,
+                        const blitz::Array<CString, 1>& CS_A1_TextFiles_EcD_Out,
                         const double D_MaxRMS_In){
-  Array<int, 1> *P_I_A1_Apertures = this->IndGenArr(this->I_NApertures);
-  Array<int, 1> I_A1_Apertures(P_I_A1_Apertures->size());
+  blitz::Array<int, 1> *P_I_A1_Apertures = this->IndGenArr(this->I_NApertures);
+  blitz::Array<int, 1> I_A1_Apertures(P_I_A1_Apertures->size());
   I_A1_Apertures = *P_I_A1_Apertures;
   delete(P_I_A1_Apertures);
   return this->DispCorList(CS_A1_TextFiles_Coeffs_In, CS_A1_TextFiles_EcD_Out, D_MaxRMS_In, I_A1_Apertures);
 }
 
-bool CFits::DispCorList(const Array<CString, 1>& CS_A1_TextFiles_Coeffs_In,
-                        const Array<CString, 1>& CS_A1_TextFiles_EcD_Out,
+bool CFits::DispCorList(const blitz::Array<CString, 1>& CS_A1_TextFiles_Coeffs_In,
+                        const blitz::Array<CString, 1>& CS_A1_TextFiles_EcD_Out,
                         const double D_MaxRMS_In,
-                        const Array<int, 1> &I_A1_Apertures){
+                        const blitz::Array<int, 1> &I_A1_Apertures){
   return this->DispCorList(CS_A1_TextFiles_Coeffs_In,
                            CS_A1_TextFiles_EcD_Out,
                            D_MaxRMS_In,
@@ -44521,11 +44521,11 @@ bool CFits::DispCorList(const Array<CString, 1>& CS_A1_TextFiles_Coeffs_In,
 /**
  * Apply pixel shift to original object spectra
  **/      
-bool CFits::DispCorList(const Array<CString, 1>& CS_A1_TextFiles_Coeffs_In,
-                        const Array<CString, 1>& CS_A1_TextFiles_EcD_Out,
+bool CFits::DispCorList(const blitz::Array<CString, 1>& CS_A1_TextFiles_Coeffs_In,
+                        const blitz::Array<CString, 1>& CS_A1_TextFiles_EcD_Out,
                         const double D_MaxRMS_In,
                         const double D_PixShift_In,
-                        const Array<int, 1> &I_A1_Apertures){
+                        const blitz::Array<int, 1> &I_A1_Apertures){
 
   if (!this->TraceFunctionsCalculated){
     cout << "CFits::DispCorList: ERROR: Trace functions not calculated yet" << endl;
@@ -44538,7 +44538,7 @@ bool CFits::DispCorList(const Array<CString, 1>& CS_A1_TextFiles_Coeffs_In,
   }
 
   /// read aperture number of CS_A1_TextFiles_Coeffs_In
-  Array<int, 1> I_A1_ApNums_Coeffs(CS_A1_TextFiles_Coeffs_In.size());
+  blitz::Array<int, 1> I_A1_ApNums_Coeffs(CS_A1_TextFiles_Coeffs_In.size());
   CString *P_CS_ApNum;
   CString CS_UnderScore("_");
   int I_StrStart, I_StrEnd;
@@ -44572,18 +44572,18 @@ bool CFits::DispCorList(const Array<CString, 1>& CS_A1_TextFiles_Coeffs_In,
     cout << "CFits::DispCorList: I_A1_ApNums_Coeffs set to " << I_A1_ApNums_Coeffs << endl;
   #endif
 
-  Array<CString, 1> CS_A1_Coeffs(2);
+  blitz::Array<CString, 1> CS_A1_Coeffs(2);
   int I_CoeffFileNo, I_NInd;
-  Array<double, 1> D_A1_Spec(1);
-  Array<double, 2> D_A2_SpecCalib_Out(2,2);
-  Array<double, 1> D_A1_PolyFitCoeffs_In(2);
+  blitz::Array<double, 1> D_A1_Spec(1);
+  blitz::Array<double, 2> D_A2_SpecCalib_Out(2,2);
+  blitz::Array<double, 1> D_A1_PolyFitCoeffs_In(2);
   double D_RMS_In;
-  Array<int, 1> I_A1_Ind(I_A1_ApNums_Coeffs.size());
-  Array<int, 1> *P_I_A1_IndPos;
+  blitz::Array<int, 1> I_A1_Ind(I_A1_ApNums_Coeffs.size());
+  blitz::Array<int, 1> *P_I_A1_IndPos;
   CString *P_CS_RMS;
-  Array<double, 1> *P_D_A1_PixNum;
-  Array<double, 1> *P_D_A1_WLen;
-  Array<CString, 1> CS_A1_Spec(1);
+  blitz::Array<double, 1> *P_D_A1_PixNum;
+  blitz::Array<double, 1> *P_D_A1_WLen;
+  blitz::Array<CString, 1> CS_A1_Spec(1);
 
   for (int i_ap=0; i_ap < I_A1_Apertures.size(); i_ap++){
     D_A1_Spec.resize((*(this->P_D_A1_YHigh))(I_A1_Apertures(i_ap)) - (*(this->P_D_A1_YLow))(I_A1_Apertures(i_ap)) + 1);
@@ -44696,8 +44696,8 @@ bool CFits::DispCorList(const Array<CString, 1>& CS_A1_TextFiles_Coeffs_In,
   return true;
 }
 
-bool CFits::RebinTextList(const Array<CString, 1> &CS_A1_TextFileNames_EcD_In,
-                          const Array<CString, 1> &CS_A1_TextFileNames_EcDR_Out,
+bool CFits::RebinTextList(const blitz::Array<CString, 1> &CS_A1_TextFileNames_EcD_In,
+                          const blitz::Array<CString, 1> &CS_A1_TextFileNames_EcDR_Out,
                           const CString &CS_FitsFileName_EcDR_Out,
                           double D_Lambda_Start,
                           double D_Lambda_End,
@@ -44711,8 +44711,8 @@ bool CFits::RebinTextList(const Array<CString, 1> &CS_A1_TextFileNames_EcD_In,
                              false);
 }
 
-bool CFits::RebinTextList(const Array<CString, 1> &CS_A1_TextFileNames_EcD_In,
-                          const Array<CString, 1> &CS_A1_TextFileNames_EcDR_Out,
+bool CFits::RebinTextList(const blitz::Array<CString, 1> &CS_A1_TextFileNames_EcD_In,
+                          const blitz::Array<CString, 1> &CS_A1_TextFileNames_EcDR_Out,
                           const CString &CS_FitsFileName_EcDR_Out,
                           double D_Lambda_Start,
                           double D_Lambda_End,
@@ -44725,7 +44725,7 @@ bool CFits::RebinTextList(const Array<CString, 1> &CS_A1_TextFileNames_EcD_In,
     return false;
   }
 
-  Array<double, 2> D_A2_Spec(2,2);
+  blitz::Array<double, 2> D_A2_Spec(2,2);
   #ifdef __DEBUG_FITS_REBIN__
     cout << "CFits::RebinTextList: D_Lambda_Start = " << D_Lambda_Start << endl;
     cout << "CFits::RebinTextList: D_Lambda_End = " << D_Lambda_End << endl;
@@ -44735,8 +44735,8 @@ bool CFits::RebinTextList(const Array<CString, 1> &CS_A1_TextFileNames_EcD_In,
   #ifdef __DEBUG_FITS_REBIN__
     cout << "CFits::RebinTextList: I_NElements = " << I_NElements << endl;
   #endif
-  Array<double, 1> D_A1_Lambda(I_NElements);
-  Array<double, 1> *P_D_A1_SpecOut = new Array<double, 1>(1);
+  blitz::Array<double, 1> D_A1_Lambda(I_NElements);
+  blitz::Array<double, 1> *P_D_A1_SpecOut = new blitz::Array<double, 1>(1);
   D_A1_Lambda(0) = D_Lambda_Start;
   for (int i_pix=1; i_pix<I_NElements; i_pix++)
     D_A1_Lambda(i_pix) = D_A1_Lambda(i_pix-1) + D_DLambda;
@@ -44815,7 +44815,7 @@ bool CFits::RebinTextList(const Array<CString, 1> &CS_A1_TextFileNames_EcD_In,
       #endif
 
       ///write calibrated spectrum as text file
-      Array<double, 2> D_A2_SpecOut(D_A1_Lambda.size(),2);
+      blitz::Array<double, 2> D_A2_SpecOut(D_A1_Lambda.size(),2);
       D_A2_SpecOut(Range::all(),0) = D_A1_Lambda;
       if (B_BadSpec){
         D_A2_SpecOut(Range::all(), 1) = 0.;
@@ -44855,10 +44855,10 @@ bool CFits::RebinTextList(const Array<CString, 1> &CS_A1_TextFileNames_EcD_In,
   return true;
 }
 
-bool CFits::CollapseSpectra(const Array<CString, 1> &CS_A1_TextFileNameList_ap_x_y_In,
+bool CFits::CollapseSpectra(const blitz::Array<CString, 1> &CS_A1_TextFileNameList_ap_x_y_In,
                             const CString &CS_TextFileName_Out) const{
-  Array<double, 2> D_A2_Spec(1,1);
-  Array<double, 2> D_A2_Spectra(CS_A1_TextFileNameList_ap_x_y_In.size(), 4);
+  blitz::Array<double, 2> D_A2_Spec(1,1);
+  blitz::Array<double, 2> D_A2_Spectra(CS_A1_TextFileNameList_ap_x_y_In.size(), 4);
   D_A2_Spectra = 0.;
   int I_Ap = 0;
   int I_X = 0;
@@ -44926,8 +44926,8 @@ bool CFits::CollapseSpectra(const Array<CString, 1> &CS_A1_TextFileNameList_ap_x
 bool CFits::FindApsInCircle(const int I_CenterX_In,
                             const int I_CenterY_In,
                             const int I_Radius_In,
-                            Array<int, 1> &I_A1_Apertures_Out) const{
-  Array<int, 1> I_A1_Area(4);
+                            blitz::Array<int, 1> &I_A1_Apertures_Out) const{
+  blitz::Array<int, 1> I_A1_Area(4);
   I_A1_Area(0) = 0;
   I_A1_Area(1) = this->NCols-1;
   I_A1_Area(2) = 0;
@@ -44943,40 +44943,40 @@ bool CFits::FindApsInCircle(const int I_CenterX_In,
 bool CFits::FindApsInCircle(const int I_CenterX_In,
                             const int I_CenterY_In,
                             const int I_Radius_In,
-                            const Array<int, 1> &I_A1_Area_In,
-                            Array<int, 1> &I_A1_Apertures_Out) const{
+                            const blitz::Array<int, 1> &I_A1_Area_In,
+                            blitz::Array<int, 1> &I_A1_Apertures_Out) const{
   if (!this->TraceFunctionsCalculated){
     cout << "CFits::FindApsInCircle: ERROR: Trace functions not calculated yet" << endl;
     return false;
   }
-  Array<double, 1> D_A1_YCenter(this->P_D_A1_YCenter->size());
+  blitz::Array<double, 1> D_A1_YCenter(this->P_D_A1_YCenter->size());
   D_A1_YCenter = (*(this->P_D_A1_YCenter)) + (*(this->P_D_A1_YLow)) + ((*(this->P_D_A1_YHigh)) + (*(this->P_D_A1_YLow))) / 2.;
-  Array<double, 1> D_A1_XCenter(P_D_A1_YHigh->size());
+  blitz::Array<double, 1> D_A1_XCenter(P_D_A1_YHigh->size());
   for (int i_ap=0; i_ap<P_D_A1_YCenter->size(); i_ap++)
     D_A1_XCenter(i_ap) = (*P_D_A2_XCenters)(i_ap,(int)(D_A1_YCenter(i_ap)));
 
-  Array<int, 1> I_A1_IndicesInArea(D_A1_XCenter.size());
+  blitz::Array<int, 1> I_A1_IndicesInArea(D_A1_XCenter.size());
   I_A1_IndicesInArea = where((D_A1_XCenter >= I_A1_Area_In(0)) && (D_A1_XCenter <= I_A1_Area_In(1)) && (D_A1_YCenter >= I_A1_Area_In(2)) && (D_A1_YCenter <= I_A1_Area_In(3)), 1, 0);
   int I_NIndicesInArea = 0;
-  Array<int, 1> *P_I_A1_IndicesInArea = this->GetIndex(I_A1_IndicesInArea, I_NIndicesInArea);
-  Array<double, 1> D_A1_XCentersInArea(I_NIndicesInArea);
+  blitz::Array<int, 1> *P_I_A1_IndicesInArea = this->GetIndex(I_A1_IndicesInArea, I_NIndicesInArea);
+  blitz::Array<double, 1> D_A1_XCentersInArea(I_NIndicesInArea);
   if (!this->GetSubArrCopy(D_A1_XCenter, *P_I_A1_IndicesInArea, D_A1_XCentersInArea)){
     cout << "CFits::FindApsInCircle: ERROR: GetSubArrCopy(D_A1_XCenter, " << *P_I_A1_IndicesInArea << ") returned FALSE" << endl;
     return false;
   }
-  Array<double, 1> D_A1_YCentersInArea(I_NIndicesInArea);
+  blitz::Array<double, 1> D_A1_YCentersInArea(I_NIndicesInArea);
   if (!this->GetSubArrCopy(D_A1_YCenter, *P_I_A1_IndicesInArea, D_A1_YCentersInArea)){
     cout << "CFits::FindApsInCircle: ERROR: GetSubArrCopy(D_A1_YCenter, " << *P_I_A1_IndicesInArea << ") returned FALSE" << endl;
     return false;
   }
   
-  Array<double, 1> D_A1_Radius(D_A1_YCentersInArea.size());
+  blitz::Array<double, 1> D_A1_Radius(D_A1_YCentersInArea.size());
   D_A1_Radius = sqrt(pow2(D_A1_XCentersInArea - double(I_CenterX_In)) + pow2(D_A1_YCentersInArea - double(I_CenterY_In)));
 
   int I_NInd;
-  Array<int, 1> I_A1_Where(D_A1_Radius.size());
+  blitz::Array<int, 1> I_A1_Where(D_A1_Radius.size());
   I_A1_Where = where(D_A1_Radius < double(I_Radius_In), 1, 0);
-  Array<int, 1> *P_I_A1_Index = this->GetIndex(I_A1_Where, I_NInd);
+  blitz::Array<int, 1> *P_I_A1_Index = this->GetIndex(I_A1_Where, I_NInd);
   if (I_NInd < 0){
     cout << "CFits::FindApsInCircle: ERROR: I_NInd = " << I_NInd << endl;
     return false;
@@ -45003,8 +45003,8 @@ bool CFits::FindApsInRing(const int I_CenterX_In,
                           const int I_CenterY_In,
                           const int I_InnerRadius_In,
                           const int I_OuterRadius_In,
-                          Array<int, 1> &I_A1_Apertures_Out) const{
-  Array<int, 1> I_A1_Area(4);
+                          blitz::Array<int, 1> &I_A1_Apertures_Out) const{
+  blitz::Array<int, 1> I_A1_Area(4);
   I_A1_Area(0) = 0;
   I_A1_Area(1) = this->NCols-1;
   I_A1_Area(2) = 0;
@@ -45022,40 +45022,40 @@ bool CFits::FindApsInRing(const int I_CenterX_In,
                           const int I_CenterY_In,
                           const int I_InnerRadius_In,
                           const int I_OuterRadius_In,
-                          const Array<int, 1> &I_A1_Area_In,
-                          Array<int, 1> &I_A1_Apertures_Out) const{
+                          const blitz::Array<int, 1> &I_A1_Area_In,
+                          blitz::Array<int, 1> &I_A1_Apertures_Out) const{
   if (!this->TraceFunctionsCalculated){
     cout << "CFits::FindApsInRing: ERROR: Trace functions not calculated yet" << endl;
     return false;
   }
-  Array<double, 1> D_A1_YCenter(this->P_D_A1_YCenter->size());
+  blitz::Array<double, 1> D_A1_YCenter(this->P_D_A1_YCenter->size());
   D_A1_YCenter = (*(this->P_D_A1_YCenter)) + (*(this->P_D_A1_YLow)) + ((*(this->P_D_A1_YHigh)) + (*(this->P_D_A1_YLow))) / 2.;
-  Array<double, 1> D_A1_XCenter(P_D_A1_YHigh->size());
+  blitz::Array<double, 1> D_A1_XCenter(P_D_A1_YHigh->size());
   for (int i_ap=0; i_ap<P_D_A1_YCenter->size(); i_ap++)
   D_A1_XCenter(i_ap) = (*P_D_A2_XCenters)(i_ap,(int)(D_A1_YCenter(i_ap)));
   
-  Array<int, 1> I_A1_IndicesInArea(D_A1_XCenter.size());
+  blitz::Array<int, 1> I_A1_IndicesInArea(D_A1_XCenter.size());
   I_A1_IndicesInArea = where((D_A1_XCenter >= I_A1_Area_In(0)) && (D_A1_XCenter <= I_A1_Area_In(1)) && (D_A1_YCenter >= I_A1_Area_In(2)) && (D_A1_YCenter <= I_A1_Area_In(3)), 1, 0);
   int I_NIndicesInArea = 0;
-  Array<int, 1> *P_I_A1_IndicesInArea = this->GetIndex(I_A1_IndicesInArea, I_NIndicesInArea);
-  Array<double, 1> D_A1_XCentersInArea(I_NIndicesInArea);
+  blitz::Array<int, 1> *P_I_A1_IndicesInArea = this->GetIndex(I_A1_IndicesInArea, I_NIndicesInArea);
+  blitz::Array<double, 1> D_A1_XCentersInArea(I_NIndicesInArea);
   if (!this->GetSubArrCopy(D_A1_XCenter, *P_I_A1_IndicesInArea, D_A1_XCentersInArea)){
     cout << "CFits::FindApsInCircle: ERROR: GetSubArrCopy(D_A1_XCenter, " << *P_I_A1_IndicesInArea << ") returned FALSE" << endl;
     return false;
   }
-  Array<double, 1> D_A1_YCentersInArea(I_NIndicesInArea);
+  blitz::Array<double, 1> D_A1_YCentersInArea(I_NIndicesInArea);
   if (!this->GetSubArrCopy(D_A1_YCenter, *P_I_A1_IndicesInArea, D_A1_YCentersInArea)){
     cout << "CFits::FindApsInCircle: ERROR: GetSubArrCopy(D_A1_YCenter, " << *P_I_A1_IndicesInArea << ") returned FALSE" << endl;
     return false;
   }
   
-  Array<double, 1> D_A1_Radius(D_A1_YCentersInArea.size());
+  blitz::Array<double, 1> D_A1_Radius(D_A1_YCentersInArea.size());
   D_A1_Radius = sqrt(pow2(D_A1_XCentersInArea - double(I_CenterX_In)) + pow2(D_A1_YCentersInArea - double(I_CenterY_In)));
 
   int I_NInd;
-  Array<int, 1> I_A1_Where(D_A1_Radius.size());
+  blitz::Array<int, 1> I_A1_Where(D_A1_Radius.size());
   I_A1_Where = where(D_A1_Radius > double(I_InnerRadius_In) && D_A1_Radius < double(I_OuterRadius_In), 1, 0);
-  Array<int, 1> *P_I_A1_Index = this->GetIndex(I_A1_Where, I_NInd);
+  blitz::Array<int, 1> *P_I_A1_Index = this->GetIndex(I_A1_Where, I_NInd);
   if (I_NInd < 0){
     cout << "CFits::FindApsInRing::main: ERROR: I_NInd = " << I_NInd << endl;
     return false;
@@ -45077,12 +45077,12 @@ bool CFits::FindApsInRing(const int I_CenterX_In,
   return true;
 }
 
-bool CFits::Reverse(Array<double, 1> D_A1_InOut) const{
+bool CFits::Reverse(blitz::Array<double, 1> D_A1_InOut) const{
   if (D_A1_InOut.size() < 1){
     cout << "CFits::Reverse: ERROR: D_A1_InOut.size(=" << D_A1_InOut.size() << ") < 1 => Returning FALSE" << endl;
     return false;
   }
-  Array<double, 1> D_A1_Out(D_A1_InOut.size());
+  blitz::Array<double, 1> D_A1_Out(D_A1_InOut.size());
   for (int i=0; i<D_A1_InOut.size(); i++){
     D_A1_Out(i) = D_A1_InOut(D_A1_InOut.size() - i - 1);
   }
@@ -45090,12 +45090,12 @@ bool CFits::Reverse(Array<double, 1> D_A1_InOut) const{
   return true;
 }
 
-bool CFits::Reverse(Array<double, 2> D_A2_InOut) const{
+bool CFits::Reverse(blitz::Array<double, 2> D_A2_InOut) const{
   if (D_A2_InOut.rows() < 1){
     cout << "CFits::Reverse: ERROR: D_A2_InOut.rows(=" << D_A2_InOut.rows() << ") < 1 => Returning FALSE" << endl;
     return false;
   }
-  Array<double, 2> D_A2_Out(D_A2_InOut.rows(), D_A2_InOut.cols());
+  blitz::Array<double, 2> D_A2_Out(D_A2_InOut.rows(), D_A2_InOut.cols());
   if (D_A2_InOut.rows() > 1){
     for (int i=0; i<D_A2_InOut.rows(); i++){
       D_A2_Out(i, Range::all()) = D_A2_InOut(D_A2_InOut.rows() - i - 1, Range::all());
@@ -45103,7 +45103,7 @@ bool CFits::Reverse(Array<double, 2> D_A2_InOut) const{
     D_A2_InOut = D_A2_Out;
   }
   else{
-    Array<double, 1> D_A1_Out(D_A2_InOut.cols());
+    blitz::Array<double, 1> D_A1_Out(D_A2_InOut.cols());
     D_A1_Out = D_A2_InOut(0, Range::all());
     this->Reverse(D_A1_Out);
     D_A2_InOut(0, Range::all()) = D_A1_Out;
@@ -45112,10 +45112,10 @@ bool CFits::Reverse(Array<double, 2> D_A2_InOut) const{
 }
 
 /// converts Number of Photons vs Wavelength to Flux vs Wavelength
-bool CFits::PhotonsToFlux(const Array<double, 2> &D_A2_WLen_NPhotons,
+bool CFits::PhotonsToFlux(const blitz::Array<double, 2> &D_A2_WLen_NPhotons,
 	 	 	  const double D_ExpTime,
 			  const double D_ATel,
-			  Array<double, 2> &D_A2_WLen_Erg_Out) const{
+			  blitz::Array<double, 2> &D_A2_WLen_Erg_Out) const{
   if ((D_A2_WLen_NPhotons.rows() != 2) && (D_A2_WLen_NPhotons.cols() != 2)){
     cout << "CFits::PhotonsToFlux: ERROR: D_A2_WLen_NPhotons does not have 2 columns or rows => Returning FALSE" << endl;
     return false;
@@ -45126,8 +45126,8 @@ bool CFits::PhotonsToFlux(const Array<double, 2> &D_A2_WLen_NPhotons,
     cout << "CFits::PhotonsToFlux: D_ATel = " << D_ATel << endl;
   #endif
   int I_Len = 0;
-  Array<double, 1> D_A1_WLen(1);
-  Array<double, 1> D_A1_NPhotons(1);
+  blitz::Array<double, 1> D_A1_WLen(1);
+  blitz::Array<double, 1> D_A1_NPhotons(1);
   if (D_A2_WLen_NPhotons.cols() == 2){
     I_Len = D_A2_WLen_NPhotons.rows();
     D_A1_WLen.resize(I_Len);
@@ -45145,7 +45145,7 @@ bool CFits::PhotonsToFlux(const Array<double, 2> &D_A2_WLen_NPhotons,
     D_A1_NPhotons = D_A2_WLen_NPhotons(1, Range::all());
   }
 
-  Array<double, 1> D_A1_DWLen(D_A1_WLen.size());
+  blitz::Array<double, 1> D_A1_DWLen(D_A1_WLen.size());
   D_A1_DWLen = 0.;
   D_A1_DWLen(0) = D_A1_WLen(1) - D_A1_WLen(0);
   D_A1_DWLen(D_A1_DWLen.size()-1) = D_A1_WLen(D_A1_WLen.size() - 1) - D_A1_WLen(D_A1_WLen.size() - 2);
@@ -45166,18 +45166,18 @@ bool CFits::PhotonsToFlux(const Array<double, 2> &D_A2_WLen_NPhotons,
     cout << "CFits::PhotonsToFlux: ERROR: D_ExpTime == 0 => Returning FALSE" << endl;
     return false;
   }
-  Array<double, 1> D_A1_PhotonsPerSecPerDWLen(D_A1_WLen.size());
+  blitz::Array<double, 1> D_A1_PhotonsPerSecPerDWLen(D_A1_WLen.size());
   D_A1_PhotonsPerSecPerDWLen = D_A1_NPhotons / (D_ExpTime * D_A1_DWLen); /// # / s / Ang
   #ifdef __DEBUG_FITS_PHOTONSTOFLUX__
     cout << "CFits::PhotonsToFlux: D_A1_PhotonsPerSecPerDWLen = " << D_A1_PhotonsPerSecPerDWLen << endl;
   #endif
-  Array<double, 1> D_A1_EnergyPerPhoton(D_A1_WLen.size());
+  blitz::Array<double, 1> D_A1_EnergyPerPhoton(D_A1_WLen.size());
   D_A1_EnergyPerPhoton = D_H_C;                              /// erg Ang
   D_A1_EnergyPerPhoton = D_A1_EnergyPerPhoton / D_A1_WLen;   /// erg
   #ifdef __DEBUG_FITS_PHOTONSTOFLUX__
     cout << "CFits::PhotonsToFlux: D_A1_EnergyPerPhoton = " << D_A1_EnergyPerPhoton << endl;
   #endif
-  Array<double, 1> D_A1_Energy(D_A1_WLen.size());
+  blitz::Array<double, 1> D_A1_Energy(D_A1_WLen.size());
   if (fabs(D_ATel) < 0.0000001){
     cout << "CFits::PhotonsToFlux: ERROR: D_ATel == 0 => Returning FALSE" << endl;
     return false;
@@ -45202,15 +45202,15 @@ bool CFits::PhotonsToFlux(const Array<double, 2> &D_A2_WLen_NPhotons,
   return true;
 }
 
-bool CFits::PhotonsToFlux(const Array<double, 2> &D_A2_NPhotons_In, /// NAps x NRows
+bool CFits::PhotonsToFlux(const blitz::Array<double, 2> &D_A2_NPhotons_In, /// NAps x NRows
 			  const double D_ExpTime_In,                /// Exposure time
 			  const double D_ATel_In,                   /// Telescope effective surface
-			  const Array<int, 1> &I_A1_Apertures_In,   /// Apertures to convert
-			  Array<double, 2> &D_A2_Flux_Out){         /// NAps x NRows
+			  const blitz::Array<int, 1> &I_A1_Apertures_In,   /// Apertures to convert
+			  blitz::Array<double, 2> &D_A2_Flux_Out){         /// NAps x NRows
   D_A2_Flux_Out.resize(D_A2_NPhotons_In.rows(), D_A2_NPhotons_In.cols());
   D_A2_Flux_Out = 0.;
-  Array<double, 2> D_A2_WLen_NPhotons(D_A2_NPhotons_In.cols(), 2);
-  Array<double, 2> D_A2_WLen_Flux(D_A2_NPhotons_In.cols(), 2);
+  blitz::Array<double, 2> D_A2_WLen_NPhotons(D_A2_NPhotons_In.cols(), 2);
+  blitz::Array<double, 2> D_A2_WLen_Flux(D_A2_NPhotons_In.cols(), 2);
   for (int i_ap=0; i_ap<I_A1_Apertures_In.size(); i_ap++){
     D_A2_WLen_NPhotons.resize((*(this->P_D_A1_YHigh))(I_A1_Apertures_In(i_ap)) - (*(this->P_D_A1_YLow))(I_A1_Apertures_In(i_ap)) + 1, 2);
     D_A2_WLen_Flux.resize((*(this->P_D_A1_YHigh))(I_A1_Apertures_In(i_ap)) - (*(this->P_D_A1_YLow))(I_A1_Apertures_In(i_ap)) + 1, 2);
@@ -45229,7 +45229,7 @@ bool CFits::PhotonsToFlux(const Array<double, 2> &D_A2_NPhotons_In, /// NAps x N
 }
 
 #ifdef __WITH_PLOTS__
-  bool CFits::ArrayToMGLArray(const Array<double, 1> &D_A1_Array_In, mglData *P_D_A1_MGLArray_Out) const{
+  bool CFits::ArrayToMGLArray(const blitz::Array<double, 1> &D_A1_Array_In, mglData *P_D_A1_MGLArray_Out) const{
 //    if (P_D_A1_MGLArray_Out != NULL)
 //      delete(P_D_A1_MGLArray_Out);
     P_D_A1_MGLArray_Out = new mglData(D_A1_Array_In.size());
@@ -45238,7 +45238,7 @@ bool CFits::PhotonsToFlux(const Array<double, 2> &D_A2_NPhotons_In, /// NAps x N
     return true;
   }
 
-  bool CFits::ArrayToMGLArray(const Array<double, 2> &D_A2_Array_In, mglData *P_D_A2_MGLArray_Out) const{
+  bool CFits::ArrayToMGLArray(const blitz::Array<double, 2> &D_A2_Array_In, mglData *P_D_A2_MGLArray_Out) const{
     cout << "CFits::ArrayToMGLArray: D_A2_Array_In = " << D_A2_Array_In << endl;
 //    if (P_D_A2_MGLArray_Out != NULL)
 //      delete(P_D_A2_MGLArray_Out);
@@ -45255,13 +45255,13 @@ bool CFits::PhotonsToFlux(const Array<double, 2> &D_A2_NPhotons_In, /// NAps x N
 #endif
 
 
-/*bool CFits::FitGaussianArea(const Array<double, 1> &D_A1_X_In,
-                            const Array<double, 1> &D_A1_Y_In,
-                            const Array<double, 1> &D_A1_SigY_In,
-                            const Array<double, 1> &D_A1_Guess_In,//with constant background: (background, mean, sigma, area)
+/*bool CFits::FitGaussianArea(const blitz::Array<double, 1> &D_A1_X_In,
+                            const blitz::Array<double, 1> &D_A1_Y_In,
+                            const blitz::Array<double, 1> &D_A1_SigY_In,
+                            const blitz::Array<double, 1> &D_A1_Guess_In,//with constant background: (background, mean, sigma, area)
                                                                   //without background: (mean, sigma, area)
                             bool B_WithBackground,
-                            Array<double, 1> &D_A1_Coeffs_Out) const{
+                            blitz::Array<double, 1> &D_A1_Coeffs_Out) const{
   int I_NParams = D_A1_Guess_In.size();
   int I_NPoints = D_A1_X_In.size();
   double D_StepScale =  0.001;
@@ -45339,7 +45339,7 @@ bool CFits::PhotonsToFlux(const Array<double, 2> &D_A2_NPhotons_In, /// NAps x N
 
 }*/
 
-bool CFits::GaussExtract(const Array<double, 2> &D_A2_ArrayToExtract_In,
+bool CFits::GaussExtract(const blitz::Array<double, 2> &D_A2_ArrayToExtract_In,
                          bool B_WithBackground_In,
                          const double D_ApertureOffset_In){
   int I_NParams = 3;
@@ -45358,14 +45358,14 @@ bool CFits::GaussExtract(const Array<double, 2> &D_A2_ArrayToExtract_In,
       return false;
     }
   }
-  Array<double, 1> D_A1_X(1);
-  Array<double, 1> D_A1_Y(1);
-  Array<double, 1> D_A1_YTemp(1);
-  Array<double, 1> D_A1_SigY(1);
-  Array<double, 1> D_A1_Guess(I_NParams);
-  Array<double, 1> D_A1_Coeffs(I_NParams);
-  Array<double, 1> *P_D_A1_Ind;
-  Array<double, 1> D_A1_XInt(2);
+  blitz::Array<double, 1> D_A1_X(1);
+  blitz::Array<double, 1> D_A1_Y(1);
+  blitz::Array<double, 1> D_A1_YTemp(1);
+  blitz::Array<double, 1> D_A1_SigY(1);
+  blitz::Array<double, 1> D_A1_Guess(I_NParams);
+  blitz::Array<double, 1> D_A1_Coeffs(I_NParams);
+  blitz::Array<double, 1> *P_D_A1_Ind;
+  blitz::Array<double, 1> D_A1_XInt(2);
   for (int i_ap=0; i_ap<this->I_NApertures; i_ap++){
     for (int i_row = (*(this->P_D_A1_YCenter))(i_ap) + (*(this->P_D_A1_YLow))(i_ap); i_row <= (*(this->P_D_A1_YCenter))(i_ap) + (*(this->P_D_A1_YHigh))(i_ap); i_row++){
       I_XLow = int((*(this->P_D_A2_XCenters))(i_ap, i_row) + (*(this->P_D_A1_XLow))(i_ap));
@@ -45419,16 +45419,16 @@ bool CFits::GaussExtract(const Array<double, 2> &D_A2_ArrayToExtract_In,
 //        return false;
 //      }
 
-      cout << "CFits::GaussExtract: ERROR: Still need to implement MPFitGaussLim(...)" << endl;/*const Array<double, 1> &D_A1_X_In,
-                   const Array<double, 1> &D_A1_Y_In,
-                   const Array<double, 1> &D_A1_EY_In,
-                   const Array<double, 1> &D_A1_Guess_In,
-                   const Array<int, 2> &I_A2_Limited,
-                   const Array<double, 2> &D_A2_Limits,
+      cout << "CFits::GaussExtract: ERROR: Still need to implement MPFitGaussLim(...)" << endl;/*const blitz::Array<double, 1> &D_A1_X_In,
+                   const blitz::Array<double, 1> &D_A1_Y_In,
+                   const blitz::Array<double, 1> &D_A1_EY_In,
+                   const blitz::Array<double, 1> &D_A1_Guess_In,
+                   const blitz::Array<int, 2> &I_A2_Limited,
+                   const blitz::Array<double, 2> &D_A2_Limits,
                    const bool B_WithConstantBackground,
                    const bool B_FitArea,
-                   Array<double, 1> &D_A1_Coeffs_Out,
-                   Array< double, 1 >& D_A1_ECoeffs_Out*/
+                   blitz::Array<double, 1> &D_A1_Coeffs_Out,
+                   blitz::Array< double, 1 >& D_A1_ECoeffs_Out*/
       return false;
 
 
@@ -45464,9 +45464,9 @@ bool CFits::Set_ApCenterOffset(double D_Offset){
   return true;
 }
 
-bool CFits::MPFitGaussExtract(const Array<double, 2> &D_A2_ArrayToExtract_In,
-                              const Array<double, 1> &D_A1_SDevLimits_In,
-                              const Array<double, 1> &D_A1_MeanLimits_In,
+bool CFits::MPFitGaussExtract(const blitz::Array<double, 2> &D_A2_ArrayToExtract_In,
+                              const blitz::Array<double, 1> &D_A1_SDevLimits_In,
+                              const blitz::Array<double, 1> &D_A1_MeanLimits_In,
                               const bool B_WithBackground_In){
   (*(this->P_D_A2_Errors_Ec)) = 0.;
   (*(this->P_D_A2_Errors_EcFit)) = 0.;
@@ -45490,13 +45490,13 @@ bool CFits::MPFitGaussExtract(const Array<double, 2> &D_A2_ArrayToExtract_In,
     I_NParams = 4;
     I_Ind = 1;
   }
-  Array<double, 1> D_A1_X(1);
-  Array<double, 1> D_A1_Y(1);
-  Array<double, 1> D_A1_YTemp(1);
-  Array<double, 1> D_A1_SigY(1);
-  Array<double, 1> D_A1_Guess(I_NParams);
-  Array<int, 2> I_A2_ParLimited(I_NParams, 2);
-  Array<double, 2> D_A2_ParLimits(I_NParams, 2);
+  blitz::Array<double, 1> D_A1_X(1);
+  blitz::Array<double, 1> D_A1_Y(1);
+  blitz::Array<double, 1> D_A1_YTemp(1);
+  blitz::Array<double, 1> D_A1_SigY(1);
+  blitz::Array<double, 1> D_A1_Guess(I_NParams);
+  blitz::Array<int, 2> I_A2_ParLimited(I_NParams, 2);
+  blitz::Array<double, 2> D_A2_ParLimits(I_NParams, 2);
   if (B_WithBackground_In){
     I_A2_ParLimited(0,0) = 1;
     I_A2_ParLimited(0,1) = 1;
@@ -45511,13 +45511,13 @@ bool CFits::MPFitGaussExtract(const Array<double, 2> &D_A2_ArrayToExtract_In,
   #ifdef __DEBUG_FITS_GAUSSEXTRACT__
     cout << "CFits::MPFitGaussExtract: I_A2_ParLimited = " << I_A2_ParLimited << endl;
   #endif
-  Array<double, 1> D_A1_Coeffs(I_NParams);
+  blitz::Array<double, 1> D_A1_Coeffs(I_NParams);
   D_A1_Coeffs = 0.;
-  Array<double, 1> D_A1_ECoeffs(I_NParams);
+  blitz::Array<double, 1> D_A1_ECoeffs(I_NParams);
   D_A1_ECoeffs = 0.;
-  Array<double, 1> *P_D_A1_Ind;
-  Array<double, 1> D_A1_XInt(2);
-  Array<double, 1> D_A1_YGauss(1);
+  blitz::Array<double, 1> *P_D_A1_Ind;
+  blitz::Array<double, 1> D_A1_XInt(2);
+  blitz::Array<double, 1> D_A1_YGauss(1);
   for (int i_ap=0; i_ap<this->I_NApertures; i_ap++){
     for (int i_row = (*(this->P_D_A1_YCenter))(i_ap) + (*(this->P_D_A1_YLow))(i_ap); i_row <= (*(this->P_D_A1_YCenter))(i_ap) + (*(this->P_D_A1_YHigh))(i_ap); i_row++){
       I_XLow = int((*(this->P_D_A2_XCenters))(i_ap, i_row) + (*(this->P_D_A1_XLow))(i_ap));
@@ -45616,7 +45616,7 @@ bool CFits::MPFitGaussExtract(const Array<double, 2> &D_A2_ArrayToExtract_In,
           cout << "CFits::MPFitGaussExtract: (*(this->P_D_A2_RecSkyArray))(" << i_row << ", Range(" << int((*(this->P_D_A2_XCenters))(i_ap, i_row) + (*(this->P_D_A1_XLow))(i_ap)) << ", " << int((*(this->P_D_A2_XCenters))(i_ap, i_row) + (*(this->P_D_A1_XHigh))(i_ap)) << ")) set to " << (*(this->P_D_A2_RecSkyArray))(i_row, Range(int((*(this->P_D_A2_XCenters))(i_ap, i_row) + (*(this->P_D_A1_XLow))(i_ap)),int((*(this->P_D_A2_XCenters))(i_ap, i_row) + (*(this->P_D_A1_XHigh))(i_ap)))) << endl;
         #endif
       }
-      Array<double, 1> *P_D_A1_XGauss = this->DIndGenArr(int((*(this->P_D_A1_XHigh))(i_ap) - (*(this->P_D_A1_XLow))(i_ap)) + 1);
+      blitz::Array<double, 1> *P_D_A1_XGauss = this->DIndGenArr(int((*(this->P_D_A1_XHigh))(i_ap) - (*(this->P_D_A1_XLow))(i_ap)) + 1);
       *P_D_A1_XGauss = *P_D_A1_XGauss + (*(this->P_D_A2_XCenters))(i_ap, i_row) + (*(this->P_D_A1_XLow))(i_ap);
       for (int i_xpix=0; i_xpix<P_D_A1_XGauss->size(); i_xpix++)
         (*P_D_A1_XGauss)(i_xpix) = double(int((*P_D_A1_XGauss)(i_xpix)));
@@ -45625,7 +45625,7 @@ bool CFits::MPFitGaussExtract(const Array<double, 2> &D_A2_ArrayToExtract_In,
         cout << "CFits::MPFitGaussExtract: i_ap = " << i_ap << ": i_row = " << i_row << ": D_A1_XGauss set to " << *P_D_A1_XGauss << endl;
         cout << "CFits::MPFitGaussExtract: i_ap = " << i_ap << ": i_row = " << i_row << ": D_A1_Coeffs set to " << D_A1_Coeffs << endl;
       #endif
-      Array<double, 1> D_A1_CoeffsGaussTemp(D_A1_Coeffs.size());
+      blitz::Array<double, 1> D_A1_CoeffsGaussTemp(D_A1_Coeffs.size());
       D_A1_CoeffsGaussTemp = D_A1_Coeffs;
       D_A1_CoeffsGaussTemp(I_Ind) = 1.;
       if (!this->GaussArea(*P_D_A1_XGauss,
@@ -45655,11 +45655,11 @@ bool CFits::MPFitGaussExtract(const Array<double, 2> &D_A2_ArrayToExtract_In,
   return true;
 }
 
-bool CFits::MPFitTwoGaussExtract(const Array<double, 2> &D_A2_ArrayToExtract_In,
-                                 const Array<double, 1> &D_A1_SDevLimits_In,
-                                 const Array<double, 1> &D_A1_MeanLimits_In,
+bool CFits::MPFitTwoGaussExtract(const blitz::Array<double, 2> &D_A2_ArrayToExtract_In,
+                                 const blitz::Array<double, 1> &D_A1_SDevLimits_In,
+                                 const blitz::Array<double, 1> &D_A1_MeanLimits_In,
                                  const bool B_WithBackground_In){
-  Array<CString, 1> CS_A1_KeyWords(1);
+  blitz::Array<CString, 1> CS_A1_KeyWords(1);
   void **PP_Args = (void**)malloc(sizeof(void*) * 1);
   CS_A1_KeyWords = CString(" ");
   return this->MPFitTwoGaussExtract(D_A2_ArrayToExtract_In,
@@ -45674,18 +45674,18 @@ bool CFits::MPFitTwoGaussExtract(const Array<double, 2> &D_A2_ArrayToExtract_In,
   /// D_A1_SDevLimits_In(1) = maximum standard deviation of Gauss curve
   /// D_A1_MeanLimits_In(0) = maximum difference to the left of aperture center
   /// D_A1_MeanLimits_In(1) = maximum difference to the right of aperture center
-bool CFits::MPFitTwoGaussExtract(const Array<double, 2> &D_A2_ArrayToExtract_In,
-                                 const Array<double, 1> &D_A1_SDevLimits_In,
-                                 const Array<double, 1> &D_A1_MeanLimits_In,
+bool CFits::MPFitTwoGaussExtract(const blitz::Array<double, 2> &D_A2_ArrayToExtract_In,
+                                 const blitz::Array<double, 1> &D_A1_SDevLimits_In,
+                                 const blitz::Array<double, 1> &D_A1_MeanLimits_In,
                                  const bool B_WithBackground_In,
-                                 const Array<CString, 1> &CS_A1_Args_In,
+                                 const blitz::Array<CString, 1> &CS_A1_Args_In,
                                  void *ArgV_In[]){
   int I_Pos = 0;
   int I_XMin = 0;
   int I_XMax = D_A2_ArrayToExtract_In.cols()-1;
   int I_YMin = 0;
   int I_YMax = D_A2_ArrayToExtract_In.rows()-1;
-  Array<int, 1> *P_I_A1_AperturesToExtract = this->IndGenArr(this->I_NApertures);
+  blitz::Array<int, 1> *P_I_A1_AperturesToExtract = this->IndGenArr(this->I_NApertures);
   
   (*(this->P_D_A2_Errors_Ec)) = 0.;
   (*(this->P_D_A2_Errors_EcFit)) = 0.;
@@ -45703,8 +45703,8 @@ bool CFits::MPFitTwoGaussExtract(const Array<double, 2> &D_A2_ArrayToExtract_In,
   I_Pos = this->KeyWord_Set(CS_A1_Args_In, CString("AREA"));
   if (I_Pos >= 0)
   {
-    Array<int, 1> I_A1_Area(4);
-    I_A1_Area = *(Array<int, 1>*)ArgV_In[I_Pos];
+    blitz::Array<int, 1> I_A1_Area(4);
+    I_A1_Area = *(blitz::Array<int, 1>*)ArgV_In[I_Pos];
     #ifdef __DEBUG_FITS_MKSLITFUNC__
       cout << "CFits::MPFitTwoGaussExtract: KeyWord_Set(AREA): I_A1_Area set to " << I_A1_Area << endl;
       (*P_OFS_Log) << "CFits::MPFitTwoGaussExtract: KeyWord_Set(AREA): I_A1_Area set to " << I_A1_Area << endl;
@@ -45722,7 +45722,7 @@ bool CFits::MPFitTwoGaussExtract(const Array<double, 2> &D_A2_ArrayToExtract_In,
   if ((I_Pos = this->KeyWord_Set(CS_A1_Args_In, CString("APERTURES"))) >= 0)
   {
     delete(P_I_A1_AperturesToExtract);
-    P_I_A1_AperturesToExtract = (Array<int, 1>*)ArgV_In[I_Pos];
+    P_I_A1_AperturesToExtract = (blitz::Array<int, 1>*)ArgV_In[I_Pos];
   }
   int I_NParamsOne = 3;
   int I_NParamsTwo = 5;
@@ -45736,18 +45736,18 @@ bool CFits::MPFitTwoGaussExtract(const Array<double, 2> &D_A2_ArrayToExtract_In,
     I_NParamsTwo = 6;
     I_Ind = 1;
   }
-  Array<double, 1> D_A1_CoeffsGauss(I_NParamsOne);
-  Array<double, 1> D_A1_ECoeffsGauss(I_NParamsOne);
-  Array<double, 1> D_A1_X(1);
-  Array<double, 1> D_A1_Y(1);
-  Array<double, 1> D_A1_YTemp(1);
-  Array<double, 1> D_A1_SigY(1);
-  Array<double, 1> D_A1_GuessOne(I_NParamsOne);
-  Array<int, 2> I_A2_ParLimitedOne(I_NParamsOne, 2);
-  Array<double, 2> D_A2_ParLimitsOne(I_NParamsOne, 2);
-  Array<double, 1> D_A1_GuessTwo(I_NParamsTwo);
-  Array<int, 2> I_A2_ParLimitedTwo(I_NParamsTwo, 2);
-  Array<double, 2> D_A2_ParLimitsTwo(I_NParamsTwo, 2);
+  blitz::Array<double, 1> D_A1_CoeffsGauss(I_NParamsOne);
+  blitz::Array<double, 1> D_A1_ECoeffsGauss(I_NParamsOne);
+  blitz::Array<double, 1> D_A1_X(1);
+  blitz::Array<double, 1> D_A1_Y(1);
+  blitz::Array<double, 1> D_A1_YTemp(1);
+  blitz::Array<double, 1> D_A1_SigY(1);
+  blitz::Array<double, 1> D_A1_GuessOne(I_NParamsOne);
+  blitz::Array<int, 2> I_A2_ParLimitedOne(I_NParamsOne, 2);
+  blitz::Array<double, 2> D_A2_ParLimitsOne(I_NParamsOne, 2);
+  blitz::Array<double, 1> D_A1_GuessTwo(I_NParamsTwo);
+  blitz::Array<int, 2> I_A2_ParLimitedTwo(I_NParamsTwo, 2);
+  blitz::Array<double, 2> D_A2_ParLimitsTwo(I_NParamsTwo, 2);
   if (B_WithBackground_In){
     I_A2_ParLimitedOne(0,0) = 1;
     I_A2_ParLimitedOne(0,1) = 1;
@@ -45779,18 +45779,18 @@ bool CFits::MPFitTwoGaussExtract(const Array<double, 2> &D_A2_ArrayToExtract_In,
     cout << "CFits::MPFitTwoGaussExtract: I_A2_ParLimitedOne = " << I_A2_ParLimitedOne << endl;
     cout << "CFits::MPFitTwoGaussExtract: I_A2_ParLimitedTwo = " << I_A2_ParLimitedTwo << endl;
   #endif
-  Array<double, 1> D_A1_CoeffsOne(I_NParamsOne);
-  Array<double, 1> D_A1_CoeffsTwo(I_NParamsTwo);
+  blitz::Array<double, 1> D_A1_CoeffsOne(I_NParamsOne);
+  blitz::Array<double, 1> D_A1_CoeffsTwo(I_NParamsTwo);
   D_A1_CoeffsOne = 0.;
   D_A1_CoeffsTwo = 0.;
-  Array<double, 1> D_A1_ECoeffsOne(I_NParamsOne);
-  Array<double, 1> D_A1_ECoeffsTwo(I_NParamsTwo);
+  blitz::Array<double, 1> D_A1_ECoeffsOne(I_NParamsOne);
+  blitz::Array<double, 1> D_A1_ECoeffsTwo(I_NParamsTwo);
   D_A1_ECoeffsOne = 0.;
   D_A1_ECoeffsTwo = 0.;
-  Array<double, 1> *P_D_A1_Ind;
-  Array<double, 1> *P_D_A1_XGauss;
-  Array<double, 1> D_A1_YGauss(1);
-  Array<double, 1> D_A1_XInt(2);
+  blitz::Array<double, 1> *P_D_A1_Ind;
+  blitz::Array<double, 1> *P_D_A1_XGauss;
+  blitz::Array<double, 1> D_A1_YGauss(1);
+  blitz::Array<double, 1> D_A1_XInt(2);
   int I_ApNumWithCrossTalk = -1;
   int I_NApsWithCrossTalk = 0;
   bool B_CrossTalkToTheLeft = false;
@@ -46096,7 +46096,7 @@ bool CFits::MPFitTwoGaussExtract(const Array<double, 2> &D_A2_ArrayToExtract_In,
           cout << "CFits::MPFitGaussExtract: i_ap = " << i_ap << ": i_row = " << i_row << ": D_A1_XGauss set to " << *P_D_A1_XGauss << endl;
           cout << "CFits::MPFitGaussExtract: i_ap = " << i_ap << ": i_row = " << i_row << ": D_A1_CoeffsGauss set to " << D_A1_CoeffsGauss << endl;
         #endif
-        Array<double, 1> D_A1_CoeffsGaussTemp(D_A1_CoeffsGauss.size());
+        blitz::Array<double, 1> D_A1_CoeffsGaussTemp(D_A1_CoeffsGauss.size());
         D_A1_CoeffsGaussTemp = D_A1_CoeffsGauss;
         D_A1_CoeffsGaussTemp(I_Ind) = 1.;
         if (!this->GaussArea(*P_D_A1_XGauss,
@@ -46126,11 +46126,11 @@ bool CFits::MPFitTwoGaussExtract(const Array<double, 2> &D_A2_ArrayToExtract_In,
   return true;
 }
 
-bool CFits::MPFitThreeGaussExtract(const Array<double, 2> &D_A2_ArrayToExtract_In,
-                                   const Array<double, 1> &D_A1_SDevLimits_In,
-                                   const Array<double, 1> &D_A1_MeanLimits_In,
+bool CFits::MPFitThreeGaussExtract(const blitz::Array<double, 2> &D_A2_ArrayToExtract_In,
+                                   const blitz::Array<double, 1> &D_A1_SDevLimits_In,
+                                   const blitz::Array<double, 1> &D_A1_MeanLimits_In,
                                    const bool B_WithBackground_In){
-  Array<CString, 1> CS_A1_KeyWords(1);
+  blitz::Array<CString, 1> CS_A1_KeyWords(1);
   void **PP_Args = (void**)malloc(sizeof(void*) * 1);
   CS_A1_KeyWords = CString(" ");
   return this->MPFitThreeGaussExtract(D_A2_ArrayToExtract_In,
@@ -46145,18 +46145,18 @@ bool CFits::MPFitThreeGaussExtract(const Array<double, 2> &D_A2_ArrayToExtract_I
   /// D_A1_SDevLimits_In(1) = maximum standard deviation of Gauss curve
   /// D_A1_MeanLimits_In(0) = maximum difference to the left of aperture center
   /// D_A1_MeanLimits_In(1) = maximum difference to the right of aperture center
-bool CFits::MPFitThreeGaussExtract(const Array<double, 2> &D_A2_ArrayToExtract_In,
-                                   const Array<double, 1> &D_A1_SDevLimits_In,
-                                   const Array<double, 1> &D_A1_MeanLimits_In,
+bool CFits::MPFitThreeGaussExtract(const blitz::Array<double, 2> &D_A2_ArrayToExtract_In,
+                                   const blitz::Array<double, 1> &D_A1_SDevLimits_In,
+                                   const blitz::Array<double, 1> &D_A1_MeanLimits_In,
                                    const bool B_WithBackground_In,
-                                   const Array<CString, 1> &CS_A1_Args_In,
+                                   const blitz::Array<CString, 1> &CS_A1_Args_In,
                                    void *ArgV_In[]){
   int I_Pos = 0;
   int I_XMin = 0;
   int I_XMax = D_A2_ArrayToExtract_In.cols()-1;
   int I_YMin = 0;
   int I_YMax = D_A2_ArrayToExtract_In.rows()-1;
-  Array<int, 1> *P_I_A1_AperturesToExtract = this->IndGenArr(this->I_NApertures);
+  blitz::Array<int, 1> *P_I_A1_AperturesToExtract = this->IndGenArr(this->I_NApertures);
   (*(this->P_D_A2_ProfArray)) = 0.;
   (*(this->P_D_A2_RecFitArray)) = 0.;
   (*(this->P_D_A2_Sky)) = 0.;
@@ -46172,8 +46172,8 @@ bool CFits::MPFitThreeGaussExtract(const Array<double, 2> &D_A2_ArrayToExtract_I
   I_Pos = this->KeyWord_Set(CS_A1_Args_In, CString("AREA"));
   if (I_Pos >= 0)
   {
-    Array<int, 1> I_A1_Area(4);
-    I_A1_Area = *(Array<int, 1>*)ArgV_In[I_Pos];
+    blitz::Array<int, 1> I_A1_Area(4);
+    I_A1_Area = *(blitz::Array<int, 1>*)ArgV_In[I_Pos];
     #ifdef __DEBUG_FITS_MKSLITFUNC__
       cout << "CFits::MPFitThreeGaussExtract: KeyWord_Set(AREA): I_A1_Area set to " << I_A1_Area << endl;
       (*P_OFS_Log) << "CFits::MPFitThreeGaussExtract: KeyWord_Set(AREA): I_A1_Area set to " << I_A1_Area << endl;
@@ -46191,7 +46191,7 @@ bool CFits::MPFitThreeGaussExtract(const Array<double, 2> &D_A2_ArrayToExtract_I
   if ((I_Pos = this->KeyWord_Set(CS_A1_Args_In, CString("APERTURES"))) >= 0)
   {
     delete(P_I_A1_AperturesToExtract);
-    P_I_A1_AperturesToExtract = (Array<int, 1>*)ArgV_In[I_Pos];
+    P_I_A1_AperturesToExtract = (blitz::Array<int, 1>*)ArgV_In[I_Pos];
   }
   int I_NParamsOne = 3;
   int I_NParamsTwo = 5;
@@ -46207,19 +46207,19 @@ bool CFits::MPFitThreeGaussExtract(const Array<double, 2> &D_A2_ArrayToExtract_I
     I_NParamsThree = 8;
     I_Ind = 1;
   }
-  Array<double, 1> D_A1_X(1);
-  Array<double, 1> D_A1_Y(1);
-  Array<double, 1> D_A1_YTemp(1);
-  Array<double, 1> D_A1_SigY(1);
-  Array<double, 1> D_A1_GuessOne(I_NParamsOne);
-  Array<int, 2> I_A2_ParLimitedOne(I_NParamsOne, 2);
-  Array<double, 2> D_A2_ParLimitsOne(I_NParamsOne, 2);
-  Array<double, 1> D_A1_GuessTwo(I_NParamsTwo);
-  Array<int, 2> I_A2_ParLimitedTwo(I_NParamsTwo, 2);
-  Array<double, 2> D_A2_ParLimitsTwo(I_NParamsTwo, 2);
-  Array<double, 1> D_A1_GuessThree(I_NParamsThree);
-  Array<int, 2> I_A2_ParLimitedThree(I_NParamsThree, 2);
-  Array<double, 2> D_A2_ParLimitsThree(I_NParamsThree, 2);
+  blitz::Array<double, 1> D_A1_X(1);
+  blitz::Array<double, 1> D_A1_Y(1);
+  blitz::Array<double, 1> D_A1_YTemp(1);
+  blitz::Array<double, 1> D_A1_SigY(1);
+  blitz::Array<double, 1> D_A1_GuessOne(I_NParamsOne);
+  blitz::Array<int, 2> I_A2_ParLimitedOne(I_NParamsOne, 2);
+  blitz::Array<double, 2> D_A2_ParLimitsOne(I_NParamsOne, 2);
+  blitz::Array<double, 1> D_A1_GuessTwo(I_NParamsTwo);
+  blitz::Array<int, 2> I_A2_ParLimitedTwo(I_NParamsTwo, 2);
+  blitz::Array<double, 2> D_A2_ParLimitsTwo(I_NParamsTwo, 2);
+  blitz::Array<double, 1> D_A1_GuessThree(I_NParamsThree);
+  blitz::Array<int, 2> I_A2_ParLimitedThree(I_NParamsThree, 2);
+  blitz::Array<double, 2> D_A2_ParLimitsThree(I_NParamsThree, 2);
   if (B_WithBackground_In){
     I_A2_ParLimitedOne(0,0) = 1;
     I_A2_ParLimitedOne(0,1) = 1;
@@ -46272,33 +46272,33 @@ bool CFits::MPFitThreeGaussExtract(const Array<double, 2> &D_A2_ArrayToExtract_I
     cout << "CFits::MPFitThreeGaussExtract: I_A2_ParLimitedTwo = " << I_A2_ParLimitedTwo << endl;
     cout << "CFits::MPFitThreeGaussExtract: I_A2_ParLimitedThree = " << I_A2_ParLimitedThree << endl;
   #endif
-  Array<double, 1> D_A1_CoeffsOne(I_NParamsOne);
-  Array<double, 1> D_A1_CoeffsTwo(I_NParamsTwo);
-  Array<double, 1> D_A1_CoeffsThree(I_NParamsThree);
+  blitz::Array<double, 1> D_A1_CoeffsOne(I_NParamsOne);
+  blitz::Array<double, 1> D_A1_CoeffsTwo(I_NParamsTwo);
+  blitz::Array<double, 1> D_A1_CoeffsThree(I_NParamsThree);
   D_A1_CoeffsOne = 0.;
   D_A1_CoeffsTwo = 0.;
   D_A1_CoeffsThree = 0.;
-  Array<double, 1> D_A1_ECoeffsOne(I_NParamsOne);
-  Array<double, 1> D_A1_ECoeffsTwo(I_NParamsTwo);
-  Array<double, 1> D_A1_ECoeffsThree(I_NParamsThree);
+  blitz::Array<double, 1> D_A1_ECoeffsOne(I_NParamsOne);
+  blitz::Array<double, 1> D_A1_ECoeffsTwo(I_NParamsTwo);
+  blitz::Array<double, 1> D_A1_ECoeffsThree(I_NParamsThree);
   D_A1_ECoeffsOne = 0.;
   D_A1_ECoeffsTwo = 0.;
   D_A1_ECoeffsThree = 0.;
-  Array<double, 1> *P_D_A1_Ind;
-  Array<double, 1> D_A1_XInt(2);
-  Array<int, 1> I_A1_ApNumsWithCrossTalk(5);
+  blitz::Array<double, 1> *P_D_A1_Ind;
+  blitz::Array<double, 1> D_A1_XInt(2);
+  blitz::Array<int, 1> I_A1_ApNumsWithCrossTalk(5);
   I_A1_ApNumsWithCrossTalk = -1;
   int I_NApsWithCrossTalk = 0;
-  Array<bool, 1> B_A1_CrossTalkToTheLeft(2);
+  blitz::Array<bool, 1> B_A1_CrossTalkToTheLeft(2);
   B_A1_CrossTalkToTheLeft = false;
-  Array<bool, 1> B_A1_CrossTalkToTheRight(2);
-  Array<double, 1> *P_D_A1_XGauss;
-  Array<double, 1> D_A1_YGauss(1);
-  Array<double, 1> D_A1_CoeffsGauss(I_Ind+3);
-  Array<double, 1> D_A1_ECoeffsGauss(I_Ind+3);
-  Array<double, 1> D_A1_GaussSigma(1);
-  Array<double, 1> D_A1_GaussMean(1);
-  Array<double, 1> D_A1_MeanFit(1);
+  blitz::Array<bool, 1> B_A1_CrossTalkToTheRight(2);
+  blitz::Array<double, 1> *P_D_A1_XGauss;
+  blitz::Array<double, 1> D_A1_YGauss(1);
+  blitz::Array<double, 1> D_A1_CoeffsGauss(I_Ind+3);
+  blitz::Array<double, 1> D_A1_ECoeffsGauss(I_Ind+3);
+  blitz::Array<double, 1> D_A1_GaussSigma(1);
+  blitz::Array<double, 1> D_A1_GaussMean(1);
+  blitz::Array<double, 1> D_A1_MeanFit(1);
   B_A1_CrossTalkToTheRight = false;
   bool B_CrossTalk = false;
   bool B_LastRow1 = false;
@@ -46859,14 +46859,14 @@ bool CFits::MPFitThreeGaussExtract(const Array<double, 2> &D_A2_ArrayToExtract_I
             #ifdef __DEBUG_FITS_GAUSSEXTRACT__
               cout << "CFits::MPFitThreeGaussExtract: D_GaussSigma = " << D_GaussSigma << endl;
             #endif
-            ///    YFIT=yfit: Array<double, 1>(D_A1_X_In.size()): out
-            Array<double, 1> *P_D_A1_Row = this->DIndGenArr(D_A1_GaussMean.size());
-            Array<CString, 1> CS_A1_PolyFit_KeyWords(1);
+            ///    YFIT=yfit: blitz::Array<double, 1>(D_A1_X_In.size()): out
+            blitz::Array<double, 1> *P_D_A1_Row = this->DIndGenArr(D_A1_GaussMean.size());
+            blitz::Array<CString, 1> CS_A1_PolyFit_KeyWords(1);
             CS_A1_PolyFit_KeyWords(0) = CString("YFIT");
             void **PP_Args_PolyFit = (void**)malloc(sizeof(void*));
             D_A1_MeanFit.resize(D_A1_GaussMean.size());
             PP_Args_PolyFit[0] = &D_A1_MeanFit;
-            Array<double, 1> *P_D_A1_PolyFitCoeffs = new Array<double, 1>(4);
+            blitz::Array<double, 1> *P_D_A1_PolyFitCoeffs = new blitz::Array<double, 1>(4);
             if (!this->PolyFit(*P_D_A1_Row,
                                D_A1_GaussMean,
                                3,
@@ -46912,7 +46912,7 @@ bool CFits::MPFitThreeGaussExtract(const Array<double, 2> &D_A2_ArrayToExtract_I
             cout << "CFits::MPFitThreeGaussExtract: i_ap = " << i_ap << ": i_row = " << i_row << ": D_A1_XGauss set to " << *P_D_A1_XGauss << endl;
             cout << "CFits::MPFitThreeGaussExtract: i_ap = " << i_ap << ": i_row = " << i_row << ": D_A1_CoeffsGauss set to " << D_A1_CoeffsGauss << endl;
           #endif
-          Array<double, 1> D_A1_CoeffsGaussTemp(D_A1_CoeffsGauss.size());
+          blitz::Array<double, 1> D_A1_CoeffsGaussTemp(D_A1_CoeffsGauss.size());
           D_A1_CoeffsGaussTemp = D_A1_CoeffsGauss;
           D_A1_CoeffsGaussTemp(I_Ind) = 1.;
           if (!this->GaussArea(*P_D_A1_XGauss,
@@ -46959,15 +46959,15 @@ bool CFits::ShiftApertures(double D_Shift_In){
   return true;
 }
 
-bool CFits::CalculateLensletCorners(Array<double, 3> &D_A3_LensletCorners_Out){
+bool CFits::CalculateLensletCorners(blitz::Array<double, 3> &D_A3_LensletCorners_Out){
   if (!this->TraceFunctionsCalculated){
     cout << "CFits::CalculateLensletCorners: ERROR: Trace functions not calculated yet" << endl;
     return false;
   }
 
-  Array<double, 2> D_A2_ApCenters(this->I_NApertures,2);
-  Array<double, 1> D_A1_YCenter(this->I_NApertures);
-  Array<double, 1> D_A1_XCenter(this->I_NApertures);
+  blitz::Array<double, 2> D_A2_ApCenters(this->I_NApertures,2);
+  blitz::Array<double, 1> D_A1_YCenter(this->I_NApertures);
+  blitz::Array<double, 1> D_A1_XCenter(this->I_NApertures);
   for (int i_ap=0; i_ap<this->I_NApertures; i_ap++){
     D_A1_YCenter(i_ap) = (*(this->P_D_A1_YCenter))(i_ap) + (*(this->P_D_A1_YLow))(i_ap) + (((*(this->P_D_A1_YHigh))(i_ap) - (*(this->P_D_A1_YLow))(i_ap)) / 2.);
     D_A1_XCenter(i_ap) = (*(this->P_D_A2_XCenters))(i_ap, (int)(D_A1_YCenter)(i_ap));
@@ -46975,9 +46975,9 @@ bool CFits::CalculateLensletCorners(Array<double, 3> &D_A3_LensletCorners_Out){
   D_A2_ApCenters(Range::all(),0) = D_A1_XCenter;
   D_A2_ApCenters(Range::all(),1) = D_A1_YCenter;
 
-  Array<double, 1> D_A1_Coords(2);
-  //  Array<double, 1> D_A1_NearestNeighbour(2);
-  Array<double, 2> D_A2_LensletPos(this->I_NApertures,2);
+  blitz::Array<double, 1> D_A1_Coords(2);
+  //  blitz::Array<double, 1> D_A1_NearestNeighbour(2);
+  blitz::Array<double, 2> D_A2_LensletPos(this->I_NApertures,2);
   int I_Pos;
   //  cout << "CFits::CalculateLensletCorners::main: D_A2_PredApCenters_In = " << D_A2_PredApCenters_In << endl;
   //  cout << "CFits::CalculateLensletCorners::main: D_A2_PredApCenters = " << D_A2_PredApCenters << endl;
@@ -46985,7 +46985,7 @@ bool CFits::CalculateLensletCorners(Array<double, 3> &D_A3_LensletCorners_Out){
   CString CS_FileName;
   CString CS_Underscore("_");
   int I_FileProblem;
-  Array<double, 2> D_A2_Lenslet_Ap(this->I_NApertures,2);
+  blitz::Array<double, 2> D_A2_Lenslet_Ap(this->I_NApertures,2);
   for (int I_Ap=0; I_Ap<this->I_NApertures; I_Ap++){
     ///Find Aperture Number
 //    D_A2_Lenslet_Ap(I_Ap, 0) = i_file;
@@ -47009,7 +47009,7 @@ bool CFits::CalculateLensletCorners(Array<double, 3> &D_A3_LensletCorners_Out){
   cout << "CFits::CalculateLensletCorners::main: D_XMin = " << D_XMin << ", D_XMax = " << D_XMax << ", D_X=YMin = " << D_YMin << ", D_YMax = " << D_YMax << endl;
   #endif
 
-  Array<double, 2> D_A2_LensletPos_CCD(D_A2_LensletPos.rows(), 2);
+  blitz::Array<double, 2> D_A2_LensletPos_CCD(D_A2_LensletPos.rows(), 2);
   D_A2_LensletPos_CCD = D_A2_LensletPos(Range::all(), Range(0,1));
 
   ///find D_LensletDist_in_Pixels
@@ -47017,8 +47017,8 @@ bool CFits::CalculateLensletCorners(Array<double, 3> &D_A3_LensletCorners_Out){
   //D_A1_Coords = D_A2_ApCenters_In(int(D_A2_ApCenters_In.rows()/2.),Range::all());
   cout << "CFits::CalculateLensletCorners::main: trying to find D_LensletDist_in_Pixels: D_A1_Coords = " << D_A1_Coords << endl;
   int I_NNearestNeighbours = 4;
-  Array<double, 2> D_A2_NearestNeighbours(I_NNearestNeighbours, 2);
-  Array<int, 1> I_A1_PosInLensletPos_CCD_Array(I_NNearestNeighbours);
+  blitz::Array<double, 2> D_A2_NearestNeighbours(I_NNearestNeighbours, 2);
+  blitz::Array<int, 1> I_A1_PosInLensletPos_CCD_Array(I_NNearestNeighbours);
   if (!this->FindNearestNeighbours(D_A1_Coords,
                                    D_A2_LensletPos_CCD,
                                    I_NNearestNeighbours,
@@ -47032,7 +47032,7 @@ bool CFits::CalculateLensletCorners(Array<double, 3> &D_A3_LensletCorners_Out){
     cout << "CFits::CalculateLensletCorners::main: I_A1_PosInLensletPos_CCD_Array = " << I_A1_PosInLensletPos_CCD_Array << endl;
   #endif
 
-  Array<double, 1> D_A1_Dist(I_NNearestNeighbours);
+  blitz::Array<double, 1> D_A1_Dist(I_NNearestNeighbours);
   for (int i=0; i<I_NNearestNeighbours; i++){
     #ifdef __DEBUG_FITS_CALCULATELENSLETCORNERS__
       cout << "CFits::CalculateLensletCorners::main: D_A2_LensletPos_CCD(I_A1_PosInLensletPos_CCD_Array(i),Range::all()) = " << D_A2_LensletPos_CCD(I_A1_PosInLensletPos_CCD_Array(i), Range::all()) << endl;
@@ -47056,22 +47056,22 @@ bool CFits::CalculateLensletCorners(Array<double, 3> &D_A3_LensletCorners_Out){
   I_A1_PosInLensletPos_CCD_Array.resize(I_NNearestNeighbours);
   double D_MinDist;
   D_A1_Dist.resize(I_NNearestNeighbours);
-  Array<double, 3> D_A3_NearestNeighbours_Coords(D_A2_LensletPos_CCD.rows(), I_NNearestNeighbours-1, 2);
+  blitz::Array<double, 3> D_A3_NearestNeighbours_Coords(D_A2_LensletPos_CCD.rows(), I_NNearestNeighbours-1, 2);
   D_A3_NearestNeighbours_Coords = 0.;
-  Array<double, 3> D_A3_NearestNeighbours_HalfWay(D_A2_LensletPos_CCD.rows(), I_NNearestNeighbours-1, 2);
+  blitz::Array<double, 3> D_A3_NearestNeighbours_HalfWay(D_A2_LensletPos_CCD.rows(), I_NNearestNeighbours-1, 2);
   D_A3_NearestNeighbours_Coords = 0.;
   int N_Neighbours;
-  Array<double, 2> D_A2_Coords_Sorted(6,2);
-  Array<double, 1> D_A1_PixA(2);
-  Array<double, 1> D_A1_PixB(2);
+  blitz::Array<double, 2> D_A2_Coords_Sorted(6,2);
+  blitz::Array<double, 1> D_A1_PixA(2);
+  blitz::Array<double, 1> D_A1_PixB(2);
   double D_Length_A, D_Length_B, D_Length;
-  Array<double, 1> D_A1_PixHalf(2);
+  blitz::Array<double, 1> D_A1_PixHalf(2);
   D_A3_LensletCorners_Out.resize(D_A2_LensletPos_CCD.rows(),6,2);
-  Array<double, 1> D_A1_CornerPoint(2);
+  blitz::Array<double, 1> D_A1_CornerPoint(2);
   CString *P_CS_Lenslet;
   CString CS_FName(" ");
   D_A3_LensletCorners_Out = 0.;
-  Array<double, 2> D_A2_Corners_Sorted(6,2);
+  blitz::Array<double, 2> D_A2_Corners_Sorted(6,2);
   CString CS_CornerFile_Out("");
   CString *P_CS_Temp;
 
@@ -47205,25 +47205,25 @@ bool CFits::CalculateLensletCorners(Array<double, 3> &D_A3_LensletCorners_Out){
 }
 
 
-bool CFits::Fit2DGaussianCB(const Array<double, 1> &D_A1_X_In,
-                            const Array<double, 1> &D_A1_Y_In,
-                            const Array<double, 1> &D_A1_Z_In,
-                            const Array<double, 1> &D_A1_Guess_In,//(background, peak, mean_x, mean_y, sigma)
-                            const Array<double, 2> &D_A2_Limits_In,//(background, peak, mean_x, mean_y, sigma)
-                            Array<double, 1> &D_A1_Coeffs_Out) const{
+bool CFits::Fit2DGaussianCB(const blitz::Array<double, 1> &D_A1_X_In,
+                            const blitz::Array<double, 1> &D_A1_Y_In,
+                            const blitz::Array<double, 1> &D_A1_Z_In,
+                            const blitz::Array<double, 1> &D_A1_Guess_In,//(background, peak, mean_x, mean_y, sigma)
+                            const blitz::Array<double, 2> &D_A2_Limits_In,//(background, peak, mean_x, mean_y, sigma)
+                            blitz::Array<double, 1> &D_A1_Coeffs_Out) const{
   /*
-   *bool MPFit2DGaussLim(const Array< double, 1 >& D_A1_X_In,
-                     const Array< double, 1 >& D_A1_Y_In,
-                     const Array< double, 1 >& D_A1_Z_In,
-                     const Array< double, 1 >& D_A1_Guess_In,
-                     const Array<int, 2> &I_A2_Limited,
-                     const Array<double, 2> &D_A2_Limits,
-                     Array< double, 1 >& D_A1_Coeffs_Out,
-                     Array< double, 1 >& D_A1_ECoeffs_Out)
+   *bool MPFit2DGaussLim(const blitz::Array< double, 1 >& D_A1_X_In,
+                     const blitz::Array< double, 1 >& D_A1_Y_In,
+                     const blitz::Array< double, 1 >& D_A1_Z_In,
+                     const blitz::Array< double, 1 >& D_A1_Guess_In,
+                     const blitz::Array<int, 2> &I_A2_Limited,
+                     const blitz::Array<double, 2> &D_A2_Limits,
+                     blitz::Array< double, 1 >& D_A1_Coeffs_Out,
+                     blitz::Array< double, 1 >& D_A1_ECoeffs_Out)
                      */
-  Array<int, 2> I_A2_Limited(D_A1_Guess_In.size(), 2);
+  blitz::Array<int, 2> I_A2_Limited(D_A1_Guess_In.size(), 2);
   I_A2_Limited = 1;
-  Array<double, 1> D_A1_ECoeffs(D_A1_Guess_In.size());
+  blitz::Array<double, 1> D_A1_ECoeffs(D_A1_Guess_In.size());
   D_A1_ECoeffs = 1.;
   return MPFit2DGaussLim(D_A1_X_In,
                          D_A1_Y_In,
@@ -47235,29 +47235,29 @@ bool CFits::Fit2DGaussianCB(const Array<double, 1> &D_A1_X_In,
                          D_A1_ECoeffs);
 }
 
-bool CFits::Rebin2D(const Array<double, 2> &D_A2_XYZ_In,///(NPoints, 3)
-                    const Array<double, 1> &D_A1_XNew_In,///(NPointsNew)
-                    const Array<double, 1> &D_A1_YNew_In,///(NPointsNew)
-                    Array<double, 2> &D_A2_XYZ_Out,
+bool CFits::Rebin2D(const blitz::Array<double, 2> &D_A2_XYZ_In,///(NPoints, 3)
+                    const blitz::Array<double, 1> &D_A1_XNew_In,///(NPointsNew)
+                    const blitz::Array<double, 1> &D_A1_YNew_In,///(NPointsNew)
+                    blitz::Array<double, 2> &D_A2_XYZ_Out,
                     int I_NNearestNeighbours) const{///(NPointsNew, 3)
   int dim_cspace = 2;
   double pred, var, D_Z;
   double i_a, i_b;
   const size_t num_samples = I_NNearestNeighbours;
-  Array<double, 1> D_A1_RefPoint(2);
-  Array<double, 2> D_A2_XY(D_A2_XYZ_In.rows(),2);
+  blitz::Array<double, 1> D_A1_RefPoint(2);
+  blitz::Array<double, 2> D_A2_XY(D_A2_XYZ_In.rows(),2);
   D_A2_XYZ_Out.resize(D_A1_XNew_In.size(), 3);
   D_A2_XYZ_Out(Range::all(), 0) = D_A1_XNew_In;
   D_A2_XYZ_Out(Range::all(), 1) = D_A1_YNew_In;
-  Array<double, 2> D_A2_Neighbours(3,3);
+  blitz::Array<double, 2> D_A2_Neighbours(3,3);
 
   for (int i_pt=0; i_pt<D_A2_XYZ_In.rows(); i_pt++){
     D_A2_XY(i_pt, 0) = D_A2_XYZ_In(i_pt, 0);
     D_A2_XY(i_pt, 1) = D_A2_XYZ_In(i_pt, 1);
   }
 
-  Array<int, 1> I_A1_Pos(3);
-  Array<double, 2> D_A2_NearestNeighbours_Out(I_NNearestNeighbours,2);
+  blitz::Array<int, 1> I_A1_Pos(3);
+  blitz::Array<double, 2> D_A2_NearestNeighbours_Out(I_NNearestNeighbours,2);
   for (int i_pt=0; i_pt<D_A1_XNew_In.size(); i_pt++){
     D_A1_RefPoint(0) = D_A1_XNew_In(i_pt);
     D_A1_RefPoint(1) = D_A1_YNew_In(i_pt);
@@ -47358,16 +47358,16 @@ bool CFits::Rebin2D(const Array<double, 2> &D_A2_XYZ_In,///(NPoints, 3)
 }
 
 
-bool CFits::InterPol3D(const Array<double, 2> &D_A2_RefPoints,///(NPoints=3, 3)
-                       const Array<double, 1> &D_A1_XY_In,
+bool CFits::InterPol3D(const blitz::Array<double, 2> &D_A2_RefPoints,///(NPoints=3, 3)
+                       const blitz::Array<double, 1> &D_A1_XY_In,
                        double &D_Z_Out) const{
-  Array<double, 2> D_A2_RefPoints_XY(3,2);
+  blitz::Array<double, 2> D_A2_RefPoints_XY(3,2);
   D_A2_RefPoints_XY = D_A2_RefPoints(Range::all(), Range(0,1));
   if (!this->PixelIsInTriangle(D_A1_XY_In, D_A2_RefPoints_XY)){
     cout << "CFits::InterPol3D: ERROR: D_A1_XY_In = " << D_A1_XY_In << " is not in triangle " << D_A2_RefPoints_XY << endl;
     return false;
   }
-  Array<double, 1> D_A1_Dist(3);
+  blitz::Array<double, 1> D_A1_Dist(3);
   D_Z_Out = 0.;
   for (int i_pt=0; i_pt<3; i_pt++){
     D_A1_Dist(i_pt) = this->Distance(D_A1_XY_In, D_A2_RefPoints_XY(i_pt, Range::all()));
@@ -47383,8 +47383,8 @@ bool CFits::InterPol3D(const Array<double, 2> &D_A2_RefPoints,///(NPoints=3, 3)
   return true;
 }
 
-bool CFits::CrossCorrelate2D(const Array<double, 2> &D_A2_Static,
-                             const Array<double, 2> &D_A2_Moving,
+bool CFits::CrossCorrelate2D(const blitz::Array<double, 2> &D_A2_Static,
+                             const blitz::Array<double, 2> &D_A2_Moving,
                              //const int &I_NPixMaxShift_X_Left,
                              //const int &I_NPixMaxShift_X_Right,
                              //const int &I_NPixMaxShift_Y_Down,
@@ -47393,11 +47393,11 @@ bool CFits::CrossCorrelate2D(const Array<double, 2> &D_A2_Static,
                              //const int &I_NSteps_Y,
                              int &I_XCor_X_Out,
                              int &I_XCor_Y_Out) const{
-  Array<double, 2> D_A2_Moving_Temp(D_A2_Static.rows(), D_A2_Static.cols());
+  blitz::Array<double, 2> D_A2_Moving_Temp(D_A2_Static.rows(), D_A2_Static.cols());
 
   ///TODO: include I_NPixMaxShift_Y_Down and I_NPixMaxShift_Y_Up
 
-  //  Array<double, 2> D_A2_ChiSquare(D_A2_Moving.rows()-D_A2_Static.rows()+1, D_A2_Moving.cols()-D_A2_Static.cols()+1);
+  //  blitz::Array<double, 2> D_A2_ChiSquare(D_A2_Moving.rows()-D_A2_Static.rows()+1, D_A2_Moving.cols()-D_A2_Static.cols()+1);
   double D_ChiSquare = 0.;
   double D_ChiSquare_Min = 0.;
   for (int i_x=0; i_x<=D_A2_Moving.cols()-D_A2_Static.cols(); i_x++){
@@ -47405,7 +47405,7 @@ bool CFits::CrossCorrelate2D(const Array<double, 2> &D_A2_Static,
       D_A2_Moving_Temp = D_A2_Moving(Range(i_y, i_y+D_A2_Static.rows()-1), Range(i_x, i_x+D_A2_Static.cols()-1));
       D_ChiSquare = sum(pow2(D_A2_Moving_Temp - D_A2_Static));
       #ifdef __DEBUG_FITS_CROSSCORRELATE__
-        Array<double, 2> D_A2_Temp(D_A2_Moving_Temp.rows(), D_A2_Moving_Temp.cols());
+        blitz::Array<double, 2> D_A2_Temp(D_A2_Moving_Temp.rows(), D_A2_Moving_Temp.cols());
         D_A2_Temp = D_A2_Moving_Temp - D_A2_Static;
         CString CS_FNameTemp("XCor2D_ix");
         CString *P_CS_IToA = CS_FNameTemp.IToA(i_x);
@@ -47435,12 +47435,12 @@ bool CFits::CrossCorrelate2D(const Array<double, 2> &D_A2_Static,
       #endif
     }
   }
-/*  Array<double, 2> D_A2_Static_Temp(2,2);
-  Array<double, 2> D_A2_Moving_Temp(2,2);
-  Array<double, 1> D_A1_Moving_X_Temp(D_A2_Moving.cols());
-  Array<double, 1> D_A1_Moving_X(D_A2_Moving.cols());
-  Array<double, 1> D_A1_Moving_Y_Temp(D_A2_Moving.rows());
-  Array<double, 1> D_A1_Moving_Y(D_A2_Moving.rows());
+/*  blitz::Array<double, 2> D_A2_Static_Temp(2,2);
+  blitz::Array<double, 2> D_A2_Moving_Temp(2,2);
+  blitz::Array<double, 1> D_A1_Moving_X_Temp(D_A2_Moving.cols());
+  blitz::Array<double, 1> D_A1_Moving_X(D_A2_Moving.cols());
+  blitz::Array<double, 1> D_A1_Moving_Y_Temp(D_A2_Moving.rows());
+  blitz::Array<double, 1> D_A1_Moving_Y(D_A2_Moving.rows());
   double D_Start_X_Moving, D_End_X_Moving, D_Start_Y_Moving, D_End_Y_Moving;
   int I_Start_X_Static, I_End_X_Static, I_Start_Y_Static, I_End_Y_Static;
   int I_NPix_Static_X = D_A2_Static.cols();
@@ -47514,17 +47514,17 @@ bool CFits::CrossCorrelate2D(const Array<double, 2> &D_A2_Static,
   return true;
 }
 
-bool CFits::GetApertureCenters(Array<double, 2> &D_A2_ApCenters_Out) const{
-  Array<int, 1> *P_I_A1_Apertures = this->IndGenArr(this->Get_NApertures());
+bool CFits::GetApertureCenters(blitz::Array<double, 2> &D_A2_ApCenters_Out) const{
+  blitz::Array<int, 1> *P_I_A1_Apertures = this->IndGenArr(this->Get_NApertures());
   if (!this->GetApertureCenters(*P_I_A1_Apertures, D_A2_ApCenters_Out)){
-    cout << "CFits::GetApertureCenters(Array<double, 2>&): ERROR: GetApertureCenters((*P_I_A1_Apertures) = " << *P_I_A1_Apertures << "), Array<double, 2>&) returned FALSE" << endl;
+    cout << "CFits::GetApertureCenters(blitz::Array<double, 2>&): ERROR: GetApertureCenters((*P_I_A1_Apertures) = " << *P_I_A1_Apertures << "), blitz::Array<double, 2>&) returned FALSE" << endl;
     return false;
   }
   return true;
 }
 
-bool CFits::GetApertureCenters(const Array<int, 1> &I_A1_Apertures,
-                               Array<double, 2> &D_A2_ApCenters_Out) const{
+bool CFits::GetApertureCenters(const blitz::Array<int, 1> &I_A1_Apertures,
+                               blitz::Array<double, 2> &D_A2_ApCenters_Out) const{
   if (I_A1_Apertures.size() < 1){
     cout << "CFits::GetApertureCenters: ERROR: I_A1_Apertures.size() < 1" << endl;
     return false;
@@ -47532,8 +47532,8 @@ bool CFits::GetApertureCenters(const Array<int, 1> &I_A1_Apertures,
 //  cout << "CFits::GetApertureCenters: this->P_D_A2_XCenters = " << (*(this->P_D_A2_XCenters)) << endl;
 //  return false;
   D_A2_ApCenters_Out.resize(I_A1_Apertures.size(),2);
-  Array<double, 1> D_A1_YCenter(I_A1_Apertures.size());
-  Array<double, 1> D_A1_XCenter(I_A1_Apertures.size());
+  blitz::Array<double, 1> D_A1_YCenter(I_A1_Apertures.size());
+  blitz::Array<double, 1> D_A1_XCenter(I_A1_Apertures.size());
   ///  D_A1_YCenter = (*P_D_A1_YCenter) + (*P_D_A1_YLow) + (((*P_D_A1_YHigh) - (*P_D_A1_YLow)) / 2.);
   for (int i_ap=0; i_ap<I_A1_Apertures.size(); i_ap++){
     if ((I_A1_Apertures(i_ap) < 0) || (I_A1_Apertures(i_ap) >= this->Get_NApertures())){
@@ -47554,7 +47554,7 @@ bool CFits::GetApertureCenters(const Array<int, 1> &I_A1_Apertures,
  *         0  if D_A1_Array_In is non monotonic
  *         +1 if D_A1_Array_In is monotonically increasing
  */
-int CFits::IsMonotonic(const Array<double, 1> &D_A1_Array_In) const{
+int CFits::IsMonotonic(const blitz::Array<double, 1> &D_A1_Array_In) const{
   int I_M = 0;
   if (D_A1_Array_In.size() < 2)
       return I_M;
@@ -47587,17 +47587,17 @@ int CFits::IsMonotonic(const Array<double, 1> &D_A1_Array_In) const{
   * and writes result to I_A2_MinCenMax_Out
  **/
 bool CFits::CalcMinCenMax(const int I_Aperture_In,
-	 	  	  Array<int, 2> &I_A2_MinCenMax_Out) const{
+	 	  	  blitz::Array<int, 2> &I_A2_MinCenMax_Out) const{
   if ((I_Aperture_In < 0) || (I_Aperture_In >= this->I_NApertures)){
     cout << "CFits::CalcMinCenMax: ERROR: I_Aperture_In = " << I_Aperture_In << " out of range" << endl;
     return false;
   }
-  Array<double, 1> D_A1_XCenters(this->NRows);
+  blitz::Array<double, 1> D_A1_XCenters(this->NRows);
   D_A1_XCenters = (*(this->P_D_A2_XCenters))(I_Aperture_In, Range::all()) + 0.5;
   #ifdef __DEBUG_FITS_MINCENMAX__
     cout << "CFits::CalcMinCenMax: I_Aperture_In = " << I_Aperture_In << ": D_A1_XCenters = " << D_A1_XCenters << endl;
   #endif
-  Array<int, 1> *P_I_A1_XC = this->Fix(D_A1_XCenters);
+  blitz::Array<int, 1> *P_I_A1_XC = this->Fix(D_A1_XCenters);
   I_A2_MinCenMax_Out.resize(this->NRows, 3);
   I_A2_MinCenMax_Out = 0;
   
@@ -47607,9 +47607,9 @@ bool CFits::CalcMinCenMax(const int I_Aperture_In,
     cout << "CFits::CalcMinCenMax: I_Aperture_In = " << I_Aperture_In << ": I_A2_MinCenMax_Out(*,1) = " << I_A2_MinCenMax_Out(Range::all(), 1) << endl;
   #endif
   delete P_I_A1_XC;
-  Array<double, 1> D_A1_TempXMin(D_A1_XCenters.size());
+  blitz::Array<double, 1> D_A1_TempXMin(D_A1_XCenters.size());
   D_A1_TempXMin = D_A1_XCenters + (*(this->P_D_A1_XLow))(I_Aperture_In);
-  Array<int, 1> *P_I_A1_Temp = this->Fix(D_A1_TempXMin);
+  blitz::Array<int, 1> *P_I_A1_Temp = this->Fix(D_A1_TempXMin);
   
   I_A2_MinCenMax_Out(Range::all(), 0) = (*P_I_A1_Temp);// - I_NPixCut_Left;///(*P_I_A1_Temp); /// Left column of order
 
@@ -47617,7 +47617,7 @@ bool CFits::CalcMinCenMax(const int I_Aperture_In,
     cout << "CFits::CalcMinCenMax: I_Aperture_In = " << I_Aperture_In << ": I_A2_MinCenMax_Out(*,0) = " << I_A2_MinCenMax_Out(Range::all(), 0) << endl;
   #endif
   delete(P_I_A1_Temp);
-  Array<double, 1> D_A1_IMax(I_A2_MinCenMax_Out.rows());
+  blitz::Array<double, 1> D_A1_IMax(I_A2_MinCenMax_Out.rows());
   D_A1_IMax = D_A1_XCenters+(*(this->P_D_A1_XHigh))(I_Aperture_In);
   P_I_A1_Temp = this->Fix(D_A1_IMax);
   
@@ -47627,15 +47627,15 @@ bool CFits::CalcMinCenMax(const int I_Aperture_In,
     cout << "CFits::CalcMinCenMax: I_Aperture_In = " << I_Aperture_In << ": I_A2_MinCenMax_Out(*,2) = " << I_A2_MinCenMax_Out(Range::all(), 2) << endl;
   #endif
   delete(P_I_A1_Temp);
-  Array<int, 1> I_A1_NPixLeft(I_A2_MinCenMax_Out.rows());
+  blitz::Array<int, 1> I_A1_NPixLeft(I_A2_MinCenMax_Out.rows());
   I_A1_NPixLeft = I_A2_MinCenMax_Out(Range::all(),1) - I_A2_MinCenMax_Out(Range::all(),0);
-  Array<int, 1> I_A1_NPixRight(I_A2_MinCenMax_Out.rows());
+  blitz::Array<int, 1> I_A1_NPixRight(I_A2_MinCenMax_Out.rows());
   I_A1_NPixRight = I_A2_MinCenMax_Out(Range::all(),2) - I_A2_MinCenMax_Out(Range::all(),1);
   #ifdef __DEBUG_FITS_MINCENMAX__
     cout << "CFits::CalcMinCenMax: I_A1_NPixLeft(=" << I_A1_NPixLeft << endl;
     cout << "CFits::CalcMinCenMax: I_A1_NPixRight(=" << I_A1_NPixRight << endl;
   #endif
-  Array<int, 1> I_A1_I_NPixX(I_A2_MinCenMax_Out.rows());
+  blitz::Array<int, 1> I_A1_I_NPixX(I_A2_MinCenMax_Out.rows());
   I_A1_I_NPixX = I_A2_MinCenMax_Out(Range::all(), 2) - I_A2_MinCenMax_Out(Range::all(), 0) + 1;
   #ifdef __DEBUG_FITS_MINCENMAX__
     cout << "CFits::CalcMinCenMax: I_A1_I_NPixX = " << I_A1_I_NPixX << endl;
@@ -47668,8 +47668,8 @@ bool CFits::CalcMinCenMax(const int I_Aperture_In,
  **/
 bool CFits::CalcSF(const int I_Aperture_In,
                    const int I_Row_In,
-                   const Array<double, 1> &D_A1_OSF_In,
-                   Array<double, 1> &D_A1_SF_Out) const{
+                   const blitz::Array<double, 1> &D_A1_OSF_In,
+                   blitz::Array<double, 1> &D_A1_SF_Out) const{
   if ((I_Aperture_In < 0) || (I_Aperture_In >= this->I_NApertures)){
     cout << "CFits::CalcSF: ERROR: I_Aperture_In=" << I_Aperture_In << " outside range" << endl;
     return false;
@@ -47682,12 +47682,12 @@ bool CFits::CalcSF(const int I_Aperture_In,
   firstIndex i;
   int I_NXSF = (*(this->P_D_A1_XHigh))(I_Aperture_In) - (*(this->P_D_A1_XLow))(I_Aperture_In) + 1;
 
-  Array<double, 1> XVecArr(D_A1_OSF_In.size());
+  blitz::Array<double, 1> XVecArr(D_A1_OSF_In.size());
   XVecArr = (i + 0.5) / double(I_OverSample) - 1.;
   double D_XCenMXC = (*(this->P_D_A2_XCenters))(I_Aperture_In, I_Row_In) - this->Fix((*(this->P_D_A2_XCenters))(I_Aperture_In, I_Row_In));
   XVecArr += D_XCenMXC;
   
-  Array<double, 1> D_A1_Range(2);
+  blitz::Array<double, 1> D_A1_Range(2);
   
   D_A1_SF_Out.resize(I_NXSF);
   for (int i_col=0; i_col<I_NXSF; i_col++){
@@ -47703,11 +47703,11 @@ bool CFits::CalcSF(const int I_Aperture_In,
 }
             
                   
-bool CFits::RemoveAtmosphericExtinction(const Array<double, 2> &D_A2_Spec_In,
+bool CFits::RemoveAtmosphericExtinction(const blitz::Array<double, 2> &D_A2_Spec_In,
                                         const double &D_AirMass,
-                                        const Array<double, 2> &D_A2_Extinction_In,
-                                        Array<double, 2> &D_A2_Spec_Out) const{
-  Array<double, 1> *P_D_A1_Extinction = new Array<double, 1>(D_A2_Spec_In.rows());
+                                        const blitz::Array<double, 2> &D_A2_Extinction_In,
+                                        blitz::Array<double, 2> &D_A2_Spec_Out) const{
+  blitz::Array<double, 1> *P_D_A1_Extinction = new blitz::Array<double, 1>(D_A2_Spec_In.rows());
   if (!this->InterPol(D_A2_Extinction_In(Range::all(), 1), 
                       D_A2_Extinction_In(Range::all(), 0), 
                       D_A2_Spec_In(Range::all(), 0), 
@@ -47715,7 +47715,7 @@ bool CFits::RemoveAtmosphericExtinction(const Array<double, 2> &D_A2_Spec_In,
     cout << "CFits::RemoveAtmosphericExtinction: ERROR: InterPol(extinction) returned FALSE" << endl;
     return false;
   }
-  Array<double, 1> D_A1_ExtFactor(P_D_A1_Extinction->size());
+  blitz::Array<double, 1> D_A1_ExtFactor(P_D_A1_Extinction->size());
   D_A1_ExtFactor = pow(10.,(0.4 * (*P_D_A1_Extinction) * D_AirMass));
   D_A2_Spec_Out.resize(D_A2_Spec_In.rows(), D_A2_Spec_In.cols());
   D_A2_Spec_Out(Range::all(), 0) = D_A2_Spec_In(Range::all(), 0);
@@ -47726,10 +47726,10 @@ bool CFits::RemoveAtmosphericExtinction(const Array<double, 2> &D_A2_Spec_In,
 /* Calculate Airmass using Hardie Function
  * D_A1_ZenithDist_Deg_In: input zenith distances in degrees
  * */
-bool CFits::AirMass_Hardie_Deg(const Array<double, 1> &D_A1_ZenithDist_Deg_In,
-                               Array<double, 1> &D_A1_AirMass_Out) const{
+bool CFits::AirMass_Hardie_Deg(const blitz::Array<double, 1> &D_A1_ZenithDist_Deg_In,
+                               blitz::Array<double, 1> &D_A1_AirMass_Out) const{
   double D_Rad = 180./D_PI;
-  Array<double, 1> D_A1_ZenithDist_Rad(D_A1_ZenithDist_Deg_In.size());
+  blitz::Array<double, 1> D_A1_ZenithDist_Rad(D_A1_ZenithDist_Deg_In.size());
   D_A1_ZenithDist_Rad = (90. - D_A1_ZenithDist_Deg_In) / D_Rad;
   return AirMass_Hardie_Rad(D_A1_ZenithDist_Rad, D_A1_AirMass_Out);
 }
@@ -47737,9 +47737,9 @@ bool CFits::AirMass_Hardie_Deg(const Array<double, 1> &D_A1_ZenithDist_Deg_In,
 /* Calculate Airmass using Hardie Function
  * D_A1_ZenithDist_Rad_In: input zenith distances in radians
  * */
-bool CFits::AirMass_Hardie_Rad(const Array<double, 1> &D_A1_ZenithDist_Rad_In,
-                               Array<double, 1> &D_A1_AirMass_Out) const{
-  Array<double, 1> D_A1_SecZ(D_A1_ZenithDist_Rad_In.size());
+bool CFits::AirMass_Hardie_Rad(const blitz::Array<double, 1> &D_A1_ZenithDist_Rad_In,
+                               blitz::Array<double, 1> &D_A1_AirMass_Out) const{
+  blitz::Array<double, 1> D_A1_SecZ(D_A1_ZenithDist_Rad_In.size());
   D_A1_SecZ = 1./cos(D_A1_ZenithDist_Rad_In);
   
   D_A1_AirMass_Out.resize(D_A1_ZenithDist_Rad_In.size());
@@ -47756,7 +47756,7 @@ bool CFits::AirMass_Hardie_Rad(const Array<double, 1> &D_A1_ZenithDist_Rad_In,
   * D_XStep_In:         initial step for search (<0: go left, >0: go right)
   * CS_Function_In:     [Poly,Chebyshev,Legendre]
   * **/
-bool CFits::PolyRoot(const Array<double, 1> &D_A1_PolyCoeffs_In,
+bool CFits::PolyRoot(const blitz::Array<double, 1> &D_A1_PolyCoeffs_In,
                      const double &D_Y_In,
                      const double &D_XStart_In,
                      const double &D_XStep_In,
