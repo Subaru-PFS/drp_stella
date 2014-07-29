@@ -4,6 +4,7 @@
 #include <vector>
 #include "lsst/base.h"
 #include "lsst/afw/geom/Box.h"
+#include "lsst/afw/image/Image.h"
 #include "lsst/pex/config.h"
 
 namespace pfs { namespace drp { namespace stella {
@@ -60,31 +61,69 @@ public:
 
     /// Return the profile for a row
     /// N.b. the first value corresponds to the minimum x-value of the trace (see getBBox)
-    std::vector<float> const & getProfile(int y) const { // really == 0 XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
-        static std::vector<float> FAKE;
-        return FAKE;
-    }
+    virtual ndarray::Array<float const, 1, 1> getProfile(int y) const = 0;
+    /// Return the profile for a row
+    /// N.b. the first value corresponds to the minimum x-value of the trace (see getBBox)
+    virtual ndarray::Array<float, 1, 1> getProfile(int y) = 0;
 private:
     lsst::afw::geom::Box2I _bbox;
     std::vector<float> _xcenters;
 };
 
 /************************************************************************************************************/
+class FiberTraceSet;
+
+/**
+ * \brief A FiberTrace that uses an image to save the line-by-line profiles
+ */
+class ImageFiberTrace : public FiberTrace {
+public:
+    ImageFiberTrace(lsst::afw::geom::Box2I const& bbox);
+
+    /// Return the profile for a row
+    /// N.b. the first value corresponds to the minimum x-value of the trace (see getBBox)
+    virtual ndarray::Array<float, 1, 1> getProfile(int y);
+    /// Return the profile for a row
+    /// N.b. the first value corresponds to the minimum x-value of the trace (see getBBox)
+    virtual ndarray::Array<float const, 1, 1> getProfile(int y) const;
+private:
+    friend class FiberTraceSet;
+    PTR(lsst::afw::image::Image<float>) _profArray;
+};
+
+/************************************************************************************************************/
 /**
  * \brief Describe a set of fiber traces
+ *
+ * \note If a profArray is passed to the ctor, you are required to pass ImageFiberTraces to setFiberTrace
  */
 class FiberTraceSet {
 public:
-    FiberTraceSet(int nAperture=0) : _traces(nAperture) {}
+    /// Create a FiberTraceSet that uses an image to save the profiles
+    explicit FiberTraceSet(PTR(lsst::afw::image::Image<float>) profArray) ///< profile array
+        : _traces(0), _profArray(profArray) {}
+
+    explicit FiberTraceSet(int nAperture=0, ///< number of apertures
+                           PTR(lsst::afw::image::Image<float>)
+                           profArray=PTR(lsst::afw::image::Image<float>)()) ///< profile array
+        : _traces(nAperture), _profArray(profArray) {}
+
     virtual ~FiberTraceSet() {}
 
+    /// Return the number of apertures
     int getNAperture() const { return _traces.size(); }
-    FiberTrace &getFiberTrace(int const i) { return *_traces.at(i); }
-    FiberTrace const& getFiberTrace(int const i) const { return *_traces.at(i); }
-    void setFiberTrace(int const i, PTR(FiberTrace) trace);
-    
+    /// Return the FiberTrace for the ith aperture
+    FiberTrace &getFiberTrace(int const i ///< desired aperture
+                             ) { return *_traces.at(i); }
+    FiberTrace const& getFiberTrace(int const i ///< desired aperture
+                                   ) const { return *_traces.at(i); }
+    /// Set the ith FiberTrace
+    void setFiberTrace(int const i,     ///< which aperture?
+                       PTR(FiberTrace) trace ///< the FiberTrace for the ith aperture
+                      );
 private:
-    std::vector<PTR(FiberTrace)> _traces;
+    std::vector<PTR(FiberTrace)> _traces; // traces for each aperture
+    PTR(lsst::afw::image::Image<float>) _profArray; // Image defining apertures iff provided
 };
 
 }}}

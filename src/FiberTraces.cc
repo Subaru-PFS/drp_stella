@@ -10,17 +10,50 @@ FiberTrace::FiberTrace(lsst::afw::geom::Box2I const& bbox) :
     ;
 }
 
-//std::vector<float> const & getProfile(int y) const = 0;
+/************************************************************************************************************/
+/**
+ * ctor
+ */
+ImageFiberTrace::ImageFiberTrace(lsst::afw::geom::Box2I const& bbox) :
+    FiberTrace(bbox)
+{
+    ;
+}
+
+ndarray::Array<float, 1, 1>
+ImageFiberTrace::getProfile(int y)
+{
+    ndarray::Array<float, 1, 1>::Index shape = ndarray::makeVector(getBBox().getWidth());
+    ndarray::Array<float, 1, 1>::Index strides = ndarray::makeVector(1);
+
+    return ndarray::external(&(*_profArray)(0, y), shape, strides);
+}
+
+ndarray::Array<float const, 1, 1>
+ImageFiberTrace::getProfile(int y) const
+{
+    ndarray::Array<float const, 1, 1>::Index shape = ndarray::makeVector(getBBox().getWidth());
+    ndarray::Array<float const, 1, 1>::Index strides = ndarray::makeVector(1);
+
+    return ndarray::external(&(*_profArray)(getBBox().getMinX(), y), shape, strides);
+}
 
 /************************************************************************************************************/
 
 void
 FiberTraceSet::setFiberTrace(int const i, PTR(FiberTrace) trace)
 {
+    PTR(ImageFiberTrace) itrace = boost::dynamic_pointer_cast<ImageFiberTrace>(trace);
+
+    if (itrace) {
+        itrace->_profArray = _profArray;
+        trace = itrace;
+    }
+    
     if (i >= _traces.size()) {
         _traces.resize(i + 1);
     }
-    _traces[i] = trace;
+    _traces[i] = itrace ? itrace : trace;
 }
         
 }}}

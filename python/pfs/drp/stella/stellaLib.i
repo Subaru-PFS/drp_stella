@@ -10,6 +10,9 @@ Interface to Stella
 %module(package="pfs.drp.stella", docstring=stellaLib_DOCSTRING) stellaLib
 
 %{
+#define PY_ARRAY_UNIQUE_SYMBOL PFS_DRP_STELLA_NUMPY_ARRAY_API
+#include "numpy/arrayobject.h"
+#include "ndarray/swig.h"
 #include "lsst/pex/logging.h"
 #include "lsst/afw.h"
 #include "pfs/drp/stella/FiberTraces.h"
@@ -42,5 +45,6 @@ Interface to Stella
 /************************************************************************************************************/
 
 %shared_ptr(pfs::drp::stella::FiberTrace);
+%shared_ptr(pfs::drp::stella::ImageFiberTrace);
 
 %include "pfs/drp/stella/FiberTraces.h"
