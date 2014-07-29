@@ -12,6 +12,7 @@ Interface to Stella
 %{
 #include "lsst/pex/logging.h"
 #include "lsst/afw.h"
+#include "pfs/drp/stella/FiberTraces.h"
 #include "pfs/drp/stella/Example.h"
 %}
 
@@ -20,6 +21,8 @@ Interface to Stella
 %lsst_exceptions();
 
 %include "lsst/base.h"
+%include "lsst/pex/config.h"
+
 %import "lsst/afw/geom/geomLib.i"
 %import "lsst/afw/image/imageLib.i"
 
@@ -35,3 +38,9 @@ Interface to Stella
 %addImages(double);
 %addImages(int);
 %addImages(float);
+
+/************************************************************************************************************/
+
+%shared_ptr(pfs::drp::stella::FiberTrace);
+
+%include "pfs/drp/stella/FiberTraces.h"
