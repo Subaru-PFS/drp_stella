@@ -23,6 +23,10 @@ Interface to Stella
 
 %lsst_exceptions();
 
+%init %{
+    import_array();
+%}
+
 %include "lsst/base.h"
 %include "lsst/pex/config.h"
 
