@@ -50,7 +50,7 @@ FiberTraceSet::setFiberTrace(int const i, PTR(FiberTrace) trace)
         trace = itrace;
     }
     
-    if (i >= _traces.size()) {
+    if (static_cast<unsigned int>(i) >= _traces.size()) { // cast makes clang happy
         _traces.resize(i + 1);
     }
     _traces[i] = itrace ? itrace : trace;
