@@ -172,6 +172,7 @@ basis machine: Ubuntu Linux 6.06
   #define SPEED_OF_LIGHT 299792458
   #define D_PI 3.14159265359
   #define D_H_C 1.9865e-8 /// erg Ang
+  #define MAXSTRINGLENGTH 255
 //#define __TELLURIC_ORIG__
 //#define __TELLURIC_MINE__
 //  #define MAXAPERTURES 1000
@@ -186,16 +187,16 @@ basis machine: Ubuntu Linux 6.06
 
     protected:
       /// File name of fits file to reduce
-      CString *P_CS_FileName;
+      string fileName;
 
       /// File name of database entry
-      CString *P_CS_DatabaseFileName;
+      string databaseFileName;
 
       /// File name of error fits file to propagate
-      CString *P_CS_ErrFileName;
+      string errFileName;
 
       /// File name of log file to write debug informations into
-      CString *P_CS_LogFileName;
+      string logFileName;
 
       /// OFStream of log file
       ofstream *P_OFS_Log;
@@ -293,7 +294,7 @@ basis machine: Ubuntu Linux 6.06
       ///  2: cubic
       ///  3: linear
       ///  4: polynomial
-      blitz::Array<CString, 1> *P_CS_A1_Functions; /// NApertures
+      blitz::Array<string, 1> *functions; /// NApertures
       int NRows;
       int NCols;
       int I_DispAxis;
@@ -433,7 +434,7 @@ basis machine: Ubuntu Linux 6.06
       bool Set_YCenter(const blitz::Array<double, 1>& D_A1_In);
       bool Set_Orders(const blitz::Array<int, 1>& I_A1_In);
       bool Set_NCoeffs(const blitz::Array<int, 1>& I_A1_In);
-      bool Set_Functions(const blitz::Array<CString, 1> CS_A1_Functions_In);
+      bool setFunctions(const blitz::Array<string, 1> functionsIn);
       bool Set_SubArray(blitz::Array<double, 1> &D_A1_InOut, blitz::Array<int, 1> &I_A1_Indices_In, blitz::Array<double, 1> &D_A1_In) const;
       bool Set_SubArray(blitz::Array<int, 1> &I_A1_InOut, blitz::Array<int, 1> &I_A1_Indices_In, blitz::Array<int, 1> &I_A1_In) const;
       bool Set_ProfArray(const blitz::Array<double, 2> &D_A2_ProfArray_In);
@@ -512,7 +513,7 @@ basis machine: Ubuntu Linux 6.06
       blitz::Array<double, 1>* Get_YCenter() const; /// NApertures
       blitz::Array<int, 1>* Get_Orders() const;     /// NApertures
       blitz::Array<int, 1>* Get_NCoeffs() const;    /// NApertures
-      blitz::Array<CString, 1>* Get_Functions() const;         /// NApertures
+      blitz::Array<string, 1>* getFunctions() const;         /// NApertures
       double Get_Gain() const;
       double Get_ReadOutNoise() const;
       double Get_SaturationLevel() const;
@@ -3820,7 +3821,5 @@ PRO GAUSS_FUNCT,X,A,F,PDER
       bool ArrayToMGLArray(const blitz::Array<double, 2> &D_A2_Array_In,
                            mglData *P_D_A2_MGLArray_Out) const;
     #endif
-
-
   };
 #endif

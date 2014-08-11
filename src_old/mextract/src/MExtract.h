@@ -18,7 +18,7 @@ basis machine: Ubuntu Linux 6.06
 #include <time.h>
 
 #include "../../cfits/src/CAny.h"
-#include "../../cfits/src/CString.h"
+//#include "../../cfits/src/CString.h"
 #include "../../cfits/src/CFits.h"
 
 using namespace std;

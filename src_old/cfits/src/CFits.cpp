@@ -10,10 +10,10 @@ basis machine: Ubuntu Linux 6.06
 CFits::CFits()
     : CAny()
 {
-  this->P_CS_LogFileName = new CString(DEBUGDIR);
-  *P_CS_LogFileName += CString("logfile_CFits.log");
+  logFileName = DEBUGDIR;
+  logFileName += "logfile_CFits.log";
   //  this->P_F_LogFile = fopen(this->P_CS_LogFileName->Get(), "w");
-  P_OFS_Log = new ofstream(this->P_CS_LogFileName->Get());
+  P_OFS_Log = new ofstream(logFileName.c_str());
   /// NApertures
   this->I_NApertures = 1;
 
@@ -24,13 +24,13 @@ CFits::CFits()
   this->ClassName = strdup("CFits");
 
   /// FileName
-  this->P_CS_FileName  = new CString("\0");
+  fileName[0] = '\0';
 
-  /// FileName
-  this->P_CS_ErrFileName  = new CString("\0");
+  /// ErrFileName
+  errFileName = "";
 
   /// DatabaseFileName
-  this->P_CS_DatabaseFileName  = new CString("\0");
+  databaseFileName[0] = '\0';
 
   /// NCols
   this->NCols = 10;
@@ -176,7 +176,7 @@ CFits::CFits()
 
   /// Functions
   /// realloc when database entry is read
-  P_CS_A1_Functions = new blitz::Array<CString, 1>(this->I_NApertures);
+  functions = new blitz::Array<string, 1>(this->I_NApertures);
   //  PP_CS_A1_Functions = (CString**)malloc(sizeof(CString*) * this->I_NApertures);
   //  for (int m = 0; m < I_NApertures; m++)
   //    PP_CS_A1_Functions[m] = new CString();
@@ -198,10 +198,10 @@ CFits::CFits()
 CFits::CFits(const CString &fn, int nrow, int ncol)
     : CAny()
 {
-  this->P_CS_LogFileName = new CString(DEBUGDIR);
-  *P_CS_LogFileName += CString("logfile_CFits.log");
+  logFileName = DEBUGDIR;
+  logFileName += "logfile_CFits.log";
   //this->P_F_LogFile = fopen(this->P_CS_LogFileName->Get(), "w");
-  this->P_OFS_Log = new ofstream(this->P_CS_LogFileName->Get());
+  this->P_OFS_Log = new ofstream(logFileName.c_str());
 
   this->ArrayInitialized = false;
 
@@ -210,18 +210,19 @@ CFits::CFits(const CString &fn, int nrow, int ncol)
   this->ClassName = strdup("CFits");
 
   /// FileName
-  this->P_CS_FileName = new CString();
-  P_CS_FileName->Copy(fn);
+  fileName = fn.GetString();
+//  fileName[fileName.length()] = '\0';
+//  fileName->copy(fn);
 #ifdef __DEBUG_FITS_CONSTRUCTORS__
-  cout << "CFits.CFits(CString fn=" << fn.Get() << "): P_CS_FileName set to <" << this->P_CS_FileName->Get() << ">" << endl;
-  (*P_OFS_Log) << "CFits.CFits(CString fn=" << fn.Get() << "): P_CS_FileName set to <" << this->P_CS_FileName->Get() << ">" << endl;
+  cout << "CFits.CFits(CString fn=" << fn.Get() << "): fileName set to <" << fileName << ">" << endl;
+  (*P_OFS_Log) << "CFits.CFits(CString fn=" << fn.Get() << "): fileName set to <" << fileName << ">" << endl;
 #endif
 
   /// ErrFileName
-  this->P_CS_ErrFileName = new CString("\0");
+  errFileName = "";
 
   /// DatabaseFileName
-  this->P_CS_DatabaseFileName  = new CString("\0");
+  databaseFileName[0] = '\0';
 
   /// NApertures
   this->I_NApertures = 1;
@@ -368,7 +369,7 @@ CFits::CFits(const CString &fn, int nrow, int ncol)
 
   /// Functions
   /// realloc when database entry is read
-  this->P_CS_A1_Functions = new blitz::Array<CString, 1>(this->I_NApertures);
+  functions = new blitz::Array<string, 1>(this->I_NApertures);
   //  this->PP_CS_A1_Functions = (CString**)malloc(sizeof(CString*) * this->I_NApertures);
   //  for (int m = 0; m < I_NApertures; m++)
   //    PP_CS_A1_Functions[m] = new CString();
@@ -391,10 +392,10 @@ CFits::CFits(const CString &fn, int nrow, int ncol)
 CFits::CFits(const CFits &fit)
     : CAny()
 {
-  this->P_CS_LogFileName = new CString(DEBUGDIR);
-  *P_CS_LogFileName += CString("logfile_CFits.log\0");
+  logFileName = DEBUGDIR;
+  logFileName += "logfile_CFits.log";
   //  this->P_F_LogFile = fopen(this->P_CS_LogFileName->Get(), "w");
-  this->P_OFS_Log = new ofstream(this->P_CS_LogFileName->Get());
+  this->P_OFS_Log = new ofstream(logFileName.c_str());
 
   this->ArrayInitialized = false;
 
@@ -403,15 +404,14 @@ CFits::CFits(const CFits &fit)
   this->ClassName = strdup("CFits");
 
   /// FileName
-  this->P_CS_FileName = new CString();
-  this->P_CS_FileName->Copy(fit.GetFileName());
+  fileName = fit.GetFileName().GetString();
+//  fileName[fileName.length()] = '\0';
 
   /// ErrFileName
-  this->P_CS_ErrFileName = new CString();
-  this->P_CS_ErrFileName->Copy(fit.GetErrFileName());
+  errFileName = fit.GetErrFileName().GetString();
 
   /// DatabaseFileName
-  this->P_CS_DatabaseFileName  = new CString("\0");
+  databaseFileName[0] = '\0';
 
   /// NApertures
   this->I_NApertures = 1;
@@ -560,7 +560,7 @@ CFits::CFits(const CFits &fit)
 
   /// Functions
   /// realloc when database entry is read
-  this->P_CS_A1_Functions = new blitz::Array<CString, 1>(this->I_NApertures);
+  functions = new blitz::Array<string, 1>(this->I_NApertures);
   //this->PP_CS_A1_Functions = (CString**)malloc(sizeof(CString*) * this->I_NApertures);
   //for (int m = 0; m < I_NApertures; m++)
   //  PP_CS_A1_Functions[m] = new CString();
@@ -589,11 +589,11 @@ CFits::CFits(const CFits &fit)
 
 CFits::~CFits()
 {
-  delete this->P_CS_LogFileName;
+//  delete this->P_CS_LogFileName;
   delete this->P_OFS_Log;
-  delete this->P_CS_FileName;
-  delete this->P_CS_ErrFileName;
-  delete this->P_CS_DatabaseFileName;
+//  delete this->P_CS_FileName;
+//  delete this->P_CS_ErrFileName;
+//  delete this->P_CS_DatabaseFileName;
   delete this->P_D_A2_PixArray;
   delete this->P_D_A2_ProfArray;
   delete this->P_D_A2_ErrArray;
@@ -620,7 +620,7 @@ CFits::~CFits()
   delete this->P_I_A1_NCoeffs;
   delete this->P_D_A1_XMin;
   delete this->P_D_A1_XMax;
-  delete this->P_CS_A1_Functions;
+  delete this->functions;
   delete this->P_D_A2_SkyFitError;
   delete this->P_D_A2_SkyFit;
   delete this->P_D_A2_Errors_EcFit;
@@ -637,14 +637,14 @@ bool CFits::ClassInvariant() const
 
   /// FileName
 #ifdef __DEBUG_FITS_CLASSINVARIANT__
-  cout << "CFits::ClassInvariant(this->P_CS_FileName = <" << *this->P_CS_FileName << ">): FitsStr set to <" << FitsStr << ">" << endl;
-  (*this->P_OFS_Log) << "CFits::ClassInvariant(this->P_CS_FileName = <" << *this->P_CS_FileName << ">): FitsStr set to <" << FitsStr << ">" << endl;
+  cout << "CFits::ClassInvariant(fileName = <" << fileName << ">): FitsStr set to <" << FitsStr << ">" << endl;
+  (*this->P_OFS_Log) << "CFits::ClassInvariant(fileName = <" << fileName << ">): FitsStr set to <" << FitsStr << ">" << endl;
 #endif
-  if (this->P_CS_FileName->GetLength() == 0)
+  if (fileName.length() == 0)
   {
 #ifdef __DEBUG_FITS_CLASSINVARIANT__
-    cout << "CFits::ClassInvariant(): this->P_CS_FileName(=<" << *this->P_CS_FileName << ">).GetLength(=" << this->P_CS_FileName->GetLength() << ") == 0 => Returning FALSE!" << endl;
-    (*this->P_OFS_Log) << "CFits::ClassInvariant(): this->P_CS_FileName(=<" << *this->P_CS_FileName << ">).GetLength(=" << this->P_CS_FileName->GetLength() << ") == 0 => Returning FALSE!" << endl;
+    cout << "CFits::ClassInvariant(): fileName(=<" << fileName << ">).length(=" << fileName.length() << ") == 0 => Returning FALSE!" << endl;
+    (*this->P_OFS_Log) << "CFits::ClassInvariant(): fileName(=<" << fileName << ">).length(=" << fileName.length() << ") == 0 => Returning FALSE!" << endl;
 #endif
     return false;
   }
@@ -676,11 +676,11 @@ bool CFits::ClassInvariant() const
     }
   }**/
 
-  if (this->P_CS_FileName->LastStrPos(FitsStr) != this->P_CS_FileName->GetLength() - FitsStr.GetLength())
+  if (fileName.rfind(FitsStr.Get()) != fileName.length() - FitsStr.GetLength())
   {
 #ifdef __DEBUG_FITS_CLASSINVARIANT__
-    cout << "CFits::ClassInvariant(this->P_CS_FileName = <" << *this->P_CS_FileName << ">): P_CS_FileName->LastStrPos( FitsStr=" << FitsStr << ")=" << this->P_CS_FileName->LastStrPos(FitsStr) << " != this->P_CS_FileName->GetLength(=" << this->P_CS_FileName->GetLength() << ") - FitsStr.GetLength()=" << FitsStr.GetLength() << " => Returning FALSE!" << endl;
-    (*this->P_OFS_Log) << "CFits::ClassInvariant(this->P_CS_FileName = <" << *this->P_CS_FileName << ">): P_CS_FileName->LastStrPos( FitsStr=" << FitsStr << ")=" << this->P_CS_FileName->LastStrPos(FitsStr) << " != this->P_CS_FileName->GetLength(=" << this->P_CS_FileName->GetLength() << ") - FitsStr.GetLength()=" << FitsStr.GetLength() << " => Returning FALSE!" << endl;
+    cout << "CFits::ClassInvariant(fileName = <" << fileName << ">): fileName.rfind( FitsStr=" << FitsStr << ")=" << fileName.rfind(FitsStr.Get()) << " != fileName.length(=" << fileName.length() << ") - FitsStr.GetLength()=" << FitsStr.GetLength() << " => Returning FALSE!" << endl;
+    (*this->P_OFS_Log) << "CFits::ClassInvariant(fileName = <" << fileName << ">): fileName.rfind( FitsStr=" << FitsStr << ")=" << fileName.rfind(FitsStr.Get()) << " != fileName.length(=" << fileName.length() << ") - FitsStr.GetLength()=" << FitsStr.GetLength() << " => Returning FALSE!" << endl;
 #endif
     return false;
   }
@@ -1046,8 +1046,8 @@ bool CFits::ClassInvariant() const
   }
 
   /// Functions
-  for (int m = 0; m < this->I_NApertures; m++)
-  {
+//  for (int m = 0; m < this->I_NApertures; m++)
+//  {
     /*    if ((*this->P_CS_A1_Functions)(m) == NULL)
         {
     #ifdef __DEBUG_FITS_CLASSINVARIANT__
@@ -1056,15 +1056,15 @@ bool CFits::ClassInvariant() const
     #endif
           return false;
       }*/
-    if (!((*this->P_CS_A1_Functions)(m)).ClassInvariant())
+/*    if (!((*this->P_CS_A1_Functions)(m)).ClassInvariant())
     {
 #ifdef __DEBUG_FITS_CLASSINVARIANT__
       cout << "CFits::ClassInvariant: PP_CS_A1_Functions[" << m << "]->ClassInvariant() retuned FALSE => Returning FALSE" << endl;
       (*P_OFS_Log) << "CFits::ClassInvariant: PP_CS_A1_Functions[" << m << "]->ClassInvariant() retuned FALSE => Returning FALSE" << endl;
 #endif
       return false;
-    }
-  }
+    }*/
+//  }
 
   /// Access(FileName)
   if (!this->Access())
@@ -1086,72 +1086,69 @@ bool CFits::EqualValue(const CAny &any) const
   double D_Limit = 1.e-10;
   if (this->Equal(any))
   {
-#ifdef __DEBUG_FITS_EQUALVALUE__
-    cout << "CFits::EqualValue:: adresses of this and p_fit are EQUAL => returning FALSE" << endl;
-    (*P_OFS_Log) << "CFits::EqualValue:: adresses of this and p_fit are EQUAL => returning FALSE" << endl;
-#endif
+    #ifdef __DEBUG_FITS_EQUALVALUE__
+      cout << "CFits::EqualValue:: adresses of this and p_fit are EQUAL => returning FALSE" << endl;
+      (*P_OFS_Log) << "CFits::EqualValue:: adresses of this and p_fit are EQUAL => returning FALSE" << endl;
+    #endif
     return false;
   }
   CFits *p_fit = const_cast<CFits*>(dynamic_cast<const CFits*>(&any));
   if (p_fit == NULL)
   {
-#ifdef __DEBUG_FITS_EQUALVALUE__
-    cout << "CFits::EqualValue:: adresses of p_fit == NULL => returning FALSE" << endl;
-    (*P_OFS_Log) << "CFits::EqualValue:: adresses of p_fit == NULL => returning FALSE" << endl;
-#endif
+    #ifdef __DEBUG_FITS_EQUALVALUE__
+      cout << "CFits::EqualValue:: adresses of p_fit == NULL => returning FALSE" << endl;
+      (*P_OFS_Log) << "CFits::EqualValue:: adresses of p_fit == NULL => returning FALSE" << endl;
+    #endif
     return false;
   }
 
   /// ClassInvariant
   if (!ClassInvariant() || !(p_fit->ClassInvariant()))
   {
-#ifdef __DEBUG_FITS_EQUALVALUE__
-    cout << "CFits::EqualValue:: this->ClassInvariant() or p_fit->ClassInvariant() returned FALSE => returning FALSE" << endl;
-    (*P_OFS_Log) << "CFits::EqualValue:: this->ClassInvariant() or p_fit->ClassInvariant() returned FALSE => returning FALSE" << endl;
-#endif
+    #ifdef __DEBUG_FITS_EQUALVALUE__
+      cout << "CFits::EqualValue:: this->ClassInvariant() or p_fit->ClassInvariant() returned FALSE => returning FALSE" << endl;
+      (*P_OFS_Log) << "CFits::EqualValue:: this->ClassInvariant() or p_fit->ClassInvariant() returned FALSE => returning FALSE" << endl;
+    #endif
     return false;
   }
 
   /// FileName
-  CString tempFileName = p_fit->GetFileName();
-  if (!P_CS_FileName->EqualValue( tempFileName ))
+  if (fileName.compare( p_fit->GetFileName().GetString() ) != 0)
   {
-#ifdef __DEBUG_FITS_EQUALVALUE__
-    cout << "CFits::EqualValue: FileName's are not equal => RETURNING FALSE!!!" << endl;
-    (*P_OFS_Log) << "CFits::EqualValue: FileName's are not equal => RETURNING FALSE!!!" << endl;
-#endif
+    #ifdef __DEBUG_FITS_EQUALVALUE__
+      cout << "CFits::EqualValue: FileName's are not equal => RETURNING FALSE!!!" << endl;
+      (*P_OFS_Log) << "CFits::EqualValue: FileName's are not equal => RETURNING FALSE!!!" << endl;
+    #endif
     return false;
   }
 
   /// ErrFileName
-  CString tempErrFileName = p_fit->GetErrFileName();
-  if (!P_CS_ErrFileName->EqualValue( tempErrFileName ))
+  if (errFileName.compare(p_fit->GetErrFileName().GetString()) != 0)
   {
-#ifdef __DEBUG_FITS_EQUALVALUE__
-    cout << "CFits::EqualValue: ErrFileName's are not equal => RETURNING FALSE!!!" << endl;
-    (*P_OFS_Log) << "CFits::EqualValue: ErrFileName's are not equal => RETURNING FALSE!!!" << endl;
-#endif
+    #ifdef __DEBUG_FITS_EQUALVALUE__
+      cout << "CFits::EqualValue: ErrFileName's are not equal => RETURNING FALSE!!!" << endl;
+      (*P_OFS_Log) << "CFits::EqualValue: ErrFileName's are not equal => RETURNING FALSE!!!" << endl;
+    #endif
     return false;
   }
 
   /// DatabaseFileName
-  CString tempdfn = p_fit->GetDatabaseFileName();
-  if (!P_CS_DatabaseFileName->EqualValue( tempdfn ))
+  if (databaseFileName.compare(p_fit->GetDatabaseFileName().GetString()) != 0)
   {
-#ifdef __DEBUG_FITS_EQUALVALUE__
-    cout << "CFits::EqualValue: DatabaseFileName's are not equal => RETURNING FALSE!!!" << endl;
-    (*P_OFS_Log) << "CFits::EqualValue: DatabaseFileName's are not equal => RETURNING FALSE!!!" << endl;
-#endif
+    #ifdef __DEBUG_FITS_EQUALVALUE__
+      cout << "CFits::EqualValue: DatabaseFileName's are not equal => RETURNING FALSE!!!" << endl;
+      (*P_OFS_Log) << "CFits::EqualValue: DatabaseFileName's are not equal => RETURNING FALSE!!!" << endl;
+    #endif
     return false;
   }
 
   /// NCols
   if (this->NCols != p_fit->GetNCols())
   {
-#ifdef __DEBUG_FITS_EQUALVALUE__
-    cout << "CFits::EqualValue:: this->NCols and p_fit->NCols are not equal => returning FALSE" << endl;
-    (*P_OFS_Log) << "CFits::EqualValue:: this->NCols and p_fit->NCols are not equal => returning FALSE" << endl;
-#endif
+    #ifdef __DEBUG_FITS_EQUALVALUE__
+      cout << "CFits::EqualValue:: this->NCols and p_fit->NCols are not equal => returning FALSE" << endl;
+     (*P_OFS_Log) << "CFits::EqualValue:: this->NCols and p_fit->NCols are not equal => returning FALSE" << endl;
+    #endif
     return false;
   }
 
@@ -1687,7 +1684,7 @@ bool CFits::EqualValue(const CAny &any) const
   delete(P_temporders);
 
   /// Functions
-  blitz::Array<CString, 1> *P_tempfunctions = p_fit->Get_Functions();
+  blitz::Array<string, 1> *P_tempfunctions = p_fit->getFunctions();
   for (int m = 0; m < this->I_NApertures; m++)
   {
     /*    if ((*this->P_CS_A1_Functions)(m) == NULL)
@@ -1706,12 +1703,12 @@ bool CFits::EqualValue(const CAny &any) const
     #endif
           return false;
       }*/
-    if (!(((*this->P_CS_A1_Functions)(m)).EqualValue((*P_tempfunctions)(m))))
+    if ((*functions)(m).compare((*P_tempfunctions)(m)) != 0)
     {
-#ifdef __DEBUG_FITS_EQUALVALUE__
-      cout << "CFits::EqualValue: this->PP_CS_A1_Functions[" << m << "](=" << (*this->P_CS_A1_Functions)(m) << ") != p_fit->Get_Functions()[" << m << "] = " << (*P_tempfunctions)(m) << ") => returning FALSE" << endl;
-      (*P_OFS_Log) << "CFits::EqualValue: this->PP_CS_A1_Functions[" << m << "](=" << (*this->P_CS_A1_Functions)(m) << ") != p_fit->Get_Functions()[" << m << "] = " << (*P_tempfunctions)(m) << ") => returning FALSE" << endl;
-#endif
+      #ifdef __DEBUG_FITS_EQUALVALUE__
+        cout << "CFits::EqualValue: this->functions[" << m << "](=" << (*functions)(m) << ") != p_fit->getFunctions()[" << m << "] = " << (*P_tempfunctions)(m) << ") => returning FALSE" << endl;
+        (*P_OFS_Log) << "CFits::EqualValue: this->functions[" << m << "](=" << (*functions)(m) << ") != p_fit->getFunctions()[" << m << "] = " << (*P_tempfunctions)(m) << ") => returning FALSE" << endl;
+      #endif
       delete(P_tempfunctions);
       return false;
     }
@@ -1893,19 +1890,13 @@ bool CFits::DoCopy(const CFits &CF_ToCopy){
   ClassName = strdup("CFits");
 
   /// FileName
-  CString tempString = CF_ToCopy.GetFileName();
-  //CString tempString = const_cast<CFits*>(&CF_ToCopy)->GetFileName();
-  this->P_CS_FileName->Copy(tempString);
+  fileName = CF_ToCopy.GetFileName().GetString();
 
   /// ErrFileName
-  CString tempStringE = CF_ToCopy.GetErrFileName();
-  //CString tempStringE = const_cast<CFits*>(&CF_ToCopy)->GetErrFileName();
-  this->P_CS_ErrFileName->Copy(tempStringE);
+  errFileName = CF_ToCopy.GetErrFileName().GetString();
 
   /// DatabaseFileName
-  CString tempStringA = CF_ToCopy.GetDatabaseFileName();
-  //CString tempStringA = const_cast<CFits*>(&CF_ToCopy)->GetDatabaseFileName();
-  this->P_CS_DatabaseFileName->Copy(tempStringA);
+  databaseFileName = CF_ToCopy.GetDatabaseFileName().GetString();
 
   /// NApertures
 //  cout << "CFits::DoCopy(): CF_ToCopy.Get_NApertures returns <<<<<<<<<<<<" << CF_ToCopy.Get_NApertures() << ">>>>>>>>>>>>" << endl;
@@ -2182,16 +2173,16 @@ bool CFits::DoCopy(const CFits &CF_ToCopy){
   delete(P_tempycenter);
 
   /// Functions
-  blitz::Array<CString, 1> *P_tempfunctions = CF_ToCopy.Get_Functions();
-  if (this->P_CS_A1_Functions->size() != P_tempfunctions->size())
+  blitz::Array<string, 1> *P_tempFunctions = CF_ToCopy.getFunctions();
+  if (functions->size() != P_tempFunctions->size())
   {
-    cout << "CFits::DoCopy: ERROR: size of P_CS_A1_Functions(=" << P_CS_A1_Functions->size() << ") != size of tempfunctions(=" << P_tempfunctions->size() << ")" << endl;
-    (*P_OFS_Log) << "CFits::DoCopy: ERROR: size of P_CS_A1_Functions(=" << P_CS_A1_Functions->size() << ") != size of tempfunctions(=" << P_tempfunctions->size() << ")" << endl;
-    delete(P_tempfunctions);
+    cout << "CFits::DoCopy: ERROR: size of functions(=" << functions->size() << ") != size of tempfunctions(=" << P_tempFunctions->size() << ")" << endl;
+    (*P_OFS_Log) << "CFits::DoCopy: ERROR: size of functions(=" << functions->size() << ") != size of tempFunctions(=" << P_tempFunctions->size() << ")" << endl;
+    delete(P_tempFunctions);
     return false;
   }
-  (*this->P_CS_A1_Functions) = (*P_tempfunctions);
-  delete(P_tempfunctions);
+  (*functions) = (*P_tempFunctions);
+  delete(P_tempFunctions);
   /*  for (int m = 0; m < this->I_NApertures; m++)
   {
   if (this->PP_CS_A1_Functions[m] == NULL)
@@ -2345,7 +2336,12 @@ bool CFits::SetFileName(const CString &fn)
     (*P_OFS_Log) << "CFits::SetFileName: fn(=" << fn << ").ClassInvariant returned FALSE => Returning FALSE" << endl;
     return false;
   }
-  return this->P_CS_FileName->Copy(fn);
+  if (fn.GetLength() > 255){
+    cout << "CFits::SetFileName: 1. ERROR: New File Name fn=" << fn << " too long" << endl;
+    return false;
+  }
+  fileName = fn.GetString();
+  return true;
 }
 
 /***********************************************************/
@@ -2358,7 +2354,8 @@ bool CFits::SetErrFileName(const CString &fn)
     (*P_OFS_Log) << "CFits::SetErrFileName: fn(=" << fn << ").ClassInvariant returned FALSE => Returning FALSE" << endl;
     return false;
   }
-  return this->P_CS_ErrFileName->Copy(fn);
+  errFileName = fn.GetString();
+  return true;
 }
 
 /***********************************************************/
@@ -2371,7 +2368,8 @@ bool CFits::SetDatabaseFileName(const CString &fn)
     (*P_OFS_Log) << "CFits::SetFileName: fn(=" << fn << ").ClassInvariant returned FALSE => Returning FALSE" << endl;
     return false;
   }
-  return this->P_CS_DatabaseFileName->Copy(fn);
+  databaseFileName = fn.GetString();
+  return true;
 }
 
 /** ********************************************************/
@@ -2563,16 +2561,16 @@ bool CFits::Set_NApertures(int I_NApertures_In)
     (*this->P_I_A1_Orders) = tempIntArr(Range(0, this->P_I_A1_Orders->size() - 1));
   }
   /// Functions
-  oldsize = this->P_CS_A1_Functions->size();
-  blitz::Array<CString, 1> cs_a1_temp(oldsize);
-  cs_a1_temp = (*this->P_CS_A1_Functions);
-  this->P_CS_A1_Functions->resize(this->I_NApertures);
-  (*P_CS_A1_Functions) = CString(" ");
-  if (oldsize < this->P_CS_A1_Functions->size())
-    (*this->P_CS_A1_Functions)(Range(0, oldsize-1)) = cs_a1_temp;
+  oldsize = functions->size();
+  blitz::Array<string, 1> s_a1_temp(oldsize);
+  s_a1_temp = (*functions);
+  functions->resize(this->I_NApertures);
+  (*functions) = " ";
+  if (oldsize < functions->size())
+    (*functions)(Range(0, oldsize-1)) = s_a1_temp;
   else
-    (*this->P_CS_A1_Functions) = cs_a1_temp(Range(0, this->I_NApertures-1));
-  cs_a1_temp.resize(0);
+    (*functions) = s_a1_temp(Range(0, this->I_NApertures-1));
+  s_a1_temp.resize(0);
   //  this->PP_CS_A1_Functions = (CString**)realloc(PP_CS_A1_Functions, this->I_NApertures * sizeof(CString*));
   //  for (int m = oldsize; m < this->I_NApertures; m++)
   //    this->PP_CS_A1_Functions[m] = new CString();
@@ -2832,13 +2830,13 @@ bool CFits::Set_NCoeffs(const blitz::Array<int, 1>& I_A1_In)
 
 /** ****************************************************** **/
 
-//bool CFits::Set_Functions(const CString** PP_CS_A1_Functions_In)
-bool CFits::Set_Functions(const blitz::Array<CString, 1> CS_A1_Functions_In)
+//bool CFits::setFunctions(const CString** PP_CS_A1_Functions_In)
+bool CFits::setFunctions(const blitz::Array<string, 1> S_A1_Functions_In)
 {
-  if (P_CS_A1_Functions->size() != CS_A1_Functions_In.size())
+  if (functions->size() != S_A1_Functions_In.size())
   {
-    cout << "CFits::Set_Functions: ERROR: P_CS_A1_Functions->size(=" << P_CS_A1_Functions->size() << ") != CS_A1_Functions_In.size(=" << CS_A1_Functions_In.size() << ")" << endl;
-    (*P_OFS_Log) << "CFits::Set_Functions: ERROR: P_CS_A1_Functions->size(=" << P_CS_A1_Functions->size() << ") != CS_A1_Functions_In.size(=" << CS_A1_Functions_In.size() << ")" << endl;
+    cout << "CFits::Set_Functions: ERROR: functions->size(=" << functions->size() << ") != S_A1_Functions_In.size(=" << S_A1_Functions_In.size() << ")" << endl;
+    (*P_OFS_Log) << "CFits::Set_Functions: ERROR: functions->size(=" << functions->size() << ") != S_A1_Functions_In.size(=" << S_A1_Functions_In.size() << ")" << endl;
     return false;
   }
   /*  for (int m = 0; m < this->I_NApertures; m++)
@@ -2854,7 +2852,7 @@ bool CFits::Set_Functions(const blitz::Array<CString, 1> CS_A1_Functions_In)
         return false;
       }
   }*/
-  (*this->P_CS_A1_Functions) = CS_A1_Functions_In;
+  (*functions) = S_A1_Functions_In;
   return true;
 }
 
@@ -3186,21 +3184,21 @@ int CFits::GetNRows() const
 
 CString& CFits::GetFileName() const
 {
-  return (*(new CString(*(this->P_CS_FileName))));
+  return (*(new CString(fileName)));
 }
 
 /** ********************************************************/
 
 CString& CFits::GetErrFileName() const
 {
-  return (*(new CString(*(this->P_CS_ErrFileName))));
+  return (*(new CString(errFileName)));
 }
 
 /** ********************************************************/
 
 CString& CFits::GetDatabaseFileName() const
 {
-  return (*(new CString(*(this->P_CS_DatabaseFileName))));
+  return (*(new CString(databaseFileName)));
   //  return(*P_TempFileName);
 }
 
@@ -3423,8 +3421,8 @@ blitz::Array<int, 1>* CFits::Get_NCoeffs() const
 
 /** ****************************************************** **/
 
-//CString** CFits::Get_Functions() const
-blitz::Array<CString, 1>* CFits::Get_Functions() const
+//CString** CFits::getFunctions() const
+blitz::Array<string, 1>* CFits::getFunctions() const
 {
   /*  CString **PP_CS_A1_Functions_Temp = (CString**)malloc(sizeof(CString*) * this->I_NApertures);
     for (int m = 0; m < this->I_NApertures; m++)
@@ -3436,9 +3434,9 @@ blitz::Array<CString, 1>* CFits::Get_Functions() const
         cout << "CFits::Get_Functions: PP_CS_A1_Functions[" << m << "] == NULL!!!!!!!!!!!!!!!!!!" << endl;
     }
     return PP_CS_A1_Functions;*/
-  blitz::Array<CString, 1> *P_CS_A1_Functions_Temp = new blitz::Array<CString, 1>(this->I_NApertures);
-  (*P_CS_A1_Functions_Temp) = (*this->P_CS_A1_Functions);
-  return P_CS_A1_Functions_Temp;
+  blitz::Array<string, 1> *P_S_A1_Functions_Temp = new blitz::Array<string, 1>(this->I_NApertures);
+  (*P_S_A1_Functions_Temp) = (*functions);
+  return P_S_A1_Functions_Temp;
 }
 
 /** ****************************************************** **/
@@ -5105,7 +5103,7 @@ bool CFits::FindAndTraceApertures(int I_In_NTermsGaussFit,
 //            return false;
           (*this->P_I_A1_NCoeffs)(I_ApertureNumber-1) = I_In_PolyFitOrder+1;
           (*this->P_I_A1_Orders)(I_ApertureNumber-1) = I_In_PolyFitOrder;
-          (*this->P_CS_A1_Functions)(I_ApertureNumber-1) = CString("polynomial");
+          (*functions)(I_ApertureNumber-1) = "polynomial";
           #ifdef __DEBUG_FITS_FINDANDTRACE__
             cout << "CFits::FindAndTraceApertures: I_ApertureNumber-1 = " << I_ApertureNumber-1 << ": P_D_A1_XCenter = " << (*this->P_D_A1_XCenter)(I_ApertureNumber-1) << endl;
             cout << "CFits::FindAndTraceApertures: I_ApertureNumber-1 = " << I_ApertureNumber-1 << ": P_D_A1_YCenter = " << (*this->P_D_A1_YCenter)(I_ApertureNumber-1) << endl;
@@ -5114,9 +5112,9 @@ bool CFits::FindAndTraceApertures(int I_In_NTermsGaussFit,
             cout << "CFits::FindAndTraceApertures: I_ApertureNumber-1 = " << I_ApertureNumber-1 << ": P_I_A1_NCoeffs = " << (*this->P_I_A1_NCoeffs)(I_ApertureNumber-1) << endl;
             cout << "CFits::FindAndTraceApertures: I_ApertureNumber-1 = " << I_ApertureNumber-1 << ": P_I_A1_Orders = " << (*this->P_I_A1_Orders)(I_ApertureNumber-1) << endl;
             cout << "CFits::FindAndTraceApertures: I_ApertureNumber-1 = " << I_ApertureNumber-1 << ": P_D_A2_Coeffs = " << (*this->P_D_A2_Coeffs)(I_ApertureNumber-1, Range::all()) << endl;
-            cout << "CFits::FindAndTraceApertures: I_ApertureNumber-1 = " << I_ApertureNumber-1 << ": P_CS_A1_Functions = " << (*this->P_CS_A1_Functions)(I_ApertureNumber-1) << endl;
-            #endif
-            cout << "CFits::FindAndTraceApertures: I_ApertureNumber-1 = " << I_ApertureNumber-1 << ": P_D_A2_Coeffs = " << (*this->P_D_A2_Coeffs)(I_ApertureNumber-1, Range::all()) << endl;
+            cout << "CFits::FindAndTraceApertures: I_ApertureNumber-1 = " << I_ApertureNumber-1 << ": functions = " << (*functions)(I_ApertureNumber-1) << endl;
+          #endif
+          cout << "CFits::FindAndTraceApertures: I_ApertureNumber-1 = " << I_ApertureNumber-1 << ": P_D_A2_Coeffs = " << (*this->P_D_A2_Coeffs)(I_ApertureNumber-1, Range::all()) << endl;
 
 
 
@@ -5138,7 +5136,8 @@ bool CFits::FindAndTraceApertures(int I_In_NTermsGaussFit,
 
   #ifdef __DEBUG_FITS_FINDANDTRACE__
     CString CS_FileNameTrace(" ");
-    CString *P_CS_NewFileName = this->P_CS_FileName->SubString(0,P_CS_FileName->LastStrPos(CString("."))-1);
+    CString CS_FileName(fileName);
+    CString *P_CS_NewFileName = CS_FileName.SubString(0,CS_FileName.LastStrPos(CString("."))-1);
     CS_FileNameTrace = *P_CS_NewFileName + CString("_trace.fits");
     *P_CS_NewFileName += CString("_out.fits");
     this->SetFileName(*P_CS_NewFileName);
@@ -5177,10 +5176,10 @@ bool CFits::CalcTraceFunction(int I_Aperture_In)
   blitz::Array<double, 1> D_A1_TempCoef = (*this->P_D_A2_Coeffs)(I_Aperture_In, Range(0,(*this->P_I_A1_NCoeffs)(I_Aperture_In)-1));
 
   #ifdef __DEBUG_FITS_TRACEFUNC__
-    cout << "CFits::CalcTraceFunction: (*this->P_CS_A1_Functions)(I_Aperture_In=" << I_Aperture_In << ") = " << (*this->P_CS_A1_Functions)(I_Aperture_In) << endl;
+    cout << "CFits::CalcTraceFunction: (*functions)(I_Aperture_In=" << I_Aperture_In << ") = " << (*functions)(I_Aperture_In) << endl;
     cout << "CFits::CalcTraceFunction: (*this->P_I_A1_Orders)(I_Aperture_In=" << I_Aperture_In << ") = " << (*this->P_I_A1_Orders)(I_Aperture_In) << endl;
   #endif
-  if ((*this->P_CS_A1_Functions)(I_Aperture_In).EqualValue(CString("legendre")))
+  if ((*functions)(I_Aperture_In).compare("legendre") == 0)
   {
     #ifdef __DEBUG_FITS_TRACEFUNC__
       cout << "CFits::CalcTraceFunction: I_Aperture_In = " << I_Aperture_In << ": Function = Legendre" << endl;
@@ -5230,7 +5229,7 @@ bool CFits::CalcTraceFunction(int I_Aperture_In)
 ///#endif
     (*this->P_D_A2_XCenters)(I_Aperture_In,Range::all()) = D_A1_TempCen;
   }
-  else if ((*this->P_CS_A1_Functions)(I_Aperture_In).EqualValue(CString("chebyshev")))
+  else if ((*functions)(I_Aperture_In).compare("chebyshev") == 0)
   {
     #ifdef __DEBUG_FITS_TRACEFUNC__
       cout << "CFits::CalcTraceFunction: I_Aperture_In = " << I_Aperture_In << ": Function = Chebyshev" << endl;
@@ -5269,7 +5268,7 @@ bool CFits::CalcTraceFunction(int I_Aperture_In)
 ///#endif
     (*this->P_D_A2_XCenters)(I_Aperture_In,Range::all()) = D_A1_TempCen;
   }
-  else if ((*this->P_CS_A1_Functions)(I_Aperture_In).EqualValue(CString("linear")))
+  else if ((*functions)(I_Aperture_In).compare("linear") == 0)
   {
     #ifdef __DEBUG_FITS_TRACEFUNC__
       cout << "CFits::CalcTraceFunction: I_Aperture_In = " << I_Aperture_In << ": Function = spline1" << endl;
@@ -5300,7 +5299,7 @@ bool CFits::CalcTraceFunction(int I_Aperture_In)
     D_A1_TempCen -= 1.;
     (*this->P_D_A2_XCenters)(I_Aperture_In,Range::all()) = D_A1_TempCen;
   }
-  else if ((*this->P_CS_A1_Functions)(I_Aperture_In).EqualValue(CString("cubic")))
+  else if ((*functions)(I_Aperture_In).compare("cubic") == 0)
   {
     #ifdef __DEBUG_FITS_TRACEFUNC__
       cout << "CFits::CalcTraceFunction: I_Aperture_In = " << I_Aperture_In << ": Function = spline3" << endl;
@@ -5407,7 +5406,7 @@ bool CFits::CalcTraceFunction(int I_Aperture_In)
       ///  2: cubic
       ///  3: linear
       ///  4: polynomial
-      cout << "CFits::CalcTraceFunction: I_Aperture_In = " << I_Aperture_In << ": P_CS_A1_Functions(I_Aperture_In) set to " << (*P_CS_A1_Functions)(I_Aperture_In) << endl; /// NApertures
+      cout << "CFits::CalcTraceFunction: I_Aperture_In = " << I_Aperture_In << ": functions(I_Aperture_In) set to " << (*functions)(I_Aperture_In) << endl; /// NApertures
       cout << "CFits::CalcTraceFunction: I_Aperture_In = " << I_Aperture_In << ": D_A1_TempCen set to " << D_A1_TempCen << endl;
       cout << "CFits::CalcTraceFunction: P_D_A2_XCenters->size() = " << P_D_A2_XCenters->size() << endl;
       cout << "CFits::CalcTraceFunction: I_Aperture_In = " << I_Aperture_In << ": (*this->P_D_A2_XCenters)(I_Aperture_In, Range::all()) set to " << (*this->P_D_A2_XCenters)(I_Aperture_In, Range::all()) << endl;
@@ -5602,27 +5601,28 @@ bool CFits::WriteDatabaseEntry() const//const CString &CS_FileName_In)//, char**
   printf("CFits.WriteDatabaseEntry: function started\n");
   #endif
 
-  blitz::Array<CString, 1>CS_A1_Functions(5);
-  CS_A1_Functions(0).Set("chebyshev");
-  CS_A1_Functions(1).Set("legendre");
-  CS_A1_Functions(2).Set("cubic");
-  CS_A1_Functions(3).Set("linear");
-  CS_A1_Functions(4).Set("polynomial");
+  blitz::Array<string, 1>S_A1_Functions(5);
+  S_A1_Functions(0) = "chebyshev";
+  S_A1_Functions(1) = "legendre";
+  S_A1_Functions(2) = "cubic";
+  S_A1_Functions(3) = "linear";
+  S_A1_Functions(4) = "polynomial";
 
-  CString *P_CS_FName = this->P_CS_FileName->SubString(this->P_CS_FileName->LastStrPos(CString("/"))+1, this->P_CS_FileName->LastStrPos(CString("."))-1);
+  CString CS_FileName(fileName);
+  CString *P_CS_FName = CS_FileName.SubString(CS_FileName.LastStrPos(CString("/"))+1, CS_FileName.LastStrPos(CString("."))-1);
   int I_Function = 0;
   int I_NParam = 0;
 
   FILE *P_DatabaseFile;
-  P_DatabaseFile = fopen(this->P_CS_DatabaseFileName->Get(), "w");
+  P_DatabaseFile = fopen(databaseFileName.c_str(), "w");
   if (P_DatabaseFile == NULL)
   {
-    cout << "CFits.WriteDatabaseEntry: Failed to open file CS_FileName_In (=<" << this->P_CS_DatabaseFileName->Get() << ">)" << endl;
-    (*P_OFS_Log) << "CFits.WriteDatabaseEntry: Failed to open file CS_FileName_In (=<" << this->P_CS_DatabaseFileName->Get() << ">)" << endl;
+    cout << "CFits.WriteDatabaseEntry: Failed to open file CS_FileName_In (=<" << databaseFileName << ">)" << endl;
+    (*P_OFS_Log) << "CFits.WriteDatabaseEntry: Failed to open file CS_FileName_In (=<" << databaseFileName << ">)" << endl;
     return false;
   }
   #ifdef __DEBUG_FITS_WRITEAPERTURES__
-  cout << "CFits.WriteDatabaseEntry: File CS_FileName_In(=<" << this->P_CS_DatabaseFileName->Get() << ">) opened";
+  cout << "CFits.WriteDatabaseEntry: File CS_FileName_In(=<" << databaseFileName << ">) opened";
   #endif
 
   for (int i=0; i<this->P_D_A1_XCenter->size(); i++){
@@ -5636,7 +5636,7 @@ bool CFits::WriteDatabaseEntry() const//const CString &CS_FileName_In)//, char**
     fprintf(P_DatabaseFile, "background\n");
     fprintf(P_DatabaseFile, "xmin %.5f\n", (*this->P_D_A1_XMin)(i));
     fprintf(P_DatabaseFile, "xmax %.5f\n", (*this->P_D_A1_XMax)(i));
-    fprintf(P_DatabaseFile, "function %s\n", (*this->P_CS_A1_Functions)(i).GetPChar());
+    fprintf(P_DatabaseFile, "function %s\n", (*functions)(i).c_str());
     fprintf(P_DatabaseFile, "order %d\n", (*this->P_I_A1_Orders)(i));
     fprintf(P_DatabaseFile, "sample %d:%d,%d:%d\n", (int)(*this->P_D_A1_XMin)(i), (int)(*this->P_D_A1_XLow)(i), (int)(*this->P_D_A1_XHigh)(i), (int)(*this->P_D_A1_XMax)(i));
     fprintf(P_DatabaseFile, "naverage -3\n");
@@ -5646,7 +5646,7 @@ bool CFits::WriteDatabaseEntry() const//const CString &CS_FileName_In)//, char**
     fprintf(P_DatabaseFile, "grow 0\n");
     fprintf(P_DatabaseFile, "axis 1\n");
     for (int j=0; j<=4; j++){
-      if ((*this->P_CS_A1_Functions)(i).EqualValue(CS_A1_Functions(j))){
+      if ((*functions)(i).compare(S_A1_Functions(j)) == 0){
         I_Function = j+1;
       }
     }
@@ -5698,12 +5698,12 @@ bool CFits::ReadArray()
 //  char strbuf[256];
 
   Status=0;
-  fits_open_file(&P_FitsFile, this->P_CS_FileName->Get(), READONLY, &Status);
+  fits_open_file(&P_FitsFile, fileName.c_str(), READONLY, &Status);
   fits_read_imghdr(P_FitsFile, 2, &simple , &bitpix, &naxis, naxes,
                    &pcount, &gcount, &extend, &Status);
   if (Status !=0)
   {
-    printf("CFits::ReadArray: Error %d opening file %s\n", Status, this->P_CS_FileName->Get());
+    cout << "CFits::ReadArray: Error " << Status << " opening file " << fileName << endl;
     char* P_ErrMsg = new char[255];
     ffgerr(Status, P_ErrMsg);
     cout << "CFits::ReadArray: <" << P_ErrMsg << "> => Returning FALSE" << endl;
@@ -5712,8 +5712,8 @@ bool CFits::ReadArray()
     return false;
   }
   #ifdef __DEBUG_FITS_READARRAY__
-    cout << "CFits::ReadArray: FitsFileName <" << this->P_CS_FileName->Get() << "> opened" << endl;
-    (*P_OFS_Log) << "CFits::ReadArray: FitsFileName <" << this->P_CS_FileName->Get() << "> opened" << endl;
+    cout << "CFits::ReadArray: FitsFileName <" << fileName << "> opened" << endl;
+    (*P_OFS_Log) << "CFits::ReadArray: FitsFileName <" << fileName << "> opened" << endl;
     cout << "CFits::ReadArray: FitsFileName contains <" << naxis  << "> dimensions" << endl;
     cout << "CFits::ReadArray: FitsFileName contains <" << naxes[1]  << "> rows!!!!!!! and <" << naxes[0] << "> columns!!!!!!!!! naxes = <" << naxes << ">" << endl;
     (*P_OFS_Log) << "CFits::ReadArray: FitsFileName contains <" << naxes[1]  << "> rows!!!!!!! and <" << naxes[0] << "> columns!!!!!!!!! naxes = <" << naxes << ">" << endl;
@@ -5748,8 +5748,8 @@ bool CFits::ReadArray()
                 &nullval, p_Array, &anynul, &Status);
   if (Status !=0)
   {
-    cout << "CFits::ReadArray: Error " << Status << " reading file " << this->P_CS_FileName->Get() << endl;
-    (*P_OFS_Log) << "CFits::ReadArray: Error " << Status << " reading file " << this->P_CS_FileName->Get() << endl;
+    cout << "CFits::ReadArray: Error " << Status << " reading file " << fileName << endl;
+    (*P_OFS_Log) << "CFits::ReadArray: Error " << Status << " reading file " << fileName << endl;
     char* P_ErrMsg = (char*)malloc(sizeof(char) * 255);
     ffgerr(Status, P_ErrMsg);
     cout << "CFits::ReadArray: <" << P_ErrMsg << "> => Returning FALSE" << endl;
@@ -5780,13 +5780,13 @@ bool CFits::ReadArray()
   fits_close_file(this->P_FitsFile, &Status);
 
   #ifdef __DEBUG_FITS_READARRAY__
-    cout << "CFits::ReadArray: FitsFileName <" << this->P_CS_FileName->Get() << "> closed" << endl;
+    cout << "CFits::ReadArray: FitsFileName <" << fileName << "> closed" << endl;
   #endif
 
   if (Status !=0)
   {
-    cout << "CFits::ReadArray: Error " << Status << " closing file " << this->P_CS_FileName->Get() << endl;
-    (*P_OFS_Log) << "CFits::ReadArray: Error " << Status << " closing file " << this->P_CS_FileName->Get() << endl;
+    cout << "CFits::ReadArray: Error " << Status << " closing file " << fileName << endl;
+    (*P_OFS_Log) << "CFits::ReadArray: Error " << Status << " closing file " << fileName << endl;
     char* P_ErrMsg = new char[255];
     ffgerr(Status, P_ErrMsg);
     cout << "CFits::ReadArray: <" << P_ErrMsg << "> => Returning FALSE" << endl;
@@ -5814,12 +5814,12 @@ bool CFits::ReadErrArray()
 //  char strbuf[256];
 
   Status=0;
-  fits_open_file(&P_FitsFile, this->P_CS_ErrFileName->Get(), READONLY, &Status);
+  fits_open_file(&P_FitsFile, errFileName.c_str(), READONLY, &Status);
   fits_read_imghdr(P_FitsFile, 2, &simple , &bitpix, &naxis, naxes,
                    &pcount, &gcount, &extend, &Status);
   if (Status !=0)
   {
-    printf("CFits::ReadErrArray: Error %d opening file %s\n", Status, this->P_CS_ErrFileName->Get());
+    printf("CFits::ReadErrArray: Error %d opening file %s\n", Status, errFileName.c_str());
     char* P_ErrMsg = new char[255];
     ffgerr(Status, P_ErrMsg);
     cout << "CFits::ReadErrArray: <" << P_ErrMsg << "> => Returning FALSE" << endl;
@@ -5828,8 +5828,8 @@ bool CFits::ReadErrArray()
     return false;
   }
   #ifdef __DEBUG_FITS_READARRAY__
-    cout << "CFits::ReadErrArray: FitsErrFileName <" << this->P_CS_ErrFileName->Get() << "> opened" << endl;
-    (*P_OFS_Log) << "CFits::ReadErrArray: FitsErrFileName <" << this->P_CS_ErrFileName->Get() << "> opened" << endl;
+    cout << "CFits::ReadErrArray: FitsErrFileName <" << errFileName << "> opened" << endl;
+    (*P_OFS_Log) << "CFits::ReadErrArray: FitsErrFileName <" << errFileName << "> opened" << endl;
     cout << "CFits::ReadErrArray: FitsErrFileName contains <" << naxes[1]  << "> rows!!!!!!! and <" << naxes[0] << "> columns!!!!!!!!! naxes = <" << naxes << ">" << endl;
     (*P_OFS_Log) << "CFits::ReadErrArray: FitsErrFileName contains <" << naxes[1]  << "> rows!!!!!!! and <" << naxes[0] << "> columns!!!!!!!!! naxes = <" << naxes << ">" << endl;
   #endif
@@ -5851,8 +5851,8 @@ bool CFits::ReadErrArray()
                 &nullval, p_Array, &anynul, &Status);
   if (Status !=0)
   {
-    cout << "CFits::ReadErrArray: Error " << Status << " reading file " << this->P_CS_ErrFileName->Get() << endl;
-    (*P_OFS_Log) << "CFits::ReadErrArray: Error " << Status << " reading file " << this->P_CS_ErrFileName->Get() << endl;
+    cout << "CFits::ReadErrArray: Error " << Status << " reading file " << errFileName << endl;
+    (*P_OFS_Log) << "CFits::ReadErrArray: Error " << Status << " reading file " << errFileName << endl;
     char* P_ErrMsg = (char*)malloc(sizeof(char) * 255);
     ffgerr(Status, P_ErrMsg);
     cout << "CFits::ReadErrArray: <" << P_ErrMsg << "> => Returning FALSE" << endl;
@@ -5880,13 +5880,13 @@ bool CFits::ReadErrArray()
   fits_close_file(this->P_FitsFile, &Status);
 
   #ifdef __DEBUG_FITS_READARRAY__
-    cout << "CFits::ReadErrArray: FitsErrFileName <" << this->P_CS_ErrFileName->Get() << "> closed" << endl;
+    cout << "CFits::ReadErrArray: FitsErrFileName <" << errFileName << "> closed" << endl;
   #endif
     
   if (Status !=0)
   {
-    cout << "CFits::ReadErrArray: Error " << Status << " closing file " << this->P_CS_ErrFileName->Get() << endl;
-    (*P_OFS_Log) << "CFits::ReadErrArray: Error " << Status << " closing file " << this->P_CS_ErrFileName->Get() << endl;
+    cout << "CFits::ReadErrArray: Error " << Status << " closing file " << errFileName << endl;
+    (*P_OFS_Log) << "CFits::ReadErrArray: Error " << Status << " closing file " << errFileName << endl;
     char* P_ErrMsg = new char[255];
     ffgerr(Status, P_ErrMsg);
     cout << "CFits::ReadErrArray: <" << P_ErrMsg << "> => Returning FALSE" << endl;
@@ -5904,7 +5904,7 @@ bool CFits::ReadErrArray()
  **/
   bool CFits::WriteArray() const
 {
-  return this->WriteFits(this->P_D_A2_PixArray, *(this->P_CS_FileName));
+  return this->WriteFits(this->P_D_A2_PixArray, CString(fileName));
 }
 
 /**
@@ -5913,7 +5913,7 @@ bool CFits::ReadErrArray()
  **/
   bool CFits::WriteErrArray() const
 {
-  return this->WriteFits(this->P_D_A2_ErrArray, *(this->P_CS_FileName));
+  return this->WriteFits(this->P_D_A2_ErrArray, CString(fileName));
 }
 
 /**
@@ -6156,7 +6156,7 @@ bool CFits::WriteApHead(CString CS_FileName_Out) const{
  **/
 bool CFits::Access() const
 {
-  return this->FitsAccess(*this->P_CS_FileName);
+  return this->FitsAccess(fileName);
 }
 
 /**
@@ -6167,11 +6167,15 @@ bool CFits::FitsAccess(const CString &fn) const
   fitsfile *ffile;
   int      Status;
   Status=0;
-  fits_open_file(&ffile, fn.Get(), READONLY, &Status);
+  string sfn = fn.GetString();
+  char cfn[255];
+  size_t length = sfn.copy(cfn,sfn.length(),0);
+  cfn[length] = '\0';
+  fits_open_file(&ffile, cfn, READONLY, &Status);
   if (Status !=0)
   {
-    cout << "CFits::Access: Error " << Status << " in file " << fn.Get() << endl;
-    (*P_OFS_Log) << "CFits::Access: Error " << Status << " in file " << fn.Get() << endl;
+    cout << "CFits::Access: Error " << Status << " in file " << fn << endl;
+    (*P_OFS_Log) << "CFits::Access: Error " << Status << " in file " << fn << endl;
     char* P_ErrMsg = new char[255];
     ffgerr(Status, P_ErrMsg);
     cout << "CFits::Access: <"<< P_ErrMsg << "> => Returning FALSE" << endl;
@@ -6182,8 +6186,8 @@ bool CFits::FitsAccess(const CString &fn) const
   fits_close_file(ffile, &Status);
   if (Status !=0)
   {
-    cout << "CFits::Access: Error " << Status << " in file " << fn.Get() << endl;
-    (*P_OFS_Log) << "CFits::Access: Error " << Status << " in file " << fn.Get() << endl;
+    cout << "CFits::Access: Error " << Status << " in file " << fn << endl;
+    (*P_OFS_Log) << "CFits::Access: Error " << Status << " in file " << fn << endl;
     char* P_ErrMsg = new char[255];
     ffgerr(Status, P_ErrMsg);
     cout << "CFits::Access: <" << P_ErrMsg << "> => Returning FALSE" << endl;
@@ -6220,11 +6224,11 @@ bool CFits::FileAccess(const CString &fn) const
 bool CFits::AccessDatabaseFile() const
 {
   FILE *file;
-  file = fopen(this->P_CS_DatabaseFileName->Get(), "r");
+  file = fopen(databaseFileName.c_str(), "r");
   if (file == NULL)
   {
-    cout << "CFits.AccessDatabaseFile: Failed to open file this->DatabaseFileName (=<" << P_CS_DatabaseFileName->Get() << ">)" << endl;
-    (*P_OFS_Log) << "CFits.AccessDatabaseFile: Failed to open file this->DatabaseFileName (=<" << P_CS_DatabaseFileName->Get() << ">)" << endl;
+    cout << "CFits.AccessDatabaseFile: Failed to open file this->DatabaseFileName (=<" << databaseFileName << ">)" << endl;
+    (*P_OFS_Log) << "CFits.AccessDatabaseFile: Failed to open file this->DatabaseFileName (=<" << databaseFileName << ">)" << endl;
     return false;
   }
   fclose(file);
@@ -9792,8 +9796,8 @@ bool CFits::MkSlitFunc(const blitz::Array<double, 1> &D_A1_ScatterBelow,  //: in
     //    (*P_OFS_Log) << "CFits::MkSlitFunc: 6.A this->NRows = " << this->NRows << ", this->NCols = " << NCols << endl;
 
       #ifdef __DEBUG_FITS_MKSLITFUNC__
-        cout << "CFits::MkSlitFunc: I_IBin = " << I_IBin << ": " << *P_CS_FileName << ": for (int I_IBin(=" << I_IBin << ") = 0; I_IBin < I_NBin(=" << I_NBins << "); I_IBin++): I_IAperture_In = " << I_IAperture_In << ": Starting SlitFunc" << endl;//.transpose(secondDim, firstDim) << endl;
-        (*P_OFS_Log) << "CFits::MkSlitFunc: I_IBin = " << I_IBin << ": " << *P_CS_FileName << ": for (int I_IBin(=" << I_IBin << ") = 0; I_IBin < I_NBin(=" << I_NBins << "); I_IBin++): I_IAperture_In = " << I_IAperture_In << ": Starting SlitFunc" << endl;//.transpose(secondDim, firstDim) << endl;
+        cout << "CFits::MkSlitFunc: I_IBin = " << I_IBin << ": " << fileName << ": for (int I_IBin(=" << I_IBin << ") = 0; I_IBin < I_NBin(=" << I_NBins << "); I_IBin++): I_IAperture_In = " << I_IAperture_In << ": Starting SlitFunc" << endl;//.transpose(secondDim, firstDim) << endl;
+        (*P_OFS_Log) << "CFits::MkSlitFunc: I_IBin = " << I_IBin << ": " << fileName << ": for (int I_IBin(=" << I_IBin << ") = 0; I_IBin < I_NBin(=" << I_NBins << "); I_IBin++): I_IAperture_In = " << I_IAperture_In << ": Starting SlitFunc" << endl;//.transpose(secondDim, firstDim) << endl;
         cout << "CFits::MkSlitFunc: I_IBin = " << I_IBin << ": for (int I_IBin(=" << I_IBin << ") = 0; I_IBin < I_NBin(=" << I_NBins << "); I_IBin++): I_IAperture_In = " << I_IAperture_In << ": D_A2_SlitFunc_Im_In_Tel = " << D_A2_SlitFunc_Im_In_Tel << endl;//.transpose(secondDim, firstDim) << endl;
       #endif
 //return false;
@@ -12202,8 +12206,8 @@ bool CFits::MkProfIm(const blitz::Array<CString, 1> &CS_A1_Args_In,       ///: i
            || (((*(this->P_D_A1_YCenter))(i_ord)+(*(this->P_D_A1_YHigh))(i_ord) >= I_YMin)
             && ((*(this->P_D_A1_YCenter))(i_ord)+(*(this->P_D_A1_YHigh))(i_ord) <= I_YMax)))){
       #ifdef __DEBUG_FITS_MKPROFIM__
-        cout << "CFits::MkProfIm: for (i_ord(=" << i_ord << ") = 0; i_ord < this->I_NApertures; i_ord++): this->P_CS_FileName = " << *this->P_CS_FileName << endl;
-        (*P_OFS_Log) << "CFits::MkProfIm: for (i_ord(=" << i_ord << ") = 0; i_ord < this->I_NApertures; i_ord++): this->P_CS_FileName = " << *this->P_CS_FileName << endl;
+        cout << "CFits::MkProfIm: for (i_ord(=" << i_ord << ") = 0; i_ord < this->I_NApertures; i_ord++): fileName = " << fileName << endl;
+        (*P_OFS_Log) << "CFits::MkProfIm: for (i_ord(=" << i_ord << ") = 0; i_ord < this->I_NApertures; i_ord++): fileName = " << fileName << endl;
       #endif
       //    cout << "CFits::MkProfIm: for (i_ord(=" << i_ord << ") = 0; i_ord < this->I_NApertures; i_ord++): this->P_D_A2_XCenters = " << *this->P_D_A2_XCenters << endl;
       //    (*P_OFS_Log) << "CFits::MkProfIm: for (i_ord(=" << i_ord << ") = 0; i_ord < this->I_NApertures; i_ord++): this->P_D_A2_XCenters = " << *this->P_D_A2_XCenters << endl;
@@ -14767,8 +14771,7 @@ int CFits::BandSol(int Argc, void *Argv[]) const
 
 //  int NArgs = CS_A1_Args_In.size();
 
-  CString *P_Delimiter = new CString("/");
-  CString *P_Prefix = P_CS_FileName->SubString(0, P_CS_FileName->LastStrPos(*P_Delimiter));
+//  CString *P_Delimiter = new CString("/");
   CString *P_TempString = new CString();
   //  int OverSample = 1;
   int I_NPixSlitF, TempInt, TempIntA, Pos;
@@ -19579,8 +19582,6 @@ int CFits::BandSol(int Argc, void *Argv[]) const
   cout << "deleting pointers" << endl;
 
   //  (*P_OFS_Log) << "CFits::SlitFunc: End: 16. this->NRows = " << this->NRows << ", this->NCols = " << this->NCols << endl;
-  delete P_Delimiter;
-  delete P_Prefix;
   if ((Pos = this->KeyWord_Set(CS_A1_Args_In, CString("IM_OUT"))) < 0)
   {
     if (P_D_A2_Im_Out != NULL)
@@ -29053,34 +29054,34 @@ bool CFits::ReadApertureDefinition(int I_Aperture_In)
     cout << "CFits::ReadApertureDefinition: CS_KeyWordHigh = " << CS_KeyWordHigh << endl;
   #endif
 
-  blitz::Array<CString, 1>CS_A1_Functions(5);
-  CS_A1_Functions(0).Set("chebyshev");
-  CS_A1_Functions(1).Set("legendre");
-  CS_A1_Functions(2).Set("cubic");
-  CS_A1_Functions(3).Set("linear");
-  CS_A1_Functions(4).Set("polynomial");
+  blitz::Array<string, 1>S_A1_Functions(5);
+  S_A1_Functions(0) = "chebyshev";
+  S_A1_Functions(1) = "legendre";
+  S_A1_Functions(2) = "cubic";
+  S_A1_Functions(3) = "linear";
+  S_A1_Functions(4) = "polynomial";
 
   #ifdef __DEBUG_FITS_READAPERTURES__
     printf("CFits.ReadApertureDefinition: function started\n");
   #endif
-  P_DatabaseFile = fopen(this->P_CS_DatabaseFileName->Get(), "r");
+  P_DatabaseFile = fopen(databaseFileName.c_str(), "r");
   if (P_DatabaseFile == NULL)
   {
-    cout << "CFits.ReadApertureDefinition: Failed to open file CS_FileName_In (=<" << this->P_CS_DatabaseFileName->Get() << ">)" << endl;
-    (*P_OFS_Log) << "CFits.ReadApertureDefinition: Failed to open file CS_FileName_In (=<" << this->P_CS_DatabaseFileName->Get() << ">)" << endl;
+    cout << "CFits.ReadApertureDefinition: Failed to open file CS_FileName_In (=<" << databaseFileName << ">)" << endl;
+    (*P_OFS_Log) << "CFits.ReadApertureDefinition: Failed to open file CS_FileName_In (=<" << databaseFileName << ">)" << endl;
     return false;
   }
   #ifdef __DEBUG_FITS_READAPERTURES__
-    cout << "CFits.ReadApertureDefinition: File CS_FileName_In(=<" << this->P_CS_DatabaseFileName->Get() << ">) opened";
+    cout << "CFits.ReadApertureDefinition: File CS_FileName_In(=<" << databaseFileName << ">) opened";
   #endif
 
-  L_NLines = this->CountLines( this->P_CS_DatabaseFileName->Get() );
+  L_NLines = this->CountLines( CString(databaseFileName) );
 
   // --- open file <fname> with name <filename> for reading
-  P_DatabaseFile = fopen(this->P_CS_DatabaseFileName->Get(), "r");
+  P_DatabaseFile = fopen(databaseFileName.c_str(), "r");
   if (P_DatabaseFile == NULL)
   {
-    cout << "CFits.ReadApertureDefinition: Failed to open file P_DatabaseFile (=<" << P_CS_DatabaseFileName->Get() << ">)" << endl;
+    cout << "CFits.ReadApertureDefinition: Failed to open file P_DatabaseFile (=<" << databaseFileName << ">)" << endl;
     return false;
   }
 
@@ -29217,13 +29218,13 @@ bool CFits::ReadApertureDefinition(int I_Aperture_In)
               P_Func = strtok(NULL, " \t\n\0");
               #ifdef __DEBUG_FITS_READAPERTURES__
                 printf("CFits.ReadApertureDefinition: Function = <%s>!\n", P_Func);
-                printf("CFits.ReadApertureDefinition: P_CS_A1_Functions->size() = <%d>!\n", P_CS_A1_Functions->size());
+                printf("CFits.ReadApertureDefinition: functions->size() = <%d>!\n", functions->size());
                 printf("CFits.ReadApertureDefinition: I_IAperture = %d\n", I_IAperture);
               #endif
-              (*P_CS_A1_Functions)(I_IAperture-1).Copy(CString(P_Func));
+              (*functions)(I_IAperture-1) = string(P_Func);
               #ifdef __DEBUG_FITS_READAPERTURES__
-                cout << "CFits.ReadApertureDefinition: (*P_CS_A1_Functions)(" << I_IAperture-1 << ") set to " << (*P_CS_A1_Functions)(I_IAperture-1) << endl;
-                (*P_OFS_Log) << "CFits.ReadApertureDefinition: (*P_CS_A1_Functions)(" << I_IAperture-1 << ") set to " << (*P_CS_A1_Functions)(I_IAperture-1) << endl;
+                cout << "CFits.ReadApertureDefinition: (*functions)(" << I_IAperture-1 << ") set to " << (*functions)(I_IAperture-1) << endl;
+                (*P_OFS_Log) << "CFits.ReadApertureDefinition: (*functions)(" << I_IAperture-1 << ") set to " << (*functions)(I_IAperture-1) << endl;
               #endif
             }// end if (strcmp(P_FirstWord, CS_KeyWordHigh) == 0)
             else if (CS_FirstWord.EqualValue(CS_KeyWordCurve))
@@ -29264,9 +29265,9 @@ bool CFits::ReadApertureDefinition(int I_Aperture_In)
                 #endif
                 if (n == 0)
                 {
-                  (*this->P_CS_A1_Functions)(I_IAperture-1).Copy(CS_A1_Functions(atoi(P_FirstWord) - 1));
+                  (*functions)(I_IAperture-1) = S_A1_Functions(atoi(P_FirstWord) - 1);
                   #ifdef __DEBUG_FITS_READAPERTURES__
-                    printf("CFits.ReadApertureDefinition: P_Function = <%s>\n", (*P_CS_A1_Functions)(I_IAperture-1).Get());
+                    printf("CFits.ReadApertureDefinition: P_Function = <%s>\n", (*functions)(I_IAperture-1));
                   #endif
                 }
                 else if (n == 1)
@@ -29275,19 +29276,19 @@ bool CFits::ReadApertureDefinition(int I_Aperture_In)
                   #ifdef __DEBUG_FITS_READAPERTURES__
                     printf("CFits.ReadApertureDefinition: Order = <%d>\n", (*P_I_A1_Orders)(I_IAperture-1));
                   #endif
-                  if ((*P_CS_A1_Functions)(I_IAperture - 1).EqualValue(CS_A1_Functions(0)))
+                  if ((*functions)(I_IAperture - 1).compare(S_A1_Functions(0)) == 0)
                   {///Chebyshev
                     (*this->P_I_A1_NCoeffs)(I_IAperture - 1) = (*P_I_A1_Orders)(I_IAperture - 1);
                   }
-                  else if ((*this->P_CS_A1_Functions)(I_IAperture - 1).EqualValue(CS_A1_Functions(1)))
+                  else if ((*functions)(I_IAperture - 1).compare(S_A1_Functions(1)) == 0)
                   {///Legendre
                     (*this->P_I_A1_NCoeffs)(I_IAperture - 1) = (*P_I_A1_Orders)(I_IAperture - 1);
                   }
-                  else if ((*this->P_CS_A1_Functions)(I_IAperture - 1).EqualValue(CS_A1_Functions(2)))
+                  else if ((*functions)(I_IAperture - 1).compare(S_A1_Functions(2)) == 0)
                   {///CubicSpline
                     (*this->P_I_A1_NCoeffs)(I_IAperture - 1) = (*P_I_A1_Orders)(I_IAperture - 1) + 3;
                   }
-                  else if ((*this->P_CS_A1_Functions)(I_IAperture - 1).EqualValue(CS_A1_Functions(3)))
+                  else if ((*functions)(I_IAperture - 1).compare(S_A1_Functions(3)) == 0)
                   {///LinarSpline
                     (*this->P_I_A1_NCoeffs)(I_IAperture - 1) = (*P_I_A1_Orders)(I_IAperture - 1) + 1;
                   }
@@ -29443,8 +29444,8 @@ bool CFits::ReadApertureDefinition(int I_Aperture_In)
     }// end if (P_Line != NULL)
   }// end for (i = 0; i < L_NLines; i++)
   #ifdef __DEBUG_FITS_READAPERTURES__
-    cout << "CFits.ReadApertureDefinition: *P_CS_A1_Functions set to " << *P_CS_A1_Functions << endl;
-    (*P_OFS_Log) << "CFits.ReadApertureDefinition: *P_CS_A1_Functions set to " << *P_CS_A1_Functions << endl;
+    cout << "CFits.ReadApertureDefinition: *functions set to " << *functions << endl;
+    (*P_OFS_Log) << "CFits.ReadApertureDefinition: *functions set to " << *functions << endl;
   #endif
 
   I_TempNApertures = I_IAperture;
@@ -29453,7 +29454,7 @@ bool CFits::ReadApertureDefinition(int I_Aperture_In)
   #endif
   //  for (int mm = 0; mm < 4; mm++)
   //    delete PP_Functions[mm];
-  CS_A1_Functions.resize(0);
+  S_A1_Functions.resize(0);
   //  delete PP_Functions;
   fclose(P_DatabaseFile);
   return true;//I_NCoeffs;
@@ -29466,7 +29467,7 @@ void CFits::Show (ostream &os) const
 #ifdef __DEBUG_FITS_SHOW__
   cout << "CFits::Show(ostream &os) started" << endl;
 #endif
-  os << "P_CS_FileName: " << *(this->P_CS_FileName) << endl;
+  os << "fileName: " << fileName << endl;
   os << "I_NApertures: " << this->I_NApertures << endl;
   os << "P_I_A1_Orders: " << *this->P_I_A1_Orders << endl;
   os << "P_D_A1_XLow: " << *this->P_D_A1_XLow << endl;
@@ -34964,13 +34965,12 @@ bool CFits::CalculateScatteredLight(int I_FittingOrder_In, int I_BoxCarWidth_In)
 //    if (i_ap == 2)
 //      return false;
   }
-//  #ifdef __DEBUG_FITS_CALCSCATTER__
-    CString *P_TempString = this->P_CS_FileName->SubString(0,this->P_CS_FileName->LastStrPos(CString("."))-1);
-    (*P_TempString) = (*P_TempString)+CString("-aps.fits");
-    this->SetFileName(*P_TempString);
+  #ifdef __DEBUG_FITS_CALCSCATTER__
+    string tempString = fileName.substr(0,fileName.rfind('.')-1);
+    tempString = tempString + string("-aps.fits");
+    this->SetFileName(CString(tempString));
     this->WriteArray();
-    delete(P_TempString);
-//  #endif
+  #endif
 
   /// Fit scattered light for each row
   blitz::Array<int, 1> I_A1_Where(this->NCols);
@@ -37443,8 +37443,8 @@ cout << "CFits::MkSlitFunc: (*P_D_A2_XCenters)(I_IAperture_In=" << I_IAperture_I
 
     //    (*P_OFS_Log) << "CFits::MkSlitFunc: 6.A this->NRows = " << this->NRows << ", this->NCols = " << NCols << endl;
 
-    cout << "CFits::MkSlitFunc: " << *P_CS_FileName << ": for (int m(=" << m << ") = 0; m < I_NBin(=" << I_NBin << "); m++): I_IAperture_In = " << I_IAperture_In << ": Starting SlitFunc" << endl;//.transpose(secondDim, firstDim) << endl;
-    (*P_OFS_Log) << "CFits::MkSlitFunc: " << *P_CS_FileName << ": for (int m(=" << m << ") = 0; m < I_NBin(=" << I_NBin << "); m++): I_IAperture_In = " << I_IAperture_In << ": Starting SlitFunc" << endl;//.transpose(secondDim, firstDim) << endl;
+    cout << "CFits::MkSlitFunc: " << fileName << ": for (int m(=" << m << ") = 0; m < I_NBin(=" << I_NBin << "); m++): I_IAperture_In = " << I_IAperture_In << ": Starting SlitFunc" << endl;//.transpose(secondDim, firstDim) << endl;
+    (*P_OFS_Log) << "CFits::MkSlitFunc: " << fileName << ": for (int m(=" << m << ") = 0; m < I_NBin(=" << I_NBin << "); m++): I_IAperture_In = " << I_IAperture_In << ": Starting SlitFunc" << endl;//.transpose(secondDim, firstDim) << endl;
 
 #ifdef __DEBUG_FITS_PISKUNOV__
     cout << "CFits::MkSlitFunc: for (int m(=" << m << ") = 0; m < I_NBin(=" << I_NBin << "); m++): I_IAperture_In = " << I_IAperture_In << ": D_A2_SF = " << D_A2_SF << endl;//.transpose(secondDim, firstDim) << endl;
@@ -38571,8 +38571,6 @@ bool CFits::SlitFunc_Old(blitz::Array<double, 2> &D_A2_ImM,
 
   int NArgs = CS_A1_Args.size();
 
-  CString *P_Delimiter = new CString("/");
-  CString *P_Prefix = P_CS_FileName->SubString(0, P_CS_FileName->LastStrPos(*P_Delimiter));
   CString *P_TempString = new CString();
   //  int OverSample = 1;
   int N, TempInt, TempIntA, Pos;
@@ -40595,8 +40593,6 @@ bool CFits::SlitFunc_Old(blitz::Array<double, 2> &D_A2_ImM,
 #endif
 
   //  (*P_OFS_Log) << "CFits::SlitFunc: End: 16. this->NRows = " << this->NRows << ", this->NCols = " << this->NCols << endl;
-  delete P_Delimiter;
-  delete P_Prefix;
   delete P_TempString;
   a.resize(0);
   AKLArr.resize(0,0);
@@ -40788,20 +40784,20 @@ bool CFits::MkProfIm_Old(const blitz::Array<CString, 1> &CS_A1_Args_In,       //
     }
   }
 
-#ifdef __DEBUG_FITS_PISKUNOV__
-  cout << "CFits::MkProfIm: CS_A1_Args set to " << CS_A1_Args << endl;
-  (*P_OFS_Log) << "CFits::MkProfIm: CS_A1_Args set to " << CS_A1_Args << endl;
-#endif
+  #ifdef __DEBUG_FITS_PISKUNOV__
+    cout << "CFits::MkProfIm: CS_A1_Args set to " << CS_A1_Args << endl;
+    (*P_OFS_Log) << "CFits::MkProfIm: CS_A1_Args set to " << CS_A1_Args << endl;
+  #endif
   //  cout << "CFits::MkProfIm: I_NArgs set to " << I_NArgs << endl;
   //  CS_A1_Args.resizeAndPreserve(I_NArgs);
 
   int i_ord;
   for (i_ord = 0; i_ord < this->I_NApertures; i_ord++)//1; i_ord++)//
   {
-#ifdef __DEBUG_FITS_PISKUNOV__
-    cout << "CFits::MkProfIm: for (i_ord(=" << i_ord << ") = 0; i_ord < this->I_NApertures; i_ord++): this->P_CS_FileName = " << *this->P_CS_FileName << endl;
-    (*P_OFS_Log) << "CFits::MkProfIm: for (i_ord(=" << i_ord << ") = 0; i_ord < this->I_NApertures; i_ord++): this->P_CS_FileName = " << *this->P_CS_FileName << endl;
-#endif
+    #ifdef __DEBUG_FITS_PISKUNOV__
+      cout << "CFits::MkProfIm: for (i_ord(=" << i_ord << ") = 0; i_ord < this->I_NApertures; i_ord++): fileName = " << fileName << endl;
+      (*P_OFS_Log) << "CFits::MkProfIm: for (i_ord(=" << i_ord << ") = 0; i_ord < this->I_NApertures; i_ord++): fileName = " << fileName << endl;
+    #endif
     //    cout << "CFits::MkProfIm: for (i_ord(=" << i_ord << ") = 0; i_ord < this->I_NApertures; i_ord++): this->P_D_A2_XCenters = " << *this->P_D_A2_XCenters << endl;
     //    (*P_OFS_Log) << "CFits::MkProfIm: for (i_ord(=" << i_ord << ") = 0; i_ord < this->I_NApertures; i_ord++): this->P_D_A2_XCenters = " << *this->P_D_A2_XCenters << endl;
     //#endif
