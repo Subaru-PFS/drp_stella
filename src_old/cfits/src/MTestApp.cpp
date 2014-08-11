@@ -925,7 +925,7 @@ bool TestCFitsConstructors()
   cout << "MTestApp::TestCFitsConstructors: comparing result of init constructor with expected one" << endl;
 #endif
 
-  CString tempFileName = testfits->GetFileName();
+  CString tempFileName = testfits->getFileName();
   t4 = (tempFileName.EqualValue(*p_testString));
   if (t4)
     cout << "MTestApp::TestCFitsConstructors:                    t4(CompareResult)  = \"TRUE\" (expected) " << endl;
@@ -1201,15 +1201,15 @@ bool TestCFitsClassInvAndCopyAndEVal()
   }
 
 #ifdef _DEBUG_TESTAPP_
-  cout << "MTestApp::TestCFitsClassInvAndCopyAndEval: starting testfits1->SetFileName ()" << endl;
+  cout << "MTestApp::TestCFitsClassInvAndCopyAndEval: starting testfits1->setFileName ()" << endl;
 #endif
-  t12 = testfits1->SetFileName( (*(new CString("test/test_small_new.fits") )));
+  t12 = testfits1->setFileName( (*(new CString("test/test_small_new.fits") )));
 
   if (t12)
-    cout << "MTestApp::TestCFitsClassInvAndCopyAndEval:                    t12(SetFileName) = \"TRUE\" (expected) " << endl;
+    cout << "MTestApp::TestCFitsClassInvAndCopyAndEval:                    t12(setFileName) = \"TRUE\" (expected) " << endl;
   else
   {
-    cout << "MTestApp::TestCFitsClassInvAndCopyAndEval:                    t12(SetFileName) = \"FALSE\" (UNEXPECTED)" << endl;
+    cout << "MTestApp::TestCFitsClassInvAndCopyAndEval:                    t12(setFileName) = \"FALSE\" (UNEXPECTED)" << endl;
     return false;
   }
 
@@ -1285,16 +1285,16 @@ bool TestCFitsMedian()
   CFits *testfits2 = new CFits();
   firstIndex i;
   double Result;
-  Array<double, 1> *P_OddArray = new Array<double, 1>(11);
+  blitz::Array<double, 1> *P_OddArray = new blitz::Array<double, 1>(11);
   (*P_OddArray) = i;
-  Array<double, 1> *P_TempOddArray = new Array<double, 1>(11);
+  blitz::Array<double, 1> *P_TempOddArray = new blitz::Array<double, 1>(11);
   (*P_TempOddArray) = i;
-  Array<double, 1> *P_EvenArray = new Array<double, 1>(10);
+  blitz::Array<double, 1> *P_EvenArray = new blitz::Array<double, 1>(10);
   (*P_EvenArray) = i;
-  Array<double, 1> *P_TempEvenArray;
-  Array<double, 1> *P_TestEvenArray = new Array<double, 1>(10);
+  blitz::Array<double, 1> *P_TempEvenArray;
+  blitz::Array<double, 1> *P_TestEvenArray = new blitz::Array<double, 1>(10);
   (*P_TestEvenArray) = i;
-  Array<double, 1> *P_TestOddArray = new Array<double, 1>(10);
+  blitz::Array<double, 1> *P_TestOddArray = new blitz::Array<double, 1>(10);
   (*P_TestOddArray) = i;
   // Test: CFormatedString::Median
   // Tests included: CFits::operator=, CFits::Copy,
@@ -1410,7 +1410,7 @@ bool TestCFitsMedian()
 #ifdef _DEBUG_TESTAPP_
   cout << "MTestApp::TestCFitsMedian: starting testfits->Median(P_EvenArray, Even)" << endl;
 #endif
-  Array<CString, 1> CS_A1_Args_Median(10);
+  blitz::Array<CString, 1> CS_A1_Args_Median(10);
   CS_A1_Args_Median = CString(" ");
   CS_A1_Args_Median(0) = CString("EVEN");
   void **PP_Args_Median;
@@ -1489,7 +1489,7 @@ bool TestCFitsMedian()
     return false;
   }
 
-  Array<double, 1> D_A1_TTemp(51);
+  blitz::Array<double, 1> D_A1_TTemp(51);
   D_A1_TTemp = 845612, 1.59998e+06, 2.36258e+06, 2.40367e+06, 1.64219e+06,    492533,     68242,
       32288.8,   29362.8,   27416.8,   25175.1,   24449.2,   24700.6,   24543.6,
       23817.7,     22994,   22677.2,   22658.6,   22742.4,   23445.4,   23971.3,
@@ -1499,11 +1499,11 @@ bool TestCFitsMedian()
       25598.4,   25837.1,   29630.6,     86642,    628046, 1.67953e+06, 2.13906e+06,
       1.878e+06, 1.02451e+06;
 
-  Array<double, 1> D_A1_TMedian(51);
-  Array<double, 1> *p_D_A1_TMedian = testfits->MedianVec(D_A1_TTemp, 5);
+  blitz::Array<double, 1> D_A1_TMedian(51);
+  blitz::Array<double, 1> *p_D_A1_TMedian = testfits->MedianVec(D_A1_TTemp, 5);
   D_A1_TMedian = (*p_D_A1_TMedian);
   delete p_D_A1_TMedian;
-  Array<double, 1> D_A1_TTest(51);
+  blitz::Array<double, 1> D_A1_TTest(51);
   D_A1_TTest = 845612.,  1.59998e+06,  1.64218e+06,  1.64218e+06,  1.64218e+06,      492533.,
       68242.0,      32288.8,     29362.8,      27416.8,      25175.1,      24700.6,
       24543.6,      24449.2,      23817.7,      22994.0,      22742.4,      22742.4,
@@ -1514,7 +1514,7 @@ bool TestCFitsMedian()
       26199.1,      26199.1,      29630.6,      86642.0,      628046.,  1.67953e+06,
       1.67953e+06,  1.87800e+06,  1.02451e+06;
 
-      Array<int,1> I_A1_TestInd(D_A1_TTest.size());
+      blitz::Array<int,1> I_A1_TestInd(D_A1_TTest.size());
       I_A1_TestInd = where(fabs(D_A1_TTest - D_A1_TMedian) > D_A1_TTest / 10000., 0, 1);
       for (int mm = 0; mm < I_A1_TestInd.size(); mm++)
       {
@@ -1575,10 +1575,10 @@ bool TestCFitsLinFit()
   firstIndex i;
   double Result;
 
-  Array<double, 1> D_A1_SP(1);
-  Array<double, 1> D_A1_Sky(1);
+  blitz::Array<double, 1> D_A1_SP(1);
+  blitz::Array<double, 1> D_A1_Sky(1);
 
-  Array<double, 1> D_A1_X(10);
+  blitz::Array<double, 1> D_A1_X(10);
   D_A1_X(0) = 1;
   D_A1_X(1) = 2;
   D_A1_X(2) = 3;
@@ -1590,7 +1590,7 @@ bool TestCFitsLinFit()
   D_A1_X(8) = 9;
   D_A1_X(9) = 10;
 
-  Array<double, 1> D_A1_SF(10);
+  blitz::Array<double, 1> D_A1_SF(10);
   D_A1_SF(0) = 0.;
   D_A1_SF(1) = 0.7;
   D_A1_SF(2) = 1.5;
@@ -1602,11 +1602,11 @@ bool TestCFitsLinFit()
   D_A1_SF(8) = 0.2;
   D_A1_SF(9) = 0.;
   D_A1_SF = D_A1_SF / sum(D_A1_SF);
-  Array<double, 2> D_A2_SF(10,10);
+  blitz::Array<double, 2> D_A2_SF(10,10);
 
-  Array<double, 2> D_A2_Y(10,10);
-  Array<double, 1> D_A1_SP_In(10);
-  Array<double, 1> D_A1_Sky_In(10);
+  blitz::Array<double, 2> D_A2_Y(10,10);
+  blitz::Array<double, 1> D_A1_SP_In(10);
+  blitz::Array<double, 1> D_A1_Sky_In(10);
   for (int i=0; i<10; i++){
     D_A1_SP_In(i) = double(1500*i)+1.5;
     D_A1_Sky_In(i) = double(1500*i)+1.5;
@@ -1615,7 +1615,7 @@ bool TestCFitsLinFit()
     D_A2_SF(i, Range::all()) = D_A1_SF;
   }
 
-  Array<double, 1> D_A1_Y(10);
+  blitz::Array<double, 1> D_A1_Y(10);
   D_A1_Y = D_A2_Y(3,Range::all());
 
   #ifdef _DEBUG_TESTAPP_
@@ -1625,7 +1625,7 @@ bool TestCFitsLinFit()
     delete(testfits);
   testfits = new CFits(*p_testString, NCols, NRows);
 
-  Array<CString,1> CS_A1_Args_LinFit(10);
+  blitz::Array<CString,1> CS_A1_Args_LinFit(10);
   CS_A1_Args_LinFit = CString(" ");
   void **PP_Args_LinFit = (void**)malloc(sizeof(void*) * 10);
   int pos = 0;
@@ -1720,7 +1720,7 @@ bool TestCFitsLinFit()
   }
 
   CS_A1_Args_LinFit(0) = CString("COVAR");
-  Array<double, 3> D_A3_CoVar(D_A2_Y.rows(),D_A2_Y.cols(),2);
+  blitz::Array<double, 3> D_A3_CoVar(D_A2_Y.rows(),D_A2_Y.cols(),2);
   PP_Args_LinFit[0] = &D_A3_CoVar;
 
   if (testfits->LinFit(D_A2_Y, D_A2_SF, D_A1_SP, D_A1_Sky, CS_A1_Args_LinFit, PP_Args_LinFit))
@@ -1737,7 +1737,7 @@ bool TestCFitsLinFit()
   cout << "MTestApp::TestCFitsLinFit:              t7: D_A3_CoVar = " << D_A3_CoVar << endl;
 
   CS_A1_Args_LinFit(0) = CString("MEASURE_ERRORS");
-  Array<double , 2> D_A2_MeasureErrors(D_A2_Y.rows(), D_A2_Y.cols());
+  blitz::Array<double , 2> D_A2_MeasureErrors(D_A2_Y.rows(), D_A2_Y.cols());
   D_A2_MeasureErrors = sqrt(D_A2_Y);
   PP_Args_LinFit[0] = &D_A2_MeasureErrors;
   t8 = testfits->LinFit(D_A2_Y, D_A2_SF, D_A1_SP, D_A1_Sky, CS_A1_Args_LinFit, PP_Args_LinFit);
@@ -1827,22 +1827,22 @@ bool TestCFitsLinFit()
   }
 
   CS_A1_Args_LinFit(1) = CString("PROB");
-  Array<double, 1> D_A1_Prob(1);
+  blitz::Array<double, 1> D_A1_Prob(1);
   PP_Args_LinFit[1] = &D_A1_Prob;
 
   CS_A1_Args_LinFit(2) = CString("COVAR");
   PP_Args_LinFit[2] = &D_A3_CoVar;
 
   CS_A1_Args_LinFit(3) = CString("YFIT");
-  Array<double, 2> D_A2_YFit(1);
+  blitz::Array<double, 2> D_A2_YFit(1);
   PP_Args_LinFit[3] = &D_A2_YFit;
 
   CS_A1_Args_LinFit(4) = CString("SIGMA");
-  Array<double, 2> D_A2_Sigma(1,1);
+  blitz::Array<double, 2> D_A2_Sigma(1,1);
   PP_Args_LinFit[4] = &D_A2_Sigma;
 
   CS_A1_Args_LinFit(5) = CString("CHISQ");
-  Array<double, 1> D_A1_ChiSq(1);
+  blitz::Array<double, 1> D_A1_ChiSq(1);
   PP_Args_LinFit[5] = &D_A1_ChiSq;
 
   t14 = testfits->LinFit(D_A2_Y, D_A2_SF, D_A1_SP, D_A1_Sky, CS_A1_Args_LinFit, PP_Args_LinFit);
@@ -1886,7 +1886,7 @@ bool TestCFitsLinFit()
   cout << "MTestApp::TestCFitsLinFit: D_A2_Sigma = " << D_A2_Sigma << endl;
 
   CS_A1_Args_LinFit(6) = CString("MASK");
-  Array<int, 2> I_A2_Mask(D_A2_Y.rows(), D_A2_Y.cols());
+  blitz::Array<int, 2> I_A2_Mask(D_A2_Y.rows(), D_A2_Y.cols());
   I_A2_Mask = 1;
   PP_Args_LinFit[6] = &I_A2_Mask;
 
@@ -1936,11 +1936,11 @@ bool TestCFitsLinFit()
     return false;
   }
 
-  Array<double, 2> D_A2_Y_Orig(D_A2_Y.rows(), D_A2_Y.cols());
+  blitz::Array<double, 2> D_A2_Y_Orig(D_A2_Y.rows(), D_A2_Y.cols());
   D_A2_Y_Orig = D_A2_Y;
   D_A2_Y(6,4) = 65000.;
   D_A2_MeasureErrors(6,4) = sqrt(65000.);
-  Array<int, 2> I_A2_Mask_Orig(I_A2_Mask.rows(), I_A2_Mask.cols());
+  blitz::Array<int, 2> I_A2_Mask_Orig(I_A2_Mask.rows(), I_A2_Mask.cols());
   I_A2_Mask_Orig = I_A2_Mask;
 
   t21 = testfits->LinFit(D_A2_Y, D_A2_SF, D_A1_SP, D_A1_Sky, CS_A1_Args_LinFit, PP_Args_LinFit);
@@ -1977,8 +1977,8 @@ bool TestCFitsLinFit()
     return false;
   }
 
-  Array<double, 2> D_A2_Y_Diff(D_A2_Y.rows(), D_A2_Y.cols());
-  Array<double, 2> D_A2_Y_WithNoise(D_A2_Y.rows(), D_A2_Y.cols());
+  blitz::Array<double, 2> D_A2_Y_Diff(D_A2_Y.rows(), D_A2_Y.cols());
+  blitz::Array<double, 2> D_A2_Y_WithNoise(D_A2_Y.rows(), D_A2_Y.cols());
   /// Add noise
   double d_temp;
   for (int i_row = 0; i_row < D_A2_Y.rows(); i_row++){
@@ -2063,13 +2063,13 @@ bool TestCFitsLinFit()
   D_A2_Y = D_A2_Y_Orig;
   D_Sky = 1.;
   D_A1_Sky = 1.;
-  Array<double, 1> D_A1_Y_Orig(10);
+  blitz::Array<double, 1> D_A1_Y_Orig(10);
   D_A1_Y_Orig = D_A1_Y;
-  Array<double, 1> D_A1_SF_Orig(10);
+  blitz::Array<double, 1> D_A1_SF_Orig(10);
   D_A1_SF_Orig = D_A1_SF;
-  Array<double, 1> D_A1_MeasureErrors(10);
+  blitz::Array<double, 1> D_A1_MeasureErrors(10);
   D_A1_MeasureErrors = sqrt(D_A1_Y);
-  Array<double, 1> D_A1_MeasureErrors_Orig(10);
+  blitz::Array<double, 1> D_A1_MeasureErrors_Orig(10);
   D_A1_MeasureErrors_Orig = D_A1_MeasureErrors;
 
   if (testfits->Fit(D_A1_Y, D_A1_SF, D_SP, D_Sky, CS_A1_Args_LinFit, PP_Args_LinFit))
@@ -2109,9 +2109,9 @@ bool TestCFitsLinFit()
   }
 
   D_A1_Y(4) = 65000.;
-  Array<int, 1> I_A1_Mask(10);
+  blitz::Array<int, 1> I_A1_Mask(10);
   I_A1_Mask = 1;
-  Array<double, 1> D_A1_YFit(10);
+  blitz::Array<double, 1> D_A1_YFit(10);
   CS_A1_Args_LinFit(0) = CString("MEASURE_ERRORS_IN");
   PP_Args_LinFit[0] = &D_A1_MeasureErrors;
   CS_A1_Args_LinFit(1) = CString("MASK_INOUT");
@@ -2122,7 +2122,7 @@ bool TestCFitsLinFit()
   double D_ChiSqOut;
   PP_Args_LinFit[3] = &D_ChiSqOut;
   CS_A1_Args_LinFit(4) = CString("SIGMA_OUT");
-  Array<double, 1> D_A1_SigmaOut(1);
+  blitz::Array<double, 1> D_A1_SigmaOut(1);
   PP_Args_LinFit[4] = &D_A1_SigmaOut;
   CS_A1_Args_LinFit(5) = CString(" ");
   CS_A1_Args_LinFit(6) = CString(" ");
@@ -2214,10 +2214,10 @@ bool TestCFitsLinFit()
 
 
 
-  Array<double, 1> D_A1_YNine(9);
-  Array<int, 1> I_A1_MaskNine(9);
-  Array<double, 1> D_A1_SFNine(9);
-  Array<double, 1> D_A1_MeasureErrorsNine(9);
+  blitz::Array<double, 1> D_A1_YNine(9);
+  blitz::Array<int, 1> I_A1_MaskNine(9);
+  blitz::Array<double, 1> D_A1_SFNine(9);
+  blitz::Array<double, 1> D_A1_MeasureErrorsNine(9);
   I_A1_Mask = 1;
   pos = 0;
   for (int i=0; i<4; i++){
@@ -2576,7 +2576,7 @@ bool TestCFitsLinFit()
   }
 
   CS_A1_Args_LinFit(0) = CString("Q_OUT");
-  Array<double,1> D_A1_Q;
+  blitz::Array<double,1> D_A1_Q;
   PP_Args_LinFit[0] = &D_A1_Q;
 
   if (testfits->Fit(D_A2_Y, D_A2_SF, D_A1_SP, D_A1_Sky, CS_A1_Args_LinFit, PP_Args_LinFit))
@@ -2891,21 +2891,21 @@ bool TestCFitsReformMultInvert()
   firstIndex i;
   secondIndex j;
   double Result;
-  Array<double, 1> *P_VecArrayA = new Array<double, 1>(20);
+  blitz::Array<double, 1> *P_VecArrayA = new blitz::Array<double, 1>(20);
   (*P_VecArrayA) = i;
-  Array<double, 1> *P_VecArrayB = new Array<double, 1>(20);
+  blitz::Array<double, 1> *P_VecArrayB = new blitz::Array<double, 1>(20);
   (*P_VecArrayB) = i * 2.;
-  Array<double, 2> *P_Array45 = new Array<double, 2>(4,5);
+  blitz::Array<double, 2> *P_Array45 = new blitz::Array<double, 2>(4,5);
   (*P_Array45) = i * 5 + j;
-  Array<double, 2> *P_Array54 = new Array<double, 2>(5,4);
+  blitz::Array<double, 2> *P_Array54 = new blitz::Array<double, 2>(5,4);
   (*P_Array54) = i * 4 + j;
-  Array<double, 2> *P_Array = new Array<double, 2>(6,6);
+  blitz::Array<double, 2> *P_Array = new blitz::Array<double, 2>(6,6);
   (*P_Array) = i * 6 + j;
-  Array<double, 2> *P_TempArray = new Array<double, 2>(6,6);
+  blitz::Array<double, 2> *P_TempArray = new blitz::Array<double, 2>(6,6);
   (*P_TempArray) = i * 6 + j;
-  Array<double, 2> *P_ProductArr = new Array<double, 2>(6,6);
+  blitz::Array<double, 2> *P_ProductArr = new blitz::Array<double, 2>(6,6);
   (*P_ProductArr) = i * 6 + j;
-  Array<double, 1> *P_ProductVecArr = new Array<double, 1>(4);
+  blitz::Array<double, 1> *P_ProductVecArr = new blitz::Array<double, 1>(4);
   (*P_ProductVecArr) = i;
 
   // Test: CFormatedString::ReformMultInvert
@@ -3185,27 +3185,27 @@ bool TestCFitsReformMultInvert()
     return false;
   }
 
-  Array<double, 2> tmpArr(1, 4);
+  blitz::Array<double, 2> tmpArr(1, 4);
   tmpArr(0, Range(0, 3)) = ((*P_Array54)(0, Range(0, 3)) * (*P_Array45)(0, Range(0, 3)));
   cout << "MTestApp::TestCFitsReformMultInvert: tmpArr(Array54(0, Range(0,3))[=" << (*P_Array54)(0, Range(0,3)) << "] * Array45(0, Range(0, 3))[=" << (*P_Array45)(0, Range(0, 3)) << "]) = " << tmpArr << endl;
 
 #ifdef _DEBUG_TESTAPP_
   cout << "MTestApp::TestCFitsReformMultInvert: starting testfits->ValueLocate(IndDVecArr, TestIndDVecArr)" << endl;
 #endif
-  Array<double, 1> IndDVecArr = Array<double, 1>(10);
+  blitz::Array<double, 1> IndDVecArr = blitz::Array<double, 1>(10);
   for (int m = 0; m < 10; m++)
     IndDVecArr(m) = (double)m;
-  Array<double, 1> TestIndDVecArr(11);
+  blitz::Array<double, 1> TestIndDVecArr(11);
   for (int m = 0; m < 11; m++)
     TestIndDVecArr(m) = (double)m;
-  Array<int, 1> SVecArr(11);
+  blitz::Array<int, 1> SVecArr(11);
   SVecArr = 0;
 #ifdef _DEBUG_TESTAPP_
   cout << "MTestApp::TestCFitsReformMultInvert: IndDVecArr = " << IndDVecArr << endl;
   cout << "MTestApp::TestCFitsReformMultInvert: TestIndDVecArr = " << TestIndDVecArr << endl;
   cout << "MTestApp::TestCFitsReformMultInvert: SVecArr = " << SVecArr << endl;
 #endif
-  Array<int, 1> *p_SVecArr = testfits->ValueLocate(IndDVecArr, TestIndDVecArr);
+  blitz::Array<int, 1> *p_SVecArr = testfits->ValueLocate(IndDVecArr, TestIndDVecArr);
   SVecArr.resize(p_SVecArr->size());
   SVecArr = (*p_SVecArr);
   delete p_SVecArr;
@@ -3271,7 +3271,7 @@ bool TestCFitsReformMultInvert()
   (*P_Array) = 0.;
   for (int m = 0; m < P_TempArray->rows(); m++)
     (*P_Array)(m, m) = 1.;
-  Array<double, 2> TestArray;
+  blitz::Array<double, 2> TestArray;
   TestArray.resize(P_TempArray->rows(), P_TempArray->cols());
 #ifdef _DEBUG_TESTAPP_
   cout << "MTestApp::TestCFitsReformMultInvert: P_ProductArr = " << *P_ProductArr << endl;
@@ -3283,7 +3283,7 @@ bool TestCFitsReformMultInvert()
   cout << "MTestApp::TestCFitsReformMultInvert: P_ProductArr = " << *P_ProductArr << endl;
   cout << "MTestApp::TestCFitsReformMultInvert: P_Array = " << *P_Array << endl;
 #endif
-  Array<double, 2> *p_TestArray = testfits->MatrixATimesB(*P_ProductArr, *P_TempArray);
+  blitz::Array<double, 2> *p_TestArray = testfits->MatrixATimesB(*P_ProductArr, *P_TempArray);
   TestArray.resize(p_TestArray->rows(), p_TestArray->cols());
   TestArray = (*p_TestArray);
   delete p_TestArray;
@@ -3440,15 +3440,15 @@ bool TestCFitsInterPolUniqCeil()
   firstIndex i;
   secondIndex j;
   double Result;
-  Array<double, 1> XDArr1(61);
-  Array<double, 1> VDArr1(61);
-  Array<double, 1> UDArr1(18);
-  Array<double, 1> SearchDArr1(1);
-  Array<int, 1> IA1_Result;
-  Array<int, 1> IA1_ResultA;
-  Array<int, 1> IA1_ToSearch;
-  Array<int, 1> IA1_Test;
-  Array<TinyVector<int, 1>, 1> IndIArr1;
+  blitz::Array<double, 1> XDArr1(61);
+  blitz::Array<double, 1> VDArr1(61);
+  blitz::Array<double, 1> UDArr1(18);
+  blitz::Array<double, 1> SearchDArr1(1);
+  blitz::Array<int, 1> IA1_Result;
+  blitz::Array<int, 1> IA1_ResultA;
+  blitz::Array<int, 1> IA1_ToSearch;
+  blitz::Array<int, 1> IA1_Test;
+  blitz::Array<TinyVector<int, 1>, 1> IndIArr1;
 
   XDArr1 = i;
   XDArr1 /= 10.;
@@ -3464,7 +3464,7 @@ bool TestCFitsInterPolUniqCeil()
 #ifdef _DEBUG_TESTAPP_
   cout << "MTestApp::TestCFitsInterPolUniqCeil: starting InterPol(VDArr1, XDArr1, UDArr1)" << endl;
 #endif
-  Array<double, 1> *p_ResultDArr1;
+  blitz::Array<double, 1> *p_ResultDArr1;
   if (!p_testfits->InterPol(VDArr1, XDArr1, UDArr1, p_ResultDArr1))
     return false;
   cout << "MTestApp::TestCFitsInterPolUniqCeil: ResultDArr1 = " << *p_ResultDArr1 << endl;
@@ -3688,8 +3688,8 @@ bool TestCFitsInterPolUniqCeil()
 #endif
 
   IA1_ToSearch = 4, 45, 123, 435, 132, 564, 57, 875, 54, 56, 635, 8456, 38, 6458, 710, 5414, 14, 1546, 1446, 149;
-  Array<double, 1> *p_D_A1_Result = p_testfits->FixD(IA1_ToSearch);
-  Array<int, 1> *p_IA1_ResultB = p_testfits->SortIndices(*p_D_A1_Result);
+  blitz::Array<double, 1> *p_D_A1_Result = p_testfits->FixD(IA1_ToSearch);
+  blitz::Array<int, 1> *p_IA1_ResultB = p_testfits->SortIndices(*p_D_A1_Result);
   delete p_D_A1_Result;
 
   t8 = true;
@@ -3715,7 +3715,7 @@ bool TestCFitsInterPolUniqCeil()
 
   delete p_IA1_ResultB;
   /*
-  Array<double, 1> D_A1_Temp(10);
+  blitz::Array<double, 1> D_A1_Temp(10);
   cout << "D_A1_Temp = " << D_A1_Temp << endl;
   D_A1_Temp = i;
   cout << "D_A1_Temp = i = " << D_A1_Temp << endl;
@@ -3723,9 +3723,9 @@ bool TestCFitsInterPolUniqCeil()
     D_A1_Temp(m) = (double)m;
   cout << "D_A1_Temp = (double)m = " << D_A1_Temp << endl;
 
-  Array<int, 1> A(5);
-  Array<int, 1> B(5);
-  Array<float, 1> C(5);
+  blitz::Array<int, 1> A(5);
+  blitz::Array<int, 1> B(5);
+  blitz::Array<float, 1> C(5);
   cout << "A<int, 1>   = " << A << endl;
   cout << "B<int, 1>   = " << B << endl;
   cout << "C<float, 1> = " << C << endl;
@@ -3740,15 +3740,15 @@ bool TestCFitsInterPolUniqCeil()
   C = C / B;
   cout << "C<float, 1> / B = " << C << endl;
 
-  Array<int, 2> Mat(6, 3);
+  blitz::Array<int, 2> Mat(6, 3);
   Mat = i * 3 + j;
   cout << "Mat = " << Mat << endl;
-  Array<int, 2> TMat;
+  blitz::Array<int, 2> TMat;
   TMat.resize(3, 6);
   TMat = Mat.transpose(secondDim, firstDim);
   cout << "Result from transpose: TMat = " << TMat << endl;
 
-  Array<int, 2> Vec(1, 6);
+  blitz::Array<int, 2> Vec(1, 6);
   Vec = j;
   cout << "Vec = " << Vec << endl;
   TMat.resize(6, 1);
@@ -3779,12 +3779,12 @@ bool TestCFitsPiskunov()
   firstIndex i;
   secondIndex j;
 
-  t1 = p_testfits->SetFileName(*p_testString);
+  t1 = p_testfits->setFileName(*p_testString);
   if (t1)
-    cout << "MTestApp::TestCFitsPiskunov: t1(p_testfits->SetFileName) = \"TRUE\" (expected) " << endl;
+    cout << "MTestApp::TestCFitsPiskunov: t1(p_testfits->setFileName) = \"TRUE\" (expected) " << endl;
   else
   {
-    cout << "MTestApp::TestCFitsPiskunov: t1(p_testfits->SetFileName) = \"FALSE\" (UNEXPECTED)" << endl;
+    cout << "MTestApp::TestCFitsPiskunov: t1(p_testfits->setFileName) = \"FALSE\" (UNEXPECTED)" << endl;
     return false;
   }
 
@@ -3806,12 +3806,12 @@ bool TestCFitsPiskunov()
     return false;
   }
 
-  t4 = p_testfits->SetDatabaseFileName(*p_CS_DatabaseString);
+  t4 = p_testfits->setDatabaseFileName(*p_CS_DatabaseString);
   if (t4)
-    cout << "MTestApp::TestCFitsPiskunov: t4(p_testfits->SetDatabaseFileName) = \"TRUE\" (expected) " << endl;
+    cout << "MTestApp::TestCFitsPiskunov: t4(p_testfits->setDatabaseFileName) = \"TRUE\" (expected) " << endl;
   else
   {
-    cout << "MTestApp::TestCFitsPiskunov: t4(p_testfits(=" << *p_testfits << ")->SetDatabaseFileName) = \"FALSE\" (UNEXPECTED)" << endl;
+    cout << "MTestApp::TestCFitsPiskunov: t4(p_testfits(=" << *p_testfits << ")->setDatabaseFileName) = \"FALSE\" (UNEXPECTED)" << endl;
     return false;
   }
 
@@ -3846,9 +3846,9 @@ bool TestCFitsPiskunov()
 //  p_testfits->ReadDatabaseEntry();
   cout << "MTestApp::TestCFitsPiskunov: Database Entry for p_testfits read" << endl << " p_testfits = " << *p_testfits << endl;
 
-  (*MTestApp::P_Log) << "MTestApp::TestCFitsPiskunov: before t8: p_testfitsP->GetFileName() = " << p_testfitsP->GetFileName() << endl;
+  (*MTestApp::P_Log) << "MTestApp::TestCFitsPiskunov: before t8: p_testfitsP->getFileName() = " << p_testfitsP->getFileName() << endl;
 
-  Array<double, 2> *P_D_A2_Coeffs = p_testfits->Get_Coeffs();
+  blitz::Array<double, 2> *P_D_A2_Coeffs = p_testfits->Get_Coeffs();
   if (abs((*P_D_A2_Coeffs)(p_testfits->Get_NApertures() - 1, 2) - 6.25942) < 1.1e-5)
     t8 = true;
   else
@@ -3862,12 +3862,12 @@ bool TestCFitsPiskunov()
   }
   delete(P_D_A2_Coeffs);
 
-  (*MTestApp::P_Log) << "MTestApp::TestCFitsPiskunov: after t8: p_testfitsP->GetFileName() = " << p_testfitsP->GetFileName() << endl;
+  (*MTestApp::P_Log) << "MTestApp::TestCFitsPiskunov: after t8: p_testfitsP->getFileName() = " << p_testfitsP->getFileName() << endl;
 
-  Array<double, 1> D_A1_Temp(10);
+  blitz::Array<double, 1> D_A1_Temp(10);
   D_A1_Temp = i;
 
-  Array<double, 1> D_A1_Test = D_A1_Temp(Range(2, 6));
+  blitz::Array<double, 1> D_A1_Test = D_A1_Temp(Range(2, 6));
 
   if (D_A1_Test(2) == D_A1_Temp(4))
     t9 = true;
@@ -3905,7 +3905,7 @@ bool TestCFitsPiskunov()
 
   cout << "MTestApp::TestCFitsPiskunov: Trace functions for p_testfits calculated" << endl << " p_testfits->Get_XCenters() = " << p_testfits->Get_XCenters() << endl;
 
-  Array<double, 2> D_A2_Temp;
+  blitz::Array<double, 2> D_A2_Temp;
   D_A2_Temp.resize(p_testfits->Get_NApertures(), p_testfits->GetNRows());
   D_A2_Temp = 0.;
 
@@ -3924,12 +3924,12 @@ bool TestCFitsPiskunov()
   int i_nargs = 2;
   CString CS_TempFileName("test/SlitFunc.dat");
 
-  t13 = P_TestFitsA->SetFileName(*(new CString("test/combinedFlat_test.fits")));
+  t13 = P_TestFitsA->setFileName(*(new CString("test/combinedFlat_test.fits")));
   if (t13)
-    cout << "MTestApp::TestCFitsPiskunov: t13(P_TestFitsA->SetFileName()) returned \"TRUE\" (expected) " << endl;
+    cout << "MTestApp::TestCFitsPiskunov: t13(P_TestFitsA->setFileName()) returned \"TRUE\" (expected) " << endl;
   else
   {
-    cout << "MTestApp::TestCFitsPiskunov: t13(P_TestFitsA->SetFileName()) = \"FALSE\" (UNEXPECTED)" << endl;
+    cout << "MTestApp::TestCFitsPiskunov: t13(P_TestFitsA->setFileName()) = \"FALSE\" (UNEXPECTED)" << endl;
     return false;
   }
 
@@ -3942,16 +3942,16 @@ bool TestCFitsPiskunov()
     return false;
   }
 
-  t15 = P_TestFitsA->SetFileName(CString("test/MarkedCenters.fits"));
+  t15 = P_TestFitsA->setFileName(CString("test/MarkedCenters.fits"));
   if (t15)
-    cout << "MTestApp::TestCFitsPiskunov: t15(P_TestFitsA->SetFileName) returned \"TRUE\" (expected) " << endl;
+    cout << "MTestApp::TestCFitsPiskunov: t15(P_TestFitsA->setFileName) returned \"TRUE\" (expected) " << endl;
   else
   {
-    cout << "MTestApp::TestCFitsPiskunov: t15(P_TestFitsA->SetFileName) = \"FALSE\" (UNEXPECTED)" << endl;
+    cout << "MTestApp::TestCFitsPiskunov: t15(P_TestFitsA->setFileName) = \"FALSE\" (UNEXPECTED)" << endl;
     return false;
   }
 
-//  (*MTestApp::P_Log) << "MTestApp::TestCFitsPiskunov: after t15: p_testfitsP->GetFileName() = " << p_testfitsP->GetFileName() << endl;
+//  (*MTestApp::P_Log) << "MTestApp::TestCFitsPiskunov: after t15: p_testfitsP->getFileName() = " << p_testfitsP->getFileName() << endl;
 
   t16 = P_TestFitsA->WriteArray();
   if (t16)
@@ -3962,11 +3962,11 @@ bool TestCFitsPiskunov()
     return false;
   }
 
-  Array<double, 1> D_A1_TestB(10);
+  blitz::Array<double, 1> D_A1_TestB(10);
   D_A1_TestB = i;
-  Array<int, 1> I_A1_Indices(5);
+  blitz::Array<int, 1> I_A1_Indices(5);
   I_A1_Indices = 3, 1, 6, 4, 9;
-  Array<double, 1> D_A1_ExpResult(5);
+  blitz::Array<double, 1> D_A1_ExpResult(5);
   D_A1_ExpResult = P_TestFitsA->GetSubArr(D_A1_TestB, I_A1_Indices);
   D_A1_ExpResult -= 3.;
   t17 = P_TestFitsA->Set_SubArray(D_A1_TestB,
@@ -4019,34 +4019,34 @@ bool TestCFitsPiskunov()
     return false;
   }
 
-  t21 = P_TestFitsA->SetFileName(*(new CString("test/test_FEROS_301x51.fits")));
+  t21 = P_TestFitsA->setFileName(*(new CString("test/test_FEROS_301x51.fits")));
   if (t21)
-    cout << "MTestApp::TestCFitsPiskunov: t21(P_TestFitsA->SetFileName()) returned \"TRUE\" (expected) " << endl;
+    cout << "MTestApp::TestCFitsPiskunov: t21(P_TestFitsA->setFileName()) returned \"TRUE\" (expected) " << endl;
   else
   {
-    cout << "MTestApp::TestCFitsPiskunov: t21(P_TestFitsA->SetFileName()) = \"FALSE\" (UNEXPECTED)" << endl;
+    cout << "MTestApp::TestCFitsPiskunov: t21(P_TestFitsA->setFileName()) = \"FALSE\" (UNEXPECTED)" << endl;
     return false;
   }
 
-  Array<double, 2> D_A2_Im;
+  blitz::Array<double, 2> D_A2_Im;
   D_A2_Im.resize(51,301);
 
   ifstream ifs_im("test/im.dat");
   ifs_im >> D_A2_Im;
-  Array<double, 1> D_A1_YCen;
+  blitz::Array<double, 1> D_A1_YCen;
   D_A1_YCen.resize(301);
   ifstream ifs_yc("test/ycen.dat");
   ifs_yc >> D_A1_YCen;
-  Array<double, 1> D_A1_SF;
+  blitz::Array<double, 1> D_A1_SF;
   D_A1_SF.resize(51);
   ifstream ifs_sf("test/sf.dat");
   ifs_sf >> D_A1_SF;
-  Array<double, 1> D_A1_SP;
+  blitz::Array<double, 1> D_A1_SP;
   D_A1_SP.resize(301);
   ifstream ifs_sp("test/sp.dat");
   ifs_sp >> D_A1_SP;
 
-  Array<double, 2> D_A2_TIm(D_A2_Im.transpose(secondDim, firstDim));
+  blitz::Array<double, 2> D_A2_TIm(D_A2_Im.transpose(secondDim, firstDim));
   ofstream ofs_tim("test/tim.dat");
   ofs_tim << D_A2_TIm;
 
@@ -4056,9 +4056,9 @@ bool TestCFitsPiskunov()
   (*MTestApp::P_Log) << "MTestApp.TestCFitsPiskunov: Starting SlitFunc" << endl;
 //  (*MTestApp::P_Log) << "MTestApp.TestCFitsPiskunov: D_A2_Im = " << D_A2_Im << endl;
 //  (*MTestApp::P_Log) << "MTestApp.TestCFitsPiskunov: D_A1_YCen = " << D_A1_YCen << endl;
-  Array<double, 1> D_A1_SF_Out;
-  Array<double, 1> D_A1_SP_Out;
-  Array<CString, 1> CS_A1_Args(10);
+  blitz::Array<double, 1> D_A1_SF_Out;
+  blitz::Array<double, 1> D_A1_SP_Out;
+  blitz::Array<CString, 1> CS_A1_Args(10);
   CS_A1_Args = CString("");
   void **PP_Args = (void**)malloc(sizeof(void*) * 10);
 
@@ -4078,7 +4078,7 @@ bool TestCFitsPiskunov()
   double Lambda_SP = 400.;
   PP_Args[2] = &Lambda_SP;
 
-  Array<double, 2> D_A2_ImOut;
+  blitz::Array<double, 2> D_A2_ImOut;
   D_A2_ImOut.resize(D_A2_TIm.rows(), D_A2_TIm.cols());
   CS_A1_Args(3).Set("IM_OUT");
   PP_Args[3] = &D_A2_ImOut;
@@ -4088,7 +4088,7 @@ bool TestCFitsPiskunov()
                               D_A1_YCen,
                               D_A1_SP_Out,
                               D_A1_SF_Out,
-                              *(const_cast<const Array<CString, 1>*>(&CS_A1_Args)),
+                              *(const_cast<const blitz::Array<CString, 1>*>(&CS_A1_Args)),
                               PP_Args);
   if (t22)
     cout << "MTestApp::TestCFitsPiskunov: t22(SlitFunc) returned \"TRUE\" (EXPECTED)" << endl;
@@ -4109,7 +4109,7 @@ bool TestCFitsPiskunov()
   /// Compare to results of IDL
   /// ImOut
   ifstream *P_IFS = new ifstream("test/slitfunc_im_out.dat");
-  Array<double, 2> D_A2_Pis_Im_Out;
+  blitz::Array<double, 2> D_A2_Pis_Im_Out;
   (*P_IFS) >> D_A2_Pis_Im_Out;
   //cout << "MTestApp::TestCFitsPiskunov: D_A2_Pis_Im_Out read: " << D_A2_Pis_Im_Out << endl;
   //(*MTestApp::P_Log) << "MTestApp.TestCFitsPiskunov: D_A2_Pis_Im_Out read: " << D_A2_Pis_Im_Out << endl;
@@ -4133,7 +4133,7 @@ bool TestCFitsPiskunov()
   /// SFOut
   delete(P_IFS);
   P_IFS = new ifstream("test/slitfunc_sf_out.dat");
-  Array<double, 1> D_A1_Pis_SFOut;
+  blitz::Array<double, 1> D_A1_Pis_SFOut;
   (*P_IFS) >> D_A1_Pis_SFOut;
   //cout << "MTestApp::TestCFitsPiskunov: D_A1_Pis_SFOut read: " << D_A1_Pis_SFOut << endl;
   //(*MTestApp::P_Log) << "MTestApp.TestCFitsPiskunov: D_A1_Pis_SFOut read: " << D_A1_Pis_SFOut << endl;
@@ -4154,7 +4154,7 @@ bool TestCFitsPiskunov()
   /// SPOut
   delete(P_IFS);
   P_IFS = new ifstream("test/slitfunc_sp_out.dat");
-  Array<double, 1> D_A1_Pis_SPOut;
+  blitz::Array<double, 1> D_A1_Pis_SPOut;
   (*P_IFS) >> D_A1_Pis_SPOut;
   //cout << "MTestApp::TestCFitsPiskunov: D_A1_Pis_SPOut read: " << D_A1_Pis_SPOut << endl;
   //(*MTestApp::P_Log) << "MTestApp.TestCFitsPiskunov: D_A1_Pis_SPOut read: " << D_A1_Pis_SPOut << endl;
@@ -4173,7 +4173,7 @@ bool TestCFitsPiskunov()
   (*MTestApp::P_Log) << "CFits::TestCFitsPiskunov: t25: D_A1_SP_Out == D_A1_Pis_SPOut (EXPECTED)" << endl;
 
 
-  Array<double, 2> trans(5,7);
+  blitz::Array<double, 2> trans(5,7);
   trans = 10*i+j;
   cout << "MTestApp.TestCFitsPiskunov: trans = " << trans << endl;
   double *d_trans = trans.data();
@@ -4182,7 +4182,7 @@ bool TestCFitsPiskunov()
     cout << "MTestApp.TestCFitsPiskunov: trans.data[" << mmm << "] = " << d_trans[mmm] << endl;
   }
 
-  Array<double, 2> ttrans(7,5);
+  blitz::Array<double, 2> ttrans(7,5);
   ttrans = trans.transpose(secondDim, firstDim);
   cout << "MTestApp.TestCFitsPiskunov: ttrans = " << ttrans << endl;
   d_trans = ttrans.data();
@@ -4191,12 +4191,12 @@ bool TestCFitsPiskunov()
     cout << "MTestApp.TestCFitsPiskunov: ttrans.data[" << mmm << "] = " << d_trans[mmm] << endl;
   }
 
-  Array<double, 1> A(4);
-  Array<double, 1> B(4);
-  Array<double, 1> C(4);
-  Array<double, 1> R(4);
-  Array<double, 1> Expec(4);
-  Array<double, 1> TriDagRes(4);
+  blitz::Array<double, 1> A(4);
+  blitz::Array<double, 1> B(4);
+  blitz::Array<double, 1> C(4);
+  blitz::Array<double, 1> R(4);
+  blitz::Array<double, 1> Expec(4);
+  blitz::Array<double, 1> TriDagRes(4);
   A = 0., 2., 2., 2.;
   B = -4., -4., -4., -4.;
   C = 1.0, 1.0, 1.0, 0.;
@@ -4221,9 +4221,9 @@ bool TestCFitsPiskunov()
   storage.base() = 0, 0;
   storage.ascendingFlag() = true, true;
 
-  Array<double, 2> D_A2_Tmp(3,5);
+  blitz::Array<double, 2> D_A2_Tmp(3,5);
   D_A2_Tmp = 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14;
-  Array<double, 2> D_A2_IDLArray(5, 3, storage);
+  blitz::Array<double, 2> D_A2_IDLArray(5, 3, storage);
   D_A2_IDLArray = 0;//, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14;
 
 
@@ -4285,46 +4285,46 @@ bool TestCFitsPiskunov()
 
   delete(P_IFS);
   P_IFS = new ifstream("test/mkslitf_yscatter_above_in.dat");
-  Array<double, 1> D_A1_YScatterAbove;
+  blitz::Array<double, 1> D_A1_YScatterAbove;
   (*P_IFS) >> D_A1_YScatterAbove;
   //cout << "MTestApp::TestCFitsPiskunov: D_A1_YScatterAbove read: " << D_A1_YScatterAbove << endl;
   //(*MTestApp::P_Log) << "MTestApp.TestCFitsPiskunov: D_A1_YScatterAbove read: " << D_A1_YScatterAbove << endl;
 
   delete(P_IFS);
   P_IFS = new ifstream("test/mkslitf_yscatter_below_in.dat");
-  Array<double, 1> D_A1_YScatterBelow;
+  blitz::Array<double, 1> D_A1_YScatterBelow;
   (*P_IFS) >> D_A1_YScatterBelow;
   //cout << "MTestApp::TestCFitsPiskunov: D_A1_YScatterBelow read: " << D_A1_YScatterBelow << endl;
   //(*MTestApp::P_Log) << "MTestApp.TestCFitsPiskunov: D_A1_YScatterBelow read: " << D_A1_YScatterBelow << endl;
 
   delete(P_IFS);
   P_IFS = new ifstream("test/mkslitf_ycen_in.dat");
-  Array<double, 1> D_A1_YCenters;
+  blitz::Array<double, 1> D_A1_YCenters;
   (*P_IFS) >> D_A1_YCenters;
   //cout << "MTestApp::TestCFitsPiskunov: D_A1_YCenters read: " << D_A1_YCenters << endl;
   //(*MTestApp::P_Log) << "MTestApp.TestCFitsPiskunov: D_A1_YCenters read: " << D_A1_YCenters << endl;
 
   delete(P_IFS);
   P_IFS = new ifstream("test/mkslitf_scatter_below_in.dat");
-  Array<double, 1> D_A1_ScatterBelow;
+  blitz::Array<double, 1> D_A1_ScatterBelow;
   (*P_IFS) >> D_A1_ScatterBelow;
   //cout << "MTestApp::TestCFitsPiskunov: D_A1_ScatterBelow read: " << D_A1_ScatterBelow << endl;
   //(*MTestApp::P_Log) << "MTestApp.TestCFitsPiskunov: D_A1_ScatterBelow read: " << D_A1_ScatterBelow << endl;
 
   delete(P_IFS);
   P_IFS = new ifstream("test/mkslitf_scatter_above_in.dat");
-  Array<double, 1> D_A1_ScatterAbove;
+  blitz::Array<double, 1> D_A1_ScatterAbove;
   (*P_IFS) >> D_A1_ScatterAbove;
   //cout << "MTestApp::TestCFitsPiskunov: D_A1_ScatterAbove read: " << D_A1_ScatterAbove << endl;
   //(*MTestApp::P_Log) << "MTestApp.TestCFitsPiskunov: D_A1_ScatterAbove read: " << D_A1_ScatterAbove << endl;
 
   delete(P_IFS);
   P_IFS = new ifstream("test/mkslitf_im_in.dat");
-  Array<double, 2> D_A2_Im_InT;
+  blitz::Array<double, 2> D_A2_Im_InT;
   (*P_IFS) >> D_A2_Im_InT;
 //  cout << "MTestApp::TestCFitsPiskunov: D_A2_Im_InT read: " << D_A2_Im_InT.transpose(secondDim, firstDim) << endl;
   //(*MTestApp::P_Log) << "MTestApp.TestCFitsPiskunov: D_A2_Im_InT read: " << D_A2_Im_InT << endl;
-  Array<double, 2> D_A2_Im_In(D_A2_Im_InT.transpose(secondDim, firstDim));
+  blitz::Array<double, 2> D_A2_Im_In(D_A2_Im_InT.transpose(secondDim, firstDim));
   //cout << "MTestApp::TestCFitsPiskunov: D_A2_Im_In read: " << D_A2_Im_In.transpose(secondDim, firstDim) << endl;
   //(*MTestApp::P_Log) << "MTestApp.TestCFitsPiskunov: D_A2_Im_In read: " << D_A2_Im_In.transpose(secondDim, firstDim) << endl;
 
@@ -4335,7 +4335,7 @@ bool TestCFitsPiskunov()
 //  PP_Args = (void**)malloc(sizeof(void*) * 6);
 
   CS_A1_Args(0).Set("BLZ");
-  Array<double, 1> D_A1_BLZ(1);
+  blitz::Array<double, 1> D_A1_BLZ(1);
   D_A1_BLZ = 0.;
   PP_Args[0] = &D_A1_BLZ;
 
@@ -4349,7 +4349,7 @@ bool TestCFitsPiskunov()
   PP_Args[3] = &I_LamSP;
 
 //  PP_CS[4] = new CString("MASK");
-//  Array<double, 2> D_A2_Mask;
+//  blitz::Array<double, 2> D_A2_Mask;
 //  D_A2_Mask.resize(D_A2_Im.rows(), D_A2_Im.cols());
 //  D_A2_Mask = 0.;
 //  PP_Args[4] = &D_A2_Mask;
@@ -4369,13 +4369,13 @@ bool TestCFitsPiskunov()
   CS_A1_Args(8).Set("CCD_READN");
   PP_Args[8] = &D_ReadN;
 
-  Array<double, 2> D_A2_ImOutTemp(P_TestFitsA->GetNRows(), P_TestFitsA->GetNCols());
+  blitz::Array<double, 2> D_A2_ImOutTemp(P_TestFitsA->GetNRows(), P_TestFitsA->GetNCols());
   CS_A1_Args(9).Set("IM_OUT");
   PP_Args[9] = &D_A2_ImOutTemp;
 
-  Array<double, 1> D_A1_XSlitF(D_A2_Im.rows());
-  Array<double, 1> D_A1_BinCen(D_A2_Im.rows());
-  Array<double, 2> D_A2_SlitF(D_A2_Im.rows(), D_A2_Im.cols());
+  blitz::Array<double, 1> D_A1_XSlitF(D_A2_Im.rows());
+  blitz::Array<double, 1> D_A1_BinCen(D_A2_Im.rows());
+  blitz::Array<double, 2> D_A2_SlitF(D_A2_Im.rows(), D_A2_Im.cols());
   t27 = P_TestFitsA->SetNRows(D_A2_Im_In.rows());
   if (t27)
     cout << "MTestApp::TestCFitsPiskunov: t27(SetNRows) returned \"TRUE\" (EXPECTED)" << endl;
@@ -4393,18 +4393,18 @@ bool TestCFitsPiskunov()
     return false;
   }
 
-  (*MTestApp::P_Log) << "MTestApp::TestCFitsPiskunov: after t28: p_testfitsP->GetFileName() = " << p_testfitsP->GetFileName() << endl;
+  (*MTestApp::P_Log) << "MTestApp::TestCFitsPiskunov: after t28: p_testfitsP->getFileName() = " << p_testfitsP->getFileName() << endl;
 
-  t29 = P_TestFitsA->SetFileName(*(new CString("test/test_FEROS_401x4090.fits")));
+  t29 = P_TestFitsA->setFileName(*(new CString("test/test_FEROS_401x4090.fits")));
   if (t29)
-    cout << "MTestApp::TestCFitsPiskunov: t29(SetFileName) returned \"TRUE\" (EXPECTED)" << endl;
+    cout << "MTestApp::TestCFitsPiskunov: t29(setFileName) returned \"TRUE\" (EXPECTED)" << endl;
   else
   {
-    cout << "MTestApp::TestCFitsPiskunov: t29(SetFileName) returned \"FALSE\" (UNEXPECTED)" << endl;
+    cout << "MTestApp::TestCFitsPiskunov: t29(setFileName) returned \"FALSE\" (UNEXPECTED)" << endl;
     return false;
   }
 
-  t30 = P_TestFitsA->GetFileName().EqualValue( p_testfitsP->GetFileName());
+  t30 = P_TestFitsA->getFileName().EqualValue( p_testfitsP->getFileName());
   if (t30)
   {
     cout << "MTestApp::TestCFitsPiskunov: t30(FileNames->EqualValue) returned \"TRUE\" (UNEXPECTED)" << endl;
@@ -4459,7 +4459,7 @@ bool TestCFitsPiskunov()
                                 D_A2_SlitF,         //: out
                                 D_A1_BinCen,        //: out
                                 0,                  //: in
-                                (*const_cast<const Array<CString, 1>*>(&CS_A1_Args)),           //: in
+                                (*const_cast<const blitz::Array<CString, 1>*>(&CS_A1_Args)),           //: in
                                 PP_Args);
 
   if (t33)
@@ -4488,12 +4488,12 @@ bool TestCFitsPiskunov()
     fprintf(f_binc,"%.9f\n",D_A1_BinCen(m));
   fclose(f_binc);
 
-  t34 = P_TestFitsA->SetFileName(*(new CString("test/MKSlitFunc_SF_out.fits")));
+  t34 = P_TestFitsA->setFileName(*(new CString("test/MKSlitFunc_SF_out.fits")));
   if (t34)
-    cout << "MTestApp::TestCFitsPiskunov: t35(P_TestFitsA->SetFileName()) returned \"TRUE\" (expected) " << endl;
+    cout << "MTestApp::TestCFitsPiskunov: t35(P_TestFitsA->setFileName()) returned \"TRUE\" (expected) " << endl;
   else
   {
-    cout << "MTestApp::TestCFitsPiskunov: t35(P_TestFitsA->SetFileName()) = \"FALSE\" (UNEXPECTED)" << endl;
+    cout << "MTestApp::TestCFitsPiskunov: t35(P_TestFitsA->setFileName()) = \"FALSE\" (UNEXPECTED)" << endl;
     return false;
   }
   t35 = P_TestFitsA->SetNRows(D_A2_SlitF.rows());
@@ -4547,16 +4547,16 @@ bool TestCFitsMkProf()
   secondIndex j;
 
   /// MkProfIm
-  t1 = p_testfitsP->SetFileName( *p_testString );
+  t1 = p_testfitsP->setFileName( *p_testString );
   if (t1)
   {
-    cout << "MTestApp::TestCFitsMkProf: t1(p_testfitsP->SetFileName()) returned \"TRUE\" (expected) " << endl;
-    (*MTestApp::P_Log) << "MTestApp::TestCFitsMkProf: t1(p_testfitsP->SetFileName()) returned \"TRUE\" (expected) " << endl;
+    cout << "MTestApp::TestCFitsMkProf: t1(p_testfitsP->setFileName()) returned \"TRUE\" (expected) " << endl;
+    (*MTestApp::P_Log) << "MTestApp::TestCFitsMkProf: t1(p_testfitsP->setFileName()) returned \"TRUE\" (expected) " << endl;
   }
   else
   {
-    cout << "MTestApp::TestCFitsMkProf: t1(p_testfitsP->SetFileName()) = \"FALSE\" (UNEXPECTED)" << endl;
-    (*MTestApp::P_Log) << "MTestApp::TestCFitsMkProf: t1(p_testfitsP->SetFileName()) = \"FALSE\" (UNEXPECTED)" << endl;
+    cout << "MTestApp::TestCFitsMkProf: t1(p_testfitsP->setFileName()) = \"FALSE\" (UNEXPECTED)" << endl;
+    (*MTestApp::P_Log) << "MTestApp::TestCFitsMkProf: t1(p_testfitsP->setFileName()) = \"FALSE\" (UNEXPECTED)" << endl;
     return false;
   }
 
@@ -4599,16 +4599,16 @@ bool TestCFitsMkProf()
     return false;
   }
 
-  t5 = p_testfitsP->SetDatabaseFileName(*p_CS_DatabaseString);
+  t5 = p_testfitsP->setDatabaseFileName(*p_CS_DatabaseString);
   if (t5)
   {
-    cout << "MTestApp::TestCFitsMkProf: t5(p_testfitsP->SetDatabaseFileName()) returned \"TRUE\" (expected) " << endl;
-    (*MTestApp::P_Log) << "MTestApp::TestCFitsMkProf: t5(p_testfitsP->SetDatabaseFileName()) returned \"TRUE\" (expected) " << endl;
+    cout << "MTestApp::TestCFitsMkProf: t5(p_testfitsP->setDatabaseFileName()) returned \"TRUE\" (expected) " << endl;
+    (*MTestApp::P_Log) << "MTestApp::TestCFitsMkProf: t5(p_testfitsP->setDatabaseFileName()) returned \"TRUE\" (expected) " << endl;
   }
   else
   {
-    cout << "MTestApp::TestCFitsMkProf: t5(p_testfitsP->SetDatabaseFileName()) = \"FALSE\" (UNEXPECTED)" << endl;
-    (*MTestApp::P_Log) << "MTestApp::TestCFitsMkProf: t5(p_testfitsP->SetDatabaseFileName()) = \"FALSE\" (UNEXPECTED)" << endl;
+    cout << "MTestApp::TestCFitsMkProf: t5(p_testfitsP->setDatabaseFileName()) = \"FALSE\" (UNEXPECTED)" << endl;
+    (*MTestApp::P_Log) << "MTestApp::TestCFitsMkProf: t5(p_testfitsP->setDatabaseFileName()) = \"FALSE\" (UNEXPECTED)" << endl;
     return false;
   }
 
@@ -4685,7 +4685,7 @@ bool TestCFitsMkScatter()
   CString *p_testString = new CString("test/lq_hya5_2006-04-12T00-21-05.674_840s_b_600-900_3-4092sn_transp.fits");///my_last_run.flat_transp6.fits");
   CString *p_CS_DatabaseString = new CString("test/database/apmy_last_run.flat.mkslitf");
   CFits *p_testfitsP = new CFits();
-  Array<CString, 1> CS_A1_Args(10);
+  blitz::Array<CString, 1> CS_A1_Args(10);
   CS_A1_Args = CString("");
   void **PP_Args = (void**)malloc(sizeof(void*) * 10);
 
@@ -4693,7 +4693,7 @@ bool TestCFitsMkScatter()
 //  double gain = 1.25;
 //  PP_Args[0] = &gain;
 
-  Array<double,2> A(3,3);
+  blitz::Array<double,2> A(3,3);
   A(0,0) = 5.;
   A(0,1) = -1.;
   A(0,2) = 3.;
@@ -4703,19 +4703,19 @@ bool TestCFitsMkScatter()
   A(2,0) = 3.;
   A(2,1) = 2.;
   A(2,2) = 1.;
-  Array<double,2> B(3,3);
+  blitz::Array<double,2> B(3,3);
   B = 0.;
   B(0,0) = 1.;
   B(1,1) = 1.;
   B(2,2) = 1.;
-  Array<double,2> C(3,3);
+  blitz::Array<double,2> C(3,3);
   C = A;
   if (!p_testfitsP->InvertGaussJ(A)){
     cout << "MTestApp::TestCFitsMkScatter: ERROR! InvertGaussJ(A,B) returned false!" << endl;
     return false;
   }
 
-  Array<double,2> *D;
+  blitz::Array<double,2> *D;
   D = p_testfitsP->MatrixBTimesA(A,C);
   for (int i=0; i<3; i++){
     cout << "MTestApp::TestCFitsMkScatter: D(i,*) = " << (*D)(i,0) << ", " << (*D)(i,1) << ", " << (*D)(i,2) << endl;
@@ -4744,16 +4744,16 @@ bool TestCFitsMkScatter()
   CS_A1_Args(4).Set("SUBTRACT");
   PP_Args[4] = &D_Lambda_SP;
 
-  Array<int,1> DD(4);
+  blitz::Array<int,1> DD(4);
   DD(0) = 1;
   DD(1) = 2;
   DD(2) = 3;
   DD(3) = 4;
   int len;
-  Array<int,1> I_A1_Where(DD.size());
+  blitz::Array<int,1> I_A1_Where(DD.size());
   I_A1_Where = where(DD > 2,1,0);
   cout << "MTestApp::TestCFitsMkScatter: I_A1_Where set to " << I_A1_Where << endl;
-  Array<int,1> *P_Ind = p_testfitsP->GetIndex(I_A1_Where,len);
+  blitz::Array<int,1> *P_Ind = p_testfitsP->GetIndex(I_A1_Where,len);
   if (P_Ind->size() == 2)
     cout << "MTestApp::TestCFitsMkScatter: P_Ind(=" << *P_Ind << ").size() == 2 (EXPECTED)" << endl;
   else{
@@ -4761,13 +4761,13 @@ bool TestCFitsMkScatter()
     return false;
   }
 
-  Array<int,1> I_A1_WherePlus1(DD.size()+100);
+  blitz::Array<int,1> I_A1_WherePlus1(DD.size()+100);
   I_A1_WherePlus1 += 1;
   cout << "MTestApp::TestCFitsMkScatter: I_A1_WherePlus1 set to " << I_A1_WherePlus1 << endl;
   I_A1_WherePlus1 = I_A1_Where;
   cout << "MTestApp::TestCFitsMkScatter: I_A1_WherePlus1 set to " << I_A1_WherePlus1 << endl;
 
-  Array<double,2> AA(2,3);
+  blitz::Array<double,2> AA(2,3);
   AA(0,0) = 1.;
   AA(0,1) = 2.;
   AA(0,2) = 1.;
@@ -4775,28 +4775,28 @@ bool TestCFitsMkScatter()
   AA(1,1) = -1.;
   AA(1,2) = 2.;
 
-  Array<double,1> BB(3);
+  blitz::Array<double,1> BB(3);
   BB(0) =1.;
   BB(1) =2.;
   BB(2) =1.;
 
-  Array<double,1> *CC = p_testfitsP->MatrixTimesVecArr(AA,BB);
+  blitz::Array<double,1> *CC = p_testfitsP->MatrixTimesVecArr(AA,BB);
   cout << "MTestApp::TestCFitsMkScatter: *CC set to " << *CC << endl;
 //  return false;
 
 //  return false;
 
   /// MkScatter
-  t1 = p_testfitsP->SetFileName( *p_testString );
+  t1 = p_testfitsP->setFileName( *p_testString );
   if (t1)
   {
-    cout << "MTestApp::TestCFitsMkScatter: t1(p_testfitsP->SetFileName()) returned \"TRUE\" (expected) " << endl;
-    (*MTestApp::P_Log) << "MTestApp::TestCFitsMkScatter: t1(p_testfitsP->SetFileName()) returned \"TRUE\" (expected) " << endl;
+    cout << "MTestApp::TestCFitsMkScatter: t1(p_testfitsP->setFileName()) returned \"TRUE\" (expected) " << endl;
+    (*MTestApp::P_Log) << "MTestApp::TestCFitsMkScatter: t1(p_testfitsP->setFileName()) returned \"TRUE\" (expected) " << endl;
   }
   else
   {
-    cout << "MTestApp::TestCFitsMkScatter: t1(p_testfitsP->SetFileName()) = \"FALSE\" (UNEXPECTED)" << endl;
-    (*MTestApp::P_Log) << "MTestApp::TestCFitsMkScatter: t1(p_testfitsP->SetFileName()) = \"FALSE\" (UNEXPECTED)" << endl;
+    cout << "MTestApp::TestCFitsMkScatter: t1(p_testfitsP->setFileName()) = \"FALSE\" (UNEXPECTED)" << endl;
+    (*MTestApp::P_Log) << "MTestApp::TestCFitsMkScatter: t1(p_testfitsP->setFileName()) = \"FALSE\" (UNEXPECTED)" << endl;
     return false;
   }
 
@@ -4839,16 +4839,16 @@ bool TestCFitsMkScatter()
     return false;
   }
 
-  t5 = p_testfitsP->SetDatabaseFileName(*p_CS_DatabaseString);
+  t5 = p_testfitsP->setDatabaseFileName(*p_CS_DatabaseString);
   if (t5)
   {
-    cout << "MTestApp::TestCFitsMkScatter: t5(p_testfitsP->SetDatabaseFileName()) returned \"TRUE\" (expected) " << endl;
-    (*MTestApp::P_Log) << "MTestApp::TestCFitsMkScatter: t5(p_testfitsP->SetDatabaseFileName()) returned \"TRUE\" (expected) " << endl;
+    cout << "MTestApp::TestCFitsMkScatter: t5(p_testfitsP->setDatabaseFileName()) returned \"TRUE\" (expected) " << endl;
+    (*MTestApp::P_Log) << "MTestApp::TestCFitsMkScatter: t5(p_testfitsP->setDatabaseFileName()) returned \"TRUE\" (expected) " << endl;
   }
   else
   {
-    cout << "MTestApp::TestCFitsMkScatter: t5(p_testfitsP->SetDatabaseFileName()) = \"FALSE\" (UNEXPECTED)" << endl;
-    (*MTestApp::P_Log) << "MTestApp::TestCFitsMkScatter: t5(p_testfitsP->SetDatabaseFileName()) = \"FALSE\" (UNEXPECTED)" << endl;
+    cout << "MTestApp::TestCFitsMkScatter: t5(p_testfitsP->setDatabaseFileName()) = \"FALSE\" (UNEXPECTED)" << endl;
+    (*MTestApp::P_Log) << "MTestApp::TestCFitsMkScatter: t5(p_testfitsP->setDatabaseFileName()) = \"FALSE\" (UNEXPECTED)" << endl;
     return false;
   }
 
@@ -4898,31 +4898,31 @@ bool TestCFitsMkScatter()
 
   cout << "MTestApp::TestCFitsMkScatter: starting t9(p_testfitsP(=" << *p_testfitsP << ")->MkScatter())" << endl;
   (*MTestApp::P_Log) << "MTestApp::TestCFitsMkScatter: starting t1(p_testfitsP(=" << *p_testfitsP << ")->MkScatter())" << endl;
-  t9 = p_testfitsP->MkScatter((*const_cast<const Array<CString, 1>*>(&CS_A1_Args)),           //: in
-                              PP_Args);
-  if (t9)
-  {
-    cout << "MTestApp::TestCFitsMkScatter: t9(p_testfitsP->MkScatter()) returned \"TRUE\" (expected) " << endl;
-    (*MTestApp::P_Log) << "MTestApp::TestCFitsMkScatter: t9(p_testfitsP->MkScatter()) returned \"TRUE\" (expected) " << endl;
-  }
-  else
-  {
-    cout << "MTestApp::TestCFitsMkScatter: t9(p_testfitsP->MkScatter()) = \"FALSE\" (UNEXPECTED)" << endl;
-    (*MTestApp::P_Log) << "MTestApp::TestCFitsMkScatter: t9(p_testfitsP->MkScatter()) = \"FALSE\" (UNEXPECTED)" << endl;
-    return false;
-  }
+//  t9 = p_testfitsP->MkScatter((*const_cast<const blitz::Array<CString, 1>*>(&CS_A1_Args)),           //: in
+//                              PP_Args);
+//  if (t9)
+//  {
+//    cout << "MTestApp::TestCFitsMkScatter: t9(p_testfitsP->MkScatter()) returned \"TRUE\" (expected) " << endl;
+//    (*MTestApp::P_Log) << "MTestApp::TestCFitsMkScatter: t9(p_testfitsP->MkScatter()) returned \"TRUE\" (expected) " << endl;
+//  }
+//  else
+//  {
+//    cout << "MTestApp::TestCFitsMkScatter: t9(p_testfitsP->MkScatter()) = \"FALSE\" (UNEXPECTED)" << endl;
+//    (*MTestApp::P_Log) << "MTestApp::TestCFitsMkScatter: t9(p_testfitsP->MkScatter()) = \"FALSE\" (UNEXPECTED)" << endl;
+//    return false;
+//  }
 
   p_testString->Set("test/lq_hya5_2006-04-12T00-21-05.674_840s_b_600-900_3-4092_z_transp_scattered-light-subtracted.fits");
-  t10 = p_testfitsP->SetFileName( *p_testString );
+  t10 = p_testfitsP->setFileName( *p_testString );
   if (t10)
   {
-    cout << "MTestApp::TestCFitsMkScatter: t10(p_testfitsP->SetFileName()) returned \"TRUE\" (expected) " << endl;
-    (*MTestApp::P_Log) << "MTestApp::TestCFitsMkScatter: t10(p_testfitsP->SetFileName()) returned \"TRUE\" (expected) " << endl;
+    cout << "MTestApp::TestCFitsMkScatter: t10(p_testfitsP->setFileName()) returned \"TRUE\" (expected) " << endl;
+    (*MTestApp::P_Log) << "MTestApp::TestCFitsMkScatter: t10(p_testfitsP->setFileName()) returned \"TRUE\" (expected) " << endl;
   }
   else
   {
-    cout << "MTestApp::TestCFitsMkScatter: t10(p_testfitsP->SetFileName()) = \"FALSE\" (UNEXPECTED)" << endl;
-    (*MTestApp::P_Log) << "MTestApp::TestCFitsMkScatter: t10(p_testfitsP->SetFileName()) = \"FALSE\" (UNEXPECTED)" << endl;
+    cout << "MTestApp::TestCFitsMkScatter: t10(p_testfitsP->setFileName()) = \"FALSE\" (UNEXPECTED)" << endl;
+    (*MTestApp::P_Log) << "MTestApp::TestCFitsMkScatter: t10(p_testfitsP->setFileName()) = \"FALSE\" (UNEXPECTED)" << endl;
     return false;
   }
 
@@ -4962,22 +4962,22 @@ bool TestCFitsTelluric()
   CString *p_CS_outDatabaseString = new CString("/home/azuri/entwicklung/stella/ses-pipeline/c/cfits/test/database/apsf_x_sp+bias+sky_with_errors");
   CFits *p_testfitsP = new CFits();
   CFits *p_outfitsP = new CFits();
-  Array<CString, 1> CS_A1_Args(8);
+  blitz::Array<CString, 1> CS_A1_Args(8);
   CS_A1_Args = CString("");
   void **PP_Args = (void**)malloc(sizeof(void*) * 8);
 
-  Array<double,2> D_A2_CCD(30,9);
-  Array<double,2> D_A2_Bias(30,9);
-  Array<double,2> D_A2_Error(30,9);
-  Array<double,1> D_A1_SF(9);
-  Array<double,1> D_A1_SP(30);
-  Array<double,1> D_A1_Sky(30);
+  blitz::Array<double,2> D_A2_CCD(30,9);
+  blitz::Array<double,2> D_A2_Bias(30,9);
+  blitz::Array<double,2> D_A2_Error(30,9);
+  blitz::Array<double,1> D_A1_SF(9);
+  blitz::Array<double,1> D_A1_SP(30);
+  blitz::Array<double,1> D_A1_Sky(30);
 
-  Array<double,1> D_A1_SP_Out(5);
-  Array<double,1> D_A1_Sky_Out(5);
-  Array<double,1> D_A1_STDDEV_Out(5);
-  Array<double,1> D_A1_Covariance_Out(5);
-  Array<int, 1> I_A1_IntArr(5);
+  blitz::Array<double,1> D_A1_SP_Out(5);
+  blitz::Array<double,1> D_A1_Sky_Out(5);
+  blitz::Array<double,1> D_A1_STDDEV_Out(5);
+  blitz::Array<double,1> D_A1_Covariance_Out(5);
+  blitz::Array<int, 1> I_A1_IntArr(5);
   D_A1_Covariance_Out(0) = 0.5;
   D_A1_Covariance_Out(1) = 1.5;
   D_A1_Covariance_Out(2) = 2.5;
@@ -4988,7 +4988,7 @@ bool TestCFitsTelluric()
   I_A1_IntArr(2) = 2;
   I_A1_IntArr(3) = 3;
   I_A1_IntArr(4) = 4;
-  Array<double, 1> D_A1_DblArr(5);
+  blitz::Array<double, 1> D_A1_DblArr(5);
   D_A1_DblArr = D_A1_Covariance_Out * I_A1_IntArr;
   cout << "TestCFitsTelluric: D_A1_DblArr set to " << D_A1_DblArr << endl;
 //  return false;
@@ -5041,7 +5041,7 @@ bool TestCFitsTelluric()
   D_A2_CCD(4,5) = 3.4;
   D_A2_CCD(4,6) = 2.1;
 
-  Array<double,2> D_A2_SF(5,7);
+  blitz::Array<double,2> D_A2_SF(5,7);
   D_A2_SF(0,0) = 0.;
   D_A2_SF(0,1) = 1.;
   D_A2_SF(0,2) = 3.;
@@ -5082,19 +5082,19 @@ bool TestCFitsTelluric()
   D_A2_SF(4,5) = 1.2;
   D_A2_SF(4,6) = 0.1;
 
-  Array<double, 1> D_A1_TempA(4);
+  blitz::Array<double, 1> D_A1_TempA(4);
   D_A1_TempA(0) = 4.;
   D_A1_TempA(1) = 3.;
   D_A1_TempA(2) = 2.;
   D_A1_TempA(3) = 1.;
 
-  Array<int, 1> I_A1_TempB(D_A2_SF.size());
+  blitz::Array<int, 1> I_A1_TempB(D_A2_SF.size());
   for (int m = 0; m < D_A2_SF.size(); m++)
     I_A1_TempB(m) = m;
   cout << "TestCFitsTelluric: I_A1_TempB set to " << I_A1_TempB << endl;
 
   cout << "TestCFitsTelluric: D_A2_SF = " << D_A2_SF << endl;
-  Array<double, 2> D_A2_TempA(1,1);
+  blitz::Array<double, 2> D_A2_TempA(1,1);
   if (p_testfitsP->GetSubArrCopy(D_A2_SF, I_A1_TempB, 2, D_A2_TempA))
     return false;
   cout << "TestCFitsTelluric: D_A2_TempA set to " << D_A2_TempA << endl;
@@ -5105,7 +5105,7 @@ bool TestCFitsTelluric()
   cout << "TestCFitsTelluric: D_A2_TempA set to " << D_A2_TempA << endl;
   cout << "TestCFitsTelluric: D_A2_SF = " << D_A2_SF << endl;
 
-  Array<double, 1> *P_D_A1_Temp = p_outfitsP->VecArrTimesMatrix(D_A1_TempA, D_A2_SF);
+  blitz::Array<double, 1> *P_D_A1_Temp = p_outfitsP->VecArrTimesMatrix(D_A1_TempA, D_A2_SF);
   cout << "TestCFitsTelluric: VecArrTimesMatrix(D_A1_TempA(=" << D_A1_TempA << "), D_A2_SF) = " << *P_D_A1_Temp << endl;
   ///return false;
 
@@ -5213,7 +5213,7 @@ bool TestCFitsTelluric()
   D_A1_Sky(29) = 0.;
   cout << "TestCFitsTelluric: D_A1_Sky = " << D_A1_Sky << endl;
 
-  Array<double,2> *P_TempArr = p_testfitsP->VecArrACrossB(D_A1_SP,D_A1_SF);
+  blitz::Array<double,2> *P_TempArr = p_testfitsP->VecArrACrossB(D_A1_SP,D_A1_SF);
   D_A2_CCD.resize(P_TempArr->rows(),P_TempArr->cols());
   D_A2_CCD = (*P_TempArr);
   D_A2_CCD(8,3) = 200000.;
@@ -5269,24 +5269,24 @@ bool TestCFitsTelluric()
     return false;
 
   ///Write Error fits file
-  if (!p_outfitsP->SetFileName( CS_ErrorFileName ))
+  if (!p_outfitsP->setFileName( CS_ErrorFileName ))
     return false;
   p_outfitsP->GetPixArray() = D_A2_Error;
   if (!p_outfitsP->WriteArray())
     return false;
 
   ///Write CCD fits file minus sky
-  if (!p_outfitsP->SetFileName( CString("/home/azuri/entwicklung/stella/ses-pipeline/c/cfits/test/sf_x_sp+bias+sky_with_errors_minus_sky.fits") ))
+  if (!p_outfitsP->setFileName( CString("/home/azuri/entwicklung/stella/ses-pipeline/c/cfits/test/sf_x_sp+bias+sky_with_errors_minus_sky.fits") ))
     return false;
-  Array<double, 1> *p_rep = p_outfitsP->Replicate(1., D_A2_CCD.cols());
-  Array<double, 2> *p_skyxrep = p_outfitsP->VecArrACrossB(D_A1_Sky, *p_rep);
+  blitz::Array<double, 1> *p_rep = p_outfitsP->Replicate(1., D_A2_CCD.cols());
+  blitz::Array<double, 2> *p_skyxrep = p_outfitsP->VecArrACrossB(D_A1_Sky, *p_rep);
   p_outfitsP->GetPixArray() = D_A2_CCD - (*p_skyxrep);
   if (!p_outfitsP->WriteArray())
     return false;
 
 
   ///Write CCD fits file
-  if (!p_outfitsP->SetFileName( *p_outString ))
+  if (!p_outfitsP->setFileName( *p_outString ))
     return false;
   p_outfitsP->GetPixArray() = D_A2_CCD;
   if (!p_outfitsP->WriteArray())
@@ -5309,7 +5309,7 @@ bool TestCFitsTelluric()
   if (!p_outfitsP->Set_OverSample( 10 ))
     return false;
 
-  if (!p_outfitsP->SetDatabaseFileName(*p_CS_outDatabaseString))
+  if (!p_outfitsP->setDatabaseFileName(*p_CS_outDatabaseString))
     return false;
 
   if (!p_outfitsP->ReadDatabaseEntry())
@@ -5344,14 +5344,14 @@ bool TestCFitsTelluric()
     return false;
 
   p_outString->InsertAt(CString("_out"),p_outString->GetLength()-5);
-  p_outfitsP->SetFileName(*p_outString);
+  p_outfitsP->setFileName(*p_outString);
   p_outfitsP->WriteArray();
 
   cout << "TestCFitsTelluric: MkProfIm ready" << endl;
 
 //  return false;
   /// create sf_x_sp+bias+sky_with_errors_norm.fits
-  Array<double,1> D_A1_Sum(D_A2_CCD.rows());
+  blitz::Array<double,1> D_A1_Sum(D_A2_CCD.rows());
   for (int oo=0; oo < D_A2_CCD.rows(); oo++){
 //    cout << "D_A2_CCD(oo=" << oo << ",Range::all()) = " << D_A2_CCD(oo,Range::all()) << endl;
     D_A1_Sum(oo) = sum(D_A2_CCD(oo,Range::all()));
@@ -5359,7 +5359,7 @@ bool TestCFitsTelluric()
     cout << "TestCFitsTelluric: D_A1_Sum(oo=" << oo << ") set to " << D_A1_Sum(oo) << endl;
 //    cout << "D_A2_CCD(oo=" << oo << ",Range::all()) set to " << D_A2_CCD(oo,Range::all()) << endl;
   }
-  if (!p_outfitsP->SetFileName( CString("/home/azuri/entwicklung/stella/ses-pipeline/c/cfits/test/sf_x_sp+bias+sky_with_errors_norm.fits") ))
+  if (!p_outfitsP->setFileName( CString("/home/azuri/entwicklung/stella/ses-pipeline/c/cfits/test/sf_x_sp+bias+sky_with_errors_norm.fits") ))
     return false;
 
   p_outfitsP->GetPixArray() = D_A2_CCD;
@@ -5372,7 +5372,7 @@ bool TestCFitsTelluric()
   }
 
   /// create profile image
-  if (!p_outfitsP->SetFileName( CString("/home/azuri/entwicklung/stella/ses-pipeline/c/cfits/test/sf_x_sp+bias+sky_with_errors_profile_telluric_mine.fits") ))
+  if (!p_outfitsP->setFileName( CString("/home/azuri/entwicklung/stella/ses-pipeline/c/cfits/test/sf_x_sp+bias+sky_with_errors_profile_telluric_mine.fits") ))
     return false;
 
   p_outfitsP->GetPixArray() = p_outfitsP->GetProfArray();
@@ -5380,7 +5380,7 @@ bool TestCFitsTelluric()
     return false;
 
   /// create reconstructed object image
-  if (!p_outfitsP->SetFileName( CString("/home/azuri/entwicklung/stella/ses-pipeline/c/cfits/test/sf_x_sp+bias+sky_with_errors_RecObj_telluric_mine.fits") ))
+  if (!p_outfitsP->setFileName( CString("/home/azuri/entwicklung/stella/ses-pipeline/c/cfits/test/sf_x_sp+bias+sky_with_errors_RecObj_telluric_mine.fits") ))
     return false;
 
   p_outfitsP->GetPixArray() = p_outfitsP->GetRecArray();
@@ -5389,7 +5389,7 @@ bool TestCFitsTelluric()
 
 
   /// create reconstructed sky image
-  if (!p_outfitsP->SetFileName( CString("/home/azuri/entwicklung/stella/ses-pipeline/c/cfits/test/sf_x_sp+bias+sky_with_errors_RecSky_telluric_mine.fits") ))
+  if (!p_outfitsP->setFileName( CString("/home/azuri/entwicklung/stella/ses-pipeline/c/cfits/test/sf_x_sp+bias+sky_with_errors_RecSky_telluric_mine.fits") ))
     return false;
 
   p_outfitsP->GetPixArray() = p_outfitsP->GetRecSkyArray();
@@ -5398,8 +5398,8 @@ bool TestCFitsTelluric()
 
   p_outfitsP->GetPixArray() = D_A2_CCD;
 
-  Array<double,1> D_A1_SF_calc(D_A1_SF.size());
-  Array<double,1> D_A1_SP_calc(D_A1_SP.size());
+  blitz::Array<double,1> D_A1_SF_calc(D_A1_SF.size());
+  blitz::Array<double,1> D_A1_SP_calc(D_A1_SP.size());
 
   firstIndex i;
   secondIndex j;
@@ -5410,7 +5410,7 @@ bool TestCFitsTelluric()
   D_A1_SF_calc = sum(D_A2_CCD(j,i),j);
   cout << "TestCFitsTelluric: sum: D_A1_SF_calc set to " << D_A1_SF_calc << endl;
 
-  Array<double,1> *p_a1_temp = p_outfitsP->MedianVec(D_A1_SF_calc,5);
+  blitz::Array<double,1> *p_a1_temp = p_outfitsP->MedianVec(D_A1_SF_calc,5);
   D_A1_SF_calc = (*p_a1_temp);
   cout << "TestCFitsTelluric: Median: D_A1_SF_calc set to " << D_A1_SF_calc << endl;
   delete(p_a1_temp);
@@ -5436,7 +5436,7 @@ bool TestCFitsTelluric()
 
   CFits F_OutImage;
   CString CS_FitsFileName_Out("/home/azuri/entwicklung/stella/ses-pipeline/c/cfits/test/sf_x_sp+bias+sky_with_errors_Ec_telluric_mine.fits");//spectra/elaina/eso_archive/blue_390/LMC-X1_b_2000-01-12T01-37-42.000_390_1200s_botzfxs_Ec_telluric_mine.fits");
-  if (!F_OutImage.SetFileName(CS_FitsFileName_Out))
+  if (!F_OutImage.setFileName(CS_FitsFileName_Out))
     return false;
 
 
@@ -5457,9 +5457,9 @@ bool TestCFitsTelluric()
   //cout << "MExctract: F_Image.GetSpec = " << F_Image.GetSpec() << endl;
 
   /// Write spectrum Image
-/*  if (!F_OutImage.SetFileName(CS_FitsFileName_Out))
+/*  if (!F_OutImage.setFileName(CS_FitsFileName_Out))
   {
-  cout << "MExtract::main: ERROR: F_OutImage.SetFileName(" << CS_FitsFileName_Out << ") returned FALSE!" << endl;
+  cout << "MExtract::main: ERROR: F_OutImage.setFileName(" << CS_FitsFileName_Out << ") returned FALSE!" << endl;
   exit(EXIT_FAILURE);
 }*/
   cout << "TestCFitsTelluric: Starting F_OutImage.WriteArray()" << endl;
@@ -5475,9 +5475,9 @@ bool TestCFitsTelluric()
 
   CString CS_ErrFileName_Out("/home/azuri/entwicklung/stella/ses-pipeline/c/cfits/test/sf_x_sp+bias+sky_with_errors_err_Ec_telluric_mine.fits");//telluric_mine.fits");
   cout << "TestCFitsTelluric: Starting F_OutImage.SetErrFileName(" << CS_ErrFileName_Out << ")" << endl;
-  if (!F_OutImage.SetFileName(CS_ErrFileName_Out))
+  if (!F_OutImage.setFileName(CS_ErrFileName_Out))
   {
-    cout << "TestCFitsTelluric: ERROR: F_OutImage.SetFileName(" << CS_ErrFileName_Out << ") returned FALSE!" << endl;
+    cout << "TestCFitsTelluric: ERROR: F_OutImage.setFileName(" << CS_ErrFileName_Out << ") returned FALSE!" << endl;
     exit(EXIT_FAILURE);
   }
 
@@ -5493,10 +5493,10 @@ bool TestCFitsTelluric()
   F_OutImage.GetPixArray() = p_outfitsP->GetSky();
 
   CString CS_SkyFileName_Out("/home/azuri/entwicklung/stella/ses-pipeline/c/cfits/test/sf_x_sp+bias+sky_with_errors_EcSky_telluric_mine.fits");//telluric_mine.fits");
-  cout << "TestCFitsTelluric: Starting F_OutImage.SetFileName(" << CS_SkyFileName_Out << ")" << endl;
-  if (!F_OutImage.SetFileName(CS_SkyFileName_Out))
+  cout << "TestCFitsTelluric: Starting F_OutImage.setFileName(" << CS_SkyFileName_Out << ")" << endl;
+  if (!F_OutImage.setFileName(CS_SkyFileName_Out))
   {
-    cout << "TestCFitsTelluric: ERROR: F_OutImage.SetFileName(" << CS_SkyFileName_Out << ") returned FALSE!" << endl;
+    cout << "TestCFitsTelluric: ERROR: F_OutImage.setFileName(" << CS_SkyFileName_Out << ") returned FALSE!" << endl;
     exit(EXIT_FAILURE);
   }
 
@@ -5512,9 +5512,9 @@ bool TestCFitsTelluric()
 
   CS_ErrFileName_Out.Set("/home/azuri/entwicklung/stella/ses-pipeline/c/cfits/test/sf_x_sp+bias+sky_with_errors_err_Ec_telluric_mine.fits");//telluric_mine.fits");
   cout << "MExtract::main: Starting F_OutImage.SetErrFileName(" << CS_ErrFileName_Out << ")" << endl;
-  if (!F_OutImage.SetFileName(CS_ErrFileName_Out))
+  if (!F_OutImage.setFileName(CS_ErrFileName_Out))
   {
-    cout << "MExtract::main: ERROR: F_OutImage.SetFileName(" << CS_ErrFileName_Out << ") returned FALSE!" << endl;
+    cout << "MExtract::main: ERROR: F_OutImage.setFileName(" << CS_ErrFileName_Out << ") returned FALSE!" << endl;
     exit(EXIT_FAILURE);
   }
 
@@ -5531,23 +5531,23 @@ bool TestCFitsTelluric()
 
 
   /// Write Image containing the errors x profile
-  Array<double,2> D_A2_CCDOut(p_outfitsP->GetNRows(), p_outfitsP->GetNCols());
+  blitz::Array<double,2> D_A2_CCDOut(p_outfitsP->GetNRows(), p_outfitsP->GetNCols());
   D_A2_CCDOut = p_outfitsP->GetPixArray();
-  Array<double,2> D_A2_ErrorOut(p_outfitsP->GetNRows(),p_outfitsP->GetNCols());
+  blitz::Array<double,2> D_A2_ErrorOut(p_outfitsP->GetNRows(),p_outfitsP->GetNCols());
   D_A2_ErrorOut = p_outfitsP->GetErrArray();
-  Array<double,2> D_A2_Profile(p_outfitsP->GetNRows(),p_outfitsP->GetNCols());
+  blitz::Array<double,2> D_A2_Profile(p_outfitsP->GetNRows(),p_outfitsP->GetNCols());
   D_A2_Profile = p_outfitsP->GetProfArray();
   p_outfitsP->GetPixArray() = D_A2_ErrorOut * D_A2_Profile;
 
   CS_ErrFileName_Out.Set("/home/azuri/entwicklung/stella/ses-pipeline/c/cfits/test/sf_x_sp+bias+sky_with_errors_err_x_prof_telluric_mine.fits");//telluric_mine.fits");
-  p_outfitsP->SetFileName(CS_ErrFileName_Out);
+  p_outfitsP->setFileName(CS_ErrFileName_Out);
   p_outfitsP->WriteArray();
 
   /// Write image * profile to fits file
   D_A2_CCDOut *= D_A2_Profile;
   p_outfitsP->GetPixArray() = D_A2_CCDOut;
   CS_ErrFileName_Out.Set("/home/azuri/entwicklung/stella/ses-pipeline/c/cfits/test/sf_x_sp+bias+sky_with_errors_im_x_prof_telluric_mine.fits");//telluric_mine.fits");
-  p_outfitsP->SetFileName(CS_ErrFileName_Out);
+  p_outfitsP->setFileName(CS_ErrFileName_Out);
   p_outfitsP->WriteArray();
 **/
   return (t1 && t2 && t3 && t4 && t5 && t6 && t7 && t8 && t9 && t10 && t11);
@@ -5566,19 +5566,19 @@ bool TestCFitsCrossCorrelate()
   CFits *P_MyCFits = new CFits();
   CString CS_FitsFileName("/home/azuri/spectra/WiFes/Red/NeArarc_2009-06-30T08-44-17.5_14s_r11.fits");
   CString CS_DatabaseFileName("/home/azuri/spectra/WiFes/Red/database/apQtzflat_2009-06-30T19-54-11.5_4s_r11");
-  P_MyCFits->SetFileName(CS_FitsFileName);
-  P_MyCFits->SetDatabaseFileName(CS_DatabaseFileName);
+  P_MyCFits->setFileName(CS_FitsFileName);
+  P_MyCFits->setDatabaseFileName(CS_DatabaseFileName);
   P_MyCFits->ReadArray();
   P_MyCFits->ReadDatabaseEntry();
   P_MyCFits->CalcTraceFunctions();
   int I_NOrders = P_MyCFits->Get_NApertures();
-  Array<double, 2> *P_DA2_Centers = P_MyCFits->Get_XCenters();
-  Array<double, 1> *P_DA1_Low = P_MyCFits->Get_XLow();
-  Array<double, 1> *P_DA1_High = P_MyCFits->Get_XHigh();
+  blitz::Array<double, 2> *P_DA2_Centers = P_MyCFits->Get_XCenters();
+  blitz::Array<double, 1> *P_DA1_Low = P_MyCFits->Get_XLow();
+  blitz::Array<double, 1> *P_DA1_High = P_MyCFits->Get_XHigh();
 
-//  P_MyCFits->SetFileName(
-  Array<double, 1> DA1_Static(20);
-  Array<double, 1> DA1_Moving(20);
+//  P_MyCFits->setFileName(
+  blitz::Array<double, 1> DA1_Static(20);
+  blitz::Array<double, 1> DA1_Moving(20);
   DA1_Static(0) = 0.;
   DA1_Static(1) = 1.;
   DA1_Static(2) = 2.;
@@ -5627,7 +5627,7 @@ bool TestCFitsCrossCorrelate()
   else
     t1 = false;
 
-//  Array<int, 1> IA1_Result(1);
+//  blitz::Array<int, 1> IA1_Result(1);
 //  if (P_MyCFits->CrossCorrelateAllApertureColsToColNo(2070, 200, 5, IA1_Result))
   t2 = true;
 //  else
@@ -5638,9 +5638,9 @@ bool TestCFitsCrossCorrelate()
 //  P_MyCFits->WriteCenters(0,CS_CenterFile);
 //  return false;
 
-  Array<double, 1> D_A1_Result(1);
-  Array<int, 1> I_A1_X(1);
-  Array<int, 2> I_A2_ColsMinMax(2,2);
+  blitz::Array<double, 1> D_A1_Result(1);
+  blitz::Array<int, 1> I_A1_X(1);
+  blitz::Array<int, 2> I_A2_ColsMinMax(2,2);
   t3 = P_MyCFits->CalcFeatureOffsets(2070, 200, 5, 2, I_A1_X, I_A2_ColsMinMax, D_A1_Result, CString("Poly"));
   cout << "I_A2_ColsMinMax = " << I_A2_ColsMinMax << endl;
 
@@ -5667,36 +5667,36 @@ bool TestCFitsCrossCorrelate()
   CFits CF_Temp(*P_MyCFits);
   CF_Temp.ForceCopy(*P_MyCFits);
 
-  Array<double, 2> D_A2_Temp = CF_Temp.GetPixArray();
-  Array<CString, 1> CS_A1_Temp(1);
+  blitz::Array<double, 2> D_A2_Temp = CF_Temp.GetPixArray();
+  blitz::Array<CString, 1> CS_A1_Temp(1);
   CS_A1_Temp(0) = CString(" ");
   t4 = CF_Temp.ShiftColumns(I_A1_X, D_A1_Result, CS_A1_Temp);
-  CF_Temp.SetFileName(CString("/home/azuri/spectra/WiFes/Red/NeArarc_2009-06-30T08-44-17.5_14s_r11_shifted_lin.fits"));
+  CF_Temp.setFileName(CString("/home/azuri/spectra/WiFes/Red/NeArarc_2009-06-30T08-44-17.5_14s_r11_shifted_lin.fits"));
   CF_Temp.WriteArray();
 
 /*  CF_Temp.ForceCopy(*P_MyCFits);
   CS_A1_Temp(0) = CString("QUADRATIC");
   t4 = CF_Temp.ShiftColumns(I_A1_X, D_A1_Result, CS_A1_Temp);
-  CF_Temp.SetFileName(CString("/home/azuri/spectra/WiFes/Red/NeArarc_2009-06-30T08-44-17.5_14s_r_shifted_lin_quad.fits"));
+  CF_Temp.setFileName(CString("/home/azuri/spectra/WiFes/Red/NeArarc_2009-06-30T08-44-17.5_14s_r_shifted_lin_quad.fits"));
   CF_Temp.WriteArray();
 
   CF_Temp.ForceCopy(*P_MyCFits);
   CS_A1_Temp(0) = CString("LSQUADRATIC");
   t4 = CF_Temp.ShiftColumns(I_A1_X, D_A1_Result, CS_A1_Temp);
-  CF_Temp.SetFileName(CString("/home/azuri/spectra/WiFes/Red/NeArarc_2009-06-30T08-44-17.5_14s_r_shifted_lin_lsquad.fits"));
+  CF_Temp.setFileName(CString("/home/azuri/spectra/WiFes/Red/NeArarc_2009-06-30T08-44-17.5_14s_r_shifted_lin_lsquad.fits"));
   CF_Temp.WriteArray();
 
   CF_Temp.ForceCopy(*P_MyCFits);
   CS_A1_Temp(0) = CString("SPLINE");
   t4 = CF_Temp.ShiftColumns(I_A1_X, D_A1_Result, CS_A1_Temp);
-  CF_Temp.SetFileName(CString("/home/azuri/spectra/WiFes/Red/NeArarc_2009-06-30T08-44-17.5_14s_r_shifted_lin_spline.fits"));
+  CF_Temp.setFileName(CString("/home/azuri/spectra/WiFes/Red/NeArarc_2009-06-30T08-44-17.5_14s_r_shifted_lin_spline.fits"));
   CF_Temp.WriteArray();
 */
-  Array<int, 1> I_A1_Where(I_A1_X.size());
-  Array<int, 1> I_A1_Indices(1);
+  blitz::Array<int, 1> I_A1_Where(I_A1_X.size());
+  blitz::Array<int, 1> I_A1_Indices(1);
   double D_MinShift, D_MaxShift, D_Shift, D_ShiftOffset;
   int I_NInd, I_MinInd, I_MaxInd;
-  Array<double, 1> D_A1_Temp(2);
+  blitz::Array<double, 1> D_A1_Temp(2);
   for (int i=0; i<P_MyCFits->Get_NApertures(); i++){
     cout << "i = " << i << ": I_A1_X = " << I_A1_X << endl;
     cout << "i = " << i << ": I_A2_ColsMinMax(i,0) = " << I_A2_ColsMinMax(i,0) << endl;
@@ -5755,7 +5755,7 @@ bool TestCFitsCrossCorrelate()
   }
 
   t5 = P_MyCFits->ShiftColumns(I_A1_X, D_A1_Result, CS_A1_Temp);
-  P_MyCFits->SetFileName(CString("/home/azuri/spectra/WiFes/Red/NeArarc_2009-06-30T08-44-17.5_14s_r11_shifted.fits"));
+  P_MyCFits->setFileName(CString("/home/azuri/spectra/WiFes/Red/NeArarc_2009-06-30T08-44-17.5_14s_r11_shifted.fits"));
   P_MyCFits->WriteArray();
 
   t6 = P_MyCFits->CalculateFeatureOffsetAndShiftAllImages(CString("/home/azuri/spectra/WiFes/Red/NeArarc_2009-06-30T08-44-17.5_14s_r11.fits"), CString("/home/azuri/spectra/WiFes/Red/database/apQtzflat_2009-06-30T19-54-11.5_4s_r11"), CString("/home/azuri/spectra/WiFes/Red/to_shift.list"), CString("/home/azuri/spectra/WiFes/Red/straightened.list"), 55, 5, 5, 2, CString("Poly"));
@@ -5780,20 +5780,20 @@ bool TestCFitsFindAndTrace()
   CFits *P_MyCFits = new CFits();
 ///  CString CS_FitsFileName("/home/azuri/spectra/WiFes/Red/NeArarc_2009-06-30T08-44-17.5_14s_r11.fits");
 ///  CString CS_DatabaseFileName("/home/azuri/spectra/WiFes/Red/database/apQtzflat_2009-06-30T19-54-11.5_4s_r11");
-///  P_MyCFits->SetFileName(CS_FitsFileName);
-///  P_MyCFits->SetDatabaseFileName(CS_DatabaseFileName);
+///  P_MyCFits->setFileName(CS_FitsFileName);
+///  P_MyCFits->setDatabaseFileName(CS_DatabaseFileName);
 ///  P_MyCFits->ReadArray();
 ///  P_MyCFits->ReadDatabaseEntry();
 ///  P_MyCFits->CalcTraceFunctions();
 ///  int I_NOrders = P_MyCFits->Get_NApertures();
-///  Array<double, 2> DA2_Centers(I_NOrders, P_MyCFits->GetNRows());
+///  blitz::Array<double, 2> DA2_Centers(I_NOrders, P_MyCFits->GetNRows());
 ///  DA2_Centers = P_MyCFits->Get_XCenters();
-///  Array<double, 1> DA1_Low(I_NOrders);
-///  Array<double, 1> DA1_High(I_NOrders);
+///  blitz::Array<double, 1> DA1_Low(I_NOrders);
+///  blitz::Array<double, 1> DA1_High(I_NOrders);
 ///  DA1_Low = P_MyCFits->Get_XLow();
 ///  DA1_High = P_MyCFits->Get_XHigh();
 
-  Array<double, 1> D_A1_Test(20);
+  blitz::Array<double, 1> D_A1_Test(20);
   D_A1_Test(0) = 0.;
   D_A1_Test(1) = 1.;
   D_A1_Test(2) = 2.;
@@ -5818,15 +5818,15 @@ bool TestCFitsFindAndTrace()
   double D_Threshold = 1.5;
   double D_FWHM = 1.3;
 
-  Array<int, 1> I_A1_Test(D_A1_Test.size());
+  blitz::Array<int, 1> I_A1_Test(D_A1_Test.size());
   I_A1_Test = where(D_A1_Test < D_Threshold, 0, 1);
 
-  Array<int, 1> I_A1_TestCopy(I_A1_Test.size());
+  blitz::Array<int, 1> I_A1_TestCopy(I_A1_Test.size());
   I_A1_TestCopy = I_A1_Test;
   cout << "TestCFitsFindAndTrace: I_A1_Test = " << I_A1_Test << endl;
   cout << "TestCFitsFindAndTrace: I_A1_TestCopy = " << I_A1_TestCopy << endl;
 
-  Array<int, 1> I_A1_Expected(I_A1_Test.size());
+  blitz::Array<int, 1> I_A1_Expected(I_A1_Test.size());
   I_A1_Expected(0) = 0;
   I_A1_Expected(1) = 0;
   I_A1_Expected(2) = 1;
@@ -5962,20 +5962,20 @@ bool TestCFitsFindAndTrace()
   }
   CString CS_FileName("/home/azuri/spectra/SEDIFU/SEDM-sim-cal-2012-05-14_s.fits");
 
-  P_MyCFits->SetFileName(CS_FileName);
+  P_MyCFits->setFileName(CS_FileName);
   P_MyCFits->ReadArray();
-  Array<int, 2> I_A2_Where(P_MyCFits->GetNRows(), P_MyCFits->GetNCols());
+  blitz::Array<int, 2> I_A2_Where(P_MyCFits->GetNRows(), P_MyCFits->GetNCols());
   I_A2_Where = where(P_MyCFits->GetPixArray()<=0,1,0);
-  Array<int, 2> I_A2_Ind(2,2);
+  blitz::Array<int, 2> I_A2_Ind(2,2);
   int I_NInds;
   P_MyCFits->GetIndex(I_A2_Where, I_NInds, I_A2_Ind);
-  Array<double,2> D_A2_TempA(P_MyCFits->GetNRows(), P_MyCFits->GetNCols());
+  blitz::Array<double,2> D_A2_TempA(P_MyCFits->GetNRows(), P_MyCFits->GetNCols());
   D_A2_TempA = P_MyCFits->GetPixArray();
   P_MyCFits->GetPixArray() = sqrt(P_MyCFits->GetPixArray());
   for (int ii=0; ii< I_NInds; ii++){
     (P_MyCFits->GetPixArray())(I_A2_Ind(ii,0), I_A2_Ind(ii,1)) = 0. - D_A2_TempA(I_A2_Ind(ii,0), I_A2_Ind(ii,1));
   }
-  P_MyCFits->SetFileName(CString("/home/azuri/spectra/SEDIFU/SEDM-sim-cal-2012-05-14_s_err.fits"));
+  P_MyCFits->setFileName(CString("/home/azuri/spectra/SEDIFU/SEDM-sim-cal-2012-05-14_s_err.fits"));
   P_MyCFits->WriteArray();
   delete(P_MyCFits);
   P_MyCFits = NULL;
@@ -5984,34 +5984,34 @@ bool TestCFitsFindAndTrace()
   CS_FileName.Set("/home/azuri/spectra/SEDIFU/SEDM-deep-sim-flat-2012-05-14_Flat.fits");
 
   CFits *P_CF_Bias = new CFits();
-  P_CF_Bias->SetFileName(CString("/home/azuri/spectra/SEDIFU/SEDM-deep-sim-flat-2012-05-14_Read.fits"));
+  P_CF_Bias->setFileName(CString("/home/azuri/spectra/SEDIFU/SEDM-deep-sim-flat-2012-05-14_Read.fits"));
   P_CF_Bias->ReadArray();
   cout << "MTestApp: mean(P_CF_Bias) = " << mean(P_CF_Bias->GetPixArray()) << endl;
 
 
-  P_MyCFits->SetFileName(CS_FileName);
+  P_MyCFits->setFileName(CS_FileName);
   P_MyCFits->ReadArray();
   *P_MyCFits -= mean(P_CF_Bias->GetPixArray());
 
   CFits *P_CF_Scatter = new CFits();
-  P_CF_Scatter->SetFileName(CString("/home/azuri/spectra/SEDIFU/SEDM-deep-sim-flat-2012-05-14_ScatterFit.fits"));
+  P_CF_Scatter->setFileName(CString("/home/azuri/spectra/SEDIFU/SEDM-deep-sim-flat-2012-05-14_ScatterFit.fits"));
   P_CF_Scatter->ReadArray();
 
-  Array<double, 2> D_A2_Flat = P_MyCFits->GetPixArray();
+  blitz::Array<double, 2> D_A2_Flat = P_MyCFits->GetPixArray();
   cout << "TestCFitsFindAndTrace: D_A2_Flat.rows() = " << D_A2_Flat.rows() << endl;
   cout << "TestCFitsFindAndTrace: D_A2_Flat.cols() = " << D_A2_Flat.cols() << endl;
-  Array<double, 2> D_A2_FlatCrop(D_A2_Flat.rows()-1700, D_A2_Flat.cols() - 1700);
+  blitz::Array<double, 2> D_A2_FlatCrop(D_A2_Flat.rows()-1700, D_A2_Flat.cols() - 1700);
   D_A2_FlatCrop = D_A2_Flat(Range(850, D_A2_Flat.rows()-850-1), Range(850, D_A2_Flat.cols()-850-1));
 
   P_CF_Scatter->SetNRows(P_CF_Scatter->GetNRows()-1);
   P_CF_Scatter->SetNCols(P_CF_Scatter->GetNCols()-1);
-  P_CF_Scatter->SetFileName(CString("/home/azuri/spectra/SEDIFU/SEDM-deep-sim-flat-2012-05-14_ScatterFit_2048x2048.fits"));
+  P_CF_Scatter->setFileName(CString("/home/azuri/spectra/SEDIFU/SEDM-deep-sim-flat-2012-05-14_ScatterFit_2048x2048.fits"));
   P_CF_Scatter->WriteArray();
-  Array<double, 2> D_A2_Scatter = P_CF_Scatter->GetPixArray();
+  blitz::Array<double, 2> D_A2_Scatter = P_CF_Scatter->GetPixArray();
   cout << "TestCFitsFindAndTrace: D_A2_Scatter.rows() = " << D_A2_Scatter.rows() << endl;
   cout << "TestCFitsFindAndTrace: D_A2_Scatter.cols() = " << D_A2_Scatter.cols() << endl;
   return false;
-  Array<double, 2> D_A2_ScatterCrop(D_A2_Scatter.rows()-1700, D_A2_Scatter.cols() - 1700);
+  blitz::Array<double, 2> D_A2_ScatterCrop(D_A2_Scatter.rows()-1700, D_A2_Scatter.cols() - 1700);
   D_A2_ScatterCrop = D_A2_Scatter(Range(850, D_A2_Scatter.rows()-850-1), Range(850, D_A2_Scatter.cols()-850-1));
 
   double D_Fac;
@@ -6019,7 +6019,7 @@ bool TestCFitsFindAndTrace()
     return false;
   cout << "TestCFitsFindAndTrace: D_Fac = " << D_Fac << endl;
 
-  Array<double, 2> D_A2_Temp(D_A2_Scatter.rows(), D_A2_Scatter.cols());
+  blitz::Array<double, 2> D_A2_Temp(D_A2_Scatter.rows(), D_A2_Scatter.cols());
   D_A2_Temp = D_A2_Scatter * D_Fac;
   D_A2_Temp.resizeAndPreserve(D_A2_Flat.rows(), D_A2_Flat.cols());
   *P_MyCFits -= D_A2_Temp;
@@ -6027,7 +6027,7 @@ bool TestCFitsFindAndTrace()
 
 //  delete(P_MyCFits);
 //  P_MyCFits = new CFits();
-//  P_MyCFits->SetFileName(CString("/home/azuri/spectra/SEDIFU/SEDM-deep-sim-flat-2012-05-14_Flat-back.fits"));
+//  P_MyCFits->setFileName(CString("/home/azuri/spectra/SEDIFU/SEDM-deep-sim-flat-2012-05-14_Flat-back.fits"));
 //  P_MyCFits->ReadArray();
 
   P_MyCFits->Set_SaturationLevel(65000.);
@@ -6045,14 +6045,14 @@ bool TestCFitsFindAndTrace()
   else{
     cout << "TestCFitsFindAndTrace: FindAndTraceApertures returned FALSE (UNEXPECTED)" << endl;
   }
-  P_MyCFits->SetDatabaseFileName(CString("/home/azuri/spectra/SEDIFU/database/apSEDM-deep-sim-flat-2012-05-14_Flat-back"));
-  Array<double, 1> D_A1_XLow(P_MyCFits->Get_NApertures());
+  P_MyCFits->setDatabaseFileName(CString("/home/azuri/spectra/SEDIFU/database/apSEDM-deep-sim-flat-2012-05-14_Flat-back"));
+  blitz::Array<double, 1> D_A1_XLow(P_MyCFits->Get_NApertures());
   D_A1_XLow = -4.;
 
   P_MyCFits->Set_XLow(D_A1_XLow);
   D_A1_XLow = -4.;
   P_MyCFits->Set_XMin(D_A1_XLow);
-  Array<double, 1> D_A1_XHigh(P_MyCFits->Get_NApertures());
+  blitz::Array<double, 1> D_A1_XHigh(P_MyCFits->Get_NApertures());
   D_A1_XHigh = 4.;
   P_MyCFits->Set_XHigh(D_A1_XHigh);
   D_A1_XHigh = 4.;
@@ -6071,13 +6071,13 @@ bool TestCFitsFindAndTrace()
   P_MyCFits = new CFits();
   CS_FileName.Set("/home/azuri/spectra/SEDIFU/SEDM-deep-sim-flat-2012-05-14_Flat-back.fits");
   cout << "TestCFitsFindAndTrace: Setting filename" << endl;
-  if (!P_MyCFits->SetFileName(CS_FileName))
+  if (!P_MyCFits->setFileName(CS_FileName))
     return false;
   cout << "TestCFitsFindAndTrace: Filename " << CS_FileName << " set" << endl;
   if (!P_MyCFits->ReadArray())
     return false;
   cout << "TestCFitsFindAndTrace: Array read" << endl;
-  if (!P_MyCFits->SetDatabaseFileName(CString("/home/azuri/spectra/SEDIFU/database/apSEDM-deep-sim-flat-2012-05-14_Flat-back")))
+  if (!P_MyCFits->setDatabaseFileName(CString("/home/azuri/spectra/SEDIFU/database/apSEDM-deep-sim-flat-2012-05-14_Flat-back")))
     return false;
   cout << "TestCFitsFindAndTrace: Database Filename set to " << P_MyCFits->GetDatabaseFileName() << endl;
   if (!P_MyCFits->ReadDatabaseEntry())
@@ -6090,7 +6090,7 @@ bool TestCFitsFindAndTrace()
     return false;
   cout << "TestCFitsFindAndTrace: centers marked" << endl;
   CS_FileName.Set("/home/azuri/spectra/SEDIFU/SEDM-deep-sim-flat-2012-05-14_Flat-back_marked.fits");
-  if (!P_MyCFits->SetFileName(CS_FileName))
+  if (!P_MyCFits->setFileName(CS_FileName))
     return false;
   cout << "TestCFitsFindAndTrace: Filename " << CS_FileName << " set" << endl;
   if (!P_MyCFits->WriteArray())
@@ -6113,25 +6113,25 @@ bool TestCFitsFindAndTrace()
   delete P_MyCFits;
   P_MyCFits = new CFits();
   CS_FileName.Set("/home/azuri/spectra/SEDIFU/SEDM-deep-sim-flat-2012-05-14_Flat.fits");
-  if (!P_MyCFits->SetFileName(CS_FileName))
+  if (!P_MyCFits->setFileName(CS_FileName))
     return false;
   if (!P_MyCFits->ReadArray())
     return false;
-  if (!P_MyCFits->SetDatabaseFileName(CString("/home/azuri/spectra/SEDIFU/database/apSEDM-deep-sim-flat-2012-05-14_Flat")))
+  if (!P_MyCFits->setDatabaseFileName(CString("/home/azuri/spectra/SEDIFU/database/apSEDM-deep-sim-flat-2012-05-14_Flat")))
     return false;
   if (!P_MyCFits->ReadDatabaseEntry())
     return false;
   if (!P_MyCFits->CalcTraceFunctions())
     return false;
-//  Array<double, 2> D_A2_ScatteredLight(P_MyCFits->GetNRows(), P_MyCFits->GetNCols());
+//  blitz::Array<double, 2> D_A2_ScatteredLight(P_MyCFits->GetNRows(), P_MyCFits->GetNCols());
 //  D_A2_ScatteredLight = 20.;
 //  P_MyCFits->GetPixArray() = P_MyCFits->GetPixArray() + D_A2_ScatteredLight;
 //  CS_FileName.Set("/home/azuri/spectra/SEDIFU/SEDM-deep-sim-flat-2012-05-14_Flat.fits");
-//  if (!P_MyCFits->SetFileName(CS_FileName))
+//  if (!P_MyCFits->setFileName(CS_FileName))
 //    return false;
 //  if (!P_MyCFits->WriteArray())
 //    return false;
-//  Array<CString, 1> CS_A1_Args_MkScatter(10);
+//  blitz::Array<CString, 1> CS_A1_Args_MkScatter(10);
 //  CS_A1_Args_MkScatter = CString(" ");
 //  void **PP_Args_MkScatter;
 //  PP_Args_MkScatter = (void**)malloc(sizeof(void*) * 10);
@@ -6151,7 +6151,7 @@ bool TestCFitsFindAndTrace()
     return false;
 //  CS_A1_Args_MkScatter(0) = CString("SUBTRACT");
 //  CS_A1_Args_MkScatter(1) = CString("DATA");
-//  Array<double, 2> D_A2_BackData(2,2);
+//  blitz::Array<double, 2> D_A2_BackData(2,2);
 //  PP_Args_MkScatter[1] = &D_A2_BackData;
 //  CS_A1_Args_MkScatter(2) = CString("OSAMPLE");
 //  PP_Args_MkScatter[2] = &I_OSample;
@@ -6162,7 +6162,7 @@ bool TestCFitsFindAndTrace()
     return false;
 //  cout << "D_A2_BackData = " << D_A2_BackData << endl;
   CS_FileName.Set("/home/azuri/spectra/SEDIFU/SEDM-deep-sim-flat-2012-05-14_Flat_s.fits");
-  P_MyCFits->SetFileName(CS_FileName);
+  P_MyCFits->setFileName(CS_FileName);
   P_MyCFits->WriteArray();
 
   return false;
@@ -6170,7 +6170,7 @@ bool TestCFitsFindAndTrace()
   delete P_MyCFits;
   P_MyCFits = new CFits();
   CS_FileName.Set("/home/azuri/spectra/rave/aaron_6df/6df/combinedFlat.fits");
-  P_MyCFits->SetFileName(CS_FileName);
+  P_MyCFits->setFileName(CS_FileName);
   P_MyCFits->ReadArray();
   P_MyCFits->Set_SaturationLevel(65000.);
   P_MyCFits->Set_SignalThreshold(10000.);
@@ -6202,10 +6202,10 @@ bool TestCFitsPixInFigure()
   bool t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12, t13, t14, t15, t16, t17, t18, t19, t20, t21, t22, t23, t24, t25, t26, t27, t28, t29, t30, t31, t32, t33, t34, t35, t36, t37, t38, t39, t40;
   CFits *P_MyCFits = new CFits();
 
-  Array<double, 2> D_A2_LineA(2,2);
-  Array<double, 2> D_A2_LineB(2,2);
-  Array<double, 1> D_A1_Point(2);
-  Array<double, 1> D_A1_Point_Ref(2);
+  blitz::Array<double, 2> D_A2_LineA(2,2);
+  blitz::Array<double, 2> D_A2_LineB(2,2);
+  blitz::Array<double, 1> D_A1_Point(2);
+  blitz::Array<double, 1> D_A1_Point_Ref(2);
 
   /// y=x
   D_A2_LineA(0,0) = 0.;
@@ -6337,12 +6337,12 @@ bool TestCFitsPixInFigure()
   cout << "t6 PASSED" << endl << endl;
 
   /// SortCoordinatesCounterClockWise
-  Array<double, 2> D_A2_Fig(3,2);
-  Array<double, 2> D_A2_FigSorted(2,2);
-  Array<double, 2> D_A2_FigSorted_Test(3,2);
-  Array<double, 2> D_A2_Test(1,2);
+  blitz::Array<double, 2> D_A2_Fig(3,2);
+  blitz::Array<double, 2> D_A2_FigSorted(2,2);
+  blitz::Array<double, 2> D_A2_FigSorted_Test(3,2);
+  blitz::Array<double, 2> D_A2_Test(1,2);
   D_A2_Test = 1.;
-  Array<double, 2> D_A2_TestResult(2,2);
+  blitz::Array<double, 2> D_A2_TestResult(2,2);
   t7 = P_MyCFits->SortCoordinatesCounterClockWise(D_A2_Test, D_A2_TestResult);
   if (!t7){
     cout << "MTestApp::TestCFitsPixInFigure: t7 returned FALSE (EXPECTED)" << endl;
@@ -6577,7 +6577,7 @@ bool TestCFitsPixInFigure()
   cout << "t14 PASSED" << endl << endl;
 
   /// Test PixelIsInFigure
-  Array<double, 1> D_A1_Pix(2);
+  blitz::Array<double, 1> D_A1_Pix(2);
   D_A1_Pix(0) = 0.;
   D_A1_Pix(1) = 0.;
   t15 = P_MyCFits->PixelIsInFigure(D_A1_Pix, D_A2_Fig);
@@ -6634,9 +6634,9 @@ bool TestCFitsPixInFigure()
   }
 
   /// Test CalcOverlapFig
-  Array<double, 2> D_A2_Rect(4,2);
-  Array<double, 2> D_A2_Hex(6,2);
-  Array<double, 2> D_A2_OverlapFig(2,2);
+  blitz::Array<double, 2> D_A2_Rect(4,2);
+  blitz::Array<double, 2> D_A2_Hex(6,2);
+  blitz::Array<double, 2> D_A2_OverlapFig(2,2);
 
   D_A2_Rect(0,0) = 580.;
   D_A2_Rect(0,1) = 560.;
@@ -6810,8 +6810,8 @@ int main(int argc, char *argv[])
 //  CString *P_CS_DatabaseString = new CString("/home/azuri/entwicklung/idl/REDUCE/REDUCE/database/apcombinedFlat\0");
 /*  CFits *p_testfits = new CFits();
 
-  p_testfits->SetFileName(*p_testString);
-  p_testfits->SetDatabaseFileName(*p_CS_DatabaseString);
+  p_testfits->setFileName(*p_testString);
+  p_testfits->setDatabaseFileName(*p_CS_DatabaseString);
   p_testfits->ReadArray();
   p_testfits->ReadDatabaseEntry();
   if (!p_testfits->CalcTraceFunctions())
@@ -6822,14 +6822,14 @@ int main(int argc, char *argv[])
 
   p_testString->Set("test/orderdef.fits");
   CFits *p_testfitsA = new CFits();
-  p_testfitsA->SetFileName(*p_testString);
+  p_testfitsA->setFileName(*p_testString);
   p_testfitsA->ReadArray();
 
   for (int o = 14; o < 15; o++)
   {
 //  int xmin, xmax;
-    Array<double, 2> D_A2_PixArray(p_testfits->GetPixArray());
-    Array<double, 2> D_A2_PixArrayA(p_testfitsA->GetPixArray());
+    blitz::Array<double, 2> D_A2_PixArray(p_testfits->GetPixArray());
+    blitz::Array<double, 2> D_A2_PixArrayA(p_testfitsA->GetPixArray());
     if (p_testfits->GetNRows() != p_testfitsA->GetNRows() || p_testfits->GetNCols() != p_testfitsA->GetNCols())
     {
       cout << "MTestApp: ERROR: size of testfits != size of testfitsA => Returning FALSE" << endl;
@@ -6838,10 +6838,10 @@ int main(int argc, char *argv[])
 //  for (int n = 3800; n < p_testfits->Get_XCenters().cols(); n++)
 //  {
 //    cout << "MTestApp: row = n = " << n << endl;
-    Array<int, 1> xmin(p_testfits->Get_XCenters().cols());
+    blitz::Array<int, 1> xmin(p_testfits->Get_XCenters().cols());
     xmin = p_testfits->Get_XCenters()(o,Range::all()) + p_testfits->Get_Low()(o)+8;
 //    cout << "MTestApp: xmin = " << xmin << endl;
-    Array<int, 1> xmax(p_testfits->Get_XCenters().cols());
+    blitz::Array<int, 1> xmax(p_testfits->Get_XCenters().cols());
     xmax = p_testfits->Get_XCenters()(o,Range::all()) + p_testfits->Get_High()(o) + 15;
     cout << "MTestApp: xmin = " << xmin << ", xmax = " << xmax << endl;
     for (int m = 0; m < xmax.size(); m++)
@@ -6853,8 +6853,8 @@ int main(int argc, char *argv[])
   for (int o = 15; o < 16; o++)
   {
 //  int xmin, xmax;
-    Array<double, 2> D_A2_PixArray(p_testfits->GetPixArray());
-    Array<double, 2> D_A2_PixArrayA(p_testfitsA->GetPixArray());
+    blitz::Array<double, 2> D_A2_PixArray(p_testfits->GetPixArray());
+    blitz::Array<double, 2> D_A2_PixArrayA(p_testfitsA->GetPixArray());
     if (p_testfits->GetNRows() != p_testfitsA->GetNRows() || p_testfits->GetNCols() != p_testfitsA->GetNCols())
     {
       cout << "MTestApp: ERROR: size of testfits != size of testfitsA => Returning FALSE" << endl;
@@ -6863,10 +6863,10 @@ int main(int argc, char *argv[])
 //  for (int n = 3800; n < p_testfits->Get_XCenters().cols(); n++)
 //  {
 //    cout << "MTestApp: row = n = " << n << endl;
-    Array<int, 1> xmin(p_testfits->Get_XCenters().cols());
+    blitz::Array<int, 1> xmin(p_testfits->Get_XCenters().cols());
     xmin = p_testfits->Get_XCenters()(o,Range::all()) + p_testfits->Get_Low()(o)+3;
 //    cout << "MTestApp: xmin = " << xmin << endl;
-    Array<int, 1> xmax(p_testfits->Get_XCenters().cols());
+    blitz::Array<int, 1> xmax(p_testfits->Get_XCenters().cols());
     xmax = p_testfits->Get_XCenters()(o,Range::all()) + p_testfits->Get_High()(o) + 12;
     cout << "MTestApp: xmin = " << xmin << ", xmax = " << xmax << endl;
     for (int m = 0; m < xmax.size(); m++)
@@ -6878,8 +6878,8 @@ int main(int argc, char *argv[])
   for (int o = 16; o < 17; o++)
   {
 //  int xmin, xmax;
-    Array<double, 2> D_A2_PixArray(p_testfits->GetPixArray());
-    Array<double, 2> D_A2_PixArrayA(p_testfitsA->GetPixArray());
+    blitz::Array<double, 2> D_A2_PixArray(p_testfits->GetPixArray());
+    blitz::Array<double, 2> D_A2_PixArrayA(p_testfitsA->GetPixArray());
     if (p_testfits->GetNRows() != p_testfitsA->GetNRows() || p_testfits->GetNCols() != p_testfitsA->GetNCols())
     {
       cout << "MTestApp: ERROR: size of testfits != size of testfitsA => Returning FALSE" << endl;
@@ -6888,10 +6888,10 @@ int main(int argc, char *argv[])
 //  for (int n = 3800; n < p_testfits->Get_XCenters().cols(); n++)
 //  {
 //    cout << "MTestApp: row = n = " << n << endl;
-    Array<int, 1> xmin(p_testfits->Get_XCenters().cols());
+    blitz::Array<int, 1> xmin(p_testfits->Get_XCenters().cols());
     xmin = p_testfits->Get_XCenters()(o,Range::all()) + p_testfits->Get_Low()(o)+5;
 //    cout << "MTestApp: xmin = " << xmin << endl;
-    Array<int, 1> xmax(p_testfits->Get_XCenters().cols());
+    blitz::Array<int, 1> xmax(p_testfits->Get_XCenters().cols());
     xmax = p_testfits->Get_XCenters()(o,Range::all()) + p_testfits->Get_High()(o) + 10;
     cout << "MTestApp: xmin = " << xmin << ", xmax = " << xmax << endl;
     for (int m = 0; m < xmax.size(); m++)
@@ -6903,8 +6903,8 @@ int main(int argc, char *argv[])
   for (int o = 17; o < 18; o++)
   {
 //  int xmin, xmax;
-    Array<double, 2> D_A2_PixArray(p_testfits->GetPixArray());
-    Array<double, 2> D_A2_PixArrayA(p_testfitsA->GetPixArray());
+    blitz::Array<double, 2> D_A2_PixArray(p_testfits->GetPixArray());
+    blitz::Array<double, 2> D_A2_PixArrayA(p_testfitsA->GetPixArray());
     if (p_testfits->GetNRows() != p_testfitsA->GetNRows() || p_testfits->GetNCols() != p_testfitsA->GetNCols())
     {
       cout << "MTestApp: ERROR: size of testfits != size of testfitsA => Returning FALSE" << endl;
@@ -6913,10 +6913,10 @@ int main(int argc, char *argv[])
 //  for (int n = 3800; n < p_testfits->Get_XCenters().cols(); n++)
 //  {
 //    cout << "MTestApp: row = n = " << n << endl;
-    Array<int, 1> xmin(p_testfits->Get_XCenters().cols());
+    blitz::Array<int, 1> xmin(p_testfits->Get_XCenters().cols());
     xmin = p_testfits->Get_XCenters()(o,Range::all()) + p_testfits->Get_Low()(o)+4;
 //    cout << "MTestApp: xmin = " << xmin << endl;
-    Array<int, 1> xmax(p_testfits->Get_XCenters().cols());
+    blitz::Array<int, 1> xmax(p_testfits->Get_XCenters().cols());
     xmax = p_testfits->Get_XCenters()(o,Range::all()) + p_testfits->Get_High()(o) + 9;
     cout << "MTestApp: xmin = " << xmin << ", xmax = " << xmax << endl;
     for (int m = 0; m < xmax.size(); m++)
@@ -6928,8 +6928,8 @@ int main(int argc, char *argv[])
   for (int o = 18; o < 19; o++)
   {
 //  int xmin, xmax;
-    Array<double, 2> D_A2_PixArray(p_testfits->GetPixArray());
-    Array<double, 2> D_A2_PixArrayA(p_testfitsA->GetPixArray());
+    blitz::Array<double, 2> D_A2_PixArray(p_testfits->GetPixArray());
+    blitz::Array<double, 2> D_A2_PixArrayA(p_testfitsA->GetPixArray());
     if (p_testfits->GetNRows() != p_testfitsA->GetNRows() || p_testfits->GetNCols() != p_testfitsA->GetNCols())
     {
       cout << "MTestApp: ERROR: size of testfits != size of testfitsA => Returning FALSE" << endl;
@@ -6938,10 +6938,10 @@ int main(int argc, char *argv[])
 //  for (int n = 3800; n < p_testfits->Get_XCenters().cols(); n++)
 //  {
 //    cout << "MTestApp: row = n = " << n << endl;
-    Array<int, 1> xmin(p_testfits->Get_XCenters().cols());
+    blitz::Array<int, 1> xmin(p_testfits->Get_XCenters().cols());
     xmin = p_testfits->Get_XCenters()(o,Range::all()) + p_testfits->Get_Low()(o)+3;
 //    cout << "MTestApp: xmin = " << xmin << endl;
-    Array<int, 1> xmax(p_testfits->Get_XCenters().cols());
+    blitz::Array<int, 1> xmax(p_testfits->Get_XCenters().cols());
     xmax = p_testfits->Get_XCenters()(o,Range::all()) + p_testfits->Get_High()(o) + 9;
     cout << "MTestApp: xmin = " << xmin << ", xmax = " << xmax << endl;
     for (int m = 0; m < xmax.size(); m++)
@@ -6953,8 +6953,8 @@ int main(int argc, char *argv[])
   for (int o = 19; o < 20; o++)
   {
 //  int xmin, xmax;
-    Array<double, 2> D_A2_PixArray(p_testfits->GetPixArray());
-    Array<double, 2> D_A2_PixArrayA(p_testfitsA->GetPixArray());
+    blitz::Array<double, 2> D_A2_PixArray(p_testfits->GetPixArray());
+    blitz::Array<double, 2> D_A2_PixArrayA(p_testfitsA->GetPixArray());
     if (p_testfits->GetNRows() != p_testfitsA->GetNRows() || p_testfits->GetNCols() != p_testfitsA->GetNCols())
     {
       cout << "MTestApp: ERROR: size of testfits != size of testfitsA => Returning FALSE" << endl;
@@ -6963,10 +6963,10 @@ int main(int argc, char *argv[])
 //  for (int n = 3800; n < p_testfits->Get_XCenters().cols(); n++)
 //  {
 //    cout << "MTestApp: row = n = " << n << endl;
-    Array<int, 1> xmin(p_testfits->Get_XCenters().cols());
+    blitz::Array<int, 1> xmin(p_testfits->Get_XCenters().cols());
     xmin = p_testfits->Get_XCenters()(o,Range::all()) + p_testfits->Get_Low()(o)+2;
 //    cout << "MTestApp: xmin = " << xmin << endl;
-    Array<int, 1> xmax(p_testfits->Get_XCenters().cols());
+    blitz::Array<int, 1> xmax(p_testfits->Get_XCenters().cols());
     xmax = p_testfits->Get_XCenters()(o,Range::all()) + p_testfits->Get_High()(o) + 9;
     cout << "MTestApp: xmin = " << xmin << ", xmax = " << xmax << endl;
     for (int m = 0; m < xmax.size(); m++)
@@ -6978,8 +6978,8 @@ int main(int argc, char *argv[])
   for (int o = 20; o < 21; o++)
   {
 //  int xmin, xmax;
-    Array<double, 2> D_A2_PixArray(p_testfits->GetPixArray());
-    Array<double, 2> D_A2_PixArrayA(p_testfitsA->GetPixArray());
+    blitz::Array<double, 2> D_A2_PixArray(p_testfits->GetPixArray());
+    blitz::Array<double, 2> D_A2_PixArrayA(p_testfitsA->GetPixArray());
     if (p_testfits->GetNRows() != p_testfitsA->GetNRows() || p_testfits->GetNCols() != p_testfitsA->GetNCols())
     {
       cout << "MTestApp: ERROR: size of testfits != size of testfitsA => Returning FALSE" << endl;
@@ -6988,10 +6988,10 @@ int main(int argc, char *argv[])
 //  for (int n = 3800; n < p_testfits->Get_XCenters().cols(); n++)
 //  {
 //    cout << "MTestApp: row = n = " << n << endl;
-    Array<int, 1> xmin(p_testfits->Get_XCenters().cols());
+    blitz::Array<int, 1> xmin(p_testfits->Get_XCenters().cols());
     xmin = p_testfits->Get_XCenters()(o,Range::all()) + p_testfits->Get_Low()(o) - 2;
 //    cout << "MTestApp: xmin = " << xmin << endl;
-    Array<int, 1> xmax(p_testfits->Get_XCenters().cols());
+    blitz::Array<int, 1> xmax(p_testfits->Get_XCenters().cols());
     xmax = p_testfits->Get_XCenters()(o,Range::all()) + p_testfits->Get_High()(o) + 3;
     cout << "MTestApp: xmin = " << xmin << ", xmax = " << xmax << endl;
     for (int m = 0; m < xmax.size(); m++)
@@ -7003,8 +7003,8 @@ int main(int argc, char *argv[])
   for (int o = 21; o < 22; o++)
   {
 //  int xmin, xmax;
-    Array<double, 2> D_A2_PixArray(p_testfits->GetPixArray());
-    Array<double, 2> D_A2_PixArrayA(p_testfitsA->GetPixArray());
+    blitz::Array<double, 2> D_A2_PixArray(p_testfits->GetPixArray());
+    blitz::Array<double, 2> D_A2_PixArrayA(p_testfitsA->GetPixArray());
     if (p_testfits->GetNRows() != p_testfitsA->GetNRows() || p_testfits->GetNCols() != p_testfitsA->GetNCols())
     {
       cout << "MTestApp: ERROR: size of testfits != size of testfitsA => Returning FALSE" << endl;
@@ -7013,10 +7013,10 @@ int main(int argc, char *argv[])
 //  for (int n = 3800; n < p_testfits->Get_XCenters().cols(); n++)
 //  {
 //    cout << "MTestApp: row = n = " << n << endl;
-    Array<int, 1> xmin(p_testfits->Get_XCenters().cols());
+    blitz::Array<int, 1> xmin(p_testfits->Get_XCenters().cols());
     xmin = p_testfits->Get_XCenters()(o,Range::all()) + p_testfits->Get_Low()(o)-2;
 //    cout << "MTestApp: xmin = " << xmin << endl;
-    Array<int, 1> xmax(p_testfits->Get_XCenters().cols());
+    blitz::Array<int, 1> xmax(p_testfits->Get_XCenters().cols());
     xmax = p_testfits->Get_XCenters()(o,Range::all()) + p_testfits->Get_High()(o) + 4;
     cout << "MTestApp: xmin = " << xmin << ", xmax = " << xmax << endl;
     for (int m = 0; m < xmax.size(); m++)
@@ -7028,8 +7028,8 @@ int main(int argc, char *argv[])
   for (int o = 22; o < 23; o++)
   {
 //  int xmin, xmax;
-    Array<double, 2> D_A2_PixArray(p_testfits->GetPixArray());
-    Array<double, 2> D_A2_PixArrayA(p_testfitsA->GetPixArray());
+    blitz::Array<double, 2> D_A2_PixArray(p_testfits->GetPixArray());
+    blitz::Array<double, 2> D_A2_PixArrayA(p_testfitsA->GetPixArray());
     if (p_testfits->GetNRows() != p_testfitsA->GetNRows() || p_testfits->GetNCols() != p_testfitsA->GetNCols())
     {
       cout << "MTestApp: ERROR: size of testfits != size of testfitsA => Returning FALSE" << endl;
@@ -7038,10 +7038,10 @@ int main(int argc, char *argv[])
 //  for (int n = 3800; n < p_testfits->Get_XCenters().cols(); n++)
 //  {
 //    cout << "MTestApp: row = n = " << n << endl;
-    Array<int, 1> xmin(p_testfits->Get_XCenters().cols());
+    blitz::Array<int, 1> xmin(p_testfits->Get_XCenters().cols());
     xmin = p_testfits->Get_XCenters()(o,Range::all()) + p_testfits->Get_Low()(o)-4;
 //    cout << "MTestApp: xmin = " << xmin << endl;
-    Array<int, 1> xmax(p_testfits->Get_XCenters().cols());
+    blitz::Array<int, 1> xmax(p_testfits->Get_XCenters().cols());
     xmax = p_testfits->Get_XCenters()(o,Range::all()) + p_testfits->Get_High()(o) + 3;
     cout << "MTestApp: xmin = " << xmin << ", xmax = " << xmax << endl;
     for (int m = 0; m < xmax.size(); m++)

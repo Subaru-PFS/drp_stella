@@ -13,10 +13,10 @@ basis machine: Ubuntu Linux 6.06
 
 #include <stdio.h>
 #include <string>
-#include "nrutil.h"
+//#include "nrutil.h"
 #include <fstream>
 #include "CString.h"
-#include "CFormatedString.h"
+//#include "CFormatedString.h"
 #include "CFits.h"
 #include <random/normal.h>
 #include <random/chisquare.h>
@@ -26,7 +26,7 @@ using std::string;
 using std::cin;
 using std::cout;
 using std::endl;
-using namespace ranlib;
+//using namespace ranlib;
 
 namespace MTestApp{
 

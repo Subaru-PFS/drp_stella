@@ -52,7 +52,7 @@
 #include <mgl2/type.h>
 
 using namespace std;
-using namespace blitz;
+//using namespace blitz;
 
 #define D_PI 3.14159265359
 
@@ -348,104 +348,104 @@ int MPFitThreeGaussFuncACB(int m, int n, double *p, double *dy, double **dvec, v
 int MPFitThreeGaussFuncANB(int m, int n, double *p, double *dy, double **dvec, void *vars);
 
 /* Test harness routine, which contains test gaussian-peak data */
-bool MPFitGauss(const Array<double, 1> &D_A1_X_In,
-                const Array<double, 1> &D_A1_Y_In,
-                const Array<double, 1> &D_A1_EY_In,
-                const Array<double, 1> &D_A1_Guess_In,
+bool MPFitGauss(const blitz::Array<double, 1> &D_A1_X_In,
+                const blitz::Array<double, 1> &D_A1_Y_In,
+                const blitz::Array<double, 1> &D_A1_EY_In,
+                const blitz::Array<double, 1> &D_A1_Guess_In,
                 const bool B_WithConstantBackground,
                 const bool B_FitArea,
-                Array<double, 1> &D_A1_Coeffs_Out,
-                Array< double, 1 >& D_A1_ECoeffs_Out);
+                blitz::Array<double, 1> &D_A1_Coeffs_Out,
+                blitz::Array< double, 1 >& D_A1_ECoeffs_Out);
 
-bool MPFitGaussFix(const Array<double, 1> &D_A1_X_In,
-                   const Array<double, 1> &D_A1_Y_In,
-                   const Array<double, 1> &D_A1_EY_In,
-                   const Array<double, 1> &D_A1_Guess_In,
-                   const Array<int, 1> &I_A1_Fix,
+bool MPFitGaussFix(const blitz::Array<double, 1> &D_A1_X_In,
+                   const blitz::Array<double, 1> &D_A1_Y_In,
+                   const blitz::Array<double, 1> &D_A1_EY_In,
+                   const blitz::Array<double, 1> &D_A1_Guess_In,
+                   const blitz::Array<int, 1> &I_A1_Fix,
                    const bool B_WithConstantBackground,
                    const bool B_FitArea,
-                   Array<double, 1> &D_A1_Coeffs_Out,
-                   Array< double, 1 >& D_A1_ECoeffs_Out);
+                   blitz::Array<double, 1> &D_A1_Coeffs_Out,
+                   blitz::Array< double, 1 >& D_A1_ECoeffs_Out);
 
-bool MPFitGaussLim(const Array<double, 1> &D_A1_X_In,
-                   const Array<double, 1> &D_A1_Y_In,
-                   const Array<double, 1> &D_A1_EY_In,
-                   const Array<double, 1> &D_A1_Guess_In,
-                   const Array<int, 2> &I_A2_Limited,
-                   const Array<double, 2> &D_A2_Limits,
+bool MPFitGaussLim(const blitz::Array<double, 1> &D_A1_X_In,
+                   const blitz::Array<double, 1> &D_A1_Y_In,
+                   const blitz::Array<double, 1> &D_A1_EY_In,
+                   const blitz::Array<double, 1> &D_A1_Guess_In,
+                   const blitz::Array<int, 2> &I_A2_Limited,
+                   const blitz::Array<double, 2> &D_A2_Limits,
                    const bool B_WithConstantBackground,
                    const bool B_FitArea,
-                   Array<double, 1> &D_A1_Coeffs_Out,
-                   Array< double, 1 >& D_A1_ECoeffs_Out);
+                   blitz::Array<double, 1> &D_A1_Coeffs_Out,
+                   blitz::Array< double, 1 >& D_A1_ECoeffs_Out);
 
 /* Test harness routine, which contains test gaussian-peak data */
-bool MPFitTwoGauss(const Array<double, 1> &D_A1_X_In,
-                   const Array<double, 1> &D_A1_Y_In,
-                   const Array<double, 1> &D_A1_EY_In,
-                   const Array<double, 1> &D_A1_Guess_In,
+bool MPFitTwoGauss(const blitz::Array<double, 1> &D_A1_X_In,
+                   const blitz::Array<double, 1> &D_A1_Y_In,
+                   const blitz::Array<double, 1> &D_A1_EY_In,
+                   const blitz::Array<double, 1> &D_A1_Guess_In,
                    const bool B_WithConstantBackground,
                    const bool B_FitArea,
-                   Array<double, 1> &D_A1_Coeffs_Out,
-                   Array< double, 1 >& D_A1_ECoeffs_Out);
+                   blitz::Array<double, 1> &D_A1_Coeffs_Out,
+                   blitz::Array< double, 1 >& D_A1_ECoeffs_Out);
 
-bool MPFitTwoGaussFix(const Array<double, 1> &D_A1_X_In,
-                      const Array<double, 1> &D_A1_Y_In,
-                      const Array<double, 1> &D_A1_EY_In,
-                      const Array<double, 1> &D_A1_Guess_In,
-                      const Array<int, 1> &I_A1_Fix,
+bool MPFitTwoGaussFix(const blitz::Array<double, 1> &D_A1_X_In,
+                      const blitz::Array<double, 1> &D_A1_Y_In,
+                      const blitz::Array<double, 1> &D_A1_EY_In,
+                      const blitz::Array<double, 1> &D_A1_Guess_In,
+                      const blitz::Array<int, 1> &I_A1_Fix,
                       const bool B_WithConstantBackground,
                       const bool B_FitArea,
-                      Array<double, 1> &D_A1_Coeffs_Out,
-                      Array< double, 1 >& D_A1_ECoeffs_Out);
+                      blitz::Array<double, 1> &D_A1_Coeffs_Out,
+                      blitz::Array< double, 1 >& D_A1_ECoeffs_Out);
 
-bool MPFitTwoGaussLim(const Array<double, 1> &D_A1_X_In,
-                      const Array<double, 1> &D_A1_Y_In,
-                      const Array<double, 1> &D_A1_EY_In,
-                      const Array<double, 1> &D_A1_Guess_In,
-                      const Array<int, 2> &I_A2_Limited,
-                      const Array<double, 2> &D_A2_Limits,
+bool MPFitTwoGaussLim(const blitz::Array<double, 1> &D_A1_X_In,
+                      const blitz::Array<double, 1> &D_A1_Y_In,
+                      const blitz::Array<double, 1> &D_A1_EY_In,
+                      const blitz::Array<double, 1> &D_A1_Guess_In,
+                      const blitz::Array<int, 2> &I_A2_Limited,
+                      const blitz::Array<double, 2> &D_A2_Limits,
                       const bool B_WithConstantBackground,
                       const bool B_FitArea,
-                      Array<double, 1> &D_A1_Coeffs_Out,
-                      Array< double, 1 >& D_A1_ECoeffs_Out);
+                      blitz::Array<double, 1> &D_A1_Coeffs_Out,
+                      blitz::Array< double, 1 >& D_A1_ECoeffs_Out);
 
-bool MPFitThreeGauss(const Array<double, 1> &D_A1_X_In,
-                     const Array<double, 1> &D_A1_Y_In,
-                     const Array<double, 1> &D_A1_EY_In,
-                     const Array<double, 1> &D_A1_Guess_In,
+bool MPFitThreeGauss(const blitz::Array<double, 1> &D_A1_X_In,
+                     const blitz::Array<double, 1> &D_A1_Y_In,
+                     const blitz::Array<double, 1> &D_A1_EY_In,
+                     const blitz::Array<double, 1> &D_A1_Guess_In,
                      const bool B_WithConstantBackground,
                      const bool B_FitArea,
-                     Array<double, 1> &D_A1_Coeffs_Out,
-                     Array< double, 1 >& D_A1_ECoeffs_Out);
+                     blitz::Array<double, 1> &D_A1_Coeffs_Out,
+                     blitz::Array< double, 1 >& D_A1_ECoeffs_Out);
 
-bool MPFitThreeGaussFix(const Array<double, 1> &D_A1_X_In,
-                        const Array<double, 1> &D_A1_Y_In,
-                        const Array<double, 1> &D_A1_EY_In,
-                        const Array<double, 1> &D_A1_Guess_In,
-                        const Array<int, 1> &I_A1_Fix,
+bool MPFitThreeGaussFix(const blitz::Array<double, 1> &D_A1_X_In,
+                        const blitz::Array<double, 1> &D_A1_Y_In,
+                        const blitz::Array<double, 1> &D_A1_EY_In,
+                        const blitz::Array<double, 1> &D_A1_Guess_In,
+                        const blitz::Array<int, 1> &I_A1_Fix,
                         const bool B_WithConstantBackground,
                         const bool B_FitArea,
-                        Array<double, 1> &D_A1_Coeffs_Out,
-                        Array< double, 1 >& D_A1_ECoeffs_Out);
+                        blitz::Array<double, 1> &D_A1_Coeffs_Out,
+                        blitz::Array< double, 1 >& D_A1_ECoeffs_Out);
 
-bool MPFitThreeGaussLim(const Array<double, 1> &D_A1_X_In,
-                        const Array<double, 1> &D_A1_Y_In,
-                        const Array<double, 1> &D_A1_EY_In,
-                        const Array<double, 1> &D_A1_Guess_In,
-                        const Array<int, 2> &I_A2_Limited,
-                        const Array<double, 2> &D_A2_Limits,
+bool MPFitThreeGaussLim(const blitz::Array<double, 1> &D_A1_X_In,
+                        const blitz::Array<double, 1> &D_A1_Y_In,
+                        const blitz::Array<double, 1> &D_A1_EY_In,
+                        const blitz::Array<double, 1> &D_A1_Guess_In,
+                        const blitz::Array<int, 2> &I_A2_Limited,
+                        const blitz::Array<double, 2> &D_A2_Limits,
                         const bool B_WithConstantBackground,
                         const bool B_FitArea,
-                        Array<double, 1> &D_A1_Coeffs_Out,
-                        Array< double, 1 >& D_A1_ECoeffs_Out);
+                        blitz::Array<double, 1> &D_A1_Coeffs_Out,
+                        blitz::Array< double, 1 >& D_A1_ECoeffs_Out);
 
-bool MPFit2DGaussLim(const Array< double, 1 >& D_A1_X_In,
-                     const Array< double, 1 >& D_A1_Y_In,
-                     const Array< double, 1 >& D_A1_Z_In,
-                     const Array< double, 1 >& D_A1_Guess_In,
-                     const Array<int, 2> &I_A2_Limited,
-                     const Array<double, 2> &D_A2_Limits,
-                     Array< double, 1 >& D_A1_Coeffs_Out,
-                     Array< double, 1 >& D_A1_ECoeffs_Out);
+bool MPFit2DGaussLim(const blitz::Array< double, 1 >& D_A1_X_In,
+                     const blitz::Array< double, 1 >& D_A1_Y_In,
+                     const blitz::Array< double, 1 >& D_A1_Z_In,
+                     const blitz::Array< double, 1 >& D_A1_Guess_In,
+                     const blitz::Array<int, 2> &I_A2_Limited,
+                     const blitz::Array<double, 2> &D_A2_Limits,
+                     blitz::Array< double, 1 >& D_A1_Coeffs_Out,
+                     blitz::Array< double, 1 >& D_A1_ECoeffs_Out);
 
 #endif

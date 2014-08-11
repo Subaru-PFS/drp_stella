@@ -1359,7 +1359,7 @@ bool CString::AToD(double &D_Out) const{
 
 /** ********************************************************************/
 
-bool CString::AToD(const Array<CString, 1> &CS_A1_In, Array<double, 1> &D_A1_Out) const{
+bool CString::AToD(const blitz::Array<CString, 1> &CS_A1_In, blitz::Array<double, 1> &D_A1_Out) const{
   int I_NElements = CS_A1_In.size();
   D_A1_Out.resize(I_NElements);
   for (int i=0; i < I_NElements; i++){
@@ -1521,8 +1521,8 @@ bool CString::StrReplaceInList(const CString &CS_TextFile_In,
 		      	       const CString &CS_ToReplace_In,
 		   	       const CString &CS_Replace_In,
 		   	       const CString &CS_TextFile_Out) const{
-  Array<CString, 1> CS_A1_TextLines_In(1);
-  Array<CString, 1> CS_A1_TextLines_Out(1);
+  blitz::Array<CString, 1> CS_A1_TextLines_In(1);
+  blitz::Array<CString, 1> CS_A1_TextLines_Out(1);
   if (!this->ReadFileLinesToStrArr(CS_TextFile_In, CS_A1_TextLines_In)){
     cout << "CString::StrReplaceInList: ERROR: ReadFileLinesToStrArr(" << CS_TextFile_In << ") returned FALSE" << endl;
     return false;
@@ -1543,10 +1543,10 @@ bool CString::StrReplaceInList(const CString &CS_TextFile_In,
 
 /// Replaces all occurences of CString <CS_ToReplace_In> in textfile <CS_TextFile_In> with
 /// <CS_Replace_In> and writes result to <CS_TextFile_Out>
-bool CString::StrReplaceInList(const Array<CString, 1> &CS_A1_In,
+bool CString::StrReplaceInList(const blitz::Array<CString, 1> &CS_A1_In,
                                const CString &CS_ToReplace_In,
                                const CString &CS_Replace_In,
-                               Array<CString, 1> &CS_A1_Out) const{
+                               blitz::Array<CString, 1> &CS_A1_Out) const{
   CString CS_LineNew(" ");
   CS_A1_Out.resize(CS_A1_In.size());
   CString CS_Line(" ");
@@ -1566,7 +1566,7 @@ bool CString::StrReplaceInList(const Array<CString, 1> &CS_A1_In,
 }
 
 bool CString::ReadFileToStrArr(const CString &CS_FileName_In,
-                               Array<CString, 2> &CS_A2_Out,
+                               blitz::Array<CString, 2> &CS_A2_Out,
                                const CString &CS_Delimiter) const{
   if (!this->FileAccess(CS_FileName_In)){
     cout << "CString::ReadFileToStrArr: ERROR: Access(CS_FileName_In) returned FALSE" << endl;
@@ -1683,9 +1683,9 @@ bool CString::ReadFileToStrArr(const CString &CS_FileName_In,
 }
 
 bool CString::ReadFileToDblArr(const CString &CS_FileName_In,
-                             Array<double, 2> &D_A2_Out,
+                             blitz::Array<double, 2> &D_A2_Out,
                              const CString &CS_Delimiter) const{
-  Array<CString, 2> CS_A2_Arr(2,2);
+  blitz::Array<CString, 2> CS_A2_Arr(2,2);
   if (!this->ReadFileToStrArr(CS_FileName_In, CS_A2_Arr, CS_Delimiter)){
     cout << "CString::ReadFileToDblArr: ERROR: ReadFileToStrArr returned FALSE" << endl;
     return false;
@@ -1702,7 +1702,7 @@ bool CString::ReadFileToDblArr(const CString &CS_FileName_In,
 /** *******************************************************/
 
 bool CString::ReadFileLinesToStrArr(const CString &CS_FileName_In,
-                                  Array<CString, 1> &CS_A1_Out) const{
+                                  blitz::Array<CString, 1> &CS_A1_Out) const{
   CString *P_CS_FirstChar = CS_FileName_In.SubString(0,0);
   CString CS_FileName(CS_FileName_In);
   if (P_CS_FirstChar->EqualValue(CString("@"))){
@@ -1996,7 +1996,7 @@ long CString::CountCols(const CString &CS_FileName_In, const CString &CS_Delimit
 
 }
 
-bool CString::WriteStrListToFile(const Array<CString, 1> &CS_A1_In, const CString &CS_FileNameOut_In) const{
+bool CString::WriteStrListToFile(const blitz::Array<CString, 1> &CS_A1_In, const CString &CS_FileNameOut_In) const{
   FILE *p_file;
   p_file = fopen(CS_FileNameOut_In.Get(), "w");
 
@@ -2008,8 +2008,8 @@ bool CString::WriteStrListToFile(const Array<CString, 1> &CS_A1_In, const CStrin
 
 }
 
-bool CString::WriteStrListToFile(const Array<CString, 2> &CS_A2_In, const CString &CS_Delimiter, const CString &CS_FileNameOut_In) const{
-  Array<CString, 1> CS_A1_TextLines(CS_A2_In.rows());
+bool CString::WriteStrListToFile(const blitz::Array<CString, 2> &CS_A2_In, const CString &CS_Delimiter, const CString &CS_FileNameOut_In) const{
+  blitz::Array<CString, 1> CS_A1_TextLines(CS_A2_In.rows());
   for (int i_row=0; i_row<CS_A2_In.rows(); i_row++){
     CS_A1_TextLines(i_row).Set(CS_A2_In(i_row, 0));
     for (int i_col=1; i_col<CS_A2_In.cols(); i_col++){
@@ -2063,7 +2063,7 @@ bool CString::MkDir(const CString &CS_PathName) const{
   return B_Success;
 }
 
-bool CString::AddFirstPartAsDir(const Array<CString, 1> &CS_A1_In, Array<CString, 1> &CS_A1_Out) const{
+bool CString::AddFirstPartAsDir(const blitz::Array<CString, 1> &CS_A1_In, blitz::Array<CString, 1> &CS_A1_Out) const{
   CS_A1_Out.resize(CS_A1_In.size());
 
   CString *P_CS_Temp;
@@ -2083,7 +2083,7 @@ bool CString::AddFirstPartAsDir(const Array<CString, 1> &CS_A1_In, Array<CString
   return true;
 }
 
-bool CString::AddNameAsDir(const Array<CString, 1> &CS_A1_In, Array<CString, 1> &CS_A1_Out) const{
+bool CString::AddNameAsDir(const blitz::Array<CString, 1> &CS_A1_In, blitz::Array<CString, 1> &CS_A1_Out) const{
   CS_A1_Out.resize(CS_A1_In.size());
 
   CString *P_CS_Temp;
@@ -2106,9 +2106,9 @@ bool CString::AddNameAsDir(const Array<CString, 1> &CS_A1_In, Array<CString, 1> 
 
 /// Checks CS_A1_In and returns an integer array with 1 where CS_A1_In(i).EqualValue(CS_Comp),
 /// otherwise 0
-Array<int, 1>* CString::Where(const Array<CString, 1> &CS_A1_In,
+blitz::Array<int, 1>* CString::Where(const blitz::Array<CString, 1> &CS_A1_In,
                               const CString &CS_Comp) const{
-  Array<int, 1> *P_I_A1_Where = new Array<int, 1>(CS_A1_In.size());
+  blitz::Array<int, 1> *P_I_A1_Where = new blitz::Array<int, 1>(CS_A1_In.size());
   (*P_I_A1_Where) = 0;
   for (int i_el=0; i_el<CS_A1_In.size(); i_el++){
     if (CS_A1_In(i_el).EqualValue(CS_Comp)){
@@ -2121,12 +2121,12 @@ Array<int, 1>* CString::Where(const Array<CString, 1> &CS_A1_In,
 
 /** Removes element at position I_Pos from CS_A1_InOut
  * */
-bool CString::RemoveElementFromArray(Array<CString, 1> &CS_A1_InOut, int I_Pos) const{
+bool CString::RemoveElementFromArray(blitz::Array<CString, 1> &CS_A1_InOut, int I_Pos) const{
   if ((I_Pos < 0) || (I_Pos >= CS_A1_InOut.size())){
     cout << "CString::RemoveElementFromArray: ERROR: I_Pos=" << I_Pos << " < 0 or >= CS_A1_InOut.size()=" << CS_A1_InOut.size() << endl;
     return false;
   }
-  Array<CString, 1> CS_A1_Temp(CS_A1_InOut.size()-1);
+  blitz::Array<CString, 1> CS_A1_Temp(CS_A1_InOut.size()-1);
   int I_El = 0;
   for (int i_el=0; i_el<CS_A1_InOut.size(); i_el++){
     if (i_el != I_Pos){
@@ -2141,13 +2141,13 @@ bool CString::RemoveElementFromArray(Array<CString, 1> &CS_A1_InOut, int I_Pos) 
 
 /** Removes elements listed in I_A1_ElementsToRemove_In from CS_A1_InOut
  * */
-bool CString::RemoveElementsFromArray(Array<CString, 1> &CS_A1_InOut, 
-                                      const Array<int, 1> &I_A1_ElementsToRemove_In) const{
+bool CString::RemoveElementsFromArray(blitz::Array<CString, 1> &CS_A1_InOut, 
+                                      const blitz::Array<int, 1> &I_A1_ElementsToRemove_In) const{
   if (I_A1_ElementsToRemove_In.size() >= CS_A1_InOut.size()){
     cout << "CString::RemoveElementFromArray: ERROR: I_A1_ElementsToRemove_In.size()=" << I_A1_ElementsToRemove_In.size() << " >= CS_A1_InOut.size()=" << CS_A1_InOut.size() << endl;
     return false;
   }
-  Array<CString, 1> CS_A1_Temp(CS_A1_InOut.size()-I_A1_ElementsToRemove_In.size());
+  blitz::Array<CString, 1> CS_A1_Temp(CS_A1_InOut.size()-I_A1_ElementsToRemove_In.size());
   int I_El = 0;
   bool B_Found = false;
   for (int i_el=0; i_el<CS_A1_InOut.size(); i_el++){

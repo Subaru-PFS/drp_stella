@@ -915,7 +915,7 @@ int main(int argc, char *argv[])
     F_Image.WriteApHead(string("aphead_")+fitsFileName_In+string(".head"));
 
     if (!B_AperturesSet){
-      Array<int, 1> *P_I_A1_Apertures = F_Image.IndGenArr(F_Image.Get_NApertures());
+      blitz::Array<int, 1> *P_I_A1_Apertures = F_Image.IndGenArr(F_Image.Get_NApertures());
       I_A1_Apertures.resize(P_I_A1_Apertures->size());
       I_A1_Apertures = (*P_I_A1_Apertures);
       delete(P_I_A1_Apertures);
@@ -993,7 +993,7 @@ int main(int argc, char *argv[])
     }
 
     for (int i_ap=0; i_ap<I_A1_Apertures.size(); i_ap++)
-      F_OutImage.GetPixArray()(i_ap, Range::all()) = F_Image.GetSpec()(I_A1_Apertures(i_ap), Range::all());
+      F_OutImage.GetPixArray()(i_ap, blitz::Range::all()) = F_Image.GetSpec()(I_A1_Apertures(i_ap), blitz::Range::all());
     F_OutImage.WriteArray();
 
     blitz::Array<string, 1> S_A1_Args_ExtractFromProfile(2);
@@ -1017,7 +1017,7 @@ int main(int argc, char *argv[])
         exit(EXIT_FAILURE);
       }
       for (int i_ap=0; i_ap<I_A1_Apertures.size(); i_ap++)
-        F_OutImage.GetPixArray()(i_ap, Range::all()) = F_Image.GetLastExtracted()(I_A1_Apertures(i_ap), Range::all());//.transpose(secondDim, firstDim);
+        F_OutImage.GetPixArray()(i_ap, blitz::Range::all()) = F_Image.GetLastExtracted()(I_A1_Apertures(i_ap), blitz::Range::all());//.transpose(secondDim, firstDim);
       if (!F_OutImage.WriteArray())
       {
         cout << "MExtract::main: ERROR: F_OutImage.WriteArray() returned FALSE!" << endl;
@@ -1045,11 +1045,11 @@ int main(int argc, char *argv[])
           exit(EXIT_FAILURE);
         }
         for (int i_ap=0; i_ap < P_I_A1_Apertures->size(); i_ap++)
-          F_OutImage.GetPixArray()(i_ap, Range::all()) = F_Image.GetLastExtracted()((*P_I_A1_Apertures)(i_ap), Range::all());
+          F_OutImage.GetPixArray()(i_ap, blitz::Range::all()) = F_Image.GetLastExtracted()((*P_I_A1_Apertures)(i_ap), blitz::Range::all());
       }
       else{*/
         for (int i_ap=0; i_ap < I_A1_Apertures.size(); i_ap++)
-          F_OutImage.GetPixArray()(i_ap, Range::all()) = F_Image.GetSpecFit()(I_A1_Apertures(i_ap), Range::all());//.transpose(secondDim, firstDim);
+          F_OutImage.GetPixArray()(i_ap, blitz::Range::all()) = F_Image.GetSpecFit()(I_A1_Apertures(i_ap), blitz::Range::all());//.transpose(secondDim, firstDim);
 //      }
       cout << "MExtract::main: Starting to write SPFit" << endl;
       if (!F_OutImage.WriteArray())
@@ -1200,7 +1200,7 @@ int main(int argc, char *argv[])
     /// output extracted spectrum 1D
     cout << "MExtract::main: Starting to write EcOut" << endl;
     for (int i_ap=0; i_ap<I_A1_Apertures.size(); i_ap++)
-      F_OutImage.GetPixArray()(i_ap, Range::all()) = F_Image.GetSpec()(I_A1_Apertures(i_ap), Range::all());//.transpose(secondDim, firstDim);
+      F_OutImage.GetPixArray()(i_ap, blitz::Range::all()) = F_Image.GetSpec()(I_A1_Apertures(i_ap), blitz::Range::all());//.transpose(secondDim, firstDim);
 
   //cout << "MExctract: F_Image.GetSpec = " << F_Image.GetSpec() << endl;
 
@@ -1236,7 +1236,7 @@ int main(int argc, char *argv[])
       }
       cout << "MExtract::main: Starting to write ErrOutEc" << endl;
       for (int i_ap=0; i_ap<I_A1_Apertures.size(); i_ap++)
-        F_OutImage.GetPixArray()(i_ap, Range::all()) = F_Image.GetErrorsEc()(I_A1_Apertures(i_ap), Range::all());//.transpose(secondDim, firstDim);
+        F_OutImage.GetPixArray()(i_ap, blitz::Range::all()) = F_Image.GetErrorsEc()(I_A1_Apertures(i_ap), blitz::Range::all());//.transpose(secondDim, firstDim);
       if (!F_OutImage.WriteArray())
       {
         cout << "MExtract::main: ERROR: F_OutImage.WriteArray() returned FALSE!" << endl;
@@ -1255,7 +1255,7 @@ int main(int argc, char *argv[])
       }
       cout << "MExtract::main: Starting to write ErrOutEc" << endl;
       for (int i_ap=0; i_ap<I_A1_Apertures.size(); i_ap++)
-        F_OutImage.GetPixArray()(i_ap, Range::all()) = F_Image.GetErrorsEcFit()(I_A1_Apertures(i_ap), Range::all());//.transpose(secondDim, firstDim);
+        F_OutImage.GetPixArray()(i_ap, blitz::Range::all()) = F_Image.GetErrorsEcFit()(I_A1_Apertures(i_ap), blitz::Range::all());//.transpose(secondDim, firstDim);
       if (!F_OutImage.WriteArray())
       {
         cout << "MExtract::main: ERROR: F_OutImage.WriteArray() returned FALSE!" << endl;
@@ -1290,7 +1290,7 @@ int main(int argc, char *argv[])
       }
       cout << "MExtract::main: Starting to write SkyOut" << endl;
       for (int i_ap=0; i_ap < I_A1_Apertures.size(); i_ap++)
-        F_OutImage.GetPixArray()(i_ap, Range::all()) = F_Image.GetSky()(I_A1_Apertures(i_ap), Range::all());//.transpose(secondDim, firstDim);
+        F_OutImage.GetPixArray()(i_ap, blitz::Range::all()) = F_Image.GetSky()(I_A1_Apertures(i_ap), blitz::Range::all());//.transpose(secondDim, firstDim);
       if (!F_OutImage.WriteArray())
       {
         cout << "MExtract::main: ERROR: F_OutImage.WriteArray() returned FALSE!" << endl;
@@ -1308,7 +1308,7 @@ int main(int argc, char *argv[])
       }
       cout << "MExtract::main: Starting to write SkyFitOut" << endl;
       for (int i_ap=0; i_ap < I_A1_Apertures.size(); i_ap++)
-        F_OutImage.GetPixArray()(i_ap, Range::all()) = F_Image.GetSkyFit()(I_A1_Apertures(i_ap), Range::all());//.transpose(secondDim, firstDim);
+        F_OutImage.GetPixArray()(i_ap, blitz::Range::all()) = F_Image.GetSkyFit()(I_A1_Apertures(i_ap), blitz::Range::all());//.transpose(secondDim, firstDim);
       if (!F_OutImage.WriteArray())
       {
         cout << "MExtract::main: ERROR: F_OutImage.WriteArray() returned FALSE!" << endl;
@@ -1326,7 +1326,7 @@ int main(int argc, char *argv[])
       }
       cout << "MExtract::main: Starting to write SkyErrOut" << endl;
       for (int i_ap=0; i_ap < I_A1_Apertures.size(); i_ap++)
-        F_OutImage.GetPixArray()(i_ap, Range::all()) = F_Image.GetSkyError()(I_A1_Apertures(i_ap), Range::all());//.transpose(secondDim, firstDim);
+        F_OutImage.GetPixArray()(i_ap, blitz::Range::all()) = F_Image.GetSkyError()(I_A1_Apertures(i_ap), blitz::Range::all());//.transpose(secondDim, firstDim);
       if (!F_OutImage.WriteArray())
       {
         cout << "MExtract::main: ERROR: F_OutImage.WriteArray() returned FALSE!" << endl;
@@ -1344,7 +1344,7 @@ int main(int argc, char *argv[])
       }
       cout << "MExtract::main: Starting to write SkyFitErrOut" << endl;
       for (int i_ap=0; i_ap < I_A1_Apertures.size(); i_ap++)
-        F_OutImage.GetPixArray()(i_ap, Range::all()) = F_Image.GetSkyFitError()(I_A1_Apertures(i_ap), Range::all());//.transpose(secondDim, firstDim);
+        F_OutImage.GetPixArray()(i_ap, blitz::Range::all()) = F_Image.GetSkyFitError()(I_A1_Apertures(i_ap), blitz::Range::all());//.transpose(secondDim, firstDim);
       if (!F_OutImage.WriteArray())
       {
         cout << "MExtract::main: ERROR: F_OutImage.WriteArray() returned FALSE!" << endl;
