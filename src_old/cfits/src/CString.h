@@ -38,7 +38,6 @@ TODO: Memory leaks in + operators
 #define STRLEN 255
 
   using namespace std;
-  using namespace blitz;
 
   class CString: public CAny {
     private:
@@ -297,7 +296,7 @@ TODO: Memory leaks in + operators
       bool AToD(double &D_Out) const;
       int AToI() const;
       bool AToI(int &I_Out) const;
-      bool AToD(const Array<CString, 1> &CS_A1_In, Array<double, 1> &D_A1_Out) const;
+      bool AToD(const blitz::Array<CString, 1> &CS_A1_In, blitz::Array<double, 1> &D_A1_Out) const;
       CString* IntToCString(int I_In);
 
       /**
@@ -334,21 +333,21 @@ TODO: Memory leaks in + operators
 			    const CString &CS_Replace_In,
 			    const CString &CS_TextFile_Out) const;
 
-      bool StrReplaceInList(const Array<CString, 1> &CS_A1_In,
+      bool StrReplaceInList(const blitz::Array<CString, 1> &CS_A1_In,
                             const CString &CS_ToReplace_In,
                             const CString &CS_Replace_In,
-                            Array<CString, 1> &CS_A1_Out) const;
+                            blitz::Array<CString, 1> &CS_A1_Out) const;
 
       bool ReadFileToStrArr(const CString &CS_FileName_In,
-                            Array<CString, 2> &CS_A2_Out,
+                            blitz::Array<CString, 2> &CS_A2_Out,
                             const CString &CS_Delimiter) const;
 
       bool ReadFileToDblArr(const CString &CS_FileName_In,
-                            Array<double, 2> &D_A2_Out,
+                            blitz::Array<double, 2> &D_A2_Out,
                             const CString &CS_Delimiter) const;
 
       bool ReadFileLinesToStrArr(const CString &CS_FileName_In,
-                                 Array<CString, 1> &CS_A1_Out) const;
+                                 blitz::Array<CString, 1> &CS_A1_Out) const;
 
       bool FileAccess(const CString &fn) const;
 
@@ -356,23 +355,23 @@ TODO: Memory leaks in + operators
       
       /// Checks CS_A1_In and returns an integer array with 1 where CS_A1_In(i).EqualValue(CS_Comp),
       /// otherwise 0
-      Array<int, 1>* Where(const Array<CString, 1> &CS_A1_In,
+      blitz::Array<int, 1>* Where(const blitz::Array<CString, 1> &CS_A1_In,
                            const CString &CS_Comp) const;
                            
       /** Removes element at position I_Pos from CS_A1_InOut
        * */
-      bool RemoveElementFromArray(Array<CString, 1> &CS_A1_InOut, int I_Pos) const;
+      bool RemoveElementFromArray(blitz::Array<CString, 1> &CS_A1_InOut, int I_Pos) const;
       
       /** Removes elements listed in I_A1_ElementsToRemove_In from CS_A1_InOut
        * */
-      bool RemoveElementsFromArray(Array<CString, 1> &CS_A1_InOut, const Array<int, 1> &I_A1_ElementsToRemove_In) const;
+      bool RemoveElementsFromArray(blitz::Array<CString, 1> &CS_A1_InOut, const blitz::Array<int, 1> &I_A1_ElementsToRemove_In) const;
       
-      bool WriteStrListToFile(const Array<CString, 1> &CS_A1_In, const CString &CS_FileNameOut_In) const;
-      bool WriteStrListToFile(const Array<CString, 2> &CS_A2_In, const CString &CS_Delimiter, const CString &CS_FileNameOut_In) const;
+      bool WriteStrListToFile(const blitz::Array<CString, 1> &CS_A1_In, const CString &CS_FileNameOut_In) const;
+      bool WriteStrListToFile(const blitz::Array<CString, 2> &CS_A2_In, const CString &CS_Delimiter, const CString &CS_FileNameOut_In) const;
 
-      bool AddFirstPartAsDir(const Array<CString, 1> &CS_A1_In, Array<CString, 1> &CS_A1_Out) const;
+      bool AddFirstPartAsDir(const blitz::Array<CString, 1> &CS_A1_In, blitz::Array<CString, 1> &CS_A1_Out) const;
 
-      bool AddNameAsDir(const Array<CString, 1> &CS_A1_In, Array<CString, 1> &CS_A1_Out) const;
+      bool AddNameAsDir(const blitz::Array<CString, 1> &CS_A1_In, blitz::Array<CString, 1> &CS_A1_Out) const;
 
       bool MkDir(const CString &CS_PathName) const;
 

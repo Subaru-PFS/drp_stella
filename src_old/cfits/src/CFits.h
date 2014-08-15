@@ -49,7 +49,7 @@ basis machine: Ubuntu Linux 6.06
   #endif
 
   #include "CAny.h"
-  #include "CString.h"
+//  #include "CString.h"
   #include "kriging/geostat.h"
 //  #include "../../fit/MyFitUtil.h"
   #include "../../cmpfit-1.2/MyFit.h"
@@ -109,6 +109,7 @@ basis machine: Ubuntu Linux 6.06
 //    #define __DEBUG_FITS_READAPERTURES__
 //    #define __DEBUG_FITS_READARRAY__
 //    #define __DEBUG_FITS_READFILELINESTOSTRARR__
+#define __DEBUG_FITS_READFILETOSTRARR__
 //    #define __DEBUG_FITS_REBIN__
 //    #define __DEBUG_FITS_REFORM__
 //    #define __DEBUG_SEDM__
@@ -172,12 +173,12 @@ basis machine: Ubuntu Linux 6.06
   #define SPEED_OF_LIGHT 299792458
   #define D_PI 3.14159265359
   #define D_H_C 1.9865e-8 /// erg Ang
+  #define MAXSTRINGLENGTH 255
 //#define __TELLURIC_ORIG__
 //#define __TELLURIC_MINE__
 //  #define MAXAPERTURES 1000
 //  #define SWAP(a,b) double
   using namespace std;
-//  using namespace blitz;
 
   class CFits: public CAny
   {
@@ -186,16 +187,16 @@ basis machine: Ubuntu Linux 6.06
 
     protected:
       /// File name of fits file to reduce
-      CString *P_CS_FileName;
+      string fileName;
 
       /// File name of database entry
-      CString *P_CS_DatabaseFileName;
+      string databaseFileName;
 
       /// File name of error fits file to propagate
-      CString *P_CS_ErrFileName;
+      string errFileName;
 
       /// File name of log file to write debug informations into
-      CString *P_CS_LogFileName;
+      string logFileName;
 
       /// OFStream of log file
       ofstream *P_OFS_Log;
@@ -293,7 +294,7 @@ basis machine: Ubuntu Linux 6.06
       ///  2: cubic
       ///  3: linear
       ///  4: polynomial
-      blitz::Array<CString, 1> *P_CS_A1_Functions; /// NApertures
+      blitz::Array<string, 1> *functions; /// NApertures
       int NRows;
       int NCols;
       int I_DispAxis;
@@ -331,7 +332,7 @@ basis machine: Ubuntu Linux 6.06
 
       /** Constructs an object of type 'CFits' and sets this objects
       <FileName> to <fn>.**/
-      CFits(const CString &fn, int nrows, int ncols);
+      CFits(const string &fn, int nrows, int ncols);
 
       /** Copy constructor
           Constructs an object of 'CFits' with the values of 'fit', if 'fit' is
@@ -414,9 +415,9 @@ basis machine: Ubuntu Linux 6.06
           ensure : Return "TRUE", if the specified values are valid, else set
           the value of the specified attribute to the nearest valid one and
           return "FALSE".**/
-      bool SetFileName(const CString &fn);
-      bool SetErrFileName(const CString &fn);
-      bool SetDatabaseFileName(const CString &fn);
+      bool setFileName(const string &fn);
+      bool setErrFileName(const string &fn);
+      bool setDatabaseFileName(const string &fn);
       bool SetNRows(int nro);
       bool SetNCols(int nco);
       bool Set_DispAxis(int I_DispAxis_In);
@@ -433,11 +434,11 @@ basis machine: Ubuntu Linux 6.06
       bool Set_YCenter(const blitz::Array<double, 1>& D_A1_In);
       bool Set_Orders(const blitz::Array<int, 1>& I_A1_In);
       bool Set_NCoeffs(const blitz::Array<int, 1>& I_A1_In);
-      bool Set_Functions(const blitz::Array<CString, 1> CS_A1_Functions_In);
+      bool setFunctions(const blitz::Array<string, 1> functionsIn);
       bool Set_SubArray(blitz::Array<double, 1> &D_A1_InOut, blitz::Array<int, 1> &I_A1_Indices_In, blitz::Array<double, 1> &D_A1_In) const;
       bool Set_SubArray(blitz::Array<int, 1> &I_A1_InOut, blitz::Array<int, 1> &I_A1_Indices_In, blitz::Array<int, 1> &I_A1_In) const;
       bool Set_ProfArray(const blitz::Array<double, 2> &D_A2_ProfArray_In);
-      bool Read_ProfArray(const CString &CS_FitsFileName_In);
+      bool readProfArray(const string &fitsFileName_In);
 
       /// I_A3_Indices_In: (*,0): row_InOut
       /// I_A3_Indices_In: (*,1): col_InOut
@@ -475,9 +476,9 @@ basis machine: Ubuntu Linux 6.06
           task   : Return the specified value.
           require: none
           ensure : work**/
-      CString& GetFileName() const;
-      CString& GetErrFileName() const;
-      CString& GetDatabaseFileName() const;
+      string& getFileName() const;
+      string& getErrFileName() const;
+      string& getDatabaseFileName() const;
       int GetNCols() const;
       int GetNRows() const;
       blitz::Array<double, 2>& GetPixArray(); /// NRows x NCols
@@ -512,7 +513,7 @@ basis machine: Ubuntu Linux 6.06
       blitz::Array<double, 1>* Get_YCenter() const; /// NApertures
       blitz::Array<int, 1>* Get_Orders() const;     /// NApertures
       blitz::Array<int, 1>* Get_NCoeffs() const;    /// NApertures
-      blitz::Array<CString, 1>* Get_Functions() const;         /// NApertures
+      blitz::Array<string, 1>* getFunctions() const;         /// NApertures
       double Get_Gain() const;
       double Get_ReadOutNoise() const;
       double Get_SaturationLevel() const;
@@ -526,22 +527,22 @@ basis machine: Ubuntu Linux 6.06
 //      bool Get_Path(CString &CS_Path_Out) const;
 
       /**
-       function int CountLines(const CString &fnc: inout)
+       function int CountLines(const string &fnc: in)
        Returns number of lines of file <fnc>.
       **/
-      long CountLines(const CString &fnc) const;
+      long countLines(const string &fnc) const;
 
       /**
-       function int CountDataLines(const CString &fnc: inout)
+       function int CountDataLines(const string &fnc: in)
        Returns number of lines which do not start with '#' of file <fnc>.
        **/
-      long CountDataLines(const CString &fnc) const;
+      long countDataLines(const string &fnc) const;
 
       /**
-      function int CountCols(const CString &fnc: inout)
+      function int CountCols(const string &fnc: in, const string &delimiter: in)
       Returns number of columns of file <fnc>.
        **/
-      long CountCols(const CString &CS_FileName_In, const CString &CS_Delimiter) const;
+      long countCols(const string &fileName_In, const string &delimiter_In) const;
 
       double GetNormalized(const double XVal,
                            const double XMin,
@@ -599,7 +600,7 @@ basis machine: Ubuntu Linux 6.06
                        double D_High_In,
                        int I_Order_In,
                        int I_NCols_In,
-                       const CString &CS_Function_In);
+                       const string &S_Function_In);
 
       bool Legendre(blitz::Array<double, 1> &D_A1_XCenters_Out,
                     double *P_D_YMin_Out,
@@ -674,13 +675,13 @@ basis machine: Ubuntu Linux 6.06
       bool CalcTraceFunctions();
 
       bool ExtractErrors();
-      bool ExtractErrors(const blitz::Array<CString, 1> &CS_A1_Args_In,
+      bool ExtractErrors(const blitz::Array<string, 1> &S_A1_Args_In,
                          void* PP_Args_In[]);
       /// Args:
       /// APERTURES: blitz::Array<int, 1>
 
       bool ExtractSimpleSum();
-      bool ExtractSimpleSum(const blitz::Array<CString, 1> &CS_A1_Args_In,       ///: in
+      bool ExtractSimpleSum(const blitz::Array<string, 1> &S_A1_Args_In,       ///: in
                             void *ArgV_In[]);
       /// Args:
       /// AREA: blitz::Array<int, 1>(4)
@@ -697,7 +698,7 @@ basis machine: Ubuntu Linux 6.06
       /// APERTURES: blitz::Array<int, 1>
 
       bool ExtractSimpleSum(const blitz::Array<double, 2> &D_A2_ArrayToExtract_In,
-                            const blitz::Array<CString, 1> &CS_A1_Args_In,       ///: in
+                            const blitz::Array<string, 1> &S_A1_Args_In,       ///: in
                             void *ArgV_In[]);
       /// Args:
       /// AREA: blitz::Array<int, 1>(4)
@@ -737,7 +738,7 @@ basis machine: Ubuntu Linux 6.06
                                 const blitz::Array<double, 1> &D_A1_SDevLimits_In,
                                 const blitz::Array<double, 1> &D_A1_MeanLimits_In,
                                 const bool B_WithBackground_In,
-                                const blitz::Array<CString, 1> &CS_A1_Args_In,
+                                const blitz::Array<string, 1> &S_A1_Args_In,
                                 void *ArgV_In[]);
 
       /// D_A1_SDevLimits_In(0) = minimum standard deviation of Gauss curve
@@ -757,12 +758,14 @@ basis machine: Ubuntu Linux 6.06
                                   const blitz::Array<double, 1> &D_A1_SDevLimits_In,
                                   const blitz::Array<double, 1> &D_A1_MeanLimits_In,
                                   const bool B_WithBackground_In,
-                                  const blitz::Array<CString, 1> &CS_A1_Args_In,
+                                  const blitz::Array<string, 1> &S_A1_Args_In,
                                   void *ArgV_In[]);
 
       /// No fitting, simply apply weights from Profile to spectrum and sum up (no sky!!!)
       bool ExtractFromProfile(const blitz::Array<double, 2> &D_A2_ArrayToExtract);
-      bool ExtractFromProfile(const blitz::Array<double, 2> &D_A2_ArrayToExtract, const blitz::Array<CString, 1> &CS_A1_Args_In, void *ArgV_In[]);
+      bool ExtractFromProfile(const blitz::Array<double, 2> &D_A2_ArrayToExtract, 
+                              const blitz::Array<string, 1> &S_A1_Args_In, 
+                              void *ArgV_In[]);
       /// Args:
       /// AREA: blitz::Array<int, 1>(4)
       ///    I_XMin = I_A1_Area(0);
@@ -782,7 +785,7 @@ basis machine: Ubuntu Linux 6.06
 
       /// performs linear fitting to profile, with or without sky
       bool ExtractSpecFromProfile(const blitz::Array<double, 2> &D_A2_ArrayToExtract,
-                                  const blitz::Array<CString, 1> &CS_A1_Args_In,
+                                  const blitz::Array<string, 1> &S_A1_Args_In,
                                   void* PP_Args_In[]);
       /// Args:
       /// AREA: blitz::Array<int, 1>(4)
@@ -810,43 +813,43 @@ basis machine: Ubuntu Linux 6.06
 
       bool WriteErrArray() const;
 
-      bool WriteFits(const blitz::Array<double,2>* P_D_A2_Image_In, const CString CS_FileName_In) const;
+      bool WriteFits(const blitz::Array<double,2>* P_D_A2_Image_In, const string &S_FileName_In) const;
 
-      bool WriteFits(const blitz::Array<double,1>* P_D_A1_Image_In, const CString CS_FileName_In) const;
+      bool WriteFits(const blitz::Array<double,1>* P_D_A1_Image_In, const string &S_FileName_In) const;
 
-      bool WriteFits(const blitz::Array<int,2>* P_I_A2_Image_In, const CString CS_FileName_In) const;
+      bool WriteFits(const blitz::Array<int,2>* P_I_A2_Image_In, const string &S_FileName_In) const;
 
-      bool WriteFits(const blitz::Array<int,1>* P_I_A1_Image_In, const CString CS_FileName_In) const;
+      bool WriteFits(const blitz::Array<int,1>* P_I_A1_Image_In, const string &S_FileName_In) const;
 
-      bool WriteApHead(CString CS_FileName_Out) const;
+      bool WriteApHead(const string &S_FileName_Out) const;
 
-      bool WriteApertures(const CString &CS_FitsFileName_Out_Root, blitz::Array<CString, 1> &CS_A1_FileNames_Out) const;
+      bool WriteApertures(const string &fitsFileName_Out_Root, blitz::Array<string, 1> &fileNames_Out) const;
 
-      bool WriteApertures(const CString &CS_FitsFileName_Out_Root, blitz::Array<CString, 1> &CS_A1_FileNames_Out, const blitz::Array<int, 1> &I_A1_Apertures) const;
+      bool WriteApertures(const string &fitsFileName_Out_Root, blitz::Array<string, 1> &fileNames_Out, const blitz::Array<int, 1> &I_A1_Apertures) const;
 
-      bool WriteApCenters(const CString &CS_TextFileName_Out) const;
+      bool WriteApCenters(const string &textFileName_Out) const;
 
-      bool WriteApCenters(const CString &CS_TextFileName_Out,
+      bool WriteApCenters(const string &textFileName_Out,
                           const blitz::Array<int, 1> &I_A1_Apertures) const;
 
-      bool WriteApCenters(const CString &CS_FitsFileName_In,
-                          const CString &CS_DatabaseFileName_In,
-                          const CString &CS_TextFileName_Out) const;
+      bool WriteApCenters(const string &fitsFileName_In,
+                          const string &databaseFileName_In,
+                          const string &textFileName_Out) const;
 
-      bool WriteApCenters(const CString &CS_FitsFileName_In,
-                          const CString &CS_DatabaseFileName_In,
-                          const CString &CS_TextFileName_Out,
+      bool WriteApCenters(const string &fitsFileName_In,
+                          const string &databaseFileName_In,
+                          const string &textFileName_Out,
                           const blitz::Array<int, 1> &I_A1_Apertures) const;
 
       bool Access() const;
 
-      bool FitsAccess(const CString &fn) const;
+      bool FitsAccess(const string &fn) const;
 
-      bool FileAccess(const CString &fn) const;
+      bool FileAccess(const string &fn) const;
 
       bool AccessDatabaseFile() const;
 
-      CString** CharArrayToCStringArray(char* p_charr[], int len) const;
+//      CString** CharArrayToCStringArray(char* p_charr[], int len) const;
 
       bool CalculateScatteredLight(int I_FittingOrder_In, int I_BoxCarWidth_In);
 
@@ -877,7 +880,7 @@ basis machine: Ubuntu Linux 6.06
                       blitz::Array<double, 2> &D_A2_SlitF,         //: out
                       blitz::Array<double, 1> &D_A1_BinCen,        //: out
                       const int I_IAperture_In,                    //: in
-                      const blitz::Array<CString, 1> &CS_A1_Args,     //: in
+                      const blitz::Array<string, 1> &S_A1_Args,     //: in
                       void *ArgV[]);                        //: in
 /* KeyWords and Values:      LAMBDA_SF   : double          : in
                              LAMBDA_SP   : int             : out
@@ -909,7 +912,7 @@ basis machine: Ubuntu Linux 6.06
                            blitz::Array<double, 1> &D_A1_BinCen,        //: out
                            int I_IAperture_In,                   //: in
                            //                       int I_NArgs,                          //: in
-                           const blitz::Array<CString, 1> &CS_A1_Args,           //: in
+                           const blitz::Array<string, 1> &S_A1_Args,           //: in
                            void *ArgV[]);                  //: in
 
 
@@ -923,7 +926,7 @@ basis machine: Ubuntu Linux 6.06
                      blitz::Array<double, 1> &SPVecArr,   //: out
                      blitz::Array<double, 1> &SFVecArr,   //: out
                      //                     int NArgs,                //: in
-                     const blitz::Array<CString, 1> &CS_A1_Args,   //: in
+                     const blitz::Array<string, 1> &S_A1_Args,   //: in
                      void *ArgV[]);     //: in
 
 
@@ -932,7 +935,7 @@ basis machine: Ubuntu Linux 6.06
       Make Profile Image
       **/
       bool MkProfIm_Old();
-      bool MkProfIm_Old(const blitz::Array<CString, 1> &CS_A1_Args_In,       ///: in
+      bool MkProfIm_Old(const blitz::Array<string, 1> &S_A1_Args_In,       ///: in
                                void *ArgV[]);                                  ///: in
 
       /**
@@ -944,7 +947,7 @@ basis machine: Ubuntu Linux 6.06
                     const blitz::Array<double, 1> &D_A1_XCenOffset,  ///: in
                     blitz::Array<double, 1> &D_A1_SP_Out,                     ///: out
                     blitz::Array<double, 2> &D_A2_SF_Out,                     ///: out
-                    const blitz::Array<CString, 1> &Args,            ///: in
+                    const blitz::Array<string, 1> &S_A1_Args,            ///: in
                     void *ArgV[]);                            ///: in
 /** KeyWords and Values:  NOISE      = double          : in
                           OVERSAMPLE = int             : in
@@ -972,7 +975,7 @@ basis machine: Ubuntu Linux 6.06
 			//blitz::Array<double, 2> &D_A2_SF_Out,
 			//int I_Delta_X_In,
 			//double D_Shear_X_In,
-			const blitz::Array<CString, 1> &CS_A1_Args_In,            ///: in
+			const blitz::Array<string, 1> &S_A1_Args_In,            ///: in
                         void *PP_ArgsV_In[]);
 
       /**
@@ -985,7 +988,7 @@ basis machine: Ubuntu Linux 6.06
       MkProfIm
       Calculate Profile Image and optimally extract orders
        **/
-      bool MkProfIm(const blitz::Array<CString, 1> &CS_A1_Args,  ///: in
+      bool MkProfIm(const blitz::Array<string, 1> &S_A1_Args,  ///: in
                     void *ArgV[]);                        ///: in
 /** KeyWords and Values:   SWATH_WIDTH:              int: in
                            LAMBDA_SP  :              int: in (Smoothing along dispersion)
@@ -1003,7 +1006,7 @@ basis machine: Ubuntu Linux 6.06
       Make Profile for Normalized Flat
        **/
       bool MkNormFlatProf(int I_LambdaSP_In,
-                          blitz::Array<CString, 1> CS_A1_Args,
+                          blitz::Array<string, 1> S_A1_Args,
                           void *ArgV[]);
       /**
        * Keywords and Values: SWATH_WIDTH:                 int: in
@@ -1017,7 +1020,7 @@ basis machine: Ubuntu Linux 6.06
        **
       bool MkScatter(//back,                                ///out
                      //yback,                               ///out
-                     const blitz::Array<CString, 1> &CS_A1_Args, ///: in
+                     const blitz::Array<string, 1> &S_A1_Args, ///: in
                      void *ArgV[]);                       ///in
       /** KeyWords and Values: COLRANGE=colrange
                                LAMBDA_SF=lam_sf...double
@@ -1035,7 +1038,7 @@ basis machine: Ubuntu Linux 6.06
        KeyWord_Set(const CString *p_cstr, const CString &cstr) const
        Returns Position of <cstr> in Array of CStrings <p_cstr>, if <p_cstr> contains CString <cstr>, else returns -1.
        **/
-      int KeyWord_Set(const blitz::Array<CString, 1> &CS_A1_In, const CString &cstr) const;
+      int KeyWord_Set(const blitz::Array<string, 1> &S_A1_In, const string &str_In) const;
 
       /**
       BandSol(blitz::Array<double, 2> &D_A2_A_In, blitz::Array<double, 1> &D_A1_R_In, int N, int I_ND) const
@@ -1069,7 +1072,7 @@ basis machine: Ubuntu Linux 6.06
       /**
       FIndGen(int len) const
        **/
-      Vector<float>* FIndGen(int len) const;
+      blitz::Vector<float>* FIndGen(int len) const;
 
       /**
       FIndGenArr(int len) const
@@ -1079,7 +1082,7 @@ basis machine: Ubuntu Linux 6.06
       /**
       DIndGen(int len) const
       **/
-      Vector<double>* DIndGen(int len) const;
+      blitz::Vector<double>* DIndGen(int len) const;
 
       /**
       DIndGenArr(int len) const
@@ -1089,7 +1092,7 @@ basis machine: Ubuntu Linux 6.06
       /**
       LIndGen(int len) const
        **/
-      Vector<long>* LIndGen(int len) const;
+      blitz::Vector<long>* LIndGen(int len) const;
 
       /**
       LIndGenArr(int len) const
@@ -1099,7 +1102,7 @@ basis machine: Ubuntu Linux 6.06
       /**
       IndGen(int len) const
        **/
-      Vector<int>* IndGen(int len) const;
+      blitz::Vector<int>* IndGen(int len) const;
 
       /**
       IndGenArr(int len) const
@@ -1200,18 +1203,26 @@ basis machine: Ubuntu Linux 6.06
             ERRORS_IN(blitz::Array<double, 1>)
             ERR_OUT(double)
        **/
-      int Median(const blitz::Array<int, 1> &Arr, const blitz::Array<CString, 1> &CS_A1_Args_In, void *PP_Args[]) const;
-      double Median(const blitz::Array<double, 1> &Arr, const blitz::Array<CString, 1> &CS_A1_Args_In, void *PP_Args[]) const;
+      int Median(const blitz::Array<int, 1> &Arr, 
+                 const blitz::Array<string, 1> &S_A1_Args_In, 
+                 void *PP_Args[]) const;
+                 
+      double Median(const blitz::Array<double, 1> &Arr, 
+                    const blitz::Array<string, 1> &S_A1_Args_In, 
+                    void *PP_Args[]) const;
 
       /**
       MedianVec(blitz::Array<double, 1>, int Width, CString "Even");
        **/
-      blitz::Array<double, 1>* MedianVec(const blitz::Array<double, 1> &arr, int Width, const CString &Mode) const;
+      blitz::Array<double, 1>* MedianVec(const blitz::Array<double, 1> &arr, 
+                                         int Width, 
+                                         const string &Mode) const;
 
       /**
       MedianVec(blitz::Array<double, 1>, int Width");
        **/
-      blitz::Array<double, 1>* MedianVec(const blitz::Array<double, 1> &arr, int Width) const;
+      blitz::Array<double, 1>* MedianVec(const blitz::Array<double, 1> &arr, 
+                                         int Width) const;
 
       /**
       LinearRegression(blitz::Array<double, 1> y, const blitz::Array<double, 1> x, a1, a0);
@@ -1332,7 +1343,7 @@ basis machine: Ubuntu Linux 6.06
                   const blitz::Array<double, 1> &D_A1_SF_In,       /// x: in
                   double &D_SP_Out,                         /// a1: out
                   double &D_Sky_Out,                        /// a0: out
-                  const blitz::Array<CString, 1> &CS_A1_Args_In,   ///: in
+                  const blitz::Array<string, 1> &S_A1_Args_In,   ///: in
                   void *ArgV_In[]) const;                   ///: in/out
       ///            SDEV_IN = blitz::Array<double,1>(D_A1_CCD_In.size)        : in
       ///            MEASURE_ERRORS = blitz::Array<double,1>(D_A1_CCD_In.size) : in
@@ -1354,7 +1365,7 @@ basis machine: Ubuntu Linux 6.06
                   const blitz::Array<double, 2> &D_A2_SF_In,       /// x: in
                   blitz::Array<double,1> &D_A1_SP_Out,             /// a1: out
                   blitz::Array<double,1> &D_A1_Sky_Out,            /// a0: out
-                  const blitz::Array<CString, 1> &CS_A1_Args_In,   ///: in
+                  const blitz::Array<string, 1> &S_A1_Args_In,   ///: in
                   void *ArgV_In[]) const;                   ///: in/out
   /// SDEV_IN = blitz::Array<double,2>(D_A2_CCD_In.rows, D_A2_CCD_In.cols)        : in
   /// MEASURE_ERRORS = blitz::Array<double,2>(D_A2_CCD_In.rows, D_A2_CCD_In.cols) : in
@@ -1383,7 +1394,7 @@ basis machine: Ubuntu Linux 6.06
                const blitz::Array<double, 1> &D_A1_SF_In,       /// x: in
                double &D_SP_Out,                         /// a1: out
                double &D_Sky_Out,                        /// a0: in/out
-               const blitz::Array<CString, 1> &CS_A1_Args_In,   ///: in
+               const blitz::Array<string, 1> &S_A1_Args_In,   ///: in
                void *ArgV_In[]) const;                   ///: in/out
     /// MEASURE_ERRORS_IN = blitz::Array<double,1>(D_A1_CCD_In.size)             : in
     /// REJECT_IN = double                                                : in
@@ -1398,7 +1409,7 @@ basis machine: Ubuntu Linux 6.06
                double &D_SP_Out,                         /// a1: out
                double &D_Sky_Out,                        /// a0: in/out
                bool B_WithSky,                           /// with sky: in
-               const blitz::Array<CString, 1> &CS_A1_Args_In,   ///: in
+               const blitz::Array<string, 1> &S_A1_Args_In,   ///: in
                void *ArgV_In[]) const;                   ///: in/out
 
       /**
@@ -1409,7 +1420,7 @@ basis machine: Ubuntu Linux 6.06
                const blitz::Array<double, 2> &D_A2_SF_In,       ///: in
                blitz::Array<double,1> &D_A1_SP_Out,             ///: out
                blitz::Array<double,1> &D_A1_Sky_Out,            ///: in/out
-               const blitz::Array<CString, 1> &CS_A1_Args_In,   ///: in
+               const blitz::Array<string, 1> &S_A1_Args_In,   ///: in
                void *ArgV_In[]) const;                   ///: in/out
 
   /// MEASURE_ERRORS_IN = blitz::Array<double,2>(D_A2_CCD_In.rows, D_A2_CCD_In.cols) : in
@@ -1423,7 +1434,7 @@ basis machine: Ubuntu Linux 6.06
                blitz::Array<double,1> &D_A1_SP_Out,             ///: out
                blitz::Array<double,1> &D_A1_Sky_Out,            ///: in/out
                bool B_WithSky,                           ///: with sky: in
-               const blitz::Array<CString, 1> &CS_A1_Args_In,   ///: in
+               const blitz::Array<string, 1> &S_A1_Args_In,   ///: in
                void *ArgV_In[]) const;                   ///: in/out
     /// MEASURE_ERRORS_IN = blitz::Array<double,1>(D_A1_CCD_In.size)             : in
     /// REJECT_IN = double                                                : in
@@ -1444,7 +1455,7 @@ basis machine: Ubuntu Linux 6.06
                                       blitz::Array<double, 1> &D_A1_SP_Out,                         /// a1: out
                                       double &D_Sky_Out,                        /// a0: in/out
                                       bool B_WithSky,                           /// with sky: in
-                                      const blitz::Array<CString, 1> &CS_A1_Args_In,   ///: in
+                                      const blitz::Array<string, 1> &S_A1_Args_In,   ///: in
                                       void *ArgV_In[]) const;                   ///: in/out
     /// MEASURE_ERRORS_IN = blitz::Array<double,1>(D_A1_CCD_In.size)             : in
     /// REJECT_IN = double                                                : in
@@ -1468,7 +1479,7 @@ basis machine: Ubuntu Linux 6.06
                            double &D_SP_Out,                         /// a1: out
                            double &D_Sky_Out,                        /// a0: in/out
                            bool B_WithSky,                           /// with sky: in
-                           const blitz::Array<CString, 1> &CS_A1_Args_In,   ///: in
+                           const blitz::Array<string, 1> &S_A1_Args_In,   ///: in
                            void *ArgV_In[]) const;                   ///: in/out
     /// MEASURE_ERRORS_IN = blitz::Array<double,1>(D_A1_CCD_In.size)             : in
     /// REJECT_IN = double                                                : in
@@ -1492,7 +1503,7 @@ basis machine: Ubuntu Linux 6.06
                            const blitz::Array<double, 1> &D_A1_SF_In,       /// x: in
                            double &D_SP_Out,                         /// a1: out
                            double &D_Sky_Out,                        /// a0: in/out
-                           const blitz::Array<CString, 1> &CS_A1_Args_In,   ///: in
+                           const blitz::Array<string, 1> &S_A1_Args_In,   ///: in
                            void *ArgV_In[]) const;                   ///: in/out
     /// MEASURE_ERRORS_IN = blitz::Array<double,1>(D_A1_CCD_In.size)             : in
     /// REJECT_IN = double                                                : in
@@ -1520,7 +1531,7 @@ basis machine: Ubuntu Linux 6.06
                            const blitz::Array<double, 2> &D_A2_SF_In,       ///: in
                            blitz::Array<double,1> &D_A1_SP_Out,             ///: out
                            blitz::Array<double,1> &D_A1_Sky_Out,            ///: in/out
-                           const blitz::Array<CString, 1> &CS_A1_Args_In,   ///: in
+                           const blitz::Array<string, 1> &S_A1_Args_In,   ///: in
                            void *ArgV_In[]) const;                   ///: in/out
   /// MEASURE_ERRORS_IN = blitz::Array<double,2>(D_A2_CCD_In.rows, D_A2_CCD_In.cols) : in
   /// REJECT_IN = double                                                      : in
@@ -1534,7 +1545,7 @@ basis machine: Ubuntu Linux 6.06
                            blitz::Array<double,1> &D_A1_SP_Out,             ///: out
                            blitz::Array<double,1> &D_A1_Sky_Out,            ///: in/out
                            bool B_WithSky,                           ///: with sky: in
-                           const blitz::Array<CString, 1> &CS_A1_Args_In,   ///: in
+                           const blitz::Array<string, 1> &S_A1_Args_In,   ///: in
                            void *ArgV_In[]) const;                   ///: in/out
     /// MEASURE_ERRORS_IN = blitz::Array<double,1>(D_A1_CCD_In.size)             : in
     /// REJECT_IN = double                                                : in
@@ -1557,7 +1568,9 @@ basis machine: Ubuntu Linux 6.06
       print,'      mx     maximum function values to be considered [def: max(f)]'
       double Bottom(blitz::Array<double, 1>) const;
        **/
-      bool Bottom(const blitz::Array<double,1> D_A1_Arr_In, int I_Filter_In, const blitz::Array<CString, 1> &CS_A1_Args, ///: in
+      bool Bottom(const blitz::Array<double,1> D_A1_Arr_In, 
+                  int I_Filter_In, 
+                  const blitz::Array<string, 1> &S_A1_Args, ///: in
                   void *ArgV[], blitz::Array<double, 1>* P_D_A1_Out) const;
 
 /**Function middle,f,filter,ITER=iter,EPS=eps,POLY=pol,MIN=mn1,MAX=mx1
@@ -1583,7 +1596,9 @@ basis machine: Ubuntu Linux 6.06
       print,'      mx     maximum function values to be considered [def: max(f)]'
       return,0
       endif**/
-      bool Middle(const blitz::Array<double,1> D_A1_Arr_In, int I_Filter_In, const blitz::Array<CString, 1> &CS_A1_Args, ///: in
+      bool Middle(const blitz::Array<double,1> D_A1_Arr_In, 
+                  int I_Filter_In, 
+                  const blitz::Array<string, 1> &S_A1_Args, ///: in
                   void *ArgV[], blitz::Array<double,1>* P_D_A1_Out) const;
 
       /**
@@ -1689,19 +1704,19 @@ basis machine: Ubuntu Linux 6.06
 
       /**
       Reform(blitz::Array<double, 1> &Arr, int DimA, int DimB);
-      Reformats Vector to Array of given size
+      Reformats blitz::Vector to Array of given size
        **/
       blitz::Array<double, 2>* Reform(blitz::Array<double, 1> &Arr, int DimA, int DimB) const;
 
       /**
       Reform(blitz::Array<double, 2> &Arr);
-      Reformates an Array to a Vector
+      Reformates an Array to a blitz::Vector
        **/
       blitz::Array<double, 1>* Reform(blitz::Array<double, 2> &Arr) const;
 
       /**
       Reform(blitz::Array<int, 2> &Arr);
-      Reformates an Array to a Vector
+      Reformates an Array to a blitz::Vector
        **/
       blitz::Array<int, 1>* Reform(blitz::Array<int, 2> &Arr) const;
 
@@ -1902,7 +1917,7 @@ basis machine: Ubuntu Linux 6.06
       bool InterPol(const blitz::Array<double, 1> &VVecArr,
                     const blitz::Array<double, 1> &XVecArr,
                     const blitz::Array<double, 1> &UVecArr,
-                    const blitz::Array<CString, 1> &CS_A1_In,
+                    const blitz::Array<string, 1> &S_A1_In,
                     blitz::Array<double,1> *P_D_A1_Out) const;
 
       /**
@@ -1911,7 +1926,7 @@ basis machine: Ubuntu Linux 6.06
        **/
       bool InterPol(blitz::Array<double, 1> &VVecArr,
                     long N,
-                    const blitz::Array<CString, 1> &CS_A1_In,
+                    const blitz::Array<string, 1> &S_A1_In,
                     blitz::Array<double,1> *P_D_A1_Out) const;
 
       /**
@@ -1922,7 +1937,7 @@ basis machine: Ubuntu Linux 6.06
                      const blitz::Array<double, 1> &XVecArr,
                      blitz::Array<int, 1> &SVecArr,
                      const blitz::Array<double, 1> &UVecArr,
-                     const blitz::Array<CString, 1> &CS_A1_In,
+                     const blitz::Array<string, 1> &S_A1_In,
                      blitz::Array<double,1> *P_D_A1_Out) const;
 
       /**
@@ -1999,7 +2014,7 @@ basis machine: Ubuntu Linux 6.06
                     const double &D_XStart_In,
                     const double &D_XStep_In,
                     const double &D_MaxDist_In,
-                    const CString &CS_Function_In,
+                    const string &S_Function_In,
                     double &D_X_Out) const;
 
 /**; NAME:
@@ -2066,7 +2081,7 @@ basis machine: Ubuntu Linux 6.06
     ;
     ;   YERROR: The standard error between YFIT and Y.
     ;
-    ;   YFIT:   Vector of calculated Y's. These values have an error
+    ;   YFIT:   blitz::Vector of calculated Y's. These values have an error
     ;           of + or - YBAND.
     ;
 ; COMMON BLOCKS:
@@ -2087,7 +2102,7 @@ basis machine: Ubuntu Linux 6.06
     bool PolyFit(const blitz::Array<double, 1> &D_A1_X_In,
 		 const blitz::Array<double, 1> &D_A1_Y_In,
 		 int I_Degree,
-		 const blitz::Array<CString, 1> &CS_A1_Args,
+		 const blitz::Array<string, 1> &S_A1_Args,
 		 void *ArgV[],
 		 blitz::Array<double, 1>* P_D_A1_Out) const;
 
@@ -2104,7 +2119,7 @@ basis machine: Ubuntu Linux 6.06
                  const blitz::Array<double, 1> &D_A1_Y_In,
                  const int I_Degree,
                  const double D_Reject,
-                 const blitz::Array<CString, 1> &CS_A1_Args,
+                 const blitz::Array<string, 1> &S_A1_Args,
                  void *ArgV[],
                  blitz::Array<double, 1>* P_D_A1_Out) const;
     bool PolyFit(const blitz::Array<double, 1> &D_A1_X_In,
@@ -2113,7 +2128,7 @@ basis machine: Ubuntu Linux 6.06
                  const double D_LReject,
                  const double D_HReject,
                  const int I_NIter,
-                 const blitz::Array<CString, 1> &CS_A1_Args,
+                 const blitz::Array<string, 1> &S_A1_Args,
                  void *ArgV[],
                  blitz::Array<double, 1>* P_D_A1_Out) const;
 
@@ -2267,7 +2282,7 @@ basis machine: Ubuntu Linux 6.06
     bool GaussFit(const blitz::Array<double, 1> &D_A1_X,
 		  const blitz::Array<double, 1> &D_A1_Y,
 		  blitz::Array<double,1> &D_A1_A,
-		  const blitz::Array<CString, 1> &CS_A1_Args_In,
+		  const blitz::Array<string, 1> &S_A1_Args_In,
 		  void *ArgV[]) const;
 ///                  CHISQ=variable,
 ///                  ESTIMATES=array,
@@ -2449,7 +2464,7 @@ basis machine: Ubuntu Linux 6.06
 		  const blitz::Array<double, 1> &D_A1_WeightsIn,
 		  blitz::Array<double, 1> &D_A1_A,
 		  blitz::Array<double, 1> &D_A1_Sigma,
-		  const blitz::Array<CString, 1> &CS_A1_ArgsIn,
+		  const blitz::Array<string, 1> &S_A1_ArgsIn,
 		  void* PP_ArgsIn[]) const;
 		  /// FUNCTION_NAME = *CString,
 		  /// STATUS = *integer
@@ -2609,7 +2624,7 @@ PRO GAUSS_FUNCT,X,A,F,PDER
       Returns an Array of the same size containing the integer values of VecArr. If <Mode> is set to "ROUND" the double values are rounded, else cut.
     **/
     blitz::Array<int, 1>* Fix(const blitz::Array<double, 1> &VecArr,
-		       const CString &Mode) const;
+		              const string &Mode) const;
 
     /**
       Fix(blitz::Array<double, 1> &VecArr, CString Mode)
@@ -2628,7 +2643,7 @@ PRO GAUSS_FUNCT,X,A,F,PDER
        Returns an Array of the same size containing the integer values of Arr. If <Mode> is set to "ROUND" the double values are rounded, else cut.
        **/
       blitz::Array<int, 2>* Fix(const blitz::Array<double, 2> &Arr,
-                         const CString &Mode) const;
+                                const string &Mode) const;
 
       /**
        Fix(blitz::Array<double, 2> &Arr)
@@ -2641,7 +2656,7 @@ PRO GAUSS_FUNCT,X,A,F,PDER
       Returns an Array of the same size containing the long integer values of VecArr. If <Mode> is set to "ROUND" the double values are rounded, else cut.
        **/
       blitz::Array<long, 1>* FixL(const blitz::Array<double, 1> &VecArr,
-                           const CString &Mode) const;
+                                  const string &Mode) const;
 
       /**
       FixL(blitz::Array<double, 1> &VecArr, CString Mode)
@@ -2654,7 +2669,7 @@ PRO GAUSS_FUNCT,X,A,F,PDER
       Returns an Array of the same size containing the long integer values of Arr. If <Mode> is set to "ROUND" the double values are rounded, else cut.
        **/
       blitz::Array<long, 2>* FixL(const blitz::Array<double, 2> &Arr,
-                           const CString &Mode) const;
+                                  const string &Mode) const;
 
       /**
       FixL(blitz::Array<double, 2> &Arr)
@@ -2778,7 +2793,7 @@ PRO GAUSS_FUNCT,X,A,F,PDER
                               blitz::Array<int, 1> &I_A1_X_Out,
                               blitz::Array<int, 2> &I_A2_ColsMinMax,
                               blitz::Array<double, 1> &D_A1_Out,
-                              const CString &CS_Mode) const;
+                              const string &S_Mode) const;
 
       /**
       Shift
@@ -2792,7 +2807,7 @@ PRO GAUSS_FUNCT,X,A,F,PDER
        **/
       bool Shift(blitz::Array<double, 1> &D_A1_InOut,
                  double D_Offset,
-                 const blitz::Array<CString, 1> &CS_A1_In) const;
+                 const blitz::Array<string, 1> &S_A1_In) const;
 
       /**
       ShiftColumns
@@ -2804,7 +2819,7 @@ PRO GAUSS_FUNCT,X,A,F,PDER
       bool ShiftColumns(blitz::Array<double, 2> &D_A2_InOut,
                         const blitz::Array<int, 1> &I_A1_Cols,
                         const blitz::Array<double, 1> &D_A1_Offset,
-                        const blitz::Array<CString, 1> &CS_A1_In) const;
+                        const blitz::Array<string, 1> &S_A1_In) const;
 
       /**
       ShiftColumns
@@ -2815,17 +2830,17 @@ PRO GAUSS_FUNCT,X,A,F,PDER
        **/
       bool ShiftColumns(const blitz::Array<int, 1> &I_A1_Cols,
                         const blitz::Array<double, 1> &D_A1_Offset,
-                        const blitz::Array<CString, 1> &CS_A1_In);
+                        const blitz::Array<string, 1> &S_A1_In);
 
       /**
        CalculateFeatureOffsetAndShiftAllImages
         - calculates Feature Offsets for spectral features with respect to colum I_ColWithRespectTo of image CS_ArcFile, straightens the spectral features in images in CS_FileListToShift, and writes them to images in CS_FileListOut (See CalcFeatureOffsets)
         - NOTE: only works if spectral features in one arperture all have the same curvature
        **/
-      bool CalculateFeatureOffsetAndShiftAllImages(const CString &CS_ArcFile,
-                                                   const CString &CS_ArcDatabaseFile,
-                                                   const CString &CS_FileListToShift,
-                                                   const CString &CS_FileListOut,
+      bool CalculateFeatureOffsetAndShiftAllImages(const string &S_ArcFile,
+                                                   const string &S_ArcDatabaseFile,
+                                                   const string &S_FileListToShift,
+                                                   const string &S_FileListOut,
                                                    int I_ColWithRespectTo,
                                                    int I_NPixMaxUp,
                                                    int I_NPixMaxDown,
@@ -2833,7 +2848,7 @@ PRO GAUSS_FUNCT,X,A,F,PDER
 //                                                   blitz::Array<int, 1> &I_A1_X_Out,
 //                                                   blitz::Array<int, 2> &I_A2_ColsMinMax,
 //                                                   blitz::Array<double, 1> &D_A1_Out,
-                                                   const CString &CS_Mode) const;
+                                                   const string &S_Mode) const;
 
       bool CastIntArrToDblArr(const blitz::Array<int, 1> &I_A1_In, blitz::Array<double, 1> &D_A1_Out) const;
       bool CastIntArrToDblArr(const blitz::Array<int, 2> &I_A2_In, blitz::Array<double, 2> &D_A2_Out) const;
@@ -2851,7 +2866,7 @@ PRO GAUSS_FUNCT,X,A,F,PDER
         Copies the adresses of DA1_In(IA1_Indices) to DA1_Out
       **/
       blitz::Array<double, 1>& GetSubArr(const blitz::Array<double, 1> &D_A1_In,
-                                  const blitz::Array<int, 1> &I_A1_Indices) const;
+                                         const blitz::Array<int, 1> &I_A1_Indices) const;
 
       /**
       GetSubArrCopy(blitz::Array<int, 1> &IA1_In, blitz::Array<int, 1> &IA1_Indices, blitz::Array<int, 1> &IA1_Out) const
@@ -3022,39 +3037,39 @@ PRO GAUSS_FUNCT,X,A,F,PDER
       /**
       task: Writes the aperture centers of aperture no <iap> to file <fn>
       **/
-      bool WriteCenters(int iap, CString &fn);
+      bool WriteCenters(int iap, const string &fn);
 
       /**
        *      task: Writes Array <I_A1_In> to file <CS_FileName_In>
        *      CS_Mode: [binary, ascii]
        **/
       bool WriteArrayToFile(const blitz::Array<int, 1> &I_A1_In,
-                            const CString &CS_FileName_In,
-                            const CString &CS_Mode) const;
+                            const string &S_FileName_In,
+                            const string &S_Mode) const;
 
       /**
       task: Writes Array <D_A1_In> to file <CS_FileName_In>
       CS_Mode: [binary, ascii]
        **/
       bool WriteArrayToFile(const blitz::Array<double, 1> &D_A1_In,
-                            const CString &CS_FileName_In,
-                            const CString &CS_Mode) const;
+                            const string &S_FileName_In,
+                            const string &S_Mode) const;
 
       /**
       task: Writes Array <D_A2_In> to file <CS_FileName_In>
       CS_Mode: [binary, ascii]
        **/
       bool WriteArrayToFile(const blitz::Array<double, 2> &D_A2_In,
-                            const CString &CS_FileName_In,
-                            const CString &CS_Mode) const;
+                            const string &S_FileName_In,
+                            const string &S_Mode) const;
 
       /**
       task: Writes Array <I_A2_In> to file <CS_FileName_In>
       CS_Mode: [binary, ascii]
        **/
       bool WriteArrayToFile(const blitz::Array<int, 2> &D_A2_In,
-                            const CString &CS_FileName_In,
-                            const CString &CS_Mode) const;
+                            const string &S_FileName_In,
+                            const string &S_Mode) const;
 
       /**
         function Bubble Sort
@@ -3215,7 +3230,7 @@ PRO GAUSS_FUNCT,X,A,F,PDER
       /**
       Returns I_TV_Index as blitz::Array<int,1>
        **/
-      blitz::Array<int,1>* MaxIndex(TinyVector<int,1> &I_TV_Index) const;
+      blitz::Array<int,1>* MaxIndex(blitz::TinyVector<int,1> &I_TV_Index) const;
 
       /**
       Returns I_A1_Index as blitz::Array<int,2>
@@ -3284,17 +3299,17 @@ PRO GAUSS_FUNCT,X,A,F,PDER
 		  blitz::Array<double, 1> &ChiSq,
 		  void (*Funcs)(double, blitz::Array<double, 1>, int)) const;
 
-      bool ReadFileToStrArr(const CString &CS_FileName_In,
-                            blitz::Array<CString, 2> &CS_A2_Out,
-                            const CString &CS_Delimiter) const;
+      bool readFileToStrArr(const string &S_FileName_In,
+                            blitz::Array<string, 2> &S_A2_Out,
+                            const string &S_Delimiter) const;
 
-      bool ReadFileToDblArr(const CString &CS_FileName_In,
+      bool readFileToDblArr(const string &S_FileName_In,
                             blitz::Array<double, 2> &D_A2_Out,
-                            const CString &CS_Delimiter) const;
+                            const string &S_Delimiter) const;
 
-      bool ReadFileLinesToStrArr(const CString &CS_FileName_In,
-                                 blitz::Array<CString, 1> &CS_A1_Out) const;
-
+      bool readFileLinesToStrArr(const string &S_FileName_In,
+                                 blitz::Array<string, 1> &S_A1_Out) const;
+      
       bool BoxCarFilter(blitz::Array<double, 2> D_A2_Data_InOut,
                         int I_BoxCarWidth_In,
                         bool B_IgnoreZeros_In) const;
@@ -3338,7 +3353,7 @@ PRO GAUSS_FUNCT,X,A,F,PDER
                               const int I_NRectangles_X,
                               const int I_NRectangles_Y,
                               blitz::Array<double, 2> &D_A2_ScatteredLight_Out,
-                              blitz::Array<CString, 1> &CS_A1_Args_In,
+                              blitz::Array<string, 1> &S_A1_Args_In,
                               void *PP_Args_In[]) const;
 
       /// Estimate Scattered Light using Kriging Algorithm by taking the minimum value per rectangle
@@ -3348,13 +3363,13 @@ PRO GAUSS_FUNCT,X,A,F,PDER
       bool EstScatterKriging(const int I_NRectangles_X,
                              const int I_NRectangles_Y,
                              blitz::Array<double, 2> &D_A2_ScatteredLight_Out);//,
-//                             blitz::Array<CString, 1> &CS_A1_Args_In,
+//                             blitz::Array<string, 1> &S_A1_Args_In,
 //                             void *PP_Args_In[]) const;
 
       bool EstScatterKriging(const int I_NRectangles_X,
                              const int I_NRectangles_Y,
                              blitz::Array<double, 2> &D_A2_ScatteredLight_Out,
-                             blitz::Array<CString, 1> &CS_A1_Args_In,
+                             blitz::Array<string, 1> &S_A1_Args_In,
                              void *PP_Args_In[]) const;
                               /// AREA = blitz::Array<int, 1>(4) 0: I_XMin, 1: I_XMax, 2: I_YMin, 3: I_YMax
 
@@ -3362,7 +3377,7 @@ PRO GAUSS_FUNCT,X,A,F,PDER
                              const int I_NRectangles_X,
                              const int I_NRectangles_Y,
                              blitz::Array<double, 2> &D_A2_ScatteredLight_Out,
-                             blitz::Array<CString, 1> &CS_A1_Args_In,
+                             blitz::Array<string, 1> &S_A1_Args_In,
                              void *PP_Args_In[]) const;
                               /// AREA = blitz::Array<int, 1>(4) 0: I_XMin, 1: I_XMax, 2: I_YMin, 3: I_YMax
 
@@ -3372,7 +3387,7 @@ PRO GAUSS_FUNCT,X,A,F,PDER
        **/
       bool WriteApToFile(const blitz::Array<double, 2> &D_A2_Spectra_In,
                          const int I_Aperture_In,
-                         const CString &CS_FitsFileName_Out) const;
+                         const string &S_FitsFileName_Out) const;
 
       /**
        * StretchAndCrossCorrelateSpec
@@ -3391,7 +3406,7 @@ PRO GAUSS_FUNCT,X,A,F,PDER
                                         const int I_NCalcs_In,
                                         const int I_PolyFitOrder_Stretch_In,
                                         const int I_PolyFitOrder_Shift_In,
-                                        const CString &CS_FName_In,
+                                        const string &S_FName_In,
                                         blitz::Array<double, 2> &D_A2_LineList_WLenPix_Out) const;
 
       bool StretchAndCrossCorrelate(const blitz::Array<double, 1> &D_A1_Spec_In,
@@ -3422,7 +3437,7 @@ PRO GAUSS_FUNCT,X,A,F,PDER
                     const int I_Radius_In,
                     const double D_FWHM_In,
                     const int I_PolyFitOrder_In,
-                    const CString &CS_FName_In,
+                    const string &S_FName_In,
                     blitz::Array<double, 2> &D_A2_CalibratedSpec_Out,
                     blitz::Array<double, 1> &D_A1_PolyFitCoeffs_Out,
                     double &D_RMS_Out,
@@ -3450,46 +3465,46 @@ PRO GAUSS_FUNCT,X,A,F,PDER
        * (I_NApertures, I_NRows)
        * Writes wavelengths for each spectrum to P_D_A2_WLen
        */
-      bool DispCorList(const blitz::Array<CString, 1>& CS_A1_TextFiles_Coeffs_In,
-                       const blitz::Array<CString, 1>& CS_A1_TextFiles_EcD_Out,
+      bool dispCorList(const blitz::Array<string, 1>& S_A1_TextFiles_Coeffs_In,
+                       const blitz::Array<string, 1>& S_A1_TextFiles_EcD_Out,
                        const double D_MaxRMS_In);
 
-      bool DispCorList(const blitz::Array<CString, 1>& CS_A1_TextFiles_Coeffs_In,
-                       const blitz::Array<CString, 1>& CS_A1_TextFiles_EcD_Out,
+      bool dispCorList(const blitz::Array<string, 1>& S_A1_TextFiles_Coeffs_In,
+                       const blitz::Array<string, 1>& S_A1_TextFiles_EcD_Out,
                        const double D_MaxRMS_In,
                        const blitz::Array<int, 1> &I_A1_Apertures);
 
       /**
        * Apply pixel shift to original object spectra
        **/      
-      bool DispCorList(const blitz::Array<CString, 1>& CS_A1_TextFiles_Coeffs_In,
-                       const blitz::Array<CString, 1>& CS_A1_TextFiles_EcD_Out,
+      bool dispCorList(const blitz::Array<string, 1>& S_A1_TextFiles_Coeffs_In,
+                       const blitz::Array<string, 1>& S_A1_TextFiles_EcD_Out,
                        const double D_MaxRMS_In,
                        const double D_PixShift_In,
                        const blitz::Array<int, 1> &I_A1_Apertures);
       
-      bool RebinTextList(const blitz::Array<CString, 1> &CS_A1_TextFileNames_EcD_List_In,
-                         const blitz::Array<CString, 1> &CS_A1_TextFileNames_EcDR_List_Out,
-                         const CString &CS_FitsFileName_EcDR_Out,
+      bool rebinTextList(const blitz::Array<string, 1> &S_A1_TextFileNames_EcD_List_In,
+                         const blitz::Array<string, 1> &S_A1_TextFileNames_EcDR_List_Out,
+                         const string &S_FitsFileName_EcDR_Out,
                          double D_Lambda_Start,
                          double D_Lambda_End,
                          double D_DLambda) const;
 
-      bool RebinTextList(const blitz::Array<CString, 1> &CS_A1_TextFileNames_EcD_List_In,
-                         const blitz::Array<CString, 1> &CS_A1_TextFileNames_EcDR_List_Out,
-                         const CString &CS_FitsFileName_EcDR_Out,
+      bool rebinTextList(const blitz::Array<string, 1> &S_A1_TextFileNames_EcD_List_In,
+                         const blitz::Array<string, 1> &S_A1_TextFileNames_EcDR_List_Out,
+                         const string &S_FitsFileName_EcDR_Out,
                          double D_Lambda_Start,
                          double D_Lambda_End,
                          double D_DLambda,
                          bool B_PreserveFlux) const;
 
-      bool CollapseSpectra(const blitz::Array<CString, 1> &CS_A1_TextFileNameList_ap_x_y_In,
-                           const CString &CS_TextFileName_Out) const;
+      bool collapseSpectra(const blitz::Array<string, 1> &S_A1_TextFileNameList_ap_x_y_In,
+                           const string &S_TextFileName_Out) const;
 
       /**
        * bool WriteCube(blitz::Array<double, 3> &D_A3_In, CString &CS_FitsFileName_Out) const
        **/
-      bool WriteCube(blitz::Array<double, 3> &D_A3_In, CString &CS_FitsFileName_Out) const;
+      bool writeCube(blitz::Array<double, 3> &D_A3_In, string &S_FitsFileName_Out) const;
 
       /** find nearest neighbour to D_ReferencePoint_In in D_A1_ArrayToLookForNeighbour_In, and returns index of nearest neighbour
        * */
@@ -3714,13 +3729,13 @@ PRO GAUSS_FUNCT,X,A,F,PDER
       void ResizeAndPreserve(blitz::Array<double, 2> &D_A2_Arr_InOut, int I_NewRows, int I_NewCols);
       void ResizeAndPreserve(blitz::Array<int, 1> &I_A1_Arr_InOut, int I_NewSize);
       void ResizeAndPreserve(blitz::Array<int, 2> &I_A2_Arr_InOut, int I_NewRows, int I_NewCols);
-      void ResizeAndPreserve(blitz::Array<CString, 1> &CS_A1_Arr_InOut, int I_NewSize);
-      void ResizeAndPreserve(blitz::Array<CString, 2> &CS_A2_Arr_InOut, int I_NewRows, int I_NewCols);
+      void resizeAndPreserve(blitz::Array<string, 1> &S_A1_Arr_InOut, int I_NewSize);
+      void resizeAndPreserve(blitz::Array<string, 2> &S_A2_Arr_InOut, int I_NewRows, int I_NewCols);
 
 //      bool GetBias(&D_BiasValue_Out) const;
       bool CreateErrorImage();
 
-      bool AddHeaderToFitsFile(const CString &CS_FitsFileName_In, const CString &CS_HeaderFile_In) const;
+      bool addHeaderToFitsFile(const string &S_FitsFileName_In, const string &S_HeaderFile_In) const;
 
       /// reverses order of elements in D_A1_InOut
       bool Reverse(blitz::Array<double, 1> D_A1_InOut) const;
@@ -3813,14 +3828,29 @@ PRO GAUSS_FUNCT,X,A,F,PDER
        * */
       bool AirMass_Hardie_Rad(const blitz::Array<double, 1> &D_A1_ZenithDist_Rad_In,
                               blitz::Array<double, 1> &D_A1_AirMass_Out) const;
-                                       
+
     #ifdef __WITH_PLOTS__
       bool ArrayToMGLArray(const blitz::Array<double, 1> &D_A1_Array_In,
                            mglData *P_D_A1_MGLArray_Out) const;
       bool ArrayToMGLArray(const blitz::Array<double, 2> &D_A2_Array_In,
                            mglData *P_D_A2_MGLArray_Out) const;
     #endif
-
-
   };
+  bool isList(const string &strIn);
+  
+  /// removes leading and/or trailing spaces from str
+  /// mode == 0: remove leading spaces
+  /// mode == 1: remove trailing spaces
+  /// mode == 2: remove leading and trailing spaces
+  bool trimString(string &str, const int mode);
+  
+  /// removes leading and/or trailing 'chr' from str
+  /// mode == 0: remove leading 'chr'
+  /// mode == 1: remove trailing 'chr'
+  /// mode == 2: remove leading and trailing 'chr'
+  bool trimString(string &str, const char chr, const int mode);      
+  
+  /// converts str to double if possible and returns true, otherwise returns false
+  bool sToD(const string &str, double &D_Out);
+  bool sToD(const blitz::Array<string, 1> &S_A1_In, blitz::Array<double, 1> &D_A1_Out);
 #endif
