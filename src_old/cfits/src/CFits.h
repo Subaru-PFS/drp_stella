@@ -30,17 +30,15 @@ basis machine: Ubuntu Linux 6.06
   #include <cstdlib>
 //  #include <c++/4/bits/stdc++.h>
   #include <blitz/array.h>
-  #include <blitz/vector.h>
-  #include <blitz/vector-et.h>
-  #include <blitz/vecwhere.h>
-  #include <blitz/tinyvec.h>
-  #include <blitz/tinyvec-et.h>
+//  #include <blitz/vector.h>
+//  #include <blitz/vector-et.h>
+//  #include <blitz/vecwhere.h>
+//  #include <blitz/tinyvec.h>
+//  #include <blitz/tinyvec-et.h>
   #include <fitsio.h>
   #include <fitsio2.h>
 //  #include "/home/azuri/setup/cfitsio/include/fitsio.h"
   #include <fstream>
-//  #include <numerical_recipes/nr.h>
-//  #include <numerical_recipes/nrutil.h>
   #include <time.h>
   #include <sys/time.h>
 
@@ -49,9 +47,7 @@ basis machine: Ubuntu Linux 6.06
   #endif
 
   #include "CAny.h"
-//  #include "CString.h"
   #include "kriging/geostat.h"
-//  #include "../../fit/MyFitUtil.h"
   #include "../../cmpfit-1.2/MyFit.h"
 
   #ifdef __DEBUG__
@@ -1072,7 +1068,7 @@ basis machine: Ubuntu Linux 6.06
       /**
       FIndGen(int len) const
        **/
-      blitz::Vector<float>* FIndGen(int len) const;
+//      blitz::Vector<float>* FIndGen(int len) const;
 
       /**
       FIndGenArr(int len) const
@@ -1082,7 +1078,7 @@ basis machine: Ubuntu Linux 6.06
       /**
       DIndGen(int len) const
       **/
-      blitz::Vector<double>* DIndGen(int len) const;
+//      blitz::Vector<double>* DIndGen(int len) const;
 
       /**
       DIndGenArr(int len) const
@@ -1092,7 +1088,7 @@ basis machine: Ubuntu Linux 6.06
       /**
       LIndGen(int len) const
        **/
-      blitz::Vector<long>* LIndGen(int len) const;
+//      blitz::Vector<long>* LIndGen(int len) const;
 
       /**
       LIndGenArr(int len) const
@@ -1102,7 +1098,7 @@ basis machine: Ubuntu Linux 6.06
       /**
       IndGen(int len) const
        **/
-      blitz::Vector<int>* IndGen(int len) const;
+//      blitz::Vector<int>* IndGen(int len) const;
 
       /**
       IndGenArr(int len) const
@@ -3853,4 +3849,8 @@ PRO GAUSS_FUNCT,X,A,F,PDER
   /// converts str to double if possible and returns true, otherwise returns false
   bool sToD(const string &str, double &D_Out);
   bool sToD(const blitz::Array<string, 1> &S_A1_In, blitz::Array<double, 1> &D_A1_Out);
+  
+  int sToI(const string &str);
+  bool sToI(const string &str, int &I_Out);
+    
 #endif

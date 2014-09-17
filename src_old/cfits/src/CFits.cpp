@@ -2202,6 +2202,7 @@ bool CFits::DoCopy(const CFits &CF_ToCopy){
 }*/
   cout << "CFits::DoCopy(): this->I_MaxIterSky set to " << this->I_MaxIterSky << endl;
   cout << "CFits::DoCopy(): Finished" << endl;
+  return true;
 }
 
 /** ***********************************************************/
@@ -20695,6 +20696,7 @@ model_only:
   return
 end
 **/
+  return true;
 }
 
 
@@ -20765,7 +20767,7 @@ CString** CFits::CharArrayToCStringArray(char* p_chArr[], int len) const
 /**
  FIndGen(int len) const
  Returns Pointer to blitz::Array<float> with
- **/
+ **
 blitz::Vector<float>* CFits::FIndGen(int len) const
 {
   //firstIndex i;
@@ -20791,7 +20793,7 @@ blitz::Array<float, 1>* CFits::FIndGenArr(int len) const
 /**
 DIndGen(int len) const
 Returns Pointer to blitz::Array<double> with
-**/
+**
 blitz::Vector<double>* CFits::DIndGen(int len) const
 {
   //firstIndex i;
@@ -20811,13 +20813,13 @@ blitz::Array<double, 1>* CFits::DIndGenArr(int len) const
   blitz::Array<double, 1> *P_D_A1_Return = new blitz::Array<double, 1>(len);
   for (int i=0; i<len; i++)
     (*P_D_A1_Return)(i) = double(i);   // [ -3 -2 -1  0  1  2  3 ]
-    return (P_D_A1_Return);
+  return (P_D_A1_Return);
 }
 
 /**
  LIndGen(int len) const
  Returns Pointer to blitz::Array<long> with
- **/
+ **
 blitz::Vector<long>* CFits::LIndGen(int len) const
 {
   blitz::Vector<long> *P_TempVecLong = new blitz::Vector<long>(len);
@@ -20832,14 +20834,15 @@ blitz::Vector<long>* CFits::LIndGen(int len) const
 blitz::Array<long, 1>* CFits::LIndGenArr(int len) const
 {
   blitz::Array<long, 1> *P_L_A1_Return = new blitz::Array<long, 1>(len);
-  (*(P_L_A1_Return)) = blitz::Range(0,len-1);   // [ -3 -2 -1  0  1  2  3 ]
+  for (long i=0; i<len; i++)
+    (*P_L_A1_Return)(i) = long(i);   // [ -3 -2 -1  0  1  2  3 ]
   return (P_L_A1_Return);
 }
 
 /**
  IndGen(int len) const
  Returns Pointer to blitz::Array<long> with
- **/
+ **
 blitz::Vector<int>* CFits::IndGen(int len) const
 {
   blitz::Vector<int> *P_TempVecLong = new blitz::Vector<int>(len);
@@ -25296,15 +25299,15 @@ bool CFits::CurveFit(const blitz::Array<double, 1> &D_A1_X,
   double D_FLambda = 0.001;
 
 ///  diag = LINDGEN(nparam)*(nparam + 1) ; Subscripts of diagonal elements
-  blitz::Vector<int> *P_I_V_Diag = this->IndGen(I_NParam);
-  *P_I_V_Diag *= I_NParam + 1;
-  blitz::Array<int, 1> I_A1_Diag(P_I_V_Diag->length());
+  blitz::Array<int, 1> *P_I_A1_Diag = this->IndGenArr(I_NParam);
+  *P_I_A1_Diag *= I_NParam + 1;
+  blitz::Array<int, 1> I_A1_Diag(P_I_A1_Diag->length());
   for (int m = 0; m < I_A1_Diag.size(); m++)
-    I_A1_Diag(m) = (*P_I_V_Diag)(m);
+    I_A1_Diag(m) = (*P_I_A1_Diag)(m);
 #ifdef __DEBUG_FITS_CURVEFIT__
   cout << "CFits::CurveFit: I_A1_Diag = " << I_A1_Diag << endl;
 #endif
-  delete(P_I_V_Diag);
+  delete(P_I_A1_Diag);
 
 ///  sigma = double ? DBLARR(nterms) : FLTARR(nterms)
   D_A1_Sigma.resize(I_NTerms);
@@ -26462,7 +26465,7 @@ bool CFits::GaussArea(const blitz::Array<double, 1> &D_A1_X_In,
     cout << "CFits::GaussArea: ERROR: D_A1_Coeffs_In.size() != [3,4]" << endl;
     return false;
   }
-  D_A1_YFit_Out = D_A1_Coeffs_In(D_A1_Coeffs_In.size()-3) * exp(0. - blitz::pow2(D_A1_X_In - D_A1_Coeffs_In(D_A1_Coeffs_In.size()-2)) / (2. * blitz::pow2(D_A1_Coeffs_In(D_A1_Coeffs_In.size()-1)))) / (D_A1_Coeffs_In(D_A1_Coeffs_In.size()-1) * sqrt(2. * Pi));
+  D_A1_YFit_Out = D_A1_Coeffs_In(D_A1_Coeffs_In.size()-3) * exp(0. - blitz::pow2(D_A1_X_In - D_A1_Coeffs_In(D_A1_Coeffs_In.size()-2)) / (2. * blitz::pow2(D_A1_Coeffs_In(D_A1_Coeffs_In.size()-1)))) / (D_A1_Coeffs_In(D_A1_Coeffs_In.size()-1) * sqrt(2. * D_PI));
   if (D_A1_Coeffs_In.size() == 4){
     D_A1_YFit_Out = D_A1_YFit_Out + D_A1_Coeffs_In(0);
   }
@@ -44199,7 +44202,7 @@ bool CFits::dispCorList(const blitz::Array<string, 1>& S_A1_TextFiles_Coeffs_In,
     #endif
 
     S_ApNum = S_A1_TextFiles_Coeffs_In(i).substr(I_StrStart, I_StrEnd-I_StrStart+1);
-    I_A1_ApNums_Coeffs(i) = stoi(S_ApNum);
+    I_A1_ApNums_Coeffs(i) = sToI(S_ApNum);
     #ifdef __DEBUG_FITS_DISPCOR__
       cout << "CFits::DispCorList: i=" << i << ": I_A1_ApNums_Coeffs(i) set to " << I_A1_ApNums_Coeffs(i) << endl;
     #endif
@@ -44509,14 +44512,14 @@ bool CFits::collapseSpectra(const blitz::Array<string, 1> &S_A1_TextFileNameList
     I_Pos_X = S_A1_TextFileNameList_ap_x_y_In(i_row).rfind("_ap")+3;
     I_Pos_Y = S_A1_TextFileNameList_ap_x_y_In(i_row).find("_x", I_Pos_X);
     sTemp = S_A1_TextFileNameList_ap_x_y_In(i_row).substr(I_Pos_X, I_Pos_Y-I_Pos_X);
-    I_Ap = stoi(sTemp);
+    I_Ap = sToI(sTemp);
     cout << "CFits::collapseSpectra: S_A1_TextFileNameList_ap_x_y_In(" << i_row << ") = <" << S_A1_TextFileNameList_ap_x_y_In(i_row) << ">: I_Ap set to <" << I_Ap << ">" << endl;
 
     I_Pos_X = S_A1_TextFileNameList_ap_x_y_In(i_row).rfind(string("_x"))+2;
     sTemp = S_A1_TextFileNameList_ap_x_y_In(i_row).substr(I_Pos_X, S_A1_TextFileNameList_ap_x_y_In(i_row).rfind(string("_y"))-I_Pos_X);
 //    cout << "CFits::CollapseSpectra: CS_A1_TextFileNameList_ap_x_y_In(" << i_row << ") = " << CS_A1_TextFileNameList_ap_x_y_In(i_row) << endl;
 //    cout << "CFits::CollapseSpectra: *P_CS_Temp = " << *P_CS_Temp << endl;
-    I_X = stoi(sTemp);
+    I_X = sToI(sTemp);
     cout << "CFits::collapseSpectra: S_A1_TextFileNameList_ap_x_y_In(" << i_row << ") = <" << S_A1_TextFileNameList_ap_x_y_In(i_row) << ">: I_X set to <" << I_X << ">" << endl;
     I_Pos_Y = S_A1_TextFileNameList_ap_x_y_In(i_row).find("_y", I_Pos_X)+2;
 //    delete(P_CS_Temp);
@@ -44527,7 +44530,7 @@ bool CFits::collapseSpectra(const blitz::Array<string, 1> &S_A1_TextFileNameList
     if (I_Pos_End == string::npos)
       I_Pos_End = S_A1_TextFileNameList_ap_x_y_In(i_row).find(".", I_Pos_Y);
     sTemp = S_A1_TextFileNameList_ap_x_y_In(i_row).substr(I_Pos_Y, I_Pos_End-I_Pos_Y);
-    I_Y = stoi(sTemp);
+    I_Y = sToI(sTemp);
 //    cout << "CFits::CollapseSpectra: I_X = " << I_X << ", I_Y = " << I_Y << endl;
 //    return false;
 
@@ -47466,7 +47469,8 @@ bool sToD(const string &str, double &D_Out){
       return false;
     }
   }
-  D_Out = stod(str);
+//  D_Out = stod(str);
+  D_Out = double(atof(str.c_str()));
   return true;  
 }
 
@@ -47477,6 +47481,39 @@ bool sToD(const blitz::Array<string, 1> &S_A1_In, blitz::Array<double, 1> &D_A1_
     if (!sToD(S_A1_In(i), D_A1_Out(i)))
       return false;
   }
+  return true;
+}
+
+int sToI(const string &str){
+  int retVal = int(atoi(str.c_str()));
+  return retVal;
+}
+
+/** ********************************************************************/
+
+bool sToI(const string &str, int &I_Out){
+  I_Out = 0;
+  for (int i=0; i<str.length(); i++){
+    if ((str[i] != '0') &&
+        (str[i] != '1') &&
+        (str[i] != '2') &&
+        (str[i] != '3') &&
+        (str[i] != '4') &&
+        (str[i] != '5') &&
+        (str[i] != '6') &&
+        (str[i] != '7') &&
+        (str[i] != '8') &&
+        (str[i] != '9') &&
+        (str[i] != '-') &&
+        (str[i] != '+') &&
+        (str[i] != 'e') &&
+        (str[i] != 'E') &&
+        (str[i] != '.')){
+      cout << "CFits::AToI: ERROR: str[i=" << i << "] = <" << str[i] << "> is not a number => Returning FALSE" << endl;
+      return false;
+    }
+  }
+  I_Out = int(atoi(str.c_str()));
   return true;
 }
 

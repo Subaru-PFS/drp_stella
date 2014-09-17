@@ -1,3 +1,0 @@
-EXCLUDE += src/Measure.cc
-EXCLUDE += src/SingleGaussianPsf.cc
-EXCLUDE += src/PcaPsf.cc

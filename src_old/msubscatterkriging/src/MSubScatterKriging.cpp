@@ -14,7 +14,19 @@ int main(int argc, char *argv[])
   if (argc < 10)
   {
     cout << "MSubScatterKriging::main: ERROR: Not enough parameters specified!" << endl;
-    cout << "USAGE: subscatterkriging char[] FitsFileName_In, char[] DatabaseFileName_In, char[] FitsFileName_Out, int[] ClusterSizes_In, int AddNPixToAp_X, int AddNPixToAp_Y, int NRectangles_X, int NRectangles_Y[, FileName_ApZero_Out=FileName_ApZero_Out][, FileName_Scatter_Out=FileName_Scatter_Out][,FileName_Clustered_Out=FileName_Clustered_Out]" << endl;
+    cout << "USAGE: subscatterkriging <char[] FitsFileName_In> <char[] DatabaseFileName_In> <char[] FitsFileName_Out> <int[] ClusterSizes_In> <int AddNPixToAp_X> <int AddNPixToAp_Y> <int NRectangles_X> <int NRectangles_Y> [FileName_ApZero_Out=<char[] FileName_ApZero_Out] [FileName_Scatter_Out=<char[] FileName_Scatter_Out>] [FileName_Clustered_Out=<char[] FileName_Clustered_Out>]" << endl;
+    cout << "Parameter 1: <char[] FitsFileName_In>: FitsFile to calculate scattered light from" << endl;
+    cout << "Parameter 2: <char[] DatabaseFileName_In>: Database file name for FitsFileName_In containing the spectral apertures which are to be ignored for the scattered-light fitting procedure" << endl;
+    cout << "Parameter 3: <char[] FitsFileName_Out>: Output file name containing the scattered-light subtracted FitsFileName_In" << endl;
+    cout << "Parameter 4: <int[] ClusterSizes_In>: Array containing integer values for cluster sizes to find which only contain scattered light. E.g. if you first want to find 20x20 pixel clusters, then 20x10, then 10x10, then 5x5 clusters this parameter would be [20,20,20,10,10,10,5,5]" << endl;
+    cout << "Parameter 5: <int AddNPixToAp_X>: Number of pixels to add to each spectral aperture defined in DatabaseFileName_In in x direction which should be ignored during the scattered-light fitting procedure" << endl;
+    cout << "Parameter 6: <int AddNPixToAp_Y>: Number of pixels to add to each spectral aperture defined in DatabaseFileName_In in y direction which should be ignored during the scattered-light fitting procedure" << endl;
+    cout << "Parameter 7: <int NRectangles_X>: Number of rectangles in x direction for the 2d fitting procedure. All previously found clusters of the sizes defined by <int[] ClusterSizes_In> inside the new (final) rectangles will be combined to one value for the center of the new rectangle" << endl;
+    cout << "Parameter 8: <int NRectangles_Y>: Number of rectangles in y direction for the 2d fitting procedure. All previously found clusters of the sizes defined by <int[] ClusterSizes_In> inside the new (final) rectangles will be combined to one value for the center of the new rectangle" << endl;
+    cout << "Parameter 9: [FileName_ApZero_Out=<char[] FileName_ApZero_Out]: optional parameter, Fits file name of the image with all apertures set to zero for quality checks" << endl;
+    cout << "Parameter 10: [FileName_Scatter_Out=<char[] FileName_Scatter_Out>]: optional parameter, Fits file name of the scattered-light image" << endl;
+    cout << "Parameter 11: [FileName_Clustered_Out=<char[] FileName_Clustered_Out>]: optional parameter, Fits file name with one scattered-light value for the center of each cluster found in the first clustering" << endl; 
+    cout << "example: subscatterkriging fits_in.fits database/apfits_in fits_out.fits [20,20,20,10,10,10,5,5] 1 2 20 20 FileName_ApZero_Out=fits_aps_zero.fits FilaName_Scatter_Out=scattered_light.fits FileName_Clustered_Out=fits_clustered.fits" << endl;
     exit(EXIT_FAILURE);
   }
 

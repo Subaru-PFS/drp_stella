@@ -1,5 +1,5 @@
 mv ../bin/subscatterkriging ../bin/subscatterkriging.bak
-g++ -s -O2 -fpermissive -lm -lgsl -lgslcblas -I/usr/local/include -lm -lcfitsio -L. -o ../bin/subscatterkriging ../../cfits/src/CFits.cpp ../../cfits/src/CAny.cpp ../../cfits/src/CString.cpp ../../cfits/src/kriging/geostat.cpp ../../cfits/src/kriging/matrix_ex.cpp ../../cfits/src/kriging/model_sph.cpp ../../cfits/src/kriging/model_stable.cpp ../../cfits/src/kriging/variogram.cpp MSubScatterKriging.cpp ../../cmpfit-1.2/mpfit.c ../../cmpfit-1.2/MyFit.cpp
+g++ -s -O2 -fpermissive -lm -lgsl -lgslcblas -I/usr/local/include -lm -lcfitsio -L. -std=c++11 -o ../bin/subscatterkriging ../../cfits/src/CFits.cpp ../../cfits/src/CAny.cpp ../../cfits/src/CString.cpp ../../cfits/src/kriging/geostat.cpp ../../cfits/src/kriging/matrix_ex.cpp ../../cfits/src/kriging/model_sph.cpp ../../cfits/src/kriging/model_stable.cpp ../../cfits/src/kriging/variogram.cpp MSubScatterKriging.cpp ../../cmpfit-1.2/mpfit.c ../../cmpfit-1.2/MyFit.cpp
 chmod a+x ../bin/subscatterkriging
 rm ~/bin/subscatterkriging
 cp -p ../bin/subscatterkriging ~/bin/

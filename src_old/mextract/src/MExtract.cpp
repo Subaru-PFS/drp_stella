@@ -1002,7 +1002,9 @@ int main(int argc, char *argv[])
     void **PP_Args_ExtractFromProfile = (void**)malloc(sizeof(void*) * 2);
     PP_Args_ExtractFromProfile[0] = &I_A1_Apertures;
 
-    /// Write EcFromProfileOut 1D
+    /** !!!!!!!!!!!!!!!!!!!!!SWIG!!!!!!!!!!!!!!!!!!!! **/
+    
+    /* Write EcFromProfileOut 1D
     if (specFromProfileOut.length() > 1)
     {
       cout << "MExtract::main: Starting to write EcFromProfileOut" << endl;
@@ -1023,7 +1025,7 @@ int main(int argc, char *argv[])
         cout << "MExtract::main: ERROR: F_OutImage.WriteArray() returned FALSE!" << endl;
         exit(EXIT_FAILURE);
       }
-    }
+    }*/
 
     /// Write SP_Fit 1D
     bool B_WithSky = false;
@@ -1058,8 +1060,10 @@ int main(int argc, char *argv[])
         exit(EXIT_FAILURE);
       }
     }
-
-    /// Write ImOut 2D
+    
+    /** !!!!!!!!!!!!!!!!!!!!!SWIG!!!!!!!!!!!!!!!!!!!! **/
+    
+    /* Write ImOut 2D
     if (imageOut.length() > 1){
       if (!F_Image.setFileName(S_A1_ImageOut(i_file)))
       {
@@ -1073,7 +1077,7 @@ int main(int argc, char *argv[])
         cout << "MExtract::main: ERROR: F_Image.WriteArray() returned FALSE!" << endl;
         exit(EXIT_FAILURE);
       }
-    }
+    }*/
 
     /// Write RecFitOut 2D
     if (imageFitOut.length() > 1){

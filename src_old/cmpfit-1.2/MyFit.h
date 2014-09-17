@@ -44,12 +44,12 @@
 #include <string.h>
 #include <math.h>
 #include <blitz/array.h>
-#include <blitz/vector.h>
-#include <blitz/vector-et.h>
-#include <blitz/vecwhere.h>
-#include <blitz/tinyvec.h>
-#include <blitz/tinyvec-et.h>
-#include <mgl2/type.h>
+//#include <blitz/vector.h>
+//#include <blitz/vector-et.h>
+//#include <blitz/vecwhere.h>
+//#include <blitz/tinyvec.h>
+//#include <blitz/tinyvec-et.h>
+//#include <mgl2/type.h>
 
 using namespace std;
 //using namespace blitz;
