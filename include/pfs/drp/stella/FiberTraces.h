@@ -16,7 +16,7 @@
 #define stringify( name ) # name
 
 #define __DEBUG_CREATEFIBERTRACE__
-//#define __DEBUG_FINDANDTRACE__
+#define __DEBUG_FINDANDTRACE__
 //#define __DEBUG_SETFIBERTRACEFUNCTION__
 //#define __DEBUG_MINCENMAX__
 #define __DEBUG_MKPROFIM__
@@ -43,10 +43,10 @@ struct FiberTraceFunctionControl {
   /// enum corresponding to legal values of interpolation string
   enum INTERPOLATION {  CHEBYSHEV=0, LEGENDRE, CUBIC, LINEAR, POLYNOMIAL, NVALUES };
   std::vector<std::string> INTERPOLATION_NAMES = { stringify( CHEBYSHEV ),
-                                  stringify( LEGENDRE ),
-                                  stringify( CUBIC ),
-                                  stringify( LINEAR ),
-                                  stringify( POLYNOMIAL) };
+                                                   stringify( LEGENDRE ),
+                                                   stringify( CUBIC ),
+                                                   stringify( LINEAR ),
+                                                   stringify( POLYNOMIAL) };
   LSST_CONTROL_FIELD(interpolation, std::string, "Interpolation schemes");
   LSST_CONTROL_FIELD(order, unsigned int, "Polynomial order");
   LSST_CONTROL_FIELD(xLow, float, "Lower (left) limit of aperture relative to center position of trace in x (< 0.)");
@@ -98,7 +98,10 @@ struct FiberTraceFunctionFindingControl {
  */
 struct FiberTraceExtractionControl {
     enum {  NONE=0, BEFORE_EXTRACTION, DURING_EXTRACTION, NVALUES } TELLURIC;/// Determine background/sky not at all or before or during profile determination/extraction
-    LSST_CONTROL_FIELD(ccdReadoutNoise, float, "CCD readout noise");
+    std::vector<std::string> TELLURIC_NAMES = { stringify( NONE ),
+                                                stringify( BEFORE_EXTRACTION ),
+                                                stringify( DURING_EXTRACTION ) };
+    LSST_CONTROL_FIELD(ccdReadOutNoise, float, "CCD readout noise");
     LSST_CONTROL_FIELD(swathWidth, unsigned int, "Size of individual extraction swaths");
     LSST_CONTROL_FIELD(telluric, std::string, "Method for determining the background (+sky in case of slit spectra, default: NONE)");
     LSST_CONTROL_FIELD(overSample, unsigned int, "Oversampling factor for the determination of the spatial profile (default: 10)");
@@ -106,12 +109,12 @@ struct FiberTraceExtractionControl {
     LSST_CONTROL_FIELD(maxIterSky, unsigned int, "Maximum number of iterations for the determination of the (constant) background/sky (default: 10)");
     LSST_CONTROL_FIELD(maxIterSig, unsigned int, "Maximum number of iterations for masking bad pixels and CCD defects (default: 2)");
     LSST_CONTROL_FIELD(lambdaSF, float, "Lambda smoothing factor for spatial profile (default: 1. / overSample)");
-    LSST_CONTROL_FIELD(lambdaSP, unsigned int, "Lambda smoothing factor for spectrum (default: 1)");
+    LSST_CONTROL_FIELD(lambdaSP, float, "Lambda smoothing factor for spectrum (default: 0)");
     LSST_CONTROL_FIELD(wingSmoothFactor, float, "Lambda smoothing factor to remove possible oscillation of the wings of the spatial profile (default: 0.)");
     LSST_CONTROL_FIELD(xCorProf, unsigned short, "Number of Cross-correlations of profile and spectrum from one pixel to the left to one pixel to the right");
     
     FiberTraceExtractionControl() :
-        ccdReadoutNoise(1.),
+        ccdReadOutNoise(1.),
         swathWidth(300),
         telluric("NONE"),
         overSample(10),
@@ -119,7 +122,7 @@ struct FiberTraceExtractionControl {
         maxIterSky(10),
         maxIterSig(2),
         lambdaSF(1./static_cast<float>(overSample)),
-        lambdaSP(1),
+        lambdaSP(0.),
         wingSmoothFactor(0.),
         xCorProf(0) {}
 };
@@ -233,14 +236,15 @@ class FiberTrace {
      *                     allow to verify if the OSAMPLE
      *                     is good enough.
      **/
+    bool MkSlitFunc();
     bool MkSlitFunc(//const blitz::Array<double, 1> &D_A1_ScatterBelow,  //: in
                     //const blitz::Array<double, 1> &D_A1_XScatterBelow, //: in
                     //const blitz::Array<double, 1> &D_A1_ScatterAbove,  //: in
                     //const blitz::Array<double, 1> &D_A1_XScatterAbove, //: in
-                    const FiberTraceExtractionControl &fiberTraceExtractionControl_In,
-                    blitz::Array<double, 1> &D_A1_XSlitF_Out,        //: out
-                    blitz::Array<double, 2> &D_A2_SlitF_Out,         //: out
-                    blitz::Array<double, 1> &D_A1_BinCen_Out,        //: out
+//                    const FiberTraceExtractionControl &fiberTraceExtractionControl_In,
+//                    blitz::Array<double, 1> &D_A1_XSlitF_Out,        //: out
+//                    blitz::Array<double, 2> &D_A2_SlitF_Out,         //: out
+//                    blitz::Array<double, 1> &D_A1_BinCen_Out,        //: out
                     //const int I_IAperture_In,                    //: in
                     //int overSample,                                  ///: in
                     //double readOutNoise_In,                          ///: in
@@ -253,8 +257,9 @@ class FiberTrace {
      *                       //    LAMBDA_SP   : int             : out
      *                       //      WING_SMOOTH_FACTOR = double  : in
      *                       //      SWATH_WIDTH : int             : in
+     *                             FIBERTRACENUMBER
      *                             BLZ         : blitz::Array<double, 1>: out
-     *                             MASK        : blitz::Array<double, 2>: in
+     *                       //      MASK        : blitz::Array<double, 2>: in
      *                       //      CCD_GAIN    : double          : in
      *                       //      CCD_READN   : double          : in
      *                       //      NO_SCATTER  : void
@@ -271,34 +276,82 @@ class FiberTrace {
                   //int I_IAperture_In,
                   //int overSample,                                  ///: in
                   //double readOutNoise_In,                          ///: in
-                  //int maxIterSig_In,
+                  int maxIterSig_In,
                   //int maxIterSF_In,
                   //int maxIterSky_In,
-                  const FiberTraceExtractionControl &fiberTraceExtractionControl_In,
+//                  const FiberTraceExtractionControl &fiberTraceExtractionControl_In,
                   const blitz::Array<double, 1> &D_A1_XCenters_In, //: in
                   blitz::Array<double, 1> &D_A1_SP_Out,                     ///: out
                   blitz::Array<double, 2> &D_A2_SF_Out,                     ///: out
                   const blitz::Array<string, 1> &S_A1_Args,            ///: in
                   void *ArgV[]);                            ///: in
     /** KeyWords and Values:  NOISE      = double          : in
-     *                       //   OVERSAMPLE = int             : in
-     *                          IM_OUT     = blitz::Array<double, 2>: out
-     *                          PROF_OUT   = blitz::Array<double, 2>: out
-     *                       //   LAMBDA_SF  = double          : in
-     *                       //   LAMBDA_SP  = int             : in
-     *                       //   WING_SMOOTH_FACTOR = double  : in
-     *                          USE_ROW    = int             : in
-     *                          BAD        = blitz::Array<int, 1>   : out
-     *                          MASK       = blitz::Array<double, 2>: in/out
-     *                       //   TELLURIC   = int [0-none,1-Piskunov,2-mine]     : in
-     *                          STOP       = int [0,1]                          : in
-     *                          SKY        = blitz::Array<double, 1>(D_A2_ImM.rows())  : out
-     *                       //   ERRORS     = blitz::Array<double, 2>(D_A2_ImM.rows(), D_A2_ImM.cols()): in/out
-     *                          ERRORS_OUT = blitz::Array<double, 1>(D_A2_ImM.rows())  : out
-     *                          ERR_SKY    = blitz::Array<double, 1>(D_A2_ImM.rows())  : out
-     *                          SP_FIT     = blitz::Array<double, 1>(D_A2_ImM.rows())  : out
-     *                          I_BIN      = int
-     *                          I_Aperture_In = int
+     *                        IM_OUT     = blitz::Array<double, 2>: out
+     *                        PROF_OUT   = blitz::Array<double, 2>: out
+     *                        USE_ROW    = int             : in
+     *                        BAD        = blitz::Array<int, 1>   : out
+     *                        MASK       = blitz::Array<double, 2>: in/out
+     *                        STOP       = int [0,1]                          : in
+     *                        SKY        = blitz::Array<double, 1>(D_A2_ImM.rows())  : out
+     *                        ERRORS     = blitz::Array<double, 2>(D_A2_ImM.rows(), D_A2_ImM.cols()): in/out
+     *                        ERRORS_OUT = blitz::Array<double, 1>(D_A2_ImM.rows())  : out
+     *                        ERR_SKY    = blitz::Array<double, 1>(D_A2_ImM.rows())  : out
+     *                        SP_FIT     = blitz::Array<double, 1>(D_A2_ImM.rows())  : out
+     *                        I_BIN      = int
+     *                        FIBERTRACENUMBER = unsigned int: in
+     * from MkSliFunc:
+     *         ///      if ((I_Pos = pfsDRPStella::util::KeyWord_Set(S_A1_Args_In, "FIBERTRACENUMBER")) >= 0)
+     *        ///        s_a1(pppos) = "FIBERTRACENUMBER";
+     *        ///      if (fiberTraceExtractionControl_In.xCorProf > 0)
+     *        ///        s_a1(pppos) = "XCOR_PROF";
+     *        ///      s_a1(pppos) = "SP_OUT";
+     *        ///      s_a1(pppos) = "STOP";
+     *        ///      s_a1(pppos) = "MASK";
+     *        //       if (fiberTraceExtractionControl_In.telluric > 1)
+     *        //       {
+     *        //         s_a1(pppos) = "SKY";
+     *        //         pppos++;
+     *        //         s_a1(pppos) = "SP_FIT";
+     *        //         pppos++;
+     *        //       }
+     *        //    if (ErrorsRead){
+     *        //      s_a1(pppos) = "ERRORS";
+     *        //      pppos++;
+     *        //      s_a1(pppos) = "ERRORS_OUT";
+     *        //      pppos++;
+     *        //      s_a1(pppos) = "ERRORS_SP_OUT";
+     *        //      pppos++;
+     *        //      if (I_Telluric > 1)
+     *        //      {
+     *        //        s_a1(pppos) = "ERR_SKY";
+     *        //        pppos++;
+     *        //      }
+     *        //    }
+     *        //    s_a1(pppos) = "I_BIN";
+     *        //    pppos++;
+     *        //    s_a1(pppos) = "DEBUGFILES_SUFFIX";
+     * 
+     * in SlitFunc:
+     *       //    Pos = pfsDRPStella::util::KeyWord_Set(S_A1_Args_In, "DEBUGFILES_SUFFIX");
+     *      //    Pos = pfsDRPStella::util::KeyWord_Set(S_A1_Args_In, "I_BIN");
+     *      //      Pos = pfsDRPStella::util::KeyWord_Set(S_A1_Args_In, "ERRORS");
+     *      //      Pos = pfsDRPStella::util::KeyWord_Set(S_A1_Args_In, "ERRORS_OUT");
+     *      //      Pos = pfsDRPStella::util::KeyWord_Set(S_A1_Args_In, "ERRORS_SP_OUT");
+     *      //    Pos = pfsDRPStella::util::KeyWord_Set(S_A1_Args_In, "SP_OUT");
+     *      //    Pos = pfsDRPStella::util::KeyWord_Set(S_A1_Args_In, "SFO_OUT");
+     *      //    if ((I_Pos = pfsDRPStella::util::KeyWord_Set(S_A1_Args_In, "XCOR_PROF")) >= 0)
+     *      //    if ((Pos = pfsDRPStella::util::KeyWord_Set(S_A1_Args_In, "MASK")) >= 0)
+     *      //    if ((Pos = pfsDRPStella::util::KeyWord_Set(S_A1_Args_In, "PROF_OUT")) >= 0)
+     *      //    Pos = pfsDRPStella::util::KeyWord_Set(S_A1_Args_In, "SKY");
+     *      //    Pos = pfsDRPStella::util::KeyWord_Set(S_A1_Args_In, "ERR_SKY");
+     *      //    int Pos_Stop = pfsDRPStella::util::KeyWord_Set(S_A1_Args_In, "STOP");
+     *      //    if ((Pos = pfsDRPStella::util::KeyWord_Set(S_A1_Args_In, "BAD")) >= 0)
+     *      //    if ((Pos = pfsDRPStella::util::KeyWord_Set(S_A1_Args_In, "USE_ROWS")) >= 0)
+     *      //    Pos = pfsDRPStella::util::KeyWord_Set(S_A1_Args_In, "NOISE");
+     *      //    if ((Pos = pfsDRPStella::util::KeyWord_Set(S_A1_Args_In, "IM_OUT")) >= 0)
+     *      //    if ((Pos = pfsDRPStella::util::KeyWord_Set(S_A1_Args_In, "USE_ROW")) >= 0)// && TempIntB != 0)
+     *      //    Pos = pfsDRPStella::util::KeyWord_Set(S_A1_Args_In, "SP_FIT");
+     * 
      **/
     
     /**
