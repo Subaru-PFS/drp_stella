@@ -2,6 +2,9 @@
 #define PFS_DRP_STELLA_FIBERTRACES_H
 
 #include <vector>
+//#include <algorithm>
+#include <iostream>
+//#include <memory>
 #include "lsst/base.h"
 //#include "lsst/afw/geom/Box.h"
 //#include "lsst/afw/image/Image.h"
@@ -15,16 +18,21 @@
 
 #define stringify( name ) # name
 
-#define __DEBUG_CREATEFIBERTRACE__
-#define __DEBUG_FINDANDTRACE__
+//#define __DEBUG_BANDSOL__
+//#define __DEBUG_CREATEFIBERTRACE__
+//#define __DEBUG_EXTRACTFROMPROFILE__
+//#define __DEBUG_FINDANDTRACE__
 //#define __DEBUG_SETFIBERTRACEFUNCTION__
 //#define __DEBUG_MINCENMAX__
-#define __DEBUG_MKPROFIM__
-#define __DEBUG_MKSLITFUNC__
-#define __DEBUG_SLITFUNC__
-#define __DEBUG_SLITFUNC_N__
-#define __DEBUG_FIT__
-#define __DEBUG_TRACEFUNC__
+//#define __DEBUG_MKPROFIM__
+//#define __DEBUG_MKSLITFUNC__
+//#define __DEBUG_SLITFUNC__
+//#define __DEBUG_SLITFUNC_N__
+//#define __DEBUG_SLITFUNC_PISKUNOV__
+//#define __DEBUG_SLITFUNC_X__
+//#define __DEBUG_FIT__
+//#define __DEBUG_TRACEFUNC__
+//#define __DEBUG_CHECK_INDICES__
 #define DEBUGDIR "/home/azuri/spectra/pfs/"// /home/azuri/entwicklung/idl/REDUCE/16_03_2013/"//stella/ses-pipeline/c/msimulateskysubtraction/data/"//spectra/elaina/eso_archive/red_564/red_r/"
 
 #define MIN(a,b) ((a<b)?a:b)
@@ -115,15 +123,15 @@ struct FiberTraceExtractionControl {
     
     FiberTraceExtractionControl() :
         ccdReadOutNoise(1.),
-        swathWidth(300),
+        swathWidth(500),
         telluric("NONE"),
-        overSample(10),
+        overSample(15),
         maxIterSF(8),
-        maxIterSky(10),
-        maxIterSig(2),
+        maxIterSky(0),
+        maxIterSig(1),
         lambdaSF(1./static_cast<float>(overSample)),
         lambdaSP(0.),
-        wingSmoothFactor(0.),
+        wingSmoothFactor(2.),
         xCorProf(0) {}
 };
 
@@ -134,8 +142,8 @@ template<typename ImageT, typename MaskT=afwImage::MaskPixel, typename VarianceT
 class FiberTrace {
   public:
     typedef afwImage::MaskedImage<ImageT, MaskT, VarianceT> MaskedImageT;
-    typedef boost::shared_ptr<FiberTrace> Ptr;
-    typedef boost::shared_ptr<FiberTrace const> ConstPtr;
+//    typedef boost::shared_ptr<FiberTrace> Ptr;
+//    typedef boost::shared_ptr<FiberTrace const> ConstPtr;
   
     // Class Constructors and Destructor
     explicit FiberTrace(
@@ -177,16 +185,17 @@ class FiberTrace {
     bool setVariance( PTR(afwImage::Image<VarianceT>) & variance);// { _trace.getVariance() = variance; }
 
     /// Return the image of the spatial profile
-    afwImage::Image<float> getProfile(){ return _profile; }
+    PTR(afwImage::Image<float>) getProfile(){ return _profile; }
 
     /// Set the _profile of this fiber trace to profile
-    bool setProfile(afwImage::Image<float> &profile);
-
+    bool setProfile(PTR(afwImage::Image<float>) &profile);
+    
     /// Extract the spectrum of this fiber trace using the _profile
     bool extractFromProfile();
     
     /// Create _trace from _image and _fiberTraceFunction
     /// Pre: _image must be set and _xCenters set/calculated
+    /// Side Effects: resets _profile to afwImage<float>(_trace.getDimensions())
     bool createTrace();
         
     /// Return the masked CCD image
@@ -200,7 +209,13 @@ class FiberTrace {
 
     /// Set the _fiberTraceFunction
     bool setFiberTraceFunction(const FiberTraceFunction &fiberTraceFunction);// { _fiberTraceFunction = fiberTraceFunction; }
-        
+    
+    /// Return _fiberTraceExtractionControl
+    FiberTraceExtractionControl getFiberTraceExtractionControl() const { return _fiberTraceExtractionControl; }
+    
+    /// Set the _fiberTraceExtractionControl
+    bool setFiberTraceExtractionControl(const FiberTraceExtractionControl &fiberTraceExtractionControl);// { _fiberTraceExtractionControl = fiberTraceExtractionControl; }
+    
     /// Calculate the x-centers of the fiber trace
     bool calculateXCenters();//FiberTraceFunctionControl const& fiberTraceFunctionControl);
     
@@ -216,6 +231,12 @@ class FiberTrace {
     /// Set the x-center of the fiber trace
     /// Pre: _image and _fiberTraceFunction must be set
     bool setXCenters(const std::vector<float> &xCenters);// { _xCenters = xCenters; }
+    
+    /// Return shared pointer to an image containing the reconstructed 2D spectrum of the FiberTrace
+    afwImage::Image<float> getReconstructed2DSpectrum() const; 
+    
+    /// Return shared pointer to an image containing the reconstructed background of the FiberTrace
+    afwImage::Image<float> getReconstructedBackground() const; 
     
     /**
      *        Methods from Piskunov and Valenti
@@ -276,7 +297,7 @@ class FiberTrace {
                   //int I_IAperture_In,
                   //int overSample,                                  ///: in
                   //double readOutNoise_In,                          ///: in
-                  int maxIterSig_In,
+                  unsigned int maxIterSig_In,
                   //int maxIterSF_In,
                   //int maxIterSky_In,
 //                  const FiberTraceExtractionControl &fiberTraceExtractionControl_In,
@@ -353,78 +374,25 @@ class FiberTrace {
      *      //    Pos = pfsDRPStella::util::KeyWord_Set(S_A1_Args_In, "SP_FIT");
      * 
      **/
-    
-    /**
-     *      MkProfIm
-     *      Calculate Profile Image and optimally extract orders
-     **
-    bool MkProfIm();
-    
-    /**
-     *      MkProfIm
-     *      Calculate Profile Image and optimally extract orders
-     **
-    bool MkProfIm(const FiberTraceExtractionControl & fiberTraceExtractionControl,
-                  const blitz::Array<string, 1> &S_A1_Args,  ///: in
-                  void *ArgV[]);                        ///: in
-    /** KeyWords and Values:  // SWATH_WIDTH:              int: in
-     *         //                  LAMBDA_SP  :              int: in (Smoothing along dispersion)
-     *                           BLZ        : blitz::Array<double, 1>: out
-     *                           FLAT       :             bool: in
-     *         //                  TELLURIC   :             bool: in
-     *         //                  WING_SMOOTH_FACTOR :   double: in
-     *         //                  XCOR_PROF  : int: in
-     *         //                  APERTURES  : blitz::Array<int, 1>: in (Apertures to extract)
-     **/
-    
-    /// Return the profile for a row
-    /// N.b. the first value corresponds to the minimum x-value of the trace (see getTrace)
-//    virtual ndarray::Array<float const, 1, 1> getProfile(int y) const;// = 0;
-    
-    /// Return the profile for a row
-    /// N.b. the first value corresponds to the minimum x-value of the trace (see getTrace)
-//    virtual ndarray::Array<float, 1, 1> getProfile(int y);// = 0;
-
-//    bool test();
 private:
     MaskedImageT _trace;
-    afwImage::Image<float> _profile;
+    PTR(afwImage::Image<float>) _profile;
     MaskedImageT _maskedImage;
     std::vector<float> _xCenters;
     std::vector<float> _spectrum;
+    std::vector<float> _spectrumVariance;
     std::vector<float> _background;
-//    std::vector<float> _fittedSky;
+    std::vector<float> _backgroundVariance;
+    //    std::vector<float> _fittedSky;
     bool _isXCentersCalculated;
     bool _isImageSet;
     bool _isTraceSet;
     bool _isProfileSet;
     bool _isFiberTraceFunctionSet;
+    bool _isFiberTraceExtractionControlSet;
+    bool _isSpectrumExtracted;
     FiberTraceFunction _fiberTraceFunction;
     FiberTraceExtractionControl _fiberTraceExtractionControl;
-//    static const std::vector<std::string> _interpolation;
-};
-//const std::vector<std::string> FiberTrace::_interpolation({"CHEBYSHEV", "LEGENDRE", "CUBIC", "LINEAR", "POLYNOMIAL"});
-
-/************************************************************************************************************
-class FiberTraceSet;
-
-/**
- * \brief A FiberTrace that uses an image to save the line-by-line profiles
- *
-class ImageFiberTrace : public FiberTrace {
-public:
-    ImageFiberTrace(lsst::afw::geom::Box2I const& bbox);
-
-    /// Return the profile for a row
-    /// N.b. the first value corresponds to the minimum x-value of the trace (see getBBox)
-    virtual ndarray::Array<float, 1, 1> getProfile(int y);
-    /// Return the profile for a row
-    /// N.b. the first value corresponds to the minimum x-value of the trace (see getBBox)
-    virtual ndarray::Array<float const, 1, 1> getProfile(int y) const;
-private:
-    friend class FiberTraceSet;
-    PTR(lsst::afw::image::Image<float>) _profArray;
-    FiberTraceFunctionFindingControl _fiberTraceFunctionFindingControl;
 };
 
 /************************************************************************************************************/
@@ -437,76 +405,44 @@ template<typename ImageT, typename MaskT=afwImage::MaskPixel, typename VarianceT
 class FiberTraceSet {
   public:
     typedef afwImage::MaskedImage<ImageT, MaskT, VarianceT> MaskedImageT;
-    typedef boost::shared_ptr<FiberTraceSet> Ptr;
-    typedef boost::shared_ptr<FiberTraceSet const> ConstPtr;
   
     // Class Constructors and Destructor
     explicit FiberTraceSet(unsigned int nTraces=0)
         : _traces(nTraces)
-//         , _maskedImage(width, height)
         {}
 
-//    explicit FiberTraceSet(int nTraces=0, ///< number of apertures
-//                           MaskedImageT & maskedImage) ///< profile array
-//        : _traces(nTraces),
-//          _maskedImage(maskedImage),
-//        {}
-
     virtual ~FiberTraceSet() {}
-
-//    void setMaskedImage(MaskedImageT &maskedImage){_maskedImage = maskedImage; _isImageSet = true;}
     
     /// Return the number of apertures
     int size() const { return _traces.size(); }
     
     /// Return the FiberTrace for the ith aperture
-    FiberTrace<ImageT> &getFiberTrace(int const i ///< desired aperture
+    FiberTrace<ImageT, MaskT, VarianceT> &getFiberTrace(int const i ///< desired aperture
                              ) { return *_traces.at(i); }
                              
-    FiberTrace<ImageT> const& getFiberTrace(int const i ///< desired aperture
+    FiberTrace<ImageT, MaskT, VarianceT> const& getFiberTrace(int const i ///< desired aperture
                                    ) const { return *_traces.at(i); }
                                    
     /// Set the ith FiberTrace
     bool setFiberTrace(int const i,     ///< which aperture?
-                       PTR(FiberTrace<ImageT>) trace ///< the FiberTrace for the ith aperture
+                       PTR(FiberTrace<ImageT, MaskT, VarianceT>) trace ///< the FiberTrace for the ith aperture
                       );
     
     /// Set the ith FiberTrace
-    void addFiberTrace(PTR(FiberTrace<ImageT>) trace ///< the FiberTrace for the ith aperture
+    void addFiberTrace(PTR(FiberTrace<ImageT, MaskT, VarianceT>) trace ///< the FiberTrace for the ith aperture
     );
     
-    std::vector<PTR(FiberTrace<ImageT>)> & getTraces(){ return _traces; }
+    std::vector<PTR(FiberTrace<ImageT, MaskT, VarianceT>)> & getTraces(){ return _traces; }
+    
+    /// re-order the traces in _traces by the xCenter of each trace
+    void sortTracesByXCenter();
   
   private:
-    std::vector<PTR(FiberTrace<ImageT>)> _traces; // traces for each aperture
-//    MaskedImageT _maskedImage; // Image defining apertures iff provided
+    std::vector<PTR(FiberTrace<ImageT, MaskT, VarianceT>)> _traces; // traces for each aperture
 };
 
-  /************************************************************************************************************/
-  /**
-  * \brief Describe a spectrograph exposure
-  *
-  * \note 
-  */
-  template<typename ImageT, typename MaskT=afwImage::MaskPixel, typename VarianceT=afwImage::VariancePixel>
-  class MaskedSpectrographImage{// : public afwImage::MaskedImage<ImageT, MaskT, VarianceT> {
-  public:
-    typedef afwImage::MaskedImage<ImageT, MaskT, VarianceT> MaskedImageT;
-    typedef boost::shared_ptr<MaskedSpectrographImage> Ptr;
-    typedef boost::shared_ptr<MaskedSpectrographImage const> ConstPtr;
-    
-    // Class Constructors and Destructor
-    explicit MaskedSpectrographImage(MaskedImageT &maskedImage): _maskedImage(maskedImage), _fiberTraceSet() {}
-    
-    virtual ~MaskedSpectrographImage() {}
-    
-    MaskedImageT getMaskedImage() { return _maskedImage; }
-    
-    FiberTraceSet<ImageT> getFiberTraceSet() { return _fiberTraceSet; }
-    
-    void setMaskedImage(MaskedImageT &maskedImage){ _maskedImage = maskedImage; };
-    
-    
+  namespace math{
+
     /** Set I_NTermsGaussFit to
      *       1 to look for maximum only without GaussFit
      *       3 to fit Gaussian
@@ -514,19 +450,16 @@ class FiberTraceSet {
      *         Spatial profile must be at least 5 pixels wide
      *       5 to fit Gaussian plus linear term (sloped sky)
      *         Spatial profile must be at least 6 pixels wide
+     *    template<typename ImageT, typename MaskT=afwImage::MaskPixel, typename VarianceT=afwImage::VariancePixel>
+     *    PTR(FiberTraceSet<ImageT, MaskT, VarianceT>) findAndTraceApertures(const PTR(afwImage::MaskedImage<ImageT, MaskT, VarianceT>) &maskedImage,
      **/
-    bool findAndTraceApertures(const pfs::drp::stella::FiberTraceFunctionFindingControl &fiberTraceFunctionFindingControl,
-                               int minLength_In,
-                               int maxLength_In,
-                               int nLost_In);
+    template<typename ImageT, typename MaskT=afwImage::MaskPixel, typename VarianceT=afwImage::VariancePixel>
+    FiberTraceSet<ImageT, MaskT, VarianceT> findAndTraceApertures(const PTR(afwImage::MaskedImage<ImageT, MaskT, VarianceT>) &maskedImage,
+                                                                       const pfs::drp::stella::FiberTraceFunctionFindingControl &fiberTraceFunctionFindingControl,
+                                                                       int minLength_In,
+                                                                       int maxLength_In,
+                                                                       int nLost_In);
     
-  private:
-      MaskedImageT _maskedImage;
-      FiberTraceSet<ImageT> _fiberTraceSet;
-      
-  };
-
-  namespace math{
     
     /*****************************************************************/
     /*  Sub method for CubicSpline, Legendre, and Chebyshev          */
@@ -692,8 +625,8 @@ class FiberTraceSet {
      *                C[0] + c[1] * X + c[2]*X^2 + ...
      *
     **/
-    blitz::Array<double, 1>* Poly(const blitz::Array<double, 1> &D_A1_X_In,
-                                  const blitz::Array<double, 1> &D_A1_Coeffs_In);
+    blitz::Array<double, 1> Poly(const blitz::Array<double, 1> &D_A1_X_In,
+                                 const blitz::Array<double, 1> &D_A1_Coeffs_In);
     
     double Poly(const double D_X_In,
                 const blitz::Array<double, 1> &D_A1_Coeffs_In);
@@ -768,7 +701,7 @@ class FiberTraceSet {
                 unsigned int overSample_In,
                 const blitz::Array<double, 1> &D_A1_OSF_In,
                 const pfs::drp::stella::FiberTrace<float>::FiberTrace::MaskedImageT &image_In,
-                blitz::Array<double, 1> &D_A1_SF_Out);
+                blitz::Array<double, 1> &D_A1_SF_Out);*/
     
     /**
      * Fix(double)
@@ -855,15 +788,25 @@ class FiberTraceSet {
     blitz::Array<long, 2> Long(const blitz::Array<T, 2> &Arr);
     
     /**
-     *      Fix(blitz::Array<double, 1> &VecArr)
-     *      Returns an Array of the same size containing the Int integer values of VecArr.
+     *      Returns an Array of the same size containing the float values of VecArr.
      **/
     template <typename T> 
-    void Float(const blitz::Array<T, 1> &VecArr, blitz::Array<float, 1> &Arr_Out);
+    blitz::Array<float, 1> Float(const blitz::Array<T, 1> &VecArr);
     
     /**
-     *     Fix(blitz::Array<double, 2> &Arr)
-     *     Returns an Array of the same size containing the Int integer values of Arr (see int Int(double D_In)).
+     *      Returns an Array of the same size containing the float values of VecArr.
+     **/
+    template <typename T> 
+    void Float(const blitz::Array<T, 1> &VecArr, blitz::Array<float, 1> &VecArr_Out);
+    
+    /**
+     *     Returns an Array of the same size containing the float values of Arr (see int Int(double D_In)).
+     **/
+    template <typename T> 
+    blitz::Array<float, 2> Float(const blitz::Array<T, 2> &Arr);
+    
+    /**
+     *     Returns an Array of the same size containing the float values of Arr (see int Int(double D_In)).
      **/
     template <typename T> 
     void Float(const blitz::Array<T, 2> &Arr, blitz::Array<float, 2> &Arr_Out);
@@ -1176,7 +1119,7 @@ class FiberTraceSet {
     bool InterPol(blitz::Array<double, 1> &v,
                   long n,
                   const blitz::Array<string, 1> &keyWords_In,
-                  blitz::Array<double,1> &out);
+                  blitz::Array<double,1> &out);*/
 
     /**
       HInterPol
@@ -1482,7 +1425,15 @@ class FiberTraceSet {
     bool IsOddNumber(long No);
     
     template<typename T>
-    blitz::Array<T, 1> BubbleSort(const blitz::Array<T, 1> &I_A1_ArrIn);
+    blitz::Array<T, 1> BubbleSort(const blitz::Array<T, 1> &T_A1_ArrIn);
+
+    /**
+     *      SortIndices(blitz::Array<double, 1> D_A1_In)
+     *      Returns an integer array of the same size like <D_A1_In>,
+     *      containing the indixes of <D_A1_In> in sorted order.
+     **/
+    template<typename T>
+    std::vector<int> sortIndices(const std::vector<T> &vec_In);
     
     /**
      *       function GetRowFromIndex(int I_Index_In, int I_NRows_In) const
@@ -1527,7 +1478,7 @@ class FiberTraceSet {
      *      D_A1_R_In is the array of RHS of size I_N.
      *      Argv: blitz::Array<double, 2> &D_A2_A_InOut, blitz::Array<double, 1> &D_A1_R_InOut, int N, int I_ND
      **/
-    int BandSol(int Argc, void *Argv[]);
+    void BandSol(int Argc, void *Argv[]);
     
     /**
      *       bool TriDag
@@ -1575,9 +1526,12 @@ class FiberTraceSet {
      **/
     bool Uniq(const blitz::Array<int, 1> &IA1_In,
               blitz::Array<int, 1> &IA1_Out);
+    
+//    template<typename T>
+//    void resize(blitz::Array<T, 1> &arr_InOut, unsigned int newSize);
   }/// end namespace math
   
-  namespace util{
+  namespace utils{
     
     /**
      *       Returns Position of <str_In> in Array of strings <S_A1_In>, if <S_A1_In> contains string <str_In>, else returns -1.

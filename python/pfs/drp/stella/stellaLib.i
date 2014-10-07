@@ -16,6 +16,7 @@ Interface to Stella
 #include "lsst/pex/logging.h"
 #include "lsst/afw.h"
 #include "pfs/drp/stella/FiberTraces.h"
+#include "pfs/drp/stella/blitz.h"
 #include "pfs/drp/stella/Example.h"
 %}
 
@@ -33,6 +34,7 @@ Interface to Stella
 %import "lsst/afw/geom/geomLib.i"
 %import "lsst/afw/image/imageLib.i"
 
+%include "pfs/drp/stella/blitz.h"
 %include "pfs/drp/stella/Example.h"
 //
 // Instantiate addImage* for desired types
@@ -48,43 +50,31 @@ Interface to Stella
 
 /************************************************************************************************************/
 
-%shared_ptr(pfs::drp::stella::FiberTrace<unsigned short>);
-%shared_ptr(pfs::drp::stella::FiberTrace<int>);
-#%shared_ptr(pfs::drp::stella::FiberTrace<long>);
-%shared_ptr(pfs::drp::stella::FiberTrace<float>);
-%shared_ptr(pfs::drp::stella::FiberTrace<double>);
+%shared_ptr(pfs::drp::stella::FiberTrace<float, unsigned short, float>);
+#%shared_ptr(pfs::drp::stella::FiberTrace<int>);
+#%shared_ptr(pfs::drp::stella::FiberTrace<float>);
+%shared_ptr(pfs::drp::stella::FiberTrace<double, unsigned short, float>);
 
-%shared_ptr(pfs::drp::stella::FiberTraceSet<unsigned short>);
-%shared_ptr(pfs::drp::stella::FiberTraceSet<int>);
-#%shared_ptr(pfs::drp::stella::FiberTraceSet<long>);
-%shared_ptr(pfs::drp::stella::FiberTraceSet<float>);
-%shared_ptr(pfs::drp::stella::FiberTraceSet<double>);
-
-%shared_ptr(pfs::drp::stella::MaskedSpectrographImage<unsigned short>);
-%shared_ptr(pfs::drp::stella::MaskedSpectrographImage<int>);
-#%shared_ptr(pfs::drp::stella::MaskedSpectrographImage<long>);
-%shared_ptr(pfs::drp::stella::MaskedSpectrographImage<float>);
-%shared_ptr(pfs::drp::stella::MaskedSpectrographImage<double>);
+%shared_ptr(pfs::drp::stella::FiberTraceSet<float, unsigned short, float>);
+#%shared_ptr(pfs::drp::stella::FiberTraceSet<int>);
+#%shared_ptr(pfs::drp::stella::FiberTraceSet<float>);
+%shared_ptr(pfs::drp::stella::FiberTraceSet<double, unsigned short, float>);
 
 %include "pfs/drp/stella/FiberTraces.h"
+%include "pfs/drp/stella/blitz.h"
 
-%template(FiberTraceU) pfs::drp::stella::FiberTrace<unsigned short>;
-%template(FiberTraceI) pfs::drp::stella::FiberTrace<int>;
-#%template(FiberTraceL) pfs::drp::stella::FiberTrace<long>;
-%template(FiberTraceF) pfs::drp::stella::FiberTrace<float>;
-%template(FiberTraceD) pfs::drp::stella::FiberTrace<double>;
+#%template(FiberTraceU) pfs::drp::stella::FiberTrace<unsigned short>;
+#%template(FiberTraceI) pfs::drp::stella::FiberTrace<int>;
+%template(FiberTraceF) pfs::drp::stella::FiberTrace<float, unsigned short, float>;
+%template(FiberTraceD) pfs::drp::stella::FiberTrace<double, unsigned short, float>;
 
-%template(FiberTraceSetU) pfs::drp::stella::FiberTraceSet<unsigned short>;
-%template(FiberTraceSetI) pfs::drp::stella::FiberTraceSet<int>;
-#%template(FiberTraceSetL) pfs::drp::stella::FiberTraceSet<long>;
-%template(FiberTraceSetF) pfs::drp::stella::FiberTraceSet<float>;
-%template(FiberTraceSetD) pfs::drp::stella::FiberTraceSet<double>;
+#%template(FiberTraceSetU) pfs::drp::stella::FiberTraceSet<unsigned short>;
+#%template(FiberTraceSetI) pfs::drp::stella::FiberTraceSet<int>;
+%template(FiberTraceSetF) pfs::drp::stella::FiberTraceSet<float, unsigned short, float>;
+%template(FiberTraceSetD) pfs::drp::stella::FiberTraceSet<double, unsigned short, float>;
 
-%template(MaskedSpectrographImageU) pfs::drp::stella::MaskedSpectrographImage<unsigned short>;
-%template(MaskedSpectrographImageI) pfs::drp::stella::MaskedSpectrographImage<int>;
-#%template(MaskedSpectrographImageL) pfs::drp::stella::MaskedSpectrographImage<long>;
-%template(MaskedSpectrographImageF) pfs::drp::stella::MaskedSpectrographImage<float>;
-%template(MaskedSpectrographImageD) pfs::drp::stella::MaskedSpectrographImage<double>;
+%template(findAndTraceAperturesF) pfs::drp::stella::math::findAndTraceApertures<float, unsigned short, float>;
+%template(findAndTraceAperturesD) pfs::drp::stella::math::findAndTraceApertures<double, unsigned short, float>;
 
 %template(FixU) pfs::drp::stella::math::Fix<unsigned short>;
 %template(FixI) pfs::drp::stella::math::Fix<int>;
@@ -194,21 +184,39 @@ Interface to Stella
 %template(BubbleSortF) pfs::drp::stella::math::BubbleSort<float>;
 %template(BubbleSortD) pfs::drp::stella::math::BubbleSort<double>;
 
-%template(WriteFitsU) pfs::drp::stella::util::WriteFits<unsigned short>;
-%template(WriteFitsI) pfs::drp::stella::util::WriteFits<int>;
-%template(WriteFitsL) pfs::drp::stella::util::WriteFits<long>;
-%template(WriteFitsF) pfs::drp::stella::util::WriteFits<float>;
-%template(WriteFitsD) pfs::drp::stella::util::WriteFits<double>;
+#%template(resizeU) pfs::drp::stella::math::resize<unsigned int>;
+#%template(resizeU) pfs::drp::stella::math::resize<int>;
+#%template(resizeU) pfs::drp::stella::math::resize<long>;
+#%template(resizeU) pfs::drp::stella::math::resize<float>;
+#%template(resizeU) pfs::drp::stella::math::resize<double>;
 
-%template(WriteArrayToFile1U) pfs::drp::stella::util::WriteArrayToFile<unsigned short, 1>;
-%template(WriteArrayToFile1I) pfs::drp::stella::util::WriteArrayToFile<int, 1>;
-%template(WriteArrayToFile1L) pfs::drp::stella::util::WriteArrayToFile<long, 1>;
-%template(WriteArrayToFile1F) pfs::drp::stella::util::WriteArrayToFile<float, 1>;
-%template(WriteArrayToFile1D) pfs::drp::stella::util::WriteArrayToFile<double, 1>;
+#%template(sortIndicesU) pfs::drp::stella::math::sortIndices<unsigned short>;
+#%template(sortIndicesUI) pfs::drp::stella::math::sortIndices<unsigned int>;
+#%template(sortIndicesI) pfs::drp::stella::math::sortIndices<int>;
+#%template(sortIndicesL) pfs::drp::stella::math::sortIndices<long>;
+#%template(sortIndicesF) pfs::drp::stella::math::sortIndices<float>;
+#%template(sortIndicesD) pfs::drp::stella::math::sortIndices<double>;
 
-%template(WriteArrayToFile2U) pfs::drp::stella::util::WriteArrayToFile<unsigned short, 2>;
-%template(WriteArrayToFile2I) pfs::drp::stella::util::WriteArrayToFile<int, 2>;
-%template(WriteArrayToFile2L) pfs::drp::stella::util::WriteArrayToFile<long, 2>;
-%template(WriteArrayToFile2F) pfs::drp::stella::util::WriteArrayToFile<float, 2>;
-%template(WriteArrayToFile2D) pfs::drp::stella::util::WriteArrayToFile<double, 2>;
+%template(WriteFitsU) pfs::drp::stella::utils::WriteFits<unsigned short>;
+%template(WriteFitsI) pfs::drp::stella::utils::WriteFits<int>;
+%template(WriteFitsL) pfs::drp::stella::utils::WriteFits<long>;
+%template(WriteFitsF) pfs::drp::stella::utils::WriteFits<float>;
+%template(WriteFitsD) pfs::drp::stella::utils::WriteFits<double>;
 
+%template(WriteArrayToFile1U) pfs::drp::stella::utils::WriteArrayToFile<unsigned short, 1>;
+%template(WriteArrayToFile1I) pfs::drp::stella::utils::WriteArrayToFile<int, 1>;
+%template(WriteArrayToFile1L) pfs::drp::stella::utils::WriteArrayToFile<long, 1>;
+%template(WriteArrayToFile1F) pfs::drp::stella::utils::WriteArrayToFile<float, 1>;
+%template(WriteArrayToFile1D) pfs::drp::stella::utils::WriteArrayToFile<double, 1>;
+
+%template(WriteArrayToFile2U) pfs::drp::stella::utils::WriteArrayToFile<unsigned short, 2>;
+%template(WriteArrayToFile2I) pfs::drp::stella::utils::WriteArrayToFile<int, 2>;
+%template(WriteArrayToFile2L) pfs::drp::stella::utils::WriteArrayToFile<long, 2>;
+%template(WriteArrayToFile2F) pfs::drp::stella::utils::WriteArrayToFile<float, 2>;
+%template(WriteArrayToFile2D) pfs::drp::stella::utils::WriteArrayToFile<double, 2>;
+
+%template(copyBlitzToNdarrayU) pfs::drp::stella::utils::copyBlitzToNdarray<unsigned short>;
+%template(copyBlitzToNdarrayI) pfs::drp::stella::utils::copyBlitzToNdarray<int>;
+%template(copyBlitzToNdarrayL) pfs::drp::stella::utils::copyBlitzToNdarray<long>;
+%template(copyBlitzToNdarrayF) pfs::drp::stella::utils::copyBlitzToNdarray<float>;
+%template(copyBlitzToNdarrayD) pfs::drp::stella::utils::copyBlitzToNdarray<double>;

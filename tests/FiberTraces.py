@@ -46,7 +46,7 @@ class FiberTraceTestCase(tests.TestCase):
         
         """Test that we can set the parameters of the FiberTraceFunctionFindingControl"""
         ftffc.fiberTraceFunctionControl.interpolation = "POLYNOMIAL"
-        ftffc.fiberTraceFunctionControl.order = 4
+        ftffc.fiberTraceFunctionControl.order = 3
         ftffc.fiberTraceFunctionControl.xLow = -4.2
         ftffc.fiberTraceFunctionControl.xHigh = 4.2
         ftffc.apertureFWHM = 3.2
@@ -90,14 +90,34 @@ class FiberTraceTestCase(tests.TestCase):
         
         msi.findAndTraceApertures(ftffc, 0, mif.getHeight(), 10)
         print("msi.findAndTraceApertures finished")
+        print("msi.getFiberTraceSet().getFiberTrace(0).getFiberTraceFunction().xCenter = ",msi.getFiberTraceSet().getFiberTrace(0).getFiberTraceFunction().xCenter)
+        print("msi.getFiberTraceSet().getFiberTrace(0).getFiberTraceFunction().yCenter = ",msi.getFiberTraceSet().getFiberTrace(0).getFiberTraceFunction().yCenter)
+        print("msi.getFiberTraceSet().getFiberTrace(0).getFiberTraceFunction().yLow = ",msi.getFiberTraceSet().getFiberTrace(0).getFiberTraceFunction().yLow)
+        print("msi.getFiberTraceSet().getFiberTrace(0).getFiberTraceFunction().yHigh = ",msi.getFiberTraceSet().getFiberTrace(0).getFiberTraceFunction().yHigh)
+        print("msi.getFiberTraceSet().getFiberTrace(0).getFiberTraceFunction().coefficients(0) = ",msi.getFiberTraceSet().getFiberTrace(0).getFiberTraceFunction().coefficients[0])
+        print("msi.getFiberTraceSet().getFiberTrace(0).getFiberTraceFunction().coefficients(1) = ",msi.getFiberTraceSet().getFiberTrace(0).getFiberTraceFunction().coefficients[1])
+        print("msi.getFiberTraceSet().getFiberTrace(0).getFiberTraceFunction().coefficients(2) = ",msi.getFiberTraceSet().getFiberTrace(0).getFiberTraceFunction().coefficients[2])
+        print("msi.getFiberTraceSet().getFiberTrace(0).getFiberTraceFunction().coefficients(3) = ",msi.getFiberTraceSet().getFiberTrace(0).getFiberTraceFunction().coefficients[3])
 
         ftec = drpStella.FiberTraceExtractionControl();
-        msi.getFiberTraceSet().getFiberTrace(0).setFiberTraceExtractionControl(ftec);
-        print("msi.getFiberTraceSet().getFiberTrace(0).getFiberTraceExtractionControl().swathWidth = ")
-        print(msi.getFiberTraceSet().getFiberTrace(0).getFiberTraceExtractionControl().swathWidth)
+        ft = msi.getFiberTraceSet().getFiberTrace(0);
+        ft.setFiberTraceExtractionControl(ftec);
+        print("ft.getFiberTraceExtractionControl().swathWidth = ");
+        print(ft.getFiberTraceExtractionControl().swathWidth);
+        print("msi.getFiberTraceSet().getFiberTrace(0).getFiberTraceExtractionControl().swathWidth = ",msi.getFiberTraceSet().getFiberTrace(0).getFiberTraceExtractionControl().swathWidth);
 
         """calculate profile and extract from flat"""
-        msi.getFiberTraceSet().getFiberTrace(0).MkSlitFunc();
+        ft.MkSlitFunc();
+        print("ft.MkSlitFunc finished");
+
+        """write msi.getFiberTraceSet().getFiberTrace(0).getProfile() to fits file"""
+#        imageDirectory = "/home/azuri/spectra/pfs/";
+        profile = msi.getFiberTraceSet().getFiberTrace(0).getProfile();
+        print("profile copied");
+        print("profile.getDimensions() = ",profile.getDimensions());
+#        print("profile")
+#        profile.writeFits("/home/azuri/spectra/pfs/trace0_profile.fits");
+#        print("profile written to /home/azuri/spectra/pfs/trace0_profile.fits");
         
         """extract sky spectrum"""
 #        mis = drpStella.MaskedImageF("/home/azuri/spectra/pfs/IR-23-0-centerSkyx2.fits")
