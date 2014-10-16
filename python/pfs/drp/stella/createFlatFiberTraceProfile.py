@@ -40,10 +40,10 @@ def createFlatFiberTraceProfile(filename):
 
     # --- create FiberTraceExtractionControl
     ftec = drpStella.FiberTraceExtractionControl()
-    ftec.xCorProf = 30
-    ftec.wingSmoothFactor = 2.
-    ftec.overSample = 15
-    ftec.lambdaSF = 1. / ftec.overSample
+    ftec.xCorProf = 0
+    ftec.wingSmoothFactor = 0.#2
+    ftec.overSample = 30
+    ftec.lambdaSF = 50000. / ftec.overSample
     ftec.maxIterSF = 10
     ftec.swathWidth = 500
     ftec.telluric = "NONE"
@@ -65,7 +65,9 @@ def createFlatFiberTraceProfile(filename):
     fts.getFiberTrace(0).getImage().writeFits(filename_trace)
 
     # ---  create profile and extract fiber trace 0
-    fts.getFiberTrace(0).setFiberTraceExtractionControl(ftec)
+    fts.setFiberTraceExtractionControl(ftec)
+#    print("fts.getFiberTrace(0).getFiberTraceExtractionControl().overSample = ",fts.getFiberTrace(0).getFiberTraceExtractionControl().overSample)
+#    return fts;
     fts.getFiberTrace(0).MkSlitFunc()
     
     # --- get profile and write profile to fits file
@@ -99,6 +101,21 @@ def createFlatFiberTraceProfile(filename):
     
     # --- extract 1D spectrum from profile
     fts.getFiberTrace(0).extractFromProfile()
+
+    # --- get reconstructed 2D spectrum and write to fits file
+    reconstructed = fts.getFiberTrace(0).getReconstructed2DSpectrum()
+    print("got reconstructed 2D spectrum: reconstructed.getArray() = ", reconstructed.getArray())
+    filename_flatrec = filename.replace(".fits", "_trace0_recFromProf.fits")
+    reconstructed.writeFits(filename_flatrec)
+    print("reconstructed spectrum written to ",filename_flatrec)
+    
+    # --- subtract reconstructed spectrum from input spectrum
+    imMinusRec = fts.getFiberTrace(0).getImage().getArray() - reconstructed.getArray()
+    filename_flatMinusRec = filename.replace(".fits", "_trace0-recFromProf.fits")
+    imMinusRecIm = afwImage.ImageF(imMinusRec)
+    print("got difference of original image and reconstructed 2D spectrum: imMinusRecIm.getArray() = ", imMinusRecIm.getArray())
+    imMinusRecIm.writeFits(filename_flatMinusRec)
+    print("difference of original and reconstructed spectrum written to ",filename_flatMinusRec)
     
     # --- write extracted 1D spectrum (from extractFromProfile) to fits file
     speca = fts.getFiberTrace(0).getSpectrum()
