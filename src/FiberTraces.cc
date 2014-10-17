@@ -3387,7 +3387,6 @@ namespace pfsDRPStella = pfs::drp::stella;
     int I_NCols_Im = D_A2_Im.cols();
     double d_sump;
     
-    blitz::Array<double, 1> D_A1_Range(2);
     blitz::Array<int, 1> *P_I_A1_JBadVecArr = new blitz::Array<int, 1>(1);
     (*P_I_A1_JBadVecArr) = 0;
     
@@ -5978,11 +5977,6 @@ namespace pfsDRPStella = pfs::drp::stella;
           D_A1_XX = D_A2_XX(m, blitz::Range::all()) + D_Offset;
           for (int mm=0; mm < I_NCols_Im; mm++)
           {
-            D_A1_Range(0) = mm;
-            D_A1_Range(1) = mm+1;
-            #ifdef __DEBUG_SLITFUNC__
-              cout << "CFits::SlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": I_XCorProf = " << I_XCorProf << ": D_A1_Range = " << D_A1_Range << endl;
-            #endif
             D_A1_XProf(0) = mm + 0.5 + (1. / (2. * static_cast<double>(_fiberTraceExtractionControl->overSample)));
             if (!pfsDRPStella::math::InterPol(D_A1_SFO, D_A1_XX, D_A1_XProf, D_A1_YProf)){
               cout << "FiberTrace::SlitFunc: ERROR: InterPol(D_A1_SFO=" << D_A1_SFO << ", D_A1_XX=" << D_A1_XX << ", D_A1_XProf=" << D_A1_XProf << ", D_A1_YProf) returned FALSE => Returning FALSE" << endl;
@@ -5993,9 +5987,6 @@ namespace pfsDRPStella = pfs::drp::stella;
             //cout << "FiberTrace::SlitFunc: after InterPol: D_A1_XX = " << D_A1_XX << endl;
             //cout << "FiberTrace::SlitFunc: after InterPol: D_A1_XProf = " << D_A1_XProf << endl;
             //cout << "FiberTrace::SlitFunc: after InterPol: D_A1_YProf = " << D_A1_YProf << endl;
-            //            if (!pfsDRPStella::math::IntegralUnderCurve(D_A1_XX, D_A1_SFO, D_A1_Range, profile_Out(m,mm))){
-//              cout << "CFits::SlitFunc: 1. fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": ERROR: IntegralUnderCurve(" << D_A1_XX << ", " << D_A1_SFO << ", " << D_A1_Range << ", profile_Out(m, mm)) returned FALSE" << endl;
-//            }
           }
           //cout << "FiberTrace::SlitFunc: 1. profile_Out(m=" << m << ", *) = " << profile_Out(m, blitz::Range::all()) << endl;
           profile_Out(m, blitz::Range::all()) = profile_Out(m, blitz::Range::all()) / blitz::sum(profile_Out(m, blitz::Range::all()));
@@ -6091,8 +6082,6 @@ namespace pfsDRPStella = pfs::drp::stella;
         #endif
         for (int mm=0; mm < I_NCols_Im; mm++)
         {
-          D_A1_Range(0) = mm;
-          D_A1_Range(1) = mm+1;
           D_A1_XProf(0) = mm + 0.5 + (1. / (2. * static_cast<double>(_fiberTraceExtractionControl->overSample)));
           if (!pfsDRPStella::math::InterPol(D_A1_SFO, D_A1_XX, D_A1_XProf, D_A1_YProf)){
             cout << "FiberTrace::SlitFunc: ERROR: InterPol(D_A1_SFO=" << D_A1_SFO << ", D_A1_XX=" << D_A1_XX << ", D_A1_XProf=" << D_A1_XProf << ", D_A1_YProf) returned FALSE => Returning FALSE" << endl;
@@ -7124,7 +7113,7 @@ namespace pfsDRPStella = pfs::drp::stella;
               I_FirstWideSignalEnd = int(D_A1_GaussFit_Coeffs_Bak(1) + 1.6 * D_A1_GaussFit_Coeffs_Bak(2)) + 1;
               if (I_FirstWideSignalStart < 0. || I_FirstWideSignalEnd >= maskedImage->getWidth()){
                 #ifdef __DEBUG_FINDANDTRACE__
-                  cout << "pfsDRPStella::math::findAndTraceApertures: i_Row = " << i_Row << ": I_ApertureNumber = " << I_ApertureNumber << ": start or end of aperture outside CCD -> Aperture lost";
+                  cout << "pfsDRPStella::math::findAndTraceApertures: i_Row = " << i_Row << ": I_ApertureNumber = " << I_ApertureNumber << ": start or end of aperture outside CCD -> Aperture lost" << endl;
                 #endif
                 /// Set signal to zero
                 if (I_FirstWideSignalStart < 0)
