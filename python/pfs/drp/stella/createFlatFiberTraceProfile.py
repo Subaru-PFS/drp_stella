@@ -37,6 +37,9 @@ def createFlatFiberTraceProfile(filename):
     ftffc.signalThreshold = 120.
     ftffc.nTermsGaussFit = 3
     ftffc.saturationLevel = 65500.
+    ftffc.minLength = 3000
+    ftffc.maxLendth = 4096
+    ftffc.nLost = 10
 
     # --- create FiberTraceExtractionControl
     ftec = drpStella.FiberTraceExtractionControl()
@@ -54,7 +57,7 @@ def createFlatFiberTraceProfile(filename):
     print("mif created")
         
     """Trace fibers"""
-    fts = drpStella.findAndTraceAperturesF(mif, ftffc, 0, mif.getHeight(), 10)
+    fts = drpStella.findAndTraceAperturesF(mif, ftffc)
     print("findAndTraceApertures finished")
     
     # --- sort traces by xCenters

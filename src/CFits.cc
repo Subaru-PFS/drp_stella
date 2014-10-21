@@ -8751,7 +8751,7 @@ bool CFits::MkSlitFunc(const blitz::Array<double, 1> &D_A1_ScatterBelow,  //: in
 	cout << "CFits::MkSlitFunc: I_IBin = " << I_IBin << ": for (int n = 0; n < I_NR(=" << I_NR << "; n++): ERROR: (0.5 * I_IBin * I_BinHeight(=" << I_BinHeight << ")) + n(=" << n << ") = " << (0.5 * I_IBin * I_BinHeight) + n << " D_A2_CCD_Ap.rows() = " << D_A2_CCD_Ap.rows() << " => Returning FALSE" << endl;
 	return false;
       }
-      if (D_A1_SSF.size() != static_cast<int>(D_A2_CCD_Ap.cols())){
+      if (D_A1_SSF.size() != D_A2_CCD_Ap.cols()){
 	cout << "CFits::MkSlitFunc: I_IBin = " << I_IBin << ": ERROR: D_A1_SSF.size() = " << D_A1_SSF.size() << " != D_A2_CCD_Ap.cols() = " << D_A2_CCD_Ap.cols() << " => Returning FALSE" << endl;
 	return false;
       }
@@ -18502,7 +18502,7 @@ int CFits::BandSol(int Argc, void *Argv[]) const
         for (int mm=0; mm < I_NCols_Im; mm++)
         {
           D_A1_XProf(0) = mm + 0.5 + (1. / (2. * static_cast<double>(I_OverSample)));
-          if (!this->InterPol(D_A1_SFO, D_A1_XX, D_A1_XProf, D_A1_YProf)){
+          if (!this->InterPol(D_A1_SFO, D_A1_XX, D_A1_XProf, &D_A1_YProf)){
             cout << "FiberTrace::SlitFunc: ERROR: InterPol(D_A1_SFO=" << D_A1_SFO << ", D_A1_XX=" << D_A1_XX << ", D_A1_XProf=" << D_A1_XProf << ", D_A1_YProf) returned FALSE => Returning FALSE" << endl;
             return false;
           }
@@ -18581,7 +18581,7 @@ int CFits::BandSol(int Argc, void *Argv[]) const
       for (int mm=0; mm < I_NCols_Im; mm++)
       {
         D_A1_XProf(0) = mm + 0.5 + (1. / (2. * static_cast<double>(I_OverSample)));
-        if (!this->InterPol(D_A1_SFO, D_A1_XX, D_A1_XProf, D_A1_YProf)){
+        if (!this->InterPol(D_A1_SFO, D_A1_XX, D_A1_XProf, &D_A1_YProf)){
           cout << "CFits::SlitFunc: ERROR: InterPol(D_A1_SFO=" << D_A1_SFO << ", D_A1_XX=" << D_A1_XX << ", D_A1_XProf=" << D_A1_XProf << ", D_A1_YProf) returned FALSE => Returning FALSE" << endl;
           return false;
         }

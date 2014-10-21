@@ -17,6 +17,7 @@
 #include <fitsio.h>
 #include <fitsio2.h>
 #include "cmpfit-1.2/MyFit.h"
+#include "spline.h"
 
 #define stringify( name ) # name
 
@@ -94,13 +95,19 @@ struct FiberTraceFunctionFindingControl {
   LSST_CONTROL_FIELD(signalThreshold, float, "Signal below this threshold is assumed zero for tracing the spectra");   // Should we use lsst::afw::detection::Threshold?
   LSST_CONTROL_FIELD(nTermsGaussFit, unsigned short, "1 to look for maximum only without GaussFit; 3 to fit Gaussian; 4 to fit Gaussian plus constant (sky), Spatial profile must be at least 5 pixels wide; 5 to fit Gaussian plus linear term (sloped sky), Spatial profile must be at least 6 pixels wide");
   LSST_CONTROL_FIELD(saturationLevel, float, "CCD saturation level");
+  LSST_CONTROL_FIELD(minLength, unsigned int, "Minimum aperture length to count as found FiberTrace");
+  LSST_CONTROL_FIELD(maxLength, unsigned int, "Maximum aperture length to count as found FiberTrace");
+  LSST_CONTROL_FIELD(nLost, unsigned int, "Number of consecutive times the trace is lost before aborting the traceing");
   
   FiberTraceFunctionFindingControl() :
   fiberTraceFunctionControl(),
   apertureFWHM(2.5),
   signalThreshold(0.),
   nTermsGaussFit(3),
-  saturationLevel(65000.)
+  saturationLevel(65000.),
+  minLength(10),
+  maxLength(4096),
+  nLost(10)
   {}
 };
   
@@ -298,13 +305,7 @@ class FiberTrace {
      *      Calculates slit function for one swath
      **/
     bool SlitFunc(const blitz::Array<double, 2> &D_A2_ImM,         ///: in
-                  //int I_IAperture_In,
-                  //int overSample,                                  ///: in
-                  //double readOutNoise_In,                          ///: in
                   unsigned int maxIterSig_In,
-                  //int maxIterSF_In,
-                  //int maxIterSky_In,
-//                  const FiberTraceExtractionControl &fiberTraceExtractionControl_In,
                   const blitz::Array<double, 1> &D_A1_XCenters_In, //: in
                   blitz::Array<double, 1> &D_A1_SP_Out,                     ///: out
                   blitz::Array<double, 2> &D_A2_SF_Out,                     ///: out
@@ -378,6 +379,12 @@ class FiberTrace {
      *      //    Pos = pfsDRPStella::util::KeyWord_Set(S_A1_Args_In, "SP_FIT");
      * 
      **/
+    
+    bool fitSpline(const blitz::Array<double, 2> &fiberTraceSwath,
+                   //const blitz::Array<double, 1> &xCentersPixelFraction,
+                   const blitz::Array<double, 1> &iFirst,
+                   blitz::Array<double, 2> &profile);
+    
 private:
     ///TODO: replace variables with smart pointers?????
     MaskedImageT _trace;
@@ -476,10 +483,7 @@ class FiberTraceSet {
      **/
     template<typename ImageT, typename MaskT=afwImage::MaskPixel, typename VarianceT=afwImage::VariancePixel>
     FiberTraceSet<ImageT, MaskT, VarianceT> findAndTraceApertures(const PTR(afwImage::MaskedImage<ImageT, MaskT, VarianceT>) &maskedImage,
-                                                                       const pfs::drp::stella::FiberTraceFunctionFindingControl &fiberTraceFunctionFindingControl,
-                                                                       int minLength_In,
-                                                                       int maxLength_In,
-                                                                       int nLost_In);
+                                                                       const pfs::drp::stella::FiberTraceFunctionFindingControl &fiberTraceFunctionFindingControl);
     
     
     /*****************************************************************/

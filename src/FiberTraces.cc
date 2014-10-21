@@ -3242,13 +3242,7 @@ namespace pfsDRPStella = pfs::drp::stella;
    **/
   template<typename ImageT, typename MaskT, typename VarianceT> 
   bool pfsDRPStella::FiberTrace<ImageT, MaskT, VarianceT>::SlitFunc(const blitz::Array<double, 2> &D_A2_ImM,
-//                                                                    int fiberTraceNumber,
-//                                                                    int overSample_In,                         ///: in
-//                                                                    double readOutNoise_In,                          ///: in
                                                                     unsigned int maxIterSig_In,
-//                                                                    int maxIterSF_In,
-//                                                                    int I_MaxIterSky,
-                                                                    //const FiberTraceExtractionControl & _fiberTraceExtractionControl,
                                                                     const blitz::Array<double, 1> &xCentersPixelFraction_In, //: in
                                                                     blitz::Array<double, 1> &spectrum_Out,   //: out
                                                                     blitz::Array<double, 2> &profile_Out,   //: out
@@ -6265,7 +6259,7 @@ namespace pfsDRPStella = pfs::drp::stella;
           pfsDRPStella::utils::WriteFits(&D_A2_ImTimesMask, S_MySF);
           cout << "CFits::SlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": File " << S_MySF << " written" << endl;
           
-          S_MySF = DEBUGDIR + std::string("D_A2_SFTimesMask_beforeFit_iterSky" + to_string(I_Iter_Sky) + debugFilesSuffix + std::string(".fits");
+          S_MySF = DEBUGDIR + std::string("D_A2_SFTimesMask_beforeFit_iterSky") + to_string(I_Iter_Sky) + debugFilesSuffix + std::string(".fits");
           pfsDRPStella::utils::WriteFits(&D_A2_SFTimesMask, S_MySF);
           cout << "CFits::SlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": File " << S_MySF << " written" << endl;
         #endif
@@ -6282,11 +6276,11 @@ namespace pfsDRPStella = pfs::drp::stella;
         }
           
         #ifdef __DEBUG_TELLURIC__
-          S_MySF = DEBUGDIR + std::string("D_A2_ImTimesMask_afterFit_iterSky" + to_string(I_Iter_Sky) + debugFilesSuffix + std::string(".fits");
+          S_MySF = DEBUGDIR + std::string("D_A2_ImTimesMask_afterFit_iterSky") + to_string(I_Iter_Sky) + debugFilesSuffix + std::string(".fits");
           pfsDRPStella::utils::WriteFits(&D_A2_ImTimesMask, S_MySF);
           cout << "CFits::SlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": File " << S_MySF << " written" << endl;
           
-          S_MySF = DEBUGDIR + std::string("D_A2_SFTimesMask_afterFit_iterSky" + to_string(I_Iter_Sky) + debugFilesSuffix + std::string(".fits");
+          S_MySF = DEBUGDIR + std::string("D_A2_SFTimesMask_afterFit_iterSky") + to_string(I_Iter_Sky) + debugFilesSuffix + std::string(".fits");
           pfsDRPStella::utils::WriteFits(&D_A2_SFTimesMask, S_MySF);
           cout << "CFits::SlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": File " << S_MySF << " written" << endl;
           cout << "CFits::SlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": 3. spectrum_Out = " << spectrum_Out << endl;
@@ -6322,7 +6316,7 @@ namespace pfsDRPStella = pfs::drp::stella;
           delete(P_SP_Log);
           
           
-          S_MySF = DEBUGDIR + std::string("D_A2_Im_Minus_Sky_new_iterSky" + to_string(I_Iter_Sky) + debugFilesSuffix + std::string(".fits");
+          S_MySF = DEBUGDIR + std::string("D_A2_Im_Minus_Sky_new_iterSky") + to_string(I_Iter_Sky) + debugFilesSuffix + std::string(".fits");
           pfsDRPStella::utils::WriteFits(&D_A2_Im, S_MySF);
           cout << "CFits::SlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": File " << S_MySF << " written" << endl;
         #endif
@@ -6624,6 +6618,67 @@ namespace pfsDRPStella = pfs::drp::stella;
     }
     return true;
   }
+  
+  template<typename ImageT, typename MaskT, typename VarianceT> 
+  bool pfsDRPStella::FiberTrace<ImageT, MaskT, VarianceT>::fitSpline(const blitz::Array<double, 2> &fiberTraceSwath,
+                                                                     //const blitz::Array<double, 1> &xCentersPixelFraction,
+                                                                     const blitz::Array<double, 1> &iFirst,
+                                                                     blitz::Array<double, 2> &profile)
+  {
+    /// check input paramters
+    if (iFirst.size() != fiberTraceSwath.rows()){
+      cout << "FiberTrace::fitSpline: ERROR: iFirst.size(=" << iFirst.size() << ") != fiberTraceSwath.rows(=" << fiberTraceSwath.rows() << ") => Returning FALSE" << endl;
+      return false;
+    }
+    
+    std::vector<double> xVec(fiberTraceSwath.rows() * fiberTraceSwath.cols());
+    std::vector<double> yVec(xVec.size());
+    std::vector<double>::iterator iter_xVec = xVec.begin();
+    std::vector<double>::iterator iter_yVec = yVec.begin();
+    for (int i = 0; i < fiberTraceSwath.rows(); ++i){
+      for (int j = 0; j < fiberTraceSwath.cols(); ++j){
+        *iter_xVec = double(j) * double(_fiberTraceExtractionControl->overSample) + double(iFirst(i)) + (double(_fiberTraceExtractionControl->overSample)/2.);
+        *iter_yVec = fiberTraceSwath(i,j);
+        ++iter_xVec;
+        ++iter_yVec;
+      }
+    }
+    std::vector<double> xVecSorted(xVec.size());
+    std::vector<double> yVecSorted(xVec.size());
+    std::vector<int> sortedIndices = pfsDRPStella::math::sortIndices(xVec);
+    std::vector<double>::iterator iter_xVecSorted = xVecSorted.begin();
+    std::vector<double>::iterator iter_yVecSorted = yVecSorted.begin();
+    for (size_t i = 0; i < xVec.size(); ++i){
+      *iter_xVecSorted = xVec[sortedIndices[i]];
+      *iter_yVecSorted = yVec[sortedIndices[i]];
+      ++iter_xVecSorted;
+      ++iter_yVecSorted;
+    }
+    tk::spline spline;
+    spline.set_points(xVec,yVec);    // currently it is required that X is already sorted
+
+    /// calculate profile vector for each x in xVec    
+    std::vector<double> yProfile(xVec.size());
+    iter_xVec = xVec.begin();
+    iter_yVec = yProfile.begin();
+    for (int i=0; i< xVec.size(); ++i){
+      *iter_yVec = spline(*iter_xVec);
+      ++iter_xVec;
+      ++iter_yVec;
+    }
+    if ((fiberTraceSwath.rows() != profile.rows()) || (fiberTraceSwath.cols() != profile.cols()))
+      profile.resize(fiberTraceSwath.rows(), fiberTraceSwath.cols());
+
+    /// write result to profile
+    iter_yVec = yProfile.begin();
+    for (int i=0; i<fiberTraceSwath.rows(); ++i){
+      for (int j=0; j<fiberTraceSwath.cols(); ++j){
+        profile(i,j) = *iter_yVec;
+        ++iter_yVec;
+      }
+    }
+    return true;
+  }
 
   /** 
    * class FiberTraceSet
@@ -6764,14 +6819,7 @@ namespace pfsDRPStella = pfs::drp::stella;
     PTR(pfsDRPStella::FiberTraceSet<ImageT, MaskT, VarianceT>) findAndTraceApertures(const PTR(afwImage::MaskedImage<ImageT, MaskT, VarianceT>) &maskedImage,*/
     template<typename ImageT, typename MaskT, typename VarianceT> 
     pfsDRPStella::FiberTraceSet<ImageT, MaskT, VarianceT> findAndTraceApertures(const PTR(afwImage::MaskedImage<ImageT, MaskT, VarianceT>) &maskedImage,
-                              const pfsDRPStella::FiberTraceFunctionFindingControl &fiberTraceFunctionFindingControl,
-                              int minLength_In,
-                              int maxLength_In,
-                              int nLost_In){
-      
-      if (minLength_In <= static_cast<int>(fiberTraceFunctionFindingControl.fiberTraceFunctionControl.order))
-        minLength_In = fiberTraceFunctionFindingControl.fiberTraceFunctionControl.order + 1;
-
+                              const pfsDRPStella::FiberTraceFunctionFindingControl &fiberTraceFunctionFindingControl){
       #ifdef __DEBUG_FINDANDTRACE__
         cout << "pfsDRPStella::math::findAndTraceApertures started" << endl;
       #endif
@@ -6789,12 +6837,12 @@ namespace pfsDRPStella = pfs::drp::stella;
       #endif
       
       //  int I_PolyFitOrder = 3;
-      int I_ApertureNumber = 0;
+      unsigned int I_ApertureNumber = 0;
       int I_StartIndex;
       int I_FirstWideSignal;
       int I_FirstWideSignalEnd;
       int I_FirstWideSignalStart;
-      int I_Length, I_ApertureLost, I_Row_Bak;//, I_LastRowWhereApertureWasFound
+      unsigned int I_Length, I_ApertureLost, I_Row_Bak;//, I_LastRowWhereApertureWasFound
       int I_ApertureLength;
       int I_NInd;
       double D_Max;
@@ -7070,14 +7118,14 @@ namespace pfsDRPStella = pfs::drp::stella;
         
         if (B_ApertureFound){
           /// Trace Aperture
-          int I_Length = 1;
+          I_Length = 1;
           I_ApertureLost = 0;
   //        #ifdef __DEBUG_FINDANDTRACE__
             cout << "pfsDRPStella::math::findAndTraceApertures: i_Row = " << i_Row << ": I_ApertureNumber = " << I_ApertureNumber << ": Starting to trace aperture" << endl;
   //        #endif
           D_A1_GaussFit_Coeffs_Bak = D_A1_GaussFit_Coeffs;
           I_Row_Bak = i_Row;
-          while(B_ApertureFound && (I_ApertureLost < nLost_In) && (i_Row < maskedImage->getHeight()-1) && I_Length < maxLength_In){
+          while(B_ApertureFound && (I_ApertureLost < fiberTraceFunctionFindingControl.nLost) && (i_Row < maskedImage->getHeight()-1) && I_Length < fiberTraceFunctionFindingControl.maxLength){
             i_Row++;
             I_Length++;
             if (fiberTraceFunctionFindingControl.nTermsGaussFit == 0){/// look for maximum only
@@ -7267,7 +7315,7 @@ namespace pfsDRPStella = pfs::drp::stella;
             cout << "pfsDRPStella::math::findAndTraceApertures: i_Row = " << i_Row << ": I_ApertureNumber = " << I_ApertureNumber << ": ERROR: pfsDRPStella::math::GetIndex(I_A1_ApertureCenterIndex=" << I_A1_ApertureCenterIndex << ", I_ApertureLength, I_A1_ApertureCenterInd) returned FALSE -> Returning FALSE" << endl;
             exit(EXIT_FAILURE);
           }
-          if (I_ApertureLength >= minLength_In){
+          if (I_ApertureLength >= static_cast<int>(fiberTraceFunctionFindingControl.minLength)){
             #ifdef __DEBUG_FINDANDTRACE__
               cout << "pfsDRPStella::math::findAndTraceApertures: i_Row = " << i_Row << ": I_ApertureNumber = " << I_ApertureNumber << ": D_A1_IndexRow = " << D_A1_IndexRow << endl;
               cout << "pfsDRPStella::math::findAndTraceApertures: i_Row = " << i_Row << ": I_ApertureNumber = " << I_ApertureNumber << ": I_A1_ApertureCenterInd = " << I_A1_ApertureCenterInd << endl;
@@ -12662,10 +12710,8 @@ namespace pfsDRPStella = pfs::drp::stella;
   template class FiberTraceSet<float>;
   template class FiberTraceSet<double>;
 
-  template pfsDRPStella::FiberTraceSet<float, unsigned short, float> math::findAndTraceApertures(const PTR(afwImage::MaskedImage<float, unsigned short, float>) &, const pfsDRPStella::FiberTraceFunctionFindingControl &fiberTraceFunctionFindingControl, int, int, int);
-  template pfsDRPStella::FiberTraceSet<double, unsigned short, float> math::findAndTraceApertures(const PTR(afwImage::MaskedImage<double, unsigned short, float>) &, const pfsDRPStella::FiberTraceFunctionFindingControl &fiberTraceFunctionFindingControl, int, int, int);
-//  template PTR(pfsDRPStella::FiberTraceSet<float, unsigned short, float>) math::findAndTraceApertures(const PTR(afwImage::MaskedImage<float, unsigned short, float>) &, const pfsDRPStella::FiberTraceFunctionFindingControl &fiberTraceFunctionFindingControl, int, int, int);
-//  template PTR(pfsDRPStella::FiberTraceSet<double, unsigned short, float>) math::findAndTraceApertures(const PTR(afwImage::MaskedImage<double, unsigned short, float>) &, const pfsDRPStella::FiberTraceFunctionFindingControl &fiberTraceFunctionFindingControl, int, int, int);
+  template pfsDRPStella::FiberTraceSet<float, unsigned short, float> math::findAndTraceApertures(const PTR(afwImage::MaskedImage<float, unsigned short, float>) &, const pfsDRPStella::FiberTraceFunctionFindingControl &fiberTraceFunctionFindingControl);
+  template pfsDRPStella::FiberTraceSet<double, unsigned short, float> math::findAndTraceApertures(const PTR(afwImage::MaskedImage<double, unsigned short, float>) &, const pfsDRPStella::FiberTraceFunctionFindingControl &fiberTraceFunctionFindingControl);
   
   template int math::Fix(unsigned short);
   template int math::Fix(int);
