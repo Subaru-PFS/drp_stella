@@ -22,21 +22,23 @@
 #define stringify( name ) # name
 
 //#define __DEBUG_BANDSOL__
+//#define __DEBUG_CHECK_INDICES__
 //#define __DEBUG_CREATEFIBERTRACE__
 //#define __DEBUG_EXTRACTFROMPROFILE__
 //#define __DEBUG_FINDANDTRACE__
 //#define __DEBUG_FIT__
+//#define __DEBUG_SPLINE__
 //#define __DEBUG_INTERPOL__
 //#define __DEBUG_MINCENMAX__
 //#define __DEBUG_MKPROFIM__
 //#define __DEBUG_MKSLITFUNC__
 //#define __DEBUG_SETFIBERTRACEFUNCTION__
-//#define __DEBUG_SLITFUNC__
+#define __DEBUG_SLITFUNC__
 //#define __DEBUG_SLITFUNC_N__
 //#define __DEBUG_SLITFUNC_PISKUNOV__
 #define __DEBUG_SLITFUNC_X__
 //#define __DEBUG_TRACEFUNC__
-//#define __DEBUG_CHECK_INDICES__
+#define __DEBUG_UNIQ__
 #define DEBUGDIR "/home/azuri/spectra/pfs/2014-10-14/debug/"// /home/azuri/entwicklung/idl/REDUCE/16_03_2013/"//stella/ses-pipeline/c/msimulateskysubtraction/data/"//spectra/elaina/eso_archive/red_564/red_r/"
 
 #define MIN(a,b) ((a<b)?a:b)
@@ -115,23 +117,28 @@ struct FiberTraceFunctionFindingControl {
  * Control Fiber trace extraction
  */
 struct FiberTraceExtractionControl {
+    enum {  PISKUNOV=0, SPLINE3, NVALUES_P } PROFILE_INTERPOLATION;/// Profile interpolation method
+    std::vector<std::string> PROFILE_INTERPOLATION_NAMES = { stringify( PISKUNOV ),
+                                                             stringify( SPLINE3 ) };
     enum {  NONE=0, BEFORE_EXTRACTION, DURING_EXTRACTION, NVALUES } TELLURIC;/// Determine background/sky not at all or before or during profile determination/extraction
     std::vector<std::string> TELLURIC_NAMES = { stringify( NONE ),
                                                 stringify( BEFORE_EXTRACTION ),
                                                 stringify( DURING_EXTRACTION ) };
+    LSST_CONTROL_FIELD(profileInterpolation, std::string, "Method for determining the spatial profile, [PISKUNOV, SPLINE3], default: PISKUNOV");
     LSST_CONTROL_FIELD(ccdReadOutNoise, float, "CCD readout noise");
     LSST_CONTROL_FIELD(swathWidth, unsigned int, "Size of individual extraction swaths");
-    LSST_CONTROL_FIELD(telluric, std::string, "Method for determining the background (+sky in case of slit spectra, default: NONE)");
+    LSST_CONTROL_FIELD(telluric, std::string, "profileInterpolation==SPLINE3: Method for determining the background (+sky in case of slit spectra, default: NONE)");
     LSST_CONTROL_FIELD(overSample, unsigned int, "Oversampling factor for the determination of the spatial profile (default: 10)");
-    LSST_CONTROL_FIELD(maxIterSF, unsigned int, "Maximum number of iterations for the determination of the spatial profile (default: 8)");
-    LSST_CONTROL_FIELD(maxIterSky, unsigned int, "Maximum number of iterations for the determination of the (constant) background/sky (default: 10)");
+    LSST_CONTROL_FIELD(maxIterSF, unsigned int, "profileInterpolation==SPLINE3: Maximum number of iterations for the determination of the spatial profile (default: 8)");
+    LSST_CONTROL_FIELD(maxIterSky, unsigned int, "profileInterpolation==SPLINE3: Maximum number of iterations for the determination of the (constant) background/sky (default: 10)");
     LSST_CONTROL_FIELD(maxIterSig, unsigned int, "Maximum number of iterations for masking bad pixels and CCD defects (default: 2)");
-    LSST_CONTROL_FIELD(lambdaSF, float, "Lambda smoothing factor for spatial profile (default: 1. / overSample)");
-    LSST_CONTROL_FIELD(lambdaSP, float, "Lambda smoothing factor for spectrum (default: 0)");
-    LSST_CONTROL_FIELD(wingSmoothFactor, float, "Lambda smoothing factor to remove possible oscillation of the wings of the spatial profile (default: 0.)");
-    LSST_CONTROL_FIELD(xCorProf, unsigned short, "Number of Cross-correlations of profile and spectrum from one pixel to the left to one pixel to the right");
+    LSST_CONTROL_FIELD(lambdaSF, float, "profileInterpolation==SPLINE3: Lambda smoothing factor for spatial profile (default: 1. / overSample)");
+    LSST_CONTROL_FIELD(lambdaSP, float, "profileInterpolation==SPLINE3: Lambda smoothing factor for spectrum (default: 0)");
+    LSST_CONTROL_FIELD(wingSmoothFactor, float, "profileInterpolation==SPLINE3: Lambda smoothing factor to remove possible oscillation of the wings of the spatial profile (default: 0.)");
+//    LSST_CONTROL_FIELD(xCorProf, unsigned short, "Number of Cross-correlations of profile and spectrum from one pixel to the left to one pixel to the right");
     
     FiberTraceExtractionControl() :
+        profileInterpolation("PISKUNOV"),
         ccdReadOutNoise(1.),
         swathWidth(500),
         telluric("NONE"),
@@ -141,10 +148,12 @@ struct FiberTraceExtractionControl {
         maxIterSig(1),
         lambdaSF(1./static_cast<float>(overSample)),
         lambdaSP(0.),
-        wingSmoothFactor(2.),
-        xCorProf(0) {}
+        wingSmoothFactor(2.)//,
+        //xCorProf(0) 
+        {}
 
     FiberTraceExtractionControl(FiberTraceExtractionControl &fiberTraceExtractionControl) :
+        profileInterpolation(fiberTraceExtractionControl.profileInterpolation),
         ccdReadOutNoise(fiberTraceExtractionControl.ccdReadOutNoise),
         swathWidth(fiberTraceExtractionControl.swathWidth),
         telluric(fiberTraceExtractionControl.telluric),
@@ -154,8 +163,9 @@ struct FiberTraceExtractionControl {
         maxIterSig(fiberTraceExtractionControl.maxIterSig),
         lambdaSF(fiberTraceExtractionControl.lambdaSF),
         lambdaSP(fiberTraceExtractionControl.lambdaSP),
-        wingSmoothFactor(fiberTraceExtractionControl.wingSmoothFactor),
-        xCorProf(fiberTraceExtractionControl.xCorProf) {}
+        wingSmoothFactor(fiberTraceExtractionControl.wingSmoothFactor)//,
+        //xCorProf(fiberTraceExtractionControl.xCorProf) 
+        {}
 };
 
 /**
@@ -306,7 +316,7 @@ class FiberTrace {
      **/
     bool SlitFunc(const blitz::Array<double, 2> &D_A2_ImM,         ///: in
                   unsigned int maxIterSig_In,
-                  const blitz::Array<double, 1> &D_A1_XCenters_In, //: in
+                  const blitz::Array<double, 1> &xCentersPixelFraction_In, //: in
                   blitz::Array<double, 1> &D_A1_SP_Out,                     ///: out
                   blitz::Array<double, 2> &D_A2_SF_Out,                     ///: out
                   const blitz::Array<string, 1> &S_A1_Args,            ///: in
@@ -380,10 +390,13 @@ class FiberTrace {
      * 
      **/
     
-    bool fitSpline(const blitz::Array<double, 2> &fiberTraceSwath,
-                   //const blitz::Array<double, 1> &xCentersPixelFraction,
-                   const blitz::Array<double, 1> &iFirst,
-                   blitz::Array<double, 2> &profile);
+    bool fitSpline(const blitz::Array<double, 2> &fiberTraceSwath_In,/// 1 bin of CCD (FiberTrace::Image)
+                   const blitz::Array<int, 1> &iFirst_In,/// as calculated in SlitFunc
+                   const blitz::Array<double, 1> &xOverSampled_In,/// see XVecArr in SlitFunc
+                   blitz::Array<double, 1> &profileOverSampled_Out,/// output oversampled spatial profile
+                   const blitz::Array<double, 2> &profileXValuesPerRowOverSampled_In,/// (i + 0.5) / double(overSample_In) - 1. + xCentersPixelFraction_In(i)
+    const blitz::Array<double, 1> &profileXValuesAllRows_In,/// i + 0.5 + (1. / (2. * overSample))
+                   blitz::Array<double, 2> &profilePerRow_Out);/// output 2D profile image
     
 private:
     ///TODO: replace variables with smart pointers?????
@@ -1549,8 +1562,12 @@ class FiberTraceSet {
      *        will be a copy of the sorted Array with duplicate adjacent elements removed.
      * 
      **/
-    bool Uniq(const blitz::Array<int, 1> &IA1_In,
-              blitz::Array<int, 1> &IA1_Out);
+    template<typename T>
+    bool Uniq(const blitz::Array<T, 1> &Vec_In,
+              blitz::Array<int, 1> &Ind_Out);
+    //template<typename T>
+    //bool Uniq(const std::vector<T> &Vec_In,
+    //          std::vector<int> &Ind_Out);
     
 //    template<typename T>
 //    void resize(blitz::Array<T, 1> &arr_InOut, unsigned int newSize);

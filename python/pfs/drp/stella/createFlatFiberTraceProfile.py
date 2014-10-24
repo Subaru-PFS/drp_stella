@@ -38,7 +38,7 @@ def createFlatFiberTraceProfile(filename):
     ftffc.nTermsGaussFit = 3
     ftffc.saturationLevel = 65500.
     ftffc.minLength = 3000
-    ftffc.maxLendth = 4096
+    ftffc.maxLength = 4096
     ftffc.nLost = 10
 
     # --- create FiberTraceExtractionControl
@@ -53,6 +53,7 @@ def createFlatFiberTraceProfile(filename):
     ftec.maxIterSky = 1
     
     """Create a FiberTraceSet given a flat-field fits file name"""
+    filename = "/home/azuri/spectra/pfs/2014-10-14/IR-23-0-sampledFlatx2-nonoise.fits"
     mif = afwImage.MaskedImageF(filename)
     print("mif created")
         

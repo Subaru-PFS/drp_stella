@@ -184,6 +184,11 @@ Interface to Stella
 %template(BubbleSortF) pfs::drp::stella::math::BubbleSort<float>;
 %template(BubbleSortD) pfs::drp::stella::math::BubbleSort<double>;
 
+%template(UniqI) pfs::drp::stella::math::Uniq<int>;
+%template(UniqL) pfs::drp::stella::math::Uniq<long>;
+%template(UniqF) pfs::drp::stella::math::Uniq<float>;
+%template(UniqD) pfs::drp::stella::math::Uniq<double>;
+
 #%template(resizeU) pfs::drp::stella::math::resize<unsigned int>;
 #%template(resizeU) pfs::drp::stella::math::resize<int>;
 #%template(resizeU) pfs::drp::stella::math::resize<long>;

@@ -1,5 +1,9 @@
 #!/usr/bin/env python
 
+#USAGE: exp = lsst.afw.image.ExposureF("/home/azuri/spectra/pfs/2014-10-14/IR-23-0-sampledFlatx2-nonoise.fits")
+#       myTask = findAndTraceAperturesTask.FindAndTraceAperturesTask()
+#       fts = myTask.run(exp)
+
 #import os
 #import math
 #import numpy
@@ -74,7 +78,7 @@ class FindAndTraceAperturesConfig(pexConfig.Config):
 
 class FindAndTraceAperturesTask(Task):
     ConfigClass = FindAndTraceAperturesConfig
-#    _DefaultName = "findAndTraceApertures"
+    _DefaultName = "findAndTraceApertures"
 
     def __init__(self, *args, **kwargs):
         super(FindAndTraceAperturesTask, self).__init__(*args, **kwargs)
@@ -121,7 +125,7 @@ class FindAndTraceAperturesTask(Task):
         This method returns a FiberTraceSet
         """
         
-        fiberTraceSet = findAndTraceApertures(inExposure)
+        fiberTraceSet = self.findAndTraceApertures(inExposure)
         
         return fiberTraceSet
  

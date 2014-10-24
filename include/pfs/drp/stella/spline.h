@@ -65,10 +65,7 @@ spline at 1.500000 is 0.915345
 
 // unnamed namespace only because the implementation is in this
 // header file and we don't want to export symbols to the obj files
-namespace {
-
-namespace tk {
-
+namespace pfs { namespace drp { namespace stella { namespace math {
 // band matrix solver
 class band_matrix {
 private:
@@ -347,9 +344,6 @@ double spline::operator() (double x) const {
 }
 
 
-} // namespace tk
-
-
-} // namespace
+}}}} // namespace pfs { namespace drp { namespace stella { namespace math {
 
 #endif /* _tk_spline_h */
