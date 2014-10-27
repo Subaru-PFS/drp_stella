@@ -33,12 +33,12 @@
 //#define __DEBUG_MKPROFIM__
 //#define __DEBUG_MKSLITFUNC__
 //#define __DEBUG_SETFIBERTRACEFUNCTION__
-#define __DEBUG_SLITFUNC__
+//#define __DEBUG_SLITFUNC__
 //#define __DEBUG_SLITFUNC_N__
 //#define __DEBUG_SLITFUNC_PISKUNOV__
-#define __DEBUG_SLITFUNC_X__
+//#define __DEBUG_SLITFUNC_X__
 //#define __DEBUG_TRACEFUNC__
-#define __DEBUG_UNIQ__
+//#define __DEBUG_UNIQ__
 #define DEBUGDIR "/home/azuri/spectra/pfs/2014-10-14/debug/"// /home/azuri/entwicklung/idl/REDUCE/16_03_2013/"//stella/ses-pipeline/c/msimulateskysubtraction/data/"//spectra/elaina/eso_archive/red_564/red_r/"
 
 #define MIN(a,b) ((a<b)?a:b)
@@ -99,7 +99,7 @@ struct FiberTraceFunctionFindingControl {
   LSST_CONTROL_FIELD(saturationLevel, float, "CCD saturation level");
   LSST_CONTROL_FIELD(minLength, unsigned int, "Minimum aperture length to count as found FiberTrace");
   LSST_CONTROL_FIELD(maxLength, unsigned int, "Maximum aperture length to count as found FiberTrace");
-  LSST_CONTROL_FIELD(nLost, unsigned int, "Number of consecutive times the trace is lost before aborting the traceing");
+  LSST_CONTROL_FIELD(nLost, unsigned int, "Number of consecutive times the trace is lost before aborting the tracing");
   
   FiberTraceFunctionFindingControl() :
   fiberTraceFunctionControl(),
@@ -230,7 +230,6 @@ class FiberTrace {
     
     /// Create _trace from _image and _fiberTraceFunction
     /// Pre: _xCenters set/calculated
-    /// Side Effects: resets _profile to afwImage<float>(_trace.getDimensions())
     bool createTrace(PTR(MaskedImageT) const & maskedImage);
         
     /// Return the masked CCD image
@@ -471,11 +470,11 @@ class FiberTraceSet {
     void sortTracesByXCenter();
     
     /// calculate spatial profile and extract to 1D
-    bool extractTraceNumber(const unsigned int traceNumber);
+    bool extractTraceNumber(int traceNumber);
     bool extractAllTraces();
 
     /// extract 1D spectrum from previously provided profile
-    bool extractTraceNumberFromProfile(const unsigned int traceNumber);
+    bool extractTraceNumberFromProfile(int traceNumber);
     bool extractAllTracesFromProfile();
     
   private:
@@ -1606,6 +1605,9 @@ class FiberTraceSet {
 //                          const string &S_Mode);
 
   }
+  
+//  template<typename ImageT, typename MaskT, typename VarianceT>
+//  PTR(afwImage::MaskedImage<ImageT, MaskT, VarianceT>) getShared(afwImage::MaskedImage<ImageT, MaskT, VarianceT> const &maskedImage);
 
 }}}
 int main();

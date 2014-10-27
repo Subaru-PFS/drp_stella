@@ -17,7 +17,6 @@ import lsst.afw.geom                    as afwGeom
 import lsst.afw.image                   as afwImage
 import lsst.pex.config                  as pexConfig
 import pfs.drp.stella as drpStella
-import pyfits
 from lsst.pipe.base import Task
 
 class FindAndTraceAperturesConfig(pexConfig.Config):

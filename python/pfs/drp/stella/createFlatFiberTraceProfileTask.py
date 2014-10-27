@@ -19,14 +19,13 @@ import lsst.afw.geom                    as afwGeom
 import lsst.afw.image                   as afwImage
 import lsst.pex.config                  as pexConfig
 import pfs.drp.stella as drpStella
-import pyfits
 from lsst.pipe.base import Task
 
 class CreateFlatFiberTraceProfileConfig(pexConfig.Config):
         profileInterpolation = pexConfig.Field(
             doc = "Method for determining the spatial profile, [PISKUNOV, SPLINE3], default: PISKUNOV",
             dtype = str,
-            default = "PISKUNOV")
+            default = "SPLINE3")
         ccdReadOutNoise = pexConfig.Field(
             doc = "CCD readout noise",
             dtype = float,
@@ -94,7 +93,7 @@ class CreateFlatFiberTraceProfileTask(Task):
 #                 "as determined by the '%s' star selector.") % self.config.starSelector.name
 #        )
 
-    def createFlatFiberTraceProfile(self, inFiberTraceSet, inTraceNumber):
+    def createFlatFiberTraceProfile(self, inFiberTraceSet, inTraceNumbers):
         # --- create FiberTraceFunctionFindingControl
         fiberTraceExtractionControl = drpStella.FiberTraceExtractionControl()
         fiberTraceExtractionControl.profileInterpolation = self.config.profileInterpolation
@@ -115,16 +114,20 @@ class CreateFlatFiberTraceProfileTask(Task):
         """Calculate spatial profile and extract"""
         fiberTraceSet.sortTracesByXCenter()
         fiberTraceSet.setFiberTraceExtractionControl(fiberTraceExtractionControl)
-        fiberTraceSet.extractTraceNumber(inTraceNumber)
+        if inTraceNumbers[0] == -1 :
+            fiberTraceSet.extractAllTraces()
+        else :
+            for i in inTraceNumbers :
+                fiberTraceSet.extractTraceNumber(i)
         return
 
-    def run(self, inFiberTraceSet, inTraceNumber):
+    def run(self, inFiberTraceSet, inTraceNumbers=[-1]):
         """Calculate spatial profile and extract FiberTrace number inTraceNumber to 1D
 
         This method changes the input FiberTraceSet and returns void
         """
         
-        self.createFlatFiberTraceProfile(inFiberTraceSet, inTraceNumber)
+        self.createFlatFiberTraceProfile(inFiberTraceSet, inTraceNumbers)
         
         return
  

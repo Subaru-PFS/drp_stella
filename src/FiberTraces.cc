@@ -923,7 +923,7 @@ namespace pfsDRPStella = pfs::drp::stella;
     #endif
     
     _trace = MaskedImageT(minCenMax(0,2) - minCenMax(0,0) + 1, _fiberTraceFunction.yHigh - _fiberTraceFunction.yLow + 1);// minCenMax.rows());
-    _profile.reset(new afwImage::Image<float>(_trace.getDimensions()));
+//    _profile.reset(new afwImage::Image<float>(_trace.getDimensions()));
 
     ndarray::Array<ImageT, 2, 1> imageArray = maskedImage->getImage()->getArray();
     ndarray::Array<VarianceT, 2, 1> varianceArray = maskedImage->getVariance()->getArray();
@@ -6835,7 +6835,7 @@ namespace pfsDRPStella = pfs::drp::stella;
   }
   
   template<typename ImageT, typename MaskT, typename VarianceT> 
-  bool pfsDRPStella::FiberTraceSet<ImageT, MaskT, VarianceT>::extractTraceNumber(unsigned int traceNumber)
+  bool pfsDRPStella::FiberTraceSet<ImageT, MaskT, VarianceT>::extractTraceNumber(int traceNumber)
   {
     blitz::Array<std::string, 1> keyWords(1);
     keyWords(0) = "FIBERTRACENUMBER";
@@ -6866,7 +6866,7 @@ namespace pfsDRPStella = pfs::drp::stella;
   }
 
   template<typename ImageT, typename MaskT, typename VarianceT> 
-  bool pfsDRPStella::FiberTraceSet<ImageT, MaskT, VarianceT>::extractTraceNumberFromProfile(unsigned int traceNumber)
+  bool pfsDRPStella::FiberTraceSet<ImageT, MaskT, VarianceT>::extractTraceNumberFromProfile(int traceNumber)
   {
     blitz::Array<std::string, 1> keyWords(1);
     keyWords(0) = "FIBERTRACENUMBER";
@@ -12756,6 +12756,12 @@ namespace pfsDRPStella = pfs::drp::stella;
       fclose(p_file);
       return true;
     }
+    
+//    template<typename ImageT, typename MaskT, typename VarianceT>
+//    PTR(afwImage::MaskedImage<ImageT, MaskT, VarianceT>) getShared(afwImage::MaskedImage<ImageT, MaskT, VarianceT> const &maskedImage){
+//      PTR(afwImage::MaskedImage<ImageT, MaskT, VarianceT>) ptr = PTR(const new afwImage::MaskedImage<ImageT, MaskT, VarianceT>(maskedImage));
+//      return ptr;
+//    }
   }
   
 /*  int main(){
@@ -13094,5 +13100,7 @@ namespace pfsDRPStella = pfs::drp::stella;
   template bool utils::WriteArrayToFile(const blitz::Array<long, 2> &D_A2_In, const string &S_FileName_In, const string &S_Mode);
   template bool utils::WriteArrayToFile(const blitz::Array<float, 2> &D_A2_In, const string &S_FileName_In, const string &S_Mode);
   template bool utils::WriteArrayToFile(const blitz::Array<double, 2> &D_A2_In, const string &S_FileName_In, const string &S_Mode);
-  
+
+//  template PTR(afwImage::MaskedImage<float, unsigned short, float>) utils::getShared(afwImage::MaskedImage<float, unsigned short, float> const &maskedImage);
+//  template PTR(afwImage::MaskedImage<double, unsigned short, double>) utils::getShared(afwImage::MaskedImage<double, unsigned short, double> const &maskedImage);
   }}}

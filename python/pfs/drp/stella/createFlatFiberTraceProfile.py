@@ -53,7 +53,7 @@ def createFlatFiberTraceProfile(filename):
     ftec.maxIterSky = 1
     
     """Create a FiberTraceSet given a flat-field fits file name"""
-    filename = "/home/azuri/spectra/pfs/2014-10-14/IR-23-0-sampledFlatx2-nonoise.fits"
+#    filename = "/home/azuri/spectra/pfs/2014-10-14/IR-23-0-sampledFlatx2-nonoise.fits"
     mif = afwImage.MaskedImageF(filename)
     print("mif created")
         
