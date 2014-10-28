@@ -855,11 +855,6 @@ namespace pfsDRPStella = pfs::drp::stella;
       S_MaskFinalOut = "D_A2_CCD_Ap" + CS_SF_DebugFilesSuffix + ".fits";
       pfsDRPStella::utils::WriteFits(&D_A2_CCDArray, S_MaskFinalOut);
     #endif
-      
-      cout << "Just after Fit: D_A1_SP = " << D_A1_SP << endl;
-      cout << "Just after Fit: D_A1_Sky = " << D_A1_Sky << endl;
-      cout << "Just after Fit: D_A2_CCDArray = " << D_A2_CCDArray << endl;
-      cout << "Just after Fit: D_A2_ProfArray = " << D_A2_ProfArray << endl;
 
     _spectrum.resize(_trace.getHeight());
     _spectrumVariance.resize(_trace.getHeight());
@@ -6772,6 +6767,12 @@ namespace pfsDRPStella = pfs::drp::stella;
       cout << "FiberTrace::fitSpline: profilePerRow_Out = " << profilePerRow_Out << endl;
     #endif
     return true;
+  }
+  
+  template<typename ImageT, typename MaskT, typename VarianceT> 
+  bool pfsDRPStella::FiberTrace<ImageT, MaskT, VarianceT>::calculate2dPSF(){
+    
+    return false;
   }
 
   /** 

@@ -168,6 +168,17 @@ struct FiberTraceExtractionControl {
         {}
 };
 
+
+/**
+ * Description of 2D PSF
+ */
+struct 2dPSFControl {
+    LSST_CONTROL_FIELD(signalThreshold, float, "Minimum signal above continuum to count as emission line");
+    
+    FiberTraceFunctionControl() :
+    signalThreshold(1000.) {}
+};
+
 /**
  * \brief Describe a single fiber trace
  */
@@ -394,8 +405,10 @@ class FiberTrace {
                    const blitz::Array<double, 1> &xOverSampled_In,/// see XVecArr in SlitFunc
                    blitz::Array<double, 1> &profileOverSampled_Out,/// output oversampled spatial profile
                    const blitz::Array<double, 2> &profileXValuesPerRowOverSampled_In,/// (i + 0.5) / double(overSample_In) - 1. + xCentersPixelFraction_In(i)
-    const blitz::Array<double, 1> &profileXValuesAllRows_In,/// i + 0.5 + (1. / (2. * overSample))
+                   const blitz::Array<double, 1> &profileXValuesAllRows_In,/// i + 0.5 + (1. / (2. * overSample))
                    blitz::Array<double, 2> &profilePerRow_Out);/// output 2D profile image
+    
+    bool calculate2dPSF();
     
 private:
     ///TODO: replace variables with smart pointers?????
