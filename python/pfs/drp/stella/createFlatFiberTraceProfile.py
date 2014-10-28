@@ -37,6 +37,9 @@ def createFlatFiberTraceProfile(filename):
     ftffc.signalThreshold = 120.
     ftffc.nTermsGaussFit = 3
     ftffc.saturationLevel = 65500.
+    ftffc.minLength = 3000
+    ftffc.maxLength = 4096
+    ftffc.nLost = 10
 
     # --- create FiberTraceExtractionControl
     ftec = drpStella.FiberTraceExtractionControl()
@@ -50,11 +53,12 @@ def createFlatFiberTraceProfile(filename):
     ftec.maxIterSky = 1
     
     """Create a FiberTraceSet given a flat-field fits file name"""
+#    filename = "/home/azuri/spectra/pfs/2014-10-14/IR-23-0-sampledFlatx2-nonoise.fits"
     mif = afwImage.MaskedImageF(filename)
     print("mif created")
         
     """Trace fibers"""
-    fts = drpStella.findAndTraceAperturesF(mif, ftffc, 0, mif.getHeight(), 10)
+    fts = drpStella.findAndTraceAperturesF(mif, ftffc)
     print("findAndTraceApertures finished")
     
     # --- sort traces by xCenters

@@ -51,25 +51,17 @@ Interface to Stella
 /************************************************************************************************************/
 
 %shared_ptr(pfs::drp::stella::FiberTrace<float, unsigned short, float>);
-#%shared_ptr(pfs::drp::stella::FiberTrace<int>);
-#%shared_ptr(pfs::drp::stella::FiberTrace<float>);
 %shared_ptr(pfs::drp::stella::FiberTrace<double, unsigned short, float>);
 
 %shared_ptr(pfs::drp::stella::FiberTraceSet<float, unsigned short, float>);
-#%shared_ptr(pfs::drp::stella::FiberTraceSet<int>);
-#%shared_ptr(pfs::drp::stella::FiberTraceSet<float>);
 %shared_ptr(pfs::drp::stella::FiberTraceSet<double, unsigned short, float>);
 
 %include "pfs/drp/stella/FiberTraces.h"
 %include "pfs/drp/stella/blitz.h"
 
-#%template(FiberTraceU) pfs::drp::stella::FiberTrace<unsigned short>;
-#%template(FiberTraceI) pfs::drp::stella::FiberTrace<int>;
 %template(FiberTraceF) pfs::drp::stella::FiberTrace<float, unsigned short, float>;
 %template(FiberTraceD) pfs::drp::stella::FiberTrace<double, unsigned short, float>;
 
-#%template(FiberTraceSetU) pfs::drp::stella::FiberTraceSet<unsigned short>;
-#%template(FiberTraceSetI) pfs::drp::stella::FiberTraceSet<int>;
 %template(FiberTraceSetF) pfs::drp::stella::FiberTraceSet<float, unsigned short, float>;
 %template(FiberTraceSetD) pfs::drp::stella::FiberTraceSet<double, unsigned short, float>;
 
@@ -184,6 +176,11 @@ Interface to Stella
 %template(BubbleSortF) pfs::drp::stella::math::BubbleSort<float>;
 %template(BubbleSortD) pfs::drp::stella::math::BubbleSort<double>;
 
+%template(UniqI) pfs::drp::stella::math::Uniq<int>;
+%template(UniqL) pfs::drp::stella::math::Uniq<long>;
+%template(UniqF) pfs::drp::stella::math::Uniq<float>;
+%template(UniqD) pfs::drp::stella::math::Uniq<double>;
+
 #%template(resizeU) pfs::drp::stella::math::resize<unsigned int>;
 #%template(resizeU) pfs::drp::stella::math::resize<int>;
 #%template(resizeU) pfs::drp::stella::math::resize<long>;
@@ -220,3 +217,8 @@ Interface to Stella
 %template(copyBlitzToNdarrayL) pfs::drp::stella::utils::copyBlitzToNdarray<long>;
 %template(copyBlitzToNdarrayF) pfs::drp::stella::utils::copyBlitzToNdarray<float>;
 %template(copyBlitzToNdarrayD) pfs::drp::stella::utils::copyBlitzToNdarray<double>;
+
+#%shared_ptr(lsst::afw::image::MaskedImage<float, unsigned short, float>);
+#%shared_ptr(lsst::afw::image::MaskedImage<double, unsigned short, float>);
+#%template(getSharedF) pfs::drp::stella::utils::getShared<float, unsigned short, float>;
+#%template(getSharedD) pfs::drp::stella::utils::getShared<double, unsigned short, float>;
