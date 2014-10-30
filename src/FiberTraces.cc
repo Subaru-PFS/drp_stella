@@ -29,6 +29,7 @@ namespace pfsDRPStella = pfs::drp::stella;
     _isSpectrumExtracted = false;
     _isFiberTraceFunctionSet = false;
     _isFiberTraceExtractionControlSet = false;
+    _isTwoDPSFControlSet = false;
   }
   
   /** @brief Construct an Exposure with a blank MaskedImage of specified size (default 0x0) and
@@ -58,6 +59,7 @@ namespace pfsDRPStella = pfs::drp::stella;
     _isSpectrumExtracted = false;
     _isFiberTraceFunctionSet = false;
     _isFiberTraceExtractionControlSet = false;
+    _isTwoDPSFControlSet = false;
   }
 
   template<typename ImageT, typename MaskT, typename VarianceT> 
@@ -84,6 +86,7 @@ namespace pfsDRPStella = pfs::drp::stella;
     _isSpectrumExtracted = false;
     _isFiberTraceFunctionSet = false;
     _isFiberTraceExtractionControlSet = false;
+    _isTwoDPSFControlSet = false;
   }
   
   /** **************************************************************/
@@ -282,6 +285,57 @@ namespace pfsDRPStella = pfs::drp::stella;
     _fiberTraceExtractionControl.reset();
     _fiberTraceExtractionControl = fiberTraceExtractionControl;
     _isFiberTraceExtractionControlSet = true;
+    
+    return true;
+  }
+  
+  template<typename ImageT, typename MaskT, typename VarianceT> 
+  bool pfsDRPStella::FiberTrace<ImageT, MaskT, VarianceT>::setTwoDPSFControl(PTR(TwoDPSFControl) twoDPSFControl){
+    
+    /// Check for valid values in twoDPSFControl
+    #ifdef __DEBUG_SET2DPSFCONTROL__
+      cout << "FiberTrace::setTwoDPSFControl: twoDPSFControl->signalThreshold = <" << twoDPSFControl->signalThreshold << ">" << endl;
+      cout << "FiberTrace::setTwoDPSFControl: twoDPSFControl->swathWidth = " << twoDPSFControl->swathWidth << ">" << endl;
+      cout << "FiberTrace::setTwoDPSFControl: twoDPSFControl->xFWHM = <" << twoDPSFControl->xFWHM << ">" << endl;
+      cout << "FiberTrace::setTwoDPSFControl: twoDPSFControl->yFWHM = <" << twoDPSFControl->yFWHM << ">" << endl;
+      cout << "FiberTrace::setTwoDPSFControl: twoDPSFControl->nTermsGaussFit = <" << twoDPSFControl->nTermsGaussFit << ">" << endl;
+      cout << "FiberTrace::setTwoDPSFControl: twoDPSFControl->saturationLevel = <" << twoDPSFControl->saturationLevel << ">" << endl;
+    #endif
+    
+    if (twoDPSFControl->signalThreshold < 0.){
+      cout << "FiberTrace::setTwoDPSFControl: ERROR: (twoDPSFControl->signalThreshold(=" << twoDPSFControl->signalThreshold << ") < 0. => Returning FALSE" << endl;
+      return false;
+    }
+
+    if (twoDPSFControl->swathWidth < 100){
+      cout << "FiberTrace::setTwoDPSFControl: ERROR: (twoDPSFControl->swathWidth(=" << twoDPSFControl->swathWidth << ") < 100 => Returning FALSE" << endl;
+      return false;
+    }
+    
+    if ((2.5 * twoDPSFControl->xFWHM) < twoDPSFControl->nTermsGaussFit){
+      cout << "FiberTrace::setTwoDPSFControl: ERROR: (2.5*twoDPSFControl->xFWHM(=" << twoDPSFControl->xFWHM << ") < twoDPSFControl->nTermsGaussFit(=" << twoDPSFControl->nTermsGaussFit << ") => Returning FALSE" << endl;
+      return false;
+    }
+    
+    if ((2.5 * twoDPSFControl->yFWHM) < twoDPSFControl->nTermsGaussFit){
+      cout << "FiberTrace::setTwoDPSFControl: ERROR: (2.5*twoDPSFControl->yFWHM(=" << twoDPSFControl->yFWHM << ") < twoDPSFControl->nTermsGaussFit(=" << twoDPSFControl->nTermsGaussFit << ") => Returning FALSE" << endl;
+      return false;
+    }
+    
+    if ((twoDPSFControl->nTermsGaussFit < 3) || (twoDPSFControl->nTermsGaussFit > 5)){
+      cout << "FiberTrace::setTwoDPSFControl: ERROR: twoDPSFControl->nTermsGaussFit(=" << twoDPSFControl->nTermsGaussFit << " not valid => Returning FALSE" << endl;
+      return false;
+    }
+    
+    if (twoDPSFControl->saturationLevel < 100){
+      cout << "FiberTrace::setTwoDPSFControl: ERROR: twoDPSFControl->saturationLevel(=" << twoDPSFControl->saturationLevel << " < 100. => Returning FALSE" << endl;
+      return false;
+    }
+    
+    /// test passed -> copy twoDPSFControl to _twoDPSFControl
+    _twoDPSFControl.reset();
+    _twoDPSFControl = twoDPSFControl;
+    _isTwoDPSFControlSet = true;
     
     return true;
   }
@@ -738,7 +792,7 @@ namespace pfsDRPStella = pfs::drp::stella;
     
     if (!extractFromProfile(S_A1_Args, PP_Args))
     {
-      cout << "CFits::MkSlitFunc(): ERROR: extractFromProfile(S_A1_Args=" << S_A1_Args << ") returned FALSE => Returning FALSE" << endl;
+      cout << "CFits::extractFromProfile(): ERROR: extractFromProfile(S_A1_Args=" << S_A1_Args << ") returned FALSE => Returning FALSE" << endl;
       return false;
     }
     return true;
@@ -986,7 +1040,146 @@ namespace pfsDRPStella = pfs::drp::stella;
     }
     return image;
   }
-  
+
+  template<typename ImageT, typename MaskT, typename VarianceT> 
+  bool pfsDRPStella::FiberTrace<ImageT, MaskT, VarianceT>::calculateSwathWidth_NBins_BinHeight_BinBoundY(int &swathWidth_InOut,
+                                                            int &nBins_Out,
+                                                            int &binHeight_Out, 
+                                                            blitz::Array<int, 2> &binBoundY_Out){
+    int I_NI = 0;
+    int I_I = 0;
+    
+    blitz::Array<int, 1> I_A1_I(1);
+    I_A1_I = 0;
+
+    if (swathWidth_InOut > _trace.getHeight()){
+      swathWidth_InOut = _trace.getHeight();
+      #ifdef __DEBUG_MKSLITFUNC__
+        cout << "FiberTrace::calculateSwathWidth_NBins_BinHeight_BinBoundY: KeyWord_Set(SWATH_WIDTH): swathWidth_InOut too large: swathWidth_InOut set to " << swathWidth_InOut << endl;
+      #endif
+    }
+    if (swathWidth_InOut != 0)
+    {
+      nBins_Out = pfsDRPStella::math::Round(_trace.getHeight() / swathWidth_InOut);
+      if (nBins_Out < 1)
+        nBins_Out = 1;
+      #ifdef __DEBUG_MKSLITFUNC__
+        cout << "FiberTrace::calculateSwathWidth_NBins_BinHeight_BinBoundY: KeyWord_Set(SWATH_WIDTH): I_NBin = Round((_fiberTraceFunction.yHigh(=" << _fiberTraceFunction.yHigh << ") - _fiberTraceFunction.yLow(=" << _fiberTraceFunction.yLow << ") + 1.) / swathWidth_InOut(=" << swathWidth_InOut << ")) set to " << nBins_Out << endl;
+      #endif
+    }
+    if (swathWidth_InOut == 0)
+    { /// Estimate the Points of column crossing
+      blitz::Array<float, 1> xCenters(_xCenters.data(), blitz::shape(_xCenters.size()), blitz::neverDeleteData);
+      blitz::Array<int, 1> tempIntArrA = pfsDRPStella::math::Fix(xCenters);
+      #ifdef __DEBUG_MKSLITFUNC__
+        cout << "FiberTrace::calculateSwathWidth_NBins_BinHeight_BinBoundY: !KeyWord_Set(SWATH_WIDTH): tempIntArrA = " << tempIntArrA << endl;
+      #endif
+      pfsDRPStella::math::Uniq(tempIntArrA, I_A1_I);
+      #ifdef __DEBUG_MKSLITFUNC__
+        cout << "FiberTrace::calculateSwathWidth_NBins_BinHeight_BinBoundY: !KeyWord_Set(SWATH_WIDTH): I_A1_I set to " << I_A1_I << endl;
+      #endif
+      
+      ///This is how many times this order crosses to the next column
+      I_NI = I_A1_I.size();
+      #ifdef __DEBUG_MKSLITFUNC__
+        cout << "FiberTrace::calculateSwathWidth_NBins_BinHeight_BinBoundY: !KeyWord_Set(SWATH_WIDTH): I_NI set to " << I_NI << endl;
+      #endif
+      
+      ///Curved order crosses columns
+      if (I_NI > 1)
+      {
+        I_I = blitz::sum(I_A1_I(blitz::Range(1, I_NI-1)) - I_A1_I(blitz::Range(0, I_NI - 2))) / (I_NI - 1);
+        #ifdef __DEBUG_MKSLITFUNC__
+          cout << "FiberTrace::calculateSwathWidth_NBins_BinHeight_BinBoundY: !KeyWord_Set(SWATH_WIDTH): if(I_NI(=" << I_NI << ") > 1): I_I set to " << I_I << endl;
+        #endif
+        
+        /// number of swaths along the order
+        nBins_Out = pfsDRPStella::math::Round(static_cast<double>(_trace.getHeight()) / static_cast<double>(I_I) / 3.);
+        #ifdef __DEBUG_MKSLITFUNC__
+          cout << "FiberTrace::calculateSwathWidth_NBins_BinHeight_BinBoundY: !KeyWord_Set(SWATH_WIDTH): if(I_NI(=" << I_NI << ") > 1): I_NBin = Round((double)_trace.getHeight()(=" << _trace.getHeight() << ") / (double)I_I(=" << I_I << ") / 3.) set to " << nBins_Out << endl;
+          cout << "FiberTrace::calculateSwathWidth_NBins_BinHeight_BinBoundY: !KeyWord_Set(SWATH_WIDTH): if(I_NI(=" << I_NI << ") > 1): I_NBin set to " << nBins_Out << endl;
+        #endif
+      }
+      else
+      { /// Perfectly aligned orders
+        /// Still follow the changes in PSF
+        nBins_Out = pfsDRPStella::math::Round(static_cast<double>(_trace.getHeight()) / 400.);
+        #ifdef __DEBUG_MKSLITFUNC__
+          cout << "FiberTrace::calculateSwathWidth_NBins_BinHeight_BinBoundY: !KeyWord_Set(SWATH_WIDTH): if(I_NI(=" << I_NI << ") <= 1): I_NBin = int(_trace.getHeight()(=" << _trace.getHeight() << ") / 400.) set to " << nBins_Out << endl;
+          cout << "FiberTrace::calculateSwathWidth_NBins_BinHeight_BinBoundY: !KeyWord_Set(SWATH_WIDTH): if(I_NI(=" << I_NI << ") <= 1): I_NBin set to " << nBins_Out << endl;
+        #endif
+      }
+      if (nBins_Out < 3)
+        nBins_Out = 3;
+      if (nBins_Out > 20)
+        nBins_Out = 2;
+      #ifdef __DEBUG_MKSLITFUNC__
+        cout << "FiberTrace::calculateSwathWidth_NBins_BinHeight_BinBoundY: !KeyWord_Set(SWATH_WIDTH): I_NBin set to " << nBins_Out << endl;
+      #endif
+
+    }
+    
+    binHeight_Out = _trace.getHeight() / nBins_Out;
+    if (nBins_Out > 1)
+      nBins_Out = (2 * nBins_Out) - 1;
+    
+    #ifdef __DEBUG_MKSLITFUNC__
+      cout << "FiberTrace::calculateSwathWidth_NBins_BinHeight_BinBoundY: fiberTraceNumber = " << fiberTraceNumber << endl;
+      cout << "FiberTrace::calculateSwathWidth_NBins_BinHeight_BinBoundY: nBins_Out set to " << nBins_Out << endl;
+    #endif
+
+    /// Calculate boundaries of distinct slitf regions.
+    /// Boundaries of bins
+    binBoundY_Out.resize(nBins_Out,2);
+    binBoundY_Out = 0;
+    binBoundY_Out(0,0) = 0;//int(_fiberTraceFunction.yCenter + _fiberTraceFunction.yLow);// + 1
+    #ifdef __DEBUG_MKSLITFUNC__
+      cout << "FiberTrace::calculateSwathWidth_NBins_BinHeight_BinBoundY: 1. I_A2_IBound(0,0) set to " << binBoundY_Out(0,0) << endl;
+    #endif
+    int I_BinHeight_Temp = binHeight_Out;
+    binBoundY_Out(0,1) = I_BinHeight_Temp;
+    #ifdef __DEBUG_MKSLITFUNC__
+      cout << "FiberTrace::calculateSwathWidth_NBins_BinHeight_BinBoundY: binBoundY_Out(0, 1) set to " << binBoundY_Out(0, 1) << endl;
+    #endif
+    while(binBoundY_Out(0,1) >= _ccdHeight){
+      binBoundY_Out(0,1)--;
+      _fiberTraceFunction.yHigh--;
+      I_BinHeight_Temp--;
+      #ifdef __DEBUG_MKSLITFUNC__
+        cout << "FiberTrace::calculateSwathWidth_NBins_BinHeight_BinBoundY: binBoundY_Out(0,1) >= _trace.getHeight(): binBoundY_Out(0, 1) set to " << binBoundY_Out(0, 1) << endl;
+      #endif
+    }
+    for (int i_bin = 1; i_bin < nBins_Out; i_bin++){
+      I_BinHeight_Temp = binHeight_Out;
+      binBoundY_Out(i_bin,0) = binBoundY_Out(i_bin-1,0) + int(double(binHeight_Out) / 2.);
+      #ifdef __DEBUG_MKSLITFUNC__
+        cout << "FiberTrace::calculateSwathWidth_NBins_BinHeight_BinBoundY: binBoundY_Out(i_bin,1) >= _trace.getHeight(): binBoundY_Out(" << i_bin << ",0) set to " << binBoundY_Out(i_bin, 0) << endl;
+      #endif
+      while(binBoundY_Out(i_bin,0) < 0){
+        binBoundY_Out(i_bin,0)++;
+        I_BinHeight_Temp--;
+        #ifdef __DEBUG_MKSLITFUNC__
+          cout << "FiberTrace::calculateSwathWidth_NBins_BinHeight_BinBoundY: binBoundY_Out(i_bin,0) < 0: binBoundY_Out(" << i_bin << ", 0) set to " << binBoundY_Out(i_bin, 0) << endl;
+        #endif
+      }
+      binBoundY_Out(i_bin,1) = binBoundY_Out(i_bin,0) + I_BinHeight_Temp;
+      #ifdef __DEBUG_MKSLITFUNC__
+        cout << "FiberTrace::calculateSwathWidth_NBins_BinHeight_BinBoundY: binBoundY_Out(" << i_bin << ",1) set to " << binBoundY_Out(i_bin, 1) << endl;
+      #endif
+      while(binBoundY_Out(i_bin,1) >= _trace.getHeight()){
+        binBoundY_Out(i_bin,1)--;
+        _fiberTraceFunction.yHigh--;
+        I_BinHeight_Temp--;
+        #ifdef __DEBUG_MKSLITFUNC__
+          cout << "FiberTrace::calculateSwathWidth_NBins_BinHeight_BinBoundY: binBoundY_Out(i_bin,1) >= _trace.getHeight(): binBoundY_Out(" << i_bin << ",1) set to " << binBoundY_Out(i_bin, 1) << endl;
+        #endif
+      }
+    }
+    binBoundY_Out(nBins_Out-1, 1) = _trace.getHeight()-1;
+
+    return true;
+  }
+                                                     
   /**
    *  MkSlitFunc
    *  Make Slit Function
@@ -1249,9 +1442,6 @@ namespace pfsDRPStella = pfs::drp::stella;
     blitz::Array<double, 1> D_A1_XSlitFTemp(1);
     D_A1_XSlitFTemp = 0.;
     
-    blitz::Array<int, 1> I_A1_I(1);
-    I_A1_I = 0;
-    
     blitz::Array<int, 1> I_A1_ISort(1);
     I_A1_ISort = 0;
     
@@ -1291,11 +1481,9 @@ namespace pfsDRPStella = pfs::drp::stella;
       PP_Args_Median[2] = &D_Val_ErrOutMedian;
     }
     
-    int I_I = 0;
     int I_NR = 0;// = I_IE - I_IB + 1; /// Number of rows
 //    int I_LambdaSP = 1;
     int I_NBins = 0;
-    int I_NI = 0;
     int I_NXSF = 0;
     int I_Pos = 0;
     int I_SwathWidth = _fiberTraceExtractionControl->swathWidth;
@@ -1460,134 +1648,15 @@ namespace pfsDRPStella = pfs::drp::stella;
     blitz::Array<float, 1> xCenters(_xCenters.data(), blitz::shape(_xCenters.size()), blitz::neverDeleteData);
     blitz::Array<double, 1> D_A1_XCenters(xCenters.size());
     D_A1_XCenters = pfsDRPStella::math::Double(xCenters);// + 0.5;
-    
-    if (I_SwathWidth > _trace.getHeight()){
-      I_SwathWidth = _trace.getHeight();
-      #ifdef __DEBUG_MKSLITFUNC__
-        cout << "CFits::MkSlitFunc: KeyWord_Set(SWATH_WIDTH): I_SwathWidth too large: I_SwathWidth set to " << I_SwathWidth << endl;
-      #endif
-    }
-    if (I_SwathWidth != 0)
-    {
-      I_NBins = pfsDRPStella::math::Round(_trace.getHeight() / I_SwathWidth);
-      if (I_NBins < 1)
-        I_NBins = 1;
-      #ifdef __DEBUG_MKSLITFUNC__
-        cout << "CFits::MkSlitFunc: KeyWord_Set(SWATH_WIDTH): I_NBin = Round((_fiberTraceFunction.yHigh(=" << _fiberTraceFunction.yHigh << ") - _fiberTraceFunction.yLow(=" << _fiberTraceFunction.yLow << ") + 1.) / I_SwathWidth(=" << I_SwathWidth << ")) set to " << I_NBins << endl;
-      #endif
-    }
-    if (I_SwathWidth == 0)
-    { /// Estimate the Points of column crossing
-      #ifdef __DEBUG_MKSLITFUNC__
-        cout << "CFits::MkSlitFunc: !KeyWord_Set(SWATH_WIDTH): D_A1_XCenters = " << D_A1_XCenters << endl;
-      #endif
-      blitz::Array<int, 1> tempIntArrA = pfsDRPStella::math::Fix(D_A1_XCenters);
-      #ifdef __DEBUG_MKSLITFUNC__
-        cout << "CFits::MkSlitFunc: !KeyWord_Set(SWATH_WIDTH): tempIntArrA = " << tempIntArrA << endl;
-      #endif
-      pfsDRPStella::math::Uniq(tempIntArrA, I_A1_I);
-      #ifdef __DEBUG_MKSLITFUNC__
-        cout << "CFits::MkSlitFunc: !KeyWord_Set(SWATH_WIDTH): I_A1_I set to " << I_A1_I << endl;
-      #endif
-      
-      ///This is how many times this order crosses to the next column
-      I_NI = I_A1_I.size();
-      #ifdef __DEBUG_MKSLITFUNC__
-        cout << "CFits::MkSlitFunc: !KeyWord_Set(SWATH_WIDTH): I_NI set to " << I_NI << endl;
-      #endif
-      
-      ///Curved order crosses columns
-      if (I_NI > 1)
-      {
-        I_I = blitz::sum(I_A1_I(blitz::Range(1, I_NI-1)) - I_A1_I(blitz::Range(0, I_NI - 2))) / (I_NI - 1);
-        #ifdef __DEBUG_MKSLITFUNC__
-          cout << "CFits::MkSlitFunc: !KeyWord_Set(SWATH_WIDTH): if(I_NI(=" << I_NI << ") > 1): I_I set to " << I_I << endl;
-        #endif
-        
-        /// number of swaths along the order
-        I_NBins = pfsDRPStella::math::Round(static_cast<double>(_trace.getHeight()) / static_cast<double>(I_I) / 3.);
-        #ifdef __DEBUG_MKSLITFUNC__
-          cout << "CFits::MkSlitFunc: !KeyWord_Set(SWATH_WIDTH): if(I_NI(=" << I_NI << ") > 1): I_NBin = Round((double)_trace.getHeight()(=" << _trace.getHeight() << ") / (double)I_I(=" << I_I << ") / 3.) set to " << I_NBins << endl;
-          cout << "CFits::MkSlitFunc: !KeyWord_Set(SWATH_WIDTH): if(I_NI(=" << I_NI << ") > 1): I_NBin set to " << I_NBins << endl;
-        #endif
-      }
-      else
-      { /// Perfectly aligned orders
-        /// Still follow the changes in PSF
-        I_NBins = pfsDRPStella::math::Round(static_cast<double>(_trace.getHeight()) / 400.);
-        #ifdef __DEBUG_MKSLITFUNC__
-          cout << "CFits::MkSlitFunc: !KeyWord_Set(SWATH_WIDTH): if(I_NI(=" << I_NI << ") <= 1): I_NBin = int(_trace.getHeight()(=" << _trace.getHeight() << ") / 400.) set to " << I_NBins << endl;
-          cout << "CFits::MkSlitFunc: !KeyWord_Set(SWATH_WIDTH): if(I_NI(=" << I_NI << ") <= 1): I_NBin set to " << I_NBins << endl;
-        #endif
-      }
-      if (I_NBins < 3)
-        I_NBins = 3;
-      if (I_NBins > 20)
-        I_NBins = 2;
-      #ifdef __DEBUG_MKSLITFUNC__
-        cout << "CFits::MkSlitFunc: !KeyWord_Set(SWATH_WIDTH): I_NBin set to " << I_NBins << endl;
-      #endif
 
-      /// Adjust for the true order length
-    } /// if (!(I_Pos = pfsDRPStella::utils::KeyWord_Set(const_cast<const CString**>(PP_CS_Args), I_NArgs, CS_Temp)))
-    
-    I_BinHeight = _trace.getHeight() / I_NBins;
-    if (I_NBins > 1)
-      I_NBins = (2 * I_NBins) - 1;
-    
-    #ifdef __DEBUG_MKSLITFUNC__
-      cout << "CFits::MkSlitFunc: fiberTraceNumber = " << fiberTraceNumber << endl;
-      cout << "CFits::MkSlitFunc: I_NBins set to " << I_NBins << endl;
-    #endif
-
-    /// Calculate boundaries of distinct slitf regions.
-    /// Boundaries of bins
-    I_A2_IBinBoundY.resize(I_NBins,2);
-    I_A2_IBinBoundY = 0;
-    I_A2_IBinBoundY(0,0) = 0;//int(_fiberTraceFunction.yCenter + _fiberTraceFunction.yLow);// + 1
-    #ifdef __DEBUG_MKSLITFUNC__
-      cout << "CFits::MkSlitFunc: 1. I_A2_IBound(0,0) set to " << I_A2_IBinBoundY(0,0) << endl;
-    #endif
-    int I_BinHeight_Temp = I_BinHeight;
-    I_A2_IBinBoundY(0,1) = I_BinHeight_Temp;
-    #ifdef __DEBUG_MKSLITFUNC__
-      cout << "MkSlitFunc: I_A2_IBinBoundY(0, 1) set to " << I_A2_IBinBoundY(0, 1) << endl;
-    #endif
-    while(I_A2_IBinBoundY(0,1) >= _ccdHeight){
-      I_A2_IBinBoundY(0,1)--;
-      _fiberTraceFunction.yHigh--;
-      I_BinHeight_Temp--;
-      #ifdef __DEBUG_MKSLITFUNC__
-        cout << "MkSlitFunc: I_A2_IBinBoundY(0,1) >= _trace.getHeight(): I_A2_IBinBoundY(0, 1) set to " << I_A2_IBinBoundY(0, 1) << endl;
-      #endif
+    if (!calculateSwathWidth_NBins_BinHeight_BinBoundY(I_SwathWidth, 
+                                                       I_NBins, 
+                                                       I_BinHeight, 
+                                                       I_A2_IBinBoundY)){
+      cout << "FiberTrace::MkSlitFunc: ERROR: calculateSwathWidth_NBins_BinHeight_BinBoundY returned FALSE" << endl;
+      return false;
     }
-    for (int i_bin = 1; i_bin < I_NBins; i_bin++){
-      I_BinHeight_Temp = I_BinHeight;
-      I_A2_IBinBoundY(i_bin,0) = I_A2_IBinBoundY(i_bin-1,0) + int(double(I_BinHeight) / 2.);
-      #ifdef __DEBUG_MKSLITFUNC__
-        cout << "MkSlitFunc: I_A2_IBinBoundY(i_bin,1) >= _trace.getHeight(): I_A2_IBinBoundY(" << i_bin << ",0) set to " << I_A2_IBinBoundY(i_bin, 0) << endl;
-      #endif
-      while(I_A2_IBinBoundY(i_bin,0) < 0){
-        I_A2_IBinBoundY(i_bin,0)++;
-        I_BinHeight_Temp--;
-        #ifdef __DEBUG_MKSLITFUNC__
-          cout << "MkSlitFunc: I_A2_IBinBoundY(i_bin,0) < 0: I_A2_IBinBoundY(" << i_bin << ", 0) set to " << I_A2_IBinBoundY(i_bin, 0) << endl;
-        #endif
-      }
-      I_A2_IBinBoundY(i_bin,1) = I_A2_IBinBoundY(i_bin,0) + I_BinHeight_Temp;
-      #ifdef __DEBUG_MKSLITFUNC__
-        cout << "MkSlitFunc: I_A2_IBinBoundY(" << i_bin << ",1) set to " << I_A2_IBinBoundY(i_bin, 1) << endl;
-      #endif
-      while(I_A2_IBinBoundY(i_bin,1) >= _trace.getHeight()){
-        I_A2_IBinBoundY(i_bin,1)--;
-        _fiberTraceFunction.yHigh--;
-        I_BinHeight_Temp--;
-        #ifdef __DEBUG_MKSLITFUNC__
-          cout << "MkSlitFunc: I_A2_IBinBoundY(i_bin,1) >= _trace.getHeight(): I_A2_IBinBoundY(" << i_bin << ",1) set to " << I_A2_IBinBoundY(i_bin, 1) << endl;
-        #endif
-      }
-    }
-    I_A2_IBinBoundY(I_NBins-1, 1) = _trace.getHeight()-1;
+    
     #ifdef __DEBUG_MKSLITFUNC__
       cout << "CFits::MkSlitFunc: I_A2_IBound set to " << I_A2_IBinBoundY << endl;
     #endif
@@ -3234,7 +3303,6 @@ namespace pfsDRPStella = pfs::drp::stella;
     D_A1_XCentersE.resize(0);
     D_A1_XInt.resize(0);
     D_A1_XSlitFTemp.resize(0);
-    I_A1_I.resize(0);
     I_A1_ISort.resize(0);
     I_A1_ITel.resize(0);
     I_A1_IX.resize(0);
@@ -6653,11 +6721,11 @@ namespace pfsDRPStella = pfs::drp::stella;
       cout << "FiberTrace::fitSpline: profileXValuesAllRows_In = " << profileXValuesAllRows_In << endl;
     #endif
     /// check input paramters
-    if (iFirst_In.size() != fiberTraceSwath_In.rows()){
+    if (static_cast<int>(iFirst_In.size()) != fiberTraceSwath_In.rows()){
       cout << "FiberTrace::fitSpline: ERROR: iFirst_In.size(=" << iFirst_In.size() << ") != fiberTraceSwath_In.rows(=" << fiberTraceSwath_In.rows() << ") => Returning FALSE" << endl;
       return false;
     }
-    if (fiberTraceSwath_In.cols() != profileXValuesAllRows_In.size()){
+    if (fiberTraceSwath_In.cols() != static_cast<int>(profileXValuesAllRows_In.size())){
       cout << "FiberTrace::fitSpline: ERROR: profileXValuesAllRows_In.size(=" << profileXValuesAllRows_In.size() << ") != fiberTraceSwath_In.cols(=" << fiberTraceSwath_In.cols() << ") => Returning FALSE" << endl;
       return false;
     }
@@ -6739,7 +6807,7 @@ namespace pfsDRPStella = pfs::drp::stella;
     /// calculate oversampled profile for each x in xOverSampled_In
     if (profileOverSampled_Out.size() != xOverSampled_In.size())
       profileOverSampled_Out.resize(xOverSampled_In.size());
-    for (int i=0; i< xOverSampled_In.size(); ++i){
+    for (int i=0; i < static_cast<int>(xOverSampled_In.size()); ++i){
       if ((xOverSampled_In(i) < xVecSorted[0]) || (xOverSampled_In(i) > xVecSorted[xVecSorted.size()-1]))
         profileOverSampled_Out(i) = 0.;
       else
@@ -6770,7 +6838,281 @@ namespace pfsDRPStella = pfs::drp::stella;
   }
   
   template<typename ImageT, typename MaskT, typename VarianceT> 
-  bool pfsDRPStella::FiberTrace<ImageT, MaskT, VarianceT>::calculate2dPSF(){
+  bool pfsDRPStella::FiberTrace<ImageT, MaskT, VarianceT>::calculate2dPSFPerBin(){
+    if (!_isTwoDPSFControlSet){
+      cout << "FiberTrace::calculate2dPSFPerBin: ERROR: _twoDPSFControl is not set" << endl;
+      return false;
+    }
+    int swathWidth = _twoDPSFControl->swathWidth;
+    int nBins = 0;
+    int binHeight = 0;
+    blitz::Array<int, 2> binBoundY(2,2);
+    if (!calculateSwathWidth_NBins_BinHeight_BinBoundY(swathWidth,
+                                                       nBins,
+                                                       binHeight,
+                                                       binBoundY)){
+      cout << "FiberTrace::calculate2dPSFPerBin: ERROR: calculateSwathWidth_NBins_BinHeight_BinBoundY returned FALSE" << endl;
+      return false;
+    }
+
+    blitz::Array<double, 2> D_A2_2dPSF(2,2);
+    
+    blitz::Array<ImageT, 2> T_A2_PixArray = utils::ndarrayToBlitz(_trace.getImage()->getArray());
+    blitz::Array<double, 2> D_A2_PixArray = pfsDRPStella::math::Double(T_A2_PixArray);
+    
+    blitz::Array<VarianceT, 2> T_A2_VarArray = utils::ndarrayToBlitz(_trace.getVariance()->getArray());
+    blitz::Array<double, 2> D_A2_StdDevArray = pfsDRPStella::math::Double(T_A2_VarArray);
+    D_A2_StdDevArray = blitz::sqrt(D_A2_StdDevArray);
+    if (fabs(blitz::max(D_A2_StdDevArray)) < 0.000001){
+      double D_MaxStdDev = fabs(blitz::max(D_A2_StdDevArray));
+      cout << "FiberTrace::calculate2dPSF: ERROR: fabs(blitz::max(D_A2_StdDevArray))=" << D_MaxStdDev << " < 0.000001 => Returning FALSE" << endl;
+      return false;
+    }
+    
+    blitz::Array<MaskT, 2> T_A2_MaskArray = utils::ndarrayToBlitz(_trace.getMask()->getArray());
+    blitz::Array<int, 2> I_A2_MaskArray(D_A2_PixArray.rows(), D_A2_PixArray.cols());
+    I_A2_MaskArray = where(T_A2_MaskArray == 0, 1, 0);
+
+    blitz::Array<float, 1> xCenters(_xCenters.data(), blitz::shape(_xCenters.size()), blitz::neverDeleteData);
+    blitz::Array<double, 1> D_A1_XCenters(xCenters.size());
+    D_A1_XCenters = pfsDRPStella::math::Double(xCenters) + 0.5;
+    
+    blitz::Array<double, 2> traceBin(2,2);
+    blitz::Array<double, 2> stddevBin(2,2);
+    blitz::Array<int, 2> maskBin(2,2);
+    blitz::Array<double, 1> xCentersOffset(2);
+    if (binBoundY.rows() != nBins){
+      cout << "FiberTrace::calculate2dPSFPerBin: ERROR: binBoundY.rows()=" << binBoundY.rows() << " != nBins=" << nBins << endl;
+      return false;
+    }
+    for (int iBin=0; iBin<nBins; ++iBin){
+      traceBin.resize(binBoundY(iBin,1) - binBoundY(iBin,0) + 1, _trace.getWidth());
+      traceBin = D_A2_PixArray(blitz::Range(binBoundY(iBin,0), binBoundY(iBin,1)), blitz::Range::all());
+
+      stddevBin.resize(binBoundY(iBin,1) - binBoundY(iBin,0) + 1, _trace.getWidth());
+      stddevBin = D_A2_StdDevArray(blitz::Range(binBoundY(iBin,0), binBoundY(iBin,1)), blitz::Range::all());
+      
+      maskBin.resize(binBoundY(iBin,1) - binBoundY(iBin,0) + 1, _trace.getWidth());
+      maskBin = I_A2_MaskArray(blitz::Range(binBoundY(iBin,0), binBoundY(iBin,1)), blitz::Range::all());
+      
+      xCentersOffset.resize(binBoundY(iBin,1) - binBoundY(iBin,0) + 1);
+      xCentersOffset = D_A1_XCenters(blitz::Range(binBoundY(iBin, 0), binBoundY(iBin, 1)));
+      xCentersOffset = xCentersOffset - pfsDRPStella::math::Int(xCentersOffset);
+    
+      blitz::Array<int, 2> minCenMax(2,2);
+      if (!pfsDRPStella::math::calcMinCenMax(xCenters,
+                                            _fiberTraceFunction.fiberTraceFunctionControl.xHigh,
+                                            _fiberTraceFunction.fiberTraceFunctionControl.xLow,
+                                            _fiberTraceFunction.yCenter,
+                                            _fiberTraceFunction.yLow,
+                                            _fiberTraceFunction.yHigh,
+                                            1,
+                                            1,
+                                            minCenMax)){
+        cout << "FiberTrace::calculate2dPSFPerBin: ERROR: calcMinCenMax returned FALSE" << endl;
+        return false;
+      }
+      blitz::Array<double, 1> centerTrace(minCenMax.rows());
+      centerTrace = D_A1_XCenters - minCenMax(blitz::Range::all(), 0);
+      #ifdef __DEBUG_CALC2DPSF__
+        cout << "FiberTrace::calculate2dPSFPerBin: D_A1_XCenters = " << D_A1_XCenters << endl;
+        cout << "FiberTrace::calculate2dPSFPerBin: minCenMax = " << minCenMax << endl;
+        cout << "FiberTrace::calculate2dPSFPerBin: centerTrace = " << centerTrace << endl;
+      #endif
+      blitz::Array<double, 1> centerTraceBin(binBoundY(iBin, 1) - binBoundY(iBin, 0) + 1);
+      centerTraceBin = centerTrace(blitz::Range(binBoundY(iBin, 0), binBoundY(iBin, 1)));
+      
+      /// start calculate2dPSF for bin iBin
+      if (!calculate2dPSF(traceBin,
+                          maskBin,
+                          stddevBin,
+                          xCentersOffset,
+                          centerTraceBin,
+                          D_A2_2dPSF)){
+        cout << "FiberTrace::calculate2dPSFPerBin: ERROR: calculate2dPSF(iBin=" << iBin << ") returned FALSE" << endl;
+        return false;
+      }
+    }
+    
+    return true;
+  }
+  
+  template<typename ImageT, typename MaskT, typename VarianceT> 
+  bool pfsDRPStella::FiberTrace<ImageT, MaskT, VarianceT>::calculate2dPSF(const blitz::Array<double, 2> &trace_In,
+                                                                          const blitz::Array<int, 2> &mask_In,
+                                                                          const blitz::Array<double, 2> &stddev_In,
+                                                                          const blitz::Array<double, 1> &xCentersOffset_In,
+                                                                          const blitz::Array<double, 1> &xCenterTrace_In,
+                                                                          blitz::Array<double, 2> &PSF2D_Out)
+  {
+    if (!_isTwoDPSFControlSet){
+      cout << "FiberTrace::calculate2dPSF: ERROR: _twoDPSFControl is not set" << endl;
+      return false;
+    }
+    
+    ///FIND EMISSION LINES
+    /// create center column
+    blitz::Array<double, 1> traceCenterCol(trace_In.rows());
+    for (int iRow=0; iRow<trace_In.rows(); ++iRow){
+      traceCenterCol(iRow) = trace_In(iRow, int(xCenterTrace_In(iRow))) * mask_In(iRow, int(xCenterTrace_In(iRow)));
+    }
+    blitz::Array<double, 1> traceCenterStdDevCol(trace_In.rows());
+    for (int iRow=0; iRow<trace_In.rows(); ++iRow){
+      traceCenterStdDevCol(iRow) = stddev_In(iRow, int(xCenterTrace_In(iRow))) * mask_In(iRow, int(xCenterTrace_In(iRow)));
+    }
+    #ifdef __DEBUG_CALC2DPSF__
+      cout << "FiberTrace::calculate2dPSF: traceCenterCol = " << traceCenterCol << endl;
+      cout << "FiberTrace::calculate2dPSF: traceCenterStdDevCol = " << traceCenterStdDevCol << endl;
+    #endif
+    
+    /// set everything below signal threshold to zero
+    blitz::Array<int, 1> traceCenterSignal(traceCenterCol.size());
+    traceCenterSignal = blitz::where(traceCenterCol < _twoDPSFControl->signalThreshold, 0., traceCenterCol);
+    #ifdef __DEBUG_CALC2DPSF__
+      cout << "FiberTrace::calculate2dPSF: 1. traceCenterSignal = " << traceCenterSignal << endl;
+    #endif
+    
+    /// look for signal wider than 2 FWHM
+    if (!pfsDRPStella::math::CountPixGTZero(traceCenterSignal)){
+      cout << "FiberTrace::calculate2dPSF: ERROR: CountPixGTZero(traceCenterSignal=" << traceCenterSignal << ") returned FALSE" << endl;
+      return false;
+    }
+    #ifdef __DEBUG_CALC2DPSF__
+      cout << "FiberTrace::calculate2dPSF: 2. traceCenterSignal = " << traceCenterSignal << endl;
+    #endif
+    
+    /// identify emission lines
+    int I_FirstWideSignal, I_FirstWideSignalStart, I_FirstWideSignalEnd, I_Length;
+    int I_MinWidth = int(2. * _twoDPSFControl->yFWHM);
+    int I_StartIndex = 0;
+    double D_MaxTimesApertureWidth = 3.5;
+    blitz::Array<int, 2> I_A2_Limited(_twoDPSFControl->nTermsGaussFit, 2);
+    I_A2_Limited = 1;
+    if (_twoDPSFControl->nTermsGaussFit == 5)
+      I_A2_Limited(4,blitz::Range::all()) = 0;
+    blitz::Array<double, 2> D_A2_Limits(_twoDPSFControl->nTermsGaussFit,2);
+    /// 0: peak value
+    /// 1: center position
+    /// 2: sigma
+    /// 3: constant background
+    /// 4: linear background
+    D_A2_Limits(0,0) = _twoDPSFControl->signalThreshold;
+    D_A2_Limits(2,0) = _twoDPSFControl->yFWHM / (2. * 2.3548);
+    D_A2_Limits(2,1) = 2. * _twoDPSFControl->yFWHM;
+    if (_twoDPSFControl->nTermsGaussFit > 3)
+      D_A2_Limits(3,0) = 0.;
+    if (_twoDPSFControl->nTermsGaussFit > 4)
+      D_A2_Limits(4,0) = 0.;
+      D_A2_Limits(4,1) = 1000.;
+
+    blitz::Array<double, 1> D_A1_GaussFit_Coeffs(_twoDPSFControl->nTermsGaussFit);
+    blitz::Array<double, 1> D_A1_GaussFit_ECoeffs(_twoDPSFControl->nTermsGaussFit);
+    
+    blitz::firstIndex i;
+    
+    blitz::Array<double, 1> D_A1_Guess(_twoDPSFControl->nTermsGaussFit);
+    blitz::Array<double, 2> D_A2_GaussCenters(1,2);
+    int emissionLineNumber = 0;
+    do{
+      I_FirstWideSignal = pfsDRPStella::math::FirstIndexWithValueGEFrom(traceCenterSignal, I_MinWidth, I_StartIndex);
+      #ifdef __DEBUG_CALC2DPSF__
+        cout << "FiberTrace::calculate2dPSF: while: I_FirstWideSignal found at index " << I_FirstWideSignal << ", I_StartIndex = " << I_StartIndex << endl;
+      #endif
+      if (I_FirstWideSignal < 0){
+        cout << "FiberTrace::calculate2dPSF: while: No emission line found" << endl;
+        break;
+      }
+      I_FirstWideSignalStart = pfsDRPStella::math::LastIndexWithZeroValueBefore(traceCenterSignal, I_FirstWideSignal) + 1;
+      #ifdef __DEBUG_CALC2DPSF__
+        cout << "FiberTrace::calculate2dPSF: while: I_FirstWideSignalStart = " << I_FirstWideSignalStart << endl;
+      #endif
+      
+      I_FirstWideSignalEnd = pfsDRPStella::math::FirstIndexWithZeroValueFrom(traceCenterSignal, I_FirstWideSignal) - 1;
+      #ifdef __DEBUG_CALC2DPSF__
+        cout << "FiberTrace::calculate2dPSF: while: I_FirstWideSignalEnd = " << I_FirstWideSignalEnd << endl;
+      #endif
+      
+      if (I_FirstWideSignalEnd < 0){
+        I_FirstWideSignalEnd = traceCenterSignal.size()-1;
+      }
+      #ifdef __DEBUG_CALC2DPSF__
+        cout << "FiberTrace::calculate2dPSF: while: End of first wide signal found at index " << I_FirstWideSignalEnd << endl;
+      #endif
+          
+      /// Set start index for next run
+      I_StartIndex = I_FirstWideSignalEnd+1;
+       
+      /// Fit Gaussian and Trace Aperture
+      #ifdef __DEBUG_CALC2DPSF__
+        cout << "FiberTrace::calculate2dPSF: while: End of first wide signal found at index " << I_FirstWideSignalEnd << endl;
+      #endif
+          
+      if ((I_FirstWideSignalEnd - I_FirstWideSignalStart + 1) > (_twoDPSFControl->yFWHM * D_MaxTimesApertureWidth)){
+        I_FirstWideSignalEnd = I_FirstWideSignalStart + int(D_MaxTimesApertureWidth * _twoDPSFControl->yFWHM);
+      }
+      
+      if (blitz::max(traceCenterCol(blitz::Range(I_FirstWideSignalStart, I_FirstWideSignalEnd))) < _twoDPSFControl->saturationLevel){
+        I_Length = I_FirstWideSignalEnd - I_FirstWideSignalStart + 1;
+        D_A2_Limits(0,1) = 1.5 * blitz::max(traceCenterCol(blitz::Range(I_FirstWideSignalStart, I_FirstWideSignalEnd)));
+        D_A2_Limits(1,0) = I_FirstWideSignalStart;
+        D_A2_Limits(1,1) = I_FirstWideSignalEnd;
+        if (_twoDPSFControl->nTermsGaussFit > 3)
+          D_A2_Limits(3,1) = blitz::min(traceCenterCol(blitz::Range(I_FirstWideSignalStart, I_FirstWideSignalEnd)));
+
+        D_A1_Guess(0) = blitz::max(traceCenterCol(blitz::Range(I_FirstWideSignalStart, I_FirstWideSignalEnd)));
+        D_A1_Guess(1) = I_FirstWideSignalStart + (blitz::maxIndex(traceCenterCol(blitz::Range(I_FirstWideSignalStart, I_FirstWideSignalEnd))))(0);
+        D_A1_Guess(2) = _twoDPSFControl->yFWHM / 2.3548;
+        if (_twoDPSFControl->nTermsGaussFit > 3)
+          D_A1_Guess(3) = blitz::min(traceCenterCol(blitz::Range(I_FirstWideSignalStart, I_FirstWideSignalEnd)));
+        if (_twoDPSFControl->nTermsGaussFit > 4)
+          D_A1_Guess(4) = (traceCenterCol(I_FirstWideSignalEnd) - traceCenterCol(I_FirstWideSignalStart)) / (I_FirstWideSignalEnd - I_FirstWideSignalStart);
+        blitz::Array<double, 1> D_A1_X(I_FirstWideSignalEnd - I_FirstWideSignalStart + 1);
+        D_A1_X = i;
+        D_A1_X += I_FirstWideSignalStart;
+        blitz::Array<double, 1> D_A1_Y(I_FirstWideSignalEnd - I_FirstWideSignalStart + 1);
+        D_A1_Y = traceCenterCol(blitz::Range(I_FirstWideSignalStart, I_FirstWideSignalEnd));
+        blitz::Array<double, 1> D_A1_StdDev(I_FirstWideSignalEnd - I_FirstWideSignalStart + 1);
+        D_A1_StdDev = traceCenterStdDevCol(blitz::Range(I_FirstWideSignalStart, I_FirstWideSignalEnd));
+        if (!MPFitGaussLim(D_A1_X,
+                          D_A1_Y,
+                          D_A1_StdDev,
+                          D_A1_Guess,
+                          I_A2_Limited,
+                          D_A2_Limits,
+                          2,
+                          false,
+                          D_A1_GaussFit_Coeffs,
+                          D_A1_GaussFit_ECoeffs)){
+          #ifdef __DEBUG_CALC2DPSF__
+            cout << "FiberTrace::calculate2dPSF: while: WARNING: GaussFit FAILED" << endl;
+          #endif
+        }
+        else{
+          #ifdef __DEBUG_CALC2DPSF__
+            cout << "FiberTrace::calculate2dPSF: while: D_A1_GaussFit_Coeffs = " << D_A1_GaussFit_Coeffs << endl;
+          #endif
+          if ((D_A1_GaussFit_Coeffs(2) < (_twoDPSFControl->yFWHM / 1.5)) && 
+              ((_twoDPSFControl->nTermsGaussFit < 5) || 
+               ((_twoDPSFControl->nTermsGaussFit > 4) && (D_A1_GaussFit_Coeffs(4) < 1000.)))){
+            ++emissionLineNumber;
+            if (D_A2_GaussCenters.rows() < emissionLineNumber)
+              D_A2_GaussCenters.resizeAndPreserve(emissionLineNumber, 2);
+            D_A2_GaussCenters(emissionLineNumber-1,1) = D_A1_GaussFit_Coeffs(1);
+          D_A2_GaussCenters(emissionLineNumber-1,0) = xCenterTrace_In(int(D_A1_GaussFit_Coeffs(1))) + ((D_A1_GaussFit_Coeffs(1) - int(D_A1_GaussFit_Coeffs(1))) * (xCenterTrace_In(int(D_A1_GaussFit_Coeffs(1))+1) - xCenterTrace_In(int(D_A1_GaussFit_Coeffs(1)))));
+            #ifdef __DEBUG_CALC2DPSF__
+              cout << "FiberTrace::calculate2dPSF: xCenterTrace_In(int(D_A1_GaussFit_Coeffs(1))=" << int(D_A1_GaussFit_Coeffs(1)) << ") = " << xCenterTrace_In(int(D_A1_GaussFit_Coeffs(1))) << endl;
+              cout << "FiberTrace::calculate2dPSF: xCenterTrace_In(int(D_A1_GaussFit_Coeffs(1))+1=" << int(D_A1_GaussFit_Coeffs(1))+1 << ") = " << xCenterTrace_In(int(D_A1_GaussFit_Coeffs(1))+1) << endl;
+              cout << "FiberTrace::calculate2dPSF: D_A1_GaussFit_Coeffs(1) - int(D_A1_GaussFit_Coeffs(1)) = " << D_A1_GaussFit_Coeffs(1) - int(D_A1_GaussFit_Coeffs(1)) << endl;
+              cout << "FiberTrace::calculate2dPSF: while: D_A2_GaussCenters(emissionLineNumber=" << emissionLineNumber << "-1,*) = " << D_A2_GaussCenters(emissionLineNumber-1, blitz::Range::all()) << endl;
+            #endif
+          }
+          else{
+            cout << "FiberTrace::calculate2dPSF: while: D_A1_GaussFit_Coeffs(2)(=" << D_A1_GaussFit_Coeffs(2) << ") >= (_twoDPSFControl->yFWHM / 1.5)(=" << (_twoDPSFControl->yFWHM / 1.5) << ") || ((_twoDPSFControl->nTermsGaussFit(=" << _twoDPSFControl->nTermsGaussFit << ") < 5) || ((_twoDPSFControl->nTermsGaussFit > 4) && (D_A1_GaussFit_Coeffs(4)(=" << D_A1_GaussFit_Coeffs(4) << ") >= 1000.)) => Skipping emission line" << endl;
+          }
+        }
+      }
+        
+    } while(true);        
     
     return false;
   }
@@ -6829,6 +7171,18 @@ namespace pfsDRPStella = pfs::drp::stella;
     for (unsigned int i=0; i<_traces.size(); ++i){
       if (!_traces[i]->setFiberTraceExtractionControl(p_fiberTraceExtractionControl)){
         cout << "FiberTraceSet::setFiberTraceExtractionControl: ERROR: _traces[" << i << "]->setFiberTraceExtractionControl(fiberTraceExtractionControl) returned FALSE => Returning FALSE" << endl;
+        return false;
+      }
+    }
+    return true;
+  }
+  
+  template<typename ImageT, typename MaskT, typename VarianceT> 
+  bool pfsDRPStella::FiberTraceSet<ImageT, MaskT, VarianceT>::setTwoDPSFControl(TwoDPSFControl &twoDPSFControl){
+    PTR(TwoDPSFControl) p_twoDPSFControl(new TwoDPSFControl(twoDPSFControl));
+    for (unsigned int i=0; i<_traces.size(); ++i){
+      if (!_traces[i]->setTwoDPSFControl(p_twoDPSFControl)){
+        cout << "FiberTraceSet::setTwoDPSFControl: ERROR: _traces[" << i << "]->setTwoDPSFControl(twoDPSFControl) returned FALSE => Returning FALSE" << endl;
         return false;
       }
     }
@@ -7141,7 +7495,7 @@ namespace pfsDRPStella = pfs::drp::stella;
                                     D_A1_Guess,
                                     I_A2_Limited,
                                     D_A2_Limits,
-                                    false,
+                                    0,
                                     false,
                                     D_A1_GaussFit_Coeffs,
                                     D_A1_GaussFit_ECoeffs)){
@@ -7331,7 +7685,7 @@ namespace pfsDRPStella = pfs::drp::stella;
                                       D_A1_Guess,
                                       I_A2_Limited,
                                       D_A2_Limits,
-                                      false,
+                                      0,
                                       false,
                                       D_A1_GaussFit_Coeffs,
                                       D_A1_GaussFit_ECoeffs)){
@@ -12490,7 +12844,7 @@ namespace pfsDRPStella = pfs::drp::stella;
       blitz::Array<int, 1> I_A1_Ind(IA1_In.size());
       blitz::Array<int, 1> *P_I_A1_Ind;
       int count = 0;
-      for (int i=0; i<vec_In.size(); i++){
+      for (int i=0; i<static_cast<int>(vec_In.size()); i++){
         I_A1_Ind = blitz::where(fabs(IA1_In - vec_In[i]) < 0.5, 1, 0);
         P_I_A1_Ind = pfsDRPStella::math::GetIndex(I_A1_Ind, count);
         if (count == 0){

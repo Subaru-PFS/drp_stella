@@ -22,6 +22,7 @@
 #define stringify( name ) # name
 
 //#define __DEBUG_BANDSOL__
+#define __DEBUG_CALC2DPSF__
 //#define __DEBUG_CHECK_INDICES__
 //#define __DEBUG_CREATEFIBERTRACE__
 //#define __DEBUG_EXTRACTFROMPROFILE__
@@ -172,11 +173,21 @@ struct FiberTraceExtractionControl {
 /**
  * Description of 2D PSF
  */
-struct 2dPSFControl {
+struct TwoDPSFControl {
     LSST_CONTROL_FIELD(signalThreshold, float, "Minimum signal above continuum to count as emission line");
+    LSST_CONTROL_FIELD(swathWidth, unsigned int, "Size of individual extraction swaths");
+    LSST_CONTROL_FIELD(xFWHM, float, "FWHM of an assumed Gaussian PSF perpendicular to the dispersion direction");
+    LSST_CONTROL_FIELD(yFWHM, float, "FWHM of an assumed Gaussian PSF in the dispersion direction");
+    LSST_CONTROL_FIELD(nTermsGaussFit, unsigned short, "1 to look for maximum only without GaussFit; 3 to fit Gaussian; 4 to fit Gaussian plus constant (sky), profile must be at least 5 pixels wide; 5 to fit Gaussian plus linear term (sloped sky), profile must be at least 6 pixels wide");
+    LSST_CONTROL_FIELD(saturationLevel, float, "CCD saturation level");
     
-    FiberTraceFunctionControl() :
-    signalThreshold(1000.) {}
+    TwoDPSFControl() :
+    signalThreshold(1000.),
+    swathWidth(500),
+    xFWHM(2.5),
+    yFWHM(2.5),
+    nTermsGaussFit(5),
+    saturationLevel(65000.) {}
 };
 
 /**
@@ -239,7 +250,7 @@ class FiberTrace {
     bool extractFromProfile(const blitz::Array<string, 1> &S_A1_Args,     //: in
                             void *ArgV[]);                        //: in
     
-    /// Create _trace from _image and _fiberTraceFunction
+    /// Create _trace from maskedImage and _fiberTraceFunction
     /// Pre: _xCenters set/calculated
     bool createTrace(PTR(MaskedImageT) const & maskedImage);
         
@@ -260,6 +271,12 @@ class FiberTrace {
     
     /// Set the _fiberTraceExtractionControl
     bool setFiberTraceExtractionControl(PTR(FiberTraceExtractionControl) fiberTraceExtractionControl);// { _fiberTraceExtractionControl = fiberTraceExtractionControl; }
+    
+    /// Return _2dPSFControl
+    PTR(TwoDPSFControl) getTwoDPSFControl() const { return _twoDPSFControl; }
+    
+    /// Set the _twoDPSFControl
+    bool setTwoDPSFControl(PTR(TwoDPSFControl) twoDPSFControl);
     
     /// Calculate the x-centers of the fiber trace
     bool calculateXCenters();//FiberTraceFunctionControl const& fiberTraceFunctionControl);
@@ -408,7 +425,18 @@ class FiberTrace {
                    const blitz::Array<double, 1> &profileXValuesAllRows_In,/// i + 0.5 + (1. / (2. * overSample))
                    blitz::Array<double, 2> &profilePerRow_Out);/// output 2D profile image
     
-    bool calculate2dPSF();
+    bool calculate2dPSFPerBin();
+    bool calculate2dPSF(const blitz::Array<double, 2> &trace_In,
+                        const blitz::Array<int, 2> &mask_In,
+                        const blitz::Array<double, 2> &stddev_In,
+                        const blitz::Array<double, 1> &xCentersOffset_In,
+                        const blitz::Array<double, 1> &xCenterTrace_In,
+                        blitz::Array<double, 2> &PSF2D_Out);
+    
+    bool calculateSwathWidth_NBins_BinHeight_BinBoundY(int &swathWidth,
+                                                       int &nBins,
+                                                       int &binHeight, 
+                                                       blitz::Array<int, 2> &binBoundY);
     
 private:
     ///TODO: replace variables with smart pointers?????
@@ -429,9 +457,11 @@ private:
     bool _isProfileSet;
     bool _isFiberTraceFunctionSet;
     bool _isFiberTraceExtractionControlSet;
+    bool _isTwoDPSFControlSet;
     bool _isSpectrumExtracted;
     FiberTraceFunction _fiberTraceFunction;
     PTR(FiberTraceExtractionControl) _fiberTraceExtractionControl;
+    PTR(TwoDPSFControl) _twoDPSFControl;
 };
 
 /************************************************************************************************************/
@@ -475,6 +505,8 @@ class FiberTraceSet {
     
     bool setFiberTraceExtractionControl(FiberTraceExtractionControl &fiberTraceExtractionControl);
     
+    bool setTwoDPSFControl(TwoDPSFControl &twoDPSFControl);
+    
     /// set profiles of all traces in this FiberTraceSet to respective FiberTraces in input set
     /// NOTE: the FiberTraces should be sorted by their xCenters before performing this operation!
     bool setAllProfiles(FiberTraceSet<ImageT, MaskT, VarianceT> &fiberTraceSet);
@@ -508,7 +540,7 @@ class FiberTraceSet {
      **/
     template<typename ImageT, typename MaskT=afwImage::MaskPixel, typename VarianceT=afwImage::VariancePixel>
     FiberTraceSet<ImageT, MaskT, VarianceT> findAndTraceApertures(const PTR(afwImage::MaskedImage<ImageT, MaskT, VarianceT>) &maskedImage,
-                                                                       const pfs::drp::stella::FiberTraceFunctionFindingControl &fiberTraceFunctionFindingControl);
+                                                                  const pfs::drp::stella::FiberTraceFunctionFindingControl &fiberTraceFunctionFindingControl);
     
     
     /*****************************************************************/

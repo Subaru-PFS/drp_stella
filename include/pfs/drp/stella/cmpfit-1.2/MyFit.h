@@ -177,6 +177,42 @@ int MPFitGaussFuncANB(int m, int n, double *p, double *dy, double **dvec, void *
  * gaussian fit function
  *
  * m - number of data points
+ * n - number of parameters (5)
+ * p - array of fit parameters
+ *     p[0] = peak y value
+ *     p[1] = x centroid position
+ *     p[2] = gaussian sigma width
+ *     p[3] = constant offset
+ *     p[4] = linear offset
+ * dy - array of residuals to be returned
+ * vars - private data (struct vars_struct *)
+ *
+ * RETURNS: error code (0 = success)
+ */
+int MPFitGaussFuncLB(int m, int n, double *p, double *dy, double **dvec, void *vars);
+
+/*
+ * gaussian fit function
+ *
+ * m - number of data points
+ * n - number of parameters (5)
+ * p - array of fit parameters
+ *     p[0] = area under curve value
+ *     p[1] = x centroid position
+ *     p[2] = gaussian sigma width
+ *     p[3] = constant offset
+ *     p[4] = linear offset
+ * dy - array of residuals to be returned
+ * vars - private data (struct vars_struct *)
+ *
+ * RETURNS: error code (0 = success)
+ */
+int MPFitGaussFuncALB(int m, int n, double *p, double *dy, double **dvec, void *vars);
+
+/*
+ * gaussian fit function
+ *
+ * m - number of data points
  * n - number of parameters (6)
  * p - array of fit parameters
  *     p[0] = constant offset
@@ -373,7 +409,7 @@ bool MPFitGaussLim(const blitz::Array<double, 1> &D_A1_X_In,
                    const blitz::Array<double, 1> &D_A1_Guess_In,
                    const blitz::Array<int, 2> &I_A2_Limited,
                    const blitz::Array<double, 2> &D_A2_Limits,
-                   const bool B_WithConstantBackground,
+                   const int Background,
                    const bool B_FitArea,
                    blitz::Array<double, 1> &D_A1_Coeffs_Out,
                    blitz::Array< double, 1 >& D_A1_ECoeffs_Out);
