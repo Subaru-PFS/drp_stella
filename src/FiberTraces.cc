@@ -3,8 +3,8 @@
 namespace pfsDRPStella = pfs::drp::stella;
 
   /** @brief Construct an Exposure with a blank MaskedImage of specified size (default 0x0)
-   */          
-  template<typename ImageT, typename MaskT, typename VarianceT> 
+   */
+  template<typename ImageT, typename MaskT, typename VarianceT>
   pfsDRPStella::FiberTrace<ImageT, MaskT, VarianceT>::FiberTrace(
     unsigned int width,                 ///< number of columns
     unsigned int height                ///< number of rows
@@ -19,7 +19,7 @@ namespace pfsDRPStella = pfs::drp::stella;
   _spectrumVariance(height),
   _background(height),
   _backgroundVariance(height),
-  _fiberTraceFunction(), 
+  _fiberTraceFunction(),
   _fiberTraceExtractionControl(new FiberTraceExtractionControl)
   {
     _isXCentersCalculated = false;
@@ -31,11 +31,11 @@ namespace pfsDRPStella = pfs::drp::stella;
     _isFiberTraceExtractionControlSet = false;
     _isTwoDPSFControlSet = false;
   }
-  
+
   /** @brief Construct an Exposure with a blank MaskedImage of specified size (default 0x0) and
    * a Wcs (which may be default constructed)
-   */          
-  template<typename ImageT, typename MaskT, typename VarianceT> 
+   */
+  template<typename ImageT, typename MaskT, typename VarianceT>
   pfsDRPStella::FiberTrace<ImageT, MaskT, VarianceT>::FiberTrace(
     afwGeom::Extent2I const & dimensions ///< desired image width/height
   ) :
@@ -49,7 +49,7 @@ namespace pfsDRPStella = pfs::drp::stella;
   _spectrumVariance(dimensions.getY()),
   _background(dimensions.getY()),
   _backgroundVariance(dimensions.getY()),
-  _fiberTraceFunction(), 
+  _fiberTraceFunction(),
   _fiberTraceExtractionControl(new FiberTraceExtractionControl)
   {
     _isXCentersCalculated = false;
@@ -62,7 +62,7 @@ namespace pfsDRPStella = pfs::drp::stella;
     _isTwoDPSFControlSet = false;
   }
 
-  template<typename ImageT, typename MaskT, typename VarianceT> 
+  template<typename ImageT, typename MaskT, typename VarianceT>
   pfsDRPStella::FiberTrace<ImageT, MaskT, VarianceT>::FiberTrace(
     PTR(MaskedImageT) const & maskedImage ///< desired image width/height
   ) :
@@ -76,7 +76,7 @@ namespace pfsDRPStella = pfs::drp::stella;
   _spectrumVariance(maskedImage->getHeight()),
   _background(maskedImage->getHeight()),
   _backgroundVariance(maskedImage->getHeight()),
-  _fiberTraceFunction(), 
+  _fiberTraceFunction(),
   _fiberTraceExtractionControl(new FiberTraceExtractionControl)
   {
     _isXCentersCalculated = false;
@@ -88,20 +88,20 @@ namespace pfsDRPStella = pfs::drp::stella;
     _isFiberTraceExtractionControlSet = false;
     _isTwoDPSFControlSet = false;
   }
-  
+
   /** **************************************************************/
-  
+
   /// Set the CCD image to image
-/*  template<typename ImageT, typename MaskT, typename VarianceT> 
-  void pfsDRPStella::FiberTrace<ImageT, MaskT, VarianceT>::setMaskedImage( PTR(MaskedImageT) const & image){ 
-    _maskedImage = image; 
+/*  template<typename ImageT, typename MaskT, typename VarianceT>
+  void pfsDRPStella::FiberTrace<ImageT, MaskT, VarianceT>::setMaskedImage( PTR(MaskedImageT) const & image){
+    _maskedImage = image;
     _isImageSet = true;
     _trace = MaskedImageT(_trace.getWidth(), _ccdHeight);
   }*/
-  
-  template<typename ImageT, typename MaskT, typename VarianceT> 
+
+  template<typename ImageT, typename MaskT, typename VarianceT>
   bool pfsDRPStella::FiberTrace<ImageT, MaskT, VarianceT>::setFiberTraceFunction(const FiberTraceFunction &fiberTraceFunction){
-    
+
     /// Check for valid values in fiberTraceFunctionControl
     bool isFunctionValid = false;
     #ifdef __DEBUG_SETFIBERTRACEFUNCTION__
@@ -118,7 +118,7 @@ namespace pfsDRPStella = pfs::drp::stella;
         cout << fiberTraceFunction.coefficients[i] << " ";
       cout << ">" << endl;
     #endif
-      
+
     for ( int fooInt = FiberTraceFunctionControl::CHEBYSHEV; fooInt != FiberTraceFunctionControl::NVALUES; fooInt++ ){
       #ifdef __DEBUG_SETFIBERTRACEFUNCTION__
         cout << "FiberTrace::setFiberTraceFunction: INTERPOLATION_NAMES[fooInt] = <" << fiberTraceFunction.fiberTraceFunctionControl.INTERPOLATION_NAMES[fooInt] << ">" << endl;
@@ -134,37 +134,37 @@ namespace pfsDRPStella = pfs::drp::stella;
       cout << "FiberTrace::setFiberTraceFunction: ERROR: interpolation function is not valid! => Returning FALSE" << endl;
       return false;
     }
-    
+
     if (fiberTraceFunction.fiberTraceFunctionControl.order < 0){
       cout << "FiberTrace::setFiberTraceFunction: ERROR: fiberTraceFunction.fiberTraceFunctionControl.order(=" << fiberTraceFunction.fiberTraceFunctionControl.order << ") < 0 => Returning FALSE" << endl;
       return false;
     }
-    
+
     if (fiberTraceFunction.fiberTraceFunctionControl.xLow > 0.){
       cout << "FiberTrace::setFiberTraceFunction: ERROR: (fiberTraceFunction.fiberTraceFunctionControl.xLow(=" << fiberTraceFunction.fiberTraceFunctionControl.xLow << ") > 0 => Returning FALSE" << endl;
       return false;
     }
-    
+
     if (fiberTraceFunction.fiberTraceFunctionControl.xHigh < 0.){
       cout << "FiberTrace::setFiberTraceFunction: ERROR: (fiberTraceFunction.fiberTraceFunctionControl.xHigh(=" << fiberTraceFunction.fiberTraceFunctionControl.xHigh << ") < 0 => Returning FALSE" << endl;
       return false;
     }
-        
+
     if (fiberTraceFunction.coefficients.size() < fiberTraceFunction.fiberTraceFunctionControl.order){
       cout << "FiberTrace::setFiberTraceFunction: ERROR: fiberTraceFunction.coefficients(= << fiberTraceFunction.coefficients << ).size(=" << fiberTraceFunction.coefficients.size() << ") < fiberTraceFunction.fiberTraceFunctionControl.order(=" << fiberTraceFunction.fiberTraceFunctionControl.order << ") => Returning FALSE" << endl;
       return false;
     }
-    
+
     if (fiberTraceFunction.xCenter < 0.){
       cout << "FiberTrace::setFiberTraceFunction: ERROR: fiberTraceFunction.xCenter(=" << fiberTraceFunction.xCenter << ") < 0 => Returning FALSE" << endl;
       return false;
     }
-    
+
     if (fiberTraceFunction.yCenter < 0.){
       cout << "FiberTrace::setFiberTraceFunction: ERROR: fiberTraceFunction.yCenter(=" << fiberTraceFunction.yCenter << ") < 0 => Returning FALSE" << endl;
       return false;
     }
-    
+
     if (fiberTraceFunction.fiberTraceFunctionControl.xLow + fiberTraceFunction.xCenter < 0.){
       cout << "FiberTrace::setFiberTraceFunction: ERROR: (fiberTraceFunction.fiberTraceFunctionControl.xLow(=" << fiberTraceFunction.fiberTraceFunctionControl.xLow << ") + fiberTraceFunction.xCenter(=" << fiberTraceFunction.xCenter << ") = " << fiberTraceFunction.fiberTraceFunctionControl.xLow + fiberTraceFunction.xCenter << " < 0 => Returning FALSE" << endl;
       return false;
@@ -174,27 +174,27 @@ namespace pfsDRPStella = pfs::drp::stella;
       cout << "FiberTrace::setFiberTraceFunction: ERROR: (fiberTraceFunction.yLow(=" << fiberTraceFunction.yLow << ") > 0 => Returning FALSE" << endl;
       return false;
     }
-    
+
     if (fiberTraceFunction.yLow + fiberTraceFunction.yCenter < 0.){
       cout << "FiberTrace::setFiberTraceFunction: ERROR: (fiberTraceFunction.yLow(=" << fiberTraceFunction.yLow << ") + fiberTraceFunction.yCenter(=" << fiberTraceFunction.yCenter << ") = " << fiberTraceFunction.yLow + fiberTraceFunction.yCenter << " < 0 => Returning FALSE" << endl;
       return false;
     }
-    
+
     if (fiberTraceFunction.yHigh < 0.){
       cout << "FiberTrace::setFiberTraceFunction: ERROR: (fiberTraceFunction.yHigh(=" << fiberTraceFunction.yHigh << ") < 0 => Returning FALSE" << endl;
       return false;
     }
-    
+
     /// test passed -> copy fiberTraceFunctionControl to _fiberTraceFunctionControl
     _fiberTraceFunction = fiberTraceFunction;
     _isFiberTraceFunctionSet = true;
-    
+
     return true;
   }
-  
-  template<typename ImageT, typename MaskT, typename VarianceT> 
+
+  template<typename ImageT, typename MaskT, typename VarianceT>
   bool pfsDRPStella::FiberTrace<ImageT, MaskT, VarianceT>::setFiberTraceExtractionControl(PTR(FiberTraceExtractionControl) fiberTraceExtractionControl){
-    
+
     /// Check for valid values in fiberTraceFunctionControl
     bool isTelluricValid = false;
     #ifdef __DEBUG_SETFIBERTRACEEXTRACTIONCONTROL__
@@ -224,12 +224,12 @@ namespace pfsDRPStella = pfs::drp::stella;
         #endif
       }
     }
-    
+
     if (!isProfileInterpolationValid){
       cout << "FiberTrace::setFiberTraceExtractionControl: ERROR: fiberTraceExtractionControl.profileInterpolation is not valid! => Returning FALSE" << endl;
       return false;
     }
-      
+
     for ( int fooInt = FiberTraceExtractionControl::NONE; fooInt != FiberTraceExtractionControl::NVALUES; fooInt++ ){
       #ifdef __DEBUG_SETFIBERTRACEEXTRACTIONCONTROL__
         cout << "FiberTrace::setFiberTraceExtractionControl: TELLURIC_NAMES[fooInt] = <" << fiberTraceExtractionControl->TELLURIC_NAMES[fooInt] << ">" << endl;
@@ -245,53 +245,53 @@ namespace pfsDRPStella = pfs::drp::stella;
       cout << "FiberTrace::setFiberTraceExtractionControl: ERROR: telluric(=" << fiberTraceExtractionControl->telluric << ") is not valid! => Returning FALSE" << endl;
       return false;
     }
-    
+
     if (fiberTraceExtractionControl->ccdReadOutNoise < 0.){
       cout << "FiberTrace::setFiberTraceExtractionControl: ERROR: fiberTraceExtractionControl->ccdReadOutNoise(=" << fiberTraceExtractionControl->ccdReadOutNoise << ") < 0 => Returning FALSE" << endl;
       return false;
     }
-    
+
     if (fiberTraceExtractionControl->overSample == 0){
       cout << "FiberTrace::setFiberTraceExtractionControl: ERROR: (fiberTraceExtractionControl->overSample(=" << fiberTraceExtractionControl->overSample << ") == 0 => Returning FALSE" << endl;
       return false;
     }
-    
+
     if (fiberTraceExtractionControl->maxIterSF == 0){
       cout << "FiberTrace::setFiberTraceExtractionControl: ERROR: (fiberTraceExtractionControl->maxIterSF(=" << fiberTraceExtractionControl->maxIterSF << ") == 0 => Returning FALSE" << endl;
       return false;
     }
-    
+
     if ((fiberTraceExtractionControl->telluric.compare(fiberTraceExtractionControl->TELLURIC_NAMES[0]) != 0) && (fiberTraceExtractionControl->maxIterSky == 0)){
       cout << "FiberTrace::setFiberTraceExtractionControl: ERROR: telluric set to not NONE and (fiberTraceExtractionControl->maxIterSky(=" << fiberTraceExtractionControl->maxIterSky << ") == 0 => Returning FALSE" << endl;
       return false;
     }
-    
+
     if (fiberTraceExtractionControl->lambdaSF < 0.){
       cout << "FiberTrace::setFiberTraceExtractionControl: ERROR: (fiberTraceExtractionControl->lambdaSF(=" << fiberTraceExtractionControl->lambdaSF << ") < 0. => Returning FALSE" << endl;
       return false;
     }
-    
+
     if (fiberTraceExtractionControl->lambdaSP < 0.){
       cout << "FiberTrace::setFiberTraceExtractionControl: ERROR: (fiberTraceExtractionControl->lambdaSP(=" << fiberTraceExtractionControl->lambdaSP << ") < 0. => Returning FALSE" << endl;
       return false;
     }
-    
+
     if (fiberTraceExtractionControl->wingSmoothFactor < 0.){
       cout << "FiberTrace::setFiberTraceExtractionControl: ERROR: (fiberTraceExtractionControl->wingSmoothFactor(=" << fiberTraceExtractionControl->wingSmoothFactor << ") < 0. => Returning FALSE" << endl;
       return false;
     }
-    
+
     /// test passed -> copy fiberTraceExtractionControl to _fiberTraceExtractionControl
     _fiberTraceExtractionControl.reset();
     _fiberTraceExtractionControl = fiberTraceExtractionControl;
     _isFiberTraceExtractionControlSet = true;
-    
+
     return true;
   }
-  
-  template<typename ImageT, typename MaskT, typename VarianceT> 
+
+  template<typename ImageT, typename MaskT, typename VarianceT>
   bool pfsDRPStella::FiberTrace<ImageT, MaskT, VarianceT>::setTwoDPSFControl(PTR(TwoDPSFControl) twoDPSFControl){
-    
+
     /// Check for valid values in twoDPSFControl
     #ifdef __DEBUG_SET2DPSFCONTROL__
       cout << "FiberTrace::setTwoDPSFControl: twoDPSFControl->signalThreshold = <" << twoDPSFControl->signalThreshold << ">" << endl;
@@ -301,7 +301,7 @@ namespace pfsDRPStella = pfs::drp::stella;
       cout << "FiberTrace::setTwoDPSFControl: twoDPSFControl->nTermsGaussFit = <" << twoDPSFControl->nTermsGaussFit << ">" << endl;
       cout << "FiberTrace::setTwoDPSFControl: twoDPSFControl->saturationLevel = <" << twoDPSFControl->saturationLevel << ">" << endl;
     #endif
-    
+
     if (twoDPSFControl->signalThreshold < 0.){
       cout << "FiberTrace::setTwoDPSFControl: ERROR: (twoDPSFControl->signalThreshold(=" << twoDPSFControl->signalThreshold << ") < 0. => Returning FALSE" << endl;
       return false;
@@ -311,55 +311,55 @@ namespace pfsDRPStella = pfs::drp::stella;
       cout << "FiberTrace::setTwoDPSFControl: ERROR: (twoDPSFControl->swathWidth(=" << twoDPSFControl->swathWidth << ") < 100 => Returning FALSE" << endl;
       return false;
     }
-    
+
     if ((2.5 * twoDPSFControl->xFWHM) < twoDPSFControl->nTermsGaussFit){
       cout << "FiberTrace::setTwoDPSFControl: ERROR: (2.5*twoDPSFControl->xFWHM(=" << twoDPSFControl->xFWHM << ") < twoDPSFControl->nTermsGaussFit(=" << twoDPSFControl->nTermsGaussFit << ") => Returning FALSE" << endl;
       return false;
     }
-    
+
     if ((2.5 * twoDPSFControl->yFWHM) < twoDPSFControl->nTermsGaussFit){
       cout << "FiberTrace::setTwoDPSFControl: ERROR: (2.5*twoDPSFControl->yFWHM(=" << twoDPSFControl->yFWHM << ") < twoDPSFControl->nTermsGaussFit(=" << twoDPSFControl->nTermsGaussFit << ") => Returning FALSE" << endl;
       return false;
     }
-    
+
     if ((twoDPSFControl->nTermsGaussFit < 3) || (twoDPSFControl->nTermsGaussFit > 5)){
       cout << "FiberTrace::setTwoDPSFControl: ERROR: twoDPSFControl->nTermsGaussFit(=" << twoDPSFControl->nTermsGaussFit << " not valid => Returning FALSE" << endl;
       return false;
     }
-    
+
     if (twoDPSFControl->saturationLevel < 100){
       cout << "FiberTrace::setTwoDPSFControl: ERROR: twoDPSFControl->saturationLevel(=" << twoDPSFControl->saturationLevel << " < 100. => Returning FALSE" << endl;
       return false;
     }
-    
+
     /// test passed -> copy twoDPSFControl to _twoDPSFControl
     _twoDPSFControl.reset();
     _twoDPSFControl = twoDPSFControl;
     _isTwoDPSFControlSet = true;
-    
+
     return true;
   }
-  
+
   /** *******************************************************************************************************/
-  
+
   /// Calculate the x-centers of the fiber trace
-  template<typename ImageT, typename MaskT, typename VarianceT> 
+  template<typename ImageT, typename MaskT, typename VarianceT>
   bool pfsDRPStella::FiberTrace<ImageT, MaskT, VarianceT>::calculateXCenters(){
 //    if (!_isImageSet){
 //      cout << "FiberTrace::calculateXCenters: ERROR: _maskedImage is not set => returning FALSE" << endl;
 //      return false;
 //    }
-    
+
     int cIndex = 0;
     double D_YMin = 0.;
     double D_YMax = 0.;
-      
+
     blitz::Array<double, 1> D_A1_TempCen(_ccdHeight);
     D_A1_TempCen = 0.;
-      
+
     blitz::Array<double, 1> fiberTraceFunctionCoefficients(_fiberTraceFunction.coefficients.data(), blitz::shape(_fiberTraceFunction.coefficients.size()), blitz::neverDeleteData);
 //    blitz::Array<double, 1> D_A1_TempCoef(_fiberTraceFunction.coefficients.size());// = fiberTraceFunctionCoefficients;
-      
+
     #ifdef __DEBUG_TRACEFUNC__
       cout << "FiberTrace.calculateXCenters: _fiberTraceFunction.fiberTraceFunctionControl.interpolation = " << _fiberTraceFunction.fiberTraceFunctionControl.interpolation << endl;
       cout << "FiberTrace.calculateXCenters: _fiberTraceFunction.fiberTraceFunctionControl.order = " << _fiberTraceFunction.fiberTraceFunctionControl.order << endl;
@@ -392,7 +392,7 @@ namespace pfsDRPStella = pfs::drp::stella;
         cout << "FiberTrace.calculateXCenters: Legendre: D_YMin set to " << D_YMin << endl;
         cout << "FiberTrace.calculateXCenters: Legendre: D_YMax set to " << D_YMax << endl;
       #endif
-      
+
       D_A1_TempCen -= 1.;
       #ifdef __DEBUG_TRACEFUNC__
         cout << "FiberTrace.calculateXCenters: Legendre: D_A1_TempCen set to " << D_A1_TempCen << endl;
@@ -479,7 +479,7 @@ namespace pfsDRPStella = pfs::drp::stella;
       #endif
       D_A1_TempCen = pfsDRPStella::math::Poly(D_A1_XRow, fiberTraceFunctionCoefficients);
     }
-    
+
     /// Check limits
     blitz::Array<double, 1> D_A1_XLow(_ccdHeight);
     D_A1_XLow = D_A1_TempCen + _fiberTraceFunction.fiberTraceFunctionControl.xLow;
@@ -495,32 +495,32 @@ namespace pfsDRPStella = pfs::drp::stella;
     P_I_A1_WhereInd = pfsDRPStella::math::GetIndex(I_A1_Where, I_NInd);
     D_YMax = (*P_I_A1_WhereInd)(P_I_A1_WhereInd->size()-1);
     delete(P_I_A1_WhereInd);
-    
+
     #ifdef __DEBUG_TRACEFUNC__
       /// Coefficients for the trace functions
       cout << "FiberTrace.calculateXCenters: fiberTraceFunctionCoefficients = " << fiberTraceFunctionCoefficients << endl;
-    
+
       /// Centres of the apertures in x (cols)
       cout << "FiberTrace.calculateXCenters: _fiberTraceFunction.xCenter set to " << _fiberTraceFunction.xCenter << endl;
-      
+
       /// center position in y (row) for every aperture
       cout << "FiberTrace.calculateXCenters: _fiberTraceFunction.yCenter set to " << _fiberTraceFunction.yCenter << endl;
-      
+
       /// lower aperture limit x (cols)
       cout << "FiberTrace.calculateXCenters: _fiberTraceFunction.fiberTraceFunctionControl.xLow set to " << _fiberTraceFunction.fiberTraceFunctionControl.xLow << endl;
-    
+
       /// higher aperture limit x (cols)
       cout << "FiberTrace.calculateXCenters: _fiberTraceFunction.fiberTraceFunctionControl.xHigh set to " << _fiberTraceFunction.fiberTraceFunctionControl.xHigh << endl;
-    
+
       /// lower aperture limit for every aperture y, rows
       cout << "FiberTrace.calculateXCenters: _fiberTraceFunction.yLow set to " << _fiberTraceFunction.yLow << endl;
-    
+
       /// higher aperture limit for every aperture y, rows
       cout << "FiberTrace.calculateXCenters: _fiberTraceFunction.yHigh set to " << _fiberTraceFunction.yHigh << endl;
-    
+
       /// order of aperture trace function
       cout << "FiberTrace.calculateXCenters: _fiberTraceFunction.fiberTraceFunctionControl.order set to " << _fiberTraceFunction.fiberTraceFunctionControl.order << endl;
-    
+
       /// Name of function used to trace the apertures
       ///  0: chebyshev
       ///  1: legendre
@@ -531,16 +531,16 @@ namespace pfsDRPStella = pfs::drp::stella;
 
       cout << "FiberTrace.calculateXCenters: D_YMin set to " << D_YMin << endl;
       cout << "FiberTrace.calculateXCenters: D_YMax set to " << D_YMax << endl;
-      
+
       cout << "FiberTrace.calculateXCenters: D_A1_TempCen set to " << D_A1_TempCen << endl;
       return false;
     #endif
-      
+
     if (D_YMin - _fiberTraceFunction.yCenter > _fiberTraceFunction.yLow)
       _fiberTraceFunction.yLow = D_YMin - _fiberTraceFunction.yCenter;
     if (D_YMax - _fiberTraceFunction.yCenter < _fiberTraceFunction.yHigh)
       _fiberTraceFunction.yHigh = D_YMax - _fiberTraceFunction.yCenter;
-    
+
     cout << "FiberTrace.calculateXCenters: yCenter = " << _fiberTraceFunction.yCenter << endl;
     cout << "FiberTrace.calculateXCenters: yLow = " << _fiberTraceFunction.yLow << endl;
     cout << "FiberTrace.calculateXCenters: yHigh = " << _fiberTraceFunction.yHigh << endl;
@@ -578,7 +578,7 @@ namespace pfsDRPStella = pfs::drp::stella;
         xHighTooHighInLastRow = 0;
       }
     }
-    
+
     if (D_A1_XLow(_fiberTraceFunction.yCenter + _fiberTraceFunction.yLow) < -0.5){
       cout << "FiberTrace.calculateXCenters: ERROR: D_A1_XLow(_fiberTraceFunction.yCenter + _fiberTraceFunction.yLow=" << _fiberTraceFunction.yCenter + _fiberTraceFunction.yLow << ")=" << D_A1_XLow(_fiberTraceFunction.yCenter + _fiberTraceFunction.yLow) << " < -0.5" << endl;
       return false;
@@ -599,21 +599,21 @@ namespace pfsDRPStella = pfs::drp::stella;
       cout << "FiberTrace.calculateXCenters: yLow set to " << _fiberTraceFunction.yLow << endl;
       cout << "FiberTrace.calculateXCenters: yHigh set to " << _fiberTraceFunction.yHigh << endl;
     #endif
-      
+
     /// populate _xCenters
     _xCenters.resize(_fiberTraceFunction.yHigh - _fiberTraceFunction.yLow + 1);
     for (int i = static_cast<int>(_fiberTraceFunction.yCenter + _fiberTraceFunction.yLow); i <= static_cast<int>(_fiberTraceFunction.yCenter + _fiberTraceFunction.yHigh); i++) {
       _xCenters[cIndex] = static_cast<float>(D_A1_TempCen(i));
       cIndex++;
     }
-    
+
     D_A1_TempCen.resize(0);
     _isXCentersCalculated = true;
     return true;
-  }  
-  
+  }
+
   /// Set the x-centers of the fiber trace
-  template<typename ImageT, typename MaskT, typename VarianceT> 
+  template<typename ImageT, typename MaskT, typename VarianceT>
   bool pfsDRPStella::FiberTrace<ImageT, MaskT, VarianceT>::setXCenters(const std::vector<float> &xCenters){
 //    if (!_isImageSet){
 //      cout << "FiberTrace::setXCenters: ERROR: _maskedImage has not been set" << endl;
@@ -623,7 +623,7 @@ namespace pfsDRPStella = pfs::drp::stella;
       cout << "FiberTrace::setXCenters: ERROR: _fiberTraceFunction has not been set" << endl;
       return false;
     }
-    
+
     /// Check input vector size
     if (xCenters.size() != (_fiberTraceFunction.yHigh - _fiberTraceFunction.yLow + 1)){
       cout << "FiberTrace.setXCenters: ERROR: xCenters.size(=" << xCenters.size() << ") != (_fiberTraceFunction.yHigh - _fiberTraceFunction.yLow + 1)=" << (_fiberTraceFunction.yHigh - _fiberTraceFunction.yLow + 1) << ") => Returning false" << endl;
@@ -641,22 +641,22 @@ namespace pfsDRPStella = pfs::drp::stella;
         return false;
       }
     }
-    
+
     _xCenters.resize(xCenters.size());
-    
+
     std::vector<float>::iterator iter_xCenters_begin = _xCenters.begin();
     std::vector<float>::const_iterator iter_xCenters_In_begin = xCenters.begin();
     std::vector<float>::const_iterator iter_xCenters_In_end = xCenters.end();
     std::copy(iter_xCenters_In_begin, iter_xCenters_In_end, iter_xCenters_begin);
-    
+
     _isXCentersCalculated = true;
     return true;
   }
-  
+
   /// Set the image pointer of this fiber trace to image
-  template<typename ImageT, typename MaskT, typename VarianceT> 
+  template<typename ImageT, typename MaskT, typename VarianceT>
   bool pfsDRPStella::FiberTrace<ImageT, MaskT, VarianceT>::setImage(PTR(afwImage::Image<ImageT>) image){
-    
+
     /// Check input image size
 //    if (_isImageSet){
       if (image->getWidth() != _ccdWidth){
@@ -670,15 +670,15 @@ namespace pfsDRPStella = pfs::drp::stella;
 //    }
 
     _trace.getImage() = image;
-    
+
 //    _isImageSet = true;
     return true;
   }
-  
+
   /// Set the mask pointer of this fiber trace to mask
-  template<typename ImageT, typename MaskT, typename VarianceT> 
+  template<typename ImageT, typename MaskT, typename VarianceT>
   bool pfsDRPStella::FiberTrace<ImageT, MaskT, VarianceT>::setMask(PTR(afwImage::Mask<MaskT>) mask){
-    
+
     /// Check input mask size
 //    if (_isImageSet){
       if (mask->getWidth() != _ccdWidth){
@@ -690,16 +690,16 @@ namespace pfsDRPStella = pfs::drp::stella;
         return false;
       }
 //    }
-    
+
     _trace.getMask() = mask;
-    
+
     return true;
   }
-  
+
   /// Set the variance pointer of this fiber trace to variance
-  template<typename ImageT, typename MaskT, typename VarianceT> 
+  template<typename ImageT, typename MaskT, typename VarianceT>
   bool pfsDRPStella::FiberTrace<ImageT, MaskT, VarianceT>::setVariance(PTR(afwImage::Image<VarianceT>) variance){
-    
+
     /// Check input variance size
 //    if (_isImageSet){
       if (variance->getWidth() != _ccdWidth){
@@ -711,14 +711,14 @@ namespace pfsDRPStella = pfs::drp::stella;
         return false;
       }
 //    }
-    
+
     _trace.getVariance() = variance;
-    
+
     return true;
   }
-  
+
   /// Set the _trace of this fiber trace to trace
-  template<typename ImageT, typename MaskT, typename VarianceT> 
+  template<typename ImageT, typename MaskT, typename VarianceT>
   bool pfsDRPStella::FiberTrace<ImageT, MaskT, VarianceT>::setTrace(MaskedImageT & trace){
     if (!_isFiberTraceFunctionSet){
       cout << "FiberTrace::setTrace: ERROR: _fiberTraceFunction not set => Returning FALSE" << endl;
@@ -732,7 +732,7 @@ namespace pfsDRPStella = pfs::drp::stella;
       cout << "FiberTrace::setTrace: ERROR: trace.getWidth(=" << trace.getWidth() << ") > _ccdWidth(=" << _ccdWidth << ") => Returning FALSE" << endl;
       return false;
     }
-    
+
     /// Check input profile size
     if (trace.getWidth() != _fiberTraceFunction.fiberTraceFunctionControl.xHigh - _fiberTraceFunction.fiberTraceFunctionControl.xLow + 1){
       cout << "FiberTrace.setTrace: ERROR: trace.getWidth(=" << trace.getWidth() << ") != _fiberTraceFunction.fiberTraceFunctionControl.xHigh - _fiberTraceFunction.fiberTraceFunctionControl.xLow + 1(=" << _fiberTraceFunction.fiberTraceFunctionControl.xHigh - _fiberTraceFunction.fiberTraceFunctionControl.xLow + 1 << ") => Returning false" << endl;
@@ -742,16 +742,16 @@ namespace pfsDRPStella = pfs::drp::stella;
       cout << "FiberTrace.setTrace: ERROR: trace.getHeight(=" << trace.getHeight() << ") != _fiberTraceFunction.yHigh - _fiberTraceFunction.yLow + 1(=" << _fiberTraceFunction.yHigh - _fiberTraceFunction.yLow + 1 << ") => Returning false" << endl;
       return false;
     }
-    
+
     _trace = MaskedImageT(trace.getDimensions());
     _trace = trace;
-    
+
     _isTraceSet = true;
     return true;
   }
-  
+
   /// Set the profile image of this fiber trace to profile
-  template<typename ImageT, typename MaskT, typename VarianceT> 
+  template<typename ImageT, typename MaskT, typename VarianceT>
   bool pfsDRPStella::FiberTrace<ImageT, MaskT, VarianceT>::setProfile(PTR(afwImage::Image<float>) profile){
     if (!_isFiberTraceFunctionSet){
       cout << "FiberTrace::setProfile: ERROR: _fiberTraceFunction not set => Returning FALSE" << endl;
@@ -761,7 +761,7 @@ namespace pfsDRPStella = pfs::drp::stella;
       cout << "FiberTrace::setProfile: ERROR: _trace not set => Returning FALSE" << endl;
       return false;
     }
-    
+
     /// Check input profile size
     if (profile->getWidth() != _trace.getWidth()){
       cout << "FiberTrace.setProfile: ERROR: profile->getWidth(=" << profile->getWidth() << ") != _trace.getWidth(=" << _trace.getWidth() << ") => Returning false" << endl;
@@ -774,22 +774,22 @@ namespace pfsDRPStella = pfs::drp::stella;
 
     _profile.reset();
     _profile = profile;
-    
+
     _isProfileSet = true;
     return true;
   }
 
-  template<typename ImageT, typename MaskT, typename VarianceT> 
+  template<typename ImageT, typename MaskT, typename VarianceT>
   bool pfsDRPStella::FiberTrace<ImageT, MaskT, VarianceT>::extractFromProfile()
   {
     blitz::Array<string, 1> S_A1_Args(1);
     S_A1_Args = "";
     void **PP_Args;
     PP_Args = (void**)malloc(sizeof(void*) * 1);
-    
+
     int I_temp = 0;
     PP_Args[0] = &I_temp;
-    
+
     if (!extractFromProfile(S_A1_Args, PP_Args))
     {
       cout << "CFits::extractFromProfile(): ERROR: extractFromProfile(S_A1_Args=" << S_A1_Args << ") returned FALSE => Returning FALSE" << endl;
@@ -797,9 +797,9 @@ namespace pfsDRPStella = pfs::drp::stella;
     }
     return true;
   }
-  
+
   /// Set the profile image of this fiber trace to profile
-  template<typename ImageT, typename MaskT, typename VarianceT> 
+  template<typename ImageT, typename MaskT, typename VarianceT>
   bool pfsDRPStella::FiberTrace<ImageT, MaskT, VarianceT>::extractFromProfile(const blitz::Array<string, 1> &S_A1_Args_In,
                                                                               void *ArgV_In[]){
     if (!_isTraceSet){
@@ -820,7 +820,7 @@ namespace pfsDRPStella = pfs::drp::stella;
     }
 
     unsigned int fiberTraceNumber = 0;
-    
+
     blitz::Array<std::string, 1> keyWords(1);
     keyWords(0) = std::string("FIBERTRACENUMBER");
     void **args = (void**)malloc(sizeof(void*));
@@ -839,7 +839,7 @@ namespace pfsDRPStella = pfs::drp::stella;
         cout << "args[pppos=" << pppos << "] set to FIBERTRACENUMBER = " << *(unsigned int*)args[pppos] << endl;
       #endif
     }
-    
+
     blitz::Array<float, 2> F_A2_ProfArray = utils::ndarrayToBlitz(_profile->getArray());
     blitz::Array<double, 2> D_A2_ProfArray = pfsDRPStella::math::Double(F_A2_ProfArray);
     blitz::Array<ImageT, 2> T_A2_CCDArray = utils::ndarrayToBlitz(_trace.getImage()->getArray());
@@ -857,23 +857,23 @@ namespace pfsDRPStella = pfs::drp::stella;
     void **PP_Args_Fit;
     PP_Args_Fit = (void**)malloc(sizeof(void*) * 3);
     S_A1_Args_Fit = " ";
-    
+
     S_A1_Args_Fit(0) = "MEASURE_ERRORS_IN";
     PP_Args_Fit[0] = &D_A2_ErrArray;
     #ifdef __DEBUG_EXTRACTFROMPROFILE__
       cout << "CFits::extractFromProfile: D_A2_ErrArray = " << D_A2_ErrArray << endl;
     #endif
-    
+
     S_A1_Args_Fit(1) = "MASK_INOUT";
     PP_Args_Fit[1] = &I_A2_MaskArray;
     #ifdef __DEBUG_EXTRACTFROMPROFILE__
       cout << "I_A2_MaskArray = " << I_A2_MaskArray << endl;
     #endif
-    
+
     S_A1_Args_Fit(2) = "SIGMA_OUT";
     blitz::Array<double, 2> D_A2_Sigma_Fit(_trace.getHeight(),2);
     PP_Args_Fit[2] = &D_A2_Sigma_Fit;
-    
+
     blitz::Array<double, 1> D_A1_Sky(_trace.getHeight());
     D_A1_Sky = 0.;
     bool B_WithSky = false;
@@ -905,7 +905,7 @@ namespace pfsDRPStella = pfs::drp::stella;
     #ifdef __DEBUG_MkSLITFUNC_FILES__
       string S_MaskFinalOut = "Mask_Final" + S_SF_DebugFilesSuffix + ".fits";
       pfsDRPStella::utils::WriteFits(&I_A2_MaskArray, S_MaskFinalOut);
-      
+
       S_MaskFinalOut = "D_A2_CCD_Ap" + CS_SF_DebugFilesSuffix + ".fits";
       pfsDRPStella::utils::WriteFits(&D_A2_CCDArray, S_MaskFinalOut);
     #endif
@@ -920,16 +920,16 @@ namespace pfsDRPStella = pfs::drp::stella;
       _background[i] = static_cast<float>(D_A1_Sky(i));
       _backgroundVariance[i] = static_cast<float>(pow(D_A2_Sigma_Fit(i, 1),2));
     }
-    
+
     _isSpectrumExtracted = true;
-    
+
     return true;
   }
-  
+
   /**************************************************************************
    * createTrace
    * ************************************************************************/
-  template<typename ImageT, typename MaskT, typename VarianceT> 
+  template<typename ImageT, typename MaskT, typename VarianceT>
   bool pfsDRPStella::FiberTrace<ImageT, MaskT, VarianceT>::createTrace(PTR(MaskedImageT) const &maskedImage){
 //    if (!_isImageSet){
 //      cout << "FiberTrace::createTrace: ERROR: _maskedImage has not been set" << endl;
@@ -947,7 +947,7 @@ namespace pfsDRPStella = pfs::drp::stella;
       cout << "FiberTrace::createTrace: ERROR: _xCenters has not been set/calculated" << endl;
       return false;
     }
-    
+
     blitz::Array<int, 2> minCenMax(2,2);
     minCenMax = 0;
     blitz::Array<float, 1> xCenters(_xCenters.data(), blitz::shape(_xCenters.size()), blitz::neverDeleteData);
@@ -970,7 +970,7 @@ namespace pfsDRPStella = pfs::drp::stella;
     #ifdef __DEBUG_CREATEFIBERTRACE__
       cout << "FiberTrace::CreateFiberTrace: minCenMax = " << minCenMax << endl;
     #endif
-    
+
     _trace = MaskedImageT(minCenMax(0,2) - minCenMax(0,0) + 1, _fiberTraceFunction.yHigh - _fiberTraceFunction.yLow + 1);// minCenMax.rows());
 //    _profile.reset(new afwImage::Image<float>(_trace.getDimensions()));
 
@@ -997,7 +997,7 @@ namespace pfsDRPStella = pfs::drp::stella;
       typename ndarray::Array<VarianceT, 2, 1>::Reference::Iterator ptrVarianceEnd = yIterV->begin() + minCenMax(iy, 2) + 1;
       typename ndarray::Array<VarianceT, 2, 1>::Reference::Iterator ptrTraceVarianceStart = yIterTraceVariance->begin();
       std::copy(ptrVarianceStart, ptrVarianceEnd, ptrTraceVarianceStart);
-      
+
       typename ndarray::Array<MaskT, 2, 1>::Reference::Iterator ptrMaskStart = yIterM->begin() + minCenMax(iy, 0);
       typename ndarray::Array<MaskT, 2, 1>::Reference::Iterator ptrMaskEnd = yIterM->begin() + minCenMax(iy, 2) + 1;
       typename ndarray::Array<MaskT, 2, 1>::Reference::Iterator ptrTraceMaskStart = yIterTraceMask->begin();
@@ -1009,9 +1009,9 @@ namespace pfsDRPStella = pfs::drp::stella;
     _isTraceSet = true;
     return true;
   }
-  
+
   /// Return shared pointer to an image containing the reconstructed 2D spectrum of the FiberTrace
-  template<typename ImageT, typename MaskT, typename VarianceT> 
+  template<typename ImageT, typename MaskT, typename VarianceT>
   afwImage::Image<float> pfsDRPStella::FiberTrace<ImageT, MaskT, VarianceT>::getReconstructed2DSpectrum() const{
     afwImage::Image<float> image(_trace.getWidth(), _trace.getHeight());
     if (_isSpectrumExtracted){
@@ -1025,9 +1025,9 @@ namespace pfsDRPStella = pfs::drp::stella;
     }
     return image;
   }
-  
+
   /// Return shared pointer to an image containing the reconstructed background of the FiberTrace
-  template<typename ImageT, typename MaskT, typename VarianceT> 
+  template<typename ImageT, typename MaskT, typename VarianceT>
   afwImage::Image<float> pfsDRPStella::FiberTrace<ImageT, MaskT, VarianceT>::getReconstructedBackground() const{
     afwImage::Image<float> image(_trace.getWidth(), _trace.getHeight());
     if (_isSpectrumExtracted){
@@ -1041,14 +1041,14 @@ namespace pfsDRPStella = pfs::drp::stella;
     return image;
   }
 
-  template<typename ImageT, typename MaskT, typename VarianceT> 
+  template<typename ImageT, typename MaskT, typename VarianceT>
   bool pfsDRPStella::FiberTrace<ImageT, MaskT, VarianceT>::calculateSwathWidth_NBins_BinHeight_BinBoundY(int &swathWidth_InOut,
                                                             int &nBins_Out,
-                                                            int &binHeight_Out, 
+                                                            int &binHeight_Out,
                                                             blitz::Array<int, 2> &binBoundY_Out){
     int I_NI = 0;
     int I_I = 0;
-    
+
     blitz::Array<int, 1> I_A1_I(1);
     I_A1_I = 0;
 
@@ -1078,13 +1078,13 @@ namespace pfsDRPStella = pfs::drp::stella;
       #ifdef __DEBUG_MKSLITFUNC__
         cout << "FiberTrace::calculateSwathWidth_NBins_BinHeight_BinBoundY: !KeyWord_Set(SWATH_WIDTH): I_A1_I set to " << I_A1_I << endl;
       #endif
-      
+
       ///This is how many times this order crosses to the next column
       I_NI = I_A1_I.size();
       #ifdef __DEBUG_MKSLITFUNC__
         cout << "FiberTrace::calculateSwathWidth_NBins_BinHeight_BinBoundY: !KeyWord_Set(SWATH_WIDTH): I_NI set to " << I_NI << endl;
       #endif
-      
+
       ///Curved order crosses columns
       if (I_NI > 1)
       {
@@ -1092,7 +1092,7 @@ namespace pfsDRPStella = pfs::drp::stella;
         #ifdef __DEBUG_MKSLITFUNC__
           cout << "FiberTrace::calculateSwathWidth_NBins_BinHeight_BinBoundY: !KeyWord_Set(SWATH_WIDTH): if(I_NI(=" << I_NI << ") > 1): I_I set to " << I_I << endl;
         #endif
-        
+
         /// number of swaths along the order
         nBins_Out = pfsDRPStella::math::Round(static_cast<double>(_trace.getHeight()) / static_cast<double>(I_I) / 3.);
         #ifdef __DEBUG_MKSLITFUNC__
@@ -1118,11 +1118,11 @@ namespace pfsDRPStella = pfs::drp::stella;
       #endif
 
     }
-    
+
     binHeight_Out = _trace.getHeight() / nBins_Out;
     if (nBins_Out > 1)
       nBins_Out = (2 * nBins_Out) - 1;
-    
+
     #ifdef __DEBUG_MKSLITFUNC__
       cout << "FiberTrace::calculateSwathWidth_NBins_BinHeight_BinBoundY: fiberTraceNumber = " << fiberTraceNumber << endl;
       cout << "FiberTrace::calculateSwathWidth_NBins_BinHeight_BinBoundY: nBins_Out set to " << nBins_Out << endl;
@@ -1179,12 +1179,12 @@ namespace pfsDRPStella = pfs::drp::stella;
 
     return true;
   }
-                                                     
+
   /**
    *  MkSlitFunc
    *  Make Slit Function
    **/
-  template<typename ImageT, typename MaskT, typename VarianceT> 
+  template<typename ImageT, typename MaskT, typename VarianceT>
   bool pfsDRPStella::FiberTrace<ImageT, MaskT, VarianceT>::MkSlitFunc(const blitz::Array<string, 1> &S_A1_Args_In,           //: in
                                                                       void *ArgV_In[])                  //: in
   /**                     //PLOT        =
@@ -1276,7 +1276,7 @@ namespace pfsDRPStella = pfs::drp::stella;
      *  ! long yslitf0 = -y_lower_lim        => int I_XSlitFunc0
      *  ! long yslitf1 =  y_upper_lim        => int I_XSlitFunc1
      **/
-    
+
     if (!_isFiberTraceExtractionControlSet){
       cout << "MkSlitFunc: ERROR: _fiberTraceExtractionControl is not set => Returning FALSE" << endl;
       return false;
@@ -1289,12 +1289,12 @@ namespace pfsDRPStella = pfs::drp::stella;
       cout << "MkSlitFunc: ERROR: _fiberTraceExtractionControl is not set => Returning FALSE" << endl;
       return false;
     }
-    
+
     cout << "CFits::MkSlitFunc: Started: S_A1_Args_In = " << S_A1_Args_In << endl;
     #ifdef __DEBUG_MKSLITFUNC__
       cout << "CFits::MkSlitFunc: Started: S_A1_Args_In = " << S_A1_Args_In << endl;
     #endif
-    
+
     string S_SF_DebugFilesSuffix = "";
 
     blitz::Array<ImageT, 2> T_A2_PixArray = utils::ndarrayToBlitz(_trace.getImage()->getArray());
@@ -1303,7 +1303,7 @@ namespace pfsDRPStella = pfs::drp::stella;
       cout << "MkSlitFunc: D_A2_PixArray.size = " << D_A2_PixArray.rows() << " rows x " << D_A2_PixArray.cols() << " cols" << endl;
       cout << "MkSlitFunc: D_A2_PixArray(0,*) = " << D_A2_PixArray(0,blitz::Range::all()) << endl;
     #endif
-      
+
     blitz::Array<VarianceT, 2> T_A2_Variance = utils::ndarrayToBlitz(_trace.getVariance()->getArray());
     #ifdef __DEBUG_MKSLITFUNC__
       cout << "MkSlitFunc: T_A2_Variance(0,*) = " << T_A2_Variance(0,blitz::Range::all()) << endl;
@@ -1314,7 +1314,7 @@ namespace pfsDRPStella = pfs::drp::stella;
     #ifdef __DEBUG_MKSLITFUNC__
       cout << "MkSlitFunc: D_A2_Errors(0,*) = " << D_A2_Errors(0,blitz::Range::all()) << endl;
     #endif
-    
+
     blitz::Array<MaskT, 2> T_A2_MaskArray = utils::ndarrayToBlitz(_trace.getMask()->getArray());
     #ifdef __DEBUG_MKSLITFUNC__
       cout << "MkSlitFunc: T_A2_MaskArray(0,*) = " << T_A2_MaskArray(0,blitz::Range::all()) << endl;
@@ -1325,48 +1325,48 @@ namespace pfsDRPStella = pfs::drp::stella;
     #ifdef __DEBUG_MKSLITFUNC__
       cout << "MkSlitFunc: I_A2_MaskArray(0,*) = " << I_A2_MaskArray(0,blitz::Range::all()) << endl;
     #endif
-    
+
     blitz::Array<double, 2> D_A2_ProfArray(_trace.getHeight(), _trace.getWidth());
-    
+
     blitz::Array<double, 1> *P_D_A1_BLZ = new blitz::Array<double, 1>(1);
     (*P_D_A1_BLZ) = 0.;
-    
+
 //    blitz::Array<double, 1> D_A1_DXScatter(1);
 //    D_A1_DXScatter = 0.;
-    
+
     blitz::Array<int, 2> I_A2_IBinBoundY(1,1);
     I_A2_IBinBoundY = 0.;
-    
+
     blitz::Array<double, 1> D_A1_ICol(1);
     D_A1_ICol = 0.;
-    
+
     blitz::Array<int, 2> I_A2_Mask(1, 1);
     I_A2_Mask = 0;
-    
+
     blitz::Array<double, 2> D_A2_Mask(1, 1);
     D_A2_Mask = 0.;
-    
+
     blitz::Array<int, 2> I_A2_MaskApTemp(1, 1);
     I_A2_MaskApTemp = 0;
-    
+
     blitz::Array<int, 2> I_A2_Msk(1, 1);
     I_A2_Msk = 0.;
-    
+
     blitz::Array<double, 1> D_A1_SC(1);
     D_A1_SC = 0.;
-    
+
     blitz::Array<double, 1> D_A1_Scatter(1);
     D_A1_Scatter = 0.;
-    
+
     blitz::Array<double, 1> D_A1_SF(1);
     D_A1_SF = 0.;
-    
+
     blitz::Array<double, 2> D_A2_SlitFunc_Im_In(1, 1);
     D_A2_SlitFunc_Im_In = 0.;
-    
+
     blitz::Array<double, 2> D_A2_CCD_Ap(2,2);
     D_A2_CCD_Ap = 0.;
-    
+
     D_A2_Errors = sqrt(D_A2_Errors);
     #ifdef __DEBUG_MKSLITFUNC__
       cout << "MkSlitFunc: D_A2_Errors(0,*) = " << D_A2_Errors(0,blitz::Range::all()) << endl;
@@ -1378,18 +1378,18 @@ namespace pfsDRPStella = pfs::drp::stella;
     D_A2_Err_AllRows = 0.;
     blitz::Array<int, 2> I_A2_Mask_AllRows(1, 1);
     I_A2_Mask_AllRows = 1;
-    
+
     blitz::Array<double, 1> D_A1_Err(1);
     D_A1_Err = 0.;
-    
+
     blitz::Array<double, 2> D_A2_SFSM(1,1);
     D_A2_SFSM = 0.;
     blitz::Array<double, 3> D_A3_SFSM(1,1,1);
     D_A3_SFSM = 0.;
-    
+
     blitz::Array<double, 2> D_A2_SlitFTemp(1,1);
     D_A2_SlitFTemp = 0.;
-    
+
     blitz::Array<double, 1> D_A1_SP(1);
     D_A1_SP = 0.;
     blitz::Array<double, 2> D_A2_SP(1,1);
@@ -1399,58 +1399,58 @@ namespace pfsDRPStella = pfs::drp::stella;
     blitz::Array<double, 2> D_A2_XCorProf(1,1);
     D_A2_XCorProf = 0.;
    // bool B_Run_XCor = false;
-    
+
     blitz::Array<double, 2> D_A2_Sky(1,1);
     blitz::Array<double, 2> D_A2_ErrSky(1,1);
-    
+
     blitz::Array<double, 1> D_A1_SSF(1);
     D_A1_SSF = 0.;
-    
+
     blitz::Array<double, 1> D_A1_Tel(1);
     D_A1_Tel = 0.;
-    
+
     blitz::Array<double, 2> D_A2_Tel(1,1);
     D_A2_Tel = 0.;
-    
+
     blitz::Array<double, 1> D_A1_Temp(1);
     D_A1_Temp = 0.;
-    
+
     blitz::Array<double, 1> D_A1_TempArr(1);
     D_A1_TempArr = 0.;
-    
+
     blitz::Array<double, 1> D_A1_TempArrA(1);
     D_A1_TempArrA = 0.;
-    
+
     blitz::Array<double, 1> D_A1_TempArrB(1);
     D_A1_TempArrB = 0.;
-    
+
     blitz::Array<double, 1> D_A1_TempArrC(1);
     D_A1_TempArrC = 0.;
-    
+
     blitz::Array<double, 1> D_A1_TempArrD(1);
     D_A1_TempArrD = 0.;
-    
+
     blitz::Array<double, 1> D_A1_XCenMXC(1);
     D_A1_XCenMXC = 0.;
-    
+
     blitz::Array<double, 1> D_A1_XCentersE(1);
     D_A1_XCentersE = 0.;
-    
+
     blitz::Array<double, 1> D_A1_XInt(1);
     D_A1_XInt = 0.;
-    
+
     blitz::Array<double, 1> D_A1_XSlitFTemp(1);
     D_A1_XSlitFTemp = 0.;
-    
+
     blitz::Array<int, 1> I_A1_ISort(1);
     I_A1_ISort = 0;
-    
+
     blitz::Array<int, 1> I_A1_ITel(1);
     I_A1_ITel = 0;
-    
+
     blitz::Array<int, 1> I_A1_IX(1);
     I_A1_IX = 0;
-    
+
     blitz::Array<double, 2> D_A2_ErrTel(1);
     blitz::Array<double, 1> D_A1_ErrTel(1);
     blitz::Array<int, 1> I_A1_ErrInd(1);
@@ -1462,16 +1462,16 @@ namespace pfsDRPStella = pfs::drp::stella;
     blitz::Array<double, 1> D_A1_ErrFit(1);
 //    blitz::Array<int, 2> I_A2_MinCenMax(_ccdHeight, 3);
 //    I_A2_MinCenMax = 0;
-    
+
     string S_TempNum = "";
-    
+
     blitz::Array<string, 1> S_A1_Args_Median(3);
     S_A1_Args_Median = " ";
     S_A1_Args_Median(0) = "NORMAL";
     void **PP_Args_Median = (void**)malloc(sizeof(void*) * 3);
     int I_Val_Normal = 1;
     double D_Val_ErrOutMedian;
-    
+
     ///TODO
     bool ErrorsRead = true;
     if (ErrorsRead){
@@ -1480,7 +1480,7 @@ namespace pfsDRPStella = pfs::drp::stella;
       S_A1_Args_Median(2) = "ERR_OUT";
       PP_Args_Median[2] = &D_Val_ErrOutMedian;
     }
-    
+
     int I_NR = 0;// = I_IE - I_IB + 1; /// Number of rows
 //    int I_LambdaSP = 1;
     int I_NBins = 0;
@@ -1496,10 +1496,10 @@ namespace pfsDRPStella = pfs::drp::stella;
     //    int overSample_In = _fiberTraceExtractionControl->overSample;
     int pos = 0;
     int pppos = 0;
-    
+
 //    double D_LambdaSF = 1.;
 //    double D_WingSmoothFactor = 0.;
-    
+
     blitz::Array<double,1> D_A1_SF_Median(1);
     blitz::Array<double,1> D_A1_Sky(1);
     blitz::Array<double,1> D_A1_SPFit(1);
@@ -1527,18 +1527,18 @@ namespace pfsDRPStella = pfs::drp::stella;
     blitz::Array<double, 2> D_A2_SFOld(1,1);
     double D_SFDev = 0.;
     blitz::Array<int, 2> I_A2_Mask_Temp(1,1);
-    
+
     bool B_MaximaOnly = false;
-    
+
     string sTemp = "Y_LOWER_LIM";
     string debugdir = DEBUGDIR;
-    
+
     blitz::Array<string, 1> s_a1(23);
     void **args = (void**)malloc(sizeof(void*) * 23);
-    
+
     blitz::firstIndex i;
     blitz::secondIndex j;
-    
+
     int telluric = 0;
     for ( int fooInt = FiberTraceExtractionControl::NONE; fooInt != FiberTraceExtractionControl::NVALUES; fooInt++ ){
       if (_fiberTraceExtractionControl->telluric.compare(_fiberTraceExtractionControl->TELLURIC_NAMES[fooInt]) == 0){
@@ -1548,7 +1548,7 @@ namespace pfsDRPStella = pfs::drp::stella;
     #ifdef __DEBUG_MKSLITFUNC__
       cout << "FiberTrace::MkSlitFunc: telluric set to " << telluric << endl;
     #endif
-    
+
     if ((I_Pos = pfsDRPStella::utils::KeyWord_Set(S_A1_Args_In, "BLZ")) >= 0)
     {
       if (P_D_A1_BLZ != NULL)
@@ -1558,7 +1558,7 @@ namespace pfsDRPStella = pfs::drp::stella;
         cout << "CFits::MkSlitFunc: KeyWord_Set(BLZ): P_D_A1_BLZ set to " << *P_D_A1_BLZ << endl;
       #endif
     }
-    
+
     sTemp = "FIBERTRACENUMBER";
     unsigned int fiberTraceNumber = 0;
     if ((I_Pos = pfsDRPStella::utils::KeyWord_Set(S_A1_Args_In, sTemp)) >= 0)
@@ -1575,7 +1575,7 @@ namespace pfsDRPStella = pfs::drp::stella;
       #endif
       pppos++;
     }
-    
+
 //    if (fiberTraceExtractionControl->xCorProf > 0)
 //      B_Run_XCor = true;
 
@@ -1591,21 +1591,21 @@ namespace pfsDRPStella = pfs::drp::stella;
       cout << "args[pppos=" << pppos << "] set to I_XCorProf = " << *(int*)args[pppos] << endl;
       #endif
       pppos++;
-      
+
       s_a1(pppos) = "XCOR_PROF_OUT";
       args[pppos] = &D_A1_XCorProf_Out;
       pppos++;
     }
-    
+
     s_a1(pppos) = "SP_OUT";
     pppos++;
-    
+
     s_a1(pppos) = "STOP";
     pppos++;
-    
+
     s_a1(pppos) = "MASK";
     pppos++;
-    
+
     if (telluric > 1)
     {
       s_a1(pppos) = "SKY";
@@ -1613,9 +1613,9 @@ namespace pfsDRPStella = pfs::drp::stella;
       s_a1(pppos) = "SP_FIT";
       pppos++;
     }
-    
+
     blitz::Array<double, 1> D_A1_Errors_SP_Out(1);
-    
+
     if (ErrorsRead){
       s_a1(pppos) = "ERRORS";
       pppos++;
@@ -1635,28 +1635,28 @@ namespace pfsDRPStella = pfs::drp::stella;
       cout << "CFits::MkSlitFunc: s_a1 = " << s_a1 << endl;
       cout << "CFits::MkSlitFunc: pppos = " << pppos << endl;
     #endif
-    
+
     int I_Stop = 0;
-    
+
     #ifdef __DEBUG_MKSLITFUNC__
       cout << "CFits::MkSlitFunc: s_a1 set to " << s_a1 << endl;
     #endif
-    
+
     int I_BinHeight;
-    
+
     /// Add 0.5 pixels to get real subpixels TODO: REALLY???????
     blitz::Array<float, 1> xCenters(_xCenters.data(), blitz::shape(_xCenters.size()), blitz::neverDeleteData);
     blitz::Array<double, 1> D_A1_XCenters(xCenters.size());
     D_A1_XCenters = pfsDRPStella::math::Double(xCenters);// + 0.5;
 
-    if (!calculateSwathWidth_NBins_BinHeight_BinBoundY(I_SwathWidth, 
-                                                       I_NBins, 
-                                                       I_BinHeight, 
+    if (!calculateSwathWidth_NBins_BinHeight_BinBoundY(I_SwathWidth,
+                                                       I_NBins,
+                                                       I_BinHeight,
                                                        I_A2_IBinBoundY)){
       cout << "FiberTrace::MkSlitFunc: ERROR: calculateSwathWidth_NBins_BinHeight_BinBoundY returned FALSE" << endl;
       return false;
     }
-    
+
     #ifdef __DEBUG_MKSLITFUNC__
       cout << "CFits::MkSlitFunc: I_A2_IBound set to " << I_A2_IBinBoundY << endl;
     #endif
@@ -1676,7 +1676,7 @@ namespace pfsDRPStella = pfs::drp::stella;
     #endif
 
     D_A3_SFSM.resize(_trace.getHeight(), _trace.getWidth(), I_NBins);
-    
+
     #ifdef __DEBUG_MKSLITFUNC__
       cout << "CFits::MkSlitFunc: D_A3_SFSM = " << D_A3_SFSM.rows() << " x " << D_A3_SFSM.cols() << " x " << I_NBins << endl;
     #endif
@@ -1689,7 +1689,7 @@ namespace pfsDRPStella = pfs::drp::stella;
     D_A2_Sky = 0.;
     D_A2_ErrSky.resize(D_A3_SFSM.rows(), I_NBins);
     D_A2_ErrSky = 0.;
-    
+
     /// Center of each bin
     ///  bincen = 0.5*(ibeg + iend)                    ;center of each bin
     blitz::Array<double, 1> D_A1_BinCen(I_NBins);
@@ -1702,52 +1702,52 @@ namespace pfsDRPStella = pfs::drp::stella;
     #ifdef __DEBUG_MKSLITFUNC__
       cout << "CFits::MkSlitFunc: D_A1_ICol set to " << D_A1_ICol << endl;
     #endif
-    
+
     D_A1_XCentersE.resize(D_A1_XCenters.size());//int(_fiberTraceFunction.yHigh - _fiberTraceFunction.yLow + 1.));
     D_A1_XCentersE = D_A1_XCenters;//(blitz::Range((int)(_fiberTraceFunction.yCenter+_fiberTraceFunction.yLow), (int)(_fiberTraceFunction.yCenter+_fiberTraceFunction.yHigh)));
     #ifdef __DEBUG_MKSLITFUNC__
       cout << "CFits::MkSlitFunc: D_A1_XCentersE set to " << D_A1_XCentersE << endl;
     #endif
-    
+
     /// subpixel range required
     #ifdef __DEBUG_MKSLITFUNC__
       cout << "CFits::MkSlitFunc: P_D_A1_XLow = " << _fiberTraceFunction.fiberTraceFunctionControl.xLow << endl;
     #endif
-    
+
     ///TODO: SF = 7.2 pix -> 0.9-8.1 -> 9 pixels, not 7+1!!!
     I_NXSF = _trace.getWidth();//I_A2_MinCenMax(0,2) - I_A2_MinCenMax(0,0) + 1;// - I_NPixCut_Left - I_NPixCut_Right;
     #ifdef __DEBUG_MKSLITFUNC__
       cout << "CFits::MkSlitFunc: I_NXSF set to " << I_NXSF << endl;
     #endif
-    
+
     P_D_A1_BLZ->resize(_trace.getHeight());
     (*P_D_A1_BLZ) = 0.;
-    
+
     D_A2_CCD_Ap.resize(D_A3_SFSM.rows(), D_A3_SFSM.cols());
-    
+
     D_A2_Err_AllRows.resize(_trace.getHeight(), D_A3_SFSM.cols());
     I_A2_Mask_AllRows.resize(_trace.getHeight(), D_A3_SFSM.cols());
     I_A2_Mask_AllRows = 1;
     D_A2_Err_AllRows = 0.;
-    
+
     for (int I_IBin = 0; I_IBin < I_NBins; I_IBin++) /// Loop thru sf regions
     {
       if (telluric == 3)
         B_MaximaOnly = true;
 
-      #ifdef __DEBUG_CHECK_INDICES__      
+      #ifdef __DEBUG_CHECK_INDICES__
         if (I_IBin >= I_A2_IBinBoundY.rows())
         {
           cout << "CFits::MkSlitFunc: I_IBin = " << I_IBin << ": ERROR: I_IBin(=" << I_IBin << ") >= I_A2_IBoundY.rows(=" << I_A2_IBinBoundY.rows() << ")" << endl;
           return false;
         }
       #endif
-      
+
       I_NR = I_A2_IBinBoundY(I_IBin,1) - I_A2_IBinBoundY(I_IBin,0) + 1; /// Number of rows (Y-Direction)
       #ifdef __DEBUG_MKSLITFUNC__
         cout << "CFits::MkSlitFunc: I_IBin = " << I_IBin << ": for (I_IBin(=" << I_IBin << ") = 0; I_IBin < I_NBin=" << I_NBins << "; I_IBin++): Resizing D_A2_SlitFunc_Im_In: I_A2_IBinBoundY(I_IBin, *) = " << I_A2_IBinBoundY(I_IBin, blitz::Range::all()) << ": I_NR set to " << I_NR << endl;
       #endif
-      
+
       D_A2_SlitFunc_Im_In.resize(I_NR, I_NXSF);
       D_A2_SlitFunc_Im_In = 0.;
       if (ErrorsRead){
@@ -1757,26 +1757,26 @@ namespace pfsDRPStella = pfs::drp::stella;
       #ifdef __DEBUG_MKSLITFUNC__
         cout << "CFits::MkSlitFunc: I_IBin = " << I_IBin << ": D_A2_SlitFunc_Im_In initialized to " << D_A2_SlitFunc_Im_In.rows() << " x " << D_A2_SlitFunc_Im_In.cols() << endl;
       #endif
-      
+
       I_A2_Msk.resize(I_NR, I_NXSF);
       I_A2_Msk = 1;
       #ifdef __DEBUG_MKSLITFUNC__
         cout << "CFits::MkSlitFunc: I_IBin = " << I_IBin << ": for (I_IBin(=" << I_IBin << ") = 0; I_IBin < I_NBin=" << I_NBins << "; I_IBin++): I_A2_Msk initialized to " << I_A2_Msk.rows() << " x " << I_A2_Msk.cols() << endl;
       #endif
-      
+
       if (max(I_A2_MaskArray) > 1){
         cout << "CFits::MkSlitFunc: I_IBin = " << I_IBin << ": I_IBin=" << I_IBin << ": ERROR: max(P_I_A2_MaskArray) > 1" << endl;
         return false;
       }
-      
-      #ifdef __DEBUG_CHECK_INDICES__      
+
+      #ifdef __DEBUG_CHECK_INDICES__
         if (I_A2_IBinBoundY(I_IBin, 0) >= I_A2_IBinBoundY(I_IBin, 1)){
           cout << "CFits::MkSlitFunc: I_IBin = " << I_IBin << ": ERROR: I_A2_IBound(I_IBin=" << I_IBin << ", 0)=" << I_A2_IBinBoundY(I_IBin, 0) << " >= I_A2_IBound(I_IBin, 1)=" << I_A2_IBinBoundY(I_IBin, 1) << " => Returning FALSE" << endl;
           return false;
         }
       #endif
       D_A1_XCenMXC.resize(I_A2_IBinBoundY(I_IBin,1) - I_A2_IBinBoundY(I_IBin,0) + 1);
-      #ifdef __DEBUG_CHECK_INDICES__      
+      #ifdef __DEBUG_CHECK_INDICES__
         if (I_A2_IBinBoundY(I_IBin,1) >= _trace.getHeight())
         {
           cout << "CFits::MkSlitFunc: I_IBin = " << I_IBin << ": ERROR: I_A2_IBound(I_IBin,1)(=" << I_A2_IBinBoundY(I_IBin,1) << ") >= _trace.getHeight(=" << _trace.getHeight() << ")" << endl;
@@ -1799,7 +1799,7 @@ namespace pfsDRPStella = pfs::drp::stella;
       for (int n = 0; n < I_NR; n++)
       {
         /// column closest to peak
-        #ifdef __DEBUG_CHECK_INDICES__      
+        #ifdef __DEBUG_CHECK_INDICES__
           if (I_A2_IBinBoundY(I_IBin,0) + n >= _trace.getHeight())
           {
             cout << "CFits::MkSlitFunc: I_IBin = " << I_IBin << ": ERROR: I_A2_IBound(I_IBin,0)(=" << I_A2_IBinBoundY(I_IBin,0) << ") + n(=" << n << ") >= _trace.getHeight(=" << _trace.getHeight() << ")" << endl;
@@ -1832,7 +1832,7 @@ namespace pfsDRPStella = pfs::drp::stella;
           /// Interpolate background
           D_A1_DXScatter.resize(I_NXSF);
           D_A1_DXScatter = i;
-          
+
           if (I_A2_IBinBoundY(I_IBin,0) + n >= static_cast<int>(D_A1_XScatterBelow.size()))
           {
             cout << "CFits::MkSlitFunc: I_IBin = " << I_IBin << ": ERROR: I_A2_IBound(I_IBin,0)(=" << I_A2_IBinBoundY(I_IBin,0) << ") + n(=" << n << ") >= D_A1_XScatterBelow.size(=" << D_A1_XScatterBelow.size() << ")" << endl;
@@ -1854,7 +1854,7 @@ namespace pfsDRPStella = pfs::drp::stella;
             cout << "CFits::MkSlitFunc: I_IBin = " << I_IBin << ": for (I_IBin(=" << I_IBin << ") = 0; I_IBin < I_NBin=" << I_NBins << "; I_IBin++): for (n(=" << n << ") = 0; n < I_NR(=" << I_NR << "); n++): Scatter+: D_A1_ScatterAbove(I_A2_IBound(I_IBin,0)+n) = " << D_A1_ScatterAbove(I_A2_IBinBoundY(I_IBin,0)+n) << endl;
             cout << "CFits::MkSlitFunc: I_IBin = " << I_IBin << ": for (I_IBin(=" << I_IBin << ") = 0; I_IBin < I_NBin=" << I_NBins << "; I_IBin++): for (n(=" << n << ") = 0; n < I_NR(=" << I_NR << "); n++): Scatter+: D_A1_ScatterBelow(I_A2_IBound(I_IBin,0)+n) = " << D_A1_ScatterBelow(I_A2_IBinBoundY(I_IBin,0)+n) << endl;
           #endif
-          
+
           D_A1_Scatter = D_A1_ScatterAbove(I_A2_IBinBoundY(I_IBin,0) + n) - D_A1_ScatterBelow(I_A2_IBinBoundY(I_IBin,0) + n);
           #ifdef __DEBUG_MKSLITFUNC__
             cout << "CFits::MkSlitFunc: I_IBin = " << I_IBin << ": for (I_IBin(=" << I_IBin << ") = 0; I_IBin < I_NBin=" << I_NBins << "; I_IBin++): for (n(=" << n << ") = 0; n < I_NR(=" << I_NR << "); n++): Scatter+: D_A1_Scatter set to " << D_A1_Scatter << endl;
@@ -1873,7 +1873,7 @@ namespace pfsDRPStella = pfs::drp::stella;
           #ifdef __DEBUG_MKSLITFUNC__
             cout << "CFits::MkSlitFunc: I_IBin = " << I_IBin << ": for (I_IBin(=" << I_IBin << ") = 0; I_IBin < I_NBin=" << I_NBins << "; I_IBin++): for (n(=" << n << ") = 0; n < I_NR(=" << I_NR << "); n++): Scatter+: D_A1_Scatter set to " << D_A1_Scatter << endl;
           #endif
-          
+
           /// compute normalized slit func
           #ifdef __DEBUG_MKSLITFUNC__
             cout << "CFits::MkSlitFunc: I_IBin = " << I_IBin << ": for (I_IBin(=" << I_IBin << ") = 0; I_IBin < I_NBin=" << I_NBins << "; I_IBin++): for (n(=" << n << ") = 0; n < I_NR(=" << I_NR << "); n++): Scatter+: D_A2_PixArray(I_A2_IBound(I_IBin,0)(=" << I_A2_IBinBoundY(I_IBin,0) << ") + n(=" << n << ") = " << I_A2_IBinBoundY(I_IBin,0) + n << ", blitz::Range(I_A2_MinCenMax(I_A2_IBound(I_IBin,0) + n, 0)(=" << I_A2_MinCenMax(I_A2_IBinBoundY(I_IBin,0) + n, 0) << "), I_A2_MinCenMax(I_A2_IBound(I_IBin,0) + n, 2)(=" << I_A2_MinCenMax(I_A2_IBinBoundY(I_IBin,0) + n, 2) << ") = " << blitz::Range(I_A2_MinCenMax(I_A2_IBinBoundY(I_IBin,0) + n, 0), I_A2_MinCenMax(I_A2_IBinBoundY(I_IBin,0) + n, 2)) << ") = " << D_A2_PixArray(I_A2_IBinBoundY(I_IBin,0) + n, blitz::Range(I_A2_MinCenMax(I_A2_IBinBoundY(I_IBin,0) + n, 0), I_A2_MinCenMax(I_A2_IBinBoundY(I_IBin,0) + n, 2))) << endl;
@@ -1900,7 +1900,7 @@ namespace pfsDRPStella = pfs::drp::stella;
             return false;
           }
           D_A1_SSF = D_A2_PixArray(I_A2_IBinBoundY(I_IBin,0) + n, blitz::Range(I_A2_MinCenMax(I_A2_IBinBoundY(I_IBin,0) + n, 0), I_A2_MinCenMax(I_A2_IBinBoundY(I_IBin,0) + n, 2))) - D_A1_Scatter;
-          
+
           #ifdef __DEBUG_MKSLITFUNC__
             cout << "CFits::MkSlitFunc: I_IBin = " << I_IBin << ": for (I_IBin(=" << I_IBin << ") = 0; I_IBin < I_NBin=" << I_NBins << "; I_IBin++): for (n(=" << n << ") = 0; n < I_NR(=" << I_NR << "); n++): Scatter+: D_A1_SSF set to " << D_A1_SSF << endl;
           #endif
@@ -1912,7 +1912,7 @@ namespace pfsDRPStella = pfs::drp::stella;
           return false;
         }
         */
-        #ifdef __DEBUG_CHECK_INDICES__      
+        #ifdef __DEBUG_CHECK_INDICES__
           if (I_A2_IBinBoundY(I_IBin,0)+n >= I_A2_MaskArray.rows())
           {
             cout << "CFits::MkSlitFunc: I_IBin = " << I_IBin << ": ERROR: I_A2_IBound(I_IBin,0)+n(=" << I_A2_IBinBoundY(I_IBin,0)+n << ") >= I_A2_MaskArray.rows(=" << I_A2_MaskArray.rows() << ")" << endl;
@@ -1920,7 +1920,7 @@ namespace pfsDRPStella = pfs::drp::stella;
           }
         #endif
         D_A2_SlitFunc_Im_In(n, blitz::Range::all()) = D_A1_SSF;
-        #ifdef __DEBUG_CHECK_INDICES__      
+        #ifdef __DEBUG_CHECK_INDICES__
           if (I_A2_IBinBoundY(I_IBin, 0) - I_A2_IBinBoundY(0, 0) + n >= D_A2_CCD_Ap.rows()){
             cout << "CFits::MkSlitFunc: I_IBin = " << I_IBin << ": for (int n = 0; n < I_NR(=" << I_NR << "; n++): _fiberTraceFunction.yCenter = " << _fiberTraceFunction.yCenter << endl;
             cout << "CFits::MkSlitFunc: I_IBin = " << I_IBin << ": for (int n = 0; n < I_NR(=" << I_NR << "; n++): _fiberTraceFunction.yLow = " << _fiberTraceFunction.yLow << endl;
@@ -1934,7 +1934,7 @@ namespace pfsDRPStella = pfs::drp::stella;
             blitz::Array<int, 1> I_A1_IBinBoundYTemp(I_A2_IBinBoundY.rows());
             I_A1_IBinBoundYTemp = I_A2_IBinBoundY(blitz::Range::all(),1) - I_A2_IBinBoundY(blitz::Range::all(),0);
             cout << "CFits::MkSlitFunc: I_IBin = " << I_IBin << ": for (int n = 0; n < I_NR(=" << I_NR << "; n++): I_A2_IBinBoundY(*,1) - I_A2_IBinBoundY(*,0) = " << I_A1_IBinBoundYTemp << endl;
-          
+
             cout << "CFits::MkSlitFunc: I_IBin = " << I_IBin << ": for (int n = 0; n < I_NR(=" << I_NR << "; n++): I_A2_IBinBoundY(I_IBin, *) = " << I_A2_IBinBoundY(I_IBin, blitz::Range::all()) << endl;
             cout << "CFits::MkSlitFunc: I_IBin = " << I_IBin << ": for (int n = 0; n < I_NR(=" << I_NR << "; n++): I_A2_IBinBoundY(I_IBin, 1) - I_A2_IBinBoundY(I_IBin, 0) + 1 = " << I_A2_IBinBoundY(I_IBin, 1) - I_A2_IBinBoundY(I_IBin, 0) + 1 << endl;
             cout << "CFits::MkSlitFunc: I_IBin = " << I_IBin << ": for (int n = 0; n < I_NR(=" << I_NR << "; n++): ERROR: (0.5 * I_IBin * I_BinHeight(=" << I_BinHeight << ")) + n(=" << n << ") = " << (0.5 * I_IBin * I_BinHeight) + n << " D_A2_CCD_Ap.rows() = " << D_A2_CCD_Ap.rows() << " => Returning FALSE" << endl;
@@ -1946,8 +1946,8 @@ namespace pfsDRPStella = pfs::drp::stella;
           }
         #endif
         D_A2_CCD_Ap(I_A2_IBinBoundY(I_IBin, 0) - I_A2_IBinBoundY(0, 0) + n, blitz::Range::all()) = D_A1_SSF;
-        
-        #ifdef __DEBUG_CHECK_INDICES__      
+
+        #ifdef __DEBUG_CHECK_INDICES__
           if (((I_A2_IBinBoundY(I_IBin, 0) + n) < 0) || ((I_A2_IBinBoundY(I_IBin, 0) + n) >= I_A2_MaskArray.rows())){
             cout << "CFits::MkSlitFunc: I_IBin = " << I_IBin << ": ERROR: ((I_A2_IBound(I_IBin, 0) + n)=" << I_A2_IBinBoundY(I_IBin, 0) + n << " < 0) || ((I_A2_IBound(I_IBin, 0) + n) >= I_A2_MaskArray.rows()=" << I_A2_MaskArray.rows() << ") => Returning FALSE" << endl;
             return false;
@@ -1969,7 +1969,7 @@ namespace pfsDRPStella = pfs::drp::stella;
         }
         if (ErrorsRead){
           D_A2_Err(n, blitz::Range::all()) = D_A1_Err;
-          #ifdef __DEBUG_CHECK_INDICES__      
+          #ifdef __DEBUG_CHECK_INDICES__
             if (D_A2_Err_AllRows.cols() != static_cast<int>(D_A1_Err.size())){
               cout << "CFits::MkSlitFunc: I_IBin = " << I_IBin << ": ERROR: D_A2_Err_AllRows.cols(=" << D_A2_Err_AllRows.cols() << ") != D_A1_Err.size(=" << D_A1_Err.size() << ")" << endl;
               return false;
@@ -1986,7 +1986,7 @@ namespace pfsDRPStella = pfs::drp::stella;
           cout << "CFits::MkSlitFunc: I_IBin = " << I_IBin << ": for (I_IBin(=" << I_IBin << ") = 0; I_IBin < I_NBin=" << I_NBins << "; I_IBin++): for (n(=" << n << ") = 0; n < I_NR(=" << I_NR << "); n++): D_A2_SlitFunc_Im_In(n, D_A2_SlitFunc_Im_In.cols()-1) set to " << D_A2_SlitFunc_Im_In(n, D_A2_SlitFunc_Im_In.cols()-1) << endl;
           cout << "CFits::MkSlitFunc: I_IBin = " << I_IBin << ": for (I_IBin(=" << I_IBin << ") = 0; I_IBin < I_NBin=" << I_NBins << "; I_IBin++): for (n(=" << n << ") = 0; n < I_NR(=" << I_NR << "); n++): D_A2_SlitFunc_Im_In(n, *) set to " << D_A2_SlitFunc_Im_In(n, blitz::Range::all()) << endl;
         #endif
-        #ifdef __DEBUG_CHECK_INDICES__      
+        #ifdef __DEBUG_CHECK_INDICES__
           if (n >= I_A2_Msk.rows())
           {
             cout << "CFits::MkSlitFunc: I_IBin = " << I_IBin << ": ERROR: n(=" << n << ") >= I_A2_Msk.rows(=" << I_A2_Msk.rows() << ")" << endl;
@@ -1999,7 +1999,7 @@ namespace pfsDRPStella = pfs::drp::stella;
         cout << "CFits::MkSlitFunc: I_IBin = " << I_IBin << ": A. ERROR: max(I_A2_Msk) = " << max(I_A2_Msk) << " > 1" << endl;
         return false;
       }
-      
+
       #ifdef __DEBUG_MKSLITFUNC__
         cout << "CFits::MkSlitFunc: I_IBin = " << I_IBin << ": end for: D_A2_Err = " << D_A2_Err << endl;
       #endif
@@ -2015,7 +2015,7 @@ namespace pfsDRPStella = pfs::drp::stella;
         S_TempA = DEBUGDIR + "D_A2_SlitFunc_Im_In.fits";
         pfsDRPStella::utils::WriteFits(&D_A2_SlitFunc_Im_In, S_TempA);
       #endif
-      
+
       D_A2_SlitFuncOrig.resize(D_A2_SlitFunc_Im_In.rows(), D_A2_SlitFunc_Im_In.cols());
       /// Backup original Slit Function
       D_A2_SlitFuncOrig = D_A2_SlitFunc_Im_In;
@@ -2058,19 +2058,19 @@ namespace pfsDRPStella = pfs::drp::stella;
         #ifdef __DEBUG_MKSLITFUNC__
           cout << "CFits::MkSlitFunc: I_IBin = " << I_IBin << ": telluric = 1: D_A2_Tel set to " << D_A2_Tel << endl;
         #endif
-        
+
         D_A1_SC.resize(I_NR);
         D_A1_SC = 0.;
-        
+
         if (ErrorsRead){
           I_A1_ErrInd.resize(D_A2_Tel.cols());
           D_A1_ErrTel.resize(I_NR);
           D_A1_ErrTel = 0.;
         }
-        
+
         for (int o = 0; o < I_NR; o++)
         {
-          #ifdef __DEBUG_CHECK_INDICES__      
+          #ifdef __DEBUG_CHECK_INDICES__
             if (o >= D_A2_Tel.rows())
             {
               cout << "CFits::MkSlitFunc: I_IBin = " << I_IBin << ": ERROR: o(=" << o << ") >= D_A2_Tel.rows(=" << D_A2_Tel.rows() << ")" << endl;
@@ -2093,21 +2093,21 @@ namespace pfsDRPStella = pfs::drp::stella;
         #ifdef __DEBUG_MKSLITFUNC__
           cout << "CFits::MkSlitFunc: I_IBin = " << I_IBin << ": telluric = 1: D_A1_SC set to " << D_A1_SC << endl;
         #endif
-        
+
         blitz::Array<double, 1> tempDblVecArr = pfsDRPStella::math::Replicate(1., _trace.getWidth());// I_A2_MinCenMax(0, 2) - I_A2_MinCenMax(0, 0) + 1);
-        #ifdef __DEBUG_CHECK_INDICES__      
+        #ifdef __DEBUG_CHECK_INDICES__
           if (D_A2_SlitFunc_Im_In.cols() != static_cast<int>(tempDblVecArr.size())){
             cout << "CFits::MkSlitFunc: I_IBin = " << I_IBin << ": ERROR: D_A2_SlitFunc_Im_In.cols()=" << D_A2_SlitFunc_Im_In.cols() << " != tempDblVecArr.size()=" << tempDblVecArr.size() << " => Returning FALSE" << endl;
             return false;
           }
         #endif
         blitz::Array<double, 2> *p_d2mata = pfsDRPStella::math::VecArrACrossB(D_A1_SC, tempDblVecArr);
-        
+
         #ifdef __DEBUG_MKSLITFUNC__
           cout << "CFits::MkSlitFunc:  telluric = 1: I_IBin = " << I_IBin << ": I_NR = " << I_NR << ", tempDblVecArr.size() = " << tempDblVecArr.size() << endl;
           cout << "CFits::MkSlitFunc: I_IBin = " << I_IBin << ": telluric = 1: D_A1_SC = " << D_A1_SC << ", VecArrACrossB(D_A1_SC, tempDblVecArr) = " << *p_d2mata << endl;
         #endif
-        #ifdef __DEBUG_CHECK_INDICES__      
+        #ifdef __DEBUG_CHECK_INDICES__
           if (D_A2_SlitFunc_Im_In.rows() != static_cast<int>(D_A1_SC.size()))
           {
             cout << "CFits::MkSlitFunc: I_IBin = " << I_IBin << ": ERROR: D_A2_SlitFunc_Im_In.rows(=" << D_A2_SlitFunc_Im_In.rows() << ") != D_A1_SC.size(=" << D_A1_SC.size() << ")" << endl;
@@ -2136,13 +2136,13 @@ namespace pfsDRPStella = pfs::drp::stella;
 //          p_tempfits->WriteArray();
 //          delete(p_tempfits);
 //        #endif
-        
+
         #ifdef __DEBUG_MKSLITFUNC__
           cout << "CFits::MkSlitFunc: I_IBin = " << I_IBin << ": I_NR(=" << I_NR << endl;
         #endif
       } /// end if (telluric == 1)
       else if (telluric == 3){
-        
+
         I_A2_Mask_Tel.resize(I_A2_Msk.rows(), I_A2_Msk.cols());
         I_A2_Mask_Tel = I_A2_Msk;
         if (max(I_A2_Mask_Tel) > 1){
@@ -2150,26 +2150,26 @@ namespace pfsDRPStella = pfs::drp::stella;
           cout << "CFits::MkSlitFunc: I_IBin = " << I_IBin << ": 0. ERROR: max(I_A2_Mask_Tel = " << I_A2_Mask_Tel << ") = " << max(I_A2_Mask_Tel) << " > 1" << endl;
           return false;
         }
-        
+
         I_A1_UseRow_Tel.resize(I_A2_Msk.rows());
         I_A1_UseRow_Tel = pfsDRPStella::math::IndGenArr(I_A2_Msk.rows());
-        
+
         D_A2_TempIm.resize(D_A2_SlitFunc_Im_In.rows(), D_A2_SlitFunc_Im_In.cols());
-        
+
         blitz::Array<int, 1> I_A1_MaxPos(D_A2_SlitFunc_Im_In.rows());
         I_A1_MaxPos = 0;
         blitz::Array<int, 1> I_A1_MaxPosCol(D_A2_SlitFunc_Im_In.cols());
         I_A1_MaxPosCol = 0;
         blitz::Array<int, 1> *P_I_A1_MaxPosColInd;
         int I_NMax = 0;
-        
+
         D_A1_SFMax.resize(D_A2_SlitFunc_Im_In.rows());
         for (int p=0; p<D_A2_SlitFunc_Im_In.rows(); p++)
         {
           #ifdef __DEBUG_TELLURIC__
             cout << "CFits::MkSlitFunc: I_IBin = " << I_IBin << ": TELLURIC == 3: for(p(=" << p << "); p<D_A2_SlitFunc_Im_In.rows()=" << D_A2_SlitFunc_Im_In.rows() << "; p++): D_A2_SlitFunc_Im_In(p,*) = " << D_A2_SlitFunc_Im_In(p,blitz::Range::all()) << endl;
           #endif
-          
+
           /// Normalize rows of D_A2_SlitFunc_Im_In to 1.
           if (fabs(blitz::sum(D_A2_SlitFunc_Im_In(p, blitz::Range::all()))) < 0.00000000000000001)
             D_A2_SlitFunc_Im_In(p, blitz::Range::all()) = 1.;
@@ -2177,15 +2177,15 @@ namespace pfsDRPStella = pfs::drp::stella;
           #ifdef __DEBUG_TELLURIC__
             cout << "CFits::MkSlitFunc: I_IBin = " << I_IBin << ": TELLURIC == 3: for(p(=" << p << ")...): D_A2_SlitFunc_Im_In(p,*) = " << D_A2_SlitFunc_Im_In(p,blitz::Range::all()) << endl;
           #endif
-          
+
           /// Get maximum of D_A2_SlitFunc_Im_In for every row
           D_A1_SFMax(p) = max(D_A2_SlitFunc_Im_In(p,blitz::Range::all()));
-          
+
           /// Find MaxPos
           I_A1_MaxPosCol = blitz::where(fabs(D_A2_SlitFunc_Im_In(p,blitz::Range::all()) - D_A1_SFMax(p)) < 0.000001,1,0);
           P_I_A1_MaxPosColInd = pfsDRPStella::math::GetIndex(I_A1_MaxPosCol, I_NMax);
           I_A1_MaxPos(p) = (*P_I_A1_MaxPosColInd)(0);
-          
+
           #ifdef __DEBUG_TELLURIC__
             cout << "CFits::MkSlitFunc: I_IBin = " << I_IBin << ": TELLURIC == 3: for(p(=" << p << ")...): D_A1_SFMax(p) = " << D_A1_SFMax(p) << endl;
           #endif
@@ -2205,11 +2205,11 @@ namespace pfsDRPStella = pfs::drp::stella;
           cout << "CFits::MkSlitFunc: I_IBin = " << I_IBin << ": TELLURIC == 3: File " << S_MySF << " written" << endl;
         #endif
         /// /////////////////////////////////////////////////////////////////////////
-        
+
         //      D_A2_SlitFunc_Im_In = D_A2_SlitFunc_Im_In_Max;
-        
+
         /// /////////////////////////////////////////////////////////////////////////
-        
+
         /// TODO: ONLY TAKE HIGHEST VALUES, NOT MIDDLE ONES?!? <- Already did median filtering!
         /// --- remove elements from D_A1_SFMax which are outside the median value +/- 2sigma
         I_A1_UseRow_Tel_AllRows.resize(D_A2_SlitFunc_Im_In.rows());
@@ -2218,23 +2218,23 @@ namespace pfsDRPStella = pfs::drp::stella;
           cout << "CFits::MkSlitFunc: I_IBin = " << I_IBin << ": TELLURIC == 3: while: Median(D_A1_SFMax) = " << pfsDRPStella::math::Median(D_A1_SFMax) << endl;
         #endif
         I_A1_IndA.resize(D_A1_SFMax.size());
-        
-        
+
+
         /** ************************************/
-        
-        
+
+
         double D_MedianSFMax = pfsDRPStella::math::Median(D_A1_SFMax);
         #ifdef __DEBUG_MKSLITFUNC__
           cout << "CFits::MkSlitFunc: D_A1_SFMax = " << D_A1_SFMax << endl;
           cout << "CFits::MkSlitFunc: D_MedianSFMax = " << D_MedianSFMax << endl;
         #endif
         I_A1_IndA = blitz::where((D_A1_SFMax > D_MedianSFMax) & (D_A1_SFMax < 1.5 * D_MedianSFMax),1,0);
-        
-        
+
+
         /** ************************************/
-        
-        
-        
+
+
+
         P_I_A1_Ind = pfsDRPStella::math::GetIndex(I_A1_IndA, nind_temp);
         #ifdef __DEBUG_TELLURIC__
           cout << "CFits::MkSlitFunc: nind_temp = " << nind_temp << endl;
@@ -2257,7 +2257,7 @@ namespace pfsDRPStella = pfs::drp::stella;
         #ifdef __DEBUG_TELLURIC__
           cout << "CFits::MkSlitFunc: I_IBin = " << I_IBin << ": TELLURIC == 3: while: D_A1_SFMax set to " << D_A1_SFMax << endl;
         #endif
-        
+
         I_A1_UseRow_TelTemp.resize(I_A1_UseRow_Tel.size());
         I_A1_UseRow_TelTemp = I_A1_UseRow_Tel;
         I_A1_UseRow_Tel.resize(P_I_A1_Ind->size());
@@ -2273,7 +2273,7 @@ namespace pfsDRPStella = pfs::drp::stella;
         }
         for (int nnn=0; nnn<static_cast<int>(P_I_A1_Ind->size()); nnn++){
           I_A2_Mask_TelTemp((*P_I_A1_Ind)(nnn),blitz::Range::all()) = I_A2_Mask_Tel((*P_I_A1_Ind)(nnn), blitz::Range::all());
-          #ifdef __DEBUG_CHECK_INDICES__      
+          #ifdef __DEBUG_CHECK_INDICES__
             if ((*P_I_A1_Ind)(nnn) >= static_cast<int>(I_A1_UseRow_Tel_AllRows.size())){
               cout << "CFits::MkSlitFunc: I_IBin = " << I_IBin << ": ERROR: (*P_I_A1_Ind)(nnn=" << nnn << ")=" << (*P_I_A1_Ind)(nnn) << ") = " << (*P_I_A1_Ind)(nnn) << " >= I_A1_UseRow_Tel_AllRows.size()=" << I_A1_UseRow_Tel_AllRows.size() << endl;
               return false;
@@ -2285,7 +2285,7 @@ namespace pfsDRPStella = pfs::drp::stella;
           string tempC = debugdir + "P_I_A1_Ind_1.dat";
           pfsDRPStella::utils::WriteArrayToFile(*P_I_A1_Ind, tempC, string("ascii"));
         #endif
-        
+
         blitz::Array<double, 1> D_A1_SFMax_SumRows(D_A2_SlitFunc_Im_In.cols());
         blitz::Array<double, 2> D_A2_SlitFunc_Im_In_Times_Mask(D_A2_SlitFunc_Im_In.rows(), D_A2_SlitFunc_Im_In.cols());
         D_A2_SlitFunc_Im_In_Times_Mask = D_A2_SlitFunc_Im_In * I_A2_Mask_TelTemp;
@@ -2302,7 +2302,7 @@ namespace pfsDRPStella = pfs::drp::stella;
           S_SFMax_SumRows += "IBin" + to_string(I_IBin) + "_IRunTel" + to_string(I_Run_Tel) + ".fits";
           pfsDRPStella::utils::WriteFits(&D_A1_SFMax_SumRows, S_SFMax_SumRows);
         #endif
-        
+
         I_A1_Ind_Last.resize(P_I_A1_Ind->size());
         I_A1_Ind_Last = (*P_I_A1_Ind);
         #ifdef __DEBUG_MKSLITFUNC__
@@ -2327,7 +2327,7 @@ namespace pfsDRPStella = pfs::drp::stella;
         #endif
         delete(P_I_A1_Ind);
       }/// end else if (Telluric == 3)
-      
+
       I_RunMax = 1;
       if (telluric > 2){
         I_RunMax = _fiberTraceExtractionControl->maxIterSky;
@@ -2387,19 +2387,19 @@ namespace pfsDRPStella = pfs::drp::stella;
           pppos++;
           pppos++;
         }
-        
+
 //        args[pppos] = &D_XLow;
 //        pppos++;
-        
+
         D_A1_SP_Out.resize(D_A2_SlitFunc_Im_In_Tel.rows());
         D_A1_SP_Out = 0.;
         args[pppos] = &D_A1_SP_Out;
         pppos++;
-        
+
         I_Stop = 0;
         args[pppos] = &I_Stop;
         pppos++;
-        
+
         I_A2_Mask.resize(I_A2_Msk.rows(), I_A2_Msk.cols());
         I_A2_Mask_Temp.resize(I_A2_Msk.rows(), I_A2_Msk.cols());
         if (telluric < 3){
@@ -2422,7 +2422,7 @@ namespace pfsDRPStella = pfs::drp::stella;
           return false;
         }
         pppos++;
-        
+
         if (telluric > 1)
         {
           D_A1_Sky_Temp.resize(D_A2_SlitFunc_Im_In_Tel.rows());
@@ -2434,7 +2434,7 @@ namespace pfsDRPStella = pfs::drp::stella;
           args[pppos] = &D_A1_SPFit;
           pppos++;
         }
-        
+
         if (ErrorsRead){
           args[pppos] = &D_A2_Err;
           #ifdef __DEBUG_MKSLITFUNC__
@@ -2443,7 +2443,7 @@ namespace pfsDRPStella = pfs::drp::stella;
 //            return false;
           #endif
           pppos++;
-          
+
           D_A1_ErrOut.resize(D_A2_SlitFunc_Im_In_Tel.rows());
           D_A1_ErrOut = 0.;
           args[pppos] = &D_A1_ErrOut;
@@ -2451,7 +2451,7 @@ namespace pfsDRPStella = pfs::drp::stella;
             cout << "CFits::MkSlitFunc: I_IBin = " << I_IBin << ": D_A1_ErrOut = " << D_A1_ErrOut << endl;
           #endif
           pppos++;
-          
+
           D_A1_Errors_SP_Out.resize(D_A2_SlitFunc_Im_In_Tel.rows());
           D_A1_Errors_SP_Out = 0.;
           args[pppos] = &D_A1_Errors_SP_Out;
@@ -2459,7 +2459,7 @@ namespace pfsDRPStella = pfs::drp::stella;
             cout << "CFits::MkSlitFunc: I_IBin = " << I_IBin << ": D_A1_Errors_SP_Out = " << D_A1_Errors_SP_Out << endl;
           #endif
           pppos++;
-          
+
           if (telluric > 1)
           {
             D_A1_ErrSky.resize(D_A2_SlitFunc_Im_In_Tel.rows());
@@ -2468,14 +2468,14 @@ namespace pfsDRPStella = pfs::drp::stella;
             pppos++;
           }
         }
-        
+
         args[pppos] = &I_IBin;
         #ifdef __DEBUG_MKSLITFUNC__
           cout << "CFits::MkSlitFunc: I_IBin = " << I_IBin << endl;//.transpose(blitz::secondDim, blitz::firstDim) << endl;
           cout << "CFits::MkSlitFunc: I_IBin = " << I_IBin << ": args[" << pppos << "] set to " << *((int*)(args[pppos])) << endl;
         #endif
         pppos++;
-        
+
         s_a1(pppos) = "DEBUGFILES_SUFFIX";
         S_SF_DebugFilesSuffix = "_trace";
         if (fiberTraceNumber < 100)
@@ -2490,7 +2490,7 @@ namespace pfsDRPStella = pfs::drp::stella;
           S_SF_DebugFilesSuffix += "_MaxOnly";
         args[pppos] = &S_SF_DebugFilesSuffix;
         pppos++;
-        
+
         cout << "CFits::MkSlitFunc: fiberTraceNumber = " << fiberTraceNumber << ", I_IBin = " << I_IBin << ": starting SlitFunc" << endl;
         #ifdef __DEBUG_MKSLITFUNC__
           if (I_IBin < 100)
@@ -2509,14 +2509,14 @@ namespace pfsDRPStella = pfs::drp::stella;
             tempm -= 10 * tempmt;
           }
           S_TempNum += to_string(tempm);
-        
+
           string S_FName_SF = DEBUGDIR + "SlitFunc_SFIn_in_";
           if (B_MaximaOnly)
             S_FName_SF += "MaxOnly_";
           S_FName_SF += "IBin" + S_TempNum + "_Tel" + to_string(telluric) + "_IRunTel" + to_string(I_Run_Tel) + ".fits";
           pfsDRPStella::utils::WriteFits(&D_A2_SlitFunc_Im_In_Tel,  S_FName_SF);
         #endif
-        
+
         blitz::Array<double, 2> D_A2_SlitFunc_Im_In_SumRows(D_A2_SlitFunc_Im_In.rows(), D_A2_SlitFunc_Im_In.cols());
         D_A2_SlitFunc_Im_In_SumRows = D_A2_SlitFunc_Im_In_Tel * I_A2_Mask_Temp;
         #ifdef __DEBUG_MkSLITFUNC_FILES__
@@ -2566,7 +2566,7 @@ namespace pfsDRPStella = pfs::drp::stella;
             cout << "CFits::MkSlitFunc: !B_MaximaOnly: After SlitFunc: I_A2_Mask = " << I_A2_Mask <<  endl;
           #endif
         }
-        
+
         cout << "CFits::MkSlitFunc: fiberTraceNumber = " << fiberTraceNumber << ", I_IBin = " << I_IBin << ": SlitFunc ready" << endl;
         #ifdef __DEBUG_MKSLITFUNC__
           cout << "CFits::MkSlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_IBin = " << I_IBin << ": D_A2_SFSM = " << D_A2_SFSM << endl;
@@ -2574,7 +2574,7 @@ namespace pfsDRPStella = pfs::drp::stella;
             cout << "CFits::MkSlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_IBin = " << I_IBin << ": After SlitFunc: D_A2_Err = " << D_A2_Err << endl;
         #endif
         if (!B_MaximaOnly){
-          #ifdef __DEBUG_CHECK_INDICES__      
+          #ifdef __DEBUG_CHECK_INDICES__
             if (D_A3_SFSM.cols() != D_A2_SFSM.cols()){
               cout << "CFits::MkSlitFunc: I_IBin = " << I_IBin << ": ERROR: D_A3_SFSM.cols(=" << D_A3_SFSM.cols() << ") != D_A2_SFSM.cols(=" << D_A2_SFSM.cols() << ")" << endl;
               return false;
@@ -2585,12 +2585,12 @@ namespace pfsDRPStella = pfs::drp::stella;
             }
           #endif
           D_A3_SFSM(blitz::Range(I_A2_IBinBoundY(I_IBin, 0) - I_A2_IBinBoundY(0,0), I_A2_IBinBoundY(I_IBin, 1) - I_A2_IBinBoundY(0,0)), blitz::Range::all(), I_IBin) = D_A2_SFSM;
-          
+
           D_A2_SP(blitz::Range(I_A2_IBinBoundY(I_IBin, 0) - I_A2_IBinBoundY(0,0), I_A2_IBinBoundY(I_IBin, 1) - I_A2_IBinBoundY(0,0)), I_IBin) = D_A1_SP;
-          
+
           if (ErrorsRead)
             D_A2_Errors_SP_Out(blitz::Range(I_A2_IBinBoundY(I_IBin, 0) - I_A2_IBinBoundY(0,0), I_A2_IBinBoundY(I_IBin, 1) - I_A2_IBinBoundY(0,0)), I_IBin) = D_A1_Errors_SP_Out;
-          
+
           ///TODO: use iterator
           for (int i_row=0; i_row<I_A2_Mask.rows(); i_row++){
             if (max(I_A2_Mask(i_row, blitz::Range::all())) == 1){
@@ -2614,23 +2614,23 @@ namespace pfsDRPStella = pfs::drp::stella;
           cout << "CFits::MkSlitFunc: I_IBin = " << I_IBin << ": fiberTraceNumber = " << fiberTraceNumber << ", IBin = " << I_IBin << ": D_A1_SP set to " << D_A1_SP << endl;
           cout << "CFits::MkSlitFunc: I_IBin = " << I_IBin << ": fiberTraceNumber = " << fiberTraceNumber << ", IBin = " << I_IBin << ": I_A2_Mask_Temp set to " << I_A2_Mask_Temp << endl;
           cout << "CFits::MkSlitFunc: I_IBin = " << I_IBin << ": SlitFunc ready" << endl;
-        
+
           cout << "CFits::MkSlitFunc: I_IBin = " << I_IBin << ": After SlitFunc: D_A1_SP = " << D_A1_SP << endl;
-        
+
           cout << "CFits::MkSlitFunc: I_IBin = " << I_IBin << ": After SlitFunc: D_A2_SFSM = " << D_A2_SFSM << endl;
-        
+
           cout << "CFits::MkSlitFunc: I_IBin = " << I_IBin << ": After SlitFunc: D_A2_SFSM = Im_Out = " << D_A2_SFSM << endl;
           string S_FNameOut = debugdir + "SlitFunc_SFSMOut_out" + S_TempNum + S_SF_DebugFilesSuffix + ".fits";
           pfsDRPStella::utils::WriteFits(&D_A2_SFSM,  S_FNameOut);
         #endif
-          
+
         if (telluric == 3){/// Subtract minimum of each row > 0. from Slit Function
           double D_MinSF = 0.;
           for (int q=0; q<D_A2_SFSM.rows(); q++){
-            
-            
+
+
             /// TODO: Only include pixels which are not marked as bad (old strategy with some border pixels equal to zero)
-            
+
             D_MinSF = min(D_A2_SFSM(q, blitz::Range::all()));
             D_A2_SFSM(q, blitz::Range::all()) = D_A2_SFSM(q, blitz::Range::all()) - D_MinSF;
             double D_Sum_D_A2_SFSM = blitz::sum(D_A2_SFSM(q,blitz::Range::all()));
@@ -2652,7 +2652,7 @@ namespace pfsDRPStella = pfs::drp::stella;
             pfsDRPStella::utils::WriteFits(&D_A2_SFSM, S_FName);
           #endif
         }/// end if (telluric == 3)
-        
+
         pfsDRPStella::math::Double(I_A2_Mask, D_A2_Mask);
         if (fabs(mean(I_A2_Mask) - mean(D_A2_Mask)) > 0.000001){
           cout << "CFits::MkSlitFunc: ERROR: mean(I_A2_Mask)(=" << mean(I_A2_Mask) << ") != mean(D_A2_Mask)(=" << mean(D_A2_Mask) << ")" << endl;
@@ -2664,11 +2664,11 @@ namespace pfsDRPStella = pfs::drp::stella;
           cout << "CFits::MkSlitFunc: I_IBin = " << I_IBin << ": I_Run_Tel = " << I_Run_Tel << ": mean(D_A2_SlitFunc_Im_In_Tel) / 1000. = " << mean(D_A2_SlitFunc_Im_In_Tel) / 1000. << endl;
         #endif
         D_A2_SFOld = D_A2_SFSM;
-        
+
         #ifdef __DEBUG_MKSLITFUNC__
           cout << "CFits::MkSlitFunc: I_IBin = " << I_IBin << ": Before Fit: 1. D_A2_Err = " << D_A2_Err << endl;
         #endif
-        #ifdef __DEBUG_CHECK_INDICES__      
+        #ifdef __DEBUG_CHECK_INDICES__
           if (I_A2_IBinBoundY(I_IBin, 1) - I_A2_IBinBoundY(I_IBin, 0) + 1 != I_A2_Mask.rows()){
             cout << "CFits::MkSlitFunc: I_IBin = " << I_IBin << ": ERROR: I_A2_IBound(I_IBin, 1) - I_A2_IBound(I_IBin, 0) + 1(=" << I_A2_IBinBoundY(I_IBin, 1) - I_A2_IBinBoundY(I_IBin, 0) + 1 << ") != I_A2_Mask.rows())(=" << I_A2_Mask.rows() << ")" << endl;
             return false;
@@ -2685,8 +2685,8 @@ namespace pfsDRPStella = pfs::drp::stella;
           cout << "CFits::MkSlitFunc: I_IBin = " << I_IBin << ": I_Run_Tel = " << I_Run_Tel << ": I_IBin = " << I_IBin << ", I_A2_Mask = " << I_A2_Mask.rows() << " x " << I_A2_Mask.cols() << endl;
           cout << "CFits::MkSlitFunc: Before Fit: 2. D_A2_Err = " << D_A2_Err << endl;
         #endif
-        
-        #ifdef __DEBUG_CHECK_INDICES__      
+
+        #ifdef __DEBUG_CHECK_INDICES__
           if (I_A2_IBinBoundY(I_IBin, 0) < 0){
             cout << "CFits::MkSlitFunc: I_IBin = " << I_IBin << ": ERROR: I_A2_IBound(I_IBin=" << I_IBin << ", 0) = " << I_A2_IBinBoundY(I_IBin, 0) << " < 0 => Return false" << endl;
             return false;
@@ -2724,7 +2724,7 @@ namespace pfsDRPStella = pfs::drp::stella;
         #ifdef __DEBUG_MKSLITFUNC__
           cout << "CFits::MkSlitFunc: I_IBin = " << I_IBin << ": I_A2_Mask_AllRows(blitz::Range(" << I_A2_IBinBoundY(I_IBin, 0) << ", " << I_A2_IBinBoundY(I_IBin, 1) << "), blitz::Range::all()) set to I_A2_Mask = " << I_A2_Mask << endl;
         #endif
-        
+
         D_A2_Err.resize(D_A2_Err_Temp.rows(), D_A2_Err_Temp.cols());
         D_A2_Err = D_A2_Err_Temp;
         #ifdef __DEBUG_MKSLITFUNC__
@@ -2768,14 +2768,14 @@ namespace pfsDRPStella = pfs::drp::stella;
             I_Run_Tel = I_RunMax;
           }
         }/// end if ((I_Run_Tel == (I_RunMax-1)) || (D_SFDev < mean(D_A2_SFSM) / 5000.))
-        
+
         if (telluric == 3){
           blitz::Array<string, 1> S_A1_Args_Fit(4);
           void **PP_Args_Fit;
           PP_Args_Fit = (void**)malloc(sizeof(void*) * 4);
           S_A1_Args_Fit = " ";
-          
-          #ifdef __DEBUG_CHECK_INDICES__      
+
+          #ifdef __DEBUG_CHECK_INDICES__
             if (D_A2_SlitFuncOrig.rows() != D_A2_Err.rows()){
               cout << "CFits::MkSlitFunc: ERROR: D_A2_SlitFuncOrig.rows() != D_A2_Err.rows()" << endl;
               return false;
@@ -2788,8 +2788,8 @@ namespace pfsDRPStella = pfs::drp::stella;
               cout << "CFits::MkSlitFunc: I_IBin = " << I_IBin << ": Just before Fit: D_A2_Err = " << D_A2_Err << endl;
             #endif
           }
-          
-          #ifdef __DEBUG_CHECK_INDICES__      
+
+          #ifdef __DEBUG_CHECK_INDICES__
             if (D_A2_SlitFuncOrig.rows() != I_A2_Mask.rows()){
               cout << "CFits::MkSlitFunc: ERROR: D_A2_SlitFuncOrig.rows() != I_A2_Mask.rows()" << endl;
               return false;
@@ -2801,25 +2801,25 @@ namespace pfsDRPStella = pfs::drp::stella;
           #ifdef __DEBUG_MKSLITFUNC__
             cout << "CFits::MkSlitFunc: I_IBin = " << I_IBin << ": Just before Fit: I_A2_Mask = " << I_A2_Mask << endl;
           #endif
-          
+
           S_A1_Args_Fit(2) = "SIGMA_OUT";
           blitz::Array<double, 2> D_A2_Sigma_Fit(D_A2_SFSM.rows(),2);
           D_A2_Sigma_Fit = 0.;
           PP_Args_Fit[2] = &D_A2_Sigma_Fit;
 
-          ///TODO: change to function parameter          
+          ///TODO: change to function parameter
           double D_Reject = 5.;
           S_A1_Args_Fit(3) = "REJECT_IN";
           PP_Args_Fit[3] = &D_Reject;
-          
+
           /// Use SlitFunc_Im_In for fit, and SlitFunc_im_in_tel for SlitFunc()
           #ifdef __DEBUG_MKSLITFUNC__
             cout << "CFits::MkSlitFunc: I_IBin = " << I_IBin << ": min(D_A2_SlitFunc_Im_In_Tel) = " << min(D_A2_SlitFunc_Im_In_Tel) << endl;
             cout << "CFits::MkSlitFunc: I_IBin = " << I_IBin << ": Just before Fit: D_A2_SFSM = " << D_A2_SFSM << endl;
             cout << "CFits::MkSlitFunc: I_IBin = " << I_IBin << ": Just before Fit: D_A2_SlitFuncOrig = " << D_A2_SlitFuncOrig << endl;
           #endif
-          
-          #ifdef __DEBUG_CHECK_INDICES__      
+
+          #ifdef __DEBUG_CHECK_INDICES__
             if (D_A2_SlitFuncOrig.rows() != D_A2_SFSM.rows()){
               cout << "CFits::MkSlitFunc: ERROR: D_A2_SlitFuncOrig.rows() != D_A2_SFSM.rows()" << endl;
               return false;
@@ -2846,14 +2846,14 @@ namespace pfsDRPStella = pfs::drp::stella;
             #endif
             D_A1_Sky_Temp = blitz::where(D_A1_Sky_Temp < 0., 0., D_A1_Sky_Temp);
             D_A1_Sky = D_A1_Sky_Temp;
-            
+
 //            #ifdef __DEBUG_MKSLITFUNC__
 //              blitz::Array<double, 2> D_A2_MaskTimesSFOrig(D_A2_SlitFuncOrig.rows(), D_A2_SlitFuncOrig.cols());
 //              D_A2_MaskTimesSFOrig = D_A2_SlitFuncOrig * I_A2_Mask;
 //              string S_MaskFitOut = "SFOrigTimesMaskAfterFit" + CS_SF_DebugFilesSuffix + ".fits";
 //              pfsDRPStella::utils::WriteFits(&D_A2_MaskTimesSFOrig, S_MaskFitOut);
 //            #endif
-            
+
             ///Remove sky from D_A2_SlitFunc_Im_In_Tel???
             double D_ImMin;
             for (int tttt=0; tttt<D_A2_SlitFunc_Im_In_Tel.rows(); tttt++){
@@ -2884,12 +2884,12 @@ namespace pfsDRPStella = pfs::drp::stella;
                 #endif
               }
             }
-            
-            
+
+
             #ifdef __DEBUG_MKSLITFUNC__
               cout << "CFits::MkSlitFunc: I_IBin = " << I_IBin << ": I_Run_Tel = " << I_Run_Tel << ": after sky subtraction: min(D_A2_SlitFunc_Im_In_Tel) = " << min(D_A2_SlitFunc_Im_In_Tel) << endl;
             #endif
-            
+
             #ifdef __DEBUG_MKSLITFUNC__
               string sPFit = debugdir + "D_A1_SPFit_";
               if (B_MaximaOnly)
@@ -2906,11 +2906,11 @@ namespace pfsDRPStella = pfs::drp::stella;
               S_SlitFunc_Im_In_Tel += to_string(I_Run_Tel) + ".fits";
               pfsDRPStella::utils::WriteFits(&D_A2_SlitFunc_Im_In_Tel, S_SlitFunc_Im_In_Tel);
             #endif
-            
+
             if (ErrorsRead){
               D_A1_ErrSky.resize(D_A1_SPFit.size());
               D_A1_ErrSky(blitz::Range::all()) = D_A2_Sigma_Fit(blitz::Range::all(),1);
-            
+
               D_A1_ErrOut.resize(D_A1_SPFit.size());
               D_A1_ErrOut(blitz::Range::all()) = D_A2_Sigma_Fit(blitz::Range::all(),0);
             }
@@ -2922,9 +2922,9 @@ namespace pfsDRPStella = pfs::drp::stella;
         #endif
         I_Run_Tel++;
       } while (I_Run_Tel < I_RunMax);
-      
+
       for (int q=0; q < static_cast<int>(D_A1_SP.size()); q++){
-        
+
         #ifdef __DEBUG_MKSLITFUNC__
           cout << "CFits::MkSlitFunc: I_IBin = " << I_IBin << ": I_A2_Msk(q=" << q << ", blitz::Range::all()) = " << I_A2_Msk(q,blitz::Range::all()) << endl;
           cout << "CFits::MkSlitFunc: I_IBin = " << I_IBin << ": max(I_A2_Msk(q=" << q << ", blitz::Range::all())) = " << max(I_A2_Msk(q,blitz::Range::all())) << endl;
@@ -2939,15 +2939,15 @@ namespace pfsDRPStella = pfs::drp::stella;
         return false;
       }
     } /// end for (int I_IBin = 0; I_IBin < I_NBin; I_IBin++) /// Loop thru sf regions
-    
+
     D_A1_Sky.resize(I_A2_IBinBoundY(I_NBins-1,1) - I_A2_IBinBoundY(0,0) + 1);
     D_A1_ErrSky.resize(I_A2_IBinBoundY(I_NBins-1,1) - I_A2_IBinBoundY(0,0) + 1);
     D_A1_SP.resize(I_A2_IBinBoundY(I_NBins-1,1) - I_A2_IBinBoundY(0,0) + 1);
-    
+
     D_A1_Errors_SP_Out.resize(I_A2_IBinBoundY(I_NBins-1,1) - I_A2_IBinBoundY(0,0) + 1);
-    
+
     D_A2_SF.resize(I_A2_IBinBoundY(I_NBins-1,1) - I_A2_IBinBoundY(0,0) + 1, _trace.getWidth());
-    #ifdef __DEBUG_CHECK_INDICES__      
+    #ifdef __DEBUG_CHECK_INDICES__
       if (static_cast<int>(D_A1_SP.size()) != D_A2_SP.rows()){
         cout << "CFits::MkSlitFunc: ERROR: D_A1_SP.size(=" << D_A1_SP.size() << ") != D_A2_SP.rows(= " << D_A2_SP.rows() << ")" << endl;
         return false;
@@ -2964,13 +2964,13 @@ namespace pfsDRPStella = pfs::drp::stella;
     #endif
     if (I_NBins == 1){
       D_A1_SP = D_A2_SP(blitz::Range::all(), 0);
-      
+
       if (telluric == 1){
         D_A1_Sky = D_A2_Sky(blitz::Range::all(), 0);
         if (ErrorsRead)
           D_A1_ErrSky = D_A2_ErrSky(blitz::Range::all(), 0);
       }
-      
+
       D_A2_SF = D_A3_SFSM(blitz::Range::all(), blitz::Range::all(), 0);
     }
     else{
@@ -2992,14 +2992,14 @@ namespace pfsDRPStella = pfs::drp::stella;
         }
         if ((I_Bin == 0) && (i_row < I_BinHeight/2)){
           D_A1_SP(i_row) = D_A2_SP(i_row, 0);
-          
+
           D_A2_SF(i_row, blitz::Range::all()) = D_A3_SFSM(i_row, blitz::Range::all(), 0);
           if (telluric == 1){
             D_A1_Sky(i_row) = D_A2_Sky(i_row, 0);
             if (ErrorsRead)
               D_A1_ErrSky(i_row) = D_A2_ErrSky(i_row, 0);
           }
-          
+
           if (ErrorsRead){
             D_A1_Errors_SP_Out(i_row) = D_A2_Errors_SP_Out(i_row, 0);
           }
@@ -3026,7 +3026,7 @@ namespace pfsDRPStella = pfs::drp::stella;
             cout << "CFits::MkSlitFunc: i_row = " << i_row << ": D_Weight_Bin0 = " << D_Weight_Bin0 << endl;
             cout << "CFits::MkSlitFunc: i_row = " << i_row << ": D_Weight_Bin1 = " << D_Weight_Bin1 << endl;
           #endif
-          #ifdef __DEBUG_CHECK_INDICES__      
+          #ifdef __DEBUG_CHECK_INDICES__
             if (i_row >= D_A2_SP.rows()){
               cout << "CFits::MkSlitFunc: ERROR: i_row = " << i_row << " >= D_A2_SP.rows() = " << D_A2_SP.rows() << " => Returning FALSE" << endl;
               return false;
@@ -3043,11 +3043,11 @@ namespace pfsDRPStella = pfs::drp::stella;
           #ifdef __DEBUG_MKSLITFUNC__
             cout << "CFits::MkSlitFunc: i_row = " << i_row << ": I_Bin = " << I_Bin << ": D_A1_SP(" << i_row << ") set to " << D_A1_SP(i_row) << endl;
           #endif
-          
+
           if (ErrorsRead){
             D_A1_Errors_SP_Out(i_row) = (D_A2_Errors_SP_Out(i_row, I_Bin) * D_Weight_Bin0) + (D_A2_Errors_SP_Out(i_row, I_Bin + 1) * D_Weight_Bin1);
           }
-          
+
           #ifdef __DEBUG_MKSLITFUNC__
             cout << "CFits::MkSlitFunc: D_A3_SFSM(i_row, *, I_Bin) = " << D_A3_SFSM(i_row, blitz::Range::all(), I_Bin) << ", D_A3_SFSM(i_row, *, I_Bin+1) = " << D_A3_SFSM(i_row, blitz::Range::all(), I_Bin+1) << endl;
           #endif
@@ -3058,9 +3058,9 @@ namespace pfsDRPStella = pfs::drp::stella;
           #ifdef __DEBUG_MKSLITFUNC__
             cout << "CFits::MkSlitFunc: i_row = " << i_row << ": I_Bin = " << I_Bin << ": D_A2_SF(" << i_row << ", *) set to " << D_A2_SF(i_row, blitz::Range::all()) << endl;
           #endif
-          
+
           if (telluric == 1){
-            #ifdef __DEBUG_CHECK_INDICES__      
+            #ifdef __DEBUG_CHECK_INDICES__
               if (i_row >= D_A1_Sky.rows()){
                 cout << "CFits::MkSlitFunc: ERROR: i_row >= D_A1_Sky.rows()=" << D_A1_Sky.rows() << " => Returning FALSE" << endl;
                 return false;
@@ -3070,10 +3070,10 @@ namespace pfsDRPStella = pfs::drp::stella;
             D_A1_ErrSky(i_row) = (D_A2_ErrSky(i_row, I_Bin) * D_Weight_Bin0) + (D_A2_ErrSky(i_row, I_Bin + 1) * D_Weight_Bin1);
             cout << "CFits::MkSlitFunc: i_row = " << i_row << ": I_Bin = " << I_Bin << ": D_A1_Sky(" << i_row << ") set to " << D_A1_Sky(i_row) << endl;
           }
-          
+
           I_Row_Rel++;
         }
-        
+
         if (I_Row_Rel == (I_BinHeight/2)){
           I_Bin++;
           I_Row_Rel = 0;
@@ -3086,7 +3086,7 @@ namespace pfsDRPStella = pfs::drp::stella;
     #ifdef __DEBUG_MKSLITFUNC__
       cout << "CFits::MkSlitFunc: D_A2_SF set to " << D_A2_SF << endl;
     #endif
-      
+
     ///populate _spectrum, _spectrumVariance, _background, _backgroundVariance
     _spectrum.resize(_trace.getHeight());
     _spectrumVariance.resize(_trace.getHeight());
@@ -3098,24 +3098,24 @@ namespace pfsDRPStella = pfs::drp::stella;
       _background[ind] = static_cast<float>(D_A1_Sky(ind));
       _backgroundVariance[ind] = static_cast<float>(D_A1_ErrSky(ind));
     }
-    
+
 /*    D_A1_SPFit.resize(D_A1_SP.size());
-    #ifdef __DEBUG_CHECK_INDICES__      
+    #ifdef __DEBUG_CHECK_INDICES__
       if (_fiberTraceFunction.yHigh - _fiberTraceFunction.yLow + 1 != D_A1_SP.size()){
         cout << "CFits::MkSlitFunc: ERROR: D_A1_SP.size(=" << D_A1_SP.size() << ") is wrong" << endl;
         return false;
       }
     #endif
-    
+
     blitz::Array<string, 1> S_A1_Args_Fit(3);
     void **PP_Args_Fit;
     PP_Args_Fit = (void**)malloc(sizeof(void*) * 3);
     S_A1_Args_Fit = " ";
-    
+
     #ifdef __DEBUG_MKSLITFUNC__
       cout << "CFits::MkSlitFunc: D_A2_Err = " << D_A2_Err << endl;
     #endif
-    
+
     blitz::Array<double, 2> D_A2_ErrAp(I_A2_IBinBoundY(I_NBins-1, 1) - I_A2_IBinBoundY(0,0) + 1, D_A2_Err_AllRows.cols());
     D_A2_ErrAp = 0.;
     if (ErrorsRead){
@@ -3126,7 +3126,7 @@ namespace pfsDRPStella = pfs::drp::stella;
         cout << "CFits::MkSlitFunc: D_A2_ErrAp = " << D_A2_ErrAp << endl;
       #endif
     }
-    
+
     S_A1_Args_Fit(1) = "MASK_INOUT";
     blitz::Array<int, 2> I_A2_MaskAp(I_A2_IBinBoundY(I_NBins-1, 1) - I_A2_IBinBoundY(0,0) + 1, I_A2_Mask_AllRows.cols());
     I_A2_MaskAp = I_A2_Mask_AllRows(blitz::Range(I_A2_IBinBoundY(0,0), I_A2_IBinBoundY(I_NBins-1, 1)), blitz::Range::all());
@@ -3134,11 +3134,11 @@ namespace pfsDRPStella = pfs::drp::stella;
     #ifdef __DEBUG_MKSLITFUNC__
       cout << "I_A2_MaskAp = " << I_A2_MaskAp << endl;
     #endif
-    
+
     S_A1_Args_Fit(2) = "SIGMA_OUT";
     blitz::Array<double, 2> D_A2_Sigma_Fit(D_A2_SF.rows(),2);
     PP_Args_Fit[2] = &D_A2_Sigma_Fit;
-    
+
     blitz::Array<double, 1> D_A1_SkyFit(D_A1_SPFit.size());
     D_A1_SkyFit = 0.;
     bool B_WithSky = false;
@@ -3176,22 +3176,22 @@ namespace pfsDRPStella = pfs::drp::stella;
     #ifdef __DEBUG_MkSLITFUNC_FILES__
       string S_MaskFinalOut = "Mask_Final" + S_SF_DebugFilesSuffix + ".fits";
       pfsDRPStella::utils::WriteFits(&I_A2_MaskAp, S_MaskFinalOut);
-      
+
       S_MaskFinalOut = "D_A2_CCD_Ap" + CS_SF_DebugFilesSuffix + ".fits";
       pfsDRPStella::utils::WriteFits(&D_A2_CCD_Ap, S_MaskFinalOut);
-      
+
       cout << "Just after Fit: D_A1_SPFit = " << D_A1_SPFit << endl;
       cout << "Just after Fit: D_A1_SkyFit = " << D_A1_SkyFit << endl;
       cout << "Just after Fit: D_A2_SF = " << D_A2_SF << endl;
     #endif
-      
-    #ifdef __DEBUG_CHECK_INDICES__      
+
+    #ifdef __DEBUG_CHECK_INDICES__
       if (I_A2_IBinBoundY(I_NBins-1, 1) - I_A2_IBinBoundY(0,0) + 1 != static_cast<int>(D_A1_SPFit.size())){
         cout << "CFits::MkSlitFunc: ERROR: I_A2_IBound(I_NBin-1, 1)(=" << I_A2_IBinBoundY(I_NBins-1, 1) << ") - I_A2_IBound(0,0)(=" << I_A2_IBinBoundY(0,0) << ") + 1 != D_A1_SPFit.size()(=" << D_A1_SPFit.size() << ")" << endl;
         return false;
       }
     #endif
-      
+
 //    blitz::Array<double, 1> D_A1_BLZ(D_A1_SP.size());
 //    D_A1_BLZ = D_A1_SP;
 //    #ifdef __DEBUG_MKSLITFUNC__
@@ -3217,7 +3217,7 @@ namespace pfsDRPStella = pfs::drp::stella;
 //    D_A1_SkyFitError = 0.;
 //    blitz::Array<double, 1> D_A1_SkyError(_trace.getHeight());
 //    D_A1_SkyError = 0.;
-  */  
+  */
 
     ///TODO: Safe errors and mask
 /*    blitz::Array<double, 2> D_A2_ErrArray(_trace.getHeight(), _trace.getWidth());
@@ -3242,18 +3242,18 @@ namespace pfsDRPStella = pfs::drp::stella;
     ndarray::Array<unsigned short, 2, 1> ndarrayMask(pfsDRPStella::utils::copyBlitzToNdarray(U_A2_Mask));
     afwImage::Mask<unsigned short> maskImage(ndarrayMask);
     *_trace.getMask() = maskImage;
-    
+
 //    if (ErrorsRead){
 //      D_A1_Errors_Ec(blitz::Range::all()) = D_A1_Errors_SP_Out;
 //    }
-      
+
 //    blitz::Array<double, 1> D_A1_BLZSmooth(D_A1_BLZ.size());
 //    D_A1_BLZSmooth = 0.;
 //    if (pfsDRPStella::utils::KeyWord_Set(S_A1_Args_In, "FLAT") >= 0)
 //    {
 //      D_A1_BLZSmooth = pfsDRPStella::math::MedianVec(D_A1_BLZ, static_cast<int>(_fiberTraceExtractionControl->lambdaSP));
 //    }
-      
+
 //    blitz::Array<double, 1> D_A1_Blaze(_trace.getHeight());
 //    if ((I_Pos = pfsDRPStella::utils::KeyWord_Set(S_A1_Args_In, "FLAT")) >= 0)
 //    {
@@ -3265,7 +3265,7 @@ namespace pfsDRPStella = pfs::drp::stella;
 //    }
 //    #ifdef __DEBUG_MKSLITFUNC__
 //      cout << "CFits::MkSlitFunc: P_D_A2_Blaze(fiberTraceNumber=" << fiberTraceNumber << ", *) set to " << D_A1_Blaze(fiberTraceNumber, blitz::Range::all()) << endl;
-//      
+//
 //      string sD_A2_SlitFTemp = debugdir + "D_A1_SPFit_Tel" + to_string(telluric) + ".dat";
 //      pfsDRPStella::utils::WriteArrayToFile(D_A1_SPFit, sD_A2_SlitFTemp, string("ascii"));
 //      cout << "CFits::MkSlitFunc: " << sD_A2_SlitFTemp << " written" << endl;
@@ -3273,12 +3273,12 @@ namespace pfsDRPStella = pfs::drp::stella;
 
 //    D_A2_RecArray = blitz::where(D_A2_RecArray < 0., 0., D_A2_RecArray);
 //    D_A2_RecFitArray = blitz::where(D_A2_RecFitArray < 0., 0., D_A2_RecFitArray);
-  
+
 //    #ifdef __DEBUG_MKSLITFUNC__
 //      cout << "CFits::MkSlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": D_A2_SF = " << D_A2_SF << endl;
 //      cout << "CFits::MkSlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": D_A1_SP = " << D_A1_SP << endl;
 //    #endif
-      
+
     //    D_A1_DXScatter.resize(0);
     I_A2_IBinBoundY.resize(0);
     D_A1_ICol.resize(0);
@@ -3307,7 +3307,7 @@ namespace pfsDRPStella = pfs::drp::stella;
     I_A1_ITel.resize(0);
     I_A1_IX.resize(0);
 //    delete P_D_A1_BLZSmooth;
-  
+
 //    free(PP_Args_Fit);
     free(PP_Args_Median);
     free(args);
@@ -3315,12 +3315,12 @@ namespace pfsDRPStella = pfs::drp::stella;
     cout << "MkSlitFunc: fiberTraceNumber " << fiberTraceNumber << " finished" << endl;
     return true;
   }
-  
+
   /**
    * SlitFunc
    * SlitFunc
    **/
-  template<typename ImageT, typename MaskT, typename VarianceT> 
+  template<typename ImageT, typename MaskT, typename VarianceT>
   bool pfsDRPStella::FiberTrace<ImageT, MaskT, VarianceT>::SlitFunc(const blitz::Array<double, 2> &D_A2_ImM,
                                                                     unsigned int maxIterSig_In,
                                                                     const blitz::Array<double, 1> &xCentersPixelFraction_In, //: in
@@ -3356,7 +3356,7 @@ namespace pfsDRPStella = pfs::drp::stella;
     /**
      *  USAGE: SlitFunc(XCenters, SP, SF, NArgs, (*(new CString("Mask")), *(new CString(JBadVecArr)), ...), (<CFits*>P_Mask, <long>JBadVecArr, ...)
      **/
-    
+
     /**
      *  Array Akl                      -> blitz::Array<double, 2> AKLArr
      *  Array bkl (size=[N,2*OverSample+1])-> blitz::Array<double, 2> BKLArr
@@ -3412,7 +3412,7 @@ namespace pfsDRPStella = pfs::drp::stella;
      *  Vector##Vector             -> VecArrACrossB()
      *  Matrix##Vector             -> MatrixTimesVecArr() <Result: cols == 1>
      **/
-    
+
 //    if (!_isImageSet){
 //      cout << "FiberTrace::SlitFunc: ERROR: _image is not set" << endl;
 //      return false;
@@ -3421,13 +3421,13 @@ namespace pfsDRPStella = pfs::drp::stella;
       cout << "SlitFunc: D_A2_ImM = " << D_A2_ImM << endl;
       cout << "SlitFunc: xCentersPixelFraction_In = " << xCentersPixelFraction_In << endl;
     #endif
-    string debugFilesSuffix = "";    
+    string debugFilesSuffix = "";
     string S_FileName_ImIn = " ";
-    
+
     blitz::Array<double, 1> *P_D_A1_SPErrOut = new blitz::Array<double, 1>(D_A2_ImM.rows());
     blitz::Array<double, 1> *P_D_A1_SPOut = new blitz::Array<double, 1>(D_A2_ImM.rows());
     std::string S_SP = DEBUGDIR + std::string("SPVecArr1Final");
-    
+
     profile_Out.resize(D_A2_ImM.rows(), D_A2_ImM.cols());
     profile_Out = 0.;
     int I_Bin = 0;
@@ -3443,7 +3443,7 @@ namespace pfsDRPStella = pfs::drp::stella;
 //      p_testfitsP->WriteArray();
 //      delete(p_testfitsP);
 //    #endif
-    
+
     blitz::Array<double,2> D_A2_Im(D_A2_ImM.rows(), D_A2_ImM.cols());
     D_A2_Im = D_A2_ImM;
 
@@ -3460,147 +3460,147 @@ namespace pfsDRPStella = pfs::drp::stella;
     int I_NRows_Im = D_A2_Im.rows();
     int I_NCols_Im = D_A2_Im.cols();
     double d_sump;
-    
+
     blitz::Array<int, 1> *P_I_A1_JBadVecArr = new blitz::Array<int, 1>(1);
     (*P_I_A1_JBadVecArr) = 0;
-    
+
     blitz::Array<double, 1> a(1);
     a = 0.;
-    
+
     blitz::Array<double, 2> AKLArr(1,1);
     AKLArr = 0.;
-    
+
     blitz::Array<double, 1> b(1);
     b = 0.;
-    
+
     blitz::Array<double, 2> BKLArr(1,1);
     BKLArr = 0.;
-    
+
     blitz::Array<int, 1> BKLIndVecArr(1);
     BKLIndVecArr = 0;
-    
+
     blitz::Array<double, 1> BLVecArr(1);
     BLVecArr = 0.;
-    
+
     blitz::Array<double, 1> c(1);
     c = 0.;
-    
+
     blitz::Array<double, 1> D_A1_Ind(1);
     D_A1_Ind = 0.;
-    
+
     blitz::Array<double, 2> D_A2_AKLT(1,1);
     D_A2_AKLT = 0.;
-    
+
     blitz::Array<int, 2> I_A2_Indarr_AKL;
-    
+
     blitz::Array<double, 2> D_A2_OT(1,1);
     D_A2_OT = 0.;
-    
+
     blitz::Array<double, 2> D_A2_SPVecTimesBKLArr(1, 1);
     D_A2_SPVecTimesBKLArr = 0.;
-    
+
     blitz::Array<int, 1> IFirstVecArr(1);
     IFirstVecArr = 0;
-    
+
 //    blitz::Array<int, 1> ILastVecArr(1);
 //    ILastVecArr = 0;
-    
+
     blitz::Array<double, 2> *P_D_A2_Prof_Out = new blitz::Array<double, 2> (I_NRows_Im, I_NCols_Im);
     (*P_D_A2_Prof_Out) = 0.;
-    
+
     blitz::Array<double, 2> *P_D_A2_Im_Out = new blitz::Array<double, 2> (I_NRows_Im, I_NCols_Im);
     (*P_D_A2_Im_Out) = 0.;
-    
+
     blitz::Array<int, 1> IndVecArr(1);
     IndVecArr = 0;
-    
+
     blitz::Array<double, 2> OArr(1,1);
     OArr = 0.;
-    
+
     blitz::Array<int, 1> OIndVecArr(1);
     OIndVecArr = 0;
-    
+
     blitz::Array<int, 1> OLIndVecArr(1);
     OLIndVecArr = 0;
-    
+
     blitz::Array<double, 1> OOVecArr(I_NRows_Im);
     OOVecArr = 0.;
-    
+
     blitz::Array<double, 1> OmegaVecArr(1);
     OmegaVecArr = 0.;
-    
+
     blitz::Array<double, 2> OmegaArr(1,1);
     OmegaArr = 0.;
-    
+
     blitz::Array<double, 2> D_A2_TempAA(1, 1);
     D_A2_TempAA = 0.;
-    
+
     blitz::Array<double, 1> D_A1_TempDVecArr(1);
     D_A1_TempDVecArr = 0.;
-    
+
     blitz::Array<double, 1> D_A1_TempDVecArr_Err(1);
     D_A1_TempDVecArr_Err = 0.;
-    
+
     blitz::Array<double, 1> D_A1_TempDVecArrAA(1);
     D_A1_TempDVecArrAA = 0.;
-    
+
     blitz::Array<double, 1> RVecArr(1);
     RVecArr = 0.;
-    
+
     blitz::Array<double, 1> RVecArr_Err(1);
     RVecArr_Err = 0.;
-    
+
     blitz::Array<double, 1> SFVecArr(I_NCols_Im);
     blitz::Array<double, 1> SPOldVecArr(1);
     SPOldVecArr = 0.;
-    
+
     blitz::Array<double, 2> SSFArr(1,1);
     SSFArr = 0.;
-    
+
     blitz::Array<double, 2> TempArray(1,1);
     TempArray = 0.;
-    
+
     blitz::Array<double, 1> TempDVecArr(1);
     TempDVecArr = 0.;
-    
+
     blitz::Array<double, 1> TempDVecArrB(1);
     TempDVecArrB = 0.;
-    
+
     blitz::Array<double, 1> TempDVecArrC(1);
     TempDVecArrC = 0.;
-    
+
     blitz::Array<double, 1> TempDVecArrD(1);
     TempDVecArrD = 0.;
-    
+
     blitz::Array<double, 2> TempDArr(1,1);
     TempDArr = 0.;
-    
+
     blitz::Array<int, 1> TempIVecArr(1);
     TempIVecArr = 0;
-    
+
     blitz::Array<int, 2> *P_I_A2_Mask = new blitz::Array<int, 2>(1,1);
     blitz::Array<int, 2> *P_I_A2_MaskIn;
-    
+
     blitz::Array<int, 1> UseRowVecArr(1);
     UseRowVecArr = 0;
-    
+
     blitz::Array<int, 1> IVecArr(1);
     IVecArr = 0;
-    
+
     blitz::Array<double, 1> XVecArr(1);
     XVecArr = 0.;
-    
+
     blitz::Array<double, 1> XCenVecArr(1);
     XCenVecArr = 0.;
-    
+
     blitz::Array<double, 2> D_A2_XX(1,1);
     D_A2_XX = 0.;
     blitz::Array<double, 1> D_A1_XX(1);
     D_A1_XX = 0.;
-    
+
     blitz::Array<double, 2> D_A2_Sky(_ccdHeight, _ccdWidth);
     D_A2_Sky = 0.;
-    
+
     blitz::Array<double, 1> D_A1_MySF(1);
     blitz::Array<double, 1> D_A1_MySP(1);
     blitz::Array<double, 1> *P_D_A1_MySky = new blitz::Array<double,1>(1);
@@ -3619,11 +3619,11 @@ namespace pfsDRPStella = pfs::drp::stella;
     blitz::Array<double, 1> D_A1_Probability_LinFit(1);
     blitz::Array<double, 2> D_A2_Sigma_LinFit(1,1);
     blitz::Array<double, 3> D_A3_CoVar_LinFit(1,1,1);
-    
+
     blitz::Array<string, 1> S_A1_Args_Fit(10);
     S_A1_Args_Fit = " ";
     void **PP_Args_Fit = (void**)malloc(sizeof(void*) * 10);
-    
+
     double Weight, Norm, Dev, tmpdbl, Lambda, XXX;
     double Lamb_SF = _fiberTraceExtractionControl->lambdaSF;
     double D_WingSmoothFactor = _fiberTraceExtractionControl->wingSmoothFactor;
@@ -3635,11 +3635,11 @@ namespace pfsDRPStella = pfs::drp::stella;
       cout << "SlitFunc: Lamb_SF = " << Lamb_SF << endl;
       cout << "SlitFunc: Lamb_SP = " << Lamb_SP << endl;
       cout << "SlitFunc: D_WingSmoothFactor = " << D_WingSmoothFactor << endl;
-    #endif    
-    
+    #endif
+
     std::string tempFileName(" ");
     std::string debugdir = DEBUGDIR;
-    
+
     int I_NInd;
     int fiberTraceNumber = 0;
     Pos = pfsDRPStella::utils::KeyWord_Set(S_A1_Args_In, "FIBERTRACENUMBER");
@@ -3647,12 +3647,12 @@ namespace pfsDRPStella = pfs::drp::stella;
     {
       fiberTraceNumber = *(unsigned int*)ArgV_In[Pos];
     }
-    
+
     bool ErrorsRead = true;
-    
+
     blitz::firstIndex i;
     blitz::secondIndex j;
-    
+
     Pos = pfsDRPStella::utils::KeyWord_Set(S_A1_Args_In, "DEBUGFILES_SUFFIX");
     if (Pos >= 0)
     {
@@ -3665,7 +3665,7 @@ namespace pfsDRPStella = pfs::drp::stella;
       std::string sFileName_XCentersIn = DEBUGDIR + std::string("SlitFunc_XCentersIn") + debugFilesSuffix + std::string(".dat");
       pfsDRPStella::utils::WriteArrayToFile(xCentersPixelFraction_In, sFileName_XCentersIn, std::string("ascii"));
     #endif
-    
+
     Pos = pfsDRPStella::utils::KeyWord_Set(S_A1_Args_In, "I_BIN");
     if (Pos >= 0)
     {
@@ -3674,7 +3674,7 @@ namespace pfsDRPStella = pfs::drp::stella;
         cout << "CFits::SlitFunc: I_Bin set to " << I_Bin << endl;
       #endif
     }
-    
+
 //    Pos = pfsDRPStella::utils::KeyWord_Set(S_A1_Args_In, "XLOW");
 //    if (Pos >= 0)
 //    {
@@ -3715,7 +3715,7 @@ namespace pfsDRPStella = pfs::drp::stella;
         (*P_D_A1_SPErrOut) = 0.;
       }
     }/// end if (this->ErrorsRead)
-    
+
     Pos = pfsDRPStella::utils::KeyWord_Set(S_A1_Args_In, "SP_OUT");
     if (Pos >= 0)
     {
@@ -3724,7 +3724,7 @@ namespace pfsDRPStella = pfs::drp::stella;
       P_D_A1_SPOut->resize(D_A2_Im.rows());
       (*P_D_A1_SPOut) = 0.;
     }
-    
+
     Pos = pfsDRPStella::utils::KeyWord_Set(S_A1_Args_In, "SFO_OUT");
     if (Pos >= 0)
     {
@@ -3733,7 +3733,7 @@ namespace pfsDRPStella = pfs::drp::stella;
       P_D_A1_SFO_Out->resize(D_A2_Im.cols() * overSample_In);
       (*P_D_A1_SFO_Out) = 0.;
     }
-    
+
     blitz::Array<double, 1> SFVecArrTemp(1);
     SFVecArrTemp = 1.;
     blitz::Array<double, 1> *P_D_A1_XCorProfOut;
@@ -3752,7 +3752,7 @@ namespace pfsDRPStella = pfs::drp::stella;
     else{
       P_D_A1_XCorProfOut = new blitz::Array<double, 1>(I_NRows_Im);
     }
-    
+
     XCenVecArr.resize(xCentersPixelFraction_In.size());
     XCenVecArr = xCentersPixelFraction_In;
     #ifdef __DEBUG_SLITFUNC_XX__
@@ -3768,7 +3768,7 @@ namespace pfsDRPStella = pfs::drp::stella;
     #ifdef __DEBUG_SLITFUNC__
       cout << "CFits::SlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": overSample_In = " << overSample_In << endl;
     #endif
-    
+
     if ((Pos = pfsDRPStella::utils::KeyWord_Set(S_A1_Args_In, "MASK")) >= 0)
     {
       P_I_A2_MaskIn = (blitz::Array<int, 2>*)ArgV_In[Pos];
@@ -3783,7 +3783,7 @@ namespace pfsDRPStella = pfs::drp::stella;
       }
       if (P_I_A2_Mask->size() != 1)
       {
-        #ifdef __DEBUG_CHECK_INDICES__      
+        #ifdef __DEBUG_CHECK_INDICES__
           if (P_I_A2_Mask->rows() != I_NRows_Im ||
               P_I_A2_Mask->cols() != I_NCols_Im)
           {
@@ -3794,7 +3794,7 @@ namespace pfsDRPStella = pfs::drp::stella;
         #ifdef __DEBUG_SLITFUNC_N__
           cout << "CFits::SlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": KeyWord_Set(MASK): (*P_I_A2_Mask) set to " << (*P_I_A2_Mask) << endl;
         #endif
-        
+
       }/// end if (P_TempMask->size() != 1)
     }/// end if ((Pos = pfsDRPStella::utils::KeyWord_Set(S_A1_Args_In, "MASK")) >= 0)
     ///else
@@ -3814,9 +3814,9 @@ namespace pfsDRPStella = pfs::drp::stella;
       #ifdef __DEBUG_SLITFUNC__
         cout << "CFits::SlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": !KeyWord_Set(MASK): (*P_I_A2_Mask) set to " << (*P_I_A2_Mask) << endl;
       #endif
-      
+
     }/// end if (Pos < 0 || (Pos >= 0 && P_I_A2_Mask->size() == 1))
-    
+
     if ((Pos = pfsDRPStella::utils::KeyWord_Set(S_A1_Args_In, "PROF_OUT")) >= 0)
     {
       if (P_D_A2_Prof_Out != NULL)
@@ -3871,20 +3871,20 @@ namespace pfsDRPStella = pfs::drp::stella;
       double D_Dev_New = 0.;
     #endif
     blitz::Array<double, 2> D_A2_Mask(2,2);
-    
+
     blitz::Array<int, 1> I_A1_Mask(1);
     I_A1_Mask = 0.;
-    
+
     blitz::Array<double, 1> D_A1_Mask(1);
     D_A1_Mask = 0.;
-    
+
     string S_MySF = "";
     string S_MySFTemp = "";
-    
+
     #ifdef __DEBUG_TELLURIC__
       int I_Iter_Sky_Max=5;
     #endif
-    
+
     int I_Telluric = 0;
     for ( int fooInt = FiberTraceExtractionControl::NONE; fooInt != FiberTraceExtractionControl::NVALUES; fooInt++ ){
       if (_fiberTraceExtractionControl->telluric.compare(_fiberTraceExtractionControl->TELLURIC_NAMES[fooInt]) == 0){
@@ -3902,7 +3902,7 @@ namespace pfsDRPStella = pfs::drp::stella;
         cout << "CFits::SlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": TELLURIC == 2: S_A1_Args_In(0) = " << S_A1_Args_In(0) << endl;
         cout << "CFits::SlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": TELLURIC == 2: S_A1_Args_In(1) = " << S_A1_Args_In(1) << endl;
       #endif
-      
+
       /// take pointer to sky from argument for calculations
       Pos = pfsDRPStella::utils::KeyWord_Set(S_A1_Args_In, "SKY");
       if (Pos >= 0)
@@ -3912,7 +3912,7 @@ namespace pfsDRPStella = pfs::drp::stella;
       }
       P_D_A1_MySky->resize(D_A2_Im.rows());
       (*P_D_A1_MySky) = 0.;
-      
+
       if (ErrorsRead)
       {
         Pos = pfsDRPStella::utils::KeyWord_Set(S_A1_Args_In, "ERR_SKY");
@@ -3924,7 +3924,7 @@ namespace pfsDRPStella = pfs::drp::stella;
         P_D_A1_ErrSky->resize(D_A2_Im.rows());
         (*P_D_A1_ErrSky) = 0.;
       }
-      
+
       D_A2_MySF.resize(I_NRows_Im, I_NCols_Im);
       #ifdef __DEBUG_TELLURIC__
         cout << "CFits::SlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": TELLURIC = 2: D_A2_MySF.size() = " << D_A2_MySF << endl;
@@ -3940,10 +3940,10 @@ namespace pfsDRPStella = pfs::drp::stella;
         #ifdef __DEBUG_TELLURIC__
           cout << "CFits::SlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": TELLURIC == 2: for(p(=" << p << "); p<D_A2_MySF.rows()=" << D_A2_MySF.rows() << "; p++): D_A2_Im(p,*) = " << D_A2_Im(p,blitz::Range::all()) << endl;
         #endif
-        
+
         /// Set MySF to 0. where < 3.*(-RON)
         D_A2_MySF(p, blitz::Range::all()) = blitz::where(D_A2_MySF(p, blitz::Range::all()) < (0. - (3. * _fiberTraceExtractionControl->ccdReadOutNoise)), 0., D_A2_MySF(p, blitz::Range::all()));
-        
+
         /// Normalize rows of D_A2_MySF to 1.
         if (blitz::sum(D_A2_MySF(p, blitz::Range::all())) < 0.00000000000000001)
           D_A2_MySF(p, blitz::Range::all()) = 1.;
@@ -3951,10 +3951,10 @@ namespace pfsDRPStella = pfs::drp::stella;
         #ifdef __DEBUG_TELLURIC__
           cout << "CFits::SlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": TELLURIC == 2: for(p(=" << p << ")...): D_A2_MySF(p,*) = " << D_A2_MySF(p,blitz::Range::all()) << endl;
         #endif
-        
+
         /// Get maximum of D_A2_MySF for every row
         D_A1_SFMax(p) = max(D_A2_MySF(p,blitz::Range::all()));
-        
+
         #ifdef __DEBUG_TELLURIC__
           cout << "CFits::SlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": TELLURIC == 2: for(p(=" << p << ")...): D_A1_SFMax(p) = " << D_A1_SFMax(p) << endl;
         #endif
@@ -3964,7 +3964,7 @@ namespace pfsDRPStella = pfs::drp::stella;
         pfsDRPStella::utils::WriteFits(&D_A2_MySF, S_MySF);
         cout << "CFits::SlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": TELLURIC == 2: File " << S_MySF << " written" << endl;
       #endif
-      
+
       /// remove elements with dev > 3. * stddev from D_A1_SFMax
       double D_DevOld = 0.;
       double D_DevTemp = 0.;
@@ -3976,7 +3976,7 @@ namespace pfsDRPStella = pfs::drp::stella;
       {
         D_A2_MySF_Max(blitz::Range::all(), nn) = pfsDRPStella::math::MedianVec(D_A2_MySF(blitz::Range::all(), nn), 5);
       }
-      
+
       /// --- re-normalize D_A2_MySF_Max
       for (int nn=0; nn < I_NRows_Im; nn++)
       {
@@ -3989,7 +3989,7 @@ namespace pfsDRPStella = pfs::drp::stella;
         pfsDRPStella::utils::WriteFits(&D_A2_MySF_Max, S_MySF);
         cout << "CFits::SlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": TELLURIC == 2: File " << S_MySF << " written" << endl;
       #endif
-      
+
       /// TODO: ONLY TAKE HIGHEST VALUES, NOT MIDDLE ONES?!? <- Already did median filtering!
       /// --- remove elements from D_A1_SFMax which are outside the median value +/- 2sigma
       do
@@ -4001,18 +4001,18 @@ namespace pfsDRPStella = pfs::drp::stella;
           cout << "CFits::SlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": TELLURIC == 2: while: Median(D_A1_SFMax) = " << pfsDRPStella::math::Median(D_A1_SFMax) << endl;
         #endif
         I_A1_IndA.resize(D_A1_SFMax.size());
-        
-        
+
+
         /** ************************************/
-        
-        
+
+
         I_A1_IndA = blitz::where(abs(D_A1_SFMax - pfsDRPStella::math::Median(D_A1_SFMax)) < 2. * D_DevTemp,1,0);
-        
-        
+
+
         /** ************************************/
-        
-        
-        
+
+
+
         blitz::Array<int,1> *P_I_A1_Ind = pfsDRPStella::math::GetIndex(I_A1_IndA, nind_temp);
         #ifdef __DEBUG_TELLURIC__
         cout << "CFits::SlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": TELLURIC == 2: while: I_A1_IndA set to " << I_A1_IndA << endl;
@@ -4032,7 +4032,7 @@ namespace pfsDRPStella = pfs::drp::stella;
         D_A2_MySF_MaxTemp = D_A2_MySF_Max;
         D_A2_MySF_Max.resize(P_I_A1_Ind->size(), I_NCols_Im);
         for (int nnn=0; nnn<static_cast<int>(P_I_A1_Ind->size()); nnn++){
-          #ifdef __DEBUG_CHECK_INDICES__      
+          #ifdef __DEBUG_CHECK_INDICES__
             if (((*P_I_A1_Ind)(nnn) < 0) || ((*P_I_A1_Ind)(nnn) >= D_A2_MySF_MaxTemp.rows())){
               cout << "CFits::SlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": ERROR: ((*P_I_A1_Ind)(nnn=" << nnn << ")(=" << (*P_I_A1_Ind)(nnn) << ") < 0) || ((*P_I_A1_Ind)(nnn) >= D_A2_MySF_MaxTemp.rows(=" << D_A2_MySF_MaxTemp.rows() << "))" << endl;
               delete(P_I_A1_Ind);
@@ -4050,10 +4050,10 @@ namespace pfsDRPStella = pfs::drp::stella;
         #endif
         delete(P_I_A1_Ind);
       } while (D_DevTemp - D_DevOld > D_DevTemp / 100.);
-      
+
       /// Get maximum of all maxima
       D_SFMax = max(D_A1_SFMax);
-      
+
       /// Get index positions of D_A1_SFMax where D_A1_SFMax > D_SFMax - 10%
       I_A1_SFMaxInd.resize(D_A1_SFMax.size());
       I_A1_SFMaxInd = blitz::where(D_A1_SFMax > D_SFMax - (D_SFMax/50.),1,0);
@@ -4061,7 +4061,7 @@ namespace pfsDRPStella = pfs::drp::stella;
         cout << "CFits::SlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": TELLURIC == 2: D_SFMax = " << D_SFMax << endl;
       #endif
       P_I_A1_SFMaxInd = pfsDRPStella::math::GetIndex(I_A1_SFMaxInd, I_NGood);
-      
+
       /// Create SF array of the highest Slit Functions
       D_A2_MySF_MaxTemp.resize(D_A2_MySF_Max.rows(), I_NCols_Im);
       D_A2_MySF_MaxTemp = D_A2_MySF_Max;
@@ -4077,7 +4077,7 @@ namespace pfsDRPStella = pfs::drp::stella;
         cout << "CFits::SlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": TELLURIC == 2: File " << S_MySF << " written" << endl;
       #endif
       delete(P_I_A1_SFMaxInd);
-      
+
       /// Take median        or sum???           of all rows of D_A2_MySF_Max to define initial SlitFunction
       /// TODO: Switch D_A1_MySF to D_A2_MySF consistently
       D_A1_MySF.resize(I_NCols_Im);
@@ -4108,11 +4108,11 @@ namespace pfsDRPStella = pfs::drp::stella;
         pfsDRPStella::utils::WriteFits(&D_A2_MySF, S_MySF);
         cout << "CFits::SlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": TELLURIC == 2: File " << S_MySF << " written" << endl;
       #endif
-      
+
       /// TODO: CHECK: are all D_A1_MySF.size() the same during one execution?
       SFVecArr.resize(D_A1_MySF.size());
       SFVecArr = D_A1_MySF;
-      
+
       argpos = 0;
       if (ErrorsRead)
       {
@@ -4123,24 +4123,24 @@ namespace pfsDRPStella = pfs::drp::stella;
         PP_Args_Fit[argpos] = P_D_A2_Errors;
         argpos++;
       }
-      
+
       S_A1_Args_Fit(argpos) = "CHISQ_OUT";
       PP_Args_Fit[argpos] = &D_A1_ChiSquare_LinFit;
       argpos++;
-      
+
       S_A1_Args_Fit(argpos) = "SIGMA_OUT";
       PP_Args_Fit[argpos] = &D_A2_Sigma_LinFit;
       argpos++;
-      
+
       S_A1_Args_Fit(argpos) = "Q_OUT";
       PP_Args_Fit[argpos] = &D_A1_Probability_LinFit;
       argpos++;
-      
+
       D_A2_ImBak = D_A2_Im;
       #ifdef __DEBUG_TELLURIC__
         cout << "CFits::SlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": TELLURIC == 2: D_A2_Im = " << D_A2_Im << endl;
       #endif
-      
+
       D_A1_Sky = 1.;
       #ifdef __DEBUG_TELLURIC__
         cout << "CFits::SlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": TELLURIC == 2: D_A2_Im = " << D_A2_Im << endl;
@@ -4170,10 +4170,10 @@ namespace pfsDRPStella = pfs::drp::stella;
         cout << "CFits::SlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": TELLURIC == 2: after Fit: D_A1_Probability_LinFit = " << D_A1_Probability_LinFit << endl;
         cout << "CFits::SlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": TELLURIC == 2: after Fit: D_A2_Sigma_LinFit = " << D_A2_Sigma_LinFit << endl;
       #endif
-      
+
       spectrum_Out.resize(D_A1_MySP.size());
       spectrum_Out = D_A1_MySP;
-      
+
       /// Save initial sky to P_D_A1_MySky
       (*P_D_A1_MySky) = D_A1_Sky;
       #ifdef __DEBUG_TELLURIC__
@@ -4187,7 +4187,7 @@ namespace pfsDRPStella = pfs::drp::stella;
         /// subtract sky from D_A2_Im
         D_A2_Im(p,blitz::Range::all()) -= D_A1_Sky(p);
         D_A2_Im(p,blitz::Range::all()) = blitz::where(D_A2_Im(p,blitz::Range::all()) < 0. - (3. * _fiberTraceExtractionControl->ccdReadOutNoise), 0., D_A2_Im(p,blitz::Range::all()));
-        
+
         /// Add sky errors to error image
         if (ErrorsRead)
           (*P_D_A2_Errors)(p, blitz::Range::all()) += D_A2_Sigma_LinFit(p,1);
@@ -4198,21 +4198,21 @@ namespace pfsDRPStella = pfs::drp::stella;
         cout << "CFits::SlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": TELLURIC == 2: File " << S_MySF << " written" << endl;
       #endif
     }///end if (I_Telluric == 2)
-    
+
     int Pos_Stop = pfsDRPStella::utils::KeyWord_Set(S_A1_Args_In, "STOP");
     int I_Stop = 0;
     if (Pos_Stop >= 0)
     {
       I_Stop = *(int*)(ArgV_In[Pos_Stop]);
     }
-    
+
     for (int p=0; p < D_A2_Im.rows(); p++)
     {
       D_A2_Im(p,blitz::Range::all()) = blitz::where(D_A2_Im(p,blitz::Range::all()) < (0.-(3.*_fiberTraceExtractionControl->ccdReadOutNoise)), 0., D_A2_Im(p,blitz::Range::all()));
     }
 
     Weight = 1. / (double)overSample_In;
-    
+
     /// Set OIndVecArr to blitz::Array<int,1>(overSample_In + 1) with values = index * (overSample_In + 2)
     UseRowVecArr = i;
     OIndVecArr.resize(overSample_In + 1);
@@ -4223,13 +4223,13 @@ namespace pfsDRPStella = pfs::drp::stella;
       cout << "CFits::SlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": UseRowVecArr = " << UseRowVecArr << endl;
       cout << "CFits::SlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": OIndVecArr = " << OIndVecArr << endl;
     #endif
-    
+
     /// Set N to (number of columns in Im_In * Oversample) + OverSample + 1 (number of sub columns)
     I_NPixSlitF = ((I_NCols_Im + 1) * overSample_In) + 1;
     #ifdef __DEBUG_SLITFUNC_N__
       cout << "CFits::SlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": I_NPixSlitF set to " << I_NPixSlitF << endl;
     #endif
-    
+
     /// Get Bad-pixel mask
     if ((Pos = pfsDRPStella::utils::KeyWord_Set(S_A1_Args_In, "BAD")) >= 0)
     {
@@ -4260,7 +4260,7 @@ namespace pfsDRPStella = pfs::drp::stella;
       #ifdef __DEBUG_SLITFUNC_N__
         cout << "CFits::SlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": D_A2_Im = " << D_A2_Im << endl;
       #endif
-      
+
       blitz::Array<double, 1> D_A1_XCentersUseRow(UseRowVecArr.size());
       if (!pfsDRPStella::math::GetSubArrCopy(XCenVecArr, UseRowVecArr, D_A1_XCentersUseRow)){
         cout << "CFits::SlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": GetSubArrCopy(XCenVecArr, UseRowVecArr) returned FALSE" << endl;
@@ -4271,7 +4271,7 @@ namespace pfsDRPStella = pfs::drp::stella;
       #ifdef __DEBUG_SLITFUNC_N__
         cout << "CFits::SlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": XCenVecArr = " << XCenVecArr << endl;
       #endif
-      
+
       blitz::Array<int, 2> I_A2_MaskUseRow(UseRowVecArr.size(), P_I_A2_Mask->cols());
       if (!pfsDRPStella::math::GetSubArrCopy(*P_I_A2_Mask, UseRowVecArr, 0, I_A2_MaskUseRow)){
         cout << "CFits::SlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": GetSubArrCopy(*P_I_A2_Mask, UseRowVecArr) returned FALSE" << endl;
@@ -4291,21 +4291,21 @@ namespace pfsDRPStella = pfs::drp::stella;
         cout << "CFits::SlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": !KeyWord_Set(USE_ROW): UseRowVecArr set to " << UseRowVecArr << endl;
       #endif
     }
-    
+
     if (blitz::sum((*P_I_A2_Mask)) < 1)
     {
       cout << "CFits::SlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": ERROR: blitz::sum((*P_I_A2_Mask)=" << (*P_I_A2_Mask) << ") == 0" << endl;
       return false;
     }
-    
+
     /** Set Norm to number of pixels in Im_In devided by blitz::sum((*P_I_A2_Mask)) **/
     Norm = (I_NRows_Im * I_NCols_Im) / blitz::sum((*P_I_A2_Mask));
     #ifdef __DEBUG_SLITFUNC_N__
       cout << "CFits::SlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": Norm set to " << Norm << endl;
     #endif
-    
+
     blitz::Array<double, 2> D_A2_SPTemp(spectrum_Out.size(), 1);
-    
+
     blitz::Array<double, 2> D_A2_ImMedian(D_A2_Im.rows(), D_A2_Im.cols());
     D_A2_ImMedian = D_A2_Im;
 
@@ -4393,7 +4393,7 @@ namespace pfsDRPStella = pfs::drp::stella;
           string S_ImTimesMask = DEBUGDIR + std::string("PiskunovOrig_ImMTimesMask") + debugFilesSuffix + std::string(".fits");
           pfsDRPStella::utils::WriteFits(&D_A2_ImTimesMask_Guess, S_ImTimesMask);
         #endif
-      
+
         #ifdef __DEBUG_SLITFUNC_PISKUNOV__
           S_SP = DEBUGDIR + std::string("spectrum_Out1") + debugFilesSuffix + std::string(".fits");
           D_A2_SPTemp.resize(spectrum_Out.size(), 1);
@@ -4415,7 +4415,7 @@ namespace pfsDRPStella = pfs::drp::stella;
         #ifdef __DEBUG_SLITFUNC_N__
           cout << "CFits::SlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": D_A2_ImTimesMask = " << D_A2_ImTimesMask << endl;
         #endif
-      
+
         /// MINE:
         for (int p = 0; p < I_NRows_Im; p++)
         {
@@ -4425,7 +4425,7 @@ namespace pfsDRPStella = pfs::drp::stella;
           else
             D_A2_ImTimesMask(p, blitz::Range::all()) = 0.;
         }
-      
+
         SFVecArr.resize(I_NCols_Im);
         SFVecArr = blitz::sum(D_A2_ImTimesMask(j, i), j); /** Initial guess for the **/
         if (abs(blitz::sum(SFVecArr)) < 0.000000001)
@@ -4435,14 +4435,14 @@ namespace pfsDRPStella = pfs::drp::stella;
           #endif
           SFVecArr = 1.;
         }
-      
+
         if (blitz::sum(SFVecArr) < 0.00000000000000001)
           SFVecArr = 1.;
         SFVecArr /= blitz::sum(SFVecArr);           /** Slit Function **/
         #ifdef __DEBUG_SLITFUNC_N__
           cout << "CFits::SlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": 3.    Slit Function SFVecArr = SFVecArr / (blitz::sum(SFVecArr) = " << blitz::sum(SFVecArr) << ") = " << SFVecArr << endl;
         #endif
-      
+
         /** Initial guess for the spectrum **/
         TempArray.resize(I_NRows_Im, I_NCols_Im);
         TempArray = D_A2_Im;
@@ -4451,7 +4451,7 @@ namespace pfsDRPStella = pfs::drp::stella;
           cout << "CFits::SlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": (*P_I_A2_Mask) = " << (*P_I_A2_Mask) << endl;
           cout << "CFits::SlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": TempArray = ImM*(*P_I_A2_Mask) = " << TempArray << endl;
         #endif
-      
+
         /** weight rows of im_in with slit function, sum to estimate the spectrum, multiply with Norm, take median over 5 pixels, normalize to blitz::sum(row)=1, and multiply with sum of im_in **/
         blitz::Array<double, 1> d1rep = pfsDRPStella::math::Replicate(1., I_NRows_Im);
         blitz::Array<double, 2> *p_d2mat = pfsDRPStella::math::VecArrACrossB(d1rep, SFVecArr);
@@ -4460,10 +4460,10 @@ namespace pfsDRPStella = pfs::drp::stella;
           cout << "CFits::SlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": TempArray = TempArray*(VecArrACrossB(Replicate(1.,D_A2_Im.rows(=" << I_NRows_Im << "))=" << d1rep << ", SFVecArr(=" << SFVecArr << "))=" << *p_d2mat << ") = " << TempArray << endl;
         #endif
         delete p_d2mat;
-      
+
         spectrum_Out.resize(I_NRows_Im);
         spectrum_Out = blitz::sum(TempArray, j);
-      
+
         #ifdef __DEBUG_SLITFUNC_FILES__
           S_SP = DEBUGDIR + std::string("spectrum_Out1") + debugFilesSuffix + std::string(".fits");
           D_A2_SPTemp.resize(spectrum_Out.size(), 1);
@@ -4474,7 +4474,7 @@ namespace pfsDRPStella = pfs::drp::stella;
           cout << "CFits::SlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": -3. spectrum_Out (set to blitz::sum(D_A2_Im * (*P_I_A2_Mask), j)) = " << spectrum_Out << endl;
         #endif
         spectrum_Out *= Norm;
-      
+
         #ifdef __DEBUG_SLITFUNC_FILES__
           S_SP = DEBUGDIR + std::string("spectrum_Out1TimesNorm") + debugFilesSuffix + std::string(".fits");
           D_A2_SPTemp.resize(spectrum_Out.size(), 1);
@@ -4484,7 +4484,7 @@ namespace pfsDRPStella = pfs::drp::stella;
         #ifdef __DEBUG_SLITFUNC_N__
           cout << "CFits::SlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": -2. spectrum_Out (*Norm=" << Norm << ") = " << spectrum_Out << endl;
         #endif
-      
+
         spectrum_Out = blitz::where(spectrum_Out < 0., 0., spectrum_Out);
         #ifdef __DEBUG_SLITFUNC_N__
           cout << "CFits::SlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": -1. spectrum_Out (*Norm=" << Norm << ") = " << spectrum_Out << endl;
@@ -4493,14 +4493,14 @@ namespace pfsDRPStella = pfs::drp::stella;
         #ifdef __DEBUG_SLITFUNC_N__
           cout << "CFits::SlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": 0. spectrum_Out (set to /=blitz::sum(spectrum_Out)) = " << spectrum_Out << endl;
         #endif
-          
+
         #ifdef __DEBUG_SLITFUNC_FILES__
           S_SP = DEBUGDIR + std::string("spectrum_Out1DivBySum") + debugFilesSuffix+ std::string(".fits");
           D_A2_SPTemp.resize(spectrum_Out.size(), 1);
           D_A2_SPTemp(blitz::Range::all(), 0) = spectrum_Out;
           pfsDRPStella::utils::WriteFits(&D_A2_SPTemp, S_SP);
         #endif
-      
+
         /// used to be before spectrum_Out /= blitz::sum(spectrum_Out)
         if (abs(blitz::sum(spectrum_Out)) < 0.000000001)
         {
@@ -4510,9 +4510,9 @@ namespace pfsDRPStella = pfs::drp::stella;
         #ifdef __DEBUG_SLITFUNC_N__
           cout << "CFits::SlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": blitz::sum(spectrum_Out) =" << blitz::sum(spectrum_Out) << endl;
         #endif
-      
+
         spectrum_Out *= blitz::sum(D_A2_Im * (*P_I_A2_Mask));
-      
+
         #ifdef __DEBUG_SLITFUNC_FILES__
           S_SP = DEBUGDIR + std::string("spectrum_Out1TimesSumImTimesMask") + debugFilesSuffix + std::string(".fits");
           D_A2_SPTemp.resize(spectrum_Out.size(), 1);
@@ -4525,7 +4525,7 @@ namespace pfsDRPStella = pfs::drp::stella;
       #endif
     }/// end if (I_Telluric != 2)
 //    return false;
-    
+
     /** Add too noisy pixels to bad-pixel mask **/
     Pos = pfsDRPStella::utils::KeyWord_Set(S_A1_Args_In, "NOISE");
     blitz::Array<double, 2> D_A2_TempBB(P_I_A2_Mask->rows(), P_I_A2_Mask->cols());
@@ -4536,7 +4536,7 @@ namespace pfsDRPStella = pfs::drp::stella;
       #ifdef __DEBUG_SLITFUNC_N__
         cout << "CFits::SlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": KeyWord_Set(NOISE): Dev set to " << Dev << endl;
       #endif
-      
+
     }
     if (Pos < 0 || (Pos >= 0 && abs(Dev) < 0.00000000000000001))
     {
@@ -4550,7 +4550,7 @@ namespace pfsDRPStella = pfs::drp::stella;
       cout << "CFits::SlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": 1. spectrum_Out = " << spectrum_Out << endl;
       cout << "CFits::SlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": SFVecArr = " << SFVecArr << endl;
     #endif
-    #ifdef __DEBUG_CHECK_INDICES__      
+    #ifdef __DEBUG_CHECK_INDICES__
       if (D_A2_Im.cols() != static_cast<int>(SFVecArr.size())){
         cout << "CFits::SlitFunc: ERROR: D_A2_Im.cols() != SFVecArr.size() => Returning FALSE" << endl;
         return false;
@@ -4606,12 +4606,12 @@ namespace pfsDRPStella = pfs::drp::stella;
     #endif
     delete(p_SFArr);
     free(PP_Void_FitSig);
-      
+
     SFVecArr = blitz::where(SFVecArr < 0., 0., SFVecArr);
     #ifdef __DEBUG_SLITFUNC_N__
       cout << "CFits::SlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": 2c.    Slit Function SFVecArr = SFVecArr / (blitz::sum(SFVecArr) = " << blitz::sum(SFVecArr) << ") = " << SFVecArr << endl;
     #endif
-      
+
     if (blitz::sum(SFVecArr) < 0.00000000000000001)
       SFVecArr = 1.;
     SFVecArr /= blitz::sum(SFVecArr);           /** Slit Function **/
@@ -4635,7 +4635,7 @@ namespace pfsDRPStella = pfs::drp::stella;
     for (unsigned int iter_sig = 0; iter_sig < maxIterSig_In; iter_sig++)
     {
       pfsDRPStella::math::Double((*P_I_A2_Mask), D_A2_Mask);
-      #ifdef __DEBUG_CHECK_INDICES__      
+      #ifdef __DEBUG_CHECK_INDICES__
         if (P_I_A2_Mask->rows() != D_A2_Mask.rows()){
           cout << "CFits::SlitFunc: ERROR: 1. P_I_A2_Mask->rows() != D_A2_Mask.rows()" << endl;
           return false;
@@ -4664,9 +4664,9 @@ namespace pfsDRPStella = pfs::drp::stella;
       else{
         cout << "CFits::SlitFunc: KeyWord_Set(NOISE): D_A1_Dev = " << D_A1_Dev << endl;
       }
-        
+
       pfsDRPStella::math::Double((*P_I_A2_Mask), D_A2_Mask);
-      #ifdef __DEBUG_CHECK_INDICES__      
+      #ifdef __DEBUG_CHECK_INDICES__
         if (P_I_A2_Mask->rows() != D_A2_Mask.rows()){
           cout << "CFits::SlitFunc: ERROR: 0. P_I_A2_Mask->rows() != D_A2_Mask.rows()" << endl;
           return false;
@@ -4676,7 +4676,7 @@ namespace pfsDRPStella = pfs::drp::stella;
         D_A2_TempBB = fabs(D_A2_Mask * (*p_tempMat));
         cout << " iter_sig = " << iter_sig << ": fabs(P_I_A2_Mask(= " << *P_I_A2_Mask << ") * p_tempMat(= " << *p_tempMat << ")) = " << D_A2_TempBB << ", D_A1_Dev = " << D_A1_Dev << endl;
       #endif
-        
+
       for (int i_col = 0; i_col < D_A2_Im.cols(); i_col++){
         #ifdef __DEBUG_SLITFUNC_N__
           cout << "CFits::SlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": I_Iter_SF = " << I_Iter_SF << ": iter_sig = " << iter_sig << ": (*p_tempMatB)(blitz::Range::all(), i_col=" << i_col << ") = " << (*p_tempMatB)(blitz::Range::all(), i_col) << endl;
@@ -4695,7 +4695,7 @@ namespace pfsDRPStella = pfs::drp::stella;
         cout << "CFits::SlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": I_Iter_SF = " << I_Iter_SF << ": iter_sig = " << iter_sig << ": (*P_I_A2_Mask) = " << (*P_I_A2_Mask) << endl;
       #endif
       pfsDRPStella::math::Double((*P_I_A2_Mask), D_A2_Mask);
-      #ifdef __DEBUG_CHECK_INDICES__      
+      #ifdef __DEBUG_CHECK_INDICES__
         if (P_I_A2_Mask->rows() != D_A2_Mask.rows()){
           cout << "CFits::SlitFunc: ERROR: P_I_A2_Mask->rows() != D_A2_Mask.rows()" << endl;
           return false;
@@ -4717,11 +4717,11 @@ namespace pfsDRPStella = pfs::drp::stella;
         cout << "CFits::SlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": D_A2_Im[" << D_A2_Im.rows() << ", " << D_A2_Im.cols() << "]" << ", p_tempMatA[" << p_tempMatA->rows() << ", " << p_tempMatA->cols() << "]" << endl;
         cout << "CFits::SlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": D_A2_Im - spectrum_Out x SFVecArr = " << D_A2_ImTemp << endl;
       #endif
-        
+
       #ifdef __DEBUG_SLITFUNC_FILES__
         string S_Mask = DEBUGDIR + std::string("Mask_IterSig") + to_string(iter_sig) + debugFilesSuffix + std::string(".fits");
         pfsDRPStella::utils::WriteFits(P_I_A2_Mask, S_Mask);
-        
+
         S_Mask = DEBUGDIR + std::string("ImInTimesMask_IterSig") + to_string(iter_sig) + debugFilesSuffix + std::string(".fits");
         D_A2_ImTimesMask = D_A2_Im * (*P_I_A2_Mask);
         pfsDRPStella::utils::WriteFits(&D_A2_ImTimesMask, S_Mask);
@@ -4730,9 +4730,9 @@ namespace pfsDRPStella = pfs::drp::stella;
     delete p_tempMat;
     delete p_tempMatA;
     delete p_tempMatB;
-      
+
     /** Set XVecArr to vector containing the subpixel numbers **/
-      
+
     XVecArr.resize(I_NPixSlitF);
     XVecArr = (i + 0.5) / double(overSample_In) - 1.;
     ///TODO: check for the + 0.5 and - 1.
@@ -4746,9 +4746,9 @@ namespace pfsDRPStella = pfs::drp::stella;
     #ifdef __DEBUG_SLITFUNC_N__
       cout << "CFits::SlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": BKLIndVecArr = " << BKLIndVecArr << endl;
     #endif
-      
+
     OLIndVecArr.resize(overSample_In + 1);
-    #ifdef __DEBUG_CHECK_INDICES__      
+    #ifdef __DEBUG_CHECK_INDICES__
       if (static_cast<int>(OIndVecArr.size()) < overSample_In+1)
       {
         cout << "CFits::SlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": ERROR: size of OIndVecArr(=" << OIndVecArr.size() << " < overSample_In + 1(=" << overSample_In + 1 << ")" << endl;
@@ -4759,21 +4759,21 @@ namespace pfsDRPStella = pfs::drp::stella;
     #ifdef __DEBUG_SLITFUNC_N__
       cout << "CFits::SlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": OLIndVecArr = " << OLIndVecArr << endl;
     #endif
-      
+
     for (long m=overSample_In + 1; m <= (2 * overSample_In); m++)
     {
       long mm = m - overSample_In;
       #ifdef __DEBUG_SLITFUNC_N__
         cout << "CFits::SlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": for(m=" << m << "): mm = " << mm << endl;
       #endif
-        
+
       /// attach another Vector<int>(osample+1-mm) to BKLIndVecArr with values index + (N * m)
       TempIVecArr.resize(overSample_In + 1 - mm);
       TempIVecArr = i + (I_NPixSlitF * m);
       #ifdef __DEBUG_SLITFUNC_N__
         cout << "CFits::SlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": for(m=" << m << "): TempIVecArr = " << TempIVecArr << endl;
       #endif
-        
+
       int oldsize = BKLIndVecArr.size();
       #ifdef __DEBUG_SLITFUNC_N__
         cout << "CFits::SlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": for(m=" << m << "): oldsize(BKLIndVecArr) = " << oldsize << endl;
@@ -4784,13 +4784,13 @@ namespace pfsDRPStella = pfs::drp::stella;
 //      #ifdef __DEBUG_SLITFUNC_X__
 //        cout << "CFits::SlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": for(m=" << m << "): BKLIndVecArr = " << BKLIndVecArr << endl;
 //      #endif
-        
+
       oldsize = OLIndVecArr.size();
       #ifdef __DEBUG_SLITFUNC_N__
         cout << "CFits::SlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": for(m=" << m << "): oldsize(OLIndVecArr) = " << oldsize << endl;
       #endif
       OLIndVecArr.resizeAndPreserve(OLIndVecArr.size() + overSample_In + 1 - mm);
-      #ifdef __DEBUG_CHECK_INDICES__      
+      #ifdef __DEBUG_CHECK_INDICES__
         if (static_cast<int>(OIndVecArr.size()) < overSample_In - mm + 1)
         {
           cout << "CFits::SlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": ERROR: size of OIndVecArr(=" << OIndVecArr.size() << ") < overSample_In - mm + 1(=" << overSample_In - mm + 1 << ")" << endl;
@@ -4808,25 +4808,25 @@ namespace pfsDRPStella = pfs::drp::stella;
 //      cout << "SlitFunc: BKLIndVecArr = " << BKLIndVecArr << endl;
 //      return false;
 //    #endif
-      
+
     SPOldVecArr.resize(spectrum_Out.size());
     SPOldVecArr = 0.;
     #ifdef __DEBUG_SLITFUNC__
       cout << "CFits::SlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": SPOldVecArr = " << SPOldVecArr << endl;
     #endif
-      
+
     pfsDRPStella::math::Double((*P_I_A2_Mask), D_A2_Mask);
-      
+
     blitz::Array<double, 1> D_A1_SFO(2);
     D_A1_SFO = 0.;
     blitz::Array<double, 2> D_A2_Weights(D_A2_Im.rows(), overSample_In + 1);
     D_A2_Weights = 0.;
-    
+
     blitz::Array<int, 1> I_A1_IFirstPix(D_A2_Im.rows());
     blitz::Array<int, 1> I_A1_ILastPix(D_A2_Im.rows());
     blitz::Array<int, 1> I_A1_IFirstSpec(D_A2_Im.rows());
     blitz::Array<int, 1> I_A1_ILastSpec(D_A2_Im.rows());
-    
+
     D_A2_XX.resize(I_NRows_Im, I_NPixSlitF);
     D_A2_XX = 0.;
     D_A1_XX.resize(I_NPixSlitF);
@@ -4840,14 +4840,14 @@ namespace pfsDRPStella = pfs::drp::stella;
 //        cout << "CFits::SlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": I_Iter_SF = " << I_Iter_SF << ": XCenVecArr(m=" << m << ") = " << XCenVecArr(m) << endl;
 //        cout << "CFits::SlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": I_Iter_SF = " << I_Iter_SF << ": for(m(=" << m << ")=0; m<NRows(=" << I_NRows_Im << "); m++): D_A2_XX(" << m << ", *) set to " << D_A2_XX(m,blitz::Range::all()) << endl;
 //      #endif
-      #ifdef __DEBUG_CHECK_INDICES__      
+      #ifdef __DEBUG_CHECK_INDICES__
         if (D_A2_XX.cols() != static_cast<int>(XVecArr.size()))
         {
           cout << "CFits::SlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": I_Iter_SF = " << I_Iter_SF << ": ERROR: D_A2_XX.cols(=" << D_A2_XX.cols() << ") != size of XVecArr(=" << XVecArr.size() << ")" << endl;
           return false;
         }
       #endif
-      
+
       /** Weights are the same for all pixels except for the first and the last subpixels **/
       TempIVecArr.resize(D_A2_XX.cols());
       TempIVecArr = blitz::where((D_A2_XX(m,blitz::Range::all()) > 0) && (D_A2_XX(m,blitz::Range::all()) < 1), 1, 0);
@@ -4860,7 +4860,7 @@ namespace pfsDRPStella = pfs::drp::stella;
         cout << "CFits::SlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": I_Iter_SF = " << I_Iter_SF << ": for(m(=" << m << ")=0; m<NRows(=" << I_NRows_Im << "); m++): IndVecArr set to " << IndVecArr << endl;
       #endif
       I_A1_IFirstPix(m) = IndVecArr(0);
-      
+
       #ifdef __DEBUG_SLITFUNC_N__
         cout << "CFits::SlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": I_Iter_SF = " << I_Iter_SF << ": for(m(=" << m << ")=0; m<NRows(=" << I_NRows_Im << "); m++): I_A1_IFirstPix(" << m << ") = " << I_A1_IFirstPix(m) << endl;
       #endif
@@ -4868,18 +4868,18 @@ namespace pfsDRPStella = pfs::drp::stella;
       #ifdef __DEBUG_SLITFUNC_N__
         cout << "CFits::SlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": I_Iter_SF = " << I_Iter_SF << ": for(m(=" << m << ")=0; m<NRows(=" << I_NRows_Im << "); m++): I_A1_ILastPix(" << m << ") = " << I_A1_ILastPix(m) << endl;
       #endif
-      
+
       #ifdef __DEBUG_SLITFUNC__
         cout << "CFits::SlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": KeyWord_Set(PROF_OUT): for(m(==" << m << ")=0; m< I_NRows_Im(=" << I_NRows_Im << "; m++): D_A2_XX(m,*) = " << D_A2_XX(m,blitz::Range::all()) << endl;
         cout << "CFits::SlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": KeyWord_Set(PROF_OUT): for(m(==" << m << ")=0; m< I_NRows_Im(=" << I_NRows_Im << "; m++): D_A2_Im->cols = " << I_NCols_Im << endl;
       #endif
-        
+
       TempIVecArr = blitz::where((D_A2_XX(m,blitz::Range::all()) >= 0.) && (D_A2_XX(m,blitz::Range::all()) < (double)(I_NCols_Im)), 1, 0);
-        
+
       #ifdef __DEBUG_SLITFUNC__
         cout << "CFits::SlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": KeyWord_Set(PROF_OUT): for(m(==" << m << ")=0; m< I_NRows_Im(=" << I_NRows_Im << "; m++): TempIVecArr(where) = " << TempIVecArr << endl;
       #endif
-        
+
       i_tmp_sum = blitz::sum(TempIVecArr);
       if (i_tmp_sum == 0)
       {
@@ -4893,7 +4893,7 @@ namespace pfsDRPStella = pfs::drp::stella;
         cout << "CFits::SlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": KeyWord_Set(PROF_OUT): for(m(==" << m << ")=0; m< I_NRows_Im(=" << I_NRows_Im << "; m++): I_A1_IFirstSpec(m) set to " << I_A1_IFirstSpec(m) << endl;
         cout << "CFits::SlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": KeyWord_Set(PROF_OUT): for(m(==" << m << ")=0; m< I_NRows_Im(=" << I_NRows_Im << "; m++): I_A1_ILastSpec(m) set to " << I_A1_ILastSpec(m) << endl;
       #endif
-        
+
     }/// end for (int m = 0; m < I_NRows_Im; m++)
     #ifdef __DEBUG_SLITFUNC_X__
       std::string fname_ifirst = DEBUGDIR + std::string("IFirstPix") + debugFilesSuffix + std::string(".dat");
@@ -4926,11 +4926,11 @@ namespace pfsDRPStella = pfs::drp::stella;
         while(I_Iter_SF < static_cast<int>(_fiberTraceExtractionControl->maxIterSF))   /** Iteration counter **/
         {
           I_Iter_SF++;
-            
+
           #ifdef __DEBUG_SLITFUNC_SF_N__
             cout << "CFits::SlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": I_Iter_SF = " << I_Iter_SF << ": (max(abs(spectrum_Out - SPOldVecArr=" << SPOldVecArr << ") / max(spectrum_Out)=" << max(spectrum_Out) << ")=" << max(fabs(spectrum_Out - SPOldVecArr) / max(spectrum_Out)) << endl;
           #endif
-            
+
           if ((I_Iter_SF == 1) || (max(fabs(spectrum_Out - SPOldVecArr) / max(spectrum_Out)) > 0.00001))
           {
   //          if ((AKLArr.rows() != AKLArrTemp.rows()) || (AKLArr.cols() != AKLArrTemp.cols())){
@@ -4943,44 +4943,44 @@ namespace pfsDRPStella = pfs::drp::stella;
             #ifdef __DEBUG_SLITFUNC_N__
               cout << "CFits::SlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": I_Iter_SF = " << I_Iter_SF << ": if(max...): AKLArr initialized to 0.: size(AKLArr) = (" << AKLArr.rows() << "," << AKLArr.cols() << ")" << endl;
             #endif
-              
+
             BLVecArr.resize(I_NPixSlitF);                      /** and RHS **/
             BLVecArr = 0.;
             #ifdef __DEBUG_SLITFUNC_N__
               cout << "CFits::SlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": I_Iter_SF = " << I_Iter_SF << ": if(max...): BLVecArr = " << BLVecArr << endl;
             #endif
-              
+
             OmegaVecArr.resize(overSample_In + 1);
             OmegaVecArr = Weight;                    /** Replicate constant Weights **/
             #ifdef __DEBUG_SLITFUNC_N__
               cout << "CFits::SlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": I_Iter_SF = " << I_Iter_SF << ": if(max...): OmegaVecArr = " << OmegaVecArr << endl;
             #endif
-              
+
             pfsDRPStella::math::Double((*P_I_A2_Mask), D_A2_Mask);
             for (int m = 0; m < I_NRows_Im; m++)  /** Fill up matrix and RHS **/
             {
               #ifdef __DEBUG_SLITFUNC_N__
                 cout << "CFits::SlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": I_Iter_SF = " << I_Iter_SF << ": Begin for(m(=" << m << ")=0; m<NRows(=" << I_NRows_Im << "); m++)" << endl;
               #endif
-                
+
               /** Fix the first and the last subpixels, here the weight is split between the two subpixels **/
               OmegaVecArr(0) = D_A2_XX(m,I_A1_IFirstPix(m));
-                
+
               #ifdef __DEBUG_SLITFUNC_N__
                 cout << "CFits::SlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": I_Iter_SF = " << I_Iter_SF << ": for(m(=" << m << ")=0; m<NRows(=" << I_NRows_Im << "); m++): OmegaVecArr(0) set to " << OmegaVecArr(0) << endl;
               #endif
-                
+
               OmegaVecArr(overSample_In) = 1. - D_A2_XX(m, I_A1_ILastPix(m));
               #ifdef __DEBUG_SLITFUNC_N__
                 cout << "CFits::SlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": I_Iter_SF = " << I_Iter_SF << ": for(m(=" << m << ")=0; m<NRows(=" << I_NRows_Im << "); m++): OmegaVecArr(overSample_In=" << overSample_In << ") set to " << OmegaVecArr(overSample_In) << endl;
                 cout << "CFits::SlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": for(m(=" << m << ")=0; m<NRows(=" << I_NRows_Im << "); m++): OmegaVecArr set to " << OmegaVecArr << endl;
               #endif
               D_A2_Weights(m, blitz::Range::all()) = OmegaVecArr;
-                
+
               /** Band-diagonal part that will contain omega#omega **/
               BKLArr.resize(I_NPixSlitF, (2 * overSample_In) + 1);
               BKLArr = 0.;
-                
+
               blitz::Array<double, 2> *p_OArr = pfsDRPStella::math::VecArrACrossB(OmegaVecArr, OmegaVecArr);
               OArr.resize(p_OArr->rows(),p_OArr->cols());//OmegaVecArr.size(), OmegaVecArr.size());
               OArr = (*p_OArr);
@@ -4988,7 +4988,7 @@ namespace pfsDRPStella = pfs::drp::stella;
               #ifdef __DEBUG_SLITFUNC_N__
                 cout << "CFits::SlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": I_Iter_SF = " << I_Iter_SF << ": for(m(=" << m << ")=0; m<NRows(=" << I_NRows_Im << "); m++): 1. OArr set to " << OArr << endl;//.transpose(blitz::secondDim,blitz::firstDim) << endl;
               #endif
-                
+
               tmpdbl = OArr(overSample_In, overSample_In);
               tmpdbl += OArr(0, 0);
               #ifdef __DEBUG_SLITFUNC_N__
@@ -5012,7 +5012,7 @@ namespace pfsDRPStella = pfs::drp::stella;
                 #ifdef __DEBUG_SLITFUNC_N__
                   cout << "CFits::SlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": I_Iter_SF = " << I_Iter_SF << ": for(m(=" << m << ")=0; m<NRows(=" << I_NRows_Im << "); m++): for (int n(=" << n << ") = 0; n < OLIndVecArr.size(=" << OLIndVecArr.size() << "); n++): setting OOVecArr(n) to OArr(OLIndVecArr(temprow(=" << temprow << "), tempcol(=" << tempcol << "))=" << OArr(temprow, tempcol) << endl;
                 #endif
-                #ifdef __DEBUG_CHECK_INDICES__      
+                #ifdef __DEBUG_CHECK_INDICES__
                   if (temprow >= OArr.rows())
                   {
                     cout << "CFits::SlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": I_Iter_SF = " << I_Iter_SF << ": ERROR: temprow(=" << temprow << ") >= OArr.rows(=" << OArr.rows() << ")" << endl;
@@ -5029,7 +5029,7 @@ namespace pfsDRPStella = pfs::drp::stella;
               #ifdef __DEBUG_SLITFUNC_N__
                 cout << "CFits::SlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": I_Iter_SF = " << I_Iter_SF << ": for(m(=" << m << ")=0; m<NRows(=" << I_NRows_Im << "); m++): OOVecArr set to " << OOVecArr << endl;
               #endif
-                
+
               for (int n = 0; n < I_NCols_Im; n++)
               {
                 for (unsigned int o = 0; o < BKLIndVecArr.size(); o++)
@@ -5039,23 +5039,23 @@ namespace pfsDRPStella = pfs::drp::stella;
                     cout << "CFits::SlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": I_Iter_SF = " << I_Iter_SF << ": BKLIndVecArr = " << BKLIndVecArr << endl;
                     cout << "CFits::SlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": I_Iter_SF = " << I_Iter_SF << ": OOVecArr = " << OOVecArr << endl;
                   #endif
-                    
+
                   tempcol = pfsDRPStella::math::GetColFromIndex((n * overSample_In) + I_A1_IFirstPix(m) + BKLIndVecArr(o), BKLArr.rows());
                   temprow = pfsDRPStella::math::GetRowFromIndex((n * overSample_In) + I_A1_IFirstPix(m) + BKLIndVecArr(o), BKLArr.rows());
-                    
-                  #ifdef __DEBUG_CHECK_INDICES__      
+
+                  #ifdef __DEBUG_CHECK_INDICES__
                     if (temprow >= BKLArr.rows())
                     {
                       cout << "CFits::SlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": I_Iter_SF = " << I_Iter_SF << ": ERROR: temprow(=" << temprow << ") >= BKLArr.rows(=" << BKLArr.rows() << ")" << endl;
                       return false;
                     }
-                    
+
                     if (tempcol >= BKLArr.cols())
                     {
                       cout << "CFits::SlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": I_Iter_SF = " << I_Iter_SF << ": ERROR: tempcol(=" << tempcol << ") >= BKLArr.cols(=" << BKLArr.cols() << ")" << endl;
                       return false;
                     }
-                    
+
                     if (o >= OOVecArr.size())
                     {
                       cout << "CFits::SlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": I_Iter_SF = " << I_Iter_SF << ": ERROR: o(=" << o << ") >= OOVecArr.size(=" << OOVecArr.size() << ")" << endl;
@@ -5073,7 +5073,7 @@ namespace pfsDRPStella = pfs::drp::stella;
                     }
                   #endif
                   BKLArr(temprow, tempcol) = OOVecArr(o) * D_A2_Mask(m,n);
-                    
+
                   #ifdef __DEBUG_SLITFUNC_N__
                     cout << "CFits::SlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": I_Iter_SF = " << I_Iter_SF << ": for(m(=" << m << ")=0; m<NRows(=" << I_NRows_Im << "); m++): for(n(=" << n << ")=0; n<NCols(=" << I_NCols_Im << "); n++): for(o(=" << o << ")=0; o<BKLIndVecArr(=" << BKLIndVecArr.size() << "); o++): BKLArr(((n * overSample_In) + I_A1_IFirstPix(m) + BKLIndVecArr(o) = " << (n * overSample_In) + I_A1_IFirstPix(m) + BKLIndVecArr(o) << ")(= temprow=" << temprow << ", tempcol=" << tempcol << ")) set to " << BKLArr(temprow, tempcol) << endl;
                   #endif
@@ -5084,16 +5084,16 @@ namespace pfsDRPStella = pfs::drp::stella;
                 cout << "CFits::SlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": I_Iter_SF = " << I_Iter_SF << ": for(m(=" << m << ")=0; m<NRows(=" << I_NRows_Im << "); m++): OOVecArr set to " << OOVecArr << endl;
                 cout << "CFits::SlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": I_Iter_SF = " << I_Iter_SF << ": for(m(=" << m << ")=0; m<NRows(=" << I_NRows_Im << "); m++): BKLArr set to " << BKLArr << endl;//.transpose(blitz::secondDim,blitz::firstDim) << endl;
               #endif
-                
+
   //            OOVecArr.resize(1);
               double OOVal = OArr(overSample_In, overSample_In);
               #ifdef __DEBUG_SLITFUNC_N__
                 cout << "CFits::SlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": I_Iter_SF = " << I_Iter_SF << ": for(m(=" << m << ")=0; m<NRows(=" << I_NRows_Im << "); m++): OOVal set to " << OOVal << endl;
               #endif
-                
+
               for (int n = 1; n < I_NCols_Im; n++)
               {
-                #ifdef __DEBUG_CHECK_INDICES__      
+                #ifdef __DEBUG_CHECK_INDICES__
                   if ((n*overSample_In) + I_A1_IFirstPix(m) >= BKLArr.rows())
                   {
                     cout << "CFits::SlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": I_Iter_SF = " << I_Iter_SF << ": ERROR: (n*overSample_In) + I_A1_IFirstPix(m) = " << (n*overSample_In) + I_A1_IFirstPix(m) << " >= BKLArr.rows(=" << BKLArr.rows() << ")" << endl;
@@ -5105,8 +5105,8 @@ namespace pfsDRPStella = pfs::drp::stella;
               #ifdef __DEBUG_SLITFUNC_N__
                 cout << "CFits::SlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": I_Iter_SF = " << I_Iter_SF << ": for(m(=" << m << ")=0; m<NRows(=" << I_NRows_Im << "); m++): BKLArr set to " << BKLArr << endl;//.transpose(blitz::secondDim,blitz::firstDim) << endl;
               #endif
-                
-              #ifdef __DEBUG_CHECK_INDICES__      
+
+              #ifdef __DEBUG_CHECK_INDICES__
                 if (I_NCols_Im * overSample_In + I_A1_IFirstPix(m) >= BKLArr.rows())
                 {
                   cout << "CFits::SlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": I_Iter_SF = " << I_Iter_SF << ": ERROR: I_NCols_Im(=" << I_NCols_Im << ") * overSample_In(=" << overSample_In << ") + I_A1_IFirstPix(m)(=" << I_A1_IFirstPix(m) << ") = " << I_NCols_Im * overSample_In + I_A1_IFirstPix(m) << " >= BKLArr.rows(=" << BKLArr.rows() << ")" << endl;
@@ -5119,7 +5119,7 @@ namespace pfsDRPStella = pfs::drp::stella;
               #endif
               for (int o = 0; o < overSample_In; o++)
               {
-                #ifdef __DEBUG_CHECK_INDICES__      
+                #ifdef __DEBUG_CHECK_INDICES__
                   if (I_NPixSlitF-1 >= BKLArr.rows())
                   {
                     cout << "CFits::SlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": I_Iter_SF = " << I_Iter_SF << ": ERROR: N-1 = " << I_NPixSlitF-1 << " >= BKLArr.rows(=" << BKLArr.rows() << ")" << endl;
@@ -5141,7 +5141,7 @@ namespace pfsDRPStella = pfs::drp::stella;
                   cout << "CFits::SlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": I_Iter_SF = " << I_Iter_SF << ": for(m(=" << m << ")=0; m<NRows(=" << I_NRows_Im << "); m++): for(o(=" << o << ")=0; o<overSample_In(=" << overSample_In << "); o++): BKLArr(blitz::Range(overSample_In(=" << overSample_In << ")-o(=" << o << ") = " << overSample_In - o << "), I_NPixSlitF(=" << I_NPixSlitF << " - 1 = " << I_NPixSlitF - 1 << "), o = " << o << ") = " << BKLArr(blitz::Range(overSample_In-o, I_NPixSlitF - 1), o) << endl;
                   cout << "CFits::SlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": I_Iter_SF = " << I_Iter_SF << ": for(m(=" << m << ")=0; m<NRows(=" << I_NRows_Im << "); m++): for(o(=" << o << ")=0; o<overSample_In(=" << overSample_In << "); o++): BKLARR(blitz::Range = (0, I_NPixSlitF(=" << I_NPixSlitF - 1 << " - 1 - overSample_In + o) = " << I_NPixSlitF - 1 - overSample_In + o << "), 2 * overSample_In - o) = " << 2*overSample_In - o << ") = " << BKLArr(blitz::Range(0, I_NPixSlitF - 1 - overSample_In - o), 2 * overSample_In - o) << endl;
                 #endif
-                  
+
                 BKLArr(blitz::Range(overSample_In-o, I_NPixSlitF - 1), o) = BKLArr(blitz::Range(0, I_NPixSlitF - 1 - overSample_In + o), 2 * overSample_In - o);
                 #ifdef __DEBUG_SLITFUNC_N__
                   cout << "CFits::SlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": I_Iter_SF = " << I_Iter_SF << ": for(m(=" << m << ")=0; m<NRows(=" << I_NRows_Im << "); m++): for(o(=" << o << ")=0; o<overSample_In(=" << overSample_In << "); o++): BKLArr(blitz::Range(overSample_In-o=" << overSample_In-o << ", I_NPixSlitF-1=" << I_NPixSlitF-1 << "),o=" << o << ") set to " << BKLArr(blitz::Range(overSample_In-o, I_NPixSlitF - 1), o) << endl;
@@ -5156,7 +5156,7 @@ namespace pfsDRPStella = pfs::drp::stella;
                 D_A2_SPVecTimesBKLArr = D_SPVecPow * BKLArr;
                 cout << "CFits::SlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": I_Iter_SF = " << I_Iter_SF << ": for(m(=" << m << ")=0; m<NRows(=" << I_NRows_Im << "); m++): D_SPVecPow(= " << D_SPVecPow << ") * BKLArr(= " << BKLArr << ") = " << D_A2_SPVecTimesBKLArr << endl;
               #endif
-              #ifdef __DEBUG_CHECK_INDICES__      
+              #ifdef __DEBUG_CHECK_INDICES__
                 if (AKLArr.size() != BKLArr.size())
                 {
                   cout << "CFits::SlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": I_Iter_SF = " << I_Iter_SF << ": ERROR: size of AKLArr(=" << AKLArr.size() << ") != size of BKLArr(=" << BKLArr.size() << ")";
@@ -5200,7 +5200,7 @@ namespace pfsDRPStella = pfs::drp::stella;
                 D_A1_OArrBySF = OArr(blitz::Range::all(),0) * double(overSample_In) / blitz::sum(D_A2_Im(m, blitz::Range::all()));
                 cout << "CFits::SlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": Writing file " << sOArr << endl;
                 pfsDRPStella::utils::WriteArrayToFile(D_A1_OArrBySF, sOArr, string("ascii"));
-                
+
                 sOArr = DEBUGDIR + std::string("D_A2_Im")+debugFilesSuffix+std::string("_row");
                 if (m < 100)
                   sOARR += std::string("0");
@@ -5210,7 +5210,7 @@ namespace pfsDRPStella = pfs::drp::stella;
                 cout << "CFits::SlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": Writing file " << sOArr << endl;
                 pfsDRPStella::utils::WriteArrayToFile(D_A2_Im(m,blitz::Range::all()), sOArr, string("ascii"));
               #endif
-              #ifdef __DEBUG_CHECK_INDICES__      
+              #ifdef __DEBUG_CHECK_INDICES__
                 if (P_I_A2_Mask->rows() != D_A2_Mask.rows()){
                   cout << "CFits::SlitFunc: ERROR: 2. P_I_A2_Mask->rows() != D_A2_Mask.rows()" << endl;
                   return false;
@@ -5221,7 +5221,7 @@ namespace pfsDRPStella = pfs::drp::stella;
                 cout << "CFits::SlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": I_Iter_SF = " << I_Iter_SF << ": for(m(=" << m << ")=0; m<NRows(=" << I_NRows_Im << "); m++): *P_I_A2_Mask = " << *P_I_A2_Mask << endl;//.transpose(blitz::secondDim,blitz::firstDim) << endl;
                 cout << "CFits::SlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": I_Iter_SF = " << I_Iter_SF << ": for(m(=" << m << ")=0; m<NRows(=" << I_NRows_Im << "); m++): D_A2_Mask = " << D_A2_Mask << endl;//.transpose(blitz::secondDim,blitz::firstDim) << endl;
               #endif
-                
+
               for (int n = 1; n < I_NCols_Im; n++)
               {
                 #ifdef __DEBUG_SLITFUNC_N__
@@ -5270,13 +5270,13 @@ namespace pfsDRPStella = pfs::drp::stella;
   //              cout << "xCentersPixelFraction_In(" << m << ") = " << xCentersPixelFraction_In(m) << endl;
               #endif
             } /** end for (int m = 0; m < I_NRows_Im; m++) **/
-            
+
             #ifdef __DEBUG_SLITFUNC_N__
               cout << "CFits::SlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": I_Iter_SF = " << I_Iter_SF << ": end for(m=0; m<NRows; m++): OArr set to " << OArr << endl;//.transpose(blitz::secondDim,blitz::firstDim) << endl;
               cout << "CFits::SlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": I_Iter_SF = " << I_Iter_SF << ": end for(m=0; m<NRows; m++): BLVecArr set to " << BLVecArr << endl;
             //  return false;
             #endif
-              
+
             Lambda = Lamb_SF * blitz::sum(AKLArr(blitz::Range::all(), overSample_In)) / I_NPixSlitF;
             blitz::Array<double, 1> D_A1_Lamb_SF(I_NPixSlitF);
             if (D_WingSmoothFactor > 0.){
@@ -5285,7 +5285,7 @@ namespace pfsDRPStella = pfs::drp::stella;
                 D_A1_Lamb_SF = Lambda * (1. + D_WingSmoothFactor * blitz::pow2(2. * D_A1_DIndGen / (I_NPixSlitF - 1) - 1.));
               }
               else{
-                #ifdef __DEBUG_CHECK_INDICES__      
+                #ifdef __DEBUG_CHECK_INDICES__
                   if (static_cast<int>(SFVecArr.size()) != I_NPixSlitF){
                     cout << "CFits::SlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": KeyWord_Set(WING_SMOOTH_FACTOR): ERROR: SFVecArr.size(=" << SFVecArr.size() << ") != I_NPixSlitF=" << I_NPixSlitF << " => Returning FALSE" << endl;
                     return false;
@@ -5330,33 +5330,33 @@ namespace pfsDRPStella = pfs::drp::stella;
               cout << "CFits::SlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": I_Iter_SF = " << I_Iter_SF << ": Start 1st order Tikhonov: D_A1_Lamb_SF = " << D_A1_Lamb_SF << endl;
             #endif
   //          return false;
-              
+
             AKLArr(0, overSample_In) += D_A1_Lamb_SF(0); /** + Lambda to the upper-left element **/
             #ifdef __DEBUG_SLITFUNC_N__
               cout << "CFits::SlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": I_Iter_SF = " << I_Iter_SF << ": 1st order Tikhonov: AKLArr(0,overSample_In=" << overSample_In << ") set to " << AKLArr(0,overSample_In) << endl;
             #endif
-              
+
             AKLArr(I_NPixSlitF-1,overSample_In) += D_A1_Lamb_SF(I_NPixSlitF - 1); /** and to the lower-right **/
             #ifdef __DEBUG_SLITFUNC_N__
               cout << "CFits::SlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": I_Iter_SF = " << I_Iter_SF << ": 1st order Tikhonov: AKLArr(I_NPixSlitF-1=" << I_NPixSlitF-1 << ",overSample_In=" << overSample_In << ") set to " << AKLArr(I_NPixSlitF-1,overSample_In) << endl;
             #endif
-              
+
             AKLArr(blitz::Range(1,I_NPixSlitF-2), overSample_In) += 2. * D_A1_Lamb_SF(blitz::Range(1, I_NPixSlitF-2)); /** +2*Lambda to the rest of the main diagonal **/
             #ifdef __DEBUG_SLITFUNC_N__
               cout << "CFits::SlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": I_Iter_SF = " << I_Iter_SF << ": 1st order Tikhonov: AKLArr(blitz::Range(1,I_NPixSlitF-2=" << I_NPixSlitF-2 << "),overSample_In=" << overSample_In << ") set to " << AKLArr(blitz::Range(1,I_NPixSlitF-2),overSample_In) << endl;
             #endif
-              
+
             AKLArr(blitz::Range(0, I_NPixSlitF - 2), overSample_In + 1) -= D_A1_Lamb_SF(blitz::Range(0, I_NPixSlitF - 2)); /** -Lambda to the upper sub-diagonal **/
             #ifdef __DEBUG_SLITFUNC__
               cout << "CFits::SlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": I_Iter_SF = " << I_Iter_SF << ": 1st order Tikhonov: AKLArr(blitz::Range(0,I_NPixSlitF-2=" << I_NPixSlitF-2 << "),overSample_In+1=" << overSample_In+1 << ") set to " << AKLArr(blitz::Range(0,I_NCols_Im-2),overSample_In+1) << endl;
             #endif
-              
+
             AKLArr(blitz::Range(1, I_NPixSlitF - 1), overSample_In - 1) -= D_A1_Lamb_SF(blitz::Range(1, I_NPixSlitF - 1)); /** -Lambda to the lower sub-diagonal **/
             #ifdef __DEBUG_SLITFUNC__
               cout << "CFits::SlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": I_Iter_SF = " << I_Iter_SF << ": 1st order Tikhonov: AKLArr(blitz::Range(1,I_NPixSlitF-1=" << I_NPixSlitF-1 << "),overSample_In-1=" << overSample_In-1 << ") set to " << AKLArr(blitz::Range(1,I_NPixSlitF-1),overSample_In-1) << endl;
               cout << "CFits::SlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": I_Iter_SF = " << I_Iter_SF << ": Start. 1st order Tikhonov: AKLArr = " << AKLArr << endl;
             #endif
-              
+
             /**
             *        2nd order Tikhonov regularization (minimum 2nd derivative)
             *        Add the following 5-diagonal matrix * lambda:
@@ -5415,16 +5415,16 @@ namespace pfsDRPStella = pfs::drp::stella;
                 SFVecArr(mmm) = 0.;
             }
             SFVecArr = SFVecArr / D_SumBLVecArr * overSample_In;
-              
+
             #ifdef __DEBUG_SLITFUNC_N__
               std::string sOArr = std::string(DEBUGDIR) + std::string("SFVecArr") + debugFilesSuffix + std::string(".dat");
               cout << "CFits::SlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": Writing File " << SFVecArr << endl;
               pfsDRPStella::utils::WriteArrayToFile(SFVecArr, sOArr, string("ascii"));
-              
+
               cout << "CFits::SlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": I_Iter_SF = " << I_Iter_SF << ": 4.     2nd order Tikhonov: SFVecArr ( = BLVecArr / blitz::sum(BLVecArr)(=" << blitz::sum(BLVecArr) << ") * overSample_In(=" << overSample_In << ")) = " << SFVecArr << endl;
   //            return false;
             #endif
-              
+
             #ifdef __DEBUG_SLITFUNC__
               cout << "CFits::SlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": I_Iter_SF = " << I_Iter_SF << ": 2nd order Tikhonov: spectrum_Out = " << spectrum_Out << endl;
             #endif
@@ -5433,21 +5433,21 @@ namespace pfsDRPStella = pfs::drp::stella;
             #ifdef __DEBUG_SLITFUNC__
               cout << "CFits::SlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": I_Iter_SF = " << I_Iter_SF << ": 2nd order Tikhonov: SPOldVecArr = " << SPOldVecArr << endl;
             #endif
-              
+
             RVecArr.resize(spectrum_Out.size());
             RVecArr_Err.resize(spectrum_Out.size());
             RVecArr = spectrum_Out;
             #ifdef __DEBUG_SLITFUNC_N__
               cout << "CFits::SlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": I_Iter_SF = " << I_Iter_SF << ": 2nd order Tikhonov: RVecArr = " << RVecArr << endl;
             #endif
-              
+
             OmegaVecArr.resize(overSample_In);
             OmegaVecArr = Weight;
             #ifdef __DEBUG_SLITFUNC_N__
               cout << "CFits::SlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": I_Iter_SF = " << I_Iter_SF << ": 2nd order Tikhonov: OmegaVecArr = " << OmegaVecArr << endl;
               cout << "CFits::SlitFunc: Before TempDVecArrA: *P_I_A2_MaskIn = " << *P_I_A2_MaskIn << endl;
             #endif
-              
+
             /** Evaluate the new Spectrum **/
             for (int m = 0; m < I_NRows_Im; m++)
             {
@@ -5455,7 +5455,7 @@ namespace pfsDRPStella = pfs::drp::stella;
               #ifdef __DEBUG_SLITFUNC_N__
                 cout << "CFits::SlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": I_Iter_SF = " << I_Iter_SF << ": for(m==" << m << "): OmegaVecArr(0) set to " << OmegaVecArr(0) << endl;
               #endif
-                
+
               TempDVecArr.resize(I_A1_ILastSpec(m) - I_A1_IFirstSpec(m) + 1);
               TempDVecArr = SFVecArr(blitz::Range(I_A1_IFirstSpec(m), I_A1_ILastSpec(m)));
               #ifdef __DEBUG_SLITFUNC__
@@ -5478,12 +5478,12 @@ namespace pfsDRPStella = pfs::drp::stella;
               #ifdef __DEBUG_SLITFUNC_N__
                 cout << "CFits::SlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": I_Iter_SF = " << I_Iter_SF << ": for(m==" << m << "): SSFArr set to " << SSFArr << endl;//.transpose(blitz::secondDim, blitz::firstDim) << endl;
               #endif
-                
+
               tempint = SSFArr.cols();
-                
+
               D_A2_TempAA.resize(SSFArr.cols(), SSFArr.rows());
               D_A2_TempAA = SSFArr.transpose(blitz::secondDim,blitz::firstDim);
-                
+
               blitz::Array<double, 1> *p_TempDVecArrBB = pfsDRPStella::math::MatrixTimesVecArr(D_A2_TempAA,
                                                                                               OmegaVecArr);
               #ifdef __DEBUG_SLITFUNC_N__
@@ -5500,7 +5500,7 @@ namespace pfsDRPStella = pfs::drp::stella;
               #ifdef __DEBUG_SLITFUNC_N__
                 cout << "CFits::SlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": I_Iter_SF = " << I_Iter_SF << ": for(m==" << m << "): XXX set to " << XXX << endl;
               #endif
-                
+
               TempDVecArr.resize(I_NCols_Im-1);
               TempDVecArr = SSFArr(0, blitz::Range(1, I_NCols_Im-1));
               TempDVecArr *= XXX;
@@ -5510,7 +5510,7 @@ namespace pfsDRPStella = pfs::drp::stella;
                 cout << "CFits::SlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": I_Iter_SF = " << I_Iter_SF << ": for(m==" << m << "): OArr(I_NCols_Im - 1, 0) set to " << OArr(I_NCols_Im - 1, 0) << endl;//.transpose(blitz::secondDim, blitz::firstDim) << endl;
                 cout << "CFits::SlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": I_Iter_SF = " << I_Iter_SF << ": for(m==" << m << "): D_A2_Im(m, all()) = " << D_A2_Im(m, blitz::Range::all()) << endl;
               #endif
-                
+
               D_A1_TempDVecArr.resize(I_NCols_Im);
               D_A1_TempDVecArr = D_A2_Im(m, blitz::Range::all());
               D_A1_TempDVecArr *= D_A2_Mask(m, blitz::Range::all());
@@ -5533,14 +5533,14 @@ namespace pfsDRPStella = pfs::drp::stella;
                 cout << "CFits::SlitFunc: D_A1_TempDVecArr = " << D_A1_TempDVecArr << endl;
                 cout << "CFits::SlitFunc: D_A1_TempDVecArrAA = " << D_A1_TempDVecArrAA << endl;
               #endif
-              #ifdef __DEBUG_CHECK_INDICES__      
+              #ifdef __DEBUG_CHECK_INDICES__
                 if (D_A1_TempDVecArr.size() != D_A1_TempDVecArrAA.size())
                 {
                   cout << "CFits::SlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": I_Iter_SF = " << I_Iter_SF << ": ERROR: D_A1_TempDVecArr.size(=" << D_A1_TempDVecArr.size() << ")=(" << D_A1_TempDVecArr << ") != D_A1_TempDVecArrAA.size(=" << D_A1_TempDVecArrAA.size() << ") = (" << D_A1_TempDVecArrAA << ")" << endl;
                   return false;
                 }
               #endif
-                
+
               RVecArr(m) = pfsDRPStella::math::VecArrAScalarB(D_A1_TempDVecArr, D_A1_TempDVecArrAA);
               RVecArr_Err(m) = pfsDRPStella::math::VecArrAScalarB(D_A1_TempDVecArr_Err, D_A1_TempDVecArrAA);
               #ifdef __DEBUG_SLITFUNC__
@@ -5572,19 +5572,19 @@ namespace pfsDRPStella = pfs::drp::stella;
                 TempDVecArrC = 0.;
                 TempDVecArrD.resize(OArr.rows());
                 TempDVecArrD = 0.;
-                  
+
                 TempDVecArr = D_A2_Im(m, blitz::Range::all());
                 #ifdef __DEBUG_SLITFUNC__
                   cout << "CFits::SlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": for(m==" << m << "): I_Iter_SF(=" << I_Iter_SF << ") > 1: TempDVecArr set to " << TempDVecArr << endl;
                 #endif
-                  
+
                 TempDVecArrB = OArr(blitz::Range::all(), 0);
                 #ifdef __DEBUG_SLITFUNC__
                   cout << "CFits::SlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": for(m==" << m << "): I_Iter_SF(=" << I_Iter_SF << ") > 1: TempDVecArrB set to " << TempDVecArrB << endl;
                 #endif
-                  
+
                 pfsDRPStella::math::Double((*P_I_A2_Mask), D_A2_Mask);
-                #ifdef __DEBUG_CHECK_INDICES__      
+                #ifdef __DEBUG_CHECK_INDICES__
                   if (P_I_A2_Mask->rows() != D_A2_Mask.rows()){
                     cout << "CFits::SlitFunc: ERROR: 3. P_I_A2_Mask->rows() != D_A2_Mask.rows()" << endl;
                     return false;
@@ -5594,7 +5594,7 @@ namespace pfsDRPStella = pfs::drp::stella;
                   cout << "CFits::SlitFunc: ERROR: 3. mean(P_I_A2_Mask)(=" << mean(*P_I_A2_Mask) << ") != mean(D_A2_Mask)(=" << mean(D_A2_Mask) << ")" << endl;
                   return false;
                 }
-                  
+
                 #ifdef __PISKUNOV_ORIG__
                   double D_Norm = RVecArr(m) / spectrum_Out(m);
                   blitz::Array<int, 1> I_A1_IndArr(D_A2_Im.cols());
@@ -5611,12 +5611,12 @@ namespace pfsDRPStella = pfs::drp::stella;
                 #endif// __PISKUNOV_ORIG__
               } /// end if (I_Iter_SF > 1)
             } ///end for (int m = 0; m < I_NRows_Im; m++)
-              
+
             #ifdef __PISKUNOV_ORIG__
               if (I_Iter_SF > 1)
               D_Dev = sqrt(D_Dev_New / blitz::sum(*P_I_A2_Mask));
             #endif
-              
+
             #ifdef __DEBUG_SLITFUNC_FILES__
               S_SP = DEBUGDIR + "spectrum_Out1Rows.fits";
               D_A2_SPTemp.resize(spectrum_Out.size(), 1);
@@ -5654,8 +5654,8 @@ namespace pfsDRPStella = pfs::drp::stella;
               #ifdef __DEBUG_SLITFUNC__
                 cout << "CFits::SlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": I_Iter_SF = " << I_Iter_SF << ": KeyWord_Set(LAMBDA_SP): c set to " << c << endl;
               #endif
-                
-              #ifdef __DEBUG_CHECK_INDICES__      
+
+              #ifdef __DEBUG_CHECK_INDICES__
                 if (I_NRows_Im != static_cast<int>(spectrum_Out.size()))
                 {
                   cout << "CFits::SlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": I_Iter_SF = " << I_Iter_SF << ": ERROR: D_A2_Im.rows(=" << I_NRows_Im << ") != spectrum_Out.size(=" << spectrum_Out.size() << ")" << endl;
@@ -5679,7 +5679,7 @@ namespace pfsDRPStella = pfs::drp::stella;
               #ifdef __DEBUG_SLITFUNC_SF__
                 cout << "CFits::SlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": I_Iter_SF = " << I_Iter_SF << ": KeyWord_Set(LAMBDA_SP): after TriDag: spectrum_Out set to " << spectrum_Out << endl;
               #endif
-                
+
               #ifdef __DEBUG_SLITFUNC__
                 S_SP = DEBUGDIR + std::string("spectrum_Out1TriDag_IterSF") + to_string(I_Iter_SF) + debugFilesSuffix + std::string(".fits");
                 D_A2_SPTemp.resize(spectrum_Out.size(), 1);
@@ -5692,7 +5692,7 @@ namespace pfsDRPStella = pfs::drp::stella;
               #ifdef __DEBUG_SLITFUNC_SF__
                 cout << "CFits::SlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": I_Iter_SF = " << I_Iter_SF << ": Not KeyWord_Set(LAMBDA_SP): spectrum_Out set to " << spectrum_Out << endl;
               #endif
-                
+
               #ifdef __DEBUG_SLITFUNC__
                 S_SP = "spectrum_Out1NoLambSP_IterSF" + to_string(I_Iter_SF) + debugFilesSuffix + ".fits";
                 D_A2_SPTemp.resize(spectrum_Out.size(), 1);
@@ -5700,11 +5700,11 @@ namespace pfsDRPStella = pfs::drp::stella;
                 pfsDRPStella::utils::WriteFits(&D_A2_SPTemp, S_SP);
               #endif
             } /// end else if ((Pos = pfsDRPStella::utils::KeyWord_Set(const_cast<const CString**>(Args), NArgs, *P_TempString)) < 0)
-              
+
             #ifdef __DEBUG_SLITFUNC_SF__
               cout << "CFits::SlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": I_Iter_SF = " << I_Iter_SF << ": end if (max(fabs(spectrum_Out - SPOldVecArr) / max(spectrum_Out)=" << max(spectrum_Out) << ")=" << max(fabs(spectrum_Out - SPOldVecArr) / max(spectrum_Out)) << " > 0.00001)" << endl;
             #endif
-              
+
             #ifdef __DEBUG_SLITFUNC_X__
               tempFileName = DEBUGDIR + std::string("cfits_sp_");
               if (I_Iter_SF < 10)
@@ -5715,7 +5715,7 @@ namespace pfsDRPStella = pfs::drp::stella;
                 (*P_SP_Log) << spectrum_Out(isp) << endl;
               }
               delete(P_SP_Log);
-              
+
               tempFileName = DEBUGDIR + std::string("cfits_sf_");
               if (I_Iter_SF < 10)
                 tempFileName += std::string("0");
@@ -5783,7 +5783,7 @@ namespace pfsDRPStella = pfs::drp::stella;
         #ifdef __DEBUG_SLITFUNC__
           cout << "CFits::SlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": KeyWord_Set(PROF_OUT): OmegaVecArr set to " << OmegaVecArr << endl;
         #endif
-          
+
         D_A1_SFO.resize(SFVecArr.size());
         D_A1_SFO = SFVecArr;
         #ifdef __DEBUG_SLITFUNC_N__
@@ -5801,14 +5801,14 @@ namespace pfsDRPStella = pfs::drp::stella;
           D_A1_SFO = D_A1_SFO - D_MinWing;
           D_A1_SFO = blitz::where(D_A1_SFO < 0., 0., D_A1_SFO);
         }
-        
+
         for (int m = 0; m < I_NRows_Im; m++)  /// Evaluate the new spectrum
         {
           OmegaVecArr(0) = D_A2_XX(m,I_A1_IFirstSpec(m));
           #ifdef __DEBUG_SLITFUNC__
             cout << "CFits::SlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": KeyWord_Set(PROF_OUT): for(m(==" << m << ")=0; m< I_NRows_Im(=" << I_NRows_Im << "; m++): OmegaVecArr(0) set to " << OmegaVecArr(0) << endl;
           #endif
-            
+
           SSFArr.resize(overSample_In, I_NCols_Im);
           SSFArr = 0.;
           #ifdef __DEBUG_SLITFUNC__
@@ -5819,7 +5819,7 @@ namespace pfsDRPStella = pfs::drp::stella;
           #ifdef __DEBUG_SLITFUNC__
             cout << "CFits::SlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": KeyWord_Set(PROF_OUT): for(m(==" << m << ")=0; m< I_NRows_Im(=" << I_NRows_Im << "; m++): TempDVecArr set to " << TempDVecArr << endl;
           #endif
-          #ifdef __DEBUG_CHECK_INDICES__      
+          #ifdef __DEBUG_CHECK_INDICES__
             if (static_cast<int>(TempDVecArr.size()) != I_NCols_Im * overSample_In)
             {
               cout << "CFits::SlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": ERROR: size of TempDVecArr(=" << TempDVecArr.size() << ") != D_A2_Im.cols(=" << I_NCols_Im << ") * overSample_In(=" << overSample_In << ")" << endl;
@@ -5834,11 +5834,11 @@ namespace pfsDRPStella = pfs::drp::stella;
             cout << "CFits::SlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": KeyWord_Set(PROF_OUT): for(m(==" << m << ")=0; m< I_NRows_Im(=" << I_NRows_Im << "; m++): SSFArr set to " << SSFArr << endl;//.transpose(blitz::secondDim, blitz::firstDim) << endl;
             cout << "CFits::SlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": KeyWord_Set(PROF_OUT): for(m(==" << m << ")=0; m< I_NRows_Im(=" << I_NRows_Im << "; m++): OmegaVecArr set to " << OmegaVecArr << endl;
           #endif
-            
+
           OArr.resize(SSFArr.cols(), 1);
           D_A2_OT.resize(SSFArr.cols(), SSFArr.rows());
           D_A2_OT = SSFArr.transpose(blitz::secondDim, blitz::firstDim);
-          #ifdef __DEBUG_CHECK_INDICES__      
+          #ifdef __DEBUG_CHECK_INDICES__
             if (OArr.rows() != D_A2_OT.rows())
             {
               cout << "CFits::SlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": ERROR: OArr.rows(=" << OArr.rows() << ") != D_A2_OT.rows(=" << D_A2_OT.rows() << ")" << endl;
@@ -5851,13 +5851,13 @@ namespace pfsDRPStella = pfs::drp::stella;
           #ifdef __DEBUG_SLITFUNC__
             cout << "CFits::SlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": KeyWord_Set(PROF_OUT): for(m(==" << m << ")=0; m< I_NRows_Im(=" << I_NRows_Im << "; m++): OArr set to " << OArr << endl;//.transpose(blitz::secondDim, blitz::firstDim) << endl;
           #endif
-            
+
           XXX = I_NCols_Im - D_A2_XX(m,I_A1_ILastSpec(m));
           #ifdef __DEBUG_SLITFUNC__
             cout << "CFits::SlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": KeyWord_Set(PROF_OUT): for(m(==" << m << ")=0; m< I_NRows_Im(=" << I_NRows_Im << "; m++): XXX set to " << XXX << endl;
           #endif
-            
-          #ifdef __DEBUG_CHECK_INDICES__      
+
+          #ifdef __DEBUG_CHECK_INDICES__
             if (OArr.rows() < I_NCols_Im)
             {
               cout << "CFits::SlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": ERROR: OArr.rows(=" << OArr.rows() << ") < D_A2_Im.cols(=" << I_NCols_Im << ")" << endl;
@@ -5879,8 +5879,8 @@ namespace pfsDRPStella = pfs::drp::stella;
           #ifdef __DEBUG_SLITFUNC__
             cout << "CFits::SlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": KeyWord_Set(PROF_OUT): for(m(==" << m << ")=0; m< I_NRows_Im(=" << I_NRows_Im << "; m++): OArr set to " << OArr << endl;//.transpose(blitz::secondDim, blitz::firstDim) << endl;
           #endif
-            
-          #ifdef __DEBUG_CHECK_INDICES__      
+
+          #ifdef __DEBUG_CHECK_INDICES__
             if (OArr.rows() != I_NCols_Im)
             {
               cout << "CFits::SlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": ERROR: OArr.row(=" << OArr.rows() << ") < D_A2_Im.cols(=" << I_NCols_Im << ")" << endl;
@@ -5913,12 +5913,12 @@ namespace pfsDRPStella = pfs::drp::stella;
             cout << "CFits::SlitFunc: (*P_D_A1_SPErrOut)(m) set to " << (*P_D_A1_SPErrOut)(m) << endl;
             delete(P_I_A1_IndDev);//      }
           #endif
-            
+
           I_A1_Mask.resize(P_I_A2_Mask->cols());
           I_A1_Mask = (*P_I_A2_Mask)(m, blitz::Range::all());
           pfsDRPStella::math::Double(I_A1_Mask, D_A1_Mask);
           D_A2_Mask(m, blitz::Range::all()) = D_A1_Mask;
-          #ifdef __DEBUG_CHECK_INDICES__      
+          #ifdef __DEBUG_CHECK_INDICES__
             if (P_I_A2_Mask->rows() != D_A2_Mask.rows()){
               cout << "CFits::SlitFunc: ERROR: 5. P_I_A2_Mask->rows() != D_A2_Mask.rows()" << endl;
               return false;
@@ -5932,18 +5932,18 @@ namespace pfsDRPStella = pfs::drp::stella;
             cout << "CFits::SlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": KeyWord_Set(PROF_OUT): for(m(==" << m << ")=0; m< I_NRows_Im(=" << I_NRows_Im << "; m++): IVecArr.size() = " << IVecArr.size() << endl;
             cout << "CFits::SlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": KeyWord_Set(PROF_OUT): for(m(==" << m << ")=0; m< I_NRows_Im(=" << I_NRows_Im << "; m++): NInd set to " << NInd << endl;
           #endif
-          #ifdef __DEBUG_CHECK_INDICES__      
+          #ifdef __DEBUG_CHECK_INDICES__
             if (static_cast<int>(IVecArr.size()) < NInd)
             {
               cout << "CFits::SlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": ERROR: IVecArr.size(=" << IVecArr.size() << ") < NInd(=" << NInd << ")" << endl;
               return false;
             }
           #endif
-          
-          
+
+
           if ((Pos = pfsDRPStella::utils::KeyWord_Set(S_A1_Args_In, "BAD")) >= 0)
           {
-            
+
             TempIVecArr.resize(IVecArr.size() - NInd);
             TempIVecArr = 0;
             if (NInd > 0)
@@ -5953,19 +5953,19 @@ namespace pfsDRPStella = pfs::drp::stella;
             IFirstVecArr = 0;
             TempInt = 0;
             TempIntA = 0;
-            
-            
-            
+
+
+
             /// MARK MARK MARK!!!
             /// Indices below are still to be checked
-            
-            
-            
+
+
+
             for (int n = 0; n < P_I_A2_Mask->cols(); n++)
             {
               if ((*P_I_A2_Mask)(m,n) > 0)
               {
-                #ifdef __DEBUG_CHECK_INDICES__      
+                #ifdef __DEBUG_CHECK_INDICES__
                   if (TempInt >= static_cast<int>(IFirstVecArr.size()))
                   {
                     cout << "CFits::SlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": ERROR: TempInt(=" << TempInt << ") >= IFirstVecArr.size(=" << IFirstVecArr.size() << ")" << endl;
@@ -5980,7 +5980,7 @@ namespace pfsDRPStella = pfs::drp::stella;
               }
               else
               {
-                #ifdef __DEBUG_CHECK_INDICES__      
+                #ifdef __DEBUG_CHECK_INDICES__
                   if (TempIntA >= static_cast<int>(TempIVecArr.size()))
                   {
                     cout << "CFits::SlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": ERROR: TempIntA(=" << TempIntA << ") >= TempIVecArr.size(=" << TempIVecArr.size() << ")" << endl;
@@ -5991,10 +5991,10 @@ namespace pfsDRPStella = pfs::drp::stella;
                 #ifdef __DEBUG_SLITFUNC__
                   cout << "CFits::SlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": KeyWord_Set(PROF_OUT): for(m(==" << m << ")=0; m< I_NRows_Im(=" << I_NRows_Im << "; m++): for(n(==" << n << ")=0; n< P_I_A2_Mask->cols(=" << P_I_A2_Mask->cols() << "; n++): TempIVecArr(TempIntA=" << TempIntA << ") set to " << TempIVecArr(TempIntA) << endl;
                 #endif
-                
+
                 TempIntA++;
               }
-            
+
               (*P_I_A1_JBadVecArr)(0) = 0;
               if (NInd < I_NCols_Im)  /// Bad pixels in column m
               {
@@ -6004,7 +6004,7 @@ namespace pfsDRPStella = pfs::drp::stella;
                 #endif
                 P_I_A1_JBadVecArr->resize(1 + TempIVecArr.size());
                 (*P_I_A1_JBadVecArr)(0) = TempLong;
-                #ifdef __DEBUG_CHECK_INDICES__      
+                #ifdef __DEBUG_CHECK_INDICES__
                   if (TempIVecArr.size() != P_I_A1_JBadVecArr->size()-1)
                   {
                     cout << "CFits::SlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": ERROR: TempIVecArr.size(=" << TempIVecArr.size() << ") != P_I_A1_JBadVecArr->size(=" << P_I_A1_JBadVecArr->size() << ")-1" << endl;
@@ -6019,13 +6019,13 @@ namespace pfsDRPStella = pfs::drp::stella;
               }// end if (NInd < I_NCols_Im)
             }// end for (int n = 0; n < P_I_A2_Mask->cols(); n++)
           }// end if ((Pos = pfsDRPStella::utils::KeyWord_Set(S_A1_Args_In, "BAD")) >= 0)
-          
+
           #ifdef __DEBUG_SLITFUNC__
             cout << "CFits::SlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": KeyWord_Set(PROF_OUT): for(m(==" << m << ")=0; m< I_NRows_Im(=" << I_NRows_Im << "; m++): 2. spectrum_Out = " << spectrum_Out << endl;
             cout << "CFits::SlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": KeyWord_Set(PROF_OUT): for(m(==" << m << ")=0; m< I_NRows_Im(=" << I_NRows_Im << "; m++): spectrum_Out(m) = " << spectrum_Out(m) << endl;
             cout << "CFits::SlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": KeyWord_Set(PROF_OUT): for(m(==" << m << ")=0; m< I_NRows_Im(=" << I_NRows_Im << "; m++): OArr = " << OArr << endl;//.transpose(blitz::secondDim, blitz::firstDim) << endl;
           #endif
-          #ifdef __DEBUG_CHECK_INDICES__      
+          #ifdef __DEBUG_CHECK_INDICES__
             if (P_D_A2_Prof_Out->cols() != OArr.rows())
             {
               cout << "CFits::SlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": ERROR: P_D_A2_Prof_Out->cols(=" << P_D_A2_Prof_Out->cols() << ") != OArr.rows(=" << OArr.rows() << ")" << endl;
@@ -6040,7 +6040,7 @@ namespace pfsDRPStella = pfs::drp::stella;
             cout << "CFits::SlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": m=" << m << ": OArr.rows() = " << OArr.rows() << endl;
             cout << "CFits::SlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": m=" << m << ": OArr.cols() = " << OArr.cols() << endl;
           #endif
-            
+
           double D_Error = 0.;
           double D_MinError = 10000000000000.;
           double D_Offset = -1./static_cast<double>(_fiberTraceExtractionControl->overSample);
@@ -6077,7 +6077,7 @@ namespace pfsDRPStella = pfs::drp::stella;
             dSum = blitz::sum(profile_Out(m, blitz::Range::all()));
             if (fabs(dSum) > 0.00000000000000001)
               profile_Out(m, blitz::Range::all()) = profile_Out(m, blitz::Range::all()) / dSum;
-            
+
             //cout << "FiberTrace::SlitFunc: 2. profile_Out(m=" << m << ", *) = " << profile_Out(m, blitz::Range::all()) << endl;
   //          return false;
             D_Error = sqrt(blitz::sum(blitz::pow2(D_A2_Im(m, blitz::Range::all()) - (profile_Out(m, blitz::Range::all()) * spectrum_Out(m)))));
@@ -6093,7 +6093,7 @@ namespace pfsDRPStella = pfs::drp::stella;
           (*P_D_A1_XCorProfOut)(m) = D_MinOffset;
           if (I_XCorProf > 0)
             cout << "SlitFunc: fiber " << fiberTraceNumber << ": bin " << I_Bin << ": row=" << m << ": D_MinOffset=" << D_MinOffset << endl;
-          
+
   //        #ifdef __DEBUG_SLITFUNC_X__
   //          cout << "CFits::SlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": I_XCorProf = " << I_XCorProf << ": m=" << m << ": D_A2_Im(m=" << m << ", *) = " << D_A2_Im(m, blitz::Range::all()) << endl;
   //          cout << "CFits::SlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": I_XCorProf = " << I_XCorProf << ": m=" << m << ": D_MinOffset = " << D_MinOffset << endl;
@@ -6104,7 +6104,7 @@ namespace pfsDRPStella = pfs::drp::stella;
   //            return false;
   //        #endif
         } /// end for (int m = 0; m < I_NRows_Im; m++)
-          
+
         blitz::Array<double, 1> D_A1_Fit(P_D_A1_XCorProfOut->size());
         D_A1_Fit = 0.;
         if (I_XCorProf > 0){
@@ -6158,7 +6158,7 @@ namespace pfsDRPStella = pfs::drp::stella;
             //cout << "CFits::SlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": D_A1_XX = " << D_A1_XX << endl;
             //cout << "CFits::SlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": D_A1_SFO = " << D_A1_SFO << endl;
   //          cout << "CFits::SlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": D_A1_Range = " << D_A1_Range << endl;
-            
+
             std::string fname_x = DEBUGDIR + std::string("x")+debugFilesSuffix + std::string("_row");
             if (m < 100)
               fname_x += "0";
@@ -6186,7 +6186,7 @@ namespace pfsDRPStella = pfs::drp::stella;
               profile_Out(m, blitz::Range::all()) = profile_Out(m, blitz::Range::all()) / D_SumSF;
             }
           }
-            
+
           (*P_D_A2_Prof_Out)(m, blitz::Range::all()) = profile_Out(m,blitz::Range::all());/// * spectrum_Out(m)
           if ((Pos = pfsDRPStella::utils::KeyWord_Set(S_A1_Args_In, "IM_OUT")) >= 0)
           {
@@ -6194,7 +6194,7 @@ namespace pfsDRPStella = pfs::drp::stella;
           }
           #ifdef __DEBUG_SLITFUNC_X__
   //          cout << "CFits::SlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": KeyWord_Set(PROF_OUT): for(m(==" << m << ")=0; m< I_NRows_Im(=" << I_NRows_Im << "; m++): P_D_A2_Prof_Out(m=" << m << ", *) set to " << (*P_D_A2_Prof_Out)(m, blitz::Range::all()) << endl;
-            
+
             std::string fname_prof = DEBUGDIR + std::string("ProfileOut")+ debugFilesSuffix + "_row";
             if (m < 100)
               fname_prof += "0";
@@ -6213,7 +6213,7 @@ namespace pfsDRPStella = pfs::drp::stella;
         //          return false;
         #endif
         //      return false;
-          
+
         #ifdef __DEBUG_SLITFUNC_N__
           cout << "CFits::SlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": profile_Out set to " << profile_Out << endl;
         #endif
@@ -6226,31 +6226,31 @@ namespace pfsDRPStella = pfs::drp::stella;
             PP_Args_Fit[argpos] = P_D_A2_Errors;
             argpos++;
           }
-            
+
           S_A1_Args_Fit(argpos) = "CHISQ_OUT";
           PP_Args_Fit[argpos] = &D_A1_ChiSquare_LinFit;
           argpos++;
-            
+
           S_A1_Args_Fit(argpos) = "SIGMA_OUT";
           PP_Args_Fit[argpos] = &D_A2_Sigma_LinFit;
           argpos++;
-            
+
           S_A1_Args_Fit(argpos) = "Q_OUT";
           PP_Args_Fit[argpos] = &D_A1_Probability_LinFit;
           argpos++;
-            
+
           #ifdef __DEBUG_TELLURIC__
             cout << endl << "CFits::SlitFunc: before Fit: D_A2_MySF = " << D_A2_MySF << endl << endl;
           #endif
-            
+
           for (int pppp=0; pppp < P_D_A2_Prof_Out->rows(); pppp++){
             if (fabs(blitz::sum((*P_D_A2_Prof_Out)(pppp, blitz::Range::all()))) < 0.00000000000000001)
               (*P_D_A2_Prof_Out)(pppp, blitz::Range::all()) = 1.;
             (*P_D_A2_Prof_Out)(pppp, blitz::Range::all()) /= blitz::sum((*P_D_A2_Prof_Out)(pppp, blitz::Range::all()));
           }
-            
+
           /// --- WHAT TODO?!?
-            
+
           int I_RangeMinRow, I_RangeMaxRow, I_RangeMinCol, I_RangeMaxCol;
           int I_RangeWidth = 5;
           int xxx, yyy, i_nrows, i_ncols;//, i_row, i_col, i_indexTemp, zzz;
@@ -6259,7 +6259,7 @@ namespace pfsDRPStella = pfs::drp::stella;
           blitz::Array<int, 2> I_A2_TempArrA(1,1);
           blitz::Array<int, 2> I_A2_TempArr(1,1);
           blitz::Array<int, 2> I_A2_Temp(1,1);
-            
+
           for (xxx = 0; xxx < P_I_A2_Mask->rows(); xxx++){
             for (yyy = 0; yyy < P_I_A2_Mask->cols(); yyy++){
               I_RangeMinRow = xxx - I_RangeWidth;
@@ -6271,7 +6271,7 @@ namespace pfsDRPStella = pfs::drp::stella;
               #ifdef __DEBUG_TELLURIC__
                 cout << "CFits::SlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": xxx = " << xxx << ", yyy = " << yyy << ": I_RangeMinRow = " << I_RangeMinRow << ", I_RangeMaxRow = " << I_RangeMaxRow << endl;
               #endif
-                
+
               I_RangeMinCol = yyy - I_RangeWidth;
               if (I_RangeMinCol < 0)
                 I_RangeMinCol = 0;
@@ -6281,13 +6281,13 @@ namespace pfsDRPStella = pfs::drp::stella;
               #ifdef __DEBUG_TELLURIC__
                 cout << "CFits::SlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": xxx = " << xxx << ", yyy = " << yyy << " I_RangeMinCol = " << I_RangeMinCol << ", I_RangeMaxCol = " << I_RangeMaxCol << endl;
               #endif
-                
+
               i_nrows = (I_RangeMaxRow - I_RangeMinRow + 1);
               i_ncols = (I_RangeMaxCol - I_RangeMinCol + 1);
               #ifdef __DEBUG_TELLURIC__
                 cout << "CFits::SlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": i_nrows = " << i_nrows << ", i_ncols = " << i_ncols << endl;
               #endif
-                
+
               I_A3_IndicesRange.resize(i_nrows, i_ncols, 2);
               for (int zzz = 0; zzz < i_nrows; zzz++){
                 for (int qqq = 0; qqq < i_ncols; qqq++){
@@ -6305,7 +6305,7 @@ namespace pfsDRPStella = pfs::drp::stella;
               #ifdef __DEBUG_TELLURIC__
                 cout << "CFits::SlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": I_A2_TempArr(Subarr) set to " << I_A2_TempArr << endl;
               #endif
-                
+
               if (((*P_I_A2_Mask)(xxx,yyy) == 1) ||
                 (blitz::sum(I_A2_TempArr) < I_A2_TempArr.size() / 1.5) ||
                 (blitz::sum((*P_I_A2_Mask)(xxx,blitz::Range::all())) == 0))
@@ -6342,12 +6342,12 @@ namespace pfsDRPStella = pfs::drp::stella;
             S_MySF = DEBUGDIR + std::string("D_A2_ImTimesMask_beforeFit_iterSky") + to_string(I_Iter_Sky) + debugFilesSuffix + std::string(".fits");
             pfsDRPStella::utils::WriteFits(&D_A2_ImTimesMask, S_MySF);
             cout << "CFits::SlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": File " << S_MySF << " written" << endl;
-            
+
             S_MySF = DEBUGDIR + std::string("D_A2_SFTimesMask_beforeFit_iterSky") + to_string(I_Iter_Sky) + debugFilesSuffix + std::string(".fits");
             pfsDRPStella::utils::WriteFits(&D_A2_SFTimesMask, S_MySF);
             cout << "CFits::SlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": File " << S_MySF << " written" << endl;
           #endif
-            
+
           if (!pfsDRPStella::math::LinFitBevington(D_A2_ImTimesMask,
                                                   D_A2_SFTimesMask,
                                                   D_A1_MySP,
@@ -6358,12 +6358,12 @@ namespace pfsDRPStella = pfs::drp::stella;
             cout << "CFits::SlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": ERROR: Fit returned FALSE!" << endl;
             return false;
           }
-            
+
           #ifdef __DEBUG_TELLURIC__
             S_MySF = DEBUGDIR + std::string("D_A2_ImTimesMask_afterFit_iterSky") + to_string(I_Iter_Sky) + debugFilesSuffix + std::string(".fits");
             pfsDRPStella::utils::WriteFits(&D_A2_ImTimesMask, S_MySF);
             cout << "CFits::SlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": File " << S_MySF << " written" << endl;
-            
+
             S_MySF = DEBUGDIR + std::string("D_A2_SFTimesMask_afterFit_iterSky") + to_string(I_Iter_Sky) + debugFilesSuffix + std::string(".fits");
             pfsDRPStella::utils::WriteFits(&D_A2_SFTimesMask, S_MySF);
             cout << "CFits::SlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": File " << S_MySF << " written" << endl;
@@ -6377,7 +6377,7 @@ namespace pfsDRPStella = pfs::drp::stella;
           #endif
           if (I_Stop > 0)
             return false;
-            
+
           #ifdef __DEBUG_TELLURIC__
             cout << "CFits::SlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": __TELLURIC_MINE__: spectrum_Out = " << spectrum_Out << endl;
             cout << "CFits::SlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": __TELLURIC_MINE__: D_A1_MySP set to " << D_A1_MySP << endl;
@@ -6398,13 +6398,13 @@ namespace pfsDRPStella = pfs::drp::stella;
               (*P_SP_Log) << (*P_D_A1_MySky)(isp) << endl;
             }
             delete(P_SP_Log);
-            
-            
+
+
             S_MySF = DEBUGDIR + std::string("D_A2_Im_Minus_Sky_new_iterSky") + to_string(I_Iter_Sky) + debugFilesSuffix + std::string(".fits");
             pfsDRPStella::utils::WriteFits(&D_A2_Im, S_MySF);
             cout << "CFits::SlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": File " << S_MySF << " written" << endl;
           #endif
-            
+
           Pos = pfsDRPStella::utils::KeyWord_Set(S_A1_Args_In, "STOP");
           if (Pos >= 0)
           {
@@ -6431,21 +6431,21 @@ namespace pfsDRPStella = pfs::drp::stella;
         D_A1_OldSky = D_A1_Sky;
       } while(I_Iter_Sky < static_cast<int>(_fiberTraceExtractionControl->maxIterSky));
     }/// end if (!doSplineFit)
-    
+
     blitz::Array<double, 1> D_A1_CY(D_A2_Im.rows());
     D_A1_CY = 0.;
     blitz::Array<double, 1> D_A1_CY_SP(D_A2_Im.rows());
     D_A1_CY_SP = 0.;
     blitz::Array<double, 1> D_A1_DY(D_A2_Im.rows());
     D_A1_DY = 0.;
-      
+
     blitz::Array<double, 1> D_A1_SumMaskProf(D_A2_Im.rows());
     D_A1_SumMaskProf = 0.;
     blitz::Array<double, 1> D_A1_SumMaskProfSquaredDivByErr(D_A2_Im.rows());
     D_A1_SumMaskProfSquaredDivByErr = 0.;
     blitz::Array<double, 1> D_A1_SPErrHorne(D_A2_Im.rows());
     D_A1_SPErrHorne = 0.;
-      
+
     double D_Sum_ProfTimesWeight = 0.;
     int I_SubPix = 0;
     #ifdef __DEBUG_SLITFUNC__
@@ -6454,20 +6454,20 @@ namespace pfsDRPStella = pfs::drp::stella;
       cout << "CFits::SlitFunc: SFVecArr = " << SFVecArr << endl;
       cout << "CFits::SlitFunc: D_A2_Weights(0:3, *) = " << D_A2_Weights(blitz::Range(0,3), blitz::Range::all()) << endl;
     #endif
-      
+
     if (I_Telluric == 3)
       SFVecArr = SFVecArr - min(SFVecArr);
-      
+
     #ifdef __DEBUG_SLITFUNC_FILES__
       string S_SF = "SFVecArr_Out.fits";
       pfsDRPStella::utils::WriteFits(&SFVecArr, S_SF);
     #endif
-      
+
     SFVecArr = SFVecArr / blitz::sum(SFVecArr);
-      
+
     double D_Sum_AxySquared = 0.;
     double D_Sum_SigmaSquared_AxySquared = 0.;
-      
+
     for (int i_row=0; i_row<D_A2_Im.rows(); i_row++){
       D_A1_CY = 0.;
       D_A1_DY = 0.;
@@ -6494,10 +6494,10 @@ namespace pfsDRPStella = pfs::drp::stella;
               i_j = SFVecArr.size();
           }
         }/// end for (int i_j=0; i_j<SFVecArr.size()-1; i_j++){
-          
+
         D_Sum_AxySquared += (*P_I_A2_Mask)(i_row, i_col) * blitz::pow2(D_Sum_ProfTimesWeight);
         D_Sum_SigmaSquared_AxySquared += (*P_I_A2_Mask)(i_row, i_col) * blitz::pow2((*P_D_A2_Errors)(i_row, i_col)) * blitz::pow2(D_Sum_ProfTimesWeight);
-          
+
         sumProfTimesWeightRow += D_Sum_ProfTimesWeight;
         #ifdef __DEBUG_SLITFUNC__
           cout << "CFits::SlitFunc: i_row = " << i_row << ": i_col = " << i_col << ": sumProfTimesWeightRow = " << sumProfTimesWeightRow << endl;
@@ -6508,19 +6508,19 @@ namespace pfsDRPStella = pfs::drp::stella;
           cout << "CFits::SlitFunc: i_row = " << i_row << ": i_col = " << i_col << ": D_A1_CY_SP(i_row) = " << D_A1_CY_SP(i_row) << endl;
           cout << "CFits::SlitFunc: i_row = " << i_row << ": i_col = " << i_col << ": D_A1_DY(i_row) = " << D_A1_DY(i_row) << endl;
         #endif
-          
+
         D_A1_SumMaskProf(i_row) += (*P_I_A2_Mask)(i_row, i_col) * D_Sum_ProfTimesWeight;
         D_A1_SumMaskProfSquaredDivByErr(i_row) += (*P_I_A2_Mask)(i_row, i_col) * blitz::pow2(D_Sum_ProfTimesWeight) / blitz::pow2((*P_D_A2_Errors)(i_row, i_col));
       }/// end for (int i_col=0; i_col<D_A2_Im.cols(); i_col++){
-        
+
       #ifndef __PISKUNOV_ORIG__
         (*P_D_A1_SPErrOut)(i_row) = sqrt(D_Sum_SigmaSquared_AxySquared / blitz::pow2(D_Sum_AxySquared)) / overSample_In;
-        
+
         #ifdef __DEBUG_TELLURIC__
           cout << "CFits::SlitFunc: (*P_D_A1_SPErrOut)(i_row = " << i_row << ") = " << (*P_D_A1_SPErrOut)(i_row) << endl;
         #endif
       #endif
-        
+
       (*P_D_A1_SPOut)(i_row) = (D_A1_CY_SP(i_row) / D_A1_DY(i_row)) / overSample_In;
       #ifdef __DEBUG_TELLURIC__
         cout << "CFits::SlitFunc: (*P_D_A1_SPOut)(i_row = " << i_row << ") = " << (*P_D_A1_SPOut)(i_row) << endl;
@@ -6548,16 +6548,16 @@ namespace pfsDRPStella = pfs::drp::stella;
       (*P_D_A1_MySky) = D_A1_Sky;
       P_D_A1_ErrSky->resize(D_A2_Im.rows());
       *P_D_A1_ErrSky = D_A2_Sigma_LinFit(blitz::Range::all(), 1);
-        
+
       if ((Pos = pfsDRPStella::utils::KeyWord_Set(S_A1_Args_In, "ERRORS_OUT")) >= 0){
         P_D_A1_ErrOut->resize(D_A2_Im.rows());
         *P_D_A1_ErrOut = D_A2_Sigma_LinFit(blitz::Range::all(), 0);
       }
-        
+
       for (int pp=0; pp < D_A2_Im.rows(); pp++)
         (*P_D_A2_Errors)(pp, blitz::Range::all()) += (*P_D_A1_ErrSky)(pp);
     }
-      
+
     #ifdef __DEBUG_SLITFUNC__
       cout << "start P_I_A1_BadVecArr" << endl;
     #endif
@@ -6579,16 +6579,16 @@ namespace pfsDRPStella = pfs::drp::stella;
       cout << "CFits::SlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": READY: spectrum_Out set to " << spectrum_Out << endl;
       cout << "CFits::SlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": READY: P_D_A2_Prof_Out set to " << *P_D_A2_Prof_Out << endl;//->transpose(blitz::secondDim, blitz::firstDim) << endl;
     #endif
-      
+
     if (pfsDRPStella::utils::KeyWord_Set(S_A1_Args_In, "PROF_OUT") < 0)
     {
       delete P_D_A2_Prof_Out;
     }
-      
+
     if (pfsDRPStella::utils::KeyWord_Set(S_A1_Args_In, "XCOR_PROF") < 0){
       delete(P_D_A1_XCorProfOut);
     }
-      
+
     Pos = pfsDRPStella::utils::KeyWord_Set(S_A1_Args_In, "SP_FIT");
     if (Pos >= 0)
     {
@@ -6596,7 +6596,7 @@ namespace pfsDRPStella = pfs::drp::stella;
       P_D_A1_SPFit->resize(D_A1_MySP.size());
       *P_D_A1_SPFit = D_A1_MySP;
     }
-      
+
     #ifdef __DEBUG_SLITFUNC__
       cout << "deleting pointers" << endl;
     #endif
@@ -6605,21 +6605,21 @@ namespace pfsDRPStella = pfs::drp::stella;
       if (P_D_A2_Im_Out != NULL)
         delete P_D_A2_Im_Out;
     }
-      
+
     #ifdef __DEBUG_TELLURIC__
       S_SP = "spectrum_Out1Out.fits";
       D_A2_SPTemp.resize(spectrum_Out.size(), 1);
       D_A2_SPTemp(blitz::Range::all(), 0) = spectrum_Out;
       pfsDRPStella::utils::WriteFits(&D_A2_SPTemp, S_SP);
     #endif
-      
+
     #ifdef __DEBUG_SEDM__
       string sFileName_SPVecArrOut = DEBUGDIR + std::string("SEDM_spectrum_OutOut") + debugFilesSuffix + std::string(".dat");
       pfsDRPStella::utils::WriteArrayToFile(spectrum_Out, sFileName_SPVecArrOut, string("ascii"));
-      
+
       string sFileName_SFVecArrOut = DEBUGDIR + std::string("SEDM_SFVecArrOut") + debugFilesSuffix + std::string(".dat");
       pfsDRPStella::utils::WriteArrayToFile(SFVecArr, sFileName_SFVecArrOut, string("ascii"));
-      
+
       string S_MaskOut = "Mask_SF.fits";
       if (!pfsDRPStella::utils::WriteFits(P_I_A2_Mask, S_MaskOut)){
         cout << "CFits::SlitFunc: ERROR: WriteFits(Mask) returned FALSE" << endl;
@@ -6632,7 +6632,7 @@ namespace pfsDRPStella = pfs::drp::stella;
     }
     P_D_A1_SFO_Out->resize(D_A1_SFO.size());
     (*P_D_A1_SFO_Out) = D_A1_SFO;
-      
+
     #ifdef __DEBUG_SLITFUNC__
       cout << "deleting parameters" << endl;
     #endif
@@ -6685,17 +6685,17 @@ namespace pfsDRPStella = pfs::drp::stella;
   /**
    *  MkSlitFunc without arguments
    **/
-  template<typename ImageT, typename MaskT, typename VarianceT> 
+  template<typename ImageT, typename MaskT, typename VarianceT>
   bool pfsDRPStella::FiberTrace<ImageT, MaskT, VarianceT>::MkSlitFunc()
   {
     blitz::Array<string, 1> S_A1_Args(1);
     S_A1_Args = "";
     void **PP_Args;
     PP_Args = (void**)malloc(sizeof(void*) * 1);
-    
+
     int I_temp = 0;
     PP_Args[0] = &I_temp;
-    
+
     if (!MkSlitFunc(S_A1_Args, PP_Args))
     {
       cout << "CFits::MkSlitFunc(): ERROR: MkSlitFunc(S_A1_Args=" << S_A1_Args << ") returned FALSE => Returning FALSE" << endl;
@@ -6703,8 +6703,8 @@ namespace pfsDRPStella = pfs::drp::stella;
     }
     return true;
   }
-  
-  template<typename ImageT, typename MaskT, typename VarianceT> 
+
+  template<typename ImageT, typename MaskT, typename VarianceT>
   bool pfsDRPStella::FiberTrace<ImageT, MaskT, VarianceT>::fitSpline(const blitz::Array<double, 2> &fiberTraceSwath_In,
                                                                      const blitz::Array<int, 1> &iFirst_In,
                                                                      const blitz::Array<double, 1> &xOverSampled_In,
@@ -6748,7 +6748,7 @@ namespace pfsDRPStella = pfs::drp::stella;
         ++iter_yVec;
       }
     }
-    
+
     blitz::Array<double, 1> D_A1_xVec(xVec.data(), blitz::shape(xVec.size()), blitz::neverDeleteData);
     blitz::Array<double, 1> D_A1_yVec(yVec.data(), blitz::shape(yVec.size()), blitz::neverDeleteData);
     blitz::Array<int, 1> I_A1_Uniq(1);
@@ -6818,10 +6818,10 @@ namespace pfsDRPStella = pfs::drp::stella;
       cout << "FiberTrace::fitSpline: profileOverSampled_Out = " << profileOverSampled_Out << endl;
     #endif
     profileOverSampled_Out = profileOverSampled_Out * double(_fiberTraceExtractionControl->overSample) / blitz::sum(profileOverSampled_Out);
-    
+
     if ((profilePerRow_Out.rows() != fiberTraceSwath_In.rows()) || (profilePerRow_Out.cols() != fiberTraceSwath_In.cols()))
       profilePerRow_Out.resize(fiberTraceSwath_In.rows(), fiberTraceSwath_In.cols());
-    
+
     blitz::Array<double, 1> yProf(profileXValuesAllRows_In.size());
     for (int i_row = 0; i_row < fiberTraceSwath_In.rows(); i_row++){
       if (!pfsDRPStella::math::InterPol(profileOverSampled_Out, profileXValuesPerRowOverSampled_In(i_row, blitz::Range::all()), profileXValuesAllRows_In, yProf)){
@@ -6836,8 +6836,8 @@ namespace pfsDRPStella = pfs::drp::stella;
     #endif
     return true;
   }
-  
-  template<typename ImageT, typename MaskT, typename VarianceT> 
+
+  template<typename ImageT, typename MaskT, typename VarianceT>
   bool pfsDRPStella::FiberTrace<ImageT, MaskT, VarianceT>::calculate2dPSFPerBin(){
     if (!_isTwoDPSFControlSet){
       cout << "FiberTrace::calculate2dPSFPerBin: ERROR: _twoDPSFControl is not set" << endl;
@@ -6856,10 +6856,10 @@ namespace pfsDRPStella = pfs::drp::stella;
     }
 
     blitz::Array<double, 2> D_A2_2dPSF(2,2);
-    
+
     blitz::Array<ImageT, 2> T_A2_PixArray = utils::ndarrayToBlitz(_trace.getImage()->getArray());
     blitz::Array<double, 2> D_A2_PixArray = pfsDRPStella::math::Double(T_A2_PixArray);
-    
+
     blitz::Array<VarianceT, 2> T_A2_VarArray = utils::ndarrayToBlitz(_trace.getVariance()->getArray());
     blitz::Array<double, 2> D_A2_StdDevArray = pfsDRPStella::math::Double(T_A2_VarArray);
     D_A2_StdDevArray = blitz::sqrt(D_A2_StdDevArray);
@@ -6868,7 +6868,7 @@ namespace pfsDRPStella = pfs::drp::stella;
       cout << "FiberTrace::calculate2dPSF: ERROR: fabs(blitz::max(D_A2_StdDevArray))=" << D_MaxStdDev << " < 0.000001 => Returning FALSE" << endl;
       return false;
     }
-    
+
     blitz::Array<MaskT, 2> T_A2_MaskArray = utils::ndarrayToBlitz(_trace.getMask()->getArray());
     blitz::Array<int, 2> I_A2_MaskArray(D_A2_PixArray.rows(), D_A2_PixArray.cols());
     I_A2_MaskArray = where(T_A2_MaskArray == 0, 1, 0);
@@ -6876,7 +6876,7 @@ namespace pfsDRPStella = pfs::drp::stella;
     blitz::Array<float, 1> xCenters(_xCenters.data(), blitz::shape(_xCenters.size()), blitz::neverDeleteData);
     blitz::Array<double, 1> D_A1_XCenters(xCenters.size());
     D_A1_XCenters = pfsDRPStella::math::Double(xCenters) + 0.5;
-    
+
     blitz::Array<double, 2> traceBin(2,2);
     blitz::Array<double, 2> stddevBin(2,2);
     blitz::Array<int, 2> maskBin(2,2);
@@ -6891,14 +6891,14 @@ namespace pfsDRPStella = pfs::drp::stella;
 
       stddevBin.resize(binBoundY(iBin,1) - binBoundY(iBin,0) + 1, _trace.getWidth());
       stddevBin = D_A2_StdDevArray(blitz::Range(binBoundY(iBin,0), binBoundY(iBin,1)), blitz::Range::all());
-      
+
       maskBin.resize(binBoundY(iBin,1) - binBoundY(iBin,0) + 1, _trace.getWidth());
       maskBin = I_A2_MaskArray(blitz::Range(binBoundY(iBin,0), binBoundY(iBin,1)), blitz::Range::all());
-      
+
       xCentersOffset.resize(binBoundY(iBin,1) - binBoundY(iBin,0) + 1);
       xCentersOffset = D_A1_XCenters(blitz::Range(binBoundY(iBin, 0), binBoundY(iBin, 1)));
       xCentersOffset = xCentersOffset - pfsDRPStella::math::Int(xCentersOffset);
-    
+
       blitz::Array<int, 2> minCenMax(2,2);
       if (!pfsDRPStella::math::calcMinCenMax(xCenters,
                                             _fiberTraceFunction.fiberTraceFunctionControl.xHigh,
@@ -6921,7 +6921,7 @@ namespace pfsDRPStella = pfs::drp::stella;
       #endif
       blitz::Array<double, 1> centerTraceBin(binBoundY(iBin, 1) - binBoundY(iBin, 0) + 1);
       centerTraceBin = centerTrace(blitz::Range(binBoundY(iBin, 0), binBoundY(iBin, 1)));
-      
+
       /// start calculate2dPSF for bin iBin
       if (!calculate2dPSF(traceBin,
                           maskBin,
@@ -6933,11 +6933,11 @@ namespace pfsDRPStella = pfs::drp::stella;
         return false;
       }
     }
-    
+
     return true;
   }
-  
-  template<typename ImageT, typename MaskT, typename VarianceT> 
+
+  template<typename ImageT, typename MaskT, typename VarianceT>
   bool pfsDRPStella::FiberTrace<ImageT, MaskT, VarianceT>::calculate2dPSF(const blitz::Array<double, 2> &trace_In,
                                                                           const blitz::Array<int, 2> &mask_In,
                                                                           const blitz::Array<double, 2> &stddev_In,
@@ -6949,7 +6949,7 @@ namespace pfsDRPStella = pfs::drp::stella;
       cout << "FiberTrace::calculate2dPSF: ERROR: _twoDPSFControl is not set" << endl;
       return false;
     }
-    
+
     ///FIND EMISSION LINES
     /// create center column
     blitz::Array<double, 1> traceCenterCol(trace_In.rows());
@@ -6963,15 +6963,17 @@ namespace pfsDRPStella = pfs::drp::stella;
     #ifdef __DEBUG_CALC2DPSF__
       cout << "FiberTrace::calculate2dPSF: traceCenterCol = " << traceCenterCol << endl;
       cout << "FiberTrace::calculate2dPSF: traceCenterStdDevCol = " << traceCenterStdDevCol << endl;
+      std::string fname_trace = DEBUGDIR + std::string("trace.fits");
+      pfsDRPStella::utils::WriteFits(&trace_In,fname_trace);
     #endif
-    
+
     /// set everything below signal threshold to zero
     blitz::Array<int, 1> traceCenterSignal(traceCenterCol.size());
     traceCenterSignal = blitz::where(traceCenterCol < _twoDPSFControl->signalThreshold, 0., traceCenterCol);
     #ifdef __DEBUG_CALC2DPSF__
       cout << "FiberTrace::calculate2dPSF: 1. traceCenterSignal = " << traceCenterSignal << endl;
     #endif
-    
+
     /// look for signal wider than 2 FWHM
     if (!pfsDRPStella::math::CountPixGTZero(traceCenterSignal)){
       cout << "FiberTrace::calculate2dPSF: ERROR: CountPixGTZero(traceCenterSignal=" << traceCenterSignal << ") returned FALSE" << endl;
@@ -6980,9 +6982,9 @@ namespace pfsDRPStella = pfs::drp::stella;
     #ifdef __DEBUG_CALC2DPSF__
       cout << "FiberTrace::calculate2dPSF: 2. traceCenterSignal = " << traceCenterSignal << endl;
     #endif
-    
+
     /// identify emission lines
-    int I_FirstWideSignal, I_FirstWideSignalStart, I_FirstWideSignalEnd, I_Length;
+    int I_FirstWideSignal, I_FirstWideSignalStart, I_FirstWideSignalEnd;
     int I_MinWidth = int(2. * _twoDPSFControl->yFWHM);
     int I_StartIndex = 0;
     double D_MaxTimesApertureWidth = 3.5;
@@ -7007,9 +7009,9 @@ namespace pfsDRPStella = pfs::drp::stella;
 
     blitz::Array<double, 1> D_A1_GaussFit_Coeffs(_twoDPSFControl->nTermsGaussFit);
     blitz::Array<double, 1> D_A1_GaussFit_ECoeffs(_twoDPSFControl->nTermsGaussFit);
-    
+
     blitz::firstIndex i;
-    
+
     blitz::Array<double, 1> D_A1_Guess(_twoDPSFControl->nTermsGaussFit);
     blitz::Array<double, 2> D_A2_GaussCenters(1,2);
     int emissionLineNumber = 0;
@@ -7026,33 +7028,32 @@ namespace pfsDRPStella = pfs::drp::stella;
       #ifdef __DEBUG_CALC2DPSF__
         cout << "FiberTrace::calculate2dPSF: while: I_FirstWideSignalStart = " << I_FirstWideSignalStart << endl;
       #endif
-      
+
       I_FirstWideSignalEnd = pfsDRPStella::math::FirstIndexWithZeroValueFrom(traceCenterSignal, I_FirstWideSignal) - 1;
       #ifdef __DEBUG_CALC2DPSF__
         cout << "FiberTrace::calculate2dPSF: while: I_FirstWideSignalEnd = " << I_FirstWideSignalEnd << endl;
       #endif
-      
+
       if (I_FirstWideSignalEnd < 0){
         I_FirstWideSignalEnd = traceCenterSignal.size()-1;
       }
       #ifdef __DEBUG_CALC2DPSF__
         cout << "FiberTrace::calculate2dPSF: while: End of first wide signal found at index " << I_FirstWideSignalEnd << endl;
       #endif
-          
+
       /// Set start index for next run
       I_StartIndex = I_FirstWideSignalEnd+1;
-       
+
       /// Fit Gaussian and Trace Aperture
       #ifdef __DEBUG_CALC2DPSF__
         cout << "FiberTrace::calculate2dPSF: while: End of first wide signal found at index " << I_FirstWideSignalEnd << endl;
       #endif
-          
+
       if ((I_FirstWideSignalEnd - I_FirstWideSignalStart + 1) > (_twoDPSFControl->yFWHM * D_MaxTimesApertureWidth)){
         I_FirstWideSignalEnd = I_FirstWideSignalStart + int(D_MaxTimesApertureWidth * _twoDPSFControl->yFWHM);
       }
-      
+
       if (blitz::max(traceCenterCol(blitz::Range(I_FirstWideSignalStart, I_FirstWideSignalEnd))) < _twoDPSFControl->saturationLevel){
-        I_Length = I_FirstWideSignalEnd - I_FirstWideSignalStart + 1;
         D_A2_Limits(0,1) = 1.5 * blitz::max(traceCenterCol(blitz::Range(I_FirstWideSignalStart, I_FirstWideSignalEnd)));
         D_A2_Limits(1,0) = I_FirstWideSignalStart;
         D_A2_Limits(1,1) = I_FirstWideSignalEnd;
@@ -7091,14 +7092,14 @@ namespace pfsDRPStella = pfs::drp::stella;
           #ifdef __DEBUG_CALC2DPSF__
             cout << "FiberTrace::calculate2dPSF: while: D_A1_GaussFit_Coeffs = " << D_A1_GaussFit_Coeffs << endl;
           #endif
-          if ((D_A1_GaussFit_Coeffs(2) < (_twoDPSFControl->yFWHM / 1.5)) && 
-              ((_twoDPSFControl->nTermsGaussFit < 5) || 
+          if ((D_A1_GaussFit_Coeffs(2) < (_twoDPSFControl->yFWHM / 1.5)) &&
+              ((_twoDPSFControl->nTermsGaussFit < 5) ||
                ((_twoDPSFControl->nTermsGaussFit > 4) && (D_A1_GaussFit_Coeffs(4) < 1000.)))){
             ++emissionLineNumber;
             if (D_A2_GaussCenters.rows() < emissionLineNumber)
               D_A2_GaussCenters.resizeAndPreserve(emissionLineNumber, 2);
-            D_A2_GaussCenters(emissionLineNumber-1,1) = D_A1_GaussFit_Coeffs(1);
-          D_A2_GaussCenters(emissionLineNumber-1,0) = xCenterTrace_In(int(D_A1_GaussFit_Coeffs(1))) + ((D_A1_GaussFit_Coeffs(1) - int(D_A1_GaussFit_Coeffs(1))) * (xCenterTrace_In(int(D_A1_GaussFit_Coeffs(1))+1) - xCenterTrace_In(int(D_A1_GaussFit_Coeffs(1)))));
+            D_A2_GaussCenters(emissionLineNumber-1,1) = D_A1_GaussFit_Coeffs(1)+0.5;
+            D_A2_GaussCenters(emissionLineNumber-1,0) = xCenterTrace_In(int(D_A1_GaussFit_Coeffs(1))) + ((D_A1_GaussFit_Coeffs(1) -  int(D_A1_GaussFit_Coeffs(1))) * (xCenterTrace_In(int(D_A1_GaussFit_Coeffs(1))+1) - xCenterTrace_In(int(D_A1_GaussFit_Coeffs(1)))))+0.5;
             #ifdef __DEBUG_CALC2DPSF__
               cout << "FiberTrace::calculate2dPSF: xCenterTrace_In(int(D_A1_GaussFit_Coeffs(1))=" << int(D_A1_GaussFit_Coeffs(1)) << ") = " << xCenterTrace_In(int(D_A1_GaussFit_Coeffs(1))) << endl;
               cout << "FiberTrace::calculate2dPSF: xCenterTrace_In(int(D_A1_GaussFit_Coeffs(1))+1=" << int(D_A1_GaussFit_Coeffs(1))+1 << ") = " << xCenterTrace_In(int(D_A1_GaussFit_Coeffs(1))+1) << endl;
@@ -7111,17 +7112,122 @@ namespace pfsDRPStella = pfs::drp::stella;
           }
         }
       }
-        
-    } while(true);        
-    
+    } while(true);
+    #ifdef __DEBUG_CALC2DPSF__
+      cout << "FiberTrace::calculate2dPSF: xFWHM = " << _twoDPSFControl->xFWHM << ", yFWHM = " << _twoDPSFControl->yFWHM << endl;
+    #endif
+    std::vector<double> pixelsX;
+    std::vector<double> pixelsY;
+    std::vector<double> pixelsVal;
+    pixelsX.reserve(1000);
+    pixelsY.reserve(1000);
+    pixelsVal.reserve(1000);
+    double pixOffsetX, pixOffsetY, pixPosX, pixPosY, xStart, yStart;
+    int i_xCenter, i_yCenter, i_Left, i_Right, i_Down, i_Up;
+    int nPix = 0;
+    for (int iLine=0; iLine<emissionLineNumber; ++iLine){
+      i_xCenter = int(D_A2_GaussCenters(iLine, 0) - 0.5);
+      i_yCenter = int(D_A2_GaussCenters(iLine, 1) - 0.5);
+      i_Left = int(D_A2_GaussCenters(iLine, 0) - (1.5*_twoDPSFControl->xFWHM) - 0.5);
+      if (i_Left < 0)
+        i_Left = 0;
+      i_Right = int(D_A2_GaussCenters(iLine, 0) + (1.5*_twoDPSFControl->xFWHM) - 0.5);
+      if (i_Right >= _trace.getWidth())
+        i_Right = _trace.getWidth() - 1;
+      i_Down = int(D_A2_GaussCenters(iLine, 1) - (1.5*_twoDPSFControl->yFWHM) - 0.5);
+      if (i_Down < 0)
+        i_Down = 0;
+      i_Up = int(D_A2_GaussCenters(iLine, 1) + (1.5*_twoDPSFControl->yFWHM) - 0.5);
+      if (i_Up >= _trace.getHeight())
+        i_Up = _trace.getHeight() - 1;
+      pixOffsetX = D_A2_GaussCenters(iLine,0) - int(D_A2_GaussCenters(iLine,0)) - 0.5;
+      pixOffsetY = D_A2_GaussCenters(iLine,1) - int(D_A2_GaussCenters(iLine,1)) - 0.5;
+      #ifdef __DEBUG_CALC2DPSF__
+        cout << "FiberTrace::calculate2dPSF: iLine=" << iLine << ": D_A2_GaussCenters(" << iLine << ",0) = " << D_A2_GaussCenters(iLine,0) << ": D_A2_GaussCenters(" << iLine << ",1) = " << D_A2_GaussCenters(iLine,1) << ": i_xCenter = " << i_xCenter << ", i_yCenter = " << i_yCenter << endl;
+        cout << "FiberTrace::calculate2dPSF: iLine=" << iLine << ": i_Left = " << i_Left << ", i_Right = " << i_Right << endl;
+        cout << "FiberTrace::calculate2dPSF: iLine=" << iLine << ": i_Down = " << i_Down << ", i_Up = " << i_Up << endl;
+        cout << "FiberTrace::calculate2dPSF: iLine=" << iLine << ": pixOffsetX = " << pixOffsetX << ", pixOffsetY = " << pixOffsetY << endl;
+      #endif
+      xStart = i_Left - i_xCenter + pixOffsetX;
+      yStart = i_Down - i_yCenter + pixOffsetY;
+      #ifdef __DEBUG_CALC2DPSF__
+        cout << "FiberTrace::calculate2dPSF: iLine=" << iLine << ": xStart = " << xStart << endl;
+        cout << "FiberTrace::calculate2dPSF: iLine=" << iLine << ": yStart = " << yStart << endl;
+      #endif
+      for (int iX = 0; iX <= i_Right - i_Left; ++iX){
+        for (int iY = 0; iY <= i_Up - i_Down; ++iY){
+          #ifdef __DEBUG_CALC2DPSF__
+            cout << "FiberTrace::calculate2dPSF: iLine=" << iLine << ": iX = " << iX << ": iY = " << iY << endl;
+          #endif
+          pixelsX.push_back(xStart + iX);
+          pixelsY.push_back(yStart + iY);
+          pixelsVal.push_back(trace_In(i_Down + iY, i_Left + iX));
+          #ifdef __DEBUG_CALC2DPSF__
+            cout << "FiberTrace::calculate2dPSF: iLine=" << iLine << ": trace_In(" << i_Down + iY << ", " << i_Left + iX << ") = " << trace_In(i_Down + iY, i_Left + iX) << endl;
+            cout << "FiberTrace::calculate2dPSF: iLine=" << iLine << ": x = " << pixelsX[nPix] << ", y = " << pixelsY[nPix] << ": val = " << pixelsVal[nPix] << endl;
+          #endif
+          ++nPix;
+        }
+      }
+    }
+//    return false;
+
+    CGeostat krig;
+    const size_t dim_cspace = 2;
+    krig.initialize(nPix, dim_cspace);
+    gsl_vector *lower = gsl_vector_alloc(dim_cspace);
+    gsl_vector *upper = gsl_vector_alloc(dim_cspace);
+
+    gsl_vector_set(lower, 0, *(std::min(pixelsX.begin(), pixelsX.end())));
+    gsl_vector_set(lower, 1, *(std::min(pixelsY.begin(), pixelsY.end())));
+    gsl_vector_set(upper, 0, *(std::max(pixelsX.begin(), pixelsX.end())));
+    gsl_vector_set(upper, 1, *(std::max(pixelsY.begin(), pixelsY.end())));
+
+    krig.setDomain(lower, upper);
+    gsl_vector_free(lower);
+    gsl_vector_free(upper);
+
+    gsl_vector *pixPos = gsl_vector_alloc(dim_cspace);
+    for (int iPix=0; iPix<nPix; ++iPix){
+      gsl_vector_set(pixPos, 0, pixelsX[iPix]);
+      gsl_vector_set(pixPos, 1, pixelsY[iPix]);
+      krig.setCoordinate(iPix, pixPos);
+      krig.setData(iPix, pixelsVal[iPix]);
+    }
+
+    krig.estimate(CVariogram::VARIO_SPH, 0, 1.);
+    double pred, var;
+    std::vector<double> pixelsFit(pixelsVal.size());
+
+    #ifdef __DEBUG_CALC2DPSF__
+      std::ofstream ofkrig;
+      std::string fname = DEBUGDIR + std::string("kriging.dat");
+      ofkrig.open(fname);
+    #endif
+    for (int iPix=0; iPix<nPix; ++iPix){
+      gsl_vector_set(pixPos, 0, pixelsX[iPix]);
+      gsl_vector_set(pixPos, 1, pixelsY[iPix]);
+      krig.getPredictData(pred, var, pixPos);
+      pixelsFit[iPix] = pred;
+      #ifdef __DEBUG_CALC2DPSF__
+        cout << "FiberTrace::calculate2dPSF: iPix=" << iPix << ": original pixel value = " << pixelsVal[iPix] << ", predicted pixel value = " << pred << ", difference = " << pixelsVal[iPix]-pred << endl;
+        ofkrig << pixelsX[iPix] << " " << pixelsY[iPix] << " " << pixelsVal[iPix] << " " << pixelsFit[iPix] << endl;
+      #endif
+      pixelsFit.push_back(pred);
+    }
+    gsl_vector_free(pixPos);
+    #ifdef __DEBUG_CALC2DPSF__
+      ofkrig.close();
+    #endif
+
     return false;
   }
 
-  /** 
+  /**
    * class FiberTraceSet
    **/
-  
-  template<typename ImageT, typename MaskT, typename VarianceT> 
+
+  template<typename ImageT, typename MaskT, typename VarianceT>
   bool pfsDRPStella::FiberTraceSet<ImageT, MaskT, VarianceT>::setFiberTrace(int const i,     ///< which aperture?
                                                                             PTR(FiberTrace<ImageT, MaskT, VarianceT>) trace ///< the FiberTrace for the ith aperture
   ){
@@ -7137,14 +7243,14 @@ namespace pfsDRPStella = pfs::drp::stella;
     }
     return true;
   }
-  
-  template<typename ImageT, typename MaskT, typename VarianceT> 
+
+  template<typename ImageT, typename MaskT, typename VarianceT>
   void pfsDRPStella::FiberTraceSet<ImageT, MaskT, VarianceT>::addFiberTrace(PTR(FiberTrace<ImageT, MaskT, VarianceT>) trace) ///< the FiberTrace for the ith aperture
   {
     _traces.push_back(trace);
   }
-  
-  template<typename ImageT, typename MaskT, typename VarianceT> 
+
+  template<typename ImageT, typename MaskT, typename VarianceT>
   void pfsDRPStella::FiberTraceSet<ImageT, MaskT, VarianceT>::sortTracesByXCenter()
   {
     for (int i = 0; i < static_cast<int>(_traces.size()); ++i){
@@ -7156,7 +7262,7 @@ namespace pfsDRPStella = pfs::drp::stella;
     }
     std::vector<int> sortedIndices(xCenters.size());
     sortedIndices = pfsDRPStella::math::sortIndices(xCenters);
-    
+
     std::vector<PTR(FiberTrace<ImageT, MaskT, VarianceT>)> sortedTraces(_traces.size());
     for (int i = 0; i < static_cast<int>(_traces.size()); ++i){
       sortedTraces[i] = _traces[sortedIndices[i]];
@@ -7165,7 +7271,7 @@ namespace pfsDRPStella = pfs::drp::stella;
     return;
   }
 
-  template<typename ImageT, typename MaskT, typename VarianceT> 
+  template<typename ImageT, typename MaskT, typename VarianceT>
   bool pfsDRPStella::FiberTraceSet<ImageT, MaskT, VarianceT>::setFiberTraceExtractionControl(FiberTraceExtractionControl &fiberTraceExtractionControl){
     PTR(FiberTraceExtractionControl) p_fiberTraceExtractionControl(new FiberTraceExtractionControl(fiberTraceExtractionControl));
     for (unsigned int i=0; i<_traces.size(); ++i){
@@ -7176,8 +7282,8 @@ namespace pfsDRPStella = pfs::drp::stella;
     }
     return true;
   }
-  
-  template<typename ImageT, typename MaskT, typename VarianceT> 
+
+  template<typename ImageT, typename MaskT, typename VarianceT>
   bool pfsDRPStella::FiberTraceSet<ImageT, MaskT, VarianceT>::setTwoDPSFControl(TwoDPSFControl &twoDPSFControl){
     PTR(TwoDPSFControl) p_twoDPSFControl(new TwoDPSFControl(twoDPSFControl));
     for (unsigned int i=0; i<_traces.size(); ++i){
@@ -7188,8 +7294,8 @@ namespace pfsDRPStella = pfs::drp::stella;
     }
     return true;
   }
-  
-  template<typename ImageT, typename MaskT, typename VarianceT> 
+
+  template<typename ImageT, typename MaskT, typename VarianceT>
   bool pfsDRPStella::FiberTraceSet<ImageT, MaskT, VarianceT>::extractTraceNumber(int traceNumber)
   {
     blitz::Array<std::string, 1> keyWords(1);
@@ -7202,8 +7308,8 @@ namespace pfsDRPStella = pfs::drp::stella;
     }
     return true;
   }
-  
-  template<typename ImageT, typename MaskT, typename VarianceT> 
+
+  template<typename ImageT, typename MaskT, typename VarianceT>
   bool pfsDRPStella::FiberTraceSet<ImageT, MaskT, VarianceT>::extractAllTraces()
   {
     blitz::Array<std::string, 1> keyWords(1);
@@ -7220,7 +7326,7 @@ namespace pfsDRPStella = pfs::drp::stella;
     return true;
   }
 
-  template<typename ImageT, typename MaskT, typename VarianceT> 
+  template<typename ImageT, typename MaskT, typename VarianceT>
   bool pfsDRPStella::FiberTraceSet<ImageT, MaskT, VarianceT>::extractTraceNumberFromProfile(int traceNumber)
   {
     blitz::Array<std::string, 1> keyWords(1);
@@ -7233,8 +7339,8 @@ namespace pfsDRPStella = pfs::drp::stella;
     }
     return true;
   }
-  
-  template<typename ImageT, typename MaskT, typename VarianceT> 
+
+  template<typename ImageT, typename MaskT, typename VarianceT>
   bool pfsDRPStella::FiberTraceSet<ImageT, MaskT, VarianceT>::extractAllTracesFromProfile()
   {
     blitz::Array<std::string, 1> keyWords(1);
@@ -7251,7 +7357,7 @@ namespace pfsDRPStella = pfs::drp::stella;
     return true;
   }
 
-  template<typename ImageT, typename MaskT, typename VarianceT> 
+  template<typename ImageT, typename MaskT, typename VarianceT>
   bool pfsDRPStella::FiberTraceSet<ImageT, MaskT, VarianceT>::setAllProfiles(FiberTraceSet<ImageT, MaskT, VarianceT> &fiberTraceSet){
     for (unsigned int i = 0; i < _traces.size(); ++i){
       if (!_traces[i]->setProfile(fiberTraceSet.getFiberTrace(i).getProfile())){
@@ -7261,18 +7367,18 @@ namespace pfsDRPStella = pfs::drp::stella;
     }
     return true;
   }
-  
+
   namespace pfs{ namespace drp{ namespace stella{ namespace math{
-    
-/*    template<typename ImageT, typename MaskT, typename VarianceT> 
+
+/*    template<typename ImageT, typename MaskT, typename VarianceT>
     PTR(pfsDRPStella::FiberTraceSet<ImageT, MaskT, VarianceT>) findAndTraceApertures(const PTR(afwImage::MaskedImage<ImageT, MaskT, VarianceT>) &maskedImage,*/
-    template<typename ImageT, typename MaskT, typename VarianceT> 
+    template<typename ImageT, typename MaskT, typename VarianceT>
     pfsDRPStella::FiberTraceSet<ImageT, MaskT, VarianceT> findAndTraceApertures(const PTR(afwImage::MaskedImage<ImageT, MaskT, VarianceT>) &maskedImage,
                               const pfsDRPStella::FiberTraceFunctionFindingControl &fiberTraceFunctionFindingControl){
       #ifdef __DEBUG_FINDANDTRACE__
         cout << "pfsDRPStella::math::findAndTraceApertures started" << endl;
       #endif
-      
+
       if (static_cast<int>(fiberTraceFunctionFindingControl.apertureFWHM * 2.) + 1 <= fiberTraceFunctionFindingControl.nTermsGaussFit){
         cout << "pfsDRPStella::math::findAndTraceApertures: WARNING: fiberTraceFunctionFindingControl.apertureFWHM too small for GaussFit -> Try lower fiberTraceFunctionFindingControl.nTermsGaussFit!" << endl;
         exit(EXIT_FAILURE);
@@ -7284,7 +7390,7 @@ namespace pfsDRPStella = pfs::drp::stella;
       #ifdef __DEBUG_FINDANDTRACE__
         cout << "pfsDRPStella::math::findAndTraceApertures: fiberTraceFunction.fiberTraceFunctionControl set" << endl;
       #endif
-      
+
       //  int I_PolyFitOrder = 3;
       unsigned int I_ApertureNumber = 0;
       int I_StartIndex;
@@ -7335,7 +7441,7 @@ namespace pfsDRPStella = pfs::drp::stella;
         cout << "pfsDRPStella::math::findAndTraceApertures: fiberTraceFunctionFindingControl.signalThreshold = " << fiberTraceFunctionFindingControl.signalThreshold << endl;
   //      return false;
       #endif
-      
+
       /// Set all pixels below fiberTraceFunctionFindingControl.signalThreshold to 0.
       ccdImage = blitz::where(ccdImage < fiberTraceFunctionFindingControl.signalThreshold, 0., ccdImage);
       #ifdef __DEBUG_FINDANDTRACE__
@@ -7343,12 +7449,12 @@ namespace pfsDRPStella = pfs::drp::stella;
         string S_TempFileName = DEBUGDIR + "FindAndTraceApertures_thresh.fits";
         pfsDRPStella::utils::WriteFits(&ccdImage, S_TempFileName);
       #endif
-      
+
       int I_MinWidth = int(1.5 * fiberTraceFunctionFindingControl.apertureFWHM);
       if (I_MinWidth < fiberTraceFunctionFindingControl.nTermsGaussFit)
         I_MinWidth = fiberTraceFunctionFindingControl.nTermsGaussFit;
       double D_MaxTimesApertureWidth = 4.;
-      
+
       /// Search for Apertures
       //  I_LastRowWhereApertureWasFound = 0;
       D_A1_ApertureCenter = 0.;
@@ -7378,12 +7484,12 @@ namespace pfsDRPStella = pfs::drp::stella;
             #ifdef __DEBUG_FINDANDTRACE__
               cout << "pfsDRPStella::math::findAndTraceApertures: while: 1. i_Row = " << i_Row << ": I_ApertureNumber = " << I_ApertureNumber << ": I_FirstWideSignalStart = " << I_FirstWideSignalStart << endl;
             #endif
-              
+
             I_FirstWideSignalEnd = pfsDRPStella::math::FirstIndexWithZeroValueFrom(I_A1_Signal, I_FirstWideSignal) - 1;
             #ifdef __DEBUG_FINDANDTRACE__
               cout << "pfsDRPStella::math::findAndTraceApertures: while: i_Row = " << i_Row << ": I_ApertureNumber = " << I_ApertureNumber << ": I_FirstWideSignalEnd = " << I_FirstWideSignalEnd << endl;
             #endif
-              
+
             if (I_FirstWideSignalStart < 0){
               #ifdef __DEBUG_FINDANDTRACE__
                 cout << "pfsDRPStella::math::findAndTraceApertures: while: i_Row = " << i_Row << ": I_ApertureNumber = " << I_ApertureNumber << ": WARNING: No start of aperture found -> Going to next Aperture." << endl;
@@ -7414,16 +7520,16 @@ namespace pfsDRPStella = pfs::drp::stella;
                 #ifdef __DEBUG_FINDANDTRACE__
                   cout << "pfsDRPStella::math::findAndTraceApertures: while: i_Row = " << i_Row << ": I_ApertureNumber = " << I_ApertureNumber << ": End of first wide signal found at index " << I_FirstWideSignalEnd << endl;
                 #endif
-                
+
                 if (I_FirstWideSignalEnd - I_FirstWideSignalStart + 1 > fiberTraceFunctionFindingControl.apertureFWHM * D_MaxTimesApertureWidth){
                   I_FirstWideSignalEnd = I_FirstWideSignalStart + int(D_MaxTimesApertureWidth * fiberTraceFunctionFindingControl.apertureFWHM);
                 }
-                
+
                 /// Set start index for next run
                 I_StartIndex = I_FirstWideSignalEnd+1;
               }
               I_Length = I_FirstWideSignalEnd - I_FirstWideSignalStart + 1;
-              
+
               if (fiberTraceFunctionFindingControl.nTermsGaussFit == 0){/// look for maximum only
                 D_A1_ApertureCenter = 0.;
                 B_ApertureFound = true;
@@ -7437,7 +7543,7 @@ namespace pfsDRPStella = pfs::drp::stella;
                 #ifdef __DEBUG_FINDANDTRACE__
                   cout << "pfsDRPStella::math::findAndTraceApertures: while: i_Row = " << i_Row << ": I_ApertureNumber = " << I_ApertureNumber << ": Aperture found at " << D_A1_ApertureCenter(i_Row) << endl;
                 #endif
-                
+
                 /// Set signal to zero
                 ccdImage(i_Row, blitz::Range(I_FirstWideSignalStart+1, I_FirstWideSignalEnd-1)) = 0.;
               }
@@ -7446,7 +7552,7 @@ namespace pfsDRPStella = pfs::drp::stella;
                   #ifdef __DEBUG_FINDANDTRACE__
                     cout << "pfsDRPStella::math::findAndTraceApertures: while: i_Row = " << i_Row << ": I_ApertureNumber = " << I_ApertureNumber << ": WARNING: Width of aperture <= " << fiberTraceFunctionFindingControl.nTermsGaussFit << "-> abandoning aperture" << endl;
                   #endif
-                  
+
                   /// Set signal to zero
                   ccdImage(i_Row, blitz::Range(I_FirstWideSignalStart+1, I_FirstWideSignalEnd-1)) = 0.;
                 }
@@ -7455,7 +7561,7 @@ namespace pfsDRPStella = pfs::drp::stella;
                   D_A1_X.resize(I_Length);
                   D_A1_Y.resize(I_Length);
                   D_A1_MeasureErrors.resize(I_Length);
-                  
+
                   D_A1_X = D_A1_IndexCol(blitz::Range(I_FirstWideSignalStart, I_FirstWideSignalEnd));
                   D_A1_Y = ccdImage(i_Row, blitz::Range(I_FirstWideSignalStart, I_FirstWideSignalEnd));
                   D_A1_Y = blitz::where(D_A1_Y < 0.000001, 1., D_A1_Y);
@@ -7463,7 +7569,7 @@ namespace pfsDRPStella = pfs::drp::stella;
                     cout << "pfsDRPStella::math::findAndTraceApertures: 1. D_A1_Y set to " << D_A1_Y << endl;
                   #endif
                   D_A1_MeasureErrors = sqrt(fabs(D_A1_Y));
-                  
+
                   /// Guess values for GaussFit
                   D_A1_Guess(0) = max(D_A1_Y);
                   D_A1_Guess(1) = double(I_FirstWideSignalStart) + (double((I_FirstWideSignalEnd - I_FirstWideSignalStart)) / 2.);
@@ -7472,11 +7578,11 @@ namespace pfsDRPStella = pfs::drp::stella;
                   D_A1_GaussFit_Coeffs = 0.;
                   blitz::Array<double, 1> D_A1_GaussFit_ECoeffs(D_A1_GaussFit_Coeffs.size());
                   D_A1_GaussFit_ECoeffs = 0.;
-                  
+
                   #ifdef __DEBUG_FINDANDTRACE__
                     cout << "pfsDRPStella::math::findAndTraceApertures: while: i_Row = " << i_Row << ": I_ApertureNumber = " << I_ApertureNumber << ": D_A1_X = " << D_A1_X << ", D_A1_Y = " << D_A1_Y << endl;
                   #endif
-                  
+
                   blitz::Array<int, 2> I_A2_Limited(3,2);
                   I_A2_Limited = 1;
                   blitz::Array<double, 2> D_A2_Limits(3,2);
@@ -7502,10 +7608,10 @@ namespace pfsDRPStella = pfs::drp::stella;
                     #ifdef __DEBUG_FINDANDTRACE__
                       cout << "pfsDRPStella::math::findAndTraceApertures: while: i_Row = " << i_Row << ": I_ApertureNumber = " << I_ApertureNumber << ": WARNING: GaussFit FAILED -> abandoning aperture" << endl;
                     #endif
-                  
+
                     /// Set start index for next run
                     I_StartIndex = I_FirstWideSignalEnd+1;
-                  
+
                     ccdImage(i_Row, blitz::Range(I_FirstWideSignalStart+1, I_FirstWideSignalEnd-1)) = 0.;
                   }
                   else{
@@ -7528,8 +7634,8 @@ namespace pfsDRPStella = pfs::drp::stella;
                       #endif
                       /// Set signal to zero
                       ccdImage(i_Row, blitz::Range(I_FirstWideSignalStart+1, I_FirstWideSignalEnd-1)) = 0.;
-                        
-                        
+
+
                       /// Set start index for next run
                       I_StartIndex = I_FirstWideSignalEnd+1;
                     }
@@ -7564,7 +7670,7 @@ namespace pfsDRPStella = pfs::drp::stella;
             }/// end else if (I_FirstWideSignalStart > 0)
           }/// end if (I_FirstWideSignal > 0)
         }/// end while (!B_ApertureFound)
-        
+
         if (B_ApertureFound){
           /// Trace Aperture
           I_Length = 1;
@@ -7622,7 +7728,7 @@ namespace pfsDRPStella = pfs::drp::stella;
               }
               else{
                 I_Length = I_FirstWideSignalEnd - I_FirstWideSignalStart + 1;
-                
+
                 if (I_Length <= fiberTraceFunctionFindingControl.nTermsGaussFit){
                   #ifdef __DEBUG_FINDANDTRACE__
                     cout << "pfsDRPStella::math::findAndTraceApertures: i_Row = " << i_Row << ": I_ApertureNumber = " << I_ApertureNumber << ": Warning: Width of Aperture <= " << fiberTraceFunctionFindingControl.nTermsGaussFit << " -> Lost Aperture" << endl;
@@ -7635,7 +7741,7 @@ namespace pfsDRPStella = pfs::drp::stella;
                   D_A1_X.resize(I_Length);
                   D_A1_Y.resize(I_Length);
                   D_A1_MeasureErrors.resize(I_Length);
-                  
+
                   D_A1_X = D_A1_IndexCol(blitz::Range(I_FirstWideSignalStart, I_FirstWideSignalEnd));
                   D_A1_Y = ccdImage(i_Row, blitz::Range(I_FirstWideSignalStart, I_FirstWideSignalEnd));
                   I_A1_IndSignal.resize(D_A1_Y.size());
@@ -7658,15 +7764,15 @@ namespace pfsDRPStella = pfs::drp::stella;
                     #endif
                     D_A1_MeasureErrors = sqrt(fabs(D_A1_Y));
                     D_A1_Guess = D_A1_GaussFit_Coeffs_Bak;
-                    
+
                     D_A1_GaussFit_Coeffs = 0.;
                     blitz::Array<double, 1> D_A1_GaussFit_ECoeffs(D_A1_GaussFit_Coeffs.size());
                     D_A1_GaussFit_ECoeffs = 0.;
-                    
+
                     #ifdef __DEBUG_FINDANDTRACE__
                     cout << "pfsDRPStella::math::findAndTraceApertures: while: i_Row = " << i_Row << ": I_ApertureNumber = " << I_ApertureNumber << ": D_A1_X = " << D_A1_X << ", D_A1_Y = " << D_A1_Y << endl;
                     #endif
-                    
+
                     blitz::Array<int, 2> I_A2_Limited(3,2);
                     I_A2_Limited = 1;
                     blitz::Array<double, 2> D_A2_Limits(3,2);
@@ -7694,7 +7800,7 @@ namespace pfsDRPStella = pfs::drp::stella;
                       #endif
                       /// Set signal to zero
                       ccdImage(i_Row, blitz::Range(I_FirstWideSignalStart-1, I_FirstWideSignalEnd+1)) = 0.;
-                    
+
                       I_ApertureLost++;
                       //          return false;
                     }
@@ -7717,7 +7823,7 @@ namespace pfsDRPStella = pfs::drp::stella;
                         #endif
                         /// Set signal to zero
                         ccdImage(i_Row, blitz::Range(I_FirstWideSignalStart+1, I_FirstWideSignalEnd-1)) = 0.;
-                          
+
                         I_ApertureLost++;
                       }
                       else{
@@ -7750,7 +7856,7 @@ namespace pfsDRPStella = pfs::drp::stella;
               }/// end else if (I_ApertureStart >= 0. && I_ApertureEnd < maskedImage->getWidth())
             }/// end else if GaussFit
           }///end while(B_ApertureFound && (I_ApertureLost < 3) && i_Row < maskedImage->getHeight() - 2))
-          
+
           /// Fit Polynomial to traced aperture positions
           #ifdef __DEBUG_FINDANDTRACE__
             cout << "pfsDRPStella::math::findAndTraceApertures: i_Row = " << i_Row << ": I_ApertureNumber = " << I_ApertureNumber << ": D_A1_ApertureCenter = " << D_A1_ApertureCenter << endl;
@@ -7770,7 +7876,7 @@ namespace pfsDRPStella = pfs::drp::stella;
               cout << "pfsDRPStella::math::findAndTraceApertures: i_Row = " << i_Row << ": I_ApertureNumber = " << I_ApertureNumber << ": I_A1_ApertureCenterInd = " << I_A1_ApertureCenterInd << endl;
             #endif
             if (!pfsDRPStella::math::GetSubArrCopy(D_A1_IndexRow,
-                                                  I_A1_ApertureCenterInd, 
+                                                  I_A1_ApertureCenterInd,
                                                   D_A1_ApertureCenterIndex)){
               cout << "pfsDRPStella::math::findAndTraceApertures: i_Row = " << i_Row << ": I_ApertureNumber = " << I_ApertureNumber << ": ERROR: pfsDRPStella::math::GetSubArrCopy(D_A1_IndexRow = " << D_A1_IndexRow << ", I_A1_ApertureCenterInd = " << I_A1_ApertureCenterInd << ", D_A1_ApertureCenterIndex) returned FALSE -> returning FALSE" << endl;
               exit(EXIT_FAILURE);
@@ -7778,7 +7884,7 @@ namespace pfsDRPStella = pfs::drp::stella;
             #ifdef __DEBUG_FINDANDTRACE__
               cout << "pfsDRPStella::math::findAndTraceApertures: i_Row = " << i_Row << ": I_ApertureNumber = " << I_ApertureNumber << ": D_A1_ApertureCenterIndex = " << D_A1_ApertureCenterIndex << endl;
             #endif
-              
+
             if (!pfsDRPStella::math::GetSubArrCopy(D_A1_ApertureCenter,
                                                   I_A1_ApertureCenterInd,
                                                   D_A1_ApertureCenterPos)){
@@ -7788,24 +7894,24 @@ namespace pfsDRPStella = pfs::drp::stella;
             #ifdef __DEBUG_FINDANDTRACE__
               cout << "pfsDRPStella::math::findAndTraceApertures: i_Row = " << i_Row << ": I_ApertureNumber = " << I_ApertureNumber << ": D_A1_ApertureCenterPos = " << D_A1_ApertureCenterPos << endl;
             #endif
-                
+
             /// Fit Polynomial
             #ifdef __DEBUG_FINDANDTRACE__
               cout << "pfsDRPStella::math::findAndTraceApertures: i_Row = " << i_Row << ": I_ApertureNumber = " << I_ApertureNumber << ": D_A1_ApertureCenterIndex = " << D_A1_ApertureCenterIndex << endl;
               cout << "pfsDRPStella::math::findAndTraceApertures: i_Row = " << i_Row << ": I_ApertureNumber = " << I_ApertureNumber << ": D_A1_ApertureCenterPos = " << D_A1_ApertureCenterPos << endl;
               cout << "pfsDRPStella::math::findAndTraceApertures: i_Row = " << i_Row << ": I_ApertureNumber = " << I_ApertureNumber << ": order = " << fiberTraceFunctionFindingControl.fiberTraceFunctionControl.order << endl;
             #endif
-            if (!pfsDRPStella::math::PolyFit(D_A1_ApertureCenterIndex, 
-                                            D_A1_ApertureCenterPos, 
+            if (!pfsDRPStella::math::PolyFit(D_A1_ApertureCenterIndex,
+                                            D_A1_ApertureCenterPos,
                                             fiberTraceFunctionFindingControl.fiberTraceFunctionControl.order,
                                             P_D_A1_PolyFitCoeffs)){
               cout << "pfsDRPStella::math::findAndTraceApertures: i_Row = " << i_Row << ": I_ApertureNumber = " << I_ApertureNumber << ": ERROR: PolyFit returned FALSE -> Returning FALSE" << endl;
               exit(EXIT_FAILURE);
             }
             PTR(pfsDRPStella::FiberTrace<ImageT, MaskT, VarianceT>) fiberTrace(new pfsDRPStella::FiberTrace< ImageT, MaskT, VarianceT >(maskedImage));
-                
+
             I_ApertureNumber++;
-          
+
             fiberTraceFunction.xCenter = D_A1_ApertureCenterPos(int(D_A1_ApertureCenterIndex.size()/2.));
             fiberTraceFunction.yCenter = D_A1_ApertureCenterIndex(int(D_A1_ApertureCenterIndex.size()/2.));
             fiberTraceFunction.yHigh = D_A1_ApertureCenterIndex(int(D_A1_ApertureCenterIndex.size()-1)) - fiberTraceFunction.yCenter;
@@ -7827,7 +7933,7 @@ namespace pfsDRPStella = pfs::drp::stella;
               cout << "FindAndTraceApertures: ERROR: setFiberTraceFunction returned FALSE" << endl;
               exit(EXIT_FAILURE);
             }
-          
+
             blitz::Array<double, 1> D_A1_XCenters_Y = pfsDRPStella::math::DIndGenArr(ccdImage.rows());
             blitz::Array<double, 1> D_A1_XCenters = pfsDRPStella::math::Poly(D_A1_XCenters_Y, *P_D_A1_PolyFitCoeffs);
             blitz::Array<double, 1> D_A1_XCenters_Ap(fiberTraceFunction.yHigh - fiberTraceFunction.yLow + 1);
@@ -7838,7 +7944,7 @@ namespace pfsDRPStella = pfs::drp::stella;
             std::vector<float> xCenters(D_A1_XCenters_Ap.size());
             for (int iter = 0; iter < static_cast<int>(D_A1_XCenters_Ap.size()); iter++)
               xCenters[iter] = static_cast<float>(D_A1_XCenters_Ap(iter));
-          
+
             #ifdef __DEBUG_FINDANDTRACE__
               for (int iter=0; iter < static_cast<int>(xCenters.size()); ++iter){
                 cout << "FindAndTraceApertures: xCenters[" << iter << "] = " << xCenters[iter] << endl;
@@ -7862,7 +7968,7 @@ namespace pfsDRPStella = pfs::drp::stella;
           i_Row = I_Row_Bak - 1;
         }/// end if (B_ApertureFound)
       }/// end for(i_Row = 0; i_Row < maskedImage->getHeight(); i_Row++)
-    
+
       #ifdef __DEBUG_FINDANDTRACE__
         std::string S_NewFileName = DEBUGDIR;
         S_NewFileName += "FindAndTraceApertures";
@@ -7875,12 +7981,12 @@ namespace pfsDRPStella = pfs::drp::stella;
           S_FileNameTrace = S_NewFileName + "_trace_" + std::to_string(i) + ".fits";
           pfs::drp::stella::utils::WriteFits(&F_A2_Trace, S_FileNameTrace);
         }
-        
+
       #endif
       delete(P_D_A1_PolyFitCoeffs);
       return fiberTraceSet;
     }
-    
+
     /*****************************************************************/
     /*  Sub method for CubicSpline, Legendre, and Chebyshev          */
     /*****************************************************************/
@@ -7893,7 +7999,7 @@ namespace pfsDRPStella = pfs::drp::stella;
       #endif
       return Normalized;
     }
-    
+
     /*****************************************************************/
     /*  Sub method for LinearSpline and CubicSpline                  */
     /*****************************************************************/
@@ -7906,7 +8012,7 @@ namespace pfsDRPStella = pfs::drp::stella;
       #endif
       return A;
     }
-    
+
     /*****************************************************************/
     /*  Sub method for LinearSpline and CubicSpline                  */
     /*****************************************************************/
@@ -7919,7 +8025,7 @@ namespace pfsDRPStella = pfs::drp::stella;
       #endif
       return B;
     }
-    
+
     /*****************************************************************/
     /* Sub method for LinearSpline and CubicSpline                   */
     /*****************************************************************/
@@ -7934,7 +8040,7 @@ namespace pfsDRPStella = pfs::drp::stella;
       #endif
       return J;
     }
-    
+
     /** **************************************************/
     /** Sub method for LinearSpline and CubicSpline      */
     /** **************************************************/
@@ -7947,7 +8053,7 @@ namespace pfsDRPStella = pfs::drp::stella;
       #endif
       return S;
     }
-    
+
     /** **************************************************/
     bool LinearSpline(blitz::Array<double, 1> &D_A1_XCenters_Out,
                       const blitz::Array<double, 1> &D_A1_Coeffs_In,
@@ -7963,7 +8069,7 @@ namespace pfsDRPStella = pfs::drp::stella;
       for (int m = 0; m < I_NRows_In; m++)
       {
         int n = pfs::drp::stella::math::GetJ(0. - D_YCenter_In + (double)m, D_YMin_In, D_YMax_In, I_Order_In);
-        
+
         D_A1_XCenters_Out(m) = D_XCenter_In + (D_A1_Coeffs_In(n) * pfs::drp::stella::math::GetA(0. - D_YCenter_In + (double)m, D_YMin_In, D_YMax_In, I_Order_In)) + (D_A1_Coeffs_In(n+1) * pfs::drp::stella::math::GetB(0. - D_YCenter_In + m, D_YMin_In, D_YMax_In, I_Order_In));
         if (D_A1_XCenters_Out(m) < 0. - D_XLow_In)
           D_A1_XCenters_Out(m) = 0. - D_XLow_In;
@@ -7972,7 +8078,7 @@ namespace pfsDRPStella = pfs::drp::stella;
       }
       return true;
     }
-    
+
     /** **************************************************/
     /**       */
     /**       */
@@ -7990,9 +8096,9 @@ namespace pfsDRPStella = pfs::drp::stella;
                      int I_NRows_In){
       int m, o;
       blitz::Array<double, 1> D_A1_ZArr(4);
-      
+
       cout << "CubicSpline: D_A1_XCenters_Out.size() returned " << D_A1_XCenters_Out.size() << endl;
-      
+
       for (m = 0; m < I_NRows_In; m++)
       {
         #ifdef __DEBUG_TRACEFUNC__
@@ -8024,7 +8130,7 @@ namespace pfsDRPStella = pfs::drp::stella;
       D_A1_ZArr.resize(0);
       return true;
     }
-    
+
     /** **************************************************/
     /**       */
     /**       */
@@ -8050,19 +8156,19 @@ namespace pfsDRPStella = pfs::drp::stella;
       bool B_XMax_Set = false;
       bool B_Begin_Found = false;
       blitz::Array<double, 1> D_A1_ZArr(3);
-      
+
       #ifdef __DEBUG_TRACEFUNC__
         cout << "ChebyLegend: started: S_Function_In = " << S_Function_In << ", D_XCenter_In = " << D_XCenter_In << ", D_YCenter_In = " << D_YCenter_In << ", D_YMin_In = " << D_YMin_In << ", D_YMax_In = " << D_YMax_In << ", D_XLow_In = " << D_XLow_In << ", D_XHigh_In = " << D_XHigh_In << ", I_Order_In = " << I_Order_In << ", Coeffs = " << D_A1_Coeffs_In << endl;
         cout << "ChebyLegend: D_A1_XCenters_Out.size() returned " << D_A1_XCenters_Out.size() << endl;
       #endif
-      
+
       if (D_A1_XCenters_Out.size() < D_YMax_In - D_YMin_In + 1.)
       {
         cout << "ChebyLegend: D_YMax_In = " << D_YMax_In << ", D_YMin_In = " << D_YMin_In << endl;
         cout << "ChebyLegend: D_A1_XCenters_Out.size(=" << D_A1_XCenters_Out.size() << ") < D_YMax_In(=" << D_YMax_In << ") - D_YMin_In(=" << D_YMin_In << ") + 1 = " << D_YMax_In - D_YMin_In + 1. << " => Returning FALSE" << endl;
         return false;
       }
-      
+
       /// m: Pixel No of 2nd dim (x-direction, independent variable)
       D_YMin_Out = 0.;
       D_YMax_Out = I_NRows_In-1.;
@@ -8148,7 +8254,7 @@ namespace pfsDRPStella = pfs::drp::stella;
       D_A1_ZArr.resize(0);
       return true;
     }
-    
+
     /*****************************************************************/
     /*       */
     /*       */
@@ -8168,7 +8274,7 @@ namespace pfsDRPStella = pfs::drp::stella;
                   const int I_NRows_In
                  ){
       string sLegendre = "legendre";
-      
+
       #ifdef __DEBUG_LEGENDRE__
         cout << "Legendre: starting  (ChebyLegend(D_A1_XCenters_Out=" << D_A1_XCenters_Out << ", D_A1_Coeffs_In=" << D_A1_Coeffs_In << ", D_XCenter_In=" << D_XCenter_In << ", D_YCenter_In=" << D_YCenter_In << ", D_YMin_In=" << D_YMin_In << ", D_YMax_In=" << D_YMax_In << ", D_XLow_In=" << D_XLow_In << ", D_XHigh_In=" << D_XHigh_In << ", I_Order_In=" << I_Order_In << ", I_NCols_In=" << I_NCols_In << ", sLegendre=" << sLegendre << "));" << endl;
       #endif
@@ -8187,7 +8293,7 @@ namespace pfsDRPStella = pfs::drp::stella;
                           I_NRows_In,
                           sLegendre));
     }
-    
+
     /*****************************************************************/
     /*       */
     /*       */
@@ -8222,7 +8328,7 @@ namespace pfsDRPStella = pfs::drp::stella;
                           I_NRows_In,
                           sChebyshev));
     }
-    
+
     blitz::Array<double, 1> Poly(const blitz::Array<double, 1> &xVec,
                                   const blitz::Array<double, 1> &coeffsVec){
       int ii = 0;
@@ -8264,7 +8370,7 @@ namespace pfsDRPStella = pfs::drp::stella;
       double D_Y = D_A1_Y(0);
       return D_Y;
     }
-    
+
     /**
      *  Returns Indexes of I_A1_Where where I_A1_Where equals 1 and writes of blitz::sum(I_A1_Where) to I_NInd_Out
      **/
@@ -8285,12 +8391,12 @@ namespace pfsDRPStella = pfs::drp::stella;
       }
       return P_Index_Out;
     }
-    
+
     /**
      *  Returns Indexes of I_A1_Where where I_A1_Where equals 1 and writes of blitz::sum(I_A1_Where) to I_NInd_Out
      **/
-    bool GetIndex(const blitz::Array<int,1> &I_A1_Where, 
-                  int &I_NInd_Out, 
+    bool GetIndex(const blitz::Array<int,1> &I_A1_Where,
+                  int &I_NInd_Out,
                   blitz::Array<int, 1> &I_IndArr_Out){
       I_NInd_Out = blitz::sum(I_A1_Where);
       int arrsize = I_NInd_Out;
@@ -8309,11 +8415,11 @@ namespace pfsDRPStella = pfs::drp::stella;
       }
       return true;
     }
-    
+
     /**
      * Returns Indexes of I_A2_Where where I_A2_Where equals 1 and writes of blitz::sum(I_A2_Where) to I_NInd_Out
      **/
-    blitz::Array<int,2>* GetIndex(const blitz::Array<int,2> &I_A2_Where, 
+    blitz::Array<int,2>* GetIndex(const blitz::Array<int,2> &I_A2_Where,
                                   int &I_NInd_Out){
       I_NInd_Out = blitz::sum(I_A2_Where);
       int arrsize = I_NInd_Out;
@@ -8333,12 +8439,12 @@ namespace pfsDRPStella = pfs::drp::stella;
       }
       return P_Index_Out;
     }
-    
+
     /**
      * Returns Indexes of I_A2_Where where I_A2_Where equals 1 and writes of blitz::sum(I_A2_Where) to I_NInd_Out
      **/
-    bool GetIndex(const blitz::Array<int,2> &I_A2_Where, 
-                  int &I_NInd_Out, 
+    bool GetIndex(const blitz::Array<int,2> &I_A2_Where,
+                  int &I_NInd_Out,
                   blitz::Array<int, 2> &I_IndArr_Out){
       I_NInd_Out = blitz::sum(I_A2_Where);
       int arrsize = I_NInd_Out;
@@ -8360,8 +8466,8 @@ namespace pfsDRPStella = pfs::drp::stella;
       }
       return true;
     }
-    
-    
+
+
     /**
      * Calculates aperture minimum pixel, central position, and maximum pixel for the trace,
      * and writes result to I_A2_MinCenMax_Out
@@ -8387,28 +8493,28 @@ namespace pfsDRPStella = pfs::drp::stella;
       blitz::Array<int, 1> I_A1_Fix = pfsDRPStella::math::Int(F_A1_XCenters);
       I_A2_MinCenMax_Out.resize(xCenters_In.size(), 3);
       I_A2_MinCenMax_Out = 0;
-      
+
       I_A2_MinCenMax_Out(blitz::Range::all(), 1) = I_A1_Fix;
-      
+
       #ifdef __DEBUG_MINCENMAX__
         cout << "CFits::calcMinCenMax: I_A2_MinCenMax_Out(*,1) = " << I_A2_MinCenMax_Out(blitz::Range::all(), 1) << endl;
       #endif
       blitz::Array<float, 1> F_A1_Temp(F_A1_XCenters.size());
       F_A1_Temp = F_A1_XCenters + xLow_In;
-      
+
       I_A2_MinCenMax_Out(blitz::Range::all(), 0) = pfsDRPStella::math::Fix(F_A1_Temp);// - I_NPixCut_Left;///(*P_I_A1_Temp); /// Left column of order
-      
+
       #ifdef __DEBUG_MINCENMAX__
         cout << "CFits::calcMinCenMax: I_A2_MinCenMax_Out(*,0) = " << I_A2_MinCenMax_Out(blitz::Range::all(), 0) << endl;
       #endif
       F_A1_Temp = F_A1_XCenters + xHigh_In;
-      
+
       I_A2_MinCenMax_Out(blitz::Range::all(), 2) = pfsDRPStella::math::Fix(F_A1_Temp);
-      
+
       #ifdef __DEBUG_MINCENMAX__
         cout << "CFits::calcMinCenMax: I_A2_MinCenMax_Out(*,2) = " << I_A2_MinCenMax_Out(blitz::Range::all(), 2) << endl;
       #endif
-      
+
       blitz::Array<int, 1> I_A1_NPixLeft(I_A2_MinCenMax_Out.rows());
       I_A1_NPixLeft = I_A2_MinCenMax_Out(blitz::Range::all(),1) - I_A2_MinCenMax_Out(blitz::Range::all(),0);
 
@@ -8419,32 +8525,32 @@ namespace pfsDRPStella = pfs::drp::stella;
         cout << "CFits::calcMinCenMax: I_A1_NPixLeft(=" << I_A1_NPixLeft << endl;
         cout << "CFits::calcMinCenMax: I_A1_NPixRight(=" << I_A1_NPixRight << endl;
       #endif
-      
+
       blitz::Array<int, 1> I_A1_I_NPixX(I_A2_MinCenMax_Out.rows());
       I_A1_I_NPixX = I_A2_MinCenMax_Out(blitz::Range::all(), 2) - I_A2_MinCenMax_Out(blitz::Range::all(), 0) + 1;
-      
+
       #ifdef __DEBUG_MINCENMAX__
         cout << "CFits::calcMinCenMax: I_A1_I_NPixX = " << I_A1_I_NPixX << endl;
       #endif
-      
+
       int I_MaxPixLeft = max(I_A1_NPixLeft);
       int I_MaxPixRight = max(I_A1_NPixRight);
       int I_MinPixLeft = min(I_A1_NPixLeft);
       int I_MinPixRight = min(I_A1_NPixRight);
-      
+
       if (I_MaxPixLeft > I_MinPixLeft)
         I_A2_MinCenMax_Out(blitz::Range::all(),0) = I_A2_MinCenMax_Out(blitz::Range::all(),1) - I_MaxPixLeft + nPixCutLeft_In;
-      
+
       if (I_MaxPixRight > I_MinPixRight)
         I_A2_MinCenMax_Out(blitz::Range::all(),2) = I_A2_MinCenMax_Out(blitz::Range::all(),1) + I_MaxPixRight - nPixCutRight_In;
 
       #ifdef __DEBUG_MINCENMAX__
         cout << "CFits::calcMinCenMax: I_A2_MinCenMax_Out = " << I_A2_MinCenMax_Out << endl;
       #endif
-      
+
       return true;
     }
-    
+
     /**
      * Calculates Slit Function for each pixel in an aperture row from oversampled Slit Function oSlitFunc_In,
      * and writes result to slitFunc_Out
@@ -8461,7 +8567,7 @@ namespace pfsDRPStella = pfs::drp::stella;
         cout << "CFits::CalcSF: ERROR: row_In=" << row_In << " outside range" << endl;
         return false;
       }
-  
+
       blitz::firstIndex i;
       int I_NXSF = xHigh_In - xLow_In + 1;
 
@@ -8469,9 +8575,9 @@ namespace pfsDRPStella = pfs::drp::stella;
       XVecArr = (i + 0.5) / double(overSample_In_In) - 1.;
       double D_XCenMXC = xCenters_In(row_In) - pfsDRPStella::math::Int(xCenters_In(row_In));
       XVecArr += D_XCenMXC;
-  
+
       blitz::Array<double, 1> D_A1_Range(2);
-  
+
       slitFunc_Out.resize(I_NXSF);
       for (int i_col=0; i_col<I_NXSF; i_col++){
         D_A1_Range(0) = i_col;
@@ -8481,36 +8587,36 @@ namespace pfsDRPStella = pfs::drp::stella;
           return false;
         }
       }
-  
-      return true;  
+
+      return true;
     }*/
-    
+
     /**
      * Fix(double)
      * Returns integer value cut at decimal point. If D_In is negative the integer value greater or equal than D_In is returned.
      **/
-    template <typename T> 
+    template <typename T>
     int Fix(T D_In){
       return (((D_In < T(0.)) && (T(static_cast<int>(D_In)) < D_In)) ? static_cast<int>(D_In) + 1 : static_cast<int>(D_In));
     }
-    
+
     /**
      *      Fix(blitz::Array<double, 1> &VecArr)
      *      Returns an Array of the same size containing the Fix integer values of VecArr.
      **/
-    template <typename T> 
+    template <typename T>
     blitz::Array<int, 1> Fix(const blitz::Array<T, 1> &VecArr){
       blitz::Array<int, 1> TempIntVecArr(VecArr.size());
       for (unsigned int m = 0; m < VecArr.size(); m++)
         TempIntVecArr(m) = pfsDRPStella::math::Fix(VecArr(m));
       return TempIntVecArr;
     }
-    
+
     /**
      *     Fix(blitz::Array<double, 2> &Arr)
      *     Returns an Array of the same size containing the Fix integer values of Arr (see int Fix(double D_In)).
      **/
-    template <typename T> 
+    template <typename T>
     blitz::Array<int, 2> Fix(const blitz::Array<T, 2> &Arr){
       blitz::Array<int, 2> TempIntArr(Arr.rows(), Arr.cols());
       for (int m = 0; m < Arr.rows(); m++){
@@ -8520,33 +8626,33 @@ namespace pfsDRPStella = pfs::drp::stella;
       }
       return TempIntArr;
     }
-    
+
     /**
      * Fix(double)
      * Returns long integer value cut at decimal point (See int Fix(double)).
      **/
-    template <typename T> 
+    template <typename T>
     long FixL(T D_In){
       return ((D_In < 0.) && (T(static_cast<long>(D_In)) < D_In)) ? static_cast<long>(D_In) + 1 : static_cast<long>(D_In);
     }
-    
+
     /**
      *      FixL(blitz::Array<double, 1> &VecArr)
      *      Returns an Array of the same size containing the fix long integer values of VecArr (see int Fix(double D_In)).
      **/
-    template <typename T> 
+    template <typename T>
     blitz::Array<long, 1> FixL(const blitz::Array<T, 1> &VecArr){
       blitz::Array<long, 1> TempLongVecArr(VecArr.size());
       for (unsigned int m = 0; m < VecArr.size(); m++)
         TempLongVecArr(m) = pfsDRPStella::math::FixL(VecArr(m));
       return TempLongVecArr;
     }
-    
+
     /**
      *     FixL(blitz::Array<double, 2> &Arr, CString Mode)
      *     Returns an Array of the same size containing the long integer values of Arr (see int Fix(double D_In)).
      **/
-    template <typename T> 
+    template <typename T>
     blitz::Array<long, 2> FixL(const blitz::Array<T, 2> &Arr){
       blitz::Array<long, 2> TempIntArr(Arr.rows(), Arr.cols());
       for (int m = 0; m < Arr.rows(); m++){
@@ -8556,21 +8662,21 @@ namespace pfsDRPStella = pfs::drp::stella;
       }
       return TempIntArr;
     }
-    
-    template <typename T> 
+
+    template <typename T>
     int Int(T D_In){
       return static_cast<int>(D_In);
     }
-    
-    template <typename T> 
+
+    template <typename T>
     blitz::Array<int, 1> Int(const blitz::Array<T, 1> &VecArr){
       blitz::Array<int, 1> TempIntVecArr(VecArr.size());
       for (unsigned int m = 0; m < VecArr.size(); m++)
         TempIntVecArr(m) = pfsDRPStella::math::Int(VecArr(m));
       return TempIntVecArr;
     }
-    
-    template <typename T> 
+
+    template <typename T>
     blitz::Array<int, 2> Int(const blitz::Array<T, 2> &Arr){
       blitz::Array<int, 2> TempIntArr(Arr.rows(), Arr.cols());
       for (int m = 0; m < Arr.rows(); m++){
@@ -8580,21 +8686,21 @@ namespace pfsDRPStella = pfs::drp::stella;
       }
       return TempIntArr;
     }
-    
-    template <typename T> 
+
+    template <typename T>
     long Long(T D_In){
       return static_cast<long>(D_In);
     }
-    
-    template <typename T> 
+
+    template <typename T>
     blitz::Array<long, 1> Long(const blitz::Array<T, 1> &VecArr){
       blitz::Array<long, 1> TempLongVecArr(VecArr.size());
       for (unsigned int m = 0; m < VecArr.size(); m++)
         TempLongVecArr(m) = pfsDRPStella::math::Long(VecArr(m));
       return TempLongVecArr;
     }
-    
-    template <typename T> 
+
+    template <typename T>
     blitz::Array<long, 2> Long(const blitz::Array<T, 2> &Arr){
       blitz::Array<long, 2> TempIntArr(Arr.rows(), Arr.cols());
       for (int m = 0; m < Arr.rows(); m++){
@@ -8604,8 +8710,8 @@ namespace pfsDRPStella = pfs::drp::stella;
       }
       return TempIntArr;
     }
-    
-    template <typename T> 
+
+    template <typename T>
     void Float(const blitz::Array<T, 1> &Arr, blitz::Array<float, 1>& Arr_Out){
       Arr_Out.resize(Arr.size());
       for (int m = 0; m < static_cast<int>(Arr.size()); m++){
@@ -8613,8 +8719,8 @@ namespace pfsDRPStella = pfs::drp::stella;
       }
       return;
     }
-    
-    template <typename T> 
+
+    template <typename T>
     blitz::Array<float, 1> Float(const blitz::Array<T, 1> &Arr){
       blitz::Array<float, 1> Arr_Out(Arr.size());
       for (int m = 0; m < static_cast<int>(Arr.size()); m++){
@@ -8622,8 +8728,8 @@ namespace pfsDRPStella = pfs::drp::stella;
       }
       return Arr_Out;
     }
-    
-    template <typename T> 
+
+    template <typename T>
     void Float(const blitz::Array<T, 2> &Arr, blitz::Array<float, 2>& Arr_Out){
       Arr_Out.resize(Arr.rows(), Arr.cols());
       for (int m = 0; m < Arr.rows(); m++){
@@ -8633,8 +8739,8 @@ namespace pfsDRPStella = pfs::drp::stella;
       }
       return;
     }
-    
-    template <typename T> 
+
+    template <typename T>
     blitz::Array<float, 2> Float(const blitz::Array<T, 2> &Arr){
       blitz::Array<float, 2> Arr_Out(Arr.rows(), Arr.cols());
       for (int m = 0; m < Arr.rows(); m++){
@@ -8644,8 +8750,8 @@ namespace pfsDRPStella = pfs::drp::stella;
       }
       return Arr_Out;
     }
-    
-    template <typename T> 
+
+    template <typename T>
     void Double(const blitz::Array<T, 1> &Arr, blitz::Array<double, 1>& Arr_Out){
       Arr_Out.resize(Arr.size());
       for (int m = 0; m < static_cast<int>(Arr.size()); m++){
@@ -8653,8 +8759,8 @@ namespace pfsDRPStella = pfs::drp::stella;
       }
       return;
     }
-    
-    template <typename T> 
+
+    template <typename T>
     blitz::Array<double, 1> Double(const blitz::Array<T, 1> &Arr){
       blitz::Array<double, 1> Arr_Out(Arr.size());
       for (int m = 0; m < static_cast<int>(Arr.size()); m++){
@@ -8662,8 +8768,8 @@ namespace pfsDRPStella = pfs::drp::stella;
       }
       return Arr_Out;
     }
-    
-    template <typename T> 
+
+    template <typename T>
     void Double(const blitz::Array<T, 2> &Arr, blitz::Array<double, 2>& Arr_Out){
       Arr_Out.resize(Arr.rows(), Arr.cols());
       for (int m = 0; m < Arr.rows(); m++){
@@ -8673,8 +8779,8 @@ namespace pfsDRPStella = pfs::drp::stella;
       }
       return;
     }
-    
-    template <typename T> 
+
+    template <typename T>
     blitz::Array<double, 2> Double(const blitz::Array<T, 2> &Arr){
       blitz::Array<double, 2> Arr_Out(Arr.rows(), Arr.cols());
       for (int m = 0; m < Arr.rows(); m++){
@@ -8684,7 +8790,7 @@ namespace pfsDRPStella = pfs::drp::stella;
       }
       return Arr_Out;
     }
-    
+
     /**
      * Calculate Integral under curve from D_A1_XInt(0) to D_A1_XInt(1)
      **/
@@ -8762,7 +8868,7 @@ namespace pfsDRPStella = pfs::drp::stella;
       #ifdef __DEBUG_INTEGRAL__
         cout << "CFits::IntegralUnderCurve: D_A1_X set to " << D_A1_X << endl;
       #endif
-  
+
       blitz::Array<double, 1> D_A1_Y(D_A1_X.size());
 //      blitz::Array<double, 1> *P_D_A1_Y = new blitz::Array<double, 1>(D_A1_X.size());
       if (!pfsDRPStella::math::InterPol(D_A1_YIn, D_A1_XIn, D_A1_X, D_A1_Y)){
@@ -8829,10 +8935,10 @@ namespace pfsDRPStella = pfs::drp::stella;
       }
       double D_BinStart_X, D_BinEnd_X;//, D_Bin_Ya, D_Bin_Yb;
       D_Integral_Out = 0.;
-    
+
       D_BinStart_X = D_A1_X(0);
       D_BinEnd_X = D_A1_X(1);
-    
+
       ///fit straight line to coordinates
       if (fabs(D_A1_X(0) - D_A1_X(1)) < 0.000002){
         return true;
@@ -8970,7 +9076,7 @@ namespace pfsDRPStella = pfs::drp::stella;
       int I_DataValues_New = 0;
       int I_NRejected = 0;
       bool B_HaveMeasureErrors = false;
-    
+
       int I_Pos = -1;
       I_Pos = pfsDRPStella::utils::KeyWord_Set(S_A1_Args_In, "MEASURE_ERRORS");
       if (I_Pos >= 0){
@@ -9069,7 +9175,7 @@ namespace pfsDRPStella = pfs::drp::stella;
             if (B_HaveMeasureErrors)
               D_A1_MeasureErrors_New(I_DataValues_New) = (*P_D_A1_MeasureErrors)(i_pos);
             I_A1_OrigPos(I_DataValues_New) = D_A1_Y_In(i_pos);
-  
+
             I_DataValues_New++;
           }
           else{
@@ -9087,7 +9193,7 @@ namespace pfsDRPStella = pfs::drp::stella;
           D_A1_MeasureErrors.resize(I_DataValues_New);
           D_A1_MeasureErrors = D_A1_MeasureErrors_New(blitz::Range(0,I_DataValues_New-1));
         }
-    
+
         B_Run = false;
         if (I_NRejected != I_NRejected_Old)
           B_Run = true;
@@ -9102,7 +9208,7 @@ namespace pfsDRPStella = pfs::drp::stella;
           B_Run = false;
       }
       cout << "CFits::PolyFit: I_NRejected = " << I_NRejected << endl;
-    
+
       cout << "CFits::PolyFit: I_DataValues_New = " << I_DataValues_New << endl;
       blitz::Array<int, 1> I_A1_NotRejected(I_DataValues_New);
       I_A1_NotRejected = I_A1_OrigPos(blitz::Range(0, I_DataValues_New-1));
@@ -9137,12 +9243,12 @@ namespace pfsDRPStella = pfs::drp::stella;
       }
       if (!B_HaveMeasureErrors)
         delete(P_D_A1_MeasureErrors);
-      
+
       return true;
     }
-    
+
     /** **********************************************************************/
-    
+
     bool PolyFit(const blitz::Array<double, 1> &D_A1_X_In,
                  const blitz::Array<double, 1> &D_A1_Y_In,
                  int I_Degree_In,
@@ -9166,10 +9272,10 @@ namespace pfsDRPStella = pfs::drp::stella;
       free(PP_Args);
       return true;
     }
-    
-    
 
-/** 
+
+
+/**
     CHISQ=double(chisq): out
     COVAR=covar: out
     MEASURE_ERRORS=measure_errors: in
@@ -9213,7 +9319,7 @@ namespace pfsDRPStella = pfs::drp::stella;
       blitz::Array<double, 1> D_A1_SDev(D_A1_X_In.size());
       D_A1_SDev= 1.;
       blitz::Array<double, 1> D_A1_SDevSquare(D_A1_X_In.size());
-      
+
       bool B_HaveMeasureError = false;
       blitz::Array<double, 1> *P_D_A1_MeasureErrors = new blitz::Array<double, 1>(D_A1_X_In.size());
       *P_D_A1_MeasureErrors = 1.;
@@ -9232,7 +9338,7 @@ namespace pfsDRPStella = pfs::drp::stella;
       #ifdef __DEBUG_POLYFIT__
         cout << "CFits::PolyFit: D_A1_SDev set to " << D_A1_SDev << endl;
       #endif
-      
+
       D_A1_SDevSquare = pow(D_A1_SDev,2);
       #ifdef __DEBUG_POLYFIT__
         cout << "CFits::PolyFit: D_A1_SDevSquare set to " << D_A1_SDevSquare << endl;
@@ -9451,7 +9557,7 @@ namespace pfsDRPStella = pfs::drp::stella;
         delete(P_D_A1_MeasureErrors);
       return true;
     }
-    
+
     /** **********************************************************************/
 
     bool PolyFit(const blitz::Array<double, 1> &D_A1_X_In,
@@ -9465,12 +9571,12 @@ namespace pfsDRPStella = pfs::drp::stella;
       blitz::Array<string, 1> S_A1_Args(1);
       S_A1_Args = " ";
       void **PP_Args = (void**)malloc(sizeof(void*) * 1);
-      if (!pfsDRPStella::math::PolyFit(D_A1_X_In, 
-                         D_A1_Y_In, 
-                         I_Degree_In, 
-                         D_Reject_In, 
-                         S_A1_Args, 
-                         PP_Args, 
+      if (!pfsDRPStella::math::PolyFit(D_A1_X_In,
+                         D_A1_Y_In,
+                         I_Degree_In,
+                         D_Reject_In,
+                         S_A1_Args,
+                         PP_Args,
                          P_D_A1_Out)){
         cout << "CFits::PolyFit: ERROR: PolyFit(" << D_A1_X_In << ", " << D_A1_Y_In << ", " << I_Degree_In << "...) returned FALSE" << endl;
         cout << "CFits::PolyFit: ERROR: PolyFit returned *P_D_A1_Out = " << *P_D_A1_Out << endl;
@@ -9499,14 +9605,14 @@ namespace pfsDRPStella = pfs::drp::stella;
       blitz::Array<string, 1> S_A1_Args;
       S_A1_Args = " ";
       void **PP_Args = (void**)malloc(sizeof(void*) * 1);
-      if (!pfsDRPStella::math::PolyFit(D_A1_X_In, 
-                         D_A1_Y_In, 
-                         I_Degree_In, 
-                         D_LReject_In, 
-                         D_HReject_In, 
+      if (!pfsDRPStella::math::PolyFit(D_A1_X_In,
+                         D_A1_Y_In,
+                         I_Degree_In,
+                         D_LReject_In,
+                         D_HReject_In,
                          I_NIter,
-                         S_A1_Args, 
-                         PP_Args, 
+                         S_A1_Args,
+                         PP_Args,
                          P_D_A1_Out)){
         cout << "CFits::PolyFit: ERROR: PolyFit(" << D_A1_X_In << ", " << D_A1_Y_In << ", " << I_Degree_In << "...) returned FALSE" << endl;
         cout << "CFits::PolyFit: ERROR: PolyFit returned *P_D_A1_Out = " << *P_D_A1_Out << endl;
@@ -9529,7 +9635,7 @@ namespace pfsDRPStella = pfs::drp::stella;
       #endif
       return I_A1_Result;
     }
-    
+
     blitz::Array<float, 1> FIndGenArr(int len){
       blitz::Array<float, 1> F_A1_Return(len);
       blitz::firstIndex i;
@@ -9538,22 +9644,22 @@ namespace pfsDRPStella = pfs::drp::stella;
 //        (*P_F_A1_Return)(i) = float(i);   // [ -3 -2 -1  0  1  2  3 ]
       return (F_A1_Return);
     }
-    
+
     blitz::Array<double, 1> DIndGenArr(int len){
       blitz::Array<double, 1> D_A1_Return(len);
       blitz::firstIndex i;
       D_A1_Return = i;
       return D_A1_Return;
     }
-    
+
     blitz::Array<long, 1> LIndGenArr(int len){
       blitz::Array<long, 1> L_A1_Return(len);
       blitz::firstIndex i;
       L_A1_Return = i;
       return L_A1_Return;
     }
-    
-    bool removeSubArrayFromArray(blitz::Array<int, 1> &A1_Array_InOut, 
+
+    bool removeSubArrayFromArray(blitz::Array<int, 1> &A1_Array_InOut,
                                   const blitz::Array<int, 1> &A1_SubArray){
       blitz::Array<int, 1> A1_Array_Out(A1_Array_InOut.size());
       int I_NElements = 0;
@@ -9573,7 +9679,7 @@ namespace pfsDRPStella = pfs::drp::stella;
       A1_Array_InOut = A1_Array_Out(blitz::Range(0, I_NElements-1));
       return true;
     }
-    
+
     /**
      *     InterPol linear, not regular
      **/
@@ -9583,7 +9689,7 @@ namespace pfsDRPStella = pfs::drp::stella;
                   blitz::Array<double, 1> &y_Out){
       return pfsDRPStella::math::InterPol(v_In, x_In, u_In, y_Out, false);
     }
-    
+
     bool InterPol(const blitz::Array<double, 1> &v_In,
                   const blitz::Array<double, 1> &x_In,
                   const blitz::Array<double, 1> &u_In,
@@ -9604,7 +9710,7 @@ namespace pfsDRPStella = pfs::drp::stella;
           cout << "CFits::InterPol: x_In = " << x_In << endl;
           cout << "CFits::InterPol: D_A1_X = " << D_A1_X << endl;
         #endif
-        
+
         blitz::Array<int, 1> I_A1_Ind(D_A1_X.size());
         blitz::Array<int, 1> *P_I_A1_Ind;
         int I_Start = 0;
@@ -9652,7 +9758,7 @@ namespace pfsDRPStella = pfs::drp::stella;
             cout << "CFits::InterPol: i_pix = " << i_pix << ": D_A1_X(" << I_Start << ":" << I_End << ") = " << D_A1_X(blitz::Range(I_Start, I_End)) << endl;
           #endif
           delete(P_I_A1_Ind);
-          
+
           D_Start = D_A1_U(0);
           if (D_A1_X(I_Start) > D_A1_U(0))
             D_Start = D_A1_X(I_Start);
@@ -9683,7 +9789,7 @@ namespace pfsDRPStella = pfs::drp::stella;
         }
         return true;
       }
-      
+
       if (!pfsDRPStella::math::InterPol(v_In, x_In, u_In, s_a1, y_Out)){
         cout << "CFits::InterPol: ERROR: InterPol returned FALSE" << endl;
         return false;
@@ -9691,12 +9797,12 @@ namespace pfsDRPStella = pfs::drp::stella;
       #ifdef __DEBUG_INTERPOL__
         cout << "CFits::InterPol(D_A1_V, D_A1_X, D_A1_U, P_A1_Out): Ready " << endl;
       #endif
-      
+
       s_a1.resize(0);
-      
+
       return true;
     }
-    
+
     /**
      *      InterPol
      *       The InterPol function performs linear, quadratic, or spline interpolation on vectors with an irregular grid.
@@ -9712,17 +9818,17 @@ namespace pfsDRPStella = pfs::drp::stella;
         cout << "CFits::InterPol: u_In.size() = " << u_In.size() << endl;
         cout << "CFits::InterPol: keyWords_In.size() = " << keyWords_In.size() << endl;
       #endif
-      
+
       #ifdef __DEBUG_INTERPOL__
         cout << "CFits::InterPol(v_In = " << v_In << ", x_In = " << x_In << ", u_In = " << u_In << ", keyWords_In) Started" << endl;
       #endif
-      
+
       int M = v_In.size();
       #ifdef __DEBUG_INTERPOL__
       cout << "CFits::InterPol(v_In, x_In, u_In, keyWords_In): M set to " << M << endl;
       #endif
       blitz::firstIndex i;
-      
+
       if (static_cast<int>(x_In.size()) != M)
       {
         cout << "CFits::InterPol: ERROR: x_In and v_In must have same # of elements!" << endl;
@@ -9739,12 +9845,12 @@ namespace pfsDRPStella = pfs::drp::stella;
       #ifdef __DEBUG_INTERPOL__
         cout << "CFits::InterPol(D_A1_V, D_A1_X, D_A1_U, keyWords_In): SVecArr set to " << SVecArr << endl;
       #endif
-      
+
       SVecArr = blitz::where(SVecArr > M-2, M-2, SVecArr);
       #ifdef __DEBUG_INTERPOL__
         cout << "CFits::InterPol(D_A1_V, D_A1_X, D_A1_U, keyWords_In): SVecArr set to " << SVecArr << endl;
       #endif
-      
+
       #ifdef __DEBUG_INTERPOL__
         cout << "CFits::InterPol(D_A1_V, D_A1_X, D_A1_U, keyWords_In): Starting HInterPol " << endl;
       #endif
@@ -9753,15 +9859,15 @@ namespace pfsDRPStella = pfs::drp::stella;
         cout << "CFits::InterPol: ERROR: HInterPol returned FALSE" << endl;
         return false;
       }
-      
+
       SVecArr.resize(0);
       #ifdef __DEBUG_INTERPOL__
         cout << "CFits::InterPol(D_A1_V, D_A1_X, D_A1_U, keyWords_In): Ready " << endl;
       #endif
-      
+
       return true;
     }
-    
+
     /**
      *      InterPol
      *       This function performs linear, quadratic, or spline interpolation on vectors with a regular grid.
@@ -9791,7 +9897,7 @@ namespace pfsDRPStella = pfs::drp::stella;
       DA1_DifTemp = 0.;
       double n = (double)n_In;
       blitz::Array<double,1> *P_D_A1_TempB;
-      
+
       if (pfsDRPStella::utils::KeyWord_Set(S_A1_In, "LSQUADRATIC") < 0
         && pfsDRPStella::utils::KeyWord_Set(S_A1_In, "QUADRATIC") < 0
         && pfsDRPStella::utils::KeyWord_Set(S_A1_In, "SPLINE") < 0)
@@ -9802,11 +9908,11 @@ namespace pfsDRPStella = pfs::drp::stella;
         # ifdef __DEBUG_INTERPOL__
           cout << "CFits::InterPol: RVecArr set to " << RVecArr << endl;
         #endif
-        
+
         blitz::Array<int, 1> RLVecArr(RVecArr.size());
         RLVecArr = Int(RVecArr);   // Conversion to Integer
         DifVecArr(blitz::Range::all()) = v_In(blitz::Range(1, v_In.size() - 1)) - v_In(blitz::Range(1, v_In.size() - 1));
-        
+
         /// Interpolate
         pfsDRPStella::math::GetSubArrCopy(v_In,
                             *p_RLVecArr,
@@ -9814,7 +9920,7 @@ namespace pfsDRPStella = pfs::drp::stella;
         pfsDRPStella::math::GetSubArrCopy(DifVecArr,
                             *p_RLVecArr,
                             DA1_DifTemp);
-        
+
         P_D_A1_TempB = new blitz::Array<double, 1>(DA1_VTemp + (RVecArr - (*p_RLVecArr)) * DA1_DifTemp);
         P_D_A1_Out->resize(P_D_A1_TempB->size());
         (*P_D_A1_Out) = (*P_D_A1_TempB);
@@ -9822,14 +9928,14 @@ namespace pfsDRPStella = pfs::drp::stella;
         # ifdef __DEBUG_INTERPOL__
         cout << "CFits::InterPol: *P_D_A1_TempB set to " << *P_D_A1_TempB << endl;
         #endif
-        
+
         UVecArr.resize(0);       /// Grid points
         RVecArr.resize(0);
         RLVecArr.resize(0);
         DifVecArr.resize(0);
         DA1_VTemp.resize(0);
         DA1_DifTemp.resize(0);
-        
+
         return true;
       }
       if (divisor < 1.0)
@@ -9841,7 +9947,7 @@ namespace pfsDRPStella = pfs::drp::stella;
       SVecArr = Int(UVecArr);   /// Subscripts
       blitz::Array<double, 1> XVecArr(1);
       XVecArr = n_In;
-      
+
       //  blitz::Array<double, 1> *P_PResultArr;
       if (!HInterPol(v_In, XVecArr, SVecArr, UVecArr, S_A1_In, P_D_A1_Out)){
         cout << "CFits::InterPol: ERROR: HInterPol returned FALSE" << endl;
@@ -9854,10 +9960,10 @@ namespace pfsDRPStella = pfs::drp::stella;
       DA1_VTemp.resize(0);
       DA1_DifTemp.resize(0);
       XVecArr.resize(0);
-      
+
       return true;
     }*/
-    
+
     /**
      *      HInterPol
      *      Help function for InterPol methods
@@ -9875,64 +9981,64 @@ namespace pfsDRPStella = pfs::drp::stella;
       cout << "CFits::HInterPol: u_In.size() = " << u_In.size() << endl;
       cout << "CFits::HInterPol: keyWords_In.size() = " << keyWords_In.size() << endl;
       #endif
-      
+
       int M = v_In.size();
       blitz::firstIndex i;
-      
+
       blitz::Array<int, 1> IA1_Temp(s_InOut.size());
       IA1_Temp = 0;
-      
+
       blitz::Array<double, 1> DA1_Temp(s_InOut.size());
       DA1_Temp = 0.;
-      
+
       blitz::Array<double, 1> DA1_TempA(s_InOut.size());
       DA1_TempA = 0.;
-      
+
       blitz::Array<double, 1> DA1_VTempP1(s_InOut.size());
       DA1_VTempP1 = 0.;
-      
+
       blitz::Array<double, 1> DA1_VTemp(s_InOut.size());
       DA1_VTemp = 0.;
-      
+
       blitz::Array<double, 1> DA1_XTempP1(s_InOut.size());
       DA1_XTempP1 = 0.;
-      
+
       blitz::Array<double, 1> DA1_XTemp(s_InOut.size());
       DA1_XTemp = 0.;
-      
+
       blitz::Array<int, 1> IA1_STemp(s_InOut.size());
       IA1_STemp = 0;
-      
+
       blitz::Array<double, 1> PVecArr(s_InOut.size());
       PVecArr = 0.;
-      
+
       blitz::Array<double, 1> TmpVecArr(4);
       TmpVecArr = i;
-      
+
       blitz::Array<double, 1> T1VecArr(4);
       T1VecArr = 0.;
-      
+
       blitz::Array<double, 1> T2VecArr(4);
       T2VecArr = 0.;
-      
+
       blitz::Array<double, 1> X1VecArr(s_InOut.size());
       X1VecArr = 0.;
-      
+
       blitz::Array<double, 1> X0VecArr(s_InOut.size());
       X0VecArr = 0.;
-      
+
       blitz::Array<double, 1> X2VecArr(s_InOut.size());
       X2VecArr = 0.;
-      
+
       blitz::Array<double, 1> X0Arr(4);
       X0Arr = 0.;
-      
+
       blitz::Array<double, 1> V0Arr(4);
       V0Arr = 0.;
-      
+
       blitz::Array<double, 1> QArr(s_InOut.size());
       QArr = 0.;
-      
+
       int s0int;
       double s0;
       /// Least square fit quadratic, 4 points
@@ -9957,9 +10063,9 @@ namespace pfsDRPStella = pfs::drp::stella;
           #ifdef __DEBUG_INTERPOL__
             cout << "CFits::HInterPol: Starting LsToFit(T1VecArr, T2VecArr, u_In(m)" << endl;
           #endif
-          if (!pfsDRPStella::math::LsToFit(*(const_cast<const blitz::Array<double, 1>*>(&T1VecArr)), 
-                       *(const_cast<const blitz::Array<double, 1>*>(&T2VecArr)), 
-                       u_In(m), 
+          if (!pfsDRPStella::math::LsToFit(*(const_cast<const blitz::Array<double, 1>*>(&T1VecArr)),
+                       *(const_cast<const blitz::Array<double, 1>*>(&T2VecArr)),
+                       u_In(m),
                        PVecArr(m)))
             return false;
         }
@@ -9974,23 +10080,23 @@ namespace pfsDRPStella = pfs::drp::stella;
         # ifdef __DEBUG_INTERPOL__
           cout << "CFits::HInterPol: QUADRATIC: s_InOut.size() set to " << s_InOut.size() << endl;
         #endif
-        
+
         if (!pfsDRPStella::math::GetSubArrCopy(x_In,
                                  s_InOut,
                                  X1VecArr)){
           cout << "CFits::HInterPol: ERROR: GetSubArrCopy(x_In, s_InOut, X1VecArr) returned FALSE" << endl;
           return false;
         }
-          
+
         IA1_Temp = s_InOut - 1;
-          
+
         if (!pfsDRPStella::math::GetSubArrCopy(x_In,
                                  IA1_Temp,
                                  X0VecArr)){
           cout << "CFits::HInterPol: ERROR: GetSubArrCopy(x_In, IA1_Temp, X0VecArr) returned FALSE" << endl;
           return false;
         }
-            
+
         IA1_Temp = s_InOut + 1;
         if (!pfsDRPStella::math::GetSubArrCopy(x_In,
                                  IA1_Temp,
@@ -9998,7 +10104,7 @@ namespace pfsDRPStella = pfs::drp::stella;
           cout << "CFits::HInterPol: ERROR: GetSubArrCopy(x_In, IA1_Temp, X2VecArr) returned FALSE" << endl;
           return false;
         }
-              
+
         IA1_Temp = s_InOut - 1;
         if (!pfsDRPStella::math::GetSubArrCopy(v_In,
                                  IA1_Temp,
@@ -10056,14 +10162,14 @@ namespace pfsDRPStella = pfs::drp::stella;
        *  ELSE: $              ;Linear, not regular
        *  p = (u-x[s])*(v[s+1]-v[s])/(x[s+1] - x[s]) + v[s]
        *  ENDCASE
-       * 
+       *
        *  RETURN, p
        *  end
        */
       else  /// Linear, not regular
       {
         ///    p = (u-x[s])*(v[s+1]-v[s])/(x[s+1] - x[s]) + v[s]
-        
+
         if (!pfsDRPStella::math::GetSubArrCopy(x_In,
           s_InOut,
           DA1_XTemp)){
@@ -10082,12 +10188,12 @@ namespace pfsDRPStella = pfs::drp::stella;
             # ifdef __DEBUG_INTERPOL__
             cout << "CFits::HInterPol: DA1_VTemp set to " << DA1_VTemp << endl;
             #endif
-            
+
             IA1_STemp = s_InOut + 1;
             # ifdef __DEBUG_INTERPOL__
             cout << "CFits::HInterPol: IA1_STemp set to " << IA1_STemp << endl;
             #endif
-            
+
             if (!pfsDRPStella::math::GetSubArrCopy(x_In,
               IA1_STemp,
               DA1_XTempP1)){
@@ -10097,7 +10203,7 @@ namespace pfsDRPStella = pfs::drp::stella;
               # ifdef __DEBUG_INTERPOL__
               cout << "CFits::HInterPol: DA1_XTempP1 set to " << DA1_XTempP1 << endl;
               #endif
-              
+
               if (!pfsDRPStella::math::GetSubArrCopy(v_In,
                 IA1_STemp,
                 DA1_VTempP1)){
@@ -10107,11 +10213,11 @@ namespace pfsDRPStella = pfs::drp::stella;
                 # ifdef __DEBUG_INTERPOL__
                 cout << "CFits::HInterPol: DA1_VTempP1 set to " << DA1_VTempP1 << endl;
                 #endif
-                
+
                 //    IA1_STemp = s_InOut - 1;
                 //    pfsDRPStella::math::GetSubArrCopy(x_In, IA1_STemp, DA1_XTempM1);
                 //    pfsDRPStella::math::GetSubArrCopy(v_In, IA1_STemp, DA1_VTempM1);
-                
+
                 PVecArr = (u_In - DA1_XTemp)
                 * (DA1_VTempP1 - DA1_VTemp)
                 / (DA1_XTempP1 - DA1_XTemp)
@@ -10120,7 +10226,7 @@ namespace pfsDRPStella = pfs::drp::stella;
       #ifdef __DEBUG_INTERPOL__
       cout << "CFits::HInterPol: Ready: Returning PVecArr = " << PVecArr << endl;
       #endif
-      
+
       /**  IA1_Temp.resize(0);
        *  DA1_Temp.resize(0);
        *  DA1_TempA.resize(0);
@@ -10141,16 +10247,16 @@ namespace pfsDRPStella = pfs::drp::stella;
        **/
 //      blitz::Array<double, 1> *P_PVecArr = new blitz::Array<double, 1>(PVecArr.size());
 //      (*P_PVecArr) = PVecArr;
-      
-      
+
+
       y_Out.resize(PVecArr.size());
       y_Out = PVecArr;
 //      delete(P_PVecArr);
       PVecArr.resize(0);
       return true;
     }
-    
-    blitz::Array<int, 1>* valueLocate(const blitz::Array<double, 1> &vec_In, 
+
+    blitz::Array<int, 1>* valueLocate(const blitz::Array<double, 1> &vec_In,
                                       const blitz::Array<double, 1> &valueVec_In){
       #ifdef __DEBUG_INTERPOL__
         cout << "CFits::ValueLocate: vec_In = " << vec_In << endl;
@@ -10165,11 +10271,11 @@ namespace pfsDRPStella = pfs::drp::stella;
         exit(EXIT_FAILURE);
       }
       blitz::Array<int, 1> IntVecArr(valueVec_In.size());
-      
+
       int n;
       int N = vec_In.size();
       int M = valueVec_In.size();
-      
+
       bool Increasing = false;
       int ii=0;
       while((ii < static_cast<int>(vec_In.size())) && (vec_In(ii) == vec_In(ii+1))){
@@ -10177,14 +10283,14 @@ namespace pfsDRPStella = pfs::drp::stella;
       }
       if (vec_In(ii+1) > vec_In(ii))
         Increasing = true;
-      
+
       #ifdef __DEBUG_INTERPOL__
         if (Increasing)
           cout << "CFits::ValueLocate: input vector Increasing = TRUE" << endl;
         else
           cout << "CFits::ValueLocate: input vector Increasing = FALSE" << endl;
       #endif
-      
+
       /// For every element in valueVec_In
       for (int m = 0; m < M; m++){
         #ifdef __DEBUG_INTERPOL__
@@ -10242,48 +10348,48 @@ namespace pfsDRPStella = pfs::drp::stella;
       IntVecArr.resize(0);
       return P_I_Result;
     }
-    
-    bool LsToFit(const blitz::Array<double, 1> &XXVecArr, 
-                 const blitz::Array<double, 1> &YVecArr, 
-                 const double &XM, 
+
+    bool LsToFit(const blitz::Array<double, 1> &XXVecArr,
+                 const blitz::Array<double, 1> &YVecArr,
+                 const double &XM,
                  double &D_Out){
       #ifdef __DEBUG_INTERPOL__
         cout << "CFits::LsToFit(XXVecArr = " << XXVecArr << ", YVecArr = " << YVecArr << ", XM = " << XM << ") Started" << endl;
       #endif
-        
+
       blitz::Array<double, 1> XVecArr(XXVecArr.size());
       XVecArr = XXVecArr - XXVecArr(0);
-      
+
       long NDegree = 2;
       #ifdef __DEBUG_LSTOFIT__
         cout << "CFits::LsToFit: NDegree set to " << NDegree << endl;
       #endif
-      
+
       long N = XXVecArr.size();
       #ifdef __DEBUG_LSTOFIT__
         cout << "CFits::LsToFit: N set to " << N << endl;
       #endif
-      
+
       blitz::Array<double, 2> CorrMArr(NDegree + 1, NDegree + 1);
-      
+
       blitz::Array<double, 1> BVecArr(NDegree + 1);
-      
+
       CorrMArr(0, 0) = N;
       #ifdef __DEBUG_LSTOFIT__
         cout << "CFits::LsToFit: CorrMArr(0,0) set to " << CorrMArr(0,0) << endl;
       #endif
-      
+
       BVecArr(0) = blitz::sum(YVecArr);
       #ifdef __DEBUG_LSTOFIT__
         cout << "CFits::LsToFit: BVecArr(0) set to " << BVecArr(0) << endl;
       #endif
-      
+
       blitz::Array<double, 1> ZVecArr(XXVecArr.size());
       ZVecArr = XVecArr;
       #ifdef __DEBUG_LSTOFIT__
         cout << "CFits::LsToFit: ZVecArr set to " << ZVecArr << endl;
       #endif
-      
+
       blitz::Array<double, 1> TempVecArr(YVecArr.size());
       TempVecArr = YVecArr;
       TempVecArr *= ZVecArr;
@@ -10291,19 +10397,19 @@ namespace pfsDRPStella = pfs::drp::stella;
       #ifdef __DEBUG_LSTOFIT__
         cout << "CFits::LsToFit: BVecArr(1) set to " << BVecArr(1) << endl;
       #endif
-      
+
       CorrMArr(0, 1) = blitz::sum(ZVecArr);
       CorrMArr(1, 0) = blitz::sum(ZVecArr);
       #ifdef __DEBUG_LSTOFIT__
         cout << "CFits::LsToFit: CorrMArr(0,1) set to " << CorrMArr(0,1) << endl;
         cout << "CFits::LsToFit: CorrMArr(1,0) set to " << CorrMArr(1,0) << endl;
       #endif
-      
+
       ZVecArr *= XVecArr;
       #ifdef __DEBUG_LSTOFIT__
         cout << "CFits::LsToFit: ZVecArr set to " << ZVecArr << endl;
       #endif
-      
+
       TempVecArr.resize(YVecArr.size());
       TempVecArr = YVecArr;
       TempVecArr *= ZVecArr;
@@ -10311,7 +10417,7 @@ namespace pfsDRPStella = pfs::drp::stella;
       #ifdef __DEBUG_LSTOFIT__
         cout << "CFits::LsToFit: BVecArr(2) set to " << BVecArr(2) << endl;
       #endif
-      
+
       CorrMArr(0, 2) = blitz::sum(ZVecArr);
       CorrMArr(1, 1) = blitz::sum(ZVecArr);
       CorrMArr(2, 0) = blitz::sum(ZVecArr);
@@ -10320,19 +10426,19 @@ namespace pfsDRPStella = pfs::drp::stella;
         cout << "CFits::LsToFit: CorrMArr(1,1) set to " << CorrMArr(1,1) << endl;
         cout << "CFits::LsToFit: CorrMArr(2,0) set to " << CorrMArr(2,0) << endl;
       #endif
-      
+
       ZVecArr *= XVecArr;
       #ifdef __DEBUG_LSTOFIT__
         cout << "CFits::LsToFit: ZVecArr set to " << ZVecArr << endl;
       #endif
-      
+
       CorrMArr(1, 2) = blitz::sum(ZVecArr);
       CorrMArr(2, 1) = blitz::sum(ZVecArr);
       #ifdef __DEBUG_LSTOFIT__
         cout << "CFits::LsToFit: CorrMArr(1,2) set to " << CorrMArr(1,2) << endl;
         cout << "CFits::LsToFit: CorrMArr(2,1) set to " << CorrMArr(2,1) << endl;
       #endif
-      
+
       TempVecArr.resize(ZVecArr.size());
       TempVecArr = ZVecArr;
       TempVecArr *= XVecArr;
@@ -10340,7 +10446,7 @@ namespace pfsDRPStella = pfs::drp::stella;
       #ifdef __DEBUG_LSTOFIT__
         cout << "CFits::LsToFit: CorrMArr(2,2) set to " << CorrMArr(2,2) << endl;
       #endif
-      
+
       blitz::Array<double, 2> CorrInvMArr;
       CorrInvMArr.resize(CorrMArr.rows(), CorrMArr.cols());
       CorrInvMArr = CorrMArr;
@@ -10355,13 +10461,13 @@ namespace pfsDRPStella = pfs::drp::stella;
       #ifdef __DEBUG_LSTOFIT__
         cout << "CFits::LsToFit: p_CVecArr set to " << *p_CVecArr << endl;
       #endif
-      
+
       //xm0 = xm - xx[0]
       double XM0 = XM - XXVecArr(0);
       #ifdef __DEBUG_LSTOFIT__
         cout << "CFits::LsToFit: XM0 set to " << XM0 << endl;
       #endif
-      
+
       D_Out = (*p_CVecArr)(0) + ((*p_CVecArr)(1) * XM0) + ((*p_CVecArr)(2) * pow(XM0, 2));
       #ifdef __DEBUG_LSTOFIT__
         cout << "CFits::LsToFit: D_Out set to " << D_Out << endl;
@@ -10375,20 +10481,20 @@ namespace pfsDRPStella = pfs::drp::stella;
       CorrInvMArr.resize(0,0);
       return true;
     }
-    
+
     /**
      *  InvertGaussJ(AArray, BArray)
      *  Linear equation solution by Gauss-Jordan elimination
      *  AArray(0:N-1, 0:N-1) is the input matrix. BArray(0:N-1, 0:M-1) is input containing the m right-hand side vectors.
      *  On output, AArray is replaced by its matrix inverse, and BArray is replaced by the corresponding set of solution vectors.
      **/
-    bool InvertGaussJ(blitz::Array<double, 2> &AArray, 
+    bool InvertGaussJ(blitz::Array<double, 2> &AArray,
                       blitz::Array<double, 2> &BArray){
       /// The integer arrays IPivVecArr, IndXCVecArr, and IndXRVecArr are used for bookkeeping on the pivoting
       blitz::Array<int, 1> IndXCVecArr(AArray.extent(blitz::firstDim));
       blitz::Array<int, 1> IndXRVecArr(AArray.extent(blitz::firstDim));
       blitz::Array<int, 1> IPivVecArr(AArray.extent(blitz::firstDim));
-      
+
       #ifdef __DEBUG_INVERT__
         cout << "CFits::InvertGaussJ: AArray = " << AArray << endl;
         cout << "CFits::InvertGaussJ: BArray = " << BArray << endl;
@@ -10396,23 +10502,23 @@ namespace pfsDRPStella = pfs::drp::stella;
         cout << "CFits::InvertGaussJ: IndXRVecArr = " << IndXRVecArr << endl;
         cout << "CFits::InvertGaussJ: IPivVecArr = " << IPivVecArr << endl;
       #endif
-      
+
       int m = 0, icol = 0, irow = 0, n = 0, o = 0, p = 0, pp = 0, N = 0, M = 0;
       double Big = 0., dum = 0., PivInv = 0.;
-      
+
       N = AArray.rows();
       M = BArray.cols();
-      
+
       IPivVecArr = 0;
       #ifdef __DEBUG_INVERT__
         cout << "CFits::InvertGaussJ: N = " << N << ", M = " << M << endl;
         cout << "CFits::InvertGaussJ: IPivVecArr = " << IPivVecArr << endl;
       #endif
-      
+
       /// This is the main loop over the columns to be reduced
       for (m = 0; m < N; m++){ /// m == i
         Big = 0.;
-        
+
         /// This is the outer loop of the search for a pivot element
         for (n = 0; n < N; n++){ /// n == j
           if (IPivVecArr(n) != 1){
@@ -10428,7 +10534,7 @@ namespace pfsDRPStella = pfs::drp::stella;
           } /// end if (IPivVecArr(n) != 1)
         } /// end for (n = 0; n < N; n++)     Outer Loop
         ++(IPivVecArr(icol));
-        
+
         /** We now have the pivot element, so we interchange rows, if needed, to put the pivot element on the diagonal. The columns are not physically interchanged, only relabled: IndXCVecArr(m), the column of the mth pivot element, is the mth column that is reduced, while IndXRVecArr(m) is the row in which that pivot element was originally located. If IndXCVecArr(i) != IndXRVecArr there is an implied column interchange. With this form of bookkeeping, the solution BVecArr's will end up in the correct order, and the inverse matrix will be scrambled by columns.
          **/
         if (irow != icol){
@@ -10441,7 +10547,7 @@ namespace pfsDRPStella = pfs::drp::stella;
         }
         IndXRVecArr(m) = irow;
         IndXCVecArr(m) = icol;
-        
+
         /** We are now ready to divide the pivot row by the pivot element, located at irow and icol
          **/
         if (AArray(icol, icol) == 0.0){
@@ -10458,7 +10564,7 @@ namespace pfsDRPStella = pfs::drp::stella;
         for (p = 0; p < M; p++){
           BArray(icol, p) *= PivInv;
         }
-        
+
         /**
          *      Next, we reduce the rows...
          *          ... except for the pivot one, of course
@@ -10491,7 +10597,7 @@ namespace pfsDRPStella = pfs::drp::stella;
       IPivVecArr.resize(0);
       return true;
     }
-    
+
     /**
      *  InvertGaussJ(AArray)
      *  From: Numerical Recipies
@@ -10517,11 +10623,11 @@ namespace pfsDRPStella = pfs::drp::stella;
       Unity.resize(0);
       return true;
     }
-    
+
     /**
      * MatrixATimesB(blitz::Array<double, 2> &Arr, blitz::Array<double, 2> &B);
      **/
-    blitz::Array<double, 2>* MatrixATimesB(const blitz::Array<double, 2> &A, 
+    blitz::Array<double, 2>* MatrixATimesB(const blitz::Array<double, 2> &A,
                                                   const blitz::Array<double, 2> &B){
       #ifdef __DEBUG_MULT__
         cout << "CFits::MatrixATimesB(A = " << A << ", B = " << B << ") started" << endl;
@@ -10547,19 +10653,19 @@ namespace pfsDRPStella = pfs::drp::stella;
       #endif
       return (P_TempArray);
     }
-    
+
     /**
      * MatrixBTimesA(blitz::Array<double, 2> &Arr, blitz::Array<double, 2> &B);
      **/
-    blitz::Array<double, 2>* MatrixBTimesA(const blitz::Array<double, 2> &A, 
+    blitz::Array<double, 2>* MatrixBTimesA(const blitz::Array<double, 2> &A,
                                            const blitz::Array<double, 2> &B){
       return pfsDRPStella::math::MatrixATimesB(B, A);
     }
-    
+
     /**
      * MatrixTimesVecArr(blitz::Array<double, 2> &Arr, blitz::Array<double, 1> &B);
      **/
-    blitz::Array<double, 1>* MatrixTimesVecArr(const blitz::Array<double, 2> &A, 
+    blitz::Array<double, 1>* MatrixTimesVecArr(const blitz::Array<double, 2> &A,
                                                const blitz::Array<double, 1> &B){
       if (static_cast<int>(B.size()) != A.extent(blitz::secondDim))
         return (new blitz::Array<double, 1>(A.extent(blitz::firstDim)));
@@ -10580,11 +10686,11 @@ namespace pfsDRPStella = pfs::drp::stella;
       delete p_TempMatrix;
       return p_RefArr;
     }
-    
+
     /**
      * VecArrTimesMatrix(blitz::Array<double, 1> &Arr, blitz::Array<double, 2> &B);
      **/
-    blitz::Array<double, 1>* VecArrTimesMatrix(const blitz::Array<double, 1> &A, 
+    blitz::Array<double, 1>* VecArrTimesMatrix(const blitz::Array<double, 1> &A,
                                                const blitz::Array<double, 2> &B){
       if (static_cast<int>(A.size()) != B.extent(blitz::firstDim)){
         #ifdef __DEBUG_MULT__
@@ -10605,11 +10711,11 @@ namespace pfsDRPStella = pfs::drp::stella;
       delete p_temp;
       return p_tempA;
     }
-    
+
     /**
      * VecArrACrossB(blitz::Array<double, 1> &Arr, blitz::Array<double, 1> &B);
      **/
-    blitz::Array<double, 2>* VecArrACrossB(const blitz::Array<double, 1> &A, 
+    blitz::Array<double, 2>* VecArrACrossB(const blitz::Array<double, 1> &A,
                                            const blitz::Array<double, 1> &B){
       blitz::Array<double, 2> *P_TempArray = new blitz::Array<double, 2>(A.size(), B.size());
       int m, n;
@@ -10624,11 +10730,11 @@ namespace pfsDRPStella = pfs::drp::stella;
       }
       return (P_TempArray);
     }
-    
+
     /**
      * VecArrACrossB(blitz::Array<int, 1> &Arr, blitz::Array<int, 1> &B);
      **/
-    blitz::Array<int, 2>* VecArrACrossB(const blitz::Array<int, 1> &A, 
+    blitz::Array<int, 2>* VecArrACrossB(const blitz::Array<int, 1> &A,
                                         const blitz::Array<int, 1> &B){
       blitz::Array<int, 2> *P_TempArray = new blitz::Array<int, 2>(A.size(), B.size());
       int m, n;
@@ -10643,23 +10749,23 @@ namespace pfsDRPStella = pfs::drp::stella;
       }
       return (P_TempArray);
     }
-    
+
     /**
      * VecArrAScalarB(blitz::Array<double, 1> &Arr, blitz::Array<double, 1> &B);
      **/
-    double VecArrAScalarB(const blitz::Array<double, 1> &A, 
+    double VecArrAScalarB(const blitz::Array<double, 1> &A,
                           const blitz::Array<double, 1> &B){
       if (A.extent(blitz::firstDim) != B.extent(blitz::firstDim))
         return 0.;
       return blitz::sum(A * B);
     }
-    
+
     /**
      * Reform(blitz::Array<double, 1> &Arr, int DimA, int DimB);
      **/
     template<typename T>
-    blitz::Array<T, 2>* Reform(const blitz::Array<T, 1> &VecArr, 
-                               int NRow, 
+    blitz::Array<T, 2>* Reform(const blitz::Array<T, 1> &VecArr,
+                               int NRow,
                                int NCol){
       const T *data = VecArr.data();
       #ifdef __DEBUG_REFORM__
@@ -10678,7 +10784,7 @@ namespace pfsDRPStella = pfs::drp::stella;
       #endif
       return P_TempArray;
     }
-    
+
     /**
      * Reform(blitz::Array<double, 1> &Arr, int DimA, int DimB);
      * Reformates a 2-dimensional array into a vector
@@ -10717,7 +10823,7 @@ namespace pfsDRPStella = pfs::drp::stella;
       }
       return (P_TempVecArr);
     }
-    
+
     /**
       GetSubArrCopy(blitz::Array<double, 1> &DA1_In, blitz::Array<int, 1> &IA1_Indices, blitz::Array<double, 1> &DA1_Out) const
     **/
@@ -10738,7 +10844,7 @@ namespace pfsDRPStella = pfs::drp::stella;
       }
       return true;
     }
-    
+
     /**
      *  GetSubArrCopy(blitz::Array<int, 2> &IA2_In, blitz::Array<int, 1> &IA1_Indices, int I_Mode_In, blitz::Array<int, 2> &IA2_Out) const
      *  Copies the values of IA1_In(IA1_Indices) to IA1_Out
@@ -10780,13 +10886,13 @@ namespace pfsDRPStella = pfs::drp::stella;
       }
       return true;
     }
-    
+
     /**
      *  GetSubArr(blitz::Array<double, 1> &DA1_In, blitz::Array<int, 3> &I_A3_Indices) const
      *  Copies the values of DA1_In(I_A3_Indices(row,col,0), I_A3_Indices(row,col,1)) to D_A2_Out
      **/
     template<typename T>
-    blitz::Array<T, 2> GetSubArrCopy(const blitz::Array<T, 2> &A2_In, 
+    blitz::Array<T, 2> GetSubArrCopy(const blitz::Array<T, 2> &A2_In,
                                      const blitz::Array<int, 3> &I_A3_Indices)
     {
       blitz::Array<T, 2> A2_Out(I_A3_Indices.rows(), I_A3_Indices.cols());
@@ -10797,21 +10903,21 @@ namespace pfsDRPStella = pfs::drp::stella;
       }
       return (A2_Out);
     }
-    
+
     /**
      *  Spline
      *  Given Arrays x_In(0:N-1) and y_In(0:N-1) containing a tabulated function, i.e., y_i = f(x_i), with x_1 < x_2 < ... < x_N, and given values yP1 and yPN for the first derivative of the interpolating function at points 1 and N, respectively, this routine returns an Array y2(0:N-1) that contains the second derivatives of the interpolating function at the tabulated points x_i. If yP1 and/or yPN are equal to 1x10^30 or larger, the routine is signaled to set the corresponding boundary condition for a natural spline, with zero second derivative on that boundary.
      **/
-    bool Spline(const blitz::Array<double, 1> &x_In, 
-                const blitz::Array<double, 1> &y_In, 
-                double yP1, 
-                double yPN, 
+    bool Spline(const blitz::Array<double, 1> &x_In,
+                const blitz::Array<double, 1> &y_In,
+                double yP1,
+                double yPN,
                 blitz::Array<double, 1> &y_Out){
       int m, o, N = x_In.size();
       double p, qn, sig, un;
       blitz::Array<double, 1> UVecArr(N-1);
       y_Out.resize(N);
-      
+
       if (yP1 > 0.99e30)  /// The lower boundary condition is set either to be "natural"
       {
         y_Out(0) = UVecArr(0) = 0.0;
@@ -10821,7 +10927,7 @@ namespace pfsDRPStella = pfs::drp::stella;
         y_Out(0) = -0.5;
         UVecArr(0)  = (3.0 / (x_In(1) - x_In(0))) * ((y_In(1) - y_In(0)) / (x_In(1) - x_In(0)) - yP1);
       }
-      
+
       /**
        *  This is the decomposition loop of the tridiagonal algorithm. y_Out and UVecArr are used for temporary storage of the decomposed factors.
        **/
@@ -10841,7 +10947,7 @@ namespace pfsDRPStella = pfs::drp::stella;
         un = (3.0 / (x_In(N-1) - x_In(N-2))) * (yPN - (y_In(N-1) - y_In(N-2)) / (x_In(N-1) - x_In(N-2)));
       }
       y_Out(N-1) = (un - qn * UVecArr(N-2)) / (qn * y_Out(N-2) + 1.0);
-      
+
       /// This is the backsubstitution loop of the tridiagonal algorithm
       for (o = N - 2; o >= 0; o--)
       {
@@ -10850,29 +10956,29 @@ namespace pfsDRPStella = pfs::drp::stella;
       UVecArr.resize(0);
       return true;
     }
-    
+
     /**
      *  Spline
      *  Given Arrays x_In(0:N-1) and y_In(0:N-1) containing a tabulated function, i.e., y_i = f(x_i), with x_1 < x_2 < ... < x_N, this routine returns an Array y2(0:N-1) that contains the second derivatives of the interpolating function at the tabulated points x_i. The routine is signaled to set the corresponding boundary condition for a natural spline, with zero second derivative on that boundary.
      **/
-    bool Spline(const blitz::Array<double, 1> &x_In, 
-                const blitz::Array<double, 1> &y_In, 
+    bool Spline(const blitz::Array<double, 1> &x_In,
+                const blitz::Array<double, 1> &y_In,
                 blitz::Array<double, 1> &y_Out){
       return pfsDRPStella::math::Spline(x_In, y_In, 1.0e30, 1.0e30, y_Out);
     }
-    
+
     /**
      *  SplInt
      *  Given the Arrays xVec_In(0:N-1) and y1_In(0:N-1), which tabulate a function (whith the xVec_In(i)'s in order), and given the array y2_In(0:N-1), which is the output from Spline above, and given a value of x_In, this routine returns a cubic-spline interpolated value y_Out;
      **/
-    bool SplInt(const blitz::Array<double, 1> &xVec_In, 
-                blitz::Array<double, 1> &y1_In, 
-                blitz::Array<double, 1> &y2_In, 
-                double x_In, 
+    bool SplInt(const blitz::Array<double, 1> &xVec_In,
+                blitz::Array<double, 1> &y1_In,
+                blitz::Array<double, 1> &y2_In,
+                double x_In,
                 double *y_Out){
       int klo, khi, o, N;
       double h, b, a;
-      
+
       N = xVec_In.size();
       /**
        *  We will find the right place in the table by means of bisection. This is optimal if sequential calls to this routine are at random values of x_In. If sequential calls are in order, and closely spaced, one would do better to store previous values of klo and khi and test if they remain appropriate on the next call.
@@ -10898,54 +11004,54 @@ namespace pfsDRPStella = pfs::drp::stella;
       *y_Out = a * y1_In(klo) + b * y1_In(khi) + ((a * a * a - a) * y2_In(khi)) * (h * h) / 6.0;
       return true;
     }
-    
+
     /**
      *  LsToFit
      **/
-    bool LsToFit(const blitz::Array<double, 1> &XXVecArr, 
-                 const blitz::Array<double, 1> &YVecArr, 
+    bool LsToFit(const blitz::Array<double, 1> &XXVecArr,
+                 const blitz::Array<double, 1> &YVecArr,
                  double XM, double &D_Out){
       //  Function ls2fit, xx, y, xm
-      
+
       //COMPILE_OPT hidden, strictarr
-      
+
       //x = xx - xx[0]
       ///Normalize to preserve significance.
       blitz::Array<double, 1> XVecArr(XXVecArr.size());
       XVecArr = XXVecArr - XXVecArr(0);
-      
+
       //ndegree = 2L
       long NDegree = 2;
       #ifdef __DEBUG_LSTOFIT__
       cout << "CFits::LsToFit: NDegree set to " << NDegree << endl;
       #endif
-      
+
       //n = n_elements(xx)
       long N = XXVecArr.size();
       #ifdef __DEBUG_LSTOFIT__
       cout << "CFits::LsToFit: N set to " << N << endl;
       #endif
-      
+
       //corrm = fltarr(ndegree+1, ndegree+1)
       ///Correlation matrix
       blitz::Array<double, 2> CorrMArr(NDegree + 1, NDegree + 1);
-      
+
       //b = fltarr(ndegree+1)
       blitz::Array<double, 1> BVecArr(NDegree + 1);
-      
+
       //corrm[0,0] = n
       ///0 - Form the normal equations
       CorrMArr(0, 0) = N;
       #ifdef __DEBUG_LSTOFIT__
       cout << "CFits::LsToFit: CorrMArr(0,0) set to " << CorrMArr(0,0) << endl;
       #endif
-      
+
       //b[0] = total(y)
       BVecArr(0) = blitz::sum(YVecArr);
       #ifdef __DEBUG_LSTOFIT__
       cout << "CFits::LsToFit: BVecArr(0) set to " << BVecArr(0) << endl;
       #endif
-      
+
       //z = x
       ///1
       blitz::Array<double, 1> ZVecArr(XXVecArr.size());
@@ -10953,7 +11059,7 @@ namespace pfsDRPStella = pfs::drp::stella;
       #ifdef __DEBUG_LSTOFIT__
       cout << "CFits::LsToFit: ZVecArr set to " << ZVecArr << endl;
       #endif
-      
+
       //b[1] = total(y*z)
       blitz::Array<double, 1> TempVecArr(YVecArr.size());
       TempVecArr = YVecArr;
@@ -10962,7 +11068,7 @@ namespace pfsDRPStella = pfs::drp::stella;
       #ifdef __DEBUG_LSTOFIT__
       cout << "CFits::LsToFit: BVecArr(1) set to " << BVecArr(1) << endl;
       #endif
-      
+
       //corrm[[0,1],[1,0]] = total(z)
       CorrMArr(0, 1) = blitz::sum(ZVecArr);
       CorrMArr(1, 0) = blitz::sum(ZVecArr);
@@ -10970,14 +11076,14 @@ namespace pfsDRPStella = pfs::drp::stella;
       cout << "CFits::LsToFit: CorrMArr(0,1) set to " << CorrMArr(0,1) << endl;
       cout << "CFits::LsToFit: CorrMArr(1,0) set to " << CorrMArr(1,0) << endl;
       #endif
-      
+
       //z = z * x
       ///2
       ZVecArr *= XVecArr;
       #ifdef __DEBUG_LSTOFIT__
       cout << "CFits::LsToFit: ZVecArr set to " << ZVecArr << endl;
       #endif
-      
+
       //b[2] = total(y*z)
       TempVecArr.resize(YVecArr.size());
       TempVecArr = YVecArr;
@@ -10986,7 +11092,7 @@ namespace pfsDRPStella = pfs::drp::stella;
       #ifdef __DEBUG_LSTOFIT__
       cout << "CFits::LsToFit: BVecArr(2) set to " << BVecArr(2) << endl;
       #endif
-      
+
       //corrm[[0,1,2], [2,1,0]] = total(z)
       CorrMArr(0, 2) = blitz::sum(ZVecArr);
       CorrMArr(1, 1) = blitz::sum(ZVecArr);
@@ -10996,14 +11102,14 @@ namespace pfsDRPStella = pfs::drp::stella;
       cout << "CFits::LsToFit: CorrMArr(1,1) set to " << CorrMArr(1,1) << endl;
       cout << "CFits::LsToFit: CorrMArr(2,0) set to " << CorrMArr(2,0) << endl;
       #endif
-      
+
       //z = z * x
       ///3
       ZVecArr *= XVecArr;
       #ifdef __DEBUG_LSTOFIT__
       cout << "CFits::LsToFit: ZVecArr set to " << ZVecArr << endl;
       #endif
-      
+
       //corrm[[1,2],[2,1]] = total(z)
       CorrMArr(1, 2) = blitz::sum(ZVecArr);
       CorrMArr(2, 1) = blitz::sum(ZVecArr);
@@ -11011,7 +11117,7 @@ namespace pfsDRPStella = pfs::drp::stella;
       cout << "CFits::LsToFit: CorrMArr(1,2) set to " << CorrMArr(1,2) << endl;
       cout << "CFits::LsToFit: CorrMArr(2,1) set to " << CorrMArr(2,1) << endl;
       #endif
-      
+
       //corrm[2,2] = total(z*x)
       ///4
       TempVecArr.resize(ZVecArr.size());
@@ -11021,7 +11127,7 @@ namespace pfsDRPStella = pfs::drp::stella;
       #ifdef __DEBUG_LSTOFIT__
       cout << "CFits::LsToFit: CorrMArr(2,2) set to " << CorrMArr(2,2) << endl;
       #endif
-      
+
       //c = b # invert(corrm)
       blitz::Array<double, 2> CorrInvMArr;
       CorrInvMArr.resize(CorrMArr.rows(), CorrMArr.cols());
@@ -11037,13 +11143,13 @@ namespace pfsDRPStella = pfs::drp::stella;
       #ifdef __DEBUG_LSTOFIT__
       cout << "CFits::LsToFit: p_CVecArr set to " << *p_CVecArr << endl;
       #endif
-      
+
       //xm0 = xm - xx[0]
       double XM0 = XM - XXVecArr(0);
       #ifdef __DEBUG_LSTOFIT__
       cout << "CFits::LsToFit: XM0 set to " << XM0 << endl;
       #endif
-      
+
       D_Out = (*p_CVecArr)(0) + ((*p_CVecArr)(1) * XM0) + ((*p_CVecArr)(2) * pow(XM0, 2));
       #ifdef __DEBUG_LSTOFIT__
       cout << "CFits::LsToFit: D_Out set to " << D_Out << endl;
@@ -11057,8 +11163,8 @@ namespace pfsDRPStella = pfs::drp::stella;
       CorrInvMArr.resize(0,0);
       return true;
     }
-    
-    
+
+
     /**
      *  function CountPixGTZero
      *  replaces input vector with vector of the same size where values are zero where the input vector is zero and all other values represent the number of non-zero values since the last zero value
@@ -11086,10 +11192,10 @@ namespace pfsDRPStella = pfs::drp::stella;
       }
       return true;
     }
-    
+
     template<typename T>
-    int FirstIndexWithValueGEFrom(const blitz::Array<T, 1> &vec_In, 
-                                  const T minValue_In, 
+    int FirstIndexWithValueGEFrom(const blitz::Array<T, 1> &vec_In,
+                                  const T minValue_In,
                                   const int fromIndex_In){
       if (vec_In.size() < 1 || fromIndex_In >= static_cast<int>(vec_In.size())){
         cout << "CFits::FirstIndexWithValueGEFrom: Error: vec_In.size(=" << vec_In.size() << ") < 1 or fromIndex_In >= vec_In.size() => Returning -1" << endl;
@@ -11104,7 +11210,7 @@ namespace pfsDRPStella = pfs::drp::stella;
       #endif
       return -1;
     }
-    
+
     /**
      *  function LastIndexWithZeroValueBefore
      *  returns last index of integer input vector where value is equal to zero before index I_StartPos
@@ -11120,7 +11226,7 @@ namespace pfsDRPStella = pfs::drp::stella;
       }
       return -1;
     }
-    
+
     /**
      *  function FirstIndexWithZeroValueFrom
      *  returns first index of integer input vector where value is equal to zero, starting at index I_StartPos
@@ -11230,14 +11336,14 @@ namespace pfsDRPStella = pfs::drp::stella;
         D_A1_Sky_Out.resize(D_A2_CCD_In.rows());
       }
       D_A1_Sky_Out = 0.;
-    
+
       double *P_D_Reject;
 
       blitz::Array<double, 1> *P_D_A1_YFit;
       blitz::Array<double, 2> *P_D_A2_YFit;
       blitz::Array<int, 1> *P_I_A1_Mask;
       blitz::Array<int, 2> *P_I_A2_Mask;
-  
+
       blitz::Array<double, 1> *P_D_A1_Sigma;
       blitz::Array<double, 1> *P_D_A1_Sigma_Out;
       blitz::Array<string, 1> S_A1_Args_Fit(10);
@@ -11296,7 +11402,7 @@ namespace pfsDRPStella = pfs::drp::stella;
         S_A1_Args_Fit(I_ArgPos) = "YFIT_OUT";
         I_ArgPos++;
       }
-    
+
       I_KeywordSet_Reject = pfsDRPStella::utils::KeyWord_Set(S_A1_Args_In, "REJECT_IN");
       if (I_KeywordSet_Reject >= 0)
       {
@@ -11307,7 +11413,7 @@ namespace pfsDRPStella = pfs::drp::stella;
         S_A1_Args_Fit(I_ArgPos) = "REJECT_IN";
         I_ArgPos++;
       }
-  
+
       I_KewordSet_Mask = pfsDRPStella::utils::KeyWord_Set(S_A1_Args_In, "MASK_INOUT");
       if (I_KewordSet_Mask >= 0)
       {
@@ -11516,7 +11622,7 @@ namespace pfsDRPStella = pfs::drp::stella;
         if (I_KeywordSet_AllowSkyLTZero < 0)
           delete(P_I_TempInt);
         P_I_TempInt = (int*)ArgV_In[I_KeywordSet_AllowSkyLTZero];
-  
+
         if (*P_I_TempInt > 0){
           B_AllowSpecLTZero = true;
           cout << "CFits::LinFitBevington: KeyWord_Set(ALLOW_SPEC_LT_ZERO)" << endl;
@@ -11536,7 +11642,7 @@ namespace pfsDRPStella = pfs::drp::stella;
       bool B_Reject = false;
       if (*P_D_Reject > 0.)
         B_Reject = true;
-    
+
       blitz::Array<int, 1> *P_I_A1_Mask = new blitz::Array<int, 1>(D_A1_CCD_In.size());
       blitz::Array<int, 1> I_A1_Mask_Orig(D_A1_CCD_In.size());
       *P_I_A1_Mask = 1;
@@ -11573,7 +11679,7 @@ namespace pfsDRPStella = pfs::drp::stella;
       }
       *P_D_A1_Sigma_Out = 0.;
       D_A1_Sigma_Out = *P_D_A1_Sigma_Out;
-    
+
       double* P_D_ChiSqr_Out;
       I_KeywordSet_ChiSqOut = pfsDRPStella::utils::KeyWord_Set(S_A1_Args_In, "CHISQ_OUT");
       if (I_KeywordSet_ChiSqOut >= 0)
@@ -11603,7 +11709,7 @@ namespace pfsDRPStella = pfs::drp::stella;
         P_D_Q_Out = new double();
       }
       *P_D_Q_Out = 1.;
-    
+
       D_SP_Out = 0.0;
       I_KeywordSet_MeasureErrors = pfsDRPStella::utils::KeyWord_Set(S_A1_Args_In, "MEASURE_ERRORS_IN");
       if (I_KeywordSet_MeasureErrors >= 0)
@@ -11655,13 +11761,13 @@ namespace pfsDRPStella = pfs::drp::stella;
       double D_Sum_YTimesWeight = 0.;
       double D_Sum_XYTimesWeight = 0.;
       double D_Delta = 0.;
-    
+
       bool B_Run = true;
       int I_Run = -1;
       int I_MaskSum;
       while (B_Run){
         D_SP_Out = 0.0;
-  
+
         I_Run++;
         /// remove bad pixels marked by mask
         I_MaskSum = blitz::sum(*P_I_A1_Mask);
@@ -11852,7 +11958,7 @@ namespace pfsDRPStella = pfs::drp::stella;
             cout << "CFits::LinFitBevington: I_Run=" << I_Run << ": Reject: D_A1_YFit = " << D_A1_YFit << endl;
           #endif
           D_SDevReject = sqrt(blitz::sum(blitz::pow2(D_A1_CCD - D_A1_YFit)) / double(I_SumMaskLast));//(blitz::sum(pow(D_A1_CCD - (D_A1_YFit),2)) / I_SumMaskLast);
-      
+
           /// NOTE: Should be square! Test!!!
           D_A1_Diff = D_A1_CCD_In - (*P_D_A1_YFit);
           #ifdef __DEBUG_FIT__
@@ -11932,7 +12038,7 @@ namespace pfsDRPStella = pfs::drp::stella;
 
       return true;
     }
-    
+
     /**
      * Helper function to calculate incomplete Gamma Function
      **/
@@ -11941,13 +12047,13 @@ namespace pfsDRPStella = pfs::drp::stella;
       int n;
       int ITMax = 100;
       double d_sum, del, ap;
-      
+
       #ifdef __DEBUG_LINFIT__
       cout << "CFits::GSER: *P_D_Gamser_Out = " << *P_D_Gamser_Out << endl;
       cout << "CFits::GSER: a = " << a << endl;
       cout << "CFits::GSER: x = " << x << endl;
       #endif
-      
+
       *P_D_GLn_Out = GammLn(a);
       #ifdef __DEBUG_LINFIT__
       cout << "CFits::GSER: *P_D_GLn_Out = " << *P_D_GLn_Out << endl;
@@ -11984,7 +12090,7 @@ namespace pfsDRPStella = pfs::drp::stella;
         return false;
       }
     }
-    
+
     /**
      * Helper function to calculate incomplete Gamma Function
      **/
@@ -11992,11 +12098,11 @@ namespace pfsDRPStella = pfs::drp::stella;
     {
       double x,y,tmp,ser;
       static double cof[6]={76.18009172947146, -86.50532032941677,24.01409824083091,-1.231739572450155,0.1208650973866179e-2,-0.5395239384953e-5};
-      
+
       #ifdef __DEBUG_LINFIT__
         cout << "CFits::GammLn: xx = " << xx << endl;
       #endif
-      
+
       y = x = xx;
       tmp = x + 5.5;
       tmp -= (x+0.5) * log(tmp);
@@ -12014,7 +12120,7 @@ namespace pfsDRPStella = pfs::drp::stella;
       #endif
       return D_Result;
     }
-    
+
     /**
      * Helper function to calculate incomplete Gamma Function
      **/
@@ -12025,12 +12131,12 @@ namespace pfsDRPStella = pfs::drp::stella;
       double an, b, c, d, del, h;
       double FPMIN = 1.0e-30;      /// Number near the smallest representable floating-point number
       double EPS = 1.0e-7;         /// Relative accuracy
-      
+
       *P_D_GLn_Out = GammLn(a);
       #ifdef __DEBUG_FIT__
         cout << "CFits::GCF: P_D_GLn_Out set to " << *P_D_GLn_Out << endl;
       #endif
-      
+
       b = x + 1. - a;
       #ifdef __DEBUG_FIT__
         cout << "CFits::GCF: x=" << x << ", a=" << a << ": b set to " << b << endl;
@@ -12073,7 +12179,7 @@ namespace pfsDRPStella = pfs::drp::stella;
         #ifdef __DEBUG_FIT__
           cout << "CFits::GCF: n = " << n << ": del set to " << del << endl;
         #endif
-        
+
         h *= del;
         if (fabs(del-1.) < EPS)
           break;
@@ -12085,7 +12191,7 @@ namespace pfsDRPStella = pfs::drp::stella;
       *P_D_GammCF_Out = exp(-x+a*log(x) - (*P_D_GLn_Out)) * h;
       return true;
     }
-    
+
     /**
      * Function to calculate incomplete Gamma Function P(a,x)
      **/
@@ -12116,7 +12222,7 @@ namespace pfsDRPStella = pfs::drp::stella;
         return true;
       }
     }
-    
+
     /**
      * Function to calculate incomplete Gamma Function Q(a,x) = 1. - P(a,x)
      **/
@@ -12155,7 +12261,7 @@ namespace pfsDRPStella = pfs::drp::stella;
         return true;
       }
     }
-    
+
     template<typename T>
     blitz::Array<T, 1> Replicate(T Val, int Len)
     {
@@ -12219,8 +12325,8 @@ namespace pfsDRPStella = pfs::drp::stella;
 //            ERR_OUT(double)
     **/
     template<typename T>
-    T Median(const blitz::Array<T, 1> &Arr, 
-             const blitz::Array<string, 1> &S_A1_Args_In, 
+    T Median(const blitz::Array<T, 1> &Arr,
+             const blitz::Array<string, 1> &S_A1_Args_In,
              void *PP_Args_In[])
     {
       int Length = Arr.size();
@@ -12280,18 +12386,18 @@ namespace pfsDRPStella = pfs::drp::stella;
 
       return (median);
     }
-    
+
 //    template<typename T>
-//    blitz::Array<T, 1> MedianVec(const blitz::Array<T, 1> &VecArr, 
+//    blitz::Array<T, 1> MedianVec(const blitz::Array<T, 1> &VecArr,
 //                                 int Width)
 //    {
 //      std::string mode = "NORMAL";
 //      return pfsDRPStella::math::MedianVec(VecArr, Width, mode);
 //    }
-    
+
     template<typename T>
-    blitz::Array<T, 1> MedianVec(const blitz::Array<T, 1> &VecArr, 
-                                 int Width, 
+    blitz::Array<T, 1> MedianVec(const blitz::Array<T, 1> &VecArr,
+                                 int Width,
                                  const std::string &Mode=std::string("NORMAL"))
     {
       #ifdef __DEBUG_MEDIAN__
@@ -12359,7 +12465,7 @@ namespace pfsDRPStella = pfs::drp::stella;
       free(PP_Args_Median);
       return (TmpVecArr);
     }
-    
+
     /**
      *  Select(blitz::Array<double, int> &Arr, int KThSmallest) const;
      *  Returns the <KThSmallest> value of <Arr>.
@@ -12373,7 +12479,7 @@ namespace pfsDRPStella = pfs::drp::stella;
       T result = TempArr(KThSmallest-1);
       return result;
     }
-    
+
     /**
      *  bool IsOddNumber(long No) const
      *  Returns TRUE, if <No> is an Odd Number, FALSE if <No> is an Even Number.
@@ -12382,7 +12488,7 @@ namespace pfsDRPStella = pfs::drp::stella;
     {
       return (fabs((double)(((double)No) / 2.) - (double)(int)(((double)No) / 2.)) > 0.3);
     }
-    
+
     /**
      * function Bubble Sort
      **/
@@ -12395,7 +12501,7 @@ namespace pfsDRPStella = pfs::drp::stella;
       long UpperLimit = Size - 1;
       long LastSwap;
       long Pos;
-      
+
       while(UpperLimit > 0)
       {
         LastSwap = 0;
@@ -12423,21 +12529,21 @@ namespace pfsDRPStella = pfs::drp::stella;
       int I_M = 7;
       int I_NStack = 50;
       blitz::firstIndex i;
-      
+
       int I_I, I_Indxt, I_Ir, I_J, I_K, I_L, I_SizeIn;
       int I_JStack = 0;
       blitz::Array<int, 1> I_A1_IStack(I_NStack);
       blitz::Array<int, 1> I_A1_Indx;
       T D_A;
-      
+
       I_SizeIn = D_A1_In.size();
       I_Ir = I_SizeIn - 1;
       I_L = 0;
-      
+
       I_A1_IStack = 0;
       I_A1_Indx.resize(I_SizeIn);
       I_A1_Indx = i;
-      
+
       #ifdef __DEBUG_FITS_SORT__
         cout << "CFits::SortIndices() starting for(;;)" << endl;
       #endif
@@ -12468,13 +12574,13 @@ namespace pfsDRPStella = pfs::drp::stella;
               #ifdef __DEBUG_FITS_SORT__
                 cout << "CFits::SortIndices(): 1. P_I_A1_Indx(I_I+1 = " << I_I + 1 << ") set to " << I_A1_Indx(I_I+1) << " => P_I_A1_Indx = " << I_A1_Indx << endl;
               #endif
-              
+
             }
             I_A1_Indx(I_I + 1) = I_Indxt;
             #ifdef __DEBUG_FITS_SORT__
               cout << "CFits::SortIndices(): 2. P_I_A1_Indx(I_I+1 = " << I_I + 1 << ") set to " << I_A1_Indx(I_I+1) << " => P_I_A1_Indx = " << I_A1_Indx << endl;
             #endif
-            
+
           }
           if (I_JStack == 0)
           {
@@ -12491,7 +12597,7 @@ namespace pfsDRPStella = pfs::drp::stella;
           #ifdef __DEBUG_FITS_SORT__
             cout << "CFits::SortIndices(): I_L(=" << I_L << ") set to I_A1_IStack(I_JStack--=" << I_JStack << ") = " << I_A1_IStack(I_JStack) << endl;
           #endif
-          
+
         }
         else
         {
@@ -12512,7 +12618,7 @@ namespace pfsDRPStella = pfs::drp::stella;
             #ifdef __DEBUG_FITS_SORT__
               cout << "CFits::SortIndices(D_A1_In): P_I_A1_Indx(I_L=" << I_L << ")=" << I_A1_Indx(I_L) << " and P_I_A1_Indx(I_Ir(=" << I_Ir << "))=" << I_A1_Indx(I_Ir) << " std::swapped" << " => P_I_A1_Indx = " << I_A1_Indx << endl;
             #endif
-            
+
           }
           if (D_A1_In(I_A1_Indx(I_L + 1))
             > D_A1_In(I_A1_Indx(I_Ir)))
@@ -12522,7 +12628,7 @@ namespace pfsDRPStella = pfs::drp::stella;
             #ifdef __DEBUG_FITS_SORT__
               cout << "CFits::SortIndices(D_A1_In): P_I_A1_Indx(I_L=" << I_L << "+1)=" << I_A1_Indx(I_L + 1) << " and P_I_A1_Indx(I_Ir(=" << I_Ir << "))=" << I_A1_Indx(I_L+1) << " std::swapped" << " => P_I_A1_Indx = " << I_A1_Indx << endl;
             #endif
-            
+
           }
           if (D_A1_In(I_A1_Indx(I_L))
             > D_A1_In(I_A1_Indx(I_L + 1)))
@@ -12532,7 +12638,7 @@ namespace pfsDRPStella = pfs::drp::stella;
             #ifdef __DEBUG_FITS_SORT__
               cout << "CFits::SortIndices(D_A1_In): P_I_A1_Indx(I_L=" << I_L << ")=" << I_A1_Indx(I_L) << " and P_I_A1_Indx(I_L(=" << I_L << ")+1)=" << I_A1_Indx(I_L+1) << " std::swapped" << " => P_I_A1_Indx = " << I_A1_Indx << endl;
             #endif
-            
+
           }
           I_I = I_L + 1;
           #ifdef __DEBUG_FITS_SORT__
@@ -12558,7 +12664,7 @@ namespace pfsDRPStella = pfs::drp::stella;
               #ifdef __DEBUG_FITS_SORT__
                 cout << "CFits::SortIndices(D_A1_In): I_I set to " << I_I << " => D_A1_In(P_I_A1_Indx(I_I)) = " << D_A1_In(I_A1_Indx(I_I)) << endl;
               #endif
-              
+
             }
             while(D_A1_In(I_A1_Indx(I_I)) < D_A && I_I < I_SizeIn - 2);
             do
@@ -12567,7 +12673,7 @@ namespace pfsDRPStella = pfs::drp::stella;
               #ifdef __DEBUG_FITS_SORT__
                 cout << "CFits::SortIndices(D_A1_In): I_J set to " << I_J << " => D_A1_In(P_I_A1_Indx(I_J)) = " << D_A1_In(I_A1_Indx(I_J)) << endl;
               #endif
-              
+
             }
             while(D_A1_In(I_A1_Indx(I_J)) > D_A && I_J > 0);
             if (I_J < I_I)
@@ -12582,7 +12688,7 @@ namespace pfsDRPStella = pfs::drp::stella;
             #ifdef __DEBUG_FITS_SORT__
               cout << "CFits::SortIndices(D_A1_In): P_I_A1_Indx(I_I=" << I_I << ")=" << I_A1_Indx(I_I) << " and P_I_A1_Indx(I_J(=" << I_J << "))=" << I_A1_Indx(I_J) << " std::swapped" << " => P_I_A1_Indx = " << I_A1_Indx << endl;
             #endif
-            
+
           }
           I_A1_Indx(I_L + 1) = I_A1_Indx(I_J);
           #ifdef __DEBUG_FITS_SORT__
@@ -12612,7 +12718,7 @@ namespace pfsDRPStella = pfs::drp::stella;
             #ifdef __DEBUG_FITS_SORT__
               cout << "CFits::SortIndices(D_A1_In): I_I set to I_J(=" << I_J << ") - 1" << endl;
             #endif
-            
+
           }
           else
           {
@@ -12625,7 +12731,7 @@ namespace pfsDRPStella = pfs::drp::stella;
             #ifdef __DEBUG_FITS_SORT__
               cout << "CFits::SortIndices(D_A1_In): I_L set to I_I(=" << I_I << endl;
             #endif
-            
+
           }
         }
       }
@@ -12636,7 +12742,7 @@ namespace pfsDRPStella = pfs::drp::stella;
       }
       return (vecIndx);
     }
-    
+
     /**
      * function GetRowFromIndex(int I_Index_In, int I_NRows_In) const
      * task: Returns Row specified by I_Index_In from the formula
@@ -12647,7 +12753,7 @@ namespace pfsDRPStella = pfs::drp::stella;
     {
       return (I_Index_In - (I_NRows_In * pfsDRPStella::math::GetColFromIndex(I_Index_In, I_NRows_In)));
     }
-    
+
     /**
      * function GetColFromIndex(int I_Index_In, int I_NRows_In) const
      * task: Returns Col specified by I_Index_In from the formula
@@ -12658,7 +12764,7 @@ namespace pfsDRPStella = pfs::drp::stella;
     {
       return ((int)(I_Index_In / I_NRows_In));
     }
-    
+
     /**
      *  BandSol() const
      **/
@@ -12667,7 +12773,7 @@ namespace pfsDRPStella = pfs::drp::stella;
       double *a, *r;
       double aa;
       int n, nd, o, p, q;
-      
+
       /* Double arrays are passed by reference. */
       a = (double*)Argv[0];
       r = (double*)Argv[1];
@@ -12701,7 +12807,7 @@ namespace pfsDRPStella = pfs::drp::stella;
        *  \ X X X 0 0 /
        *  r is the array of RHS of size n.
        */
-      
+
       /* Forward sweep */
       for(o = 0; o < n - 1; o++)
       {
@@ -12738,7 +12844,7 @@ namespace pfsDRPStella = pfs::drp::stella;
           }
         }
       }
-      
+
       /* Backward sweep */
       r[n-1] /= a[n - 1 + n * (nd / 2)];
       #ifdef __DEBUG_BANDSOL__
@@ -12771,10 +12877,10 @@ namespace pfsDRPStella = pfs::drp::stella;
           }
         }
       #endif
-        
+
       return;
     }
-    
+
     /**
      * void TriDag
      * Solves for a vector blitz::Array<double, N> UVecArr the tridiagonal linear set given by equation
@@ -12791,7 +12897,7 @@ namespace pfsDRPStella = pfs::drp::stella;
       double Bet;
       int N = UVecArr.size();
       blitz::Array<double, 1> Gam(N);
-      
+
       if (BVecArr(0) == 0.0)
       {
         cout << "CFits::TriDag: Error 1 in TriDag: BVecArr(0) == 0" << endl;
@@ -12816,10 +12922,10 @@ namespace pfsDRPStella = pfs::drp::stella;
         UVecArr(m) -= Gam(m+1) * UVecArr(m+1); /// Backsubstitution
       }
       Gam.resize(0);
-      
+
       return true;
     }
-    
+
     template<typename T>
     bool Uniq(const blitz::Array<T, 1> &IA1_In, blitz::Array<int, 1> &IA1_Result)
     {
@@ -12861,13 +12967,13 @@ namespace pfsDRPStella = pfs::drp::stella;
       }
       return true;// (*(new blitz::Array<int, 1>(IA1_Indices.copy())));
     }
-    
+
     template<typename T>
     T Round(const T ToRound, int DigitsBehindDot){
       long TempLong;
       int TempInt;
       T TempDbl;
-      
+
       bool B_IsNegative = ToRound < 0.;
       TempLong = long(ToRound * pow(10., DigitsBehindDot));
       TempDbl = (ToRound - T(TempLong)) * pow(10., DigitsBehindDot);
@@ -12880,21 +12986,21 @@ namespace pfsDRPStella = pfs::drp::stella;
       }
       return (T(TempLong) / pow(10., DigitsBehindDot));
     }
-  
+
     /************************************************************/
-  
+
     template<typename T>
     long RoundL(const T ToRound){
       return long(Round(ToRound, 0));
     }
-  
+
     /************************************************************/
-  
+
     template<typename T>
     int Round(const T ToRound){
       return (int)Round(ToRound, 0);
     }
-    
+
 //    template<typename T>
 //    void resize(blitz::Array<T, 1> &arr_InOut, unsigned int newSize){
 //      blitz::Array<T, 1> *newArr = new blitz::Array<T, 1>(newSize);
@@ -12904,13 +13010,13 @@ namespace pfsDRPStella = pfs::drp::stella;
 //      return;
 //    }
   }/// end namespace math
-  
+
   namespace utils{
-    
+
     /**
      *       Returns Position of <str_In> in Array of strings <keyWords_In>, if <keyWords_In> contains string <str_In>, else returns -1.
      **/
-    int KeyWord_Set(const blitz::Array<string, 1> &keyWords_In, 
+    int KeyWord_Set(const blitz::Array<string, 1> &keyWords_In,
                     const string &str_In){
       for (int m = 0; m < static_cast<int>(keyWords_In.size()); m++){
         if (keyWords_In(m).compare(str_In) == 0)
@@ -12918,21 +13024,21 @@ namespace pfsDRPStella = pfs::drp::stella;
       }
       return -1;
     }
-    
+
     template<typename T>
     bool WriteFits(const blitz::Array<T,1>* image_In, const string &fileName_In){
       blitz::Array<T, 2> image(image_In->size(), 1);
       image(blitz::Range::all(), 0) = (*image_In);
       return WriteFits(&image, fileName_In);
     }
-      
+
     template<typename T>
     bool WriteFits(const blitz::Array<T,2>* image_In, const string &fileName_In){
       fitsfile *P_Fits;
       int Status;
       long fpixel, nelements;
       void *p_void;
-      
+
       Status=0;
       remove(fileName_In.c_str());
       fits_create_file(&P_Fits, fileName_In.c_str(), &Status);//{
@@ -12944,7 +13050,7 @@ namespace pfsDRPStella = pfs::drp::stella;
         delete[] P_ErrMsg;
         return false;
       }
-      
+
       ///  fits_write_img(P_FitsFile, TDOUBLE, fpixel, nelements,
       ///    p_void, &Status);
       long naxes[2] = {image_In->cols(), image_In->rows()};
@@ -12962,11 +13068,11 @@ namespace pfsDRPStella = pfs::drp::stella;
         cout << "CFits::WriteFits: size of image_In = <" << image_In->rows() << "x" << image_In->cols() << ">" << endl;
         cout << "CFits::WriteFits: size of image_In = <" << image_In->rows() << "x" << image_In->cols() << ">" << endl;
       #endif
-      
+
       fpixel = 1;
       //nullval = 0.;
       nelements = image_In->cols() * image_In->rows();
-      
+
       p_void = (const_cast<blitz::Array<T, 2>*>(image_In))->data();// = new blitz::Array<double,2>(p_Array, blitz::shape(naxes[0], naxes[1]),
       #ifdef __DEBUG_WRITEFITS__
         cout << "CFits::WriteFits: p_void = <" << (*((double*)p_void)) << ">" << endl;
@@ -12990,7 +13096,7 @@ namespace pfsDRPStella = pfs::drp::stella;
       else
           nbits = TDOUBLE;
       fits_write_img(P_Fits, nbits, fpixel, nelements, p_void, &Status);
-      
+
       if (Status !=0){
         cout << "CFits::WriteFits: Error " << Status << " while writing file " << fileName_In << endl;
         char* P_ErrMsg = new char[255];
@@ -12999,7 +13105,7 @@ namespace pfsDRPStella = pfs::drp::stella;
         delete[] P_ErrMsg;
         return false;
       }
-      
+
       fits_close_file(P_Fits, &Status);
       cout << "CFits::WriteFits: FitsFileName <" << fileName_In << "> closed" << endl;
       if (Status !=0){
@@ -13012,13 +13118,13 @@ namespace pfsDRPStella = pfs::drp::stella;
       }
       return true;
     }
-    
+
     /**
      *  task: Writes Array <Array_In> to file <CS_FileName_In>
      **/
     template<typename T, int N>
-    bool WriteArrayToFile(const blitz::Array<T, N> &Array_In, 
-                          const string &S_FileName_In, 
+    bool WriteArrayToFile(const blitz::Array<T, N> &Array_In,
+                          const string &S_FileName_In,
                           const string &S_Mode)
     {
       int m, n;
@@ -13026,7 +13132,7 @@ namespace pfsDRPStella = pfs::drp::stella;
       //  FILE *p_file;
       FILE *p_file;
       p_file = fopen(S_FileName_In.c_str(), "w");
-      
+
       if (S_Mode.compare(string("binary")) == 0){
         if (N == 1){
           fwrite(Array_In.data(), sizeof(T), Array_In.size(), p_file);
@@ -13081,7 +13187,7 @@ namespace pfsDRPStella = pfs::drp::stella;
               fprintf(p_file, "%.8e\n", static_cast<double>(Array_In(m)));
             }
           }
-          else{/// N == 2 
+          else{/// N == 2
             for (n = 0; n < Array_In.cols(); n++){
               if (B_A1_Exp(n))
                 fprintf(p_file, " %.8e", double(Array_In(m,n)));
@@ -13111,18 +13217,18 @@ namespace pfsDRPStella = pfs::drp::stella;
       fclose(p_file);
       return true;
     }
-    
+
 //    template<typename ImageT, typename MaskT, typename VarianceT>
 //    PTR(afwImage::MaskedImage<ImageT, MaskT, VarianceT>) getShared(afwImage::MaskedImage<ImageT, MaskT, VarianceT> const &maskedImage){
 //      PTR(afwImage::MaskedImage<ImageT, MaskT, VarianceT>) ptr = PTR(const new afwImage::MaskedImage<ImageT, MaskT, VarianceT>(maskedImage));
 //      return ptr;
 //    }
   }
-  
+
 /*  int main(){
     cout << "Test that we can create a FiberTraceFunctionFindingControl" << endl;
     pfsDRPStella::FiberTraceFunctionFindingControl ftffc;
-    
+
     cout << "Test that we can set the parameters of the FiberTraceFunctionFindingControl" << endl;
     ftffc.fiberTraceFunctionControl.interpolation = "POLYNOMIAL";
     ftffc.fiberTraceFunctionControl.order = 4;
@@ -13132,34 +13238,34 @@ namespace pfsDRPStella = pfs::drp::stella;
     ftffc.signalThreshold = 4500.;
     ftffc.nTermsGaussFit = 3;
     ftffc.saturationLevel = 65500.;
-    
+
     afwImage::MaskedImage<float> maskedImageFlat = afwImage::MaskedImage<float>("/home/azuri/spectra/pfs/IR-23-0-centerFlatx2.fits");
     cout << "maskedImageFlat created" << endl;
-    
+
     cout << "Test that we can trace fibers" << endl;
     pfsDRPStella::MaskedSpectrographImage<float> maskedSpectrographImageFlat(maskedImageFlat);
     cout << "maskedSpectrographImageFlat created" << endl;
-    
+
     maskedSpectrographImageFlat.findAndTraceApertures(ftffc, 0, maskedImageFlat.getHeight(), 10);
     cout << "msi.findAndTraceApertures finished" << endl;
-    
+
     cout << "calculate profile and extract from flat" << endl;
     pfsDRPStella::FiberTraceSet<float> fts = maskedSpectrographImageFlat.getFiberTraceSet();
-    
+
     pfsDRPStella::FiberTrace<float> ft = fts.getFiberTrace(0);
     if (!ft.MkProfIm()){
       cout << "ERROR: ft.MkProfIm returned FALSE" << endl;
       return 0;
     }
-    
+
     return 1;
   }*/
-  
+
 //  template class FiberTrace<unsigned short>;
 //  template class FiberTrace<int>;
   template class FiberTrace<float>;
   template class FiberTrace<double>;
-  
+
 //  template class FiberTraceSet<unsigned short>;
 //  template class FiberTraceSet<int>;
   template class FiberTraceSet<float>;
@@ -13167,19 +13273,19 @@ namespace pfsDRPStella = pfs::drp::stella;
 
   template pfsDRPStella::FiberTraceSet<float, unsigned short, float> math::findAndTraceApertures(const PTR(afwImage::MaskedImage<float, unsigned short, float>) &, const pfsDRPStella::FiberTraceFunctionFindingControl &fiberTraceFunctionFindingControl);
   template pfsDRPStella::FiberTraceSet<double, unsigned short, float> math::findAndTraceApertures(const PTR(afwImage::MaskedImage<double, unsigned short, float>) &, const pfsDRPStella::FiberTraceFunctionFindingControl &fiberTraceFunctionFindingControl);
-  
+
   template int math::Fix(unsigned short);
   template int math::Fix(int);
   template int math::Fix(long);
   template int math::Fix(float);
   template int math::Fix(double);
-  
+
   template blitz::Array<int, 1> math::Fix(const blitz::Array<unsigned short, 1> &);
   template blitz::Array<int, 1> math::Fix(const blitz::Array<int, 1> &);
   template blitz::Array<int, 1> math::Fix(const blitz::Array<long, 1> &);
   template blitz::Array<int, 1> math::Fix(const blitz::Array<float, 1> &);
   template blitz::Array<int, 1> math::Fix(const blitz::Array<double, 1> &);
-  
+
   template blitz::Array<int, 2> math::Fix(const blitz::Array<unsigned short, 2> &);
   template blitz::Array<int, 2> math::Fix(const blitz::Array<int, 2> &);
   template blitz::Array<int, 2> math::Fix(const blitz::Array<long, 2> &);
@@ -13191,31 +13297,31 @@ namespace pfsDRPStella = pfs::drp::stella;
   template long math::FixL(long);
   template long math::FixL(float);
   template long math::FixL(double);
-  
+
   template blitz::Array<long, 1> math::FixL(const blitz::Array<unsigned short, 1> &);
   template blitz::Array<long, 1> math::FixL(const blitz::Array<int, 1> &);
   template blitz::Array<long, 1> math::FixL(const blitz::Array<long, 1> &);
   template blitz::Array<long, 1> math::FixL(const blitz::Array<float, 1> &);
   template blitz::Array<long, 1> math::FixL(const blitz::Array<double, 1> &);
-  
+
   template blitz::Array<long, 2> math::FixL(const blitz::Array<unsigned short, 2> &);
   template blitz::Array<long, 2> math::FixL(const blitz::Array<int, 2> &);
   template blitz::Array<long, 2> math::FixL(const blitz::Array<long, 2> &);
   template blitz::Array<long, 2> math::FixL(const blitz::Array<float, 2> &);
   template blitz::Array<long, 2> math::FixL(const blitz::Array<double, 2> &);
-  
+
   template int math::Int(unsigned short);
   template int math::Int(int);
   template int math::Int(long);
   template int math::Int(float);
   template int math::Int(double);
-  
+
   template blitz::Array<int, 1> math::Int(const blitz::Array<unsigned short, 1> &);
   template blitz::Array<int, 1> math::Int(const blitz::Array<int, 1> &);
   template blitz::Array<int, 1> math::Int(const blitz::Array<long, 1> &);
   template blitz::Array<int, 1> math::Int(const blitz::Array<float, 1> &);
   template blitz::Array<int, 1> math::Int(const blitz::Array<double, 1> &);
-  
+
   template blitz::Array<int, 2> math::Int(const blitz::Array<short unsigned int, 2> &);
   template blitz::Array<int, 2> math::Int(const blitz::Array<int, 2> &);
   template blitz::Array<int, 2> math::Int(const blitz::Array<long, 2> &);
@@ -13227,20 +13333,20 @@ namespace pfsDRPStella = pfs::drp::stella;
   template long math::Long(long);
   template long math::Long(float);
   template long math::Long(double);
-  
+
   template blitz::Array<long, 1> math::Long(const blitz::Array<unsigned short, 1> &);
   template blitz::Array<long, 1> math::Long(const blitz::Array<int, 1> &);
   template blitz::Array<long, 1> math::Long(const blitz::Array<long, 1> &);
   template blitz::Array<long, 1> math::Long(const blitz::Array<float, 1> &);
   template blitz::Array<long, 1> math::Long(const blitz::Array<double, 1> &);
-  
+
   template blitz::Array<long, 2> math::Long(const blitz::Array<unsigned short, 2> &);
   template blitz::Array<long, 2> math::Long(const blitz::Array<int, 2> &);
   template blitz::Array<long, 2> math::Long(const blitz::Array<long, 2> &);
   template blitz::Array<long, 2> math::Long(const blitz::Array<float, 2> &);
   template blitz::Array<long, 2> math::Long(const blitz::Array<double, 2> &);
-  
-  
+
+
   template void math::Float(const blitz::Array<unsigned short, 1> &, blitz::Array<float, 1>&);
   template void math::Float(const blitz::Array<int, 1> &, blitz::Array<float, 1>&);
   template void math::Float(const blitz::Array<long, 1> &, blitz::Array<float, 1>&);
@@ -13252,25 +13358,25 @@ namespace pfsDRPStella = pfs::drp::stella;
   template blitz::Array<float, 1> math::Float(const blitz::Array<long, 1> &);
   template blitz::Array<float, 1> math::Float(const blitz::Array<float, 1> &);
   template blitz::Array<float, 1> math::Float(const blitz::Array<double, 1> &);
-  
+
   template void math::Float(const blitz::Array<unsigned short, 2> &, blitz::Array<float, 2>&);
   template void math::Float(const blitz::Array<int, 2> &, blitz::Array<float, 2>&);
   template void math::Float(const blitz::Array<long, 2> &, blitz::Array<float, 2>&);
   template void math::Float(const blitz::Array<float, 2> &, blitz::Array<float, 2>&);
   template void math::Float(const blitz::Array<double, 2> &, blitz::Array<float, 2>&);
-  
+
   template blitz::Array<float, 2> math::Float(const blitz::Array<unsigned short, 2> &);
   template blitz::Array<float, 2> math::Float(const blitz::Array<int, 2> &);
   template blitz::Array<float, 2> math::Float(const blitz::Array<long, 2> &);
   template blitz::Array<float, 2> math::Float(const blitz::Array<float, 2> &);
   template blitz::Array<float, 2> math::Float(const blitz::Array<double, 2> &);
-  
+
   template void math::Double(const blitz::Array<unsigned short, 1> &, blitz::Array<double, 1>&);
   template void math::Double(const blitz::Array<int, 1> &, blitz::Array<double, 1>&);
   template void math::Double(const blitz::Array<long, 1> &, blitz::Array<double, 1>&);
   template void math::Double(const blitz::Array<float, 1> &, blitz::Array<double, 1>&);
   template void math::Double(const blitz::Array<double, 1> &, blitz::Array<double, 1>&);
-  
+
   template void math::Double(const blitz::Array<unsigned short, 2> &, blitz::Array<double, 2>&);
   template void math::Double(const blitz::Array<int, 2> &, blitz::Array<double, 2>&);
   template void math::Double(const blitz::Array<long, 2> &, blitz::Array<double, 2>&);
@@ -13282,19 +13388,19 @@ namespace pfsDRPStella = pfs::drp::stella;
   template blitz::Array<double, 1> math::Double(const blitz::Array<long, 1> &Arr);
   template blitz::Array<double, 1> math::Double(const blitz::Array<float, 1> &Arr);
   template blitz::Array<double, 1> math::Double(const blitz::Array<double, 1> &Arr);
-  
+
   template blitz::Array<double, 2> math::Double(const blitz::Array<unsigned short, 2> &Arr);
   template blitz::Array<double, 2> math::Double(const blitz::Array<int, 2> &Arr);
   template blitz::Array<double, 2> math::Double(const blitz::Array<long, 2> &Arr);
   template blitz::Array<double, 2> math::Double(const blitz::Array<float, 2> &Arr);
   template blitz::Array<double, 2> math::Double(const blitz::Array<double, 2> &Arr);
-  
+
   template int math::Round(const float ToRound);
   template int math::Round(const double ToRound);
-  
+
   template float math::Round(const float ToRound, int DigitsBehindDot);
   template double math::Round(const double ToRound, int DigitsBehindDot);
-  
+
   template long math::RoundL(const float ToRound);
   template long math::RoundL(const double ToRound);
 
@@ -13303,81 +13409,81 @@ namespace pfsDRPStella = pfs::drp::stella;
   template blitz::Array<long, 1> math::Replicate(long val, int Len);
   template blitz::Array<float, 1> math::Replicate(float val, int Len);
   template blitz::Array<double, 1> math::Replicate(double val, int Len);
-  
+
   template blitz::Array<unsigned short, 1>* math::Reform(const blitz::Array<unsigned short, 2> &Arr);
   template blitz::Array<int, 1>* math::Reform(const blitz::Array<int, 2> &Arr);
   template blitz::Array<long, 1>* math::Reform(const blitz::Array<long, 2> &Arr);
   template blitz::Array<float, 1>* math::Reform(const blitz::Array<float, 2> &Arr);
   template blitz::Array<double, 1>* math::Reform(const blitz::Array<double, 2> &Arr);
-  
+
   template blitz::Array<unsigned short, 2>* math::Reform(const blitz::Array<unsigned short, 1> &Arr, int DimA, int DimB);
   template blitz::Array<int, 2>* math::Reform(const blitz::Array<int, 1> &Arr, int DimA, int DimB);
   template blitz::Array<long, 2>* math::Reform(const blitz::Array<long, 1> &Arr, int DimA, int DimB);
   template blitz::Array<float, 2>* math::Reform(const blitz::Array<float, 1> &Arr, int DimA, int DimB);
   template blitz::Array<double, 2>* math::Reform(const blitz::Array<double, 1> &Arr, int DimA, int DimB);
-  
+
   template bool math::GetSubArrCopy(const blitz::Array<unsigned short, 1> &DA1_In, const blitz::Array<int, 1> &IA1_Indices, blitz::Array<unsigned short, 1> &DA1_Out);
   template bool math::GetSubArrCopy(const blitz::Array<int, 1> &DA1_In, const blitz::Array<int, 1> &IA1_Indices, blitz::Array<int, 1> &DA1_Out);
   template bool math::GetSubArrCopy(const blitz::Array<long, 1> &DA1_In, const blitz::Array<int, 1> &IA1_Indices, blitz::Array<long, 1> &DA1_Out);
   template bool math::GetSubArrCopy(const blitz::Array<float, 1> &DA1_In, const blitz::Array<int, 1> &IA1_Indices, blitz::Array<float, 1> &DA1_Out);
   template bool math::GetSubArrCopy(const blitz::Array<double, 1> &DA1_In, const blitz::Array<int, 1> &IA1_Indices, blitz::Array<double, 1> &DA1_Out);
-  
+
   template bool math::GetSubArrCopy(const blitz::Array<unsigned short, 2> &A2_In, const blitz::Array<int, 1> &I_A1_Indices, int I_Mode_In, blitz::Array<unsigned short, 2> &A2_Out);
   template bool math::GetSubArrCopy(const blitz::Array<int, 2> &A2_In, const blitz::Array<int, 1> &I_A1_Indices, int I_Mode_In, blitz::Array<int, 2> &A2_Out);
   template bool math::GetSubArrCopy(const blitz::Array<long, 2> &A2_In, const blitz::Array<int, 1> &I_A1_Indices, int I_Mode_In, blitz::Array<long, 2> &A2_Out);
   template bool math::GetSubArrCopy(const blitz::Array<float, 2> &A2_In, const blitz::Array<int, 1> &I_A1_Indices, int I_Mode_In, blitz::Array<float, 2> &A2_Out);
   template bool math::GetSubArrCopy(const blitz::Array<double, 2> &A2_In, const blitz::Array<int, 1> &I_A1_Indices, int I_Mode_In, blitz::Array<double, 2> &A2_Out);
-  
+
   template blitz::Array<unsigned short, 2> math::GetSubArrCopy(const blitz::Array<unsigned short, 2> &A2_In, const blitz::Array<int, 3> &I_A3_Indices);
   template blitz::Array<int, 2> math::GetSubArrCopy(const blitz::Array<int, 2> &A2_In, const blitz::Array<int, 3> &I_A3_Indices);
   template blitz::Array<long, 2> math::GetSubArrCopy(const blitz::Array<long, 2> &A2_In, const blitz::Array<int, 3> &I_A3_Indices);
   template blitz::Array<float, 2> math::GetSubArrCopy(const blitz::Array<float, 2> &A2_In, const blitz::Array<int, 3> &I_A3_Indices);
   template blitz::Array<double, 2> math::GetSubArrCopy(const blitz::Array<double, 2> &A2_In, const blitz::Array<int, 3> &I_A3_Indices);
-  
+
   template bool math::CountPixGTZero(blitz::Array<unsigned short, 1> &vec_InOut);
   template bool math::CountPixGTZero(blitz::Array<int, 1> &vec_InOut);
   template bool math::CountPixGTZero(blitz::Array<long, 1> &vec_InOut);
   template bool math::CountPixGTZero(blitz::Array<float, 1> &vec_InOut);
   template bool math::CountPixGTZero(blitz::Array<double, 1> &vec_InOut);
-  
-  template int math::FirstIndexWithValueGEFrom(const blitz::Array<unsigned short, 1> &vecIn, 
-                                               const unsigned short minValue, 
+
+  template int math::FirstIndexWithValueGEFrom(const blitz::Array<unsigned short, 1> &vecIn,
+                                               const unsigned short minValue,
                                                const int fromIndex);
-  template int math::FirstIndexWithValueGEFrom(const blitz::Array<int, 1> &vecIn, 
-                                               const int minValue, 
+  template int math::FirstIndexWithValueGEFrom(const blitz::Array<int, 1> &vecIn,
+                                               const int minValue,
                                                const int fromIndex);
-  template int math::FirstIndexWithValueGEFrom(const blitz::Array<long, 1> &vecIn, 
-                                               const long minValue, 
+  template int math::FirstIndexWithValueGEFrom(const blitz::Array<long, 1> &vecIn,
+                                               const long minValue,
                                                const int fromIndex);
-  template int math::FirstIndexWithValueGEFrom(const blitz::Array<float, 1> &vecIn, 
-                                               const float minValue, 
+  template int math::FirstIndexWithValueGEFrom(const blitz::Array<float, 1> &vecIn,
+                                               const float minValue,
                                                const int fromIndex);
-  template int math::FirstIndexWithValueGEFrom(const blitz::Array<double, 1> &vecIn, 
-                                               const double minValue, 
+  template int math::FirstIndexWithValueGEFrom(const blitz::Array<double, 1> &vecIn,
+                                               const double minValue,
                                                const int fromIndex);
-  
-  template int math::LastIndexWithZeroValueBefore(const blitz::Array<unsigned short, 1> &vec_In, 
+
+  template int math::LastIndexWithZeroValueBefore(const blitz::Array<unsigned short, 1> &vec_In,
                                                   const int startPos_In);
-  template int math::LastIndexWithZeroValueBefore(const blitz::Array<int, 1> &vec_In, 
+  template int math::LastIndexWithZeroValueBefore(const blitz::Array<int, 1> &vec_In,
                                                   const int startPos_In);
-  template int math::LastIndexWithZeroValueBefore(const blitz::Array<long, 1> &vec_In, 
+  template int math::LastIndexWithZeroValueBefore(const blitz::Array<long, 1> &vec_In,
                                                   const int startPos_In);
-  template int math::LastIndexWithZeroValueBefore(const blitz::Array<float, 1> &vec_In, 
+  template int math::LastIndexWithZeroValueBefore(const blitz::Array<float, 1> &vec_In,
                                                   const int startPos_In);
-  template int math::LastIndexWithZeroValueBefore(const blitz::Array<double, 1> &vec_In, 
+  template int math::LastIndexWithZeroValueBefore(const blitz::Array<double, 1> &vec_In,
                                                   const int startPos_In);
-  
-  template int math::FirstIndexWithZeroValueFrom(const blitz::Array<unsigned short, 1> &vec_In, 
+
+  template int math::FirstIndexWithZeroValueFrom(const blitz::Array<unsigned short, 1> &vec_In,
                                                  const int startPos_In);
-  template int math::FirstIndexWithZeroValueFrom(const blitz::Array<int, 1> &vec_In, 
+  template int math::FirstIndexWithZeroValueFrom(const blitz::Array<int, 1> &vec_In,
                                                  const int startPos_In);
-  template int math::FirstIndexWithZeroValueFrom(const blitz::Array<long, 1> &vec_In, 
+  template int math::FirstIndexWithZeroValueFrom(const blitz::Array<long, 1> &vec_In,
                                                  const int startPos_In);
-  template int math::FirstIndexWithZeroValueFrom(const blitz::Array<float, 1> &vec_In, 
+  template int math::FirstIndexWithZeroValueFrom(const blitz::Array<float, 1> &vec_In,
                                                  const int startPos_In);
-  template int math::FirstIndexWithZeroValueFrom(const blitz::Array<double, 1> &vec_In, 
+  template int math::FirstIndexWithZeroValueFrom(const blitz::Array<double, 1> &vec_In,
                                                  const int startPos_In);
-  
+
   template unsigned short math::Median(const blitz::Array<unsigned short, 1> &Arr);
   template int math::Median(const blitz::Array<int, 1> &Arr);
   template long math::Median(const blitz::Array<long, 1> &Arr);
@@ -13401,13 +13507,13 @@ namespace pfsDRPStella = pfs::drp::stella;
   template blitz::Array<long, 1> math::MedianVec(const blitz::Array<long, 1> &arr, int Width, const string &Mode="NORMAL");
   template blitz::Array<float, 1> math::MedianVec(const blitz::Array<float, 1> &arr, int Width, const string &Mode="NORMAL");
   template blitz::Array<double, 1> math::MedianVec(const blitz::Array<double, 1> &arr, int Width, const string &Mode="NORMAL");
-  
+
   template unsigned short math::Select(const blitz::Array<unsigned short, 1> &arr, int KThSmallest);
   template int math::Select(const blitz::Array<int, 1> &arr, int KThSmallest);
   template long math::Select(const blitz::Array<long, 1> &arr, int KThSmallest);
   template float math::Select(const blitz::Array<float, 1> &arr, int KThSmallest);
   template double math::Select(const blitz::Array<double, 1> &arr, int KThSmallest);
-  
+
   template blitz::Array<unsigned short, 1> math::BubbleSort(const blitz::Array<unsigned short, 1> &I_A1_ArrIn);
   template blitz::Array<int, 1> math::BubbleSort(const blitz::Array<int, 1> &I_A1_ArrIn);
   template blitz::Array<long, 1> math::BubbleSort(const blitz::Array<long, 1> &I_A1_ArrIn);
@@ -13418,7 +13524,7 @@ namespace pfsDRPStella = pfs::drp::stella;
   template bool math::Uniq(const blitz::Array<long, 1> &IA1_In, blitz::Array<int, 1> &IA1_Result);
   template bool math::Uniq(const blitz::Array<float, 1> &IA1_In, blitz::Array<int, 1> &IA1_Result);
   template bool math::Uniq(const blitz::Array<double, 1> &IA1_In, blitz::Array<int, 1> &IA1_Result);
-  
+
 //  template void math::resize(blitz::Array<unsigned int, 1> &arr_in, unsigned int newSize);
 //  template void math::resize(blitz::Array<int, 1> &arr_in, unsigned int newSize);
 //  template void math::resize(blitz::Array<long, 1> &arr_in, unsigned int newSize);
@@ -13431,25 +13537,25 @@ namespace pfsDRPStella = pfs::drp::stella;
 //  template std::vector<long> sortIndices(const std::vector<long> &vec_In);
 //  template std::vector<float> sortIndices(const std::vector<float> &vec_In);
 //  template std::vector<double> sortIndices(const std::vector<double> &vec_In);
-  
+
   template bool utils::WriteFits(const blitz::Array<unsigned short, 2>* image_In, const string &fileName_In);
   template bool utils::WriteFits(const blitz::Array<int, 2>* image_In, const string &fileName_In);
   template bool utils::WriteFits(const blitz::Array<long, 2>* image_In, const string &fileName_In);
   template bool utils::WriteFits(const blitz::Array<float, 2>* image_In, const string &fileName_In);
   template bool utils::WriteFits(const blitz::Array<double, 2>* image_In, const string &fileName_In);
-  
+
   template bool utils::WriteFits(const blitz::Array<unsigned short, 1>* image_In, const string &fileName_In);
   template bool utils::WriteFits(const blitz::Array<int, 1>* image_In, const string &fileName_In);
   template bool utils::WriteFits(const blitz::Array<long, 1>* image_In, const string &fileName_In);
   template bool utils::WriteFits(const blitz::Array<float, 1>* image_In, const string &fileName_In);
   template bool utils::WriteFits(const blitz::Array<double, 1>* image_In, const string &fileName_In);
-  
+
   template bool utils::WriteArrayToFile(const blitz::Array<unsigned short, 1> &I_A1_In, const string &S_FileName_In, const string &S_Mode);
   template bool utils::WriteArrayToFile(const blitz::Array<int, 1> &I_A1_In, const string &S_FileName_In, const string &S_Mode);
   template bool utils::WriteArrayToFile(const blitz::Array<long, 1> &I_A1_In, const string &S_FileName_In, const string &S_Mode);
   template bool utils::WriteArrayToFile(const blitz::Array<float, 1> &I_A1_In, const string &S_FileName_In, const string &S_Mode);
   template bool utils::WriteArrayToFile(const blitz::Array<double, 1> &I_A1_In, const string &S_FileName_In, const string &S_Mode);
-  
+
   template bool utils::WriteArrayToFile(const blitz::Array<unsigned short, 2> &D_A2_In, const string &S_FileName_In, const string &S_Mode);
   template bool utils::WriteArrayToFile(const blitz::Array<int, 2> &D_A2_In, const string &S_FileName_In, const string &S_Mode);
   template bool utils::WriteArrayToFile(const blitz::Array<long, 2> &D_A2_In, const string &S_FileName_In, const string &S_Mode);
