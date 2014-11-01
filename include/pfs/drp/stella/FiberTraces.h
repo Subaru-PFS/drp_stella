@@ -41,7 +41,7 @@
 //#define __DEBUG_SLITFUNC_X__
 //#define __DEBUG_TRACEFUNC__
 //#define __DEBUG_UNIQ__
-#define DEBUGDIR "/home/azuri/spectra/pfs/2014-10-28/debug/"// /home/azuri/entwicklung/idl/REDUCE/16_03_2013/"//stella/ses-pipeline/c/msimulateskysubtraction/data/"//spectra/elaina/eso_archive/red_564/red_r/"
+#define DEBUGDIR "/home/azuri/spectra/pfs/2014-10-31/debug/"// /home/azuri/entwicklung/idl/REDUCE/16_03_2013/"//stella/ses-pipeline/c/msimulateskysubtraction/data/"//spectra/elaina/eso_archive/red_564/red_r/"
 
 #define MIN(a,b) ((a<b)?a:b)
 #define MAX(a,b) ((a>b)?a:b)

@@ -43,7 +43,7 @@ def createFlatFiberTraceProfile(filename):
 
     # --- create FiberTraceExtractionControl
     ftec = drpStella.FiberTraceExtractionControl()
-    ftec.xCorProf = 0
+    ftec.profileInterpolation = "SPLINE3"
     ftec.wingSmoothFactor = 0.#2
     ftec.overSample = 30
     ftec.lambdaSF = 50000. / ftec.overSample

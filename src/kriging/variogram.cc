@@ -136,7 +136,7 @@ int CVariogram::estimateModel(int model, double &nugget, double &sill, double &r
         gsl_vector_view x;
         gsl_vector *g;
 
-        // ƒpƒ‰ƒ[ƒ^ƒZƒbƒeƒBƒ“ƒO
+        // ÆpÆâ°ÆÂÂ[Æ^ÆZÆbÆeÆBÆâÆO
         if (power < 0.0 || power > 2.0)
                 return GSL_FAILURE;
 
@@ -146,7 +146,7 @@ int CVariogram::estimateModel(int model, double &nugget, double &sill, double &r
         para.n = countLessDist(maxdist);
         para.power = power;
 
-        // Å“K‰»‘ÎÛŠÖ”‚Ì“o˜^
+        // ÂÃâKâ°Â»âÃÂÃÅ ÃÂââÃâoË^
         gsl_multifit_function_fdf f;
 
         m_model = model;
@@ -274,6 +274,14 @@ double CVariogram::getModelCovariance(double dist) const
 
 bool CVariogram::sortByDistance(void)
 {
+//  bool b_std = true;
+//  if (b_std){
+//    std::vector<double> stdvec;
+//    for (size_t i=0; i<samples(); i++){
+//      stdvec.push_back(m_)
+//    }
+//  }
+//  else{
         if (!isActive())
                 return false;
 
@@ -289,7 +297,8 @@ bool CVariogram::sortByDistance(void)
                         }
                 }
         }
-        return true;
+//  }
+  return true;
 }
 
 bool CVariogram::bubbleSortByDistance(void)

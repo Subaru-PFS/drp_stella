@@ -49,6 +49,7 @@ def calculateTwoDPSF(flatfilename, specfilename):
     # --- create twoDPSFControl
     tdpsfc = drpStella.TwoDPSFControl()
     tdpsfc.signalThreshold = 500.
+    tdpsfc.nTermsGaussFit = 3
 
     """Create a afwImage::MaskedImageF from the flat fits file"""
     mif = afwImage.MaskedImageF(flatfilename)

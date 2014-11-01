@@ -6949,19 +6949,30 @@ namespace pfsDRPStella = pfs::drp::stella;
       cout << "FiberTrace::calculate2dPSF: ERROR: _twoDPSFControl is not set" << endl;
       return false;
     }
-
+    
+    std::vector<double> pixelsX;
+    std::vector<double> pixelsY;
+    std::vector<double> pixelsVal;
+    pixelsX.reserve(1000);
+    pixelsY.reserve(1000);
+    pixelsVal.reserve(1000);
+    double pixOffsetX, pixOffsetY, pixPosX, pixPosY, xStart, yStart;
+    int i_xCenter, i_yCenter, i_Left, i_Right, i_Down, i_Up;
+    int nPix = 0;
+    int xCenterTrace_CenterRow, xCenterTrace_Last;
+    
     ///FIND EMISSION LINES
     /// create center column
     blitz::Array<double, 1> traceCenterCol(trace_In.rows());
-    for (int iRow=0; iRow<trace_In.rows(); ++iRow){
-      traceCenterCol(iRow) = trace_In(iRow, int(xCenterTrace_In(iRow))) * mask_In(iRow, int(xCenterTrace_In(iRow)));
-    }
     blitz::Array<double, 1> traceCenterStdDevCol(trace_In.rows());
     for (int iRow=0; iRow<trace_In.rows(); ++iRow){
+      traceCenterCol(iRow) = trace_In(iRow, int(xCenterTrace_In(iRow))) * mask_In(iRow, int(xCenterTrace_In(iRow)));
       traceCenterStdDevCol(iRow) = stddev_In(iRow, int(xCenterTrace_In(iRow))) * mask_In(iRow, int(xCenterTrace_In(iRow)));
     }
     #ifdef __DEBUG_CALC2DPSF__
       cout << "FiberTrace::calculate2dPSF: traceCenterCol = " << traceCenterCol << endl;
+      std::string colname = DEBUGDIR + std::string("traceCenterCol.fits");
+      pfsDRPStella::utils::WriteFits(&traceCenterCol, colname);
       cout << "FiberTrace::calculate2dPSF: traceCenterStdDevCol = " << traceCenterStdDevCol << endl;
       std::string fname_trace = DEBUGDIR + std::string("trace.fits");
       pfsDRPStella::utils::WriteFits(&trace_In,fname_trace);
@@ -6985,7 +6996,7 @@ namespace pfsDRPStella = pfs::drp::stella;
 
     /// identify emission lines
     int I_FirstWideSignal, I_FirstWideSignalStart, I_FirstWideSignalEnd;
-    int I_MinWidth = int(2. * _twoDPSFControl->yFWHM);
+    int I_MinWidth = int(_twoDPSFControl->yFWHM)+1;
     int I_StartIndex = 0;
     double D_MaxTimesApertureWidth = 3.5;
     blitz::Array<int, 2> I_A2_Limited(_twoDPSFControl->nTermsGaussFit, 2);
@@ -7024,12 +7035,15 @@ namespace pfsDRPStella = pfs::drp::stella;
         cout << "FiberTrace::calculate2dPSF: while: No emission line found" << endl;
         break;
       }
-      I_FirstWideSignalStart = pfsDRPStella::math::LastIndexWithZeroValueBefore(traceCenterSignal, I_FirstWideSignal) + 1;
+      I_FirstWideSignalStart = pfsDRPStella::math::LastIndexWithZeroValueBefore(traceCenterSignal, I_FirstWideSignal);
+      if (I_FirstWideSignalStart < 0){
+        I_FirstWideSignalStart = 0;
+      }
       #ifdef __DEBUG_CALC2DPSF__
         cout << "FiberTrace::calculate2dPSF: while: I_FirstWideSignalStart = " << I_FirstWideSignalStart << endl;
       #endif
 
-      I_FirstWideSignalEnd = pfsDRPStella::math::FirstIndexWithZeroValueFrom(traceCenterSignal, I_FirstWideSignal) - 1;
+      I_FirstWideSignalEnd = pfsDRPStella::math::FirstIndexWithZeroValueFrom(traceCenterSignal, I_FirstWideSignal);
       #ifdef __DEBUG_CALC2DPSF__
         cout << "FiberTrace::calculate2dPSF: while: I_FirstWideSignalEnd = " << I_FirstWideSignalEnd << endl;
       #endif
@@ -7041,6 +7055,13 @@ namespace pfsDRPStella = pfs::drp::stella;
         cout << "FiberTrace::calculate2dPSF: while: End of first wide signal found at index " << I_FirstWideSignalEnd << endl;
       #endif
 
+      if ((I_FirstWideSignalEnd - I_FirstWideSignalStart + 1) > (_twoDPSFControl->yFWHM * D_MaxTimesApertureWidth)){
+        I_FirstWideSignalEnd = I_FirstWideSignalStart + int(D_MaxTimesApertureWidth * _twoDPSFControl->yFWHM);
+      }
+      
+//      int maxPos = blitz::maxIndex(traceCenterCol(blitz::Range(I_FirstWideSignalStart, I_FirstWideSignalEnd)));
+//      I_FirstWideSignalStart
+
       /// Set start index for next run
       I_StartIndex = I_FirstWideSignalEnd+1;
 
@@ -7048,10 +7069,6 @@ namespace pfsDRPStella = pfs::drp::stella;
       #ifdef __DEBUG_CALC2DPSF__
         cout << "FiberTrace::calculate2dPSF: while: End of first wide signal found at index " << I_FirstWideSignalEnd << endl;
       #endif
-
-      if ((I_FirstWideSignalEnd - I_FirstWideSignalStart + 1) > (_twoDPSFControl->yFWHM * D_MaxTimesApertureWidth)){
-        I_FirstWideSignalEnd = I_FirstWideSignalStart + int(D_MaxTimesApertureWidth * _twoDPSFControl->yFWHM);
-      }
 
       if (blitz::max(traceCenterCol(blitz::Range(I_FirstWideSignalStart, I_FirstWideSignalEnd))) < _twoDPSFControl->saturationLevel){
         D_A2_Limits(0,1) = 1.5 * blitz::max(traceCenterCol(blitz::Range(I_FirstWideSignalStart, I_FirstWideSignalEnd)));
@@ -7074,13 +7091,21 @@ namespace pfsDRPStella = pfs::drp::stella;
         D_A1_Y = traceCenterCol(blitz::Range(I_FirstWideSignalStart, I_FirstWideSignalEnd));
         blitz::Array<double, 1> D_A1_StdDev(I_FirstWideSignalEnd - I_FirstWideSignalStart + 1);
         D_A1_StdDev = traceCenterStdDevCol(blitz::Range(I_FirstWideSignalStart, I_FirstWideSignalEnd));
+        #ifdef __DEBUG_CALC2DPSF__
+          cout << "FiberTrace::calculate2dPSF: while: emissionLineNumber = " << emissionLineNumber << ": Starting GaussFit: D_A1_X=" << D_A1_X << ", D_A1_Y = " << D_A1_Y << endl;
+        #endif
+        int iBackground = 0;
+        if (_twoDPSFControl->nTermsGaussFit == 4)
+          iBackground = 1;
+        else if (_twoDPSFControl->nTermsGaussFit == 5)
+          iBackground = 2;
         if (!MPFitGaussLim(D_A1_X,
                           D_A1_Y,
                           D_A1_StdDev,
                           D_A1_Guess,
                           I_A2_Limited,
                           D_A2_Limits,
-                          2,
+                          iBackground,
                           false,
                           D_A1_GaussFit_Coeffs,
                           D_A1_GaussFit_ECoeffs)){
@@ -7099,13 +7124,65 @@ namespace pfsDRPStella = pfs::drp::stella;
             if (D_A2_GaussCenters.rows() < emissionLineNumber)
               D_A2_GaussCenters.resizeAndPreserve(emissionLineNumber, 2);
             D_A2_GaussCenters(emissionLineNumber-1,1) = D_A1_GaussFit_Coeffs(1)+0.5;
-            D_A2_GaussCenters(emissionLineNumber-1,0) = xCenterTrace_In(int(D_A1_GaussFit_Coeffs(1))) + ((D_A1_GaussFit_Coeffs(1) -  int(D_A1_GaussFit_Coeffs(1))) * (xCenterTrace_In(int(D_A1_GaussFit_Coeffs(1))+1) - xCenterTrace_In(int(D_A1_GaussFit_Coeffs(1)))))+0.5;
+            D_A2_GaussCenters(emissionLineNumber-1,0) = xCenterTrace_In(int(D_A1_GaussFit_Coeffs(1))) + ((D_A1_GaussFit_Coeffs(1) -  int(D_A1_GaussFit_Coeffs(1))) * (xCenterTrace_In(int(D_A1_GaussFit_Coeffs(1))+1) - xCenterTrace_In(int(D_A1_GaussFit_Coeffs(1)))));
+            if (int(D_A2_GaussCenters(emissionLineNumber-1,0)) > int(xCenterTrace_In(int(D_A1_GaussFit_Coeffs(1))))){
+              D_A2_GaussCenters(emissionLineNumber-1,0) = int(D_A2_GaussCenters(emissionLineNumber-1,0)) - 0.0000001;
+            }
+            if (int(D_A2_GaussCenters(emissionLineNumber-1,0)) < int(xCenterTrace_In(int(D_A1_GaussFit_Coeffs(1))))){
+              D_A2_GaussCenters(emissionLineNumber-1,0) = int(D_A2_GaussCenters(emissionLineNumber-1,0)) + 1.0000001;
+            }
             #ifdef __DEBUG_CALC2DPSF__
               cout << "FiberTrace::calculate2dPSF: xCenterTrace_In(int(D_A1_GaussFit_Coeffs(1))=" << int(D_A1_GaussFit_Coeffs(1)) << ") = " << xCenterTrace_In(int(D_A1_GaussFit_Coeffs(1))) << endl;
               cout << "FiberTrace::calculate2dPSF: xCenterTrace_In(int(D_A1_GaussFit_Coeffs(1))+1=" << int(D_A1_GaussFit_Coeffs(1))+1 << ") = " << xCenterTrace_In(int(D_A1_GaussFit_Coeffs(1))+1) << endl;
               cout << "FiberTrace::calculate2dPSF: D_A1_GaussFit_Coeffs(1) - int(D_A1_GaussFit_Coeffs(1)) = " << D_A1_GaussFit_Coeffs(1) - int(D_A1_GaussFit_Coeffs(1)) << endl;
               cout << "FiberTrace::calculate2dPSF: while: D_A2_GaussCenters(emissionLineNumber=" << emissionLineNumber << "-1,*) = " << D_A2_GaussCenters(emissionLineNumber-1, blitz::Range::all()) << endl;
             #endif
+            
+            /// add emission line to PSFs  
+            xCenterTrace_CenterRow = int(D_A2_GaussCenters(emissionLineNumber-1, 0));
+            i_xCenter = xCenterTrace_CenterRow;
+            i_yCenter = int(D_A2_GaussCenters(emissionLineNumber-1, 1));
+            i_Down = int(D_A2_GaussCenters(emissionLineNumber-1, 1) - (1.5*_twoDPSFControl->yFWHM));
+            if (i_Down < 0)
+              i_Down = 0;
+            i_Up = int(D_A2_GaussCenters(emissionLineNumber-1, 1) + (1.5*_twoDPSFControl->yFWHM));
+            if (i_Up >= _trace.getHeight())
+              i_Up = _trace.getHeight() - 1;
+            pixOffsetX = D_A2_GaussCenters(emissionLineNumber-1,0) - int(D_A2_GaussCenters(emissionLineNumber-1,0)) - 0.5;
+            pixOffsetY = D_A2_GaussCenters(emissionLineNumber-1,1) - int(D_A2_GaussCenters(emissionLineNumber-1,1)) - 0.5;
+            #ifdef __DEBUG_CALC2DPSF__
+              cout << "FiberTrace::calculate2dPSF: emissionLineNumber-1=" << emissionLineNumber-1 << ": D_A2_GaussCenters(" << emissionLineNumber-1 << ",0) = " << D_A2_GaussCenters(emissionLineNumber-1,0) << ": D_A2_GaussCenters(" << emissionLineNumber-1 << ",1) = " << D_A2_GaussCenters(emissionLineNumber-1,1) << ": i_xCenter = " << i_xCenter << ", i_yCenter = " << i_yCenter << endl;
+              cout << "FiberTrace::calculate2dPSF: emissionLineNumber-1=" << emissionLineNumber-1 << ": i_Down = " << i_Down << ", i_Up = " << i_Up << endl;
+              cout << "FiberTrace::calculate2dPSF: emissionLineNumber-1=" << emissionLineNumber-1 << ": pixOffsetX = " << pixOffsetX << ", pixOffsetY = " << pixOffsetY << endl;
+            #endif
+            for (int iY = 0; iY <= i_Up - i_Down; ++iY){
+              i_Left = int(D_A2_GaussCenters(emissionLineNumber-1, 0) - (1.5*_twoDPSFControl->xFWHM)) + int(xCenterTrace_In(i_Down+iY)) - int(xCenterTrace_In(i_yCenter));
+              if (i_Left < 0)
+                i_Left = 0;
+              i_Right = int(D_A2_GaussCenters(emissionLineNumber-1, 0) + (1.5*_twoDPSFControl->xFWHM)) + int(xCenterTrace_In(i_Down+iY)) - int(xCenterTrace_In(i_yCenter));
+              if (i_Right >= _trace.getWidth())
+                i_Right = _trace.getWidth() - 1;
+              xStart = i_Left - i_xCenter - pixOffsetX;
+              yStart = i_Down - i_yCenter - pixOffsetY;
+              #ifdef __DEBUG_CALC2DPSF__
+                cout << "FiberTrace::calculate2dPSF: emissionLineNumber-1=" << emissionLineNumber-1 << ": i_Left = " << i_Left << ", i_Right = " << i_Right << endl;
+                cout << "FiberTrace::calculate2dPSF: emissionLineNumber-1=" << emissionLineNumber-1 << ": xStart = " << xStart << endl;
+                cout << "FiberTrace::calculate2dPSF: emissionLineNumber-1=" << emissionLineNumber-1 << ": yStart = " << yStart << endl;
+              #endif
+              for (int iX = 0; iX <= i_Right - i_Left; ++iX){
+                #ifdef __DEBUG_CALC2DPSF__
+                  cout << "FiberTrace::calculate2dPSF: emissionLineNumber-1=" << emissionLineNumber-1 << ": iX = " << iX << ": iY = " << iY << endl;
+                #endif
+                pixelsX.push_back(xStart + iX);
+                pixelsY.push_back(yStart + iY);
+                pixelsVal.push_back(trace_In(i_Down + iY, i_Left + iX));
+                #ifdef __DEBUG_CALC2DPSF__
+                  cout << "FiberTrace::calculate2dPSF: emissionLineNumber-1=" << emissionLineNumber-1 << ": trace_In(" << i_Down + iY << ", " << i_Left + iX << ") = " << trace_In(i_Down + iY, i_Left + iX) << endl;
+                  cout << "FiberTrace::calculate2dPSF: emissionLineNumber-1=" << emissionLineNumber-1 << ": x = " << pixelsX[nPix] << ", y = " << pixelsY[nPix] << ": val = " << pixelsVal[nPix] << endl;
+                #endif
+                ++nPix;
+              }
+            }
           }
           else{
             cout << "FiberTrace::calculate2dPSF: while: D_A1_GaussFit_Coeffs(2)(=" << D_A1_GaussFit_Coeffs(2) << ") >= (_twoDPSFControl->yFWHM / 1.5)(=" << (_twoDPSFControl->yFWHM / 1.5) << ") || ((_twoDPSFControl->nTermsGaussFit(=" << _twoDPSFControl->nTermsGaussFit << ") < 5) || ((_twoDPSFControl->nTermsGaussFit > 4) && (D_A1_GaussFit_Coeffs(4)(=" << D_A1_GaussFit_Coeffs(4) << ") >= 1000.)) => Skipping emission line" << endl;
@@ -7115,62 +7192,15 @@ namespace pfsDRPStella = pfs::drp::stella;
     } while(true);
     #ifdef __DEBUG_CALC2DPSF__
       cout << "FiberTrace::calculate2dPSF: xFWHM = " << _twoDPSFControl->xFWHM << ", yFWHM = " << _twoDPSFControl->yFWHM << endl;
-    #endif
-    std::vector<double> pixelsX;
-    std::vector<double> pixelsY;
-    std::vector<double> pixelsVal;
-    pixelsX.reserve(1000);
-    pixelsY.reserve(1000);
-    pixelsVal.reserve(1000);
-    double pixOffsetX, pixOffsetY, pixPosX, pixPosY, xStart, yStart;
-    int i_xCenter, i_yCenter, i_Left, i_Right, i_Down, i_Up;
-    int nPix = 0;
-    for (int iLine=0; iLine<emissionLineNumber; ++iLine){
-      i_xCenter = int(D_A2_GaussCenters(iLine, 0) - 0.5);
-      i_yCenter = int(D_A2_GaussCenters(iLine, 1) - 0.5);
-      i_Left = int(D_A2_GaussCenters(iLine, 0) - (1.5*_twoDPSFControl->xFWHM) - 0.5);
-      if (i_Left < 0)
-        i_Left = 0;
-      i_Right = int(D_A2_GaussCenters(iLine, 0) + (1.5*_twoDPSFControl->xFWHM) - 0.5);
-      if (i_Right >= _trace.getWidth())
-        i_Right = _trace.getWidth() - 1;
-      i_Down = int(D_A2_GaussCenters(iLine, 1) - (1.5*_twoDPSFControl->yFWHM) - 0.5);
-      if (i_Down < 0)
-        i_Down = 0;
-      i_Up = int(D_A2_GaussCenters(iLine, 1) + (1.5*_twoDPSFControl->yFWHM) - 0.5);
-      if (i_Up >= _trace.getHeight())
-        i_Up = _trace.getHeight() - 1;
-      pixOffsetX = D_A2_GaussCenters(iLine,0) - int(D_A2_GaussCenters(iLine,0)) - 0.5;
-      pixOffsetY = D_A2_GaussCenters(iLine,1) - int(D_A2_GaussCenters(iLine,1)) - 0.5;
-      #ifdef __DEBUG_CALC2DPSF__
-        cout << "FiberTrace::calculate2dPSF: iLine=" << iLine << ": D_A2_GaussCenters(" << iLine << ",0) = " << D_A2_GaussCenters(iLine,0) << ": D_A2_GaussCenters(" << iLine << ",1) = " << D_A2_GaussCenters(iLine,1) << ": i_xCenter = " << i_xCenter << ", i_yCenter = " << i_yCenter << endl;
-        cout << "FiberTrace::calculate2dPSF: iLine=" << iLine << ": i_Left = " << i_Left << ", i_Right = " << i_Right << endl;
-        cout << "FiberTrace::calculate2dPSF: iLine=" << iLine << ": i_Down = " << i_Down << ", i_Up = " << i_Up << endl;
-        cout << "FiberTrace::calculate2dPSF: iLine=" << iLine << ": pixOffsetX = " << pixOffsetX << ", pixOffsetY = " << pixOffsetY << endl;
-      #endif
-      xStart = i_Left - i_xCenter + pixOffsetX;
-      yStart = i_Down - i_yCenter + pixOffsetY;
-      #ifdef __DEBUG_CALC2DPSF__
-        cout << "FiberTrace::calculate2dPSF: iLine=" << iLine << ": xStart = " << xStart << endl;
-        cout << "FiberTrace::calculate2dPSF: iLine=" << iLine << ": yStart = " << yStart << endl;
-      #endif
-      for (int iX = 0; iX <= i_Right - i_Left; ++iX){
-        for (int iY = 0; iY <= i_Up - i_Down; ++iY){
-          #ifdef __DEBUG_CALC2DPSF__
-            cout << "FiberTrace::calculate2dPSF: iLine=" << iLine << ": iX = " << iX << ": iY = " << iY << endl;
-          #endif
-          pixelsX.push_back(xStart + iX);
-          pixelsY.push_back(yStart + iY);
-          pixelsVal.push_back(trace_In(i_Down + iY, i_Left + iX));
-          #ifdef __DEBUG_CALC2DPSF__
-            cout << "FiberTrace::calculate2dPSF: iLine=" << iLine << ": trace_In(" << i_Down + iY << ", " << i_Left + iX << ") = " << trace_In(i_Down + iY, i_Left + iX) << endl;
-            cout << "FiberTrace::calculate2dPSF: iLine=" << iLine << ": x = " << pixelsX[nPix] << ", y = " << pixelsY[nPix] << ": val = " << pixelsVal[nPix] << endl;
-          #endif
-          ++nPix;
-        }
+      std::ofstream of;
+      std::string ofname = DEBUGDIR + std::string("pix_x_y_val.dat");
+      of.open(ofname);
+      for (int iPix=0; iPix<nPix; ++iPix){
+        of << pixelsX[iPix] << " " << pixelsY[iPix] << " " << pixelsVal[iPix] << endl;
       }
-    }
-//    return false;
+      of.close();
+    #endif
+    return false;
 
     CGeostat krig;
     const size_t dim_cspace = 2;
