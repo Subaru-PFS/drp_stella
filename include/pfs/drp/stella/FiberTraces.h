@@ -181,6 +181,8 @@ struct TwoDPSFControl {
     LSST_CONTROL_FIELD(yFWHM, float, "FWHM of an assumed Gaussian PSF in the dispersion direction");
     LSST_CONTROL_FIELD(nTermsGaussFit, unsigned short, "1 to look for maximum only without GaussFit; 3 to fit Gaussian; 4 to fit Gaussian plus constant (sky), profile must be at least 5 pixels wide; 5 to fit Gaussian plus linear term (sloped sky), profile must be at least 6 pixels wide");
     LSST_CONTROL_FIELD(saturationLevel, float, "CCD saturation level");
+    LSST_CONTROL_FIELD(nKrigingPointsX, unsigned int, "Number of input points for Kriging interpolation in X");
+    LSST_CONTROL_FIELD(nKrigingPointsY, unsigned int, "Number of input points for Kriging interpolation in Y");
 
     TwoDPSFControl() :
     signalThreshold(1000.),
@@ -188,7 +190,9 @@ struct TwoDPSFControl {
     xFWHM(2.5),
     yFWHM(2.5),
     nTermsGaussFit(5),
-    saturationLevel(65000.) {}
+    saturationLevel(65000.),
+    nKrigingPointsX(100),
+    nKrigingPointsY(100){}
 };
 
 /**
@@ -1616,6 +1620,13 @@ class FiberTraceSet {
 
 //    template<typename T>
 //    void resize(blitz::Array<T, 1> &arr_InOut, unsigned int newSize);
+
+    template<typename T>
+    blitz::Array<double,1> Moment(const blitz::Array<T, 1> &D_A1_Arr_In, int I_MaxMoment_In);
+
+    template<typename T>
+    blitz::Array<double,1> Moment(const blitz::Array<T, 2> &D_A1_Arr_In, int I_MaxMoment_In);
+
   }/// end namespace math
 
   namespace utils{

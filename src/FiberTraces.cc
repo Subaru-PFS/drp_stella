@@ -6949,7 +6949,7 @@ namespace pfsDRPStella = pfs::drp::stella;
       cout << "FiberTrace::calculate2dPSF: ERROR: _twoDPSFControl is not set" << endl;
       return false;
     }
-    
+
     std::vector<double> pixelsX;
     std::vector<double> pixelsY;
     std::vector<double> pixelsVal;
@@ -6960,7 +6960,7 @@ namespace pfsDRPStella = pfs::drp::stella;
     int i_xCenter, i_yCenter, i_Left, i_Right, i_Down, i_Up;
     int nPix = 0;
     int xCenterTrace_CenterRow, xCenterTrace_Last;
-    
+
     ///FIND EMISSION LINES
     /// create center column
     blitz::Array<double, 1> traceCenterCol(trace_In.rows());
@@ -7058,7 +7058,7 @@ namespace pfsDRPStella = pfs::drp::stella;
       if ((I_FirstWideSignalEnd - I_FirstWideSignalStart + 1) > (_twoDPSFControl->yFWHM * D_MaxTimesApertureWidth)){
         I_FirstWideSignalEnd = I_FirstWideSignalStart + int(D_MaxTimesApertureWidth * _twoDPSFControl->yFWHM);
       }
-      
+
 //      int maxPos = blitz::maxIndex(traceCenterCol(blitz::Range(I_FirstWideSignalStart, I_FirstWideSignalEnd)));
 //      I_FirstWideSignalStart
 
@@ -7137,8 +7137,8 @@ namespace pfsDRPStella = pfs::drp::stella;
               cout << "FiberTrace::calculate2dPSF: D_A1_GaussFit_Coeffs(1) - int(D_A1_GaussFit_Coeffs(1)) = " << D_A1_GaussFit_Coeffs(1) - int(D_A1_GaussFit_Coeffs(1)) << endl;
               cout << "FiberTrace::calculate2dPSF: while: D_A2_GaussCenters(emissionLineNumber=" << emissionLineNumber << "-1,*) = " << D_A2_GaussCenters(emissionLineNumber-1, blitz::Range::all()) << endl;
             #endif
-            
-            /// add emission line to PSFs  
+
+            /// add emission line to PSFs
             xCenterTrace_CenterRow = int(D_A2_GaussCenters(emissionLineNumber-1, 0));
             i_xCenter = xCenterTrace_CenterRow;
             i_yCenter = int(D_A2_GaussCenters(emissionLineNumber-1, 1));
@@ -7200,29 +7200,81 @@ namespace pfsDRPStella = pfs::drp::stella;
       }
       of.close();
     #endif
-    return false;
+
+    /// prepare input for kriging
+    std::vector<double> krigingInput_X;
+    krigingInput_X.reserve(_twoDPSFControl->nKrigingPointsX * _twoDPSFControl->nKrigingPointsY);
+    std::vector<double> krigingInput_Y;
+    krigingInput_Y.reserve(_twoDPSFControl->nKrigingPointsX * _twoDPSFControl->nKrigingPointsY);
+    std::vector<double> krigingInput_Val;
+    krigingInput_Val.reserve(_twoDPSFControl->nKrigingPointsX * _twoDPSFControl->nKrigingPointsY);
+    double xRangeMin = *(std::min(pixelsX.begin(), pixelsX.end()));
+    double xRangeMax = *(std::max(pixelsX.begin(), pixelsX.end())) + 0.000001;
+    double yRangeMin = *(std::min(pixelsY.begin(), pixelsY.end()));
+    double yRangeMax = *(std::max(pixelsY.begin(), pixelsY.end())) + 0.000001;
+    double xStep = (xRangeMax - xRangeMin) / _twoDPSFControl->nKrigingPointsX;
+    double yStep = (yRangeMax - yRangeMin) / _twoDPSFControl->nKrigingPointsY;
+    double xCenter = xRangeMin - (xStep / 2.);
+    double yCenter = yRangeMin - (yStep / 2.);
+    double value, xEnd, yEnd;
+    int nPixelsInRange;
+    blitz::Array<double, 1> moments(4);
+    for (int ix = 0; ix < _twoDPSFControl->nKrigingPointsX; ++ix){
+      for (int iy = 0; iy < _twoDPSFControl->nKrigingPointsY; ++iy){
+        xCenter += xStep;
+        yCenter += yStep;
+        xStart = xCenter - (xStep/2.);
+        xEnd = xCenter + (xStep/2.);
+        yStart = yCenter - (yStep/2.);
+        yEnd = yCenter + (yStep/2.);
+        nPixelsInRange = 0;
+        std::vector<double> valuesInRange;
+        for (int ipix = 0; ipix < pixelsX.size(); ++ipix){
+          if ((pixelsX[ipix] >= xStart) && (pixelsX[ipix] < xEnd) && (pixelsY[ipix] >= yStart) && (pixelsY[ipix] < yEnd)){
+            valuesInRange.push_back(pixelsVal[ipix]);
+            ++nPixelsInRange;
+          }
+        }
+        if (nPixelsInRange > 1){
+          blitz::TinyVector<int, 1> shape;
+          shape(0) = valuesInRange.size();
+          blitz::Array<double, 1> tempArr(valuesInRange.data(), shape, blitz::neverDeleteData);
+          moments = pfsDRPStella::math::Moment(tempArr, 2);
+          for (int ipix=nPixelsInRange-1; ipix >= 0; --ipix){
+            if (std::pow(double(ipix) - moments(0), 2) > (3. * moments(1)))
+              valuesInRange.erase(valuesInRange.begin() + ipix);
+          }
+          shape(0) = valuesInRange.size();
+          blitz::Array<double, 1> tempArrNew(valuesInRange.data(), shape, blitz::neverDeleteData);
+          moments = pfsDRPStella::math::Moment(tempArrNew, 1);
+          krigingInput_X.push_back(xCenter);
+          krigingInput_Y.push_back(yCenter);
+          krigingInput_Val.push_back(moments(0));
+        }
+      }
+    }
 
     CGeostat krig;
     const size_t dim_cspace = 2;
-    krig.initialize(nPix, dim_cspace);
+    krig.initialize(krigingInput_Val.size(), dim_cspace);
     gsl_vector *lower = gsl_vector_alloc(dim_cspace);
     gsl_vector *upper = gsl_vector_alloc(dim_cspace);
 
-    gsl_vector_set(lower, 0, *(std::min(pixelsX.begin(), pixelsX.end())));
-    gsl_vector_set(lower, 1, *(std::min(pixelsY.begin(), pixelsY.end())));
-    gsl_vector_set(upper, 0, *(std::max(pixelsX.begin(), pixelsX.end())));
-    gsl_vector_set(upper, 1, *(std::max(pixelsY.begin(), pixelsY.end())));
+    gsl_vector_set(lower, 0, *(std::min(krigingInput_X.begin(), krigingInput_X.end())));
+    gsl_vector_set(lower, 1, *(std::min(krigingInput_Y.begin(), krigingInput_Y.end())));
+    gsl_vector_set(upper, 0, *(std::max(krigingInput_X.begin(), krigingInput_X.end())));
+    gsl_vector_set(upper, 1, *(std::max(krigingInput_Y.begin(), krigingInput_Y.end())));
 
     krig.setDomain(lower, upper);
     gsl_vector_free(lower);
     gsl_vector_free(upper);
 
     gsl_vector *pixPos = gsl_vector_alloc(dim_cspace);
-    for (int iPix=0; iPix<nPix; ++iPix){
-      gsl_vector_set(pixPos, 0, pixelsX[iPix]);
-      gsl_vector_set(pixPos, 1, pixelsY[iPix]);
+    for (int iPix=0; iPix<krigingInput_Val.size(); ++iPix){
+      gsl_vector_set(pixPos, 0, krigingInput_X[iPix]);
+      gsl_vector_set(pixPos, 1, krigingInput_Y[iPix]);
       krig.setCoordinate(iPix, pixPos);
-      krig.setData(iPix, pixelsVal[iPix]);
+      krig.setData(iPix, krigingInput_Val[iPix]);
     }
 
     krig.estimate(CVariogram::VARIO_SPH, 0, 1.);
@@ -7249,6 +7301,7 @@ namespace pfsDRPStella = pfs::drp::stella;
     #ifdef __DEBUG_CALC2DPSF__
       ofkrig.close();
     #endif
+
 
     return false;
   }
@@ -13031,6 +13084,58 @@ namespace pfsDRPStella = pfs::drp::stella;
       return (int)Round(ToRound, 0);
     }
 
+    template<typename T>
+    blitz::Array<double,1> Moment(const blitz::Array<T, 1> &D_A1_Arr_In, int I_MaxMoment_In)
+    {
+      blitz::Array<double,1> D_A1_Out(4);
+      D_A1_Out = 0.;
+      if ((I_MaxMoment_In < 1) && (D_A1_Arr_In.size() < 2)){
+        cout << "CFits::Moment: ERROR: D_A1_Arr_In must contain 2 OR more elements." << endl;
+        return D_A1_Out;
+      }
+      int I_NElements = D_A1_Arr_In.size();
+      double D_Mean = blitz::sum(D_A1_Arr_In) / double(I_NElements);
+      double D_Kurt = 0.;
+      double D_Var = 0.;
+      double D_Skew = 0.;
+
+      if (I_MaxMoment_In > 1){
+        blitz::Array<double,1> D_A1_Resid(I_NElements);
+        D_A1_Resid = D_A1_Arr_In - D_Mean;
+
+        blitz::Array<double,1> D_A1_Pow(D_A1_Resid.size());
+        D_A1_Pow = pow(D_A1_Resid,2);
+        D_Var = (blitz::sum(D_A1_Pow) - (blitz::pow2(blitz::sum(D_A1_Resid)))/double(I_NElements)) / (double(I_NElements)-1.);
+
+        double D_SDev = 0.;
+        D_SDev = sqrt(D_Var);
+
+        if (D_SDev != 0.){
+          if (I_MaxMoment_In > 2)
+            D_Skew = blitz::sum(pow(D_A1_Resid,3)) / (I_NElements * pow(D_SDev,3));
+
+          if (I_MaxMoment_In > 3)
+            D_Kurt = blitz::sum(pow(D_A1_Resid,4)) / (I_NElements * pow(D_SDev,4)) - 3.;
+        }
+      }
+      D_A1_Out(0) = D_Mean;
+      D_A1_Out(1) = D_Var;
+      D_A1_Out(2) = D_Skew;
+      D_A1_Out(3) = D_Kurt;
+      return D_A1_Out;
+    }
+
+    /**
+     * double Moment(blitz::Array<double, 1>) const;
+     **/
+    template<typename T>
+    blitz::Array<double,1> Moment(const blitz::Array<T, 2> &D_A2_Arr_In, int I_MaxMoment_In)
+    {
+      blitz::Array<T, 2> D_A2_Temp = *(const_cast<const blitz::Array<T, 2>*>(&D_A2_Arr_In));
+      blitz::Array<T, 1> D_A1_Temp(D_A2_Temp.data(), blitz::shape(D_A2_Arr_In.rows() * D_A2_Arr_In.cols()), blitz::neverDeleteData);
+      return Moment(D_A1_Temp, I_MaxMoment_In);
+    }
+
 //    template<typename T>
 //    void resize(blitz::Array<T, 1> &arr_InOut, unsigned int newSize){
 //      blitz::Array<T, 1> *newArr = new blitz::Array<T, 1>(newSize);
@@ -13554,6 +13659,16 @@ namespace pfsDRPStella = pfs::drp::stella;
   template bool math::Uniq(const blitz::Array<long, 1> &IA1_In, blitz::Array<int, 1> &IA1_Result);
   template bool math::Uniq(const blitz::Array<float, 1> &IA1_In, blitz::Array<int, 1> &IA1_Result);
   template bool math::Uniq(const blitz::Array<double, 1> &IA1_In, blitz::Array<int, 1> &IA1_Result);
+
+  template blitz::Array<double,1> math::Moment(const blitz::Array<int, 1> &D_A1_Arr_In, int I_MaxMoment_In);
+  template blitz::Array<double,1> math::Moment(const blitz::Array<long, 1> &D_A1_Arr_In, int I_MaxMoment_In);
+  template blitz::Array<double,1> math::Moment(const blitz::Array<float, 1> &D_A1_Arr_In, int I_MaxMoment_In);
+  template blitz::Array<double,1> math::Moment(const blitz::Array<double, 1> &D_A1_Arr_In, int I_MaxMoment_In);
+
+  template blitz::Array<double,1> math::Moment(const blitz::Array<int, 2> &D_A1_Arr_In, int I_MaxMoment_In);
+  template blitz::Array<double,1> math::Moment(const blitz::Array<long, 2> &D_A1_Arr_In, int I_MaxMoment_In);
+  template blitz::Array<double,1> math::Moment(const blitz::Array<float, 2> &D_A1_Arr_In, int I_MaxMoment_In);
+  template blitz::Array<double,1> math::Moment(const blitz::Array<double, 2> &D_A1_Arr_In, int I_MaxMoment_In);
 
 //  template void math::resize(blitz::Array<unsigned int, 1> &arr_in, unsigned int newSize);
 //  template void math::resize(blitz::Array<int, 1> &arr_in, unsigned int newSize);

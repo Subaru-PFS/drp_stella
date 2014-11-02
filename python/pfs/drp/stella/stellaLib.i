@@ -181,6 +181,11 @@ Interface to Stella
 %template(UniqF) pfs::drp::stella::math::Uniq<float>;
 %template(UniqD) pfs::drp::stella::math::Uniq<double>;
 
+%template(MomentI) pfs::drp::stella::math::Moment<int>;
+%template(MomentI) pfs::drp::stella::math::Moment<long>;
+%template(MomentI) pfs::drp::stella::math::Moment<float>;
+%template(MomentI) pfs::drp::stella::math::Moment<double>;
+
 #%template(resizeU) pfs::drp::stella::math::resize<unsigned int>;
 #%template(resizeU) pfs::drp::stella::math::resize<int>;
 #%template(resizeU) pfs::drp::stella::math::resize<long>;
