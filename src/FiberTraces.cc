@@ -7169,13 +7169,16 @@ namespace pfsDRPStella = pfs::drp::stella;
                 cout << "FiberTrace::calculate2dPSF: emissionLineNumber-1=" << emissionLineNumber-1 << ": xStart = " << xStart << endl;
                 cout << "FiberTrace::calculate2dPSF: emissionLineNumber-1=" << emissionLineNumber-1 << ": yStart = " << yStart << endl;
               #endif
+              blitz::Array<double, 2> D_A2_PSF(i_Up - i_Down + 1, i_Right - i_Left + 1);
+              D_A2_PSF = trace_In(blitz::Range(i_Down, i_Up), blitz::Range(i_Left, i_Right));
+              D_A2_PSF = D_A2_PSF / blitz::sum(D_A2_PSF);
               for (int iX = 0; iX <= i_Right - i_Left; ++iX){
                 #ifdef __DEBUG_CALC2DPSF__
                   cout << "FiberTrace::calculate2dPSF: emissionLineNumber-1=" << emissionLineNumber-1 << ": iX = " << iX << ": iY = " << iY << endl;
                 #endif
                 pixelsX.push_back(xStart + iX);
                 pixelsY.push_back(yStart + iY);
-                pixelsVal.push_back(trace_In(i_Down + iY, i_Left + iX));
+                pixelsVal.push_back(D_A2_PSF(iY, iX));
                 #ifdef __DEBUG_CALC2DPSF__
                   cout << "FiberTrace::calculate2dPSF: emissionLineNumber-1=" << emissionLineNumber-1 << ": trace_In(" << i_Down + iY << ", " << i_Left + iX << ") = " << trace_In(i_Down + iY, i_Left + iX) << endl;
                   cout << "FiberTrace::calculate2dPSF: emissionLineNumber-1=" << emissionLineNumber-1 << ": x = " << pixelsX[nPix] << ", y = " << pixelsY[nPix] << ": val = " << pixelsVal[nPix] << endl;
@@ -7192,67 +7195,113 @@ namespace pfsDRPStella = pfs::drp::stella;
     } while(true);
     #ifdef __DEBUG_CALC2DPSF__
       cout << "FiberTrace::calculate2dPSF: xFWHM = " << _twoDPSFControl->xFWHM << ", yFWHM = " << _twoDPSFControl->yFWHM << endl;
-      std::ofstream of;
+/*      std::ofstream of;
       std::string ofname = DEBUGDIR + std::string("pix_x_y_val.dat");
       of.open(ofname);
       for (int iPix=0; iPix<nPix; ++iPix){
         of << pixelsX[iPix] << " " << pixelsY[iPix] << " " << pixelsVal[iPix] << endl;
       }
-      of.close();
+      of.close();*/
     #endif
 
     /// prepare input for kriging
+    #ifdef __DEBUG_CALC2DPSF__
+      cout << "FiberTrace::calculate2dPSF: pixelsX.size() = " << pixelsX.size() << ", pixelsY.size() = " << pixelsY.size() << ", pixelsVal.size() = " << pixelsVal.size() << ", nPix = " << nPix << endl;
+      for (int i=0; i<nPix; i++)
+        cout << "FiberTrace::calculate2dPSF: i=" << i << ": pixelsX[i] = " << pixelsX[i] << ", pixelsY[i] = " << pixelsY[i] << ", pixelsVal[i] = " << pixelsVal[i] << endl;
+    #endif
     std::vector<double> krigingInput_X;
     krigingInput_X.reserve(_twoDPSFControl->nKrigingPointsX * _twoDPSFControl->nKrigingPointsY);
     std::vector<double> krigingInput_Y;
     krigingInput_Y.reserve(_twoDPSFControl->nKrigingPointsX * _twoDPSFControl->nKrigingPointsY);
     std::vector<double> krigingInput_Val;
     krigingInput_Val.reserve(_twoDPSFControl->nKrigingPointsX * _twoDPSFControl->nKrigingPointsY);
-    double xRangeMin = *(std::min(pixelsX.begin(), pixelsX.end()));
-    double xRangeMax = *(std::max(pixelsX.begin(), pixelsX.end())) + 0.000001;
-    double yRangeMin = *(std::min(pixelsY.begin(), pixelsY.end()));
-    double yRangeMax = *(std::max(pixelsY.begin(), pixelsY.end())) + 0.000001;
+    blitz::Array<double, 1> D_A1_PixelsX(pixelsX.data(), blitz::shape(pixelsX.size()), blitz::neverDeleteData);
+    blitz::Array<double, 1> D_A1_PixelsY(pixelsY.data(), blitz::shape(pixelsY.size()), blitz::neverDeleteData);
+    double xRangeMin = blitz::min(D_A1_PixelsX);
+    double xRangeMax = blitz::max(D_A1_PixelsX) + 0.000001;
+    double yRangeMin = blitz::min(D_A1_PixelsY);
+    double yRangeMax = blitz::max(D_A1_PixelsY) + 0.000001;
+    #ifdef __DEBUG_CALC2DPSF__
+      cout << "FiberTrace::calculate2dPSF: xRangeMin = " << xRangeMin << ", xRangeMax = " << xRangeMax << endl;
+      cout << "FiberTrace::calculate2dPSF: yRangeMin = " << yRangeMin << ", yRangeMax = " << yRangeMax << endl;
+    #endif
     double xStep = (xRangeMax - xRangeMin) / _twoDPSFControl->nKrigingPointsX;
     double yStep = (yRangeMax - yRangeMin) / _twoDPSFControl->nKrigingPointsY;
-    double xCenter = xRangeMin - (xStep / 2.);
-    double yCenter = yRangeMin - (yStep / 2.);
+    double xCenterOrig = xRangeMin - (xStep / 2.);
+    double yCenterOrig = yRangeMin - (yStep / 2.);
+    double xCenter, yCenter;
+    #ifdef __DEBUG_CALC2DPSF__
+      cout << "FiberTrace::calculate2dPSF: xStep = " << xStep << ", yStep = " << yStep << endl;
+    #endif
     double value, xEnd, yEnd;
     int nPixelsInRange;
     blitz::Array<double, 1> moments(4);
+    xCenter = xCenterOrig;
     for (int ix = 0; ix < _twoDPSFControl->nKrigingPointsX; ++ix){
+      xCenter += xStep;
+      yCenter = yCenterOrig;
       for (int iy = 0; iy < _twoDPSFControl->nKrigingPointsY; ++iy){
-        xCenter += xStep;
         yCenter += yStep;
+        #ifdef __DEBUG_CALC2DPSF__
+          cout << "FiberTrace::calculate2dPSF: ix=" << ix << ", iy=" << iy << ": xCenter = " << xCenter << ", yCenter = " << yCenter << endl;
+        #endif
         xStart = xCenter - (xStep/2.);
         xEnd = xCenter + (xStep/2.);
         yStart = yCenter - (yStep/2.);
         yEnd = yCenter + (yStep/2.);
+        #ifdef __DEBUG_CALC2DPSF__
+          cout << "FiberTrace::calculate2dPSF: ix=" << ix << ", iy=" << iy << ": xStart = " << xStart << ", xEnd = " << xEnd << endl;
+          cout << "FiberTrace::calculate2dPSF: ix=" << ix << ", iy=" << iy << ": yStart = " << yStart << ", yEnd = " << yEnd << endl;
+        #endif
         nPixelsInRange = 0;
         std::vector<double> valuesInRange;
         for (int ipix = 0; ipix < pixelsX.size(); ++ipix){
           if ((pixelsX[ipix] >= xStart) && (pixelsX[ipix] < xEnd) && (pixelsY[ipix] >= yStart) && (pixelsY[ipix] < yEnd)){
+            #ifdef __DEBUG_CALC2DPSF__
+              cout << "FiberTrace::calculate2dPSF: ix=" << ix << ", iy=" << iy << ": pixel ipix=" << ipix << " in range: pixelsX[ipix] = " << pixelsX[ipix] << ", pixelsY[ipix] = " << pixelsY[ipix] << ", pixelsVal[ipix] = " << pixelsVal[ipix] << endl;
+            #endif
             valuesInRange.push_back(pixelsVal[ipix]);
             ++nPixelsInRange;
           }
         }
+        #ifdef __DEBUG_CALC2DPSF__
+          cout << "FiberTrace::calculate2dPSF: ix=" << ix << ", iy=" << iy << ": nPixelsInRange: " << nPixelsInRange << endl;
+        #endif
         if (nPixelsInRange > 1){
-          blitz::TinyVector<int, 1> shape;
-          shape(0) = valuesInRange.size();
-          blitz::Array<double, 1> tempArr(valuesInRange.data(), shape, blitz::neverDeleteData);
+          blitz::Array<double, 1> tempArr(valuesInRange.data(), blitz::shape(valuesInRange.size()), blitz::neverDeleteData);
           moments = pfsDRPStella::math::Moment(tempArr, 2);
+          #ifdef __DEBUG_CALC2DPSF__
+            cout << "FiberTrace::calculate2dPSF: ix=" << ix << ", iy=" << iy << ": 1. moments = " << moments << endl;
+          #endif
           for (int ipix=nPixelsInRange-1; ipix >= 0; --ipix){
-            if (std::pow(double(ipix) - moments(0), 2) > (3. * moments(1)))
+            if (std::pow(valuesInRange[ipix] - moments(0), 2) > (3. * moments(1))){
+              #ifdef __DEBUG_CALC2DPSF__
+                cout << "FiberTrace::calculate2dPSF: ix=" << ix << ", iy=" << iy << ": deleting pixel ipix = " << ipix << ": valuesInRange[ipix] = " << valuesInRange[ipix] << endl;
+              #endif
               valuesInRange.erase(valuesInRange.begin() + ipix);
+            }
           }
-          shape(0) = valuesInRange.size();
-          blitz::Array<double, 1> tempArrNew(valuesInRange.data(), shape, blitz::neverDeleteData);
+          blitz::Array<double, 1> tempArrNew(valuesInRange.data(), blitz::shape(valuesInRange.size()), blitz::neverDeleteData);
           moments = pfsDRPStella::math::Moment(tempArrNew, 1);
+          #ifdef __DEBUG_CALC2DPSF__
+            cout << "FiberTrace::calculate2dPSF: ix=" << ix << ", iy=" << iy << ": 2. moments = " << moments << endl;
+          #endif
           krigingInput_X.push_back(xCenter);
           krigingInput_Y.push_back(yCenter);
           krigingInput_Val.push_back(moments(0));
         }
       }
     }
+    #ifdef __DEBUG_CALC2DPSF__
+      std::ofstream ofkrig_in;
+      std::string ofname_in = DEBUGDIR + std::string("kriging_in_pix_x_y_val.dat");
+      ofkrig_in.open(ofname_in);
+      for (int i=0; i<krigingInput_X.size(); i++)
+        ofkrig_in << krigingInput_X[i] << " " << krigingInput_Y[i] << " " << krigingInput_Val[i] << endl;
+      ofkrig_in.close();
+    #endif
+//    return false;
 
     CGeostat krig;
     const size_t dim_cspace = 2;
@@ -7260,10 +7309,12 @@ namespace pfsDRPStella = pfs::drp::stella;
     gsl_vector *lower = gsl_vector_alloc(dim_cspace);
     gsl_vector *upper = gsl_vector_alloc(dim_cspace);
 
-    gsl_vector_set(lower, 0, *(std::min(krigingInput_X.begin(), krigingInput_X.end())));
-    gsl_vector_set(lower, 1, *(std::min(krigingInput_Y.begin(), krigingInput_Y.end())));
-    gsl_vector_set(upper, 0, *(std::max(krigingInput_X.begin(), krigingInput_X.end())));
-    gsl_vector_set(upper, 1, *(std::max(krigingInput_Y.begin(), krigingInput_Y.end())));
+    blitz::Array<double, 1> D_A1_KrigingInput_X(krigingInput_X.data(), blitz::shape(krigingInput_X.size()), blitz::neverDeleteData);
+    blitz::Array<double, 1> D_A1_KrigingInput_Y(krigingInput_Y.data(), blitz::shape(krigingInput_Y.size()), blitz::neverDeleteData);
+    gsl_vector_set(lower, 0, blitz::min(D_A1_KrigingInput_X));
+    gsl_vector_set(lower, 1, blitz::min(D_A1_KrigingInput_Y));
+    gsl_vector_set(upper, 0, blitz::max(D_A1_KrigingInput_X));
+    gsl_vector_set(upper, 1, blitz::max(D_A1_KrigingInput_Y));
 
     krig.setDomain(lower, upper);
     gsl_vector_free(lower);
@@ -7283,7 +7334,7 @@ namespace pfsDRPStella = pfs::drp::stella;
 
     #ifdef __DEBUG_CALC2DPSF__
       std::ofstream ofkrig;
-      std::string fname = DEBUGDIR + std::string("kriging.dat");
+      std::string fname = DEBUGDIR + std::string("psf_x_y_in_fit.dat");
       ofkrig.open(fname);
     #endif
     for (int iPix=0; iPix<nPix; ++iPix){

@@ -45,20 +45,22 @@ def calculateTwoDPSF(flatfilename, specfilename):
     ftec.lambdaSF = 1. / ftec.overSample
     ftec.maxIterSF = 10
     ftec.swathWidth = 500
-    
+
     # --- create twoDPSFControl
     tdpsfc = drpStella.TwoDPSFControl()
     tdpsfc.signalThreshold = 500.
     tdpsfc.nTermsGaussFit = 3
+    tdpsfc.nKrigingPointsX = 25
+    tdpsfc.nKrigingPointsY = 25
 
     """Create a afwImage::MaskedImageF from the flat fits file"""
     mif = afwImage.MaskedImageF(flatfilename)
     print("mif created")
-    
+
     """Trace fibers"""
     fts = drpStella.findAndTraceAperturesF(mif, ftffc)
     print("findAndTraceApertures finished")
-    
+
     # --- sort traces by xCenters
     fts.sortTracesByXCenter();
     fts.setTwoDPSFControl(tdpsfc)
@@ -74,7 +76,7 @@ def calculateTwoDPSF(flatfilename, specfilename):
     trace.calculate2dPSFPerBin()
 
     return fts;
-    
+
 #-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
 def main(argv=None):
@@ -85,7 +87,7 @@ def main(argv=None):
     if isinstance(argv, basestring):
       import shlex
       argv = shlex.split(argv)
-      
+
     from argparse import ArgumentParser
     parser = ArgumentParser()
     parser.add_argument("--display", '-d', default=False, action="store_true", help="Activate display?")
@@ -98,7 +100,6 @@ def main(argv=None):
     flatFileName = args.flatfilename
     specFileName = args.specfilename
     return calculateTwoDPSF(flatFileName, specFileName)
-  
+
 if __name__ == "__main__":
     main()
-    
