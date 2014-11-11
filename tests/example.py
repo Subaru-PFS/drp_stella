@@ -39,6 +39,7 @@ class ExampleTestCase(tests.TestCase):
         del self.im2
 
     def checkAddImages(self, result, name):
+        print "starting checkAddImages"
         for im, val in [(self.im1, self.val1), (self.im2, self.val2), (result, self.val1 + self.val2)]:
             ima = im.getArray()
             self.assertEqual(np.min(ima), val, name)
@@ -47,11 +48,13 @@ class ExampleTestCase(tests.TestCase):
         self.assertEqual(result.get(0,0), self.val1 + self.val2, name)
 
     def testAddImagesWithBlitz(self):
+        print "starting testAddImagesWithBlitz"
         result = drpStella.addImagesWithBlitz(self.im1, self.im2)
 
         self.checkAddImages(result, "Blitz")
 
     def testAddImagesWithEigen(self):
+        print "starting testAddImagesWithEigen"
         result = drpStella.addImagesWithEigen(self.im1, self.im2)
 
         self.checkAddImages(result, "Eigen")

@@ -18,7 +18,8 @@
 #include <fitsio2.h>
 #include "cmpfit-1.2/MyFit.h"
 #include "spline.h"
-#include "kriging/geostat.h"
+#include "SurfaceFit.h"
+//#include "kriging/geostat.h"
 
 #define stringify( name ) # name
 
@@ -41,7 +42,7 @@
 //#define __DEBUG_SLITFUNC_X__
 //#define __DEBUG_TRACEFUNC__
 //#define __DEBUG_UNIQ__
-#define DEBUGDIR "/home/azuri/spectra/pfs/2014-10-31/debug/"// /home/azuri/entwicklung/idl/REDUCE/16_03_2013/"//stella/ses-pipeline/c/msimulateskysubtraction/data/"//spectra/elaina/eso_archive/red_564/red_r/"
+#define DEBUGDIR "/home/azuri/spectra/pfs/2014-11-02/debug/"// /home/azuri/entwicklung/idl/REDUCE/16_03_2013/"//stella/ses-pipeline/c/msimulateskysubtraction/data/"//spectra/elaina/eso_archive/red_564/red_r/"
 
 #define MIN(a,b) ((a<b)?a:b)
 #define MAX(a,b) ((a>b)?a:b)
@@ -181,9 +182,10 @@ struct TwoDPSFControl {
     LSST_CONTROL_FIELD(yFWHM, float, "FWHM of an assumed Gaussian PSF in the dispersion direction");
     LSST_CONTROL_FIELD(nTermsGaussFit, unsigned short, "1 to look for maximum only without GaussFit; 3 to fit Gaussian; 4 to fit Gaussian plus constant (sky), profile must be at least 5 pixels wide; 5 to fit Gaussian plus linear term (sloped sky), profile must be at least 6 pixels wide");
     LSST_CONTROL_FIELD(saturationLevel, float, "CCD saturation level");
-    LSST_CONTROL_FIELD(nKrigingPointsX, unsigned int, "Number of input points for Kriging interpolation in X");
-    LSST_CONTROL_FIELD(nKrigingPointsY, unsigned int, "Number of input points for Kriging interpolation in Y");
-
+    LSST_CONTROL_FIELD(nKnotsX, unsigned int, "Number of interpolation knots in X direction");
+    LSST_CONTROL_FIELD(nKnotsY, unsigned int, "Number of interpolation knots in Y direction");
+    LSST_CONTROL_FIELD(smooth, float, "Smoothing factor for bidirectional spline interpolation");
+    
     TwoDPSFControl() :
     signalThreshold(1000.),
     swathWidth(500),
@@ -191,8 +193,9 @@ struct TwoDPSFControl {
     yFWHM(2.5),
     nTermsGaussFit(5),
     saturationLevel(65000.),
-    nKrigingPointsX(100),
-    nKrigingPointsY(100){}
+    nKnotsX(75),
+    nKnotsY(75),
+    smooth(35000.){}
 };
 
 /**
@@ -431,11 +434,8 @@ class FiberTrace {
                    blitz::Array<double, 2> &profilePerRow_Out);/// output 2D profile image
 
     bool calculate2dPSFPerBin();
-    bool calculate2dPSF(const blitz::Array<double, 2> &trace_In,
-                        const blitz::Array<int, 2> &mask_In,
-                        const blitz::Array<double, 2> &stddev_In,
-                        const blitz::Array<double, 1> &xCentersOffset_In,
-                        const blitz::Array<double, 1> &xCenterTrace_In,
+    bool calculate2dPSF(const int yLow_In,
+                        const int yHigh_In,
                         blitz::Array<double, 2> &PSF2D_Out);
 
     bool calculateSwathWidth_NBins_BinHeight_BinBoundY(int &swathWidth,
@@ -443,7 +443,7 @@ class FiberTrace {
                                                        int &binHeight,
                                                        blitz::Array<int, 2> &binBoundY);
 
-private:
+  private:
     ///TODO: replace variables with smart pointers?????
     MaskedImageT _trace;
     PTR(afwImage::Image<float>) _profile;
@@ -467,6 +467,16 @@ private:
     FiberTraceFunction _fiberTraceFunction;
     PTR(FiberTraceExtractionControl) _fiberTraceExtractionControl;
     PTR(TwoDPSFControl) _twoDPSFControl;
+    
+  protected:
+    int _iBin;
+    PTR(std::vector<double>) _imagePSF_XTrace;
+    PTR(std::vector<double>) _imagePSF_YTrace;
+    PTR(std::vector<double>) _imagePSF_ZTrace;
+    PTR(std::vector<double>) _imagePSF_XRelativeToCenter;
+    PTR(std::vector<double>) _imagePSF_YRelativeToCenter;
+    PTR(std::vector<double>) _imagePSF_ZNormalized;
+    PTR(std::vector<double>) _imagePSF_Weight;
 };
 
 /************************************************************************************************************/
@@ -1660,6 +1670,56 @@ class FiberTraceSet {
 //    bool WriteArrayToFile(const blitz::Array<T, 2> &D_A2_In,
 //                          const string &S_FileName_In,
 //                          const string &S_Mode);
+
+    /// removes leading and/or trailing spaces from str
+    /// mode == 0: remove leading spaces
+    /// mode == 1: remove trailing spaces
+    /// mode == 2: remove leading and trailing spaces
+    bool trimString(string &str, const int mode);
+
+    /// removes leading and/or trailing 'chr' from str
+    /// mode == 0: remove leading 'chr'
+    /// mode == 1: remove trailing 'chr'
+    /// mode == 2: remove leading and trailing 'chr'
+    bool trimString(string &str, const char chr, const int mode);      
+    
+    /// converts str to double if possible and returns true, otherwise returns false
+    bool sToD(const string &str, double &D_Out);
+    bool sToD(const blitz::Array<string, 1> &S_A1_In, blitz::Array<double, 1> &D_A1_Out);
+    
+    //  int sToI(const string &str);
+    bool sToI(const string &str, int &I_Out);
+    
+    /**
+     *       function int CountLines(const string &fnc: in)
+     *       Returns number of lines of file <fnc>.
+     **/
+    long countLines(const string &fnc);
+
+    /**
+     *       function int CountDataLines(const string &fnc: in)
+     *       Returns number of lines which do not start with '#' of file <fnc>.
+     **/
+    long countDataLines(const string &fnc);
+
+    /**
+     *      function int CountCols(const string &fnc: in, const string &delimiter: in)
+     *      Returns number of columns of file <fnc>.
+     **/
+    long countCols(const string &fileName_In, const string &delimiter_In);
+
+    bool FileAccess(const string &fn);
+
+    bool readFileToStrArr(const string &S_FileName_In,
+                          blitz::Array<string, 2> &S_A2_Out,
+                          const string &S_Delimiter);
+
+    bool readFileToDblArr(const string &S_FileName_In,
+                          blitz::Array<double, 2> &D_A2_Out,
+                          const string &S_Delimiter);
+
+    bool readFileLinesToStrArr(const string &S_FileName_In,
+                               blitz::Array<string, 1> &S_A1_Out);
 
   }
 

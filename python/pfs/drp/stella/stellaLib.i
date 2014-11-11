@@ -18,6 +18,7 @@ Interface to Stella
 #include "pfs/drp/stella/FiberTraces.h"
 #include "pfs/drp/stella/blitz.h"
 #include "pfs/drp/stella/Example.h"
+//#include "pfs/drp/stella/SurfaceFit.h"
 %}
 
 %include "lsst/p_lsstSwig.i"
@@ -36,6 +37,7 @@ Interface to Stella
 
 %include "pfs/drp/stella/blitz.h"
 %include "pfs/drp/stella/Example.h"
+//%include "pfs/drp/stella/SurfaceFit.h"
 //
 // Instantiate addImage* for desired types
 //
@@ -58,6 +60,7 @@ Interface to Stella
 
 %include "pfs/drp/stella/FiberTraces.h"
 %include "pfs/drp/stella/blitz.h"
+//%include "pfs/drp/stella/SurfaceFit.h"
 
 %template(FiberTraceF) pfs::drp::stella::FiberTrace<float, unsigned short, float>;
 %template(FiberTraceD) pfs::drp::stella::FiberTrace<double, unsigned short, float>;

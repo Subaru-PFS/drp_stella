@@ -16,7 +16,7 @@ import lsst.afw.image as afwImage
 import lsst.afw.geom as afwGeom
 import pfs.drp.stella as drpStella
 import pyfits
-
+#import astropy.io.fits as pyfits
 try:
     type(display)
 except NameError:
@@ -40,21 +40,31 @@ def calculateTwoDPSF(flatfilename, specfilename):
     # --- create FiberTraceExtractionControl
     ftec = drpStella.FiberTraceExtractionControl()
 #    ftec.xCorProf = 20
+    ftec.profileInterpolation = "SPLINE3"
+    ftec.ccdReadOutNoise = 1.
+    ftec.telluric = "NONE"
     ftec.wingSmoothFactor = 2.
     ftec.overSample = 15
     ftec.lambdaSF = 1. / ftec.overSample
     ftec.maxIterSF = 10
+    ftec.maxIterSky = 1
+    ftec.maxIterSig = 2
     ftec.swathWidth = 500
 
     # --- create twoDPSFControl
     tdpsfc = drpStella.TwoDPSFControl()
     tdpsfc.signalThreshold = 500.
     tdpsfc.nTermsGaussFit = 3
-    tdpsfc.nKrigingPointsX = 25
-    tdpsfc.nKrigingPointsY = 25
+    tdpsfc.nKnotsX = 80
+    tdpsfc.nKnotsY = 80
+    tdpsfc.smooth = 3500000.
+
+    bias = pyfits.getdata(flatfilename, 2)
 
     """Create a afwImage::MaskedImageF from the flat fits file"""
     mif = afwImage.MaskedImageF(flatfilename)
+    flat = mif.getImage().getArray()
+    flat -= bias
     print("mif created")
 
     """Trace fibers"""
@@ -62,15 +72,20 @@ def calculateTwoDPSF(flatfilename, specfilename):
     print("findAndTraceApertures finished")
 
     # --- sort traces by xCenters
-    fts.sortTracesByXCenter();
+    fts.sortTracesByXCenter()
     fts.setTwoDPSFControl(tdpsfc)
+    fts.setFiberTraceExtractionControl(ftec)
+    fts.extractTraceNumber(0)
 
     # --- create FiberTraceSet for object exposure
+    bias = pyfits.getdata(specfilename, 2)
     mis = afwImage.MaskedImageF(specfilename)
-    traces = fts.getTraces()
+    spec = mis.getImage().getArray() 
+    spec = spec - bias
     for i in range(0,fts.size()) :
         trace = fts.getFiberTrace(i)
         trace.createTrace(mis)
+        trace.extractFromProfile()
 
     trace = fts.getFiberTrace(0)
     trace.calculate2dPSFPerBin()
