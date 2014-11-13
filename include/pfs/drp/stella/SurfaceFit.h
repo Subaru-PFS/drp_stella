@@ -340,7 +340,7 @@ public:
 //        cout << "SurfaceFit::SurfaceFit: lwrk1 = " << lwrk1 << endl;
         _wrk1 = new float[_lwrk1];
   
-        _lwrk2 = u*v*(b2+1)+b2+1;
+        _lwrk2=1;// = u*v*(b2+1)+b2+1;
 //        lwrk2 = nmax*nmax*((((1+nmax)*5) + 6 + nmax)+1)+((1+nmax)*5) + 6 + nmax;
         cout << "SurfaceFit::SurfaceFit: _lwrk2 = " << _lwrk2 << endl;
         _wrk2 = new float[_lwrk2];
@@ -410,6 +410,13 @@ public:
         
         surfit_(_iopt,_m,_x,_y,_z,_w,_xb,_xe,_yb,_ye,_kx,_ky,_smooth,_nxest,_nyest,_nmax,_eps,_nx,_tx,_ny,_ty,_c,_fp,_wrk1,_lwrk1,_wrk2,_lwrk2,_iwrk,_kwrk,_ier);
         cout << "SurfaceFit::SurfaceFit: _ier = " << _ier << endl;
+        if (_ier > 10){
+          _lwrk2 = _ier;
+          delete[] _wrk2;
+          _wrk2 = new float[_lwrk2];
+          surfit_(_iopt,_m,_x,_y,_z,_w,_xb,_xe,_yb,_ye,_kx,_ky,_smooth,_nxest,_nyest,_nmax,_eps,_nx,_tx,_ny,_ty,_c,_fp,_wrk1,_lwrk1,_wrk2,_lwrk2,_iwrk,_kwrk,_ier);
+          cout << "SurfaceFit::SurfaceFit: _ier = " << _ier << endl;
+        }
 //        for (int i=0; i<((_nxest-_kx-1)*(_nyest-_ky-1) + 10 < 1000 ? (_nxest-_kx-1)*(_nyest-_ky-1) + 10 : 1000); i++)
 //          cout << "SurfaceFit::SurfaceFit: _c[" << i << "] = " << _c[i] << endl;
         cout << "SurfaceFit::SurfaceFit: _fp = " << _fp << endl;

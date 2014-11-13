@@ -207,7 +207,7 @@ class FiberTrace {
     typedef afwImage::MaskedImage<ImageT, MaskT, VarianceT> MaskedImageT;
 //    typedef boost::shared_ptr<FiberTrace> Ptr;
 //    typedef boost::shared_ptr<FiberTrace const> ConstPtr;
-
+    
     // Class Constructors and Destructor
     explicit FiberTrace(
       unsigned int width, unsigned int height
@@ -279,12 +279,6 @@ class FiberTrace {
 
     /// Set the _fiberTraceExtractionControl
     bool setFiberTraceExtractionControl(PTR(FiberTraceExtractionControl) fiberTraceExtractionControl);// { _fiberTraceExtractionControl = fiberTraceExtractionControl; }
-
-    /// Return _2dPSFControl
-    PTR(TwoDPSFControl) getTwoDPSFControl() const { return _twoDPSFControl; }
-
-    /// Set the _twoDPSFControl
-    bool setTwoDPSFControl(PTR(TwoDPSFControl) twoDPSFControl);
 
     /// Calculate the x-centers of the fiber trace
     bool calculateXCenters();//FiberTraceFunctionControl const& fiberTraceFunctionControl);
@@ -442,7 +436,7 @@ class FiberTrace {
                                                        int &nBins,
                                                        int &binHeight,
                                                        blitz::Array<int, 2> &binBoundY);
-
+    
   private:
     ///TODO: replace variables with smart pointers?????
     MaskedImageT _trace;
@@ -462,21 +456,11 @@ class FiberTrace {
     bool _isProfileSet;
     bool _isFiberTraceFunctionSet;
     bool _isFiberTraceExtractionControlSet;
-    bool _isTwoDPSFControlSet;
     bool _isSpectrumExtracted;
     FiberTraceFunction _fiberTraceFunction;
     PTR(FiberTraceExtractionControl) _fiberTraceExtractionControl;
-    PTR(TwoDPSFControl) _twoDPSFControl;
     
   protected:
-    int _iBin;
-    PTR(std::vector<double>) _imagePSF_XTrace;
-    PTR(std::vector<double>) _imagePSF_YTrace;
-    PTR(std::vector<double>) _imagePSF_ZTrace;
-    PTR(std::vector<double>) _imagePSF_XRelativeToCenter;
-    PTR(std::vector<double>) _imagePSF_YRelativeToCenter;
-    PTR(std::vector<double>) _imagePSF_ZNormalized;
-    PTR(std::vector<double>) _imagePSF_Weight;
 };
 
 /************************************************************************************************************/

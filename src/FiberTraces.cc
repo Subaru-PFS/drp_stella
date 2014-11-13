@@ -23,13 +23,13 @@ namespace pfsDRPStella = pfs::drp::stella;
   _backgroundVariance(height),
   _fiberTraceFunction(),
   _fiberTraceExtractionControl(new FiberTraceExtractionControl),
-  _imagePSF_XTrace(new std::vector<double>),
+/*  _imagePSF_XTrace(new std::vector<double>),
   _imagePSF_YTrace(new std::vector<double>),
   _imagePSF_ZTrace(new std::vector<double>),
   _imagePSF_XRelativeToCenter(new std::vector<double>),
   _imagePSF_YRelativeToCenter(new std::vector<double>),
   _imagePSF_ZNormalized(new std::vector<double>),
-  _imagePSF_Weight(new std::vector<double>),
+  _imagePSF_Weight(new std::vector<double>),*/
   _iBin(0)
   {
     _isXCentersCalculated = false;
@@ -61,13 +61,13 @@ namespace pfsDRPStella = pfs::drp::stella;
   _backgroundVariance(dimensions.getY()),
   _fiberTraceFunction(),
   _fiberTraceExtractionControl(new FiberTraceExtractionControl),
-  _imagePSF_XTrace(new std::vector<double>),
+/*  _imagePSF_XTrace(new std::vector<double>),
   _imagePSF_YTrace(new std::vector<double>),
   _imagePSF_ZTrace(new std::vector<double>),
   _imagePSF_XRelativeToCenter(new std::vector<double>),
   _imagePSF_YRelativeToCenter(new std::vector<double>),
   _imagePSF_ZNormalized(new std::vector<double>),
-  _imagePSF_Weight(new std::vector<double>),
+  _imagePSF_Weight(new std::vector<double>),*/
   _iBin(0)
   {
     _isXCentersCalculated = false;
@@ -96,13 +96,13 @@ namespace pfsDRPStella = pfs::drp::stella;
   _backgroundVariance(maskedImage->getHeight()),
   _fiberTraceFunction(),
   _fiberTraceExtractionControl(new FiberTraceExtractionControl),
-  _imagePSF_XTrace(new std::vector<double>),
+/*  _imagePSF_XTrace(new std::vector<double>),
   _imagePSF_YTrace(new std::vector<double>),
   _imagePSF_ZTrace(new std::vector<double>),
   _imagePSF_XRelativeToCenter(new std::vector<double>),
   _imagePSF_YRelativeToCenter(new std::vector<double>),
   _imagePSF_ZNormalized(new std::vector<double>),
-  _imagePSF_Weight(new std::vector<double>),
+  _imagePSF_Weight(new std::vector<double>),*/
   _iBin(0)
   {
     _isXCentersCalculated = false;
@@ -6979,20 +6979,28 @@ namespace pfsDRPStella = pfs::drp::stella;
       cout << "FiberTrace::calculate2dPSFPerBin: _iBin=" << _iBin << ": xCenterTrace_In = " << xCenterTrace_In << endl;
     #endif
     
-    std::vector<float> _imagePSF_XRelativeToCenter;
-    std::vector<float> _imagePSF_YRelativeToCenter;
-    std::vector<float> _imagePSF_XTrace;
-    std::vector<float> _imagePSF_YTrace;
-    std::vector<float> _imagePSF_ZNormalized;
-    std::vector<float> _imagePSF_ZTrace;
-    std::vector<float> pixelsWeight;
+//    std::vector<float> _imagePSF_XRelativeToCenter;
+//    std::vector<float> _imagePSF_YRelativeToCenter;
+//    std::vector<float> _imagePSF_XTrace;
+//    std::vector<float> _imagePSF_YTrace;
+//    std::vector<float> _imagePSF_ZNormalized;
+//    std::vector<float> _imagePSF_ZTrace;
+//    std::vector<float> pixelsWeight;
+    _imagePSF_XRelativeToCenter.resize(0);
+    _imagePSF_YRelativeToCenter.resize(0);
+    _imagePSF_XTrace.resize(0);
+    _imagePSF_YTrace.resize(0);
+    _imagePSF_ZNormalized.resize(0);
+    _imagePSF_ZTrace.resize(0);
+    _imagePSF_Weight.resize(0);
+    
     _imagePSF_XRelativeToCenter.reserve(1000);
     _imagePSF_YRelativeToCenter.reserve(1000);
     _imagePSF_XTrace.reserve(1000);
     _imagePSF_YTrace.reserve(1000);
     _imagePSF_ZNormalized.reserve(1000);
     _imagePSF_ZTrace.reserve(1000);
-    pixelsWeight.reserve(1000);
+    _imagePSF_Weight.reserve(1000);
     double dTrace, dTraceGaussCenterX, pixOffsetY, pixPosX, pixPosY, xStart, yStart;
     int i_xCenter, i_yCenter, i_Left, i_Right, i_Down, i_Up;
     int nPix = 0;
@@ -7187,90 +7195,93 @@ namespace pfsDRPStella = pfs::drp::stella;
               i_xCenter = int(D_A2_GaussCenters(emissionLineNumber-1, 0));
 
               i_Down = int(D_A2_GaussCenters(emissionLineNumber-1, 1) - (1.5*_twoDPSFControl->yFWHM));
-              if (i_Down < 0)
-                i_Down = 0;
-              i_Up = int(D_A2_GaussCenters(emissionLineNumber-1, 1) + (1.5*_twoDPSFControl->yFWHM));
-              if (i_Up >= _trace.getHeight())
-                i_Up = _trace.getHeight() - 1;
-              pixOffsetY = D_A2_GaussCenters(emissionLineNumber-1,1) - int(D_A2_GaussCenters(emissionLineNumber-1,1)) - 0.5;
-              #ifdef __DEBUG_CALC2DPSF__
-                cout << "FiberTrace::calculate2dPSF: _iBin=" << _iBin << ": emissionLineNumber-1=" << emissionLineNumber-1 << ": D_A2_GaussCenters(" << emissionLineNumber-1 << ",0) = " << D_A2_GaussCenters(emissionLineNumber-1,0) << ": D_A2_GaussCenters(" << emissionLineNumber-1 << ",1) = " << D_A2_GaussCenters(emissionLineNumber-1,1) << ":  i_yCenter = " << i_yCenter << ", dTraceGaussCenterX = " << dTraceGaussCenterX << endl;
-                cout << "FiberTrace::calculate2dPSF: _iBin=" << _iBin << ": emissionLineNumber-1=" << emissionLineNumber-1 << ": i_Down = " << i_Down << ", i_Up = " << i_Up << endl;
-                cout << "FiberTrace::calculate2dPSF: _iBin=" << _iBin << ": emissionLineNumber-1=" << emissionLineNumber-1 << ":pixOffsetY = " << pixOffsetY << endl;
-              #endif
-              
-              int nPixPSF = 0;
-              double sumPSF = 0.;
-              for (int iY = 0; iY <= i_Up - i_Down; ++iY){
-                /// difference in trace center between rows iY and iY(GaussCenterY)
-                #ifdef __DEBUG_CALC2DPSF__
-                  cout << "FiberTrace::calculate2dPSF: _iBin=" << _iBin << ": emissionLineNumber-1=" << emissionLineNumber-1 << ": D_A2_GaussCenters.rows() = " << D_A2_GaussCenters.rows() << "xCentersOffset_In.size() = " << xCentersOffset_In.size() << endl;
-                  cout << "FiberTrace::calculate2dPSF: _iBin=" << _iBin << ": emissionLineNumber-1=" << emissionLineNumber-1 << ": D_A2_GaussCenters(emissionLineNumber-1, 1) = " << D_A2_GaussCenters(emissionLineNumber-1, 1) << ", xCentersOffset_In(i_Down + iY=" << i_Down + iY << ") = " << xCentersOffset_In(i_Down + iY) << endl;
-                #endif
-                dTrace = xCentersOffset_In(int(D_A2_GaussCenters(emissionLineNumber-1, 1))) - xCentersOffset_In(i_Down + iY);
-                
-                /// most left pixel affected by PSF of (emissionLineNumber-1) in this row
-                i_Left = int(xCenterTrace_In(i_Down + iY) - dTraceGaussCenterX - (1.5 * _twoDPSFControl->xFWHM));
-                //i_Left = int(D_A2_GaussCenters(emissionLineNumber-1, 0) - (1.5*_twoDPSFControl->xFWHM)) + int(xCenterTrace_In(i_Down+iY)) - int(xCenterTrace_In(i_yCenter));
-                
-                /// most right pixel affected by PSF of (emissionLineNumber-1) in this row
-                i_Right = int(xCenterTrace_In(i_Down + iY) - dTraceGaussCenterX + (1.5 * _twoDPSFControl->xFWHM));
-                //i_Right = int(D_A2_GaussCenters(emissionLineNumber-1, 0) + (1.5*_twoDPSFControl->xFWHM)) + int(xCenterTrace_In(i_Down+iY)) - int(xCenterTrace_In(i_yCenter));
-                if (i_Left < 0)
-                  i_Left = 0;
-                if (i_Right >= _trace.getWidth())
-                  i_Right = _trace.getWidth() - 1;
-                xStart = int(xCenterTrace_In(i_Down + iY)) + 0.5 - xCenterTrace_In(i_Down + iY) + dTraceGaussCenterX - i_xCenter + i_Left;
-                yStart = i_Down - i_yCenter - pixOffsetY;
-                //xStart = i_Left - i_xCenter - pixOffsetX;
-                //yStart = i_Down - i_yCenter - pixOffsetY;
-                #ifdef __DEBUG_CALC2DPSF__
-                  cout << "FiberTrace::calculate2dPSF: _iBin=" << _iBin << ": emissionLineNumber-1=" << emissionLineNumber-1 << ": dTrace = " << dTrace << ": i_Left = " << i_Left << ", i_Right = " << i_Right << endl;
-                  cout << "FiberTrace::calculate2dPSF: _iBin=" << _iBin << ": emissionLineNumber-1=" << emissionLineNumber-1 << ": xStart = " << xStart << endl;
-                  cout << "FiberTrace::calculate2dPSF: _iBin=" << _iBin << ": emissionLineNumber-1=" << emissionLineNumber-1 << ": yStart = " << yStart << endl;
-                #endif
-                for (int iX = 0; iX <= i_Right - i_Left; ++iX){
+              if (i_Down >= 0){
+//                i_Down = 0;
+                i_Up = int(D_A2_GaussCenters(emissionLineNumber-1, 1) + (1.5*_twoDPSFControl->yFWHM));
+                cout << "FiberTrace::calculate2dPSF: _iBin=" << _iBin << ": emissionLineNumber-1=" << emissionLineNumber-1 << ": _trace.getHeight() = " << _trace.getHeight() << ", i_Up = " << i_Up << endl;
+                if (i_Up < trace_In.rows()){
+//                i_Up = trace_In.rows() - 1;
+                  pixOffsetY = D_A2_GaussCenters(emissionLineNumber-1,1) - int(D_A2_GaussCenters(emissionLineNumber-1,1)) - 0.5;
                   #ifdef __DEBUG_CALC2DPSF__
-                    cout << "FiberTrace::calculate2dPSF: _iBin=" << _iBin << ": emissionLineNumber-1=" << emissionLineNumber-1 << ": iX = " << iX << ": iY = " << iY << endl;
+                    cout << "FiberTrace::calculate2dPSF: _iBin=" << _iBin << ": emissionLineNumber-1=" << emissionLineNumber-1 << ": D_A2_GaussCenters(" << emissionLineNumber-1 << ",0) = " << D_A2_GaussCenters(emissionLineNumber-1,0) << ": D_A2_GaussCenters(" << emissionLineNumber-1 << ",1) = " << D_A2_GaussCenters(emissionLineNumber-1,1) << ":  i_yCenter = " << i_yCenter << ", dTraceGaussCenterX = " << dTraceGaussCenterX << endl;
+                    cout << "FiberTrace::calculate2dPSF: _iBin=" << _iBin << ": emissionLineNumber-1=" << emissionLineNumber-1 << ": i_Down = " << i_Down << ", i_Up = " << i_Up << endl;
+                    cout << "FiberTrace::calculate2dPSF: _iBin=" << _iBin << ": emissionLineNumber-1=" << emissionLineNumber-1 << ":pixOffsetY = " << pixOffsetY << endl;
                   #endif
-                  _imagePSF_XRelativeToCenter.push_back(float(xStart + iX));
-                  _imagePSF_YRelativeToCenter.push_back(float(yStart + iY));
-                  _imagePSF_ZNormalized.push_back(float(trace_In(i_Down+iY, i_Left+iX)));
-                  _imagePSF_ZTrace.push_back(float(trace_In(i_Down+iY, i_Left+iX)));
-                  pixelsWeight.push_back(fabs(trace_In(i_Down+iY, i_Left+iX)) > 0.000000000001 ? float(1. / sqrt(fabs(trace_In(i_Down+iY, i_Left+iX)))) : 0.000000001);//trace_In(i_Down+iY, i_Left+iX) > 0 ? sqrt(trace_In(i_Down+iY, i_Left+iX)) : 0.0000000001);//stddev_In(i_Down+iY, i_Left+iX) > 0. ? 1./pow(stddev_In(i_Down+iY, i_Left+iX),2) : 1.);
-                  _imagePSF_XTrace.push_back(float(i_Left + iX));
-                  _imagePSF_YTrace.push_back(float(i_Down + iY));
+                  
+                  int nPixPSF = 0;
+                  double sumPSF = 0.;
+                  for (int iY = 0; iY <= i_Up - i_Down; ++iY){
+                    /// difference in trace center between rows iY and iY(GaussCenterY)
+                    #ifdef __DEBUG_CALC2DPSF__
+                      cout << "FiberTrace::calculate2dPSF: _iBin=" << _iBin << ": emissionLineNumber-1=" << emissionLineNumber-1 << ": D_A2_GaussCenters.rows() = " << D_A2_GaussCenters.rows() << "xCentersOffset_In.size() = " << xCentersOffset_In.size() << endl;
+                      cout << "FiberTrace::calculate2dPSF: _iBin=" << _iBin << ": emissionLineNumber-1=" << emissionLineNumber-1 << ": D_A2_GaussCenters(emissionLineNumber-1, 1) = " << D_A2_GaussCenters(emissionLineNumber-1, 1) << ", xCentersOffset_In(i_Down + iY=" << i_Down + iY << ") = " << xCentersOffset_In(i_Down + iY) << endl;
+                    #endif
+                    dTrace = xCentersOffset_In(int(D_A2_GaussCenters(emissionLineNumber-1, 1))) - xCentersOffset_In(i_Down + iY);
+                    
+                    /// most left pixel affected by PSF of (emissionLineNumber-1) in this row
+                    i_Left = int(xCenterTrace_In(i_Down + iY) - dTraceGaussCenterX - (1.5 * _twoDPSFControl->xFWHM));
+                    //i_Left = int(D_A2_GaussCenters(emissionLineNumber-1, 0) - (1.5*_twoDPSFControl->xFWHM)) + int(xCenterTrace_In(i_Down+iY)) - int(xCenterTrace_In(i_yCenter));
+                    
+                    /// most right pixel affected by PSF of (emissionLineNumber-1) in this row
+                    i_Right = int(xCenterTrace_In(i_Down + iY) - dTraceGaussCenterX + (1.5 * _twoDPSFControl->xFWHM));
+                    //i_Right = int(D_A2_GaussCenters(emissionLineNumber-1, 0) + (1.5*_twoDPSFControl->xFWHM)) + int(xCenterTrace_In(i_Down+iY)) - int(xCenterTrace_In(i_yCenter));
+                    if (i_Left < 0)
+                      i_Left = 0;
+                    if (i_Right >= _trace.getWidth())
+                      i_Right = _trace.getWidth() - 1;
+                    xStart = int(xCenterTrace_In(i_Down + iY)) + 0.5 - xCenterTrace_In(i_Down + iY) + dTraceGaussCenterX - i_xCenter + i_Left;
+                    yStart = i_Down - i_yCenter - pixOffsetY;
+                    //xStart = i_Left - i_xCenter - pixOffsetX;
+                    //yStart = i_Down - i_yCenter - pixOffsetY;
+                    #ifdef __DEBUG_CALC2DPSF__
+                      cout << "FiberTrace::calculate2dPSF: _iBin=" << _iBin << ": emissionLineNumber-1=" << emissionLineNumber-1 << ": dTrace = " << dTrace << ": i_Left = " << i_Left << ", i_Right = " << i_Right << endl;
+                      cout << "FiberTrace::calculate2dPSF: _iBin=" << _iBin << ": emissionLineNumber-1=" << emissionLineNumber-1 << ": xStart = " << xStart << endl;
+                      cout << "FiberTrace::calculate2dPSF: _iBin=" << _iBin << ": emissionLineNumber-1=" << emissionLineNumber-1 << ": yStart = " << yStart << endl;
+                    #endif
+                    for (int iX = 0; iX <= i_Right - i_Left; ++iX){
+                      #ifdef __DEBUG_CALC2DPSF__
+                        cout << "FiberTrace::calculate2dPSF: _iBin=" << _iBin << ": emissionLineNumber-1=" << emissionLineNumber-1 << ": iX = " << iX << ": iY = " << iY << endl;
+                      #endif
+                      _imagePSF_XRelativeToCenter.push_back(float(xStart + iX));
+                      _imagePSF_YRelativeToCenter.push_back(float(yStart + iY));
+                      _imagePSF_ZNormalized.push_back(float(trace_In(i_Down+iY, i_Left+iX)));
+                      _imagePSF_ZTrace.push_back(float(trace_In(i_Down+iY, i_Left+iX)));
+                      _imagePSF_Weight.push_back(fabs(trace_In(i_Down+iY, i_Left+iX)) > 0.000000000001 ? float(1. / sqrt(fabs(trace_In(i_Down+iY, i_Left+iX)))) : 0.000000001);//trace_In(i_Down+iY, i_Left+iX) > 0 ? sqrt(trace_In(i_Down+iY, i_Left+iX)) : 0.0000000001);//stddev_In(i_Down+iY, i_Left+iX) > 0. ? 1./pow(stddev_In(i_Down+iY, i_Left+iX),2) : 1.);
+                      _imagePSF_XTrace.push_back(float(i_Left + iX));
+                      _imagePSF_YTrace.push_back(float(i_Down + iY));
+                      #ifdef __DEBUG_CALC2DPSF__
+                        cout << "FiberTrace::calculate2dPSF: _iBin=" << _iBin << ": emissionLineNumber-1=" << emissionLineNumber-1 << ": xCenterTrace_In(i_Down + iY=" << i_Down + iY << ") = " << xCenterTrace_In(i_Down + iY) << ", xCentersOffset_In(" << i_Down + iY << ") = " << xCentersOffset_In(i_Down + iY) << endl;
+                        cout << "FiberTrace::calculate2dPSF: _iBin=" << _iBin << ": emissionLineNumber-1=" << emissionLineNumber-1 << ": x = " << _imagePSF_XRelativeToCenter[nPix] << ", y = " << _imagePSF_YRelativeToCenter[nPix] << ": val = " << trace_In(i_Down + iY, i_Left + iX) << " ^= " << _imagePSF_ZNormalized[nPix] << "; XOrig = " << _imagePSF_XTrace[nPix] << ", YOrig = " << _imagePSF_YTrace[nPix] << endl;
+                      #endif
+                      ++nPix;
+                      ++nPixPSF;
+                      sumPSF += trace_In(i_Down+iY, i_Left+iX);
+                      #ifdef __DEBUG_CALC2DPSF__
+                        cout << "FiberTrace::calculate2dPSF: _iBin=" << _iBin << ": emissionLineNumber-1 = " << emissionLineNumber-1 << ": nPixPSF = " << nPixPSF << ", sumPSF = " << sumPSF << endl;
+                      #endif
+                    }
+                  }
+                  int pixelNo = _imagePSF_ZNormalized.size()-nPixPSF;
                   #ifdef __DEBUG_CALC2DPSF__
-                    cout << "FiberTrace::calculate2dPSF: _iBin=" << _iBin << ": emissionLineNumber-1=" << emissionLineNumber-1 << ": xCenterTrace_In(i_Down + iY=" << i_Down + iY << ") = " << xCenterTrace_In(i_Down + iY) << ", xCentersOffset_In(" << i_Down + iY << ") = " << xCentersOffset_In(i_Down + iY) << endl;
-                    cout << "FiberTrace::calculate2dPSF: _iBin=" << _iBin << ": emissionLineNumber-1=" << emissionLineNumber-1 << ": x = " << _imagePSF_XRelativeToCenter[nPix] << ", y = " << _imagePSF_YRelativeToCenter[nPix] << ": val = " << trace_In(i_Down + iY, i_Left + iX) << " ^= " << _imagePSF_ZNormalized[nPix] << "; XOrig = " << _imagePSF_XTrace[nPix] << ", YOrig = " << _imagePSF_YTrace[nPix] << endl;
+                    cout << "FiberTrace::calculate2dPSF: _iBin=" << _iBin << ": emissionLineNumber-1 = " << emissionLineNumber-1 << ": *_imagePSF_ZNormalized.begin()=" << *(_imagePSF_ZNormalized.begin()) << " *(_imagePSF_ZNormalized.end()-1)=" << *(_imagePSF_ZNormalized.end()-1) << endl;
+                    cout << "FiberTrace::calculate2dPSF: _iBin=" << _iBin << ": emissionLineNumber-1 = " << emissionLineNumber-1 << ": _imagePSF_ZNormalized[nPix=" << nPix << " - nPixPSF=" << nPixPSF << " = " << nPix - nPixPSF << " = " << _imagePSF_ZNormalized[nPix-nPixPSF] << endl;
+                    cout << "FiberTrace::calculate2dPSF: _iBin=" << _iBin << ": emissionLineNumber-1 = " << emissionLineNumber-1 << ": _imagePSF_ZNormalized[nPix-1=" << nPix-1 << "] = " << _imagePSF_ZNormalized[nPix-1] << endl;
                   #endif
-                  ++nPix;
-                  ++nPixPSF;
-                  sumPSF += trace_In(i_Down+iY, i_Left+iX);
-                  #ifdef __DEBUG_CALC2DPSF__
-                    cout << "FiberTrace::calculate2dPSF: _iBin=" << _iBin << ": emissionLineNumber-1 = " << emissionLineNumber-1 << ": nPixPSF = " << nPixPSF << ", sumPSF = " << sumPSF << endl;
-                  #endif
+                  for (std::vector<float>::iterator iter=_imagePSF_ZNormalized.end()-nPixPSF; iter<_imagePSF_ZNormalized.end(); ++iter){
+                    #ifdef __DEBUG_CALC2DPSF__
+                      cout << "FiberTrace::calculate2dPSF: _iBin=" << _iBin << ": emissionLineNumber-1 = " << emissionLineNumber-1 << ": _imagePSF_ZNormalized[pixelNo=" << pixelNo << "] = " << _imagePSF_ZNormalized[pixelNo] << ", sumPSF = " << sumPSF << endl;
+                    #endif
+                    if (fabs(sumPSF) < 0.00000001){
+                      cout << "FiberTrace::calculate2dPSF: _iBin=" << _iBin << ": emissionLineNumber-1 = " << emissionLineNumber-1 << ": ERROR: sumPSF == 0" << endl;
+                      return false;
+                    }
+                    (*iter) = (*iter) / sumPSF;
+                    #ifdef __DEBUG_CALC2DPSF__
+                      cout << "FiberTrace::calculate2dPSF: _iBin=" << _iBin << ": emissionLineNumber-1 = " << emissionLineNumber-1 << ": _imagePSF_ZNormalized[pixelNo=" << pixelNo << "] = " << _imagePSF_ZNormalized[pixelNo] << endl;
+                    #endif
+                    ++pixelNo;
+                  }
                 }
-              }
-              int pixelNo = _imagePSF_ZNormalized.size()-nPixPSF;
-              #ifdef __DEBUG_CALC2DPSF__
-                cout << "FiberTrace::calculate2dPSF: _iBin=" << _iBin << ": emissionLineNumber-1 = " << emissionLineNumber-1 << ": *_imagePSF_ZNormalized.begin()=" << *(_imagePSF_ZNormalized.begin()) << " *(_imagePSF_ZNormalized.end()-1)=" << *(_imagePSF_ZNormalized.end()-1) << endl;
-                cout << "FiberTrace::calculate2dPSF: _iBin=" << _iBin << ": emissionLineNumber-1 = " << emissionLineNumber-1 << ": _imagePSF_ZNormalized[nPix=" << nPix << " - nPixPSF=" << nPixPSF << " = " << nPix - nPixPSF << " = " << _imagePSF_ZNormalized[nPix-nPixPSF] << endl;
-                cout << "FiberTrace::calculate2dPSF: _iBin=" << _iBin << ": emissionLineNumber-1 = " << emissionLineNumber-1 << ": _imagePSF_ZNormalized[nPix-1=" << nPix-1 << "] = " << _imagePSF_ZNormalized[nPix-1] << endl;
-              #endif
-              for (std::vector<float>::iterator iter=_imagePSF_ZNormalized.end()-nPixPSF; iter<_imagePSF_ZNormalized.end(); ++iter){
-                #ifdef __DEBUG_CALC2DPSF__
-                  cout << "FiberTrace::calculate2dPSF: _iBin=" << _iBin << ": emissionLineNumber-1 = " << emissionLineNumber-1 << ": _imagePSF_ZNormalized[pixelNo=" << pixelNo << "] = " << _imagePSF_ZNormalized[pixelNo] << ", sumPSF = " << sumPSF << endl;
-                #endif
-                if (fabs(sumPSF) < 0.00000001){
-                  cout << "FiberTrace::calculate2dPSF: _iBin=" << _iBin << ": emissionLineNumber-1 = " << emissionLineNumber-1 << ": ERROR: sumPSF == 0" << endl;
-                  return false;
-                }
-                (*iter) = (*iter) / sumPSF;
-                #ifdef __DEBUG_CALC2DPSF__
-                  cout << "FiberTrace::calculate2dPSF: _iBin=" << _iBin << ": emissionLineNumber-1 = " << emissionLineNumber-1 << ": _imagePSF_ZNormalized[pixelNo=" << pixelNo << "] = " << _imagePSF_ZNormalized[pixelNo] << endl;
-                #endif
-                ++pixelNo;
               }
             }
             else{
@@ -7281,23 +7292,58 @@ namespace pfsDRPStella = pfs::drp::stella;
       }/// end if (blitz::max(spectrum_In(blitz::Range(I_FirstWideSignalStart, I_FirstWideSignalEnd))) < _twoDPSFControl->saturationLevel){
     } while(true);
     #ifdef __DEBUG_CALC2DPSF__
+      cout << "FiberTrace::calculate2dPSF: _iBin=" << _iBin << ": nPix = " << nPix << ", _imagePSF_XRelativeToCenter.size() = " << _imagePSF_XRelativeToCenter.size() << endl;
+      cout << "FiberTrace::calculate2dPSF: _iBin=" << _iBin << ": nPix = " << nPix << ", _imagePSF_XTrace.size() = " << _imagePSF_XTrace.size() << endl;
+      cout << "FiberTrace::calculate2dPSF: _iBin=" << _iBin << ": nPix = " << nPix << ", _imagePSF_YRelativeToCenter.size() = " << _imagePSF_YRelativeToCenter.size() << endl;
+      cout << "FiberTrace::calculate2dPSF: _iBin=" << _iBin << ": nPix = " << nPix << ", _imagePSF_YTrace.size() = " << _imagePSF_YTrace.size() << endl;
+      cout << "FiberTrace::calculate2dPSF: _iBin=" << _iBin << ": nPix = " << nPix << ", _imagePSF_ZTrace.size() = " << _imagePSF_ZTrace.size() << endl;
+      cout << "FiberTrace::calculate2dPSF: _iBin=" << _iBin << ": nPix = " << nPix << ", _imagePSF_ZNormalized.size() = " << _imagePSF_ZNormalized.size() << endl;
+      cout << "FiberTrace::calculate2dPSF: _iBin=" << _iBin << ": nPix = " << nPix << ", _imagePSF_Weight.size() = " << _imagePSF_Weight.size() << endl;
       cout << "FiberTrace::calculate2dPSF: _iBin=" << _iBin << ": xFWHM = " << _twoDPSFControl->xFWHM << ", yFWHM = " << _twoDPSFControl->yFWHM << endl;
       std::ofstream of;
-      std::string ofname = DEBUGDIR + std::string("pix_x_y_val_norm_weight_iBin");
+      std::string ofname = DEBUGDIR + std::string("pix_x_xo_y_yo_val_norm_weight_iBin");
       if (_iBin < 10)
         ofname += std::string("0");
       ofname += to_string(_iBin)+std::string(".dat");
       of.open(ofname);
       for (int iPix=0; iPix<nPix; ++iPix){
-        of << _imagePSF_XRelativeToCenter[iPix] << " " << _imagePSF_YRelativeToCenter[iPix] << " " << _imagePSF_ZTrace[iPix] << " " << _imagePSF_ZNormalized[iPix] << " " << pixelsWeight[iPix] << endl;
+        of << _imagePSF_XRelativeToCenter[iPix] << " " << _imagePSF_XTrace[iPix] << " " << _imagePSF_YRelativeToCenter[iPix] << " " << _imagePSF_YTrace[iPix] << " " << _imagePSF_ZTrace[iPix] << " " << _imagePSF_ZNormalized[iPix] << " " << _imagePSF_Weight[iPix] << endl;
       }
       of.close();
     #endif
-
+    if (nPix != _imagePSF_XRelativeToCenter.size()){
+      cout << "FiberTrace::calculate2dPSF: _iBin=" << _iBin << ": ERROR: nPix != _imagePSF_XRelativeToCenter.size()" << endl;
+      return false;
+    }
+    if (nPix != _imagePSF_XTrace.size()){
+      cout << "FiberTrace::calculate2dPSF: _iBin=" << _iBin << ": ERROR: nPix != _imagePSF_XTrace.size()" << endl;
+      return false;
+    }
+    if (nPix != _imagePSF_YRelativeToCenter.size()){
+      cout << "FiberTrace::calculate2dPSF: _iBin=" << _iBin << ": ERROR: nPix != _imagePSF_YRelativeToCenter.size()" << endl;
+      return false;
+    }
+    if (nPix != _imagePSF_YTrace.size()){
+      cout << "FiberTrace::calculate2dPSF: _iBin=" << _iBin << ": ERROR: nPix != _imagePSF_YTrace.size()" << endl;
+      return false;
+    }
+    if (nPix != _imagePSF_ZTrace.size()){
+      cout << "FiberTrace::calculate2dPSF: _iBin=" << _iBin << ": ERROR: nPix != _imagePSF_ZTrace.size()" << endl;
+      return false;
+    }
+    if (nPix != _imagePSF_ZNormalized.size()){
+      cout << "FiberTrace::calculate2dPSF: _iBin=" << _iBin << ": ERROR: nPix != _imagePSF_ZNormalized.size()" << endl;
+      return false;
+    }
+    if (nPix != _imagePSF_Weight.size()){
+      cout << "FiberTrace::calculate2dPSF: _iBin=" << _iBin << ": ERROR: nPix != _imagePSF_Weight.size()" << endl;
+      return false;
+    }
+    
 //    return false;
     /// fit bispline
     std::vector<float> pixelsFit(_imagePSF_XRelativeToCenter.size());
-    SurfaceFit surfaceFit(_imagePSF_XRelativeToCenter, _imagePSF_YRelativeToCenter, _imagePSF_ZNormalized, pixelsWeight, _twoDPSFControl->nKnotsX, _twoDPSFControl->nKnotsY, _twoDPSFControl->smooth);
+    SurfaceFit surfaceFit(_imagePSF_XRelativeToCenter, _imagePSF_YRelativeToCenter, _imagePSF_ZNormalized, _imagePSF_Weight, _twoDPSFControl->nKnotsX, _twoDPSFControl->nKnotsY, _twoDPSFControl->smooth);
     if (!surfaceFit.estimate(_imagePSF_XRelativeToCenter, _imagePSF_YRelativeToCenter, pixelsFit)){
       cout << "FiberTrace::calculate2dPSF: _iBin=" << _iBin << ": ERROR: surfaceFit.estimate returned FALSE" << endl;
       return false;
