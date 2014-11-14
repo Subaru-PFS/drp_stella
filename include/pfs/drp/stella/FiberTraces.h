@@ -18,7 +18,7 @@
 #include <fitsio2.h>
 #include "cmpfit-1.2/MyFit.h"
 #include "spline.h"
-#include "SurfaceFit.h"
+#include "PSF.h"
 //#include "kriging/geostat.h"
 
 #define stringify( name ) # name
@@ -185,7 +185,7 @@ struct TwoDPSFControl {
     LSST_CONTROL_FIELD(nKnotsX, unsigned int, "Number of interpolation knots in X direction");
     LSST_CONTROL_FIELD(nKnotsY, unsigned int, "Number of interpolation knots in Y direction");
     LSST_CONTROL_FIELD(smooth, float, "Smoothing factor for bidirectional spline interpolation");
-    
+
     TwoDPSFControl() :
     signalThreshold(1000.),
     swathWidth(500),
@@ -196,6 +196,17 @@ struct TwoDPSFControl {
     nKnotsX(75),
     nKnotsY(75),
     smooth(35000.){}
+
+    TwoDPSFControl(TwoDPSFControl &twoDPSFControl) :
+    signalThreshold(twoDPSFControl.signalThreshold),
+    swathWidth(twoDPSFControl.swathWidth),
+    xFWHM(twoDPSFControl.xFWHM),
+    yFWHM(twoDPSFControl.yFWHM),
+    nTermsGaussFit(twoDPSFControl.nTermsGaussFit),
+    saturationLevel(twoDPSFControl.saturationLevel),
+    nKnotsX(twoDPSFControl.nKnotsX),
+    nKnotsY(twoDPSFControl.nKnotsY),
+    smooth(twoDPSFControl.smooth){}
 };
 
 /**
@@ -207,7 +218,7 @@ class FiberTrace {
     typedef afwImage::MaskedImage<ImageT, MaskT, VarianceT> MaskedImageT;
 //    typedef boost::shared_ptr<FiberTrace> Ptr;
 //    typedef boost::shared_ptr<FiberTrace const> ConstPtr;
-    
+
     // Class Constructors and Destructor
     explicit FiberTrace(
       unsigned int width, unsigned int height
@@ -279,6 +290,12 @@ class FiberTrace {
 
     /// Set the _fiberTraceExtractionControl
     bool setFiberTraceExtractionControl(PTR(FiberTraceExtractionControl) fiberTraceExtractionControl);// { _fiberTraceExtractionControl = fiberTraceExtractionControl; }
+
+    /// Return _fiberTraceExtractionControl
+    PTR(TwoDPSFControl) getTwoDPSFControl() const { return _twoDPSFControl; }
+
+    /// Set the _fiberTraceExtractionControl
+    bool setTwoDPSFControl(PTR(TwoDPSFControl) twoDPSFControl);// { _fiberTraceExtractionControl = fiberTraceExtractionControl; }
 
     /// Calculate the x-centers of the fiber trace
     bool calculateXCenters();//FiberTraceFunctionControl const& fiberTraceFunctionControl);
@@ -428,15 +445,15 @@ class FiberTrace {
                    blitz::Array<double, 2> &profilePerRow_Out);/// output 2D profile image
 
     bool calculate2dPSFPerBin();
-    bool calculate2dPSF(const int yLow_In,
-                        const int yHigh_In,
-                        blitz::Array<double, 2> &PSF2D_Out);
+//    bool calculate2dPSF(const int yLow_In,
+//                        const int yHigh_In,
+//                        blitz::Array<double, 2> &PSF2D_Out);
 
     bool calculateSwathWidth_NBins_BinHeight_BinBoundY(int &swathWidth,
                                                        int &nBins,
                                                        int &binHeight,
                                                        blitz::Array<int, 2> &binBoundY);
-    
+
   private:
     ///TODO: replace variables with smart pointers?????
     MaskedImageT _trace;
@@ -449,6 +466,8 @@ class FiberTrace {
     std::vector<float> _spectrumVariance;
     std::vector<float> _background;
     std::vector<float> _backgroundVariance;
+    std::vector<PTR(pfs::drp::stella::PSF<ImageT, MaskT, VarianceT>)> _psfVector;
+    int _iBin;
     //    std::vector<float> _fittedSky;
     bool _isXCentersCalculated;
 //    bool _isImageSet;
@@ -456,10 +475,13 @@ class FiberTrace {
     bool _isProfileSet;
     bool _isFiberTraceFunctionSet;
     bool _isFiberTraceExtractionControlSet;
+    bool _isTwoDPSFControlSet;
     bool _isSpectrumExtracted;
     FiberTraceFunction _fiberTraceFunction;
     PTR(FiberTraceExtractionControl) _fiberTraceExtractionControl;
-    
+    PTR(TwoDPSFControl) _twoDPSFControl;
+
+
   protected:
 };
 
@@ -764,9 +786,6 @@ class FiberTraceSet {
     bool calcMinCenMax(const blitz::Array<float, 1> &xCenters_In,
                        float xHigh_In,
                        float xLow_In,
-                       int yCenter_In,
-                       int yLow_In,
-                       int yHigh_In,
                        int nPixCutLeft_In,
                        int nPixCutRight_In,
                        blitz::Array<int, 2> &I_A2_MinCenMax_Out);
@@ -1665,15 +1684,15 @@ class FiberTraceSet {
     /// mode == 0: remove leading 'chr'
     /// mode == 1: remove trailing 'chr'
     /// mode == 2: remove leading and trailing 'chr'
-    bool trimString(string &str, const char chr, const int mode);      
-    
+    bool trimString(string &str, const char chr, const int mode);
+
     /// converts str to double if possible and returns true, otherwise returns false
     bool sToD(const string &str, double &D_Out);
     bool sToD(const blitz::Array<string, 1> &S_A1_In, blitz::Array<double, 1> &D_A1_Out);
-    
+
     //  int sToI(const string &str);
     bool sToI(const string &str, int &I_Out);
-    
+
     /**
      *       function int CountLines(const string &fnc: in)
      *       Returns number of lines of file <fnc>.
