@@ -223,272 +223,31 @@ private:
    c            continue at the point the program was left, by calling
    c            surfit with iopt=1.
    **/
-    int _iopt, _m;
-    float *_x;
-    float *_y;
-    float *_z;
-    float *_w;
-    float _xb, _xe;
-    float _yb, _ye;
-    int _kx, _ky;
-    float _smooth;
-    int _nxest,_nyest,_nmax;
-    float _eps;
-    int _nx,_ny;
-    float* _tx;
-    float* _ty;
-    int _nc;
-    float* _c;
-    float _fp;
-    float* _wrk1;
-    float* _wrk2;
-    int _lwrk1,_lwrk2;
-    int* _iwrk;
-    int _kwrk, _ier;
+    std::vector<float> _tx;
+    std::vector<float> _ty;
+    std::vector<float> _coeffs;
+    int _lwrk2;
+    int _kwrk;
+    int _kx;
+    int _ky;
 public:
-    explicit SurfaceFit(const std::vector<float> &xIn, const std::vector<float> &yIn, const std::vector<float> &zIn, const std::vector<float> &wIn, const unsigned int &nKnotsX, const unsigned int &nKnotsY, const float &smooth) : _iopt(-1), _kx(3), _ky(3), _ier(0)
-    {
-        assert(xIn.size() == yIn.size());
-        assert(xIn.size() == zIn.size());
-        assert(static_cast<int>(nKnotsX) > _kx+2);
-        assert(static_cast<int>(nKnotsY) > _ky+2);
-        cout << "SurfaceFit::SurfaceFit: xIn.size() = " << xIn.size() << endl;
-//        int lwa;
-//        float * wa;
-        _m = xIn.size();
-        _x = new float[_m];
-        _y = new float[_m];
-        _z = new float[_m];
-        _w = new float[_m];
-        for (int i = 0; i < _m; ++i)
-        {
-            _x[i] = xIn[i];
-            _y[i] = yIn[i];
-            _z[i] = zIn[i];
-            _w[i] = wIn[i];
-            cout << "SurfaceFit::SurfaceFit: _x[" << i << "] = " << _x[i] << ", _y[" << i << "] = " << _y[i] << ", _z[" << i << "] = " << _z[i] << ", _w[" << i << "] = " << _w[i] << endl;
-        }
-        _xb = (*(std::min_element(xIn.begin(), xIn.end())));
-        _xe = (*(std::max_element(xIn.begin(), xIn.end())));
-        _yb = (*(std::min_element(yIn.begin(), yIn.end())));
-        _ye = (*(std::max_element(yIn.begin(), yIn.end())));
-        cout << "SurfaceFit::SurfaceFit: _xb = " << _xb << ", _xe = " << _xe << ", _yb = " << _yb << ", _ye = " << _ye << endl;
-
-        _nx = int(nKnotsX);//nxest / 2;
-        _ny = int(nKnotsY);//nyest / 2;
-        cout << "SurfaceFit::SurfaceFit: _nx = " << _nx << ", _ny = " << _ny << endl;
-
-        _nxest = _nx+1;// * (kx+1+std::sqrt(m/2));
-        _nyest = _ny+1;// * (ky+1+std::sqrt(m/2));
-        cout << "SurfaceFit::SurfaceFit: _nxest = " << _nxest << ", _nyest = " << _nyest << endl;
-
-        _nmax = _nxest > _nyest ? 2 * _nxest : 2 * _nyest;
-        cout << "SurfaceFit::SurfaceFit: _nmax = " << _nmax << endl;
-
-        _tx = new float[_nx];
-        _ty = new float[_ny];
-        _tx[0] = _xb;
-        _ty[0]= _yb;
-        double txStep = (_xe-_xb) / (_nx-1);
-        double tyStep = (_ye-_yb) / (_ny-1);
-        cout << "SurfaceFit::SurfaceFit: _tx[0] = " << _tx[0] << ", _ty[0] = " << _ty[0] << endl;
-        for (int i=1; i<_nx; ++i){
-          _tx[i] = _tx[i-1] + txStep;
-          cout << "SurfaceFit::SurfaceFit: _tx[" << i << "] = " << _tx[i] << endl;
-        }
-        for (int i=1; i<_ny; ++i){
-          _ty[i] = _ty[i-1] + tyStep;
-          cout << "SurfaceFit::SurfaceFit: _ty[" << i << "] = " << _ty[i] << endl;
-        }
-
-        _eps = std::pow(10.,-37.);
-        cout << "SurfaceFit::SurfaceFit: _eps = " << _eps << endl;
-
-        _nc = (_nxest-_kx-1)*(_nyest-_ky-1) * 10;
-        _c = new float[_nc];
-        cout << "SurfaceFit::SurfaceFit: _c.size = " << (_nxest-_kx-1)*(_nyest-_ky-1) * 10 << endl;
-
-        _fp = 100.;
-
-        int u = _nxest-_kx-1;
-        cout << "SurfaceFit::SurfaceFit: u = " << u << endl;
-        int v = _nyest-_ky-1;
-        cout << "SurfaceFit::SurfaceFit: v = " << v << endl;
-        int km = std::max(_kx,_ky)+1;
-        cout << "SurfaceFit::SurfaceFit: km = " << km << endl;
-        int ne = std::max(_nxest,_nyest);
-        cout << "SurfaceFit::SurfaceFit: ne = " << ne << endl;
-        int bx = _kx*v+_ky+1;
-        cout << "SurfaceFit::SurfaceFit: bx = " << bx << endl;
-        int by = _ky*u+_kx+1;
-        cout << "SurfaceFit::SurfaceFit: by = " << by << endl;
-        int b1, b2;
-        if(bx <= by){
-          b1 = bx;
-          b2 = b1+v-_ky;
-        }
-        else{
-          b1 = by;
-          b2 = b1+u-_kx;
-        }
-        cout << "SurfaceFit::SurfaceFit: b1 = " << b1 << endl;
-        cout << "SurfaceFit::SurfaceFit: b2 = " << b2 << endl;
-        _lwrk1 = u*v*(2+b1+b2)+2*(u+v+km*(_m+ne)+ne-_kx-_ky)+b2+2;
-//        lwrk1 = nmax*nmax*(2+(2*((1+nmax)*5+6)+nmax));
-        cout << "SurfaceFit::SurfaceFit: _lwrk1 = " << _lwrk1 << endl;
-//        lwrk1 += 2*(nmax+nmax+nmax*(m+nmax)+nmax);
-//        cout << "SurfaceFit::SurfaceFit: lwrk1 = " << lwrk1 << endl;
-//        lwrk1 += ((1+nmax)*5 + 6)+nmax+1;
-//        cout << "SurfaceFit::SurfaceFit: lwrk1 = " << lwrk1 << endl;
-        _wrk1 = new float[_lwrk1];
-
-        _lwrk2=1;// = u*v*(b2+1)+b2+1;
-//        lwrk2 = nmax*nmax*((((1+nmax)*5) + 6 + nmax)+1)+((1+nmax)*5) + 6 + nmax;
-        cout << "SurfaceFit::SurfaceFit: _lwrk2 = " << _lwrk2 << endl;
-        _wrk2 = new float[_lwrk2];
-
-        _kwrk = _m+(_nmax*_nmax);
-        cout << "SurfaceFit::SurfaceFit: _kwrk = " << _kwrk << endl;
-        _iwrk = new int[_kwrk];
-/*
- *   c            -1<=iopt<=1, 1<=kx,ky<=5, m>=(kx+1)*(ky+1), nxest>=2*kx+2,
- *   c            nyest>=2*ky+2, 0<eps<1, nmax>=nxest, nmax>=nyest,*/
-        if ((_iopt < -1) || _iopt > 1){
-          cout << "SurfaceFit::SurfaceFit: _iopt=" << _iopt << " outside range" << endl;
-          exit(EXIT_FAILURE);
-        }
-        if ((_kx < 1) || (_kx > 5)){
-          cout << "SurfaceFit::SurfaceFit: _kx=" << _kx << " outside range" << endl;
-          exit(EXIT_FAILURE);
-        }
-        if ((_ky < 1) || (_ky > 5)){
-          cout << "SurfaceFit::SurfaceFit: _ky=" << _ky << " outside range" << endl;
-          exit(EXIT_FAILURE);
-        }
-        if (_nxest < (2*_kx+2)){
-          cout << "SurfaceFit::SurfaceFit: _nxest=" << _nxest << " outside range" << endl;
-          exit(EXIT_FAILURE);
-        }
-        if (_nyest < (2*_ky+2)){
-          cout << "SurfaceFit::SurfaceFit: _nyest=" << _nyest << " outside range" << endl;
-          exit(EXIT_FAILURE);
-        }
-        if ((_eps <= 0.) || (_eps >= 1.)){
-          cout << "SurfaceFit::SurfaceFit: _eps=" << _eps << " outside range" << endl;
-          exit(EXIT_FAILURE);
-        }
-        if ((_nmax < _nxest) || (_nmax < _nyest)){
-          cout << "SurfaceFit::SurfaceFit: _nmax=" << _nmax << " outside range" << endl;
-          exit(EXIT_FAILURE);
-        }
-        /*   c            xb<=x(i)<=xe, yb<=y(i)<=ye, w(i)>0, i=1,...,m
-         *   c            lwrk1 >= u*v*(2+b1+b2)+2*(u+v+km*(m+ne)+ne-kx-ky)+b2+1
-         *   c            kwrk >= m+(nxest-2*kx-1)*(nyest-2*ky-1)
-         *   c            if iopt=-1: 2*kx+2<=nx<=nxest
-         *   c                        xb<tx(kx+2)<tx(kx+3)<...<tx(nx-kx-1)<xe
-         *   c                        2*ky+2<=ny<=nyest
-         *   c                        yb<ty(ky+2)<ty(ky+3)<...<ty(ny-ky-1)<ye
-         */
-        if (_lwrk1 < (u*v*(2+b1+b2)+2*(u+v+km*(_m+ne)+ne-_kx-_ky)+b2+1)){
-          cout << "SurfaceFit::SurfaceFit: _lwrk=" << _lwrk1 << " outside range" << endl;
-          exit(EXIT_FAILURE);
-        }
-        if (_kwrk < (_m+(_nxest-2*_kx-1)*(_nyest-2*_ky-1))){
-          cout << "SurfaceFit::SurfaceFit: _kwrk=" << _kwrk << " outside range" << endl;
-          exit(EXIT_FAILURE);
-        }
-        if ((_nx < (2*_kx+2)) || (_nx > _nxest)){
-          cout << "SurfaceFit::SurfaceFit: _nx=" << _nx << " outside range: 2*_kx+2=" << 2*_kx+2 << ", _nxest=" << _nxest << endl;
-          exit(EXIT_FAILURE);
-        }
-        if ((_ny < (2*_ky+2)) || (_ny > _nyest)){
-          cout << "SurfaceFit::SurfaceFit: _ny=" << _ny << " outside range" << endl;
-          exit(EXIT_FAILURE);
-        }
-
-//        s = 10.*m;
-        _smooth = smooth;
-        cout << "SurfaceFit::SurfaceFit: _smooth = " << _smooth << endl;
-
-        surfit_(_iopt,_m,_x,_y,_z,_w,_xb,_xe,_yb,_ye,_kx,_ky,_smooth,_nxest,_nyest,_nmax,_eps,_nx,_tx,_ny,_ty,_c,_fp,_wrk1,_lwrk1,_wrk2,_lwrk2,_iwrk,_kwrk,_ier);
-        cout << "SurfaceFit::SurfaceFit: _ier = " << _ier << endl;
-        if (_ier > 10){
-          _lwrk2 = _ier;
-          delete[] _wrk2;
-          _wrk2 = new float[_lwrk2];
-          surfit_(_iopt,_m,_x,_y,_z,_w,_xb,_xe,_yb,_ye,_kx,_ky,_smooth,_nxest,_nyest,_nmax,_eps,_nx,_tx,_ny,_ty,_c,_fp,_wrk1,_lwrk1,_wrk2,_lwrk2,_iwrk,_kwrk,_ier);
-          cout << "SurfaceFit::SurfaceFit: _ier = " << _ier << endl;
-        }
-//        for (int i=0; i<((_nxest-_kx-1)*(_nyest-_ky-1) + 10 < 1000 ? (_nxest-_kx-1)*(_nyest-_ky-1) + 10 : 1000); i++)
-//          cout << "SurfaceFit::SurfaceFit: _c[" << i << "] = " << _c[i] << endl;
-        cout << "SurfaceFit::SurfaceFit: _fp = " << _fp << endl;
-        if (((_fp - _smooth)/_smooth) > 0.001){
-          cout << "SurfaceFit::SurfaceFit: fit failed!" << endl;
-          exit(EXIT_FAILURE);
-        }
-    }
+    explicit SurfaceFit() : _tx(1), _ty(1), _coeffs(1), _lwrk2(1), _kwrk(1), _kx(3), _ky(3){}
+    explicit SurfaceFit(const SurfaceFit &surfaceFit) : _tx(surfaceFit.getTX()),
+                                                        _ty(surfaceFit.getTY()),
+                                                        _coeffs(surfaceFit.getCoeffs()),
+                                                        _lwrk2(surfaceFit.getLWrk2()),
+                                                        _kwrk(surfaceFit.getKWrk()),
+                                                        _kx(surfaceFit.getKX()),
+                                                        _ky(surfaceFit.getKY()){}
     ~SurfaceFit()
     {
-        delete[] _x;
-        delete[] _y;
-        delete[] _z;
-        delete[] _w;
-        delete[] _c;
-        delete[] _tx;
-        delete[] _ty;
-        delete[] _wrk1;
-        delete[] _wrk2;
-        delete[] _iwrk;
     }
 
-    bool estimate(const std::vector<float> &xx, const std::vector<float> &yy, std::vector<float> &zz)
-    {
-        assert(xx.size() == yy.size());
-        cout << "SurfaceFit::estimate: xx.size() = " << xx.size() << endl;
-        zz.resize(xx.size());
-        float* xxx = new float[1];
-        float* yyy = new float[1];
-        float* zzz = new float[1];
-        int mmx = 1;
-        int mmy = 1;
-        for (int i=0; i<static_cast<int>(xx.size()); ++i){
-          xxx[0] = xx[i];
-          yyy[0] = yy[i];
-          std::cout << "SurfaceFit::estimate: xx[" << i << "] = " << xx[i] << ", yy[" << i << "] = " << yy[i] << endl;
-          if (i == 0){
-            cout << "SurfaceFit::estimate: _nx = " << _nx << ", _ny = " << _ny << ", _kx = " << _kx << ", _ky = " << _ky << ", mmx = " << mmx << ", mmy = " << mmy << ", _lwrk2 = " << _lwrk2 << ", _kwrk = " << _kwrk << endl;
-//            for (int j=0; j<_nx; ++j)
-//              cout << "SurfaceFit::estimate: _tx[" << j << "] = " << _tx[j] << endl;
-//            for (int j=0; j<_ny; ++j)
-//              cout << "SurfaceFit::estimate: _ty[" << j << "] = " << _ty[j] << endl;
-//            for (int j=0; j<((_nxest-_kx-1)*(_nyest-_ky-1) + 10 < 1000 ? (_nxest-_kx-1)*(_nyest-_ky-1) + 10 : 1000); ++j)
-//              cout << "SurfaceFit::estimate: _c[" << j << "] = " << _c[j] << endl;
-//            for (int j=0; j<lwrk2; ++j)
-//              cout << "SurfaceFit::estimate: wrk2[" << j << "] = " << wrk2[j] << endl;
-//            for (int j=0; j<kwrk; ++j)
-//              cout << "SurfaceFit::estimate: iwrk[" << j << "] = " << iwrk[j] << endl;
-          }
-          bispev_(_tx,_nx,_ty,_ny,_c,_kx,_ky,xxx,mmx,yyy,mmy,zzz,_wrk2,_lwrk2,_iwrk,_kwrk,_ier);
-          zz[i] = zzz[0];
-          std::cout << "SurfaceFit::estimate: zz[" << i << "] = " << zz[i] << endl;
-        }
-        delete[] xxx;
-        delete[] yyy;
-        delete[] zzz;
-        if (_ier != 0)
-          return false;
-        return true;
-    }
-
-    int getIOpt () const {return _iopt;}
-    int getM () const {return _m;}
-    std::vector<float> getX () const{
-      std::vector<float> xvec;
-      for (int i=0; i<_m; ++i)
-        xvec.push_back(_x[i]);
-      return xvec;
-    }
-    std::vector<float> getY () const {
+    bool doFit(const std::vector<float> &xIn, const std::vector<float> &yIn, const std::vector<float> &zIn, const std::vector<float> &wIn, const unsigned int &nKnotsX, const unsigned int &nKnotsY, const float &smooth);
+    
+    bool estimate(const std::vector<float> &xx, const std::vector<float> &yy, std::vector<float> &zz);
+    
+/*    std::vector<float> getY () const {
       std::vector<float> yvec;
       for (int i=0; i<_m; ++i)
         yvec.push_back(_y[i]);
@@ -509,40 +268,43 @@ public:
     float getXB() const {return _xb;}
     float getXE() const {return _xe;}
     float getYB() const {return _yb;}
-    float getYE() const {return _ye;}
+    float getYE() const {return _ye;}*/
     int getKX() const {return _kx;}
     int getKY() const {return _ky;}
-    float getSmooth() const {return _smooth;}
+/*    float getSmooth() const {return _smooth;}
     int getNXEst() const {return _nxest;}
     int getNYEst() const {return _nyest;}
     int getNMax() const {return _nmax;}
     float getEps() const {return _eps;}
     int getNX() const {return _nx;}
-    int getNY() const {return _ny;}
+    int getNY() const {return _ny;}*/
+    std::vector<float> getTX () {return _tx;}
     std::vector<float> getTX () const{
       std::vector<float> xvec;
-      for (int i=0; i<_nx; ++i)
+      for (int i=0; i<_tx.size(); ++i)
         xvec.push_back(_tx[i]);
       return xvec;
     }
+    std::vector<float> getTY () {return _ty;}
     std::vector<float> getTY () const {
       std::vector<float> yvec;
-      for (int i=0; i<_ny; ++i)
+      for (int i=0; i<_ty.size(); ++i)
         yvec.push_back(_ty[i]);
       return yvec;
     }
-    int getNC() const {return _nc;}
-    std::vector<float> getC () const {
+//    int getNC() const {return _nc;}
+    std::vector<float> getCoeffs () {return _coeffs;}
+    std::vector<float> getCoeffs () const {
       std::vector<float> cvec;
-      for (int i=0; i<_nc; ++i)
-        cvec.push_back(_c[i]);
+      for (int i=0; i<_coeffs.size(); ++i)
+        cvec.push_back(_coeffs[i]);
       return cvec;
     }
-    float getFP() const {return _fp;}
-    int getLWrk1() const {return _lwrk1;}
+//    float getFP() const {return _fp;}
+//    int getLWrk1() const {return _lwrk1;}
     int getLWrk2() const {return _lwrk2;}
     int getKWrk() const {return _kwrk;}
-    int getIEr() const {return _ier;}
+//    int getIEr() const {return _ier;}
     /*
      *     int _iopt, _m;
      *    float *_x;

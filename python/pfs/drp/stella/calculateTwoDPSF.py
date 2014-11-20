@@ -11,6 +11,7 @@ or
 
 #import unittest
 import numpy as np
+import matplotlib.pyplot as plt
 #import lsst.utils.tests as tests
 import lsst.afw.image as afwImage
 import lsst.afw.geom as afwGeom
@@ -75,20 +76,63 @@ def calculateTwoDPSF(flatfilename, specfilename):
     fts.sortTracesByXCenter()
     fts.setTwoDPSFControl(tdpsfc)
     fts.setFiberTraceExtractionControl(ftec)
-    fts.extractTraceNumber(0)
+    fts.extractAllTraces()
 
     # --- create FiberTraceSet for object exposure
-    bias = pyfits.getdata(specfilename, 2)
+    #afw.ImageF(specfilename, hdu=2)...
+#    bias = pyfits.getdata(specfilename, 2)
     mis = afwImage.MaskedImageF(specfilename)
-    spec = mis.getImage().getArray() 
-    spec = spec - bias
-    for i in range(0,fts.size()) :
+#    spec = mis.getImage().getArray() 
+#    spec -= bias
+    for i in range(0,5):#fts.size()) :
         trace = fts.getFiberTrace(i)
+        trace.setITrace(i)
         trace.createTrace(mis)
         trace.extractFromProfile()
+#        print "FiberTrace ",i,": _trace = ",trace.getSpectrum()
+        if i == 5:
+            return fts
+        if i != 5:
+            trace.calculate2dPSFPerBin()
+            print "trace ",i," done"
 
-    trace = fts.getFiberTrace(0)
-    trace.calculate2dPSFPerBin()
+        if False:
+            psfvec = trace.getPSFVector()
+            for j in range(0,len(psfvec)) :
+                psfa = psfvec[j]
+            
+                xvec = psfa.getImagePSF_XRelativeToCenter()
+                yvec = psfa.getImagePSF_YRelativeToCenter()
+                zvec = psfa.getImagePSF_ZNormalized()
+                wvec = psfa.getImagePSF_Weight()
+
+                fig, ax = plt.subplots(figsize=[10,10])
+                ax.scatter(xvec, yvec, c=zvec)#, alpha=0.5)
+                ax.set_xlabel(r'x', fontsize=20)
+                ax.set_ylabel(r'y', fontsize=20)
+                ax.set_title('extracted PSFs')
+
+                ax.grid(True)
+                fig.tight_layout()
+
+                plt.show()
+            
+        
+
+#    trace = fts.getFiberTrace(0)
+#    print "FiberTrace 00: isProfileSet() = ", fts.getFiberTrace(0).isProfileSet()
+#    trace.calculate2dPSFPerBin()
+    
+#    print trace
+#    psfvec = trace.getPSFVector()
+#    print psfvec
+#    psfa = trace.getPSF(0)
+#    print psfa
+#    xvec = psfa.getImagePSF_XRelative()
+#    yvec = psfa.getImagePSF_XTrace()
+#    zvec = psfa.getImagePSF_XTrace()
+#    wvec = psfa.getImagePSF_XTrace()
+#    print xvec
 
     return fts;
 
