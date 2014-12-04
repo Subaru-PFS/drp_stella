@@ -1,0 +1,1 @@
+valgrind --tool=memcheck --suppressions=/home/azuri/misc/valgrind-python.supp /home/azuri/lsst/Linux64/anaconda/1.8.0/bin/python2.7 -E -tt ./calculateTwoDPSF.py -f=/home/azuri/spectra/pfs/2014-10-28/sampledFlatx2-IR-0-23-5-10-nonoise.fits -s=/home/azuri/spectra/pfs/2014-10-31/sampledCombx2-IR-0-23-1-10.fits > logfile_valgrind.log

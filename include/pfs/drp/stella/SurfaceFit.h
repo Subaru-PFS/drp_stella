@@ -243,7 +243,7 @@ public:
     {
     }
 
-    bool doFit(const std::vector<float> &xIn, const std::vector<float> &yIn, const std::vector<float> &zIn, const std::vector<float> &wIn, const unsigned int &nKnotsX, const unsigned int &nKnotsY, const float &smooth);
+    bool doFit(const std::vector<float> &xIn, const std::vector<float> &yIn, const std::vector<float> &zIn, const std::vector<float> &wIn, const unsigned int &nKnotsX, const unsigned int &nKnotsY, const float &smooth, const int iopt=-1);
     
     bool estimate(const std::vector<float> &xx, const std::vector<float> &yy, std::vector<float> &zz);
     

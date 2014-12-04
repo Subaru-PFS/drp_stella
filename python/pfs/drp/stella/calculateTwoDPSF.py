@@ -60,30 +60,33 @@ def calculateTwoDPSF(flatfilename, specfilename):
     tdpsfc.nKnotsY = 80
     tdpsfc.smooth = 3500000.
 
-    bias = pyfits.getdata(flatfilename, 2)
+    bias = pyfits.getdata(flatfilename, 3)
 
     """Create a afwImage::MaskedImageF from the flat fits file"""
     mif = afwImage.MaskedImageF(flatfilename)
-    flat = mif.getImage().getArray()
-    flat -= bias
+    bias = afwImage.ImageF(flatfilename, 3)
+    mif[:] -= bias
     print("mif created")
 
     """Trace fibers"""
-    fts = drpStella.findAndTraceAperturesF(mif, ftffc)
+    ftffcp = ftffc.getPointer()
+    fts = drpStella.findAndTraceAperturesF(mif, ftffcp)
     print("findAndTraceApertures finished")
 
     # --- sort traces by xCenters
     fts.sortTracesByXCenter()
-    fts.setTwoDPSFControl(tdpsfc)
-    fts.setFiberTraceExtractionControl(ftec)
+    tdpsfcp = tdpsfc.getPointer()
+    fts.setTwoDPSFControl(tdpsfcp)
+    ftecp = ftec.getPointer()
+    fts.setFiberTraceExtractionControl(ftecp)
     fts.extractAllTraces()
 
     # --- create FiberTraceSet for object exposure
     #afw.ImageF(specfilename, hdu=2)...
-#    bias = pyfits.getdata(specfilename, 2)
+    bias = pyfits.getdata(specfilename, 3)
     mis = afwImage.MaskedImageF(specfilename)
-#    spec = mis.getImage().getArray() 
-#    spec -= bias
+    bias = afwImage.ImageF(specfilename, 3)
+    mis[:] -= bias
     for i in range(0,5):#fts.size()) :
         trace = fts.getFiberTrace(i)
         trace.setITrace(i)

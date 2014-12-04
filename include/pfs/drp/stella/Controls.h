@@ -1,6 +1,9 @@
 #ifndef __PFS_DRP_STELLA_CONTROLS_H__
 #define __PFS_DRP_STELLA_CONTROLS_H__
 
+#include <vector>
+#include "lsst/base.h"
+
 #define stringify( name ) # name
 using namespace std;
 namespace pfs { namespace drp { namespace stella {
@@ -26,6 +29,17 @@ struct FiberTraceFunctionControl {
       order(3),
       xLow(-4.),
       xHigh(4.) {}
+      
+  FiberTraceFunctionControl(const FiberTraceFunctionControl& ftfc) : 
+      interpolation(ftfc.interpolation),
+      order(ftfc.order),
+      xLow(ftfc.xLow),
+      xHigh(ftfc.xHigh) {}
+      
+  PTR(FiberTraceFunctionControl) getPointer() const{
+    PTR(FiberTraceFunctionControl) ptr(new FiberTraceFunctionControl(*this));
+    return ptr;
+  }
 };
 
 struct FiberTraceFunction {
@@ -43,6 +57,19 @@ struct FiberTraceFunction {
   yLow(0),
   yHigh(0),
   coefficients(4) {}
+  
+  FiberTraceFunction(const FiberTraceFunction &ftf) :
+  fiberTraceFunctionControl(ftf.fiberTraceFunctionControl),
+  xCenter(ftf.xCenter),
+  yCenter(ftf.yCenter),
+  yLow(ftf.yLow),
+  yHigh(ftf.yHigh),
+  coefficients(ftf.coefficients) {}
+  
+  PTR(FiberTraceFunction) getPointer(){
+    PTR(FiberTraceFunction) ptr(new FiberTraceFunction(*this));
+    return ptr;
+  }
 };
 
 struct FiberTraceFunctionFindingControl {
@@ -66,6 +93,22 @@ struct FiberTraceFunctionFindingControl {
   maxLength(4096),
   nLost(10)
   {}
+  
+  FiberTraceFunctionFindingControl(const FiberTraceFunctionFindingControl &ftffc) :
+      fiberTraceFunctionControl(ftffc.fiberTraceFunctionControl),
+      apertureFWHM(ftffc.apertureFWHM),
+      signalThreshold(ftffc.signalThreshold),
+      nTermsGaussFit(ftffc.nTermsGaussFit),
+      saturationLevel(ftffc.saturationLevel),
+      minLength(ftffc.minLength),
+      maxLength(ftffc.maxLength),
+      nLost(ftffc.nLost)
+      {}
+      
+  PTR(FiberTraceFunctionFindingControl) getPointer(){
+    PTR(FiberTraceFunctionFindingControl) ptr(new FiberTraceFunctionFindingControl(*this));
+    return ptr;
+  }
 };
 
 /**
@@ -107,7 +150,7 @@ struct FiberTraceExtractionControl {
         //xCorProf(0)
         {}
 
-    FiberTraceExtractionControl(FiberTraceExtractionControl &fiberTraceExtractionControl) :
+    FiberTraceExtractionControl(const FiberTraceExtractionControl &fiberTraceExtractionControl) :
         profileInterpolation(fiberTraceExtractionControl.profileInterpolation),
         ccdReadOutNoise(fiberTraceExtractionControl.ccdReadOutNoise),
         swathWidth(fiberTraceExtractionControl.swathWidth),
@@ -121,6 +164,11 @@ struct FiberTraceExtractionControl {
         wingSmoothFactor(fiberTraceExtractionControl.wingSmoothFactor)//,
         //xCorProf(fiberTraceExtractionControl.xCorProf)
         {}
+        
+    PTR(FiberTraceExtractionControl) getPointer(){
+      PTR(FiberTraceExtractionControl) ptr(new FiberTraceExtractionControl(*this));
+      return ptr;
+    }
 };
 
 
@@ -149,7 +197,7 @@ struct TwoDPSFControl {
     nKnotsY(75),
     smooth(35000.){}
 
-    TwoDPSFControl(TwoDPSFControl &twoDPSFControl) :
+    TwoDPSFControl(const TwoDPSFControl &twoDPSFControl) :
     signalThreshold(twoDPSFControl.signalThreshold),
     swathWidth(twoDPSFControl.swathWidth),
     xFWHM(twoDPSFControl.xFWHM),
@@ -159,6 +207,11 @@ struct TwoDPSFControl {
     nKnotsX(twoDPSFControl.nKnotsX),
     nKnotsY(twoDPSFControl.nKnotsY),
     smooth(twoDPSFControl.smooth){}
+    
+    PTR(TwoDPSFControl) getPointer(){
+      PTR(TwoDPSFControl) ptr(new TwoDPSFControl(*this));
+      return ptr;
+    }
 };
 }}}
 #endif
