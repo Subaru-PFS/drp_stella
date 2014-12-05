@@ -1,11 +1,11 @@
 #include "pfs/drp/stella/SurfaceFit.h"
 
-    bool SurfaceFit::doFit(const std::vector<float> &xIn, const std::vector<float> &yIn, const std::vector<float> &zIn, const std::vector<float> &wIn, const unsigned int &nKnotsX, const unsigned int &nKnotsY, const float &smooth)
+    bool SurfaceFit::doFit(const std::vector<float> &xIn, const std::vector<float> &yIn, const std::vector<float> &zIn, const std::vector<float> &wIn, const unsigned int &nKnotsX, const unsigned int &nKnotsY, const float &smooth, const int iopt)
     {
       float ssmooth = smooth;
       assert(xIn.size() == yIn.size());
       assert(xIn.size() == zIn.size());
-      int iopt = -1;
+      int i_opt = iopt;
       int ier = 0;
       int vecSize = xIn.size();
       int nc, nxy;
@@ -182,14 +182,16 @@
       //_smooth = smooth;
       //cout << "SurfaceFit::SurfaceFit: _smooth = " << _smooth << endl;
       
-      surfit_(iopt,nxy,x,y,z,w,xb,xe,yb,ye,_kx,_ky,ssmooth,nxest,nyest,nmax,eps,nx,tx,ny,ty,c,fp,wrk1,lwrk1,wrk2,_lwrk2,iwrk,_kwrk,ier);
+      surfit_(i_opt,nxy,x,y,z,w,xb,xe,yb,ye,_kx,_ky,ssmooth,nxest,nyest,nmax,eps,nx,tx,ny,ty,c,fp,wrk1,lwrk1,wrk2,_lwrk2,iwrk,_kwrk,ier);
       cout << "SurfaceFit::SurfaceFit: ier = " << ier << endl;
-      if (ier > 10){
-        _lwrk2 = ier;
+      while (ier > 10){
+        _lwrk2 = 1.5 * ier;
         delete[] wrk2;
         wrk2 = new float[_lwrk2];
-        surfit_(iopt,nxy,x,y,z,w,xb,xe,yb,ye,_kx,_ky,ssmooth,nxest,nyest,nmax,eps,nx,tx,ny,ty,c,fp,wrk1,lwrk1,wrk2,_lwrk2,iwrk,_kwrk,ier);
+        surfit_(i_opt,nxy,x,y,z,w,xb,xe,yb,ye,_kx,_ky,ssmooth,nxest,nyest,nmax,eps,nx,tx,ny,ty,c,fp,wrk1,lwrk1,wrk2,_lwrk2,iwrk,_kwrk,ier);
         cout << "SurfaceFit::SurfaceFit: ier = " << ier << endl;
+        if (ier > 10)
+          cout << "SurfaceFit::SurfaceFit: starting loop again" << endl;
       }
       //        for (int i=0; i<((_nxest-_kx-1)*(_nyest-_ky-1) + 10 < 1000 ? (_nxest-_kx-1)*(_nyest-_ky-1) + 10 : 1000); i++)
       //          cout << "SurfaceFit::SurfaceFit: _c[" << i << "] = " << _c[i] << endl;

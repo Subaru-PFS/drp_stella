@@ -23,6 +23,7 @@ Interface to Stella
 #include "pfs/drp/stella/Controls.h"
 #include "pfs/drp/stella/PSF.h"
 #include "pfs/drp/stella/SurfaceFit.h"
+#include "pfs/drp/stella/spline.h"
 %}
 
 %include "lsst/p_lsstSwig.i"
@@ -78,6 +79,7 @@ Interface to Stella
 %include "pfs/drp/stella/math/Math.h"
 %include "pfs/drp/stella/Controls.h"
 %include "pfs/drp/stella/blitz.h"
+%include "pfs/drp/stella/spline.h"
 %include "pfs/drp/stella/SurfaceFit.h"
 
 %template(FiberTraceF) pfs::drp::stella::FiberTrace<float, unsigned short, float>;
