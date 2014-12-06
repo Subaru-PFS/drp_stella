@@ -43,7 +43,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
-#include "/home/azuri/lsst/Linux64/blitz/0.10/include/blitz/array.h"
+#include "blitz/array.h"
 //#include <blitz/vector.h>
 //#include <blitz/vector-et.h>
 //#include <blitz/vecwhere.h>

@@ -4408,7 +4408,7 @@
     template<typename T>
     blitz::Array<T, 1> MedianVec(const blitz::Array<T, 1> &VecArr,
                                  int Width,
-                                 const std::string &Mode=std::string("NORMAL"))
+                                 const std::string &Mode)
     {
       #ifdef __DEBUG_MEDIAN__
         cout << "CFits::MedianVec: VecArr = " << VecArr << endl;
