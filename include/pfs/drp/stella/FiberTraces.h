@@ -308,6 +308,8 @@ class FiberTrace {
     
     PTR(pfs::drp::stella::PSF<ImageT, MaskT, VarianceT>) getPSF(int pos) const {return (*_psfVector)[pos];}
     
+    unsigned int getPSFVectorSize() const {return _psfVector->size();}
+    
     void setITrace(unsigned int iTrace){_iTrace = iTrace;}
     unsigned int getITrace() const {return _iTrace;}
     bool isXCentersCalculated() const {return _isXCentersCalculated;}
@@ -318,6 +320,8 @@ class FiberTrace {
     bool isTwoDPSFControlSet() const {return _isTwoDPSFControlSet;}
     bool isSpectrumExtracted() const {return _isSpectrumExtracted;}
     
+    PTR(std::vector<PTR(pfs::drp::stella::PSF<ImageT, MaskT, VarianceT>)>) _psfVector;
+    PTR(std::vector<float>) _xCenters;
     
   private:
     ///TODO: replace variables with smart pointers?????
@@ -326,12 +330,11 @@ class FiberTrace {
     ///TODO: remove _ccdWidth and _ccdHeight and put as input parameters into calculateXCenters()
     int _ccdWidth;
     int _ccdHeight;
-    PTR(std::vector<float>) _xCenters;
+//    PTR(std::vector<float>) _xCenters;
     PTR(std::vector<float>) _spectrum;
     PTR(std::vector<float>) _spectrumVariance;
     PTR(std::vector<float>) _background;
     PTR(std::vector<float>) _backgroundVariance;
-    PTR(std::vector<PTR(pfs::drp::stella::PSF<ImageT, MaskT, VarianceT>)>) _psfVector;
     unsigned int _iTrace;
     bool _isXCentersCalculated;
     bool _isTraceSet;
