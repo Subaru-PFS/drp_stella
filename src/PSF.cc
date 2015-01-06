@@ -8,8 +8,8 @@ bool pfsDRPStella::PSF<ImageT, MaskT, VarianceT>::setTwoDPSFControl(PTR(TwoDPSFC
   assert(twoDPSFControl->signalThreshold >= 0.);
   assert(twoDPSFControl->signalThreshold < twoDPSFControl->saturationLevel / 2.);
   assert(twoDPSFControl->swathWidth > twoDPSFControl->yFWHM * 10);
-  assert(twoDPSFControl->xFWHM * 3. > twoDPSFControl->nTermsGaussFit);
-  assert(twoDPSFControl->yFWHM * 3. > twoDPSFControl->nTermsGaussFit);
+  assert(twoDPSFControl->xFWHM * 4. > twoDPSFControl->nTermsGaussFit);
+  assert(twoDPSFControl->yFWHM * 4. > twoDPSFControl->nTermsGaussFit);
   assert(twoDPSFControl->nTermsGaussFit > 2);
   assert(twoDPSFControl->nTermsGaussFit < 6);
   assert(twoDPSFControl->saturationLevel > 0.);
@@ -120,13 +120,13 @@ bool pfsDRPStella::PSF<ImageT, MaskT, VarianceT>::extractPSFs()
 //    }
   #ifdef __DEBUG_CALC2DPSF__
     cout << "PSF trace" << _iTrace << " bin" << _iBin << "::extractPSFs: spectrum_In = " << spectrum_In << endl;
-    std::string colname = DEBUGDIR + std::string("traceSpectrum_iBin");
+    std::string colname = __DEBUGDIR__ + std::string("traceSpectrum_iBin");
     if (_iBin < 10)
       colname += std::string("0");
     colname += to_string(_iBin)+std::string(".fits");
     pfsDRPStella::utils::WriteFits(&spectrum_In, colname);
     cout << "PSF trace" << _iTrace << " bin" << _iBin << "::extractPSFs: spectrumSigma = " << spectrumSigma << endl;
-    std::string fname_trace = DEBUGDIR + std::string("trace_iBin");
+    std::string fname_trace = __DEBUGDIR__ + std::string("trace_iBin");
     if (_iBin < 10)
       fname_trace += std::string("0");
     fname_trace += to_string(_iBin)+std::string(".fits");
@@ -241,11 +241,11 @@ bool pfsDRPStella::PSF<ImageT, MaskT, VarianceT>::extractPSFs()
         D_A1_X = i;
         D_A1_X += I_FirstWideSignalStart;
         blitz::Array<double, 1> D_A1_Y(I_FirstWideSignalEnd - I_FirstWideSignalStart + 1);
-        D_A1_Y = spectrum_In(blitz::Range(I_FirstWideSignalStart, I_FirstWideSignalEnd));
+        D_A1_Y = blitz::where(fabs(spectrum_In(blitz::Range(I_FirstWideSignalStart, I_FirstWideSignalEnd))) < 0.01, 0.01, spectrum_In(blitz::Range(I_FirstWideSignalStart, I_FirstWideSignalEnd)));
         blitz::Array<double, 1> D_A1_StdDev(I_FirstWideSignalEnd - I_FirstWideSignalStart + 1);
-        D_A1_StdDev = spectrumSigma(blitz::Range(I_FirstWideSignalStart, I_FirstWideSignalEnd));
+        D_A1_StdDev = blitz::where(fabs(spectrumSigma(blitz::Range(I_FirstWideSignalStart, I_FirstWideSignalEnd))) < 0.1, 0.1, spectrumSigma(blitz::Range(I_FirstWideSignalStart, I_FirstWideSignalEnd)));
         #ifdef __DEBUG_CALC2DPSF__
-          cout << "PSF trace" << _iTrace << " bin" << _iBin << "::extractPSFs: while: emissionLineNumber = " << emissionLineNumber << ": Starting GaussFit: D_A1_X=" << D_A1_X << ", D_A1_Y = " << D_A1_Y << ", D_A1_StdDev = " << D_A1_StdDev << ", D_A1_Guess = " << D_A1_Guess << endl;
+          cout << "PSF trace" << _iTrace << " bin" << _iBin << "::extractPSFs: while: emissionLineNumber = " << emissionLineNumber << ": Starting GaussFit: D_A1_X=" << D_A1_X << ", D_A1_Y = " << D_A1_Y << ", D_A1_StdDev = " << D_A1_StdDev << ", D_A1_Guess = " << D_A1_Guess << ", I_A2_Limited = " << I_A2_Limited << ", D_A2_Limits = " << D_A2_Limits << endl;
         #endif
         int iBackground = 0;
         if (_twoDPSFControl->nTermsGaussFit == 4)
@@ -299,10 +299,10 @@ bool pfsDRPStella::PSF<ImageT, MaskT, VarianceT>::extractPSFs()
             i_yCenter = int(D_A2_GaussCenters(emissionLineNumber-1, 1));
             i_xCenter = int(D_A2_GaussCenters(emissionLineNumber-1, 0));
 
-            i_Down = int(D_A2_GaussCenters(emissionLineNumber-1, 1) - (1.5*_twoDPSFControl->yFWHM));
+            i_Down = int(D_A2_GaussCenters(emissionLineNumber-1, 1) - (2.*_twoDPSFControl->yFWHM));
             if (i_Down >= 0){
 //                i_Down = 0;
-              i_Up = int(D_A2_GaussCenters(emissionLineNumber-1, 1) + (1.5*_twoDPSFControl->yFWHM));
+              i_Up = int(D_A2_GaussCenters(emissionLineNumber-1, 1) + (2.*_twoDPSFControl->yFWHM));
               cout << "PSF trace" << _iTrace << " bin" << _iBin << "::extractPSFs: emissionLineNumber-1=" << emissionLineNumber-1 << ": _trace->getHeight() = " << _trace->getHeight() << ", i_Up = " << i_Up << endl;
               if (i_Up < trace_In.rows()){
 //                i_Up = trace_In.rows() - 1;
@@ -324,11 +324,11 @@ bool pfsDRPStella::PSF<ImageT, MaskT, VarianceT>::extractPSFs()
                   dTrace = xCentersOffset_In(int(D_A2_GaussCenters(emissionLineNumber-1, 1))) - xCentersOffset_In(i_Down + iY);
 
                   /// most left pixel affected by PSF of (emissionLineNumber-1) in this row
-                  i_Left = int(xCenterTrace_In(i_Down + iY) - dTraceGaussCenterX - (1.5 * _twoDPSFControl->xFWHM));
+                  i_Left = int(xCenterTrace_In(i_Down + iY) - dTraceGaussCenterX - (2. * _twoDPSFControl->xFWHM));
                   //i_Left = int(D_A2_GaussCenters(emissionLineNumber-1, 0) - (1.5*_twoDPSFControl->xFWHM)) + int(xCenterTrace_In(i_Down+iY)) - int(xCenterTrace_In(i_yCenter));
 
                   /// most right pixel affected by PSF of (emissionLineNumber-1) in this row
-                  i_Right = int(xCenterTrace_In(i_Down + iY) - dTraceGaussCenterX + (1.5 * _twoDPSFControl->xFWHM));
+                  i_Right = int(xCenterTrace_In(i_Down + iY) - dTraceGaussCenterX + (2. * _twoDPSFControl->xFWHM));
                   //i_Right = int(D_A2_GaussCenters(emissionLineNumber-1, 0) + (1.5*_twoDPSFControl->xFWHM)) + int(xCenterTrace_In(i_Down+iY)) - int(xCenterTrace_In(i_yCenter));
                   if (i_Left < 0)
                     i_Left = 0;
@@ -406,11 +406,15 @@ bool pfsDRPStella::PSF<ImageT, MaskT, VarianceT>::extractPSFs()
     cout << "PSF trace" << _iTrace << " bin" << _iBin << "::extractPSFs: nPix = " << nPix << ", _imagePSF_Weight->size() = " << _imagePSF_Weight->size() << endl;
     cout << "PSF trace" << _iTrace << " bin" << _iBin << "::extractPSFs: xFWHM = " << _twoDPSFControl->xFWHM << ", yFWHM = " << _twoDPSFControl->yFWHM << endl;
     std::ofstream of;
-    std::string ofname = DEBUGDIR + std::string("pix_x_xo_y_yo_val_norm_weight_iBin");
+    std::string ofname = __DEBUGDIR__ + std::string("pix_x_xo_y_yo_val_norm_weight_iBin");
     if (_iBin < 10)
       ofname += std::string("0");
     ofname += to_string(_iBin)+std::string(".dat");
     of.open(ofname);
+    if (!of){
+      cout << "PSF::extractPSFs: ERROR: Could not open file <" << ofname << ">" << endl;
+      return false;
+    }
     for (int iPix=0; iPix<nPix; ++iPix){
       of << (*_imagePSF_XRelativeToCenter)[iPix];
       of << " " << (*_imagePSF_XTrace)[iPix];
@@ -421,6 +425,7 @@ bool pfsDRPStella::PSF<ImageT, MaskT, VarianceT>::extractPSFs()
       of << " " << (*_imagePSF_Weight)[iPix] << endl;
     }
     of.close();
+    cout << "ofname = <" << ofname << "> written" << endl;
   #endif
   if (nPix != _imagePSF_XRelativeToCenter->size()){
     cout << "PSF trace" << _iTrace << " bin" << _iBin << "::extractPSFs: ERROR: nPix != _imagePSF_XRelativeToCenter->size()" << endl;
@@ -562,7 +567,7 @@ bool pfsDRPStella::PSF<ImageT, MaskT, VarianceT>::fitPSFKernel()
   }
   #ifdef __DEBUG_CALC2DPSF__
     std::ofstream ofkrig_in;
-    std::string ofname_in = DEBUGDIR + std::string("kriging_in_pix_x_y_val");
+    std::string ofname_in = __DEBUGDIR__ + std::string("kriging_in_pix_x_y_val");
     if (_iBin < 10)
       ofname += std::string("0");
     ofname += to_string(_iBin)+std::string(".dat");
@@ -616,11 +621,15 @@ bool pfsDRPStella::PSF<ImageT, MaskT, VarianceT>::calculatePSF()
   }
   #ifdef __DEBUG_CALC2DPSF__
     std::ofstream ofkrig;
-    std::string fname = DEBUGDIR + std::string("psf_x_y_in_fit_iBin");
+    std::string fname = __DEBUGDIR__ + std::string("psf_x_y_in_fit_iBin");
     if (_iBin < 10)
       fname += std::string("0");
     fname += to_string(_iBin)+std::string(".dat");
     ofkrig.open(fname);
+    if (!ofkrig){
+      cout << "PSF::calculatePSF: ERROR: Could not open file <" << fname << ">" << endl;
+      return false;
+    }
     //    #endif
     
     for (int iPix = 0; iPix < _imagePSF_XTrace->size(); ++iPix){

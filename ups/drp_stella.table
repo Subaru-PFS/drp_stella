@@ -1,4 +1,5 @@
 setupRequired(blitz)
+setupRequired(pipe_base)
 setupRequired(afw)
 
 envPrepend(LD_LIBRARY_PATH, ${PRODUCT_DIR}/lib)

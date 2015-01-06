@@ -104,7 +104,7 @@ class FindAndTraceAperturesTask(Task):
         print("inMaskedImage created")
         
         """Trace fibers"""
-        fts = drpStella.findAndTraceAperturesF(inMaskedImage, self.ftffc)
+        fts = drpStella.findAndTraceAperturesF(inMaskedImage, self.ftffc.getPointer())
         return fts
 
     def run(self, inExposure):

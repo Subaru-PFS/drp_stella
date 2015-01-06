@@ -36,6 +36,8 @@ struct FiberTraceFunctionControl {
       xLow(ftfc.xLow),
       xHigh(ftfc.xHigh) {}
       
+  ~FiberTraceFunctionControl() {}
+      
   PTR(FiberTraceFunctionControl) getPointer() const{
     PTR(FiberTraceFunctionControl) ptr(new FiberTraceFunctionControl(*this));
     return ptr;
@@ -65,6 +67,8 @@ struct FiberTraceFunction {
   yLow(ftf.yLow),
   yHigh(ftf.yHigh),
   coefficients(ftf.coefficients) {}
+  
+  ~FiberTraceFunction() {}
   
   PTR(FiberTraceFunction) getPointer(){
     PTR(FiberTraceFunction) ptr(new FiberTraceFunction(*this));
@@ -104,6 +108,8 @@ struct FiberTraceFunctionFindingControl {
       maxLength(ftffc.maxLength),
       nLost(ftffc.nLost)
       {}
+      
+  ~FiberTraceFunctionFindingControl() {}
       
   PTR(FiberTraceFunctionFindingControl) getPointer(){
     PTR(FiberTraceFunctionFindingControl) ptr(new FiberTraceFunctionFindingControl(*this));
@@ -165,6 +171,8 @@ struct FiberTraceExtractionControl {
         //xCorProf(fiberTraceExtractionControl.xCorProf)
         {}
         
+    ~FiberTraceExtractionControl() {}
+        
     PTR(FiberTraceExtractionControl) getPointer(){
       PTR(FiberTraceExtractionControl) ptr(new FiberTraceExtractionControl(*this));
       return ptr;
@@ -207,6 +215,8 @@ struct TwoDPSFControl {
     nKnotsX(twoDPSFControl.nKnotsX),
     nKnotsY(twoDPSFControl.nKnotsY),
     smooth(twoDPSFControl.smooth){}
+
+    ~TwoDPSFControl() {}
     
     PTR(TwoDPSFControl) getPointer(){
       PTR(TwoDPSFControl) ptr(new TwoDPSFControl(*this));

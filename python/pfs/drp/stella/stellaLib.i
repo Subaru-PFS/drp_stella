@@ -57,6 +57,18 @@ Interface to Stella
 %addImages(float);
 
 /************************************************************************************************************/
+%shared_ptr(std::vector<float>);
+%shared_ptr(std::vector<double>);
+%shared_ptr(std::vector<unsigned short>);
+%shared_ptr(std::vector<unsigned int>);
+%shared_ptr(std::vector<int>);
+%shared_ptr(std::vector<long>);
+
+%shared_ptr(pfs::drp::stella::FiberTraceFunctionFindingControl);
+%shared_ptr(pfs::drp::stella::FiberTraceFunctionControl);
+%shared_ptr(pfs::drp::stella::FiberTraceFunction);
+%shared_ptr(pfs::drp::stella::FiberTraceExtractionControl);
+%shared_ptr(pfs::drp::stella::TwoDPSFControl);
 
 %shared_ptr(pfs::drp::stella::FiberTrace<float, unsigned short, float>);
 %shared_ptr(pfs::drp::stella::FiberTrace<double, unsigned short, float>);
@@ -70,13 +82,11 @@ Interface to Stella
 %shared_ptr(pfs::drp::stella::PSF<float, unsigned short, float>);
 %shared_ptr(pfs::drp::stella::PSF<double, unsigned short, float>);
 
-%shared_ptr(std::vector<PTR(pfs::drp::stella::PSF<float, unsigned short, float>)>)
-%shared_ptr(std::vector<PTR(pfs::drp::stella::PSF<double, unsigned short, float>)>)
+%shared_ptr(std::vector<PTR(pfs::drp::stella::PSF<float, unsigned short, float>)>);
+%shared_ptr(std::vector<PTR(pfs::drp::stella::PSF<double, unsigned short, float>)>);
 
 %include "pfs/drp/stella/PSF.h"
 %include "std_vector.i"
-%template(PPSFVectorF) PTR(std::vector<PTR(pfs::drp::stella::PSF<float, unsigned short, float>)>);
-%template(PPSFVectorD) PTR(std::vector<PTR(pfs::drp::stella::PSF<double, unsigned short, float>)>);
 %template(PSFVectorF) std::vector<PTR(pfs::drp::stella::PSF<float, unsigned short, float>)>;
 %template(PSFVectorD) std::vector<PTR(pfs::drp::stella::PSF<double, unsigned short, float>)>;
 
@@ -90,6 +100,13 @@ Interface to Stella
 %include "pfs/drp/stella/blitz.h"
 %include "pfs/drp/stella/spline.h"
 %include "pfs/drp/stella/SurfaceFit.h"
+
+%template(SPVectorF) std::vector<float>;
+#%template(SPVectorD) std::vector<double>;
+%template(SPVectorUS) std::vector<unsigned short>;
+%template(SPVectorUI) std::vector<unsigned int>;
+%template(SPVectorI) std::vector<int>;
+%template(SPVectorL) std::vector<long>;
 
 %template(FiberTraceF) pfs::drp::stella::FiberTrace<float, unsigned short, float>;
 %template(FiberTraceD) pfs::drp::stella::FiberTrace<double, unsigned short, float>;

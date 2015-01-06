@@ -31,8 +31,8 @@ def calculateTwoDPSF(flatfilename, specfilename):
     ftffc = drpStella.FiberTraceFunctionFindingControl()
     ftffc.fiberTraceFunctionControl.interpolation = "POLYNOMIAL"
     ftffc.fiberTraceFunctionControl.order = 5
-    ftffc.fiberTraceFunctionControl.xLow = -4.2
-    ftffc.fiberTraceFunctionControl.xHigh = 4.2
+    ftffc.fiberTraceFunctionControl.xLow = -5.0#-4.2
+    ftffc.fiberTraceFunctionControl.xHigh = 5.0#4.2
     ftffc.apertureFWHM = 3.2
     ftffc.signalThreshold = 120.
     ftffc.nTermsGaussFit = 3
