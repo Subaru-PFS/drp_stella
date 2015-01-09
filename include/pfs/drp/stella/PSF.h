@@ -1,3 +1,5 @@
+///TODO: calculate2dPSF: remove outliers in PSF
+
 #ifndef __PFS_DRP_STELLA_PSF_H__
 #define __PFS_DRP_STELLA_PSF_H__
 
@@ -10,18 +12,14 @@
 #include "lsst/afw/image/MaskedImage.h"
 #include "lsst/pex/config.h"
 #include "blitz.h"
-//#include <fitsio.h>
-//#include <fitsio2.h>
-//#include "cmpfit-1.2/MyFit.h"
-//#include "spline.h"
 //#include <cassert>
 #include "Controls.h"
 #include "utils/Utils.h"
 #include "math/Math.h"
 #include "SurfaceFit.h"
 #include "cmpfit-1.2/MyFit.h"
-//#include "FiberTraces.h"
-//#include "lsst/afw/detection/Psf.h"
+#include "FiberTraces.h"
+#include "Spectra.h"
 
 #include "boost/make_shared.hpp"
 
@@ -40,46 +38,16 @@ namespace afwImage = lsst::afw::image;
 using namespace std;
 namespace pfs { namespace drp { namespace stella {
 
-  template<typename ImageT, typename MaskT=afwImage::MaskPixel, typename VarianceT=afwImage::VariancePixel>
+  template<typename ImageT, typename MaskT=afwImage::MaskPixel, typename VarianceT=afwImage::VariancePixel, typename WavelengthT=afwImage::VariancePixel>
   class PSF {
     public:
       typedef afwImage::MaskedImage<ImageT, MaskT, VarianceT> MaskedImageT;
 
-      /*
-       *       PTR(MaskedImageT) _trace;
-       *      const PTR(TwoDPSFControl) _twoDPSFControl;
-       *      const unsigned int _iTrace;
-       *      const unsigned int _iBin;
-       *      const float _xLow;
-       *      const float _xHigh;
-       *      const unsigned int _yLow;
-       *      const unsigned int _yHigh;
-       *      const PTR(std::vector<float>) _xCenters;
-       *      const PTR(std::vector<float>) _spectrum;
-       *      const PTR(std::vector<float>) _spectrumVariance;
-       *      PTR(std::vector<float>) _imagePSF_XTrace;
-       *      PTR(std::vector<float>) _imagePSF_YTrace;
-       *      PTR(std::vector<float>) _imagePSF_ZTrace;
-       *      PTR(std::vector<float>) _imagePSF_XRelativeToCenter;
-       *      PTR(std::vector<float>) _imagePSF_YRelativeToCenter;
-       *      PTR(std::vector<float>) _imagePSF_ZNormalized;
-       *      PTR(std::vector<float>) _imagePSF_Weight;
-       *      PTR(std::vector<float>) _pixelsFit;
-       *      bool _isTwoDPSFControlSet;
-       *      bool _isPSFsExtracted;
-       *      SurfaceFit _surfaceFit;
-       * */
-      PSF(unsigned int iTrace=0, unsigned int iBin=0) : _trace(new MaskedImageT()),
-                                                        _twoDPSFControl(new TwoDPSFControl()),
+      PSF(unsigned int iTrace=0, unsigned int iBin=0) : _twoDPSFControl(new TwoDPSFControl()),
                                                         _iTrace(iTrace),
                                                         _iBin(iBin),
-                                                        _xLow(0),
-                                                        _xHigh(0),
                                                         _yLow(0),
                                                         _yHigh(0),
-                                                        _xCenters(new std::vector<float>(0)),
-                                                        _spectrum(new std::vector<float>(0)),
-                                                        _spectrumVariance(new std::vector<float>(0)),
                                                         _imagePSF_XTrace(new std::vector<float>(0)),
                                                         _imagePSF_YTrace(new std::vector<float>(0)),
                                                         _imagePSF_ZTrace(new std::vector<float>(0)),
@@ -93,17 +61,11 @@ namespace pfs { namespace drp { namespace stella {
                                                         _surfaceFit(new SurfaceFit())
       {};
       
-      PSF(const PSF &psf) : _trace(psf.getTrace()),
-                            _twoDPSFControl(psf.getTwoDPSFControl()),
+      PSF(const PSF &psf) : _twoDPSFControl(psf.getTwoDPSFControl()),
                             _iTrace(psf.getITrace()),
                             _iBin(psf.getIBin()),
-                            _xLow(psf.getXLow()),
-                            _xHigh(psf.getXHigh()),
                             _yLow(psf.getYLow()),
                             _yHigh(psf.getYHigh()),
-                            _xCenters(psf.getXCenters()),
-                            _spectrum(psf.getSpectrum()),
-                            _spectrumVariance(psf.getSpectrumVariance()),
                             _imagePSF_XTrace(psf.getImagePSF_XTrace()),
                             _imagePSF_YTrace(psf.getImagePSF_YTrace()),
                             _imagePSF_ZTrace(psf.getImagePSF_ZTrace()),
@@ -126,28 +88,16 @@ namespace pfs { namespace drp { namespace stella {
        *  @param[in] twoDPSFControl     Structure containing the parameters for the computation of the PSF
        *  @param[in] iBin               Bin number for which the PSF shall be computed (for debugging purposes only)
        */
-      PSF(const PTR(MaskedImageT) &trace,
-          const PTR(std::vector<float>) &xCenters,
-          const PTR(std::vector<float>) &spectrum,
-          const PTR(std::vector<float>) &spectrumVariance,
-          const float xLow,
-          const float xHigh,
-          const unsigned int yLow,
+      PSF(const unsigned int yLow,
           const unsigned int yHigh,
-          const PTR(pfs::drp::stella::TwoDPSFControl) &twoDPSFControl,
+          const PTR(TwoDPSFControl) &twoDPSFControl,
           unsigned int iTrace = 0,
           unsigned int iBin = 0
-      ) : _trace(trace),
-          _twoDPSFControl(twoDPSFControl),
+      ) : _twoDPSFControl(twoDPSFControl),
           _iTrace(iTrace),
           _iBin(iBin),
-          _xLow(xLow),
-          _xHigh(xHigh),
           _yLow(yLow),
           _yHigh(yHigh),
-          _xCenters(xCenters),
-          _spectrum(spectrum),
-          _spectrumVariance(spectrumVariance),
           _imagePSF_XTrace(new std::vector<float>(0)),
           _imagePSF_YTrace(new std::vector<float>(0)),
           _imagePSF_ZTrace(new std::vector<float>(0)),
@@ -171,16 +121,10 @@ namespace pfs { namespace drp { namespace stella {
 
       /// Whether the Psf is persistable; always true.
 //      virtual bool isPersistable() const { return true; }
-      boost::shared_ptr<MaskedImageT> getTrace() const {return _trace;}
       unsigned int getIBin() const {return _iBin;}
       unsigned int getITrace() const {return _iTrace;}
-      float getXLow() const {return _xLow;}
-      float getXHigh() const {return _xHigh;}
       unsigned int getYLow() const {return _yLow;}
       unsigned int getYHigh() const {return _yHigh;}
-      PTR(std::vector<float>) getXCenters() const {return _xCenters;}
-      PTR(std::vector<float>) getSpectrum() const {return _spectrum;}
-      PTR(std::vector<float>) getSpectrumVariance() const {return _spectrumVariance;}
       PTR(std::vector<float>) getImagePSF_XTrace() const {return _imagePSF_XTrace;}
       PTR(std::vector<float>) getImagePSF_YTrace() const {return _imagePSF_YTrace;}
       PTR(std::vector<float>) getImagePSF_ZTrace() const {return _imagePSF_ZTrace;}
@@ -202,7 +146,8 @@ namespace pfs { namespace drp { namespace stella {
       /// Return the SurfaceFit
 //      PTR(SurfaceFit) getSurfaceFit() const {return boost::make_shared<SurfaceFit>(_surfaceFit);}
 
-      bool extractPSFs();
+      bool extractPSFs(const FiberTrace<ImageT, MaskT, VarianceT> &fiberTrace_In,
+	               const Spectrum<ImageT, MaskT, VarianceT, WavelengthT> &spectrum_In);
       bool fitPSFKernel();
       bool calculatePSF();
   protected:
@@ -214,17 +159,11 @@ namespace pfs { namespace drp { namespace stella {
 //    virtual void write(OutputArchiveHandle & handle) const;
 
     private:
-      PTR(MaskedImageT) _trace;
       const PTR(TwoDPSFControl) _twoDPSFControl;
       const unsigned int _iTrace;
       const unsigned int _iBin;
-      const float _xLow;
-      const float _xHigh;
       const unsigned int _yLow;
       const unsigned int _yHigh;
-      const PTR(std::vector<float>) _xCenters;
-      const PTR(std::vector<float>) _spectrum;
-      const PTR(std::vector<float>) _spectrumVariance;
       PTR(std::vector<float>) _imagePSF_XTrace;
       PTR(std::vector<float>) _imagePSF_YTrace;
       PTR(std::vector<float>) _imagePSF_ZTrace;
@@ -238,5 +177,67 @@ namespace pfs { namespace drp { namespace stella {
       PTR(SurfaceFit) _surfaceFit;
       
   };
+  
+  
+/************************************************************************************************************/
+/**
+ * \brief Describe a set of 2D PSFs
+ *
+ */
+template<typename ImageT, typename MaskT = afwImage::MaskPixel, typename VarianceT = afwImage::VariancePixel, typename WavelengthT = afwImage::VariancePixel>
+class PSFSet {
+  public:
+    /// Class Constructors and Destructor
+      
+    /// Creates a new PSFSet object of size 0
+    explicit PSFSet(unsigned int nPSFs=0)
+        : _psfs(new std::vector<PTR(PSF<ImageT, MaskT, VarianceT, WavelengthT>)>(nPSFs))
+        {}
+        
+    /// Copy constructor
+    /// If psfSet is not empty, the object shares ownership of psfSet's PSF vector and increases the use count.
+    /// If psfSet is empty, an empty object is constructed (as if default-constructed).
+    explicit PSFSet(PSFSet<ImageT, MaskT, VarianceT, WavelengthT> & psfSet)
+        : _psfs(psfSet.getPSFs())
+        {}
+    
+    /// Construct an object with a copy of psfVector
+    explicit PSFSet(std::vector<PTR(PSF<ImageT, MaskT, VarianceT, WavelengthT>)> & psfVector)
+        : _psfs(new std::vector<PTR(PSF<ImageT, MaskT, VarianceT, WavelengthT>)>(psfVector))
+        {}
+        
+    virtual ~PSFSet() {}
+
+    /// Return the number of PSFs
+    int size() const { return _psfs->size(); }
+
+    /// Return the PSF at the ith position
+    PTR(PSF<ImageT, MaskT, VarianceT, WavelengthT>) &getPSF(const unsigned int i ///< desired position
+                                                           ) { return _psfs->at(i); }
+
+    PTR(PSF<ImageT, MaskT, VarianceT, WavelengthT>) const& getPSF(const unsigned int i ///< desired position
+                                                                 ) const { return _psfs->at(i); }
+
+    /// Set the ith PSF
+    bool setPSF(const unsigned int i,     /// which spectrum?
+                const PTR(PSF<ImageT, MaskT, VarianceT, WavelengthT>) & psf /// the PSF at the ith position
+                      );
+
+    /// add one PSF to the set
+    void addPSF(const PTR(PSF<ImageT, MaskT, VarianceT, WavelengthT>) & psf /// the PSF to add
+               );
+
+    PTR(std::vector<PTR(PSF<ImageT, MaskT, VarianceT, WavelengthT>)>) getPSFs() const { return _psfs; }
+
+  private:
+    PTR(std::vector<PTR(PSF<ImageT, MaskT, VarianceT, WavelengthT>)>) _psfs; // shared pointer to vector of shared pointers to PSFs
+};
+
+namespace math{
+  template<typename ImageT, typename MaskT = afwImage::MaskPixel, typename VarianceT = afwImage::VariancePixel, typename WavelengthT = afwImage::VariancePixel>
+  PTR(PSFSet<ImageT, MaskT, VarianceT, WavelengthT>) calculate2dPSFPerBin(const FiberTrace<ImageT, MaskT, VarianceT> & fiberTrace,
+                                                                          const Spectrum<ImageT, MaskT, VarianceT, WavelengthT> & spectrum,
+                                                                          const TwoDPSFControl & twoDPSFControl);
+}
 }}}
 #endif

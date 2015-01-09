@@ -3,8 +3,8 @@
 namespace pfsDRPStella = pfs::drp::stella;
 
 /// Set the _twoDPSFControl
-template<typename ImageT, typename MaskT, typename VarianceT>
-bool pfsDRPStella::PSF<ImageT, MaskT, VarianceT>::setTwoDPSFControl(PTR(TwoDPSFControl) &twoDPSFControl){
+template<typename ImageT, typename MaskT, typename VarianceT, typename WavelengthT>
+bool pfsDRPStella::PSF<ImageT, MaskT, VarianceT, WavelengthT>::setTwoDPSFControl(PTR(TwoDPSFControl) &twoDPSFControl){
   assert(twoDPSFControl->signalThreshold >= 0.);
   assert(twoDPSFControl->signalThreshold < twoDPSFControl->saturationLevel / 2.);
   assert(twoDPSFControl->swathWidth > twoDPSFControl->yFWHM * 10);
@@ -15,11 +15,10 @@ bool pfsDRPStella::PSF<ImageT, MaskT, VarianceT>::setTwoDPSFControl(PTR(TwoDPSFC
   assert(twoDPSFControl->saturationLevel > 0.);
   assert(twoDPSFControl->nKnotsX > 10);
   assert(twoDPSFControl->nKnotsY > 10);
-//  assert(twoDPSFControl->smooth > 0.);
   _twoDPSFControl->signalThreshold = twoDPSFControl->signalThreshold;
   _twoDPSFControl->swathWidth = twoDPSFControl->swathWidth;
   _twoDPSFControl->xFWHM = twoDPSFControl->xFWHM;
-  _twoDPSFControl->xFWHM = twoDPSFControl->yFWHM;
+  _twoDPSFControl->yFWHM = twoDPSFControl->yFWHM;
   _twoDPSFControl->nTermsGaussFit = twoDPSFControl->nTermsGaussFit;
   _twoDPSFControl->saturationLevel = twoDPSFControl->saturationLevel;
   _twoDPSFControl->nKnotsX = twoDPSFControl->nKnotsX;
@@ -27,28 +26,29 @@ bool pfsDRPStella::PSF<ImageT, MaskT, VarianceT>::setTwoDPSFControl(PTR(TwoDPSFC
   return true;
 }
 
-template<typename ImageT, typename MaskT, typename VarianceT>
-bool pfsDRPStella::PSF<ImageT, MaskT, VarianceT>::extractPSFs()
+template<typename ImageT, typename MaskT, typename VarianceT, typename WavelengthT>
+bool pfsDRPStella::PSF<ImageT, MaskT, VarianceT, WavelengthT>::extractPSFs(const FiberTrace<ImageT, MaskT, VarianceT> &fiberTraceIn,
+                                                                           const Spectrum<ImageT, MaskT, VarianceT, WavelengthT> &spectrumIn)
 {
   if (!_isTwoDPSFControlSet){
     cout << "PSF trace" << _iTrace << " bin" << _iBin << "::extractPSFs: ERROR: _twoDPSFControl is not set" << endl;
     return false;
   }
 
-  blitz::Array<double, 2> trace_In(_yHigh - _yLow + 1, _trace->getWidth());
-  blitz::Array<double, 2> mask_In(_yHigh - _yLow + 1, _trace->getWidth());
-  blitz::Array<double, 2> stddev_In(_yHigh - _yLow + 1, _trace->getWidth());
+  blitz::Array<double, 2> trace_In(_yHigh - _yLow + 1, fiberTraceIn.getImage()->getWidth());
+  blitz::Array<double, 2> mask_In(_yHigh - _yLow + 1, fiberTraceIn.getImage()->getWidth());
+  blitz::Array<double, 2> stddev_In(_yHigh - _yLow + 1, fiberTraceIn.getImage()->getWidth());
   blitz::Array<double, 1> spectrum_In(_yHigh - _yLow + 1);
   blitz::Array<double, 1> spectrumVariance_In(_yHigh - _yLow + 1);
   blitz::Array<double, 1> xCenterTrace_In(_yHigh - _yLow + 1);
   blitz::Array<double, 1> xCentersOffset_In(_yHigh - _yLow + 1);
 
-  blitz::Array<ImageT, 2> T_A2_PixArray = utils::ndarrayToBlitz(_trace->getImage()->getArray());
-  blitz::Array<double, 2> D_A2_PixArray = pfsDRPStella::math::Double(T_A2_PixArray);
+  blitz::Array<ImageT, 2> T_A2_PixArray = utils::ndarrayToBlitz(fiberTraceIn.getImage()->getArray());
+  blitz::Array<double, 2> D_A2_PixArray = math::Double(T_A2_PixArray);
   trace_In = D_A2_PixArray(blitz::Range(_yLow, _yHigh), blitz::Range::all());
 
-  blitz::Array<VarianceT, 2> T_A2_VarArray = utils::ndarrayToBlitz(_trace->getVariance()->getArray());
-  blitz::Array<double, 2> D_A2_StdDevArray = pfsDRPStella::math::Double(T_A2_VarArray);
+  blitz::Array<VarianceT, 2> T_A2_VarArray = utils::ndarrayToBlitz(fiberTraceIn.getVariance()->getArray());
+  blitz::Array<double, 2> D_A2_StdDevArray = math::Double(T_A2_VarArray);
   stddev_In = blitz::sqrt(blitz::where(D_A2_StdDevArray(blitz::Range(_yLow, _yHigh), blitz::Range::all()) > 0., D_A2_StdDevArray(blitz::Range(_yLow, _yHigh), blitz::Range::all()), 1.));
   if (fabs(blitz::max(stddev_In)) < 0.000001){
     double D_MaxStdDev = fabs(blitz::max(stddev_In));
@@ -56,29 +56,29 @@ bool pfsDRPStella::PSF<ImageT, MaskT, VarianceT>::extractPSFs()
     return false;
   }
 
-  blitz::Array<MaskT, 2> T_A2_MaskArray = utils::ndarrayToBlitz(_trace->getMask()->getArray());
+  blitz::Array<MaskT, 2> T_A2_MaskArray = utils::ndarrayToBlitz(fiberTraceIn.getMask()->getArray());
 //    blitz::Array<int, 2> I_A2_MaskArray(D_A2_PixArray.rows(), D_A2_PixArray.cols());
   mask_In = blitz::where(T_A2_MaskArray(blitz::Range(_yLow, _yHigh), blitz::Range::all()) == 0, 1, 0);
 
-  blitz::Array<float, 1> F_A1_Spectrum(const_cast<float*>(_spectrum->data()), blitz::shape(_spectrum->size()), blitz::neverDeleteData);
-  spectrum_In = pfsDRPStella::math::Double(F_A1_Spectrum(blitz::Range(_yLow, _yHigh)));
+  blitz::Array<ImageT, 1> F_A1_Spectrum(const_cast<ImageT*>(spectrumIn.getSpectrum()->data()), blitz::shape(spectrumIn.getLength()), blitz::neverDeleteData);
+  spectrum_In = math::Double(F_A1_Spectrum(blitz::Range(_yLow, _yHigh)));
 
-  blitz::Array<float, 1> F_A1_SpectrumVariance(const_cast<float*>(_spectrumVariance->data()), blitz::shape(_spectrumVariance->size()), blitz::neverDeleteData);
-  spectrumVariance_In = pfsDRPStella::math::Double(F_A1_SpectrumVariance(blitz::Range(_yLow, _yHigh)));
+  blitz::Array<VarianceT, 1> F_A1_SpectrumVariance(const_cast<VarianceT*>(spectrumIn.getVariance()->data()), blitz::shape(spectrumIn.getLength()), blitz::neverDeleteData);
+  spectrumVariance_In = math::Double(F_A1_SpectrumVariance(blitz::Range(_yLow, _yHigh)));
   ///TODO: replace with variance from MaskedImage
   spectrumVariance_In = spectrum_In;
   blitz::Array<double, 1> spectrumSigma(spectrumVariance_In.size());
   spectrumSigma = blitz::sqrt(spectrumVariance_In);
 
-  blitz::Array<float, 1> xCenters(const_cast<float*>(_xCenters->data()), blitz::shape(_xCenters->size()), blitz::neverDeleteData);
-  xCenterTrace_In = pfsDRPStella::math::Double(xCenters(blitz::Range(_yLow, _yHigh))) + 0.5;
+  blitz::Array<float, 1> xCenters(const_cast<float*>(fiberTraceIn.getXCenters()->data()), blitz::shape(fiberTraceIn.getXCenters()->size()), blitz::neverDeleteData);
+  xCenterTrace_In = math::Double(xCenters(blitz::Range(_yLow, _yHigh))) + 0.5;
 
-  xCentersOffset_In = xCenterTrace_In - pfsDRPStella::math::Int(xCenterTrace_In);
+  xCentersOffset_In = xCenterTrace_In - math::Int(xCenterTrace_In);
 
   blitz::Array<int, 2> minCenMax(2,2);
   if (!pfsDRPStella::math::calcMinCenMax(xCenters,
-                                         _xHigh,
-                                         _xLow,
+                                         fiberTraceIn.getFiberTraceFunction()->fiberTraceFunctionControl.xHigh,
+                                         fiberTraceIn.getFiberTraceFunction()->fiberTraceFunctionControl.xLow,
                                          1,
                                          1,
                                          minCenMax)){
@@ -124,13 +124,13 @@ bool pfsDRPStella::PSF<ImageT, MaskT, VarianceT>::extractPSFs()
     if (_iBin < 10)
       colname += std::string("0");
     colname += to_string(_iBin)+std::string(".fits");
-    pfsDRPStella::utils::WriteFits(&spectrum_In, colname);
+    utils::WriteFits(&spectrum_In, colname);
     cout << "PSF trace" << _iTrace << " bin" << _iBin << "::extractPSFs: spectrumSigma = " << spectrumSigma << endl;
     std::string fname_trace = __DEBUGDIR__ + std::string("trace_iBin");
     if (_iBin < 10)
       fname_trace += std::string("0");
     fname_trace += to_string(_iBin)+std::string(".fits");
-    pfsDRPStella::utils::WriteFits(&trace_In, fname_trace);
+    utils::WriteFits(&trace_In, fname_trace);
   #endif
 
   /// set everything below signal threshold to zero
@@ -141,7 +141,7 @@ bool pfsDRPStella::PSF<ImageT, MaskT, VarianceT>::extractPSFs()
   #endif
 
   /// look for signal wider than 2 FWHM
-  if (!pfsDRPStella::math::CountPixGTZero(traceCenterSignal)){
+  if (!math::CountPixGTZero(traceCenterSignal)){
     cout << "PSF trace" << _iTrace << " bin" << _iBin << "::extractPSFs: ERROR: CountPixGTZero(traceCenterSignal=" << traceCenterSignal << ") returned FALSE" << endl;
     return false;
   }
@@ -182,7 +182,7 @@ bool pfsDRPStella::PSF<ImageT, MaskT, VarianceT>::extractPSFs()
   blitz::Array<double, 2> D_A2_GaussCenters(1,2);
   int emissionLineNumber = 0;
   do{
-    I_FirstWideSignal = pfsDRPStella::math::FirstIndexWithValueGEFrom(traceCenterSignal, I_MinWidth, I_StartIndex);
+    I_FirstWideSignal = math::FirstIndexWithValueGEFrom(traceCenterSignal, I_MinWidth, I_StartIndex);
     #ifdef __DEBUG_CALC2DPSF__
       cout << "PSF trace" << _iTrace << " bin" << _iBin << "::extractPSFs: while: I_FirstWideSignal found at index " << I_FirstWideSignal << ", I_StartIndex = " << I_StartIndex << endl;
     #endif
@@ -190,7 +190,7 @@ bool pfsDRPStella::PSF<ImageT, MaskT, VarianceT>::extractPSFs()
       cout << "PSF trace" << _iTrace << " bin" << _iBin << "::extractPSFs: while: No emission line found" << endl;
       break;
     }
-    I_FirstWideSignalStart = pfsDRPStella::math::LastIndexWithZeroValueBefore(traceCenterSignal, I_FirstWideSignal);
+    I_FirstWideSignalStart = math::LastIndexWithZeroValueBefore(traceCenterSignal, I_FirstWideSignal);
     if (I_FirstWideSignalStart < 0){
       I_FirstWideSignalStart = 0;
     }
@@ -198,7 +198,7 @@ bool pfsDRPStella::PSF<ImageT, MaskT, VarianceT>::extractPSFs()
       cout << "PSF trace" << _iTrace << " bin" << _iBin << "::extractPSFs: while: I_FirstWideSignalStart = " << I_FirstWideSignalStart << endl;
     #endif
 
-    I_FirstWideSignalEnd = pfsDRPStella::math::FirstIndexWithZeroValueFrom(traceCenterSignal, I_FirstWideSignal);
+    I_FirstWideSignalEnd = math::FirstIndexWithZeroValueFrom(traceCenterSignal, I_FirstWideSignal);
     #ifdef __DEBUG_CALC2DPSF__
       cout << "PSF trace" << _iTrace << " bin" << _iBin << "::extractPSFs: while: I_FirstWideSignalEnd = " << I_FirstWideSignalEnd << endl;
     #endif
@@ -303,7 +303,7 @@ bool pfsDRPStella::PSF<ImageT, MaskT, VarianceT>::extractPSFs()
             if (i_Down >= 0){
 //                i_Down = 0;
               i_Up = int(D_A2_GaussCenters(emissionLineNumber-1, 1) + (2.*_twoDPSFControl->yFWHM));
-              cout << "PSF trace" << _iTrace << " bin" << _iBin << "::extractPSFs: emissionLineNumber-1=" << emissionLineNumber-1 << ": _trace->getHeight() = " << _trace->getHeight() << ", i_Up = " << i_Up << endl;
+              cout << "PSF trace" << _iTrace << " bin" << _iBin << "::extractPSFs: emissionLineNumber-1=" << emissionLineNumber-1 << ": fiberTraceIn.rows() = " << trace_In.rows() << ", i_Up = " << i_Up << endl;
               if (i_Up < trace_In.rows()){
 //                i_Up = trace_In.rows() - 1;
                 pixOffsetY = D_A2_GaussCenters(emissionLineNumber-1,1) - int(D_A2_GaussCenters(emissionLineNumber-1,1)) - 0.5;
@@ -332,8 +332,8 @@ bool pfsDRPStella::PSF<ImageT, MaskT, VarianceT>::extractPSFs()
                   //i_Right = int(D_A2_GaussCenters(emissionLineNumber-1, 0) + (1.5*_twoDPSFControl->xFWHM)) + int(xCenterTrace_In(i_Down+iY)) - int(xCenterTrace_In(i_yCenter));
                   if (i_Left < 0)
                     i_Left = 0;
-                  if (i_Right >= _trace->getWidth())
-                    i_Right = _trace->getWidth() - 1;
+                  if (i_Right >= fiberTraceIn.getWidth())
+                    i_Right = fiberTraceIn.getWidth() - 1;
                   xStart = int(xCenterTrace_In(i_Down + iY)) + 0.5 - xCenterTrace_In(i_Down + iY) + dTraceGaussCenterX - i_xCenter + i_Left;
                   yStart = i_Down - i_yCenter - pixOffsetY;
                   //xStart = i_Left - i_xCenter - pixOffsetX;
@@ -459,8 +459,8 @@ bool pfsDRPStella::PSF<ImageT, MaskT, VarianceT>::extractPSFs()
   return true;
 }
 
-template<typename ImageT, typename MaskT, typename VarianceT>
-bool pfsDRPStella::PSF<ImageT, MaskT, VarianceT>::fitPSFKernel()
+template<typename ImageT, typename MaskT, typename VarianceT, typename WavelengthT>
+bool pfsDRPStella::PSF<ImageT, MaskT, VarianceT, WavelengthT>::fitPSFKernel()
 {
   if (!_isPSFsExtracted){
     cout << "PSF:fitPSFKernel: ERROR: _isPSFsExtracted == false" << endl;
@@ -540,7 +540,7 @@ bool pfsDRPStella::PSF<ImageT, MaskT, VarianceT>::fitPSFKernel()
       #endif
       if (nPixelsInRange > 1){
         blitz::Array<double, 1> tempArr(valuesInRange.data(), blitz::shape(valuesInRange.size()), blitz::neverDeleteData);
-        moments = pfsDRPStella::math::Moment(tempArr, 2);
+        moments = math::Moment(tempArr, 2);
         #ifdef __DEBUG_CALC2DPSF__
           cout << "PSF trace" << _iTrace << " bin" << _iBin << "::extractPSFs: ix=" << ix << ", iy=" << iy << ": 1. moments = " << moments << endl;
         #endif
@@ -555,7 +555,7 @@ bool pfsDRPStella::PSF<ImageT, MaskT, VarianceT>::fitPSFKernel()
           }
         }
         blitz::Array<double, 1> tempArrNew(valuesInRange.data(), blitz::shape(valuesInRange.size()), blitz::neverDeleteData);
-        moments = pfsDRPStella::math::Moment(tempArrNew, 1);
+        moments = math::Moment(tempArrNew, 1);
         #ifdef __DEBUG_CALC2DPSF__
           cout << "PSF trace" << _iTrace << " bin" << _iBin << "::extractPSFs: ix=" << ix << ", iy=" << iy << ": 2. moments = " << moments << endl;
         #endif
@@ -611,8 +611,8 @@ bool pfsDRPStella::PSF<ImageT, MaskT, VarianceT>::fitPSFKernel()
   return true;
 }
 
-template<typename ImageT, typename MaskT, typename VarianceT>
-bool pfsDRPStella::PSF<ImageT, MaskT, VarianceT>::calculatePSF()
+template<typename ImageT, typename MaskT, typename VarianceT, typename WavelengthT>
+bool pfsDRPStella::PSF<ImageT, MaskT, VarianceT, WavelengthT>::calculatePSF()
 {
   _pixelsFit->resize(_imagePSF_XRelativeToCenter->size());
   if (!_surfaceFit->estimate(*_imagePSF_XRelativeToCenter, *_imagePSF_YRelativeToCenter, *_pixelsFit)){
@@ -650,5 +650,101 @@ bool pfsDRPStella::PSF<ImageT, MaskT, VarianceT>::calculatePSF()
   return true;
 }
 
+template<typename ImageT, typename MaskT, typename VarianceT, typename WavelengthT>    
+bool pfsDRPStella::PSFSet<ImageT, MaskT, VarianceT, WavelengthT>::setPSF(const unsigned int i,     /// which position?
+                     const PTR(PSF<ImageT, MaskT, VarianceT, WavelengthT>) & psf /// the PSF for the ith position
+                      )
+{
+  if (i > _psfs->size()){
+    cout << "pfsDRPStella::PSFSet::setPSF: ERROR: i=" << i << " > _psfs->size()=" << _psfs->size() << " => Returning FALSE" << endl;
+    return false;
+  }
+  if (i == static_cast<int>(_psfs->size())){
+      _psfs->push_back(psf);
+  }
+  else{
+    (*_psfs)[i] = psf;
+  }
+  return true;
+}
+
+/// add one PSF to the set
+template<typename ImageT, typename MaskT, typename VarianceT, typename WavelengthT>    
+void pfsDRPStella::PSFSet<ImageT, MaskT, VarianceT, WavelengthT>::addPSF(const PTR(PSF<ImageT, MaskT, VarianceT, WavelengthT>) & psf /// the Spectrum to add
+)
+{
+  _psfs->push_back(psf);
+}
+
+template<typename ImageT, typename MaskT, typename VarianceT, typename WavelengthT>
+PTR(pfsDRPStella::PSFSet<ImageT, MaskT, VarianceT, WavelengthT>) pfsDRPStella::math::calculate2dPSFPerBin(const pfsDRPStella::FiberTrace<ImageT, MaskT, VarianceT> & fiberTrace,
+                                                                                                          const pfsDRPStella::Spectrum<ImageT, MaskT, VarianceT, WavelengthT> & spectrum,
+                                                                                                          const pfsDRPStella::TwoDPSFControl & twoDPSFControl){
+  int swathWidth = twoDPSFControl.swathWidth;
+  int nBins = 0;
+  int binHeight = 0;
+  blitz::Array<int, 2> binBoundY(2,2);
+  if (!fiberTrace.calculateSwathWidth_NBins_BinHeight_BinBoundY(swathWidth,
+                                                                nBins,
+                                                                binHeight,
+                                                                binBoundY)){
+    throw("calculate2dPSFPerBin: FiberTrace" << fiberTrace.getITrace() << ": ERROR: calculateSwathWidth_NBins_BinHeight_BinBoundY returned FALSE");
+  }
+
+  blitz::Array<double, 2> D_A2_2dPSF(2,2);
+
+//    blitz::Array<double, 2> traceBin(2,2);
+//    blitz::Array<double, 2> stddevBin(2,2);
+//    blitz::Array<int, 2> maskBin(2,2);
+  if (binBoundY.rows() != nBins){
+    throw("calculate2dPSFPerBin: FiberTrace" << fiberTrace.getITrace() << ": ERROR: binBoundY.rows()=" << binBoundY.rows() << " != nBins=" << nBins);
+  }
+  PTR(pfsDRPStella::PSFSet<ImageT, MaskT, VarianceT, WavelengthT>) psfVector(new pfsDRPStella::PSFSet<ImageT, MaskT, VarianceT, WavelengthT>());
+  for (int iBin=0; iBin<nBins; ++iBin){
+/*      traceBin.resize(binBoundY(iBin,1) - binBoundY(iBin,0) + 1, fiberTraceIn.getWidth());
+      traceBin = D_A2_PixArray(blitz::Range(binBoundY(iBin,0), binBoundY(iBin,1)), blitz::Range::all());
+
+      stddevBin.resize(binBoundY(iBin,1) - binBoundY(iBin,0) + 1, fiberTraceIn.getWidth());
+      stddevBin = D_A2_StdDevArray(blitz::Range(binBoundY(iBin,0), binBoundY(iBin,1)), blitz::Range::all());
+
+      maskBin.resize(binBoundY(iBin,1) - binBoundY(iBin,0) + 1, fiberTraceIn.getWidth());
+      maskBin = I_A2_MaskArray(blitz::Range(binBoundY(iBin,0), binBoundY(iBin,1)), blitz::Range::all());
+*/
+    /// start calculate2dPSF for bin iBin
+    #ifdef __DEBUG_CALC2DPSF__
+      cout << "calculate2dPSFPerBin: FiberTrace" << fiberTrace.getITrace() << ": calculating PSF for iBin " << iBin << endl;
+    #endif
+    PTR(pfsDRPStella::PSF<ImageT, MaskT, VarianceT, WavelengthT>) psf(new pfsDRPStella::PSF< ImageT, MaskT, VarianceT, WavelengthT>(static_cast<unsigned int>(binBoundY(iBin,0)),
+                                                                                                                                    static_cast<unsigned int>(binBoundY(iBin,1)),
+                                                                                                                                    twoDPSFControl,
+                                                                                                                                    fiberTrace.getITrace(),
+                                                                                                                                    iBin));
+    #ifdef __DEBUG_CALC2DPSF__
+      cout << "calculate2dPSFPerBin: FiberTrace" << fiberTrace.getITrace() << ": iBin " << iBin << ": starting extractPSFs()" << endl;
+    #endif
+    if (!psf->extractPSFs(fiberTrace, 
+                          spectrum)){
+      throw("calculate2dPSFPerBin: FiberTrace" << fiberTrace.getITrace() << ": iBin " << iBin << ": ERROR: psf->extractPSFs() returned FALSE");
+    }
+    #ifdef __DEBUG_CALC2DPSF__
+      cout << "calculate2dPSFPerBin: FiberTrace" << fiberTrace.getITrace() << ": iBin " << iBin << ": extractPSFs() finished" << endl;
+      std::vector<float> xTrace((*(psf->getImagePSF_XTrace())));
+      cout << "calculate2dPSFPerBin: FiberTrace" << fiberTrace.getITrace() << ": iBin = " << iBin << ": xTrace.size() = " << xTrace.size() << endl;
+//        cout << "FiberTrace" << _iTrace << "::calculate2dPSFPerBin: iBin " << iBin << ": starting calculatePSF()" << endl;
+    #endif
+//      if (!psf->calculatePSF()){
+//        cout << "FiberTrace" << _iTrace << "::calculate2dPSFPerBin: iBin " << iBin << ": ERROR: psf->calculatePSF() returned FALSE" << endl;
+//        return false;
+//      }
+    psfVector->push_back(psf);
+  }
+    
+  return psfVector;
+}
+
+
 template class pfsDRPStella::PSF<float>;
 template class pfsDRPStella::PSF<double>;
+
+template class pfsDRPStella::PSFSet<float>;
+template class pfsDRPStella::PSFSet<double>;
