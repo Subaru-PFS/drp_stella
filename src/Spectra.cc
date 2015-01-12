@@ -121,7 +121,12 @@ template<typename SpectrumT, typename MaskT, typename VarianceT, typename Wavele
 void pfsDRPStella::SpectrumSet<SpectrumT, MaskT, VarianceT, WavelengthT>::addSpectrum(const PTR(Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>) & spectrum /// the Spectrum to add
 )
 {
-  _spectra->push_back(spectrum);
+  try{
+    _spectra->push_back(spectrum);
+  }
+  catch (std::exception &e){
+    cout << "SpectrumSet.addSpectrum: Exception <" << e.what() << ">" << endl;
+  }
 }
 
 template class pfsDRPStella::Spectrum<float>;

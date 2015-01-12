@@ -15,6 +15,7 @@ Interface to Stella
 #include "ndarray/swig.h"
 #include "lsst/pex/logging.h"
 #include "lsst/afw.h"
+#include "lsst/afw/image/MaskedImage.h"
 #include <vector>
 #include "pfs/drp/stella/FiberTraces.h"
 #include "pfs/drp/stella/blitz.h"
@@ -64,11 +65,13 @@ Interface to Stella
 %shared_ptr(std::vector<unsigned int>);
 %shared_ptr(std::vector<int>);
 %shared_ptr(std::vector<long>);
+%shared_ptr(std::vector<PTR(pfs::drp::stella::PSFSet<float, unsigned short, float, float>)>);
+%shared_ptr(std::vector<PTR(pfs::drp::stella::PSFSet<double, unsigned short, float, float>)>);
 
 %shared_ptr(pfs::drp::stella::FiberTraceFunctionFindingControl);
 %shared_ptr(pfs::drp::stella::FiberTraceFunctionControl);
 %shared_ptr(pfs::drp::stella::FiberTraceFunction);
-%shared_ptr(pfs::drp::stella::FiberTraceExtractionControl);
+%shared_ptr(pfs::drp::stella::FiberTraceProfileFittingControl);
 %shared_ptr(pfs::drp::stella::TwoDPSFControl);
 
 %shared_ptr(pfs::drp::stella::FiberTrace<float, unsigned short, float>);
@@ -86,20 +89,31 @@ Interface to Stella
 %shared_ptr(std::vector<PTR(pfs::drp::stella::PSF<float, unsigned short, float, float>)>);
 %shared_ptr(std::vector<PTR(pfs::drp::stella::PSF<double, unsigned short, float, float>)>);
 
+%shared_ptr(pfs::drp::stella::PSFSet<float, unsigned short, float, float>);
+%shared_ptr(pfs::drp::stella::PSFSet<double, unsigned short, float, float>);
+
+%shared_ptr(std::vector<PTR(pfs::drp::stella::PSFSet<float, unsigned short, float, float>)>);
+%shared_ptr(std::vector<PTR(pfs::drp::stella::PSFSet<double, unsigned short, float, float>)>);
+
 %shared_ptr(pfs::drp::stella::Spectrum<float, unsigned short, float, float>);
 %shared_ptr(pfs::drp::stella::Spectrum<double, unsigned short, float, float>);
 
 %shared_ptr(std::vector<PTR(pfs::drp::stella::Spectrum<float, unsigned short, float, float>)>);
 %shared_ptr(std::vector<PTR(pfs::drp::stella::Spectrum<double, unsigned short, float, float>)>);
 
-%include "pfs/drp/stella/PSF.h"
-%include "std_vector.i"
-%template(PSFVectorF) std::vector<PTR(pfs::drp::stella::PSF<float, unsigned short, float, float>)>;
-%template(PSFVectorD) std::vector<PTR(pfs::drp::stella::PSF<double, unsigned short, float, float>)>;
+%shared_ptr(pfs::drp::stella::SpectrumSet<float, unsigned short, float, float>);
+%shared_ptr(pfs::drp::stella::SpectrumSet<double, unsigned short, float, float>);
 
 %include "pfs/drp/stella/FiberTraces.h"
+%include "std_vector.i"
 %template(FTVectorF) std::vector<PTR(pfs::drp::stella::FiberTrace<float, unsigned short, float>)>;
 %template(FTVectorD) std::vector<PTR(pfs::drp::stella::FiberTrace<double, unsigned short, float>)>;
+
+%include "pfs/drp/stella/PSF.h"
+%template(PSFVectorF) std::vector<PTR(pfs::drp::stella::PSF<float, unsigned short, float, float>)>;
+%template(PSFVectorD) std::vector<PTR(pfs::drp::stella::PSF<double, unsigned short, float, float>)>;
+%template(PSFSetVectorF) std::vector<PTR(pfs::drp::stella::PSFSet<float, unsigned short, float, float>)>;
+%template(PSFSetVectorD) std::vector<PTR(pfs::drp::stella::PSFSet<double, unsigned short, float, float>)>;
 
 %include "pfs/drp/stella/Spectra.h"
 %template(SpecVectorF) std::vector<PTR(pfs::drp::stella::Spectrum<float, unsigned short, float, float>)>;
@@ -118,6 +132,8 @@ Interface to Stella
 %template(SPVectorUI) std::vector<unsigned int>;
 %template(SPVectorI) std::vector<int>;
 %template(SPVectorL) std::vector<long>;
+%template(PSFSetVectorF) std::vector<PTR(pfs::drp::stella::PSFSet<float, unsigned short, float, float>)>;
+%template(PSFSetVectorD) std::vector<PTR(pfs::drp::stella::PSFSet<double, unsigned short, float, float>)>;
 
 %template(FiberTraceF) pfs::drp::stella::FiberTrace<float, unsigned short, float>;
 %template(FiberTraceD) pfs::drp::stella::FiberTrace<double, unsigned short, float>;
@@ -305,3 +321,6 @@ Interface to Stella
 %template(copyBlitzToNdarrayL) pfs::drp::stella::utils::copyBlitzToNdarray<long>;
 %template(copyBlitzToNdarrayF) pfs::drp::stella::utils::copyBlitzToNdarray<float>;
 %template(copyBlitzToNdarrayD) pfs::drp::stella::utils::copyBlitzToNdarray<double>;
+
+%template(getPointerMIF) pfs::drp::stella::utils::getPointer<lsst::afw::image::MaskedImage<float, unsigned short, float>>;
+%template(getPointerMID) pfs::drp::stella::utils::getPointer<lsst::afw::image::MaskedImage<double, unsigned short, float>>;

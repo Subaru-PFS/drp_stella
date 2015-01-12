@@ -237,7 +237,7 @@ namespace math{
   template<typename ImageT, typename MaskT = afwImage::MaskPixel, typename VarianceT = afwImage::VariancePixel, typename WavelengthT = afwImage::VariancePixel>
   PTR(PSFSet<ImageT, MaskT, VarianceT, WavelengthT>) calculate2dPSFPerBin(const FiberTrace<ImageT, MaskT, VarianceT> & fiberTrace,
                                                                           const Spectrum<ImageT, MaskT, VarianceT, WavelengthT> & spectrum,
-                                                                          const TwoDPSFControl & twoDPSFControl);
+                                                                          const PTR(TwoDPSFControl) & twoDPSFControl);
 }
 }}}
 #endif

@@ -5,6 +5,9 @@
 #include "../blitz.h"
 #include <fitsio.h>
 #include <fitsio2.h>
+#include "lsst/afw/image/MaskedImage.h"
+
+namespace afwImage = lsst::afw::image;
 
 using namespace std;
 namespace pfs { namespace drp { namespace stella { namespace utils{
@@ -88,6 +91,9 @@ namespace pfs { namespace drp { namespace stella { namespace utils{
 
   bool readFileLinesToStrArr(const string &S_FileName_In,
                               blitz::Array<string, 1> &S_A1_Out);
+  
+  template<typename T>
+  PTR(T) getPointer(T &);
 
 }}}}
 #endif

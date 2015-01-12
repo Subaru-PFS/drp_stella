@@ -76,7 +76,7 @@ def calculateTwoDPSF(flatfilename, specfilename):
     # --- sort traces by xCenters
     fts.sortTracesByXCenter()
     tdpsfcp = tdpsfc.getPointer()
-    fts.setTwoDPSFControl(tdpsfcp)
+#    fts.setTwoDPSFControl(tdpsfcp)
     ftecp = ftec.getPointer()
     fts.setFiberTraceExtractionControl(ftecp)
     fts.extractAllTraces()
@@ -91,18 +91,17 @@ def calculateTwoDPSF(flatfilename, specfilename):
         trace = fts.getFiberTrace(i)
         trace.setITrace(i)
         trace.createTrace(mis)
-        trace.extractFromProfile()
+        spectrum = trace.extractFromProfile()
 #        print "FiberTrace ",i,": _trace = ",trace.getSpectrum()
         if i == 5:
             return fts
         if i != 5:
-            trace.calculate2dPSFPerBin()
+            psfset = drpStella.calculate2dPSFPerBinF(trace, spectrum, tdpsfcp)
             print "trace ",i," done"
 
         if False:
-            psfvec = trace.getPSFVector()
-            for j in range(0,len(psfvec)) :
-                psfa = psfvec[j]
+            for j in range(0,len(psfset)) :
+                psfa = psfset[j]
             
                 xvec = psfa.getImagePSF_XRelativeToCenter()
                 yvec = psfa.getImagePSF_YRelativeToCenter()

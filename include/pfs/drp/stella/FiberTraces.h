@@ -1,5 +1,6 @@
 ///TODO: split profile calculation and 1d extraction
-
+///TODO: Create own class for FiberTraceProfile?
+///TODO: Add deep option to copy constructors
 #if !defined(PFS_DRP_STELLA_FIBERTRACES_H)
 #define PFS_DRP_STELLA_FIBERTRACES_H
 
@@ -24,15 +25,15 @@
 //#define __DEBUG_BANDSOL__
 #define __DEBUG_CALC2DPSF__
 //#define __DEBUG_CHECK_INDICES__
-//#define __DEBUG_CREATEFIBERTRACE__
-//#define __DEBUG_EXTRACTFROMPROFILE__
+#define __DEBUG_CREATEFIBERTRACE__
+#define __DEBUG_EXTRACTFROMPROFILE__
 //#define __DEBUG_FINDANDTRACE__
 //#define __DEBUG_FIT__
 //#define __DEBUG_SPLINE__
 //#define __DEBUG_INTERPOL__
 //#define __DEBUG_MINCENMAX__
 //#define __DEBUG_MKPROFIM__
-//#define __DEBUG_MKSLITFUNC__
+#define __DEBUG_MKSLITFUNC__
 //#define __DEBUG_SETFIBERTRACEFUNCTION__
 //#define __DEBUG_SLITFUNC__
 //#define __DEBUG_SLITFUNC_N__
@@ -40,7 +41,7 @@
 //#define __DEBUG_SLITFUNC_X__
 //#define __DEBUG_TRACEFUNC__
 //#define __DEBUG_UNIQ__
-#define DEBUGDIR "/home/azuri/spectra/pfs/2014-11-02/debug/"// /home/azuri/entwicklung/idl/REDUCE/16_03_2013/"//stella/ses-pipeline/c/msimulateskysubtraction/data/"//spectra/elaina/eso_archive/red_564/red_r/"
+#define DEBUGDIR "/Users/azuri/spectra/pfs/2014-11-02/debug/"// /home/azuri/entwicklung/idl/REDUCE/16_03_2013/"//stella/ses-pipeline/c/msimulateskysubtraction/data/"//spectra/elaina/eso_archive/red_564/red_r/"
 
 namespace afwGeom = lsst::afw::geom;
 namespace afwImage = lsst::afw::image;
@@ -100,9 +101,9 @@ class FiberTrace {
     bool setProfile(const PTR(afwImage::Image<float>) &profile);
 
     /// Extract the spectrum of this fiber trace using the _profile
-    PTR(Spectrum<ImageT>) extractFromProfile();
-    PTR(Spectrum<ImageT>) extractFromProfile(const blitz::Array<string, 1> &S_A1_Args,     //: in
-                                             void *ArgV[]);                        //: in
+    PTR(Spectrum<ImageT, MaskT, VarianceT, VarianceT>) extractFromProfile();
+    PTR(Spectrum<ImageT, MaskT, VarianceT, VarianceT>) extractFromProfile(const blitz::Array<string, 1> &S_A1_Args,     //: in
+                                                                          void *ArgV[]);                        //: in
 
     /// Create _trace from maskedImage and _fiberTraceFunction
     /// Pre: _xCenters set/calculated
@@ -114,11 +115,11 @@ class FiberTrace {
     /// Set the _fiberTraceFunction
     bool setFiberTraceFunction(const PTR(FiberTraceFunction) &fiberTraceFunction);// { _fiberTraceFunction = fiberTraceFunction; }
 
-    /// Return _fiberTraceExtractionControl
-    PTR(FiberTraceExtractionControl) getFiberTraceExtractionControl() const { return _fiberTraceExtractionControl; }
+    /// Return _fiberTraceProfileFittingControl
+    PTR(FiberTraceProfileFittingControl) getFiberTraceProfileFittingControl() const { return _fiberTraceProfileFittingControl; }
 
-    /// Set the _fiberTraceExtractionControl
-    bool setFiberTraceExtractionControl(const PTR(FiberTraceExtractionControl) &fiberTraceExtractionControl);// { _fiberTraceExtractionControl = fiberTraceExtractionControl; }
+    /// Set the _fiberTraceProfileFittingControl
+    bool setFiberTraceProfileFittingControl(const PTR(FiberTraceProfileFittingControl) &fiberTraceProfileFittingControl);// { _fiberTraceProfileFittingControl = fiberTraceProfileFittingControl; }
 
     /// Calculate the x-centers of the fiber trace
     bool calculateXCenters();//FiberTraceFunctionControl const& fiberTraceFunctionControl);
@@ -131,14 +132,14 @@ class FiberTrace {
     bool setXCenters(const PTR(std::vector<float>) &xCenters);// { _xCenters = xCenters; }
 
     /// Return shared pointer to an image containing the reconstructed 2D spectrum of the FiberTrace
-    PTR(afwImage::Image<float>) getReconstructed2DSpectrum(const Spectrum<ImageT> & spectrum) const;
+    PTR(afwImage::Image<float>) getReconstructed2DSpectrum(const Spectrum<ImageT, MaskT, VarianceT, VarianceT> & spectrum) const;
 
     /// Return shared pointer to an image containing the reconstructed background of the FiberTrace
-    PTR(afwImage::Image<float>) getReconstructedBackground(const Spectrum<ImageT> & spectrum) const;
+    PTR(afwImage::Image<float>) getReconstructedBackground(const Spectrum<ImageT, MaskT, VarianceT, VarianceT> & spectrum) const;
 
     /// Return shared pointer to an image containing the reconstructed 2D spectrum + background of the FiberTrace
-    PTR(afwImage::Image<float>) getReconstructed2DSpectrum(const Spectrum<ImageT> & spectrum,
-                                                           const Spectrum<ImageT> & background) const;
+    PTR(afwImage::Image<float>) getReconstructed2DSpectrum(const Spectrum<ImageT, MaskT, VarianceT, VarianceT> & spectrum,
+                                                           const Spectrum<ImageT, MaskT, VarianceT, VarianceT> & background) const;
 
     /**
      *        Methods from Piskunov and Valenti
@@ -159,8 +160,8 @@ class FiberTrace {
      *                     allow to verify if the OSAMPLE
      *                     is good enough.
      **/
-    PTR(Spectrum<ImageT>) MkSlitFunc();
-    PTR(Spectrum<ImageT>) MkSlitFunc(const blitz::Array<string, 1> &S_A1_Args,     //: in
+    PTR(Spectrum<ImageT, MaskT, VarianceT, VarianceT>) MkSlitFunc();
+    PTR(Spectrum<ImageT, MaskT, VarianceT, VarianceT>) MkSlitFunc(const blitz::Array<string, 1> &S_A1_Args,     //: in
                                      void *ArgV[]);                        //: in
     /* KeyWords and Values:  //    LAMBDA_SF   : double          : in
      *                       //    LAMBDA_SP   : int             : out
@@ -205,12 +206,12 @@ class FiberTrace {
      * from MkSliFunc:
      *         ///      if ((I_Pos = util::KeyWord_Set(S_A1_Args_In, "FIBERTRACENUMBER")) >= 0)
      *        ///        s_a1(pppos) = "FIBERTRACENUMBER";
-     *        ///      if (fiberTraceExtractionControl_In.xCorProf > 0)
+     *        ///      if (fiberTraceProfileFittingControl_In.xCorProf > 0)
      *        ///        s_a1(pppos) = "XCOR_PROF";
      *        ///      s_a1(pppos) = "SP_OUT";
      *        ///      s_a1(pppos) = "STOP";
      *        ///      s_a1(pppos) = "MASK";
-     *        //       if (fiberTraceExtractionControl_In.telluric > 1)
+     *        //       if (fiberTraceProfileFittingControl_In.telluric > 1)
      *        //       {
      *        //         s_a1(pppos) = "SKY";
      *        //         pppos++;
@@ -273,7 +274,7 @@ class FiberTrace {
     bool calculateSwathWidth_NBins_BinHeight_BinBoundY(int &swathWidth,
                                                        int &nBins,
                                                        int &binHeight,
-                                                       blitz::Array<int, 2> &binBoundY);
+                                                       blitz::Array<int, 2> &binBoundY) const;
 
 //    PTR(std::vector<PTR(PSF<ImageT, MaskT, VarianceT>)>) getPSFVector() const {return _psfVector;}
     
@@ -287,8 +288,7 @@ class FiberTrace {
     bool isTraceSet() const {return _isTraceSet;}
     bool isProfileSet() const {return _isProfileSet;}
     bool isFiberTraceFunctionSet() const {return _isFiberTraceFunctionSet;}
-    bool isFiberTraceExtractionControlSet() const {return _isFiberTraceExtractionControlSet;}
-    PTR(std::vector<float>) _xCenters;
+    bool isFiberTraceProfileFittingControlSet() const {return _isFiberTraceProfileFittingControlSet;}
     unsigned int getWidth() const {return _trace->getImage()->getWidth();}
     unsigned int getHeight() const {return _trace->getImage()->getHeight();}
     
@@ -299,14 +299,15 @@ class FiberTrace {
     ///TODO: remove _ccdWidth and _ccdHeight and put as input parameters into calculateXCenters()
     unsigned int _ccdWidth;
     unsigned int _ccdHeight;
+    PTR(std::vector<float>) _xCenters;
     unsigned int _iTrace;
     bool _isXCentersCalculated;
     bool _isTraceSet;
     bool _isProfileSet;
     bool _isFiberTraceFunctionSet;
-    bool _isFiberTraceExtractionControlSet;
+    bool _isFiberTraceProfileFittingControlSet;
     PTR(FiberTraceFunction) _fiberTraceFunction;
-    PTR(FiberTraceExtractionControl) _fiberTraceExtractionControl;
+    PTR(FiberTraceProfileFittingControl) _fiberTraceProfileFittingControl;
 
 
   protected:
@@ -364,7 +365,7 @@ class FiberTraceSet {
 
     PTR(std::vector<PTR(FiberTrace<ImageT, MaskT, VarianceT>)>) getTraces() const { return _traces; }
 
-    bool setFiberTraceExtractionControl(const PTR(FiberTraceExtractionControl) &fiberTraceExtractionControl);
+    bool setFiberTraceProfileFittingControl(const PTR(FiberTraceProfileFittingControl) &fiberTraceProfileFittingControl);
 
     /// set profiles of all traces in this FiberTraceSet to respective FiberTraces in input set
     /// NOTE: the FiberTraces should be sorted by their xCenters before performing this operation!
@@ -374,8 +375,8 @@ class FiberTraceSet {
     void sortTracesByXCenter();
 
     /// calculate spatial profile and extract to 1D
-    PTR(Spectrum<ImageT>) extractTraceNumber(int traceNumber);
-    PTR(SpectrumSet<ImageT>) extractAllTraces();
+    PTR(Spectrum<ImageT, MaskT, VarianceT, VarianceT>) extractTraceNumber(int traceNumber);
+    PTR(SpectrumSet<ImageT, MaskT, VarianceT, VarianceT>) extractAllTraces();
 
     ///TODO:
     /// Extract spectrum and background for one slit spectrum
@@ -388,8 +389,8 @@ class FiberTraceSet {
     /// PTR(std::vector<PTR(SpectrumSet<ImageT, MaskT, VarianceT, ImageT>)>) extractSpectrumAndBackground()
     
     /// extract 1D spectrum from previously provided profile
-    PTR(Spectrum<ImageT>) extractTraceNumberFromProfile(int traceNumber);
-    PTR(SpectrumSet<ImageT>) extractAllTracesFromProfile();
+    PTR(Spectrum<ImageT, MaskT, VarianceT, VarianceT>) extractTraceNumberFromProfile(int traceNumber);
+    PTR(SpectrumSet<ImageT, MaskT, VarianceT, VarianceT>) extractAllTracesFromProfile();
 
     ///TODO:
     /// Extract spectrum and background for one slit spectrum

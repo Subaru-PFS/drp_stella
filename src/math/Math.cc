@@ -2288,7 +2288,7 @@
 
       bool Increasing = false;
       int ii=0;
-      while((ii < static_cast<int>(vec_In.size())) && (vec_In(ii) == vec_In(ii+1))){
+      while((ii < static_cast<int>(vec_In.size()) - 1) && (vec_In(ii) == vec_In(ii+1))){
         ii++;
       }
       if (vec_In(ii+1) > vec_In(ii))

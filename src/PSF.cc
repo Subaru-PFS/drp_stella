@@ -679,8 +679,8 @@ void pfsDRPStella::PSFSet<ImageT, MaskT, VarianceT, WavelengthT>::addPSF(const P
 template<typename ImageT, typename MaskT, typename VarianceT, typename WavelengthT>
 PTR(pfsDRPStella::PSFSet<ImageT, MaskT, VarianceT, WavelengthT>) pfsDRPStella::math::calculate2dPSFPerBin(const pfsDRPStella::FiberTrace<ImageT, MaskT, VarianceT> & fiberTrace,
                                                                                                           const pfsDRPStella::Spectrum<ImageT, MaskT, VarianceT, WavelengthT> & spectrum,
-                                                                                                          const pfsDRPStella::TwoDPSFControl & twoDPSFControl){
-  int swathWidth = twoDPSFControl.swathWidth;
+                                                                                                          const PTR(pfsDRPStella::TwoDPSFControl) & twoDPSFControl){
+  int swathWidth = twoDPSFControl->swathWidth;
   int nBins = 0;
   int binHeight = 0;
   blitz::Array<int, 2> binBoundY(2,2);
@@ -688,7 +688,9 @@ PTR(pfsDRPStella::PSFSet<ImageT, MaskT, VarianceT, WavelengthT>) pfsDRPStella::m
                                                                 nBins,
                                                                 binHeight,
                                                                 binBoundY)){
-    throw("calculate2dPSFPerBin: FiberTrace" << fiberTrace.getITrace() << ": ERROR: calculateSwathWidth_NBins_BinHeight_BinBoundY returned FALSE");
+    string message("calculate2dPSFPerBin: FiberTrace");
+    message += to_string(fiberTrace.getITrace()) + string(": ERROR: calculateSwathWidth_NBins_BinHeight_BinBoundY returned FALSE");
+    throw(message.c_str());
   }
 
   blitz::Array<double, 2> D_A2_2dPSF(2,2);
@@ -697,9 +699,12 @@ PTR(pfsDRPStella::PSFSet<ImageT, MaskT, VarianceT, WavelengthT>) pfsDRPStella::m
 //    blitz::Array<double, 2> stddevBin(2,2);
 //    blitz::Array<int, 2> maskBin(2,2);
   if (binBoundY.rows() != nBins){
-    throw("calculate2dPSFPerBin: FiberTrace" << fiberTrace.getITrace() << ": ERROR: binBoundY.rows()=" << binBoundY.rows() << " != nBins=" << nBins);
+    string message("calculate2dPSFPerBin: FiberTrace");
+    message += to_string(fiberTrace.getITrace()) + string(": ERROR: binBoundY.rows()=") + to_string(binBoundY.rows()) + string(" != nBins=");
+    message += to_string(nBins);
+    throw(message.c_str());
   }
-  PTR(pfsDRPStella::PSFSet<ImageT, MaskT, VarianceT, WavelengthT>) psfVector(new pfsDRPStella::PSFSet<ImageT, MaskT, VarianceT, WavelengthT>());
+  PTR(pfsDRPStella::PSFSet<ImageT, MaskT, VarianceT, WavelengthT>) psfSet(new pfsDRPStella::PSFSet<ImageT, MaskT, VarianceT, WavelengthT>());
   for (int iBin=0; iBin<nBins; ++iBin){
 /*      traceBin.resize(binBoundY(iBin,1) - binBoundY(iBin,0) + 1, fiberTraceIn.getWidth());
       traceBin = D_A2_PixArray(blitz::Range(binBoundY(iBin,0), binBoundY(iBin,1)), blitz::Range::all());
@@ -724,7 +729,9 @@ PTR(pfsDRPStella::PSFSet<ImageT, MaskT, VarianceT, WavelengthT>) pfsDRPStella::m
     #endif
     if (!psf->extractPSFs(fiberTrace, 
                           spectrum)){
-      throw("calculate2dPSFPerBin: FiberTrace" << fiberTrace.getITrace() << ": iBin " << iBin << ": ERROR: psf->extractPSFs() returned FALSE");
+      string message("calculate2dPSFPerBin: FiberTrace");
+      message += to_string(fiberTrace.getITrace()) + string(": iBin ") + to_string(iBin) + string(": ERROR: psf->extractPSFs() returned FALSE");
+      throw(message.c_str());
     }
     #ifdef __DEBUG_CALC2DPSF__
       cout << "calculate2dPSFPerBin: FiberTrace" << fiberTrace.getITrace() << ": iBin " << iBin << ": extractPSFs() finished" << endl;
@@ -736,10 +743,10 @@ PTR(pfsDRPStella::PSFSet<ImageT, MaskT, VarianceT, WavelengthT>) pfsDRPStella::m
 //        cout << "FiberTrace" << _iTrace << "::calculate2dPSFPerBin: iBin " << iBin << ": ERROR: psf->calculatePSF() returned FALSE" << endl;
 //        return false;
 //      }
-    psfVector->push_back(psf);
+    psfSet->addPSF(psf);
   }
     
-  return psfVector;
+  return psfSet;
 }
 
 
@@ -748,3 +755,11 @@ template class pfsDRPStella::PSF<double>;
 
 template class pfsDRPStella::PSFSet<float>;
 template class pfsDRPStella::PSFSet<double>;
+
+template PTR(pfsDRPStella::PSFSet<float, unsigned short, float, float>) pfsDRPStella::math::calculate2dPSFPerBin(pfsDRPStella::FiberTrace<float, unsigned short, float> const&, 
+                                                                                                                 pfsDRPStella::Spectrum<float, unsigned short, float, float> const&,
+                                                                                                                 PTR(pfsDRPStella::TwoDPSFControl) const&);
+template PTR(pfsDRPStella::PSFSet<double, unsigned short, float, float>) pfsDRPStella::math::calculate2dPSFPerBin(pfsDRPStella::FiberTrace<double, unsigned short, float> const&, 
+                                                                                                                  pfsDRPStella::Spectrum<double, unsigned short, float, float> const&,
+                                                                                                                  PTR(pfsDRPStella::TwoDPSFControl) const&);
+
