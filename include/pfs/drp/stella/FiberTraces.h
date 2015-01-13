@@ -33,7 +33,7 @@
 //#define __DEBUG_INTERPOL__
 //#define __DEBUG_MINCENMAX__
 //#define __DEBUG_MKPROFIM__
-#define __DEBUG_MKSLITFUNC__
+//#define __DEBUG_MKSLITFUNC__
 //#define __DEBUG_SETFIBERTRACEFUNCTION__
 //#define __DEBUG_SLITFUNC__
 //#define __DEBUG_SLITFUNC_N__

@@ -29,7 +29,7 @@
 //#include "lsst/afw/table/io/OutputArchive.h"
 //#include "lsst/afw/table/io/CatalogVector.h"
 
-#define __DEBUG_CALC2DPSF__
+//#define __DEBUG_CALC2DPSF__
 #define __DEBUGDIR__ ""//~/spectra/pfs/2014-11-02/debug/"// 
 
 namespace afwGeom = lsst::afw::geom;

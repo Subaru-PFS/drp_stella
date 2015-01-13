@@ -1334,9 +1334,10 @@ namespace pfsDRPStella = pfs::drp::stella;
      *  ! long yslitf1 =  y_upper_lim        => int I_XSlitFunc1
      **/
     
-    int oldYHigh = _fiberTraceFunction->yHigh;
-    int oldYLow = _fiberTraceFunction->yLow;
-
+    #ifdef __DEBUG_MKSLITFUNC__
+      int oldYHigh = _fiberTraceFunction->yHigh;
+      int oldYLow = _fiberTraceFunction->yLow;
+    #endif
     if (!_isFiberTraceProfileFittingControlSet){
       std::string message("FiberTrace");
       message += std::to_string(_iTrace);
@@ -1717,13 +1718,15 @@ namespace pfsDRPStella = pfs::drp::stella;
     blitz::Array<double, 1> D_A1_XCenters(xCenters.size());
     D_A1_XCenters = ::pfs::drp::stella::math::Double(xCenters);// + 0.5;
 
-    if (oldYHigh != _fiberTraceFunction->yHigh){
-      string message("FiberTrace ");
-      message += to_string(_iTrace) + string("::MkSlitFunc: before calculateSwathWidth: ERROR: oldYHigh(=") + to_string(oldYHigh) + string(") != _fiberTraceFunction->yHigh(=");
-      message += to_string(_fiberTraceFunction->yHigh);
-      cout << message << endl;
-      throw(message.c_str());
-    }
+    #ifdef __DEBUG_MKSLITFUNC__
+      if (oldYHigh != _fiberTraceFunction->yHigh){
+        string message("FiberTrace ");
+        message += to_string(_iTrace) + string("::MkSlitFunc: before calculateSwathWidth: ERROR: oldYHigh(=") + to_string(oldYHigh) + string(") != _fiberTraceFunction->yHigh(=");
+        message += to_string(_fiberTraceFunction->yHigh);
+        cout << message << endl;
+        throw(message.c_str());
+      }
+    #endif
     if (!calculateSwathWidth_NBins_BinHeight_BinBoundY(I_SwathWidth,
                                                        I_NBins,
                                                        I_BinHeight,
@@ -1734,13 +1737,15 @@ namespace pfsDRPStella = pfs::drp::stella;
       cout << message << endl;
       throw(message.c_str());
     }
-    if (oldYHigh != _fiberTraceFunction->yHigh){
-      string message("FiberTrace ");
-      message += to_string(_iTrace) + string("::MkSlitFunc: after calculateSwathWidth: ERROR: oldYHigh(=") + to_string(oldYHigh) + string(") != _fiberTraceFunction->yHigh(=");
-      message += to_string(_fiberTraceFunction->yHigh);
-      cout << message << endl;
-      throw(message.c_str());
-    }
+    #ifdef __DEBUG_MKSLITFUNC__
+      if (oldYHigh != _fiberTraceFunction->yHigh){
+        string message("FiberTrace ");
+        message += to_string(_iTrace) + string("::MkSlitFunc: after calculateSwathWidth: ERROR: oldYHigh(=") + to_string(oldYHigh) + string(") != _fiberTraceFunction->yHigh(=");
+        message += to_string(_fiberTraceFunction->yHigh);
+        cout << message << endl;
+        throw(message.c_str());
+      }
+    #endif
 
     #ifdef __DEBUG_MKSLITFUNC__
       cout << "FiberTrace" << _iTrace << "::MkSlitFunc: I_A2_IBound set to " << I_A2_IBinBoundY << endl;
@@ -1819,14 +1824,16 @@ namespace pfsDRPStella = pfs::drp::stella;
     {
       if (telluric == 3)
         B_MaximaOnly = true;
-
-      if (oldYHigh != _fiberTraceFunction->yHigh){
-        string message("FiberTrace ");
-        message += to_string(_iTrace) + string("::MkSlitFunc: I_IBin = ") + to_string(I_IBin) + string(": 1. ERROR: oldYHigh(=") + to_string(oldYHigh) + string(") != _fiberTraceFunction->yHigh(=");
-        message += to_string(_fiberTraceFunction->yHigh);
-        cout << message << endl;
-        throw(message.c_str());
-      }
+      
+      #ifdef __DEBUG_MKSLITFUNC__
+        if (oldYHigh != _fiberTraceFunction->yHigh){
+          string message("FiberTrace ");
+          message += to_string(_iTrace) + string("::MkSlitFunc: I_IBin = ") + to_string(I_IBin) + string(": 1. ERROR: oldYHigh(=") + to_string(oldYHigh) + string(") != _fiberTraceFunction->yHigh(=");
+          message += to_string(_fiberTraceFunction->yHigh);
+          cout << message << endl;
+          throw(message.c_str());
+        }
+      #endif
       #ifdef __DEBUG_CHECK_INDICES__
         if (I_IBin >= I_A2_IBinBoundY.rows())
         {
@@ -1920,13 +1927,15 @@ namespace pfsDRPStella = pfs::drp::stella;
       for (int n = 0; n < I_NR; n++)
       {
         /// column closest to peak
-        if (oldYHigh != _fiberTraceFunction->yHigh){
-          string message("FiberTrace ");
-          message += to_string(_iTrace) + string("::MkSlitFunc: I_IBin = ") + to_string(I_IBin) + string(": n = ") + to_string(n) + string(": 2. ERROR: oldYHigh(=") + to_string(oldYHigh) + string(") != _fiberTraceFunction->yHigh(=");
-          message += to_string(_fiberTraceFunction->yHigh);
-          cout << message << endl;
-          throw(message.c_str());
-        }
+        #ifdef __DEBUG_MKSLITFUNC__
+          if (oldYHigh != _fiberTraceFunction->yHigh){
+            string message("FiberTrace ");
+            message += to_string(_iTrace) + string("::MkSlitFunc: I_IBin = ") + to_string(I_IBin) + string(": n = ") + to_string(n) + string(": 2. ERROR: oldYHigh(=") + to_string(oldYHigh) + string(") != _fiberTraceFunction->yHigh(=");
+            message += to_string(_fiberTraceFunction->yHigh);
+            cout << message << endl;
+            throw(message.c_str());
+          }
+        #endif
         #ifdef __DEBUG_CHECK_INDICES__
           if (I_A2_IBinBoundY(I_IBin,0) + n >= _trace->getHeight())
           {
@@ -2257,13 +2266,15 @@ namespace pfsDRPStella = pfs::drp::stella;
           }
         #endif
       } /// for (int n = 0; n < I_NR; n++)
-      if (oldYHigh != _fiberTraceFunction->yHigh){
-        string message("FiberTrace ");
-        message += to_string(_iTrace) + string("::MkSlitFunc: I_IBin = ") + to_string(I_IBin) + string(": end for(n) ERROR: oldYHigh(=") + to_string(oldYHigh) + string(") != _fiberTraceFunction->yHigh(=");
-        message += to_string(_fiberTraceFunction->yHigh);
-        cout << message << endl;
-        throw(message.c_str());
-      }
+      #ifdef __DEBUG_MKSLITFUNC__
+        if (oldYHigh != _fiberTraceFunction->yHigh){
+          string message("FiberTrace ");
+          message += to_string(_iTrace) + string("::MkSlitFunc: I_IBin = ") + to_string(I_IBin) + string(": end for(n) ERROR: oldYHigh(=") + to_string(oldYHigh) + string(") != _fiberTraceFunction->yHigh(=");
+          message += to_string(_fiberTraceFunction->yHigh);
+          cout << message << endl;
+          throw(message.c_str());
+        }
+      #endif
       if (max(I_A2_Msk) > 1){
         cout << "FiberTrace" << _iTrace << "::MkSlitFunc: I_IBin = " << I_IBin << ": A. I_A2_Msk = " << I_A2_Msk << endl;
         std::string message("FiberTrace");
@@ -2638,14 +2649,15 @@ namespace pfsDRPStella = pfs::drp::stella;
         #endif
         delete(P_I_A1_Ind);
       }/// end else if (Telluric == 3)
-      if (oldYHigh != _fiberTraceFunction->yHigh){
-        string message("FiberTrace ");
-        message += to_string(_iTrace) + string("::MkSlitFunc: I_IBin = ") + to_string(I_IBin) + string(": after if (Telluric == 1 or 3): 2. ERROR: oldYHigh(=") + to_string(oldYHigh) + string(") != _fiberTraceFunction->yHigh(=");
-        message += to_string(_fiberTraceFunction->yHigh);
-        cout << message << endl;
-        throw(message.c_str());
-      }
-
+      #ifdef __DEBUG_MKSLITFUNC__
+        if (oldYHigh != _fiberTraceFunction->yHigh){
+          string message("FiberTrace ");
+          message += to_string(_iTrace) + string("::MkSlitFunc: I_IBin = ") + to_string(I_IBin) + string(": after if (Telluric == 1 or 3): 2. ERROR: oldYHigh(=") + to_string(oldYHigh) + string(") != _fiberTraceFunction->yHigh(=");
+          message += to_string(_fiberTraceFunction->yHigh);
+          cout << message << endl;
+          throw(message.c_str());
+        }
+      #endif
       I_RunMax = 1;
       if (telluric > 2){
         I_RunMax = _fiberTraceProfileFittingControl->maxIterSky;
@@ -2860,13 +2872,15 @@ namespace pfsDRPStella = pfs::drp::stella;
           cout << message << endl;
           throw(message.c_str());
         }
-        if (oldYHigh != _fiberTraceFunction->yHigh){
-          string message("FiberTrace ");
-          message += to_string(_iTrace) + string("::MkSlitFunc: I_IBin = ") + to_string(I_IBin) + string(": after SlitFunc: 2. ERROR: oldYHigh(=") + to_string(oldYHigh) + string(") != _fiberTraceFunction->yHigh(=");
-          message += to_string(_fiberTraceFunction->yHigh);
-          cout << message << endl;
-          throw(message.c_str());
-        }
+        #ifdef __DEBUG_MKSLITFUNC__
+          if (oldYHigh != _fiberTraceFunction->yHigh){
+            string message("FiberTrace ");
+            message += to_string(_iTrace) + string("::MkSlitFunc: I_IBin = ") + to_string(I_IBin) + string(": after SlitFunc: 2. ERROR: oldYHigh(=") + to_string(oldYHigh) + string(") != _fiberTraceFunction->yHigh(=");
+            message += to_string(_fiberTraceFunction->yHigh);
+            cout << message << endl;
+            throw(message.c_str());
+          }
+        #endif
         #ifdef __DEBUG_SLITFUNC_FILES__
           cout << "FiberTrace" << _iTrace << "::MkSlitFunc: fiberTraceNumber = " << fiberTraceNumber << ", I_IBin = " << I_IBin << ": D_A1_SP = " << D_A1_SP << endl;
           cout << "FiberTrace" << _iTrace << "::MkSlitFunc: fiberTraceNumber = " << fiberTraceNumber << ", I_IBin = " << I_IBin << ": D_A1_SP_Out = " << D_A1_SP_Out << endl;
@@ -3314,14 +3328,15 @@ namespace pfsDRPStella = pfs::drp::stella;
         #endif
         I_Run_Tel++;
       } while (I_Run_Tel < I_RunMax);
-      if (oldYHigh != _fiberTraceFunction->yHigh){
-        string message("FiberTrace ");
-        message += to_string(_iTrace) + string("::MkSlitFunc: I_IBin = ") + to_string(I_IBin) + string(": end do ... while(I_Run_Tel < I_RunMax): 2. ERROR: oldYHigh(=") + to_string(oldYHigh) + string(") != _fiberTraceFunction->yHigh(=");
-        message += to_string(_fiberTraceFunction->yHigh);
-        cout << message << endl;
-        throw(message.c_str());
-      }
-
+      #ifdef __DEBUG_MKSLITFUNC__
+        if (oldYHigh != _fiberTraceFunction->yHigh){
+          string message("FiberTrace ");
+          message += to_string(_iTrace) + string("::MkSlitFunc: I_IBin = ") + to_string(I_IBin) + string(": end do ... while(I_Run_Tel < I_RunMax): 2. ERROR: oldYHigh(=") + to_string(oldYHigh) + string(") != _fiberTraceFunction->yHigh(=");
+          message += to_string(_fiberTraceFunction->yHigh);
+          cout << message << endl;
+          throw(message.c_str());
+        }
+      #endif
       for (int q=0; q < static_cast<int>(D_A1_SP.size()); q++){
 
         #ifdef __DEBUG_MKSLITFUNC__
@@ -3344,14 +3359,15 @@ namespace pfsDRPStella = pfs::drp::stella;
         throw(message.c_str());
       }
     } /// end for (int I_IBin = 0; I_IBin < I_NBin; I_IBin++) /// Loop thru sf regions
-    if (oldYHigh != _fiberTraceFunction->yHigh){
-      string message("FiberTrace ");
-      message += to_string(_iTrace) + string("::MkSlitFunc: after for(I_IBin...): 2. ERROR: oldYHigh(=") + to_string(oldYHigh) + string(") != _fiberTraceFunction->yHigh(=");
-      message += to_string(_fiberTraceFunction->yHigh);
-      cout << message << endl;
-      throw(message.c_str());
-    }
-
+    #ifdef __DEBUG_MKSLITFUNC__
+      if (oldYHigh != _fiberTraceFunction->yHigh){
+        string message("FiberTrace ");
+        message += to_string(_iTrace) + string("::MkSlitFunc: after for(I_IBin...): 2. ERROR: oldYHigh(=") + to_string(oldYHigh) + string(") != _fiberTraceFunction->yHigh(=");
+        message += to_string(_fiberTraceFunction->yHigh);
+        cout << message << endl;
+        throw(message.c_str());
+      }
+    #endif
     D_A1_Sky.resize(I_A2_IBinBoundY(I_NBins-1,1) - I_A2_IBinBoundY(0,0) + 1);
     D_A1_ErrSky.resize(I_A2_IBinBoundY(I_NBins-1,1) - I_A2_IBinBoundY(0,0) + 1);
     D_A1_SP.resize(I_A2_IBinBoundY(I_NBins-1,1) - I_A2_IBinBoundY(0,0) + 1);
@@ -3743,21 +3759,22 @@ namespace pfsDRPStella = pfs::drp::stella;
     free(PP_Args_Median);
     free(args);
     
-    if (oldYHigh != _fiberTraceFunction->yHigh){
-      string message("FiberTrace ");
-      message += to_string(_iTrace) + string("::MkSlitFunc: End: ERROR: oldYHigh(=") + to_string(oldYHigh) + string(") != _fiberTraceFunction->yHigh(=");
-      message += to_string(_fiberTraceFunction->yHigh);
-      cout << message << endl;
-      throw(message.c_str());
-    }
-    if (oldYLow != _fiberTraceFunction->yLow){
-      string message("FiberTrace ");
-      message += to_string(_iTrace) + string("::MkSlitFunc: End: ERROR: oldYLow(=") + to_string(oldYLow) + string(") != _fiberTraceFunction->yLow(=");
-      message += to_string(_fiberTraceFunction->yLow);
-      cout << message << endl;
-      throw(message.c_str());
-    }
-
+    #ifdef __DEBUG_MKSLITFUNC__
+      if (oldYHigh != _fiberTraceFunction->yHigh){
+        string message("FiberTrace ");
+        message += to_string(_iTrace) + string("::MkSlitFunc: End: ERROR: oldYHigh(=") + to_string(oldYHigh) + string(") != _fiberTraceFunction->yHigh(=");
+        message += to_string(_fiberTraceFunction->yHigh);
+        cout << message << endl;
+        throw(message.c_str());
+      }
+      if (oldYLow != _fiberTraceFunction->yLow){
+        string message("FiberTrace ");
+        message += to_string(_iTrace) + string("::MkSlitFunc: End: ERROR: oldYLow(=") + to_string(oldYLow) + string(") != _fiberTraceFunction->yLow(=");
+        message += to_string(_fiberTraceFunction->yLow);
+        cout << message << endl;
+        throw(message.c_str());
+      }
+    #endif
     cout << "FiberTrace" << _iTrace << "::MkSlitFunc: fiberTraceNumber " << fiberTraceNumber << " finished" << endl;
     return spectrum;
   }
