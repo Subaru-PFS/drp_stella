@@ -3,7 +3,7 @@
 Tests for measuring things
 
 Run with:
-   python FiberTrace.py
+   python calculateTwoDPSF.py
 or
    python
    >>> import FiberTrace; FiberTrace.run()
@@ -39,7 +39,7 @@ def calculateTwoDPSF(flatfilename, specfilename):
     ftffc.saturationLevel = 65500.
 
     # --- create FiberTraceExtractionControl
-    ftec = drpStella.FiberTraceExtractionControl()
+    ftec = drpStella.FiberTraceProfileFittingControl()
 #    ftec.xCorProf = 20
     ftec.profileInterpolation = "SPLINE3"
     ftec.ccdReadOutNoise = 1.

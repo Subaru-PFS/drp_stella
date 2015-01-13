@@ -73,6 +73,7 @@ class ExtractSpectraTask(Task):
 
                 """Create trace from inMaskedImage"""
                 if inExposure != None:
+                    trace.setITrace(i)
                     trace.createTrace(inMaskedImage)
 
                 """Extract spectrum from profile"""

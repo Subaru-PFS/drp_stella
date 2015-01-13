@@ -105,6 +105,9 @@ class FindAndTraceAperturesTask(Task):
         
         """Trace fibers"""
         fts = drpStella.findAndTraceAperturesF(inMaskedImage, self.ftffc.getPointer())
+        fts.sortTracesByXCenter()
+        for i in range(fts.size()):
+            fts.getFiberTrace(i).setITrace(i)
         return fts
 
     def run(self, inExposure):

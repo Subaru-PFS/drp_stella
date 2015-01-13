@@ -303,7 +303,9 @@ bool pfsDRPStella::PSF<ImageT, MaskT, VarianceT, WavelengthT>::extractPSFs(const
             if (i_Down >= 0){
 //                i_Down = 0;
               i_Up = int(D_A2_GaussCenters(emissionLineNumber-1, 1) + (2.*_twoDPSFControl->yFWHM));
-              cout << "PSF trace" << _iTrace << " bin" << _iBin << "::extractPSFs: emissionLineNumber-1=" << emissionLineNumber-1 << ": fiberTraceIn.rows() = " << trace_In.rows() << ", i_Up = " << i_Up << endl;
+              #ifdef __DEBUG_CALC2DPSF__
+                cout << "PSF trace" << _iTrace << " bin" << _iBin << "::extractPSFs: emissionLineNumber-1=" << emissionLineNumber-1 << ": fiberTraceIn.rows() = " << trace_In.rows() << ", i_Up = " << i_Up << endl;
+              #endif
               if (i_Up < trace_In.rows()){
 //                i_Up = trace_In.rows() - 1;
                 pixOffsetY = D_A2_GaussCenters(emissionLineNumber-1,1) - int(D_A2_GaussCenters(emissionLineNumber-1,1)) - 0.5;
@@ -747,6 +749,62 @@ PTR(pfsDRPStella::PSFSet<ImageT, MaskT, VarianceT, WavelengthT>) pfsDRPStella::m
   }
     
   return psfSet;
+}
+  
+template<typename ImageT, typename MaskT, typename VarianceT, typename WavelengthT>
+PTR(pfsDRPStella::PSF<ImageT, MaskT, VarianceT, WavelengthT>)& pfsDRPStella::PSFSet<ImageT, MaskT, VarianceT, WavelengthT>::getPSF(const unsigned int i ///< desired aperture
+){
+  if (i >= _psfs->size()){
+    string message("PSFSet::getPSF(i=");
+    message += to_string(i) + string("): ERROR: i > _psfs->size()=") + to_string(_psfs->size());
+    cout << message << endl;
+    throw(message.c_str());
+  }
+  return _psfs->at(i); 
+}
+
+template<typename ImageT, typename MaskT, typename VarianceT, typename WavelengthT>
+PTR(pfsDRPStella::PSF<ImageT, MaskT, VarianceT, WavelengthT>) const& pfsDRPStella::PSFSet<ImageT, MaskT, VarianceT, WavelengthT>::getPSF(const unsigned int i ///< desired aperture
+) const { 
+  if (i >= _psfs->size()){
+    string message("PSFSet::getPSF(i=");
+    message += to_string(i) + string("): ERROR: i > _psfs->size()=") + to_string(_psfs->size());
+    cout << message << endl;
+    throw(message.c_str());
+  }
+  return _psfs->at(i); 
+}
+
+template<typename ImageT, typename MaskT, typename VarianceT, typename WavelengthT>
+bool pfsDRPStella::PSFSet<ImageT, MaskT, VarianceT, WavelengthT>::erase(const unsigned int iStart, const unsigned int iEnd){
+  if (iStart >= _psfs->size()){
+    string message("PSFSet::erase(iStart=");
+    message += to_string(iStart) + string("): ERROR: iStart >= _psfs->size()=") + to_string(_psfs->size());
+    cout << message << endl;
+    throw(message.c_str());
+  }
+  if (iEnd >= _psfs->size()){
+    string message("PSFSet::erase(iEnd=");
+    message += to_string(iEnd) + string("): ERROR: iEnd >= _psfs->size()=") + to_string(_psfs->size());
+    cout << message << endl;
+    throw(message.c_str());
+  }
+    if ((iEnd > 0) && (iStart > iEnd)){
+      string message("PSFSet::erase(iStart=");
+      message += to_string(iStart) + string("): ERROR: iStart > iEnd=") + to_string(iEnd);
+      cout << message << endl;
+      throw(message.c_str());
+    }
+  if (iStart == (_psfs->size()-1)){
+    _psfs->pop_back();
+  }
+  else{
+    if (iEnd == 0)
+      _psfs->erase(_psfs->begin() + iStart);
+    else
+      _psfs->erase(_psfs->begin() + iStart, _psfs->begin() + iEnd);
+  }
+  return true;
 }
 
 

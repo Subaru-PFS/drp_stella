@@ -928,6 +928,9 @@ namespace pfsDRPStella = pfs::drp::stella;
 //      return false;
 //    }
     try{
+      int oldTraceHeight = 0;
+      if (_isTraceSet)
+        oldTraceHeight = getHeight();
       if (maskedImage->getWidth() != int(_ccdWidth)){
         cout << "FiberTrace" << _iTrace << "::createTrace: ERROR: maskedImage->getWidth(=" << maskedImage->getWidth() << ") != _ccdWidth(=" << _ccdWidth << ")" << endl;
         return false;
@@ -953,7 +956,7 @@ namespace pfsDRPStella = pfs::drp::stella;
         throw(message.c_str());
       }
       if (xCenters.size() != (_fiberTraceFunction->yHigh - _fiberTraceFunction->yLow + 1)){
-        cout << "FiberTrace" << _iTrace << "::createTrace: ERROR: xCenters.size() != (_fiberTraceFunction->yHigh - _fiberTraceFunction->yLow + 1)" << endl;
+        cout << "FiberTrace" << _iTrace << "::createTrace: ERROR: xCenters.size(=" << xCenters.size() << ") != (_fiberTraceFunction->yHigh(=" << _fiberTraceFunction->yHigh << ") - _fiberTraceFunction->yLow(=" << _fiberTraceFunction->yLow << ") + 1)=" << _fiberTraceFunction->yHigh - _fiberTraceFunction->yLow + 1 << endl;
         return false;
       }
       
@@ -987,6 +990,15 @@ namespace pfsDRPStella = pfs::drp::stella;
         
       _trace.reset(new MaskedImageT(minCenMax(0,2) - minCenMax(0,0) + 1, _fiberTraceFunction->yHigh - _fiberTraceFunction->yLow + 1));// minCenMax.rows());
   //    _profile.reset(new afwImage::Image<float>(_trace->getDimensions()));
+      
+      if (oldTraceHeight > 0){
+        if (oldTraceHeight != getHeight()){
+          string message("FiberTrace ");
+          message += to_string(_iTrace) + string("::createTrace: ERROR: oldTraceHeight(=") + to_string(oldTraceHeight) + string(") != getHeight(=") + to_string(getHeight());
+          cout << message << endl;
+          throw(message.c_str());
+        }
+      }
 
       ndarray::Array<ImageT, 2, 1> imageArray = maskedImage->getImage()->getArray();
       ndarray::Array<VarianceT, 2, 1> varianceArray = maskedImage->getVariance()->getArray();
@@ -1030,6 +1042,10 @@ namespace pfsDRPStella = pfs::drp::stella;
         message += to_string(_fiberTraceFunction->yHigh - _fiberTraceFunction->yLow + 1);
         cout << message << endl;
         throw(message.c_str());
+      }
+      if (xCenters.size() != (_fiberTraceFunction->yHigh - _fiberTraceFunction->yLow + 1)){
+        cout << "FiberTrace" << _iTrace << "::createTrace: 2. ERROR: xCenters.size(=" << xCenters.size() << ") != (_fiberTraceFunction->yHigh(=" << _fiberTraceFunction->yHigh << ") - _fiberTraceFunction->yLow(=" << _fiberTraceFunction->yLow << ") + 1)=" << _fiberTraceFunction->yHigh - _fiberTraceFunction->yLow + 1 << endl;
+        return false;
       }
     }
     catch (const std::exception &e){
@@ -1191,7 +1207,7 @@ namespace pfsDRPStella = pfs::drp::stella;
       I_BinHeight_Temp = binHeight_Out;
       binBoundY_Out(i_bin,0) = binBoundY_Out(i_bin-1,0) + int(double(binHeight_Out) / 2.);
       #ifdef __DEBUG_MKSLITFUNC__
-        cout << "FiberTrace" << _iTrace << "::calculateSwathWidth_NBins_BinHeight_BinBoundY: binBoundY_Out(i_bin,1) >= _trace->getHeight(): binBoundY_Out(" << i_bin << ",0) set to " << binBoundY_Out(i_bin, 0) << endl;
+        cout << "FiberTrace" << _iTrace << "::calculateSwathWidth_NBins_BinHeight_BinBoundY: binBoundY_Out(i_bin=" << i_bin << ",0) set to binBoundY_Out(i_bin-1=" << i_bin-1 << ",0) + (binHeight_Out/2.=" << binHeight_Out / 2. << ")" << endl;
       #endif
       while(binBoundY_Out(i_bin,0) < 0){
         binBoundY_Out(i_bin,0)++;
@@ -1201,6 +1217,9 @@ namespace pfsDRPStella = pfs::drp::stella;
         #endif
       }
       binBoundY_Out(i_bin,1) = binBoundY_Out(i_bin,0) + I_BinHeight_Temp;
+      if (i_bin == (nBins_Out-1)){
+        binBoundY_Out(i_bin,1) = _trace->getHeight()-1;
+      }
       #ifdef __DEBUG_MKSLITFUNC__
         cout << "FiberTrace" << _iTrace << "::calculateSwathWidth_NBins_BinHeight_BinBoundY: binBoundY_Out(" << i_bin << ",1) set to " << binBoundY_Out(i_bin, 1) << endl;
       #endif
@@ -1209,7 +1228,7 @@ namespace pfsDRPStella = pfs::drp::stella;
         _fiberTraceFunction->yHigh--;
         I_BinHeight_Temp--;
         #ifdef __DEBUG_MKSLITFUNC__
-          cout << "FiberTrace" << _iTrace << "::calculateSwathWidth_NBins_BinHeight_BinBoundY: binBoundY_Out(i_bin,1) >= _trace->getHeight(): binBoundY_Out(" << i_bin << ",1) set to " << binBoundY_Out(i_bin, 1) << endl;
+          cout << "FiberTrace" << _iTrace << "::calculateSwathWidth_NBins_BinHeight_BinBoundY: binBoundY_Out(i_bin=" << i_bin << ",1) >= _trace->getHeight(): binBoundY_Out(" << i_bin << ",1) set to " << binBoundY_Out(i_bin, 1) << endl;
         #endif
       }
     }
@@ -1314,6 +1333,9 @@ namespace pfsDRPStella = pfs::drp::stella;
      *  ! long yslitf0 = -y_lower_lim        => int I_XSlitFunc0
      *  ! long yslitf1 =  y_upper_lim        => int I_XSlitFunc1
      **/
+    
+    int oldYHigh = _fiberTraceFunction->yHigh;
+    int oldYLow = _fiberTraceFunction->yLow;
 
     if (!_isFiberTraceProfileFittingControlSet){
       std::string message("FiberTrace");
@@ -1695,6 +1717,13 @@ namespace pfsDRPStella = pfs::drp::stella;
     blitz::Array<double, 1> D_A1_XCenters(xCenters.size());
     D_A1_XCenters = ::pfs::drp::stella::math::Double(xCenters);// + 0.5;
 
+    if (oldYHigh != _fiberTraceFunction->yHigh){
+      string message("FiberTrace ");
+      message += to_string(_iTrace) + string("::MkSlitFunc: before calculateSwathWidth: ERROR: oldYHigh(=") + to_string(oldYHigh) + string(") != _fiberTraceFunction->yHigh(=");
+      message += to_string(_fiberTraceFunction->yHigh);
+      cout << message << endl;
+      throw(message.c_str());
+    }
     if (!calculateSwathWidth_NBins_BinHeight_BinBoundY(I_SwathWidth,
                                                        I_NBins,
                                                        I_BinHeight,
@@ -1702,6 +1731,13 @@ namespace pfsDRPStella = pfs::drp::stella;
       std::string message("FiberTrace");
       message += std::to_string(_iTrace);
       message += std::string("::MkSlitFunc: ERROR: calculateSwathWidth_NBins_BinHeight_BinBoundY returned FALSE");
+      cout << message << endl;
+      throw(message.c_str());
+    }
+    if (oldYHigh != _fiberTraceFunction->yHigh){
+      string message("FiberTrace ");
+      message += to_string(_iTrace) + string("::MkSlitFunc: after calculateSwathWidth: ERROR: oldYHigh(=") + to_string(oldYHigh) + string(") != _fiberTraceFunction->yHigh(=");
+      message += to_string(_fiberTraceFunction->yHigh);
       cout << message << endl;
       throw(message.c_str());
     }
@@ -1784,6 +1820,13 @@ namespace pfsDRPStella = pfs::drp::stella;
       if (telluric == 3)
         B_MaximaOnly = true;
 
+      if (oldYHigh != _fiberTraceFunction->yHigh){
+        string message("FiberTrace ");
+        message += to_string(_iTrace) + string("::MkSlitFunc: I_IBin = ") + to_string(I_IBin) + string(": 1. ERROR: oldYHigh(=") + to_string(oldYHigh) + string(") != _fiberTraceFunction->yHigh(=");
+        message += to_string(_fiberTraceFunction->yHigh);
+        cout << message << endl;
+        throw(message.c_str());
+      }
       #ifdef __DEBUG_CHECK_INDICES__
         if (I_IBin >= I_A2_IBinBoundY.rows())
         {
@@ -1877,6 +1920,13 @@ namespace pfsDRPStella = pfs::drp::stella;
       for (int n = 0; n < I_NR; n++)
       {
         /// column closest to peak
+        if (oldYHigh != _fiberTraceFunction->yHigh){
+          string message("FiberTrace ");
+          message += to_string(_iTrace) + string("::MkSlitFunc: I_IBin = ") + to_string(I_IBin) + string(": n = ") + to_string(n) + string(": 2. ERROR: oldYHigh(=") + to_string(oldYHigh) + string(") != _fiberTraceFunction->yHigh(=");
+          message += to_string(_fiberTraceFunction->yHigh);
+          cout << message << endl;
+          throw(message.c_str());
+        }
         #ifdef __DEBUG_CHECK_INDICES__
           if (I_A2_IBinBoundY(I_IBin,0) + n >= _trace->getHeight())
           {
@@ -2207,6 +2257,13 @@ namespace pfsDRPStella = pfs::drp::stella;
           }
         #endif
       } /// for (int n = 0; n < I_NR; n++)
+      if (oldYHigh != _fiberTraceFunction->yHigh){
+        string message("FiberTrace ");
+        message += to_string(_iTrace) + string("::MkSlitFunc: I_IBin = ") + to_string(I_IBin) + string(": end for(n) ERROR: oldYHigh(=") + to_string(oldYHigh) + string(") != _fiberTraceFunction->yHigh(=");
+        message += to_string(_fiberTraceFunction->yHigh);
+        cout << message << endl;
+        throw(message.c_str());
+      }
       if (max(I_A2_Msk) > 1){
         cout << "FiberTrace" << _iTrace << "::MkSlitFunc: I_IBin = " << I_IBin << ": A. I_A2_Msk = " << I_A2_Msk << endl;
         std::string message("FiberTrace");
@@ -2581,6 +2638,13 @@ namespace pfsDRPStella = pfs::drp::stella;
         #endif
         delete(P_I_A1_Ind);
       }/// end else if (Telluric == 3)
+      if (oldYHigh != _fiberTraceFunction->yHigh){
+        string message("FiberTrace ");
+        message += to_string(_iTrace) + string("::MkSlitFunc: I_IBin = ") + to_string(I_IBin) + string(": after if (Telluric == 1 or 3): 2. ERROR: oldYHigh(=") + to_string(oldYHigh) + string(") != _fiberTraceFunction->yHigh(=");
+        message += to_string(_fiberTraceFunction->yHigh);
+        cout << message << endl;
+        throw(message.c_str());
+      }
 
       I_RunMax = 1;
       if (telluric > 2){
@@ -2793,6 +2857,13 @@ namespace pfsDRPStella = pfs::drp::stella;
           std::string message("FiberTrace");
           message += std::to_string(_iTrace) + std::string("::MkSlitFunc: I_IBin = ") + std::to_string(I_IBin);
           message += std::string(": ERROR: SlitFunc returned FALSE!");
+          cout << message << endl;
+          throw(message.c_str());
+        }
+        if (oldYHigh != _fiberTraceFunction->yHigh){
+          string message("FiberTrace ");
+          message += to_string(_iTrace) + string("::MkSlitFunc: I_IBin = ") + to_string(I_IBin) + string(": after SlitFunc: 2. ERROR: oldYHigh(=") + to_string(oldYHigh) + string(") != _fiberTraceFunction->yHigh(=");
+          message += to_string(_fiberTraceFunction->yHigh);
           cout << message << endl;
           throw(message.c_str());
         }
@@ -3243,6 +3314,13 @@ namespace pfsDRPStella = pfs::drp::stella;
         #endif
         I_Run_Tel++;
       } while (I_Run_Tel < I_RunMax);
+      if (oldYHigh != _fiberTraceFunction->yHigh){
+        string message("FiberTrace ");
+        message += to_string(_iTrace) + string("::MkSlitFunc: I_IBin = ") + to_string(I_IBin) + string(": end do ... while(I_Run_Tel < I_RunMax): 2. ERROR: oldYHigh(=") + to_string(oldYHigh) + string(") != _fiberTraceFunction->yHigh(=");
+        message += to_string(_fiberTraceFunction->yHigh);
+        cout << message << endl;
+        throw(message.c_str());
+      }
 
       for (int q=0; q < static_cast<int>(D_A1_SP.size()); q++){
 
@@ -3266,6 +3344,13 @@ namespace pfsDRPStella = pfs::drp::stella;
         throw(message.c_str());
       }
     } /// end for (int I_IBin = 0; I_IBin < I_NBin; I_IBin++) /// Loop thru sf regions
+    if (oldYHigh != _fiberTraceFunction->yHigh){
+      string message("FiberTrace ");
+      message += to_string(_iTrace) + string("::MkSlitFunc: after for(I_IBin...): 2. ERROR: oldYHigh(=") + to_string(oldYHigh) + string(") != _fiberTraceFunction->yHigh(=");
+      message += to_string(_fiberTraceFunction->yHigh);
+      cout << message << endl;
+      throw(message.c_str());
+    }
 
     D_A1_Sky.resize(I_A2_IBinBoundY(I_NBins-1,1) - I_A2_IBinBoundY(0,0) + 1);
     D_A1_ErrSky.resize(I_A2_IBinBoundY(I_NBins-1,1) - I_A2_IBinBoundY(0,0) + 1);
@@ -3657,6 +3742,21 @@ namespace pfsDRPStella = pfs::drp::stella;
 //    free(PP_Args_Fit);
     free(PP_Args_Median);
     free(args);
+    
+    if (oldYHigh != _fiberTraceFunction->yHigh){
+      string message("FiberTrace ");
+      message += to_string(_iTrace) + string("::MkSlitFunc: End: ERROR: oldYHigh(=") + to_string(oldYHigh) + string(") != _fiberTraceFunction->yHigh(=");
+      message += to_string(_fiberTraceFunction->yHigh);
+      cout << message << endl;
+      throw(message.c_str());
+    }
+    if (oldYLow != _fiberTraceFunction->yLow){
+      string message("FiberTrace ");
+      message += to_string(_iTrace) + string("::MkSlitFunc: End: ERROR: oldYLow(=") + to_string(oldYLow) + string(") != _fiberTraceFunction->yLow(=");
+      message += to_string(_fiberTraceFunction->yLow);
+      cout << message << endl;
+      throw(message.c_str());
+    }
 
     cout << "FiberTrace" << _iTrace << "::MkSlitFunc: fiberTraceNumber " << fiberTraceNumber << " finished" << endl;
     return spectrum;
@@ -7198,7 +7298,63 @@ namespace pfsDRPStella = pfs::drp::stella;
     }
     return true;
   }
+  
+  template<typename ImageT, typename MaskT, typename VarianceT>
+  PTR(pfsDRPStella::FiberTrace<ImageT, MaskT, VarianceT>)& pfsDRPStella::FiberTraceSet<ImageT, MaskT, VarianceT>::getFiberTrace(const unsigned int i ///< desired aperture
+  ){
+    if (i >= _traces->size()){
+      string message("FiberTraceSet::getFiberTrace(i=");
+      message += to_string(i) + string("): ERROR: i > _traces->size()=") + to_string(_traces->size());
+      cout << message << endl;
+      throw(message.c_str());
+    }
+    return _traces->at(i); 
+  }
 
+  template<typename ImageT, typename MaskT, typename VarianceT>
+  PTR(pfsDRPStella::FiberTrace<ImageT, MaskT, VarianceT>) const& pfsDRPStella::FiberTraceSet<ImageT, MaskT, VarianceT>::getFiberTrace(const unsigned int i ///< desired aperture
+  ) const { 
+    if (i >= _traces->size()){
+      string message("FiberTraceSet::getFiberTrace(i=");
+      message += to_string(i) + string("): ERROR: i > _traces->size()=") + to_string(_traces->size());
+      cout << message << endl;
+      throw(message.c_str());
+    }
+    return _traces->at(i); 
+  }
+
+  template<typename ImageT, typename MaskT, typename VarianceT>
+  bool pfsDRPStella::FiberTraceSet<ImageT, MaskT, VarianceT>::erase(const unsigned int iStart, const unsigned int iEnd){
+    if (iStart >= _traces->size()){
+      string message("FiberTraceSet::erase(iStart=");
+      message += to_string(iStart) + string("): ERROR: iStart >= _traces->size()=") + to_string(_traces->size());
+      cout << message << endl;
+      throw(message.c_str());
+    }
+    if (iEnd >= _traces->size()){
+      string message("FiberTraceSet::erase(iEnd=");
+      message += to_string(iEnd) + string("): ERROR: iEnd >= _traces->size()=") + to_string(_traces->size());
+      cout << message << endl;
+      throw(message.c_str());
+    }
+    if ((iEnd > 0) && (iStart > iEnd)){
+      string message("FiberTraceSet::erase(iStart=");
+      message += to_string(iStart) + string("): ERROR: iStart > iEnd=") + to_string(iEnd);
+      cout << message << endl;
+      throw(message.c_str());
+    }
+    if (iStart == (_traces->size()-1)){
+      _traces->pop_back();
+    }
+    else{
+      if (iEnd == 0)
+        _traces->erase(_traces->begin() + iStart);
+      else
+        _traces->erase(_traces->begin() + iStart, _traces->begin() + iEnd);
+    }
+    return true;
+  }
+  
   template<typename ImageT, typename MaskT, typename VarianceT>
   void pfsDRPStella::FiberTraceSet<ImageT, MaskT, VarianceT>::addFiberTrace(const PTR(FiberTrace<ImageT, MaskT, VarianceT>) &trace) ///< the FiberTrace for the ith aperture
   {
@@ -7217,7 +7373,11 @@ namespace pfsDRPStella = pfs::drp::stella;
     }
     std::vector<int> sortedIndices(xCenters.size());
     sortedIndices = ::pfs::drp::stella::math::sortIndices(xCenters);
-
+    #ifdef __DEBUG_SORTTRACESBYXCENTER__
+      for (int iTrace = 0; iTrace < static_cast<int>(_traces->size()); ++iTrace)
+        cout << "FiberTraceSet::sortTracesByXCenter: sortedIndices(" << iTrace << ") = " << sortedIndices[iTrace] << endl;
+    #endif
+    
     std::vector<PTR(FiberTrace<ImageT, MaskT, VarianceT>)> sortedTraces(_traces->size());
     for (int i = 0; i < static_cast<int>(_traces->size()); ++i){
       sortedTraces[i] = (*_traces)[sortedIndices[i]];
@@ -7920,9 +8080,28 @@ namespace pfsDRPStella = pfs::drp::stella;
                   cout << "FindAndTraceApertures: xCenters[" << iter << "] = " << xCenters[iter] << " =? fiberTrace->getXCenters()[" << iter << "] = fiberTrace->getXCenters()[iter] = " << fiberTrace->getXCenters()[iter] << endl;
                 }
               #endif
+              if (xCenters.size() != (fiberTraceFunction.yHigh - fiberTraceFunction.yLow + 1)){
+                string message("FindAndTraceApertures: iTrace = ");
+                message += to_string(fiberTraceSet->getTraces()->size()) + string(": 1. ERROR: xCenters.size(=");
+                message += to_string(xCenters.size()) + string(") != (fiberTraceFunction.yHigh(=");
+                message += to_string(fiberTraceFunction.yHigh) + string(") - fiberTraceFunction.yLow(=") + to_string(fiberTraceFunction.yLow);
+                message += string(") + 1) = ") + to_string(fiberTraceFunction.yHigh - fiberTraceFunction.yLow + 1);
+                cout << message << endl;
+                throw(message.c_str());
+              }
+              fiberTrace->setITrace(fiberTraceSet->getTraces()->size());
               if (!fiberTrace->createTrace(maskedImage)){
                 cout << "FindAndTraceApertures: ERROR: createTrace returned FALSE" << endl;
                 exit(EXIT_FAILURE);
+              }
+              if (fiberTrace->getXCenters()->size() != (fiberTraceFunction.yHigh - fiberTraceFunction.yLow + 1)){
+                string message("FindAndTraceApertures: iTrace = ");
+                message += to_string(fiberTraceSet->getTraces()->size()) + string(": 2. ERROR: fiberTrace->getXCenters()->size(=");
+                message += to_string(fiberTrace->getXCenters()->size()) + string(") != (fiberTraceFunction.yHigh(=");
+                message += to_string(fiberTraceFunction.yHigh) + string(") - fiberTraceFunction.yLow(=") + to_string(fiberTraceFunction.yLow);
+                message += string(") + 1) = ") + to_string(fiberTraceFunction.yHigh - fiberTraceFunction.yLow + 1);
+                cout << message << endl;
+                throw(message.c_str());
               }
               if (fiberTrace->getTrace()->getHeight() != (fiberTraceFunction.yHigh - fiberTraceFunction.yLow + 1)){
                 string message("FindAndTraceApertures: iTrace = ");

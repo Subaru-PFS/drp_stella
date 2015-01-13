@@ -107,18 +107,15 @@ class CreateFlatFiberTraceProfileTask(Task):
         fiberTraceProfileFittingControl.lambdaSF = self.config.lambdaSF
         fiberTraceProfileFittingControl.lambdaSP = self.config.lambdaSP
         fiberTraceProfileFittingControl.wingSmoothFactor = self.config.wingSmoothFactor
-    
-        """Create a FiberTraceSet given a flat-field fits file name"""
-        fiberTraceSet = inFiberTraceSet
         
         """Calculate spatial profile and extract"""
-        fiberTraceSet.sortTracesByXCenter()
-        fiberTraceSet.setFiberTraceProfileFittingControl(fiberTraceProfileFittingControl)
+#        inFiberTraceSet.sortTracesByXCenter()
+        inFiberTraceSet.setFiberTraceProfileFittingControl(fiberTraceProfileFittingControl)
         if inTraceNumbers[0] == -1 :
-            fiberTraceSet.extractAllTraces()
+            inFiberTraceSet.extractAllTraces()
         else :
             for i in inTraceNumbers :
-                fiberTraceSet.extractTraceNumber(i)
+                inFiberTraceSet.extractTraceNumber(i)
         return
 
     def run(self, inFiberTraceSet, inTraceNumbers=[-1]):

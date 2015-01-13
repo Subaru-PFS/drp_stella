@@ -213,10 +213,10 @@ class PSFSet {
 
     /// Return the PSF at the ith position
     PTR(PSF<ImageT, MaskT, VarianceT, WavelengthT>) &getPSF(const unsigned int i ///< desired position
-                                                           ) { return _psfs->at(i); }
+                                                           );
 
     PTR(PSF<ImageT, MaskT, VarianceT, WavelengthT>) const& getPSF(const unsigned int i ///< desired position
-                                                                 ) const { return _psfs->at(i); }
+                                                                 ) const;
 
     /// Set the ith PSF
     bool setPSF(const unsigned int i,     /// which spectrum?
@@ -228,8 +228,12 @@ class PSFSet {
                );
 
     PTR(std::vector<PTR(PSF<ImageT, MaskT, VarianceT, WavelengthT>)>) getPSFs() const { return _psfs; }
+    
+    /// Removes from the vector either a single element (position) or a range of elements ([first,last)).
+    /// This effectively reduces the container size by the number of elements removed, which are destroyed.
+    bool erase(const unsigned int iStart, const unsigned int iEnd=0);
 
-  private:
+    private:
     PTR(std::vector<PTR(PSF<ImageT, MaskT, VarianceT, WavelengthT>)>) _psfs; // shared pointer to vector of shared pointers to PSFs
 };
 

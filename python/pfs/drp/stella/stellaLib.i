@@ -65,8 +65,6 @@ Interface to Stella
 %shared_ptr(std::vector<unsigned int>);
 %shared_ptr(std::vector<int>);
 %shared_ptr(std::vector<long>);
-%shared_ptr(std::vector<PTR(pfs::drp::stella::PSFSet<float, unsigned short, float, float>)>);
-%shared_ptr(std::vector<PTR(pfs::drp::stella::PSFSet<double, unsigned short, float, float>)>);
 
 %shared_ptr(pfs::drp::stella::FiberTraceFunctionFindingControl);
 %shared_ptr(pfs::drp::stella::FiberTraceFunctionControl);

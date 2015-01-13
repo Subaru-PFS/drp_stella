@@ -136,10 +136,10 @@ class SpectrumSet {
 
     /// Return the Spectrum for the ith aperture
     PTR(Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>) &getSpectrum(const unsigned int i ///< desired aperture
-                             ) { return _spectra->at(i); }
+                             );
 
     PTR(Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>) const& getSpectrum(const unsigned int i ///< desired aperture
-                                   ) const { return _spectra->at(i); }
+                                   ) const;
 
     /// Set the ith Spectrum
     bool setSpectrum(const unsigned int i,     /// which spectrum?
@@ -152,6 +152,11 @@ class SpectrumSet {
 
     PTR(std::vector<PTR(Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>)>) getSpectra() const { return _spectra; }
 
+    
+    /// Removes from the vector either a single element (position) or a range of elements ([first,last)).
+    /// This effectively reduces the container size by the number of elements removed, which are destroyed.
+    bool erase(const unsigned int iStart, const unsigned int iEnd=0);
+    
   private:
     PTR(std::vector<PTR(Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>)>) _spectra; // spectra for each aperture
 };

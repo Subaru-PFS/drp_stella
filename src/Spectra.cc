@@ -128,6 +128,62 @@ void pfsDRPStella::SpectrumSet<SpectrumT, MaskT, VarianceT, WavelengthT>::addSpe
     cout << "SpectrumSet.addSpectrum: Exception <" << e.what() << ">" << endl;
   }
 }
+  
+template<typename ImageT, typename MaskT, typename VarianceT, typename WavelengthT>
+PTR(pfsDRPStella::Spectrum<ImageT, MaskT, VarianceT, WavelengthT>)& pfsDRPStella::SpectrumSet<ImageT, MaskT, VarianceT, WavelengthT>::getSpectrum(const unsigned int i ///< desired aperture
+){
+  if (i >= _spectra->size()){
+    string message("SpectrumSet::getSpectrum(i=");
+    message += to_string(i) + string("): ERROR: i > _spectra->size()=") + to_string(_spectra->size());
+    cout << message << endl;
+    throw(message.c_str());
+  }
+  return _spectra->at(i); 
+}
+
+template<typename ImageT, typename MaskT, typename VarianceT, typename WavelengthT>
+PTR(pfsDRPStella::Spectrum<ImageT, MaskT, VarianceT, WavelengthT>) const& pfsDRPStella::SpectrumSet<ImageT, MaskT, VarianceT, WavelengthT>::getSpectrum(const unsigned int i ///< desired aperture
+) const { 
+  if (i >= _spectra->size()){
+    string message("SpectrumSet::getSpectrum(i=");
+    message += to_string(i) + string("): ERROR: i > _spectra->size()=") + to_string(_spectra->size());
+    cout << message << endl;
+    throw(message.c_str());
+  }
+  return _spectra->at(i); 
+}
+
+template<typename ImageT, typename MaskT, typename VarianceT, typename WavelengthT>
+bool pfsDRPStella::SpectrumSet<ImageT, MaskT, VarianceT, WavelengthT>::erase(const unsigned int iStart, const unsigned int iEnd){
+  if (iStart >= _spectra->size()){
+    string message("SpectrumSet::erase(iStart=");
+    message += to_string(iStart) + string("): ERROR: iStart >= _spectra->size()=") + to_string(_spectra->size());
+    cout << message << endl;
+    throw(message.c_str());
+  }
+  if (iEnd >= _spectra->size()){
+    string message("SpectrumSet::erase(iEnd=");
+    message += to_string(iEnd) + string("): ERROR: iEnd >= _spectra->size()=") + to_string(_spectra->size());
+    cout << message << endl;
+    throw(message.c_str());
+  }
+    if ((iEnd > 0) && (iStart > iEnd)){
+      string message("SpectrumSet::erase(iStart=");
+      message += to_string(iStart) + string("): ERROR: iStart > iEnd=") + to_string(iEnd);
+      cout << message << endl;
+      throw(message.c_str());
+    }
+  if (iStart == (_spectra->size()-1)){
+    _spectra->pop_back();
+  }
+  else{
+    if (iEnd == 0)
+      _spectra->erase(_spectra->begin() + iStart);
+    else
+      _spectra->erase(_spectra->begin() + iStart, _spectra->begin() + iEnd);
+  }
+  return true;
+}
 
 template class pfsDRPStella::Spectrum<float>;
 template class pfsDRPStella::Spectrum<double>;

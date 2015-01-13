@@ -23,10 +23,10 @@
 #define stringify( name ) # name
 
 //#define __DEBUG_BANDSOL__
-#define __DEBUG_CALC2DPSF__
+//#define __DEBUG_CALC2DPSF__
 //#define __DEBUG_CHECK_INDICES__
-#define __DEBUG_CREATEFIBERTRACE__
-#define __DEBUG_EXTRACTFROMPROFILE__
+//#define __DEBUG_CREATEFIBERTRACE__
+//#define __DEBUG_EXTRACTFROMPROFILE__
 //#define __DEBUG_FINDANDTRACE__
 //#define __DEBUG_FIT__
 //#define __DEBUG_SPLINE__
@@ -349,10 +349,14 @@ class FiberTraceSet {
 
     /// Return the FiberTrace for the ith aperture
     PTR(FiberTrace<ImageT, MaskT, VarianceT>) &getFiberTrace(const unsigned int i ///< desired aperture
-                             ) { return _traces->at(i); }
+                                                            );
 
     PTR(FiberTrace<ImageT, MaskT, VarianceT>) const& getFiberTrace(const unsigned int i ///< desired aperture
-                                   ) const { return _traces->at(i); }
+                                                                  ) const;
+    
+    /// Removes from the vector either a single element (position) or a range of elements ([first,last)).
+    /// This effectively reduces the container size by the number of elements removed, which are destroyed.
+    bool erase(const unsigned int iStart, const unsigned int iEnd=0);
 
     /// Set the ith FiberTrace
     bool setFiberTrace(const unsigned int i,     ///< which aperture?
