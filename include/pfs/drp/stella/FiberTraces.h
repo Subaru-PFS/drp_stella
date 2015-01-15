@@ -63,7 +63,7 @@ class FiberTrace {
 
     explicit FiberTrace(afwGeom::Extent2I const & dimensions, unsigned int iTrace = 0);
 
-    explicit FiberTrace(PTR(MaskedImageT) const &maskedImage, unsigned int iTrace=0);
+    explicit FiberTrace(PTR(MaskedImageT) const &maskedImage, const PTR(FiberTraceFunction) &fiberTraceFunction, unsigned int iTrace=0);
     
     explicit FiberTrace(FiberTrace &fiberTrace);
     
@@ -74,7 +74,8 @@ class FiberTrace {
     const PTR(const MaskedImageT) getTrace() const { return _trace; }
     
     /// Set the 2D image of this fiber trace to imageTrace
-    bool setTrace(const PTR(MaskedImageT) & trace);// { _trace = trace; }
+    /// Pre: _fiberTraceFunction must be set
+    bool setTrace(PTR(MaskedImageT) & trace);// { _trace = trace; }
 
     /// Return the pointer to the image of this fiber trace
     PTR(afwImage::Image<ImageT>) getImage() const { return _trace->getImage(); }
@@ -266,11 +267,6 @@ class FiberTrace {
                    const blitz::Array<double, 1> &profileXValuesAllRows_In,/// i + 0.5 + (1. / (2. * overSample))
                    blitz::Array<double, 2> &profilePerRow_Out);/// output 2D profile image
 
-//    bool calculate2dPSFPerBin();
-//    bool calculate2dPSF(const int yLow_In,
-//                        const int yHigh_In,
-//                        blitz::Array<double, 2> &PSF2D_Out);
-
     bool calculateSwathWidth_NBins_BinHeight_BinBoundY(int &swathWidth,
                                                        int &nBins,
                                                        int &binHeight,
@@ -291,6 +287,8 @@ class FiberTrace {
     bool isFiberTraceProfileFittingControlSet() const {return _isFiberTraceProfileFittingControlSet;}
     unsigned int getWidth() const {return _trace->getImage()->getWidth();}
     unsigned int getHeight() const {return _trace->getImage()->getHeight();}
+    unsigned int getCCDWidth() const {return _ccdWidth;}
+    unsigned int getCCDHeight() const {return _ccdHeight;}
     
   private:
     ///TODO: replace variables with smart pointers?????
@@ -325,10 +323,15 @@ class FiberTraceSet {
 
     /// Class Constructors and Destructor
     
-    /// Creates a new FiberTraceSet object of size 0
+    /// Creates a new FiberTraceSet object of size nTraces
     explicit FiberTraceSet(unsigned int nTraces=0)
         : _traces(new std::vector<PTR(FiberTrace<ImageT, MaskT, VarianceT>)>(nTraces))
-        {}
+    {
+        for (int i=0; i<nTraces; ++i){
+            PTR(FiberTrace<ImageT, MaskT, VarianceT>) fiberTrace(new FiberTrace<ImageT, MaskT, VarianceT>(0,0,i));
+            (*_traces)[i] = fiberTrace;
+        }
+    }
 
     /// Copy constructor
     /// If fiberTraceSet is not empty, the object shares ownership of fiberTraceSet's fiber trace vector and increases the use count.
@@ -338,9 +341,9 @@ class FiberTraceSet {
         {}
     
     /// Construct an object with a copy of fiberTraceVector
-    explicit FiberTraceSet(const std::vector<PTR(FiberTrace<ImageT, MaskT, VarianceT>)> &fiberTraceVector)
-        : _traces(new std::vector<PTR(FiberTrace<ImageT, MaskT, VarianceT>)>(fiberTraceVector))
-        {}
+///    explicit FiberTraceSet(const std::vector<PTR(FiberTrace<ImageT, MaskT, VarianceT>)> &fiberTraceVector)
+///        : _traces(new std::vector<PTR(FiberTrace<ImageT, MaskT, VarianceT>)>(fiberTraceVector))
+///        {}
         
     virtual ~FiberTraceSet() {}
 

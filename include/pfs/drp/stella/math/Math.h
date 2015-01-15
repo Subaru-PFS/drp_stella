@@ -237,10 +237,13 @@ namespace pfs { namespace drp { namespace stella {
     /**
      * Calculates aperture minimum pixel, central position, and maximum pixel for the trace,
      * and writes result to I_A2_MinCenMax_Out
+     * Note that if the width of the trace varies depending on the position of the aperture center,
+     * 1 pixel left and/or right of the maximum aperture width will get cut off to reduce possible
+     * cross-talk between adjacent apertures
      **/
     bool calcMinCenMax(const blitz::Array<float, 1> &xCenters_In,
-                       float xHigh_In,
-                       float xLow_In,
+                       float xHigh_In,/// >= 0
+                       float xLow_In,/// <= 0
                        int nPixCutLeft_In,
                        int nPixCutRight_In,
                        blitz::Array<int, 2> &I_A2_MinCenMax_Out);

@@ -2,7 +2,7 @@
 
 namespace pfsDRPStella = pfs::drp::stella;
 
-  /** @brief Construct an Exposure with a blank MaskedImage of specified size (default 0x0)
+  /** @brief Construct an FiberTrace with a blank MaskedImage of specified size (default 0x0)
    */
   template<typename ImageT, typename MaskT, typename VarianceT>
   pfsDRPStella::FiberTrace<ImageT, MaskT, VarianceT>::FiberTrace(
@@ -10,8 +10,8 @@ namespace pfsDRPStella = pfs::drp::stella;
     unsigned int height,                ///< number of rows
     unsigned int iTrace
   ) :
-  _trace(new afwImage::MaskedImage<ImageT, MaskT, VarianceT>(10, height)),
-  _profile(new afwImage::Image<float>(10, height)),
+  _trace(new afwImage::MaskedImage<ImageT, MaskT, VarianceT>(width, height)),
+  _profile(new afwImage::Image<float>(width, height)),
   _ccdWidth(width),
   _ccdHeight(height),
   _xCenters(new std::vector<float>(height)),
@@ -26,7 +26,7 @@ namespace pfsDRPStella = pfs::drp::stella;
   {
   }
 
-  /** @brief Construct an Exposure with a blank MaskedImage of specified size (default 0x0) and
+  /** @brief Construct a FiberTrace with a blank MaskedImage of specified size (default 0x0) and
    * a Wcs (which may be default constructed)
    */
   template<typename ImageT, typename MaskT, typename VarianceT>
@@ -51,24 +51,25 @@ namespace pfsDRPStella = pfs::drp::stella;
   }
 
   template<typename ImageT, typename MaskT, typename VarianceT>
-  pfsDRPStella::FiberTrace<ImageT, MaskT, VarianceT>::FiberTrace(
-    PTR(MaskedImageT) const & maskedImage, ///< desired image width/height
-    unsigned int iTrace
-  ) :
-  _trace(new afwImage::MaskedImage<ImageT, MaskT, VarianceT>(maskedImage->getWidth(), maskedImage->getHeight())),
-  _profile(new afwImage::Image<float>(maskedImage->getWidth(), maskedImage->getHeight())),
+  pfsDRPStella::FiberTrace<ImageT, MaskT, VarianceT>::FiberTrace(PTR(MaskedImageT) const & maskedImage, ///< desired image width/height
+                                                                 PTR(pfsDRPStella::FiberTraceFunction) const& fiberTraceFunction,
+                                                                 unsigned int iTrace) :
+  _trace(new afwImage::MaskedImage<ImageT, MaskT, VarianceT>(fiberTraceFunction->yHigh - fiberTraceFunction->yLow + 1, int(fiberTraceFunction->fiberTraceFunctionControl.xHigh - fiberTraceFunction->fiberTraceFunctionControl.xLow + 1))),
+  _profile(new afwImage::Image<float>(fiberTraceFunction->yHigh - fiberTraceFunction->yLow + 1, int(fiberTraceFunction->fiberTraceFunctionControl.xHigh - fiberTraceFunction->fiberTraceFunctionControl.xLow + 1))),
   _ccdWidth(maskedImage->getWidth()),
   _ccdHeight(maskedImage->getHeight()),
-  _xCenters(new std::vector<float>(maskedImage->getHeight())),
+  _xCenters(new std::vector<float>(fiberTraceFunction->yHigh - fiberTraceFunction->yLow + 1)),
   _iTrace(iTrace),
-  _isXCentersCalculated(false),
+  _isXCentersCalculated(true),
   _isTraceSet(false),
   _isProfileSet(false),
-  _isFiberTraceFunctionSet(false),
+  _isFiberTraceFunctionSet(true),
   _isFiberTraceProfileFittingControlSet(false),
-  _fiberTraceFunction(new FiberTraceFunction),
+  _fiberTraceFunction(new FiberTraceFunction(*fiberTraceFunction)),
   _fiberTraceProfileFittingControl(new FiberTraceProfileFittingControl)
   {
+    calculateXCenters();
+    createTrace(maskedImage);
   }
   
   template<typename ImageT, typename MaskT, typename VarianceT>
@@ -639,12 +640,12 @@ namespace pfsDRPStella = pfs::drp::stella;
   bool pfsDRPStella::FiberTrace<ImageT, MaskT, VarianceT>::setImage(const PTR(afwImage::Image<ImageT>) &image){
 
     /// Check input image size
-    if (image->getWidth() != int(_ccdWidth)){
-      cout << "FiberTrace.setImage: ERROR: image.getWidth(=" << image->getWidth() << ") != _ccdWidth(=" << _ccdWidth << ") => Returning false" << endl;
+    if (image->getWidth() != int(_trace->getWidth())){
+      cout << "FiberTrace.setImage: ERROR: image.getWidth(=" << image->getWidth() << ") != _trace->getWidth(=" << _trace->getWidth() << ") => Returning false" << endl;
       return false;
     }
-    if (image->getHeight() != int(_ccdHeight)){
-      cout << "FiberTrace.setImage: ERROR: image.getHeight(=" << image->getHeight() << ") != _ccdHeight(=" << _ccdHeight << ") => Returning false" << endl;
+    if (image->getHeight() != int(_trace->getHeight())){
+      cout << "FiberTrace.setImage: ERROR: image.getHeight(=" << image->getHeight() << ") != _trace->getHeight(=" << _trace->getHeight() << ") => Returning false" << endl;
       return false;
     }
 
@@ -658,12 +659,12 @@ namespace pfsDRPStella = pfs::drp::stella;
   bool pfsDRPStella::FiberTrace<ImageT, MaskT, VarianceT>::setMask(const PTR(afwImage::Mask<MaskT>) &mask){
 
     /// Check input mask size
-    if (mask->getWidth() != int(_ccdWidth)){
-      cout << "FiberTrace.setMask: ERROR: mask.getWidth(=" << mask->getWidth() << ") != _ccdWidth(=" << _ccdWidth << ") => Returning false" << endl;
+    if (mask->getWidth() != int(_trace->getWidth())){
+      cout << "FiberTrace.setMask: ERROR: mask.getWidth(=" << mask->getWidth() << ") != _trace->getWidth()(=" << _trace->getWidth() << ") => Returning false" << endl;
       return false;
     }
-    if (mask->getHeight() != int(_ccdHeight)){
-      cout << "FiberTrace.setMask: ERROR: mask.getHeight(=" << mask->getHeight() << ") != _ccdHeight(=" << _ccdHeight << ") => Returning false" << endl;
+    if (mask->getHeight() != int(_trace->getHeight())){
+      cout << "FiberTrace.setMask: ERROR: mask.getHeight(=" << mask->getHeight() << ") != _trace->getHeight()(=" << _trace->getHeight() << ") => Returning false" << endl;
       return false;
     }
 
@@ -677,12 +678,12 @@ namespace pfsDRPStella = pfs::drp::stella;
   bool pfsDRPStella::FiberTrace<ImageT, MaskT, VarianceT>::setVariance(const PTR(afwImage::Image<VarianceT>) &variance){
 
     /// Check input variance size
-    if (variance->getWidth() != int(_ccdWidth)){
-      cout << "FiberTrace.setVariance: ERROR: variance.getWidth(=" << variance->getWidth() << ") != _maskedImage->getWidth(=" << _ccdWidth << ") => Returning false" << endl;
+    if (variance->getWidth() != int(_trace->getWidth())){
+      cout << "FiberTrace.setVariance: ERROR: variance.getWidth(=" << variance->getWidth() << ") != _trace->getWidth(=" << _trace->getWidth() << ") => Returning false" << endl;
       return false;
     }
-    if (variance->getHeight() != int(_ccdHeight)){
-      cout << "FiberTrace.setVariance: ERROR: variance.getHeight(=" << variance->getHeight() << ") != _maskedImage->getHeight(=" << _ccdHeight << ") => Returning false" << endl;
+    if (variance->getHeight() != int(_trace->getHeight())){
+      cout << "FiberTrace.setVariance: ERROR: variance.getHeight(=" << variance->getHeight() << ") != _trace->getHeight(=" << _trace->getHeight() << ") => Returning false" << endl;
       return false;
     }
 
@@ -693,32 +694,22 @@ namespace pfsDRPStella = pfs::drp::stella;
 
   /// Set the _trace of this fiber trace to trace
   template<typename ImageT, typename MaskT, typename VarianceT>
-  bool pfsDRPStella::FiberTrace<ImageT, MaskT, VarianceT>::setTrace(const PTR(MaskedImageT) & trace){
+  bool pfsDRPStella::FiberTrace<ImageT, MaskT, VarianceT>::setTrace(PTR(MaskedImageT) & trace){
     if (!_isFiberTraceFunctionSet){
       cout << "FiberTrace" << _iTrace << "::setTrace: ERROR: _fiberTraceFunction not set => Returning FALSE" << endl;
       return false;
     }
-    if (trace->getHeight() > int(_ccdHeight)){
-      cout << "FiberTrace" << _iTrace << "::setTrace: ERROR: trace->getHeight(=" << trace->getHeight() << ") > _ccdHeight(=" << _ccdHeight << ") => Returning FALSE" << endl;
+    if (_isTraceSet && (trace->getHeight() != int(_trace->getHeight()))){
+      cout << "FiberTrace" << _iTrace << "::setTrace: ERROR: trace->getHeight(=" << trace->getHeight() << ") != _trace->getHeight(=" << _trace->getHeight() << ") => Returning FALSE" << endl;
       return false;
     }
-    if (trace->getWidth() > int(_ccdWidth)){
-      cout << "FiberTrace" << _iTrace << "::setTrace: ERROR: trace->getWidth(=" << trace->getWidth() << ") > _ccdWidth(=" << _ccdWidth << ") => Returning FALSE" << endl;
-      return false;
-    }
-
-    /// Check input profile size
-    if (trace->getWidth() != _fiberTraceFunction->fiberTraceFunctionControl.xHigh - _fiberTraceFunction->fiberTraceFunctionControl.xLow + 1){
-      cout << "FiberTrace.setTrace: ERROR: trace->getWidth(=" << trace->getWidth() << ") != _fiberTraceFunction->fiberTraceFunctionControl.xHigh - _fiberTraceFunction->fiberTraceFunctionControl.xLow + 1(=" << _fiberTraceFunction->fiberTraceFunctionControl.xHigh - _fiberTraceFunction->fiberTraceFunctionControl.xLow + 1 << ") => Returning false" << endl;
-      return false;
-    }
-    if (trace->getHeight() != static_cast<int>(_fiberTraceFunction->yHigh - _fiberTraceFunction->yLow + 1)){
-      cout << "FiberTrace.setTrace: ERROR: trace->getHeight(=" << trace->getHeight() << ") != _fiberTraceFunction->yHigh - _fiberTraceFunction->yLow + 1(=" << _fiberTraceFunction->yHigh - _fiberTraceFunction->yLow + 1 << ") => Returning false" << endl;
+    if (_isTraceSet && (trace->getWidth() != int(_trace->getWidth()))){
+      cout << "FiberTrace" << _iTrace << "::setTrace: ERROR: trace->getWidth(=" << trace->getWidth() << ") != _trace->getWidth(=" << _trace->getWidth() << ") => Returning FALSE" << endl;
       return false;
     }
 
-    _trace.reset(trace.get());//new MaskedImageT(trace->getDimensions()));
-//    (*_trace) = trace;
+    _trace.reset();
+    _trace = trace;
 
     _isTraceSet = true;
     return true;
@@ -931,13 +922,19 @@ namespace pfsDRPStella = pfs::drp::stella;
       int oldTraceHeight = 0;
       if (_isTraceSet)
         oldTraceHeight = getHeight();
-      if (maskedImage->getWidth() != int(_ccdWidth)){
-        cout << "FiberTrace" << _iTrace << "::createTrace: ERROR: maskedImage->getWidth(=" << maskedImage->getWidth() << ") != _ccdWidth(=" << _ccdWidth << ")" << endl;
-        return false;
+      if (_isTraceSet){
+        if (maskedImage->getWidth() != int(_ccdWidth)){
+          cout << "FiberTrace" << _iTrace << "::createTrace: ERROR: maskedImage->getWidth(=" << maskedImage->getWidth() << ") != _ccdWidth(=" << _ccdWidth << ")" << endl;
+          return false;
+        }
+        if (maskedImage->getHeight() != int(_ccdHeight)){
+          cout << "FiberTrace" << _iTrace << "::createTrace: ERROR: maskedImage->getHeight(=" << maskedImage->getHeight() << ") != _ccdHeight(=" << _ccdHeight << ")" << endl;
+          return false;
+        }
       }
-      if (maskedImage->getHeight() != int(_ccdHeight)){
-        cout << "FiberTrace" << _iTrace << "::createTrace: ERROR: maskedImage->getHeight(=" << maskedImage->getHeight() << ") != _ccdHeight(=" << _ccdHeight << ")" << endl;
-        return false;
+      else{
+        _ccdHeight = maskedImage->getHeight();
+        _ccdWidth = maskedImage->getWidth();
       }
       if (!_isXCentersCalculated){
         cout << "FiberTrace" << _iTrace << "::createTrace: ERROR: _xCenters has not been set/calculated" << endl;
@@ -1053,6 +1050,9 @@ namespace pfsDRPStella = pfs::drp::stella;
       exit(EXIT_FAILURE);
     }
     cout << "FiberTrace::createFiberTrace: _trace set to " << _trace->getImage()->getArray() << endl;
+    if (!_isProfileSet){
+      _profile.reset(new afwImage::Image<float>(_trace->getWidth(), _trace->getHeight()));
+    }
     _isTraceSet = true;
     return true;
   }
@@ -4061,7 +4061,7 @@ namespace pfsDRPStella = pfs::drp::stella;
     blitz::Array<double, 1> D_A1_XX(1);
     D_A1_XX = 0.;
 
-    blitz::Array<double, 2> D_A2_Sky(_ccdHeight, _ccdWidth);
+    blitz::Array<double, 2> D_A2_Sky(_trace->getHeight(), _trace->getWidth());
     D_A2_Sky = 0.;
 
     blitz::Array<double, 1> D_A1_MySF(1);
@@ -8023,9 +8023,6 @@ namespace pfsDRPStella = pfs::drp::stella;
                 cout << "::pfs::drp::stella::math::findAndTraceApertures: i_Row = " << i_Row << ": I_ApertureNumber = " << I_ApertureNumber << ": ERROR: PolyFit returned FALSE -> Returning FALSE" << endl;
                 exit(EXIT_FAILURE);
               }
-              PTR(pfsDRPStella::FiberTrace<ImageT, MaskT, VarianceT>) fiberTrace(new pfsDRPStella::FiberTrace< ImageT, MaskT, VarianceT >(maskedImage));
-
-              I_ApertureNumber++;
 
               fiberTraceFunction.xCenter = D_A1_ApertureCenterPos(int(D_A1_ApertureCenterIndex.size()/2.));
               fiberTraceFunction.yCenter = D_A1_ApertureCenterIndex(int(D_A1_ApertureCenterIndex.size()/2.));
@@ -8045,10 +8042,10 @@ namespace pfsDRPStella = pfs::drp::stella;
     //            cout << "::pfs::drp::stella::math::findAndTraceApertures: fiberTraceFunction.coefficients = " << fiberTraceFunction.coefficients << endl;
               #endif
               PTR(FiberTraceFunction) fiberTraceFunctionPTR(new FiberTraceFunction(fiberTraceFunction));
-              if (!fiberTrace->setFiberTraceFunction(fiberTraceFunctionPTR)){
-                cout << "FindAndTraceApertures: ERROR: setFiberTraceFunction returned FALSE" << endl;
-                exit(EXIT_FAILURE);
-              }
+              PTR(pfsDRPStella::FiberTrace<ImageT, MaskT, VarianceT>) fiberTrace(new pfsDRPStella::FiberTrace< ImageT, MaskT, VarianceT >(maskedImage, fiberTraceFunctionPTR, I_ApertureNumber));
+
+              I_ApertureNumber++;
+
               if (fiberTraceFunction.yLow != fiberTrace->getFiberTraceFunction()->yLow){
                 string message("FindAndTraceApertures: ERROR: fiberTraceFunction.yLow(=");
                 message += to_string(fiberTraceFunction.yLow) + string("<< ) != fiberTrace->getFiberTraceFunction()->yLow(=");
