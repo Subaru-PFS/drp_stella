@@ -136,7 +136,7 @@ PTR(pfsDRPStella::Spectrum<ImageT, MaskT, VarianceT, WavelengthT>)& pfsDRPStella
     string message("SpectrumSet::getSpectrum(i=");
     message += to_string(i) + string("): ERROR: i > _spectra->size()=") + to_string(_spectra->size());
     cout << message << endl;
-    throw(message.c_str());
+    throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
   }
   return _spectra->at(i); 
 }
@@ -148,7 +148,7 @@ PTR(pfsDRPStella::Spectrum<ImageT, MaskT, VarianceT, WavelengthT>) const& pfsDRP
     string message("SpectrumSet::getSpectrum(i=");
     message += to_string(i) + string("): ERROR: i > _spectra->size()=") + to_string(_spectra->size());
     cout << message << endl;
-    throw(message.c_str());
+    throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
   }
   return _spectra->at(i); 
 }
@@ -159,19 +159,19 @@ bool pfsDRPStella::SpectrumSet<ImageT, MaskT, VarianceT, WavelengthT>::erase(con
     string message("SpectrumSet::erase(iStart=");
     message += to_string(iStart) + string("): ERROR: iStart >= _spectra->size()=") + to_string(_spectra->size());
     cout << message << endl;
-    throw(message.c_str());
+    throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
   }
   if (iEnd >= _spectra->size()){
     string message("SpectrumSet::erase(iEnd=");
     message += to_string(iEnd) + string("): ERROR: iEnd >= _spectra->size()=") + to_string(_spectra->size());
     cout << message << endl;
-    throw(message.c_str());
+    throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
   }
     if ((iEnd > 0) && (iStart > iEnd)){
       string message("SpectrumSet::erase(iStart=");
       message += to_string(iStart) + string("): ERROR: iStart > iEnd=") + to_string(iEnd);
       cout << message << endl;
-      throw(message.c_str());
+      throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
     }
   if (iStart == (_spectra->size()-1)){
     _spectra->pop_back();

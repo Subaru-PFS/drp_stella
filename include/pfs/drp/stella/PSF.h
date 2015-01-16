@@ -11,6 +11,7 @@
 #include "lsst/afw/geom.h"
 #include "lsst/afw/image/MaskedImage.h"
 #include "lsst/pex/config.h"
+#include "lsst/pex/exceptions/Exception.h"
 #include "blitz.h"
 //#include <cassert>
 #include "Controls.h"
@@ -34,6 +35,7 @@
 
 namespace afwGeom = lsst::afw::geom;
 namespace afwImage = lsst::afw::image;
+namespace pexExcept = lsst::pex::exceptions;
 
 using namespace std;
 namespace pfs { namespace drp { namespace stella {

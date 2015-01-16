@@ -265,6 +265,16 @@ class FiberTraceTestCase(tests.TestCase):
                 print "element",i,": <",message[i],">"
             expected = "FiberTrace0::MkSlitFunc: ERROR: _fiberTraceProfileFittingControl is not set"
             self.assertEqual(message[0],expected)
+        ftpfc = drpStella.FiberTraceProfileFittingControl()
+        self.assertTrue(fiberTrace.setFiberTraceProfileFittingControl(ftpfc))
+        try:
+            spectrum = fiberTrace.MkSlitFunc()
+        except:
+            raise
+        self.assertEqual(spectrum.getLength(), fiberTrace.getHeight())
+        spectrumFromProfile = fiberTrace.extractFromProfile()
+        self.assertEqual(spectrum.getLength(), spectrumFromProfile.getLength())
+        self.assertSequenceEqual(spectrum.getSpectrum(), spectrumFromProfile.getSpectrum())
 
     def testFiberTraceSetFunctions(self):
         if False:

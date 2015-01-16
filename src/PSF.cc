@@ -692,7 +692,7 @@ PTR(pfsDRPStella::PSFSet<ImageT, MaskT, VarianceT, WavelengthT>) pfsDRPStella::m
                                                                 binBoundY)){
     string message("calculate2dPSFPerBin: FiberTrace");
     message += to_string(fiberTrace.getITrace()) + string(": ERROR: calculateSwathWidth_NBins_BinHeight_BinBoundY returned FALSE");
-    throw(message.c_str());
+    throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
   }
 
   blitz::Array<double, 2> D_A2_2dPSF(2,2);
@@ -704,7 +704,7 @@ PTR(pfsDRPStella::PSFSet<ImageT, MaskT, VarianceT, WavelengthT>) pfsDRPStella::m
     string message("calculate2dPSFPerBin: FiberTrace");
     message += to_string(fiberTrace.getITrace()) + string(": ERROR: binBoundY.rows()=") + to_string(binBoundY.rows()) + string(" != nBins=");
     message += to_string(nBins);
-    throw(message.c_str());
+    throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
   }
   PTR(pfsDRPStella::PSFSet<ImageT, MaskT, VarianceT, WavelengthT>) psfSet(new pfsDRPStella::PSFSet<ImageT, MaskT, VarianceT, WavelengthT>());
   for (int iBin=0; iBin<nBins; ++iBin){
@@ -733,7 +733,7 @@ PTR(pfsDRPStella::PSFSet<ImageT, MaskT, VarianceT, WavelengthT>) pfsDRPStella::m
                           spectrum)){
       string message("calculate2dPSFPerBin: FiberTrace");
       message += to_string(fiberTrace.getITrace()) + string(": iBin ") + to_string(iBin) + string(": ERROR: psf->extractPSFs() returned FALSE");
-      throw(message.c_str());
+      throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
     }
     #ifdef __DEBUG_CALC2DPSF__
       cout << "calculate2dPSFPerBin: FiberTrace" << fiberTrace.getITrace() << ": iBin " << iBin << ": extractPSFs() finished" << endl;
@@ -758,7 +758,7 @@ PTR(pfsDRPStella::PSF<ImageT, MaskT, VarianceT, WavelengthT>)& pfsDRPStella::PSF
     string message("PSFSet::getPSF(i=");
     message += to_string(i) + string("): ERROR: i > _psfs->size()=") + to_string(_psfs->size());
     cout << message << endl;
-    throw(message.c_str());
+    throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
   }
   return _psfs->at(i); 
 }
@@ -770,7 +770,7 @@ PTR(pfsDRPStella::PSF<ImageT, MaskT, VarianceT, WavelengthT>) const& pfsDRPStell
     string message("PSFSet::getPSF(i=");
     message += to_string(i) + string("): ERROR: i > _psfs->size()=") + to_string(_psfs->size());
     cout << message << endl;
-    throw(message.c_str());
+    throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
   }
   return _psfs->at(i); 
 }
@@ -781,19 +781,19 @@ bool pfsDRPStella::PSFSet<ImageT, MaskT, VarianceT, WavelengthT>::erase(const un
     string message("PSFSet::erase(iStart=");
     message += to_string(iStart) + string("): ERROR: iStart >= _psfs->size()=") + to_string(_psfs->size());
     cout << message << endl;
-    throw(message.c_str());
+    throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
   }
   if (iEnd >= _psfs->size()){
     string message("PSFSet::erase(iEnd=");
     message += to_string(iEnd) + string("): ERROR: iEnd >= _psfs->size()=") + to_string(_psfs->size());
     cout << message << endl;
-    throw(message.c_str());
+    throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
   }
     if ((iEnd > 0) && (iStart > iEnd)){
       string message("PSFSet::erase(iStart=");
       message += to_string(iStart) + string("): ERROR: iStart > iEnd=") + to_string(iEnd);
       cout << message << endl;
-      throw(message.c_str());
+      throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
     }
   if (iStart == (_psfs->size()-1)){
     _psfs->pop_back();
