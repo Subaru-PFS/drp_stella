@@ -10,6 +10,7 @@ or
 """
 
 import unittest
+import sys
 import numpy as np
 import lsst.utils.tests as tests
 import lsst.afw.image as afwImage
@@ -255,8 +256,15 @@ class FiberTraceTestCase(tests.TestCase):
         try:
             spectrum = fiberTrace.MkSlitFunc()
         except:
-            e = sys.exc_info()[0]
+            e = sys.exc_info()[1]
             print e
+            print dir(e)
+            message = str.split(e.message, "\n")
+            print message
+            for i in range(len(message)):
+                print "element",i,": <",message[i],">"
+            expected = "FiberTrace0::MkSlitFunc: ERROR: _fiberTraceProfileFittingControl is not set"
+            self.assertEqual(message[0],expected)
 
     def testFiberTraceSetFunctions(self):
         if False:
