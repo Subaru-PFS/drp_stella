@@ -10,6 +10,8 @@
 #include "../blitz.h"
 #include "../utils/Utils.h"
 
+//#define __DEBUG_FIT__
+
 namespace afwGeom = lsst::afw::geom;
 namespace afwImage = lsst::afw::image;
 using namespace std;

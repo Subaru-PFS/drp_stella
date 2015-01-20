@@ -2,6 +2,11 @@
 *.os
 *.pyc
 *.so
+*.dat
+*.fits
+*.text
+*.log
+*.bak
 
 .sconf_temp
 .sconsign.dblite

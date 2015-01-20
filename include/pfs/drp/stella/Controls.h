@@ -90,7 +90,7 @@ struct FiberTraceFunctionFindingControl {
   FiberTraceFunctionFindingControl() :
   fiberTraceFunctionControl(),
   apertureFWHM(2.5),
-  signalThreshold(0.),
+  signalThreshold(10.),
   nTermsGaussFit(3),
   saturationLevel(65000.),
   minLength(10),

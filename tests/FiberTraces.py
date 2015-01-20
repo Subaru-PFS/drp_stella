@@ -16,14 +16,13 @@ import lsst.utils.tests as tests
 import lsst.afw.image as afwImage
 import lsst.afw.geom as afwGeom
 import pfs.drp.stella as drpStella
+import lsst.afw.display.ds9 as ds9
+import lsst.afw.display.utils as displayUtils
 
 try:
     type(display)
 except NameError:
     display = False
-
-import lsst.afw.display.ds9 as ds9
-import lsst.afw.display.utils as displayUtils
 
 class FiberTraceTestCase(tests.TestCase):
     """A test case for measuring FiberTrace quantities"""
@@ -99,7 +98,6 @@ class FiberTraceTestCase(tests.TestCase):
         ftffc.nLost = nLost
         self.assertEqual(ftffc.nLost, nLost)
         
-#        import pdb; pdb.set_trace()
     def testFiberTraceConstructors(self):
 
         """Test that we can construct a FiberTrace with the standard constructor"""
@@ -248,33 +246,157 @@ class FiberTraceTestCase(tests.TestCase):
         self.assertFalse(fiberTraceMIF.setProfile(maskedImageWrongSize.getImage()))
         self.assertEqual(fiberTraceMIF.getProfile().getArray()[5,5], val)
         
+        """Test getXCenters"""
+        xCenters = fiberTrace.getXCenters()
+        self.assertEqual(xCenters.size(), fiberTrace.getHeight())
+        self.assertTrue(fiberTrace.setXCenters(xCenters))
+        print "xCenters.size() = ", xCenters.size()
+        xCentersWrongSize = xCenters[0:xCenters.size()-1]
+        print "xCentersWrongSize.size() = ", xCentersWrongSize.size()
+        self.assertFalse(xCentersWrongSize.size() == fiberTrace.getXCenters().size())
+        self.assertFalse(fiberTrace.setXCenters(xCentersWrongSize))
+        
+    def testFiberTraceCreateTrace(self):
+        ftffc = drpStella.FiberTraceFunctionFindingControl()
+        fiberTraceSet = drpStella.findAndTraceAperturesF(self.flat.getMaskedImage(), ftffc)
+        fiberTrace = fiberTraceSet.getFiberTrace(3)
+        oldTrace = fiberTrace.getTrace().getImage().getArray().copy()
+        self.assertTrue(fiberTrace.createTrace(self.flat.getMaskedImage()))
+        trace = fiberTrace.getTrace().getImage().getArray()
+        self.assertFalse(id(oldTrace) == id(trace))
+        for i in range(fiberTrace.getHeight()):
+            for j in range(fiberTrace.getWidth()):
+                self.assertAlmostEqual(oldTrace[i,j], trace[i,j])
+        
     def testFiberTraceExtractionMethods(self):
         ftffc = drpStella.FiberTraceFunctionFindingControl()
         ftffc.signalThreshold = 10.
-        fiberTraceSet = drpStella.findAndTraceAperturesF(self.flat.getMaskedImage(), ftffc)
-        fiberTrace = fiberTraceSet.getFiberTrace(0)
-        try:
-            spectrum = fiberTrace.MkSlitFunc()
-        except:
-            e = sys.exc_info()[1]
-            print e
-            print dir(e)
-            message = str.split(e.message, "\n")
-            print message
-            for i in range(len(message)):
-                print "element",i,": <",message[i],">"
-            expected = "FiberTrace0::MkSlitFunc: ERROR: _fiberTraceProfileFittingControl is not set"
-            self.assertEqual(message[0],expected)
         ftpfc = drpStella.FiberTraceProfileFittingControl()
-        self.assertTrue(fiberTrace.setFiberTraceProfileFittingControl(ftpfc))
-        try:
-            spectrum = fiberTrace.MkSlitFunc()
-        except:
-            raise
-        self.assertEqual(spectrum.getLength(), fiberTrace.getHeight())
-        spectrumFromProfile = fiberTrace.extractFromProfile()
+        fiberTraceSet = drpStella.findAndTraceAperturesF(self.flat.getMaskedImage(), ftffc)
+        for iTrace in range(0, fiberTraceSet.size()):
+            fiberTrace = fiberTraceSet.getFiberTrace(iTrace)
+            try:
+                spectrum = fiberTrace.MkSlitFunc()
+            except:
+                e = sys.exc_info()[1]
+                print e
+                print dir(e)
+                message = str.split(e.message, "\n")
+                print message
+                for i in range(len(message)):
+                    print "element",i,": <",message[i],">"
+                expected = "FiberTrace"+str(iTrace)+"::MkSlitFunc: ERROR: _fiberTraceProfileFittingControl is not set"
+                self.assertEqual(message[0],expected)
+            self.assertTrue(fiberTrace.setFiberTraceProfileFittingControl(ftpfc))
+            try:
+                spectrum = fiberTrace.MkSlitFunc()
+            except:
+                raise
+            self.assertEqual(spectrum.getLength(), fiberTrace.getHeight())
+            fiberTrace.getMask().getArray()[:,:] = 0
+            oldestMask = fiberTrace.getMask().getArray().copy()
+            spectrumFromProfile = fiberTrace.extractFromProfile()
+            self.assertEqual(spectrum.getLength(), spectrumFromProfile.getLength())
+ #           meanSpectrum = np.mean(spectrum.getSpectrum())
+ #           meanSpectrumFromProfile = np.mean(spectrumFromProfile.getSpectrum())
+#            self.assertLess(np.absolute((meanSpectrum - meanSpectrumFromProfile)/meanSpectrum), 0.05)
+#            stdDevSpectrum = np.std(spectrum.getSpectrum())
+#            stdDevSpectrumFromProfile = np.std(spectrumFromProfile.getSpectrum())
+#            self.assertLess(np.absolute((stdDevSpectrum - stdDevSpectrumFromProfile) / stdDevSpectrum), 0.005)
+            # Spectra from MkSlitFunc and extractFromProfile differ
+            #self.assertSequenceEqual(spectrum.getSpectrum(), spectrumFromProfile.getSpectrum())
+
+            """Test createTrace"""
+            oldHeight = fiberTrace.getHeight()
+            oldWidth = fiberTrace.getWidth()
+            oldProfile = fiberTrace.getProfile().getArray().copy()
+            oldTrace = fiberTrace.getTrace().getImage().getArray().copy()
+            oldMask = fiberTrace.getMask().getArray()
+
+            self.assertTrue(fiberTrace.createTrace(self.flat.getMaskedImage()))
+            trace = fiberTrace.getTrace().getImage().getArray()
+            self.assertFalse(id(oldTrace) == id(trace))
+            profile = fiberTrace.getProfile().getArray()
+            self.assertFalse(id(oldProfile) == id(profile))
+            mask = fiberTrace.getMask().getArray()
+
+            self.assertEqual(oldHeight, fiberTrace.getHeight())
+            self.assertEqual(oldWidth, fiberTrace.getWidth())
+            self.assertEqual(oldProfile[5,5], fiberTrace.getProfile().getArray()[5,5])
+            self.assertEqual(oldTrace[5,5], fiberTrace.getTrace().getImage().getArray()[5,5])
+
+#            import pdb; pdb.set_trace()
+
+#            self.assertTrue(fiberTrace.setMask(oldMask))
+            fiberTrace.getMask().getArray()[:,:] = 0
+            spectrum = fiberTrace.extractFromProfile()
+            self.assertEqual(spectrum.getLength(), spectrumFromProfile.getLength())
+
+            for i in range(spectrum.getLength()):#10, spectrum.getLength()-10):
+                print "oldTrace[",i,",*] = ",oldTrace[i,0],oldTrace[i,1],oldTrace[i,2],oldTrace[i,3],oldTrace[i,4],oldTrace[i,5],oldTrace[i,6],oldTrace[i,7],oldTrace[i,8]
+                print "newTrace[",i,",*] = ",trace[i,0],trace[i,1],trace[i,2],trace[i,3],trace[i,4],trace[i,5],trace[i,6],trace[i,7],trace[i,8]
+                print "oldProfile[",i,",*] = ",oldProfile[i,0],oldProfile[i,1],oldProfile[i,2],oldProfile[i,3],oldProfile[i,4],oldProfile[i,5],oldProfile[i,6],oldProfile[i,7],oldProfile[i,8]
+                print "newProfile[",i,",*] = ",profile[i,0],profile[i,1],profile[i,2],profile[i,3],profile[i,4],profile[i,5],profile[i,6],profile[i,7],profile[i,8]
+                print "oldestMask[",i,",*] = ",oldestMask[i,0],oldestMask[i,1],oldestMask[i,2],oldestMask[i,3],oldestMask[i,4],oldestMask[i,5],oldestMask[i,6],oldestMask[i,7],oldestMask[i,8]
+                print "oldMask[",i,",*] = ",oldMask[i,0],oldMask[i,1],oldMask[i,2],oldMask[i,3],oldMask[i,4],oldMask[i,5],oldMask[i,6],oldMask[i,7],oldMask[i,8]
+                print "newMask[",i,",*] = ",mask[i,0],mask[i,1],mask[i,2],mask[i,3],mask[i,4],mask[i,5],mask[i,6],mask[i,7],mask[i,8]
+                for j in range(len(oldTrace[0,:])):
+                    self.assertAlmostEqual(oldTrace[i,j], trace[i,j])
+                    self.assertAlmostEqual(oldProfile[i,j], profile[i,j])
+                    self.assertAlmostEqual(oldestMask[i,j], mask[i,j])
+                    self.assertAlmostEqual(oldMask[i,j], mask[i,j])
+                    self.assertGreaterEqual(profile[i,j], 0.)
+
+            for i in range(spectrum.getLength()):
+                print "spectrum[",i,"] = ",spectrum.getSpectrum()[i],", spectrumFromProfile[",i,"] = ",spectrumFromProfile.getSpectrum()[i]
+                self.assertEqual(spectrum.getSpectrum()[i], spectrumFromProfile.getSpectrum()[i])
+ 
+        self.assertTrue(fiberTrace.createTrace(self.comb.getMaskedImage()))
+        self.assertEqual(oldHeight, fiberTrace.getHeight())
+        self.assertEqual(oldWidth, fiberTrace.getWidth())
+        self.assertEqual(oldProfile[5,5], fiberTrace.getProfile().getArray()[5,5])
+        self.assertNotAlmostEqual(oldTrace[5,5], fiberTrace.getTrace().getImage().getArray()[5,5])
+        spectrum = fiberTrace.extractFromProfile()
         self.assertEqual(spectrum.getLength(), spectrumFromProfile.getLength())
-        self.assertSequenceEqual(spectrum.getSpectrum(), spectrumFromProfile.getSpectrum())
+        self.assertNotAlmostEqual(spectrum.getSpectrum()[5], spectrumFromProfile.getSpectrum()[5])
+
+    def testFiberTraceReconstruct(self):
+        ftffc = drpStella.FiberTraceFunctionFindingControl()
+        ftffc.signalThreshold = 10.
+        ftpfc = drpStella.FiberTraceProfileFittingControl()
+        fiberTraceSet = drpStella.findAndTraceAperturesF(self.flat.getMaskedImage(), ftffc)
+        ftpfc = drpStella.FiberTraceProfileFittingControl()
+        for iTrace in range(0, fiberTraceSet.size()):
+            fiberTrace = fiberTraceSet.getFiberTrace(iTrace)
+            fiberTrace.getTrace().getImage().writeFits("Trace"+str(iTrace)+".fits")
+            self.assertTrue(fiberTrace.setFiberTraceProfileFittingControl(ftpfc))
+            spectrum = fiberTrace.MkSlitFunc()
+            profile = fiberTrace.getProfile()
+            profile.writeFits("profileTrace"+str(iTrace)+".fits")
+            recImage = fiberTrace.getReconstructed2DSpectrum(spectrum)
+            recImage.writeFits("recTrace"+str(iTrace)+"FromMkSlitFunc.fits")
+            diff = fiberTrace.getTrace().getImage()
+            diff -= recImage
+            diff.writeFits("diffTrace"+str(iTrace)+"FromMkSlitFunc.fits")
+            if display:
+                ds9.mtv(diff,title="reconstruction from MkSlitFunc",frame=iTrace)
+            meanDiff = np.mean(diff.getArray())
+            self.assertLess(np.absolute(meanDiff), 20.)
+            stdDevDiff = np.std(diff.getArray())
+            self.assertLess(np.absolute(stdDevDiff), 600.)
+
+            spectrum = fiberTrace.extractFromProfile()
+            recImage = fiberTrace.getReconstructed2DSpectrum(spectrum)
+            recImage.writeFits("recTrace"+str(iTrace)+"FromProfile.fits")
+            diff = fiberTrace.getTrace().getImage()
+            diff -= recImage
+            diff.writeFits("diffTrace"+str(iTrace)+"FromProfile.fits")
+            if display:
+                ds9.mtv(diff,title="reconstruction from MkSlitFunc",frame=fiberTraceSet.size()+iTrace)
+            meanDiff = np.mean(diff.getArray())
+            self.assertLess(np.absolute(meanDiff), 20.)
+            stdDevDiff = np.std(diff.getArray())
+            self.assertLess(np.absolute(stdDevDiff), 600.)
 
     def testFiberTraceSetFunctions(self):
         if False:
