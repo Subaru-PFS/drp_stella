@@ -107,6 +107,9 @@ class FiberTrace {
     PTR(Spectrum<ImageT, MaskT, VarianceT, VarianceT>) extractFromProfile();
     PTR(Spectrum<ImageT, MaskT, VarianceT, VarianceT>) extractFromProfile(const blitz::Array<string, 1> &S_A1_Args,     //: in
                                                                           void *ArgV[]);                        //: in
+    
+    /// Simple Sum Extraction of this fiber trace
+    PTR(Spectrum<ImageT, MaskT, VarianceT, VarianceT>) extractSum();
 
     /// Create _trace from maskedImage and _fiberTraceFunction
     /// Pre: _xCenters set/calculated

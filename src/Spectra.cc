@@ -187,6 +187,10 @@ bool pfsDRPStella::SpectrumSet<ImageT, MaskT, VarianceT, WavelengthT>::erase(con
 
 template class pfsDRPStella::Spectrum<float>;
 template class pfsDRPStella::Spectrum<double>;
+template class pfsDRPStella::Spectrum<float, unsigned int, float, float>;
+template class pfsDRPStella::Spectrum<double, unsigned int, float, float>;
 
 template class pfsDRPStella::SpectrumSet<float>;
 template class pfsDRPStella::SpectrumSet<double>;
+template class pfsDRPStella::SpectrumSet<float, unsigned int, float, float>;
+template class pfsDRPStella::SpectrumSet<double, unsigned int, float, float>;

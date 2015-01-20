@@ -271,6 +271,24 @@ class FiberTraceTestCase(tests.TestCase):
     def testFiberTraceExtractionMethods(self):
         ftffc = drpStella.FiberTraceFunctionFindingControl()
         ftffc.signalThreshold = 10.
+        
+        fiberTraceSet = drpStella.findAndTraceAperturesF(self.flat.getMaskedImage(), ftffc)
+        for iTrace in range(0, fiberTraceSet.size()):
+            fiberTrace = fiberTraceSet.getFiberTrace(iTrace)
+            spectrum = fiberTrace.extractSum()
+            profile = fiberTrace.getProfile()
+            print "profile of trace ",iTrace," is ",profile.getWidth()," pixels wide and ",profile.getHeight()," pixels high"
+            for row in range(0, fiberTrace.getHeight()):
+                print "trace[",row,",:] = ",fiberTrace.getTrace().getImage().getArray()[row,:]
+                print "profile[",row,",:] = ",len(profile.getArray()[row,:]),": ",profile.getArray()[row,:]
+                profile.getArray()[row,:] = fiberTrace.getTrace().getImage().getArray()[row,:]
+                profile.getArray()[row,:] /= spectrum.getSpectrum()[row]
+            profile.writeFits("profileFromSum_trace"+str(iTrace)+".fits")
+            fiberTrace.getProfile().writeFits("profileFromSumFromTrace_trace"+str(iTrace)+".fits")
+#            raise
+#            fiberTrace.setProfile()
+            
+        
         ftpfc = drpStella.FiberTraceProfileFittingControl()
         fiberTraceSet = drpStella.findAndTraceAperturesF(self.flat.getMaskedImage(), ftffc)
         for iTrace in range(0, fiberTraceSet.size()):

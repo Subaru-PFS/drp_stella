@@ -745,6 +745,24 @@ namespace pfsDRPStella = pfs::drp::stella;
   }
 
   template<typename ImageT, typename MaskT, typename VarianceT>
+  PTR(pfsDRPStella::Spectrum<ImageT, MaskT, VarianceT, VarianceT>) pfsDRPStella::FiberTrace<ImageT, MaskT, VarianceT>::extractSum()
+  {
+    PTR(pfsDRPStella::Spectrum<ImageT, MaskT, VarianceT, VarianceT>) spectrum(new pfsDRPStella::Spectrum<ImageT, MaskT, VarianceT, VarianceT>(_trace->getHeight(), _iTrace));
+    PTR(std::vector<ImageT>) spec(new std::vector<ImageT>(_trace->getHeight()));
+    PTR(std::vector<MaskT>) mask(new std::vector<MaskT>(_trace->getHeight()));
+    PTR(std::vector<VarianceT>) var(new std::vector<VarianceT>(_trace->getHeight()));
+    for (int i = 0; i < _trace->getHeight(); ++i){
+      (*spec)[i] = sum(_trace->getImage()->getArray()[i]);
+      (*var)[i] = sum(_trace->getVariance()->getArray()[i]);
+      (*mask)[i] = sum(_trace->getMask()->getArray()[i]);
+    }
+    spectrum->setSpectrum(spec);
+    spectrum->setVariance(var);
+    spectrum->setMask(mask);
+    return spectrum;
+  }
+  
+  template<typename ImageT, typename MaskT, typename VarianceT>
   PTR(pfsDRPStella::Spectrum<ImageT, MaskT, VarianceT, VarianceT>) pfsDRPStella::FiberTrace<ImageT, MaskT, VarianceT>::extractFromProfile()
   {
 //    try{

@@ -95,12 +95,18 @@ Interface to Stella
 
 %shared_ptr(pfs::drp::stella::Spectrum<float, unsigned short, float, float>);
 %shared_ptr(pfs::drp::stella::Spectrum<double, unsigned short, float, float>);
+%shared_ptr(pfs::drp::stella::Spectrum<float, unsigned int, float, float>);
+%shared_ptr(pfs::drp::stella::Spectrum<double, unsigned int, float, float>);
 
 %shared_ptr(std::vector<PTR(pfs::drp::stella::Spectrum<float, unsigned short, float, float>)>);
 %shared_ptr(std::vector<PTR(pfs::drp::stella::Spectrum<double, unsigned short, float, float>)>);
+%shared_ptr(std::vector<PTR(pfs::drp::stella::Spectrum<float, unsigned int, float, float>)>);
+%shared_ptr(std::vector<PTR(pfs::drp::stella::Spectrum<double, unsigned int, float, float>)>);
 
 %shared_ptr(pfs::drp::stella::SpectrumSet<float, unsigned short, float, float>);
 %shared_ptr(pfs::drp::stella::SpectrumSet<double, unsigned short, float, float>);
+%shared_ptr(pfs::drp::stella::SpectrumSet<float, unsigned int, float, float>);
+%shared_ptr(pfs::drp::stella::SpectrumSet<double, unsigned int, float, float>);
 
 %include "pfs/drp/stella/FiberTraces.h"
 %include "std_vector.i"
@@ -116,6 +122,8 @@ Interface to Stella
 %include "pfs/drp/stella/Spectra.h"
 %template(SpecVectorF) std::vector<PTR(pfs::drp::stella::Spectrum<float, unsigned short, float, float>)>;
 %template(SpecVectorD) std::vector<PTR(pfs::drp::stella::Spectrum<double, unsigned short, float, float>)>;
+%template(SpecVectorFI) std::vector<PTR(pfs::drp::stella::Spectrum<float, unsigned int, float, float>)>;
+%template(SpecVectorDI) std::vector<PTR(pfs::drp::stella::Spectrum<double, unsigned int, float, float>)>;
 
 %include "pfs/drp/stella/utils/Utils.h"
 %include "pfs/drp/stella/math/Math.h"
@@ -141,6 +149,8 @@ Interface to Stella
 
 %template(SpectrumF) pfs::drp::stella::Spectrum<float, unsigned short, float, float>;
 %template(SpectrumD) pfs::drp::stella::Spectrum<double, unsigned short, float, float>;
+%template(SpectrumFI) pfs::drp::stella::Spectrum<float, unsigned int, float, float>;
+%template(SpectrumDI) pfs::drp::stella::Spectrum<double, unsigned int, float, float>;
 
 %template(FiberTraceSetF) pfs::drp::stella::FiberTraceSet<float, unsigned short, float>;
 %template(FiberTraceSetD) pfs::drp::stella::FiberTraceSet<double, unsigned short, float>;
@@ -150,6 +160,8 @@ Interface to Stella
 
 %template(SpectrumSetF) pfs::drp::stella::SpectrumSet<float, unsigned short, float, float>;
 %template(SpectrumSetD) pfs::drp::stella::SpectrumSet<double, unsigned short, float, float>;
+%template(SpectrumSetF) pfs::drp::stella::SpectrumSet<float, unsigned int, float, float>;
+%template(SpectrumSetD) pfs::drp::stella::SpectrumSet<double, unsigned int, float, float>;
 
 %template(findAndTraceAperturesF) pfs::drp::stella::math::findAndTraceApertures<float, unsigned short, float>;
 %template(findAndTraceAperturesD) pfs::drp::stella::math::findAndTraceApertures<double, unsigned short, float>;
