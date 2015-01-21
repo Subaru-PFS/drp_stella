@@ -16,83 +16,51 @@ namespace pfsDRPStella = pfs::drp::stella;
   _ccdHeight(height),
   _xCenters(new std::vector<float>(height)),
   _iTrace(iTrace),
-  _isXCentersCalculated(false),
   _isTraceSet(false),
   _isProfileSet(false),
-  _isFiberTraceFunctionSet(false),
   _isFiberTraceProfileFittingControlSet(false),
-  _fiberTraceFunction(new FiberTraceFunction),
-  _fiberTraceProfileFittingControl(new FiberTraceProfileFittingControl)
-  {
-  }
-
-  /** @brief Construct a FiberTrace with a blank MaskedImage of specified size (default 0x0) and
-   * a Wcs (which may be default constructed)
-   */
-  template<typename ImageT, typename MaskT, typename VarianceT>
-  pfsDRPStella::FiberTrace<ImageT, MaskT, VarianceT>::FiberTrace(
-    afwGeom::Extent2I const & dimensions, ///< desired image width/height
-    unsigned int iTrace
-  ) :
-  _trace(new afwImage::MaskedImage<ImageT, MaskT, VarianceT>(dimensions)),
-  _profile(new afwImage::Image<float>(dimensions)),
-  _ccdWidth(dimensions.getX()),
-  _ccdHeight(dimensions.getY()),
-  _xCenters(new std::vector<float>(dimensions.getY())),
-  _iTrace(iTrace),
-  _isXCentersCalculated(false),
-  _isTraceSet(false),
-  _isProfileSet(false),
-  _isFiberTraceFunctionSet(false),
-  _isFiberTraceProfileFittingControlSet(false),
-  _fiberTraceFunction(new FiberTraceFunction),
+  _fiberTraceFunction(new pfsDRPStella::FiberTraceFunction),
   _fiberTraceProfileFittingControl(new FiberTraceProfileFittingControl)
   {
   }
 
   template<typename ImageT, typename MaskT, typename VarianceT>
-  pfsDRPStella::FiberTrace<ImageT, MaskT, VarianceT>::FiberTrace(PTR(MaskedImageT) const & maskedImage, ///< desired image width/height
-                                                                 PTR(pfsDRPStella::FiberTraceFunction) const& fiberTraceFunction,
+  pfsDRPStella::FiberTrace<ImageT, MaskT, VarianceT>::FiberTrace(PTR(const MaskedImageT) const & maskedImage, ///< desired image width/height
+                                                                 PTR(const pfsDRPStella::FiberTraceFunction) const& fiberTraceFunction,
+                                                                 PTR(const std::vector<float>) const& xCenters,
                                                                  unsigned int iTrace) :
   _trace(new afwImage::MaskedImage<ImageT, MaskT, VarianceT>(fiberTraceFunction->yHigh - fiberTraceFunction->yLow + 1, int(fiberTraceFunction->fiberTraceFunctionControl.xHigh - fiberTraceFunction->fiberTraceFunctionControl.xLow + 1))),
   _profile(new afwImage::Image<float>(fiberTraceFunction->yHigh - fiberTraceFunction->yLow + 1, int(fiberTraceFunction->fiberTraceFunctionControl.xHigh - fiberTraceFunction->fiberTraceFunctionControl.xLow + 1))),
   _ccdWidth(maskedImage->getWidth()),
   _ccdHeight(maskedImage->getHeight()),
-  _xCenters(new std::vector<float>(fiberTraceFunction->yHigh - fiberTraceFunction->yLow + 1)),
+  _xCenters(xCenters),//new std::vector<const float>(fiberTraceFunction->yHigh - fiberTraceFunction->yLow + 1)),
   _iTrace(iTrace),
-  _isXCentersCalculated(true),
   _isTraceSet(false),
   _isProfileSet(false),
-  _isFiberTraceFunctionSet(true),
   _isFiberTraceProfileFittingControlSet(false),
-  _fiberTraceFunction(new FiberTraceFunction(*fiberTraceFunction)),
+  _fiberTraceFunction(fiberTraceFunction),
   _fiberTraceProfileFittingControl(new FiberTraceProfileFittingControl)
   {
-    calculateXCenters();
     createTrace(maskedImage);
   }
   
   template<typename ImageT, typename MaskT, typename VarianceT>
-  pfsDRPStella::FiberTrace<ImageT, MaskT, VarianceT>::FiberTrace(
-    pfsDRPStella::FiberTrace<ImageT, MaskT, VarianceT> & fiberTrace
-  ) :
+  pfsDRPStella::FiberTrace<ImageT, MaskT, VarianceT>::FiberTrace(pfsDRPStella::FiberTrace<ImageT, MaskT, VarianceT> & fiberTrace) :
   _trace(fiberTrace.getTrace()),
   _profile(fiberTrace.getProfile()),
-  _ccdWidth(fiberTrace.getTrace()->getWidth()),
-  _ccdHeight(fiberTrace.getTrace()->getHeight()),
+  _ccdWidth(fiberTrace.getCCDWidth()),
+  _ccdHeight(fiberTrace.getCCDHeight()),
   _xCenters(fiberTrace.getXCenters()),
   _iTrace(fiberTrace.getITrace()),
-  _isXCentersCalculated(fiberTrace.isXCentersCalculated()),
   _isTraceSet(fiberTrace.isTraceSet()),
   _isProfileSet(fiberTrace.isProfileSet()),
-  _isFiberTraceFunctionSet(fiberTrace.isFiberTraceFunctionSet()),
   _isFiberTraceProfileFittingControlSet(fiberTrace.isFiberTraceProfileFittingControlSet()),
   _fiberTraceFunction(fiberTrace.getFiberTraceFunction()),
   _fiberTraceProfileFittingControl(fiberTrace.getFiberTraceProfileFittingControl())
   {
   }
   
-  /** **************************************************************/
+  /** **************************************************************
 
   template<typename ImageT, typename MaskT, typename VarianceT>
   bool pfsDRPStella::FiberTrace<ImageT, MaskT, VarianceT>::setFiberTraceFunction(const PTR(FiberTraceFunction) &fiberTraceFunction){
@@ -182,11 +150,10 @@ namespace pfsDRPStella = pfs::drp::stella;
 
     /// test passed -> copy fiberTraceFunctionControl to _fiberTraceFunctionControl
     _fiberTraceFunction = fiberTraceFunction;
-    _isFiberTraceFunctionSet = true;
 
     return true;
   }
-
+*/
   template<typename ImageT, typename MaskT, typename VarianceT>
   bool pfsDRPStella::FiberTrace<ImageT, MaskT, VarianceT>::setFiberTraceProfileFittingControl(const PTR(FiberTraceProfileFittingControl) &fiberTraceProfileFittingControl){
 
@@ -284,331 +251,9 @@ namespace pfsDRPStella = pfs::drp::stella;
     return true;
   }
 
-/*  template<typename ImageT, typename MaskT, typename VarianceT>
-  bool pfsDRPStella::FiberTrace<ImageT, MaskT, VarianceT>::setTwoDPSFControl(const PTR(TwoDPSFControl) &twoDPSFControl){
-
-    /// Check for valid values in twoDPSFControl
-    #ifdef __DEBUG_SET2DPSFCONTROL__
-      cout << "FiberTrace" << _iTrace << "::setTwoDPSFControl: twoDPSFControl->signalThreshold = <" << twoDPSFControl->signalThreshold << ">" << endl;
-      cout << "FiberTrace" << _iTrace << "::setTwoDPSFControl: twoDPSFControl->swathWidth = " << twoDPSFControl->swathWidth << ">" << endl;
-      cout << "FiberTrace" << _iTrace << "::setTwoDPSFControl: twoDPSFControl->xFWHM = <" << twoDPSFControl->xFWHM << ">" << endl;
-      cout << "FiberTrace" << _iTrace << "::setTwoDPSFControl: twoDPSFControl->yFWHM = <" << twoDPSFControl->yFWHM << ">" << endl;
-      cout << "FiberTrace" << _iTrace << "::setTwoDPSFControl: twoDPSFControl->nTermsGaussFit = <" << twoDPSFControl->nTermsGaussFit << ">" << endl;
-      cout << "FiberTrace" << _iTrace << "::setTwoDPSFControl: twoDPSFControl->saturationLevel = <" << twoDPSFControl->saturationLevel << ">" << endl;
-    #endif
-
-    if (twoDPSFControl->signalThreshold < 0.){
-      cout << "FiberTrace" << _iTrace << "::setTwoDPSFControl: ERROR: (twoDPSFControl->signalThreshold(=" << twoDPSFControl->signalThreshold << ") < 0. => Returning FALSE" << endl;
-      return false;
-    }
-
-    if (twoDPSFControl->swathWidth < 100){
-      cout << "FiberTrace" << _iTrace << "::setTwoDPSFControl: ERROR: (twoDPSFControl->swathWidth(=" << twoDPSFControl->swathWidth << ") < 100 => Returning FALSE" << endl;
-      return false;
-    }
-
-    if ((2.5 * twoDPSFControl->xFWHM) < twoDPSFControl->nTermsGaussFit){
-      cout << "FiberTrace" << _iTrace << "::setTwoDPSFControl: ERROR: (2.5*twoDPSFControl->xFWHM(=" << twoDPSFControl->xFWHM << ") < twoDPSFControl->nTermsGaussFit(=" << twoDPSFControl->nTermsGaussFit << ") => Returning FALSE" << endl;
-      return false;
-    }
-
-    if ((2.5 * twoDPSFControl->yFWHM) < twoDPSFControl->nTermsGaussFit){
-      cout << "FiberTrace" << _iTrace << "::setTwoDPSFControl: ERROR: (2.5*twoDPSFControl->yFWHM(=" << twoDPSFControl->yFWHM << ") < twoDPSFControl->nTermsGaussFit(=" << twoDPSFControl->nTermsGaussFit << ") => Returning FALSE" << endl;
-      return false;
-    }
-
-    if ((twoDPSFControl->nTermsGaussFit < 3) || (twoDPSFControl->nTermsGaussFit > 5)){
-      cout << "FiberTrace" << _iTrace << "::setTwoDPSFControl: ERROR: twoDPSFControl->nTermsGaussFit(=" << twoDPSFControl->nTermsGaussFit << " not valid => Returning FALSE" << endl;
-      return false;
-    }
-
-    if (twoDPSFControl->saturationLevel < 100){
-      cout << "FiberTrace" << _iTrace << "::setTwoDPSFControl: ERROR: twoDPSFControl->saturationLevel(=" << twoDPSFControl->saturationLevel << " < 100. => Returning FALSE" << endl;
-      return false;
-    }
-
-    /// test passed -> copy twoDPSFControl to _twoDPSFControl
-    _twoDPSFControl.reset();
-    _twoDPSFControl = twoDPSFControl;
-    _isTwoDPSFControlSet = true;
-
-    return true;
-  }
-*/
-  /** *******************************************************************************************************/
-
-  /// Calculate the x-centers of the fiber trace
-  template<typename ImageT, typename MaskT, typename VarianceT>
-  bool pfsDRPStella::FiberTrace<ImageT, MaskT, VarianceT>::calculateXCenters(){
-
-    int cIndex = 0;
-    double D_YMin = 0.;
-    double D_YMax = 0.;
-
-    blitz::Array<double, 1> D_A1_TempCen(_ccdHeight);
-    D_A1_TempCen = 0.;
-
-    blitz::Array<double, 1> fiberTraceFunctionCoefficients(_fiberTraceFunction->coefficients.data(), blitz::shape(_fiberTraceFunction->coefficients.size()), blitz::neverDeleteData);
-
-    #ifdef __DEBUG_TRACEFUNC__
-      cout << "FiberTrace.calculateXCenters: _fiberTraceFunction->fiberTraceFunctionControl.interpolation = " << _fiberTraceFunction->fiberTraceFunctionControl.interpolation << endl;
-      cout << "FiberTrace.calculateXCenters: _fiberTraceFunction->fiberTraceFunctionControl.order = " << _fiberTraceFunction->fiberTraceFunctionControl.order << endl;
-    #endif
-    if (_fiberTraceFunction->fiberTraceFunctionControl.interpolation.compare("LEGENDRE") == 0){
-      #ifdef __DEBUG_TRACEFUNC__
-        cout << "FiberTrace.calculateXCenters: Function = LEGENDRE" << endl;
-        cout << "FiberTrace.calculateXCenters: Coeffs = " << fiberTraceFunctionCoefficients << endl;
-      #endif
-      if (!::pfs::drp::stella::math::Legendre(D_A1_TempCen,
-                                        D_YMin,
-                                        D_YMax,
-                                        fiberTraceFunctionCoefficients,
-                                        static_cast<double>(_fiberTraceFunction->xCenter)+1.,
-                                        static_cast<double>(_fiberTraceFunction->yCenter)+1.,
-                                        1.,//double(int(_fiberTraceFunction->yCenter + _fiberTraceFunction->yLow)+1),
-                                        double(_ccdHeight),//double(int(_fiberTraceFunction->yCenter + _fiberTraceFunction->yHigh)+1),
-                                        static_cast<double>(_fiberTraceFunction->fiberTraceFunctionControl.xLow),
-                                        static_cast<double>(_fiberTraceFunction->fiberTraceFunctionControl.xHigh),
-                                        _fiberTraceFunction->fiberTraceFunctionControl.order,
-                                        int(_ccdWidth),
-                                        int(_ccdHeight))){
-        cout << "FiberTrace.calculateXCenters: yCenter = " << _fiberTraceFunction->yCenter << endl;
-        cout << "FiberTrace.calculateXCenters: yLow = " << _fiberTraceFunction->yLow << endl;
-        cout << "FiberTrace.calculateXCenters: yHigh = " << _fiberTraceFunction->yHigh << endl;
-        cout << "FiberTrace.calculateXCenters: ERROR: Legendre(...) returned FALSE!!!" << endl;
-        return false;
-      }
-      #ifdef __DEBUG_TRACEFUNC__
-        cout << "FiberTrace.calculateXCenters: Legendre: D_YMin set to " << D_YMin << endl;
-        cout << "FiberTrace.calculateXCenters: Legendre: D_YMax set to " << D_YMax << endl;
-      #endif
-
-      D_A1_TempCen -= 1.;
-      #ifdef __DEBUG_TRACEFUNC__
-        cout << "FiberTrace.calculateXCenters: Legendre: D_A1_TempCen set to " << D_A1_TempCen << endl;
-      #endif
-    }
-    else if (_fiberTraceFunction->fiberTraceFunctionControl.interpolation.compare("CHEBYSHEV") == 0)
-    {
-      #ifdef __DEBUG_TRACEFUNC__
-        cout << "FiberTrace.calculateXCenters: Function = Chebyshev" << endl;
-        cout << "FiberTrace.calculateXCenters: Coeffs = " << fiberTraceFunctionCoefficients << endl;
-      #endif
-      if (!::pfs::drp::stella::math::Chebyshev(D_A1_TempCen,
-                           D_YMin,
-                           D_YMax,
-                           fiberTraceFunctionCoefficients,
-                           static_cast<double>(_fiberTraceFunction->xCenter)+1.,
-                           static_cast<double>(_fiberTraceFunction->yCenter)+1.,
-                           1.,//double(static_cast<int>(_fiberTraceFunction->yCenter) + _fiberTraceFunction->yLow + 1),
-                           int(_ccdHeight),//double(static_cast<int>(_fiberTraceFunction->yCenter) + static_cast<int>(_fiberTraceFunction->yHigh)+1),
-                           static_cast<double>(_fiberTraceFunction->fiberTraceFunctionControl.xLow),
-                           static_cast<double>(_fiberTraceFunction->fiberTraceFunctionControl.xHigh),
-                           static_cast<int>(_fiberTraceFunction->fiberTraceFunctionControl.order),
-                           int(_ccdWidth),
-                           int(_ccdHeight))){
-        cout << "FiberTrace.calculateXCenters: ERROR: Chebyshev(...) returned FALSE!!!" << endl;
-        return false;
-      }
-      D_A1_TempCen -= 1.;
-    }
-    else if (_fiberTraceFunction->fiberTraceFunctionControl.interpolation.compare("LINEAR") == 0){
-      #ifdef __DEBUG_TRACEFUNC__
-        cout << "FiberTrace.calculateXCenters: Function = spline1" << endl;
-        cout << "FiberTrace.calculateXCenters: Coeffs = " << fiberTraceFunctionCoefficients << endl;
-      #endif
-      if (!::pfs::drp::stella::math::LinearSpline(D_A1_TempCen,
-                                            fiberTraceFunctionCoefficients,
-                                            static_cast<double>(_fiberTraceFunction->xCenter)+1.,
-                                            static_cast<double>(_fiberTraceFunction->yCenter)+1.,
-                                            1.,//double(static_cast<int>(_fiberTraceFunction->yCenter) + _fiberTraceFunction->yLow + 1),
-                                            int(_ccdHeight),//double(static_cast<int>(_fiberTraceFunction->yCenter) + static_cast<int>(_fiberTraceFunction->yHigh)+1),
-                                            static_cast<double>(_fiberTraceFunction->fiberTraceFunctionControl.xLow),
-                                            static_cast<double>(_fiberTraceFunction->fiberTraceFunctionControl.xHigh),
-                                            static_cast<int>(_fiberTraceFunction->fiberTraceFunctionControl.order),
-                                            int(_ccdWidth),
-                                            int(_ccdHeight))){
-        cout << "FiberTrace.calculateXCenters: ERROR: LinearSpline(...) returned FALSE!!!" << endl;
-        return false;
-      }
-      D_A1_TempCen -= 1.;
-    }
-    else if (_fiberTraceFunction->fiberTraceFunctionControl.interpolation.compare("CUBIC") == 0){
-      #ifdef __DEBUG_TRACEFUNC__
-        cout << "FiberTrace.calculateXCenters: Function = spline3" << endl;
-        cout << "FiberTrace.calculateXCenters: Coeffs = " << fiberTraceFunctionCoefficients << endl;
-      #endif
-      if (!::pfs::drp::stella::math::CubicSpline(D_A1_TempCen,
-                                           fiberTraceFunctionCoefficients,
-                                           static_cast<double>(_fiberTraceFunction->xCenter) + 1.,
-                                           static_cast<double>(_fiberTraceFunction->yCenter) + 1.,
-                                           1.,//double(static_cast<int>(_fiberTraceFunction->yCenter) + _fiberTraceFunction->yLow + 1),
-                                           int(_ccdHeight),//double(static_cast<int>(_fiberTraceFunction->yCenter) + static_cast<int>(_fiberTraceFunction->yHigh) + 1),
-                                           static_cast<double>(_fiberTraceFunction->fiberTraceFunctionControl.xLow),
-                                           static_cast<double>(_fiberTraceFunction->fiberTraceFunctionControl.xHigh),
-                                           static_cast<int>(_fiberTraceFunction->fiberTraceFunctionControl.order),
-                                           int(_ccdWidth),
-                                           int(_ccdHeight))){
-        cout << "FiberTrace.calculateXCenters: ERROR: CubicSpline(...) returned FALSE!!!" << endl;
-        return false;
-      }
-      D_A1_TempCen -= 1.;
-    }
-    else /// Polynomial
-    {
-      #ifdef __DEBUG_TRACEFUNC__
-        cout << "FiberTrace.calculateXCenters: Function = Polynomial" << endl;
-        cout << "FiberTrace.calculateXCenters: Coeffs = " << fiberTraceFunctionCoefficients << endl;
-      #endif
-      blitz::Array<double,1> D_A1_XRow(_ccdHeight);
-      for (int i=0; i < static_cast<int>(_ccdHeight); i++){
-        D_A1_XRow(i) = double(i);
-      }
-      #ifdef __DEBUG_TRACEFUNC__
-        cout << "FiberTrace.calculateXCenters: fiberTraceFunctionCoefficients = " << fiberTraceFunctionCoefficients << endl;
-      #endif
-      D_A1_TempCen = pfsDRPStella::math::Poly(D_A1_XRow, fiberTraceFunctionCoefficients);
-    }
-
-    /// Check limits
-    blitz::Array<double, 1> D_A1_XLow(_ccdHeight);
-    D_A1_XLow = D_A1_TempCen + _fiberTraceFunction->fiberTraceFunctionControl.xLow;
-    blitz::Array<double, 1> D_A1_XHigh(_ccdHeight);
-    D_A1_XHigh = D_A1_TempCen + _fiberTraceFunction->fiberTraceFunctionControl.xHigh;
-    blitz::Array<int, 1> I_A1_Where(_ccdHeight);
-    I_A1_Where = blitz::where(D_A1_XLow < -0.5, 0, 1);
-    int I_NInd;
-    blitz::Array<int, 1> *P_I_A1_WhereInd = ::pfs::drp::stella::math::GetIndex(I_A1_Where, I_NInd);
-    D_YMin = (*P_I_A1_WhereInd)(0);
-    delete(P_I_A1_WhereInd);
-    I_A1_Where = blitz::where(D_A1_XHigh < double(_ccdWidth)-0.5, 1, 0);
-    P_I_A1_WhereInd = ::pfs::drp::stella::math::GetIndex(I_A1_Where, I_NInd);
-    D_YMax = (*P_I_A1_WhereInd)(P_I_A1_WhereInd->size()-1);
-    delete(P_I_A1_WhereInd);
-
-    #ifdef __DEBUG_TRACEFUNC__
-      /// Coefficients for the trace functions
-      cout << "FiberTrace.calculateXCenters: fiberTraceFunctionCoefficients = " << fiberTraceFunctionCoefficients << endl;
-
-      /// Centres of the apertures in x (cols)
-      cout << "FiberTrace.calculateXCenters: _fiberTraceFunction->xCenter set to " << _fiberTraceFunction->xCenter << endl;
-
-      /// center position in y (row) for every aperture
-      cout << "FiberTrace.calculateXCenters: _fiberTraceFunction->yCenter set to " << _fiberTraceFunction->yCenter << endl;
-
-      /// lower aperture limit x (cols)
-      cout << "FiberTrace.calculateXCenters: _fiberTraceFunction->fiberTraceFunctionControl.xLow set to " << _fiberTraceFunction->fiberTraceFunctionControl.xLow << endl;
-
-      /// higher aperture limit x (cols)
-      cout << "FiberTrace.calculateXCenters: _fiberTraceFunction->fiberTraceFunctionControl.xHigh set to " << _fiberTraceFunction->fiberTraceFunctionControl.xHigh << endl;
-
-      /// lower aperture limit for every aperture y, rows
-      cout << "FiberTrace.calculateXCenters: _fiberTraceFunction->yLow set to " << _fiberTraceFunction->yLow << endl;
-
-      /// higher aperture limit for every aperture y, rows
-      cout << "FiberTrace.calculateXCenters: _fiberTraceFunction->yHigh set to " << _fiberTraceFunction->yHigh << endl;
-
-      /// order of aperture trace function
-      cout << "FiberTrace.calculateXCenters: _fiberTraceFunction->fiberTraceFunctionControl.order set to " << _fiberTraceFunction->fiberTraceFunctionControl.order << endl;
-
-      /// Name of function used to trace the apertures
-      ///  0: chebyshev
-      ///  1: legendre
-      ///  2: cubic
-      ///  3: linear
-      ///  4: polynomial
-      cout << "FiberTrace.calculateXCenters: _fiberTraceFunction->FiberTraceFunctionControl.interpolation set to " << _fiberTraceFunction->fiberTraceFunctionControl.interpolation << endl;
-
-      cout << "FiberTrace.calculateXCenters: D_YMin set to " << D_YMin << endl;
-      cout << "FiberTrace.calculateXCenters: D_YMax set to " << D_YMax << endl;
-
-      cout << "FiberTrace.calculateXCenters: D_A1_TempCen set to " << D_A1_TempCen << endl;
-      return false;
-    #endif
-
-    if (D_YMin - _fiberTraceFunction->yCenter > _fiberTraceFunction->yLow)
-      _fiberTraceFunction->yLow = D_YMin - _fiberTraceFunction->yCenter;
-    if (D_YMax - _fiberTraceFunction->yCenter < _fiberTraceFunction->yHigh)
-      _fiberTraceFunction->yHigh = D_YMax - _fiberTraceFunction->yCenter;
-
-    cout << "FiberTrace.calculateXCenters: yCenter = " << _fiberTraceFunction->yCenter << endl;
-    cout << "FiberTrace.calculateXCenters: yLow = " << _fiberTraceFunction->yLow << endl;
-    cout << "FiberTrace.calculateXCenters: yHigh = " << _fiberTraceFunction->yHigh << endl;
-    int xLowTooLowInLastRow = 2;
-    int xHighTooHighInLastRow = 2;
-    for (int i=_fiberTraceFunction->yCenter + _fiberTraceFunction->yLow; i <= int(_fiberTraceFunction->yCenter + _fiberTraceFunction->yHigh); i++){
-      if (D_A1_XLow(i) < -0.5){
-        cout << "FiberTrace.calculateXCenters: D_A1_XLow(" << i << ") = " << D_A1_XLow(i) << " < 0." << endl;
-        if (xLowTooLowInLastRow == 0){
-          _fiberTraceFunction->yHigh = i - _fiberTraceFunction->yCenter - 1;
-          cout << "FiberTrace.calculateXCenters: xLowTooLowInLastRow == 0: _fiberTraceFunction->yHigh set to " << _fiberTraceFunction->yHigh << endl;
-        }
-        xLowTooLowInLastRow = 1;
-      }
-      else{
-        if (xLowTooLowInLastRow == 1){
-          _fiberTraceFunction->yLow = i - _fiberTraceFunction->yCenter + 1;
-          cout << "FiberTrace.calculateXCenters: xLowTooLowInLastRow == 1: _fiberTraceFunction->yLow set to " << _fiberTraceFunction->yLow << endl;
-        }
-        xLowTooLowInLastRow = 0;
-      }
-      if (D_A1_XHigh(i) > double(_ccdWidth)-0.5){
-        cout << "FiberTrace.calculateXCenters: D_A1_XHigh(" << i << ")=" << D_A1_XHigh(i) << " >= NCols-0.5" << endl;
-        if (xHighTooHighInLastRow == 0){
-          _fiberTraceFunction->yHigh = i - _fiberTraceFunction->yCenter - 1;
-          cout << "FiberTrace.calculateXCenters: xHighTooHighInLastRow == 0: _fiberTraceFunction->yHigh set to " << _fiberTraceFunction->yHigh << endl;
-        }
-        xHighTooHighInLastRow = 1;
-      }
-      else{
-        if (xHighTooHighInLastRow == 1){
-          _fiberTraceFunction->yLow = i - _fiberTraceFunction->yCenter + 1;
-          cout << "FiberTrace.calculateXCenters: xHighTooHighInLastRow == 1: _fiberTraceFunction->yLow set to " << _fiberTraceFunction->yLow << endl;
-        }
-        xHighTooHighInLastRow = 0;
-      }
-    }
-
-    if (D_A1_XLow(_fiberTraceFunction->yCenter + _fiberTraceFunction->yLow) < -0.5){
-      cout << "FiberTrace.calculateXCenters: ERROR: D_A1_XLow(_fiberTraceFunction->yCenter + _fiberTraceFunction->yLow=" << _fiberTraceFunction->yCenter + _fiberTraceFunction->yLow << ")=" << D_A1_XLow(_fiberTraceFunction->yCenter + _fiberTraceFunction->yLow) << " < -0.5" << endl;
-      return false;
-    }
-    if (D_A1_XLow(_fiberTraceFunction->yCenter + _fiberTraceFunction->yHigh) < -0.5){
-      cout << "FiberTrace.calculateXCenters: ERROR: D_A1_XLow(_fiberTraceFunction->yCenter + _fiberTraceFunction->yHigh=" << _fiberTraceFunction->yCenter + _fiberTraceFunction->yHigh << ")=" << D_A1_XLow(_fiberTraceFunction->yCenter + _fiberTraceFunction->yHigh) << " < -0.5" << endl;
-      return false;
-    }
-    if (D_A1_XHigh(_fiberTraceFunction->yCenter + _fiberTraceFunction->yLow) > double(_ccdWidth)-0.5){
-      cout << "FiberTrace.calculateXCenters: ERROR: D_A1_XHigh(_fiberTraceFunction->yCenter + _fiberTraceFunction->yLow=" << _fiberTraceFunction->yCenter + _fiberTraceFunction->yLow << ")=" << D_A1_XHigh(_fiberTraceFunction->yCenter + _fiberTraceFunction->yLow) << " > _ccdWidth-0.5 =" << double(_ccdWidth)-0.5 << endl;
-      return false;
-    }
-    if (D_A1_XHigh(_fiberTraceFunction->yCenter + _fiberTraceFunction->yHigh) > double(_ccdWidth)-0.5){
-      cout << "FiberTrace.calculateXCenters: ERROR: D_A1_XHigh(_fiberTraceFunction->yCenter + _fiberTraceFunction->yHigh=" << _fiberTraceFunction->yCenter + _fiberTraceFunction->yHigh << ")=" << D_A1_XHigh(_fiberTraceFunction->yCenter + _fiberTraceFunction->yHigh) << " > _ccdWidth-0.5=" << double(_ccdWidth)-0.5 << endl;
-      return false;
-    }
-    #ifdef __DEBUG_TRACEFUNC__
-      cout << "FiberTrace.calculateXCenters: yLow set to " << _fiberTraceFunction->yLow << endl;
-      cout << "FiberTrace.calculateXCenters: yHigh set to " << _fiberTraceFunction->yHigh << endl;
-    #endif
-
-    /// populate _xCenters
-    _xCenters->resize(_fiberTraceFunction->yHigh - _fiberTraceFunction->yLow + 1);
-    for (int i = static_cast<int>(_fiberTraceFunction->yCenter + _fiberTraceFunction->yLow); i <= static_cast<int>(_fiberTraceFunction->yCenter + _fiberTraceFunction->yHigh); i++) {
-      (*_xCenters)[cIndex] = static_cast<float>(D_A1_TempCen(i));
-      cIndex++;
-    }
-
-    D_A1_TempCen.resize(0);
-    _isXCentersCalculated = true;
-    return true;
-  }
-
   /// Set the x-centers of the fiber trace
-  template<typename ImageT, typename MaskT, typename VarianceT>
+/*  template<typename ImageT, typename MaskT, typename VarianceT>
   bool pfsDRPStella::FiberTrace<ImageT, MaskT, VarianceT>::setXCenters(const PTR(std::vector<float>) &xCenters){
-    if (!_isFiberTraceFunctionSet){
-      cout << "FiberTrace" << _iTrace << "::setXCenters: ERROR: _fiberTraceFunction has not been set" << endl;
-      return false;
-    }
 
     /// Check input vector size
     if (xCenters->size() != (_fiberTraceFunction->yHigh - _fiberTraceFunction->yLow + 1)){
@@ -631,9 +276,8 @@ namespace pfsDRPStella = pfs::drp::stella;
     std::vector<float>::const_iterator iter_xCenters_In_end = xCenters->end();
     std::copy(iter_xCenters_In_begin, iter_xCenters_In_end, iter_xCenters_begin);
 
-    _isXCentersCalculated = true;
     return true;
-  }
+  }*/
 
   /// Set the image pointer of this fiber trace to image
   template<typename ImageT, typename MaskT, typename VarianceT>
@@ -695,10 +339,6 @@ namespace pfsDRPStella = pfs::drp::stella;
   /// Set the _trace of this fiber trace to trace
   template<typename ImageT, typename MaskT, typename VarianceT>
   bool pfsDRPStella::FiberTrace<ImageT, MaskT, VarianceT>::setTrace(PTR(MaskedImageT) & trace){
-    if (!_isFiberTraceFunctionSet){
-      cout << "FiberTrace" << _iTrace << "::setTrace: ERROR: _fiberTraceFunction not set => Returning FALSE" << endl;
-      return false;
-    }
     if (_isTraceSet && (trace->getHeight() != int(_trace->getHeight()))){
       cout << "FiberTrace" << _iTrace << "::setTrace: ERROR: trace->getHeight(=" << trace->getHeight() << ") != _trace->getHeight(=" << _trace->getHeight() << ") => Returning FALSE" << endl;
       return false;
@@ -718,10 +358,6 @@ namespace pfsDRPStella = pfs::drp::stella;
   /// Set the profile image of this fiber trace to profile
   template<typename ImageT, typename MaskT, typename VarianceT>
   bool pfsDRPStella::FiberTrace<ImageT, MaskT, VarianceT>::setProfile(const PTR(afwImage::Image<float>) &profile){
-    if (!_isFiberTraceFunctionSet){
-      cout << "FiberTrace" << _iTrace << "::setProfile: ERROR: _fiberTraceFunction not set => Returning FALSE" << endl;
-      return false;
-    }
     if (!_isTraceSet){
       cout << "FiberTrace" << _iTrace << "::setProfile: ERROR: _trace not set => Returning FALSE" << endl;
       return false;
@@ -938,7 +574,7 @@ namespace pfsDRPStella = pfs::drp::stella;
    * createTrace
    * ************************************************************************/
   template<typename ImageT, typename MaskT, typename VarianceT>
-  bool pfsDRPStella::FiberTrace<ImageT, MaskT, VarianceT>::createTrace(const PTR(MaskedImageT) &maskedImage){
+  bool pfsDRPStella::FiberTrace<ImageT, MaskT, VarianceT>::createTrace(const PTR(const MaskedImageT) &maskedImage){
 //    if (!_isImageSet){
 //      cout << "FiberTrace" << _iTrace << "::createTrace: ERROR: _maskedImage has not been set" << endl;
 //      return false;
@@ -958,17 +594,24 @@ namespace pfsDRPStella = pfs::drp::stella;
         }
       }
       else{
-        _ccdHeight = maskedImage->getHeight();
-        _ccdWidth = maskedImage->getWidth();
-      }
-      if (!_isXCentersCalculated){
-        cout << "FiberTrace" << _iTrace << "::createTrace: ERROR: _xCenters has not been set/calculated" << endl;
-        return false;
+        if (_ccdHeight != maskedImage->getHeight()){
+          string message("FiberTrace::createTrace: ERROR: _ccdHeight(=");
+          message += to_string(_ccdHeight) + string(" != maskedImage->getHeight()=") + to_string(maskedImage->getHeight());
+          cout << message << endl;
+          throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
+        }
+        if (_ccdWidth != maskedImage->getWidth()){
+          string message("FiberTrace::createTrace: ERROR: _ccdWidth(=");
+          message += to_string(_ccdWidth) + string(" != maskedImage->getWidth()=") + to_string(maskedImage->getWidth());
+          cout << message << endl;
+          throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
+        }
       }
 
       blitz::Array<int, 2> minCenMax(2,2);
       minCenMax = 0;
-      blitz::Array<float, 1> xCenters(_xCenters->data(), blitz::shape(_xCenters->size()), blitz::neverDeleteData);
+      PTR(std::vector<float>) pTemp = const_pointer_cast<std::vector<float>>(_xCenters);
+      blitz::Array<float, 1> xCenters(pTemp->data(), blitz::shape(_xCenters->size()), blitz::duplicateData);
   //    ::pfs::drp::stella::utils::WriteArrayToFile(xCenters, DEBUGDIR + std::string("trace0_xCenters->dat"), std::string("ascii"));
   //    return false;
       if (_xCenters->size() != xCenters.size()){
@@ -1148,7 +791,8 @@ namespace pfsDRPStella = pfs::drp::stella;
     }
     if (swathWidth_InOut == 0)
     { /// Estimate the Points of column crossing
-      blitz::Array<float, 1> xCenters(_xCenters->data(), blitz::shape(_xCenters->size()), blitz::neverDeleteData);
+      PTR(std::vector<float>) pXCenters = const_pointer_cast<vector<float>>(_xCenters);
+      blitz::Array<float, 1> xCenters(pXCenters->data(), blitz::shape(_xCenters->size()), blitz::neverDeleteData);
       blitz::Array<int, 1> tempIntArrA = ::pfs::drp::stella::math::Fix(xCenters);
       #ifdef __DEBUG_MKSLITFUNC__
         cout << "FiberTrace" << _iTrace << "::calculateSwathWidth_NBins_BinHeight_BinBoundY: !KeyWord_Set(SWATH_WIDTH): tempIntArrA = " << tempIntArrA << endl;
@@ -1220,13 +864,20 @@ namespace pfsDRPStella = pfs::drp::stella;
     #ifdef __DEBUG_MKSLITFUNC__
       cout << "FiberTrace" << _iTrace << "::calculateSwathWidth_NBins_BinHeight_BinBoundY: binBoundY_Out(0, 1) set to " << binBoundY_Out(0, 1) << endl;
     #endif
-    while(binBoundY_Out(0,1) >= int(_ccdHeight)){
-      binBoundY_Out(0,1)--;
-      _fiberTraceFunction->yHigh--;
-      I_BinHeight_Temp--;
-      #ifdef __DEBUG_MKSLITFUNC__
-        cout << "FiberTrace" << _iTrace << "::calculateSwathWidth_NBins_BinHeight_BinBoundY: binBoundY_Out(0,1) >= _trace->getHeight(): binBoundY_Out(0, 1) set to " << binBoundY_Out(0, 1) << endl;
-      #endif
+//    while(binBoundY_Out(0,1) >= int(_ccdHeight)){
+    if(binBoundY_Out(0,1) >= int(_ccdHeight)){
+      string message("FiberTrace");
+      message += to_string(_iTrace) + string("::calculateSwathWidth_NBins_BinHeight_BinBoundY: ERROR: binBoundY_Out(0,1)=");
+      message += to_string(binBoundY_Out(0,1)) + string(" >= _ccdHeight=") + to_string(_ccdHeight);
+      cout << message << endl;
+      throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
+
+//      binBoundY_Out(0,1)--;
+//      _fiberTraceFunction->yHigh--;
+//      I_BinHeight_Temp--;
+//      #ifdef __DEBUG_MKSLITFUNC__
+//        cout << "FiberTrace" << _iTrace << "::calculateSwathWidth_NBins_BinHeight_BinBoundY: binBoundY_Out(0,1) >= _trace->getHeight(): binBoundY_Out(0, 1) set to " << binBoundY_Out(0, 1) << endl;
+//      #endif
     }
     for (int i_bin = 1; i_bin < nBins_Out; i_bin++){
       I_BinHeight_Temp = binHeight_Out;
@@ -1248,13 +899,20 @@ namespace pfsDRPStella = pfs::drp::stella;
       #ifdef __DEBUG_MKSLITFUNC__
         cout << "FiberTrace" << _iTrace << "::calculateSwathWidth_NBins_BinHeight_BinBoundY: binBoundY_Out(" << i_bin << ",1) set to " << binBoundY_Out(i_bin, 1) << endl;
       #endif
-      while(binBoundY_Out(i_bin,1) >= _trace->getHeight()){
-        binBoundY_Out(i_bin,1)--;
-        _fiberTraceFunction->yHigh--;
-        I_BinHeight_Temp--;
-        #ifdef __DEBUG_MKSLITFUNC__
-          cout << "FiberTrace" << _iTrace << "::calculateSwathWidth_NBins_BinHeight_BinBoundY: binBoundY_Out(i_bin=" << i_bin << ",1) >= _trace->getHeight(): binBoundY_Out(" << i_bin << ",1) set to " << binBoundY_Out(i_bin, 1) << endl;
-        #endif
+//      while(binBoundY_Out(i_bin,1) >= _trace->getHeight()){
+      if(binBoundY_Out(i_bin,1) >= _trace->getHeight()){
+        string message("FiberTrace");
+        message += to_string(_iTrace) + string("::calculateSwathWidth_NBins_BinHeight_BinBoundY: ERROR: binBoundY_Out(i_bin=");
+        message += to_string(i_bin) + string(",1)=");
+        message += to_string(binBoundY_Out(i_bin,1)) + string(" >= _ccdHeight=") + to_string(_ccdHeight);
+        cout << message << endl;
+        throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
+//        binBoundY_Out(i_bin,1)--;
+//        _fiberTraceFunction->yHigh--;
+//        I_BinHeight_Temp--;
+//        #ifdef __DEBUG_MKSLITFUNC__
+//          cout << "FiberTrace" << _iTrace << "::calculateSwathWidth_NBins_BinHeight_BinBoundY: binBoundY_Out(i_bin=" << i_bin << ",1) >= _trace->getHeight(): binBoundY_Out(" << i_bin << ",1) set to " << binBoundY_Out(i_bin, 1) << endl;
+//        #endif
       }
     }
     binBoundY_Out(nBins_Out-1, 1) = _trace->getHeight()-1;
@@ -1374,13 +1032,6 @@ namespace pfsDRPStella = pfs::drp::stella;
       std::string message("FiberTrace");
       message += std::to_string(_iTrace);
       message += std::string("::MkSlitFunc: ERROR: _trace is not set");
-      cout << message << endl;
-      throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
-    }
-    if (!_isXCentersCalculated){
-      std::string message("FiberTrace");
-      message += std::to_string(_iTrace);
-      message += std::string("::MkSlitFunc: ERROR: _fiberTraceProfileFittingControl is not set");
       cout << message << endl;
       throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
     }
@@ -1739,7 +1390,8 @@ namespace pfsDRPStella = pfs::drp::stella;
     int I_BinHeight;
 
     /// Add 0.5 pixels to get real subpixels TODO: REALLY???????
-    blitz::Array<float, 1> xCenters(_xCenters->data(), blitz::shape(_xCenters->size()), blitz::neverDeleteData);
+    PTR(vector<float>) pXCenters = const_pointer_cast<vector<float>>(_xCenters);
+    const blitz::Array<float, 1> xCenters(pXCenters->data(), blitz::shape(_xCenters->size()), blitz::neverDeleteData);
     blitz::Array<double, 1> D_A1_XCenters(xCenters.size());
     D_A1_XCenters = ::pfs::drp::stella::math::Double(xCenters);// + 0.5;
 
@@ -7423,6 +7075,7 @@ namespace pfsDRPStella = pfs::drp::stella;
     std::vector<PTR(FiberTrace<ImageT, MaskT, VarianceT>)> sortedTraces(_traces->size());
     for (int i = 0; i < static_cast<int>(_traces->size()); ++i){
       sortedTraces[i] = (*_traces)[sortedIndices[i]];
+      sortedTraces[i]->setITrace(i);
     }
     _traces.reset(new std::vector<PTR(FiberTrace<ImageT, MaskT, VarianceT>)>(sortedTraces));
     return;
@@ -7513,8 +7166,8 @@ namespace pfsDRPStella = pfs::drp::stella;
 
   namespace pfs { namespace drp { namespace stella { namespace math {
     template<typename ImageT, typename MaskT, typename VarianceT>
-    PTR(pfsDRPStella::FiberTraceSet<ImageT, MaskT, VarianceT>) findAndTraceApertures(const PTR(afwImage::MaskedImage<ImageT, MaskT, VarianceT>) &maskedImage,
-                              const PTR(pfsDRPStella::FiberTraceFunctionFindingControl) &fiberTraceFunctionFindingControl){
+    PTR(pfsDRPStella::FiberTraceSet<ImageT, MaskT, VarianceT>) findAndTraceApertures(const PTR(const afwImage::MaskedImage<ImageT, MaskT, VarianceT>) &maskedImage,
+                                                                                     const PTR(const pfsDRPStella::FiberTraceFunctionFindingControl) &fiberTraceFunctionFindingControl){
       #ifdef __DEBUG_FINDANDTRACE__
         cout << "::pfs::drp::stella::math::findAndTraceApertures started" << endl;
       #endif
@@ -8080,12 +7733,11 @@ namespace pfsDRPStella = pfs::drp::stella;
                 cout << "::pfs::drp::stella::math::findAndTraceApertures: fiberTraceFunction.yHigh = " << fiberTraceFunction.yHigh << endl;
     //            cout << "::pfs::drp::stella::math::findAndTraceApertures: fiberTraceFunction.coefficients = " << fiberTraceFunction.coefficients << endl;
               #endif
-              PTR(FiberTraceFunction) fiberTraceFunctionPTR(new FiberTraceFunction(fiberTraceFunction));
-              PTR(pfsDRPStella::FiberTrace<ImageT, MaskT, VarianceT>) fiberTrace(new pfsDRPStella::FiberTrace< ImageT, MaskT, VarianceT >(maskedImage, fiberTraceFunctionPTR, I_ApertureNumber));
+              PTR(const pfsDRPStella::FiberTraceFunction) fiberTraceFunctionPTR(new pfsDRPStella::FiberTraceFunction(fiberTraceFunction));
 
               I_ApertureNumber++;
 
-              if (fiberTraceFunction.yLow != fiberTrace->getFiberTraceFunction()->yLow){
+/*              if (fiberTraceFunction.yLow != fiberTrace->getFiberTraceFunction()->yLow){
                 string message("FindAndTraceApertures: ERROR: fiberTraceFunction.yLow(=");
                 message += to_string(fiberTraceFunction.yLow) + string("<< ) != fiberTrace->getFiberTraceFunction()->yLow(=");
                 message += to_string(fiberTrace->getFiberTraceFunction()->yLow) + string(")");
@@ -8106,33 +7758,19 @@ namespace pfsDRPStella = pfs::drp::stella;
                 cout << message << endl;
                 throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
               }
-
+*/
               blitz::Array<double, 1> D_A1_XCenters_Y = ::pfs::drp::stella::math::DIndGenArr(ccdImage.rows());
               blitz::Array<double, 1> D_A1_XCenters = ::pfs::drp::stella::math::Poly(D_A1_XCenters_Y, *P_D_A1_PolyFitCoeffs);
-              blitz::Array<double, 1> D_A1_XCenters_Ap(fiberTraceFunction.yHigh - fiberTraceFunction.yLow + 1);
-              D_A1_XCenters_Ap = D_A1_XCenters(blitz::Range(fiberTraceFunction.yCenter + fiberTraceFunction.yLow, fiberTraceFunction.yCenter + fiberTraceFunction.yHigh));
-              #ifdef __DEBUG_FINDANDTRACE__
-                cout << "::pfs::drp::stella::math::findAndTraceApertures: i_Row = " << i_Row << ": I_ApertureNumber = " << I_ApertureNumber << ": D_A1_XCenters = " << D_A1_XCenters << endl;
-              #endif
-              std::vector<float> xCenters(D_A1_XCenters_Ap.size());
-              for (int iter = 0; iter < static_cast<int>(D_A1_XCenters_Ap.size()); iter++)
-                xCenters[iter] = static_cast<float>(D_A1_XCenters_Ap(iter));
-
-              #ifdef __DEBUG_FINDANDTRACE__
-                for (int iter=0; iter < static_cast<int>(xCenters.size()); ++iter){
-                  cout << "FindAndTraceApertures: xCenters[" << iter << "] = " << xCenters[iter] << endl;
-                }
-              #endif
-              PTR(std::vector<float>) xCentersPTR(new std::vector<float>(xCenters));
-              if (!fiberTrace->setXCenters(xCentersPTR)){
-                cout << "FindAndTraceApertures: ERROR: setXCenters returned FALSE" << endl;
-                exit(EXIT_FAILURE);
+              blitz::Array<float, 1> F_A1_XCenters(fiberTraceFunction.yHigh - fiberTraceFunction.yLow + 1);
+              int fiter = 0;
+              for (int iter = (fiberTraceFunction.yCenter + fiberTraceFunction.yLow); iter <= (fiberTraceFunction.yCenter + fiberTraceFunction.yHigh); ++iter){
+                F_A1_XCenters(fiter) = static_cast<float>(D_A1_XCenters(iter));
+                fiter++;
               }
-//              #ifdef __DEBUG_FINDANDTRACE__
-//                for (int iter=0; iter < static_cast<int>(xCenters.size()); ++iter){
-//                  cout << "FindAndTraceApertures: xCenters[" << iter << "] = " << xCenters[iter] << " =? fiberTrace->getXCenters()[" << iter << "] = fiberTrace->getXCenters()[iter] = " << fiberTrace->getXCenters()[iter] << endl;
-//                }
-//              #endif
+              #ifdef __DEBUG_FINDANDTRACE__
+                cout << "::pfs::drp::stella::math::findAndTraceApertures: i_Row = " << i_Row << ": I_ApertureNumber = " << I_ApertureNumber << ": F_A1_XCenters = " << F_A1_XCenters << endl;
+              #endif
+              const std::vector<float> xCenters(F_A1_XCenters.begin(), F_A1_XCenters.end());
               if (xCenters.size() != (fiberTraceFunction.yHigh - fiberTraceFunction.yLow + 1)){
                 string message("FindAndTraceApertures: iTrace = ");
                 message += to_string(fiberTraceSet->getTraces()->size()) + string(": 1. ERROR: xCenters.size(=");
@@ -8142,11 +7780,32 @@ namespace pfsDRPStella = pfs::drp::stella;
                 cout << message << endl;
                 throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
               }
-              fiberTrace->setITrace(fiberTraceSet->getTraces()->size());
-              if (!fiberTrace->createTrace(maskedImage)){
-                cout << "FindAndTraceApertures: ERROR: createTrace returned FALSE" << endl;
-                exit(EXIT_FAILURE);
+//              for (int iter = 0; iter < static_cast<int>(D_A1_XCenters_Ap.size()); iter++)
+//                xCenters[iter] = static_cast<float>(D_A1_XCenters_Ap(iter));
+
+              #ifdef __DEBUG_FINDANDTRACE__
+                for (int iter=0; iter < static_cast<int>(xCenters.size()); ++iter){
+                  cout << "FindAndTraceApertures: xCenters[" << iter << "] = " << xCenters[iter] << endl;
+                }
+              #endif
+              PTR(const std::vector<float>) xCentersPTR(new std::vector<float>(xCenters));
+              if (xCentersPTR->size() != xCenters.size()){
+                string message("FindAndTraceApertures: ERROR: xCentersPTR->size(=");
+                message += to_string(xCentersPTR->size()) + string(") != xCenters.size(=") + to_string(xCenters.size());
+                cout << message << endl;
+                throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
               }
+              PTR(pfsDRPStella::FiberTrace<ImageT, MaskT, VarianceT>) fiberTrace(new pfsDRPStella::FiberTrace< ImageT, MaskT, VarianceT >(maskedImage, fiberTraceFunctionPTR, xCentersPTR, I_ApertureNumber));
+//              #ifdef __DEBUG_FINDANDTRACE__
+//                for (int iter=0; iter < static_cast<int>(xCenters.size()); ++iter){
+//                  cout << "FindAndTraceApertures: xCenters[" << iter << "] = " << xCenters[iter] << " =? fiberTrace->getXCenters()[" << iter << "] = fiberTrace->getXCenters()[iter] = " << fiberTrace->getXCenters()[iter] << endl;
+//                }
+//              #endif
+              fiberTrace->setITrace(fiberTraceSet->getTraces()->size());
+//              if (!fiberTrace->createTrace(maskedImage)){
+//                cout << "FindAndTraceApertures: ERROR: createTrace returned FALSE" << endl;
+//                exit(EXIT_FAILURE);
+//              }
               if (fiberTrace->getXCenters()->size() != (fiberTraceFunction.yHigh - fiberTraceFunction.yLow + 1)){
                 string message("FindAndTraceApertures: iTrace = ");
                 message += to_string(fiberTraceSet->getTraces()->size()) + string(": 2. ERROR: fiberTrace->getXCenters()->size(=");
@@ -8185,6 +7844,7 @@ namespace pfsDRPStella = pfs::drp::stella;
           }
 
         #endif
+        fiberTraceSet->sortTracesByXCenter();
         delete(P_D_A1_PolyFitCoeffs);
         return fiberTraceSet;
 //      }
@@ -8192,6 +7852,309 @@ namespace pfsDRPStella = pfs::drp::stella;
 //        cout << "findAndTraceAperture: ERROR: <" << e.what() << ">" << endl;
 //        exit(EXIT_FAILURE);
 //      }
+    }
+
+    /** *******************************************************************************************************/
+
+    /// Calculate the x-centers of the fiber trace
+//    template<typename ImageT, typename MaskT, typename VarianceT>
+    PTR(const std::vector<float>) calculateXCenters(PTR(const pfsDRPStella::FiberTraceFunction) const& fiberTraceFunction,
+                                                    unsigned int const& ccdHeight,
+                                                    unsigned int const& ccdWidth){
+
+      int cIndex = 0;
+      double D_YMin = 0.;
+      double D_YMax = 0.;
+
+      blitz::Array<double, 1> D_A1_TempCen(ccdHeight);
+      D_A1_TempCen = 0.;
+
+      PTR(pfsDRPStella::FiberTraceFunction) pFTF = const_pointer_cast<pfsDRPStella::FiberTraceFunction>(fiberTraceFunction);
+      const blitz::Array<double, 1> fiberTraceFunctionCoefficients(pFTF->coefficients.data(), blitz::shape(fiberTraceFunction->coefficients.size()), blitz::neverDeleteData);
+
+      #ifdef __DEBUG_TRACEFUNC__
+        cout << "pfs::drp::stella::calculateXCenters: fiberTraceFunction->fiberTraceFunctionControl.interpolation = " << fiberTraceFunction->fiberTraceFunctionControl.interpolation << endl;
+        cout << "pfs::drp::stella::calculateXCenters: fiberTraceFunction->fiberTraceFunctionControl.order = " << fiberTraceFunction->fiberTraceFunctionControl.order << endl;
+      #endif
+      if (fiberTraceFunction->fiberTraceFunctionControl.interpolation.compare("LEGENDRE") == 0){
+        #ifdef __DEBUG_TRACEFUNC__
+          cout << "pfs::drp::stella::calculateXCenters: Function = LEGENDRE" << endl;
+          cout << "pfs::drp::stella::calculateXCenters: Coeffs = " << fiberTraceFunctionCoefficients << endl;
+        #endif
+        if (!::pfs::drp::stella::math::Legendre(D_A1_TempCen,
+                                          D_YMin,
+                                          D_YMax,
+                                          fiberTraceFunctionCoefficients,
+                                          static_cast<double>(fiberTraceFunction->xCenter)+1.,
+                                          static_cast<double>(fiberTraceFunction->yCenter)+1.,
+                                          1.,//double(int(fiberTraceFunction->yCenter + fiberTraceFunction->yLow)+1),
+                                          static_cast<double>(ccdHeight),//double(int(fiberTraceFunction->yCenter + fiberTraceFunction->yHigh)+1),
+                                          static_cast<double>(fiberTraceFunction->fiberTraceFunctionControl.xLow),
+                                          static_cast<double>(fiberTraceFunction->fiberTraceFunctionControl.xHigh),
+                                          fiberTraceFunction->fiberTraceFunctionControl.order,
+                                          static_cast<int>(ccdWidth),
+                                          static_cast<int>(ccdHeight))){
+          cout << "pfs::drp::stella::calculateXCenters: yCenter = " << fiberTraceFunction->yCenter << endl;
+          cout << "pfs::drp::stella::calculateXCenters: yLow = " << fiberTraceFunction->yLow << endl;
+          cout << "pfs::drp::stella::calculateXCenters: yHigh = " << fiberTraceFunction->yHigh << endl;
+          std::string message("pfs::drp::stella::calculateXCenters: ERROR: Legendre(...) returned FALSE!!!");
+          cout << message << endl;
+          throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
+        }
+        #ifdef __DEBUG_TRACEFUNC__
+          cout << "pfs::drp::stella::calculateXCenters: Legendre: D_YMin set to " << D_YMin << endl;
+          cout << "pfs::drp::stella::calculateXCenters: Legendre: D_YMax set to " << D_YMax << endl;
+        #endif
+
+        D_A1_TempCen -= 1.;
+        #ifdef __DEBUG_TRACEFUNC__
+          cout << "pfs::drp::stella::calculateXCenters: Legendre: D_A1_TempCen set to " << D_A1_TempCen << endl;
+        #endif
+      }
+      else if (fiberTraceFunction->fiberTraceFunctionControl.interpolation.compare("CHEBYSHEV") == 0)
+      {
+        #ifdef __DEBUG_TRACEFUNC__
+          cout << "pfs::drp::stella::calculateXCenters: Function = Chebyshev" << endl;
+          cout << "pfs::drp::stella::calculateXCenters: Coeffs = " << fiberTraceFunctionCoefficients << endl;
+        #endif
+        if (!::pfs::drp::stella::math::Chebyshev(D_A1_TempCen,
+                             D_YMin,
+                             D_YMax,
+                             fiberTraceFunctionCoefficients,
+                             static_cast<double>(fiberTraceFunction->xCenter)+1.,
+                             static_cast<double>(fiberTraceFunction->yCenter)+1.,
+                             1.,//double(static_cast<int>(fiberTraceFunction->yCenter) + fiberTraceFunction->yLow + 1),
+                             int(ccdHeight),//double(static_cast<int>(fiberTraceFunction->yCenter) + static_cast<int>(fiberTraceFunction->yHigh)+1),
+                             static_cast<double>(fiberTraceFunction->fiberTraceFunctionControl.xLow),
+                             static_cast<double>(fiberTraceFunction->fiberTraceFunctionControl.xHigh),
+                             static_cast<int>(fiberTraceFunction->fiberTraceFunctionControl.order),
+                             int(ccdWidth),
+                             int(ccdHeight))){
+          std::string message("pfs::drp::stella::calculateXCenters: ERROR: Chebyshev(...) returned FALSE!!!");
+          cout << message << endl;
+          throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
+        }
+        D_A1_TempCen -= 1.;
+      }
+      else if (fiberTraceFunction->fiberTraceFunctionControl.interpolation.compare("LINEAR") == 0){
+        #ifdef __DEBUG_TRACEFUNC__
+          cout << "pfs::drp::stella::calculateXCenters: Function = spline1" << endl;
+          cout << "pfs::drp::stella::calculateXCenters: Coeffs = " << fiberTraceFunctionCoefficients << endl;
+        #endif
+        if (!::pfs::drp::stella::math::LinearSpline(D_A1_TempCen,
+                                              fiberTraceFunctionCoefficients,
+                                              static_cast<double>(fiberTraceFunction->xCenter)+1.,
+                                              static_cast<double>(fiberTraceFunction->yCenter)+1.,
+                                              1.,//double(static_cast<int>(fiberTraceFunction->yCenter) + fiberTraceFunction->yLow + 1),
+                                              int(ccdHeight),//double(static_cast<int>(fiberTraceFunction->yCenter) + static_cast<int>(fiberTraceFunction->yHigh)+1),
+                                              static_cast<double>(fiberTraceFunction->fiberTraceFunctionControl.xLow),
+                                              static_cast<double>(fiberTraceFunction->fiberTraceFunctionControl.xHigh),
+                                              static_cast<int>(fiberTraceFunction->fiberTraceFunctionControl.order),
+                                              int(ccdWidth),
+                                              int(ccdHeight))){
+          std::string message("pfs::drp::stella::calculateXCenters: ERROR: LinearSpline(...) returned FALSE!!!");
+          cout << message << endl;
+          throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
+        }
+        D_A1_TempCen -= 1.;
+      }
+      else if (fiberTraceFunction->fiberTraceFunctionControl.interpolation.compare("CUBIC") == 0){
+        #ifdef __DEBUG_TRACEFUNC__
+          cout << "pfs::drp::stella::calculateXCenters: Function = spline3" << endl;
+          cout << "pfs::drp::stella::calculateXCenters: Coeffs = " << fiberTraceFunctionCoefficients << endl;
+        #endif
+        if (!::pfs::drp::stella::math::CubicSpline(D_A1_TempCen,
+                                             fiberTraceFunctionCoefficients,
+                                             static_cast<double>(fiberTraceFunction->xCenter) + 1.,
+                                             static_cast<double>(fiberTraceFunction->yCenter) + 1.,
+                                             1.,//double(static_cast<int>(fiberTraceFunction->yCenter) + fiberTraceFunction->yLow + 1),
+                                             int(ccdHeight),//double(static_cast<int>(fiberTraceFunction->yCenter) + static_cast<int>(fiberTraceFunction->yHigh) + 1),
+                                             static_cast<double>(fiberTraceFunction->fiberTraceFunctionControl.xLow),
+                                             static_cast<double>(fiberTraceFunction->fiberTraceFunctionControl.xHigh),
+                                             static_cast<int>(fiberTraceFunction->fiberTraceFunctionControl.order),
+                                             int(ccdWidth),
+                                             int(ccdHeight))){
+          std::string message("pfs::drp::stella::calculateXCenters: ERROR: CubicSpline(...) returned FALSE!!!");
+          cout << message << endl;
+          throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
+        }
+        D_A1_TempCen -= 1.;
+      }
+      else /// Polynomial
+      {
+        #ifdef __DEBUG_TRACEFUNC__
+          cout << "pfs::drp::stella::calculateXCenters: Function = Polynomial" << endl;
+          cout << "pfs::drp::stella::calculateXCenters: Coeffs = " << fiberTraceFunctionCoefficients << endl;
+        #endif
+        blitz::Array<double,1> D_A1_XRow(ccdHeight);
+        for (int i=0; i < static_cast<int>(ccdHeight); i++){
+          D_A1_XRow(i) = double(i);
+        }
+        #ifdef __DEBUG_TRACEFUNC__
+          cout << "pfs::drp::stella::calculateXCenters: fiberTraceFunctionCoefficients = " << fiberTraceFunctionCoefficients << endl;
+        #endif
+        D_A1_TempCen = pfsDRPStella::math::Poly(D_A1_XRow, fiberTraceFunctionCoefficients);
+      }
+
+      /// Check limits
+      blitz::Array<double, 1> D_A1_XLow(ccdHeight);
+      D_A1_XLow = D_A1_TempCen + fiberTraceFunction->fiberTraceFunctionControl.xLow;
+      blitz::Array<double, 1> D_A1_XHigh(ccdHeight);
+      D_A1_XHigh = D_A1_TempCen + fiberTraceFunction->fiberTraceFunctionControl.xHigh;
+      blitz::Array<int, 1> I_A1_Where(ccdHeight);
+      I_A1_Where = blitz::where(D_A1_XLow < -0.5, 0, 1);
+      int I_NInd;
+      blitz::Array<int, 1> *P_I_A1_WhereInd = ::pfs::drp::stella::math::GetIndex(I_A1_Where, I_NInd);
+      D_YMin = (*P_I_A1_WhereInd)(0);
+      delete(P_I_A1_WhereInd);
+      I_A1_Where = blitz::where(D_A1_XHigh < double(ccdWidth)-0.5, 1, 0);
+      P_I_A1_WhereInd = ::pfs::drp::stella::math::GetIndex(I_A1_Where, I_NInd);
+      D_YMax = (*P_I_A1_WhereInd)(P_I_A1_WhereInd->size()-1);
+      delete(P_I_A1_WhereInd);
+
+      #ifdef __DEBUG_TRACEFUNC__
+        /// Coefficients for the trace functions
+        cout << "pfs::drp::stella::calculateXCenters: fiberTraceFunctionCoefficients = " << fiberTraceFunctionCoefficients << endl;
+
+        /// Centres of the apertures in x (cols)
+        cout << "pfs::drp::stella::calculateXCenters: fiberTraceFunction->xCenter set to " << fiberTraceFunction->xCenter << endl;
+
+        /// center position in y (row) for every aperture
+        cout << "pfs::drp::stella::calculateXCenters: fiberTraceFunction->yCenter set to " << fiberTraceFunction->yCenter << endl;
+
+        /// lower aperture limit x (cols)
+        cout << "pfs::drp::stella::calculateXCenters: fiberTraceFunction->fiberTraceFunctionControl.xLow set to " << fiberTraceFunction->fiberTraceFunctionControl.xLow << endl;
+
+        /// higher aperture limit x (cols)
+        cout << "pfs::drp::stella::calculateXCenters: fiberTraceFunction->fiberTraceFunctionControl.xHigh set to " << fiberTraceFunction->fiberTraceFunctionControl.xHigh << endl;
+
+        /// lower aperture limit for every aperture y, rows
+        cout << "pfs::drp::stella::calculateXCenters: fiberTraceFunction->yLow set to " << fiberTraceFunction->yLow << endl;
+
+        /// higher aperture limit for every aperture y, rows
+        cout << "pfs::drp::stella::calculateXCenters: fiberTraceFunction->yHigh set to " << fiberTraceFunction->yHigh << endl;
+
+        /// order of aperture trace function
+        cout << "pfs::drp::stella::calculateXCenters: fiberTraceFunction->fiberTraceFunctionControl.order set to " << fiberTraceFunction->fiberTraceFunctionControl.order << endl;
+
+        /// Name of function used to trace the apertures
+        ///  0: chebyshev
+        ///  1: legendre
+        ///  2: cubic
+        ///  3: linear
+        ///  4: polynomial
+        cout << "pfs::drp::stella::calculateXCenters: fiberTraceFunction->FiberTraceFunctionControl.interpolation set to " << fiberTraceFunction->fiberTraceFunctionControl.interpolation << endl;
+
+        cout << "pfs::drp::stella::calculateXCenters: D_YMin set to " << D_YMin << endl;
+        cout << "pfs::drp::stella::calculateXCenters: D_YMax set to " << D_YMax << endl;
+
+        cout << "pfs::drp::stella::calculateXCenters: D_A1_TempCen set to " << D_A1_TempCen << endl;
+      #endif
+
+      if ((D_YMin - fiberTraceFunction->yCenter) > fiberTraceFunction->yLow){
+        string message("pfs::drp::stella::calculateXCenters: ERROR: (D_YMin - fiberTraceFunction->yCenter = ");
+        message += to_string(D_YMin - fiberTraceFunction->yCenter) + string(") > fiberTraceFunction->yLow(=") + to_string(fiberTraceFunction->yLow);
+        message += string(")");
+        cout << message << endl;
+        throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
+//        fiberTraceFunction->yLow = D_YMin - fiberTraceFunction->yCenter;
+      }
+      if ((D_YMax - fiberTraceFunction->yCenter) < fiberTraceFunction->yHigh){
+        string message("pfs::drp::stella::calculateXCenters: ERROR: (D_YMax - fiberTraceFunction->yCenter = ");
+        message += to_string(D_YMax - fiberTraceFunction->yCenter) + string(") < fiberTraceFunction->yHigh(=") + to_string(fiberTraceFunction->yHigh);
+        message += string(")");
+        cout << message << endl;
+        throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
+//        fiberTraceFunction->yHigh = D_YMax - fiberTraceFunction->yCenter;
+      }
+      cout << "pfs::drp::stella::calculateXCenters: yCenter = " << fiberTraceFunction->yCenter << endl;
+      cout << "pfs::drp::stella::calculateXCenters: yLow = " << fiberTraceFunction->yLow << endl;
+      cout << "pfs::drp::stella::calculateXCenters: yHigh = " << fiberTraceFunction->yHigh << endl;
+      //int xLowTooLowInLastRow = 2;
+      //int xHighTooHighInLastRow = 2;
+      for (int i = fiberTraceFunction->yCenter + fiberTraceFunction->yLow; i <= int(fiberTraceFunction->yCenter + fiberTraceFunction->yHigh); i++){
+        if (D_A1_XLow(i) < -0.5){
+          string message("pfs::drp::stella::calculateXCenters: D_A1_XLow(");
+          message += to_string(i) + string(") = ") +to_string(D_A1_XLow(i)) + string(" < -0.5");
+          cout << message << endl;
+          throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
+ //         if (xLowTooLowInLastRow == 0){
+//            fiberTraceFunction->yHigh = i - fiberTraceFunction->yCenter - 1;
+//            string message("pfs::drp::stella::calculateXCenters: xLowTooLowInLastRow == 0: fiberTraceFunction->yHigh set to " << fiberTraceFunction->yHigh << endl;
+//          }
+//          xLowTooLowInLastRow = 1;
+        }
+ //       else{
+ //         if (xLowTooLowInLastRow == 1){
+ //           fiberTraceFunction->yLow = i - fiberTraceFunction->yCenter + 1;
+ //           cout << "pfs::drp::stella::calculateXCenters: xLowTooLowInLastRow == 1: fiberTraceFunction->yLow set to " << fiberTraceFunction->yLow << endl;
+ //         }
+ //         xLowTooLowInLastRow = 0;
+ //       }
+        if (D_A1_XHigh(i) > double(ccdWidth)-0.5){
+          string message("pfs::drp::stella::calculateXCenters: D_A1_XHigh(");
+          message += to_string(i) + string(")=") + to_string(D_A1_XHigh(i)) + string(" >= ccdWidth-0.5=") + to_string(ccdWidth-0.5);
+          cout << message << endl;
+          throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
+//          if (xHighTooHighInLastRow == 0){
+//            fiberTraceFunction->yHigh = i - fiberTraceFunction->yCenter - 1;
+//            cout << "pfs::drp::stella::calculateXCenters: xHighTooHighInLastRow == 0: fiberTraceFunction->yHigh set to " << fiberTraceFunction->yHigh << endl;
+//          }
+//          xHighTooHighInLastRow = 1;
+        }
+//        else{
+//          if (xHighTooHighInLastRow == 1){
+//            fiberTraceFunction->yLow = i - fiberTraceFunction->yCenter + 1;
+//            cout << "pfs::drp::stella::calculateXCenters: xHighTooHighInLastRow == 1: fiberTraceFunction->yLow set to " << fiberTraceFunction->yLow << endl;
+//          }
+//          xHighTooHighInLastRow = 0;
+//        }
+      }
+
+      if (D_A1_XLow(fiberTraceFunction->yCenter + fiberTraceFunction->yLow) < -0.5){
+        std::string message("pfs::drp::stella::calculateXCenters: ERROR: D_A1_XLow(fiberTraceFunction->yCenter + fiberTraceFunction->yLow=");
+        message += to_string(fiberTraceFunction->yCenter + fiberTraceFunction->yLow) + string(")=");
+        message += to_string(D_A1_XLow(fiberTraceFunction->yCenter + fiberTraceFunction->yLow)) + string(" < -0.5");
+        cout << message << endl;
+        throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
+      }
+      if (D_A1_XLow(fiberTraceFunction->yCenter + fiberTraceFunction->yHigh) < -0.5){
+        string message("pfs::drp::stella::calculateXCenters: ERROR: D_A1_XLow(fiberTraceFunction->yCenter + fiberTraceFunction->yHigh=");
+        message += to_string(fiberTraceFunction->yCenter + fiberTraceFunction->yHigh) + string(")=");
+        message += to_string(D_A1_XLow(fiberTraceFunction->yCenter + fiberTraceFunction->yHigh)) + string(" < -0.5");
+        cout << message << endl;
+        throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
+      }
+      if (D_A1_XHigh(fiberTraceFunction->yCenter + fiberTraceFunction->yLow) > double(ccdWidth)-0.5){
+        string message("pfs::drp::stella::calculateXCenters: ERROR: D_A1_XHigh(fiberTraceFunction->yCenter + fiberTraceFunction->yLow=");
+        message += to_string(fiberTraceFunction->yCenter + fiberTraceFunction->yLow) + string(")=");
+        message += to_string(D_A1_XHigh(fiberTraceFunction->yCenter + fiberTraceFunction->yLow)) + string(" > ccdWidth-0.5 =");
+        message += to_string(double(ccdWidth)-0.5);
+        cout << message << endl;
+        throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
+      }
+      if (D_A1_XHigh(fiberTraceFunction->yCenter + fiberTraceFunction->yHigh) > double(ccdWidth)-0.5){
+        string message("pfs::drp::stella::calculateXCenters: ERROR: D_A1_XHigh(fiberTraceFunction->yCenter + fiberTraceFunction->yHigh=");
+        message += to_string(fiberTraceFunction->yCenter + fiberTraceFunction->yHigh) + string(")=");
+        message += to_string(D_A1_XHigh(fiberTraceFunction->yCenter + fiberTraceFunction->yHigh)) + string(" > ccdWidth-0.5=");
+        message += to_string(double(ccdWidth)-0.5);
+        cout << message << endl;
+        throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
+      }
+      #ifdef __DEBUG_TRACEFUNC__
+        cout << "pfs::drp::stella::calculateXCenters: yLow set to " << fiberTraceFunction->yLow << endl;
+        cout << "pfs::drp::stella::calculateXCenters: yHigh set to " << fiberTraceFunction->yHigh << endl;
+      #endif
+
+      /// populate _xCenters
+      std::vector<float> xCenters(fiberTraceFunction->yHigh - fiberTraceFunction->yLow + 1);
+      for (int i = static_cast<int>(fiberTraceFunction->yCenter + fiberTraceFunction->yLow); i <= static_cast<int>(fiberTraceFunction->yCenter + fiberTraceFunction->yHigh); i++) {
+        xCenters[cIndex] = static_cast<float>(D_A1_TempCen(i));
+        cIndex++;
+      }
+      PTR(const std::vector<float>) pXCenters(new const std::vector<float>(xCenters));
+      D_A1_TempCen.resize(0);
+      return pXCenters;
     }
     
   }}}}
@@ -8242,8 +8205,10 @@ namespace pfsDRPStella = pfs::drp::stella;
   template class pfsDRPStella::FiberTraceSet<float>;
   template class pfsDRPStella::FiberTraceSet<double>;
 
-  template PTR(pfsDRPStella::FiberTraceSet<float>) pfsDRPStella::math::findAndTraceApertures(const PTR(afwImage::MaskedImage<float>) &, const PTR(pfsDRPStella::FiberTraceFunctionFindingControl) &fiberTraceFunctionFindingControl);
-  template PTR(pfsDRPStella::FiberTraceSet<double>) pfsDRPStella::math::findAndTraceApertures(const PTR(afwImage::MaskedImage<double>) &, const PTR(pfsDRPStella::FiberTraceFunctionFindingControl) &fiberTraceFunctionFindingControl);
+  template PTR(pfsDRPStella::FiberTraceSet<float>) pfsDRPStella::math::findAndTraceApertures(PTR(const afwImage::MaskedImage<float>) const&, 
+                                                                                             PTR(const pfsDRPStella::FiberTraceFunctionFindingControl) const&);
+  template PTR(pfsDRPStella::FiberTraceSet<double>) pfsDRPStella::math::findAndTraceApertures(PTR(const afwImage::MaskedImage<double>) const&, 
+                                                                                              PTR(const pfsDRPStella::FiberTraceFunctionFindingControl) const&);
 
 
 //  template void math::resize(blitz::Array<unsigned int, 1> &arr_in, unsigned int newSize);

@@ -63,9 +63,12 @@ class FiberTrace {
     // Class Constructors and Destructor
     explicit FiberTrace(unsigned int width = 0, unsigned int height = 0, unsigned int iTrace = 0);
 
-    explicit FiberTrace(afwGeom::Extent2I const & dimensions, unsigned int iTrace = 0);
+ //   explicit FiberTrace(afwGeom::Extent2I const & dimensions, unsigned int iTrace = 0);
 
-    explicit FiberTrace(PTR(MaskedImageT) const &maskedImage, const PTR(FiberTraceFunction) &fiberTraceFunction, unsigned int iTrace=0);
+    explicit FiberTrace(PTR(const MaskedImageT) const& maskedImage, 
+                        PTR(const FiberTraceFunction) const& fiberTraceFunction, 
+                        PTR(const std::vector<float>) const& xCenters,
+                        unsigned int iTrace=0);
     
     explicit FiberTrace(FiberTrace &fiberTrace);
     
@@ -113,13 +116,13 @@ class FiberTrace {
 
     /// Create _trace from maskedImage and _fiberTraceFunction
     /// Pre: _xCenters set/calculated
-    bool createTrace(const PTR(MaskedImageT) & maskedImage);
+    bool createTrace(const PTR(const MaskedImageT) & maskedImage);
 
     /// Return _fiberTraceFunction
-    PTR(FiberTraceFunction) getFiberTraceFunction() const { return _fiberTraceFunction; }
+    const PTR(const FiberTraceFunction) getFiberTraceFunction() const { return _fiberTraceFunction; }
 
     /// Set the _fiberTraceFunction
-    bool setFiberTraceFunction(const PTR(FiberTraceFunction) &fiberTraceFunction);// { _fiberTraceFunction = fiberTraceFunction; }
+    //bool setFiberTraceFunction(const PTR(FiberTraceFunction) &fiberTraceFunction);// { _fiberTraceFunction = fiberTraceFunction; }
 
     /// Return _fiberTraceProfileFittingControl
     PTR(FiberTraceProfileFittingControl) getFiberTraceProfileFittingControl() const { return _fiberTraceProfileFittingControl; }
@@ -128,14 +131,14 @@ class FiberTrace {
     bool setFiberTraceProfileFittingControl(const PTR(FiberTraceProfileFittingControl) &fiberTraceProfileFittingControl);// { _fiberTraceProfileFittingControl = fiberTraceProfileFittingControl; }
 
     /// Calculate the x-centers of the fiber trace
-    bool calculateXCenters();//FiberTraceFunctionControl const& fiberTraceFunctionControl);
+    //bool calculateXCenters();//FiberTraceFunctionControl const& fiberTraceFunctionControl);
     
     /// Return the x-centers of the fiber trace
-    PTR(std::vector<float>) getXCenters() const { return _xCenters; }
+    PTR(const std::vector<float>) getXCenters() const { return _xCenters; }
 
     /// Set the x-center of the fiber trace
     /// Pre: _fiberTraceFunction must be set
-    bool setXCenters(const PTR(std::vector<float>) &xCenters);// { _xCenters = xCenters; }
+//    bool setXCenters(const PTR(std::vector<float>) &xCenters);// { _xCenters = xCenters; }
 
     /// Return shared pointer to an image containing the reconstructed 2D spectrum of the FiberTrace
     PTR(afwImage::Image<float>) getReconstructed2DSpectrum(const Spectrum<ImageT, MaskT, VarianceT, VarianceT> & spectrum) const;
@@ -272,10 +275,10 @@ class FiberTrace {
                    const blitz::Array<double, 1> &profileXValuesAllRows_In,/// i + 0.5 + (1. / (2. * overSample))
                    blitz::Array<double, 2> &profilePerRow_Out);/// output 2D profile image
 
-    bool calculateSwathWidth_NBins_BinHeight_BinBoundY(int &swathWidth,
-                                                       int &nBins,
-                                                       int &binHeight,
-                                                       blitz::Array<int, 2> &binBoundY) const;
+    bool calculateSwathWidth_NBins_BinHeight_BinBoundY(int &swathWidth_InOut,
+                                                       int &nBins_Out,
+                                                       int &binHeight_Out,
+                                                       blitz::Array<int, 2> &binBoundY_Out) const;
 
 //    PTR(std::vector<PTR(PSF<ImageT, MaskT, VarianceT>)>) getPSFVector() const {return _psfVector;}
     
@@ -285,10 +288,10 @@ class FiberTrace {
     
     void setITrace(unsigned int iTrace){_iTrace = iTrace;}
     unsigned int getITrace() const {return _iTrace;}
-    bool isXCentersCalculated() const {return _isXCentersCalculated;}
+//    bool isXCentersCalculated() const {return _isXCentersCalculated;}
     bool isTraceSet() const {return _isTraceSet;}
     bool isProfileSet() const {return _isProfileSet;}
-    bool isFiberTraceFunctionSet() const {return _isFiberTraceFunctionSet;}
+//    bool isFiberTraceFunctionSet() const {return _isFiberTraceFunctionSet;}
     bool isFiberTraceProfileFittingControlSet() const {return _isFiberTraceProfileFittingControlSet;}
     unsigned int getWidth() const {return _trace->getImage()->getWidth();}
     unsigned int getHeight() const {return _trace->getImage()->getHeight();}
@@ -300,16 +303,16 @@ class FiberTrace {
     PTR(MaskedImageT) _trace;
     PTR(afwImage::Image<float>) _profile;
     ///TODO: remove _ccdWidth and _ccdHeight and put as input parameters into calculateXCenters()
-    unsigned int _ccdWidth;
-    unsigned int _ccdHeight;
-    PTR(std::vector<float>) _xCenters;
+    const unsigned int _ccdWidth;
+    const unsigned int _ccdHeight;
+    PTR(const std::vector<float>) _xCenters;
     unsigned int _iTrace;
-    bool _isXCentersCalculated;
+//    bool _isXCentersCalculated;
     bool _isTraceSet;
     bool _isProfileSet;
-    bool _isFiberTraceFunctionSet;
+//    bool _isFiberTraceFunctionSet;
     bool _isFiberTraceProfileFittingControlSet;
-    PTR(FiberTraceFunction) _fiberTraceFunction;
+    const PTR(const FiberTraceFunction) _fiberTraceFunction;
     PTR(FiberTraceProfileFittingControl) _fiberTraceProfileFittingControl;
 
 
@@ -419,7 +422,10 @@ class FiberTraceSet {
 };
 
 namespace math{
-  /** Set I_NTermsGaussFit to
+  /** 
+   * * identifies and traces the fiberTraces in maskedImage, and extracts them into individual FiberTraces
+   * * FiberTraces in returned FiberTraceSet will be sorted by their xCenter positions
+   * Set I_NTermsGaussFit to
    *       1 to look for maximum only without GaussFit
    *       3 to fit Gaussian
    *       4 to fit Gaussian plus constant (sky)
@@ -429,9 +435,13 @@ namespace math{
    *  NOTE: the center of a pixel is [0.,0.], so the lower left corner of a pixels is [-0.5,-0.5]
    **/
   template<typename ImageT, typename MaskT=afwImage::MaskPixel, typename VarianceT=afwImage::VariancePixel>
-  PTR(FiberTraceSet<ImageT, MaskT, VarianceT>) findAndTraceApertures(const PTR(afwImage::MaskedImage<ImageT, MaskT, VarianceT>) &maskedImage,
-                                                                     const PTR(FiberTraceFunctionFindingControl) &fiberTraceFunctionFindingControl);
+  PTR(FiberTraceSet<ImageT, MaskT, VarianceT>) findAndTraceApertures(const PTR(const afwImage::MaskedImage<ImageT, MaskT, VarianceT>) &maskedImage,
+                                                                     const PTR(const FiberTraceFunctionFindingControl) &fiberTraceFunctionFindingControl);
   
+  PTR(const std::vector<float>) calculateXCenters(PTR(const ::pfs::drp::stella::FiberTraceFunction) const& fiberTraceFunction,
+                                                        unsigned int const& ccdHeight,
+                                                        unsigned int const& ccdWidth);
+
 }
 
 //  template<typename ImageT, typename MaskT, typename VarianceT>
