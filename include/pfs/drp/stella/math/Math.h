@@ -1,3 +1,5 @@
+///TODO: Replace all pointers with sharedPointers!
+
 #ifndef __PFS_DRP_STELLA_MATH_H__
 #define __PFS_DRP_STELLA_MATH_H__
 

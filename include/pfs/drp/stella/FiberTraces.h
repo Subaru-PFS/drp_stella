@@ -11,6 +11,8 @@
 #include "lsst/afw/image/MaskedImage.h"
 #include "lsst/pex/config.h"
 #include "lsst/pex/exceptions/Exception.h"
+#include "ndarray.h"
+#include "ndarray/eigen.h"
 #include "blitz.h"
 #include <fitsio.h>
 #include <fitsio2.h>
@@ -121,9 +123,6 @@ class FiberTrace {
     /// Return _fiberTraceFunction
     const PTR(const FiberTraceFunction) getFiberTraceFunction() const { return _fiberTraceFunction; }
 
-    /// Set the _fiberTraceFunction
-    //bool setFiberTraceFunction(const PTR(FiberTraceFunction) &fiberTraceFunction);// { _fiberTraceFunction = fiberTraceFunction; }
-
     /// Return _fiberTraceProfileFittingControl
     PTR(FiberTraceProfileFittingControl) getFiberTraceProfileFittingControl() const { return _fiberTraceProfileFittingControl; }
 
@@ -134,7 +133,7 @@ class FiberTrace {
     //bool calculateXCenters();//FiberTraceFunctionControl const& fiberTraceFunctionControl);
     
     /// Return the x-centers of the fiber trace
-    PTR(const std::vector<float>) getXCenters() const { return _xCenters; }
+    const PTR(const std::vector<float>) getXCenters() const { return _xCenters; }
 
     /// Set the x-center of the fiber trace
     /// Pre: _fiberTraceFunction must be set
@@ -275,42 +274,24 @@ class FiberTrace {
                    const blitz::Array<double, 1> &profileXValuesAllRows_In,/// i + 0.5 + (1. / (2. * overSample))
                    blitz::Array<double, 2> &profilePerRow_Out);/// output 2D profile image
 
-    bool calculateSwathWidth_NBins_BinHeight_BinBoundY(int &swathWidth_InOut,
-                                                       int &nBins_Out,
-                                                       int &binHeight_Out,
-                                                       blitz::Array<int, 2> &binBoundY_Out) const;
-
-//    PTR(std::vector<PTR(PSF<ImageT, MaskT, VarianceT>)>) getPSFVector() const {return _psfVector;}
-    
-//    PTR(PSF<ImageT, MaskT, VarianceT>) getPSF(int pos) const {return (*_psfVector)[pos];}
-    
-//    unsigned int getPSFVectorSize() const {return _psfVector->size();}
+    ndarray::Array<int, 2, 1> calculateBinBoundY(int swathWidth_In) const;
     
     void setITrace(unsigned int iTrace){_iTrace = iTrace;}
     unsigned int getITrace() const {return _iTrace;}
-//    bool isXCentersCalculated() const {return _isXCentersCalculated;}
     bool isTraceSet() const {return _isTraceSet;}
     bool isProfileSet() const {return _isProfileSet;}
-//    bool isFiberTraceFunctionSet() const {return _isFiberTraceFunctionSet;}
     bool isFiberTraceProfileFittingControlSet() const {return _isFiberTraceProfileFittingControlSet;}
     unsigned int getWidth() const {return _trace->getImage()->getWidth();}
     unsigned int getHeight() const {return _trace->getImage()->getHeight();}
-    unsigned int getCCDWidth() const {return _ccdWidth;}
-    unsigned int getCCDHeight() const {return _ccdHeight;}
     
   private:
     ///TODO: replace variables with smart pointers?????
     PTR(MaskedImageT) _trace;
     PTR(afwImage::Image<float>) _profile;
-    ///TODO: remove _ccdWidth and _ccdHeight and put as input parameters into calculateXCenters()
-    const unsigned int _ccdWidth;
-    const unsigned int _ccdHeight;
-    PTR(const std::vector<float>) _xCenters;
+    const PTR(const std::vector<float>) _xCenters;
     unsigned int _iTrace;
-//    bool _isXCentersCalculated;
     bool _isTraceSet;
     bool _isProfileSet;
-//    bool _isFiberTraceFunctionSet;
     bool _isFiberTraceProfileFittingControlSet;
     const PTR(const FiberTraceFunction) _fiberTraceFunction;
     PTR(FiberTraceProfileFittingControl) _fiberTraceProfileFittingControl;
@@ -439,8 +420,8 @@ namespace math{
                                                                      const PTR(const FiberTraceFunctionFindingControl) &fiberTraceFunctionFindingControl);
   
   PTR(const std::vector<float>) calculateXCenters(PTR(const ::pfs::drp::stella::FiberTraceFunction) const& fiberTraceFunction,
-                                                        unsigned int const& ccdHeight,
-                                                        unsigned int const& ccdWidth);
+                                                      unsigned int const& ccdHeight,
+                                                      unsigned int const& ccdWidth);
 
 }
 

@@ -334,3 +334,13 @@ Interface to Stella
 
 %template(getPointerMIF) pfs::drp::stella::utils::getPointer<lsst::afw::image::MaskedImage<float, unsigned short, float>>;
 %template(getPointerMID) pfs::drp::stella::utils::getPointer<lsst::afw::image::MaskedImage<double, unsigned short, float>>;
+
+%template(get1DBlitzArrayUS) pfs::drp::stella::utils::get1DBlitzArray<unsigned short>;
+%template(get1DBlitzArrayI) pfs::drp::stella::utils::get1DBlitzArray<int>;
+%template(get1DBlitzArrayF) pfs::drp::stella::utils::get1DBlitzArray<float>;
+%template(get1DBlitzArrayD) pfs::drp::stella::utils::get1DBlitzArray<double>;
+
+%template(get2DBlitzArrayUS) pfs::drp::stella::utils::get2DBlitzArray<unsigned short>;
+%template(get2DBlitzArrayI) pfs::drp::stella::utils::get2DBlitzArray<int>;
+%template(get2DBlitzArrayF) pfs::drp::stella::utils::get2DBlitzArray<float>;
+%template(get2DBlitzArrayD) pfs::drp::stella::utils::get2DBlitzArray<double>;

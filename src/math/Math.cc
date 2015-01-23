@@ -5062,8 +5062,8 @@
       blitz::Array<T, 1> D_A1_Temp(D_A2_Temp.data(), blitz::shape(D_A2_Arr_In.rows() * D_A2_Arr_In.cols()), blitz::neverDeleteData);
       return Moment(D_A1_Temp, I_MaxMoment_In);
     }
-
-//    template<typename T>
+    
+    //    template<typename T>
 //    void resize(blitz::Array<T, 1> &arr_InOut, unsigned int newSize){
 //      blitz::Array<T, 1> *newArr = new blitz::Array<T, 1>(newSize);
 //      *newArr = 0;

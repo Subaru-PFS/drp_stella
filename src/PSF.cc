@@ -683,40 +683,13 @@ PTR(pfsDRPStella::PSFSet<ImageT, MaskT, VarianceT, WavelengthT>) pfsDRPStella::m
                                                                                                           const pfsDRPStella::Spectrum<ImageT, MaskT, VarianceT, WavelengthT> & spectrum,
                                                                                                           const PTR(pfsDRPStella::TwoDPSFControl) & twoDPSFControl){
   int swathWidth = twoDPSFControl->swathWidth;
-  int nBins = 0;
-  int binHeight = 0;
-  blitz::Array<int, 2> binBoundY(2,2);
-  if (!fiberTrace.calculateSwathWidth_NBins_BinHeight_BinBoundY(swathWidth,
-                                                                nBins,
-                                                                binHeight,
-                                                                binBoundY)){
-    string message("calculate2dPSFPerBin: FiberTrace");
-    message += to_string(fiberTrace.getITrace()) + string(": ERROR: calculateSwathWidth_NBins_BinHeight_BinBoundY returned FALSE");
-    throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
-  }
+  ndarray::Array<int, 2, 1> ndArr = fiberTrace.calculateBinBoundY(swathWidth);
+  blitz::Array<int, 2> binBoundY = utils::ndarrayToBlitz(ndArr);
 
   blitz::Array<double, 2> D_A2_2dPSF(2,2);
 
-//    blitz::Array<double, 2> traceBin(2,2);
-//    blitz::Array<double, 2> stddevBin(2,2);
-//    blitz::Array<int, 2> maskBin(2,2);
-  if (binBoundY.rows() != nBins){
-    string message("calculate2dPSFPerBin: FiberTrace");
-    message += to_string(fiberTrace.getITrace()) + string(": ERROR: binBoundY.rows()=") + to_string(binBoundY.rows()) + string(" != nBins=");
-    message += to_string(nBins);
-    throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
-  }
   PTR(pfsDRPStella::PSFSet<ImageT, MaskT, VarianceT, WavelengthT>) psfSet(new pfsDRPStella::PSFSet<ImageT, MaskT, VarianceT, WavelengthT>());
-  for (int iBin=0; iBin<nBins; ++iBin){
-/*      traceBin.resize(binBoundY(iBin,1) - binBoundY(iBin,0) + 1, fiberTraceIn.getWidth());
-      traceBin = D_A2_PixArray(blitz::Range(binBoundY(iBin,0), binBoundY(iBin,1)), blitz::Range::all());
-
-      stddevBin.resize(binBoundY(iBin,1) - binBoundY(iBin,0) + 1, fiberTraceIn.getWidth());
-      stddevBin = D_A2_StdDevArray(blitz::Range(binBoundY(iBin,0), binBoundY(iBin,1)), blitz::Range::all());
-
-      maskBin.resize(binBoundY(iBin,1) - binBoundY(iBin,0) + 1, fiberTraceIn.getWidth());
-      maskBin = I_A2_MaskArray(blitz::Range(binBoundY(iBin,0), binBoundY(iBin,1)), blitz::Range::all());
-*/
+  for (int iBin = 0; iBin < binBoundY.rows(); ++iBin){
     /// start calculate2dPSF for bin iBin
     #ifdef __DEBUG_CALC2DPSF__
       cout << "calculate2dPSFPerBin: FiberTrace" << fiberTrace.getITrace() << ": calculating PSF for iBin " << iBin << endl;
@@ -739,12 +712,7 @@ PTR(pfsDRPStella::PSFSet<ImageT, MaskT, VarianceT, WavelengthT>) pfsDRPStella::m
       cout << "calculate2dPSFPerBin: FiberTrace" << fiberTrace.getITrace() << ": iBin " << iBin << ": extractPSFs() finished" << endl;
       std::vector<float> xTrace((*(psf->getImagePSF_XTrace())));
       cout << "calculate2dPSFPerBin: FiberTrace" << fiberTrace.getITrace() << ": iBin = " << iBin << ": xTrace.size() = " << xTrace.size() << endl;
-//        cout << "FiberTrace" << _iTrace << "::calculate2dPSFPerBin: iBin " << iBin << ": starting calculatePSF()" << endl;
     #endif
-//      if (!psf->calculatePSF()){
-//        cout << "FiberTrace" << _iTrace << "::calculate2dPSFPerBin: iBin " << iBin << ": ERROR: psf->calculatePSF() returned FALSE" << endl;
-//        return false;
-//      }
     psfSet->addPSF(psf);
   }
     

@@ -94,6 +94,12 @@ namespace pfs { namespace drp { namespace stella { namespace utils{
   
   template<typename T>
   PTR(T) getPointer(T &);
+    
+  template<typename T>
+  blitz::Array<T, 2> get2DBlitzArray(T nRows, T nCols);
+    
+  template<typename T>
+  blitz::Array<T, 1> get1DBlitzArray(T size);
 
 }}}}
 #endif
