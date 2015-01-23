@@ -55,48 +55,151 @@ class FiberTraceTestCase(tests.TestCase):
         
         """Test that we can set the parameters of the FiberTraceFunctionFindingControl"""
         interpolation = "POLYNOMIAL"
+        print "interpolation = ", type(interpolation),": <",interpolation,">"
+        print "ftffc.fiberTraceFunctionControl.interpolation = ", type(ftffc.fiberTraceFunctionControl.interpolation),": <",ftffc.fiberTraceFunctionControl.interpolation,">"
+        ftffc.fiberTraceFunctionControl.interpolation = interpolation
+        print "ftffc.fiberTraceFunctionControl.interpolation = ", type(ftffc.fiberTraceFunctionControl.interpolation),": <",ftffc.fiberTraceFunctionControl.interpolation,">"
+        self.assertEqual(ftffc.fiberTraceFunctionControl.interpolation, interpolation)
+        self.assertIsNot(interpolation, ftffc.fiberTraceFunctionControl.interpolation)
+        oldInterpolation = ftffc.fiberTraceFunctionControl.interpolation
+        interpolation = "POLYNOMAL"
+        self.assertNotEqual(interpolation, oldInterpolation)
         ftffc.fiberTraceFunctionControl.interpolation = interpolation
         self.assertEqual(ftffc.fiberTraceFunctionControl.interpolation, interpolation)
+        if interpolation is ftffc.fiberTraceFunctionControl.interpolation:
+            print "interpolation IS ftffc.fiberTraceFunctionControl.interpolation"
+        else:
+            print "interpolation IS NOT ftffc.fiberTraceFunctionControl.interpolation"
+        print " "
 
         order = 4
+        print "order = ", type(order),": <",order,">"
+        print "ftffc.fiberTraceFunctionControl.order = ", type(ftffc.fiberTraceFunctionControl.order),": <",ftffc.fiberTraceFunctionControl.order,">"
         ftffc.fiberTraceFunctionControl.order = order
+        print "ftffc.fiberTraceFunctionControl.order = ", type(ftffc.fiberTraceFunctionControl.order),": <",ftffc.fiberTraceFunctionControl.order,">"
         self.assertEqual(ftffc.fiberTraceFunctionControl.order, order)
+        self.assertIs(order, ftffc.fiberTraceFunctionControl.order)
+        if order is ftffc.fiberTraceFunctionControl.order:
+            print "order IS ftffc.fiberTraceFunctionControl.order"
+        else:
+            print "order IS NOT ftffc.fiberTraceFunctionControl.order"
+        print " "
         
         xLow = -5.
+        print "xLow = ", type(xLow),": <",xLow,">"
+        print "ftffc.fiberTraceFunctionControl.xLow = ", type(ftffc.fiberTraceFunctionControl.xLow),": <",ftffc.fiberTraceFunctionControl.xLow,">"
         ftffc.fiberTraceFunctionControl.xLow = xLow
+        print "ftffc.fiberTraceFunctionControl.xLow = ", type(ftffc.fiberTraceFunctionControl.xLow),": <",ftffc.fiberTraceFunctionControl.xLow,">"
         self.assertAlmostEqual(ftffc.fiberTraceFunctionControl.xLow, xLow)
+        self.assertIsNot(xLow, ftffc.fiberTraceFunctionControl.xLow)
+        if xLow is ftffc.fiberTraceFunctionControl.xLow:
+            print "xLow IS ftffc.fiberTraceFunctionControl.xLow"
+        else:
+            print "xLow IS NOT ftffc.fiberTraceFunctionControl.xLow"
+        print " "
 
         xHigh = 5.
+        print "xHigh = ", type(xHigh),": <",xHigh,">"
+        print "ftffc.fiberTraceFunctionControl.xHigh = ", type(ftffc.fiberTraceFunctionControl.xHigh),": <",ftffc.fiberTraceFunctionControl.xHigh,">"
         ftffc.fiberTraceFunctionControl.xHigh = xHigh
+        print "ftffc.fiberTraceFunctionControl.xHigh = ", type(ftffc.fiberTraceFunctionControl.xHigh),": <",ftffc.fiberTraceFunctionControl.xHigh,">"
         self.assertAlmostEqual(ftffc.fiberTraceFunctionControl.xHigh, xHigh)
+        self.assertIsNot(xHigh, ftffc.fiberTraceFunctionControl.xHigh)
+        if xHigh is ftffc.fiberTraceFunctionControl.xHigh:
+            print "xHigh IS ftffc.fiberTraceFunctionControl.xHigh"
+        else:
+            print "xHigh IS NOT ftffc.fiberTraceFunctionControl.xHigh"
+        print " "
         
         apertureFWHM = 2.6
+        print "apertureFWHM = ", type(apertureFWHM),": <",apertureFWHM,">"
+        print "ftffc.apertureFWHM = ", type(ftffc.apertureFWHM),": <",ftffc.apertureFWHM,">"
         ftffc.apertureFWHM = apertureFWHM
+        print "ftffc.apertureFWHM = ", type(ftffc.apertureFWHM),": <",ftffc.apertureFWHM,">"
         self.assertAlmostEqual(ftffc.apertureFWHM, apertureFWHM, places=6)
+        self.assertIsNot(apertureFWHM, ftffc.apertureFWHM)
+        if apertureFWHM is ftffc.apertureFWHM:
+            print "apertureFWHM IS ftffc.apertureFWHM"
+        else:
+            print "apertureFWHM IS NOT ftffc.apertureFWHM"
+        print " "
         
         signalThreshold = 10.
+        print "signalThreshold = ", type(signalThreshold),": <",signalThreshold,">"
+        print "ftffc.signalThreshold = ", type(ftffc.signalThreshold),": <",ftffc.signalThreshold,">"
         ftffc.signalThreshold = signalThreshold
+        print "ftffc.signalThreshold = ", type(ftffc.signalThreshold),": <",ftffc.signalThreshold,">"
         self.assertAlmostEqual(ftffc.signalThreshold, signalThreshold)
+        self.assertIsNot(signalThreshold, ftffc.signalThreshold)
+        if signalThreshold is ftffc.signalThreshold:
+            print "signalThreshold IS ftffc.signalThreshold"
+        else:
+            print "signalThreshold IS NOT ftffc.signalThreshold"
+        print " "
         
         nTermsGaussFit = 4
+        print "nTermsGaussFit = ", type(nTermsGaussFit),": <",nTermsGaussFit,">"
+        print "ftffc.nTermsGaussFit = ", type(ftffc.nTermsGaussFit),": <",ftffc.nTermsGaussFit,">"
         ftffc.nTermsGaussFit = nTermsGaussFit
+        print "ftffc.nTermsGaussFit = ", type(ftffc.nTermsGaussFit),": <",ftffc.nTermsGaussFit,">"
         self.assertEqual(ftffc.nTermsGaussFit, nTermsGaussFit)
-        
+        self.assertIs(nTermsGaussFit, ftffc.nTermsGaussFit)
+        if nTermsGaussFit is ftffc.nTermsGaussFit:
+            print "nTermsGaussFit IS ftffc.nTermsGaussFit"
+        else:
+            print "nTermsGaussFit IS NOT ftffc.nTermsGaussFit"
+        print " "
+       
         saturationLevel = 65550.
+        print "saturationLevel = ", type(saturationLevel),": <",saturationLevel,">"
+        print "ftffc.saturationLevel = ", type(ftffc.saturationLevel),": <",ftffc.saturationLevel,">"
         ftffc.saturationLevel = saturationLevel
+        print "ftffc.saturationLevel = ", type(ftffc.saturationLevel),": <",ftffc.saturationLevel,">"
         self.assertAlmostEqual(ftffc.saturationLevel, saturationLevel)
+        self.assertIsNot(saturationLevel, ftffc.saturationLevel)
+        if saturationLevel is ftffc.saturationLevel:
+            print "saturationLevel IS ftffc.saturationLevel"
+        else:
+            print "saturationLevel IS NOT ftffc.saturationLevel"
+        print " "
         
         minLength = 20
+        print "minLength = ", type(minLength),": <",minLength,">"
+        print "ftffc.minLength = ", type(ftffc.minLength),": <",ftffc.minLength,">"
         ftffc.minLength = minLength
+        print "ftffc.minLength = ", type(ftffc.minLength),": <",ftffc.minLength,">"
         self.assertEqual(ftffc.minLength, minLength)
+        self.assertIs(minLength, ftffc.minLength)
+        if minLength is ftffc.minLength:
+            print "minLength IS ftffc.minLength"
+        else:
+            print "minLength IS NOT ftffc.minLength"
+        print " "
         
         maxLength = 4000
+        print "maxLength = ", type(maxLength),": <",maxLength,">"
+        print "ftffc.maxLength = ", type(ftffc.maxLength),": <",ftffc.maxLength,">"
         ftffc.maxLength = maxLength
+        print "ftffc.maxLength = ", type(ftffc.maxLength),": <",ftffc.maxLength,">"
         self.assertEqual(ftffc.maxLength, maxLength)
-        
+        self.assertIsNot(maxLength, ftffc.maxLength)
+        if maxLength is ftffc.maxLength:
+            print "maxLength IS ftffc.maxLength"
+        else:
+            print "maxLength IS NOT ftffc.maxLength"
+        print " "
+
         nLost = 20
+        print "nLost = ", type(nLost),": <",nLost,">"
+        print "ftffc.nLost = ", type(ftffc.nLost),": <",ftffc.nLost,">"
         ftffc.nLost = nLost
+        print "ftffc.nLost = ", type(ftffc.nLost),": <",ftffc.nLost,">"
         self.assertEqual(ftffc.nLost, nLost)
+        self.assertIs(nLost, ftffc.nLost)
+        if nLost is ftffc.nLost:
+            print "nLost IS ftffc.nLost"
+        else:
+            print "nLost IS NOT ftffc.nLost"
         
     def testFiberTraceConstructors(self):
 
@@ -270,10 +373,26 @@ class FiberTraceTestCase(tests.TestCase):
                 #print "profile[",row,",:] = ",len(profile.getArray()[row,:]),": ",profile.getArray()[row,:]
                 profile.getArray()[row,:] = fiberTrace.getTrace().getImage().getArray()[row,:]
                 profile.getArray()[row,:] /= spectrum.getSpectrum()[row]
+            self.assertTrue(fiberTrace.setProfile(profile))
             profile.writeFits("profileFromSum_trace"+str(iTrace)+".fits")
-            fiberTrace.getProfile().writeFits("profileFromSumFromTrace_trace"+str(iTrace)+".fits")
-#            raise
-#            fiberTrace.setProfile()
+            recImage = fiberTrace.getReconstructed2DSpectrum(spectrum)
+            recImage.writeFits("recTrace_SpecAndProfileFromSum_trace"+str(iTrace)+".fits")
+            diff = fiberTrace.getTrace().getImage().getArray() - recImage.getArray()
+            afwImage.ImageF(diff).writeFits("diffTrace_SpecAndProfileFromSum_trace"+str(iTrace)+".fits")
+            meanDiff = np.mean(diff)
+            self.assertLess(np.absolute(meanDiff), 0.001)
+            stdDevDiff = np.std(diff)
+            self.assertLess(np.absolute(stdDevDiff), 0.001)
+                        
+            spectrum = fiberTrace.extractFromProfile()
+            recImage = fiberTrace.getReconstructed2DSpectrum(spectrum)
+            recImage.writeFits("recTrace_SpecFromProfileFromSum_trace"+str(iTrace)+".fits")
+            diff = fiberTrace.getTrace().getImage().getArray() - recImage.getArray()
+            afwImage.ImageF(diff).writeFits("diffTrace_SpecFromProfileFromSum_trace"+str(iTrace)+".fits")
+            meanDiff = np.mean(diff)
+            self.assertLess(np.absolute(meanDiff), 0.001)
+            stdDevDiff = np.std(diff)
+            self.assertLess(np.absolute(stdDevDiff), 0.001)
             
         """Fit profile with MkSlitFunc"""
         ftpfc = drpStella.FiberTraceProfileFittingControl()
@@ -376,30 +495,28 @@ class FiberTraceTestCase(tests.TestCase):
             self.assertTrue(fiberTrace.setFiberTraceProfileFittingControl(ftpfc))
             spectrum = fiberTrace.MkSlitFunc()
             profile = fiberTrace.getProfile()
-            profile.writeFits("profileTrace"+str(iTrace)+".fits")
+            profile.writeFits("profileFromMkSlitFunc_trace"+str(iTrace)+".fits")
             recImage = fiberTrace.getReconstructed2DSpectrum(spectrum)
-            recImage.writeFits("recTrace"+str(iTrace)+"FromMkSlitFunc.fits")
-            diff = fiberTrace.getTrace().getImage()
-            diff -= recImage
-            diff.writeFits("diffTrace"+str(iTrace)+"FromMkSlitFunc.fits")
+            recImage.writeFits("recTrace_SpecAndProfFromMkSlitFunc_trace"+str(iTrace)+".fits")
+            diff = fiberTrace.getTrace().getImage().getArray() - recImage.getArray()
+            afwImage.ImageF(diff).writeFits("diffTrace_SpecAndProfFromMkSlitFunc_trace"+str(iTrace)+".fits")
             if display:
                 ds9.mtv(diff,title="reconstruction from MkSlitFunc",frame=iTrace)
-            meanDiff = np.mean(diff.getArray())
+            meanDiff = np.mean(diff)
             self.assertLess(np.absolute(meanDiff), 20.)
-            stdDevDiff = np.std(diff.getArray())
+            stdDevDiff = np.std(diff)
             self.assertLess(np.absolute(stdDevDiff), 600.)
 
             spectrum = fiberTrace.extractFromProfile()
             recImage = fiberTrace.getReconstructed2DSpectrum(spectrum)
-            recImage.writeFits("recTrace"+str(iTrace)+"FromProfile.fits")
-            diff = fiberTrace.getTrace().getImage()
-            diff -= recImage
-            diff.writeFits("diffTrace"+str(iTrace)+"FromProfile.fits")
+            recImage.writeFits("recTrace_SpecFromProfileFromMkSlitFunc_trace"+str(iTrace)+".fits")
+            diff = fiberTrace.getTrace().getImage().getArray() - recImage.getArray()
+            afwImage.ImageF(diff).writeFits("diffTrace_SpecFromProfileFromMkSlitFunc_trace"+str(iTrace)+".fits")
             if display:
                 ds9.mtv(diff,title="reconstruction from MkSlitFunc",frame=fiberTraceSet.size()+iTrace)
-            meanDiff = np.mean(diff.getArray())
-            self.assertLess(np.absolute(meanDiff), 20.)
-            stdDevDiff = np.std(diff.getArray())
+            meanDiff = np.mean(diff)
+            self.assertLess(np.absolute(meanDiff), 50.)
+            stdDevDiff = np.std(diff)
             self.assertLess(np.absolute(stdDevDiff), 600.)
     
     def testFiberTraceOtherFunctions(self):
@@ -407,16 +524,24 @@ class FiberTraceTestCase(tests.TestCase):
         ftffc.signalThreshold = 10.
         ftpffc = drpStella.FiberTraceProfileFittingControl()
         swathWidth = int(ftpffc.swathWidth)
+        self.assertIsNot(swathWidth, ftpffc.swathWidth)
         fiberTraceSet = drpStella.findAndTraceAperturesF(self.flat.getMaskedImage(), ftffc)
         fiberTrace = drpStella.FiberTraceF(self.flat.getMaskedImage(), fiberTraceSet.getFiberTrace(0).getFiberTraceFunction(), fiberTraceSet.getFiberTrace(0).getXCenters(), 0)
-        nBinsOut = int(0)
-        binHeightOut = int(0)
         print "swathWidth = ",type(swathWidth),": ",swathWidth
         binBoundYOut = fiberTrace.calculateBinBoundY(swathWidth)
         print "swathWidth = ",type(swathWidth),": ",swathWidth
         print "binBoundYOut = ", type(binBoundYOut),": ",binBoundYOut
-        print "binBoundYOut = ", binBoundYOut[:,:]
-        
+        print "binBoundYOut = ", binBoundYOut.shape,": ", binBoundYOut.shape[0],": ",binBoundYOut[:,:]
+        for i in range(binBoundYOut.shape[0]):
+            if i == 0:
+                self.assertEqual(binBoundYOut[i,0], 0)
+            elif i == binBoundYOut.shape[0]-1:
+                self.assertEqual(binBoundYOut[i,1], fiberTrace.getHeight()-1)
+            self.assertLess(binBoundYOut[i,0], binBoundYOut[i,1])
+        for i in range(binBoundYOut.shape[0]-1):
+            self.assertLess(binBoundYOut[i+1, 0], binBoundYOut[i,1])
+        for i in range(binBoundYOut.shape[0]-2):
+            self.assertEqual(binBoundYOut[i, 1]+1, binBoundYOut[i+2,0])
 
     def testFiberTraceSetFunctions(self):
         if False:

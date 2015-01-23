@@ -76,7 +76,7 @@ class FiberTrace {
     
     virtual ~FiberTrace() {}
 
-    /// Return the 2D image of this fiber trace
+    /// Return shared pointer to the 2D MaskedImage of this fiber trace
     PTR(MaskedImageT) getTrace() { return _trace; }
     const PTR(const MaskedImageT) getTrace() const { return _trace; }
     

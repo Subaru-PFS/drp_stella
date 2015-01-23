@@ -19,7 +19,7 @@ struct FiberTraceFunctionControl {
                                                    stringify( CUBIC ),
                                                    stringify( LINEAR ),
                                                    stringify( POLYNOMIAL) };
-  LSST_CONTROL_FIELD(interpolation, std::string, "Interpolation schemes");
+  LSST_CONTROL_FIELD(interpolation, std::string, "Interpolation schemes, NOTE that only POLYNOMIAL fitting is implement yet!");
   LSST_CONTROL_FIELD(order, unsigned int, "Polynomial order");
   LSST_CONTROL_FIELD(xLow, float, "Lower (left) limit of aperture relative to center position of trace in x (< 0.)");
   LSST_CONTROL_FIELD(xHigh, float, "Upper (right) limit of aperture relative to center position of trace in x");
@@ -37,6 +37,10 @@ struct FiberTraceFunctionControl {
       xHigh(ftfc.xHigh) {}
       
   ~FiberTraceFunctionControl() {}
+  
+//  bool isClassInvariant() const{
+//      
+//  }
       
   PTR(FiberTraceFunctionControl) getPointer() const{
     PTR(FiberTraceFunctionControl) ptr(new FiberTraceFunctionControl(*this));
@@ -110,6 +114,10 @@ struct FiberTraceFunctionFindingControl {
       {}
       
   ~FiberTraceFunctionFindingControl() {}
+  
+//  bool isClassInvariant(){
+//      
+//  }
       
   PTR(FiberTraceFunctionFindingControl) getPointer(){
     PTR(FiberTraceFunctionFindingControl) ptr(new FiberTraceFunctionFindingControl(*this));

@@ -3013,14 +3013,14 @@ namespace pfsDRPStella = pfs::drp::stella;
         else{
           D_Weight_Bin1 = double(i_row - I_A2_IBinBoundY(I_Bin+1, 0)) / double(I_A2_IBinBoundY(I_Bin, 1) - I_A2_IBinBoundY(I_Bin+1, 0));
           D_Weight_Bin0 = 1. - D_Weight_Bin1;
-          #ifdef __DEBUG_MKSLITFUNC__
+//          #ifdef __DEBUG_MKSLITFUNC__
             cout << "FiberTrace" << _iTrace << "::MkSlitFunc: i_row = " << i_row << ": I_NBins = " << I_NBins << endl;
             cout << "FiberTrace" << _iTrace << "::MkSlitFunc: i_row = " << i_row << ": I_Bin = " << I_Bin << endl;
-            cout << "FiberTrace" << _iTrace << "::MkSlitFunc: i_row = " << i_row << ": I_A2_IBinBoundY(I_Bin, *) = " << I_A2_IBinBoundY(I_Bin, Range::all()) << endl;
-            cout << "FiberTrace" << _iTrace << "::MkSlitFunc: i_row = " << i_row << ": I_A2_IBinBoundY(I_Bin+1, *) = " << I_A2_IBinBoundY(I_Bin+1, Range::all()) << endl;
+            cout << "FiberTrace" << _iTrace << "::MkSlitFunc: i_row = " << i_row << ": I_A2_IBinBoundY(I_Bin, *) = " << I_A2_IBinBoundY(I_Bin, blitz::Range::all()) << endl;
+            cout << "FiberTrace" << _iTrace << "::MkSlitFunc: i_row = " << i_row << ": I_A2_IBinBoundY(I_Bin+1, *) = " << I_A2_IBinBoundY(I_Bin+1, blitz::Range::all()) << endl;
             cout << "FiberTrace" << _iTrace << "::MkSlitFunc: i_row = " << i_row << ": D_Weight_Bin0 = " << D_Weight_Bin0 << endl;
             cout << "FiberTrace" << _iTrace << "::MkSlitFunc: i_row = " << i_row << ": D_Weight_Bin1 = " << D_Weight_Bin1 << endl;
-          #endif
+//          #endif
           #ifdef __DEBUG_CHECK_INDICES__
             if (i_row >= D_A2_SP.rows()){
               std::string message("FiberTrace");
