@@ -344,3 +344,16 @@ Interface to Stella
 %template(get2DBlitzArrayI) pfs::drp::stella::utils::get2DBlitzArray<int>;
 %template(get2DBlitzArrayF) pfs::drp::stella::utils::get2DBlitzArray<float>;
 %template(get2DBlitzArrayD) pfs::drp::stella::utils::get2DBlitzArray<double>;
+
+%template(getRawPointerMIF) pfs::drp::stella::utils::getRawPointer<lsst::afw::image::MaskedImage<float, unsigned short, float>>;
+%template(getRawPointerMID) pfs::drp::stella::utils::getRawPointer<lsst::afw::image::MaskedImage<double, unsigned short, float>>;
+%template(getRawPointerIF) pfs::drp::stella::utils::getRawPointer<lsst::afw::image::Image<float>>;
+%template(getRawPointerII) pfs::drp::stella::utils::getRawPointer<lsst::afw::image::Image<int>>;
+%template(getRawPointerIUI) pfs::drp::stella::utils::getRawPointer<lsst::afw::image::Image<unsigned int>>;
+%template(getRawPointerID) pfs::drp::stella::utils::getRawPointer<lsst::afw::image::Image<double>>;
+%template(getRawPointerFTF) pfs::drp::stella::utils::getRawPointer<pfs::drp::stella::FiberTrace<float, unsigned short, float>>;
+%template(getRawPointerFTD) pfs::drp::stella::utils::getRawPointer<pfs::drp::stella::FiberTrace<double, unsigned short, float>>;
+
+%template(copyVectorI) pfs::drp::stella::utils::copy<int>;
+%template(copyVectorF) pfs::drp::stella::utils::copy<float>;
+%template(copyVectorD) pfs::drp::stella::utils::copy<double>;

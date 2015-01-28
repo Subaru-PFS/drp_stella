@@ -13,12 +13,14 @@ namespace pfs { namespace drp { namespace stella {
  */
 struct FiberTraceFunctionControl {
   /// enum corresponding to legal values of interpolation string
-  enum INTERPOLATION {  CHEBYSHEV=0, LEGENDRE, CUBIC, LINEAR, POLYNOMIAL, NVALUES };
-  std::vector<std::string> INTERPOLATION_NAMES = { stringify( CHEBYSHEV ),
-                                                   stringify( LEGENDRE ),
-                                                   stringify( CUBIC ),
-                                                   stringify( LINEAR ),
-                                                   stringify( POLYNOMIAL) };
+//  enum INTERPOLATION {  CHEBYSHEV=0, LEGENDRE, CUBIC, LINEAR, POLYNOMIAL, NVALUES };
+  enum INTERPOLATION {  POLYNOMIAL=0, NVALUES };
+//  std::vector<std::string> INTERPOLATION_NAMES = { stringify( CHEBYSHEV ),
+//                                                   stringify( LEGENDRE ),
+//                                                   stringify( CUBIC ),
+//                                                   stringify( LINEAR ),
+//                                                   stringify( POLYNOMIAL) };
+  std::vector<std::string> INTERPOLATION_NAMES = { stringify( POLYNOMIAL) };
   LSST_CONTROL_FIELD(interpolation, std::string, "Interpolation schemes, NOTE that only POLYNOMIAL fitting is implement yet!");
   LSST_CONTROL_FIELD(order, unsigned int, "Polynomial order");
   LSST_CONTROL_FIELD(xLow, float, "Lower (left) limit of aperture relative to center position of trace in x (< 0.)");
@@ -38,9 +40,42 @@ struct FiberTraceFunctionControl {
       
   ~FiberTraceFunctionControl() {}
   
-//  bool isClassInvariant() const{
-//      
-//  }
+  bool isClassInvariant() const{
+    bool isFunctionValid = false;
+    #ifdef __DEBUG_FIBERTRACEFUNCTIONCONTROL__
+      cout << "FiberTraceFunctionControl::isClassInvariant: fiberTraceFunction->fiberTraceFunctionControl.interpolation = <" << fiberTraceFunction->fiberTraceFunctionControl.interpolation << ">" << endl;
+      cout << "FiberTraceFunctionControl::isClassInvariant: fiberTraceFunction->fiberTraceFunctionControl.order = <" << fiberTraceFunction->fiberTraceFunctionControl.order << ">" << endl;
+      cout << "FiberTraceFunctionControl::isClassInvariant: fiberTraceFunction->fiberTraceFunctionControl.xLow = <" << fiberTraceFunction->fiberTraceFunctionControl.xLow << ">" << endl;
+      cout << "FiberTraceFunctionControl::isClassInvariant: fiberTraceFunction->fiberTraceFunctionControl.xHigh = <" << fiberTraceFunction->fiberTraceFunctionControl.xHigh << ">" << endl;
+      cout << "FiberTraceFunctionControl::isClassInvariant: fiberTraceFunction->xCenter = <" << fiberTraceFunction->xCenter << ">" << endl;
+      cout << "FiberTraceFunctionControl::isClassInvariant: fiberTraceFunction->yCenter = <" << fiberTraceFunction->yCenter << ">" << endl;
+      cout << "FiberTraceFunctionControl::isClassInvariant: fiberTraceFunction->yLow = <" << fiberTraceFunction->yLow << ">" << endl;
+      cout << "FiberTraceFunctionControl::isClassInvariant: fiberTraceFunction->yHigh = <" << fiberTraceFunction->yHigh << ">" << endl;
+      cout << "FiberTraceFunctionControl::isClassInvariant: fiberTraceFunction->coefficients = <";
+      for (int i = 0; i < static_cast<int>(fiberTraceFunction->coefficients.size()); i++)
+        cout << fiberTraceFunction->coefficients[i] << " ";
+      cout << ">" << endl;
+    #endif
+
+    for ( int fooInt = POLYNOMIAL; fooInt != NVALUES; fooInt++ ){
+      #ifdef __DEBUG_FIBERTRACEFUNCTIONCONTROL__
+        cout << "FiberTraceFunctionControl::isClassInvariant: INTERPOLATION_NAMES[fooInt] = <" << INTERPOLATION_NAMES[fooInt] << ">" << endl;
+      #endif
+      if (interpolation.compare(INTERPOLATION_NAMES[fooInt]) == 0){
+        isFunctionValid = true;
+        #ifdef __DEBUG_FIBERTRACEFUNCTIONCONTROL__
+          cout << "FiberTraceFunctionControl::isClassInvariant: " << interpolation << " is valid" << endl;
+        #endif
+      }
+    }
+    if (!isFunctionValid){
+        #ifdef __DEBUG_FIBERTRACEFUNCTIONCONTROL__
+          cout << "FiberTraceFunctionControl::isClassInvariant: " << interpolation << " is NOT valid" << endl;
+        #endif
+        return false;
+    }
+    return true;
+  }
       
   PTR(FiberTraceFunctionControl) getPointer() const{
     PTR(FiberTraceFunctionControl) ptr(new FiberTraceFunctionControl(*this));
@@ -73,6 +108,51 @@ struct FiberTraceFunction {
   coefficients(ftf.coefficients) {}
   
   ~FiberTraceFunction() {}
+  
+  bool isClassInvariant() const{
+    if (!fiberTraceFunctionControl.isClassInvariant()){
+      cout << "FiberTraceFunction::isClassInvariant: ERROR: fiberTraceFunctionControl is not valid! => Returning FALSE" << endl;
+      return false;
+    }
+
+    if (coefficients.size() < fiberTraceFunctionControl.order){
+      cout << "FiberTraceFunction::isClassInvariant: ERROR: coefficients.size(=" << coefficients.size() << ") < fiberTraceFunctionControl.order(=" << fiberTraceFunctionControl.order << ") => Returning FALSE" << endl;
+      return false;
+    }
+
+    if (xCenter < 0.){
+      cout << "FiberTraceFunction::isClassInvariant: ERROR: xCenter(=" << xCenter << ") < 0 => Returning FALSE" << endl;
+      return false;
+    }
+
+    if (yCenter < 0.){
+      cout << "FiberTraceFunction::isClassInvariant: ERROR: yCenter(=" << yCenter << ") < 0 => Returning FALSE" << endl;
+      return false;
+    }
+
+    if ((fiberTraceFunctionControl.xLow + xCenter) < 0.){
+      cout << "FiberTraceFunction::isClassInvariant: ERROR: (fiberTraceFunctionControl.xLow(=" << fiberTraceFunctionControl.xLow << ") + xCenter(=" << xCenter << ") = " << fiberTraceFunctionControl.xLow + xCenter << " < 0 => Returning FALSE" << endl;
+      return false;
+    }
+
+    if (yLow > 0.){
+      cout << "FiberTraceFunction::isClassInvariant: ERROR: (yLow(=" << yLow << ") > 0 => Returning FALSE" << endl;
+      return false;
+    }
+
+    if (yLow + yCenter < 0.){
+      cout << "FiberTraceFunction::isClassInvariant: ERROR: (yLow(=" << yLow << ") + yCenter(=" << yCenter << ") = " << yLow + yCenter << " < 0 => Returning FALSE" << endl;
+      return false;
+    }
+
+    if (yHigh < 0.){
+      cout << "FiberTraceFunction::isClassInvariant: ERROR: (yHigh(=" << yHigh << ") < 0 => Returning FALSE" << endl;
+      return false;
+    }
+
+    return true;
+      
+  }
   
   PTR(FiberTraceFunction) getPointer(){
     PTR(FiberTraceFunction) ptr(new FiberTraceFunction(*this));
@@ -115,9 +195,9 @@ struct FiberTraceFunctionFindingControl {
       
   ~FiberTraceFunctionFindingControl() {}
   
-//  bool isClassInvariant(){
-//      
-//  }
+  bool isClassInvariant() const{
+      return false;
+  }
       
   PTR(FiberTraceFunctionFindingControl) getPointer(){
     PTR(FiberTraceFunctionFindingControl) ptr(new FiberTraceFunctionFindingControl(*this));
@@ -180,11 +260,84 @@ struct FiberTraceProfileFittingControl {
         {}
         
     ~FiberTraceProfileFittingControl() {}
-        
-    PTR(FiberTraceProfileFittingControl) getPointer(){
-      PTR(FiberTraceProfileFittingControl) ptr(new FiberTraceProfileFittingControl(*this));
-      return ptr;
+  
+  bool isClassInvariant(){
+    bool isProfileInterpolationValid = false;
+    bool isTelluricValid = false;
+    for ( int fooInt = PISKUNOV; fooInt != NVALUES_P; fooInt++ ){
+      #ifdef __DEBUG_FIBERTRACEPROFILEFITTINGCONTROL__
+        cout << "FiberTraceProfileFittingControl::isClassInvariant: PROFILE_INTERPOLATION_NAMES[fooInt] = <" << PROFILE_INTERPOLATION_NAMES[fooInt] << ">" << endl;
+      #endif
+      if (profileInterpolation.compare(PROFILE_INTERPOLATION_NAMES[fooInt]) == 0){
+        isProfileInterpolationValid = true;
+        #ifdef __DEBUG_FIBERTRACEPROFILEFITTINGCONTROL__
+          cout << "FiberTraceProfileFittingControl::isClassInvariant: " << profileInterpolation << " is valid" << endl;
+        #endif
+      }
     }
+
+    if (!isProfileInterpolationValid){
+      cout << "FiberTraceProfileFittingControl::isClassInvariant: ERROR: fiberTraceProfileFittingControl.profileInterpolation is not valid! => Returning FALSE" << endl;
+      return false;
+    }
+
+    for ( int fooInt = NONE; fooInt != NVALUES; fooInt++ ){
+      #ifdef __DEBUG_FIBERTRACEPROFILEFITTINGCONTROL__
+        cout << "FiberTraceProfileFittingControl::isClassInvariant: TELLURIC_NAMES[fooInt] = <" << TELLURIC_NAMES[fooInt] << ">" << endl;
+      #endif
+      if (telluric.compare(TELLURIC_NAMES[fooInt]) == 0){
+        isTelluricValid = true;
+        #ifdef __DEBUG_FIBERTRACEPROFILEFITTINGCONTROL__
+          cout << "FiberTraceProfileFittingControl::isClassInvariant: " << telluric << " is valid" << endl;
+        #endif
+      }
+    }
+    if (!isTelluricValid){
+      cout << "FiberTraceProfileFittingControl::isClassInvariant: ERROR: telluric(=" << telluric << ") is not valid! => Returning FALSE" << endl;
+      return false;
+    }
+
+    if (ccdReadOutNoise < 0.){
+      cout << "FiberTraceProfileFittingControl::isClassInvariant: ERROR: ccdReadOutNoise(=" << ccdReadOutNoise << ") < 0 => Returning FALSE" << endl;
+      return false;
+    }
+
+    if (overSample == 0){
+      cout << "FiberTraceProfileFittingControl::isClassInvariant: ERROR: (overSample(=" << overSample << ") == 0 => Returning FALSE" << endl;
+      return false;
+    }
+
+    if (maxIterSF == 0){
+      cout << "FiberTraceProfileFittingControl::isClassInvariant: ERROR: (maxIterSF(=" << maxIterSF << ") == 0 => Returning FALSE" << endl;
+      return false;
+    }
+
+    if ((telluric.compare(TELLURIC_NAMES[0]) != 0) && (maxIterSky == 0)){
+      cout << "FiberTraceProfileFittingControl::isClassInvariant: ERROR: telluric set to not NONE and (maxIterSky(=" << maxIterSky << ") == 0 => Returning FALSE" << endl;
+      return false;
+    }
+
+    if (lambdaSF < 0.){
+      cout << "FiberTraceProfileFittingControl::isClassInvariant: ERROR: (lambdaSF(=" << lambdaSF << ") < 0. => Returning FALSE" << endl;
+      return false;
+    }
+
+    if (lambdaSP < 0.){
+      cout << "FiberTraceProfileFittingControl::isClassInvariant: ERROR: (lambdaSP(=" << lambdaSP << ") < 0. => Returning FALSE" << endl;
+      return false;
+    }
+
+    if (wingSmoothFactor < 0.){
+      cout << "FiberTraceProfileFittingControl::isClassInvariant: ERROR: (wingSmoothFactor(=" << wingSmoothFactor << ") < 0. => Returning FALSE" << endl;
+      return false;
+    }
+    return true;
+  }
+        
+  PTR(FiberTraceProfileFittingControl) getPointer(){
+    PTR(FiberTraceProfileFittingControl) ptr(new FiberTraceProfileFittingControl(*this));
+    return ptr;
+  }
 };
 
 

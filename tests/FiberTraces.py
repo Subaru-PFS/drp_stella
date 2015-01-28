@@ -28,178 +28,188 @@ class FiberTraceTestCase(tests.TestCase):
     """A test case for measuring FiberTrace quantities"""
 
     def setUp(self):
-        flatfile = "/Users/azuri/spectra/pfs/2014-10-28/sampledFlatx2-IR-0-23-5-10-nonoise.fits"
+        latest = True
+        if latest:
+            flatfile = "sampledFlatx2-IR-0-23.fits"
+            combfile = "sampledCombx2-IR-0-23.fits"
+        else:
+            flatfile = "/Users/azuri/spectra/pfs/2014-10-28/sampledFlatx2-IR-0-23-5-10-nonoise.fits"
+            combfile = "/Users/azuri/spectra/pfs/2014-10-28/sampledCombx2-IR-0-23-5-10-nonoise.fits"
         self.flat = afwImage.ImageF(flatfile)
         self.flat = afwImage.makeExposure(afwImage.makeMaskedImage(self.flat))
         self.bias = afwImage.ImageF(flatfile, 3)
         self.flat.getMaskedImage()[:] -= self.bias
 
-        combfile = "/Users/azuri/spectra/pfs/2014-12-14/sampledCombx2-IR-0-23.fits"
         self.comb = afwImage.ImageF(combfile)
         self.comb = afwImage.makeExposure(afwImage.makeMaskedImage(self.comb))
         bias = afwImage.ImageF(combfile, 3)
         self.comb.getMaskedImage()[:] -= bias
+        
+        self.ftffc = drpStella.FiberTraceFunctionFindingControl()
+        self.ftffc.fiberTraceFunctionControl.order = 4
 
         del bias
         del flatfile
         del combfile
+        del latest
         
     def tearDown(self):
         del self.flat
         del self.comb
         del self.bias
+        del self.ftffc
 
     def testFiberTraceFunctionFindingControl(self):
         """Test that we can create a FiberTraceFunctionFindingControl"""
-        ftffc = drpStella.FiberTraceFunctionFindingControl()
+        self.ftffc.fiberTraceFunctionControl.order = 4
         
         """Test that we can set the parameters of the FiberTraceFunctionFindingControl"""
         interpolation = "POLYNOMIAL"
         print "interpolation = ", type(interpolation),": <",interpolation,">"
-        print "ftffc.fiberTraceFunctionControl.interpolation = ", type(ftffc.fiberTraceFunctionControl.interpolation),": <",ftffc.fiberTraceFunctionControl.interpolation,">"
-        ftffc.fiberTraceFunctionControl.interpolation = interpolation
-        print "ftffc.fiberTraceFunctionControl.interpolation = ", type(ftffc.fiberTraceFunctionControl.interpolation),": <",ftffc.fiberTraceFunctionControl.interpolation,">"
-        self.assertEqual(ftffc.fiberTraceFunctionControl.interpolation, interpolation)
-        self.assertIsNot(interpolation, ftffc.fiberTraceFunctionControl.interpolation)
-        oldInterpolation = ftffc.fiberTraceFunctionControl.interpolation
+        print "ftffc.fiberTraceFunctionControl.interpolation = ", type(self.ftffc.fiberTraceFunctionControl.interpolation),": <",self.ftffc.fiberTraceFunctionControl.interpolation,">"
+        self.ftffc.fiberTraceFunctionControl.interpolation = interpolation
+        print "self.ftffc.fiberTraceFunctionControl.interpolation = ", type(self.ftffc.fiberTraceFunctionControl.interpolation),": <",self.ftffc.fiberTraceFunctionControl.interpolation,">"
+        self.assertEqual(self.ftffc.fiberTraceFunctionControl.interpolation, interpolation)
+        self.assertIsNot(interpolation, self.ftffc.fiberTraceFunctionControl.interpolation)
+        oldInterpolation = self.ftffc.fiberTraceFunctionControl.interpolation
         interpolation = "POLYNOMAL"
         self.assertNotEqual(interpolation, oldInterpolation)
-        ftffc.fiberTraceFunctionControl.interpolation = interpolation
-        self.assertEqual(ftffc.fiberTraceFunctionControl.interpolation, interpolation)
-        if interpolation is ftffc.fiberTraceFunctionControl.interpolation:
-            print "interpolation IS ftffc.fiberTraceFunctionControl.interpolation"
+        self.ftffc.fiberTraceFunctionControl.interpolation = interpolation
+        self.assertEqual(self.ftffc.fiberTraceFunctionControl.interpolation, interpolation)
+        if interpolation is self.ftffc.fiberTraceFunctionControl.interpolation:
+            print "interpolation IS self.ftffc.fiberTraceFunctionControl.interpolation"
         else:
-            print "interpolation IS NOT ftffc.fiberTraceFunctionControl.interpolation"
+            print "interpolation IS NOT self.ftffc.fiberTraceFunctionControl.interpolation"
         print " "
 
         order = 4
         print "order = ", type(order),": <",order,">"
-        print "ftffc.fiberTraceFunctionControl.order = ", type(ftffc.fiberTraceFunctionControl.order),": <",ftffc.fiberTraceFunctionControl.order,">"
-        ftffc.fiberTraceFunctionControl.order = order
-        print "ftffc.fiberTraceFunctionControl.order = ", type(ftffc.fiberTraceFunctionControl.order),": <",ftffc.fiberTraceFunctionControl.order,">"
-        self.assertEqual(ftffc.fiberTraceFunctionControl.order, order)
-        self.assertIs(order, ftffc.fiberTraceFunctionControl.order)
-        if order is ftffc.fiberTraceFunctionControl.order:
-            print "order IS ftffc.fiberTraceFunctionControl.order"
+        print "self.ftffc.fiberTraceFunctionControl.order = ", type(self.ftffc.fiberTraceFunctionControl.order),": <",self.ftffc.fiberTraceFunctionControl.order,">"
+        self.ftffc.fiberTraceFunctionControl.order = order
+        print "self.ftffc.fiberTraceFunctionControl.order = ", type(self.ftffc.fiberTraceFunctionControl.order),": <",self.ftffc.fiberTraceFunctionControl.order,">"
+        self.assertEqual(self.ftffc.fiberTraceFunctionControl.order, order)
+        self.assertIs(order, self.ftffc.fiberTraceFunctionControl.order)
+        if order is self.ftffc.fiberTraceFunctionControl.order:
+            print "order IS self.ftffc.fiberTraceFunctionControl.order"
         else:
-            print "order IS NOT ftffc.fiberTraceFunctionControl.order"
+            print "order IS NOT self.ftffc.fiberTraceFunctionControl.order"
         print " "
         
         xLow = -5.
         print "xLow = ", type(xLow),": <",xLow,">"
-        print "ftffc.fiberTraceFunctionControl.xLow = ", type(ftffc.fiberTraceFunctionControl.xLow),": <",ftffc.fiberTraceFunctionControl.xLow,">"
-        ftffc.fiberTraceFunctionControl.xLow = xLow
-        print "ftffc.fiberTraceFunctionControl.xLow = ", type(ftffc.fiberTraceFunctionControl.xLow),": <",ftffc.fiberTraceFunctionControl.xLow,">"
-        self.assertAlmostEqual(ftffc.fiberTraceFunctionControl.xLow, xLow)
-        self.assertIsNot(xLow, ftffc.fiberTraceFunctionControl.xLow)
-        if xLow is ftffc.fiberTraceFunctionControl.xLow:
-            print "xLow IS ftffc.fiberTraceFunctionControl.xLow"
+        print "self.ftffc.fiberTraceFunctionControl.xLow = ", type(self.ftffc.fiberTraceFunctionControl.xLow),": <",self.ftffc.fiberTraceFunctionControl.xLow,">"
+        self.ftffc.fiberTraceFunctionControl.xLow = xLow
+        print "self.ftffc.fiberTraceFunctionControl.xLow = ", type(self.ftffc.fiberTraceFunctionControl.xLow),": <",self.ftffc.fiberTraceFunctionControl.xLow,">"
+        self.assertAlmostEqual(self.ftffc.fiberTraceFunctionControl.xLow, xLow)
+        self.assertIsNot(xLow, self.ftffc.fiberTraceFunctionControl.xLow)
+        if xLow is self.ftffc.fiberTraceFunctionControl.xLow:
+            print "xLow IS self.ftffc.fiberTraceFunctionControl.xLow"
         else:
-            print "xLow IS NOT ftffc.fiberTraceFunctionControl.xLow"
+            print "xLow IS NOT self.ftffc.fiberTraceFunctionControl.xLow"
         print " "
 
         xHigh = 5.
         print "xHigh = ", type(xHigh),": <",xHigh,">"
-        print "ftffc.fiberTraceFunctionControl.xHigh = ", type(ftffc.fiberTraceFunctionControl.xHigh),": <",ftffc.fiberTraceFunctionControl.xHigh,">"
-        ftffc.fiberTraceFunctionControl.xHigh = xHigh
-        print "ftffc.fiberTraceFunctionControl.xHigh = ", type(ftffc.fiberTraceFunctionControl.xHigh),": <",ftffc.fiberTraceFunctionControl.xHigh,">"
-        self.assertAlmostEqual(ftffc.fiberTraceFunctionControl.xHigh, xHigh)
-        self.assertIsNot(xHigh, ftffc.fiberTraceFunctionControl.xHigh)
-        if xHigh is ftffc.fiberTraceFunctionControl.xHigh:
-            print "xHigh IS ftffc.fiberTraceFunctionControl.xHigh"
+        print "self.ftffc.fiberTraceFunctionControl.xHigh = ", type(self.ftffc.fiberTraceFunctionControl.xHigh),": <",self.ftffc.fiberTraceFunctionControl.xHigh,">"
+        self.ftffc.fiberTraceFunctionControl.xHigh = xHigh
+        print "self.ftffc.fiberTraceFunctionControl.xHigh = ", type(self.ftffc.fiberTraceFunctionControl.xHigh),": <",self.ftffc.fiberTraceFunctionControl.xHigh,">"
+        self.assertAlmostEqual(self.ftffc.fiberTraceFunctionControl.xHigh, xHigh)
+        self.assertIsNot(xHigh, self.ftffc.fiberTraceFunctionControl.xHigh)
+        if xHigh is self.ftffc.fiberTraceFunctionControl.xHigh:
+            print "xHigh IS self.ftffc.fiberTraceFunctionControl.xHigh"
         else:
-            print "xHigh IS NOT ftffc.fiberTraceFunctionControl.xHigh"
+            print "xHigh IS NOT self.ftffc.fiberTraceFunctionControl.xHigh"
         print " "
         
         apertureFWHM = 2.6
         print "apertureFWHM = ", type(apertureFWHM),": <",apertureFWHM,">"
-        print "ftffc.apertureFWHM = ", type(ftffc.apertureFWHM),": <",ftffc.apertureFWHM,">"
-        ftffc.apertureFWHM = apertureFWHM
-        print "ftffc.apertureFWHM = ", type(ftffc.apertureFWHM),": <",ftffc.apertureFWHM,">"
-        self.assertAlmostEqual(ftffc.apertureFWHM, apertureFWHM, places=6)
-        self.assertIsNot(apertureFWHM, ftffc.apertureFWHM)
-        if apertureFWHM is ftffc.apertureFWHM:
-            print "apertureFWHM IS ftffc.apertureFWHM"
+        print "self.ftffc.apertureFWHM = ", type(self.ftffc.apertureFWHM),": <",self.ftffc.apertureFWHM,">"
+        self.ftffc.apertureFWHM = apertureFWHM
+        print "self.ftffc.apertureFWHM = ", type(self.ftffc.apertureFWHM),": <",self.ftffc.apertureFWHM,">"
+        self.assertAlmostEqual(self.ftffc.apertureFWHM, apertureFWHM, places=6)
+        self.assertIsNot(apertureFWHM, self.ftffc.apertureFWHM)
+        if apertureFWHM is self.ftffc.apertureFWHM:
+            print "apertureFWHM IS self.ftffc.apertureFWHM"
         else:
-            print "apertureFWHM IS NOT ftffc.apertureFWHM"
+            print "apertureFWHM IS NOT self.ftffc.apertureFWHM"
         print " "
         
         signalThreshold = 10.
         print "signalThreshold = ", type(signalThreshold),": <",signalThreshold,">"
-        print "ftffc.signalThreshold = ", type(ftffc.signalThreshold),": <",ftffc.signalThreshold,">"
-        ftffc.signalThreshold = signalThreshold
-        print "ftffc.signalThreshold = ", type(ftffc.signalThreshold),": <",ftffc.signalThreshold,">"
-        self.assertAlmostEqual(ftffc.signalThreshold, signalThreshold)
-        self.assertIsNot(signalThreshold, ftffc.signalThreshold)
-        if signalThreshold is ftffc.signalThreshold:
-            print "signalThreshold IS ftffc.signalThreshold"
+        print "self.ftffc.signalThreshold = ", type(self.ftffc.signalThreshold),": <",self.ftffc.signalThreshold,">"
+        self.ftffc.signalThreshold = signalThreshold
+        print "self.ftffc.signalThreshold = ", type(self.ftffc.signalThreshold),": <",self.ftffc.signalThreshold,">"
+        self.assertAlmostEqual(self.ftffc.signalThreshold, signalThreshold)
+        self.assertIsNot(signalThreshold, self.ftffc.signalThreshold)
+        if signalThreshold is self.ftffc.signalThreshold:
+            print "signalThreshold IS self.ftffc.signalThreshold"
         else:
-            print "signalThreshold IS NOT ftffc.signalThreshold"
+            print "signalThreshold IS NOT self.ftffc.signalThreshold"
         print " "
         
         nTermsGaussFit = 4
         print "nTermsGaussFit = ", type(nTermsGaussFit),": <",nTermsGaussFit,">"
-        print "ftffc.nTermsGaussFit = ", type(ftffc.nTermsGaussFit),": <",ftffc.nTermsGaussFit,">"
-        ftffc.nTermsGaussFit = nTermsGaussFit
-        print "ftffc.nTermsGaussFit = ", type(ftffc.nTermsGaussFit),": <",ftffc.nTermsGaussFit,">"
-        self.assertEqual(ftffc.nTermsGaussFit, nTermsGaussFit)
-        self.assertIs(nTermsGaussFit, ftffc.nTermsGaussFit)
-        if nTermsGaussFit is ftffc.nTermsGaussFit:
-            print "nTermsGaussFit IS ftffc.nTermsGaussFit"
+        print "self.ftffc.nTermsGaussFit = ", type(self.ftffc.nTermsGaussFit),": <",self.ftffc.nTermsGaussFit,">"
+        self.ftffc.nTermsGaussFit = nTermsGaussFit
+        print "self.ftffc.nTermsGaussFit = ", type(self.ftffc.nTermsGaussFit),": <",self.ftffc.nTermsGaussFit,">"
+        self.assertEqual(self.ftffc.nTermsGaussFit, nTermsGaussFit)
+        self.assertIs(nTermsGaussFit, self.ftffc.nTermsGaussFit)
+        if nTermsGaussFit is self.ftffc.nTermsGaussFit:
+            print "nTermsGaussFit IS self.ftffc.nTermsGaussFit"
         else:
-            print "nTermsGaussFit IS NOT ftffc.nTermsGaussFit"
+            print "nTermsGaussFit IS NOT self.ftffc.nTermsGaussFit"
         print " "
        
         saturationLevel = 65550.
         print "saturationLevel = ", type(saturationLevel),": <",saturationLevel,">"
-        print "ftffc.saturationLevel = ", type(ftffc.saturationLevel),": <",ftffc.saturationLevel,">"
-        ftffc.saturationLevel = saturationLevel
-        print "ftffc.saturationLevel = ", type(ftffc.saturationLevel),": <",ftffc.saturationLevel,">"
-        self.assertAlmostEqual(ftffc.saturationLevel, saturationLevel)
-        self.assertIsNot(saturationLevel, ftffc.saturationLevel)
-        if saturationLevel is ftffc.saturationLevel:
-            print "saturationLevel IS ftffc.saturationLevel"
+        print "self.ftffc.saturationLevel = ", type(self.ftffc.saturationLevel),": <",self.ftffc.saturationLevel,">"
+        self.ftffc.saturationLevel = saturationLevel
+        print "self.ftffc.saturationLevel = ", type(self.ftffc.saturationLevel),": <",self.ftffc.saturationLevel,">"
+        self.assertAlmostEqual(self.ftffc.saturationLevel, saturationLevel)
+        self.assertIsNot(saturationLevel, self.ftffc.saturationLevel)
+        if saturationLevel is self.ftffc.saturationLevel:
+            print "saturationLevel IS self.ftffc.saturationLevel"
         else:
-            print "saturationLevel IS NOT ftffc.saturationLevel"
+            print "saturationLevel IS NOT self.ftffc.saturationLevel"
         print " "
         
         minLength = 20
         print "minLength = ", type(minLength),": <",minLength,">"
-        print "ftffc.minLength = ", type(ftffc.minLength),": <",ftffc.minLength,">"
-        ftffc.minLength = minLength
-        print "ftffc.minLength = ", type(ftffc.minLength),": <",ftffc.minLength,">"
-        self.assertEqual(ftffc.minLength, minLength)
-        self.assertIs(minLength, ftffc.minLength)
-        if minLength is ftffc.minLength:
-            print "minLength IS ftffc.minLength"
+        print "self.ftffc.minLength = ", type(self.ftffc.minLength),": <",self.ftffc.minLength,">"
+        self.ftffc.minLength = minLength
+        print "self.ftffc.minLength = ", type(self.ftffc.minLength),": <",self.ftffc.minLength,">"
+        self.assertEqual(self.ftffc.minLength, minLength)
+        self.assertIs(minLength, self.ftffc.minLength)
+        if minLength is self.ftffc.minLength:
+            print "minLength IS self.ftffc.minLength"
         else:
-            print "minLength IS NOT ftffc.minLength"
+            print "minLength IS NOT self.ftffc.minLength"
         print " "
         
         maxLength = 4000
         print "maxLength = ", type(maxLength),": <",maxLength,">"
-        print "ftffc.maxLength = ", type(ftffc.maxLength),": <",ftffc.maxLength,">"
-        ftffc.maxLength = maxLength
-        print "ftffc.maxLength = ", type(ftffc.maxLength),": <",ftffc.maxLength,">"
-        self.assertEqual(ftffc.maxLength, maxLength)
-        self.assertIsNot(maxLength, ftffc.maxLength)
-        if maxLength is ftffc.maxLength:
-            print "maxLength IS ftffc.maxLength"
+        print "self.ftffc.maxLength = ", type(self.ftffc.maxLength),": <",self.ftffc.maxLength,">"
+        self.ftffc.maxLength = maxLength
+        print "self.ftffc.maxLength = ", type(self.ftffc.maxLength),": <",self.ftffc.maxLength,">"
+        self.assertEqual(self.ftffc.maxLength, maxLength)
+        self.assertIsNot(maxLength, self.ftffc.maxLength)
+        if maxLength is self.ftffc.maxLength:
+            print "maxLength IS self.ftffc.maxLength"
         else:
-            print "maxLength IS NOT ftffc.maxLength"
+            print "maxLength IS NOT self.ftffc.maxLength"
         print " "
 
         nLost = 20
         print "nLost = ", type(nLost),": <",nLost,">"
-        print "ftffc.nLost = ", type(ftffc.nLost),": <",ftffc.nLost,">"
-        ftffc.nLost = nLost
-        print "ftffc.nLost = ", type(ftffc.nLost),": <",ftffc.nLost,">"
-        self.assertEqual(ftffc.nLost, nLost)
-        self.assertIs(nLost, ftffc.nLost)
-        if nLost is ftffc.nLost:
-            print "nLost IS ftffc.nLost"
+        print "self.ftffc.nLost = ", type(self.ftffc.nLost),": <",self.ftffc.nLost,">"
+        self.ftffc.nLost = nLost
+        print "self.ftffc.nLost = ", type(self.ftffc.nLost),": <",self.ftffc.nLost,">"
+        self.assertEqual(self.ftffc.nLost, nLost)
+        self.assertIs(nLost, self.ftffc.nLost)
+        if nLost is self.ftffc.nLost:
+            print "nLost IS self.ftffc.nLost"
         else:
-            print "nLost IS NOT ftffc.nLost"
+            print "nLost IS NOT self.ftffc.nLost"
         
     def testFiberTraceConstructors(self):
 
@@ -225,7 +235,7 @@ class FiberTraceTestCase(tests.TestCase):
         
         """Test that we can create a FiberTrace given a MaskedImage, FiberTraceFunction, and xCenters"""
         """Flat"""
-        fiberTraceSet = drpStella.findAndTraceAperturesF(self.flat.getMaskedImage(), drpStella.FiberTraceFunctionFindingControl())
+        fiberTraceSet = drpStella.findAndTraceAperturesF(self.flat.getMaskedImage(), self.ftffc)
         fiberTrace = drpStella.FiberTraceF(self.flat.getMaskedImage(), fiberTraceSet.getFiberTrace(0).getFiberTraceFunction(), fiberTraceSet.getFiberTrace(0).getXCenters(), iTrace)
         self.assertEqual(fiberTraceSet.getFiberTrace(0).getXCenters()[5], fiberTrace.getXCenters()[5])
         
@@ -249,7 +259,7 @@ class FiberTraceTestCase(tests.TestCase):
             self.assertEqual(fiberTraceSet.getFiberTrace(i).getITrace(), i)
             
         """Test that we can create a FiberTraceSet from another FiberTraceSet"""
-        fiberTraceSet = drpStella.findAndTraceAperturesF(self.flat.getMaskedImage(), drpStella.FiberTraceFunctionFindingControl())
+        fiberTraceSet = drpStella.findAndTraceAperturesF(self.flat.getMaskedImage(), self.ftffc)
         fiberTraceSetNew = drpStella.FiberTraceSetF(fiberTraceSet)
         self.assertEqual(fiberTraceSetNew.size(), fiberTraceSet.size())
         self.assertEqual(fiberTraceSet.getFiberTrace(1).getTrace().getImage().getArray()[5, 5], fiberTraceSetNew.getFiberTrace(1).getTrace().getImage().getArray()[5,5])
@@ -263,14 +273,13 @@ class FiberTraceTestCase(tests.TestCase):
 #            self.assertEqual(fiberTraceSetNew.getFiberTrace(i).getITrace(), i)
 
     def testFiberTraceGetSetFunctions(self):
-        """Test get methods"""
+        """Test get/set methods"""
 
         iTrace = 1
-        ftffc = drpStella.FiberTraceFunctionFindingControl()
         xHigh = 4.1
-        ftffc.fiberTraceFunctionControl.xHigh = xHigh
-        ftffc.signalThreshold = 110.
-        fiberTraceSet = drpStella.findAndTraceAperturesF(self.flat.getMaskedImage(), ftffc)
+        self.ftffc.fiberTraceFunctionControl.xHigh = xHigh
+        self.ftffc.signalThreshold = 110.
+        fiberTraceSet = drpStella.findAndTraceAperturesF(self.flat.getMaskedImage(), self.ftffc)
         
         """Test getFiberTrace"""
         fiberTrace = fiberTraceSet.getFiberTrace(iTrace)
@@ -292,7 +301,7 @@ class FiberTraceTestCase(tests.TestCase):
         self.assertEqual(fiberTrace.getTrace().getHeight(), fiberTrace.getHeight())
         flatPlusBias = self.flat.getMaskedImage()
         flatPlusBias += self.bias
-        fiberTraceSetMIF = drpStella.findAndTraceAperturesF(flatPlusBias, ftffc)
+        fiberTraceSetMIF = drpStella.findAndTraceAperturesF(flatPlusBias, self.ftffc)
         fiberTrace = fiberTraceSetMIF.getFiberTrace(iTrace)
         fiberTraceMIF = drpStella.FiberTraceF(flatPlusBias, fiberTrace.getFiberTraceFunction(), fiberTrace.getXCenters(), iTrace)
         arrayVal = fiberTraceMIF.getTrace().getImage().getArray()[5,5]
@@ -311,6 +320,11 @@ class FiberTraceTestCase(tests.TestCase):
         self.assertTrue(fiberTraceMIF.setTrace(fiberTrace.getTrace()))
         self.assertFalse(fiberTraceMIF.setTrace(maskedImageWrongSize))
         self.assertAlmostEqual(fiberTraceMIF.getTrace().getImage().getArray()[5,5], val)
+        fiberTraceMIF.getTrace().getImage().getArray()[5,5] = val+2
+        self.assertAlmostEqual(fiberTrace.getTrace().getImage().getArray()[5,5], val+2)
+        fiberTrace.getTrace().getImage().getArray()[5,5] = val
+        self.assertAlmostEqual(fiberTraceMIF.getTrace().getImage().getArray()[5,5], val)
+#        self.assertIs(drpStella.getRawPointerMIF(fiberTraceMIF.getTrace()), drpStella.getRawPointerMIF(fiberTrace.getTrace()))
         
         """Test setImage"""
         val = 1011.
@@ -318,6 +332,9 @@ class FiberTraceTestCase(tests.TestCase):
         self.assertTrue(fiberTraceMIF.setImage(fiberTrace.getImage()))
         self.assertFalse(fiberTraceMIF.setImage(maskedImageWrongSize.getImage()))
         self.assertAlmostEqual(fiberTraceMIF.getImage().getArray()[5,5], val)
+        fiberTrace.getImage().getArray()[5,5] = val+2
+        self.assertAlmostEqual(fiberTraceMIF.getImage().getArray()[5,5], val+2)
+#        self.assertIs(fiberTraceMIF.getImage().get(), fiberTrace.getImage().get())
         
         """Test setVariance"""
         val = 1000.
@@ -325,6 +342,9 @@ class FiberTraceTestCase(tests.TestCase):
         self.assertTrue(fiberTraceMIF.setVariance(fiberTrace.getVariance()))
         self.assertFalse(fiberTraceMIF.setVariance(maskedImageWrongSize.getVariance()))
         self.assertAlmostEqual(fiberTraceMIF.getVariance().getArray()[5,5], val)
+        fiberTrace.getVariance().getArray()[5,5] = val+2
+        self.assertAlmostEqual(fiberTraceMIF.getVariance().getArray()[5,5], val+2)
+#        self.assertIs(fiberTrace.getVariance(), fiberTraceMIF.getVariance())
         
         """Test setMask"""
         print "fiberTrace.getMask().getArray()[5,5] = ", fiberTrace.getMask().getArray()[5,5]
@@ -333,21 +353,28 @@ class FiberTraceTestCase(tests.TestCase):
         self.assertTrue(fiberTraceMIF.setMask(fiberTrace.getMask()))
         self.assertFalse(fiberTraceMIF.setMask(maskedImageWrongSize.getMask()))
         self.assertEqual(fiberTraceMIF.getMask().getArray()[5,5], val)
+        fiberTrace.getMask().getArray()[5,5] = val+2
+        self.assertEqual(fiberTraceMIF.getMask().getArray()[5,5], val+2)
+#        self.assertIs(fiberTraceMIF.getMask(), fiberTrace.getMask())
         
         """Test getProfile/setProfile"""
         val = 1111.
         fiberTrace.getProfile().getArray()[5,5] = val
         self.assertTrue(fiberTraceMIF.setProfile(fiberTrace.getProfile()))
         self.assertFalse(fiberTraceMIF.setProfile(maskedImageWrongSize.getImage()))
-        self.assertEqual(fiberTraceMIF.getProfile().getArray()[5,5], val)
+        self.assertAlmostEqual(fiberTraceMIF.getProfile().getArray()[5,5], val)
+        fiberTrace.getProfile().getArray()[5,5] = val+2
+        self.assertAlmostEqual(fiberTraceMIF.getProfile().getArray()[5,5], fiberTrace.getProfile().getArray()[5,5])
+#        self.assertIs(fiberTraceMIF.getProfile(), fiberTrace.getProfile())
         
         """Test getXCenters"""
         xCenters = fiberTrace.getXCenters()
         self.assertEqual(xCenters.size(), fiberTrace.getHeight())
+        self.assertAlmostEqual(xCenters[5], fiberTrace.getXCenters()[5])
+#        self.assertIs(xCenters, fiberTrace.getXCenters())
         
     def testFiberTraceCreateTrace(self):
-        ftffc = drpStella.FiberTraceFunctionFindingControl()
-        fiberTraceSet = drpStella.findAndTraceAperturesF(self.flat.getMaskedImage(), ftffc)
+        fiberTraceSet = drpStella.findAndTraceAperturesF(self.flat.getMaskedImage(), self.ftffc)
         fiberTrace = fiberTraceSet.getFiberTrace(3)
         oldTrace = fiberTrace.getTrace().getImage().getArray().copy()
         self.assertTrue(fiberTrace.createTrace(self.flat.getMaskedImage()))
@@ -358,10 +385,7 @@ class FiberTraceTestCase(tests.TestCase):
                 self.assertAlmostEqual(oldTrace[i,j], trace[i,j])
         
     def testFiberTraceExtractionMethods(self):
-        ftffc = drpStella.FiberTraceFunctionFindingControl()
-        ftffc.signalThreshold = 10.
-        
-        fiberTraceSet = drpStella.findAndTraceAperturesF(self.flat.getMaskedImage(), ftffc)
+        fiberTraceSet = drpStella.findAndTraceAperturesF(self.flat.getMaskedImage(), self.ftffc)
         """Create flat profile from trace and extractSum"""
         for iTrace in range(0, fiberTraceSet.size()):
             fiberTrace = fiberTraceSet.getFiberTrace(iTrace)
@@ -396,7 +420,7 @@ class FiberTraceTestCase(tests.TestCase):
             
         """Fit profile with MkSlitFunc"""
         ftpfc = drpStella.FiberTraceProfileFittingControl()
-        fiberTraceSet = drpStella.findAndTraceAperturesF(self.flat.getMaskedImage(), ftffc)
+        fiberTraceSet = drpStella.findAndTraceAperturesF(self.flat.getMaskedImage(), self.ftffc)
         for iTrace in range(0, fiberTraceSet.size()):
             fiberTrace = fiberTraceSet.getFiberTrace(iTrace)
             try:
@@ -485,9 +509,7 @@ class FiberTraceTestCase(tests.TestCase):
         self.assertNotAlmostEqual(spectrum.getSpectrum()[5], spectrumFromProfile.getSpectrum()[5])
 
     def testFiberTraceReconstruct(self):
-        ftffc = drpStella.FiberTraceFunctionFindingControl()
-        ftffc.signalThreshold = 10.
-        fiberTraceSet = drpStella.findAndTraceAperturesF(self.flat.getMaskedImage(), ftffc)
+        fiberTraceSet = drpStella.findAndTraceAperturesF(self.flat.getMaskedImage(), self.ftffc)
         ftpfc = drpStella.FiberTraceProfileFittingControl()
         for iTrace in range(0, fiberTraceSet.size()):
             fiberTrace = fiberTraceSet.getFiberTrace(iTrace)
@@ -520,12 +542,12 @@ class FiberTraceTestCase(tests.TestCase):
             self.assertLess(np.absolute(stdDevDiff), 600.)
     
     def testFiberTraceOtherFunctions(self):
-        ftffc = drpStella.FiberTraceFunctionFindingControl()
-        ftffc.signalThreshold = 10.
+        
+        """Test FiberTrace.calculateBinBoundY(swathwidth)"""
         ftpffc = drpStella.FiberTraceProfileFittingControl()
         swathWidth = int(ftpffc.swathWidth)
         self.assertIsNot(swathWidth, ftpffc.swathWidth)
-        fiberTraceSet = drpStella.findAndTraceAperturesF(self.flat.getMaskedImage(), ftffc)
+        fiberTraceSet = drpStella.findAndTraceAperturesF(self.flat.getMaskedImage(), self.ftffc)
         fiberTrace = drpStella.FiberTraceF(self.flat.getMaskedImage(), fiberTraceSet.getFiberTrace(0).getFiberTraceFunction(), fiberTraceSet.getFiberTrace(0).getXCenters(), 0)
         print "swathWidth = ",type(swathWidth),": ",swathWidth
         binBoundYOut = fiberTrace.calculateBinBoundY(swathWidth)
@@ -543,40 +565,133 @@ class FiberTraceTestCase(tests.TestCase):
         for i in range(binBoundYOut.shape[0]-2):
             self.assertEqual(binBoundYOut[i, 1]+1, binBoundYOut[i+2,0])
 
+    def testFiberTraceSetConstructor(self):
+        size = 0
+        fts = drpStella.FiberTraceSetF(size)
+        self.assertEqual(fts.size(), size)
+        size = 2
+        fts = drpStella.FiberTraceSetF(size)
+        self.assertEqual(fts.size(), size)
+        
+        ftsa = drpStella.FiberTraceSetF(fts)
+        self.assertEqual(fts.size(), ftsa.size())
+
     def testFiberTraceSetFunctions(self):
-        if False:
-            """Test that we can add a FiberTrace to the FiberTraceSet"""
-            fts.addFiberTrace(f)
-            print("fti added to fts")
+        size = 0
+        ftsEmpty = drpStella.FiberTraceSetF()
 
-            """Test that we can trace fibers"""
-            msi = drpStella.MaskedSpectrographImageF(mif)
-            print("msi created")
+        """Test that we can trace fibers"""
+        fts = drpStella.findAndTraceAperturesF(self.flat.getMaskedImage(), self.ftffc)
+        self.assertEqual(fts.size(), 10)
+        
+        ft = drpStella.FiberTraceF()
+        
+        """Test that we can add a FiberTrace to the FiberTraceSet"""
+        self.assertTrue(ftsEmpty.addFiberTrace(ft))
+        self.assertEqual(ftsEmpty.size(), size+1)
+        self.assertNotEqual(drpStella.getRawPointerFTF(ftsEmpty.getFiberTrace(0)), drpStella.getRawPointerFTF(ft.getPointer()))
 
-            msi.findAndTraceApertures(ftffc, 0, mif.getHeight(), 10)
+        size = fts.size()
+        self.assertTrue(fts.addFiberTrace(ft))
+        self.assertEqual(fts.size(), size+1)
+        self.assertNotEqual(drpStella.getRawPointerFTF(fts.getFiberTrace(size)), drpStella.getRawPointerFTF(ft))
+        
+        """Test that we can set a FiberTrace at a certain position"""
+        ft = fts.getFiberTrace(2)
+        comp = ft.getTrace().getImage().getArray()[5,5]
+        pos = 0
+        self.assertTrue(fts.setFiberTrace(pos, ft))
+        self.assertEqual(fts.getFiberTrace(pos).getTrace().getImage().getArray()[5,5], comp)
+        
+        pos = fts.size()-1
+        self.assertTrue(fts.setFiberTrace(pos, ft))
+        self.assertEqual(fts.getFiberTrace(pos).getTrace().getImage().getArray()[5,5], comp)
 
-            ftec = drpStella.FiberTraceExtractionControl();
-            ft = msi.getFiberTraceSet().getFiberTrace(0);
-            ft.setFiberTraceExtractionControl(ftec);
-            print("ft.getFiberTraceExtractionControl().swathWidth = ");
-            print(ft.getFiberTraceExtractionControl().swathWidth);
-            print("msi.getFiberTraceSet().getFiberTrace(0).getFiberTraceExtractionControl().swathWidth = ",msi.getFiberTraceSet().getFiberTrace(0).getFiberTraceExtractionControl().swathWidth);
+        """Test that setting a FiberTrace just past the last position adds a FiberTrace"""
+        size = fts.size()
+        self.assertTrue(fts.setFiberTrace(fts.size(), ft))
+        self.assertEqual(fts.size(), size+1)
+        self.assertEqual(fts.getFiberTrace(fts.size()-1).getTrace().getImage().getArray()[5,5], comp)
 
-            """calculate profile and extract from flat"""
-            ft.MkSlitFunc();
-            print("ft.MkSlitFunc finished");
+        """Test that setting a FiberTrace outside legal position fails"""
+        self.assertFalse(fts.setFiberTrace(fts.size()+1, ft))
+        
+        try:
+            self.assertFalse(fts.setFiberTrace(-1, ft))
+        except:
+            e = sys.exc_info()[1]
+            print e
+            print dir(e)
+            message = str.split(e.message, "\n")
+            print message
+            for i in range(len(message)):
+                print "element",i,": <",message[i],">"
+            expected = "in method 'FiberTraceSetF_setFiberTrace', argument 2 of type 'unsigned int'"
+            self.assertEqual(message[0],expected)
+            
+        """Test that we can erase a FiberTrace"""
+        size = fts.size()
+        self.assertTrue(fts.erase(fts.size()-1))
+        self.assertEqual(fts.size(), size-1)
+        self.assertTrue(fts.erase(0))
+        self.assertEqual(fts.size(), size-2)
+        self.assertEqual(fts.getFiberTrace(0).getITrace(), 1)
+        self.assertTrue(fts.erase(3,5))
+        self.assertEqual(fts.size(), size-4)
+        self.assertEqual(fts.getFiberTrace(3).getITrace(), 6)
+        
+        try:
+            self.assertFalse(fts.erase(fts.size()))
+        except:
+            e = sys.exc_info()[1]
+            print e
+            print dir(e)
+            message = str.split(e.message, "\n")
+            print message
+            for i in range(len(message)):
+                print "element",i,": <",message[i],">"
+            expected = "FiberTraceSet::erase(iStart=8): ERROR: iStart >= _traces->size()=8"
+            self.assertEqual(message[0],expected)
+        
+        """Test that we can set the FiberTraceProfileFittingControl to all FiberTraces in FiberTraceSet"""
+        ftpfc = drpStella.FiberTraceProfileFittingControl()
+        swathWidth = 300
+        ftpfc.swathWidth = swathWidth
+        for i in range(fts.size()):
+            self.assertFalse(fts.getFiberTrace(i).isFiberTraceProfileFittingControlSet())
+        self.assertTrue(fts.setFiberTraceProfileFittingControl(ftpfc))
+        for i in range(fts.size()):
+            self.assertEqual(fts.getFiberTrace(i).getFiberTraceProfileFittingControl().swathWidth, swathWidth)
+            self.assertTrue(fts.getFiberTrace(i).isFiberTraceProfileFittingControlSet())
 
-            """write msi.getFiberTraceSet().getFiberTrace(0).getProfile() to fits file"""
-    #        imageDirectory = "/home/azuri/spectra/pfs/";
-            profile = msi.getFiberTraceSet().getFiberTrace(0).getProfile();
-            print("profile copied");
-            print("profile.getDimensions() = ",profile.getDimensions());
-    #        print("profile")
-    #        profile.writeFits("/home/azuri/spectra/pfs/trace0_profile.fits");
-    #        print("profile written to /home/azuri/spectra/pfs/trace0_profile.fits");
+        """Test that we can fit the spatial profiles of one FiberTrace in Set"""
+        self.assertFalse(fts.getFiberTrace(3).isProfileSet())
+        spectrum = fts.extractTraceNumber(3);
+        self.assertTrue(fts.getFiberTrace(3).isProfileSet())
 
-            """extract sky spectrum"""
-    
+        """Test that we can fit the spatial profiles for all FiberTraces"""
+        spectra = fts.extractAllTraces()
+        for i in range(fts.size()):
+            self.assertTrue(fts.getFiberTrace(i).isProfileSet())
+            
+        """Test that we can set all profiles for a new FiberTraceSet"""
+        val = 11.
+        fts.getFiberTrace(0).getTrace().getImage().getArray()[5,5] = val
+        ftsComb = drpStella.FiberTraceSetF(fts)
+        self.assertTrue(ftsComb.createTraces(self.comb.getMaskedImage()))
+        self.assertAlmostEqual(fts.getFiberTrace(0).getTrace().getImage().getArray()[5,5])
+        self.assertNotAlmostEqual(fts.getFiberTrace(0).getTrace().getImage().getArray()[5,5], ftsComb.getFiberTrace(0).getTrace().getImage().getArray()[5,5])
+        
+        """Test that we can extract a FiberTrace from the spatial profile"""
+        spectrum = ftsComb.extractTraceNumberFromProfile(3)
+        self.assertEqual(spectrum.getLength(), ftsComb.getFiberTrace(3).getHeight())
+
+        """Test that we can extract all FiberTraces from the spatial profile"""
+        spectra = ftsComb.extractAllTracesFromProfile()
+        self.assertEqual(spectra.size(), ftsComb.size())
+        for i in range(spectra.size()):
+            self.assertEqual(spectra.getSpectrum(i).getLength(), ftsComb.getFiberTrace(i).getHeight())
+            
 #-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
 def suite():

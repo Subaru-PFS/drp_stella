@@ -3207,11 +3207,11 @@
     int FirstIndexWithValueGEFrom(const blitz::Array<T, 1> &vec_In,
                                   const T minValue_In,
                                   const int fromIndex_In){
-      if (vec_In.size() < 1 || fromIndex_In >= static_cast<int>(vec_In.size())){
+      if ((vec_In.size() < 1) || (fromIndex_In >= int(vec_In.size()))){
         cout << "CFits::FirstIndexWithValueGEFrom: Error: vec_In.size(=" << vec_In.size() << ") < 1 or fromIndex_In >= vec_In.size() => Returning -1" << endl;
         return -1;
       }
-      for (int i=fromIndex_In; i < static_cast<int>(vec_In.size()); i++){
+      for (int i=fromIndex_In; i < int(vec_In.size()); i++){
         if (vec_In(i) >= minValue_In)
           return i;
       }
@@ -5074,121 +5074,140 @@
   }/// end namespace math
 
   template int math::Fix(unsigned short);
+  template int math::Fix(unsigned int);
   template int math::Fix(int);
   template int math::Fix(long);
   template int math::Fix(float);
   template int math::Fix(double);
   
   template blitz::Array<int, 1> math::Fix(const blitz::Array<unsigned short, 1> &);
+  template blitz::Array<int, 1> math::Fix(const blitz::Array<unsigned int, 1> &);
   template blitz::Array<int, 1> math::Fix(const blitz::Array<int, 1> &);
   template blitz::Array<int, 1> math::Fix(const blitz::Array<long, 1> &);
   template blitz::Array<int, 1> math::Fix(const blitz::Array<float, 1> &);
   template blitz::Array<int, 1> math::Fix(const blitz::Array<double, 1> &);
   
   template blitz::Array<int, 2> math::Fix(const blitz::Array<unsigned short, 2> &);
+  template blitz::Array<int, 2> math::Fix(const blitz::Array<unsigned int, 2> &);
   template blitz::Array<int, 2> math::Fix(const blitz::Array<int, 2> &);
   template blitz::Array<int, 2> math::Fix(const blitz::Array<long, 2> &);
   template blitz::Array<int, 2> math::Fix(const blitz::Array<float, 2> &);
   template blitz::Array<int, 2> math::Fix(const blitz::Array<double, 2> &);
   
   template long math::FixL(unsigned short);
+  template long math::FixL(unsigned int);
   template long math::FixL(int);
   template long math::FixL(long);
   template long math::FixL(float);
   template long math::FixL(double);
   
   template blitz::Array<long, 1> math::FixL(const blitz::Array<unsigned short, 1> &);
+  template blitz::Array<long, 1> math::FixL(const blitz::Array<unsigned int, 1> &);
   template blitz::Array<long, 1> math::FixL(const blitz::Array<int, 1> &);
   template blitz::Array<long, 1> math::FixL(const blitz::Array<long, 1> &);
   template blitz::Array<long, 1> math::FixL(const blitz::Array<float, 1> &);
   template blitz::Array<long, 1> math::FixL(const blitz::Array<double, 1> &);
   
   template blitz::Array<long, 2> math::FixL(const blitz::Array<unsigned short, 2> &);
+  template blitz::Array<long, 2> math::FixL(const blitz::Array<unsigned int, 2> &);
   template blitz::Array<long, 2> math::FixL(const blitz::Array<int, 2> &);
   template blitz::Array<long, 2> math::FixL(const blitz::Array<long, 2> &);
   template blitz::Array<long, 2> math::FixL(const blitz::Array<float, 2> &);
   template blitz::Array<long, 2> math::FixL(const blitz::Array<double, 2> &);
   
   template int math::Int(unsigned short);
+  template int math::Int(unsigned int);
   template int math::Int(int);
   template int math::Int(long);
   template int math::Int(float);
   template int math::Int(double);
   
   template blitz::Array<int, 1> math::Int(const blitz::Array<unsigned short, 1> &);
+  template blitz::Array<int, 1> math::Int(const blitz::Array<unsigned int, 1> &);
   template blitz::Array<int, 1> math::Int(const blitz::Array<int, 1> &);
   template blitz::Array<int, 1> math::Int(const blitz::Array<long, 1> &);
   template blitz::Array<int, 1> math::Int(const blitz::Array<float, 1> &);
   template blitz::Array<int, 1> math::Int(const blitz::Array<double, 1> &);
   
   template blitz::Array<int, 2> math::Int(const blitz::Array<short unsigned int, 2> &);
+  template blitz::Array<int, 2> math::Int(const blitz::Array<unsigned int, 2> &);
   template blitz::Array<int, 2> math::Int(const blitz::Array<int, 2> &);
   template blitz::Array<int, 2> math::Int(const blitz::Array<long, 2> &);
   template blitz::Array<int, 2> math::Int(const blitz::Array<float, 2> &);
   template blitz::Array<int, 2> math::Int(const blitz::Array<double, 2> &);
   
   template long math::Long(unsigned short);
+  template long math::Long(unsigned int);
   template long math::Long(int);
   template long math::Long(long);
   template long math::Long(float);
   template long math::Long(double);
   
   template blitz::Array<long, 1> math::Long(const blitz::Array<unsigned short, 1> &);
+  template blitz::Array<long, 1> math::Long(const blitz::Array<unsigned int, 1> &);
   template blitz::Array<long, 1> math::Long(const blitz::Array<int, 1> &);
   template blitz::Array<long, 1> math::Long(const blitz::Array<long, 1> &);
   template blitz::Array<long, 1> math::Long(const blitz::Array<float, 1> &);
   template blitz::Array<long, 1> math::Long(const blitz::Array<double, 1> &);
   
   template blitz::Array<long, 2> math::Long(const blitz::Array<unsigned short, 2> &);
+  template blitz::Array<long, 2> math::Long(const blitz::Array<unsigned int, 2> &);
   template blitz::Array<long, 2> math::Long(const blitz::Array<int, 2> &);
   template blitz::Array<long, 2> math::Long(const blitz::Array<long, 2> &);
   template blitz::Array<long, 2> math::Long(const blitz::Array<float, 2> &);
   template blitz::Array<long, 2> math::Long(const blitz::Array<double, 2> &);
   
-  
   template void math::Float(const blitz::Array<unsigned short, 1> &, blitz::Array<float, 1>&);
+  template void math::Float(const blitz::Array<unsigned int, 1> &, blitz::Array<float, 1>&);
   template void math::Float(const blitz::Array<int, 1> &, blitz::Array<float, 1>&);
   template void math::Float(const blitz::Array<long, 1> &, blitz::Array<float, 1>&);
   template void math::Float(const blitz::Array<float, 1> &, blitz::Array<float, 1>&);
   template void math::Float(const blitz::Array<double, 1> &, blitz::Array<float, 1>&);
   
   template blitz::Array<float, 1> math::Float(const blitz::Array<unsigned short, 1> &);
+  template blitz::Array<float, 1> math::Float(const blitz::Array<unsigned int, 1> &);
   template blitz::Array<float, 1> math::Float(const blitz::Array<int, 1> &);
   template blitz::Array<float, 1> math::Float(const blitz::Array<long, 1> &);
   template blitz::Array<float, 1> math::Float(const blitz::Array<float, 1> &);
   template blitz::Array<float, 1> math::Float(const blitz::Array<double, 1> &);
   
   template void math::Float(const blitz::Array<unsigned short, 2> &, blitz::Array<float, 2>&);
+  template void math::Float(const blitz::Array<unsigned int, 2> &, blitz::Array<float, 2>&);
   template void math::Float(const blitz::Array<int, 2> &, blitz::Array<float, 2>&);
   template void math::Float(const blitz::Array<long, 2> &, blitz::Array<float, 2>&);
   template void math::Float(const blitz::Array<float, 2> &, blitz::Array<float, 2>&);
   template void math::Float(const blitz::Array<double, 2> &, blitz::Array<float, 2>&);
   
   template blitz::Array<float, 2> math::Float(const blitz::Array<unsigned short, 2> &);
+  template blitz::Array<float, 2> math::Float(const blitz::Array<unsigned int, 2> &);
   template blitz::Array<float, 2> math::Float(const blitz::Array<int, 2> &);
   template blitz::Array<float, 2> math::Float(const blitz::Array<long, 2> &);
   template blitz::Array<float, 2> math::Float(const blitz::Array<float, 2> &);
   template blitz::Array<float, 2> math::Float(const blitz::Array<double, 2> &);
   
   template void math::Double(const blitz::Array<unsigned short, 1> &, blitz::Array<double, 1>&);
+  template void math::Double(const blitz::Array<unsigned int, 1> &, blitz::Array<double, 1>&);
   template void math::Double(const blitz::Array<int, 1> &, blitz::Array<double, 1>&);
   template void math::Double(const blitz::Array<long, 1> &, blitz::Array<double, 1>&);
   template void math::Double(const blitz::Array<float, 1> &, blitz::Array<double, 1>&);
   template void math::Double(const blitz::Array<double, 1> &, blitz::Array<double, 1>&);
   
   template void math::Double(const blitz::Array<unsigned short, 2> &, blitz::Array<double, 2>&);
+  template void math::Double(const blitz::Array<unsigned int, 2> &, blitz::Array<double, 2>&);
   template void math::Double(const blitz::Array<int, 2> &, blitz::Array<double, 2>&);
   template void math::Double(const blitz::Array<long, 2> &, blitz::Array<double, 2>&);
   template void math::Double(const blitz::Array<float, 2> &, blitz::Array<double, 2>&);
   template void math::Double(const blitz::Array<double, 2> &, blitz::Array<double, 2>&);
   
   template blitz::Array<double, 1> math::Double(const blitz::Array<unsigned short, 1> &Arr);
+  template blitz::Array<double, 1> math::Double(const blitz::Array<unsigned int, 1> &Arr);
   template blitz::Array<double, 1> math::Double(const blitz::Array<int, 1> &Arr);
   template blitz::Array<double, 1> math::Double(const blitz::Array<long, 1> &Arr);
   template blitz::Array<double, 1> math::Double(const blitz::Array<float, 1> &Arr);
   template blitz::Array<double, 1> math::Double(const blitz::Array<double, 1> &Arr);
   
   template blitz::Array<double, 2> math::Double(const blitz::Array<unsigned short, 2> &Arr);
+  template blitz::Array<double, 2> math::Double(const blitz::Array<unsigned int, 2> &Arr);
   template blitz::Array<double, 2> math::Double(const blitz::Array<int, 2> &Arr);
   template blitz::Array<double, 2> math::Double(const blitz::Array<long, 2> &Arr);
   template blitz::Array<double, 2> math::Double(const blitz::Array<float, 2> &Arr);
@@ -5216,42 +5235,49 @@
   template long math::RoundL(const double ToRound);
   
   template blitz::Array<unsigned short, 1> math::Replicate(unsigned short val, int Len);
+  template blitz::Array<unsigned int, 1> math::Replicate(unsigned int val, int Len);
   template blitz::Array<int, 1> math::Replicate(int val, int Len);
   template blitz::Array<long, 1> math::Replicate(long val, int Len);
   template blitz::Array<float, 1> math::Replicate(float val, int Len);
   template blitz::Array<double, 1> math::Replicate(double val, int Len);
   
   template blitz::Array<unsigned short, 1>* math::Reform(const blitz::Array<unsigned short, 2> &Arr);
+  template blitz::Array<unsigned int, 1>* math::Reform(const blitz::Array<unsigned int, 2> &Arr);
   template blitz::Array<int, 1>* math::Reform(const blitz::Array<int, 2> &Arr);
   template blitz::Array<long, 1>* math::Reform(const blitz::Array<long, 2> &Arr);
   template blitz::Array<float, 1>* math::Reform(const blitz::Array<float, 2> &Arr);
   template blitz::Array<double, 1>* math::Reform(const blitz::Array<double, 2> &Arr);
   
   template blitz::Array<unsigned short, 2>* math::Reform(const blitz::Array<unsigned short, 1> &Arr, int DimA, int DimB);
+  template blitz::Array<unsigned int, 2>* math::Reform(const blitz::Array<unsigned int, 1> &Arr, int DimA, int DimB);
   template blitz::Array<int, 2>* math::Reform(const blitz::Array<int, 1> &Arr, int DimA, int DimB);
   template blitz::Array<long, 2>* math::Reform(const blitz::Array<long, 1> &Arr, int DimA, int DimB);
   template blitz::Array<float, 2>* math::Reform(const blitz::Array<float, 1> &Arr, int DimA, int DimB);
   template blitz::Array<double, 2>* math::Reform(const blitz::Array<double, 1> &Arr, int DimA, int DimB);
   
   template bool math::GetSubArrCopy(const blitz::Array<unsigned short, 1> &DA1_In, const blitz::Array<int, 1> &IA1_Indices, blitz::Array<unsigned short, 1> &DA1_Out);
+  template bool math::GetSubArrCopy(const blitz::Array<unsigned int, 1> &DA1_In, const blitz::Array<int, 1> &IA1_Indices, blitz::Array<unsigned int, 1> &DA1_Out);
   template bool math::GetSubArrCopy(const blitz::Array<int, 1> &DA1_In, const blitz::Array<int, 1> &IA1_Indices, blitz::Array<int, 1> &DA1_Out);
   template bool math::GetSubArrCopy(const blitz::Array<long, 1> &DA1_In, const blitz::Array<int, 1> &IA1_Indices, blitz::Array<long, 1> &DA1_Out);
   template bool math::GetSubArrCopy(const blitz::Array<float, 1> &DA1_In, const blitz::Array<int, 1> &IA1_Indices, blitz::Array<float, 1> &DA1_Out);
   template bool math::GetSubArrCopy(const blitz::Array<double, 1> &DA1_In, const blitz::Array<int, 1> &IA1_Indices, blitz::Array<double, 1> &DA1_Out);
   
   template bool math::GetSubArrCopy(const blitz::Array<unsigned short, 2> &A2_In, const blitz::Array<int, 1> &I_A1_Indices, int I_Mode_In, blitz::Array<unsigned short, 2> &A2_Out);
+  template bool math::GetSubArrCopy(const blitz::Array<unsigned int, 2> &A2_In, const blitz::Array<int, 1> &I_A1_Indices, int I_Mode_In, blitz::Array<unsigned int, 2> &A2_Out);
   template bool math::GetSubArrCopy(const blitz::Array<int, 2> &A2_In, const blitz::Array<int, 1> &I_A1_Indices, int I_Mode_In, blitz::Array<int, 2> &A2_Out);
   template bool math::GetSubArrCopy(const blitz::Array<long, 2> &A2_In, const blitz::Array<int, 1> &I_A1_Indices, int I_Mode_In, blitz::Array<long, 2> &A2_Out);
   template bool math::GetSubArrCopy(const blitz::Array<float, 2> &A2_In, const blitz::Array<int, 1> &I_A1_Indices, int I_Mode_In, blitz::Array<float, 2> &A2_Out);
   template bool math::GetSubArrCopy(const blitz::Array<double, 2> &A2_In, const blitz::Array<int, 1> &I_A1_Indices, int I_Mode_In, blitz::Array<double, 2> &A2_Out);
   
   template blitz::Array<unsigned short, 2> math::GetSubArrCopy(const blitz::Array<unsigned short, 2> &A2_In, const blitz::Array<int, 3> &I_A3_Indices);
+  template blitz::Array<unsigned int, 2> math::GetSubArrCopy(const blitz::Array<unsigned int, 2> &A2_In, const blitz::Array<int, 3> &I_A3_Indices);
   template blitz::Array<int, 2> math::GetSubArrCopy(const blitz::Array<int, 2> &A2_In, const blitz::Array<int, 3> &I_A3_Indices);
   template blitz::Array<long, 2> math::GetSubArrCopy(const blitz::Array<long, 2> &A2_In, const blitz::Array<int, 3> &I_A3_Indices);
   template blitz::Array<float, 2> math::GetSubArrCopy(const blitz::Array<float, 2> &A2_In, const blitz::Array<int, 3> &I_A3_Indices);
   template blitz::Array<double, 2> math::GetSubArrCopy(const blitz::Array<double, 2> &A2_In, const blitz::Array<int, 3> &I_A3_Indices);
   
   template bool math::CountPixGTZero(blitz::Array<unsigned short, 1> &vec_InOut);
+  template bool math::CountPixGTZero(blitz::Array<unsigned int, 1> &vec_InOut);
   template bool math::CountPixGTZero(blitz::Array<int, 1> &vec_InOut);
   template bool math::CountPixGTZero(blitz::Array<long, 1> &vec_InOut);
   template bool math::CountPixGTZero(blitz::Array<float, 1> &vec_InOut);
@@ -5259,6 +5285,9 @@
   
   template int math::FirstIndexWithValueGEFrom(const blitz::Array<unsigned short, 1> &vecIn,
                                                const unsigned short minValue,
+                                               const int fromIndex);
+  template int math::FirstIndexWithValueGEFrom(const blitz::Array<unsigned int, 1> &vecIn,
+                                               const unsigned int minValue,
                                                const int fromIndex);
   template int math::FirstIndexWithValueGEFrom(const blitz::Array<int, 1> &vecIn,
                                                const int minValue,
@@ -5275,6 +5304,8 @@
   
   template int math::LastIndexWithZeroValueBefore(const blitz::Array<unsigned short, 1> &vec_In,
                                                   const int startPos_In);
+  template int math::LastIndexWithZeroValueBefore(const blitz::Array<unsigned int, 1> &vec_In,
+                                                  const int startPos_In);
   template int math::LastIndexWithZeroValueBefore(const blitz::Array<int, 1> &vec_In,
                                                   const int startPos_In);
   template int math::LastIndexWithZeroValueBefore(const blitz::Array<long, 1> &vec_In,
@@ -5286,6 +5317,8 @@
   
   template int math::FirstIndexWithZeroValueFrom(const blitz::Array<unsigned short, 1> &vec_In,
                                                  const int startPos_In);
+  template int math::FirstIndexWithZeroValueFrom(const blitz::Array<unsigned int, 1> &vec_In,
+                                                 const int startPos_In);
   template int math::FirstIndexWithZeroValueFrom(const blitz::Array<int, 1> &vec_In,
                                                  const int startPos_In);
   template int math::FirstIndexWithZeroValueFrom(const blitz::Array<long, 1> &vec_In,
@@ -5296,51 +5329,63 @@
                                                  const int startPos_In);
   
   template unsigned short math::Median(const blitz::Array<unsigned short, 1> &Arr);
+  template unsigned int math::Median(const blitz::Array<unsigned int, 1> &Arr);
   template int math::Median(const blitz::Array<int, 1> &Arr);
   template long math::Median(const blitz::Array<long, 1> &Arr);
   template float math::Median(const blitz::Array<float, 1> &Arr);
   template double math::Median(const blitz::Array<double, 1> &Arr);
   
   template unsigned short math::Median(const blitz::Array<unsigned short, 2> &Arr, bool b);
+  template unsigned int math::Median(const blitz::Array<unsigned int, 2> &Arr, bool b);
   template int math::Median(const blitz::Array<int, 2> &Arr, bool b);
   template long math::Median(const blitz::Array<long, 2> &Arr, bool b);
   template float math::Median(const blitz::Array<float, 2> &Arr, bool b);
   template double math::Median(const blitz::Array<double, 2> &Arr, bool b);
   
   template unsigned short math::Median(const blitz::Array<unsigned short, 1> &Arr, const blitz::Array<string, 1> &S_A1_Args_In, void *PP_Args[]);
+  template unsigned int math::Median(const blitz::Array<unsigned int, 1> &Arr, const blitz::Array<string, 1> &S_A1_Args_In, void *PP_Args[]);
   template int math::Median(const blitz::Array<int, 1> &Arr, const blitz::Array<string, 1> &S_A1_Args_In, void *PP_Args[]);
   template long math::Median(const blitz::Array<long, 1> &Arr, const blitz::Array<string, 1> &S_A1_Args_In, void *PP_Args[]);
   template float math::Median(const blitz::Array<float, 1> &Arr, const blitz::Array<string, 1> &S_A1_Args_In, void *PP_Args[]);
   template double math::Median(const blitz::Array<double, 1> &Arr, const blitz::Array<string, 1> &S_A1_Args_In, void *PP_Args[]);
   
   template blitz::Array<unsigned short, 1> math::MedianVec(const blitz::Array<unsigned short, 1> &arr, int Width, const string &Mode="NORMAL");
+  template blitz::Array<unsigned int, 1> math::MedianVec(const blitz::Array<unsigned int, 1> &arr, int Width, const string &Mode="NORMAL");
   template blitz::Array<int, 1> math::MedianVec(const blitz::Array<int, 1> &arr, int Width, const string &Mode="NORMAL");
   template blitz::Array<long, 1> math::MedianVec(const blitz::Array<long, 1> &arr, int Width, const string &Mode="NORMAL");
   template blitz::Array<float, 1> math::MedianVec(const blitz::Array<float, 1> &arr, int Width, const string &Mode="NORMAL");
   template blitz::Array<double, 1> math::MedianVec(const blitz::Array<double, 1> &arr, int Width, const string &Mode="NORMAL");
   
   template unsigned short math::Select(const blitz::Array<unsigned short, 1> &arr, int KThSmallest);
+  template unsigned int math::Select(const blitz::Array<unsigned int, 1> &arr, int KThSmallest);
   template int math::Select(const blitz::Array<int, 1> &arr, int KThSmallest);
   template long math::Select(const blitz::Array<long, 1> &arr, int KThSmallest);
   template float math::Select(const blitz::Array<float, 1> &arr, int KThSmallest);
   template double math::Select(const blitz::Array<double, 1> &arr, int KThSmallest);
   
   template blitz::Array<unsigned short, 1> math::BubbleSort(const blitz::Array<unsigned short, 1> &I_A1_ArrIn);
+  template blitz::Array<unsigned int, 1> math::BubbleSort(const blitz::Array<unsigned int, 1> &I_A1_ArrIn);
   template blitz::Array<int, 1> math::BubbleSort(const blitz::Array<int, 1> &I_A1_ArrIn);
   template blitz::Array<long, 1> math::BubbleSort(const blitz::Array<long, 1> &I_A1_ArrIn);
   template blitz::Array<float, 1> math::BubbleSort(const blitz::Array<float, 1> &I_A1_ArrIn);
   template blitz::Array<double, 1> math::BubbleSort(const blitz::Array<double, 1> &I_A1_ArrIn);
   
+  template bool math::Uniq(const blitz::Array<unsigned short, 1> &IA1_In, blitz::Array<int, 1> &IA1_Result);
+  template bool math::Uniq(const blitz::Array<unsigned int, 1> &IA1_In, blitz::Array<int, 1> &IA1_Result);
   template bool math::Uniq(const blitz::Array<int, 1> &IA1_In, blitz::Array<int, 1> &IA1_Result);
   template bool math::Uniq(const blitz::Array<long, 1> &IA1_In, blitz::Array<int, 1> &IA1_Result);
   template bool math::Uniq(const blitz::Array<float, 1> &IA1_In, blitz::Array<int, 1> &IA1_Result);
   template bool math::Uniq(const blitz::Array<double, 1> &IA1_In, blitz::Array<int, 1> &IA1_Result);
   
+  template blitz::Array<double,1> math::Moment(const blitz::Array<unsigned short, 1> &D_A1_Arr_In, int I_MaxMoment_In);
+  template blitz::Array<double,1> math::Moment(const blitz::Array<unsigned int, 1> &D_A1_Arr_In, int I_MaxMoment_In);
   template blitz::Array<double,1> math::Moment(const blitz::Array<int, 1> &D_A1_Arr_In, int I_MaxMoment_In);
   template blitz::Array<double,1> math::Moment(const blitz::Array<long, 1> &D_A1_Arr_In, int I_MaxMoment_In);
   template blitz::Array<double,1> math::Moment(const blitz::Array<float, 1> &D_A1_Arr_In, int I_MaxMoment_In);
   template blitz::Array<double,1> math::Moment(const blitz::Array<double, 1> &D_A1_Arr_In, int I_MaxMoment_In);
   
+  template blitz::Array<double,1> math::Moment(const blitz::Array<unsigned short, 2> &D_A1_Arr_In, int I_MaxMoment_In);
+  template blitz::Array<double,1> math::Moment(const blitz::Array<unsigned int, 2> &D_A1_Arr_In, int I_MaxMoment_In);
   template blitz::Array<double,1> math::Moment(const blitz::Array<int, 2> &D_A1_Arr_In, int I_MaxMoment_In);
   template blitz::Array<double,1> math::Moment(const blitz::Array<long, 2> &D_A1_Arr_In, int I_MaxMoment_In);
   template blitz::Array<double,1> math::Moment(const blitz::Array<float, 2> &D_A1_Arr_In, int I_MaxMoment_In);

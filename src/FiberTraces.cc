@@ -54,102 +54,9 @@ namespace pfsDRPStella = pfs::drp::stella;
   {
   }
   
-  /** **************************************************************
-
+  /** **************************************************************/
   template<typename ImageT, typename MaskT, typename VarianceT>
-  bool pfsDRPStella::FiberTrace<ImageT, MaskT, VarianceT>::setFiberTraceFunction(const PTR(FiberTraceFunction) &fiberTraceFunction){
-
-    /// Check for valid values in fiberTraceFunctionControl
-    bool isFunctionValid = false;
-    #ifdef __DEBUG_SETFIBERTRACEFUNCTION__
-      cout << "FiberTrace" << _iTrace << "::setFiberTraceFunction: fiberTraceFunction->fiberTraceFunctionControl.interpolation = <" << fiberTraceFunction->fiberTraceFunctionControl.interpolation << ">" << endl;
-      cout << "FiberTrace" << _iTrace << "::setFiberTraceFunction: fiberTraceFunction->fiberTraceFunctionControl.order = <" << fiberTraceFunction->fiberTraceFunctionControl.order << ">" << endl;
-      cout << "FiberTrace" << _iTrace << "::setFiberTraceFunction: fiberTraceFunction->fiberTraceFunctionControl.xLow = <" << fiberTraceFunction->fiberTraceFunctionControl.xLow << ">" << endl;
-      cout << "FiberTrace" << _iTrace << "::setFiberTraceFunction: fiberTraceFunction->fiberTraceFunctionControl.xHigh = <" << fiberTraceFunction->fiberTraceFunctionControl.xHigh << ">" << endl;
-      cout << "FiberTrace" << _iTrace << "::setFiberTraceFunction: fiberTraceFunction->xCenter = <" << fiberTraceFunction->xCenter << ">" << endl;
-      cout << "FiberTrace" << _iTrace << "::setFiberTraceFunction: fiberTraceFunction->yCenter = <" << fiberTraceFunction->yCenter << ">" << endl;
-      cout << "FiberTrace" << _iTrace << "::setFiberTraceFunction: fiberTraceFunction->yLow = <" << fiberTraceFunction->yLow << ">" << endl;
-      cout << "FiberTrace" << _iTrace << "::setFiberTraceFunction: fiberTraceFunction->yHigh = <" << fiberTraceFunction->yHigh << ">" << endl;
-      cout << "FiberTrace" << _iTrace << "::setFiberTraceFunction: fiberTraceFunction->coefficients = <";
-      for (int i = 0; i < static_cast<int>(fiberTraceFunction->coefficients.size()); i++)
-        cout << fiberTraceFunction->coefficients[i] << " ";
-      cout << ">" << endl;
-    #endif
-
-    for ( int fooInt = FiberTraceFunctionControl::CHEBYSHEV; fooInt != FiberTraceFunctionControl::NVALUES; fooInt++ ){
-      #ifdef __DEBUG_SETFIBERTRACEFUNCTION__
-        cout << "FiberTrace" << _iTrace << "::setFiberTraceFunction: INTERPOLATION_NAMES[fooInt] = <" << fiberTraceFunction->fiberTraceFunctionControl.INTERPOLATION_NAMES[fooInt] << ">" << endl;
-      #endif
-      if (fiberTraceFunction->fiberTraceFunctionControl.interpolation.compare(fiberTraceFunction->fiberTraceFunctionControl.INTERPOLATION_NAMES[fooInt]) == 0){
-        isFunctionValid = true;
-        #ifdef __DEBUG_SETFIBERTRACEFUNCTION__
-          cout << "FiberTrace" << _iTrace << "::setFiberTraceFunction: " << fiberTraceFunction->fiberTraceFunctionControl.interpolation << " is valid" << endl;
-        #endif
-      }
-    }
-    if (!isFunctionValid){
-      cout << "FiberTrace" << _iTrace << "::setFiberTraceFunction: ERROR: interpolation function is not valid! => Returning FALSE" << endl;
-      return false;
-    }
-
-    if (fiberTraceFunction->fiberTraceFunctionControl.order < 0){
-      cout << "FiberTrace" << _iTrace << "::setFiberTraceFunction: ERROR: fiberTraceFunction->fiberTraceFunctionControl.order(=" << fiberTraceFunction->fiberTraceFunctionControl.order << ") < 0 => Returning FALSE" << endl;
-      return false;
-    }
-
-    if (fiberTraceFunction->fiberTraceFunctionControl.xLow > 0.){
-      cout << "FiberTrace" << _iTrace << "::setFiberTraceFunction: ERROR: (fiberTraceFunction->fiberTraceFunctionControl.xLow(=" << fiberTraceFunction->fiberTraceFunctionControl.xLow << ") > 0 => Returning FALSE" << endl;
-      return false;
-    }
-
-    if (fiberTraceFunction->fiberTraceFunctionControl.xHigh < 0.){
-      cout << "FiberTrace" << _iTrace << "::setFiberTraceFunction: ERROR: (fiberTraceFunction->fiberTraceFunctionControl.xHigh(=" << fiberTraceFunction->fiberTraceFunctionControl.xHigh << ") < 0 => Returning FALSE" << endl;
-      return false;
-    }
-
-    if (fiberTraceFunction->coefficients.size() < fiberTraceFunction->fiberTraceFunctionControl.order){
-      cout << "FiberTrace" << _iTrace << "::setFiberTraceFunction: ERROR: fiberTraceFunction->coefficients.size(=" << fiberTraceFunction->coefficients.size() << ") < fiberTraceFunction->fiberTraceFunctionControl.order(=" << fiberTraceFunction->fiberTraceFunctionControl.order << ") => Returning FALSE" << endl;
-      return false;
-    }
-
-    if (fiberTraceFunction->xCenter < 0.){
-      cout << "FiberTrace" << _iTrace << "::setFiberTraceFunction: ERROR: fiberTraceFunction->xCenter(=" << fiberTraceFunction->xCenter << ") < 0 => Returning FALSE" << endl;
-      return false;
-    }
-
-    if (fiberTraceFunction->yCenter < 0.){
-      cout << "FiberTrace" << _iTrace << "::setFiberTraceFunction: ERROR: fiberTraceFunction->yCenter(=" << fiberTraceFunction->yCenter << ") < 0 => Returning FALSE" << endl;
-      return false;
-    }
-
-    if (fiberTraceFunction->fiberTraceFunctionControl.xLow + fiberTraceFunction->xCenter < 0.){
-      cout << "FiberTrace" << _iTrace << "::setFiberTraceFunction: ERROR: (fiberTraceFunction->fiberTraceFunctionControl.xLow(=" << fiberTraceFunction->fiberTraceFunctionControl.xLow << ") + fiberTraceFunction->xCenter(=" << fiberTraceFunction->xCenter << ") = " << fiberTraceFunction->fiberTraceFunctionControl.xLow + fiberTraceFunction->xCenter << " < 0 => Returning FALSE" << endl;
-      return false;
-    }
-
-    if (fiberTraceFunction->yLow > 0.){
-      cout << "FiberTrace" << _iTrace << "::setFiberTraceFunction: ERROR: (fiberTraceFunction->yLow(=" << fiberTraceFunction->yLow << ") > 0 => Returning FALSE" << endl;
-      return false;
-    }
-
-    if (fiberTraceFunction->yLow + fiberTraceFunction->yCenter < 0.){
-      cout << "FiberTrace" << _iTrace << "::setFiberTraceFunction: ERROR: (fiberTraceFunction->yLow(=" << fiberTraceFunction->yLow << ") + fiberTraceFunction->yCenter(=" << fiberTraceFunction->yCenter << ") = " << fiberTraceFunction->yLow + fiberTraceFunction->yCenter << " < 0 => Returning FALSE" << endl;
-      return false;
-    }
-
-    if (fiberTraceFunction->yHigh < 0.){
-      cout << "FiberTrace" << _iTrace << "::setFiberTraceFunction: ERROR: (fiberTraceFunction->yHigh(=" << fiberTraceFunction->yHigh << ") < 0 => Returning FALSE" << endl;
-      return false;
-    }
-
-    /// test passed -> copy fiberTraceFunctionControl to _fiberTraceFunctionControl
-    _fiberTraceFunction = fiberTraceFunction;
-
-    return true;
-  }
-*/
-  template<typename ImageT, typename MaskT, typename VarianceT>
-  bool pfsDRPStella::FiberTrace<ImageT, MaskT, VarianceT>::setFiberTraceProfileFittingControl(const PTR(FiberTraceProfileFittingControl) &fiberTraceProfileFittingControl){
+  bool pfsDRPStella::FiberTrace<ImageT, MaskT, VarianceT>::setFiberTraceProfileFittingControl(const PTR(FiberTraceProfileFittingControl) const& fiberTraceProfileFittingControl){
 
     /// Check for valid values in fiberTraceFunctionControl
     bool isTelluricValid = false;
@@ -168,72 +75,8 @@ namespace pfsDRPStella = pfs::drp::stella;
       //cout << "FiberTrace" << _iTrace << "::setFiberTraceProfileFittingControl: fiberTraceProfileFittingControl->xCorProf = <" << fiberTraceProfileFittingControl->xCorProf << ">" << endl;
     #endif
 
-    int isProfileInterpolationValid = false;
-    for ( int fooInt = FiberTraceProfileFittingControl::PISKUNOV; fooInt != FiberTraceProfileFittingControl::NVALUES_P; fooInt++ ){
-      #ifdef __DEBUG_SETFIBERTRACEEXTRACTIONCONTROL__
-        cout << "FiberTrace" << _iTrace << "::setFiberTraceProfileFittingControl: PROFILE_INTERPOLATION_NAMES[fooInt] = <" << fiberTraceProfileFittingControl->PROFILE_INTERPOLATION_NAMES[fooInt] << ">" << endl;
-      #endif
-      if (fiberTraceProfileFittingControl->profileInterpolation.compare(fiberTraceProfileFittingControl->PROFILE_INTERPOLATION_NAMES[fooInt]) == 0){
-        isProfileInterpolationValid = true;
-        #ifdef __DEBUG_SETFIBERTRACEEXTRACTIONCONTROL__
-          cout << "FiberTrace" << _iTrace << "::setFiberTraceProfileFittingControl: " << fiberTraceProfileFittingControl->profileInterpolation << " is valid" << endl;
-        #endif
-      }
-    }
-
-    if (!isProfileInterpolationValid){
-      cout << "FiberTrace" << _iTrace << "::setFiberTraceProfileFittingControl: ERROR: fiberTraceProfileFittingControl.profileInterpolation is not valid! => Returning FALSE" << endl;
-      return false;
-    }
-
-    for ( int fooInt = FiberTraceProfileFittingControl::NONE; fooInt != FiberTraceProfileFittingControl::NVALUES; fooInt++ ){
-      #ifdef __DEBUG_SETFIBERTRACEEXTRACTIONCONTROL__
-        cout << "FiberTrace" << _iTrace << "::setFiberTraceProfileFittingControl: TELLURIC_NAMES[fooInt] = <" << fiberTraceProfileFittingControl->TELLURIC_NAMES[fooInt] << ">" << endl;
-      #endif
-      if (fiberTraceProfileFittingControl->telluric.compare(fiberTraceProfileFittingControl->TELLURIC_NAMES[fooInt]) == 0){
-        isTelluricValid = true;
-        #ifdef __DEBUG_SETFIBERTRACEEXTRACTIONCONTROL__
-          cout << "FiberTrace" << _iTrace << "::setFiberTraceProfileFittingControl: " << fiberTraceProfileFittingControl->telluric << " is valid" << endl;
-        #endif
-      }
-    }
-    if (!isTelluricValid){
-      cout << "FiberTrace" << _iTrace << "::setFiberTraceProfileFittingControl: ERROR: telluric(=" << fiberTraceProfileFittingControl->telluric << ") is not valid! => Returning FALSE" << endl;
-      return false;
-    }
-
-    if (fiberTraceProfileFittingControl->ccdReadOutNoise < 0.){
-      cout << "FiberTrace" << _iTrace << "::setFiberTraceProfileFittingControl: ERROR: fiberTraceProfileFittingControl->ccdReadOutNoise(=" << fiberTraceProfileFittingControl->ccdReadOutNoise << ") < 0 => Returning FALSE" << endl;
-      return false;
-    }
-
-    if (fiberTraceProfileFittingControl->overSample == 0){
-      cout << "FiberTrace" << _iTrace << "::setFiberTraceProfileFittingControl: ERROR: (fiberTraceProfileFittingControl->overSample(=" << fiberTraceProfileFittingControl->overSample << ") == 0 => Returning FALSE" << endl;
-      return false;
-    }
-
-    if (fiberTraceProfileFittingControl->maxIterSF == 0){
-      cout << "FiberTrace" << _iTrace << "::setFiberTraceProfileFittingControl: ERROR: (fiberTraceProfileFittingControl->maxIterSF(=" << fiberTraceProfileFittingControl->maxIterSF << ") == 0 => Returning FALSE" << endl;
-      return false;
-    }
-
-    if ((fiberTraceProfileFittingControl->telluric.compare(fiberTraceProfileFittingControl->TELLURIC_NAMES[0]) != 0) && (fiberTraceProfileFittingControl->maxIterSky == 0)){
-      cout << "FiberTrace" << _iTrace << "::setFiberTraceProfileFittingControl: ERROR: telluric set to not NONE and (fiberTraceProfileFittingControl->maxIterSky(=" << fiberTraceProfileFittingControl->maxIterSky << ") == 0 => Returning FALSE" << endl;
-      return false;
-    }
-
-    if (fiberTraceProfileFittingControl->lambdaSF < 0.){
-      cout << "FiberTrace" << _iTrace << "::setFiberTraceProfileFittingControl: ERROR: (fiberTraceProfileFittingControl->lambdaSF(=" << fiberTraceProfileFittingControl->lambdaSF << ") < 0. => Returning FALSE" << endl;
-      return false;
-    }
-
-    if (fiberTraceProfileFittingControl->lambdaSP < 0.){
-      cout << "FiberTrace" << _iTrace << "::setFiberTraceProfileFittingControl: ERROR: (fiberTraceProfileFittingControl->lambdaSP(=" << fiberTraceProfileFittingControl->lambdaSP << ") < 0. => Returning FALSE" << endl;
-      return false;
-    }
-
-    if (fiberTraceProfileFittingControl->wingSmoothFactor < 0.){
-      cout << "FiberTrace" << _iTrace << "::setFiberTraceProfileFittingControl: ERROR: (fiberTraceProfileFittingControl->wingSmoothFactor(=" << fiberTraceProfileFittingControl->wingSmoothFactor << ") < 0. => Returning FALSE" << endl;
+    if (!fiberTraceProfileFittingControl->isClassInvariant()){
+      cout << "FiberTrace::setFiberTraceProfileFittingControl: ERROR: fiberTraceProfileFittingControl is not ClassInvariant" << endl;
       return false;
     }
 
@@ -367,27 +210,6 @@ namespace pfsDRPStella = pfs::drp::stella;
   template<typename ImageT, typename MaskT, typename VarianceT>
   PTR(pfsDRPStella::Spectrum<ImageT, MaskT, VarianceT, VarianceT>) pfsDRPStella::FiberTrace<ImageT, MaskT, VarianceT>::extractFromProfile()
   {
-//    try{
-      blitz::Array<string, 1> S_A1_Args(1);
-      S_A1_Args = "";
-      void **PP_Args;
-      PP_Args = (void**)malloc(sizeof(void*) * 1);
-
-      int I_temp = 0;
-      PP_Args[0] = &I_temp;
-
-      return extractFromProfile(S_A1_Args, PP_Args);
-//    }
-//    catch (std::exception &e){
-//      cout << "FiberTrace::extractFromProfile(): Exception <" << e.what() << ">" << endl;
-//      exit(EXIT_FAILURE);
-//    }
-  }
-
-  /// Set the profile image of this fiber trace to profile
-  template<typename ImageT, typename MaskT, typename VarianceT>
-  PTR(pfsDRPStella::Spectrum<ImageT, MaskT, VarianceT, VarianceT>) pfsDRPStella::FiberTrace<ImageT, MaskT, VarianceT>::extractFromProfile(const blitz::Array<string, 1> &S_A1_Args_In,
-                                                                                                                                          void *ArgV_In[]){
     if (!_isTraceSet){
       cout << "FiberTrace.extractFromProfile: ERROR: _trace is not set" << endl;
       throw LSST_EXCEPT(pexExcept::Exception, "FiberTrace.extractFromProfile: ERROR: _trace is not set");
@@ -416,26 +238,10 @@ namespace pfsDRPStella = pfs::drp::stella;
         throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
       }
 
-      unsigned int fiberTraceNumber = 0;
-
       blitz::Array<std::string, 1> keyWords(1);
       keyWords(0) = std::string("FIBERTRACENUMBER");
       void **args = (void**)malloc(sizeof(void*));
-      args[0] = &fiberTraceNumber;
-      std::string sTemp = "FIBERTRACENUMBER";
-      int I_Pos = 0;
-      if ((I_Pos = ::pfs::drp::stella::utils::KeyWord_Set(S_A1_Args_In, sTemp)) >= 0)
-      {
-        #ifdef __DEBUG_EXTRACTFROMPROFILE__
-          cout << "FiberTrace" << _iTrace << "::extractFromProfile: I_Pos = " << I_Pos << endl;
-        #endif
-        fiberTraceNumber = *(unsigned int*)ArgV_In[I_Pos];
-        cout << "FiberTrace" << _iTrace << "::extractFromProfile: KeyWord_Set(FIBERTRACENUMBER): fiberTraceNumber set to " << fiberTraceNumber << endl;
-        args[0] = &fiberTraceNumber;
-        #ifdef __DEBUG_EXTRACTFROMPROFILE__
-          cout << "args[0] set to FIBERTRACENUMBER = " << *(unsigned int*)args[0] << endl;
-        #endif
-      }
+      args[0] = &_iTrace;
 
       blitz::Array<float, 2> F_A2_ProfArray = utils::ndarrayToBlitz(_profile->getArray());
       blitz::Array<double, 2> D_A2_ProfArray = ::pfs::drp::stella::math::Double(F_A2_ProfArray);
@@ -954,7 +760,7 @@ namespace pfsDRPStella = pfs::drp::stella;
      *  ! blitz::Array<double, 1> sfsm             => blitz::Array<double, 1> D_A1_SFSM
      *  blitz::Array<double, 2> slitf
      *  ! blitz::Array<double, 1> ssf               => blitz::Array<double, 1> D_A1_SSF
-     *  ! int SWATH_WIDTH=swath_width       => int I_SwathWidth
+     *  ! int SWATH_WIDTH=swath_width       => int _fiberTraceProfileFittingControl->swathWidth
      *  blitz::Array<double, 1> tel                => blitz::Array<double, 1> D_A1_Tel
      *  TELLURIC=telluric
      *  ! long X_LEFT_LIM=x_left_lim        => int (int)((*P_D_A1_XMin)(fiberTraceNumber))
@@ -1175,14 +981,8 @@ namespace pfsDRPStella = pfs::drp::stella;
     int I_NBins = 0;
     int I_NXSF = 0;
     int I_Pos = 0;
-    int I_SwathWidth = _fiberTraceProfileFittingControl->swathWidth;
-    //int I_MaxIterSF = _fiberTraceProfileFittingControl->maxIterSF;
-    //int I_MaxIterSky = _fiberTraceProfileFittingControl->maxIterSky;
     int I_MaxIterSig = _fiberTraceProfileFittingControl->maxIterSig;
-    int I_MaxIterSig_Temp = _fiberTraceProfileFittingControl->maxIterSig;
     int I_XCorProf = 0;//_fiberTraceProfileFittingControl->xCorProf;
-    double D_ReadOutNoise = _fiberTraceProfileFittingControl->ccdReadOutNoise;
-    //    int overSample_In = _fiberTraceProfileFittingControl->overSample;
     int pos = 0;
     int pppos = 0;
 
@@ -1346,7 +1146,7 @@ namespace pfsDRPStella = pfs::drp::stella;
         throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
       }
     #endif
-    ndarray::Array<int, 2, 1> ndArr = calculateBinBoundY(I_SwathWidth);
+    ndarray::Array<int, 2, 1> ndArr = calculateBinBoundY(_fiberTraceProfileFittingControl->swathWidth);
     cout << "FiberTrace" << _iTrace << "::MkSlitFunc: ndArr = " << ndArr << endl;
     blitz::Array<int, 2> I_A2_IBinBoundY = utils::ndarrayToBlitz(ndArr);
     I_NBins = I_A2_IBinBoundY.rows();
@@ -1866,7 +1666,7 @@ namespace pfsDRPStella = pfs::drp::stella;
       for (int p=0; p<D_A2_SlitFunc_Im_In.rows(); p++)
       {
         /// Set MySF to 0. where < 3.*(-RON)
-        D_A2_SlitFunc_Im_In(p, blitz::Range::all()) = blitz::where(D_A2_SlitFunc_Im_In(p, blitz::Range::all()) < (3. * (0.-D_ReadOutNoise)), 0., D_A2_SlitFunc_Im_In(p, blitz::Range::all()));
+        D_A2_SlitFunc_Im_In(p, blitz::Range::all()) = blitz::where(D_A2_SlitFunc_Im_In(p, blitz::Range::all()) < (3. * (0. - _fiberTraceProfileFittingControl->ccdReadOutNoise)), 0., D_A2_SlitFunc_Im_In(p, blitz::Range::all()));
       }
       if (telluric == 1)///Piskunov
       {
@@ -2689,7 +2489,7 @@ namespace pfsDRPStella = pfs::drp::stella;
           #endif
           if (B_MaximaOnly){
             B_MaximaOnly = false;
-            I_MaxIterSig = I_MaxIterSig_Temp;
+            I_MaxIterSig = _fiberTraceProfileFittingControl->maxIterSig;
             if (telluric == 3){
               I_Run_Tel = -1;
               D_SFDev = 1.;
@@ -2830,8 +2630,8 @@ namespace pfsDRPStella = pfs::drp::stella;
                   D_A2_SlitFunc_Im_In_Tel(tttt, uuuu) = 0.;
               }
               D_ImMin = min(D_A2_SlitFunc_Im_In_Tel(tttt, blitz::Range::all()));
-              if (D_ImMin < 0. - (3. * D_ReadOutNoise)){
-                D_ImMin = D_ImMin + (3. * D_ReadOutNoise);
+              if (D_ImMin < 0. - (3. * _fiberTraceProfileFittingControl->ccdReadOutNoise)){
+                D_ImMin = D_ImMin + (3. * _fiberTraceProfileFittingControl->ccdReadOutNoise);
                 #ifdef __DEBUG_MKSLITFUNC__
                   cout << "FiberTrace" << _iTrace << "::MkSlitFunc: I_IBin = " << I_IBin << ": tttt=" << tttt << ": D_ImMin = " << D_ImMin << endl;
                   cout << "FiberTrace" << _iTrace << "::MkSlitFunc: I_IBin = " << I_IBin << ": tttt=" << tttt << ": D_A2_SlitFunc_Im_In_Tel(tttt,*) = " << D_A2_SlitFunc_Im_In_Tel(tttt, blitz::Range::all()) << endl;
@@ -3239,10 +3039,10 @@ namespace pfsDRPStella = pfs::drp::stella;
     _profile = imageProf;
     _isProfileSet = true;
 //    _isSpectrumExtracted = true;
-    blitz::Array<unsigned short, 2> U_A2_Mask(_trace->getHeight(), _trace->getWidth());
+    blitz::Array<MaskT, 2> U_A2_Mask(_trace->getHeight(), _trace->getWidth());
     U_A2_Mask = where(I_A2_Mask_AllRows == 1, T_A2_MaskArray, 1);
-    ndarray::Array<unsigned short, 2, 1> ndarrayMask(::pfs::drp::stella::utils::copyBlitzToNdarray(U_A2_Mask));
-    afwImage::Mask<unsigned short> maskImage(ndarrayMask);
+    ndarray::Array<MaskT, 2, 1> ndarrayMask(::pfs::drp::stella::utils::copyBlitzToNdarray(U_A2_Mask));
+    afwImage::Mask<MaskT> maskImage(ndarrayMask);
     *_trace->getMask() = maskImage;
 
 //    if (ErrorsRead){
@@ -6849,11 +6649,42 @@ namespace pfsDRPStella = pfs::drp::stella;
     #endif
     return true;
   }
+  
+  template<typename ImageT, typename MaskT, typename VarianceT>
+  PTR(pfsDRPStella::FiberTrace<ImageT, MaskT, VarianceT>) pfsDRPStella::FiberTrace<ImageT, MaskT, VarianceT>::getPointer(){
+    PTR(FiberTrace) ptr(new FiberTrace(*this));
+    return ptr;
+  }
+
 
   /**
    * class FiberTraceSet
    **/
-
+  template<typename ImageT, typename MaskT, typename VarianceT>
+  pfsDRPStella::FiberTraceSet<ImageT, MaskT, VarianceT>::FiberTraceSet(unsigned int nTraces)
+        : _traces(new std::vector<PTR(FiberTrace<ImageT, MaskT, VarianceT>)>(nTraces))
+  {
+    for (int i=0; i<nTraces; ++i){
+      PTR(FiberTrace<ImageT, MaskT, VarianceT>) fiberTrace(new FiberTrace<ImageT, MaskT, VarianceT>(0,0,i));
+      (*_traces)[i] = fiberTrace;
+    }
+  }
+  
+      
+    /// Extract FiberTraces from new MaskedImage
+  template<typename ImageT, typename MaskT, typename VarianceT>
+  bool pfsDRPStella::FiberTraceSet<ImageT, MaskT, VarianceT>::createTraces(const PTR(const MaskedImageT) &maskedImage){
+    for (int i = 0; i < _traces->size(); ++i){
+      if (!(*_traces)[i]->createTrace(maskedImage)){
+        string message("FiberTraceSet::createTraces: ERROR: _traces[");
+        message += to_string(i) + string("] returned FALSE");
+        cout << message << endl;
+        throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
+      }
+    }
+    return true;
+  }
+ 
   template<typename ImageT, typename MaskT, typename VarianceT>
   bool pfsDRPStella::FiberTraceSet<ImageT, MaskT, VarianceT>::setFiberTrace(const unsigned int i,     ///< which aperture?
                                                                             const PTR(FiberTrace<ImageT, MaskT, VarianceT>) &trace ///< the FiberTrace for the ith aperture
@@ -6928,9 +6759,15 @@ namespace pfsDRPStella = pfs::drp::stella;
   }
   
   template<typename ImageT, typename MaskT, typename VarianceT>
-  void pfsDRPStella::FiberTraceSet<ImageT, MaskT, VarianceT>::addFiberTrace(const PTR(FiberTrace<ImageT, MaskT, VarianceT>) &trace) ///< the FiberTrace for the ith aperture
+  bool pfsDRPStella::FiberTraceSet<ImageT, MaskT, VarianceT>::addFiberTrace(const PTR(FiberTrace<ImageT, MaskT, VarianceT>) &trace) ///< the FiberTrace for the ith aperture
   {
+    int size = _traces->size();
     _traces->push_back(trace);
+    if (_traces->size() == size){
+      string message("FiberTraceSet::addFiberTrace: ERROR: could not add trace to _traces");
+      throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
+    }
+    return true;
   }
 
   template<typename ImageT, typename MaskT, typename VarianceT>
@@ -6960,7 +6797,7 @@ namespace pfsDRPStella = pfs::drp::stella;
   }
 
   template<typename ImageT, typename MaskT, typename VarianceT>
-  bool pfsDRPStella::FiberTraceSet<ImageT, MaskT, VarianceT>::setFiberTraceProfileFittingControl(const PTR(FiberTraceProfileFittingControl) &fiberTraceProfileFittingControl){
+  bool pfsDRPStella::FiberTraceSet<ImageT, MaskT, VarianceT>::setFiberTraceProfileFittingControl(const PTR(FiberTraceProfileFittingControl) const& fiberTraceProfileFittingControl){
     for (unsigned int i=0; i<_traces->size(); ++i){
       if (!(*_traces)[i]->setFiberTraceProfileFittingControl(fiberTraceProfileFittingControl)){
         cout << "FiberTraceSet::setFiberTraceProfileFittingControl: ERROR: (*_traces)[" << i << "]->setFiberTraceProfileFittingControl(fiberTraceProfileFittingControl) returned FALSE => Returning FALSE" << endl;
@@ -7009,24 +6846,15 @@ namespace pfsDRPStella = pfs::drp::stella;
   template<typename ImageT, typename MaskT, typename VarianceT>
   PTR(pfsDRPStella::Spectrum<ImageT, MaskT, VarianceT, VarianceT>) pfsDRPStella::FiberTraceSet<ImageT, MaskT, VarianceT>::extractTraceNumberFromProfile(int traceNumber)
   {
-    blitz::Array<std::string, 1> keyWords(1);
-    keyWords(0) = "FIBERTRACENUMBER";
-    void **args = (void**)malloc(sizeof(void*));
-    args[0] = &traceNumber;
-    return (*_traces)[traceNumber]->extractFromProfile(keyWords, args);
+    return (*_traces)[traceNumber]->extractFromProfile();
   }
 
   template<typename ImageT, typename MaskT, typename VarianceT>
   PTR(pfsDRPStella::SpectrumSet<ImageT, MaskT, VarianceT, VarianceT>)  pfsDRPStella::FiberTraceSet<ImageT, MaskT, VarianceT>::extractAllTracesFromProfile()
   {
     PTR(pfsDRPStella::SpectrumSet<ImageT, MaskT, VarianceT, VarianceT>) spectrumSet(new pfsDRPStella::SpectrumSet<ImageT, MaskT, VarianceT, VarianceT>(_traces->size()));
-    blitz::Array<std::string, 1> keyWords(1);
-    keyWords(0) = "FIBERTRACENUMBER";
-    void **args = (void**)malloc(sizeof(void*));
-    unsigned int i = 0;
-    args[0] = &i;
-    for (i = 0; i < _traces->size(); ++i){
-      (*(spectrumSet->getSpectra()))[i] = (*_traces)[i]->extractFromProfile(keyWords, args);
+    for (int i = 0; i < _traces->size(); ++i){
+      (*(spectrumSet->getSpectra()))[i] = (*_traces)[i]->extractFromProfile();
     }
     return spectrumSet;
   }
@@ -8039,7 +7867,17 @@ namespace pfsDRPStella = pfs::drp::stella;
       return pXCenters;
     }
     
-  }}}}
+  }
+  
+  namespace utils{
+  
+    template<typename T>
+    const T* getRawPointer(const PTR(const T) & ptr){
+      return ptr.get();
+    }
+    
+  }
+  }}}
 
 /*  int main(){
     cout << "Test that we can create a FiberTraceFunctionFindingControl" << endl;
@@ -8079,19 +7917,38 @@ namespace pfsDRPStella = pfs::drp::stella;
 
 //  template class FiberTrace<unsigned short>;
 //  template class FiberTrace<int>;
-  template class pfsDRPStella::FiberTrace<float>;
-  template class pfsDRPStella::FiberTrace<double>;
+  template class pfsDRPStella::FiberTrace<float, unsigned short, float>;
+  template class pfsDRPStella::FiberTrace<double, unsigned short, float>;
+//  template class pfsDRPStella::FiberTrace<float, unsigned int, float>;
+//  template class pfsDRPStella::FiberTrace<double, unsigned int, float>;
 
 //  template class FiberTraceSet<unsigned short>;
 //  template class FiberTraceSet<int>;
-  template class pfsDRPStella::FiberTraceSet<float>;
-  template class pfsDRPStella::FiberTraceSet<double>;
+  template class pfsDRPStella::FiberTraceSet<float, unsigned short, float>;
+  template class pfsDRPStella::FiberTraceSet<double, unsigned short, float>;
+//  template class pfsDRPStella::FiberTraceSet<float, unsigned int, float>;
+//  template class pfsDRPStella::FiberTraceSet<double, unsigned int, float>;
 
-  template PTR(pfsDRPStella::FiberTraceSet<float>) pfsDRPStella::math::findAndTraceApertures(PTR(const afwImage::MaskedImage<float>) const&, 
+  template PTR(pfsDRPStella::FiberTraceSet<float, unsigned short, float>) pfsDRPStella::math::findAndTraceApertures(PTR(const afwImage::MaskedImage<float, unsigned short, float>) const&, 
                                                                                              PTR(const pfsDRPStella::FiberTraceFunctionFindingControl) const&);
-  template PTR(pfsDRPStella::FiberTraceSet<double>) pfsDRPStella::math::findAndTraceApertures(PTR(const afwImage::MaskedImage<double>) const&, 
+  template PTR(pfsDRPStella::FiberTraceSet<double, unsigned short, float>) pfsDRPStella::math::findAndTraceApertures(PTR(const afwImage::MaskedImage<double, unsigned short, float>) const&, 
                                                                                               PTR(const pfsDRPStella::FiberTraceFunctionFindingControl) const&);
+//  template PTR(pfsDRPStella::FiberTraceSet<float, unsigned int, float>) pfsDRPStella::math::findAndTraceApertures(PTR(const afwImage::MaskedImage<float, unsigned int, float>) const&, 
+//                                                                                             PTR(const pfsDRPStella::FiberTraceFunctionFindingControl) const&);
+//  template PTR(pfsDRPStella::FiberTraceSet<double, unsigned int, float>) pfsDRPStella::math::findAndTraceApertures(PTR(const afwImage::MaskedImage<double, unsigned int, float>) const&, 
+//                                                                                              PTR(const pfsDRPStella::FiberTraceFunctionFindingControl) const&);
 
+template const afwImage::MaskedImage<float, unsigned short, float>* pfsDRPStella::utils::getRawPointer(const PTR(const afwImage::MaskedImage<float, unsigned short, float>) &ptr);
+template const afwImage::MaskedImage<double, unsigned short, float>* pfsDRPStella::utils::getRawPointer(const PTR(const afwImage::MaskedImage<double, unsigned short, float>) &ptr);
+template const afwImage::Image<float>* pfsDRPStella::utils::getRawPointer(const PTR(const afwImage::Image<float>) &ptr);
+template const afwImage::Image<double>* pfsDRPStella::utils::getRawPointer(const PTR(const afwImage::Image<double>) &ptr);
+template const afwImage::Image<unsigned short>* pfsDRPStella::utils::getRawPointer(const PTR(const afwImage::Image<unsigned short>) &ptr);
+template const afwImage::Image<unsigned int>* pfsDRPStella::utils::getRawPointer(const PTR(const afwImage::Image<unsigned int>) &ptr);
+template const afwImage::Image<int>* pfsDRPStella::utils::getRawPointer(const PTR(const afwImage::Image<int>) &ptr);
+template const pfsDRPStella::FiberTrace<float, unsigned short, float>* pfsDRPStella::utils::getRawPointer(const PTR(const pfsDRPStella::FiberTrace<float, unsigned short, float>) &ptr);
+template const pfsDRPStella::FiberTrace<double, unsigned short, float>* pfsDRPStella::utils::getRawPointer(const PTR(const pfsDRPStella::FiberTrace<double, unsigned short, float>) &ptr);
+//template const pfsDRPStella::FiberTrace<float, unsigned int, float>* pfsDRPStella::utils::getRawPointer(const PTR(const pfsDRPStella::FiberTrace<float, unsigned int, float>) &ptr);
+//template const pfsDRPStella::FiberTrace<double, unsigned int, float>* pfsDRPStella::utils::getRawPointer(const PTR(const pfsDRPStella::FiberTrace<double, unsigned int, float>) &ptr);
 
 //  template void math::resize(blitz::Array<unsigned int, 1> &arr_in, unsigned int newSize);
 //  template void math::resize(blitz::Array<int, 1> &arr_in, unsigned int newSize);
