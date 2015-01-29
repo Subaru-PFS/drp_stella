@@ -239,13 +239,29 @@ class FiberTraceTestCase(tests.TestCase):
         fiberTrace = drpStella.FiberTraceF(self.flat.getMaskedImage(), fiberTraceSet.getFiberTrace(0).getFiberTraceFunction(), fiberTraceSet.getFiberTrace(0).getXCenters(), iTrace)
         self.assertEqual(fiberTraceSet.getFiberTrace(0).getXCenters()[5], fiberTrace.getXCenters()[5])
         
-        """Test copy constructor"""
+        """Test copy constructor - shallow copy"""
         fiberTraceCopy = drpStella.FiberTraceF(fiberTrace)
         self.assertEqual(fiberTraceCopy.getWidth(), fiberTrace.getWidth())
         self.assertEqual(fiberTraceCopy.getHeight(), fiberTrace.getHeight())
         self.assertEqual(fiberTraceCopy.getITrace(), fiberTrace.getITrace())
         self.assertAlmostEqual(fiberTrace.getTrace().getImage().getArray()[5,5], fiberTraceCopy.getTrace().getImage().getArray()[5,5])
         self.assertAlmostEqual(fiberTrace.getXCenters()[5], fiberTraceCopy.getXCenters()[5])
+        val = 11.1
+        fiberTrace.getTrace().getImage().getArray()[5,5] = val
+        self.assertAlmostEqual(fiberTrace.getTrace().getImage().getArray()[5,5], val, places=6)
+        self.assertAlmostEqual(fiberTrace.getTrace().getImage().getArray()[5,5], fiberTraceCopy.getTrace().getImage().getArray()[5,5])
+        
+        """Test copy constructor - deep copy"""
+        fiberTraceCopy = drpStella.FiberTraceF(fiberTrace, True)
+        self.assertEqual(fiberTraceCopy.getWidth(), fiberTrace.getWidth())
+        self.assertEqual(fiberTraceCopy.getHeight(), fiberTrace.getHeight())
+        self.assertEqual(fiberTraceCopy.getITrace(), fiberTrace.getITrace())
+        self.assertAlmostEqual(fiberTrace.getTrace().getImage().getArray()[5,5], fiberTraceCopy.getTrace().getImage().getArray()[5,5])
+        self.assertAlmostEqual(fiberTrace.getXCenters()[5], fiberTraceCopy.getXCenters()[5])
+        val = 13.3
+        fiberTrace.getTrace().getImage().getArray()[5,5] = val
+        self.assertAlmostEqual(fiberTrace.getTrace().getImage().getArray()[5,5], val, places=6)
+        self.assertNotAlmostEqual(fiberTrace.getTrace().getImage().getArray()[5,5], fiberTraceCopy.getTrace().getImage().getArray()[5,5], places=6)
 
     def testFiberTraceSetConstructors(self):
         """Test that we can create a FiberTraceSet from the standard constructor"""
@@ -626,7 +642,7 @@ class FiberTraceTestCase(tests.TestCase):
             print message
             for i in range(len(message)):
                 print "element",i,": <",message[i],">"
-            expected = "in method 'FiberTraceSetF_setFiberTrace', argument 2 of type 'unsigned int'"
+            expected = "in method 'FiberTraceSetF_setFiberTrace', argument 2 of type 'size_t'"
             self.assertEqual(message[0],expected)
             
         """Test that we can erase a FiberTrace"""
@@ -675,12 +691,25 @@ class FiberTraceTestCase(tests.TestCase):
             self.assertTrue(fts.getFiberTrace(i).isProfileSet())
             
         """Test that we can set all profiles for a new FiberTraceSet"""
+        """Copy constructor - shallow copy"""
         val = 11.
         fts.getFiberTrace(0).getTrace().getImage().getArray()[5,5] = val
+        self.assertAlmostEqual(fts.getFiberTrace(0).getTrace().getImage().getArray()[5,5], val)
         ftsComb = drpStella.FiberTraceSetF(fts)
+        self.assertAlmostEqual(ftsComb.getFiberTrace(0).getTrace().getImage().getArray()[5,5], val)
         self.assertTrue(ftsComb.createTraces(self.comb.getMaskedImage()))
-        self.assertAlmostEqual(fts.getFiberTrace(0).getTrace().getImage().getArray()[5,5])
+        self.assertAlmostEqual(fts.getFiberTrace(0).getTrace().getImage().getArray()[5,5], ftsComb.getFiberTrace(0).getTrace().getImage().getArray()[5,5])
+        self.assertNotAlmostEqual(fts.getFiberTrace(0).getTrace().getImage().getArray()[5,5], val)
+
+        """Copy constructor - deep copy"""
+        fts.getFiberTrace(0).getTrace().getImage().getArray()[5,5] = val
+        self.assertAlmostEqual(fts.getFiberTrace(0).getTrace().getImage().getArray()[5,5], val)
+        ftsComb = drpStella.FiberTraceSetF(fts, True)
+        self.assertAlmostEqual(ftsComb.getFiberTrace(0).getTrace().getImage().getArray()[5,5], val)
+        self.assertTrue(ftsComb.createTraces(self.comb.getMaskedImage()))
         self.assertNotAlmostEqual(fts.getFiberTrace(0).getTrace().getImage().getArray()[5,5], ftsComb.getFiberTrace(0).getTrace().getImage().getArray()[5,5])
+        self.assertAlmostEqual(fts.getFiberTrace(0).getTrace().getImage().getArray()[5,5], val)
+
         
         """Test that we can extract a FiberTrace from the spatial profile"""
         spectrum = ftsComb.extractTraceNumberFromProfile(3)
