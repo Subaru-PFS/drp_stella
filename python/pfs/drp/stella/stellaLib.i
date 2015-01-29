@@ -132,6 +132,7 @@ Interface to Stella
 %include "pfs/drp/stella/spline.h"
 %include "pfs/drp/stella/SurfaceFit.h"
 
+# """Shared Pointers (!) to std::vectors"""
 %template(SPVectorF) std::vector<float>;
 #%template(SPVectorD) std::vector<double>;
 %template(SPVectorUS) std::vector<unsigned short>;
@@ -334,6 +335,13 @@ Interface to Stella
 
 %template(getPointerMIF) pfs::drp::stella::utils::getPointer<lsst::afw::image::MaskedImage<float, unsigned short, float>>;
 %template(getPointerMID) pfs::drp::stella::utils::getPointer<lsst::afw::image::MaskedImage<double, unsigned short, float>>;
+%template(getPointerVUS) pfs::drp::stella::utils::getPointer<std::vector<unsigned short>>;
+%template(getPointerVUI) pfs::drp::stella::utils::getPointer<std::vector<unsigned int>>;
+%template(getPointerVI) pfs::drp::stella::utils::getPointer<std::vector<int>>;
+%template(getPointerVF) pfs::drp::stella::utils::getPointer<std::vector<float>>;
+%template(getPointerVD) pfs::drp::stella::utils::getPointer<std::vector<double>>;
+#%template(getPointerSF) pfs::drp::stella::utils::getPointer<std::vector<pfs::drp::stella::Spectrum<float, unsigned short, float, float>>>;
+#%template(getPointerSD) pfs::drp::stella::utils::getPointer<std::vector<pfs::drp::stella::Spectrum<double, unsigned short, float, float>>>;
 
 %template(get1DBlitzArrayUS) pfs::drp::stella::utils::get1DBlitzArray<unsigned short>;
 %template(get1DBlitzArrayI) pfs::drp::stella::utils::get1DBlitzArray<int>;
@@ -357,3 +365,10 @@ Interface to Stella
 %template(copyVectorI) pfs::drp::stella::utils::copy<int>;
 %template(copyVectorF) pfs::drp::stella::utils::copy<float>;
 %template(copyVectorD) pfs::drp::stella::utils::copy<double>;
+
+%template(indGenUS) pfs::drp::stella::math::indGen<unsigned short>;
+%template(indGenUI) pfs::drp::stella::math::indGen<unsigned int>;
+%template(indGenI) pfs::drp::stella::math::indGen<int>;
+%template(indGenF) pfs::drp::stella::math::indGen<float>;
+%template(indGenD) pfs::drp::stella::math::indGen<double>;
+

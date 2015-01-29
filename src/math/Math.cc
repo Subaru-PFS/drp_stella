@@ -1635,6 +1635,15 @@
       free(PP_Args);
       return true;
     }
+    
+    template<typename T>
+    std::vector<T> indGen(T len){
+      std::vector<T> vecOut;
+      for (T i = 0; i < len; ++i)
+        vecOut.push_back(i);
+      return vecOut;
+    }
+
 
     blitz::Array<int, 1> IndGenArr(int len){
       blitz::Array<int, 1> I_A1_Result(len);
@@ -5397,4 +5406,10 @@
   template std::vector<int> math::sortIndices(const std::vector<long> &vec_In);
   template std::vector<int> math::sortIndices(const std::vector<float> &vec_In);
   template std::vector<int> math::sortIndices(const std::vector<double> &vec_In);
+  
+  template std::vector<unsigned short> math::indGen(unsigned short);
+  template std::vector<unsigned int> math::indGen(unsigned int);
+  template std::vector<int> math::indGen(int);
+  template std::vector<float> math::indGen(float);
+  template std::vector<double> math::indGen(double);
 }}}

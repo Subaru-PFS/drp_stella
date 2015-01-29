@@ -557,6 +557,14 @@ namespace pfs { namespace drp { namespace stella {
 
 
     /**
+     * @brief Creates standard vector of length len containing the index numbers as values
+     * @param len: length of output vector
+     * @return 
+     */
+    template<typename T>
+    std::vector<T> indGen(T len);
+    
+    /**
      *  Creates float array containing the index numbers as values
      **/
     blitz::Array<float, 1> FIndGenArr(int len);

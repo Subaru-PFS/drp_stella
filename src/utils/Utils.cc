@@ -710,12 +710,6 @@ namespace pfs { namespace drp { namespace stella { namespace utils{
   }
 
   template<typename T>
-  PTR(T) getPointer(T &obj){
-    PTR(T) pointer(new T(obj));
-    return pointer;
-  }
-
-  template<typename T>
   blitz::Array<T, 2> get2DBlitzArray(T nRows, T nCols){
     blitz::Array<T, 2> out(2,2);
     out.resize(int(nRows), int(nCols));
@@ -770,9 +764,6 @@ template bool utils::WriteArrayToFile(const blitz::Array<int, 2> &D_A2_In, const
 template bool utils::WriteArrayToFile(const blitz::Array<long, 2> &D_A2_In, const string &S_FileName_In, const string &S_Mode);
 template bool utils::WriteArrayToFile(const blitz::Array<float, 2> &D_A2_In, const string &S_FileName_In, const string &S_Mode);
 template bool utils::WriteArrayToFile(const blitz::Array<double, 2> &D_A2_In, const string &S_FileName_In, const string &S_Mode);
-
-template PTR(afwImage::MaskedImage<float, unsigned short, float>) utils::getPointer(afwImage::MaskedImage<float, unsigned short, float> &);
-template PTR(afwImage::MaskedImage<double, unsigned short, float>) utils::getPointer(afwImage::MaskedImage<double, unsigned short, float> &);
   
 template blitz::Array<unsigned short, 1> utils::get1DBlitzArray(unsigned short);
 template blitz::Array<int, 1> utils::get1DBlitzArray(int);

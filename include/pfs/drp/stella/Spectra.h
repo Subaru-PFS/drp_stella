@@ -30,16 +30,14 @@ class Spectrum {
   public:
 
     // Class Constructors and Destructor
-    explicit Spectrum(
-      unsigned int length = 0, unsigned int iTrace = 0
-    );
+    explicit Spectrum(size_t length = 0, 
+                      size_t iTrace = 0);
     
-    explicit Spectrum(
-      Spectrum &spectrum,
-      unsigned int iTrace = 0
-    );
+    /// iTrace is only assigned to _iTrace if != 0, otherwise spectrum._iTrace is copied to this->_iTrace
+    explicit Spectrum(Spectrum &spectrum,
+                      size_t iTrace = 0);
     
-    virtual ~Spectrum() {}
+    ~Spectrum() {}
 
     /// Return a shared pointer to the spectrum
     PTR(std::vector<SpectrumT>) getSpectrum() { return _spectrum; }
@@ -74,7 +72,7 @@ class Spectrum {
     /// sets this->_mask to mask and returns TRUE if mask->size() == this->getLength(), otherwise returns false
     bool setMask(const PTR(std::vector<MaskT>) & mask);
 
-    unsigned int getLength() const {return _length;}
+    size_t getLength() const {return _length;}
     
     /// Resize all vectors to size length.
     /// If length is smaller than the current container size, the contents of all vectors are reduced to their first length elements, 
@@ -82,23 +80,23 @@ class Spectrum {
     /// If length is greater than the current container size, the contents of all vectors are expanded by inserting at the end as 
     /// many elements as needed to reach a size of length. The new elements of all vectors except for _wavelength are initialized 
     /// with 0. The new elements of _wavelength are initialized with _wavelength(_length - 1).
-    bool setLength(const unsigned int length);
+    bool setLength(const size_t length);
     
-    unsigned int getITrace() const {return _iTrace;}
-    void setITrace(unsigned int iTrace){_iTrace = iTrace;}
+    size_t getITrace() const {return _iTrace;}
+    void setITrace(size_t iTrace){_iTrace = iTrace;}
     
     bool isWavelengthSet() const {return _isWavelengthSet;}
 //    void setIsWavelengthSet(bool isWavelengthSet) {_isWavelengthSet = isWavelengthSet;}
     
   private:
-    unsigned int _length;
+    size_t _length;
     PTR(std::vector<SpectrumT>) _spectrum;
     PTR(std::vector<MaskT>) _mask;/// 0: all pixels of the wavelength element used for extraction were okay
                                   /// 1: at least one pixel was not okay but the extraction algorithm believes it could fix it
                                   /// 2: at least one pixel was problematic
     PTR(std::vector<VarianceT>) _variance;
     PTR(std::vector<WavelengthT>) _wavelength;
-    unsigned int _iTrace;/// for logging / debugging purposes only
+    size_t _iTrace;/// for logging / debugging purposes only
     bool _isWavelengthSet;
 
   protected:
@@ -115,9 +113,7 @@ class SpectrumSet {
     /// Class Constructors and Destructor
       
     /// Creates a new SpectrumSet object of size 0
-    explicit SpectrumSet(unsigned int nSpectra=0)
-        : _spectra(new std::vector<PTR(Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>)>(nSpectra))
-        {}
+    explicit SpectrumSet(size_t nSpectra=0, size_t length=0);
         
     /// Copy constructor
     /// If spectrumSet is not empty, the object shares ownership of spectrumSet's spectrum vector and increases the use count.
@@ -127,44 +123,42 @@ class SpectrumSet {
         {}
 
     /// Construct an object with a copy of spectrumVector
-    explicit SpectrumSet(const std::vector<PTR(Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>)> &spectrumVector)
-        : _spectra(new std::vector<PTR(Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>)>(spectrumVector))
-        {}
+    explicit SpectrumSet(const PTR(std::vector<PTR(Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>)>) &spectrumVector);
         
     virtual ~SpectrumSet() {}
 
     /// Return the number of spectra/apertures
-    int size() const { return _spectra->size(); }
+    size_t size() const { return _spectra->size(); }
 
     /// Return the Spectrum for the ith aperture
-    PTR(Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>) &getSpectrum(const unsigned int i ///< desired aperture
-                             );
+    PTR(Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>) &getSpectrum(const size_t i);
 
-    PTR(Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>) const& getSpectrum(const unsigned int i ///< desired aperture
-                                   ) const;
+    const PTR(const Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>) const& getSpectrum(const size_t i) const;
 
     /// Set the ith Spectrum
-    bool setSpectrum(const unsigned int i,     /// which spectrum?
-                     const PTR(Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>) & spectrum /// the Spectrum for the ith aperture
-                      );
+    bool setSpectrum(const size_t i,     /// which spectrum?
+                     const PTR(Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>) & spectrum);
 
     /// add one Spectrum to the set
-    void addSpectrum(const PTR(Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>) & spectrum /// the Spectrum to add
-    );
+    bool addSpectrum(const PTR(Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>) & spectrum);
 
     PTR(std::vector<PTR(Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>)>) getSpectra() const { return _spectra; }
 
     
     /// Removes from the vector either a single element (position) or a range of elements ([first,last)).
     /// This effectively reduces the container size by the number of elements removed, which are destroyed.
-    bool erase(const unsigned int iStart, const unsigned int iEnd=0);
+    bool erase(const size_t iStart, const size_t iEnd=0);
     
   private:
     PTR(std::vector<PTR(Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>)>) _spectra; // spectra for each aperture
 };
 
 
-namespace math{
+namespace utils{
+  
+  template<typename T>
+  PTR(T) getPointer(T &);
+
 }
 
 }}}

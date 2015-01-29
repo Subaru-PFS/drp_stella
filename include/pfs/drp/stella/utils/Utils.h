@@ -91,9 +91,6 @@ namespace pfs { namespace drp { namespace stella { namespace utils{
 
   bool readFileLinesToStrArr(const string &S_FileName_In,
                               blitz::Array<string, 1> &S_A1_Out);
-  
-  template<typename T>
-  PTR(T) getPointer(T &);
     
   template<typename T>
   blitz::Array<T, 2> get2DBlitzArray(T nRows, T nCols);
