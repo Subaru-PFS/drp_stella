@@ -328,13 +328,23 @@ class FiberTraceTestCase(tests.TestCase):
         print arrayMIFVal
         self.assertEqual(arrayVal, arrayMIFVal)
         
-        maskedImageWrongSize = afwImage.MaskedImageF(100,10)
+        height = 100
+        width = 10
+        maskedImageWrongSize = afwImage.MaskedImageF(width,height)
         
         """Test setTrace"""
         val = 1000.
         fiberTrace.getTrace().getImage().getArray()[5,5] = val
         self.assertTrue(fiberTraceMIF.setTrace(fiberTrace.getTrace()))
-        self.assertFalse(fiberTraceMIF.setTrace(maskedImageWrongSize))
+        try:
+            fiberTraceMIF.setTrace(maskedImageWrongSize)
+        except:
+            e = sys.exc_info()[1]
+            message = str.split(e.message, "\n")
+            for i in range(len(message)):
+                print "element",i,": <",message[i],">"
+            expected = "FiberTrace1::setTrace: ERROR: trace->getHeight(="+str(height)+") != _trace->getHeight(="+str(fiberTraceMIF.getHeight())+")"
+            self.assertEqual(message[0],expected)
         self.assertAlmostEqual(fiberTraceMIF.getTrace().getImage().getArray()[5,5], val)
         fiberTraceMIF.getTrace().getImage().getArray()[5,5] = val+2
         self.assertAlmostEqual(fiberTrace.getTrace().getImage().getArray()[5,5], val+2)
@@ -346,7 +356,15 @@ class FiberTraceTestCase(tests.TestCase):
         val = 1011.
         fiberTrace.getImage().getArray()[5,5] = val
         self.assertTrue(fiberTraceMIF.setImage(fiberTrace.getImage()))
-        self.assertFalse(fiberTraceMIF.setImage(maskedImageWrongSize.getImage()))
+        try:
+            fiberTraceMIF.setImage(maskedImageWrongSize.getImage())
+        except:
+            e = sys.exc_info()[1]
+            message = str.split(e.message, "\n")
+            for i in range(len(message)):
+                print "element",i,": <",message[i],">"
+            expected = "FiberTrace.setImage: ERROR: image.getWidth(="+str(width)+") != _trace->getWidth(="+str(fiberTraceMIF.getWidth())+")"
+            self.assertEqual(message[0],expected)
         self.assertAlmostEqual(fiberTraceMIF.getImage().getArray()[5,5], val)
         fiberTrace.getImage().getArray()[5,5] = val+2
         self.assertAlmostEqual(fiberTraceMIF.getImage().getArray()[5,5], val+2)
@@ -356,7 +374,15 @@ class FiberTraceTestCase(tests.TestCase):
         val = 1000.
         fiberTrace.getVariance().getArray()[5,5] = val
         self.assertTrue(fiberTraceMIF.setVariance(fiberTrace.getVariance()))
-        self.assertFalse(fiberTraceMIF.setVariance(maskedImageWrongSize.getVariance()))
+        try:
+            fiberTraceMIF.setVariance(maskedImageWrongSize.getVariance())
+        except:
+            e = sys.exc_info()[1]
+            message = str.split(e.message, "\n")
+            for i in range(len(message)):
+                print "element",i,": <",message[i],">"
+            expected = "FiberTrace.setVariance: ERROR: variance.getWidth(="+str(maskedImageWrongSize.getVariance().getWidth())+") != _trace->getWidth(="+str(fiberTraceMIF.getWidth())+")"
+            self.assertEqual(message[0],expected)
         self.assertAlmostEqual(fiberTraceMIF.getVariance().getArray()[5,5], val)
         fiberTrace.getVariance().getArray()[5,5] = val+2
         self.assertAlmostEqual(fiberTraceMIF.getVariance().getArray()[5,5], val+2)
@@ -367,7 +393,16 @@ class FiberTraceTestCase(tests.TestCase):
         val = 1
         fiberTrace.getMask().getArray()[5,5] = val
         self.assertTrue(fiberTraceMIF.setMask(fiberTrace.getMask()))
-        self.assertFalse(fiberTraceMIF.setMask(maskedImageWrongSize.getMask()))
+        try:
+            fiberTraceMIF.setMask(maskedImageWrongSize.getMask())
+        except:
+            e = sys.exc_info()[1]
+            message = str.split(e.message, "\n")
+            for i in range(len(message)):
+                print "element",i,": <",message[i],">"
+            expected = "FiberTrace.setMask: ERROR: mask.getWidth(="+str(maskedImageWrongSize.getMask().getWidth())+") != _trace->getWidth()(="+str(fiberTraceMIF.getMask().getWidth())+")"
+            self.assertEqual(message[0],expected)
+            
         self.assertEqual(fiberTraceMIF.getMask().getArray()[5,5], val)
         fiberTrace.getMask().getArray()[5,5] = val+2
         self.assertEqual(fiberTraceMIF.getMask().getArray()[5,5], val+2)
@@ -377,7 +412,15 @@ class FiberTraceTestCase(tests.TestCase):
         val = 1111.
         fiberTrace.getProfile().getArray()[5,5] = val
         self.assertTrue(fiberTraceMIF.setProfile(fiberTrace.getProfile()))
-        self.assertFalse(fiberTraceMIF.setProfile(maskedImageWrongSize.getImage()))
+        try:
+            fiberTraceMIF.setProfile(maskedImageWrongSize.getImage())
+        except:
+            e = sys.exc_info()[1]
+            message = str.split(e.message, "\n")
+            for i in range(len(message)):
+                print "element",i,": <",message[i],">"
+            expected = "FiberTrace.setProfile: ERROR: profile->getWidth(="+str(maskedImageWrongSize.getImage().getWidth())+") != _trace->getWidth(="+str(fiberTraceMIF.getProfile().getWidth())+")"
+            self.assertEqual(message[0],expected)
         self.assertAlmostEqual(fiberTraceMIF.getProfile().getArray()[5,5], val)
         fiberTrace.getProfile().getArray()[5,5] = val+2
         self.assertAlmostEqual(fiberTraceMIF.getProfile().getArray()[5,5], fiberTrace.getProfile().getArray()[5,5])
@@ -630,7 +673,15 @@ class FiberTraceTestCase(tests.TestCase):
         self.assertEqual(fts.getFiberTrace(fts.size()-1).getTrace().getImage().getArray()[5,5], comp)
 
         """Test that setting a FiberTrace outside legal position fails"""
-        self.assertFalse(fts.setFiberTrace(fts.size()+1, ft))
+        try:
+            fts.setFiberTrace(fts.size()+1, ft)
+        except:
+            e = sys.exc_info()[1]
+            message = str.split(e.message, "\n")
+            for i in range(len(message)):
+                print "element",i,": <",message[i],">"
+            expected = "FiberTraceSet::setFiberTrace: ERROR: position for trace outside range!"
+            self.assertEqual(message[0],expected)
         
         try:
             self.assertFalse(fts.setFiberTrace(-1, ft))
