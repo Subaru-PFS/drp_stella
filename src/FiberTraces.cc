@@ -6663,13 +6663,17 @@ namespace pfsDRPStella = pfs::drp::stella;
   }
   
   template<typename ImageT, typename MaskT, typename VarianceT>
-  bool pfsDRPStella::FiberTraceSet<ImageT, MaskT, VarianceT>::addFiberTrace(const PTR(FiberTrace<ImageT, MaskT, VarianceT>) &trace) ///< the FiberTrace for the ith aperture
+  bool pfsDRPStella::FiberTraceSet<ImageT, MaskT, VarianceT>::addFiberTrace(const PTR(FiberTrace<ImageT, MaskT, VarianceT>) &trace, const size_t iTrace) ///< the FiberTrace for the ith aperture
   {
     int size = _traces->size();
     _traces->push_back(trace);
     if (_traces->size() == size){
       string message("FiberTraceSet::addFiberTrace: ERROR: could not add trace to _traces");
       throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
+    }
+    if (iTrace > 0){
+      (*_traces)[size]->setITrace(iTrace);
+      cout << "FiberTraceSet::addFiberTrace: (*_traces)[" << size << "]->_iTrace set to " << (*_traces)[size]->getITrace();
     }
     return true;
   }
