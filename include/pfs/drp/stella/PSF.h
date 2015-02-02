@@ -48,8 +48,8 @@ namespace pfs { namespace drp { namespace stella {
       explicit PSF(size_t iTrace=0, size_t iBin=0) : _twoDPSFControl(new TwoDPSFControl()),
                                                      _iTrace(iTrace),
                                                      _iBin(iBin),
-                                                     _yLow(0),
-                                                     _yHigh(0),
+                                                     _yMin(0),
+                                                     _yMax(0),
                                                      _imagePSF_XTrace(0),
                                                      _imagePSF_YTrace(0),
                                                      _imagePSF_ZTrace(0),
@@ -89,8 +89,8 @@ namespace pfs { namespace drp { namespace stella {
           : _twoDPSFControl(twoDPSFControl),
             _iTrace(iTrace),
             _iBin(iBin),
-            _yLow(yLow),
-            _yHigh(yHigh),
+            _yMin(yLow),
+            _yMax(yHigh),
             _imagePSF_XTrace(0),
             _imagePSF_YTrace(0),
             _imagePSF_ZTrace(0),
@@ -116,8 +116,8 @@ namespace pfs { namespace drp { namespace stella {
 //      virtual bool isPersistable() const { return true; }
       size_t getIBin() const {return _iBin;}
       size_t getITrace() const {return _iTrace;}
-      size_t getYLow() const {return _yLow;}
-      size_t getYHigh() const {return _yHigh;}
+      size_t getYLow() const {return _yMin;}
+      size_t getYHigh() const {return _yMax;}
       std::vector<float> getImagePSF_XTrace() {return _imagePSF_XTrace;}
       std::vector<float> getImagePSF_YTrace() {return _imagePSF_YTrace;}
       std::vector<float> getImagePSF_ZTrace() {return _imagePSF_ZTrace;}
@@ -163,8 +163,8 @@ namespace pfs { namespace drp { namespace stella {
       PTR(TwoDPSFControl) _twoDPSFControl;
       const size_t _iTrace;
       const size_t _iBin;
-      const size_t _yLow;
-      const size_t _yHigh;
+      const size_t _yMin;
+      const size_t _yMax;
       std::vector<float> _imagePSF_XTrace;
       std::vector<float> _imagePSF_YTrace;
       std::vector<float> _imagePSF_ZTrace;

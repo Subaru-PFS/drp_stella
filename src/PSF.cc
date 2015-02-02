@@ -7,8 +7,8 @@ drpStella::PSF<ImageT, MaskT, VarianceT, WavelengthT>::PSF(PSF &psf, const bool 
   : _twoDPSFControl(psf.getTwoDPSFControl()),
     _iTrace(psf.getITrace()),
     _iBin(psf.getIBin()),
-    _yLow(psf.getYLow()),
-    _yHigh(psf.getYHigh()),
+    _yMin(psf.getYLow()),
+    _yMax(psf.getYHigh()),
     _imagePSF_XTrace(psf.getImagePSF_XTrace()),
     _imagePSF_YTrace(psf.getImagePSF_YTrace()),
     _imagePSF_ZTrace(psf.getImagePSF_ZTrace()),
@@ -67,21 +67,21 @@ bool drpStella::PSF<ImageT, MaskT, VarianceT, WavelengthT>::extractPSFs(const Fi
     throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
   }
 
-  blitz::Array<double, 2> trace_In(_yHigh - _yLow + 1, fiberTraceIn.getImage()->getWidth());
-  blitz::Array<double, 2> mask_In(_yHigh - _yLow + 1, fiberTraceIn.getImage()->getWidth());
-  blitz::Array<double, 2> stddev_In(_yHigh - _yLow + 1, fiberTraceIn.getImage()->getWidth());
-  blitz::Array<double, 1> spectrum_In(_yHigh - _yLow + 1);
-  blitz::Array<double, 1> spectrumVariance_In(_yHigh - _yLow + 1);
-  blitz::Array<double, 1> xCenterTrace_In(_yHigh - _yLow + 1);
-  blitz::Array<double, 1> xCentersOffset_In(_yHigh - _yLow + 1);
+  blitz::Array<double, 2> trace_In(_yMax - _yMin + 1, fiberTraceIn.getImage()->getWidth());
+  blitz::Array<double, 2> mask_In(_yMax - _yMin + 1, fiberTraceIn.getImage()->getWidth());
+  blitz::Array<double, 2> stddev_In(_yMax - _yMin + 1, fiberTraceIn.getImage()->getWidth());
+  blitz::Array<double, 1> spectrum_In(_yMax - _yMin + 1);
+  blitz::Array<double, 1> spectrumVariance_In(_yMax - _yMin + 1);
+  blitz::Array<double, 1> xCenterTrace_In(_yMax - _yMin + 1);
+  blitz::Array<double, 1> xCentersOffset_In(_yMax - _yMin + 1);
 
   blitz::Array<ImageT, 2> T_A2_PixArray = utils::ndarrayToBlitz(fiberTraceIn.getImage()->getArray());
   blitz::Array<double, 2> D_A2_PixArray = math::Double(T_A2_PixArray);
-  trace_In = D_A2_PixArray(blitz::Range(_yLow, _yHigh), blitz::Range::all());
+  trace_In = D_A2_PixArray(blitz::Range(_yMin, _yMax), blitz::Range::all());
 
   blitz::Array<VarianceT, 2> T_A2_VarArray = utils::ndarrayToBlitz(fiberTraceIn.getVariance()->getArray());
   blitz::Array<double, 2> D_A2_StdDevArray = math::Double(T_A2_VarArray);
-  stddev_In = blitz::sqrt(blitz::where(D_A2_StdDevArray(blitz::Range(_yLow, _yHigh), blitz::Range::all()) > 0., D_A2_StdDevArray(blitz::Range(_yLow, _yHigh), blitz::Range::all()), 1.));
+  stddev_In = blitz::sqrt(blitz::where(D_A2_StdDevArray(blitz::Range(_yMin, _yMax), blitz::Range::all()) > 0., D_A2_StdDevArray(blitz::Range(_yMin, _yMax), blitz::Range::all()), 1.));
   if (fabs(blitz::max(stddev_In)) < 0.000001){
     double D_MaxStdDev = fabs(blitz::max(stddev_In));
     string message("PSF trace");
@@ -92,20 +92,20 @@ bool drpStella::PSF<ImageT, MaskT, VarianceT, WavelengthT>::extractPSFs(const Fi
 
   blitz::Array<MaskT, 2> T_A2_MaskArray = utils::ndarrayToBlitz(fiberTraceIn.getMask()->getArray());
 //    blitz::Array<int, 2> I_A2_MaskArray(D_A2_PixArray.rows(), D_A2_PixArray.cols());
-  mask_In = blitz::where(T_A2_MaskArray(blitz::Range(_yLow, _yHigh), blitz::Range::all()) == 0, 1, 0);
+  mask_In = blitz::where(T_A2_MaskArray(blitz::Range(_yMin, _yMax), blitz::Range::all()) == 0, 1, 0);
 
   blitz::Array<ImageT, 1> F_A1_Spectrum(const_cast<ImageT*>(spectrumIn.getSpectrum()->data()), blitz::shape(spectrumIn.getLength()), blitz::neverDeleteData);
-  spectrum_In = math::Double(F_A1_Spectrum(blitz::Range(_yLow, _yHigh)));
+  spectrum_In = math::Double(F_A1_Spectrum(blitz::Range(_yMin, _yMax)));
 
   blitz::Array<VarianceT, 1> F_A1_SpectrumVariance(const_cast<VarianceT*>(spectrumIn.getVariance()->data()), blitz::shape(spectrumIn.getLength()), blitz::neverDeleteData);
-  spectrumVariance_In = math::Double(F_A1_SpectrumVariance(blitz::Range(_yLow, _yHigh)));
+  spectrumVariance_In = math::Double(F_A1_SpectrumVariance(blitz::Range(_yMin, _yMax)));
   ///TODO: replace with variance from MaskedImage
   spectrumVariance_In = spectrum_In;
   blitz::Array<double, 1> spectrumSigma(spectrumVariance_In.size());
   spectrumSigma = blitz::sqrt(spectrumVariance_In);
 
   blitz::Array<float, 1> xCenters(const_cast<float*>(fiberTraceIn.getXCenters()->data()), blitz::shape(fiberTraceIn.getXCenters()->size()), blitz::neverDeleteData);
-  xCenterTrace_In = math::Double(xCenters(blitz::Range(_yLow, _yHigh))) + 0.5;
+  xCenterTrace_In = math::Double(xCenters(blitz::Range(_yMin, _yMax))) + 0.5;
 
   xCentersOffset_In = xCenterTrace_In - math::Int(xCenterTrace_In);
 
@@ -121,7 +121,7 @@ bool drpStella::PSF<ImageT, MaskT, VarianceT, WavelengthT>::extractPSFs(const Fi
     cout << message << endl;
     throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
   }
-  xCenterTrace_In = xCenterTrace_In - minCenMax(blitz::Range(_yLow, _yHigh), 0);
+  xCenterTrace_In = xCenterTrace_In - minCenMax(blitz::Range(_yMin, _yMax), 0);
   #ifdef __DEBUG_CALC2DPSF__
     cout << "PSF trace" << _iTrace << " bin" << _iBin << "::extractPSFs: minCenMax = " << minCenMax << endl;
     cout << "PSF trace" << _iTrace << " bin" << _iBin << "::extractPSFs: xCenterTrace_In = " << xCenterTrace_In << endl;
