@@ -81,20 +81,10 @@ class FindAndTraceAperturesTask(Task):
 
     def __init__(self, *args, **kwargs):
         super(FindAndTraceAperturesTask, self).__init__(*args, **kwargs)
-#        self.makeSubtask("isr")
-#        self.schema = afwTable.SourceTable.makeMinimalSchema()
-#        self.makeSubtask("detection", schema=self.schema)
-#        self.makeSubtask("measurement", schema=self.schema)
-#        self.starSelector = self.config.starSelector.apply()
-#        self.candidateKey = self.schema.addField(
-#            "calib.psf.candidate", type="Flag",
-#            doc=("Flag set if the source was a candidate for PSF determination, "
-#                 "as determined by the '%s' star selector.") % self.config.starSelector.name
-#        )
 
-    def findAndTraceApertures(self, inExposure):
-        # --- create FiberTraceFunctionFindingControl
-        ftffc = drpStella.FiberTraceFunctionFindingControl()
+        """create FiberTraceFunctionFindingControl"""
+        self.ftffc = drpStella.FiberTraceFunctionFindingControl()
+        ftffc = self.ftffc
         ftffc.fiberTraceFunctionControl.interpolation = self.config.interpolation
         ftffc.fiberTraceFunctionControl.order = self.config.order
         ftffc.fiberTraceFunctionControl.xLow = self.config.xLow
@@ -106,13 +96,18 @@ class FindAndTraceAperturesTask(Task):
         ftffc.minLength = self.config.minLength
         ftffc.maxLength = self.config.maxLength
         ftffc.nLost = self.config.nLost
+
+    def findAndTraceApertures(self, inExposure):
     
-        """Create a FiberTraceSet given a flat-field fits file name"""
+        """Create a FiberTraceSet given a flat-field exposure"""
         inMaskedImage = inExposure.getMaskedImage()
         print("inMaskedImage created")
         
         """Trace fibers"""
-        fts = drpStella.findAndTraceAperturesF(inMaskedImage, ftffc)
+        fts = drpStella.findAndTraceAperturesF(inMaskedImage, self.ftffc.getPointer())
+        fts.sortTracesByXCenter()
+        for i in range(fts.size()):
+            fts.getFiberTrace(i).setITrace(i)
         return fts
 
     def run(self, inExposure):

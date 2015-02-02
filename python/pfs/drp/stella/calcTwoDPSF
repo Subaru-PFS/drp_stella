@@ -1,0 +1,1 @@
+python calculateTwoDPSF.py -f="/home/azuri/spectra/pfs/2014-10-28/sampledFlatx2-IR-0-23-5-10-nonoise.fits" -s="/home/azuri/spectra/pfs/2014-11-02/sampledCombx2-IR-0-23-1-10-nonoise.fits"

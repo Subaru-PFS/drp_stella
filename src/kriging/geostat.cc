@@ -15,6 +15,7 @@
          tmp = gsl_vector_alloc(c1->size);
          gsl_vector_memcpy(tmp, c1);
          gsl_vector_sub(tmp, c2);
+         ///TODO: check if sum(abs(tmp_i)) or sum(pow2(tmp_i)) would do (much faster)
          norm = gsl_blas_dnrm2(tmp);
          gsl_vector_free(tmp);
 

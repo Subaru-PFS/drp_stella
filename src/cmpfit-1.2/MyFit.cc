@@ -381,6 +381,78 @@ int MPFitGaussFuncANB(int m, int n, double *p, double *dy, double **dvec, void *
  * gaussian fit function
  *
  * m - number of data points
+ * n - number of parameters (5)
+ * p - array of fit parameters
+ *     p[0] = peak y value
+ *     p[1] = x centroid position
+ *     p[2] = gaussian sigma width
+ *     p[3] = constant offset
+ *     p[4] = linear offset
+ * dy - array of residuals to be returned
+ * vars - private data (struct vars_struct *)
+ *
+ * RETURNS: error code (0 = success)
+ */
+int MPFitGaussFuncLB(int m, int n, double *p, double *dy, double **dvec, void *vars){
+  int i;
+  struct vars_struct *v = (struct vars_struct *) vars;
+  double *x, *y, *ey;
+  double xc, sig2;
+  
+  x = v->x;
+  y = v->y;
+  ey = v->ey;
+  
+  sig2 = p[2]*p[2];
+  
+  for (i=0; i<m; i++) {
+    xc = x[i]-p[1];
+    dy[i] = (y[i] - p[0]*exp(-0.5*xc*xc/sig2) - p[3] - p[4]*(x[i]-x[0]))/ey[i];
+  }
+  
+  return 0;
+}
+
+/*
+ * gaussian fit function
+ *
+ * m - number of data points
+ * n - number of parameters (5)
+ * p - array of fit parameters
+ *     p[0] = area under curve value
+ *     p[1] = x centroid position
+ *     p[2] = gaussian sigma width
+ *     p[3] = constant offset
+ *     p[4] = linear offset
+ * dy - array of residuals to be returned
+ * vars - private data (struct vars_struct *)
+ *
+ * RETURNS: error code (0 = success)
+ */
+int MPFitGaussFuncALB(int m, int n, double *p, double *dy, double **dvec, void *vars){
+  int i;
+  struct vars_struct *v = (struct vars_struct *) vars;
+  double *x, *y, *ey;
+  double xc, sig2;
+  
+  x = v->x;
+  y = v->y;
+  ey = v->ey;
+  
+  sig2 = p[2]*p[2];
+  
+  for (i=0; i<m; i++) {
+    xc = x[i]-p[1];
+    dy[i] = (y[i] - (p[0]*exp(-0.5*xc*xc/sig2)/(sqrt(2. * D_PI) * p[2])) - p[3] - p[4]*(x[i]-x[0]))/ey[i];
+  }
+  
+  return 0;
+}
+
+/*
+ * gaussian fit function
+ *
+ * m - number of data points
  * n - number of parameters (6)
  * p - array of fit parameters
  *     p[0] = constant offset
@@ -889,13 +961,16 @@ bool MPFitGaussLim(const blitz::Array< double, 1 >& D_A1_X_In,
                    const blitz::Array< double, 1 >& D_A1_Guess_In,
                    const blitz::Array<int, 2> &I_A2_Limited,
                    const blitz::Array<double, 2> &D_A2_Limits,
-                   const bool B_WithConstantBackground,
+                   const int Background,///0-none, 1-constant, 2-linear
                    const bool B_FitArea,
                    blitz::Array< double, 1 >& D_A1_Coeffs_Out,
                    blitz::Array< double, 1 >& D_A1_ECoeffs_Out){
-  int I_NParams = 4;
-  if (!B_WithConstantBackground)
-    I_NParams = 3;
+  int I_NParams = 3;
+  if (Background == 1)
+    I_NParams = 4;
+  else if (Background == 2)
+    I_NParams = 5;
+    
   ///Check Limits
   for (int i_par=0; i_par<I_NParams; i_par++){
     if ((I_A2_Limited(i_par, 0) == 1) && (I_A2_Limited(i_par, 1) == 1)){
@@ -965,17 +1040,23 @@ bool MPFitGaussLim(const blitz::Array< double, 1 >& D_A1_X_In,
 
   /* Call fitting function for 10 data points and 4 parameters (2
      parameters fixed) */
-  if (B_WithConstantBackground){
+  if (Background == 0){
+    if (B_FitArea)
+      status = mpfit(MPFitGaussFuncANB, I_NPts, I_NParams, p, pars, 0, (void *) &v, &result);
+    else
+      status = mpfit(MPFitGaussFuncNB, I_NPts, I_NParams, p, pars, 0, (void *) &v, &result);
+  }
+  else if (Background == 1){
     if (B_FitArea)
       status = mpfit(MPFitGaussFuncACB, I_NPts, I_NParams, p, pars, 0, (void *) &v, &result);
     else
       status = mpfit(MPFitGaussFuncCB, I_NPts, I_NParams, p, pars, 0, (void *) &v, &result);
   }
-  else{
+  else{/// Background == 2
     if (B_FitArea)
-      status = mpfit(MPFitGaussFuncANB, I_NPts, I_NParams, p, pars, 0, (void *) &v, &result);
+      status = mpfit(MPFitGaussFuncALB, I_NPts, I_NParams, p, pars, 0, (void *) &v, &result);
     else
-      status = mpfit(MPFitGaussFuncNB, I_NPts, I_NParams, p, pars, 0, (void *) &v, &result);
+      status = mpfit(MPFitGaussFuncLB, I_NPts, I_NParams, p, pars, 0, (void *) &v, &result);
   }
 
   for (int i_par=0; i_par<I_NParams; i_par++){

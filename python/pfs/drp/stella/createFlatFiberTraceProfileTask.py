@@ -94,31 +94,28 @@ class CreateFlatFiberTraceProfileTask(Task):
 #        )
 
     def createFlatFiberTraceProfile(self, inFiberTraceSet, inTraceNumbers):
-        # --- create FiberTraceFunctionFindingControl
-        fiberTraceExtractionControl = drpStella.FiberTraceExtractionControl()
-        fiberTraceExtractionControl.profileInterpolation = self.config.profileInterpolation
-        fiberTraceExtractionControl.ccdReadOutNoise = self.config.ccdReadOutNoise
-        fiberTraceExtractionControl.swathWidth = self.config.swathWidth
-        fiberTraceExtractionControl.telluric = self.config.telluric
-        fiberTraceExtractionControl.overSample = self.config.overSample
-        fiberTraceExtractionControl.maxIterSF = self.config.maxIterSF
-        fiberTraceExtractionControl.maxIterSky = self.config.maxIterSky
-        fiberTraceExtractionControl.maxIterSig = self.config.maxIterSig
-        fiberTraceExtractionControl.lambdaSF = self.config.lambdaSF
-        fiberTraceExtractionControl.lambdaSP = self.config.lambdaSP
-        fiberTraceExtractionControl.wingSmoothFactor = self.config.wingSmoothFactor
-    
-        """Create a FiberTraceSet given a flat-field fits file name"""
-        fiberTraceSet = inFiberTraceSet
+        # --- create FiberTraceProfileFittingControl
+        fiberTraceProfileFittingControl = drpStella.FiberTraceProfileFittingControl()
+        fiberTraceProfileFittingControl.profileInterpolation = self.config.profileInterpolation
+        fiberTraceProfileFittingControl.ccdReadOutNoise = self.config.ccdReadOutNoise
+        fiberTraceProfileFittingControl.swathWidth = self.config.swathWidth
+        fiberTraceProfileFittingControl.telluric = self.config.telluric
+        fiberTraceProfileFittingControl.overSample = self.config.overSample
+        fiberTraceProfileFittingControl.maxIterSF = self.config.maxIterSF
+        fiberTraceProfileFittingControl.maxIterSky = self.config.maxIterSky
+        fiberTraceProfileFittingControl.maxIterSig = self.config.maxIterSig
+        fiberTraceProfileFittingControl.lambdaSF = self.config.lambdaSF
+        fiberTraceProfileFittingControl.lambdaSP = self.config.lambdaSP
+        fiberTraceProfileFittingControl.wingSmoothFactor = self.config.wingSmoothFactor
         
         """Calculate spatial profile and extract"""
-        fiberTraceSet.sortTracesByXCenter()
-        fiberTraceSet.setFiberTraceExtractionControl(fiberTraceExtractionControl)
+#        inFiberTraceSet.sortTracesByXCenter()
+        inFiberTraceSet.setFiberTraceProfileFittingControl(fiberTraceProfileFittingControl)
         if inTraceNumbers[0] == -1 :
-            fiberTraceSet.extractAllTraces()
+            inFiberTraceSet.extractAllTraces()
         else :
             for i in inTraceNumbers :
-                fiberTraceSet.extractTraceNumber(i)
+                inFiberTraceSet.extractTraceNumber(i)
         return
 
     def run(self, inFiberTraceSet, inTraceNumbers=[-1]):
