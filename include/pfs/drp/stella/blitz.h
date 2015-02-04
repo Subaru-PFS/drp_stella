@@ -32,6 +32,7 @@ ndarrayToBlitz(ndarray::Array<T, 1, 1> arr)
 //    barr.transposeSelf(blitz::secondDim, blitz::firstDim);
     return barr;
 }
+
 template<class T>
 blitz::Array<T, 2>
 ndarrayToBlitz(ndarray::Array<T, 2, 1> arr)
@@ -40,6 +41,35 @@ ndarrayToBlitz(ndarray::Array<T, 2, 1> arr)
     std::cout << "ndarrayToBlitz: arr = " << arr << std::endl;
   #endif
   ndarray::EigenView<T, 2, 1> eim = arr.asEigen();
+  #ifdef __DEBUG_NDARRAYTOBLITZ__
+    std::cout << "ndarrayToBlitz: eim = " << eim << std::endl;
+  #endif
+  int const stride = arr.template getStride<0>();
+  #ifdef __DEBUG_NDARRAYTOBLITZ__
+    std::cout << "ndarrayToBlitz: eim.data() = " << *(eim.data()) << std::endl;
+  #endif
+  blitz::Array<T, 2> barr(eim.data(),
+                          blitz::shape(eim.cols(), eim.rows()),
+                          blitz::shape(1, stride),
+                          blitz::neverDeleteData);
+  #ifdef __DEBUG_NDARRAYTOBLITZ__
+    std::cout << "ndarrayToBlitz: 1. barr = " << barr << std::endl;
+  #endif
+  barr.transposeSelf(blitz::secondDim, blitz::firstDim);
+  #ifdef __DEBUG_NDARRAYTOBLITZ__
+    std::cout << "ndarrayToBlitz: 1. barr = " << barr << std::endl;
+  #endif
+  return barr;
+}
+
+template<class T>
+blitz::Array<T, 2>
+ndarrayToBlitz(ndarray::Array<T, 2, 2> arr)
+{
+  #ifdef __DEBUG_NDARRAYTOBLITZ__
+    std::cout << "ndarrayToBlitz: arr = " << arr << std::endl;
+  #endif
+  ndarray::EigenView<T, 2, 2> eim = arr.asEigen();
   #ifdef __DEBUG_NDARRAYTOBLITZ__
     std::cout << "ndarrayToBlitz: eim = " << eim << std::endl;
   #endif

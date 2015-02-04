@@ -748,8 +748,8 @@ PTR(drpStella::PSFSet<ImageT, MaskT, VarianceT, WavelengthT>) drpStella::math::c
                                                                                                           const drpStella::Spectrum<ImageT, MaskT, VarianceT, WavelengthT> & spectrum,
                                                                                                           const PTR(drpStella::TwoDPSFControl) & twoDPSFControl){
   int swathWidth = twoDPSFControl->swathWidth;
-  ndarray::Array<int, 2, 1> ndArr = fiberTrace.calculateBinBoundY(swathWidth);
-  blitz::Array<int, 2> binBoundY = utils::ndarrayToBlitz(ndArr);
+  ndarray::Array<size_t, 2, 2> ndArr = fiberTrace.calcSwathBoundY(swathWidth);
+  blitz::Array<size_t, 2> binBoundY = utils::ndarrayToBlitz(ndArr);
 
   blitz::Array<double, 2> D_A2_2dPSF(2,2);
 

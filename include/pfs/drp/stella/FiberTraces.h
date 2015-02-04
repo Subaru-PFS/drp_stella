@@ -27,6 +27,7 @@
 
 //#define __DEBUG_BANDSOL__
 //#define __DEBUG_CALC2DPSF__
+#define __DEBUG_CALCSWATHBOUNDY__
 //#define __DEBUG_CHECK_INDICES__
 //#define __DEBUG_CREATEFIBERTRACE__
 //#define __DEBUG_EXTRACTFROMPROFILE__
@@ -38,12 +39,14 @@
 //#define __DEBUG_MKPROFIM__
 //#define __DEBUG_MKSLITFUNC__
 //#define __DEBUG_SETFIBERTRACEFUNCTION__
-//#define __DEBUG_SLITFUNC__
-//#define __DEBUG_SLITFUNC_N__
-//#define __DEBUG_SLITFUNC_PISKUNOV__
-//#define __DEBUG_SLITFUNC_X__
+#define __DEBUG_SLITFUNC__
+#define __DEBUG_SLITFUNC_N__
+#define __DEBUG_SLITFUNC_PISKUNOV__
+#define __DEBUG_SLITFUNC_X__
+#define __DEBUG_TELLURIC__
 //#define __DEBUG_TRACEFUNC__
 //#define __DEBUG_UNIQ__
+#define __DEBUG_XCENTERS__
 #define DEBUGDIR "/Users/azuri/spectra/pfs/2014-11-02/debug/"// /home/azuri/entwicklung/idl/REDUCE/16_03_2013/"//stella/ses-pipeline/c/msimulateskysubtraction/data/"//spectra/elaina/eso_archive/red_564/red_r/"
 
 namespace afwGeom = lsst::afw::geom;
@@ -121,7 +124,7 @@ class FiberTrace {
     PTR(FiberTraceProfileFittingControl) getFiberTraceProfileFittingControl() const { return _fiberTraceProfileFittingControl; }
 
     /// Set the _fiberTraceProfileFittingControl
-    bool setFiberTraceProfileFittingControl(const PTR(FiberTraceProfileFittingControl) const& fiberTraceProfileFittingControl);// { _fiberTraceProfileFittingControl = fiberTraceProfileFittingControl; }
+    bool setFiberTraceProfileFittingControl(PTR(FiberTraceProfileFittingControl) const& fiberTraceProfileFittingControl);// { _fiberTraceProfileFittingControl = fiberTraceProfileFittingControl; }
 
     /// Calculate the x-centers of the fiber trace
     //bool calculateXCenters();//FiberTraceFunctionControl const& fiberTraceFunctionControl);
@@ -259,6 +262,8 @@ class FiberTrace {
      *      //    Pos = pfsDRPStella::util::KeyWord_Set(S_A1_Args_In, "SP_FIT");
      *
      **/
+    
+    bool calcProfile();
 
     bool fitSpline(const blitz::Array<double, 2> &fiberTraceSwath_In,/// 1 bin of CCD (FiberTrace::Image)
                    const blitz::Array<int, 1> &iFirst_In,/// as calculated in SlitFunc
@@ -268,7 +273,7 @@ class FiberTrace {
                    const blitz::Array<double, 1> &profileXValuesAllRows_In,/// i + 0.5 + (1. / (2. * overSample))
                    blitz::Array<double, 2> &profilePerRow_Out);/// output 2D profile image
 
-    ndarray::Array<int, 2, 1> calculateBinBoundY(int swathWidth_In) const;
+    ndarray::Array<size_t, 2, 2> calcSwathBoundY(const size_t swathWidth_In) const;
     
     void setITrace(const size_t iTrace){_iTrace = iTrace;}
     size_t getITrace() const {return _iTrace;}
@@ -348,7 +353,7 @@ class FiberTraceSet {
     PTR(std::vector<PTR(FiberTrace<ImageT, MaskT, VarianceT>)>) getTraces() const { return _traces; }
 //    PTR(const std::vector<PTR(FiberTrace<ImageT, MaskT, VarianceT>)>) getTraces() const { return _traces; }
 
-    bool setFiberTraceProfileFittingControl(const PTR(FiberTraceProfileFittingControl) const& fiberTraceProfileFittingControl);
+    bool setFiberTraceProfileFittingControl(PTR(FiberTraceProfileFittingControl) const& fiberTraceProfileFittingControl);
 
     /// set profiles of all traces in this FiberTraceSet to respective FiberTraces in input set
     /// NOTE: the FiberTraces should be sorted by their xCenters before performing this operation!
@@ -406,9 +411,13 @@ namespace math{
   PTR(FiberTraceSet<ImageT, MaskT, VarianceT>) findAndTraceApertures(const PTR(const afwImage::MaskedImage<ImageT, MaskT, VarianceT>) &maskedImage,
                                                                      const PTR(const FiberTraceFunctionFindingControl) &fiberTraceFunctionFindingControl);
   
-  PTR(const std::vector<float>) calculateXCenters(PTR(const ::pfs::drp::stella::FiberTraceFunction) const& fiberTraceFunction,
-                                                      size_t const& ccdHeight,
-                                                      size_t const& ccdWidth);
+  /**
+   * @brief: returns ndarray containing the xCenters of a FiberTrace from 0 to FiberTrace.getTrace().getHeight()-1
+   *         NOTE that the WCS here starts at [-0.5, -0.5], so an xCenter of 0.6 refers to position 0.1 of the second pixel
+   */
+  ndarray::Array<float, 1, 1> calculateXCenters(PTR(const ::pfs::drp::stella::FiberTraceFunction) const& fiberTraceFunction,
+                                                size_t const& ccdHeight,
+                                                size_t const& ccdWidth);
 
 }
 
