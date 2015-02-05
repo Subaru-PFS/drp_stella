@@ -97,6 +97,12 @@ namespace pfs { namespace drp { namespace stella { namespace utils{
     
   template<typename T>
   blitz::Array<T, 1> get1DBlitzArray(T size);
+    
+  template<typename T>
+  ndarray::Array<T, 2, 2> get2DndArray(T nRows, T nCols);
+    
+  template<typename T>
+  ndarray::Array<T, 1, 1> get1DndArray(T size);
   
   template<typename T>
   std::vector<T> copy(const std::vector<T> &vecIn);

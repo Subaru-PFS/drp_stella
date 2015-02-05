@@ -13,6 +13,8 @@
 #include "../utils/Utils.h"
 
 //#define __DEBUG_FIT__
+//#define __DEBUG_POLY__
+#define __DEBUG_MINCENMAX__
 
 namespace afwGeom = lsst::afw::geom;
 namespace afwImage = lsst::afw::image;
@@ -245,12 +247,11 @@ namespace pfs { namespace drp { namespace stella {
      * 1 pixel left and/or right of the maximum aperture width will get cut off to reduce possible
      * cross-talk between adjacent apertures
      **/
-    bool calcMinCenMax(const blitz::Array<float, 1> &xCenters_In,
-                       float xHigh_In,/// >= 0
-                       float xLow_In,/// <= 0
-                       int nPixCutLeft_In,
-                       int nPixCutRight_In,
-                       blitz::Array<int, 2> &I_A2_MinCenMax_Out);
+    ndarray::Array<size_t, 2, 2> calcMinCenMax(ndarray::Array<float const, 1, 1> const& xCenters_In,
+                                               float const xHigh_In,/// >= 0
+                                               float const xLow_In,/// <= 0
+                                               int const nPixCutLeft_In,
+                                               int const nPixCutRight_In);
 
     /**
      * Calculates Slit Function for each pixel in an aperture row from oversampled Slit Function D_A1_OSF_In,
@@ -308,6 +309,22 @@ namespace pfs { namespace drp { namespace stella {
      **/
     template <typename T>
     blitz::Array<long, 2> FixL(const blitz::Array<T, 2> &Arr);
+    
+    /**
+     * Rounds x downward, returning the largest integral value that is not greater than x.
+
+     * @param rhs: value to be rounded down
+     * @param outType: type of this parameter determines the type of the return value. The value of this parameter has no meaning.
+     * @return rounded down value of rhs, type of outType
+     */
+    template <typename T, typename U>
+    U floor1(T const& rhs, U const& outType);
+    
+    template <typename T, typename U>
+    ndarray::Array<U, 1, 1> floor(ndarray::Array<const T, 1, 1> const& rhs, U const outType);
+    
+    template <typename T, typename U>
+    ndarray::Array<U, 2, 2> floor(ndarray::Array<const T, 2, 2> const& rhs, U const outType);
 
     /**
      * Int(double)
@@ -384,6 +401,15 @@ namespace pfs { namespace drp { namespace stella {
      **/
     template <typename T>
     blitz::Array<double, 1> Double(const blitz::Array<T, 1> &Arr);
+    
+    template <typename T>
+    ndarray::Array<double, 1, 1> Double(ndarray::Array<T, 1, 1> const& arr_In);
+    
+    template <typename T>
+    ndarray::Array<float, 1, 1> Float(ndarray::Array<T, 1, 1> const& arr_In);
+    
+//    template <typename T>
+//    ndarray::Array<int, 1, 1> Int(ndarray::Array<T, 1, 1> const& arr_In);
 
     /**
      *     Returns the double representation of Arr.
@@ -1109,6 +1135,12 @@ namespace pfs { namespace drp { namespace stella {
 
     template<typename T>
     blitz::Array<double,1> Moment(const blitz::Array<T, 2> &D_A1_Arr_In, int I_MaxMoment_In);
+    
+    template<typename T>
+    T max(ndarray::Array<T, 1, 1> const& in);
+ 
+    template<typename T>
+    T min(ndarray::Array<T, 1, 1> const& in);
 
   }/// end namespace math
   

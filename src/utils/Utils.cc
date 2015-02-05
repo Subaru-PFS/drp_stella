@@ -726,6 +726,20 @@ namespace pfs { namespace drp { namespace stella { namespace utils{
   }
 
   template<typename T>
+  ndarray::Array<T, 2, 2> get2DndArray(T nRows, T nCols){
+    ndarray::Array<T, 2, 2> out = ndarray::allocate(nRows, nCols);
+    out[ndarray::view()()] = 0;
+    return out;
+  }
+
+  template<typename T>
+  ndarray::Array<T, 1, 1> get1DndArray(T size){
+    ndarray::Array<T, 1, 1> out = ndarray::allocate(size);
+    out[ndarray::view()] = 0;
+    return out;
+  }
+
+  template<typename T>
   std::vector<T> copy(const std::vector<T> &vecIn){
     std::vector<T> vecOut = vecIn;
     return vecOut;
@@ -773,6 +787,16 @@ template blitz::Array<unsigned short, 2> utils::get2DBlitzArray(unsigned short, 
 template blitz::Array<int, 2> utils::get2DBlitzArray(int, int);
 template blitz::Array<float, 2> utils::get2DBlitzArray(float, float);
 template blitz::Array<double, 2> utils::get2DBlitzArray(double, double);
-
+  
+template ndarray::Array<size_t, 1, 1> utils::get1DndArray(size_t);
+template ndarray::Array<unsigned short, 1, 1> utils::get1DndArray(unsigned short);
+template ndarray::Array<int, 1, 1> utils::get1DndArray(int);
+template ndarray::Array<float, 1, 1> utils::get1DndArray(float);
+template ndarray::Array<double, 1, 1> utils::get1DndArray(double);
+template ndarray::Array<size_t, 2, 2> utils::get2DndArray(size_t, size_t);
+template ndarray::Array<unsigned short, 2, 2> utils::get2DndArray(unsigned short, unsigned short);
+template ndarray::Array<int, 2, 2> utils::get2DndArray(int, int);
+template ndarray::Array<float, 2, 2> utils::get2DndArray(float, float);
+template ndarray::Array<double, 2, 2> utils::get2DndArray(double, double);
 
 }}}

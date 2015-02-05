@@ -23,13 +23,9 @@ blitz::Array<T, 1>
 ndarrayToBlitz(ndarray::Array<T, 1, 1> arr)
 {
     ndarray::EigenView<T, 1, 1> eim = arr.asEigen();
-//    int const stride = arr.template getStride<0>();
-    int const i_shape = arr.template getShape<0>();
-    blitz::Array<T, 2> barr(eim.data(),
-                            blitz::shape(i_shape),
-//                            blitz::shape(1),
+    blitz::Array<T, 1> barr(eim.data(),
+                            blitz::shape(arr.getShape()[0]),
                             blitz::neverDeleteData);
-//    barr.transposeSelf(blitz::secondDim, blitz::firstDim);
     return barr;
 }
 template<class T>

@@ -65,7 +65,7 @@ class FiberTrace {
 
     explicit FiberTrace(PTR(const MaskedImageT) const& maskedImage, 
                         PTR(const FiberTraceFunction) const& fiberTraceFunction, 
-                        PTR(const std::vector<float>) const& xCenters,
+                        ndarray::Array<float const, 1, 1> const& xCenters,
                         size_t iTrace=0);
     
     explicit FiberTrace(FiberTrace<ImageT, MaskT, VarianceT> &fiberTrace, bool const deep=false);
@@ -121,13 +121,10 @@ class FiberTrace {
     PTR(FiberTraceProfileFittingControl) getFiberTraceProfileFittingControl() const { return _fiberTraceProfileFittingControl; }
 
     /// Set the _fiberTraceProfileFittingControl
-    bool setFiberTraceProfileFittingControl(const PTR(FiberTraceProfileFittingControl) const& fiberTraceProfileFittingControl);// { _fiberTraceProfileFittingControl = fiberTraceProfileFittingControl; }
-
-    /// Calculate the x-centers of the fiber trace
-    //bool calculateXCenters();//FiberTraceFunctionControl const& fiberTraceFunctionControl);
+    bool setFiberTraceProfileFittingControl(PTR(FiberTraceProfileFittingControl) const& fiberTraceProfileFittingControl);// { _fiberTraceProfileFittingControl = fiberTraceProfileFittingControl; }
     
     /// Return the x-centers of the fiber trace
-    const PTR(const std::vector<float>) getXCenters() const { return _xCenters; }
+    const ndarray::Array<float const, 1, 1> getXCenters() const { return _xCenters; }
 
     /// Set the x-center of the fiber trace
     /// Pre: _fiberTraceFunction must be set
@@ -283,7 +280,7 @@ class FiberTrace {
     ///TODO: replace variables with smart pointers?????
     PTR(MaskedImageT) _trace;
     PTR(afwImage::Image<float>) _profile;
-    const PTR(const std::vector<float>) _xCenters;
+    const ndarray::Array<float const, 1, 1> _xCenters;
     size_t _iTrace;
     bool _isTraceSet;
     bool _isProfileSet;
@@ -406,9 +403,13 @@ namespace math{
   PTR(FiberTraceSet<ImageT, MaskT, VarianceT>) findAndTraceApertures(const PTR(const afwImage::MaskedImage<ImageT, MaskT, VarianceT>) &maskedImage,
                                                                      const PTR(const FiberTraceFunctionFindingControl) &fiberTraceFunctionFindingControl);
   
-  PTR(const std::vector<float>) calculateXCenters(PTR(const ::pfs::drp::stella::FiberTraceFunction) const& fiberTraceFunction,
-                                                      size_t const& ccdHeight,
-                                                      size_t const& ccdWidth);
+  /**
+   * @brief: returns ndarray containing the xCenters of a FiberTrace from 0 to FiberTrace.getTrace().getHeight()-1
+   *         NOTE that the WCS here starts at [0., 0.], so an xCenter of 1.1 refers to position 0.1 of the second pixel
+   */
+  ndarray::Array<float, 1, 1> calculateXCenters(PTR(const ::pfs::drp::stella::FiberTraceFunction) const& fiberTraceFunction,
+                                                size_t const& ccdHeight,
+                                                size_t const& ccdWidth);
 
 }
 

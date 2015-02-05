@@ -49,7 +49,7 @@ namespace pfs { namespace drp { namespace stella {
                                                      _iTrace(iTrace),
                                                      _iBin(iBin),
                                                      _yMin(0),
-                                                     _yMax(0),
+                                                     _yMax(10),
                                                      _imagePSF_XTrace(0),
                                                      _imagePSF_YTrace(0),
                                                      _imagePSF_ZTrace(0),
