@@ -525,78 +525,63 @@
 
     /**
      * Calculates aperture minimum pixel, central position, and maximum pixel for the trace,
-     * and writes result to I_A2_MinCenMax_Out
+     * and writes result to minCenMax_Out and returns it
      **/
-    bool calcMinCenMax(const blitz::Array<float, 1> &xCenters_In,
-                       float xHigh_In,
-                       float xLow_In,
-                       int nPixCutLeft_In,
-                       int nPixCutRight_In,
-                       blitz::Array<int, 2> &I_A2_MinCenMax_Out){
-      blitz::Array<float, 1> F_A1_XCenters(xCenters_In.size());
-      F_A1_XCenters = xCenters_In + 0.5;
-      #ifdef __DEBUG_MINCENMAX__
-        cout << "CFits::calcMinCenMax: F_A1_XCenters = " << F_A1_XCenters << endl;
-      #endif
-      blitz::Array<int, 1> I_A1_Fix = pfs::drp::stella::math::Int(F_A1_XCenters);
-      I_A2_MinCenMax_Out.resize(xCenters_In.size(), 3);
-      I_A2_MinCenMax_Out = 0;
+    ndarray::Array<size_t, 2, 2> calcMinCenMax(ndarray::Array<float const, 1, 1> const& xCenters_In,
+                                               float const xHigh_In,
+                                               float const xLow_In,
+                                               int const nPixCutLeft_In,
+                                               int const nPixCutRight_In){
+      ndarray::Array<size_t, 1, 1> floor = pfs::drp::stella::math::floor(xCenters_In, size_t(0));
+      ndarray::Array<size_t, 2, 2> minCenMax_Out = ndarray::allocate(xCenters_In.getShape()[0], 3);
+      minCenMax_Out[ndarray::view()()] = 0;
 
-      I_A2_MinCenMax_Out(blitz::Range::all(), 1) = I_A1_Fix;
+      minCenMax_Out[ndarray::view()(1)] = floor;
 
       #ifdef __DEBUG_MINCENMAX__
-        cout << "CFits::calcMinCenMax: I_A2_MinCenMax_Out(*,1) = " << I_A2_MinCenMax_Out(blitz::Range::all(), 1) << endl;
+        cout << "CFits::calcMinCenMax: minCenMax_Out(*,1) = " << minCenMax_Out[ndarray::view()(1)] << endl;
       #endif
-      blitz::Array<float, 1> F_A1_Temp(F_A1_XCenters.size());
-      F_A1_Temp = F_A1_XCenters + xLow_In;
+      ndarray::Array<const float, 1, 1> F_A1_Temp = ndarray::copy(xCenters_In + xLow_In);
 
-      I_A2_MinCenMax_Out(blitz::Range::all(), 0) = pfs::drp::stella::math::Fix(F_A1_Temp);// - I_NPixCut_Left;///(*P_I_A1_Temp); /// Left column of order
+      minCenMax_Out[ndarray::view()(0)] = pfs::drp::stella::math::floor(F_A1_Temp, size_t(0));
 
       #ifdef __DEBUG_MINCENMAX__
-        cout << "CFits::calcMinCenMax: I_A2_MinCenMax_Out(*,0) = " << I_A2_MinCenMax_Out(blitz::Range::all(), 0) << endl;
+        cout << "CFits::calcMinCenMax: minCenMax_Out(*,0) = " << minCenMax_Out[ndarray::view()(0)] << endl;
       #endif
-      F_A1_Temp = F_A1_XCenters + xHigh_In;
+      F_A1_Temp = ndarray::copy(xCenters_In + xHigh_In);
 
-      I_A2_MinCenMax_Out(blitz::Range::all(), 2) = pfs::drp::stella::math::Fix(F_A1_Temp);
+      minCenMax_Out[ndarray::view()(2)] = pfs::drp::stella::math::floor(F_A1_Temp, size_t(0));
 
       #ifdef __DEBUG_MINCENMAX__
-        cout << "CFits::calcMinCenMax: I_A2_MinCenMax_Out(*,2) = " << I_A2_MinCenMax_Out(blitz::Range::all(), 2) << endl;
+        cout << "CFits::calcMinCenMax: minCenMax_Out(*,2) = " << minCenMax_Out[ndarray::view()(2)] << endl;
       #endif
 
-      blitz::Array<int, 1> I_A1_NPixLeft(I_A2_MinCenMax_Out.rows());
-      I_A1_NPixLeft = I_A2_MinCenMax_Out(blitz::Range::all(),1) - I_A2_MinCenMax_Out(blitz::Range::all(),0);
-
-      blitz::Array<int, 1> I_A1_NPixRight(I_A2_MinCenMax_Out.rows());
-      I_A1_NPixRight = I_A2_MinCenMax_Out(blitz::Range::all(),2) - I_A2_MinCenMax_Out(blitz::Range::all(),1);
+      ndarray::Array<size_t, 1, 1> I_A1_NPixLeft = ndarray::copy(minCenMax_Out[ndarray::view()(1)] - minCenMax_Out[ndarray::view()(0)]);
+      ndarray::Array<size_t, 1, 1> I_A1_NPixRight = ndarray::copy(minCenMax_Out[ndarray::view()(2)] - minCenMax_Out[ndarray::view()(1)]);
+      ndarray::Array<size_t, 1, 1> I_A1_I_NPixX = ndarray::copy(minCenMax_Out[ndarray::view()(2)] - minCenMax_Out[ndarray::view()(0)] + 1);
 
       #ifdef __DEBUG_MINCENMAX__
         cout << "CFits::calcMinCenMax: I_A1_NPixLeft(=" << I_A1_NPixLeft << endl;
         cout << "CFits::calcMinCenMax: I_A1_NPixRight(=" << I_A1_NPixRight << endl;
-      #endif
-
-      blitz::Array<int, 1> I_A1_I_NPixX(I_A2_MinCenMax_Out.rows());
-      I_A1_I_NPixX = I_A2_MinCenMax_Out(blitz::Range::all(), 2) - I_A2_MinCenMax_Out(blitz::Range::all(), 0) + 1;
-
-      #ifdef __DEBUG_MINCENMAX__
         cout << "CFits::calcMinCenMax: I_A1_I_NPixX = " << I_A1_I_NPixX << endl;
       #endif
 
-      int I_MaxPixLeft = max(I_A1_NPixLeft);
-      int I_MaxPixRight = max(I_A1_NPixRight);
-      int I_MinPixLeft = min(I_A1_NPixLeft);
-      int I_MinPixRight = min(I_A1_NPixRight);
+      size_t I_MaxPixLeft = pfs::drp::stella::math::max(I_A1_NPixLeft);
+      size_t I_MaxPixRight = pfs::drp::stella::math::max(I_A1_NPixRight);
+      size_t I_MinPixLeft = pfs::drp::stella::math::min(I_A1_NPixLeft);
+      size_t I_MinPixRight = pfs::drp::stella::math::min(I_A1_NPixRight);
 
       if (I_MaxPixLeft > I_MinPixLeft)
-        I_A2_MinCenMax_Out(blitz::Range::all(),0) = I_A2_MinCenMax_Out(blitz::Range::all(),1) - I_MaxPixLeft + nPixCutLeft_In;
+        minCenMax_Out[ndarray::view()(0)] = minCenMax_Out[ndarray::view()(1)] - I_MaxPixLeft + nPixCutLeft_In;
 
       if (I_MaxPixRight > I_MinPixRight)
-        I_A2_MinCenMax_Out(blitz::Range::all(),2) = I_A2_MinCenMax_Out(blitz::Range::all(),1) + I_MaxPixRight - nPixCutRight_In;
+        minCenMax_Out[ndarray::view()(2)] = minCenMax_Out[ndarray::view()(1)] + I_MaxPixRight - nPixCutRight_In;
 
       #ifdef __DEBUG_MINCENMAX__
-        cout << "CFits::calcMinCenMax: I_A2_MinCenMax_Out = " << I_A2_MinCenMax_Out << endl;
+        cout << "CFits::calcMinCenMax: minCenMax_Out = " << minCenMax_Out << endl;
       #endif
 
-      return true;
+      return minCenMax_Out;
     }
 
     /**
@@ -5120,7 +5105,7 @@
 //    }
     
     template< typename T, typename U >
-    U floor(T const& rhs, U const& outType){
+    U floor1(T const& rhs, U const& outType){
       U outVal = U(std::llround(std::floor(rhs)));
       return outVal;
     }
@@ -5130,7 +5115,7 @@
       ndarray::Array<U, 1, 1> outVal = allocate(rhs.getShape());
       typename ndarray::Array<U, 1, 1>::Iterator iOut = outVal.begin();
       for (auto iIn = rhs.begin(); iIn != rhs.end(); ++iIn){
-        *iOut = floor(*iIn, outType);
+        *iOut = floor1(*iIn, outType);
         ++iOut;
       }
       return outVal;
@@ -5143,7 +5128,7 @@
       typename ndarray::Array<U, 2, 2>::Reference::Iterator jOut = iOut->begin();
       for (auto iIn = rhs.begin(); iIn != rhs.end(); ++iIn) {
         for (auto jIn = iIn->begin(); jIn != iIn->end(); ++jIn) {
-          *jOut = floor(*jIn, outType);
+          *jOut = floor1(*jIn, outType);
           ++jOut;
         }
         ++iOut;
@@ -5151,16 +5136,101 @@
       return outVal;
     }
 
-    template size_t floor(float const&, size_t const&);
-    template size_t floor(double const&, size_t const&);
-    template unsigned int floor(float const&, unsigned int const&);
-    template unsigned int floor(double const&, unsigned int const&);
+    template<typename T>
+    T max(ndarray::Array<T, 1, 1> const& in){
+      T max = in[0];
+      for (auto it = in.begin(); it != in.end(); ++it){
+        if (*it > max)
+          max = *it;
+      }
+      return max;
+    }
+
+    template<typename T>
+    T min(ndarray::Array<T, 1, 1> const& in){
+      T min = in[0];
+      for (auto it = in.begin(); it != in.end(); ++it){
+        if (*it < min)
+          min = *it;
+      }
+      return min;
+    }
+    
+    template <typename T>
+    ndarray::Array<double, 1, 1> Double(ndarray::Array<T, 1, 1> const& arr_In){
+      ndarray::Array<double, 1, 1> arr_Out = ndarray::allocate(arr_In.getShape()[0]);
+      auto it_arr_Out = arr_Out.begin();
+      auto it_arr_In = arr_In.begin();
+      for (int i = 0; i < arr_In.getShape()[0]; ++i)
+        (*(it_arr_Out + i)) = double((*(it_arr_In + i)));
+      return arr_Out;
+    }
+    
+    template <typename T>
+    ndarray::Array<float, 1, 1> Float(ndarray::Array<T, 1, 1> const& arr_In){
+      ndarray::Array<float, 1, 1> arr_Out = ndarray::allocate(arr_In.getShape()[0]);
+      auto it_arr_Out = arr_Out.begin();
+      auto it_arr_In = arr_In.begin();
+      for (int i = 0; i < arr_In.getShape()[0]; ++i)
+        (*(it_arr_Out + i)) = float((*(it_arr_In + i)));
+      return arr_Out;
+    }
+    
+  //  template <typename T>
+  //  ndarray::Array<int, 1, 1> Int(ndarray::Array<T, 1, 1> const& arr_In){
+  //    ndarray::Array<int, 1, 1> arr_Out = ndarray::allocate(arr_In.getShape()[0]);
+  //    auto it_arr_Out = arr_Out.begin();
+  //    auto it_arr_In = arr_In.begin();
+  //    for (int i = 0; i < arr_In.getShape()[0]; ++i)
+  //      (*(it_arr_Out + i)) = int((*(it_arr_In + i)));
+  //    return arr_Out;
+  //  }
+
+    template ndarray::Array<double, 1, 1> Double(ndarray::Array<size_t, 1, 1> const&);
+    template ndarray::Array<double, 1, 1> Double(ndarray::Array<unsigned short, 1, 1> const&);
+    template ndarray::Array<double, 1, 1> Double(ndarray::Array<int, 1, 1> const&);
+    template ndarray::Array<double, 1, 1> Double(ndarray::Array<long, 1, 1> const&);
+    template ndarray::Array<double, 1, 1> Double(ndarray::Array<float, 1, 1> const&);
+    template ndarray::Array<double, 1, 1> Double(ndarray::Array<float const, 1, 1> const&);
+    template ndarray::Array<double, 1, 1> Double(ndarray::Array<double, 1, 1> const&);
+
+    template ndarray::Array<float, 1, 1> Float(ndarray::Array<size_t, 1, 1> const&);
+    template ndarray::Array<float, 1, 1> Float(ndarray::Array<unsigned short, 1, 1> const&);
+    template ndarray::Array<float, 1, 1> Float(ndarray::Array<int, 1, 1> const&);
+    template ndarray::Array<float, 1, 1> Float(ndarray::Array<long, 1, 1> const&);
+    template ndarray::Array<float, 1, 1> Float(ndarray::Array<float, 1, 1> const&);
+    template ndarray::Array<float, 1, 1> Float(ndarray::Array<double, 1, 1> const&);
+
+//    template ndarray::Array<int, 1, 1> Int(ndarray::Array<size_t, 1, 1> const&);
+//    template ndarray::Array<int, 1, 1> Int(ndarray::Array<unsigned short, 1, 1> const&);
+//    template ndarray::Array<int, 1, 1> Int(ndarray::Array<long, 1, 1> const&);
+//    template ndarray::Array<int, 1, 1> Int(ndarray::Array<float, 1, 1> const&);
+//    template ndarray::Array<int, 1, 1> Int(ndarray::Array<double, 1, 1> const&);
+    
+    template size_t min(ndarray::Array<size_t, 1, 1> const&);
+    template unsigned short min(ndarray::Array<unsigned short, 1, 1> const&);
+    template int min(ndarray::Array<int, 1, 1> const&);
+    template long min(ndarray::Array<long, 1, 1> const&);
+    template float min(ndarray::Array<float, 1, 1> const&);
+    template double min(ndarray::Array<double, 1, 1> const&);
+    
+    template size_t max(ndarray::Array<size_t, 1, 1> const&);
+    template unsigned short max(ndarray::Array<unsigned short, 1, 1> const&);
+    template int max(ndarray::Array<int, 1, 1> const&);
+    template long max(ndarray::Array<long, 1, 1> const&);
+    template float max(ndarray::Array<float, 1, 1> const&);
+    template double max(ndarray::Array<double, 1, 1> const&);
+
+    template size_t floor1(float const&, size_t const&);
+    template size_t floor1(double const&, size_t const&);
+    template unsigned int floor1(float const&, unsigned int const&);
+    template unsigned int floor1(double const&, unsigned int const&);
 //    template unsigned long math::floor(float, unsigned long);
 //    template unsigned long math::floor(double, unsigned long);
-    template float floor(float const&, float const&);
-    template float floor(double const&, float const&);
-    template double floor(float const&, double const&);
-    template double floor(double const&, double const&);
+    template float floor1(float const&, float const&);
+    template float floor1(double const&, float const&);
+    template double floor1(float const&, double const&);
+    template double floor1(double const&, double const&);
 
     template ndarray::Array<size_t, 1, 1> floor(const ndarray::Array<const float, 1, 1>&, const size_t);
     template ndarray::Array<size_t, 1, 1> floor(const ndarray::Array<const double, 1, 1>&, const size_t);
