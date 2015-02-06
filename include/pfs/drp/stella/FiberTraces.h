@@ -27,6 +27,7 @@
 
 //#define __DEBUG_BANDSOL__
 //#define __DEBUG_CALC2DPSF__
+//#define __DEBUG_CALCSWATHBOUNDY__
 //#define __DEBUG_CHECK_INDICES__
 //#define __DEBUG_CREATEFIBERTRACE__
 //#define __DEBUG_EXTRACTFROMPROFILE__
@@ -44,6 +45,7 @@
 //#define __DEBUG_SLITFUNC_X__
 //#define __DEBUG_TRACEFUNC__
 //#define __DEBUG_UNIQ__
+//#define __DEBUG_XCENTERS__
 #define DEBUGDIR "/Users/azuri/spectra/pfs/2014-11-02/debug/"// /home/azuri/entwicklung/idl/REDUCE/16_03_2013/"//stella/ses-pipeline/c/msimulateskysubtraction/data/"//spectra/elaina/eso_archive/red_564/red_r/"
 
 namespace afwGeom = lsst::afw::geom;
@@ -405,7 +407,7 @@ namespace math{
   
   /**
    * @brief: returns ndarray containing the xCenters of a FiberTrace from 0 to FiberTrace.getTrace().getHeight()-1
-   *         NOTE that the WCS here starts at [0., 0.], so an xCenter of 1.1 refers to position 0.1 of the second pixel
+   *         NOTE that the WCS starts at [0., 0.], so an xCenter of 1.1 refers to position 0.1 of the second pixel
    */
   ndarray::Array<float, 1, 1> calculateXCenters(PTR(const ::pfs::drp::stella::FiberTraceFunction) const& fiberTraceFunction,
                                                 size_t const& ccdHeight,

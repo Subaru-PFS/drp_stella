@@ -107,6 +107,93 @@ namespace pfs { namespace drp { namespace stella { namespace utils{
     return true;
   }
 
+  template<typename T>
+  bool WriteFits(ndarray::Array<T, 2, 2> const& image_In, const string &fileName_In){
+    fitsfile *P_Fits;
+    int Status;
+    long fpixel, nelements;
+    void *p_void;
+
+    Status=0;
+    remove(fileName_In.c_str());
+    fits_create_file(&P_Fits, fileName_In.c_str(), &Status);//{
+    if (Status !=0){
+      cout << "CFits::WriteFits: Error <" << Status << "> while creating file " << fileName_In << endl;
+      char* P_ErrMsg = new char[255];
+      ffgerr(Status, P_ErrMsg);
+      cout << "CFits::WriteFits: <" << P_ErrMsg << "> => Returning FALSE" << endl;
+      delete[] P_ErrMsg;
+      return false;
+    }
+
+    ///  fits_write_img(P_FitsFile, TDOUBLE, fpixel, nelements,
+    ///    p_void, &Status);
+    long naxes[2] = {image_In.getShape()[1], image_In.getShape()[0]};
+    int naxis = 2;
+    fits_create_img(P_Fits, DOUBLE_IMG, naxis, naxes, &Status);
+    if (Status !=0){
+      cout << "CFits::WriteFits: Error <" << Status << "> while creating image " << fileName_In << endl;
+      char* P_ErrMsg = new char[255];
+      ffgerr(Status, P_ErrMsg);
+      cout << "CFits::WriteFits: <" << P_ErrMsg << "> => Returning FALSE" << endl;
+      delete[] P_ErrMsg;
+      return false;
+    }
+    #ifdef __DEBUG_WRITEFITS__
+      cout << "CFits::WriteFits: size of image_In = <" << image_In->rows() << "x" << image_In->cols() << ">" << endl;
+      cout << "CFits::WriteFits: size of image_In = <" << image_In->rows() << "x" << image_In->cols() << ">" << endl;
+    #endif
+
+    fpixel = 1;
+    //nullval = 0.;
+    nelements = image_In->cols() * image_In->rows();
+
+    p_void = (const_cast<ndarray::Array<T, 2, 2>>(image_In)).data();// = new blitz::Array<double,2>(p_Array, blitz::shape(naxes[0], naxes[1]),
+    #ifdef __DEBUG_WRITEFITS__
+      cout << "CFits::WriteFits: p_void = <" << (*((double*)p_void)) << ">" << endl;
+    #endif
+
+    int nbits = TDOUBLE;
+    if (typeid(T) == typeid(short))
+        nbits = TSHORT;
+    else if (typeid(T) == typeid(unsigned short))
+        nbits = TUSHORT;
+    else if (typeid(T) == typeid(int))
+        nbits = TINT;
+    else if (typeid(T) == typeid(unsigned int))
+        nbits = TUINT;
+    else if (typeid(T) == typeid(long))
+        nbits = TLONG;
+    else if (typeid(T) == typeid(unsigned long))
+        nbits = TULONG;
+    else if (typeid(T) == typeid(float))
+        nbits = TFLOAT;
+    else
+        nbits = TDOUBLE;
+    fits_write_img(P_Fits, nbits, fpixel, nelements, p_void, &Status);
+
+    if (Status !=0){
+      cout << "CFits::WriteFits: Error " << Status << " while writing file " << fileName_In << endl;
+      char* P_ErrMsg = new char[255];
+      ffgerr(Status, P_ErrMsg);
+      cout << "CFits::WriteFits: <" << P_ErrMsg << "> => Returning FALSE" << endl;
+      delete[] P_ErrMsg;
+      return false;
+    }
+
+    fits_close_file(P_Fits, &Status);
+    cout << "CFits::WriteFits: FitsFileName <" << fileName_In << "> closed" << endl;
+    if (Status !=0){
+      cout << "CFits::WriteFits: Error " << Status << " while closing file " << fileName_In << endl;
+      char* P_ErrMsg = new char[255];
+      ffgerr(Status, P_ErrMsg);
+      cout << "CFits::WriteFits: <" << P_ErrMsg << "> => Returning FALSE" << endl;
+      delete[] P_ErrMsg;
+      return false;
+    }
+    return true;
+  }
+
   /**
     *  task: Writes Array <Array_In> to file <CS_FileName_In>
     **/
@@ -760,6 +847,12 @@ template bool utils::WriteFits(const blitz::Array<int, 2>* image_In, const strin
 template bool utils::WriteFits(const blitz::Array<long, 2>* image_In, const string &fileName_In);
 template bool utils::WriteFits(const blitz::Array<float, 2>* image_In, const string &fileName_In);
 template bool utils::WriteFits(const blitz::Array<double, 2>* image_In, const string &fileName_In);
+
+template bool utils::WriteFits(ndarray::Array<unsigned short, 2> const& image_In, const string &fileName_In);
+template bool utils::WriteFits(ndarray::Array<int, 2> const& image_In, const string &fileName_In);
+template bool utils::WriteFits(ndarray::Array<long, 2> const& image_In, const string &fileName_In);
+template bool utils::WriteFits(ndarray::Array<float, 2> const& image_In, const string &fileName_In);
+template bool utils::WriteFits(ndarray::Array<double, 2> const& image_In, const string &fileName_In);
 
 template bool utils::WriteFits(const blitz::Array<unsigned short, 1>* image_In, const string &fileName_In);
 template bool utils::WriteFits(const blitz::Array<int, 1>* image_In, const string &fileName_In);
