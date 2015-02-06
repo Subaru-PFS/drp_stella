@@ -243,10 +243,10 @@ int testquadfix()
  * m - number of data points
  * n - number of parameters (4)
  * p - array of fit parameters
- *     p[0] = constant offset
- *     p[1] = peak y value
- *     p[2] = x centroid position
- *     p[3] = gaussian sigma width
+ *     p[0] = peak y value
+ *     p[1] = x centroid position
+ *     p[2] = gaussian sigma width
+ *     p[3] = constant offset
  * dy - array of residuals to be returned
  * vars - private data (struct vars_struct *)
  *
@@ -263,11 +263,11 @@ int MPFitGaussFuncCB(int m, int n, double *p, double *dy, double **dvec, void *v
   y = v->y;
   ey = v->ey;
 
-  sig2 = p[3]*p[3];
+  sig2 = p[2]*p[2];
 
   for (i=0; i<m; i++) {
-    xc = x[i]-p[2];
-    dy[i] = (y[i] - p[1]*exp(-0.5*xc*xc/sig2) - p[0])/ey[i];
+    xc = x[i]-p[1];
+    dy[i] = (y[i] - p[0]*exp(-0.5*xc*xc/sig2) - p[3])/ey[i];
   }
 
   return 0;
@@ -314,10 +314,10 @@ int MPFitGaussFuncNB(int m, int n, double *p, double *dy, double **dvec, void *v
  * m - number of data points
  * n - number of parameters (4)
  * p - array of fit parameters
- *     p[0] = constant offset
- *     p[1] = area under curve value
- *     p[2] = x centroid position
- *     p[3] = gaussian sigma width
+ *     p[0] = area under curve value
+ *     p[1] = x centroid position
+ *     p[2] = gaussian sigma width
+ *     p[3] = constant offset
  * dy - array of residuals to be returned
  * vars - private data (struct vars_struct *)
  *
@@ -333,11 +333,11 @@ int MPFitGaussFuncACB(int m, int n, double *p, double *dy, double **dvec, void *
   y = v->y;
   ey = v->ey;
 
-  sig2 = p[3]*p[3];
+  sig2 = p[2]*p[2];
 
   for (i=0; i<m; i++) {
-    xc = x[i]-p[2];
-    dy[i] = (y[i] - (p[1]*exp(-0.5*xc*xc/sig2)/(sqrt(2. * D_PI) * p[3])) - p[0])/ey[i];
+    xc = x[i]-p[1];
+    dy[i] = (y[i] - (p[0]*exp(-0.5*xc*xc/sig2)/(sqrt(2. * D_PI) * p[2])) - p[3])/ey[i];
   }
 
   return 0;
@@ -455,12 +455,12 @@ int MPFitGaussFuncALB(int m, int n, double *p, double *dy, double **dvec, void *
  * m - number of data points
  * n - number of parameters (6)
  * p - array of fit parameters
- *     p[0] = constant offset
- *     p[1] = peak y value 1st Gauss
- *     p[2] = x centroid position 1st Gauss
- *     p[3] = gaussian sigma width
- *     p[4] = peak y value 2nd Gauss
- *     p[5] = x centroid position 2nd Gauss
+ *     p[0] = peak y value 1st Gauss
+ *     p[1] = x centroid position 1st Gauss
+ *     p[2] = gaussian sigma width
+ *     p[3] = peak y value 2nd Gauss
+ *     p[4] = x centroid position 2nd Gauss
+ *     p[5] = constant offset
  * dy - array of residuals to be returned
  * vars - private data (struct vars_struct *)
  *
@@ -476,13 +476,13 @@ int MPFitTwoGaussFuncCB(int m, int n, double *p, double *dy, double **dvec, void
   y = v->y;
   ey = v->ey;
 
-  sig2 = p[3]*p[3];
+  sig2 = p[2]*p[2];
 //  sig2_b = p[6]*p[6];
 
   for (i=0; i<m; i++) {
-    xc_a = x[i]-p[2];
-    xc_b = x[i]-p[5];
-    dy[i] = (y[i] - p[1]*exp(-0.5*xc_a*xc_a/sig2) - p[4]*exp(-0.5*xc_b*xc_b/sig2) - p[0])/ey[i];
+    xc_a = x[i]-p[1];
+    xc_b = x[i]-p[4];
+    dy[i] = (y[i] - p[0]*exp(-0.5*xc_a*xc_a/sig2) - p[3]*exp(-0.5*xc_b*xc_b/sig2) - p[5])/ey[i];
   }
 
   return 0;
@@ -532,13 +532,13 @@ int MPFitTwoGaussFuncNB(int m, int n, double *p, double *dy, double **dvec, void
  * m - number of data points
  * n - number of parameters (6)
  * p - array of fit parameters
- *     p[0] = constant offset
- *     p[1] = area under curve value 1st Gauss
- *     p[2] = x centroid position 1st Gauss
- *     p[3] = gaussian sigma width
- *     p[4] = area under curve value 2nd Gauss
- *     p[5] = x centroid position 2nd Gauss
- * dy - array of residuals to be returned
+ *     p[0] = area under curve value 1st Gauss
+ *     p[1] = x centroid position 1st Gauss
+ *     p[2] = gaussian sigma width
+ *     p[3] = area under curve value 2nd Gauss
+ *     p[4] = x centroid position 2nd Gauss
+ *     p[5] = constant offset
+* dy - array of residuals to be returned
  * vars - private data (struct vars_struct *)
  *
  * RETURNS: error code (0 = success)
@@ -553,13 +553,13 @@ int MPFitTwoGaussFuncACB(int m, int n, double *p, double *dy, double **dvec, voi
   y = v->y;
   ey = v->ey;
 
-  sig2 = p[3]*p[3];
+  sig2 = p[2]*p[2];
 //  sig2_b = p[6]*p[6];
 
   for (i=0; i<m; i++) {
-    xc_a = x[i]-p[2];
-    xc_b = x[i]-p[5];
-    dy[i] = (y[i] - (p[1]*exp(-0.5*xc_a*xc_a/sig2)/(sqrt(2. * D_PI) * p[3])) - (p[4]*exp(-0.5*xc_b*xc_b/sig2)/(sqrt(2. * D_PI) * p[3])) - p[0])/ey[i];
+    xc_a = x[i]-p[1];
+    xc_b = x[i]-p[4];
+    dy[i] = (y[i] - (p[0]*exp(-0.5*xc_a*xc_a/sig2)/(sqrt(2. * D_PI) * p[2])) - (p[3]*exp(-0.5*xc_b*xc_b/sig2)/(sqrt(2. * D_PI) * p[2])) - p[5])/ey[i];
   }
 
   return 0;
@@ -610,14 +610,14 @@ int MPFitTwoGaussFuncANB(int m, int n, double *p, double *dy, double **dvec, voi
  * m - number of data points
  * n - number of parameters (8)
  * p - array of fit parameters
- *     p[0] = constant offset
- *     p[1] = peak y value 1st Gauss
- *     p[2] = x centroid position 1st Gauss
- *     p[3] = gaussian sigma width
- *     p[4] = peak y value 2nd Gauss
- *     p[5] = x centroid position 2nd Gauss
- *     p[6] = peak y value 3rd Gauss
- *     p[7] = x centroid position 3rd Gauss
+ *     p[0] = peak y value 1st Gauss
+ *     p[1] = x centroid position 1st Gauss
+ *     p[2] = gaussian sigma width
+ *     p[3] = peak y value 2nd Gauss
+ *     p[4] = x centroid position 2nd Gauss
+ *     p[5] = peak y value 3rd Gauss
+ *     p[6] = x centroid position 3rd Gauss
+ *     p[7] = constant offset
  * dy - array of residuals to be returned
  * vars - private data (struct vars_struct *)
  *
@@ -633,14 +633,14 @@ int MPFitThreeGaussFuncCB(int m, int n, double *p, double *dy, double **dvec, vo
   y = v->y;
   ey = v->ey;
 
-  sig2 = p[3]*p[3];
+  sig2 = p[2]*p[2];
   //  sig2_b = p[6]*p[6];
 
   for (i=0; i<m; i++) {
-    xc_a = x[i]-p[2];
-    xc_b = x[i]-p[5];
-    xc_c = x[i]-p[7];
-    dy[i] = (y[i] - p[1]*exp(-0.5*xc_a*xc_a/sig2) - p[4]*exp(-0.5*xc_b*xc_b/sig2) - p[6]*exp(-0.5*xc_c*xc_c/sig2) - p[0])/ey[i];
+    xc_a = x[i]-p[1];
+    xc_b = x[i]-p[4];
+    xc_c = x[i]-p[6];
+    dy[i] = (y[i] - p[0]*exp(-0.5*xc_a*xc_a/sig2) - p[3]*exp(-0.5*xc_b*xc_b/sig2) - p[5]*exp(-0.5*xc_c*xc_c/sig2) - p[7])/ey[i];
   }
 
   return 0;
@@ -693,14 +693,14 @@ int MPFitThreeGaussFuncNB(int m, int n, double *p, double *dy, double **dvec, vo
  * m - number of data points
  * n - number of parameters (8)
  * p - array of fit parameters
- *     p[0] = constant offset
- *     p[1] = area under curve value 1st Gauss
- *     p[2] = x centroid position 1st Gauss
- *     p[3] = gaussian sigma width 1st Gauss
- *     p[4] = area under curve value 2nd Gauss
- *     p[5] = x centroid position 2nd Gauss
- *     p[6] = area under curve value 3rd Gauss
- *     p[7] = x centroid position 3rd Gauss
+ *     p[0] = area under curve value 1st Gauss
+ *     p[1] = x centroid position 1st Gauss
+ *     p[2] = gaussian sigma width 1st Gauss
+ *     p[3] = area under curve value 2nd Gauss
+ *     p[4] = x centroid position 2nd Gauss
+ *     p[5] = area under curve value 3rd Gauss
+ *     p[6] = x centroid position 3rd Gauss
+ *     p[7] = constant offset
  * dy - array of residuals to be returned
  * vars - private data (struct vars_struct *)
  *
@@ -716,14 +716,14 @@ int MPFitThreeGaussFuncACB(int m, int n, double *p, double *dy, double **dvec, v
   y = v->y;
   ey = v->ey;
 
-  sig2 = p[3]*p[3];
+  sig2 = p[2]*p[2];
   //  sig2_b = p[6]*p[6];
 
   for (i=0; i<m; i++) {
-    xc_a = x[i]-p[2];
-    xc_b = x[i]-p[5];
-    xc_c = x[i]-p[7];
-    dy[i] = (y[i] - (p[1]*exp(-0.5*xc_a*xc_a/sig2)/(sqrt(2. * D_PI) * p[3])) - (p[4]*exp(-0.5*xc_b*xc_b/sig2)/(sqrt(2. * D_PI) * p[3])) - (p[6]*exp(-0.5*xc_c*xc_c/sig2)/(sqrt(2. * D_PI) * p[3])) - p[0])/ey[i];
+    xc_a = x[i]-p[1];
+    xc_b = x[i]-p[4];
+    xc_c = x[i]-p[6];
+    dy[i] = (y[i] - (p[0]*exp(-0.5*xc_a*xc_a/sig2)/(sqrt(2. * D_PI) * p[2])) - (p[3]*exp(-0.5*xc_b*xc_b/sig2)/(sqrt(2. * D_PI) * p[2])) - (p[5]*exp(-0.5*xc_c*xc_c/sig2)/(sqrt(2. * D_PI) * p[2])) - p[7])/ey[i];
   }
 
   return 0;

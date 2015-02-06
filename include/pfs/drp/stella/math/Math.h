@@ -14,7 +14,8 @@
 
 //#define __DEBUG_FIT__
 //#define __DEBUG_POLY__
-#define __DEBUG_MINCENMAX__
+//#define __DEBUG_MINCENMAX__
+//#define __DEBUG_INDGEN__
 
 namespace afwGeom = lsst::afw::geom;
 namespace afwImage = lsst::afw::image;
@@ -410,7 +411,13 @@ namespace pfs { namespace drp { namespace stella {
     ndarray::Array<double, 1, 1> Double(ndarray::Array<T, 1, 1> const& arr_In);
     
     template <typename T>
+    ndarray::Array<double, 2, 2> Double(ndarray::Array<T, 2, 2> const& arr_In);
+    
+    template <typename T>
     ndarray::Array<float, 1, 1> Float(ndarray::Array<T, 1, 1> const& arr_In);
+    
+    template <typename T>
+    ndarray::Array<float, 2, 2> Float(ndarray::Array<T, 2, 2> const& arr_In);
     
 //    template <typename T>
 //    ndarray::Array<int, 1, 1> Int(ndarray::Array<T, 1, 1> const& arr_In);
@@ -536,54 +543,48 @@ namespace pfs { namespace drp { namespace stella {
     STATUS=status: int: out
     YFIT=yfit: blitz::Array<double, 1>(D_A1_X_In.size()): out
     **/
-    bool PolyFit(const blitz::Array<double, 1> &D_A1_X_In,
+    blitz::Array<double, 1> PolyFit(const blitz::Array<double, 1> &D_A1_X_In,
                  const blitz::Array<double, 1> &D_A1_Y_In,
                  int I_Degree,
                  const blitz::Array<string, 1> &S_A1_Args,
-                 void *ArgV[],
-                 blitz::Array<double, 1>* P_D_A1_Out);
+                 void *ArgV[]);
 
-    bool PolyFit(const blitz::Array<double, 1> &D_A1_X_In,
+    blitz::Array<double, 1> PolyFit(const blitz::Array<double, 1> &D_A1_X_In,
                  const blitz::Array<double, 1> &D_A1_Y_In,
-                 int I_Degree,
-                 blitz::Array<double, 1>* P_D_A1_Out);
+                 int I_Degree);
 
 /** Additional Keywords:
     REJECTED=blitz::Array<int, 1>
     NOT_REJECTED=blitz::Array<int, 1>
     N_REJECTED=int
     **/
-    bool PolyFit(const blitz::Array<double, 1> &D_A1_X_In,
+    blitz::Array<double, 1> PolyFit(const blitz::Array<double, 1> &D_A1_X_In,
                  const blitz::Array<double, 1> &D_A1_Y_In,
                  unsigned int I_Degree,
                  double D_Reject,
                  const blitz::Array<string, 1> &S_A1_Args,
-                 void *ArgV[],
-                 blitz::Array<double, 1>* P_D_A1_Out);
+                 void *ArgV[]);
 
-    bool PolyFit(const blitz::Array<double, 1> &D_A1_X_In,
+    blitz::Array<double, 1> PolyFit(const blitz::Array<double, 1> &D_A1_X_In,
                  const blitz::Array<double, 1> &D_A1_Y_In,
                  unsigned int I_Degree,
                  double D_LReject,
                  double D_HReject,
                  unsigned int I_NIter,
                  const blitz::Array<string, 1> &S_A1_Args,
-                 void *ArgV[],
-                 blitz::Array<double, 1>* P_D_A1_Out);
+                 void *ArgV[]);
 
-    bool PolyFit(const blitz::Array<double, 1> &D_A1_X_In,
+    blitz::Array<double, 1> PolyFit(const blitz::Array<double, 1> &D_A1_X_In,
                  const blitz::Array<double, 1> &D_A1_Y_In,
                  unsigned int I_Degree,
-                 double D_Reject,
-                 blitz::Array<double, 1>* P_D_A1_Out);
+                 double D_Reject);
 
-    bool PolyFit(const blitz::Array<double, 1> &D_A1_X_In,
+    blitz::Array<double, 1> PolyFit(const blitz::Array<double, 1> &D_A1_X_In,
                  const blitz::Array<double, 1> &D_A1_Y_In,
                  unsigned int I_Degree,
                  double D_LReject,
                  double D_HReject,
-                 unsigned int I_NIter,
-                 blitz::Array<double, 1>* P_D_A1_Out);
+                 unsigned int I_NIter);
 
 
     /**
@@ -866,6 +867,8 @@ namespace pfs { namespace drp { namespace stella {
      **/
     template<typename T>
     bool CountPixGTZero(blitz::Array<T, 1> &vec_InOut);
+    template<typename T>
+    bool countPixGTZero(ndarray::Array<T, 1, 1> &vec_InOut);
 
     /**
      *        function FirstIndexWithValueGEFrom
@@ -875,6 +878,9 @@ namespace pfs { namespace drp { namespace stella {
     template<typename T>
     int FirstIndexWithValueGEFrom(const blitz::Array<T, 1> &vecIn, const T minValue, const int fromIndex);
 
+    template<typename T>
+    int firstIndexWithValueGEFrom(ndarray::Array<T, 1, 1> const& vecIn, const T minValue, const int fromIndex);
+
     /**
      *        function LastIndexWithZeroValueBefore
      *        returns last index of integer input vector where value is equal to zero, starting at index I_StartPos
@@ -883,6 +889,9 @@ namespace pfs { namespace drp { namespace stella {
     template<typename T>
     int LastIndexWithZeroValueBefore(const blitz::Array<T, 1> &vec_In, const int startPos_In);
 
+    template<typename T>
+    int lastIndexWithZeroValueBefore(ndarray::Array<T, 1, 1> const& vec_In, const int startPos_In);
+
     /**
      *        function FirstIndexWithZeroValueFrom
      *        returns first index of integer input vector where value is equal to zero, starting at index I_StartPos
@@ -890,6 +899,9 @@ namespace pfs { namespace drp { namespace stella {
      **/
     template<typename T>
     int FirstIndexWithZeroValueFrom(const blitz::Array<T, 1> &vec_In, const int startPos_In);
+
+    template<typename T>
+    int firstIndexWithZeroValueFrom(ndarray::Array<T, 1, 1> const& vec_In, const int startPos_In);
 
     /**
        CHANGES to original function:
@@ -1145,6 +1157,15 @@ namespace pfs { namespace drp { namespace stella {
  
     template<typename T>
     T min(ndarray::Array<T, 1, 1> const& in);
+
+    template<typename T>
+    ndarray::Array<T, 1, 1> indGenNdArr(T const size);
+
+    template<typename T>
+    ndarray::Array<T, 1, 1> replicate(T const val, int const size);
+    
+    template<typename T>
+    ndarray::Array<T, 2, 2> calcPosRelativeToCenter(ndarray::Array<T, 2, 2> const& swath_In, ndarray::Array<T, 1, 1> const& xCenters_In);
 
   }/// end namespace math
   

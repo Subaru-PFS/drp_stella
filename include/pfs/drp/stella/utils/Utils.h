@@ -22,6 +22,9 @@ namespace pfs { namespace drp { namespace stella { namespace utils{
   bool WriteFits(const blitz::Array<T,2>* image_In, const string &fileName_In);
 
   template<typename T>
+  bool WriteFits(ndarray::Array<T, 2, 2> const& image_In, const string &fileName_In);
+
+  template<typename T>
   bool WriteFits(const blitz::Array<T,1>* image_In, const string &fileName_In);
 
   /**
