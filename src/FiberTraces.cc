@@ -6851,10 +6851,10 @@ namespace pfsDRPStella = pfs::drp::stella;
       #ifdef __DEBUG_FINDANDTRACE__
         cout << "::pfs::drp::stella::math::findAndTraceApertures: D_A1_IndexCol = " << D_A1_IndexCol << endl;
       #endif
-      ndarray::Array<VarianceT, 1, 1> D_A1_MeasureErrors = ndarray::allocate(ccdImage.getShape()[1]);
-      ndarray::Array<double, 1, 1> D_A1_Guess = ndarray::allocate(fiberTraceFunctionFindingControl->nTermsGaussFit);
-      ndarray::Array<double, 1, 1> D_A1_GaussFit_Coeffs = ndarray::allocate(fiberTraceFunctionFindingControl->nTermsGaussFit);
-      ndarray::Array<double, 1, 1> D_A1_GaussFit_Coeffs_Bak = ndarray::allocate(fiberTraceFunctionFindingControl->nTermsGaussFit);
+//      ndarray::Array<VarianceT, 1, 1> D_A1_MeasureErrors = ndarray::allocate(ccdImage.getShape()[1]);
+      ndarray::Array<ImageT, 1, 1> D_A1_Guess = ndarray::allocate(fiberTraceFunctionFindingControl->nTermsGaussFit);
+      ndarray::Array<ImageT, 1, 1> D_A1_GaussFit_Coeffs = ndarray::allocate(fiberTraceFunctionFindingControl->nTermsGaussFit);
+      ndarray::Array<ImageT, 1, 1> D_A1_GaussFit_Coeffs_Bak = ndarray::allocate(fiberTraceFunctionFindingControl->nTermsGaussFit);
       ndarray::Array<int, 1, 1> I_A1_Signal = ndarray::allocate(maskedImage->getWidth());
       I_A1_Signal[ndarray::view()] = 0;
       ndarray::Array<float, 1, 1> D_A1_ApertureCenter = ndarray::allocate(maskedImage->getHeight());
@@ -7060,13 +7060,20 @@ namespace pfsDRPStella = pfs::drp::stella;
                   #ifdef __DEBUG_FINDANDTRACE__
                     cout << "::pfs::drp::stella::math::findAndTraceApertures: 1. D_A1_Y set to " << D_A1_Y << endl;
                   #endif
-                  ndarray::Array<VarianceT, 1, 1> D_A1_MeasureErrors = ndarray::copy(maskedImage->getVariance()->getArray()[ndarray::view(i_Row)(I_FirstWideSignalStart, I_FirstWideSignalEnd + 1)]);
-                  for (auto it = D_A1_MeasureErrors.begin(); it != D_A1_MeasureErrors.end(); ++it){
-                    if (*it > 0)
-                      *it = sqrt(*it);
+                  ndarray::Array<VarianceT, 1, 1> T_A1_MeasureErrors = copy(maskedImage->getVariance()->getArray()[ndarray::view(i_Row)(I_FirstWideSignalStart, I_FirstWideSignalEnd + 1)]);
+                  ndarray::Array<ImageT, 1, 1> D_A1_MeasureErrors = ndarray::allocate(I_FirstWideSignalEnd - I_FirstWideSignalStart + 1);
+                  for (int ooo = 0; ooo < I_FirstWideSignalEnd - I_FirstWideSignalStart + 1; ++ooo){
+                    if (T_A1_MeasureErrors[ooo] > 0)
+                      D_A1_MeasureErrors[ooo] = ImageT(sqrt(T_A1_MeasureErrors[ooo]));
                     else
-                      *it = 1;
+                      D_A1_MeasureErrors[ooo] = 1;
                   }
+/*                  for (std::pair<itT, itD> i(T_A1_MeasureErrors.begin(), D_A1_MeasureErrors.begin()); i.first != T_A1_MeasureErrors.end(); ++itT, ++itD){
+                    if (*itT > 0)
+                      *itD = ImageT(sqrt(*itT));
+                    else
+                      *itD = 1;
+                  }*/
 
                   /// Guess values for GaussFit
                   if (fiberTraceFunctionFindingControl->nTermsGaussFit == 3){
@@ -7083,7 +7090,7 @@ namespace pfsDRPStella = pfs::drp::stella;
                   }
 
                   D_A1_GaussFit_Coeffs[ndarray::view()] = 0.;
-                  ndarray::Array<double, 1, 1> D_A1_GaussFit_ECoeffs = ndarray::allocate(D_A1_GaussFit_Coeffs.size());
+                  ndarray::Array<ImageT, 1, 1> D_A1_GaussFit_ECoeffs = ndarray::allocate(D_A1_GaussFit_Coeffs.size());
                   D_A1_GaussFit_ECoeffs[ndarray::view()] = 0.;
 
                   #ifdef __DEBUG_FINDANDTRACE__
@@ -7092,7 +7099,7 @@ namespace pfsDRPStella = pfs::drp::stella;
 
                   ndarray::Array<int, 2, 2> I_A2_Limited = ndarray::allocate(fiberTraceFunctionFindingControl->nTermsGaussFit, 2);
                   I_A2_Limited[ndarray::view()] = 1;
-                  ndarray::Array<double, 2, 2> D_A2_Limits = ndarray::allocate(fiberTraceFunctionFindingControl->nTermsGaussFit, 2);
+                  ndarray::Array<ImageT, 2, 2> D_A2_Limits = ndarray::allocate(fiberTraceFunctionFindingControl->nTermsGaussFit, 2);
                   D_A2_Limits[0][0] = 0.;/// Peak lower limit
                   D_A2_Limits[0][1] = 2. * D_A1_Guess[0];/// Peak upper limit
                   D_A2_Limits[1][0] = double(I_FirstWideSignalStart);/// Centroid lower limit
@@ -7110,7 +7117,7 @@ namespace pfsDRPStella = pfs::drp::stella;
                   #ifdef __DEBUG_FINDANDTRACE__
                     cout << "::pfs::drp::stella::math::findAndTraceApertures: while: i_Row = " << i_Row << ": 1. starting MPFitGaussLim: D_A1_Guess = " << D_A1_Guess << ", I_A2_Limited = " << I_A2_Limited << ", D_A2_Limits = " << D_A2_Limits << endl;
                   #endif
-                  ndarray::Array<double, 1, 1> DD_A1_X = math::Double(D_A1_X);
+/*                  ndarray::Array<double, 1, 1> DD_A1_X = math::Double(D_A1_X);
                   ndarray::Array<double, 1, 1> DD_A1_Y = math::Double(D_A1_Y);
                   ndarray::Array<double, 1, 1> DD_A1_MeasureErrors = math::Double(D_A1_MeasureErrors);
                   blitz::Array<double, 1> D_A1_XBlitz = utils::ndarrayToBlitz(DD_A1_X);
@@ -7121,16 +7128,21 @@ namespace pfsDRPStella = pfs::drp::stella;
                   blitz::Array<double, 2> D_A2_LimitsBlitz = utils::ndarrayToBlitz(D_A2_Limits);
                   blitz::Array<double, 1> D_A1_GaussFit_CoeffsBlitz = utils::ndarrayToBlitz(D_A1_GaussFit_Coeffs);
                   blitz::Array<double, 1> D_A1_GaussFit_ECoeffsBlitz = utils::ndarrayToBlitz(D_A1_GaussFit_ECoeffs);
-                  if (!MPFitGaussLim(D_A1_XBlitz,
-                                     D_A1_YBlitz,
-                                     D_A1_MeasureErrorsBlitz,
-                                     D_A1_GuessBlitz,
-                                     I_A2_LimitedBlitz,
-                                     D_A2_LimitsBlitz,
+                    cout << "2. D_A1_X.getShape()[0] = " << D_A1_X.getShape()[0] << endl;
+                    cout << "2. D_A1_Y.getShape()[0] = " << D_A1_Y.getShape()[0] << endl;
+                    cout << "2. D_A1_MeasureErrors.getShape()[0] = " << D_A1_MeasureErrors.getShape()[0] << endl;
+                    exit(EXIT_FAILURE);
+ */
+                  if (!MPFitGaussLim(D_A1_X,
+                                     D_A1_Y,
+                                     D_A1_MeasureErrors,
+                                     D_A1_Guess,
+                                     I_A2_Limited,
+                                     D_A2_Limits,
                                      0,
                                      false,
-                                     D_A1_GaussFit_CoeffsBlitz,
-                                     D_A1_GaussFit_ECoeffsBlitz)){
+                                     D_A1_GaussFit_Coeffs,
+                                     D_A1_GaussFit_ECoeffs)){
                     #ifdef __DEBUG_FINDANDTRACE__
                       cout << "::pfs::drp::stella::math::findAndTraceApertures: while: i_Row = " << i_Row << ": WARNING: GaussFit FAILED -> abandoning aperture" << endl;
                     #endif
@@ -7265,7 +7277,14 @@ namespace pfsDRPStella = pfs::drp::stella;
                 else{
                   ndarray::Array<ImageT, 1, 1> D_A1_X = copy(D_A1_IndexCol[ndarray::view(I_FirstWideSignalStart, I_FirstWideSignalEnd+1)]);
                   ndarray::Array<ImageT, 1, 1> D_A1_Y = copy(ccdImage[ndarray::view(i_Row)(I_FirstWideSignalStart, I_FirstWideSignalEnd+1)]);
-                  ndarray::Array<VarianceT, 1, 1> D_A1_MeasureErrors = copy(maskedImage->getVariance()->getArray()[ndarray::view(i_Row)(I_FirstWideSignalStart, I_FirstWideSignalEnd+1)]);
+                  ndarray::Array<VarianceT, 1, 1> T_A1_MeasureErrors = copy(maskedImage->getVariance()->getArray()[ndarray::view(i_Row)(I_FirstWideSignalStart, I_FirstWideSignalEnd + 1)]);
+                  ndarray::Array<ImageT, 1, 1> D_A1_MeasureErrors = ndarray::allocate(I_FirstWideSignalEnd - I_FirstWideSignalStart + 1);
+                  for (int ooo = 0; ooo < I_FirstWideSignalEnd - I_FirstWideSignalStart + 1; ++ooo){
+                    if (T_A1_MeasureErrors[ooo] > 0)
+                      D_A1_MeasureErrors[ooo] = ImageT(sqrt(T_A1_MeasureErrors[ooo]));
+                    else
+                      D_A1_MeasureErrors[ooo] = 1;
+                  }
                   int iSum = 0;
                   for (auto it = D_A1_Y.begin(); it != D_A1_Y.end(); ++it){
                     if (*it < 0.000001)
@@ -7294,7 +7313,7 @@ namespace pfsDRPStella = pfs::drp::stella;
                     D_A1_Guess.deep() = D_A1_GaussFit_Coeffs_Bak;
 
                     D_A1_GaussFit_Coeffs[ndarray::view()] = 0.;
-                    ndarray::Array<double, 1, 1> D_A1_GaussFit_ECoeffs = ndarray::allocate(D_A1_GaussFit_Coeffs.size());
+                    ndarray::Array<ImageT, 1, 1> D_A1_GaussFit_ECoeffs = ndarray::allocate(D_A1_GaussFit_Coeffs.size());
                     D_A1_GaussFit_ECoeffs[ndarray::view()] = 0.;
 
                     #ifdef __DEBUG_FINDANDTRACE__
@@ -7303,13 +7322,13 @@ namespace pfsDRPStella = pfs::drp::stella;
 
                     ndarray::Array<int, 2, 2> I_A2_Limited = ndarray::allocate(fiberTraceFunctionFindingControl->nTermsGaussFit, 2);
                     I_A2_Limited[ndarray::view()] = 1;
-                    ndarray::Array<double, 2, 2> D_A2_Limits = ndarray::allocate(fiberTraceFunctionFindingControl->nTermsGaussFit, 2);
+                    ndarray::Array<ImageT, 2, 2> D_A2_Limits = ndarray::allocate(fiberTraceFunctionFindingControl->nTermsGaussFit, 2);
                     D_A2_Limits[0][0] = 0.;/// Peak lower limit
                     D_A2_Limits[0][1] = 2. * D_A1_Guess[0];/// Peak upper limit
-                    D_A2_Limits[1][0] = double(I_FirstWideSignalStart);/// Centroid lower limit
-                    D_A2_Limits[1][1] = double(I_FirstWideSignalEnd);/// Centroid upper limit
-                    D_A2_Limits[2][0] = double(fiberTraceFunctionFindingControl->apertureFWHM) / 4.;/// Sigma lower limit
-                    D_A2_Limits[2][1] = double(fiberTraceFunctionFindingControl->apertureFWHM);/// Sigma upper limit
+                    D_A2_Limits[1][0] = ImageT(I_FirstWideSignalStart);/// Centroid lower limit
+                    D_A2_Limits[1][1] = ImageT(I_FirstWideSignalEnd);/// Centroid upper limit
+                    D_A2_Limits[2][0] = ImageT(fiberTraceFunctionFindingControl->apertureFWHM) / 4.;/// Sigma lower limit
+                    D_A2_Limits[2][1] = ImageT(fiberTraceFunctionFindingControl->apertureFWHM);/// Sigma upper limit
                     if (fiberTraceFunctionFindingControl->nTermsGaussFit > 3){
                       D_A2_Limits[3][0] = 0.;
                       D_A2_Limits[3][1] = 2. * D_A1_Guess[3];
@@ -7321,7 +7340,7 @@ namespace pfsDRPStella = pfs::drp::stella;
                     #ifdef __DEBUG_FINDANDTRACE__
                       cout << "::pfs::drp::stella::math::findAndTraceApertures: while: i_Row = " << i_Row << ": 2. starting MPFitGaussLim: D_A2_Limits = " << D_A2_Limits << endl;
                     #endif
-                    ndarray::Array<double, 1, 1> DD_A1_X = math::Double(D_A1_X);
+/*                    ndarray::Array<double, 1, 1> DD_A1_X = math::Double(D_A1_X);
                     ndarray::Array<double, 1, 1> DD_A1_Y = math::Double(D_A1_Y);
                     ndarray::Array<double, 1, 1> DD_A1_MeasureErrors = math::Double(D_A1_MeasureErrors);
                     blitz::Array<double, 1> D_A1_XBlitz = utils::ndarrayToBlitz(DD_A1_X);
@@ -7332,16 +7351,21 @@ namespace pfsDRPStella = pfs::drp::stella;
                     blitz::Array<double, 2> D_A2_LimitsBlitz = utils::ndarrayToBlitz(D_A2_Limits);
                     blitz::Array<double, 1> D_A1_GaussFit_CoeffsBlitz = utils::ndarrayToBlitz(D_A1_GaussFit_Coeffs);
                     blitz::Array<double, 1> D_A1_GaussFit_ECoeffsBlitz = utils::ndarrayToBlitz(D_A1_GaussFit_ECoeffs);
-                    if (!MPFitGaussLim(D_A1_XBlitz,
-                                       D_A1_YBlitz,
-                                       D_A1_MeasureErrorsBlitz,
-                                       D_A1_GuessBlitz,
-                                       I_A2_LimitedBlitz,
-                                       D_A2_LimitsBlitz,
+                    cout << "D_A1_X.getShape()[0] = " << D_A1_X.getShape()[0] << endl;
+                    cout << "D_A1_Y.getShape()[0] = " << D_A1_Y.getShape()[0] << endl;
+                    cout << "D_A1_MeasureErrors.getShape()[0] = " << D_A1_MeasureErrors.getShape()[0] << endl;
+                    exit(EXIT_FAILURE);
+ */
+                    if (!MPFitGaussLim(D_A1_X,
+                                       D_A1_Y,
+                                       D_A1_MeasureErrors,
+                                       D_A1_Guess,
+                                       I_A2_Limited,
+                                       D_A2_Limits,
                                        0,
                                        false,
-                                       D_A1_GaussFit_CoeffsBlitz,
-                                       D_A1_GaussFit_ECoeffsBlitz)){
+                                       D_A1_GaussFit_Coeffs,
+                                       D_A1_GaussFit_ECoeffs)){
                       #ifdef __DEBUG_FINDANDTRACE__
                         cout << "::pfs::drp::stella::math::findAndTraceApertures: i_Row = " << i_Row << ": Warning: GaussFit FAILED" << endl;
                       #endif
