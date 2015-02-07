@@ -187,32 +187,33 @@ bool drpStella::PSF<ImageT, MaskT, VarianceT, WavelengthT>::extractPSFs(const Fi
   int I_MinWidth = int(_twoDPSFControl->yFWHM)+1;
   int I_StartIndex = 0;
   double D_MaxTimesApertureWidth = 3.5;
-  blitz::Array<int, 2> I_A2_Limited(_twoDPSFControl->nTermsGaussFit, 2);
-  I_A2_Limited = 1;
+  ndarray::Array<int, 2, 2> I_A2_Limited = ndarray::allocate(_twoDPSFControl->nTermsGaussFit, 2);
+  I_A2_Limited[ndarray::view()()] = 1;
   if (_twoDPSFControl->nTermsGaussFit == 5)
-    I_A2_Limited(4,blitz::Range::all()) = 0;
-  blitz::Array<double, 2> D_A2_Limits(_twoDPSFControl->nTermsGaussFit,2);
+    I_A2_Limited[ndarray::view(4)()] = 0;
+  ndarray::Array<ImageT, 2, 2> D_A2_Limits = ndarray::allocate(_twoDPSFControl->nTermsGaussFit, 2);
   /// 0: peak value
   /// 1: center position
   /// 2: sigma
   /// 3: constant background
   /// 4: linear background
-  D_A2_Limits(0,0) = _twoDPSFControl->signalThreshold;
-  D_A2_Limits(2,0) = _twoDPSFControl->yFWHM / (2. * 2.3548);
-  D_A2_Limits(2,1) = 2. * _twoDPSFControl->yFWHM;
+  D_A2_Limits[0][0] = _twoDPSFControl->signalThreshold;
+  D_A2_Limits[2][0] = _twoDPSFControl->yFWHM / (2. * 2.3548);
+  D_A2_Limits[2][1] = 2. * _twoDPSFControl->yFWHM;
   if (_twoDPSFControl->nTermsGaussFit > 3)
-    D_A2_Limits(3,0) = 0.;
+    D_A2_Limits[3][0] = 0.;
   if (_twoDPSFControl->nTermsGaussFit > 4){
-    D_A2_Limits(4,0) = 0.;
-    D_A2_Limits(4,1) = 1000.;
+    D_A2_Limits[4][0] = 0.;
+    D_A2_Limits[4][1] = 1000.;
   }
-  blitz::Array<double, 1> D_A1_GaussFit_Coeffs(_twoDPSFControl->nTermsGaussFit);
-  blitz::Array<double, 1> D_A1_GaussFit_ECoeffs(_twoDPSFControl->nTermsGaussFit);
+  ndarray::Array<ImageT, 1, 1> D_A1_GaussFit_Coeffs = ndarray::allocate(_twoDPSFControl->nTermsGaussFit);
+  ndarray::Array<ImageT, 1, 1> D_A1_GaussFit_ECoeffs = ndarray::allocate(_twoDPSFControl->nTermsGaussFit);
 
   blitz::firstIndex i;
 
-  blitz::Array<double, 1> D_A1_Guess(_twoDPSFControl->nTermsGaussFit);
-  blitz::Array<double, 2> D_A2_GaussCenters(1,2);
+  ndarray::Array<ImageT, 1, 1> D_A1_Guess = ndarray::allocate(_twoDPSFControl->nTermsGaussFit);
+  float gaussCenterX;
+  float gaussCenterY;
   int emissionLineNumber = 0;
   do{
     I_FirstWideSignal = math::FirstIndexWithValueGEFrom(traceCenterSignal, I_MinWidth, I_StartIndex);
@@ -256,182 +257,183 @@ bool drpStella::PSF<ImageT, MaskT, VarianceT, WavelengthT>::extractPSFs(const Fi
     #endif
 
     if (blitz::max(spectrum_In(blitz::Range(I_FirstWideSignalStart, I_FirstWideSignalEnd))) < _twoDPSFControl->saturationLevel){
-      D_A2_Limits(0,1) = 1.5 * blitz::max(spectrum_In(blitz::Range(I_FirstWideSignalStart, I_FirstWideSignalEnd)));
-      D_A2_Limits(1,0) = I_FirstWideSignalStart;
-      D_A2_Limits(1,1) = I_FirstWideSignalEnd;
+      D_A2_Limits[0][1] = 1.5 * blitz::max(spectrum_In(blitz::Range(I_FirstWideSignalStart, I_FirstWideSignalEnd)));
+      D_A2_Limits[1][0] = I_FirstWideSignalStart;
+      D_A2_Limits[1][1] = I_FirstWideSignalEnd;
       if (_twoDPSFControl->nTermsGaussFit > 3)
-        D_A2_Limits(3,1) = blitz::min(spectrum_In(blitz::Range(I_FirstWideSignalStart, I_FirstWideSignalEnd)));
+        D_A2_Limits[3][1] = blitz::min(spectrum_In(blitz::Range(I_FirstWideSignalStart, I_FirstWideSignalEnd)));
 
-      D_A1_Guess(0) = blitz::max(spectrum_In(blitz::Range(I_FirstWideSignalStart, I_FirstWideSignalEnd)));
-      D_A1_Guess(1) = I_FirstWideSignalStart + (blitz::maxIndex(spectrum_In(blitz::Range(I_FirstWideSignalStart, I_FirstWideSignalEnd))))(0);
-//        if (D_A1_Guess(1) > (1.5 * _twoDPSFControl->yFWHM)){
-        D_A1_Guess(2) = _twoDPSFControl->yFWHM / 2.3548;
-        if (_twoDPSFControl->nTermsGaussFit > 3)
-          D_A1_Guess(3) = blitz::min(spectrum_In(blitz::Range(I_FirstWideSignalStart, I_FirstWideSignalEnd)));
-        if (_twoDPSFControl->nTermsGaussFit > 4)
-          D_A1_Guess(4) = (spectrum_In(I_FirstWideSignalEnd) - spectrum_In(I_FirstWideSignalStart)) / (I_FirstWideSignalEnd - I_FirstWideSignalStart);
-        blitz::Array<double, 1> D_A1_X(I_FirstWideSignalEnd - I_FirstWideSignalStart + 1);
-        D_A1_X = i;
-        D_A1_X += I_FirstWideSignalStart;
-        blitz::Array<double, 1> D_A1_Y(I_FirstWideSignalEnd - I_FirstWideSignalStart + 1);
-        D_A1_Y = blitz::where(fabs(spectrum_In(blitz::Range(I_FirstWideSignalStart, I_FirstWideSignalEnd))) < 0.01, 0.01, spectrum_In(blitz::Range(I_FirstWideSignalStart, I_FirstWideSignalEnd)));
-        blitz::Array<double, 1> D_A1_StdDev(I_FirstWideSignalEnd - I_FirstWideSignalStart + 1);
-        D_A1_StdDev = blitz::where(fabs(spectrumSigma(blitz::Range(I_FirstWideSignalStart, I_FirstWideSignalEnd))) < 0.1, 0.1, spectrumSigma(blitz::Range(I_FirstWideSignalStart, I_FirstWideSignalEnd)));
+      D_A1_Guess[0] = blitz::max(spectrum_In(blitz::Range(I_FirstWideSignalStart, I_FirstWideSignalEnd)));
+      D_A1_Guess[1] = I_FirstWideSignalStart + (blitz::maxIndex(spectrum_In(blitz::Range(I_FirstWideSignalStart, I_FirstWideSignalEnd))))(0);
+      D_A1_Guess[2] = _twoDPSFControl->yFWHM / 2.3548;
+      if (_twoDPSFControl->nTermsGaussFit > 3)
+        D_A1_Guess[3] = blitz::min(spectrum_In(blitz::Range(I_FirstWideSignalStart, I_FirstWideSignalEnd)));
+      if (_twoDPSFControl->nTermsGaussFit > 4)
+        D_A1_Guess[4] = (spectrum_In(I_FirstWideSignalEnd) - spectrum_In(I_FirstWideSignalStart)) / (I_FirstWideSignalEnd - I_FirstWideSignalStart);
+      ndarray::Array<ImageT, 1, 1> D_A1_X = math::indGenNdArr(ImageT(I_FirstWideSignalEnd - I_FirstWideSignalStart + 1));
+      D_A1_X[ndarray::view()] += I_FirstWideSignalStart;
+      ndarray::Array<ImageT, 1, 1> D_A1_Y = ndarray::allocate(I_FirstWideSignalEnd - I_FirstWideSignalStart + 1);
+      for (int ooo = 0; ooo < I_FirstWideSignalEnd - I_FirstWideSignalStart + 1; ++ooo){
+        D_A1_Y[ooo] = spectrum_In(I_FirstWideSignalStart + ooo);
+        if (D_A1_Y[ooo] < 0.01)
+          D_A1_Y[ooo] = 0.01;
+      }
+      ndarray::Array<ImageT, 1, 1> D_A1_StdDev = ndarray::allocate(I_FirstWideSignalEnd - I_FirstWideSignalStart + 1);
+      for (int ooo = 0; ooo < I_FirstWideSignalEnd - I_FirstWideSignalStart + 1; ++ooo){
+        if (fabs(spectrumSigma(I_FirstWideSignalStart + ooo)) < 0.1)
+          D_A1_StdDev[ooo] = 0.1;
+        else
+          D_A1_StdDev[ooo] = spectrumSigma(I_FirstWideSignalStart + ooo);
+      }
+//      D_A1_StdDev = blitz::where(fabs(spectrumSigma(blitz::Range(I_FirstWideSignalStart, I_FirstWideSignalEnd))) < 0.1, 0.1, spectrumSigma(blitz::Range(I_FirstWideSignalStart, I_FirstWideSignalEnd)));
+      #ifdef __DEBUG_CALC2DPSF__
+        cout << "PSF trace" << _iTrace << " bin" << _iBin << "::extractPSFs: while: emissionLineNumber = " << emissionLineNumber << ": Starting GaussFit: D_A1_X=" << D_A1_X << ", D_A1_Y = " << D_A1_Y << ", D_A1_StdDev = " << D_A1_StdDev << ", D_A1_Guess = " << D_A1_Guess << ", I_A2_Limited = " << I_A2_Limited << ", D_A2_Limits = " << D_A2_Limits << endl;
+      #endif
+      int iBackground = 0;
+      if (_twoDPSFControl->nTermsGaussFit == 4)
+        iBackground = 1;
+      else if (_twoDPSFControl->nTermsGaussFit == 5)
+        iBackground = 2;
+      if (!MPFitGaussLim(D_A1_X,
+                         D_A1_Y,
+                         D_A1_StdDev,
+                         D_A1_Guess,
+                         I_A2_Limited,
+                         D_A2_Limits,
+                         iBackground,
+                         false,
+                         D_A1_GaussFit_Coeffs,
+                         D_A1_GaussFit_ECoeffs)){
         #ifdef __DEBUG_CALC2DPSF__
-          cout << "PSF trace" << _iTrace << " bin" << _iBin << "::extractPSFs: while: emissionLineNumber = " << emissionLineNumber << ": Starting GaussFit: D_A1_X=" << D_A1_X << ", D_A1_Y = " << D_A1_Y << ", D_A1_StdDev = " << D_A1_StdDev << ", D_A1_Guess = " << D_A1_Guess << ", I_A2_Limited = " << I_A2_Limited << ", D_A2_Limits = " << D_A2_Limits << endl;
+          cout << "PSF trace" << _iTrace << " bin" << _iBin << "::extractPSFs: while: WARNING: GaussFit FAILED" << endl;
         #endif
-        int iBackground = 0;
-        if (_twoDPSFControl->nTermsGaussFit == 4)
-          iBackground = 1;
-        else if (_twoDPSFControl->nTermsGaussFit == 5)
-          iBackground = 2;
-        if (!MPFitGaussLim(D_A1_X,
-                          D_A1_Y,
-                          D_A1_StdDev,
-                          D_A1_Guess,
-                          I_A2_Limited,
-                          D_A2_Limits,
-                          iBackground,
-                          false,
-                          D_A1_GaussFit_Coeffs,
-                          D_A1_GaussFit_ECoeffs)){
+      }
+      else{
+        #ifdef __DEBUG_CALC2DPSF__
+          cout << "PSF trace" << _iTrace << " bin" << _iBin << "::extractPSFs: while: D_A1_GaussFit_Coeffs = " << D_A1_GaussFit_Coeffs << endl;
+        #endif
+        if ((D_A1_GaussFit_Coeffs(2) < (_twoDPSFControl->yFWHM / 1.5)) &&
+            ((_twoDPSFControl->nTermsGaussFit < 5) ||
+            ((_twoDPSFControl->nTermsGaussFit > 4) && (D_A1_GaussFit_Coeffs(4) < 1000.)))){
+          ++emissionLineNumber;
+          gaussCenterY = D_A1_GaussFit_Coeffs(1)+0.5;
+          gaussCenterX = xCentersSwathF[int(D_A1_GaussFit_Coeffs(1))] + ((D_A1_GaussFit_Coeffs(1) -  int(D_A1_GaussFit_Coeffs(1))) * (xCentersSwathF[int(D_A1_GaussFit_Coeffs(1))+1] - xCentersSwathF[int(D_A1_GaussFit_Coeffs(1))]));
+          if (int(gaussCenterX) > int(xCentersSwathF[int(D_A1_GaussFit_Coeffs(1))])){
+            gaussCenterX = int(gaussCenterX) - 0.0000001;
+          }
+          if (int(gaussCenterX) < int(xCentersSwathF[int(D_A1_GaussFit_Coeffs(1))])){
+            gaussCenterX = int(gaussCenterX) + 1.0000001;
+          }
           #ifdef __DEBUG_CALC2DPSF__
-            cout << "PSF trace" << _iTrace << " bin" << _iBin << "::extractPSFs: while: WARNING: GaussFit FAILED" << endl;
+            cout << "PSF trace" << _iTrace << " bin" << _iBin << "::extractPSFs: xCentersSwathF[int(D_A1_GaussFit_Coeffs(1))=" << int(D_A1_GaussFit_Coeffs(1)) << "] = " << xCentersSwathF[int(D_A1_GaussFit_Coeffs(1))] << endl;
+            cout << "PSF trace" << _iTrace << " bin" << _iBin << "::extractPSFs: xCentersSwathF[int(D_A1_GaussFit_Coeffs(1))+1=" << int(D_A1_GaussFit_Coeffs(1))+1 << "] = " << xCentersSwathF[int(D_A1_GaussFit_Coeffs(1))+1] << endl;
+            cout << "PSF trace" << _iTrace << " bin" << _iBin << "::extractPSFs: D_A1_GaussFit_Coeffs(1) - int(D_A1_GaussFit_Coeffs(1)) = " << D_A1_GaussFit_Coeffs(1) - int(D_A1_GaussFit_Coeffs(1)) << endl;
+            cout << "PSF trace" << _iTrace << " bin" << _iBin << "::extractPSFs: while: gaussCenterX = " << gaussCenterX << ", gaussCenterY = " << gaussCenterY << endl;
           #endif
-        }
-        else{
-          #ifdef __DEBUG_CALC2DPSF__
-            cout << "PSF trace" << _iTrace << " bin" << _iBin << "::extractPSFs: while: D_A1_GaussFit_Coeffs = " << D_A1_GaussFit_Coeffs << endl;
-          #endif
-          if ((D_A1_GaussFit_Coeffs(2) < (_twoDPSFControl->yFWHM / 1.5)) &&
-              ((_twoDPSFControl->nTermsGaussFit < 5) ||
-              ((_twoDPSFControl->nTermsGaussFit > 4) && (D_A1_GaussFit_Coeffs(4) < 1000.)))){
-            ++emissionLineNumber;
-            if (D_A2_GaussCenters.rows() < emissionLineNumber)
-              D_A2_GaussCenters.resizeAndPreserve(emissionLineNumber, 2);
-            D_A2_GaussCenters(emissionLineNumber-1,1) = D_A1_GaussFit_Coeffs(1)+0.5;
-            D_A2_GaussCenters(emissionLineNumber-1,0) = xCentersSwathF[int(D_A1_GaussFit_Coeffs(1))] + ((D_A1_GaussFit_Coeffs(1) -  int(D_A1_GaussFit_Coeffs(1))) * (xCentersSwathF[int(D_A1_GaussFit_Coeffs(1))+1] - xCentersSwathF[int(D_A1_GaussFit_Coeffs(1))]));
-            if (int(D_A2_GaussCenters(emissionLineNumber-1,0)) > int(xCentersSwathF[int(D_A1_GaussFit_Coeffs(1))])){
-              D_A2_GaussCenters(emissionLineNumber-1,0) = int(D_A2_GaussCenters(emissionLineNumber-1,0)) - 0.0000001;
-            }
-            if (int(D_A2_GaussCenters(emissionLineNumber-1,0)) < int(xCentersSwathF[int(D_A1_GaussFit_Coeffs(1))])){
-              D_A2_GaussCenters(emissionLineNumber-1,0) = int(D_A2_GaussCenters(emissionLineNumber-1,0)) + 1.0000001;
-            }
-            #ifdef __DEBUG_CALC2DPSF__
-              cout << "PSF trace" << _iTrace << " bin" << _iBin << "::extractPSFs: xCentersSwathF[int(D_A1_GaussFit_Coeffs(1))=" << int(D_A1_GaussFit_Coeffs(1)) << "] = " << xCentersSwathF[int(D_A1_GaussFit_Coeffs(1))] << endl;
-              cout << "PSF trace" << _iTrace << " bin" << _iBin << "::extractPSFs: xCentersSwathF[int(D_A1_GaussFit_Coeffs(1))+1=" << int(D_A1_GaussFit_Coeffs(1))+1 << "] = " << xCentersSwathF[int(D_A1_GaussFit_Coeffs(1))+1] << endl;
-              cout << "PSF trace" << _iTrace << " bin" << _iBin << "::extractPSFs: D_A1_GaussFit_Coeffs(1) - int(D_A1_GaussFit_Coeffs(1)) = " << D_A1_GaussFit_Coeffs(1) - int(D_A1_GaussFit_Coeffs(1)) << endl;
-              cout << "PSF trace" << _iTrace << " bin" << _iBin << "::extractPSFs: while: D_A2_GaussCenters(emissionLineNumber=" << emissionLineNumber << "-1,*) = " << D_A2_GaussCenters(emissionLineNumber-1, blitz::Range::all()) << endl;
-            #endif
 
-            /// add emission line to PSFs
+          /// add emission line to PSFs
 
-            /// difference between xCentersOffset_In(iY) and 2D GaussCenter of emissionLine
-            dTraceGaussCenterX = xCentersSwathF[int(D_A2_GaussCenters(emissionLineNumber-1, 1))] - D_A2_GaussCenters(emissionLineNumber-1, 0);
+          /// difference between xCentersOffset_In(iY) and 2D GaussCenter of emissionLine
+          dTraceGaussCenterX = xCentersSwathF[int(gaussCenterY)] - gaussCenterX;
 
-            i_yCenter = int(D_A2_GaussCenters(emissionLineNumber-1, 1));
-            i_xCenter = int(D_A2_GaussCenters(emissionLineNumber-1, 0));
+          i_yCenter = int(gaussCenterY);
+          i_xCenter = int(gaussCenterX);
 
-            i_Down = int(D_A2_GaussCenters(emissionLineNumber-1, 1) - (2.*_twoDPSFControl->yFWHM));
-            if (i_Down >= 0){
+          i_Down = int(gaussCenterY - (2.*_twoDPSFControl->yFWHM));
+          if (i_Down >= 0){
 //                i_Down = 0;
-              i_Up = int(D_A2_GaussCenters(emissionLineNumber-1, 1) + (2.*_twoDPSFControl->yFWHM));
-              #ifdef __DEBUG_CALC2DPSF__
-                cout << "PSF trace" << _iTrace << " bin" << _iBin << "::extractPSFs: emissionLineNumber-1=" << emissionLineNumber-1 << ": fiberTraceIn.rows() = " << trace_In.rows() << ", i_Up = " << i_Up << endl;
-              #endif
-              if (i_Up < trace_In.rows()){
+            i_Up = int(gaussCenterY + (2.*_twoDPSFControl->yFWHM));
+            #ifdef __DEBUG_CALC2DPSF__
+              cout << "PSF trace" << _iTrace << " bin" << _iBin << "::extractPSFs: emissionLineNumber-1=" << emissionLineNumber-1 << ": fiberTraceIn.rows() = " << trace_In.rows() << ", i_Up = " << i_Up << endl;
+            #endif
+            if (i_Up < trace_In.rows()){
 //                i_Up = trace_In.rows() - 1;
-                pixOffsetY = D_A2_GaussCenters(emissionLineNumber-1,1) - int(D_A2_GaussCenters(emissionLineNumber-1,1)) - 0.5;
+              pixOffsetY = gaussCenterY - int(gaussCenterY) - 0.5;
+              #ifdef __DEBUG_CALC2DPSF__
+                cout << "PSF trace" << _iTrace << " bin" << _iBin << "::extractPSFs: emissionLineNumber-1=" << emissionLineNumber-1 << ": gaussCenterX = " << gaussCenterX << ": gaussCenterY" << " = " << gaussCenterY << ":  i_yCenter = " << i_yCenter << ", dTraceGaussCenterX = " << dTraceGaussCenterX << endl;
+                cout << "PSF trace" << _iTrace << " bin" << _iBin << "::extractPSFs: emissionLineNumber-1=" << emissionLineNumber-1 << ": i_Down = " << i_Down << ", i_Up = " << i_Up << endl;
+                cout << "PSF trace" << _iTrace << " bin" << _iBin << "::extractPSFs: emissionLineNumber-1=" << emissionLineNumber-1 << ":pixOffsetY = " << pixOffsetY << endl;
+              #endif
+
+              int nPixPSF = 0;
+              double sumPSF = 0.;
+              for (int iY = 0; iY <= i_Up - i_Down; ++iY){
+                /// difference in trace center between rows iY and iY(GaussCenterY)
                 #ifdef __DEBUG_CALC2DPSF__
-                  cout << "PSF trace" << _iTrace << " bin" << _iBin << "::extractPSFs: emissionLineNumber-1=" << emissionLineNumber-1 << ": D_A2_GaussCenters(" << emissionLineNumber-1 << ",0) = " << D_A2_GaussCenters(emissionLineNumber-1,0) << ": D_A2_GaussCenters(" << emissionLineNumber-1 << ",1) = " << D_A2_GaussCenters(emissionLineNumber-1,1) << ":  i_yCenter = " << i_yCenter << ", dTraceGaussCenterX = " << dTraceGaussCenterX << endl;
-                  cout << "PSF trace" << _iTrace << " bin" << _iBin << "::extractPSFs: emissionLineNumber-1=" << emissionLineNumber-1 << ": i_Down = " << i_Down << ", i_Up = " << i_Up << endl;
-                  cout << "PSF trace" << _iTrace << " bin" << _iBin << "::extractPSFs: emissionLineNumber-1=" << emissionLineNumber-1 << ":pixOffsetY = " << pixOffsetY << endl;
+                  cout << "PSF trace" << _iTrace << " bin" << _iBin << "::extractPSFs: emissionLineNumber-1=" << emissionLineNumber-1 << ": xCentersOffset_In.size() = " << xCentersOffset_In.size() << endl;
+                  cout << "PSF trace" << _iTrace << " bin" << _iBin << "::extractPSFs: emissionLineNumber-1=" << emissionLineNumber-1 << ": gaussCenterY = " << gaussCenterY << ", xCentersOffset_In(i_Down + iY=" << i_Down + iY << ") = " << xCentersOffset_In(i_Down + iY) << endl;
                 #endif
+                dTrace = xCentersOffset_In(int(gaussCenterY)) - xCentersOffset_In(i_Down + iY);
 
-                int nPixPSF = 0;
-                double sumPSF = 0.;
-                for (int iY = 0; iY <= i_Up - i_Down; ++iY){
-                  /// difference in trace center between rows iY and iY(GaussCenterY)
-                  #ifdef __DEBUG_CALC2DPSF__
-                    cout << "PSF trace" << _iTrace << " bin" << _iBin << "::extractPSFs: emissionLineNumber-1=" << emissionLineNumber-1 << ": D_A2_GaussCenters.rows() = " << D_A2_GaussCenters.rows() << "xCentersOffset_In.size() = " << xCentersOffset_In.size() << endl;
-                    cout << "PSF trace" << _iTrace << " bin" << _iBin << "::extractPSFs: emissionLineNumber-1=" << emissionLineNumber-1 << ": D_A2_GaussCenters(emissionLineNumber-1, 1) = " << D_A2_GaussCenters(emissionLineNumber-1, 1) << ", xCentersOffset_In(i_Down + iY=" << i_Down + iY << ") = " << xCentersOffset_In(i_Down + iY) << endl;
-                  #endif
-                  dTrace = xCentersOffset_In(int(D_A2_GaussCenters(emissionLineNumber-1, 1))) - xCentersOffset_In(i_Down + iY);
+                /// most left pixel affected by PSF of (emissionLineNumber-1) in this row
+                i_Left = int(xCentersSwathF[i_Down + iY] - dTraceGaussCenterX - (2. * _twoDPSFControl->xFWHM));
 
-                  /// most left pixel affected by PSF of (emissionLineNumber-1) in this row
-                  i_Left = int(xCentersSwathF[i_Down + iY] - dTraceGaussCenterX - (2. * _twoDPSFControl->xFWHM));
-                  //i_Left = int(D_A2_GaussCenters(emissionLineNumber-1, 0) - (1.5*_twoDPSFControl->xFWHM)) + int(xCentersSwathF[i_Down+iY]) - int(xCentersSwathF[i_yCenter]);
-
-                  /// most right pixel affected by PSF of (emissionLineNumber-1) in this row
-                  i_Right = int(xCentersSwathF[i_Down + iY] - dTraceGaussCenterX + (2. * _twoDPSFControl->xFWHM));
-                  //i_Right = int(D_A2_GaussCenters(emissionLineNumber-1, 0) + (1.5*_twoDPSFControl->xFWHM)) + int(xCentersSwathF[i_Down+iY]) - int(xCentersSwathF[i_yCenter]);
-                  if (i_Left < 0)
-                    i_Left = 0;
-                  if (i_Right >= fiberTraceIn.getWidth())
-                    i_Right = fiberTraceIn.getWidth() - 1;
-                  xStart = int(xCentersSwathF[i_Down + iY]) + 0.5 - xCentersSwathF[i_Down + iY] + dTraceGaussCenterX - i_xCenter + i_Left;
-                  yStart = i_Down - i_yCenter - pixOffsetY;
-                  //xStart = i_Left - i_xCenter - pixOffsetX;
-                  //yStart = i_Down - i_yCenter - pixOffsetY;
-                  #ifdef __DEBUG_CALC2DPSF__
-                    cout << "PSF trace" << _iTrace << " bin" << _iBin << "::extractPSFs: emissionLineNumber-1=" << emissionLineNumber-1 << ": dTrace = " << dTrace << ": i_Left = " << i_Left << ", i_Right = " << i_Right << endl;
-                    cout << "PSF trace" << _iTrace << " bin" << _iBin << "::extractPSFs: emissionLineNumber-1=" << emissionLineNumber-1 << ": xStart = " << xStart << endl;
-                    cout << "PSF trace" << _iTrace << " bin" << _iBin << "::extractPSFs: emissionLineNumber-1=" << emissionLineNumber-1 << ": yStart = " << yStart << endl;
-                  #endif
-                  for (int iX = 0; iX <= i_Right - i_Left; ++iX){
-                    #ifdef __DEBUG_CALC2DPSF__
-                      cout << "PSF trace" << _iTrace << " bin" << _iBin << "::extractPSFs: emissionLineNumber-1=" << emissionLineNumber-1 << ": iX = " << iX << ": iY = " << iY << endl;
-                    #endif
-                    _imagePSF_XRelativeToCenter.push_back(float(xStart + iX));
-                    _imagePSF_YRelativeToCenter.push_back(float(yStart + iY));
-                    _imagePSF_ZNormalized.push_back(float(trace_In(i_Down+iY, i_Left+iX)));
-                    _imagePSF_ZTrace.push_back(float(trace_In(i_Down+iY, i_Left+iX)));
-                    _imagePSF_Weight.push_back(fabs(trace_In(i_Down+iY, i_Left+iX)) > 0.000001 ? float(1. / sqrt(fabs(trace_In(i_Down+iY, i_Left+iX)))) : 0.1);//trace_In(i_Down+iY, i_Left+iX) > 0 ? sqrt(trace_In(i_Down+iY, i_Left+iX)) : 0.0000000001);//stddev_In(i_Down+iY, i_Left+iX) > 0. ? 1./pow(stddev_In(i_Down+iY, i_Left+iX),2) : 1.);
-                    _imagePSF_XTrace.push_back(float(i_Left + iX));
-                    _imagePSF_YTrace.push_back(float(i_Down + iY));
-                    #ifdef __DEBUG_CALC2DPSF__
-                      cout << "PSF trace" << _iTrace << " bin" << _iBin << "::extractPSFs: emissionLineNumber-1=" << emissionLineNumber-1 << ": xCentersSwathF[i_Down + iY=" << i_Down + iY << "] = " << xCentersSwathF[i_Down + iY] << ", xCentersOffset_In(" << i_Down + iY << ") = " << xCentersOffset_In(i_Down + iY) << endl;
-                      cout << "PSF trace" << _iTrace << " bin" << _iBin << "::extractPSFs: emissionLineNumber-1=" << emissionLineNumber-1 << ": x = " << (*_imagePSF_XRelativeToCenter)[nPix] << ", y = " << (*_imagePSF_YRelativeToCenter)[nPix] << ": val = " << trace_In(i_Down + iY, i_Left + iX) << " ^= " << (*_imagePSF_ZNormalized)[nPix] << "; XOrig = " << (*_imagePSF_XTrace)[nPix] << ", YOrig = " << (*_imagePSF_YTrace)[nPix] << endl;
-                    #endif
-                    ++nPix;
-                    ++nPixPSF;
-                    sumPSF += trace_In(i_Down+iY, i_Left+iX);
-                    #ifdef __DEBUG_CALC2DPSF__
-                      cout << "PSF trace" << _iTrace << " bin" << _iBin << "::extractPSFs: emissionLineNumber-1 = " << emissionLineNumber-1 << ": nPixPSF = " << nPixPSF << ", sumPSF = " << sumPSF << endl;
-                    #endif
-                  }
-                }
-                int pixelNo = _imagePSF_ZNormalized.size()-nPixPSF;
+                /// most right pixel affected by PSF of (emissionLineNumber-1) in this row
+                i_Right = int(xCentersSwathF[i_Down + iY] - dTraceGaussCenterX + (2. * _twoDPSFControl->xFWHM));
+                if (i_Left < 0)
+                  i_Left = 0;
+                if (i_Right >= fiberTraceIn.getWidth())
+                  i_Right = fiberTraceIn.getWidth() - 1;
+                xStart = int(xCentersSwathF[i_Down + iY]) + 0.5 - xCentersSwathF[i_Down + iY] + dTraceGaussCenterX - i_xCenter + i_Left;
+                yStart = i_Down - i_yCenter - pixOffsetY;
                 #ifdef __DEBUG_CALC2DPSF__
-                  cout << "PSF trace" << _iTrace << " bin" << _iBin << "::extractPSFs: emissionLineNumber-1 = " << emissionLineNumber-1 << ": *_imagePSF_ZNormalized.begin()=" << *(_imagePSF_ZNormalized.begin()) << " *(_imagePSF_ZNormalized.end()-1)=" << *(_imagePSF_ZNormalized.end()-1) << endl;
-                  cout << "PSF trace" << _iTrace << " bin" << _iBin << "::extractPSFs: emissionLineNumber-1 = " << emissionLineNumber-1 << ": (*_imagePSF_ZNormalized)[nPix=" << nPix << " - nPixPSF=" << nPixPSF << " = " << nPix - nPixPSF << " = " << (*_imagePSF_ZNormalized)[nPix-nPixPSF] << endl;
-                  cout << "PSF trace" << _iTrace << " bin" << _iBin << "::extractPSFs: emissionLineNumber-1 = " << emissionLineNumber-1 << ": (*_imagePSF_ZNormalized)[nPix-1=" << nPix-1 << "] = " << (*_imagePSF_ZNormalized)[nPix-1] << endl;
+                  cout << "PSF trace" << _iTrace << " bin" << _iBin << "::extractPSFs: emissionLineNumber-1=" << emissionLineNumber-1 << ": dTrace = " << dTrace << ": i_Left = " << i_Left << ", i_Right = " << i_Right << endl;
+                  cout << "PSF trace" << _iTrace << " bin" << _iBin << "::extractPSFs: emissionLineNumber-1=" << emissionLineNumber-1 << ": xStart = " << xStart << endl;
+                  cout << "PSF trace" << _iTrace << " bin" << _iBin << "::extractPSFs: emissionLineNumber-1=" << emissionLineNumber-1 << ": yStart = " << yStart << endl;
                 #endif
-                for (std::vector<float>::iterator iter=_imagePSF_ZNormalized.end()-nPixPSF; iter<_imagePSF_ZNormalized.end(); ++iter){
+                for (int iX = 0; iX <= i_Right - i_Left; ++iX){
                   #ifdef __DEBUG_CALC2DPSF__
-                    cout << "PSF trace" << _iTrace << " bin" << _iBin << "::extractPSFs: emissionLineNumber-1 = " << emissionLineNumber-1 << ": (*_imagePSF_ZNormalized)[pixelNo=" << pixelNo << "] = " << (*_imagePSF_ZNormalized)[pixelNo] << ", sumPSF = " << sumPSF << endl;
+                    cout << "PSF trace" << _iTrace << " bin" << _iBin << "::extractPSFs: emissionLineNumber-1=" << emissionLineNumber-1 << ": iX = " << iX << ": iY = " << iY << endl;
                   #endif
-                  if (fabs(sumPSF) < 0.00000001){
-                    string message("PSF trace");
-                    message += to_string(_iTrace) + " bin" + to_string(_iBin) + "::extractPSFs: emissionLineNumber-1 = " + to_string(emissionLineNumber-1);
-                    message += ": ERROR: sumPSF == 0";
-                    cout << message << endl;
-                    throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
-                  }
-                  (*iter) = (*iter) / sumPSF;
+                  _imagePSF_XRelativeToCenter.push_back(float(xStart + iX));
+                  _imagePSF_YRelativeToCenter.push_back(float(yStart + iY));
+                  _imagePSF_ZNormalized.push_back(float(trace_In(i_Down+iY, i_Left+iX)));
+                  _imagePSF_ZTrace.push_back(float(trace_In(i_Down+iY, i_Left+iX)));
+                  _imagePSF_Weight.push_back(fabs(trace_In(i_Down+iY, i_Left+iX)) > 0.000001 ? float(1. / sqrt(fabs(trace_In(i_Down+iY, i_Left+iX)))) : 0.1);//trace_In(i_Down+iY, i_Left+iX) > 0 ? sqrt(trace_In(i_Down+iY, i_Left+iX)) : 0.0000000001);//stddev_In(i_Down+iY, i_Left+iX) > 0. ? 1./pow(stddev_In(i_Down+iY, i_Left+iX),2) : 1.);
+                  _imagePSF_XTrace.push_back(float(i_Left + iX));
+                  _imagePSF_YTrace.push_back(float(i_Down + iY));
                   #ifdef __DEBUG_CALC2DPSF__
-                    cout << "PSF trace" << _iTrace << " bin" << _iBin << "::extractPSFs: emissionLineNumber-1 = " << emissionLineNumber-1 << ": (*_imagePSF_ZNormalized)[pixelNo=" << pixelNo << "] = " << (*_imagePSF_ZNormalized)[pixelNo] << endl;
+                    cout << "PSF trace" << _iTrace << " bin" << _iBin << "::extractPSFs: emissionLineNumber-1=" << emissionLineNumber-1 << ": xCentersSwathF[i_Down + iY=" << i_Down + iY << "] = " << xCentersSwathF[i_Down + iY] << ", xCentersOffset_In(" << i_Down + iY << ") = " << xCentersOffset_In(i_Down + iY) << endl;
+                    cout << "PSF trace" << _iTrace << " bin" << _iBin << "::extractPSFs: emissionLineNumber-1=" << emissionLineNumber-1 << ": x = " << (*_imagePSF_XRelativeToCenter)[nPix] << ", y = " << (*_imagePSF_YRelativeToCenter)[nPix] << ": val = " << trace_In(i_Down + iY, i_Left + iX) << " ^= " << (*_imagePSF_ZNormalized)[nPix] << "; XOrig = " << (*_imagePSF_XTrace)[nPix] << ", YOrig = " << (*_imagePSF_YTrace)[nPix] << endl;
                   #endif
-                  ++pixelNo;
+                  ++nPix;
+                  ++nPixPSF;
+                  sumPSF += trace_In(i_Down+iY, i_Left+iX);
+                  #ifdef __DEBUG_CALC2DPSF__
+                    cout << "PSF trace" << _iTrace << " bin" << _iBin << "::extractPSFs: emissionLineNumber-1 = " << emissionLineNumber-1 << ": nPixPSF = " << nPixPSF << ", sumPSF = " << sumPSF << endl;
+                  #endif
                 }
+              }
+              int pixelNo = _imagePSF_ZNormalized.size()-nPixPSF;
+              #ifdef __DEBUG_CALC2DPSF__
+                cout << "PSF trace" << _iTrace << " bin" << _iBin << "::extractPSFs: emissionLineNumber-1 = " << emissionLineNumber-1 << ": *_imagePSF_ZNormalized.begin()=" << *(_imagePSF_ZNormalized.begin()) << " *(_imagePSF_ZNormalized.end()-1)=" << *(_imagePSF_ZNormalized.end()-1) << endl;
+                cout << "PSF trace" << _iTrace << " bin" << _iBin << "::extractPSFs: emissionLineNumber-1 = " << emissionLineNumber-1 << ": (*_imagePSF_ZNormalized)[nPix=" << nPix << " - nPixPSF=" << nPixPSF << " = " << nPix - nPixPSF << " = " << (*_imagePSF_ZNormalized)[nPix-nPixPSF] << endl;
+                cout << "PSF trace" << _iTrace << " bin" << _iBin << "::extractPSFs: emissionLineNumber-1 = " << emissionLineNumber-1 << ": (*_imagePSF_ZNormalized)[nPix-1=" << nPix-1 << "] = " << (*_imagePSF_ZNormalized)[nPix-1] << endl;
+              #endif
+              for (std::vector<float>::iterator iter=_imagePSF_ZNormalized.end()-nPixPSF; iter<_imagePSF_ZNormalized.end(); ++iter){
+                #ifdef __DEBUG_CALC2DPSF__
+                  cout << "PSF trace" << _iTrace << " bin" << _iBin << "::extractPSFs: emissionLineNumber-1 = " << emissionLineNumber-1 << ": (*_imagePSF_ZNormalized)[pixelNo=" << pixelNo << "] = " << (*_imagePSF_ZNormalized)[pixelNo] << ", sumPSF = " << sumPSF << endl;
+                #endif
+                if (fabs(sumPSF) < 0.00000001){
+                  string message("PSF trace");
+                  message += to_string(_iTrace) + " bin" + to_string(_iBin) + "::extractPSFs: emissionLineNumber-1 = " + to_string(emissionLineNumber-1);
+                  message += ": ERROR: sumPSF == 0";
+                  cout << message << endl;
+                  throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
+                }
+                (*iter) = (*iter) / sumPSF;
+                #ifdef __DEBUG_CALC2DPSF__
+                  cout << "PSF trace" << _iTrace << " bin" << _iBin << "::extractPSFs: emissionLineNumber-1 = " << emissionLineNumber-1 << ": (*_imagePSF_ZNormalized)[pixelNo=" << pixelNo << "] = " << (*_imagePSF_ZNormalized)[pixelNo] << endl;
+                #endif
+                ++pixelNo;
               }
             }
           }
-          else{
-            cout << "PSF trace" << _iTrace << " bin" << _iBin << "::extractPSFs: while: D_A1_GaussFit_Coeffs(2)(=" << D_A1_GaussFit_Coeffs(2) << ") >= (_twoDPSFControl->yFWHM / 1.5)(=" << (_twoDPSFControl->yFWHM / 1.5) << ") || ((_twoDPSFControl->nTermsGaussFit(=" << _twoDPSFControl->nTermsGaussFit << ") < 5) || ((_twoDPSFControl->nTermsGaussFit > 4) && (D_A1_GaussFit_Coeffs(4)(=" << D_A1_GaussFit_Coeffs(4) << ") >= 1000.)) => Skipping emission line" << endl;
-          }
-        }/// end if MPFitGaussLim
-      //}/// end if (D_A1_Guess(1) > (1.5 * _twoDPSFControl->yFWHM)){
+        }
+        else{
+          cout << "PSF trace" << _iTrace << " bin" << _iBin << "::extractPSFs: while: D_A1_GaussFit_Coeffs(2)(=" << D_A1_GaussFit_Coeffs(2) << ") >= (_twoDPSFControl->yFWHM / 1.5)(=" << (_twoDPSFControl->yFWHM / 1.5) << ") || ((_twoDPSFControl->nTermsGaussFit(=" << _twoDPSFControl->nTermsGaussFit << ") < 5) || ((_twoDPSFControl->nTermsGaussFit > 4) && (D_A1_GaussFit_Coeffs(4)(=" << D_A1_GaussFit_Coeffs(4) << ") >= 1000.)) => Skipping emission line" << endl;
+        }
+      }/// end if MPFitGaussLim
     }/// end if (blitz::max(spectrum_In(blitz::Range(I_FirstWideSignalStart, I_FirstWideSignalEnd))) < _twoDPSFControl->saturationLevel){
   } while(true);
   #ifdef __DEBUG_CALC2DPSF__

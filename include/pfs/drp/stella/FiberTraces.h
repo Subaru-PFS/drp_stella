@@ -19,7 +19,7 @@
 #include "Controls.h"
 #include "math/Math.h"
 #include "utils/Utils.h"
-#include "cmpfit-1.2/MyFit.h"
+#include "cmpfit-1.2/MPFitting_ndarray.h"
 #include "spline.h"
 #include "Spectra.h"
 

@@ -107,7 +107,7 @@ namespace pfs { namespace drp { namespace stella { namespace utils{
     return true;
   }
 
-  template<typename T>
+/*  template<typename T>
   bool WriteFits(ndarray::Array<T, 2, 2> const& image_In, const string &fileName_In){
     fitsfile *P_Fits;
     int Status;
@@ -146,9 +146,9 @@ namespace pfs { namespace drp { namespace stella { namespace utils{
 
     fpixel = 1;
     //nullval = 0.;
-    nelements = image_In->cols() * image_In->rows();
+    nelements = image_In.getShape()[0] * image_In.getShape()[1];
 
-    p_void = (const_cast<ndarray::Array<T, 2, 2>>(image_In)).data();// = new blitz::Array<double,2>(p_Array, blitz::shape(naxes[0], naxes[1]),
+    p_void = (const_cast<ndarray::Array<T, 2, 2>*>(&image_In))->get_data();// = new blitz::Array<double,2>(p_Array, blitz::shape(naxes[0], naxes[1]),
     #ifdef __DEBUG_WRITEFITS__
       cout << "CFits::WriteFits: p_void = <" << (*((double*)p_void)) << ">" << endl;
     #endif
@@ -192,7 +192,7 @@ namespace pfs { namespace drp { namespace stella { namespace utils{
       return false;
     }
     return true;
-  }
+  }*/
 
   /**
     *  task: Writes Array <Array_In> to file <CS_FileName_In>
@@ -848,11 +848,11 @@ template bool utils::WriteFits(const blitz::Array<long, 2>* image_In, const stri
 template bool utils::WriteFits(const blitz::Array<float, 2>* image_In, const string &fileName_In);
 template bool utils::WriteFits(const blitz::Array<double, 2>* image_In, const string &fileName_In);
 
-template bool utils::WriteFits(ndarray::Array<unsigned short, 2> const& image_In, const string &fileName_In);
-template bool utils::WriteFits(ndarray::Array<int, 2> const& image_In, const string &fileName_In);
-template bool utils::WriteFits(ndarray::Array<long, 2> const& image_In, const string &fileName_In);
-template bool utils::WriteFits(ndarray::Array<float, 2> const& image_In, const string &fileName_In);
-template bool utils::WriteFits(ndarray::Array<double, 2> const& image_In, const string &fileName_In);
+//template bool utils::WriteFits(ndarray::Array<unsigned short, 2, 2> const& image_In, const string &fileName_In);
+//template bool utils::WriteFits(ndarray::Array<int, 2, 2> const& image_In, const string &fileName_In);
+//template bool utils::WriteFits(ndarray::Array<long, 2, 2> const& image_In, const string &fileName_In);
+//template bool utils::WriteFits(ndarray::Array<float, 2, 2> const& image_In, const string &fileName_In);
+//template bool utils::WriteFits(ndarray::Array<double, 2, 2> const& image_In, const string &fileName_In);
 
 template bool utils::WriteFits(const blitz::Array<unsigned short, 1>* image_In, const string &fileName_In);
 template bool utils::WriteFits(const blitz::Array<int, 1>* image_In, const string &fileName_In);

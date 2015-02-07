@@ -18,7 +18,7 @@
 #include "utils/Utils.h"
 #include "math/Math.h"
 #include "SurfaceFit.h"
-#include "cmpfit-1.2/MyFit.h"
+#include "cmpfit-1.2/MPFitting_ndarray.h"
 #include "FiberTraces.h"
 #include "Spectra.h"
 
