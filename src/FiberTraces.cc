@@ -1167,9 +1167,9 @@ namespace pfsDRPStella = pfs::drp::stella;
         throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
       }
     #endif
-    ndarray::Array<int, 2, 1> ndArr = calculateBinBoundY(_fiberTraceProfileFittingControl->swathWidth);
+    ndarray::Array<size_t, 2, 2> ndArr = calcSwathBoundY(_fiberTraceProfileFittingControl->swathWidth);
     cout << "FiberTrace" << _iTrace << "::MkSlitFunc: ndArr = " << ndArr << endl;
-    blitz::Array<int, 2> I_A2_IBinBoundY = utils::ndarrayToBlitz(ndArr);
+    blitz::Array<size_t, 2> I_A2_IBinBoundY = utils::ndarrayToBlitz(ndArr);
     I_NBins = I_A2_IBinBoundY.rows();
     cout << "FiberTrace" << _iTrace << "::MkSlitFunc: I_A2_IBinBoundY = " << I_A2_IBinBoundY << endl;
     if (I_A2_IBinBoundY(I_A2_IBinBoundY.rows()-1, 1) != (_trace->getHeight()-1)){
@@ -6441,7 +6441,84 @@ namespace pfsDRPStella = pfs::drp::stella;
 
     return MkSlitFunc(S_A1_Args, PP_Args);
   }
-
+  
+  template<typename ImageT, typename MaskT, typename VarianceT>
+  bool pfsDRPStella::FiberTrace<ImageT, MaskT, VarianceT>::calcProfile(){
+    if (!_isTraceSet){
+      string message("FiberTrace ");
+      message += to_string(_iTrace) + "::calcProfile: ERROR: _Trace is not set";
+      cout << message << endl;
+      throw LSST_EXCEPT(pexExcept::Exception, message.c_str());    
+    }
+    if (!_isFiberTraceProfileFittingControlSet){
+      string message("FiberTrace ");
+      message += to_string(_iTrace) + "::calcProfile: ERROR: _fiberTraceProfileFittingControl is not set";
+      cout << message << endl;
+      throw LSST_EXCEPT(pexExcept::Exception, message.c_str());    
+    }
+    
+    /// Calculate boundaries for swaths
+    const ndarray::Array<const size_t, 2, 2> swathBoundsY = calcSwathBoundY(_fiberTraceProfileFittingControl->swathWidth);
+    cout << "FiberTrace" << _iTrace << "::calcProfile: swathBoundsY = " << swathBoundsY << endl;
+    unsigned int nSwaths = swathBoundsY.getShape()[0];
+    cout << "FiberTrace::calcProfile: trace " << _iTrace << ": nSwaths = " << nSwaths << endl;
+    
+    /// for each swath
+    ndarray::Array<float, 3, 2> slitFuncsSwaths = ndarray::allocate(ndarray::makeVector(int(_trace->getHeight()), int(_trace->getWidth()), int(nSwaths)));
+    ndarray::Array<double, 3, 2>::Index shapeSFsSwaths = slitFuncsSwaths.getShape();
+    cout << "FiberTrace" << _iTrace << "::calcProfile: shapeSFsSwaths = (" << shapeSFsSwaths[0] << ", " << shapeSFsSwaths[1] << ", " << shapeSFsSwaths[2] << ")" << endl;
+    for (unsigned int iSwath = 0; iSwath < nSwaths; ++iSwath){
+      int iMin = int(swathBoundsY[iSwath][0]);
+      int iMax = int(swathBoundsY[iSwath][1] + 1);
+      cout << "FiberTrace::calcProfile: trace " << _iTrace << ": iSwath = " << iSwath << ": iMin = " << iMin << ", iMax = " << iMax << endl;
+      const ndarray::Array<ImageT const, 2, 2> imageSwath = ndarray::copy(_trace->getImage()->getArray()[ndarray::view(iMin, iMax)()]);
+      cout << "FiberTrace::calcProfile: trace " << _iTrace << ": swath " << iSwath << ": imageSwath = " << imageSwath << endl;
+      const ndarray::Array<MaskT const, 2, 2> maskSwath = ndarray::copy(_trace->getMask()->getArray()[ndarray::view(iMin, iMax)()]);
+      const ndarray::Array<VarianceT const, 2, 2> varianceSwath = ndarray::copy(_trace->getVariance()->getArray()[ndarray::view(iMin, iMax)()]);
+      const ndarray::Array<float const, 1, 1> xCentersSwath = ndarray::copy(_xCenters[ndarray::view(iMin, iMax)]);
+      
+      if (!calcProfileSwath(imageSwath, 
+                            maskSwath,
+                            varianceSwath,
+                            xCentersSwath))
+      return false;
+    }
+    
+    return true;
+  }
+  
+  template<typename ImageT, typename MaskT, typename VarianceT>
+  bool pfsDRPStella::FiberTrace<ImageT, MaskT, VarianceT>::calcProfileSwath(ndarray::Array<ImageT const, 2, 2> const& imageSwath,
+                                                                            ndarray::Array<MaskT const, 2, 2> const& maskSwath,
+                                                                            ndarray::Array<VarianceT const, 2, 2> const& varianceSwath,
+                                                                            ndarray::Array<float const, 1, 1> const& xCentersSwath) const{
+    
+    /// Check shapes of input arrays
+    if ((imageSwath.getShape()[0] != maskSwath.getShape()[0]) 
+     || (imageSwath.getShape()[0] != varianceSwath.getShape()[0]) 
+     || (imageSwath.getShape()[0] != xCentersSwath.getShape()[0])){
+      string message("FiberTrace::calcProfileSwath:: ERROR: input arrays do not have the same shape[0]");
+      cout << message << endl;
+      throw LSST_EXCEPT(pexExcept::Exception, message.c_str());    
+    }
+    if ((imageSwath.getShape()[1] != maskSwath.getShape()[1]) 
+     || (imageSwath.getShape()[1] != varianceSwath.getShape()[1]) 
+     || (imageSwath.getShape()[1] != xCentersSwath.getShape()[1])){
+      string message("FiberTrace::calcProfileSwath:: ERROR: input arrays do not have the same shape[1]");
+      cout << message << endl;
+      throw LSST_EXCEPT(pexExcept::Exception, message.c_str());    
+    }
+ 
+    /// Calculate pixel offset to xCenter
+    const ndarray::Array<size_t const, 1, 1> xCentersInt = math::floor(xCentersSwath, size_t(0));
+    ndarray::Array<float, 1, 1> pixelOffset = ndarray::allocate(xCentersSwath.getShape()[0]);
+    pixelOffset.deep() = 0.5;
+    pixelOffset.deep() -= xCentersSwath;
+    pixelOffset.deep() += xCentersInt;
+    cout << "FiberTrace::calcProfileSwath: pixelOffset = " << pixelOffset << endl;
+    return false;
+  }
+  
   template<typename ImageT, typename MaskT, typename VarianceT>
   bool pfsDRPStella::FiberTrace<ImageT, MaskT, VarianceT>::fitSpline(const blitz::Array<double, 2> &fiberTraceSwath_In,
                                                                      const blitz::Array<int, 1> &iFirst_In,
