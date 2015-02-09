@@ -6767,6 +6767,7 @@ namespace pfsDRPStella = pfs::drp::stella;
         cout << "::pfs::drp::stella::math::findAndTraceApertures: fiberTraceFunction.fiberTraceFunctionControl set" << endl;
       #endif
 
+      int I_Aperture = 0;
       int I_StartIndex;
       int I_FirstWideSignal;
       int I_FirstWideSignalEnd;
@@ -7142,7 +7143,7 @@ namespace pfsDRPStella = pfs::drp::stella;
           I_Length = 1;
           I_ApertureLost = 0;
   //        #ifdef __DEBUG_FINDANDTRACE__
-            cout << "::pfs::drp::stella::math::findAndTraceApertures: i_Row = " << i_Row << ": Starting to trace aperture" << endl;
+            cout << "::pfs::drp::stella::math::findAndTraceApertures: i_Row = " << i_Row << ": Starting to trace aperture " << I_Aperture << endl;
   //        #endif
           D_A1_GaussFit_Coeffs_Bak[ndarray::view()].deep() = D_A1_GaussFit_Coeffs;
           I_Row_Bak = i_Row;
@@ -7464,7 +7465,9 @@ namespace pfsDRPStella = pfs::drp::stella;
               throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
             }
             fiberTraceSet->addFiberTrace(fiberTrace);
-          }
+            cout << "FindAndTraceApertures: aperture number " << I_Aperture << " added to fiberTraceSet" << endl;
+            ++I_Aperture;
+          }// end if (I_ApertureLength >= int(fiberTraceFunctionFindingControl->minLength))
           i_Row = I_Row_Bak - 1;
         }/// end if (B_ApertureFound)
       }/// end for(i_Row = 0; i_Row < maskedImage->getHeight(); i_Row++)
