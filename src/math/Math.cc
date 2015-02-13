@@ -5292,6 +5292,163 @@
       return outArr;
     }
     
+    template<typename T>
+    ndarray::Array<size_t, 1, 1> getIndicesInValueRange(ndarray::Array<T, 1, 1> const& arr_In, T const lowRange_In, T const highRange_In){
+      std::vector<size_t> indices;
+      size_t pos = 0;
+      for (auto it = arr_In.begin(); it != arr_In.end(); ++it){
+        if ((lowRange_In <= *it) && (*it < highRange_In)){
+          indices.push_back(pos);
+        }
+        ++pos;
+      }
+      ndarray::Array<size_t, 1, 1> arr_Out = ndarray::allocate(indices.size());
+      auto itVec = indices.begin();
+      for (auto itArr = arr_Out.begin(); itArr != arr_Out.end(); ++itArr, ++itVec){
+        *itArr = *itVec;
+      }
+      cout << "arr_Out = " << arr_Out << endl;
+      return arr_Out;
+    }
+    
+    template<typename T>
+    ndarray::Array<size_t, 2, 2> getIndicesInValueRange(ndarray::Array<T, 2, 2> const& arr_In, T const lowRange_In, T const highRange_In){
+      std::vector<size_t> indicesRow;
+      std::vector<size_t> indicesCol;
+      cout << "getIndicesInValueRange: arr_In.getShape() = " << arr_In.getShape() << endl;
+      for (size_t iRow = 0; iRow < arr_In.getShape()[0]; ++iRow){
+        for (size_t iCol = 0; iCol < arr_In.getShape()[1]; ++iCol){
+//          cout << "getIndicesInValueRange: arr_In[" << iRow << ", " << iCol << "] = " << arr_In[iRow][iCol] << endl;
+          if ((lowRange_In <= arr_In[iRow][iCol]) && (arr_In[iRow][iCol] < highRange_In)){
+            indicesRow.push_back(iRow);
+            indicesCol.push_back(iCol);
+            cout << "getIndicesInValueRange: lowRange_In = " << lowRange_In << ", highRange_In = " << highRange_In << ": arr_In[" << iRow << ", " << iCol << "] = " << arr_In[iRow][iCol] << endl;
+          }
+        }
+      }
+      ndarray::Array<size_t, 2, 2> arr_Out = ndarray::allocate(indicesRow.size(), 2);
+      for (size_t iRow = 0; iRow < arr_Out.getShape()[0]; ++iRow){
+        arr_Out[iRow][0] = indicesRow[iRow];
+        arr_Out[iRow][1] = indicesCol[iRow];
+      }
+      cout << "getIndicesInValueRange: lowRange_In = " << lowRange_In << ", highRange_In = " << highRange_In << ": arr_Out = [" << arr_Out.getShape() << "] = " << arr_Out << endl;
+      return arr_Out;
+    }
+    
+    template<typename T>
+    ndarray::Array<T, 1, 1> moment(ndarray::Array<T, 1, 1> const& arr_In, int maxMoment_In){
+      blitz::Array<T, 1> D_A1_Arr_In = utils::ndarrayToBlitz(arr_In);
+      blitz::Array<double, 1> D_A1_Arr_Out = Moment(D_A1_Arr_In, maxMoment_In);
+      ndarray::Array<T, 1, 1> arr_Out = ndarray::allocate(4);
+      for (int i = 0; i < 4; ++i){
+        arr_Out[i] = T(D_A1_Arr_Out(i));
+      }
+      return arr_Out;
+/*      ndarray::Array<T, 1, 1> D_A1_Out = ndarray::allocate(maxMoment_In);
+      D_A1_Out.deep() = 0.;
+      if ((maxMoment_In < 1) && (arr_In.getShape()[0] < 2)){
+        cout << "CFits::Moment: ERROR: arr_In must contain 2 OR more elements." << endl;
+        return D_A1_Out;
+      }
+      int I_NElements = arr_In.getShape()[0];
+      T D_Mean = arr_In.asEigen().mean();
+      T D_Kurt = 0.;
+      T D_Var = 0.;
+      T D_Skew = 0.;
+      D_A1_Out[0] = D_Mean;
+
+      ndarray::Array<T, 1, 1> D_A1_Resid = ndarray::allocate(I_NElements);
+      if (maxMoment_In > 1){
+        D_A1_Resid.deep() = arr_In;
+        D_A1_Resid.deep() -= D_Mean;
+
+        ndarray::Array<T, 1, 1> D_A1_Pow = ndarray::allocate(D_A1_Resid.getShape()[0]);
+        D_A1_Pow.deep() = D_A1_Resid.asEigen().pow(2);
+        T sum = D_A1_Resid.asEigen().sum();
+        D_Var = (D_A1_Pow.asEigen().sum() - pow(sum, 2)/T(I_NElements)) / (T(I_NElements)-1.);
+        D_A1_Out[1] = D_Var;
+      }
+      if (maxMoment_In > 2){
+        T D_SDev = 0.;
+        D_SDev = sqrt(D_Var);
+
+        if (D_SDev != 0.){
+          D_Skew = D_A1_Resid.asEigen().pow(3).sum() / (I_NElements * pow(D_SDev,3));
+          D_A1_Out[2] = D_Skew;
+
+          if (maxMoment_In > 3){
+            D_Kurt = D_A1_Resid.asEigen().pow(4).sum() / (I_NElements * pow(D_SDev,4)) - 3.;
+            D_A1_Out[3] = D_Kurt;
+          }
+        }
+      }
+      return D_A1_Out;*/
+    }
+    
+    template<typename T>
+    ndarray::Array<T, 1, 1> getSubArray(ndarray::Array<T, 1, 1> const& arr_In, 
+                                        ndarray::Array<size_t, 1, 1> const& indices_In){
+      ndarray::Array<T, 1, 1> arr_Out = ndarray::allocate(indices_In.getShape()[0]);
+      for (int ind = 0; ind < indices_In.getShape()[0]; ++ind){
+        arr_Out[ind] = arr_In[indices_In[ind]];
+      }
+      return arr_Out;
+    }
+
+    template<typename T>
+    ndarray::Array<T, 1, 1> getSubArray(ndarray::Array<T, 2, 2> const& arr_In, 
+                                        ndarray::Array<size_t, 2, 2> const& indices_In){
+//      cout << "getSubArray: arr_In = " << arr_In << endl;
+      ndarray::Array<T, 1, 1> arr_Out = ndarray::allocate(indices_In.getShape()[0]);
+      for (size_t iRow = 0; iRow < indices_In.getShape()[0]; ++iRow){
+        arr_Out[iRow] = arr_In[indices_In[iRow][0]][indices_In[iRow][1]];
+        cout << "getSubArray: arr_Out[" << iRow << "] = " << arr_Out[iRow] << endl;
+      }
+      return arr_Out;
+    }
+
+    template<typename T>
+    ndarray::Array<T, 1, 1> getSubArray(ndarray::Array<T, 2, 2> const& arr_In, 
+                                        std::vector< std::pair<size_t, size_t> > const& indices_In){
+//      cout << "getSubArray: arr_In = " << arr_In << endl;
+      ndarray::Array<T, 1, 1> arr_Out = ndarray::allocate(indices_In.size());
+      for (size_t iRow = 0; iRow < indices_In.size(); ++iRow){
+        arr_Out[iRow] = arr_In[indices_In[iRow].first][indices_In[iRow].second];
+        cout << "getSubArray: arr_Out[" << iRow << "] = " << arr_Out[iRow] << endl;
+      }
+      return arr_Out;
+    }
+
+    template ndarray::Array<size_t, 1, 1> getSubArray(ndarray::Array<size_t, 1, 1> const&, ndarray::Array<size_t, 1, 1> const&);
+    template ndarray::Array<int, 1, 1> getSubArray(ndarray::Array<int, 1, 1> const&, ndarray::Array<size_t, 1, 1> const&);
+    template ndarray::Array<long, 1, 1> getSubArray(ndarray::Array<long, 1, 1> const&, ndarray::Array<size_t, 1, 1> const&);
+    template ndarray::Array<float, 1, 1> getSubArray(ndarray::Array<float, 1, 1> const&, ndarray::Array<size_t, 1, 1> const&);
+    template ndarray::Array<double, 1, 1> getSubArray(ndarray::Array<double, 1, 1> const&, ndarray::Array<size_t, 1, 1> const&);
+
+    template ndarray::Array<size_t, 1, 1> getSubArray(ndarray::Array<size_t, 2, 2> const&, ndarray::Array<size_t, 2, 2> const&);
+    template ndarray::Array<int, 1, 1> getSubArray(ndarray::Array<int, 2, 2> const&, ndarray::Array<size_t, 2, 2> const&);
+    template ndarray::Array<long, 1, 1> getSubArray(ndarray::Array<long, 2, 2> const&, ndarray::Array<size_t, 2, 2> const&);
+    template ndarray::Array<float, 1, 1> getSubArray(ndarray::Array<float, 2, 2> const&, ndarray::Array<size_t, 2, 2> const&);
+    template ndarray::Array<double, 1, 1> getSubArray(ndarray::Array<double, 2, 2> const&, ndarray::Array<size_t, 2, 2> const&);
+
+    template ndarray::Array<size_t, 1, 1> getSubArray(ndarray::Array<size_t, 2, 2> const&, std::vector< std::pair<size_t, size_t> > const&);
+    template ndarray::Array<int, 1, 1> getSubArray(ndarray::Array<int, 2, 2> const&, std::vector< std::pair<size_t, size_t> > const&);
+    template ndarray::Array<long, 1, 1> getSubArray(ndarray::Array<long, 2, 2> const&, std::vector< std::pair<size_t, size_t> > const&);
+    template ndarray::Array<float, 1, 1> getSubArray(ndarray::Array<float, 2, 2> const&, std::vector< std::pair<size_t, size_t> > const&);
+    template ndarray::Array<double, 1, 1> getSubArray(ndarray::Array<double, 2, 2> const&, std::vector< std::pair<size_t, size_t> > const&);
+
+    template ndarray::Array<size_t, 1, 1> getIndicesInValueRange(ndarray::Array<size_t, 1, 1> const&, size_t const, size_t const);
+    template ndarray::Array<size_t, 1, 1> getIndicesInValueRange(ndarray::Array<int, 1, 1> const&, int const, int const);
+    template ndarray::Array<size_t, 1, 1> getIndicesInValueRange(ndarray::Array<long, 1, 1> const&, long const, long const);
+    template ndarray::Array<size_t, 1, 1> getIndicesInValueRange(ndarray::Array<float, 1, 1> const&, float const, float const);
+    template ndarray::Array<size_t, 1, 1> getIndicesInValueRange(ndarray::Array<double, 1, 1> const&, double const, double const);
+
+    template ndarray::Array<size_t, 2, 2> getIndicesInValueRange(ndarray::Array<size_t, 2, 2> const&, size_t const, size_t const);
+    template ndarray::Array<size_t, 2, 2> getIndicesInValueRange(ndarray::Array<int, 2, 2> const&, int const, int const);
+    template ndarray::Array<size_t, 2, 2> getIndicesInValueRange(ndarray::Array<long, 2, 2> const&, long const, long const);
+    template ndarray::Array<size_t, 2, 2> getIndicesInValueRange(ndarray::Array<float, 2, 2> const&, float const, float const);
+    template ndarray::Array<size_t, 2, 2> getIndicesInValueRange(ndarray::Array<double, 2, 2> const&, double const, double const);
+    
     template ndarray::Array<size_t, 1, 1> replicate(size_t const val, int const size);
     template ndarray::Array<unsigned short, 1, 1> replicate(unsigned short const val, int const size);
     template ndarray::Array<int, 1, 1> replicate(int const val, int const size);
@@ -5752,12 +5909,17 @@
   template bool math::Uniq(const blitz::Array<float, 1> &IA1_In, blitz::Array<int, 1> &IA1_Result);
   template bool math::Uniq(const blitz::Array<double, 1> &IA1_In, blitz::Array<int, 1> &IA1_Result);
   
-  template blitz::Array<double,1> math::Moment(const blitz::Array<unsigned short, 1> &D_A1_Arr_In, int I_MaxMoment_In);
-  template blitz::Array<double,1> math::Moment(const blitz::Array<unsigned int, 1> &D_A1_Arr_In, int I_MaxMoment_In);
+  template blitz::Array<double,1> math::Moment(const blitz::Array<size_t, 1> &D_A1_Arr_In, int I_MaxMoment_In);
   template blitz::Array<double,1> math::Moment(const blitz::Array<int, 1> &D_A1_Arr_In, int I_MaxMoment_In);
   template blitz::Array<double,1> math::Moment(const blitz::Array<long, 1> &D_A1_Arr_In, int I_MaxMoment_In);
   template blitz::Array<double,1> math::Moment(const blitz::Array<float, 1> &D_A1_Arr_In, int I_MaxMoment_In);
   template blitz::Array<double,1> math::Moment(const blitz::Array<double, 1> &D_A1_Arr_In, int I_MaxMoment_In);
+  
+  template ndarray::Array<size_t, 1, 1> math::moment(const ndarray::Array<size_t, 1, 1> &D_A1_Arr_In, int I_MaxMoment_In);
+  template ndarray::Array<int, 1, 1> math::moment(const ndarray::Array<int, 1, 1> &D_A1_Arr_In, int I_MaxMoment_In);
+  template ndarray::Array<long, 1, 1> math::moment(const ndarray::Array<long, 1, 1> &D_A1_Arr_In, int I_MaxMoment_In);
+  template ndarray::Array<float, 1, 1> math::moment(const ndarray::Array<float, 1, 1> &D_A1_Arr_In, int I_MaxMoment_In);
+  template ndarray::Array<double, 1, 1> math::moment(const ndarray::Array<double, 1, 1> &D_A1_Arr_In, int I_MaxMoment_In);
   
   template blitz::Array<double,1> math::Moment(const blitz::Array<unsigned short, 2> &D_A1_Arr_In, int I_MaxMoment_In);
   template blitz::Array<double,1> math::Moment(const blitz::Array<unsigned int, 2> &D_A1_Arr_In, int I_MaxMoment_In);
