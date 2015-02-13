@@ -11,6 +11,8 @@
 #include "lsst/pex/config.h"
 #include "../blitz.h"
 #include "../utils/Utils.h"
+#include "ndarray.h"
+#include "ndarray/eigen.h"
 
 //#define __DEBUG_FIT__
 //#define __DEBUG_POLY__
@@ -1150,6 +1152,9 @@ namespace pfs { namespace drp { namespace stella {
     blitz::Array<double,1> Moment(const blitz::Array<T, 1> &D_A1_Arr_In, int I_MaxMoment_In);
 
     template<typename T>
+    ndarray::Array<T, 1, 1> moment(ndarray::Array<T, 1, 1> const& arr_In, int maxMoment_In);
+
+    template<typename T>
     blitz::Array<double,1> Moment(const blitz::Array<T, 2> &D_A1_Arr_In, int I_MaxMoment_In);
     
     template<typename T>
@@ -1166,7 +1171,27 @@ namespace pfs { namespace drp { namespace stella {
     
     template<typename T>
     ndarray::Array<T, 2, 2> calcPosRelativeToCenter(ndarray::Array<T, 2, 2> const& swath_In, ndarray::Array<T, 1, 1> const& xCenters_In);
+    
+    /*
+     * @brief: Return vector of indices where lowRange_In <= arr_In < highRange_In
+     */
+    template<typename T>
+    ndarray::Array<size_t, 1, 1> getIndicesInValueRange(ndarray::Array<T, 1, 1> const& arr_In, T const lowRange_In, T const highRange_In);
+    template<typename T>
+    ndarray::Array<size_t, 2, 2> getIndicesInValueRange(ndarray::Array<T, 2, 2> const& arr_In, T const lowRange_In, T const highRange_In);
 
+    /*
+     * @brief: Returns array to copies of specified elements of arr_In
+     */
+    template<typename T>
+    ndarray::Array<T, 1, 1> getSubArray(ndarray::Array<T, 1, 1> const& arr_In, ndarray::Array<size_t, 1, 1> const& indices_In);
+
+    template<typename T>
+    ndarray::Array<T, 1, 1> getSubArray(ndarray::Array<T, 2, 2> const& arr_In, ndarray::Array<size_t, 2, 2> const& indices_In);
+
+    template<typename T>
+    ndarray::Array<T, 1, 1> getSubArray(ndarray::Array<T, 2, 2> const& arr_In, std::vector< std::pair<size_t, size_t> > const& indices_In);
+    
   }/// end namespace math
   
 }}}
