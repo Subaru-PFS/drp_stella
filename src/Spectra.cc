@@ -8,87 +8,91 @@ template<typename SpectrumT, typename MaskT, typename VarianceT, typename Wavele
 pfsDRPStella::Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>::Spectrum(size_t length,
                                                                            size_t iTrace) 
   : _length(length),
-    _spectrum(new std::vector<SpectrumT>(length)),
-    _mask(new std::vector<MaskT>(length)),
-    _variance(new std::vector<VarianceT>(length)),
-    _wavelength(new std::vector<WavelengthT>(length)),
     _iTrace(iTrace),
     _isWavelengthSet(false)
 {
+  _spectrum = ndarray::allocate(length);
+  _mask = ndarray::allocate(length);
+  _variance = ndarray::allocate(length);
+  _wavelength = ndarray::allocate(length);
 }
 
 template<typename SpectrumT, typename MaskT, typename VarianceT, typename WavelengthT>
 pfsDRPStella::Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>::Spectrum(Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT> & spectrum,
                                                                            size_t iTrace) 
   : _length(spectrum.getLength()),
-    _spectrum(spectrum.getSpectrum()),
-    _mask(spectrum.getMask()),
-    _variance(spectrum.getVariance()),
-    _wavelength(spectrum.getWavelength()),
     _iTrace(spectrum.getITrace()),
     _isWavelengthSet(spectrum.isWavelengthSet())
 {
+  _spectrum = ndarray::allocate(spectrum.getSpectrum().getShape()[0]);
+  _mask = ndarray::allocate(spectrum.getMask().getShape()[0]);
+  _variance = ndarray::allocate(spectrum.getVariance().getShape()[0]);
+  _wavelength = ndarray::allocate(spectrum.getWavelength().getShape()[0]);
+  _spectrum.deep() = spectrum.getSpectrum();
+  _mask.deep() = spectrum.getMask();
+  _variance.deep() = spectrum.getVariance();
+  _wavelength.deep() = spectrum.getWavelength();
   if (iTrace != 0)
     _iTrace = iTrace;
 }
 
 template<typename SpectrumT, typename MaskT, typename VarianceT, typename WavelengthT>
-bool pfsDRPStella::Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>::setSpectrum(const PTR(std::vector<SpectrumT>) & spectrum)
+bool pfsDRPStella::Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>::setSpectrum(const ndarray::Array<SpectrumT, 1, 1> & spectrum)
 {
   /// Check length of input spectrum
-  if (spectrum->size() != _length){
+  if (spectrum.getShape()[0] != _length){
     string message("pfsDRPStella::Spectrum::setSpectrum: ERROR: spectrum->size()=");
-    message += to_string(spectrum->size()) + string(" != _length=") + to_string(_length);
+    message += to_string(spectrum.getShape()[0]) + string(" != _length=") + to_string(_length);
     cout << message << endl;
     throw LSST_EXCEPT(pexExcept::Exception, message.c_str());    
   }
-  _spectrum = spectrum;
+  _spectrum.deep() = spectrum;
   return true;
 }
 
 template<typename SpectrumT, typename MaskT, typename VarianceT, typename WavelengthT>
-bool pfsDRPStella::Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>::setVariance(const PTR(std::vector<VarianceT>) & variance)
+bool pfsDRPStella::Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>::setVariance(const ndarray::Array<VarianceT, 1, 1> & variance)
 {
   /// Check length of input variance
-  if (variance->size() != _length){
+  if (variance.getShape()[0] != _length){
     string message("pfsDRPStella::Spectrum::setVariance: ERROR: variance->size()=");
-    message += to_string(variance->size()) + string(" != _length=") + to_string(_length);
+    message += to_string(variance.getShape()[0]) + string(" != _length=") + to_string(_length);
     cout << message << endl;
     throw LSST_EXCEPT(pexExcept::Exception, message.c_str());    
   }
-  _variance = variance;
+  _variance.deep() = variance;
   return true;
 }
 
 template<typename SpectrumT, typename MaskT, typename VarianceT, typename WavelengthT>
-bool pfsDRPStella::Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>::setWavelength(const PTR(std::vector<WavelengthT>) & wavelength)
+bool pfsDRPStella::Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>::setWavelength(const ndarray::Array<WavelengthT, 1, 1> & wavelength)
 {
   /// Check length of input wavelength
-  if (wavelength->size() != _length){
+  if (wavelength.getShape()[0] != _length){
     string message("pfsDRPStella::Spectrum::setWavelength: ERROR: wavelength->size()=");
-    message += to_string(wavelength->size()) + string(" != _length=") + to_string(_length);
+    message += to_string(wavelength.getShape()[0]) + string(" != _length=") + to_string(_length);
     cout << message << endl;
     throw LSST_EXCEPT(pexExcept::Exception, message.c_str());    
   }
-  _wavelength = wavelength;
+  _wavelength.deep() = wavelength;
   return true;
 }
 
 template<typename SpectrumT, typename MaskT, typename VarianceT, typename WavelengthT>
-bool pfsDRPStella::Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>::setMask(const PTR(std::vector<MaskT>) & mask)
+bool pfsDRPStella::Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>::setMask(const ndarray::Array<MaskT, 1, 1> & mask)
 {
   /// Check length of input mask
-  if (mask->size() != _length){
+  if (mask.getShape()[0] != _length){
     string message("pfsDRPStella::Spectrum::setMask: ERROR: mask->size()=");
-    message += to_string(mask->size()) + string(" != _length=") + to_string(_length);
+    message += to_string(mask.getShape()[0]) + string(" != _length=") + to_string(_length);
     cout << message << endl;
     throw LSST_EXCEPT(pexExcept::Exception, message.c_str());    
   }
-  _mask = mask;
+  _mask.deep() = mask;
   return true;
 }
 
-template<typename SpectrumT, typename MaskT, typename VarianceT, typename WavelengthT>
+/*template<typename SpectrumT, typename MaskT, typename VarianceT, typename WavelengthT>
 bool pfsDRPStella::Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>::setLength(const size_t length){
   if (length < _length){
     _spectrum->resize(length);
@@ -104,7 +108,7 @@ bool pfsDRPStella::Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>::setLength
   }
   _length = length;
   return true;
-}
+}*/
 
 ///SpectrumSet
 template<typename SpectrumT, typename MaskT, typename VarianceT, typename WavelengthT>
