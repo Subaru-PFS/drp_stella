@@ -40,37 +40,37 @@ class Spectrum {
     ~Spectrum() {}
 
     /// Return a shared pointer to the spectrum
-    PTR(std::vector<SpectrumT>) getSpectrum() { return _spectrum; }
-    const PTR(const std::vector<SpectrumT>) getSpectrum() const { return _spectrum; }
+    ndarray::Array<SpectrumT, 1, 1> getSpectrum() { return _spectrum; }
+    const ndarray::Array<SpectrumT, 1, 1> getSpectrum() const { return _spectrum; }
     
-    /// Set the spectrum
+    /// Set the spectrum (deep copy)
     /// sets this->_spectrum to spectrum and returns TRUE if spectrum->size() == this->getLength(), otherwise returns false
     /// pre: set length of this to spectrum.size() to adjust length of all vectors in this
-    bool setSpectrum(const PTR(std::vector<SpectrumT>) & spectrum);
+    bool setSpectrum(const ndarray::Array<SpectrumT, 1, 1> & spectrum);
 
     /// Return the pointer to the variance of this spectrum
-    PTR(std::vector<VarianceT>) getVariance() { return _variance; }
-    const PTR(const std::vector<VarianceT>) getVariance() const { return _variance; }
+    ndarray::Array<WavelengthT, 1, 1> getVariance() { return _variance; }
+    const ndarray::Array<VarianceT, 1, 1> getVariance() const { return _variance; }
 
-    /// Set the variance pointer of this fiber trace to variance
+    /// Set the variance pointer of this fiber trace to variance (deep copy)
     /// sets this->_variance to variance and returns TRUE if variance->size() == this->getLength(), otherwise returns false
-    bool setVariance(const PTR(std::vector<VarianceT>) & variance);
+    bool setVariance(const ndarray::Array<VarianceT, 1, 1> & variance);
 
     /// Return the pointer to the wavelength vector of this spectrum
-    PTR(std::vector<WavelengthT>) getWavelength() { return _wavelength; }
-    const PTR(const std::vector<WavelengthT>) getWavelength() const { return _wavelength; }
+    ndarray::Array<WavelengthT, 1, 1> getWavelength() { return _wavelength; }
+    const ndarray::Array<WavelengthT, 1, 1> getWavelength() const { return _wavelength; }
 
-    /// Set the wavelength vector of this spectrum
+    /// Set the wavelength vector of this spectrum (deep copy)
     /// sets this->_wavelength to wavelength and returns TRUE if wavelength->size() == this->getLength(), otherwise returns false
-    bool setWavelength(const PTR(std::vector<WavelengthT>) & wavelength);
+    bool setWavelength(const ndarray::Array<WavelengthT, 1, 1> & wavelength);
 
     /// Return the pointer to the mask vector of this spectrum
-    PTR(std::vector<MaskT>) getMask() { return _mask; }
-    const PTR(const std::vector<MaskT>) getMask() const { return _mask; }
+    ndarray::Array<MaskT, 1, 1> getMask() { return _mask; }
+    const ndarray::Array<MaskT, 1, 1> getMask() const { return _mask; }
 
-    /// Set the mask vector of this spectrum
+    /// Set the mask vector of this spectrum (deep copy)
     /// sets this->_mask to mask and returns TRUE if mask->size() == this->getLength(), otherwise returns false
-    bool setMask(const PTR(std::vector<MaskT>) & mask);
+    bool setMask(const ndarray::Array<MaskT, 1, 1> & mask);
 
     size_t getLength() const {return _length;}
     
@@ -80,7 +80,6 @@ class Spectrum {
     /// If length is greater than the current container size, the contents of all vectors are expanded by inserting at the end as 
     /// many elements as needed to reach a size of length. The new elements of all vectors except for _wavelength are initialized 
     /// with 0. The new elements of _wavelength are initialized with _wavelength(_length - 1).
-    bool setLength(const size_t length);
     
     size_t getITrace() const {return _iTrace;}
     void setITrace(size_t iTrace){_iTrace = iTrace;}
@@ -90,12 +89,12 @@ class Spectrum {
     
   private:
     size_t _length;
-    PTR(std::vector<SpectrumT>) _spectrum;
-    PTR(std::vector<MaskT>) _mask;/// 0: all pixels of the wavelength element used for extraction were okay
+    ndarray::Array<SpectrumT, 1, 1> _spectrum;
+    ndarray::Array<MaskT, 1, 1> _mask;/// 0: all pixels of the wavelength element used for extraction were okay
                                   /// 1: at least one pixel was not okay but the extraction algorithm believes it could fix it
                                   /// 2: at least one pixel was problematic
-    PTR(std::vector<VarianceT>) _variance;
-    PTR(std::vector<WavelengthT>) _wavelength;
+    ndarray::Array<VarianceT, 1, 1> _variance;
+    ndarray::Array<WavelengthT, 1, 1> _wavelength;
     size_t _iTrace;/// for logging / debugging purposes only
     bool _isWavelengthSet;
 

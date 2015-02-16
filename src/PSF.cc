@@ -94,10 +94,10 @@ bool drpStella::PSF<ImageT, MaskT, VarianceT, WavelengthT>::extractPSFs(const Fi
 //    blitz::Array<int, 2> I_A2_MaskArray(D_A2_PixArray.rows(), D_A2_PixArray.cols());
   mask_In = blitz::where(T_A2_MaskArray(blitz::Range(_yMin, _yMax), blitz::Range::all()) == 0, 1, 0);
 
-  blitz::Array<ImageT, 1> F_A1_Spectrum(const_cast<ImageT*>(spectrumIn.getSpectrum()->data()), blitz::shape(spectrumIn.getLength()), blitz::neverDeleteData);
+  blitz::Array<ImageT, 1> F_A1_Spectrum(const_cast<ImageT*>(spectrumIn.getSpectrum().begin()), blitz::shape(spectrumIn.getLength()), blitz::neverDeleteData);
   spectrum_In = math::Double(F_A1_Spectrum(blitz::Range(_yMin, _yMax)));
 
-  blitz::Array<VarianceT, 1> F_A1_SpectrumVariance(const_cast<VarianceT*>(spectrumIn.getVariance()->data()), blitz::shape(spectrumIn.getLength()), blitz::neverDeleteData);
+  blitz::Array<VarianceT, 1> F_A1_SpectrumVariance(const_cast<VarianceT*>(spectrumIn.getVariance().begin()), blitz::shape(spectrumIn.getLength()), blitz::neverDeleteData);
   spectrumVariance_In = math::Double(F_A1_SpectrumVariance(blitz::Range(_yMin, _yMax)));
   ///TODO: replace with variance from MaskedImage
   spectrumVariance_In = spectrum_In;
