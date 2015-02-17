@@ -3898,6 +3898,262 @@
       return true;
     }
 
+    template< typename ImageT, typename SlitFuncT>
+    bool LinFitBevingtonNdArray(ndarray::Array<ImageT, 2, 1> const& D_A2_CCD_In,      /// yvec: in
+                                ndarray::Array<SlitFuncT, 2, 1> const& D_A2_SF_In,       /// xvec: in
+                                ndarray::Array<ImageT, 1, 1> & D_A1_SP_Out,                         /// a1: out
+                                ndarray::Array<ImageT, 1, 1> & D_A1_Sky_Out,                        /// a0: out
+                                bool B_WithSky,                           /// with sky: in
+                                vector<string> const& S_A1_Args_In,   ///: in
+                                vector<void *> & ArgV_In)                    ///: in
+    /// MEASURE_ERRORS_IN = blitz::Array<double, 2>(D_A2_CCD_In.rows(), D_A2_CCD_In.cols())
+    /// REJECT_IN         = double
+    /// MASK_INOUT        = blitz::Array<double, 2>(D_A2_CCD_In.rows(), D_A2_CCD_In.cols())
+    /// CHISQ_OUT         = blitz::Array<double, 1>(D_A2_CCD_In.rows())
+    /// Q_OUT             = blitz::Array<double, 1>(D_A2_CCD_In.rows())
+    /// SIGMA_OUT         = blitz::Array<double, 2>(D_A2_CCD_In.rows(),2)
+    /// YFIT_OUT          = blitz::Array<double, 2>(D_A2_CCD_In.rows(), D_A2_CCD_In.cols())
+    {
+      #ifdef __DEBUG_FITARR__
+        cout << "CFits::LinFitBevington(Array, Array, Array, Array, bool, CSArr, PPArr) started" << endl;
+        cout << "CFits::LinFitBevington(Array, Array, Array, Array, bool, CSArr, PPArr): D_A2_CCD_In = " << D_A2_CCD_In << endl;
+        cout << "CFits::LinFitBevington(Array, Array, Array, Array, bool, CSArr, PPArr): D_A2_SF_In = " << D_A2_SF_In << endl;
+      #endif
+      assert(D_A2_CCD_In.getShape()[0] == D_A2_SF_In.getShape()[0]);
+      assert(D_A2_CCD_In.getShape()[1] == D_A2_SF_In.getShape()[1]);
+      assert (D_A1_SP_Out.getShape()[0] == D_A2_CCD_In.getShape()[0]);
+      assert (D_A1_Sky_Out.getShape()[0] == D_A2_CCD_In.getShape()[0]);
+      int i, I_ArgPos = 0;
+      int I_KeywordSet_MeasureErrors, I_KeywordSet_Reject, I_KeywordSet_Mask, I_KeywordSet_ChiSq, I_KeywordSet_Q, I_KeywordSet_Sigma, I_KeywordSet_YFit;
+      D_A1_SP_Out.deep() = 0;
+      D_A1_Sky_Out.deep() = 0;
+      
+      std::vector<string> S_A1_Args_Fit(10);
+      for (auto it = S_A1_Args_Fit.begin(); it != S_A1_Args_Fit.end(); ++it)
+        *it = " ";
+      std::vector<void *> Args_Fit(10);
+
+      ndarray::Array<ImageT, 1, 1> D_A1_Sigma = ndarray::allocate(D_A2_CCD_In.getShape()[1]);
+      PTR(ndarray::Array<ImageT, 1, 1>) P_D_A1_Sigma(new ndarray::Array<ImageT, 1, 1>(D_A1_Sigma));
+      
+      ndarray::Array<ImageT, 2, 2> D_A2_Sigma = ndarray::allocate(D_A2_CCD_In.getShape()[0], D_A2_CCD_In.getShape()[1]);
+      PTR(ndarray::Array<ImageT, 2, 2>) P_D_A2_Sigma(new ndarray::Array<ImageT, 2, 2>(D_A2_Sigma));
+      I_KeywordSet_MeasureErrors = pfs::drp::stella::utils::KeyWord_Set(S_A1_Args_In, "MEASURE_ERRORS_IN");
+      if (I_KeywordSet_MeasureErrors >= 0)
+      {
+        P_D_A2_Sigma.reset();
+        P_D_A2_Sigma = *((PTR(ndarray::Array<ImageT, 2, 2>)*)ArgV_In[I_KeywordSet_MeasureErrors]);
+        assert(P_D_A2_Sigma->getShape()[0] == D_A2_CCD_In.getShape()[0]);
+        assert(P_D_A2_Sigma->getShape()[1] == D_A2_CCD_In.getShape()[1]);
+        #ifdef __DEBUG_FITARR__
+          cout << "CFits::LinFitBevington(Array, Array, Array, Array): P_D_A2_Sigma = " << *P_D_A2_Sigma << endl;
+        #endif
+        S_A1_Args_Fit[I_ArgPos] = "MEASURE_ERRORS_IN";
+        I_ArgPos++;
+      }
+
+      ndarray::Array<ImageT, 1, 1> D_A1_ChiSq = ndarray::allocate(D_A2_CCD_In.getShape()[0]);
+      PTR(ndarray::Array<ImageT, 1, 1>) P_D_A1_ChiSq(new ndarray::Array<ImageT, 1, 1>(D_A1_ChiSq));
+      I_KeywordSet_ChiSq = pfs::drp::stella::utils::KeyWord_Set(S_A1_Args_In, "CHISQ_OUT");
+      if (I_KeywordSet_ChiSq >= 0)
+      {
+        P_D_A1_ChiSq.reset();
+        P_D_A1_ChiSq = *((PTR(ndarray::Array<ImageT, 1, 1>)*)ArgV_In[I_KeywordSet_ChiSq]);
+        assert(P_D_A1_ChiSq->getShape()[0] == D_A2_CCD_In.getShape()[0]);
+        S_A1_Args_Fit[I_ArgPos] = "CHISQ_OUT";
+        I_ArgPos++;
+      }
+
+      ndarray::Array<ImageT, 1, 1> D_A1_Q = ndarray::allocate(D_A2_CCD_In.getShape()[0]);
+      PTR(ndarray::Array<ImageT, 1, 1>) P_D_A1_Q(new ndarray::Array<ImageT, 1, 1>(D_A1_Q));
+      I_KeywordSet_Q = pfs::drp::stella::utils::KeyWord_Set(S_A1_Args_In, "Q_OUT");
+      if (I_KeywordSet_Q >= 0)
+      {
+        P_D_A1_Q.reset();
+        P_D_A1_Q = *((PTR(ndarray::Array<ImageT, 1, 1>)*)ArgV_In[I_KeywordSet_Q]);
+        assert(P_D_A1_Q->getShape()[0] == D_A2_CCD_In.getShape()[0]);
+        S_A1_Args_Fit[I_ArgPos] = "Q_OUT";
+        I_ArgPos++;
+      }
+
+      ndarray::Array<ImageT, 1, 1> D_A1_Sigma_Out = ndarray::allocate(2);
+      PTR(ndarray::Array<ImageT, 1, 1>) P_D_A1_Sigma_Out(new ndarray::Array<ImageT, 1, 1>(D_A1_Sigma_Out));
+
+      ndarray::Array<ImageT, 2, 2> D_A2_Sigma_Out = ndarray::allocate(D_A2_CCD_In.getShape()[0], 2);
+      PTR(ndarray::Array<ImageT, 2, 2>) P_D_A2_Sigma_Out(new ndarray::Array<ImageT, 2, 2>(D_A2_Sigma_Out));
+      I_KeywordSet_Sigma = pfs::drp::stella::utils::KeyWord_Set(S_A1_Args_In, "SIGMA_OUT");
+      if (I_KeywordSet_Sigma >= 0)
+      {
+        P_D_A2_Sigma_Out.reset();
+        P_D_A2_Sigma_Out = *((PTR(ndarray::Array<ImageT, 2, 2>)*)ArgV_In[I_KeywordSet_Sigma]);
+        assert(P_D_A2_Sigma_Out->getShape()[0] == D_A2_CCD_In.getShape()[0]);
+        assert(P_D_A2_Sigma_Out->getShape()[1] == 2);
+        S_A1_Args_Fit[I_ArgPos] = "SIGMA_OUT";
+        I_ArgPos++;
+      }
+
+
+      ndarray::Array<ImageT, 1, 1> D_A1_YFit = ndarray::allocate(D_A2_CCD_In.getShape()[1]);
+      PTR(ndarray::Array<ImageT, 1, 1>) P_D_A1_YFit(new ndarray::Array<ImageT, 1, 1>(D_A1_YFit));
+      
+      ndarray::Array<ImageT, 2, 2> D_A2_YFit = ndarray::allocate(D_A2_CCD_In.getShape()[0], D_A2_CCD_In.getShape()[1]);
+      PTR(ndarray::Array<ImageT, 2, 2>) P_D_A2_YFit(new ndarray::Array<ImageT, 2, 2>(D_A2_YFit));
+      I_KeywordSet_YFit = pfs::drp::stella::utils::KeyWord_Set(S_A1_Args_In, "YFIT_OUT");
+      if (I_KeywordSet_YFit >= 0)
+      {
+        P_D_A2_YFit.reset();
+        P_D_A2_YFit = *((PTR(ndarray::Array<ImageT, 2, 2>)*)ArgV_In[I_KeywordSet_YFit]);
+        assert(P_D_A2_YFit->getShape()[0] == D_A2_CCD_In.getShape()[0]);
+        assert(P_D_A2_YFit->getShape()[1] == D_A2_CCD_In.getShape()[1]);
+        S_A1_Args_Fit[I_ArgPos] = "YFIT_OUT";
+        I_ArgPos++;
+      }
+
+      PTR(ImageT) P_D_Reject(new ImageT(-1));
+      I_KeywordSet_Reject = pfs::drp::stella::utils::KeyWord_Set(S_A1_Args_In, "REJECT_IN");
+      if (I_KeywordSet_Reject >= 0)
+      {
+        P_D_Reject.reset();
+        P_D_Reject = *((PTR(ImageT)*)ArgV_In[I_KeywordSet_Reject]);
+        #ifdef __DEBUG_FITARR__
+          cout << "CFits::LinFitBevington2D: P_D_Reject = " << *P_D_Reject << endl;
+        #endif
+        S_A1_Args_Fit[I_ArgPos] = "REJECT_IN";
+        I_ArgPos++;
+      }
+
+      ndarray::Array<unsigned short, 1, 1> I_A1_Mask = ndarray::allocate(D_A2_CCD_In.getShape()[1]);
+      PTR(ndarray::Array<unsigned short, 1, 1>) P_I_A1_Mask(new ndarray::Array<unsigned short, 1, 1>(I_A1_Mask));
+      
+      ndarray::Array<unsigned short, 2, 2> I_A2_Mask = ndarray::allocate(D_A2_CCD_In.getShape()[0], D_A2_CCD_In.getShape()[1]);
+      I_A2_Mask.deep() = 1;
+      PTR(ndarray::Array<unsigned short, 2, 2>) P_I_A2_Mask(new ndarray::Array<unsigned short, 2, 2>(I_A2_Mask));
+      I_KeywordSet_Mask = pfs::drp::stella::utils::KeyWord_Set(S_A1_Args_In, "MASK_INOUT");
+      if (I_KeywordSet_Mask >= 0)
+      {
+        P_I_A2_Mask.reset();
+        P_I_A2_Mask = *((PTR(ndarray::Array<unsigned short, 2, 2>)*)ArgV_In[I_KeywordSet_Mask]);
+        assert(P_I_A2_Mask->getShape()[0] == D_A2_CCD_In.getShape()[0]);
+        assert(P_I_A2_Mask->getShape()[1] == D_A2_CCD_In.getShape()[1]);
+        #ifdef __DEBUG_FITARR__
+          cout << "CFits::LinFitBevington2D: P_I_A2_Mask = " << *P_I_A2_Mask << endl;
+        #endif
+        S_A1_Args_Fit[I_ArgPos] = "MASK_INOUT";
+        I_ArgPos++;
+      }
+
+      bool B_DoFit = true;
+      for (i = 0; i < D_A2_CCD_In.getShape()[0]; i++)
+      {
+        I_ArgPos = 0;
+        if (I_KeywordSet_MeasureErrors >= 0){
+          *P_D_A1_Sigma = (*P_D_A2_Sigma)[ndarray::view(i)()];
+          #ifdef __DEBUG_FITARR__
+            cout << "CFits::LinFitBevington(Array, Array, Array, Array): P_D_A1_Sigma set to " << *P_D_A1_Sigma << endl;
+          #endif
+          Args_Fit[I_ArgPos] = &P_D_A1_Sigma;
+          #ifdef __DEBUG_FITARR__
+            cout << "CFits::LinFitBevington(Array, Array, Array, Array): PP_Args_Fit[I_ArgPos=" << I_ArgPos << "] = " << *((PTR(Eigen::Array<ImageT, Eigen::Dynamic, 1>)*)Args_Fit[I_ArgPos]) << endl;
+          #endif
+          I_ArgPos++;
+        }
+
+        if (I_KeywordSet_ChiSq >= 0){
+          Args_Fit[I_ArgPos] = &((*P_D_A1_ChiSq)[i]);
+          I_ArgPos++;
+        }
+
+        if (I_KeywordSet_Q >= 0){
+          Args_Fit[I_ArgPos] = &((*P_D_A1_Q)[i]);
+          I_ArgPos++;
+        }
+
+        if (I_KeywordSet_Sigma >= 0){
+          *P_D_A1_Sigma_Out = (*P_D_A2_Sigma_Out)[ndarray::view(i)()];
+          Args_Fit[I_ArgPos] = &P_D_A1_Sigma_Out;
+          I_ArgPos++;
+        }
+
+        if (I_KeywordSet_YFit >= 0){
+          *P_D_A1_YFit = (*P_D_A2_YFit)[ndarray::view(i)()];
+          Args_Fit[I_ArgPos] = &P_D_A1_YFit;
+          I_ArgPos++;
+        }
+
+        if (I_KeywordSet_Reject >= 0){
+          Args_Fit[I_ArgPos] = &P_D_Reject;
+          I_ArgPos++;
+        }
+
+        B_DoFit = true;
+        if (I_KeywordSet_Mask >= 0){
+          *P_I_A1_Mask = (*P_I_A2_Mask)[ndarray::view(i)()];
+          Args_Fit[I_ArgPos] = &P_I_A1_Mask;
+          I_ArgPos++;
+          if (ndarray::sum(*P_I_A1_Mask) == 0)
+            B_DoFit = false;
+        }
+
+        #ifdef __DEBUG_FITARR__
+          cout << "CFits::LinFitBevington: Starting Fit1D: D_A2_CCD_In(i=" << i << ", *) = " << D_A2_CCD_In[ndarray::view(i)()] << endl;
+        #endif
+        if (B_DoFit){
+          #ifdef __DEBUG_FITARR__
+            cout << "CFits::LinFitBevington: D_A2_SF_In(i=" << i << ", *) = " << D_A2_SF_In[ndarray::view(i)()] << endl;
+          #endif
+          ndarray::Array<ImageT, 1, 1> D_A1_CCD(D_A2_CCD_In[ndarray::view(i)()]);
+          ndarray::Array<SlitFuncT, 1, 1> D_A1_SF(D_A2_SF_In[ndarray::view(i)()]);
+          int status = math::LinFitBevingtonNdArray(D_A1_CCD,
+                                                    D_A1_SF,
+                                                    D_A1_SP_Out[i],
+                                                    D_A1_Sky_Out[i],
+                                                    B_WithSky,
+                                                    S_A1_Args_Fit,
+                                                    Args_Fit);
+          if (status != 1){
+            string message("CFits::LinFitBevington: WARNING: LinFitBevington(D_A2_CCD_In(i,blitz::Range::all()),D_A2_SF_In(i,blitz::Range::all()),D_A1_SP_Out(i),D_A1_Sky_Out(i),D_A1_STDDEV_Out(i),D_A1_Covariance_Out(i)) returned status = ");
+            message += to_string(status);
+            cout << message << endl;
+            cout << "CFits::LinFitBevington: D_A2_SF_In(0, *) = " << D_A2_SF_In[ndarray::view(0)()] << endl;
+            
+//            throw LSST_EXCEPT(pexExcept::Exception, message.c_str());    
+          }
+        }
+        #ifdef __DEBUG_FITARR__
+          cout << "CFits::LinFitBevington(Array, Array, Array, Array): D_A1_SP_Out(i=" << i << ") set to " << D_A1_SP_Out[i] << endl;
+          cout << "CFits::LinFitBevington(Array, Array, Array, Array): D_A1_Sky_Out(i=" << i << ") set to " << D_A1_Sky_Out[i] << endl;
+        #endif
+
+        if (I_KeywordSet_Sigma >= 0){
+          #ifdef __DEBUG_FITARR__
+            cout << "CFits::LinFitBevington(Array, Array, Array, Array): P_D_A1_Sigma_Out = " << (*P_D_A1_Sigma_Out) << endl;
+            cout << "CFits::LinFitBevington(Array, Array, Array, Array): P_D_A2_Sigma_Out(i=" << i << ",*) = " << (*P_D_A2_Sigma_Out)[ndarray::view(i)()] << endl;
+          #endif
+          (*P_D_A2_Sigma_Out)[ndarray::view(i)()] = (*P_D_A1_Sigma_Out);
+        }
+
+        if (I_KeywordSet_YFit >= 0){
+          (*P_D_A2_YFit)[ndarray::view(i)()] = (*P_D_A1_YFit);
+          #ifdef __DEBUG_FITARR__
+            cout << "CFits::LinFitBevington(Array, Array, Array, Array): P_D_A2_YFit(i=" << i << ",*) set to " << (*P_D_A2_YFit)[ndarray::view(i)()] << endl;
+          #endif
+        }
+
+        if (I_KeywordSet_Mask >= 0){
+          (*P_I_A2_Mask)[ndarray::view(i)()] = (*P_I_A1_Mask);
+          #ifdef __DEBUG_FITARR__
+            cout << "CFits::LinFitBevington(Array, Array, Array, Array): P_I_A1_Mask = " << (*P_I_A1_Mask) << endl;
+            cout << "CFits::LinFitBevington(Array, Array, Array, Array): P_I_A2_Mask(i=" << i << ",*) set to " << (*P_I_A2_Mask)[ndarray::view(i)()] << endl;
+          #endif
+        }
+      }
+      #ifdef __DEBUG_FITARR__
+        cout << "CFits::LinFitBevington(Array, Array, Array, Array): D_A1_SP_Out = " << D_A1_SP_Out << endl;
+//        cout << "CFits::LinFitBevington(Array, Array, Array, Array): D_A1_Sky_Out set to " << D_A1_Sky_Out << endl;
+      #endif
+      return true;
+    }
+
     /**
       Fit(blitz::Array<double, 1> y, const blitz::Array<double, 1> x, a1, a0);
       calculates a0 and a1 for the system of equations yvec = a0 + a1 * xvec
@@ -4855,6 +5111,465 @@
       return status;
     }
 
+    template<typename ImageT, typename SlitFuncT>
+    int LinFitBevingtonNdArray(ndarray::Array<ImageT, 1, 1> const& D_A1_CCD_In,      /// yvec: in
+                               ndarray::Array<SlitFuncT, 1, 1> const& D_A1_SF_In,       /// xvec: in
+                               ImageT &D_SP_Out,                         /// a1: out
+                               ImageT &D_Sky_Out,                        /// a0: in/out
+                               bool B_WithSky,                        /// with sky: in
+                               std::vector<string> const& S_A1_Args_In,   ///: in
+                               std::vector<void *> & ArgV_In)                    ///: in
+    /// MEASURE_ERRORS_IN = blitz::Array<double,1>(D_A1_CCD_In.size)
+    /// REJECT_IN = double
+    /// MASK_INOUT = blitz::Array<double,1>(D_A1_CCD_In.size)
+    /// CHISQ_OUT = double
+    /// Q_OUT = double
+    /// SIGMA_OUT = blitz::Array<double,1>(2): [0]: sigma_sp, [1]: sigma_sky
+    /// YFIT_OUT = blitz::Array<double, 1>(D_A1_CCD_In.size)
+    /// ALLOW_SKY_LT_ZERO = 1
+    /// ALLOW_SPEC_LT_ZERO = 1
+    {
+      int status = 1;
+      #ifdef __DEBUG_FIT__
+        cout << "CFits::LinFitBevington(Array, Array, double, double, bool, CSArr, PPArr) started" << endl;
+        cout << "CFits::LinFitBevington: D_A1_CCD_In = " << D_A1_CCD_In << endl;
+        cout << "CFits::LinFitBevington: D_A1_SF_In = " << D_A1_SF_In << endl;
+      #endif
+
+      if (D_A1_CCD_In.size() != D_A1_SF_In.size()){
+        string message("CFits::LinFitBevington: ERROR: D_A1_CCD_In.size(=");
+        message += to_string(D_A1_CCD_In.size()) + ") != D_A1_SF_In.size(=" + to_string(D_A1_SF_In.size()) + ")";
+        cout << message << endl;
+        throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
+      }
+
+      //  /// Set D_A1_SF_In to zero where D_A1_CCD_In == zero
+      ndarray::Array<SlitFuncT, 1, 1> D_A1_SF = ndarray::allocate(D_A1_SF_In.getShape()[0]);
+      D_A1_SF.deep() = D_A1_SF_In;
+      ndarray::Array<ImageT, 1, 1> D_A1_CCD = ndarray::allocate(D_A1_CCD_In.getShape()[0]);
+      D_A1_CCD.deep() = D_A1_CCD_In;
+
+      if ((D_A1_CCD_In.asEigen().sum() == 0.) || (D_A1_SF.asEigen().sum() == 0.)){
+        cout << "CFits::LinFitBevington: Warning: (D_A1_CCD_In.sum(=" << D_A1_CCD_In.asEigen().sum() << " == 0.) || (D_A1_SF.sum(=" << D_A1_SF.asEigen().sum() << ") == 0.) => returning false" << endl;
+        D_SP_Out = 0.;
+        D_Sky_Out = 0.;
+        status = 0;
+        return status;
+      }
+      int i, I_Pos;
+      int I_KeywordSet_Reject, I_KeywordSet_Mask, I_KeywordSet_MeasureErrors, I_KeywordSet_SigmaOut, I_KeywordSet_ChiSqOut, I_KeywordSet_QOut, I_KeywordSet_YFitOut, I_KeywordSet_AllowSkyLTZero, I_KeywordSet_AllowSpecLTZero;
+      double sigdat;
+      const int ndata(D_A1_CCD_In.getShape()[0]);
+      ndarray::Array<ImageT, 1, 1> D_A1_Sig = ndarray::allocate(ndata);
+      D_A1_Sig.deep() = 0.;
+      PTR(ndarray::Array<ImageT, 1, 1>) P_D_A1_Sig(new ndarray::Array<ImageT, 1, 1>(D_A1_Sig));
+      ndarray::Array<ImageT, 1, 1> D_A1_WT = ndarray::allocate(ndata);
+
+      /// a: D_Sky_Out
+      /// b: D_SP_Out
+      /// x: D_A1_SF_In
+      /// y: D_A1_CCD_In
+      bool B_AllowSkyLTZero = false;
+      I_KeywordSet_AllowSkyLTZero = pfs::drp::stella::utils::KeyWord_Set(S_A1_Args_In, "ALLOW_SKY_LT_ZERO");
+      if (I_KeywordSet_AllowSkyLTZero >= 0){
+        if(*((int*)ArgV_In[I_KeywordSet_AllowSkyLTZero]) > 0){
+          B_AllowSkyLTZero = true;
+          cout << "CFits::LinFitBevington: KeyWord_Set(ALLOW_SKY_LT_ZERO)" << endl;
+        }
+      }
+
+      bool B_AllowSpecLTZero = false;
+      I_KeywordSet_AllowSpecLTZero = pfs::drp::stella::utils::KeyWord_Set(S_A1_Args_In, "ALLOW_SPEC_LT_ZERO");
+      if (I_KeywordSet_AllowSpecLTZero >= 0){
+        if (I_KeywordSet_AllowSkyLTZero < 0){
+          if (*((int*)ArgV_In[I_KeywordSet_AllowSkyLTZero]) > 0){
+            B_AllowSpecLTZero = true;
+            cout << "CFits::LinFitBevington: KeyWord_Set(ALLOW_SPEC_LT_ZERO)" << endl;
+          }
+        }
+      }
+
+      float D_Reject(-1.);
+      I_KeywordSet_Reject = pfs::drp::stella::utils::KeyWord_Set(S_A1_Args_In, "REJECT_IN");
+      if (I_KeywordSet_Reject >= 0)
+      {
+        D_Reject = *(float*)ArgV_In[I_KeywordSet_Reject];
+        #ifdef __DEBUG_FIT__
+          cout << "CFits::LinFitBevington: KeyWord_Set(REJECT_IN): D_Reject = " << D_Reject << endl;
+        #endif
+      }
+      bool B_Reject = false;
+      if (D_Reject > 0.)
+        B_Reject = true;
+
+      ndarray::Array<unsigned short, 1, 1> I_A1_Mask_Orig = ndarray::allocate(ndata);
+      ndarray::Array<unsigned short, 1, 1> I_A1_Mask = ndarray::allocate(ndata);
+      I_A1_Mask.deep() = 1;
+      PTR(ndarray::Array<unsigned short, 1, 1>) P_I_A1_Mask(new ndarray::Array<unsigned short, 1, 1>(I_A1_Mask));
+      I_KeywordSet_Mask = pfs::drp::stella::utils::KeyWord_Set(S_A1_Args_In, "MASK_INOUT");
+      if (I_KeywordSet_Mask >= 0)
+      {
+        P_I_A1_Mask.reset();
+        P_I_A1_Mask = *((PTR(ndarray::Array<unsigned short, 1, 1>)*)ArgV_In[I_KeywordSet_Mask]);
+        assert(P_I_A1_Mask->getShape()[0] == ndata);
+        #ifdef __DEBUG_FIT__
+          cout << "CFits::LinFitBevington: KeyWord_Set(MASK_INOUT): *P_I_A1_Mask = " << *P_I_A1_Mask << endl;
+        #endif
+      }
+      I_A1_Mask_Orig.deep() = *P_I_A1_Mask;
+      #ifdef __DEBUG_FIT__
+        cout << "CFits::LinFitBevington: *P_I_A1_Mask set to " << *P_I_A1_Mask << endl;
+        cout << "CFits::LinFitBevington: I_A1_Mask_Orig set to " << I_A1_Mask_Orig << endl;
+      #endif
+
+      ndarray::Array<ImageT, 1, 1> D_A1_Sigma_Out = ndarray::allocate(2);
+      PTR(ndarray::Array<ImageT, 1, 1>) P_D_A1_Sigma_Out(new ndarray::Array<ImageT, 1, 1>(D_A1_Sigma_Out));
+      I_KeywordSet_SigmaOut = pfs::drp::stella::utils::KeyWord_Set(S_A1_Args_In, "SIGMA_OUT");
+      if (I_KeywordSet_SigmaOut >= 0)
+      {
+        P_D_A1_Sigma_Out.reset();
+        P_D_A1_Sigma_Out = *(PTR(ndarray::Array<ImageT, 1, 1>)*)ArgV_In[I_KeywordSet_SigmaOut];
+        assert(P_D_A1_Sigma_Out->getShape()[0] == 2);
+        #ifdef __DEBUG_FIT__
+          cout << "CFits::LinFitBevington: KeyWord_Set(SIGMA_OUT)" << endl;
+        #endif
+      }
+      P_D_A1_Sigma_Out->deep() = 0.;
+
+      PTR(ImageT) P_D_ChiSqr_Out(new ImageT(0.));
+      I_KeywordSet_ChiSqOut = pfs::drp::stella::utils::KeyWord_Set(S_A1_Args_In, "CHISQ_OUT");
+      if (I_KeywordSet_ChiSqOut >= 0)
+      {
+        P_D_ChiSqr_Out.reset();
+        P_D_ChiSqr_Out = *(PTR(ImageT)*)ArgV_In[I_KeywordSet_ChiSqOut];
+        #ifdef __DEBUG_FIT__
+          cout << "CFits::LinFitBevington: KeyWord_Set(CHISQ_OUT)" << endl;
+        #endif
+      }
+      *P_D_ChiSqr_Out = 0.;
+
+      PTR(ImageT) P_D_Q_Out(new ImageT(0.));
+      I_KeywordSet_QOut = pfs::drp::stella::utils::KeyWord_Set(S_A1_Args_In, "Q_OUT");
+      if (I_KeywordSet_QOut >= 0)
+      {
+        P_D_Q_Out.reset();
+        P_D_Q_Out = *(PTR(ImageT)*)ArgV_In[I_KeywordSet_QOut];
+        #ifdef __DEBUG_FIT__
+          cout << "CFits::LinFitBevington: KeyWord_Set(Q_OUT)" << endl;
+        #endif
+      }
+      *P_D_Q_Out = 1.;
+
+      D_SP_Out = 0.0;
+      I_KeywordSet_MeasureErrors = pfs::drp::stella::utils::KeyWord_Set(S_A1_Args_In, "MEASURE_ERRORS_IN");
+      if (I_KeywordSet_MeasureErrors >= 0)
+      {
+        P_D_A1_Sig.reset();
+        P_D_A1_Sig = *(PTR(ndarray::Array<ImageT, 1, 1>)*)ArgV_In[I_KeywordSet_MeasureErrors];
+        #ifdef __DEBUG_FIT__
+          cout << "CFits::LinFitBevington: *P_D_A1_Sig = " << *P_D_A1_Sig << endl;
+        #endif
+        assert(P_D_A1_Sig->getShape()[0] == ndata);
+        D_A1_Sig.deep() = *P_D_A1_Sig;
+        #ifdef __DEBUG_FIT__
+          cout << "CFits::LinFitBevington: KeyWord_Set(MEASURE_ERRORS_IN): *P_D_A1_Sig = " << *P_D_A1_Sig << endl;
+        #endif
+      }
+
+      ndarray::Array<ImageT, 1, 1> D_A1_YFit = ndarray::allocate(ndata);
+      PTR(ndarray::Array<ImageT, 1, 1>) P_D_A1_YFit(new ndarray::Array<ImageT, 1, 1>(D_A1_YFit));
+      I_KeywordSet_YFitOut = pfs::drp::stella::utils::KeyWord_Set(S_A1_Args_In, "YFIT_OUT");
+      if (I_KeywordSet_YFitOut >= 0)
+      {
+        P_D_A1_YFit.reset();
+        P_D_A1_YFit = *(PTR(ndarray::Array<ImageT, 1, 1>)*)ArgV_In[I_KeywordSet_YFitOut];
+        assert(P_D_A1_YFit->getShape()[0] == ndata);
+      }
+      P_D_A1_YFit->deep() = 0.;
+      if (P_I_A1_Mask->asEigen().sum() == 0){
+        cout << "CFits::LinFitBevington: WARNING: P_I_A1_Mask->sum() == 0" << endl;
+        D_SP_Out = 0.;
+        D_Sky_Out = 0.;
+        status = 0;
+        return status;
+      }
+
+      int I_SumMaskLast;
+      ImageT D_SDevReject;
+      ndarray::Array<ImageT, 1, 1> D_A1_Check = ndarray::allocate(ndata);
+      ndarray::Array<unsigned short, 1, 1> I_A1_LastMask = ndarray::allocate(P_I_A1_Mask->getShape()[0]);
+      ndarray::Array<ImageT, 1, 1> D_A1_Diff = ndarray::allocate(ndata);
+      D_A1_Diff.deep() = 0.;
+      ImageT D_Sum_Weights = 0.;
+      ImageT D_Sum_XSquareTimesWeight = 0;
+      ImageT D_Sum_XTimesWeight = 0.;
+      ImageT D_Sum_YTimesWeight = 0.;
+      ImageT D_Sum_XYTimesWeight = 0.;
+      ImageT D_Delta = 0.;
+
+      bool B_Run = true;
+      int I_Run = -1;
+      int I_MaskSum;
+      while (B_Run){
+        D_SP_Out = 0.0;
+
+        I_Run++;
+        /// remove bad pixels marked by mask
+        I_MaskSum = P_I_A1_Mask->asEigen().sum();
+        #ifdef __DEBUG_FIT__
+          cout << "CFits::LinFitBevington: I_Run=" << I_Run << ": I_MaskSum = " << I_MaskSum << endl;
+        #endif
+        if (I_MaskSum == 0){
+          string message("LinFitBevington: WARNING: I_MaskSum == 0");
+          cout << message << endl;
+          status = 0;
+          return status;
+//          throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
+        }
+        D_A1_Sig = math::resize(D_A1_Sig, I_MaskSum);
+        D_A1_CCD = math::resize(D_A1_CCD, I_MaskSum);
+        D_A1_SF = math::resize(D_A1_SF, I_MaskSum);
+        D_A1_WT = math::resize(D_A1_WT, I_MaskSum);
+        D_A1_YFit = math::resize(D_A1_YFit, I_MaskSum);
+
+        I_Pos = 0;
+        for (size_t ii = 0; ii < P_I_A1_Mask->size(); ii++){
+          if ((*P_I_A1_Mask)[ii] == 1){
+            D_A1_CCD[I_Pos] = D_A1_CCD_In[ii];
+            D_A1_SF[I_Pos] = D_A1_SF_In[ii];
+            D_A1_Sig[I_Pos] = (*P_D_A1_Sig)[ii];
+            I_Pos++;
+          }
+        }
+        #ifdef __DEBUG_FIT__
+          cout << "CFits::LinFitBevington: I_Run=" << I_Run << ": D_A1_CCD set to " << D_A1_CCD << endl;
+          cout << "CFits::LinFitBevington: I_Run=" << I_Run << ": D_A1_SF set to " << D_A1_SF << endl;
+          cout << "CFits::LinFitBevington: I_Run=" << I_Run << ": D_A1_Sig set to " << D_A1_Sig << endl;
+        #endif
+
+        D_Sum_Weights = 0.;
+        D_Sum_XSquareTimesWeight = 0.;
+        D_Sum_XTimesWeight = 0.;
+        D_Sum_XYTimesWeight = 0.;
+        D_Sum_YTimesWeight = 0.;
+        if (I_KeywordSet_MeasureErrors >= 0)
+        {
+          ///    D_A1_WT = D_A1_SF;
+          for (i=0; i < I_MaskSum; i++)
+          {
+            /// ... with weights
+            if (fabs(D_A1_Sig[i]) < 0.00000000000000001){
+              cout << "CFits::LinFitBevington: I_Run=" << I_Run << ": i = " << i << ": ERROR: D_A1_Sig = " << D_A1_Sig << endl;
+              string message("CFits::LinFitBevington: I_Run=");
+              message += to_string(I_Run) + ": i = " + to_string(i) + ": ERROR: D_A1_Sig(" + to_string(i) + ") == 0.";
+              cout << message << endl;
+              throw LSST_EXCEPT(pexExcept::Exception, message.c_str());    
+            }
+            D_A1_WT[i] = 1. / pow(D_A1_Sig[i], 2);
+          }
+          #ifdef __DEBUG_FIT__
+            cout << "CFits::LinFitBevington: I_Run=" << I_Run << ":: D_A1_WT set to " << D_A1_WT << endl;
+          #endif
+          for (i=0; i < I_MaskSum; i++)
+          {
+            D_Sum_Weights += D_A1_WT[i];
+            D_Sum_XTimesWeight += D_A1_SF[i] * D_A1_WT[i];
+            D_Sum_YTimesWeight += D_A1_CCD[i] * D_A1_WT[i];
+            D_Sum_XYTimesWeight += D_A1_SF[i] * D_A1_CCD[i] * D_A1_WT[i];
+            D_Sum_XSquareTimesWeight += D_A1_SF[i] * D_A1_SF[i] * D_A1_WT[i];
+          }
+        }
+        else
+        {
+          for (i = 0; i < I_MaskSum; i++)
+          {
+            /// ... or without weights
+            D_Sum_XTimesWeight += D_A1_SF[i];
+            D_Sum_YTimesWeight += D_A1_CCD[i];
+            D_Sum_XYTimesWeight += D_A1_SF[i] * D_A1_CCD[i];
+            D_Sum_XSquareTimesWeight += D_A1_SF[i] * D_A1_SF[i];
+          }
+          D_Sum_Weights = I_MaskSum;
+        }
+        D_Delta = D_Sum_Weights * D_Sum_XSquareTimesWeight - pow(D_Sum_XTimesWeight, 2);
+
+        #ifdef __DEBUG_FIT__
+          cout << "CFits::LinFitBevington: I_Run=" << I_Run << ": D_Sum_Weights set to " << D_Sum_Weights << endl;
+          cout << "CFits::LinFitBevington: I_Run=" << I_Run << ": D_Sum_XTimesWeight set to " << D_Sum_XTimesWeight << endl;
+          cout << "CFits::LinFitBevington: I_Run=" << I_Run << ": D_Sum_YTimesWeight set to " << D_Sum_YTimesWeight << endl;
+          cout << "CFits::LinFitBevington: I_Run=" << I_Run << ": D_Sum_XYTimesWeight set to " << D_Sum_XYTimesWeight << endl;
+          cout << "CFits::LinFitBevington: I_Run=" << I_Run << ": D_Sum_XSquareTimesWeight set to " << D_Sum_XSquareTimesWeight << endl;
+          cout << "CFits::LinFitBevington: I_Run=" << I_Run << ": D_Delta set to " << D_Delta << endl;
+        #endif
+
+
+        if (!B_WithSky)
+        {
+          #ifdef __DEBUG_FIT__
+            cout << "CFits::LinFitBevington: I_Run=" << I_Run << ": D_Sky_Out < 0. = setting D_Sky_Out to 0 " << endl;
+          #endif
+          D_SP_Out = D_Sum_XYTimesWeight / D_Sum_XSquareTimesWeight;
+          D_Sky_Out = 0.0;
+        }
+        else
+        {
+          #ifdef __DEBUG_FIT__
+            cout << "CFits::LinFitBevington: I_Run=" << I_Run << ": D_Sky_Out >= 0." << D_Sky_Out << endl;
+          #endif
+          D_Sky_Out = ((D_Sum_XSquareTimesWeight * D_Sum_YTimesWeight) - (D_Sum_XTimesWeight * D_Sum_XYTimesWeight)) / D_Delta;
+
+          D_SP_Out = ((D_Sum_Weights * D_Sum_XYTimesWeight) - (D_Sum_XTimesWeight * D_Sum_YTimesWeight)) / D_Delta;
+          #ifdef __DEBUG_FIT__
+            cout << "CFits::LinFitBevington: I_Run=" << I_Run << ": D_SP_Out set to " << D_SP_Out << endl;
+            cout << "CFits::LinFitBevington: I_Run=" << I_Run << ": D_Sky_Out set to " << D_Sky_Out << endl;
+          #endif
+        }
+        #ifdef __DEBUG_FIT__
+          cout << "CFits::LinFitBevington: I_Run=" << I_Run << ": D_Sum_Weights >= " << D_Sum_Weights << endl;
+          cout << "CFits::LinFitBevington: I_Run=" << I_Run << ": D_Sum_XSquareTimesWeight >= " << D_Sum_XSquareTimesWeight << endl;
+          cout << "CFits::LinFitBevington: I_Run=" << I_Run << ": D_Delta >= " << D_Delta << endl;
+        #endif
+        (*P_D_A1_Sigma_Out)[0] = sqrt(D_Sum_Weights / D_Delta);
+        (*P_D_A1_Sigma_Out)[1] = sqrt(D_Sum_XSquareTimesWeight / D_Delta);
+        #ifdef __DEBUG_FIT__
+          cout << "CFits::LinFitBevington: I_Run=" << I_Run << ": P_D_A1_Sigma_Out(0) set to " << (*P_D_A1_Sigma_Out)[0] << endl;
+          cout << "CFits::LinFitBevington: I_Run=" << I_Run << ": P_D_A1_Sigma_Out(1) set to " << (*P_D_A1_Sigma_Out)[1] << endl;
+        #endif
+        if ((!B_AllowSpecLTZero) && (D_SP_Out < 0.))
+          D_SP_Out = 0.;
+
+        #ifdef __DEBUG_FIT__
+          cout << "CFits::LinFitBevington: I_Run=" << I_Run << ": D_Sky_Out set to " << D_Sky_Out << endl;
+          cout << "CFits::LinFitBevington: I_Run=" << I_Run << ": D_SP_Out set to " << D_SP_Out << endl;
+          cout << "CFits::LinFitBevington: I_Run=" << I_Run << ": fabs(D_SP_Out) = " << fabs(D_SP_Out) << endl;
+        #endif
+
+        P_D_A1_YFit->deep() = D_Sky_Out + D_SP_Out * D_A1_SF_In;//.template cast<ImageT>();
+        D_A1_YFit.deep() = D_Sky_Out + D_SP_Out * D_A1_SF;//.template cast<ImageT>();
+        #ifdef __DEBUG_FIT__
+          cout << "CFits::LinFitBevington: I_Run=" << I_Run << ": *P_D_A1_YFit set to " << *P_D_A1_YFit << endl;
+          cout << "CFits::LinFitBevington: I_Run=" << I_Run << ": D_A1_YFit set to " << D_A1_YFit << endl;
+        #endif
+        *P_D_ChiSqr_Out = 0.;
+        if (I_KeywordSet_MeasureErrors < 0)
+        {
+          for (i = 0; i < I_MaskSum; i++)
+          {
+            *P_D_ChiSqr_Out += pow(D_A1_CCD[i] - D_A1_YFit[i], 2);
+            #ifdef __DEBUG_FIT__
+              cout << "CFits::LinFitBevington: I_Run=" << I_Run << ": i = " << i << ": P_D_ChiSqr_Out set to " << *P_D_ChiSqr_Out << endl;
+            #endif
+          }
+
+          /// for unweighted data evaluate typical sig using chi2, and adjust the standard deviations
+          if (I_MaskSum == 2){
+            string message("CFits::LinFitBevington: I_Run=");
+            message += to_string(I_Run) + ": ERROR: Sum of Mask (=" + to_string(I_MaskSum) + ") must be greater than 2";
+            cout << message << endl;
+            throw LSST_EXCEPT(pexExcept::Exception, message.c_str());    
+          }
+          sigdat = sqrt((*P_D_ChiSqr_Out) / (I_MaskSum - 2));
+          (*P_D_A1_Sigma_Out)[0] *= sigdat;
+          (*P_D_A1_Sigma_Out)[1] *= sigdat;
+        }
+        else
+        {
+          for (i = 0; i < I_MaskSum; i++)
+          {
+            #ifdef __DEBUG_FIT__
+              cout << "CFits::LinFitBevington: I_Run=" << I_Run << ": i = " << i << ": D_A1_CCD(" << i << ") = " << D_A1_CCD[i] << endl;
+              cout << "CFits::LinFitBevington: I_Run=" << I_Run << ": i = " << i << ": D_A1_SF(" << i << ") = " << D_A1_SF[i] << endl;
+              cout << "CFits::LinFitBevington: I_Run=" << I_Run << ": i = " << i << ": D_A1_Sig(" << i << ") = " << D_A1_Sig[i] << endl;
+              cout << "CFits::LinFitBevington: I_Run=" << I_Run << ": i = " << i << ": D_A1_YFit(" << i << ") = " << D_A1_YFit[i] << endl;
+            #endif
+            if (abs(D_A1_Sig[i]) < 0.00000000000000001){
+              string message("CFits::LinFitBevington: I_Run=");
+              message += to_string(I_Run) + ": i = " + to_string(i) + ": ERROR: D_A1_Sig(" + to_string(i) + ") == 0.";
+              cout << message << endl;
+              throw LSST_EXCEPT(pexExcept::Exception, message.c_str());    
+            }
+            *P_D_ChiSqr_Out += pow((D_A1_CCD[i] - D_A1_YFit[i]) / D_A1_Sig[i], 2);
+            #ifdef __DEBUG_FIT__
+              cout << "CFits::LinFitBevington: I_Run=" << I_Run << ": i = " << i << ": P_D_ChiSqr_Out set to " << *P_D_ChiSqr_Out << endl;
+            #endif
+          }
+          #ifdef __DEBUG_FIT__
+            cout << "CFits::LinFitBevington: I_Run=" << I_Run << ": P_D_ChiSqr_Out set to " << *P_D_ChiSqr_Out << endl;
+          #endif
+          if (I_MaskSum > 2)
+            *P_D_Q_Out = pfs::drp::stella::math::GammQ(0.5 * (I_MaskSum - 2), 0.5 * (*P_D_ChiSqr_Out));
+        }
+        if (fabs(D_SP_Out) < 0.000001)
+          B_Reject = false;
+        if (!B_Reject)
+          B_Run = false;
+        else{
+
+          I_SumMaskLast = P_I_A1_Mask->asEigen().sum();
+          #ifdef __DEBUG_FIT__
+            cout << "CFits::LinFitBevington: I_Run=" << I_Run << ": Reject: I_SumMaskLast = " << I_SumMaskLast << endl;
+            cout << "CFits::LinFitBevington: I_Run=" << I_Run << ": Reject: D_A1_CCD = " << D_A1_CCD << endl;
+            cout << "CFits::LinFitBevington: I_Run=" << I_Run << ": Reject: D_A1_YFit = " << D_A1_YFit << endl;
+          #endif
+          ndarray::Array<ImageT, 1, 1> tempArr = ndarray::allocate(D_A1_CCD.getShape()[0]);
+          tempArr.deep() = D_A1_CCD - D_A1_YFit;
+          Eigen::Array<ImageT, Eigen::Dynamic, 1> tempEArr = tempArr.asEigen();
+          tempArr.asEigen() = tempEArr.pow(2);
+          D_SDevReject = sqrt(tempArr.asEigen().sum() / ImageT(I_SumMaskLast));
+
+          D_A1_Diff.deep() = D_A1_CCD_In - (*P_D_A1_YFit);
+          #ifdef __DEBUG_FIT__
+            cout << "CFits::LinFitBevington: I_Run=" << I_Run << ": Reject: D_SDevReject = " << D_SDevReject << endl;
+            cout << "CFits::LinFitBevington: I_Run=" << I_Run << ": Reject: D_A1_CCD_In = " << D_A1_CCD_In << endl;
+            cout << "CFits::LinFitBevington: I_Run=" << I_Run << ": Reject: *P_D_A1_YFit = " << *P_D_A1_YFit << endl;
+            cout << "CFits::LinFitBevington: I_Run=" << I_Run << ": Reject: D_A1_CCD_In - (*P_D_A1_YFit) = " << D_A1_Diff << endl;
+          #endif
+          tempEArr = D_A1_Diff.asEigen();
+          D_A1_Check.asEigen() = tempEArr.abs();
+          #ifdef __DEBUG_FIT__
+            cout << "CFits::LinFitBevington: I_Run=" << I_Run << ": Reject: D_A1_Check = " << D_A1_Check << endl;
+            cout << "CFits::LinFitBevington: I_Run=" << I_Run << ": before Reject: *P_I_A1_Mask = " << *P_I_A1_Mask << endl;
+          #endif
+          I_A1_LastMask = *P_I_A1_Mask;
+          for (size_t pos = 0; pos < D_A1_Check.getShape()[0]; ++pos){
+            (*P_I_A1_Mask)[pos] = (D_A1_Check[pos] > (D_Reject * D_SDevReject)) ? 0 : 1;
+            if (I_A1_Mask_Orig[pos] < 1)
+              (*P_I_A1_Mask)[pos] = 0;
+          }
+          if (P_I_A1_Mask->asEigen().sum() == I_A1_Mask_Orig.asEigen().sum())
+            B_Reject = false;
+          else{
+            for (size_t pos = 0; pos < P_I_A1_Mask->getShape()[0]; ++pos)
+              if (I_A1_LastMask[pos] < 1)
+                (*P_I_A1_Mask)[pos] = 0;
+          }
+          #ifdef __DEBUG_FIT__
+            cout << "CFits::LinFitBevington: I_Run=" << I_Run << ": Reject: *P_I_A1_Mask = " << *P_I_A1_Mask << endl;
+          #endif
+          if (I_SumMaskLast == P_I_A1_Mask->asEigen().sum()){
+            B_Run = false;
+            #ifdef __DEBUG_FIT__
+              cout << "CFits::LinFitBevington: I_Run=" << I_Run << ": leaving while loop" << endl;
+            #endif
+          }
+          else{
+            D_Sky_Out = 0.;
+          }
+        }
+        if ((!B_AllowSkyLTZero) && (D_Sky_Out < 0.)){
+          B_Run = true;
+          B_WithSky = false;
+        }
+      }/// end while (B_Run)
+
+      #ifdef __DEBUG_FIT__
+        cout << "CFits::LinFitBevington: *P_D_A1_YFit set to " << *P_D_A1_YFit << endl;
+        cout << "CFits::LinFitBevington: *P_I_A1_Mask set to " << *P_I_A1_Mask << endl;
+      #endif
+
+      return status;
+    }
+    
     /**
      * Helper function to calculate incomplete Gamma Function
      **/
@@ -6169,6 +6884,20 @@
       }
       return arr_Out;
     }
+    
+    template< typename T >
+    ndarray::Array< T, 1, 1 > resize(ndarray::Array< T, 1, 1 > const& arr_In, size_t newSize){
+      ndarray::Array< T, 1, 1 > arrOut = ndarray::allocate(newSize);
+      arrOut.deep() = 0;
+      return arrOut;
+    }
+    
+    template ndarray::Array< size_t, 1, 1 > resize( ndarray::Array< size_t, 1, 1 > const& arr_In, size_t newSize);
+    template ndarray::Array< short, 1, 1 > resize( ndarray::Array< short, 1, 1 > const& arr_In, size_t newSize);
+    template ndarray::Array< int, 1, 1 > resize( ndarray::Array< int, 1, 1 > const& arr_In, size_t newSize);
+    template ndarray::Array< long, 1, 1 > resize( ndarray::Array< long, 1, 1 > const& arr_In, size_t newSize);
+    template ndarray::Array< float, 1, 1 > resize( ndarray::Array< float, 1, 1 > const& arr_In, size_t newSize);
+    template ndarray::Array< double, 1, 1 > resize( ndarray::Array< double, 1, 1 > const& arr_In, size_t newSize);
 
     template ndarray::Array<size_t, 1, 1> getSubArray(ndarray::Array<size_t, 1, 1> const&, ndarray::Array<size_t, 1, 1> const&);
     template ndarray::Array<int, 1, 1> getSubArray(ndarray::Array<int, 1, 1> const&, ndarray::Array<size_t, 1, 1> const&);
@@ -6722,35 +7451,92 @@
                                           std::vector<string> const& S_A1_Args_In,   ///: in
                                           std::vector<void *> &ArgV_In);                    ///: in
   
+  template int math::LinFitBevingtonNdArray(ndarray::Array<float, 1, 1> const& D_A1_CCD_In,
+                                          ndarray::Array<float, 1, 1> const& D_A1_SF_In,       /// xvec: in
+                                          float &D_SP_Out,                         /// a1: out
+                                          float &D_Sky_Out,                        /// a0: in/out
+                                          bool B_WithSky,                        /// with sky: in
+                                          std::vector<string> const& S_A1_Args_In,   ///: in
+                                          std::vector<void *> &ArgV_In);                    ///: in
+  template int math::LinFitBevingtonNdArray(ndarray::Array<double, 1, 1> const& D_A1_CCD_In,
+                                          ndarray::Array<float, 1, 1> const& D_A1_SF_In,       /// xvec: in
+                                          double &D_SP_Out,                         /// a1: out
+                                          double &D_Sky_Out,                        /// a0: in/out
+                                          bool B_WithSky,                        /// with sky: in
+                                          std::vector<string> const& S_A1_Args_In,   ///: in
+                                          std::vector<void *> &ArgV_In);                    ///: in
+  template int math::LinFitBevingtonNdArray(ndarray::Array<float, 1, 1> const& D_A1_CCD_In,
+                                          ndarray::Array<double, 1, 1> const& D_A1_SF_In,       /// xvec: in
+                                          float &D_SP_Out,                         /// a1: out
+                                          float &D_Sky_Out,                        /// a0: in/out
+                                          bool B_WithSky,                        /// with sky: in
+                                          std::vector<string> const& S_A1_Args_In,   ///: in
+                                          std::vector<void *> &ArgV_In);                    ///: in
+  template int math::LinFitBevingtonNdArray(ndarray::Array<double, 1, 1> const& D_A1_CCD_In,
+                                          ndarray::Array<double, 1, 1> const& D_A1_SF_In,       /// xvec: in
+                                          double &D_SP_Out,                         /// a1: out
+                                          double &D_Sky_Out,                        /// a0: in/out
+                                          bool B_WithSky,                        /// with sky: in
+                                          std::vector<string> const& S_A1_Args_In,   ///: in
+                                          std::vector<void *> &ArgV_In);                    ///: in
+  
   template bool math::LinFitBevingtonEigen(Eigen::Array<float, Eigen::Dynamic, Eigen::Dynamic> const& D_A2_CCD_In,      /// yvec: in
-                                     Eigen::Array<float, Eigen::Dynamic, Eigen::Dynamic> const& D_A2_SF_In,       /// xvec: in
-                                     Eigen::Array<float, Eigen::Dynamic, 1> & D_A1_SP_Out,                         /// a1: out
-                                     Eigen::Array<float, Eigen::Dynamic, 1> & D_A1_Sky_Out,                        /// a0: out
-                                     bool B_WithSky,                           /// with sky: in
-                                     vector<string> const& S_A1_Args_In,   ///: in
-                                     vector<void *> &ArgV_In);                    ///: in
+                                           Eigen::Array<float, Eigen::Dynamic, Eigen::Dynamic> const& D_A2_SF_In,       /// xvec: in
+                                           Eigen::Array<float, Eigen::Dynamic, 1> & D_A1_SP_Out,                         /// a1: out
+                                           Eigen::Array<float, Eigen::Dynamic, 1> & D_A1_Sky_Out,                        /// a0: out
+                                           bool B_WithSky,                           /// with sky: in
+                                           vector<string> const& S_A1_Args_In,   ///: in
+                                           vector<void *> &ArgV_In);                    ///: in
   template bool math::LinFitBevingtonEigen(const Eigen::Array<double, Eigen::Dynamic, Eigen::Dynamic> &D_A2_CCD_In,      /// yvec: in
-                              const Eigen::Array<float, Eigen::Dynamic, Eigen::Dynamic> &D_A2_SF_In,       /// xvec: in
-                              Eigen::Array<double, Eigen::Dynamic, 1> &D_A1_SP_Out,                         /// a1: out
-                              Eigen::Array<double, Eigen::Dynamic, 1> &D_A1_Sky_Out,                        /// a0: out
-                              bool B_WithSky,                           /// with sky: in
-                              const vector<string> &S_A1_Args_In,   ///: in
-                              vector<void *> &ArgV_In);                    ///: in
+                                           const Eigen::Array<float, Eigen::Dynamic, Eigen::Dynamic> &D_A2_SF_In,       /// xvec: in
+                                           Eigen::Array<double, Eigen::Dynamic, 1> &D_A1_SP_Out,                         /// a1: out
+                                           Eigen::Array<double, Eigen::Dynamic, 1> &D_A1_Sky_Out,                        /// a0: out
+                                           bool B_WithSky,                           /// with sky: in
+                                           const vector<string> &S_A1_Args_In,   ///: in
+                                           vector<void *> &ArgV_In);                    ///: in
   template bool math::LinFitBevingtonEigen(const Eigen::Array<float, Eigen::Dynamic, Eigen::Dynamic> &D_A2_CCD_In,      /// yvec: in
-                              const Eigen::Array<double, Eigen::Dynamic, Eigen::Dynamic> &D_A2_SF_In,       /// xvec: in
-                              Eigen::Array<float, Eigen::Dynamic, 1> &D_A1_SP_Out,                         /// a1: out
-                              Eigen::Array<float, Eigen::Dynamic, 1> &D_A1_Sky_Out,                        /// a0: out
-                              bool B_WithSky,                           /// with sky: in
-                              const vector<string> &S_A1_Args_In,   ///: in
-                              vector<void *> &ArgV_In);                    ///: in
+                                           const Eigen::Array<double, Eigen::Dynamic, Eigen::Dynamic> &D_A2_SF_In,       /// xvec: in
+                                           Eigen::Array<float, Eigen::Dynamic, 1> &D_A1_SP_Out,                         /// a1: out
+                                           Eigen::Array<float, Eigen::Dynamic, 1> &D_A1_Sky_Out,                        /// a0: out
+                                           bool B_WithSky,                           /// with sky: in
+                                           const vector<string> &S_A1_Args_In,   ///: in
+                                           vector<void *> &ArgV_In);                    ///: in
   template bool math::LinFitBevingtonEigen(Eigen::Array<double, Eigen::Dynamic, Eigen::Dynamic> const& D_A2_CCD_In,      /// yvec: in
-                                     Eigen::Array<double, Eigen::Dynamic, Eigen::Dynamic> const& D_A2_SF_In,       /// xvec: in
-                                     Eigen::Array<double, Eigen::Dynamic, 1> & D_A1_SP_Out,                         /// a1: out
-                                     Eigen::Array<double, Eigen::Dynamic, 1> & D_A1_Sky_Out,                        /// a0: out
-                                     bool B_WithSky,                           /// with sky: in
-                                     vector<string> const& S_A1_Args_In,   ///: in
-                                     vector<void *> & ArgV_In);                    ///: in
-
+                                           Eigen::Array<double, Eigen::Dynamic, Eigen::Dynamic> const& D_A2_SF_In,       /// xvec: in
+                                           Eigen::Array<double, Eigen::Dynamic, 1> & D_A1_SP_Out,                         /// a1: out
+                                           Eigen::Array<double, Eigen::Dynamic, 1> & D_A1_Sky_Out,                        /// a0: out
+                                           bool B_WithSky,                           /// with sky: in
+                                           vector<string> const& S_A1_Args_In,   ///: in
+                                           vector<void *> & ArgV_In);                    ///: in
+  
+  template bool math::LinFitBevingtonNdArray(ndarray::Array<float, 2, 1> const& D_A2_CCD_In,      /// yvec: in
+                                             ndarray::Array<float, 2, 1> const& D_A2_SF_In,       /// xvec: in
+                                             ndarray::Array<float, 1, 1> & D_A1_SP_Out,                         /// a1: out
+                                             ndarray::Array<float, 1, 1> & D_A1_Sky_Out,                        /// a0: out
+                                             bool B_WithSky,                           /// with sky: in
+                                             vector<string> const& S_A1_Args_In,   ///: in
+                                             vector<void *> &ArgV_In);                    ///: in
+  template bool math::LinFitBevingtonNdArray(ndarray::Array<double, 2, 1> const& D_A2_CCD_In,      /// yvec: in
+                                             ndarray::Array<float, 2, 1> const& D_A2_SF_In,       /// xvec: in
+                                             ndarray::Array<double, 1, 1> & D_A1_SP_Out,                         /// a1: out
+                                             ndarray::Array<double, 1, 1> & D_A1_Sky_Out,                        /// a0: out
+                                             bool B_WithSky,                           /// with sky: in
+                                             const vector<string> &S_A1_Args_In,   ///: in
+                                             vector<void *> &ArgV_In);                    ///: in
+  template bool math::LinFitBevingtonNdArray(ndarray::Array<float, 2, 1> const& D_A2_CCD_In,      /// yvec: in
+                                             ndarray::Array<double, 2, 1> const& D_A2_SF_In,       /// xvec: in
+                                             ndarray::Array<float, 1, 1> & D_A1_SP_Out,                         /// a1: out
+                                             ndarray::Array<float, 1, 1> & D_A1_Sky_Out,                        /// a0: out
+                                             bool B_WithSky,                           /// with sky: in
+                                             const vector<string> &S_A1_Args_In,   ///: in
+                                             vector<void *> &ArgV_In);                    ///: in
+  template bool math::LinFitBevingtonNdArray(ndarray::Array<double, 2, 1> const& D_A2_CCD_In,      /// yvec: in
+                                             ndarray::Array<double, 2, 1> const& D_A2_SF_In,       /// xvec: in
+                                             ndarray::Array<double, 1, 1> & D_A1_SP_Out,                         /// a1: out
+                                             ndarray::Array<double, 1, 1> & D_A1_Sky_Out,                        /// a0: out
+                                             bool B_WithSky,                           /// with sky: in
+                                             vector<string> const& S_A1_Args_In,   ///: in
+                                             vector<void *> & ArgV_In);                    ///: in
   
   template float math::GammLn(float const D_X_In);
   template double math::GammLn(double const D_X_In);
