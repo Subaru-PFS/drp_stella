@@ -268,7 +268,7 @@ class FiberTrace {
                                                  ndarray::Array<MaskT const, 2, 2> const& maskSwath,
                                                  ndarray::Array<VarianceT const, 2, 2> const& varianceSwath,
                                                  ndarray::Array<float const, 1, 1> const& xCentersSwath,
-                                                 size_t const iSwath) const;
+                                                 size_t const iSwath);
 
     bool fitSpline(const blitz::Array<double, 2> &fiberTraceSwath_In,/// 1 bin of CCD (FiberTrace::Image)
                    const blitz::Array<double, 1> &xOverSampled_In,/// see XVecArr in SlitFunc
@@ -287,6 +287,13 @@ class FiberTrace {
     size_t getWidth() const {return _trace->getImage()->getWidth();}
     size_t getHeight() const {return _trace->getImage()->getHeight();}
     PTR(FiberTrace) getPointer();
+
+    std::vector<PTR(std::vector<float>)> _overSampledProfileFitXPerSwath;
+    std::vector<PTR(std::vector<float>)> _overSampledProfileFitYPerSwath;
+    std::vector<PTR(std::vector<float>)> _profileFittingInputXPerSwath;
+    std::vector<PTR(std::vector<float>)> _profileFittingInputYPerSwath;
+    std::vector<PTR(std::vector<float>)> _profileFittingInputXMeanPerSwath;
+    std::vector<PTR(std::vector<float>)> _profileFittingInputYMeanPerSwath;
     
   private:
     ///TODO: replace variables with smart pointers?????
@@ -300,6 +307,7 @@ class FiberTrace {
     const PTR(const FiberTraceFunction) _fiberTraceFunction;
     PTR(FiberTraceProfileFittingControl) _fiberTraceProfileFittingControl;
 
+    /// for debugging purposes only
 
   protected:
 };
