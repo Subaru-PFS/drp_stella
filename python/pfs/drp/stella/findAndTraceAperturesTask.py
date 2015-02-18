@@ -27,7 +27,7 @@ class FindAndTraceAperturesConfig(pexConfig.Config):
       order = pexConfig.Field(
           doc = "Polynomial order",
           dtype = int,
-          default = 3,
+          default = 5,
           check = lambda x : x >= 0)
       xLow = pexConfig.Field(
           doc = "Lower (left) limit of aperture relative to center position of trace in x (< 0.)",

@@ -6588,16 +6588,6 @@ namespace pfsDRPStella = pfs::drp::stella;
                                                                                                    ndarray::Array<float const, 1, 1> const& xCentersSwath,
                                                                                                    size_t const iSwath){
     
-    /// Normalize rows in imageSwath
-    ndarray::Array<ImageT, 2, 2> imageSwathNormalized = ndarray::allocate(imageSwath.getShape()[0], imageSwath.getShape()[1]);
-    for (int iRow = 0; iRow < imageSwath.getShape()[0]; ++iRow){
-      ndarray::Array<ImageT, 1, 1> sumArr = copy(imageSwath[ndarray::view(iRow)()]);
-      imageSwathNormalized[ndarray::view(iRow)()] = imageSwath[ndarray::view(iRow)()] / ndarray::sum(sumArr);
-    }
-    #ifdef __DEBUG_CALCPROFILESWATH__
-      cout << "FiberTrace::calcProfileSwath: iSwath = " << iSwath << ": imageSwathNormalized = " << imageSwathNormalized << endl;
-    #endif  
-    
     /// Check shapes of input arrays
     assert(imageSwath.getShape()[0] == maskSwath.getShape()[0]);
     assert(imageSwath.getShape()[0] == varianceSwath.getShape()[0]); 
@@ -6605,6 +6595,18 @@ namespace pfsDRPStella = pfs::drp::stella;
     assert(imageSwath.getShape()[1] == maskSwath.getShape()[1]);
     assert(imageSwath.getShape()[1] == varianceSwath.getShape()[1]);
     assert(imageSwath.getShape()[1] == xCentersSwath.getShape()[1]);
+    
+    /// Normalize rows in imageSwath
+    ndarray::Array<ImageT, 2, 2> imageSwathNormalized = ndarray::allocate(imageSwath.getShape()[0], imageSwath.getShape()[1]);
+    ndarray::Array<ImageT, 1, 1> sumArr = ndarray::allocate(imageSwath.getShape()[1]);
+    for (int iRow = 0; iRow < imageSwath.getShape()[0]; ++iRow){
+      sumArr.deep() = imageSwath[ndarray::view(iRow)()];
+      imageSwathNormalized[ndarray::view(iRow)()] = imageSwath[ndarray::view(iRow)()] / ndarray::sum(sumArr);
+    }
+    #ifdef __DEBUG_CALCPROFILESWATH__
+      cout << "FiberTrace::calcProfileSwath: iSwath = " << iSwath << ": imageSwath = " << imageSwath << endl;
+      cout << "FiberTrace::calcProfileSwath: iSwath = " << iSwath << ": imageSwathNormalized = " << imageSwathNormalized << endl;
+    #endif  
  
     /// Calculate pixel offset to xCenter
     const ndarray::Array<size_t const, 1, 1> xCentersInt = math::floor(xCentersSwath, size_t(0));
@@ -6636,7 +6638,7 @@ namespace pfsDRPStella = pfs::drp::stella;
     xVecPtr->reserve(xArray.getShape()[0] * xArray.getShape()[1]);
     PTR(vector<float>) yVecPtr(new vector<float>());
     yVecPtr->reserve(xArray.getShape()[0] * xArray.getShape()[1]);
-    auto itRowIm = imageSwath.begin();
+    auto itRowIm = imageSwathNormalized.begin();
     for (auto itRow = xArray.begin(); itRow != xArray.end(); ++itRow, ++itRowIm){
       auto itColIm = itRowIm->begin();
       for (auto itCol = itRow->begin(); itCol != itRow->end(); ++itCol, ++itColIm){
@@ -6644,8 +6646,8 @@ namespace pfsDRPStella = pfs::drp::stella;
         yVecPtr->push_back(float(*itColIm));
       }
     }
-    _overSampledProfileFitXPerSwath.push_back(xVecPtr);
-    _overSampledProfileFitYPerSwath.push_back(yVecPtr);
+    _profileFittingInputXPerSwath.push_back(xVecPtr);
+    _profileFittingInputYPerSwath.push_back(yVecPtr);
     #ifdef __DEBUG_CALCPROFILESWATH__
       cout << "FiberTrace::calcProfileSwath: iSwath = " << iSwath << ": xArray = " << xArray << endl;
       cout << "FiberTrace::calcProfileSwath: iSwath = " << iSwath << ": xMin = " << xMin << ", xMax = " << xMax << endl;
@@ -6676,46 +6678,64 @@ namespace pfsDRPStella = pfs::drp::stella;
     
     /// calculate oversampled profile values
     iStep = 0;
-    float xOverSampleStepHalf = xOverSampleStep / 2.;
     std::vector< std::pair<float, ImageT> > valOverSampledVec;
     int iStepsWithValues = 0;
     int bThisStepHasValues = false;
     ImageT mean = 0.;
+    float rangeStart = float(xOverSampled[0] - (xOverSampleStep / 2.));
+    float rangeEnd = rangeStart + xOverSampleStep;
     for (auto it = xOverSampled.begin(); it != xOverSampled.end(); ++it, ++iStep){
       bThisStepHasValues = false;
+      if (iStep == nSteps - 1)
+        rangeEnd += xOverSampleStep / 100.;
       size_t iterSig = 0;
       size_t nValues = 0;
-      ndarray::Array<size_t, 2, 2> indicesInValueRange = math::getIndicesInValueRange(xArray, float(*it - xOverSampleStepHalf), float(*it + xOverSampleStepHalf));
+      #ifdef __DEBUG_CALCPROFILESWATH__
+        for (int iRow = 0; iRow < xArray.getShape()[0]; ++iRow){
+          printf("xArray[%i][*] = ",iRow);
+          for (int iCol = 0; iCol < xArray.getShape()[1]; ++iCol){
+            printf("%.9f ", xArray[iRow][iCol]);
+          }
+          printf("\n");
+        }
+        cout << "FiberTrace::calcProfileSwath: iSwath = " << iSwath << ": iStep" << iStep << ": rangeStart = " << rangeStart << ", rangeEnd = " << rangeEnd << endl;
+        printf("rangeStart = %.9f, rangeEnd = %.9f\n", rangeStart, rangeEnd);
+      #endif
+      ndarray::Array<size_t, 2, 2> indicesInValueRange = math::getIndicesInValueRange(xArray, rangeStart, rangeEnd);
+      #ifdef __DEBUG_CALCPROFILESWATH__
+        cout << "FiberTrace::calcProfileSwath: iSwath = " << iSwath << ": iStep" << iStep << ": indicesInValueRange = " << indicesInValueRange << endl;
+      #endif
       std::vector< std::pair<size_t, size_t> > indicesInValueRangeVec(indicesInValueRange.getShape()[0]);
       for (int i = 0; i < indicesInValueRange.getShape()[0]; ++i){
         indicesInValueRangeVec[i].first = indicesInValueRange[i][0];
         indicesInValueRangeVec[i].second = indicesInValueRange[i][1];
-        #ifdef __DEBUG_CALCPROFILESWATH__
-          cout << "FiberTrace::calcProfileSwath: iSwath = " << iSwath << ": indicesInValueRangeVec[" << i << "] = (" << indicesInValueRangeVec[i].first << ", " << indicesInValueRangeVec[i].second << ")" << endl;
-        #endif
       }
-      #ifdef __DEBUG_CALCPROFILESWATH__
-        cout << "FiberTrace::calcProfileSwath: iSwath = " << iSwath << ": iStep = " << iStep << ": indicesInValueRange = [" << indicesInValueRange.getShape()[0] << ", " << indicesInValueRange.getShape()[1] << "] = " << indicesInValueRange << endl;
-      #endif
       do{
         ndarray::Array<ImageT, 1, 1> subArr = math::getSubArray(imageSwathNormalized, indicesInValueRangeVec);
         ndarray::Array<float, 1, 1> xSubArr = math::getSubArray(xArray, indicesInValueRangeVec);
         nValues = subArr.getShape()[0];
+        #ifdef __DEBUG_CALCPROFILESWATH__
+          cout << "FiberTrace::calcProfileSwath: iSwath = " << iSwath << ": iStep" << iStep << ": iterSig = " << iterSig << ": nValues = " << nValues << endl;
+        #endif
         if (nValues > 1){
           #ifdef __DEBUG_CALCPROFILESWATH__
-            cout << "FiberTrace::calcProfileSwath: iSwath = " << iSwath << ": iStep = " << iStep << ": xSubArr = [" << xSubArr.getShape()[0] << "]: " << subArr << endl;
-            cout << "FiberTrace::calcProfileSwath: iSwath = " << iSwath << ": iStep = " << iStep << ": subArr = [" << subArr.getShape()[0] << "]: " << subArr << endl;
+            cout << "FiberTrace::calcProfileSwath: iSwath = " << iSwath << ": iStep = " << iStep << ": iterSig = " << iterSig << ": xSubArr = [" << xSubArr.getShape()[0] << "]: " << xSubArr << endl;
+            cout << "FiberTrace::calcProfileSwath: iSwath = " << iSwath << ": iStep = " << iStep << ": iterSig = " << iterSig << ": subArr = [" << subArr.getShape()[0] << "]: " << subArr << endl;
           #endif
           if (_fiberTraceProfileFittingControl->maxIterSig > iterSig){
             ndarray::Array<ImageT, 1, 1> moments = math::moment(subArr, 2);
             #ifdef __DEBUG_CALCPROFILESWATH__
-              cout << "FiberTrace::calcProfileSwath: iSwath = " << iSwath << ": iStep = " << iStep << ": moments = " << moments << endl;
+              cout << "FiberTrace::calcProfileSwath: iSwath = " << iSwath << ": iStep = " << iStep << ": iterSig = " << iterSig << ": moments = " << moments << endl;
             #endif
             for (int i = subArr.getShape()[0] - 1; i >= 0; --i){
-              if ((moments[0] - subArr[i] < 0. - (_fiberTraceProfileFittingControl->lowerSigma * sqrt(moments[1])))
-               || (subArr[i] - moments[0] > (_fiberTraceProfileFittingControl->upperSigma * sqrt(moments[1])))){
+              #ifdef __DEBUG_CALCPROFILESWATH__
+                cout << "FiberTrace::calcProfileSwath: iSwath = " << iSwath << ": iStep" << iStep << ": iterSig = " << iterSig << ": moments[0](=" << moments[0] << ") - subArr[" << i << "](=" << subArr[i] << ") = " << moments[0] - subArr[i] << ", 0. - (_fiberTraceProfileFittingControl->upperSigma(=" << _fiberTraceProfileFittingControl->upperSigma << ") * sqrt(moments[1](=" << moments[1] << "))(= " << sqrt(moments[1]) << ") = " << 0. - (_fiberTraceProfileFittingControl->upperSigma * sqrt(moments[1])) << endl;
+                cout << "FiberTrace::calcProfileSwath: iSwath = " << iSwath << ": iStep" << iStep << ": iterSig = " << iterSig << ": _fiberTraceProfileFittingControl->lowerSigma(=" << _fiberTraceProfileFittingControl->lowerSigma << ") * sqrt(moments[1](=" << moments[1] << "))(= " << sqrt(moments[1]) << ") = " << _fiberTraceProfileFittingControl->lowerSigma * sqrt(moments[1]) << endl;
+              #endif
+              if ((moments[0] - subArr[i] < 0. - (_fiberTraceProfileFittingControl->upperSigma * sqrt(moments[1])))
+               || (moments[0] - subArr[i] > (_fiberTraceProfileFittingControl->lowerSigma * sqrt(moments[1])))){
                 #ifdef __DEBUG_CALCPROFILESWATH__
-                  cout << "FiberTrace::calcProfileSwath: iSwath = " << iSwath << ": iStep = " << iStep << ": rejecting element " << i << "from subArr" << endl;
+                  cout << "FiberTrace::calcProfileSwath: iSwath = " << iSwath << ": iStep = " << iStep << ": iterSig = " << iterSig << ": rejecting element " << i << "from subArr" << endl;
                 #endif
                 indicesInValueRangeVec.erase(indicesInValueRangeVec.begin() + i);
               }
@@ -6723,6 +6743,9 @@ namespace pfsDRPStella = pfs::drp::stella;
           }
           ndarray::Array<ImageT, 1, 1> moments = math::moment(subArr, 1);
           mean = moments[0];
+          #ifdef __DEBUG_CALCPROFILESWATH__
+            cout << "FiberTrace::calcProfileSwath: iSwath = " << iSwath << ": iStep = " << iStep << ": iterSig = " << iterSig << ": mean = " << mean << endl;
+          #endif
           ++iStepsWithValues;
           bThisStepHasValues = true;
         }
@@ -6734,6 +6757,8 @@ namespace pfsDRPStella = pfs::drp::stella;
           cout << "FiberTrace::calcProfileSwath: iSwath = " << iSwath << ": valOverSampledVec[" << iStep << "] = (" << valOverSampledVec[iStep].first << ", " << valOverSampledVec[iStep].second << ")" << endl;
         #endif
       }
+      rangeStart = rangeEnd;
+      rangeEnd += xOverSampleStep;
     }
     ndarray::Array<ImageT, 1, 1> valOverSampled = ndarray::allocate(valOverSampledVec.size());
     ndarray::Array<float, 1, 1> xValOverSampled = ndarray::allocate(valOverSampledVec.size());
@@ -6759,13 +6784,23 @@ namespace pfsDRPStella = pfs::drp::stella;
     spline.set_points(*xVecMean, *yVecMeanF);    // currently it is required that X is already sorted
 
     PTR(vector<float>) yOverSampledFitVec(new vector<float>(nSteps));
-    _overSampledProfileFitXPerSwath.push_back(xOverSampledFitVec);
+    _overSampledProfileFitYPerSwath.push_back(yOverSampledFitVec);
     for (auto itX = xOverSampledFitVec->begin(), itY = yOverSampledFitVec->begin(); itX != xOverSampledFitVec->end(); ++itX, ++itY)
       *itY = spline(*itX);
+    #ifdef __DEBUG_CALCPROFILESWATH__
+    std::vector<float> yVecFit(yVecMean.size());
+      for (int iRow = 0; iRow < yVecMean.size(); ++iRow){
+        yVecFit[iRow] = spline((*xVecMean)[iRow]);
+        cout << "FiberTrace::calcProfileSwath: iSwath = " << iSwath << ": yVecMean[" << iRow << "] = " << yVecMean[iRow] << ", yVecFit[" << iRow << "] = " << yVecFit[iRow] << endl;
+      }
+    #endif
     
     /// calculate profile for each row in imageSwath
     ndarray::Array<float, 2, 2> profArraySwath = ndarray::allocate(imageSwath.getShape()[0], imageSwath.getShape()[1]);
     for (int iRow = 0; iRow < imageSwath.getShape()[0]; ++iRow){
+      #ifdef __DEBUG_CALCPROFILESWATH__
+        cout << "FiberTrace::calcProfileSwath: iSwath = " << iSwath << ": xArray[" << iRow << "][*] = " << xArray[ndarray::view(iRow)()] << endl;
+      #endif
       for (int iCol = 0; iCol < imageSwath.getShape()[1]; ++iCol){
         if (xArray[iRow][iCol] < (*xVecMean)[0])
           profArraySwath[iRow][iCol] = (*yVecMeanF)[0];
@@ -6776,7 +6811,13 @@ namespace pfsDRPStella = pfs::drp::stella;
         if (profArraySwath[iRow][iCol] < 0.)
           profArraySwath[iRow][iCol] = 0.;
       }
+      #ifdef __DEBUG_CALCPROFILESWATH__
+        cout << "FiberTrace::calcProfileSwath: iSwath = " << iSwath << ": profArraySwath[" << iRow << "][*] = " << profArraySwath[ndarray::view(iRow)()] << endl;
+      #endif
       profArraySwath[ndarray::view(iRow)()] = profArraySwath[ndarray::view(iRow)()] / ndarray::sum(profArraySwath[ndarray::view(iRow)()]);
+      #ifdef __DEBUG_CALCPROFILESWATH__
+        cout << "FiberTrace::calcProfileSwath: iSwath = " << iSwath << ": normalized profArraySwath[" << iRow << "][*] = " << profArraySwath[ndarray::view(iRow)()] << endl;
+      #endif
     }
     #ifdef __DEBUG_CALCPROFILESWATH__
       cout << "FiberTrace::calcProfileSwath: iSwath = " << iSwath << ": profArraySwath = " << profArraySwath << endl;
