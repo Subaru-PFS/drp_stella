@@ -261,10 +261,6 @@ class FiberTrace {
      **/
     
     bool calcProfile();
-    bool calcProfileSwath(ndarray::Array<ImageT const, 2, 2> const& imageSwath,
-                          ndarray::Array<MaskT const, 2, 2> const& maskSwath,
-                          ndarray::Array<VarianceT const, 2, 2> const& varianceSwath,
-                          ndarray::Array<float const, 1, 1> const& xCentersSwath) const;
 
     bool fitSpline(const blitz::Array<double, 2> &fiberTraceSwath_In,/// 1 bin of CCD (FiberTrace::Image)
                    const blitz::Array<int, 1> &iFirst_In,/// as calculated in SlitFunc
