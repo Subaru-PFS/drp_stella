@@ -28,7 +28,7 @@ struct FiberTraceFunctionControl {
 
   FiberTraceFunctionControl() :
       interpolation("POLYNOMIAL"),
-      order(5),
+      order(3),
       xLow(-4.),
       xHigh(4.) {}
       
@@ -115,7 +115,7 @@ struct FiberTraceFunction {
       return false;
     }
 
-    if (coefficients.size() <= fiberTraceFunctionControl.order){
+    if (coefficients.size() < fiberTraceFunctionControl.order){
       cout << "FiberTraceFunction::isClassInvariant: ERROR: coefficients.size(=" << coefficients.size() << ") < fiberTraceFunctionControl.order(=" << fiberTraceFunctionControl.order << ") => Returning FALSE" << endl;
       return false;
     }
@@ -177,7 +177,7 @@ struct FiberTraceFunctionFindingControl {
   signalThreshold(10.),
   nTermsGaussFit(3),
   saturationLevel(65000.),
-  minLength(1000),
+  minLength(10),
   maxLength(4096),
   nLost(10)
   {}
