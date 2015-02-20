@@ -323,8 +323,6 @@ namespace pfsDRPStella = pfs::drp::stella;
 
     ndarray::Array<ImageT, 1, 1> D_A1_SP = ndarray::allocate(_trace->getHeight());
     D_A1_SP.deep() = 0.;
-    ndarray::Array<ImageT, 1, 1> D_A1_Sky = ndarray::allocate(_trace->getHeight());
-    D_A1_Sky.deep() = 0.;
     vector<string> S_A1_Args_Fit(3);
     vector<void *> P_Args_Fit(3);
 
@@ -342,37 +340,62 @@ namespace pfsDRPStella = pfs::drp::stella;
       cout << "S_A1_Args_Fit[0] set to <" << S_A1_Args_Fit[0] << ">" << endl;
       cout << "D_A2_ErrArray.getShape() = " << D_A2_ErrArray.getShape() << endl;
     #endif
-    PTR(ndarray::Array<ImageT, 2, 2>) P_D_A2_ErrArray(new ndarray::Array<ImageT, 2, 2>(D_A2_ErrArray));
-    P_Args_Fit[0] = &P_D_A2_ErrArray;
+    Eigen::Array<ImageT, Eigen::Dynamic, Eigen::Dynamic> E_A2_ErrArray(D_A2_ErrArray.getShape()[0], D_A2_ErrArray.getShape()[1]);
     #ifdef __DEBUG_EXTRACTFROMPROFILE__
-      cout << "FiberTrace" << _iTrace << "::extractFromProfile: *P_D_A2_ErrArray = " << *P_D_A2_ErrArray << endl;
+      cout << "E_A2_ErrArray.rows() = " << E_A2_ErrArray.rows() << ", E_A2_ErrArray.cols() = " << E_A2_ErrArray.cols() << endl;
+    #endif
+    E_A2_ErrArray = D_A2_ErrArray.asEigen();
+    #ifdef __DEBUG_EXTRACTFROMPROFILE__
+      cout << "E_A2_ErrArray = " << E_A2_ErrArray << endl;
+    #endif
+    PTR(Eigen::Array<ImageT, Eigen::Dynamic, Eigen::Dynamic>) P_E_A2_ErrArray(new Eigen::Array<ImageT, Eigen::Dynamic, Eigen::Dynamic>(E_A2_ErrArray));
+    #ifdef __DEBUG_EXTRACTFROMPROFILE__
+      cout << "FiberTrace" << _iTrace << "::extractFromProfile: 1. *P_E_A2_ErrArray = " << *P_E_A2_ErrArray << endl;
+    #endif
+    P_Args_Fit[0] = &P_E_A2_ErrArray;
+    #ifdef __DEBUG_EXTRACTFROMPROFILE__
+      cout << "FiberTrace" << _iTrace << "::extractFromProfile: *P_E_A2_ErrArray = " << *P_E_A2_ErrArray << endl;
     #endif
 
     S_A1_Args_Fit[1] = "MASK_INOUT";
-    PTR(ndarray::Array<unsigned short, 2, 2>) P_US_A2_MaskArray(new ndarray::Array<unsigned short, 2, 2>(US_A2_MaskArray));
-    P_Args_Fit[1] = &P_US_A2_MaskArray;
+//    Eigen::Array<unsigned short, Eigen::Dynamic, 1> E_A2_MaskArray = US_A2_MaskArray.asEigen();
+    PTR(Eigen::Array<unsigned short, Eigen::Dynamic, Eigen::Dynamic>) P_E_A2_MaskArray(new Eigen::Array<unsigned short, Eigen::Dynamic, Eigen::Dynamic>(US_A2_MaskArray.asEigen()));
+    P_Args_Fit[1] = &P_E_A2_MaskArray;
     #ifdef __DEBUG_EXTRACTFROMPROFILE__
-      cout << "P_E_A2_MaskArray = " << *P_US_A2_MaskArray << endl;
+      cout << "P_E_A2_MaskArray = " << *P_E_A2_MaskArray << endl;
     #endif
 
     S_A1_Args_Fit[2] = "SIGMA_OUT";
     ndarray::Array<ImageT, 2, 2> D_A2_Sigma_Fit = ndarray::allocate(_trace->getHeight(), 2);
-    PTR(ndarray::Array<ImageT, 2, 2>) P_D_A2_Sigma_Fit(new ndarray::Array<ImageT, 2, 2>(D_A2_Sigma_Fit));
+    PTR(Eigen::Array<ImageT, Eigen::Dynamic, Eigen::Dynamic>) P_D_A2_Sigma_Fit(new Eigen::Array<ImageT, Eigen::Dynamic, Eigen::Dynamic>(D_A2_Sigma_Fit.asEigen()));
     P_Args_Fit[2] = &P_D_A2_Sigma_Fit;
 
+    ndarray::Array<ImageT, 1, 1> D_A1_Sky = ndarray::allocate(_trace->getHeight());
+    D_A1_Sky.deep() = 0.;
     bool B_WithSky = false;
     if (_fiberTraceProfileFittingControl->telluric.compare(_fiberTraceProfileFittingControl->TELLURIC_NAMES[0]) != 0){
       D_A1_Sky.deep() = 1.;
       B_WithSky = true;
       cout << "extractFromProfile: Sky switched ON" << endl;
     }
-    if (!math::LinFitBevingtonNdArray(_trace->getImage()->getArray(),      ///: in
-                                      _profile->getArray(),             ///: in
-                                      D_A1_SP,             ///: out
-                                      D_A1_Sky,          ///: in/out
-                                      B_WithSky,                   ///: with sky: in
-                                      S_A1_Args_Fit,         ///: in
-                                      P_Args_Fit)){          ///: in/out
+    Eigen::Array<ImageT, Eigen::Dynamic, Eigen::Dynamic> traceImageEigen(_trace->getImage()->getArray().asEigen());
+    Eigen::Array<float, Eigen::Dynamic, Eigen::Dynamic> profileEigen(_profile->getArray().asEigen());
+    Eigen::Array<ImageT, Eigen::Dynamic, 1> specEigen(D_A1_SP.asEigen());
+    Eigen::Array<ImageT, Eigen::Dynamic, 1> skyEigen(D_A1_Sky.asEigen());
+
+    #ifdef __DEBUG_EXTRACTFROMPROFILE__
+      cout << "before LinFitBevingtonEigen: traceImageEigen = [" << traceImageEigen.rows() << ", " << traceImageEigen.cols() << "] = " << traceImageEigen << endl;
+      cout << "before LinFitBevingtonEigen: profileEigen = [" << profileEigen.rows() << ", " << profileEigen.cols() << "] = " << profileEigen << endl;
+      cout << "before LinFitBevingtonEigen: specEigen = [" << specEigen.size() << "]" << endl;
+      cout << "before LinFitBevingtonEigen: skyEigen = [" << skyEigen.size() << "]" << endl;
+    #endif
+    if (!math::LinFitBevingtonEigen(traceImageEigen,      ///: in
+                                    profileEigen,             ///: in
+                                    specEigen,             ///: out
+                                    skyEigen,          ///: in/out
+                                    B_WithSky,                   ///: with sky: in
+                                    S_A1_Args_Fit,         ///: in
+                                    P_Args_Fit)){          ///: in/out
       std::string message("FiberTrace");
       message += std::to_string(_iTrace);
       message += std::string("::extractFromProfile: 2. ERROR: LinFitBevington(...) returned FALSE");
@@ -386,9 +409,9 @@ namespace pfsDRPStella = pfs::drp::stella;
       S_MaskFinalOut = "D_A2_CCD_Ap" + CS_SF_DebugFilesSuffix + ".fits";
       ::pfs::drp::stella::utils::WriteFits(&D_A2_CCDArray, S_MaskFinalOut);
     #endif
-//    D_A1_SP.asEigen() = specEigen;
-//    D_A1_Sky.asEigen() = skyEigen;
-//    D_A2_Sigma_Fit.asEigen() = *P_D_A2_Sigma_Fit;
+    D_A1_SP.asEigen() = specEigen;
+    D_A1_Sky.asEigen() = skyEigen;
+    D_A2_Sigma_Fit.asEigen() = *P_D_A2_Sigma_Fit;
 
     PTR(pfsDRPStella::Spectrum<ImageT, MaskT, VarianceT, VarianceT>) spectrum(new pfsDRPStella::Spectrum<ImageT, MaskT, VarianceT, VarianceT>(_trace->getHeight()));
     PTR(pfsDRPStella::Spectrum<ImageT, MaskT, VarianceT, VarianceT>) background(new pfsDRPStella::Spectrum<ImageT, MaskT, VarianceT, VarianceT>(_trace->getHeight()));
