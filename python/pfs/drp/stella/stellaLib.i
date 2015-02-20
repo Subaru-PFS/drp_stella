@@ -112,7 +112,6 @@ Interface to Stella
 %include "std_vector.i"
 %template(FTVectorF) std::vector<PTR(pfs::drp::stella::FiberTrace<float, unsigned short, float>)>;
 %template(FTVectorD) std::vector<PTR(pfs::drp::stella::FiberTrace<double, unsigned short, float>)>;
-%template(VectorPVF) std::vector<PTR(std::vector<float>)>;
 
 %include "pfs/drp/stella/PSF.h"
 %template(PSFVectorF) std::vector<PTR(pfs::drp::stella::PSF<float, unsigned short, float, float>)>;
