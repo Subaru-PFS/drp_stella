@@ -28,8 +28,8 @@
 
 //#define __DEBUG_BANDSOL__
 //#define __DEBUG_CALC2DPSF__
-//#define __DEBUG_CALCPROFILE__
-//#define __DEBUG_CALCPROFILESWATH__
+#define __DEBUG_CALCPROFILE__
+#define __DEBUG_CALCPROFILESWATH__
 //#define __DEBUG_CALCSWATHBOUNDY__
 //#define __DEBUG_CHECK_INDICES__
 //#define __DEBUG_CREATEFIBERTRACE__
@@ -42,11 +42,11 @@
 //#define __DEBUG_MKPROFIM__
 //#define __DEBUG_MKSLITFUNC__
 //#define __DEBUG_SETFIBERTRACEFUNCTION__
-//#define __DEBUG_SLITFUNC__
-//#define __DEBUG_SLITFUNC_N__
-//#define __DEBUG_SLITFUNC_PISKUNOV__
-//#define __DEBUG_SLITFUNC_X__
-//#define __DEBUG_TELLURIC__
+#define __DEBUG_SLITFUNC__
+#define __DEBUG_SLITFUNC_N__
+#define __DEBUG_SLITFUNC_PISKUNOV__
+#define __DEBUG_SLITFUNC_X__
+#define __DEBUG_TELLURIC__
 //#define __DEBUG_TRACEFUNC__
 //#define __DEBUG_UNIQ__
 //#define __DEBUG_XCENTERS__
@@ -379,9 +379,6 @@ class FiberTraceSet {
     /// Extract spectrum and background for all slit spectra
     /// Returns vector of size 2 (0: Spectrum, 1: Background)
     /// PTR(std::vector<PTR(SpectrumSet<ImageT, MaskT, VarianceT, ImageT>)>) extractSpectrumAndBackground()
-
-    /// calculate profiles for all traces
-    bool calcProfileAllTraces();
     
     /// extract 1D spectrum from previously provided profile
     PTR(Spectrum<ImageT, MaskT, VarianceT, VarianceT>) extractTraceNumberFromProfile(const size_t traceNumber);

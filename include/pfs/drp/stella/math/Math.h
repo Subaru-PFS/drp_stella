@@ -15,7 +15,6 @@
 #include "ndarray/eigen.h"
 
 //#define __DEBUG_FIT__
-//#define __DEBUG_FITARR__
 //#define __DEBUG_POLY__
 //#define __DEBUG_MINCENMAX__
 //#define __DEBUG_INDGEN__
@@ -920,14 +919,6 @@ namespace pfs { namespace drp { namespace stella {
                          bool B_WithSky,                           /// with sky: in
                          const blitz::Array<string, 1> &S_A1_Args_In,   ///: in
                          void *ArgV_In[]);                   ///: in/out
-      template< typename ImageT, typename SlitFuncT >
-      int LinFitBevingtonEigen(Eigen::Array<ImageT, Eigen::Dynamic, 1> const& D_A1_CCD_In,      /// yvec: in
-                               Eigen::Array<SlitFuncT, Eigen::Dynamic, 1> const& D_A1_SF_In,       /// xvec: in
-                               ImageT &D_SP_Out,                         /// a1: out
-                               ImageT &D_Sky_Out,                        /// a0: in/out
-                               bool B_WithSky,                        /// with sky: in
-                               std::vector<string> const& S_A1_Args_In,   ///: in
-                               std::vector<void *> & ArgV_In);                   ///: in
     /// MEASURE_ERRORS_IN = blitz::Array<double,1>(D_A1_CCD_In.size)             : in
     /// REJECT_IN = double                                                : in
     /// MASK_INOUT = blitz::Array<int,1>(D_A1_CCD_In.size)                    : in/out
@@ -989,14 +980,6 @@ namespace pfs { namespace drp { namespace stella {
                            bool B_WithSky,                           ///: with sky: in
                            const blitz::Array<string, 1> &S_A1_Args_In,   ///: in
                            void *ArgV_In[]);                   ///: in/out
-      template< typename ImageT, typename SlitFuncT>
-      bool LinFitBevingtonEigen(Eigen::Array<ImageT, Eigen::Dynamic, Eigen::Dynamic> const& D_A2_CCD_In,      ///: in
-                                Eigen::Array<SlitFuncT, Eigen::Dynamic, Eigen::Dynamic> const& D_A2_SF_In,       ///: in
-                                Eigen::Array<ImageT, Eigen::Dynamic, 1> & D_A1_SP_Out,             ///: out
-                                Eigen::Array<ImageT, Eigen::Dynamic, 1> & D_A1_Sky_Out,            ///: in/out
-                                bool B_WithSky,                           ///: with sky: in
-                                vector<string> const& S_A1_Args_In,   ///: in
-                                vector<void *> &ArgV_In);                   ///: in/out
     /// MEASURE_ERRORS_IN = blitz::Array<double,1>(D_A1_CCD_In.size)             : in
     /// REJECT_IN = double                                                : in
     /// MASK_INOUT = blitz::Array<int,1>(D_A1_CCD_In.size)                    : in/out
@@ -1008,32 +991,27 @@ namespace pfs { namespace drp { namespace stella {
     /**
      *       Helper function to calculate incomplete Gamma Function
      **/
-    template< typename T >
-    T GammLn(T const D_X_In);
+    double GammLn(double D_X_In);
 
     /**
      *      Helper function to calculate incomplete Gamma Function
      **/
-    template< typename T >
-    T GCF(T & D_Gamser_In, T const a, T const x);
+    bool GCF(double *P_D_Gamser_In, double a, double x, double *P_D_GLn);
 
     /**
      *      Function to calculate incomplete Gamma Function P
      **/
-    template< typename T>
-    T GammP(T const a, T const x);
+    bool GammP(double a, double x, double *D_Out);
 
     /**
      *      Function to calculate incomplete Gamma Function Q = 1 - P
      **/
-    template<typename T>
-    T GammQ(T const a, T const x);
+    bool GammQ(double a, double x, double *D_Out);
 
     /**
      *      Helper function to calculate incomplete Gamma Function
      **/
-    template< typename T >
-    T GSER(T & D_Gamser_In, T const a, T const x);
+    bool GSER(double *P_D_Gamser_In, double a, double x, double *P_D_GLn);
 
     template<typename T>
     T Median(const blitz::Array<T, 1> &Arr);

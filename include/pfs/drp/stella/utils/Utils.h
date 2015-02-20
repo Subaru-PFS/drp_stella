@@ -17,8 +17,6 @@ namespace pfs { namespace drp { namespace stella { namespace utils{
     **/
   int KeyWord_Set(const blitz::Array<string, 1> &S_A1_In,
                   const string &str_In);
-  int KeyWord_Set(vector<string> const& S_A1_In,
-                  string const& str_In);
 
   template<typename T>
   bool WriteFits(const blitz::Array<T,2>* image_In, const string &fileName_In);

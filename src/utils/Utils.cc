@@ -12,14 +12,6 @@ namespace pfs { namespace drp { namespace stella { namespace utils{
     }
     return -1;
   }
-  int KeyWord_Set(vector<string> const& keyWords_In,
-                  string const& str_In){
-    for (int m = 0; m < int(keyWords_In.size()); ++m){
-      if (keyWords_In[m].compare(str_In) == 0)
-        return m;
-    }
-    return -1;
-  }
 
   template<typename T>
   bool WriteFits(const blitz::Array<T,1>* image_In, const string &fileName_In){
