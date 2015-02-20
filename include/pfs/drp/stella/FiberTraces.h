@@ -68,7 +68,7 @@ class FiberTrace {
 
     explicit FiberTrace(PTR(const MaskedImageT) const& maskedImage, 
                         PTR(const FiberTraceFunction) const& fiberTraceFunction, 
-                        ndarray::Array<float const, 1, 1> const& xCenters,
+                        PTR(const std::vector<float>) const& xCenters,
                         size_t iTrace=0);
     
     explicit FiberTrace(FiberTrace<ImageT, MaskT, VarianceT> &fiberTrace, bool const deep=false);
@@ -125,9 +125,12 @@ class FiberTrace {
 
     /// Set the _fiberTraceProfileFittingControl
     bool setFiberTraceProfileFittingControl(PTR(FiberTraceProfileFittingControl) const& fiberTraceProfileFittingControl);// { _fiberTraceProfileFittingControl = fiberTraceProfileFittingControl; }
+
+    /// Calculate the x-centers of the fiber trace
+    //bool calculateXCenters();//FiberTraceFunctionControl const& fiberTraceFunctionControl);
     
     /// Return the x-centers of the fiber trace
-    const ndarray::Array<float const, 1, 1> getXCenters() const { return _xCenters; }
+    const PTR(const std::vector<float>) getXCenters() const { return _xCenters; }
 
     /// Set the x-center of the fiber trace
     /// Pre: _fiberTraceFunction must be set
@@ -285,7 +288,7 @@ class FiberTrace {
     ///TODO: replace variables with smart pointers?????
     PTR(MaskedImageT) _trace;
     PTR(afwImage::Image<float>) _profile;
-    const ndarray::Array<float const, 1, 1> _xCenters;
+    const PTR(const std::vector<float>) _xCenters;
     size_t _iTrace;
     bool _isTraceSet;
     bool _isProfileSet;
@@ -410,7 +413,7 @@ namespace math{
   
   /**
    * @brief: returns ndarray containing the xCenters of a FiberTrace from 0 to FiberTrace.getTrace().getHeight()-1
-   *         NOTE that the WCS here starts at [0., 0.], so an xCenter of 1.1 refers to position 0.1 of the second pixel
+   *         NOTE that the WCS here starts at [-0.5, -0.5], so an xCenter of 0.6 refers to position 0.1 of the second pixel
    */
   ndarray::Array<float, 1, 1> calculateXCenters(PTR(const ::pfs::drp::stella::FiberTraceFunction) const& fiberTraceFunction,
                                                 size_t const& ccdHeight,
