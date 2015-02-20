@@ -17,6 +17,7 @@
 //#define __DEBUG_FIT__
 //#define __DEBUG_FITARR__
 //#define __DEBUG_POLY__
+//#define __DEBUG_POLYFIT__
 //#define __DEBUG_MINCENMAX__
 //#define __DEBUG_INDGEN__
 
@@ -543,14 +544,26 @@ namespace pfs { namespace drp { namespace stella {
     YFIT=yfit: blitz::Array<double, 1>(D_A1_X_In.size()): out
     **/
     blitz::Array<double, 1> PolyFit(const blitz::Array<double, 1> &D_A1_X_In,
-                 const blitz::Array<double, 1> &D_A1_Y_In,
-                 int I_Degree,
-                 const blitz::Array<string, 1> &S_A1_Args,
-                 void *ArgV[]);
+                                    const blitz::Array<double, 1> &D_A1_Y_In,
+                                    int I_Degree,
+                                    const blitz::Array<string, 1> &S_A1_Args,
+                                    void *ArgV[]);
+
+    template< typename T >
+    ndarray::Array<double, 1, 1> PolyFit(ndarray::Array<T, 1, 1> const& D_A1_X_In,
+                                         ndarray::Array<T, 1, 1> const& D_A1_Y_In,
+                                         size_t const I_Degree_In,
+                                         std::vector<string> const& S_A1_Args_In,
+                                         std::vector<void *> & ArgV);
 
     blitz::Array<double, 1> PolyFit(const blitz::Array<double, 1> &D_A1_X_In,
-                 const blitz::Array<double, 1> &D_A1_Y_In,
-                 int I_Degree);
+                                    const blitz::Array<double, 1> &D_A1_Y_In,
+                                    int I_Degree);
+
+    template< typename T >
+    ndarray::Array<double, 1, 1> PolyFit(ndarray::Array<T, 1, 1> const& D_A1_X_In,
+                                         ndarray::Array<T, 1, 1> const& D_A1_Y_In,
+                                         size_t const I_Degree_In);
 
 /** Additional Keywords:
     REJECTED=blitz::Array<int, 1>
@@ -558,11 +571,18 @@ namespace pfs { namespace drp { namespace stella {
     N_REJECTED=int
     **/
     blitz::Array<double, 1> PolyFit(const blitz::Array<double, 1> &D_A1_X_In,
-                 const blitz::Array<double, 1> &D_A1_Y_In,
-                 unsigned int I_Degree,
-                 double D_Reject,
-                 const blitz::Array<string, 1> &S_A1_Args,
-                 void *ArgV[]);
+                                    const blitz::Array<double, 1> &D_A1_Y_In,
+                                    unsigned int I_Degree,
+                                    double D_Reject,
+                                    const blitz::Array<string, 1> &S_A1_Args,
+                                    void *ArgV[]);
+    template<typename T>
+    ndarray::Array<double, 1, 1> PolyFit(ndarray::Array<T, 1, 1> const& D_A1_X_In,
+                                         ndarray::Array<T, 1, 1> const& D_A1_Y_In,
+                                         size_t const I_Degree_In,
+                                         T const D_Reject_In,
+                                         std::vector<string> const& S_A1_Args_In,
+                                         std::vector<void *> & ArgV);
 
     blitz::Array<double, 1> PolyFit(const blitz::Array<double, 1> &D_A1_X_In,
                  const blitz::Array<double, 1> &D_A1_Y_In,
@@ -572,18 +592,41 @@ namespace pfs { namespace drp { namespace stella {
                  unsigned int I_NIter,
                  const blitz::Array<string, 1> &S_A1_Args,
                  void *ArgV[]);
+    template< typename T >
+    ndarray::Array<double, 1, 1> PolyFit(ndarray::Array<T, 1, 1> const& D_A1_X_In,
+                                    ndarray::Array<T, 1, 1> const& D_A1_Y_In,
+                                    size_t const I_Degree_In,
+                                    T const D_LReject_In,
+                                    T const D_UReject_In,
+                                    size_t const I_NIter,
+                                    std::vector<string> const& S_A1_Args_In,
+                                    std::vector<void *> & ArgV);
 
     blitz::Array<double, 1> PolyFit(const blitz::Array<double, 1> &D_A1_X_In,
-                 const blitz::Array<double, 1> &D_A1_Y_In,
-                 unsigned int I_Degree,
-                 double D_Reject);
+                                    const blitz::Array<double, 1> &D_A1_Y_In,
+                                    unsigned int I_Degree,
+                                    double D_Reject);
+    
+    template< typename T >
+    ndarray::Array<double, 1, 1> PolyFit(ndarray::Array<T, 1, 1> const& D_A1_X_In,
+                                         ndarray::Array<T, 1, 1> const& D_A1_Y_In,
+                                         size_t const I_Degree_In,
+                                         T const D_Reject_In);
 
     blitz::Array<double, 1> PolyFit(const blitz::Array<double, 1> &D_A1_X_In,
-                 const blitz::Array<double, 1> &D_A1_Y_In,
-                 unsigned int I_Degree,
-                 double D_LReject,
-                 double D_HReject,
-                 unsigned int I_NIter);
+                                    const blitz::Array<double, 1> &D_A1_Y_In,
+                                    unsigned int I_Degree,
+                                    double D_LReject,
+                                    double D_HReject,
+                                    unsigned int I_NIter);
+    
+    template< typename T>
+    ndarray::Array<double, 1, 1> PolyFit(ndarray::Array<T, 1, 1> const& D_A1_X_In,
+                                         ndarray::Array<T, 1, 1> const& D_A1_Y_In,
+                                         size_t const I_Degree_In,
+                                         T const D_LReject_In,
+                                         T const D_HReject_In,
+                                         size_t const I_NIter);
 
 
     /**
@@ -615,7 +658,10 @@ namespace pfs { namespace drp { namespace stella {
     blitz::Array<int, 1> IndGenArr(int len);
 
     bool removeSubArrayFromArray(blitz::Array<int, 1> &A1_Array_InOut,
-                                  const blitz::Array<int, 1> &A1_SubArray);
+                                 const blitz::Array<int, 1> &A1_SubArray);
+    template< typename T >
+    std::vector<T> removeSubArrayFromArray(std::vector<T> const& A1_Array_InOut,
+                                           std::vector<T> const& A1_SubArray);
 
 
     /**
@@ -743,7 +789,6 @@ namespace pfs { namespace drp { namespace stella {
 
     /**
      *        InvertGaussJ(AArray, BArray)
-     *        FROM: Numerical Recipes
      *        Linear equation solution by Gauss-Jordan elimination
      *        AArray(0:N-1, 0:N-1) is the input matrix. BArray(0:N-1,
      *        0:M-1) is input containing the m right-hand side vectors.
@@ -756,12 +801,13 @@ namespace pfs { namespace drp { namespace stella {
 
     /**
      *        InvertGaussJ(AArray)
-     *        FROM: Numerical Recipes
      *        Linear equation solution by Gauss-Jordan elimination with B == Unity
      *        AArray(0:N-1, 0:N-1) is the input matrix.
      *        On output, AArray is replaced by its matrix inverse.
      **/
     bool InvertGaussJ(blitz::Array<double, 2> &AArray);
+    template< typename T >
+    bool InvertGaussJ(ndarray::Array<T, 2, 1> &AArray);
 
     /**
      *      MatrixATimesB(blitz::Array<double, 2> &Arr, blitz::Array<double, 2> &B);

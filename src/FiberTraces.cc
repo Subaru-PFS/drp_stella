@@ -328,7 +328,7 @@ namespace pfsDRPStella = pfs::drp::stella;
       cout << message << endl;
       throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
     }
-
+    ///TODO: change to sqrt(T_A2_VarianceArray)
     for (auto itRow = _trace->getVariance()->getArray().begin(); itRow != _trace->getVariance()->getArray().end(); ++itRow){
       for (auto itCol = itRow->begin(); itCol != itRow->end(); ++itCol){
         if (*itCol < 0.00000001)
@@ -553,27 +553,22 @@ namespace pfsDRPStella = pfs::drp::stella;
   /// Return shared pointer to an image containing the reconstructed 2D spectrum of the FiberTrace
   template<typename ImageT, typename MaskT, typename VarianceT>
   PTR(afwImage::Image<float>) pfsDRPStella::FiberTrace<ImageT, MaskT, VarianceT>::getReconstructed2DSpectrum(const pfsDRPStella::Spectrum<ImageT, MaskT, VarianceT, VarianceT> & spectrum) const{
-    PTR(afwImage::Image<float>) image(new afwImage::Image<float>(_trace->getWidth(), _trace->getHeight()));
-    blitz::Array<float, 2> F_A2_Prof = ::pfs::drp::stella::utils::ndarrayToBlitz(_profile->getArray());
-    blitz::Array<float, 2> F_A2_Rec(_trace->getHeight(), _trace->getWidth());
-    for (int i_row=0; i_row<_trace->getHeight(); i_row++)
-      F_A2_Rec(i_row, blitz::Range::all()) = F_A2_Prof(i_row, blitz::Range::all()) * spectrum.getSpectrum()[i_row];
-    ndarray::Array<float, 2, 1> ndarrayRec(::pfs::drp::stella::utils::copyBlitzToNdarray(F_A2_Rec));
-    afwImage::Image<float> imRec(ndarrayRec);
-    *image = imRec;
+    ndarray::Array<float, 2, 1> F_A2_Rec = ndarray::allocate(_trace->getHeight(), _trace->getWidth());
+    int i_row = 0;
+    for (auto itProf = _profile->getArray().begin(), itRec = F_A2_Rec.begin(); itProf != _profile->getArray().end(); ++itProf, ++itRec, ++i_row)
+      *itRec = (*itProf) * spectrum.getSpectrum()[i_row];
+    PTR(afwImage::Image<float>) image(new afwImage::Image<float>(F_A2_Rec));
     return image;
   }
 
   /// Return shared pointer to an image containing the reconstructed background of the FiberTrace
   template<typename ImageT, typename MaskT, typename VarianceT>
   PTR(afwImage::Image<float>) pfsDRPStella::FiberTrace<ImageT, MaskT, VarianceT>::getReconstructedBackground(const pfsDRPStella::Spectrum<ImageT, MaskT, VarianceT, VarianceT> & background) const{
-    PTR(afwImage::Image<float>) image(new afwImage::Image<float>(_trace->getWidth(), _trace->getHeight()));
-    blitz::Array<float, 2> F_A2_Rec(_trace->getHeight(), _trace->getWidth());
-    for (int i_row=0; i_row<_trace->getHeight(); i_row++)
-      F_A2_Rec(i_row, blitz::Range::all()) = background.getSpectrum()[i_row];
-    ndarray::Array<float, 2, 1> ndarrayRec(::pfs::drp::stella::utils::copyBlitzToNdarray(F_A2_Rec));
-    afwImage::Image<float> imRec(ndarrayRec);
-    *image = imRec;
+    ndarray::Array<float, 2, 1> F_A2_Rec = ndarray::allocate(_trace->getHeight(), _trace->getWidth());
+    int i_row = 0;
+    for (auto itProf = _profile->getArray().begin(), itRec = F_A2_Rec.begin(); itProf != _profile->getArray().end(); ++itProf, ++itRec, ++i_row)
+      itRec->deep() = background.getSpectrum()[i_row];
+    PTR(afwImage::Image<float>) image(new afwImage::Image<float>(F_A2_Rec));
     return image;
   }
 
@@ -7589,22 +7584,6 @@ namespace pfsDRPStella = pfs::drp::stella;
                   #ifdef __DEBUG_FINDANDTRACE__
                     cout << "::pfs::drp::stella::math::findAndTraceApertures: while: i_Row = " << i_Row << ": 1. starting MPFitGaussLim: D_A1_Guess = " << D_A1_Guess << ", I_A2_Limited = " << I_A2_Limited << ", D_A2_Limits = " << D_A2_Limits << endl;
                   #endif
-/*                  ndarray::Array<double, 1, 1> DD_A1_X = math::Double(D_A1_X);
-                  ndarray::Array<double, 1, 1> DD_A1_Y = math::Double(D_A1_Y);
-                  ndarray::Array<double, 1, 1> DD_A1_MeasureErrors = math::Double(D_A1_MeasureErrors);
-                  blitz::Array<double, 1> D_A1_XBlitz = utils::ndarrayToBlitz(DD_A1_X);
-                  blitz::Array<double, 1> D_A1_YBlitz = utils::ndarrayToBlitz(DD_A1_Y);
-                  blitz::Array<double, 1> D_A1_MeasureErrorsBlitz = utils::ndarrayToBlitz(DD_A1_MeasureErrors);
-                  blitz::Array<double, 1> D_A1_GuessBlitz = utils::ndarrayToBlitz(D_A1_Guess);
-                  blitz::Array<int, 2> I_A2_LimitedBlitz = utils::ndarrayToBlitz(I_A2_Limited);
-                  blitz::Array<double, 2> D_A2_LimitsBlitz = utils::ndarrayToBlitz(D_A2_Limits);
-                  blitz::Array<double, 1> D_A1_GaussFit_CoeffsBlitz = utils::ndarrayToBlitz(D_A1_GaussFit_Coeffs);
-                  blitz::Array<double, 1> D_A1_GaussFit_ECoeffsBlitz = utils::ndarrayToBlitz(D_A1_GaussFit_ECoeffs);
-                    cout << "2. D_A1_X.getShape()[0] = " << D_A1_X.getShape()[0] << endl;
-                    cout << "2. D_A1_Y.getShape()[0] = " << D_A1_Y.getShape()[0] << endl;
-                    cout << "2. D_A1_MeasureErrors.getShape()[0] = " << D_A1_MeasureErrors.getShape()[0] << endl;
-                    exit(EXIT_FAILURE);
- */
                   if (!MPFitGaussLim(D_A1_X,
                                      D_A1_Y,
                                      D_A1_MeasureErrors,
@@ -7656,7 +7635,7 @@ namespace pfsDRPStella = pfs::drp::stella;
                         ccdImage[ndarray::view(i_Row)(I_FirstWideSignalStart+1, I_FirstWideSignalEnd)] = 0.;
                         #ifdef __DEBUG_FINDANDTRACE__
                           cout << "::pfs::drp::stella::math::findAndTraceApertures: while: B_ApertureFound = " << B_ApertureFound << ": 1. Signal set to zero from I_FirstWideSignalStart = " << I_FirstWideSignalStart << " to I_FirstWideSignalEnd = " << I_FirstWideSignalEnd << endl;
-                          cout << "::pfs::drp::stella::math::findAndTraceApertures: while: 1. ccdImage(i_Row = " << i_Row << ", blitz::Range(I_FirstWideSignalStart = " << I_FirstWideSignalStart << ", I_FirstWideSignalEnd = " << I_FirstWideSignalEnd << ")) set to " << ccdImage[ndarray::view(i_Row)(I_FirstWideSignalStart, I_FirstWideSignalEnd)] << endl;
+                          cout << "::pfs::drp::stella::math::findAndTraceApertures: while: 1. ccdImage(i_Row = " << i_Row << ", Range(I_FirstWideSignalStart = " << I_FirstWideSignalStart << ", I_FirstWideSignalEnd = " << I_FirstWideSignalEnd << ")) set to " << ccdImage[ndarray::view(i_Row)(I_FirstWideSignalStart, I_FirstWideSignalEnd)] << endl;
                         #endif
                         /// Set start index for next run
                         I_StartIndex = I_FirstWideSignalEnd+1;
@@ -7812,22 +7791,6 @@ namespace pfsDRPStella = pfs::drp::stella;
                     #ifdef __DEBUG_FINDANDTRACE__
                       cout << "::pfs::drp::stella::math::findAndTraceApertures: while: i_Row = " << i_Row << ": 2. starting MPFitGaussLim: D_A2_Limits = " << D_A2_Limits << endl;
                     #endif
-/*                    ndarray::Array<double, 1, 1> DD_A1_X = math::Double(D_A1_X);
-                    ndarray::Array<double, 1, 1> DD_A1_Y = math::Double(D_A1_Y);
-                    ndarray::Array<double, 1, 1> DD_A1_MeasureErrors = math::Double(D_A1_MeasureErrors);
-                    blitz::Array<double, 1> D_A1_XBlitz = utils::ndarrayToBlitz(DD_A1_X);
-                    blitz::Array<double, 1> D_A1_YBlitz = utils::ndarrayToBlitz(DD_A1_Y);
-                    blitz::Array<double, 1> D_A1_MeasureErrorsBlitz = utils::ndarrayToBlitz(DD_A1_MeasureErrors);
-                    blitz::Array<double, 1> D_A1_GuessBlitz = utils::ndarrayToBlitz(D_A1_Guess);
-                    blitz::Array<int, 2> I_A2_LimitedBlitz = utils::ndarrayToBlitz(I_A2_Limited);
-                    blitz::Array<double, 2> D_A2_LimitsBlitz = utils::ndarrayToBlitz(D_A2_Limits);
-                    blitz::Array<double, 1> D_A1_GaussFit_CoeffsBlitz = utils::ndarrayToBlitz(D_A1_GaussFit_Coeffs);
-                    blitz::Array<double, 1> D_A1_GaussFit_ECoeffsBlitz = utils::ndarrayToBlitz(D_A1_GaussFit_ECoeffs);
-                    cout << "D_A1_X.getShape()[0] = " << D_A1_X.getShape()[0] << endl;
-                    cout << "D_A1_Y.getShape()[0] = " << D_A1_Y.getShape()[0] << endl;
-                    cout << "D_A1_MeasureErrors.getShape()[0] = " << D_A1_MeasureErrors.getShape()[0] << endl;
-                    exit(EXIT_FAILURE);
- */
                     if (!MPFitGaussLim(D_A1_X,
                                        D_A1_Y,
                                        D_A1_MeasureErrors,
@@ -7903,7 +7866,7 @@ namespace pfsDRPStella = pfs::drp::stella;
                       }/// end else if (D_A1_GaussFit_Coeffs(0) >= signalThreshold
                     }/// end else if (GaussFit(D_A1_X, D_A1_Y, D_A1_GaussFit_Coeffs, S_A1_KeyWords_GaussFit, PP_Args_GaussFit))
                     ccdImage[ndarray::view(i_Row)(I_FirstWideSignalStart + 1, I_FirstWideSignalEnd)] = 0.;
-                  }/// end else if (blitz::sum(I_A1_Signal) >= I_MinWidth){
+                  }/// end else if (sum(I_A1_Signal) >= I_MinWidth){
                 }/// end if (I_Length > 3)
               }/// end else if (I_ApertureStart >= 0. && I_ApertureEnd < maskedImage->getWidth())
             }/// end else if GaussFit
@@ -7940,11 +7903,17 @@ namespace pfsDRPStella = pfs::drp::stella;
             #endif
 
             /// Fit Polynomial
-            blitz::Array<double, 1> D_A1_PolyFitCoeffsBlitz = pfsDRPStella::math::PolyFit(pfsDRPStella::utils::ndarrayToBlitz(D_A1_ApertureCenterIndex),
-                                                                                                                              pfsDRPStella::utils::ndarrayToBlitz(D_A1_ApertureCenterPos),
-                                                                                                                              fiberTraceFunctionFindingControl->fiberTraceFunctionControl.order);
-            ndarray::Array<double, 1, 1> D_A1_PolyFitCoeffs = pfsDRPStella::utils::blitzToNdarray(D_A1_PolyFitCoeffsBlitz);
-
+//            blitz::Array<double, 1> D_A1_PolyFitCoeffsBlitz = pfsDRPStella::math::PolyFit(pfsDRPStella::utils::ndarrayToBlitz(D_A1_ApertureCenterIndex),
+//                                                                                          pfsDRPStella::utils::ndarrayToBlitz(D_A1_ApertureCenterPos),
+//                                                                                          fiberTraceFunctionFindingControl->fiberTraceFunctionControl.order);
+//            ndarray::Array<double, 1, 1> D_A1_PolyFitCoeffs = pfsDRPStella::utils::blitzToNdarray(D_A1_PolyFitCoeffsBlitz);
+            ndarray::Array<double, 1, 1> D_A1_PolyFitCoeffs = pfsDRPStella::math::PolyFit(D_A1_ApertureCenterIndex,
+                                                                                          D_A1_ApertureCenterPos,
+                                                                                          fiberTraceFunctionFindingControl->fiberTraceFunctionControl.order);//pfsDRPStella::utils::blitzToNdarray(D_A1_PolyFitCoeffsBlitz);
+            #ifdef __DEBUG_FINDANDTRACE__
+              cout << "D_A1_PolyFitCoeffs = " << D_A1_PolyFitCoeffs << endl;
+            #endif
+ 
             fiberTraceFunction.xCenter = D_A1_ApertureCenterPos[int(D_A1_ApertureCenterIndex.size()/2.)];
             fiberTraceFunction.yCenter = D_A1_ApertureCenterIndex[int(D_A1_ApertureCenterIndex.size()/2.)];
             fiberTraceFunction.yHigh = D_A1_ApertureCenterIndex[int(D_A1_ApertureCenterIndex.size()-1)] - fiberTraceFunction.yCenter;
