@@ -976,14 +976,21 @@
       if (fabs(D_A1_X(0) - D_A1_X(1)) < 0.000002){
         return true;
       }
-      blitz::Array<double, 1> D_A1_Coeffs = pfs::drp::stella::math::PolyFit(D_A1_X,
-                                                                            D_A1_Y,
-                                                                            1);
+      blitz::Array<double, 1> *P_D_A1_Coeffs = new blitz::Array<double, 1>(2);
+      if (!pfs::drp::stella::math::PolyFit(D_A1_X,
+                                       D_A1_Y,
+                                       1,
+                                       P_D_A1_Coeffs)){
+        cout << "CFits::IntegralUnderLine: fabs(D_A1_X(0)(=" << D_A1_X(0) << ") - D_A1_X(1)(=" << D_A1_X(1) << ")) = " << fabs(D_A1_X(0) - D_A1_X(1)) << endl;
+        cout << "CFits::IntegralUnderLine: ERROR: PolyFit(" << D_A1_X << ", " << D_A1_Y << ", 1, " << *P_D_A1_Coeffs << ") returned false" << endl;
+        delete(P_D_A1_Coeffs);
+        return false;
+      }
       D_A1_X.resize(3,2);
       D_A1_X(0) = D_BinStart_X;
       D_A1_X(1) = D_BinStart_X + ((D_BinEnd_X - D_BinStart_X)/2.);
       D_A1_X(2) = D_BinEnd_X;
-      blitz::Array<double, 1> D_A1_YFit = pfs::drp::stella::math::Poly(D_A1_X, D_A1_Coeffs);
+      blitz::Array<double, 1> D_A1_YFit = pfs::drp::stella::math::Poly(D_A1_X, *P_D_A1_Coeffs);
 
       /// Calculate Integral
       D_Integral_Out += (D_BinEnd_X - D_BinStart_X) * D_A1_YFit(1);
@@ -992,6 +999,8 @@
         cout << "CFits::IntegralUnderLine: D_Integral_Out = " << D_Integral_Out << endl;
       #endif
 
+      /// clean up
+      delete(P_D_A1_Coeffs);
       return true;
     }
 
@@ -1055,30 +1064,33 @@
       return true;
     }
 
-    blitz::Array<double, 1> PolyFit(const blitz::Array<double, 1> &D_A1_X_In,
-                                    const blitz::Array<double, 1> &D_A1_Y_In,
-                                    unsigned int I_Degree_In,
-                                    double D_Reject_In,
-                                    const blitz::Array<string, 1> &S_A1_Args_In,
-                                    void *ArgV[]){
+    bool PolyFit(const blitz::Array<double, 1> &D_A1_X_In,
+                 const blitz::Array<double, 1> &D_A1_Y_In,
+                 unsigned int I_Degree_In,
+                 double D_Reject_In,
+                 const blitz::Array<string, 1> &S_A1_Args_In,
+                 void *ArgV[],
+                 blitz::Array<double, 1>* out){
       return pfs::drp::stella::math::PolyFit(D_A1_X_In,
-                                     D_A1_Y_In,
-                                     I_Degree_In,
-                                     D_Reject_In,
-                                     D_Reject_In,
-                                     -1,
-                                     S_A1_Args_In,
-                                     ArgV);
+                           D_A1_Y_In,
+                           I_Degree_In,
+                           D_Reject_In,
+                           D_Reject_In,
+                           -1,
+                           S_A1_Args_In,
+                           ArgV,
+                           out);
     }
 
-    blitz::Array<double, 1> PolyFit(const blitz::Array<double, 1> &D_A1_X_In,
-                                    const blitz::Array<double, 1> &D_A1_Y_In,
-                                    unsigned int I_Degree_In,
-                                    double D_LReject_In,
-                                    double D_UReject_In,
-                                    unsigned int I_NIter,
-                                    const blitz::Array<string, 1> &S_A1_Args_In,
-                                    void *ArgV[]){
+    bool PolyFit(const blitz::Array<double, 1> &D_A1_X_In,
+                 const blitz::Array<double, 1> &D_A1_Y_In,
+                 unsigned int I_Degree_In,
+                 double D_LReject_In,
+                 double D_UReject_In,
+                 unsigned int I_NIter,
+                 const blitz::Array<string, 1> &S_A1_Args_In,
+                 void *ArgV[],
+                 blitz::Array<double, 1>* out){
 
       #ifdef __DEBUG_POLYFIT__
         cout << "CFits::PolyFit: Starting " << endl;
@@ -1097,7 +1109,6 @@
       int I_DataValues_New = 0;
       int I_NRejected = 0;
       bool B_HaveMeasureErrors = false;
-      blitz::Array<double, 1> D_A1_Coeffs_Out(I_Degree_In + 1);
 
       int I_Pos = -1;
       I_Pos = pfs::drp::stella::utils::KeyWord_Set(S_A1_Args_In, "MEASURE_ERRORS");
@@ -1106,34 +1117,26 @@
         D_A1_MeasureErrors = *P_D_A1_MeasureErrors;
         B_HaveMeasureErrors = true;
         if (P_D_A1_MeasureErrors->size() != D_A1_X_In.size()){
-          string message("CFits::PolyFit: ERROR: P_D_A1_MeasureErrors->size(=");
-          message += to_string(P_D_A1_MeasureErrors->size()) + ") != D_A1_X_In.size(=" + to_string(D_A1_X_In.size()) + ")";
-          cout << message << endl;
-          throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
+          cout << "CFits::PolyFit: ERROR: P_D_A1_MeasureErrors->size(=" << P_D_A1_MeasureErrors->size() << ") != D_A1_X_In.size(=" << D_A1_X_In.size() << ")" << endl;
+          return false;
         }
       }
       else{
+        P_D_A1_MeasureErrors = new blitz::Array<double, 1>(D_A1_X_In.size());
         D_A1_MeasureErrors = sqrt(blitz::where(D_A1_Y_In > 0., D_A1_Y_In, 1.));
+        (*P_D_A1_MeasureErrors) = D_A1_MeasureErrors;
       }
-      blitz::Array<double, 1> D_A1_MeasureErrorsBak(D_A1_MeasureErrors.size());
-      D_A1_MeasureErrorsBak = D_A1_MeasureErrors;
 
       blitz::Array<int, 1> *P_I_A1_NotRejected = new blitz::Array<int, 1>(1);
       bool B_KeyWordSet_NotRejected = false;
       I_Pos = pfs::drp::stella::utils::KeyWord_Set(S_A1_Args_In, "NOT_REJECTED");
       if (I_Pos >= 0){
-        #ifdef __DEBUG_POLYFIT__
-          cout << "CFits::PolyFit: Reading KeyWord NOT_REJECTED" << endl;
-          cout << "CFits::PolyFit: I_Pos = " << I_Pos << endl;
-        #endif
+        cout << "CFits::PolyFit: Reading KeyWord NOT_REJECTED" << endl;
+        cout << "CFits::PolyFit: I_Pos = " << I_Pos << endl;
         P_I_A1_NotRejected = (blitz::Array<int,1>*)(ArgV[I_Pos]);
-        #ifdef __DEBUG_POLYFIT__
-          cout << "CFits::PolyFit: *P_I_A1_NotRejected = " << *P_I_A1_NotRejected << endl;
-        #endif
+        cout << "CFits::PolyFit: *P_I_A1_NotRejected = " << *P_I_A1_NotRejected << endl;
         B_KeyWordSet_NotRejected = true;
-        #ifdef __DEBUG_POLYFIT__
-          cout << "CFits::PolyFit: KeyWord NOT_REJECTED read" << endl;
-        #endif
+        cout << "CFits::PolyFit: KeyWord NOT_REJECTED read" << endl;
       }
 
       blitz::Array<int, 1> *P_I_A1_Rejected = new blitz::Array<int, 1>(1);
@@ -1142,38 +1145,26 @@
       bool B_KeyWordSet_Rejected = false;
       I_Pos = pfs::drp::stella::utils::KeyWord_Set(S_A1_Args_In, "REJECTED");
       if (I_Pos >= 0){
-        #ifdef __DEBUG_POLYFIT__
-          cout << "CFits::PolyFit: Reading KeyWord REJECTED" << endl;
-          cout << "CFits::PolyFit: I_Pos = " << I_Pos << endl;
-        #endif
+        cout << "CFits::PolyFit: Reading KeyWord REJECTED" << endl;
+        cout << "CFits::PolyFit: I_Pos = " << I_Pos << endl;
         delete(P_I_A1_Rejected);
         P_I_A1_Rejected = (blitz::Array<int,1>*)(ArgV[I_Pos]);
-        #ifdef __DEBUG_POLYFIT__
-          cout << "CFits::PolyFit: *P_I_A1_Rejected = " << *P_I_A1_Rejected << endl;
-        #endif
+        cout << "CFits::PolyFit: *P_I_A1_Rejected = " << *P_I_A1_Rejected << endl;
         B_KeyWordSet_Rejected = true;
-        #ifdef __DEBUG_POLYFIT__
-          cout << "CFits::PolyFit: KeyWord REJECTED read" << endl;
-        #endif
+        cout << "CFits::PolyFit: KeyWord REJECTED read" << endl;
       }
 
       int *P_I_NRejected = new int(0);
       bool B_KeyWordSet_NRejected = false;
       I_Pos = pfs::drp::stella::utils::KeyWord_Set(S_A1_Args_In, "N_REJECTED");
       if (I_Pos >= 0){
-        #ifdef __DEBUG_POLYFIT__
-          cout << "CFits::PolyFit: Reading KeyWord N_REJECTED" << endl;
-          cout << "CFits::PolyFit: I_Pos = " << I_Pos << endl;
-        #endif
+        cout << "CFits::PolyFit: Reading KeyWord N_REJECTED" << endl;
+        cout << "CFits::PolyFit: I_Pos = " << I_Pos << endl;
         delete(P_I_NRejected);
         P_I_NRejected = (int*)(ArgV[I_Pos]);
-        #ifdef __DEBUG_POLYFIT__
-          cout << "CFits::PolyFit: P_I_NRejected = " << *P_I_NRejected << endl;
-        #endif
+        cout << "CFits::PolyFit: P_I_NRejected = " << *P_I_NRejected << endl;
         B_KeyWordSet_NRejected = true;
-        #ifdef __DEBUG_POLYFIT__
-          cout << "CFits::PolyFit: KeyWord N_REJECTED read" << endl;
-        #endif
+        cout << "CFits::PolyFit: KeyWord N_REJECTED read" << endl;
       }
 
       blitz::Array<int, 1> I_A1_OrigPos(D_A1_X_In.size());
@@ -1191,36 +1182,38 @@
         I_NReject = 0;
         I_NRejected = 0;
         I_DataValues_New = 0;
-        D_A1_Coeffs_Out = pfs::drp::stella::math::PolyFit(D_A1_X,
-                                                          D_A1_Y,
-                                                          I_Degree_In,
-                                                          S_A1_Args_In,
-                                                          ArgV);
+        if (!pfs::drp::stella::math::PolyFit(D_A1_X,
+                                         D_A1_Y,
+                                         I_Degree_In,
+                                         S_A1_Args_In,
+                                         ArgV,
+                                         out)){
+          cout << "CFits::PolyFit: ERROR: PolyFit returned FALSE" << endl;
+          if (!B_HaveMeasureErrors)
+            delete(P_D_A1_MeasureErrors);
+          return false;
+        }
         #ifdef __DEBUG_POLYFIT__
-          cout << "CFits::PolyFit: PolyFit(D_A1_X, D_A1_Y, I_Degree_In, S_A1_Args_In, ArgV) returned D_A1_Coeffs_Out = " << D_A1_Coeffs_Out << endl;
+          cout << "CFits::PolyFit: PolyFit(D_A1_X, D_A1_Y, I_Degree_In, S_A1_Args_In, ArgV, out) returned *out = " << *out << endl;
         #endif
-        blitz::Array<double, 1> D_A1_YFit = pfs::drp::stella::math::Poly(D_A1_X, 
-                                                                         D_A1_Coeffs_Out);
+        blitz::Array<double, 1> D_A1_YFit = pfs::drp::stella::math::Poly(D_A1_X, *out);
         double D_SDev = sqrt(blitz::sum(blitz::pow2(D_A1_Y - D_A1_YFit) / D_A1_Y.size()));
 
-        D_A1_PolyRes = pfs::drp::stella::math::Poly(D_A1_X_In, 
-                                                    D_A1_Coeffs_Out);
+        D_A1_PolyRes = pfs::drp::stella::math::Poly(D_A1_X_In, *out);
         for (unsigned int i_pos=0; i_pos < D_A1_Y_In.size(); i_pos++){
           double D_Dev = D_A1_Y_In(i_pos) - D_A1_PolyRes(i_pos);
           if (((D_Dev < 0) && (D_Dev > (D_LReject_In * D_SDev))) || ((D_Dev >= 0) && (D_Dev < (D_UReject_In * D_SDev)))){
             D_A1_X_New(I_DataValues_New) = D_A1_X_In(i_pos);
             D_A1_Y_New(I_DataValues_New) = D_A1_Y_In(i_pos);
             if (B_HaveMeasureErrors)
-              D_A1_MeasureErrors_New(I_DataValues_New) = D_A1_MeasureErrorsBak(i_pos);
+              D_A1_MeasureErrors_New(I_DataValues_New) = (*P_D_A1_MeasureErrors)(i_pos);
             I_A1_OrigPos(I_DataValues_New) = D_A1_Y_In(i_pos);
 
             I_DataValues_New++;
           }
           else{
             I_A1_Rejected(I_NRejected) = i_pos;
-            #ifdef __DEBUG_POLYFIT__
-              cout << "CFits::PolyFit: Rejecting D_A1_X_In(i_pos) = " << D_A1_X_In(i_pos) << endl;
-            #endif
+            cout << "CFits::PolyFit: Rejecting D_A1_X_In(i_pos) = " << D_A1_X_In(i_pos) << endl;
             I_NReject++;
             I_NRejected++;
           }
@@ -1247,32 +1240,28 @@
         if ((I_NIter >= 0) && (i_iter >= I_NIter))
           B_Run = false;
       }
-      #ifdef __DEBUG_POLYFIT__
-        cout << "CFits::PolyFit: I_NRejected = " << I_NRejected << endl;
-        cout << "CFits::PolyFit: I_DataValues_New = " << I_DataValues_New << endl;
-      #endif
+      cout << "CFits::PolyFit: I_NRejected = " << I_NRejected << endl;
+
+      cout << "CFits::PolyFit: I_DataValues_New = " << I_DataValues_New << endl;
       blitz::Array<int, 1> I_A1_NotRejected(I_DataValues_New);
       I_A1_NotRejected = I_A1_OrigPos(blitz::Range(0, I_DataValues_New-1));
       if (B_KeyWordSet_NotRejected){
         P_I_A1_NotRejected->resize(I_DataValues_New);
         (*P_I_A1_NotRejected) = I_A1_NotRejected;
-        #ifdef __DEBUG_POLYFIT__
-          cout << "CFits::PolyFit: *P_I_A1_NotRejected = " << *P_I_A1_NotRejected << endl;
-        #endif
+        cout << "CFits::PolyFit: *P_I_A1_NotRejected = " << *P_I_A1_NotRejected << endl;
       }
       I_A1_OrigPos.resize(D_A1_X_In.size());
       I_A1_OrigPos = pfs::drp::stella::math::IndGenArr(D_A1_X_In.size());
       if (!pfs::drp::stella::math::removeSubArrayFromArray(I_A1_OrigPos, I_A1_NotRejected)){
         cout << "CFits::PolyFit: ERROR: Remove_SubArrayFromArray(" << I_A1_OrigPos << ", " << I_A1_NotRejected << ") returned FALSE" << endl;
-        string message("CFits::PolyFit: ERROR: Remove_SubArrayFromArray(I_A1_OrigPos, I_A1_NotRejected) returned FALSE");
-        throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
+        if (!B_HaveMeasureErrors)
+          delete(P_D_A1_MeasureErrors);
+        return false;
       }
       if (B_KeyWordSet_Rejected){
         P_I_A1_Rejected->resize(I_NRejected);
         (*P_I_A1_Rejected) = I_A1_Rejected(blitz::Range(0, I_NRejected-1));
-        #ifdef __DEBUG_POLYFIT__
-          cout << "CFits::PolyFit: *P_I_A1_Rejected = " << *P_I_A1_Rejected << endl;
-        #endif
+        cout << "CFits::PolyFit: *P_I_A1_Rejected = " << *P_I_A1_Rejected << endl;
       }
       else{
         delete(P_I_A1_Rejected);
@@ -1285,32 +1274,36 @@
       else{
         delete(P_I_NRejected);
       }
+      if (!B_HaveMeasureErrors)
+        delete(P_D_A1_MeasureErrors);
 
-      return D_A1_Coeffs_Out;
+      return true;
     }
 
     /** **********************************************************************/
 
-    blitz::Array<double, 1> PolyFit(const blitz::Array<double, 1> &D_A1_X_In,
-                                    const blitz::Array<double, 1> &D_A1_Y_In,
-                                    int I_Degree_In){
+    bool PolyFit(const blitz::Array<double, 1> &D_A1_X_In,
+                 const blitz::Array<double, 1> &D_A1_Y_In,
+                 int I_Degree_In,
+                 blitz::Array<double, 1>* P_D_A1_Out){
       #ifdef __DEBUG_POLYFIT__
         cout << "CFits::PolyFit: Starting " << endl;
       #endif
-        blitz::Array<double, 1> D_A1_Coeffs_Out(I_Degree_In + 1);
       blitz::Array<string, 1> S_A1_Args(1);
       S_A1_Args = " ";
       void **PP_Args = (void**)malloc(sizeof(void*));
-      D_A1_Coeffs_Out = pfs::drp::stella::math::PolyFit(D_A1_X_In, 
-                                                        D_A1_Y_In, 
-                                                        I_Degree_In, 
-                                                        S_A1_Args, 
-                                                        PP_Args);
+      if (!pfs::drp::stella::math::PolyFit(D_A1_X_In, D_A1_Y_In, I_Degree_In, S_A1_Args, PP_Args, P_D_A1_Out)){
+        cout << "CFits::PolyFit: ERROR: PolyFit(" << D_A1_X_In << ", " << D_A1_Y_In << ", " << I_Degree_In << "...) returned FALSE" << endl;
+        cout << "CFits::PolyFit: ERROR: PolyFit returned *P_D_A1_Out = " << *P_D_A1_Out << endl;
+        free(PP_Args);
+        return false;
+      }
       #ifdef __DEBUG_POLYFIT__
         cout << "CFits::PolyFit: PolyFit returned *P_D_A1_Out = " << *P_D_A1_Out << endl;
       #endif
+    //  free(*PP_Args);
       free(PP_Args);
-      return D_A1_Coeffs_Out;
+      return true;
     }
 
 
@@ -1326,11 +1319,12 @@
     LSIGMA=lsigma: lower sigma rejection threshold
     USIGMA=usigma:
     ;**/
-    blitz::Array<double, 1> PolyFit(const blitz::Array<double, 1> &D_A1_X_In,
-                                    const blitz::Array<double, 1> &D_A1_Y_In,
-                                    int I_Degree_In,
-                                    const blitz::Array<string, 1> &S_A1_Args_In,
-                                    void *ArgV[]){
+    bool PolyFit(const blitz::Array<double, 1> &D_A1_X_In,
+                 const blitz::Array<double, 1> &D_A1_Y_In,
+                 int I_Degree_In,
+                 const blitz::Array<string, 1> &S_A1_Args_In,
+                 void *ArgV[],
+                 blitz::Array<double, 1>* P_D_A1_Out){
 
       #ifdef __DEBUG_POLYFIT__
         cout << "CFits::PolyFit: Starting " << endl;
@@ -1339,8 +1333,10 @@
       #ifdef __DEBUG_POLYFIT__
         cout << "CFits::PolyFit: I_M set to " << I_M << endl;
       #endif
-      blitz::Array<double, 1> D_A1_Out(I_M);
-      D_A1_Out = 0.;
+      if (P_D_A1_Out == NULL)
+        P_D_A1_Out = new blitz::Array<double, 1>(1);
+      P_D_A1_Out->resize(I_M);
+      (*P_D_A1_Out) = 0.;
       int i,j,I_Pos;
 
       int I_N = D_A1_X_In.size();
@@ -1349,9 +1345,8 @@
       #endif
 
       if (I_N != static_cast<int>(D_A1_Y_In.size())){
-        string message("CFits::PolyFit: ERROR: X and Y must have same number of elements!");
-        cout << message << endl;
-        throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
+        cout << "CFits::PolyFit: ERROR: X and Y must have same number of elements!" << endl;
+        return false;
       }
 
       blitz::Array<double, 1> D_A1_SDev(D_A1_X_In.size());
@@ -1359,22 +1354,20 @@
       blitz::Array<double, 1> D_A1_SDevSquare(D_A1_X_In.size());
 
       bool B_HaveMeasureError = false;
-      blitz::Array<double, 1> D_A1_MeasureErrors(D_A1_X_In.size());
+      blitz::Array<double, 1> *P_D_A1_MeasureErrors = new blitz::Array<double, 1>(D_A1_X_In.size());
+      *P_D_A1_MeasureErrors = 1.;
       string sTemp = "MEASURE_ERRORS";
       if ((I_Pos = pfs::drp::stella::utils::KeyWord_Set(S_A1_Args_In, sTemp)) >= 0)
       {
         B_HaveMeasureError = true;
-        blitz::Array<double, 1> *P_D_A1_MeasureErrors = (blitz::Array<double, 1>*)ArgV[I_Pos];
-        D_A1_MeasureErrors = *P_D_A1_MeasureErrors;
+        delete(P_D_A1_MeasureErrors);
+        P_D_A1_MeasureErrors = (blitz::Array<double, 1>*)ArgV[I_Pos];
         #ifdef __DEBUG_POLYFIT__
           cout << "CFits::PolyFit: B_HaveMeasureError set to TRUE" << endl;
           cout << "CFits::PolyFit: *P_D_A1_MeasureErrors set to " << *P_D_A1_MeasureErrors << endl;
         #endif
       }
-      else{
-        D_A1_MeasureErrors = 1.;
-      }
-      D_A1_SDev = D_A1_MeasureErrors;
+      D_A1_SDev = (*P_D_A1_MeasureErrors);
       #ifdef __DEBUG_POLYFIT__
         cout << "CFits::PolyFit: D_A1_SDev set to " << D_A1_SDev << endl;
       #endif
@@ -1511,8 +1504,7 @@
       #endif
       if (!pfs::drp::stella::math::InvertGaussJ(*P_D_A2_Covar)){
         cout << "CFits::PolyFit: ERROR! InvertGaussJ(*P_D_A2_Covar=" << *P_D_A2_Covar << ") returned false!" << endl;
-        string message("CFits::PolyFit: ERROR! InvertGaussJ(*P_D_A2_Covar) returned false!");
-        throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
+        return false;
       }
       #ifdef __DEBUG_POLYFIT__
         cout << "CFits::PolyFit: InvertGaussJ: (*P_D_A2_Covar) set to " << (*P_D_A2_Covar) << endl;
@@ -1522,20 +1514,20 @@
         cout << "CFits::PolyFit: MatrixTimesVecArr: D_A1_B = " << D_A1_B.size() << ": " << D_A1_B << endl;
       #endif
       blitz::Array<double,1> *P_D_A1_TempA = MatrixTimesVecArr(*P_D_A2_Covar, D_A1_B);
-      D_A1_Out.resize(P_D_A1_TempA->size());
-      D_A1_Out = (*P_D_A1_TempA);
+      P_D_A1_Out->resize(P_D_A1_TempA->size());
+      (*P_D_A1_Out) = (*P_D_A1_TempA);
       delete(P_D_A1_TempA);
       #ifdef __DEBUG_POLYFIT__
-        cout << "CFits::PolyFit: MatrixTimesVecArr: P_D_A1_YFit->size() = " << P_D_A1_YFit->size() << ": D_A1_Out set to " << D_A1_Out << endl;
+        cout << "CFits::PolyFit: MatrixTimesVecArr: P_D_A1_YFit->size() = " << P_D_A1_YFit->size() << ": (*P_D_A1_Out) set to " << (*P_D_A1_Out) << endl;
       #endif
 
-      (*P_D_A1_YFit) = D_A1_Out(I_Degree_In);
+      (*P_D_A1_YFit) = (*P_D_A1_Out)(I_Degree_In);
       #ifdef __DEBUG_POLYFIT__
         cout << "CFits::PolyFit: InvertGaussJ: (*P_D_A1_YFit) set to " << (*P_D_A1_YFit) << endl;
       #endif
 
       for (int k=I_Degree_In-1; k >= 0; k--){
-        (*P_D_A1_YFit) = D_A1_Out(k) + (*P_D_A1_YFit) * D_A1_X_In;
+        (*P_D_A1_YFit) = (*P_D_A1_Out)(k) + (*P_D_A1_YFit) * D_A1_X_In;
         #ifdef __DEBUG_POLYFIT__
           cout << "CFits::PolyFit: for(k(=" << k << ")...): (*P_D_A1_YFit) set to " << (*P_D_A1_YFit) << endl;
         #endif
@@ -1576,7 +1568,7 @@
       #endif
       }
       #ifdef __DEBUG_POLYFIT__
-        cout << "CFits::PolyFit: returning D_A1_Out = " << D_A1_Out << endl;
+        cout << "CFits::PolyFit: returning *P_D_A1_Out = " << (*P_D_A1_Out) << endl;
       #endif
 
       sTemp = "YFIT";
@@ -1594,63 +1586,77 @@
       {
         delete(P_D_A2_Covar);
       }
-      return D_A1_Out;
+      if (!B_HaveMeasureError)
+        delete(P_D_A1_MeasureErrors);
+      return true;
     }
 
     /** **********************************************************************/
 
-    blitz::Array<double, 1> PolyFit(const blitz::Array<double, 1> &D_A1_X_In,
-                                    const blitz::Array<double, 1> &D_A1_Y_In,
-                                    unsigned int I_Degree_In,
-                                    double D_Reject_In){
+    bool PolyFit(const blitz::Array<double, 1> &D_A1_X_In,
+                 const blitz::Array<double, 1> &D_A1_Y_In,
+                 unsigned int I_Degree_In,
+                 double D_Reject_In,
+                 blitz::Array<double, 1>* P_D_A1_Out){
       #ifdef __DEBUG_POLYFIT__
         cout << "CFits::PolyFit: Starting " << endl;
       #endif
       blitz::Array<string, 1> S_A1_Args(1);
       S_A1_Args = " ";
       void **PP_Args = (void**)malloc(sizeof(void*) * 1);
-      blitz::Array<double, 1> D_A1_Out(I_Degree_In + 1);
-      D_A1_Out = pfs::drp::stella::math::PolyFit(D_A1_X_In,
-                                                 D_A1_Y_In,
-                                                 I_Degree_In,
-                                                 D_Reject_In,
-                                                 S_A1_Args,
-                                                 PP_Args);
+      if (!pfs::drp::stella::math::PolyFit(D_A1_X_In,
+                         D_A1_Y_In,
+                         I_Degree_In,
+                         D_Reject_In,
+                         S_A1_Args,
+                         PP_Args,
+                         P_D_A1_Out)){
+        cout << "CFits::PolyFit: ERROR: PolyFit(" << D_A1_X_In << ", " << D_A1_Y_In << ", " << I_Degree_In << "...) returned FALSE" << endl;
+        cout << "CFits::PolyFit: ERROR: PolyFit returned *P_D_A1_Out = " << *P_D_A1_Out << endl;
+        free(PP_Args);
+        return false;
+      }
       #ifdef __DEBUG_POLYFIT__
-        cout << "CFits::PolyFit: PolyFit returned D_A1_Out = " << D_A1_Out << endl;
+        cout << "CFits::PolyFit: PolyFit returned *P_D_A1_Out = " << *P_D_A1_Out << endl;
       #endif
       free(PP_Args);
-      return D_A1_Out;
+      return true;
     }
 
     /** **********************************************************************/
 
-    blitz::Array<double, 1> PolyFit(const blitz::Array<double, 1> &D_A1_X_In,
-                                    const blitz::Array<double, 1> &D_A1_Y_In,
-                                    unsigned int I_Degree_In,
-                                    double D_LReject_In,
-                                    double D_HReject_In,
-                                    unsigned int I_NIter){
+    bool PolyFit(const blitz::Array<double, 1> &D_A1_X_In,
+                 const blitz::Array<double, 1> &D_A1_Y_In,
+                 unsigned int I_Degree_In,
+                 double D_LReject_In,
+                 double D_HReject_In,
+                 unsigned int I_NIter,
+                 blitz::Array<double, 1>* P_D_A1_Out){
       #ifdef __DEBUG_POLYFIT__
         cout << "CFits::PolyFit: Starting " << endl;
       #endif
       blitz::Array<string, 1> S_A1_Args;
       S_A1_Args = " ";
       void **PP_Args = (void**)malloc(sizeof(void*) * 1);
-      blitz::Array<double, 1> D_A1_Out(I_Degree_In + 1);
-      D_A1_Out = pfs::drp::stella::math::PolyFit(D_A1_X_In,
-                                                 D_A1_Y_In,
-                                                 I_Degree_In,
-                                                 D_LReject_In,
-                                                 D_HReject_In,
-                                                 I_NIter,
-                                                 S_A1_Args,
-                                                 PP_Args);
+      if (!pfs::drp::stella::math::PolyFit(D_A1_X_In,
+                         D_A1_Y_In,
+                         I_Degree_In,
+                         D_LReject_In,
+                         D_HReject_In,
+                         I_NIter,
+                         S_A1_Args,
+                         PP_Args,
+                         P_D_A1_Out)){
+        cout << "CFits::PolyFit: ERROR: PolyFit(" << D_A1_X_In << ", " << D_A1_Y_In << ", " << I_Degree_In << "...) returned FALSE" << endl;
+        cout << "CFits::PolyFit: ERROR: PolyFit returned *P_D_A1_Out = " << *P_D_A1_Out << endl;
+        free(PP_Args);
+        return false;
+      }
       #ifdef __DEBUG_POLYFIT__
-        cout << "CFits::PolyFit: PolyFit returned D_A1_Out = " << D_A1_Out << endl;
+        cout << "CFits::PolyFit: PolyFit returned *P_D_A1_Out = " << *P_D_A1_Out << endl;
       #endif
       free(PP_Args);
-      return D_A1_Out;
+      return true;
     }
     
     template<typename T>
@@ -3200,6 +3206,7 @@
       return true;
     }
 
+
     /**
      *  function CountPixGTZero
      *  replaces input vector with vector of the same size where values are zero where the input vector is zero and all other values represent the number of non-zero values since the last zero value
@@ -3229,31 +3236,6 @@
     }
 
     template<typename T>
-    bool countPixGTZero(ndarray::Array<T, 1, 1> &vec_InOut){
-      int count = 0;
-      if (vec_InOut.getShape()[0] < 1)
-        return false;
-      int pos = 0;
-      for (auto i = vec_InOut.begin(); i != vec_InOut.end(); ++i){
-        #ifdef __DEBUG_COUNTPIXGTZERO__
-          cout << "CFits::countPixGTZero: pos = " << pos << ": vec_InOut(pos) = " << *i << endl;
-        #endif
-        if (*i <= T(0))
-          count = 0;
-        else
-          count++;
-        #ifdef __DEBUG_COUNTPIXGTZERO__
-          cout << "CFits::countPixGTZero: pos = " << pos << ": count set to " << count << endl;
-        #endif
-        *i = T(count);
-        #ifdef __DEBUG_COUNTPIXGTZERO__
-          cout << "CFits::countPixGTZero: pos = " << pos << ": vec_InOut(i) set to " << *i << endl;
-        #endif
-      }
-      return true;
-    }
-
-    template<typename T>
     int FirstIndexWithValueGEFrom(const blitz::Array<T, 1> &vec_In,
                                   const T minValue_In,
                                   const int fromIndex_In){
@@ -3267,24 +3249,6 @@
       }
       #ifdef __DEBUG_INDEX__
         cout << "CFits::FirstIndexWithValueGEFrom: not found => Returning -1" << endl;
-      #endif
-      return -1;
-    }
-
-    template<typename T>
-    int firstIndexWithValueGEFrom(ndarray::Array<T, 1, 1> const& vec_In, const T minValue_In, const int fromIndex_In){
-      if ((vec_In.getShape()[0] < 1) || (fromIndex_In >= int(vec_In.getShape()[0]))){
-        cout << "pfs::drp::stella::math::firstIndexWithValueGEFrom: Error: vec_In.getShape()[0] =" << vec_In.getShape()[0] << " < 1 or fromIndex_In >= vec_In.getShape()[0] => Returning -1" << endl;
-        return -1;
-      }
-      int pos = fromIndex_In;
-      for (auto i = vec_In.begin()+pos; i != vec_In.end(); ++i){
-        if (*i >= minValue_In)
-          return pos;
-        ++pos;
-      }
-      #ifdef __DEBUG_INDEX__
-        cout << "pfs::drp::stella::math::firstIndexWithValueGEFrom: not found => Returning -1" << endl;
       #endif
       return -1;
     }
@@ -3305,19 +3269,6 @@
       return -1;
     }
 
-    template<typename T>
-    int lastIndexWithZeroValueBefore(ndarray::Array<T, 1, 1> const& vec_In, const int startPos_In){
-      if ( ( startPos_In < 0 ) || ( startPos_In >= static_cast<int>(vec_In.size()) ) )
-        return -1;
-      int pos = startPos_In;
-      for (auto i = vec_In.begin() + startPos_In; i != vec_In.begin(); --i){
-        if (fabs(double(*i)) < 0.00000000000000001)
-          return pos;
-        --pos;
-      }
-      return -1;
-    }
-    
     /**
      *  function FirstIndexWithZeroValueFrom
      *  returns first index of integer input vector where value is equal to zero, starting at index I_StartPos
@@ -3329,7 +3280,7 @@
         return -1;
       for (int i=startPos_In; i < static_cast<int>(vec_In.size()); i++){
         #ifdef __DEBUG_FINDANDTRACE__
-          cout << "CFits::FirstIndexWithZeroValueFrom: i = " << i << endl;
+          cout << "CFits::FirstIndexWithZeroValueFrom: i = " << i << ":" << endl;
           cout << "CFits::FirstIndexWithZeroValueFrom: I_A1_VecIn(i) = " << vec_In(i) << endl;
         #endif
         if (fabs(T(vec_In(i))) < 0.00000000000000001)
@@ -3338,22 +3289,6 @@
       return -1;
     }
 
-    template<typename T>
-    int firstIndexWithZeroValueFrom(ndarray::Array<T, 1, 1> const& vec_In, const int startPos_In){
-      if (startPos_In < 0 || startPos_In >= vec_In.getShape()[0])
-        return -1;
-      int pos = startPos_In;
-      for (auto i = vec_In.begin() + pos; i != vec_In.end(); ++i){
-        #ifdef __DEBUG_FINDANDTRACE__
-          cout << "CFits::FirstIndexWithZeroValueFrom: pos = " << pos << endl;
-          cout << "CFits::FirstIndexWithZeroValueFrom: I_A1_VecIn(pos) = " << *i << endl;
-        #endif
-        if (fabs(*i) < 0.00000000000000001)
-          return pos;
-        ++pos;
-      }
-      return -1;
-    }
 
     /**
       Fit(blitz::Array<double, 1> y, const blitz::Array<double, 1> x, a1, a0);
@@ -5232,42 +5167,12 @@
     }
     
     template <typename T>
-    ndarray::Array<double, 2, 2> Double(ndarray::Array<T, 2, 2> const& arr_In){
-      ndarray::Array<double, 2, 2> arr_Out = ndarray::allocate(arr_In.getShape()[0], arr_In.getShape()[1]);
-      auto it_arr_Out = arr_Out.begin();
-      auto it_arr_In = arr_In.begin();
-      for (int i = 0; i < arr_In.getShape()[0]; ++i){
-        auto itJ_Out = (it_arr_Out + i)->begin();
-        auto itJ_In = (it_arr_In + i)->begin();
-        for (int j = 0; j < arr_In.getShape()[1]; ++j){
-          (*(itJ_Out + j)) = double((*(itJ_In + j)));
-        }
-      }
-      return arr_Out;
-    }
-    
-    template <typename T>
     ndarray::Array<float, 1, 1> Float(ndarray::Array<T, 1, 1> const& arr_In){
       ndarray::Array<float, 1, 1> arr_Out = ndarray::allocate(arr_In.getShape()[0]);
       auto it_arr_Out = arr_Out.begin();
       auto it_arr_In = arr_In.begin();
       for (int i = 0; i < arr_In.getShape()[0]; ++i)
         (*(it_arr_Out + i)) = float((*(it_arr_In + i)));
-      return arr_Out;
-    }
-    
-    template <typename T>
-    ndarray::Array<float, 2, 2> Float(ndarray::Array<T, 2, 2> const& arr_In){
-      ndarray::Array<float, 2, 2> arr_Out = ndarray::allocate(arr_In.getShape()[0], arr_In.getShape()[1]);
-      auto it_arr_Out = arr_Out.begin();
-      auto it_arr_In = arr_In.begin();
-      for (int i = 0; i < arr_In.getShape()[0]; ++i){
-        auto itJ_Out = (it_arr_Out + i)->begin();
-        auto itJ_In = (it_arr_In + i)->begin();
-        for (int j = 0; j < arr_In.getShape()[1]; ++j){
-          (*(itJ_Out + j)) = float((*(itJ_In + j)));
-        }
-      }
       return arr_Out;
     }
     
@@ -5280,69 +5185,6 @@
   //      (*(it_arr_Out + i)) = int((*(it_arr_In + i)));
   //    return arr_Out;
   //  }
-    
-    template<typename T>
-    ndarray::Array<T, 1, 1> indGenNdArr(T const size){
-      ndarray::Array<T, 1, 1> outArr = ndarray::allocate(int(size));
-      T ind = 0;
-      for (auto it = outArr.begin(); it != outArr.end(); ++it){
-        *it = ind;
-        ++ind;
-      }
-      #ifdef __DEBUG_INDGEN__
-        cout << "indGen: outArr = " << outArr.getShape() << ": " << outArr << endl;
-      #endif
-      return outArr;
-    }
-
-    template<typename T>
-    ndarray::Array<T, 1, 1> replicate(T const val, int const size){
-      ndarray::Array<T, 1, 1> out = ndarray::allocate(size);
-      for (auto it = out.begin(); it != out.end(); ++it)
-        *it = val;
-      return out;
-    }
-        
-    template<typename T>
-    ndarray::Array<T, 2, 2> calcPosRelativeToCenter(ndarray::Array<T, 2, 2> const& swath_In, ndarray::Array<T, 1, 1> const& xCenters_In){
-      ndarray::Array<T, 1, 1> indPos = pfs::drp::stella::math::indGenNdArr(swath_In.getShape()[1]);
-      ndarray::Array<T, 1, 1> ones = replicate(float(1.), swath_In.getShape()[0]);
-      #ifdef __DEBUG_CALCPOSRELATIVETOCENTER__
-        cout << "calcPosRelativeToCenter: indPos = " << indPos << endl;
-        cout << "calcPosRelativeToCenter: ones = " << ones << endl;
-      #endif
-      ndarray::EigenView<T, 1, 1> indPosEigen = indPos.asEigen();
-      ndarray::EigenView<T, 1, 1> onesEigen = ones.asEigen();
-      #ifdef __DEBUG_CALCPOSRELATIVETOCENTER__
-        cout << "calcPosRelativeToCenter: indPosEigen = " << indPosEigen << endl;
-        cout << "calcPosRelativeToCenter: onesEigen = " << onesEigen << endl;
-      #endif
-      Eigen::Matrix<T, swath_In.getShape()[0], swath_In.getShape()[1]> indMat = indPosEigen * onesEigen;
-      #ifdef __DEBUG_CALCPOSRELATIVETOCENTER__
-        cout << "calcPosRelativeToCenter: indMat = " << indMat << endl;
-      #endif
-      
-      ndarray::Array<T, 2, 2> outArr = ndarray::copy(indMat);
-      #ifdef __DEBUG_CALCPOSRELATIVETOCENTER__
-        cout << "calcPosRelativeToCenter: outArr = " << outArr << endl;
-      #endif
-
-      return outArr;
-    }
-    
-    template ndarray::Array<size_t, 1, 1> replicate(size_t const val, int const size);
-    template ndarray::Array<unsigned short, 1, 1> replicate(unsigned short const val, int const size);
-    template ndarray::Array<int, 1, 1> replicate(int const val, int const size);
-    template ndarray::Array<long, 1, 1> replicate(long const val, int const size);
-    template ndarray::Array<float, 1, 1> replicate(float const val, int const size);
-    template ndarray::Array<double, 1, 1> replicate(double const val, int const size);
-
-    template ndarray::Array<size_t, 1, 1> indGenNdArr(size_t const);
-    template ndarray::Array<unsigned short, 1, 1> indGenNdArr(unsigned short const);
-    template ndarray::Array<int, 1, 1> indGenNdArr(int const);
-    template ndarray::Array<long, 1, 1> indGenNdArr(long const);
-    template ndarray::Array<float, 1, 1> indGenNdArr(float const);
-    template ndarray::Array<double, 1, 1> indGenNdArr(double const);
 
     template ndarray::Array<double, 1, 1> Double(ndarray::Array<size_t, 1, 1> const&);
     template ndarray::Array<double, 1, 1> Double(ndarray::Array<unsigned short, 1, 1> const&);
@@ -5358,21 +5200,6 @@
     template ndarray::Array<float, 1, 1> Float(ndarray::Array<long, 1, 1> const&);
     template ndarray::Array<float, 1, 1> Float(ndarray::Array<float, 1, 1> const&);
     template ndarray::Array<float, 1, 1> Float(ndarray::Array<double, 1, 1> const&);
-
-    template ndarray::Array<double, 2, 2> Double(ndarray::Array<size_t, 2, 2> const&);
-    template ndarray::Array<double, 2, 2> Double(ndarray::Array<unsigned short, 2, 2> const&);
-    template ndarray::Array<double, 2, 2> Double(ndarray::Array<int, 2, 2> const&);
-    template ndarray::Array<double, 2, 2> Double(ndarray::Array<long, 2, 2> const&);
-    template ndarray::Array<double, 2, 2> Double(ndarray::Array<float, 2, 2> const&);
-    template ndarray::Array<double, 2, 2> Double(ndarray::Array<float const, 2, 2> const&);
-    template ndarray::Array<double, 2, 2> Double(ndarray::Array<double, 2, 2> const&);
-
-    template ndarray::Array<float, 2, 2> Float(ndarray::Array<size_t, 2, 2> const&);
-    template ndarray::Array<float, 2, 2> Float(ndarray::Array<unsigned short, 2, 2> const&);
-    template ndarray::Array<float, 2, 2> Float(ndarray::Array<int, 2, 2> const&);
-    template ndarray::Array<float, 2, 2> Float(ndarray::Array<long, 2, 2> const&);
-    template ndarray::Array<float, 2, 2> Float(ndarray::Array<float, 2, 2> const&);
-    template ndarray::Array<float, 2, 2> Float(ndarray::Array<double, 2, 2> const&);
 
 //    template ndarray::Array<int, 1, 1> Int(ndarray::Array<size_t, 1, 1> const&);
 //    template ndarray::Array<int, 1, 1> Int(ndarray::Array<unsigned short, 1, 1> const&);
@@ -5431,19 +5258,6 @@
     template ndarray::Array<float, 1, 1> Poly(ndarray::Array<float, 1, 1> const&, ndarray::Array<double, 1, 1> const&);
     template ndarray::Array<double, 1, 1> Poly(ndarray::Array<double, 1, 1> const&, ndarray::Array<float, 1, 1> const&);
     template ndarray::Array<double, 1, 1> Poly(ndarray::Array<double, 1, 1> const&, ndarray::Array<double, 1, 1> const&);
-  
-    template int firstIndexWithZeroValueFrom(ndarray::Array<unsigned short, 1, 1> const& vec_In,
-                                             const int startPos_In);
-    template int firstIndexWithZeroValueFrom(ndarray::Array<unsigned int, 1, 1> const& vec_In,
-                                             const int startPos_In);
-    template int firstIndexWithZeroValueFrom(ndarray::Array<int, 1, 1> const& vec_In,
-                                             const int startPos_In);
-    template int firstIndexWithZeroValueFrom(ndarray::Array<long, 1, 1> const& vec_In,
-                                             const int startPos_In);
-    template int firstIndexWithZeroValueFrom(ndarray::Array<float, 1, 1> const& vec_In,
-                                             const int startPos_In);
-    template int firstIndexWithZeroValueFrom(ndarray::Array<double, 1, 1> const& vec_In,
-                                             const int startPos_In);
 
   }/// end namespace math
 
@@ -5658,13 +5472,6 @@
   template bool math::CountPixGTZero(blitz::Array<float, 1> &vec_InOut);
   template bool math::CountPixGTZero(blitz::Array<double, 1> &vec_InOut);
   
-  template bool math::countPixGTZero(ndarray::Array<unsigned short, 1, 1> &vec_InOut);
-  template bool math::countPixGTZero(ndarray::Array<unsigned int, 1, 1> &vec_InOut);
-  template bool math::countPixGTZero(ndarray::Array<int, 1, 1> &vec_InOut);
-  template bool math::countPixGTZero(ndarray::Array<long, 1, 1> &vec_InOut);
-  template bool math::countPixGTZero(ndarray::Array<float, 1, 1> &vec_InOut);
-  template bool math::countPixGTZero(ndarray::Array<double, 1, 1> &vec_InOut);
-  
   template int math::FirstIndexWithValueGEFrom(const blitz::Array<unsigned short, 1> &vecIn,
                                                const unsigned short minValue,
                                                const int fromIndex);
@@ -5684,25 +5491,6 @@
                                                const double minValue,
                                                const int fromIndex);
   
-  template int math::firstIndexWithValueGEFrom(ndarray::Array<unsigned short, 1, 1> const& vecIn,
-                                               const unsigned short minValue,
-                                               const int fromIndex);
-  template int math::firstIndexWithValueGEFrom(ndarray::Array<unsigned int, 1, 1> const& vecIn,
-                                               const unsigned int minValue,
-                                               const int fromIndex);
-  template int math::firstIndexWithValueGEFrom(ndarray::Array<int, 1, 1> const& vecIn,
-                                               const int minValue,
-                                               const int fromIndex);
-  template int math::firstIndexWithValueGEFrom(ndarray::Array<long, 1, 1> const& vecIn,
-                                               const long minValue,
-                                               const int fromIndex);
-  template int math::firstIndexWithValueGEFrom(ndarray::Array<float, 1, 1> const& vecIn,
-                                               const float minValue,
-                                               const int fromIndex);
-  template int math::firstIndexWithValueGEFrom(ndarray::Array<double, 1, 1> const& vecIn,
-                                               const double minValue,
-                                               const int fromIndex);
-  
   template int math::LastIndexWithZeroValueBefore(const blitz::Array<unsigned short, 1> &vec_In,
                                                   const int startPos_In);
   template int math::LastIndexWithZeroValueBefore(const blitz::Array<unsigned int, 1> &vec_In,
@@ -5714,19 +5502,6 @@
   template int math::LastIndexWithZeroValueBefore(const blitz::Array<float, 1> &vec_In,
                                                   const int startPos_In);
   template int math::LastIndexWithZeroValueBefore(const blitz::Array<double, 1> &vec_In,
-                                                  const int startPos_In);
-  
-  template int math::lastIndexWithZeroValueBefore(ndarray::Array<unsigned short, 1, 1> const& vec_In,
-                                                  const int startPos_In);
-  template int math::lastIndexWithZeroValueBefore(ndarray::Array<unsigned int, 1, 1> const& vec_In,
-                                                  const int startPos_In);
-  template int math::lastIndexWithZeroValueBefore(ndarray::Array<int, 1, 1> const& vec_In,
-                                                  const int startPos_In);
-  template int math::lastIndexWithZeroValueBefore(ndarray::Array<long, 1, 1> const& vec_In,
-                                                  const int startPos_In);
-  template int math::lastIndexWithZeroValueBefore(ndarray::Array<float, 1, 1> const& vec_In,
-                                                  const int startPos_In);
-  template int math::lastIndexWithZeroValueBefore(ndarray::Array<double, 1, 1> const& vec_In,
                                                   const int startPos_In);
   
   template int math::FirstIndexWithZeroValueFrom(const blitz::Array<unsigned short, 1> &vec_In,
