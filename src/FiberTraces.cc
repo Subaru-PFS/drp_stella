@@ -18,13 +18,7 @@ namespace pfsDRPStella = pfs::drp::stella;
   _isProfileSet(false),
   _isFiberTraceProfileFittingControlSet(false),
   _fiberTraceFunction(new pfsDRPStella::FiberTraceFunction),
-  _fiberTraceProfileFittingControl(new FiberTraceProfileFittingControl),
-  _overSampledProfileFitXPerSwath(),
-  _overSampledProfileFitYPerSwath(),
-  _profileFittingInputXPerSwath(),
-  _profileFittingInputYPerSwath(),
-  _profileFittingInputXMeanPerSwath(),
-  _profileFittingInputYMeanPerSwath()
+  _fiberTraceProfileFittingControl(new FiberTraceProfileFittingControl)
   {
     
   }
@@ -42,13 +36,7 @@ namespace pfsDRPStella = pfs::drp::stella;
   _isProfileSet(false),
   _isFiberTraceProfileFittingControlSet(false),
   _fiberTraceFunction(fiberTraceFunction),
-  _fiberTraceProfileFittingControl(new FiberTraceProfileFittingControl),
-  _overSampledProfileFitXPerSwath(),
-  _overSampledProfileFitYPerSwath(),
-  _profileFittingInputXPerSwath(),
-  _profileFittingInputYPerSwath(),
-  _profileFittingInputXMeanPerSwath(),
-  _profileFittingInputYMeanPerSwath()
+  _fiberTraceProfileFittingControl(new FiberTraceProfileFittingControl)
   {
     createTrace(maskedImage);
   }
@@ -63,13 +51,7 @@ namespace pfsDRPStella = pfs::drp::stella;
   _isProfileSet(fiberTrace.isProfileSet()),
   _isFiberTraceProfileFittingControlSet(fiberTrace.isFiberTraceProfileFittingControlSet()),
   _fiberTraceFunction(fiberTrace.getFiberTraceFunction()),
-  _fiberTraceProfileFittingControl(fiberTrace.getFiberTraceProfileFittingControl()),
-  _overSampledProfileFitXPerSwath(),
-  _overSampledProfileFitYPerSwath(),
-  _profileFittingInputXPerSwath(),
-  _profileFittingInputYPerSwath(),
-  _profileFittingInputXMeanPerSwath(),
-  _profileFittingInputYMeanPerSwath()
+  _fiberTraceProfileFittingControl(fiberTrace.getFiberTraceProfileFittingControl())
   {
     if (deep){
       PTR(afwImage::MaskedImage<ImageT, MaskT, VarianceT>) ptr(new afwImage::MaskedImage<ImageT, MaskT, VarianceT>(*(fiberTrace.getTrace()), true));
@@ -6433,12 +6415,6 @@ namespace pfsDRPStella = pfs::drp::stella;
     #ifdef __DEBUG_CALCPROFILE__
       cout << "FiberTrace" << _iTrace << "::calcProfile: shapeSFsSwaths = (" << shapeSFsSwaths[0] << ", " << shapeSFsSwaths[1] << ", " << shapeSFsSwaths[2] << ")" << endl;
     #endif
-    _overSampledProfileFitXPerSwath.resize(0);
-    _overSampledProfileFitYPerSwath.resize(0);
-    _profileFittingInputXPerSwath.resize(0);
-    _profileFittingInputYPerSwath.resize(0);
-    _profileFittingInputXMeanPerSwath.resize(0);
-    _profileFittingInputYMeanPerSwath.resize(0);
     for (unsigned int iSwath = 0; iSwath < nSwaths; ++iSwath){
       int iMin = int(swathBoundsY[iSwath][0]);
       int iMax = int(swathBoundsY[iSwath][1] + 1);
@@ -6586,7 +6562,7 @@ namespace pfsDRPStella = pfs::drp::stella;
                                                                                                    ndarray::Array<MaskT const, 2, 2> const& maskSwath,
                                                                                                    ndarray::Array<VarianceT const, 2, 2> const& varianceSwath,
                                                                                                    ndarray::Array<float const, 1, 1> const& xCentersSwath,
-                                                                                                   size_t const iSwath){
+                                                                                                   size_t const iSwath) const{
     
     /// Normalize rows in imageSwath
     ndarray::Array<ImageT, 2, 2> imageSwathNormalized = ndarray::allocate(imageSwath.getShape()[0], imageSwath.getShape()[1]);
@@ -6599,12 +6575,22 @@ namespace pfsDRPStella = pfs::drp::stella;
     #endif  
     
     /// Check shapes of input arrays
-    assert(imageSwath.getShape()[0] == maskSwath.getShape()[0]);
-    assert(imageSwath.getShape()[0] == varianceSwath.getShape()[0]); 
-    assert(imageSwath.getShape()[0] == xCentersSwath.getShape()[0]);
-    assert(imageSwath.getShape()[1] == maskSwath.getShape()[1]);
-    assert(imageSwath.getShape()[1] == varianceSwath.getShape()[1]);
-    assert(imageSwath.getShape()[1] == xCentersSwath.getShape()[1]);
+    if ((imageSwath.getShape()[0] != maskSwath.getShape()[0]) 
+     || (imageSwath.getShape()[0] != varianceSwath.getShape()[0]) 
+     || (imageSwath.getShape()[0] != xCentersSwath.getShape()[0])){
+      string message("FiberTrace::calcProfileSwath: iSwath = ");
+      message += to_string(iSwath) + ": ERROR: input arrays do not have the same shape[0]";
+      cout << message << endl;
+      throw LSST_EXCEPT(pexExcept::Exception, message.c_str());    
+    }
+    if ((imageSwath.getShape()[1] != maskSwath.getShape()[1]) 
+     || (imageSwath.getShape()[1] != varianceSwath.getShape()[1]) 
+     || (imageSwath.getShape()[1] != xCentersSwath.getShape()[1])){
+      string message("FiberTrace::calcProfileSwath: iSwath = ");
+      message += to_string(iSwath) + ": ERROR: input arrays do not have the same shape[1]";
+      cout << message << endl;
+      throw LSST_EXCEPT(pexExcept::Exception, message.c_str());    
+    }
  
     /// Calculate pixel offset to xCenter
     const ndarray::Array<size_t const, 1, 1> xCentersInt = math::floor(xCentersSwath, size_t(0));
@@ -6632,20 +6618,6 @@ namespace pfsDRPStella = pfs::drp::stella;
       }
       ++itOffset;
     }
-    PTR(vector<float>) xVecPtr(new vector<float>());
-    xVecPtr->reserve(xArray.getShape()[0] * xArray.getShape()[1]);
-    PTR(vector<float>) yVecPtr(new vector<float>());
-    yVecPtr->reserve(xArray.getShape()[0] * xArray.getShape()[1]);
-    auto itRowIm = imageSwath.begin();
-    for (auto itRow = xArray.begin(); itRow != xArray.end(); ++itRow, ++itRowIm){
-      auto itColIm = itRowIm->begin();
-      for (auto itCol = itRow->begin(); itCol != itRow->end(); ++itCol, ++itColIm){
-        xVecPtr->push_back(*itCol);
-        yVecPtr->push_back(float(*itColIm));
-      }
-    }
-    _overSampledProfileFitXPerSwath.push_back(xVecPtr);
-    _overSampledProfileFitYPerSwath.push_back(yVecPtr);
     #ifdef __DEBUG_CALCPROFILESWATH__
       cout << "FiberTrace::calcProfileSwath: iSwath = " << iSwath << ": xArray = " << xArray << endl;
       cout << "FiberTrace::calcProfileSwath: iSwath = " << iSwath << ": xMin = " << xMin << ", xMax = " << xMax << endl;
@@ -6671,8 +6643,6 @@ namespace pfsDRPStella = pfs::drp::stella;
     #ifdef __DEBUG_CALCPROFILESWATH__
       cout << "FiberTrace::calcProfileSwath: iSwath = " << iSwath << ": xOverSampled = " << xOverSampled << endl;
     #endif
-    PTR(vector<float>) xOverSampledFitVec(new vector<float>(xOverSampled.begin(), xOverSampled.end()));
-    _overSampledProfileFitXPerSwath.push_back(xOverSampledFitVec);
     
     /// calculate oversampled profile values
     iStep = 0;
@@ -6744,33 +6714,26 @@ namespace pfsDRPStella = pfs::drp::stella;
         cout << "FiberTrace::calcProfileSwath: iSwath = " << iSwath << ": (x)valOverSampled[" << iRow << "] = (" << xValOverSampled[iRow] << "," << valOverSampled[iRow] << ")" << endl;
       #endif
     }
-    PTR(std::vector<float>) xVecMean(new vector<float>(xValOverSampled.begin(), xValOverSampled.end()));
-    std::vector<ImageT> yVecMean(valOverSampled.begin(), valOverSampled.end());
+    std::vector<float> xVecSorted(xValOverSampled.begin(), xValOverSampled.end());
+    std::vector<ImageT> yVecSorted(valOverSampled.begin(), valOverSampled.end());
     
-    PTR(std::vector<float>) yVecMeanF(new vector<float>(yVecMean.size()));
-    auto itF = yVecMeanF->begin();
-    for (auto itT = yVecMean.begin(); itT != yVecMean.end(); ++itT, ++itF){
+    std::vector<float> yVecSortedF(yVecSorted.size());
+    auto itF = yVecSortedF.begin();
+    for (auto itT = yVecSorted.begin(); itT != yVecSorted.end(); ++itT, ++itF){
       *itF = float(*itT);
     }
-    _profileFittingInputXMeanPerSwath.push_back(xVecMean);
-    _profileFittingInputYMeanPerSwath.push_back(yVecMeanF);
     
     math::spline<float> spline;
-    spline.set_points(*xVecMean, *yVecMeanF);    // currently it is required that X is already sorted
+    spline.set_points(xVecSorted, yVecSortedF);    // currently it is required that X is already sorted
 
-    PTR(vector<float>) yOverSampledFitVec(new vector<float>(nSteps));
-    _overSampledProfileFitXPerSwath.push_back(xOverSampledFitVec);
-    for (auto itX = xOverSampledFitVec->begin(), itY = yOverSampledFitVec->begin(); itX != xOverSampledFitVec->end(); ++itX, ++itY)
-      *itY = spline(*itX);
-    
     /// calculate profile for each row in imageSwath
     ndarray::Array<float, 2, 2> profArraySwath = ndarray::allocate(imageSwath.getShape()[0], imageSwath.getShape()[1]);
     for (int iRow = 0; iRow < imageSwath.getShape()[0]; ++iRow){
       for (int iCol = 0; iCol < imageSwath.getShape()[1]; ++iCol){
-        if (xArray[iRow][iCol] < (*xVecMean)[0])
-          profArraySwath[iRow][iCol] = (*yVecMeanF)[0];
-        else if (xArray[iRow][iCol] > (*xVecMean)[xVecMean->size() - 1])
-          profArraySwath[iRow][iCol] = (*yVecMeanF)[yVecMeanF->size() - 1];
+        if (xArray[iRow][iCol] < xVecSorted[0])
+          profArraySwath[iRow][iCol] = yVecSorted[0];
+        else if (xArray[iRow][iCol] > xVecSorted[xVecSorted.size() - 1])
+          profArraySwath[iRow][iCol] = yVecSorted[yVecSorted.size() - 1];
         else
           profArraySwath[iRow][iCol] = spline(xArray[iRow][iCol]);
         if (profArraySwath[iRow][iCol] < 0.)
