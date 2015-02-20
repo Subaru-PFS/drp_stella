@@ -277,7 +277,7 @@ class FiberTrace {
                    const blitz::Array<double, 1> &profileXValuesAllRows_In,/// i + 0.5 + (1. / (2. * overSample))
                    blitz::Array<double, 2> &profilePerRow_Out);/// output 2D profile image
 
-    ndarray::Array<int, 2, 1> calculateBinBoundY(int swathWidth_In) const;
+    ndarray::Array<size_t, 2, 2> calcSwathBoundY(const size_t swathWidth_In) const;
     
     void setITrace(const size_t iTrace){_iTrace = iTrace;}
     size_t getITrace() const {return _iTrace;}
@@ -365,7 +365,7 @@ class FiberTraceSet {
     PTR(std::vector<PTR(FiberTrace<ImageT, MaskT, VarianceT>)>) getTraces() const { return _traces; }
 //    PTR(const std::vector<PTR(FiberTrace<ImageT, MaskT, VarianceT>)>) getTraces() const { return _traces; }
 
-    bool setFiberTraceProfileFittingControl(const PTR(FiberTraceProfileFittingControl) const& fiberTraceProfileFittingControl);
+    bool setFiberTraceProfileFittingControl(PTR(FiberTraceProfileFittingControl) const& fiberTraceProfileFittingControl);
 
     /// set profiles of all traces in this FiberTraceSet to respective FiberTraces in input set
     /// NOTE: the FiberTraces should be sorted by their xCenters before performing this operation!

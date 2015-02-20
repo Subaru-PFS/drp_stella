@@ -196,6 +196,10 @@ namespace pfs { namespace drp { namespace stella {
     **/
     blitz::Array<double, 1> Poly(const blitz::Array<double, 1> &D_A1_X_In,
                                  const blitz::Array<double, 1> &D_A1_Coeffs_In);
+    
+    template<typename T, typename U>
+    ndarray::Array<T, 1, 1> Poly(ndarray::Array<T, 1, 1> const& x_In,
+                                 ndarray::Array<U, 1, 1> const& coeffs_In);
 
     double Poly(const double D_X_In,
                 const blitz::Array<double, 1> &D_A1_Coeffs_In);
@@ -340,7 +344,7 @@ namespace pfs { namespace drp { namespace stella {
     int Int(T D_In);
 
     /**
-     *      Fix(blitz::Array<double, 1> &VecArr)
+     *      Int(blitz::Array<double, 1> &VecArr)
      *      Returns an Array of the same size containing the Int integer values of VecArr.
      **/
     template <typename T>

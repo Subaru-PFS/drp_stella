@@ -353,7 +353,6 @@
       #ifdef __DEBUG_POLY__
         cout << "Poly: xVec = " << xVec << endl;
         cout << "Poly: coeffsVec = " << coeffsVec << endl;
-        cout << "Poly: D_A1_Out set to " << D_A1_Out << endl;
       #endif
       int I_PolynomialOrder = coeffsVec.size() - 1;
       #ifdef __DEBUG_POLY__
@@ -379,6 +378,45 @@
       return D_A1_Out;
     }
 
+    template<typename T, typename U>
+    ndarray::Array<T, 1, 1> Poly(ndarray::Array<T, 1, 1> const& x_In,
+                                 ndarray::Array<U, 1, 1> const& coeffs_In){
+      int ii = 0;
+      ndarray::Array<T, 1, 1> arr_Out = ndarray::allocate(int(x_In.size()));
+      #ifdef __DEBUG_POLY__
+        cout << "Poly: x_In = " << x_In << endl;
+        cout << "Poly: coeffs_In = " << coeffs_In << endl;
+        cout << "Poly: arr_Out set to " << arr_Out << endl;
+      #endif
+      int I_PolynomialOrder = coeffs_In.size() - 1;
+      #ifdef __DEBUG_POLY__
+        cout << "Poly: I_PolynomialOrder set to " << I_PolynomialOrder << endl;
+      #endif
+      if (I_PolynomialOrder == 0){
+        arr_Out[ndarray::view()] = coeffs_In(0);
+        #ifdef __DEBUG_POLY__
+          cout << "Poly: I_PolynomialOrder == 0: arr_Out set to " << arr_Out << endl;
+        #endif
+        return arr_Out;
+      }
+      arr_Out[ndarray::view()] = coeffs_In(I_PolynomialOrder);
+      #ifdef __DEBUG_POLY__
+        cout << "Poly: I_PolynomialOrder != 0: arr_Out set to " << arr_Out << endl;
+      #endif
+
+      auto arr_Out_begin = arr_Out.begin();
+      auto x_In_begin = x_In.begin();
+      auto coeffs_In_begin = coeffs_In.begin();
+      for (ii = I_PolynomialOrder-1; ii >= 0; ii--){
+        for (int i = 0; i < arr_Out.getShape()[0]; ++i)
+          *(arr_Out_begin + i) = (*(arr_Out_begin + i)) * (*(x_In_begin + i)) + (*(coeffs_In_begin + ii));
+        #ifdef __DEBUG_POLY__
+          cout << "Poly: I_PolynomialOrder != 0: for (ii = " << ii << "; ii >= 0; ii--) arr_Out set to " << arr_Out << endl;
+        #endif
+      }
+      return arr_Out;
+    }
+    
     double Poly(const double D_X_In,
                 const blitz::Array<double, 1> &D_A1_Coeffs){
       blitz::Array<double, 1> D_A1_X(1);
@@ -2109,15 +2147,6 @@
       free(PP_Args);
       return D_A1_Out;
     }
-    
-    template<typename T>
-    std::vector<T> indGen(T len){
-      std::vector<T> vecOut;
-      for (T i = 0; i < len; ++i)
-        vecOut.push_back(i);
-      return vecOut;
-    }
-
 
     template< typename T>
     ndarray::Array<double, 1, 1> PolyFit(ndarray::Array<T, 1, 1> const& D_A1_X_In,
@@ -2154,6 +2183,7 @@
         vecOut.push_back(i);
       return vecOut;
     }
+
 
     blitz::Array<int, 1> IndGenArr(int len){
       blitz::Array<int, 1> I_A1_Result(len);
@@ -7703,6 +7733,7 @@
 
   }/// end namespace math
 
+  
   template int math::Fix(unsigned short);
   template int math::Fix(unsigned int);
   template int math::Fix(int);
@@ -8208,5 +8239,6 @@
 
   template float math::GSER(float & D_Gamser_In, float const a, float const x);
   template double math::GSER(double & D_Gamser_In, double const a, double const x);
+
 
 }}}

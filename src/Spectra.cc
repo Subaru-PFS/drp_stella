@@ -121,18 +121,6 @@ pfsDRPStella::SpectrumSet<SpectrumT, MaskT, VarianceT, WavelengthT>::SpectrumSet
     (*_spectra)[i]->setITrace(i);
   }
 }
-
-///SpectrumSet
-template<typename SpectrumT, typename MaskT, typename VarianceT, typename WavelengthT>
-pfsDRPStella::SpectrumSet<SpectrumT, MaskT, VarianceT, WavelengthT>::SpectrumSet(size_t nSpectra, size_t length)
-        : _spectra(new std::vector<PTR(pfsDRPStella::Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>)>())
-{
-  for (size_t i = 0; i < nSpectra; ++i){
-    PTR(pfsDRPStella::Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>) spec(new pfsDRPStella::Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>(length));
-    _spectra->push_back(spec);
-    (*_spectra)[i]->setITrace(i);
-  }
-}
     
 template<typename SpectrumT, typename MaskT, typename VarianceT, typename WavelengthT>
 pfsDRPStella::SpectrumSet<SpectrumT, MaskT, VarianceT, WavelengthT>::SpectrumSet(const PTR(std::vector<PTR(Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>)>) &spectrumVector)
