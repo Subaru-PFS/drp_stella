@@ -1071,23 +1071,6 @@
                                      ArgV);
     }
 
-    template<typename T>
-    ndarray::Array<double, 1, 1> PolyFit(ndarray::Array<T, 1, 1> const& D_A1_X_In,
-                                         ndarray::Array<T, 1, 1> const& D_A1_Y_In,
-                                         size_t const I_Degree_In,
-                                         T const D_Reject_In,
-                                         std::vector<string> const& S_A1_Args_In,
-                                         std::vector<void *> & ArgV){
-      return pfs::drp::stella::math::PolyFit(D_A1_X_In,
-                                             D_A1_Y_In,
-                                             I_Degree_In,
-                                             D_Reject_In,
-                                             D_Reject_In,
-                                             -1,
-                                             S_A1_Args_In,
-                                             ArgV);
-    }
-
     blitz::Array<double, 1> PolyFit(const blitz::Array<double, 1> &D_A1_X_In,
                                     const blitz::Array<double, 1> &D_A1_Y_In,
                                     unsigned int I_Degree_In,
@@ -1305,198 +1288,6 @@
 
       return D_A1_Coeffs_Out;
     }
-    
-    template< typename T >
-    ndarray::Array<double, 1, 1> PolyFit(ndarray::Array<T, 1, 1> const& D_A1_X_In,
-                                    ndarray::Array<T, 1, 1> const& D_A1_Y_In,
-                                    size_t const I_Degree_In,
-                                    T const D_LReject_In,
-                                    T const D_UReject_In,
-                                    size_t const I_NIter,
-                                    std::vector<string> const& S_A1_Args_In,
-                                    std::vector<void *> &ArgV){
-
-      #ifdef __DEBUG_POLYFIT__
-        cout << "CFits::PolyFit: Starting " << endl;
-      #endif
-      assert(D_A1_X_In.getShape()[0] == D_A1_Y_In.getShape()[0]);
-
-      int I_NReject = 0;
-      std::vector<T> D_A1_X(D_A1_X_In.begin(), D_A1_X_In.end());
-      std::vector<T> D_A1_Y(D_A1_Y_In.begin(), D_A1_Y_In.end());
-      std::vector<T> D_A1_X_New(D_A1_X.size());
-      std::vector<T> D_A1_Y_New(D_A1_Y.size());
-      std::vector<T> D_A1_MeasureErrors(D_A1_X.size());
-      std::vector<T> D_A1_MeasureErrors_New(D_A1_X.size());
-      int I_DataValues_New = 0;
-      int I_NRejected = 0;
-      bool B_HaveMeasureErrors = false;
-      ndarray::Array<double, 1, 1> D_A1_Coeffs_Out = ndarray::allocate(I_Degree_In + 1);
-      ndarray::Array<T, 1, 1> measureErrors = ndarray::allocate(D_A1_X_In.getShape()[0]);
-      PTR(ndarray::Array<T, 1, 1>) P_D_A1_MeasureErrors(new ndarray::Array<T, 1, 1>(measureErrors));
-
-      int I_Pos = -1;
-      I_Pos = pfs::drp::stella::utils::KeyWord_Set(S_A1_Args_In, "MEASURE_ERRORS");
-      if (I_Pos >= 0){
-        P_D_A1_MeasureErrors.reset();
-        P_D_A1_MeasureErrors = (*((PTR(ndarray::Array<T, 1, 1>)*)ArgV[I_Pos]));
-        measureErrors.deep() = *P_D_A1_MeasureErrors;
-        B_HaveMeasureErrors = true;
-        assert(P_D_A1_MeasureErrors->getShape()[0] == D_A1_X_In.getShape()[0]);
-      }
-      else{
-        for (auto it = measureErrors.begin(); it != measureErrors.end(); ++it)
-          *it = (*it > 0) ? sqrt(*it) : 1;
-      }
-      ndarray::Array<T, 1, 1> D_A1_MeasureErrorsBak = copy(measureErrors);
-
-      PTR(std::vector<size_t>) P_I_A1_NotRejected(new std::vector<size_t>());
-      bool B_KeyWordSet_NotRejected = false;
-      I_Pos = pfs::drp::stella::utils::KeyWord_Set(S_A1_Args_In, "NOT_REJECTED");
-      if (I_Pos >= 0){
-        P_I_A1_NotRejected.reset();
-        P_I_A1_NotRejected = *((PTR(std::vector<size_t>)*)(ArgV[I_Pos]));
-        #ifdef __DEBUG_POLYFIT__
-          cout << "PolyFit: P_I_A1_NotRejected = ";
-          for (auto it = P_I_A1_NotRejected->begin(); it != P_I_A1_NotRejected->end(); ++it)
-            cout << *it << " ";
-          cout << endl;
-        #endif
-        B_KeyWordSet_NotRejected = true;
-        #ifdef __DEBUG_POLYFIT__
-          cout << "CFits::PolyFit: KeyWord NOT_REJECTED read" << endl;
-        #endif
-      }
-
-      PTR(std::vector<size_t>) P_I_A1_Rejected(new std::vector<size_t>());
-      bool B_KeyWordSet_Rejected = false;
-      I_Pos = pfs::drp::stella::utils::KeyWord_Set(S_A1_Args_In, "REJECTED");
-      if (I_Pos >= 0){
-        P_I_A1_Rejected.reset();
-        P_I_A1_Rejected = *((PTR(std::vector<size_t>)*)(ArgV[I_Pos]));
-        #ifdef __DEBUG_POLYFIT__
-          cout << "PolyFit: P_I_A1_NotRejected = ";
-          for (auto it = P_I_A1_Rejected->begin(); it != P_I_A1_Rejected->end(); ++it)
-            cout << *it << " ";
-          cout << endl;
-        #endif
-        B_KeyWordSet_Rejected = true;
-        #ifdef __DEBUG_POLYFIT__
-          cout << "CFits::PolyFit: KeyWord REJECTED read" << endl;
-        #endif
-      }
-
-      PTR(int) P_I_NRejected(new int(0));
-      bool B_KeyWordSet_NRejected = false;
-      I_Pos = pfs::drp::stella::utils::KeyWord_Set(S_A1_Args_In, "N_REJECTED");
-      if (I_Pos >= 0){
-        #ifdef __DEBUG_POLYFIT__
-          cout << "CFits::PolyFit: Reading KeyWord N_REJECTED" << endl;
-          cout << "CFits::PolyFit: I_Pos = " << I_Pos << endl;
-        #endif
-        P_I_NRejected.reset();
-        P_I_NRejected = *((PTR(int)*)(ArgV[I_Pos]));
-        #ifdef __DEBUG_POLYFIT__
-          cout << "CFits::PolyFit: P_I_NRejected = " << *P_I_NRejected << endl;
-        #endif
-        B_KeyWordSet_NRejected = true;
-        #ifdef __DEBUG_POLYFIT__
-          cout << "CFits::PolyFit: KeyWord N_REJECTED read" << endl;
-        #endif
-      }
-
-      std::vector<size_t> I_A1_OrigPos(D_A1_X_In.getShape()[0]);
-      for (size_t i = 0; i < I_A1_OrigPos.size(); ++i)
-        I_A1_OrigPos[i] = i;
-      ndarray::Array<T, 1, 1> D_A1_PolyRes = ndarray::allocate(D_A1_X_In.getShape()[0]);
-      int I_NRejected_Old = 0;
-      std::vector<size_t> I_A1_Rejected_Old(D_A1_X_In.size());
-      bool B_Run = true;
-      unsigned int i_iter = 0;
-      while (B_Run){
-        I_A1_Rejected_Old = *P_I_A1_Rejected;
-        I_NRejected_Old = *P_I_NRejected;
-        I_NReject = 0;
-        *P_I_NRejected = 0;
-        I_DataValues_New = 0;
-        ndarray::Array<T, 1, 1> D_A1_XArr = ndarray::external(D_A1_X.data(), ndarray::makeVector(int(D_A1_X.size())), ndarray::makeVector(1));
-        ndarray::Array<T, 1, 1> D_A1_YArr = ndarray::external(D_A1_Y.data(), ndarray::makeVector(int(D_A1_X.size())), ndarray::makeVector(1));
-        D_A1_Coeffs_Out = pfs::drp::stella::math::PolyFit(D_A1_XArr,
-                                                          D_A1_YArr,
-                                                          I_Degree_In,
-                                                          S_A1_Args_In,
-                                                          ArgV);
-        #ifdef __DEBUG_POLYFIT__
-          cout << "CFits::PolyFit: PolyFit(D_A1_X, D_A1_Y, I_Degree_In, S_A1_Args_In, ArgV) returned D_A1_Coeffs_Out = " << D_A1_Coeffs_Out << endl;
-        #endif
-        ndarray::Array<T, 1, 1> D_A1_YFit = pfs::drp::stella::math::Poly(D_A1_XArr, 
-                                                                      D_A1_Coeffs_Out);
-
-        ndarray::Array<T, 1, 1> D_A1_Temp = ndarray::allocate(D_A1_Y.size());
-        for (int pos = 0; pos < D_A1_Y.size(); ++pos)
-          D_A1_Temp[pos] = D_A1_Y[pos] - D_A1_YFit[pos];
-        Eigen::Array<T, Eigen::Dynamic, 1> tempEArr = D_A1_Temp.asEigen();
-        D_A1_Temp.asEigen() = tempEArr.pow(2) / T(D_A1_Y.size());
-//        D_A1_Temp.deep() = D_A1_Temp / D_A1_Y.size();
-        double D_SDev = double(sqrt(D_A1_Temp.asEigen().sum()));
-
-        D_A1_PolyRes.deep() = pfs::drp::stella::math::Poly(D_A1_X_In, 
-                                                           D_A1_Coeffs_Out);
-        double D_Dev;
-        D_A1_X.resize(0);
-        D_A1_Y.resize(0);
-        D_A1_MeasureErrors.resize(0);
-        I_A1_OrigPos.resize(0);
-        P_I_A1_Rejected->resize(0);
-        for (size_t i_pos=0; i_pos < D_A1_Y_In.getShape()[0]; i_pos++){
-          D_Dev = D_A1_Y_In[i_pos] - D_A1_PolyRes[i_pos];
-          if (((D_Dev < 0) && (D_Dev > (D_LReject_In * D_SDev))) || 
-              ((D_Dev >= 0) && (D_Dev < (D_UReject_In * D_SDev)))){
-            D_A1_X.push_back(D_A1_X_In[i_pos]);
-            D_A1_Y.push_back(D_A1_Y_In[i_pos]);
-            if (B_HaveMeasureErrors)
-              D_A1_MeasureErrors.push_back(D_A1_MeasureErrorsBak[i_pos]);
-            I_A1_OrigPos.push_back(D_A1_Y_In[i_pos]);
-
-            I_DataValues_New++;
-          }
-          else{
-            P_I_A1_Rejected->push_back(i_pos);
-            #ifdef __DEBUG_POLYFIT__
-              cout << "CFits::PolyFit: Rejecting D_A1_X_In(" << i_pos << ") = " << D_A1_X_In[i_pos] << endl;
-            #endif
-            I_NReject++;
-            ++(*P_I_NRejected);
-          }
-        }
-
-        B_Run = false;
-        if (*P_I_NRejected != I_NRejected_Old)
-          B_Run = true;
-        else{
-          for (int i_pos=0; i_pos < *P_I_NRejected; i_pos++){
-            if (fabs((*P_I_A1_Rejected)[i_pos] - I_A1_Rejected_Old[i_pos]) > 0.0001)
-              B_Run = true;
-          }
-        }
-        i_iter++;
-        if ((I_NIter >= 0) && (i_iter >= I_NIter))
-          B_Run = false;
-      }
-      #ifdef __DEBUG_POLYFIT__
-        cout << "CFits::PolyFit: *P_I_NRejected = " << *P_I_NRejected << endl;
-        cout << "CFits::PolyFit: I_DataValues_New = " << I_DataValues_New << endl;
-      #endif
-      *P_I_A1_NotRejected = I_A1_OrigPos;
-      I_A1_OrigPos.resize(D_A1_X_In.getShape()[0]);
-      for (size_t i_pos = 0; i_pos < I_A1_OrigPos.size(); ++i_pos)
-        I_A1_OrigPos[i_pos] = i_pos;
-      std::vector<size_t> V_OrigPos(I_A1_OrigPos.begin(), I_A1_OrigPos.end());
-      std::vector<size_t> V_NotRejected(P_I_A1_NotRejected->begin(), P_I_A1_NotRejected->end());
-      *P_I_A1_Rejected = pfs::drp::stella::math::removeSubArrayFromArray(V_OrigPos, V_NotRejected);
-
-      return D_A1_Coeffs_Out;
-    }
 
     /** **********************************************************************/
 
@@ -1516,28 +1307,13 @@
                                                         S_A1_Args, 
                                                         PP_Args);
       #ifdef __DEBUG_POLYFIT__
-        cout << "CFits::PolyFit: PolyFit returned D_A1_Coeffs_Out = " << D_A1_Coeffs_Out << endl;
+        cout << "CFits::PolyFit: PolyFit returned *P_D_A1_Out = " << *P_D_A1_Out << endl;
       #endif
       free(PP_Args);
       return D_A1_Coeffs_Out;
     }
 
-    /** **********************************************************************/
 
-    template< typename T >
-    ndarray::Array<double, 1, 1> PolyFit(ndarray::Array<T, 1, 1> const& D_A1_X_In,
-                                         ndarray::Array<T, 1, 1> const& D_A1_Y_In,
-                                         size_t const I_Degree_In){
-      assert(D_A1_X_In.getShape()[0] == D_A1_Y_In.getShape()[0]);
-      std::vector<string> S_A1_Args(1);
-      S_A1_Args[0] = " ";
-      std::vector<void *> PP_Args(1);
-      return pfs::drp::stella::math::PolyFit(D_A1_X_In, 
-                                             D_A1_Y_In, 
-                                             I_Degree_In, 
-                                             S_A1_Args, 
-                                             PP_Args);
-    }
 
 /**
     CHISQ=double(chisq): out
@@ -1720,7 +1496,7 @@
           i = 0;
         }
         #ifdef __DEBUG_POLYFIT__
-          cout << "CFits::PolyFit: for(p(=" << p << ")...): I_Degree_In = " << I_Degree_In << ": i set to " << i << endl;
+          cout << "CFits::PolyFit: for(p(=" << p << ")...): i set to " << i << endl;
         #endif
         for (j = i; j <= I_Degree_In; j++){
           (*P_D_A2_Covar)(j,p-j) = D_Sum;
@@ -1821,256 +1597,6 @@
       return D_A1_Out;
     }
 
-    template< typename T >
-    ndarray::Array<double, 1, 1> PolyFit(ndarray::Array<T, 1, 1> const& D_A1_X_In,
-                                         ndarray::Array<T, 1, 1> const& D_A1_Y_In,
-                                         size_t const I_Degree_In,
-                                         std::vector<string> const& S_A1_Args_In,
-                                         std::vector<void *> & ArgV){
-
-      assert(D_A1_X_In.getShape()[0] == D_A1_Y_In.getShape()[0]);
-      
-      #ifdef __DEBUG_POLYFIT__
-        cout << "CFits::PolyFit: Starting " << endl;
-      #endif
-      size_t const nCoeffs(I_Degree_In + 1);
-      #ifdef __DEBUG_POLYFIT__
-        cout << "CFits::PolyFit: nCoeffs set to " << nCoeffs << endl;
-      #endif
-      ndarray::Array<double, 1, 1> D_A1_Out = ndarray::allocate(nCoeffs);
-      D_A1_Out.deep() = 0.;
-      int i, j, I_Pos;
-
-      const int nDataPoints(D_A1_X_In.getShape()[0]);
-      #ifdef __DEBUG_POLYFIT__
-        cout << "CFits::PolyFit: nDataPoints set to " << nDataPoints << endl;
-      #endif
-
-      ndarray::Array<T, 1, 1> D_A1_SDevSquare = ndarray::allocate(nDataPoints);
-
-      bool B_HaveMeasureError = false;
-      ndarray::Array<T, 1, 1> D_A1_MeasureErrors = ndarray::allocate(nDataPoints);
-      string sTemp = "MEASURE_ERRORS";
-      PTR(ndarray::Array<T, 1, 1>) P_D_A1_MeasureErrors(new ndarray::Array<T, 1, 1>(D_A1_MeasureErrors));
-      if ((I_Pos = pfs::drp::stella::utils::KeyWord_Set(S_A1_Args_In, sTemp)) >= 0)
-      {
-        B_HaveMeasureError = true;
-        P_D_A1_MeasureErrors.reset();
-        P_D_A1_MeasureErrors = *((PTR(ndarray::Array<T, 1, 1>)*)ArgV[I_Pos]);
-        assert(P_D_A1_MeasureErrors->getShape()[0] == nDataPoints);
-        D_A1_MeasureErrors.deep() = *P_D_A1_MeasureErrors;
-        #ifdef __DEBUG_POLYFIT__
-          cout << "CFits::PolyFit: B_HaveMeasureError set to TRUE" << endl;
-          cout << "CFits::PolyFit: *P_D_A1_MeasureErrors set to " << *P_D_A1_MeasureErrors << endl;
-        #endif
-      }
-      else{
-        D_A1_MeasureErrors.deep() = 1.;
-      }
-
-      D_A1_SDevSquare.deep() = D_A1_MeasureErrors * D_A1_MeasureErrors;
-      #ifdef __DEBUG_POLYFIT__
-        cout << "CFits::PolyFit: D_A1_SDevSquare set to " << D_A1_SDevSquare << endl;
-      #endif
-      ndarray::Array<T, 1, 1> D_A1_YFit = ndarray::allocate(nDataPoints);
-      PTR(ndarray::Array<T, 1, 1>) P_D_A1_YFit(new ndarray::Array<T, 1, 1>(D_A1_YFit));
-      sTemp = "YFIT";
-      if ((I_Pos = pfs::drp::stella::utils::KeyWord_Set(S_A1_Args_In, sTemp)) >= 0)
-      {
-        P_D_A1_YFit.reset();
-        P_D_A1_YFit = *((PTR(ndarray::Array<T, 1, 1>)*)ArgV[I_Pos]);
-        #ifdef __DEBUG_POLYFIT__
-          cout << "CFits::PolyFit: KeyWord_Set(YFIT)" << endl;
-        #endif
-      }
-      P_D_A1_YFit->deep() = 0.;
-
-      ndarray::Array<T, 1, 1> D_A1_Sigma = ndarray::allocate(nCoeffs);
-      PTR(ndarray::Array<T, 1, 1>) P_D_A1_Sigma(new ndarray::Array<T, 1, 1>(D_A1_Sigma));
-      sTemp = "SIGMA";
-      if ((I_Pos = pfs::drp::stella::utils::KeyWord_Set(S_A1_Args_In, sTemp)) >= 0)
-      {
-        P_D_A1_Sigma.reset();
-        P_D_A1_Sigma = *((PTR(ndarray::Array<T, 1, 1>)*)ArgV[I_Pos]);
-        assert(P_D_A1_Sigma->getShape()[0] == nCoeffs);
-        #ifdef __DEBUG_POLYFIT__
-          cout << "CFits::PolyFit: KeyWord_Set(SIGMA): *P_D_A1_Sigma set to " << (*P_D_A1_Sigma) << endl;
-        #endif
-      }
-
-      ndarray::Array<T, 2, 2> D_A2_Covar = ndarray::allocate(nCoeffs, nCoeffs);
-      PTR(ndarray::Array<T, 2, 2>) P_D_A2_Covar(new ndarray::Array<T, 2, 2>(D_A2_Covar));
-      sTemp = "COVAR";
-      if ((I_Pos = pfs::drp::stella::utils::KeyWord_Set(S_A1_Args_In, sTemp)) >= 0)
-      {
-        P_D_A2_Covar.reset();
-        P_D_A2_Covar = *((PTR(ndarray::Array<T, 2, 2>)*)ArgV[I_Pos]);
-        assert(P_D_A2_Covar->getShape()[0] == nCoeffs);
-        assert(P_D_A2_Covar->getShape()[1] == nCoeffs);
-        #ifdef __DEBUG_POLYFIT__
-          cout << "CFits::PolyFit: KeyWord_Set(COVAR): *P_D_A2_Covar set to " << (*P_D_A2_Covar) << endl;
-        #endif
-      }
-
-      ndarray::Array<T, 1, 1> D_A1_B = ndarray::allocate(nCoeffs);
-      ndarray::Array<T, 1, 1> D_A1_Z = ndarray::allocate(nDataPoints);
-      D_A1_Z.deep() = 1;
-      #ifdef __DEBUG_POLYFIT__
-        cout << "CFits::PolyFit: D_A1_Z set to " << D_A1_Z << endl;
-      #endif
-
-      ndarray::Array<T, 1, 1> D_A1_WY = ndarray::allocate(nDataPoints);
-      D_A1_WY.deep() = D_A1_Y_In;
-      #ifdef __DEBUG_POLYFIT__
-        cout << "CFits::PolyFit: D_A1_WY set to " << D_A1_WY << endl;
-      #endif
-
-      if (B_HaveMeasureError){
-        D_A1_WY.deep() = D_A1_WY / D_A1_SDevSquare;
-        #ifdef __DEBUG_POLYFIT__
-          cout << "CFits::PolyFit: B_HaveMeasureError: D_A1_WY set to " << D_A1_WY << endl;
-        #endif
-      }
-
-      if (B_HaveMeasureError){
-        (*P_D_A2_Covar)[0][0] = sum(1./D_A1_SDevSquare);
-        #ifdef __DEBUG_POLYFIT__
-          cout << "CFits::PolyFit: B_HaveMeasureError: (*P_D_A2_Covar)(0,0) set to " << (*P_D_A2_Covar)[0][0] << endl;
-        #endif
-      }
-      else{
-        (*P_D_A2_Covar)[0][0] = nDataPoints;
-        #ifdef __DEBUG_POLYFIT__
-          cout << "CFits::PolyFit: !B_HaveMeasureError: (*P_D_A2_Covar)(0,0) set to " << (*P_D_A2_Covar)[0][0] << endl;
-        #endif
-      }
-
-      D_A1_B[0] = sum(D_A1_WY);
-      #ifdef __DEBUG_POLYFIT__
-        cout << "CFits::PolyFit: D_A1_B(0) set to " << D_A1_B[0] << endl;
-      #endif
-
-      T D_Sum;
-      for (int p = 1; p <= 2 * I_Degree_In; p++){
-        D_A1_Z.deep() = D_A1_Z * D_A1_X_In;
-        #ifdef __DEBUG_POLYFIT__
-          cout << "CFits::PolyFit: for(p(=" << p << ")...): D_A1_Z set to " << D_A1_Z << endl;
-        #endif
-        if (p < nCoeffs){
-          D_A1_B[p] = sum(D_A1_WY * D_A1_Z);
-          #ifdef __DEBUG_POLYFIT__
-            cout << "CFits::PolyFit: for(p(=" << p << ")...): p < nCoeffs(=" << nCoeffs << "): D_A1_B(p) set to " << D_A1_B[p] << endl;
-          #endif
-        }
-        if (B_HaveMeasureError){
-          D_Sum = sum(D_A1_Z / D_A1_SDevSquare);
-          #ifdef __DEBUG_POLYFIT__
-            cout << "CFits::PolyFit: for(p(=" << p << ")...): B_HaveMeasureError: D_Sum set to " << D_Sum << endl;
-          #endif
-        }
-        else{
-          D_Sum = sum(D_A1_Z);
-          #ifdef __DEBUG_POLYFIT__
-            cout << "CFits::PolyFit: for(p(=" << p << ")...): !B_HaveMeasureError: D_Sum set to " << D_Sum << endl;
-          #endif
-        }
-        if (p - int(I_Degree_In) > 0){
-          i = p - int(I_Degree_In);
-        }
-        else{
-          i = 0;
-        }
-        #ifdef __DEBUG_POLYFIT__
-          cout << "CFits::PolyFit: for(p(=" << p << ")...): I_Degree_In = " << I_Degree_In << ": i set to " << i << endl;
-        #endif
-        for (j = i; j <= I_Degree_In; j++){
-          (*P_D_A2_Covar)[j][p-j] = D_Sum;
-          #ifdef __DEBUG_POLYFIT__
-            cout << "CFits::PolyFit: for(p(=" << p << ")...): for(j(=" << j << ")...): (*P_D_A2_Covar)(j,p-j=" << p-j << ") set to " << (*P_D_A2_Covar)[j][p-j] << endl;
-          #endif
-        }
-      }
-
-      #ifdef __DEBUG_POLYFIT__
-        cout << "CFits::PolyFit: before InvertGaussJ: (*P_D_A2_Covar) = " << (*P_D_A2_Covar) << endl;
-      #endif
-      P_D_A2_Covar->asEigen() = P_D_A2_Covar->asEigen().inverse();
-//      if (!pfs::drp::stella::math::InvertGaussJ(*P_D_A2_Covar)){
-//        cout << "CFits::PolyFit: ERROR! InvertGaussJ(*P_D_A2_Covar=" << *P_D_A2_Covar << ") returned false!" << endl;
-//        string message("CFits::PolyFit: ERROR! InvertGaussJ(*P_D_A2_Covar) returned false!");
-//        throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
-//      }
-      #ifdef __DEBUG_POLYFIT__
-        cout << "CFits::PolyFit: InvertGaussJ: (*P_D_A2_Covar) set to " << (*P_D_A2_Covar) << endl;
-        cout << "CFits::PolyFit: MatrixTimesVecArr: P_D_A2_Covar->rows() = " << P_D_A2_Covar->getShape()[0] << endl;
-        cout << "CFits::PolyFit: MatrixTimesVecArr: P_D_A2_Covar->cols() = " << P_D_A2_Covar->getShape()[1] << endl;
-        cout << "CFits::PolyFit: MatrixTimesVecArr: (*P_D_A2_Covar) = " << (*P_D_A2_Covar) << endl;
-        cout << "CFits::PolyFit: MatrixTimesVecArr: D_A1_B = " << D_A1_B.getShape()[0] << ": " << D_A1_B << endl;
-      #endif
-      ndarray::Array<T, 1, 1> T_A1_Out = ndarray::allocate(D_A1_Out.getShape()[0]);
-      T_A1_Out.asEigen() = P_D_A2_Covar->asEigen() * D_A1_B.asEigen();
-      for (int pos = 0; pos < D_A1_Out.getShape()[0]; ++pos)
-        D_A1_Out[pos] = T_A1_Out[pos];
-//      D_A1_Out.deep() = MatrixTimesVecArr(*P_D_A2_Covar, D_A1_B);
-      #ifdef __DEBUG_POLYFIT__
-        cout << "CFits::PolyFit: MatrixTimesVecArr: P_D_A1_YFit->size() = " << P_D_A1_YFit->getShape()[0] << ": D_A1_Out set to " << D_A1_Out << endl;
-      #endif
-
-      P_D_A1_YFit->deep() = D_A1_Out[I_Degree_In];
-      #ifdef __DEBUG_POLYFIT__
-        cout << "CFits::PolyFit: InvertGaussJ: (*P_D_A1_YFit) set to " << (*P_D_A1_YFit) << endl;
-      #endif
-
-      for (int k=I_Degree_In-1; k >= 0; k--){
-        P_D_A1_YFit->deep() = D_A1_Out[k] + (*P_D_A1_YFit) * D_A1_X_In;
-        #ifdef __DEBUG_POLYFIT__
-          cout << "CFits::PolyFit: for(k(=" << k << ")...): (*P_D_A1_YFit) set to " << (*P_D_A1_YFit) << endl;
-        #endif
-      }
-
-      for (int k = 0; k < nCoeffs; k++){
-        (*P_D_A1_Sigma)[k] = (*P_D_A2_Covar)[k][k];
-      }
-      for (auto it = P_D_A1_Sigma->begin(); it != P_D_A1_Sigma->end(); ++it){
-        *it = (*it > 0) ? sqrt(*it) : 1.;
-      }
-      #ifdef __DEBUG_POLYFIT__
-        cout << "CFits::PolyFit: (*P_D_A1_Sigma) set to " << (*P_D_A1_Sigma) << endl;
-      #endif
-
-      double D_ChiSq = 0.;
-      ndarray::Array<T, 1, 1> D_A1_Diff = ndarray::allocate(nDataPoints);
-      Eigen::Array<T, Eigen::Dynamic, 1> EArr_Temp = D_A1_Y_In.asEigen() - P_D_A1_YFit->asEigen();
-      D_A1_Diff.asEigen() = EArr_Temp.pow(2);
-      if (B_HaveMeasureError){
-        #ifdef __DEBUG_POLYFIT__
-          cout << "CFits::PolyFit: B_HaveMeasureError: D_A1_Diff set to " << D_A1_Diff << endl;
-        #endif
-        D_ChiSq = sum(D_A1_Diff / D_A1_SDevSquare);
-        #ifdef __DEBUG_POLYFIT__
-          cout << "CFits::PolyFit: B_HaveMeasureError: D_ChiSq set to " << D_ChiSq << endl;
-        #endif
-
-      }
-      else{
-        D_ChiSq = sum(D_A1_Diff);
-        #ifdef __DEBUG_POLYFIT__
-          cout << "CFits::PolyFit: !B_HaveMeasureError: D_ChiSq set to " << D_ChiSq << endl;
-        #endif
-
-        double dTemp = sqrt(D_ChiSq / (nDataPoints - nCoeffs));
-        P_D_A1_Sigma->deep() = (*P_D_A1_Sigma) * dTemp;
-        #ifdef __DEBUG_POLYFIT__
-          cout << "CFits::PolyFit: !B_HaveMeasureError: (*P_D_A1_Sigma) set to " << (*P_D_A1_Sigma) << endl;
-        #endif
-      }
-      #ifdef __DEBUG_POLYFIT__
-        cout << "CFits::PolyFit: returning D_A1_Out = " << D_A1_Out << endl;
-      #endif
-
-      return D_A1_Out;
-    }
-
     /** **********************************************************************/
 
     blitz::Array<double, 1> PolyFit(const blitz::Array<double, 1> &D_A1_X_In,
@@ -2095,27 +1621,6 @@
       #endif
       free(PP_Args);
       return D_A1_Out;
-    }
-
-    /** **********************************************************************/
-
-    template< typename T >
-    ndarray::Array<double, 1, 1> PolyFit(ndarray::Array<T, 1, 1> const& D_A1_X_In,
-                                         ndarray::Array<T, 1, 1> const& D_A1_Y_In,
-                                         size_t const I_Degree_In,
-                                         T const D_Reject_In){
-      #ifdef __DEBUG_POLYFIT__
-        cout << "CFits::PolyFit: Starting " << endl;
-      #endif
-      std::vector<string> S_A1_Args(1);
-      S_A1_Args[0] = " ";
-      std::vector<void *> PP_Args;
-      return pfs::drp::stella::math::PolyFit(D_A1_X_In,
-                                             D_A1_Y_In,
-                                             I_Degree_In,
-                                             D_Reject_In,
-                                             S_A1_Args,
-                                             PP_Args);
     }
 
     /** **********************************************************************/
@@ -2145,34 +1650,6 @@
         cout << "CFits::PolyFit: PolyFit returned D_A1_Out = " << D_A1_Out << endl;
       #endif
       free(PP_Args);
-      return D_A1_Out;
-    }
-
-    template< typename T>
-    ndarray::Array<double, 1, 1> PolyFit(ndarray::Array<T, 1, 1> const& D_A1_X_In,
-                                    ndarray::Array<T, 1, 1> const& D_A1_Y_In,
-                                    size_t const I_Degree_In,
-                                    T const D_LReject_In,
-                                    T const D_HReject_In,
-                                    size_t const I_NIter){
-      #ifdef __DEBUG_POLYFIT__
-        cout << "CFits::PolyFit: Starting " << endl;
-      #endif
-      std::vector<string> S_A1_Args(1);
-      S_A1_Args[0] = " ";
-      std::vector<void *> PP_Args(1);
-      ndarray::Array<double, 1, 1> D_A1_Out = ndarray::allocate(I_Degree_In + 1);
-      D_A1_Out = pfs::drp::stella::math::PolyFit(D_A1_X_In,
-                                                 D_A1_Y_In,
-                                                 I_Degree_In,
-                                                 D_LReject_In,
-                                                 D_HReject_In,
-                                                 I_NIter,
-                                                 S_A1_Args,
-                                                 PP_Args);
-      #ifdef __DEBUG_POLYFIT__
-        cout << "CFits::PolyFit: PolyFit returned D_A1_Out = " << D_A1_Out << endl;
-      #endif
       return D_A1_Out;
     }
     
@@ -2237,26 +1714,6 @@
       A1_Array_InOut.resize(I_NElements);
       A1_Array_InOut = A1_Array_Out(blitz::Range(0, I_NElements-1));
       return true;
-    }
-
-    template< typename T >
-    std::vector<T> removeSubArrayFromArray(std::vector<T> const& A1_Array_InOut,
-                                           std::vector<T> const& A1_SubArray){
-      std::vector<T> A1_Array_Out;
-      int I_NElements = 0;
-      bool B_InSubArray = false;
-      for (auto i_orig = A1_Array_InOut.begin(); i_orig != A1_Array_InOut.end(); ++i_orig){
-        B_InSubArray = false;
-        for (auto i_sub = A1_SubArray.begin(); i_sub != A1_SubArray.end(); ++i_sub){
-          if (*i_orig == *i_sub)
-            B_InSubArray = true;
-        }
-        if (!B_InSubArray){
-          A1_Array_Out.push_back(*i_orig);
-          I_NElements++;
-        }
-      }
-      return A1_Array_Out;
     }
 
     /**
@@ -3176,115 +2633,6 @@
       IPivVecArr.resize(0);
       return true;
     }
-    
-/*    template< typename T >
-    bool InvertGaussJ(ndarray::Array<T, 2, 1> &AArray,
-                      bdarray::Array<T, 2, 1> &BArray){
-      /// The integer arrays IPivVecArr, IndXCVecArr, and IndXRVecArr are used for bookkeeping on the pivoting
-      blitz::Array<int, 1> IndXCVecArr(AArray.extent(blitz::firstDim));
-      blitz::Array<int, 1> IndXRVecArr(AArray.extent(blitz::firstDim));
-      blitz::Array<int, 1> IPivVecArr(AArray.extent(blitz::firstDim));
-
-      #ifdef __DEBUG_INVERT__
-        cout << "CFits::InvertGaussJ: AArray = " << AArray << endl;
-        cout << "CFits::InvertGaussJ: BArray = " << BArray << endl;
-        cout << "CFits::InvertGaussJ: IndXCVecArr = " << IndXCVecArr << endl;
-        cout << "CFits::InvertGaussJ: IndXRVecArr = " << IndXRVecArr << endl;
-        cout << "CFits::InvertGaussJ: IPivVecArr = " << IPivVecArr << endl;
-      #endif
-
-      int m = 0, icol = 0, irow = 0, n = 0, o = 0, p = 0, pp = 0, N = 0, M = 0;
-      double Big = 0., dum = 0., PivInv = 0.;
-
-      N = AArray.rows();
-      M = BArray.cols();
-
-      IPivVecArr = 0;
-      #ifdef __DEBUG_INVERT__
-        cout << "CFits::InvertGaussJ: N = " << N << ", M = " << M << endl;
-        cout << "CFits::InvertGaussJ: IPivVecArr = " << IPivVecArr << endl;
-      #endif
-
-      /// This is the main loop over the columns to be reduced
-      for (m = 0; m < N; m++){ /// m == i
-        Big = 0.;
-
-        /// This is the outer loop of the search for a pivot element
-        for (n = 0; n < N; n++){ /// n == j
-          if (IPivVecArr(n) != 1){
-            for (o = 0; o < N; o++){ /// o == k
-              if (IPivVecArr(o) == 0){
-                if (std::fabs(AArray(n, o)) >= Big){
-                  Big = std::fabs(AArray(n, o));
-                  irow = n;
-                  icol = o;
-                }
-              }
-            }
-          } /// end if (IPivVecArr(n) != 1)
-        } /// end for (n = 0; n < N; n++)     Outer Loop
-        ++(IPivVecArr(icol));
-
-        // We now have the pivot element, so we interchange rows, if needed, to put the pivot element on the diagonal. The columns are not physically interchanged, only relabled: IndXCVecArr(m), the column of the mth pivot element, is the mth column that is reduced, while IndXRVecArr(m) is the row in which that pivot element was originally located. If IndXCVecArr(i) != IndXRVecArr there is an implied column interchange. With this form of bookkeeping, the solution BVecArr's will end up in the correct order, and the inverse matrix will be scrambled by columns.         
-        if (irow != icol){
-          for (p = 0; p < N; p++){
-            std::swap(AArray(irow, p), AArray(icol, p));
-          }
-          for (p = 0; p < M; p++){
-            std::swap(BArray(irow, p), BArray(icol, p));
-          }
-        }
-        IndXRVecArr(m) = irow;
-        IndXCVecArr(m) = icol;
-
-        /// We are now ready to divide the pivot row by the pivot element, located at irow and icol
-        if (AArray(icol, icol) == 0.0){
-          cout << "CFits::InvertGaussJ: Error 1: Singular Matrix!" << endl;
-          cout << "CFits::InvertGaussJ: AArray = " << AArray << endl;
-          cout << "CFits::InvertGaussJ: AArray(" << icol << ", " << icol << ") == 0." << endl;
-          return false;
-        }
-        PivInv = 1.0 / AArray(icol, icol);
-        AArray(icol, icol) = 1.0;
-        for (p = 0; p < N; p++){
-          AArray(icol, p) *= PivInv;
-        }
-        for (p = 0; p < M; p++){
-          BArray(icol, p) *= PivInv;
-        }
-
-        ///
-        ///     Next, we reduce the rows...
-        ///         ... except for the pivot one, of course
-        ///
-        for (pp = 0; pp < N; pp++){
-          if (pp != icol){
-            dum = AArray(pp, icol);
-            AArray(pp, icol) = 0.0;
-            for (p = 0; p < N; p++){
-              AArray(pp, p) -= AArray(icol, p) * dum;
-            }
-            for (p = 0; p < M; p++){
-              BArray(pp, p) -= BArray(icol, p) * dum;
-            }
-          } /// end if (pp != icol)
-        } /// end for (pp = 0; pp < N; pp++)
-      } /// end for (m = 0; m < N; m++)       Main Loop
-      
-      /// This is the end of the main loop over columns of the reduction. It only remains to unscramble the solution in view of the column interchanges. We do this by interchanging pairs of columns int the reverse order that the permutation was built up.
-      for (p = N-1; p >= 0; p--){
-        if (IndXRVecArr(p) != IndXCVecArr(p)){
-          for (o = 0; o < N; o++){
-            std::swap(AArray(o, IndXRVecArr(p)), AArray(o, IndXCVecArr(p)));
-            /// And we are done.
-          }
-        }
-      }
-      IndXCVecArr.resize(0);
-      IndXRVecArr.resize(0);
-      IPivVecArr.resize(0);
-      return true;
-    }*/
 
     /**
      *  InvertGaussJ(AArray)
@@ -3309,22 +2657,6 @@
         return false;
       }
       Unity.resize(0);
-      return true;
-    }
-    
-    template< typename T >
-    bool InvertGaussJ(ndarray::Array<T, 2, 1> & AArray){
-      int N = AArray.getShape()[1];
-      assert(N == AArray.getShape()[0]);
-      ndarray::Array<T, 2, 1> Unity(N, N);
-      Unity.deep() = 0.;
-      for (int m = 0; m < N; m ++){
-        Unity[m][m] = 1.;
-      }
-      if (!pfs::drp::stella::math::InvertGaussJ(AArray, Unity)){
-        cout << "CFits::InvertGaussJ: ERROR: InvertGaussJ(AArray=" << AArray << ", Unity=" << Unity << ") retuned FALSE" << endl;
-        return false;
-      }
       return true;
     }
 
@@ -7585,12 +6917,6 @@
     template ndarray::Array<float, 1, 1> getSubArray(ndarray::Array<float, 2, 2> const&, std::vector< std::pair<size_t, size_t> > const&);
     template ndarray::Array<double, 1, 1> getSubArray(ndarray::Array<double, 2, 2> const&, std::vector< std::pair<size_t, size_t> > const&);
 
-    template std::vector<size_t> removeSubArrayFromArray(std::vector<size_t> const&, std::vector<size_t> const&);
-    template std::vector<int> removeSubArrayFromArray(std::vector<int> const&, std::vector<int> const&);
-    template std::vector<long> removeSubArrayFromArray(std::vector<long> const&, std::vector<long> const&);
-    template std::vector<float> removeSubArrayFromArray(std::vector<float> const&, std::vector<float> const&);
-    template std::vector<double> removeSubArrayFromArray(std::vector<double> const&, std::vector<double> const&);
-
     template ndarray::Array<size_t, 1, 1> getIndicesInValueRange(ndarray::Array<size_t, 1, 1> const&, size_t const, size_t const);
     template ndarray::Array<size_t, 1, 1> getIndicesInValueRange(ndarray::Array<int, 1, 1> const&, int const, int const);
     template ndarray::Array<size_t, 1, 1> getIndicesInValueRange(ndarray::Array<long, 1, 1> const&, long const, long const);
@@ -7717,19 +7043,6 @@
                                              const int startPos_In);
     template int firstIndexWithZeroValueFrom(ndarray::Array<double, 1, 1> const& vec_In,
                                              const int startPos_In);
-    
-    template ndarray::Array<double, 1, 1> PolyFit(ndarray::Array<float, 1, 1> const&, ndarray::Array<float, 1, 1> const&, size_t const, float const, std::vector<string> const&, std::vector<void *> &);
-    template ndarray::Array<double, 1, 1> PolyFit(ndarray::Array<double, 1, 1> const&, ndarray::Array<double, 1, 1> const&, size_t const, double const, std::vector<string> const&, std::vector<void *> &);
-    template ndarray::Array<double, 1, 1> PolyFit(ndarray::Array<float, 1, 1> const&, ndarray::Array<float, 1, 1> const&, size_t const, float const, float const, size_t const, std::vector<string> const&, std::vector<void *> &);
-    template ndarray::Array<double, 1, 1> PolyFit(ndarray::Array<double, 1, 1> const&, ndarray::Array<double, 1, 1> const&, size_t const, double const, double const, size_t const, std::vector<string> const&, std::vector<void *> &);
-    template ndarray::Array<double, 1, 1> PolyFit(ndarray::Array<float, 1, 1> const&, ndarray::Array<float, 1, 1> const&, size_t const, std::vector<string> const&, std::vector<void *> &);
-    template ndarray::Array<double, 1, 1> PolyFit(ndarray::Array<double, 1, 1> const&, ndarray::Array<double, 1, 1> const&, size_t const, std::vector<string> const&, std::vector<void *> &);
-    template ndarray::Array<double, 1, 1> PolyFit(ndarray::Array<float, 1, 1> const&, ndarray::Array<float, 1, 1> const&, size_t const);
-    template ndarray::Array<double, 1, 1> PolyFit(ndarray::Array<double, 1, 1> const&, ndarray::Array<double, 1, 1> const&, size_t const);
-    template ndarray::Array<double, 1, 1> PolyFit(ndarray::Array<float, 1, 1> const&, ndarray::Array<float, 1, 1> const&, size_t const, float const);
-    template ndarray::Array<double, 1, 1> PolyFit(ndarray::Array<double, 1, 1> const&, ndarray::Array<double, 1, 1> const&, size_t const, double const);
-    template ndarray::Array<double, 1, 1> PolyFit(ndarray::Array<float, 1, 1> const&, ndarray::Array<float, 1, 1> const&, size_t const, float const, float const, size_t const);
-    template ndarray::Array<double, 1, 1> PolyFit(ndarray::Array<double, 1, 1> const&, ndarray::Array<double, 1, 1> const&, size_t const, double const, double const, size_t const);
 
   }/// end namespace math
 
