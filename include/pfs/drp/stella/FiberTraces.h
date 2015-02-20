@@ -6,7 +6,6 @@
 
 #include <vector>
 #include <iostream>
-#include <utility>
 #include "lsst/base.h"
 #include "lsst/afw/geom.h"
 #include "lsst/afw/image/MaskedImage.h"
@@ -28,8 +27,6 @@
 
 //#define __DEBUG_BANDSOL__
 //#define __DEBUG_CALC2DPSF__
-#define __DEBUG_CALCPROFILE__
-#define __DEBUG_CALCPROFILESWATH__
 //#define __DEBUG_CALCSWATHBOUNDY__
 //#define __DEBUG_CHECK_INDICES__
 //#define __DEBUG_CREATEFIBERTRACE__
@@ -264,13 +261,13 @@ class FiberTrace {
      **/
     
     bool calcProfile();
-    ndarray::Array<float, 2, 2> calcProfileSwath(ndarray::Array<ImageT const, 2, 2> const& imageSwath,
-                                                 ndarray::Array<MaskT const, 2, 2> const& maskSwath,
-                                                 ndarray::Array<VarianceT const, 2, 2> const& varianceSwath,
-                                                 ndarray::Array<float const, 1, 1> const& xCentersSwath,
-                                                 size_t const iSwath) const;
+    bool calcProfileSwath(ndarray::Array<ImageT const, 2, 2> const& imageSwath,
+                          ndarray::Array<MaskT const, 2, 2> const& maskSwath,
+                          ndarray::Array<VarianceT const, 2, 2> const& varianceSwath,
+                          ndarray::Array<float const, 1, 1> const& xCentersSwath) const;
 
     bool fitSpline(const blitz::Array<double, 2> &fiberTraceSwath_In,/// 1 bin of CCD (FiberTrace::Image)
+                   const blitz::Array<int, 1> &iFirst_In,/// as calculated in SlitFunc
                    const blitz::Array<double, 1> &xOverSampled_In,/// see XVecArr in SlitFunc
                    blitz::Array<double, 1> &profileOverSampled_Out,/// output oversampled spatial profile
                    const blitz::Array<double, 2> &profileXValuesPerRowOverSampled_In,/// (i + 0.5) / double(overSample_In) - 1. + xCentersPixelFraction_In(i)

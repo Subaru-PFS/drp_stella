@@ -227,8 +227,6 @@ struct FiberTraceProfileFittingControl {
     LSST_CONTROL_FIELD(lambdaSF, float, "profileInterpolation==PISKUNOV: Lambda smoothing factor for spatial profile (default: 1. / overSample)");
     LSST_CONTROL_FIELD(lambdaSP, float, "profileInterpolation==PISKUNOV: Lambda smoothing factor for spectrum (default: 0)");
     LSST_CONTROL_FIELD(wingSmoothFactor, float, "profileInterpolation==PISKUNOV: Lambda smoothing factor to remove possible oscillation of the wings of the spatial profile (default: 0.)");
-    LSST_CONTROL_FIELD(lowerSigma, float, "lower sigma rejection threshold if maxIterSig > 0 (default: 3.)");
-    LSST_CONTROL_FIELD(upperSigma, float, "upper sigma rejection threshold if maxIterSig > 0 (default: 2.5)");
 //    LSST_CONTROL_FIELD(xCorProf, unsigned short, "Number of Cross-correlations of profile and spectrum from one pixel to the left to one pixel to the right");
 
     FiberTraceProfileFittingControl() :
@@ -242,9 +240,7 @@ struct FiberTraceProfileFittingControl {
         maxIterSig(1),
         lambdaSF(1./static_cast<float>(overSample)),
         lambdaSP(0.),
-        wingSmoothFactor(2.),
-        lowerSigma(3.),
-        upperSigma(3.)//,
+        wingSmoothFactor(2.)//,
         //xCorProf(0)
         {}
 
@@ -259,9 +255,7 @@ struct FiberTraceProfileFittingControl {
         maxIterSig(fiberTraceProfileFittingControl.maxIterSig),
         lambdaSF(fiberTraceProfileFittingControl.lambdaSF),
         lambdaSP(fiberTraceProfileFittingControl.lambdaSP),
-        wingSmoothFactor(fiberTraceProfileFittingControl.wingSmoothFactor),
-        lowerSigma(fiberTraceProfileFittingControl.lowerSigma),
-        upperSigma(fiberTraceProfileFittingControl.upperSigma)//,
+        wingSmoothFactor(fiberTraceProfileFittingControl.wingSmoothFactor)//,
         //xCorProf(fiberTraceProfileFittingControl.xCorProf)
         {}
         
@@ -309,12 +303,12 @@ struct FiberTraceProfileFittingControl {
     }
 
     if (overSample == 0){
-      cout << "FiberTraceProfileFittingControl::isClassInvariant: ERROR: overSample(=" << overSample << ") == 0 => Returning FALSE" << endl;
+      cout << "FiberTraceProfileFittingControl::isClassInvariant: ERROR: (overSample(=" << overSample << ") == 0 => Returning FALSE" << endl;
       return false;
     }
 
     if (maxIterSF == 0){
-      cout << "FiberTraceProfileFittingControl::isClassInvariant: ERROR: maxIterSF(=" << maxIterSF << ") == 0 => Returning FALSE" << endl;
+      cout << "FiberTraceProfileFittingControl::isClassInvariant: ERROR: (maxIterSF(=" << maxIterSF << ") == 0 => Returning FALSE" << endl;
       return false;
     }
 
@@ -324,35 +318,19 @@ struct FiberTraceProfileFittingControl {
     }
 
     if (lambdaSF < 0.){
-      cout << "FiberTraceProfileFittingControl::isClassInvariant: ERROR: lambdaSF(=" << lambdaSF << ") < 0. => Returning FALSE" << endl;
+      cout << "FiberTraceProfileFittingControl::isClassInvariant: ERROR: (lambdaSF(=" << lambdaSF << ") < 0. => Returning FALSE" << endl;
       return false;
     }
 
     if (lambdaSP < 0.){
-      cout << "FiberTraceProfileFittingControl::isClassInvariant: ERROR: lambdaSP(=" << lambdaSP << ") < 0. => Returning FALSE" << endl;
+      cout << "FiberTraceProfileFittingControl::isClassInvariant: ERROR: (lambdaSP(=" << lambdaSP << ") < 0. => Returning FALSE" << endl;
       return false;
     }
 
     if (wingSmoothFactor < 0.){
-      cout << "FiberTraceProfileFittingControl::isClassInvariant: ERROR: wingSmoothFactor(=" << wingSmoothFactor << ") < 0. => Returning FALSE" << endl;
+      cout << "FiberTraceProfileFittingControl::isClassInvariant: ERROR: (wingSmoothFactor(=" << wingSmoothFactor << ") < 0. => Returning FALSE" << endl;
       return false;
     }
-    
-    if (lowerSigma <= 0.){
-      cout << "FiberTraceProfileFittingControl::isClassInvariant: ERROR: lowerSigma(=" << lowerSigma << ") <= 0. => Returning FALSE" << endl;
-      return false;
-    }
-    
-    if (lowerSigma <= 0.){
-      cout << "FiberTraceProfileFittingControl::isClassInvariant: ERROR: lowerSigma(=" << lowerSigma << ") <= 0. => Returning FALSE" << endl;
-      return false;
-    }
-    
-    if (upperSigma <= 0.){
-      cout << "FiberTraceProfileFittingControl::isClassInvariant: ERROR: upperSigma(=" << upperSigma << ") <= 0. => Returning FALSE" << endl;
-      return false;
-    }
-    
     return true;
   }
         

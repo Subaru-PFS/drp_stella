@@ -11,13 +11,10 @@ namespace pfs { namespace drp { namespace stella { namespace math {
 // band_matrix implementation
 // -------------------------
 
-template<typename T>
-band_matrix<T>::band_matrix(int dim, int n_u, int n_l) {
+band_matrix::band_matrix(int dim, int n_u, int n_l) {
    resize(dim, n_u, n_l);
 }
-
-template<typename T>
-void band_matrix<T>::resize(int dim, int n_u, int n_l) {
+void band_matrix::resize(int dim, int n_u, int n_l) {
    assert(dim>0);
    assert(n_u>=0);
    assert(n_l>=0);
@@ -30,9 +27,7 @@ void band_matrix<T>::resize(int dim, int n_u, int n_l) {
       m_lower[i].resize(dim);
    }
 }
-
-template<typename T>
-int band_matrix<T>::dim() const {
+int band_matrix::dim() const {
    if(m_upper.size()>0) {
       return m_upper[0].size();
    } else {
@@ -43,8 +38,7 @@ int band_matrix<T>::dim() const {
 
 // defines the new operator (), so that we can access the elements
 // by A(i,j), index going from i=0,...,dim()-1
-template<typename T>
-T & band_matrix<T>::operator () (int i, int j) {
+double & band_matrix::operator () (int i, int j) {
    int k=j-i;       // what band is the entry
    assert( (i>=0) && (i<dim()) && (j>=0) && (j<dim()) );
    assert( (-num_lower()<=k) && (k<=num_upper()) );
@@ -52,9 +46,7 @@ T & band_matrix<T>::operator () (int i, int j) {
    if(k>=0)   return m_upper[k][i];
    else     return m_lower[-k][i];
 }
-
-template<typename T>
-T band_matrix<T>::operator () (int i, int j) const {
+double band_matrix::operator () (int i, int j) const {
    int k=j-i;       // what band is the entry
    assert( (i>=0) && (i<dim()) && (j>=0) && (j<dim()) );
    assert( (-num_lower()<=k) && (k<=num_upper()) );
@@ -63,24 +55,20 @@ T band_matrix<T>::operator () (int i, int j) const {
    else     return m_lower[-k][i];
 }
 // second diag (used in LU decomposition), saved in m_lower
-template<typename T>
-T band_matrix<T>::saved_diag(int i) const {
+double band_matrix::saved_diag(int i) const {
    assert( (i>=0) && (i<dim()) );
    return m_lower[0][i];
 }
-
-template<typename T>
-T & band_matrix<T>::saved_diag(int i) {
+double & band_matrix::saved_diag(int i) {
    assert( (i>=0) && (i<dim()) );
    return m_lower[0][i];
 }
 
 // LR-Decomposition of a band matrix
-template<typename T>
-void band_matrix<T>::lu_decompose() {
+void band_matrix::lu_decompose() {
    int  i_max,j_max;
    int  j_min;
-   T x;
+   double x;
 
    // preconditioning
    // normalize column i so that a_ii=1
@@ -111,12 +99,11 @@ void band_matrix<T>::lu_decompose() {
    }
 }
 // solves Ly=b
-template<typename T>
-std::vector<T> band_matrix<T>::l_solve(const std::vector<T>& b) const {
+std::vector<double> band_matrix::l_solve(const std::vector<double>& b) const {
    assert( this->dim()==(int)b.size() );
-   std::vector<T> x(this->dim());
+   std::vector<double> x(this->dim());
    int j_start;
-   T sum;
+   double sum;
    for(int i=0; i<this->dim(); i++) {
       sum=0;
       j_start=std::max(0,i-this->num_lower());
@@ -126,12 +113,11 @@ std::vector<T> band_matrix<T>::l_solve(const std::vector<T>& b) const {
    return x;
 }
 // solves Rx=y
-template<typename T>
-std::vector<T> band_matrix<T>::r_solve(const std::vector<T>& b) const {
+std::vector<double> band_matrix::r_solve(const std::vector<double>& b) const {
    assert( this->dim()==(int)b.size() );
-   std::vector<T> x(this->dim());
+   std::vector<double> x(this->dim());
    int j_stop;
-   T sum;
+   double sum;
    for(int i=this->dim()-1; i>=0; i--) {
       sum=0;
       j_stop=std::min(this->dim()-1,i+this->num_upper());
@@ -141,11 +127,10 @@ std::vector<T> band_matrix<T>::r_solve(const std::vector<T>& b) const {
    return x;
 }
 
-template<typename T>
-std::vector<T> band_matrix<T>::lu_solve(const std::vector<T>& b,
+std::vector<double> band_matrix::lu_solve(const std::vector<double>& b,
       bool is_lu_decomposed) {
    assert( this->dim()==(int)b.size() );
-   std::vector<T>  x,y;
+   std::vector<double>  x,y;
    if(is_lu_decomposed==false) {
       this->lu_decompose();
    }
@@ -160,9 +145,9 @@ std::vector<T> band_matrix<T>::lu_solve(const std::vector<T>& b,
 
 // spline implementation
 // -----------------------
-template< typename T >
-void spline<T>::set_points(const std::vector<T>& x,
-                          const std::vector<T>& y, bool cubic_spline) {
+
+void spline::set_points(const std::vector<double>& x,
+                          const std::vector<double>& y, bool cubic_spline) {
    assert(x.size()==y.size());
    m_x=x;
    m_y=y;
@@ -175,8 +160,8 @@ void spline<T>::set_points(const std::vector<T>& x,
    if(cubic_spline==true) { // cubic spline interpolation
       // setting up the matrix and right hand side of the equation system
       // for the parameters b[]
-      band_matrix<T> A(n,1,1);
-      std::vector<T>  rhs(n);
+      band_matrix A(n,1,1);
+      std::vector<double>  rhs(n);
       for(int i=1; i<n-1; i++) {
          A(i,i-1)=1.0/3.0*(x[i]-x[i-1]);
          A(i,i)=2.0/3.0*(x[i+1]-x[i-1]);
@@ -215,22 +200,21 @@ void spline<T>::set_points(const std::vector<T>& x,
 
    // for the right boundary we define
    // f_{n-1}(x) = b*(x-x_{n-1})^2 + c*(x-x_{n-1}) + y_{n-1}
-   T h=x[n-1]-x[n-2];
+   double h=x[n-1]-x[n-2];
    // m_b[n-1] is determined by the boundary condition
    m_a[n-1]=0.0;
    m_c[n-1]=3.0*m_a[n-2]*h*h+2.0*m_b[n-2]*h+m_c[n-2];   // = f'_{n-2}(x_{n-1})
 }
 
-template< typename T >
-T spline<T>::operator() (T x) const {
+double spline::operator() (double x) const {
    size_t n=m_x.size();
    // find the closest point m_x[idx] < x, idx=0 even if x<m_x[0]
-   typename std::vector<T>::const_iterator it;
+   std::vector<double>::const_iterator it;
    it=std::lower_bound(m_x.begin(),m_x.end(),x);
    int idx=std::max( int(it-m_x.begin())-1, 0);
 
-   T h=x-m_x[idx];
-   T interpol;
+   double h=x-m_x[idx];
+   double interpol;
    if(x<m_x[0]) {
       // extrapolation to the left
       interpol=((m_b[0])*h + m_c[0])*h + m_y[0];
@@ -243,10 +227,4 @@ T spline<T>::operator() (T x) const {
    }
    return interpol;
 }
-
-template class band_matrix<float>;
-template class band_matrix<double>;
-
-template class spline<float>;
-template class spline<double>;
 }}}}

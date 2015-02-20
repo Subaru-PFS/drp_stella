@@ -33,14 +33,14 @@
 
 int main(int argc, char** argv) {
 
-   std::vector<T> X(5), Y(5);
+   std::vector<double> X(5), Y(5);
    X[0]=0.1; X[1]=0.4; X[2]=1.2; X[3]=1.8; X[4]=2.0;
    Y[0]=0.1; Y[1]=0.7; Y[2]=0.6; Y[3]=1.1; Y[4]=0.9;
 
    tk::spline s;
    s.set_points(X,Y);    // currently it is required that X is already sorted
 
-   T x=1.5;
+   double x=1.5;
 
    printf("spline at %f is %f\n", x, s(x));
 
@@ -67,11 +67,10 @@ spline at 1.500000 is 0.915345
 // header file and we don't want to export symbols to the obj files
 namespace pfs { namespace drp { namespace stella { namespace math {
 // band matrix solver
-template<typename T>
 class band_matrix {
 private:
-   std::vector< std::vector<T> > m_upper;  // upper band
-   std::vector< std::vector<T> > m_lower;  // lower band
+   std::vector< std::vector<double> > m_upper;  // upper band
+   std::vector< std::vector<double> > m_lower;  // lower band
 public:
    band_matrix() {};                             // constructor
    band_matrix(int dim, int n_u, int n_l);       // constructor
@@ -85,32 +84,31 @@ public:
       return m_lower.size()-1;
    }
    // access operator
-   T & operator () (int i, int j);            // write
-   T   operator () (int i, int j) const;      // read
+   double & operator () (int i, int j);            // write
+   double   operator () (int i, int j) const;      // read
    // we can store an additional diogonal (in m_lower)
-   T& saved_diag(int i);
-   T  saved_diag(int i) const;
+   double& saved_diag(int i);
+   double  saved_diag(int i) const;
    void lu_decompose();
-   std::vector<T> r_solve(const std::vector<T>& b) const;
-   std::vector<T> l_solve(const std::vector<T>& b) const;
-   std::vector<T> lu_solve(const std::vector<T>& b,
+   std::vector<double> r_solve(const std::vector<double>& b) const;
+   std::vector<double> l_solve(const std::vector<double>& b) const;
+   std::vector<double> lu_solve(const std::vector<double>& b,
                                 bool is_lu_decomposed=false);
 
 };
 
 
 // spline interpolation
-template<typename T>
 class spline {
 private:
-   std::vector<T> m_x,m_y;           // x,y coordinates of points
+   std::vector<double> m_x,m_y;           // x,y coordinates of points
    // interpolation parameters
    // f(x) = a*(x-x_i)^3 + b*(x-x_i)^2 + c*(x-x_i) + y_i
-   std::vector<T> m_a,m_b,m_c,m_d;
+   std::vector<double> m_a,m_b,m_c,m_d;
 public:
-   void set_points(const std::vector<T>& x,
-                   const std::vector<T>& y, bool cubic_spline=true);
-   T operator() (T x) const;
+   void set_points(const std::vector<double>& x,
+                   const std::vector<double>& y, bool cubic_spline=true);
+   double operator() (double x) const;
 };
 
 }}}} // namespace pfs { namespace drp { namespace stella { namespace math {
