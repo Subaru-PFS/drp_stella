@@ -13,7 +13,6 @@
 #include "../utils/Utils.h"
 
 //#define __DEBUG_FIT__
-#define __DEBUG_POLY__
 
 namespace afwGeom = lsst::afw::geom;
 namespace afwImage = lsst::afw::image;
@@ -190,10 +189,6 @@ namespace pfs { namespace drp { namespace stella {
     **/
     blitz::Array<double, 1> Poly(const blitz::Array<double, 1> &D_A1_X_In,
                                  const blitz::Array<double, 1> &D_A1_Coeffs_In);
-    
-    template<typename T, typename U>
-    ndarray::Array<T, 1, 1> Poly(ndarray::Array<T, 1, 1> const& x_In,
-                                 ndarray::Array<U, 1, 1> const& coeffs_In);
 
     double Poly(const double D_X_In,
                 const blitz::Array<double, 1> &D_A1_Coeffs_In);
@@ -313,22 +308,6 @@ namespace pfs { namespace drp { namespace stella {
      **/
     template <typename T>
     blitz::Array<long, 2> FixL(const blitz::Array<T, 2> &Arr);
-    
-    /**
-     * Rounds x downward, returning the largest integral value that is not greater than x.
-
-     * @param rhs: value to be rounded down
-     * @param outType: type of this parameter determines the type of the return value. The value of this parameter has no meaning.
-     * @return rounded down value of rhs, type of outType
-     */
-    template <typename T, typename U>
-    U floor(T const& rhs, U const& outType);
-    
-    template <typename T, typename U>
-    ndarray::Array<U, 1, 1> floor(ndarray::Array<const T, 1, 1> const& rhs, U const outType);
-    
-    template <typename T, typename U>
-    ndarray::Array<U, 2, 2> floor(ndarray::Array<const T, 2, 2> const& rhs, U const outType);
 
     /**
      * Int(double)
@@ -339,7 +318,7 @@ namespace pfs { namespace drp { namespace stella {
     int Int(T D_In);
 
     /**
-     *      Int(blitz::Array<double, 1> &VecArr)
+     *      Fix(blitz::Array<double, 1> &VecArr)
      *      Returns an Array of the same size containing the Int integer values of VecArr.
      **/
     template <typename T>

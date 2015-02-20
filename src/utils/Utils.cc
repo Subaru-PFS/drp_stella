@@ -754,14 +754,12 @@ template bool utils::WriteFits(const blitz::Array<float, 1>* image_In, const str
 template bool utils::WriteFits(const blitz::Array<double, 1>* image_In, const string &fileName_In);
 
 template bool utils::WriteArrayToFile(const blitz::Array<unsigned short, 1> &I_A1_In, const string &S_FileName_In, const string &S_Mode);
-template bool utils::WriteArrayToFile(const blitz::Array<unsigned long, 1> &I_A1_In, const string &S_FileName_In, const string &S_Mode);
 template bool utils::WriteArrayToFile(const blitz::Array<int, 1> &I_A1_In, const string &S_FileName_In, const string &S_Mode);
 template bool utils::WriteArrayToFile(const blitz::Array<long, 1> &I_A1_In, const string &S_FileName_In, const string &S_Mode);
 template bool utils::WriteArrayToFile(const blitz::Array<float, 1> &I_A1_In, const string &S_FileName_In, const string &S_Mode);
 template bool utils::WriteArrayToFile(const blitz::Array<double, 1> &I_A1_In, const string &S_FileName_In, const string &S_Mode);
 
 template bool utils::WriteArrayToFile(const blitz::Array<unsigned short, 2> &D_A2_In, const string &S_FileName_In, const string &S_Mode);
-template bool utils::WriteArrayToFile(const blitz::Array<unsigned long, 2> &D_A2_In, const string &S_FileName_In, const string &S_Mode);
 template bool utils::WriteArrayToFile(const blitz::Array<int, 2> &D_A2_In, const string &S_FileName_In, const string &S_Mode);
 template bool utils::WriteArrayToFile(const blitz::Array<long, 2> &D_A2_In, const string &S_FileName_In, const string &S_Mode);
 template bool utils::WriteArrayToFile(const blitz::Array<float, 2> &D_A2_In, const string &S_FileName_In, const string &S_Mode);

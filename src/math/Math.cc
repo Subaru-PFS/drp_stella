@@ -353,6 +353,7 @@
       #ifdef __DEBUG_POLY__
         cout << "Poly: xVec = " << xVec << endl;
         cout << "Poly: coeffsVec = " << coeffsVec << endl;
+        cout << "Poly: D_A1_Out set to " << D_A1_Out << endl;
       #endif
       int I_PolynomialOrder = coeffsVec.size() - 1;
       #ifdef __DEBUG_POLY__
@@ -378,45 +379,6 @@
       return D_A1_Out;
     }
 
-    template<typename T, typename U>
-    ndarray::Array<T, 1, 1> Poly(ndarray::Array<T, 1, 1> const& x_In,
-                                 ndarray::Array<U, 1, 1> const& coeffs_In){
-      int ii = 0;
-      ndarray::Array<T, 1, 1> arr_Out = ndarray::allocate(int(x_In.size()));
-      #ifdef __DEBUG_POLY__
-        cout << "Poly: x_In = " << x_In << endl;
-        cout << "Poly: coeffs_In = " << coeffs_In << endl;
-        cout << "Poly: arr_Out set to " << arr_Out << endl;
-      #endif
-      int I_PolynomialOrder = coeffs_In.size() - 1;
-      #ifdef __DEBUG_POLY__
-        cout << "Poly: I_PolynomialOrder set to " << I_PolynomialOrder << endl;
-      #endif
-      if (I_PolynomialOrder == 0){
-        arr_Out[ndarray::view()] = coeffs_In(0);
-        #ifdef __DEBUG_POLY__
-          cout << "Poly: I_PolynomialOrder == 0: arr_Out set to " << arr_Out << endl;
-        #endif
-        return arr_Out;
-      }
-      arr_Out[ndarray::view()] = coeffs_In(I_PolynomialOrder);
-      #ifdef __DEBUG_POLY__
-        cout << "Poly: I_PolynomialOrder != 0: arr_Out set to " << arr_Out << endl;
-      #endif
-
-      auto arr_Out_begin = arr_Out.begin();
-      auto x_In_begin = x_In.begin();
-      auto coeffs_In_begin = coeffs_In.begin();
-      for (ii = I_PolynomialOrder-1; ii >= 0; ii--){
-        for (int i = 0; i < arr_Out.getShape()[0]; ++i)
-          *(arr_Out_begin + i) = (*(arr_Out_begin + i)) * (*(x_In_begin + i)) + (*(coeffs_In_begin + ii));
-        #ifdef __DEBUG_POLY__
-          cout << "Poly: I_PolynomialOrder != 0: for (ii = " << ii << "; ii >= 0; ii--) arr_Out set to " << arr_Out << endl;
-        #endif
-      }
-      return arr_Out;
-    }
-    
     double Poly(const double D_X_In,
                 const blitz::Array<double, 1> &D_A1_Coeffs){
       blitz::Array<double, 1> D_A1_X(1);
@@ -5118,80 +5080,8 @@
 //      &arr_InOut = newArr;
 //      return;
 //    }
-    
-    template< typename T, typename U >
-    U floor(T const& rhs, U const& outType){
-      U outVal = U(std::llround(std::floor(rhs)));
-      return outVal;
-    }
-    
-    template< typename T, typename U >
-    ndarray::Array<U, 1, 1> floor(const ndarray::Array<const T, 1, 1> &rhs, const U outType){
-      ndarray::Array<U, 1, 1> outVal = allocate(rhs.getShape());
-      typename ndarray::Array<U, 1, 1>::Iterator iOut = outVal.begin();
-      for (auto iIn = rhs.begin(); iIn != rhs.end(); ++iIn){
-        *iOut = floor(*iIn, outType);
-        ++iOut;
-      }
-      return outVal;
-    }
-    
-    template< typename T, typename U >
-    ndarray::Array<U, 2, 2> floor(const ndarray::Array<const T, 2, 2> &rhs, const U outType){
-      ndarray::Array<U, 2, 2> outVal = allocate(rhs.getShape());
-      typename ndarray::Array<U, 2, 2>::Iterator iOut = outVal.begin();
-      typename ndarray::Array<U, 2, 2>::Reference::Iterator jOut = iOut->begin();
-      for (auto iIn = rhs.begin(); iIn != rhs.end(); ++iIn) {
-        for (auto jIn = iIn->begin(); jIn != iIn->end(); ++jIn) {
-          *jOut = floor(*jIn, outType);
-          ++jOut;
-        }
-        ++iOut;
-      }
-      return outVal;
-    }
-
-    template size_t floor(float const&, size_t const&);
-    template size_t floor(double const&, size_t const&);
-    template unsigned int floor(float const&, unsigned int const&);
-    template unsigned int floor(double const&, unsigned int const&);
-//    template unsigned long math::floor(float, unsigned long);
-//    template unsigned long math::floor(double, unsigned long);
-    template float floor(float const&, float const&);
-    template float floor(double const&, float const&);
-    template double floor(float const&, double const&);
-    template double floor(double const&, double const&);
-
-    template ndarray::Array<size_t, 1, 1> floor(const ndarray::Array<const float, 1, 1>&, const size_t);
-    template ndarray::Array<size_t, 1, 1> floor(const ndarray::Array<const double, 1, 1>&, const size_t);
-    template ndarray::Array<unsigned int, 1, 1> floor(const ndarray::Array<const float, 1, 1>&, const unsigned int);
-    template ndarray::Array<unsigned int, 1, 1> floor(const ndarray::Array<const double, 1, 1>&, const unsigned int);
-  //  template ndarray::Array<unsigned long, 1, 1> math::floor(const ndarray::Array<const float, 1, 1>&, const unsigned long);
-  //  template ndarray::Array<unsigned long, 1, 1> math::floor(const ndarray::Array<const double, 1, 1>&, const unsigned long);
-    template ndarray::Array<float, 1, 1> floor(const ndarray::Array<const float, 1, 1>&, const float);
-    template ndarray::Array<float, 1, 1> floor(const ndarray::Array<const double, 1, 1>&, const float);
-    template ndarray::Array<double, 1, 1> floor(const ndarray::Array<const float, 1, 1>&, const double);
-    template ndarray::Array<double, 1, 1> floor(const ndarray::Array<const double, 1, 1>&, const double);
-
-    template ndarray::Array<size_t, 2, 2> floor(const ndarray::Array<const float, 2, 2>&, const size_t);
-    template ndarray::Array<size_t, 2, 2> floor(const ndarray::Array<const double, 2, 2>&, const size_t);
-    template ndarray::Array<unsigned int, 2, 2> floor(const ndarray::Array<const float, 2, 2>&, const unsigned int);
-    template ndarray::Array<unsigned int, 2, 2> floor(const ndarray::Array<const double, 2, 2>&, const unsigned int);
-  //  template ndarray::Array<unsigned long math::floor(ndarray::Array<float, 2, 2>, unsigned long);
-  //  template ndarray::Array<unsigned long math::floor(ndarray::Array<double, 2, 2>, unsigned double);
-    template ndarray::Array<float, 2, 2> floor(const ndarray::Array<const float, 2, 2>&, const float);
-    template ndarray::Array<float, 2, 2> floor(const ndarray::Array<const double, 2, 2>&, const float);
-    template ndarray::Array<double, 2, 2> floor(const ndarray::Array<const float, 2, 2>&, const double);
-    template ndarray::Array<double, 2, 2> floor(const ndarray::Array<const double, 2, 2>&, const double);
-
-    template ndarray::Array<float, 1, 1> Poly(ndarray::Array<float, 1, 1> const&, ndarray::Array<float, 1, 1> const&);
-    template ndarray::Array<float, 1, 1> Poly(ndarray::Array<float, 1, 1> const&, ndarray::Array<double, 1, 1> const&);
-    template ndarray::Array<double, 1, 1> Poly(ndarray::Array<double, 1, 1> const&, ndarray::Array<float, 1, 1> const&);
-    template ndarray::Array<double, 1, 1> Poly(ndarray::Array<double, 1, 1> const&, ndarray::Array<double, 1, 1> const&);
-
   }/// end namespace math
 
-  
   template int math::Fix(unsigned short);
   template int math::Fix(unsigned int);
   template int math::Fix(int);
