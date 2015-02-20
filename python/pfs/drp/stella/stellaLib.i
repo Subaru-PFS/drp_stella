@@ -95,12 +95,18 @@ Interface to Stella
 
 %shared_ptr(pfs::drp::stella::Spectrum<float, unsigned short, float, float>);
 %shared_ptr(pfs::drp::stella::Spectrum<double, unsigned short, float, float>);
+%shared_ptr(pfs::drp::stella::Spectrum<float, unsigned int, float, float>);
+%shared_ptr(pfs::drp::stella::Spectrum<double, unsigned int, float, float>);
 
 %shared_ptr(std::vector<PTR(pfs::drp::stella::Spectrum<float, unsigned short, float, float>)>);
 %shared_ptr(std::vector<PTR(pfs::drp::stella::Spectrum<double, unsigned short, float, float>)>);
+%shared_ptr(std::vector<PTR(pfs::drp::stella::Spectrum<float, unsigned int, float, float>)>);
+%shared_ptr(std::vector<PTR(pfs::drp::stella::Spectrum<double, unsigned int, float, float>)>);
 
 %shared_ptr(pfs::drp::stella::SpectrumSet<float, unsigned short, float, float>);
 %shared_ptr(pfs::drp::stella::SpectrumSet<double, unsigned short, float, float>);
+%shared_ptr(pfs::drp::stella::SpectrumSet<float, unsigned int, float, float>);
+%shared_ptr(pfs::drp::stella::SpectrumSet<double, unsigned int, float, float>);
 
 %include "pfs/drp/stella/FiberTraces.h"
 %include "std_vector.i"
@@ -116,6 +122,8 @@ Interface to Stella
 %include "pfs/drp/stella/Spectra.h"
 %template(SpecVectorF) std::vector<PTR(pfs::drp::stella::Spectrum<float, unsigned short, float, float>)>;
 %template(SpecVectorD) std::vector<PTR(pfs::drp::stella::Spectrum<double, unsigned short, float, float>)>;
+%template(SpecVectorFI) std::vector<PTR(pfs::drp::stella::Spectrum<float, unsigned int, float, float>)>;
+%template(SpecVectorDI) std::vector<PTR(pfs::drp::stella::Spectrum<double, unsigned int, float, float>)>;
 
 %include "pfs/drp/stella/utils/Utils.h"
 %include "pfs/drp/stella/math/Math.h"
@@ -124,6 +132,7 @@ Interface to Stella
 %include "pfs/drp/stella/spline.h"
 %include "pfs/drp/stella/SurfaceFit.h"
 
+# """Shared Pointers (!) to std::vectors"""
 %template(SPVectorF) std::vector<float>;
 #%template(SPVectorD) std::vector<double>;
 %template(SPVectorUS) std::vector<unsigned short>;
@@ -141,6 +150,8 @@ Interface to Stella
 
 %template(SpectrumF) pfs::drp::stella::Spectrum<float, unsigned short, float, float>;
 %template(SpectrumD) pfs::drp::stella::Spectrum<double, unsigned short, float, float>;
+%template(SpectrumFI) pfs::drp::stella::Spectrum<float, unsigned int, float, float>;
+%template(SpectrumDI) pfs::drp::stella::Spectrum<double, unsigned int, float, float>;
 
 %template(FiberTraceSetF) pfs::drp::stella::FiberTraceSet<float, unsigned short, float>;
 %template(FiberTraceSetD) pfs::drp::stella::FiberTraceSet<double, unsigned short, float>;
@@ -150,6 +161,8 @@ Interface to Stella
 
 %template(SpectrumSetF) pfs::drp::stella::SpectrumSet<float, unsigned short, float, float>;
 %template(SpectrumSetD) pfs::drp::stella::SpectrumSet<double, unsigned short, float, float>;
+%template(SpectrumSetF) pfs::drp::stella::SpectrumSet<float, unsigned int, float, float>;
+%template(SpectrumSetD) pfs::drp::stella::SpectrumSet<double, unsigned int, float, float>;
 
 %template(findAndTraceAperturesF) pfs::drp::stella::math::findAndTraceApertures<float, unsigned short, float>;
 %template(findAndTraceAperturesD) pfs::drp::stella::math::findAndTraceApertures<double, unsigned short, float>;
@@ -322,3 +335,40 @@ Interface to Stella
 
 %template(getPointerMIF) pfs::drp::stella::utils::getPointer<lsst::afw::image::MaskedImage<float, unsigned short, float>>;
 %template(getPointerMID) pfs::drp::stella::utils::getPointer<lsst::afw::image::MaskedImage<double, unsigned short, float>>;
+%template(getPointerVUS) pfs::drp::stella::utils::getPointer<std::vector<unsigned short>>;
+%template(getPointerVUI) pfs::drp::stella::utils::getPointer<std::vector<unsigned int>>;
+%template(getPointerVI) pfs::drp::stella::utils::getPointer<std::vector<int>>;
+%template(getPointerVF) pfs::drp::stella::utils::getPointer<std::vector<float>>;
+%template(getPointerVD) pfs::drp::stella::utils::getPointer<std::vector<double>>;
+#%template(getPointerSF) pfs::drp::stella::utils::getPointer<std::vector<pfs::drp::stella::Spectrum<float, unsigned short, float, float>>>;
+#%template(getPointerSD) pfs::drp::stella::utils::getPointer<std::vector<pfs::drp::stella::Spectrum<double, unsigned short, float, float>>>;
+
+%template(get1DBlitzArrayUS) pfs::drp::stella::utils::get1DBlitzArray<unsigned short>;
+%template(get1DBlitzArrayI) pfs::drp::stella::utils::get1DBlitzArray<int>;
+%template(get1DBlitzArrayF) pfs::drp::stella::utils::get1DBlitzArray<float>;
+%template(get1DBlitzArrayD) pfs::drp::stella::utils::get1DBlitzArray<double>;
+
+%template(get2DBlitzArrayUS) pfs::drp::stella::utils::get2DBlitzArray<unsigned short>;
+%template(get2DBlitzArrayI) pfs::drp::stella::utils::get2DBlitzArray<int>;
+%template(get2DBlitzArrayF) pfs::drp::stella::utils::get2DBlitzArray<float>;
+%template(get2DBlitzArrayD) pfs::drp::stella::utils::get2DBlitzArray<double>;
+
+%template(getRawPointerMIF) pfs::drp::stella::utils::getRawPointer<lsst::afw::image::MaskedImage<float, unsigned short, float>>;
+%template(getRawPointerMID) pfs::drp::stella::utils::getRawPointer<lsst::afw::image::MaskedImage<double, unsigned short, float>>;
+%template(getRawPointerIF) pfs::drp::stella::utils::getRawPointer<lsst::afw::image::Image<float>>;
+%template(getRawPointerII) pfs::drp::stella::utils::getRawPointer<lsst::afw::image::Image<int>>;
+%template(getRawPointerIUI) pfs::drp::stella::utils::getRawPointer<lsst::afw::image::Image<unsigned int>>;
+%template(getRawPointerID) pfs::drp::stella::utils::getRawPointer<lsst::afw::image::Image<double>>;
+%template(getRawPointerFTF) pfs::drp::stella::utils::getRawPointer<pfs::drp::stella::FiberTrace<float, unsigned short, float>>;
+%template(getRawPointerFTD) pfs::drp::stella::utils::getRawPointer<pfs::drp::stella::FiberTrace<double, unsigned short, float>>;
+
+%template(copyVectorI) pfs::drp::stella::utils::copy<int>;
+%template(copyVectorF) pfs::drp::stella::utils::copy<float>;
+%template(copyVectorD) pfs::drp::stella::utils::copy<double>;
+
+%template(indGenUS) pfs::drp::stella::math::indGen<unsigned short>;
+%template(indGenUI) pfs::drp::stella::math::indGen<unsigned int>;
+%template(indGenI) pfs::drp::stella::math::indGen<int>;
+%template(indGenF) pfs::drp::stella::math::indGen<float>;
+%template(indGenD) pfs::drp::stella::math::indGen<double>;
+

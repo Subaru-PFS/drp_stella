@@ -710,17 +710,37 @@ namespace pfs { namespace drp { namespace stella { namespace utils{
   }
 
   template<typename T>
-  PTR(T) getPointer(T &obj){
-    PTR(T) pointer(new T(obj));
-    return pointer;
+  blitz::Array<T, 2> get2DBlitzArray(T nRows, T nCols){
+    blitz::Array<T, 2> out(2,2);
+    out.resize(int(nRows), int(nCols));
+    out = 0;
+    return out;
   }
 
+  template<typename T>
+  blitz::Array<T, 1> get1DBlitzArray(T size){
+    blitz::Array<T, 1> out(2);
+    out.resize(int(size));
+    out = 0;
+    return out;
+  }
+
+  template<typename T>
+  std::vector<T> copy(const std::vector<T> &vecIn){
+    std::vector<T> vecOut = vecIn;
+    return vecOut;
+  }
+  
 //    template<typename ImageT, typename MaskT, typename VarianceT>
 //    PTR(afwImage::MaskedImage<ImageT, MaskT, VarianceT>) getShared(afwImage::MaskedImage<ImageT, MaskT, VarianceT> const &maskedImage){
 //      PTR(afwImage::MaskedImage<ImageT, MaskT, VarianceT>) ptr = PTR(const new afwImage::MaskedImage<ImageT, MaskT, VarianceT>(maskedImage));
 //      return ptr;
 //    }
 }
+template std::vector<int> utils::copy(const std::vector<int>&);
+template std::vector<float> utils::copy(const std::vector<float>&);
+template std::vector<double> utils::copy(const std::vector<double>&);
+
 template bool utils::WriteFits(const blitz::Array<unsigned short, 2>* image_In, const string &fileName_In);
 template bool utils::WriteFits(const blitz::Array<int, 2>* image_In, const string &fileName_In);
 template bool utils::WriteFits(const blitz::Array<long, 2>* image_In, const string &fileName_In);
@@ -744,8 +764,15 @@ template bool utils::WriteArrayToFile(const blitz::Array<int, 2> &D_A2_In, const
 template bool utils::WriteArrayToFile(const blitz::Array<long, 2> &D_A2_In, const string &S_FileName_In, const string &S_Mode);
 template bool utils::WriteArrayToFile(const blitz::Array<float, 2> &D_A2_In, const string &S_FileName_In, const string &S_Mode);
 template bool utils::WriteArrayToFile(const blitz::Array<double, 2> &D_A2_In, const string &S_FileName_In, const string &S_Mode);
+  
+template blitz::Array<unsigned short, 1> utils::get1DBlitzArray(unsigned short);
+template blitz::Array<int, 1> utils::get1DBlitzArray(int);
+template blitz::Array<float, 1> utils::get1DBlitzArray(float);
+template blitz::Array<double, 1> utils::get1DBlitzArray(double);
+template blitz::Array<unsigned short, 2> utils::get2DBlitzArray(unsigned short, unsigned short);
+template blitz::Array<int, 2> utils::get2DBlitzArray(int, int);
+template blitz::Array<float, 2> utils::get2DBlitzArray(float, float);
+template blitz::Array<double, 2> utils::get2DBlitzArray(double, double);
 
-template PTR(afwImage::MaskedImage<float, unsigned short, float>) utils::getPointer(afwImage::MaskedImage<float, unsigned short, float> &);
-template PTR(afwImage::MaskedImage<double, unsigned short, float>) utils::getPointer(afwImage::MaskedImage<double, unsigned short, float> &);
 
 }}}

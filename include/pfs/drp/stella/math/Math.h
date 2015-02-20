@@ -1,3 +1,5 @@
+///TODO: Replace all pointers with sharedPointers!
+
 #ifndef __PFS_DRP_STELLA_MATH_H__
 #define __PFS_DRP_STELLA_MATH_H__
 
@@ -9,6 +11,8 @@
 #include "lsst/pex/config.h"
 #include "../blitz.h"
 #include "../utils/Utils.h"
+
+//#define __DEBUG_FIT__
 
 namespace afwGeom = lsst::afw::geom;
 namespace afwImage = lsst::afw::image;
@@ -237,10 +241,13 @@ namespace pfs { namespace drp { namespace stella {
     /**
      * Calculates aperture minimum pixel, central position, and maximum pixel for the trace,
      * and writes result to I_A2_MinCenMax_Out
+     * Note that if the width of the trace varies depending on the position of the aperture center,
+     * 1 pixel left and/or right of the maximum aperture width will get cut off to reduce possible
+     * cross-talk between adjacent apertures
      **/
     bool calcMinCenMax(const blitz::Array<float, 1> &xCenters_In,
-                       float xHigh_In,
-                       float xLow_In,
+                       float xHigh_In,/// >= 0
+                       float xLow_In,/// <= 0
                        int nPixCutLeft_In,
                        int nPixCutRight_In,
                        blitz::Array<int, 2> &I_A2_MinCenMax_Out);
@@ -549,6 +556,14 @@ namespace pfs { namespace drp { namespace stella {
                  blitz::Array<double, 1>* P_D_A1_Out);
 
 
+    /**
+     * @brief Creates standard vector of length len containing the index numbers as values
+     * @param len: length of output vector
+     * @return 
+     */
+    template<typename T>
+    std::vector<T> indGen(T len);
+    
     /**
      *  Creates float array containing the index numbers as values
      **/

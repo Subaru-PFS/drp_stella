@@ -2,6 +2,18 @@
 *.os
 *.pyc
 *.so
+*.dat
+*.fits
+*.text
+*.log
+*.bak
+src_old/*
+*checkpoint.ipynb
+*logfile*
+*history*
+*.*.*
+*kdev4*
+*makefile*
 
 .sconf_temp
 .sconsign.dblite

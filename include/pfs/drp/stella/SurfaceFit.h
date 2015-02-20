@@ -232,7 +232,7 @@ private:
     int _ky;
 public:
     explicit SurfaceFit() : _tx(1), _ty(1), _coeffs(1), _lwrk2(1), _kwrk(1), _kx(3), _ky(3){}
-    explicit SurfaceFit(const SurfaceFit &surfaceFit) : _tx(surfaceFit.getTX()),
+    SurfaceFit(const SurfaceFit &surfaceFit) : _tx(surfaceFit.getTX()),
                                                         _ty(surfaceFit.getTY()),
                                                         _coeffs(surfaceFit.getCoeffs()),
                                                         _lwrk2(surfaceFit.getLWrk2()),

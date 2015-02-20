@@ -11,6 +11,7 @@
 #include "lsst/afw/geom.h"
 #include "lsst/afw/image/MaskedImage.h"
 #include "lsst/pex/config.h"
+#include "lsst/pex/exceptions/Exception.h"
 #include "blitz.h"
 //#include <cassert>
 #include "Controls.h"
@@ -34,6 +35,7 @@
 
 namespace afwGeom = lsst::afw::geom;
 namespace afwImage = lsst::afw::image;
+namespace pexExcept = lsst::pex::exceptions;
 
 using namespace std;
 namespace pfs { namespace drp { namespace stella {
@@ -43,40 +45,31 @@ namespace pfs { namespace drp { namespace stella {
     public:
       typedef afwImage::MaskedImage<ImageT, MaskT, VarianceT> MaskedImageT;
 
-      PSF(unsigned int iTrace=0, unsigned int iBin=0) : _twoDPSFControl(new TwoDPSFControl()),
-                                                        _iTrace(iTrace),
-                                                        _iBin(iBin),
-                                                        _yLow(0),
-                                                        _yHigh(0),
-                                                        _imagePSF_XTrace(new std::vector<float>(0)),
-                                                        _imagePSF_YTrace(new std::vector<float>(0)),
-                                                        _imagePSF_ZTrace(new std::vector<float>(0)),
-                                                        _imagePSF_XRelativeToCenter(new std::vector<float>(0)),
-                                                        _imagePSF_YRelativeToCenter(new std::vector<float>(0)),
-                                                        _imagePSF_ZNormalized(new std::vector<float>(0)),
-                                                        _imagePSF_Weight(new std::vector<float>(0)),
-                                                        _pixelsFit(new std::vector<float>(0)),
-                                                        _isTwoDPSFControlSet(false),
-                                                        _isPSFsExtracted(false),
-                                                        _surfaceFit(new SurfaceFit())
+      explicit PSF(size_t iTrace=0, size_t iBin=0) : _twoDPSFControl(new TwoDPSFControl()),
+                                                     _iTrace(iTrace),
+                                                     _iBin(iBin),
+                                                     _yMin(0),
+                                                     _yMax(0),
+                                                     _imagePSF_XTrace(0),
+                                                     _imagePSF_YTrace(0),
+                                                     _imagePSF_ZTrace(0),
+                                                     _imagePSF_XRelativeToCenter(0),
+                                                     _imagePSF_YRelativeToCenter(0),
+                                                     _imagePSF_ZNormalized(0),
+                                                     _imagePSF_Weight(0),
+                                                     _pixelsFit(0),
+                                                     _isTwoDPSFControlSet(false),
+                                                     _isPSFsExtracted(false),
+                                                     _surfaceFit()
       {};
       
-      PSF(const PSF &psf) : _twoDPSFControl(psf.getTwoDPSFControl()),
-                            _iTrace(psf.getITrace()),
-                            _iBin(psf.getIBin()),
-                            _yLow(psf.getYLow()),
-                            _yHigh(psf.getYHigh()),
-                            _imagePSF_XTrace(psf.getImagePSF_XTrace()),
-                            _imagePSF_YTrace(psf.getImagePSF_YTrace()),
-                            _imagePSF_ZTrace(psf.getImagePSF_ZTrace()),
-                            _imagePSF_XRelativeToCenter(psf.getImagePSF_XRelativeToCenter()),
-                            _imagePSF_YRelativeToCenter(psf.getImagePSF_YRelativeToCenter()),
-                            _imagePSF_ZNormalized(psf.getImagePSF_ZNormalized()),
-                            _imagePSF_Weight(psf.getImagePSF_Weight()),
-                            _pixelsFit(psf.getPixelsFit()),
-                            _isTwoDPSFControlSet(psf.isTwoDPSFControlSet()),
-                            _isPSFsExtracted(psf.isPSFsExtracted()),
-                            _surfaceFit(psf.getSurfaceFit()) {};
+      /**
+       * @brief Copy Constructor (shallow and deep) for a PSF
+       * 
+       * @param psf: PSF to be copied
+       * @param deep: type of copy. NOTE that the only shallow copy of psf is psf._twoDPSFControl
+       */
+      PSF(PSF &psf, const bool deep = false);
       
       /**
        *  @brief Constructor for a PSF
@@ -88,27 +81,27 @@ namespace pfs { namespace drp { namespace stella {
        *  @param[in] twoDPSFControl     Structure containing the parameters for the computation of the PSF
        *  @param[in] iBin               Bin number for which the PSF shall be computed (for debugging purposes only)
        */
-      PSF(const unsigned int yLow,
-          const unsigned int yHigh,
-          const PTR(TwoDPSFControl) &twoDPSFControl,
-          unsigned int iTrace = 0,
-          unsigned int iBin = 0
-      ) : _twoDPSFControl(twoDPSFControl),
-          _iTrace(iTrace),
-          _iBin(iBin),
-          _yLow(yLow),
-          _yHigh(yHigh),
-          _imagePSF_XTrace(new std::vector<float>(0)),
-          _imagePSF_YTrace(new std::vector<float>(0)),
-          _imagePSF_ZTrace(new std::vector<float>(0)),
-          _imagePSF_XRelativeToCenter(new std::vector<float>(0)),
-          _imagePSF_YRelativeToCenter(new std::vector<float>(0)),
-          _imagePSF_ZNormalized(new std::vector<float>(0)),
-          _imagePSF_Weight(new std::vector<float>(0)),
-          _pixelsFit(new std::vector<float>(0)),
-          _isTwoDPSFControlSet(true),
-          _isPSFsExtracted(false),
-          _surfaceFit(new SurfaceFit())
+      explicit PSF(const size_t yLow,
+                   const size_t yHigh,
+                   const PTR(TwoDPSFControl) &twoDPSFControl,
+                   size_t iTrace = 0,
+                   size_t iBin = 0)
+          : _twoDPSFControl(twoDPSFControl),
+            _iTrace(iTrace),
+            _iBin(iBin),
+            _yMin(yLow),
+            _yMax(yHigh),
+            _imagePSF_XTrace(0),
+            _imagePSF_YTrace(0),
+            _imagePSF_ZTrace(0),
+            _imagePSF_XRelativeToCenter(0),
+            _imagePSF_YRelativeToCenter(0),
+            _imagePSF_ZNormalized(0),
+            _imagePSF_Weight(0),
+            _pixelsFit(0),
+            _isTwoDPSFControlSet(true),
+            _isPSFsExtracted(false),
+            _surfaceFit()
       {};
       
       virtual ~PSF() {};
@@ -121,21 +114,29 @@ namespace pfs { namespace drp { namespace stella {
 
       /// Whether the Psf is persistable; always true.
 //      virtual bool isPersistable() const { return true; }
-      unsigned int getIBin() const {return _iBin;}
-      unsigned int getITrace() const {return _iTrace;}
-      unsigned int getYLow() const {return _yLow;}
-      unsigned int getYHigh() const {return _yHigh;}
-      PTR(std::vector<float>) getImagePSF_XTrace() const {return _imagePSF_XTrace;}
-      PTR(std::vector<float>) getImagePSF_YTrace() const {return _imagePSF_YTrace;}
-      PTR(std::vector<float>) getImagePSF_ZTrace() const {return _imagePSF_ZTrace;}
-      PTR(std::vector<float>) getImagePSF_XRelativeToCenter() const {return _imagePSF_XRelativeToCenter;}
-      PTR(std::vector<float>) getImagePSF_YRelativeToCenter() const {return _imagePSF_YRelativeToCenter;}
-      PTR(std::vector<float>) getImagePSF_ZNormalized() const {return _imagePSF_ZNormalized;}
-      PTR(std::vector<float>) getImagePSF_Weight() const {return _imagePSF_Weight;}
-      PTR(std::vector<float>) getPixelsFit() const {return _pixelsFit;}
+      size_t getIBin() const {return _iBin;}
+      size_t getITrace() const {return _iTrace;}
+      size_t getYLow() const {return _yMin;}
+      size_t getYHigh() const {return _yMax;}
+      std::vector<float> getImagePSF_XTrace() {return _imagePSF_XTrace;}
+      std::vector<float> getImagePSF_YTrace() {return _imagePSF_YTrace;}
+      std::vector<float> getImagePSF_ZTrace() {return _imagePSF_ZTrace;}
+      const std::vector<float> getImagePSF_XTrace() const {return _imagePSF_XTrace;}
+      const std::vector<float> getImagePSF_YTrace() const {return _imagePSF_YTrace;}
+      const std::vector<float> getImagePSF_ZTrace() const {return _imagePSF_ZTrace;}
+      std::vector<float> getImagePSF_XRelativeToCenter() {return _imagePSF_XRelativeToCenter;}
+      std::vector<float> getImagePSF_YRelativeToCenter() {return _imagePSF_YRelativeToCenter;}
+      std::vector<float> getImagePSF_ZNormalized() {return _imagePSF_ZNormalized;}
+      const std::vector<float> getImagePSF_XRelativeToCenter() const {return _imagePSF_XRelativeToCenter;}
+      const std::vector<float> getImagePSF_YRelativeToCenter() const {return _imagePSF_YRelativeToCenter;}
+      const std::vector<float> getImagePSF_ZNormalized() const {return _imagePSF_ZNormalized;}
+      std::vector<float> getImagePSF_Weight() {return _imagePSF_Weight;}
+      std::vector<float> getPixelsFit() {return _pixelsFit;}
+      const std::vector<float> getImagePSF_Weight() const {return _imagePSF_Weight;}
+      const std::vector<float> getPixelsFit() const {return _pixelsFit;}
       bool isTwoDPSFControlSet() const {return _isTwoDPSFControlSet;}
       bool isPSFsExtracted() const {return _isPSFsExtracted;}
-      PTR(SurfaceFit) getSurfaceFit() const {return _surfaceFit;}
+      SurfaceFit getSurfaceFit() const {return _surfaceFit;}
       
       /// Return _2dPSFControl
       PTR(TwoDPSFControl) getTwoDPSFControl() const { return _twoDPSFControl; }
@@ -159,22 +160,22 @@ namespace pfs { namespace drp { namespace stella {
 //    virtual void write(OutputArchiveHandle & handle) const;
 
     private:
-      const PTR(TwoDPSFControl) _twoDPSFControl;
-      const unsigned int _iTrace;
-      const unsigned int _iBin;
-      const unsigned int _yLow;
-      const unsigned int _yHigh;
-      PTR(std::vector<float>) _imagePSF_XTrace;
-      PTR(std::vector<float>) _imagePSF_YTrace;
-      PTR(std::vector<float>) _imagePSF_ZTrace;
-      PTR(std::vector<float>) _imagePSF_XRelativeToCenter;
-      PTR(std::vector<float>) _imagePSF_YRelativeToCenter;
-      PTR(std::vector<float>) _imagePSF_ZNormalized;
-      PTR(std::vector<float>) _imagePSF_Weight;
-      PTR(std::vector<float>) _pixelsFit;
+      PTR(TwoDPSFControl) _twoDPSFControl;
+      const size_t _iTrace;
+      const size_t _iBin;
+      const size_t _yMin;
+      const size_t _yMax;
+      std::vector<float> _imagePSF_XTrace;
+      std::vector<float> _imagePSF_YTrace;
+      std::vector<float> _imagePSF_ZTrace;
+      std::vector<float> _imagePSF_XRelativeToCenter;
+      std::vector<float> _imagePSF_YRelativeToCenter;
+      std::vector<float> _imagePSF_ZNormalized;
+      std::vector<float> _imagePSF_Weight;
+      std::vector<float> _pixelsFit;
       bool _isTwoDPSFControlSet;
       bool _isPSFsExtracted;
-      PTR(SurfaceFit) _surfaceFit;
+      SurfaceFit _surfaceFit;
       
   };
   
@@ -209,29 +210,26 @@ class PSFSet {
     virtual ~PSFSet() {}
 
     /// Return the number of PSFs
-    int size() const { return _psfs->size(); }
+    size_t size() const { return _psfs->size(); }
 
     /// Return the PSF at the ith position
-    PTR(PSF<ImageT, MaskT, VarianceT, WavelengthT>) &getPSF(const unsigned int i ///< desired position
-                                                           );
+    PTR(PSF<ImageT, MaskT, VarianceT, WavelengthT>) &getPSF(const size_t i);
 
-    PTR(PSF<ImageT, MaskT, VarianceT, WavelengthT>) const& getPSF(const unsigned int i ///< desired position
-                                                                 ) const;
+    const PTR(const PSF<ImageT, MaskT, VarianceT, WavelengthT>) getPSF(const size_t i) const;
 
     /// Set the ith PSF
-    bool setPSF(const unsigned int i,     /// which spectrum?
+    bool setPSF(const size_t i,     /// which spectrum?
                 const PTR(PSF<ImageT, MaskT, VarianceT, WavelengthT>) & psf /// the PSF at the ith position
                       );
 
     /// add one PSF to the set
-    void addPSF(const PTR(PSF<ImageT, MaskT, VarianceT, WavelengthT>) & psf /// the PSF to add
-               );
+    void addPSF(const PTR(PSF<ImageT, MaskT, VarianceT, WavelengthT>) & psf);
 
     PTR(std::vector<PTR(PSF<ImageT, MaskT, VarianceT, WavelengthT>)>) getPSFs() const { return _psfs; }
     
     /// Removes from the vector either a single element (position) or a range of elements ([first,last)).
     /// This effectively reduces the container size by the number of elements removed, which are destroyed.
-    bool erase(const unsigned int iStart, const unsigned int iEnd=0);
+    bool erase(const size_t iStart, const size_t iEnd=0);
 
     private:
     PTR(std::vector<PTR(PSF<ImageT, MaskT, VarianceT, WavelengthT>)>) _psfs; // shared pointer to vector of shared pointers to PSFs
