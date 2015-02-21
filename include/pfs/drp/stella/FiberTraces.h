@@ -19,6 +19,7 @@
 #include <fitsio2.h>
 #include "Controls.h"
 #include "math/Math.h"
+#include "math/MathBlitz.h"
 #include "utils/Utils.h"
 #include "cmpfit-1.2/MPFitting_ndarray.h"
 #include "spline.h"

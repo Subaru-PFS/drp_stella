@@ -22,6 +22,7 @@ Interface to Stella
 #include "pfs/drp/stella/Example.h"
 #include "pfs/drp/stella/utils/Utils.h"
 #include "pfs/drp/stella/math/Math.h"
+#include "pfs/drp/stella/math/MathBlitz.h"
 #include "pfs/drp/stella/Controls.h"
 #include "pfs/drp/stella/PSF.h"
 #include "pfs/drp/stella/Spectra.h"
@@ -128,6 +129,7 @@ Interface to Stella
 
 %include "pfs/drp/stella/utils/Utils.h"
 %include "pfs/drp/stella/math/Math.h"
+%include "pfs/drp/stella/math/MathBlitz.h"
 %include "pfs/drp/stella/Controls.h"
 %include "pfs/drp/stella/blitz.h"
 %include "pfs/drp/stella/spline.h"
