@@ -742,15 +742,15 @@ class FiberTraceTestCase(tests.TestCase):
             self.assertEqual(fts.getFiberTrace(i).getFiberTraceProfileFittingControl().swathWidth, swathWidth)
             self.assertTrue(fts.getFiberTrace(i).isFiberTraceProfileFittingControlSet())
 
-        """Test that we can fit the spatial profiles of one FiberTrace in Set"""
-        self.assertFalse(fts.getFiberTrace(3).isProfileSet())
-        spectrum = fts.extractTraceNumber(3);
-        self.assertTrue(fts.getFiberTrace(3).isProfileSet())
+#        """Test that we can fit the spatial profiles of one FiberTrace in Set"""
+#        self.assertFalse(fts.getFiberTrace(3).isProfileSet())
+#        spectrum = fts.extractTraceNumber(3);
+#        self.assertTrue(fts.getFiberTrace(3).isProfileSet())
 
-        """Test that we can fit the spatial profiles for all FiberTraces"""
-        spectra = fts.extractAllTraces()
-        for i in range(fts.size()):
-            self.assertTrue(fts.getFiberTrace(i).isProfileSet())
+#        """Test that we can fit the spatial profiles for all FiberTraces"""
+#        spectra = fts.extractAllTraces()
+#        for i in range(fts.size()):
+#            self.assertTrue(fts.getFiberTrace(i).isProfileSet())
             
         """Test that we can set all profiles for a new FiberTraceSet"""
         """Copy constructor - shallow copy"""

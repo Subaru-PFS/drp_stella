@@ -377,8 +377,8 @@ class FiberTraceSet {
     void sortTracesByXCenter();
 
     /// calculate spatial profile and extract to 1D
-    PTR(Spectrum<ImageT, MaskT, VarianceT, VarianceT>) extractTraceNumber(const size_t traceNumber);
-    PTR(SpectrumSet<ImageT, MaskT, VarianceT, VarianceT>) extractAllTraces();
+//    PTR(Spectrum<ImageT, MaskT, VarianceT, VarianceT>) extractTraceNumber(const size_t traceNumber);
+//    PTR(SpectrumSet<ImageT, MaskT, VarianceT, VarianceT>) extractAllTraces();
 
     ///TODO:
     /// Extract spectrum and background for one slit spectrum
