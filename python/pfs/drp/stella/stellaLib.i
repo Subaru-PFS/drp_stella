@@ -21,6 +21,7 @@ Interface to Stella
 #include "pfs/drp/stella/blitz.h"
 #include "pfs/drp/stella/Example.h"
 #include "pfs/drp/stella/utils/Utils.h"
+#include "pfs/drp/stella/utils/UtilsBlitz.h"
 #include "pfs/drp/stella/math/Math.h"
 #include "pfs/drp/stella/math/MathBlitz.h"
 #include "pfs/drp/stella/Controls.h"
@@ -128,6 +129,7 @@ Interface to Stella
 %template(SpecVectorDI) std::vector<PTR(pfs::drp::stella::Spectrum<double, unsigned int, float, float>)>;
 
 %include "pfs/drp/stella/utils/Utils.h"
+%include "pfs/drp/stella/utils/UtilsBlitz.h"
 %include "pfs/drp/stella/math/Math.h"
 %include "pfs/drp/stella/math/MathBlitz.h"
 %include "pfs/drp/stella/Controls.h"

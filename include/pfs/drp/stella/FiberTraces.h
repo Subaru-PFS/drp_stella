@@ -21,6 +21,7 @@
 #include "math/Math.h"
 #include "math/MathBlitz.h"
 #include "utils/Utils.h"
+#include "utils/UtilsBlitz.h"
 #include "cmpfit-1.2/MPFitting_ndarray.h"
 #include "spline.h"
 #include "Spectra.h"

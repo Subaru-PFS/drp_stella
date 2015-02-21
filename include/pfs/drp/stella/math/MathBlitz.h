@@ -11,6 +11,7 @@
 #include "lsst/pex/config.h"
 #include "../blitz.h"
 #include "../utils/Utils.h"
+#include "../utils/UtilsBlitz.h"
 #include "Math.h"
 #include "ndarray.h"
 #include "ndarray/eigen.h"
