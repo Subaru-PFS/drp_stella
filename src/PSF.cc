@@ -77,6 +77,9 @@ bool drpStella::PSF<ImageT, MaskT, VarianceT, WavelengthT>::extractPSFs(const Fi
 
   ndarray::Array<double, 2, 1> D_A2_PixArray = math::Double(fiberTraceIn.getImage()->getArray());
   trace_In = D_A2_PixArray[ndarray::view(_yMin, _yMax)()];
+  #ifdef __DEBUG_CALC2DPSF__
+    cout << "PSF trace" << _iTrace << " bin" << _iBin << "::extractPSFs: traceIn = " << trace_In << endl;
+  #endif
 
   ndarray::Array<double, 2, 1> D_A2_StdDevArray = math::Double(fiberTraceIn.getVariance()->getArray());
   for (auto itRowSDA = D_A2_StdDevArray.begin() + _yMin, itRowSD = stddev_In.begin(); itRowSDA != D_A2_StdDevArray.begin() + _yMax + 1; ++itRowSDA, ++itRowSD){
@@ -84,6 +87,11 @@ bool drpStella::PSF<ImageT, MaskT, VarianceT, WavelengthT>::extractPSFs(const Fi
       *itColSD = sqrt(*itColSDA > 0. ? *itColSDA : 1.);
     }
   }
+  #ifdef __DEBUG_CALC2DPSF__
+    cout << "PSF trace" << _iTrace << " bin" << _iBin << "::extractPSFs: D_A2_StdDevArray = " << D_A2_StdDevArray << endl;
+    cout << "PSF trace" << _iTrace << " bin" << _iBin << "::extractPSFs: stddev_In = " << stddev_In << endl;
+  #endif
+
   int i, j;
   if (fabs(stddev_In.asEigen().maxCoeff(&i, &j)) < 0.000001){
     double D_MaxStdDev = fabs(stddev_In[i][j]);
@@ -94,25 +102,49 @@ bool drpStella::PSF<ImageT, MaskT, VarianceT, WavelengthT>::extractPSFs(const Fi
   }
 
   auto itMRow = mask_In.begin();
+  i = 0;
   for (auto itRow = fiberTraceIn.getMask()->getArray().begin() + _yMin; itRow <= fiberTraceIn.getMask()->getArray().begin() + _yMax; ++itRow, ++itMRow){
     auto itMCol = itMRow->begin();
-    for (auto itCol = itRow->begin(); itCol != itRow->end(); ++itRow, ++itMCol){
+    j = 0;
+    for (auto itCol = itRow->begin(); itCol != itRow->end(); ++itCol, ++itMCol){
       *itMCol = *itCol == 0 ? 1 : 0;
+      #ifdef __DEBUG_CALC2DPSF__
+        cout << "PSF trace" << _iTrace << " bin" << _iBin << "::extractPSFs: row " << i << ", col " << j << ": *itCol = " << *itCol << " => *itMCol set to " << *itMCol << endl;
+        ++j;
+      #endif
     }
+    #ifdef __DEBUG_CALC2DPSF__
+      ++i;
+    #endif
   }
+  #ifdef __DEBUG_CALC2DPSF__
+    cout << "PSF trace" << _iTrace << " bin" << _iBin << "::extractPSFs: mask_In = " << mask_In << endl;
+  #endif
 
   spectrum_In = math::Double(ndarray::Array<ImageT, 1, 1>(spectrumIn.getSpectrum()[ndarray::view(_yMin, _yMax + 1)]));
+  #ifdef __DEBUG_CALC2DPSF__
+    cout << "PSF trace" << _iTrace << " bin" << _iBin << "::extractPSFs: spectrum_In = " << spectrum_In << endl;
+  #endif
 
   spectrumVariance_In = math::Double(ndarray::Array<VarianceT, 1, 1>(spectrumIn.getVariance()[ndarray::view(_yMin, _yMax + 1)]));
+  #ifdef __DEBUG_CALC2DPSF__
+    cout << "PSF trace" << _iTrace << " bin" << _iBin << "::extractPSFs: spectrumVariance_In = " << spectrumVariance_In << endl;
+  #endif
   
   ndarray::Array<double, 1, 1> spectrumSigma = ndarray::allocate(spectrumVariance_In.size());
   spectrumSigma.asEigen() = Eigen::Array<double, Eigen::Dynamic, 1>(spectrumVariance_In.asEigen()).sqrt();
+  #ifdef __DEBUG_CALC2DPSF__
+    cout << "PSF trace" << _iTrace << " bin" << _iBin << "::extractPSFs: spectrumSigma = " << spectrumSigma << endl;
+  #endif
 
   ndarray::Array<float, 1, 1> xCentersSwathF = ndarray::copy(xCenters[ndarray::view(_yMin, _yMax + 1)]);
   ndarray::Array<const float, 1, 1> xCentersSwathFConst = ndarray::copy(xCenters[ndarray::view(_yMin, _yMax + 1)]);
   ndarray::Array<float, 1, 1> xCentersFloor = math::floor(xCentersSwathFConst, float(0));
   ndarray::Array<float, 1, 1> xCentersOffset_In = copy(xCentersSwathF);
   xCentersOffset_In.deep() -= xCentersFloor;
+  #ifdef __DEBUG_CALC2DPSF__
+    cout << "PSF trace" << _iTrace << " bin" << _iBin << "::extractPSFs: xCentersOffset_In = " << xCentersOffset_In << endl;
+  #endif
 
   ndarray::Array<size_t, 2, 2> minCenMax = drpStella::math::calcMinCenMax(xCentersSwathF,
                                                                           fiberTraceIn.getFiberTraceFunction()->fiberTraceFunctionControl.xHigh,

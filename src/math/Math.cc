@@ -2837,13 +2837,6 @@
       }
       return arr_Out;
     }
-    
-    template< typename T >
-    ndarray::Array< T, 1, 1 > resize(ndarray::Array< T, 1, 1 > const& arr_In, size_t newSize){
-      ndarray::Array< T, 1, 1 > arrOut = ndarray::allocate(newSize);
-      arrOut.deep() = 0;
-      return arrOut;
-    }
 
     template<typename T>
     std::vector<int> sortIndices(const std::vector<T> &vec_In){
@@ -3069,9 +3062,21 @@
       }
       return (vecIndx);
     }
+        
+    template<typename T>
+    ndarray::Array<T, 1, 1> resize(ndarray::Array<T, 1, 1> const& arr, size_t const newSize){
+      ndarray::Array<T, 1, 1> arrOut = ndarray::allocate(newSize);
+      arrOut.deep() = 0;
+      for (auto itArrIn = arr.begin(), itArrOut = arrOut.begin(); (itArrIn != arr.end()) && (itArrOut != arrOut.end()); ++itArrIn, ++itArrOut){
+        *itArrOut = *itArrIn;
+      }
+      return arrOut;
+    }
     
     template ndarray::Array< size_t, 1, 1 > resize( ndarray::Array< size_t, 1, 1 > const& arr_In, size_t newSize);
+    template ndarray::Array< unsigned short, 1, 1 > resize( ndarray::Array< unsigned short, 1, 1 > const& arr_In, size_t newSize);
     template ndarray::Array< short, 1, 1 > resize( ndarray::Array< short, 1, 1 > const& arr_In, size_t newSize);
+    template ndarray::Array< unsigned int, 1, 1 > resize( ndarray::Array< unsigned int, 1, 1 > const& arr_In, size_t newSize);
     template ndarray::Array< int, 1, 1 > resize( ndarray::Array< int, 1, 1 > const& arr_In, size_t newSize);
     template ndarray::Array< long, 1, 1 > resize( ndarray::Array< long, 1, 1 > const& arr_In, size_t newSize);
     template ndarray::Array< float, 1, 1 > resize( ndarray::Array< float, 1, 1 > const& arr_In, size_t newSize);
@@ -3122,6 +3127,7 @@
 
     template ndarray::Array<size_t, 1, 1> indGenNdArr(size_t const);
     template ndarray::Array<unsigned short, 1, 1> indGenNdArr(unsigned short const);
+    template ndarray::Array<unsigned int, 1, 1> indGenNdArr(unsigned int const);
     template ndarray::Array<int, 1, 1> indGenNdArr(int const);
     template ndarray::Array<long, 1, 1> indGenNdArr(long const);
     template ndarray::Array<float, 1, 1> indGenNdArr(float const);

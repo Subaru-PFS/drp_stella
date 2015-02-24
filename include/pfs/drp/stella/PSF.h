@@ -12,7 +12,7 @@
 #include "lsst/afw/image/MaskedImage.h"
 #include "lsst/pex/config.h"
 #include "lsst/pex/exceptions/Exception.h"
-#include "blitz.h"
+//#include "blitz.h"
 //#include <cassert>
 #include "Controls.h"
 #include "utils/Utils.h"

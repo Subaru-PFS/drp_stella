@@ -92,23 +92,20 @@ bool pfsDRPStella::Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>::setMask(c
   return true;
 }
 
-/*template<typename SpectrumT, typename MaskT, typename VarianceT, typename WavelengthT>
+template<typename SpectrumT, typename MaskT, typename VarianceT, typename WavelengthT>
 bool pfsDRPStella::Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>::setLength(const size_t length){
-  if (length < _length){
-    _spectrum->resize(length);
-    _mask->resize(length);
-    _variance->resize(length);
-    _wavelength->resize(length);
-  }
-  else{
-    _spectrum->resize(length, 0);
-    _mask->resize(length, 0);
-    _variance->resize(length, 0);
-    _wavelength->resize(length, (*_wavelength)[_length - 1]);
+  pfsDRPStella::math::resize(_spectrum, length);
+  pfsDRPStella::math::resize(_mask, length);
+  pfsDRPStella::math::resize(_variance, length);
+  pfsDRPStella::math::resize(_wavelength, length);
+  if (length > _length){
+    WavelengthT val = _wavelength[_length = 1];
+    for (auto it = _wavelength.begin() + length; it != _wavelength.end(); ++it)
+      *it = val;
   }
   _length = length;
   return true;
-}*/
+}
 
 ///SpectrumSet
 template<typename SpectrumT, typename MaskT, typename VarianceT, typename WavelengthT>

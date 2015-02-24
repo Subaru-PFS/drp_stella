@@ -80,7 +80,7 @@ class Spectrum {
     /// If length is greater than the current container size, the contents of all vectors are expanded by inserting at the end as 
     /// many elements as needed to reach a size of length. The new elements of all vectors except for _wavelength are initialized 
     /// with 0. The new elements of _wavelength are initialized with _wavelength(_length - 1).
-//    bool setLength(const size_t length);
+    bool setLength(const size_t length);
     
     size_t getITrace() const {return _iTrace;}
     void setITrace(size_t iTrace){_iTrace = iTrace;}

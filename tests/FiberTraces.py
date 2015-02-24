@@ -430,7 +430,7 @@ class FiberTraceTestCase(tests.TestCase):
         
         """Test getXCenters"""
         xCenters = fiberTrace.getXCenters()
-        self.assertEqual(xCenters.size(), fiberTrace.getHeight())
+        self.assertEqual(xCenters.shape[0], fiberTrace.getHeight())
         self.assertAlmostEqual(xCenters[5], fiberTrace.getXCenters()[5])
 #        self.assertIs(xCenters, fiberTrace.getXCenters())
         

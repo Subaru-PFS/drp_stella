@@ -31,7 +31,22 @@ Interface to Stella
 #include "pfs/drp/stella/Spectra.h"
 #include "pfs/drp/stella/SurfaceFit.h"
 #include "pfs/drp/stella/spline.h"
+    // Enable ndarray's NumPy typemaps; types are declared in %included files.
+#include "numpy/arrayobject.h"
+#include "ndarray/swig.h"
+#include "ndarray/swig/eigen.h"
 %}
+
+%init %{
+    import_array();
+%}
+%include "ndarray.i"
+%declareNumPyConverters(ndarray::Array<size_t,2,1>);
+%declareNumPyConverters(ndarray::Array<size_t,2,2>);
+%declareNumPyConverters(ndarray::Array<size_t,1,1>);
+%declareNumPyConverters(ndarray::Array<unsigned short,2,1>);
+%declareNumPyConverters(ndarray::Array<unsigned short,2,2>);
+%declareNumPyConverters(ndarray::Array<unsigned short,1,1>);
 
 %include "lsst/p_lsstSwig.i"
 
@@ -381,6 +396,12 @@ Interface to Stella
 %template(indGenI) pfs::drp::stella::math::indGen<int>;
 %template(indGenF) pfs::drp::stella::math::indGen<float>;
 %template(indGenD) pfs::drp::stella::math::indGen<double>;
+
+%template(indGenNdArrUS) pfs::drp::stella::math::indGenNdArr<unsigned short>;
+%template(indGenNdArrUI) pfs::drp::stella::math::indGenNdArr<unsigned int>;
+%template(indGenNdArrI) pfs::drp::stella::math::indGenNdArr<int>;
+%template(indGenNdArrF) pfs::drp::stella::math::indGenNdArr<float>;
+%template(indGenNdArrD) pfs::drp::stella::math::indGenNdArr<double>;
 
 %template(mkSlitFuncF) pfs::drp::stella::math::MkSlitFunc<float, unsigned short, float>;
 %template(mkSlitFuncD) pfs::drp::stella::math::MkSlitFunc<double, unsigned short, float>;
