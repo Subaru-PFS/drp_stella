@@ -309,7 +309,7 @@ class SpectraTestCase(tests.TestCase):
         self.assertTrue(specSet.addSpectrum(specNew))
         self.assertEqual(specSet.size(), size+2)
         
-        """Test that we can't erase erase spectra outside the limits"""
+        """Test that we can't erase spectra outside the limits"""
         size = specSet.size()
         try:
             specSet.erase(size)

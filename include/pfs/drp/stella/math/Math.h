@@ -107,6 +107,9 @@ namespace pfs { namespace drp { namespace stella {
     ndarray::Array<double, 1, 1> Double(ndarray::Array<T, 1, 1> const& arr_In);
     
     template <typename T>
+    ndarray::Array<double, 2, 1> Double(ndarray::Array<T, 2, 1> const& arr_In);
+    
+    template <typename T>
     ndarray::Array<double, 2, 2> Double(ndarray::Array<T, 2, 2> const& arr_In);
     
     template <typename T>
@@ -428,9 +431,15 @@ namespace pfs { namespace drp { namespace stella {
 
     template<typename T>
     T max(ndarray::Array<T, 1, 1> const& in);
+
+    template<typename T>
+    size_t maxIndex(ndarray::Array<T, 1, 1> const& in);
  
     template<typename T>
     T min(ndarray::Array<T, 1, 1> const& in);
+ 
+    template<typename T>
+    size_t minIndex(ndarray::Array<T, 1, 1> const& in);
 
     template<typename T>
     ndarray::Array<T, 1, 1> indGenNdArr(T const size);

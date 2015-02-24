@@ -15,6 +15,8 @@ Interface to Stella
 #include "ndarray/swig.h"
 #include "lsst/pex/logging.h"
 #include "lsst/afw.h"
+//#include "lsst/afw/image.h"
+//#include "lsst/afw/image/Image.h"
 #include "lsst/afw/image/MaskedImage.h"
 #include <vector>
 #include "pfs/drp/stella/FiberTraces.h"
@@ -136,6 +138,7 @@ Interface to Stella
 %include "pfs/drp/stella/blitz.h"
 %include "pfs/drp/stella/spline.h"
 %include "pfs/drp/stella/SurfaceFit.h"
+%include "lsst/"
 
 # """Shared Pointers (!) to std::vectors"""
 %template(SPVectorF) std::vector<float>;
@@ -146,6 +149,8 @@ Interface to Stella
 %template(SPVectorL) std::vector<long>;
 %template(PSFSetVectorF) std::vector<PTR(pfs::drp::stella::PSFSet<float, unsigned short, float, float>)>;
 %template(PSFSetVectorD) std::vector<PTR(pfs::drp::stella::PSFSet<double, unsigned short, float, float>)>;
+
+//%template(NdArrayST) afw::image::Image<size_t, 2, 1>;
 
 %template(FiberTraceF) pfs::drp::stella::FiberTrace<float, unsigned short, float>;
 %template(FiberTraceD) pfs::drp::stella::FiberTrace<double, unsigned short, float>;
@@ -376,4 +381,7 @@ Interface to Stella
 %template(indGenI) pfs::drp::stella::math::indGen<int>;
 %template(indGenF) pfs::drp::stella::math::indGen<float>;
 %template(indGenD) pfs::drp::stella::math::indGen<double>;
+
+%template(mkSlitFuncF) pfs::drp::stella::math::MkSlitFunc<float, unsigned short, float>;
+%template(mkSlitFuncD) pfs::drp::stella::math::MkSlitFunc<double, unsigned short, float>;
 

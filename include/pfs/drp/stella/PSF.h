@@ -17,7 +17,7 @@
 #include "Controls.h"
 #include "utils/Utils.h"
 #include "math/Math.h"
-#include "math/MathBlitz.h"
+//#include "math/MathBlitz.h"
 #include "SurfaceFit.h"
 #include "cmpfit-1.2/MPFitting_ndarray.h"
 #include "FiberTraces.h"

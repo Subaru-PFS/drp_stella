@@ -17,6 +17,8 @@
 #include "Math.h"
 #include "ndarray.h"
 #include "ndarray/eigen.h"
+#include "../FiberTraces.h"
+#include "../Spectra.h"
 
 //#define __DEBUG_FIT__
 //#define __DEBUG_FITARR__
@@ -24,6 +26,9 @@
 //#define __DEBUG_POLYFIT__
 //#define __DEBUG_MINCENMAX__
 //#define __DEBUG_INDGEN__
+//#define __DEBUG_FINDANDTRACE__
+//#define __DEBUG_SLITFUNC__
+//#define __DEBUG_MKSLITFUNC__
 #define DEBUGDIR "/Users/azuri/spectra/pfs/2014-11-02/debug/"// /home/azuri/entwicklung/idl/REDUCE/16_03_2013/"//stella/ses-pipeline/c/msimulateskysubtraction/data/"//spectra/elaina/eso_archive/red_564/red_r/"
 
 namespace afwGeom = lsst::afw::geom;
@@ -995,31 +1000,42 @@ namespace pfs { namespace drp { namespace stella {
     blitz::Array<double,1> Moment(const blitz::Array<T, 2> &D_A1_Arr_In, int I_MaxMoment_In);
 
     template< typename ImageT, typename MaskT, typename VarianceT>
-    PTR(pfsDRPStella::Spectrum<ImageT, MaskT, VarianceT, VarianceT>) MkSlitFunc(PTR(afwImage::MaskedImage<ImageT, MaskT, VarianceT>) const& trace,
-                                                                                ndarray::Array<float const, 1, 1> const& xCenters,
-                                                                                blitz::Array<size_t, 2> const& binBoundY,
-                                                                                PTR(pfsDRPStella::FiberTraceProfileFittingControl) const& fiberTraceProfileFittingControl,
-                                                                                PTR(afwImage::Image<float>) & profile);
+    PTR(pfsDRPStella::Spectrum<ImageT, MaskT, VarianceT, VarianceT>) MkSlitFunc(FiberTrace<ImageT, MaskT, VarianceT> & trace);
+
+//    template< typename ImageT, typename MaskT, typename VarianceT>
+//    PTR(pfsDRPStella::Spectrum<ImageT, MaskT, VarianceT, VarianceT>) MkSlitFunc(PTR(afwImage::MaskedImage<ImageT, MaskT, VarianceT>) const& trace,
+//                                                                                ndarray::Array<float const, 1, 1> const& xCenters,
+//                                                                                ndarray::Array<size_t, 2, 2> const& binBoundY,
+//                                                                                PTR(const pfsDRPStella::FiberTraceProfileFittingControl) const& fiberTraceProfileFittingControl,
+//                                                                                PTR(const pfsDRPStella::FiberTraceFunction) const& fiberTraceFunction);//),
+//                                                                                PTR(afwImage::Image<float>) & profile);
     
     template< typename ImageT, typename MaskT, typename VarianceT>
-    PTR(pfsDRPStella::Spectrum<ImageT, MaskT, VarianceT, VarianceT>) MkSlitFunc(PTR(afwImage::MaskedImage<ImageT, MaskT, VarianceT>) const& trace,
-                                                                                ndarray::Array<float const, 1, 1> const& xCenters,
-                                                                                blitz::Array<size_t, 2> const& binBoundY,
-                                                                                PTR(pfsDRPStella::FiberTraceProfileFittingControl) const& fiberTraceProfileFittingControl,
-                                                                                PTR(afwImage::Image<float>) & profile,
+    PTR(pfsDRPStella::Spectrum<ImageT, MaskT, VarianceT, VarianceT>) MkSlitFunc(FiberTrace<ImageT, MaskT, VarianceT> & trace,
                                                                                 const blitz::Array<string, 1> &S_A1_Args_In,
                                                                                 void *ArgV_In[]);
+    
+//    template< typename ImageT, typename MaskT, typename VarianceT>
+//    PTR(pfsDRPStella::Spectrum<ImageT, MaskT, VarianceT, VarianceT>) MkSlitFunc(PTR(afwImage::MaskedImage<ImageT, MaskT, VarianceT>) const& trace,
+//                                                                                ndarray::Array<float const, 1, 1> const& xCenters,
+//                                                                                ndarray::Array<size_t, 2, 2> const& binBoundY,
+//                                                                                PTR(const pfsDRPStella::FiberTraceProfileFittingControl) const& fiberTraceProfileFittingControl,
+//                                                                                PTR(const pfsDRPStella::FiberTraceFunction) const& fiberTraceFunction,
+//                                                                                //PTR(afwImage::Image<float>) & profile,
+//                                                                                const blitz::Array<string, 1> &S_A1_Args_In,
+//                                                                                void *ArgV_In[]);
     /* S_A1_Args_In:
      * FIBERTRACENUMBER: size_t
      * */
     
-    bool SlitFunc(const blitz::Array<double, 2> &D_A2_ImM,
-                  unsigned int maxIterSig_In,
-                  const blitz::Array<double, 1> &xCentersPixelFraction_In, //: in
-                  const PTR(pfs::drp::stella::FiberTraceProfileFittingControl) &profileFittingControl,
+    bool SlitFunc(blitz::Array<double, 2> const& D_A2_ImM,
+                  unsigned int const maxIterSig_In,
+                  blitz::Array<double, 1> const& xCentersPixelFraction_In, //: in
+                  PTR(const pfs::drp::stella::FiberTraceProfileFittingControl) const& profileFittingControl,
+                  PTR(const pfsDRPStella::FiberTraceFunction) const& fiberTraceFunction,
                   blitz::Array<double, 1> &spectrum_Out,   //: out
                   blitz::Array<double, 2> &profile_Out,   //: out
-                  const blitz::Array<string, 1> &S_A1_Args_In,   //: in
+                  blitz::Array<string, 1> const& S_A1_Args_In,   //: in
                   void *ArgV_In[]);
     
   }

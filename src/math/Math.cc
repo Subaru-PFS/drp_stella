@@ -773,14 +773,13 @@
       if (startPos_In < 0 || startPos_In >= vec_In.getShape()[0])
         return -1;
       int pos = startPos_In;
-      for (auto i = vec_In.begin() + pos; i != vec_In.end(); ++i){
+      for (auto i = vec_In.begin() + pos; i != vec_In.end(); ++i, ++pos){
         #ifdef __DEBUG_FINDANDTRACE__
           cout << "CFits::FirstIndexWithZeroValueFrom: pos = " << pos << endl;
           cout << "CFits::FirstIndexWithZeroValueFrom: I_A1_VecIn(pos) = " << *i << endl;
         #endif
         if (fabs(*i) < 0.00000000000000001)
           return pos;
-        ++pos;
       }
       return -1;
     }
@@ -985,7 +984,7 @@
             string message("CFits::LinFitBevington: WARNING: LinFitBevington(D_A2_CCD_In(i,blitz::Range::all()),D_A2_SF_In(i,blitz::Range::all()),D_A1_SP_Out(i),D_A1_Sky_Out(i),D_A1_STDDEV_Out(i),D_A1_Covariance_Out(i)) returned status = ");
             message += to_string(status);
             cout << message << endl;
-            cout << "CFits::LinFitBevington: D_A2_SF_In(0, *) = " << D_A2_SF_In.row(0) << endl;
+            cout << "CFits::LinFitBevington: D_A2_SF_In(0, *) = " << D_A2_SF_In.row(0) << ": LinFitBevingtonEigen returned status = " << status << endl;
             
 //            throw LSST_EXCEPT(pexExcept::Exception, message.c_str());    
           }
@@ -1252,7 +1251,7 @@
             string message("CFits::LinFitBevington: WARNING: LinFitBevington(D_A2_CCD_In(i,blitz::Range::all()),D_A2_SF_In(i,blitz::Range::all()),D_A1_SP_Out(i),D_A1_Sky_Out(i),D_A1_STDDEV_Out(i),D_A1_Covariance_Out(i)) returned status = ");
             message += to_string(status);
             cout << message << endl;
-            cout << "CFits::LinFitBevington: D_A2_SF_In(0, *) = " << D_A2_SF_In[ndarray::view(0)()] << endl;
+            cout << "CFits::LinFitBevington: D_A2_SF_In(0, *) = " << D_A2_SF_In[ndarray::view(0)()] << ": LinFitBevingtonNdArray returned status = " << status << endl;
             
 //            throw LSST_EXCEPT(pexExcept::Exception, message.c_str());    
           }
@@ -2548,13 +2547,42 @@
     }
 
     template<typename T>
+    size_t maxIndex(ndarray::Array<T, 1, 1> const& in){
+      T max = in[0];
+      size_t maxIndex = 0;
+      size_t ind = 0;
+      for (auto it = in.begin(); it != in.end(); ++it, ++ind){
+        if (*it > max){
+          max = *it;
+          maxIndex = ind;
+        }
+      }
+      return maxIndex;
+    }
+
+    template<typename T>
     T min(ndarray::Array<T, 1, 1> const& in){
       T min = in[0];
       for (auto it = in.begin(); it != in.end(); ++it){
-        if (*it < min)
+        if (*it < min){
           min = *it;
+        }
       }
       return min;
+    }
+
+    template<typename T>
+    size_t minIndex(ndarray::Array<T, 1, 1> const& in){
+      T min = in[0];
+      size_t minIndex = 0;
+      size_t ind = 0;
+      for (auto it = in.begin(); it != in.end(); ++it, ++ind){
+        if (*it < min){
+          min = *it;
+          minIndex = ind;
+        }
+      }
+      return minIndex;
     }
     
     template <typename T>
@@ -2570,6 +2598,21 @@
     template <typename T>
     ndarray::Array<double, 2, 2> Double(ndarray::Array<T, 2, 2> const& arr_In){
       ndarray::Array<double, 2, 2> arr_Out = ndarray::allocate(arr_In.getShape()[0], arr_In.getShape()[1]);
+      auto it_arr_Out = arr_Out.begin();
+      auto it_arr_In = arr_In.begin();
+      for (int i = 0; i < arr_In.getShape()[0]; ++i){
+        auto itJ_Out = (it_arr_Out + i)->begin();
+        auto itJ_In = (it_arr_In + i)->begin();
+        for (int j = 0; j < arr_In.getShape()[1]; ++j){
+          (*(itJ_Out + j)) = double((*(itJ_In + j)));
+        }
+      }
+      return arr_Out;
+    }
+    
+    template <typename T>
+    ndarray::Array<double, 2, 1> Double(ndarray::Array<T, 2, 1> const& arr_In){
+      ndarray::Array<double, 2, 1> arr_Out = ndarray::allocate(arr_In.getShape()[0], arr_In.getShape()[1]);
       auto it_arr_Out = arr_Out.begin();
       auto it_arr_In = arr_In.begin();
       for (int i = 0; i < arr_In.getShape()[0]; ++i){
@@ -3099,6 +3142,14 @@
     template ndarray::Array<float, 1, 1> Float(ndarray::Array<float, 1, 1> const&);
     template ndarray::Array<float, 1, 1> Float(ndarray::Array<double, 1, 1> const&);
 
+    template ndarray::Array<double, 2, 1> Double(ndarray::Array<size_t, 2, 1> const&);
+    template ndarray::Array<double, 2, 1> Double(ndarray::Array<unsigned short, 2, 1> const&);
+    template ndarray::Array<double, 2, 1> Double(ndarray::Array<int, 2, 1> const&);
+    template ndarray::Array<double, 2, 1> Double(ndarray::Array<long, 2, 1> const&);
+    template ndarray::Array<double, 2, 1> Double(ndarray::Array<float, 2, 1> const&);
+    template ndarray::Array<double, 2, 1> Double(ndarray::Array<float const, 2, 1> const&);
+    template ndarray::Array<double, 2, 1> Double(ndarray::Array<double, 2, 1> const&);
+
     template ndarray::Array<double, 2, 2> Double(ndarray::Array<size_t, 2, 2> const&);
     template ndarray::Array<double, 2, 2> Double(ndarray::Array<unsigned short, 2, 2> const&);
     template ndarray::Array<double, 2, 2> Double(ndarray::Array<int, 2, 2> const&);
@@ -3127,12 +3178,26 @@
     template float min(ndarray::Array<float, 1, 1> const&);
     template double min(ndarray::Array<double, 1, 1> const&);
     
+    template size_t minIndex(ndarray::Array<size_t, 1, 1> const&);
+    template size_t minIndex(ndarray::Array<unsigned short, 1, 1> const&);
+    template size_t minIndex(ndarray::Array<int, 1, 1> const&);
+    template size_t minIndex(ndarray::Array<long, 1, 1> const&);
+    template size_t minIndex(ndarray::Array<float, 1, 1> const&);
+    template size_t minIndex(ndarray::Array<double, 1, 1> const&);
+    
     template size_t max(ndarray::Array<size_t, 1, 1> const&);
     template unsigned short max(ndarray::Array<unsigned short, 1, 1> const&);
     template int max(ndarray::Array<int, 1, 1> const&);
     template long max(ndarray::Array<long, 1, 1> const&);
     template float max(ndarray::Array<float, 1, 1> const&);
     template double max(ndarray::Array<double, 1, 1> const&);
+
+    template size_t maxIndex(ndarray::Array<size_t, 1, 1> const&);
+    template size_t maxIndex(ndarray::Array<unsigned short, 1, 1> const&);
+    template size_t maxIndex(ndarray::Array<int, 1, 1> const&);
+    template size_t maxIndex(ndarray::Array<long, 1, 1> const&);
+    template size_t maxIndex(ndarray::Array<float, 1, 1> const&);
+    template size_t maxIndex(ndarray::Array<double, 1, 1> const&);
 
     template size_t floor1(float const&, size_t const&);
     template size_t floor1(double const&, size_t const&);

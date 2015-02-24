@@ -137,13 +137,14 @@ bool pfsDRPStella::SpectrumSet<SpectrumT, MaskT, VarianceT, WavelengthT>::setSpe
                       )
 {
   if (i > _spectra->size()){
-    string message("pfsDRPStella::SpectrumSet::setSpectrum: ERROR: i=");
-    message += to_string(i) + string(" > _spectra->size()=") + to_string(_spectra->size());
+    string message("SpectrumSet::setSpectrum(i=");
+    message += to_string(i) + "): ERROR: i > _spectra->size()=" + to_string(_spectra->size());
     cout << message << endl;
-    throw LSST_EXCEPT(pexExcept::Exception, message.c_str());    
+    throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
   }
+
   if (i == static_cast<int>(_spectra->size())){
-      _spectra->push_back(spectrum);
+    _spectra->push_back(spectrum);
   }
   else{
     (*_spectra)[i] = spectrum;
@@ -172,7 +173,7 @@ template<typename ImageT, typename MaskT, typename VarianceT, typename Wavelengt
 PTR(pfsDRPStella::Spectrum<ImageT, MaskT, VarianceT, WavelengthT>)& pfsDRPStella::SpectrumSet<ImageT, MaskT, VarianceT, WavelengthT>::getSpectrum(const size_t i){
   if (i >= _spectra->size()){
     string message("SpectrumSet::getSpectrum(i=");
-    message += to_string(i) + string("): ERROR: i > _spectra->size()=") + to_string(_spectra->size());
+    message += to_string(i) + "): ERROR: i >= _spectra->size()=" + to_string(_spectra->size());
     cout << message << endl;
     throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
   }
@@ -183,10 +184,11 @@ template<typename ImageT, typename MaskT, typename VarianceT, typename Wavelengt
 PTR(const pfsDRPStella::Spectrum<ImageT, MaskT, VarianceT, WavelengthT>) const& pfsDRPStella::SpectrumSet<ImageT, MaskT, VarianceT, WavelengthT>::getSpectrum(const size_t i) const { 
   if (i >= _spectra->size()){
     string message("SpectrumSet::getSpectrum(i=");
-    message += to_string(i) + string("): ERROR: i > _spectra->size()=") + to_string(_spectra->size());
+    message += to_string(i) + "): ERROR: i >= _spectra->size()=" + to_string(_spectra->size());
     cout << message << endl;
     throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
   }
+
   return _spectra->at(i); 
 }
 
@@ -194,22 +196,26 @@ template<typename ImageT, typename MaskT, typename VarianceT, typename Wavelengt
 bool pfsDRPStella::SpectrumSet<ImageT, MaskT, VarianceT, WavelengthT>::erase(const size_t iStart, const size_t iEnd){
   if (iStart >= _spectra->size()){
     string message("SpectrumSet::erase(iStart=");
-    message += to_string(iStart) + string("): ERROR: iStart >= _spectra->size()=") + to_string(_spectra->size());
+    message += to_string(iStart) + ", iEnd=" + to_string(iEnd) + "): ERROR: iStart >= _spectra->size()=" + to_string(_spectra->size());
     cout << message << endl;
     throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
   }
+
   if (iEnd >= _spectra->size()){
-    string message("SpectrumSet::erase(iEnd=");
-    message += to_string(iEnd) + string("): ERROR: iEnd >= _spectra->size()=") + to_string(_spectra->size());
+    string message("SpectrumSet::erase(iStart=");
+    message += to_string(iStart) + ", iEnd=" + to_string(iEnd) + "): ERROR: iEnd >= _spectra->size()=" + to_string(_spectra->size());
     cout << message << endl;
     throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
   }
-    if ((iEnd > 0) && (iStart > iEnd)){
+
+  if (iEnd > 0){
+    if (iStart > iEnd){
       string message("SpectrumSet::erase(iStart=");
-      message += to_string(iStart) + string("): ERROR: iStart > iEnd=") + to_string(iEnd);
+      message += to_string(iStart) + ", iEnd=" + to_string(iEnd) + "): ERROR: iStart > iEnd";
       cout << message << endl;
       throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
     }
+  }
   if (iStart == (_spectra->size()-1)){
     _spectra->pop_back();
   }
@@ -235,6 +241,10 @@ template class pfsDRPStella::Spectrum<float, unsigned int, float, float>;
 template class pfsDRPStella::Spectrum<double, unsigned int, float, float>;
 template class pfsDRPStella::Spectrum<float, unsigned short, float, float>;
 template class pfsDRPStella::Spectrum<double, unsigned short, float, float>;
+//template class pfsDRPStella::Spectrum<float, unsigned int, double, double>;
+//template class pfsDRPStella::Spectrum<double, unsigned int, double, double>;
+//template class pfsDRPStella::Spectrum<float, unsigned short, double, double>;
+//template class pfsDRPStella::Spectrum<double, unsigned short, double, double>;
 
 //template class pfsDRPStella::SpectrumSet<float>;
 //template class pfsDRPStella::SpectrumSet<double>;
@@ -242,6 +252,10 @@ template class pfsDRPStella::SpectrumSet<float, unsigned int, float, float>;
 template class pfsDRPStella::SpectrumSet<double, unsigned int, float, float>;
 template class pfsDRPStella::SpectrumSet<float, unsigned short, float, float>;
 template class pfsDRPStella::SpectrumSet<double, unsigned short, float, float>;
+//template class pfsDRPStella::SpectrumSet<float, unsigned int, double, double>;
+//template class pfsDRPStella::SpectrumSet<double, unsigned int, double, double>;
+//template class pfsDRPStella::SpectrumSet<float, unsigned short, double, double>;
+//template class pfsDRPStella::SpectrumSet<double, unsigned short, double, double>;
 
 template PTR(afwImage::MaskedImage<float, unsigned short, float>) pfsDRPStella::utils::getPointer(afwImage::MaskedImage<float, unsigned short, float> &);
 template PTR(afwImage::MaskedImage<double, unsigned short, float>) pfsDRPStella::utils::getPointer(afwImage::MaskedImage<double, unsigned short, float> &);

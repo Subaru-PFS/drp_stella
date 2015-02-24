@@ -14,14 +14,14 @@
 #include "lsst/pex/exceptions/Exception.h"
 #include "ndarray.h"
 #include "ndarray/eigen.h"
-#include "blitz.h"
+//#include "blitz.h"
 #include <fitsio.h>
 #include <fitsio2.h>
 #include "Controls.h"
 #include "math/Math.h"
-#include "math/MathBlitz.h"
+//#include "math/MathBlitz.h"
 #include "utils/Utils.h"
-#include "utils/UtilsBlitz.h"
+//#include "utils/UtilsBlitz.h"
 #include "cmpfit-1.2/MPFitting_ndarray.h"
 #include "spline.h"
 #include "Spectra.h"
@@ -166,10 +166,10 @@ class FiberTrace {
      *                     SF_SMOOTH. Plots of residuals
      *                     allow to verify if the OSAMPLE
      *                     is good enough.
-     **/
+     **
     PTR(Spectrum<ImageT, MaskT, VarianceT, VarianceT>) MkSlitFunc();
     PTR(Spectrum<ImageT, MaskT, VarianceT, VarianceT>) MkSlitFunc(const blitz::Array<string, 1> &S_A1_Args,     //: in
-                                     void *ArgV[]);                        //: in
+                                     void *ArgV[]);                        //: in*/
     /* KeyWords and Values:  //    LAMBDA_SF   : double          : in
      *                       //    LAMBDA_SP   : int             : out
      *                       //      WING_SMOOTH_FACTOR = double  : in
@@ -188,14 +188,14 @@ class FiberTrace {
     /**
      *      SlitFunc
      *      Calculates slit function for one swath
-     **/
+     **
     bool SlitFunc(const blitz::Array<double, 2> &D_A2_ImM,         ///: in
                   unsigned int maxIterSig_In,
                   const blitz::Array<double, 1> &xCentersPixelFraction_In, //: in
                   blitz::Array<double, 1> &D_A1_SP_Out,                     ///: out
                   blitz::Array<double, 2> &D_A2_SF_Out,                     ///: out
                   const blitz::Array<string, 1> &S_A1_Args,            ///: in
-                  void *ArgV[]);                            ///: in
+                  void *ArgV[]);                            ///: in*/
     /** KeyWords and Values:  NOISE      = double          : in
      *                        IM_OUT     = blitz::Array<double, 2>: out
      *                        PROF_OUT   = blitz::Array<double, 2>: out
@@ -272,14 +272,14 @@ class FiberTrace {
                                                  ndarray::Array<float const, 1, 1> const& xCentersSwath,
                                                  size_t const iSwath);
 
-    bool fitSpline(const blitz::Array<double, 2> &fiberTraceSwath_In,/// 1 bin of CCD (FiberTrace::Image)
+/*    bool fitSpline(const blitz::Array<double, 2> &fiberTraceSwath_In,/// 1 bin of CCD (FiberTrace::Image)
                    const blitz::Array<double, 1> &xOverSampled_In,/// see XVecArr in SlitFunc
                    blitz::Array<double, 1> &profileOverSampled_Out,/// output oversampled spatial profile
                    const blitz::Array<double, 2> &profileXValuesPerRowOverSampled_In,/// (i + 0.5) / double(overSample_In) - 1. + xCentersPixelFraction_In(i)
                    const blitz::Array<double, 1> &profileXValuesAllRows_In,/// i + 0.5 + (1. / (2. * overSample))
                    blitz::Array<double, 2> &profilePerRow_Out);/// output 2D profile image
-
-    ndarray::Array<size_t, 2, 2> calcSwathBoundY(const size_t swathWidth_In) const;
+*/
+    ndarray::Array<size_t, 2, 1> calcSwathBoundY(const size_t swathWidth_In) const;
     
     void setITrace(const size_t iTrace){_iTrace = iTrace;}
     size_t getITrace() const {return _iTrace;}

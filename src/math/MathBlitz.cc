@@ -4537,45 +4537,25 @@
       return Moment(D_A1_Temp, I_MaxMoment_In);
     }
 
-    /**
-     *  MkSlitFunc without arguments
-     **/
-    template<typename ImageT, typename MaskT, typename VarianceT>
-    PTR(pfsDRPStella::Spectrum<ImageT, MaskT, VarianceT, VarianceT>) MkSlitFunc(PTR(afwImage::MaskedImage<ImageT, MaskT, VarianceT>) const& trace,
-                                                                                ndarray::Array<float const, 1, 1> const& xCenters,
-                                                                                blitz::Array<size_t, 2> const& binBoundY,
-                                                                                PTR(pfsDRPStella::FiberTraceProfileFittingControl) const& fiberTraceProfileFittingControl,
-                                                                                PTR(afwImage::Image<float>) & profile)
-    {
+    template< typename ImageT, typename MaskT, typename VarianceT>
+    PTR(pfsDRPStella::Spectrum<ImageT, MaskT, VarianceT, VarianceT>) MkSlitFunc(FiberTrace<ImageT, MaskT, VarianceT> & trace){
       blitz::Array<string, 1> S_A1_Args(1);
-      S_A1_Args = "";
-      void **PP_Args;
-      PP_Args = (void**)malloc(sizeof(void*) * 1);
-
-      int I_temp = 0;
-      PP_Args[0] = &I_temp;
-
-      return MkSlitFunc(trace,
-                        xCenters,
-                        binBoundY,
-                        fiberTraceProfileFittingControl,
-                        profile,
-                        S_A1_Args, 
-                        PP_Args);
+      S_A1_Args(0) = " ";
+      void **ArgV = (void**)malloc(sizeof(void*));
+      PTR(pfsDRPStella::Spectrum<ImageT, MaskT, VarianceT, VarianceT>) spec = MkSlitFunc(trace, S_A1_Args, ArgV);
+      free(ArgV);
+      return spec;
     }
 
-    /**
-     *  MkSlitFunc
-     *  Make Slit Function
-     **/
-    template<typename ImageT, typename MaskT, typename VarianceT>
-    PTR(pfsDRPStella::Spectrum<ImageT, MaskT, VarianceT, VarianceT>) MkSlitFunc(PTR(afwImage::MaskedImage<ImageT, MaskT, VarianceT>) const& trace,
-                                                                                ndarray::Array<float const, 1, 1> const& xCenters,
-                                                                                blitz::Array<size_t, 2> const& binBoundY,
-                                                                                PTR(pfsDRPStella::FiberTraceProfileFittingControl) const& fiberTraceProfileFittingControl,
-                                                                                PTR(afwImage::Image<float>) & profile,
-                                                                                const blitz::Array<string, 1> &S_A1_Args_In,           //: in
-                                                                                void *ArgV_In[])                  //: in
+    template< typename ImageT, typename MaskT, typename VarianceT>
+    PTR(pfsDRPStella::Spectrum<ImageT, MaskT, VarianceT, VarianceT>) MkSlitFunc(FiberTrace<ImageT, MaskT, VarianceT> & fiberTrace,
+                                                                                const blitz::Array<string, 1> &S_A1_Args_In,
+                                                                                void *ArgV_In[]){
+      PTR(afwImage::MaskedImage<ImageT, MaskT, VarianceT>) const& trace = fiberTrace.getTrace();
+      ndarray::Array<float const, 1, 1> const& xCenters = fiberTrace.getXCenters();
+      ndarray::Array<size_t, 2, 1> const& binBoundYNd = fiberTrace.calcSwathBoundY(fiberTrace.getFiberTraceProfileFittingControl()->swathWidth);
+      PTR(const pfsDRPStella::FiberTraceProfileFittingControl) const& fiberTraceProfileFittingControl = fiberTrace.getFiberTraceProfileFittingControl();
+      PTR(const pfsDRPStella::FiberTraceFunction) const& fiberTraceFunction = fiberTrace.getFiberTraceFunction();
     /**                     //PLOT        =
      * //                      Y_LOWER_LIM = int             : in
      * //                      Y_UPPER_LIM = int             : in
@@ -4594,7 +4574,6 @@
      *                       Y_PROF_START = int            : in 0 <= Y_PROF_START < NRows
      *                       Y_PROF_END  = int            : in Y_PROF_START < Y_PROF_END < NRows
      **/
-    {
       /**
        *    blitz::Array<double, 1> bincen   => blitz::Array<double, 1> D_A1_BinCen
        *  ! blitz::Array<double, 1> BLZ=blz = fltarr(ncol)  => blitz::Array<double, 1> *P_D_A1_BLZ
@@ -4689,9 +4668,11 @@
       }
 
       #ifdef __DEBUG_MKSLITFUNC__
-        int oldYHigh = _fiberTraceFunction->yHigh;
-        int oldYLow = _fiberTraceFunction->yLow;
+        int oldYHigh = fiberTraceFunction->yHigh;
+        int oldYLow = fiberTraceFunction->yLow;
       #endif
+
+      blitz::Array<size_t, 2> binBoundY = utils::ndarrayToBlitz(binBoundYNd);
 
       cout << "FiberTrace" << fiberTraceNumber << "::MkSlitFunc: Started: S_A1_Args_In = " << S_A1_Args_In << endl;
       #ifdef __DEBUG_MKSLITFUNC__
@@ -4996,10 +4977,10 @@
       int I_Stop = 0;
 
       #ifdef __DEBUG_MKSLITFUNC__
-        if (oldYHigh != _fiberTraceFunction->yHigh){
+        if (oldYHigh != fiberTraceFunction->yHigh){
           string message("FiberTrace ");
-          message += to_string(fiberTraceNumber) + string("::MkSlitFunc: before calculateSwathWidth: ERROR: oldYHigh(=") + to_string(oldYHigh) + string(") != _fiberTraceFunction->yHigh(=");
-          message += to_string(_fiberTraceFunction->yHigh);
+          message += to_string(fiberTraceNumber) + string("::MkSlitFunc: before calculateSwathWidth: ERROR: oldYHigh(=") + to_string(oldYHigh) + string(") != fiberTraceFunction->yHigh(=");
+          message += to_string(fiberTraceFunction->yHigh);
           cout << message << endl;
           throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
         }
@@ -5015,10 +4996,10 @@
         throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
       }
       #ifdef __DEBUG_MKSLITFUNC__
-        if (oldYHigh != _fiberTraceFunction->yHigh){
+        if (oldYHigh != fiberTraceFunction->yHigh){
           string message("FiberTrace ");
-          message += to_string(fiberTraceNumber) + string("::MkSlitFunc: after calculateSwathWidth: ERROR: oldYHigh(=") + to_string(oldYHigh) + string(") != _fiberTraceFunction->yHigh(=");
-          message += to_string(_fiberTraceFunction->yHigh);
+          message += to_string(fiberTraceNumber) + string("::MkSlitFunc: after calculateSwathWidth: ERROR: oldYHigh(=") + to_string(oldYHigh) + string(") != fiberTraceFunction->yHigh(=");
+          message += to_string(fiberTraceFunction->yHigh);
           cout << message << endl;
           throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
         }
@@ -5032,8 +5013,8 @@
         ::pfs::drp::stella::utils::WriteArrayToFile(binBoundY, boundFN, string("ascii"));
       #endif
       #ifdef __DEBUG_MKSLITFUNC__
-        cout << "FiberTrace" << fiberTraceNumber << "::MkSlitFunc: *P_D_A1_YHigh(fiberTraceNumber=" << fiberTraceNumber << ") = " << _fiberTraceFunction->yHigh << endl;
-        cout << "FiberTrace" << fiberTraceNumber << "::MkSlitFunc: *P_D_A1_YLow(fiberTraceNumber=" << fiberTraceNumber << ") = " << _fiberTraceFunction->yLow << endl;
+        cout << "FiberTrace" << fiberTraceNumber << "::MkSlitFunc: *P_D_A1_YHigh(fiberTraceNumber=" << fiberTraceNumber << ") = " << fiberTraceFunction->yHigh << endl;
+        cout << "FiberTrace" << fiberTraceNumber << "::MkSlitFunc: *P_D_A1_YLow(fiberTraceNumber=" << fiberTraceNumber << ") = " << fiberTraceFunction->yLow << endl;
         cout << "FiberTrace" << fiberTraceNumber << "::MkSlitFunc: I_NBin = " << I_NBins << endl;
         cout << "FiberTrace" << fiberTraceNumber << "::MkSlitFunc: I_NBins = " << I_NBins << endl;
         cout << "FiberTrace" << fiberTraceNumber << "::MkSlitFunc: binBoundY = " << binBoundY << endl;
@@ -5064,7 +5045,7 @@
 
       /// subpixel range required
       #ifdef __DEBUG_MKSLITFUNC__
-        cout << "FiberTrace" << fiberTraceNumber << "::MkSlitFunc: P_D_A1_XLow = " << _fiberTraceFunction->fiberTraceFunctionControl.xLow << endl;
+        cout << "FiberTrace" << fiberTraceNumber << "::MkSlitFunc: P_D_A1_XLow = " << fiberTraceFunction->fiberTraceFunctionControl.xLow << endl;
       #endif
 
       ///TODO: SF = 7.2 pix -> 0.9-8.1 -> 9 pixels, not 7+1!!!
@@ -5089,10 +5070,10 @@
           B_MaximaOnly = true;
 
         #ifdef __DEBUG_MKSLITFUNC__
-          if (oldYHigh != _fiberTraceFunction->yHigh){
+          if (oldYHigh != fiberTraceFunction->yHigh){
             string message("FiberTrace ");
-            message += to_string(fiberTraceNumber) + string("::MkSlitFunc: I_IBin = ") + to_string(I_IBin) + string(": 1. ERROR: oldYHigh(=") + to_string(oldYHigh) + string(") != _fiberTraceFunction->yHigh(=");
-            message += to_string(_fiberTraceFunction->yHigh);
+            message += to_string(fiberTraceNumber) + string("::MkSlitFunc: I_IBin = ") + to_string(I_IBin) + string(": 1. ERROR: oldYHigh(=") + to_string(oldYHigh) + string(") != fiberTraceFunction->yHigh(=");
+            message += to_string(fiberTraceFunction->yHigh);
             cout << message << endl;
             throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
           }
@@ -5193,10 +5174,10 @@
         {
           /// column closest to peak
           #ifdef __DEBUG_MKSLITFUNC__
-            if (oldYHigh != _fiberTraceFunction->yHigh){
+            if (oldYHigh != fiberTraceFunction->yHigh){
               string message("FiberTrace ");
-              message += to_string(fiberTraceNumber) + string("::MkSlitFunc: I_IBin = ") + to_string(I_IBin) + string(": n = ") + to_string(n) + string(": 2. ERROR: oldYHigh(=") + to_string(oldYHigh) + string(") != _fiberTraceFunction->yHigh(=");
-              message += to_string(_fiberTraceFunction->yHigh);
+              message += to_string(fiberTraceNumber) + string("::MkSlitFunc: I_IBin = ") + to_string(I_IBin) + string(": n = ") + to_string(n) + string(": 2. ERROR: oldYHigh(=") + to_string(oldYHigh) + string(") != fiberTraceFunction->yHigh(=");
+              message += to_string(fiberTraceFunction->yHigh);
               cout << message << endl;
               throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
             }
@@ -5283,11 +5264,11 @@
           #endif
           I_A2_Msk(n, blitz::Range::all()) = I_A2_MaskArray(binBoundY(I_IBin,0) + n, blitz::Range::all());
           #ifdef __DEBUG_MKSLITFUNC__
-            cout << "FiberTrace" << fiberTraceNumber << "::MkSlitFunc: I_IBin = " << I_IBin << ": for (I_IBin(=" << I_IBin << ") = 0; I_IBin < I_NBin=" << I_NBins << "; I_IBin++): for (n(=" << n << ") = 0; n < I_NR(=" << I_NR << "); n++): D_A1_XCenters(" << binBoundY(I_IBin,0) + n << ") = " << D_A1_XCenters(binBoundY(I_IBin,0) + n) << endl;
-            double D_Temp = D_A1_XCenters(binBoundY(I_IBin,0) + n) + _fiberTraceFunction->fiberTraceFunctionControl.xLow;
-            cout << "FiberTrace" << fiberTraceNumber << "::MkSlitFunc: I_IBin = " << I_IBin << ": for (I_IBin(=" << I_IBin << ") = 0; I_IBin < I_NBin=" << I_NBins << "; I_IBin++): for (n(=" << n << ") = 0; n < I_NR(=" << I_NR << "); n++): D_A1_XCenters(" << binBoundY(I_IBin,0)+n << ") + P_D_A1_XLow(" << fiberTraceNumber << ") = " << D_Temp << endl;
-            D_Temp = D_A1_XCenters(binBoundY(I_IBin,0) + n) + _fiberTraceFunction->fiberTraceFunctionControl.xHigh;
-            cout << "FiberTrace" << fiberTraceNumber << "::MkSlitFunc: I_IBin = " << I_IBin << ": for (I_IBin(=" << I_IBin << ") = 0; I_IBin < I_NBin=" << I_NBins << "; I_IBin++): for (n(=" << n << ") = 0; n < I_NR(=" << I_NR << "); n++): D_A1_XCenters(" << binBoundY(I_IBin,0)+n << ") + P_D_A1_XHigh(" << fiberTraceNumber << ") = " << D_Temp << endl;
+            cout << "FiberTrace" << fiberTraceNumber << "::MkSlitFunc: I_IBin = " << I_IBin << ": for (I_IBin(=" << I_IBin << ") = 0; I_IBin < I_NBin=" << I_NBins << "; I_IBin++): for (n(=" << n << ") = 0; n < I_NR(=" << I_NR << "); n++): xCenters[" << binBoundY(I_IBin,0) + n << " = " << xCenters[binBoundY(I_IBin,0) + n] << endl;
+            double D_Temp = xCenters[binBoundY(I_IBin,0) + n] + fiberTraceFunction->fiberTraceFunctionControl.xLow;
+            cout << "FiberTrace" << fiberTraceNumber << "::MkSlitFunc: I_IBin = " << I_IBin << ": for (I_IBin(=" << I_IBin << ") = 0; I_IBin < I_NBin=" << I_NBins << "; I_IBin++): for (n(=" << n << ") = 0; n < I_NR(=" << I_NR << "); n++): xCenters[" << binBoundY(I_IBin,0)+n << "] + P_D_A1_XLow(" << fiberTraceNumber << ") = " << D_Temp << endl;
+            D_Temp = xCenters[binBoundY(I_IBin,0) + n] + fiberTraceFunction->fiberTraceFunctionControl.xHigh;
+            cout << "FiberTrace" << fiberTraceNumber << "::MkSlitFunc: I_IBin = " << I_IBin << ": for (I_IBin(=" << I_IBin << ") = 0; I_IBin < I_NBin=" << I_NBins << "; I_IBin++): for (n(=" << n << ") = 0; n < I_NR(=" << I_NR << "); n++): xCenters[" << binBoundY(I_IBin,0)+n << "] + P_D_A1_XHigh(" << fiberTraceNumber << ") = " << D_Temp << endl;
             cout << "FiberTrace" << fiberTraceNumber << "::MkSlitFunc: I_IBin = " << I_IBin << ": for (I_IBin(=" << I_IBin << ") = 0; I_IBin < I_NBin=" << I_NBins << "; I_IBin++): for (n(=" << n << ") = 0; n < I_NR(=" << I_NR << "); n++): I_A2_Msk(n, blitz::Range::all()) set to " << I_A2_Msk(n, blitz::Range::all()) << endl;
           #endif
           if (max(I_A2_Msk(n, blitz::Range::all())) > 1){
@@ -5348,10 +5329,10 @@
           #endif
         } /// for (int n = 0; n < I_NR; n++)
         #ifdef __DEBUG_MKSLITFUNC__
-          if (oldYHigh != _fiberTraceFunction->yHigh){
+          if (oldYHigh != fiberTraceFunction->yHigh){
             string message("FiberTrace ");
-            message += to_string(fiberTraceNumber) + string("::MkSlitFunc: I_IBin = ") + to_string(I_IBin) + string(": end for(n) ERROR: oldYHigh(=") + to_string(oldYHigh) + string(") != _fiberTraceFunction->yHigh(=");
-            message += to_string(_fiberTraceFunction->yHigh);
+            message += to_string(fiberTraceNumber) + string("::MkSlitFunc: I_IBin = ") + to_string(I_IBin) + string(": end for(n) ERROR: oldYHigh(=") + to_string(oldYHigh) + string(") != fiberTraceFunction->yHigh(=");
+            message += to_string(fiberTraceFunction->yHigh);
             cout << message << endl;
             throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
           }
@@ -5728,10 +5709,10 @@
           delete(P_I_A1_Ind);
         }/// end else if (Telluric == 3)
         #ifdef __DEBUG_MKSLITFUNC__
-          if (oldYHigh != _fiberTraceFunction->yHigh){
+          if (oldYHigh != fiberTraceFunction->yHigh){
             string message("FiberTrace ");
-            message += to_string(fiberTraceNumber) + string("::MkSlitFunc: I_IBin = ") + to_string(I_IBin) + string(": after if (Telluric == 1 or 3): 2. ERROR: oldYHigh(=") + to_string(oldYHigh) + string(") != _fiberTraceFunction->yHigh(=");
-            message += to_string(_fiberTraceFunction->yHigh);
+            message += to_string(fiberTraceNumber) + string("::MkSlitFunc: I_IBin = ") + to_string(I_IBin) + string(": after if (Telluric == 1 or 3): 2. ERROR: oldYHigh(=") + to_string(oldYHigh) + string(") != fiberTraceFunction->yHigh(=");
+            message += to_string(fiberTraceFunction->yHigh);
             cout << message << endl;
             throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
           }
@@ -5885,6 +5866,7 @@
                                             I_MaxIterSig,
                                             D_A1_XCenMXC,
                                             fiberTraceProfileFittingControl,
+                                            fiberTraceFunction,
                                             D_A1_SP,
                                             D_A2_SFSM,
                                             s_a1,
@@ -5897,10 +5879,10 @@
             throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
           }
           #ifdef __DEBUG_MKSLITFUNC__
-            if (oldYHigh != _fiberTraceFunction->yHigh){
+            if (oldYHigh != fiberTraceFunction->yHigh){
               string message("FiberTrace ");
-              message += to_string(fiberTraceNumber) + string("::MkSlitFunc: I_IBin = ") + to_string(I_IBin) + string(": after SlitFunc: 2. ERROR: oldYHigh(=") + to_string(oldYHigh) + string(") != _fiberTraceFunction->yHigh(=");
-              message += to_string(_fiberTraceFunction->yHigh);
+              message += to_string(fiberTraceNumber) + string("::MkSlitFunc: I_IBin = ") + to_string(I_IBin) + string(": after SlitFunc: 2. ERROR: oldYHigh(=") + to_string(oldYHigh) + string(") != fiberTraceFunction->yHigh(=");
+              message += to_string(fiberTraceFunction->yHigh);
               cout << message << endl;
               throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
             }
@@ -6353,10 +6335,10 @@
           I_Run_Tel++;
         } while (I_Run_Tel < I_RunMax);
         #ifdef __DEBUG_MKSLITFUNC__
-          if (oldYHigh != _fiberTraceFunction->yHigh){
+          if (oldYHigh != fiberTraceFunction->yHigh){
             string message("FiberTrace ");
-            message += to_string(fiberTraceNumber) + string("::MkSlitFunc: I_IBin = ") + to_string(I_IBin) + string(": end do ... while(I_Run_Tel < I_RunMax): 2. ERROR: oldYHigh(=") + to_string(oldYHigh) + string(") != _fiberTraceFunction->yHigh(=");
-            message += to_string(_fiberTraceFunction->yHigh);
+            message += to_string(fiberTraceNumber) + string("::MkSlitFunc: I_IBin = ") + to_string(I_IBin) + string(": end do ... while(I_Run_Tel < I_RunMax): 2. ERROR: oldYHigh(=") + to_string(oldYHigh) + string(") != fiberTraceFunction->yHigh(=");
+            message += to_string(fiberTraceFunction->yHigh);
             cout << message << endl;
             throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
           }
@@ -6384,10 +6366,10 @@
         }
       } /// end for (int I_IBin = 0; I_IBin < I_NBin; I_IBin++) /// Loop thru sf regions
       #ifdef __DEBUG_MKSLITFUNC__
-        if (oldYHigh != _fiberTraceFunction->yHigh){
+        if (oldYHigh != fiberTraceFunction->yHigh){
           string message("FiberTrace ");
-          message += to_string(fiberTraceNumber) + string("::MkSlitFunc: after for(I_IBin...): 2. ERROR: oldYHigh(=") + to_string(oldYHigh) + string(") != _fiberTraceFunction->yHigh(=");
-          message += to_string(_fiberTraceFunction->yHigh);
+          message += to_string(fiberTraceNumber) + string("::MkSlitFunc: after for(I_IBin...): 2. ERROR: oldYHigh(=") + to_string(oldYHigh) + string(") != fiberTraceFunction->yHigh(=");
+          message += to_string(fiberTraceFunction->yHigh);
           cout << message << endl;
           throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
         }
@@ -6480,14 +6462,14 @@
           else{
             D_Weight_Bin1 = double(i_row - binBoundY(I_Bin+1, 0)) / double(binBoundY(I_Bin, 1) - binBoundY(I_Bin+1, 0));
             D_Weight_Bin0 = 1. - D_Weight_Bin1;
-  //          #ifdef __DEBUG_MKSLITFUNC__
+            #ifdef __DEBUG_MKSLITFUNC__
               cout << "FiberTrace" << fiberTraceNumber << "::MkSlitFunc: i_row = " << i_row << ": I_NBins = " << I_NBins << endl;
               cout << "FiberTrace" << fiberTraceNumber << "::MkSlitFunc: i_row = " << i_row << ": I_Bin = " << I_Bin << endl;
               cout << "FiberTrace" << fiberTraceNumber << "::MkSlitFunc: i_row = " << i_row << ": binBoundY(I_Bin, *) = " << binBoundY(I_Bin, blitz::Range::all()) << endl;
               cout << "FiberTrace" << fiberTraceNumber << "::MkSlitFunc: i_row = " << i_row << ": binBoundY(I_Bin+1, *) = " << binBoundY(I_Bin+1, blitz::Range::all()) << endl;
               cout << "FiberTrace" << fiberTraceNumber << "::MkSlitFunc: i_row = " << i_row << ": D_Weight_Bin0 = " << D_Weight_Bin0 << endl;
               cout << "FiberTrace" << fiberTraceNumber << "::MkSlitFunc: i_row = " << i_row << ": D_Weight_Bin1 = " << D_Weight_Bin1 << endl;
-  //          #endif
+            #endif
             #ifdef __DEBUG_CHECK_INDICES__
               if (i_row >= D_A2_SP.rows()){
                 std::string message("FiberTrace");
@@ -6541,13 +6523,10 @@
               D_A1_ErrSky(i_row) = (D_A2_ErrSky(i_row, I_Bin) * D_Weight_Bin0) + (D_A2_ErrSky(i_row, I_Bin + 1) * D_Weight_Bin1);
               cout << "FiberTrace" << fiberTraceNumber << "::MkSlitFunc: i_row = " << i_row << ": I_Bin = " << I_Bin << ": D_A1_Sky(" << i_row << ") set to " << D_A1_Sky(i_row) << endl;
             }
-
-          //  I_Row_Rel++;
           }
 
           if (i_row == (binBoundY(I_Bin, 1))){
             I_Bin++;
-          //  I_Row_Rel = 0;
             #ifdef __DEBUG_MKSLITFUNC__
               cout << "FiberTrace" << fiberTraceNumber << "::MkSlitFunc: i_row = " << i_row << ": I_Bin set to " << I_Bin << endl;
             #endif
@@ -6559,8 +6538,8 @@
       #endif
 
       ///populate _spectrum, _spectrumVariance, _background, _backgroundVariance
-      PTR(pfsDRPStella::Spectrum<ImageT, MaskT, VarianceT, VarianceT>) spectrum(new pfsDRPStella::Spectrum<ImageT, MaskT, VarianceT, VarianceT>(trace->getHeight()));
-      PTR(pfsDRPStella::Spectrum<ImageT, MaskT, VarianceT, VarianceT>) background(new Spectrum<ImageT, MaskT, VarianceT, VarianceT>(trace->getHeight()));
+      PTR(pfsDRPStella::Spectrum<ImageT, MaskT, VarianceT, VarianceT>) spectrum(new pfsDRPStella::Spectrum<ImageT, MaskT, VarianceT, VarianceT>(size_t(trace->getHeight())));
+      PTR(pfsDRPStella::Spectrum<ImageT, MaskT, VarianceT, VarianceT>) background(new Spectrum<ImageT, MaskT, VarianceT, VarianceT>(size_t(trace->getHeight())));
       for (int ind=0; ind<trace->getHeight(); ind++){
         spectrum->getSpectrum()[ind] = ImageT(D_A1_SP(ind));
         spectrum->getVariance()[ind] = VarianceT(D_A1_Errors_SP_Out(ind));
@@ -6570,8 +6549,6 @@
       blitz::Array<float, 2> F_A2_ProfArray = ::pfs::drp::stella::math::Float(D_A2_SF);
       ndarray::Array<float, 2, 1> ndarrayProf(::pfs::drp::stella::utils::copyBlitzToNdarray(F_A2_ProfArray));
       PTR(afwImage::Image<float>) imageProf(new afwImage::Image<float>(ndarrayProf));
-      profile.reset();
-      profile = imageProf;
       blitz::Array<MaskT, 2> U_A2_Mask(trace->getHeight(), trace->getWidth());
       U_A2_Mask = where(I_A2_Mask_AllRows == 1, T_A2_MaskArray, 1);
       ndarray::Array<MaskT, 2, 1> ndarrayMask(::pfs::drp::stella::utils::copyBlitzToNdarray(U_A2_Mask));
@@ -6582,22 +6559,26 @@
       free(args);
 
       #ifdef __DEBUG_MKSLITFUNC__
-        if (oldYHigh != _fiberTraceFunction->yHigh){
+        if (oldYHigh != fiberTraceFunction->yHigh){
           string message("FiberTrace ");
-          message += to_string(fiberTraceNumber) + string("::MkSlitFunc: End: ERROR: oldYHigh(=") + to_string(oldYHigh) + string(") != _fiberTraceFunction->yHigh(=");
-          message += to_string(_fiberTraceFunction->yHigh);
+          message += to_string(fiberTraceNumber) + string("::MkSlitFunc: End: ERROR: oldYHigh(=") + to_string(oldYHigh) + string(") != fiberTraceFunction->yHigh(=");
+          message += to_string(fiberTraceFunction->yHigh);
           cout << message << endl;
           throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
         }
-        if (oldYLow != _fiberTraceFunction->yLow){
+        if (oldYLow != fiberTraceFunction->yLow){
           string message("FiberTrace ");
-          message += to_string(fiberTraceNumber) + string("::MkSlitFunc: End: ERROR: oldYLow(=") + to_string(oldYLow) + string(") != _fiberTraceFunction->yLow(=");
-          message += to_string(_fiberTraceFunction->yLow);
+          message += to_string(fiberTraceNumber) + string("::MkSlitFunc: End: ERROR: oldYLow(=") + to_string(oldYLow) + string(") != fiberTraceFunction->yLow(=");
+          message += to_string(fiberTraceFunction->yLow);
           cout << message << endl;
           throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
         }
       #endif
       cout << "FiberTrace" << fiberTraceNumber << "::MkSlitFunc: fiberTraceNumber " << fiberTraceNumber << " finished" << endl;
+      if (!fiberTrace.setProfile(imageProf)){
+        cout << "FiberTrace" << fiberTraceNumber << "::MkSlitFunc: fiberTraceNumber " << fiberTraceNumber << " ERROR: trace->setProfile returned false" << endl;
+        exit(EXIT_FAILURE);
+      }
       return spectrum;
     }
 
@@ -6606,13 +6587,14 @@
      * SlitFunc
      **/
   //  template<typename ImageT, typename MaskT, typename VarianceT>
-    bool SlitFunc(const blitz::Array<double, 2> &D_A2_ImM,
-                  unsigned int maxIterSig_In,
-                  const blitz::Array<double, 1> &xCentersPixelFraction_In, //: in
-                  const PTR(pfs::drp::stella::FiberTraceProfileFittingControl) & fiberTraceProfileFittingControl,
+    bool SlitFunc(blitz::Array<double, 2> const& D_A2_ImM,
+                  unsigned int const maxIterSig_In,
+                  blitz::Array<double, 1> const& xCentersPixelFraction_In, //: in
+                  PTR(const pfs::drp::stella::FiberTraceProfileFittingControl) const& fiberTraceProfileFittingControl,
+                  PTR(const pfs::drp::stella::FiberTraceFunction) const& fiberTraceFunction,
                   blitz::Array<double, 1> &spectrum_Out,   //: out
                   blitz::Array<double, 2> &profile_Out,   //: out
-                  const blitz::Array<string, 1> &S_A1_Args_In,   //: in
+                  blitz::Array<string, 1> const& S_A1_Args_In,   //: in
                   void *ArgV_In[])     //: in
   /**
      * //              TELLURIC   = int [0-none,1-Piskunov,2-mine]     : in
@@ -7119,16 +7101,16 @@
         #endif
       }
       #ifdef __DEBUG_SLITFUNC__
-        cout << "FiberTrace" << fiberTraceNumber << "::SlitFunc: _fiberTraceFunction->fiberTraceFunctionControl.interpolation = " << _fiberTraceFunction->fiberTraceFunctionControl.interpolation << endl;
-        cout << "FiberTrace" << fiberTraceNumber << "::SlitFunc: _fiberTraceFunction->fiberTraceFunctionControl.order = " << _fiberTraceFunction->fiberTraceFunctionControl.order << endl;
-        cout << "FiberTrace" << fiberTraceNumber << "::SlitFunc: _fiberTraceFunction->fiberTraceFunctionControl.xLow = " << _fiberTraceFunction->fiberTraceFunctionControl.xLow << endl;
-        cout << "FiberTrace" << fiberTraceNumber << "::SlitFunc: _fiberTraceFunction->fiberTraceFunctionControl.xHigh = " << _fiberTraceFunction->fiberTraceFunctionControl.xHigh << endl;
-        cout << "FiberTrace" << fiberTraceNumber << "::SlitFunc: _fiberTraceFunction->xCenter = " << _fiberTraceFunction->xCenter << endl;
-        cout << "FiberTrace" << fiberTraceNumber << "::SlitFunc: _fiberTraceFunction->yCenter = " << _fiberTraceFunction->yCenter << endl;
-        cout << "FiberTrace" << fiberTraceNumber << "::SlitFunc: _fiberTraceFunction->yLow = " << _fiberTraceFunction->yLow << endl;
-        cout << "FiberTrace" << fiberTraceNumber << "::SlitFunc: _fiberTraceFunction->yHigh = " << _fiberTraceFunction->yHigh << endl;
-        for (int ii = 0; ii < static_cast<int>(_fiberTraceFunction->coefficients.size()); ii++)
-          cout << "FiberTrace" << fiberTraceNumber << "::SlitFunc: _fiberTraceFunction->coefficients[" << ii << "] = " << _fiberTraceFunction->coefficients[ii] << endl;
+        cout << "FiberTrace" << fiberTraceNumber << "::SlitFunc: fiberTraceFunction->fiberTraceFunctionControl.interpolation = " << fiberTraceFunction->fiberTraceFunctionControl.interpolation << endl;
+        cout << "FiberTrace" << fiberTraceNumber << "::SlitFunc: fiberTraceFunction->fiberTraceFunctionControl.order = " << fiberTraceFunction->fiberTraceFunctionControl.order << endl;
+        cout << "FiberTrace" << fiberTraceNumber << "::SlitFunc: fiberTraceFunction->fiberTraceFunctionControl.xLow = " << fiberTraceFunction->fiberTraceFunctionControl.xLow << endl;
+        cout << "FiberTrace" << fiberTraceNumber << "::SlitFunc: fiberTraceFunction->fiberTraceFunctionControl.xHigh = " << fiberTraceFunction->fiberTraceFunctionControl.xHigh << endl;
+        cout << "FiberTrace" << fiberTraceNumber << "::SlitFunc: fiberTraceFunction->xCenter = " << fiberTraceFunction->xCenter << endl;
+        cout << "FiberTrace" << fiberTraceNumber << "::SlitFunc: fiberTraceFunction->yCenter = " << fiberTraceFunction->yCenter << endl;
+        cout << "FiberTrace" << fiberTraceNumber << "::SlitFunc: fiberTraceFunction->yLow = " << fiberTraceFunction->yLow << endl;
+        cout << "FiberTrace" << fiberTraceNumber << "::SlitFunc: fiberTraceFunction->yHigh = " << fiberTraceFunction->yHigh << endl;
+        for (int ii = 0; ii < static_cast<int>(fiberTraceFunction->coefficients.size()); ii++)
+          cout << "FiberTrace" << fiberTraceNumber << "::SlitFunc: fiberTraceFunction->coefficients[" << ii << "] = " << fiberTraceFunction->coefficients[ii] << endl;
       #endif
       P_D_A2_Prof_Out->resize(I_NRows_Im, I_NCols_Im);
       (*P_D_A2_Prof_Out) = 0.;
@@ -9514,7 +9496,8 @@
             ::pfs::drp::stella::utils::WriteArrayToFile(D_A1_SFO, fname_sf, std::string("ascii"));
           #endif
           #ifdef __DEBUG_SLITFUNC__
-            cout << "FiberTrace" << fiberTraceNumber << "::SlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": I_XCorProf = " << I_XCorProf << endl;
+            if (I_XCorProf != 0)
+              cout << "FiberTrace" << fiberTraceNumber << "::SlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": I_XCorProf = " << I_XCorProf << endl;
           #endif
           double dSum = 0.;
           for (int i_cross=0; i_cross < I_XCorProf; i_cross++){
@@ -9526,10 +9509,20 @@
               cout << message << endl;
               throw LSST_EXCEPT(pexExcept::Exception, message.c_str());    
             }
+            #ifdef __DEBUG_SLITFUNC__
+              cout << "D_A1_SFO = " << D_A1_SFO << endl;
+              cout << "D_A1_XX = " << D_A1_XX << endl;
+              cout << "D_A1_XProf = " << D_A1_XProf << endl;
+              cout << "D_A1_YProf = " << D_A1_YProf << endl;
+            #endif
             profile_Out(m, blitz::Range::all()) = where(D_A1_YProf < 0., 0., D_A1_YProf);
             dSum = blitz::sum(profile_Out(m, blitz::Range::all()));
             if (fabs(dSum) > 0.00000000000000001)
               profile_Out(m, blitz::Range::all()) = profile_Out(m, blitz::Range::all()) / dSum;
+            #ifdef __DEBUG_SLITFUNC__
+              cout << "b) D_A1_YProf(*) = " << D_A1_YProf << endl;
+              cout << "b) profile_Out(m, *) = " << profile_Out(m, blitz::Range::all()) << endl;
+            #endif
 
             D_Error = sqrt(blitz::sum(blitz::pow2(D_A2_Im(m, blitz::Range::all()) - (profile_Out(m, blitz::Range::all()) * spectrum_Out(m)))));
             if (D_Error < D_MinError){
@@ -9611,7 +9604,11 @@
             cout << message << endl;
             throw LSST_EXCEPT(pexExcept::Exception, message.c_str());    
           }
-          profile_Out(m, blitz::Range::all()) = where(D_A1_YProf(m) < 0., 0., D_A1_YProf);
+          profile_Out(m, blitz::Range::all()) = where(D_A1_YProf < 0., 0., D_A1_YProf);
+          #ifdef __DEBUG_SLITFUNC__
+            cout << "a) D_A1_YProf = " << D_A1_YProf << endl;
+            cout << "a) profile_Out(" << m << ", *) = " << profile_Out(m, blitz::Range::all()) << endl;
+          #endif
           double D_SumSF = blitz::sum(profile_Out(m, blitz::Range::all()));
           if (fabs(D_SumSF) > 0.00000000000000001)
             profile_Out(m, blitz::Range::all()) = profile_Out(m, blitz::Range::all()) / D_SumSF;
@@ -9619,7 +9616,7 @@
             profile_Out(m, blitz::Range::all()) = profile_Out(m, blitz::Range::all()) - min(profile_Out(m, blitz::Range::all()));
             D_SumSF = blitz::sum(profile_Out(m, blitz::Range::all()));
             if (fabs(D_SumSF) > 0.00000000000000001){
-              #ifdef __DEBUG_SLITFUNC_N__
+              #ifdef __DEBUG_SLITFUNC__
                 cout << "D_SumSF = " << D_SumSF << endl;
               #endif
               profile_Out(m, blitz::Range::all()) = profile_Out(m, blitz::Range::all()) / D_SumSF;
@@ -9660,7 +9657,7 @@
           ::pfs::drp::stella::utils::WriteArrayToFile(*P_D_A2_Im_Out, fname_rec, std::string("ascii"));
         #endif
 
-        #ifdef __DEBUG_SLITFUNC_N__
+        #ifdef __DEBUG_SLITFUNC__
           cout << "FiberTrace" << fiberTraceNumber << "::SlitFunc: fiberTraceNumber = " << fiberTraceNumber << ": I_Bin = " << I_Bin << ": profile_Out set to " << profile_Out << endl;
         #endif
         if (I_Telluric == 2)
@@ -10405,5 +10402,14 @@
     template blitz::Array<double,1> math::Moment(const blitz::Array<float, 2> &D_A1_Arr_In, int I_MaxMoment_In);
     template blitz::Array<double,1> math::Moment(const blitz::Array<double, 2> &D_A1_Arr_In, int I_MaxMoment_In);
 
-
-  }}}}
+    template PTR(pfsDRPStella::Spectrum<float, unsigned short, float, float>) MkSlitFunc(FiberTrace<float, unsigned short, float> &);
+    template PTR(pfsDRPStella::Spectrum<double, unsigned short, float, float>) MkSlitFunc(FiberTrace<double, unsigned short, float> &);
+    
+    template PTR(pfsDRPStella::Spectrum<float, unsigned short, float, float>) MkSlitFunc(FiberTrace<float, unsigned short, float> &,
+                                                                                         blitz::Array<string, 1> const&,
+                                                                                         void *PP_Args[]);
+    template PTR(pfsDRPStella::Spectrum<double, unsigned short, float, float>) MkSlitFunc(FiberTrace<double, unsigned short, float> &,
+                                                                                         blitz::Array<string, 1> const&,
+                                                                                         void *PP_Args[]);
+}}}}
+  

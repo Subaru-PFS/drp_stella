@@ -486,7 +486,7 @@ class FiberTraceTestCase(tests.TestCase):
         for iTrace in range(0, fiberTraceSet.size()):
             fiberTrace = fiberTraceSet.getFiberTrace(iTrace)
             try:
-                spectrum = fiberTrace.MkSlitFunc()
+                spectrum = drpStella.mkSlitFuncF(fiberTrace)
             except:
                 e = sys.exc_info()[1]
                 print e
@@ -499,7 +499,7 @@ class FiberTraceTestCase(tests.TestCase):
                 self.assertEqual(message[0],expected)
             self.assertTrue(fiberTrace.setFiberTraceProfileFittingControl(ftpfc))
             try:
-                spectrum = fiberTrace.MkSlitFunc()
+                spectrum = drpStella.mkSlitFuncF(fiberTrace)
             except:
                 raise
             self.assertEqual(spectrum.getLength(), fiberTrace.getHeight())
@@ -578,7 +578,7 @@ class FiberTraceTestCase(tests.TestCase):
             fiberTrace = fiberTraceSet.getFiberTrace(iTrace)
             fiberTrace.getTrace().getImage().writeFits("Trace"+str(iTrace)+".fits")
             self.assertTrue(fiberTrace.setFiberTraceProfileFittingControl(ftpfc))
-            spectrum = fiberTrace.MkSlitFunc()
+            spectrum = drpStella.mkSlitFuncF(fiberTrace)
             profile = fiberTrace.getProfile()
             profile.writeFits("profileFromMkSlitFunc_trace"+str(iTrace)+".fits")
             recImage = fiberTrace.getReconstructed2DSpectrum(spectrum)
@@ -606,16 +606,17 @@ class FiberTraceTestCase(tests.TestCase):
     
     def testFiberTraceOtherFunctions(self):
         
-        """Test FiberTrace.calculateBinBoundY(swathwidth)"""
+        """Test FiberTrace.calcSwathBoundY(swathwidth)"""
         ftpffc = drpStella.FiberTraceProfileFittingControl()
         swathWidth = int(ftpffc.swathWidth)
         self.assertIsNot(swathWidth, ftpffc.swathWidth)
         fiberTraceSet = drpStella.findAndTraceAperturesF(self.flat.getMaskedImage(), self.ftffc)
         fiberTrace = drpStella.FiberTraceF(self.flat.getMaskedImage(), fiberTraceSet.getFiberTrace(0).getFiberTraceFunction(), fiberTraceSet.getFiberTrace(0).getXCenters(), 0)
         print "swathWidth = ",type(swathWidth),": ",swathWidth
-        binBoundYOut = fiberTrace.calculateBinBoundY(swathWidth)
+        binBoundYOut = fiberTrace.calcSwathBoundY(swathWidth)
         print "swathWidth = ",type(swathWidth),": ",swathWidth
         print "binBoundYOut = ", type(binBoundYOut),": ",binBoundYOut
+        print "dir(binBoundYOut) = ", dir(binBoundYOut)
         print "binBoundYOut = ", binBoundYOut.shape,": ", binBoundYOut.shape[0],": ",binBoundYOut[:,:]
         for i in range(binBoundYOut.shape[0]):
             if i == 0:
@@ -728,7 +729,7 @@ class FiberTraceTestCase(tests.TestCase):
             print message
             for i in range(len(message)):
                 print "element",i,": <",message[i],">"
-            expected = "FiberTraceSet::erase(iStart="+str(fts.size())+"): ERROR: iStart >= _traces->size()="+str(fts.size())
+            expected = "FiberTraceSet::erase(iStart="+str(fts.size())+", iEnd=0): ERROR: iStart >= _traces->size()="+str(fts.size())
             self.assertEqual(message[0],expected)
         
         """Test that we can set the FiberTraceProfileFittingControl to all FiberTraces in FiberTraceSet"""
@@ -742,15 +743,15 @@ class FiberTraceTestCase(tests.TestCase):
             self.assertEqual(fts.getFiberTrace(i).getFiberTraceProfileFittingControl().swathWidth, swathWidth)
             self.assertTrue(fts.getFiberTrace(i).isFiberTraceProfileFittingControlSet())
 
-#        """Test that we can fit the spatial profiles of one FiberTrace in Set"""
-#        self.assertFalse(fts.getFiberTrace(3).isProfileSet())
-#        spectrum = fts.extractTraceNumber(3);
-#        self.assertTrue(fts.getFiberTrace(3).isProfileSet())
+        """Test that we can fit the spatial profiles of one FiberTrace in Set"""
+        self.assertFalse(fts.getFiberTrace(3).isProfileSet())
+        spectrum = drpStella.mkSlitFuncF(fts.getFiberTrace(3));
+        self.assertTrue(fts.getFiberTrace(3).isProfileSet())
 
-#        """Test that we can fit the spatial profiles for all FiberTraces"""
-#        spectra = fts.extractAllTraces()
-#        for i in range(fts.size()):
-#            self.assertTrue(fts.getFiberTrace(i).isProfileSet())
+        """Test that we can fit the spatial profiles for all FiberTraces"""
+        for i in range(fts.size()):
+            spectrum = drpStella.mkSlitFuncF(fts.getFiberTrace(i));
+            self.assertTrue(fts.getFiberTrace(i).isProfileSet())
             
         """Test that we can set all profiles for a new FiberTraceSet"""
         """Copy constructor - shallow copy"""
