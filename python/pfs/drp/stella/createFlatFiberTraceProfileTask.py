@@ -108,15 +108,14 @@ class CreateFlatFiberTraceProfileTask(Task):
         fiberTraceProfileFittingControl.lambdaSP = self.config.lambdaSP
         fiberTraceProfileFittingControl.wingSmoothFactor = self.config.wingSmoothFactor
         
-        """Calculate spatial profile and extract"""
-#        inFiberTraceSet.sortTracesByXCenter()
+        """Calculate spatial profile"""
         inFiberTraceSet.setFiberTraceProfileFittingControl(fiberTraceProfileFittingControl)
         if inTraceNumbers[0] == -1 :
-            spectrumSet = inFiberTraceSet.extractAllTraces()
+            spectrumSet = inFiberTraceSet.calcProfileAllTraces()
         else :
             spectrumSet = drpStella.SpectrumSetF()
             for i in inTraceNumbers :
-                spectrum = inFiberTraceSet.extractTraceNumber(i)
+                spectrum = inFiberTraceSet.getFiberTrace(i).calcProfile()
                 spectrumSet.addSpectrum(spectrum)
         return spectrumSet
 

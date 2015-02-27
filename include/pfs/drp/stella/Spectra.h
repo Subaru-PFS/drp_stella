@@ -34,7 +34,7 @@ class Spectrum {
                       size_t iTrace = 0);
     
     /// iTrace is only assigned to _iTrace if != 0, otherwise spectrum._iTrace is copied to this->_iTrace
-    explicit Spectrum(Spectrum &spectrum,
+    explicit Spectrum(Spectrum const& spectrum,
                       size_t iTrace = 0);
     
     ~Spectrum() {}
@@ -140,7 +140,8 @@ class SpectrumSet {
                      const PTR(Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>) & spectrum);
 
     /// add one Spectrum to the set
-    bool addSpectrum(const PTR(Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>) & spectrum);
+    void addSpectrum(Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT> const& spectrum);
+    void addSpectrum(PTR(Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>) const& spectrum);
 
     PTR(std::vector<PTR(Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>)>) getSpectra() const { return _spectra; }
 

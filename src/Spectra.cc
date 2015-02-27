@@ -18,7 +18,7 @@ pfsDRPStella::Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>::Spectrum(size_
 }
 
 template<typename SpectrumT, typename MaskT, typename VarianceT, typename WavelengthT>
-pfsDRPStella::Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>::Spectrum(Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT> & spectrum,
+pfsDRPStella::Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>::Spectrum(Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT> const& spectrum,
                                                                            size_t iTrace) 
   : _length(spectrum.getLength()),
     _iTrace(spectrum.getITrace()),
@@ -151,19 +151,19 @@ bool pfsDRPStella::SpectrumSet<SpectrumT, MaskT, VarianceT, WavelengthT>::setSpe
 
 /// add one Spectrum to the set
 template<typename SpectrumT, typename MaskT, typename VarianceT, typename WavelengthT>
-bool pfsDRPStella::SpectrumSet<SpectrumT, MaskT, VarianceT, WavelengthT>::addSpectrum(const PTR(Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>) & spectrum /// the Spectrum to add
+void pfsDRPStella::SpectrumSet<SpectrumT, MaskT, VarianceT, WavelengthT>::addSpectrum(Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT> const& spectrum /// the Spectrum to add
 )
 {
-  try{
-    _spectra->push_back(spectrum);
-  }
-  catch (std::exception &e){
-    string message("SpectrumSet.addSpectrum: Exception <");
-    message += e.what() + string(">");
-    cout << message << endl;
-    throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
-  }
-  return true;
+  PTR(Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>) ptr(new Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>(spectrum));
+  _spectra->push_back(ptr);
+  return;
+}
+template<typename SpectrumT, typename MaskT, typename VarianceT, typename WavelengthT>
+void pfsDRPStella::SpectrumSet<SpectrumT, MaskT, VarianceT, WavelengthT>::addSpectrum(PTR(Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>) const& spectrum /// the Spectrum to add
+)
+{
+  _spectra->push_back(spectrum);
+  return;
 }
   
 template<typename ImageT, typename MaskT, typename VarianceT, typename WavelengthT>
