@@ -12,6 +12,7 @@
 #include <fitsio.h>
 #include <fitsio2.h>
 #include "math/Math.h"
+#include "math/CurveFitting.h"
 #include "utils/Utils.h"
 
 #define stringify( name ) # name

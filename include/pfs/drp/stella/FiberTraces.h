@@ -19,6 +19,7 @@
 #include <fitsio2.h>
 #include "Controls.h"
 #include "math/Math.h"
+#include "math/CurveFitting.h"
 //#include "math/MathBlitz.h"
 #include "utils/Utils.h"
 //#include "utils/UtilsBlitz.h"
