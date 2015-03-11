@@ -12,7 +12,6 @@
 #include "lsst/afw/geom.h"
 #include "lsst/afw/image/MaskedImage.h"
 #include "lsst/pex/config.h"
-//#include "../blitz.h"
 #include "../utils/Utils.h"
 #include "Math.h"
 #include "ndarray.h"
@@ -20,9 +19,7 @@
 
 #include "LinearAlgebra3D.h"
 
-//#define __DEBUG_CALC_TPS__
-
-using namespace boost::numeric::ublas;
+#define __DEBUG_CALC_TPS__
 
 namespace afwGeom = lsst::afw::geom;
 namespace afwImage = lsst::afw::image;
@@ -82,21 +79,51 @@ namespace pfs { namespace drp { namespace stella {
       bool gauss_solve(boost::numeric::ublas::matrix<T> & a,
                        boost::numeric::ublas::matrix<T> & b );
       
-      static double tps_base_func(double r);
+      template < typename T >
+      T tps_base_func(T r);
       
       /*
        *  Calculate Thin Plate Spline (TPS) weights from
        *  control points and build a new height grid by
        *  interpolating with them.
-       */
+       *
       template< typename T >
-      static ndarray::Array<T, 2, 1> calc_tps(std::vector<T> const& xVec_In,
+      ndarray::Array<T, 2, 1> calc_tps(std::vector<T> const& xVec_In,
                                               std::vector<T> const& yVec_In,
                                               std::vector<T> const& zVec_In,
                                               int nRows,
                                               int nCols,
                                               double regularization = 0.0);
+      */
+      
     }
+    
+    template < typename T >
+    double fitPointTPS(std::vector< Vec > const& controlPoints, 
+                       boost::numeric::ublas::matrix<double> const& mtxV, 
+                       T const xPositionFit, 
+                       T const yPositionFit);
+    
+    template< typename T >
+    ndarray::Array< T, 2, 1 > interpolateThinPlateSpline( ndarray::Array< const float, 1, 1 > const& xArr,
+                                                          ndarray::Array< const float, 1, 1 > const& yArr,
+                                                          ndarray::Array< const T, 1, 1 > const& zArr,
+                                                          ndarray::Array< const float, 1, 1 > const& xPositionsFit,
+                                                          ndarray::Array< const float, 1, 1 > const& yPositionsFit,
+                                                          bool const isXYPositionsGridPoints,
+                                                          double const regularization = 0. );
+    
+    ndarray::Array< float, 2, 1 > interpolateThinPlateSpline( std::vector< float > const& xVec,
+                                                              std::vector< float > const& yVec,
+                                                              std::vector< float > const& zVec,
+                                                              std::vector< float > const& xPositionsFitVec,
+                                                              std::vector< float > const& yPositionsFitVec,
+                                                              bool const isXYPositionsGridPoints,
+                                                              double const regularization = 0. );
   }
 }}}
+
+template< typename T >
+std::ostream& operator<<(std::ostream& os, boost::numeric::ublas::matrix<T> const& obj);
+
 #endif

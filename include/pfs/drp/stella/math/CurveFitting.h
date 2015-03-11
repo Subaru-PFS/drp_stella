@@ -218,16 +218,16 @@ namespace pfs { namespace drp { namespace stella {
                                 Eigen::Array<ImageT, Eigen::Dynamic, 1> & D_A1_SP_Out,             ///: out
                                 Eigen::Array<ImageT, Eigen::Dynamic, 1> & D_A1_Sky_Out,            ///: in/out
                                 bool B_WithSky,                           ///: with sky: in
-                                vector<string> const& S_A1_Args_In,   ///: in
-                                vector<void *> &ArgV_In);                   ///: in/out
+                                std::vector<string> const& S_A1_Args_In,   ///: in
+                                std::vector<void *> &ArgV_In);                   ///: in/out
       template< typename ImageT, typename SlitFuncT>
       bool LinFitBevingtonNdArray(ndarray::Array<ImageT, 2, 1> const& D_A2_CCD_In,      ///: in
                                   ndarray::Array<SlitFuncT, 2, 1> const& D_A2_SF_In,       ///: in
                                   ndarray::Array<ImageT, 1, 1> & D_A1_SP_Out,             ///: out
                                   ndarray::Array<ImageT, 1, 1> & D_A1_Sky_Out,            ///: in/out
                                   bool B_WithSky,                           ///: with sky: in
-                                  vector<string> const& S_A1_Args_In,   ///: in
-                                  vector<void *> &ArgV_In);                   ///: in/out
+                                  std::vector<string> const& S_A1_Args_In,   ///: in
+                                  std::vector<void *> &ArgV_In);                   ///: in/out
     /// MEASURE_ERRORS_IN = blitz::Array<double,1>(D_A1_CCD_In.size)             : in
     /// REJECT_IN = double                                                : in
     /// MASK_INOUT = blitz::Array<int,1>(D_A1_CCD_In.size)                    : in/out

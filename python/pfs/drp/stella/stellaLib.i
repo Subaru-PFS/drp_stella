@@ -18,6 +18,8 @@ Interface to Stella
 //#include "lsst/afw/image.h"
 //#include "lsst/afw/image/Image.h"
 #include "lsst/afw/image/MaskedImage.h"
+//#include "boost/numeric/ublas/matrix.hpp"
+//#include "boost/numeric/ublas/matrix_proxy.hpp"
 #include <vector>
 #include "pfs/drp/stella/FiberTraces.h"
 #include "pfs/drp/stella/blitz.h"
@@ -26,14 +28,16 @@ Interface to Stella
 #include "pfs/drp/stella/utils/UtilsBlitz.h"
 #include "pfs/drp/stella/math/Math.h"
 #include "pfs/drp/stella/math/MathBlitz.h"
+#include "pfs/drp/stella/math/SurfaceFitting.h"
 #include "pfs/drp/stella/Controls.h"
 #include "pfs/drp/stella/PSF.h"
 #include "pfs/drp/stella/Spectra.h"
 #include "pfs/drp/stella/SurfaceFit.h"
 #include "pfs/drp/stella/spline.h"
     // Enable ndarray's NumPy typemaps; types are declared in %included files.
-#include "numpy/arrayobject.h"
-#include "ndarray/swig.h"
+//#include "numpy/arrayobject.h"
+//#include "ndarray/swig.h"
+#include "ndarray/Array.h"
 #include "ndarray/swig/eigen.h"
 %}
 
@@ -47,6 +51,10 @@ Interface to Stella
 %declareNumPyConverters(ndarray::Array<unsigned short,2,1>);
 %declareNumPyConverters(ndarray::Array<unsigned short,2,2>);
 %declareNumPyConverters(ndarray::Array<unsigned short,1,1>);
+%declareNumPyConverters(ndarray::Array<float,1,1>);
+%declareNumPyConverters(ndarray::Array<float,2,1>);
+%declareNumPyConverters(ndarray::Array<float,2,2>);
+%declareNumPyConverters(ndarray::Array<float,3,1>);
 
 %include "lsst/p_lsstSwig.i"
 
@@ -82,8 +90,11 @@ Interface to Stella
 %shared_ptr(std::vector<double>);
 %shared_ptr(std::vector<unsigned short>);
 %shared_ptr(std::vector<unsigned int>);
-%shared_ptr(std::vector<int>);
-%shared_ptr(std::vector<long>);
+//%shared_ptr(std::vector<int>);
+//%shared_ptr(std::vector<long>);
+
+//%shared_ptr(ndarray::Array<float, 2, 1>);
+//%shared_ptr(ndarray::Array<double, 2, 1>);
 
 %shared_ptr(pfs::drp::stella::FiberTraceFunctionFindingControl);
 %shared_ptr(pfs::drp::stella::FiberTraceFunctionControl);
@@ -127,6 +138,9 @@ Interface to Stella
 %shared_ptr(pfs::drp::stella::SpectrumSet<float, unsigned int, float, float>);
 %shared_ptr(pfs::drp::stella::SpectrumSet<double, unsigned int, float, float>);
 
+%shared_ptr(std::vector<PTR(ndarray::Array<float, 2, 1>)>);
+%shared_ptr(std::vector<PTR(ndarray::Array<double, 2, 1>)>);
+
 %include "pfs/drp/stella/FiberTraces.h"
 %include "std_vector.i"
 %template(FTVectorF) std::vector<PTR(pfs::drp::stella::FiberTrace<float, unsigned short, float>)>;
@@ -134,10 +148,15 @@ Interface to Stella
 %template(VectorPVF) std::vector<PTR(std::vector<float>)>;
 
 %include "pfs/drp/stella/PSF.h"
+%include "ndarray/Array.h"
 %template(PSFVectorF) std::vector<PTR(pfs::drp::stella::PSF<float, unsigned short, float, float>)>;
 %template(PSFVectorD) std::vector<PTR(pfs::drp::stella::PSF<double, unsigned short, float, float>)>;
 %template(PSFSetVectorF) std::vector<PTR(pfs::drp::stella::PSFSet<float, unsigned short, float, float>)>;
 %template(PSFSetVectorD) std::vector<PTR(pfs::drp::stella::PSFSet<double, unsigned short, float, float>)>;
+%template(PNDArrVectorF) std::vector<PTR(ndarray::Array<float, 2, 1>)>;
+%template(PNDArrVectorD) std::vector<PTR(ndarray::Array<double, 2, 1>)>;
+%template(NDArrVectorF) std::vector<ndarray::Array<float, 2, 1>>;
+%template(NDArrVectorD) std::vector<ndarray::Array<double, 2, 1>>;
 
 %include "pfs/drp/stella/Spectra.h"
 %template(SpecVectorF) std::vector<PTR(pfs::drp::stella::Spectrum<float, unsigned short, float, float>)>;
@@ -149,6 +168,9 @@ Interface to Stella
 %include "pfs/drp/stella/utils/UtilsBlitz.h"
 %include "pfs/drp/stella/math/Math.h"
 %include "pfs/drp/stella/math/MathBlitz.h"
+//%include "boost/numeric/ublas/matrix.hpp"
+//%include "boost/numeric/ublas/matrix_proxy.hpp"
+%include "pfs/drp/stella/math/SurfaceFitting.h"
 %include "pfs/drp/stella/Controls.h"
 %include "pfs/drp/stella/blitz.h"
 %include "pfs/drp/stella/spline.h"
@@ -162,10 +184,16 @@ Interface to Stella
 %template(SPVectorUI) std::vector<unsigned int>;
 %template(SPVectorI) std::vector<int>;
 %template(SPVectorL) std::vector<long>;
+
+%template(NDArr2F) ndarray::Array<float, 2, 1>;
+%template(NDArr2D) ndarray::Array<double, 2, 1>;
+%template(NDArr3F) ndarray::Array<float, 3, 1>;
+%template(NDArr3D) ndarray::Array<double, 3, 1>;
+//%template(PNDArrF) PTR(ndarray::Array<float, 2, 1>);
+//%template(PNDArrD) PTR(ndarray::Array<double, 2, 1>);
+
 %template(PSFSetVectorF) std::vector<PTR(pfs::drp::stella::PSFSet<float, unsigned short, float, float>)>;
 %template(PSFSetVectorD) std::vector<PTR(pfs::drp::stella::PSFSet<double, unsigned short, float, float>)>;
-
-//%template(NdArrayST) afw::image::Image<size_t, 2, 1>;
 
 %template(FiberTraceF) pfs::drp::stella::FiberTrace<float, unsigned short, float>;
 %template(FiberTraceD) pfs::drp::stella::FiberTrace<double, unsigned short, float>;
@@ -402,6 +430,15 @@ Interface to Stella
 %template(indGenNdArrI) pfs::drp::stella::math::indGenNdArr<int>;
 %template(indGenNdArrF) pfs::drp::stella::math::indGenNdArr<float>;
 %template(indGenNdArrD) pfs::drp::stella::math::indGenNdArr<double>;
+
+%template(interpolateThinPlateSplineF) pfs::drp::stella::math::interpolateThinPlateSpline<float>;
+%template(interpolateThinPlateSplineD) pfs::drp::stella::math::interpolateThinPlateSpline<double>;
+
+%template(interpolatePSFThinPlateSplineF) pfs::drp::stella::math::interpolatePSFThinPlateSpline<float, unsigned short, float, float>;
+%template(interpolatePSFThinPlateSplineD) pfs::drp::stella::math::interpolatePSFThinPlateSpline<double, unsigned short, float, float>;
+
+%template(interpolatePSFSetThinPlateSplineF) pfs::drp::stella::math::interpolatePSFSetThinPlateSpline<float, unsigned short, float, float>;
+%template(interpolatePSFSetThinPlateSplineD) pfs::drp::stella::math::interpolatePSFSetThinPlateSpline<double, unsigned short, float, float>;
 
 %template(mkSlitFuncF) pfs::drp::stella::math::MkSlitFunc<float, unsigned short, float>;
 %template(mkSlitFuncD) pfs::drp::stella::math::MkSlitFunc<double, unsigned short, float>;

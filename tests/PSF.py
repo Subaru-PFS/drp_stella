@@ -66,14 +66,15 @@ class PSFTestCase(tests.TestCase):
         del self.tdpsfc
 
     def testPSFConstructors(self):
+        iTrace = 1
         fiberTraceSet = drpStella.findAndTraceAperturesF(self.flat.getMaskedImage(), self.ftffc)
-        ft = fiberTraceSet.getFiberTrace(0)
+        ft = fiberTraceSet.getFiberTrace(iTrace)
         ft.setFiberTraceProfileFittingControl(self.ftpfc.getPointer())
         spec = drpStella.mkSlitFuncF(ft)
         ft.createTrace(self.comb.getMaskedImage())
         spec = ft.extractFromProfile()
         psfSet = drpStella.calculate2dPSFPerBinF(ft, spec, self.tdpsfc.getPointer())
-        if False:
+        if True:
 
             """Test that we can create a PSF with the standard constructor"""
             psf = drpStella.PSFF()
@@ -86,10 +87,13 @@ class PSFTestCase(tests.TestCase):
 
             """Test copy constructors"""
             """shallow copy"""
-            psf = psfSet.getPSF(0)
+            iPSF = 2
+            psf = psfSet.getPSF(iPSF)
             psfCopy = drpStella.PSFF(psf)
             psf.getTwoDPSFControl().swathWidth = 250
             self.assertEqual(psf.getTwoDPSFControl().swathWidth, psfCopy.getTwoDPSFControl().swathWidth)
+            self.assertEqual(psf.getITrace(), iTrace)
+            self.assertEqual(psf.getIBin(), iPSF)
 
             """deep copy"""
             psfCopy = drpStella.PSFF(psf, True)
@@ -104,11 +108,12 @@ class PSFTestCase(tests.TestCase):
             self.assertTrue(psf.getIBin(), 2)
  
     def testCalculate2DPSFPerBin(self):
-        if False:
+        if True:
+            iTrace = 1
             fiberTraceSet = drpStella.findAndTraceAperturesF(self.flat.getMaskedImage(), self.ftffc)
-            fiberTrace = fiberTraceSet.getFiberTrace(0)
+            fiberTrace = fiberTraceSet.getFiberTrace(iTrace)
             self.assertTrue(fiberTrace.setFiberTraceProfileFittingControl(self.ftpfc.getPointer()))
-            spec = drpStella.mkSlitFuncF(fiberTrace)
+            self.assertTrue(fiberTrace.calcProfile())
             ftComb = drpStella.FiberTraceF(fiberTrace)
             ftComb.createTrace(self.comb.getMaskedImage())
             spec = ftComb.extractFromProfile()
@@ -118,9 +123,11 @@ class PSFTestCase(tests.TestCase):
             for i in range(psfSet.size()):
                 psf = psfSet.getPSF(i)
                 self.assertGreater(psf.getYHigh(), psf.getYLow())
+                self.assertEqual(psf.getITrace(), iTrace)
+                self.assertEqual(psf.getIBin(), i)
         
     def testPFSGet(self):
-        if False:
+        if True:
             fiberTraceSet = drpStella.findAndTraceAperturesF(self.flat.getMaskedImage(), self.ftffc)
             iTrace = 0
             fiberTrace = fiberTraceSet.getFiberTrace(iTrace)
@@ -133,7 +140,7 @@ class PSFTestCase(tests.TestCase):
 
             """test getYLow and getYHigh"""
             swathWidth = self.tdpsfc.swathWidth;
-            ndArr = fiberTrace.calculateBinBoundY(swathWidth);
+            ndArr = fiberTrace.calcSwathBoundY(swathWidth);
             print "ndArr = ",ndArr[:]
 
             for i in range(psfSet.size()):
@@ -172,7 +179,8 @@ class PSFTestCase(tests.TestCase):
             fiberTraceSet = drpStella.findAndTraceAperturesF(self.flat.getMaskedImage(), self.ftffc)
             fiberTrace = fiberTraceSet.getFiberTrace(0)
             self.assertTrue(fiberTrace.setFiberTraceProfileFittingControl(self.ftpfc.getPointer()))
-            spec = drpStella.mkSlitFuncF(fiberTrace)
+            self.assertTrue(fiberTrace.calcProfile())
+            spec = fiberTrace.extractFromProfile()
             ftComb = drpStella.FiberTraceF(fiberTrace)
             ftComb.createTrace(self.comb.getMaskedImage())
             spec = ftComb.extractFromProfile()
@@ -181,9 +189,6 @@ class PSFTestCase(tests.TestCase):
             self.assertTrue(psf.extractPSFs(ftComb, spec))
             self.assertGreater(len(psf.getImagePSF_XTrace()), 0)
             self.assertTrue(psf.isPSFsExtracted())
-
-        
-        
 
 #-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 

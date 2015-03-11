@@ -583,8 +583,8 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
                             Eigen::Array<ImageT, Eigen::Dynamic, 1> & D_A1_SP_Out,                         /// a1: out
                             Eigen::Array<ImageT, Eigen::Dynamic, 1> & D_A1_Sky_Out,                        /// a0: out
                             bool B_WithSky,                           /// with sky: in
-                            vector<string> const& S_A1_Args_In,   ///: in
-                            vector<void *> & ArgV_In)                    ///: in
+                            std::vector<string> const& S_A1_Args_In,   ///: in
+                            std::vector<void *> & ArgV_In)                    ///: in
   /// MEASURE_ERRORS_IN = blitz::Array<double, 2>(D_A2_CCD_In.rows(), D_A2_CCD_In.cols())
   /// REJECT_IN         = double
   /// MASK_INOUT        = blitz::Array<double, 2>(D_A2_CCD_In.rows(), D_A2_CCD_In.cols())
@@ -834,8 +834,8 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
                               ndarray::Array<ImageT, 1, 1> & D_A1_SP_Out,                         /// a1: out
                               ndarray::Array<ImageT, 1, 1> & D_A1_Sky_Out,                        /// a0: out
                               bool B_WithSky,                           /// with sky: in
-                              vector<string> const& S_A1_Args_In,   ///: in
-                              vector<void *> & ArgV_In)                    ///: in
+                              std::vector<string> const& S_A1_Args_In,   ///: in
+                              std::vector<void *> & ArgV_In)                    ///: in
   /// MEASURE_ERRORS_IN = blitz::Array<double, 2>(D_A2_CCD_In.rows(), D_A2_CCD_In.cols())
   /// REJECT_IN         = double
   /// MASK_INOUT        = blitz::Array<double, 2>(D_A2_CCD_In.rows(), D_A2_CCD_In.cols())
@@ -2305,58 +2305,58 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
                                            Eigen::Array<float, Eigen::Dynamic, 1> & D_A1_SP_Out,                         /// a1: out
                                            Eigen::Array<float, Eigen::Dynamic, 1> & D_A1_Sky_Out,                        /// a0: out
                                            bool B_WithSky,                           /// with sky: in
-                                           vector<string> const& S_A1_Args_In,   ///: in
-                                           vector<void *> &ArgV_In);                    ///: in
+                                           std::vector<string> const& S_A1_Args_In,   ///: in
+                                           std::vector<void *> &ArgV_In);                    ///: in
   template bool LinFitBevingtonEigen(const Eigen::Array<double, Eigen::Dynamic, Eigen::Dynamic> &D_A2_CCD_In,      /// yvec: in
                                            const Eigen::Array<float, Eigen::Dynamic, Eigen::Dynamic> &D_A2_SF_In,       /// xvec: in
                                            Eigen::Array<double, Eigen::Dynamic, 1> &D_A1_SP_Out,                         /// a1: out
                                            Eigen::Array<double, Eigen::Dynamic, 1> &D_A1_Sky_Out,                        /// a0: out
                                            bool B_WithSky,                           /// with sky: in
-                                           const vector<string> &S_A1_Args_In,   ///: in
-                                           vector<void *> &ArgV_In);                    ///: in
+                                           const std::vector<string> &S_A1_Args_In,   ///: in
+                                           std::vector<void *> &ArgV_In);                    ///: in
   template bool LinFitBevingtonEigen(const Eigen::Array<float, Eigen::Dynamic, Eigen::Dynamic> &D_A2_CCD_In,      /// yvec: in
                                            const Eigen::Array<double, Eigen::Dynamic, Eigen::Dynamic> &D_A2_SF_In,       /// xvec: in
                                            Eigen::Array<float, Eigen::Dynamic, 1> &D_A1_SP_Out,                         /// a1: out
                                            Eigen::Array<float, Eigen::Dynamic, 1> &D_A1_Sky_Out,                        /// a0: out
                                            bool B_WithSky,                           /// with sky: in
-                                           const vector<string> &S_A1_Args_In,   ///: in
-                                           vector<void *> &ArgV_In);                    ///: in
+                                           const std::vector<string> &S_A1_Args_In,   ///: in
+                                           std::vector<void *> &ArgV_In);                    ///: in
   template bool LinFitBevingtonEigen(Eigen::Array<double, Eigen::Dynamic, Eigen::Dynamic> const& D_A2_CCD_In,      /// yvec: in
                                            Eigen::Array<double, Eigen::Dynamic, Eigen::Dynamic> const& D_A2_SF_In,       /// xvec: in
                                            Eigen::Array<double, Eigen::Dynamic, 1> & D_A1_SP_Out,                         /// a1: out
                                            Eigen::Array<double, Eigen::Dynamic, 1> & D_A1_Sky_Out,                        /// a0: out
                                            bool B_WithSky,                           /// with sky: in
-                                           vector<string> const& S_A1_Args_In,   ///: in
-                                           vector<void *> & ArgV_In);                    ///: in
+                                           std::vector<string> const& S_A1_Args_In,   ///: in
+                                           std::vector<void *> & ArgV_In);                    ///: in
 
   template bool LinFitBevingtonNdArray(ndarray::Array<float, 2, 1> const& D_A2_CCD_In,      /// yvec: in
                                              ndarray::Array<float, 2, 1> const& D_A2_SF_In,       /// xvec: in
                                              ndarray::Array<float, 1, 1> & D_A1_SP_Out,                         /// a1: out
                                              ndarray::Array<float, 1, 1> & D_A1_Sky_Out,                        /// a0: out
                                              bool B_WithSky,                           /// with sky: in
-                                             vector<string> const& S_A1_Args_In,   ///: in
-                                             vector<void *> &ArgV_In);                    ///: in
+                                             std::vector<string> const& S_A1_Args_In,   ///: in
+                                             std::vector<void *> &ArgV_In);                    ///: in
   template bool LinFitBevingtonNdArray(ndarray::Array<double, 2, 1> const& D_A2_CCD_In,      /// yvec: in
                                              ndarray::Array<float, 2, 1> const& D_A2_SF_In,       /// xvec: in
                                              ndarray::Array<double, 1, 1> & D_A1_SP_Out,                         /// a1: out
                                              ndarray::Array<double, 1, 1> & D_A1_Sky_Out,                        /// a0: out
                                              bool B_WithSky,                           /// with sky: in
-                                             const vector<string> &S_A1_Args_In,   ///: in
-                                             vector<void *> &ArgV_In);                    ///: in
+                                             const std::vector<string> &S_A1_Args_In,   ///: in
+                                             std::vector<void *> &ArgV_In);                    ///: in
   template bool LinFitBevingtonNdArray(ndarray::Array<float, 2, 1> const& D_A2_CCD_In,      /// yvec: in
                                              ndarray::Array<double, 2, 1> const& D_A2_SF_In,       /// xvec: in
                                              ndarray::Array<float, 1, 1> & D_A1_SP_Out,                         /// a1: out
                                              ndarray::Array<float, 1, 1> & D_A1_Sky_Out,                        /// a0: out
                                              bool B_WithSky,                           /// with sky: in
-                                             const vector<string> &S_A1_Args_In,   ///: in
-                                             vector<void *> &ArgV_In);                    ///: in
+                                             const std::vector<string> &S_A1_Args_In,   ///: in
+                                             std::vector<void *> &ArgV_In);                    ///: in
   template bool LinFitBevingtonNdArray(ndarray::Array<double, 2, 1> const& D_A2_CCD_In,      /// yvec: in
                                              ndarray::Array<double, 2, 1> const& D_A2_SF_In,       /// xvec: in
                                              ndarray::Array<double, 1, 1> & D_A1_SP_Out,                         /// a1: out
                                              ndarray::Array<double, 1, 1> & D_A1_Sky_Out,                        /// a0: out
                                              bool B_WithSky,                           /// with sky: in
-                                             vector<string> const& S_A1_Args_In,   ///: in
-                                             vector<void *> & ArgV_In);                    ///: in
+                                             std::vector<string> const& S_A1_Args_In,   ///: in
+                                             std::vector<void *> & ArgV_In);                    ///: in
 
   template float GammLn(float const D_X_In);
   template double GammLn(double const D_X_In);

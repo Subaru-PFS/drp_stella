@@ -238,6 +238,14 @@ namespace pfs { namespace drp { namespace stella {
                   blitz::Array<int, 2> &I_IndArr_Out);
 
     /**
+     *      SortIndices(blitz::Array<double, 1> D_A1_In)
+     *      Returns an integer array of the same size like <D_A1_In>,
+     *      containing the indixes of <D_A1_In> in sorted order.
+     **/
+    template<typename T>
+    std::vector<int> sortIndices(const std::vector<T> &vec_In);
+
+    /**
      *      ValueLocate
      *      Returns the successive indices of the Range of the two indices of the monotonically increasing or decreasing Vector vec_In,
      *        in which Val falls.

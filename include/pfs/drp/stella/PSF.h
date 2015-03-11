@@ -12,31 +12,31 @@
 #include "lsst/afw/image/MaskedImage.h"
 #include "lsst/pex/config.h"
 #include "lsst/pex/exceptions/Exception.h"
-//#include "blitz.h"
-//#include <cassert>
 #include "Controls.h"
 #include "utils/Utils.h"
 #include "math/Math.h"
-//#include "math/MathBlitz.h"
+#include "math/LinearAlgebra3D.h"
+#include "math/SurfaceFitting.h"
 #include "SurfaceFit.h"
 #include "cmpfit-1.2/MPFitting_ndarray.h"
 #include "FiberTraces.h"
 #include "Spectra.h"
-
 #include "boost/make_shared.hpp"
-
+#include "boost/numeric/ublas/matrix.hpp"
 #include "ndarray/eigen.h"
 
 //#include "lsst/afw/table/io/InputArchive.h"
 //#include "lsst/afw/table/io/OutputArchive.h"
 //#include "lsst/afw/table/io/CatalogVector.h"
 
-//#define __DEBUG_CALC2DPSF__
+#define __DEBUG_CALC2DPSF__
+#define __DEBUG_CALC_TPS__
 #define __DEBUGDIR__ ""//~/spectra/pfs/2014-11-02/debug/"// 
 
 namespace afwGeom = lsst::afw::geom;
 namespace afwImage = lsst::afw::image;
 namespace pexExcept = lsst::pex::exceptions;
+//namespace blas = boost::numeric;//::ublas;
 
 using namespace std;
 namespace pfs { namespace drp { namespace stella {
@@ -152,6 +152,9 @@ namespace pfs { namespace drp { namespace stella {
 	               const Spectrum<ImageT, MaskT, VarianceT, WavelengthT> &spectrum_In);
       bool fitPSFKernel();
       bool calculatePSF();
+      
+      std::vector< ImageT > reconstructFromThinPlateSplineFit(double const regularization = 0.);
+      
   protected:
 
 //    virtual std::string getPersistenceName() const;
@@ -237,10 +240,36 @@ class PSFSet {
 };
 
 namespace math{
-  template<typename ImageT, typename MaskT = afwImage::MaskPixel, typename VarianceT = afwImage::VariancePixel, typename WavelengthT = afwImage::VariancePixel>
-  PTR(PSFSet<ImageT, MaskT, VarianceT, WavelengthT>) calculate2dPSFPerBin(const FiberTrace<ImageT, MaskT, VarianceT> & fiberTrace,
-                                                                          const Spectrum<ImageT, MaskT, VarianceT, WavelengthT> & spectrum,
-                                                                          const PTR(TwoDPSFControl) & twoDPSFControl);
+  template< typename ImageT, typename MaskT = afwImage::MaskPixel, typename VarianceT = afwImage::VariancePixel, typename WavelengthT = afwImage::VariancePixel >
+  PTR( PSFSet< ImageT, MaskT, VarianceT, WavelengthT > ) calculate2dPSFPerBin( FiberTrace< ImageT, MaskT, VarianceT > const& fiberTrace,
+                                                                               Spectrum< ImageT, MaskT, VarianceT, WavelengthT > const& spectrum,
+                                                                               TwoDPSFControl const& twoDPSFControl );
+  
+  template< typename ImageT, typename MaskT = afwImage::MaskPixel, typename VarianceT = afwImage::VariancePixel, typename WavelengthT = afwImage::VariancePixel >
+  std::vector< PTR( PSFSet< ImageT, MaskT, VarianceT, WavelengthT > ) > calculate2dPSFPerBin( FiberTraceSet< ImageT, MaskT, VarianceT > const& fiberTraceSet,
+                                                                                              SpectrumSet< ImageT, MaskT, VarianceT, WavelengthT > const& spectrumSet,
+                                                                                              TwoDPSFControl const& twoDPSFControl );
+  
+  /*
+   * @brief: fit PSF and interpolate to new grid using thin-plate splines. The output PSF will have n x m data points
+   * 
+   * @param xPositions: x positions of new grid relative to center of PSF [x_0, x_1, ... , x_n-2, x_n-1]
+   * @param xPositions: y positions of new grid relative to center of PSF [y_0, y_1, ... , y_m-2, y_m-1]
+   */
+  template< typename ImageT, typename MaskT = afwImage::MaskPixel, typename VarianceT = afwImage::VariancePixel, typename WavelengthT = afwImage::VariancePixel >
+  ndarray::Array< ImageT, 2, 1 > interpolatePSFThinPlateSpline( PSF< ImageT, MaskT, VarianceT, WavelengthT > const& psf,
+                                                                ndarray::Array< float, 1, 1 > const& xPositions,
+                                                                ndarray::Array< float, 1, 1 > const& yPositions,
+                                                                bool const isXYPositionsGridPoints,
+                                                                double const regularization = 0. );
+  
+  template< typename ImageT, typename MaskT = afwImage::MaskPixel, typename VarianceT = afwImage::VariancePixel, typename WavelengthT = afwImage::VariancePixel >
+  ndarray::Array< ImageT, 3, 1 > interpolatePSFSetThinPlateSpline( PSFSet< ImageT, MaskT, VarianceT, WavelengthT > const& psfSet,
+                                                                   ndarray::Array< float, 1, 1 > const& xPositions,
+                                                                   ndarray::Array< float, 1, 1 > const& yPositions,
+                                                                   bool const isXYPositionsGridPoints,
+                                                                   double const regularization = 0. );
+  
 }
 }}}
 #endif
