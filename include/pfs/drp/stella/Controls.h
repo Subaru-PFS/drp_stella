@@ -382,7 +382,7 @@ struct TwoDPSFControl {
     swathWidth(500),
     xFWHM(2.5),
     yFWHM(2.5),
-    nTermsGaussFit(5),
+    nTermsGaussFit(3),
     saturationLevel(65000.),
     nKnotsX(75),
     nKnotsY(75),

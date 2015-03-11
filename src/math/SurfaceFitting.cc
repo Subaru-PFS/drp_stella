@@ -1,4 +1,7 @@
 #include "pfs/drp/stella/math/SurfaceFitting.h"
+
+using namespace boost::numeric::ublas;
+
 namespace pfs{ namespace drp{ namespace stella{ 
   namespace math{
     namespace tps{
@@ -14,8 +17,13 @@ namespace pfs{ namespace drp{ namespace stella{
         typedef boost::numeric::ublas::matrix_row<Matrix> Matrix_Row;
         typedef boost::numeric::ublas::matrix_column<Matrix> Matrix_Col;
 
-        if (a.size1() != b.size1())
+        if (a.size1() != b.size1()){
+          string message( "SurfaceFitting::LU_Solve: ERROR: a.size1(=" );
+          message += to_string(a.size1()) + ") != b.size1(=" + to_string(b.size1()) + ")";
+          cout << message << endl;
+          throw LSST_EXCEPT(pexExcept::Exception, message.c_str());    
           return 2;
+        }
 
         int m = a.size1(), n = a.size2();
         int pivsign = 0;
@@ -98,9 +106,16 @@ namespace pfs{ namespace drp{ namespace stella{
         // PART 2: SOLVE
 
         // Check singluarity
-        for (int j = 0; j < n; ++j)
-          if (a(j,j) == 0)
+        for (int j = 0; j < n; ++j){
+          if (a(j,j) == 0){
+            cout << "SurfaceFitting::LU_Solve: a = " << a << endl;
+            string message( "SurfaceFitting::LU_Solve: a(");
+            message += to_string(j) + ", " + to_string(j) + " == 0: Singular matrix! Aborting.";
+            cout << message << endl;
+            throw LSST_EXCEPT(pexExcept::Exception, message.c_str());    
             return 1;
+          }
+        }
 
         // Reorder b according to pivotting
         for (int i=0; i<m; ++i)
@@ -230,7 +245,8 @@ namespace pfs{ namespace drp{ namespace stella{
         return true;
       }
       
-      static double tps_base_func(double r)
+      template< typename T >
+      T tps_base_func(T r)
       {
         if ( r == 0.0 )
           return 0.0;
@@ -242,14 +258,14 @@ namespace pfs{ namespace drp{ namespace stella{
        *  Calculate Thin Plate Spline (TPS) weights from
        *  control points and build a new height grid by
        *  interpolating with them.
-       */
+       *
       template< typename T >
-      static ndarray::Array<T, 2, 1> calc_tps(std::vector<T> const& xVec_In,
-                                              std::vector<T> const& yVec_In,
-                                              std::vector<T> const& zVec_In,
-                                              int nRows,
-                                              int nCols,
-                                              double regularization)
+      ndarray::Array<T, 2, 1> calc_tps(std::vector<T> const& xVec_In,
+                                       std::vector<T> const& yVec_In,
+                                       std::vector<T> const& zVec_In,
+                                       int nRows,
+                                       int nCols,
+                                       double regularization)
       {
         std::vector< Vec > control_points;
 
@@ -389,18 +405,253 @@ namespace pfs{ namespace drp{ namespace stella{
         matrix<double> be = prod( prod<matrix<double> >( trans(w), mtx_orig_k ), w );
         bending_energy = be(0,0);
         std::cout << "thin_plate_spline_fitting::calc_tps: bending_energy = " << bending_energy << std::endl;
-      */  
+      *  
         return arr_Out;
-      }
-
+      }*/
+    
       template int LU_Solve( boost::numeric::ublas::matrix<float> &, boost::numeric::ublas::matrix<float> &);
       template int LU_Solve( boost::numeric::ublas::matrix<double> &, boost::numeric::ublas::matrix<double> &);
 
       template bool gauss_solve(boost::numeric::ublas::matrix<float> &, boost::numeric::ublas::matrix<float> &);
       template bool gauss_solve(boost::numeric::ublas::matrix<double> &, boost::numeric::ublas::matrix<double> &);
       
-      template ndarray::Array<float, 2, 1> calc_tps(std::vector<float> const&, std::vector<float> const&, std::vector<float> const&, int, int, double);
-      template ndarray::Array<double, 2, 1> calc_tps(std::vector<double> const&, std::vector<double> const&, std::vector<double> const&, int, int, double);
+      template float tps_base_func(float r);
+      template double tps_base_func(double r);
+      
+//      template ndarray::Array<float, 2, 1> calc_tps(std::vector<float> const&, std::vector<float> const&, std::vector<float> const&, int, int, double);
+//      template ndarray::Array<double, 2, 1> calc_tps(std::vector<double> const&, std::vector<double> const&, std::vector<double> const&, int, int, double);
     }  
+    
+    template< typename T >
+    ndarray::Array< T, 2, 1 > interpolateThinPlateSpline( ndarray::Array< const float, 1, 1 > const& xArr,
+                                                          ndarray::Array< const float, 1, 1 > const& yArr,
+                                                          ndarray::Array< const T, 1, 1 > const& zArr,
+                                                          ndarray::Array< const float, 1, 1 > const& xPositionsFit,
+                                                          ndarray::Array< const float, 1, 1 > const& yPositionsFit,
+                                                          bool const isXYPositionsGridPoints,
+                                                          double const regularization ){
+      if (xArr.getShape()[0] != yArr.getShape()[0]){
+        string message("interpolateThinPlateSpline: ERROR: xArr.size(=");
+        message += to_string(xArr.getShape()[0]) + " != yArr.size(=" + to_string(yArr.getShape()[0]) + ")";
+        cout << message << endl;
+        throw LSST_EXCEPT(pexExcept::Exception, message.c_str());    
+      }
+      if (xArr.getShape()[0] != zArr.getShape()[0]){
+        string message("interpolateThinPlateSpline: ERROR: xArr.size(=");
+        message += to_string(xArr.getShape()[0]) + " != zArr.size(=" + to_string(zArr.getShape()[0]) + ")";
+        cout << message << endl;
+        throw LSST_EXCEPT(pexExcept::Exception, message.c_str());    
+      }
+
+      std::vector< Vec > control_points;
+      #ifdef __DEBUG_CALC_TPS__
+        cout << "interpolateThinPlateSpline: xArr = (" << xArr.getShape()[0] << ") = " << xArr << endl;
+        cout << "interpolateThinPlateSpline: yArr = (" << yArr.getShape()[0] << ") = " << yArr << endl;
+        cout << "interpolateThinPlateSpline: zArr = (" << zArr.getShape()[0] << ") = " << zArr << endl;
+      #endif
+      // Populate control_points
+      for (int i = 0; i < xArr.getShape()[0]; ++i){
+        Vec a(xArr[i], zArr[i], yArr[i]);
+        control_points.push_back(a);
+        assert(a.x == xArr[i]);
+        assert(a.y == zArr[i]);
+        assert(a.z == yArr[i]);
+        #ifdef __DEBUG_CALC_TPS__
+          std::cout << "interpolateThinPlatSpline: xArr[" << i << "] = " << xArr[i] << ": x[" << i << "] = " << a.x;
+          std::cout << ", yArr[" << i << "] = " << yArr[i] << ": z[" << i << "] = " << a.z;
+          std::cout << ", zArr[" << i << "] = " << zArr[i] << ": y[" << i << "] = " << a.y << std::endl;
+        #endif
+      }
+      #ifdef __DEBUG_CALC_TPS__
+        std::cout << "interpolateThinPlateSpline: control_points populated" << std::endl;
+      #endif
+
+      // You We need at least 3 points to define a plane
+      if ( control_points.size() < 3 ){
+        string message("interpolateThinPlateSpline: ERROR: constrol_points.size(=");
+        message += to_string(control_points.size()) + " < 3";
+        cout << message << endl;
+        throw LSST_EXCEPT(pexExcept::Exception, message.c_str());    
+      }
+
+      unsigned p = control_points.size();
+      #ifdef __DEBUG_CALC_TPS__
+        std::cout << "control_points.size() = " << control_points.size() << std::endl;
+      #endif
+
+      // Allocate the matrix and vector
+      matrix<double> mtx_l(p+3, p+3);
+      matrix<double> mtx_v(p+3, 1);
+      matrix<double> mtx_orig_k(p, p);
+
+      // Fill K (p x p, upper left of L) and calculate
+      // mean edge length from control points
+      //
+      // K is symmetrical so we really have to
+      // calculate only about half of the coefficients.
+      double a = 0.0;
+      for ( unsigned i=0; i<p; ++i )
+      {
+        for ( unsigned j=i+1; j<p; ++j )
+        {
+          Vec pt_i = control_points[i];
+          Vec pt_j = control_points[j];
+          pt_i.y = pt_j.y = 0;
+          double elen = (pt_i - pt_j).len();
+          mtx_l(i,j) = mtx_l(j,i) =
+            mtx_orig_k(i,j) = mtx_orig_k(j,i) =
+              tps::tps_base_func(elen);
+          a += elen * 2; // same for upper & lower tri
+        }
+      }
+      a /= (double)(p*p);
+      #ifdef __DEBUG_CALC_TPS__
+        std::cout << "interpolateThinPlateSpline: a = " << a << std::endl;
+      #endif
+
+      // Fill the rest of L
+      for ( unsigned i=0; i<p; ++i )
+      {
+        // diagonal: reqularization parameters (lambda * a^2)
+        mtx_l(i,i) = mtx_orig_k(i,i) =
+          regularization * (a*a);
+
+        // P (p x 3, upper right)
+        mtx_l(i, p+0) = 1.0;
+        mtx_l(i, p+1) = control_points[i].x;
+        mtx_l(i, p+2) = control_points[i].z;
+
+        // P transposed (3 x p, bottom left)
+        mtx_l(p+0, i) = 1.0;
+        mtx_l(p+1, i) = control_points[i].x;
+        mtx_l(p+2, i) = control_points[i].z;
+      }
+      // O (3 x 3, lower right)
+      for ( unsigned i=p; i<p+3; ++i )
+        for ( unsigned j=p; j<p+3; ++j )
+          mtx_l(i,j) = 0.0;
+
+
+      // Fill the right hand vector V
+      for ( unsigned i=0; i<p; ++i )
+        mtx_v(i,0) = control_points[i].y;
+      mtx_v(p+0, 0) = mtx_v(p+1, 0) = mtx_v(p+2, 0) = 0.0;
+
+      // Solve the linear system "inplace"
+      #ifdef __DEBUG_CALC_TPS__
+        std::cout << "interpolateThinPlateSpline: starting LU_Solve" << std::endl;
+      #endif
+      int result = tps::LU_Solve(mtx_l, mtx_v);
+      if (0 != result)
+      {
+        cout << "mtx_l = " << mtx_l << ", mtx_v = " << mtx_v << ": LU_Solve returned " << result << endl;
+        string message( "SurfaceFitting::interpolateThinPlateSpline: Singular matrix! Aborting." );
+        cout << message << endl;
+        throw LSST_EXCEPT(pexExcept::Exception, message.c_str());    
+      }
+
+      // Interpolate grid heights
+      ndarray::Array<T, 2, 1> arr_Out;// = ndarray::allocate(yPositionsFit.getShape()[0], xPositionsFit.getShape()[0]);
+      assert(p == control_points.size());
+      if (isXYPositionsGridPoints){
+        arr_Out = ndarray::allocate(yPositionsFit.getShape()[0], xPositionsFit.getShape()[0]);
+        for ( int xPos = 0; xPos < xPositionsFit.size(); ++xPos )
+        {
+          for ( int yPos = 0; yPos < yPositionsFit.size(); ++yPos )
+          {
+            arr_Out[yPos][xPos] = fitPointTPS(control_points, mtx_v, xPositionsFit[xPos], yPositionsFit[yPos]);
+            #ifdef __DEBUG_CALC_TPS__
+              std::cout << "interpolateThinPlateSpline: x = " << xPositionsFit[xPos] << ", y = " << yPositionsFit[yPos] << ": arr_Out[" << yPos << "][" << xPos << "] = " << arr_Out[yPos][xPos] << std::endl;
+            #endif
+          }
+        }
+      }
+      else{/// arr_Out will be a vector
+        arr_Out = ndarray::allocate(yPositionsFit.getShape()[0], 1);
+        for ( int iPos = 0; iPos < xPositionsFit.size(); ++iPos )
+        {
+          arr_Out[iPos][0] = fitPointTPS(control_points, mtx_v, xPositionsFit[iPos], yPositionsFit[iPos]);
+          #ifdef __DEBUG_CALC_TPS__
+            std::cout << "interpolateThinPlateSpline: x = " << xPositionsFit[iPos] << ", y = " << yPositionsFit[iPos] << ": arr_Out[" << iPos << "][0] = " << arr_Out[iPos][0] << std::endl;
+          #endif
+        }
+      }
+
+      // Calc bending energy
+    /*  matrix<double> w( p, 1 );
+      for ( int i=0; i<p; ++i )
+        w(i,0) = mtx_v(i,0);
+      matrix<double> be = prod( prod<matrix<double> >( trans(w), mtx_orig_k ), w );
+      bending_energy = be(0,0);
+      std::cout << "interpolateThinPlateSpline: bending_energy = " << bending_energy << std::endl;
+    */  
+      #ifdef __DEBUG_CALC_TPS__
+        std::cout << "interpolateThinPlateSpline: arr_Out = " << arr_Out << std::endl;
+      #endif
+
+      return arr_Out;
+    }
+    
+    ndarray::Array< float, 2, 1 > interpolateThinPlateSpline( std::vector< float > const& xVec,
+                                                              std::vector< float > const& yVec,
+                                                              std::vector< float > const& zVec,
+                                                              std::vector< float > const& xPositionsFitVec,
+                                                              std::vector< float > const& yPositionsFitVec,
+                                                              bool const isXYPositionsGridPoints,
+                                                              double const regularization ){
+      ndarray::Array< const float, 1, 1 > xArr = ndarray::external(xVec.data(), ndarray::makeVector(int(xVec.size())), ndarray::makeVector(1));
+      ndarray::Array< const float, 1, 1 > yArr = ndarray::external(yVec.data(), ndarray::makeVector(int(yVec.size())), ndarray::makeVector(1));
+      ndarray::Array< const float, 1, 1 > zArr = ndarray::external(zVec.data(), ndarray::makeVector(int(zVec.size())), ndarray::makeVector(1));
+      ndarray::Array< const float, 1, 1 > xFitArr = ndarray::external(xPositionsFitVec.data(), ndarray::makeVector(int(xPositionsFitVec.size())), ndarray::makeVector(1));
+      ndarray::Array< const float, 1, 1 > yFitArr = ndarray::external(yPositionsFitVec.data(), ndarray::makeVector(int(yPositionsFitVec.size())), ndarray::makeVector(1));
+      return interpolateThinPlateSpline(xArr, yArr, zArr, xFitArr, yFitArr, isXYPositionsGridPoints, regularization);
+    }
+    
+    template < typename T >
+    double fitPointTPS(std::vector< Vec > const& controlPoints, matrix<double> const& mtxV, T const xPositionFit, T const yPositionFit){
+      unsigned p = controlPoints.size();
+      double h = mtxV(p+0, 0) + mtxV(p+1, 0) * xPositionFit + mtxV(p+2, 0) * yPositionFit;
+      Vec pt_i, pt_cur(xPositionFit, 0, yPositionFit);
+      for ( unsigned i = 0; i < p; ++i ){
+        pt_i = controlPoints[i];
+        pt_i.y = 0;
+        h += mtxV(i,0) * tps::tps_base_func( ( pt_i - pt_cur ).len());
+      }
+      return h;
+    }
+    
+    template double fitPointTPS(std::vector< Vec > const&, matrix<double> const&, float const, float const);
+    template double fitPointTPS(std::vector< Vec > const&, matrix<double> const&, double const, double const);
+
+    template ndarray::Array<float, 2, 1> interpolateThinPlateSpline(ndarray::Array<const float, 1, 1> const&, 
+                                                                    ndarray::Array<const float, 1, 1> const&, 
+                                                                    ndarray::Array<const float, 1, 1> const&, 
+                                                                    ndarray::Array<const float, 1, 1> const&, 
+                                                                    ndarray::Array<const float, 1, 1> const&,
+                                                                    bool const,
+                                                                    double const);
+    template ndarray::Array<double, 2, 1> interpolateThinPlateSpline(ndarray::Array<const float, 1, 1> const&, 
+                                                                     ndarray::Array<const float, 1, 1> const&, 
+                                                                     ndarray::Array<const double, 1, 1> const&, 
+                                                                     ndarray::Array<const float, 1, 1> const&, 
+                                                                     ndarray::Array<const float, 1, 1> const&,
+                                                                     bool const,
+                                                                     double const);
   }
 }}}
+      
+template< typename T >
+std::ostream& operator<<(std::ostream& os, matrix<T> const& obj)
+{
+  for (int i = 0 ; i < obj.size1(); ++i){
+    for (int j = 0; j < obj.size2(); ++j){
+      os << obj(i, j) << " ";
+    }
+    os << endl;
+  }
+  return os;
+}
+
+template std::ostream& operator<<(std::ostream&, matrix<int> const&);
+template std::ostream& operator<<(std::ostream&, matrix<float> const&);
+template std::ostream& operator<<(std::ostream&, matrix<double> const&);

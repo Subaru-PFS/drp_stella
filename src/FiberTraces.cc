@@ -30,7 +30,7 @@ namespace pfsDRPStella = pfs::drp::stella;
   }
 
   template<typename ImageT, typename MaskT, typename VarianceT>
-  pfsDRPStella::FiberTrace<ImageT, MaskT, VarianceT>::FiberTrace(PTR(const MaskedImageT) const & maskedImage, ///< desired image width/height
+  pfsDRPStella::FiberTrace<ImageT, MaskT, VarianceT>::FiberTrace(PTR(const afwImage::MaskedImage<ImageT, MaskT, VarianceT>) const & maskedImage, ///< desired image width/height
                                                                  PTR(const pfsDRPStella::FiberTraceFunction) const& fiberTraceFunction,
                                                                  ndarray::Array<float const, 1, 1> const& xCenters,
                                                                  size_t iTrace) :

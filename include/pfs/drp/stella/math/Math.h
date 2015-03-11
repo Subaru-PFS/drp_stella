@@ -9,7 +9,7 @@
 #include "lsst/afw/geom.h"
 #include "lsst/afw/image/MaskedImage.h"
 #include "lsst/pex/config.h"
-#include "../blitz.h"
+//#include "../blitz.h"
 #include "../utils/Utils.h"
 #include "ndarray.h"
 #include "ndarray/eigen.h"
@@ -20,6 +20,7 @@
 //#define __DEBUG_POLYFIT__
 //#define __DEBUG_MINCENMAX__
 //#define __DEBUG_INDGEN__
+#define __DEBUG_SORT__
 
 namespace afwGeom = lsst::afw::geom;
 namespace afwImage = lsst::afw::image;
@@ -229,7 +230,14 @@ namespace pfs { namespace drp { namespace stella {
     
     template< typename T >
     ndarray::Array< T, 1, 1 > resize(ndarray::Array< T, 1, 1 > const& arr_In, size_t newSize); 
+    
+//    template< typename T >
+//    ndarray::Array< T, 2, 1 > get2DArray(ndarray::Array< T, 1, 1 > const& xIn, ndarray::Array< T, 1, 1 > const& yIn);
   }/// end namespace math
   
 }}}
+
+template< typename T >
+std::ostream& operator<<(std::ostream& os, std::vector<T> const& obj);
+
 #endif
