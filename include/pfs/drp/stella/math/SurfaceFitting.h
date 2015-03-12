@@ -19,7 +19,7 @@
 
 #include "LinearAlgebra3D.h"
 
-#define __DEBUG_CALC_TPS__
+//#define __DEBUG_CALC_TPS__
 
 namespace afwGeom = lsst::afw::geom;
 namespace afwImage = lsst::afw::image;
@@ -104,6 +104,14 @@ namespace pfs { namespace drp { namespace stella {
                        T const xPositionFit, 
                        T const yPositionFit);
     
+    template < typename T >
+    double fitPointTPSEigen(ndarray::Array< const float, 1, 1 > const& controlPointsX,
+                            ndarray::Array< const float, 1, 1 > const& controlPointsY,
+                            ndarray::Array< const T, 1, 1 > const& controlPointsZ,
+                            ndarray::Array< double, 1, 1 > const& mtxV, 
+                            float const xPositionFit, 
+                            float const yPositionFit);
+    
     template< typename T >
     ndarray::Array< T, 2, 1 > interpolateThinPlateSpline( ndarray::Array< const float, 1, 1 > const& xArr,
                                                           ndarray::Array< const float, 1, 1 > const& yArr,
@@ -120,6 +128,16 @@ namespace pfs { namespace drp { namespace stella {
                                                               std::vector< float > const& yPositionsFitVec,
                                                               bool const isXYPositionsGridPoints,
                                                               double const regularization = 0. );
+    
+    template< typename T >
+    ndarray::Array< T, 2, 1 > interpolateThinPlateSplineEigen( ndarray::Array< const float, 1, 1 > const& xArr,
+                                                               ndarray::Array< const float, 1, 1 > const& yArr,
+                                                               ndarray::Array< const T, 1, 1 > const& zArr,
+                                                               ndarray::Array< const float, 1, 1 > const& xPositionsFit,
+                                                               ndarray::Array< const float, 1, 1 > const& yPositionsFit,
+                                                               bool const isXYPositionsGridPoints,
+                                                               double const regularization );
+    
   }
 }}}
 
