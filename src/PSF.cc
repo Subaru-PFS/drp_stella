@@ -964,7 +964,7 @@ namespace pfs{ namespace drp{ namespace stella{
         cout << "PSF::interpolatePSFThinPlateSpline: zT = " << zT << endl;
       #endif
       
-      return ::pfs::drp::stella::math::interpolateThinPlateSpline( xArr, yArr, ndarray::Array<ImageT const, 1, 1>(zT), xPositions, yPositions, isXYPositionsGridPoints, regularization );
+      return ::pfs::drp::stella::math::interpolateThinPlateSplineEigen( xArr, yArr, ndarray::Array<ImageT const, 1, 1>(zT), xPositions, yPositions, isXYPositionsGridPoints, regularization );
     }
     
     template < typename ImageT, typename MaskT, typename VarianceT, typename WavelengthT >
