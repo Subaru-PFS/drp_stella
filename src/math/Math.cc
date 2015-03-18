@@ -16,21 +16,21 @@
       minCenMax_Out[ndarray::view()(1)] = floor;
 
       #ifdef __DEBUG_MINCENMAX__
-        cout << "CFits::calcMinCenMax: minCenMax_Out(*,1) = " << minCenMax_Out[ndarray::view()(1)] << endl;
+        cout << "calcMinCenMax: minCenMax_Out(*,1) = " << minCenMax_Out[ndarray::view()(1)] << endl;
       #endif
       ndarray::Array<const float, 1, 1> F_A1_Temp = ndarray::copy(xCenters_In + xLow_In);
 
       minCenMax_Out[ndarray::view()(0)] = pfs::drp::stella::math::floor(F_A1_Temp, size_t(0));
 
       #ifdef __DEBUG_MINCENMAX__
-        cout << "CFits::calcMinCenMax: minCenMax_Out(*,0) = " << minCenMax_Out[ndarray::view()(0)] << endl;
+        cout << "calcMinCenMax: minCenMax_Out(*,0) = " << minCenMax_Out[ndarray::view()(0)] << endl;
       #endif
       F_A1_Temp = ndarray::copy(xCenters_In + xHigh_In);
 
       minCenMax_Out[ndarray::view()(2)] = pfs::drp::stella::math::floor(F_A1_Temp, size_t(0));
 
       #ifdef __DEBUG_MINCENMAX__
-        cout << "CFits::calcMinCenMax: minCenMax_Out(*,2) = " << minCenMax_Out[ndarray::view()(2)] << endl;
+        cout << "calcMinCenMax: minCenMax_Out(*,2) = " << minCenMax_Out[ndarray::view()(2)] << endl;
       #endif
 
       ndarray::Array<size_t, 1, 1> I_A1_NPixLeft = ndarray::copy(minCenMax_Out[ndarray::view()(1)] - minCenMax_Out[ndarray::view()(0)]);
@@ -38,9 +38,9 @@
       ndarray::Array<size_t, 1, 1> I_A1_I_NPixX = ndarray::copy(minCenMax_Out[ndarray::view()(2)] - minCenMax_Out[ndarray::view()(0)] + 1);
 
       #ifdef __DEBUG_MINCENMAX__
-        cout << "CFits::calcMinCenMax: I_A1_NPixLeft(=" << I_A1_NPixLeft << endl;
-        cout << "CFits::calcMinCenMax: I_A1_NPixRight(=" << I_A1_NPixRight << endl;
-        cout << "CFits::calcMinCenMax: I_A1_I_NPixX = " << I_A1_I_NPixX << endl;
+        cout << "calcMinCenMax: I_A1_NPixLeft(=" << I_A1_NPixLeft << endl;
+        cout << "calcMinCenMax: I_A1_NPixRight(=" << I_A1_NPixRight << endl;
+        cout << "calcMinCenMax: I_A1_I_NPixX = " << I_A1_I_NPixX << endl;
       #endif
 
       size_t I_MaxPixLeft = pfs::drp::stella::math::max(I_A1_NPixLeft);
@@ -55,7 +55,7 @@
         minCenMax_Out[ndarray::view()(2)] = minCenMax_Out[ndarray::view()(1)] + I_MaxPixRight - nPixCutRight_In;
 
       #ifdef __DEBUG_MINCENMAX__
-        cout << "CFits::calcMinCenMax: minCenMax_Out = " << minCenMax_Out << endl;
+        cout << "calcMinCenMax: minCenMax_Out = " << minCenMax_Out << endl;
       #endif
 
       return minCenMax_Out;
@@ -128,7 +128,7 @@
         Unity[m][m] = 1.;
       }
       if (!pfs::drp::stella::math::InvertGaussJ(AArray, Unity)){
-        cout << "CFits::InvertGaussJ: ERROR: InvertGaussJ(AArray=" << AArray << ", Unity=" << Unity << ") retuned FALSE" << endl;
+        cout << "InvertGaussJ: ERROR: InvertGaussJ(AArray=" << AArray << ", Unity=" << Unity << ") retuned FALSE" << endl;
         return false;
       }
       return true;
@@ -143,18 +143,18 @@
       int pos = 0;
       for (auto i = vec_InOut.begin(); i != vec_InOut.end(); ++i){
         #ifdef __DEBUG_COUNTPIXGTZERO__
-          cout << "CFits::countPixGTZero: pos = " << pos << ": vec_InOut(pos) = " << *i << endl;
+          cout << "countPixGTZero: pos = " << pos << ": vec_InOut(pos) = " << *i << endl;
         #endif
         if (*i <= T(0))
           count = 0;
         else
           count++;
         #ifdef __DEBUG_COUNTPIXGTZERO__
-          cout << "CFits::countPixGTZero: pos = " << pos << ": count set to " << count << endl;
+          cout << "countPixGTZero: pos = " << pos << ": count set to " << count << endl;
         #endif
         *i = T(count);
         #ifdef __DEBUG_COUNTPIXGTZERO__
-          cout << "CFits::countPixGTZero: pos = " << pos << ": vec_InOut(i) set to " << *i << endl;
+          cout << "countPixGTZero: pos = " << pos << ": vec_InOut(i) set to " << *i << endl;
         #endif
       }
       return true;
@@ -198,8 +198,8 @@
       int pos = startPos_In;
       for (auto i = vec_In.begin() + pos; i != vec_In.end(); ++i, ++pos){
         #ifdef __DEBUG_FINDANDTRACE__
-          cout << "CFits::FirstIndexWithZeroValueFrom: pos = " << pos << endl;
-          cout << "CFits::FirstIndexWithZeroValueFrom: I_A1_VecIn(pos) = " << *i << endl;
+          cout << "FirstIndexWithZeroValueFrom: pos = " << pos << endl;
+          cout << "FirstIndexWithZeroValueFrom: I_A1_VecIn(pos) = " << *i << endl;
         #endif
         if (fabs(*i) < 0.00000000000000001)
           return pos;
@@ -540,7 +540,7 @@
       ndarray::Array<T, 1, 1> D_A1_Out = ndarray::allocate(maxMoment_In);
       D_A1_Out.deep() = 0.;
       if ((maxMoment_In < 1) && (arr_In.getShape()[0] < 2)){
-        cout << "CFits::Moment: ERROR: arr_In must contain 2 OR more elements." << endl;
+        cout << "Moment: ERROR: arr_In must contain 2 OR more elements." << endl;
         return D_A1_Out;
       }
       int I_NElements = arr_In.getShape()[0];
@@ -634,7 +634,7 @@
       T D_A;
 
       #ifdef __DEBUG_SORT__
-        cout << "CFits::SortIndices() starting for(;;)" << endl;
+        cout << "SortIndices() starting for(;;)" << endl;
       #endif
       for(;;)
       {
@@ -644,18 +644,18 @@
           {
             I_Indxt = I_A1_Indx[I_J];
             #ifdef __DEBUG_SORT__
-              cout << "CFits::SortIndices(): I_Indxt set to " << I_Indxt << endl;
+              cout << "SortIndices(): I_Indxt set to " << I_Indxt << endl;
             #endif
             D_A = vec_In[I_Indxt];
             #ifdef __DEBUG_SORT__
-              cout << "CFits::SortIndices(): D_A set to " << D_A << endl;
+              cout << "SortIndices(): D_A set to " << D_A << endl;
             #endif
             for (I_I = I_J - 1; I_I >= I_L; I_I--)
             {
               if (vec_In[I_A1_Indx[I_I]] <= D_A)
               {
                 #ifdef __DEBUG_SORT__
-                  cout << "CFits::SortIndices(): vec_In[P_I_A1_Indx(I_I = " << I_I << ") = " << I_A1_Indx[I_I] << "] <= D_A = " << D_A << " =>  BREAK" << endl;
+                  cout << "SortIndices(): vec_In[P_I_A1_Indx(I_I = " << I_I << ") = " << I_A1_Indx[I_I] << "] <= D_A = " << D_A << " =>  BREAK" << endl;
                 #endif
                 break;
               }
@@ -666,17 +666,17 @@
           if (I_JStack == 0)
           {
             #ifdef __DEBUG_SORT__
-              cout << "CFits::SortIndices(): I_JStack <= 0 =>  BREAK" << endl;
+              cout << "SortIndices(): I_JStack <= 0 =>  BREAK" << endl;
             #endif
             break;
           }
           I_Ir = I_A1_IStack[I_JStack--];
           #ifdef __DEBUG_SORT__
-            cout << "CFits::SortIndices(): I_Ir(=" << I_Ir << ") set to I_A1_IStack(I_JStack--=" << I_JStack << ") = " << I_A1_IStack[I_JStack] << endl;
+            cout << "SortIndices(): I_Ir(=" << I_Ir << ") set to I_A1_IStack(I_JStack--=" << I_JStack << ") = " << I_A1_IStack[I_JStack] << endl;
           #endif
           I_L  = I_A1_IStack[I_JStack--];
           #ifdef __DEBUG_SORT__
-            cout << "CFits::SortIndices(): I_L(=" << I_L << ") set to I_A1_IStack(I_JStack--=" << I_JStack << ") = " << I_A1_IStack[I_JStack] << endl;
+            cout << "SortIndices(): I_L(=" << I_L << ") set to I_A1_IStack(I_JStack--=" << I_JStack << ") = " << I_A1_IStack[I_JStack] << endl;
           #endif
 
         }
@@ -684,12 +684,12 @@
         {
           I_K = (I_L + I_Ir) >> 1;
           #ifdef __DEBUG_SORT__
-            cout << "CFits::SortIndices(): I_K(=" << I_K << ") set to (I_L[=" << I_L << "] + I_Ir[=" << I_Ir << "] >> 1)  = " << ((I_L + I_Ir) >> 1) << endl;
+            cout << "SortIndices(): I_K(=" << I_K << ") set to (I_L[=" << I_L << "] + I_Ir[=" << I_Ir << "] >> 1)  = " << ((I_L + I_Ir) >> 1) << endl;
           #endif
           std::swap(I_A1_Indx[I_K],
                I_A1_Indx[I_L + 1]);
           #ifdef __DEBUG_SORT__
-            cout << "CFits::SortIndices(vec_In): P_I_A1_Indx(I_K=" << I_K << ")=" << I_A1_Indx[I_K] << " and P_I_A1_Indx(I_L(=" << I_L << ")+1)=" << I_A1_Indx[I_L+1] << " std::swapped" << endl;
+            cout << "SortIndices(vec_In): P_I_A1_Indx(I_K=" << I_K << ")=" << I_A1_Indx[I_K] << " and P_I_A1_Indx(I_L(=" << I_L << ")+1)=" << I_A1_Indx[I_L+1] << " std::swapped" << endl;
           #endif
           if (vec_In[I_A1_Indx[I_L]]
             > vec_In[I_A1_Indx[I_Ir]])
@@ -697,7 +697,7 @@
             std::swap(I_A1_Indx[I_L],
                  I_A1_Indx[I_Ir]);
             #ifdef __DEBUG_SORT__
-              cout << "CFits::SortIndices(vec_In): P_I_A1_Indx(I_L=" << I_L << ")=" << I_A1_Indx[I_L] << " and P_I_A1_Indx(I_Ir(=" << I_Ir << "))=" << I_A1_Indx[I_Ir] << " std::swapped" << endl;
+              cout << "SortIndices(vec_In): P_I_A1_Indx(I_L=" << I_L << ")=" << I_A1_Indx[I_L] << " and P_I_A1_Indx(I_Ir(=" << I_Ir << "))=" << I_A1_Indx[I_Ir] << " std::swapped" << endl;
             #endif
 
           }
@@ -707,7 +707,7 @@
             std::swap(I_A1_Indx[I_L + 1],
                  I_A1_Indx[I_Ir]);
             #ifdef __DEBUG_SORT__
-              cout << "CFits::SortIndices(vec_In): P_I_A1_Indx(I_L=" << I_L << "+1)=" << I_A1_Indx[I_L + 1] << " and P_I_A1_Indx(I_Ir(=" << I_Ir << "))=" << I_A1_Indx[I_L+1] << " std::swapped" << endl;
+              cout << "SortIndices(vec_In): P_I_A1_Indx(I_L=" << I_L << "+1)=" << I_A1_Indx[I_L + 1] << " and P_I_A1_Indx(I_Ir(=" << I_Ir << "))=" << I_A1_Indx[I_L+1] << " std::swapped" << endl;
             #endif
 
           }
@@ -717,25 +717,25 @@
             std::swap(I_A1_Indx[I_L],
                  I_A1_Indx[I_L + 1]);
             #ifdef __DEBUG_SORT__
-              cout << "CFits::SortIndices(vec_In): P_I_A1_Indx(I_L=" << I_L << ")=" << I_A1_Indx[I_L] << " and P_I_A1_Indx(I_L(=" << I_L << ")+1)=" << I_A1_Indx[I_L+1] << " std::swapped" << endl;
+              cout << "SortIndices(vec_In): P_I_A1_Indx(I_L=" << I_L << ")=" << I_A1_Indx[I_L] << " and P_I_A1_Indx(I_L(=" << I_L << ")+1)=" << I_A1_Indx[I_L+1] << " std::swapped" << endl;
             #endif
 
           }
           I_I = I_L + 1;
           #ifdef __DEBUG_SORT__
-            cout << "CFits::SortIndices(vec_In): I_I(=" << I_I << ") set to (I_L[=" << I_L << "] + 1)  = " << I_L + 1 << endl;
+            cout << "SortIndices(vec_In): I_I(=" << I_I << ") set to (I_L[=" << I_L << "] + 1)  = " << I_L + 1 << endl;
           #endif
           I_J = I_Ir;
           #ifdef __DEBUG_SORT__
-            cout << "CFits::SortIndices(vec_In): I_J(=" << I_J << ") set to I_Ir[=" << I_Ir << "]" << endl;
+            cout << "SortIndices(vec_In): I_J(=" << I_J << ") set to I_Ir[=" << I_Ir << "]" << endl;
           #endif
           I_Indxt = I_A1_Indx[I_L + 1];
           #ifdef __DEBUG_SORT__
-            cout << "CFits::SortIndices(vec_In): I_Indxt(=" << I_Indxt << ") set to P_I_A1_Indx(I_L = " << I_L << "+1)" << endl;
+            cout << "SortIndices(vec_In): I_Indxt(=" << I_Indxt << ") set to P_I_A1_Indx(I_L = " << I_L << "+1)" << endl;
           #endif
           D_A = vec_In[I_Indxt];
           #ifdef __DEBUG_SORT__
-            cout << "CFits::SortIndices(vec_In): D_A(=" << D_A << ") set to vec_In[I_Indxt = " << I_Indxt << "]" << endl;
+            cout << "SortIndices(vec_In): D_A(=" << D_A << ") set to vec_In[I_Indxt = " << I_Indxt << "]" << endl;
           #endif
           for (;;)
           {
@@ -743,7 +743,7 @@
             {
               I_I++;
               #ifdef __DEBUG_SORT__
-                cout << "CFits::SortIndices(vec_In): I_I set to " << I_I << " => vec_In[P_I_A1_Indx(I_I)] = " << vec_In[I_A1_Indx[I_I]] << endl;
+                cout << "SortIndices(vec_In): I_I set to " << I_I << " => vec_In[P_I_A1_Indx(I_I)] = " << vec_In[I_A1_Indx[I_I]] << endl;
               #endif
             }
             while(vec_In[I_A1_Indx[I_I]] < D_A && I_I < I_SizeIn - 2);
@@ -751,63 +751,63 @@
             {
               I_J--;
               #ifdef __DEBUG_SORT__
-                cout << "CFits::SortIndices(vec_In): I_J set to " << I_J << " => vec_In(P_I_A1_Indx(I_J)) = " << vec_In[I_A1_Indx[I_J]] << endl;
+                cout << "SortIndices(vec_In): I_J set to " << I_J << " => vec_In(P_I_A1_Indx(I_J)) = " << vec_In[I_A1_Indx[I_J]] << endl;
               #endif
             }
             while(vec_In[I_A1_Indx[I_J]] > D_A && I_J > 0);
             if (I_J < I_I)
             {
               #ifdef __DEBUG_SORT__
-                cout << "CFits::SortIndices(vec_In): I_J(=" << I_J << ") < I_I(=" << I_I << ") => BREAK" << endl;
+                cout << "SortIndices(vec_In): I_J(=" << I_J << ") < I_I(=" << I_I << ") => BREAK" << endl;
               #endif
               break;
             }
             std::swap(I_A1_Indx[I_I],
                  I_A1_Indx[I_J]);
             #ifdef __DEBUG_SORT__
-              cout << "CFits::SortIndices(vec_In): P_I_A1_Indx(I_I=" << I_I << ")=" << I_A1_Indx[I_I] << " and P_I_A1_Indx(I_J(=" << I_J << "))=" << I_A1_Indx[I_J] << " std::swapped" << endl;
+              cout << "SortIndices(vec_In): P_I_A1_Indx(I_I=" << I_I << ")=" << I_A1_Indx[I_I] << " and P_I_A1_Indx(I_J(=" << I_J << "))=" << I_A1_Indx[I_J] << " std::swapped" << endl;
             #endif
           }
           I_A1_Indx[I_L + 1] = I_A1_Indx[I_J];
           #ifdef __DEBUG_SORT__
-            cout << "CFits::SortIndices(vec_In): P_I_A1_Indx(I_L=" << I_L << "+1) set to P_I_A1_Indx(I_J=" << I_J << ") = " << I_A1_Indx[I_L+1] << endl;
+            cout << "SortIndices(vec_In): P_I_A1_Indx(I_L=" << I_L << "+1) set to P_I_A1_Indx(I_J=" << I_J << ") = " << I_A1_Indx[I_L+1] << endl;
           #endif
           I_A1_Indx[I_J] = I_Indxt;
           #ifdef __DEBUG_SORT__
-            cout << "CFits::SortIndices(vec_In): P_I_A1_Indx(I_J=" << I_J << ") set to I_Indxt(=" << I_Indxt << ")" << endl;
+            cout << "SortIndices(vec_In): P_I_A1_Indx(I_J=" << I_J << ") set to I_Indxt(=" << I_Indxt << ")" << endl;
           #endif
           I_JStack += 2;
           #ifdef __DEBUG_SORT__
-            cout << "CFits::SortIndices(vec_In): I_JStack = " << I_JStack << endl;
+            cout << "SortIndices(vec_In): I_JStack = " << I_JStack << endl;
           #endif
           if (I_JStack > I_NStack)
           {
-            cout << "CFits::SortIndices: ERROR: I_NStack ( = " << I_NStack << ") too small!!!";
+            cout << "SortIndices: ERROR: I_NStack ( = " << I_NStack << ") too small!!!";
             exit(EXIT_FAILURE);
           }
           if (I_Ir - I_I + 1 >= I_J - I_L)
           {
             #ifdef __DEBUG_SORT__
-              cout << "CFits::SortIndices(vec_In): I_Ir(= " << I_Ir << ") - I_I(=" << I_I << ") + 1 = " << I_Ir - I_I + 1 << " >= I_J(="<< I_J << ") + I_L(=" << I_L << ") = " << I_J - I_L << endl;
+              cout << "SortIndices(vec_In): I_Ir(= " << I_Ir << ") - I_I(=" << I_I << ") + 1 = " << I_Ir - I_I + 1 << " >= I_J(="<< I_J << ") + I_L(=" << I_L << ") = " << I_J - I_L << endl;
             #endif
             I_A1_IStack[I_JStack] = I_Ir;
             I_A1_IStack[I_JStack - 1] = I_I;
             I_Ir = I_J - 1;
             #ifdef __DEBUG_SORT__
-              cout << "CFits::SortIndices(vec_In): I_I set to I_J(=" << I_J << ") - 1" << endl;
+              cout << "SortIndices(vec_In): I_I set to I_J(=" << I_J << ") - 1" << endl;
             #endif
 
           }
           else
           {
             #ifdef __DEBUG_SORT__
-              cout << "CFits::SortIndices(vec_In): I_Ir(= " << I_Ir << ") - I_I(=" << I_I << ") + 1 = " << I_Ir - I_I + 1 << " < I_J(="<< I_J << ") + I_L(=" << I_L << ") = " << I_J - I_L << endl;
+              cout << "SortIndices(vec_In): I_Ir(= " << I_Ir << ") - I_I(=" << I_I << ") + 1 = " << I_Ir - I_I + 1 << " < I_J(="<< I_J << ") + I_L(=" << I_L << ") = " << I_J - I_L << endl;
             #endif
             I_A1_IStack[I_JStack] = I_J - 1;
             I_A1_IStack[I_JStack - 1] = I_L;
             I_L = I_I;
             #ifdef __DEBUG_SORT__
-              cout << "CFits::SortIndices(vec_In): I_L set to I_I(=" << I_I << endl;
+              cout << "SortIndices(vec_In): I_L set to I_I(=" << I_I << endl;
             #endif
 
           }
