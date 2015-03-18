@@ -30,7 +30,7 @@
 //#include "lsst/afw/table/io/CatalogVector.h"
 
 #define __DEBUG_CALC2DPSF__
-#define __DEBUG_CALC_TPS__
+//#define __DEBUG_CALC_TPS__
 #define __DEBUGDIR__ ""//~/spectra/pfs/2014-11-02/debug/"// 
 
 namespace afwGeom = lsst::afw::geom;
@@ -269,6 +269,15 @@ namespace math{
                                                                    ndarray::Array< float, 1, 1 > const& yPositions,
                                                                    bool const isXYPositionsGridPoints,
                                                                    double const regularization = 0. );
+  
+  /*
+   * @brief collapse one PSF in one direction
+   * @param direction: 0: collapse in x (get PSF in dispersion direction)
+   *                   1: collapse in y (get PSF in spatial direction)
+   */
+  template< typename ImageT, typename MaskT = afwImage::MaskPixel, typename VarianceT = afwImage::VariancePixel, typename WavelengthT = afwImage::VariancePixel >
+  ndarray::Array< ImageT, 1, 1 > collapsePSF( PSF< ImageT, MaskT, VarianceT, WavelengthT > const& psf_In,
+                                              int const direction = 0. );
   
 }
 }}}

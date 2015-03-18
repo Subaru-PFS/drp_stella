@@ -33,7 +33,7 @@
 //#define __DEBUG_CALC2DPSF__
 //#define __DEBUG_CALCPROFILE__
 //#define __DEBUG_CALCPROFILESWATH__
-//#define __DEBUG_CALCSWATHBOUNDY__
+#define __DEBUG_CALCSWATHBOUNDY__
 //#define __DEBUG_CHECK_INDICES__
 //#define __DEBUG_CREATEFIBERTRACE__
 //#define __DEBUG_EXTRACTFROMPROFILE__
@@ -306,7 +306,7 @@ namespace math{
    *         Spatial profile must be at least 5 pixels wide
    *       5 to fit Gaussian plus linear term (sloped sky)
    *         Spatial profile must be at least 6 pixels wide
-   *  NOTE: the center of a pixel is [0.,0.], so the lower left corner of a pixels is [-0.5,-0.5]
+   * NOTE that the WCS starts at [0., 0.], so an xCenter of 1.1 refers to position 0.1 of the second pixel
    **/
   template<typename ImageT, typename MaskT=afwImage::MaskPixel, typename VarianceT=afwImage::VariancePixel>
   PTR(FiberTraceSet<ImageT, MaskT, VarianceT>) findAndTraceApertures(const PTR(const afwImage::MaskedImage<ImageT, MaskT, VarianceT>) &maskedImage,
@@ -316,9 +316,13 @@ namespace math{
    * @brief: returns ndarray containing the xCenters of a FiberTrace from 0 to FiberTrace.getTrace().getHeight()-1
    *         NOTE that the WCS starts at [0., 0.], so an xCenter of 1.1 refers to position 0.1 of the second pixel
    */
-  ndarray::Array<float, 1, 1> calculateXCenters(PTR(const ::pfs::drp::stella::FiberTraceFunction) const& fiberTraceFunction,
-                                                size_t const& ccdHeight,
-                                                size_t const& ccdWidth);
+  ndarray::Array<float, 1, 1> calculateXCenters(PTR(const ::pfs::drp::stella::FiberTraceFunction) const& fiberTraceFunctionIn,
+                                                size_t const& ccdHeightIn = 0,
+                                                size_t const& ccdWidthIn = 0);
+  ndarray::Array<float, 1, 1> calculateXCenters(PTR(const ::pfs::drp::stella::FiberTraceFunction) const& fiberTraceFunctionIn,
+                                                ndarray::Array<float, 1, 1> const& yIn,
+                                                size_t const& ccdHeightIn = 0,
+                                                size_t const& ccdWidthIn = 0);
 
 }
 

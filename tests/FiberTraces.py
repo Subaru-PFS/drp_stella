@@ -628,6 +628,13 @@ class FiberTraceTestCase(tests.TestCase):
             self.assertLess(binBoundYOut[i+1, 0], binBoundYOut[i,1])
         for i in range(binBoundYOut.shape[0]-2):
             self.assertEqual(binBoundYOut[i, 1]+1, binBoundYOut[i+2,0])
+        
+        width = 10
+        height = 3901
+        fiberTrace = drpStella.FiberTraceF(width, height)
+        binBoundYOut = fiberTrace.calcSwathBoundY(75)
+        self.assertEqual(binBoundYOut.getShape()[0], 101);
+        self.assertEqual(binBoundYOut[binBoundYOut.getShape()[0]-1, 1], height-1)
 
     def testFiberTraceSetConstructor(self):
         size = 0
