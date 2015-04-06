@@ -13,6 +13,7 @@
 #include "../utils/Utils.h"
 #include "ndarray.h"
 #include "ndarray/eigen.h"
+#include <unsupported/Eigen/Splines>
 
 //#define __DEBUG_FIT__
 //#define __DEBUG_FITARR__
@@ -20,7 +21,11 @@
 //#define __DEBUG_POLYFIT__
 //#define __DEBUG_MINCENMAX__
 //#define __DEBUG_INDGEN__
-#define __DEBUG_SORT__
+//#define __DEBUG_SORT__
+//#define __DEBUG_XCOR__
+
+/// constants
+#define CONST_PI 3.141592653589793238462643383280    /* pi */
 
 namespace afwGeom = lsst::afw::geom;
 namespace afwImage = lsst::afw::image;
@@ -230,6 +235,29 @@ namespace pfs { namespace drp { namespace stella {
     
     template< typename T >
     ndarray::Array< T, 1, 1 > resize(ndarray::Array< T, 1, 1 > const& arr_In, size_t newSize); 
+
+    /*
+     * @brief: cross-correlates arrA_In and arrB_In within the range range_In (e.g. [-1.,1.]) in steps stepSize_In
+     * 
+     * @param arrA_In: vector to be kept constant arrA_In[:][0]: x values, arrA_In[:][1]: y values
+     * @param arrA_In: vector to be shifted from range_In[0] to range_In[1] with steps of size stepSize_In. This vector will get interpolated to the grid points of vecA_In.
+     * @param range_In: 2-element vector containing the lowest and highest shifts, e.g. [-1., 1.]
+     * @param stepSize_In: step size for the shifts between range_In[0] and range_In[1]
+     */    
+    template< typename T >
+    T xCor(ndarray::Array< T, 2, 1 > const& arrA_In,
+           ndarray::Array< T, 2, 1 > const& arrB_In,
+           ndarray::Array< T, 1, 1 > const& range_In,
+           float const& stepSize_In);
+
+    /*
+     * Helper methods for xCor
+     */    
+    double uvalue(double x, double low, double high);
+    Eigen::VectorXd uvalues(Eigen::VectorXd const& xvals);
+    
+    template< typename T >
+    ndarray::Array< T const, 1, 1 > vecToNdArray(std::vector<T> const& vec_In);
     
 //    template< typename T >
 //    ndarray::Array< T, 2, 1 > get2DArray(ndarray::Array< T, 1, 1 > const& xIn, ndarray::Array< T, 1, 1 > const& yIn);

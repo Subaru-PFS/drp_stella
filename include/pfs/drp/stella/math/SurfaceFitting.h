@@ -19,7 +19,7 @@
 
 #include "LinearAlgebra3D.h"
 
-//#define __DEBUG_CALC_TPS__
+#define __DEBUG_CALC_TPS__
 
 namespace afwGeom = lsst::afw::geom;
 namespace afwImage = lsst::afw::image;
@@ -118,7 +118,7 @@ namespace pfs { namespace drp { namespace stella {
                                                           ndarray::Array< const T, 1, 1 > const& zArr,
                                                           ndarray::Array< const float, 1, 1 > const& xPositionsFit,
                                                           ndarray::Array< const float, 1, 1 > const& yPositionsFit,
-                                                          bool const isXYPositionsGridPoints,
+                                                          bool const isXYPositionsGridPoints,/// fit positions
                                                           double const regularization = 0. );
     
     ndarray::Array< float, 2, 1 > interpolateThinPlateSpline( std::vector< float > const& xVec,
@@ -126,7 +126,7 @@ namespace pfs { namespace drp { namespace stella {
                                                               std::vector< float > const& zVec,
                                                               std::vector< float > const& xPositionsFitVec,
                                                               std::vector< float > const& yPositionsFitVec,
-                                                              bool const isXYPositionsGridPoints,
+                                                              bool const isXYPositionsGridPoints,/// fit positions
                                                               double const regularization = 0. );
     
     template< typename T >
@@ -135,7 +135,17 @@ namespace pfs { namespace drp { namespace stella {
                                                                ndarray::Array< const T, 1, 1 > const& zArr,
                                                                ndarray::Array< const float, 1, 1 > const& xPositionsFit,
                                                                ndarray::Array< const float, 1, 1 > const& yPositionsFit,
-                                                               bool const isXYPositionsGridPoints,
+                                                               bool const isXYPositionsGridPoints,/// fit positions
+                                                               double const regularization );
+    
+    template< typename T >
+    ndarray::Array< T, 2, 1 > interpolateThinPlateSplineEigen( ndarray::Array< const float, 1, 1 > const& xArr,
+                                                               ndarray::Array< const float, 1, 1 > const& yArr,
+                                                               ndarray::Array< const T, 1, 1 > const& zArr,
+                                                               ndarray::Array< const float, 1, 1 > const& weightArr,
+                                                               ndarray::Array< const float, 1, 1 > const& xPositionsFit,
+                                                               ndarray::Array< const float, 1, 1 > const& yPositionsFit,
+                                                               bool const isXYPositionsGridPoints,/// fit positions
                                                                double const regularization );
     
   }

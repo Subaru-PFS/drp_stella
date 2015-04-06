@@ -434,6 +434,9 @@ Interface to Stella
 %template(interpolateThinPlateSplineF) pfs::drp::stella::math::interpolateThinPlateSpline<float>;
 %template(interpolateThinPlateSplineD) pfs::drp::stella::math::interpolateThinPlateSpline<double>;
 
+%template(interpolateThinPlateSplineEigenF) pfs::drp::stella::math::interpolateThinPlateSplineEigen<float>;
+%template(interpolateThinPlateSplineEigenD) pfs::drp::stella::math::interpolateThinPlateSplineEigen<double>;
+
 %template(interpolatePSFThinPlateSplineF) pfs::drp::stella::math::interpolatePSFThinPlateSpline<float, unsigned short, float, float>;
 %template(interpolatePSFThinPlateSplineD) pfs::drp::stella::math::interpolatePSFThinPlateSpline<double, unsigned short, float, float>;
 
@@ -442,4 +445,17 @@ Interface to Stella
 
 %template(mkSlitFuncF) pfs::drp::stella::math::MkSlitFunc<float, unsigned short, float>;
 %template(mkSlitFuncD) pfs::drp::stella::math::MkSlitFunc<double, unsigned short, float>;
+
+%template(xCorF) pfs::drp::stella::math::xCor<float>;
+%template(xCorD) pfs::drp::stella::math::xCor<double>;
+
+%template(collapsePSFF) pfs::drp::stella::math::collapsePSF<float, unsigned short, float, float>;
+%template(collapsePSFD) pfs::drp::stella::math::collapsePSF<double, unsigned short, float, float>;
+
+%template(collapseFittedPSFFF) pfs::drp::stella::math::collapseFittedPSF<float, float>;
+%template(collapseFittedPSFDF) pfs::drp::stella::math::collapseFittedPSF<double, float>;
+%template(collapseFittedPSFFD) pfs::drp::stella::math::collapseFittedPSF<float, double>;
+
+%template(vecToNdArrayF) pfs::drp::stella::math::vecToNdArray<float>;
+%template(vecToNdArrayD) pfs::drp::stella::math::vecToNdArray<double>;
 

@@ -134,7 +134,7 @@ class SpectrumSet {
     /// Return the Spectrum for the ith aperture
     PTR(Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>) &getSpectrum(const size_t i);
 
-    const PTR(const Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>) const& getSpectrum(const size_t i) const;
+    PTR(const Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>) const& getSpectrum(const size_t i) const;
 
     /// Set the ith Spectrum
     bool setSpectrum(const size_t i,     /// which spectrum?

@@ -1876,6 +1876,27 @@ bool MPFit2DGaussLim(const ndarray::Array< T, 1, 1 >& D_A1_X_In,
   return true;
 }
 
+int MPFitAnyFunc(int m, int n, double *p, double *dz, double **dvec, void *vars){
+  int i;
+  struct vars_struct *v = (struct vars_struct *) vars;
+  double *x, *y, *z;
+  double xc, yc, sig2;//, sig2_b;
+
+  x = v->x;
+  y = v->y;
+  z = v->ey;
+
+  sig2 = p[4]*p[4];
+  //  sig2_b = p[6]*p[6];
+
+  for (i=0; i<m; i++) {
+    dz[i] = z[i] - p[0] * yValues[i];
+  }
+
+  return 0;
+
+}
+
 template bool MPFitGauss(const ndarray::Array<double, 1, 1> &D_A1_X_In,
                          const ndarray::Array<double, 1, 1> &D_A1_Y_In,
                          const ndarray::Array<double, 1, 1> &D_A1_EY_In,

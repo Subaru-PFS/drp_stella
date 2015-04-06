@@ -21,13 +21,14 @@
 
 /* This is a C library.  Allow compilation with a C++ compiler */
 #ifdef __cplusplus
+#include <vector>
 extern "C" {
 #endif
 
 /* MPFIT version string */
 #define MPFIT_VERSION "1.2"
 //#define __DEBUG_MPFIT__
-
+    
 /* Definition of a parameter constraint structure */
 struct mp_par_struct {
   int fixed;        /* 1 = fixed; 0 = free */
@@ -197,6 +198,12 @@ extern int mpfit(mp_func funct, int m, int npar,
 #define mpfinite(x) finite(x)
 
 #endif
+
+static std::vector<float> yValues;
+static void setYValues(std::vector<float> const& yValues_In){
+  yValues = yValues_In;
+  return;
+}
 
 #ifdef __cplusplus
 } /* extern "C" */

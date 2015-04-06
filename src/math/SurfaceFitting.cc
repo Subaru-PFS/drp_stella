@@ -620,6 +620,12 @@ namespace pfs{ namespace drp{ namespace stella{
         cout << message << endl;
         throw LSST_EXCEPT(pexExcept::Exception, message.c_str());    
       }
+      if (!isXYPositionsGridPoints && (xPositionsFit.getShape()[0] != yPositionsFit.getShape()[0])){
+        string message("interpolateThinPlateSpline: ERROR: xPositionsFit.size(=");
+        message += to_string(xPositionsFit.getShape()[0]) + " != yPositionsFit.size(=" + to_string(yPositionsFit.getShape()[0]) + ")";
+        cout << message << endl;
+        throw LSST_EXCEPT(pexExcept::Exception, message.c_str());    
+      }
 
       #ifdef __DEBUG_CALC_TPS__
         cout << "interpolateThinPlateSpline: xArr = (" << xArr.getShape()[0] << ") = " << xArr << endl;
@@ -783,6 +789,159 @@ namespace pfs{ namespace drp{ namespace stella{
       return arr_Out;
     }
     
+    template< typename T >
+    ndarray::Array< T, 2, 1 > interpolateThinPlateSplineEigen( ndarray::Array< const float, 1, 1 > const& xArr,
+                                                               ndarray::Array< const float, 1, 1 > const& yArr,
+                                                               ndarray::Array< const T, 1, 1 > const& zArr,
+                                                               ndarray::Array< const float, 1, 1 > const& weightArr,
+                                                               ndarray::Array< const float, 1, 1 > const& xPositionsFit,
+                                                               ndarray::Array< const float, 1, 1 > const& yPositionsFit,
+                                                               bool const isXYPositionsGridPoints,
+                                                               double const regularization ){
+      if (xArr.getShape()[0] != yArr.getShape()[0]){
+        string message("interpolateThinPlateSpline: ERROR: xArr.size(=");
+        message += to_string(xArr.getShape()[0]) + " != yArr.size(=" + to_string(yArr.getShape()[0]) + ")";
+        cout << message << endl;
+        throw LSST_EXCEPT(pexExcept::Exception, message.c_str());    
+      }
+      if (xArr.getShape()[0] != zArr.getShape()[0]){
+        string message("interpolateThinPlateSpline: ERROR: xArr.size(=");
+        message += to_string(xArr.getShape()[0]) + " != zArr.size(=" + to_string(zArr.getShape()[0]) + ")";
+        cout << message << endl;
+        throw LSST_EXCEPT(pexExcept::Exception, message.c_str());    
+      }
+      if (xArr.getShape()[0] != weightArr.getShape()[0]){
+        string message("interpolateThinPlateSpline: ERROR: xArr.size(=");
+        message += to_string(xArr.getShape()[0]) + " != weightArr.size(=" + to_string(weightArr.getShape()[0]) + ")";
+        cout << message << endl;
+        throw LSST_EXCEPT(pexExcept::Exception, message.c_str());    
+      }
+      if (!isXYPositionsGridPoints && (xPositionsFit.getShape()[0] != yPositionsFit.getShape()[0])){
+        string message("interpolateThinPlateSpline: ERROR: xPositionsFit.size(=");
+        message += to_string(xPositionsFit.getShape()[0]) + " != yPositionsFit.size(=" + to_string(yPositionsFit.getShape()[0]) + ")";
+        cout << message << endl;
+        throw LSST_EXCEPT(pexExcept::Exception, message.c_str());    
+      }
+
+      #ifdef __DEBUG_CALC_TPS__
+        cout << "interpolateThinPlateSpline: xArr = (" << xArr.getShape()[0] << ") = " << xArr << endl;
+        cout << "interpolateThinPlateSpline: yArr = (" << yArr.getShape()[0] << ") = " << yArr << endl;
+        cout << "interpolateThinPlateSpline: zArr = (" << zArr.getShape()[0] << ") = " << zArr << endl;
+      #endif
+
+      // You We need at least 3 points to define a plane
+      if ( xArr.getShape()[0] < 3 ){
+        string message("interpolateThinPlateSpline: ERROR: xArr.getShape()[0] = ");
+        message += to_string(xArr.getShape()[0]) + " < 3";
+        cout << message << endl;
+        throw LSST_EXCEPT(pexExcept::Exception, message.c_str());    
+      }
+      size_t p = xArr.getShape()[0];
+        
+      ndarray::Array<double, 2, 1> cArr = ndarray::allocate(p, p);
+      ndarray::Array<double, 2, 1> fArr = ndarray::allocate(p, 3);
+      ndarray::Array<double, 2, 1> fTArr = ndarray::allocate(3, p);
+      double r_i;
+      double phi;
+      for (int i = 0; i < p; ++i){
+        for (int j = 0; j < i; ++j){
+          r_i = sqrt(pow(xArr[j] - xArr[i], 2) + pow(yArr[j] - yArr[i], 2));
+          phi = pow(r_i, 2) * log10(r_i);
+          cArr[i][j] = cArr[j][i] = phi;
+        }
+        cArr[i][i] = 8 * CONST_PI / weightArr[i];
+        fArr[i][0] = 1;
+        fArr[i][1] = xArr[i];
+        fArr[i][2] = yArr[i];
+        fTArr[0][i] = 1;
+        fTArr[1][i] = xArr[i];
+        fTArr[2][i] = yArr[i];
+      }
+      #ifdef __DEBUG_CALC_TPS__
+        cout << "interpolateThinPlateSpline: cArr = " << cArr << endl;
+        cout << "interpolateThinPlateSpline: cArr.getShape() = " << cArr.getShape() << endl;
+        cout << "interpolateThinPlateSpline: p = " << p << endl;
+      #endif
+      ndarray::Array<double, 2, 1> mtx_l = ndarray::allocate(p + 3, p + 3);
+      ndarray::Array<double, 2, 1> mtx_v = ndarray::allocate(p + 3, 1);
+      #ifdef __DEBUG_CALC_TPS__
+        cout << "interpolateThinPlateSpline: mtx_l[ndarray::view(0, p)(0, p)].getShape() = " << mtx_l[ndarray::view(0, p)(0, p)].getShape() << endl;
+      #endif
+      mtx_l.deep() = 0.;
+      mtx_l[ndarray::view(0, p)(0, p)].deep() = cArr;
+      #ifdef __DEBUG_CALC_TPS__
+        cout << "interpolateThinPlateSpline: mtx_l[ndarray::view(0, p)(0, p)] = " << mtx_l[ndarray::view(0, p)(0, p)] << endl;
+      #endif
+      mtx_l[ndarray::view(p, p + 3)(0, p)] = fTArr;
+      #ifdef __DEBUG_CALC_TPS__
+        cout << "interpolateThinPlateSpline: mtx_l[ndarray::view(p, p+3)(0, p)] = " << mtx_l[ndarray::view(p, p+3)(0, p)] << endl;
+      #endif
+      mtx_l[ndarray::view(0, p)(p, p + 3)] = fArr;
+      #ifdef __DEBUG_CALC_TPS__
+        cout << "interpolateThinPlateSpline: mtx_l[ndarray::view(0, p)(p, p+3)] = " << mtx_l[ndarray::view(0, p)(p, p+3)] << endl;
+      #endif
+      for (int i = 0; i < p; ++i)
+        mtx_v[i][0] = zArr[i];
+      mtx_v[p][0] = mtx_v[p+1][0] = mtx_v[p+2][0] = 0.0;
+      #ifdef __DEBUG_CALC_TPS__
+        cout << "interpolateThinPlateSpline: mtx_l = " << mtx_l << endl;
+        cout << "interpolateThinPlateSpline: mtx_v = " << mtx_v << endl;
+//        exit(EXIT_FAILURE);
+      #endif
+
+      // Solve the linear system "inplace"
+      ndarray::Array<double, 1, 1> rhs = ndarray::allocate(p+3);
+      rhs.deep() = mtx_v[ndarray::view()(0)];
+      #ifdef __DEBUG_CALC_TPS__
+        std::cout << "interpolateThinPlateSpline: starting LU_Solve: mtx_l = " << mtx_l << " rhs = " << rhs << std::endl;
+      #endif
+      ndarray::Array<double, 1, 1> xSol = ndarray::allocate(p+3);
+      xSol.asEigen() = mtx_l.asEigen().colPivHouseholderQr().solve(rhs.asEigen());
+      #ifdef __DEBUG_CALC_TPS__
+        std::cout << "interpolateThinPlateSpline: after colPivHouseholderQr: xSol = " << xSol << std::endl;
+      #endif
+
+      // Interpolate grid heights
+      ndarray::Array<T, 2, 1> arr_Out;// = ndarray::allocate(yPositionsFit.getShape()[0], xPositionsFit.getShape()[0]);
+      if (isXYPositionsGridPoints){
+        arr_Out = ndarray::allocate(yPositionsFit.getShape()[0], xPositionsFit.getShape()[0]);
+        for ( int xPos = 0; xPos < xPositionsFit.size(); ++xPos )
+        {
+          for ( int yPos = 0; yPos < yPositionsFit.size(); ++yPos )
+          {
+            arr_Out[yPos][xPos] = T(fitPointTPSEigen(xArr, yArr, zArr, xSol, xPositionsFit[xPos], yPositionsFit[yPos]));
+            #ifdef __DEBUG_CALC_TPS__
+              std::cout << "interpolateThinPlateSpline: x = " << xPositionsFit[xPos] << ", y = " << yPositionsFit[yPos] << ": arr_Out[" << yPos << "][" << xPos << "] = " << arr_Out[yPos][xPos] << std::endl;
+            #endif
+          }
+        }
+      }
+      else{/// arr_Out will be a vector
+        arr_Out = ndarray::allocate(yPositionsFit.getShape()[0], 1);
+        for ( int iPos = 0; iPos < xPositionsFit.size(); ++iPos )
+        {
+          arr_Out[iPos][0] = fitPointTPSEigen(xArr, yArr, zArr, xSol, xPositionsFit[iPos], yPositionsFit[iPos]);
+          #ifdef __DEBUG_CALC_TPS__
+            std::cout << "interpolateThinPlateSpline: x = " << xPositionsFit[iPos] << ", y = " << yPositionsFit[iPos] << ": arr_Out[" << iPos << "][0] = " << arr_Out[iPos][0] << std::endl;
+          #endif
+        }
+      }
+
+      // Calc bending energy
+    /*  matrix<double> w( p, 1 );
+      for ( int i=0; i<p; ++i )
+        w(i,0) = mtx_v(i,0);
+      matrix<double> be = prod( prod<matrix<double> >( trans(w), mtx_orig_k ), w );
+      bending_energy = be(0,0);
+      std::cout << "interpolateThinPlateSpline: bending_energy = " << bending_energy << std::endl;
+    */  
+      #ifdef __DEBUG_CALC_TPS__
+        std::cout << "interpolateThinPlateSpline: arr_Out = " << arr_Out << std::endl;
+      #endif
+
+      return arr_Out;
+    }
+    
     ndarray::Array< float, 2, 1 > interpolateThinPlateSpline( std::vector< float > const& xVec,
                                                               std::vector< float > const& yVec,
                                                               std::vector< float > const& zVec,
@@ -880,6 +1039,23 @@ namespace pfs{ namespace drp{ namespace stella{
     template ndarray::Array< double, 2, 1 > interpolateThinPlateSplineEigen( ndarray::Array< const float, 1, 1 > const&,
                                                                              ndarray::Array< const float, 1, 1 > const&,
                                                                              ndarray::Array< const double, 1, 1 > const&,
+                                                                             ndarray::Array< const float, 1, 1 > const&,
+                                                                             ndarray::Array< const float, 1, 1 > const&,
+                                                                             bool const,
+                                                                             double const );
+    
+    template ndarray::Array< float, 2, 1 > interpolateThinPlateSplineEigen( ndarray::Array< const float, 1, 1 > const&,
+                                                                            ndarray::Array< const float, 1, 1 > const&,
+                                                                            ndarray::Array< const float, 1, 1 > const&,
+                                                                            ndarray::Array< const float, 1, 1 > const&,
+                                                                            ndarray::Array< const float, 1, 1 > const&,
+                                                                            ndarray::Array< const float, 1, 1 > const&,
+                                                                            bool const,
+                                                                            double const );
+    template ndarray::Array< double, 2, 1 > interpolateThinPlateSplineEigen( ndarray::Array< const float, 1, 1 > const&,
+                                                                             ndarray::Array< const float, 1, 1 > const&,
+                                                                             ndarray::Array< const double, 1, 1 > const&,
+                                                                             ndarray::Array< const float, 1, 1 > const&,
                                                                              ndarray::Array< const float, 1, 1 > const&,
                                                                              ndarray::Array< const float, 1, 1 > const&,
                                                                              bool const,
