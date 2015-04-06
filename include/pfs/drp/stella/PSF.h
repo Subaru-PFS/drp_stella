@@ -29,7 +29,8 @@
 //#include "lsst/afw/table/io/OutputArchive.h"
 //#include "lsst/afw/table/io/CatalogVector.h"
 
-#define __DEBUG_CALC2DPSF__
+//#define __DEBUG_CALC2DPSF__
+//#define __DEBUG_CPRTC__
 //#define __DEBUG_CALC_TPS__
 #define __DEBUGDIR__ ""//~/spectra/pfs/2014-11-02/debug/"// 
 
@@ -148,8 +149,11 @@ namespace pfs { namespace drp { namespace stella {
       /// Return the SurfaceFit
 //      PTR(SurfaceFit) getSurfaceFit() const {return boost::make_shared<SurfaceFit>(_surfaceFit);}
 
-      bool extractPSFs(const FiberTrace<ImageT, MaskT, VarianceT> &fiberTrace_In,
-	               const Spectrum<ImageT, MaskT, VarianceT, WavelengthT> &spectrum_In);
+      bool extractPSFs(FiberTrace<ImageT, MaskT, VarianceT> const& fiberTrace_In,
+	               Spectrum<ImageT, MaskT, VarianceT, WavelengthT> const& spectrum_In);
+      bool extractPSFs(FiberTrace<ImageT, MaskT, VarianceT> const& fiberTrace_In,
+	               Spectrum<ImageT, MaskT, VarianceT, WavelengthT> const& spectrum_In,
+                       ndarray::Array<ImageT, 2, 1> const& collapsedPSF);
       bool fitPSFKernel();
       bool calculatePSF();
       
@@ -244,6 +248,12 @@ namespace math{
   PTR( PSFSet< ImageT, MaskT, VarianceT, WavelengthT > ) calculate2dPSFPerBin( FiberTrace< ImageT, MaskT, VarianceT > const& fiberTrace,
                                                                                Spectrum< ImageT, MaskT, VarianceT, WavelengthT > const& spectrum,
                                                                                TwoDPSFControl const& twoDPSFControl );
+
+  template< typename ImageT, typename MaskT = afwImage::MaskPixel, typename VarianceT = afwImage::VariancePixel, typename WavelengthT = afwImage::VariancePixel >
+  PTR( PSFSet< ImageT, MaskT, VarianceT, WavelengthT > ) calculate2dPSFPerBin( FiberTrace< ImageT, MaskT, VarianceT > const& fiberTrace,
+                                                                               Spectrum< ImageT, MaskT, VarianceT, WavelengthT > const& spectrum,
+                                                                               TwoDPSFControl const& twoDPSFControl,
+                                                                               ndarray::Array< ImageT, 2, 1 > const& collapsedPSF);
   
   template< typename ImageT, typename MaskT = afwImage::MaskPixel, typename VarianceT = afwImage::VariancePixel, typename WavelengthT = afwImage::VariancePixel >
   std::vector< PTR( PSFSet< ImageT, MaskT, VarianceT, WavelengthT > ) > calculate2dPSFPerBin( FiberTraceSet< ImageT, MaskT, VarianceT > const& fiberTraceSet,
@@ -264,20 +274,62 @@ namespace math{
                                                                 double const regularization = 0. );
   
   template< typename ImageT, typename MaskT = afwImage::MaskPixel, typename VarianceT = afwImage::VariancePixel, typename WavelengthT = afwImage::VariancePixel >
+  ndarray::Array< ImageT, 2, 1 > interpolatePSFThinPlateSpline( PSF< ImageT, MaskT, VarianceT, WavelengthT > const& psf,
+                                                                ndarray::Array< float, 1, 1 > const& weights,
+                                                                ndarray::Array< float, 1, 1 > const& xPositions,
+                                                                ndarray::Array< float, 1, 1 > const& yPositions,
+                                                                bool const isXYPositionsGridPoints,
+                                                                double const regularization = 0. );
+  
+  template< typename ImageT, typename MaskT = afwImage::MaskPixel, typename VarianceT = afwImage::VariancePixel, typename WavelengthT = afwImage::VariancePixel >
   ndarray::Array< ImageT, 3, 1 > interpolatePSFSetThinPlateSpline( PSFSet< ImageT, MaskT, VarianceT, WavelengthT > const& psfSet,
                                                                    ndarray::Array< float, 1, 1 > const& xPositions,
                                                                    ndarray::Array< float, 1, 1 > const& yPositions,
                                                                    bool const isXYPositionsGridPoints,
                                                                    double const regularization = 0. );
   
+  template< typename ImageT, typename MaskT = afwImage::MaskPixel, typename VarianceT = afwImage::VariancePixel, typename WavelengthT = afwImage::VariancePixel >
+  ndarray::Array< ImageT, 3, 1 > interpolatePSFSetThinPlateSpline( PSFSet< ImageT, MaskT, VarianceT, WavelengthT > const& psfSet,
+                                                                   ndarray::Array< float, 2, 1 > const& weightArr,
+                                                                   ndarray::Array< float, 1, 1 > const& xPositions,
+                                                                   ndarray::Array< float, 1, 1 > const& yPositions,
+                                                                   bool const isXYPositionsGridPoints,
+                                                                   double const regularization = 0. );
+  
   /*
-   * @brief collapse one PSF in one direction
+   * @brief collapse one fitted PSF in one direction
+   * @param xVec_In: vector of x positions of grid
+   * @param yVec_In: vector of y positions of grid
+   * @param zArr_In: array of z values for x-y grid
+   * @param direction: 0: collapse in x (get PSF in dispersion direction)
+   *                   1: collapse in y (get PSF in spatial direction)
+   */
+    template< typename ImageT, typename CoordT = float >
+    ndarray::Array< ImageT, 2, 1 > collapseFittedPSF( ndarray::Array< CoordT, 1, 1 > const& xGridVec_In,
+                                                      ndarray::Array< CoordT, 1, 1 > const& yGridVec_In,
+                                                      ndarray::Array< ImageT, 2, 1 > const& zArr_In,
+                                                      int const direction = 0. );
+  
+  /*
+   * @brief collapse one fitted PSF in one direction
    * @param direction: 0: collapse in x (get PSF in dispersion direction)
    *                   1: collapse in y (get PSF in spatial direction)
    */
   template< typename ImageT, typename MaskT = afwImage::MaskPixel, typename VarianceT = afwImage::VariancePixel, typename WavelengthT = afwImage::VariancePixel >
-  ndarray::Array< ImageT, 1, 1 > collapsePSF( PSF< ImageT, MaskT, VarianceT, WavelengthT > const& psf_In,
-                                              int const direction = 0. );
+  ndarray::Array< float, 2, 1 > collapsePSF( PSF< ImageT, MaskT, VarianceT, WavelengthT > const& psf_In,
+                                             ndarray::Array< float, 1, 1 > const& coordinatesX_In,
+                                             ndarray::Array< float, 1, 1 > const& coordinatesY_In,
+                                             int const direction = 0.,
+                                             double const regularization = 0.);
+  
+  /*
+   * @brief convert absolute coordinates from [0,...,N] to coordinates relative to center position in range(centerPos_In - width_In/2., centerPos_In + width_In/2.)
+   * @param centerPos_In: center position to convert coords_In relative to
+   * @param width_In: all pixels touched by the limits will be in output array 
+   */
+  template< typename T >
+  ndarray::Array< T, 2, 1> calcPositionsRelativeToCenter(T const centerPos_In,
+                                                         T const width_In);
   
 }
 }}}

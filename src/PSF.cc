@@ -57,8 +57,16 @@ namespace pfs{ namespace drp{ namespace stella{
   }
 
   template<typename ImageT, typename MaskT, typename VarianceT, typename WavelengthT>
-  bool PSF<ImageT, MaskT, VarianceT, WavelengthT>::extractPSFs(const FiberTrace<ImageT, MaskT, VarianceT> &fiberTraceIn,
-                                                               const Spectrum<ImageT, MaskT, VarianceT, WavelengthT> &spectrumIn)
+  bool PSF<ImageT, MaskT, VarianceT, WavelengthT>::extractPSFs(FiberTrace<ImageT, MaskT, VarianceT> const& fiberTraceIn,
+                                                               Spectrum<ImageT, MaskT, VarianceT, WavelengthT> const& spectrumIn){
+    ndarray::Array<ImageT, 2, 1> collapsedPSF = ndarray::allocate(1, 1);
+    return extractPSFs(fiberTraceIn, spectrumIn, collapsedPSF);
+  }
+
+  template<typename ImageT, typename MaskT, typename VarianceT, typename WavelengthT>
+  bool PSF<ImageT, MaskT, VarianceT, WavelengthT>::extractPSFs(FiberTrace<ImageT, MaskT, VarianceT> const& fiberTraceIn,
+                                                               Spectrum<ImageT, MaskT, VarianceT, WavelengthT> const& spectrumIn,
+                                                               ndarray::Array<ImageT, 2, 1> const& collapsedPSF)
   {
     if (!_isTwoDPSFControlSet){
       string message("PSF trace");
@@ -80,13 +88,15 @@ namespace pfs{ namespace drp{ namespace stella{
     ndarray::Array<double, 2, 1> mask_In = ndarray::allocate(_yMax - _yMin + 1, fiberTraceIn.getImage()->getWidth());
     ndarray::Array<double, 2, 1> stddev_In = ndarray::allocate(_yMax - _yMin + 1, fiberTraceIn.getImage()->getWidth());
     ndarray::Array<double, 1, 1> spectrum_In = ndarray::allocate(_yMax - _yMin + 1);
+    ndarray::Array<ImageT, 1, 1> spectrum_T = ndarray::allocate(_yMax - _yMin + 1);
+    spectrum_T.deep() = spectrumIn.getSpectrum()[ndarray::view(_yMin, _yMax+1)];
     ndarray::Array<double, 1, 1> spectrumVariance_In = ndarray::allocate(_yMax - _yMin + 1);
 
     ndarray::Array<double, 2, 1> D_A2_PixArray = math::Double(fiberTraceIn.getImage()->getArray());
     #ifdef __DEBUG_CALC2DPSF__
       cout << "PSF trace" << _iTrace << " bin" << _iBin << "::extractPSFs: D_A2_PixArray.getShape() = " << D_A2_PixArray.getShape() << ", _yMin = " << _yMin << ", _yMax = " << _yMax << endl;
     #endif
-    trace_In = D_A2_PixArray[ndarray::view(_yMin, _yMax)()];
+    trace_In = D_A2_PixArray[ndarray::view(_yMin, _yMax + 1)()];
     #ifdef __DEBUG_CALC2DPSF__
       cout << "PSF trace" << _iTrace << " bin" << _iBin << "::extractPSFs: traceIn = " << trace_In << endl;
     #endif
@@ -315,21 +325,25 @@ namespace pfs{ namespace drp{ namespace stella{
           iBackground = 1;
         else if (_twoDPSFControl->nTermsGaussFit == 5)
           iBackground = 2;
-        if (!MPFitGaussLim(D_A1_X,
-                           D_A1_Y,
-                           D_A1_StdDev,
-                           D_A1_Guess,
-                           I_A2_Limited,
-                           D_A2_Limits,
-                           iBackground,
-                           false,
-                           D_A1_GaussFit_Coeffs,
-                           D_A1_GaussFit_ECoeffs)){
+        float yCenterOffset;
+        bool success;
+        success = MPFitGaussLim(D_A1_X,
+                                D_A1_Y,
+                                D_A1_StdDev,
+                                D_A1_Guess,
+                                I_A2_Limited,
+                                D_A2_Limits,
+                                iBackground,
+                                false,
+                                D_A1_GaussFit_Coeffs,
+                                D_A1_GaussFit_ECoeffs);
+        if (!success){
           #ifdef __DEBUG_CALC2DPSF__
-            cout << "PSF trace" << _iTrace << " bin" << _iBin << "::extractPSFs: while: WARNING: GaussFit FAILED" << endl;
+            cout << "PSF trace" << _iTrace << " bin" << _iBin << "::extractPSFs: while: WARNING: Fit FAILED" << endl;
           #endif
         }
         else{
+          success = false;
           #ifdef __DEBUG_CALC2DPSF__
             cout << "PSF trace" << _iTrace << " bin" << _iBin << "::extractPSFs: while: D_A1_GaussFit_Coeffs = " << D_A1_GaussFit_Coeffs << endl;
           #endif
@@ -338,36 +352,66 @@ namespace pfs{ namespace drp{ namespace stella{
                ((_twoDPSFControl->nTermsGaussFit > 4) && (D_A1_GaussFit_Coeffs[4] < 1000.)))){
             ++emissionLineNumber;
             gaussCenterY = D_A1_GaussFit_Coeffs[1] + 0.5;
-/*            gaussCenterX = xCentersOffset[int(D_A1_GaussFit_Coeffs[1])] + ((D_A1_GaussFit_Coeffs[1] -  int(D_A1_GaussFit_Coeffs[1])) * (xCentersOffset[int(D_A1_GaussFit_Coeffs[1])+1] - xCentersOffset[int(D_A1_GaussFit_Coeffs[1])]));
-            if (int(gaussCenterX) > int(xCentersOffset[int(D_A1_GaussFit_Coeffs[1])])){
-              gaussCenterX = int(gaussCenterX) - 0.0000001;
-            }
-            if (int(gaussCenterX) < int(xCentersOffset[int(D_A1_GaussFit_Coeffs[1])])){
-              gaussCenterX = int(gaussCenterX) + 1.0000001;
-            }
-            #ifdef __DEBUG_CALC2DPSF__
-              cout << "PSF trace" << _iTrace << " bin" << _iBin << "::extractPSFs: xCentersOffset[int(D_A1_GaussFit_Coeffs(1))=" << D_A1_GaussFit_Coeffs[1] << "] = " << xCentersOffset[int(D_A1_GaussFit_Coeffs[1])] << endl;
-              cout << "PSF trace" << _iTrace << " bin" << _iBin << "::extractPSFs: xCentersOffset[int(D_A1_GaussFit_Coeffs(1))+1=" << D_A1_GaussFit_Coeffs[1]+1 << "] = " << xCentersOffset[int(D_A1_GaussFit_Coeffs[1])+1] << endl;
-              cout << "PSF trace" << _iTrace << " bin" << _iBin << "::extractPSFs: D_A1_GaussFit_Coeffs(1) - int(D_A1_GaussFit_Coeffs(1)) = " << D_A1_GaussFit_Coeffs[1] - int(D_A1_GaussFit_Coeffs[1]) << endl;
-              cout << "PSF trace" << _iTrace << " bin" << _iBin << "::extractPSFs: while: gaussCenterX = " << gaussCenterX << ", gaussCenterY = " << gaussCenterY << endl;
-            #endif
-
-            /// add emission line to PSFs
-
-            /// difference between xCentersOffset_In(iY) and 2D GaussCenter of emissionLine
-            dTraceGaussCenterX = xCentersOffset[int(gaussCenterY)] - gaussCenterX;
-            #ifdef __DEBUG_CALC2DPSF__
-              cout << "PSF trace" << _iTrace << " bin " << _iBin << "::extractPSFs: emissionLineNumber-1=" << emissionLineNumber-1 << ": xCentersOffset[int(gaussCenterY=" << gaussCenterY << ")=" << int(gaussCenterY) << "]=" << xCentersOffset[int(gaussCenterY)] << " - gaussCenterX(=" << gaussCenterX << "): dTraceGaussCenterX set to " << dTraceGaussCenterX << endl;
-            #endif
-            i_yCenter = int(gaussCenterY);
-            i_xCenter = int(gaussCenterX);
-            #ifdef __DEBUG_CALC2DPSF__
-              cout << "PSF trace" << _iTrace << " bin " << _iBin << "::extractPSFs: emissionLineNumber-1=" << emissionLineNumber-1 << ": i_xCenter = " << i_xCenter << ", i_yCenter = " << i_yCenter << endl;
-            #endif
-*/
-            float yCenterOffset = gaussCenterY - floor(gaussCenterY);
+            success = true;
+          }
+          else{
+            cout << "PSF trace" << _iTrace << " bin" << _iBin << "::extractPSFs: while: D_A1_GaussFit_Coeffs(2)(=" << D_A1_GaussFit_Coeffs[2] << ") >= (_twoDPSFControl->yFWHM / 1.5)(=" << (_twoDPSFControl->yFWHM / 1.5) << ") || ((_twoDPSFControl->nTermsGaussFit(=" << _twoDPSFControl->nTermsGaussFit << ") < 5) || ((_twoDPSFControl->nTermsGaussFit > 4) && (D_A1_GaussFit_Coeffs(4)(=" << D_A1_GaussFit_Coeffs[4] << ") >= 1000.)) => Skipping emission line" << endl;
+          }
+        }
+        if (success && (collapsedPSF.getShape()[0] > 2)){
+          ndarray::Array<ImageT, 2, 1> indexRelToCenter = math::calcPositionsRelativeToCenter(ImageT(gaussCenterY), ImageT(4. * _twoDPSFControl->yFWHM));
+          ndarray::Array<ImageT, 2, 1> arrA = ndarray::allocate(indexRelToCenter.getShape()[0], 2);
+          arrA[ndarray::view()(0)].deep() = indexRelToCenter[ndarray::view()(1)];
+          ndarray::Array<size_t, 1, 1> indVec = ndarray::allocate(indexRelToCenter.getShape()[0]);
+          for (int iInd = 0; iInd < indexRelToCenter.getShape()[0]; ++iInd)
+            indVec[iInd] = size_t(indexRelToCenter[iInd][0]);
+          ndarray::Array<ImageT, 1, 1> yDataVec = math::getSubArray(spectrum_T, indVec);
+          #ifdef __DEBUG_CALC2DPSF__
+            cout << "PSF trace" << _iTrace << " bin" << _iBin << "::extractPSFs: while: D_A1_Y = " << D_A1_Y << ": indVec = " << indVec << endl;
+            cout << "PSF trace" << _iTrace << " bin" << _iBin << "::extractPSFs: while: yDataVec = " << yDataVec << endl;
+          #endif
+          arrA[ndarray::view()(1)].deep() = yDataVec;//yDataVec;
+          
+          ndarray::Array< ImageT, 1, 1 > range = ndarray::allocate(2);
+          range[0] = -0.2;
+          range[1] = 0.2;
+          const float stepSize = 1. / 100.; 
+          
+          double maxA = yDataVec.asEigen().maxCoeff();
+          ndarray::Array< ImageT, 1, 1 > yValCollapsedPSF = ndarray::allocate(collapsedPSF.getShape()[0]);
+          yValCollapsedPSF.deep() = collapsedPSF[ndarray::view()(1)];
+          double maxCollapsedPSF = yValCollapsedPSF.asEigen().maxCoeff();
+          collapsedPSF[ndarray::view()(1)].deep() = collapsedPSF[ndarray::view()(1)] * maxA / maxCollapsedPSF;
+          
+          ImageT xCorMinPos = math::xCor(arrA,/// x must be 'y' relative to center
+                                         collapsedPSF,/// x is 'y' relative to center
+                                         range,
+                                         stepSize);
+//          #ifdef __DEBUG_CALC2DPSF__
+            cout << "PSF trace" << _iTrace << " bin " << _iBin << "::extractPSFs: emissionLineNumber-1=" << emissionLineNumber-1 << ": gaussCenterY = " << gaussCenterY << endl;
+//          #endif
+          gaussCenterY += xCorMinPos;
+//          #ifdef __DEBUG_CALC2DPSF__
+            cout << "PSF trace" << _iTrace << " bin " << _iBin << "::extractPSFs: emissionLineNumber-1=" << emissionLineNumber-1 << ": xCorMinPos = " << xCorMinPos << ": gaussCenterY = " << gaussCenterY << endl;
+//          #endif
+        }
+        if (!success){
+          #ifdef __DEBUG_CALC2DPSF__
+            cout << "PSF trace" << _iTrace << " bin" << _iBin << "::extractPSFs: while: WARNING: Fit FAILED" << endl;
+          #endif
+        }
+        else{
+//          #ifdef __DEBUG_CALC2DPSF__
+//            cout << "PSF trace" << _iTrace << " bin" << _iBin << "::extractPSFs: while: D_A1_GaussFit_Coeffs = " << D_A1_GaussFit_Coeffs << endl;
+//          #endif
+//          if ((D_A1_GaussFit_Coeffs[2] < (_twoDPSFControl->yFWHM / 1.5)) &&
+//              ((_twoDPSFControl->nTermsGaussFit < 5) ||
+//               ((_twoDPSFControl->nTermsGaussFit > 4) && (D_A1_GaussFit_Coeffs[4] < 1000.)))){
+//            ++emissionLineNumber;
+//            gaussCenterY = D_A1_GaussFit_Coeffs[1] + 0.5;
+//            float yCenterOffset = gaussCenterY - floor(gaussCenterY);
+            yCenterOffset = gaussCenterY - std::floor(gaussCenterY);
             dY = 0.5 - yCenterOffset;
-//            dX = 0.5 - xCentersOffset(floor(gaussCenterY));
             #ifdef __DEBUG_CALC2DPSF__
               cout << "PSF trace" << _iTrace << " bin " << _iBin << "::extractPSFs: emissionLineNumber-1=" << emissionLineNumber-1 << ": dY = " << dY << endl;
             #endif
@@ -381,13 +425,6 @@ namespace pfs{ namespace drp{ namespace stella{
                 cout << "PSF trace" << _iTrace << " bin" << _iBin << "::extractPSFs: emissionLineNumber-1=" << emissionLineNumber-1 << ": fiberTraceIn.getShape()[0] = " << trace_In.getShape()[0] << ", i_Up = " << i_Up << endl;
               #endif
               if (i_Up < trace_In.getShape()[0]){
-/*                pixOffsetY = gaussCenterY - int(gaussCenterY) - 0.5;
-                #ifdef __DEBUG_CALC2DPSF__
-                  cout << "PSF trace" << _iTrace << " bin" << _iBin << "::extractPSFs: emissionLineNumber-1=" << emissionLineNumber-1 << ": gaussCenterX = " << gaussCenterX << ": gaussCenterY" << " = " << gaussCenterY << ":  i_yCenter = " << i_yCenter << ", dTraceGaussCenterX = " << dTraceGaussCenterX << endl;
-                  cout << "PSF trace" << _iTrace << " bin" << _iBin << "::extractPSFs: emissionLineNumber-1=" << emissionLineNumber-1 << ": i_Down = " << i_Down << ", i_Up = " << i_Up << endl;
-                  cout << "PSF trace" << _iTrace << " bin" << _iBin << "::extractPSFs: emissionLineNumber-1=" << emissionLineNumber-1 << ": pixOffsetY = " << pixOffsetY << endl;
-                #endif
-*/
                 /// x-Centers from Gaussian center
                 ndarray::Array<float, 1, 1> yCentersFromGaussCenter = math::indGenNdArr(float(i_Up - i_Down + 1));
                 yCentersFromGaussCenter.deep() += fiberTraceIn.getFiberTraceFunction()->yCenter + fiberTraceIn.getFiberTraceFunction()->yLow + _yMin + i_Down + yCenterOffset;
@@ -409,7 +446,7 @@ namespace pfs{ namespace drp{ namespace stella{
                 
                 int nPixPSF = 0;
                 double sumPSF = 0.;
-                int yMinRel = i_Down - floor(gaussCenterY);
+                int yMinRel = i_Down - std::floor(gaussCenterY);
                 #ifdef __DEBUG_CALC2DPSF__
                   cout << "PSF trace" << _iTrace << " bin" << _iBin << "::extractPSFs: emissionLineNumber-1=" << emissionLineNumber-1 << ": yMinRel = " << yMinRel << endl;
                 #endif
@@ -530,10 +567,10 @@ namespace pfs{ namespace drp{ namespace stella{
                 cout << "PSF trace" << _iTrace << " bin" << _iBin << "::extractPSFs: emissionLineNumber-1 = " << emissionLineNumber-1 << ": WARNING: i_Down = " << i_Down << " < 0" << endl;
               #endif
             }
-          }
-          else{
-            cout << "PSF trace" << _iTrace << " bin" << _iBin << "::extractPSFs: while: D_A1_GaussFit_Coeffs(2)(=" << D_A1_GaussFit_Coeffs[2] << ") >= (_twoDPSFControl->yFWHM / 1.5)(=" << (_twoDPSFControl->yFWHM / 1.5) << ") || ((_twoDPSFControl->nTermsGaussFit(=" << _twoDPSFControl->nTermsGaussFit << ") < 5) || ((_twoDPSFControl->nTermsGaussFit > 4) && (D_A1_GaussFit_Coeffs(4)(=" << D_A1_GaussFit_Coeffs[4] << ") >= 1000.)) => Skipping emission line" << endl;
-          }
+          //}
+//          else{
+//            cout << "PSF trace" << _iTrace << " bin" << _iBin << "::extractPSFs: while: D_A1_GaussFit_Coeffs(2)(=" << D_A1_GaussFit_Coeffs[2] << ") >= (_twoDPSFControl->yFWHM / 1.5)(=" << (_twoDPSFControl->yFWHM / 1.5) << ") || ((_twoDPSFControl->nTermsGaussFit(=" << _twoDPSFControl->nTermsGaussFit << ") < 5) || ((_twoDPSFControl->nTermsGaussFit > 4) && (D_A1_GaussFit_Coeffs(4)(=" << D_A1_GaussFit_Coeffs[4] << ") >= 1000.)) => Skipping emission line" << endl;
+//          }
         }/// end if MPFitGaussLim
       }/// end if (max(spectrum_In(Range(I_FirstWideSignalStart, I_FirstWideSignalEnd))) < _twoDPSFControl->saturationLevel){
     } while(true);
@@ -916,6 +953,15 @@ namespace pfs{ namespace drp{ namespace stella{
     PTR(PSFSet<ImageT, MaskT, VarianceT, WavelengthT>) calculate2dPSFPerBin(FiberTrace<ImageT, MaskT, VarianceT> const& fiberTrace,
                                                                             Spectrum<ImageT, MaskT, VarianceT, WavelengthT> const& spectrum,
                                                                             TwoDPSFControl const& twoDPSFControl){
+      ndarray::Array<ImageT, 2, 1> collapsedPSF = ndarray::allocate(1,1);
+      return calculate2dPSFPerBin(fiberTrace, spectrum, twoDPSFControl, collapsedPSF);
+    }
+    
+    template<typename ImageT, typename MaskT, typename VarianceT, typename WavelengthT>
+    PTR(PSFSet<ImageT, MaskT, VarianceT, WavelengthT>) calculate2dPSFPerBin(FiberTrace<ImageT, MaskT, VarianceT> const& fiberTrace,
+                                                                            Spectrum<ImageT, MaskT, VarianceT, WavelengthT> const& spectrum,
+                                                                            TwoDPSFControl const& twoDPSFControl,
+                                                                            ndarray::Array<ImageT, 2, 1> const& collapsedPSF){
       int swathWidth = twoDPSFControl.swathWidth;
       ndarray::Array<size_t, 2, 1> binBoundY = fiberTrace.calcSwathBoundY(swathWidth);
       if (binBoundY[binBoundY.getShape()[0]-1][1] != fiberTrace.getHeight()-1){
@@ -962,7 +1008,8 @@ namespace pfs{ namespace drp{ namespace stella{
           cout << "calculate2dPSFPerBin: FiberTrace" << fiberTrace.getITrace() << ": iBin " << iBin << ": starting extractPSFs()" << endl;
         #endif
         if (!psf->extractPSFs(fiberTrace, 
-                              spectrum)){
+                              spectrum,
+                              collapsedPSF)){
           string message("calculate2dPSFPerBin: FiberTrace");
           message += to_string(fiberTrace.getITrace()) + string(": iBin ") + to_string(iBin) + string(": ERROR: psf->extractPSFs() returned FALSE");
           throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
@@ -1008,7 +1055,6 @@ namespace pfs{ namespace drp{ namespace stella{
                                                                bool const isXYPositionsGridPoints,
                                                                double const regularization){
 
-//      const ndarray::Array<const float, 1, 1> xArr = ndarray::external(psf.getImagePSF_XRelativeToCenter().data(), ndarray::makeVector(int(psf.getImagePSF_XRelativeToCenter().size())), ndarray::makeVector(1));
       ndarray::Array<float, 1, 1> xArr = ndarray::allocate(psf.getImagePSF_XRelativeToCenter().size());
       if (xArr.size() < 3){
         string message("PSF::InterPolateThinPlateSpline: ERROR: xArr.size(=");
@@ -1016,17 +1062,7 @@ namespace pfs{ namespace drp{ namespace stella{
         cout << message << endl;
         throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
       }
-      #ifdef __DEBUG_CALC_TPS__
-        cout << "PSF::interpolatePSFThinPlateSpline: psf.getImagePSF_XRelativeToCenter() = " << psf.getImagePSF_XRelativeToCenter() << endl;
-        cout << "PSF::interpolatePSFThinPlateSpline: xArr = " << xArr << endl;
-      #endif
-//      const ndarray::Array<const float, 1, 1> yArr = ndarray::external(psf.getImagePSF_YRelativeToCenter().data(), ndarray::makeVector(int(psf.getImagePSF_YRelativeToCenter().size())), ndarray::makeVector(1));
       ndarray::Array<float, 1, 1> yArr = ndarray::allocate(psf.getImagePSF_YRelativeToCenter().size());
-      #ifdef __DEBUG_CALC_TPS__
-        cout << "PSF::interpolatePSFThinPlateSpline: psf.getImagePSF_YRelativeToCenter() = " << psf.getImagePSF_YRelativeToCenter() << endl;
-        cout << "PSF::interpolatePSFThinPlateSpline: yArr = " << yArr << endl;
-      #endif
-//      const ndarray::Array<const float, 1, 1> zArr = ndarray::external(psf.getImagePSF_ZNormalized().data(), ndarray::makeVector(int(psf.getImagePSF_ZNormalized().size())), ndarray::makeVector(1));
       ndarray::Array<float, 1, 1> zArr = ndarray::allocate(psf.getImagePSF_ZNormalized().size());
       for (int i = 0; i < xArr.getShape()[0]; ++i){
         xArr[i] = psf.getImagePSF_XRelativeToCenter()[i];
@@ -1034,6 +1070,8 @@ namespace pfs{ namespace drp{ namespace stella{
         zArr[i] = psf.getImagePSF_ZNormalized()[i];
       }
       #ifdef __DEBUG_CALC_TPS__
+        cout << "PSF::interpolatePSFThinPlateSpline: xArr = " << xArr << endl;
+        cout << "PSF::interpolatePSFThinPlateSpline: yArr = " << yArr << endl;
         cout << "PSF::interpolatePSFThinPlateSpline: psf.getImagePSF_ZNormalized() = " << psf.getImagePSF_ZNormalized() << endl;
         cout << "PSF::interpolatePSFThinPlateSpline: zArr = " << zArr << endl;
       #endif
@@ -1045,7 +1083,59 @@ namespace pfs{ namespace drp{ namespace stella{
         cout << "PSF::interpolatePSFThinPlateSpline: zT = " << zT << endl;
       #endif
       cout << "PSF::interpolatePSFThinPlateSpline: starting interpolateThinPlateSplineEigen" << endl;
-      return ::pfs::drp::stella::math::interpolateThinPlateSplineEigen( xArr, yArr, ndarray::Array<ImageT const, 1, 1>(zT), xPositions, yPositions, isXYPositionsGridPoints, regularization );
+      return ::pfs::drp::stella::math::interpolateThinPlateSplineEigen( xArr, 
+                                                                        yArr, 
+                                                                        ndarray::Array<ImageT const, 1, 1>(zT), 
+                                                                        xPositions, 
+                                                                        yPositions, 
+                                                                        isXYPositionsGridPoints, 
+                                                                        regularization );
+    }
+    
+    template<typename ImageT, typename MaskT, typename VarianceT, typename WavelengthT>
+    ndarray::Array<ImageT, 2, 1> interpolatePSFThinPlateSpline(PSF<ImageT, MaskT, VarianceT, WavelengthT> const& psf,
+                                                               ndarray::Array<float, 1, 1> const& weights,
+                                                               ndarray::Array<float, 1, 1> const& xPositions,
+                                                               ndarray::Array<float, 1, 1> const& yPositions,
+                                                               bool const isXYPositionsGridPoints,
+                                                               double const regularization){
+
+      ndarray::Array<float, 1, 1> xArr = ndarray::allocate(psf.getImagePSF_XRelativeToCenter().size());
+      if (xArr.size() < 3){
+        string message("PSF::InterPolateThinPlateSpline: ERROR: xArr.size(=");
+        message += to_string(xArr.size()) + ") < 3";
+        cout << message << endl;
+        throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
+      }
+      ndarray::Array<float, 1, 1> yArr = ndarray::allocate(psf.getImagePSF_YRelativeToCenter().size());
+      ndarray::Array<float, 1, 1> zArr = ndarray::allocate(psf.getImagePSF_ZNormalized().size());
+      for (int i = 0; i < xArr.getShape()[0]; ++i){
+        xArr[i] = psf.getImagePSF_XRelativeToCenter()[i];
+        yArr[i] = psf.getImagePSF_YRelativeToCenter()[i];
+        zArr[i] = psf.getImagePSF_ZNormalized()[i];
+      }
+      #ifdef __DEBUG_CALC_TPS__
+        cout << "PSF::interpolatePSFThinPlateSpline: psf.getImagePSF_ZNormalized() = " << psf.getImagePSF_ZNormalized() << endl;
+        cout << "PSF::interpolatePSFThinPlateSpline: xArr = " << xArr << endl;
+        cout << "PSF::interpolatePSFThinPlateSpline: yArr = " << yArr << endl;
+        cout << "PSF::interpolatePSFThinPlateSpline: zArr = " << zArr << endl;
+      #endif
+      ndarray::Array<ImageT, 1, 1> zT = ndarray::allocate(zArr.size());
+      auto it = zArr.begin();
+      for (auto itT = zT.begin(); itT != zT.end(); ++itT, ++it)
+        *itT = ImageT(*it);
+      #ifdef __DEBUG_CALC_TPS__
+        cout << "PSF::interpolatePSFThinPlateSpline: zT = " << zT << endl;
+      #endif
+      cout << "PSF::interpolatePSFThinPlateSpline: starting interpolateThinPlateSplineEigen" << endl;
+      return ::pfs::drp::stella::math::interpolateThinPlateSplineEigen( xArr, 
+                                                                        yArr, 
+                                                                        ndarray::Array<ImageT const, 1, 1>(zT), 
+                                                                        weights,
+                                                                        xPositions, 
+                                                                        yPositions, 
+                                                                        isXYPositionsGridPoints, 
+                                                                        regularization );
     }
     
     template < typename ImageT, typename MaskT, typename VarianceT, typename WavelengthT >
@@ -1057,12 +1147,12 @@ namespace pfs{ namespace drp{ namespace stella{
       ndarray::Array<ImageT, 3, 1> arrOut = ndarray::allocate(yPositions.getShape()[0], xPositions.getShape()[0], psfSet.size());
       for (int i = 0; i < psfSet.size(); ++i){
         #ifdef __DEBUG_CALC_TPS__
-        if (psfSet.getPSF(i)->getImagePSF_XRelativeToCenter().getShape()[0] < 3){
-          string message("PSF::InterPolatePSFSetThinPlateSpline: ERROR: i=");
-          message += to_string(i) + ": imagePSF_XRelativeToCenter().getShape()[0]=" + to_string(psfSet.getPSF(i)->getImagePSF_XRelativeToCenter().getShape()[0]) + " < 3";
-          cout << message << endl;
-          throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
-        }
+          if (psfSet.getPSF(i)->getImagePSF_XRelativeToCenter().size() < 3){
+            string message("PSF::InterPolatePSFSetThinPlateSpline: ERROR: i=");
+            message += to_string(i) + ": imagePSF_XRelativeToCenter().size()=" + to_string(psfSet.getPSF(i)->getImagePSF_XRelativeToCenter().size()) + " < 3";
+            cout << message << endl;
+            throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
+          }
         #endif
         ndarray::Array<ImageT, 2, 1> arr = ndarray::allocate(yPositions.getShape()[0], xPositions.getShape()[0]);
         arr.deep() = interpolatePSFThinPlateSpline(*(psfSet.getPSF(i)), xPositions, yPositions, isXYPositionsGridPoints, regularization);
@@ -1079,6 +1169,172 @@ namespace pfs{ namespace drp{ namespace stella{
       #endif
       return arrOut;
     }
+    
+    template < typename ImageT, typename MaskT, typename VarianceT, typename WavelengthT >
+    ndarray::Array< ImageT, 3, 1 > interpolatePSFSetThinPlateSpline(PSFSet< ImageT, MaskT, VarianceT, WavelengthT > const& psfSet,
+                                                                    ndarray::Array< float, 2, 1 > const& weightArr,
+                                                                    ndarray::Array< float, 1, 1 > const& xPositions,
+                                                                    ndarray::Array< float, 1, 1 > const& yPositions,
+                                                                    bool const isXYPositionsGridPoints,
+                                                                    double const regularization){
+      ndarray::Array<ImageT, 3, 1> arrOut = ndarray::allocate(yPositions.getShape()[0], xPositions.getShape()[0], psfSet.size());
+      for (int i = 0; i < psfSet.size(); ++i){
+        #ifdef __DEBUG_CALC_TPS__
+        if (psfSet.getPSF(i)->getImagePSF_XRelativeToCenter().size() < 3){
+          string message("PSF::InterPolatePSFSetThinPlateSpline: ERROR: i=");
+          message += to_string(i) + ": imagePSF_XRelativeToCenter().size()=" + to_string(psfSet.getPSF(i)->getImagePSF_XRelativeToCenter().size()) + " < 3";
+          cout << message << endl;
+          throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
+        }
+        #endif
+        ndarray::Array<ImageT, 2, 1> arr = ndarray::allocate(yPositions.getShape()[0], xPositions.getShape()[0]);
+        ndarray::Array<float, 1, 1> weights = ndarray::allocate(weightArr.getShape()[0]);
+        weights.deep() = weightArr[ndarray::view()(i)];
+        arr.deep() = interpolatePSFThinPlateSpline(*(psfSet.getPSF(i)), 
+                                                   weights,
+                                                   xPositions, 
+                                                   yPositions,
+                                                   isXYPositionsGridPoints, 
+                                                   regularization);
+        #ifdef __DEBUG_CALC_TPS__
+          cout << "interpolatePSFSetThinPlateSpline: arr.getShape() = " << arr.getShape() << ", arrOut.getShape() = " << arrOut.getShape() << endl;
+          cout << "interpolatePSFSetThinPlateSpline: arr = " << arr << endl;
+        #endif
+        arrOut[ndarray::view()()(i)].deep() = arr;
+//        PTR(ndarray::Array<ImageT, 2, 1>) pArr(new ndarray::Array<ImageT, 2, 1>(arr));
+//        vecOut.push_back(arr);
+      }
+      #ifdef __DEBUG_CALC_TPS__
+        cout << "interpolatePSFSetThinPlateSpline: arrOut[:][:][0] = " << arrOut[ndarray::view()()(0)] << endl;
+      #endif
+      return arrOut;
+    }
+    
+    template< typename ImageT, typename CoordT >
+    ndarray::Array< ImageT, 2, 1 > collapseFittedPSF( ndarray::Array< CoordT, 1, 1 > const& xGridVec_In,
+                                                      ndarray::Array< CoordT, 1, 1 > const& yGridVec_In,
+                                                      ndarray::Array< ImageT, 2, 1 > const& zArr_In,
+                                                      int const direction){
+      if (xGridVec_In.getShape()[0] != zArr_In.getShape()[1]){
+        string message("PSF::math::collapseFittedPSF: ERROR: xGridVec_In.getShape()[0]=");
+        message += to_string(xGridVec_In.getShape()[0]) + " != zArr_In.getShape()[1]=" + to_string(zArr_In.getShape()[1]);
+        cout << message << endl;
+        throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
+      }
+      if (yGridVec_In.getShape()[0] != zArr_In.getShape()[0]){
+        string message("PSF::math::collapseFittedPSF: ERROR: yGridVec_In.getShape()[0]=");
+        message += to_string(yGridVec_In.getShape()[0]) + " != zArr_In.getShape()[0]=" + to_string(zArr_In.getShape()[0]);
+        cout << message << endl;
+        throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
+      }
+      size_t collapsedPSFLength;
+      ndarray::Array< ImageT, 1, 1 > tempVec;
+      ndarray::Array< ImageT, 2, 1 > collapsedPSF;
+      if (direction == 0){
+        collapsedPSFLength = yGridVec_In.getShape()[0];
+        tempVec = ndarray::allocate(xGridVec_In.getShape()[0]);
+        collapsedPSF = ndarray::allocate(collapsedPSFLength, 2);
+        collapsedPSF[ndarray::view()(0)].deep() = yGridVec_In;
+      }
+      else{
+        collapsedPSFLength = xGridVec_In.getShape()[0];
+        tempVec = ndarray::allocate(yGridVec_In.getShape()[0]);
+        collapsedPSF = ndarray::allocate(collapsedPSFLength, 2);
+        collapsedPSF[ndarray::view()(0)].deep() = xGridVec_In;
+      }
+      for (int iPos = 0; iPos < collapsedPSFLength; ++iPos){
+        if (direction == 0){
+          tempVec.deep() = zArr_In[ndarray::view(iPos)()];
+        }
+        else{
+          tempVec.deep() = zArr_In[ndarray::view()(iPos)];
+        }
+        collapsedPSF[iPos][1] = tempVec.asEigen().array().sum();
+      }
+      return collapsedPSF;
+    }
+    
+    template< typename ImageT, typename MaskT, typename VarianceT, typename WavelengthT >
+    ndarray::Array< float, 2, 1 > collapsePSF( PSF< ImageT, MaskT, VarianceT, WavelengthT > const& psf_In,
+                                               ndarray::Array< float, 1, 1 > const& coordinatesX_In,
+                                               ndarray::Array< float, 1, 1 > const& coordinatesY_In,
+                                               int const direction,
+                                               double const regularization){
+      ndarray::Array< const float, 1, 1 > xRelativeToCenter = ndarray::external(psf_In.getImagePSF_XRelativeToCenter().data(), ndarray::makeVector(int(psf_In.getImagePSF_XRelativeToCenter().size())), ndarray::makeVector(1));
+      ndarray::Array< const float, 1, 1 > yRelativeToCenter = ndarray::external(psf_In.getImagePSF_YRelativeToCenter().data(), ndarray::makeVector(int(psf_In.getImagePSF_YRelativeToCenter().size())), ndarray::makeVector(1));
+      ndarray::Array< const float, 1, 1 > zNormalized = ndarray::external(psf_In.getImagePSF_ZNormalized().data(), ndarray::makeVector(int(psf_In.getImagePSF_ZNormalized().size())), ndarray::makeVector(1));
+      ndarray::Array< float, 2, 1 > interpolatedPSF = interpolateThinPlateSplineEigen( xRelativeToCenter,
+                                                                                       yRelativeToCenter,
+                                                                                       zNormalized,
+                                                                                       coordinatesX_In,
+                                                                                       coordinatesY_In,
+                                                                                       true,
+                                                                                       regularization );
+      return math::collapseFittedPSF(coordinatesX_In,
+                                     coordinatesY_In,
+                                     interpolatedPSF,
+                                     direction);
+    }
+    
+    template< typename T >
+    ndarray::Array< T, 2, 1> calcPositionsRelativeToCenter(T const centerPos_In,
+                                                           T const width_In){
+      #ifdef __DEBUG_CPRTC__
+        cout << "PSF::math::calcPositionsRelativeToCenter: centerPos_In = " << centerPos_In << ", width_In = " << width_In << endl;
+      #endif
+      size_t low = std::floor(centerPos_In - (width_In / 2.));
+      size_t high = std::floor(centerPos_In + (width_In / 2.));
+      #ifdef __DEBUG_CPRTC__
+        cout << "PSF::math::calcPositionsRelativeToCenter: low = " << low << ", high = " << high << endl;
+      #endif
+      ndarray::Array< T, 2, 1 > arr_Out = ndarray::allocate(high - low + 1, 2);
+      double dCenter = 0.5 - centerPos_In + std::floor(centerPos_In);
+      #ifdef __DEBUG_CPRTC__
+        cout << "PSF::math::calcPositionsRelativeToCenter: dCenter = " << dCenter << endl;
+      #endif
+      for (int iPos = 0; iPos <= high - low; ++iPos){
+        arr_Out[iPos][0] = T(low + iPos);
+        arr_Out[iPos][1] = arr_Out[iPos][0] - T(std::floor(centerPos_In)) + dCenter;
+        #ifdef __DEBUG_CPRTC__
+          cout << "PSF::math::calcPositionsRelativeToCenter: arr_Out[" << iPos << "][0] = " << arr_Out[iPos][0] << ", arr_Out[" << iPos << "][1] = " << arr_Out[iPos][1] << endl;
+        #endif
+      }
+      #ifdef __DEBUG_CPRTC__
+        cout << "PSF::math::calcPositionsRelativeToCenter: arr_Out = " << arr_Out << endl;
+      #endif
+      return arr_Out;
+    }
+    
+    template ndarray::Array< float, 2, 1> calcPositionsRelativeToCenter(float const, float const);
+    template ndarray::Array< double, 2, 1> calcPositionsRelativeToCenter(double const, double const);
+
+    template ndarray::Array< float, 2, 1 > collapseFittedPSF( ndarray::Array< float, 1, 1 > const&,
+                                                              ndarray::Array< float, 1, 1 > const&,
+                                                              ndarray::Array< float, 2, 1 > const&,
+                                                              int const);
+    template ndarray::Array< double, 2, 1 > collapseFittedPSF( ndarray::Array< float, 1, 1 > const&,
+                                                               ndarray::Array< float, 1, 1 > const&,
+                                                               ndarray::Array< double, 2, 1 > const&,
+                                                               int const);
+    template ndarray::Array< float, 2, 1 > collapseFittedPSF( ndarray::Array< double, 1, 1 > const&,
+                                                              ndarray::Array< double, 1, 1 > const&,
+                                                              ndarray::Array< float, 2, 1 > const&,
+                                                              int const);
+    template ndarray::Array< double, 2, 1 > collapseFittedPSF( ndarray::Array< double, 1, 1 > const&,
+                                                               ndarray::Array< double, 1, 1 > const&,
+                                                               ndarray::Array< double, 2, 1 > const&,
+                                                               int const);
+
+    template ndarray::Array< float, 2, 1 > collapsePSF( PSF< float, unsigned short, float, float > const&,
+                                                        ndarray::Array< float, 1, 1 > const&,
+                                                        ndarray::Array< float, 1, 1 > const&,
+                                                        int const,
+                                                        double const);
+    template ndarray::Array< float, 2, 1 > collapsePSF( PSF< double, unsigned short, float, float > const&,
+                                                        ndarray::Array< float, 1, 1 > const&,
+                                                        ndarray::Array< float, 1, 1 > const&,
+                                                        int const,
+                                                        double const);
 
     template ndarray::Array<float, 2, 1> interpolatePSFThinPlateSpline(PSF<float, unsigned short, float, float> const&, 
                                                                        ndarray::Array<float, 1, 1> const&, 
@@ -1086,6 +1342,19 @@ namespace pfs{ namespace drp{ namespace stella{
                                                                        bool const,
                                                                        double const);
     template ndarray::Array<double, 2, 1> interpolatePSFThinPlateSpline(PSF<double, unsigned short, float, float> const&, 
+                                                                        ndarray::Array<float, 1, 1> const&, 
+                                                                        ndarray::Array<float, 1, 1> const&,
+                                                                        bool const,
+                                                                        double const);
+
+    template ndarray::Array<float, 2, 1> interpolatePSFThinPlateSpline(PSF<float, unsigned short, float, float> const&, 
+                                                                       ndarray::Array<float, 1, 1> const&, 
+                                                                       ndarray::Array<float, 1, 1> const&, 
+                                                                       ndarray::Array<float, 1, 1> const&,
+                                                                       bool const,
+                                                                       double const);
+    template ndarray::Array<double, 2, 1> interpolatePSFThinPlateSpline(PSF<double, unsigned short, float, float> const&, 
+                                                                        ndarray::Array<float, 1, 1> const&, 
                                                                         ndarray::Array<float, 1, 1> const&, 
                                                                         ndarray::Array<float, 1, 1> const&,
                                                                         bool const,
@@ -1102,12 +1371,34 @@ namespace pfs{ namespace drp{ namespace stella{
                                                                              bool const,
                                                                              double const);
     
+    template ndarray::Array< float, 3, 1 > interpolatePSFSetThinPlateSpline(PSFSet< float, unsigned short, float, float > const&, 
+                                                                            ndarray::Array< float, 2, 1 > const&, 
+                                                                            ndarray::Array< float, 1, 1 > const&, 
+                                                                            ndarray::Array< float, 1, 1 > const&,
+                                                                            bool const,
+                                                                            double const);
+    template ndarray::Array< double, 3, 1 > interpolatePSFSetThinPlateSpline(PSFSet< double, unsigned short, float, float > const&, 
+                                                                             ndarray::Array< float, 2, 1 > const&, 
+                                                                             ndarray::Array< float, 1, 1 > const&, 
+                                                                             ndarray::Array< float, 1, 1 > const&,
+                                                                             bool const,
+                                                                             double const);
+    
     template PTR(PSFSet<float, unsigned short, float, float>) calculate2dPSFPerBin(FiberTrace<float, unsigned short, float> const&, 
                                                                                    Spectrum<float, unsigned short, float, float> const&,
                                                                                    TwoDPSFControl const&);
     template PTR(PSFSet<double, unsigned short, float, float>) calculate2dPSFPerBin(FiberTrace<double, unsigned short, float> const&, 
                                                                                     Spectrum<double, unsigned short, float, float> const&,
                                                                                     TwoDPSFControl const&);
+    
+    template PTR(PSFSet<float, unsigned short, float, float>) calculate2dPSFPerBin(FiberTrace<float, unsigned short, float> const&, 
+                                                                                   Spectrum<float, unsigned short, float, float> const&,
+                                                                                   TwoDPSFControl const&,
+                                                                                   ndarray::Array<float, 2, 1> const&);
+    template PTR(PSFSet<double, unsigned short, float, float>) calculate2dPSFPerBin(FiberTrace<double, unsigned short, float> const&, 
+                                                                                    Spectrum<double, unsigned short, float, float> const&,
+                                                                                    TwoDPSFControl const&,
+                                                                                    ndarray::Array<double, 2, 1> const&);
     
     template std::vector<PTR(PSFSet<float, unsigned short, float, float>)> calculate2dPSFPerBin(FiberTraceSet<float, unsigned short, float> const&, 
                                                                                                 SpectrumSet<float, unsigned short, float, float> const&,

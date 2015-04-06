@@ -836,6 +836,111 @@
       }
     }
 */
+    double uvalue(double x, double low, double high)
+    {
+      return (x - low)/(high-low);
+    }
+
+    Eigen::VectorXd uvalues(Eigen::VectorXd const& xVals)
+    {
+      Eigen::VectorXd xvals(xVals.size());
+      const double low = xVals.minCoeff();
+      const double high = xVals.maxCoeff();
+      #ifdef __DEBUG_XCOR__
+        cout << "math::uvalues: xVals = " << xVals << endl;
+        cout << "math::uvalues: low = " << low << ", high = " << high << endl;
+      #endif
+      for (int i = 0; i < xvals.size(); ++i){
+        xvals(i) = uvalue(xVals[i], low, high);
+      }
+      return xvals;
+    }
+    
+    template< typename T >
+    T xCor(ndarray::Array< T, 2, 1 > const& arrA_In,
+           ndarray::Array< T, 2, 1 > const& arrB_In,
+           ndarray::Array< T, 1, 1 > const& range_In,
+           float const& stepSize_In){
+      
+      ndarray::Array< double, 1, 1 > xValuesA = ndarray::allocate(arrA_In.getShape()[0]);
+      xValuesA.deep() = arrA_In[ndarray::view()(0)];
+      #ifdef __DEBUG_XCOR__
+        cout << "math::xCor: arrA_In = " << arrA_In << endl;
+        cout << "math::xCor: arrB_In = " << arrB_In << endl;
+        cout << "math::xCor: range_In = " << range_In << ", stepSize_In = " << stepSize_In << endl;
+        cout << "math::xCor: xValuesA = " << xValuesA << endl;
+      #endif
+      ndarray::Array< double, 1, 1 > xValuesBShifted = ndarray::allocate(arrB_In.getShape()[0]);
+      ndarray::Array< double, 1, 1 > yValuesB = ndarray::allocate(arrB_In.getShape()[0]);
+      ndarray::Array< double, 1, 1 > yValuesInterpolated = ndarray::allocate(arrA_In.getShape()[0]);
+      xValuesBShifted.deep() = arrB_In[ndarray::view()(0)];
+      yValuesB.deep() = arrB_In[ndarray::view()(1)];
+      
+      std::vector<double> xShift(0);
+      xShift.reserve((range_In[1] - range_In[0]) / stepSize_In + 10);
+      std::vector<double> chiSquare(0);
+      chiSquare.reserve((range_In[1] - range_In[0]) / stepSize_In + 10);
+      
+      ndarray::Array<double, 1, 1> diff = ndarray::allocate(arrA_In.getShape()[0]);
+      typedef Eigen::Spline<double,1> Spline2d;
+
+      const size_t interpolOrder = 3;
+      for (double shift = range_In[0]; shift <= range_In[1]; shift += stepSize_In){
+        xValuesBShifted.deep() = arrB_In[ndarray::view()(0)] + shift;
+        #ifdef __DEBUG_XCOR__
+          cout << "math::xCor: shift = " << shift << ": xValuesBShifted = " << xValuesBShifted << endl;
+        #endif
+        Eigen::VectorXd uxValues = uvalues(xValuesBShifted.asEigen());
+        #ifdef __DEBUG_XCOR__
+          cout << "math::xCor: shift = " << shift << ": uxValues = " << uxValues << endl;
+        #endif
+        const Spline2d spline = Eigen::SplineFitting<Spline2d>::Interpolate(yValuesB.asEigen().transpose(), interpolOrder, uxValues.transpose());
+        for (int i = 0; i < arrA_In.getShape()[0]; ++i){
+          const double uv = uvalue(arrA_In[i][0], xValuesBShifted.asEigen().minCoeff(), xValuesBShifted.asEigen().maxCoeff());
+          #ifdef __DEBUG_XCOR__
+            cout << "math::xCor: shift = " << shift << ": i = " << i << ": arrA_In[" << i << "][0] = " << arrA_In[i][0] << ": uv = " << uv << ": spline(uv) = " << spline(uv) << endl;
+          #endif
+          yValuesInterpolated[i] = double(spline(uv)(0));
+        }
+        #ifdef __DEBUG_XCOR__
+          cout << "math::xCor: shift = " << shift << ": yValuesInterpolated = " << yValuesInterpolated << endl;
+        #endif
+        xShift.push_back(shift);
+        diff.deep() = arrA_In[ndarray::view()(1)] - yValuesInterpolated;
+        #ifdef __DEBUG_XCOR__
+          cout << "math::xCor: shift = " << shift << ": diff = " << diff << endl;
+        #endif
+        chiSquare.push_back(diff.asEigen().array().pow(2).sum());
+        #ifdef __DEBUG_XCOR__
+          cout << "math::xCor: shift = " << shift << ": chiSquare[" << chiSquare.size()-1 << "] = " << chiSquare[chiSquare.size()-1] << endl;
+        #endif
+      }
+      T minShift = T(xShift[std::min_element(chiSquare.begin(), chiSquare.end()) - chiSquare.begin()]);
+      #ifdef __DEBUG_XCOR__
+        cout << "math::xCor: chiSquare = ";
+        for (auto it=chiSquare.begin(); it!=chiSquare.end(); ++it)
+          cout << *it << " ";
+        cout << endl;
+      #endif
+      cout << "math::xCor: minShift = " << minShift << endl;
+      return minShift;
+    }
+    
+    template< typename T >
+    ndarray::Array< T const, 1, 1 > vecToNdArray(std::vector<T> const& vec_In){
+      ndarray::Array< T const, 1, 1 > arr_Out = ndarray::external(vec_In.data(), ndarray::makeVector(int(vec_In.size())), ndarray::makeVector(1));
+      return arr_Out;
+    }
+    
+    template ndarray::Array< size_t const, 1, 1 > vecToNdArray(std::vector<size_t> const&);
+    template ndarray::Array< int const, 1, 1 > vecToNdArray(std::vector<int> const&);
+    template ndarray::Array< unsigned short const, 1, 1 > vecToNdArray(std::vector<unsigned short> const&);
+    template ndarray::Array< long const, 1, 1 > vecToNdArray(std::vector<long> const&);
+    template ndarray::Array< float const, 1, 1 > vecToNdArray(std::vector<float> const&);
+    template ndarray::Array< double const, 1, 1 > vecToNdArray(std::vector<double> const&);
+    
+    template float xCor(ndarray::Array< float, 2, 1 > const&, ndarray::Array< float, 2, 1 > const&, ndarray::Array< float, 1, 1 > const&, float const&);
+    template double xCor(ndarray::Array< double, 2, 1 > const&, ndarray::Array< double, 2, 1 > const&, ndarray::Array< double, 1, 1 > const&, float const&);
     
     template ndarray::Array< size_t, 1, 1 > resize( ndarray::Array< size_t, 1, 1 > const& arr_In, size_t newSize);
     template ndarray::Array< unsigned short, 1, 1 > resize( ndarray::Array< unsigned short, 1, 1 > const& arr_In, size_t newSize);
