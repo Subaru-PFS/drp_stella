@@ -865,6 +865,17 @@ namespace pfs{ namespace drp{ namespace stella{
       zVec[i] = ImageT(zArr[i][0]);
     return zVec;
   }
+  
+  template< typename ImageT, typename MaskT, typename VarianceT, typename WavelengthT >    
+  bool PSF<ImageT, MaskT, VarianceT, WavelengthT>::setImagePSF_ZFit(ndarray::Array<ImageT, 1, 1> const& zFit){
+    if (zFit.getShape()[0] != _imagePSF_XRelativeToCenter.size()){
+      cout << "PSF::setImagePSF_ZFit: zFit.getShape()[0]=" << zFit.getShape()[0] << " != _imagePSF_XRelativeToCenter.size()=" << _imagePSF_XRelativeToCenter.size() << " => returning FALSE" << endl;
+    }
+    _imagePSF_ZFit.resize(zFit.getShape()[0]);
+    for (int i = 0; i < zFit.getShape()[0]; ++i)
+      _imagePSF_ZFit[i] = float(zFit[i]);
+    return true;
+  }
 
   template<typename ImageT, typename MaskT, typename VarianceT, typename WavelengthT>    
   bool PSFSet<ImageT, MaskT, VarianceT, WavelengthT>::setPSF(const size_t i,     /// which position?
@@ -1093,12 +1104,11 @@ namespace pfs{ namespace drp{ namespace stella{
     }
     
     template<typename ImageT, typename MaskT, typename VarianceT, typename WavelengthT>
-    ndarray::Array<ImageT, 2, 1> interpolatePSFThinPlateSpline(PSF<ImageT, MaskT, VarianceT, WavelengthT> const& psf,
+    ndarray::Array<ImageT, 2, 1> interpolatePSFThinPlateSpline(PSF<ImageT, MaskT, VarianceT, WavelengthT> & psf,
                                                                ndarray::Array<float, 1, 1> const& weights,
                                                                ndarray::Array<float, 1, 1> const& xPositions,
                                                                ndarray::Array<float, 1, 1> const& yPositions,
-                                                               bool const isXYPositionsGridPoints,
-                                                               double const regularization){
+                                                               bool const isXYPositionsGridPoints){
 
       ndarray::Array<float, 1, 1> xArr = ndarray::allocate(psf.getImagePSF_XRelativeToCenter().size());
       if (xArr.size() < 3){
@@ -1128,14 +1138,22 @@ namespace pfs{ namespace drp{ namespace stella{
         cout << "PSF::interpolatePSFThinPlateSpline: zT = " << zT << endl;
       #endif
       cout << "PSF::interpolatePSFThinPlateSpline: starting interpolateThinPlateSplineEigen" << endl;
-      return ::pfs::drp::stella::math::interpolateThinPlateSplineEigen( xArr, 
+      ndarray::Array< ImageT, 2, 1 > zFit;
+      if (isXYPositionsGridPoints)
+        zFit = ndarray::allocate(yPositions.getShape()[0], xPositions.getShape()[0]);
+      else
+        zFit = ndarray::allocate(xPositions.getShape()[0], 1);
+      zFit = ::pfs::drp::stella::math::interpolateThinPlateSplineEigen( xArr, 
                                                                         yArr, 
-                                                                        ndarray::Array<ImageT const, 1, 1>(zT), 
+                                                                        zT, 
                                                                         weights,
                                                                         xPositions, 
                                                                         yPositions, 
-                                                                        isXYPositionsGridPoints, 
-                                                                        regularization );
+                                                                        isXYPositionsGridPoints);
+      if (!psf.setImagePSF_ZFit(zT)){
+        cout << "PSF::interpolatePSFThinPlateSpline: WARNING: psf.setImagePSF_ZFit(zT) returned FALSE" << endl;
+      }
+      return zFit;
     }
     
     template < typename ImageT, typename MaskT, typename VarianceT, typename WavelengthT >
@@ -1171,12 +1189,11 @@ namespace pfs{ namespace drp{ namespace stella{
     }
     
     template < typename ImageT, typename MaskT, typename VarianceT, typename WavelengthT >
-    ndarray::Array< ImageT, 3, 1 > interpolatePSFSetThinPlateSpline(PSFSet< ImageT, MaskT, VarianceT, WavelengthT > const& psfSet,
+    ndarray::Array< ImageT, 3, 1 > interpolatePSFSetThinPlateSpline(PSFSet< ImageT, MaskT, VarianceT, WavelengthT > & psfSet,
                                                                     ndarray::Array< float, 2, 1 > const& weightArr,
                                                                     ndarray::Array< float, 1, 1 > const& xPositions,
                                                                     ndarray::Array< float, 1, 1 > const& yPositions,
-                                                                    bool const isXYPositionsGridPoints,
-                                                                    double const regularization){
+                                                                    bool const isXYPositionsGridPoints){
       ndarray::Array<ImageT, 3, 1> arrOut = ndarray::allocate(yPositions.getShape()[0], xPositions.getShape()[0], psfSet.size());
       for (int i = 0; i < psfSet.size(); ++i){
         #ifdef __DEBUG_CALC_TPS__
@@ -1194,8 +1211,7 @@ namespace pfs{ namespace drp{ namespace stella{
                                                    weights,
                                                    xPositions, 
                                                    yPositions,
-                                                   isXYPositionsGridPoints, 
-                                                   regularization);
+                                                   isXYPositionsGridPoints);
         #ifdef __DEBUG_CALC_TPS__
           cout << "interpolatePSFSetThinPlateSpline: arr.getShape() = " << arr.getShape() << ", arrOut.getShape() = " << arrOut.getShape() << endl;
           cout << "interpolatePSFSetThinPlateSpline: arr = " << arr << endl;
@@ -1347,18 +1363,16 @@ namespace pfs{ namespace drp{ namespace stella{
                                                                         bool const,
                                                                         double const);
 
-    template ndarray::Array<float, 2, 1> interpolatePSFThinPlateSpline(PSF<float, unsigned short, float, float> const&, 
+    template ndarray::Array<float, 2, 1> interpolatePSFThinPlateSpline(PSF<float, unsigned short, float, float> &, 
                                                                        ndarray::Array<float, 1, 1> const&, 
                                                                        ndarray::Array<float, 1, 1> const&, 
                                                                        ndarray::Array<float, 1, 1> const&,
-                                                                       bool const,
-                                                                       double const);
-    template ndarray::Array<double, 2, 1> interpolatePSFThinPlateSpline(PSF<double, unsigned short, float, float> const&, 
+                                                                       bool const);
+    template ndarray::Array<double, 2, 1> interpolatePSFThinPlateSpline(PSF<double, unsigned short, float, float> &, 
                                                                         ndarray::Array<float, 1, 1> const&, 
                                                                         ndarray::Array<float, 1, 1> const&, 
                                                                         ndarray::Array<float, 1, 1> const&,
-                                                                        bool const,
-                                                                        double const);
+                                                                        bool const);
     
     template ndarray::Array< float, 3, 1 > interpolatePSFSetThinPlateSpline(PSFSet< float, unsigned short, float, float > const&, 
                                                                             ndarray::Array< float, 1, 1 > const&, 
@@ -1371,18 +1385,16 @@ namespace pfs{ namespace drp{ namespace stella{
                                                                              bool const,
                                                                              double const);
     
-    template ndarray::Array< float, 3, 1 > interpolatePSFSetThinPlateSpline(PSFSet< float, unsigned short, float, float > const&, 
+    template ndarray::Array< float, 3, 1 > interpolatePSFSetThinPlateSpline(PSFSet< float, unsigned short, float, float > &, 
                                                                             ndarray::Array< float, 2, 1 > const&, 
                                                                             ndarray::Array< float, 1, 1 > const&, 
                                                                             ndarray::Array< float, 1, 1 > const&,
-                                                                            bool const,
-                                                                            double const);
-    template ndarray::Array< double, 3, 1 > interpolatePSFSetThinPlateSpline(PSFSet< double, unsigned short, float, float > const&, 
+                                                                            bool const);
+    template ndarray::Array< double, 3, 1 > interpolatePSFSetThinPlateSpline(PSFSet< double, unsigned short, float, float > &, 
                                                                              ndarray::Array< float, 2, 1 > const&, 
                                                                              ndarray::Array< float, 1, 1 > const&, 
                                                                              ndarray::Array< float, 1, 1 > const&,
-                                                                             bool const,
-                                                                             double const);
+                                                                             bool const);
     
     template PTR(PSFSet<float, unsigned short, float, float>) calculate2dPSFPerBin(FiberTrace<float, unsigned short, float> const&, 
                                                                                    Spectrum<float, unsigned short, float, float> const&,

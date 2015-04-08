@@ -105,13 +105,20 @@ namespace pfs { namespace drp { namespace stella {
                        T const yPositionFit);
     
     template < typename T >
+    T fitPointTPSEigen(ndarray::Array< const float, 1, 1 > const& controlPointsX,
+                       ndarray::Array< const float, 1, 1 > const& controlPointsY,
+                       ndarray::Array< const T, 1, 1 > const& mtxV, 
+                       float const xPositionFit, 
+                       float const yPositionFit);
+    
+/*    template < typename T >
     double fitPointTPSEigen(ndarray::Array< const float, 1, 1 > const& controlPointsX,
                             ndarray::Array< const float, 1, 1 > const& controlPointsY,
-                            ndarray::Array< const T, 1, 1 > const& controlPointsZ,
+                            ndarray::Array< const float, 1, 1 > const& controlPointsWeight,
                             ndarray::Array< double, 1, 1 > const& mtxV, 
                             float const xPositionFit, 
                             float const yPositionFit);
-    
+  */  
     template< typename T >
     ndarray::Array< T, 2, 1 > interpolateThinPlateSpline( ndarray::Array< const float, 1, 1 > const& xArr,
                                                           ndarray::Array< const float, 1, 1 > const& yArr,
@@ -129,6 +136,8 @@ namespace pfs { namespace drp { namespace stella {
                                                               bool const isXYPositionsGridPoints,/// fit positions
                                                               double const regularization = 0. );
     
+    /// if isXYPositionsGridPoints: returned array will have shape(yPositionsFit.getShape()[0], xPositionsFit.getShape()[0])
+    ///                                                else: shape(xPositionsFit.getShape()[0], 1)
     template< typename T >
     ndarray::Array< T, 2, 1 > interpolateThinPlateSplineEigen( ndarray::Array< const float, 1, 1 > const& xArr,
                                                                ndarray::Array< const float, 1, 1 > const& yArr,
@@ -138,15 +147,17 @@ namespace pfs { namespace drp { namespace stella {
                                                                bool const isXYPositionsGridPoints,/// fit positions
                                                                double const regularization );
     
+    /// if isXYPositionsGridPoints: returned array will have shape(yPositionsFit.getShape()[0], xPositionsFit.getShape()[0])
+    ///                                                else: shape(xPositionsFit.getShape()[0], 1)
+    /// at return zArr is replaced with fitted values
     template< typename T >
     ndarray::Array< T, 2, 1 > interpolateThinPlateSplineEigen( ndarray::Array< const float, 1, 1 > const& xArr,
                                                                ndarray::Array< const float, 1, 1 > const& yArr,
-                                                               ndarray::Array< const T, 1, 1 > const& zArr,
+                                                               ndarray::Array< T, 1, 1 > & zArr,
                                                                ndarray::Array< const float, 1, 1 > const& weightArr,
                                                                ndarray::Array< const float, 1, 1 > const& xPositionsFit,
                                                                ndarray::Array< const float, 1, 1 > const& yPositionsFit,
-                                                               bool const isXYPositionsGridPoints,/// fit positions
-                                                               double const regularization );
+                                                               bool const isXYPositionsFitGridPoints);
     
   }
 }}}
