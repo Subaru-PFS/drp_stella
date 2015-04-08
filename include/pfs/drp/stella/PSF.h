@@ -129,13 +129,18 @@ namespace pfs { namespace drp { namespace stella {
       std::vector<float> getImagePSF_XRelativeToCenter() {return _imagePSF_XRelativeToCenter;}
       std::vector<float> getImagePSF_YRelativeToCenter() {return _imagePSF_YRelativeToCenter;}
       std::vector<float> getImagePSF_ZNormalized() {return _imagePSF_ZNormalized;}
+      std::vector<float> getImagePSF_ZFit() {return _imagePSF_ZFit;}
       const std::vector<float> getImagePSF_XRelativeToCenter() const {return _imagePSF_XRelativeToCenter;}
       const std::vector<float> getImagePSF_YRelativeToCenter() const {return _imagePSF_YRelativeToCenter;}
       const std::vector<float> getImagePSF_ZNormalized() const {return _imagePSF_ZNormalized;}
+      const std::vector<float> getImagePSF_ZFit() const {return _imagePSF_ZFit;}
       std::vector<float> getImagePSF_Weight() {return _imagePSF_Weight;}
       std::vector<float> getPixelsFit() {return _pixelsFit;}
       const std::vector<float> getImagePSF_Weight() const {return _imagePSF_Weight;}
       const std::vector<float> getPixelsFit() const {return _pixelsFit;}
+      
+      bool setImagePSF_ZFit(ndarray::Array<ImageT, 1, 1> const& zFit);
+
       bool isTwoDPSFControlSet() const {return _isTwoDPSFControlSet;}
       bool isPSFsExtracted() const {return _isPSFsExtracted;}
       SurfaceFit getSurfaceFit() const {return _surfaceFit;}
@@ -179,6 +184,7 @@ namespace pfs { namespace drp { namespace stella {
       std::vector<float> _imagePSF_XRelativeToCenter;
       std::vector<float> _imagePSF_YRelativeToCenter;
       std::vector<float> _imagePSF_ZNormalized;
+      std::vector<float> _imagePSF_ZFit;
       std::vector<float> _imagePSF_Weight;
       std::vector<float> _pixelsFit;
       bool _isTwoDPSFControlSet;
@@ -274,12 +280,11 @@ namespace math{
                                                                 double const regularization = 0. );
   
   template< typename ImageT, typename MaskT = afwImage::MaskPixel, typename VarianceT = afwImage::VariancePixel, typename WavelengthT = afwImage::VariancePixel >
-  ndarray::Array< ImageT, 2, 1 > interpolatePSFThinPlateSpline( PSF< ImageT, MaskT, VarianceT, WavelengthT > const& psf,
+  ndarray::Array< ImageT, 2, 1 > interpolatePSFThinPlateSpline( PSF< ImageT, MaskT, VarianceT, WavelengthT > & psf,
                                                                 ndarray::Array< float, 1, 1 > const& weights,
                                                                 ndarray::Array< float, 1, 1 > const& xPositions,
                                                                 ndarray::Array< float, 1, 1 > const& yPositions,
-                                                                bool const isXYPositionsGridPoints,
-                                                                double const regularization = 0. );
+                                                                bool const isXYPositionsGridPoints);
   
   template< typename ImageT, typename MaskT = afwImage::MaskPixel, typename VarianceT = afwImage::VariancePixel, typename WavelengthT = afwImage::VariancePixel >
   ndarray::Array< ImageT, 3, 1 > interpolatePSFSetThinPlateSpline( PSFSet< ImageT, MaskT, VarianceT, WavelengthT > const& psfSet,
@@ -289,12 +294,11 @@ namespace math{
                                                                    double const regularization = 0. );
   
   template< typename ImageT, typename MaskT = afwImage::MaskPixel, typename VarianceT = afwImage::VariancePixel, typename WavelengthT = afwImage::VariancePixel >
-  ndarray::Array< ImageT, 3, 1 > interpolatePSFSetThinPlateSpline( PSFSet< ImageT, MaskT, VarianceT, WavelengthT > const& psfSet,
+  ndarray::Array< ImageT, 3, 1 > interpolatePSFSetThinPlateSpline( PSFSet< ImageT, MaskT, VarianceT, WavelengthT > & psfSet,
                                                                    ndarray::Array< float, 2, 1 > const& weightArr,
                                                                    ndarray::Array< float, 1, 1 > const& xPositions,
                                                                    ndarray::Array< float, 1, 1 > const& yPositions,
-                                                                   bool const isXYPositionsGridPoints,
-                                                                   double const regularization = 0. );
+                                                                   bool const isXYPositionsGridPoints);
   
   /*
    * @brief collapse one fitted PSF in one direction

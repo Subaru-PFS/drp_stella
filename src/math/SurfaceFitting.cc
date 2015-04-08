@@ -660,22 +660,19 @@ namespace pfs{ namespace drp{ namespace stella{
       // K is symmetrical so we really have to
       // calculate only about half of the coefficients.
       double a = 0.0;
-      ndarray::Array< double, 1, 1 > pt_i = ndarray::allocate(3);
-      ndarray::Array< double, 1, 1 > pt_j = ndarray::allocate(3);
-      ndarray::Array< double, 1, 1 > pt_diff = ndarray::allocate(3);
+      ndarray::Array< double, 1, 1 > pt_i = ndarray::allocate(2);
+      ndarray::Array< double, 1, 1 > pt_j = ndarray::allocate(2);
+      ndarray::Array< double, 1, 1 > pt_diff = ndarray::allocate(2);
       double elen;
       #ifdef __DEBUG_CALC_TPS__
         std::cout << "memory for pt_i, pt_j, pt_diff allocated" << std::endl;
       #endif
-      for ( unsigned i=0; i<p; ++i )
-      {
-        for ( unsigned j=i+1; j<p; ++j )
-        {
+      for ( unsigned i=0; i<p; ++i ){
+        for ( unsigned j=i+1; j<p; ++j ){
           pt_i[0] = xArr[i];
-          pt_i[2] = yArr[i];
+          pt_i[1] = yArr[i];
           pt_j[0] = xArr[j];
-          pt_j[2] = yArr[j];
-          pt_i[1] = pt_j[1] = 0;
+          pt_j[1] = yArr[j];
           #ifdef __DEBUG_CALC_TPS__
             std::cout << "i = " << i << ", j = " << j << ": pt_i set to " << pt_i << ", pt_j = " << pt_j << std::endl;
           #endif
@@ -703,26 +700,24 @@ namespace pfs{ namespace drp{ namespace stella{
       #endif
 
       // Fill the rest of L
-      for ( unsigned i=0; i<p; ++i )
+      for ( unsigned i = 0; i < p; ++i )
       {
         // diagonal: reqularization parameters (lambda * a^2)
         mtx_l[i][i] = mtx_orig_k[i][i] =
           regularization * (a*a);
 
         // P (p x 3, upper right)
-        mtx_l[i][p+0] = 1.0;
-        mtx_l[i][p+1] = xArr[i];
-        mtx_l[i][p+2] = yArr[i];
-
         // P transposed (3 x p, bottom left)
-        mtx_l[p+0][i] = 1.0;
-        mtx_l[p+1][i] = xArr[i];
-        mtx_l[p+2][i] = yArr[i];
+        mtx_l[i][p+0] = mtx_l[p+0][i] = 1.0;
+        mtx_l[i][p+1] = mtx_l[p+1][i] = xArr[i];
+        mtx_l[i][p+2] = mtx_l[p+2][i] = yArr[i];
       }
       // O (3 x 3, lower right)
-      for ( unsigned i=p; i < p+3; ++i )
-        for ( unsigned j=p; j < p+3; ++j )
+      for ( unsigned i=p; i < p+3; ++i ){
+        for ( unsigned j=p; j < p+3; ++j ){
           mtx_l[i][j] = 0.0;
+        }
+      }
       #ifdef __DEBUG_CALC_TPS__
         std::cout << "interpolateThinPlateSpline: mtx_l = " << mtx_l << std::endl;
       #endif
@@ -752,11 +747,13 @@ namespace pfs{ namespace drp{ namespace stella{
       ndarray::Array<T, 2, 1> arr_Out;// = ndarray::allocate(yPositionsFit.getShape()[0], xPositionsFit.getShape()[0]);
       if (isXYPositionsGridPoints){
         arr_Out = ndarray::allocate(yPositionsFit.getShape()[0], xPositionsFit.getShape()[0]);
-        for ( int xPos = 0; xPos < xPositionsFit.size(); ++xPos )
-        {
-          for ( int yPos = 0; yPos < yPositionsFit.size(); ++yPos )
-          {
-            arr_Out[yPos][xPos] = T(fitPointTPSEigen(xArr, yArr, zArr, xSol, xPositionsFit[xPos], yPositionsFit[yPos]));
+        for ( int xPos = 0; xPos < xPositionsFit.size(); ++xPos ){
+          for ( int yPos = 0; yPos < yPositionsFit.size(); ++yPos ){
+            arr_Out[yPos][xPos] = T(fitPointTPSEigen(xArr, 
+                                                     yArr, 
+                                                     ndarray::Array<const double, 1, 1>(xSol), 
+                                                     xPositionsFit[xPos], 
+                                                     yPositionsFit[yPos]));
             #ifdef __DEBUG_CALC_TPS__
               std::cout << "interpolateThinPlateSpline: x = " << xPositionsFit[xPos] << ", y = " << yPositionsFit[yPos] << ": arr_Out[" << yPos << "][" << xPos << "] = " << arr_Out[yPos][xPos] << std::endl;
             #endif
@@ -765,9 +762,12 @@ namespace pfs{ namespace drp{ namespace stella{
       }
       else{/// arr_Out will be a vector
         arr_Out = ndarray::allocate(yPositionsFit.getShape()[0], 1);
-        for ( int iPos = 0; iPos < xPositionsFit.size(); ++iPos )
-        {
-          arr_Out[iPos][0] = fitPointTPSEigen(xArr, yArr, zArr, xSol, xPositionsFit[iPos], yPositionsFit[iPos]);
+        for ( int iPos = 0; iPos < xPositionsFit.size(); ++iPos ){
+          arr_Out[iPos][0] = fitPointTPSEigen(xArr, 
+                                              yArr, 
+                                              ndarray::Array<const double, 1, 1>(xSol), 
+                                              xPositionsFit[iPos], 
+                                              yPositionsFit[iPos]);
           #ifdef __DEBUG_CALC_TPS__
             std::cout << "interpolateThinPlateSpline: x = " << xPositionsFit[iPos] << ", y = " << yPositionsFit[iPos] << ": arr_Out[" << iPos << "][0] = " << arr_Out[iPos][0] << std::endl;
           #endif
@@ -792,12 +792,11 @@ namespace pfs{ namespace drp{ namespace stella{
     template< typename T >
     ndarray::Array< T, 2, 1 > interpolateThinPlateSplineEigen( ndarray::Array< const float, 1, 1 > const& xArr,
                                                                ndarray::Array< const float, 1, 1 > const& yArr,
-                                                               ndarray::Array< const T, 1, 1 > const& zArr,
+                                                               ndarray::Array< T, 1, 1 > & zArr,
                                                                ndarray::Array< const float, 1, 1 > const& weightArr,
                                                                ndarray::Array< const float, 1, 1 > const& xPositionsFit,
                                                                ndarray::Array< const float, 1, 1 > const& yPositionsFit,
-                                                               bool const isXYPositionsGridPoints,
-                                                               double const regularization ){
+                                                               bool const isXYPositionsGridPoints){
       if (xArr.getShape()[0] != yArr.getShape()[0]){
         string message("interpolateThinPlateSpline: ERROR: xArr.size(=");
         message += to_string(xArr.getShape()[0]) + " != yArr.size(=" + to_string(yArr.getShape()[0]) + ")";
@@ -843,19 +842,17 @@ namespace pfs{ namespace drp{ namespace stella{
       ndarray::Array<double, 2, 1> fTArr = ndarray::allocate(3, p);
       double r_i;
       double phi;
+      cout << "8. * CONST_PI = " << 8. * CONST_PI << endl;
       for (int i = 0; i < p; ++i){
         for (int j = 0; j < i; ++j){
           r_i = sqrt(pow(xArr[j] - xArr[i], 2) + pow(yArr[j] - yArr[i], 2));
-          phi = pow(r_i, 2) * log10(r_i);
+          phi = tps::tps_base_func(r_i);
           cArr[i][j] = cArr[j][i] = phi;
         }
-        cArr[i][i] = 8 * CONST_PI / weightArr[i];
-        fArr[i][0] = 1;
-        fArr[i][1] = xArr[i];
-        fArr[i][2] = yArr[i];
-        fTArr[0][i] = 1;
-        fTArr[1][i] = xArr[i];
-        fTArr[2][i] = yArr[i];
+        cArr[i][i] = 8. * CONST_PI / weightArr[i];
+        fArr[i][0] = fTArr[0][i] = 1;
+        fArr[i][1] = fTArr[1][i] = xArr[i];
+        fArr[i][2] = fTArr[2][i] = yArr[i];
       }
       #ifdef __DEBUG_CALC_TPS__
         cout << "interpolateThinPlateSpline: cArr = " << cArr << endl;
@@ -905,11 +902,13 @@ namespace pfs{ namespace drp{ namespace stella{
       ndarray::Array<T, 2, 1> arr_Out;// = ndarray::allocate(yPositionsFit.getShape()[0], xPositionsFit.getShape()[0]);
       if (isXYPositionsGridPoints){
         arr_Out = ndarray::allocate(yPositionsFit.getShape()[0], xPositionsFit.getShape()[0]);
-        for ( int xPos = 0; xPos < xPositionsFit.size(); ++xPos )
-        {
-          for ( int yPos = 0; yPos < yPositionsFit.size(); ++yPos )
-          {
-            arr_Out[yPos][xPos] = T(fitPointTPSEigen(xArr, yArr, zArr, xSol, xPositionsFit[xPos], yPositionsFit[yPos]));
+        for ( int xPos = 0; xPos < xPositionsFit.size(); ++xPos ){
+          for ( int yPos = 0; yPos < yPositionsFit.size(); ++yPos ){
+            arr_Out[yPos][xPos] = T(fitPointTPSEigen(xArr, 
+                                                     yArr, 
+                                                     ndarray::Array<const double, 1, 1>(xSol), 
+                                                     xPositionsFit[xPos], 
+                                                     yPositionsFit[yPos]));
             #ifdef __DEBUG_CALC_TPS__
               std::cout << "interpolateThinPlateSpline: x = " << xPositionsFit[xPos] << ", y = " << yPositionsFit[yPos] << ": arr_Out[" << yPos << "][" << xPos << "] = " << arr_Out[yPos][xPos] << std::endl;
             #endif
@@ -918,14 +917,27 @@ namespace pfs{ namespace drp{ namespace stella{
       }
       else{/// arr_Out will be a vector
         arr_Out = ndarray::allocate(yPositionsFit.getShape()[0], 1);
-        for ( int iPos = 0; iPos < xPositionsFit.size(); ++iPos )
-        {
-          arr_Out[iPos][0] = fitPointTPSEigen(xArr, yArr, zArr, xSol, xPositionsFit[iPos], yPositionsFit[iPos]);
+        for ( int iPos = 0; iPos < xPositionsFit.size(); ++iPos ){
+          arr_Out[iPos][0] = T(fitPointTPSEigen(xArr, 
+                                                yArr, 
+                                                ndarray::Array<const double, 1, 1>(xSol), 
+                                                xPositionsFit[iPos], 
+                                                yPositionsFit[iPos]));
           #ifdef __DEBUG_CALC_TPS__
             std::cout << "interpolateThinPlateSpline: x = " << xPositionsFit[iPos] << ", y = " << yPositionsFit[iPos] << ": arr_Out[" << iPos << "][0] = " << arr_Out[iPos][0] << std::endl;
           #endif
         }
       }
+      
+      /// replace zArr with Fit
+      ndarray::Array<T, 1, 1> zFit = ndarray::allocate(zArr.getShape()[0]);
+      for (size_t i = 0; i < xArr.getShape()[0]; ++i){
+        zFit[i] = 0.;
+        for (int j = 0; j < mtx_l.getShape()[1]; ++j){
+          zFit[i] += mtx_l[i][j] * xSol[j];
+        }
+      }
+      zArr.deep() = zFit;
 
       // Calc bending energy
     /*  matrix<double> w( p, 1 );
@@ -958,7 +970,10 @@ namespace pfs{ namespace drp{ namespace stella{
     }
     
     template < typename T >
-    double fitPointTPS(std::vector< Vec > const& controlPoints, matrix<double> const& mtxV, T const xPositionFit, T const yPositionFit){
+    double fitPointTPS(std::vector< Vec > const& controlPoints, 
+                       matrix<double> const& mtxV, 
+                       T const xPositionFit, 
+                       T const yPositionFit){
       unsigned p = controlPoints.size();
       double h = mtxV(p+0, 0) + mtxV(p+1, 0) * xPositionFit + mtxV(p+2, 0) * yPositionFit;
       Vec pt_i, pt_cur(xPositionFit, 0, yPositionFit);
@@ -971,9 +986,35 @@ namespace pfs{ namespace drp{ namespace stella{
     }
     
     template < typename T >
+    T fitPointTPSEigen(ndarray::Array< const float, 1, 1 > const& controlPointsX,
+                       ndarray::Array< const float, 1, 1 > const& controlPointsY,
+                       ndarray::Array< const T, 1, 1 > const& mtxV, 
+                       float const xPositionFit, 
+                       float const yPositionFit){
+      unsigned p = controlPointsX.getShape()[0];
+      T h = mtxV[p] + (mtxV[p+1] * xPositionFit) + (mtxV[p+2] * yPositionFit);
+      ndarray::Array<T, 1, 1> pt_i = ndarray::allocate(2);
+      ndarray::Array<T, 1, 1> pt_cur = ndarray::allocate(2);
+      pt_cur[0] = xPositionFit;
+      pt_cur[1] = yPositionFit;
+      ndarray::Array<T, 1, 1> pt_diff = ndarray::allocate(2);
+      T len;
+      for ( unsigned i = 0; i < p; ++i ){
+        pt_i[0] = controlPointsX[i];
+        pt_i[1] = controlPointsY[i];
+        pt_diff.deep() = pt_i - pt_cur;
+        pt_diff.deep() = pt_diff * pt_diff;
+        len = sqrt(pt_diff.asEigen().sum());
+        h += mtxV[i] * tps::tps_base_func( len );
+      }
+      return h;
+    }
+    
+/*    template < typename T >
     double fitPointTPSEigen(ndarray::Array< const float, 1, 1 > const& controlPointsX,
                             ndarray::Array< const float, 1, 1 > const& controlPointsY,
                             ndarray::Array< const T, 1, 1 > const& controlPointsZ,
+                            ndarray::Array< const float, 1, 1 > const& controlPointsWeight,
                             ndarray::Array< double, 1, 1 > const& mtxV, 
                             float const xPositionFit, 
                             float const yPositionFit){
@@ -996,21 +1037,19 @@ namespace pfs{ namespace drp{ namespace stella{
         h += mtxV[i] * tps::tps_base_func( len );
       }
       return h;
-    }
+    }*/
     
     template double fitPointTPS(std::vector< Vec > const&, matrix<double> const&, float const, float const);
     template double fitPointTPS(std::vector< Vec > const&, matrix<double> const&, double const, double const);
 
+    template float fitPointTPSEigen(ndarray::Array< const float, 1, 1 > const&,
+                                    ndarray::Array< const float, 1, 1 > const&,
+                                    ndarray::Array< const float, 1, 1 > const&, 
+                                    float const, 
+                                    float const);
     template double fitPointTPSEigen(ndarray::Array< const float, 1, 1 > const&,
                                      ndarray::Array< const float, 1, 1 > const&,
-                                     ndarray::Array< const float, 1, 1 > const&,
-                                     ndarray::Array< double, 1, 1 > const&, 
-                                     float const, 
-                                     float const);
-    template double fitPointTPSEigen(ndarray::Array< const float, 1, 1 > const&,
-                                     ndarray::Array< const float, 1, 1 > const&,
-                                     ndarray::Array< const double, 1, 1 > const&,
-                                     ndarray::Array< double, 1, 1 > const&, 
+                                     ndarray::Array< const double, 1, 1 > const&, 
                                      float const, 
                                      float const);
     
@@ -1046,20 +1085,18 @@ namespace pfs{ namespace drp{ namespace stella{
     
     template ndarray::Array< float, 2, 1 > interpolateThinPlateSplineEigen( ndarray::Array< const float, 1, 1 > const&,
                                                                             ndarray::Array< const float, 1, 1 > const&,
+                                                                            ndarray::Array< float, 1, 1 > &,
                                                                             ndarray::Array< const float, 1, 1 > const&,
                                                                             ndarray::Array< const float, 1, 1 > const&,
                                                                             ndarray::Array< const float, 1, 1 > const&,
-                                                                            ndarray::Array< const float, 1, 1 > const&,
-                                                                            bool const,
-                                                                            double const );
+                                                                            bool const);
     template ndarray::Array< double, 2, 1 > interpolateThinPlateSplineEigen( ndarray::Array< const float, 1, 1 > const&,
                                                                              ndarray::Array< const float, 1, 1 > const&,
-                                                                             ndarray::Array< const double, 1, 1 > const&,
+                                                                             ndarray::Array< double, 1, 1 > &,
                                                                              ndarray::Array< const float, 1, 1 > const&,
                                                                              ndarray::Array< const float, 1, 1 > const&,
                                                                              ndarray::Array< const float, 1, 1 > const&,
-                                                                             bool const,
-                                                                             double const );
+                                                                             bool const);
   }
 }}}
       
