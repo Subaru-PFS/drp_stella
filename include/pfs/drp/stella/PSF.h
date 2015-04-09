@@ -267,27 +267,39 @@ namespace math{
                                                                                               TwoDPSFControl const& twoDPSFControl );
   
   /*
-   * @brief: fit PSF and interpolate to new grid using thin-plate splines. The output PSF will have n x m data points
+   * @brief: fit PSF and interpolate to new coordinates using (regularized) thin-plate splines, reconstruct psf._imagePSF_ZNormalized and write to psf._imagePSF_ZFit
    * 
-   * @param xPositions: x positions of new grid relative to center of PSF [x_0, x_1, ... , x_n-2, x_n-1]
-   * @param xPositions: y positions of new grid relative to center of PSF [y_0, y_1, ... , y_m-2, y_m-1]
+   * @param psf : PSF to interpolate
+   * @param xPositions : x positions of new coordinates relative to center of PSF [x_0, x_1, ... , x_n-2, x_n-1]
+   * @param yPositions : y positions of new coordinates relative to center of PSF [y_0, y_1, ... , y_m-2, y_m-1]
+   * @param isXYPositionsGridPoints : if yes then output array will have shape [m, n], otherwise m == n and shape of output array will be [n, 1]
+   * @param regularization : regularization ( >= 0.) for fit. If equal to 0. the fit will be forced through the original data points
    */
   template< typename ImageT, typename MaskT = afwImage::MaskPixel, typename VarianceT = afwImage::VariancePixel, typename WavelengthT = afwImage::VariancePixel >
-  ndarray::Array< ImageT, 2, 1 > interpolatePSFThinPlateSpline( PSF< ImageT, MaskT, VarianceT, WavelengthT > const& psf,
+  ndarray::Array< ImageT, 2, 1 > interpolatePSFThinPlateSpline( PSF< ImageT, MaskT, VarianceT, WavelengthT > & psf,
                                                                 ndarray::Array< float, 1, 1 > const& xPositions,
                                                                 ndarray::Array< float, 1, 1 > const& yPositions,
                                                                 bool const isXYPositionsGridPoints,
                                                                 double const regularization = 0. );
   
+  /*
+   * @brief: fit PSF and interpolate to new coordinates using weighted thin-plate splines, reconstruct psf._imagePSF_ZNormalized and write to psf._imagePSF_ZFit
+   * 
+   * @param psf : PSF to interpolate
+   * @param weights : weights ( >= 0.) per input data point for fit. If equal to 0. the fit will be forced through the original data points
+   * @param xPositions : x positions of new coordinates relative to center of PSF [x_0, x_1, ... , x_n-2, x_n-1]
+   * @param yPositions : y positions of new coordinates relative to center of PSF [y_0, y_1, ... , y_m-2, y_m-1]
+   * @param isXYPositionsGridPoints : if yes then output array will have shape [m, n], otherwise m == n and shape of output array will be [n, 1]
+   */
   template< typename ImageT, typename MaskT = afwImage::MaskPixel, typename VarianceT = afwImage::VariancePixel, typename WavelengthT = afwImage::VariancePixel >
   ndarray::Array< ImageT, 2, 1 > interpolatePSFThinPlateSpline( PSF< ImageT, MaskT, VarianceT, WavelengthT > & psf,
-                                                                ndarray::Array< float, 1, 1 > const& weights,
+                                                                ndarray::Array< ImageT, 1, 1 > const& weights,
                                                                 ndarray::Array< float, 1, 1 > const& xPositions,
                                                                 ndarray::Array< float, 1, 1 > const& yPositions,
                                                                 bool const isXYPositionsGridPoints);
   
   template< typename ImageT, typename MaskT = afwImage::MaskPixel, typename VarianceT = afwImage::VariancePixel, typename WavelengthT = afwImage::VariancePixel >
-  ndarray::Array< ImageT, 3, 1 > interpolatePSFSetThinPlateSpline( PSFSet< ImageT, MaskT, VarianceT, WavelengthT > const& psfSet,
+  ndarray::Array< ImageT, 3, 1 > interpolatePSFSetThinPlateSpline( PSFSet< ImageT, MaskT, VarianceT, WavelengthT > & psfSet,
                                                                    ndarray::Array< float, 1, 1 > const& xPositions,
                                                                    ndarray::Array< float, 1, 1 > const& yPositions,
                                                                    bool const isXYPositionsGridPoints,
@@ -295,7 +307,7 @@ namespace math{
   
   template< typename ImageT, typename MaskT = afwImage::MaskPixel, typename VarianceT = afwImage::VariancePixel, typename WavelengthT = afwImage::VariancePixel >
   ndarray::Array< ImageT, 3, 1 > interpolatePSFSetThinPlateSpline( PSFSet< ImageT, MaskT, VarianceT, WavelengthT > & psfSet,
-                                                                   ndarray::Array< float, 2, 1 > const& weightArr,
+                                                                   ndarray::Array< ImageT, 2, 1 > const& weightArr,/// [nPoints, nPSFs]
                                                                    ndarray::Array< float, 1, 1 > const& xPositions,
                                                                    ndarray::Array< float, 1, 1 > const& yPositions,
                                                                    bool const isXYPositionsGridPoints);
