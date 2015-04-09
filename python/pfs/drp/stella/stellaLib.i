@@ -431,11 +431,10 @@ Interface to Stella
 %template(indGenNdArrF) pfs::drp::stella::math::indGenNdArr<float>;
 %template(indGenNdArrD) pfs::drp::stella::math::indGenNdArr<double>;
 
-%template(interpolateThinPlateSplineF) pfs::drp::stella::math::interpolateThinPlateSpline<float>;
-%template(interpolateThinPlateSplineD) pfs::drp::stella::math::interpolateThinPlateSpline<double>;
-
-%template(interpolateThinPlateSplineEigenF) pfs::drp::stella::math::interpolateThinPlateSplineEigen<float>;
-%template(interpolateThinPlateSplineEigenD) pfs::drp::stella::math::interpolateThinPlateSplineEigen<double>;
+%template(ThinPlateSplineFF) pfs::drp::stella::math::ThinPlateSpline<float, float>;
+%template(ThinPlateSplineFD) pfs::drp::stella::math::ThinPlateSpline<float, double>;
+%template(ThinPlateSplineDF) pfs::drp::stella::math::ThinPlateSpline<double, float>;
+%template(ThinPlateSplineDD) pfs::drp::stella::math::ThinPlateSpline<double, double>;
 
 %template(interpolatePSFThinPlateSplineF) pfs::drp::stella::math::interpolatePSFThinPlateSpline<float, unsigned short, float, float>;
 %template(interpolatePSFThinPlateSplineD) pfs::drp::stella::math::interpolatePSFThinPlateSpline<double, unsigned short, float, float>;

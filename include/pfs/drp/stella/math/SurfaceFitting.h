@@ -23,146 +23,90 @@
 
 namespace afwGeom = lsst::afw::geom;
 namespace afwImage = lsst::afw::image;
+namespace pfsDRPStella = pfs::drp::stella;
 using namespace std;
 
 namespace pfs { namespace drp { namespace stella {
   namespace math{
-    namespace tps{
-      /*
-       * Thin Plate Spline, or TPS for short, is an interpolation method that finds a "minimally bended" smooth surface that passes through all given 
-       * points. TPS of 3 control points is a plane, more than 3 is generally a curved surface and less than 3 is undefined.
-       * 
-       * The name "Thin Plate" comes from the fact that a TPS more or less simulates how a thin metal plate would behave if it was forced through the 
-       * same control points.
-       * 
-       * Thin plate splines are particularily popular in representing shape transformations, for example, image morphing or shape detection. Consider 
-       * two equally sized sets of 2D-points, A being the vertices of the original shape and B of the target shape. Let zi=Bix - Aix. Then fit a TPS 
-       * over points (aix, aiy, zi) to get interpolation function for translation of points in x direction. Repeat the same for y.
-       * 
-       * In some cases, e.g. when the control point coordinates are noisy, you may want to relax the interpolation requirements slightly so that the 
-       * resulting surface doesn't have to go exactly exactly through the control points. This is called regularization and is controlled by 
-       * regularization parameter λ. If λ is zero, interpolation is exact and if it's very large, the resulting TPS surface is reduced to a least 
-       * squares fitted plane ("bending energy" of a plane is 0). In our example, the regularization parameter is also made scale invariant with an 
-       * extra parameter α.
-      */
+    template < typename CoordsT, typename ValueT >
+    class ThinPlateSpline{
+        public: 
+            
+            /**
+             * @brief Create (regularized) ThinPlateSpline object and calculate coefficients of fit
+             * @param controlPointsX : x positions of input data to fit
+             * @param controlPointsY : y positions of input data to fit
+             * @param controlPointsZ : z values of input data to fit
+             * @param regularization : >= 0. If 0 the fit is forced through the input data
+             * @return ThinPlateSpline object
+             */
+            explicit ThinPlateSpline( ndarray::Array< const CoordsT, 1, 1 > const& controlPointsX,
+                                      ndarray::Array< const CoordsT, 1, 1 > const& controlPointsY,
+                                      ndarray::Array< const ValueT, 1, 1 > const& controlPointsZ,
+                                      double const regularization = 0.);
+            
+            /**
+             * @brief Create weighted ThinPlateSpline object and calculate coefficients of fit
+             * @param controlPointsX : x positions of input data to fit
+             * @param controlPointsY : y positions of input data to fit
+             * @param controlPointsZ : z values of input data to fit
+             * @param controlPointsWeights : >= 0. If 0 the fit is forced through the input data
+             * @return ThinPlateSpline object
+             */
+            explicit ThinPlateSpline( ndarray::Array< const CoordsT, 1, 1 > const& controlPointsX,
+                                      ndarray::Array< const CoordsT, 1, 1 > const& controlPointsY,
+                                      ndarray::Array< const ValueT, 1, 1 > const& controlPointsZ,
+                                      ndarray::Array< const ValueT, 1, 1 > const& controlPointsWeights);
+            
+            virtual ~ThinPlateSpline(){}
+            
+            /** @brief Calculate coefficients for regularized fit without weights
+             * 
+             */
+            bool calculateCoefficients();
+            
+            /** @brief Fit one point at [xPositionFit, yPositionFit] and return result
+             *  @param xPositionFit : x position of data point to be fit
+             *  @param yPositionFit : y position of data point to be fit
+             */
+            ValueT fitPoint(CoordsT const xPositionFit, 
+                            CoordsT const yPositionFit);
 
-      /* Solve a linear equation system a*x=b using inplace LU decomposition.
-       * 
-       * Stores x in 'b' and overwrites 'a' (with a pivotted LUD).
-       *
-       * Matrix 'b' may have any (>0) number of columns but
-       * must contain as many rows as 'a'.
-       *
-       * Possible return values:
-       *  0=success
-       *  1=singular matrix
-       *  2=a.rows != b.rows
-       */
-      template <typename T> 
-      int LU_Solve( boost::numeric::ublas::matrix<T> & a,
-                    boost::numeric::ublas::matrix<T> & b );
-      
-      /*
-       *  Solves a linear system A x X = B using Gauss elimination,
-       *  given by Boost uBlas matrices 'a' and 'b'.
-       *
-       *  If the elimination succeeds, the function returns true,
-       *  A is inverted and B contains values for X.
-       *
-       *  In case A is singular (linear system is unsolvable), the
-       *  function returns false and leaves A and B in scrambled state.
-       *
-       *  TODO: make further use of uBlas views instead of direct
-       *  element access (for better optimizations)
-       */
-      template <class T> 
-      bool gauss_solve(boost::numeric::ublas::matrix<T> & a,
-                       boost::numeric::ublas::matrix<T> & b );
-      
-      template < typename T >
-      T tps_base_func(T r);
-      
-      /*
-       *  Calculate Thin Plate Spline (TPS) weights from
-       *  control points and build a new height grid by
-       *  interpolating with them.
-       *
-      template< typename T >
-      ndarray::Array<T, 2, 1> calc_tps(std::vector<T> const& xVec_In,
-                                              std::vector<T> const& yVec_In,
-                                              std::vector<T> const& zVec_In,
-                                              int nRows,
-                                              int nCols,
-                                              double regularization = 0.0);
-      */
-      
-    }
-    
-    template < typename T >
-    double fitPointTPS(std::vector< Vec > const& controlPoints, 
-                       boost::numeric::ublas::matrix<double> const& mtxV, 
-                       T const xPositionFit, 
-                       T const yPositionFit);
-    
-    template < typename T >
-    T fitPointTPSEigen(ndarray::Array< const float, 1, 1 > const& controlPointsX,
-                       ndarray::Array< const float, 1, 1 > const& controlPointsY,
-                       ndarray::Array< const T, 1, 1 > const& mtxV, 
-                       float const xPositionFit, 
-                       float const yPositionFit);
-    
-/*    template < typename T >
-    double fitPointTPSEigen(ndarray::Array< const float, 1, 1 > const& controlPointsX,
-                            ndarray::Array< const float, 1, 1 > const& controlPointsY,
-                            ndarray::Array< const float, 1, 1 > const& controlPointsWeight,
-                            ndarray::Array< double, 1, 1 > const& mtxV, 
-                            float const xPositionFit, 
-                            float const yPositionFit);
-  */  
-    template< typename T >
-    ndarray::Array< T, 2, 1 > interpolateThinPlateSpline( ndarray::Array< const float, 1, 1 > const& xArr,
-                                                          ndarray::Array< const float, 1, 1 > const& yArr,
-                                                          ndarray::Array< const T, 1, 1 > const& zArr,
-                                                          ndarray::Array< const float, 1, 1 > const& xPositionsFit,
-                                                          ndarray::Array< const float, 1, 1 > const& yPositionsFit,
-                                                          bool const isXYPositionsGridPoints,/// fit positions
-                                                          double const regularization = 0. );
-    
-    ndarray::Array< float, 2, 1 > interpolateThinPlateSpline( std::vector< float > const& xVec,
-                                                              std::vector< float > const& yVec,
-                                                              std::vector< float > const& zVec,
-                                                              std::vector< float > const& xPositionsFitVec,
-                                                              std::vector< float > const& yPositionsFitVec,
-                                                              bool const isXYPositionsGridPoints,/// fit positions
-                                                              double const regularization = 0. );
-    
-    /// if isXYPositionsGridPoints: returned array will have shape(yPositionsFit.getShape()[0], xPositionsFit.getShape()[0])
-    ///                                                else: shape(xPositionsFit.getShape()[0], 1)
-    template< typename T >
-    ndarray::Array< T, 2, 1 > interpolateThinPlateSplineEigen( ndarray::Array< const float, 1, 1 > const& xArr,
-                                                               ndarray::Array< const float, 1, 1 > const& yArr,
-                                                               ndarray::Array< const T, 1, 1 > const& zArr,
-                                                               ndarray::Array< const float, 1, 1 > const& xPositionsFit,
-                                                               ndarray::Array< const float, 1, 1 > const& yPositionsFit,
-                                                               bool const isXYPositionsGridPoints,/// fit positions
-                                                               double const regularization );
-    
-    /// if isXYPositionsGridPoints: returned array will have shape(yPositionsFit.getShape()[0], xPositionsFit.getShape()[0])
-    ///                                                else: shape(xPositionsFit.getShape()[0], 1)
-    /// at return zArr is replaced with fitted values
-    template< typename T >
-    ndarray::Array< T, 2, 1 > interpolateThinPlateSplineEigen( ndarray::Array< const float, 1, 1 > const& xArr,
-                                                               ndarray::Array< const float, 1, 1 > const& yArr,
-                                                               ndarray::Array< T, 1, 1 > & zArr,
-                                                               ndarray::Array< const float, 1, 1 > const& weightArr,
-                                                               ndarray::Array< const float, 1, 1 > const& xPositionsFit,
-                                                               ndarray::Array< const float, 1, 1 > const& yPositionsFit,
-                                                               bool const isXYPositionsFitGridPoints);
+            /* @brief Fit array for given [x, y] positions or grid
+             *  @param xPositionFit : x position of data point to be fit
+             *  @param yPositionFit : y position of data point to be fit
+             *  @param isXYPositionsGridPoints :  if isXYPositionsGridPoints: returned array will have shape(yPositionsFit.getShape()[0], xPositionsFit.getShape()[0])
+             *                                                          else: shape(xPositionsFit.getShape()[0], 1)
+             */
+            ndarray::Array< ValueT, 2, 1 > fitArray( ndarray::Array< const CoordsT, 1, 1 > const& xPositionsFit,
+                                                     ndarray::Array< const CoordsT, 1, 1 > const& yPositionsFit,
+                                                     bool const isXYPositionsGridPoints); /// fit positions
+            
+        protected:
+                
+        private:
+            /** @brief fill lhs matrix for (regularized) fit
+             */
+            ndarray::Array< double, 2, 1 > fillRegularizedMatrix();
+            
+            /** @brief fill lhs matrix for weighted fit
+             */
+            ndarray::Array< double, 2, 1 > fillWeightedMatrix();
+            
+            /** @brief base function for thin-plate-spline fitting Phi = r^2 * log r
+             */
+            ValueT tps_base_func(ValueT r);
+            
+            ndarray::Array< const CoordsT, 1, 1 > _controlPointsX;
+            ndarray::Array< const CoordsT, 1, 1 > _controlPointsY;
+            ndarray::Array< const ValueT, 1, 1 > _controlPointsZ;
+            ndarray::Array< const ValueT, 1, 1 > _controlPointsWeight;
+            ndarray::Array< double, 1, 1 > _coefficients;
+            const double _regularization;
+            const bool _isWeightsSet;
+    };  
     
   }
 }}}
-
-template< typename T >
-std::ostream& operator<<(std::ostream& os, boost::numeric::ublas::matrix<T> const& obj);
 
 #endif
