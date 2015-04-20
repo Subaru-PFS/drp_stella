@@ -1379,6 +1379,31 @@ namespace pfsDRPStella = pfs::drp::stella;
     }
     return _traces->at(i); 
   }
+  
+  template<typename ImageT, typename MaskT, typename VarianceT>
+  ndarray::Array<double, 1, 1> pfsDRPStella::FiberTrace<ImageT, MaskT, VarianceT>::getTraceCoefficients() const{
+    ndarray::Array<double, 1, 1> coeffs = ndarray::allocate(_fiberTraceFunction->coefficients.size());
+    for (size_t i = 0; i < _fiberTraceFunction->coefficients.size(); ++i)
+      coeffs[i] = _fiberTraceFunction->coefficients[i];
+    return coeffs;
+  }
+  
+/*  template<typename ImageT, typename MaskT, typename VarianceT>
+  bool pfsDRPStella::FiberTrace<ImageT, MaskT, VarianceT>::setTraceCoefficients(ndarray::Array<double, 1, 1> const& coeffs){
+    if (coeffs.getShape()[0] > _fiberTraceFunction->coefficients.size()){
+      string message("FiberTrace::setTraceCoefficients: ERROR: coeffs.getShape()[0]=");
+      message += to_string(coeffs.getShape()[0]) + " > _fiberTraceFunction->coefficients.size()=" + to_string(_fiberTraceFunction->coefficients.size());
+      cout << message << endl;
+      throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
+    }
+    for (size_t i = 0; i < _fiberTraceFunction->coefficients.size(); ++i){
+      if (i < coeffs.getShape()[0])
+        _fiberTraceFunction->coefficients[i] = coeffs[i];
+      else
+        _fiberTraceFunction->coefficients[i] = 0.;
+    }
+    return true;
+  }*/
 
   template<typename ImageT, typename MaskT, typename VarianceT>
   bool pfsDRPStella::FiberTraceSet<ImageT, MaskT, VarianceT>::erase(const size_t iStart, const size_t iEnd){

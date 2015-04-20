@@ -373,9 +373,9 @@ namespace pfs{ namespace drp{ namespace stella{
           arrA[ndarray::view()(1)].deep() = yDataVec;//yDataVec;
           
           ndarray::Array< ImageT, 1, 1 > range = ndarray::allocate(2);
-          range[0] = -0.2;
-          range[1] = 0.2;
-          const float stepSize = 1. / 100.; 
+          range[0] = _twoDPSFControl->xCorRangeLowLimit;
+          range[1] = _twoDPSFControl->xCorRangeHighLimit;
+          const float stepSize = _twoDPSFControl->xCorStepSize; 
           
           double maxA = yDataVec.asEigen().maxCoeff();
           ndarray::Array< ImageT, 1, 1 > yValCollapsedPSF = ndarray::allocate(collapsedPSF.getShape()[0]);
@@ -518,44 +518,44 @@ namespace pfs{ namespace drp{ namespace stella{
                     _imagePSF_ZTrace.push_back(float(trace_In[rowTrace][colTrace]));
                     _imagePSF_Weight.push_back(fabs(trace_In[rowTrace][colTrace]) > 0.000001 ? float(1. / sqrt(fabs(trace_In[rowTrace][colTrace]))) : 0.1);//trace_In(i_Down+iY, i_Left+iX) > 0 ? sqrt(trace_In(i_Down+iY, i_Left+iX)) : 0.0000000001);//stddev_In(i_Down+iY, i_Left+iX) > 0. ? 1./pow(stddev_In(i_Down+iY, i_Left+iX),2) : 1.);
                     _imagePSF_XTrace.push_back(float(colTrace));
-                    _imagePSF_YTrace.push_back(float(rowTrace));
+                    _imagePSF_YTrace.push_back(float(rowTrace + _yMin));
                     #ifdef __DEBUG_CALC2DPSF__
                       cout << "PSF trace" << _iTrace << " bin" << _iBin << "::extractPSFs: emissionLineNumber-1=" << emissionLineNumber-1 << ": x = " << _imagePSF_XRelativeToCenter[nPix] << ", y = " << _imagePSF_YRelativeToCenter[nPix] << ": val = " << trace_In[i_Down + iY][i_Left + iX] << " = " << _imagePSF_ZNormalized[nPix] << "; XOrig = " << _imagePSF_XTrace[nPix] << ", YOrig = " << _imagePSF_YTrace[nPix] << endl;
                     #endif
                     ++nPix;
                     ++nPixPSF;
-                    sumPSF += trace_In[i_Down+iY][i_Left+iX];
+                    sumPSF += trace_In[rowTrace][colTrace];
                     #ifdef __DEBUG_CALC2DPSF__
                       cout << "PSF trace" << _iTrace << " bin" << _iBin << "::extractPSFs: emissionLineNumber-1 = " << emissionLineNumber-1 << ": nPixPSF = " << nPixPSF << ", sumPSF = " << sumPSF << endl;
                     #endif
 //                    string message("debug exit");
 //                    throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
-                  }
-                }
+                  }/// end for (int iX = 0; iX <= i_Right - i_Left; ++iX){
+                }/// end for (int iY = 0; iY <= i_Up - i_Down; ++iY){
                 int pixelNo = _imagePSF_ZNormalized.size() - nPixPSF;
                 #ifdef __DEBUG_CALC2DPSF__
                   cout << "PSF trace" << _iTrace << " bin" << _iBin << "::extractPSFs: emissionLineNumber-1 = " << emissionLineNumber-1 << ": *_imagePSF_ZNormalized.begin()=" << *(_imagePSF_ZNormalized.begin()) << " *(_imagePSF_ZNormalized.end()-1)=" << *(_imagePSF_ZNormalized.end()-1) << endl;
                   cout << "PSF trace" << _iTrace << " bin" << _iBin << "::extractPSFs: emissionLineNumber-1 = " << emissionLineNumber-1 << ": _imagePSF_ZNormalized[nPix=" << nPix << " - nPixPSF=" << nPixPSF << " = " << nPix - nPixPSF << " = " << _imagePSF_ZNormalized[nPix-nPixPSF] << endl;
                   cout << "PSF trace" << _iTrace << " bin" << _iBin << "::extractPSFs: emissionLineNumber-1 = " << emissionLineNumber-1 << ": _imagePSF_ZNormalized[nPix-1=" << nPix-1 << "] = " << _imagePSF_ZNormalized[nPix-1] << endl;
                 #endif
+                if (fabs(sumPSF) < 0.00000001){
+                  string message("PSF trace");
+                  message += to_string(_iTrace) + " bin" + to_string(_iBin) + "::extractPSFs: emissionLineNumber-1 = " + to_string(emissionLineNumber-1);
+                  message += ": ERROR: sumPSF == 0";
+                  cout << message << endl;
+                  throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
+                }
                 for (std::vector<float>::iterator iter = _imagePSF_ZNormalized.end() - nPixPSF; iter < _imagePSF_ZNormalized.end(); ++iter){
                   #ifdef __DEBUG_CALC2DPSF__
                     cout << "PSF trace" << _iTrace << " bin" << _iBin << "::extractPSFs: emissionLineNumber-1 = " << emissionLineNumber-1 << ": _imagePSF_ZNormalized[pixelNo=" << pixelNo << "] = " << _imagePSF_ZNormalized[pixelNo] << ", sumPSF = " << sumPSF << endl;
                   #endif
-                  if (fabs(sumPSF) < 0.00000001){
-                    string message("PSF trace");
-                    message += to_string(_iTrace) + " bin" + to_string(_iBin) + "::extractPSFs: emissionLineNumber-1 = " + to_string(emissionLineNumber-1);
-                    message += ": ERROR: sumPSF == 0";
-                    cout << message << endl;
-                    throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
-                  }
                   (*iter) = (*iter) / sumPSF;
                   #ifdef __DEBUG_CALC2DPSF__
                     cout << "PSF trace" << _iTrace << " bin" << _iBin << "::extractPSFs: emissionLineNumber-1 = " << emissionLineNumber-1 << ": _imagePSF_ZNormalized[pixelNo=" << pixelNo << "] = " << _imagePSF_ZNormalized[pixelNo] << endl;
                   #endif
                   ++pixelNo;
                 }
-              }
+              }/// end if (i_Up < trace_In.getShape()[0]){
               else{
               #ifdef __DEBUG_CALC2DPSF__
                 cout << "PSF trace" << _iTrace << " bin" << _iBin << "::extractPSFs: emissionLineNumber-1 = " << emissionLineNumber-1 << ": WARNING: i_Up(=" << i_Up << ") >= trace_In.getShape()[0](=" << trace_In.getShape()[0] << endl;
@@ -653,7 +653,7 @@ namespace pfs{ namespace drp{ namespace stella{
     return true;
   }
 
-  template<typename ImageT, typename MaskT, typename VarianceT, typename WavelengthT>
+  /*template<typename ImageT, typename MaskT, typename VarianceT, typename WavelengthT>
   bool PSF<ImageT, MaskT, VarianceT, WavelengthT>::fitPSFKernel()
   {
     if (!_isPSFsExtracted){
@@ -804,9 +804,9 @@ namespace pfs{ namespace drp{ namespace stella{
     double pred, var;
     std::vector<double> pixelsFit(_imagePSF_ZNormalized.size());
   */
-
+/*
     return true;
-  }
+  }*/
 
   template<typename ImageT, typename MaskT, typename VarianceT, typename WavelengthT>
   bool PSF<ImageT, MaskT, VarianceT, WavelengthT>::calculatePSF()
@@ -1214,8 +1214,9 @@ namespace pfs{ namespace drp{ namespace stella{
           throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
         }
         #endif
-        ndarray::Array<ImageT, 1, 1> weights = ndarray::allocate(weightArr.getShape()[0]);
-        weights.deep() = weightArr[ndarray::view()(i)];
+        size_t size = psfSet.getPSF(i)->getImagePSF_ZNormalized().size();
+        ndarray::Array<ImageT, 1, 1> weights = ndarray::allocate(size);
+        weights.deep() = weightArr[ndarray::view(0, size)(i)];
         ndarray::Array<ImageT, 2, 1> arr = ndarray::copy(interpolatePSFThinPlateSpline(*(psfSet.getPSF(i)), 
                                                                                        weights,
                                                                                        xPositions, 
