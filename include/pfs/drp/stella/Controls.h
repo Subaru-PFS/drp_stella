@@ -372,10 +372,14 @@ struct TwoDPSFControl {
     LSST_CONTROL_FIELD(xFWHM, float, "FWHM of an assumed Gaussian PSF perpendicular to the dispersion direction");
     LSST_CONTROL_FIELD(yFWHM, float, "FWHM of an assumed Gaussian PSF in the dispersion direction");
     LSST_CONTROL_FIELD(nTermsGaussFit, unsigned short, "3 to fit Gaussian; 4 to fit Gaussian plus constant (sky), profile must be at least 5 pixels wide; 5 to fit Gaussian plus linear term (sloped sky), profile must be at least 6 pixels wide");
+    LSST_CONTROL_FIELD(xCorRangeLowLimit, float, "Lower limit for cross-corellation to given collapsed PSF relative to estimated center position");
+    LSST_CONTROL_FIELD(xCorRangeHighLimit, float, "Upper limit for cross-corellation to given collapsed PSF relative to estimated center position");
+    LSST_CONTROL_FIELD(xCorStepSize, float, "Step size for cross-corellation to given collapsed PSF");
     LSST_CONTROL_FIELD(saturationLevel, float, "CCD saturation level");
     LSST_CONTROL_FIELD(nKnotsX, unsigned int, "Number of interpolation knots in X direction");
     LSST_CONTROL_FIELD(nKnotsY, unsigned int, "Number of interpolation knots in Y direction");
-    LSST_CONTROL_FIELD(smooth, float, "Smoothing factor for bidirectional spline interpolation");
+    LSST_CONTROL_FIELD(regularization, float, "Smoothing factor for thin-plate-spline interpolation");
+    LSST_CONTROL_FIELD(weightBase, float, "Weights of thin-plate-spline interpolation will be calculated as weightBase / pixelValue");
 
     TwoDPSFControl() :
     signalThreshold(1000.),
@@ -383,10 +387,14 @@ struct TwoDPSFControl {
     xFWHM(2.5),
     yFWHM(2.5),
     nTermsGaussFit(3),
+    xCorRangeLowLimit(-0.2),
+    xCorRangeHighLimit(0.2),
+    xCorStepSize(0.01),
     saturationLevel(65000.),
     nKnotsX(75),
     nKnotsY(75),
-    smooth(35000.){}
+    regularization(0.00005),
+    weightBase(10000.){}
 
     TwoDPSFControl(const TwoDPSFControl &twoDPSFControl) :
     signalThreshold(twoDPSFControl.signalThreshold),
@@ -394,10 +402,14 @@ struct TwoDPSFControl {
     xFWHM(twoDPSFControl.xFWHM),
     yFWHM(twoDPSFControl.yFWHM),
     nTermsGaussFit(twoDPSFControl.nTermsGaussFit),
+    xCorRangeLowLimit(twoDPSFControl.xCorRangeLowLimit),
+    xCorRangeHighLimit(twoDPSFControl.xCorRangeHighLimit),
+    xCorStepSize(twoDPSFControl.xCorStepSize),
     saturationLevel(twoDPSFControl.saturationLevel),
     nKnotsX(twoDPSFControl.nKnotsX),
     nKnotsY(twoDPSFControl.nKnotsY),
-    smooth(twoDPSFControl.smooth){}
+    regularization(twoDPSFControl.regularization),
+    weightBase(twoDPSFControl.weightBase){}
 
     ~TwoDPSFControl() {}
     

@@ -159,7 +159,7 @@ namespace pfs { namespace drp { namespace stella {
       bool extractPSFs(FiberTrace<ImageT, MaskT, VarianceT> const& fiberTrace_In,
 	               Spectrum<ImageT, MaskT, VarianceT, WavelengthT> const& spectrum_In,
                        ndarray::Array<ImageT, 2, 1> const& collapsedPSF);
-      bool fitPSFKernel();
+      //bool fitPSFKernel();
       bool calculatePSF();
       
       std::vector< ImageT > reconstructFromThinPlateSplineFit(double const regularization = 0.);

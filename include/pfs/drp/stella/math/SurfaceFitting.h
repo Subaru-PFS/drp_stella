@@ -19,7 +19,7 @@
 
 #include "LinearAlgebra3D.h"
 
-#define __DEBUG_CALC_TPS__
+//#define __DEBUG_CALC_TPS__
 
 namespace afwGeom = lsst::afw::geom;
 namespace afwImage = lsst::afw::image;
