@@ -182,6 +182,7 @@ Interface to Stella
 #%template(SPVectorD) std::vector<double>;
 %template(SPVectorUS) std::vector<unsigned short>;
 %template(SPVectorUI) std::vector<unsigned int>;
+%template(SPVectorUL) std::vector<unsigned long>;
 %template(SPVectorI) std::vector<int>;
 %template(SPVectorL) std::vector<long>;
 
@@ -455,6 +456,15 @@ Interface to Stella
 %template(collapseFittedPSFDF) pfs::drp::stella::math::collapseFittedPSF<double, float>;
 %template(collapseFittedPSFFD) pfs::drp::stella::math::collapseFittedPSF<float, double>;
 
+%template(compareCenterPositionsFF) pfs::drp::stella::math::compareCenterPositions<float, unsigned short, float, float, float>;
+%template(compareCenterPositionsDF) pfs::drp::stella::math::compareCenterPositions<double, unsigned short, float, float, float>;
+%template(compareCenterPositionsFD) pfs::drp::stella::math::compareCenterPositions<float, unsigned short, float, float, double>;
+%template(compareCenterPositionsDD) pfs::drp::stella::math::compareCenterPositions<double, unsigned short, float, float, double>;
+
+%template(vecToNdArrayUS) pfs::drp::stella::math::vecToNdArray<unsigned short>;
+%template(vecToNdArrayUI) pfs::drp::stella::math::vecToNdArray<unsigned int>;
+%template(vecToNdArrayUL) pfs::drp::stella::math::vecToNdArray<unsigned long>;
+%template(vecToNdArrayI) pfs::drp::stella::math::vecToNdArray<int>;
 %template(vecToNdArrayF) pfs::drp::stella::math::vecToNdArray<float>;
 %template(vecToNdArrayD) pfs::drp::stella::math::vecToNdArray<double>;
 

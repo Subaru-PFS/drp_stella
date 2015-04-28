@@ -16,19 +16,17 @@ namespace pfs{ namespace drp{ namespace stella{
       _imagePSF_YRelativeToCenter(psf.getImagePSF_YRelativeToCenter()),
       _imagePSF_ZNormalized(psf.getImagePSF_ZNormalized()),
       _imagePSF_Weight(psf.getImagePSF_Weight()),
-      _pixelsFit(psf.getPixelsFit()),
+      _xCentersPSFCCD(psf.getXCentersPSFCCD()),
+      _yCentersPSFCCD(psf.getYCentersPSFCCD()),
+      _nPixPerPSF(psf.getNPixPerPSF()),
       _isTwoDPSFControlSet(psf.isTwoDPSFControlSet()),
-      _isPSFsExtracted(psf.isPSFsExtracted()),
-      _surfaceFit(psf.getSurfaceFit()) 
+      _isPSFsExtracted(psf.isPSFsExtracted())
   {
     if (deep){
       PTR(TwoDPSFControl) ptr(new TwoDPSFControl(*(psf.getTwoDPSFControl())));
       _twoDPSFControl.reset();
       _twoDPSFControl = ptr;
     }
-  //  else{
-  //    _twoDPSFControl(psf.getTwoDPSFControl());
-  //  }
   }
 
   /// Set the _twoDPSFControl
@@ -62,7 +60,7 @@ namespace pfs{ namespace drp{ namespace stella{
     ndarray::Array<ImageT, 2, 1> collapsedPSF = ndarray::allocate(1, 1);
     return extractPSFs(fiberTraceIn, spectrumIn, collapsedPSF);
   }
-
+  
   template<typename ImageT, typename MaskT, typename VarianceT, typename WavelengthT>
   bool PSF<ImageT, MaskT, VarianceT, WavelengthT>::extractPSFs(FiberTrace<ImageT, MaskT, VarianceT> const& fiberTraceIn,
                                                                Spectrum<ImageT, MaskT, VarianceT, WavelengthT> const& spectrumIn,
@@ -387,13 +385,13 @@ namespace pfs{ namespace drp{ namespace stella{
                                          collapsedPSF,/// x is 'y' relative to center
                                          range,
                                          stepSize);
-//          #ifdef __DEBUG_CALC2DPSF__
+          #ifdef __DEBUG_CALC2DPSF__
             cout << "PSF trace" << _iTrace << " bin " << _iBin << "::extractPSFs: emissionLineNumber-1=" << emissionLineNumber-1 << ": gaussCenterY = " << gaussCenterY << endl;
-//          #endif
+          #endif
           gaussCenterY += xCorMinPos;
-//          #ifdef __DEBUG_CALC2DPSF__
+          #ifdef __DEBUG_CALC2DPSF__
             cout << "PSF trace" << _iTrace << " bin " << _iBin << "::extractPSFs: emissionLineNumber-1=" << emissionLineNumber-1 << ": xCorMinPos = " << xCorMinPos << ": gaussCenterY = " << gaussCenterY << endl;
-//          #endif
+          #endif
         }
         if (!success){
           #ifdef __DEBUG_CALC2DPSF__
@@ -444,7 +442,7 @@ namespace pfs{ namespace drp{ namespace stella{
                   //exit(EXIT_FAILURE);
                 #endif
                 
-                int nPixPSF = 0;
+                unsigned long nPixPSF = 0;
                 double sumPSF = 0.;
                 int yMinRel = i_Down - std::floor(gaussCenterY);
                 #ifdef __DEBUG_CALC2DPSF__
@@ -532,6 +530,13 @@ namespace pfs{ namespace drp{ namespace stella{
 //                    throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
                   }/// end for (int iX = 0; iX <= i_Right - i_Left; ++iX){
                 }/// end for (int iY = 0; iY <= i_Up - i_Down; ++iY){
+                ndarray::Array<float, 1, 1> yCenterTemp = math::indGenNdArr(float(1));
+                yCenterTemp[0] = gaussCenterY + fiberTraceIn.getFiberTraceFunction()->yCenter + fiberTraceIn.getFiberTraceFunction()->yLow + _yMin;
+                ndarray::Array<float, 1, 1> xCenterTemp = math::calculateXCenters(fiberTraceIn.getFiberTraceFunction(), yCenterTemp);
+                _xCentersPSFCCD.push_back(xCenterTemp[0]);
+                _yCentersPSFCCD.push_back(yCenterTemp[0]);
+                cout << "xCenterTemp[0] = " << xCenterTemp[0] << ", gaussCenterY = " << gaussCenterY << ", yCenterTemp[0] = " << yCenterTemp[0] << ", nPixPSF = " << nPixPSF << endl;
+                _nPixPerPSF.push_back(nPixPSF);
                 int pixelNo = _imagePSF_ZNormalized.size() - nPixPSF;
                 #ifdef __DEBUG_CALC2DPSF__
                   cout << "PSF trace" << _iTrace << " bin" << _iBin << "::extractPSFs: emissionLineNumber-1 = " << emissionLineNumber-1 << ": *_imagePSF_ZNormalized.begin()=" << *(_imagePSF_ZNormalized.begin()) << " *(_imagePSF_ZNormalized.end()-1)=" << *(_imagePSF_ZNormalized.end()-1) << endl;
@@ -650,204 +655,6 @@ namespace pfs{ namespace drp{ namespace stella{
       throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
     }
     _isPSFsExtracted = true;
-    return true;
-  }
-
-  /*template<typename ImageT, typename MaskT, typename VarianceT, typename WavelengthT>
-  bool PSF<ImageT, MaskT, VarianceT, WavelengthT>::fitPSFKernel()
-  {
-    if (!_isPSFsExtracted){
-      string message("PSF trace");
-      message += to_string(_iTrace) + " bin" + to_string(_iBin) + ":fitPSFKernel: ERROR: _isPSFsExtracted == false";
-      cout << message << endl;
-      throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
-    }
-    /// fit bispline
-    if (!_surfaceFit.doFit(_imagePSF_XRelativeToCenter, _imagePSF_YRelativeToCenter, _imagePSF_ZNormalized, _imagePSF_Weight, _twoDPSFControl->nKnotsX, _twoDPSFControl->nKnotsY, _twoDPSFControl->smooth)){
-      string message("PSF trace");
-      message += to_string(_iTrace) + " bin" + to_string(_iBin) + "::fitPSFKernel: ERROR: doFit returned FALSE";
-      cout << message << endl;
-      throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
-    }
-
-  /*    /// prepare input for kriging
-    #ifdef __DEBUG_CALC2DPSF__
-      cout << "PSF trace" << _iTrace << " bin" << _iBin << "::extractPSFs: _imagePSF_XRelativeToCenter.size() = " << _imagePSF_XRelativeToCenter.size() << ", _imagePSF_YRelativeToCenter.size() = " << _imagePSF_YRelativeToCenter.size() << ", _imagePSF_ZNormalized.size() = " << _imagePSF_ZNormalized.size() << ", nPix = " << nPix << endl;
-      for (int i=0; i<nPix; i++)
-        cout << "PSF trace" << _iTrace << " bin" << _iBin << "::extractPSFs: i=" << i << ": (*_imagePSF_XRelativeToCenter)[i] = " << (*_imagePSF_XRelativeToCenter)[i] << ", (*_imagePSF_YRelativeToCenter)[i] = " << (*_imagePSF_YRelativeToCenter)[i] << ", (*_imagePSF_ZNormalized)[i] = " << (*_imagePSF_ZNormalized)[i] << endl;
-    #endif
-    std::vector<double> krigingInput_X;
-    krigingInput_X.reserve(_twoDPSFControl->nKrigingPointsX * _twoDPSFControl->nKrigingPointsY);
-    std::vector<double> krigingInput_Y;
-    krigingInput_Y.reserve(_twoDPSFControl->nKrigingPointsX * _twoDPSFControl->nKrigingPointsY);
-    std::vector<double> krigingInput_Val;
-    krigingInput_Val.reserve(_twoDPSFControl->nKrigingPointsX * _twoDPSFControl->nKrigingPointsY);
-    double xRangeMin = (*(std::min_element(_imagePSF_XRelativeToCenter.begin(), _imagePSF_XRelativeToCenter.end())));
-    double xRangeMax = (*(std::max_element(_imagePSF_XRelativeToCenter.begin(), _imagePSF_XRelativeToCenter.end()))) + 0.000001;
-    double yRangeMin = (*(std::min_element(_imagePSF_YRelativeToCenter.begin(), _imagePSF_YRelativeToCenter.end())));
-    double yRangeMax = (*(std::max_element(_imagePSF_YRelativeToCenter.begin(), _imagePSF_YRelativeToCenter.end()))) + 0.000001;
-    #ifdef __DEBUG_CALC2DPSF__
-      cout << "PSF trace" << _iTrace << " bin" << _iBin << "::extractPSFs: xRangeMin = " << xRangeMin << ", xRangeMax = " << xRangeMax << endl;
-      cout << "PSF trace" << _iTrace << " bin" << _iBin << "::extractPSFs: yRangeMin = " << yRangeMin << ", yRangeMax = " << yRangeMax << endl;
-    #endif
-    double xStep = (xRangeMax - xRangeMin) / _twoDPSFControl->nKrigingPointsX;
-    double yStep = (yRangeMax - yRangeMin) / _twoDPSFControl->nKrigingPointsY;
-    double xCenterOrig = xRangeMin - (xStep / 2.);
-    double yCenterOrig = yRangeMin - (yStep / 2.);
-    double xCenter, yCenter;
-    #ifdef __DEBUG_CALC2DPSF__
-      cout << "PSF trace" << _iTrace << " bin" << _iBin << "::extractPSFs: xStep = " << xStep << ", yStep = " << yStep << endl;
-    #endif
-    double value, xEnd, yEnd;
-    int nPixelsInRange;
-    blitz::Array<double, 1> moments(4);
-    xCenter = xCenterOrig;
-    for (int ix = 0; ix < _twoDPSFControl->nKrigingPointsX; ++ix){
-      xCenter += xStep;
-      yCenter = yCenterOrig;
-      for (int iy = 0; iy < _twoDPSFControl->nKrigingPointsY; ++iy){
-        yCenter += yStep;
-        #ifdef __DEBUG_CALC2DPSF__
-          cout << "PSF trace" << _iTrace << " bin" << _iBin << "::extractPSFs: ix=" << ix << ", iy=" << iy << ": xCenter = " << xCenter << ", yCenter = " << yCenter << endl;
-        #endif
-        xStart = xCenter - (xStep/2.);
-        xEnd = xCenter + (xStep/2.);
-        yStart = yCenter - (yStep/2.);
-        yEnd = yCenter + (yStep/2.);
-        #ifdef __DEBUG_CALC2DPSF__
-          cout << "PSF trace" << _iTrace << " bin" << _iBin << "::extractPSFs: ix=" << ix << ", iy=" << iy << ": xStart = " << xStart << ", xEnd = " << xEnd << endl;
-          cout << "PSF trace" << _iTrace << " bin" << _iBin << "::extractPSFs: ix=" << ix << ", iy=" << iy << ": yStart = " << yStart << ", yEnd = " << yEnd << endl;
-        #endif
-        nPixelsInRange = 0;
-        std::vector<double> valuesInRange;
-        std::vector<double> valuesInRange_XOrig;
-        std::vector<double> valuesInRange_YOrig;
-        for (int ipix = 0; ipix < _imagePSF_XRelativeToCenter.size(); ++ipix){
-          if (((*_imagePSF_XRelativeToCenter)[ipix] >= xStart) && ((*_imagePSF_XRelativeToCenter)[ipix] < xEnd) && ((*_imagePSF_YRelativeToCenter)[ipix] >= yStart) && ((*_imagePSF_YRelativeToCenter)[ipix] < yEnd)){
-            #ifdef __DEBUG_CALC2DPSF__
-              cout << "PSF trace" << _iTrace << " bin" << _iBin << "::extractPSFs: ix=" << ix << ", iy=" << iy << ": pixel ipix=" << ipix << " in range: (*_imagePSF_XRelativeToCenter)[ipix] = " << (*_imagePSF_XRelativeToCenter)[ipix] << ", (*_imagePSF_YRelativeToCenter)[ipix] = " << (*_imagePSF_YRelativeToCenter)[ipix] << ", (*_imagePSF_ZNormalized)[ipix] = " << (*_imagePSF_ZNormalized)[ipix] << endl;
-            #endif
-            valuesInRange.push_back((*_imagePSF_ZNormalized)[ipix]);
-            valuesInRange_XOrig.push_back((*_imagePSF_XTrace)[ipix]);
-            valuesInRange_YOrig.push_back((*_imagePSF_YTrace)[ipix]);
-            ++nPixelsInRange;
-          }
-        }
-        #ifdef __DEBUG_CALC2DPSF__
-          cout << "PSF trace" << _iTrace << " bin" << _iBin << "::extractPSFs: ix=" << ix << ", iy=" << iy << ": nPixelsInRange: " << nPixelsInRange << endl;
-        #endif
-        if (nPixelsInRange > 1){
-          blitz::Array<double, 1> tempArr(valuesInRange.data(), blitz::shape(valuesInRange.size()), blitz::neverDeleteData);
-          moments = math::Moment(tempArr, 2);
-          #ifdef __DEBUG_CALC2DPSF__
-            cout << "PSF trace" << _iTrace << " bin" << _iBin << "::extractPSFs: ix=" << ix << ", iy=" << iy << ": 1. moments = " << moments << endl;
-          #endif
-          for (int ipix=nPixelsInRange-1; ipix >= 0; --ipix){
-            if (std::pow(valuesInRange[ipix] - moments(0), 2) > (3. * moments(1))){
-              #ifdef __DEBUG_CALC2DPSF__
-                cout << "PSF trace" << _iTrace << " bin" << _iBin << "::extractPSFs: ix=" << ix << ", iy=" << iy << ": rejecting pixel ipix = " << ipix << ": valuesInRange_XOrig[ipix] = " << valuesInRange_XOrig[ipix] << ", valuesInRange_YOrig[ipix] = " << valuesInRange_YOrig[ipix] << ", valuesInRange[ipix] = " << valuesInRange[ipix] << endl;
-              #endif
-              valuesInRange.erase(valuesInRange.begin() + ipix);
-              valuesInRange_XOrig.erase(valuesInRange_XOrig.begin() + ipix);
-              valuesInRange_YOrig.erase(valuesInRange_YOrig.begin() + ipix);
-            }
-          }
-          blitz::Array<double, 1> tempArrNew(valuesInRange.data(), blitz::shape(valuesInRange.size()), blitz::neverDeleteData);
-          moments = math::Moment(tempArrNew, 1);
-          #ifdef __DEBUG_CALC2DPSF__
-            cout << "PSF trace" << _iTrace << " bin" << _iBin << "::extractPSFs: ix=" << ix << ", iy=" << iy << ": 2. moments = " << moments << endl;
-          #endif
-          krigingInput_X.push_back(xCenter);
-          krigingInput_Y.push_back(yCenter);
-          krigingInput_Val.push_back(moments(0));
-        }
-      }
-    }
-    #ifdef __DEBUG_CALC2DPSF__
-      std::ofstream ofkrig_in;
-      std::string ofname_in = __DEBUGDIR__ + std::string("kriging_in_pix_x_y_val");
-      if (_iBin < 10)
-        ofname += std::string("0");
-      ofname += to_string(_iBin)+std::string(".dat");
-      ofkrig_in.open(ofname_in);
-      for (int i=0; i<krigingInput_X.size(); i++)
-        ofkrig_in << krigingInput_X[i] << " " << krigingInput_Y[i] << " " << krigingInput_Val[i] << endl;
-      ofkrig_in.close();
-    #endif
-
-    CGeostat krig;
-    const size_t dim_cspace = 2;
-    krig.initialize(krigingInput_Val.size(), dim_cspace);
-    gsl_vector *lower = gsl_vector_alloc(dim_cspace);
-    gsl_vector *upper = gsl_vector_alloc(dim_cspace);
-
-    blitz::Array<double, 1> D_A1_KrigingInput_X(krigingInput_X.data(), blitz::shape(krigingInput_X.size()), blitz::neverDeleteData);
-    blitz::Array<double, 1> D_A1_KrigingInput_Y(krigingInput_Y.data(), blitz::shape(krigingInput_Y.size()), blitz::neverDeleteData);
-    gsl_vector_set(lower, 0, blitz::min(D_A1_KrigingInput_X));
-    gsl_vector_set(lower, 1, blitz::min(D_A1_KrigingInput_Y));
-    gsl_vector_set(upper, 0, blitz::max(D_A1_KrigingInput_X));
-    gsl_vector_set(upper, 1, blitz::max(D_A1_KrigingInput_Y));
-
-    krig.setDomain(lower, upper);
-    gsl_vector_free(lower);
-    gsl_vector_free(upper);
-
-    gsl_vector *pixPos = gsl_vector_alloc(dim_cspace);
-    for (int iPix=0; iPix<krigingInput_Val.size(); ++iPix){
-      gsl_vector_set(pixPos, 0, krigingInput_X[iPix]);
-      gsl_vector_set(pixPos, 1, krigingInput_Y[iPix]);
-      krig.setCoordinate(iPix, pixPos);
-      krig.setData(iPix, krigingInput_Val[iPix]);
-    }
-
-    krig.estimate(CVariogram::VARIO_SPH, 0, 1.);
-    double pred, var;
-    std::vector<double> pixelsFit(_imagePSF_ZNormalized.size());
-  */
-/*
-    return true;
-  }*/
-
-  template<typename ImageT, typename MaskT, typename VarianceT, typename WavelengthT>
-  bool PSF<ImageT, MaskT, VarianceT, WavelengthT>::calculatePSF()
-  {
-    _pixelsFit.resize(_imagePSF_XRelativeToCenter.size());
-    if (!_surfaceFit.estimate(_imagePSF_XRelativeToCenter, _imagePSF_YRelativeToCenter, _pixelsFit)){
-      string message("PSF trace");
-      message += to_string(_iTrace) + " bin" + to_string(_iBin) + "::calculatePSFs: ERROR: surfaceFit.estimate returned FALSE";
-      cout << message << endl;
-      throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
-    }
-    #ifdef __DEBUG_CALC2DPSF__
-      std::ofstream ofkrig;
-      std::string fname = __DEBUGDIR__ + std::string("psf_x_y_in_fit_iBin");
-      if (_iBin < 10)
-        fname += std::string("0");
-      fname += to_string(_iBin)+std::string(".dat");
-      ofkrig.open(fname);
-      if (!ofkrig){
-        string message("PSF::calculatePSF: ERROR: Could not open file <");
-        message += fname + ">";
-        cout << message << endl;
-        throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
-      }
-      //    #endif
-
-      for (int iPix = 0; iPix < _imagePSF_XTrace.size(); ++iPix){
-        //      gsl_vector_set(pixPos, 0, (*_imagePSF_XRelativeToCenter)[iPix]);
-        //      gsl_vector_set(pixPos, 1, (*_imagePSF_YRelativeToCenter)[iPix]);
-        //      krig.getPredictData(pred, var, pixPos);
-        //      (*_pixelsFit)[iPix] = pred;
-        //      #ifdef __DEBUG_CALC2DPSF__
-        cout << "PSF trace" << _iTrace << " bin" << _iBin << "::calculatePSF: iPix=" << iPix << ": x=" << _imagePSF_XRelativeToCenter[iPix] << ", y=" << _imagePSF_YRelativeToCenter[iPix] << ": original pixel value = " << _imagePSF_ZNormalized[iPix] << ", predicted pixel value = " << _pixelsFit[iPix] << ", difference = " << _imagePSF_ZNormalized[iPix] - _pixelsFit[iPix] << endl;
-        ofkrig << _imagePSF_XRelativeToCenter[iPix] << " " << _imagePSF_YRelativeToCenter[iPix] << " " << _imagePSF_ZNormalized[iPix] << " " << _pixelsFit[iPix] << endl;
-        //      #endif
-        //      _pixelsFit.push_back(pred);
-      }
-      //    gsl_vector_free(pixPos);
-      //    #ifdef __DEBUG_CALC2DPSF__
-      ofkrig.close();
-    #endif
     return true;
   }
   
@@ -1330,9 +1137,96 @@ namespace pfs{ namespace drp{ namespace stella{
       #endif
       return arr_Out;
     }
+
+
+    template< typename ImageT, typename MaskT, typename VarianceT, typename WavelengthT, typename PosT >
+    ndarray::Array< PosT, 2, 1 > compareCenterPositions(PSF< ImageT, MaskT, VarianceT, WavelengthT > const& psf,
+                                                         ndarray::Array< const PosT, 1, 1 > const& xPositions,
+                                                         ndarray::Array< const PosT, 1, 1 > const& yPositions,
+                                                         float dXMax,
+                                                         float dYMax){
+      if (xPositions.getShape()[0] != yPositions.getShape()[0]){
+        string message("pfs::drp::stella::math::compareCenterPositions: ERROR: xPositions.getShape()[0]=");
+        message += to_string(xPositions.getShape()[0]) + " != yPositions.getShape()[1]=" + to_string(yPositions.getShape()[1]);
+        cout << message << endl;
+        throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
+      }
+      #ifdef __DEBUG_COMPARECENTERPOSITIONS__
+        cout << "pfs::drp::stella::math::compareCenterPositions: xPosititions = " << xPositions.getShape()[0] << ": " << xPositions << endl;
+        cout << "pfs::drp::stella::math::compareCenterPositions: yPosititions = " << yPositions.getShape()[0] << ": " << yPositions << endl;
+      #endif
+      size_t nPSFs = psf.getXCentersPSFCCD().size();
+      #ifdef __DEBUG_COMPARECENTERPOSITIONS__
+        cout << "pfs::drp::stella::math::compareCenterPositions: nPSFs = " << nPSFs << endl;
+      #endif
+      ndarray::Array< PosT, 2, 1 > dXdYdR_Out = ndarray::allocate(nPSFs, 3);
+      dXdYdR_Out.deep() = -1.;
+      PosT xPSF, yPSF, dX, dY, dR;
+      size_t iList;
+      bool found;
+      for (size_t iPSF = 0; iPSF < nPSFs; ++iPSF){
+        xPSF = psf.getXCentersPSFCCD()[iPSF];
+        yPSF = psf.getYCentersPSFCCD()[iPSF];
+        found = false;
+        iList = 0;
+        while ((!found) && (iList < xPositions.getShape()[0])){
+          dX = xPositions[iList] - xPSF;
+          #ifdef __DEBUG_COMPARECENTERPOSITIONS__
+            cout << "pfs::drp::stella::math::compareCenterPositions: spot number " << iPSF << " xPosititions[" << iList << "] = " << xPositions[iList] << ": dX = " << dX << endl;
+          #endif
+          if (fabs(dX) < dXMax){
+            dY = yPositions[iList] - yPSF;
+            #ifdef __DEBUG_COMPARECENTERPOSITIONS__
+              cout << "pfs::drp::stella::math::compareCenterPositions: spot number " << iPSF << " yPosititions[" << iList << "] = " << yPositions[iList] << ": dY = " << dY << endl;
+            #endif
+            if (fabs(dY) < dYMax){
+              dR = sqrt(pow(dX, 2) + pow(dY, 2));
+              dXdYdR_Out[iPSF][0] = dX;
+              dXdYdR_Out[iPSF][1] = dY;
+              dXdYdR_Out[iPSF][2] = dR;
+              found = true;
+              #ifdef __DEBUG_COMPARECENTERPOSITIONS__
+                cout << "pfs::drp::stella::math::compareCenterPositions: spot number " << iPSF << " found in input lists at position " << iList << endl;
+              #endif
+            }
+          }
+          ++iList;
+          #ifdef __DEBUG_COMPARECENTERPOSITIONS__
+            cout << "pfs::drp::stella::math::compareCenterPositions: spot number " << iPSF << " iList = " << iList << endl;
+          #endif
+//          if (iList == xPositions.getShape()[0])
+//            break;
+        }
+        if (!found){
+          cout << "pfs::drp::stella::math::compareCenterPositions: WARNING: spot number " << iPSF << " not found in input lists" << endl;
+        }
+      }
+      return dXdYdR_Out;
+    }
     
-    template ndarray::Array< float, 2, 1> calcPositionsRelativeToCenter(float const, float const);
-    template ndarray::Array< double, 2, 1> calcPositionsRelativeToCenter(double const, double const);
+    template ndarray::Array< float, 2, 1 > compareCenterPositions(PSF< float, unsigned short, float, float > const&,
+                                                                  ndarray::Array< const float, 1, 1 > const&,
+                                                                  ndarray::Array< const float, 1, 1 > const&,
+                                                                  float,
+                                                                  float);
+    template ndarray::Array< float, 2, 1 > compareCenterPositions(PSF< double, unsigned short, float, float > const&,
+                                                                  ndarray::Array< const float, 1, 1 > const&,
+                                                                  ndarray::Array< const float, 1, 1 > const&,
+                                                                  float,
+                                                                  float);
+    template ndarray::Array< double, 2, 1 > compareCenterPositions(PSF< float, unsigned short, float, float > const&,
+                                                                   ndarray::Array< const double, 1, 1 > const&,
+                                                                   ndarray::Array< const double, 1, 1 > const&,
+                                                                   float,
+                                                                   float);
+    template ndarray::Array< double, 2, 1 > compareCenterPositions(PSF< double, unsigned short, float, float > const&,
+                                                                   ndarray::Array< const double, 1, 1 > const&,
+                                                                   ndarray::Array< const double, 1, 1 > const&,
+                                                                   float,
+                                                                   float);
+    
+    template ndarray::Array< float, 2, 1 > calcPositionsRelativeToCenter(float const, float const);
+    template ndarray::Array< double, 2, 1 > calcPositionsRelativeToCenter(double const, double const);
 
     template ndarray::Array< float, 2, 1 > collapseFittedPSF( ndarray::Array< float, 1, 1 > const&,
                                                               ndarray::Array< float, 1, 1 > const&,

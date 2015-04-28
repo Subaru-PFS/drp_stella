@@ -933,8 +933,9 @@
     }
     
     template ndarray::Array< size_t const, 1, 1 > vecToNdArray(std::vector<size_t> const&);
-    template ndarray::Array< int const, 1, 1 > vecToNdArray(std::vector<int> const&);
     template ndarray::Array< unsigned short const, 1, 1 > vecToNdArray(std::vector<unsigned short> const&);
+    template ndarray::Array< unsigned int const, 1, 1 > vecToNdArray(std::vector<unsigned int> const&);
+    template ndarray::Array< int const, 1, 1 > vecToNdArray(std::vector<int> const&);
     template ndarray::Array< long const, 1, 1 > vecToNdArray(std::vector<long> const&);
     template ndarray::Array< float const, 1, 1 > vecToNdArray(std::vector<float> const&);
     template ndarray::Array< double const, 1, 1 > vecToNdArray(std::vector<double> const&);
