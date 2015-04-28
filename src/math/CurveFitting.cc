@@ -774,11 +774,12 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
                                                           S_A1_Args_Fit,
                                                           Args_Fit);
         if (status != 1){
-          string message("CFits::LinFitBevington: WARNING: LinFitBevington(D_A2_CCD_In(i,blitz::Range::all()),D_A2_SF_In(i,blitz::Range::all()),D_A1_SP_Out(i),D_A1_Sky_Out(i),D_A1_STDDEV_Out(i),D_A1_Covariance_Out(i)) returned status = ");
-          message += to_string(status);
-          cout << message << endl;
-          cout << "CFits::LinFitBevington: D_A2_SF_In(0, *) = " << D_A2_SF_In.row(0) << ": LinFitBevingtonEigen returned status = " << status << endl;
-
+          #ifdef __WARNINGS_ON__
+            string message("CFits::LinFitBevington: WARNING: LinFitBevington(D_A2_CCD_In(i,blitz::Range::all()),D_A2_SF_In(i,blitz::Range::all()),D_A1_SP_Out(i),D_A1_Sky_Out(i),D_A1_STDDEV_Out(i),D_A1_Covariance_Out(i)) returned status = ");
+            message += to_string(status);
+            cout << message << endl;
+            cout << "CFits::LinFitBevington: D_A2_SF_In(0, *) = " << D_A2_SF_In.row(0) << ": LinFitBevingtonEigen returned status = " << status << endl;
+          #endif
 //            throw LSST_EXCEPT(pexExcept::Exception, message.c_str());    
         }
       }
@@ -1041,11 +1042,12 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
                                                   S_A1_Args_Fit,
                                                   Args_Fit);
         if (status != 1){
-          string message("CFits::LinFitBevington: WARNING: LinFitBevington(D_A2_CCD_In(i,blitz::Range::all()),D_A2_SF_In(i,blitz::Range::all()),D_A1_SP_Out(i),D_A1_Sky_Out(i),D_A1_STDDEV_Out(i),D_A1_Covariance_Out(i)) returned status = ");
-          message += to_string(status);
-          cout << message << endl;
-          cout << "CFits::LinFitBevington: D_A2_SF_In(0, *) = " << D_A2_SF_In[ndarray::view(0)()] << ": LinFitBevingtonNdArray returned status = " << status << endl;
-
+          #ifdef __WARNINGS_ON__
+            string message("CFits::LinFitBevington: WARNING: LinFitBevington(D_A2_CCD_In(i,blitz::Range::all()),D_A2_SF_In(i,blitz::Range::all()),D_A1_SP_Out(i),D_A1_Sky_Out(i),D_A1_STDDEV_Out(i),D_A1_Covariance_Out(i)) returned status = ");
+            message += to_string(status);
+            cout << message << endl;
+            cout << "CFits::LinFitBevington: D_A2_SF_In(0, *) = " << D_A2_SF_In[ndarray::view(0)()] << ": LinFitBevingtonNdArray returned status = " << status << endl;
+          #endif
 //            throw LSST_EXCEPT(pexExcept::Exception, message.c_str());    
         }
       }
@@ -1127,7 +1129,9 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
     D_A1_CCD = D_A1_CCD_In;
 
     if ((D_A1_CCD_In.sum() == 0.) || (D_A1_SF.sum() == 0.)){
-      cout << "CFits::LinFitBevington: Warning: (D_A1_CCD_In.sum(=" << D_A1_CCD_In.sum() << " == 0.) || (D_A1_SF.sum(=" << D_A1_SF.sum() << ") == 0.) => returning false" << endl;
+      #ifdef __WARNINGS_ON__
+        cout << "CFits::LinFitBevington: Warning: (D_A1_CCD_In.sum(=" << D_A1_CCD_In.sum() << " == 0.) || (D_A1_SF.sum(=" << D_A1_SF.sum() << ") == 0.) => returning false" << endl;
+      #endif
       D_SP_Out = 0.;
       D_Sky_Out = 0.;
       status = 0;
@@ -1264,7 +1268,9 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
       P_D_A1_YFit->setConstant(0.);
     }
     if (P_I_A1_Mask->sum() == 0){
-      cout << "CFits::LinFitBevington: WARNING: P_I_A1_Mask->sum() == 0" << endl;
+      #ifdef __WARNINGS_ON__
+        cout << "CFits::LinFitBevington: WARNING: P_I_A1_Mask->sum() == 0" << endl;
+      #endif
       D_SP_Out = 0.;
       D_Sky_Out = 0.;
       status = 0;
@@ -1587,7 +1593,9 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
     D_A1_CCD.deep() = D_A1_CCD_In;
 
     if ((D_A1_CCD_In.asEigen().sum() == 0.) || (D_A1_SF.asEigen().sum() == 0.)){
-      cout << "CFits::LinFitBevington: Warning: (D_A1_CCD_In.sum(=" << D_A1_CCD_In.asEigen().sum() << " == 0.) || (D_A1_SF.sum(=" << D_A1_SF.asEigen().sum() << ") == 0.) => returning false" << endl;
+      #ifdef __WARNINGS_ON__
+        cout << "CFits::LinFitBevington: Warning: (D_A1_CCD_In.sum(=" << D_A1_CCD_In.asEigen().sum() << " == 0.) || (D_A1_SF.sum(=" << D_A1_SF.asEigen().sum() << ") == 0.) => returning false" << endl;
+      #endif
       D_SP_Out = 0.;
       D_Sky_Out = 0.;
       status = 0;
@@ -1724,7 +1732,9 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
     }
     P_D_A1_YFit->deep() = 0.;
     if (P_I_A1_Mask->asEigen().sum() == 0){
-      cout << "CFits::LinFitBevington: WARNING: P_I_A1_Mask->sum() == 0" << endl;
+      #ifdef __WARNINGS_ON__
+        cout << "CFits::LinFitBevington: WARNING: P_I_A1_Mask->sum() == 0" << endl;
+      #endif
       D_SP_Out = 0.;
       D_Sky_Out = 0.;
       status = 0;

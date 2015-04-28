@@ -17,7 +17,7 @@
 #include "math/Math.h"
 #include "math/LinearAlgebra3D.h"
 #include "math/SurfaceFitting.h"
-#include "SurfaceFit.h"
+//#include "SurfaceFit.h"
 #include "cmpfit-1.2/MPFitting_ndarray.h"
 #include "FiberTraces.h"
 #include "Spectra.h"
@@ -32,6 +32,7 @@
 //#define __DEBUG_CALC2DPSF__
 //#define __DEBUG_CPRTC__
 //#define __DEBUG_CALC_TPS__
+#define __DEBUG_COMPARECENTERPOSITIONS__
 #define __DEBUGDIR__ ""//~/spectra/pfs/2014-11-02/debug/"// 
 
 namespace afwGeom = lsst::afw::geom;
@@ -59,10 +60,11 @@ namespace pfs { namespace drp { namespace stella {
                                                      _imagePSF_YRelativeToCenter(0),
                                                      _imagePSF_ZNormalized(0),
                                                      _imagePSF_Weight(0),
-                                                     _pixelsFit(0),
+                                                     _xCentersPSFCCD(0),
+                                                     _yCentersPSFCCD(0),
+                                                     _nPixPerPSF(0),
                                                      _isTwoDPSFControlSet(false),
-                                                     _isPSFsExtracted(false),
-                                                     _surfaceFit()
+                                                     _isPSFsExtracted(false)
       {};
       
       /**
@@ -100,10 +102,11 @@ namespace pfs { namespace drp { namespace stella {
             _imagePSF_YRelativeToCenter(0),
             _imagePSF_ZNormalized(0),
             _imagePSF_Weight(0),
-            _pixelsFit(0),
+            _xCentersPSFCCD(0),
+            _yCentersPSFCCD(0),
+            _nPixPerPSF(0),
             _isTwoDPSFControlSet(true),
-            _isPSFsExtracted(false),
-            _surfaceFit()
+            _isPSFsExtracted(false)
       {};
       
       virtual ~PSF() {};
@@ -135,15 +138,18 @@ namespace pfs { namespace drp { namespace stella {
       const std::vector<float> getImagePSF_ZNormalized() const {return _imagePSF_ZNormalized;}
       const std::vector<float> getImagePSF_ZFit() const {return _imagePSF_ZFit;}
       std::vector<float> getImagePSF_Weight() {return _imagePSF_Weight;}
-      std::vector<float> getPixelsFit() {return _pixelsFit;}
+      std::vector<float> getXCentersPSFCCD() {return _xCentersPSFCCD;}
+      std::vector<float> getYCentersPSFCCD() {return _yCentersPSFCCD;}
+      std::vector<unsigned long> getNPixPerPSF() {return _nPixPerPSF;}
       const std::vector<float> getImagePSF_Weight() const {return _imagePSF_Weight;}
-      const std::vector<float> getPixelsFit() const {return _pixelsFit;}
+      const std::vector<float> getXCentersPSFCCD() const {return _xCentersPSFCCD;}
+      const std::vector<float> getYCentersPSFCCD() const {return _yCentersPSFCCD;}
+      const std::vector<unsigned long> getNPixPerPSF() const {return _nPixPerPSF;}
       
       bool setImagePSF_ZFit(ndarray::Array<ImageT, 1, 1> const& zFit);
 
       bool isTwoDPSFControlSet() const {return _isTwoDPSFControlSet;}
       bool isPSFsExtracted() const {return _isPSFsExtracted;}
-      SurfaceFit getSurfaceFit() const {return _surfaceFit;}
       
       /// Return _2dPSFControl
       PTR(TwoDPSFControl) getTwoDPSFControl() const { return _twoDPSFControl; }
@@ -151,19 +157,16 @@ namespace pfs { namespace drp { namespace stella {
       /// Set the _twoDPSFControl
       bool setTwoDPSFControl(PTR(TwoDPSFControl) &twoDPSFControl);
 
-      /// Return the SurfaceFit
-//      PTR(SurfaceFit) getSurfaceFit() const {return boost::make_shared<SurfaceFit>(_surfaceFit);}
-
       bool extractPSFs(FiberTrace<ImageT, MaskT, VarianceT> const& fiberTrace_In,
 	               Spectrum<ImageT, MaskT, VarianceT, WavelengthT> const& spectrum_In);
       bool extractPSFs(FiberTrace<ImageT, MaskT, VarianceT> const& fiberTrace_In,
 	               Spectrum<ImageT, MaskT, VarianceT, WavelengthT> const& spectrum_In,
                        ndarray::Array<ImageT, 2, 1> const& collapsedPSF);
       //bool fitPSFKernel();
-      bool calculatePSF();
+      //bool calculatePSF();
       
       std::vector< ImageT > reconstructFromThinPlateSplineFit(double const regularization = 0.);
-      
+            
   protected:
 
 //    virtual std::string getPersistenceName() const;
@@ -186,10 +189,11 @@ namespace pfs { namespace drp { namespace stella {
       std::vector<float> _imagePSF_ZNormalized;
       std::vector<float> _imagePSF_ZFit;
       std::vector<float> _imagePSF_Weight;
-      std::vector<float> _pixelsFit;
+      std::vector<float> _xCentersPSFCCD;
+      std::vector<float> _yCentersPSFCCD;
+      std::vector<unsigned long> _nPixPerPSF;
       bool _isTwoDPSFControlSet;
       bool _isPSFsExtracted;
-      SurfaceFit _surfaceFit;
       
   };
   
@@ -319,6 +323,8 @@ namespace math{
    * @param zArr_In: array of z values for x-y grid
    * @param direction: 0: collapse in x (get PSF in dispersion direction)
    *                   1: collapse in y (get PSF in spatial direction)
+   * @output [i,0]: coordinate value (y for direction == 0; x for direction ==1)
+   *         [i,1]: (sub)pixel value for coordinate position [i,0]
    */
     template< typename ImageT, typename CoordT = float >
     ndarray::Array< ImageT, 2, 1 > collapseFittedPSF( ndarray::Array< CoordT, 1, 1 > const& xGridVec_In,
@@ -327,7 +333,7 @@ namespace math{
                                                       int const direction = 0. );
   
   /*
-   * @brief collapse one fitted PSF in one direction
+   * @brief collapse one PSF in one direction
    * @param direction: 0: collapse in x (get PSF in dispersion direction)
    *                   1: collapse in y (get PSF in spatial direction)
    */
@@ -346,6 +352,21 @@ namespace math{
   template< typename T >
   ndarray::Array< T, 2, 1> calcPositionsRelativeToCenter(T const centerPos_In,
                                                          T const width_In);
+
+  /* @brief compare center positions of emission lines used to construct PSF to input list of x and y positions and return dx, dy, dr
+   * @param psf_In Input PSF to compare center positions of emission lines to xPositions_In and yPositions_In
+   * @param xPositions_In Input list of center positions of emission lines in x
+   * @param yPositions_In Input list of center positions of emission lines in y
+   * @param dXMax maximum distance in x in pixels to count 2 emission lines in psf_In and x/yPositions_In as the same emission line
+   * @param dYMax maximum distance in y in pixels to count 2 emission lines in psf_In and x/yPositions_In as the same emission line
+   * @return one line per emission line used to construct PSF with [dx=xPositions[iList] - xPSF, dy=yPositions[iList] - yPSF, dr=sqrt(pow(dx)+pow(dy))]
+   */
+  template< typename ImageT, typename MaskT = afwImage::MaskPixel, typename VarianceT = afwImage::VariancePixel, typename WavelengthT = afwImage::VariancePixel, typename PosT = float >
+  ndarray::Array< PosT, 2, 1 > compareCenterPositions(PSF< ImageT, MaskT, VarianceT, WavelengthT > const& psf_In,
+                                                       ndarray::Array< const PosT, 1, 1 > const& xPositions_In,
+                                                       ndarray::Array< const PosT, 1, 1 > const& yPositions_In,
+                                                       float dXMax = 1.,
+                                                       float dYMax = 1.);
   
 }
 }}}

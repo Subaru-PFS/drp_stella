@@ -1048,9 +1048,9 @@ namespace pfsDRPStella = pfs::drp::stella;
               #endif
               if ((moments[0] - subArr[i] < 0. - (_fiberTraceProfileFittingControl->upperSigma * sqrt(moments[1])))
                || (moments[0] - subArr[i] > (_fiberTraceProfileFittingControl->lowerSigma * sqrt(moments[1])))){
-//                #ifdef __DEBUG_CALCPROFILESWATH__
+                #ifdef __DEBUG_CALCPROFILESWATH__
                   cout << "FiberTrace::calcProfileSwath: iSwath = " << iSwath << ": iStep = " << iStep << ": iterSig = " << iterSig << ": rejecting element " << i << "from subArr" << endl;
-//                #endif
+                #endif
                 indicesInValueRangeVec.erase(indicesInValueRangeVec.begin() + i);
               }
             }
