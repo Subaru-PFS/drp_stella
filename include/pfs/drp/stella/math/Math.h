@@ -13,6 +13,7 @@
 #include "../utils/Utils.h"
 #include "ndarray.h"
 #include "ndarray/eigen.h"
+#include "../cmpfit-1.2/MPFitting_ndarray.h"
 #include <unsupported/Eigen/Splines>
 
 //#define __DEBUG_FIT__
@@ -22,7 +23,7 @@
 //#define __DEBUG_MINCENMAX__
 //#define __DEBUG_INDGEN__
 //#define __DEBUG_SORT__
-//#define __DEBUG_XCOR__
+#define __DEBUG_XCOR__
 
 /// constants
 #define CONST_PI 3.141592653589793238462643383280    /* pi */
@@ -258,6 +259,24 @@ namespace pfs { namespace drp { namespace stella {
     
     template< typename T >
     ndarray::Array< T const, 1, 1 > vecToNdArray(std::vector<T> const& vec_In);
+    
+    /*
+     * @brief convert given number in given range to a number in range [-1,1]
+     * @param number: number to be converted
+     * @param range: range number is from
+     */
+    template< typename T, typename U >
+    T convertRangeToUnity(T number,
+                          ndarray::Array<U, 1, 1> const& range);
+    
+    /*
+     * @brief convert given numbers in given range to a number in range [-1,1]
+     * @param numbers: numbers to be converted
+     * @param range: range number is from
+     */
+    template< typename T, typename U >
+    ndarray::Array<T, 1, 1> convertRangeToUnity(ndarray::Array<T, 1, 1> const& numbers,
+                                                ndarray::Array<U, 1, 1> const& range);
     
 //    template< typename T >
 //    ndarray::Array< T, 2, 1 > get2DArray(ndarray::Array< T, 1, 1 > const& xIn, ndarray::Array< T, 1, 1 > const& yIn);

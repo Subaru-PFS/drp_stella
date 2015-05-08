@@ -186,7 +186,7 @@ PTR(const pfsDRPStella::Spectrum<ImageT, MaskT, VarianceT, WavelengthT>) const& 
     throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
   }
 
-  return _spectra->at(i); 
+  return PTR(const pfsDRPStella::Spectrum<ImageT, MaskT, VarianceT, WavelengthT>)(_spectra->at(i)); 
 }
 
 template<typename ImageT, typename MaskT, typename VarianceT, typename WavelengthT>

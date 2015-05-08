@@ -915,12 +915,52 @@
           cout << "math::xCor: shift = " << shift << ": chiSquare[" << chiSquare.size()-1 << "] = " << chiSquare[chiSquare.size()-1] << endl;
         #endif
       }
-      T minShift = T(xShift[std::min_element(chiSquare.begin(), chiSquare.end()) - chiSquare.begin()]);
+      /// Fit Gaussian to chiSquare
+      ndarray::Array<double, 1, 1> xShiftArr = ndarray::external(xShift.data(), ndarray::makeVector(int(xShift.size())), ndarray::makeVector(1));
+      ndarray::Array<double, 1, 1> chiSquareArr = ndarray::external(chiSquare.data(), ndarray::makeVector(int(chiSquare.size())), ndarray::makeVector(1));
+      ndarray::Array<double, 1, 1> eChiSquareArr = ndarray::allocate(chiSquareArr.getShape()[0]);
+      ndarray::Array<double, 1, 1> D_A1_Guess = ndarray::allocate(4);
+      D_A1_Guess[3] = max(chiSquareArr);///Peak
+      D_A1_Guess[0] = 0. - D_A1_Guess[3] + min(chiSquareArr);///Centroid
+      D_A1_Guess[1] = 0.;///Sigma
+      D_A1_Guess[2] = (range_In[1] - range_In[0])/2.;///constant offset
+      ndarray::Array<int, 2, 1> I_A2_Limited = ndarray::allocate(4, 2);
+      I_A2_Limited.deep() = 1;
+      cout << "pfs::drp::stella::math::xCor: I_A2_Limited = " << I_A2_Limited << endl;
+      ndarray::Array<double, 2, 1> D_A2_Limits = ndarray::allocate(4, 2);
+      D_A2_Limits[3][0] = 0.;
+      D_A2_Limits[3][1] = 1.5 * max(chiSquareArr);
+      D_A2_Limits[0][0] = 0. - D_A1_Guess[3];
+      D_A2_Limits[0][1] = 0.;
+      D_A2_Limits[1][0] = range_In[0];
+      D_A2_Limits[1][1] = range_In[1];
+      D_A2_Limits[2][0] = 0.;
+      D_A2_Limits[2][1] = 2.;
+      cout << "pfs::drp::stella::math::xCor: D_A2_Limits = " << D_A2_Limits << endl;
+      eChiSquareArr.asEigen() = chiSquareArr.asEigen().array().sqrt();
+      ndarray::Array<double, 1, 1> D_A1_GaussFitCoeffs = ndarray::allocate(4);
+      ndarray::Array<double, 1, 1> D_A1_GaussFitECoeffs = ndarray::allocate(4);
+      if (!MPFitGaussLim(xShiftArr,
+                         chiSquareArr,
+                         eChiSquareArr,
+                         D_A1_Guess,
+                         I_A2_Limited,
+                         D_A2_Limits,
+                         1,
+                         false,
+                         D_A1_GaussFitCoeffs,
+                         D_A1_GaussFitECoeffs,
+                         true)){
+        string message("pfs::drp::stella::math::xCor: ERROR: MPFitGaussLim returned FALSE");
+        cout << message << endl;
+        throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
+      }
+      T minShift = D_A1_GaussFitCoeffs[1];//T(xShift[std::min_element(chiSquare.begin(), chiSquare.end()) - chiSquare.begin()]);
       #ifdef __DEBUG_XCOR__
-        cout << "math::xCor: chiSquare = ";
-        for (auto it=chiSquare.begin(); it!=chiSquare.end(); ++it)
-          cout << *it << " ";
-        cout << endl;
+        cout << "math::xCor: xShiftArr = " << xShiftArr << endl;
+        cout << "math::xCor: chiSquareArr = " << chiSquareArr << endl;
+        cout << "math::xCor: D_A1_Guess = " << D_A1_Guess << endl;
+        cout << "math::xCor: D_A1_GaussFitCoeffs = " << D_A1_GaussFitCoeffs << endl;
       #endif
       cout << "math::xCor: minShift = " << minShift << endl;
       return minShift;
@@ -931,6 +971,39 @@
       ndarray::Array< T const, 1, 1 > arr_Out = ndarray::external(vec_In.data(), ndarray::makeVector(int(vec_In.size())), ndarray::makeVector(1));
       return arr_Out;
     }
+    
+    template< typename T, typename U >
+    T convertRangeToUnity(T number,
+                          ndarray::Array<U, 1, 1> const& range){
+      if (range.getShape()[0] != 2){
+        string message("pfs::drp::stella::math::convertRangeToUnity: ERROR: range.getShape()[0](=");
+        message += to_string(range.getShape()[0]) + ") != 2";
+        cout << message << endl;
+        throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
+      }
+      T out = ((number - range[0]) * (range[1] - range[0]) / 2.) - 1.;
+      return out;
+    }
+    
+    template< typename T, typename U >
+    ndarray::Array<T, 1, 1> convertRangeToUnity(ndarray::Array<T, 1, 1> const& numbers,
+                                                ndarray::Array<U, 1, 1> const& range){
+      ndarray::Array<T, 1, 1> out = ndarray::allocate(numbers.getShape()[0]);
+      auto itIn = numbers.begin();
+      for (auto itOut = out.begin(); itOut != out.end(); ++itOut, ++itIn){
+        *itOut = convertRangeToUnity(*itIn, range);
+      }
+      return out;
+    }
+
+    template float convertRangeToUnity(float, ndarray::Array<float, 1, 1> const&);
+    template float convertRangeToUnity(float, ndarray::Array<double, 1, 1> const&);
+    template double convertRangeToUnity(double, ndarray::Array<float, 1, 1> const&);
+    template double convertRangeToUnity(double, ndarray::Array<double, 1, 1> const&);
+    template ndarray::Array<float, 1, 1> convertRangeToUnity(ndarray::Array<float, 1, 1> const&, ndarray::Array<float, 1, 1> const&);
+    template ndarray::Array<float, 1, 1> convertRangeToUnity(ndarray::Array<float, 1, 1> const&, ndarray::Array<double, 1, 1> const&);
+    template ndarray::Array<double, 1, 1> convertRangeToUnity(ndarray::Array<double, 1, 1> const&, ndarray::Array<float, 1, 1> const&);
+    template ndarray::Array<double, 1, 1> convertRangeToUnity(ndarray::Array<double, 1, 1> const&, ndarray::Array<double, 1, 1> const&);
     
     template ndarray::Array< size_t const, 1, 1 > vecToNdArray(std::vector<size_t> const&);
     template ndarray::Array< unsigned short const, 1, 1 > vecToNdArray(std::vector<unsigned short> const&);

@@ -48,12 +48,13 @@
 #include "lsst/pex/config.h"
 #include "lsst/afw/image/MaskedImage.h"
 #include "lsst/pex/exceptions/Exception.h"
+#include "pfs/drp/stella/math/Math.h"
 
 using namespace std;
 
 #define D_PI 3.14159265359
 
-//#define __DEBUG_GAUSSFITLIM__
+#define __DEBUG_GAUSSFITLIM__
 
 /* This is the private data structure which contains the data points
    and their uncertainties */
@@ -112,15 +113,15 @@ int testquadfit();
 int testquadfix();
 */
 /*
- * gaussian fit function
+ * gaussian fit function plus constant background (CB)
  *
  * m - number of data points
  * n - number of parameters (4)
  * p - array of fit parameters
- *     p[0] = constant offset
- *     p[1] = peak y value
- *     p[2] = x centroid position
- *     p[3] = gaussian sigma width
+ *     p[0] = peak y value
+ *     p[1] = x centroid position
+ *     p[2] = gaussian sigma width
+ *     p[3] = constant offset
  * dy - array of residuals to be returned
  * vars - private data (struct vars_struct *)
  *
@@ -129,7 +130,7 @@ int testquadfix();
 int MPFitGaussFuncCB(int m, int n, double *p, double *dy, double **dvec, void *vars);
 
 /*
- * gaussian fit function
+ * gaussian fit function without background (NB)
  *
  * m - number of data points
  * n - number of parameters (3)
@@ -145,7 +146,7 @@ int MPFitGaussFuncCB(int m, int n, double *p, double *dy, double **dvec, void *v
 int MPFitGaussFuncNB(int m, int n, double *p, double *dy, double **dvec, void *vars);
 
 /*
- * gaussian fit function
+ * gaussian fit function area with constant background (ACB)
  *
  * m - number of data points
  * n - number of parameters (4)
@@ -162,7 +163,7 @@ int MPFitGaussFuncNB(int m, int n, double *p, double *dy, double **dvec, void *v
 int MPFitGaussFuncACB(int m, int n, double *p, double *dy, double **dvec, void *vars);
 
 /*
- * gaussian fit function
+ * gaussian fit function area no background (ANB)
  *
  * m - number of data points
  * n - number of parameters (3)
@@ -178,7 +179,7 @@ int MPFitGaussFuncACB(int m, int n, double *p, double *dy, double **dvec, void *
 int MPFitGaussFuncANB(int m, int n, double *p, double *dy, double **dvec, void *vars);
 
 /*
- * gaussian fit function
+ * gaussian fit function plus constant and linear background (LB)
  *
  * m - number of data points
  * n - number of parameters (5)
@@ -196,7 +197,7 @@ int MPFitGaussFuncANB(int m, int n, double *p, double *dy, double **dvec, void *
 int MPFitGaussFuncLB(int m, int n, double *p, double *dy, double **dvec, void *vars);
 
 /*
- * gaussian fit function
+ * gaussian fit function area plus constant and linear background
  *
  * m - number of data points
  * n - number of parameters (5)
@@ -214,7 +215,7 @@ int MPFitGaussFuncLB(int m, int n, double *p, double *dy, double **dvec, void *v
 int MPFitGaussFuncALB(int m, int n, double *p, double *dy, double **dvec, void *vars);
 
 /*
- * gaussian fit function
+ * gaussian fit function 2 Gaussians plus constant background (CB)
  *
  * m - number of data points
  * n - number of parameters (6)
@@ -233,7 +234,7 @@ int MPFitGaussFuncALB(int m, int n, double *p, double *dy, double **dvec, void *
 int MPFitTwoGaussFuncCB(int m, int n, double *p, double *dy, double **dvec, void *vars);
 
 /*
- * gaussian fit function
+ * gaussian fit function 2 Gaussians no background (NB)
  *
  * m - number of data points
  * n - number of parameters (5)
@@ -251,7 +252,7 @@ int MPFitTwoGaussFuncCB(int m, int n, double *p, double *dy, double **dvec, void
 int MPFitTwoGaussFuncNB(int m, int n, double *p, double *dy, double **dvec, void *vars);
 
 /*
- * gaussian fit function
+ * gaussian fit function 2 Gaussians area plus constant background (ACB)
  *
  * m - number of data points
  * n - number of parameters (6)
@@ -270,7 +271,7 @@ int MPFitTwoGaussFuncNB(int m, int n, double *p, double *dy, double **dvec, void
 int MPFitTwoGaussFuncACB(int m, int n, double *p, double *dy, double **dvec, void *vars);
 
 /*
- * gaussian fit function
+ * gaussian fit function 2 Gaussians area no background (ANB)
  *
  * m - number of data points
  * n - number of parameters (5)
@@ -288,7 +289,7 @@ int MPFitTwoGaussFuncACB(int m, int n, double *p, double *dy, double **dvec, voi
 int MPFitTwoGaussFuncANB(int m, int n, double *p, double *dy, double **dvec, void *vars);
 
 /*
- * gaussian fit function
+ * gaussian fit function 3 Gaussians plus constant background
  *
  * m - number of data points
  * n - number of parameters (8)
@@ -309,7 +310,7 @@ int MPFitTwoGaussFuncANB(int m, int n, double *p, double *dy, double **dvec, voi
 int MPFitThreeGaussFuncCB(int m, int n, double *p, double *dy, double **dvec, void *vars);
 
 /*
- * gaussian fit function
+ * gaussian fit function 2D Gaussian plus constant background
  *
  * m - number of data points
  * n - number of parameters (5)
@@ -327,7 +328,7 @@ int MPFitThreeGaussFuncCB(int m, int n, double *p, double *dy, double **dvec, vo
 int MPFit2DGaussFuncCB(int m, int n, double *p, double *dz, double **dvec, void *vars);
 
 /*
- * gaussian fit function
+ * gaussian fit function 3 Gaussians no background (NB)
  *
  * m - number of data points
  * n - number of parameters (7)
@@ -347,7 +348,7 @@ int MPFit2DGaussFuncCB(int m, int n, double *p, double *dz, double **dvec, void 
 int MPFitThreeGaussFuncNB(int m, int n, double *p, double *dy, double **dvec, void *vars);
 
 /*
- * gaussian fit function
+ * gaussian fit function 3 Gaussians area plus constant background
  *
  * m - number of data points
  * n - number of parameters (8)
@@ -368,7 +369,7 @@ int MPFitThreeGaussFuncNB(int m, int n, double *p, double *dy, double **dvec, vo
 int MPFitThreeGaussFuncACB(int m, int n, double *p, double *dy, double **dvec, void *vars);
 
 /*
- * gaussian fit function
+ * gaussian fit function 3 Gaussians area no background
  *
  * m - number of data points
  * n - number of parameters (7)
@@ -386,6 +387,37 @@ int MPFitThreeGaussFuncACB(int m, int n, double *p, double *dy, double **dvec, v
  * RETURNS: error code (0 = success)
  */
 int MPFitThreeGaussFuncANB(int m, int n, double *p, double *dy, double **dvec, void *vars);
+
+/*
+ * Chebyshev polynomial 1st kind
+ * m - number of data points
+ * n - number of parameters (order + 1)
+ * p - array of fitting parameters
+ * dy - array of residuals to be returned
+ * vars - private data (struct vars_struct *)
+ * 
+ * RETURNS: error code (0 = success)
+ */
+int Chebyshev1stKind(int m, int n, double *p, double *dy, double **dvec, void *vars);
+
+/*
+ * Fit a Chebyshev polynomial of the 1st kind to x and y. X will be shifted and rescaled to fit into the range [-1, 1].
+ * The order of the polynomial will be determined from the length of D_A1_Coeffs_Out (must be equal to length of D_A1_ECoeffs_Out).
+ * 
+ */
+template<typename T> 
+bool MPFitChebyshev1stKind(const ndarray::Array<T, 1, 1> & D_A1_X_In,
+                           const ndarray::Array<T, 1, 1> & D_A1_Y_In,
+                           const ndarray::Array<T, 1, 1> & D_A1_EY_In,
+                           ndarray::Array<T, 1, 1> & D_A1_Coeffs_Out,
+                           ndarray::Array<T, 1, 1> & D_A1_ECoeffs_Out);
+template<typename T> 
+bool MPFitChebyshev1stKind(const ndarray::Array<T, 1, 1> & D_A1_X_In,
+                           const ndarray::Array<T, 1, 1> & D_A1_Y_In,
+                           const ndarray::Array<T, 1, 1> & D_A1_EY_In,
+                           const ndarray::Array<T, 1, 1> & D_A1_Guess_In,
+                           ndarray::Array<T, 1, 1> & D_A1_Coeffs_Out,
+                           ndarray::Array<T, 1, 1> & D_A1_ECoeffs_Out);
 
 /* Test harness routine, which contains test gaussian-peak data */
 template<typename T>
@@ -414,12 +446,13 @@ bool MPFitGaussLim(const ndarray::Array<T, 1, 1> &D_A1_X_In,
                    const ndarray::Array<T, 1, 1> &D_A1_Y_In,
                    const ndarray::Array<T, 1, 1> &D_A1_EY_In,
                    const ndarray::Array<T, 1, 1> &D_A1_Guess_In,
-                   const ndarray::Array<int, 2, 2> &I_A2_Limited,
-                   const ndarray::Array<T, 2, 2> &D_A2_Limits,
-                   const int Background,
+                   const ndarray::Array<int, 2, 1> &I_A2_Limited,
+                   const ndarray::Array<T, 2, 1> &D_A2_Limits,
+                   const int Background,///0-none, 1-constant, 2-linear
                    const bool B_FitArea,
                    ndarray::Array<T, 1, 1> &D_A1_Coeffs_Out,
-                   ndarray::Array< T, 1, 1>& D_A1_ECoeffs_Out);
+                   ndarray::Array< T, 1, 1>& D_A1_ECoeffs_Out,
+                   bool Debug = false);
 
 /* Test harness routine, which contains test gaussian-peak data */
 template<typename T>
@@ -448,8 +481,8 @@ bool MPFitTwoGaussLim(const ndarray::Array<T, 1, 1> &D_A1_X_In,
                       const ndarray::Array<T, 1, 1> &D_A1_Y_In,
                       const ndarray::Array<T, 1, 1> &D_A1_EY_In,
                       const ndarray::Array<T, 1, 1> &D_A1_Guess_In,
-                      const ndarray::Array<int, 2, 2> &I_A2_Limited,
-                      const ndarray::Array<T, 2, 2> &D_A2_Limits,
+                      const ndarray::Array<int, 2, 1> &I_A2_Limited,
+                      const ndarray::Array<T, 2, 1> &D_A2_Limits,
                       const bool B_WithConstantBackground,
                       const bool B_FitArea,
                       ndarray::Array<T, 1, 1> &D_A1_Coeffs_Out,
@@ -481,8 +514,8 @@ bool MPFitThreeGaussLim(const ndarray::Array<T, 1, 1> &D_A1_X_In,
                         const ndarray::Array<T, 1, 1> &D_A1_Y_In,
                         const ndarray::Array<T, 1, 1> &D_A1_EY_In,
                         const ndarray::Array<T, 1, 1> &D_A1_Guess_In,
-                        const ndarray::Array<int, 2, 2> &I_A2_Limited,
-                        const ndarray::Array<T, 2, 2> &D_A2_Limits,
+                        const ndarray::Array<int, 2, 1> &I_A2_Limited,
+                        const ndarray::Array<T, 2, 1> &D_A2_Limits,
                         const bool B_WithConstantBackground,
                         const bool B_FitArea,
                         ndarray::Array<T, 1, 1> &D_A1_Coeffs_Out,
@@ -493,8 +526,8 @@ bool MPFit2DGaussLim(const ndarray::Array< T, 1, 1>& D_A1_X_In,
                      const ndarray::Array< T, 1, 1>& D_A1_Y_In,
                      const ndarray::Array< T, 1, 1>& D_A1_Z_In,
                      const ndarray::Array< T, 1, 1>& D_A1_Guess_In,
-                     const ndarray::Array<int, 2, 2> &I_A2_Limited,
-                     const ndarray::Array<T, 2, 2> &D_A2_Limits,
+                     const ndarray::Array<int, 2, 1> &I_A2_Limited,
+                     const ndarray::Array<T, 2, 1> &D_A2_Limits,
                      ndarray::Array< T, 1, 1>& D_A1_Coeffs_Out,
                      ndarray::Array< T, 1, 1>& D_A1_ECoeffs_Out);
 

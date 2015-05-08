@@ -7,6 +7,7 @@
 #include "lsst/afw/geom.h"
 #include "lsst/afw/image/MaskedImage.h"
 #include "lsst/pex/config.h"
+#include "lsst/pex/exceptions/Exception.h"
 //#include "../blitz.h"
 #include "../utils/Utils.h"
 #include "Math.h"
@@ -24,43 +25,43 @@ using namespace std;
 
 namespace pfs { namespace drp { namespace stella {
   namespace math{
-    /*************************************************************
-     * Poly
-     *
-     * INPUTS:
-     *       D_A1_X_In:      The variable.  1D array.
-     *
-     *       D_A1_Coeffs_In: The 1D array of polynomial coefficients.  The degree of
-     *                       of the polynomial is N_ELEMENTS(VecCoeffs) - 1.
-     *
-     * OUTPUTS:
+    /*
+     * @brief calculate y positions for given x positions and a polynomial of given coefficients
+     * @param x_In: given x positions for which the y positions shall be calculated
+     * @param coeffs_In: given polynomial coefficients. The degree of the polynomial is coeffs_In.shape[0] - 1
+     * @param xRangeMin_In: minimum range from where x was coming from when the polynomial coefficients were fitted (default = -1.)
+     * @param xRangeMax_In: maximum range from where x was coming from when the polynomial coefficients were fitted (default = +1.)
+     * 
      *       POLY returns a result equal to:
      *                C[0] + c[1] * X + c[2]*X^2 + ...
+     *       with X shifted and rescaled to fit in the range [-1,1]
      *
-    **/
+     */
     template<typename T, typename U>
     ndarray::Array<T, 1, 1> Poly(ndarray::Array<T, 1, 1> const& x_In,
-                                 ndarray::Array<U, 1, 1> const& coeffs_In);
+                                 ndarray::Array<U, 1, 1> const& coeffs_In,
+                                 T xRangeMin_In = -1.,
+                                 T xRangeMax_In = 1.);
+//    template<typename T, typename U>
+//    ndarray::Array<T, 1, 1> Poly(ndarray::Array<T, 1, 1> const& x_In,
+//                                 ndarray::Array<U, 1, 1> const& coeffs_In,
+//                                 ndarray::Array<double, 1, 1> const& xRange_In);///shift and rescale x_In to fit into specified range
 
     /**
-     * PURPOSE:
-     *   Perform a least-square polynomial fit with optional error estimates.
+     * @brief  Perform a least-square polynomial fit using matrix inversion with optional error estimates.
      *
-     *   This routine uses matrix inversion.  A newer version of this routine,
-     *   SVDFIT, uses Singular Value Decomposition.  The SVD technique is more
-     *   flexible, but slower.
-     *
-     * INPUTS:
-     *   X:  The independent variable vector.
-     *
-     *   Y:  The dependent variable vector, should be same length as x.
-     *
-     *   Degree: The degree of the polynomial to fit.
+     * @param  x_In:  The independent variable vector.
+     * @param  y_In:  The dependent variable vector, should be same length as x_In.
+     * @param  degree_In: The degree of the polynomial to fit.
      *
      * OUTPUTS:
      *   POLY_FIT returns a vector of coefficients with a length of NDegree+1.
      *
-     * KEYWORDS:
+     * NOTES: * x_In will be shifted and rescaled to fit into the range [-1,1]
+     *          if XRANGE is given the original x range will be assumed to be [xrange[0], xrange[1]],
+     *          otherwise [min(x_In), max(x_In)]
+     * 
+     * KEYWORDS and values:
      *   CHISQ=chisq: double: out:
      *     Sum of squared errors divided by MEASURE_ERRORS if specified.
      *
@@ -94,28 +95,33 @@ namespace pfs { namespace drp { namespace stella {
      *     warning that a small pivot element was used and that significant
      *     accuracy was probably lost.
      *
-     *   YFIT:   blitz::Vector of calculated Y's. These values have an error
+     *   YFIT:   Vector of calculated Y's. These values have an error
      *           of + or - YBAND.
+     * 
+     *   XRANGE: x range from which the original x_In values are from
+     *           x will be rescaled from [xrange[0], xrange[1]] to [-1.,1.]
      *
     CHISQ=chisq: double: out
-    COVAR=covar: blitz::Array<double, 2>(I_Degree+1, I_Degree+1): out
-    MEASURE_ERRORS=measure_errors: blitz::Array<double, 1>(D_A1_X_In.size()): in
-    SIGMA=sigma: blitz::Array<double, 1>(I_Degree+1): out
+    COVAR=covar: PTR(ndarray::Array<double, 2, 1>(I_Degree+1, I_Degree+1)): out
+    MEASURE_ERRORS=measure_errors: PTR(ndarray::Array<double, 1, 1>(D_A1_X_In.size())): in
+    SIGMA=sigma: PTR(ndarray::Array<double, 1, 1>(I_Degree+1)): out
     STATUS=status: int: out
-    YFIT=yfit: blitz::Array<double, 1>(D_A1_X_In.size()): out
+    YFIT=yfit: PTR(ndarray::Array<T, 1, 1>(D_A1_X_In.size())): out
+    XRANGE: PTR(ndarray::Array<double, 1, 1>(2)): in
     **/
+    template< typename T >
+    ndarray::Array<double, 1, 1> PolyFit(ndarray::Array<T, 1, 1> const& x_In,
+                                         ndarray::Array<T, 1, 1> const& y_In,
+                                         size_t const degree_In,
+                                         std::vector<string> const& argsKeyWords_In,
+                                         std::vector<void *> & argsValues_In);
 
     template< typename T >
     ndarray::Array<double, 1, 1> PolyFit(ndarray::Array<T, 1, 1> const& D_A1_X_In,
                                          ndarray::Array<T, 1, 1> const& D_A1_Y_In,
                                          size_t const I_Degree_In,
-                                         std::vector<string> const& S_A1_Args_In,
-                                         std::vector<void *> & ArgV);
-
-    template< typename T >
-    ndarray::Array<double, 1, 1> PolyFit(ndarray::Array<T, 1, 1> const& D_A1_X_In,
-                                         ndarray::Array<T, 1, 1> const& D_A1_Y_In,
-                                         size_t const I_Degree_In);
+                                         T xRangeMin_In = -1.,
+                                         T xRangeMax_In = 1.);
 
 /** Additional Keywords:
     REJECTED=blitz::Array<int, 1>
@@ -132,19 +138,21 @@ namespace pfs { namespace drp { namespace stella {
 
     template< typename T >
     ndarray::Array<double, 1, 1> PolyFit(ndarray::Array<T, 1, 1> const& D_A1_X_In,
-                                    ndarray::Array<T, 1, 1> const& D_A1_Y_In,
-                                    size_t const I_Degree_In,
-                                    T const D_LReject_In,
-                                    T const D_UReject_In,
-                                    size_t const I_NIter,
-                                    std::vector<string> const& S_A1_Args_In,
-                                    std::vector<void *> & ArgV);
+                                         ndarray::Array<T, 1, 1> const& D_A1_Y_In,
+                                         size_t const I_Degree_In,
+                                         T const D_LReject_In,
+                                         T const D_UReject_In,
+                                         size_t const I_NIter,
+                                         std::vector<string> const& S_A1_Args_In,
+                                         std::vector<void *> & ArgV);
 
     template< typename T >
     ndarray::Array<double, 1, 1> PolyFit(ndarray::Array<T, 1, 1> const& D_A1_X_In,
                                          ndarray::Array<T, 1, 1> const& D_A1_Y_In,
                                          size_t const I_Degree_In,
-                                         T const D_Reject_In);
+                                         T const D_Reject_In,
+                                         T xRangeMin_In = -1.,
+                                         T xRangeMax_In = 1.);
 
     template< typename T>
     ndarray::Array<double, 1, 1> PolyFit(ndarray::Array<T, 1, 1> const& D_A1_X_In,
@@ -152,7 +160,9 @@ namespace pfs { namespace drp { namespace stella {
                                          size_t const I_Degree_In,
                                          T const D_LReject_In,
                                          T const D_HReject_In,
-                                         size_t const I_NIter);
+                                         size_t const I_NIter,
+                                         T xRangeMin_In = -1.,
+                                         T xRangeMax_In = 1.);
 
     /**
        CHANGES to original function:
@@ -266,7 +276,11 @@ namespace pfs { namespace drp { namespace stella {
     template< typename T >
     T GSER(T & D_Gamser_In, T const a, T const x);
 
-      
+    /**
+     */
+    template< typename T, typename U >
+    ndarray::Array<T, 1, 1> chebyshev(ndarray::Array<T, 1, 1> const& x_In, ndarray::Array<U, 1, 1> const& coeffs_In);
+            
   }
 }}}
 #endif

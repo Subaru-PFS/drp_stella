@@ -14,7 +14,7 @@ namespace pfs { namespace drp { namespace stella {
 struct FiberTraceFunctionControl {
   /// enum corresponding to legal values of interpolation string
 //  enum INTERPOLATION {  CHEBYSHEV=0, LEGENDRE, CUBIC, LINEAR, POLYNOMIAL, NVALUES };
-  enum INTERPOLATION {  POLYNOMIAL=0, NVALUES };
+  enum INTERPOLATION {  POLYNOMIAL=0, CHEBYSHEV, NVALUES };
 //  std::vector<std::string> INTERPOLATION_NAMES = { stringify( CHEBYSHEV ),
 //                                                   stringify( LEGENDRE ),
 //                                                   stringify( CUBIC ),

@@ -10,6 +10,7 @@
 #include "lsst/base.h"
 #include "lsst/afw/geom.h"
 #include "lsst/afw/image/MaskedImage.h"
+#include "lsst/afw/math/FunctionLibrary.h"
 #include "lsst/pex/config.h"
 #include "lsst/pex/exceptions/Exception.h"
 #include "ndarray.h"
