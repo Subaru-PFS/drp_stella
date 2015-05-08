@@ -29,7 +29,7 @@
 //#include "lsst/afw/table/io/OutputArchive.h"
 //#include "lsst/afw/table/io/CatalogVector.h"
 
-//#define __DEBUG_CALC2DPSF__
+#define __DEBUG_CALC2DPSF__
 //#define __DEBUG_CPRTC__
 //#define __DEBUG_CALC_TPS__
 #define __DEBUG_COMPARECENTERPOSITIONS__
@@ -63,6 +63,7 @@ namespace pfs { namespace drp { namespace stella {
                                                      _xCentersPSFCCD(0),
                                                      _yCentersPSFCCD(0),
                                                      _nPixPerPSF(0),
+                                                     _xRangePolynomial(2),
                                                      _isTwoDPSFControlSet(false),
                                                      _isPSFsExtracted(false)
       {};
@@ -105,6 +106,7 @@ namespace pfs { namespace drp { namespace stella {
             _xCentersPSFCCD(0),
             _yCentersPSFCCD(0),
             _nPixPerPSF(0),
+            _xRangePolynomial(2),
             _isTwoDPSFControlSet(true),
             _isPSFsExtracted(false)
       {};
@@ -145,6 +147,7 @@ namespace pfs { namespace drp { namespace stella {
       const std::vector<float> getXCentersPSFCCD() const {return _xCentersPSFCCD;}
       const std::vector<float> getYCentersPSFCCD() const {return _yCentersPSFCCD;}
       const std::vector<unsigned long> getNPixPerPSF() const {return _nPixPerPSF;}
+      const std::vector<double> getXRangePolynomial() const {return _xRangePolynomial;}
       
       bool setImagePSF_ZFit(ndarray::Array<ImageT, 1, 1> const& zFit);
 
@@ -192,6 +195,7 @@ namespace pfs { namespace drp { namespace stella {
       std::vector<float> _xCentersPSFCCD;
       std::vector<float> _yCentersPSFCCD;
       std::vector<unsigned long> _nPixPerPSF;
+      std::vector<double> _xRangePolynomial;
       bool _isTwoDPSFControlSet;
       bool _isPSFsExtracted;
       

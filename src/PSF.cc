@@ -219,11 +219,11 @@ namespace pfs{ namespace drp{ namespace stella{
     int I_MinWidth = int(_twoDPSFControl->yFWHM)+1;
     int I_StartIndex = 0;
     double D_MaxTimesApertureWidth = 3.5;
-    ndarray::Array<int, 2, 2> I_A2_Limited = ndarray::allocate(_twoDPSFControl->nTermsGaussFit, 2);
+    ndarray::Array<int, 2, 1> I_A2_Limited = ndarray::allocate(_twoDPSFControl->nTermsGaussFit, 2);
     I_A2_Limited[ndarray::view()()] = 1;
     if (_twoDPSFControl->nTermsGaussFit == 5)
       I_A2_Limited[ndarray::view(4)()] = 0;
-    ndarray::Array<ImageT, 2, 2> D_A2_Limits = ndarray::allocate(_twoDPSFControl->nTermsGaussFit, 2);
+    ndarray::Array<ImageT, 2, 1> D_A2_Limits = ndarray::allocate(_twoDPSFControl->nTermsGaussFit, 2);
     /// 0: peak value
     /// 1: center position
     /// 2: sigma
@@ -355,6 +355,10 @@ namespace pfs{ namespace drp{ namespace stella{
           else{
             cout << "PSF trace" << _iTrace << " bin" << _iBin << "::extractPSFs: while: D_A1_GaussFit_Coeffs(2)(=" << D_A1_GaussFit_Coeffs[2] << ") >= (_twoDPSFControl->yFWHM / 1.5)(=" << (_twoDPSFControl->yFWHM / 1.5) << ") || ((_twoDPSFControl->nTermsGaussFit(=" << _twoDPSFControl->nTermsGaussFit << ") < 5) || ((_twoDPSFControl->nTermsGaussFit > 4) && (D_A1_GaussFit_Coeffs(4)(=" << D_A1_GaussFit_Coeffs[4] << ") >= 1000.)) => Skipping emission line" << endl;
           }
+        }
+        if (D_A1_GaussFit_Coeffs[1] < (2. * _twoDPSFControl->yFWHM)){
+          cout << "PSF trace" << _iTrace << " bin" << _iBin << "::extractPSFs: while: D_A1_GaussFit_Coeffs(2)(=" << D_A1_GaussFit_Coeffs[2] << ") < 2*yFWHM -> spot not fully sampled" << endl;
+          success = false;
         }
         if (success && (collapsedPSF.getShape()[0] > 2)){
           ndarray::Array<ImageT, 2, 1> indexRelToCenter = math::calcPositionsRelativeToCenter(ImageT(gaussCenterY), ImageT(4. * _twoDPSFControl->yFWHM));
@@ -1172,7 +1176,7 @@ namespace pfs{ namespace drp{ namespace stella{
         while ((!found) && (iList < xPositions.getShape()[0])){
           dX = xPositions[iList] - xPSF;
           #ifdef __DEBUG_COMPARECENTERPOSITIONS__
-            cout << "pfs::drp::stella::math::compareCenterPositions: spot number " << iPSF << " xPosititions[" << iList << "] = " << xPositions[iList] << ": dX = " << dX << endl;
+            cout << "pfs::drp::stella::math::compareCenterPositions: spot number " << iPSF << ": xPSF = " << xPSF << ", xPosititions[" << iList << "] = " << xPositions[iList] << ": dX = " << dX << endl;
           #endif
           if (fabs(dX) < dXMax){
             dY = yPositions[iList] - yPSF;

@@ -19,9 +19,9 @@
 #include <cmath>
 
 #define EPSILON 0.00001f
-#define PI 3.1415926
-#define Deg2Rad(Ang) ((float)( Ang * PI / 180.0 ))
-#define Rad2Deg(Ang) ((float)( Ang * 180.0 / PI ))
+#define CONST_PI 3.1415926
+#define Deg2Rad(Ang) ((float)( Ang * CONST_PI / 180.0 ))
+#define Rad2Deg(Ang) ((float)( Ang * 180.0 / CONST_PI ))
 
 namespace pfs{ namespace drp{ namespace stella{ namespace math{
     // =========================================
