@@ -4552,7 +4552,7 @@
                                                                                 const blitz::Array<string, 1> &S_A1_Args_In,
                                                                                 void *ArgV_In[]){
       PTR(afwImage::MaskedImage<ImageT, MaskT, VarianceT>) const& trace = fiberTrace.getTrace();
-      ndarray::Array<float const, 1, 1> const& xCenters = fiberTrace.getXCenters();
+      ndarray::Array<double const, 1, 1> const& xCenters = fiberTrace.getXCenters();
       ndarray::Array<size_t, 2, 1> const& binBoundYNd = fiberTrace.calcSwathBoundY(fiberTrace.getFiberTraceProfileFittingControl()->swathWidth);
       PTR(const pfsDRPStella::FiberTraceProfileFittingControl) const& fiberTraceProfileFittingControl = fiberTrace.getFiberTraceProfileFittingControl();
       PTR(const pfsDRPStella::FiberTraceFunction) const& fiberTraceFunction = fiberTrace.getFiberTraceFunction();
@@ -6546,9 +6546,9 @@
         background->getSpectrum()[ind] = ImageT(D_A1_Sky(ind));
         background->getVariance()[ind] = VarianceT(D_A1_ErrSky(ind));
       }
-      blitz::Array<float, 2> F_A2_ProfArray = ::pfs::drp::stella::math::Float(D_A2_SF);
-      ndarray::Array<float, 2, 1> ndarrayProf(::pfs::drp::stella::utils::copyBlitzToNdarray(F_A2_ProfArray));
-      PTR(afwImage::Image<float>) imageProf(new afwImage::Image<float>(ndarrayProf));
+      blitz::Array<double, 2> D_A2_ProfArrayTemp = ::pfs::drp::stella::math::Double(D_A2_SF);
+      ndarray::Array<double, 2, 1> ndarrayProf(::pfs::drp::stella::utils::copyBlitzToNdarray(D_A2_ProfArrayTemp));
+      PTR(afwImage::Image<double>) imageProf(new afwImage::Image<double>(ndarrayProf));
       blitz::Array<MaskT, 2> U_A2_Mask(trace->getHeight(), trace->getWidth());
       U_A2_Mask = where(I_A2_Mask_AllRows == 1, T_A2_MaskArray, 1);
       ndarray::Array<MaskT, 2, 1> ndarrayMask(::pfs::drp::stella::utils::copyBlitzToNdarray(U_A2_Mask));

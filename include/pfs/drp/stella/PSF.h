@@ -29,7 +29,7 @@
 //#include "lsst/afw/table/io/OutputArchive.h"
 //#include "lsst/afw/table/io/CatalogVector.h"
 
-#define __DEBUG_CALC2DPSF__
+//#define __DEBUG_CALC2DPSF__
 //#define __DEBUG_CPRTC__
 //#define __DEBUG_CALC_TPS__
 #define __DEBUG_COMPARECENTERPOSITIONS__
@@ -43,7 +43,7 @@ namespace pexExcept = lsst::pex::exceptions;
 using namespace std;
 namespace pfs { namespace drp { namespace stella {
 
-  template<typename ImageT, typename MaskT=afwImage::MaskPixel, typename VarianceT=afwImage::VariancePixel, typename WavelengthT=afwImage::VariancePixel>
+  template<typename ImageT, typename MaskT=afwImage::MaskPixel, typename VarianceT=afwImage::VariancePixel>//, typename WavelengthT=afwImage::VariancePixel>
   class PSF {
     public:
       typedef afwImage::MaskedImage<ImageT, MaskT, VarianceT> MaskedImageT;
@@ -125,27 +125,27 @@ namespace pfs { namespace drp { namespace stella {
       size_t getITrace() const {return _iTrace;}
       size_t getYLow() const {return _yMin;}
       size_t getYHigh() const {return _yMax;}
-      std::vector<float> getImagePSF_XTrace() {return _imagePSF_XTrace;}
-      std::vector<float> getImagePSF_YTrace() {return _imagePSF_YTrace;}
-      std::vector<float> getImagePSF_ZTrace() {return _imagePSF_ZTrace;}
-      const std::vector<float> getImagePSF_XTrace() const {return _imagePSF_XTrace;}
-      const std::vector<float> getImagePSF_YTrace() const {return _imagePSF_YTrace;}
-      const std::vector<float> getImagePSF_ZTrace() const {return _imagePSF_ZTrace;}
-      std::vector<float> getImagePSF_XRelativeToCenter() {return _imagePSF_XRelativeToCenter;}
-      std::vector<float> getImagePSF_YRelativeToCenter() {return _imagePSF_YRelativeToCenter;}
-      std::vector<float> getImagePSF_ZNormalized() {return _imagePSF_ZNormalized;}
-      std::vector<float> getImagePSF_ZFit() {return _imagePSF_ZFit;}
-      const std::vector<float> getImagePSF_XRelativeToCenter() const {return _imagePSF_XRelativeToCenter;}
-      const std::vector<float> getImagePSF_YRelativeToCenter() const {return _imagePSF_YRelativeToCenter;}
-      const std::vector<float> getImagePSF_ZNormalized() const {return _imagePSF_ZNormalized;}
-      const std::vector<float> getImagePSF_ZFit() const {return _imagePSF_ZFit;}
-      std::vector<float> getImagePSF_Weight() {return _imagePSF_Weight;}
-      std::vector<float> getXCentersPSFCCD() {return _xCentersPSFCCD;}
-      std::vector<float> getYCentersPSFCCD() {return _yCentersPSFCCD;}
+      std::vector<double> getImagePSF_XTrace() {return _imagePSF_XTrace;}
+      std::vector<double> getImagePSF_YTrace() {return _imagePSF_YTrace;}
+      std::vector<double> getImagePSF_ZTrace() {return _imagePSF_ZTrace;}
+      const std::vector<double> getImagePSF_XTrace() const {return _imagePSF_XTrace;}
+      const std::vector<double> getImagePSF_YTrace() const {return _imagePSF_YTrace;}
+      const std::vector<double> getImagePSF_ZTrace() const {return _imagePSF_ZTrace;}
+      std::vector<double> getImagePSF_XRelativeToCenter() {return _imagePSF_XRelativeToCenter;}
+      std::vector<double> getImagePSF_YRelativeToCenter() {return _imagePSF_YRelativeToCenter;}
+      std::vector<double> getImagePSF_ZNormalized() {return _imagePSF_ZNormalized;}
+      std::vector<double> getImagePSF_ZFit() {return _imagePSF_ZFit;}
+      const std::vector<double> getImagePSF_XRelativeToCenter() const {return _imagePSF_XRelativeToCenter;}
+      const std::vector<double> getImagePSF_YRelativeToCenter() const {return _imagePSF_YRelativeToCenter;}
+      const std::vector<double> getImagePSF_ZNormalized() const {return _imagePSF_ZNormalized;}
+      const std::vector<double> getImagePSF_ZFit() const {return _imagePSF_ZFit;}
+      std::vector<double> getImagePSF_Weight() {return _imagePSF_Weight;}
+      std::vector<double> getXCentersPSFCCD() {return _xCentersPSFCCD;}
+      std::vector<double> getYCentersPSFCCD() {return _yCentersPSFCCD;}
       std::vector<unsigned long> getNPixPerPSF() {return _nPixPerPSF;}
-      const std::vector<float> getImagePSF_Weight() const {return _imagePSF_Weight;}
-      const std::vector<float> getXCentersPSFCCD() const {return _xCentersPSFCCD;}
-      const std::vector<float> getYCentersPSFCCD() const {return _yCentersPSFCCD;}
+      const std::vector<double> getImagePSF_Weight() const {return _imagePSF_Weight;}
+      const std::vector<double> getXCentersPSFCCD() const {return _xCentersPSFCCD;}
+      const std::vector<double> getYCentersPSFCCD() const {return _yCentersPSFCCD;}
       const std::vector<unsigned long> getNPixPerPSF() const {return _nPixPerPSF;}
       const std::vector<double> getXRangePolynomial() const {return _xRangePolynomial;}
       
@@ -160,15 +160,16 @@ namespace pfs { namespace drp { namespace stella {
       /// Set the _twoDPSFControl
       bool setTwoDPSFControl(PTR(TwoDPSFControl) &twoDPSFControl);
 
+      template< typename WavelengthT >
       bool extractPSFs(FiberTrace<ImageT, MaskT, VarianceT> const& fiberTrace_In,
 	               Spectrum<ImageT, MaskT, VarianceT, WavelengthT> const& spectrum_In);
       bool extractPSFs(FiberTrace<ImageT, MaskT, VarianceT> const& fiberTrace_In,
 	               Spectrum<ImageT, MaskT, VarianceT, WavelengthT> const& spectrum_In,
-                       ndarray::Array<ImageT, 2, 1> const& collapsedPSF);
+                       ndarray::Array<double, 2, 1> const& collapsedPSF);
       //bool fitPSFKernel();
       //bool calculatePSF();
       
-      std::vector< ImageT > reconstructFromThinPlateSplineFit(double const regularization = 0.);
+      std::vector< double > reconstructFromThinPlateSplineFit(double const regularization = 0.);
             
   protected:
 
@@ -184,16 +185,16 @@ namespace pfs { namespace drp { namespace stella {
       const size_t _iBin;
       const size_t _yMin;
       const size_t _yMax;
-      std::vector<float> _imagePSF_XTrace;
-      std::vector<float> _imagePSF_YTrace;
-      std::vector<float> _imagePSF_ZTrace;
-      std::vector<float> _imagePSF_XRelativeToCenter;
-      std::vector<float> _imagePSF_YRelativeToCenter;
-      std::vector<float> _imagePSF_ZNormalized;
-      std::vector<float> _imagePSF_ZFit;
-      std::vector<float> _imagePSF_Weight;
-      std::vector<float> _xCentersPSFCCD;
-      std::vector<float> _yCentersPSFCCD;
+      std::vector<double> _imagePSF_XTrace;
+      std::vector<double> _imagePSF_YTrace;
+      std::vector<double> _imagePSF_ZTrace;
+      std::vector<double> _imagePSF_XRelativeToCenter;
+      std::vector<double> _imagePSF_YRelativeToCenter;
+      std::vector<double> _imagePSF_ZNormalized;
+      std::vector<double> _imagePSF_ZFit;
+      std::vector<double> _imagePSF_Weight;
+      std::vector<double> _xCentersPSFCCD;
+      std::vector<double> _yCentersPSFCCD;
       std::vector<unsigned long> _nPixPerPSF;
       std::vector<double> _xRangePolynomial;
       bool _isTwoDPSFControlSet;
@@ -267,7 +268,7 @@ namespace math{
   PTR( PSFSet< ImageT, MaskT, VarianceT, WavelengthT > ) calculate2dPSFPerBin( FiberTrace< ImageT, MaskT, VarianceT > const& fiberTrace,
                                                                                Spectrum< ImageT, MaskT, VarianceT, WavelengthT > const& spectrum,
                                                                                TwoDPSFControl const& twoDPSFControl,
-                                                                               ndarray::Array< ImageT, 2, 1 > const& collapsedPSF);
+                                                                               ndarray::Array< double, 2, 1 > const& collapsedPSF);
   
   template< typename ImageT, typename MaskT = afwImage::MaskPixel, typename VarianceT = afwImage::VariancePixel, typename WavelengthT = afwImage::VariancePixel >
   std::vector< PTR( PSFSet< ImageT, MaskT, VarianceT, WavelengthT > ) > calculate2dPSFPerBin( FiberTraceSet< ImageT, MaskT, VarianceT > const& fiberTraceSet,
@@ -342,9 +343,9 @@ namespace math{
    *                   1: collapse in y (get PSF in spatial direction)
    */
   template< typename ImageT, typename MaskT = afwImage::MaskPixel, typename VarianceT = afwImage::VariancePixel, typename WavelengthT = afwImage::VariancePixel >
-  ndarray::Array< float, 2, 1 > collapsePSF( PSF< ImageT, MaskT, VarianceT, WavelengthT > const& psf_In,
-                                             ndarray::Array< float, 1, 1 > const& coordinatesX_In,
-                                             ndarray::Array< float, 1, 1 > const& coordinatesY_In,
+  ndarray::Array< double, 2, 1 > collapsePSF( PSF< ImageT, MaskT, VarianceT, WavelengthT > const& psf_In,
+                                             ndarray::Array< double, 1, 1 > const& coordinatesX_In,
+                                             ndarray::Array< double, 1, 1 > const& coordinatesY_In,
                                              int const direction = 0.,
                                              double const regularization = 0.);
   
