@@ -4,9 +4,10 @@
      * Calculates aperture minimum pixel, central position, and maximum pixel for the trace,
      * and writes result to minCenMax_Out and returns it
      **/
-    ndarray::Array<size_t, 2, 2> calcMinCenMax(ndarray::Array<float const, 1, 1> const& xCenters_In,
-                                               float const xHigh_In,
-                                               float const xLow_In,
+    template< typename T, typename U >
+    ndarray::Array<size_t, 2, 1> calcMinCenMax(ndarray::Array<T const, 1, 1> const& xCenters_In,
+                                               U const xHigh_In,
+                                               U const xLow_In,
                                                int const nPixCutLeft_In,
                                                int const nPixCutRight_In){
       ndarray::Array<size_t, 1, 1> floor = pfs::drp::stella::math::floor(xCenters_In, size_t(0));
@@ -18,16 +19,17 @@
       #ifdef __DEBUG_MINCENMAX__
         cout << "calcMinCenMax: minCenMax_Out(*,1) = " << minCenMax_Out[ndarray::view()(1)] << endl;
       #endif
-      ndarray::Array<const float, 1, 1> F_A1_Temp = ndarray::copy(xCenters_In + xLow_In);
+      ndarray::Array<double, 1, 1> D_A1_Temp = ndarray::allocate(xCenters_In.getShape()[0]);
+      D_A1_Temp.deep() = xCenters_In + xLow_In;
 
-      minCenMax_Out[ndarray::view()(0)] = pfs::drp::stella::math::floor(F_A1_Temp, size_t(0));
+      minCenMax_Out[ndarray::view()(0)] = pfs::drp::stella::math::floor(ndarray::Array<double const, 1, 1>(D_A1_Temp), size_t(0));
 
       #ifdef __DEBUG_MINCENMAX__
         cout << "calcMinCenMax: minCenMax_Out(*,0) = " << minCenMax_Out[ndarray::view()(0)] << endl;
       #endif
-      F_A1_Temp = ndarray::copy(xCenters_In + xHigh_In);
+      D_A1_Temp.deep() = xCenters_In + xHigh_In;
 
-      minCenMax_Out[ndarray::view()(2)] = pfs::drp::stella::math::floor(F_A1_Temp, size_t(0));
+      minCenMax_Out[ndarray::view()(2)] = pfs::drp::stella::math::floor(ndarray::Array<double const, 1, 1>(D_A1_Temp), size_t(0));
 
       #ifdef __DEBUG_MINCENMAX__
         cout << "calcMinCenMax: minCenMax_Out(*,2) = " << minCenMax_Out[ndarray::view()(2)] << endl;
@@ -412,6 +414,21 @@
     }
     
     template <typename T>
+    ndarray::Array<float, 2, 1> Float(ndarray::Array<T, 2, 1> const& arr_In){
+      ndarray::Array<float, 2, 1> arr_Out = ndarray::allocate(arr_In.getShape()[0], arr_In.getShape()[1]);
+      auto it_arr_Out = arr_Out.begin();
+      auto it_arr_In = arr_In.begin();
+      for (int i = 0; i < arr_In.getShape()[0]; ++i){
+        auto itJ_Out = (it_arr_Out + i)->begin();
+        auto itJ_In = (it_arr_In + i)->begin();
+        for (int j = 0; j < arr_In.getShape()[1]; ++j){
+          (*(itJ_Out + j)) = float((*(itJ_In + j)));
+        }
+      }
+      return arr_Out;
+    }
+    
+    template <typename T>
     ndarray::Array<float, 2, 2> Float(ndarray::Array<T, 2, 2> const& arr_In){
       ndarray::Array<float, 2, 2> arr_Out = ndarray::allocate(arr_In.getShape()[0], arr_In.getShape()[1]);
       auto it_arr_Out = arr_Out.begin();
@@ -459,7 +476,7 @@
     }
         
     template<typename T>
-    ndarray::Array<T, 2, 2> calcPosRelativeToCenter(ndarray::Array<T, 2, 2> const& swath_In, ndarray::Array<T, 1, 1> const& xCenters_In){
+    ndarray::Array<T, 2, 1> calcPosRelativeToCenter(ndarray::Array<T, 2, 1> const& swath_In, ndarray::Array<T, 1, 1> const& xCenters_In){
       ndarray::Array<T, 1, 1> indPos = pfs::drp::stella::math::indGenNdArr(swath_In.getShape()[1]);
       ndarray::Array<T, 1, 1> ones = replicate(float(1.), swath_In.getShape()[0]);
       #ifdef __DEBUG_CALCPOSRELATIVETOCENTER__
@@ -477,7 +494,7 @@
         cout << "calcPosRelativeToCenter: indMat = " << indMat << endl;
       #endif
       
-      ndarray::Array<T, 2, 2> outArr = ndarray::copy(indMat);
+      ndarray::Array<T, 2, 1> outArr = ndarray::copy(indMat);
       #ifdef __DEBUG_CALCPOSRELATIVETOCENTER__
         cout << "calcPosRelativeToCenter: outArr = " << outArr << endl;
       #endif
@@ -507,7 +524,7 @@
     }
     
     template<typename T>
-    ndarray::Array<size_t, 2, 2> getIndicesInValueRange(ndarray::Array<T, 2, 2> const& arr_In, T const lowRange_In, T const highRange_In){
+    ndarray::Array<size_t, 2, 1> getIndicesInValueRange(ndarray::Array<T, 2, 1> const& arr_In, T const lowRange_In, T const highRange_In){
       std::vector<size_t> indicesRow;
       std::vector<size_t> indicesCol;
       #ifdef __DEBUG_GETINDICESINVALUERANGE__
@@ -524,7 +541,7 @@
           }
         }
       }
-      ndarray::Array<size_t, 2, 2> arr_Out = ndarray::allocate(indicesRow.size(), 2);
+      ndarray::Array<size_t, 2, 1> arr_Out = ndarray::allocate(indicesRow.size(), 2);
       for (size_t iRow = 0; iRow < arr_Out.getShape()[0]; ++iRow){
         arr_Out[iRow][0] = indicesRow[iRow];
         arr_Out[iRow][1] = indicesCol[iRow];
@@ -588,8 +605,21 @@
     }
 
     template<typename T>
-    ndarray::Array<T, 1, 1> getSubArray(ndarray::Array<T, 2, 2> const& arr_In, 
-                                        ndarray::Array<size_t, 2, 2> const& indices_In){
+    ndarray::Array<T, 1, 1> getSubArray(ndarray::Array<T, 2, 1> const& arr_In, 
+                                        ndarray::Array<size_t, 2, 1> const& indices_In){
+      ndarray::Array<T, 1, 1> arr_Out = ndarray::allocate(indices_In.getShape()[0]);
+      for (size_t iRow = 0; iRow < indices_In.getShape()[0]; ++iRow){
+        arr_Out[iRow] = arr_In[indices_In[iRow][0]][indices_In[iRow][1]];
+        #ifdef __DEBUG_GETSUBARRAY__
+          cout << "getSubArray: arr_Out[" << iRow << "] = " << arr_Out[iRow] << endl;
+        #endif
+      }
+      return arr_Out;
+    }
+
+    template< typename T, typename U >
+    ndarray::Array<T, 1, 1> getSubArray(ndarray::Array<T, 2, 1> const& arr_In, 
+                                        ndarray::Array<U, 2, 1> const& indices_In){
       ndarray::Array<T, 1, 1> arr_Out = ndarray::allocate(indices_In.getShape()[0]);
       for (size_t iRow = 0; iRow < indices_In.getShape()[0]; ++iRow){
         arr_Out[iRow] = arr_In[indices_In[iRow][0]][indices_In[iRow][1]];
@@ -601,7 +631,7 @@
     }
 
     template<typename T>
-    ndarray::Array<T, 1, 1> getSubArray(ndarray::Array<T, 2, 2> const& arr_In, 
+    ndarray::Array<T, 1, 1> getSubArray(ndarray::Array<T, 2, 1> const& arr_In, 
                                         std::vector< std::pair<size_t, size_t> > const& indices_In){
 //      cout << "getSubArray: arr_In = " << arr_In << endl;
       ndarray::Array<T, 1, 1> arr_Out = ndarray::allocate(indices_In.size());
@@ -966,12 +996,6 @@
       return minShift;
     }
     
-    template< typename T >
-    ndarray::Array< T const, 1, 1 > vecToNdArray(std::vector<T> const& vec_In){
-      ndarray::Array< T const, 1, 1 > arr_Out = ndarray::external(vec_In.data(), ndarray::makeVector(int(vec_In.size())), ndarray::makeVector(1));
-      return arr_Out;
-    }
-    
     template< typename T, typename U >
     T convertRangeToUnity(T number,
                           ndarray::Array<U, 1, 1> const& range){
@@ -981,7 +1005,15 @@
         cout << message << endl;
         throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
       }
-      T out = ((number - range[0]) * (range[1] - range[0]) / 2.) - 1.;
+      #ifdef __DEBUG_CONVERTRANGETOUNITY__
+        cout << "pfs::drp::stella::math::convertRangeToUnity: range = " << range << ", number = " << number << endl;
+        cout << "pfs::drp::stella::math::convertRangeToUnity: number - range[0] = " << number - range[0] << endl;
+        cout << "pfs::drp::stella::math::convertRangeToUnity: range[1] - range[0] = " << range[1] - range[0] << endl;
+      #endif
+      T out = ((number - range[0]) * 2. / (range[1] - range[0])) - 1.;
+      #ifdef __DEBUG_CONVERTRANGETOUNITY__
+        cout << "pfs::drp::stella::math::convertRangeToUnity: out = " << out << endl;
+      #endif
       return out;
     }
     
@@ -996,6 +1028,73 @@
       return out;
     }
 
+    template< typename T, typename U >
+    bool checkIfValuesAreInRange(ndarray::Array<T, 1, 1> const& numbers,
+                                 ndarray::Array<U, 1, 1> const& range){
+      for (auto it = numbers.begin(); it != numbers.end(); ++it){
+        if ((*it < range[0]) || (*it > range[1]))
+          return false;
+      }
+      return true;
+    }
+    
+    template< typename T >
+    ndarray::Array<T, 1, 1> vectorToNdArray(std::vector<T> & vector){
+      ndarray::Array<T, 1, 1> ndArray = ndarray::external(vector.data(), ndarray::makeVector(int(vector.size())), ndarray::makeVector(1));
+      return ndArray;
+    }
+    
+    template< typename T >
+    ndarray::Array< T const, 1, 1 > vectorToNdArray(std::vector<T> const& vec_In){
+      ndarray::Array< T const, 1, 1 > arr_Out = ndarray::external(vec_In.data(), ndarray::makeVector(int(vec_In.size())), ndarray::makeVector(1));
+      return arr_Out;
+    }
+    
+    template< typename T >
+    ndarray::Array<T, 2, 1> ndArray21(T nRows, T nCols){
+      ndarray::Array<T, 2, 1> out = ndarray::allocate(int(nRows), int(nCols));
+      return out;
+    }
+    
+    template< typename T >
+    ndarray::Array<T, 2, 2> ndArray22(T nRows, T nCols){
+      ndarray::Array<T, 2, 2> out = ndarray::allocate(int(nRows), int(nCols));
+      return out;
+    }
+
+    template ndarray::Array<int, 2, 1> ndArray21(int, int);
+    template ndarray::Array<float, 2, 1> ndArray21(float, float);
+    template ndarray::Array<double, 2, 1> ndArray21(double, double);
+    template ndarray::Array<int, 2, 2> ndArray22(int, int);
+    template ndarray::Array<float, 2, 2> ndArray22(float, float);
+    template ndarray::Array<double, 2, 2> ndArray22(double, double);
+    
+    template ndarray::Array< unsigned short const, 1, 1 > vectorToNdArray(std::vector<unsigned short> const&);
+    template ndarray::Array< unsigned int const, 1, 1 > vectorToNdArray(std::vector<unsigned int> const&);
+    template ndarray::Array< unsigned long const, 1, 1> vectorToNdArray(std::vector<unsigned long> const&);
+    template ndarray::Array< int const, 1, 1 > vectorToNdArray(std::vector<int> const&);
+    template ndarray::Array< long const, 1, 1 > vectorToNdArray(std::vector<long> const&);
+    template ndarray::Array< float const, 1, 1 > vectorToNdArray(std::vector<float> const&);
+    template ndarray::Array< double const, 1, 1 > vectorToNdArray(std::vector<double> const&);
+    
+    template ndarray::Array<unsigned short, 1, 1> vectorToNdArray(std::vector<unsigned short> &);
+    template ndarray::Array<unsigned int, 1, 1> vectorToNdArray(std::vector<unsigned int> &);
+    template ndarray::Array<unsigned long, 1, 1> vectorToNdArray(std::vector<unsigned long> &);
+    template ndarray::Array<int, 1, 1> vectorToNdArray(std::vector<int> &);
+    template ndarray::Array<long, 1, 1> vectorToNdArray(std::vector<long> &);
+    template ndarray::Array<float, 1, 1> vectorToNdArray(std::vector<float> &);
+    template ndarray::Array<double, 1, 1> vectorToNdArray(std::vector<double> &);
+    
+    template bool checkIfValuesAreInRange(ndarray::Array<int, 1, 1> const&, ndarray::Array<int, 1, 1> const& range);
+    template bool checkIfValuesAreInRange(ndarray::Array<int, 1, 1> const&, ndarray::Array<float, 1, 1> const& range);
+    template bool checkIfValuesAreInRange(ndarray::Array<int, 1, 1> const&, ndarray::Array<double, 1, 1> const& range);
+    template bool checkIfValuesAreInRange(ndarray::Array<float, 1, 1> const&, ndarray::Array<int, 1, 1> const& range);
+    template bool checkIfValuesAreInRange(ndarray::Array<float, 1, 1> const&, ndarray::Array<float, 1, 1> const& range);
+    template bool checkIfValuesAreInRange(ndarray::Array<float, 1, 1> const&, ndarray::Array<double, 1, 1> const& range);
+    template bool checkIfValuesAreInRange(ndarray::Array<double, 1, 1> const&, ndarray::Array<int, 1, 1> const& range);
+    template bool checkIfValuesAreInRange(ndarray::Array<double, 1, 1> const&, ndarray::Array<float, 1, 1> const& range);
+    template bool checkIfValuesAreInRange(ndarray::Array<double, 1, 1> const&, ndarray::Array<double, 1, 1> const& range);
+    
     template float convertRangeToUnity(float, ndarray::Array<float, 1, 1> const&);
     template float convertRangeToUnity(float, ndarray::Array<double, 1, 1> const&);
     template double convertRangeToUnity(double, ndarray::Array<float, 1, 1> const&);
@@ -1004,14 +1103,6 @@
     template ndarray::Array<float, 1, 1> convertRangeToUnity(ndarray::Array<float, 1, 1> const&, ndarray::Array<double, 1, 1> const&);
     template ndarray::Array<double, 1, 1> convertRangeToUnity(ndarray::Array<double, 1, 1> const&, ndarray::Array<float, 1, 1> const&);
     template ndarray::Array<double, 1, 1> convertRangeToUnity(ndarray::Array<double, 1, 1> const&, ndarray::Array<double, 1, 1> const&);
-    
-    template ndarray::Array< size_t const, 1, 1 > vecToNdArray(std::vector<size_t> const&);
-    template ndarray::Array< unsigned short const, 1, 1 > vecToNdArray(std::vector<unsigned short> const&);
-    template ndarray::Array< unsigned int const, 1, 1 > vecToNdArray(std::vector<unsigned int> const&);
-    template ndarray::Array< int const, 1, 1 > vecToNdArray(std::vector<int> const&);
-    template ndarray::Array< long const, 1, 1 > vecToNdArray(std::vector<long> const&);
-    template ndarray::Array< float const, 1, 1 > vecToNdArray(std::vector<float> const&);
-    template ndarray::Array< double const, 1, 1 > vecToNdArray(std::vector<double> const&);
     
     template float xCor(ndarray::Array< float, 2, 1 > const&, ndarray::Array< float, 2, 1 > const&, ndarray::Array< float, 1, 1 > const&, float const&);
     template double xCor(ndarray::Array< double, 2, 1 > const&, ndarray::Array< double, 2, 1 > const&, ndarray::Array< double, 1, 1 > const&, float const&);
@@ -1031,17 +1122,31 @@
     template ndarray::Array<float, 1, 1> getSubArray(ndarray::Array<float, 1, 1> const&, ndarray::Array<size_t, 1, 1> const&);
     template ndarray::Array<double, 1, 1> getSubArray(ndarray::Array<double, 1, 1> const&, ndarray::Array<size_t, 1, 1> const&);
 
-    template ndarray::Array<size_t, 1, 1> getSubArray(ndarray::Array<size_t, 2, 2> const&, ndarray::Array<size_t, 2, 2> const&);
-    template ndarray::Array<int, 1, 1> getSubArray(ndarray::Array<int, 2, 2> const&, ndarray::Array<size_t, 2, 2> const&);
-    template ndarray::Array<long, 1, 1> getSubArray(ndarray::Array<long, 2, 2> const&, ndarray::Array<size_t, 2, 2> const&);
-    template ndarray::Array<float, 1, 1> getSubArray(ndarray::Array<float, 2, 2> const&, ndarray::Array<size_t, 2, 2> const&);
-    template ndarray::Array<double, 1, 1> getSubArray(ndarray::Array<double, 2, 2> const&, ndarray::Array<size_t, 2, 2> const&);
+    template ndarray::Array<size_t, 1, 1> getSubArray(ndarray::Array<size_t, 2, 1> const&, ndarray::Array<size_t, 2, 1> const&);
+    template ndarray::Array<int, 1, 1> getSubArray(ndarray::Array<int, 2, 1> const&, ndarray::Array<size_t, 2, 1> const&);
+    template ndarray::Array<long, 1, 1> getSubArray(ndarray::Array<long, 2, 1> const&, ndarray::Array<size_t, 2, 1> const&);
+    template ndarray::Array<float, 1, 1> getSubArray(ndarray::Array<float, 2, 1> const&, ndarray::Array<size_t, 2, 1> const&);
+    template ndarray::Array<double, 1, 1> getSubArray(ndarray::Array<double, 2, 1> const&, ndarray::Array<size_t, 2, 1> const&);
+    template ndarray::Array<size_t, 1, 1> getSubArray(ndarray::Array<size_t, 2, 1> const&, ndarray::Array<int, 2, 1> const&);
+    template ndarray::Array<int, 1, 1> getSubArray(ndarray::Array<int, 2, 1> const&, ndarray::Array<int, 2, 1> const&);
+    template ndarray::Array<long, 1, 1> getSubArray(ndarray::Array<long, 2, 1> const&, ndarray::Array<int, 2, 1> const&);
+    template ndarray::Array<float, 1, 1> getSubArray(ndarray::Array<float, 2, 1> const&, ndarray::Array<int, 2, 1> const&);
+    template ndarray::Array<double, 1, 1> getSubArray(ndarray::Array<double, 2, 1> const&, ndarray::Array<int, 2, 1> const&);
+    template ndarray::Array<size_t, 1, 1> getSubArray(ndarray::Array<size_t, 2, 1> const&, ndarray::Array<long, 2, 1> const&);
+    template ndarray::Array<int, 1, 1> getSubArray(ndarray::Array<int, 2, 1> const&, ndarray::Array<long, 2, 1> const&);
+    template ndarray::Array<long, 1, 1> getSubArray(ndarray::Array<long, 2, 1> const&, ndarray::Array<long, 2, 1> const&);
+    template ndarray::Array<float, 1, 1> getSubArray(ndarray::Array<float, 2, 1> const&, ndarray::Array<long, 2, 1> const&);
+    template ndarray::Array<double, 1, 1> getSubArray(ndarray::Array<double, 2, 1> const&, ndarray::Array<long, 2, 1> const&);
+    template ndarray::Array<int, 1, 1> getSubArray(ndarray::Array<int, 2, 1> const&, ndarray::Array<unsigned int, 2, 1> const&);
+    template ndarray::Array<long, 1, 1> getSubArray(ndarray::Array<long, 2, 1> const&, ndarray::Array<unsigned int, 2, 1> const&);
+    template ndarray::Array<float, 1, 1> getSubArray(ndarray::Array<float, 2, 1> const&, ndarray::Array<unsigned int, 2, 1> const&);
+    template ndarray::Array<double, 1, 1> getSubArray(ndarray::Array<double, 2, 1> const&, ndarray::Array<unsigned int, 2, 1> const&);
 
-    template ndarray::Array<size_t, 1, 1> getSubArray(ndarray::Array<size_t, 2, 2> const&, std::vector< std::pair<size_t, size_t> > const&);
-    template ndarray::Array<int, 1, 1> getSubArray(ndarray::Array<int, 2, 2> const&, std::vector< std::pair<size_t, size_t> > const&);
-    template ndarray::Array<long, 1, 1> getSubArray(ndarray::Array<long, 2, 2> const&, std::vector< std::pair<size_t, size_t> > const&);
-    template ndarray::Array<float, 1, 1> getSubArray(ndarray::Array<float, 2, 2> const&, std::vector< std::pair<size_t, size_t> > const&);
-    template ndarray::Array<double, 1, 1> getSubArray(ndarray::Array<double, 2, 2> const&, std::vector< std::pair<size_t, size_t> > const&);
+    template ndarray::Array<size_t, 1, 1> getSubArray(ndarray::Array<size_t, 2, 1> const&, std::vector< std::pair<size_t, size_t> > const&);
+    template ndarray::Array<int, 1, 1> getSubArray(ndarray::Array<int, 2, 1> const&, std::vector< std::pair<size_t, size_t> > const&);
+    template ndarray::Array<long, 1, 1> getSubArray(ndarray::Array<long, 2, 1> const&, std::vector< std::pair<size_t, size_t> > const&);
+    template ndarray::Array<float, 1, 1> getSubArray(ndarray::Array<float, 2, 1> const&, std::vector< std::pair<size_t, size_t> > const&);
+    template ndarray::Array<double, 1, 1> getSubArray(ndarray::Array<double, 2, 1> const&, std::vector< std::pair<size_t, size_t> > const&);
 
     template std::vector<size_t> removeSubArrayFromArray(std::vector<size_t> const&, std::vector<size_t> const&);
     template std::vector<int> removeSubArrayFromArray(std::vector<int> const&, std::vector<int> const&);
@@ -1055,11 +1160,11 @@
     template ndarray::Array<size_t, 1, 1> getIndicesInValueRange(ndarray::Array<float, 1, 1> const&, float const, float const);
     template ndarray::Array<size_t, 1, 1> getIndicesInValueRange(ndarray::Array<double, 1, 1> const&, double const, double const);
 
-    template ndarray::Array<size_t, 2, 2> getIndicesInValueRange(ndarray::Array<size_t, 2, 2> const&, size_t const, size_t const);
-    template ndarray::Array<size_t, 2, 2> getIndicesInValueRange(ndarray::Array<int, 2, 2> const&, int const, int const);
-    template ndarray::Array<size_t, 2, 2> getIndicesInValueRange(ndarray::Array<long, 2, 2> const&, long const, long const);
-    template ndarray::Array<size_t, 2, 2> getIndicesInValueRange(ndarray::Array<float, 2, 2> const&, float const, float const);
-    template ndarray::Array<size_t, 2, 2> getIndicesInValueRange(ndarray::Array<double, 2, 2> const&, double const, double const);
+    template ndarray::Array<size_t, 2, 1> getIndicesInValueRange(ndarray::Array<size_t, 2, 1> const&, size_t const, size_t const);
+    template ndarray::Array<size_t, 2, 1> getIndicesInValueRange(ndarray::Array<int, 2, 1> const&, int const, int const);
+    template ndarray::Array<size_t, 2, 1> getIndicesInValueRange(ndarray::Array<long, 2, 1> const&, long const, long const);
+    template ndarray::Array<size_t, 2, 1> getIndicesInValueRange(ndarray::Array<float, 2, 1> const&, float const, float const);
+    template ndarray::Array<size_t, 2, 1> getIndicesInValueRange(ndarray::Array<double, 2, 1> const&, double const, double const);
     
     template ndarray::Array<size_t, 1, 1> replicate(size_t const val, int const size);
     template ndarray::Array<unsigned short, 1, 1> replicate(unsigned short const val, int const size);
@@ -1083,6 +1188,7 @@
     template ndarray::Array<double, 1, 1> Double(ndarray::Array<float, 1, 1> const&);
     template ndarray::Array<double, 1, 1> Double(ndarray::Array<float const, 1, 1> const&);
     template ndarray::Array<double, 1, 1> Double(ndarray::Array<double, 1, 1> const&);
+    template ndarray::Array<double, 1, 1> Double(ndarray::Array<double const, 1, 1> const&);
 
     template ndarray::Array<float, 1, 1> Float(ndarray::Array<size_t, 1, 1> const&);
     template ndarray::Array<float, 1, 1> Float(ndarray::Array<unsigned short, 1, 1> const&);
@@ -1106,6 +1212,13 @@
     template ndarray::Array<double, 2, 2> Double(ndarray::Array<float, 2, 2> const&);
     template ndarray::Array<double, 2, 2> Double(ndarray::Array<float const, 2, 2> const&);
     template ndarray::Array<double, 2, 2> Double(ndarray::Array<double, 2, 2> const&);
+
+    template ndarray::Array<float, 2, 1> Float(ndarray::Array<size_t, 2, 1> const&);
+    template ndarray::Array<float, 2, 1> Float(ndarray::Array<unsigned short, 2, 1> const&);
+    template ndarray::Array<float, 2, 1> Float(ndarray::Array<int, 2, 1> const&);
+    template ndarray::Array<float, 2, 1> Float(ndarray::Array<long, 2, 1> const&);
+    template ndarray::Array<float, 2, 1> Float(ndarray::Array<float, 2, 1> const&);
+    template ndarray::Array<float, 2, 1> Float(ndarray::Array<double, 2, 1> const&);
 
     template ndarray::Array<float, 2, 2> Float(ndarray::Array<size_t, 2, 2> const&);
     template ndarray::Array<float, 2, 2> Float(ndarray::Array<unsigned short, 2, 2> const&);
@@ -1300,6 +1413,11 @@
     template std::vector<int> indGen(int);
     template std::vector<float> indGen(float);
     template std::vector<double> indGen(double);
+    
+    template ndarray::Array<size_t, 2, 1> calcMinCenMax(ndarray::Array<float const, 1, 1> const&, float const, float const, int const, int const);
+    template ndarray::Array<size_t, 2, 1> calcMinCenMax(ndarray::Array<double const, 1, 1> const&, float const, float const, int const, int const);
+    template ndarray::Array<size_t, 2, 1> calcMinCenMax(ndarray::Array<float const, 1, 1> const&, double const, double const, int const, int const);
+    template ndarray::Array<size_t, 2, 1> calcMinCenMax(ndarray::Array<double const, 1, 1> const&, double const, double const, int const, int const);
   }/// end namespace math
 
 

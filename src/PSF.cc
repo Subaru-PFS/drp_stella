@@ -2,8 +2,8 @@
 
 namespace pfs{ namespace drp{ namespace stella{
 
-  template<typename ImageT, typename MaskT, typename VarianceT, typename WavelengthT>
-  PSF<ImageT, MaskT, VarianceT, WavelengthT>::PSF(PSF &psf, const bool deep)
+  template<typename ImageT, typename MaskT, typename VarianceT>//, typename WavelengthT>
+  PSF<ImageT, MaskT, VarianceT>::PSF(PSF &psf, const bool deep)
     : _twoDPSFControl(psf.getTwoDPSFControl()),
       _iTrace(psf.getITrace()),
       _iBin(psf.getIBin()),
@@ -30,8 +30,8 @@ namespace pfs{ namespace drp{ namespace stella{
   }
 
   /// Set the _twoDPSFControl
-  template<typename ImageT, typename MaskT, typename VarianceT, typename WavelengthT>
-  bool PSF<ImageT, MaskT, VarianceT, WavelengthT>::setTwoDPSFControl(PTR(TwoDPSFControl) &twoDPSFControl){
+  template<typename ImageT, typename MaskT, typename VarianceT>
+  bool PSF<ImageT, MaskT, VarianceT>::setTwoDPSFControl(PTR(TwoDPSFControl) &twoDPSFControl){
     assert(twoDPSFControl->signalThreshold >= 0.);
     assert(twoDPSFControl->signalThreshold < twoDPSFControl->saturationLevel / 2.);
     assert(twoDPSFControl->swathWidth > twoDPSFControl->yFWHM * 10);
@@ -54,17 +54,21 @@ namespace pfs{ namespace drp{ namespace stella{
     return true;
   }
 
-  template<typename ImageT, typename MaskT, typename VarianceT, typename WavelengthT>
-  bool PSF<ImageT, MaskT, VarianceT, WavelengthT>::extractPSFs(FiberTrace<ImageT, MaskT, VarianceT> const& fiberTraceIn,
+  template<typename ImageT, typename MaskT, typename VarianceT> template< typename WavelengthT >
+  bool PSF<ImageT, MaskT, VarianceT>::extractPSFs(FiberTrace<ImageT, MaskT, VarianceT> const& fiberTraceIn,
                                                                Spectrum<ImageT, MaskT, VarianceT, WavelengthT> const& spectrumIn){
-    ndarray::Array<ImageT, 2, 1> collapsedPSF = ndarray::allocate(1, 1);
+    ndarray::Array<double, 2, 1> collapsedPSF = ndarray::allocate(1, 1);
     return extractPSFs(fiberTraceIn, spectrumIn, collapsedPSF);
   }
+  template bool PSF<ImageT, MaskT, VarianceT>::extractPSFs(FiberTrace<ImageT, MaskT, VarianceT> const& fiberTraceIn,
+                                                               Spectrum<ImageT, MaskT, VarianceT, float> const& spectrumIn);
+  template bool PSF<ImageT, MaskT, VarianceT>::extractPSFs(FiberTrace<ImageT, MaskT, VarianceT> const& fiberTraceIn,
+                                                               Spectrum<ImageT, MaskT, VarianceT, double> const& spectrumIn);
   
-  template<typename ImageT, typename MaskT, typename VarianceT, typename WavelengthT>
-  bool PSF<ImageT, MaskT, VarianceT, WavelengthT>::extractPSFs(FiberTrace<ImageT, MaskT, VarianceT> const& fiberTraceIn,
+  template<typename ImageT, typename MaskT, typename VarianceT> template< typename WavelengthT >
+  bool PSF<ImageT, MaskT, VarianceT>::extractPSFs(FiberTrace<ImageT, MaskT, VarianceT> const& fiberTraceIn,
                                                                Spectrum<ImageT, MaskT, VarianceT, WavelengthT> const& spectrumIn,
-                                                               ndarray::Array<ImageT, 2, 1> const& collapsedPSF)
+                                                               ndarray::Array<double, 2, 1> const& collapsedPSF)
   {
     if (!_isTwoDPSFControlSet){
       string message("PSF trace");
@@ -80,13 +84,13 @@ namespace pfs{ namespace drp{ namespace stella{
       throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
     }
 
-    ndarray::Array<float, 1, 1> xCenters = copy(fiberTraceIn.getXCenters());
+    ndarray::Array<double, 1, 1> xCenters = copy(fiberTraceIn.getXCenters());
 
     ndarray::Array<double, 2, 1> trace_In = ndarray::allocate(_yMax - _yMin + 1, fiberTraceIn.getImage()->getWidth());
     ndarray::Array<double, 2, 1> mask_In = ndarray::allocate(_yMax - _yMin + 1, fiberTraceIn.getImage()->getWidth());
     ndarray::Array<double, 2, 1> stddev_In = ndarray::allocate(_yMax - _yMin + 1, fiberTraceIn.getImage()->getWidth());
     ndarray::Array<double, 1, 1> spectrum_In = ndarray::allocate(_yMax - _yMin + 1);
-    ndarray::Array<ImageT, 1, 1> spectrum_T = ndarray::allocate(_yMax - _yMin + 1);
+    ndarray::Array<double, 1, 1> spectrum_T = ndarray::allocate(_yMax - _yMin + 1);
     spectrum_T.deep() = spectrumIn.getSpectrum()[ndarray::view(_yMin, _yMax+1)];
     ndarray::Array<double, 1, 1> spectrumVariance_In = ndarray::allocate(_yMax - _yMin + 1);
 
@@ -155,18 +159,18 @@ namespace pfs{ namespace drp{ namespace stella{
       cout << "PSF trace" << _iTrace << " bin" << _iBin << "::extractPSFs: spectrumSigma = " << spectrumSigma << endl;
     #endif
 
-    ndarray::Array<float, 1, 1> xCentersSwathF = ndarray::copy(xCenters[ndarray::view(_yMin, _yMax + 1)]);
-    ndarray::Array<float, 1, 1> xCentersFloor = math::floor(ndarray::Array<const float, 1, 1>(xCentersSwathF), float(0));
+    ndarray::Array<double, 1, 1> xCentersSwathD = ndarray::copy(xCenters[ndarray::view(_yMin, _yMax + 1)]);
+    ndarray::Array<double, 1, 1> xCentersFloor = math::floor(ndarray::Array<const double, 1, 1>(xCentersSwathD), double(0));
     #ifdef __DEBUG_CALC2DPSF__
-      cout << "PSF trace" << _iTrace << " bin" << _iBin << "::extractPSFs: xCentersSwathF = " << xCentersSwathF << endl;
+      cout << "PSF trace" << _iTrace << " bin" << _iBin << "::extractPSFs: xCentersSwathD = " << xCentersSwathD << endl;
     #endif
 
-    ndarray::Array<size_t, 2, 2> minCenMax = math::calcMinCenMax(xCentersSwathF,
-                                                                 fiberTraceIn.getFiberTraceFunction()->fiberTraceFunctionControl.xHigh,
-                                                                 fiberTraceIn.getFiberTraceFunction()->fiberTraceFunctionControl.xLow,
+    ndarray::Array<size_t, 2, 1> minCenMax = math::calcMinCenMax(ndarray::Array<double const, 1, 1>(xCentersSwathD),
+                                                                 double(fiberTraceIn.getFiberTraceFunction()->fiberTraceFunctionControl.xHigh),
+                                                                 double(fiberTraceIn.getFiberTraceFunction()->fiberTraceFunctionControl.xLow),
                                                                  1,
                                                                  1);
-    ndarray::Array<float, 1, 1> xCentersOffset = ndarray::copy(xCentersSwathF);
+    ndarray::Array<double, 1, 1> xCentersOffset = ndarray::copy(xCentersSwathD);
     xCentersOffset.deep() -= xCentersFloor;
     #ifdef __DEBUG_CALC2DPSF__
       cout << "PSF trace" << _iTrace << " bin" << _iBin << "::extractPSFs: minCenMax = " << minCenMax << endl;
@@ -361,31 +365,31 @@ namespace pfs{ namespace drp{ namespace stella{
           success = false;
         }
         if (success && (collapsedPSF.getShape()[0] > 2)){
-          ndarray::Array<ImageT, 2, 1> indexRelToCenter = math::calcPositionsRelativeToCenter(ImageT(gaussCenterY), ImageT(4. * _twoDPSFControl->yFWHM));
-          ndarray::Array<ImageT, 2, 1> arrA = ndarray::allocate(indexRelToCenter.getShape()[0], 2);
+          ndarray::Array<double, 2, 1> indexRelToCenter = math::calcPositionsRelativeToCenter(double(gaussCenterY), double(4. * _twoDPSFControl->yFWHM));
+          ndarray::Array<double, 2, 1> arrA = ndarray::allocate(indexRelToCenter.getShape()[0], 2);
           arrA[ndarray::view()(0)].deep() = indexRelToCenter[ndarray::view()(1)];
           ndarray::Array<size_t, 1, 1> indVec = ndarray::allocate(indexRelToCenter.getShape()[0]);
           for (int iInd = 0; iInd < indexRelToCenter.getShape()[0]; ++iInd)
             indVec[iInd] = size_t(indexRelToCenter[iInd][0]);
-          ndarray::Array<ImageT, 1, 1> yDataVec = math::getSubArray(spectrum_T, indVec);
+          ndarray::Array<double, 1, 1> yDataVec = math::getSubArray(spectrum_T, indVec);
           #ifdef __DEBUG_CALC2DPSF__
             cout << "PSF trace" << _iTrace << " bin" << _iBin << "::extractPSFs: while: D_A1_Y = " << D_A1_Y << ": indVec = " << indVec << endl;
             cout << "PSF trace" << _iTrace << " bin" << _iBin << "::extractPSFs: while: yDataVec = " << yDataVec << endl;
           #endif
           arrA[ndarray::view()(1)].deep() = yDataVec;//yDataVec;
           
-          ndarray::Array< ImageT, 1, 1 > range = ndarray::allocate(2);
+          ndarray::Array< double, 1, 1 > range = ndarray::allocate(2);
           range[0] = _twoDPSFControl->xCorRangeLowLimit;
           range[1] = _twoDPSFControl->xCorRangeHighLimit;
           const float stepSize = _twoDPSFControl->xCorStepSize; 
           
           double maxA = yDataVec.asEigen().maxCoeff();
-          ndarray::Array< ImageT, 1, 1 > yValCollapsedPSF = ndarray::allocate(collapsedPSF.getShape()[0]);
+          ndarray::Array< double, 1, 1 > yValCollapsedPSF = ndarray::allocate(collapsedPSF.getShape()[0]);
           yValCollapsedPSF.deep() = collapsedPSF[ndarray::view()(1)];
           double maxCollapsedPSF = yValCollapsedPSF.asEigen().maxCoeff();
           collapsedPSF[ndarray::view()(1)].deep() = collapsedPSF[ndarray::view()(1)] * maxA / maxCollapsedPSF;
           
-          ImageT xCorMinPos = math::xCor(arrA,/// x must be 'y' relative to center
+          double xCorMinPos = math::xCor(arrA,/// x must be 'y' relative to center
                                          collapsedPSF,/// x is 'y' relative to center
                                          range,
                                          stepSize);
@@ -428,20 +432,20 @@ namespace pfs{ namespace drp{ namespace stella{
               #endif
               if (i_Up < trace_In.getShape()[0]){
                 /// x-Centers from Gaussian center
-                ndarray::Array<float, 1, 1> yCentersFromGaussCenter = math::indGenNdArr(float(i_Up - i_Down + 1));
+                ndarray::Array<double, 1, 1> yCentersFromGaussCenter = math::indGenNdArr(double(i_Up - i_Down + 1));
                 yCentersFromGaussCenter.deep() += fiberTraceIn.getFiberTraceFunction()->yCenter + fiberTraceIn.getFiberTraceFunction()->yLow + _yMin + i_Down + yCenterOffset;
-                ndarray::Array<float, 1, 1> xCentersFromGaussCenter = math::calculateXCenters(fiberTraceIn.getFiberTraceFunction(), yCentersFromGaussCenter);
+                ndarray::Array<double, 1, 1> xCentersFromGaussCenter = math::calculateXCenters(fiberTraceIn.getFiberTraceFunction(), yCentersFromGaussCenter);
                 
                 /// original x-Centers
-                ndarray::Array<float, 1, 1> yCentersTemp = math::indGenNdArr(float(i_Up - i_Down + 1));
+                ndarray::Array<double, 1, 1> yCentersTemp = math::indGenNdArr(double(i_Up - i_Down + 1));
                 yCentersTemp.deep() += fiberTraceIn.getFiberTraceFunction()->yCenter + fiberTraceIn.getFiberTraceFunction()->yLow + _yMin + i_Down + 0.5;
-                ndarray::Array<float, 1, 1> xCentersTemp = math::calculateXCenters(fiberTraceIn.getFiberTraceFunction(), yCentersTemp);
+                ndarray::Array<double, 1, 1> xCentersTemp = math::calculateXCenters(fiberTraceIn.getFiberTraceFunction(), yCentersTemp);
                 #ifdef __DEBUG_CALC2DPSF__
                   cout << "PSF trace" << _iTrace << " bin" << _iBin << "::extractPSFs: emissionLineNumber-1=" << emissionLineNumber-1 << ": _yMin = " << _yMin << ", i_Down = " << i_Down << ", dY = " << dY << endl;
                   cout << "PSF trace" << _iTrace << " bin" << _iBin << "::extractPSFs: emissionLineNumber-1=" << emissionLineNumber-1 << ": yCentersFromGaussCenter = " << yCentersFromGaussCenter << endl;
                   cout << "PSF trace" << _iTrace << " bin" << _iBin << "::extractPSFs: emissionLineNumber-1=" << emissionLineNumber-1 << ": xCentersFromGaussCenter = " << xCentersFromGaussCenter << endl;
-                  cout << "PSF trace" << _iTrace << " bin" << _iBin << "::extractPSFs: emissionLineNumber-1=" << emissionLineNumber-1 << ": xCentersSwathF.getShape() = " << xCentersSwathF.getShape() << endl;
-                  cout << "PSF trace" << _iTrace << " bin" << _iBin << "::extractPSFs: emissionLineNumber-1=" << emissionLineNumber-1 << ": xCentersSwathF[i_Down:i_Up+1] = " << xCentersSwathF[ndarray::view(i_Down, i_Up+1)] << endl;
+                  cout << "PSF trace" << _iTrace << " bin" << _iBin << "::extractPSFs: emissionLineNumber-1=" << emissionLineNumber-1 << ": xCentersSwathD.getShape() = " << xCentersSwathD.getShape() << endl;
+                  cout << "PSF trace" << _iTrace << " bin" << _iBin << "::extractPSFs: emissionLineNumber-1=" << emissionLineNumber-1 << ": xCentersSwathD[i_Down:i_Up+1] = " << xCentersSwathD[ndarray::view(i_Down, i_Up+1)] << endl;
                   cout << "PSF trace" << _iTrace << " bin" << _iBin << "::extractPSFs: emissionLineNumber-1=" << emissionLineNumber-1 << ": xCentersTemp = " << xCentersTemp << endl;
                   //exit(EXIT_FAILURE);
                 #endif
@@ -459,12 +463,12 @@ namespace pfs{ namespace drp{ namespace stella{
                     cout << "PSF trace" << _iTrace << " bin" << _iBin << "::extractPSFs: emissionLineNumber-1=" << emissionLineNumber-1 << ": gaussCenterY = " << gaussCenterY << ", xCentersOffset_In[i_Down + iY=" << i_Down + iY << "] = " << xCentersOffset_In[i_Down + iY] << endl;
                   #endif
  */
-                  float xCenterOffset;
-                  if (floor(xCentersFromGaussCenter[iY]) == floor(xCentersSwathF[i_Down + iY])){
+                  double xCenterOffset;
+                  if (floor(xCentersFromGaussCenter[iY]) == floor(xCentersSwathD[i_Down + iY])){
                     xCenterOffset = xCentersFromGaussCenter[iY] - floor(xCentersFromGaussCenter[iY]);
                     dX = 0.5 - xCenterOffset;
                   }
-                  else if (floor(xCentersFromGaussCenter[iY]) < floor(xCentersSwathF[i_Down + iY])){
+                  else if (floor(xCentersFromGaussCenter[iY]) < floor(xCentersSwathD[i_Down + iY])){
                     xCenterOffset = xCentersFromGaussCenter[iY] - floor(xCentersFromGaussCenter[iY]) - 1.;
                     dX = 0.5 - xCenterOffset;
                   }
@@ -474,7 +478,7 @@ namespace pfs{ namespace drp{ namespace stella{
                   }
 
                   #ifdef __DEBUG_CALC2DPSF__
-                    cout << "PSF trace" << _iTrace << " bin " << _iBin << "::extractPSFs: emissionLineNumber-1=" << emissionLineNumber-1 << ": iY = " << iY << ": xCentersFromGaussCenter[iY]=" << xCentersFromGaussCenter[iY] << ", xCentersTemp[iY]=" << xCentersTemp[iY] << ", xCentersSwathF[iY]=" << xCentersSwathF[iY] << ": xCenterOffset = " << xCenterOffset << ": dX = " << dX << endl;
+                    cout << "PSF trace" << _iTrace << " bin " << _iBin << "::extractPSFs: emissionLineNumber-1=" << emissionLineNumber-1 << ": iY = " << iY << ": xCentersFromGaussCenter[iY]=" << xCentersFromGaussCenter[iY] << ", xCentersTemp[iY]=" << xCentersTemp[iY] << ", xCentersSwathD[iY]=" << xCentersSwathD[iY] << ": xCenterOffset = " << xCenterOffset << ": dX = " << dX << endl;
                   #endif
 
                   /// most left pixel of FiberTrace affected by PSF of (emissionLineNumber-1) in this row
@@ -510,17 +514,17 @@ namespace pfs{ namespace drp{ namespace stella{
                   for (int iX = 0; iX <= i_Right - i_Left; ++iX){
                     int colTrace = i_Left + iX;
                     #ifdef __DEBUG_CALC2DPSF__
-                      cout << "PSF trace" << _iTrace << " bin" << _iBin << "::extractPSFs: emissionLineNumber-1=" << emissionLineNumber-1 << ": xCentersFromGaussCenter[" << iY << "] = " << xCentersFromGaussCenter[iY] << ", xCentersSwathF[" << iY << "] = " << xCentersSwathF[iY] << endl;
+                      cout << "PSF trace" << _iTrace << " bin" << _iBin << "::extractPSFs: emissionLineNumber-1=" << emissionLineNumber-1 << ": xCentersFromGaussCenter[" << iY << "] = " << xCentersFromGaussCenter[iY] << ", xCentersSwathD[" << iY << "] = " << xCentersSwathD[iY] << endl;
                       cout << "PSF trace" << _iTrace << " bin" << _iBin << "::extractPSFs: emissionLineNumber-1=" << emissionLineNumber-1 << ": iX = " << iX << ": iY = " << iY << endl;
                       cout << "PSF trace" << _iTrace << " bin" << _iBin << "::extractPSFs: emissionLineNumber-1=" << emissionLineNumber-1 << ": trace_In[i_Down + iY = " << i_Down + iY << "][i_Left + iX = " << i_Left + iX << "] = " << trace_In[i_Down + iY][i_Left + iX] << endl;
                     #endif
-                    _imagePSF_XRelativeToCenter.push_back(float(dX + float(xMinRel + iX)));
-                    _imagePSF_YRelativeToCenter.push_back(float(dY + float(yMinRel + iY)));
-                    _imagePSF_ZNormalized.push_back(float(trace_In[rowTrace][colTrace]));
-                    _imagePSF_ZTrace.push_back(float(trace_In[rowTrace][colTrace]));
-                    _imagePSF_Weight.push_back(fabs(trace_In[rowTrace][colTrace]) > 0.000001 ? float(1. / sqrt(fabs(trace_In[rowTrace][colTrace]))) : 0.1);//trace_In(i_Down+iY, i_Left+iX) > 0 ? sqrt(trace_In(i_Down+iY, i_Left+iX)) : 0.0000000001);//stddev_In(i_Down+iY, i_Left+iX) > 0. ? 1./pow(stddev_In(i_Down+iY, i_Left+iX),2) : 1.);
-                    _imagePSF_XTrace.push_back(float(colTrace));
-                    _imagePSF_YTrace.push_back(float(rowTrace + _yMin));
+                    _imagePSF_XRelativeToCenter.push_back(double(dX + double(xMinRel + iX)));
+                    _imagePSF_YRelativeToCenter.push_back(double(dY + double(yMinRel + iY)));
+                    _imagePSF_ZNormalized.push_back(double(trace_In[rowTrace][colTrace]));
+                    _imagePSF_ZTrace.push_back(double(trace_In[rowTrace][colTrace]));
+                    _imagePSF_Weight.push_back(fabs(trace_In[rowTrace][colTrace]) > 0.000001 ? double(1. / sqrt(fabs(trace_In[rowTrace][colTrace]))) : 0.1);//trace_In(i_Down+iY, i_Left+iX) > 0 ? sqrt(trace_In(i_Down+iY, i_Left+iX)) : 0.0000000001);//stddev_In(i_Down+iY, i_Left+iX) > 0. ? 1./pow(stddev_In(i_Down+iY, i_Left+iX),2) : 1.);
+                    _imagePSF_XTrace.push_back(double(colTrace));
+                    _imagePSF_YTrace.push_back(double(rowTrace + _yMin));
                     #ifdef __DEBUG_CALC2DPSF__
                       cout << "PSF trace" << _iTrace << " bin" << _iBin << "::extractPSFs: emissionLineNumber-1=" << emissionLineNumber-1 << ": x = " << _imagePSF_XRelativeToCenter[nPix] << ", y = " << _imagePSF_YRelativeToCenter[nPix] << ": val = " << trace_In[i_Down + iY][i_Left + iX] << " = " << _imagePSF_ZNormalized[nPix] << "; XOrig = " << _imagePSF_XTrace[nPix] << ", YOrig = " << _imagePSF_YTrace[nPix] << endl;
                     #endif
@@ -534,9 +538,9 @@ namespace pfs{ namespace drp{ namespace stella{
 //                    throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
                   }/// end for (int iX = 0; iX <= i_Right - i_Left; ++iX){
                 }/// end for (int iY = 0; iY <= i_Up - i_Down; ++iY){
-                ndarray::Array<float, 1, 1> yCenterTemp = math::indGenNdArr(float(1));
+                ndarray::Array<double, 1, 1> yCenterTemp = math::indGenNdArr(double(1));
                 yCenterTemp[0] = gaussCenterY + fiberTraceIn.getFiberTraceFunction()->yCenter + fiberTraceIn.getFiberTraceFunction()->yLow + _yMin;
-                ndarray::Array<float, 1, 1> xCenterTemp = math::calculateXCenters(fiberTraceIn.getFiberTraceFunction(), yCenterTemp);
+                ndarray::Array<double, 1, 1> xCenterTemp = math::calculateXCenters(fiberTraceIn.getFiberTraceFunction(), yCenterTemp);
                 _xCentersPSFCCD.push_back(xCenterTemp[0]);
                 _yCentersPSFCCD.push_back(yCenterTemp[0]);
                 cout << "xCenterTemp[0] = " << xCenterTemp[0] << ", gaussCenterY = " << gaussCenterY << ", yCenterTemp[0] = " << yCenterTemp[0] << ", nPixPSF = " << nPixPSF << endl;
@@ -554,7 +558,7 @@ namespace pfs{ namespace drp{ namespace stella{
                   cout << message << endl;
                   throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
                 }
-                for (std::vector<float>::iterator iter = _imagePSF_ZNormalized.end() - nPixPSF; iter < _imagePSF_ZNormalized.end(); ++iter){
+                for (auto iter = _imagePSF_ZNormalized.end() - nPixPSF; iter < _imagePSF_ZNormalized.end(); ++iter){
                   #ifdef __DEBUG_CALC2DPSF__
                     cout << "PSF trace" << _iTrace << " bin" << _iBin << "::extractPSFs: emissionLineNumber-1 = " << emissionLineNumber-1 << ": _imagePSF_ZNormalized[pixelNo=" << pixelNo << "] = " << _imagePSF_ZNormalized[pixelNo] << ", sumPSF = " << sumPSF << endl;
                   #endif
@@ -663,20 +667,20 @@ namespace pfs{ namespace drp{ namespace stella{
   }
   
   template< typename ImageT, typename MaskT, typename VarianceT, typename WavelengthT >    
-  std::vector< ImageT > PSF<ImageT, MaskT, VarianceT, WavelengthT>::reconstructFromThinPlateSplineFit(double const regularization){
-    ndarray::Array<float, 1, 1> xArr = ndarray::external(_imagePSF_XRelativeToCenter.data(), ndarray::makeVector(int(_imagePSF_XRelativeToCenter.size())), ndarray::makeVector(1));
-    ndarray::Array<float, 1, 1> yArr = ndarray::external(_imagePSF_YRelativeToCenter.data(), ndarray::makeVector(int(_imagePSF_YRelativeToCenter.size())), ndarray::makeVector(1));
-    ndarray::Array<float, 1, 1> zArr = ndarray::external(_imagePSF_ZNormalized.data(), ndarray::makeVector(int(_imagePSF_ZNormalized.size())), ndarray::makeVector(1));
-    math::ThinPlateSpline<float, float> tps = math::ThinPlateSpline<float, float>(xArr,
+  std::vector< double > PSF<ImageT, MaskT, VarianceT, WavelengthT>::reconstructFromThinPlateSplineFit(double const regularization){
+    ndarray::Array<double, 1, 1> xArr = ndarray::external(_imagePSF_XRelativeToCenter.data(), ndarray::makeVector(int(_imagePSF_XRelativeToCenter.size())), ndarray::makeVector(1));
+    ndarray::Array<double, 1, 1> yArr = ndarray::external(_imagePSF_YRelativeToCenter.data(), ndarray::makeVector(int(_imagePSF_YRelativeToCenter.size())), ndarray::makeVector(1));
+    ndarray::Array<double, 1, 1> zArr = ndarray::external(_imagePSF_ZNormalized.data(), ndarray::makeVector(int(_imagePSF_ZNormalized.size())), ndarray::makeVector(1));
+    math::ThinPlateSpline<double, double> tps = math::ThinPlateSpline<double, double>(xArr,
                                                                                   yArr,
                                                                                   zArr,
                                                                                   regularization);
-    ndarray::Array< float, 2, 1 > zFitArr = tps.fitArray(xArr,
+    ndarray::Array< double, 2, 1 > zFitArr = tps.fitArray(xArr,
                                                          yArr,
                                                          false);
-    std::vector< ImageT > zVec(_imagePSF_XRelativeToCenter.size());
+    std::vector< double > zVec(_imagePSF_XRelativeToCenter.size());
     for (int i = 0; i < _imagePSF_XRelativeToCenter.size(); ++i)
-      zVec[i] = ImageT(zFitArr[i][0]);
+      zVec[i] = double(zFitArr[i][0]);
     return zVec;
   }
   
@@ -778,7 +782,7 @@ namespace pfs{ namespace drp{ namespace stella{
     PTR(PSFSet<ImageT, MaskT, VarianceT, WavelengthT>) calculate2dPSFPerBin(FiberTrace<ImageT, MaskT, VarianceT> const& fiberTrace,
                                                                             Spectrum<ImageT, MaskT, VarianceT, WavelengthT> const& spectrum,
                                                                             TwoDPSFControl const& twoDPSFControl){
-      ndarray::Array<ImageT, 2, 1> collapsedPSF = ndarray::allocate(1,1);
+      ndarray::Array<double, 2, 1> collapsedPSF = ndarray::allocate(1,1);
       return calculate2dPSFPerBin(fiberTrace, spectrum, twoDPSFControl, collapsedPSF);
     }
     
@@ -786,7 +790,7 @@ namespace pfs{ namespace drp{ namespace stella{
     PTR(PSFSet<ImageT, MaskT, VarianceT, WavelengthT>) calculate2dPSFPerBin(FiberTrace<ImageT, MaskT, VarianceT> const& fiberTrace,
                                                                             Spectrum<ImageT, MaskT, VarianceT, WavelengthT> const& spectrum,
                                                                             TwoDPSFControl const& twoDPSFControl,
-                                                                            ndarray::Array<ImageT, 2, 1> const& collapsedPSF){
+                                                                            ndarray::Array<double, 2, 1> const& collapsedPSF){
       int swathWidth = twoDPSFControl.swathWidth;
       ndarray::Array<size_t, 2, 1> binBoundY = fiberTrace.calcSwathBoundY(swathWidth);
       if (binBoundY[binBoundY.getShape()[0]-1][1] != fiberTrace.getHeight()-1){
@@ -1092,19 +1096,19 @@ namespace pfs{ namespace drp{ namespace stella{
     }
     
     template< typename ImageT, typename MaskT, typename VarianceT, typename WavelengthT >
-    ndarray::Array< float, 2, 1 > collapsePSF( PSF< ImageT, MaskT, VarianceT, WavelengthT > const& psf_In,
-                                               ndarray::Array< float, 1, 1 > const& coordinatesX_In,
-                                               ndarray::Array< float, 1, 1 > const& coordinatesY_In,
+    ndarray::Array< double, 2, 1 > collapsePSF( PSF< ImageT, MaskT, VarianceT, WavelengthT > const& psf_In,
+                                               ndarray::Array< double, 1, 1 > const& coordinatesX_In,
+                                               ndarray::Array< double, 1, 1 > const& coordinatesY_In,
                                                int const direction,
                                                double const regularization){
-      ndarray::Array< const float, 1, 1 > xRelativeToCenter = ndarray::external(psf_In.getImagePSF_XRelativeToCenter().data(), ndarray::makeVector(int(psf_In.getImagePSF_XRelativeToCenter().size())), ndarray::makeVector(1));
-      ndarray::Array< const float, 1, 1 > yRelativeToCenter = ndarray::external(psf_In.getImagePSF_YRelativeToCenter().data(), ndarray::makeVector(int(psf_In.getImagePSF_YRelativeToCenter().size())), ndarray::makeVector(1));
-      ndarray::Array< const float, 1, 1 > zNormalized = ndarray::external(psf_In.getImagePSF_ZNormalized().data(), ndarray::makeVector(int(psf_In.getImagePSF_ZNormalized().size())), ndarray::makeVector(1));
-      math::ThinPlateSpline<float, float> tpsA = math::ThinPlateSpline<float, float>( xRelativeToCenter,
+      ndarray::Array< const double, 1, 1 > xRelativeToCenter = ndarray::external(psf_In.getImagePSF_XRelativeToCenter().data(), ndarray::makeVector(int(psf_In.getImagePSF_XRelativeToCenter().size())), ndarray::makeVector(1));
+      ndarray::Array< const double, 1, 1 > yRelativeToCenter = ndarray::external(psf_In.getImagePSF_YRelativeToCenter().data(), ndarray::makeVector(int(psf_In.getImagePSF_YRelativeToCenter().size())), ndarray::makeVector(1));
+      ndarray::Array< const double, 1, 1 > zNormalized = ndarray::external(psf_In.getImagePSF_ZNormalized().data(), ndarray::makeVector(int(psf_In.getImagePSF_ZNormalized().size())), ndarray::makeVector(1));
+      math::ThinPlateSpline<double, double> tpsA = math::ThinPlateSpline<double, double>( xRelativeToCenter,
                                                                                        yRelativeToCenter,
                                                                                        zNormalized,
                                                                                        regularization );
-      ndarray::Array< float, 2, 1 > interpolatedPSF = tpsA.fitArray( coordinatesX_In,
+      ndarray::Array< double, 2, 1 > interpolatedPSF = tpsA.fitArray( coordinatesX_In,
                                                                      coordinatesY_In,
                                                                      true);
       return math::collapseFittedPSF(coordinatesX_In,
@@ -1249,14 +1253,14 @@ namespace pfs{ namespace drp{ namespace stella{
                                                                ndarray::Array< double, 2, 1 > const&,
                                                                int const);
 
-    template ndarray::Array< float, 2, 1 > collapsePSF( PSF< float, unsigned short, float, float > const&,
-                                                        ndarray::Array< float, 1, 1 > const&,
-                                                        ndarray::Array< float, 1, 1 > const&,
+    template ndarray::Array< double, 2, 1 > collapsePSF( PSF< float, unsigned short, float, float > const&,
+                                                        ndarray::Array< double, 1, 1 > const&,
+                                                        ndarray::Array< double, 1, 1 > const&,
                                                         int const,
                                                         double const);
-    template ndarray::Array< float, 2, 1 > collapsePSF( PSF< double, unsigned short, float, float > const&,
-                                                        ndarray::Array< float, 1, 1 > const&,
-                                                        ndarray::Array< float, 1, 1 > const&,
+    template ndarray::Array< double, 2, 1 > collapsePSF( PSF< double, unsigned short, float, float > const&,
+                                                        ndarray::Array< double, 1, 1 > const&,
+                                                        ndarray::Array< double, 1, 1 > const&,
                                                         int const,
                                                         double const);
 
@@ -1314,7 +1318,7 @@ namespace pfs{ namespace drp{ namespace stella{
     template PTR(PSFSet<float, unsigned short, float, float>) calculate2dPSFPerBin(FiberTrace<float, unsigned short, float> const&, 
                                                                                    Spectrum<float, unsigned short, float, float> const&,
                                                                                    TwoDPSFControl const&,
-                                                                                   ndarray::Array<float, 2, 1> const&);
+                                                                                   ndarray::Array<double, 2, 1> const&);
     template PTR(PSFSet<double, unsigned short, float, float>) calculate2dPSFPerBin(FiberTrace<double, unsigned short, float> const&, 
                                                                                     Spectrum<double, unsigned short, float, float> const&,
                                                                                     TwoDPSFControl const&,

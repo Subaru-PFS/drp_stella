@@ -85,7 +85,7 @@ struct FiberTraceFunctionControl {
 
 struct FiberTraceFunction {
   FiberTraceFunctionControl fiberTraceFunctionControl; /// User defined Polynomial interpolation and order, xLow, xHigh (width of fiber trace)
-  float xCenter; /// Central position of fiber trace in x
+  double xCenter; /// Central position of fiber trace in x
   unsigned int yCenter; /// Central position of fiber trace in y
   int yLow; /// lower limit of fiber trace relative to center (< 0)
   unsigned int yHigh; /// lower limit of fiber trace relative to center (>= 0)
@@ -151,7 +151,17 @@ struct FiberTraceFunction {
     }
 
     return true;
-      
+  }
+  
+  bool setCoefficients(ndarray::Array<double, 1, 1> const& coeffs_In){
+      if (coeffs_In.getShape()[0] != (fiberTraceFunctionControl.order + 1)){
+          cout << "FiberTraceFunction::setCoefficients: ERROR: size of coeffs_In must be order + 1" << endl;
+          return false;
+      }
+      coefficients.resize(fiberTraceFunctionControl.order + 1);
+      for (int i = 0; i < (fiberTraceFunctionControl.order + 1); ++i)
+          coefficients[i] = coeffs_In[i];
+      return true;
   }
   
   PTR(FiberTraceFunction) getPointer(){

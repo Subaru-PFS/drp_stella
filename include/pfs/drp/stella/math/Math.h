@@ -9,7 +9,7 @@
 #include "lsst/afw/geom.h"
 #include "lsst/afw/image/MaskedImage.h"
 #include "lsst/pex/config.h"
-//#include "../blitz.h"
+#include "chebyshev.h"
 #include "../utils/Utils.h"
 #include "ndarray.h"
 #include "ndarray/eigen.h"
@@ -23,7 +23,7 @@
 //#define __DEBUG_MINCENMAX__
 //#define __DEBUG_INDGEN__
 //#define __DEBUG_SORT__
-#define __DEBUG_XCOR__
+//#define __DEBUG_XCOR__
 
 /// constants
 #define CONST_PI 3.141592653589793238462643383280    /* pi */
@@ -42,9 +42,10 @@ namespace pfs { namespace drp { namespace stella {
      * 1 pixel left and/or right of the maximum aperture width will get cut off to reduce possible
      * cross-talk between adjacent apertures
      **/
-    ndarray::Array<size_t, 2, 2> calcMinCenMax(ndarray::Array<float const, 1, 1> const& xCenters_In,
-                                               float const xHigh_In,/// >= 0
-                                               float const xLow_In,/// <= 0
+    template< typename T, typename U >
+    ndarray::Array<size_t, 2, 1> calcMinCenMax(ndarray::Array<T const, 1, 1> const& xCenters_In,
+                                               U const xHigh_In,/// >= 0
+                                               U const xLow_In,/// <= 0
                                                int const nPixCutLeft_In,
                                                int const nPixCutRight_In);
 
@@ -103,6 +104,9 @@ namespace pfs { namespace drp { namespace stella {
     
     template <typename T>
     ndarray::Array<float, 1, 1> Float(ndarray::Array<T, 1, 1> const& arr_In);
+    
+    template <typename T>
+    ndarray::Array<float, 2, 1> Float(ndarray::Array<T, 2, 1> const& arr_In);
     
     template <typename T>
     ndarray::Array<float, 2, 2> Float(ndarray::Array<T, 2, 2> const& arr_In);
@@ -212,7 +216,7 @@ namespace pfs { namespace drp { namespace stella {
     ndarray::Array<T, 1, 1> replicate(T const val, int const size);
     
     template<typename T>
-    ndarray::Array<T, 2, 2> calcPosRelativeToCenter(ndarray::Array<T, 2, 2> const& swath_In, ndarray::Array<T, 1, 1> const& xCenters_In);
+    ndarray::Array<T, 2, 1> calcPosRelativeToCenter(ndarray::Array<T, 2, 1> const& swath_In, ndarray::Array<T, 1, 1> const& xCenters_In);
     
     /*
      * @brief: Return vector of indices where lowRange_In <= arr_In < highRange_In
@@ -220,7 +224,7 @@ namespace pfs { namespace drp { namespace stella {
     template<typename T>
     ndarray::Array<size_t, 1, 1> getIndicesInValueRange(ndarray::Array<T, 1, 1> const& arr_In, T const lowRange_In, T const highRange_In);
     template<typename T>
-    ndarray::Array<size_t, 2, 2> getIndicesInValueRange(ndarray::Array<T, 2, 2> const& arr_In, T const lowRange_In, T const highRange_In);
+    ndarray::Array<size_t, 2, 1> getIndicesInValueRange(ndarray::Array<T, 2, 1> const& arr_In, T const lowRange_In, T const highRange_In);
 
     /*
      * @brief: Returns array to copies of specified elements of arr_In
@@ -228,11 +232,11 @@ namespace pfs { namespace drp { namespace stella {
     template<typename T>
     ndarray::Array<T, 1, 1> getSubArray(ndarray::Array<T, 1, 1> const& arr_In, ndarray::Array<size_t, 1, 1> const& indices_In);
 
-    template<typename T>
-    ndarray::Array<T, 1, 1> getSubArray(ndarray::Array<T, 2, 2> const& arr_In, ndarray::Array<size_t, 2, 2> const& indices_In);
+    template<typename T, typename U>
+    ndarray::Array<T, 1, 1> getSubArray(ndarray::Array<T, 2, 1> const& arr_In, ndarray::Array<U, 2, 1> const& indices_In);
 
     template<typename T>
-    ndarray::Array<T, 1, 1> getSubArray(ndarray::Array<T, 2, 2> const& arr_In, std::vector< std::pair<size_t, size_t> > const& indices_In);
+    ndarray::Array<T, 1, 1> getSubArray(ndarray::Array<T, 2, 1> const& arr_In, std::vector< std::pair<size_t, size_t> > const& indices_In);
     
     template< typename T >
     ndarray::Array< T, 1, 1 > resize(ndarray::Array< T, 1, 1 > const& arr_In, size_t newSize); 
@@ -257,9 +261,6 @@ namespace pfs { namespace drp { namespace stella {
     double uvalue(double x, double low, double high);
     Eigen::VectorXd uvalues(Eigen::VectorXd const& xvals);
     
-    template< typename T >
-    ndarray::Array< T const, 1, 1 > vecToNdArray(std::vector<T> const& vec_In);
-    
     /*
      * @brief convert given number in given range to a number in range [-1,1]
      * @param number: number to be converted
@@ -277,6 +278,34 @@ namespace pfs { namespace drp { namespace stella {
     template< typename T, typename U >
     ndarray::Array<T, 1, 1> convertRangeToUnity(ndarray::Array<T, 1, 1> const& numbers,
                                                 ndarray::Array<U, 1, 1> const& range);
+    
+    /**
+     * @brief check if the values in numbers are within the given range
+     * @param numbers numbers to be check if they all fall into the given range
+     * @param range expected data range of numbers
+     * @return true if all values in numbers fall into the given range, otherwise return false
+     */
+    template< typename T, typename U >
+    bool checkIfValuesAreInRange(ndarray::Array<T, 1, 1> const& numbers,
+                                 ndarray::Array<U, 1, 1> const& range);
+    
+    /**
+     * @brief return ndarray pointing to data of vector
+     * @param vector : vector to be converted to ndarray
+     */
+    template< typename T >
+    ndarray::Array<T, 1, 1> vectorToNdArray(std::vector<T> & vector);
+    
+    template< typename T >
+    ndarray::Array< T const, 1, 1 > vectorToNdArray(std::vector<T> const& vec_In);
+    
+    /**
+     * @brief return ndarray of specified size and type
+     */
+    template< typename T >
+    ndarray::Array<T, 2, 1> ndArray21(T nRows, T nCols);
+    template< typename T >
+    ndarray::Array<T, 2, 2> ndArray22(T nRows, T nCols);
     
 //    template< typename T >
 //    ndarray::Array< T, 2, 1 > get2DArray(ndarray::Array< T, 1, 1 > const& xIn, ndarray::Array< T, 1, 1 > const& yIn);

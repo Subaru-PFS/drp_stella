@@ -15,13 +15,12 @@
 #include "lsst/pex/exceptions/Exception.h"
 #include "ndarray.h"
 #include "ndarray/eigen.h"
-//#include "blitz.h"
 #include <fitsio.h>
 #include <fitsio2.h>
 #include "Controls.h"
 #include "math/Math.h"
 #include "math/CurveFitting.h"
-//#include "math/MathBlitz.h"
+#include "math/Chebyshev.h"
 #include "utils/Utils.h"
 //#include "utils/UtilsBlitz.h"
 #include "cmpfit-1.2/MPFitting_ndarray.h"
@@ -75,7 +74,7 @@ class FiberTrace {
 
     explicit FiberTrace(PTR(const afwImage::MaskedImage<ImageT, MaskT, VarianceT>) const& maskedImage, 
                         PTR(const FiberTraceFunction) const& fiberTraceFunction, 
-                        ndarray::Array<float const, 1, 1> const& xCenters,
+                        ndarray::Array<double const, 1, 1> const& xCenters,
                         size_t iTrace=0);
     
     explicit FiberTrace(FiberTrace<ImageT, MaskT, VarianceT> &fiberTrace, bool const deep=false);
@@ -109,10 +108,10 @@ class FiberTrace {
     bool setVariance(const PTR(afwImage::Image<VarianceT>) &variance);// { _trace->getVariance() = variance; }
 
     /// Return the image of the spatial profile
-    PTR(afwImage::Image<float>) getProfile() const{ return _profile; }
+    PTR(afwImage::Image<double>) getProfile() const{ return _profile; }
 
     /// Set the _profile of this fiber trace to profile
-    bool setProfile(const PTR(afwImage::Image<float>) &profile);
+    bool setProfile(const PTR(afwImage::Image<double>) &profile);
 
     /// Extract the spectrum of this fiber trace using the _profile
     PTR(Spectrum<ImageT, MaskT, VarianceT, VarianceT>) extractFromProfile();
@@ -134,27 +133,27 @@ class FiberTrace {
     bool setFiberTraceProfileFittingControl(PTR(FiberTraceProfileFittingControl) const& fiberTraceProfileFittingControl);// { _fiberTraceProfileFittingControl = fiberTraceProfileFittingControl; }
     
     /// Return the x-centers of the fiber trace
-    const ndarray::Array<float const, 1, 1> getXCenters() const { return _xCenters; }
+    const ndarray::Array<double const, 1, 1> getXCenters() const { return _xCenters; }
 
     /// Set the x-center of the fiber trace
     /// Pre: _fiberTraceFunction must be set
 //    bool setXCenters(const PTR(std::vector<float>) &xCenters);// { _xCenters = xCenters; }
 
     /// Return shared pointer to an image containing the reconstructed 2D spectrum of the FiberTrace
-    PTR(afwImage::Image<float>) getReconstructed2DSpectrum(const Spectrum<ImageT, MaskT, VarianceT, VarianceT> & spectrum) const;
+    PTR(afwImage::Image<double>) getReconstructed2DSpectrum(const Spectrum<ImageT, MaskT, VarianceT, VarianceT> & spectrum) const;
 
     /// Return shared pointer to an image containing the reconstructed background of the FiberTrace
-    PTR(afwImage::Image<float>) getReconstructedBackground(const Spectrum<ImageT, MaskT, VarianceT, VarianceT> & backgroundSpectrum) const;
+    PTR(afwImage::Image<double>) getReconstructedBackground(const Spectrum<ImageT, MaskT, VarianceT, VarianceT> & backgroundSpectrum) const;
 
     /// Return shared pointer to an image containing the reconstructed 2D spectrum + background of the FiberTrace
-    PTR(afwImage::Image<float>) getReconstructed2DSpectrum(const Spectrum<ImageT, MaskT, VarianceT, VarianceT> & spectrum,
+    PTR(afwImage::Image<double>) getReconstructed2DSpectrum(const Spectrum<ImageT, MaskT, VarianceT, VarianceT> & spectrum,
                                                            const Spectrum<ImageT, MaskT, VarianceT, VarianceT> & background) const;
     
     bool calcProfile();
-    ndarray::Array<float, 2, 2> calcProfileSwath(ndarray::Array<ImageT const, 2, 2> const& imageSwath,
-                                                 ndarray::Array<MaskT const, 2, 2> const& maskSwath,
-                                                 ndarray::Array<VarianceT const, 2, 2> const& varianceSwath,
-                                                 ndarray::Array<float const, 1, 1> const& xCentersSwath,
+    ndarray::Array<double, 2, 1> calcProfileSwath(ndarray::Array<ImageT const, 2, 1> const& imageSwath,
+                                                 ndarray::Array<MaskT const, 2, 1> const& maskSwath,
+                                                 ndarray::Array<VarianceT const, 2, 1> const& varianceSwath,
+                                                 ndarray::Array<double const, 1, 1> const& xCentersSwath,
                                                  size_t const iSwath);
 
 /*    bool fitSpline(const blitz::Array<double, 2> &fiberTraceSwath_In,/// 1 bin of CCD (FiberTrace::Image)
@@ -177,18 +176,18 @@ class FiberTrace {
 //    bool setTraceCoefficients(ndarray::Array<double, 1, 1> const& coeffs);
     PTR(FiberTrace) getPointer();
 
-    std::vector<PTR(std::vector<float>)> _overSampledProfileFitXPerSwath;
-    std::vector<PTR(std::vector<float>)> _overSampledProfileFitYPerSwath;
-    std::vector<PTR(std::vector<float>)> _profileFittingInputXPerSwath;
-    std::vector<PTR(std::vector<float>)> _profileFittingInputYPerSwath;
-    std::vector<PTR(std::vector<float>)> _profileFittingInputXMeanPerSwath;
-    std::vector<PTR(std::vector<float>)> _profileFittingInputYMeanPerSwath;
+    std::vector<PTR(std::vector<double>)> _overSampledProfileFitXPerSwath;
+    std::vector<PTR(std::vector<double>)> _overSampledProfileFitYPerSwath;
+    std::vector<PTR(std::vector<double>)> _profileFittingInputXPerSwath;
+    std::vector<PTR(std::vector<double>)> _profileFittingInputYPerSwath;
+    std::vector<PTR(std::vector<double>)> _profileFittingInputXMeanPerSwath;
+    std::vector<PTR(std::vector<double>)> _profileFittingInputYMeanPerSwath;
     
   private:
     ///TODO: replace variables with smart pointers?????
     PTR(MaskedImageT) _trace;
-    PTR(afwImage::Image<float>) _profile;
-    const ndarray::Array<float const, 1, 1> _xCenters;
+    PTR(afwImage::Image<double>) _profile;
+    const ndarray::Array<double const, 1, 1> _xCenters;
     size_t _iTrace;
     bool _isTraceSet;
     bool _isProfileSet;
@@ -315,15 +314,26 @@ namespace math{
   PTR(FiberTraceSet<ImageT, MaskT, VarianceT>) findAndTraceApertures(const PTR(const afwImage::MaskedImage<ImageT, MaskT, VarianceT>) &maskedImage,
                                                                      const PTR(const FiberTraceFunctionFindingControl) &fiberTraceFunctionFindingControl);
   
+  typedef struct FindCenterPositionsOneTraceResult{
+      std::vector<double> apertureCenterIndex;/// CONVERT ALL TO FLOAT???
+      std::vector<double> apertureCenterPos;
+      std::vector<double> eApertureCenterPos;
+  };
+  
+  template<typename ImageT, typename VarianceT=afwImage::VariancePixel>
+  FindCenterPositionsOneTraceResult findCenterPositionsOneTrace( ndarray::Array<ImageT, 2, 1> & ccdImage,
+                                                                 ndarray::Array<VarianceT, 2, 1> & ccdImageVariance,
+                                                                 PTR(const FiberTraceFunctionFindingControl) const& fiberTraceFunctionFindingControl);
+  
   /**
    * @brief: returns ndarray containing the xCenters of a FiberTrace from 0 to FiberTrace.getTrace().getHeight()-1
    *         NOTE that the WCS starts at [0., 0.], so an xCenter of 1.1 refers to position 0.1 of the second pixel
    */
-  ndarray::Array<float, 1, 1> calculateXCenters(PTR(const ::pfs::drp::stella::FiberTraceFunction) const& fiberTraceFunctionIn,
+  ndarray::Array<double, 1, 1> calculateXCenters(PTR(const ::pfs::drp::stella::FiberTraceFunction) const& fiberTraceFunctionIn,
                                                 size_t const& ccdHeightIn = 0,
                                                 size_t const& ccdWidthIn = 0);
-  ndarray::Array<float, 1, 1> calculateXCenters(PTR(const ::pfs::drp::stella::FiberTraceFunction) const& fiberTraceFunctionIn,
-                                                ndarray::Array<float, 1, 1> const& yIn,
+  ndarray::Array<double, 1, 1> calculateXCenters(PTR(const ::pfs::drp::stella::FiberTraceFunction) const& fiberTraceFunctionIn,
+                                                ndarray::Array<double, 1, 1> const& yIn,
                                                 size_t const& ccdHeightIn = 0,
                                                 size_t const& ccdWidthIn = 0);
 

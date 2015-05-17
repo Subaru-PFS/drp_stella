@@ -1878,11 +1878,11 @@ bool MPFitThreeGaussLim(const ndarray::Array< T, 1, 1 > &D_A1_X_In,
  * m - number of data points
  * n - number of parameters (5)
  * p - array of fit parameters
- *     p[0] = constant offset
- *     p[1] = peak z value Gauss
- *     p[2] = x centroid position Gauss
- *     p[3] = y centroid position Gauss
- *     p[4] = gaussian sigma width
+ *     p[0] = peak z value Gauss
+ *     p[1] = x centroid position Gauss
+ *     p[2] = y centroid position Gauss
+ *     p[3] = gaussian sigma width
+ *     p[4] = constant offset
  * dy - array of residuals to be returned
  * vars - private data (struct vars_struct *)
  *
@@ -1898,13 +1898,13 @@ int MPFit2DGaussFuncCB(int m, int n, double *p, double *dz, double **dvec, void 
   y = v->y;
   z = v->ey;
 
-  sig2 = p[4]*p[4];
+  sig2 = p[3]*p[3];
   //  sig2_b = p[6]*p[6];
 
   for (i=0; i<m; i++) {
-    xc = x[i]-p[2];
-    yc = y[i]-p[3];
-    dz[i] = (z[i] - p[1]*exp(-0.5*((xc*xc) + (yc * yc))/sig2) - p[0]) / sqrt(z[i]);
+    xc = x[i]-p[1];
+    yc = y[i]-p[2];
+    dz[i] = (z[i] - p[0]*exp(-0.5*((xc*xc) + (yc * yc))/sig2) - p[4]) / sqrt(z[i]);
   }
 
   return 0;

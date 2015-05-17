@@ -2593,18 +2593,27 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
   template< typename T, typename U >
   ndarray::Array<T, 1, 1> chebyshev(ndarray::Array<T, 1, 1> const& x_In, ndarray::Array<U, 1, 1> const& coeffs_In){
     int nCoeffs = coeffs_In.getShape()[0];
-    ndarray::Array<T, 1, 1> Tn = ndarray::allocate(coeffs_In.getShape()[0]);
+    cout << "pfs::drp::stella::math::CurveFitting::chebyshev: coeffs_In = " << nCoeffs << ": ";
+    for (int i = 0; i < nCoeffs; ++i)
+      printf("%.12f ", coeffs_In[i]);
+    printf("\n");
+    ndarray::Array<double, 1, 1> Tn = ndarray::allocate(coeffs_In.getShape()[0]);
     
     ndarray::Array<T, 1, 1> yCalc = ndarray::allocate(x_In.getShape()[0]);
     Tn[0] = 1;
     for (int i = 0; i < x_In.getShape()[0]; ++i){
       if (nCoeffs > 1)
         Tn[1] = x_In[i];
-      for (int j = 2; j < nCoeffs; ++j)
+      for (int j = 2; j < nCoeffs; ++j){
         Tn[j] = 2. * x_In[i] * Tn[j-1] - Tn[j-2];
+        cout << "pfs::drp::stella::math::CurveFitting::chebyshev: x_In[" << i << "] = " << x_In[i] << ": Tn[" << j-2 << "] = " << Tn[j-2] << ", Tn[" << j-1 << "] = " << Tn[j-1] << ": Tn[" << j << "] = " << Tn[j] << endl;
+      }
       yCalc[i] = coeffs_In[0];
-      for (int j = 1; j < nCoeffs; ++j)
+      cout << "pfs::drp::stella::math::CurveFitting::chebyshev: yCalc[" << i << "] = " << yCalc[i] << endl;
+      for (int j = 1; j < nCoeffs; ++j){
         yCalc[i] += coeffs_In[j] * Tn[j];
+        printf("pfs::drp::stella::math::CurveFitting::chebyshev: Tn[%i] = %.12f, coeffs_In[j] * Tn[j] = %.12f: yCalc[%i] = %.12f\n", j, Tn[j], coeffs_In[j] * Tn[j], i, yCalc[i]);
+      }
     }
     return yCalc;
   }
