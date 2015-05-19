@@ -249,10 +249,10 @@ template class pfsDRPStella::SpectrumSet<float, unsigned int, float, float>;
 template class pfsDRPStella::SpectrumSet<double, unsigned int, float, float>;
 template class pfsDRPStella::SpectrumSet<float, unsigned short, float, float>;
 template class pfsDRPStella::SpectrumSet<double, unsigned short, float, float>;
-//template class pfsDRPStella::SpectrumSet<float, unsigned int, double, double>;
-//template class pfsDRPStella::SpectrumSet<double, unsigned int, double, double>;
-//template class pfsDRPStella::SpectrumSet<float, unsigned short, double, double>;
-//template class pfsDRPStella::SpectrumSet<double, unsigned short, double, double>;
+template class pfsDRPStella::SpectrumSet<float, unsigned int, float, double>;
+template class pfsDRPStella::SpectrumSet<double, unsigned int, float, double>;
+template class pfsDRPStella::SpectrumSet<float, unsigned short, float, double>;
+template class pfsDRPStella::SpectrumSet<double, unsigned short, float, double>;
 
 template PTR(afwImage::MaskedImage<float, unsigned short, float>) pfsDRPStella::utils::getPointer(afwImage::MaskedImage<float, unsigned short, float> &);
 template PTR(afwImage::MaskedImage<double, unsigned short, float>) pfsDRPStella::utils::getPointer(afwImage::MaskedImage<double, unsigned short, float> &);

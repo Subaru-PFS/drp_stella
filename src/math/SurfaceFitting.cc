@@ -5,8 +5,8 @@ using namespace boost::numeric::ublas;
 namespace pfs{ namespace drp{ namespace stella{ 
   namespace math{
           
-    template< typename CoordsT, typename ValueT >
-    ThinPlateSpline< CoordsT, ValueT >::ThinPlateSpline( ndarray::Array< const CoordsT, 1, 1 > const& controlPointsX,
+    template< typename ValueT, typename CoordsT >
+    ThinPlateSpline< ValueT, CoordsT >::ThinPlateSpline( ndarray::Array< const CoordsT, 1, 1 > const& controlPointsX,
                                                          ndarray::Array< const CoordsT, 1, 1 > const& controlPointsY,
                                                          ndarray::Array< const ValueT, 1, 1 > const& controlPointsZ,
                                                          double const regularization ):
@@ -41,8 +41,8 @@ namespace pfs{ namespace drp{ namespace stella{
       }
     }
             
-    template< typename CoordsT, typename ValueT >
-    ThinPlateSpline< CoordsT, ValueT >::ThinPlateSpline( ndarray::Array< const CoordsT, 1, 1 > const& controlPointsX,
+    template< typename ValueT, typename CoordsT >
+    ThinPlateSpline< ValueT, CoordsT >::ThinPlateSpline( ndarray::Array< const CoordsT, 1, 1 > const& controlPointsX,
                                                          ndarray::Array< const CoordsT, 1, 1 > const& controlPointsY,
                                                          ndarray::Array< const ValueT, 1, 1 > const& controlPointsZ,
                                                          ndarray::Array< const ValueT, 1, 1 > const& controlPointsWeights):
@@ -83,16 +83,16 @@ namespace pfs{ namespace drp{ namespace stella{
       }
     }
 
-    template< typename CoordsT, typename ValueT >
-    ValueT ThinPlateSpline< CoordsT, ValueT >::tps_base_func(ValueT r){
+    template< typename ValueT, typename CoordsT >
+    ValueT ThinPlateSpline< ValueT, CoordsT >::tps_base_func(ValueT r){
       if ( r == 0.0 )
         return 0.0;
       else
         return r*r * log(r);
     }
             
-    template< typename CoordsT, typename ValueT >
-    bool ThinPlateSpline< CoordsT, ValueT >::calculateCoefficients(){
+    template< typename ValueT, typename CoordsT >
+    bool ThinPlateSpline< ValueT, CoordsT >::calculateCoefficients(){
       #ifdef __DEBUG_CALC_TPS__
         cout << "interpolateThinPlateSpline: _controlPointsX = (" << _controlPointsX.getShape()[0] << ") = " << _controlPointsX << endl;
         cout << "interpolateThinPlateSpline: _controlPointsY = (" << _controlPointsY.getShape()[0] << ") = " << _controlPointsY << endl;
@@ -138,8 +138,8 @@ namespace pfs{ namespace drp{ namespace stella{
       return true;
     }
     
-    template< typename CoordsT, typename ValueT >
-    ndarray::Array< double, 2, 1 > ThinPlateSpline< CoordsT, ValueT >::fillRegularizedMatrix(){
+    template< typename ValueT, typename CoordsT >
+    ndarray::Array< double, 2, 1 > ThinPlateSpline< ValueT, CoordsT >::fillRegularizedMatrix(){
       unsigned p = _controlPointsX.getShape()[0];
 
       // Allocate the matrix and vector
@@ -214,8 +214,8 @@ namespace pfs{ namespace drp{ namespace stella{
       return mtx_l;
     }
     
-    template< typename CoordsT, typename ValueT >
-    ndarray::Array< double, 2, 1 > ThinPlateSpline< CoordsT, ValueT >::fillWeightedMatrix(){
+    template< typename ValueT, typename CoordsT >
+    ndarray::Array< double, 2, 1 > ThinPlateSpline< ValueT, CoordsT >::fillWeightedMatrix(){
       unsigned p = _controlPointsX.getShape()[0];
       ndarray::Array<double, 2, 1> cArr = ndarray::allocate(p, p);
       ndarray::Array<double, 2, 1> fArr = ndarray::allocate(p, 3);
@@ -262,8 +262,8 @@ namespace pfs{ namespace drp{ namespace stella{
       return mtx_l;
     }    
             
-    template< typename CoordsT, typename ValueT >
-    ValueT ThinPlateSpline< CoordsT, ValueT >::fitPoint(CoordsT const xPositionFit, 
+    template< typename ValueT, typename CoordsT >
+    ValueT ThinPlateSpline< ValueT, CoordsT >::fitPoint(CoordsT const xPositionFit, 
                                                         CoordsT const yPositionFit){
       #ifdef __DEBUG_CALC_TPS__
         std::cout << "ThinPlateSpline::fitPoint: x = " << xPositionFit << ", y = " << yPositionFit << std::endl;
@@ -288,8 +288,8 @@ namespace pfs{ namespace drp{ namespace stella{
       return ValueT(h);
     }
 
-    template< typename CoordsT, typename ValueT >
-    ndarray::Array< ValueT, 2, 1 > ThinPlateSpline< CoordsT, ValueT >::fitArray( ndarray::Array< const CoordsT, 1, 1 > const& xPositionsFit,
+    template< typename ValueT, typename CoordsT >
+    ndarray::Array< ValueT, 2, 1 > ThinPlateSpline< ValueT, CoordsT >::fitArray( ndarray::Array< const CoordsT, 1, 1 > const& xPositionsFit,
                                                                                  ndarray::Array< const CoordsT, 1, 1 > const& yPositionsFit,
                                                                                  bool const isXYPositionsGridPoints){ /// fit positions
       ndarray::Array< ValueT, 2, 1 > arrOut;

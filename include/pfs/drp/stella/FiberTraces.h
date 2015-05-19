@@ -321,8 +321,8 @@ namespace math{
   };
   
   template<typename ImageT, typename VarianceT=afwImage::VariancePixel>
-  FindCenterPositionsOneTraceResult findCenterPositionsOneTrace( ndarray::Array<ImageT, 2, 1> & ccdImage,
-                                                                 ndarray::Array<VarianceT, 2, 1> & ccdImageVariance,
+  FindCenterPositionsOneTraceResult findCenterPositionsOneTrace( PTR(afwImage::Image<ImageT>) & ccdImage,
+                                                                 PTR(afwImage::Image<VarianceT>) & ccdImageVariance,
                                                                  PTR(const FiberTraceFunctionFindingControl) const& fiberTraceFunctionFindingControl);
   
   /**
