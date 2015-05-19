@@ -28,7 +28,7 @@ using namespace std;
 
 namespace pfs { namespace drp { namespace stella {
   namespace math{
-    template < typename CoordsT, typename ValueT >
+    template < typename ValueT, typename CoordsT >
     class ThinPlateSpline{
         public: 
             

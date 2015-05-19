@@ -886,11 +886,11 @@
       return xvals;
     }
     
-    template< typename T >
-    T xCor(ndarray::Array< T, 2, 1 > const& arrA_In,
-           ndarray::Array< T, 2, 1 > const& arrB_In,
-           ndarray::Array< T, 1, 1 > const& range_In,
-           float const& stepSize_In){
+    template< typename PsfT, typename CoordT >
+    CoordT xCor(ndarray::Array< CoordT, 2, 1 > const& arrA_In,
+                ndarray::Array< PsfT, 2, 1 > const& arrB_In,
+                ndarray::Array< CoordT, 1, 1 > const& range_In,
+                CoordT const& stepSize_In){
       
       ndarray::Array< double, 1, 1 > xValuesA = ndarray::allocate(arrA_In.getShape()[0]);
       xValuesA.deep() = arrA_In[ndarray::view()(0)];
@@ -985,7 +985,7 @@
         cout << message << endl;
         throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
       }
-      T minShift = D_A1_GaussFitCoeffs[1];//T(xShift[std::min_element(chiSquare.begin(), chiSquare.end()) - chiSquare.begin()]);
+      CoordT minShift = CoordT(D_A1_GaussFitCoeffs[1]);//T(xShift[std::min_element(chiSquare.begin(), chiSquare.end()) - chiSquare.begin()]);
       #ifdef __DEBUG_XCOR__
         cout << "math::xCor: xShiftArr = " << xShiftArr << endl;
         cout << "math::xCor: chiSquareArr = " << chiSquareArr << endl;
@@ -1105,7 +1105,9 @@
     template ndarray::Array<double, 1, 1> convertRangeToUnity(ndarray::Array<double, 1, 1> const&, ndarray::Array<double, 1, 1> const&);
     
     template float xCor(ndarray::Array< float, 2, 1 > const&, ndarray::Array< float, 2, 1 > const&, ndarray::Array< float, 1, 1 > const&, float const&);
-    template double xCor(ndarray::Array< double, 2, 1 > const&, ndarray::Array< double, 2, 1 > const&, ndarray::Array< double, 1, 1 > const&, float const&);
+    template float xCor(ndarray::Array< float, 2, 1 > const&, ndarray::Array< double, 2, 1 > const&, ndarray::Array< float, 1, 1 > const&, float const&);
+    template double xCor(ndarray::Array< double, 2, 1 > const&, ndarray::Array< float, 2, 1 > const&, ndarray::Array< double, 1, 1 > const&, double const&);
+    template double xCor(ndarray::Array< double, 2, 1 > const&, ndarray::Array< double, 2, 1 > const&, ndarray::Array< double, 1, 1 > const&, double const&);
     
     template ndarray::Array< size_t, 1, 1 > resize( ndarray::Array< size_t, 1, 1 > const& arr_In, size_t newSize);
     template ndarray::Array< unsigned short, 1, 1 > resize( ndarray::Array< unsigned short, 1, 1 > const& arr_In, size_t newSize);

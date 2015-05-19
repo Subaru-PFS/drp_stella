@@ -34,7 +34,40 @@ using namespace std;
 
 namespace pfs { namespace drp { namespace stella {
   namespace math{
+    
+    template< typename T >
+    struct dataIndex { 
+        T number;
+        size_t index;
+    };
 
+    template< typename T >
+    struct by_number { 
+        bool operator()(dataIndex<T> const &left, dataIndex<T> const &right) { 
+            return left.number < right.number;
+        }
+    };
+    
+    template< typename T >
+    struct dataXY { 
+        T x;
+        T y;
+    };
+
+    template< typename T >
+    struct byX { 
+        bool operator()(dataXY<T> const &left, dataXY<T> const &right) { 
+            return left.x < right.x;
+        }
+    };
+
+    template< typename T >
+    struct byY { 
+        bool operator()(dataXY<T> const &left, dataXY<T> const &right) { 
+            return left.y < right.y;
+        }
+    };
+    
     /**
      * Calculates aperture minimum pixel, central position, and maximum pixel for the trace,
      * and writes result to I_A2_MinCenMax_Out
@@ -249,11 +282,11 @@ namespace pfs { namespace drp { namespace stella {
      * @param range_In: 2-element vector containing the lowest and highest shifts, e.g. [-1., 1.]
      * @param stepSize_In: step size for the shifts between range_In[0] and range_In[1]
      */    
-    template< typename T >
-    T xCor(ndarray::Array< T, 2, 1 > const& arrA_In,
-           ndarray::Array< T, 2, 1 > const& arrB_In,
-           ndarray::Array< T, 1, 1 > const& range_In,
-           float const& stepSize_In);
+    template< typename PsfT, typename CoordT >
+    CoordT xCor(ndarray::Array< CoordT, 2, 1 > const& arrA_In,
+                ndarray::Array< PsfT, 2, 1 > const& arrB_In,
+                ndarray::Array< CoordT, 1, 1 > const& range_In,
+                CoordT const& stepSize_In);
 
     /*
      * Helper methods for xCor

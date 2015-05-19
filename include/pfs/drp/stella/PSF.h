@@ -43,10 +43,10 @@ namespace pexExcept = lsst::pex::exceptions;
 using namespace std;
 namespace pfs { namespace drp { namespace stella {
 
-  template<typename ImageT, typename MaskT=afwImage::MaskPixel, typename VarianceT=afwImage::VariancePixel>//, typename WavelengthT=afwImage::VariancePixel>
+  template<typename T>//, typename MaskT=afwImage::MaskPixel, typename VarianceT=afwImage::VariancePixel>//, typename WavelengthT=afwImage::VariancePixel>
   class PSF {
     public:
-      typedef afwImage::MaskedImage<ImageT, MaskT, VarianceT> MaskedImageT;
+//      typedef afwImage::MaskedImage<ImageT, MaskT, VarianceT> MaskedImageT;
 
       explicit PSF(size_t iTrace=0, size_t iBin=0) : _twoDPSFControl(new TwoDPSFControl()),
                                                      _iTrace(iTrace),
@@ -125,31 +125,31 @@ namespace pfs { namespace drp { namespace stella {
       size_t getITrace() const {return _iTrace;}
       size_t getYLow() const {return _yMin;}
       size_t getYHigh() const {return _yMax;}
-      std::vector<double> getImagePSF_XTrace() {return _imagePSF_XTrace;}
-      std::vector<double> getImagePSF_YTrace() {return _imagePSF_YTrace;}
-      std::vector<double> getImagePSF_ZTrace() {return _imagePSF_ZTrace;}
-      const std::vector<double> getImagePSF_XTrace() const {return _imagePSF_XTrace;}
-      const std::vector<double> getImagePSF_YTrace() const {return _imagePSF_YTrace;}
-      const std::vector<double> getImagePSF_ZTrace() const {return _imagePSF_ZTrace;}
-      std::vector<double> getImagePSF_XRelativeToCenter() {return _imagePSF_XRelativeToCenter;}
-      std::vector<double> getImagePSF_YRelativeToCenter() {return _imagePSF_YRelativeToCenter;}
-      std::vector<double> getImagePSF_ZNormalized() {return _imagePSF_ZNormalized;}
-      std::vector<double> getImagePSF_ZFit() {return _imagePSF_ZFit;}
-      const std::vector<double> getImagePSF_XRelativeToCenter() const {return _imagePSF_XRelativeToCenter;}
-      const std::vector<double> getImagePSF_YRelativeToCenter() const {return _imagePSF_YRelativeToCenter;}
-      const std::vector<double> getImagePSF_ZNormalized() const {return _imagePSF_ZNormalized;}
-      const std::vector<double> getImagePSF_ZFit() const {return _imagePSF_ZFit;}
-      std::vector<double> getImagePSF_Weight() {return _imagePSF_Weight;}
-      std::vector<double> getXCentersPSFCCD() {return _xCentersPSFCCD;}
-      std::vector<double> getYCentersPSFCCD() {return _yCentersPSFCCD;}
+      std::vector<T> getImagePSF_XTrace() {return _imagePSF_XTrace;}
+      std::vector<T> getImagePSF_YTrace() {return _imagePSF_YTrace;}
+      std::vector<T> getImagePSF_ZTrace() {return _imagePSF_ZTrace;}
+      const std::vector<T> getImagePSF_XTrace() const {return _imagePSF_XTrace;}
+      const std::vector<T> getImagePSF_YTrace() const {return _imagePSF_YTrace;}
+      const std::vector<T> getImagePSF_ZTrace() const {return _imagePSF_ZTrace;}
+      std::vector<T> getImagePSF_XRelativeToCenter() {return _imagePSF_XRelativeToCenter;}
+      std::vector<T> getImagePSF_YRelativeToCenter() {return _imagePSF_YRelativeToCenter;}
+      std::vector<T> getImagePSF_ZNormalized() {return _imagePSF_ZNormalized;}
+      std::vector<T> getImagePSF_ZFit() {return _imagePSF_ZFit;}
+      const std::vector<T> getImagePSF_XRelativeToCenter() const {return _imagePSF_XRelativeToCenter;}
+      const std::vector<T> getImagePSF_YRelativeToCenter() const {return _imagePSF_YRelativeToCenter;}
+      const std::vector<T> getImagePSF_ZNormalized() const {return _imagePSF_ZNormalized;}
+      const std::vector<T> getImagePSF_ZFit() const {return _imagePSF_ZFit;}
+      std::vector<T> getImagePSF_Weight() {return _imagePSF_Weight;}
+      std::vector<T> getXCentersPSFCCD() {return _xCentersPSFCCD;}
+      std::vector<T> getYCentersPSFCCD() {return _yCentersPSFCCD;}
       std::vector<unsigned long> getNPixPerPSF() {return _nPixPerPSF;}
-      const std::vector<double> getImagePSF_Weight() const {return _imagePSF_Weight;}
-      const std::vector<double> getXCentersPSFCCD() const {return _xCentersPSFCCD;}
-      const std::vector<double> getYCentersPSFCCD() const {return _yCentersPSFCCD;}
+      const std::vector<T> getImagePSF_Weight() const {return _imagePSF_Weight;}
+      const std::vector<T> getXCentersPSFCCD() const {return _xCentersPSFCCD;}
+      const std::vector<T> getYCentersPSFCCD() const {return _yCentersPSFCCD;}
       const std::vector<unsigned long> getNPixPerPSF() const {return _nPixPerPSF;}
-      const std::vector<double> getXRangePolynomial() const {return _xRangePolynomial;}
+      const std::vector<T> getXRangePolynomial() const {return _xRangePolynomial;}
       
-      bool setImagePSF_ZFit(ndarray::Array<ImageT, 1, 1> const& zFit);
+      bool setImagePSF_ZFit(ndarray::Array<T, 1, 1> const& zFit);
 
       bool isTwoDPSFControlSet() const {return _isTwoDPSFControlSet;}
       bool isPSFsExtracted() const {return _isPSFsExtracted;}
@@ -160,16 +160,17 @@ namespace pfs { namespace drp { namespace stella {
       /// Set the _twoDPSFControl
       bool setTwoDPSFControl(PTR(TwoDPSFControl) &twoDPSFControl);
 
-      template< typename WavelengthT >
+      template< typename ImageT, typename MaskT = afwImage::MaskPixel, typename VarianceT = afwImage::VariancePixel, typename WavelengthT = afwImage::VariancePixel>
       bool extractPSFs(FiberTrace<ImageT, MaskT, VarianceT> const& fiberTrace_In,
 	               Spectrum<ImageT, MaskT, VarianceT, WavelengthT> const& spectrum_In);
+      template< typename ImageT, typename MaskT = afwImage::MaskPixel, typename VarianceT = afwImage::VariancePixel, typename WavelengthT = afwImage::VariancePixel>
       bool extractPSFs(FiberTrace<ImageT, MaskT, VarianceT> const& fiberTrace_In,
 	               Spectrum<ImageT, MaskT, VarianceT, WavelengthT> const& spectrum_In,
-                       ndarray::Array<double, 2, 1> const& collapsedPSF);
+                       ndarray::Array<T, 2, 1> const& collapsedPSF);
       //bool fitPSFKernel();
       //bool calculatePSF();
       
-      std::vector< double > reconstructFromThinPlateSplineFit(double const regularization = 0.);
+      std::vector< T > reconstructFromThinPlateSplineFit(double const regularization = 0.);
             
   protected:
 
@@ -185,18 +186,18 @@ namespace pfs { namespace drp { namespace stella {
       const size_t _iBin;
       const size_t _yMin;
       const size_t _yMax;
-      std::vector<double> _imagePSF_XTrace;
-      std::vector<double> _imagePSF_YTrace;
-      std::vector<double> _imagePSF_ZTrace;
-      std::vector<double> _imagePSF_XRelativeToCenter;
-      std::vector<double> _imagePSF_YRelativeToCenter;
-      std::vector<double> _imagePSF_ZNormalized;
-      std::vector<double> _imagePSF_ZFit;
-      std::vector<double> _imagePSF_Weight;
-      std::vector<double> _xCentersPSFCCD;
-      std::vector<double> _yCentersPSFCCD;
+      std::vector<T> _imagePSF_XTrace;
+      std::vector<T> _imagePSF_YTrace;
+      std::vector<T> _imagePSF_ZTrace;
+      std::vector<T> _imagePSF_XRelativeToCenter;
+      std::vector<T> _imagePSF_YRelativeToCenter;
+      std::vector<T> _imagePSF_ZNormalized;
+      std::vector<T> _imagePSF_ZFit;
+      std::vector<T> _imagePSF_Weight;
+      std::vector<T> _xCentersPSFCCD;
+      std::vector<T> _yCentersPSFCCD;
       std::vector<unsigned long> _nPixPerPSF;
-      std::vector<double> _xRangePolynomial;
+      std::vector<T> _xRangePolynomial;
       bool _isTwoDPSFControlSet;
       bool _isPSFsExtracted;
       
@@ -208,26 +209,26 @@ namespace pfs { namespace drp { namespace stella {
  * \brief Describe a set of 2D PSFs
  *
  */
-template<typename ImageT, typename MaskT = afwImage::MaskPixel, typename VarianceT = afwImage::VariancePixel, typename WavelengthT = afwImage::VariancePixel>
+template<typename T>//, typename MaskT = afwImage::MaskPixel, typename VarianceT = afwImage::VariancePixel>//, typename WavelengthT = afwImage::VariancePixel>
 class PSFSet {
   public:
     /// Class Constructors and Destructor
       
     /// Creates a new PSFSet object of size 0
     explicit PSFSet(unsigned int nPSFs=0)
-        : _psfs(new std::vector<PTR(PSF<ImageT, MaskT, VarianceT, WavelengthT>)>(nPSFs))
+        : _psfs(new std::vector<PTR(PSF<T>)>(nPSFs))
         {}
         
     /// Copy constructor
     /// If psfSet is not empty, the object shares ownership of psfSet's PSF vector and increases the use count.
     /// If psfSet is empty, an empty object is constructed (as if default-constructed).
-    explicit PSFSet(PSFSet<ImageT, MaskT, VarianceT, WavelengthT> & psfSet)
+    explicit PSFSet(PSFSet<T> & psfSet)
         : _psfs(psfSet.getPSFs())
         {}
     
     /// Construct an object with a copy of psfVector
-    explicit PSFSet(std::vector<PTR(PSF<ImageT, MaskT, VarianceT, WavelengthT>)> & psfVector)
-        : _psfs(new std::vector<PTR(PSF<ImageT, MaskT, VarianceT, WavelengthT>)>(psfVector))
+    explicit PSFSet(std::vector<PTR(PSF<T>)> & psfVector)
+        : _psfs(new std::vector<PTR(PSF<T>)>(psfVector))
         {}
         
     virtual ~PSFSet() {}
@@ -236,44 +237,44 @@ class PSFSet {
     size_t size() const { return _psfs->size(); }
 
     /// Return the PSF at the ith position
-    PTR(PSF<ImageT, MaskT, VarianceT, WavelengthT>) &getPSF(const size_t i);
+    PTR(PSF<T>) &getPSF(const size_t i);
 
-    const PTR(const PSF<ImageT, MaskT, VarianceT, WavelengthT>) getPSF(const size_t i) const;
+    const PTR(const PSF<T>) getPSF(const size_t i) const;
 
     /// Set the ith PSF
     bool setPSF(const size_t i,     /// which spectrum?
-                const PTR(PSF<ImageT, MaskT, VarianceT, WavelengthT>) & psf /// the PSF at the ith position
+                const PTR(PSF<T>) & psf /// the PSF at the ith position
                       );
 
     /// add one PSF to the set
-    void addPSF(const PTR(PSF<ImageT, MaskT, VarianceT, WavelengthT>) & psf);
+    void addPSF(const PTR(PSF<T>) & psf);
 
-    PTR(std::vector<PTR(PSF<ImageT, MaskT, VarianceT, WavelengthT>)>) getPSFs() const { return _psfs; }
+    PTR(std::vector<PTR(PSF<T>)>) getPSFs() const { return _psfs; }
     
     /// Removes from the vector either a single element (position) or a range of elements ([first,last)).
     /// This effectively reduces the container size by the number of elements removed, which are destroyed.
     bool erase(const size_t iStart, const size_t iEnd=0);
 
     private:
-    PTR(std::vector<PTR(PSF<ImageT, MaskT, VarianceT, WavelengthT>)>) _psfs; // shared pointer to vector of shared pointers to PSFs
+    PTR(std::vector<PTR(PSF<T>)>) _psfs; // shared pointer to vector of shared pointers to PSFs
 };
 
 namespace math{
-  template< typename ImageT, typename MaskT = afwImage::MaskPixel, typename VarianceT = afwImage::VariancePixel, typename WavelengthT = afwImage::VariancePixel >
-  PTR( PSFSet< ImageT, MaskT, VarianceT, WavelengthT > ) calculate2dPSFPerBin( FiberTrace< ImageT, MaskT, VarianceT > const& fiberTrace,
-                                                                               Spectrum< ImageT, MaskT, VarianceT, WavelengthT > const& spectrum,
-                                                                               TwoDPSFControl const& twoDPSFControl );
+  template< typename PsfT = double, typename ImageT = afwImage::VariancePixel, typename MaskT = afwImage::MaskPixel, typename VarianceT = afwImage::VariancePixel, typename WavelengthT = afwImage::VariancePixel >
+  PTR( PSFSet< PsfT > ) calculate2dPSFPerBin( FiberTrace< ImageT, MaskT, VarianceT > const& fiberTrace,
+                                              Spectrum< ImageT, MaskT, VarianceT, WavelengthT > const& spectrum,
+                                              TwoDPSFControl const& twoDPSFControl );
 
-  template< typename ImageT, typename MaskT = afwImage::MaskPixel, typename VarianceT = afwImage::VariancePixel, typename WavelengthT = afwImage::VariancePixel >
-  PTR( PSFSet< ImageT, MaskT, VarianceT, WavelengthT > ) calculate2dPSFPerBin( FiberTrace< ImageT, MaskT, VarianceT > const& fiberTrace,
-                                                                               Spectrum< ImageT, MaskT, VarianceT, WavelengthT > const& spectrum,
-                                                                               TwoDPSFControl const& twoDPSFControl,
-                                                                               ndarray::Array< double, 2, 1 > const& collapsedPSF);
+  template< typename PsfT = double, typename ImageT = afwImage::VariancePixel, typename MaskT = afwImage::MaskPixel, typename VarianceT = afwImage::VariancePixel, typename WavelengthT = afwImage::VariancePixel >
+  PTR( PSFSet< PsfT > ) calculate2dPSFPerBin( FiberTrace< ImageT, MaskT, VarianceT > const& fiberTrace,
+                                              Spectrum< ImageT, MaskT, VarianceT, WavelengthT > const& spectrum,
+                                              TwoDPSFControl const& twoDPSFControl,
+                                              ndarray::Array< PsfT, 2, 1 > const& collapsedPSF);
   
-  template< typename ImageT, typename MaskT = afwImage::MaskPixel, typename VarianceT = afwImage::VariancePixel, typename WavelengthT = afwImage::VariancePixel >
-  std::vector< PTR( PSFSet< ImageT, MaskT, VarianceT, WavelengthT > ) > calculate2dPSFPerBin( FiberTraceSet< ImageT, MaskT, VarianceT > const& fiberTraceSet,
-                                                                                              SpectrumSet< ImageT, MaskT, VarianceT, WavelengthT > const& spectrumSet,
-                                                                                              TwoDPSFControl const& twoDPSFControl );
+  template< typename PsfT = double, typename ImageT = afwImage::VariancePixel, typename MaskT = afwImage::MaskPixel, typename VarianceT = afwImage::VariancePixel, typename WavelengthT = afwImage::VariancePixel >
+  std::vector< PTR( PSFSet< PsfT > ) > calculate2dPSFPerBin( FiberTraceSet< ImageT, MaskT, VarianceT > const& fiberTraceSet,
+                                                             SpectrumSet< ImageT, MaskT, VarianceT, WavelengthT > const& spectrumSet,
+                                                             TwoDPSFControl const& twoDPSFControl );
   
   /*
    * @brief: fit PSF and interpolate to new coordinates using (regularized) thin-plate splines, reconstruct psf._imagePSF_ZNormalized and write to psf._imagePSF_ZFit
@@ -284,12 +285,12 @@ namespace math{
    * @param isXYPositionsGridPoints : if yes then output array will have shape [m, n], otherwise m == n and shape of output array will be [n, 1]
    * @param regularization : regularization ( >= 0.) for fit. If equal to 0. the fit will be forced through the original data points
    */
-  template< typename ImageT, typename MaskT = afwImage::MaskPixel, typename VarianceT = afwImage::VariancePixel, typename WavelengthT = afwImage::VariancePixel >
-  ndarray::Array< ImageT, 2, 1 > interpolatePSFThinPlateSpline( PSF< ImageT, MaskT, VarianceT, WavelengthT > & psf,
-                                                                ndarray::Array< float, 1, 1 > const& xPositions,
-                                                                ndarray::Array< float, 1, 1 > const& yPositions,
-                                                                bool const isXYPositionsGridPoints,
-                                                                double const regularization = 0. );
+  template< typename PsfT = double, typename CoordsT = double >
+  ndarray::Array< PsfT, 2, 1 > interpolatePSFThinPlateSpline( PSF< PsfT > & psf,
+                                                              ndarray::Array< CoordsT, 1, 1 > const& xPositions,
+                                                              ndarray::Array< CoordsT, 1, 1 > const& yPositions,
+                                                              bool const isXYPositionsGridPoints,
+                                                              double const regularization = 0. );
   
   /*
    * @brief: fit PSF and interpolate to new coordinates using weighted thin-plate splines, reconstruct psf._imagePSF_ZNormalized and write to psf._imagePSF_ZFit
@@ -300,26 +301,26 @@ namespace math{
    * @param yPositions : y positions of new coordinates relative to center of PSF [y_0, y_1, ... , y_m-2, y_m-1]
    * @param isXYPositionsGridPoints : if yes then output array will have shape [m, n], otherwise m == n and shape of output array will be [n, 1]
    */
-  template< typename ImageT, typename MaskT = afwImage::MaskPixel, typename VarianceT = afwImage::VariancePixel, typename WavelengthT = afwImage::VariancePixel >
-  ndarray::Array< ImageT, 2, 1 > interpolatePSFThinPlateSpline( PSF< ImageT, MaskT, VarianceT, WavelengthT > & psf,
-                                                                ndarray::Array< ImageT, 1, 1 > const& weights,
-                                                                ndarray::Array< float, 1, 1 > const& xPositions,
-                                                                ndarray::Array< float, 1, 1 > const& yPositions,
-                                                                bool const isXYPositionsGridPoints);
+  template< typename PsfT = double, typename WeightT = float, typename CoordsT = double>
+  ndarray::Array< PsfT, 2, 1 > interpolatePSFThinPlateSpline( PSF< PsfT > & psf,
+                                                              ndarray::Array< WeightT, 1, 1 > const& weights,
+                                                              ndarray::Array< CoordsT, 1, 1 > const& xPositions,
+                                                              ndarray::Array< CoordsT, 1, 1 > const& yPositions,
+                                                              bool const isXYPositionsGridPoints);
   
-  template< typename ImageT, typename MaskT = afwImage::MaskPixel, typename VarianceT = afwImage::VariancePixel, typename WavelengthT = afwImage::VariancePixel >
-  ndarray::Array< ImageT, 3, 1 > interpolatePSFSetThinPlateSpline( PSFSet< ImageT, MaskT, VarianceT, WavelengthT > & psfSet,
-                                                                   ndarray::Array< float, 1, 1 > const& xPositions,
-                                                                   ndarray::Array< float, 1, 1 > const& yPositions,
-                                                                   bool const isXYPositionsGridPoints,
-                                                                   double const regularization = 0. );
+  template< typename PsfT = double, typename CoordsT = double>
+  ndarray::Array< PsfT, 3, 1 > interpolatePSFSetThinPlateSpline( PSFSet< PsfT > & psfSet,
+                                                                 ndarray::Array< CoordsT, 1, 1 > const& xPositions,
+                                                                 ndarray::Array< CoordsT, 1, 1 > const& yPositions,
+                                                                 bool const isXYPositionsGridPoints,
+                                                                 double const regularization = 0. );
   
-  template< typename ImageT, typename MaskT = afwImage::MaskPixel, typename VarianceT = afwImage::VariancePixel, typename WavelengthT = afwImage::VariancePixel >
-  ndarray::Array< ImageT, 3, 1 > interpolatePSFSetThinPlateSpline( PSFSet< ImageT, MaskT, VarianceT, WavelengthT > & psfSet,
-                                                                   ndarray::Array< ImageT, 2, 1 > const& weightArr,/// [nPoints, nPSFs]
-                                                                   ndarray::Array< float, 1, 1 > const& xPositions,
-                                                                   ndarray::Array< float, 1, 1 > const& yPositions,
-                                                                   bool const isXYPositionsGridPoints);
+  template< typename PsfT = double, typename WeightT = float, typename CoordsT = double >
+  ndarray::Array< PsfT, 3, 1 > interpolatePSFSetThinPlateSpline( PSFSet< PsfT > & psfSet,
+                                                                 ndarray::Array< WeightT, 2, 1 > const& weightArr,/// [nPoints, nPSFs]
+                                                                 ndarray::Array< CoordsT, 1, 1 > const& xPositions,
+                                                                 ndarray::Array< CoordsT, 1, 1 > const& yPositions,
+                                                                 bool const isXYPositionsGridPoints);
   
   /*
    * @brief collapse one fitted PSF in one direction
@@ -331,23 +332,23 @@ namespace math{
    * @output [i,0]: coordinate value (y for direction == 0; x for direction ==1)
    *         [i,1]: (sub)pixel value for coordinate position [i,0]
    */
-    template< typename ImageT, typename CoordT = float >
-    ndarray::Array< ImageT, 2, 1 > collapseFittedPSF( ndarray::Array< CoordT, 1, 1 > const& xGridVec_In,
-                                                      ndarray::Array< CoordT, 1, 1 > const& yGridVec_In,
-                                                      ndarray::Array< ImageT, 2, 1 > const& zArr_In,
-                                                      int const direction = 0. );
+    template< typename PsfT = double, typename CoordT = float >
+    ndarray::Array< PsfT, 2, 1 > collapseFittedPSF( ndarray::Array< CoordT, 1, 1 > const& xGridVec_In,
+                                                    ndarray::Array< CoordT, 1, 1 > const& yGridVec_In,
+                                                    ndarray::Array< PsfT, 2, 1 > const& zArr_In,
+                                                    int const direction = 0. );
   
   /*
    * @brief collapse one PSF in one direction
    * @param direction: 0: collapse in x (get PSF in dispersion direction)
    *                   1: collapse in y (get PSF in spatial direction)
    */
-  template< typename ImageT, typename MaskT = afwImage::MaskPixel, typename VarianceT = afwImage::VariancePixel, typename WavelengthT = afwImage::VariancePixel >
-  ndarray::Array< double, 2, 1 > collapsePSF( PSF< ImageT, MaskT, VarianceT, WavelengthT > const& psf_In,
-                                             ndarray::Array< double, 1, 1 > const& coordinatesX_In,
-                                             ndarray::Array< double, 1, 1 > const& coordinatesY_In,
-                                             int const direction = 0.,
-                                             double const regularization = 0.);
+  template< typename PsfT = double, typename CoordT = double >
+  ndarray::Array< PsfT, 2, 1 > collapsePSF( PSF< PsfT > const& psf_In,
+                                            ndarray::Array< CoordT, 1, 1 > const& coordinatesX_In,
+                                            ndarray::Array< CoordT, 1, 1 > const& coordinatesY_In,
+                                            int const direction = 0.,
+                                            double const regularization = 0.);
   
   /*
    * @brief convert absolute coordinates from [0,...,N] to coordinates relative to center position in range(centerPos_In - width_In/2., centerPos_In + width_In/2.)
@@ -366,12 +367,12 @@ namespace math{
    * @param dYMax maximum distance in y in pixels to count 2 emission lines in psf_In and x/yPositions_In as the same emission line
    * @return one line per emission line used to construct PSF with [dx=xPositions[iList] - xPSF, dy=yPositions[iList] - yPSF, dr=sqrt(pow(dx)+pow(dy))]
    */
-  template< typename ImageT, typename MaskT = afwImage::MaskPixel, typename VarianceT = afwImage::VariancePixel, typename WavelengthT = afwImage::VariancePixel, typename PosT = float >
-  ndarray::Array< PosT, 2, 1 > compareCenterPositions(PSF< ImageT, MaskT, VarianceT, WavelengthT > const& psf_In,
-                                                       ndarray::Array< const PosT, 1, 1 > const& xPositions_In,
-                                                       ndarray::Array< const PosT, 1, 1 > const& yPositions_In,
-                                                       float dXMax = 1.,
-                                                       float dYMax = 1.);
+  template< typename PsfT = double, typename CoordsT = double >
+  ndarray::Array< CoordsT, 2, 1 > compareCenterPositions(PSF< PsfT > const& psf_In,
+                                                         ndarray::Array< const CoordsT, 1, 1 > const& xPositions_In,
+                                                         ndarray::Array< const CoordsT, 1, 1 > const& yPositions_In,
+                                                         float dXMax = 1.,
+                                                         float dYMax = 1.);
   
 }
 }}}
