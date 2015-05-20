@@ -67,6 +67,16 @@ namespace pfs { namespace drp { namespace stella {
             return left.y < right.y;
         }
     };
+
+    /*
+     * @brief insert <toInsert_In> into <dataXYVec_In> in sorted order in x
+     * 
+     * @param dataXYVec_In vector to insert <toInsert_In> in sorted order
+     * @param toInsert_In  data pair to insert
+     */
+    template< typename T >
+    void insertSorted(std::vector< dataXY< T > > & dataXYVec_In,
+                      dataXY< T > & toInsert_In);
     
     /**
      * Calculates aperture minimum pixel, central position, and maximum pixel for the trace,

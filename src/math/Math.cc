@@ -643,6 +643,23 @@
       }
       return arr_Out;
     }
+    
+    template< typename T >
+    void insertSorted(std::vector< dataXY< T > > & dataXYVec_In,
+                      dataXY< T > & toInsert_In){
+      if (dataXYVec_In.size() == 0){
+        dataXYVec_In.push_back(toInsert_In);
+        return;
+      }
+      for (auto it = dataXYVec_In.begin(); it != dataXYVec_In.end(); ++it){
+        if (it->x > toInsert_In.x){
+          dataXYVec_In.insert(it, toInsert_In);
+          return;
+        }
+      }
+      dataXYVec_In.push_back(toInsert_In);
+      return;
+    }
 
     template<typename T>
     std::vector<int> sortIndices(const std::vector<T> &vec_In){
@@ -1061,6 +1078,10 @@
       ndarray::Array<T, 2, 2> out = ndarray::allocate(int(nRows), int(nCols));
       return out;
     }
+
+    template void insertSorted(std::vector< dataXY< int > > &, dataXY< int > &);
+    template void insertSorted(std::vector< dataXY< float > > &, dataXY< float > &);
+    template void insertSorted(std::vector< dataXY< double > > &, dataXY< double > &);
 
     template ndarray::Array<int, 2, 1> ndArray21(int, int);
     template ndarray::Array<float, 2, 1> ndArray21(float, float);

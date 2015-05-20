@@ -1834,24 +1834,26 @@ namespace pfsDRPStella = pfs::drp::stella;
     FindCenterPositionsOneTraceResult findCenterPositionsOneTrace( PTR(afwImage::Image<ImageT>) & ccdImage,
                                                                    PTR(afwImage::Image<VarianceT>) & ccdVarianceImage,
                                                                    PTR(const FiberTraceFunctionFindingControl) const& fiberTraceFunctionFindingControl){
-      ndarray::Array<ImageT, 2, 1> ccdArray = ndarray::copy(ccdImage->getArray());
-      ndarray::Array<VarianceT, 2, 1> ccdVarianceArray = ndarray::copy(ccdVarianceImage->getArray());
+      ndarray::Array<ImageT, 2, 1> ccdArray = ccdImage->getArray();
+      ndarray::Array<VarianceT, 2, 1> ccdVarianceArray = ccdVarianceImage->getArray();
       int I_MinWidth = int(1.5 * fiberTraceFunctionFindingControl->apertureFWHM);
       if (I_MinWidth < fiberTraceFunctionFindingControl->nTermsGaussFit)
         I_MinWidth = fiberTraceFunctionFindingControl->nTermsGaussFit;
       double D_MaxTimesApertureWidth = 4.;
       std::vector<double> gaussFitVariances(0);
       std::vector<double> gaussFitMean(0);
-      std::vector<double> xsRelativeToCenter(0);
-      std::vector<double> ysRelativeToCenter(0);
+//      std::vector<double> xsRelativeToCenter(0);
+//      std::vector<double> ysRelativeToCenter(0);
       ndarray::Array<double, 1, 1> xCorRange = ndarray::allocate(2);
       xCorRange[0] = -0.5;
       xCorRange[1] = 0.5;
       double xCorStepSize = 0.005;
       double xRelativeToCenter = 0.;
       double xCorMinPos = 0.;
-      int nInd = 1000;
+      int nInd = 100;
       ndarray::Array<double, 2, 1> indGaussArr = ndarray::allocate(nInd, 2);
+      std::vector<pfs::drp::stella::math::dataXY<double>> xySorted(0);
+      xySorted.reserve(((fiberTraceFunctionFindingControl->apertureFWHM * D_MaxTimesApertureWidth) + 2) * ccdImage->getHeight());
 
       int I_StartIndex;
       int I_FirstWideSignal;
@@ -2205,6 +2207,7 @@ namespace pfsDRPStella = pfs::drp::stella;
 
         if (B_ApertureFound){
           /// Trace Aperture
+          xySorted.resize(0);
           I_Length = 1;
           I_ApertureLost = 0;
   //        #ifdef __DEBUG_FINDANDTRACE__
@@ -2456,16 +2459,15 @@ namespace pfsDRPStella = pfs::drp::stella;
 //                              cout << "indGaussArr[" << ind << "][*] = " << indGaussArr[ind][0] << ", " << indGaussArr[ind][1] << endl;
                             }
                             if (gaussFitVariances.size() > 20){
-                              std::vector<pfs::drp::stella::math::dataXY<double>> xySorted(xsRelativeToCenter.size());
-                              auto itXs = xsRelativeToCenter.begin();
-                              auto itYs = ysRelativeToCenter.begin();
-                              for (auto it = xySorted.begin(); it != xySorted.end(); ++it, ++itXs, ++itYs){
-                                it->x = *itXs;
-                                it->y = *itYs;
-                              }
-                              std::sort(xySorted.begin(), xySorted.end(), byX<double>());
+//                              auto itXs = xsRelativeToCenter.begin();
+//                              auto itYs = ysRelativeToCenter.begin();
+//                              for (auto it = xySorted.begin(); it != xySorted.end(); ++it, ++itXs, ++itYs){
+//                                it->x = *itXs;
+//                                it->y = *itYs;
+//                              }
+//                              std::sort(xySorted.begin(), xySorted.end(), byX<double>());
 //                              std::vector<int> sortedIndices = pfs::drp::stella::math::sortIndices(xsRelativeToCenter);
-                              ndarray::Array<double, 2, 1> xysRelativeToCenter = ndarray::allocate(xsRelativeToCenter.size(), 2);
+                              ndarray::Array<double, 2, 1> xysRelativeToCenter = ndarray::allocate(xySorted.size(), 2);
                               ind = 0;
                               auto itSorted = xySorted.begin();
                               for (auto itRow = xysRelativeToCenter.begin(); itRow != xysRelativeToCenter.end(); ++itRow, ++ind, ++itSorted){
@@ -2495,8 +2497,10 @@ namespace pfsDRPStella = pfs::drp::stella;
                             }
                             if (gaussFitVariances.size() > 10){
                               for (int iX = 0; iX < xyRelativeToCenter.getShape()[0]; ++iX){
-                                xsRelativeToCenter.push_back(xyRelativeToCenter[iX][0] + xCorMinPos);
-                                ysRelativeToCenter.push_back(xyRelativeToCenter[iX][1]);
+                                dataXY<double> xyStruct;
+                                xyStruct.x = xyRelativeToCenter[iX][0] + xCorMinPos;
+                                xyStruct.y = xyRelativeToCenter[iX][1];
+                                pfs::drp::stella::math::insertSorted(xySorted, xyStruct);
                               }
                               D_A1_ApertureCenter[i_Row] = D_A1_ApertureCenter[i_Row] + xCorMinPos;
                               cout << "pfs::drp::stella::math::findCenterPositionsOneTrace: i_Row = " << i_Row << ": Aperture position corrected to " << D_A1_ApertureCenter[i_Row] << endl;
