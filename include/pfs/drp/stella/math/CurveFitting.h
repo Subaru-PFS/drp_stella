@@ -14,7 +14,7 @@
 #include "ndarray.h"
 #include "ndarray/eigen.h"
 
-//#define __DEBUG_FIT__
+#define __DEBUG_FIT__
 //#define __DEBUG_FITARR__
 //#define __DEBUG_POLY__
 //#define __DEBUG_POLYFIT__

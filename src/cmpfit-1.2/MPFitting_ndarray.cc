@@ -1205,7 +1205,7 @@ bool MPFitGaussLim(const ndarray::Array< T, 1, 1 >& D_A1_X_In,
 
   /* Call fitting function for 10 data points and 4 parameters (2
      parameters fixed) */
-  mp_config conf;
+/*  mp_config conf;
   conf.ftol = 1e-11;
   conf.xtol = 1e-11;
   conf.gtol = 1e-11;
@@ -1217,16 +1217,20 @@ bool MPFitGaussLim(const ndarray::Array< T, 1, 1 >& D_A1_X_In,
   conf.maxfev = 0;
   conf.covtol = 1e-14;
   conf.nofinitecheck = 0;
-  
+  */
   if (Background == 0){
     #ifdef __DEBUG_GAUSSFITLIM__
       if (Debug)
         cout << "MPFitting_ndarray::MPFitGaussLim: Background == 0: starting mpfit" << endl;
     #endif
-    if (B_FitArea)
-      status = mpfit(MPFitGaussFuncANB, I_NPts, I_NParams, p, pars, &conf, (void *) &v, &result);
-    else
-      status = mpfit(MPFitGaussFuncNB, I_NPts, I_NParams, p, pars, &conf, (void *) &v, &result);
+    if (B_FitArea){
+      status = mpfit(MPFitGaussFuncANB, I_NPts, I_NParams, p, pars, 0, (void *) &v, &result);
+//      status = mpfit(MPFitGaussFuncANB, I_NPts, I_NParams, p, pars, &conf, (void *) &v, &result);
+    }
+    else{
+      status = mpfit(MPFitGaussFuncNB, I_NPts, I_NParams, p, pars, 0, (void *) &v, &result);
+//      status = mpfit(MPFitGaussFuncNB, I_NPts, I_NParams, p, pars, &conf, (void *) &v, &result);
+    }
   }
   else if (Background == 1){
     #ifdef __DEBUG_GAUSSFITLIM__
