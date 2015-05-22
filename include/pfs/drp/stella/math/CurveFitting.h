@@ -13,6 +13,7 @@
 #include "Math.h"
 #include "ndarray.h"
 #include "ndarray/eigen.h"
+#include "CurveFittingGaussian.h"
 
 #define __DEBUG_FIT__
 //#define __DEBUG_FITARR__
@@ -280,7 +281,15 @@ namespace pfs { namespace drp { namespace stella {
      */
     template< typename T, typename U >
     ndarray::Array<T, 1, 1> chebyshev(ndarray::Array<T, 1, 1> const& x_In, ndarray::Array<U, 1, 1> const& coeffs_In);
-            
+                
+    /*
+     * @brief fit a Gaussian to noisy data using Eigen's Levenberg Marquardt
+     * @param xy_In 2d array (ndata, 2) [*][0]: x, [*][1]: y
+     * @param guess_In [0]: peak, [1]: center, [2]: sigma
+     */
+    ndarray::Array<double, 1, 1> gaussFit(ndarray::Array<double, 2, 1> const& xy_In,
+                                          ndarray::Array<double, 1, 1> const& guess_In);
+
   }
 }}}
 #endif

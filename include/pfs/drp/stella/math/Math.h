@@ -316,7 +316,7 @@ namespace pfs { namespace drp { namespace stella {
     /*
      * @brief convert given numbers in given range to a number in range [-1,1]
      * @param numbers: numbers to be converted
-     * @param range: range number is from
+     * @param range: range numbers are from
      */
     template< typename T, typename U >
     ndarray::Array<T, 1, 1> convertRangeToUnity(ndarray::Array<T, 1, 1> const& numbers,
