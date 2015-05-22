@@ -29,6 +29,7 @@ Interface to Stella
 #include "pfs/drp/stella/math/Math.h"
 //#include "pfs/drp/stella/math/MathBlitz.h"
 #include "pfs/drp/stella/math/SurfaceFitting.h"
+#include "pfs/drp/stella/math/CurveFitting.h"
 #include "pfs/drp/stella/Controls.h"
 #include "pfs/drp/stella/PSF.h"
 #include "pfs/drp/stella/Spectra.h"
@@ -206,6 +207,7 @@ Interface to Stella
 //%include "pfs/drp/stella/math/MathBlitz.h"
 //%include "boost/numeric/ublas/matrix.hpp"
 //%include "boost/numeric/ublas/matrix_proxy.hpp"
+%include "pfs/drp/stella/math/CurveFitting.h"
 %include "pfs/drp/stella/math/SurfaceFitting.h"
 %include "pfs/drp/stella/Controls.h"
 //%include "pfs/drp/stella/blitz.h"
@@ -525,3 +527,13 @@ Interface to Stella
 %template(getSubArrayD) pfs::drp::stella::math::getSubArray<double, int>;
 %template(getSubArrayI) pfs::drp::stella::math::getSubArray<int, int>;
 %template(getSubArrayL) pfs::drp::stella::math::getSubArray<long, int>;
+
+%template(chebyshevFF) pfs::drp::stella::math::chebyshev<float, float>;
+%template(chebyshevFD) pfs::drp::stella::math::chebyshev<float, double>;
+%template(chebyshevDF) pfs::drp::stella::math::chebyshev<double, float>;
+%template(chebyshevDD) pfs::drp::stella::math::chebyshev<double, double>;
+   
+%template(convertRangeToUnityFF) pfs::drp::stella::math::convertRangeToUnity<float, float>;
+%template(convertRangeToUnityFD) pfs::drp::stella::math::convertRangeToUnity<float, double>;
+%template(convertRangeToUnityDF) pfs::drp::stella::math::convertRangeToUnity<double, float>;
+%template(convertRangeToUnityDD) pfs::drp::stella::math::convertRangeToUnity<double, double>;

@@ -2597,9 +2597,62 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
     for (int i = 0; i < nCoeffs; ++i)
       printf("%.12f ", coeffs_In[i]);
     printf("\n");
-    ndarray::Array<double, 1, 1> Tn = ndarray::allocate(coeffs_In.getShape()[0]);
+
+    ndarray::Array<double, 1, 1> range = ndarray::allocate(2);
+    range[0] = min(x_In);
+    range[1] = max(x_In);
+    cout << "chebyshev: range = " << range << endl;
+    ndarray::Array<T, 1, 1> xScaled = pfs::drp::stella::math::convertRangeToUnity(x_In, range);
+    cout << "chebyshev: xScaled = " << xScaled << endl;
     
+    ndarray::Array<T, 1, 1> tmpArr = ndarray::allocate(x_In.getShape()[0]);
+    ndarray::Array<T, 1, 1> c0Arr = ndarray::allocate(x_In.getShape()[0]);
+    ndarray::Array<T, 1, 1> c1Arr = ndarray::allocate(x_In.getShape()[0]);
     ndarray::Array<T, 1, 1> yCalc = ndarray::allocate(x_In.getShape()[0]);
+    double c0, c1, tmp;
+    if (coeffs_In.getShape()[0] == 1){
+        c0 = coeffs_In[0];
+        c1 = 0;
+    }
+    else if (coeffs_In.getShape()[0] == 2){
+        c0 = coeffs_In[0];
+        c1 = coeffs_In[1];
+    }
+    else{
+      ndarray::Array<double, 1, 1> x2 = ndarray::allocate(xScaled.getShape()[0]);
+      x2.deep() = 2. * xScaled;
+      c0 = coeffs_In[coeffs_In.getShape()[0] - 2];
+      c1 = coeffs_In[coeffs_In.getShape()[0] - 1];
+      cout << "chebyshev: c0 = " << c0 << ", c1 = " << c1 << endl;
+      for (int i = 3; i <= coeffs_In.getShape()[0]; ++i){
+        if (i == 3){
+          tmp = c0;
+          c0 = coeffs_In[coeffs_In.getShape()[0] - i] - c1;
+          c1Arr.deep() = tmp + c1*x2;
+        }
+        else if (i == 4){
+          tmp = c0;
+          c0Arr.deep() = coeffs_In[coeffs_In.getShape()[0] - i] - c1Arr;
+          c1Arr.deep() = tmp + c1Arr * x2;
+        }
+        else{
+          tmpArr.deep() = c0Arr;
+          c0Arr.deep() = coeffs_In[coeffs_In.getShape()[0] - i] - c1Arr;
+          c1Arr.deep() = tmp + c1Arr * x2;
+        }
+        cout << "chebyshev: i = " << i << ": c0 = " << c0 << ", c0Arr = " << c0Arr << ", c1Arr = " << c1Arr << endl;
+      }
+    }
+    if (coeffs_In.getShape()[0] < 3)
+      yCalc.deep() = c0 + c1 * xScaled;
+    else if (coeffs_In.getShape()[0] == 3)
+      yCalc.deep() = c0 + c1Arr * xScaled;
+    else
+      yCalc.deep() = c0Arr + c1Arr * xScaled;
+    cout << "chebyshev: yCalc = " << yCalc << endl;
+    return yCalc;
+    /*    
+    ndarray::Array<double, 1, 1> Tn = ndarray::allocate(coeffs_In.getShape()[0]);
     Tn[0] = 1;
     for (int i = 0; i < x_In.getShape()[0]; ++i){
       if (nCoeffs > 1)
@@ -2616,8 +2669,29 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
       }
     }
     return yCalc;
+    */
   }
 
+  ndarray::Array<double, 1, 1> gaussFit(ndarray::Array<double, 2, 1> const& xy_In,
+                                        ndarray::Array<double, 1, 1> const& guess_In){
+    gaussian_functor gf(xy_In.asEigen());
+//    gaussian_functor<Eigen::Derived> gf(xy_In.asEigen());
+    Eigen::VectorXd guess(3);
+    guess[0] = guess_In[0];
+    guess[1] = guess_In[1];
+    guess[2] = guess_In[2];
+    Eigen::LevenbergMarquardt<gaussian_functor> solver(gf);
+    solver.setXtol(1.0e-6);
+    solver.setFtol(1.0e-6);
+    solver.minimize(guess);
+    ndarray::Array<double, 1, 1> result = ndarray::allocate(guess_In.getShape()[0]);
+    result[0] = guess[0];
+    result[1] = guess[1];
+    result[2] = guess[2];
+    
+    return result;
+  }
+  
   template ndarray::Array<float, 1, 1> chebyshev(ndarray::Array<float, 1, 1> const& x_In, ndarray::Array<float, 1, 1> const& coeffs_In);
   template ndarray::Array<double, 1, 1> chebyshev(ndarray::Array<double, 1, 1> const& x_In, ndarray::Array<float, 1, 1> const& coeffs_In);
   template ndarray::Array<float, 1, 1> chebyshev(ndarray::Array<float, 1, 1> const& x_In, ndarray::Array<double, 1, 1> const& coeffs_In);

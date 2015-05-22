@@ -36,7 +36,7 @@
 //#define __DEBUG_CALCSWATHBOUNDY__
 //#define __DEBUG_CHECK_INDICES__
 //#define __DEBUG_CREATEFIBERTRACE__
-//#define __DEBUG_EXTRACTFROMPROFILE__
+#define __DEBUG_EXTRACTFROMPROFILE__
 //#define __DEBUG_FINDANDTRACE__
 //#define __DEBUG_FIT__
 //#define __DEBUG_SPLINE__
@@ -134,6 +134,8 @@ class FiberTrace {
     
     /// Return the x-centers of the fiber trace
     const ndarray::Array<double const, 1, 1> getXCenters() const { return _xCenters; }
+    ndarray::Array<double, 1, 1> getXCentersMeas() const { return _xCentersMeas; }
+    void setXCentersMeas( ndarray::Array< double, 1, 1 > const& xCentersMeas);
 
     /// Set the x-center of the fiber trace
     /// Pre: _fiberTraceFunction must be set
@@ -187,6 +189,7 @@ class FiberTrace {
     ///TODO: replace variables with smart pointers?????
     PTR(MaskedImageT) _trace;
     PTR(afwImage::Image<double>) _profile;
+    ndarray::Array<double, 1, 1> _xCentersMeas;
     const ndarray::Array<double const, 1, 1> _xCenters;
     size_t _iTrace;
     bool _isTraceSet;
@@ -330,12 +333,12 @@ namespace math{
    *         NOTE that the WCS starts at [0., 0.], so an xCenter of 1.1 refers to position 0.1 of the second pixel
    */
   ndarray::Array<double, 1, 1> calculateXCenters(PTR(const ::pfs::drp::stella::FiberTraceFunction) const& fiberTraceFunctionIn,
-                                                size_t const& ccdHeightIn = 0,
-                                                size_t const& ccdWidthIn = 0);
+                                                 size_t const& ccdHeightIn = 0,
+                                                 size_t const& ccdWidthIn = 0);
   ndarray::Array<double, 1, 1> calculateXCenters(PTR(const ::pfs::drp::stella::FiberTraceFunction) const& fiberTraceFunctionIn,
-                                                ndarray::Array<double, 1, 1> const& yIn,
-                                                size_t const& ccdHeightIn = 0,
-                                                size_t const& ccdWidthIn = 0);
+                                                 ndarray::Array<double, 1, 1> const& yIn,
+                                                 size_t const& ccdHeightIn = 0,
+                                                 size_t const& ccdWidthIn = 0);
 
 }
 
