@@ -52,6 +52,10 @@ Interface to Stella
 %declareNumPyConverters(ndarray::Array<unsigned short,1,1>);
 %declareNumPyConverters(ndarray::Array<unsigned short,2,1>);
 %declareNumPyConverters(ndarray::Array<unsigned short,2,2>);
+%declareNumPyConverters(ndarray::Array<unsigned long,1,1>);
+%declareNumPyConverters(ndarray::Array<unsigned long,2,1>);
+%declareNumPyConverters(ndarray::Array<unsigned long,2,2>);
+%declareNumPyConverters(ndarray::Array<unsigned long,3,1>);
 %declareNumPyConverters(ndarray::Array<float,1,1>);
 %declareNumPyConverters(ndarray::Array<float,2,1>);
 %declareNumPyConverters(ndarray::Array<float,2,2>);
@@ -164,22 +168,27 @@ Interface to Stella
 %include "ndarray/Array.h"
 %template(NDArr1I) ndarray::Array<int, 1, 1>;
 %template(NDArr1L) ndarray::Array<long, 1, 1>;
+%template(NDArr1UL) ndarray::Array<unsigned long, 1, 1>;
 %template(NDArr1F) ndarray::Array<float, 1, 1>;
 %template(NDArr1D) ndarray::Array<double, 1, 1>;
 %template(NDArr21I) ndarray::Array<int, 2, 1>;
 %template(NDArr21L) ndarray::Array<long, 2, 1>;
+%template(NDArr21UL) ndarray::Array<unsigned long, 2, 1>;
 %template(NDArr21F) ndarray::Array<float, 2, 1>;
 %template(NDArr21D) ndarray::Array<double, 2, 1>;
 %template(NDArr22I) ndarray::Array<int, 2, 2>;
 %template(NDArr22L) ndarray::Array<long, 2, 2>;
+%template(NDArr22UL) ndarray::Array<unsigned long, 2, 2>;
 %template(NDArr22F) ndarray::Array<float, 2, 2>;
 %template(NDArr22D) ndarray::Array<double, 2, 2>;
 %template(NDArr31I) ndarray::Array<int, 3, 1>;
 %template(NDArr31L) ndarray::Array<long, 3, 1>;
+%template(NDArr31UL) ndarray::Array<unsigned long, 3, 1>;
 %template(NDArr31F) ndarray::Array<float, 3, 1>;
 %template(NDArr31D) ndarray::Array<double, 3, 1>;
 %template(NDArr32I) ndarray::Array<int, 3, 2>;
 %template(NDArr32L) ndarray::Array<long, 3, 2>;
+%template(NDArr32UL) ndarray::Array<unsigned long, 3, 2>;
 %template(NDArr32F) ndarray::Array<float, 3, 2>;
 %template(NDArr32D) ndarray::Array<double, 3, 2>;
 //%template(PNDArrF) PTR(ndarray::Array<float, 2, 1>);
@@ -469,6 +478,15 @@ Interface to Stella
 %template(interpolatePSFThinPlateSplineDF) pfs::drp::stella::math::interpolatePSFThinPlateSpline<double, float>;
 %template(interpolatePSFThinPlateSplineFD) pfs::drp::stella::math::interpolatePSFThinPlateSpline<float, double>;
 %template(interpolatePSFThinPlateSplineDD) pfs::drp::stella::math::interpolatePSFThinPlateSpline<double, double>;
+
+%template(interpolatePSFThinPlateSplineFFF) pfs::drp::stella::math::interpolatePSFThinPlateSpline<float, float, float>;
+%template(interpolatePSFThinPlateSplineDFF) pfs::drp::stella::math::interpolatePSFThinPlateSpline<double, float, float>;
+%template(interpolatePSFThinPlateSplineFDF) pfs::drp::stella::math::interpolatePSFThinPlateSpline<float, double, float>;
+%template(interpolatePSFThinPlateSplineDDF) pfs::drp::stella::math::interpolatePSFThinPlateSpline<double, double, float>;
+%template(interpolatePSFThinPlateSplineFFD) pfs::drp::stella::math::interpolatePSFThinPlateSpline<float, float, double>;
+%template(interpolatePSFThinPlateSplineDFD) pfs::drp::stella::math::interpolatePSFThinPlateSpline<double, float, double>;
+%template(interpolatePSFThinPlateSplineFDD) pfs::drp::stella::math::interpolatePSFThinPlateSpline<float, double, double>;
+%template(interpolatePSFThinPlateSplineDDD) pfs::drp::stella::math::interpolatePSFThinPlateSpline<double, double, double>;
 
 %template(interpolatePSFSetThinPlateSplineFF) pfs::drp::stella::math::interpolatePSFSetThinPlateSpline<float, float>;
 %template(interpolatePSFSetThinPlateSplineDF) pfs::drp::stella::math::interpolatePSFSetThinPlateSpline<double, float>;

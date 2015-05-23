@@ -297,8 +297,8 @@ namespace pfs { namespace drp { namespace stella { namespace utils{
   }
 
   template<typename T>
-  ndarray::Array<T, 2, 2> get2DndArray(T nRows, T nCols){
-    ndarray::Array<T, 2, 2> out = ndarray::allocate(nRows, nCols);
+  ndarray::Array<T, 2, 1> get2DndArray(T nRows, T nCols){
+    ndarray::Array<T, 2, 1> out = ndarray::allocate(nRows, nCols);
     out[ndarray::view()()] = 0;
     return out;
   }
@@ -330,10 +330,10 @@ namespace pfs { namespace drp { namespace stella { namespace utils{
   template ndarray::Array<int, 1, 1> get1DndArray(int);
   template ndarray::Array<float, 1, 1> get1DndArray(float);
   template ndarray::Array<double, 1, 1> get1DndArray(double);
-  template ndarray::Array<size_t, 2, 2> get2DndArray(size_t, size_t);
-  template ndarray::Array<unsigned short, 2, 2> get2DndArray(unsigned short, unsigned short);
-  template ndarray::Array<int, 2, 2> get2DndArray(int, int);
-  template ndarray::Array<float, 2, 2> get2DndArray(float, float);
-  template ndarray::Array<double, 2, 2> get2DndArray(double, double);
+  template ndarray::Array<size_t, 2, 1> get2DndArray(size_t, size_t);
+  template ndarray::Array<unsigned short, 2, 1> get2DndArray(unsigned short, unsigned short);
+  template ndarray::Array<int, 2, 1> get2DndArray(int, int);
+  template ndarray::Array<float, 2, 1> get2DndArray(float, float);
+  template ndarray::Array<double, 2, 1> get2DndArray(double, double);
 }
 }}}

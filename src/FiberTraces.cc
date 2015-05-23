@@ -13,7 +13,7 @@ namespace pfsDRPStella = pfs::drp::stella;
   _trace(new afwImage::MaskedImage<ImageT, MaskT, VarianceT>(width, height)),
   _profile(new afwImage::Image<double>(width, height)),
   _xCenters(pfsDRPStella::utils::get1DndArray(double(height))),
-  _xCentersMeas(pfsDRPStella::utils::get1DndArray(double(height))),
+  _xCentersMeas(pfsDRPStella::utils::get2DndArray(double(height), double(2))),
   _iTrace(iTrace),
   _isTraceSet(false),
   _isProfileSet(false),
@@ -38,7 +38,7 @@ namespace pfsDRPStella = pfs::drp::stella;
   _trace(new afwImage::MaskedImage<ImageT, MaskT, VarianceT>(fiberTraceFunction->yHigh - fiberTraceFunction->yLow + 1, int(fiberTraceFunction->fiberTraceFunctionControl.xHigh - fiberTraceFunction->fiberTraceFunctionControl.xLow + 1))),
   _profile(new afwImage::Image<double>(fiberTraceFunction->yHigh - fiberTraceFunction->yLow + 1, int(fiberTraceFunction->fiberTraceFunctionControl.xHigh - fiberTraceFunction->fiberTraceFunctionControl.xLow + 1))),
   _xCenters(xCenters),//new std::vector<const float>(fiberTraceFunction->yHigh - fiberTraceFunction->yLow + 1)),
-  _xCentersMeas(pfsDRPStella::utils::get1DndArray(double(xCenters.getShape()[0]))),
+  _xCentersMeas(pfsDRPStella::utils::get2DndArray(double(xCenters.getShape()[0]), double(2))),
   _isTraceSet(false),
   _isProfileSet(false),
   _isFiberTraceProfileFittingControlSet(false),
@@ -916,13 +916,8 @@ namespace pfsDRPStella = pfs::drp::stella;
   }
 
   template<typename ImageT, typename MaskT, typename VarianceT>
-  void pfsDRPStella::FiberTrace<ImageT, MaskT, VarianceT>::setXCentersMeas( ndarray::Array< double, 1, 1 > const& xCentersMeas){
-    if (xCentersMeas.getShape()[0] != _xCentersMeas.getShape()[0]){
-      string message("pfs::drp::stella::FiberTrace::setXCentersMeas: ERROR: xCentersMeas.getShape()[0](=");
-      message += to_string(xCentersMeas.getShape()[0]) + ") != _xCentersMeas.getShape()[0](=" + to_string(_xCentersMeas.getShape()[0]);
-      cout << message << endl;
-      throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
-    }
+  void pfsDRPStella::FiberTrace<ImageT, MaskT, VarianceT>::setXCentersMeas( ndarray::Array< double, 2, 1 > const& xCentersMeas){
+    _xCentersMeas = ndarray::allocate(xCentersMeas.getShape()[0], xCentersMeas.getShape()[1]);
     _xCentersMeas.deep() = xCentersMeas;
   }
   
@@ -1530,7 +1525,7 @@ namespace pfsDRPStella = pfs::drp::stella;
     sortedIndices = ::pfs::drp::stella::math::sortIndices(xCenters);
     #ifdef __DEBUG_SORTTRACESBYXCENTER__
       for (int iTrace = 0; iTrace < static_cast<int>(_traces->size()); ++iTrace)
-        cout << "FiberTraceSet::sortTracesByXCenter: sortedIndices(" << iTrace << ") = " << sortedIndices[iTrace] << endl;
+        cout << "FiberTraceSet::sortTracesByXCenter: sortedIndices(" << iTrace << ") = " << sortedIndices[iTrace] << ", xCenters[sortedIndices[iTrace]] = " << xCenters[sortedIndices[iTrace]] << endl;
     #endif
     
     std::vector<PTR(FiberTrace<ImageT, MaskT, VarianceT>)> sortedTraces(_traces->size());
@@ -1837,7 +1832,10 @@ namespace pfsDRPStella = pfs::drp::stella;
             cout << message << endl;
             throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
           }
-          fiberTrace->setXCentersMeas(D_A1_ApertureCenterPos);
+          ndarray::Array<double, 2, 1> xCentersMeas = ndarray::allocate(D_A1_ApertureCenterPos.getShape()[0], 2);
+          xCentersMeas[ndarray::view()(0)].deep() = D_A1_ApertureCenterIndex;
+          xCentersMeas[ndarray::view()(1)].deep() = D_A1_ApertureCenterPos;
+          fiberTrace->setXCentersMeas(xCentersMeas);
           fiberTraceSet->addFiberTrace(fiberTrace);
           cout << "FindAndTraceApertures: aperture number " << I_Aperture << " added to fiberTraceSet" << endl;
           ++I_Aperture;
@@ -1883,7 +1881,9 @@ namespace pfsDRPStella = pfs::drp::stella;
       unsigned int I_Length, I_ApertureLost, I_Row_Bak;//, I_LastRowWhereApertureWasFound
       int I_ApertureLength;
       int I_NInd;
+      int I_RowBak;
       double D_Max;
+      size_t apertureLength = 0;
       bool B_ApertureFound;
       ndarray::Array<double, 1, 1> D_A1_IndexCol = pfsDRPStella::math::indGenNdArr(double(ccdArray.getShape()[1]));
       #ifdef __DEBUG_FINDANDTRACE__
@@ -1922,6 +1922,7 @@ namespace pfsDRPStella = pfs::drp::stella;
         #ifdef __DEBUG_FINDANDTRACE__
           cout << "i_Row = " << i_Row << ": ccdArray[i_Row][*] = " << ccdArray[ndarray::view(i_Row)()] << endl;
         #endif
+        I_RowBak = i_Row;
         I_StartIndex = 0;
         B_ApertureFound = false;
         for (int i_Col = 0; i_Col < ccdArray.getShape()[1]; ++i_Col){
@@ -1982,10 +1983,12 @@ namespace pfsDRPStella = pfs::drp::stella;
           }
           ++pos;
         }*/
-        #ifdef __DEBUG_FINDANDTRACE__
-          cout << "pfs::drp::stella::math::findAndTraceApertures: while: I_A1_Signal = " << I_A1_Signal << endl;
-        #endif
         while (!B_ApertureFound){
+          #ifdef __DEBUG_FINDANDTRACE__
+            cout << "pfs::drp::stella::math::findAndTraceApertures: while: I_A1_Signal = " << I_A1_Signal << endl;
+            cout << "pfs::drp::stella::math::findAndTraceApertures: while: I_MinWidth = " << I_MinWidth << endl;
+            cout << "pfs::drp::stella::math::findAndTraceApertures: while: I_StartIndex = " << I_StartIndex << endl;
+          #endif
           I_FirstWideSignal = pfsDRPStella::math::firstIndexWithValueGEFrom(I_A1_Signal, I_MinWidth, I_StartIndex);
           #ifdef __DEBUG_FINDANDTRACE__
             cout << "pfs::drp::stella::math::findCenterPositionsOneTrace: while: i_Row = " << i_Row << ": I_FirstWideSignal found at index " << I_FirstWideSignal << ", I_StartIndex = " << I_StartIndex << endl;
@@ -2043,13 +2046,18 @@ namespace pfsDRPStella = pfs::drp::stella;
                 if (I_FirstWideSignalEnd - I_FirstWideSignalStart + 1 > fiberTraceFunctionFindingControl->apertureFWHM * D_MaxTimesApertureWidth){
                   I_FirstWideSignalEnd = I_FirstWideSignalStart + int(D_MaxTimesApertureWidth * fiberTraceFunctionFindingControl->apertureFWHM);
                 }
+                #ifdef __DEBUG_FINDANDTRACE__
+                  cout << "pfs::drp::stella::math::findCenterPositionsOneTrace: while: i_Row = " << i_Row << ": I_FirstWideSignalStart = " << I_FirstWideSignalStart << ", I_FirstWideSignalEnd = " << I_FirstWideSignalEnd << endl;
+                #endif
                 I_A1_Signal[ndarray::view(I_FirstWideSignalStart, I_FirstWideSignalEnd + 1)] = 0;
 
                 /// Set start index for next run
                 I_StartIndex = I_FirstWideSignalEnd+1;
               }
               I_Length = I_FirstWideSignalEnd - I_FirstWideSignalStart + 1;
-
+              #ifdef __DEBUG_FINDANDTRACE__
+                cout << "pfs::drp::stella::math::findCenterPositionsOneTrace: while: i_Row = " << i_Row << ": I_Length = " << I_Length << endl;
+              #endif
               if (fiberTraceFunctionFindingControl->nTermsGaussFit == 0){/// look for maximum only
                 D_A1_ApertureCenter[ndarray::view()] = 0.;
                 D_A1_EApertureCenter[ndarray::view()] = 0.;
@@ -2069,16 +2077,18 @@ namespace pfsDRPStella = pfs::drp::stella;
                 #endif
 
                 /// Set signal to zero
-                ccdArray[ndarray::view(i_Row)(I_FirstWideSignalStart+1, I_FirstWideSignalEnd)] = 0.;
+                if ((I_FirstWideSignalEnd - 1) >=(I_FirstWideSignalStart + 1))
+                  ccdArray[ndarray::view(i_Row)(I_FirstWideSignalStart+1, I_FirstWideSignalEnd)] = 0.;
               }
-              else{
+              else{// if (fiberTraceFunctionFindingControl->nTermsGaussFit > 0){
                 if (I_Length <= fiberTraceFunctionFindingControl->nTermsGaussFit){
                   #ifdef __DEBUG_FINDANDTRACE__
                     cout << "pfs::drp::stella::math::findCenterPositionsOneTrace: while: i_Row = " << i_Row << ": WARNING: Width of aperture <= " << fiberTraceFunctionFindingControl->nTermsGaussFit << "-> abandoning aperture" << endl;
                   #endif
 
                   /// Set signal to zero
-                  ccdArray[ndarray::view(i_Row)(I_FirstWideSignalStart+1, I_FirstWideSignalEnd)] = 0.;
+                  if ((I_FirstWideSignalEnd - 1) >=(I_FirstWideSignalStart + 1))
+                    ccdArray[ndarray::view(i_Row)(I_FirstWideSignalStart+1, I_FirstWideSignalEnd)] = 0.;
                 }
                 else{
                   /// populate Arrays for GaussFit
@@ -2172,9 +2182,6 @@ namespace pfsDRPStella = pfs::drp::stella;
                   else{
                     #ifdef __DEBUG_FINDANDTRACE__
                       cout << "pfs::drp::stella::math::findCenterPositionsOneTrace: i_Row = " << i_Row << ": while: D_A1_GaussFit_Coeffs = " << D_A1_GaussFit_Coeffs << endl;
-                      if (D_A1_GaussFit_Coeffs[0] < fiberTraceFunctionFindingControl->saturationLevel/5.){
-                        cout << "pfs::drp::stella::math::findCenterPositionsOneTrace: i_Row = " << i_Row << ": while: WARNING: Signal less than 20% of saturation level" << endl;
-                      }
                       if (D_A1_GaussFit_Coeffs[0] > fiberTraceFunctionFindingControl->saturationLevel){
                         cout << "pfs::drp::stella::math::findCenterPositionsOneTrace: i_Row = " << i_Row << ": while: WARNING: Signal appears to be saturated" << endl;
                       }
@@ -2229,6 +2236,7 @@ namespace pfsDRPStella = pfs::drp::stella;
         if (B_ApertureFound){
           /// Trace Aperture
           xySorted.resize(0);
+          apertureLength = 1;
           I_Length = 1;
           I_ApertureLost = 0;
   //        #ifdef __DEBUG_FINDANDTRACE__
@@ -2238,6 +2246,7 @@ namespace pfsDRPStella = pfs::drp::stella;
           I_Row_Bak = i_Row;
           while(B_ApertureFound && (I_ApertureLost < fiberTraceFunctionFindingControl->nLost) && (i_Row < ccdArray.getShape()[0]-1) && I_Length < fiberTraceFunctionFindingControl->maxLength){
             i_Row++;
+            apertureLength++;
             I_Length++;
             if (fiberTraceFunctionFindingControl->nTermsGaussFit == 0){/// look for maximum only
               B_ApertureFound = true;
@@ -2387,10 +2396,11 @@ namespace pfsDRPStella = pfs::drp::stella;
                     ndarray::Array<double, 2, 1> D_A2_XY = ndarray::allocate(D_A1_X.getShape()[0], 2);
                     D_A2_XY[ndarray::view()(0)] = D_A1_X;
                     D_A2_XY[ndarray::view()(1)] = D_A1_Y;
-                    D_A1_GaussFit_Coeffs = pfs::drp::stella::math::gaussFit(D_A2_XY,
-                                                                           D_A1_Guess);
-                    cout << "D_A1_GaussFit_Coeffs = " << D_A1_GaussFit_Coeffs << endl;
-/*                    if (!MPFitGaussLim(D_A1_X,
+//                    D_A1_GaussFit_Coeffs = pfs::drp::stella::math::gaussFit(D_A2_XY,
+//                                                                           D_A1_Guess);
+//                    cout << "D_A1_GaussFit_Coeffs = " << D_A1_GaussFit_Coeffs << endl;
+                    D_A1_MeasureErrors.deep() = 1.;
+                    if (!MPFitGaussLim(D_A1_X,
                                        D_A1_Y,
                                        D_A1_MeasureErrors,
                                        D_A1_Guess,
@@ -2408,7 +2418,7 @@ namespace pfsDRPStella = pfs::drp::stella;
 
                       I_ApertureLost++;
                     }
-                    else{*/
+                    else{
                       gaussFitMean.push_back(D_A1_GaussFit_Coeffs[1]);
                       gaussFitVariances.push_back(D_A1_GaussFit_Coeffs[2]);
                       
@@ -2516,10 +2526,10 @@ namespace pfsDRPStella = pfs::drp::stella;
                                                                         xCorStepSize);
                               cout << "pfs::drp::stella::math::findCenterPositionsOneTrace: i_Row = " << i_Row << ": xCorMinPos = " << xCorMinPos << endl;
  */
-                              xCorMinPos = pfs::drp::stella::math::xCor(xyRelativeToCenter,
-                                                                        indGaussArr,
-                                                                        xCorRange,
-                                                                        xCorStepSize);
+//                              xCorMinPos = pfs::drp::stella::math::xCor(xyRelativeToCenter,
+//                                                                        indGaussArr,
+//                                                                        xCorRange,
+//                                                                        xCorStepSize);
                               cout << "pfs::drp::stella::math::findCenterPositionsOneTrace: i_Row = " << i_Row << ": xCorMinPos = " << xCorMinPos << endl;
                             }
                             if (gaussFitVariances.size() > 10){
@@ -2536,12 +2546,18 @@ namespace pfsDRPStella = pfs::drp::stella;
                           }
                         }/// end else if ((D_A1_GaussFit_Coeffs(1) >= D_A1_Guess(1) - 1.) && (D_A1_GaussFit_Coeffs(1) <= D_A1_Guess(1) + 1.))
                       }/// end else if (D_A1_GaussFit_Coeffs(0) >= signalThreshold
-                    //}/// end else if (GaussFit(D_A1_X, D_A1_Y, D_A1_GaussFit_Coeffs, S_A1_KeyWords_GaussFit, PP_Args_GaussFit))
+                    }/// end else if (GaussFit(D_A1_X, D_A1_Y, D_A1_GaussFit_Coeffs, S_A1_KeyWords_GaussFit, PP_Args_GaussFit))
                     ccdArray[ndarray::view(i_Row)(I_FirstWideSignalStart + 1, I_FirstWideSignalEnd)] = 0.;
                   }/// end else if (sum(I_A1_Signal) >= I_MinWidth){
                 }/// end if (I_Length > 3)
               }/// end else if (I_ApertureStart >= 0. && I_ApertureEnd < ccdArray.getShape()[1])
             }/// end else if GaussFit
+            if ((I_ApertureLost == fiberTraceFunctionFindingControl->nLost) && (apertureLength < fiberTraceFunctionFindingControl->minLength)){
+              i_Row = I_RowBak;
+              #ifdef __DEBUG_FINDANDTRACE__
+                cout << "pfs::drp::stella::math::findCenterPositionsOneTrace: i_Row set to " << i_Row << endl;
+              #endif
+            }
           }///end while(B_ApertureFound && (I_ApertureLost < 3) && i_Row < ccdArray.getShape()[0] - 2))
 
           /// Fit Polynomial to traced aperture positions
@@ -2557,6 +2573,9 @@ namespace pfsDRPStella = pfs::drp::stella;
           auto itCen = D_A1_ApertureCenter.begin();
           auto itECen = D_A1_EApertureCenter.begin();
           I_ApertureLength = 0;
+          result.apertureCenterIndex.resize(0);
+          result.apertureCenterPos.resize(0);
+          result.eApertureCenterPos.resize(0);
           for (int iInd = 0; iInd < ccdArray.getShape()[0]; ++iInd){
             if (*(itCen + iInd) > 0.){
               (*(itInd + iInd)) = 1;
@@ -2571,9 +2590,17 @@ namespace pfsDRPStella = pfs::drp::stella;
               #endif
             }
           }
-          return result;
+          if (I_ApertureLength > fiberTraceFunctionFindingControl->minLength){
+            #ifdef __DEBUG_FINDANDTRACE__
+              cout << "pfs::drp::stella::math::findCenterPositionsOneTrace: i_Row = " << i_Row << ": result.apertureCenterIndex.size() = " << result.apertureCenterIndex.size() << endl;
+            #endif
+            return result;
+          }
         }
       }
+      #ifdef __DEBUG_FINDANDTRACE__
+        cout << "pfs::drp::stella::math::findCenterPositionsOneTrace: result.apertureCenterIndex.size() = " << result.apertureCenterIndex.size() << endl;
+      #endif
       return result;
     }
     
@@ -2654,7 +2681,7 @@ namespace pfsDRPStella = pfs::drp::stella;
       }*/
       if (fiberTraceFunctionIn->fiberTraceFunctionControl.interpolation.compare("CHEBYSHEV") == 0)
       {
-        cout << "pfs::drp::stella::math::findAndTraceApertures: Calculating Chebyshev Polynomial" << endl;
+        cout << "pfs::drp::stella::math::calculateXCenters: Calculating Chebyshev Polynomial" << endl;
         #ifdef __DEBUG_XCENTERS__
           cout << "pfs::drp::stella::calculateXCenters: Function = Chebyshev" << endl;
           cout << "pfs::drp::stella::calculateXCenters: Coeffs = " << fiberTraceFunctionCoefficients << endl;
@@ -2753,7 +2780,7 @@ namespace pfsDRPStella = pfs::drp::stella;
       }*/
       else /// Polynomial
       {
-        cout << "pfs::drp::stella::math::findAndTraceApertures: Calculating Polynomial" << endl;
+        cout << "pfs::drp::stella::math::calculateXCenters: Calculating Polynomial" << endl;
         #ifdef __DEBUG_XCENTERS__
           cout << "pfs::drp::stella::calculateXCenters: Function = Polynomial" << endl;
           cout << "pfs::drp::stella::calculateXCenters: Coeffs = " << fiberTraceFunctionCoefficients << endl;
