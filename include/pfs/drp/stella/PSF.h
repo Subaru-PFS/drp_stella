@@ -29,7 +29,7 @@
 //#include "lsst/afw/table/io/OutputArchive.h"
 //#include "lsst/afw/table/io/CatalogVector.h"
 
-//#define __DEBUG_CALC2DPSF__
+#define __DEBUG_CALC2DPSF__
 //#define __DEBUG_CPRTC__
 //#define __DEBUG_CALC_TPS__
 #define __DEBUG_COMPARECENTERPOSITIONS__

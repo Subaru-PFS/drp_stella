@@ -79,6 +79,10 @@ namespace pfs{ namespace drp{ namespace stella{
       cout << message << endl;
       throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
     }
+    #ifdef __DEBUG_CALC2DPSF__
+      cout << "PSF trace" << _iTrace << " bin " << _iBin << "::extractPSFs: collapsedPSF = " << collapsedPSF << endl;
+      cout << "PSF trace" << _iTrace << " bin " << _iBin << "::extractPSFs: spectrumIn.getSpectrum() = " << spectrumIn.getSpectrum() << endl;
+    #endif
 
     ndarray::Array<double, 1, 1> xCenters = copy(fiberTraceIn.getXCenters());
 
@@ -362,40 +366,60 @@ namespace pfs{ namespace drp{ namespace stella{
         }
         if (success && (collapsedPSF.getShape()[0] > 2)){
           ndarray::Array<double, 2, 1> indexRelToCenter = math::calcPositionsRelativeToCenter(double(gaussCenterY), double(4. * _twoDPSFControl->yFWHM));
-          ndarray::Array<double, 2, 1> arrA = ndarray::allocate(indexRelToCenter.getShape()[0], 2);
-          arrA[ndarray::view()(0)].deep() = indexRelToCenter[ndarray::view()(1)];
-          ndarray::Array<size_t, 1, 1> indVec = ndarray::allocate(indexRelToCenter.getShape()[0]);
-          for (int iInd = 0; iInd < indexRelToCenter.getShape()[0]; ++iInd)
-            indVec[iInd] = size_t(indexRelToCenter[iInd][0]);
-          ndarray::Array<double, 1, 1> yDataVec = math::getSubArray(spectrum_T, indVec);
           #ifdef __DEBUG_CALC2DPSF__
-            cout << "PSF trace" << _iTrace << " bin" << _iBin << "::extractPSFs: while: D_A1_Y = " << D_A1_Y << ": indVec = " << indVec << endl;
-            cout << "PSF trace" << _iTrace << " bin" << _iBin << "::extractPSFs: while: yDataVec = " << yDataVec << endl;
+            cout << "PSF trace" << _iTrace << " bin" << _iBin << "::extractPSFs: while: indexRelToCenter = " << indexRelToCenter << endl;
           #endif
-          arrA[ndarray::view()(1)].deep() = yDataVec;//yDataVec;
-          
-          ndarray::Array< double, 1, 1 > range = ndarray::allocate(2);
-          range[0] = _twoDPSFControl->xCorRangeLowLimit;
-          range[1] = _twoDPSFControl->xCorRangeHighLimit;
-          const double stepSize = _twoDPSFControl->xCorStepSize; 
-          
-          double maxA = yDataVec.asEigen().maxCoeff();
-          ndarray::Array< double, 1, 1 > yValCollapsedPSF = ndarray::allocate(collapsedPSF.getShape()[0]);
-          yValCollapsedPSF.deep() = collapsedPSF[ndarray::view()(1)];
-          double maxCollapsedPSF = yValCollapsedPSF.asEigen().maxCoeff();
-          collapsedPSF[ndarray::view()(1)].deep() = collapsedPSF[ndarray::view()(1)] * maxA / maxCollapsedPSF;
-          
-          double xCorMinPos = math::xCor(arrA,/// x must be 'y' relative to center
-                                         collapsedPSF,/// x is 'y' relative to center
-                                         range,
-                                         stepSize);
-          #ifdef __DEBUG_CALC2DPSF__
-            cout << "PSF trace" << _iTrace << " bin " << _iBin << "::extractPSFs: emissionLineNumber-1=" << emissionLineNumber-1 << ": gaussCenterY = " << gaussCenterY << endl;
-          #endif
-          gaussCenterY += xCorMinPos;
-          #ifdef __DEBUG_CALC2DPSF__
-            cout << "PSF trace" << _iTrace << " bin " << _iBin << "::extractPSFs: emissionLineNumber-1=" << emissionLineNumber-1 << ": xCorMinPos = " << xCorMinPos << ": gaussCenterY = " << gaussCenterY << endl;
-          #endif
+          if (indexRelToCenter[indexRelToCenter.getShape()[0]-1][0] < spectrum_T.getShape()[0]){
+            cout << "PSF trace" << _iTrace << " bin " << _iBin << "::extractPSFs: emissionLineNumber-1=" << emissionLineNumber-1 << ": indexRelToCenter[indexRelToCenter.getShape()[0]=" << indexRelToCenter.getShape()[0] << "][0](=" << indexRelToCenter[indexRelToCenter.getShape()[0]][0] << " < spectrum_T.getShape()[0] = " << spectrum_T.getShape()[0] << endl;
+            ndarray::Array<double, 2, 1> arrA = ndarray::allocate(indexRelToCenter.getShape()[0], 2);
+            arrA[ndarray::view()(0)].deep() = indexRelToCenter[ndarray::view()(1)];
+            ndarray::Array<size_t, 1, 1> indVec = ndarray::allocate(indexRelToCenter.getShape()[0]);
+            for (int iInd = 0; iInd < indexRelToCenter.getShape()[0]; ++iInd)
+              indVec[iInd] = size_t(indexRelToCenter[iInd][0]);
+            #ifdef __DEBUG_CALC2DPSF__
+              cout << "PSF trace" << _iTrace << " bin" << _iBin << "::extractPSFs: while: indVec = " << indVec << endl; 
+              cout << "PSF trace" << _iTrace << " bin" << _iBin << "::extractPSFs: while: spectrum_T = " << spectrum_T.getShape() << ": " << spectrum_T << endl;
+            #endif
+            ndarray::Array<double, 1, 1> yDataVec = math::getSubArray(spectrum_T, indVec);
+            #ifdef __DEBUG_CALC2DPSF__
+              cout << "PSF trace" << _iTrace << " bin" << _iBin << "::extractPSFs: while: D_A1_Y = " << D_A1_Y << ": indVec = " << indVec << endl;
+              cout << "PSF trace" << _iTrace << " bin" << _iBin << "::extractPSFs: while: yDataVec = " << yDataVec << endl;
+            #endif
+            arrA[ndarray::view()(1)].deep() = yDataVec;//yDataVec;
+
+            ndarray::Array< double, 1, 1 > range = ndarray::allocate(2);
+            range[0] = _twoDPSFControl->xCorRangeLowLimit;
+            range[1] = _twoDPSFControl->xCorRangeHighLimit;
+            const double stepSize = _twoDPSFControl->xCorStepSize; 
+
+            double maxA = yDataVec.asEigen().maxCoeff();
+            ndarray::Array< double, 1, 1 > yValCollapsedPSF = ndarray::allocate(collapsedPSF.getShape()[0]);
+            yValCollapsedPSF.deep() = collapsedPSF[ndarray::view()(1)];
+            #ifdef __DEBUG_CALC2DPSF__
+              cout << "PSF trace" << _iTrace << " bin " << _iBin << "::extractPSFs: yValCollapsedPSF = " << yValCollapsedPSF << endl;
+            #endif
+            double maxCollapsedPSF = yValCollapsedPSF.asEigen().maxCoeff();
+            #ifdef __DEBUG_CALC2DPSF__
+              cout << "PSF trace" << _iTrace << " bin " << _iBin << "::extractPSFs: maxA = " << maxA << ", maxCollapsedPSF = " << maxCollapsedPSF << ", collapsedPSF = " << collapsedPSF << endl;
+            #endif
+            collapsedPSF[ndarray::view()(1)].deep() = collapsedPSF[ndarray::view()(1)] * maxA / maxCollapsedPSF;
+
+            double xCorMinPos = math::xCor(arrA,/// x must be 'y' relative to center
+                                           collapsedPSF,/// x is 'y' relative to center
+                                           range,
+                                           stepSize);
+            #ifdef __DEBUG_CALC2DPSF__
+              cout << "PSF trace" << _iTrace << " bin " << _iBin << "::extractPSFs: emissionLineNumber-1=" << emissionLineNumber-1 << ": gaussCenterY = " << gaussCenterY << endl;
+            #endif
+            gaussCenterY += xCorMinPos;
+            #ifdef __DEBUG_CALC2DPSF__
+              cout << "PSF trace" << _iTrace << " bin " << _iBin << "::extractPSFs: emissionLineNumber-1=" << emissionLineNumber-1 << ": xCorMinPos = " << xCorMinPos << ": gaussCenterY = " << gaussCenterY << endl;
+            #endif
+          }
+          else{
+            cout << "PSF trace" << _iTrace << " bin " << _iBin << "::extractPSFs: emissionLineNumber-1=" << emissionLineNumber-1 << ": WARNING indexRelToCenter[indexRelToCenter.getShape()[0]][0](=" << indexRelToCenter[indexRelToCenter.getShape()[0]][0] << " >= spectrum_T.getShape()[0] = " << spectrum_T.getShape()[0] << endl;
+            success = false;
+          }
         }
         if (!success){
           #ifdef __DEBUG_CALC2DPSF__

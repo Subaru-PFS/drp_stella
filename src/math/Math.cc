@@ -663,17 +663,32 @@
 
     template<typename T>
     std::vector<int> sortIndices(const std::vector<T> &vec_In){
-      int I_M = 7;
+      int I_SizeIn = vec_In.size();
+      std::vector<int> I_A1_Indx(1);
+      I_A1_Indx[0] = 0;
+      bool isInserted = false;
+      for (int i = 1; i < I_SizeIn; ++i){
+        isInserted = false;
+        auto it = I_A1_Indx.begin();
+        while((!isInserted) && (it != I_A1_Indx.end())){
+          if (vec_In[*it] >= vec_In[i]){
+            I_A1_Indx.insert(it, i);
+            isInserted = true;
+          }
+          ++it;
+        }
+        if (!isInserted)
+          I_A1_Indx.push_back(i);
+      }
+/*      int I_M = 7;
       int I_NStack = 50;
 
-      int I_SizeIn = vec_In.size();
       int I_Ir = I_SizeIn - 1;
       int I_L = 0;
 
       int I_I, I_Indxt, I_J, I_K;
       int I_JStack = 0;
       std::vector<int> I_A1_IStack(I_NStack);
-      std::vector<int> I_A1_Indx(I_SizeIn);
       for (int i = 0; i < I_SizeIn; ++i)
         I_A1_Indx[i] = i;
       for (auto it = I_A1_IStack.begin(); it != I_A1_IStack.end(); ++it)
@@ -859,7 +874,7 @@
 
           }
         }
-      }
+      }*/
       return (I_A1_Indx);
     }
         
@@ -967,13 +982,19 @@
       ndarray::Array<double, 1, 1> chiSquareArr = ndarray::external(chiSquare.data(), ndarray::makeVector(int(chiSquare.size())), ndarray::makeVector(1));
       ndarray::Array<double, 1, 1> eChiSquareArr = ndarray::allocate(chiSquareArr.getShape()[0]);
       ndarray::Array<double, 1, 1> D_A1_Guess = ndarray::allocate(4);
+      #ifdef __DEBUG_XCOR__
+        cout << "pfs::drp::stella::math::xCor: chiSquareArr = " << chiSquareArr << endl;
+      #endif
       D_A1_Guess[3] = max(chiSquareArr);///Peak
       D_A1_Guess[0] = 0. - D_A1_Guess[3] + min(chiSquareArr);///Centroid
       D_A1_Guess[1] = 0.;///Sigma
       D_A1_Guess[2] = (range_In[1] - range_In[0])/2.;///constant offset
       ndarray::Array<int, 2, 1> I_A2_Limited = ndarray::allocate(4, 2);
       I_A2_Limited.deep() = 1;
-      cout << "pfs::drp::stella::math::xCor: I_A2_Limited = " << I_A2_Limited << endl;
+      #ifdef __DEBUG_XCOR__
+        cout << "pfs::drp::stella::math::xCor: D_A1_Guess = " << D_A1_Guess << endl;
+        cout << "pfs::drp::stella::math::xCor: I_A2_Limited = " << I_A2_Limited << endl;
+      #endif
       ndarray::Array<double, 2, 1> D_A2_Limits = ndarray::allocate(4, 2);
       D_A2_Limits[3][0] = 0.;
       D_A2_Limits[3][1] = 1.5 * max(chiSquareArr);
@@ -983,7 +1004,9 @@
       D_A2_Limits[1][1] = range_In[1];
       D_A2_Limits[2][0] = 0.;
       D_A2_Limits[2][1] = 2.;
-      cout << "pfs::drp::stella::math::xCor: D_A2_Limits = " << D_A2_Limits << endl;
+      #ifdef __DEBUG_XCOR__
+        cout << "pfs::drp::stella::math::xCor: D_A2_Limits = " << D_A2_Limits << endl;
+      #endif
       eChiSquareArr.asEigen() = chiSquareArr.asEigen().array().sqrt();
       ndarray::Array<double, 1, 1> D_A1_GaussFitCoeffs = ndarray::allocate(4);
       ndarray::Array<double, 1, 1> D_A1_GaussFitECoeffs = ndarray::allocate(4);

@@ -51,7 +51,7 @@ namespace pfs { namespace drp { namespace stella { namespace utils{
   bool FileAccess(const string &fn);
     
   template<typename T>
-  ndarray::Array<T, 2, 2> get2DndArray(T nRows, T nCols);
+  ndarray::Array<T, 2, 1> get2DndArray(T nRows, T nCols);
     
   template<typename T>
   ndarray::Array<T, 1, 1> get1DndArray(T size);

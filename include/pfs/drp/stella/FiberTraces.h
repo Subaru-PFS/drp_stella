@@ -31,13 +31,13 @@
 
 //#define __DEBUG_BANDSOL__
 //#define __DEBUG_CALC2DPSF__
-#define __DEBUG_CALCPROFILE__
-#define __DEBUG_CALCPROFILESWATH__
+//#define __DEBUG_CALCPROFILE__
+//#define __DEBUG_CALCPROFILESWATH__
 //#define __DEBUG_CALCSWATHBOUNDY__
 //#define __DEBUG_CHECK_INDICES__
 //#define __DEBUG_CREATEFIBERTRACE__
-#define __DEBUG_EXTRACTFROMPROFILE__
-//#define __DEBUG_FINDANDTRACE__
+//#define __DEBUG_EXTRACTFROMPROFILE__
+#define __DEBUG_FINDANDTRACE__
 //#define __DEBUG_FIT__
 //#define __DEBUG_SPLINE__
 //#define __DEBUG_INTERPOL__
@@ -49,6 +49,7 @@
 //#define __DEBUG_SLITFUNC_N__
 //#define __DEBUG_SLITFUNC_PISKUNOV__
 //#define __DEBUG_SLITFUNC_X__
+#define __DEBUG_SORTTRACESBYXCENTER__
 //#define __DEBUG_TELLURIC__
 //#define __DEBUG_TRACEFUNC__
 //#define __DEBUG_UNIQ__
@@ -134,8 +135,8 @@ class FiberTrace {
     
     /// Return the x-centers of the fiber trace
     const ndarray::Array<double const, 1, 1> getXCenters() const { return _xCenters; }
-    ndarray::Array<double, 1, 1> getXCentersMeas() const { return _xCentersMeas; }
-    void setXCentersMeas( ndarray::Array< double, 1, 1 > const& xCentersMeas);
+    ndarray::Array<double, 2, 1> getXCentersMeas() const { return _xCentersMeas; }
+    void setXCentersMeas( ndarray::Array< double, 2, 1 > const& xCentersMeas);
 
     /// Set the x-center of the fiber trace
     /// Pre: _fiberTraceFunction must be set
@@ -189,7 +190,7 @@ class FiberTrace {
     ///TODO: replace variables with smart pointers?????
     PTR(MaskedImageT) _trace;
     PTR(afwImage::Image<double>) _profile;
-    ndarray::Array<double, 1, 1> _xCentersMeas;
+    ndarray::Array<double, 2, 1> _xCentersMeas;
     const ndarray::Array<double const, 1, 1> _xCenters;
     size_t _iTrace;
     bool _isTraceSet;

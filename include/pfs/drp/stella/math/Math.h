@@ -23,7 +23,7 @@
 //#define __DEBUG_MINCENMAX__
 //#define __DEBUG_INDGEN__
 //#define __DEBUG_SORT__
-//#define __DEBUG_XCOR__
+#define __DEBUG_XCOR__
 
 /// constants
 #define CONST_PI 3.141592653589793238462643383280    /* pi */
