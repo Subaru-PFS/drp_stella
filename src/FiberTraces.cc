@@ -1984,6 +1984,8 @@ namespace pfsDRPStella = pfs::drp::stella;
           ++pos;
         }*/
         while (!B_ApertureFound){
+          gaussFitVariances.resize(0);
+          gaussFitMean.resize(0);
           #ifdef __DEBUG_FINDANDTRACE__
             cout << "pfs::drp::stella::math::findAndTraceApertures: while: I_A1_Signal = " << I_A1_Signal << endl;
             cout << "pfs::drp::stella::math::findAndTraceApertures: while: I_MinWidth = " << I_MinWidth << endl;
@@ -2363,24 +2365,41 @@ namespace pfsDRPStella = pfs::drp::stella;
                     if (gaussFitVariances.size() > 15){
                       double sum = std::accumulate(gaussFitMean.end()-10, gaussFitMean.end(), 0.0);
                       double mean = sum / 10.;
-                      cout << "sum = " << sum << ", mean = " << mean << endl;
+                      #ifdef __DEBUG_FINDANDTRACE__
+                        for (int iMean = 0; iMean < gaussFitMean.size(); ++iMean){
+                          cout << "gaussFitMean[" << iMean << "] = " << gaussFitMean[iMean] << endl;
+                          cout << "gaussFitVariances[" << iMean << ") = " << gaussFitVariances[iMean] << endl;
+                        }
+                        cout << "sum = " << sum << ", mean = " << mean << endl;
+                      #endif
                       double sq_sum = std::inner_product(gaussFitMean.end()-10, gaussFitMean.end(), gaussFitMean.end()-10, 0.0);
                       double stdev = std::sqrt(sq_sum / 10 - mean * mean);
-                      cout << "GaussFitMean: sq_sum = " << sq_sum << ", stdev = " << stdev << endl;
+                      #ifdef __DEBUG_FINDANDTRACE__
+                        cout << "GaussFitMean: sq_sum = " << sq_sum << ", stdev = " << stdev << endl;
+                      #endif
                       D_A1_Guess[1] = mean;
                       D_A2_Limits[1][0] = mean - (3. * stdev) - 0.1;
                       D_A2_Limits[1][1] = mean + (3. * stdev) + 0.1;
-                      cout << "pfs::drp::stella::math::findCenterPositionsOneTrace: i_Row = " << i_Row << ": while: D_A1_Guess[1] = " << D_A1_Guess[1] << ", Limits = " << D_A2_Limits[ndarray::view(1)()] << endl;
+                      #ifdef __DEBUG_FINDANDTRACE__
+                        cout << "pfs::drp::stella::math::findCenterPositionsOneTrace: i_Row = " << i_Row << ": while: D_A1_Guess[1] = " << D_A1_Guess[1] << ", Limits = " << D_A2_Limits[ndarray::view(1)()] << endl;
+                      #endif
+                      for (int iMean = 0; iMean < gaussFitMean.size(); ++iMean)
                       sum = std::accumulate(gaussFitVariances.end()-10, gaussFitVariances.end(), 0.0);
                       mean = sum / 10.;
-                      cout << "GaussFitVariance? sum = " << sum << ", mean = " << mean << endl;
+                      #ifdef __DEBUG_FINDANDTRACE__
+                        cout << "GaussFitVariance: sum = " << sum << ", mean = " << mean << endl;
+                      #endif
                       sq_sum = std::inner_product(gaussFitVariances.end()-10, gaussFitVariances.end(), gaussFitVariances.end()-10, 0.0);
                       stdev = std::sqrt(sq_sum / 10 - mean * mean);
-                      cout << "sq_sum = " << sq_sum << ", stdev = " << stdev << endl;
+                      #ifdef __DEBUG_FINDANDTRACE__
+                        cout << "sq_sum = " << sq_sum << ", stdev = " << stdev << endl;
+                      #endif
                       D_A1_Guess[2] = mean;
                       D_A2_Limits[2][0] = mean - (3. * stdev);
                       D_A2_Limits[2][1] = mean + (3. * stdev);
-                      cout << "pfs::drp::stella::math::findCenterPositionsOneTrace: i_Row = " << i_Row << ": while: D_A1_Guess[2] = " << D_A1_Guess[2] << ", Limits = " << D_A2_Limits[ndarray::view(2)()] << endl;
+                      #ifdef __DEBUG_FINDANDTRACE__
+                        cout << "pfs::drp::stella::math::findCenterPositionsOneTrace: i_Row = " << i_Row << ": while: D_A1_Guess[2] = " << D_A1_Guess[2] << ", Limits = " << D_A2_Limits[ndarray::view(2)()] << endl;
+                      #endif
                     }
                     if (fiberTraceFunctionFindingControl->nTermsGaussFit > 3){
                       D_A2_Limits[3][0] = 0.;
@@ -2400,6 +2419,13 @@ namespace pfsDRPStella = pfs::drp::stella;
 //                                                                           D_A1_Guess);
 //                    cout << "D_A1_GaussFit_Coeffs = " << D_A1_GaussFit_Coeffs << endl;
                     D_A1_MeasureErrors.deep() = 1.;
+                    if ((D_A2_Limits[1][0] > max(D_A1_X)) || (D_A2_Limits[1][1] < min(D_A1_X))){
+                      string message("pfs::drp::stella::math::findCenterPositionsOneTrace: ERROR: (D_A2_Limits[1][0](=");
+                      message += to_string(D_A2_Limits[1][0]) + ") > max(D_A1_X)(=" + to_string(max(D_A1_X)) + ")) || (D_A2_Limits[1][1](=";
+                      message += to_string(D_A2_Limits[1][1]) + ") < min(D_A1_X)(=" + to_string(min(D_A1_X)) + "))";
+                      cout << message << endl;
+                      throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
+                    }
                     if (!MPFitGaussLim(D_A1_X,
                                        D_A1_Y,
                                        D_A1_MeasureErrors,
@@ -2422,8 +2448,8 @@ namespace pfsDRPStella = pfs::drp::stella;
                       gaussFitMean.push_back(D_A1_GaussFit_Coeffs[1]);
                       gaussFitVariances.push_back(D_A1_GaussFit_Coeffs[2]);
                       
-                      cout << "pfs::drp::stella::math::findCenterPositionsOneTrace: i_Row = " << i_Row << ": D_A1_GaussFit_Coeffs = " << D_A1_GaussFit_Coeffs << endl;
                       #ifdef __DEBUG_FINDANDTRACE__
+                        cout << "pfs::drp::stella::math::findCenterPositionsOneTrace: i_Row = " << i_Row << ": D_A1_GaussFit_Coeffs = " << D_A1_GaussFit_Coeffs << endl;
                         cout << "pfs::drp::stella::math::findCenterPositionsOneTrace: i_Row = " << i_Row << ": D_A1_GaussFit_Coeffs = " << D_A1_GaussFit_Coeffs << endl;
                         if (D_A1_GaussFit_Coeffs[0] < fiberTraceFunctionFindingControl->saturationLevel/5.){
                           cout << "pfs::drp::stella::math::findCenterPositionsOneTrace: i_Row = " << i_Row << ": WARNING: Signal less than 20% of saturation level" << endl;
@@ -2530,7 +2556,9 @@ namespace pfsDRPStella = pfs::drp::stella;
 //                                                                        indGaussArr,
 //                                                                        xCorRange,
 //                                                                        xCorStepSize);
-                              cout << "pfs::drp::stella::math::findCenterPositionsOneTrace: i_Row = " << i_Row << ": xCorMinPos = " << xCorMinPos << endl;
+                              #ifdef __DEBUG_FINDANDTRACE__
+                                cout << "pfs::drp::stella::math::findCenterPositionsOneTrace: i_Row = " << i_Row << ": xCorMinPos = " << xCorMinPos << endl;
+                              #endif
                             }
                             if (gaussFitVariances.size() > 10){
                               for (int iX = 0; iX < xyRelativeToCenter.getShape()[0]; ++iX){
@@ -2540,7 +2568,9 @@ namespace pfsDRPStella = pfs::drp::stella;
                                 pfs::drp::stella::math::insertSorted(xySorted, xyStruct);
                               }
                               D_A1_ApertureCenter[i_Row] = D_A1_ApertureCenter[i_Row] + xCorMinPos;
-                              cout << "pfs::drp::stella::math::findCenterPositionsOneTrace: i_Row = " << i_Row << ": Aperture position corrected to " << D_A1_ApertureCenter[i_Row] << endl;
+                              #ifdef __DEBUG_FINDANDTRACE__
+                                cout << "pfs::drp::stella::math::findCenterPositionsOneTrace: i_Row = " << i_Row << ": Aperture position corrected to " << D_A1_ApertureCenter[i_Row] << endl;
+                              #endif
                             }
                             //I_LastRowWhereApertureWasFound = i_Row;
                           }

@@ -37,7 +37,7 @@
 //#define __DEBUG_CHECK_INDICES__
 //#define __DEBUG_CREATEFIBERTRACE__
 //#define __DEBUG_EXTRACTFROMPROFILE__
-#define __DEBUG_FINDANDTRACE__
+//#define __DEBUG_FINDANDTRACE__
 //#define __DEBUG_FIT__
 //#define __DEBUG_SPLINE__
 //#define __DEBUG_INTERPOL__
@@ -49,7 +49,7 @@
 //#define __DEBUG_SLITFUNC_N__
 //#define __DEBUG_SLITFUNC_PISKUNOV__
 //#define __DEBUG_SLITFUNC_X__
-#define __DEBUG_SORTTRACESBYXCENTER__
+//#define __DEBUG_SORTTRACESBYXCENTER__
 //#define __DEBUG_TELLURIC__
 //#define __DEBUG_TRACEFUNC__
 //#define __DEBUG_UNIQ__
