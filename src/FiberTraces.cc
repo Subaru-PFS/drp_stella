@@ -2711,8 +2711,8 @@ namespace pfsDRPStella = pfs::drp::stella;
       }*/
       if (fiberTraceFunctionIn->fiberTraceFunctionControl.interpolation.compare("CHEBYSHEV") == 0)
       {
-        cout << "pfs::drp::stella::math::calculateXCenters: Calculating Chebyshev Polynomial" << endl;
         #ifdef __DEBUG_XCENTERS__
+          cout << "pfs::drp::stella::math::calculateXCenters: Calculating Chebyshev Polynomial" << endl;
           cout << "pfs::drp::stella::calculateXCenters: Function = Chebyshev" << endl;
           cout << "pfs::drp::stella::calculateXCenters: Coeffs = " << fiberTraceFunctionCoefficients << endl;
         #endif
@@ -2810,8 +2810,8 @@ namespace pfsDRPStella = pfs::drp::stella;
       }*/
       else /// Polynomial
       {
-        cout << "pfs::drp::stella::math::calculateXCenters: Calculating Polynomial" << endl;
         #ifdef __DEBUG_XCENTERS__
+          cout << "pfs::drp::stella::math::calculateXCenters: Calculating Polynomial" << endl;
           cout << "pfs::drp::stella::calculateXCenters: Function = Polynomial" << endl;
           cout << "pfs::drp::stella::calculateXCenters: Coeffs = " << fiberTraceFunctionCoefficients << endl;
           cout << "pfs::drp::stella::calculateXCenters: fiberTraceFunctionCoefficients = " << fiberTraceFunctionCoefficients << endl;
