@@ -32,7 +32,7 @@
 #define __DEBUG_CALC2DPSF__
 //#define __DEBUG_CPRTC__
 //#define __DEBUG_CALC_TPS__
-#define __DEBUG_COMPARECENTERPOSITIONS__
+//#define __DEBUG_COMPARECENTERPOSITIONS__
 #define __DEBUGDIR__ ""//~/spectra/pfs/2014-11-02/debug/"// 
 
 namespace afwGeom = lsst::afw::geom;
@@ -42,6 +42,19 @@ namespace pexExcept = lsst::pex::exceptions;
 
 using namespace std;
 namespace pfs { namespace drp { namespace stella {
+    
+  template< typename T >
+  typedef struct ExtractPSFResult{
+    std::vector<T> xRelativeToCenter;
+    std::vector<T> yRelativeToCenter;
+    std::vector<T> zNormalized;
+    std::vector<T> zTrace;
+    std::vector<T> weight;
+    std::vector<T> xTrace;
+    std::vector<T> yTrace;
+    T xCenterPSFCCD;
+    T yCenterPSFCCD;
+  };
 
   template<typename T>//, typename MaskT=afwImage::MaskPixel, typename VarianceT=afwImage::VariancePixel>//, typename WavelengthT=afwImage::VariancePixel>
   class PSF {
@@ -150,6 +163,8 @@ namespace pfs { namespace drp { namespace stella {
       const std::vector<T> getXRangePolynomial() const {return _xRangePolynomial;}
       
       bool setImagePSF_ZFit(ndarray::Array<T, 1, 1> const& zFit);
+      bool setXCentersPSFCCD(std::vector<T> const& xCentersPSFCCD_In);
+      bool setYCentersPSFCCD(std::vector<T> const& yCentersPSFCCD_In);
 
       bool isTwoDPSFControlSet() const {return _isTwoDPSFControlSet;}
       bool isPSFsExtracted() const {return _isPSFsExtracted;}
@@ -167,6 +182,27 @@ namespace pfs { namespace drp { namespace stella {
       bool extractPSFs(FiberTrace<ImageT, MaskT, VarianceT> const& fiberTrace_In,
 	               Spectrum<ImageT, MaskT, VarianceT, WavelengthT> const& spectrum_In,
                        ndarray::Array<T, 2, 1> const& collapsedPSF);
+  
+      /**
+       * @brief Extract the PSF from the given center positions in CCD coordinates
+       * 
+       * @param fiberTrace_In: fiberTrace from which this 
+       */
+      template< typename ImageT, typename MaskT = afwImage::MaskPixel, typename VarianceT = afwImage::VariancePixel >
+      ExtractPSFResult<T> extractPSFFromCenterPosition(FiberTrace< ImageT, MaskT, VarianceT > const& fiberTrace_In,
+                                                       T const centerPositionX_In,
+                                                       T const centerPositionY_In);
+      
+      template< typename ImageT, typename MaskT = afwImage::MaskPixel, typename VarianceT = afwImage::VariancePixel >
+      bool extractPSFFromCenterPositions(FiberTrace< ImageT, MaskT, VarianceT > const& fiberTrace_In,
+                                                     ndarray::Array<T, 1, 1> const& centerPositionsX_In,
+                                                     ndarray::Array<T, 1, 1> const& centerPositionsY_In);
+      
+      /*
+       * @brief Use center positions given in this->x/yCentersPSFCCD
+       */
+      template< typename ImageT, typename MaskT = afwImage::MaskPixel, typename VarianceT = afwImage::VariancePixel >
+      bool extractPSFFromCenterPositions(FiberTrace< ImageT, MaskT, VarianceT > const& fiberTrace_In);
       //bool fitPSFKernel();
       //bool calculatePSF();
       
@@ -184,8 +220,8 @@ namespace pfs { namespace drp { namespace stella {
       PTR(TwoDPSFControl) _twoDPSFControl;
       const size_t _iTrace;
       const size_t _iBin;
-      const size_t _yMin;
-      const size_t _yMax;
+      const size_t _yMin;/// first index of swath in fiberTrace
+      const size_t _yMax;/// last index of swath in fiberTrace
       std::vector<T> _imagePSF_XTrace;
       std::vector<T> _imagePSF_YTrace;
       std::vector<T> _imagePSF_ZTrace;
@@ -361,18 +397,19 @@ namespace math{
 
   /* @brief compare center positions of emission lines used to construct PSF to input list of x and y positions and return dx, dy, dr
    * @param psf_In Input PSF to compare center positions of emission lines to xPositions_In and yPositions_In
-   * @param xPositions_In Input list of center positions of emission lines in x
-   * @param yPositions_In Input list of center positions of emission lines in y
+   * @param xPositions_In Input list of center positions of emission lines in x CCD
+   * @param yPositions_In Input list of center positions of emission lines in y CCD
    * @param dXMax maximum distance in x in pixels to count 2 emission lines in psf_In and x/yPositions_In as the same emission line
    * @param dYMax maximum distance in y in pixels to count 2 emission lines in psf_In and x/yPositions_In as the same emission line
    * @return one line per emission line used to construct PSF with [dx=xPositions[iList] - xPSF, dy=yPositions[iList] - yPSF, dr=sqrt(pow(dx)+pow(dy))]
    */
   template< typename PsfT = double, typename CoordsT = double >
-  ndarray::Array< CoordsT, 2, 1 > compareCenterPositions(PSF< PsfT > const& psf_In,
+  ndarray::Array< CoordsT, 2, 1 > compareCenterPositions(PSF< PsfT > & psf_In,
                                                          ndarray::Array< const CoordsT, 1, 1 > const& xPositions_In,
                                                          ndarray::Array< const CoordsT, 1, 1 > const& yPositions_In,
                                                          float dXMax = 1.,
-                                                         float dYMax = 1.);
+                                                         float dYMax = 1.,
+                                                         bool setPsfXY = false);
   
 }
 }}}
