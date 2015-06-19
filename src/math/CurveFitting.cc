@@ -6,6 +6,9 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
                                ndarray::Array<U, 1, 1> const& coeffs_In,
                                T xRangeMin_In,
                                T xRangeMax_In){
+    #ifdef __DEBUG_CURVEFIT__
+      cout << "CurveFitting::Poly(x, coeffs, xRangeMin, xRangeMax) started" << endl;
+    #endif
     ndarray::Array<T, 1, 1> xNew;
     /// shift and rescale x_In to fit into range [-1.,1.]
     if ((fabs(xRangeMin_In + 1.) > 0.00000001) || (fabs(xRangeMax_In - 1.) > 0.00000001)){
@@ -53,6 +56,9 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
         cout << "Poly: I_PolynomialOrder != 0: for (ii = " << ii << "; ii >= 0; ii--) arr_Out set to " << arr_Out << endl;
       #endif
     }
+    #ifdef __DEBUG_CURVEFIT__
+      cout << "CurveFitting::Poly(x, coeffs, xRangeMin, xRangeMax) finished" << endl;
+    #endif
     return arr_Out;
   }
 
@@ -99,7 +105,9 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
                                        size_t const I_NIter,
                                        std::vector<string> const& S_A1_Args_In,
                                        std::vector<void *> &ArgV){
-
+    #ifdef __DEBUG_CURVEFIT__
+      cout << "CurveFitting::PolyFit(x, y, deg, lReject, uReject, nIter, Args, ArgV) started" << endl;
+    #endif
     #ifdef __DEBUG_POLYFIT__
       cout << "pfs::drp::stella::math::CurveFitting::PolyFit: Starting " << endl;
     #endif
@@ -329,6 +337,9 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
     std::vector<size_t> V_NotRejected(P_I_A1_NotRejected->begin(), P_I_A1_NotRejected->end());
     *P_I_A1_Rejected = pfs::drp::stella::math::removeSubArrayFromArray(V_OrigPos, V_NotRejected);
 
+    #ifdef __DEBUG_CURVEFIT__
+      cout << "CurveFitting::PolyFit(x, y, deg, lReject, uReject, nIter, Args, ArgV) finished" << endl;
+    #endif
     return D_A1_Coeffs_Out;
   }
 
@@ -340,6 +351,9 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
                                        size_t const I_Degree_In,
                                        T xRangeMin_In,
                                        T xRangeMax_In){
+    #ifdef __DEBUG_CURVEFIT__
+      cout << "CurveFitting::PolyFit(x, y, deg, xRangeMin, xRangeMax) started" << endl;
+    #endif
     if (D_A1_X_In.getShape()[0] != D_A1_Y_In.getShape()[0]){
       string message("pfs::drp::stella::math::CurveFitting::PolyFit: ERROR: D_A1_X_In.getShape()[0](=");
       message += to_string(D_A1_X_In.getShape()[0]) +") != D_A1_Y_In.getShape()[0](=" + to_string(D_A1_Y_In.getShape()[0]) + ")";
@@ -354,6 +368,9 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
     xRange[1] = xRangeMax_In;
     PTR(ndarray::Array<double, 1, 1>) pXRange(new ndarray::Array<double, 1, 1>(xRange));
     PP_Args[0] = &pXRange;
+    #ifdef __DEBUG_CURVEFIT__
+      cout << "CurveFitting::PolyFit(x, y, deg, xRangeMin, xRangeMax) finishing" << endl;
+    #endif
     return PolyFit(D_A1_X_In, 
                    D_A1_Y_In, 
                    I_Degree_In, 
@@ -380,7 +397,9 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
                                        size_t const I_Degree_In,
                                        std::vector<string> const& S_A1_Args_In,
                                        std::vector<void *> & ArgV){
-
+    #ifdef __DEBUG_CURVEFIT__
+      cout << "CurveFitting::PolyFit(x, y, deg, Args, ArgV) started" << endl;
+    #endif
     if (D_A1_X_In.getShape()[0] != D_A1_Y_In.getShape()[0]){
       string message("pfs::drp::stella::math::CurveFitting::PolyFit: ERROR: D_A1_X_In.getShape()[0](=");
       message += to_string(D_A1_X_In.getShape()[0]) + ") != D_A1_Y_In.getShape()[0](=" + to_string(D_A1_Y_In.getShape()[0]) + ")";
@@ -676,7 +695,9 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
     #ifdef __DEBUG_POLYFIT__
       cout << "pfs::drp::stella::math::CurveFitting::PolyFit: returning D_A1_Out = " << D_A1_Out << endl;
     #endif
-
+    #ifdef __DEBUG_CURVEFIT__
+      cout << "CurveFitting::PolyFit(x, y, deg, Args, ArgV) finished" << endl;
+    #endif
     return D_A1_Out;
   }
 
@@ -689,6 +710,9 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
                                        T const D_Reject_In,
                                        T xRangeMin_In,
                                        T xRangeMax_In){
+    #ifdef __DEBUG_CURVEFIT__
+      cout << "CurveFitting::PolyFit(x, y, deg, reject, xRangeMin, xRangeMax) started" << endl;
+    #endif
     #ifdef __DEBUG_POLYFIT__
       cout << "pfs::drp::stella::math::CurveFitting::PolyFit: Starting " << endl;
     #endif
@@ -700,6 +724,9 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
     xRange[1] = xRangeMax_In;
     PTR(ndarray::Array<double, 1, 1>) p_xRange(new ndarray::Array<double, 1, 1>(xRange));
     PP_Args[0] = &p_xRange;
+    #ifdef __DEBUG_CURVEFIT__
+      cout << "CurveFitting::PolyFit(x, y, deg, reject, xRangeMin, xRangeMax) finishing" << endl;
+    #endif
     return pfs::drp::stella::math::PolyFit(D_A1_X_In,
                                            D_A1_Y_In,
                                            I_Degree_In,
@@ -717,6 +744,9 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
                                        size_t const I_NIter,
                                        T xRangeMin_In,
                                        T xRangeMax_In){
+    #ifdef __DEBUG_CURVEFIT__
+      cout << "CurveFitting::PolyFit(x, y, deg, lReject, hReject, nIter, xRangeMin, xRangeMax) started" << endl;
+    #endif
     #ifdef __DEBUG_POLYFIT__
       cout << "pfs::drp::stella::math::CurveFitting::PolyFit: Starting " << endl;
     #endif
@@ -740,6 +770,9 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
     #ifdef __DEBUG_POLYFIT__
       cout << "pfs::drp::stella::math::CurveFitting::PolyFit: PolyFit returned D_A1_Out = " << D_A1_Out << endl;
     #endif
+    #ifdef __DEBUG_CURVEFIT__
+      cout << "CurveFitting::PolyFit(x, y, deg, lReject, hReject, nIter, xRangeMin, xRangeMax) finished" << endl;
+    #endif
     return D_A1_Out;
   }
 
@@ -759,6 +792,9 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
   /// SIGMA_OUT         = blitz::Array<double, 2>(D_A2_CCD_In.rows(),2)
   /// YFIT_OUT          = blitz::Array<double, 2>(D_A2_CCD_In.rows(), D_A2_CCD_In.cols())
   {
+    #ifdef __DEBUG_CURVEFIT__
+      cout << "CurveFitting::LinFitBevingtonEigen(D_A2_CCD, D_A2_SF, SP, Sky, withSky, Args, ArgV) started" << endl;
+    #endif
     #ifdef __DEBUG_FITARR__
       cout << "CFits::LinFitBevington(Array, Array, Array, Array, bool, CSArr, PPArr) started" << endl;
       cout << "CFits::LinFitBevington(Array, Array, Array, Array, bool, CSArr, PPArr): D_A2_CCD_In = " << D_A2_CCD_In << endl;
@@ -1052,6 +1088,9 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
       cout << "CFits::LinFitBevington(Array, Array, Array, Array): D_A1_SP_Out = " << D_A1_SP_Out << endl;
 //        cout << "CFits::LinFitBevington(Array, Array, Array, Array): D_A1_Sky_Out set to " << D_A1_Sky_Out << endl;
     #endif
+    #ifdef __DEBUG_CURVEFIT__
+      cout << "CurveFitting::LinFitBevingtonEigen(D_A2_CCD, D_A2_SF, SP, Sky, withSky, Args, ArgV) finished" << endl;
+    #endif
     return true;
   }
 
@@ -1071,6 +1110,9 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
   /// SIGMA_OUT         = blitz::Array<double, 2>(D_A2_CCD_In.rows(),2)
   /// YFIT_OUT          = blitz::Array<double, 2>(D_A2_CCD_In.rows(), D_A2_CCD_In.cols())
   {
+    #ifdef __DEBUG_CURVEFIT__
+      cout << "CurveFitting::LinFitBevingtonNdArray(D_A2_CCD, D_A2_SF, SP, Sky, withSky, Args, ArgV) started" << endl;
+    #endif
     #ifdef __DEBUG_FITARR__
       cout << "CFits::LinFitBevington(Array, Array, Array, Array, bool, CSArr, PPArr) started" << endl;
       cout << "CFits::LinFitBevington(Array, Array, Array, Array, bool, CSArr, PPArr): D_A2_CCD_In = " << D_A2_CCD_In << endl;
@@ -1379,6 +1421,9 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
       cout << "CFits::LinFitBevington(Array, Array, Array, Array): D_A1_SP_Out = " << D_A1_SP_Out << endl;
 //        cout << "CFits::LinFitBevington(Array, Array, Array, Array): D_A1_Sky_Out set to " << D_A1_Sky_Out << endl;
     #endif
+    #ifdef __DEBUG_CURVEFIT__
+      cout << "CurveFitting::LinFitBevingtonNdArray(D_A2_CCD, D_A2_SF, SP, Sky, withSky, Args, ArgV) finished" << endl;
+    #endif
     return true;
   }
 
@@ -1404,6 +1449,9 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
   /// ALLOW_SKY_LT_ZERO = 1
   /// ALLOW_SPEC_LT_ZERO = 1
   {
+    #ifdef __DEBUG_CURVEFIT__
+      cout << "CurveFitting::LinFitBevingtonEigen(D_A1_CCD, D_A1_SF, SP, Sky, withSky, Args, ArgV) started" << endl;
+    #endif
     int status = 1;
     #ifdef __DEBUG_FIT__
       cout << "CFits::LinFitBevington(Array, Array, double, double, bool, CSArr, PPArr) started" << endl;
@@ -1866,7 +1914,9 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
       cout << "CFits::LinFitBevington: *P_D_A1_YFit set to " << *P_D_A1_YFit << endl;
       cout << "CFits::LinFitBevington: *P_I_A1_Mask set to " << *P_I_A1_Mask << endl;
     #endif
-
+    #ifdef __DEBUG_CURVEFIT__
+      cout << "CurveFitting::LinFitBevingtonEigen(D_A1_CCD, D_A1_SF, SP, Sky, withSky, Args, ArgV) finished" << endl;
+    #endif
     return status;
   }
 
@@ -1888,6 +1938,9 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
   /// ALLOW_SKY_LT_ZERO = 1
   /// ALLOW_SPEC_LT_ZERO = 1
   {
+    #ifdef __DEBUG_CURVEFIT__
+      cout << "CurveFitting::LinFitBevingtonNdArray(D_A1_CCD, D_A1_SF, SP, Sky, withSky, Args, ArgV) started" << endl;
+    #endif
     int status = 1;
     #ifdef __DEBUG_FIT__
       cout << "CFits::LinFitBevington(Array, Array, double, double, bool, CSArr, PPArr) started" << endl;
@@ -2006,6 +2059,9 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
       #endif
     }
     P_D_A1_Sigma_Out->deep() = 0.;
+    #ifdef __DEBUG_FIT__
+      cout << "CFits::LinFitBevington: *P_D_A1_Sigma_Out set to " << *P_D_A1_Sigma_Out << endl;
+    #endif
 
     PTR(ImageT) P_D_ChiSqr_Out(new ImageT(0.));
     I_KeywordSet_ChiSqOut = pfs::drp::stella::utils::KeyWord_Set(S_A1_Args_In, "CHISQ_OUT");
@@ -2018,6 +2074,9 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
       #endif
     }
     *P_D_ChiSqr_Out = 0.;
+    #ifdef __DEBUG_FIT__
+      cout << "CFits::LinFitBevington: *P_D_ChiSqr_Out set to " << *P_D_ChiSqr_Out << endl;
+    #endif
 
     PTR(ImageT) P_D_Q_Out(new ImageT(0.));
     I_KeywordSet_QOut = pfs::drp::stella::utils::KeyWord_Set(S_A1_Args_In, "Q_OUT");
@@ -2030,11 +2089,17 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
       #endif
     }
     *P_D_Q_Out = 1.;
+    #ifdef __DEBUG_FIT__
+      cout << "CFits::LinFitBevington: *P_D_Q_Out set to " << *P_D_Q_Out << endl;
+    #endif
 
     D_SP_Out = 0.0;
     I_KeywordSet_MeasureErrors = pfs::drp::stella::utils::KeyWord_Set(S_A1_Args_In, "MEASURE_ERRORS_IN");
     if (I_KeywordSet_MeasureErrors >= 0)
     {
+      #ifdef __DEBUG_FIT__
+        cout << "CFits::LinFitBevington: keyword MEASURE_ERRORS_IN set" << endl;
+      #endif
       P_D_A1_Sig.reset();
       P_D_A1_Sig = *(PTR(ndarray::Array<ImageT, 1, 1>)*)ArgV_In[I_KeywordSet_MeasureErrors];
       #ifdef __DEBUG_FIT__
@@ -2067,6 +2132,10 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
       }
     }
     P_D_A1_YFit->deep() = 0.;
+    #ifdef __DEBUG_FIT__
+      cout << "CFits::LinFitBevington: *P_D_A1_YFit set to " << *P_D_A1_YFit << endl;
+    #endif
+    
     if (P_I_A1_Mask->asEigen().sum() == 0){
       #ifdef __WARNINGS_ON__
         cout << "CFits::LinFitBevington: WARNING: P_I_A1_Mask->sum() == 0" << endl;
@@ -2074,6 +2143,9 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
       D_SP_Out = 0.;
       D_Sky_Out = 0.;
       status = 0;
+      #ifdef __DEBUG_CURVEFIT__
+        cout << "CurveFitting::LinFitBevingtonNdArray(D_A1_CCD, D_A1_SF, SP, Sky, withSky, Args, ArgV) finished, status = " << status << endl;
+      #endif
       return status;
     }
 
@@ -2093,6 +2165,9 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
     bool B_Run = true;
     int I_Run = -1;
     int I_MaskSum;
+    #ifdef __DEBUG_FIT__
+      cout << "CFits::LinFitBevington: starting while loop" << endl;
+    #endif
     while (B_Run){
       D_SP_Out = 0.0;
 
@@ -2349,7 +2424,9 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
       cout << "CFits::LinFitBevington: *P_D_A1_YFit set to " << *P_D_A1_YFit << endl;
       cout << "CFits::LinFitBevington: *P_I_A1_Mask set to " << *P_I_A1_Mask << endl;
     #endif
-
+    #ifdef __DEBUG_CURVEFIT__
+      cout << "CurveFitting::LinFitBevingtonNdArray(D_A1_CCD, D_A1_SF, SP, Sky, withSky, Args, ArgV) finished" << endl;
+    #endif
     return status;
   }
 
@@ -2359,6 +2436,9 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
   template< typename T>
   T GSER(T & D_Gamser_Out, T const a, T const x)
   {
+    #ifdef __DEBUG_CURVEFIT__
+      cout << "CurveFitting::GSER(Gamser, a, x) started" << endl;
+    #endif
     T D_GLn_Out = 0;
     int n;
     int ITMax = 100;
@@ -2385,6 +2465,9 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
         cout << "CFits::GSER: x<=0: D_Gamser_Out = " << D_Gamser_Out << endl;
         cout << "CFits::GSER: x<=0: D_GLn_Out = " << D_GLn_Out << endl;
       #endif
+      #ifdef __DEBUG_CURVEFIT__
+        cout << "CurveFitting::GSER(Gamser, a, x) finished" << endl;
+      #endif
       return D_GLn_Out;
     }
     else{
@@ -2399,6 +2482,9 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
           #ifdef __DEBUG_LINFIT__
             cout << "CFits::GSER: x>0: D_Gamser_Out = " << D_Gamser_Out << endl;
             cout << "CFits::GSER: x>0: D_GLn_Out = " << D_GLn_Out << endl;
+          #endif
+          #ifdef __DEBUG_CURVEFIT__
+            cout << "CurveFitting::GSER(Gamser, a, x) finished" << endl;
           #endif
           return D_GLn_Out;
         }
@@ -2415,6 +2501,9 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
   template< typename T >
   T GammLn(T const xx)
   {
+    #ifdef __DEBUG_CURVEFIT__
+      cout << "CurveFitting::GammLn(xx) started" << endl;
+    #endif
     double x,y,tmp,ser;
     static double cof[6]={76.18009172947146, -86.50532032941677,24.01409824083091,-1.231739572450155,0.1208650973866179e-2,-0.5395239384953e-5};
 
@@ -2437,6 +2526,9 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
       cout << "CFits::GammLn: ser = " << ser << endl;
       cout << "CFits::GammLn: returning (-tmp + log(2.5066282746310005 * ser / xx)) = " << D_Result << endl;
     #endif
+    #ifdef __DEBUG_CURVEFIT__
+      cout << "CurveFitting::GammLn(xx) finished" << endl;
+    #endif
     return D_Result;
   }
 
@@ -2446,6 +2538,9 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
   template<typename T>
   T GCF(T & D_GammCF_Out, T const a, T const x)
   {
+    #ifdef __DEBUG_CURVEFIT__
+      cout << "CurveFitting::GCF(GammCF, a, x) Started" << endl;
+    #endif
     T D_GLn_Out = 0;
     int n;
     int ITMAX = 100;             /// Maximum allowed number of iterations
@@ -2511,6 +2606,9 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
       throw LSST_EXCEPT(pexExcept::Exception, message.c_str());    
     }
     D_GammCF_Out = exp(-x+a*log(x) - D_GLn_Out) * h;
+    #ifdef __DEBUG_CURVEFIT__
+      cout << "CurveFitting::GCF(GammCF, a, x) finished" << endl;
+    #endif
     return D_GLn_Out;
   }
 
@@ -2519,6 +2617,9 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
    **/
   template<typename T>
   T GammP(T const a, T const x){
+    #ifdef __DEBUG_CURVEFIT__
+      cout << "CurveFitting::GammP(a, x) Started" << endl;
+    #endif
     T D_Out = 0;
     #ifdef __DEBUG_FIT__
       cout << "CFits::GammP started: a = " << a << ", x = " << x << endl;
@@ -2539,11 +2640,17 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
     if (x < (a+1.)){
       gln = GSER(gamser, a, x);
       D_Out = gamser;
+      #ifdef __DEBUG_CURVEFIT__
+        cout << "CurveFitting::GammP(a, x) finished" << endl;
+      #endif
       return D_Out;
     }
     else{
       gln = GCF(gammcf, a, x);
       D_Out = 1. - gammcf;
+      #ifdef __DEBUG_CURVEFIT__
+        cout << "CurveFitting::GammP(a, x) finished" << endl;
+      #endif
       return D_Out;
     }
   }
@@ -2553,6 +2660,9 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
    **/
   template<typename T>
   T GammQ(T const a, T const x){
+    #ifdef __DEBUG_CURVEFIT__
+      cout << "CurveFitting::GammQ(a, x) started" << endl;
+    #endif
     T D_Out = 0;
     #ifdef __DEBUG_FIT__
       cout << "CFits::GammQ started: a = " << a << ", x = " << x << endl;
@@ -2578,6 +2688,9 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
         cout << "CFits::GammQ: x < (a+1.): gamser = " << gamser << endl;
       #endif
       D_Out = 1. - gamser;
+      #ifdef __DEBUG_CURVEFIT__
+        cout << "CurveFitting::GammQ(a, x) finished" << endl;
+      #endif
       return D_Out;
     }
     else{
@@ -2586,12 +2699,18 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
         cout << "CFits::GammQ: x < (a+1.): gammcf = " << gammcf << endl;
       #endif
       D_Out = gammcf;
+      #ifdef __DEBUG_CURVEFIT__
+        cout << "CurveFitting::GammQ(a, x) finished" << endl;
+      #endif
       return D_Out;
     }
   }
   
   template< typename T, typename U >
   ndarray::Array<T, 1, 1> chebyshev(ndarray::Array<T, 1, 1> const& x_In, ndarray::Array<U, 1, 1> const& coeffs_In){
+    #ifdef __DEBUG_CURVEFIT__
+      cout << "CurveFitting::chebyshev(a, coeffs) started" << endl;
+    #endif
     int nCoeffs = coeffs_In.getShape()[0];
     cout << "pfs::drp::stella::math::CurveFitting::chebyshev: coeffs_In = " << nCoeffs << ": ";
     for (int i = 0; i < nCoeffs; ++i)
@@ -2650,6 +2769,9 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
     else
       yCalc.deep() = c0Arr + c1Arr * xScaled;
     cout << "chebyshev: yCalc = " << yCalc << endl;
+    #ifdef __DEBUG_CURVEFIT__
+      cout << "CurveFitting::chebyshev(a, coeffs) finished" << endl;
+    #endif
     return yCalc;
     /*    
     ndarray::Array<double, 1, 1> Tn = ndarray::allocate(coeffs_In.getShape()[0]);
@@ -2674,6 +2796,9 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
 
   ndarray::Array<double, 1, 1> gaussFit(ndarray::Array<double, 2, 1> const& xy_In,
                                         ndarray::Array<double, 1, 1> const& guess_In){
+    #ifdef __DEBUG_CURVEFIT__
+      cout << "CurveFitting::gaussFit(xy, guess) started" << endl;
+    #endif
     gaussian_functor gf(xy_In.asEigen());
 //    gaussian_functor<Eigen::Derived> gf(xy_In.asEigen());
     Eigen::VectorXd guess(3);
@@ -2688,7 +2813,9 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
     result[0] = guess[0];
     result[1] = guess[1];
     result[2] = guess[2];
-    
+    #ifdef __DEBUG_CURVEFIT__
+      cout << "CurveFitting::gaussFit(xy, guess) finished" << endl;
+    #endif
     return result;
   }
   
