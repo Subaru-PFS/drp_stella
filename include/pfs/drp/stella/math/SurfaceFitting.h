@@ -60,11 +60,6 @@ namespace pfs { namespace drp { namespace stella {
             
             virtual ~ThinPlateSpline(){}
             
-            /** @brief Calculate coefficients for regularized fit without weights
-             * 
-             */
-            bool calculateCoefficients();
-            
             /** @brief Fit one point at [xPositionFit, yPositionFit] and return result
              *  @param xPositionFit : x position of data point to be fit
              *  @param yPositionFit : y position of data point to be fit
@@ -97,6 +92,11 @@ namespace pfs { namespace drp { namespace stella {
              */
             ValueT tps_base_func(ValueT r);
             
+            /** @brief Calculate coefficients for regularized fit without weights
+             * 
+             */
+            bool calculateCoefficients();
+            
             ndarray::Array< const CoordsT, 1, 1 > _controlPointsX;
             ndarray::Array< const CoordsT, 1, 1 > _controlPointsY;
             ndarray::Array< const ValueT, 1, 1 > _controlPointsZ;
@@ -104,6 +104,73 @@ namespace pfs { namespace drp { namespace stella {
             ndarray::Array< double, 1, 1 > _coefficients;
             const double _regularization;
             const bool _isWeightsSet;
+    };  
+
+    template < typename ValueT, typename CoordsT >
+    class ThinPlateSplineChiSquare{
+        public: 
+            
+            /**
+             * @brief Create ThinPlateSpline object and calculate coefficients of fit by minimizing Chi square
+             * @param controlPointsX : x positions of input data to fit
+             * @param controlPointsY : y positions of input data to fit
+             * @param controlPointsZ : z values of input data to fit
+             * @param gridPointsX : x values of xy-grid on which to fit the thin-plate spline
+             * @param gridPointsY : y values of xy-grid on which to fit the thin-plate spline
+             * @return ThinPlateSpline object
+             */
+            explicit ThinPlateSplineChiSquare( ndarray::Array< const CoordsT, 1, 1 > const& controlPointsX,
+                                               ndarray::Array< const CoordsT, 1, 1 > const& controlPointsY,
+                                               ndarray::Array< const ValueT, 1, 1 > const& controlPointsZ,
+                                               ndarray::Array< const CoordsT, 1, 1 > const& gridPointsX,
+                                               ndarray::Array< const CoordsT, 1, 1 > const& gridPointsY);
+            
+            virtual ~ThinPlateSplineChiSquare(){}
+            
+            /** @brief Fit one point at [xPositionFit, yPositionFit] and return result
+             *  @param xPositionFit : x position of data point to be fit
+             *  @param yPositionFit : y position of data point to be fit
+             */
+            ValueT fitPoint(CoordsT const xPositionFit, 
+                            CoordsT const yPositionFit);
+
+            /* @brief Fit array for given [x, y] positions or grid
+             *  @param xPositionFit : x position of data point to be fit
+             *  @param yPositionFit : y position of data point to be fit
+             *  @param isXYPositionsGridPoints :  if isXYPositionsGridPoints: returned array will have shape(yPositionsFit.getShape()[0], xPositionsFit.getShape()[0])
+             *                                                          else: shape(xPositionsFit.getShape()[0], 1)
+             */
+            ndarray::Array< ValueT, 2, 1 > fitArray( ndarray::Array< const CoordsT, 1, 1 > const& xPositionsFit,
+                                                     ndarray::Array< const CoordsT, 1, 1 > const& yPositionsFit,
+                                                     bool const isXYPositionsGridPoints); /// fit positions
+            
+        protected:
+                
+        private:
+            /** @brief create vector of gridPointsXY of size _gridPointsX.getShape()[0] * _gridPointsY.getShape()[0] X 2
+             */
+            void createGridPointsXY();
+            
+            /** @brief fill lhs matrix for (regularized) fit
+             */
+            ndarray::Array< double, 2, 1 > fillMatrix();
+            
+            /** @brief base function for thin-plate-spline fitting Phi = r^2 * log r
+             */
+            ValueT tps_base_func(ValueT r);
+            
+            /** @brief Calculate coefficients of thin-plate spline
+             * 
+             */
+            bool calculateCoefficients();
+            
+            ndarray::Array< const CoordsT, 1, 1 > _controlPointsX;
+            ndarray::Array< const CoordsT, 1, 1 > _controlPointsY;
+            ndarray::Array< const ValueT, 1, 1 > _controlPointsZ;
+            ndarray::Array< const CoordsT, 1, 1 > _gridPointsX;
+            ndarray::Array< const CoordsT, 1, 1 > _gridPointsY;
+            ndarray::Array< CoordsT, 2, 1 > _gridPointsXY;
+            ndarray::Array< double, 1, 1 > _coefficients;
     };  
     
   }

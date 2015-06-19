@@ -29,10 +29,12 @@
 //#include "lsst/afw/table/io/OutputArchive.h"
 //#include "lsst/afw/table/io/CatalogVector.h"
 
-#define __DEBUG_CALC2DPSF__
+//#define __DEBUG_CALC2DPSF__
 //#define __DEBUG_CPRTC__
 //#define __DEBUG_CALC_TPS__
+//#define __DEBUG_PFS_RECONSTRUCTPFSFROMFIT__
 //#define __DEBUG_COMPARECENTERPOSITIONS__
+//#define __DEBUG_PSF__
 #define __DEBUGDIR__ ""//~/spectra/pfs/2014-11-02/debug/"// 
 
 namespace afwGeom = lsst::afw::geom;
@@ -134,43 +136,45 @@ namespace pfs { namespace drp { namespace stella {
 
       /// Whether the Psf is persistable; always true.
 //      virtual bool isPersistable() const { return true; }
-      size_t getIBin() const {return _iBin;}
-      size_t getITrace() const {return _iTrace;}
-      size_t getYLow() const {return _yMin;}
-      size_t getYHigh() const {return _yMax;}
-      std::vector<T> getImagePSF_XTrace() {return _imagePSF_XTrace;}
-      std::vector<T> getImagePSF_YTrace() {return _imagePSF_YTrace;}
-      std::vector<T> getImagePSF_ZTrace() {return _imagePSF_ZTrace;}
-      const std::vector<T> getImagePSF_XTrace() const {return _imagePSF_XTrace;}
-      const std::vector<T> getImagePSF_YTrace() const {return _imagePSF_YTrace;}
-      const std::vector<T> getImagePSF_ZTrace() const {return _imagePSF_ZTrace;}
-      std::vector<T> getImagePSF_XRelativeToCenter() {return _imagePSF_XRelativeToCenter;}
-      std::vector<T> getImagePSF_YRelativeToCenter() {return _imagePSF_YRelativeToCenter;}
-      std::vector<T> getImagePSF_ZNormalized() {return _imagePSF_ZNormalized;}
-      std::vector<T> getImagePSF_ZFit() {return _imagePSF_ZFit;}
-      const std::vector<T> getImagePSF_XRelativeToCenter() const {return _imagePSF_XRelativeToCenter;}
-      const std::vector<T> getImagePSF_YRelativeToCenter() const {return _imagePSF_YRelativeToCenter;}
-      const std::vector<T> getImagePSF_ZNormalized() const {return _imagePSF_ZNormalized;}
-      const std::vector<T> getImagePSF_ZFit() const {return _imagePSF_ZFit;}
-      std::vector<T> getImagePSF_Weight() {return _imagePSF_Weight;}
-      std::vector<T> getXCentersPSFCCD() {return _xCentersPSFCCD;}
-      std::vector<T> getYCentersPSFCCD() {return _yCentersPSFCCD;}
-      std::vector<unsigned long> getNPixPerPSF() {return _nPixPerPSF;}
-      const std::vector<T> getImagePSF_Weight() const {return _imagePSF_Weight;}
-      const std::vector<T> getXCentersPSFCCD() const {return _xCentersPSFCCD;}
-      const std::vector<T> getYCentersPSFCCD() const {return _yCentersPSFCCD;}
-      const std::vector<unsigned long> getNPixPerPSF() const {return _nPixPerPSF;}
-      const std::vector<T> getXRangePolynomial() const {return _xRangePolynomial;}
+      size_t getIBin() const { return _iBin; }
+      size_t getITrace() const { return _iTrace; }
+      size_t getYLow() const { return _yMin; }
+      size_t getYHigh() const { return _yMax; }
+      std::vector< T > getImagePSF_XTrace() { return _imagePSF_XTrace; }
+      std::vector< T > getImagePSF_YTrace() { return _imagePSF_YTrace; }
+      std::vector< T > getImagePSF_ZTrace() { return _imagePSF_ZTrace; }
+      const std::vector< T > getImagePSF_XTrace() const { return _imagePSF_XTrace; }
+      const std::vector< T > getImagePSF_YTrace() const { return _imagePSF_YTrace; }
+      const std::vector< T > getImagePSF_ZTrace() const { return _imagePSF_ZTrace; }
+      std::vector< T > getImagePSF_XRelativeToCenter() { return _imagePSF_XRelativeToCenter; }
+      std::vector< T > getImagePSF_YRelativeToCenter() { return _imagePSF_YRelativeToCenter; }
+      std::vector< T > getImagePSF_ZNormalized() { return _imagePSF_ZNormalized; }
+      std::vector< T > getImagePSF_ZFit() { return _imagePSF_ZFit; }
+      const std::vector< T > getImagePSF_XRelativeToCenter() const { return _imagePSF_XRelativeToCenter; }
+      const std::vector< T > getImagePSF_YRelativeToCenter() const { return _imagePSF_YRelativeToCenter; }
+      const std::vector< T > getImagePSF_ZNormalized() const { return _imagePSF_ZNormalized; }
+      const std::vector< T > getImagePSF_ZFit() const { return _imagePSF_ZFit; }
+      std::vector< T > getImagePSF_Weight() { return _imagePSF_Weight; }
+      std::vector< T > getXCentersPSFCCD() { return _xCentersPSFCCD; }
+      std::vector< T > getYCentersPSFCCD() { return _yCentersPSFCCD; }
+      std::vector< unsigned long > getNPixPerPSF() { return _nPixPerPSF; }
+      const std::vector< T > getImagePSF_Weight() const { return _imagePSF_Weight; }
+      const std::vector< T > getXCentersPSFCCD() const { return _xCentersPSFCCD; }
+      const std::vector< T > getYCentersPSFCCD() const { return _yCentersPSFCCD; }
+      const std::vector< unsigned long > getNPixPerPSF() const { return _nPixPerPSF; }
+      const std::vector< T > getXRangePolynomial() const { return _xRangePolynomial; }
       
-      bool setImagePSF_ZFit(ndarray::Array<T, 1, 1> const& zFit);
-      bool setXCentersPSFCCD(std::vector<T> const& xCentersPSFCCD_In);
-      bool setYCentersPSFCCD(std::vector<T> const& yCentersPSFCCD_In);
+      bool setImagePSF_ZNormalized( ndarray::Array< T, 1, 1 > const& zNormalized);
+      bool setImagePSF_ZNormalized( std::vector< T > const& zNormalized);
+      bool setImagePSF_ZFit( ndarray::Array< T, 1, 1 > const& zFit );
+      bool setXCentersPSFCCD( std::vector< T > const& xCentersPSFCCD_In );
+      bool setYCentersPSFCCD( std::vector< T > const& yCentersPSFCCD_In );
 
-      bool isTwoDPSFControlSet() const {return _isTwoDPSFControlSet;}
-      bool isPSFsExtracted() const {return _isPSFsExtracted;}
+      bool isTwoDPSFControlSet() const { return _isTwoDPSFControlSet; }
+      bool isPSFsExtracted() const { return _isPSFsExtracted; }
       
       /// Return _2dPSFControl
-      PTR(TwoDPSFControl) getTwoDPSFControl() const { return _twoDPSFControl; }
+      PTR( TwoDPSFControl ) getTwoDPSFControl() const { return _twoDPSFControl; }
 
       /// Set the _twoDPSFControl
       bool setTwoDPSFControl(PTR(TwoDPSFControl) &twoDPSFControl);
@@ -206,7 +210,35 @@ namespace pfs { namespace drp { namespace stella {
       //bool fitPSFKernel();
       //bool calculatePSF();
       
-      std::vector< T > reconstructFromThinPlateSplineFit(double const regularization = 0.);
+      /*
+       * @brief fit regularized thin-plate spline to PSF and reconstruct zNormalized from that fit
+       */
+      std::vector< T > reconstructFromThinPlateSplineFit( double const regularization = 0. ) const;
+      
+      /*
+       * @brief Reconstruct zNormalized from given fitted PSF on a x-y grid
+       *        Create an exact (regularization == 0.) thin-plate spline from zFit and reconstruct zNormalized from that fit
+       * 
+       * @param zFit_In: 2D Array of shape ( yGridRelativeToCenterFit_In.shape, xGridRelativeToCenterFit_In.shape )
+       */
+      std::vector< T > reconstructPSFFromFit( ndarray::Array< T, 1, 1 > const& xGridRelativeToCenterFit_In,
+                                              ndarray::Array< T, 1, 1 > const& yGridRelativeToCenterFit_In,
+                                              ndarray::Array< T, 2, 1 > const& zFit_In,
+                                              double regularization = 0.) const;
+      std::vector< T > reconstructPSFFromFit( ndarray::Array< T, 1, 1 > const& xGridRelativeToCenterFit_In,
+                                              ndarray::Array< T, 1, 1 > const& yGridRelativeToCenterFit_In,
+                                              ndarray::Array< T, 2, 1 > const& zFit_In,
+                                              ndarray::Array< T, 2, 1 > const& weights_In) const;
+      
+      /**
+       * @brief Fit a fitted PSF (e.g. by thin-plate spline) to minimize the Chi square between the fit and ZTrace
+       */
+      double fitFittedPSFToZTrace( std::vector< T > const& zFit_In );
+      double fitFittedPSFToZTrace( std::vector< T > const& zFit_In,
+                                   std::vector< T > const& measureErrors_In );
+      double fitFittedPSFToZTrace( ndarray::Array< T, 1, 1 > const& zFit_In );
+      double fitFittedPSFToZTrace( ndarray::Array< T, 1, 1 > const& zFit_In,
+                                   ndarray::Array< T, 1, 1 > const& measureErrors_In );
             
   protected:
 
@@ -343,6 +375,19 @@ namespace math{
                                                               ndarray::Array< CoordsT, 1, 1 > const& xPositions,
                                                               ndarray::Array< CoordsT, 1, 1 > const& yPositions,
                                                               bool const isXYPositionsGridPoints);
+  
+  /*
+   * @brief: fit PSF and interpolate to new coordinates using thin-plate splines with Chi-square minimization, 
+   *         reconstruct psf._imagePSF_ZNormalized and write to psf._imagePSF_ZFit
+   * 
+   * @param psf : PSF to interpolate
+   * @param xPositions : x positions of new coordinate grid relative to center of PSF [x_0, x_1, ... , x_n-2, x_n-1]
+   * @param yPositions : y positions of new coordinate grid relative to center of PSF [y_0, y_1, ... , y_m-2, y_m-1]
+   */
+  template< typename PsfT = double, typename CoordsT = double >
+  ndarray::Array< PsfT, 2, 1 > interpolatePSFThinPlateSplineChiSquare( PSF< PsfT > & psf,
+                                                                       ndarray::Array< CoordsT, 1, 1 > const& xPositions,
+                                                                       ndarray::Array< CoordsT, 1, 1 > const& yPositions );
   
   template< typename PsfT = double, typename CoordsT = double>
   ndarray::Array< PsfT, 3, 1 > interpolatePSFSetThinPlateSpline( PSFSet< PsfT > & psfSet,

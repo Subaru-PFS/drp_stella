@@ -15,6 +15,7 @@
 #include "ndarray/eigen.h"
 #include "CurveFittingGaussian.h"
 
+//#define __DEBUG_CURVEFIT__
 //#define __DEBUG_FIT__
 //#define __DEBUG_FITARR__
 //#define __DEBUG_POLY__
@@ -199,13 +200,13 @@ namespace pfs { namespace drp { namespace stella {
                                  bool B_WithSky,                        /// with sky: in
                                  std::vector<string> const& S_A1_Args_In,   ///: in
                                  std::vector<void *> & ArgV_In);                   ///: in
-    /// MEASURE_ERRORS_IN = blitz::Array<double,1>(D_A1_CCD_In.size)             : in
+    /// MEASURE_ERRORS_IN = PTR(ndarray::Array<ImageT, 1, 1>(D_A1_CCD_In.size))             : in
     /// REJECT_IN = float                                                : in
-    /// MASK_INOUT = blitz::Array<int,1>(D_A1_CCD_In.size)                    : in/out
+    /// MASK_INOUT = ndarray::Array<unsigned short, 1, 1>(D_A1_CCD_In.size)                    : in/out
     /// CHISQ_OUT = double                                                : out
     /// Q_OUT = double                                                    : out
-    /// SIGMA_OUT = blitz::Array<double,1>(2): [*,0]: sigma_sp, [*,1]: sigma_sky : out
-    /// YFIT_OUT = blitz::Array<double, 1>(D_A1_CCD_In.size)                     : out
+    /// SIGMA_OUT = ndarray::Array<ImageT,1, 1>(2): [*,0]: sigma_sp, [*,1]: sigma_sky : out
+    /// YFIT_OUT = ndarray::Array<ImageT, 1, 1>(D_A1_CCD_In.size)                     : out
     /// ALLOW_SKY_LT_ZERO = 1
     /// ALLOW_SPEC_LT_ZERO = 1
 
