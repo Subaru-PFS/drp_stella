@@ -1612,11 +1612,11 @@ namespace pfs{ namespace drp{ namespace stella{
 //        cout << "PSF::interpolatePSFThinPlateSplineChiSquare: zT = " << zT << endl;
 //      #endif
       cout << "PSF::interpolatePSFThinPlateSpline: starting interpolateThinPlateSplineEigen" << endl;
-      math::ThinPlateSpline< PsfT, CoordsT > tps = math::ThinPlateSplineChiSquare< PsfT, CoordsT >( xArr, 
-                                                                                                    yArr, 
-                                                                                                    zArr,
-                                                                                                    xPositions,
-                                                                                                    yPositions);
+      math::ThinPlateSplineChiSquare< PsfT, CoordsT > tps = math::ThinPlateSplineChiSquare< PsfT, CoordsT >( xArr, 
+                                                                                                             yArr, 
+                                                                                                             zArr,
+                                                                                                             xPositions,
+                                                                                                             yPositions);
 //                                                                                                    ndarray::Array< PsfT const, 1, 1 >(zT), 
 //                                                                                       regularization );
       ndarray::Array< PsfT, 2, 1 > arr_Out = ndarray::copy( tps.fitArray( xPositions, 
@@ -2060,6 +2060,19 @@ namespace pfs{ namespace drp{ namespace stella{
                                                                         ndarray::Array< double, 1, 1 > const&, 
                                                                         ndarray::Array< double, 1, 1 > const&,
                                                                         bool const);
+
+    template ndarray::Array< float, 2, 1 > interpolatePSFThinPlateSplineChiSquare( PSF< float > &, 
+                                                                                   ndarray::Array< float, 1, 1 > const&, 
+                                                                                   ndarray::Array< float, 1, 1 > const& );
+    template ndarray::Array< double, 2, 1 > interpolatePSFThinPlateSplineChiSquare( PSF< double > &, 
+                                                                                    ndarray::Array<float, 1, 1> const&, 
+                                                                                    ndarray::Array<float, 1, 1> const& );
+    template ndarray::Array< float, 2, 1 > interpolatePSFThinPlateSplineChiSquare( PSF< float > &, 
+                                                                                   ndarray::Array< double, 1, 1 > const&, 
+                                                                                   ndarray::Array< double, 1, 1 > const& );
+    template ndarray::Array< double, 2, 1 > interpolatePSFThinPlateSplineChiSquare( PSF< double > &, 
+                                                                                    ndarray::Array< double, 1, 1 > const&, 
+                                                                                    ndarray::Array< double, 1, 1 > const& );
     
     template ndarray::Array< float, 3, 1 > interpolatePSFSetThinPlateSpline(PSFSet< float > &, 
                                                                             ndarray::Array< float, 1, 1 > const&, 
