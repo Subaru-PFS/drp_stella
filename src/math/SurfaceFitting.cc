@@ -344,20 +344,18 @@ namespace pfs{ namespace drp{ namespace stella{
                                                                            ndarray::Array< const CoordsT, 1, 1 > const& gridPointsY ):
       _controlPointsX(ndarray::copy(controlPointsX)),
       _controlPointsY(ndarray::copy(controlPointsY)),
-      _controlPointsZ(ndarray::copy(controlPointsZ)),
-      _gridPointsX(ndarray::copy(gridPointsX)),
-      _gridPointsY(ndarray::copy(gridPointsY))
+      _controlPointsZ(ndarray::copy(controlPointsZ))
     {
       /// Check input data:
       if ( controlPointsX.getShape()[ 0 ] != controlPointsY.getShape()[ 0 ] ){
-        std::string message( "ThinPlateSpline::ThinPlateSpline: ERROR: controlPointsX.getShape()[0] = " );
+        std::string message( "ThinPlateSpline::ThinPlateSplineChiSquare: ERROR: controlPointsX.getShape()[0] = " );
         message += std::to_string( controlPointsX.getShape()[ 0 ] ) + " != controlPointsY.getShape()[0] = ";
         message += std::to_string( controlPointsY.getShape()[ 0 ] );
         std::cout << message << std::endl;
         throw LSST_EXCEPT( pexExcept::Exception, message.c_str() );    
       }
       if ( controlPointsX.getShape()[ 0 ] != controlPointsZ.getShape()[ 0 ] ){
-        std::string message( "ThinPlateSpline::ThinPlateSpline: ERROR: controlPointsX.getShape()[0] = " );
+        std::string message( "ThinPlateSpline::ThinPlateSplineChiSquare: ERROR: controlPointsX.getShape()[0] = " );
         message += std::to_string( controlPointsX.getShape()[ 0 ] ) + " != controlPointsZ.getShape()[0] = ";
         message += std::to_string( controlPointsZ.getShape()[ 0 ] );
         std::cout << message << std::endl;
@@ -365,11 +363,11 @@ namespace pfs{ namespace drp{ namespace stella{
       }
       
       _gridPointsXY = ndarray::allocate( gridPointsX.getShape()[ 0 ] * gridPointsY.getShape()[ 0 ], 2 );
-      createGridPointsXY();
+      createGridPointsXY( gridPointsX, gridPointsY);
       
       _coefficients = ndarray::allocate( gridPointsX.getShape()[ 0 ] * gridPointsY.getShape()[ 0 ] );
       if ( !calculateCoefficients() ){
-        std::string message( "ThinPlateSpline::ThinPlateSpline: ERROR: calculateCoefficients returned FALSE" );
+        std::string message( "ThinPlateSpline::ThinPlateSplineChiSquare: ERROR: calculateCoefficients returned FALSE" );
         std::cout << message << std::endl;
         throw LSST_EXCEPT( pexExcept::Exception, message.c_str() );    
       }
@@ -386,20 +384,20 @@ namespace pfs{ namespace drp{ namespace stella{
     template< typename ValueT, typename CoordsT >
     bool ThinPlateSplineChiSquare< ValueT, CoordsT >::calculateCoefficients(){
       #ifdef __DEBUG_CALC_TPS__
-        cout << "interpolateThinPlateSpline: _controlPointsX = (" << _controlPointsX.getShape()[0] << ") = " << _controlPointsX << endl;
-        cout << "interpolateThinPlateSpline: _controlPointsY = (" << _controlPointsY.getShape()[0] << ") = " << _controlPointsY << endl;
-        cout << "interpolateThinPlateSpline: _controlPointsZ = (" << _controlPointsZ.getShape()[0] << ") = " << _controlPointsZ << endl;
+        cout << "ThinPlateSplineChiSquare::calculateCoefficients: _controlPointsX = (" << _controlPointsX.getShape()[0] << ") = " << _controlPointsX << endl;
+        cout << "ThinPlateSplineChiSquare::calculateCoefficients: _controlPointsY = (" << _controlPointsY.getShape()[0] << ") = " << _controlPointsY << endl;
+        cout << "ThinPlateSplineChiSquare::calculateCoefficients: _controlPointsZ = (" << _controlPointsZ.getShape()[0] << ") = " << _controlPointsZ << endl;
       #endif
 
       // You We need at least 3 points to define a plane
       if ( _controlPointsX.getShape()[ 0 ] < 3 ){
-        string message( "interpolateThinPlateSpline: ERROR: _controlPointsX.getShape()[0] = " );
+        string message( "ThinPlateSplineChiSquare::calculateCoefficients: ERROR: _controlPointsX.getShape()[0] = " );
         message += to_string( _controlPointsX.getShape()[ 0 ] ) + " < 3";
         cout << message << endl;
         throw LSST_EXCEPT( pexExcept::Exception, message.c_str() );    
       }
 
-      unsigned nGridPoints = _gridPointsX.getShape()[ 0 ] * _gridPointsY.getShape()[ 0 ];
+      unsigned nGridPoints = _gridPointsXY.getShape()[ 0 ];
       unsigned nDataPoints = _controlPointsX.getShape()[ 0 ];
 
       // Allocate the matrix and vector
@@ -407,52 +405,61 @@ namespace pfs{ namespace drp{ namespace stella{
       ndarray::Array< double, 1, 1 > mtx_v = ndarray::allocate( nGridPoints );
       mtx_v.deep() = 0.;
       #ifdef __DEBUG_CALC_TPS__
-        std::cout << "memory for mtx_l, mtx_v allocated" << std::endl;
+        std::cout << "ThinPlateSplineChiSquare::calculateCoefficients: memory for mtx_l, mtx_v allocated" << std::endl;
       #endif
 
       mtx_l.deep() = fillMatrix();
 
       // Fill the right hand vector V
+      ndarray::Array< double, 1, 1 > pt_i = ndarray::allocate(2);
+      ndarray::Array< double, 1, 1 > pt_k = ndarray::allocate(2);
+      ndarray::Array< double, 1, 1 > pt_diff = ndarray::allocate(2);
+      double elen_ik;
       double r_ik;
-      unsigned i = 0;
-      for ( unsigned x = 0; x < _gridPointsX.getShape()[ 0 ]; ++x ){
-        for ( unsigned y = 0; y < _gridPointsY.getShape()[ 0 ]; ++y ){
-          for ( unsigned k = 0; k < nDataPoints; ++k ){
-            r_ik = sqrt( pow( _controlPointsX[ k ] - _gridPointsX[ x ], 2 ) + pow( _controlPointsY[ k ] - _gridPointsY[ y ], 2) );
-            mtx_v[ i ] += 2. * pow( r_ik, 2 ) * log10( r_ik ) - _controlPointsZ[ i ];
-          }
-          ++i;
+      for ( unsigned i = 0; i < _gridPointsXY.getShape()[ 0 ]; ++i ){
+        pt_i[ 0 ] = _gridPointsXY[ i ][ 0 ];
+        pt_i[ 1 ] = _gridPointsXY[ i ][ 1 ];
+        for ( unsigned k = 0; k < nDataPoints; ++k ){
+          pt_k[ 0 ] = _controlPointsX[ k ];
+          pt_k[ 1 ] = _controlPointsY[ k ];
+          pt_diff.deep() = pt_i - pt_k;
+          pt_diff.asEigen() = pt_diff.asEigen().array() * pt_diff.asEigen().array();
+          elen_ik = sqrt( pt_diff.asEigen().sum() );
+          mtx_v[ i ] += 2. * tps_base_func( elen_ik ) - _controlPointsZ[ k ];
         }
       }
       #ifdef __DEBUG_CALC_TPS__
-        std::cout << "interpolateThinPlateSpline: mtx_v = " << mtx_v << std::endl;
+        std::cout << "ThinPlateSplineChiSquare::calculateCoefficients: mtx_v = " << mtx_v << std::endl;
       #endif
 
       // Solve the linear system "inplace"
       _coefficients.asEigen() = mtx_l.asEigen().colPivHouseholderQr().solve(mtx_v.asEigen());
       #ifdef __DEBUG_CALC_TPS__
-        std::cout << "interpolateThinPlateSpline: after colPivHouseholderQr: _coefficients = " << _coefficients << std::endl;
+        std::cout << "ThinPlateSplineChiSquare::calculateCoefficients: after colPivHouseholderQr: _coefficients = " << _coefficients << std::endl;
       #endif
 
       return true;
     }
     
     template< typename ValueT, typename CoordsT >
-    void ThinPlateSplineChiSquare< ValueT, CoordsT >::createGridPointsXY(){
-      unsigned nGridPointsX = _gridPointsX.getShape()[ 0 ];
-      unsigned nGridPointsY = _gridPointsY.getShape()[ 0 ];
+    void ThinPlateSplineChiSquare< ValueT, CoordsT >::createGridPointsXY( ndarray::Array< const CoordsT, 1, 1 > const& gridPointsX,
+                                                                          ndarray::Array< const CoordsT, 1, 1 > const& gridPointsY ){
       unsigned row = 0;
-      for ( unsigned x = 0; x < nGridPointsX; ++x ){
-        for ( unsigned y = 0; y < nGridPointsY; ++y ){
-          _gridPointsXY[ row ][ 0 ] = _gridPointsX[ x ];
-          _gridPointsXY[ row ][ 1 ] = _gridPointsY[ y ];
+      for ( unsigned x = 0; x < gridPointsX.getShape()[ 0 ]; ++x ){
+        for ( unsigned y = 0; y < gridPointsY.getShape()[ 0 ]; ++y ){
+          _gridPointsXY[ row ][ 0 ] = gridPointsX[ x ];
+          _gridPointsXY[ row ][ 1 ] = gridPointsY[ y ];
+          ++row;
         }
       }
+      #ifdef __DEBUG_CALC_TPS__
+        std::cout << "ThinPlateSplineChiSquare::createGridPointsXY: _gridPointsXY = " << _gridPointsXY << std::endl;
+      #endif
     }
     
     template< typename ValueT, typename CoordsT >
     ndarray::Array< double, 2, 1 > ThinPlateSplineChiSquare< ValueT, CoordsT >::fillMatrix(){
-      unsigned nGridPoints = _gridPointsX.getShape()[ 0 ] * _gridPointsY.getShape()[ 0 ];
+      unsigned nGridPoints = _gridPointsXY.getShape()[ 0 ];
       unsigned nControlPoints = _controlPointsX.getShape()[ 0 ];
 
       // Allocate the matrix and vector
@@ -462,7 +469,7 @@ namespace pfs{ namespace drp{ namespace stella{
         std::cout << "memory for mtx_l, mtx_v allocated" << std::endl;
       #endif
 
-      createGridPointsXY();
+//      createGridPointsXY();
 
       ndarray::Array< double, 1, 1 > pt_i = ndarray::allocate(2);
       ndarray::Array< double, 1, 1 > pt_j = ndarray::allocate(2);
@@ -474,13 +481,22 @@ namespace pfs{ namespace drp{ namespace stella{
       // K is symmetrical so we really have to
       // calculate only about half of the coefficients.
       for ( unsigned i = 0; i < nGridPoints; ++i ){
+        pt_i[ 0 ] = _gridPointsXY[ i ][ 0 ];
+        pt_i[ 1 ] = _gridPointsXY[ i ][ 1 ];
+        #ifdef __DEBUG_CALC_TPS__
+          std::cout << "i = " << i << ": pt_i set to " << pt_i << std::endl;
+        #endif
         for (unsigned k = 0; k < nControlPoints; ++k){
-          pt_i[ 0 ] = _gridPointsXY[ i ][ 0 ];
-          pt_i[ 1 ] = _gridPointsXY[ i ][ 1 ];
           pt_k[ 0 ] = _controlPointsX[ k ];
           pt_k[ 1 ] = _controlPointsY[ k ];
+          #ifdef __DEBUG_CALC_TPS__
+            std::cout << "i = " << i << ", k = " << k << ": pt_k set to " << pt_k << std::endl;
+          #endif
 
           pt_diff.deep() = pt_i - pt_k;
+          #ifdef __DEBUG_CALC_TPS__
+            std::cout << "i = " << i << ", k = " << k << ": pt_diff set to " << pt_diff << std::endl;
+          #endif
           pt_diff.asEigen() = pt_diff.asEigen().array() * pt_diff.asEigen().array();
           #ifdef __DEBUG_CALC_TPS__
             std::cout << "i = " << i << ", k = " << k << ": pt_diff set to " << pt_diff << std::endl;
@@ -497,8 +513,6 @@ namespace pfs{ namespace drp{ namespace stella{
         }
         mtx_l [ i ][ i ] = 2. * mtx_l[ i ][ i ];
         
-        pt_i[ 0 ] = _gridPointsXY[ i ][ 0 ];
-        pt_i[ 1 ] = _gridPointsXY[ i ][ 1 ];
         for ( unsigned j = i + 1; j < nGridPoints; ++j ){
           pt_j[ 0 ] = _gridPointsXY[ j ][ 0 ];
           pt_j[ 1 ] = _gridPointsXY[ j ][ 1 ];
@@ -527,23 +541,24 @@ namespace pfs{ namespace drp{ namespace stella{
             #ifdef __DEBUG_CALC_TPS__
               std::cout << "i = " << i << ", j = " << j << ", k = " << k << ": elen_jk set to " << elen_jk << std::endl;
             #endif
-            mtx_l[ i ][ j ] += elen_ik * elen_ik * elen_jk * elen_jk * tps_base_func( elen_ik ) * tps_base_func( elen_jk ) / _controlPointsZ[ k ];
+            mtx_l[ i ][ j ] += tps_base_func( elen_ik ) * tps_base_func( elen_jk ) / _controlPointsZ[ k ];
+//            mtx_l[ i ][ j ] += elen_ik * elen_ik * elen_jk * elen_jk * tps_base_func( elen_ik ) * tps_base_func( elen_jk ) / _controlPointsZ[ k ];
           }
           mtx_l[ j ][ i ] = mtx_l[ i ][ j ];
-          #ifdef __DEBUG_CALC_TPS__
-            std::cout << "i = " << i << ", j = " << j << ", k = " << k << ": mtx_l[i][j] set to " << mtx_l[i][j] << std::endl;
-          #endif
+//          #ifdef __DEBUG_CALC_TPS__
+            std::cout << "i = " << i << ", j = " << j << ": mtx_l[i][j] set to " << mtx_l[i][j] << std::endl;
+//          #endif
         }
       }
       #ifdef __DEBUG_CALC_TPS__
-        std::cout << "mtx_l[i][j] set to " << mtx_l[i][j] << std::endl;
+        std::cout << "mtx_l set to " << mtx_l << std::endl;
       #endif
       return mtx_l;
     }
             
     template< typename ValueT, typename CoordsT >
     ValueT ThinPlateSplineChiSquare< ValueT, CoordsT >::fitPoint(CoordsT const xPositionFit, 
-                                                        CoordsT const yPositionFit){
+                                                                 CoordsT const yPositionFit){
       #ifdef __DEBUG_CALC_TPS__
         std::cout << "ThinPlateSpline::fitPoint: x = " << xPositionFit << ", y = " << yPositionFit << std::endl;
         //std::cout << "ThinPlateSpline::fitPoint: _coefficients = " << _coefficients << std::endl;

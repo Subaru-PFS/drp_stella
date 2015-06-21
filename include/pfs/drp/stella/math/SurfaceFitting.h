@@ -149,7 +149,8 @@ namespace pfs { namespace drp { namespace stella {
         private:
             /** @brief create vector of gridPointsXY of size _gridPointsX.getShape()[0] * _gridPointsY.getShape()[0] X 2
              */
-            void createGridPointsXY();
+            void createGridPointsXY( ndarray::Array< const CoordsT, 1, 1 > const& gridPointsX,
+                                     ndarray::Array< const CoordsT, 1, 1 > const& gridPointsY );
             
             /** @brief fill lhs matrix for (regularized) fit
              */
@@ -167,8 +168,6 @@ namespace pfs { namespace drp { namespace stella {
             ndarray::Array< const CoordsT, 1, 1 > _controlPointsX;
             ndarray::Array< const CoordsT, 1, 1 > _controlPointsY;
             ndarray::Array< const ValueT, 1, 1 > _controlPointsZ;
-            ndarray::Array< const CoordsT, 1, 1 > _gridPointsX;
-            ndarray::Array< const CoordsT, 1, 1 > _gridPointsY;
             ndarray::Array< CoordsT, 2, 1 > _gridPointsXY;
             ndarray::Array< double, 1, 1 > _coefficients;
     };  
