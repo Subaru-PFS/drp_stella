@@ -1586,7 +1586,7 @@ namespace pfs{ namespace drp{ namespace stella{
       #endif
       ndarray::Array< CoordsT, 1, 1 > xArr = ndarray::allocate(psf.getImagePSF_XRelativeToCenter().size());
       if (xArr.size() < 3){
-        string message("PSF::InterPolateThinPlateSpline: ERROR: xArr.size(=");
+        string message("PSF::InterPolateThinPlateSplineChiSquare: ERROR: xArr.size(=");
         message += to_string(xArr.size()) + ") < 3";
         cout << message << endl;
         throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
@@ -1611,7 +1611,7 @@ namespace pfs{ namespace drp{ namespace stella{
 //      #ifdef __DEBUG_CALC_TPS__
 //        cout << "PSF::interpolatePSFThinPlateSplineChiSquare: zT = " << zT << endl;
 //      #endif
-      cout << "PSF::interpolatePSFThinPlateSpline: starting interpolateThinPlateSplineEigen" << endl;
+      cout << "PSF::interpolatePSFThinPlateSplineChiSquare: starting interpolateThinPlateSplineEigen" << endl;
       math::ThinPlateSplineChiSquare< PsfT, CoordsT > tps = math::ThinPlateSplineChiSquare< PsfT, CoordsT >( xArr, 
                                                                                                              yArr, 
                                                                                                              zArr,

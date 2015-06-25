@@ -365,7 +365,7 @@ namespace pfs{ namespace drp{ namespace stella{
       _gridPointsXY = ndarray::allocate( gridPointsX.getShape()[ 0 ] * gridPointsY.getShape()[ 0 ], 2 );
       createGridPointsXY( gridPointsX, gridPointsY);
       
-      _coefficients = ndarray::allocate( gridPointsX.getShape()[ 0 ] * gridPointsY.getShape()[ 0 ] );
+      _coefficients = ndarray::allocate( gridPointsX.getShape()[ 0 ] * gridPointsY.getShape()[ 0 ] + 3);
       if ( !calculateCoefficients() ){
         std::string message( "ThinPlateSpline::ThinPlateSplineChiSquare: ERROR: calculateCoefficients returned FALSE" );
         std::cout << message << std::endl;
@@ -401,8 +401,8 @@ namespace pfs{ namespace drp{ namespace stella{
       unsigned nDataPoints = _controlPointsX.getShape()[ 0 ];
 
       // Allocate the matrix and vector
-      ndarray::Array< double, 2, 1 > mtx_l = ndarray::allocate( nGridPoints, nGridPoints );
-      ndarray::Array< double, 1, 1 > mtx_v = ndarray::allocate( nGridPoints );
+      ndarray::Array< double, 2, 1 > mtx_l = ndarray::allocate( nGridPoints + 3, nGridPoints + 3);
+      ndarray::Array< double, 1, 1 > mtx_v = ndarray::allocate( nGridPoints + 3);
       mtx_v.deep() = 0.;
       #ifdef __DEBUG_CALC_TPS__
         std::cout << "ThinPlateSplineChiSquare::calculateCoefficients: memory for mtx_l, mtx_v allocated" << std::endl;
@@ -416,7 +416,7 @@ namespace pfs{ namespace drp{ namespace stella{
       ndarray::Array< double, 1, 1 > pt_diff = ndarray::allocate(2);
       double elen_ik;
       double r_ik;
-      for ( unsigned i = 0; i < _gridPointsXY.getShape()[ 0 ]; ++i ){
+      for ( unsigned i = 0; i < nGridPoints; ++i ){
         pt_i[ 0 ] = _gridPointsXY[ i ][ 0 ];
         pt_i[ 1 ] = _gridPointsXY[ i ][ 1 ];
         for ( unsigned k = 0; k < nDataPoints; ++k ){
@@ -425,8 +425,13 @@ namespace pfs{ namespace drp{ namespace stella{
           pt_diff.deep() = pt_i - pt_k;
           pt_diff.asEigen() = pt_diff.asEigen().array() * pt_diff.asEigen().array();
           elen_ik = sqrt( pt_diff.asEigen().sum() );
-          mtx_v[ i ] += 2. * tps_base_func( elen_ik ) - _controlPointsZ[ k ];
+          mtx_v[ i ] += 2. * tps_base_func( elen_ik );// - _controlPointsZ[ k ];
         }
+      }
+      mtx_v[ nGridPoints ] = 2. * double( nDataPoints );
+      for (unsigned k = 0; k < nDataPoints; ++k ){
+        mtx_v[ nGridPoints + 1 ] += 2. * _controlPointsX[ k ];
+        mtx_v[ nGridPoints + 2 ] += 2. * _controlPointsY[ k ];
       }
       #ifdef __DEBUG_CALC_TPS__
         std::cout << "ThinPlateSplineChiSquare::calculateCoefficients: mtx_v = " << mtx_v << std::endl;
@@ -463,7 +468,9 @@ namespace pfs{ namespace drp{ namespace stella{
       unsigned nControlPoints = _controlPointsX.getShape()[ 0 ];
 
       // Allocate the matrix and vector
-      ndarray::Array< double, 2, 1 > mtx_l = ndarray::allocate( nGridPoints, nGridPoints );
+      ndarray::Array< double, 2, 1 > mtx_l = ndarray::allocate( nGridPoints + 3, nGridPoints + 3);
+//      ndarray::Array< double, 2, 1 > fArr = ndarray::allocate( nGridPoints, 3 );
+//      ndarray::Array< double, 2, 1 > fTArr = ndarray::allocate( 3, nGridPoints );
       mtx_l.deep() = 0.;
       #ifdef __DEBUG_CALC_TPS__
         std::cout << "memory for mtx_l, mtx_v allocated" << std::endl;
@@ -541,7 +548,7 @@ namespace pfs{ namespace drp{ namespace stella{
             #ifdef __DEBUG_CALC_TPS__
               std::cout << "i = " << i << ", j = " << j << ", k = " << k << ": elen_jk set to " << elen_jk << std::endl;
             #endif
-            mtx_l[ i ][ j ] += tps_base_func( elen_ik ) * tps_base_func( elen_jk ) / _controlPointsZ[ k ];
+            mtx_l[ i ][ j ] += 2. * tps_base_func( elen_ik ) * tps_base_func( elen_jk ) / _controlPointsZ[ k ];
 //            mtx_l[ i ][ j ] += elen_ik * elen_ik * elen_jk * elen_jk * tps_base_func( elen_ik ) * tps_base_func( elen_jk ) / _controlPointsZ[ k ];
           }
           mtx_l[ j ][ i ] = mtx_l[ i ][ j ];
@@ -549,7 +556,43 @@ namespace pfs{ namespace drp{ namespace stella{
             std::cout << "i = " << i << ", j = " << j << ": mtx_l[i][j] set to " << mtx_l[i][j] << std::endl;
 //          #endif
         }
+        // P (p x 3, upper right)
+        // P transposed (3 x p, bottom left)
+        for ( unsigned k = 0; k < nControlPoints; ++k ){
+          pt_k[0] = _controlPointsX[k];
+          pt_k[1] = _controlPointsY[k];
+          #ifdef __DEBUG_CALC_TPS__
+            std::cout << "i = " << i << ", j = " << j << ": pt_i set to " << pt_i << ", pt_j = " << pt_j << ", pt_k = " << pt_k << std::endl;
+          #endif
+          pt_diff.deep() = pt_i - pt_k;
+          pt_diff.asEigen() = pt_diff.asEigen().array() * pt_diff.asEigen().array();
+          #ifdef __DEBUG_CALC_TPS__
+            std::cout << "i = " << i << ", j = " << j << ", k = " << k << ": pt_diff set to " << pt_diff << std::endl;
+          #endif
+          elen_ik = sqrt( pt_diff.asEigen().sum() );
+          #ifdef __DEBUG_CALC_TPS__
+            std::cout << "i = " << i << ", j = " << j << ", k = " << k << ": elen_ik set to " << elen_ik << std::endl;
+          #endif
+          mtx_l[ i ][ nGridPoints + 0 ] += 2. * tps_base_func( elen_ik)  / _controlPointsZ[ k ];
+          mtx_l[ i ][ nGridPoints + 1 ] += 2. * _controlPointsX[ k ] * tps_base_func( elen_ik ) / _controlPointsZ[ k ];
+          mtx_l[ i ][ nGridPoints + 2 ] += 2. * _controlPointsY[ k ] * tps_base_func( elen_ik ) / _controlPointsZ[ k ];
+        }
+        mtx_l[ nGridPoints + 0 ][ i ] = mtx_l[ i ][ nGridPoints + 0 ];
+        mtx_l[ nGridPoints + 1 ][ i ] = mtx_l[ i ][ nGridPoints + 1 ];
+        mtx_l[ nGridPoints + 2 ][ i ] = mtx_l[ i ][ nGridPoints + 2 ];
       }
+      // O (3 x 3, lower right)
+      for ( unsigned k = 0; k < nControlPoints; ++k ){
+        mtx_l[ nGridPoints ][ nGridPoints ] += 2. / _controlPointsZ[ k ];
+        mtx_l[ nGridPoints + 1 ][ nGridPoints + 1 ] += 2. * _controlPointsX[ k ] * _controlPointsX[ k ] / _controlPointsZ[ k ];
+        mtx_l[ nGridPoints + 2 ][ nGridPoints + 2 ] += 2. * _controlPointsY[ k ] * _controlPointsY[ k ] / _controlPointsZ[ k ];
+        mtx_l[ nGridPoints ][ nGridPoints + 1 ] += 2. * _controlPointsX[ k ] / _controlPointsZ[ k ];
+        mtx_l[ nGridPoints ][ nGridPoints + 2 ] += 2. * _controlPointsY[ k ] / _controlPointsZ[ k ];
+        mtx_l[ nGridPoints + 1 ][ nGridPoints + 2 ] += 2. * _controlPointsX[ k ] * _controlPointsY[ k ] / _controlPointsZ[ k ];
+      }
+      mtx_l[ nGridPoints + 1 ][ nGridPoints ] = mtx_l[ nGridPoints ][ nGridPoints + 1 ];
+      mtx_l[ nGridPoints + 2 ][ nGridPoints ] = mtx_l[ nGridPoints ][ nGridPoints + 2 ];
+      mtx_l[ nGridPoints + 2 ][ nGridPoints + 1 ] = mtx_l[ nGridPoints + 1 ][ nGridPoints + 2 ];
       #ifdef __DEBUG_CALC_TPS__
         std::cout << "mtx_l set to " << mtx_l << std::endl;
       #endif
@@ -564,19 +607,19 @@ namespace pfs{ namespace drp{ namespace stella{
         //std::cout << "ThinPlateSpline::fitPoint: _coefficients = " << _coefficients << std::endl;
       #endif
       unsigned p = _gridPointsXY.getShape()[0];
-      //double h = _coefficients[p] + (_coefficients[p+1] * xPositionFit) + (_coefficients[p+2] * yPositionFit);
+      double h = _coefficients[ p ] + ( _coefficients[ p + 1 ] * xPositionFit ) + ( _coefficients[ p + 2 ] * yPositionFit );
       ndarray::Array<CoordsT, 1, 1> pt_i = ndarray::allocate(2);
       ndarray::Array<CoordsT, 1, 1> pt_cur = ndarray::allocate(2);
       pt_cur[0] = xPositionFit;
       pt_cur[1] = yPositionFit;
       ndarray::Array<CoordsT, 1, 1> pt_diff = ndarray::allocate(2);
       ValueT len;
-      double h = 0.;
+      //double h = 0.;
       for ( unsigned i = 0; i < p; ++i ){
         pt_i[0] = _gridPointsXY[ i ][ 0 ];
         pt_i[1] = _gridPointsXY[ i ][ 1 ];
         pt_diff.deep() = pt_i - pt_cur;
-        pt_diff.deep() = pt_diff * pt_diff;
+        pt_diff.asEigen() = pt_diff.asEigen().array() * pt_diff.asEigen().array();
         len = sqrt(pt_diff.asEigen().sum());
         h += _coefficients[i] * tps_base_func( len );
       }
