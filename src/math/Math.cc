@@ -1089,6 +1089,15 @@
       ndarray::Array< T const, 1, 1 > arr_Out = ndarray::external(vec_In.data(), ndarray::makeVector(int(vec_In.size())), ndarray::makeVector(1));
       return arr_Out;
     }
+
+    template< typename T >
+    std::vector< T > ndArrayToVector( ndarray::Array< T, 1, 1 > const& ndArray_In){
+      std::vector< T > vec;
+      vec.reserve(ndArray_In.getShape()[ 0 ]);
+      for (auto it = ndArray_In.begin(); it != ndArray_In.end(); ++it)
+        vec.push_back( *it );
+      return vec;
+    }
     
     template< typename T >
     ndarray::Array<T, 2, 1> ndArray21(T nRows, T nCols){
@@ -1128,6 +1137,14 @@
     template ndarray::Array<long, 1, 1> vectorToNdArray(std::vector<long> &);
     template ndarray::Array<float, 1, 1> vectorToNdArray(std::vector<float> &);
     template ndarray::Array<double, 1, 1> vectorToNdArray(std::vector<double> &);
+    
+    template std::vector< unsigned short > ndArrayToVector( ndarray::Array< unsigned short, 1, 1 > const&);
+    template std::vector< unsigned int > ndArrayToVector( ndarray::Array< unsigned int, 1, 1 > const&);
+    template std::vector< unsigned long > ndArrayToVector( ndarray::Array< unsigned long, 1, 1 > const&);
+    template std::vector< int > ndArrayToVector( ndarray::Array< int, 1, 1 > const&);
+    template std::vector< long > ndArrayToVector( ndarray::Array< long, 1, 1 > const&);
+    template std::vector< float > ndArrayToVector( ndarray::Array< float, 1, 1 > const&);
+    template std::vector< double > ndArrayToVector( ndarray::Array< double, 1, 1 > const&);
     
     template bool checkIfValuesAreInRange(ndarray::Array<int, 1, 1> const&, ndarray::Array<int, 1, 1> const& range);
     template bool checkIfValuesAreInRange(ndarray::Array<int, 1, 1> const&, ndarray::Array<float, 1, 1> const& range);

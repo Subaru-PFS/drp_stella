@@ -94,11 +94,10 @@ namespace pfs { namespace drp { namespace stella {
       /**
        *  @brief Constructor for a PSF
        *
-       *  @param[in] trace              Masked image of a FiberTrace for which to compute PSF in one bin specified by yLow_In and yHigh_In
-       *  @param[in] xCenters           Vector containing the xCenters of the FiberTrace
        *  @param[in] yLow               Lower y limit of Bin for which the PSF shall be computed
        *  @param[in] yHigh              Upper y limit of Bin for which the PSF shall be computed
        *  @param[in] twoDPSFControl     Structure containing the parameters for the computation of the PSF
+       *  @param[in] iTrace             Trace number for which the PSF shall be computed (for debugging purposes only)
        *  @param[in] iBin               Bin number for which the PSF shall be computed (for debugging purposes only)
        */
       explicit PSF(const size_t yLow,
@@ -111,6 +110,40 @@ namespace pfs { namespace drp { namespace stella {
             _iBin(iBin),
             _yMin(yLow),
             _yMax(yHigh),
+            _imagePSF_XTrace(0),
+            _imagePSF_YTrace(0),
+            _imagePSF_ZTrace(0),
+            _imagePSF_XRelativeToCenter(0),
+            _imagePSF_YRelativeToCenter(0),
+            _imagePSF_ZNormalized(0),
+            _imagePSF_Weight(0),
+            _xCentersPSFCCD(0),
+            _yCentersPSFCCD(0),
+            _nPixPerPSF(0),
+            _xRangePolynomial(2),
+            _isTwoDPSFControlSet(true),
+            _isPSFsExtracted(false)
+      {};
+      
+      /**
+       *  @brief Constructor for a PSF
+       *
+       *  @param[in] yLow               Lower y limit of Bin for which the PSF shall be computed
+       *  @param[in] yHigh              Upper y limit of Bin for which the PSF shall be computed
+       *  @param[in] twoDPSFControl     Structure containing the parameters for the computation of the PSF
+       *  @param[in] iTrace             Trace number for which the PSF shall be computed (for debugging purposes only)
+       *  @param[in] iBin               Bin number for which the PSF shall be computed (for debugging purposes only)
+       */
+      explicit PSF( const long yLow,
+                    const long yHigh,
+                    const PTR(TwoDPSFControl) &twoDPSFControl,
+                    long iTrace = 0,
+                    long iBin = 0 )
+          : _twoDPSFControl( twoDPSFControl ),
+            _iTrace( size_t( iTrace ) ),
+            _iBin( size_t( iBin ) ),
+            _yMin( size_t( yLow ) ),
+            _yMax( size_t( yHigh ) ),
             _imagePSF_XTrace(0),
             _imagePSF_YTrace(0),
             _imagePSF_ZTrace(0),
@@ -193,14 +226,14 @@ namespace pfs { namespace drp { namespace stella {
        * @param fiberTrace_In: fiberTrace from which this 
        */
       template< typename ImageT, typename MaskT = afwImage::MaskPixel, typename VarianceT = afwImage::VariancePixel >
-      ExtractPSFResult<T> extractPSFFromCenterPosition(FiberTrace< ImageT, MaskT, VarianceT > const& fiberTrace_In,
-                                                       T const centerPositionX_In,
-                                                       T const centerPositionY_In);
+      ExtractPSFResult<T> extractPSFFromCenterPosition( FiberTrace< ImageT, MaskT, VarianceT > const& fiberTrace_In,
+                                                        T const centerPositionX_In,
+                                                        T const centerPositionY_In);
       
       template< typename ImageT, typename MaskT = afwImage::MaskPixel, typename VarianceT = afwImage::VariancePixel >
-      bool extractPSFFromCenterPositions(FiberTrace< ImageT, MaskT, VarianceT > const& fiberTrace_In,
-                                                     ndarray::Array<T, 1, 1> const& centerPositionsX_In,
-                                                     ndarray::Array<T, 1, 1> const& centerPositionsY_In);
+      bool extractPSFFromCenterPositions( FiberTrace< ImageT, MaskT, VarianceT > const& fiberTrace_In,
+                                          ndarray::Array< T, 1, 1 > const& centerPositionsX_In,
+                                          ndarray::Array< T, 1, 1 > const& centerPositionsY_In);
       
       /*
        * @brief Use center positions given in this->x/yCentersPSFCCD
@@ -240,6 +273,14 @@ namespace pfs { namespace drp { namespace stella {
       double fitFittedPSFToZTrace( ndarray::Array< T, 1, 1 > const& zFit_In,
                                    ndarray::Array< T, 1, 1 > const& measureErrors_In );
             
+      math::ThinPlateSplineChiSquare< T, T > getThinPlateSplineChiSquare() const{
+          return math::ThinPlateSplineChiSquare< T, T >( _thinPlateSplineChiSquare );
+      }
+      void setThinPlateSplineChiSquare( math::ThinPlateSplineChiSquare< T, T > const& tps ){
+          _thinPlateSplineChiSquare = tps;
+          return;
+      }
+      
   protected:
 
 //    virtual std::string getPersistenceName() const;
@@ -268,6 +309,7 @@ namespace pfs { namespace drp { namespace stella {
       std::vector<T> _xRangePolynomial;
       bool _isTwoDPSFControlSet;
       bool _isPSFsExtracted;
+      math::ThinPlateSplineChiSquare< T, T > _thinPlateSplineChiSquare;
       
   };
   

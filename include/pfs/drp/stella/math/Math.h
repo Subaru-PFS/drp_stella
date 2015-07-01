@@ -343,6 +343,13 @@ namespace pfs { namespace drp { namespace stella {
     ndarray::Array< T const, 1, 1 > vectorToNdArray(std::vector<T> const& vec_In);
     
     /**
+     * @brief return vector containing copy of data in ndarray
+     * @param ndArray_In : ndarray to be converted to vector
+     */
+    template< typename T >
+    std::vector< T > ndArrayToVector( ndarray::Array< T, 1, 1 > const& ndArray_In);
+    
+    /**
      * @brief return ndarray of specified size and type
      */
     template< typename T >
