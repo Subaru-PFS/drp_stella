@@ -109,6 +109,7 @@ namespace pfs { namespace drp { namespace stella {
     template < typename ValueT, typename CoordsT >
     class ThinPlateSplineChiSquare{
         public: 
+            explicit ThinPlateSplineChiSquare();
             
             /**
              * @brief Create ThinPlateSpline object and calculate coefficients of fit by minimizing Chi square
@@ -124,6 +125,8 @@ namespace pfs { namespace drp { namespace stella {
                                                ndarray::Array< const ValueT, 1, 1 > const& controlPointsZ,
                                                ndarray::Array< const CoordsT, 1, 1 > const& gridPointsX,
                                                ndarray::Array< const CoordsT, 1, 1 > const& gridPointsY);
+            
+            ThinPlateSplineChiSquare( ThinPlateSplineChiSquare const& tps);
             
             virtual ~ThinPlateSplineChiSquare(){}
             
@@ -143,6 +146,26 @@ namespace pfs { namespace drp { namespace stella {
             ndarray::Array< ValueT, 2, 1 > fitArray( ndarray::Array< const CoordsT, 1, 1 > const& xPositionsFit,
                                                      ndarray::Array< const CoordsT, 1, 1 > const& yPositionsFit,
                                                      bool const isXYPositionsGridPoints); /// fit positions
+            
+            ndarray::Array< const CoordsT, 1, 1 > getControlPointsX () const {
+                return _controlPointsX;
+            }
+
+            ndarray::Array< const CoordsT, 1, 1 > getControlPointsY() const {
+                return _controlPointsY;
+            }
+
+            ndarray::Array< const ValueT, 1, 1 > getControlPointsZ() const {
+                return _controlPointsZ;
+            }
+
+            ndarray::Array< CoordsT, 2, 1 > getGridPointsXY() const {
+                return _gridPointsXY;
+            }
+
+            ndarray::Array< double, 1, 1 > getCoefficients() const {
+                return _coefficients;
+            }
             
         protected:
                 

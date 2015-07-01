@@ -224,8 +224,8 @@ Interface to Stella
 %include "pfs/drp/stella/SurfaceFit.h"
 %include "lsst/"
 
-%template(PSFSetVectorF) std::vector<PTR(pfs::drp::stella::PSFSet<float>)>;
-%template(PSFSetVectorD) std::vector<PTR(pfs::drp::stella::PSFSet<double>)>;
+//%template(PSFSetVectorF) std::vector<PTR(pfs::drp::stella::PSFSet<float>)>;
+//%template(PSFSetVectorD) std::vector<PTR(pfs::drp::stella::PSFSet<double>)>;
 
 %template(FiberTraceF) pfs::drp::stella::FiberTrace<float, unsigned short, float>;
 %template(FiberTraceD) pfs::drp::stella::FiberTrace<double, unsigned short, float>;
@@ -491,9 +491,9 @@ Interface to Stella
 %template(interpolatePSFThinPlateSplineFD) pfs::drp::stella::math::interpolatePSFThinPlateSpline<float, double>;
 %template(interpolatePSFThinPlateSplineDD) pfs::drp::stella::math::interpolatePSFThinPlateSpline<double, double>;
 
-%template(interpolatePSFThinPlateSplineChiSquareFF) pfs::drp::stella::math::interpolatePSFThinPlateSplineChiSquare<float, float>;
-%template(interpolatePSFThinPlateSplineChiSquareDF) pfs::drp::stella::math::interpolatePSFThinPlateSplineChiSquare<double, float>;
-%template(interpolatePSFThinPlateSplineChiSquareFD) pfs::drp::stella::math::interpolatePSFThinPlateSplineChiSquare<float, double>;
+//%template(interpolatePSFThinPlateSplineChiSquareFF) pfs::drp::stella::math::interpolatePSFThinPlateSplineChiSquare<float, float>;
+//%template(interpolatePSFThinPlateSplineChiSquareDF) pfs::drp::stella::math::interpolatePSFThinPlateSplineChiSquare<double, float>;
+//%template(interpolatePSFThinPlateSplineChiSquareFD) pfs::drp::stella::math::interpolatePSFThinPlateSplineChiSquare<float, double>;
 %template(interpolatePSFThinPlateSplineChiSquareDD) pfs::drp::stella::math::interpolatePSFThinPlateSplineChiSquare<double, double>;
 
 %template(interpolatePSFThinPlateSplineFFF) pfs::drp::stella::math::interpolatePSFThinPlateSpline<float, float, float>;
@@ -550,6 +550,14 @@ Interface to Stella
 %template(vectorToNdArrayL) pfs::drp::stella::math::vectorToNdArray<long>;
 %template(vectorToNdArrayF) pfs::drp::stella::math::vectorToNdArray<float>;
 %template(vectorToNdArrayD) pfs::drp::stella::math::vectorToNdArray<double>;
+
+%template(ndArrayToVectorUS) pfs::drp::stella::math::ndArrayToVector<unsigned short>;
+%template(ndArrayToVectorUI) pfs::drp::stella::math::ndArrayToVector<unsigned int>;
+%template(ndArrayToVectorUL) pfs::drp::stella::math::ndArrayToVector<unsigned long>;
+%template(ndArrayToVectorI) pfs::drp::stella::math::ndArrayToVector<int>;
+%template(ndArrayToVectorL) pfs::drp::stella::math::ndArrayToVector<long>;
+%template(ndArrayToVectorF) pfs::drp::stella::math::ndArrayToVector<float>;
+%template(ndArrayToVectorD) pfs::drp::stella::math::ndArrayToVector<double>;
 
 %template(makeNdArray21I) pfs::drp::stella::math::ndArray21<int>;
 %template(makeNdArray21F) pfs::drp::stella::math::ndArray21<float>;

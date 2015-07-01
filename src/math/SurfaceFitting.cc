@@ -337,6 +337,15 @@ namespace pfs{ namespace drp{ namespace stella{
     template class ThinPlateSpline<double, double>;
 
     template< typename ValueT, typename CoordsT >
+    ThinPlateSplineChiSquare< ValueT, CoordsT >::ThinPlateSplineChiSquare( ):
+      _controlPointsX(),
+      _controlPointsY(),
+      _controlPointsZ(),
+      _gridPointsXY(),
+      _coefficients()
+    {}
+
+    template< typename ValueT, typename CoordsT >
     ThinPlateSplineChiSquare< ValueT, CoordsT >::ThinPlateSplineChiSquare( ndarray::Array< const CoordsT, 1, 1 > const& controlPointsX,
                                                                            ndarray::Array< const CoordsT, 1, 1 > const& controlPointsY,
                                                                            ndarray::Array< const ValueT, 1, 1 > const& controlPointsZ,
@@ -371,6 +380,19 @@ namespace pfs{ namespace drp{ namespace stella{
         std::cout << message << std::endl;
         throw LSST_EXCEPT( pexExcept::Exception, message.c_str() );    
       }
+    }
+    
+    template< typename ValueT, typename CoordsT >
+    ThinPlateSplineChiSquare< ValueT, CoordsT >::ThinPlateSplineChiSquare( ThinPlateSplineChiSquare< ValueT, CoordsT > const& tps ):
+            _controlPointsX( tps.getControlPointsX() ),
+            _controlPointsY( tps.getControlPointsY() ),
+            _controlPointsZ( tps.getControlPointsZ() )
+    { 
+      _gridPointsXY = ndarray::allocate( tps.getGridPointsXY().getShape() );
+      _gridPointsXY.deep() = tps.getGridPointsXY();
+      
+      _coefficients = ndarray::allocate( tps.getCoefficients().getShape() );
+      _coefficients.deep() = tps.getCoefficients();
     }
             
     template< typename ValueT, typename CoordsT >
