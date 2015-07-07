@@ -124,7 +124,8 @@ namespace pfs { namespace drp { namespace stella {
                                                ndarray::Array< const CoordsT, 1, 1 > const& controlPointsY,
                                                ndarray::Array< const ValueT, 1, 1 > const& controlPointsZ,
                                                ndarray::Array< const CoordsT, 1, 1 > const& gridPointsX,
-                                               ndarray::Array< const CoordsT, 1, 1 > const& gridPointsY);
+                                               ndarray::Array< const CoordsT, 1, 1 > const& gridPointsY,
+                                               ValueT const regularization = 0.);
             
             ThinPlateSplineChiSquare( ThinPlateSplineChiSquare const& tps);
             
@@ -167,6 +168,10 @@ namespace pfs { namespace drp { namespace stella {
                 return _coefficients;
             }
             
+            ValueT getRegularization() const {
+                return _regularization;
+            }
+            
         protected:
                 
         private:
@@ -193,6 +198,7 @@ namespace pfs { namespace drp { namespace stella {
             ndarray::Array< const ValueT, 1, 1 > _controlPointsZ;
             ndarray::Array< CoordsT, 2, 1 > _gridPointsXY;
             ndarray::Array< double, 1, 1 > _coefficients;
+            ValueT _regularization;
     };  
     
   }

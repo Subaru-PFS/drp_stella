@@ -197,6 +197,8 @@ namespace pfs { namespace drp { namespace stella {
       const std::vector< unsigned long > getNPixPerPSF() const { return _nPixPerPSF; }
       const std::vector< T > getXRangePolynomial() const { return _xRangePolynomial; }
       
+      bool setImagePSF_ZTrace( ndarray::Array< T, 1, 1 > const& zTrace);
+      bool setImagePSF_ZTrace( std::vector< T > const& zTrace);
       bool setImagePSF_ZNormalized( ndarray::Array< T, 1, 1 > const& zNormalized);
       bool setImagePSF_ZNormalized( std::vector< T > const& zNormalized);
       bool setImagePSF_ZFit( ndarray::Array< T, 1, 1 > const& zFit );
@@ -425,11 +427,15 @@ namespace math{
    * @param psf : PSF to interpolate
    * @param xPositions : x positions of new coordinate grid relative to center of PSF [x_0, x_1, ... , x_n-2, x_n-1]
    * @param yPositions : y positions of new coordinate grid relative to center of PSF [y_0, y_1, ... , y_m-2, y_m-1]
+   * @param regularization : regularization parameter for thin-plate spline fitting >= 0 (0 = no regularization)
+   * @param mode : mode == 0: fit psf._imagePSF_ZNormalized, mode == 1: fit psf._imagePSF_ZTrace
    */
   template< typename PsfT = double, typename CoordsT = double >
   ndarray::Array< PsfT, 2, 1 > interpolatePSFThinPlateSplineChiSquare( PSF< PsfT > & psf,
                                                                        ndarray::Array< CoordsT, 1, 1 > const& xPositions,
-                                                                       ndarray::Array< CoordsT, 1, 1 > const& yPositions );
+                                                                       ndarray::Array< CoordsT, 1, 1 > const& yPositions,
+                                                                       PsfT const regularization = 0.,
+                                                                       unsigned short const mode = 0 );
   
   template< typename PsfT = double, typename CoordsT = double>
   ndarray::Array< PsfT, 3, 1 > interpolatePSFSetThinPlateSpline( PSFSet< PsfT > & psfSet,
