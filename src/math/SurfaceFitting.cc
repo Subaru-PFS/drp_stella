@@ -342,7 +342,8 @@ namespace pfs{ namespace drp{ namespace stella{
       _controlPointsY(),
       _controlPointsZ(),
       _gridPointsXY(),
-      _coefficients()
+      _coefficients(),
+      _regularization(0.)
     {}
 
     template< typename ValueT, typename CoordsT >
@@ -350,10 +351,12 @@ namespace pfs{ namespace drp{ namespace stella{
                                                                            ndarray::Array< const CoordsT, 1, 1 > const& controlPointsY,
                                                                            ndarray::Array< const ValueT, 1, 1 > const& controlPointsZ,
                                                                            ndarray::Array< const CoordsT, 1, 1 > const& gridPointsX,
-                                                                           ndarray::Array< const CoordsT, 1, 1 > const& gridPointsY ):
-      _controlPointsX(ndarray::copy(controlPointsX)),
-      _controlPointsY(ndarray::copy(controlPointsY)),
-      _controlPointsZ(ndarray::copy(controlPointsZ))
+                                                                           ndarray::Array< const CoordsT, 1, 1 > const& gridPointsY,
+                                                                           ValueT const regularization):
+      _controlPointsX( ndarray::copy( controlPointsX ) ),
+      _controlPointsY( ndarray::copy( controlPointsY ) ),
+      _controlPointsZ( ndarray::copy( controlPointsZ ) ),
+      _regularization( regularization )
     {
       /// Check input data:
       if ( controlPointsX.getShape()[ 0 ] != controlPointsY.getShape()[ 0 ] ){
@@ -386,7 +389,8 @@ namespace pfs{ namespace drp{ namespace stella{
     ThinPlateSplineChiSquare< ValueT, CoordsT >::ThinPlateSplineChiSquare( ThinPlateSplineChiSquare< ValueT, CoordsT > const& tps ):
             _controlPointsX( tps.getControlPointsX() ),
             _controlPointsY( tps.getControlPointsY() ),
-            _controlPointsZ( tps.getControlPointsZ() )
+            _controlPointsZ( tps.getControlPointsZ() ),
+            _regularization( tps.getRegularization() )
     { 
       _gridPointsXY = ndarray::allocate( tps.getGridPointsXY().getShape() );
       _gridPointsXY.deep() = tps.getGridPointsXY();
@@ -540,7 +544,7 @@ namespace pfs{ namespace drp{ namespace stella{
           tpsBaseValueSquared = tpsBaseValue * tpsBaseValue;
           mtx_l[ i ][ i ] += tpsBaseValueSquared / _controlPointsZ[ k ];
         }
-        mtx_l [ i ][ i ] = 2. * mtx_l[ i ][ i ];
+        mtx_l [ i ][ i ] = 2. * mtx_l[ i ][ i ] + _regularization;
         
         for ( unsigned j = i + 1; j < nGridPoints; ++j ){
           pt_j[ 0 ] = _gridPointsXY[ j ][ 0 ];
