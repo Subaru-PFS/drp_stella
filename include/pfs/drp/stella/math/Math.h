@@ -357,6 +357,21 @@ namespace pfs { namespace drp { namespace stella {
     template< typename T >
     ndarray::Array<T, 2, 2> ndArray22(T nRows, T nCols);
     
+    /**
+     * @brief return minimum and maximum z value in given x and y range. return value: (zMin, zMax)
+     * @param x_In: x values, size N
+     * @param y_In: y values, size N
+     * @param z_In: z values, size N
+     * @param xRange_In: (xMin, xMax)
+     * @param yRange_In: (yMin, yMax)
+     */
+    template< typename T >
+    ndarray::Array< T, 1, 1 > getZMinMaxInRange( ndarray::Array< T, 1, 1 > const& x_In,
+                                                 ndarray::Array< T, 1, 1 > const& y_In,
+                                                 ndarray::Array< T, 1, 1 > const& z_In,
+                                                 ndarray::Array< T, 1, 1 > const& xRange_In,
+                                                 ndarray::Array< T, 1, 1 > const& yRange_In );
+    
 //    template< typename T >
 //    ndarray::Array< T, 2, 1 > get2DArray(ndarray::Array< T, 1, 1 > const& xIn, ndarray::Array< T, 1, 1 > const& yIn);
   }/// end namespace math

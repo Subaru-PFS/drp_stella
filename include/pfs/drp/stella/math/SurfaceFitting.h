@@ -19,7 +19,10 @@
 
 #include "LinearAlgebra3D.h"
 
+//#define __TPS_BASE_FUNC_MULTIQUADRIC__
 //#define __DEBUG_CALC_TPS__
+//#define __DEBUG_TPS__
+//#define __DEBUG_TPS_FITPOINT__
 
 namespace afwGeom = lsst::afw::geom;
 namespace afwImage = lsst::afw::image;
@@ -31,7 +34,8 @@ namespace pfs { namespace drp { namespace stella {
     template < typename ValueT, typename CoordsT >
     class ThinPlateSpline{
         public: 
-            
+            explicit ThinPlateSpline();
+                        
             /**
              * @brief Create (regularized) ThinPlateSpline object and calculate coefficients of fit
              * @param controlPointsX : x positions of input data to fit
@@ -43,7 +47,8 @@ namespace pfs { namespace drp { namespace stella {
             explicit ThinPlateSpline( ndarray::Array< const CoordsT, 1, 1 > const& controlPointsX,
                                       ndarray::Array< const CoordsT, 1, 1 > const& controlPointsY,
                                       ndarray::Array< const ValueT, 1, 1 > const& controlPointsZ,
-                                      double const regularization = 0.);
+                                      double const regularization = 0.,
+                                      ValueT const radiusNormalizationFactor = 1. );
             
             /**
              * @brief Create weighted ThinPlateSpline object and calculate coefficients of fit
@@ -56,7 +61,10 @@ namespace pfs { namespace drp { namespace stella {
             explicit ThinPlateSpline( ndarray::Array< const CoordsT, 1, 1 > const& controlPointsX,
                                       ndarray::Array< const CoordsT, 1, 1 > const& controlPointsY,
                                       ndarray::Array< const ValueT, 1, 1 > const& controlPointsZ,
-                                      ndarray::Array< const ValueT, 1, 1 > const& controlPointsWeights);
+                                      ndarray::Array< const ValueT, 1, 1 > const& controlPointsWeights,
+                                      ValueT const radiusNormalizationFactor = 1. );
+
+            ThinPlateSpline( ThinPlateSpline const& tps);
             
             virtual ~ThinPlateSpline(){}
             
@@ -77,6 +85,40 @@ namespace pfs { namespace drp { namespace stella {
                                                      ndarray::Array< const CoordsT, 1, 1 > const& yPositionsFit,
                                                      bool const isXYPositionsGridPoints); /// fit positions
             
+            ValueT getRadiusNormalizationFactor() const {
+                return _radiusNormalizationFactor;
+            }
+            
+            ndarray::Array< CoordsT, 1, 1 > getControlPointsX () const {
+                return _controlPointsX;
+            }
+
+            ndarray::Array< CoordsT, 1, 1 > getControlPointsY() const {
+                return _controlPointsY;
+            }
+
+            ndarray::Array< ValueT, 1, 1 > getControlPointsZ() const {
+                return _controlPointsZ;
+            }
+
+            ndarray::Array< ValueT, 1, 1 > getControlPointsWeight() const {
+                return _controlPointsWeight;
+            }
+
+            ndarray::Array< double, 1, 1 > getCoefficients() const {
+                return _coefficients;
+            }
+            
+            ValueT getRegularization() const {
+                return _regularization;
+            }
+            
+            bool isWeightsSet() const{
+                return _isWeightsSet;
+            }
+            
+            ThinPlateSpline< ValueT, CoordsT >& operator=(ThinPlateSpline< ValueT, CoordsT > const& tps);
+
         protected:
                 
         private:
@@ -97,13 +139,14 @@ namespace pfs { namespace drp { namespace stella {
              */
             bool calculateCoefficients();
             
-            ndarray::Array< const CoordsT, 1, 1 > _controlPointsX;
-            ndarray::Array< const CoordsT, 1, 1 > _controlPointsY;
-            ndarray::Array< const ValueT, 1, 1 > _controlPointsZ;
-            ndarray::Array< const ValueT, 1, 1 > _controlPointsWeight;
+            ndarray::Array< CoordsT, 1, 1 > _controlPointsX;
+            ndarray::Array< CoordsT, 1, 1 > _controlPointsY;
+            ndarray::Array< ValueT, 1, 1 > _controlPointsZ;
+            ndarray::Array< ValueT, 1, 1 > _controlPointsWeight;
             ndarray::Array< double, 1, 1 > _coefficients;
-            const double _regularization;
-            const bool _isWeightsSet;
+            double _regularization;
+            ValueT _radiusNormalizationFactor;
+            bool _isWeightsSet;
     };  
 
     template < typename ValueT, typename CoordsT >
@@ -123,9 +166,11 @@ namespace pfs { namespace drp { namespace stella {
             explicit ThinPlateSplineChiSquare( ndarray::Array< const CoordsT, 1, 1 > const& controlPointsX,
                                                ndarray::Array< const CoordsT, 1, 1 > const& controlPointsY,
                                                ndarray::Array< const ValueT, 1, 1 > const& controlPointsZ,
-                                               ndarray::Array< const CoordsT, 1, 1 > const& gridPointsX,
-                                               ndarray::Array< const CoordsT, 1, 1 > const& gridPointsY,
-                                               ValueT const regularization = 0.);
+                                               ndarray::Array< const CoordsT, 1, 1 > const& fitPointsX,
+                                               ndarray::Array< const CoordsT, 1, 1 > const& fitPointsY,
+                                               bool const isXYPositionsGridPoints,
+                                               ValueT const regularization = 0.,
+                                               ValueT const radiusNormalizationFactor = 1. );
             
             ThinPlateSplineChiSquare( ThinPlateSplineChiSquare const& tps);
             
@@ -160,8 +205,8 @@ namespace pfs { namespace drp { namespace stella {
                 return _controlPointsZ;
             }
 
-            ndarray::Array< CoordsT, 2, 1 > getGridPointsXY() const {
-                return _gridPointsXY;
+            ndarray::Array< CoordsT, 2, 1 > getFitPointsXY() const {
+                return _fitPointsXY;
             }
 
             ndarray::Array< double, 1, 1 > getCoefficients() const {
@@ -170,6 +215,10 @@ namespace pfs { namespace drp { namespace stella {
             
             ValueT getRegularization() const {
                 return _regularization;
+            }
+            
+            ValueT getRadiusNormalizationFactor() const {
+                return _radiusNormalizationFactor;
             }
             
         protected:
@@ -184,9 +233,9 @@ namespace pfs { namespace drp { namespace stella {
              */
             ndarray::Array< double, 2, 1 > fillMatrix();
             
-            /** @brief base function for thin-plate-spline fitting Phi = r^2 * log r
+            /** @brief base function for thin-plate-spline fitting Phi = r^2 * log (r / normFactor)
              */
-            ValueT tps_base_func(ValueT r);
+            ValueT tps_base_func(ValueT const r );
             
             /** @brief Calculate coefficients of thin-plate spline
              * 
@@ -196,9 +245,10 @@ namespace pfs { namespace drp { namespace stella {
             ndarray::Array< const CoordsT, 1, 1 > _controlPointsX;
             ndarray::Array< const CoordsT, 1, 1 > _controlPointsY;
             ndarray::Array< const ValueT, 1, 1 > _controlPointsZ;
-            ndarray::Array< CoordsT, 2, 1 > _gridPointsXY;
+            ndarray::Array< CoordsT, 2, 1 > _fitPointsXY;
             ndarray::Array< double, 1, 1 > _coefficients;
             ValueT _regularization;
+            ValueT _radiusNormalizationFactor;
     };  
     
   }

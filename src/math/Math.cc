@@ -1111,6 +1111,78 @@
       return out;
     }
 
+    template< typename T >
+    ndarray::Array< T, 1, 1 > getZMinMaxInRange( ndarray::Array< T, 1, 1 > const& x_In,
+                                                 ndarray::Array< T, 1, 1 > const& y_In,
+                                                 ndarray::Array< T, 1, 1 > const& z_In,
+                                                 ndarray::Array< T, 1, 1 > const& xRange_In,
+                                                 ndarray::Array< T, 1, 1 > const& yRange_In ){
+      size_t sizeX = x_In.getShape()[ 0 ];
+      size_t sizeY = y_In.getShape()[ 0 ];
+      size_t sizeZ = z_In.getShape()[ 0 ];
+      size_t sizeXRange = xRange_In.getShape()[ 0 ];
+      size_t sizeYRange = yRange_In.getShape()[ 0 ];
+      if ( sizeX != sizeY ){
+        string message("pfs::drp::stella::math::getZMinMaxInRange: ERROR: x_In.getShape()[ 0 ](=");
+        message += to_string( sizeX ) + ") != y_In.getShape()[ 0 ](=" + to_string( sizeY ) + ")";
+        cout << message << endl;
+        throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
+      }
+      if ( sizeX != sizeZ ){
+        string message("pfs::drp::stella::math::getZMinMaxInRange: ERROR: x_In.getShape()[ 0 ](=");
+        message += to_string( sizeX ) + ") != z_In.getShape()[ 0 ](=" + to_string( sizeZ ) + ")";
+        cout << message << endl;
+        throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
+      }
+      if ( sizeXRange != 2 ){
+        string message("pfs::drp::stella::math::getZMinMaxInRange: ERROR: xRange_In.getShape()[ 0 ](=");
+        message += to_string( sizeXRange ) + ") != 2";
+        cout << message << endl;
+        throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
+      }
+      if ( sizeYRange != 2 ){
+        string message("pfs::drp::stella::math::getZMinMaxInRange: ERROR: yRange_In.getShape()[ 0 ](=");
+        message += to_string( sizeYRange ) + ") != 2";
+        cout << message << endl;
+        throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
+      }
+      T minValue = 0.;
+      T maxValue = 0.;
+      bool minAndMaxInitialized = false;
+      for (auto itX = x_In.begin(), itY = y_In.begin(), itZ = z_In.begin(); itX != x_In.end(); ++itX, ++itY, ++itZ){
+        if ( ( *itX >= xRange_In[ 0 ] ) && ( *itX <= xRange_In[ 1 ] ) ){
+          if ( ( *itY >= yRange_In[ 0 ] ) && ( *itY <= yRange_In[ 1 ] ) ){
+            if ( !minAndMaxInitialized ){
+              minValue = *itZ;
+              maxValue = *itZ;
+              minAndMaxInitialized = true;
+            }
+            else{
+              if ( *itZ < minValue )
+                minValue = *itZ;
+              if ( *itZ > maxValue )
+                maxValue = *itZ;
+            }
+          }
+        }
+      }
+      ndarray::Array< T, 1, 1 > outVals = ndarray::allocate( 2 );
+      outVals[ 0 ] = minValue;
+      outVals[ 1 ] = maxValue;
+      return outVals;
+    }
+    
+    template ndarray::Array< float, 1, 1 > getZMinMaxInRange( ndarray::Array< float, 1, 1 > const&,
+                                                              ndarray::Array< float, 1, 1 > const&,
+                                                              ndarray::Array< float, 1, 1 > const&,
+                                                              ndarray::Array< float, 1, 1 > const&,
+                                                              ndarray::Array< float, 1, 1 > const& );
+    template ndarray::Array< double, 1, 1 > getZMinMaxInRange( ndarray::Array< double, 1, 1 > const&,
+                                                               ndarray::Array< double, 1, 1 > const&,
+                                                               ndarray::Array< double, 1, 1 > const&,
+                                                               ndarray::Array< double, 1, 1 > const&,
+                                                               ndarray::Array< double, 1, 1 > const& );
+    
     template void insertSorted(std::vector< dataXY< int > > &, dataXY< int > &);
     template void insertSorted(std::vector< dataXY< float > > &, dataXY< float > &);
     template void insertSorted(std::vector< dataXY< double > > &, dataXY< double > &);

@@ -80,7 +80,9 @@ namespace pfs { namespace drp { namespace stella {
                                                      _nPixPerPSF(0),
                                                      _xRangePolynomial(2),
                                                      _isTwoDPSFControlSet(false),
-                                                     _isPSFsExtracted(false)
+                                                     _isPSFsExtracted(false),
+                                                     _thinPlateSpline(),
+                                                     _thinPlateSplineChiSquare()
       {};
       
       /**
@@ -122,7 +124,9 @@ namespace pfs { namespace drp { namespace stella {
             _nPixPerPSF(0),
             _xRangePolynomial(2),
             _isTwoDPSFControlSet(true),
-            _isPSFsExtracted(false)
+            _isPSFsExtracted(false),
+            _thinPlateSpline(),
+            _thinPlateSplineChiSquare()
       {};
       
       /**
@@ -156,7 +160,9 @@ namespace pfs { namespace drp { namespace stella {
             _nPixPerPSF(0),
             _xRangePolynomial(2),
             _isTwoDPSFControlSet(true),
-            _isPSFsExtracted(false)
+            _isPSFsExtracted(false),
+            _thinPlateSpline(),
+            _thinPlateSplineChiSquare()
       {};
       
       virtual ~PSF() {};
@@ -275,6 +281,20 @@ namespace pfs { namespace drp { namespace stella {
       double fitFittedPSFToZTrace( ndarray::Array< T, 1, 1 > const& zFit_In,
                                    ndarray::Array< T, 1, 1 > const& measureErrors_In );
             
+      math::ThinPlateSpline< T, T > getThinPlateSpline() const{
+          #ifdef __DEBUG_PSF__
+            cout << "PSF::getThinPlateSpline(): _thinPlateSpline.getControlPointsX().getShape()[ 0 ] = " << _thinPlateSpline.getControlPointsX().getShape()[ 0 ] << endl;
+          #endif
+          return math::ThinPlateSpline< T, T >( _thinPlateSpline );
+      }
+      void setThinPlateSpline( math::ThinPlateSpline< T, T > const& tps ){
+          _thinPlateSpline = tps;
+          #ifdef __DEBUG_PSF__
+            cout << "PSF::setThinPlateSpline(): tps.getControlPointsX().getShape()[ 0 ] = " << tps.getControlPointsX().getShape()[ 0 ] << endl;
+            cout << "PSF::setThinPlateSpline(): _thinPlateSpline.getControlPointsX().getShape()[ 0 ] = " << _thinPlateSpline.getControlPointsX().getShape()[ 0 ] << endl;
+          #endif
+          return;
+      }
       math::ThinPlateSplineChiSquare< T, T > getThinPlateSplineChiSquare() const{
           return math::ThinPlateSplineChiSquare< T, T >( _thinPlateSplineChiSquare );
       }
@@ -311,6 +331,7 @@ namespace pfs { namespace drp { namespace stella {
       std::vector<T> _xRangePolynomial;
       bool _isTwoDPSFControlSet;
       bool _isPSFsExtracted;
+      math::ThinPlateSpline< T, T > _thinPlateSpline;
       math::ThinPlateSplineChiSquare< T, T > _thinPlateSplineChiSquare;
       
   };
@@ -396,13 +417,17 @@ namespace math{
    * @param yPositions : y positions of new coordinates relative to center of PSF [y_0, y_1, ... , y_m-2, y_m-1]
    * @param isXYPositionsGridPoints : if yes then output array will have shape [m, n], otherwise m == n and shape of output array will be [n, 1]
    * @param regularization : regularization ( >= 0.) for fit. If equal to 0. the fit will be forced through the original data points
+   * @param radiusNormalizationFactor: to solve r^2 * ln( r / radiusNormliazationFactor) Default = 1
+   * @param mode : mode == 0: fit psf._imagePSF_ZNormalized, mode == 1: fit psf._imagePSF_ZTrace
    */
   template< typename PsfT = double, typename CoordsT = double >
   ndarray::Array< PsfT, 2, 1 > interpolatePSFThinPlateSpline( PSF< PsfT > & psf,
                                                               ndarray::Array< CoordsT, 1, 1 > const& xPositions,
                                                               ndarray::Array< CoordsT, 1, 1 > const& yPositions,
                                                               bool const isXYPositionsGridPoints,
-                                                              double const regularization = 0. );
+                                                              double const regularization = 0.,
+                                                              PsfT const radiusNormalizationFactor = 1.,
+                                                              unsigned short const mode = 0 );
   
   /*
    * @brief: fit PSF and interpolate to new coordinates using weighted thin-plate splines, reconstruct psf._imagePSF_ZNormalized and write to psf._imagePSF_ZFit
@@ -412,13 +437,17 @@ namespace math{
    * @param xPositions : x positions of new coordinates relative to center of PSF [x_0, x_1, ... , x_n-2, x_n-1]
    * @param yPositions : y positions of new coordinates relative to center of PSF [y_0, y_1, ... , y_m-2, y_m-1]
    * @param isXYPositionsGridPoints : if yes then output array will have shape [m, n], otherwise m == n and shape of output array will be [n, 1]
+   * @param radiusNormalizationFactor: to solve r^2 * ln( r / radiusNormliazationFactor) Default = 1
+   * @param mode : mode == 0: fit psf._imagePSF_ZNormalized, mode == 1: fit psf._imagePSF_ZTrace
    */
   template< typename PsfT = double, typename WeightT = float, typename CoordsT = double>
   ndarray::Array< PsfT, 2, 1 > interpolatePSFThinPlateSpline( PSF< PsfT > & psf,
                                                               ndarray::Array< WeightT, 1, 1 > const& weights,
                                                               ndarray::Array< CoordsT, 1, 1 > const& xPositions,
                                                               ndarray::Array< CoordsT, 1, 1 > const& yPositions,
-                                                              bool const isXYPositionsGridPoints);
+                                                              bool const isXYPositionsGridPoints,
+                                                              PsfT const radiusNormalizationFactor = 1.,
+                                                              unsigned short const mode = 0 );
   
   /*
    * @brief: fit PSF and interpolate to new coordinates using thin-plate splines with Chi-square minimization, 
@@ -428,13 +457,16 @@ namespace math{
    * @param xPositions : x positions of new coordinate grid relative to center of PSF [x_0, x_1, ... , x_n-2, x_n-1]
    * @param yPositions : y positions of new coordinate grid relative to center of PSF [y_0, y_1, ... , y_m-2, y_m-1]
    * @param regularization : regularization parameter for thin-plate spline fitting >= 0 (0 = no regularization)
+   * @param radiusNormalizationFactor: to solve r^2 * ln( r / radiusNormliazationFactor) Default = 1
    * @param mode : mode == 0: fit psf._imagePSF_ZNormalized, mode == 1: fit psf._imagePSF_ZTrace
    */
   template< typename PsfT = double, typename CoordsT = double >
   ndarray::Array< PsfT, 2, 1 > interpolatePSFThinPlateSplineChiSquare( PSF< PsfT > & psf,
                                                                        ndarray::Array< CoordsT, 1, 1 > const& xPositions,
                                                                        ndarray::Array< CoordsT, 1, 1 > const& yPositions,
+                                                                       bool const isXYPositionsGridPoints,
                                                                        PsfT const regularization = 0.,
+                                                                       PsfT const radiusNormalizationFactor = 1.,
                                                                        unsigned short const mode = 0 );
   
   template< typename PsfT = double, typename CoordsT = double>
