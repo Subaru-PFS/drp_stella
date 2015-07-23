@@ -486,9 +486,9 @@ Interface to Stella
 %template(ThinPlateSplineChiSquareDF) pfs::drp::stella::math::ThinPlateSplineChiSquare<double, float>;
 %template(ThinPlateSplineChiSquareDD) pfs::drp::stella::math::ThinPlateSplineChiSquare<double, double>;
 
-%template(interpolatePSFThinPlateSplineFF) pfs::drp::stella::math::interpolatePSFThinPlateSpline<float, float>;
-%template(interpolatePSFThinPlateSplineDF) pfs::drp::stella::math::interpolatePSFThinPlateSpline<double, float>;
-%template(interpolatePSFThinPlateSplineFD) pfs::drp::stella::math::interpolatePSFThinPlateSpline<float, double>;
+//%template(interpolatePSFThinPlateSplineFF) pfs::drp::stella::math::interpolatePSFThinPlateSpline<float, float>;
+//%template(interpolatePSFThinPlateSplineDF) pfs::drp::stella::math::interpolatePSFThinPlateSpline<double, float>;
+//%template(interpolatePSFThinPlateSplineFD) pfs::drp::stella::math::interpolatePSFThinPlateSpline<float, double>;
 %template(interpolatePSFThinPlateSplineDD) pfs::drp::stella::math::interpolatePSFThinPlateSpline<double, double>;
 
 //%template(interpolatePSFThinPlateSplineChiSquareFF) pfs::drp::stella::math::interpolatePSFThinPlateSplineChiSquare<float, float>;
@@ -496,13 +496,13 @@ Interface to Stella
 //%template(interpolatePSFThinPlateSplineChiSquareFD) pfs::drp::stella::math::interpolatePSFThinPlateSplineChiSquare<float, double>;
 %template(interpolatePSFThinPlateSplineChiSquareDD) pfs::drp::stella::math::interpolatePSFThinPlateSplineChiSquare<double, double>;
 
-%template(interpolatePSFThinPlateSplineFFF) pfs::drp::stella::math::interpolatePSFThinPlateSpline<float, float, float>;
-%template(interpolatePSFThinPlateSplineDFF) pfs::drp::stella::math::interpolatePSFThinPlateSpline<double, float, float>;
-%template(interpolatePSFThinPlateSplineFDF) pfs::drp::stella::math::interpolatePSFThinPlateSpline<float, double, float>;
-%template(interpolatePSFThinPlateSplineDDF) pfs::drp::stella::math::interpolatePSFThinPlateSpline<double, double, float>;
-%template(interpolatePSFThinPlateSplineFFD) pfs::drp::stella::math::interpolatePSFThinPlateSpline<float, float, double>;
-%template(interpolatePSFThinPlateSplineDFD) pfs::drp::stella::math::interpolatePSFThinPlateSpline<double, float, double>;
-%template(interpolatePSFThinPlateSplineFDD) pfs::drp::stella::math::interpolatePSFThinPlateSpline<float, double, double>;
+//%template(interpolatePSFThinPlateSplineFFF) pfs::drp::stella::math::interpolatePSFThinPlateSpline<float, float, float>;
+//%template(interpolatePSFThinPlateSplineDFF) pfs::drp::stella::math::interpolatePSFThinPlateSpline<double, float, float>;
+//%template(interpolatePSFThinPlateSplineFDF) pfs::drp::stella::math::interpolatePSFThinPlateSpline<float, double, float>;
+//%template(interpolatePSFThinPlateSplineDDF) pfs::drp::stella::math::interpolatePSFThinPlateSpline<double, double, float>;
+//%template(interpolatePSFThinPlateSplineFFD) pfs::drp::stella::math::interpolatePSFThinPlateSpline<float, float, double>;
+//%template(interpolatePSFThinPlateSplineDFD) pfs::drp::stella::math::interpolatePSFThinPlateSpline<double, float, double>;
+//%template(interpolatePSFThinPlateSplineFDD) pfs::drp::stella::math::interpolatePSFThinPlateSpline<float, double, double>;
 %template(interpolatePSFThinPlateSplineDDD) pfs::drp::stella::math::interpolatePSFThinPlateSpline<double, double, double>;
 
 %template(interpolatePSFSetThinPlateSplineFF) pfs::drp::stella::math::interpolatePSFSetThinPlateSpline<float, float>;
@@ -580,3 +580,6 @@ Interface to Stella
 %template(convertRangeToUnityFD) pfs::drp::stella::math::convertRangeToUnity<float, double>;
 %template(convertRangeToUnityDF) pfs::drp::stella::math::convertRangeToUnity<double, float>;
 %template(convertRangeToUnityDD) pfs::drp::stella::math::convertRangeToUnity<double, double>;
+
+%template(getZMinMaxInRangeF) pfs::drp::stella::math::getZMinMaxInRange<float>;
+%template(getZMinMaxInRangeD) pfs::drp::stella::math::getZMinMaxInRange<double>;
