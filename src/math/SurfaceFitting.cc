@@ -14,6 +14,7 @@ namespace pfs{ namespace drp{ namespace stella{
       _coefficients(),
       _regularization(0.),
       _radiusNormalizationFactor(1.),
+      _bendingEnergy(0.),
       _isWeightsSet(false)
     {
       #ifdef __DEBUG_TPS__
@@ -34,6 +35,7 @@ namespace pfs{ namespace drp{ namespace stella{
       _coefficients(),
       _regularization(regularization),
       _radiusNormalizationFactor(radiusNormalizationFactor),
+      _bendingEnergy(0.),
       _isWeightsSet(false)
     {
       #ifdef __DEBUG_TPS__
@@ -78,6 +80,7 @@ namespace pfs{ namespace drp{ namespace stella{
       _controlPointsWeight(ndarray::copy(controlPointsWeights)),
       _regularization(0.),
       _radiusNormalizationFactor(radiusNormalizationFactor),
+      _bendingEnergy(0.),
       _isWeightsSet(true)
     {
       #ifdef __DEBUG_TPS__
@@ -124,6 +127,7 @@ namespace pfs{ namespace drp{ namespace stella{
             _controlPointsWeight( tps.getControlPointsWeight() ),
             _regularization( tps.getRegularization() ),
             _radiusNormalizationFactor( tps.getRadiusNormalizationFactor() ),
+            _bendingEnergy( tps.getBendingEnergy() ),
             _isWeightsSet( tps.isWeightsSet() )
     { 
       #ifdef __DEBUG_TPS__
@@ -138,6 +142,7 @@ namespace pfs{ namespace drp{ namespace stella{
         cout << "ThinPlateSpline::ThinPlateSpine( tps ): _controlPointsWeight.getShape()[ 0 ] = " << _controlPointsWeight.getShape()[ 0 ] << endl;
         cout << "ThinPlateSpline::ThinPlateSpine( tps ): _regularization = " << _regularization << endl;
         cout << "ThinPlateSpline::ThinPlateSpine( tps ): _radiusNormalizationFactor = " << _radiusNormalizationFactor << endl;
+        cout << "ThinPlateSpline::ThinPlateSpine( tps ): _bendingEnergy = " << _bendingEnergy << endl;
         throw LSST_EXCEPT( pexExcept::Exception, message.c_str() );    
       }
       _coefficients = ndarray::allocate( tps.getCoefficients().getShape() );
@@ -202,6 +207,17 @@ namespace pfs{ namespace drp{ namespace stella{
       #ifdef __DEBUG_CALC_TPS__
         std::cout << "interpolateThinPlateSpline: after colPivHouseholderQr: _coefficients = " << _coefficients << std::endl;
       #endif
+
+      // Calculate bending energy
+      ndarray::Array< double, 1, 1 > mtxv_dot_mtxl = ndarray::allocate(mtx_l.getShape()[1]);
+      for (int i = 0; i < mtx_l.getShape()[ 1 ]; ++i){
+        mtxv_dot_mtxl[ i ] = 0.;
+        for (int j = 0; j < mtx_l.getShape()[ 0 ]; ++j)
+          mtxv_dot_mtxl[ i ] += mtx_v[ j ] * mtx_l[ j ][ i ];
+      }  
+      double bendingEnergy = 0.;
+      for (int i = 0; i < mtx_l.getShape()[ 1 ]; ++i)
+        bendingEnergy += mtx_v[ i ] * mtxv_dot_mtxl[ i ];
 
       #ifdef __DEBUG_TPS__
         cout << "ThinPlateSpline::calculateCoefficients() finished" << endl;
@@ -402,14 +418,14 @@ namespace pfs{ namespace drp{ namespace stella{
       ndarray::Array< ValueT, 2, 1 > arrOut;
       if (isXYPositionsGridPoints){
         arrOut = ndarray::allocate(yPositionsFit.getShape()[0], xPositionsFit.getShape()[0]);
-        for ( int xPos = 0; xPos < xPositionsFit.size(); ++xPos ){
-          for ( int yPos = 0; yPos < yPositionsFit.size(); ++yPos ){
+        for ( int yPos = 0; yPos < yPositionsFit.size(); ++yPos ){
+          for ( int xPos = 0; xPos < xPositionsFit.size(); ++xPos ){
             arrOut[yPos][xPos] = fitPoint(xPositionsFit[xPos], 
                                           yPositionsFit[yPos]);
-            #ifdef __DEBUG_CALC_TPS__
-              std::cout << "ThinPlateSpline::fitArray: x = " << xPositionsFit[xPos] << ", y = " << yPositionsFit[yPos] << ": arrOut[" << yPos << "][" << xPos << "] = " << arrOut[yPos][xPos] << std::endl;
-            #endif
           }
+          #ifdef __DEBUG_CALC_TPS__
+            std::cout << "ThinPlateSpline::fitArray: y = " << yPositionsFit[yPos] << ": arrOut[" << yPos << "][*] = " << arrOut[ndarray::view(yPos)()] << std::endl;
+          #endif
         }
       }
       else{/// arrOut will be a vector
@@ -454,6 +470,7 @@ namespace pfs{ namespace drp{ namespace stella{
       _coefficients = copy( tps.getCoefficients() );
       _regularization = tps.getRegularization();
       _radiusNormalizationFactor = tps.getRadiusNormalizationFactor();
+      _bendingEnergy = tps.getBendingEnergy();
       _isWeightsSet = tps.isWeightsSet();
       #ifdef __DEBUG_TPS__
         cout << " this->getControlPointsX.getShape()[ 0 ] = " << this->getControlPointsX().getShape()[ 0 ] << endl;
@@ -474,7 +491,8 @@ namespace pfs{ namespace drp{ namespace stella{
       _controlPointsZ(),
       _fitPointsXY(),
       _coefficients(),
-      _regularization(0.)
+      _regularization(0.),
+      _bendingEnergy(0.)
     {
       #ifdef __DEBUG_TPS__
         cout << "ThinPlateSplineChiSquare() finished" << endl;
@@ -494,7 +512,8 @@ namespace pfs{ namespace drp{ namespace stella{
       _controlPointsY( ndarray::copy( controlPointsY ) ),
       _controlPointsZ( ndarray::copy( controlPointsZ ) ),
       _regularization( regularization ),
-      _radiusNormalizationFactor( radiusNormalizationFactor )
+      _radiusNormalizationFactor( radiusNormalizationFactor ),
+      _bendingEnergy(0.)
     {
       #ifdef __DEBUG_TPS__
         cout << "ThinPlateSplineChiSquare(controlPointsX, controlPointsY, controlPointsZ, fitPointsX, fitPointsY, isXYPositionsGridPoints, regularization, radiusNormalizationFactor) started" << endl;
@@ -552,7 +571,8 @@ namespace pfs{ namespace drp{ namespace stella{
             _controlPointsY( tps.getControlPointsY() ),
             _controlPointsZ( tps.getControlPointsZ() ),
             _regularization( tps.getRegularization() ),
-            _radiusNormalizationFactor( tps.getRadiusNormalizationFactor() )
+            _radiusNormalizationFactor( tps.getRadiusNormalizationFactor() ),
+            _bendingEnergy( tps.getBendingEnergy() )
     { 
       #ifdef __DEBUG_TPS__
         cout << "ThinPlateSplineChiSquare(tps) started" << endl;
@@ -645,6 +665,17 @@ namespace pfs{ namespace drp{ namespace stella{
         std::cout << "ThinPlateSplineChiSquare::calculateCoefficients: after colPivHouseholderQr: _coefficients = " << _coefficients << std::endl;
       #endif
 
+      // Calculate bending energy
+      ndarray::Array< double, 1, 1 > mtxv_dot_mtxl = ndarray::allocate(mtx_l.getShape()[1]);
+      for (int i = 0; i < mtx_l.getShape()[ 1 ]; ++i){
+        mtxv_dot_mtxl[ i ] = 0.;
+        for (int j = 0; j < mtx_l.getShape()[ 0 ]; ++j)
+          mtxv_dot_mtxl[ i ] += mtx_v[ j ] * mtx_l[ j ][ i ];
+      }  
+      double bendingEnergy = 0.;
+      for (int i = 0; i < mtx_l.getShape()[ 1 ]; ++i)
+        bendingEnergy += mtx_v[ i ] * mtxv_dot_mtxl[ i ];
+        
       #ifdef __DEBUG_TPS__
         cout << "ThinPlateSplineChiSquare::calculateCoefficients() finished" << endl;
       #endif
@@ -771,22 +802,24 @@ namespace pfs{ namespace drp{ namespace stella{
             std::cout << "i = " << i << ", j = " << j << ": mtx_l[i][j] set to " << mtx_l[i][j] << std::endl;
 //          #endif
         }
+        
         // P (p x 3, upper right)
         // P transposed (3 x p, bottom left)
+        //*
         for ( unsigned k = 0; k < nControlPoints; ++k ){
           pt_k[0] = _controlPointsX[k];
           pt_k[1] = _controlPointsY[k];
           #ifdef __DEBUG_CALC_TPS__
-            std::cout << "i = " << i << ", j = " << j << ": pt_i set to " << pt_i << ", pt_j = " << pt_j << ", pt_k = " << pt_k << std::endl;
+            std::cout << "i = " << i << ", k = " << k << ": pt_i set to " << pt_i << ", pt_j = " << pt_j << ", pt_k = " << pt_k << std::endl;
           #endif
           pt_diff.deep() = pt_i - pt_k;
           pt_diff.asEigen() = pt_diff.asEigen().array() * pt_diff.asEigen().array();
           #ifdef __DEBUG_CALC_TPS__
-            std::cout << "i = " << i << ", j = " << j << ", k = " << k << ": pt_diff set to " << pt_diff << std::endl;
+            std::cout << "i = " << i << ", k = " << k << ": pt_diff set to " << pt_diff << std::endl;
           #endif
           elen_ik = sqrt( pt_diff.asEigen().sum() );
           #ifdef __DEBUG_CALC_TPS__
-            std::cout << "i = " << i << ", j = " << j << ", k = " << k << ": elen_ik set to " << elen_ik << std::endl;
+            std::cout << "i = " << i << ", k = " << k << ": elen_ik set to " << elen_ik << std::endl;
           #endif
           mtx_l[ i ][ nFitPoints + 0 ] += 2. * tps_base_func( elen_ik)  / _controlPointsZ[ k ];
           mtx_l[ i ][ nFitPoints + 1 ] += 2. * _controlPointsX[ k ] * tps_base_func( elen_ik ) / _controlPointsZ[ k ];
@@ -795,7 +828,9 @@ namespace pfs{ namespace drp{ namespace stella{
         mtx_l[ nFitPoints + 0 ][ i ] = mtx_l[ i ][ nFitPoints + 0 ];
         mtx_l[ nFitPoints + 1 ][ i ] = mtx_l[ i ][ nFitPoints + 1 ];
         mtx_l[ nFitPoints + 2 ][ i ] = mtx_l[ i ][ nFitPoints + 2 ];
+        //*/
       }
+      //*
       // O (3 x 3, lower right)
       for ( unsigned k = 0; k < nControlPoints; ++k ){
         mtx_l[ nFitPoints ][ nFitPoints ] += 2. / _controlPointsZ[ k ];
@@ -808,6 +843,31 @@ namespace pfs{ namespace drp{ namespace stella{
       mtx_l[ nFitPoints + 1 ][ nFitPoints ] = mtx_l[ nFitPoints ][ nFitPoints + 1 ];
       mtx_l[ nFitPoints + 2 ][ nFitPoints ] = mtx_l[ nFitPoints ][ nFitPoints + 2 ];
       mtx_l[ nFitPoints + 2 ][ nFitPoints + 1 ] = mtx_l[ nFitPoints + 1 ][ nFitPoints + 2 ];
+      //*/
+
+        
+/*        
+        
+        // Fill the rest of L
+
+        // P (p x 3, upper right)
+        // P transposed (3 x p, bottom left)
+      for ( unsigned i = 0; i < nFitPoints; ++i ){
+        mtx_l[ i ][ nFitPoints + 0 ] = mtx_l[ nFitPoints + 0 ][ i ] = 1.0;
+        mtx_l[ i ][ nFitPoints + 1] = mtx_l[ nFitPoints + 1 ][ i ] = _fitPointsXY[ i ][ 0 ];
+        mtx_l[ i ][ nFitPoints + 2] = mtx_l[ nFitPoints + 2][ i ] = _fitPointsXY[ i ][ 1 ];
+      
+        // O (3 x 3, lower right)
+        for ( unsigned i = nFitPoints; i < nFitPoints + 3; ++i ){
+          for ( unsigned j = nFitPoints; j < nFitPoints + 3; ++j ){
+            mtx_l[i][j] = 0.0;
+          }
+        }
+      }        
+      
+*/      
+      
+      
       #ifdef __DEBUG_CALC_TPS__
         std::cout << "mtx_l set to " << mtx_l << std::endl;
       #endif
@@ -860,14 +920,14 @@ namespace pfs{ namespace drp{ namespace stella{
       ndarray::Array< ValueT, 2, 1 > arrOut;
       if (isXYPositionsGridPoints){
         arrOut = ndarray::allocate(yPositionsFit.getShape()[0], xPositionsFit.getShape()[0]);
-        for ( int xPos = 0; xPos < xPositionsFit.size(); ++xPos ){
-          for ( int yPos = 0; yPos < yPositionsFit.size(); ++yPos ){
+        for ( int yPos = 0; yPos < yPositionsFit.size(); ++yPos ){
+          for ( int xPos = 0; xPos < xPositionsFit.size(); ++xPos ){
             arrOut[yPos][xPos] = fitPoint(xPositionsFit[xPos], 
                                           yPositionsFit[yPos]);
-            #ifdef __DEBUG_CALC_TPS__
-              std::cout << "ThinPlateSpline::fitArray: x = " << xPositionsFit[xPos] << ", y = " << yPositionsFit[yPos] << ": arrOut[" << yPos << "][" << xPos << "] = " << arrOut[yPos][xPos] << std::endl;
-            #endif
           }
+          #ifdef __DEBUG_CALC_TPS__
+            std::cout << "ThinPlateSpline::fitArray: y = " << yPositionsFit[yPos] << ": arrOut[" << yPos << "][*] = " << arrOut[ndarray::view(yPos)()] << std::endl;
+          #endif
         }
       }
       else{/// arrOut will be a vector

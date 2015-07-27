@@ -1230,8 +1230,9 @@ namespace pfs{ namespace drp{ namespace stella{
     #endif
     ndarray::Array< T, 1, 1 > measureErrors = ndarray::external( (const_cast< std::vector< T >* >( &measureErrors_In ) )->data(), ndarray::makeVector( int( measureErrors_In.size() ) ), ndarray::makeVector( 1 ) );
     ndarray::Array< T, 1, 1 > zFit = ndarray::external( ( const_cast< std::vector< T >* >( &zFit_In ) )->data(), ndarray::makeVector( int( zFit_In.size() ) ), ndarray::makeVector( 1 ) );
-    double result = fitFittedPSFToZTrace( measureErrors,
-                                          zFit );
+//    cout << "PSF::fitFittedPSFToZTrace(zFitVec, measureErrors): measureErrors = " << measureErrors << endl;
+    double result = fitFittedPSFToZTrace( zFit,
+                                          measureErrors );
     #ifdef __DEBUG_PSF__
       cout << "PSF::fitFittedPSFToZTrace(zFitVec, measureErrors) finished" << endl;
     #endif
@@ -1530,9 +1531,11 @@ namespace pfs{ namespace drp{ namespace stella{
       ndarray::Array< PsfT, 1, 1 > xPos = ndarray::allocate( xPositions.getShape() );
       ndarray::Array< PsfT, 1, 1 > yPos = ndarray::allocate( yPositions.getShape() );
       auto itXPos = xPos.begin();
-      auto itYPos = yPos.begin();
-      for (auto itX = xPositions.begin(), itY = yPositions.begin(); itX != xPositions.end(); ++itX, ++itY, ++itXPos, ++itYPos ){
+      for (auto itX = xPositions.begin(); itX != xPositions.end(); ++itX, ++itXPos ){
         *itXPos = PsfT(*itX);
+      }
+      auto itYPos = yPos.begin();
+      for (auto itY = yPositions.begin(); itY != yPositions.end(); ++itY, ++itYPos ){
         *itYPos = PsfT(*itY);
       }
       ndarray::Array< PsfT, 2, 1 > arr_Out = ndarray::copy( tps.fitArray( xPos, 
@@ -1621,9 +1624,11 @@ namespace pfs{ namespace drp{ namespace stella{
       ndarray::Array< PsfT, 1, 1 > xPos = ndarray::allocate( xPositions.getShape() );
       ndarray::Array< PsfT, 1, 1 > yPos = ndarray::allocate( yPositions.getShape() );
       auto itXPos = xPos.begin();
-      auto itYPos = yPos.begin();
-      for (auto itX = xPositions.begin(), itY = yPositions.begin(); itX != xPositions.end(); ++itX, ++itY, ++itXPos, ++itYPos ){
+      for (auto itX = xPositions.begin(); itX != xPositions.end(); ++itX, ++itXPos ){
         *itXPos = PsfT(*itX);
+      }
+      auto itYPos = yPos.begin();
+      for (auto itY = yPositions.begin(); itY != yPositions.end(); ++itY, ++itYPos ){
         *itYPos = PsfT(*itY);
       }
       ndarray::Array< PsfT, 2, 1 > zFit = ndarray::copy( tps.fitArray( xPos, 
@@ -1688,6 +1693,16 @@ namespace pfs{ namespace drp{ namespace stella{
         cout << "PSF::interpolatePSFThinPlateSplineChiSquare: psf.getImagePSF_ZNormalized() = " << psf.getImagePSF_ZNormalized() << endl;
         cout << "PSF::interpolatePSFThinPlateSplineChiSquare: zArr = " << zArr << endl;
       #endif
+      ndarray::Array< PsfT, 1, 1 > xPos = ndarray::allocate( xPositions.getShape() );
+      ndarray::Array< PsfT, 1, 1 > yPos = ndarray::allocate( yPositions.getShape() );
+      auto itXPos = xPos.begin();
+      for (auto itX = xPositions.begin(); itX != xPositions.end(); ++itX, ++itXPos ){
+        *itXPos = PsfT(*itX);
+      }
+      auto itYPos = yPos.begin();
+      for (auto itY = yPositions.begin(); itY != yPositions.end(); ++itY, ++itYPos ){
+        *itYPos = PsfT(*itY);
+      }
 //      ndarray::Array< PsfT, 1, 1 > zT = ndarray::allocate(zArr.size());
 //      auto it = zArr.begin();
 //      for (auto itT = zT.begin(); itT != zT.end(); ++itT, ++it)
@@ -1699,15 +1714,15 @@ namespace pfs{ namespace drp{ namespace stella{
       math::ThinPlateSplineChiSquare< PsfT, PsfT > tps = math::ThinPlateSplineChiSquare< PsfT, PsfT >( xArr, 
                                                                                                        yArr, 
                                                                                                        zArr,
-                                                                                                       xPositions,
-                                                                                                       yPositions,
+                                                                                                       xPos,
+                                                                                                       yPos,
                                                                                                        isXYPositionsGridPoints,
                                                                                                        regularization,
                                                                                                        radiusNormalizationFactor );
 //                                                                                                    ndarray::Array< PsfT const, 1, 1 >(zT), 
 //                                                                                       regularization );
-      ndarray::Array< PsfT, 2, 1 > arr_Out = ndarray::copy( tps.fitArray( xPositions, 
-                                                                          yPositions, 
+      ndarray::Array< PsfT, 2, 1 > arr_Out = ndarray::copy( tps.fitArray( xPos, 
+                                                                          yPos, 
                                                                           isXYPositionsGridPoints ) );
       ndarray::Array< PsfT, 2, 1 > zRec = ndarray::copy( tps.fitArray( xArr,
                                                                        yArr,

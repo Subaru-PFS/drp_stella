@@ -113,6 +113,10 @@ namespace pfs { namespace drp { namespace stella {
                 return _regularization;
             }
             
+            ValueT getBendingEnergy() const{
+                return _bendingEnergy;
+            }
+            
             bool isWeightsSet() const{
                 return _isWeightsSet;
             }
@@ -146,6 +150,7 @@ namespace pfs { namespace drp { namespace stella {
             ndarray::Array< double, 1, 1 > _coefficients;
             double _regularization;
             ValueT _radiusNormalizationFactor;
+            ValueT _bendingEnergy;
             bool _isWeightsSet;
     };  
 
@@ -221,6 +226,10 @@ namespace pfs { namespace drp { namespace stella {
                 return _radiusNormalizationFactor;
             }
             
+            ValueT getBendingEnergy() const{
+                return _bendingEnergy;
+            }
+            
         protected:
                 
         private:
@@ -249,6 +258,7 @@ namespace pfs { namespace drp { namespace stella {
             ndarray::Array< double, 1, 1 > _coefficients;
             ValueT _regularization;
             ValueT _radiusNormalizationFactor;
+            ValueT _bendingEnergy;
     };  
     
   }
