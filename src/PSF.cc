@@ -1541,13 +1541,9 @@ namespace pfs{ namespace drp{ namespace stella{
       ndarray::Array< PsfT, 2, 1 > arr_Out = ndarray::copy( tps.fitArray( xPos, 
                                                                           yPos,
                                                                           isXYPositionsGridPoints ) );
-      ndarray::Array< PsfT, 2, 1 > zRec = ndarray::copy( tps.fitArray( xArr,
-                                                                       yArr,
-                                                                       false ) );
-      ndarray::Array< PsfT, 1, 1 > zT = ndarray::allocate(zArr.getShape()[ 0 ]);
-      zT.deep() = zRec[ndarray::view()(0)];
-      if (!psf.setImagePSF_ZFit(zT)){
-        cout << "PSF::interpolatePSFThinPlateSpline: WARNING: psf.setImagePSF_ZFit(zT) returned FALSE" << endl;
+      ndarray::Array< PsfT, 1, 1 > zRec = ndarray::copy( tps.getZFit() );
+      if ( !psf.setImagePSF_ZFit( zRec ) ){
+        cout << "PSF::interpolatePSFThinPlateSpline: WARNING: psf.setImagePSF_ZFit( zRec ) returned FALSE" << endl;
       }
       psf.setThinPlateSpline( tps );
       #ifdef __DEBUG_PSF__
@@ -1621,6 +1617,7 @@ namespace pfs{ namespace drp{ namespace stella{
                                                                                      yArr, 
                                                                                      zArr, 
                                                                                      weightsT);
+      
       ndarray::Array< PsfT, 1, 1 > xPos = ndarray::allocate( xPositions.getShape() );
       ndarray::Array< PsfT, 1, 1 > yPos = ndarray::allocate( yPositions.getShape() );
       auto itXPos = xPos.begin();
@@ -1634,13 +1631,9 @@ namespace pfs{ namespace drp{ namespace stella{
       ndarray::Array< PsfT, 2, 1 > zFit = ndarray::copy( tps.fitArray( xPos, 
                                                                        yPos, 
                                                                        isXYPositionsGridPoints ) );
-      ndarray::Array< PsfT, 2, 1 > zRec = ndarray::copy( tps.fitArray( xArr,
-                                                                       yArr,
-                                                                       false ) );
-      ndarray::Array< PsfT, 1, 1 > zT = ndarray::allocate(zArr.getShape()[ 0 ]);
-      zT.deep() = zRec[ ndarray::view()( 0 ) ];
-      if (!psf.setImagePSF_ZFit( zT )){
-        cout << "PSF::interpolatePSFThinPlateSpline: WARNING: psf.setImagePSF_ZFit(zT) returned FALSE" << endl;
+      ndarray::Array< PsfT, 1, 1 > zRec = ndarray::copy( tps.getZFit() );
+      if ( !psf.setImagePSF_ZFit( zRec ) ){
+        cout << "PSF::interpolatePSFThinPlateSpline: WARNING: psf.setImagePSF_ZFit( zRec ) returned FALSE" << endl;
       }
       psf.setThinPlateSpline( tps );
       #ifdef __DEBUG_PSF__
@@ -1724,12 +1717,9 @@ namespace pfs{ namespace drp{ namespace stella{
       ndarray::Array< PsfT, 2, 1 > arr_Out = ndarray::copy( tps.fitArray( xPos, 
                                                                           yPos, 
                                                                           isXYPositionsGridPoints ) );
-      ndarray::Array< PsfT, 2, 1 > zRec = ndarray::copy( tps.fitArray( xArr,
-                                                                       yArr,
-                                                                       false ) );
-      zArr.deep() = zRec[ndarray::view()(0)];
-      if (!psf.setImagePSF_ZFit(zArr)){
-        cout << "PSF::interpolatePSFThinPlateSplineChiSquare: WARNING: psf.setImagePSF_ZFit(zArr) returned FALSE" << endl;
+      ndarray::Array< PsfT, 1, 1 > zRec = ndarray::copy( tps.getZFit() );
+      if ( !psf.setImagePSF_ZFit( zRec ) ){
+        cout << "PSF::interpolatePSFThinPlateSplineChiSquare: WARNING: psf.setImagePSF_ZFit( zRec ) returned FALSE" << endl;
       }
       psf.setThinPlateSplineChiSquare( tps );
       #ifdef __DEBUG_PSF__
