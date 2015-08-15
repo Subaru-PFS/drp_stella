@@ -476,6 +476,11 @@ Interface to Stella
 %template(indGenNdArrF) pfs::drp::stella::math::indGenNdArr<float>;
 %template(indGenNdArrD) pfs::drp::stella::math::indGenNdArr<double>;
 
+%template(ThinPlateSplineBaseFF) pfs::drp::stella::math::ThinPlateSplineBase<float, float>;
+%template(ThinPlateSplineBaseFD) pfs::drp::stella::math::ThinPlateSplineBase<float, double>;
+%template(ThinPlateSplineBaseDF) pfs::drp::stella::math::ThinPlateSplineBase<double, float>;
+%template(ThinPlateSplineBaseDD) pfs::drp::stella::math::ThinPlateSplineBase<double, double>;
+
 %template(ThinPlateSplineFF) pfs::drp::stella::math::ThinPlateSpline<float, float>;
 %template(ThinPlateSplineFD) pfs::drp::stella::math::ThinPlateSpline<float, double>;
 %template(ThinPlateSplineDF) pfs::drp::stella::math::ThinPlateSpline<double, float>;
