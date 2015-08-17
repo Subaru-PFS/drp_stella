@@ -24,7 +24,8 @@
 //#define __DEBUG_CALCULATE_COEFFICIENTS__
 //#define __DEBUG_FILL_REGULARIZED_MATRIX__
 //#define __DEBUG_FILL_WEIGHTED_MATRIX__
-//#define __DEBUG_TPS__
+#define __DEBUG_FILL_MATRIX__
+#define __DEBUG_TPS__
 //#define __DEBUG_TPS_FITPOINT__
 
 namespace afwGeom = lsst::afw::geom;
