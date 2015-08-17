@@ -322,7 +322,7 @@ namespace pfs{ namespace drp{ namespace stella{
     ThinPlateSplineBase< ValueT, CoordsT >& ThinPlateSplineBase< ValueT, CoordsT >::operator=(ThinPlateSplineBase< ValueT, CoordsT > const& tps){
       #ifdef __DEBUG_TPS__
         cout << "ThinPlateSplineBase::operator=(tps) started" << endl;
-        cout << " tps.getControlPointsX.getShape()[ 0 ] = " << tps.getControlPointsX().getShape()[ 0 ] << endl;
+        cout << " tps.getDataPointsX.getShape()[ 0 ] = " << tps.getDataPointsX().getShape()[ 0 ] << endl;
       #endif
       _dataPointsX = copy( tps.getDataPointsX() );
       _dataPointsY = copy( tps.getDataPointsY() );
@@ -337,7 +337,7 @@ namespace pfs{ namespace drp{ namespace stella{
       _isWeightsSet = tps.isWeightsSet();
       _regularizationBase = tps.getRegularizationBase();
       #ifdef __DEBUG_TPS__
-        cout << " this->getControlPointsX.getShape()[ 0 ] = " << this->getControlPointsX().getShape()[ 0 ] << endl;
+        cout << " this->getDataPointsX.getShape()[ 0 ] = " << this->getDataPointsX().getShape()[ 0 ] << endl;
         cout << "ThinPlateSplineBase::operator=(tps) finished" << endl;
       #endif
       return *this;
@@ -353,7 +353,7 @@ namespace pfs{ namespace drp{ namespace stella{
         ThinPlateSplineBase< ValueT, CoordsT >()
     {
       #ifdef __DEBUG_TPS__
-        cout << "ThinPlateSpline() finished: _zFit.shape = " << _zFit.getShape() << endl;
+        cout << "ThinPlateSpline() finished: _zFit.shape = " << this->_zFit.getShape() << endl;
       #endif
     }
           
@@ -631,7 +631,7 @@ namespace pfs{ namespace drp{ namespace stella{
       if (isXYPositionsGridPoints){
         this->_knots = ndarray::allocate( knotsX.getShape()[ 0 ] * knotsY.getShape()[ 0 ], 2 );
         createGridPointsXY( knotsX, knotsY);
-        this->_coefficients = ndarray::allocate( knotsX.getShape()[ 0 ] * knotsY.getShape()[ 0 ] + 3);
+        this->_coefficients = ndarray::allocate( knotsX.getShape()[ 0 ] * knotsY.getShape()[ 0 ] + 6);
       }
       else{
         if ( knotsX.getShape()[ 0 ] != knotsY.getShape()[ 0 ]){
@@ -646,7 +646,7 @@ namespace pfs{ namespace drp{ namespace stella{
           this->_knots[ iPix ][ 0 ] = knotsX[ iPix ];
           this->_knots[ iPix ][ 1 ] = knotsY[ iPix ];
         }
-        this->_coefficients = ndarray::allocate( knotsX.getShape()[ 0 ] + 3);
+        this->_coefficients = ndarray::allocate( knotsX.getShape()[ 0 ] + 6);
       }
       this->_zFit = ndarray::allocate( dataPointsZ.getShape()[ 0 ] );
       
@@ -688,12 +688,12 @@ namespace pfs{ namespace drp{ namespace stella{
         throw LSST_EXCEPT( pexExcept::Exception, message.c_str() );    
       }
 
-      unsigned nFitPoints = this->_knots.getShape()[ 0 ];
+      unsigned nKnots = this->_knots.getShape()[ 0 ];
       unsigned nDataPoints = this->_dataPointsX.getShape()[ 0 ];
 
       // Allocate the matrix and vector
-      ndarray::Array< double, 2, 1 > mtx_l = ndarray::allocate( nFitPoints + 3, nFitPoints + 3);
-      ndarray::Array< double, 1, 1 > mtx_v = ndarray::allocate( nFitPoints + 3);
+      ndarray::Array< double, 2, 1 > mtx_l = ndarray::allocate( nKnots + 6, nKnots + 6);
+      ndarray::Array< double, 1, 1 > mtx_v = ndarray::allocate( nKnots + 6);
       mtx_v.deep() = 0.;
       #ifdef __DEBUG_CALC_TPS__
         std::cout << "ThinPlateSplineChiSquare::calculateCoefficients: memory for mtx_l, mtx_v allocated" << std::endl;
@@ -706,8 +706,8 @@ namespace pfs{ namespace drp{ namespace stella{
       ndarray::Array< double, 1, 1 > pt_k = ndarray::allocate(2);
       ndarray::Array< double, 1, 1 > pt_diff = ndarray::allocate(2);
       double elen_ik;
-      double r_ik;
-      for ( unsigned i = 0; i < nFitPoints; ++i ){
+//      double r_ik;
+      for ( unsigned i = 0; i < nKnots; ++i ){
         pt_i[ 0 ] = this->_knots[ i ][ 0 ];
         pt_i[ 1 ] = this->_knots[ i ][ 1 ];
         for ( unsigned k = 0; k < nDataPoints; ++k ){
@@ -719,11 +719,12 @@ namespace pfs{ namespace drp{ namespace stella{
           mtx_v[ i ] += 2. * this->tps_base_func( elen_ik );// - _dataPointsZ[ k ];
         }
       }
-      mtx_v[ nFitPoints ] = 2. * double( nDataPoints );
+      mtx_v[ nKnots ] = 2. * double( nDataPoints );
       for (unsigned k = 0; k < nDataPoints; ++k ){
-        mtx_v[ nFitPoints + 1 ] += 2. * this->_dataPointsX[ k ];
-        mtx_v[ nFitPoints + 2 ] += 2. * this->_dataPointsY[ k ];
+        mtx_v[ nKnots + 1 ] += 2. * this->_dataPointsX[ k ];
+        mtx_v[ nKnots + 2 ] += 2. * this->_dataPointsY[ k ];
       }
+      //mtx_v[ nKnots + 3 ] = mtx_v[ nKnots + 4 ] = mtx_v[ nKnots + 5 ] = 0.;
       #ifdef __DEBUG_CALC_TPS__
         std::cout << "ThinPlateSplineChiSquare::calculateCoefficients: mtx_v = " << mtx_v << std::endl;
       #endif
@@ -735,14 +736,14 @@ namespace pfs{ namespace drp{ namespace stella{
       #endif
 
       // Calculate bending energy
-      ndarray::Array< double, 1, 1 > coeffs_dot_mtxl = ndarray::allocate( mtx_l.getShape()[ 1 ] - 3 );
-      for (int i = 0; i < mtx_l.getShape()[ 1 ] - 3; ++i){
-        coeffs_dot_mtxl[ i ] = 0.;
-        for (int j = 0; j < mtx_l.getShape()[ 0 ] - 3; ++j)
+      ndarray::Array< double, 1, 1 > coeffs_dot_mtxl = ndarray::allocate( mtx_l.getShape()[ 1 ] - 6 );
+      coeffs_dot_mtxl.deep() = 0.;
+      for (int i = 0; i < mtx_l.getShape()[ 1 ] - 6; ++i){
+        for (int j = 0; j < mtx_l.getShape()[ 0 ] - 6; ++j)
           coeffs_dot_mtxl[ i ] += this->_coefficients[ j ] * mtx_l[ j ][ i ];
       }  
       this->_bendingEnergy = 0.;
-      for (int i = 0; i < mtx_l.getShape()[ 1 ] - 3; ++i)
+      for (int i = 0; i < mtx_l.getShape()[ 1 ] - 6; ++i)
         this->_bendingEnergy += this->_coefficients[ i ] * coeffs_dot_mtxl[ i ];
       #ifdef __DEBUG_CALC_TPS__
         std::cout << "ThinPlateSplineChiSquare::calculateCoefficients: _bendingEnergy = " << _bendingEnergy << std::endl;
@@ -806,11 +807,11 @@ namespace pfs{ namespace drp{ namespace stella{
       #ifdef __DEBUG_TPS__
         cout << "ThinPlateSplineChiSquare::fillMatrix() started" << endl;
       #endif
-      unsigned nFitPoints = this->_knots.getShape()[ 0 ];
-      unsigned nControlPoints = this->_dataPointsX.getShape()[ 0 ];
+      unsigned nKnots = this->_knots.getShape()[ 0 ];
+      unsigned nDataPoints = this->_dataPointsX.getShape()[ 0 ];
 
       // Allocate the matrix and vector
-      ndarray::Array< double, 2, 1 > mtx_l = ndarray::allocate( nFitPoints + 3, nFitPoints + 3);
+      ndarray::Array< double, 2, 1 > mtx_l = ndarray::allocate( nKnots + 6, nKnots + 6);
 //      ndarray::Array< double, 2, 1 > fArr = ndarray::allocate( nGridPoints, 3 );
 //      ndarray::Array< double, 2, 1 > fTArr = ndarray::allocate( 3, nGridPoints );
       mtx_l.deep() = 0.;
@@ -829,13 +830,13 @@ namespace pfs{ namespace drp{ namespace stella{
       //
       // K is symmetrical so we really have to
       // calculate only about half of the coefficients.
-      for ( unsigned i = 0; i < nFitPoints; ++i ){
+      for ( unsigned i = 0; i < nKnots; ++i ){
         pt_i[ 0 ] = this->_knots[ i ][ 0 ];
         pt_i[ 1 ] = this->_knots[ i ][ 1 ];
         #ifdef __DEBUG_FILL_MATRIX__
           std::cout << "ThinPlateSplineChiSquare::fillMatrix: i = " << i << ": pt_i set to " << pt_i << std::endl;
         #endif
-        for (unsigned k = 0; k < nControlPoints; ++k){
+        for (unsigned k = 0; k < nDataPoints; ++k){
           pt_k[ 0 ] = this->_dataPointsX[ k ];
           pt_k[ 1 ] = this->_dataPointsY[ k ];
           #ifdef __DEBUG_FILL_MATRIX__
@@ -865,10 +866,10 @@ namespace pfs{ namespace drp{ namespace stella{
           std::cout << "ThinPlateSplineChiSquare::fillMatrix: mtx_l[ " << i << " ][ " << i << " ] set to " << mtx_l[ i ][ i ] << std::endl;
         #endif
         
-        for ( unsigned j = i + 1; j < nFitPoints; ++j ){
+        for ( unsigned j = i + 1; j < nKnots; ++j ){
           pt_j[ 0 ] = this->_knots[ j ][ 0 ];
           pt_j[ 1 ] = this->_knots[ j ][ 1 ];
-          for ( unsigned k = 0; k < nControlPoints; ++k ){
+          for ( unsigned k = 0; k < nDataPoints; ++k ){
             pt_k[0] = this->_dataPointsX[ k ];
             pt_k[1] = this->_dataPointsY[ k ];
             #ifdef __DEBUG_FILL_MATRIX__
@@ -905,7 +906,7 @@ namespace pfs{ namespace drp{ namespace stella{
         // P (p x 3, upper right)
         // P transposed (3 x p, bottom left)
         //*
-        for ( unsigned k = 0; k < nControlPoints; ++k ){
+        for ( unsigned k = 0; k < nDataPoints; ++k ){
           pt_k[0] = this->_dataPointsX[k];
           pt_k[1] = this->_dataPointsY[k];
           #ifdef __DEBUG_FILL_MATRIX__
@@ -920,28 +921,34 @@ namespace pfs{ namespace drp{ namespace stella{
           #ifdef __DEBUG_FILL_MATRIX__
             std::cout << "ThinPlateSplineChiSquare::fillMatrix: i = " << i << ", k = " << k << ": elen_ik set to " << elen_ik << std::endl;
           #endif
-          mtx_l[ i ][ nFitPoints + 0 ] += 2. * this->tps_base_func( elen_ik)  / this->_dataPointsZ[ k ];
-          mtx_l[ i ][ nFitPoints + 1 ] += 2. * this->_dataPointsX[ k ] * this->tps_base_func( elen_ik ) / this->_dataPointsZ[ k ];
-          mtx_l[ i ][ nFitPoints + 2 ] += 2. * this->_dataPointsY[ k ] * this->tps_base_func( elen_ik ) / this->_dataPointsZ[ k ];
+          mtx_l[ i ][ nKnots + 0 ] += 2. * this->tps_base_func( elen_ik)  / this->_dataPointsZ[ k ];
+          mtx_l[ i ][ nKnots + 1 ] += 2. * this->_dataPointsX[ k ] * this->tps_base_func( elen_ik ) / this->_dataPointsZ[ k ];
+          mtx_l[ i ][ nKnots + 2 ] += 2. * this->_dataPointsY[ k ] * this->tps_base_func( elen_ik ) / this->_dataPointsZ[ k ];
         }
-        mtx_l[ nFitPoints + 0 ][ i ] = mtx_l[ i ][ nFitPoints + 0 ];
-        mtx_l[ nFitPoints + 1 ][ i ] = mtx_l[ i ][ nFitPoints + 1 ];
-        mtx_l[ nFitPoints + 2 ][ i ] = mtx_l[ i ][ nFitPoints + 2 ];
-        //*/
+        mtx_l[ nKnots + 0 ][ i ] = mtx_l[ i ][ nKnots + 0 ];
+        mtx_l[ nKnots + 1 ][ i ] = mtx_l[ i ][ nKnots + 1 ];
+        mtx_l[ nKnots + 2 ][ i ] = mtx_l[ i ][ nKnots + 2 ];
+        
+        mtx_l[ i ][ nKnots + 3 ] = double( nKnots );
+        mtx_l[ i ][ nKnots + 4 ] = this->_knots[ i ][ 0 ];
+        mtx_l[ i ][ nKnots + 5 ] = this->_knots[ i ][ 1 ];
+        mtx_l[ nKnots + 3 ][ i ] = 1.;
+        mtx_l[ nKnots + 4 ][ i ] = this->_knots[ i ][ 0 ];
+        mtx_l[ nKnots + 5 ][ i ] = this->_knots[ i ][ 1 ];
       }
       //*
-      // O (3 x 3, lower right)
-      for ( unsigned k = 0; k < nControlPoints; ++k ){
-        mtx_l[ nFitPoints ][ nFitPoints ] += 2. / this->_dataPointsZ[ k ];
-        mtx_l[ nFitPoints + 1 ][ nFitPoints + 1 ] += 2. * this->_dataPointsX[ k ] * this->_dataPointsX[ k ] / this->_dataPointsZ[ k ];
-        mtx_l[ nFitPoints + 2 ][ nFitPoints + 2 ] += 2. * this->_dataPointsY[ k ] * this->_dataPointsY[ k ] / this->_dataPointsZ[ k ];
-        mtx_l[ nFitPoints ][ nFitPoints + 1 ] += 2. * this->_dataPointsX[ k ] / this->_dataPointsZ[ k ];
-        mtx_l[ nFitPoints ][ nFitPoints + 2 ] += 2. * this->_dataPointsY[ k ] / this->_dataPointsZ[ k ];
-        mtx_l[ nFitPoints + 1 ][ nFitPoints + 2 ] += 2. * this->_dataPointsX[ k ] * this->_dataPointsY[ k ] / this->_dataPointsZ[ k ];
+      // (3 x 3, lower right)
+      for ( unsigned k = 0; k < nDataPoints; ++k ){
+        mtx_l[ nKnots ][ nKnots ] += 2. / this->_dataPointsZ[ k ];
+        mtx_l[ nKnots + 1 ][ nKnots + 1 ] += 2. * this->_dataPointsX[ k ] * this->_dataPointsX[ k ] / this->_dataPointsZ[ k ];
+        mtx_l[ nKnots + 2 ][ nKnots + 2 ] += 2. * this->_dataPointsY[ k ] * this->_dataPointsY[ k ] / this->_dataPointsZ[ k ];
+        mtx_l[ nKnots ][ nKnots + 1 ] += 2. * this->_dataPointsX[ k ] / this->_dataPointsZ[ k ];
+        mtx_l[ nKnots ][ nKnots + 2 ] += 2. * this->_dataPointsY[ k ] / this->_dataPointsZ[ k ];
+        mtx_l[ nKnots + 1 ][ nKnots + 2 ] += 2. * this->_dataPointsX[ k ] * this->_dataPointsY[ k ] / this->_dataPointsZ[ k ];
       }
-      mtx_l[ nFitPoints + 1 ][ nFitPoints ] = mtx_l[ nFitPoints ][ nFitPoints + 1 ];
-      mtx_l[ nFitPoints + 2 ][ nFitPoints ] = mtx_l[ nFitPoints ][ nFitPoints + 2 ];
-      mtx_l[ nFitPoints + 2 ][ nFitPoints + 1 ] = mtx_l[ nFitPoints + 1 ][ nFitPoints + 2 ];
+      mtx_l[ nKnots + 1 ][ nKnots ] = mtx_l[ nKnots ][ nKnots + 1 ];
+      mtx_l[ nKnots + 2 ][ nKnots ] = mtx_l[ nKnots ][ nKnots + 2 ];
+      mtx_l[ nKnots + 2 ][ nKnots + 1 ] = mtx_l[ nKnots + 1 ][ nKnots + 2 ];
       //*/
 
         
@@ -951,14 +958,14 @@ namespace pfs{ namespace drp{ namespace stella{
 
         // P (p x 3, upper right)
         // P transposed (3 x p, bottom left)
-      for ( unsigned i = 0; i < nFitPoints; ++i ){
-        mtx_l[ i ][ nFitPoints + 0 ] = mtx_l[ nFitPoints + 0 ][ i ] = 1.0;
-        mtx_l[ i ][ nFitPoints + 1] = mtx_l[ nFitPoints + 1 ][ i ] = _knots[ i ][ 0 ];
-        mtx_l[ i ][ nFitPoints + 2] = mtx_l[ nFitPoints + 2][ i ] = _knots[ i ][ 1 ];
+      for ( unsigned i = 0; i < nKnots; ++i ){
+        mtx_l[ i ][ nKnots + 0 ] = mtx_l[ nKnots + 0 ][ i ] = 1.0;
+        mtx_l[ i ][ nKnots + 1] = mtx_l[ nKnots + 1 ][ i ] = _knots[ i ][ 0 ];
+        mtx_l[ i ][ nKnots + 2] = mtx_l[ nKnots + 2][ i ] = _knots[ i ][ 1 ];
       
         // O (3 x 3, lower right)
-        for ( unsigned i = nFitPoints; i < nFitPoints + 3; ++i ){
-          for ( unsigned j = nFitPoints; j < nFitPoints + 3; ++j ){
+        for ( unsigned i = nKnots; i < nKnots + 3; ++i ){
+          for ( unsigned j = nKnots; j < nKnots + 3; ++j ){
             mtx_l[i][j] = 0.0;
           }
         }
