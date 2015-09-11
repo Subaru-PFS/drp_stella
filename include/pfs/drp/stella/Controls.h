@@ -428,5 +428,33 @@ struct TwoDPSFControl {
       return ptr;
     }
 };
+
+/**
+ * Description of Thin-Plate Spline
+ */
+struct TPSControl {
+    enum BASE_FUNC {  TPS=0, MULTIQUADRIC, R, R_CUBE, EXP_R_SQUARE };
+    std::vector<std::string> BASE_FUNC_NAMES = { stringify( BASE_FUNC ) };
+    LSST_CONTROL_FIELD(baseFunc, std::string, "Name of base function");
+    LSST_CONTROL_FIELD(regularization, double, "Smoothing factor for thin-plate-spline interpolation");
+    LSST_CONTROL_FIELD(radiusNormalizationFactor, double, "Radius normalization factor");
+
+    TPSControl() :
+    baseFunc("TPS"),
+    regularization(0.00001),
+    radiusNormalizationFactor(1.){}
+
+    TPSControl(const TPSControl &tpsControl) :
+    baseFunc( tpsControl.baseFunc ),
+    regularization( tpsControl.regularization ),
+    radiusNormalizationFactor( tpsControl.radiusNormalizationFactor ){}
+
+    ~TPSControl() {}
+    
+    PTR(TPSControl) getPointer(){
+      PTR(TPSControl) ptr(new TPSControl(*this));
+      return ptr;
+    }
+};
 }}}
 #endif
