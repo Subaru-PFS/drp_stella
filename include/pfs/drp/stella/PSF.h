@@ -282,17 +282,10 @@ namespace pfs { namespace drp { namespace stella {
                                    ndarray::Array< T, 1, 1 > const& measureErrors_In );
             
       math::ThinPlateSpline< T, T > getThinPlateSpline() const{
-          #ifdef __DEBUG_PSF__
-            cout << "PSF::getThinPlateSpline(): _thinPlateSpline.getControlPointsX().getShape()[ 0 ] = " << _thinPlateSpline.getControlPointsX().getShape()[ 0 ] << endl;
-          #endif
           return math::ThinPlateSpline< T, T >( _thinPlateSpline );
       }
       void setThinPlateSpline( math::ThinPlateSpline< T, T > const& tps ){
           _thinPlateSpline = tps;
-          #ifdef __DEBUG_PSF__
-            cout << "PSF::setThinPlateSpline(): tps.getControlPointsX().getShape()[ 0 ] = " << tps.getControlPointsX().getShape()[ 0 ] << endl;
-            cout << "PSF::setThinPlateSpline(): _thinPlateSpline.getControlPointsX().getShape()[ 0 ] = " << _thinPlateSpline.getControlPointsX().getShape()[ 0 ] << endl;
-          #endif
           return;
       }
       math::ThinPlateSplineChiSquare< T, T > getThinPlateSplineChiSquare() const{
@@ -451,7 +444,7 @@ namespace math{
   
   /*
    * @brief: fit PSF and interpolate to new coordinates using thin-plate splines with Chi-square minimization, 
-   *         reconstruct psf._imagePSF_ZNormalized and write to psf._imagePSF_ZFit
+   *         reconstruct psf._imagePSF_ZNormalized and write to psf._imagePSF_ZFit. x/yPositions are the knots
    * 
    * @param psf : PSF to interpolate
    * @param xPositions : x positions of new coordinate grid relative to center of PSF [x_0, x_1, ... , x_n-2, x_n-1]

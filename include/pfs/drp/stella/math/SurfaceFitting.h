@@ -13,6 +13,7 @@
 #include "lsst/afw/image/MaskedImage.h"
 #include "lsst/pex/config.h"
 #include "../utils/Utils.h"
+#include "../Controls.h"
 #include "Math.h"
 #include "ndarray.h"
 #include "ndarray/eigen.h"
@@ -25,6 +26,7 @@
 //#define __DEBUG_FILL_REGULARIZED_MATRIX__
 //#define __DEBUG_FILL_WEIGHTED_MATRIX__
 #define __DEBUG_FILL_MATRIX__
+#define __DEBUG_FILL_RHS__
 #define __DEBUG_TPS__
 //#define __DEBUG_TPS_FITPOINT__
 
@@ -44,7 +46,7 @@ namespace pfs { namespace drp { namespace stella {
                 virtual ~ThinPlateSplineBase(){}
               
                 ValueT getRadiusNormalizationFactor() const {
-                    return _radiusNormalizationFactor;
+                    return _tpsControl.radiusNormalizationFactor;
                 }
 
                 ndarray::Array< CoordsT, 1, 1 > getDataPointsX () const {
@@ -72,7 +74,7 @@ namespace pfs { namespace drp { namespace stella {
                 }
 
                 ValueT getRegularization() const {
-                    return _regularization;
+                    return _tpsControl.regularization;
                 }
 
                 ValueT getBendingEnergy() const{
@@ -104,21 +106,43 @@ namespace pfs { namespace drp { namespace stella {
                 ndarray::Array< ValueT, 2, 1 > fitArray( ndarray::Array< const CoordsT, 1, 1 > const& xPositionsFit,
                                                          ndarray::Array< const CoordsT, 1, 1 > const& yPositionsFit,
                                                          bool const isXYPositionsGridPoints); /// fit positions
+                
+                ndarray::Array< double, 2, 1 > getMatrix() const{
+                    return _matrix; 
+                }
+                
+                ndarray::Array< double, 1, 1 > getRHS() const{
+                    return _rhs;
+                }
+                
+                bool setCoefficients( ndarray::Array< const double, 1, 1 > const& coefficients );
+                
+                TPSControl getTPSControl(){
+                    return _tpsControl;
+                }
             
+                TPSControl getTPSControl() const{
+                    return _tpsControl;
+                }
+                
             protected:
                 /** @brief fill lhs matrix for fit
                  */
-                virtual ndarray::Array< double, 2, 1 > fillMatrix() = 0;
+                virtual void fillMatrix() = 0;
 
+                /** @brief fill rhs vector for fit
+                 */
+                virtual void fillRHS() = 0;
+                
                 /**
                  * @brief Add regularization (_regularization * _regularizationBase^2) to diagonal elements of matrix
                  */                
-                void addRegularizationToMatrix( ndarray::Array< double, 2, 1 > & matrix );
+                void addRegularizationToMatrix( );
                 
                 /**
                  * @brief Add weights (8 * Pi / _dataPointsWeight) to diagonal elements of matrix
                  */                
-                void addWeightsToMatrix( ndarray::Array< double, 2, 1 > & matrix );
+                void addWeightsToMatrix( );
 
                 /** @brief Calculate coefficients for fit
                  * 
@@ -143,8 +167,11 @@ namespace pfs { namespace drp { namespace stella {
                 ndarray::Array< CoordsT, 2, 1 > _knots;
                 ndarray::Array< double, 1, 1 > _coefficients;
                 ndarray::Array< ValueT, 1, 1 > _zFit;
-                double _regularization;
-                ValueT _radiusNormalizationFactor;
+                ndarray::Array< double, 2, 1 > _matrix;
+                ndarray::Array< double, 1, 1 > _rhs;
+                TPSControl _tpsControl;
+//                double _regularization;
+//                ValueT _radiusNormalizationFactor;
                 ValueT _bendingEnergy;
                 ValueT _chiSquare;
                 ValueT _regularizationBase;
@@ -167,8 +194,7 @@ namespace pfs { namespace drp { namespace stella {
                 explicit ThinPlateSpline( ndarray::Array< const CoordsT, 1, 1 > const& dataPointsX,
                                           ndarray::Array< const CoordsT, 1, 1 > const& dataPointsY,
                                           ndarray::Array< const ValueT, 1, 1 > const& dataPointsZ,
-                                          double const regularization = 0.,
-                                          ValueT const radiusNormalizationFactor = 1. );
+                                          TPSControl const& tpsControl );
 
                 /**
                  * @brief Create weighted ThinPlateSpline object and calculate coefficients of fit
@@ -182,7 +208,7 @@ namespace pfs { namespace drp { namespace stella {
                                           ndarray::Array< const CoordsT, 1, 1 > const& dataPointsY,
                                           ndarray::Array< const ValueT, 1, 1 > const& dataPointsZ,
                                           ndarray::Array< const ValueT, 1, 1 > const& dataPointsWeights,
-                                          ValueT const radiusNormalizationFactor = 1. );
+                                          TPSControl const& tpsControl );
 
                 ThinPlateSpline( ThinPlateSpline const& tps);
 
@@ -191,9 +217,13 @@ namespace pfs { namespace drp { namespace stella {
             protected:
                 /** @brief fill lhs matrix for fit
                  */
-                virtual ndarray::Array< double, 2, 1 > fillMatrix();
+                virtual void fillMatrix();
 
-                /** @brief Calculate coefficients for regularized fit without weights
+                /** @brief fill rhs vector for fit
+                 */
+                virtual void fillRHS();
+                
+                /** @brief Calculate coefficients
                  * 
                  */
 //                virtual bool calculateCoefficients();
@@ -221,8 +251,7 @@ namespace pfs { namespace drp { namespace stella {
                                                    ndarray::Array< const CoordsT, 1, 1 > const& knotsX,
                                                    ndarray::Array< const CoordsT, 1, 1 > const& knotsY,
                                                    bool const isXYPositionsGridPoints,
-                                                   ValueT const regularization = 0.,
-                                                   ValueT const radiusNormalizationFactor = 1. );
+                                                   TPSControl const& tpsControl );
 
                 ThinPlateSplineChiSquare( ThinPlateSplineChiSquare const& tps);
 
@@ -238,7 +267,11 @@ namespace pfs { namespace drp { namespace stella {
 
                 /** @brief fill lhs matrix for (non-regularized and non-weighted) fit
                  */
-                virtual ndarray::Array< double, 2, 1 > fillMatrix();
+                virtual void fillMatrix();
+
+                /** @brief fill rhs vector for fit
+                 */
+                virtual void fillRHS();
 
                 /** @brief Calculate coefficients of thin-plate spline
                  * 

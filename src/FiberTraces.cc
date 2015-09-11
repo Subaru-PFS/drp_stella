@@ -699,6 +699,7 @@ namespace pfsDRPStella = pfs::drp::stella;
         cout << "FiberTrace" << _iTrace << "::calcSwathBoundY: swathBoundY[" << iSwath << "][1] set to " << swathBoundY[iSwath][1] << endl;
       #endif
     }
+    swathBoundY[ nSwaths - 1][ 1 ] = _trace->getHeight() - 1;
     #ifdef __DEBUG_CALCSWATHBOUNDY__
       cout << "FiberTrace" << _iTrace << "::calcSwathBoundY: swathBoundY set to " << swathBoundY << endl;
     #endif
@@ -883,7 +884,7 @@ namespace pfsDRPStella = pfs::drp::stella;
           #endif            
           _profile->getArray()[ndarray::view(i_row)()] = (ndarray::Array<double, 1, 0>(slitFuncsSwaths[ndarray::view(iRowSwath)()(I_Bin)]) * D_Weight_Bin0) + (ndarray::Array<double, 1, 0>(slitFuncsSwaths[ndarray::view(int(i_row - swathBoundsY[I_Bin+1][0]))()(I_Bin+1)]) * D_Weight_Bin1);
         }
-        cout << "calculating dSumSFRow" << endl;
+//        cout << "calculating dSumSFRow" << endl;
         double dSumSFRow = ndarray::sum(_profile->getArray()[ndarray::view(i_row)()]);
         #ifdef __DEBUG_CALCPROFILE__
           cout << "FiberTrace" << _iTrace << "::calcProfile: i_row = " << i_row << ": I_Bin = " << I_Bin << ": dSumSFRow = " << dSumSFRow << endl;

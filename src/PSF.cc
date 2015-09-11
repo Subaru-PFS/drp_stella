@@ -873,7 +873,7 @@ namespace pfs{ namespace drp{ namespace stella{
       _xCentersPSFCCD.push_back( result.xCenterPSFCCD );
       _yCentersPSFCCD.push_back( result.yCenterPSFCCD );
       _nPixPerPSF.push_back( result.xRelativeToCenter.size() );
-      cout << "PSF trace" << _iTrace << " bin " << _iBin << "::extractPSFFromCenterPositionsA: _nPixPerPSF[" << _nPixPerPSF.size()-1 << "] = " << _nPixPerPSF[_nPixPerPSF.size()-1] << endl;
+//      cout << "PSF trace" << _iTrace << " bin " << _iBin << "::extractPSFFromCenterPositionsA: _nPixPerPSF[" << _nPixPerPSF.size()-1 << "] = " << _nPixPerPSF[_nPixPerPSF.size()-1] << endl;
       if ( _nPixPerPSF[ _nPixPerPSF.size() - 1 ] == 0 ){
         string message( "PSF trace" );
         message += to_string(_iTrace) + " bin" + to_string( _iBin ) + "::extractPSFFromCenterPositionsA: ERROR: _nPixPerPSF[_nPixPerPSF.size()-1=" + to_string(_nPixPerPSF.size()-1);
@@ -902,10 +902,12 @@ namespace pfs{ namespace drp{ namespace stella{
     ndarray::Array<T, 1, 1> xArr = ndarray::external( ( const_cast< std::vector< T >* >( &_imagePSF_XRelativeToCenter ) )->data(), ndarray::makeVector( int( _imagePSF_XRelativeToCenter.size() ) ), ndarray::makeVector( 1 ) );
     ndarray::Array<T, 1, 1> yArr = ndarray::external( ( const_cast< std::vector< T >* >( &_imagePSF_YRelativeToCenter ) )->data(), ndarray::makeVector( int( _imagePSF_YRelativeToCenter.size() ) ), ndarray::makeVector( 1 ) );
     ndarray::Array<T, 1, 1> zArr = ndarray::external( ( const_cast< std::vector< T >* >( &_imagePSF_ZNormalized ) )->data(), ndarray::makeVector( int( _imagePSF_ZNormalized.size() ) ), ndarray::makeVector( 1 ) );
+    TPSControl tpsControl;
+    tpsControl.regularization = regularization;
     math::ThinPlateSpline< T, T > tps = math::ThinPlateSpline< T, T >( xArr,
                                                                        yArr,
                                                                        zArr,
-                                                                       regularization );
+                                                                       tpsControl );
     ndarray::Array< T, 2, 1 > zFitArr = tps.fitArray( xArr,
                                                       yArr,
                                                       false );
@@ -1086,10 +1088,12 @@ namespace pfs{ namespace drp{ namespace stella{
       cout << "PFS::reconstructPFSFromFit: zRelativeToCenter set to " << zRelativeToCenter << endl;
       cout << "PFS::reconstructPFSFromFit: starting construct ThinPlateSpline" << endl;
     #endif
+    TPSControl tpsControl;
+    tpsControl.regularization = regularization;
     math::ThinPlateSpline< T, T > tps = math::ThinPlateSpline< T, T >( xRelativeToCenter,
                                                                        yRelativeToCenter,
                                                                        zRelativeToCenter,
-                                                                       regularization );
+                                                                       tpsControl );
     ndarray::Array< T, 1, 1 > xArr = ndarray::external( ( const_cast< std::vector< T >* >( &_imagePSF_XRelativeToCenter ) )->data(), ndarray::makeVector( int( _imagePSF_XRelativeToCenter.size() ) ), ndarray::makeVector( 1 ) );
     ndarray::Array< T, 1, 1 > yArr = ndarray::external( ( const_cast< std::vector< T >* >( &_imagePSF_YRelativeToCenter ) )->data(), ndarray::makeVector( int( _imagePSF_YRelativeToCenter.size() ) ), ndarray::makeVector( 1 ) );
     #ifdef __DEBUG_PFS_RECONSTRUCTPFSFROMFIT__
@@ -1168,10 +1172,12 @@ namespace pfs{ namespace drp{ namespace stella{
       cout << "PFS::reconstructPFSFromFit: weights set to " << weights << endl;
       cout << "PFS::reconstructPFSFromFit: starting construct ThinPlateSpline" << endl;
     #endif
+    TPSControl tpsControl;
     math::ThinPlateSpline< T, T > tps = math::ThinPlateSpline< T, T >( xRelativeToCenter,
                                                                        yRelativeToCenter,
                                                                        zRelativeToCenter,
-                                                                       weights );
+                                                                       weights,
+                                                                       tpsControl );
     ndarray::Array< T, 1, 1 > xArr = ndarray::external( ( const_cast< std::vector< T >* >( &_imagePSF_XRelativeToCenter ) )->data(), ndarray::makeVector( int( _imagePSF_XRelativeToCenter.size() ) ), ndarray::makeVector( 1 ) );
     ndarray::Array< T, 1, 1 > yArr = ndarray::external( ( const_cast< std::vector< T >* >( &_imagePSF_YRelativeToCenter ) )->data(), ndarray::makeVector( int( _imagePSF_YRelativeToCenter.size() ) ), ndarray::makeVector( 1 ) );
     #ifdef __DEBUG_PFS_RECONSTRUCTPFSFROMFIT__
@@ -1523,11 +1529,13 @@ namespace pfs{ namespace drp{ namespace stella{
       ndarray::Array< PsfT, 1, 1 > yArr = ndarray::external( yRelativeToCenter.data(), ndarray::makeVector( int( yRelativeToCenter.size() ) ), ndarray::makeVector( 1 ) );
       ndarray::Array< PsfT, 1, 1 > zArr = ndarray::external( zVec.data(), ndarray::makeVector( int( zVec.size() ) ), ndarray::makeVector( 1 ) );
       cout << "PSF::interpolatePSFThinPlateSpline: starting interpolateThinPlateSplineEigen" << endl;
+      TPSControl tpsControl;
+      tpsControl.regularization = regularization;
+      tpsControl.radiusNormalizationFactor = radiusNormalizationFactor;
       math::ThinPlateSpline<PsfT, PsfT> tps = math::ThinPlateSpline<PsfT, PsfT>( xArr, 
                                                                                  yArr, 
                                                                                  zArr, 
-                                                                                 regularization,
-                                                                                 radiusNormalizationFactor);
+                                                                                 tpsControl );
       ndarray::Array< PsfT, 1, 1 > xPos = ndarray::allocate( xPositions.getShape() );
       ndarray::Array< PsfT, 1, 1 > yPos = ndarray::allocate( yPositions.getShape() );
       auto itXPos = xPos.begin();
@@ -1538,17 +1546,20 @@ namespace pfs{ namespace drp{ namespace stella{
       for (auto itY = yPositions.begin(); itY != yPositions.end(); ++itY, ++itYPos ){
         *itYPos = PsfT(*itY);
       }
+      cout << "PSF::interpolatePSFThinPlateSpline: xPos = " << xPos << endl;
+      cout << "PSF::interpolatePSFThinPlateSpline: yPos = " << yPos << endl;
       ndarray::Array< PsfT, 2, 1 > arr_Out = ndarray::copy( tps.fitArray( xPos, 
                                                                           yPos,
                                                                           isXYPositionsGridPoints ) );
+      cout << "PSF::interpolatePSFThinPlateSpline: arr_Out = " << arr_Out << endl;
       ndarray::Array< PsfT, 1, 1 > zRec = ndarray::copy( tps.getZFit() );
       if ( !psf.setImagePSF_ZFit( zRec ) ){
         cout << "PSF::interpolatePSFThinPlateSpline: WARNING: psf.setImagePSF_ZFit( zRec ) returned FALSE" << endl;
       }
       psf.setThinPlateSpline( tps );
       #ifdef __DEBUG_PSF__
-        cout << "psfMath::interpolatePSFThinPlateSpline(psf, xPositions, yPositions, isXYPositionsGridPoints, regularization, radiusNormalizationFactor, mode): tps.getControlPointsX().getShape()[ 0 ] = " << tps.getControlPointsX().getShape()[ 0 ] << endl;
-        cout << "psfMath::interpolatePSFThinPlateSpline(psf, xPositions, yPositions, isXYPositionsGridPoints, regularization, radiusNormalizationFactor, mode): psf.getThinPlateSpline().getControlPointsX().getShape()[ 0 ] = " << psf.getThinPlateSpline().getControlPointsX().getShape()[ 0 ] << endl;
+        cout << "psfMath::interpolatePSFThinPlateSpline(psf, xPositions, yPositions, isXYPositionsGridPoints, regularization, radiusNormalizationFactor, mode): tps.getDataPointsX().getShape()[ 0 ] = " << tps.getDataPointsX().getShape()[ 0 ] << endl;
+        cout << "psfMath::interpolatePSFThinPlateSpline(psf, xPositions, yPositions, isXYPositionsGridPoints, regularization, radiusNormalizationFactor, mode): psf.getThinPlateSpline().getDataPointsX().getShape()[ 0 ] = " << psf.getThinPlateSpline().getDataPointsX().getShape()[ 0 ] << endl;
         cout << "psfMath::interpolatePSFThinPlateSpline(psf, xPositions, yPositions, isXYPositionsGridPoints, regularization, radiusNormalizationFactor, mode) finished" << endl;
       #endif
       return arr_Out;
@@ -1613,10 +1624,12 @@ namespace pfs{ namespace drp{ namespace stella{
       auto itWeightsT = weightsT.begin();
       for (auto itWeights = weights.begin(); itWeights != weights.end(); ++itWeights, ++itWeightsT)
         *itWeightsT = PsfT(*itWeights);
+      TPSControl tpsControl;
       math::ThinPlateSpline< PsfT, PsfT > tps = math::ThinPlateSpline< PsfT, PsfT >( xArr, 
                                                                                      yArr, 
                                                                                      zArr, 
-                                                                                     weightsT);
+                                                                                     weightsT,
+                                                                                     tpsControl );
       
       ndarray::Array< PsfT, 1, 1 > xPos = ndarray::allocate( xPositions.getShape() );
       ndarray::Array< PsfT, 1, 1 > yPos = ndarray::allocate( yPositions.getShape() );
@@ -1637,8 +1650,8 @@ namespace pfs{ namespace drp{ namespace stella{
       }
       psf.setThinPlateSpline( tps );
       #ifdef __DEBUG_PSF__
-        cout << "psfMath::interpolatePSFThinPlateSpline(): tps.getControlPointsX().getShape()[ 0 ] = " << tps.getControlPointsX().getShape()[ 0 ] << endl;
-        cout << "psfMath::interpolatePSFThinPlateSpline(): psf.getThinPlateSpline().getControlPointsX().getShape()[ 0 ] = " << psf.getThinPlateSpline().getControlPointsX().getShape()[ 0 ] << endl;
+        cout << "psfMath::interpolatePSFThinPlateSpline(): tps.getDataPointsX().getShape()[ 0 ] = " << tps.getDataPointsX().getShape()[ 0 ] << endl;
+        cout << "psfMath::interpolatePSFThinPlateSpline(): psf.getThinPlateSpline().getDataPointsX().getShape()[ 0 ] = " << psf.getThinPlateSpline().getDataPointsX().getShape()[ 0 ] << endl;
         cout << "psfMath::interpolatePSFThinPlateSpline(psf, weights, xPositions, yPositions, isXYPositionsGridPoints) finished" << endl;
       #endif
       return zFit;
@@ -1665,7 +1678,7 @@ namespace pfs{ namespace drp{ namespace stella{
       //std::vector< CoordsT > xRelativeToCenter( xRel.begin(), xRel.end() );
       //std::vector< CoordsT > yRelativeToCenter( yRel.begin(), yRel.end() );
       if (xRelativeToCenter.size() < 3){
-        string message("PSF::InterPolateThinPlateSpline: ERROR: xRelativeToCenter.size()(=");
+        string message("PSF::InterPolateThinPlateSplineChiSquare: ERROR: xRelativeToCenter.size()(=");
         message += to_string( xRelativeToCenter.size() ) + ") < 3";
         cout << message << endl;
         throw LSST_EXCEPT( pexExcept::Exception, message.c_str() );
@@ -1703,15 +1716,22 @@ namespace pfs{ namespace drp{ namespace stella{
 //      #ifdef __DEBUG_CALC_TPS__
 //        cout << "PSF::interpolatePSFThinPlateSplineChiSquare: zT = " << zT << endl;
 //      #endif
+      cout << "PSF::interpolatePSFThinPlateSplineChiSquare: xArr = " << xArr << endl;
+      cout << "PSF::interpolatePSFThinPlateSplineChiSquare: yArr = " << yArr << endl;
+      cout << "PSF::interpolatePSFThinPlateSplineChiSquare: zArr = " << zArr << endl;
+      cout << "PSF::interpolatePSFThinPlateSplineChiSquare: xPos = " << xPos << endl;
+      cout << "PSF::interpolatePSFThinPlateSplineChiSquare: yPos = " << yPos << endl;
       cout << "PSF::interpolatePSFThinPlateSplineChiSquare: starting interpolateThinPlateSplineChiSquare" << endl;
+      TPSControl tpsControl;
+      tpsControl.regularization = regularization;
+      tpsControl.radiusNormalizationFactor = radiusNormalizationFactor;
       math::ThinPlateSplineChiSquare< PsfT, PsfT > tps = math::ThinPlateSplineChiSquare< PsfT, PsfT >( xArr, 
                                                                                                        yArr, 
                                                                                                        zArr,
                                                                                                        xPos,
                                                                                                        yPos,
                                                                                                        isXYPositionsGridPoints,
-                                                                                                       regularization,
-                                                                                                       radiusNormalizationFactor );
+                                                                                                       tpsControl );
 //                                                                                                    ndarray::Array< PsfT const, 1, 1 >(zT), 
 //                                                                                       regularization );
       ndarray::Array< PsfT, 2, 1 > arr_Out = ndarray::copy( tps.fitArray( xPos, 
@@ -1796,7 +1816,7 @@ namespace pfs{ namespace drp{ namespace stella{
                                                                                        weights,
                                                                                        xPositions, 
                                                                                        yPositions,
-                                                                                       isXYPositionsGridPoints));
+                                                                                       isXYPositionsGridPoints ));
         #ifdef __DEBUG_CALC_TPS__
           cout << "interpolatePSFSetThinPlateSpline: arr.getShape() = " << arr.getShape() << ", arrOut.getShape() = " << arrOut.getShape() << endl;
           cout << "interpolatePSFSetThinPlateSpline: arr = " << arr << endl;
@@ -1881,11 +1901,13 @@ namespace pfs{ namespace drp{ namespace stella{
         *itXArr = CoordT(*itXVec);
         *itYArr = CoordT(*itYVec);
       }
+      TPSControl tpsControl;
+      tpsControl.regularization = regularization;
       ndarray::Array< const PsfT, 1, 1 > zNormalized = ndarray::external(psf_In.getImagePSF_ZNormalized().data(), ndarray::makeVector(int(psf_In.getImagePSF_ZNormalized().size())), ndarray::makeVector(1));
       math::ThinPlateSpline< PsfT, CoordT > tpsA = math::ThinPlateSpline< PsfT, CoordT >( xRelativeToCenter,
                                                                                           yRelativeToCenter,
                                                                                           zNormalized,
-                                                                                          regularization );
+                                                                                          tpsControl );
       ndarray::Array< PsfT, 2, 1 > interpolatedPSF = tpsA.fitArray( coordinatesX_In,
                                                                     coordinatesY_In,
                                                                     true);
