@@ -59,5 +59,8 @@ namespace pfs { namespace drp { namespace stella { namespace utils{
   template<typename T>
   std::vector<T> copy(const std::vector<T> &vecIn);
   
+  template< typename T > 
+  std::string numberToString_dotToUnderscore( T number, int accuracy = -1 );
+  
 }}}}
 #endif

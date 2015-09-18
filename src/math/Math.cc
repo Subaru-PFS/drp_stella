@@ -1172,6 +1172,188 @@
       return outVals;
     }
     
+    template < typename T >
+    ndarray::Array< T, 2, 1 > createRectangularGrid( ndarray::Array< T, 1, 1 > const& xRange,
+                                                     ndarray::Array< T, 1, 1 > const& yRange,
+                                                     T xStep,
+                                                     T yStep ){
+      size_t nX = (xRange[1] - xRange[0]) / xStep + 1;
+      size_t nY = (yRange[1] - yRange[0]) / yStep + 1;
+      ndarray::Array< T, 2, 1 > outArr = ndarray::allocate( nX * nY, 2 );
+      T x = xRange[0];
+      T y = yRange[0];
+      size_t pos = 0;
+      for (size_t iX = 0; iX < nX; ++iX){
+        y = yRange[0];
+        for (size_t iY = 0; iY < nY; ++ iY){
+          outArr[ pos ][ 0 ] = x;
+          outArr[ pos ][ 1 ] = y;
+          y += yStep;
+          ++pos;
+        }
+        x += xStep;
+      }
+      return outArr;
+    }
+    
+    template< typename T >
+    ndarray::Array< T, 2, 1 > createPolarGrid( T rMax,
+                                               T rStep,
+                                               T phiStep ){
+      size_t nStepsR = (rMax / rStep);
+      size_t nStepsPhi = (360. / phiStep);
+      cout << "nStepsR = " << nStepsR << ", nStepsPhi = " << nStepsPhi << endl;
+      ndarray::Array< T, 2, 1 > arrOut = ndarray::allocate( nStepsR * nStepsPhi + 1, 2 );
+      T r = 0.;
+      T phi = 0.;
+      arrOut[ 0 ][ 0 ] = 0.;
+      arrOut[ 0 ][ 1 ] = 0.;
+      size_t pos = 1;
+      for (size_t iR = 1; iR <= nStepsR; ++iR ){
+        r += rStep;
+        cout << "r = " << r << endl;
+        phi = 0.;
+        for (size_t iPhi = 1; iPhi <= nStepsPhi; ++iPhi){
+          phi += phiStep;
+          cout << "phi = " << phi << endl;
+          arrOut[ pos ][ 0 ] = r * cos( phi * 2. * D_PI / 360.);
+          arrOut[ pos ][ 1 ] = r * sin( phi * 2. * D_PI / 360.);
+          cout << "arrOut[" << pos << "][0] = " << arrOut[pos][0] << ", arrOut[" << pos << "][1] = " << arrOut[pos][1] << endl;
+          ++pos;
+        }
+      }
+      return arrOut;
+    }
+    
+    template< typename T >
+    T calculateChiSquare( ndarray::Array< T, 1, 1 > const& expected,
+                          ndarray::Array< T, 1, 1 > const& observed ){
+      if ( expected.getShape()[0] != observed.getShape()[0] ){
+        string message("pfs::drp::stella::math::calculateChiSquare: ERROR: expected.getShape()[ 0 ](=");
+        message += to_string( expected.getShape()[ 0 ] ) + ") != observed.getShape()[ 0 ] (= ";
+        message += to_string( observed.getShape()[ 0 ] ) + "0";
+        cout << message << endl;
+        throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
+      }
+      T chiSquare = 0.;
+      for (auto itExp = expected.begin(), itObs = observed.begin(); itExp != expected.end(); ++itExp, ++itObs){
+        chiSquare += pow(*itExp - *itObs, T(2.)) / *itExp;
+      }
+      return chiSquare;
+    }
+    
+    template< typename T > 
+    ndarray::Array< T, 1, 1 > getDataInRange( ndarray::Array< T, 1, 1 > const& xArr,
+                                              ndarray::Array< T, 1, 1 > const& yArr,
+                                              ndarray::Array< T, 1, 1 > const& zArr,
+                                              ndarray::Array< T, 1, 1 > const& xRange,
+                                              ndarray::Array< T, 1, 1 > const& yRange ){
+      if ( xArr.getShape()[ 0 ] != yArr.getShape()[ 0 ] ){
+        string message("pfs::drp::stella::math::getDataInRange: ERROR: xArr.getShape()[ 0 ](=");
+        message += to_string( xArr.getShape()[ 0 ] ) + ") != yArr.getShape()[ 0 ] (= ";
+        message += to_string( yArr.getShape()[ 0 ] ) + "0";
+        cout << message << endl;
+        throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
+      }
+      if ( xArr.getShape()[ 0 ] != zArr.getShape()[ 0 ] ){
+        string message("pfs::drp::stella::math::getDataInRange: ERROR: xArr.getShape()[ 0 ](=");
+        message += to_string( xArr.getShape()[ 0 ] ) + ") != zArr.getShape()[ 0 ] (= ";
+        message += to_string( zArr.getShape()[ 0 ] ) + "0";
+        cout << message << endl;
+        throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
+      }
+      if ( xRange.getShape()[ 0 ] != 2 ){
+        string message("pfs::drp::stella::math::getDataInRange: ERROR: xRange.getShape()[ 0 ](=");
+        message += to_string( xRange.getShape()[ 0 ] ) + ") != 2";
+        cout << message << endl;
+        throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
+      }
+      if ( yRange.getShape()[ 0 ] != 2 ){
+        string message("pfs::drp::stella::math::getDataInRange: ERROR: yRange.getShape()[ 0 ](=");
+        message += to_string( yRange.getShape()[ 0 ] ) + ") != 2";
+        cout << message << endl;
+        throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
+      }
+      std::vector< size_t > indices;
+      size_t ind = 0;
+      for ( auto itX = xArr.begin(), itY = yArr.begin(); itX != xArr.end(); ++itX, ++itY ){
+        if ( *itX >= xRange[ 0 ] && *itX <= xRange[ 1 ] && *itY >= yRange[ 0 ] && *itY <= yRange[ 1 ] )
+          indices.push_back( ind );
+        ++ind;
+      }
+      ndarray::Array< T, 1, 1 > zOut = ndarray::allocate( indices.size() );
+      for ( ind = 0; ind < indices.size(); ++ind )
+        zOut[ ind ] = zArr[ indices[ ind ] ];
+      return zOut;
+    }
+    
+    template< typename T > 
+    ndarray::Array< T, 1, 1 > getDataInRange( ndarray::Array< T, 1, 1 > const& xArr,
+                                              ndarray::Array< T, 1, 1 > const& yArr,
+                                              ndarray::Array< T, 1, 1 > const& zArr,
+                                              ndarray::Array< T, 1, 1 > const& rRange ){
+      if ( xArr.getShape()[ 0 ] != yArr.getShape()[ 0 ] ){
+        string message("pfs::drp::stella::math::getDataInRange: ERROR: xArr.getShape()[ 0 ](=");
+        message += to_string( xArr.getShape()[ 0 ] ) + ") != yArr.getShape()[ 0 ] (= ";
+        message += to_string( yArr.getShape()[ 0 ] ) + "0";
+        cout << message << endl;
+        throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
+      }
+      if ( xArr.getShape()[ 0 ] != zArr.getShape()[ 0 ] ){
+        string message("pfs::drp::stella::math::getDataInRange: ERROR: xArr.getShape()[ 0 ](=");
+        message += to_string( xArr.getShape()[ 0 ] ) + ") != zArr.getShape()[ 0 ] (= ";
+        message += to_string( zArr.getShape()[ 0 ] ) + "0";
+        cout << message << endl;
+        throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
+      }
+      if ( rRange.getShape()[ 0 ] != 2 ){
+        string message("pfs::drp::stella::math::getDataInRange: ERROR: rRange.getShape()[ 0 ](=");
+        message += to_string( rRange.getShape()[ 0 ] ) + ") != 2";
+        cout << message << endl;
+        throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
+      }
+      std::vector< size_t > indices;
+      size_t ind = 0;
+      double len;
+      for ( auto itX = xArr.begin(), itY = yArr.begin(); itX != xArr.end(); ++itX, ++itY ){
+        len = sqrt( ( *itX * *itX ) + ( *itY * *itY ) );
+        if ( len >= rRange[ 0 ] && len <= rRange[ 1 ] )
+          indices.push_back( ind );
+        ++ind;
+      }
+      ndarray::Array< T, 1, 1 > zOut = ndarray::allocate( indices.size() );
+      for ( ind = 0; ind < indices.size(); ++ind )
+        zOut[ ind ] = zArr[ indices[ ind ] ];
+      return zOut;
+    }
+    
+    template ndarray::Array< float, 1, 1 > getDataInRange( ndarray::Array< float, 1, 1 > const&,
+                                                           ndarray::Array< float, 1, 1 > const&,
+                                                           ndarray::Array< float, 1, 1 > const&,
+                                                           ndarray::Array< float, 1, 1 > const&,
+                                                           ndarray::Array< float, 1, 1 > const& );
+    template ndarray::Array< double, 1, 1 > getDataInRange( ndarray::Array< double, 1, 1 > const&,
+                                                            ndarray::Array< double, 1, 1 > const&,
+                                                            ndarray::Array< double, 1, 1 > const&,
+                                                            ndarray::Array< double, 1, 1 > const&,
+                                                            ndarray::Array< double, 1, 1 > const& );
+
+    template ndarray::Array< float, 1, 1 > getDataInRange( ndarray::Array< float, 1, 1 > const&,
+                                                           ndarray::Array< float, 1, 1 > const&,
+                                                           ndarray::Array< float, 1, 1 > const&,
+                                                           ndarray::Array< float, 1, 1 > const& );
+    template ndarray::Array< double, 1, 1 > getDataInRange( ndarray::Array< double, 1, 1 > const&,
+                                                            ndarray::Array< double, 1, 1 > const&,
+                                                            ndarray::Array< double, 1, 1 > const&,
+                                                            ndarray::Array< double, 1, 1 > const& );
+    
+    template float calculateChiSquare( ndarray::Array< float, 1, 1 > const&, ndarray::Array< float, 1, 1 > const&);
+    template double calculateChiSquare( ndarray::Array< double, 1, 1 > const&, ndarray::Array< double, 1, 1 > const&);
+    
+    template ndarray::Array< double, 2, 1 > createRectangularGrid( ndarray::Array< double, 1, 1 > const&, ndarray::Array< double, 1, 1 > const&, double, double);    
+    
+    template ndarray::Array< double, 2, 1 > createPolarGrid( double, double, double );
+    
     template ndarray::Array< float, 1, 1 > getZMinMaxInRange( ndarray::Array< float, 1, 1 > const&,
                                                               ndarray::Array< float, 1, 1 > const&,
                                                               ndarray::Array< float, 1, 1 > const&,

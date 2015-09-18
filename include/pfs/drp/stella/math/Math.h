@@ -371,6 +371,52 @@ namespace pfs { namespace drp { namespace stella {
                                                  ndarray::Array< T, 1, 1 > const& z_In,
                                                  ndarray::Array< T, 1, 1 > const& xRange_In,
                                                  ndarray::Array< T, 1, 1 > const& yRange_In );
+
+    /**
+     * @brief return array( 2, nGridPoints ) with x = array(0,*) and y = array(1,*)
+     * @param xRange: [xMin, xMax]
+     * @param yRange: [yMin, yMax]
+     * @param xStep: dX
+     * @param yStep: dY
+     */    
+    template< typename T >
+    ndarray::Array< T, 2, 1 > createRectangularGrid( ndarray::Array< T, 1, 1 > const& xRange,
+                                                     ndarray::Array< T, 1, 1 > const& yRange,
+                                                     T xStep,
+                                                     T yStep );
+    
+    /**
+     * @brief return array( 2, nGridPoints ) with x = array(0,*) and y = array(1,*)
+     * @param rMax: 0 <= r <= rMax
+     * @param rStep: dR
+     * @param phiStep: dPhi (degrees)
+     */    
+    template< typename T >
+    ndarray::Array< T, 2, 1 > createPolarGrid( T rMax,
+                                               T rStep,
+                                               T phiStep );
+    
+    /**
+     * @brief: Calculate the Chi-square for the expected and observed data values as Xhi^2 = sum_i (expected_i - observed_i )^2 / expected_i
+     * @param expected: 1d array of length n of expected data values
+     * @param observed: 1d array of length n of observed data values
+     */
+    template< typename T >
+    T calculateChiSquare( ndarray::Array< T, 1, 1 > const& expected,
+                          ndarray::Array< T, 1, 1 > const& observed );
+    
+    template< typename T > 
+    ndarray::Array< T, 1, 1 > getDataInRange( ndarray::Array< T, 1, 1 > const& xArr,
+                                              ndarray::Array< T, 1, 1 > const& yArr,
+                                              ndarray::Array< T, 1, 1 > const& zArr,
+                                              ndarray::Array< T, 1, 1 > const& xRange,
+                                              ndarray::Array< T, 1, 1 > const& yRange );
+    
+    template< typename T > 
+    ndarray::Array< T, 1, 1 > getDataInRange( ndarray::Array< T, 1, 1 > const& xArr,
+                                              ndarray::Array< T, 1, 1 > const& yArr,
+                                              ndarray::Array< T, 1, 1 > const& zArr,
+                                              ndarray::Array< T, 1, 1 > const& rRange );
     
 //    template< typename T >
 //    ndarray::Array< T, 2, 1 > get2DArray(ndarray::Array< T, 1, 1 > const& xIn, ndarray::Array< T, 1, 1 > const& yIn);
