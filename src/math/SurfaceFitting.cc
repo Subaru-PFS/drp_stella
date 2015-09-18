@@ -17,7 +17,7 @@ namespace pfs{ namespace drp{ namespace stella{
       _matrix(),
       _rhs(),
 //      _regularization(0.),
-//      _radiusNormalizationFactor(1.),
+//      _rbfParameter(1.),
       _tpsControl(),
       _bendingEnergy(0.),
       _chiSquare(0.),
@@ -39,7 +39,7 @@ namespace pfs{ namespace drp{ namespace stella{
       _matrix( tpsb.getMatrix() ),
       _rhs( tpsb.getRHS() ),
 //      _regularization( tpsb.getRegularization() ),
-//      _radiusNormalizationFactor( tpsb.getRadiusNormalizationFactor() ),
+//      _rbfParameter( tpsb.getRadiusNormalizationFactor() ),
       _tpsControl(),
       _bendingEnergy( tpsb.getBendingEnergy() ),
       _chiSquare( tpsb.getChiSquare() ),
@@ -54,7 +54,7 @@ namespace pfs{ namespace drp{ namespace stella{
         cout << "ThinPlateSplineBase::ThinPlateSpineBase( tps ): _dataPointsZ.getShape()[ 0 ] = " << this->_dataPointsZ.getShape()[ 0 ] << endl;
         cout << "ThinPlateSplineBase::ThinPlateSpineBase( tps ): _dataPointsWeight.getShape()[ 0 ] = " << this->_dataPointsWeight.getShape()[ 0 ] << endl;
         cout << "ThinPlateSplineBase::ThinPlateSpineBase( tps ): _tpsControl.regularization = " << this->_tpsControl.regularization << endl;
-        cout << "ThinPlateSplineBase::ThinPlateSpineBase( tps ): _tpsControl.radiusNormalizationFactor = " << this->_tpsControl.radiusNormalizationFactor << endl;
+        cout << "ThinPlateSplineBase::ThinPlateSpineBase( tps ): _tpsControl.rbfParameter = " << this->_tpsControl.rbfParameter << endl;
         cout << "ThinPlateSplineBase::ThinPlateSpineBase( tps ): _bendingEnergy = " << this->_bendingEnergy << endl;
         cout << "ThinPlateSplineBase::ThinPlateSpineBase( tps ): _chiSquare = " << this->_chiSquare << endl;
         throw LSST_EXCEPT( pexExcept::Exception, message.c_str() );    
@@ -118,20 +118,21 @@ namespace pfs{ namespace drp{ namespace stella{
 //      #endif
 
 //      mtx_l.deep() = fillMatrix();
-
-      Eigen::EigenSolver<Eigen::MatrixXd> es( this->_matrix.asEigen() );
-      cout << "ThinPlateSpline::calculateCoefficients: EigenValues of mtx_l = " << es.eigenvalues() << endl;
-      cout << "ThinPlateSpline::calculateCoefficients: EigenVectors of mtx_l = " << es.eigenvectors() << endl;
-              
+      #ifdef __DEBUG_CALCULATE_COEFFICIENTS__
+        Eigen::EigenSolver<Eigen::MatrixXd> es( this->_matrix.asEigen() );
+        cout << "ThinPlateSpline::calculateCoefficients: EigenValues of mtx_l = " << es.eigenvalues() << endl;
+        cout << "ThinPlateSpline::calculateCoefficients: EigenVectors of mtx_l = " << es.eigenvectors() << endl;
+      #endif        
       if (_isWeightsSet)
         addWeightsToMatrix( );
       else
         addRegularizationToMatrix( );
 
-      Eigen::EigenSolver<Eigen::MatrixXd> esa( this->_matrix.asEigen());
-      cout << "ThinPlateSpline::calculateCoefficients: EigenValues a of mtx_l = " << es.eigenvalues() << endl;
-      cout << "ThinPlateSpline::calculateCoefficients: EigenVectors a of mtx_l = " << es.eigenvectors() << endl;
-        
+      #ifdef __DEBUG_CALCULATE_COEFFICIENTS__
+        Eigen::EigenSolver<Eigen::MatrixXd> esa( this->_matrix.asEigen());
+        cout << "ThinPlateSpline::calculateCoefficients: EigenValues a of mtx_l = " << es.eigenvalues() << endl;
+        cout << "ThinPlateSpline::calculateCoefficients: EigenVectors a of mtx_l = " << es.eigenvectors() << endl;
+      #endif  
       // Fill the right hand vector V
 //      mtx_v.deep() = this->fillRHSVector();
 
@@ -194,7 +195,7 @@ namespace pfs{ namespace drp{ namespace stella{
       #ifdef __DEBUG_TPS__
         cout << "ThinPlateSplineBase::addRegularizationToMatrix() started" << endl;
       #endif
-      for ( unsigned i = 0; i < this->_dataPointsX.getShape()[0]; ++i ){
+      for ( unsigned i = 0; i < this->_knots.getShape()[0]; ++i ){
         // diagonal: reqularization parameters (lambda * a^2)
         this->_matrix[ i ][ i ] = this->_tpsControl.regularization * ( this->_regularizationBase * this->_regularizationBase );
       }
@@ -210,8 +211,8 @@ namespace pfs{ namespace drp{ namespace stella{
         cout << "ThinPlateSplineBase::addWeightsToMatrix() started" << endl;
       #endif
       
-      cout << "8. * CONST_PI = " << 8. * CONST_PI << endl;
-      for ( int i = 0; i < this->_dataPointsX.getShape()[0]; ++i ){
+//      cout << "8. * CONST_PI = " << 8. * CONST_PI << endl;
+      for ( int i = 0; i < this->_knots.getShape()[0]; ++i ){
         if ( this->_dataPointsWeight[ i ] < 0.000000000000001 )
           this->_matrix[ i ][ i ] = 0.;
         else{
@@ -324,22 +325,22 @@ namespace pfs{ namespace drp{ namespace stella{
     template< typename ValueT, typename CoordsT >
     ValueT ThinPlateSplineBase< ValueT, CoordsT >::tps_base_func( ValueT r ){
       if ( _tpsControl.baseFunc.compare( "MULTIQUADRIC" ) == 0 ){
-        return ( sqrt( ( r * r ) + _tpsControl.radiusNormalizationFactor ) );
+        return ( sqrt( ( r * r ) + _tpsControl.rbfParameter ) );
       }
       else if ( _tpsControl.baseFunc.compare( "TPS" ) == 0 ){
         if ( r == 0.0 )
           return 0.0;
         else
-          return r * r * log( r / _tpsControl.radiusNormalizationFactor );
+          return r * r * log( r / _tpsControl.rbfParameter );
       }
       else if ( _tpsControl.baseFunc.compare( "R" ) == 0 ){
-        return (r);
+        return ( r / _tpsControl.rbfParameter );
       }
       else if ( _tpsControl.baseFunc.compare( "R_CUBE" ) == 0 ){
-        return ( r * r * r );
+        return ( r * r * r / ( _tpsControl.rbfParameter * _tpsControl.rbfParameter * _tpsControl.rbfParameter ) );
       }
       else if ( _tpsControl.baseFunc.compare( "EXP_R_SQUARE" ) == 0 ){
-        return ( exp( 0. - ( r * r ) ) );
+        return ( exp( 0. - ( r * r ) / _tpsControl.rbfParameter ) );
       }
     }
             
@@ -360,7 +361,7 @@ namespace pfs{ namespace drp{ namespace stella{
       _rhs = copy( tps.getRHS() );
       _tpsControl = tps.getTPSControl();
 //      _regularization = tps.getRegularization();
-//      _radiusNormalizationFactor = tps.getRadiusNormalizationFactor();
+//      _rbfParameter = tps.getRadiusNormalizationFactor();
       _bendingEnergy = tps.getBendingEnergy();
       _chiSquare = tps.getChiSquare();
       _regularizationBase = tps.getRegularizationBase();
@@ -406,14 +407,14 @@ namespace pfs{ namespace drp{ namespace stella{
           ThinPlateSplineBase< ValueT, CoordsT >()
     {
       #ifdef __DEBUG_TPS__
-        cout << "ThinPlateSpline(dataPointsX, dataPointsY, dataPointsZ, regularization, radiusNormalizationFactor) started" << endl;
+        cout << "ThinPlateSpline(dataPointsX, dataPointsY, dataPointsZ, regularization, rbfParameter) started" << endl;
       #endif
       this->_dataPointsX = ndarray::copy( dataPointsX );
       this->_dataPointsY = ndarray::copy( dataPointsY );
       this->_dataPointsZ = ndarray::copy( dataPointsZ );
       this->_dataPointsWeight = pfsDRPStella::utils::get1DndArray( ValueT( dataPointsZ.getShape()[ 0 ] ) );
 //      this->_regularization = regularization;
-//      this->_radiusNormalizationFactor = radiusNormalizationFactor;
+//      this->_rbfParameter = rbfParameter;
       this->_tpsControl = tpsControl;
       
       /// Check input data:
@@ -454,7 +455,7 @@ namespace pfs{ namespace drp{ namespace stella{
       }
       
       #ifdef __DEBUG_TPS__
-        cout << "ThinPlateSpline(dataPointsX, dataPointsY, dataPointsZ, regularization, radiusNormalizationFactor) finished" << endl;
+        cout << "ThinPlateSpline(dataPointsX, dataPointsY, dataPointsZ, regularization, rbfParameter) finished" << endl;
       #endif
     }
             
@@ -467,7 +468,7 @@ namespace pfs{ namespace drp{ namespace stella{
             ThinPlateSplineBase< ValueT, CoordsT >()
     {
       #ifdef __DEBUG_TPS__
-        cout << "ThinPlateSpline(dataPointsX, dataPointsY, dataPointsZ, dataPointsWeights, radiusNormalizationFactor) started" << endl;
+        cout << "ThinPlateSpline(dataPointsX, dataPointsY, dataPointsZ, dataPointsWeights, rbfParameter) started" << endl;
       #endif
       if ( dataPointsX.getShape()[ 0 ] != dataPointsY.getShape()[ 0 ] ){
         std::string message( "ThinPlateSpline::ThinPlateSpline: ERROR: dataPointsX.getShape()[0] = " );
@@ -519,7 +520,7 @@ namespace pfs{ namespace drp{ namespace stella{
       this->_isWeightsSet = true;
       
       #ifdef __DEBUG_TPS__
-        cout << "ThinPlateSpline(dataPointsX, dataPointsY, dataPointsZ, dataPointsWeights, radiusNormalizationFactor) finished" << endl;
+        cout << "ThinPlateSpline(dataPointsX, dataPointsY, dataPointsZ, dataPointsWeights, rbfParameter) finished" << endl;
       #endif
     }
     
@@ -599,11 +600,11 @@ namespace pfs{ namespace drp{ namespace stella{
       }
       #ifdef __DEBUG_FILL_MATRIX__
         std::cout << "ThinPlateSpline::fillMatrix: this->_matrix = " << this->_matrix << std::endl;
-      #endif
 
-      Eigen::EigenSolver<Eigen::MatrixXd> es( this->_matrix.asEigen() );
-      cout << "ThinPlateSpline::fillMatrix: EigenValues of mtx_l = " << es.eigenvalues() << endl;
-      cout << "ThinPlateSpline::fillMatrix: EigenVectors of mtx_l = " << es.eigenvectors() << endl;
+        Eigen::EigenSolver<Eigen::MatrixXd> es( this->_matrix.asEigen() );
+        cout << "ThinPlateSpline::fillMatrix: EigenValues of mtx_l = " << es.eigenvalues() << endl;
+        cout << "ThinPlateSpline::fillMatrix: EigenVectors of mtx_l = " << es.eigenvectors() << endl;
+      #endif
         
       #ifdef __DEBUG_TPS__
         cout << "ThinPlateSpline::fillMatrix() finished" << endl;
@@ -670,7 +671,7 @@ namespace pfs{ namespace drp{ namespace stella{
             ThinPlateSplineBase< ValueT, CoordsT >( )
     {
       #ifdef __DEBUG_TPS__
-        cout << "ThinPlateSplineChiSquare(dataPointsX, dataPointsY, dataPointsZ, knotsX, knotsY, isXYPositionsGridPoints, regularization, radiusNormalizationFactor) started" << endl;
+        cout << "ThinPlateSplineChiSquare(dataPointsX, dataPointsY, dataPointsZ, knotsX, knotsY, isXYPositionsGridPoints, regularization, rbfParameter) started" << endl;
       #endif
       /// Check input data:
       if ( dataPointsX.getShape()[ 0 ] != dataPointsY.getShape()[ 0 ] ){
@@ -725,7 +726,7 @@ namespace pfs{ namespace drp{ namespace stella{
         throw LSST_EXCEPT( pexExcept::Exception, message.c_str() );    
       }
       #ifdef __DEBUG_TPS__
-        cout << "ThinPlateSplineChiSquare(dataPointsX, dataPointsY, dataPointsZ, knotsX, knotsY, isXYPositionsGridPoints, regularization, radiusNormalizationFactor) finished" << endl;
+        cout << "ThinPlateSplineChiSquare(dataPointsX, dataPointsY, dataPointsZ, knotsX, knotsY, isXYPositionsGridPoints, regularization, rbfParameter) finished" << endl;
       #endif
     }
     
@@ -798,13 +799,13 @@ namespace pfs{ namespace drp{ namespace stella{
         std::cout << "ThinPlateSplineChiSquare::calculateCoefficients: mtx_v = " << mtx_v << std::endl;
       #endif
 */
-
-      Eigen::EigenSolver<Eigen::MatrixXd> es( this->_matrix.asEigen() );
+      #ifdef __DEBUG_CALCUATE_COEFFICIENTS__
+        Eigen::EigenSolver<Eigen::MatrixXd> es( this->_matrix.asEigen() );
 //      ndarray::Array< double, 2, 1 > eigenValues = ndarray::allocate( nKnots, 2 );
 //      eigenValues.asEigen() = es.eigenvalues();
-      cout << "ThinPlateSpline::calculateCoefficients: EigenValues of mtx_l = " << es.eigenvalues() << endl;
-      cout << "ThinPlateSpline::calculateCoefficients: EigenVectors of mtx_l = " << es.eigenvectors() << endl;
-        
+        cout << "ThinPlateSpline::calculateCoefficients: EigenValues of mtx_l = " << es.eigenvalues() << endl;
+        cout << "ThinPlateSpline::calculateCoefficients: EigenVectors of mtx_l = " << es.eigenvectors() << endl;
+      #endif
       // Solve the linear system "inplace"
       this->_coefficients.asEigen() = this->_matrix.asEigen().fullPivLu().solve( this->_rhs.asEigen() );
 //      this->_coefficients.asEigen() = this->_matrix.asEigen().colPivHouseholderQr().solve( this->_rhs.asEigen() );
@@ -886,6 +887,7 @@ namespace pfs{ namespace drp{ namespace stella{
       #endif
       unsigned nKnots = this->_knots.getShape()[ 0 ];
       unsigned nDataPoints = this->_dataPointsX.getShape()[ 0 ];
+      this->_regularizationBase = 0.0;
       
       double sumXi = 0.;
       double sumYi = 0.;
@@ -1057,11 +1059,11 @@ namespace pfs{ namespace drp{ namespace stella{
       
       #ifdef __DEBUG_FILL_MATRIX__
         std::cout << "ThinPlateSplineChiSquare::fillMatrix: this->_matrix set to " << this->_matrix << std::endl;
-      #endif
 
-      Eigen::EigenSolver<Eigen::MatrixXd> es( this->_matrix.asEigen() );
-      cout << "ThinPlateSplineChiSquare::fillMatrix: EigenValues of mtx_l = " << es.eigenvalues() << endl;
-      cout << "ThinPlateSplineChiSquare::fillMatrix: EigenVectors of mtx_l = " << es.eigenvectors() << endl;
+        Eigen::EigenSolver<Eigen::MatrixXd> es( this->_matrix.asEigen() );
+        cout << "ThinPlateSplineChiSquare::fillMatrix: EigenValues of mtx_l = " << es.eigenvalues() << endl;
+        cout << "ThinPlateSplineChiSquare::fillMatrix: EigenVectors of mtx_l = " << es.eigenvectors() << endl;
+      #endif
         
       #ifdef __DEBUG_TPS__
         cout << "ThinPlateSplineChiSquare::fillMatrix() finished" << endl;

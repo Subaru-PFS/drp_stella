@@ -315,6 +315,48 @@ namespace pfs { namespace drp { namespace stella { namespace utils{
     std::vector<T> vecOut = vecIn;
     return vecOut;
   }
+
+  template< typename T > 
+  std::string numberToString_dotToUnderscore( T number, int accuracy ){
+    string out;
+    if ( ( number > 1.e5 ) || ( ( number < 1.e-5 ) && ( number > 1.e-15 ) ) ){
+      char buffer[ 255 ];
+      sprintf( buffer, "%.10e", number );
+      string str( buffer );
+      out = str;
+    }
+    else{
+      string str = std::to_string( number );
+      out = str;
+    }
+    cout << "out = <" << out << ">" << endl;
+    int dotPos = out.find( "." );
+    cout << "dotPos = " << dotPos << endl;
+    if ( dotPos != std::string::npos ){
+      out.replace( dotPos, 1, "_" );
+      size_t pos = out.find("e");
+      string ex;
+      if ( pos != std::string::npos ){
+        ex = out.substr(pos);
+        cout << "ex = <" << ex << ">" << endl;
+      }
+      if ( ( dotPos + accuracy + 1 ) < out.length() ){
+        if ( accuracy == 0 )
+          out.resize( dotPos );
+        else
+          out.resize( dotPos + accuracy + 1 );
+        cout << "out = <" << out << ">" << endl;
+      }
+      if ( pos != std::string::npos ){
+        out.append( ex );
+        cout << "out = <" << out << ">" << endl;
+      }
+    }
+    return out;
+  }
+  
+  template std::string numberToString_dotToUnderscore( float, int );
+  template std::string numberToString_dotToUnderscore( double, int );
   
 //    template<typename ImageT, typename MaskT, typename VarianceT>
 //    PTR(afwImage::MaskedImage<ImageT, MaskT, VarianceT>) getShared(afwImage::MaskedImage<ImageT, MaskT, VarianceT> const &maskedImage){

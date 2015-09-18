@@ -437,17 +437,17 @@ struct TPSControl {
     std::vector<std::string> BASE_FUNC_NAMES = { stringify( BASE_FUNC ) };
     LSST_CONTROL_FIELD(baseFunc, std::string, "Name of base function");
     LSST_CONTROL_FIELD(regularization, double, "Smoothing factor for thin-plate-spline interpolation");
-    LSST_CONTROL_FIELD(radiusNormalizationFactor, double, "Radius normalization factor");
+    LSST_CONTROL_FIELD(rbfParameter, double, "Additional parameter for the Radial Basis Function");
 
     TPSControl() :
     baseFunc("TPS"),
     regularization(0.00001),
-    radiusNormalizationFactor(1.){}
+    rbfParameter(1.){}
 
     TPSControl(const TPSControl &tpsControl) :
     baseFunc( tpsControl.baseFunc ),
     regularization( tpsControl.regularization ),
-    radiusNormalizationFactor( tpsControl.radiusNormalizationFactor ){}
+    rbfParameter( tpsControl.rbfParameter ){}
 
     ~TPSControl() {}
     

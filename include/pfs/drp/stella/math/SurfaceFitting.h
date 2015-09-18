@@ -25,9 +25,9 @@
 //#define __DEBUG_CALCULATE_COEFFICIENTS__
 //#define __DEBUG_FILL_REGULARIZED_MATRIX__
 //#define __DEBUG_FILL_WEIGHTED_MATRIX__
-#define __DEBUG_FILL_MATRIX__
-#define __DEBUG_FILL_RHS__
-#define __DEBUG_TPS__
+//#define __DEBUG_FILL_MATRIX__
+//#define __DEBUG_FILL_RHS__
+//#define __DEBUG_TPS__
 //#define __DEBUG_TPS_FITPOINT__
 
 namespace afwGeom = lsst::afw::geom;
@@ -46,7 +46,7 @@ namespace pfs { namespace drp { namespace stella {
                 virtual ~ThinPlateSplineBase(){}
               
                 ValueT getRadiusNormalizationFactor() const {
-                    return _tpsControl.radiusNormalizationFactor;
+                    return _tpsControl.rbfParameter;
                 }
 
                 ndarray::Array< CoordsT, 1, 1 > getDataPointsX () const {
@@ -156,7 +156,7 @@ namespace pfs { namespace drp { namespace stella {
                 ValueT fitPoint(CoordsT const xPositionFit, 
                                 CoordsT const yPositionFit);
                 
-                /** @brief base function for thin-plate-spline fitting Phi = r^2 * log ( r / _radiusNormalizationFactor )
+                /** @brief base function for thin-plate-spline fitting Phi = r^2 * log ( r / _rbfParameter )
                  */
                 ValueT tps_base_func( ValueT r );
 
@@ -171,7 +171,7 @@ namespace pfs { namespace drp { namespace stella {
                 ndarray::Array< double, 1, 1 > _rhs;
                 TPSControl _tpsControl;
 //                double _regularization;
-//                ValueT _radiusNormalizationFactor;
+//                ValueT _rbfParameter;
                 ValueT _bendingEnergy;
                 ValueT _chiSquare;
                 ValueT _regularizationBase;

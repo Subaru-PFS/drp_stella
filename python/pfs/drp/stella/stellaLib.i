@@ -588,3 +588,16 @@ Interface to Stella
 
 %template(getZMinMaxInRangeF) pfs::drp::stella::math::getZMinMaxInRange<float>;
 %template(getZMinMaxInRangeD) pfs::drp::stella::math::getZMinMaxInRange<double>;
+
+%template(createRectangularGridD) pfs::drp::stella::math::createRectangularGrid<double>;
+
+%template(createPolarGridD) pfs::drp::stella::math::createPolarGrid<double>;
+
+%template(calculateChiSquareF) pfs::drp::stella::math::calculateChiSquare<float>;
+%template(calculateChiSquareD) pfs::drp::stella::math::calculateChiSquare<double>;
+
+%template(numberToString_dotToUnderscoreF) pfs::drp::stella::utils::numberToString_dotToUnderscore<float>;
+%template(numberToString_dotToUnderscoreD) pfs::drp::stella::utils::numberToString_dotToUnderscore<double>;
+
+%template(getDataInRangeF) pfs::drp::stella::math::getDataInRange<float>;
+%template(getDataInRangeD) pfs::drp::stella::math::getDataInRange<double>;

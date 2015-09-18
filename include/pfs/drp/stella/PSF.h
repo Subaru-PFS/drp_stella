@@ -410,7 +410,7 @@ namespace math{
    * @param yPositions : y positions of new coordinates relative to center of PSF [y_0, y_1, ... , y_m-2, y_m-1]
    * @param isXYPositionsGridPoints : if yes then output array will have shape [m, n], otherwise m == n and shape of output array will be [n, 1]
    * @param regularization : regularization ( >= 0.) for fit. If equal to 0. the fit will be forced through the original data points
-   * @param radiusNormalizationFactor: to solve r^2 * ln( r / radiusNormliazationFactor) Default = 1
+   * @param rbfParameter: additional parameter for RBF, e.g. to solve r^2 * ln( r / rbfParameter) Default = 1
    * @param mode : mode == 0: fit psf._imagePSF_ZNormalized, mode == 1: fit psf._imagePSF_ZTrace
    */
   template< typename PsfT = double, typename CoordsT = double >
@@ -419,7 +419,7 @@ namespace math{
                                                               ndarray::Array< CoordsT, 1, 1 > const& yPositions,
                                                               bool const isXYPositionsGridPoints,
                                                               double const regularization = 0.,
-                                                              PsfT const radiusNormalizationFactor = 1.,
+                                                              PsfT const rbfParameter = 1.,
                                                               unsigned short const mode = 0 );
   
   /*
@@ -430,7 +430,7 @@ namespace math{
    * @param xPositions : x positions of new coordinates relative to center of PSF [x_0, x_1, ... , x_n-2, x_n-1]
    * @param yPositions : y positions of new coordinates relative to center of PSF [y_0, y_1, ... , y_m-2, y_m-1]
    * @param isXYPositionsGridPoints : if yes then output array will have shape [m, n], otherwise m == n and shape of output array will be [n, 1]
-   * @param radiusNormalizationFactor: to solve r^2 * ln( r / radiusNormliazationFactor) Default = 1
+   * @param rbfParameter: to solve r^2 * ln( r / radiusNormliazationFactor) Default = 1
    * @param mode : mode == 0: fit psf._imagePSF_ZNormalized, mode == 1: fit psf._imagePSF_ZTrace
    */
   template< typename PsfT = double, typename WeightT = float, typename CoordsT = double>
@@ -439,7 +439,7 @@ namespace math{
                                                               ndarray::Array< CoordsT, 1, 1 > const& xPositions,
                                                               ndarray::Array< CoordsT, 1, 1 > const& yPositions,
                                                               bool const isXYPositionsGridPoints,
-                                                              PsfT const radiusNormalizationFactor = 1.,
+                                                              PsfT const rbfParameter = 1.,
                                                               unsigned short const mode = 0 );
   
   /*
@@ -450,7 +450,7 @@ namespace math{
    * @param xPositions : x positions of new coordinate grid relative to center of PSF [x_0, x_1, ... , x_n-2, x_n-1]
    * @param yPositions : y positions of new coordinate grid relative to center of PSF [y_0, y_1, ... , y_m-2, y_m-1]
    * @param regularization : regularization parameter for thin-plate spline fitting >= 0 (0 = no regularization)
-   * @param radiusNormalizationFactor: to solve r^2 * ln( r / radiusNormliazationFactor) Default = 1
+   * @param rbfParameter: to solve r^2 * ln( r / radiusNormliazationFactor) Default = 1
    * @param mode : mode == 0: fit psf._imagePSF_ZNormalized, mode == 1: fit psf._imagePSF_ZTrace
    */
   template< typename PsfT = double, typename CoordsT = double >
@@ -459,7 +459,7 @@ namespace math{
                                                                        ndarray::Array< CoordsT, 1, 1 > const& yPositions,
                                                                        bool const isXYPositionsGridPoints,
                                                                        PsfT const regularization = 0.,
-                                                                       PsfT const radiusNormalizationFactor = 1.,
+                                                                       PsfT const rbfParameter = 1.,
                                                                        unsigned short const mode = 0 );
   
   template< typename PsfT = double, typename CoordsT = double>
