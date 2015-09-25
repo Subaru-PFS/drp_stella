@@ -1202,7 +1202,7 @@
                                                T phiStep ){
       size_t nStepsR = (rMax / rStep);
       size_t nStepsPhi = (360. / phiStep);
-      cout << "nStepsR = " << nStepsR << ", nStepsPhi = " << nStepsPhi << endl;
+//      cout << "nStepsR = " << nStepsR << ", nStepsPhi = " << nStepsPhi << endl;
       ndarray::Array< T, 2, 1 > arrOut = ndarray::allocate( nStepsR * nStepsPhi + 1, 2 );
       T r = 0.;
       T phi = 0.;
@@ -1211,14 +1211,14 @@
       size_t pos = 1;
       for (size_t iR = 1; iR <= nStepsR; ++iR ){
         r += rStep;
-        cout << "r = " << r << endl;
+//        cout << "r = " << r << endl;
         phi = 0.;
         for (size_t iPhi = 1; iPhi <= nStepsPhi; ++iPhi){
           phi += phiStep;
-          cout << "phi = " << phi << endl;
+//          cout << "phi = " << phi << endl;
           arrOut[ pos ][ 0 ] = r * cos( phi * 2. * D_PI / 360.);
           arrOut[ pos ][ 1 ] = r * sin( phi * 2. * D_PI / 360.);
-          cout << "arrOut[" << pos << "][0] = " << arrOut[pos][0] << ", arrOut[" << pos << "][1] = " << arrOut[pos][1] << endl;
+//          cout << "arrOut[" << pos << "][0] = " << arrOut[pos][0] << ", arrOut[" << pos << "][1] = " << arrOut[pos][1] << endl;
           ++pos;
         }
       }

@@ -17,7 +17,7 @@ namespace pfs{ namespace drp{ namespace stella{
       _matrix(),
       _rhs(),
 //      _regularization(0.),
-//      _rbfParameter(1.),
+//      _shapeParameter(1.),
       _tpsControl(),
       _bendingEnergy(0.),
       _chiSquare(0.),
@@ -39,7 +39,7 @@ namespace pfs{ namespace drp{ namespace stella{
       _matrix( tpsb.getMatrix() ),
       _rhs( tpsb.getRHS() ),
 //      _regularization( tpsb.getRegularization() ),
-//      _rbfParameter( tpsb.getRadiusNormalizationFactor() ),
+//      _shapeParameter( tpsb.getRadiusNormalizationFactor() ),
       _tpsControl(),
       _bendingEnergy( tpsb.getBendingEnergy() ),
       _chiSquare( tpsb.getChiSquare() ),
@@ -54,7 +54,7 @@ namespace pfs{ namespace drp{ namespace stella{
         cout << "ThinPlateSplineBase::ThinPlateSpineBase( tps ): _dataPointsZ.getShape()[ 0 ] = " << this->_dataPointsZ.getShape()[ 0 ] << endl;
         cout << "ThinPlateSplineBase::ThinPlateSpineBase( tps ): _dataPointsWeight.getShape()[ 0 ] = " << this->_dataPointsWeight.getShape()[ 0 ] << endl;
         cout << "ThinPlateSplineBase::ThinPlateSpineBase( tps ): _tpsControl.regularization = " << this->_tpsControl.regularization << endl;
-        cout << "ThinPlateSplineBase::ThinPlateSpineBase( tps ): _tpsControl.rbfParameter = " << this->_tpsControl.rbfParameter << endl;
+        cout << "ThinPlateSplineBase::ThinPlateSpineBase( tps ): _tpsControl.shapeParameter = " << this->_tpsControl.shapeParameter << endl;
         cout << "ThinPlateSplineBase::ThinPlateSpineBase( tps ): _bendingEnergy = " << this->_bendingEnergy << endl;
         cout << "ThinPlateSplineBase::ThinPlateSpineBase( tps ): _chiSquare = " << this->_chiSquare << endl;
         throw LSST_EXCEPT( pexExcept::Exception, message.c_str() );    
@@ -69,7 +69,7 @@ namespace pfs{ namespace drp{ namespace stella{
         throw LSST_EXCEPT( pexExcept::Exception, message.c_str() );
       }
       _tpsControl = tpsb.getTPSControl();
-//      cout << "tpsb(tpsb): tpsb.getTPSControl().rbfParameter = " << tpsb.getTPSControl().rbfParameter << ", _tpsControl.rbfParameter = " << _tpsControl.rbfParameter << endl;
+//      cout << "tpsb(tpsb): tpsb.getTPSControl().shapeParameter = " << tpsb.getTPSControl().shapeParameter << ", _tpsControl.shapeParameter = " << _tpsControl.shapeParameter << endl;
       #ifdef __DEBUG_TPS__
         cout << "ThinPlateSplineBase( ThinPlateSplineBase ) finished: _zFit.shape = " << _zFit.getShape() << endl;
       #endif
@@ -326,26 +326,57 @@ namespace pfs{ namespace drp{ namespace stella{
 
     template< typename ValueT, typename CoordsT >
     ValueT ThinPlateSplineBase< ValueT, CoordsT >::tps_base_func( ValueT r ){
-//      cout << "tps_base_func: _tpsControl.rbfParameter = " << this->_tpsControl.rbfParameter << endl;
-//      cout << "tps_base_func: _tpsControl.rbfParameter = " << _tpsControl.rbfParameter << endl;
+//      cout << "tps_base_func: _tpsControl.shapeParameter = " << this->_tpsControl.shapeParameter << endl;
+//      cout << "tps_base_func: _tpsControl.shapeParameter = " << _tpsControl.shapeParameter << endl;
+      //    enum BASE_FUNC {  TPS=0, MULTIQUADRIC, MULTIQUADRIC_A, R, R_CUBE, INVERSE_MULTIQUADRIC, GENERALIZED_INVERSE_MULTIQUADRIC, WENDLAND_CSRBF, GAUSSIAN, MATERN_C0, MATERN_C2, MATERN_C4 };
+
       if ( _tpsControl.baseFunc.compare( "MULTIQUADRIC" ) == 0 ){
-        return ( sqrt( ( r * r ) + _tpsControl.rbfParameter ) );
+        return ( sqrt( ( r * r ) + _tpsControl.shapeParameter ) );
+      }
+      else if ( _tpsControl.baseFunc.compare( "MULTIQUADRIC_A" ) == 0 ){
+        return ( sqrt( 1. + ( _tpsControl.shapeParameter * _tpsControl.shapeParameter * r * r ) ) );
+      }
+      else if ( _tpsControl.baseFunc.compare( "INVERSE_MULTIQUADRIC" ) == 0 ){
+        return ( 1. / sqrt( 1. + ( _tpsControl.shapeParameter * _tpsControl.shapeParameter * r * r ) ) );
+      }
+      else if ( _tpsControl.baseFunc.compare( "GENERALIZED_INVERSE_MULTIQUADRIC" ) == 0 ){
+        return ( 1. / ( ( 1. + ( _tpsControl.shapeParameter * _tpsControl.shapeParameter * r * r ) * ( 1. + ( _tpsControl.shapeParameter * _tpsControl.shapeParameter * r * r ) ) ) ) );
       }
       else if ( _tpsControl.baseFunc.compare( "TPS" ) == 0 ){
-//        cout << "tps_base_func: r = " << r << ": r * r * log( r / _tpsControl.rbfParameter ) = " << r * r * log( r / _tpsControl.rbfParameter ) << endl;
+        #ifdef __DEBUG_FILL_MATRIX__
+          cout << "tps_base_func: r = " << r << ": r * r * log( r / _tpsControl.shapeParameter(=" << _tpsControl.shapeParameter << ") ) = " << r * r * log( r / _tpsControl.shapeParameter ) << endl;
+        #endif
         if ( r == 0.0 )
           return 0.0;
         else
-          return r * r * log( r / _tpsControl.rbfParameter );
+          return ( r * r * _tpsControl.shapeParameter * _tpsControl.shapeParameter * log( r * _tpsControl.shapeParameter ) );
+      }
+      else if ( _tpsControl.baseFunc.compare( "WENDLAND_CSRBF" ) == 0 ){
+        return ( pow( 1. - r, 4 ) + ( ( 4. * r ) + 1) );
       }
       else if ( _tpsControl.baseFunc.compare( "R" ) == 0 ){
-        return ( r / _tpsControl.rbfParameter );
+        return ( r / _tpsControl.shapeParameter );
       }
       else if ( _tpsControl.baseFunc.compare( "R_CUBE" ) == 0 ){
-        return ( r * r * r / _tpsControl.rbfParameter );
+        return ( r * r * r / _tpsControl.shapeParameter );
       }
-      else if ( _tpsControl.baseFunc.compare( "EXP_R_SQUARE" ) == 0 ){
-        return ( exp( 0. - ( r * r ) / _tpsControl.rbfParameter ) );
+      else if ( _tpsControl.baseFunc.compare( "GAUSSIAN" ) == 0 ){
+        return ( exp( 0. - ( r * r * _tpsControl.shapeParameter * _tpsControl.shapeParameter ) ) );
+      }
+      else if ( _tpsControl.baseFunc.compare( "MATERN_C0" ) == 0 ){
+        return ( exp( 0. - ( r * _tpsControl.shapeParameter ) ) );
+      }
+      else if ( _tpsControl.baseFunc.compare( "MATERN_C2" ) == 0 ){
+        return ( exp( 0. - ( r * _tpsControl.shapeParameter ) ) * ( 1. + ( r * _tpsControl.shapeParameter ) ) );
+      }
+      else if ( _tpsControl.baseFunc.compare( "MATERN_C4" ) == 0 ){
+        return ( exp( 0. - ( r * _tpsControl.shapeParameter ) ) * ( 3. + ( 3. * r * _tpsControl.shapeParameter ) + ( r * _tpsControl.shapeParameter * r * _tpsControl.shapeParameter ) ) );
+      }
+      else{
+        std::string message("tps_base_func: ERROR: Could not identify baseFunc = ");
+        message += _tpsControl.baseFunc;
+        cout << message << endl;
+        throw LSST_EXCEPT( pexExcept::Exception, message.c_str() );
       }
     }
             
@@ -366,12 +397,12 @@ namespace pfs{ namespace drp{ namespace stella{
       _rhs = copy( tps.getRHS() );
       _tpsControl = tps.getTPSControl();
 //      _regularization = tps.getRegularization();
-//      _rbfParameter = tps.getRadiusNormalizationFactor();
+//      _shapeParameter = tps.getRadiusNormalizationFactor();
       _bendingEnergy = tps.getBendingEnergy();
       _chiSquare = tps.getChiSquare();
       _regularizationBase = tps.getRegularizationBase();
       _isWeightsSet = tps.isWeightsSet();
-//      cout << "operator=: tps.getTPSControl().rbfParameter = " << tps.getTPSControl().rbfParameter << ", _tpsControl.rbfParameter = " << _tpsControl.rbfParameter << endl;
+//      cout << "operator=: tps.getTPSControl().shapeParameter = " << tps.getTPSControl().shapeParameter << ", _tpsControl.shapeParameter = " << _tpsControl.shapeParameter << endl;
       #ifdef __DEBUG_TPS__
         cout << " this->getDataPointsX.getShape()[ 0 ] = " << this->getDataPointsX().getShape()[ 0 ] << endl;
         cout << "ThinPlateSplineBase::operator=(tps) finished" << endl;
@@ -413,16 +444,16 @@ namespace pfs{ namespace drp{ namespace stella{
           ThinPlateSplineBase< ValueT, CoordsT >()
     {
       #ifdef __DEBUG_TPS__
-        cout << "ThinPlateSpline(dataPointsX, dataPointsY, dataPointsZ, regularization, rbfParameter) started" << endl;
+        cout << "ThinPlateSpline(dataPointsX, dataPointsY, dataPointsZ, regularization, shapeParameter) started" << endl;
       #endif
       this->_dataPointsX = ndarray::copy( dataPointsX );
       this->_dataPointsY = ndarray::copy( dataPointsY );
       this->_dataPointsZ = ndarray::copy( dataPointsZ );
       this->_dataPointsWeight = pfsDRPStella::utils::get1DndArray( ValueT( dataPointsZ.getShape()[ 0 ] ) );
 //      this->_regularization = regularization;
-//      this->_rbfParameter = rbfParameter;
+//      this->_shapeParameter = shapeParameter;
       this->_tpsControl = tpsControl;
-//      cout << "tps(ndarray, ndarray, ndarray, TPSControl): tpsControl.rbfParameter = " << tpsControl.rbfParameter << ", _tpsControl.rbfParameter = " << this->_tpsControl.rbfParameter << endl;
+//      cout << "tps(ndarray, ndarray, ndarray, TPSControl): tpsControl.shapeParameter = " << tpsControl.shapeParameter << ", _tpsControl.shapeParameter = " << this->_tpsControl.shapeParameter << endl;
       
       /// Check input data:
       if (dataPointsX.getShape()[ 0 ] != dataPointsY.getShape()[ 0 ]){
@@ -462,7 +493,7 @@ namespace pfs{ namespace drp{ namespace stella{
       }
       
       #ifdef __DEBUG_TPS__
-        cout << "ThinPlateSpline(dataPointsX, dataPointsY, dataPointsZ, regularization, rbfParameter) finished" << endl;
+        cout << "ThinPlateSpline(dataPointsX, dataPointsY, dataPointsZ, regularization, shapeParameter) finished" << endl;
       #endif
     }
             
@@ -475,7 +506,7 @@ namespace pfs{ namespace drp{ namespace stella{
             ThinPlateSplineBase< ValueT, CoordsT >()
     {
       #ifdef __DEBUG_TPS__
-        cout << "ThinPlateSpline(dataPointsX, dataPointsY, dataPointsZ, dataPointsWeights, rbfParameter) started" << endl;
+        cout << "ThinPlateSpline(dataPointsX, dataPointsY, dataPointsZ, dataPointsWeights, shapeParameter) started" << endl;
       #endif
       if ( dataPointsX.getShape()[ 0 ] != dataPointsY.getShape()[ 0 ] ){
         std::string message( "ThinPlateSpline::ThinPlateSpline: ERROR: dataPointsX.getShape()[0] = " );
@@ -504,7 +535,7 @@ namespace pfs{ namespace drp{ namespace stella{
       this->_dataPointsZ = ndarray::copy( dataPointsZ );
       this->_dataPointsWeight = ndarray::copy( dataPointsWeights );
       this->_tpsControl = tpsControl;
-//      cout << "tps(ndarray, ndarray, ndarray, ndarray, TPSControl): tpsControl.rbfParameter = " << tpsControl.rbfParameter << ", _tpsControl.rbfParameter = " << this->_tpsControl.rbfParameter << endl;
+//      cout << "tps(ndarray, ndarray, ndarray, ndarray, TPSControl): tpsControl.shapeParameter = " << tpsControl.shapeParameter << ", _tpsControl.shapeParameter = " << this->_tpsControl.shapeParameter << endl;
       this->_zFit = ndarray::allocate( dataPointsZ.getShape()[ 0 ] );
       if ( this->_zFit.getShape()[ 0 ] == 0 ){
         string message( "calculateCoefficients: ERROR: _zFit.getShape()[0] == 0" );
@@ -528,7 +559,7 @@ namespace pfs{ namespace drp{ namespace stella{
       this->_isWeightsSet = true;
       
       #ifdef __DEBUG_TPS__
-        cout << "ThinPlateSpline(dataPointsX, dataPointsY, dataPointsZ, dataPointsWeights, rbfParameter) finished" << endl;
+        cout << "ThinPlateSpline(dataPointsX, dataPointsY, dataPointsZ, dataPointsWeights, shapeParameter) finished" << endl;
       #endif
     }
     
@@ -536,7 +567,7 @@ namespace pfs{ namespace drp{ namespace stella{
     ThinPlateSpline< ValueT, CoordsT >::ThinPlateSpline( ThinPlateSpline< ValueT, CoordsT > const& tps ):
         ThinPlateSplineBase< ValueT, CoordsT >( tps )
     { 
-      //cout << "tps(tps): tps.getTPSControl().rbfParameter = " << tps.getTPSControl().rbfParameter << ", _tpsControl.rbfParameter = " << this->_tpsControl.rbfParameter << endl;
+      //cout << "tps(tps): tps.getTPSControl().shapeParameter = " << tps.getTPSControl().shapeParameter << ", _tpsControl.shapeParameter = " << this->_tpsControl.shapeParameter << endl;
       #ifdef __DEBUG_TPS__
         cout << "ThinPlateSpline(tps): _coefficients = " << this->_coefficients << endl;
         cout << "ThinPlateSpline(tps) finished" << endl;
@@ -680,7 +711,7 @@ namespace pfs{ namespace drp{ namespace stella{
             ThinPlateSplineBase< ValueT, CoordsT >( )
     {
       #ifdef __DEBUG_TPS__
-        cout << "ThinPlateSplineChiSquare(dataPointsX, dataPointsY, dataPointsZ, knotsX, knotsY, isXYPositionsGridPoints, regularization, rbfParameter) started" << endl;
+        cout << "ThinPlateSplineChiSquare(dataPointsX, dataPointsY, dataPointsZ, knotsX, knotsY, isXYPositionsGridPoints, regularization, shapeParameter) started" << endl;
       #endif
       /// Check input data:
       if ( dataPointsX.getShape()[ 0 ] != dataPointsY.getShape()[ 0 ] ){
@@ -701,7 +732,7 @@ namespace pfs{ namespace drp{ namespace stella{
       this->_dataPointsY = ndarray::copy( dataPointsY );
       this->_dataPointsZ = ndarray::copy( dataPointsZ );
       this->_tpsControl = tpsControl;
-      //cout << "tpscs(ndarray, ndarray, ndarray, ndarray, ndarray, bool, TPSControl): tpsControl.rbfParameter = " << tpsControl.rbfParameter << ", _tpsControl.rbfParameter = " << this->_tpsControl.rbfParameter << endl;
+      //cout << "tpscs(ndarray, ndarray, ndarray, ndarray, ndarray, bool, TPSControl): tpsControl.shapeParameter = " << tpsControl.shapeParameter << ", _tpsControl.shapeParameter = " << this->_tpsControl.shapeParameter << endl;
       
       if (isXYPositionsGridPoints){
         this->_knots = ndarray::allocate( knotsX.getShape()[ 0 ] * knotsY.getShape()[ 0 ], 2 );
@@ -727,7 +758,9 @@ namespace pfs{ namespace drp{ namespace stella{
         this->_matrix = ndarray::allocate( knotsX.getShape()[ 0 ] + 6, knotsX.getShape()[ 0 ] + 6 );
         this->_rhs = ndarray::allocate( knotsX.getShape()[ 0 ] + 6 );
       }
-      cout << "ThinPlateSpline::ThinPlateSplineChiSquare: _knots = " << this->_knots << endl;
+      #ifdef __DEBUG_TPS__
+        cout << "ThinPlateSpline::ThinPlateSplineChiSquare: _knots = " << this->_knots << endl;
+      #endif
       this->_zFit = ndarray::allocate( dataPointsZ.getShape()[ 0 ] );
       
       if ( !this->calculateCoefficients() ){
@@ -736,7 +769,7 @@ namespace pfs{ namespace drp{ namespace stella{
         throw LSST_EXCEPT( pexExcept::Exception, message.c_str() );    
       }
       #ifdef __DEBUG_TPS__
-        cout << "ThinPlateSplineChiSquare(dataPointsX, dataPointsY, dataPointsZ, knotsX, knotsY, isXYPositionsGridPoints, regularization, rbfParameter) finished" << endl;
+        cout << "ThinPlateSplineChiSquare(dataPointsX, dataPointsY, dataPointsZ, knotsX, knotsY, isXYPositionsGridPoints, regularization, shapeParameter) finished" << endl;
       #endif
     }
     
@@ -744,7 +777,7 @@ namespace pfs{ namespace drp{ namespace stella{
     ThinPlateSplineChiSquare< ValueT, CoordsT >::ThinPlateSplineChiSquare( ThinPlateSplineChiSquare< ValueT, CoordsT > const& tps ):
             ThinPlateSplineBase< ValueT, CoordsT >( tps )
     { 
-      //cout << "tpscs(tpscs): tps.getTPSControl().rbfParameter = " << tps.getTPSControl().rbfParameter << ", _tpsControl.rbfParameter = " << this->_tpsControl.rbfParameter << endl;
+      //cout << "tpscs(tpscs): tps.getTPSControl().shapeParameter = " << tps.getTPSControl().shapeParameter << ", _tpsControl.shapeParameter = " << this->_tpsControl.shapeParameter << endl;
       #ifdef __DEBUG_TPS__
         cout << "ThinPlateSplineChiSquare(tps) finished" << endl;
       #endif
@@ -853,10 +886,10 @@ namespace pfs{ namespace drp{ namespace stella{
       auto itZFit = this->_zFit.begin();
       int iControlPoint = 0;
       for ( auto itZIn = this->_dataPointsZ.begin(); itZIn != this->_dataPointsZ.end(); ++itZIn, ++itZFit ){
-        this->_chiSquare += ( *itZIn - *itZFit ) * ( *itZIn - *itZFit ) / *itZIn;
-//        #ifdef __DEBUG_CALC_TPS__
+        this->_chiSquare += ( *itZIn - *itZFit ) * ( *itZIn - *itZFit ) / fabs(*itZIn);
+        #ifdef __DEBUG_CALC_TPS__
           std::cout << "cThinPlateSplineChiSquare::alculateCoefficients: iControlPoint = " << iControlPoint << ": _chiSquare = " << this->_chiSquare << std::endl;
-//        #endif
+        #endif
         ++iControlPoint;
       }
       #ifdef __DEBUG_CALC_TPS__

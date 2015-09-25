@@ -9,7 +9,7 @@
 #include "lsst/afw/geom.h"
 #include "lsst/afw/image/MaskedImage.h"
 #include "lsst/pex/config.h"
-#include "chebyshev.h"
+#include "Chebyshev.h"
 #include "../utils/Utils.h"
 #include "ndarray.h"
 #include "ndarray/eigen.h"

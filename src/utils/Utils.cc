@@ -354,6 +354,35 @@ namespace pfs { namespace drp { namespace stella { namespace utils{
     }
     return out;
   }
+
+  std::string dotToUnderscore( std::string number, int accuracy ){
+    string out(number);
+    int dotPos = out.find( "." );
+    cout << "dotPos = " << dotPos << endl;
+    if ( dotPos != std::string::npos ){
+      out.replace( dotPos, 1, "_" );
+      size_t pos = out.find("e");
+      if (pos == std::string::npos )
+        pos = out.find("E");
+      string ex;
+      if ( pos != std::string::npos ){
+        ex = out.substr(pos);
+        cout << "ex = <" << ex << ">" << endl;
+      }
+      if ( ( dotPos + accuracy + 1 ) < out.length() ){
+        if ( accuracy == 0 )
+          out.resize( dotPos );
+        else
+          out.resize( dotPos + accuracy + 1 );
+        cout << "out = <" << out << ">" << endl;
+      }
+      if ( pos != std::string::npos ){
+        out.append( ex );
+        cout << "out = <" << out << ">" << endl;
+      }
+    }
+    return out;
+  }
   
   template std::string numberToString_dotToUnderscore( float, int );
   template std::string numberToString_dotToUnderscore( double, int );

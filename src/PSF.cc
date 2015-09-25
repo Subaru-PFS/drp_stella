@@ -1498,7 +1498,7 @@ namespace pfs{ namespace drp{ namespace stella{
                                                                ndarray::Array< CoordsT, 1, 1 > const& yPositions,
                                                                bool const isXYPositionsGridPoints,
                                                                double const regularization,
-                                                               PsfT const rbfParameter,
+                                                               PsfT const shapeParameter,
                                                                unsigned short const mode ){
       #ifdef __DEBUG_PSF__
         cout << "psfMath::interpolatePSFThinPlateSpline(psf, xPositions, yPositions, isXYPositionsGridPoints, regularization) started" << endl;
@@ -1531,7 +1531,7 @@ namespace pfs{ namespace drp{ namespace stella{
       cout << "PSF::interpolatePSFThinPlateSpline: starting interpolateThinPlateSplineEigen" << endl;
       TPSControl tpsControl;
       tpsControl.regularization = regularization;
-      tpsControl.rbfParameter = rbfParameter;
+      tpsControl.shapeParameter = shapeParameter;
       math::ThinPlateSpline<PsfT, PsfT> tps = math::ThinPlateSpline<PsfT, PsfT>( xArr, 
                                                                                  yArr, 
                                                                                  zArr, 
@@ -1558,9 +1558,9 @@ namespace pfs{ namespace drp{ namespace stella{
       }
       psf.setThinPlateSpline( tps );
       #ifdef __DEBUG_PSF__
-        cout << "psfMath::interpolatePSFThinPlateSpline(psf, xPositions, yPositions, isXYPositionsGridPoints, regularization, rbfParameter, mode): tps.getDataPointsX().getShape()[ 0 ] = " << tps.getDataPointsX().getShape()[ 0 ] << endl;
-        cout << "psfMath::interpolatePSFThinPlateSpline(psf, xPositions, yPositions, isXYPositionsGridPoints, regularization, rbfParameter, mode): psf.getThinPlateSpline().getDataPointsX().getShape()[ 0 ] = " << psf.getThinPlateSpline().getDataPointsX().getShape()[ 0 ] << endl;
-        cout << "psfMath::interpolatePSFThinPlateSpline(psf, xPositions, yPositions, isXYPositionsGridPoints, regularization, rbfParameter, mode) finished" << endl;
+        cout << "psfMath::interpolatePSFThinPlateSpline(psf, xPositions, yPositions, isXYPositionsGridPoints, regularization, shapeParameter, mode): tps.getDataPointsX().getShape()[ 0 ] = " << tps.getDataPointsX().getShape()[ 0 ] << endl;
+        cout << "psfMath::interpolatePSFThinPlateSpline(psf, xPositions, yPositions, isXYPositionsGridPoints, regularization, shapeParameter, mode): psf.getThinPlateSpline().getDataPointsX().getShape()[ 0 ] = " << psf.getThinPlateSpline().getDataPointsX().getShape()[ 0 ] << endl;
+        cout << "psfMath::interpolatePSFThinPlateSpline(psf, xPositions, yPositions, isXYPositionsGridPoints, regularization, shapeParameter, mode) finished" << endl;
       #endif
       return arr_Out;
     }
@@ -1571,7 +1571,7 @@ namespace pfs{ namespace drp{ namespace stella{
                                                                ndarray::Array<CoordsT, 1, 1> const& xPositions,
                                                                ndarray::Array<CoordsT, 1, 1> const& yPositions,
                                                                bool const isXYPositionsGridPoints,
-                                                               PsfT const rbfParameter,
+                                                               PsfT const shapeParameter,
                                                                unsigned short const mode ){
       #ifdef __DEBUG_PSF__
         cout << "psfMath::interpolatePSFThinPlateSpline(psf, weights, xPositions, yPositions, isXYPositionsGridPoints) started" << endl;
@@ -1663,7 +1663,7 @@ namespace pfs{ namespace drp{ namespace stella{
                                                                          ndarray::Array< CoordsT, 1, 1 > const& yPositions,
                                                                          bool const isXYPositionsGridPoints,
                                                                          PsfT const regularization,
-                                                                         PsfT const rbfParameter,
+                                                                         PsfT const shapeParameter,
                                                                          unsigned short const mode ){
       #ifdef __DEBUG_PSF__
         cout << "psfMath::interpolatePSFThinPlateSplineChiSquare(psf, xPositions, yPositions, isXYPositionsGridPoints, regularization) started" << endl;
@@ -1724,7 +1724,7 @@ namespace pfs{ namespace drp{ namespace stella{
       cout << "PSF::interpolatePSFThinPlateSplineChiSquare: starting interpolateThinPlateSplineChiSquare" << endl;
       TPSControl tpsControl;
       tpsControl.regularization = regularization;
-      tpsControl.rbfParameter = rbfParameter;
+      tpsControl.shapeParameter = shapeParameter;
       math::ThinPlateSplineChiSquare< PsfT, PsfT > tps = math::ThinPlateSplineChiSquare< PsfT, PsfT >( xArr, 
                                                                                                        yArr, 
                                                                                                        zArr,

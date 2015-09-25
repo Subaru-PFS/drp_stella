@@ -433,21 +433,26 @@ struct TwoDPSFControl {
  * Description of Thin-Plate Spline
  */
 struct TPSControl {
-    enum BASE_FUNC {  TPS=0, MULTIQUADRIC, R, R_CUBE, EXP_R_SQUARE };
+    enum BASE_FUNC {  TPS=0, MULTIQUADRIC, MULTIQUADRIC_A, R, R_CUBE, INVERSE_MULTIQUADRIC, GENERALIZED_INVERSE_MULTIQUADRIC, WENDLAND_CSRBF, GAUSSIAN, MATERN_C0, MATERN_C2, MATERN_C4 };
     std::vector<std::string> BASE_FUNC_NAMES = { stringify( BASE_FUNC ) };
-    LSST_CONTROL_FIELD(baseFunc, std::string, "Name of base function");
-    LSST_CONTROL_FIELD(regularization, double, "Smoothing factor for thin-plate-spline interpolation");
-    LSST_CONTROL_FIELD(rbfParameter, double, "Additional parameter for the Radial Basis Function");
+    LSST_CONTROL_FIELD( baseFunc, std::string, "Name of base function" );
+    LSST_CONTROL_FIELD( regularization, double, "Smoothing factor for thin-plate-spline interpolation" );
+    LSST_CONTROL_FIELD( shapeParameter, double, "Additional parameter determining the shape of the Radial Basis Function" );
+    LSST_CONTROL_FIELD( minimumSeparationDistance, double, "Minimum separation between adjacent knots" );
 
     TPSControl() :
     baseFunc("TPS"),
     regularization(0.00001),
-    rbfParameter(1.){}
+    shapeParameter(1.),
+    minimumSeparationDistance(0.001)
+    {}
 
     TPSControl(const TPSControl &tpsControl) :
     baseFunc( tpsControl.baseFunc ),
     regularization( tpsControl.regularization ),
-    rbfParameter( tpsControl.rbfParameter ){}
+    shapeParameter( tpsControl.shapeParameter ),
+    minimumSeparationDistance( tpsControl.minimumSeparationDistance )
+    {}
 
     ~TPSControl() {}
     

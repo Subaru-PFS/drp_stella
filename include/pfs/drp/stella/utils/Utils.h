@@ -62,5 +62,7 @@ namespace pfs { namespace drp { namespace stella { namespace utils{
   template< typename T > 
   std::string numberToString_dotToUnderscore( T number, int accuracy = -1 );
   
+  std::string dotToUnderscore( std::string number, int accuracy = -1 );
+  
 }}}}
 #endif
