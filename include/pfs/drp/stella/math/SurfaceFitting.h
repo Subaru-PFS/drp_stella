@@ -45,8 +45,8 @@ namespace pfs { namespace drp { namespace stella {
                 ThinPlateSplineBase( ThinPlateSplineBase const& tpsb );
                 virtual ~ThinPlateSplineBase(){}
               
-                ValueT getRadiusNormalizationFactor() const {
-                    return _tpsControl.rbfParameter;
+                ValueT getRBFShapeParameter() const {
+                    return _tpsControl.shapeParameter;
                 }
 
                 ndarray::Array< CoordsT, 1, 1 > getDataPointsX () const {
@@ -156,7 +156,7 @@ namespace pfs { namespace drp { namespace stella {
                 ValueT fitPoint(CoordsT const xPositionFit, 
                                 CoordsT const yPositionFit);
                 
-                /** @brief base function for thin-plate-spline fitting Phi = r^2 * log ( r / _rbfParameter )
+                /** @brief base function for thin-plate-spline fitting Phi = r^2 * log ( r / _shapeParameter )
                  */
                 ValueT tps_base_func( ValueT r );
 
@@ -171,7 +171,7 @@ namespace pfs { namespace drp { namespace stella {
                 ndarray::Array< double, 1, 1 > _rhs;
                 TPSControl _tpsControl;
 //                double _regularization;
-//                ValueT _rbfParameter;
+//                ValueT _shapeParameter;
                 ValueT _bendingEnergy;
                 ValueT _chiSquare;
                 ValueT _regularizationBase;
