@@ -1236,8 +1236,10 @@
         throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
       }
       T chiSquare = 0.;
-      for (auto itExp = expected.begin(), itObs = observed.begin(); itExp != expected.end(); ++itExp, ++itObs){
+      size_t pos = 0;
+      for (auto itExp = expected.begin(), itObs = observed.begin(); itExp != expected.end(); ++itExp, ++itObs, ++pos){
         chiSquare += pow(*itExp - *itObs, T(2.)) / *itExp;
+        cout << "calculateChiSquare: pos = " << pos << ": *itExp = " << *itExp << ", *itObs = " << *itObs << ": chiSquare = " << chiSquare << endl;
       }
       return chiSquare;
     }
