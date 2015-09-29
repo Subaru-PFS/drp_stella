@@ -851,8 +851,8 @@ namespace pfs{ namespace drp{ namespace stella{
         cout << "ThinPlateSpline::calculateCoefficients: EigenVectors of mtx_l = " << es.eigenvectors() << endl;
       #endif
       // Solve the linear system "inplace"
-      this->_coefficients.asEigen() = this->_matrix.asEigen().fullPivLu().solve( this->_rhs.asEigen() );
-//      this->_coefficients.asEigen() = this->_matrix.asEigen().colPivHouseholderQr().solve( this->_rhs.asEigen() );
+//      this->_coefficients.asEigen() = this->_matrix.asEigen().fullPivLu().solve( this->_rhs.asEigen() );
+      this->_coefficients.asEigen() = this->_matrix.asEigen().colPivHouseholderQr().solve( this->_rhs.asEigen() );
       #ifdef __DEBUG_CALC_TPS__
         std::cout << "ThinPlateSplineChiSquare::calculateCoefficients: after colPivHouseholderQr: _coefficients = " << this->_coefficients << std::endl;
       #endif
