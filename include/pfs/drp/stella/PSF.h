@@ -46,7 +46,7 @@ using namespace std;
 namespace pfs { namespace drp { namespace stella {
     
   template< typename T >
-  typedef struct ExtractPSFResult{
+  struct ExtractPSFResult{
     std::vector<T> xRelativeToCenter;
     std::vector<T> yRelativeToCenter;
     std::vector<T> zNormalized;
