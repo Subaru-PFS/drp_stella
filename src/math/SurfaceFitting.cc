@@ -340,7 +340,7 @@ namespace pfs{ namespace drp{ namespace stella{
         return ( 1. / sqrt( 1. + ( _tpsControl.shapeParameter * _tpsControl.shapeParameter * r * r ) ) );
       }
       else if ( _tpsControl.baseFunc.compare( "GENERALIZED_INVERSE_MULTIQUADRIC" ) == 0 ){
-        return ( 1. / ( ( 1. + ( _tpsControl.shapeParameter * _tpsControl.shapeParameter * r * r ) * ( 1. + ( _tpsControl.shapeParameter * _tpsControl.shapeParameter * r * r ) ) ) ) );
+        return ( pow( 1. + ( _tpsControl.shapeParameter * _tpsControl.shapeParameter * r * r ), _tpsControl.gMQParameter ) );
       }
       else if ( _tpsControl.baseFunc.compare( "TPS" ) == 0 ){
         #ifdef __DEBUG_FILL_MATRIX__

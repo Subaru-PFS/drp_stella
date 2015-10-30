@@ -436,12 +436,14 @@ struct TPSControl {
     enum BASE_FUNC {  TPS=0, MULTIQUADRIC, MULTIQUADRIC_A, R, R_CUBE, INVERSE_MULTIQUADRIC, GENERALIZED_INVERSE_MULTIQUADRIC, WENDLAND_CSRBF, GAUSSIAN, MATERN_C0, MATERN_C2, MATERN_C4 };
     std::vector<std::string> BASE_FUNC_NAMES = { stringify( BASE_FUNC ) };
     LSST_CONTROL_FIELD( baseFunc, std::string, "Name of base function" );
+    LSST_CONTROL_FIELD( gMQParameter, double, "Exponential parameter for generalized multiquadric RBF" );
     LSST_CONTROL_FIELD( regularization, double, "Smoothing factor for thin-plate-spline interpolation" );
     LSST_CONTROL_FIELD( shapeParameter, double, "Additional parameter determining the shape of the Radial Basis Function" );
     LSST_CONTROL_FIELD( minimumSeparationDistance, double, "Minimum separation between adjacent knots" );
 
     TPSControl() :
     baseFunc("TPS"),
+    gMQParameter(-2.),
     regularization(0.00001),
     shapeParameter(1.),
     minimumSeparationDistance(0.001)
@@ -449,6 +451,7 @@ struct TPSControl {
 
     TPSControl(const TPSControl &tpsControl) :
     baseFunc( tpsControl.baseFunc ),
+    gMQParameter( tpsControl.gMQParameter ),
     regularization( tpsControl.regularization ),
     shapeParameter( tpsControl.shapeParameter ),
     minimumSeparationDistance( tpsControl.minimumSeparationDistance )
