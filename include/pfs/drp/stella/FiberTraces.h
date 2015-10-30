@@ -7,6 +7,7 @@
 #include <vector>
 #include <iostream>
 #include <utility>
+#include <algorithm>
 #include "lsst/base.h"
 #include "lsst/afw/geom.h"
 #include "lsst/afw/image/MaskedImage.h"
@@ -340,6 +341,30 @@ namespace math{
                                                  ndarray::Array<double, 1, 1> const& yIn,
                                                  size_t const& ccdHeightIn = 0,
                                                  size_t const& ccdWidthIn = 0);
+
+  typedef struct IdentifyResult{
+      ndarray::Array< double, 1, 1 > coeffs;
+      double rms;
+  };
+  /**
+    * Identify
+    * Identifies calibration lines, given in D_A2_LineList_In the format [wlen, approx_pixel] in
+    * wavelength-calibration spectrum D_A2_Spec_In [pixel_number, flux]
+    * within the given position plus/minus I_Radius_In,
+    * fits Gaussians to each line, fits Polynomial of order I_PolyFitOrder_In, and
+    * returns calibrated spectrum D_A2_CalibratedSpec_Out in the format
+    * [WLen, flux] and PolyFit coefficients D_A1_PolyFitCoeffs_Out
+    * 
+    * If D_A2_LineList_In contains 3 columns, the 3rd column will be used to decide which line
+    * to keep in case a weak line close to a strong line gets wrongly identified as the strong
+    * line
+    **/
+   IdentifyResult Identify( ndarray::Array< double, 1, 1 > const& spec,
+                            ndarray::Array< double, 2, 1 > const& lineList,
+                            int radius,
+                            double fwhm,
+                            int order,
+                            std::string const& fName_In );
 
 }
 

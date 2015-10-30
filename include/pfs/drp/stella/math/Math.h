@@ -270,6 +270,12 @@ namespace pfs { namespace drp { namespace stella {
     ndarray::Array<size_t, 2, 1> getIndicesInValueRange(ndarray::Array<T, 2, 1> const& arr_In, T const lowRange_In, T const highRange_In);
 
     /*
+     * @brief: Return vector of indices where vec_In == 1
+     */
+    template<typename T>
+    std::vector< size_t > getIndices( std::vector< T > const& vec_In );
+
+    /*
      * @brief: Returns array to copies of specified elements of arr_In
      */
     template<typename T>
@@ -418,6 +424,19 @@ namespace pfs { namespace drp { namespace stella {
                                               ndarray::Array< T, 1, 1 > const& zArr,
                                               ndarray::Array< T, 1, 1 > const& rRange );
     
+    /**
+     * Returns -1 if D_A1_Array_In is monotonically decreasing
+     *         0  if D_A1_Array_In is non monotonic
+     *         +1 if D_A1_Array_In is monotonically increasing
+     */
+    template< typename T >
+    int isMonotonic(ndarray::Array< T, 1, 1 > const& D_A1_Array_In);
+
+    /**
+     * @brief Calculate Root Mean Squared of arrIn
+     */
+    template< typename T >
+    T calcRMS( ndarray::Array< T, 1, 1 > const& arrIn );
 //    template< typename T >
 //    ndarray::Array< T, 2, 1 > get2DArray(ndarray::Array< T, 1, 1 > const& xIn, ndarray::Array< T, 1, 1 > const& yIn);
   }/// end namespace math

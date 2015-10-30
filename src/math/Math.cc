@@ -553,6 +553,16 @@
     }
     
     template<typename T>
+    std::vector< size_t > getIndices( std::vector< T > const& vec_In ){
+      std::vector< size_t > vecOut( 0 );
+      for (size_t pos = 0; pos < vec_In.size(); ++pos ){
+        if ( int( vec_In[ pos ] ) == 1 )
+          vecOut.push_back( pos );
+      }
+      return vecOut;
+    }
+    
+    template<typename T>
     ndarray::Array<T, 1, 1> moment(ndarray::Array<T, 1, 1> const& arr_In, int maxMoment_In){
       ndarray::Array<T, 1, 1> D_A1_Out = ndarray::allocate(maxMoment_In);
       D_A1_Out.deep() = 0.;
@@ -1329,6 +1339,52 @@
       return zOut;
     }
     
+    template< typename T >
+    int isMonotonic(ndarray::Array< T, 1, 1 > const& arrIn){
+      int I_M = 0;
+      if ( arrIn.getShape()[ 0 ] < 2 )
+        return I_M;
+      double D_DA = arrIn[ 1 ] - arrIn[ 0 ];
+      if ( D_DA < 0 )
+        I_M = -1;
+      else if ( D_DA > 0 )
+        I_M = 1;
+      if ( arrIn.getShape()[ 0 ] < 3 )
+        return I_M;
+      for ( int i_pos = 2; i_pos < arrIn.getShape()[ 0 ]; i_pos++ ){
+        D_DA = arrIn[ i_pos ] - arrIn[ i_pos - 1 ];
+        if ( ( D_DA < 0 ) && ( I_M == 1 ) )
+          return 0;
+        if ( ( D_DA > 0 ) && ( I_M == -1 ) )
+          return 0;
+        if ( I_M == 0 ){
+          if ( D_DA < 0 )
+            I_M = -1;
+          else if ( D_DA > 0 )
+            I_M = 1;
+        }
+      }
+      return I_M;
+    }
+    
+    template< typename T >
+    T calcRMS( ndarray::Array< T, 1, 1 > const& arrIn ){
+      T rms = 0;
+      for ( auto itArr = arrIn.begin(); itArr != arrIn.end(); ++itArr )
+        rms += T( pow( double( *itArr ), 2. ) );
+      rms  = rms / arrIn.getShape()[ 0 ];
+      return sqrt( rms );
+    }
+    
+    template float calcRMS( ndarray::Array< float, 1, 1 > const& );
+    template double calcRMS( ndarray::Array< double, 1, 1 > const& );
+    
+    
+    template int isMonotonic( ndarray::Array< size_t, 1, 1 > const& );
+    template int isMonotonic( ndarray::Array< int, 1, 1 > const& );
+    template int isMonotonic( ndarray::Array< float, 1, 1 > const& );
+    template int isMonotonic( ndarray::Array< double, 1, 1 > const& );
+    
     template ndarray::Array< float, 1, 1 > getDataInRange( ndarray::Array< float, 1, 1 > const&,
                                                            ndarray::Array< float, 1, 1 > const&,
                                                            ndarray::Array< float, 1, 1 > const&,
@@ -1472,6 +1528,12 @@
     template std::vector<long> removeSubArrayFromArray(std::vector<long> const&, std::vector<long> const&);
     template std::vector<float> removeSubArrayFromArray(std::vector<float> const&, std::vector<float> const&);
     template std::vector<double> removeSubArrayFromArray(std::vector<double> const&, std::vector<double> const&);
+
+    template std::vector<size_t> getIndices(std::vector<size_t> const&);
+    template std::vector<size_t> getIndices(std::vector<int> const&);
+    template std::vector<size_t> getIndices(std::vector<long> const&);
+    template std::vector<size_t> getIndices(std::vector<float> const&);
+    template std::vector<size_t> getIndices(std::vector<double> const&);
 
     template ndarray::Array<size_t, 1, 1> getIndicesInValueRange(ndarray::Array<size_t, 1, 1> const&, size_t const, size_t const);
     template ndarray::Array<size_t, 1, 1> getIndicesInValueRange(ndarray::Array<int, 1, 1> const&, int const, int const);
