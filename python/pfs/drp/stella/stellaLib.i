@@ -601,3 +601,11 @@ Interface to Stella
 
 %template(getDataInRangeF) pfs::drp::stella::math::getDataInRange<float>;
 %template(getDataInRangeD) pfs::drp::stella::math::getDataInRange<double>;
+
+%template(SpectrumBackgroundF) pfs::drp::stella::math::SpectrumBackground<float>;
+%template(SpectrumBackgroundD) pfs::drp::stella::math::SpectrumBackground<double>;
+
+%template(linFitBevingtonFF) pfs::drp::stella::math::LinFitBevingtonNdArray<float, float>;
+%template(linFitBevingtonDF) pfs::drp::stella::math::LinFitBevingtonNdArray<double, float>;
+%template(linFitBevingtonFD) pfs::drp::stella::math::LinFitBevingtonNdArray<float, double>;
+%template(linFitBevingtonDD) pfs::drp::stella::math::LinFitBevingtonNdArray<double, double>;

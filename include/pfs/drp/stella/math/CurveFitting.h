@@ -27,6 +27,13 @@ using namespace std;
 
 namespace pfs { namespace drp { namespace stella {
   namespace math{
+      
+    template< typename T >
+    struct SpectrumBackground { 
+        T spectrum;
+        T background;
+    };
+      
     /*
      * @brief calculate y positions for given x positions and a polynomial of given coefficients
      * @param x_In: given x positions for which the y positions shall be calculated
@@ -191,6 +198,12 @@ namespace pfs { namespace drp { namespace stella {
     /// YFIT_OUT = ndarray::Array<ImageT, 1>(D_A1_CCD_In.size)                     : out
     /// ALLOW_SKY_LT_ZERO = int[0,1]
     /// ALLOW_SPEC_LT_ZERO = int[0,1]
+
+      
+      template< typename ImageT, typename SlitFuncT >
+      SpectrumBackground< ImageT > LinFitBevingtonNdArray( ndarray::Array<ImageT, 1, 1> const& D_A1_CCD_In,      /// yvec: in
+                                                           ndarray::Array<SlitFuncT, 1, 1> const& D_A1_SF_In,       /// xvec: in
+                                                           bool B_WithSky);                          ///: in
       
       template< typename ImageT, typename SlitFuncT >
       int LinFitBevingtonNdArray(ndarray::Array<ImageT, 1, 1> const& D_A1_CCD_In,      /// yvec: in

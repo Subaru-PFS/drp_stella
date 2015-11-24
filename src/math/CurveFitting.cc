@@ -1093,7 +1093,7 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
     #endif
     return true;
   }
-
+  
   template< typename ImageT, typename SlitFuncT>
   bool LinFitBevingtonNdArray(ndarray::Array<ImageT, 2, 1> const& D_A2_CCD_In,      /// yvec: in
                               ndarray::Array<SlitFuncT, 2, 1> const& D_A2_SF_In,       /// xvec: in
@@ -1920,6 +1920,24 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
     return status;
   }
 
+  template<typename ImageT, typename SlitFuncT>
+  SpectrumBackground< ImageT > LinFitBevingtonNdArray( ndarray::Array<ImageT, 1, 1> const& D_A1_CCD_In,      /// yvec: in
+                                                       ndarray::Array<SlitFuncT, 1, 1> const& D_A1_SF_In,       /// xvec: in
+                                                       bool B_WithSky )                        /// with sky: in
+  {
+    SpectrumBackground< ImageT > out;
+    std::vector< string > args(1, " ");
+    std::vector< void * > argV(1);
+    LinFitBevingtonNdArray( D_A1_CCD_In, 
+                            D_A1_SF_In,
+                            out.spectrum,
+                            out.background,
+                            B_WithSky,
+                            args, 
+                            argV );
+    return out;
+  }
+  
   template<typename ImageT, typename SlitFuncT>
   int LinFitBevingtonNdArray(ndarray::Array<ImageT, 1, 1> const& D_A1_CCD_In,      /// yvec: in
                              ndarray::Array<SlitFuncT, 1, 1> const& D_A1_SF_In,       /// xvec: in
@@ -2870,6 +2888,19 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
                                           bool B_WithSky,                        /// with sky: in
                                           std::vector<string> const& S_A1_Args_In,   ///: in
                                           std::vector<void *> &ArgV_In);                    ///: in
+
+  template SpectrumBackground< float > LinFitBevingtonNdArray( ndarray::Array<float, 1, 1> const&,
+                                                               ndarray::Array<float, 1, 1> const&,       /// xvec: in
+                                                               bool );                    ///: in
+  template SpectrumBackground< double > LinFitBevingtonNdArray( ndarray::Array<double, 1, 1> const&,
+                                                                ndarray::Array<float, 1, 1> const&,       /// xvec: in
+                                                                bool );                    ///: in
+  template SpectrumBackground< float > LinFitBevingtonNdArray( ndarray::Array<float, 1, 1> const&,
+                                                               ndarray::Array<double, 1, 1> const&,       /// xvec: in
+                                                               bool );                    ///: in
+  template SpectrumBackground< double > LinFitBevingtonNdArray( ndarray::Array<double, 1, 1> const&,
+                                                                ndarray::Array<double, 1, 1> const&,       /// xvec: in
+                                                                bool );                    ///: in
 
   template int LinFitBevingtonNdArray(ndarray::Array<float, 1, 1> const& D_A1_CCD_In,
                                             ndarray::Array<float, 1, 1> const& D_A1_SF_In,       /// xvec: in
