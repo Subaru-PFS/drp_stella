@@ -38,7 +38,7 @@ def calculateTwoDPSF(flatfilename, specfilename):
     ftffc.nTermsGaussFit = 3
     ftffc.saturationLevel = 65500.
 
-    # --- create FiberTraceExtractionControl
+    # --- create FiberTraceProfileFittingControl
     ftec = drpStella.FiberTraceProfileFittingControl()
 #    ftec.xCorProf = 20
     ftec.profileInterpolation = "SPLINE3"
@@ -78,8 +78,8 @@ def calculateTwoDPSF(flatfilename, specfilename):
     tdpsfcp = tdpsfc.getPointer()
 #    fts.setTwoDPSFControl(tdpsfcp)
     ftecp = ftec.getPointer()
-    fts.setFiberTraceExtractionControl(ftecp)
-    fts.extractAllTraces()
+    fts.setFiberTraceProfileFittingControl(ftecp)
+    fts.calcProfileAllTraces()
 
     # --- create FiberTraceSet for object exposure
     #afw.ImageF(specfilename, hdu=2)...
@@ -97,6 +97,7 @@ def calculateTwoDPSF(flatfilename, specfilename):
             return fts
         if i != 5:
             psfset = drpStella.calculate2dPSFPerBinF(trace, spectrum, tdpsfcp)
+            print "trace ",i,": psfset.size() = ",psfset.size()
             print "trace ",i," done"
 
         if False:

@@ -6,20 +6,25 @@
 
 #include <vector>
 #include <iostream>
+#include <utility>
+#include <algorithm>
 #include "lsst/base.h"
 #include "lsst/afw/geom.h"
 #include "lsst/afw/image/MaskedImage.h"
+#include "lsst/afw/math/FunctionLibrary.h"
 #include "lsst/pex/config.h"
 #include "lsst/pex/exceptions/Exception.h"
 #include "ndarray.h"
 #include "ndarray/eigen.h"
-#include "blitz.h"
 #include <fitsio.h>
 #include <fitsio2.h>
 #include "Controls.h"
 #include "math/Math.h"
+#include "math/CurveFitting.h"
+#include "math/Chebyshev.h"
 #include "utils/Utils.h"
-#include "cmpfit-1.2/MyFit.h"
+//#include "utils/UtilsBlitz.h"
+#include "cmpfit-1.2/MPFitting_ndarray.h"
 #include "spline.h"
 #include "Spectra.h"
 
@@ -27,6 +32,9 @@
 
 //#define __DEBUG_BANDSOL__
 //#define __DEBUG_CALC2DPSF__
+//#define __DEBUG_CALCPROFILE__
+//#define __DEBUG_CALCPROFILESWATH__
+//#define __DEBUG_CALCSWATHBOUNDY__
 //#define __DEBUG_CHECK_INDICES__
 //#define __DEBUG_CREATEFIBERTRACE__
 //#define __DEBUG_EXTRACTFROMPROFILE__
@@ -42,8 +50,11 @@
 //#define __DEBUG_SLITFUNC_N__
 //#define __DEBUG_SLITFUNC_PISKUNOV__
 //#define __DEBUG_SLITFUNC_X__
+//#define __DEBUG_SORTTRACESBYXCENTER__
+//#define __DEBUG_TELLURIC__
 //#define __DEBUG_TRACEFUNC__
 //#define __DEBUG_UNIQ__
+//#define __DEBUG_XCENTERS__
 #define DEBUGDIR "/Users/azuri/spectra/pfs/2014-11-02/debug/"// /home/azuri/entwicklung/idl/REDUCE/16_03_2013/"//stella/ses-pipeline/c/msimulateskysubtraction/data/"//spectra/elaina/eso_archive/red_564/red_r/"
 
 namespace afwGeom = lsst::afw::geom;
@@ -63,9 +74,9 @@ class FiberTrace {
     // Class Constructors and Destructor
     explicit FiberTrace(size_t width = 0, size_t height = 0, size_t iTrace = 0);
 
-    explicit FiberTrace(PTR(const MaskedImageT) const& maskedImage, 
+    explicit FiberTrace(PTR(const afwImage::MaskedImage<ImageT, MaskT, VarianceT>) const& maskedImage, 
                         PTR(const FiberTraceFunction) const& fiberTraceFunction, 
-                        PTR(const std::vector<float>) const& xCenters,
+                        ndarray::Array<double const, 1, 1> const& xCenters,
                         size_t iTrace=0);
     
     explicit FiberTrace(FiberTrace<ImageT, MaskT, VarianceT> &fiberTrace, bool const deep=false);
@@ -99,10 +110,10 @@ class FiberTrace {
     bool setVariance(const PTR(afwImage::Image<VarianceT>) &variance);// { _trace->getVariance() = variance; }
 
     /// Return the image of the spatial profile
-    PTR(afwImage::Image<float>) getProfile() const{ return _profile; }
+    PTR(afwImage::Image<double>) getProfile() const{ return _profile; }
 
     /// Set the _profile of this fiber trace to profile
-    bool setProfile(const PTR(afwImage::Image<float>) &profile);
+    bool setProfile(const PTR(afwImage::Image<double>) &profile);
 
     /// Extract the spectrum of this fiber trace using the _profile
     PTR(Spectrum<ImageT, MaskT, VarianceT, VarianceT>) extractFromProfile();
@@ -121,154 +132,42 @@ class FiberTrace {
     PTR(FiberTraceProfileFittingControl) getFiberTraceProfileFittingControl() const { return _fiberTraceProfileFittingControl; }
 
     /// Set the _fiberTraceProfileFittingControl
-    bool setFiberTraceProfileFittingControl(const PTR(FiberTraceProfileFittingControl) const& fiberTraceProfileFittingControl);// { _fiberTraceProfileFittingControl = fiberTraceProfileFittingControl; }
-
-    /// Calculate the x-centers of the fiber trace
-    //bool calculateXCenters();//FiberTraceFunctionControl const& fiberTraceFunctionControl);
+    bool setFiberTraceProfileFittingControl(PTR(FiberTraceProfileFittingControl) const& fiberTraceProfileFittingControl);// { _fiberTraceProfileFittingControl = fiberTraceProfileFittingControl; }
     
     /// Return the x-centers of the fiber trace
-    const PTR(const std::vector<float>) getXCenters() const { return _xCenters; }
+    const ndarray::Array<double const, 1, 1> getXCenters() const { return _xCenters; }
+    ndarray::Array<double, 2, 1> getXCentersMeas() const { return _xCentersMeas; }
+    void setXCentersMeas( ndarray::Array< double, 2, 1 > const& xCentersMeas);
 
     /// Set the x-center of the fiber trace
     /// Pre: _fiberTraceFunction must be set
 //    bool setXCenters(const PTR(std::vector<float>) &xCenters);// { _xCenters = xCenters; }
 
     /// Return shared pointer to an image containing the reconstructed 2D spectrum of the FiberTrace
-    PTR(afwImage::Image<float>) getReconstructed2DSpectrum(const Spectrum<ImageT, MaskT, VarianceT, VarianceT> & spectrum) const;
+    PTR(afwImage::Image<double>) getReconstructed2DSpectrum(const Spectrum<ImageT, MaskT, VarianceT, VarianceT> & spectrum) const;
 
     /// Return shared pointer to an image containing the reconstructed background of the FiberTrace
-    PTR(afwImage::Image<float>) getReconstructedBackground(const Spectrum<ImageT, MaskT, VarianceT, VarianceT> & backgroundSpectrum) const;
+    PTR(afwImage::Image<double>) getReconstructedBackground(const Spectrum<ImageT, MaskT, VarianceT, VarianceT> & backgroundSpectrum) const;
 
     /// Return shared pointer to an image containing the reconstructed 2D spectrum + background of the FiberTrace
-    PTR(afwImage::Image<float>) getReconstructed2DSpectrum(const Spectrum<ImageT, MaskT, VarianceT, VarianceT> & spectrum,
+    PTR(afwImage::Image<double>) getReconstructed2DSpectrum(const Spectrum<ImageT, MaskT, VarianceT, VarianceT> & spectrum,
                                                            const Spectrum<ImageT, MaskT, VarianceT, VarianceT> & background) const;
+    
+    bool calcProfile();
+    ndarray::Array<double, 2, 1> calcProfileSwath(ndarray::Array<ImageT const, 2, 1> const& imageSwath,
+                                                 ndarray::Array<MaskT const, 2, 1> const& maskSwath,
+                                                 ndarray::Array<VarianceT const, 2, 1> const& varianceSwath,
+                                                 ndarray::Array<double const, 1, 1> const& xCentersSwath,
+                                                 size_t const iSwath);
 
-    /**
-     *        Methods from Piskunov and Valenti
-     **/
-    /**
-     *       MkSlitFunc
-     *       Make Slit Function
-     *       Parameter(s) to be tuned:
-     *         swath_width - swath width in columns
-     *         SF_SMOOTH - smoothing accross dispersion
-     *         SP_SMOOTH - smoothing in dispersion direction
-     *         OSAMPLE   - slit function is reconstructed on
-     *                     subpixel grid with stepsize
-     *                     OSAMPLE times smaller than CCD
-     *                     pixels. Larger OSAMPLE require
-     *                     more computing time and larger
-     *                     SF_SMOOTH. Plots of residuals
-     *                     allow to verify if the OSAMPLE
-     *                     is good enough.
-     **/
-    PTR(Spectrum<ImageT, MaskT, VarianceT, VarianceT>) MkSlitFunc();
-    PTR(Spectrum<ImageT, MaskT, VarianceT, VarianceT>) MkSlitFunc(const blitz::Array<string, 1> &S_A1_Args,     //: in
-                                     void *ArgV[]);                        //: in
-    /* KeyWords and Values:  //    LAMBDA_SF   : double          : in
-     *                       //    LAMBDA_SP   : int             : out
-     *                       //      WING_SMOOTH_FACTOR = double  : in
-     *                       //      SWATH_WIDTH : int             : in
-     *                             FIBERTRACENUMBER
-     *                             BLZ         : blitz::Array<double, 1>: out
-     *                       //      MASK        : blitz::Array<double, 2>: in
-     *                       //      CCD_GAIN    : double          : in
-     *                       //      CCD_READN   : double          : in
-     *                       //      NO_SCATTER  : void
-     *                       //      TELLURIC    : int (0-none, 1-Piskunov, 2-mine, 3-mine with sky background)
-     *                             FILENAME    : CString         : in
-     *                       //      XCOR_PROF   : int             : in (Number of Cross-correlations of profile and spectrum from one pixel to the left to one pixel to the right)
-     */
-
-    /**
-     *      SlitFunc
-     *      Calculates slit function for one swath
-     **/
-    bool SlitFunc(const blitz::Array<double, 2> &D_A2_ImM,         ///: in
-                  unsigned int maxIterSig_In,
-                  const blitz::Array<double, 1> &xCentersPixelFraction_In, //: in
-                  blitz::Array<double, 1> &D_A1_SP_Out,                     ///: out
-                  blitz::Array<double, 2> &D_A2_SF_Out,                     ///: out
-                  const blitz::Array<string, 1> &S_A1_Args,            ///: in
-                  void *ArgV[]);                            ///: in
-    /** KeyWords and Values:  NOISE      = double          : in
-     *                        IM_OUT     = blitz::Array<double, 2>: out
-     *                        PROF_OUT   = blitz::Array<double, 2>: out
-     *                        USE_ROW    = int             : in
-     *                        BAD        = blitz::Array<int, 1>   : out
-     *                        MASK       = blitz::Array<double, 2>: in/out
-     *                        STOP       = int [0,1]                          : in
-     *                        SKY        = blitz::Array<double, 1>(D_A2_ImM.rows())  : out
-     *                        ERRORS     = blitz::Array<double, 2>(D_A2_ImM.rows(), D_A2_ImM.cols()): in/out
-     *                        ERRORS_OUT = blitz::Array<double, 1>(D_A2_ImM.rows())  : out
-     *                        ERR_SKY    = blitz::Array<double, 1>(D_A2_ImM.rows())  : out
-     *                        SP_FIT     = blitz::Array<double, 1>(D_A2_ImM.rows())  : out
-     *                        I_BIN      = int
-     *                        FIBERTRACENUMBER = unsigned int: in
-     * from MkSliFunc:
-     *         ///      if ((I_Pos = util::KeyWord_Set(S_A1_Args_In, "FIBERTRACENUMBER")) >= 0)
-     *        ///        s_a1(pppos) = "FIBERTRACENUMBER";
-     *        ///      if (fiberTraceProfileFittingControl_In.xCorProf > 0)
-     *        ///        s_a1(pppos) = "XCOR_PROF";
-     *        ///      s_a1(pppos) = "SP_OUT";
-     *        ///      s_a1(pppos) = "STOP";
-     *        ///      s_a1(pppos) = "MASK";
-     *        //       if (fiberTraceProfileFittingControl_In.telluric > 1)
-     *        //       {
-     *        //         s_a1(pppos) = "SKY";
-     *        //         pppos++;
-     *        //         s_a1(pppos) = "SP_FIT";
-     *        //         pppos++;
-     *        //       }
-     *        //    if (ErrorsRead){
-     *        //      s_a1(pppos) = "ERRORS";
-     *        //      pppos++;
-     *        //      s_a1(pppos) = "ERRORS_OUT";
-     *        //      pppos++;
-     *        //      s_a1(pppos) = "ERRORS_SP_OUT";
-     *        //      pppos++;
-     *        //      if (I_Telluric > 1)
-     *        //      {
-     *        //        s_a1(pppos) = "ERR_SKY";
-     *        //        pppos++;
-     *        //      }
-     *        //    }
-     *        //    s_a1(pppos) = "I_BIN";
-     *        //    pppos++;
-     *        //    s_a1(pppos) = "DEBUGFILES_SUFFIX";
-     *
-     * in SlitFunc:
-     *       //    Pos = pfsDRPStella::util::KeyWord_Set(S_A1_Args_In, "DEBUGFILES_SUFFIX");
-     *      //    Pos = pfsDRPStella::util::KeyWord_Set(S_A1_Args_In, "I_BIN");
-     *      //      Pos = pfsDRPStella::util::KeyWord_Set(S_A1_Args_In, "ERRORS");
-     *      //      Pos = pfsDRPStella::util::KeyWord_Set(S_A1_Args_In, "ERRORS_OUT");
-     *      //      Pos = pfsDRPStella::util::KeyWord_Set(S_A1_Args_In, "ERRORS_SP_OUT");
-     *      //    Pos = pfsDRPStella::util::KeyWord_Set(S_A1_Args_In, "SP_OUT");
-     *      //    Pos = pfsDRPStella::util::KeyWord_Set(S_A1_Args_In, "SFO_OUT");
-     *      //    if ((I_Pos = pfsDRPStella::util::KeyWord_Set(S_A1_Args_In, "XCOR_PROF")) >= 0)
-     *      //    if ((Pos = pfsDRPStella::util::KeyWord_Set(S_A1_Args_In, "MASK")) >= 0)
-     *      //    if ((Pos = pfsDRPStella::util::KeyWord_Set(S_A1_Args_In, "PROF_OUT")) >= 0)
-     *      //    Pos = pfsDRPStella::util::KeyWord_Set(S_A1_Args_In, "SKY");
-     *      //    Pos = pfsDRPStella::util::KeyWord_Set(S_A1_Args_In, "ERR_SKY");
-     *      //    int Pos_Stop = pfsDRPStella::util::KeyWord_Set(S_A1_Args_In, "STOP");
-     *      //    if ((Pos = pfsDRPStella::util::KeyWord_Set(S_A1_Args_In, "BAD")) >= 0)
-     *      //    if ((Pos = pfsDRPStella::util::KeyWord_Set(S_A1_Args_In, "USE_ROWS")) >= 0)
-     *      //    Pos = pfsDRPStella::util::KeyWord_Set(S_A1_Args_In, "NOISE");
-     *      //    if ((Pos = pfsDRPStella::util::KeyWord_Set(S_A1_Args_In, "IM_OUT")) >= 0)
-     *      //    if ((Pos = pfsDRPStella::util::KeyWord_Set(S_A1_Args_In, "USE_ROW")) >= 0)// && TempIntB != 0)
-     *      //    Pos = pfsDRPStella::util::KeyWord_Set(S_A1_Args_In, "SP_FIT");
-     *
-     **/
-
-    bool fitSpline(const blitz::Array<double, 2> &fiberTraceSwath_In,/// 1 bin of CCD (FiberTrace::Image)
-                   const blitz::Array<int, 1> &iFirst_In,/// as calculated in SlitFunc
+/*    bool fitSpline(const blitz::Array<double, 2> &fiberTraceSwath_In,/// 1 bin of CCD (FiberTrace::Image)
                    const blitz::Array<double, 1> &xOverSampled_In,/// see XVecArr in SlitFunc
                    blitz::Array<double, 1> &profileOverSampled_Out,/// output oversampled spatial profile
                    const blitz::Array<double, 2> &profileXValuesPerRowOverSampled_In,/// (i + 0.5) / double(overSample_In) - 1. + xCentersPixelFraction_In(i)
                    const blitz::Array<double, 1> &profileXValuesAllRows_In,/// i + 0.5 + (1. / (2. * overSample))
                    blitz::Array<double, 2> &profilePerRow_Out);/// output 2D profile image
-
-    ndarray::Array<int, 2, 1> calculateBinBoundY(int swathWidth_In) const;
+*/
+    ndarray::Array<size_t, 2, 1> calcSwathBoundY(const size_t swathWidth_In) const;
     
     void setITrace(const size_t iTrace){_iTrace = iTrace;}
     size_t getITrace() const {return _iTrace;}
@@ -277,13 +176,23 @@ class FiberTrace {
     bool isFiberTraceProfileFittingControlSet() const {return _isFiberTraceProfileFittingControlSet;}
     size_t getWidth() const {return _trace->getImage()->getWidth();}
     size_t getHeight() const {return _trace->getImage()->getHeight();}
+    ndarray::Array<double, 1, 1> getTraceCoefficients() const;
+//    bool setTraceCoefficients(ndarray::Array<double, 1, 1> const& coeffs);
     PTR(FiberTrace) getPointer();
+
+    std::vector<PTR(std::vector<double>)> _overSampledProfileFitXPerSwath;
+    std::vector<PTR(std::vector<double>)> _overSampledProfileFitYPerSwath;
+    std::vector<PTR(std::vector<double>)> _profileFittingInputXPerSwath;
+    std::vector<PTR(std::vector<double>)> _profileFittingInputYPerSwath;
+    std::vector<PTR(std::vector<double>)> _profileFittingInputXMeanPerSwath;
+    std::vector<PTR(std::vector<double>)> _profileFittingInputYMeanPerSwath;
     
   private:
     ///TODO: replace variables with smart pointers?????
     PTR(MaskedImageT) _trace;
-    PTR(afwImage::Image<float>) _profile;
-    const PTR(const std::vector<float>) _xCenters;
+    PTR(afwImage::Image<double>) _profile;
+    ndarray::Array<double, 2, 1> _xCentersMeas;
+    const ndarray::Array<double const, 1, 1> _xCenters;
     size_t _iTrace;
     bool _isTraceSet;
     bool _isProfileSet;
@@ -291,6 +200,7 @@ class FiberTrace {
     const PTR(const FiberTraceFunction) _fiberTraceFunction;
     PTR(FiberTraceProfileFittingControl) _fiberTraceProfileFittingControl;
 
+    /// for debugging purposes only
 
   protected:
 };
@@ -348,7 +258,7 @@ class FiberTraceSet {
     PTR(std::vector<PTR(FiberTrace<ImageT, MaskT, VarianceT>)>) getTraces() const { return _traces; }
 //    PTR(const std::vector<PTR(FiberTrace<ImageT, MaskT, VarianceT>)>) getTraces() const { return _traces; }
 
-    bool setFiberTraceProfileFittingControl(const PTR(FiberTraceProfileFittingControl) const& fiberTraceProfileFittingControl);
+    bool setFiberTraceProfileFittingControl(PTR(FiberTraceProfileFittingControl) const& fiberTraceProfileFittingControl);
 
     /// set profiles of all traces in this FiberTraceSet to respective FiberTraces in input set
     /// NOTE: the FiberTraces should be sorted by their xCenters before performing this operation!
@@ -358,8 +268,8 @@ class FiberTraceSet {
     void sortTracesByXCenter();
 
     /// calculate spatial profile and extract to 1D
-    PTR(Spectrum<ImageT, MaskT, VarianceT, VarianceT>) extractTraceNumber(const size_t traceNumber);
-    PTR(SpectrumSet<ImageT, MaskT, VarianceT, VarianceT>) extractAllTraces();
+//    PTR(Spectrum<ImageT, MaskT, VarianceT, VarianceT>) extractTraceNumber(const size_t traceNumber);
+//    PTR(SpectrumSet<ImageT, MaskT, VarianceT, VarianceT>) extractAllTraces();
 
     ///TODO:
     /// Extract spectrum and background for one slit spectrum
@@ -370,6 +280,9 @@ class FiberTraceSet {
     /// Extract spectrum and background for all slit spectra
     /// Returns vector of size 2 (0: Spectrum, 1: Background)
     /// PTR(std::vector<PTR(SpectrumSet<ImageT, MaskT, VarianceT, ImageT>)>) extractSpectrumAndBackground()
+
+    /// calculate profiles for all traces
+    bool calcProfileAllTraces();
     
     /// extract 1D spectrum from previously provided profile
     PTR(Spectrum<ImageT, MaskT, VarianceT, VarianceT>) extractTraceNumberFromProfile(const size_t traceNumber);
@@ -400,15 +313,58 @@ namespace math{
    *         Spatial profile must be at least 5 pixels wide
    *       5 to fit Gaussian plus linear term (sloped sky)
    *         Spatial profile must be at least 6 pixels wide
-   *  NOTE: the center of a pixel is [0.,0.], so the lower left corner of a pixels is [-0.5,-0.5]
+   * NOTE that the WCS starts at [0., 0.], so an xCenter of 1.1 refers to position 0.1 of the second pixel
    **/
   template<typename ImageT, typename MaskT=afwImage::MaskPixel, typename VarianceT=afwImage::VariancePixel>
   PTR(FiberTraceSet<ImageT, MaskT, VarianceT>) findAndTraceApertures(const PTR(const afwImage::MaskedImage<ImageT, MaskT, VarianceT>) &maskedImage,
                                                                      const PTR(const FiberTraceFunctionFindingControl) &fiberTraceFunctionFindingControl);
   
-  PTR(const std::vector<float>) calculateXCenters(PTR(const ::pfs::drp::stella::FiberTraceFunction) const& fiberTraceFunction,
-                                                      size_t const& ccdHeight,
-                                                      size_t const& ccdWidth);
+  typedef struct FindCenterPositionsOneTraceResult{
+      std::vector<double> apertureCenterIndex;/// CONVERT ALL TO FLOAT???
+      std::vector<double> apertureCenterPos;
+      std::vector<double> eApertureCenterPos;
+  };
+  
+  template<typename ImageT, typename VarianceT=afwImage::VariancePixel>
+  FindCenterPositionsOneTraceResult findCenterPositionsOneTrace( PTR(afwImage::Image<ImageT>) & ccdImage,
+                                                                 PTR(afwImage::Image<VarianceT>) & ccdImageVariance,
+                                                                 PTR(const FiberTraceFunctionFindingControl) const& fiberTraceFunctionFindingControl);
+  
+  /**
+   * @brief: returns ndarray containing the xCenters of a FiberTrace from 0 to FiberTrace.getTrace().getHeight()-1
+   *         NOTE that the WCS starts at [0., 0.], so an xCenter of 1.1 refers to position 0.1 of the second pixel
+   */
+  ndarray::Array<double, 1, 1> calculateXCenters(PTR(const ::pfs::drp::stella::FiberTraceFunction) const& fiberTraceFunctionIn,
+                                                 size_t const& ccdHeightIn = 0,
+                                                 size_t const& ccdWidthIn = 0);
+  ndarray::Array<double, 1, 1> calculateXCenters(PTR(const ::pfs::drp::stella::FiberTraceFunction) const& fiberTraceFunctionIn,
+                                                 ndarray::Array<double, 1, 1> const& yIn,
+                                                 size_t const& ccdHeightIn = 0,
+                                                 size_t const& ccdWidthIn = 0);
+
+  typedef struct IdentifyResult{
+      ndarray::Array< double, 1, 1 > coeffs;
+      double rms;
+  };
+  /**
+    * Identify
+    * Identifies calibration lines, given in D_A2_LineList_In the format [wlen, approx_pixel] in
+    * wavelength-calibration spectrum D_A2_Spec_In [pixel_number, flux]
+    * within the given position plus/minus I_Radius_In,
+    * fits Gaussians to each line, fits Polynomial of order I_PolyFitOrder_In, and
+    * returns calibrated spectrum D_A2_CalibratedSpec_Out in the format
+    * [WLen, flux] and PolyFit coefficients D_A1_PolyFitCoeffs_Out
+    * 
+    * If D_A2_LineList_In contains 3 columns, the 3rd column will be used to decide which line
+    * to keep in case a weak line close to a strong line gets wrongly identified as the strong
+    * line
+    **/
+   IdentifyResult Identify( ndarray::Array< double, 1, 1 > const& spec,
+                            ndarray::Array< double, 2, 1 > const& lineList,
+                            int radius,
+                            double fwhm,
+                            int order,
+                            std::string const& fName_In );
 
 }
 
