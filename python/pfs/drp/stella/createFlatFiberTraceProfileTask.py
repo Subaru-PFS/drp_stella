@@ -43,7 +43,7 @@ class CreateFlatFiberTraceProfileConfig(pexConfig.Config):
         overSample = pexConfig.Field(
             doc = "Oversampling factor for the determination of the spatial profile (default: 10)",
             dtype = int,
-            default = 30,
+            default = 10,
             check = lambda x : x > 0)
         maxIterSF = pexConfig.Field(
             doc = "Maximum number of iterations for the determination of the spatial profile (default: 8)",

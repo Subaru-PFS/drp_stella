@@ -463,7 +463,8 @@ class FiberTraceTestCase(tests.TestCase):
             recImage = fiberTrace.getReconstructed2DSpectrum(spectrum)
             recImage.writeFits("recTrace_SpecAndProfileFromSum_trace"+str(iTrace)+".fits")
             diff = fiberTrace.getTrace().getImage().getArray() - recImage.getArray()
-            afwImage.ImageF(diff).writeFits("diffTrace_SpecAndProfileFromSum_trace"+str(iTrace)+".fits")
+            print 'type(diff) = ',type
+            #afwImage.ImageF(diff).writeFits("diffTrace_SpecAndProfileFromSum_trace"+str(iTrace)+".fits")
             meanDiff = np.mean(diff)
             self.assertLess(np.absolute(meanDiff), 0.001)
             stdDevDiff = np.std(diff)
@@ -473,7 +474,7 @@ class FiberTraceTestCase(tests.TestCase):
             recImage = fiberTrace.getReconstructed2DSpectrum(spectrum)
             recImage.writeFits("recTrace_SpecFromProfileFromSum_trace"+str(iTrace)+".fits")
             diff = fiberTrace.getTrace().getImage().getArray() - recImage.getArray()
-            afwImage.ImageF(diff).writeFits("diffTrace_SpecFromProfileFromSum_trace"+str(iTrace)+".fits")
+            #afwImage.ImageF(diff).writeFits("diffTrace_SpecFromProfileFromSum_trace"+str(iTrace)+".fits")
             meanDiff = np.mean(diff)
             self.assertLess(np.absolute(meanDiff), 0.001)
             stdDevDiff = np.std(diff)
