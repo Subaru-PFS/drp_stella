@@ -8,7 +8,6 @@
 #include "lsst/afw/image/MaskedImage.h"
 #include "lsst/pex/config.h"
 #include "lsst/pex/exceptions/Exception.h"
-//#include "../blitz.h"
 #include "../utils/Utils.h"
 #include "Math.h"
 #include "ndarray.h"
@@ -74,10 +73,10 @@ namespace pfs { namespace drp { namespace stella {
      *   CHISQ=chisq: double: out:
      *     Sum of squared errors divided by MEASURE_ERRORS if specified.
      *
-     *   COVAR=covar: blitz::Array<double, 2>(I_Degree+1, I_Degree+1): out:
+     *   COVAR=covar: ndarray::Array<double, 2>(I_Degree+1, I_Degree+1): out:
      *     Covariance matrix of the coefficients.
      *
-     *   MEASURE_ERRORS=measure_errors: blitz::Array<double, 1>(D_A1_X_In.size()): in:
+     *   MEASURE_ERRORS=measure_errors: ndarray::Array<double, 1>(D_A1_X_In.size()): in:
      *     Set this keyword to a vector containing standard
      *     measurement errors for each point Y[i].  This vector must be the same
      *     length as X and Y.
@@ -87,7 +86,7 @@ namespace pfs { namespace drp { namespace stella {
      *       deviations of each point in Y. For Poisson or statistical weighting
      *       MEASURE_ERRORS should be set to sqrt(Y).
      *
-     *   SIGMA=sigma: blitz::Array<double, 1>(I_Degree+1): out:
+     *   SIGMA=sigma: ndarray::Array<double, 1>(I_Degree+1): out:
      *     The 1-sigma error estimates of the returned parameters.
      *
      *     Note: if MEASURE_ERRORS is omitted, then you are assuming that
@@ -133,8 +132,8 @@ namespace pfs { namespace drp { namespace stella {
                                          T xRangeMax_In = 1.);
 
 /** Additional Keywords:
-    REJECTED=blitz::Array<int, 1>
-    NOT_REJECTED=blitz::Array<int, 1>
+    REJECTED=ndarray::Array<int, 1>
+    NOT_REJECTED=ndarray::Array<int, 1>
     N_REJECTED=int
     **/
     template<typename T>
@@ -231,12 +230,12 @@ namespace pfs { namespace drp { namespace stella {
               * added REJECT_IN as optinal parameter to reject cosmic rays from fit (times sigma)
               * added MASK_INOUT as optional parameter
       **/
-  /// MEASURE_ERRORS_IN = blitz::Array<double,2>(D_A2_CCD_In.rows, D_A2_CCD_In.cols) : in
+  /// MEASURE_ERRORS_IN = ndarray::Array<double,2>(D_A2_CCD_In.rows, D_A2_CCD_In.cols) : in
   /// REJECT_IN = double                                                      : in
-  /// MASK_INOUT = blitz::Array<double,2>(D_A1_CCD_In.rows,D_A1_CCD_In.cols)         : in/out
-  /// CHISQ_OUT = blitz::Array<double,1>(D_A2_CCD_In.rows)                           : out
-  /// Q_OUT = blitz::Array<double,1>(D_A2_CCD_In.rows)                               : out
-  /// SIGMA_OUT = blitz::Array<double,2>(D_A2_CCD_In.rows, 2): [*,0]: sigma_sp, [*,1]: sigma_sky : out
+  /// MASK_INOUT = ndarray::Array<double,2>(D_A1_CCD_In.rows,D_A1_CCD_In.cols)         : in/out
+  /// CHISQ_OUT = ndarray::Array<double,1>(D_A2_CCD_In.rows)                           : out
+  /// Q_OUT = ndarray::Array<double,1>(D_A2_CCD_In.rows)                               : out
+  /// SIGMA_OUT = ndarray::Array<double,2>(D_A2_CCD_In.rows, 2): [*,0]: sigma_sp, [*,1]: sigma_sky : out
       template< typename ImageT, typename SlitFuncT>
       bool LinFitBevingtonEigen(Eigen::Array<ImageT, Eigen::Dynamic, Eigen::Dynamic> const& D_A2_CCD_In,      ///: in
                                 Eigen::Array<SlitFuncT, Eigen::Dynamic, Eigen::Dynamic> const& D_A2_SF_In,       ///: in
@@ -253,13 +252,13 @@ namespace pfs { namespace drp { namespace stella {
                                   bool B_WithSky,                           ///: with sky: in
                                   std::vector<string> const& S_A1_Args_In,   ///: in
                                   std::vector<void *> &ArgV_In);                   ///: in/out
-    /// MEASURE_ERRORS_IN = blitz::Array<double,1>(D_A1_CCD_In.size)             : in
+    /// MEASURE_ERRORS_IN = ndarray::Array<double,1>(D_A1_CCD_In.size)             : in
     /// REJECT_IN = double                                                : in
-    /// MASK_INOUT = blitz::Array<int,1>(D_A1_CCD_In.size)                    : in/out
+    /// MASK_INOUT = ndarray::Array<int,1>(D_A1_CCD_In.size)                    : in/out
     /// CHISQ_OUT = double                                                : out
     /// Q_OUT = double                                                    : out
-    /// SIGMA_OUT = blitz::Array<double,1>(2): [*,0]: sigma_sp, [*,1]: sigma_sky : out
-    /// YFIT_OUT = blitz::Array<double, 1>(D_A1_CCD_In.size)                     : out
+    /// SIGMA_OUT = ndarray::Array<double,1>(2): [*,0]: sigma_sp, [*,1]: sigma_sky : out
+    /// YFIT_OUT = ndarray::Array<double, 1>(D_A1_CCD_In.size)                     : out
 
     /**
      *       Helper function to calculate incomplete Gamma Function

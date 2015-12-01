@@ -214,7 +214,7 @@ namespace pfs { namespace drp { namespace stella {
     bool IsOddNumber(long No);
 
     /**
-     *      SortIndices(blitz::Array<double, 1> D_A1_In)
+     *      SortIndices(vector<T> D_A1_In)
      *      Returns an integer array of the same size like <D_A1_In>,
      *      containing the indixes of <D_A1_In> in sorted order.
      **/
