@@ -6,7 +6,7 @@ import pfs.drp.stella.findAndTraceAperturesTask       as fataTask
 
 import numpy as np
 
-exp = afwImage.ExposureF("/home/azuri/spectra/pfs/2014-10-14/IR-23-0-sampledFlatx2-nonoise.fits")
+exp = afwImage.ExposureF("IR-23-0-sampledFlatx2-nonoise.fits")
 myFindTask = fataTask.FindAndTraceAperturesTask()
 fts = myFindTask.run(exp)
 myExtractTask = cfftpTask.CreateFlatFiberTraceProfileTask()
