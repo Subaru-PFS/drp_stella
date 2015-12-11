@@ -276,10 +276,16 @@ namespace pfs { namespace drp { namespace stella {
     std::vector< size_t > getIndices( std::vector< T > const& vec_In );
 
     /*
-     * @brief: Returns array to copies of specified elements of arr_In
+     * @brief: Return vector of indices where vec_In == 1
      */
     template<typename T>
-    ndarray::Array<T, 1, 1> getSubArray(ndarray::Array<T, 1, 1> const& arr_In, ndarray::Array<size_t, 1, 1> const& indices_In);
+    ndarray::Array< size_t, 1, 1 > getIndices( ndarray::Array< T, 1, 1 > const& arr_In );
+
+    /*
+     * @brief: Returns array to copies of specified elements of arr_In
+     */
+    template<typename T, typename U>
+    ndarray::Array<T, 1, 1> getSubArray(ndarray::Array<T, 1, 1> const& arr_In, ndarray::Array<U, 1, 1> const& indices_In);
 
     template<typename T, typename U>
     ndarray::Array<T, 1, 1> getSubArray(ndarray::Array<T, 2, 1> const& arr_In, ndarray::Array<U, 2, 1> const& indices_In);
@@ -437,6 +443,273 @@ namespace pfs { namespace drp { namespace stella {
      */
     template< typename T >
     T calcRMS( ndarray::Array< T, 1, 1 > const& arrIn );
+    
+    /**
+      CrossCorrelate with Gauss fit to ChiSquare to find subpixel of minimum
+     **/
+    template< typename T >
+    bool crossCorrelate(ndarray::Array<T, 1, 1> const& DA1_Static,
+                        ndarray::Array<T, 1, 1> const& DA1_Moving,
+                        int const I_NPixMaxLeft,
+                        int const I_NPixMaxRight,
+                        double &D_Out,
+                        double &D_ChiSquare_Out);
+
+    /**
+      CrossCorrelate
+     **/
+    template< typename T >
+    bool crossCorrelate( ndarray::Array< T, 1, 1 > const& DA1_Static,
+                         ndarray::Array< T, 1> const& DA1_Moving,
+                         int const I_NPixMaxLeft,
+                         int const I_NPixMaxRight,
+                         int &I_Out,
+                         double &D_ChiSquare_Out);
+
+    template< typename T >
+    bool lsToFit( ndarray::Array< T, 1, 1 > const& XXVecArr, 
+                  ndarray::Array< T, 1, 1 > const& YVecArr, 
+                  T const& XM, 
+                  T & D_Out);
+    
+    template< typename T, typename U >
+    ndarray::Array< U, 1, 1 > whereLt( ndarray::Array< T, 1, 1 > const& arrayToCompareTo,
+                                       T const valueToCompareTo, 
+                                       U const valueIfArrayValueLowerThanValueToCompareTo,
+                                       U const valueIfArrayValueGreaterOrEqualToValueToCopareTo );
+    
+    template< typename T, typename U >
+    ndarray::Array< U, 1, 1 > whereLt( ndarray::Array< T, 1, 1 > const& arrayToCompareTo,
+                                       T const valueToCompareTo, 
+                                       U const valueIfArrayValueLowerThanValueToCompareTo,
+                                       ndarray::Array< U, 1, 1 > const& valuesIfArrayValueGreaterOrEqualToValueToCopareTo );
+    
+    template< typename T, typename U >
+    ndarray::Array< U, 1, 1 > whereLe( ndarray::Array< T, 1, 1 > const& arrayToCompareTo,
+                                       T const valueToCompareTo, 
+                                       U const valueIfArrayValueLowerOrEqualToValueToCompareTo,
+                                       U const valueIfArrayValueGreaterThanValueToCopareTo );
+    
+    template< typename T, typename U >
+    ndarray::Array< U, 1, 1 > whereLe( ndarray::Array< T, 1, 1 > const& arrayToCompareTo,
+                                       T const valueToCompareTo, 
+                                       U const valueIfArrayValueLowerOrEqualToValueToCompareTo,
+                                       ndarray::Array< U, 1, 1 > const& valuesIfArrayValueGreaterThanValueToCopareTo );
+    
+    template< typename T, typename U >
+    ndarray::Array< U, 1, 1 > whereGt( ndarray::Array< T, 1, 1 > const& arrayToCompareTo,
+                                       T const valueToCompareTo, 
+                                       U const valueIfArrayValueGreaterThanValueToCompareTo,
+                                       U const valueIfArrayValueLessOrEqualToValueToCopareTo );
+    
+    template< typename T, typename U >
+    ndarray::Array< U, 1, 1 > whereGt( ndarray::Array< T, 1, 1 > const& arrayToCompareTo,
+                                       T const valueToCompareTo, 
+                                       U const valueIfArrayValueGreaterThanValueToCompareTo,
+                                       ndarray::Array< U, 1, 1 > const& valuesIfArrayValueLessOrEqualToValueToCopareTo );
+    
+    template< typename T, typename U >
+    ndarray::Array< U, 1, 1 > whereGe( ndarray::Array< T, 1, 1 > const& arrayToCompareTo,
+                                       T const valueToCompareTo, 
+                                       U const valueIfArrayValueGreaterOrEqualToValueToCompareTo,
+                                       U const valueIfArrayValueLessThanValueToCopareTo );
+    
+    template< typename T, typename U >
+    ndarray::Array< U, 1, 1 > whereGe( ndarray::Array< T, 1, 1 > const& arrayToCompareTo,
+                                       T const valueToCompareTo, 
+                                       U const valueIfArrayValueGreaterOrEqualToValueToCompareTo,
+                                       ndarray::Array< U, 1, 1 > const& valuesIfArrayValueLessThanValueToCopareTo );
+    
+    /**
+      Spline
+      Given Arrays XVecArr(0:N-1) and YVecArr(0:N-1) containing a tabulated function, i.e., y_i = f(x_i), with x_1 < x_2 < ... < x_N, 
+      and given values YP1 and YPN for the first derivative of the interpolating function at points 1 and N, respectively, this routine 
+      returns an Array y2(0:N-1) that contains the second derivatives of the interpolating function at the tabulated points x_i. If YP1 
+      and/or YPN are equal to 1x10^30 or larger, the routine is signaled to set the corresponding boundary condition for a natural spline, 
+      with zero second derivative on that boundary.
+     **/
+    template< typename T >
+    ndarray::Array< T, 1, 1 > splineI( ndarray::Array< T, 1, 1 > const& XVecArr, 
+                                       ndarray::Array< T, 1, 1 > const& YVecArr, 
+                                       T const YP1, 
+                                       T const YPN);
+    
+    /**
+      Spline
+      Given Arrays XVecArr(0:N-1) and YVecArr(0:N-1) containing a tabulated function, i.e., y_i = f(x_i), with x_1 < x_2 < ... < x_N, 
+      this routine returns an Array y2(0:N-1) that contains the second derivatives of the interpolating function at the tabulated points x_i. 
+      The routine is signaled to set the corresponding boundary condition for a natural spline, with zero second derivative on that boundary.
+     **/
+    template< typename T >
+    ndarray::Array< T, 1, 1 > splineI( ndarray::Array< T, 1, 1 > const& XVecArr, 
+                                       ndarray::Array< T, 1, 1 > const& YVecArr);
+
+    template< typename T >
+    bool splInt( ndarray::Array< T, 1, 1 > const& XAVecArr, 
+                 ndarray::Array< T, 1, 1 > const& YAVecArr, 
+                 ndarray::Array< T, 1, 1> const& Y2AVecArr, 
+                 T X,
+                 T & Y);
+
+    template< typename T >    
+    bool hInterPol( ndarray::Array< T, 1, 1 > const& VVecArr,
+                    ndarray::Array< T, 1, 1 > const& XVecArr,
+                    ndarray::Array< int, 1, 1 > & SVecArr,
+                    ndarray::Array< T, 1, 1 > const& UVecArr,
+                    std::vector< string > const& CS_A1_In,
+                    ndarray::Array< T, 1, 1 > & D1_Out);
+
+    /**
+     ValueLocate
+     Returns the Start Index of the Range of the two indixes of the monotonically increasing or decreasing Vector VecArr, in which Val falls.
+     If Vector is monotonically increasing, the result is
+       if j = -1       Value(i) < VecArr(0)
+       if 0 <= j < N-1 VecArr(j) <= Value(i) < VecArr(j+1)
+       if j = N-1      VecArr(N-1) <= Value(i)
+
+     If Vector is monotonically decreasing, the result is
+       if j = -1       VecArr(0) <= ValVecArr(i)
+       if 0 <= j < N-1 VecArr(j+1) <= ValVecArr(i) < VecArr(j)
+       if j = N-1      ValVecArr(i) < VecArr(N-1)
+    **/
+    template< typename T >
+    ndarray::Array< int, 1, 1 > valueLocate( ndarray::Array< T, 1, 1 > const& VecArr, 
+                                             ndarray::Array< T, 1, 1 > const& ValVecArr );
+
+    /**
+      InterPol linear, not regular
+     **/
+    template< typename T >
+    bool interPol( ndarray::Array< T, 1, 1 > const& VVecArr,
+                   ndarray::Array< T, 1, 1 > const& XVecArr,
+                   ndarray::Array< T, 1, 1 > const& UVecArr,
+                   ndarray::Array< T, 1, 1> & D_A1_Out );
+  
+    template< typename T >
+    bool interPol( ndarray::Array< T, 1, 1 > const& VVecArr,
+                   ndarray::Array< T, 1, 1 > const& XVecArr,
+                   ndarray::Array< T, 1, 1 > const& UVecArr,
+                   ndarray::Array< T, 1, 1 > & D_A1_Out,
+                   bool B_PreserveFlux );
+  
+    /**
+      InterPol irregular
+     **/
+      /**
+      FUNCTION INTERPOL, V, X, U, SPLINE=spline, LSQUADRATIC=ls2, QUADRATIC=quad
+      ;+
+      ; NAME:
+      ;       INTERPOL
+      ;
+      ; PURPOSE:
+      ;       Linearly interpolate vectors with a regular or irregular
+      ;       grid.
+      ;       Quadratic or a 4 point least-square fit to a quadratic
+      ;       interpolation may be used as an option.
+      ;
+      ; CATEGORY:
+      ;       E1 - Interpolation
+      ;
+      ; CALLING SEQUENCE:
+      ;       Result = INTERPOL(V, N)         ;For regular grids.
+      ;
+      ;       Result = INTERPOL(V, X, U)      ;For irregular grids.
+      ;
+      ; INPUTS:
+      ;       V:      The input vector can be any type except
+      .
+      ;
+      ;       For regular grids:
+      ;       N:      The number of points in the result when both
+      ;               input and output grids are regular.
+      ;
+      ;       Irregular grids:
+      ;       X:      The absicissae values for V.  This vector must
+      ;               have same # of elements as V.  The values MUST be
+      ;               monotonically ascending or descending.
+      ;
+      ;       U:      The absicissae values for the result.  The result
+      ;               will have the same number of elements as U.  U
+      ;               does not need to be monotonic.  If U is outside
+      ;               the range of X, then the closest two endpoints of
+      ;               (X,V) are linearly extrapolated.
+      ;
+      ; Keyword Input Parameters:
+      ;       LSQUADRATIC = if set, interpolate using a least squares
+      ;         quadratic fit to the equation y = a + bx + cx^2, for
+      ;         each 4 point neighborhood (x[i-1], x[i], x[i+1], x[i+2])
+      ;         surrounding the interval, x[i] <= u < x[i+1].
+      ;
+      ;       QUADRATIC = if set, interpolate by fitting a quadratic
+      ;         y = a + bx + cx^2, to the three point neighborhood
+      ;         (x[i-1], x[i], x[i+1]) surrounding the interval
+      ;         x[i] <= u < x[i+1].
+      ;
+      ;       SPLINE = if set, interpolate by fitting a cubic spline to
+      ;         the 4 point neighborhood (x[i-1], x[i], x[i+1], x[i+2])
+      ;         surrounding the interval, x[i] <= u < x[i+1].
+      ;
+      ;       Note: if LSQUADRATIC or QUADRATIC or SPLINE is not set,
+      ;       the default linear interpolation is used.
+      ;
+      ; OUTPUTS:
+      ;       INTERPOL returns a floating-point vector of N points
+      ;       determined by interpolating the input vector by the
+      ;       specified method.
+      ;
+      ;       If the input vector is double or complex, the result is
+      ;       double or complex.
+      ;
+      ; COMMON BLOCKS:
+      ;       None.
+      ;
+      ; SIDE EFFECTS:
+      ;       None.
+      ;
+      ; RESTRICTIONS:
+      ;       None.
+      ;
+      ; PROCEDURE:
+      ;       For linear interpolation,
+      ;       Result(i) = V(x) + (x - FIX(x)) * (V(x+1) - V(x))
+      ;
+      ;       where   x = i*(m-1)/(N-1) for regular grids.
+      ;               m = # of elements in V, i=0 to N-1.
+      ;
+      ;       For irregular grids, x = U(i).
+      ;               m = number of points of input vector.
+      ;
+      ;         For QUADRATIC interpolation, the equation y=a+bx+cx^2 is
+      ;       solved explicitly for each three point interval, and is
+      ;       then evaluated at the interpolate.
+      ;         For LSQUADRATIC interpolation, the coefficients a, b,
+      ;       and c, from the above equation are found, for the four
+      ;       point interval surrounding the interpolate using a least
+      ;       square fit.  Then the equation is evaluated at the
+      ;       interpolate.
+      ;         For SPLINE interpolation, a cubic spline is fit over the
+      ;       4 point interval surrounding each interpolate, using the
+      ;       routine SPL_INTERP().
+      ;
+      ; MODIFICATION HISTORY:
+      ;       Written, DMS, October, 1982.
+      ;       Modified, Rob at NCAR, February, 1991.  Made larger arrays possible
+      ;               and correct by using long indexes into the array instead of
+      ;               integers.
+      ;       Modified, DMS, August, 1998.  Now use binary intervals which
+      ;               speed things up considerably when U is random.
+      ;       DMS, May, 1999.  Use new VALUE_LOCATE function to find intervals,
+      ;               which speeds things up by a factor of around 100, when
+      ;               interpolating from large arrays.  Also added SPLINE,
+      ;               QUADRATIC, and LSQUADRATIC keywords.
+      ;-
+      ;**/
+    template< typename T >
+    bool interPol( ndarray::Array< T, 1, 1 > const& VVecArr,
+                   ndarray::Array< T, 1, 1 > const& XVecArr,
+                   ndarray::Array< T, 1, 1 > const& UVecArr,
+                   std::vector< std::string > const& CS_A1_In,
+                   ndarray::Array< T, 1, 1 > & D_A1_Out );
 //    template< typename T >
 //    ndarray::Array< T, 2, 1 > get2DArray(ndarray::Array< T, 1, 1 > const& xIn, ndarray::Array< T, 1, 1 > const& yIn);
   }/// end namespace math
