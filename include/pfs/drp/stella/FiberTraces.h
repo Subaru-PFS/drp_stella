@@ -346,6 +346,7 @@ namespace math{
       ndarray::Array< double, 1, 1 > coeffs;
       double rms;
   };
+  
   /**
     * Identify
     * Identifies calibration lines, given in D_A2_LineList_In the format [wlen, approx_pixel] in
@@ -359,12 +360,14 @@ namespace math{
     * to keep in case a weak line close to a strong line gets wrongly identified as the strong
     * line
     **/
-   IdentifyResult Identify( ndarray::Array< double, 1, 1 > const& spec,
-                            ndarray::Array< double, 2, 1 > const& lineList,
-                            int radius,
-                            double fwhm,
-                            int order,
-                            std::string const& fName_In );
+  IdentifyResult Identify( ndarray::Array< double, 1, 1 > const& spec,
+                           ndarray::Array< double, 2, 1 > const& lineList,
+                           int radius,
+                           double fwhm,
+                           int order,
+                           std::string const& fName_In );
+   
+   
 
 }
 
