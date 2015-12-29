@@ -47,8 +47,8 @@ def main(rootDir, visit, arm, ccd, fitsFileName):
     det = exposure.getDetector()
 #    det = camGeom.Detector(0)
     print 'det.getBBox() = ',det.getBBox()
-    butlerImage = camGeomUtils.ButlerImage(butler, "raw", visit=visit, arm=arm, isTrimmed=False, verbose=True)
-#    butlerImage = camGeomUtils.ButlerImage(butler, "raw", visit=visit, arm=arm, ccd=ccd, isTrimmed=False, verbose=True)
+    butlerImage = camGeomUtils.ButlerImage(butler, "raw", visit=visit, arm=arm, isTrimmed=True, verbose=True)
+#    butlerImage = camGeomUtils.ButlerImage(butler, "raw", visit=visit, arm=arm, ccd=ccd, isTrimmed=, verbose=True)
     print 'butlerImage = ',butlerImage
     print 'dir(butlerImage) = ',dir(butlerImage)
     print 'butlerImage.isTrimmed = ',butlerImage.isTrimmed
