@@ -66,7 +66,7 @@ namespace pfs { namespace drp { namespace stella {
 /**
  * \brief Describe a single fiber trace
  */
-template<typename ImageT, typename MaskT=afwImage::MaskPixel, typename VarianceT=afwImage::VariancePixel>
+template< typename ImageT, typename MaskT=afwImage::MaskPixel, typename VarianceT=afwImage::VariancePixel >
 class FiberTrace {
   public:
     typedef afwImage::MaskedImage<ImageT, MaskT, VarianceT> MaskedImageT;
@@ -325,6 +325,12 @@ namespace math{
       std::vector<double> eApertureCenterPos;
   };
   
+  /**
+   * @brief: traces the fiberTrace closest to the bottom of the image and sets it to zero
+   * @param ccdImage: image to trace
+   * @param ccdImageVariance: variance of image to trace (used for fitting)
+   * @param fiberTraceFunctionFindingControl: parameters to find and trace a fiberTrace
+   * */
   template<typename ImageT, typename VarianceT=afwImage::VariancePixel>
   FindCenterPositionsOneTraceResult findCenterPositionsOneTrace( PTR(afwImage::Image<ImageT>) & ccdImage,
                                                                  PTR(afwImage::Image<VarianceT>) & ccdImageVariance,
@@ -366,8 +372,6 @@ namespace math{
                            double fwhm,
                            int order,
                            std::string const& fName_In );
-   
-   
 
 }
 
