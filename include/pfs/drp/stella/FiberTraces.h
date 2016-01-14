@@ -76,7 +76,7 @@ class FiberTrace {
 
     explicit FiberTrace(PTR(const afwImage::MaskedImage<ImageT, MaskT, VarianceT>) const& maskedImage, 
                         PTR(const FiberTraceFunction) const& fiberTraceFunction, 
-                        ndarray::Array<double const, 1, 1> const& xCenters,
+//                        ndarray::Array<double const, 1, 1> const& xCenters,
                         size_t iTrace=0);
     
     explicit FiberTrace(FiberTrace<ImageT, MaskT, VarianceT> &fiberTrace, bool const deep=false);
@@ -123,19 +123,22 @@ class FiberTrace {
 
     /// Create _trace from maskedImage and _fiberTraceFunction
     /// Pre: _xCenters set/calculated
-    bool createTrace(const PTR(const MaskedImageT) & maskedImage);
+    bool createTrace( const PTR(const MaskedImageT) & maskedImage );
 
     /// Return _fiberTraceFunction
     const PTR(const FiberTraceFunction) getFiberTraceFunction() const { return _fiberTraceFunction; }
+    bool setFiberTraceFunction( PTR( const FiberTraceFunction ) fiberTraceFunction );
 
     /// Return _fiberTraceProfileFittingControl
     PTR(FiberTraceProfileFittingControl) getFiberTraceProfileFittingControl() const { return _fiberTraceProfileFittingControl; }
 
     /// Set the _fiberTraceProfileFittingControl
-    bool setFiberTraceProfileFittingControl(PTR(FiberTraceProfileFittingControl) const& fiberTraceProfileFittingControl);// { _fiberTraceProfileFittingControl = fiberTraceProfileFittingControl; }
+    bool setFiberTraceProfileFittingControl( PTR( FiberTraceProfileFittingControl ) const& fiberTraceProfileFittingControl);// { _fiberTraceProfileFittingControl = fiberTraceProfileFittingControl; }
+    bool setFiberTraceProfileFittingControl( PTR( const FiberTraceProfileFittingControl ) const& fiberTraceProfileFittingControl);// { _fiberTraceProfileFittingControl = fiberTraceProfileFittingControl; }
     
     /// Return the x-centers of the fiber trace
-    const ndarray::Array<double const, 1, 1> getXCenters() const { return _xCenters; }
+    const ndarray::Array<double, 1, 1> getXCenters() const { return _xCenters; }
+    void setXCenters( ndarray::Array< double, 1, 1 > const& xCenters );
     ndarray::Array<double, 2, 1> getXCentersMeas() const { return _xCentersMeas; }
     void setXCentersMeas( ndarray::Array< double, 2, 1 > const& xCentersMeas);
 
@@ -192,12 +195,12 @@ class FiberTrace {
     PTR(MaskedImageT) _trace;
     PTR(afwImage::Image<double>) _profile;
     ndarray::Array<double, 2, 1> _xCentersMeas;
-    const ndarray::Array<double const, 1, 1> _xCenters;
+    ndarray::Array<double, 1, 1> _xCenters;
     size_t _iTrace;
     bool _isTraceSet;
     bool _isProfileSet;
     bool _isFiberTraceProfileFittingControlSet;
-    const PTR(const FiberTraceFunction) _fiberTraceFunction;
+    PTR(const FiberTraceFunction) _fiberTraceFunction;
     PTR(FiberTraceProfileFittingControl) _fiberTraceProfileFittingControl;
 
     /// for debugging purposes only
@@ -372,6 +375,23 @@ namespace math{
                            double fwhm,
                            int order,
                            std::string const& fName_In );
+   
+   /**
+    * @brief: extract a wide flatFiberTrace, fit profile, normalize, reduce width
+    * @param maskedImage: CCD image dithered Flat 
+    * @param fiberTraceFunction: FiberTraceFunction (wide) for dithered flat
+    * @param fiberTraceFunctionControl: FiberTraceFunctionControl (narrow) for output FiberTrace
+    * @param profileFittingControl: ProfileFittingControl for fitting the spatial profile of the dithered Flat
+    * @param minSNR: normalized pixel values with an SNR lower than minSNR are set to 1.
+    * @param iTrace: number of FiberTrace
+    */
+    template< typename ImageT, typename MaskT=afwImage::MaskPixel, typename VarianceT=afwImage::VariancePixel >
+    PTR(FiberTrace< ImageT, MaskT, VarianceT >) makeNormFlatFiberTrace( PTR( const afwImage::MaskedImage< ImageT, MaskT, VarianceT >) const& maskedImage,
+                                                                         PTR( const ::pfs::drp::stella::FiberTraceFunction ) const& fiberTraceFunctionWide,
+                                                                         PTR( const ::pfs::drp::stella::FiberTraceFunctionControl ) const& fiberTraceFunctionControlNarrow,
+                                                                         PTR( const ::pfs::drp::stella::FiberTraceProfileFittingControl ) const& fiberTraceProfileFittingControl,
+                                                                         ImageT minSNR = 100.,
+                                                                         size_t iTrace=0 );
 
 }
 

@@ -25,18 +25,23 @@ struct FiberTraceFunctionControl {
   LSST_CONTROL_FIELD(order, unsigned int, "Polynomial order");
   LSST_CONTROL_FIELD(xLow, float, "Lower (left) limit of aperture relative to center position of trace in x (< 0.)");
   LSST_CONTROL_FIELD(xHigh, float, "Upper (right) limit of aperture relative to center position of trace in x");
-
+  LSST_CONTROL_FIELD(nPixCutLeft, int, "Number of pixels to cut off from the width left of center");
+  LSST_CONTROL_FIELD(nPixCutRight, int, "Number of pixels to cut off from the width right of from center");
   FiberTraceFunctionControl() :
       interpolation("POLYNOMIAL"),
       order(5),
       xLow(-4.),
-      xHigh(4.) {}
+      xHigh(4.),
+      nPixCutLeft(1),
+      nPixCutRight(1) {}
       
   FiberTraceFunctionControl(const FiberTraceFunctionControl& ftfc) : 
       interpolation(ftfc.interpolation),
       order(ftfc.order),
       xLow(ftfc.xLow),
-      xHigh(ftfc.xHigh) {}
+      xHigh(ftfc.xHigh),
+      nPixCutLeft(ftfc.nPixCutLeft),
+      nPixCutRight(ftfc.nPixCutRight) {}
       
   ~FiberTraceFunctionControl() {}
   
@@ -51,6 +56,8 @@ struct FiberTraceFunctionControl {
       cout << "FiberTraceFunctionControl::isClassInvariant: fiberTraceFunction->yCenter = <" << fiberTraceFunction->yCenter << ">" << endl;
       cout << "FiberTraceFunctionControl::isClassInvariant: fiberTraceFunction->yLow = <" << fiberTraceFunction->yLow << ">" << endl;
       cout << "FiberTraceFunctionControl::isClassInvariant: fiberTraceFunction->yHigh = <" << fiberTraceFunction->yHigh << ">" << endl;
+      cout << "FiberTraceFunctionControl::isClassInvariant: fiberTraceFunction->nPixCutLeft = <" << fiberTraceFunction->nPixCutLeft << ">" << endl;
+      cout << "FiberTraceFunctionControl::isClassInvariant: fiberTraceFunction->nPixCutRight = <" << fiberTraceFunction->nPixCutRight << ">" << endl;
       cout << "FiberTraceFunctionControl::isClassInvariant: fiberTraceFunction->coefficients = <";
       for (int i = 0; i < static_cast<int>(fiberTraceFunction->coefficients.size()); i++)
         cout << fiberTraceFunction->coefficients[i] << " ";
@@ -147,6 +154,11 @@ struct FiberTraceFunction {
 
     if (yHigh < 0.){
       cout << "FiberTraceFunction::isClassInvariant: ERROR: (yHigh(=" << yHigh << ") < 0 => Returning FALSE" << endl;
+      return false;
+    }
+    
+    if ( double( fiberTraceFunctionControl.nPixCutLeft + fiberTraceFunctionControl.nPixCutRight )  - ( fiberTraceFunctionControl.xHigh - fiberTraceFunctionControl.xLow ) < 3. ){
+      cout << "FiberTraceFunction::isClassInvariant: ERROR: (fiberTraceFunctionControl.nPixCutLeft + fiberTraceFunctionControl.nPixCutRight  - ( fiberTraceFunctionControl.xHigh - fiberTraceFunctionControl.xLow )(=" << (fiberTraceFunctionControl.nPixCutLeft + fiberTraceFunctionControl.nPixCutRight ) - ( fiberTraceFunctionControl.xHigh - fiberTraceFunctionControl.xLow ) << ") < 3 => Returning FALSE" << endl;
       return false;
     }
 
@@ -277,7 +289,7 @@ struct FiberTraceProfileFittingControl {
         
     ~FiberTraceProfileFittingControl() {}
   
-  bool isClassInvariant(){
+  bool isClassInvariant() const{
     bool isProfileInterpolationValid = false;
     bool isTelluricValid = false;
     for ( int fooInt = PISKUNOV; fooInt != NVALUES_P; fooInt++ ){
@@ -366,7 +378,7 @@ struct FiberTraceProfileFittingControl {
     return true;
   }
         
-  PTR(FiberTraceProfileFittingControl) getPointer(){
+  PTR(FiberTraceProfileFittingControl) getPointer() const{
     PTR(FiberTraceProfileFittingControl) ptr(new FiberTraceProfileFittingControl(*this));
     return ptr;
   }

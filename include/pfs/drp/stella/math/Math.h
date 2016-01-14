@@ -86,11 +86,11 @@ namespace pfs { namespace drp { namespace stella {
      * cross-talk between adjacent apertures
      **/
     template< typename T, typename U >
-    ndarray::Array<size_t, 2, 1> calcMinCenMax(ndarray::Array<T const, 1, 1> const& xCenters_In,
+    ndarray::Array<size_t, 2, 1> calcMinCenMax(ndarray::Array<T, 1, 1> const& xCenters_In,
                                                U const xHigh_In,/// >= 0
                                                U const xLow_In,/// <= 0
-                                               int const nPixCutLeft_In,
-                                               int const nPixCutRight_In);
+                                               int const nPixCutLeft_In = 0,
+                                               int const nPixCutRight_In = 0);
 
     /**
      * Fix(double)
@@ -118,10 +118,10 @@ namespace pfs { namespace drp { namespace stella {
     U floor1(T const& rhs, U const& outType);
     
     template <typename T, typename U>
-    ndarray::Array<U, 1, 1> floor(ndarray::Array<const T, 1, 1> const& rhs, U const outType);
+    ndarray::Array<U, 1, 1> floor(ndarray::Array<T, 1, 1> const& rhs, U const outType);
     
     template <typename T, typename U>
-    ndarray::Array<U, 2, 2> floor(ndarray::Array<const T, 2, 2> const& rhs, U const outType);
+    ndarray::Array<U, 2, 2> floor(ndarray::Array<T, 2, 2> const& rhs, U const outType);
 
     /**
      * Int(double)
@@ -460,7 +460,7 @@ namespace pfs { namespace drp { namespace stella {
      **/
     template< typename T >
     bool crossCorrelate( ndarray::Array< T, 1, 1 > const& DA1_Static,
-                         ndarray::Array< T, 1> const& DA1_Moving,
+                         ndarray::Array< T, 1, 1 > const& DA1_Moving,
                          int const I_NPixMaxLeft,
                          int const I_NPixMaxRight,
                          int &I_Out,
@@ -710,6 +710,22 @@ namespace pfs { namespace drp { namespace stella {
                    ndarray::Array< T, 1, 1 > const& UVecArr,
                    std::vector< std::string > const& CS_A1_In,
                    ndarray::Array< T, 1, 1 > & D_A1_Out );
+
+    template< typename T >
+    struct StretchAndCrossCorrelateResult{
+        double stretch;
+        double shift;
+        ndarray::Array< T, 2, 1 > specStretchedMinChiSq;
+    };
+    
+    template< typename T >
+    StretchAndCrossCorrelateResult< T > stretchAndCrossCorrelate( ndarray::Array< T, 1, 1 > const& spec,
+                                                                  ndarray::Array< T, 1, 1 > const& specRef,
+                                                                  int const radiusXCor,
+                                                                  int const stretchMinLength,
+                                                                  int const stretchMaxLength,
+                                                                  int const nStretches );
+    
 //    template< typename T >
 //    ndarray::Array< T, 2, 1 > get2DArray(ndarray::Array< T, 1, 1 > const& xIn, ndarray::Array< T, 1, 1 > const& yIn);
   }/// end namespace math
