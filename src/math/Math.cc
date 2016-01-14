@@ -1451,12 +1451,12 @@
             cout << "CFits::CrossCorrelate: i," << i << " < 0: DA1_Static = " << DA1_Static << endl;
             cout << "CFits::CrossCorrelate: i," << i << " < 0: Setting DA1_StaticTemp to DA1_Static(Range(0," << DA1_Static.getShape()[ 0 ] + i - 1 << "))" << endl;
           #endif
-          DA1_StaticTemp = DA1_Static[ ndarray::view( 0, DA1_Static.getShape()[ 0 ] + i ) ];
+          DA1_StaticTemp[ ndarray::view() ] = DA1_Static[ ndarray::view( 0, DA1_Static.getShape()[ 0 ] + i ) ];
           #ifdef __DEBUG_FITS_CROSSCORRELATE__
             cout << "CFits::CrossCorrelate: i," << i << " < 0: DA1_moving = " << DA1_Moving << endl;
             cout << "CFits::CrossCorrelate: i," << i << " < 0: Setting DA1_MovingTemp to DA1_Moving(Range(" << 0-i << "," << DA1_Moving.getShape()[ 0 ] - 1 << "))" << endl;
           #endif
-          DA1_MovingTemp = DA1_Moving[ ndarray::view( 0 - i, DA1_Moving.getShape()[ 0 ] )];
+          DA1_MovingTemp[ ndarray::view() ] = DA1_Moving[ ndarray::view( 0 - i, DA1_Moving.getShape()[ 0 ] )];
         } 
         else{
           #ifdef __DEBUG_FITS_CROSSCORRELATE__
@@ -1465,8 +1465,8 @@
           DA1_StaticTemp = ndarray::allocate( DA1_Static.getShape()[ 0 ] - i );
           DA1_MovingTemp = ndarray::allocate( DA1_Static.getShape()[ 0 ] - i );
           DA1_Diff = ndarray::allocate( DA1_Static.getShape()[ 0 ] - i );
-          DA1_StaticTemp = DA1_Static[ ndarray::view( i, DA1_Static.getShape()[ 0 ] ) ];
-          DA1_MovingTemp = DA1_Moving[ ndarray::view( 0, DA1_Moving.getShape()[ 0 ] - i ) ];
+          DA1_StaticTemp[ ndarray::view() ] = DA1_Static[ ndarray::view( i, DA1_Static.getShape()[ 0 ] ) ];
+          DA1_MovingTemp[ ndarray::view() ] = DA1_Moving[ ndarray::view( 0, DA1_Moving.getShape()[ 0 ] - i ) ];
         }
         #ifdef __DEBUG_FITS_CROSSCORRELATE__
           cout << "CFits::CrossCorrelate: DA1_StaticTemp = " << DA1_StaticTemp << endl;
@@ -1718,141 +1718,6 @@
       return true;
     }
     
-    template< typename T >
-    bool stretchAndCrossCorrelate( ndarray::Array< double, 1, 1 > const& D_A1_Spec_In,
-                                   ndarray::Array< double, 1, 1 > const& D_A1_SpecRef_In,
-                                   int const I_Radius_XCor_In,
-                                   int const I_Stretch_Min_Length_In,
-                                   int const I_Stretch_Max_Length_In,
-                                   int const I_N_Stretches_In,
-                                   double & D_Stretch_Out,
-                                   double & D_Shift_Out,
-                                   ndarray::Array< double, 2, 1 > & D_A2_SpecStretched_MinChiSq ){
-      /// Stretch Reference Spectrum
-      ndarray::Array< double, 1, 1 > P_D_A1_Ref_X = indGenNdArr( double( D_A1_SpecRef_In.getShape()[ 0 ] ) );
-      #ifdef __DEBUG_FITS_STRETCHANDCROSSCORRELATE__
-        cout << "CFits::StretchAndCrossCorrelate: *P_D_A1_Ref_X = " << P_D_A1_Ref_X << endl;
-        cout << "CFits::StretchAndCrossCorrelate: D_A1_SpecRef_In = " << D_A1_SpecRef_In << endl;
-      #endif
-
-      ndarray::Array< double, 1, 1 > D_A1_SpecTemp;
-      ndarray::Array< double, 1, 1 > D_A1_SpecRefTemp;
-      ndarray::Array< double, 2, 1 > D_A2_SpecCalib_Out;
-      double D_RMS_Out = 0.;
-      int I_LinePos = 0;
-      int i_line_temp = 0;
-      int i_nlines = 0;
-      ndarray::Array< double, 1, 1 > D_A1_Ref_Y;
-      ndarray::Array< double, 1, 1 > D_A1_Ref_X_Stretched;
-      ndarray::Array< double, 1, 1 > D_A1_XCorChiSq = ndarray::allocate( I_N_Stretches_In );
-      ndarray::Array< int, 1, 1 > I_A1_RefStretchLength = ndarray::allocate( I_N_Stretches_In );
-      ndarray::Array< int, 1, 1 > I_A1_PixShift = ndarray::allocate( I_N_Stretches_In );
-      I_A1_RefStretchLength.deep() = 0;
-      D_A1_XCorChiSq.deep() = 0.;
-      I_A1_RefStretchLength[ 0 ] = I_Stretch_Min_Length_In;
-      double D_Temp = 0.;
-      for ( int i_stretch = 0; i_stretch < I_N_Stretches_In; ++i_stretch ){
-        D_A1_Ref_X_Stretched = ndarray::allocate( I_A1_RefStretchLength[ i_stretch ] );
-        D_A1_Ref_X_Stretched[ 0 ] = P_D_A1_Ref_X[0];
-        for ( int i_x_stretch = 1; i_x_stretch < I_A1_RefStretchLength[ i_stretch ]; ++i_x_stretch )
-          D_A1_Ref_X_Stretched[ i_x_stretch ] = D_A1_Ref_X_Stretched[ i_x_stretch - 1 ] + ( ( P_D_A1_Ref_X[P_D_A1_Ref_X.getShape()[ 0 ] - 1 ] - P_D_A1_Ref_X[ 0 ] ) / I_A1_RefStretchLength[ i_stretch ] );
-        #ifdef __DEBUG_FITS_STRETCHANDCROSSCORRELATE__
-          cout << "CFits::StretchAndCrossCorrelate: i_stretch = " << i_stretch << ": I_RefStretchLength = " << I_A1_RefStretchLength[ i_stretch ] << ": D_A1_Ref_X_Stretched = " << D_A1_Ref_X_Stretched << endl;
-        #endif
-
-          
-          
-          
-      }
-/*        if (!this->InterPol(D_A1_SpecRef_In,
-                            *P_D_A1_Ref_X,
-                            D_A1_Ref_X_Stretched,
-                            D_A1_Ref_Y)){
-          cout << "CFits::StretchAndCrossCorrelate: i_stretch = " << i_stretch << ": I_RefStretchLength = " << I_A1_RefStretchLength(i_stretch) << ": ERROR: InterPol(D_A1_SpecRef=" << D_A1_SpecRef_In << ", *P_D_A1_Ref_X=" << *P_D_A1_Ref_X << ", D_A1_Ref_X_Stretched=" << D_A1_Ref_X_Stretched << ", D_A1_Ref_Y) returned FALSE" << endl;
-          exit(EXIT_FAILURE);
-        }
-
-        /// Cross-correlate D_A1_Spec to reference spectrum
-        D_A1_SpecTemp.resize(D_A1_Spec_In.size());
-        D_A1_SpecTemp = D_A1_Spec_In;
-        D_A1_SpecRefTemp.resize(D_A1_Ref_Y.size());
-        D_A1_SpecRefTemp = D_A1_Ref_Y;
-        if (D_A1_SpecTemp.size() < D_A1_SpecRefTemp.size())
-          D_A1_SpecRefTemp.resizeAndPreserve(D_A1_SpecTemp.size());
-        if (D_A1_SpecRefTemp.size() < D_A1_SpecTemp.size())
-          D_A1_SpecTemp.resizeAndPreserve(D_A1_SpecRefTemp.size());
-
-        if (!this->CrossCorrelate(D_A1_SpecRefTemp,
-                                  D_A1_SpecTemp,
-                                  I_Radius_XCor_In,
-                                  I_Radius_XCor_In,
-                                  I_A1_PixShift(i_stretch),
-                                  D_A1_XCorChiSq(i_stretch))){
-          cout << "CFits::StretchAndCrossCorrelate: i_stretch = " << i_stretch << ": I_RefStretchLength = " << I_A1_RefStretchLength(i_stretch) << ": ERROR: CrossCorrelate returned FALSE" << endl;
-          exit(EXIT_FAILURE);
-        }
-        #ifdef __DEBUG_FITS_STRETCHANDCROSSCORRELATE__
-          cout << "CFits::StretchAndCrossCorrelate: i_stretch = " << i_stretch << ": I_RefStretchLength = " << I_A1_RefStretchLength(i_stretch) << ": I_A1_PixShift(i_stretch) = " << I_A1_PixShift(i_stretch) << endl;
-          cout << "CFits::StretchAndCrossCorrelate: i_stretch = " << i_stretch << ": I_RefStretchLength = " << I_A1_RefStretchLength(i_stretch) << ": D_A1_XCorChiSq(i_stretch) = " << D_A1_XCorChiSq(i_stretch) << endl;
-        #endif
-        if (i_stretch < I_N_Stretches_In - 1){
-          D_Temp = double(I_Stretch_Max_Length_In - I_Stretch_Min_Length_In) / double(I_N_Stretches_In);
-          I_A1_RefStretchLength(i_stretch+1) = I_A1_RefStretchLength(i_stretch) + int(D_Temp);
-          #ifdef __DEBUG_FITS_STRETCHANDCROSSCORRELATE__
-            cout << "CFits::StretchAndCrossCorrelate: i_stretch = " << i_stretch << ": I_Stretch_Max_Length_In(=" << I_Stretch_Max_Length_In << ") - I_Stretch_Min_Length_In(=" << I_Stretch_Min_Length_In << ") / I_N_Stretches_In(=" << I_N_Stretches_In << ") = " << D_Temp << ", int(D_Temp) = " << int(D_Temp) << endl;
-            cout << "CFits::StretchAndCrossCorrelate: i_stretch = " << i_stretch << ": I_RefStretchLength(i+1) = " << I_A1_RefStretchLength(i_stretch+1) << endl;
-          #endif
-        }
-      }/// end for (int i_stretch=0; i_stretch<I_N_Stretches_In; i_stretch++){
-
-      #ifdef __DEBUG_FITS_STRETCHANDCROSSCORRELATE__
-        cout << "CFits::StretchAndCrossCorrelate: I_A1_RefStretchLength = " << I_A1_RefStretchLength << endl;
-        cout << "CFits::StretchAndCrossCorrelate: D_A1_XCorChiSq = " << D_A1_XCorChiSq << endl;
-        cout << "CFits::StretchAndCrossCorrelate: I_A1_PixShift = " << I_A1_PixShift << endl;
-      #endif
-
-      double D_MinXCorChiSq = max(D_A1_XCorChiSq);
-      int I_MinXCorChiSqPos = 0;
-      for (int i_stretch=0; i_stretch<I_N_Stretches_In; i_stretch++){
-        if (D_A1_XCorChiSq(i_stretch) < D_MinXCorChiSq){
-          D_MinXCorChiSq = D_A1_XCorChiSq(i_stretch);
-          I_MinXCorChiSqPos = i_stretch;
-        }
-      }
-      #ifdef __DEBUG_FITS_STRETCHANDCROSSCORRELATE__
-        cout << "CFits::StretchAndCrossCorrelate: I_MinXCorChiSqPos = " << I_MinXCorChiSqPos << endl;
-      #endif
-      D_Shift_Out = double(I_A1_PixShift(I_MinXCorChiSqPos));
-      D_Stretch_Out = double(I_A1_RefStretchLength(I_MinXCorChiSqPos));
-
-      D_A1_Ref_X_Stretched.resize(I_A1_RefStretchLength(I_MinXCorChiSqPos));
-      D_A1_Ref_X_Stretched(0) = (*P_D_A1_Ref_X)(0);
-      for (int i_x_stretch=1; i_x_stretch < I_A1_RefStretchLength(I_MinXCorChiSqPos); i_x_stretch++)
-        D_A1_Ref_X_Stretched(i_x_stretch) = D_A1_Ref_X_Stretched(i_x_stretch-1) + (((*P_D_A1_Ref_X)(P_D_A1_Ref_X->size()-1) - (*P_D_A1_Ref_X)(0))/D_Stretch_Out);
-      #ifdef __DEBUG_FITS_STRETCHANDCROSSCORRELATE__
-        cout << "CFits::StretchAndCrossCorrelate: I_MinXCorChiSqPos = " << I_MinXCorChiSqPos << ": I_RefStretchLength = " << I_A1_RefStretchLength(I_MinXCorChiSqPos) << ": D_A1_Ref_X_Stretched = " << D_A1_Ref_X_Stretched << endl;
-      #endif
-      if (!this->InterPol(D_A1_SpecRef_In,
-                          *P_D_A1_Ref_X,
-                          D_A1_Ref_X_Stretched,
-                          D_A1_Ref_Y)){
-        cout << "CFits::StretchAndCrossCorrelate: I_MinXCorChiSqPos = " << I_MinXCorChiSqPos << ": I_RefStretchLength = " << I_A1_RefStretchLength(I_MinXCorChiSqPos) << ": ERROR: InterPol(D_A1_SpecRef=" << D_A1_SpecRef_In << ", *P_D_A1_Ref_X=" << *P_D_A1_Ref_X << ", D_A1_Ref_X_Stretched=" << D_A1_Ref_X_Stretched << ", D_A1_Ref_Y) returned FALSE" << endl;
-        exit(EXIT_FAILURE);
-      }
-      Array<double, 1> *P_D_A1_Ref_X_Temp = this->DIndGenArr(D_A1_Ref_Y.size());
-      D_A1_Ref_X_Stretched.resize(D_A1_Ref_Y.size());
-      D_A1_Ref_X_Stretched = (*P_D_A1_Ref_X_Temp) - D_Shift_Out;
-      delete(P_D_A1_Ref_X_Temp);
-
-      D_A2_SpecStretched_MinChiSq.resize(D_A1_Ref_Y.size(), 2);
-      D_A2_SpecStretched_MinChiSq(Range::all(), 0) = D_A1_Ref_X_Stretched;
-      D_A2_SpecStretched_MinChiSq(Range::all(), 1) = D_A1_Ref_Y;
-
-      delete(P_D_A1_Ref_X);
-*/
-      return true;
-    }
-
     /**
       LsToFit
      **/
@@ -2036,7 +1901,7 @@
       ndarray::Array< T, 1, 1 > X2VecArr = ndarray::allocate( SVecArr.getShape()[ 0 ] );
       X2VecArr.deep() = 0.;
 
-      ndarray::Array< T, 1, 1 > X0Arr = ndarray::allocate(4);
+      ndarray::Array< T, 1, 1 > X0Arr = ndarray::allocate( 4 );
       X0Arr.deep() = 0.;
 
       ndarray::Array< T, 1, 1 > V0Arr = ndarray::allocate( 4 );
@@ -2136,7 +2001,11 @@
             QArr = splineI( X0Arr, V0Arr );
             SOld = s0int;
           }
-          if ( !splInt( X0Arr, V0Arr, QArr, UVecArr[ m ], PVecArr[ m ] ) ){
+          if ( !splInt( X0Arr, 
+                        V0Arr, 
+                        QArr, 
+                        UVecArr[ m ], 
+                        PVecArr[ m ] ) ){
             cout << "CFits::HInterPol: ERROR: SplInt(X0Arr, V0Arr, QArr, UVecArr(m), PVecArr(m)) returned FALSE" << endl;
             return false;
           }
@@ -2370,7 +2239,10 @@
     template< typename T >
     ndarray::Array< T, 1, 1 > splineI( ndarray::Array< T, 1, 1 > const& XVecArr, 
                                        ndarray::Array< T, 1, 1 > const& YVecArr){
-      return splineI( XVecArr, YVecArr, 1.0e30, 1.0e30 );
+      return splineI( XVecArr, 
+                      YVecArr, 
+                      T( 1.0e30 ), 
+                      T( 1.0e30) );
     }
 
     /**
@@ -2545,7 +2417,11 @@
         return true;
       }
 
-      if ( !interPol( VVecArr, XVecArr, UVecArr, cs_a1, D_A1_Out ) ){
+      if ( !interPol( VVecArr, 
+                      XVecArr, 
+                      UVecArr, 
+                      cs_a1, 
+                      D_A1_Out ) ){
         cout << "CFits::InterPol: ERROR: InterPol returned FALSE" << endl;
         return false;
       }
@@ -2597,7 +2473,12 @@
       #ifdef __DEBUG_FITS_INTERPOL__
         cout << "CFits::InterPol(D_A1_V, D_A1_X, D_A1_U, CS_A1_In): Starting HInterPol " << endl;
       #endif
-      if ( hInterPol( VVecArr, XVecArr, SVecArr, UVecArr, CS_A1_In, D_A1_Out ) ){
+      if ( hInterPol( VVecArr, 
+                      XVecArr, 
+                      SVecArr, 
+                      UVecArr, 
+                      CS_A1_In, 
+                      D_A1_Out ) ){
         cout << "CFits::InterPol: ERROR: HInterPol returned FALSE" << endl;
         return false;
       }
@@ -2721,9 +2602,9 @@
       int nLines = 0;
       ndarray::Array< T, 1, 1 > refY;
       ndarray::Array< T, 1, 1 > refXStretched;
-      ndarray::Array< T, 1, 1 > xCorChiSq = ndarray::allocate( nStretches );
+      ndarray::Array< double, 1, 1 > xCorChiSq = ndarray::allocate( nStretches );
       ndarray::Array< int, 1, 1 > refStretchLength = ndarray::allocate( nStretches );
-      ndarray::Array< int, 1, 1 > pixShift = ndarray::allocate( nStretches );
+      ndarray::Array< double, 1, 1 > pixShift = ndarray::allocate( nStretches );
       refStretchLength.deep() = 0;
       xCorChiSq.deep() = 0.;
       refStretchLength[ 0 ] = stretchMinLength;
@@ -2736,6 +2617,7 @@
         #ifdef __DEBUG_FITS_STRETCHANDCROSSCORRELATE__
           cout << "CFits::StretchAndCrossCorrelate: i_stretch = " << i_stretch << ": refStretchLength = " << refStretchLength[i_stretch] << ": refXStretched = " << refXStretched << endl;
         #endif
+        refY = ndarray::allocate( refXStretched.getShape()[ 0 ] );
         if ( interPol( specRef,
                        refX,
                        refXStretched,
@@ -2764,12 +2646,12 @@
           specTemp[ ndarray::view( 0, tempArr.getShape()[ 0 ] ) ] = tempArr[ ndarray::view() ];
         }
 
-        if ( crossCorrelate( specRefTemp,
-                             specTemp,
-                             radiusXCor,
-                             radiusXCor,
-                             pixShift[ i_stretch ],
-                             xCorChiSq[ i_stretch ] ) ){
+        if ( !crossCorrelate( specRefTemp,
+                              specTemp,
+                              radiusXCor,
+                              radiusXCor,
+                              pixShift[ i_stretch ],
+                              xCorChiSq[ i_stretch ] ) ){
           cout << "CFits::StretchAndCrossCorrelate: i_stretch = " << i_stretch << ": refStretchLength = " << refStretchLength[i_stretch] << ": ERROR: CrossCorrelate returned FALSE" << endl;
           exit(EXIT_FAILURE);
         }
@@ -2805,7 +2687,7 @@
       #ifdef __DEBUG_FITS_STRETCHANDCROSSCORRELATE__
         cout << "CFits::StretchAndCrossCorrelate: I_MinXCorChiSqPos = " << I_MinXCorChiSqPos << endl;
       #endif
-      double shift_Out = double( pixShift[ minXCorChiSqPos ] );
+      double shift_Out = pixShift[ minXCorChiSqPos ];
       double stretch_Out = double( refStretchLength[ minXCorChiSqPos ] );
 
       refXStretched = ndarray::allocate( refStretchLength[ minXCorChiSqPos ] );
@@ -2835,7 +2717,7 @@
 
       return result;
     }
-
+/*
     template< typename T >
     bool CFits::StretchAndCrossCorrelateSpec( ndarray::Array< T, 1, 1 > const& spec,
                                               ndarray::Array< T, 1, 1 > const& specRef,
@@ -2987,45 +2869,6 @@
         }
       }
       cout << "CFits::StretchAndCrossCorrelateSpec: D_A2_Dist = " << D_A2_Dist << endl;
-    /*  Array<CString, 1> CS_A1_Args_LinFit(3);
-      CS_A1_Args_LinFit(0).Set(CString("N_REJECTED"));
-    //  CS_A1_Args_LinFit(1).Set(CString("SIGMA"));
-      CS_A1_Args_LinFit(1).Set(CString("YFIT"));
-      CS_A1_Args_LinFit(2).Set(CString("REJECTED"));
-    //  CS_A1_Args_LinFit(4).Set(CString("ALLOW_SKY_LT_ZERO"));
-      void **PP_Args_LinFit = (void**)malloc(sizeof(void*) * 3);
-      double D_Reject = 4.5;
-      int I_NRejected = 0;
-      double D_Sigma_Fit = 0.;
-      Array<double, 1> D_A1_FitOut(D_A1_Dist.size());
-      Array<int, 1> I_A1_Rejected(1);
-      I_A1_Rejected = -1;
-      D_A1_FitOut = 0.;
-      PP_Args_LinFit[0] = &I_NRejected;
-    //  PP_Args_LinFit[1] = &D_Sigma_Fit;
-      PP_Args_LinFit[1] = &D_A1_FitOut;
-      PP_Args_LinFit[2] = &I_A1_Rejected;
-      Array<double, 1> D_A1_DistX(D_A1_Dist.size());
-      D_A1_DistX = D_A2_LineList_WLenPix_In(Range::all(), 1);
-      double D_A = 1.;
-      double D_B = 1.;
-      Array<double, 1> *P_D_A1_Coeffs = new Array<double, 1>(3);
-      (*P_D_A1_Coeffs) = 0.;
-      if (!this->PolyFit(D_A1_DistX,
-                         D_A1_Dist,
-                         1,
-                         D_Reject,
-                         CS_A1_Args_LinFit,
-                         PP_Args_LinFit,
-                         P_D_A1_Coeffs)){
-        cout << "CFits::StretchAndCrossCorrelateSpec: ERROR: this->PolyFit returned FALSE" << endl;
-        return false;
-      }
-      cout << "CFits::StretchAndCrossCorrelateSpec: D_A1_Dist = " << D_A1_Dist << endl;
-      cout << "CFits::StretchAndCrossCorrelateSpec: D_A1_FitOut = " << D_A1_FitOut << endl;
-      cout << "CFits::StretchAndCrossCorrelateSpec: *P_D_A1_Coeffs = " << *P_D_A1_Coeffs << endl;
-      delete(P_D_A1_Coeffs);
-    **/
       Array<int, 2> I_A2_Where(D_A2_LineList_Pixels_AllPieces.rows(), D_A2_LineList_Pixels_AllPieces.cols());
       I_A2_Where = where(fabs(D_A2_LineList_Pixels_AllPieces) > 0.000001, 1, 0);
       #ifdef __DEBUG_FITS_STRETCHANDCROSSCORRELATESPEC__
@@ -3117,88 +2960,7 @@
       }
     //  if (I_NBad > 0)
     //    return false;
-    /**  Array<int, 1>
-      for (int i_line=0; i_line<I_NRejected; i_line++){
-        cout << "CFits::StretchAndCrossCorrelateSpec: Position of line " << I_A1_Rejected(i_line) << " was " << D_A2_LineList_WLenPix_Out(I_A1_Rejected(i_line), 1) << endl;
-        D_A2_LineList_WLenPix_Out(I_A1_Rejected(i_line), 1) = D_A2_LineList_WLenPix_In(I_A1_Rejected(i_line), 1) - D_A1_FitOut(I_A1_Rejected(i_line));
-        cout << "CFits::StretchAndCrossCorrelateSpec: Position of line " << I_A1_Rejected(i_line) << " corrected to " << D_A2_LineList_WLenPix_Out(I_A1_Rejected(i_line), 1) << endl;
-        return false;
-      }
-      **/
 
-      ///plot whole spectra
-      #ifdef __WITH_PLOTS__
-        mglData MGLData1_SpecRef;// = new mglData(2);
-        Array<double, 1> D_A1_SpecRef_Temp(D_A1_SpecRef_In.size());
-        D_A1_SpecRef_Temp = D_A1_SpecRef_In;
-        MGLData1_SpecRef.Link(D_A1_SpecRef_Temp.data(), D_A1_SpecRef_In.size());
-
-        mglData MGLData1_Spec;// = new mglData(2);
-        Array<double, 1> D_A1_Spec_Temp(D_A1_Spec_In.size());
-        D_A1_Spec_Temp = D_A1_Spec_In;
-        MGLData1_Spec.Link(D_A1_Spec_Temp.data(), D_A1_Spec_In.size());
-
-        mglGraph gr;
-        Array<double, 1> D_A1_Max(2);
-        D_A1_Max(0) = max(D_A1_Spec_In);
-        D_A1_Max(1) = max(D_A1_SpecRef_In);
-        gr.SetRanges(0,D_A1_Spec_Temp.rows(),0,max(D_A1_Max));
-        gr.Axis();
-        gr.Label('y',"Counts",0);
-        gr.Label('x',"Pixel Number",0);
-
-        gr.Plot(MGLData1_SpecRef, "g");
-        gr.AddLegend("RefSpec", "g");
-
-        gr.Plot(MGLData1_Spec, "b");
-        gr.AddLegend("Spec", "b");
-
-        Array<double, 1> D_A1_Line_X(2);
-        Array<double, 1> D_A1_Line_Y(2);
-        mglData D_MGL1_X, D_MGL1_Y;// = new mglData(2,2);
-        for (int i_ref=0; i_ref<2; i_ref++){
-          for (int i_line=0; i_line<D_A2_LineList_WLenPix_In.rows(); i_line++){
-            if (i_ref == 0)
-              D_A1_Line_X = D_A2_LineList_WLenPix_In(i_line, 1);
-            else
-              D_A1_Line_X = D_A2_LineList_WLenPix_Out(i_line, 1);
-
-            D_A1_Line_Y(0) = 0.;
-            D_A1_Line_Y(1) = max(D_A1_Spec_In);
-            D_MGL1_X.Link(D_A1_Line_X.data(), long(D_A1_Line_X.size()), 0, 0);
-            D_MGL1_Y.Link(D_A1_Line_Y.data(), long(D_A1_Line_X.size()), 0, 0);
-
-            if (i_ref == 0)
-              gr.Plot(D_MGL1_X, D_MGL1_Y, "g");
-            else
-              gr.Plot(D_MGL1_X, D_MGL1_Y, "b");
-          }
-        }
-    //    delete(P_MGLData2);
-        CS_PlotName.Set(CS_FName_In);
-        CS_PlotName.Add(CString("_plot_spec_final.png"));
-        gr.Box();
-        gr.Legend();
-        gr.WriteFrame(CS_PlotName.Get());
-
-        int I_PathPos = CS_PlotName.LastStrPos(CString("/"));
-        CString CS_PName(" ");
-        if (I_PathPos < 0){
-            CS_PName.Set(CS_PlotName);
-        }
-        else{
-            CString *P_CS_PNTemp = CS_PlotName.SubString(I_PathPos+1);
-            CS_PName.Set(*P_CS_PNTemp);
-            delete(P_CS_PNTemp);
-        }
-        (*P_OFS_html) << "<img src=\"" << CS_PName << "\"><br>" << CS_PName << "<br><br><hr><br>" << endl;
-        #ifdef __DEBUG_FITS_STRETCHANDCROSSCORRELATESPEC__
-          cout << "CFits::StretchAndCrossCorrelateSpec: CS_PlotName = <" << CS_PlotName << ">" << endl;
-        #endif
-        (*P_OFS_html) << "</center></body></html>" << endl;
-        delete(P_OFS_html);
-    //    Py_Exit(0);
-      #endif
 
       #ifdef __DEBUG_FITS_STRETCHANDCROSSCORRELATESPEC__
         cout << "CFits::StretchAndCrossCorrelateSpec: D_A2_LineList_Pixels_AllPieces = " << D_A2_LineList_Pixels_AllPieces << endl;
@@ -3208,7 +2970,7 @@
 
       return true;
     }
-
+*/
     template StretchAndCrossCorrelateResult< float > stretchAndCrossCorrelate( ndarray::Array< float, 1, 1 > const&,
                                                                                ndarray::Array< float, 1, 1 > const&,
                                                                                int const,
@@ -3223,17 +2985,31 @@
                                                                                 int const );
 
     
+    template bool interPol( ndarray::Array< float, 1, 1 > const&,
+                            ndarray::Array< float, 1, 1 > const&,
+                            ndarray::Array< float, 1, 1 > const&,
+                            ndarray::Array< float, 1, 1> &);
     template bool interPol( ndarray::Array< double, 1, 1 > const&,
                             ndarray::Array< double, 1, 1 > const&,
                             ndarray::Array< double, 1, 1 > const&,
                             ndarray::Array< double, 1, 1> &);
     
+    template bool interPol( ndarray::Array< float, 1, 1 > const&,
+                            ndarray::Array< float, 1, 1 > const&,
+                            ndarray::Array< float, 1, 1 > const&,
+                            ndarray::Array< float, 1, 1 > &,
+                            bool );
     template bool interPol( ndarray::Array< double, 1, 1 > const&,
                             ndarray::Array< double, 1, 1 > const&,
                             ndarray::Array< double, 1, 1 > const&,
                             ndarray::Array< double, 1, 1 > &,
                             bool );
     
+    template bool interPol( ndarray::Array< float, 1, 1 > const&,
+                            ndarray::Array< float, 1, 1 > const&,
+                            ndarray::Array< float, 1, 1 > const&,
+                            std::vector< std::string > const&,
+                            ndarray::Array< float, 1, 1 > &);
     template bool interPol( ndarray::Array< double, 1, 1 > const&,
                             ndarray::Array< double, 1, 1 > const&,
                             ndarray::Array< double, 1, 1 > const&,
@@ -3245,6 +3021,12 @@
     template ndarray::Array< int, 1, 1 > valueLocate( ndarray::Array< int, 1, 1 > const&, 
                                                       ndarray::Array< int, 1, 1 > const&);
     
+    template bool hInterPol( ndarray::Array< float, 1, 1 > const&,
+                             ndarray::Array< float, 1, 1 > const&,
+                             ndarray::Array< int, 1, 1 > &,
+                             ndarray::Array< float, 1, 1 > const&,
+                             std::vector< std::string > const&,
+                             ndarray::Array< float, 1, 1 > &);
     template bool hInterPol( ndarray::Array< double, 1, 1 > const&,
                              ndarray::Array< double, 1, 1 > const&,
                              ndarray::Array< int, 1, 1 > &,
@@ -3258,11 +3040,17 @@
                           double X,
                           double & Y);
 
+    template ndarray::Array< float, 1, 1 > splineI( ndarray::Array< float, 1, 1 > const&, 
+                                                     ndarray::Array< float, 1, 1 > const&, 
+                                                     float const, 
+                                                     float const);
     template ndarray::Array< double, 1, 1 > splineI( ndarray::Array< double, 1, 1 > const&, 
                                                      ndarray::Array< double, 1, 1 > const&, 
                                                      double const, 
                                                      double const);
 
+    template ndarray::Array< float, 1, 1 > splineI( ndarray::Array< float, 1, 1 > const&, 
+                                                     ndarray::Array< float, 1, 1 > const& );
     template ndarray::Array< double, 1, 1 > splineI( ndarray::Array< double, 1, 1 > const&, 
                                                      ndarray::Array< double, 1, 1 > const& );
     
@@ -3391,6 +3179,20 @@
                            double const&, 
                            double &);
     
+    template bool crossCorrelate( ndarray::Array< float, 1, 1 > const&,
+                                  ndarray::Array< float, 1, 1 > const&,
+                                  int const,
+                                  int const,
+                                  double &,
+                                  double &);
+
+    template bool crossCorrelate( ndarray::Array< double, 1, 1 > const&,
+                                  ndarray::Array< double, 1, 1 > const&,
+                                  int const,
+                                  int const,
+                                  double &,
+                                  double &);
+    
     template bool crossCorrelate( ndarray::Array< double, 1, 1 > const&,
                                   ndarray::Array< double, 1> const&,
                                   int const,
@@ -3398,12 +3200,12 @@
                                   int &,
                                   double & );
     
-    template bool crossCorrelate( ndarray::Array< double, 1, 1 > const&,
-                                  ndarray::Array< double, 1, 1 > const&,
+    template bool crossCorrelate( ndarray::Array< float, 1, 1 > const&,
+                                  ndarray::Array< float, 1> const&,
                                   int const,
                                   int const,
-                                  double &,
-                                  double &);
+                                  int &,
+                                  double & );
     
     template float calcRMS( ndarray::Array< float, 1, 1 > const& );
     template double calcRMS( ndarray::Array< double, 1, 1 > const& );
