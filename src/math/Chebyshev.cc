@@ -314,7 +314,7 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
     }
     else if ( n == 1 )
     {
-      norm = fabs ( x[0] );
+      norm = std::fabs ( x[0] );
     }
     else
     {
@@ -326,7 +326,7 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
       {
         if ( x[ix] != 0.0 )
         {
-          absxi = fabs ( x[ix] );
+          absxi = std::fabs ( x[ix] );
           if ( scale < absxi )
           {
             ssq = 1.0 + ssq * ( scale / absxi ) * ( scale / absxi );
@@ -530,7 +530,7 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
     double scale;
     double z;
 
-    if ( fabs ( *sb ) < fabs ( *sa ) )
+    if ( std::fabs ( *sb ) < std::fabs ( *sa ) )
     {
       roe = *sa;
     }
@@ -539,7 +539,7 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
       roe = *sb;
     }
 
-    scale = fabs ( *sa ) + fabs ( *sb );
+    scale = std::fabs ( *sa ) + std::fabs ( *sb );
 
     if ( scale == 0.0 )
     {
@@ -556,7 +556,7 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
       *s = *sb / r;
     }
 
-    if ( 0.0 < fabs ( *c ) && fabs ( *c ) <= *s )
+    if ( 0.0 < std::fabs ( *c ) && std::fabs ( *c ) <= *s )
     {
       z = 1.0 / *c;
     }
@@ -851,7 +851,7 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
         {
           if ( a[l-1+(l-1)*lda] != 0.0 )
           {
-            s[l-1] = r8_sign ( a[l-1+(l-1)*lda] ) * fabs ( s[l-1] );
+            s[l-1] = r8_sign ( a[l-1+(l-1)*lda] ) * std::fabs ( s[l-1] );
           }
           dscal ( m-l+1, 1.0 / s[l-1], a+l-1+(l-1)*lda, 1 );
           a[l-1+(l-1)*lda] = 1.0 + a[l-1+(l-1)*lda];
@@ -899,7 +899,7 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
         {
           if ( e[l] != 0.0 )
           {
-            e[l-1] = r8_sign ( e[l] ) * fabs ( e[l-1] );
+            e[l-1] = r8_sign ( e[l] ) * std::fabs ( e[l-1] );
           }
           dscal ( n-l, 1.0 / e[l-1], e+l, 1 );
           e[l] = 1.0 + e[l];
@@ -1072,8 +1072,8 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
           break;
         }
 
-        test = fabs ( s[l-1] ) + fabs ( s[l] );
-        ztest = test + fabs ( e[l-1] );
+        test = std::fabs ( s[l-1] ) + std::fabs ( s[l] );
+        ztest = test + std::fabs ( e[l-1] );
 
         if ( ztest == test )
         {
@@ -1102,15 +1102,15 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
           test = 0.0;
           if ( ls != mn )
           {
-            test = test + fabs ( e[ls-1] );
+            test = test + std::fabs ( e[ls-1] );
           }
 
           if ( ls != l + 1 )
           {
-            test = test + fabs ( e[ls-2] );
+            test = test + std::fabs ( e[ls-2] );
           }
 
-          ztest = test + fabs ( s[ls-1] );
+          ztest = test + std::fabs ( s[ls-1] );
 
           if ( ztest == test )
           {
@@ -1193,10 +1193,10 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
   //
   //  Calculate the shift.
   //
-        scale = r8_max ( fabs ( s[mn-1] ), 
-                r8_max ( fabs ( s[mn-2] ), 
-                r8_max ( fabs ( e[mn-2] ), 
-                r8_max ( fabs ( s[l-1] ), fabs ( e[l-1] ) ) ) ) );
+        scale = r8_max ( std::fabs ( s[mn-1] ), 
+                r8_max ( std::fabs ( s[mn-2] ), 
+                r8_max ( std::fabs ( e[mn-2] ), 
+                r8_max ( std::fabs ( s[l-1] ), std::fabs ( e[l-1] ) ) ) ) );
 
         sm = s[mn-1] / scale;
         smm1 = s[mn-2] / scale;
@@ -1752,7 +1752,7 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
             break;
           }
 
-          if ( fabs ( e[m-1] ) <= prec * ( fabs ( d[m-1] ) + fabs ( d[m] ) ) )
+          if ( std::fabs ( e[m-1] ) <= prec * ( std::fabs ( d[m-1] ) + std::fabs ( d[m] ) ) )
           {
             break;
           }
@@ -1772,7 +1772,7 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
         j = j + 1;
         g = ( d[l] - p ) / ( 2.0 * e[l-1] );
         r =  sqrt ( g * g + 1.0 );
-        g = d[m-1] - p + e[l-1] / ( g + fabs ( r ) * r8_sign ( g ) );
+        g = d[m-1] - p + e[l-1] / ( g + std::fabs ( r ) * r8_sign ( g ) );
         s = 1.0;
         c = 1.0;
         p = 0.0;
@@ -1784,7 +1784,7 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
           f = s * e[i-1];
           b = c * e[i-1];
 
-          if ( fabs ( g ) <= fabs ( f ) )
+          if ( std::fabs ( g ) <= std::fabs ( f ) )
           {
             c = g / f;
             r =  sqrt ( c * c + 1.0 );

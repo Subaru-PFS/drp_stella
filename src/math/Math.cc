@@ -186,7 +186,7 @@
         return -1;
       int pos = startPos_In;
       for (auto i = vec_In.begin() + startPos_In; i != vec_In.begin(); --i){
-        if (fabs(double(*i)) < 0.00000000000000001)
+        if (std::fabs(double(*i)) < 0.00000000000000001)
           return pos;
         --pos;
       }
@@ -203,7 +203,7 @@
           cout << "FirstIndexWithZeroValueFrom: pos = " << pos << endl;
           cout << "FirstIndexWithZeroValueFrom: I_A1_VecIn(pos) = " << *i << endl;
         #endif
-        if (fabs(*i) < 0.00000000000000001)
+        if (std::fabs(*i) < 0.00000000000000001)
           return pos;
       }
       return -1;
@@ -215,7 +215,7 @@
      **/
     bool IsOddNumber(long No)
     {
-      return (fabs((double)(((double)No) / 2.) - (double)(int)(((double)No) / 2.)) > 0.3);
+      return (std::fabs((double)(((double)No) / 2.) - (double)(int)(((double)No) / 2.)) > 0.3);
     }
 
     /**
@@ -572,6 +572,30 @@
           *itOut = pos;
           ++pos;
           ++itOut;
+        }
+      }
+      return arrOut;
+    }
+    
+    template<typename T>
+    ndarray::Array< size_t, 2, 1 > getIndices( ndarray::Array< T, 2, 1 > const& arr_In ){
+      T nInd = 0;
+      for ( auto itRow = arr_In.begin(); itRow != arr_In.end(); ++itRow ){
+        nInd += std::accumulate( itRow->begin(), itRow->end(), 0 );
+      }
+      ndarray::Array< size_t, 2, 1 > arrOut = ndarray::allocate( int(nInd), 2 );
+      auto itRowOut = arrOut.begin();
+      int row = 0;
+      for (auto itRowIn = arr_In.begin(); itRowIn != arr_In.end(); ++itRowIn, ++row ){
+        int col = 0;
+        for (auto itColIn = itRowIn->begin(); itColIn != itRowIn->end(); ++itColIn, ++col ){
+          if ( int( *itColIn ) == 1 ){
+            auto itColOut = itRowOut->begin();
+            *itColOut = row;
+            ++itColOut;
+            *itColOut = col;
+            ++itRowOut;
+          }
         }
       }
       return arrOut;
@@ -1921,8 +1945,16 @@
         # ifdef __DEBUG_FITS_INTERPOL__
             cout << "CFits::HInterPol: KeywordSet(LSQUADRATIC)" << endl;
         #endif
-        SVecArr.deep() = whereLt( SVecArr, 1, 1, SVecArr );
-        SVecArr.deep() = whereGt( SVecArr, M - 3, M - 3, SVecArr );
+        SVecArr.deep() = where( SVecArr,
+                                "<",
+                                1, 
+                                1, 
+                                SVecArr );
+        SVecArr.deep() = where( SVecArr, 
+                                ">",
+                                M - 3, 
+                                M - 3, 
+                                SVecArr );
         # ifdef __DEBUG_FITS_INTERPOL__
             cout << "CFits::HInterPol: LSQUADRATIC: SVecArr.size() set to " << SVecArr.getShape()[ 0 ] << endl;
         #endif
@@ -1945,8 +1977,16 @@
         # ifdef __DEBUG_FITS_INTERPOL__
             cout << "CFits::HInterPol: KeywordSet(QUADRATIC)" << endl;
         #endif
-        SVecArr.deep() = whereLt( SVecArr, 1, 1, SVecArr );
-        SVecArr.deep() = whereGt( SVecArr, M - 2, M - 2, SVecArr );
+        SVecArr.deep() = where( SVecArr, 
+                                "<",
+                                1, 
+                                1, 
+                                SVecArr );
+        SVecArr.deep() = where( SVecArr, 
+                                ">",
+                                M - 2, 
+                                M - 2, 
+                                SVecArr );
         # ifdef __DEBUG_FITS_INTERPOL__
             cout << "CFits::HInterPol: QUADRATIC: SVecArr.size() set to " << SVecArr.getShape()[ 0 ] << endl;
         #endif
@@ -1982,8 +2022,16 @@
         # ifdef __DEBUG_FITS_INTERPOL__
             cout << "CFits::HInterPol: KeywordSet(SPLINE)" << endl;
         #endif
-        SVecArr.deep() = whereLt( SVecArr, 1, 1, SVecArr );
-        SVecArr.deep() = whereGt( SVecArr, M-3, M-3, SVecArr );
+        SVecArr.deep() = where( SVecArr, 
+                                "<",
+                                1, 
+                                1,
+                                SVecArr );
+        SVecArr.deep() = where( SVecArr, 
+                                ">",
+                                M - 3, 
+                                M - 3, 
+                                SVecArr );
         # ifdef __DEBUG_FITS_INTERPOL__
             cout << "CFits::HInterPol: SPLINE: SVecArr.size() set to " << SVecArr.getShape()[ 0 ] << endl;
         #endif
@@ -2057,32 +2105,46 @@
     }
     
     template< typename T, typename U >
-    ndarray::Array< U, 1, 1 > whereLt( ndarray::Array< T, 1, 1 > const& arrayToCompareTo,
-                                       T const valueToCompareTo, 
-                                       U const valueIfArrayValueLowerThanValueToCompareTo,
-                                       U const valueIfArrayValueGreaterOrEqualToValueToCopareTo ){
+    ndarray::Array< U, 1, 1 > where( ndarray::Array< T, 1, 1 > const& arrayToCompareTo,
+                                     std::string const& op,
+                                     T const valueToCompareTo, 
+                                     U const valueIfTrue,
+                                     U const valueIfFalse ){
       ndarray::Array< U, 1, 1 > arrOut = ndarray::allocate( arrayToCompareTo.getShape()[ 0 ] );
       auto itOut = arrOut.begin();
       for ( auto itComp = arrayToCompareTo.begin(); itComp != arrayToCompareTo.end(); ++itComp, ++itOut ){
-        if ( *itComp < valueToCompareTo )
-          *itOut = valueIfArrayValueLowerThanValueToCompareTo;
+        if ( ( op.compare( "<" ) == 0 ) && ( *itComp < valueToCompareTo ) )
+          *itOut = valueIfTrue;
+        else if ( ( op.compare( "<=" ) == 0 ) && ( *itComp <= valueToCompareTo ) )
+          *itOut = valueIfTrue;
+        else if ( ( op.compare( ">" ) == 0 ) && ( *itComp > valueToCompareTo ) )
+          *itOut = valueIfTrue;
+        else if ( ( op.compare( ">=" ) == 0 ) && ( *itComp >= valueToCompareTo ) )
+          *itOut = valueIfTrue;
         else
-          *itOut = valueIfArrayValueGreaterOrEqualToValueToCopareTo;
+          *itOut = valueIfFalse;
       }
       return arrOut;
     }
     
     template< typename T, typename U >
-    ndarray::Array< U, 1, 1 > whereLt( ndarray::Array< T, 1, 1 > const& arrayToCompareTo,
-                                       T const valueToCompareTo, 
-                                       U const valueIfArrayValueLowerThanValueToCompareTo,
-                                       ndarray::Array< U, 1, 1 > const& valuesIfArrayValueGreaterOrEqualToValueToCopareTo ){
+    ndarray::Array< U, 1, 1 > where( ndarray::Array< T, 1, 1 > const& arrayToCompareTo,
+                                     std::string const& op,
+                                     T const valueToCompareTo, 
+                                     U const valueIfTrue,
+                                     ndarray::Array< U, 1, 1 > const& valuesIfFalse ){
       ndarray::Array< U, 1, 1 > arrOut = ndarray::allocate( arrayToCompareTo.getShape()[ 0 ] );
       auto itOut = arrOut.begin();
-      auto itElse = valuesIfArrayValueGreaterOrEqualToValueToCopareTo.begin();
+      auto itElse = valuesIfFalse.begin();
       for ( auto itComp = arrayToCompareTo.begin(); itComp != arrayToCompareTo.end(); ++itComp, ++itOut, ++itElse ){
-        if ( *itComp < valueToCompareTo )
-          *itOut = valueIfArrayValueLowerThanValueToCompareTo;
+        if ( ( op.compare( "<" ) == 0 ) && ( *itComp < valueToCompareTo ) )
+          *itOut = valueIfTrue;
+        else if ( ( op.compare( "<=" ) == 0 ) && ( *itComp <= valueToCompareTo ) )
+          *itOut = valueIfTrue;
+        else if ( ( op.compare( ">" ) == 0 ) && ( *itComp > valueToCompareTo ) )
+          *itOut = valueIfTrue;
+        else if ( ( op.compare( ">=" ) == 0 ) && ( *itComp >= valueToCompareTo ) )
+          *itOut = valueIfTrue;
         else
           *itOut = *itElse;
       }
@@ -2090,100 +2152,55 @@
     }
     
     template< typename T, typename U >
-    ndarray::Array< U, 1, 1 > whereLe( ndarray::Array< T, 1, 1 > const& arrayToCompareTo,
-                                       T const valueToCompareTo, 
-                                       U const valueIfArrayValueLowerOrEqualToValueToCompareTo,
-                                       U const valueIfArrayValueGreaterThanValueToCopareTo ){
-      ndarray::Array< U, 1, 1 > arrOut = ndarray::allocate( arrayToCompareTo.getShape()[ 0 ] );
-      auto itOut = arrOut.begin();
-      for ( auto itComp = arrayToCompareTo.begin(); itComp != arrayToCompareTo.end(); ++itComp, ++itOut ){
-        if ( *itComp <= valueToCompareTo )
-          *itOut = valueIfArrayValueLowerOrEqualToValueToCompareTo;
-        else
-          *itOut = valueIfArrayValueGreaterThanValueToCopareTo;
+    ndarray::Array< U, 2, 1 > where( ndarray::Array< T, 2, 1 > const& arrayToCompareTo,
+                                     std::string const& op,
+                                     T const valueToCompareTo, 
+                                     U const valueIfTrue,
+                                     U const valueIfFalse ){
+      ndarray::Array< U, 2, 1 > arrOut = ndarray::allocate( arrayToCompareTo.getShape() );
+      auto itOutRow = arrOut.begin();
+      for ( auto itCompRow = arrayToCompareTo.begin(); itCompRow != arrayToCompareTo.end(); ++itCompRow, ++itOutRow ){
+        auto itOutCol = itOutRow->begin();
+        for ( auto itCompCol = itCompRow->begin(); itCompCol != itCompRow->end(); ++itCompCol, ++itOutCol ){
+          if ( ( op.compare( "<" ) ) && ( *itCompCol < valueToCompareTo ) )
+            *itOutCol = valueIfTrue;
+          else if ( ( op.compare( "<=" ) ) && ( *itCompCol <= valueToCompareTo ) )
+            *itOutCol = valueIfTrue;
+          else if ( ( op.compare( ">" ) ) && ( *itCompCol > valueToCompareTo ) )
+            *itOutCol = valueIfTrue;
+          else if ( ( op.compare( ">=" ) ) && ( *itCompCol >= valueToCompareTo ) )
+            *itOutCol = valueIfTrue;
+          else
+            *itOutCol = valueIfFalse;
+        }
       }
       return arrOut;
     }
     
     template< typename T, typename U >
-    ndarray::Array< U, 1, 1 > whereLe( ndarray::Array< T, 1, 1 > const& arrayToCompareTo,
-                                       T const valueToCompareTo, 
-                                       U const valueIfArrayValueLowerOrEqualToValueToCompareTo,
-                                       ndarray::Array< U, 1, 1 > const& valuesIfArrayValueGreaterThanValueToCopareTo ){
-      ndarray::Array< U, 1, 1 > arrOut = ndarray::allocate( arrayToCompareTo.getShape()[ 0 ] );
-      auto itOut = arrOut.begin();
-      auto itElse = valuesIfArrayValueGreaterThanValueToCopareTo.begin();
-      for ( auto itComp = arrayToCompareTo.begin(); itComp != arrayToCompareTo.end(); ++itComp, ++itOut, ++itElse ){
-        if ( *itComp <= valueToCompareTo )
-          *itOut = valueIfArrayValueLowerOrEqualToValueToCompareTo;
-        else
-          *itOut = *itElse;
-      }
-      return arrOut;
-    }
-    
-    template< typename T, typename U >
-    ndarray::Array< U, 1, 1 > whereGt( ndarray::Array< T, 1, 1 > const& arrayToCompareTo,
-                                       T const valueToCompareTo, 
-                                       U const valueIfArrayValueGreaterThanValueToCompareTo,
-                                       U const valueIfArrayValueLessOrEqualToValueToCopareTo ){
-      ndarray::Array< U, 1, 1 > arrOut = ndarray::allocate( arrayToCompareTo.getShape()[ 0 ] );
-      auto itOut = arrOut.begin();
-      for ( auto itComp = arrayToCompareTo.begin(); itComp != arrayToCompareTo.end(); ++itComp, ++itOut ){
-        if ( *itComp > valueToCompareTo )
-          *itOut = valueIfArrayValueGreaterThanValueToCompareTo;
-        else
-          *itOut = valueIfArrayValueLessOrEqualToValueToCopareTo;
-      }
-      return arrOut;
-    }
-    
-    template< typename T, typename U >
-    ndarray::Array< U, 1, 1 > whereGt( ndarray::Array< T, 1, 1 > const& arrayToCompareTo,
-                                       T const valueToCompareTo, 
-                                       U const valueIfArrayValueGreaterThanValueToCompareTo,
-                                       ndarray::Array< U, 1, 1 > const& valuesIfArrayValueLessOrEqualToValueToCopareTo ){
-      ndarray::Array< U, 1, 1 > arrOut = ndarray::allocate( arrayToCompareTo.getShape()[ 0 ] );
-      auto itOut = arrOut.begin();
-      auto itElse = valuesIfArrayValueLessOrEqualToValueToCopareTo.begin();
-      for ( auto itComp = arrayToCompareTo.begin(); itComp != arrayToCompareTo.end(); ++itComp, ++itOut, ++itElse ){
-        if ( *itComp > valueToCompareTo )
-          *itOut = valueIfArrayValueGreaterThanValueToCompareTo;
-        else
-          *itOut = *itElse;
-      }
-      return arrOut;
-    }
-    
-    template< typename T, typename U >
-    ndarray::Array< U, 1, 1 > whereGe( ndarray::Array< T, 1, 1 > const& arrayToCompareTo,
-                                       T const valueToCompareTo, 
-                                       U const valueIfArrayValueGreaterOrEqualToValueToCompareTo,
-                                       U const valueIfArrayValueLessThanValueToCopareTo ){
-      ndarray::Array< U, 1, 1 > arrOut = ndarray::allocate( arrayToCompareTo.getShape()[ 0 ] );
-      auto itOut = arrOut.begin();
-      for ( auto itComp = arrayToCompareTo.begin(); itComp != arrayToCompareTo.end(); ++itComp, ++itOut ){
-        if ( *itComp >= valueToCompareTo )
-          *itOut = valueIfArrayValueGreaterOrEqualToValueToCompareTo;
-        else
-          *itOut = valueIfArrayValueLessThanValueToCopareTo;
-      }
-      return arrOut;
-    }
-    
-    template< typename T, typename U >
-    ndarray::Array< U, 1, 1 > whereGe( ndarray::Array< T, 1, 1 > const& arrayToCompareTo,
-                                       T const valueToCompareTo, 
-                                       U const valueIfArrayValueGreaterOrEqualToValueToCompareTo,
-                                       ndarray::Array< U, 1, 1 > const& valuesIfArrayValueLessThanValueToCopareTo ){
-      ndarray::Array< U, 1, 1 > arrOut = ndarray::allocate( arrayToCompareTo.getShape()[ 0 ] );
-      auto itOut = arrOut.begin();
-      auto itElse = valuesIfArrayValueLessThanValueToCopareTo.begin();
-      for ( auto itComp = arrayToCompareTo.begin(); itComp != arrayToCompareTo.end(); ++itComp, ++itOut, ++itElse ){
-        if ( *itComp >= valueToCompareTo )
-          *itOut = valueIfArrayValueGreaterOrEqualToValueToCompareTo;
-        else
-          *itOut = *itElse;
+    ndarray::Array< U, 2, 1 > where( ndarray::Array< T, 2, 1 > const& arrayToCompareTo,
+                                     std::string const& op,
+                                     T const valueToCompareTo, 
+                                     U const valueIfTrue,
+                                     ndarray::Array< U, 2, 1 > const& valuesIfFalse ){
+      ndarray::Array< U, 2, 1 > arrOut = ndarray::allocate( arrayToCompareTo.getShape() );
+      auto itOutRow = arrOut.begin();
+      auto itElseRow = valuesIfFalse.begin();
+      for ( auto itCompRow = arrayToCompareTo.begin(); itCompRow != arrayToCompareTo.end(); ++itCompRow, ++itOutRow, ++itElseRow ){
+        auto itOutCol = itOutRow->begin();
+        auto itElseCol = itElseRow->begin();
+        for ( auto itCompCol = itCompRow->begin(); itCompCol != itCompRow->end(); ++itCompCol, ++itOutCol, ++itElseCol ){
+          if ( ( op.compare( "<" ) == 0 ) && ( *itCompCol < valueToCompareTo ) )
+            *itOutCol = valueIfTrue;
+          else if ( ( op.compare( "<=" ) == 0 ) && ( *itCompCol <= valueToCompareTo ) )
+            *itOutCol = valueIfTrue;
+          else if ( ( op.compare( ">" ) == 0 ) && ( *itCompCol > valueToCompareTo ) )
+            *itOutCol = valueIfTrue;
+          else if ( ( op.compare( ">=" ) == 0 ) && ( *itCompCol >= valueToCompareTo ) )
+            *itOutCol = valueIfTrue;
+          else
+            *itOutCol = *itElseCol;
+        }
       }
       return arrOut;
     }
@@ -2352,7 +2369,11 @@
     //          return false;
     //        }
           }
-          I_A1_Ind = whereLt( D_A1_X, D_A1_U[ 0 ], 1, 0 );
+          I_A1_Ind = where( D_A1_X, 
+                            "<", 
+                            D_A1_U[ 0 ], 
+                            1, 
+                            0 );
           P_I_A1_Ind = getIndices( I_A1_Ind );
           int I_NInd = P_I_A1_Ind.getShape()[ 0 ];
           if ( I_NInd < 1 ){
@@ -2367,7 +2388,11 @@
           #ifdef __DEBUG_FITS_INTERPOL__
             cout << "CFits::InterPol: i_pix = " << i_pix << ": D_A1_U = " << D_A1_U << endl;
           #endif
-          I_A1_Ind = whereGt( D_A1_X, D_A1_U(1), 1, 0);
+          I_A1_Ind = where( D_A1_X,
+                            ">", 
+                            D_A1_U(1), 
+                            1, 
+                            0);
           P_I_A1_Ind = getIndices( I_A1_Ind );
           I_NInd = P_I_A1_Ind.getShape()[ 0 ];
           if ( I_NInd < 1 ){
@@ -2460,12 +2485,20 @@
       #ifdef __DEBUG_FITS_INTERPOL__
         cout << "CFits::InterPol(D_A1_V, D_A1_X, D_A1_U, CS_A1_In): SVecArr set to " << SVecArr << endl;
       #endif
-      SVecArr.deep() = whereLt( SVecArr, 0, 0, SVecArr );
+      SVecArr.deep() = where( SVecArr, 
+                              "<",
+                              0, 
+                              0, 
+                              SVecArr );
       #ifdef __DEBUG_FITS_INTERPOL__
         cout << "CFits::InterPol(D_A1_V, D_A1_X, D_A1_U, CS_A1_In): SVecArr set to " << SVecArr << endl;
       #endif
 
-      SVecArr.deep() = whereGt( SVecArr, M-2, M-2, SVecArr );
+      SVecArr.deep() = where( SVecArr, 
+                              ">", 
+                              M-2, 
+                              M-2, 
+                              SVecArr );
       #ifdef __DEBUG_FITS_INTERPOL__
         cout << "CFits::InterPol(D_A1_V, D_A1_X, D_A1_U, CS_A1_In): SVecArr set to " << SVecArr << endl;
       #endif
@@ -2717,21 +2750,20 @@
 
       return result;
     }
-/*
+
     template< typename T >
-    bool CFits::StretchAndCrossCorrelateSpec( ndarray::Array< T, 1, 1 > const& spec,
-                                              ndarray::Array< T, 1, 1 > const& specRef,
-                                              ndarray::Array< T, 2, 1 > const& lineList_WLenPix,
-                                              int const radiusXCor,
-                                              int const stretchMinLength,
-                                              int const stretchMaxLength,
-                                              int const nStretches,
-                                              int const lengthPieces,
-                                              int const nCalcs,
-                                              int const polyFitOrder_Stretch,
-                                              int const polyFitOrder_Shift,
-                                              std::string const& fName,
-                                              ndarray::Array< T, 2, 1 > & lineList_WLenPix_Out){
+    ndarray::Array< T, 2, 1 > stretchAndCrossCorrelateSpec( ndarray::Array< T, 1, 1 > const& spec,
+                                                            ndarray::Array< T, 1, 1 > const& specRef,
+                                                            ndarray::Array< T, 2, 1 > const& lineList_WLenPix,
+                                                            int const radiusXCor,
+                                                            int const stretchMinLength,
+                                                            int const stretchMaxLength,
+                                                            int const nStretches,
+                                                            int const lengthPieces,
+                                                            int const nCalcs ){
+//                                              int const polyFitOrder_Stretch,
+//                                              int const polyFitOrder_Shift,
+//                                              ndarray::Array< T, 2, 1 > & lineList_WLenPix_Out){
       if ( spec.getShape()[ 0 ] != specRef.getShape()[ 0 ] ){
         cout << "CFits::StretchAndCrossCorrelate: ERROR: spec.getShape()[0](=" << spec.getShape()[ 0 ] << " != specRef.getShape()[0](=" << specRef.getShape() << ") => Returning FALSE" << endl;
         exit( EXIT_FAILURE );
@@ -2781,7 +2813,7 @@
                                                                                                             specRefPiece,
                                                                                                             radiusXCor,
                                                                                                             stretchMinLength,
-                                                                                                            stretchMaxLengthIn,
+                                                                                                            stretchMaxLength,
                                                                                                             nStretches );
         chiSqMin_Stretch[ i_run ] = stretchAndCrossCorrelateResult.stretch;
         chiSqMin_Shift[ i_run ] = stretchAndCrossCorrelateResult.shift;
@@ -2805,20 +2837,26 @@
 
         double weightLeft = 0.;
         double weightRight = 0.;
-        ndarray::Array< int, 1, 1 > valueLocate = valueLocate( xPieceStretched, 
-                                                               lineList_WLenPix[ ndarray::view()( 1 ) ] );
+        ndarray::Array< double, 1, 1 > lineListTemp = ndarray::allocate( lineList_WLenPix.getShape()[ 0 ] );
+        auto itTemp = lineListTemp.begin();
+        for ( auto itList = lineList_WLenPix.begin(); itList != lineList_WLenPix.end(); ++itList, ++itTemp ){
+          auto itListCol = itList->begin() + 1;
+          *itTemp = double( *itListCol );//lineList_WLenPix[ ndarray::view()( 1 ) ] );
+        }
+        ndarray::Array< int, 1, 1 > valueLocated = valueLocate( xPieceStretched, 
+                                                                lineListTemp );
         for ( int i_line = 0; i_line < lineList_Pixels_AllPieces.getShape()[ 0 ]; i_line++ ){//i_line < lineList_Pixels_AllPieces.rows()
-          if ( ( valueLocate[ i_line ] >= 0 ) && ( valueLocate[ i_line ] < xPieceStretched.getShape()[ 0 ] - 1 ) ){
-            weightRight = ( xPieceStretched[ valueLocate[ i_line ] + 1 ] - xPieceStretched[ valueLocate[ i_line ] ] ) * ( lineList_WLenPix[ i_line ][ 1 ] - xPieceStretched[ valueLocate[ i_line ] ] );
+          if ( ( valueLocated[ i_line ] >= 0 ) && ( valueLocated[ i_line ] < xPieceStretched.getShape()[ 0 ] - 1 ) ){
+            weightRight = ( xPieceStretched[ valueLocated[ i_line ] + 1 ] - xPieceStretched[ valueLocated[ i_line ] ] ) * ( lineList_WLenPix[ i_line ][ 1 ] - xPieceStretched[ valueLocated[ i_line ] ] );
             #ifdef __DEBUG_FITS_STRETCHANDCROSSCORRELATESPEC__
-              cout << "CFits::StretchAndCrossCorrelateSpec: i_line = " << i_line << ": xPieceStretched[ valueLocate[ i_line ]=" << valueLocate[i_line] << ") = " << xPieceStretched[valueLocate[i_line]] << ", xPieceStretched[valueLocate[i_line]+1=" << valueLocate[i_line]+1 << ") = " << xPieceStretched[valueLocate[i_line]+1] << ", weightRight = " << weightRight << endl;
+              cout << "CFits::StretchAndCrossCorrelateSpec: i_line = " << i_line << ": xPieceStretched[ valueLocated[ i_line ]=" << valueLocated[i_line] << ") = " << xPieceStretched[valueLocated[i_line]] << ", xPieceStretched[valueLocate[i_line]+1=" << valueLocated[i_line]+1 << ") = " << xPieceStretched[valueLocated[i_line]+1] << ", weightRight = " << weightRight << endl;
             #endif
             weightLeft = 1. - weightRight;
 
             #ifdef __DEBUG_FITS_STRETCHANDCROSSCORRELATESPEC__
               cout << "CFits::StretchAndCrossCorrelateSpec: i_line = " << i_line << ": weightLeft = " << weightLeft << endl;
             #endif
-            lineList_Pixels_AllPieces[i_line][i_run] = start + ( valueLocate[ i_line ] * weightLeft ) + ( ( valueLocate[ i_line ] + 1 ) * weightRight ) - chiSqMin_Shift[ i_run ];
+            lineList_Pixels_AllPieces[i_line][i_run] = start + ( valueLocated[ i_line ] * weightLeft ) + ( ( valueLocated[ i_line ] + 1 ) * weightRight ) - chiSqMin_Shift[ i_run ];
             #ifdef __DEBUG_FITS_STRETCHANDCROSSCORRELATESPEC__
               cout << "CFits::StretchAndCrossCorrelateSpec: i_line = " << i_line << ": lineList_Pixels_AllPieces[i_line][i_run] = " << lineList_Pixels_AllPieces[i_line][i_run] << endl;
             #endif
@@ -2835,142 +2873,200 @@
         cout << "CFits::StretchAndCrossCorrelateSpec: lineList_Pixels_AllPieces = " << lineList_Pixels_AllPieces << endl;
       #endif
 
-      Array<int, 1> I_A1_Where(D_A2_LineList_Pixels_AllPieces.cols());
-      Array<int, 1> *P_I_A1_IndWhere;
-      int I_NInd = 0;
-      D_A2_LineList_WLenPix_Out.resize(D_A2_LineList_WLenPix_In.rows(), D_A2_LineList_WLenPix_In.cols());
-      D_A2_LineList_WLenPix_Out = 0.;
-      D_A2_LineList_WLenPix_Out(Range::all(), 0) = D_A2_LineList_WLenPix_In(Range::all(), 0);
-      for (int i_line=0; i_line<D_A2_LineList_WLenPix_In.rows(); i_line++){
-        I_A1_Where = where(fabs(D_A2_LineList_Pixels_AllPieces(i_line, Range::all())) > 0.001, 1, 0);
-        P_I_A1_IndWhere = this->GetIndex(I_A1_Where, I_NInd);
-        if (I_NInd == 1)
-          D_A2_LineList_WLenPix_Out(i_line, 1) = D_A2_LineList_Pixels_AllPieces(i_line, (*P_I_A1_IndWhere)(0));
+      ndarray::Array< int, 1, 1 > whereVec;// = (D_A2_LineList_Pixels_AllPieces.cols());
+      ndarray::Array< size_t, 1, 1 > indWhere;
+      int nInd = 0;
+      ndarray::Array< T, 2, 1 > lineList_WLenPix_Out = ndarray::allocate( lineList_WLenPix.getShape() );
+      lineList_WLenPix_Out.deep() = 0.;
+      lineList_WLenPix_Out[ ndarray::view()( 0 ) ] = lineList_WLenPix[ ndarray::view()( 0 ) ];
+      ndarray::Array< double, 1, 1 > tempArr = ndarray::allocate( lineList_Pixels_AllPieces.getShape()[ 1 ] );
+      for (int i_line=0; i_line < lineList_WLenPix.getShape()[ 0 ]; i_line++){
+        tempArr[ ndarray::view() ] = lineList_Pixels_AllPieces[ ndarray::view( i_line )() ];
+        whereVec = where( fabs( tempArr ),
+                       ">", 
+                       0.001, 
+                       1, 
+                       0 );
+        indWhere = getIndices( whereVec );
+        nInd = std::accumulate( indWhere.begin(), indWhere.end(), 0 );
+        if ( nInd == 1 )
+          lineList_WLenPix_Out[ i_line ][ 1 ] = lineList_Pixels_AllPieces[ i_line ][ indWhere[ 0 ] ];
         else{
-          for (int i_ind=0; i_ind<I_NInd; i_ind++){
-            D_A2_LineList_WLenPix_Out(i_line, 1) += D_A2_LineList_Pixels_AllPieces(i_line, (*P_I_A1_IndWhere)(i_ind));
+          for (int i_ind = 0; i_ind < nInd; i_ind++){
+            lineList_WLenPix_Out[ i_line ][ 1 ] += lineList_Pixels_AllPieces[ i_line ][ indWhere[ i_ind ] ];
           }
-          D_A2_LineList_WLenPix_Out(i_line, 1) = D_A2_LineList_WLenPix_Out(i_line, 1) / I_NInd;
+          lineList_WLenPix_Out[ i_line ][ 1 ] = lineList_WLenPix_Out[ i_line ][ 1 ] / nInd;
         }
-        if (D_A2_LineList_WLenPix_In.cols() == 3){
-          D_A2_LineList_WLenPix_Out(i_line, 2) = D_A2_LineList_WLenPix_In(i_line, 2);
+        if ( lineList_WLenPix.getShape()[ 1 ] == 3 ){
+          lineList_WLenPix_Out[ i_line ][ 2 ] = lineList_WLenPix[ i_line ][ 2 ];
         }
-        delete(P_I_A1_IndWhere);
       }
-      cout << "CFits::StretchAndCrossCorrelateSpec: D_A2_LineList_WLenPix_Out = " << D_A2_LineList_WLenPix_Out << endl;
+      cout << "CFits::StretchAndCrossCorrelateSpec: lineList_WLenPix_Out = " << lineList_WLenPix_Out << endl;
 
       /// Check positions
-      Array<double, 2> D_A2_Dist(D_A2_LineList_Pixels_AllPieces.rows(), D_A2_LineList_Pixels_AllPieces.cols());
-      D_A2_Dist = 0.;
-      for (int i_row=0; i_row<D_A2_LineList_Pixels_AllPieces.rows(); i_row++){
-        for (int i_col = 0; i_col < D_A2_LineList_Pixels_AllPieces.cols(); i_col++){
-          if (fabs(D_A2_LineList_Pixels_AllPieces(i_row, i_col)) > 0.00000000000001)
-            D_A2_Dist(i_row, i_col) = D_A2_LineList_Pixels_AllPieces(i_row, i_col) - D_A2_LineList_WLenPix_In(i_row, 1);
+      ndarray::Array< double, 2, 1 > dist = ndarray::allocate( lineList_Pixels_AllPieces.getShape() );
+      dist.deep() = 0.;
+      for ( int i_row = 0; i_row < lineList_Pixels_AllPieces.getShape()[ 0 ]; i_row++){
+        for (int i_col = 0; i_col < lineList_Pixels_AllPieces.getShape()[ 1 ]; i_col++){
+          if ( std::fabs( lineList_Pixels_AllPieces[ i_row ][ i_col ] ) > 0.00000000000001 )
+            dist[ i_row ][ i_col ] = lineList_Pixels_AllPieces[ i_row ][ i_col ] - lineList_WLenPix[ i_row ][ 1 ];
         }
       }
-      cout << "CFits::StretchAndCrossCorrelateSpec: D_A2_Dist = " << D_A2_Dist << endl;
-      Array<int, 2> I_A2_Where(D_A2_LineList_Pixels_AllPieces.rows(), D_A2_LineList_Pixels_AllPieces.cols());
-      I_A2_Where = where(fabs(D_A2_LineList_Pixels_AllPieces) > 0.000001, 1, 0);
+      cout << "CFits::StretchAndCrossCorrelateSpec: dist = " << dist << endl;
+      ndarray::Array< int, 2, 1 > whereArr = where( fabs( lineList_Pixels_AllPieces ),
+                                                    ">",
+                                                    0.000001, 
+                                                    1, 
+                                                    0);
       #ifdef __DEBUG_FITS_STRETCHANDCROSSCORRELATESPEC__
-        cout << "CFits::StretchAndCrossCorrelateSpec: I_A2_Where = " << I_A2_Where << endl;
+        cout << "CFits::StretchAndCrossCorrelateSpec: whereArr = " << whereArr << endl;
       #endif
-      Array<int, 2> I_A2_IndWhere(2,2);
-      if (!this->GetIndex(I_A2_Where, I_NInd, I_A2_IndWhere)){
-        cout << "CFits::StretchAndCrossCorrelateSpec: ERROR: GetIndex returned FALSE" << endl;
-        return false;
-      }
+      ndarray::Array< size_t, 2, 1 > indWhereArr = getIndices( whereArr );
       #ifdef __DEBUG_FITS_STRETCHANDCROSSCORRELATESPEC__
-        cout << "CFits::StretchAndCrossCorrelateSpec: I_A2_IndWhere = " << I_A2_IndWhere << endl;
+        cout << "CFits::StretchAndCrossCorrelateSpec: indWhereArr = " << indWhereArr << endl;
       #endif
-      Array<double, 1> D_A1_Dist_SubArr(2);
-      if (!this->GetSubArrCopy(D_A2_Dist, I_A2_IndWhere, D_A1_Dist_SubArr)){
-        cout << "CFits::StretchAndCrossCorrelateSpec: ERROR: GetSubArrCopy returned FALSE" << endl;
-        return false;
-      }
+      ndarray::Array< double, 1, 1 > dist_SubArr = getSubArray( dist, indWhereArr );
       #ifdef __DEBUG_FITS_STRETCHANDCROSSCORRELATESPEC__
-        cout << "CFits::StretchAndCrossCorrelateSpec: D_A1_Dist_SubArr = " << D_A1_Dist_SubArr << endl;
+        cout << "CFits::StretchAndCrossCorrelateSpec: dist_SubArr = " << dist_SubArr << endl;
       #endif
-      double D_MedianDiff = this->Median(D_A1_Dist_SubArr);
-      Array<double, 1> *P_D_A1_Sort = this->BubbleSort(D_A1_Dist_SubArr);
+      double medianDiff = median( dist_SubArr );
+      ndarray::Array< double, 1, 1 > sorted = ndarray::allocate( dist_SubArr.getShape()[ 0 ] );
+      sorted.deep() = dist_SubArr;
+      std::sort( sorted.begin(), sorted.end() );
       #ifdef __DEBUG_FITS_STRETCHANDCROSSCORRELATESPEC__
-        cout << "CFits::StretchAndCrossCorrelateSpec: D_MedianDiff = " << D_MedianDiff << endl;
-        cout << "CFits::StretchAndCrossCorrelateSpec: *P_D_A1_Sort = " << *P_D_A1_Sort << endl;
+        cout << "CFits::StretchAndCrossCorrelateSpec: medianDiff = " << medianDiff << endl;
+        cout << "CFits::StretchAndCrossCorrelateSpec: sorted = " << sorted << endl;
       #endif
-      Array<double, 1> D_A1_Dist_Temp(D_A1_Dist_SubArr.size()-4);
-      D_A1_Dist_Temp = (*P_D_A1_Sort)(Range(2, D_A1_Dist_SubArr.size()-3));
+      ndarray::Array< double, 1, 1 > dist_Temp = ndarray::allocate( dist_SubArr.getShape()[ 0 ] - 4 );
+      dist_Temp = sorted[ ndarray::view( 2, dist_SubArr.getShape()[ 0 ] - 2 ) ];
       #ifdef __DEBUG_FITS_STRETCHANDCROSSCORRELATESPEC__
-        cout << "CFits::StretchAndCrossCorrelateSpec: D_A1_Dist_Temp = " << D_A1_Dist_Temp << endl;
+        cout << "CFits::StretchAndCrossCorrelateSpec: dist_Temp = " << dist_Temp << endl;
       #endif
-      double D_StdDev_Diff = this->StdDev(D_A1_Dist_Temp);
+      ndarray::Array< double, 1, 1 > moments = moment( dist_Temp, 2 );
+      double stdDev_Diff = moments[ 1 ];
       #ifdef __DEBUG_FITS_STRETCHANDCROSSCORRELATESPEC__
-        cout << "CFits::StretchAndCrossCorrelateSpec: D_StdDev_Diff = " << D_StdDev_Diff << endl;
+        cout << "CFits::StretchAndCrossCorrelateSpec: stdDev_Diff = " << stdDev_Diff << endl;
       #endif
-      I_A1_Where.resize(D_A1_Dist_SubArr.size());
-      I_A1_Where = where(fabs(D_A1_Dist_SubArr - D_MedianDiff) > (3. * D_StdDev_Diff), 1, 0);
+      whereVec = ndarray::allocate( dist_SubArr.getShape()[ 0 ] );
+      ndarray::Array< double, 1, 1 > tempDist = ndarray::copy( dist_SubArr - medianDiff );
+      whereVec = where( fabs( tempDist ), 
+                        ">", 
+                        3. * stdDev_Diff, 
+                        1, 
+                        0 );
       #ifdef __DEBUG_FITS_STRETCHANDCROSSCORRELATESPEC__
-        cout << "CFits::StretchAndCrossCorrelateSpec: I_A1_Where = " << I_A1_Where << endl;
+        cout << "CFits::StretchAndCrossCorrelateSpec: whereVec = " << whereVec << endl;
       #endif
-      Array<int, 1> I_A1_IndWhere(2);
-      int I_NBad = 0;
-      if (max(I_A1_Where) > 0){
-        if (!this->GetIndex(I_A1_Where, I_NBad, I_A1_IndWhere)){
-          cout << "CFits::StretchAndCrossCorrelateSpec: ERROR: 2. GetIndex returned FALSE" << endl;
-          return false;
-        }
+      int nBad = std::accumulate( whereVec.begin(), whereVec.end(), 0 );
+      if ( nBad > 0 ){
+        ndarray::Array< size_t, 1, 1 > indWhereA = getIndices( whereVec );
         #ifdef __DEBUG_FITS_STRETCHANDCROSSCORRELATESPEC__
-          cout << "CFits::StretchAndCrossCorrelateSpec: I_NBad = " << I_NBad << ": I_A1_IndWhere = " << I_A1_IndWhere << endl;
+          cout << "CFits::StretchAndCrossCorrelateSpec: nBad = " << nBad << ": indWhereA = " << indWhereA << endl;
         #endif
-        for (int i_bad=0; i_bad<I_NBad; i_bad++){
-          D_A2_LineList_Pixels_AllPieces(I_A2_IndWhere(I_A1_IndWhere(i_bad), 0), I_A2_IndWhere(I_A1_IndWhere(i_bad), 1)) = 0.;
+        for ( int i_bad = 0; i_bad < nBad; ++i_bad ){
+          lineList_Pixels_AllPieces[ indWhereArr[ indWhereA[ i_bad ] ][ 0 ] ][ indWhereArr[ indWhereA[ i_bad ] ][ 1 ] ] = 0.;
           #ifdef __DEBUG_FITS_STRETCHANDCROSSCORRELATESPEC__
-            cout << "CFits::StretchAndCrossCorrelateSpec: i_bad = " << i_bad << ": D_A2_LineList_Pixels_AllPieces(" << I_A2_IndWhere(I_A1_IndWhere(i_bad), 0) << ", " << I_A2_IndWhere(I_A1_IndWhere(i_bad), 1) << ") set to " << D_A2_LineList_Pixels_AllPieces(I_A2_IndWhere(I_A1_IndWhere(i_bad), 0), I_A2_IndWhere(I_A1_IndWhere(i_bad), 1)) << endl;
+            cout << "CFits::StretchAndCrossCorrelateSpec: i_bad = " << i_bad << ": lineList_Pixels_AllPieces[" << indWhereArr[ indWhereA[ i_bad ] ][ 0 ] << "][" << indWhereArr[ indWhereA[ i_bad ] ][ 1 ] << "] set to " << lineList_Pixels_AllPieces[ indWhereArr[ indWhereA[i_bad] ][ 0 ] ][ indWhereArr[ indWhereA[ i_bad ] ][ 1 ]] << endl;
           #endif
         }
         #ifdef __DEBUG_FITS_STRETCHANDCROSSCORRELATESPEC__
-          cout << "CFits::StretchAndCrossCorrelateSpec: D_A2_LineList_Pixels_AllPieces = " << D_A2_LineList_Pixels_AllPieces << endl;
+          cout << "CFits::StretchAndCrossCorrelateSpec: lineList_Pixels_AllPieces = " << lineList_Pixels_AllPieces << endl;
         #endif
 
-        I_A1_Where.resize(D_A2_LineList_Pixels_AllPieces.cols());
-        D_A2_LineList_WLenPix_Out(Range::all(), 1) = 0.;
-        for (int i_line=0; i_line<D_A2_LineList_WLenPix_In.rows(); i_line++){
-          I_A1_Where = where(fabs(D_A2_LineList_Pixels_AllPieces(i_line, Range::all())) > 0.001, 1, 0);
-          P_I_A1_IndWhere = this->GetIndex(I_A1_Where, I_NInd);
+        whereVec = ndarray::allocate( lineList_Pixels_AllPieces.getShape()[ 1 ] );
+        lineList_WLenPix_Out[ ndarray::view()(1) ] = 0.;
+        ndarray::Array< double, 1, 1 > tempList = ndarray::allocate( lineList_Pixels_AllPieces.getShape()[ 1 ] );
+        for (int i_line=0; i_line < lineList_WLenPix.getShape()[ 0 ]; i_line++){
+          tempList = lineList_Pixels_AllPieces[ ndarray::view(i_line)()];
+          whereVec = where( fabs( tempList ),
+                            ">",
+                            0.001, 
+                            1, 
+                            0 );
+          nInd = std::accumulate( whereVec.begin(), whereVec.end(), 0 );
+          ndarray::Array< size_t, 1, 1 > indWhereB = getIndices( whereVec );
           #ifdef __DEBUG_FITS_STRETCHANDCROSSCORRELATESPEC__
-            cout << "CFits::StretchAndCrossCorrelateSpec: i_line = " << i_line << ": I_NInd = " << I_NInd << endl;
+            cout << "CFits::StretchAndCrossCorrelateSpec: i_line = " << i_line << ": nInd = " << nInd << endl;
           #endif
-          if (I_NInd == 0)
-            D_A2_LineList_WLenPix_Out(i_line, 1) = D_A2_LineList_WLenPix_In(i_line, 1) + D_MedianDiff;
-          else if (I_NInd == 1)
-            D_A2_LineList_WLenPix_Out(i_line, 1) = D_A2_LineList_Pixels_AllPieces(i_line, (*P_I_A1_IndWhere)(0));
+          if ( nInd == 0 )
+            lineList_WLenPix_Out[ i_line ][ 1 ] = lineList_WLenPix[ i_line ][ 1 ] + medianDiff;
+          else if ( nInd == 1 )
+            lineList_WLenPix_Out[ i_line ][ 1 ] = lineList_Pixels_AllPieces[ i_line ][ indWhereB[ 0 ] ];
           else{
-            for (int i_ind=0; i_ind<I_NInd; i_ind++){
-              D_A2_LineList_WLenPix_Out(i_line, 1) += D_A2_LineList_Pixels_AllPieces(i_line, (*P_I_A1_IndWhere)(i_ind));
+            for (int i_ind = 0; i_ind < nInd; i_ind++ ){
+              lineList_WLenPix_Out[ i_line ][ 1 ] += lineList_Pixels_AllPieces[ i_line ][ indWhereB[ i_ind ] ];
               #ifdef __DEBUG_FITS_STRETCHANDCROSSCORRELATESPEC__
-                cout << "CFits::StretchAndCrossCorrelateSpec: i_line = " << i_line << ": i_ind = " << i_ind << ": (*P_I_A1_IndWhere)(" << i_ind << ") = " << (*P_I_A1_IndWhere)(i_ind) << endl;
-                cout << "CFits::StretchAndCrossCorrelateSpec: i_line = " << i_line << ": i_ind = " << i_ind << ": D_A2_LineList_WLenPix_Out(" << i_line << ", 1) set to " << D_A2_LineList_WLenPix_Out(i_line, 1) << endl;
+                cout << "CFits::StretchAndCrossCorrelateSpec: i_line = " << i_line << ": i_ind = " << i_ind << ": indWhereB[" << i_ind << "] = " << indWhereB[i_ind] << endl;
+                cout << "CFits::StretchAndCrossCorrelateSpec: i_line = " << i_line << ": i_ind = " << i_ind << ": lineList_WLenPix_Out[" << i_line << "][1] set to " << lineList_WLenPix_Out[i_line][1] << endl;
               #endif
             }
-            D_A2_LineList_WLenPix_Out(i_line, 1) = D_A2_LineList_WLenPix_Out(i_line, 1) / I_NInd;
+            lineList_WLenPix_Out[ i_line ][ 1 ] = lineList_WLenPix_Out[ i_line ][ 1 ] / nInd;
           }
           #ifdef __DEBUG_FITS_STRETCHANDCROSSCORRELATESPEC__
-            cout << "CFits::StretchAndCrossCorrelateSpec: D_A2_LineList_WLenPix_Out(" << i_line << ", 1) set to " << D_A2_LineList_WLenPix_Out(i_line, 1) << endl;
+            cout << "CFits::StretchAndCrossCorrelateSpec: lineList_WLenPix_Out[" << i_line << "][1] set to " << lineList_WLenPix_Out[i_line][1] << endl;
           #endif
-          delete(P_I_A1_IndWhere);
         }
       }
-    //  if (I_NBad > 0)
-    //    return false;
-
 
       #ifdef __DEBUG_FITS_STRETCHANDCROSSCORRELATESPEC__
-        cout << "CFits::StretchAndCrossCorrelateSpec: D_A2_LineList_Pixels_AllPieces = " << D_A2_LineList_Pixels_AllPieces << endl;
-        cout << "CFits::StretchAndCrossCorrelateSpec: D_A2_LineList_WLenPix_In = " << D_A2_LineList_WLenPix_In << endl;
-        cout << "CFits::StretchAndCrossCorrelateSpec: D_A2_LineList_WLenPix_Out = " << D_A2_LineList_WLenPix_Out << endl;
+        cout << "CFits::StretchAndCrossCorrelateSpec: lineList_Pixels_AllPieces = " << lineList_Pixels_AllPieces << endl;
+        cout << "CFits::StretchAndCrossCorrelateSpec: lineList_WLenPix = " << lineList_WLenPix << endl;
+        cout << "CFits::StretchAndCrossCorrelateSpec: lineList_WLenPix_Out = " << lineList_WLenPix_Out << endl;
       #endif
 
-      return true;
+      return lineList_WLenPix_Out;
     }
-*/
+    
+    template< typename T > 
+    double median( ndarray::Array< T, 1, 1 > const& arr ){
+      if( arr.getShape()[ 0 ] == 0 ) {
+        cout << "math::median: ERROR: arr is empty" << endl;
+        exit( EXIT_FAILURE );
+      }
+      ndarray::Array< T, 1, 1 > arrCopy = ndarray::allocate( arr.getShape()[ 0 ] );
+      arrCopy.deep() = arr;
+      auto n = arrCopy.getShape()[ 0 ] / 2;
+      nth_element( arrCopy.begin(), arrCopy.begin() + n, arrCopy.end() );
+      double med = double( arrCopy[ n ] );
+      if( !( n & 1 ) ) { //If n is even
+        auto max_it = max_element( arrCopy.begin(), arrCopy.begin() + n);
+        med = ( *max_it + med ) / 2;
+      }
+      return med;    
+    }
+    
+    template< typename T >
+    ndarray::Array< T, 1, 1 > fabs( ndarray::Array< T, 1, 1 > const& arr ){
+      ndarray::Array< T, 1, 1 > arrOut = ndarray::copy( arr );
+      for ( auto it = arrOut.begin(); it != arrOut.end(); ++it ){
+        if ( *it < 0. )
+          *it = 0. - *it;
+      }
+      return arrOut;
+    }
+
+    template< typename T >
+    ndarray::Array< T, 2, 1 > fabs( ndarray::Array< T, 2, 1 > const& arr ){
+      ndarray::Array< T, 2, 1 > arrOut = ndarray::copy( arr );
+      for ( auto itRow = arrOut.begin(); itRow != arrOut.end(); ++itRow ){
+        for ( auto itCol = itRow->begin(); itCol != itRow->end(); ++itCol ){
+          if ( *itCol < 0. )
+            *itCol = 0. - *itCol;
+        }
+      }
+      return arrOut;
+    }
+
+    template ndarray::Array< int, 1, 1 > fabs( ndarray::Array< int, 1, 1 > const& );
+    template ndarray::Array< float, 1, 1 > fabs( ndarray::Array< float, 1, 1 > const& );
+    template ndarray::Array< double, 1, 1 > fabs( ndarray::Array< double, 1, 1 > const& );
+    template ndarray::Array< int, 2, 1 > fabs( ndarray::Array< int, 2, 1 > const& );
+    template ndarray::Array< float, 2, 1 > fabs( ndarray::Array< float, 2, 1 > const& );
+    template ndarray::Array< double, 2, 1 > fabs( ndarray::Array< double, 2, 1 > const& );
+    
+    template double median( ndarray::Array< float, 1, 1 > const& );
+    template double median( ndarray::Array< double, 1, 1 > const& );
+
     template StretchAndCrossCorrelateResult< float > stretchAndCrossCorrelate( ndarray::Array< float, 1, 1 > const&,
                                                                                ndarray::Array< float, 1, 1 > const&,
                                                                                int const,
@@ -2984,6 +3080,24 @@
                                                                                 int const,
                                                                                 int const );
 
+    template ndarray::Array< float, 2, 1 > stretchAndCrossCorrelateSpec( ndarray::Array< float, 1, 1 > const&,
+                                                                         ndarray::Array< float, 1, 1 > const&,
+                                                                         ndarray::Array< float, 2, 1 > const&,
+                                                                         int const,
+                                                                         int const,
+                                                                         int const,
+                                                                         int const,
+                                                                         int const,
+                                                                         int const );
+    template ndarray::Array< double, 2, 1 > stretchAndCrossCorrelateSpec( ndarray::Array< double, 1, 1 > const&,
+                                                                          ndarray::Array< double, 1, 1 > const&,
+                                                                          ndarray::Array< double, 2, 1 > const&,
+                                                                          int const,
+                                                                          int const,
+                                                                          int const,
+                                                                          int const,
+                                                                          int const,
+                                                                          int const );
     
     template bool interPol( ndarray::Array< float, 1, 1 > const&,
                             ndarray::Array< float, 1, 1 > const&,
@@ -3054,125 +3168,53 @@
     template ndarray::Array< double, 1, 1 > splineI( ndarray::Array< double, 1, 1 > const&, 
                                                      ndarray::Array< double, 1, 1 > const& );
     
-    template ndarray::Array< int, 1, 1 > whereGe( ndarray::Array< int, 1, 1 > const&,
-                                                  int const, 
-                                                  int const,
-                                                  int const );
+    template ndarray::Array< int, 1, 1 > where( ndarray::Array< int, 1, 1 > const&,
+                                                std::string const&,
+                                                int const, 
+                                                int const,
+                                                int const );
     
-    template ndarray::Array< int, 1, 1 > whereGe( ndarray::Array< double, 1, 1 > const&,
-                                                  double const, 
-                                                  int const,
-                                                  int const );
+    template ndarray::Array< int, 1, 1 > where( ndarray::Array< double, 1, 1 > const&,
+                                                std::string const&,
+                                                double const, 
+                                                int const,
+                                                int const );
 
-    template ndarray::Array< double, 1, 1 > whereGe( ndarray::Array< double, 1, 1 > const&,
-                                                     double const, 
-                                                     double const,
-                                                     double const );
+    template ndarray::Array< double, 1, 1 > where( ndarray::Array< double, 1, 1 > const&,
+                                                   std::string const&,
+                                                   double const, 
+                                                   double const,
+                                                   double const );
 
-    template ndarray::Array< int, 1, 1 > whereGe( ndarray::Array< int, 1, 1 > const&,
-                                                  int const, 
-                                                  int const,
-                                                  ndarray::Array< int, 1, 1 > const& );
+    template ndarray::Array< int, 1, 1 > where( ndarray::Array< int, 1, 1 > const&,
+                                                std::string const&,
+                                                int const, 
+                                                int const,
+                                                ndarray::Array< int, 1, 1 > const& );
 
-    template ndarray::Array< int, 1, 1 > whereGe( ndarray::Array< double, 1, 1 > const&,
-                                                  double const, 
-                                                  int const,
-                                                  ndarray::Array< int, 1, 1 > const& );
+    template ndarray::Array< int, 1, 1 > where( ndarray::Array< double, 1, 1 > const&,
+                                                std::string const&,
+                                                double const, 
+                                                int const,
+                                                ndarray::Array< int, 1, 1 > const& );
 
-    template ndarray::Array< double, 1, 1 > whereGe( ndarray::Array< double, 1, 1 > const&,
-                                                     double const, 
-                                                     double const,
-                                                     ndarray::Array< double, 1, 1 > const& );
+    template ndarray::Array< double, 1, 1 > where( ndarray::Array< double, 1, 1 > const&,
+                                                   std::string const&,
+                                                   double const, 
+                                                   double const,
+                                                   ndarray::Array< double, 1, 1 > const& );
 
-    template ndarray::Array< int, 1, 1 > whereGt( ndarray::Array< int, 1, 1 > const&,
-                                                  int const, 
-                                                  int const,
-                                                  int const );
+    template ndarray::Array< int, 2, 1 > where( ndarray::Array< double, 2, 1 > const&,
+                                                std::string const&,
+                                                double const, 
+                                                int const,
+                                                ndarray::Array< int, 2, 1 > const& );
 
-    template ndarray::Array< int, 1, 1 > whereGt( ndarray::Array< double, 1, 1 > const&,
-                                                  double const, 
-                                                  int const,
-                                                  int const );
-
-    template ndarray::Array< double, 1, 1 > whereGt( ndarray::Array< double, 1, 1 > const&,
-                                                     double const, 
-                                                     double const,
-                                                     double const );
-
-    template ndarray::Array< int, 1, 1 > whereGt( ndarray::Array< int, 1, 1 > const&,
-                                                  int const, 
-                                                  int const,
-                                                  ndarray::Array< int, 1 , 1 > const& );
-
-    template ndarray::Array< int, 1, 1 > whereGt( ndarray::Array< double, 1, 1 > const&,
-                                                  double const, 
-                                                  int const,
-                                                  ndarray::Array< int, 1 , 1 > const& );
-
-    template ndarray::Array< double, 1, 1 > whereGt( ndarray::Array< double, 1, 1 > const&,
-                                                     double const, 
-                                                     double const,
-                                                     ndarray::Array< double, 1, 1 > const& );
-
-    template ndarray::Array< int, 1, 1 > whereLt( ndarray::Array< int, 1, 1 > const&,
-                                                  int const, 
-                                                  int const,
-                                                  int const );
-
-    template ndarray::Array< int, 1, 1 > whereLt( ndarray::Array< double, 1, 1 > const&,
-                                                  double const, 
-                                                  int const,
-                                                  int const );
-    
-    template ndarray::Array< double, 1, 1 > whereLt( ndarray::Array< double, 1, 1 > const&,
-                                                     double const, 
-                                                     double const,
-                                                     double const );
-
-    template ndarray::Array< int, 1, 1 > whereLt( ndarray::Array< int, 1, 1 > const&,
-                                                  int const, 
-                                                  int const,
-                                                  ndarray::Array< int, 1, 1 > const& );
-
-    template ndarray::Array< int, 1, 1 > whereLt( ndarray::Array< double, 1, 1 > const&,
-                                                  double const, 
-                                                  int const,
-                                                  ndarray::Array< int, 1, 1 > const& );
-
-    template ndarray::Array< double, 1, 1 > whereLt( ndarray::Array< double, 1, 1 > const&,
-                                                     double const, 
-                                                     double const,
-                                                     ndarray::Array< double, 1, 1 > const& );
-
-    template ndarray::Array< int, 1, 1 > whereLe( ndarray::Array< int, 1, 1 > const&,
-                                                  int const, 
-                                                  int const,
-                                                  int const );
-
-    template ndarray::Array< int, 1, 1 > whereLe( ndarray::Array< double, 1, 1 > const&,
-                                                  double const, 
-                                                  int const,
-                                                  int const );
-
-    template ndarray::Array< double, 1, 1 > whereLe( ndarray::Array< double, 1, 1 > const&,
-                                                     double const, 
-                                                     double const,
-                                                     double const );
-
-    template ndarray::Array< int, 1, 1 > whereLe( ndarray::Array< int, 1, 1 > const&,
-                                                  int const, 
-                                                  int const,
-                                                  ndarray::Array< int, 1, 1 > const& );
-
-    template ndarray::Array< int, 1, 1 > whereLe( ndarray::Array< double, 1, 1 > const&,
-                                                  double const, 
-                                                  int const,
-                                                  ndarray::Array< int, 1, 1 > const& );
-
-    template ndarray::Array< double, 1, 1 > whereLe( ndarray::Array< double, 1, 1 > const&,
-                                                     double const, 
-                                                     double const,
-                                                     ndarray::Array< double, 1, 1 > const& );
+    template ndarray::Array< double, 2, 1 > where( ndarray::Array< double, 2, 1 > const&,
+                                                   std::string const&,
+                                                   double const, 
+                                                   double const,
+                                                   ndarray::Array< double, 2, 1 > const& );
     
     template bool lsToFit( ndarray::Array< double, 1, 1 > const&, 
                            ndarray::Array< double, 1, 1 > const&, 
@@ -3376,6 +3418,11 @@
     template ndarray::Array< size_t, 1, 1 > getIndices(ndarray::Array< long, 1, 1 > const&);
     template ndarray::Array< size_t, 1, 1 > getIndices(ndarray::Array< float, 1, 1 > const&);
     template ndarray::Array< size_t, 1, 1 > getIndices(ndarray::Array< double, 1, 1 > const&);
+    template ndarray::Array< size_t, 2, 1 > getIndices(ndarray::Array< size_t, 2, 1 > const&);
+    template ndarray::Array< size_t, 2, 1 > getIndices(ndarray::Array< int, 2, 1 > const&);
+    template ndarray::Array< size_t, 2, 1 > getIndices(ndarray::Array< long, 2, 1 > const&);
+    template ndarray::Array< size_t, 2, 1 > getIndices(ndarray::Array< float, 2, 1 > const&);
+    template ndarray::Array< size_t, 2, 1 > getIndices(ndarray::Array< double, 2, 1 > const&);
 
     template ndarray::Array<size_t, 1, 1> getIndicesInValueRange(ndarray::Array<size_t, 1, 1> const&, size_t const, size_t const);
     template ndarray::Array<size_t, 1, 1> getIndicesInValueRange(ndarray::Array<int, 1, 1> const&, int const, int const);

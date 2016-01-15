@@ -886,7 +886,7 @@ namespace pfs{ namespace drp{ namespace stella{
       auto itZFit = this->_zFit.begin();
       int iControlPoint = 0;
       for ( auto itZIn = this->_dataPointsZ.begin(); itZIn != this->_dataPointsZ.end(); ++itZIn, ++itZFit ){
-        this->_chiSquare += ( *itZIn - *itZFit ) * ( *itZIn - *itZFit ) / fabs(*itZIn);
+        this->_chiSquare += ( *itZIn - *itZFit ) * ( *itZIn - *itZFit ) / std::fabs(*itZIn);
         #ifdef __DEBUG_CALC_TPS__
           std::cout << "cThinPlateSplineChiSquare::alculateCoefficients: iControlPoint = " << iControlPoint << ": _chiSquare = " << this->_chiSquare << std::endl;
         #endif

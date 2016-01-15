@@ -850,7 +850,7 @@ namespace pfsDRPStella = pfs::drp::stella;
     for (int iSwath = 0; iSwath < nSwaths - 1; iSwath++){
       for (int i_row = 0; i_row < nPixArr[iSwath]; i_row++){
         D_RowSum = ndarray::sum(ndarray::Array<double, 1, 0>(slitFuncsSwaths[ndarray::view(i_row)()(iSwath)]));
-        if (fabs(D_RowSum) > 0.00000000000000001){
+        if (std::fabs(D_RowSum) > 0.00000000000000001){
           for (int iPix = 0; iPix < slitFuncsSwaths.getShape()[1]; iPix++){
             slitFuncsSwaths[i_row][iPix][iSwath] = slitFuncsSwaths[i_row][iPix][iSwath] / D_RowSum;
           }
@@ -864,7 +864,7 @@ namespace pfsDRPStella = pfs::drp::stella;
     }
     for (int i_row = 0; i_row < nPixArr[nPixArr.getShape()[0]-1]; i_row++){
       D_RowSum = ndarray::sum(lastSlitFuncSwath[ndarray::view(i_row)()]);
-      if (fabs(D_RowSum) > 0.00000000000000001){
+      if (std::fabs(D_RowSum) > 0.00000000000000001){
         lastSlitFuncSwath[ndarray::view(i_row)()] = lastSlitFuncSwath[ndarray::view(i_row)()] / D_RowSum;
         #ifdef __DEBUG_CALCPROFILE__
           cout << "lastSlitFuncSwath(" << i_row << ", *) = " << lastSlitFuncSwath[ndarray::view(i_row)()] << endl;
@@ -935,7 +935,7 @@ namespace pfsDRPStella = pfs::drp::stella;
           cout << "FiberTrace" << _iTrace << "::calcProfile: i_row = " << i_row << ": I_Bin = " << I_Bin << ": dSumSFRow = " << dSumSFRow << endl;
           cout << "FiberTrace" << _iTrace << "::calcProfile: i_row = " << i_row << ": I_Bin = " << I_Bin << ": _profile->getArray().getShape() = " << _profile->getArray().getShape() << endl;
         #endif
-        if (fabs(dSumSFRow) >= 0.000001){
+        if (std::fabs(dSumSFRow) >= 0.000001){
           #ifdef __DEBUG_CALCPROFILE__
             cout << "FiberTrace" << _iTrace << "::calcProfile: i_row = " << i_row << ": I_Bin = " << I_Bin << ": normalizing _profile.getArray()[i_row = " << i_row << ", *]" << endl;
           #endif
@@ -1339,7 +1339,7 @@ namespace pfsDRPStella = pfs::drp::stella;
         throw LSST_EXCEPT(pexExcept::Exception, message.c_str());    
       }
       *iter_xVecSorted = D_Y(0);
-      I_A1_Where = blitz::where(fabs(D_A1_xVec - D_A1_xVec(I_A1_Uniq(i))) < 0.000001, 1, 0);
+      I_A1_Where = blitz::where(std::fabs(D_A1_xVec - D_A1_xVec(I_A1_Uniq(i))) < 0.000001, 1, 0);
       P_I_A1_Where = ::pfs::drp::stella::math::GetIndex(I_A1_Where, count);
       if (!::pfs::drp::stella::math::GetSubArrCopy(D_A1_yVec, *P_I_A1_Where, D_A1_SubArr)){
         string message("FiberTrace");
@@ -3164,7 +3164,7 @@ namespace pfsDRPStella = pfs::drp::stella;
               cout << "identify: V_GaussSpec = " << V_GaussSpec << endl;
             #endif
             for( auto itMeasErr = V_MeasureErrors.begin(), itGaussSpec = V_GaussSpec.begin(); itMeasErr != V_MeasureErrors.end(); ++itMeasErr, ++itGaussSpec )
-              *itMeasErr = sqrt( fabs( *itGaussSpec ) );
+              *itMeasErr = sqrt( std::fabs( *itGaussSpec ) );
             #ifdef __DEBUG_FITS_IDENTIFY__
               cout << "identify: V_MeasureErrors = " << V_MeasureErrors << endl;
             #endif
@@ -3189,9 +3189,9 @@ namespace pfsDRPStella = pfs::drp::stella;
             D_A1_Guess[ 1 ] = *max_element( V_GaussSpec.begin(), V_GaussSpec.end() ) - D_A1_Guess(0);
             D_A1_Guess[ 2 ] = V_X[ 0 ] + ( V_X[ V_X.size() - 1 ] - V_X[ 0 ] ) / 2.;
             D_A1_Guess[ 3 ] = fwhm;
-            D_A2_Limits[ 0 ][ 1 ] = fabs( 1.5 * D_A1_Guess[ 0 ] );
+            D_A2_Limits[ 0 ][ 1 ] = std::fabs( 1.5 * D_A1_Guess[ 0 ] );
             D_A2_Limits[ 1 ][ 0 ] = 0.;
-            D_A2_Limits[ 1 ][ 1 ] = fabs( 1.5 * D_A1_Guess[ 1 ] );
+            D_A2_Limits[ 1 ][ 1 ] = std::fabs( 1.5 * D_A1_Guess[ 1 ] );
             D_A2_Limits[ 2 ][ 0 ] = V_X[ 1 ];
             D_A2_Limits[ 2 ][ 1 ] = V_X[ V_X.size() - 2 ];
             D_A2_Limits[ 3 ][ 0 ] = D_A1_Guess[ 3 ] / 3.;
@@ -3216,13 +3216,13 @@ namespace pfsDRPStella = pfs::drp::stella;
               #ifdef __DEBUG_FITS_IDENTIFY__
                 cout << "identify: i_line = " << i_line << ": D_A1_GaussCoeffs = " << D_A1_GaussCoeffs << endl;
               #endif
-              if ( fabs( double( I_MaxPos ) - D_A1_GaussCoeffs[ 2 ] ) < 2.5 ){//D_FWHM_In){
+              if ( std::fabs( double( I_MaxPos ) - D_A1_GaussCoeffs[ 2 ] ) < 2.5 ){//D_FWHM_In){
                 D_A1_GaussPos[ i_line ] = D_A1_GaussCoeffs[ 2 ];
                 #ifdef __DEBUG_FITS_IDENTIFY__
                   cout << "identify: D_A1_GaussPos[" << i_line << "] = " << D_A1_GaussPos[ i_line ] << endl;
                 #endif
                 if ( i_line > 0 ){
-                  if ( fabs( D_A1_GaussPos[ i_line ] - D_A1_GaussPos[ i_line - 1 ] ) < 1.5 ){/// wrong line identified!
+                  if ( std::fabs( D_A1_GaussPos[ i_line ] - D_A1_GaussPos[ i_line - 1 ] ) < 1.5 ){/// wrong line identified!
                     if ( lineList.getShape()[ 1 ] > 2 ){
                       if ( lineList[ i_line ][ 2 ] < lineList[ i_line - 1 ][ 2 ] ){
                         cout << "identify: WARNING: i_line=" << i_line << ": line " << i_line << " at " << D_A1_GaussPos[ i_line ] << " has probably been misidentified (D_A1_GaussPos(" << i_line-1 << ")=" << D_A1_GaussPos[ i_line - 1 ] << ") => removing line from line list" << endl;

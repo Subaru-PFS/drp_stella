@@ -11,7 +11,7 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
     #endif
     ndarray::Array<T, 1, 1> xNew;
     /// shift and rescale x_In to fit into range [-1.,1.]
-    if ((fabs(xRangeMin_In + 1.) > 0.00000001) || (fabs(xRangeMax_In - 1.) > 0.00000001)){
+    if ((std::fabs(xRangeMin_In + 1.) > 0.00000001) || (std::fabs(xRangeMax_In - 1.) > 0.00000001)){
       ndarray::Array<T, 1, 1> xRange = ndarray::allocate(2);
       xRange[0] = xRangeMin_In;
       xRange[1] = xRangeMax_In;
@@ -225,7 +225,7 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
     }
     ndarray::Array<T, 1, 1> xNew;
     /// shift and rescale x_In to fit into range [-1.,1.]
-    if ((fabs(xRange[0] + 1.) > 0.00000001) || (fabs(xRange[1] - 1.) > 0.00000001)){
+    if ((std::fabs(xRange[0] + 1.) > 0.00000001) || (std::fabs(xRange[1] - 1.) > 0.00000001)){
       xNew = pfs::drp::stella::math::convertRangeToUnity(D_A1_X_In, xRange);
     }
     else{
@@ -317,7 +317,7 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
         B_Run = true;
       else{
         for (int i_pos=0; i_pos < *P_I_NRejected; i_pos++){
-          if (fabs((*P_I_A1_Rejected)[i_pos] - I_A1_Rejected_Old[i_pos]) > 0.0001)
+          if (std::fabs((*P_I_A1_Rejected)[i_pos] - I_A1_Rejected_Old[i_pos]) > 0.0001)
             B_Run = true;
         }
       }
@@ -1708,7 +1708,7 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
         for (i=0; i < I_MaskSum; i++)
         {
           /// ... with weights
-          if (fabs(D_A1_Sig(i)) < 0.00000000000000001){
+          if (std::fabs(D_A1_Sig(i)) < 0.00000000000000001){
             cout << "CFits::LinFitBevington: I_Run=" << I_Run << ": i = " << i << ": ERROR: D_A1_Sig = " << D_A1_Sig << endl;
             string message("CFits::LinFitBevington: I_Run=");
             message += to_string(I_Run) + ": i = " + to_string(i) + ": ERROR: D_A1_Sig(" + to_string(i) + ") == 0.";
@@ -1791,7 +1791,7 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
       #ifdef __DEBUG_FIT__
         cout << "CFits::LinFitBevington: I_Run=" << I_Run << ": D_Sky_Out set to " << D_Sky_Out << endl;
         cout << "CFits::LinFitBevington: I_Run=" << I_Run << ": D_SP_Out set to " << D_SP_Out << endl;
-        cout << "CFits::LinFitBevington: I_Run=" << I_Run << ": fabs(D_SP_Out) = " << fabs(D_SP_Out) << endl;
+        cout << "CFits::LinFitBevington: I_Run=" << I_Run << ": std::fabs(D_SP_Out) = " << std::fabs(D_SP_Out) << endl;
       #endif
 
       *P_D_A1_YFit = D_Sky_Out + D_SP_Out * D_A1_SF_In.template cast<ImageT>();
@@ -1849,7 +1849,7 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
         if (I_MaskSum > 2)
           *P_D_Q_Out = pfs::drp::stella::math::GammQ(0.5 * (I_MaskSum - 2), 0.5 * (*P_D_ChiSqr_Out));
       }
-      if (fabs(D_SP_Out) < 0.000001)
+      if (std::fabs(D_SP_Out) < 0.000001)
         B_Reject = false;
       if (!B_Reject)
         B_Run = false;
@@ -2234,7 +2234,7 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
         for (i=0; i < I_MaskSum; i++)
         {
           /// ... with weights
-          if (fabs(D_A1_Sig[i]) < 0.00000000000000001){
+          if (std::fabs(D_A1_Sig[i]) < 0.00000000000000001){
             cout << "CFits::LinFitBevington: I_Run=" << I_Run << ": i = " << i << ": ERROR: D_A1_Sig = " << D_A1_Sig << endl;
             string message("CFits::LinFitBevington: I_Run=");
             message += to_string(I_Run) + ": i = " + to_string(i) + ": ERROR: D_A1_Sig(" + to_string(i) + ") == 0.";
@@ -2317,7 +2317,7 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
       #ifdef __DEBUG_FIT__
         cout << "CFits::LinFitBevington: I_Run=" << I_Run << ": D_Sky_Out set to " << D_Sky_Out << endl;
         cout << "CFits::LinFitBevington: I_Run=" << I_Run << ": D_SP_Out set to " << D_SP_Out << endl;
-        cout << "CFits::LinFitBevington: I_Run=" << I_Run << ": fabs(D_SP_Out) = " << fabs(D_SP_Out) << endl;
+        cout << "CFits::LinFitBevington: I_Run=" << I_Run << ": std::fabs(D_SP_Out) = " << std::fabs(D_SP_Out) << endl;
       #endif
 
       P_D_A1_YFit->deep() = D_Sky_Out + D_SP_Out * D_A1_SF_In;//.template cast<ImageT>();
@@ -2375,7 +2375,7 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
         if (I_MaskSum > 2)
           *P_D_Q_Out = pfs::drp::stella::math::GammQ(0.5 * (I_MaskSum - 2), 0.5 * (*P_D_ChiSqr_Out));
       }
-      if (fabs(D_SP_Out) < 0.000001)
+      if (std::fabs(D_SP_Out) < 0.000001)
         B_Reject = false;
       if (!B_Reject)
         B_Run = false;
@@ -2495,7 +2495,7 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
         ++ap;
         del *= x/ap;
         d_sum += del;
-        if (fabs(del) < fabs(d_sum) * 3.e-7){
+        if (std::fabs(del) < std::fabs(d_sum) * 3.e-7){
           D_Gamser_Out = d_sum * exp(-x+a*log(x) - D_GLn_Out);
           #ifdef __DEBUG_LINFIT__
             cout << "CFits::GSER: x>0: D_Gamser_Out = " << D_Gamser_Out << endl;
@@ -2597,13 +2597,13 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
       #ifdef __DEBUG_FIT__
         cout << "CFits::GCF: n = " << n << ": d set to " << d << endl;
       #endif
-      if (fabs(d) < FPMIN)
+      if (std::fabs(d) < FPMIN)
         d = FPMIN;
       c = b + an / c;
       #ifdef __DEBUG_FIT__
         cout << "CFits::GCF: n = " << n << ": c set to " << c << endl;
       #endif
-      if (fabs(c) < FPMIN)
+      if (std::fabs(c) < FPMIN)
         c = FPMIN;
       d = 1. / d;
       #ifdef __DEBUG_FIT__
@@ -2615,7 +2615,7 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
       #endif
 
       h *= del;
-      if (fabs(del-1.) < EPS)
+      if (std::fabs(del-1.) < EPS)
         break;
     }
     if (n > ITMAX){

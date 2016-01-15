@@ -126,10 +126,10 @@ namespace pfs{ namespace drp{ namespace stella{
       cout << "PSF trace" << _iTrace << " bin" << _iBin << "::extractPSFs: stddevSwath = " << stddevSwath << endl;
 
       int i, j;
-      if ( fabs( stddevSwath.asEigen().maxCoeff( &i, &j ) ) < 0.000001 ){
-        double D_MaxStdDev = fabs( stddevSwath[ i ][ j ] );
+      if ( std::fabs( stddevSwath.asEigen().maxCoeff( &i, &j ) ) < 0.000001 ){
+        double D_MaxStdDev = std::fabs( stddevSwath[ i ][ j ] );
         string message("PSF trace");
-        message += to_string(_iTrace) + " bin" + to_string( _iBin ) + "::extractPSFs: ERROR: fabs(max(stddevSwath))=" + to_string( D_MaxStdDev ) + " < 0.000001";
+        message += to_string(_iTrace) + " bin" + to_string( _iBin ) + "::extractPSFs: ERROR: std::fabs(max(stddevSwath))=" + to_string( D_MaxStdDev ) + " < 0.000001";
         cout << message << endl;
         throw LSST_EXCEPT( pexExcept::Exception, message.c_str() );
       }
@@ -319,7 +319,7 @@ namespace pfs{ namespace drp{ namespace stella{
         }
         ndarray::Array< double, 1, 1 > stdDevGaussFit = ndarray::allocate( firstWideSignalSwathEnd - firstWideSignalSwathStart + 1 );
         for ( int ooo = 0; ooo < firstWideSignalSwathEnd - firstWideSignalSwathStart + 1; ++ooo ){
-          if (fabs(spectrumSigmaSwath(firstWideSignalSwathStart + ooo)) < 0.1)
+          if (std::fabs(spectrumSigmaSwath(firstWideSignalSwathStart + ooo)) < 0.1)
             stdDevGaussFit[ ooo ] = 0.1;
           else
             stdDevGaussFit[ ooo ] = spectrumSigmaSwath( firstWideSignalSwathStart + ooo );
@@ -708,7 +708,7 @@ namespace pfs{ namespace drp{ namespace stella{
             result_Out.yRelativeToCenter.push_back( T( dY + double( yMinRel + iY ) ) );
             result_Out.zNormalized.push_back( T( fiberTrace_In.getImage()->getArray()[ rowTrace ][ colTrace ] ) );
             result_Out.zTrace.push_back( T( fiberTrace_In.getImage()->getArray()[ rowTrace ][ colTrace ] ) );
-            result_Out.weight.push_back( fabs( fiberTrace_In.getImage()->getArray()[ rowTrace ][ colTrace ]) > 0.000001 ? T( 1. / sqrt( fabs( fiberTrace_In.getImage()->getArray()[ rowTrace ][ colTrace ] ) ) ) : 0.1 );//fiberTrace_In(i_Down+iY, i_Left+iX) > 0 ? sqrt(fiberTrace_In(i_Down+iY, i_Left+iX)) : 0.0000000001);//stddevSwath(i_Down+iY, i_Left+iX) > 0. ? 1./pow(stddevSwath(i_Down+iY, i_Left+iX),2) : 1.);
+            result_Out.weight.push_back( std::fabs( fiberTrace_In.getImage()->getArray()[ rowTrace ][ colTrace ]) > 0.000001 ? T( 1. / sqrt( std::fabs( fiberTrace_In.getImage()->getArray()[ rowTrace ][ colTrace ] ) ) ) : 0.1 );//fiberTrace_In(i_Down+iY, i_Left+iX) > 0 ? sqrt(fiberTrace_In(i_Down+iY, i_Left+iX)) : 0.0000000001);//stddevSwath(i_Down+iY, i_Left+iX) > 0. ? 1./pow(stddevSwath(i_Down+iY, i_Left+iX),2) : 1.);
             result_Out.xTrace.push_back( T ( colTrace ) );
             result_Out.yTrace.push_back( T ( rowTrace ) );
             #ifdef __DEBUG_CALC2DPSF__
@@ -727,7 +727,7 @@ namespace pfs{ namespace drp{ namespace stella{
         result_Out.xCenterPSFCCD = T( centerPositionXCCD_In );
         result_Out.yCenterPSFCCD = T( centerPositionYCCD_In );
 //        _nPixPerPSF.push_back(nPixPSF);
-        if ( fabs( sumPSF ) < 0.00000001 ){
+        if ( std::fabs( sumPSF ) < 0.00000001 ){
           string message("PSF::extractPSFs: ERROR: sumPSF == 0");
           cout << message << endl;
           throw LSST_EXCEPT( pexExcept::Exception, message.c_str() );
@@ -1997,12 +1997,12 @@ namespace pfs{ namespace drp{ namespace stella{
           #ifdef __DEBUG_COMPARECENTERPOSITIONS__
             cout << "pfs::drp::stella::math::compareCenterPositions: spot number " << iPSF << ": xPSF = " << xPSF << ", xPosititions[" << iList << "] = " << xPositions[iList] << ": dX = " << dX << endl;
           #endif
-          if (fabs(dX) < dXMax){
+          if (std::fabs(dX) < dXMax){
             dY = yPositions[iList] - yPSF;
             #ifdef __DEBUG_COMPARECENTERPOSITIONS__
               cout << "pfs::drp::stella::math::compareCenterPositions: spot number " << iPSF << " yPosititions[" << iList << "] = " << yPositions[iList] << ": dY = " << dY << endl;
             #endif
-            if (fabs(dY) < dYMax){
+            if (std::fabs(dY) < dYMax){
               dR = sqrt(pow(dX, 2) + pow(dY, 2));
               dXdYdR_Out[iPSF][0] = dX;
               dXdYdR_Out[iPSF][1] = dY;

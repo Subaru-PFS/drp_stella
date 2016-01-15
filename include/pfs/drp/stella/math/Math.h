@@ -276,10 +276,12 @@ namespace pfs { namespace drp { namespace stella {
     std::vector< size_t > getIndices( std::vector< T > const& vec_In );
 
     /*
-     * @brief: Return vector of indices where vec_In == 1
+     * @brief: Return vector of indices where arr_In == 1
      */
     template<typename T>
     ndarray::Array< size_t, 1, 1 > getIndices( ndarray::Array< T, 1, 1 > const& arr_In );
+    template<typename T>
+    ndarray::Array< size_t, 2, 1 > getIndices( ndarray::Array< T, 2, 1 > const& arr_In );
 
     /*
      * @brief: Returns array to copies of specified elements of arr_In
@@ -473,52 +475,32 @@ namespace pfs { namespace drp { namespace stella {
                   T & D_Out);
     
     template< typename T, typename U >
-    ndarray::Array< U, 1, 1 > whereLt( ndarray::Array< T, 1, 1 > const& arrayToCompareTo,
-                                       T const valueToCompareTo, 
-                                       U const valueIfArrayValueLowerThanValueToCompareTo,
-                                       U const valueIfArrayValueGreaterOrEqualToValueToCopareTo );
+    ndarray::Array< U, 1, 1 > where( ndarray::Array< T, 1, 1 > const& arrayToCompareTo,
+                                     std::string const& op,
+                                     T const valueToCompareTo, 
+                                     U const valueIfTrue,
+                                     U const valueIfFalse );
     
     template< typename T, typename U >
-    ndarray::Array< U, 1, 1 > whereLt( ndarray::Array< T, 1, 1 > const& arrayToCompareTo,
-                                       T const valueToCompareTo, 
-                                       U const valueIfArrayValueLowerThanValueToCompareTo,
-                                       ndarray::Array< U, 1, 1 > const& valuesIfArrayValueGreaterOrEqualToValueToCopareTo );
+    ndarray::Array< U, 2, 1 > where( ndarray::Array< T, 2, 1 > const& arrayToCompareTo,
+                                     std::string const& op,
+                                     T const valueToCompareTo, 
+                                     U const valueIfTrue,
+                                     U const valueIfFalse );
     
     template< typename T, typename U >
-    ndarray::Array< U, 1, 1 > whereLe( ndarray::Array< T, 1, 1 > const& arrayToCompareTo,
-                                       T const valueToCompareTo, 
-                                       U const valueIfArrayValueLowerOrEqualToValueToCompareTo,
-                                       U const valueIfArrayValueGreaterThanValueToCopareTo );
+    ndarray::Array< U, 1, 1 > where( ndarray::Array< T, 1, 1 > const& arrayToCompareTo,
+                                     std::string const& op,
+                                     T const valueToCompareTo, 
+                                     U const valueIfTrue,
+                                     ndarray::Array< U, 1, 1 > const& valuesIfFalse );
     
     template< typename T, typename U >
-    ndarray::Array< U, 1, 1 > whereLe( ndarray::Array< T, 1, 1 > const& arrayToCompareTo,
-                                       T const valueToCompareTo, 
-                                       U const valueIfArrayValueLowerOrEqualToValueToCompareTo,
-                                       ndarray::Array< U, 1, 1 > const& valuesIfArrayValueGreaterThanValueToCopareTo );
-    
-    template< typename T, typename U >
-    ndarray::Array< U, 1, 1 > whereGt( ndarray::Array< T, 1, 1 > const& arrayToCompareTo,
-                                       T const valueToCompareTo, 
-                                       U const valueIfArrayValueGreaterThanValueToCompareTo,
-                                       U const valueIfArrayValueLessOrEqualToValueToCopareTo );
-    
-    template< typename T, typename U >
-    ndarray::Array< U, 1, 1 > whereGt( ndarray::Array< T, 1, 1 > const& arrayToCompareTo,
-                                       T const valueToCompareTo, 
-                                       U const valueIfArrayValueGreaterThanValueToCompareTo,
-                                       ndarray::Array< U, 1, 1 > const& valuesIfArrayValueLessOrEqualToValueToCopareTo );
-    
-    template< typename T, typename U >
-    ndarray::Array< U, 1, 1 > whereGe( ndarray::Array< T, 1, 1 > const& arrayToCompareTo,
-                                       T const valueToCompareTo, 
-                                       U const valueIfArrayValueGreaterOrEqualToValueToCompareTo,
-                                       U const valueIfArrayValueLessThanValueToCopareTo );
-    
-    template< typename T, typename U >
-    ndarray::Array< U, 1, 1 > whereGe( ndarray::Array< T, 1, 1 > const& arrayToCompareTo,
-                                       T const valueToCompareTo, 
-                                       U const valueIfArrayValueGreaterOrEqualToValueToCompareTo,
-                                       ndarray::Array< U, 1, 1 > const& valuesIfArrayValueLessThanValueToCopareTo );
+    ndarray::Array< U, 2, 1 > where( ndarray::Array< T, 2, 1 > const& arrayToCompareTo,
+                                     std::string const& op,
+                                     T const valueToCompareTo, 
+                                     U const valueIfTrue,
+                                     ndarray::Array< U, 2, 1 > const& valuesIfFalse );
     
     /**
       Spline
@@ -725,6 +707,26 @@ namespace pfs { namespace drp { namespace stella {
                                                                   int const stretchMinLength,
                                                                   int const stretchMaxLength,
                                                                   int const nStretches );
+    
+    template< typename T >
+    ndarray::Array< T, 2, 1 > stretchAndCrossCorrelateSpec( ndarray::Array< T, 1, 1 > const& spec,
+                                                            ndarray::Array< T, 1, 1 > const& specRef,
+                                                            ndarray::Array< T, 2, 1 > const& lineList_WLenPix,
+                                                            int const radiusXCor,
+                                                            int const stretchMinLength,
+                                                            int const stretchMaxLength,
+                                                            int const nStretches,
+                                                            int const lengthPieces,
+                                                            int const nCalcs );
+    
+    template< typename T > 
+    double median( ndarray::Array< T, 1, 1 > const& vec );
+    
+    template< typename T >
+    ndarray::Array< T, 1, 1 > fabs( ndarray::Array< T, 1, 1 > const& arr );
+
+    template< typename T >
+    ndarray::Array< T, 2, 1 > fabs( ndarray::Array< T, 2, 1 > const& arr );
     
 //    template< typename T >
 //    ndarray::Array< T, 2, 1 > get2DArray(ndarray::Array< T, 1, 1 > const& xIn, ndarray::Array< T, 1, 1 > const& yIn);
