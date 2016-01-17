@@ -1988,7 +1988,7 @@ namespace pfsDRPStella = pfs::drp::stella;
 //            #ifdef __DEBUG_FINDANDTRACE__
 //              cout << "i_Col == 0: ccdArray[i_Row][i_Col] = " << ccdArray[i_Row][i_Col] << endl;
 //            #endif
-            if (ccdArray[i_Row][i_Col] > 0.){
+            if (ccdArray[i_Row][i_Col] > fiberTraceFunctionFindingControl->signalThreshold){
               I_A1_Signal[i_Col] = 1;
             }
             else{
@@ -1999,7 +1999,7 @@ namespace pfsDRPStella = pfs::drp::stella;
 //            #ifdef __DEBUG_FINDANDTRACE__
 //              cout << "i_Col = " << i_Col << ": ccdArray[" << i_Row << "][" << i_Col << "] = " << ccdArray[i_Row][i_Col] << ", I_A1_Signal[" << i_Col-1 << "] = " << I_A1_Signal[i_Col - 1] << endl;
 //            #endif
-            if (ccdArray[i_Row][i_Col] > 0.){
+            if (ccdArray[i_Row][i_Col] > fiberTraceFunctionFindingControl->signalThreshold){
               if (I_A1_Signal[i_Col - 1] > 0){
                 I_A1_Signal[i_Col] = I_A1_Signal[i_Col - 1] + 1;
 //                #ifdef __DEBUG_FINDANDTRACE__

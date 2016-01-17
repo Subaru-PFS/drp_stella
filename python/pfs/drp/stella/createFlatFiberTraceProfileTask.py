@@ -111,13 +111,12 @@ class CreateFlatFiberTraceProfileTask(Task):
         """Calculate spatial profile"""
         inFiberTraceSet.setFiberTraceProfileFittingControl(fiberTraceProfileFittingControl)
         if inTraceNumbers[0] == -1 :
-            spectrumSet = inFiberTraceSet.calcProfileAllTraces()
+            inFiberTraceSet.calcProfileAllTraces()
         else :
-            spectrumSet = drpStella.SpectrumSetF()
+#            spectrumSet = drpStella.SpectrumSetF()
             for i in inTraceNumbers :
-                spectrum = inFiberTraceSet.getFiberTrace(i).calcProfile()
-                spectrumSet.addSpectrum(spectrum)
-        return spectrumSet
+                inFiberTraceSet.getFiberTrace(i).calcProfile()
+        return inFiberTraceSet
 
     def run(self, inFiberTraceSet, inTraceNumbers=[-1]):
         """Calculate spatial profile and extract FiberTrace number inTraceNumber to 1D
