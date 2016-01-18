@@ -132,7 +132,7 @@ class FiberTrace {
     /// Return _fiberTraceProfileFittingControl
     PTR(FiberTraceProfileFittingControl) getFiberTraceProfileFittingControl() const { return _fiberTraceProfileFittingControl; }
 
-    /// Set the _fiberTraceProfileFittingControl
+    /// Set the _dispCorControl
     bool setFiberTraceProfileFittingControl( PTR( FiberTraceProfileFittingControl ) const& fiberTraceProfileFittingControl);// { _fiberTraceProfileFittingControl = fiberTraceProfileFittingControl; }
     bool setFiberTraceProfileFittingControl( PTR( const FiberTraceProfileFittingControl ) const& fiberTraceProfileFittingControl);// { _fiberTraceProfileFittingControl = fiberTraceProfileFittingControl; }
     
@@ -351,47 +351,22 @@ namespace math{
                                                  size_t const& ccdHeightIn = 0,
                                                  size_t const& ccdWidthIn = 0);
 
-  typedef struct IdentifyResult{
-      ndarray::Array< double, 1, 1 > coeffs;
-      double rms;
-  };
-  
-  /**
-    * Identify
-    * Identifies calibration lines, given in D_A2_LineList_In the format [wlen, approx_pixel] in
-    * wavelength-calibration spectrum D_A2_Spec_In [pixel_number, flux]
-    * within the given position plus/minus I_Radius_In,
-    * fits Gaussians to each line, fits Polynomial of order I_PolyFitOrder_In, and
-    * returns calibrated spectrum D_A2_CalibratedSpec_Out in the format
-    * [WLen, flux] and PolyFit coefficients D_A1_PolyFitCoeffs_Out
-    * 
-    * If D_A2_LineList_In contains 3 columns, the 3rd column will be used to decide which line
-    * to keep in case a weak line close to a strong line gets wrongly identified as the strong
-    * line
-    **/
-  IdentifyResult Identify( ndarray::Array< double, 1, 1 > const& spec,
-                           ndarray::Array< double, 2, 1 > const& lineList,
-                           int radius,
-                           double fwhm,
-                           int order,
-                           std::string const& fName_In );
-   
-   /**
-    * @brief: extract a wide flatFiberTrace, fit profile, normalize, reduce width
-    * @param maskedImage: CCD image dithered Flat 
-    * @param fiberTraceFunction: FiberTraceFunction (wide) for dithered flat
-    * @param fiberTraceFunctionControl: FiberTraceFunctionControl (narrow) for output FiberTrace
-    * @param profileFittingControl: ProfileFittingControl for fitting the spatial profile of the dithered Flat
-    * @param minSNR: normalized pixel values with an SNR lower than minSNR are set to 1.
-    * @param iTrace: number of FiberTrace
-    */
-    template< typename ImageT, typename MaskT=afwImage::MaskPixel, typename VarianceT=afwImage::VariancePixel >
-    PTR(FiberTrace< ImageT, MaskT, VarianceT >) makeNormFlatFiberTrace( PTR( const afwImage::MaskedImage< ImageT, MaskT, VarianceT >) const& maskedImage,
-                                                                         PTR( const ::pfs::drp::stella::FiberTraceFunction ) const& fiberTraceFunctionWide,
-                                                                         PTR( const ::pfs::drp::stella::FiberTraceFunctionControl ) const& fiberTraceFunctionControlNarrow,
-                                                                         PTR( const ::pfs::drp::stella::FiberTraceProfileFittingControl ) const& fiberTraceProfileFittingControl,
-                                                                         ImageT minSNR = 100.,
-                                                                         size_t iTrace=0 );
+    /**
+     * @brief: extract a wide flatFiberTrace, fit profile, normalize, reduce width
+     * @param maskedImage: CCD image dithered Flat 
+     * @param fiberTraceFunction: FiberTraceFunction (wide) for dithered flat
+     * @param fiberTraceFunctionControl: FiberTraceFunctionControl (narrow) for output FiberTrace
+     * @param profileFittingControl: ProfileFittingControl for fitting the spatial profile of the dithered Flat
+     * @param minSNR: normalized pixel values with an SNR lower than minSNR are set to 1.
+     * @param iTrace: number of FiberTrace
+     */
+     template< typename ImageT, typename MaskT=afwImage::MaskPixel, typename VarianceT=afwImage::VariancePixel >
+     PTR(FiberTrace< ImageT, MaskT, VarianceT >) makeNormFlatFiberTrace( PTR( const afwImage::MaskedImage< ImageT, MaskT, VarianceT >) const& maskedImage,
+                                                                          PTR( const ::pfs::drp::stella::FiberTraceFunction ) const& fiberTraceFunctionWide,
+                                                                          PTR( const ::pfs::drp::stella::FiberTraceFunctionControl ) const& fiberTraceFunctionControlNarrow,
+                                                                          PTR( const ::pfs::drp::stella::FiberTraceProfileFittingControl ) const& fiberTraceProfileFittingControl,
+                                                                          ImageT minSNR = 100.,
+                                                                          size_t iTrace=0 );
 
 }
 

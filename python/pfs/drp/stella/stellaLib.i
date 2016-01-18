@@ -609,3 +609,4 @@ Interface to Stella
 %template(linFitBevingtonDF) pfs::drp::stella::math::LinFitBevingtonNdArray<double, float>;
 %template(linFitBevingtonFD) pfs::drp::stella::math::LinFitBevingtonNdArray<float, double>;
 %template(linFitBevingtonDD) pfs::drp::stella::math::LinFitBevingtonNdArray<double, double>;
+

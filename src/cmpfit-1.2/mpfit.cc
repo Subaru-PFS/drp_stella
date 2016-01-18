@@ -384,6 +384,9 @@ int mpfit(mp_func funct, int m, int npar,
   }
   if (nfree == 0) {
     info = MP_ERR_NFREE;
+    #ifdef __DEBUG_MPFIT__
+      std::cout << "mpfit: info = MP_ERR_NFREE = " << info << std::endl;
+    #endif
     goto CLEANUP;
   }
 
@@ -392,11 +395,17 @@ int mpfit(mp_func funct, int m, int npar,
       if ( (pars[i].limited[0] && (xall[i] < pars[i].limits[0])) ||
 	   (pars[i].limited[1] && (xall[i] > pars[i].limits[1])) ) {
 	info = MP_ERR_INITBOUNDS;
+        #ifdef __DEBUG_MPFIT__
+          std::cout << "mpfit: info = MP_ERR_INITBOUNDS = " << info << std::endl;
+        #endif
 	goto CLEANUP;
       }
       if ( (pars[i].fixed == 0) && pars[i].limited[0] && pars[i].limited[1] &&
 	   (pars[i].limits[0] >= pars[i].limits[1])) {
 	info = MP_ERR_BOUNDS;
+        #ifdef __DEBUG_MPFIT__
+          std::cout << "mpfit: info = MP_ERR_BOUNDS = " << info << std::endl;
+        #endif
 	goto CLEANUP;
       }
     }
@@ -420,12 +429,18 @@ int mpfit(mp_func funct, int m, int npar,
       (conf.gtol <= 0) || (conf.maxiter < 0) ||
       (conf.stepfactor <= 0)) {
     info = MP_ERR_PARAM;
+    #ifdef __DEBUG_MPFIT__
+      std::cout << "mpfit: info = MP_ERR_PARAM = " << info << std::endl;
+    #endif
     goto CLEANUP;
   }
 
   /* Ensure there are some degrees of freedom */
   if (m < nfree) {
     info = MP_ERR_DOF;
+    #ifdef __DEBUG_MPFIT__
+      std::cout << "mpfit: info = MP_ERR_DOF = " << info << std::endl;
+    #endif
     goto CLEANUP;
   }
 
@@ -632,6 +647,9 @@ int mpfit(mp_func funct, int m, int npar,
 
     if (nonfinite) {
       info = MP_ERR_NAN;
+      #ifdef __DEBUG_MPFIT__
+        std::cout << "mpfit: info = MP_ERR_NAN = " << info << std::endl;
+      #endif
       goto CLEANUP;
     }
   }
@@ -664,7 +682,12 @@ int mpfit(mp_func funct, int m, int npar,
   /*
    *	 test for convergence of the gradient norm.
    */
-  if (gnorm <= conf.gtol) info = MP_OK_DIR;
+  if (gnorm <= conf.gtol){
+    info = MP_OK_DIR;
+    #ifdef __DEBUG_MPFIT__
+      std::cout << "mpfit: info = MP_OK_DIR = " << info << std::endl;
+    #endif
+  }
   if (info != 0) goto L300;
   if (conf.maxiter == 0) goto L300;
 
@@ -892,13 +915,22 @@ int mpfit(mp_func funct, int m, int npar,
   if ((fabs(actred) <= conf.ftol) && (prered <= conf.ftol) &&
       (p5*ratio <= one) ) {
     info = MP_OK_CHI;
+    #ifdef __DEBUG_MPFIT__
+      std::cout << "mpfit: info = MP_OK_CHI = " << info << std::endl;
+    #endif
   }
   if (delta <= conf.xtol*xnorm) {
     info = MP_OK_PAR;
+    #ifdef __DEBUG_MPFIT__
+      std::cout << "mpfit: info = MP_OK_PAR = " << info << std::endl;
+    #endif
   }
   if ((fabs(actred) <= conf.ftol) && (prered <= conf.ftol) && (p5*ratio <= one)
       && ( info == 2) ) {
     info = MP_OK_BOTH;
+    #ifdef __DEBUG_MPFIT__
+      std::cout << "mpfit: info = MP_OK_BOTH = " << info << std::endl;
+    #endif
   }
   if (info != 0) {
     goto L300;
@@ -910,19 +942,34 @@ int mpfit(mp_func funct, int m, int npar,
   if ((conf.maxfev > 0) && (nfev >= conf.maxfev)) {
     /* Too many function evaluations */
     info = MP_MAXITER;
+    #ifdef __DEBUG_MPFIT__
+      std::cout << "mpfit: a info = MP_MAXITER = " << info << std::endl;
+    #endif
   }
   if (iter >= conf.maxiter) {
     /* Too many iterations */
     info = MP_MAXITER;
+    #ifdef __DEBUG_MPFIT__
+      std::cout << "mpfit: b info = MP_MAXITER = " << info << std::endl;
+    #endif
   }
   if ((fabs(actred) <= MP_MACHEP0) && (prered <= MP_MACHEP0) && (p5*ratio <= one) ) {
     info = MP_FTOL;
+    #ifdef __DEBUG_MPFIT__
+      std::cout << "mpfit: info = MP_FTOL = " << info << std::endl;
+    #endif
   }
   if (delta <= MP_MACHEP0*xnorm) {
     info = MP_XTOL;
+    #ifdef __DEBUG_MPFIT__
+      std::cout << "mpfit: info = MP_XTOL = " << info << std::endl;
+    #endif
   }
   if (gnorm <= MP_MACHEP0) {
     info = MP_GTOL;
+    #ifdef __DEBUG_MPFIT__
+      std::cout << "mpfit: info = MP_GTOL = " << info << std::endl;
+    #endif
   }
   if (info != 0) {
     goto L300;
@@ -943,6 +990,9 @@ int mpfit(mp_func funct, int m, int npar,
    */
   if (iflag < 0) {
     info = iflag;
+    #ifdef __DEBUG_MPFIT__
+      std::cout << "mpfit: info = iflag = " << info << std::endl;
+    #endif
   }
   iflag = 0;
 

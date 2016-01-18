@@ -476,5 +476,36 @@ struct TPSControl {
       return ptr;
     }
 };
+
+struct DispCorControl {
+    enum {  POLYNOMIAL=0, CHEBYSHEV, NVALUES_P } FITTING_FUNCTION;/// Profile interpolation method
+    std::vector<std::string> PROFILE_INTERPOLATION_NAMES = { stringify( POLYNOMIAL ),
+                                                             stringify( CHEBYSHEV ) };
+    LSST_CONTROL_FIELD( fittingFunction, std::string, "Function for fitting the dispersion" );
+    LSST_CONTROL_FIELD( order, int, "Fitting function order" );
+    LSST_CONTROL_FIELD( searchRadius, int, "Radius in pixels relative to line list to search for emission line peak" );
+    LSST_CONTROL_FIELD( fwhm, float, "FWHM of emission lines" );
+
+    DispCorControl() :
+        fittingFunction( "POLYNOMIAL" ),
+        order( 5 ),
+        searchRadius( 2 ),
+        fwhm( 2.6 )
+        {}
+
+    DispCorControl( const DispCorControl &dispCorControl ) :
+        fittingFunction( dispCorControl.fittingFunction ),
+        order( dispCorControl.order ),
+        searchRadius( dispCorControl.searchRadius ),
+        fwhm( dispCorControl.fwhm )
+        {}
+        
+    ~DispCorControl() {}
+    
+    PTR( DispCorControl ) getPointer(){
+      PTR( DispCorControl ) ptr( new DispCorControl( *this ) );
+      return ptr;
+    }
+};
 }}}
 #endif

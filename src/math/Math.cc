@@ -1034,6 +1034,8 @@
       #ifdef __DEBUG_XCOR__
         cout << "pfs::drp::stella::math::xCor: chiSquareArr = " << chiSquareArr << endl;
       #endif
+      cout << " check guess, limits, and output: 0: peak, 1: pos, 2: sigma, 3: background" << endl;
+      exit(EXIT_FAILURE);
       D_A1_Guess[3] = max(chiSquareArr);///Peak
       D_A1_Guess[0] = 0. - D_A1_Guess[3] + min(chiSquareArr);///Centroid
       D_A1_Guess[1] = 0.;///Sigma
@@ -1552,19 +1554,14 @@
       D_A1_ChiSqu = DA1_ChiSquare[ ndarray::view( I_Start, I_End ) ];
       ndarray::Array< double, 1, 1 > P_D_A1_MeasureErrors = replicate(1., D_A1_ChiSqu.size());
       ndarray::Array< double, 1, 1 > D_A1_Guess = ndarray::allocate( 4 );
-      D_A1_Guess[ 0 ] = max( DA1_ChiSquare );
-      D_A1_Guess[ 1 ] = 0. - ( max( DA1_ChiSquare ) - DA1_ChiSquare[ minInd ] );
-      D_A1_Guess[ 2 ] = double( minInd );
-      D_A1_Guess[ 3 ] = 2.;
+      cout << "check guess, limits, output for 0: peak, 1: position, 2: sigma, 3: background" << endl;
+      exit(EXIT_FAILURE);
+      D_A1_Guess[ 0 ] = max( DA1_ChiSquare );//peak
+      D_A1_Guess[ 1 ] = 0. - ( max( DA1_ChiSquare ) - DA1_ChiSquare[ minInd ] );///pos
+      D_A1_Guess[ 2 ] = double( minInd );///sigma
+      D_A1_Guess[ 3 ] = 2.;///background
       ndarray::Array< int, 2, 1 > I_A2_Limited = ndarray::allocate( ndarray::makeVector( 4, 2 ) );
-      I_A2_Limited[ ndarray::makeVector( 0, 0 ) ] = 1;
-      I_A2_Limited[ ndarray::makeVector( 0, 1 ) ] = 1;
-      I_A2_Limited[ ndarray::makeVector( 1, 0 ) ] = 1;
-      I_A2_Limited[ ndarray::makeVector( 1, 1 ) ] = 1;
-      I_A2_Limited[ ndarray::makeVector( 2, 0 ) ] = 1;
-      I_A2_Limited[ ndarray::makeVector( 2, 1 ) ] = 1;
-      I_A2_Limited[ ndarray::makeVector( 3, 0 ) ] = 1;
-      I_A2_Limited[ ndarray::makeVector( 3, 1 ) ] = 1;
+      I_A2_Limited.deep() = 1;
       ndarray::Array< double, 2, 1 > D_A2_Limits = ndarray::allocate( ndarray::makeVector( 4, 2 ) );
       D_A2_Limits[ ndarray::makeVector( 0, 0 ) ] = D_A1_Guess[ 0 ] / 2.;
       D_A2_Limits[ ndarray::makeVector( 0, 1 ) ] = D_A1_Guess[ 0 ] * 1.1;

@@ -14,8 +14,11 @@
 #include "math/Math.h"
 #include "math/CurveFitting.h"
 #include "utils/Utils.h"
+#include "Controls.h"
 
 #define stringify( name ) # name
+
+//#define __DEBUG_IDENTIFY__
 
 namespace afwGeom = lsst::afw::geom;
 namespace afwImage = lsst::afw::image;
@@ -86,6 +89,28 @@ class Spectrum {
     size_t getITrace() const {return _iTrace;}
     void setITrace(size_t iTrace){_iTrace = iTrace;}
     
+    ndarray::Array< double, 1, 1 > getDispCoeffs( ) const { return _dispCoeffs; };
+    double getDispRms( ) const { return _dispRms; };
+
+    /// Return _dispCorControl
+    PTR(DispCorControl) getDispCorControl() const { return _dispCorControl; }
+  
+    /**
+      * Identify
+      * Identifies calibration lines, given in D_A2_LineList_In the format [wlen, approx_pixel] in
+      * wavelength-calibration spectrum D_A2_Spec_In [pixel_number, flux]
+      * within the given position plus/minus I_Radius_In,
+      * fits Gaussians to each line, fits Polynomial of order I_PolyFitOrder_In, and
+      * returns calibrated spectrum D_A2_CalibratedSpec_Out in the format
+      * [WLen, flux] and PolyFit coefficients D_A1_PolyFitCoeffs_Out
+      * 
+      * If D_A2_LineList_In contains 3 columns, the 3rd column will be used to decide which line
+      * to keep in case a weak line close to a strong line gets wrongly identified as the strong
+      * line
+      **/
+    bool identify( ndarray::Array< double, 2, 1 > const& lineList,
+                   DispCorControl const& dispCorControl );
+    
     bool isWavelengthSet() const {return _isWavelengthSet;}
 //    void setIsWavelengthSet(bool isWavelengthSet) {_isWavelengthSet = isWavelengthSet;}
     
@@ -98,7 +123,10 @@ class Spectrum {
     ndarray::Array<VarianceT, 1, 1> _variance;
     ndarray::Array<WavelengthT, 1, 1> _wavelength;
     size_t _iTrace;/// for logging / debugging purposes only
+    ndarray::Array< double, 1, 1 > _dispCoeffs;
+    double _dispRms;
     bool _isWavelengthSet;
+    PTR(DispCorControl) _dispCorControl;
 
   protected:
 };
@@ -155,6 +183,9 @@ class SpectrumSet {
     PTR(std::vector<PTR(Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>)>) _spectra; // spectra for each aperture
 };
 
+namespace math{
+
+}
 
 namespace utils{
   

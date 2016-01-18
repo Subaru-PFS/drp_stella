@@ -22,12 +22,15 @@
 /* This is a C library.  Allow compilation with a C++ compiler */
 #ifdef __cplusplus
 #include <vector>
+#include <iostream>
 extern "C" {
 #endif
 
 /* MPFIT version string */
 #define MPFIT_VERSION "1.2"
 //#define __DEBUG_MPFIT__
+
+using namespace std;
     
 /* Definition of a parameter constraint structure */
 struct mp_par_struct {
