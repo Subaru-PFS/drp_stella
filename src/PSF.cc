@@ -127,7 +127,7 @@ namespace pfs{ namespace drp{ namespace stella{
 
       int i, j;
       if ( std::fabs( stddevSwath.asEigen().maxCoeff( &i, &j ) ) < 0.000001 ){
-        double D_MaxStdDev = std::fabs( stddevSwath[ i ][ j ] );
+        double D_MaxStdDev = std::fabs( stddevSwath[ ndarray::makeVector( i, j ) ] );
         string message("PSF trace");
         message += to_string(_iTrace) + " bin" + to_string( _iBin ) + "::extractPSFs: ERROR: std::fabs(max(stddevSwath))=" + to_string( D_MaxStdDev ) + " < 0.000001";
         cout << message << endl;
@@ -236,14 +236,14 @@ namespace pfs{ namespace drp{ namespace stella{
     /// 2: sigma
     /// 3: constant background
     /// 4: linear background
-    D_A2_Limits[0][0] = _twoDPSFControl->signalThreshold;
-    D_A2_Limits[2][0] = _twoDPSFControl->yFWHM / ( 2. * 2.3548 );
-    D_A2_Limits[2][1] = _twoDPSFControl->yFWHM;
+    D_A2_Limits[ ndarray::makeVector( 0, 0 ) ] = _twoDPSFControl->signalThreshold;
+    D_A2_Limits[ ndarray::makeVector( 2, 0 ) ] = _twoDPSFControl->yFWHM / ( 2. * 2.3548 );
+    D_A2_Limits[ ndarray::makeVector( 2, 1 ) ] = _twoDPSFControl->yFWHM;
     if ( _twoDPSFControl->nTermsGaussFit > 3 )
-      D_A2_Limits[3][0] = 0.;
+      D_A2_Limits[ ndarray::makeVector( 3, 0 ) ] = 0.;
     if ( _twoDPSFControl->nTermsGaussFit > 4 ){
-      D_A2_Limits[4][0] = 0.;
-      D_A2_Limits[4][1] = 1000.;
+      D_A2_Limits[ ndarray::makeVector( 4, 0 ) ] = 0.;
+      D_A2_Limits[ ndarray::makeVector( 4, 1 ) ] = 1000.;
     }
     ndarray::Array< double, 1, 1 > D_A1_GaussFit_Coeffs = ndarray::allocate( _twoDPSFControl->nTermsGaussFit );
     ndarray::Array< double, 1, 1 > D_A1_GaussFit_ECoeffs = ndarray::allocate( _twoDPSFControl->nTermsGaussFit );
@@ -294,11 +294,11 @@ namespace pfs{ namespace drp{ namespace stella{
       #endif
 
       if ( math::max( ndarray::Array< double, 1, 1 >( spectrumSwath[ ndarray::view( firstWideSignalSwathStart, firstWideSignalSwathEnd + 1 ) ] ) ) < _twoDPSFControl->saturationLevel ){
-        D_A2_Limits[ 0 ][ 1 ] = 1.5 * math::max( ndarray::Array< double, 1, 1 >( spectrumSwath[ ndarray::view( firstWideSignalSwathStart, firstWideSignalSwathEnd + 1 ) ] ) );
-        D_A2_Limits[ 1 ][ 0 ] = firstWideSignalSwathStart;
-        D_A2_Limits[ 1 ][ 1 ] = firstWideSignalSwathEnd;
+        D_A2_Limits[ ndarray::makeVector( 0, 1 )  ] = 1.5 * math::max( ndarray::Array< double, 1, 1 >( spectrumSwath[ ndarray::view( firstWideSignalSwathStart, firstWideSignalSwathEnd + 1 ) ] ) );
+        D_A2_Limits[ ndarray::makeVector( 1, 0 ) ] = firstWideSignalSwathStart;
+        D_A2_Limits[ ndarray::makeVector( 1, 1 ) ] = firstWideSignalSwathEnd;
         if ( _twoDPSFControl->nTermsGaussFit > 3 )
-          D_A2_Limits[ 3 ][ 1 ] = math::min( ndarray::Array< double, 1, 1 >( spectrumSwath[ ndarray::view( firstWideSignalSwathStart, firstWideSignalSwathEnd + 1 ) ] ) );
+          D_A2_Limits[ ndarray::makeVector( 3, 1 ) ] = math::min( ndarray::Array< double, 1, 1 >( spectrumSwath[ ndarray::view( firstWideSignalSwathStart, firstWideSignalSwathEnd + 1 ) ] ) );
 
         D_A1_Guess[ 0 ] = math::max( ndarray::Array< double, 1, 1 >( spectrumSwath[ ndarray::view( firstWideSignalSwathStart, firstWideSignalSwathEnd + 1 ) ] ) );
         D_A1_Guess[ 1 ] = firstWideSignalSwathStart + ( math::maxIndex( ndarray::Array< double, 1, 1 >( spectrumSwath[ ndarray::view( firstWideSignalSwathStart, firstWideSignalSwathEnd + 1 ) ] ) ) );
@@ -373,13 +373,13 @@ namespace pfs{ namespace drp{ namespace stella{
           #ifdef __DEBUG_CALC2DPSF__
             cout << "PSF trace" << _iTrace << " bin" << _iBin << "::extractPSFs: while: indexRelToCenter = " << indexRelToCenter << endl;
           #endif
-          if ( indexRelToCenter[ indexRelToCenter.getShape()[ 0 ]-1 ][ 0 ] < spectrumSwath.getShape()[ 0 ] ){
-            cout << "PSF trace" << _iTrace << " bin " << _iBin << "::extractPSFs: emissionLineNumber-1=" << emissionLineNumber-1 << ": indexRelToCenter[indexRelToCenter.getShape()[0]=" << indexRelToCenter.getShape()[0] << "][0](=" << indexRelToCenter[indexRelToCenter.getShape()[0]][0] << " < spectrumSwath.getShape()[0] = " << spectrumSwath.getShape()[0] << endl;
+          if ( indexRelToCenter[ ndarray::makeVector( indexRelToCenter.getShape()[ 0 ] - 1, 0 ) ] < spectrumSwath.getShape()[ 0 ] ){
+            cout << "PSF trace" << _iTrace << " bin " << _iBin << "::extractPSFs: emissionLineNumber-1=" << emissionLineNumber-1 << ": indexRelToCenter[indexRelToCenter.getShape()[0]=" << indexRelToCenter.getShape()[0] << "][0](=" << indexRelToCenter[ ndarray::makeVector( indexRelToCenter.getShape()[ 0 ], 0 ) ] << " < spectrumSwath.getShape()[0] = " << spectrumSwath.getShape()[0] << endl;
             ndarray::Array< double, 2, 1 > arrA = ndarray::allocate( indexRelToCenter.getShape()[ 0 ], 2 );
             arrA[ ndarray::view()( 0 )].deep() = indexRelToCenter[ ndarray::view()( 1 ) ];
             ndarray::Array< size_t, 1, 1 > indVec = ndarray::allocate( indexRelToCenter.getShape()[ 0 ] );
             for (int iInd = 0; iInd < indexRelToCenter.getShape()[ 0 ]; ++iInd)
-              indVec[ iInd ] = size_t( indexRelToCenter[ iInd ][ 0 ] );
+              indVec[ iInd ] = size_t( indexRelToCenter[ ndarray::makeVector( iInd, 0 ) ] );
             #ifdef __DEBUG_CALC2DPSF__
               cout << "PSF trace" << _iTrace << " bin" << _iBin << "::extractPSFs: while: indVec = " << indVec << endl; 
               cout << "PSF trace" << _iTrace << " bin" << _iBin << "::extractPSFs: while: spectrumSwath = " << spectrumSwath.getShape() << ": " << spectrumSwath << endl;
@@ -421,7 +421,7 @@ namespace pfs{ namespace drp{ namespace stella{
             #endif
           }
           else{
-            cout << "PSF trace" << _iTrace << " bin " << _iBin << "::extractPSFs: emissionLineNumber-1=" << emissionLineNumber - 1 << ": WARNING indexRelToCenter[indexRelToCenter.getShape()[0]][0](=" << indexRelToCenter[indexRelToCenter.getShape()[0]][0] << " >= spectrumSwath.getShape()[0] = " << spectrumSwath.getShape()[0] << endl;
+            cout << "PSF trace" << _iTrace << " bin " << _iBin << "::extractPSFs: emissionLineNumber-1=" << emissionLineNumber - 1 << ": WARNING indexRelToCenter[indexRelToCenter.getShape()[0]][0](=" << indexRelToCenter[ ndarray::makeVector( indexRelToCenter.getShape()[0], 0 ) ] << " >= spectrumSwath.getShape()[0] = " << spectrumSwath.getShape()[0] << endl;
             success = false;
           }
         }
@@ -665,10 +665,10 @@ namespace pfs{ namespace drp{ namespace stella{
           dX = 0.5 - xCenterOffset;
 
           /// most left pixel of FiberTrace affected by PSF of (emissionLineNumber-1) in this row
-          i_Left = int( minCenMax[ i_Down + iY ][ 1 ] - minCenMax[ i_Down + iY ][ 0 ] + xCenterOffset - ( 2. * _twoDPSFControl->xFWHM ) );
+          i_Left = int( minCenMax[ ndarray::makeVector( i_Down + iY, 1 ) ] - minCenMax[ ndarray::makeVector( i_Down + iY, 0 ) ] + xCenterOffset - ( 2. * _twoDPSFControl->xFWHM ) );
 
           /// most right pixel affected by PSF of (emissionLineNumber-1) in this row
-          i_Right = int( minCenMax[ i_Down + iY ][ 1 ] - minCenMax[ i_Down + iY ][ 0 ] + xCenterOffset + ( 2. * _twoDPSFControl->xFWHM ) );
+          i_Right = int( minCenMax[ ndarray::makeVector( i_Down + iY, 1 ) ] - minCenMax[ ndarray::makeVector( i_Down + iY, 0 ) ] + xCenterOffset + ( 2. * _twoDPSFControl->xFWHM ) );
           #ifdef __DEBUG_CALC2DPSF__
             cout << "PSF::extractPSFFromCenterPosition: i_Left = " << i_Left << ", i_Right = " << i_Right << endl;
           #endif
@@ -690,7 +690,7 @@ namespace pfs{ namespace drp{ namespace stella{
 //                  #endif*/
           int rowSwath = i_Down + iY;
           int rowTrace = rowSwath + _yMin;
-          int xMinRel = minCenMax[ rowSwath ][ 0 ] - minCenMax[ rowSwath ][ 1 ];
+          int xMinRel = minCenMax[ ndarray::makeVector( rowSwath, 0 ) ] - minCenMax[ ndarray::makeVector( rowSwath, 1 ) ];
           #ifdef __DEBUG_CALC2DPSF__
             cout << "PSF::extractPSFFromCenterPosition: rowSwath = " << rowSwath << endl;
             cout << "PSF::extractPSFFromCenterPosition: rowTrace = " << rowTrace << endl;
@@ -702,21 +702,21 @@ namespace pfs{ namespace drp{ namespace stella{
             #ifdef __DEBUG_CALC2DPSF__
               cout << "PSF::extractPSFFromCenterPosition: xCentersFromInputCenterCCD[" << iY << "] = " << xCentersFromInputCenterCCD[iY] << ", xCentersSwath[" << iY << "] = " << xCentersSwath[iY] << endl;
               cout << "PSF::extractPSFFromCenterPosition: iX = " << iX << ": iY = " << iY << endl;
-              cout << "PSF::extractPSFFromCenterPosition: fiberTrace_In.getImage().getArray()[i_Down + iY = " << i_Down + iY << "][i_Left + iX = " << i_Left + iX << "] = " << fiberTrace_In.getImage()->getArray()[i_Down + iY][i_Left + iX] << endl;
+              cout << "PSF::extractPSFFromCenterPosition: fiberTrace_In.getImage().getArray()[i_Down + iY = " << i_Down + iY << "][i_Left + iX = " << i_Left + iX << "] = " << fiberTrace_In.getImage()->getArray()[ndarray::makeVector(i_Down + iY, i_Left + iX ) ] << endl;
             #endif
             result_Out.xRelativeToCenter.push_back( T( dX + double( xMinRel + iX ) ) );
             result_Out.yRelativeToCenter.push_back( T( dY + double( yMinRel + iY ) ) );
-            result_Out.zNormalized.push_back( T( fiberTrace_In.getImage()->getArray()[ rowTrace ][ colTrace ] ) );
-            result_Out.zTrace.push_back( T( fiberTrace_In.getImage()->getArray()[ rowTrace ][ colTrace ] ) );
-            result_Out.weight.push_back( std::fabs( fiberTrace_In.getImage()->getArray()[ rowTrace ][ colTrace ]) > 0.000001 ? T( 1. / sqrt( std::fabs( fiberTrace_In.getImage()->getArray()[ rowTrace ][ colTrace ] ) ) ) : 0.1 );//fiberTrace_In(i_Down+iY, i_Left+iX) > 0 ? sqrt(fiberTrace_In(i_Down+iY, i_Left+iX)) : 0.0000000001);//stddevSwath(i_Down+iY, i_Left+iX) > 0. ? 1./pow(stddevSwath(i_Down+iY, i_Left+iX),2) : 1.);
+            result_Out.zNormalized.push_back( T( fiberTrace_In.getImage()->getArray()[ ndarray::makeVector( rowTrace, colTrace ) ] ) );
+            result_Out.zTrace.push_back( T( fiberTrace_In.getImage()->getArray()[ ndarray::makeVector( rowTrace, colTrace ) ] ) );
+            result_Out.weight.push_back( std::fabs( fiberTrace_In.getImage()->getArray()[ ndarray::makeVector( rowTrace, colTrace ) ] ) > 0.000001 ? T( 1. / sqrt( std::fabs( fiberTrace_In.getImage()->getArray()[ ndarray::makeVector( rowTrace, colTrace ) ] ) ) ) : 0.1 );//fiberTrace_In(i_Down+iY, i_Left+iX) > 0 ? sqrt(fiberTrace_In(i_Down+iY, i_Left+iX)) : 0.0000000001);//stddevSwath(i_Down+iY, i_Left+iX) > 0. ? 1./pow(stddevSwath(i_Down+iY, i_Left+iX),2) : 1.);
             result_Out.xTrace.push_back( T ( colTrace ) );
             result_Out.yTrace.push_back( T ( rowTrace ) );
             #ifdef __DEBUG_CALC2DPSF__
-              cout << "PSF::extractPSFFromCenterPosition: x = " << _imagePSF_XRelativeToCenter[ nPix ] << ", y = " << _imagePSF_YRelativeToCenter[nPix] << ": val = " << fiberTrace_In.getImage()->getArray()[i_Down + iY][i_Left + iX] << " = " << _imagePSF_ZNormalized[nPix] << "; XOrig = " << _imagePSF_XTrace[nPix] << ", YOrig = " << _imagePSF_YTrace[nPix] << endl;
+              cout << "PSF::extractPSFFromCenterPosition: x = " << _imagePSF_XRelativeToCenter[ nPix ] << ", y = " << _imagePSF_YRelativeToCenter[nPix] << ": val = " << fiberTrace_In.getImage()->getArray()[ ndarray::makeVector( i_Down + iY, i_Left + iX ) ] << " = " << _imagePSF_ZNormalized[nPix] << "; XOrig = " << _imagePSF_XTrace[nPix] << ", YOrig = " << _imagePSF_YTrace[nPix] << endl;
             #endif
             ++nPix;
             ++nPixPSF;
-            sumPSF += fiberTrace_In.getImage()->getArray()[ rowTrace ][ colTrace ];
+            sumPSF += fiberTrace_In.getImage()->getArray()[ ndarray::makeVector( rowTrace, colTrace ) ];
             #ifdef __DEBUG_CALC2DPSF__
               cout << "PSF::extractPSFFromCenterPosition: nPixPSF = " << nPixPSF << ", sumPSF = " << sumPSF << endl;
             #endif
@@ -913,7 +913,7 @@ namespace pfs{ namespace drp{ namespace stella{
                                                       false );
     std::vector< T > zVec( _imagePSF_XRelativeToCenter.size() );
     for (int i = 0; i < _imagePSF_XRelativeToCenter.size(); ++i)
-      zVec[ i ] = T( zFitArr[ i ][ 0 ] );
+      zVec[ i ] = T( zFitArr[ ndarray::makeVector( i, 0 ) ] );
     #ifdef __DEBUG_PSF__
       cout << "PSF::reconstructFromThinPlateSplineFit(regularization) finished" << endl;
     #endif
@@ -1104,7 +1104,7 @@ namespace pfs{ namespace drp{ namespace stella{
                                                       false );
     std::vector< T > zVec( _imagePSF_XRelativeToCenter.size() );
     for ( int i = 0; i < _imagePSF_XRelativeToCenter.size(); ++i )
-      zVec[ i ] = zFitArr[ i ][ 0 ];
+      zVec[ i ] = zFitArr[ ndarray::makeVector( i, 0 ) ];
     #ifdef __DEBUG_PFS_RECONSTRUCTPFSFROMFIT__
       cout << "PFS::reconstructPFSFromFit: zVec set to " << zVec << endl;
     #endif
@@ -1188,7 +1188,7 @@ namespace pfs{ namespace drp{ namespace stella{
                                                       false );
     std::vector< T > zVec( _imagePSF_XRelativeToCenter.size() );
     for ( int i = 0; i < _imagePSF_XRelativeToCenter.size(); ++i )
-      zVec[ i ] = zFitArr[ i ][ 0 ];
+      zVec[ i ] = zFitArr[ ndarray::makeVector( i, 0 ) ];
     #ifdef __DEBUG_PFS_RECONSTRUCTPFSFROMFIT__
       cout << "PFS::reconstructPFSFromFit: zVec set to " << zVec << endl;
     #endif
@@ -1399,10 +1399,10 @@ namespace pfs{ namespace drp{ namespace stella{
       #endif
       int swathWidth = twoDPSFControl.swathWidth;
       ndarray::Array<size_t, 2, 1> binBoundY = fiberTrace.calcSwathBoundY(swathWidth);
-      if (binBoundY[binBoundY.getShape()[0]-1][1] != fiberTrace.getHeight()-1){
+      if ( binBoundY[ ndarray::makeVector( binBoundY.getShape()[0]-1, 1 ) ] != fiberTrace.getHeight()-1){
         string message("calculate2dPSFPerBin: FiberTrace");
         message += to_string(fiberTrace.getITrace()) + ": ERROR: binBoundY[binBoundY.getShape()[0]-1=";
-        message += to_string(binBoundY.getShape()[0]-1) + "][1] = " + to_string(binBoundY[binBoundY.getShape()[0]-1][1]) + "!= fiberTrace.getHeight()-1 = ";
+        message += to_string(binBoundY.getShape()[0]-1) + "][1] = " + to_string( binBoundY[ ndarray::makeVector( binBoundY.getShape()[0]-1, 1 ) ] ) + "!= fiberTrace.getHeight()-1 = ";
         message += to_string(fiberTrace.getHeight()-1);
         cout << message << endl;
         throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
@@ -1416,26 +1416,26 @@ namespace pfs{ namespace drp{ namespace stella{
       for (int iBin = 0; iBin < binBoundY.getShape()[0]; ++iBin){
         cout << "binBoundY = " << binBoundY << endl;
         /// start calculate2dPSF for bin iBin
-        if (binBoundY[iBin][1] >= fiberTrace.getHeight()){
+        if ( binBoundY[ ndarray::makeVector( iBin, 1 ) ] >= fiberTrace.getHeight()){
           string message("calculate2dPSFPerBin: FiberTrace");
           message += to_string(fiberTrace.getITrace()) + ": iBin " + to_string(iBin) + ": ERROR: binBoundY[" + to_string(iBin) + "][1]=";
-          message += to_string(binBoundY[iBin][1]) + " >= fiberTrace.getHeight()=" + to_string(fiberTrace.getHeight());
+          message += to_string( binBoundY[ ndarray::makeVector( iBin, 1 ) ] ) + " >= fiberTrace.getHeight()=" + to_string(fiberTrace.getHeight());
           cout << message << endl;
           throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
         }
         #ifdef __DEBUG_CALC2DPSF__
-          cout << "calculate2dPSFPerBin: FiberTrace" << fiberTrace.getITrace() << ": calculating PSF for iBin " << iBin << ": binBoundY[" << iBin << "][0] = " << binBoundY[iBin][0] << ", binBoundY[" << iBin << "][1] = " << binBoundY[iBin][1] << endl;
+          cout << "calculate2dPSFPerBin: FiberTrace" << fiberTrace.getITrace() << ": calculating PSF for iBin " << iBin << ": binBoundY[" << iBin << "][0] = " << binBoundY[ ndarray::makeVector( iBin, 0 ) ] << ", binBoundY[" << iBin << "][1] = " << binBoundY[ndarray::makeVector( iBin, 1 ) ] << endl;
         #endif
         PTR(TwoDPSFControl) pTwoDPSFControl(new TwoDPSFControl(twoDPSFControl));
-        PTR(PSF< PsfT >) psf(new PSF< PsfT >((unsigned int)(binBoundY[iBin][0]),
-                                             (unsigned int)(binBoundY[iBin][1]),
+        PTR(PSF< PsfT >) psf(new PSF< PsfT >((unsigned int)(binBoundY[ ndarray::makeVector( iBin, 0 ) ] ),
+                                             (unsigned int)(binBoundY[ ndarray::makeVector( iBin, 1 ) ] ),
                                              pTwoDPSFControl,
                                              fiberTrace.getITrace(),
                                              iBin));
-        if (psf->getYHigh() != binBoundY[iBin][1]){
+        if (psf->getYHigh() != binBoundY[ ndarray::makeVector( iBin, 1 ) ] ){
           string message("calculate2dPSFPerBin: FiberTrace");
           message += to_string(fiberTrace.getITrace()) + ": iBin " + to_string(iBin) + ": ERROR: psf->getYHigh(=";
-          message += to_string(psf->getYHigh()) + ") != binBoundY[" + to_string(iBin) + "][1]=" + to_string(binBoundY[iBin][1]);
+          message += to_string(psf->getYHigh()) + ") != binBoundY[" + to_string(iBin) + "][1]=" + to_string(binBoundY[ ndarray::makeVector( iBin, 1 ) ] );
           cout << message << endl;
           throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
         }
@@ -1876,7 +1876,7 @@ namespace pfs{ namespace drp{ namespace stella{
         else{
           tempVec.deep() = zArr_In[ndarray::view()(iPos)];
         }
-        collapsedPSF[iPos][1] = tempVec.asEigen().array().sum();
+        collapsedPSF[ ndarray::makeVector( iPos, 1 ) ] = tempVec.asEigen().array().sum();
       }
       #ifdef __DEBUG_PSF__
         cout << "psfMath::collapseFittedPSF(xGridVec, yGridVec, zArr, direction) finished" << endl;
@@ -1940,10 +1940,10 @@ namespace pfs{ namespace drp{ namespace stella{
         cout << "PSF::math::calcPositionsRelativeToCenter: dCenter = " << dCenter << endl;
       #endif
       for (int iPos = 0; iPos <= high - low; ++iPos){
-        arr_Out[iPos][0] = T(low + iPos);
-        arr_Out[iPos][1] = arr_Out[iPos][0] - T(std::floor(centerPos_In)) + dCenter;
+        arr_Out[ ndarray::makeVector( iPos, 0 ) ] = T(low + iPos);
+        arr_Out[ ndarray::makeVector( iPos, 1 ) ] = arr_Out[ ndarray::makeVector( iPos, 0 ) ] - T(std::floor(centerPos_In)) + dCenter;
         #ifdef __DEBUG_CPRTC__
-          cout << "PSF::math::calcPositionsRelativeToCenter: arr_Out[" << iPos << "][0] = " << arr_Out[iPos][0] << ", arr_Out[" << iPos << "][1] = " << arr_Out[iPos][1] << endl;
+          cout << "PSF::math::calcPositionsRelativeToCenter: arr_Out[" << iPos << "][0] = " << arr_Out[ndarray::makeVector( iPos, 0 ) ] << ", arr_Out[" << iPos << "][1] = " << arr_Out[ndarray::makeVector( iPos, 1 ) ] << endl;
         #endif
       }
       #ifdef __DEBUG_CPRTC__
@@ -2004,9 +2004,9 @@ namespace pfs{ namespace drp{ namespace stella{
             #endif
             if (std::fabs(dY) < dYMax){
               dR = sqrt(pow(dX, 2) + pow(dY, 2));
-              dXdYdR_Out[iPSF][0] = dX;
-              dXdYdR_Out[iPSF][1] = dY;
-              dXdYdR_Out[iPSF][2] = dR;
+              dXdYdR_Out[ ndarray::makeVector( int( iPSF ), 0 ) ] = dX;
+              dXdYdR_Out[ ndarray::makeVector( int( iPSF ), 1 ) ] = dY;
+              dXdYdR_Out[ ndarray::makeVector( int( iPSF ), 2 ) ] = dR;
               found = true;
               if (setPsfXY){
                 xCenters_Out.push_back(xPositions[iList]);

@@ -3423,7 +3423,7 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
 
     for (  i = 0; i < m; i++ )
     {
-      v[i][1] = x[i];
+      v[ ndarray::makeVector( i, 1 ) ] = x[i];
 //      v[i+1*m] = x[i];
     }
 
@@ -3431,7 +3431,7 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
     {
       for ( i = 0; i < m; i++ )
       {
-        v[i][j] = 2.0 * x[i] * v[i][j-1] - v[i][j-2];
+        v[ ndarray::makeVector( i, j ) ] = 2.0 * x[i] * v[ ndarray::makeVector( i, j-1 ) ] - v[ ndarray::makeVector( i, j-2 ) ];
 //        v[i+j*m] = 2.0 * x[i] * v[i+(j-1)*m] - v[i+(j-2)*m];
       }
     }

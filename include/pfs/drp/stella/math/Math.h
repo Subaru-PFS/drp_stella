@@ -24,6 +24,11 @@
 //#define __DEBUG_INDGEN__
 //#define __DEBUG_SORT__
 //#define __DEBUG_XCOR__
+//#define __DEBUG_INTERPOL__
+//#define __DEBUG_STRETCH__
+//#define __DEBUG_STRETCHANDCROSSCORRELATE__
+//#define __DEBUG_CROSSCORRELATE__
+//#define __DEBUG_WHERE__
 
 /// constants
 #define CONST_PI 3.141592653589793238462643383280    /* pi */
@@ -446,33 +451,32 @@ namespace pfs { namespace drp { namespace stella {
     template< typename T >
     T calcRMS( ndarray::Array< T, 1, 1 > const& arrIn );
     
+    struct CrossCorrelateResult{
+        double pixShift;
+        double chiSquare;
+    };
+    
     /**
       CrossCorrelate with Gauss fit to ChiSquare to find subpixel of minimum
      **/
     template< typename T >
-    bool crossCorrelate(ndarray::Array<T, 1, 1> const& DA1_Static,
-                        ndarray::Array<T, 1, 1> const& DA1_Moving,
-                        int const I_NPixMaxLeft,
-                        int const I_NPixMaxRight,
-                        double &D_Out,
-                        double &D_ChiSquare_Out);
-
+    CrossCorrelateResult crossCorrelate( ndarray::Array<T, 1, 1> const& DA1_Static,
+                                         ndarray::Array<T, 1, 1> const& DA1_Moving,
+                                         int const I_NPixMaxLeft,
+                                         int const I_NPixMaxRight );
+    
     /**
       CrossCorrelate
      **/
     template< typename T >
-    bool crossCorrelate( ndarray::Array< T, 1, 1 > const& DA1_Static,
-                         ndarray::Array< T, 1, 1 > const& DA1_Moving,
-                         int const I_NPixMaxLeft,
-                         int const I_NPixMaxRight,
-                         int &I_Out,
-                         double &D_ChiSquare_Out);
-
+    CrossCorrelateResult crossCorrelateI( ndarray::Array< T, 1, 1 > const& DA1_Static,
+                                          ndarray::Array< T, 1, 1 > const& DA1_Moving,
+                                          int const I_NPixMaxLeft,
+                                          int const I_NPixMaxRight );
     template< typename T >
-    bool lsToFit( ndarray::Array< T, 1, 1 > const& XXVecArr, 
+    T lsToFit( ndarray::Array< T, 1, 1 > const& XXVecArr, 
                   ndarray::Array< T, 1, 1 > const& YVecArr, 
-                  T const& XM, 
-                  T & D_Out);
+                  T const& XM );
     
     template< typename T, typename U >
     ndarray::Array< U, 1, 1 > where( ndarray::Array< T, 1, 1 > const& arrayToCompareTo,
@@ -527,19 +531,18 @@ namespace pfs { namespace drp { namespace stella {
                                        ndarray::Array< T, 1, 1 > const& YVecArr);
 
     template< typename T >
-    bool splInt( ndarray::Array< T, 1, 1 > const& XAVecArr, 
+    T splInt( ndarray::Array< T, 1, 1 > const& XAVecArr, 
                  ndarray::Array< T, 1, 1 > const& YAVecArr, 
                  ndarray::Array< T, 1, 1> const& Y2AVecArr, 
-                 T X,
-                 T & Y);
+                 T X );
 
     template< typename T >    
-    bool hInterPol( ndarray::Array< T, 1, 1 > const& VVecArr,
-                    ndarray::Array< T, 1, 1 > const& XVecArr,
-                    ndarray::Array< int, 1, 1 > & SVecArr,
-                    ndarray::Array< T, 1, 1 > const& UVecArr,
-                    std::vector< string > const& CS_A1_In,
-                    ndarray::Array< T, 1, 1 > & D1_Out);
+    ndarray::Array< T, 1, 1 > hInterPol( ndarray::Array< T, 1, 1 > const& VVecArr,
+                                         ndarray::Array< T, 1, 1 > const& XVecArr,
+                                         ndarray::Array< int, 1, 1 > & SVecArr,
+                                         ndarray::Array< T, 1, 1 > const& UVecArr,
+                                         std::vector< string > const& CS_A1_In);
+//                    ndarray::Array< T, 1, 1 > & D1_Out);
 
     /**
      ValueLocate
@@ -562,17 +565,15 @@ namespace pfs { namespace drp { namespace stella {
       InterPol linear, not regular
      **/
     template< typename T >
-    bool interPol( ndarray::Array< T, 1, 1 > const& VVecArr,
-                   ndarray::Array< T, 1, 1 > const& XVecArr,
-                   ndarray::Array< T, 1, 1 > const& UVecArr,
-                   ndarray::Array< T, 1, 1> & D_A1_Out );
+    ndarray::Array< T, 1, 1 > interPol( ndarray::Array< T, 1, 1 > const& VVecArr,
+                                        ndarray::Array< T, 1, 1 > const& XVecArr,
+                                        ndarray::Array< T, 1, 1 > const& UVecArr );
   
     template< typename T >
-    bool interPol( ndarray::Array< T, 1, 1 > const& VVecArr,
-                   ndarray::Array< T, 1, 1 > const& XVecArr,
-                   ndarray::Array< T, 1, 1 > const& UVecArr,
-                   ndarray::Array< T, 1, 1 > & D_A1_Out,
-                   bool B_PreserveFlux );
+    ndarray::Array< T, 1, 1 > interPol( ndarray::Array< T, 1, 1 > const& VVecArr,
+                                        ndarray::Array< T, 1, 1 > const& XVecArr,
+                                        ndarray::Array< T, 1, 1 > const& UVecArr,
+                                        bool B_PreserveFlux );
   
     /**
       InterPol irregular
@@ -687,11 +688,10 @@ namespace pfs { namespace drp { namespace stella {
       ;-
       ;**/
     template< typename T >
-    bool interPol( ndarray::Array< T, 1, 1 > const& VVecArr,
-                   ndarray::Array< T, 1, 1 > const& XVecArr,
-                   ndarray::Array< T, 1, 1 > const& UVecArr,
-                   std::vector< std::string > const& CS_A1_In,
-                   ndarray::Array< T, 1, 1 > & D_A1_Out );
+    ndarray::Array< T, 1, 1 > interPol( ndarray::Array< T, 1, 1 > const& VVecArr,
+                                        ndarray::Array< T, 1, 1 > const& XVecArr,
+                                        ndarray::Array< T, 1, 1 > const& UVecArr,
+                                        std::vector< std::string > const& CS_A1_In );
 
     template< typename T >
     struct StretchAndCrossCorrelateResult{
@@ -708,17 +708,6 @@ namespace pfs { namespace drp { namespace stella {
                                                                   int const stretchMaxLength,
                                                                   int const nStretches );
     
-    template< typename T >
-    ndarray::Array< T, 2, 1 > stretchAndCrossCorrelateSpec( ndarray::Array< T, 1, 1 > const& spec,
-                                                            ndarray::Array< T, 1, 1 > const& specRef,
-                                                            ndarray::Array< T, 2, 1 > const& lineList_WLenPix,
-                                                            int const radiusXCor,
-                                                            int const stretchMinLength,
-                                                            int const stretchMaxLength,
-                                                            int const nStretches,
-                                                            int const lengthPieces,
-                                                            int const nCalcs );
-    
     template< typename T > 
     double median( ndarray::Array< T, 1, 1 > const& vec );
     
@@ -727,6 +716,10 @@ namespace pfs { namespace drp { namespace stella {
 
     template< typename T >
     ndarray::Array< T, 2, 1 > fabs( ndarray::Array< T, 2, 1 > const& arr );
+    
+    template< typename T >
+    ndarray::Array< T, 1, 1 > stretch( ndarray::Array< T, 1, 1 > const& spec,
+                                       int newLength );
     
 //    template< typename T >
 //    ndarray::Array< T, 2, 1 > get2DArray(ndarray::Array< T, 1, 1 > const& xIn, ndarray::Array< T, 1, 1 > const& yIn);

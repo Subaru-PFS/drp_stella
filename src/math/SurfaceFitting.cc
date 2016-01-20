@@ -150,7 +150,7 @@ namespace pfs{ namespace drp{ namespace stella{
       coeffs_dot_mtxl.deep() = 0.;
       for (int i = 0; i < this->_knots.getShape()[ 0 ]; ++i){
         for (int j = 0; j < this->_knots.getShape()[ 0 ]; ++j)
-          coeffs_dot_mtxl[ i ] += this->_coefficients[ j ] * this->_matrix[ j ][ i ];
+          coeffs_dot_mtxl[ i ] += this->_coefficients[ j ] * this->_matrix[ ndarray::makeVector( j, i ) ];
       }  
       this->_bendingEnergy = 0.;
       for (int i = 0; i < this->_knots.getShape()[ 0 ]; ++i)
@@ -197,9 +197,9 @@ namespace pfs{ namespace drp{ namespace stella{
       #ifdef __DEBUG_TPS__
         cout << "ThinPlateSplineBase::addRegularizationToMatrix() started" << endl;
       #endif
-      for ( unsigned i = 0; i < this->_knots.getShape()[0]; ++i ){
+      for ( int i = 0; i < this->_knots.getShape()[0]; ++i ){
         // diagonal: reqularization parameters (lambda * a^2)
-        this->_matrix[ i ][ i ] = this->_tpsControl.regularization * ( this->_regularizationBase * this->_regularizationBase );
+        this->_matrix[ ndarray::makeVector( i, i ) ] = this->_tpsControl.regularization * ( this->_regularizationBase * this->_regularizationBase );
       }
       #ifdef __DEBUG_TPS__
         cout << "ThinPlateSpline::addRegularizationToMatrix() finished" << endl;
@@ -216,10 +216,10 @@ namespace pfs{ namespace drp{ namespace stella{
 //      cout << "8. * CONST_PI = " << 8. * CONST_PI << endl;
       for ( int i = 0; i < this->_knots.getShape()[0]; ++i ){
         if ( this->_dataPointsWeight[ i ] < 0.000000000000001 )
-          this->_matrix[ i ][ i ] = 0.;
+          this->_matrix[ ndarray::makeVector( i, i ) ] = 0.;
         else{
 //          mtx_l[i][i] = _regularizationBase / _dataPointsWeight[i];
-          this->_matrix[ i ][ i ] = 8. * CONST_PI / this->_dataPointsWeight[i];
+          this->_matrix[ ndarray::makeVector( i, i ) ] = 8. * CONST_PI / this->_dataPointsWeight[i];
         }
       }
       #ifdef __DEBUG_TPS__
@@ -249,9 +249,9 @@ namespace pfs{ namespace drp{ namespace stella{
       #endif
       ndarray::Array<CoordsT, 1, 1> pt_diff = ndarray::allocate( 2 );
       ValueT len;
-      for ( unsigned i = 0; i < p; ++i ){
-        pt_i[ 0 ] = this->_knots[ i ][ 0 ];
-        pt_i[ 1 ] = this->_knots[ i ][ 1 ];
+      for ( int i = 0; i < p; ++i ){
+        pt_i[ 0 ] = this->_knots[ ndarray::makeVector( i, 0 ) ];
+        pt_i[ 1 ] = this->_knots[ ndarray::makeVector( i, 1 ) ];
         #ifdef __DEBUG_TPS_FITPOINT__
           cout << "ThinPlateSplineBase::fitPoint: i=" << i << ": pt_i = [ " << pt_i[0] << ", " << pt_i[1] << "]" << endl;
         #endif
@@ -287,7 +287,7 @@ namespace pfs{ namespace drp{ namespace stella{
         arrOut = ndarray::allocate(yPositionsFit.getShape()[0], xPositionsFit.getShape()[0]);
         for ( int yPos = 0; yPos < yPositionsFit.size(); ++yPos ){
           for ( int xPos = 0; xPos < xPositionsFit.size(); ++xPos ){
-            arrOut[yPos][xPos] = fitPoint( xPositionsFit[ xPos ], 
+            arrOut[ ndarray::makeVector( yPos, xPos ) ] = fitPoint( xPositionsFit[ xPos ], 
                                            yPositionsFit[ yPos ] );
           }
           #ifdef __DEBUG_CALC_TPS__
@@ -298,10 +298,10 @@ namespace pfs{ namespace drp{ namespace stella{
       else{/// arrOut will be a vector
         arrOut = ndarray::allocate( yPositionsFit.getShape()[ 0 ], 1 );
         for ( int iPos = 0; iPos < xPositionsFit.size(); ++iPos ){
-          arrOut[iPos][0] = fitPoint( xPositionsFit[ iPos ], 
+          arrOut[ ndarray::makeVector( iPos, 0 ) ] = fitPoint( xPositionsFit[ iPos ], 
                                       yPositionsFit[ iPos ] );
           #ifdef __DEBUG_CALC_TPS__
-            cout << "ThinPlateSplineBase::fitArray: x = " << xPositionsFit[iPos] << ", y = " << yPositionsFit[iPos] << ": arrOut[" << iPos << "][0] = " << arrOut[iPos][0] << std::endl;
+            cout << "ThinPlateSplineBase::fitArray: x = " << xPositionsFit[iPos] << ", y = " << yPositionsFit[iPos] << ": arrOut[" << iPos << "][0] = " << arrOut[ ndarray::makeVector( iPos, 0 ) ] << std::endl;
           #endif
         }
       }
@@ -579,7 +579,7 @@ namespace pfs{ namespace drp{ namespace stella{
       #ifdef __DEBUG_TPS__
         cout << "ThinPlateSpline::fillMatrix() started" << endl;
       #endif
-      unsigned p = this->_dataPointsX.getShape()[ 0 ];
+      int p = this->_dataPointsX.getShape()[ 0 ];
 
       // Fill K (p x p, upper left of L) and calculate
       // mean edge length from control points
@@ -594,8 +594,8 @@ namespace pfs{ namespace drp{ namespace stella{
       #ifdef __DEBUG_FILL_MATRIX__
         std::cout << "ThinPlateSpline::fillMatrix: memory for pt_i, pt_j, pt_diff allocated" << std::endl;
       #endif
-      for ( unsigned i = 0; i < p; ++i ){
-        for ( unsigned j = i + 1; j < p; ++j ){
+      for ( int i = 0; i < p; ++i ){
+        for ( int j = i + 1; j < p; ++j ){
           pt_i[ 0 ] = this->_dataPointsX[ i ];
           pt_i[ 1 ] = this->_dataPointsY[ i ];
           pt_j[ 0 ] = this->_dataPointsX[ j ];
@@ -612,10 +612,10 @@ namespace pfs{ namespace drp{ namespace stella{
           #ifdef __DEBUG_FILL_MATRIX__
             std::cout << "ThinPlateSpline::fillMatrix: i = " << i << ", j = " << j << ": elen set to " << elen << std::endl;
           #endif
-          this->_matrix[ i ][ j ] = this->_matrix[ j ][ i ] = this->tps_base_func( elen );
+          this->_matrix[ ndarray::makeVector( i, j ) ] = this->_matrix[ ndarray::makeVector( j, i ) ] = this->tps_base_func( elen );
           this->_regularizationBase += elen * 2; // same for upper & lower tri
           #ifdef __DEBUG_FILL_MATRIX__
-            std::cout << "ThinPlateSpline::fillMatrix: i = " << i << ", j = " << j << ": this->_matrix[i][j] set to " << this->_matrix[ i ][ j ] << ", _regularizationBase set to " << this->_regularizationBase << std::endl;
+            std::cout << "ThinPlateSpline::fillMatrix: i = " << i << ", j = " << j << ": this->_matrix[i][j] set to " << this->_matrix[ ndarray::makeVector( i, j ) ] << ", _regularizationBase set to " << this->_regularizationBase << std::endl;
           #endif
         }
       }
@@ -625,17 +625,17 @@ namespace pfs{ namespace drp{ namespace stella{
       #endif
 
       // Fill the rest of L
-      for ( unsigned i = 0; i < p; ++i ){
+      for ( int i = 0; i < p; ++i ){
         // P (p x 3, upper right)
         // P transposed (3 x p, bottom left)
-        this->_matrix[ i ][ p + 0 ] = this->_matrix[ p + 0 ][ i ] = 1.0;
-        this->_matrix[ i ][ p + 1 ] = this->_matrix[ p + 1 ][ i ] = this->_dataPointsX[ i ];
-        this->_matrix[ i ][ p + 2 ] = this->_matrix[ p + 2 ][ i ] = this->_dataPointsY[ i ];
+        this->_matrix[ ndarray::makeVector( i, p + 0 ) ] = this->_matrix[ ndarray::makeVector( p + 0, i ) ] = 1.0;
+        this->_matrix[ ndarray::makeVector( i, p + 1 ) ] = this->_matrix[ ndarray::makeVector( p + 1, i ) ] = this->_dataPointsX[ i ];
+        this->_matrix[ ndarray::makeVector( i, p + 2 ) ] = this->_matrix[ ndarray::makeVector( p + 2, i ) ] = this->_dataPointsY[ i ];
       }
       // O (3 x 3, lower right)
-      for ( unsigned i = p; i < p + 3; ++i ){
-        for ( unsigned j = p; j < p + 3; ++j ){
-          this->_matrix[ i ][ j ] = 0.0;
+      for ( int i = p; i < p + 3; ++i ){
+        for ( int j = p; j < p + 3; ++j ){
+          this->_matrix[ ndarray::makeVector( i, j ) ] = 0.0;
         }
       }
       #ifdef __DEBUG_FILL_MATRIX__
@@ -750,9 +750,9 @@ namespace pfs{ namespace drp{ namespace stella{
           throw LSST_EXCEPT( pexExcept::Exception, message.c_str() );    
         }
         this->_knots = ndarray::allocate( knotsX.getShape()[ 0 ], 2 );
-        for (size_t iPix = 0; iPix < knotsX.getShape()[ 0 ]; ++iPix ){
-          this->_knots[ iPix ][ 0 ] = knotsX[ iPix ];
-          this->_knots[ iPix ][ 1 ] = knotsY[ iPix ];
+        for ( int iPix = 0; iPix < knotsX.getShape()[ 0 ]; ++iPix ){
+          this->_knots[ ndarray::makeVector( iPix, 0 ) ] = knotsX[ iPix ];
+          this->_knots[ ndarray::makeVector( iPix, 1 ) ] = knotsY[ iPix ];
         }
         this->_coefficients = ndarray::allocate( knotsX.getShape()[ 0 ] + 6);
         this->_matrix = ndarray::allocate( knotsX.getShape()[ 0 ] + 6, knotsX.getShape()[ 0 ] + 6 );
@@ -862,7 +862,7 @@ namespace pfs{ namespace drp{ namespace stella{
       coeffs_dot_mtxl.deep() = 0.;
       for (int i = 0; i < nKnots; ++i){
         for (int j = 0; j < nKnots; ++j)
-          coeffs_dot_mtxl[ i ] += this->_coefficients[ j ] * this->_matrix[ j ][ i ];
+          coeffs_dot_mtxl[ i ] += this->_coefficients[ j ] * this->_matrix[ ndarray::makeVector( j, i ) ];
       }  
       this->_bendingEnergy = 0.;
       for (int i = 0; i < nKnots; ++i)
@@ -908,11 +908,11 @@ namespace pfs{ namespace drp{ namespace stella{
       #ifdef __DEBUG_TPS__
         cout << "ThinPlateSplineChiSquare::createGridPointsXY(gridPointsX, gridPointsY) started" << endl;
       #endif
-      unsigned row = 0;
-      for ( unsigned x = 0; x < gridPointsX.getShape()[ 0 ]; ++x ){
-        for ( unsigned y = 0; y < gridPointsY.getShape()[ 0 ]; ++y ){
-          this->_knots[ row ][ 0 ] = gridPointsX[ x ];
-          this->_knots[ row ][ 1 ] = gridPointsY[ y ];
+      int row = 0;
+      for ( int x = 0; x < gridPointsX.getShape()[ 0 ]; ++x ){
+        for ( int y = 0; y < gridPointsY.getShape()[ 0 ]; ++y ){
+          this->_knots[ ndarray::makeVector( row, 0 ) ] = gridPointsX[ x ];
+          this->_knots[ ndarray::makeVector( row, 1 ) ] = gridPointsY[ y ];
           ++row;
         }
       }
@@ -929,15 +929,15 @@ namespace pfs{ namespace drp{ namespace stella{
       #ifdef __DEBUG_TPS__
         cout << "ThinPlateSplineChiSquare::fillMatrix() started" << endl;
       #endif
-      unsigned nKnots = this->_knots.getShape()[ 0 ];
+      int nKnots = this->_knots.getShape()[ 0 ];
       unsigned nDataPoints = this->_dataPointsX.getShape()[ 0 ];
       this->_regularizationBase = 0.0;
       
       double sumXi = 0.;
       double sumYi = 0.;
-      for (unsigned i = 0; i < nKnots; ++i){
-        sumXi += this->_knots[ i ][ 0 ];
-        sumYi += this->_knots[ i ][ 1 ];
+      for (int i = 0; i < nKnots; ++i){
+        sumXi += this->_knots[ ndarray::makeVector( i, 0 ) ];
+        sumYi += this->_knots[ ndarray::makeVector( i, 1 ) ];
       }
 
       this->_matrix.deep() = 0.;
@@ -951,13 +951,13 @@ namespace pfs{ namespace drp{ namespace stella{
       //
       // K is symmetrical so we really have to
       // calculate only about half of the coefficients.
-      for ( unsigned i = 0; i < nKnots; ++i ){
-        pt_i[ 0 ] = this->_knots[ i ][ 0 ];
-        pt_i[ 1 ] = this->_knots[ i ][ 1 ];
+      for ( int i = 0; i < nKnots; ++i ){
+        pt_i[ 0 ] = this->_knots[ ndarray::makeVector( i, 0 ) ];
+        pt_i[ 1 ] = this->_knots[ ndarray::makeVector( i, 1 ) ];
         #ifdef __DEBUG_FILL_MATRIX__
           std::cout << "ThinPlateSplineChiSquare::fillMatrix: i = " << i << ": pt_i set to " << pt_i << std::endl;
         #endif
-        for (unsigned k = 0; k < nDataPoints; ++k){
+        for ( int k = 0; k < nDataPoints; ++k){
           pt_k[ 0 ] = this->_dataPointsX[ k ];
           pt_k[ 1 ] = this->_dataPointsY[ k ];
           #ifdef __DEBUG_FILL_MATRIX__
@@ -980,17 +980,17 @@ namespace pfs{ namespace drp{ namespace stella{
 
           tpsBaseValue = this->tps_base_func( elen );
           tpsBaseValueSquared = tpsBaseValue * tpsBaseValue;
-          this->_matrix[ i ][ i ] += tpsBaseValueSquared / this->_dataPointsZ[ k ];
+          this->_matrix[ ndarray::makeVector( i, i ) ] += tpsBaseValueSquared / this->_dataPointsZ[ k ];
         }
-        this->_matrix[ i ][ i ] = 2. * this->_matrix[ i ][ i ] + this->_tpsControl.regularization;
+        this->_matrix[ ndarray::makeVector( i, i ) ] = 2. * this->_matrix[ ndarray::makeVector( i, i ) ] + this->_tpsControl.regularization;
         #ifdef __DEBUG_FILL_MATRIX__
-          std::cout << "ThinPlateSplineChiSquare::fillMatrix: this->_matrix[ " << i << " ][ " << i << " ] set to " << this->_matrix[ i ][ i ] << std::endl;
+          std::cout << "ThinPlateSplineChiSquare::fillMatrix: this->_matrix[ " << i << " ][ " << i << " ] set to " << this->_matrix[ ndarray::makeVector( i, i ) ] << std::endl;
         #endif
         
-        for ( unsigned j = i + 1; j < nKnots; ++j ){
-          pt_j[ 0 ] = this->_knots[ j ][ 0 ];
-          pt_j[ 1 ] = this->_knots[ j ][ 1 ];
-          for ( unsigned k = 0; k < nDataPoints; ++k ){
+        for ( int j = i + 1; j < nKnots; ++j ){
+          pt_j[ 0 ] = this->_knots[ ndarray::makeVector( j, 0 ) ];
+          pt_j[ 1 ] = this->_knots[ ndarray::makeVector( j, 1 ) ];
+          for ( int k = 0; k < nDataPoints; ++k ){
             pt_k[0] = this->_dataPointsX[ k ];
             pt_k[1] = this->_dataPointsY[ k ];
             #ifdef __DEBUG_FILL_MATRIX__
@@ -1015,19 +1015,19 @@ namespace pfs{ namespace drp{ namespace stella{
             #ifdef __DEBUG_FILL_MATRIX__
               std::cout << "ThinPlateSplineChiSquare::fillMatrix: i = " << i << ", j = " << j << ", k = " << k << ": elen_jk set to " << elen_jk << std::endl;
             #endif
-            this->_matrix[ i ][ j ] += this->tps_base_func( elen_ik ) * this->tps_base_func( elen_jk ) / this->_dataPointsZ[ k ];
+            this->_matrix[ ndarray::makeVector( i, j ) ] += this->tps_base_func( elen_ik ) * this->tps_base_func( elen_jk ) / this->_dataPointsZ[ k ];
           }
-          this->_matrix[ i ][ j ] = 2. * this->_matrix[ i ][ j ];
-          this->_matrix[ j ][ i ] = this->_matrix[ i ][ j ];
+          this->_matrix[ ndarray::makeVector( i, j ) ] = 2. * this->_matrix[ ndarray::makeVector( i, j ) ];
+          this->_matrix[ ndarray::makeVector( j, i ) ] = this->_matrix[ ndarray::makeVector( i, j ) ];
           #ifdef __DEBUG_FILL_MATRIX__
-            std::cout << "ThinPlateSplineChiSquare::fillMatrix: i = " << i << ", j = " << j << ": this->_matrix[i][j] set to " << this->_matrix[i][j] << std::endl;
+            std::cout << "ThinPlateSplineChiSquare::fillMatrix: i = " << i << ", j = " << j << ": this->_matrix[i][j] set to " << this->_matrix[ndarray::makeVector(i,j)] << std::endl;
           #endif
         }
         
         // P (p x 3, upper right)
         // P transposed (3 x p, bottom left)
         //*
-        for ( unsigned k = 0; k < nDataPoints; ++k ){
+        for ( int k = 0; k < nDataPoints; ++k ){
           pt_k[0] = this->_dataPointsX[k];
           pt_k[1] = this->_dataPointsY[k];
           #ifdef __DEBUG_FILL_MATRIX__
@@ -1042,40 +1042,40 @@ namespace pfs{ namespace drp{ namespace stella{
           #ifdef __DEBUG_FILL_MATRIX__
             std::cout << "ThinPlateSplineChiSquare::fillMatrix: i = " << i << ", k = " << k << ": elen_ik set to " << elen_ik << std::endl;
           #endif
-          this->_matrix[ i ][ nKnots + 0 ] += this->tps_base_func( elen_ik)  / this->_dataPointsZ[ k ];
-          this->_matrix[ i ][ nKnots + 1 ] += this->_dataPointsX[ k ] * this->tps_base_func( elen_ik ) / this->_dataPointsZ[ k ];
-          this->_matrix[ i ][ nKnots + 2 ] += this->_dataPointsY[ k ] * this->tps_base_func( elen_ik ) / this->_dataPointsZ[ k ];
+          this->_matrix[ ndarray::makeVector( i, nKnots + 0 ) ] += this->tps_base_func( elen_ik)  / this->_dataPointsZ[ k ];
+          this->_matrix[ ndarray::makeVector( i, nKnots + 1 ) ] += this->_dataPointsX[ k ] * this->tps_base_func( elen_ik ) / this->_dataPointsZ[ k ];
+          this->_matrix[ ndarray::makeVector( i, nKnots + 2 ) ] += this->_dataPointsY[ k ] * this->tps_base_func( elen_ik ) / this->_dataPointsZ[ k ];
         }
-        this->_matrix[ i ][ nKnots + 0 ] = 2. * this->_matrix[ i ][ nKnots + 0 ];
-        this->_matrix[ i ][ nKnots + 1 ] = 2. * this->_matrix[ i ][ nKnots + 1 ];
-        this->_matrix[ i ][ nKnots + 2 ] = 2. * this->_matrix[ i ][ nKnots + 2 ];
-        this->_matrix[ nKnots + 0 ][ i ] = this->_matrix[ i ][ nKnots + 0 ];
-        this->_matrix[ nKnots + 1 ][ i ] = this->_matrix[ i ][ nKnots + 1 ];
-        this->_matrix[ nKnots + 2 ][ i ] = this->_matrix[ i ][ nKnots + 2 ];
+        this->_matrix[ ndarray::makeVector( i, nKnots + 0 ) ] = 2. * this->_matrix[ ndarray::makeVector( i, nKnots + 0 ) ];
+        this->_matrix[ ndarray::makeVector( i, nKnots + 1 ) ] = 2. * this->_matrix[ ndarray::makeVector( i, nKnots + 1 ) ];
+        this->_matrix[ ndarray::makeVector( i, nKnots + 2 ) ] = 2. * this->_matrix[ ndarray::makeVector( i, nKnots + 2 ) ];
+        this->_matrix[ ndarray::makeVector( nKnots + 0, i ) ] = this->_matrix[ ndarray::makeVector( i, nKnots + 0 ) ];
+        this->_matrix[ ndarray::makeVector( nKnots + 1, i ) ] = this->_matrix[ ndarray::makeVector( i, nKnots + 1 ) ];
+        this->_matrix[ ndarray::makeVector( nKnots + 2, i ) ] = this->_matrix[ ndarray::makeVector( i, nKnots + 2 ) ];
         
-        this->_matrix[ i ][ nKnots + 3 ] = this->_matrix[ nKnots + 3 ][ i ] = 1.;
-        this->_matrix[ i ][ nKnots + 4 ] = this->_matrix[ nKnots + 4 ][ i ] = this->_knots[ i ][ 0 ];
-        this->_matrix[ i ][ nKnots + 5 ] = this->_matrix[ nKnots + 5 ][ i ] = this->_knots[ i ][ 1 ];
+        this->_matrix[ ndarray::makeVector( i, nKnots + 3 ) ] = this->_matrix[ ndarray::makeVector( nKnots + 3, i ) ] = 1.;
+        this->_matrix[ ndarray::makeVector( i, nKnots + 4 ) ] = this->_matrix[ ndarray::makeVector( nKnots + 4, i ) ] = this->_knots[ ndarray::makeVector( i, 0 ) ];
+        this->_matrix[ ndarray::makeVector( i, nKnots + 5 ) ] = this->_matrix[ ndarray::makeVector( nKnots + 5, i ) ] = this->_knots[ ndarray::makeVector( i, 1 ) ];
       }
       //*
       // (3 x 3, lower right)
-      for ( unsigned k = 0; k < nDataPoints; ++k ){
-        this->_matrix[ nKnots + 0 ][ nKnots + 0 ] += 2. / this->_dataPointsZ[ k ];
-        this->_matrix[ nKnots + 1 ][ nKnots + 1 ] += this->_dataPointsX[ k ] * this->_dataPointsX[ k ] / this->_dataPointsZ[ k ];
-        this->_matrix[ nKnots + 2 ][ nKnots + 2 ] += this->_dataPointsY[ k ] * this->_dataPointsY[ k ] / this->_dataPointsZ[ k ];
-        this->_matrix[ nKnots + 0 ][ nKnots + 1 ] += this->_dataPointsX[ k ] / this->_dataPointsZ[ k ];
-        this->_matrix[ nKnots + 0 ][ nKnots + 2 ] += this->_dataPointsY[ k ] / this->_dataPointsZ[ k ];
-        this->_matrix[ nKnots + 1 ][ nKnots + 2 ] += this->_dataPointsX[ k ] * this->_dataPointsY[ k ] / this->_dataPointsZ[ k ];
+      for ( int k = 0; k < nDataPoints; ++k ){
+        this->_matrix[ ndarray::makeVector( nKnots + 0, nKnots + 0 ) ] += 2. / this->_dataPointsZ[ k ];
+        this->_matrix[ ndarray::makeVector( nKnots + 1, nKnots + 1 ) ] += this->_dataPointsX[ k ] * this->_dataPointsX[ k ] / this->_dataPointsZ[ k ];
+        this->_matrix[ ndarray::makeVector( nKnots + 2, nKnots + 2 ) ] += this->_dataPointsY[ k ] * this->_dataPointsY[ k ] / this->_dataPointsZ[ k ];
+        this->_matrix[ ndarray::makeVector( nKnots + 0, nKnots + 1 ) ] += this->_dataPointsX[ k ] / this->_dataPointsZ[ k ];
+        this->_matrix[ ndarray::makeVector( nKnots + 0, nKnots + 2 ) ] += this->_dataPointsY[ k ] / this->_dataPointsZ[ k ];
+        this->_matrix[ ndarray::makeVector( nKnots + 1, nKnots + 2 ) ] += this->_dataPointsX[ k ] * this->_dataPointsY[ k ] / this->_dataPointsZ[ k ];
       }
-      this->_matrix[ nKnots + 1 ][ nKnots + 1 ] = 2. * this->_matrix[ nKnots + 1 ][ nKnots + 1 ];
-      this->_matrix[ nKnots + 2 ][ nKnots + 2 ] = 2. * this->_matrix[ nKnots + 2 ][ nKnots + 2 ];
-      this->_matrix[ nKnots + 0 ][ nKnots + 1 ] = 2. * this->_matrix[ nKnots + 0 ][ nKnots + 1 ];
-      this->_matrix[ nKnots + 0 ][ nKnots + 2 ] = 2. * this->_matrix[ nKnots + 0 ][ nKnots + 2 ];
-      this->_matrix[ nKnots + 1 ][ nKnots + 2 ] = 2. * this->_matrix[ nKnots + 1 ][ nKnots + 2 ];
+      this->_matrix[ ndarray::makeVector( nKnots + 1, nKnots + 1 ) ] = 2. * this->_matrix[ ndarray::makeVector( nKnots + 1, nKnots + 1 ) ];
+      this->_matrix[ ndarray::makeVector( nKnots + 2, nKnots + 2 ) ] = 2. * this->_matrix[ ndarray::makeVector( nKnots + 2, nKnots + 2 ) ];
+      this->_matrix[ ndarray::makeVector( nKnots + 0, nKnots + 1 ) ] = 2. * this->_matrix[ ndarray::makeVector( nKnots + 0, nKnots + 1 ) ];
+      this->_matrix[ ndarray::makeVector( nKnots + 0, nKnots + 2 ) ] = 2. * this->_matrix[ ndarray::makeVector( nKnots + 0, nKnots + 2 ) ];
+      this->_matrix[ ndarray::makeVector( nKnots + 1, nKnots + 2 ) ] = 2. * this->_matrix[ ndarray::makeVector( nKnots + 1, nKnots + 2 ) ];
       
-      this->_matrix[ nKnots + 1 ][ nKnots + 0 ] = this->_matrix[ nKnots + 0 ][ nKnots + 1 ];
-      this->_matrix[ nKnots + 2 ][ nKnots + 0 ] = this->_matrix[ nKnots + 0 ][ nKnots + 2 ];
-      this->_matrix[ nKnots + 2 ][ nKnots + 1 ] = this->_matrix[ nKnots + 1 ][ nKnots + 2 ];
+      this->_matrix[ ndarray::makeVector( nKnots + 1, nKnots + 0 ) ] = this->_matrix[ ndarray::makeVector( nKnots + 0, nKnots + 1 ) ];
+      this->_matrix[ ndarray::makeVector( nKnots + 2, nKnots + 0 ) ] = this->_matrix[ ndarray::makeVector( nKnots + 0, nKnots + 2 ) ];
+      this->_matrix[ ndarray::makeVector( nKnots + 2, nKnots + 1 ) ] = this->_matrix[ ndarray::makeVector( nKnots + 1, nKnots + 2 ) ];
       //*/
 
         
@@ -1132,10 +1132,10 @@ namespace pfs{ namespace drp{ namespace stella{
       ndarray::Array< double, 1, 1 > pt_k = ndarray::allocate(2);
       ndarray::Array< double, 1, 1 > pt_diff = ndarray::allocate(2);
       double elen_ik;
-      for ( unsigned i = 0; i < nKnots; ++i ){
-        pt_i[ 0 ] = this->_knots[ i ][ 0 ];
-        pt_i[ 1 ] = this->_knots[ i ][ 1 ];
-        for ( unsigned k = 0; k < nDataPoints; ++k ){
+      for ( int i = 0; i < nKnots; ++i ){
+        pt_i[ 0 ] = this->_knots[ ndarray::makeVector( i, 0 ) ];
+        pt_i[ 1 ] = this->_knots[ ndarray::makeVector( i, 1 ) ];
+        for ( int k = 0; k < nDataPoints; ++k ){
           pt_k[ 0 ] = this->_dataPointsX[ k ];
           pt_k[ 1 ] = this->_dataPointsY[ k ];
           pt_diff.deep() = pt_i - pt_k;
@@ -1146,7 +1146,7 @@ namespace pfs{ namespace drp{ namespace stella{
         this->_rhs[ i ] = 2. * this->_rhs[ i ];
       }
       this->_rhs[ nKnots + 0 ] = 2. * double( nDataPoints );
-      for (unsigned k = 0; k < nDataPoints; ++k ){
+      for ( int k = 0; k < nDataPoints; ++k ){
         this->_rhs[ nKnots + 1 ] += this->_dataPointsX[ k ];
         this->_rhs[ nKnots + 2 ] += this->_dataPointsY[ k ];
       }

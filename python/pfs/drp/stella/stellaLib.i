@@ -610,3 +610,27 @@ Interface to Stella
 %template(linFitBevingtonFD) pfs::drp::stella::math::LinFitBevingtonNdArray<float, double>;
 %template(linFitBevingtonDD) pfs::drp::stella::math::LinFitBevingtonNdArray<double, double>;
 
+%template(stretchAndCrossCorrelateSpecFF) pfs::drp::stella::math::stretchAndCrossCorrelateSpec<float, float>;
+%template(stretchAndCrossCorrelateSpecDF) pfs::drp::stella::math::stretchAndCrossCorrelateSpec<double, float>;
+%template(stretchAndCrossCorrelateSpecFD) pfs::drp::stella::math::stretchAndCrossCorrelateSpec<float, double>;
+%template(stretchAndCrossCorrelateSpecDD) pfs::drp::stella::math::stretchAndCrossCorrelateSpec<double, double>;
+
+%template(StretchAndCrossCorrelateSpecResultFF) pfs::drp::stella::math::StretchAndCrossCorrelateSpecResult<float, float>;
+%template(StretchAndCrossCorrelateSpecResultDD) pfs::drp::stella::math::StretchAndCrossCorrelateSpecResult<double, double>;
+%template(StretchAndCrossCorrelateSpecResultFD) pfs::drp::stella::math::StretchAndCrossCorrelateSpecResult<float, double>;
+%template(StretchAndCrossCorrelateSpecResultDF) pfs::drp::stella::math::StretchAndCrossCorrelateSpecResult<double, float>;
+
+%template(StretchAndCrossCorrelateResultF) pfs::drp::stella::math::StretchAndCrossCorrelateResult<float>;
+%template(StretchAndCrossCorrelateResultD) pfs::drp::stella::math::StretchAndCrossCorrelateResult<double>;
+
+%template(stretchAndCrossCorrelateF) pfs::drp::stella::math::stretchAndCrossCorrelate<float>;
+%template(stretchAndCrossCorrelateD) pfs::drp::stella::math::stretchAndCrossCorrelate<double>;
+
+%template(crossCorrelateF) pfs::drp::stella::math::crossCorrelate<float>;
+%template(crossCorrelateD) pfs::drp::stella::math::crossCorrelate<double>;
+
+//%template(crossCorrelateIF) pfs::drp::stella::math::crossCorrelateI<float>;
+//%template(crossCorrelateID) pfs::drp::stella::math::crossCorrelateI<double>;
+
+%template(stretchF) pfs::drp::stella::math::stretch<float>;
+%template(stretchD) pfs::drp::stella::math::stretch<double>;

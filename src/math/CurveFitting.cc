@@ -561,15 +561,15 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
     }
 
     if (B_HaveMeasureError){
-      (*P_D_A2_Covar)[0][0] = sum(1./D_A1_SDevSquare);
+      (*P_D_A2_Covar)[ ndarray::makeVector( 0, 0 ) ] = sum(1./D_A1_SDevSquare);
       #ifdef __DEBUG_POLYFIT__
-        cout << "pfs::drp::stella::math::CurveFitting::PolyFit: B_HaveMeasureError: (*P_D_A2_Covar)(0,0) set to " << (*P_D_A2_Covar)[0][0] << endl;
+        cout << "pfs::drp::stella::math::CurveFitting::PolyFit: B_HaveMeasureError: (*P_D_A2_Covar)(0,0) set to " << (*P_D_A2_Covar)[ ndarray::makeVector( 0, 0 ) ] << endl;
       #endif
     }
     else{
-      (*P_D_A2_Covar)[0][0] = nDataPoints;
+      (*P_D_A2_Covar)[ ndarray::makeVector( 0, 0 ) ] = nDataPoints;
       #ifdef __DEBUG_POLYFIT__
-        cout << "pfs::drp::stella::math::CurveFitting::PolyFit: !B_HaveMeasureError: (*P_D_A2_Covar)(0,0) set to " << (*P_D_A2_Covar)[0][0] << endl;
+        cout << "pfs::drp::stella::math::CurveFitting::PolyFit: !B_HaveMeasureError: (*P_D_A2_Covar)(0,0) set to " << (*P_D_A2_Covar)[ ndarray::makeVector(0, 0 ) ] << endl;
       #endif
     }
 
@@ -612,9 +612,9 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
         cout << "pfs::drp::stella::math::CurveFitting::PolyFit: for(p(=" << p << ")...): I_Degree_In = " << I_Degree_In << ": i set to " << i << endl;
       #endif
       for (j = i; j <= I_Degree_In; j++){
-        (*P_D_A2_Covar)[j][p-j] = D_Sum;
+        (*P_D_A2_Covar)[ ndarray::makeVector( j, p-j ) ] = D_Sum;
 //        #ifdef __DEBUG_POLYFIT__
-//          cout << "pfs::drp::stella::math::CurveFitting::PolyFit: for(p(=" << p << ")...): for(j(=" << j << ")...): (*P_D_A2_Covar)(j,p-j=" << p-j << ") set to " << (*P_D_A2_Covar)[j][p-j] << endl;
+//          cout << "pfs::drp::stella::math::CurveFitting::PolyFit: for(p(=" << p << ")...): for(j(=" << j << ")...): (*P_D_A2_Covar)(j,p-j=" << p-j << ") set to " << (*P_D_A2_Covar)[ ndArray::makeVector( j, p-j ) ] << endl;
 //        #endif
       }
     }
@@ -657,7 +657,7 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
     #endif
 
     for (int k = 0; k < nCoeffs; k++){
-      (*P_D_A1_Sigma)[k] = (*P_D_A2_Covar)[k][k];
+      (*P_D_A1_Sigma)[k] = (*P_D_A2_Covar)[ ndarray::makeVector( k, k ) ];
     }
     for (auto it = P_D_A1_Sigma->begin(); it != P_D_A1_Sigma->end(); ++it){
       *it = (*it > 0) ? sqrt(*it) : 1.;

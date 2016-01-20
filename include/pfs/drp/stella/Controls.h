@@ -485,19 +485,37 @@ struct DispCorControl {
     LSST_CONTROL_FIELD( order, int, "Fitting function order" );
     LSST_CONTROL_FIELD( searchRadius, int, "Radius in pixels relative to line list to search for emission line peak" );
     LSST_CONTROL_FIELD( fwhm, float, "FWHM of emission lines" );
+    LSST_CONTROL_FIELD( radiusXCor, int, "Radius in pixels in which to cross correlate a spectrum relative to the reference spectrum" );
+    LSST_CONTROL_FIELD( lengthPieces, int, "Length of pieces of spectrum to match to reference spectrum by stretching and shifting" );
+    LSST_CONTROL_FIELD( nCalcs, int, "Number of iterations > spectrumLength / lengthPieces, e.g. spectrum length is 3800 pixels, <lengthPieces> = 500, <nCalcs> = 15: run 1: pixels 0-499, run 2: 249-749,...");
+    LSST_CONTROL_FIELD( stretchMinLength, int, "Minimum length to stretched pieces to (< lengthPieces)" );
+    LSST_CONTROL_FIELD( stretchMaxLength, int, "Maximum length to stretched pieces to (> lengthPieces)" );
+    LSST_CONTROL_FIELD( nStretches, int, "Number of stretches between <stretchMinLength> and <stretchMaxLength>");
 
     DispCorControl() :
         fittingFunction( "POLYNOMIAL" ),
         order( 5 ),
         searchRadius( 2 ),
-        fwhm( 2.6 )
+        fwhm( 2.6 ),
+        radiusXCor( 35 ),
+        lengthPieces( 500 ),
+        nCalcs( 15 ),
+        stretchMinLength( 450 ),
+        stretchMaxLength( 550 ),
+        nStretches( 100 )
         {}
 
     DispCorControl( const DispCorControl &dispCorControl ) :
         fittingFunction( dispCorControl.fittingFunction ),
         order( dispCorControl.order ),
         searchRadius( dispCorControl.searchRadius ),
-        fwhm( dispCorControl.fwhm )
+        fwhm( dispCorControl.fwhm ),
+        radiusXCor( dispCorControl.radiusXCor ),
+        lengthPieces( dispCorControl.lengthPieces ),
+        nCalcs( dispCorControl.nCalcs ),
+        stretchMinLength( dispCorControl.stretchMinLength ),
+        stretchMaxLength( dispCorControl.stretchMaxLength ),
+        nStretches( dispCorControl.nStretches )
         {}
         
     ~DispCorControl() {}

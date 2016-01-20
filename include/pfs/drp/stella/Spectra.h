@@ -3,6 +3,7 @@
 
 #include <vector>
 #include <iostream>
+#include <cmath>
 #include "lsst/base.h"
 #include "lsst/afw/geom.h"
 #include "lsst/afw/image/MaskedImage.h"
@@ -19,6 +20,8 @@
 #define stringify( name ) # name
 
 //#define __DEBUG_IDENTIFY__
+//#define __DEBUG_STRETCHANDCROSSCORRELATESPEC__
+//#define __DEBUG_STRETCHANDCROSSCORRELATESPEC_LINELIST__
 
 namespace afwGeom = lsst::afw::geom;
 namespace afwImage = lsst::afw::image;
@@ -184,6 +187,20 @@ class SpectrumSet {
 };
 
 namespace math{
+    
+    template< typename T, typename U >
+    struct StretchAndCrossCorrelateSpecResult{
+        ndarray::Array< U, 2, 1 > lineList;
+//        #ifdef __DEBUG_STRETCHANDCROSSCORRELATESPEC__
+            ndarray::Array< T, 3, 1 > specPieces;
+//        #endif
+    };
+    
+    template< typename T, typename U >
+    StretchAndCrossCorrelateSpecResult< T, U > stretchAndCrossCorrelateSpec( ndarray::Array< T, 1, 1 > const& spec,
+                                                                             ndarray::Array< T, 1, 1 > const& specRef,
+                                                                             ndarray::Array< U, 2, 1 > const& lineList_WLenPix,
+                                                                             DispCorControl const& dispCorControl );
 
 }
 

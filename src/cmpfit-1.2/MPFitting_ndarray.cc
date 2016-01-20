@@ -1179,10 +1179,10 @@ bool MPFitGaussLim(const ndarray::Array< T, 1, 1 >& D_A1_X_In,
 
   memset(pars,0,sizeof(pars));        /* Initialize constraint structure */
   for (int i_par=0; i_par<I_NParams; i_par++){
-    pars[i_par].limited[0] = I_A2_Limited[i_par][0];
-    pars[i_par].limited[1] = I_A2_Limited[i_par][1];
-    pars[i_par].limits[0] = double(D_A2_Limits[i_par][0]);              /* lower parameter limit */
-    pars[i_par].limits[1] = double(D_A2_Limits[i_par][1]);              /* upper parameter limit */
+    pars[i_par].limited[0] = I_A2_Limited[ ndarray::makeVector( i_par, 0 ) ];
+    pars[i_par].limited[1] = I_A2_Limited[ ndarray::makeVector( i_par, 1 ) ];
+    pars[i_par].limits[0] = double(D_A2_Limits[ ndarray::makeVector( i_par, 0 ) ] );              /* lower parameter limit */
+    pars[i_par].limits[1] = double(D_A2_Limits[ ndarray::makeVector(i_par, 1 ) ] );              /* upper parameter limit */
     #ifdef __DEBUG_GAUSSFITLIM__
       if (Debug){
         cout << "MPFitting_ndarray::MPFitGaussLim: pars[" << i_par << "].limited[0] = " << pars[i_par].limited[0] << ", pars[" << i_par << "].limited[1] = " << pars[i_par].limited[1] << endl;
@@ -1540,10 +1540,10 @@ bool MPFitTwoGaussLim(const ndarray::Array< T, 1, 1 > &D_A1_X_In,
 
   memset(pars,0,sizeof(pars));        /* Initialize constraint structure */
   for (int i_par=0; i_par<I_NParams; i_par++){
-    pars[i_par].limited[0] = I_A2_Limited[i_par][0];
-    pars[i_par].limited[1] = I_A2_Limited[i_par][1];
-    pars[i_par].limits[0] = D_A2_Limits[i_par][0];              /* lower parameter limit */
-    pars[i_par].limits[1] = D_A2_Limits[i_par][1];              /* upper parameter limit */
+    pars[i_par].limited[0] = I_A2_Limited[ ndarray::makeVector( i_par, 0 ) ];
+    pars[i_par].limited[1] = I_A2_Limited[ ndarray::makeVector( i_par, 1 ) ];
+    pars[i_par].limits[0] = D_A2_Limits[ ndarray::makeVector( i_par, 0 ) ];              /* lower parameter limit */
+    pars[i_par].limits[1] = D_A2_Limits[ ndarray::makeVector(i_par, 1 ) ];              /* upper parameter limit */
   }
 
   /* How to put limits on a parameter.  In this case, parameter 3 is
@@ -1845,10 +1845,10 @@ bool MPFitThreeGaussLim(const ndarray::Array< T, 1, 1 > &D_A1_X_In,
 
   memset(pars,0,sizeof(pars));        /* Initialize constraint structure */
   for (int i_par=0; i_par<I_NParams; i_par++){
-    pars[i_par].limited[0] = I_A2_Limited[i_par][0];
-    pars[i_par].limited[1] = I_A2_Limited[i_par][1];
-    pars[i_par].limits[0] = D_A2_Limits[i_par][0];              /* lower parameter limit */
-    pars[i_par].limits[1] = D_A2_Limits[i_par][1];              /* upper parameter limit */
+    pars[i_par].limited[0] = I_A2_Limited[ ndarray::makeVector( i_par, 0 ) ];
+    pars[i_par].limited[1] = I_A2_Limited[ ndarray::makeVector( i_par, 1 ) ];
+    pars[i_par].limits[0] = D_A2_Limits[ ndarray::makeVector( i_par, 0 ) ];              /* lower parameter limit */
+    pars[i_par].limits[1] = D_A2_Limits[ ndarray::makeVector( i_par, 1 ) ];              /* upper parameter limit */
   }
 
   /* How to put limits on a parameter.  In this case, parameter 3 is
@@ -1992,10 +1992,10 @@ bool MPFit2DGaussLim(const ndarray::Array< T, 1, 1 >& D_A1_X_In,
 
   memset(pars,0,sizeof(pars));        /* Initialize constraint structure */
   for (int i_par=0; i_par<I_NParams; i_par++){
-    pars[i_par].limited[0] = I_A2_Limited[i_par][0];
-    pars[i_par].limited[1] = I_A2_Limited[i_par][1];
-    pars[i_par].limits[0] = D_A2_Limits[i_par][0];              /* lower parameter limit */
-    pars[i_par].limits[1] = D_A2_Limits[i_par][1];              /* upper parameter limit */
+    pars[i_par].limited[0] = I_A2_Limited[ ndarray::makeVector( i_par, 0 ) ];
+    pars[i_par].limited[1] = I_A2_Limited[ ndarray::makeVector( i_par, 1 ) ];
+    pars[i_par].limits[0] = D_A2_Limits[ ndarray::makeVector( i_par, 0 ) ];              /* lower parameter limit */
+    pars[i_par].limits[1] = D_A2_Limits[ ndarray::makeVector( i_par, 1 ) ];              /* upper parameter limit */
   }
 
   /* How to put limits on a parameter.  In this case, parameter 3 is
