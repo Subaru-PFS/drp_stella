@@ -348,15 +348,23 @@ class DetrendTask(BatchPoolTask):
         @param butler      Data butler
         @param detrendId   Identifier dict for detrend
         """
+        
+        print 'DetrendTask.run: expRefList = ',expRefList
+        print 'DetrendTask.run: detrendId = ',detrendId
         outputId = self.getOutputId(expRefList, detrendId)
         ccdKeys, ccdIdLists = getCcdIdListFromExposures(expRefList, level="sensor")
+        print 'DetrendTask.run: outputId = ',outputId
+        print 'DetrendTask.run: ccdKeys = ',ccdKeys
+        print 'DetrendTask.run: ccdIdLists = ',ccdIdLists
 
         # Ensure we can generate filenames for each output
         for ccdName in ccdIdLists:
+            print 'DetrendTask.run: ccdName = ',ccdName
             dataId = dict(outputId.items() + [(k, ccdName[i]) for i, k in enumerate(ccdKeys)])
-            print 'detrends.py: dataId = ',dataId
+            print 'DetrendTask.run: dataId = ',dataId
             try:
                 filename = butler.get(self.calibName + "_filename", dataId)
+                print 'DetrendTask.run: filename = ',filename
             except Exception, e:
                 raise RuntimeError("Unable to determine output filename from %s: %s" % (dataId, e))
 
@@ -385,22 +393,40 @@ class DetrendTask(BatchPoolTask):
 
         @param expRefList  List of data references at exposure level
         """
+        print 'DetrendTask.getOutputId: expRefList = ',expRefList
+        print 'DetrendTask.getOutputId: detrendId = ',detrendId
         expIdList = [expRef.dataId for expRef in expRefList]
+        print 'DetrendTask.getOutputId: expIdList = ',expIdList
         midTime = 0
         filterName = None
+        print 'DetrendTask.getOutputId: filterName set to ',filterName
         for expId in expIdList:
+            print 'DetrendTask.getOutputId: expId = ',expId
             midTime += self.getMjd(expId)
+            print 'DetrendTask.getOutputId: midTime = ',midTime
+            print 'DetrendTask.getOutputId: self.FilterName = ',self.FilterName
+            print 'DetrendTask.getOutputId: self.getFilter(expId) = ',self.getFilter(expId)
+            if self.FilterName is None:
+                print 'DetrendTask.getOutputId: self.FilterName = ',self.FilterName,' is None'
+            else:
+                print 'DetrendTask.getOutputId: self.FilterName = ',self.FilterName,' is not None'
             thisFilter = self.getFilter(expId) if self.FilterName is None else self.FilterName
+            print 'DetrendTask.getOutputId: thisFilter = ',thisFilter
             if filterName is None:
                 filterName = thisFilter
             elif filterName != thisFilter:
                 raise RuntimeError("Filter mismatch for %s: %s vs %s" % (expId, thisFilter, filterName))
+            print 'DetrendTask.getOutputId: filterName = ',filterName
 
         midTime /= len(expRefList)
+        print 'DetrendTask.getOutputId: midTime = ',midTime
         date = str(dafBase.DateTime(midTime, dafBase.DateTime.MJD).toPython().date())
+        print 'DetrendTask.getOutputId: date = ',date
 
         outputId = {self.config.filter: filterName, self.config.dateCalib: date}
+        print 'DetrendTask.getOutputId: outputId = ',outputId
         outputId.update(detrendId)
+        print 'DetrendTask.getOutputId: returning outputId = ',outputId
         return outputId
 
     def getMjd(self, dataId):
@@ -674,7 +700,7 @@ class BiasTask(DetrendTask):
     ConfigClass = BiasConfig
     _DefaultName = "bias"
     calibName = "bias"
-    FilterName = "NONE"
+#    FilterName = "NONE"
 
     @classmethod
     def applyOverrides(cls, config):
@@ -683,4 +709,223 @@ class BiasTask(DetrendTask):
         config.isr.doDark = False
         config.isr.doFlat = False
         config.isr.doFringe = False
+
+
+class DarkConfig(DetrendConfig):
+    """Configuration for dark construction"""
+    doRepair = Field(dtype=bool, default=True, doc="Repair artifacts?")
+    psfFwhm = Field(dtype=float, default=3.0, doc="Repair PSF FWHM (pixels)")
+    psfSize = Field(dtype=int, default=21, doc="Repair PSF size (pixels)")
+    crGrow = Field(dtype=int, default=2, doc="Grow radius for CR (pixels)")
+    repair = ConfigurableField(target=RepairTask, doc="Task to repair artifacts")
+    darkTime = Field(dtype=str, default="DARKTIME", doc="Header keyword for time since last CCD wipe, or None",
+                     optional=True)
+
+    def setDefaults(self):
+        super(DarkConfig, self).setDefaults()
+        self.combination.mask.append("CR")
+
+class DarkTask(DetrendTask):
+    """Dark construction
+
+    The only major difference from the base class is dividing
+    each image by the dark time to generate images of the
+    dark rate.
+    """
+    ConfigClass = DarkConfig
+    _DefaultName = "dark"
+    calibName = "dark"
+#    FilterName = "NONE"
+
+    def __init__(self, *args, **kwargs):
+        super(DarkTask, self).__init__(*args, **kwargs)
+        self.makeSubtask("repair")
+
+    @classmethod
+    def applyOverrides(cls, config):
+        """Overrides to apply for dark construction"""
+        config.isr.doDark = False
+        config.isr.doFlat = False
+        config.isr.doFringe = False
+
+    def processSingle(self, sensorRef):
+        """Divide each processed image by the dark time to generate images of the dark rate"""
+        exposure = super(DarkTask, self).processSingle(sensorRef)
+
+        if self.config.doRepair:
+            psf = measAlg.DoubleGaussianPsf(self.config.psfSize, self.config.psfSize,
+                                            self.config.psfFwhm/(2*math.sqrt(2*math.log(2))))
+            exposure.setPsf(psf)
+            self.repair.run(exposure, keepCRs=False)
+            if self.config.crGrow > 0:
+                mask = exposure.getMaskedImage().getMask().clone()
+                mask &= mask.getPlaneBitMask("CR")
+                fpSet = afwDet.FootprintSet(mask.convertU(), afwDet.Threshold(0.5))
+                fpSet = afwDet.FootprintSet(fpSet, self.config.crGrow, True)
+                fpSet.setMask(exposure.getMaskedImage().getMask(), "CR")
+
+        mi = exposure.getMaskedImage()
+        mi /= self.getDarkTime(exposure)
+        return exposure
+
+    def getDarkTime(self, exposure):
+        """Retrieve the dark time"""
+        if self.config.darkTime is not None:
+            return exposure.getMetadata().get(self.config.darkTime)
+        return exposure.getCalib().getExptime()
+
+
+class FlatCombineConfig(DetrendCombineConfig):
+    """Configuration for flat construction"""
+    doJacobian = Field(dtype=bool, default=False, doc="Apply Jacobian to flat-field?")
+
+
+class FlatCombineTask(DetrendCombineTask):
+    """Combination for flat-fields
+
+    We allow the flat-field to be corrected for the Jacobian.
+
+    The observed flat-field has a constant exposure per unit area.
+    However, distortion in the camera makes the pixel area (the angle
+    on the sky subtended per pixel) larger as one moves away from the
+    optical axis, so that the flux in the observed flat-field drops.
+    But this drop does not mean the detector is less sensitive.  The
+    Jacobian is a rough estimate of the relative area of each pixel.
+    The correction is therefore achieved by multiplying the observed
+    flat-field by the Jacobian to create a "photometric flat" which
+    has constant exposure per pixel --- a true measure of the
+    point-source sensitivity of the camera as a function of pixel
+    (modulo contributions from scattered light, which require much
+    more work to account for).
+
+    Note, however, that application of this correction means that
+    images flattened with this (Jacobian-corrected) "photometric flat"
+    will not have a flat sky, potentially making sky subtraction more
+    difficult.  Furthermore, care must be taken to ensure this
+    correction is not applied more than once (e.g., in warping).
+    """
+    ConfigClass = FlatCombineConfig
+
+    def run(self, sensorRefList, expScales=None, finalScale=None):
+        """Multiply the combined flat-field by the Jacobian"""
+        combined = super(FlatCombineTask, self).run(sensorRefList, expScales=expScales, finalScale=finalScale)
+        if self.config.doJacobian:
+            dataRef = next((dataRef for dataref in sensorRefList if dataRef is not None), None)
+            if dataRef is None:
+                raise RuntimeError("No non-None data references: %s" % sensorRefList)
+            jacobian = self.getJacobian(dataRef, combined.getDimensions())
+            combined *= jacobian
+        return combined
+
+    def getJacobian(self, sensorRef, dimensions, inputName="postISRCCD"):
+        """Calculate the Jacobian as a function of position
+
+        @param sensorRef    Data reference for a representative CCD (to get the Detector)
+        @param dimensions   Dimensions of the flat-field
+        @param inputName    Data set name for inputs
+        @return Jacobian image
+        """
+        # Retrieve the detector and distortion
+        # XXX It's unfortunate that we have to read an entire image to get the detector, but there's no
+        # public API in the butler to get the same.
+        image = sensorRef.get(inputName)
+        detector = image.getDetector()
+        distortion = detector.getDistortion()
+        del image
+
+        # Calculate the Jacobian for each pixel
+        # XXX This would be faster in C++, but it's not awfully slow.
+        jacobian = afwImage.ImageF(dimensions)
+        array = jacobian.getArray()
+        width, height = dimensions
+        circle = afwEll.Quadrupole(1.0, 1.0, 0.0)
+        for y in xrange(height):
+            for x in xrange(width):
+                array[y,x] = distortion.distort(afwGeom.Point2D(x, y), circle, detector).getDeterminant()
+
+        return jacobian
+
+
+class FlatConfig(DetrendConfig):
+    """Configuration for flat construction"""
+    iterations = Field(dtype=int, default=10, doc="Number of iterations for scale determination")
+    stats = ConfigurableField(target=DetrendStatsTask, doc="Background statistics configuration")
+    def setDefaults(self):
+        self.combination.retarget(FlatCombineTask)
+
+class FlatTask(DetrendTask):
+    """Flat construction
+
+    The principal change involves gathering the background values from each
+    image and using them to determine the scalings for the final combination.
+    """
+    ConfigClass = FlatConfig
+    _DefaultName = "flat"
+    calibName = "flat"
+
+    @classmethod
+    def applyOverrides(cls, config):
+        """Overrides for flat construction"""
+        config.isr.doFlat = False
+        config.isr.doFringe = False
+
+
+    def __init__(self, *args, **kwargs):
+        super(FlatTask, self).__init__(*args, **kwargs)
+        self.makeSubtask("stats")
+
+    def processResult(self, exposure):
+        return self.stats.run(exposure)
+
+    def scale(self, ccdKeys, ccdIdLists, data):
+        """Determine the scalings for the final combination
+
+        We have a matrix B_ij = C_i E_j, where C_i is the relative scaling
+        of one CCD to all the others in an exposure, and E_j is the scaling
+        of the exposure.  We determine the C_i and E_j from B_ij by iteration,
+        under the additional constraint that the average CCD scale is unity.
+        We convert everything to logarithms so we can work linearly.  This
+        algorithm comes from Eugene Magnier and Pan-STARRS.
+        """
+        # Format background measurements into a matrix
+        indices = dict((name, i) for i, name in enumerate(ccdIdLists.keys()))
+        bgMatrix = numpy.array([[0.0] * len(expList) for expList in ccdIdLists.values()])
+        for name in ccdIdLists.keys():
+            i = indices[name]
+            bgMatrix[i] = [d if d is not None else numpy.nan for d in data[name]]
+
+        numpyPrint = numpy.get_printoptions()
+        numpy.set_printoptions(threshold='nan')
+        self.log.info("Input backgrounds: %s" % bgMatrix)
+
+        # Flat-field scaling
+        numCcds = len(ccdIdLists)
+        numExps = bgMatrix.shape[1]
+        bgMatrix = numpy.log(bgMatrix)      # log(Background) for each exposure/component
+        bgMatrix = numpy.ma.masked_array(bgMatrix, numpy.isnan(bgMatrix))
+        compScales = numpy.zeros(numCcds) # Initial guess at log(scale) for each component
+        expScales = numpy.array([(bgMatrix[:,i] - compScales).mean() for i in range(numExps)])
+
+        for iterate in range(self.config.iterations):
+            compScales = numpy.array([(bgMatrix[i,:] - expScales).mean() for i in range(numCcds)])
+            expScales = numpy.array([(bgMatrix[:,i] - compScales).mean() for i in range(numExps)])
+
+            avgScale = numpy.average(numpy.exp(compScales))
+            compScales -= numpy.log(avgScale)
+            self.log.logdebug("Iteration %d exposure scales: %s" % (iterate, numpy.exp(expScales)))
+            self.log.logdebug("Iteration %d component scales: %s" % (iterate, numpy.exp(compScales)))
+
+        expScales = numpy.array([(bgMatrix[:,i] - compScales).mean() for i in range(numExps)])
+
+        if numpy.any(numpy.isnan(expScales)):
+            raise RuntimeError("Bad exposure scales: %s --> %s" % (bgMatrix, expScales))
+
+        expScales = numpy.exp(expScales)
+        compScales = numpy.exp(compScales)
+
+        self.log.info("Exposure scales: %s" % expScales)
+        self.log.info("Component relative scaling: %s" % compScales)
+
+        return dict((ccdName, Struct(ccdScale=compScales[indices[ccdName]], expScales=expScales))
+                    for ccdName in ccdIdLists.keys())
 
