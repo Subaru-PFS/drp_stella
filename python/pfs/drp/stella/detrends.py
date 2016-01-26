@@ -128,13 +128,21 @@ class DetrendCombineTask(Task):
 
     def getDimensions(self, sensorRefList, inputName="postISRCCD"):
         """Get dimensions of the inputs"""
+        print 'DetrendCombineTask: sensorRefList = ',sensorRefList
+        print 'DetrendCombineTask: dir(sensorRefList) = ',dir(sensorRefList)
+        print 'DetrendCombineTask: len(sensorRefList) = ',len(sensorRefList)
         dimList = []
         for sensorRef in sensorRefList:
             if sensorRef is None:
                 continue
             md = sensorRef.get(inputName + "_md")
-            dimList.append(afwGeom.Extent2I(md.get("NAXIS1"), md.get("NAXIS2")))
-        return getSize(dimList)
+            print 'DetrendCombineTask: md = ',md
+#            dimList.append(afwGeom.Extent2I(md.get("NAXIS1"), md.get("NAXIS2")))
+            return [md.get("NAXIS1"), md.get("NAXIS2")]
+        print 'DetrendCombineTask: type(dimList) = ',type(dimList)
+        print 'DetrendCombineTask: dir(dimList) = ',dir(dimList)
+        print 'DetrendCombineTask: dimList = ',dimList
+        return getSize(dimList)#[height, width]
 
     def applyScale(self, exposure, scale=None):
         """Apply scale to input exposure"""
@@ -150,13 +158,13 @@ class DetrendCombineTask(Task):
         @param stats       Statistics control
         """
         imageList = afwImage.vectorMaskedImageF([image for image in imageList if image is not None])
-#        if False:
-        if True:
+        if False:
+#        if True:
             # In-place stacks are now supported on LSST's afw, but not yet on HSC
             afwMath.statisticsStack(target, imageList, self.config.combine, stats)
-#        else:
-#            stack = afwMath.statisticsStack(imageList, self.config.combine, stats)
-#            target <<= stack.getImage()
+        else:
+            stack = afwMath.statisticsStack(imageList, self.config.combine, stats)
+            target <<= stack.getImage()
 
 
 def getCcdName(ccdId, ccdKeys):
@@ -256,13 +264,18 @@ class DetrendArgumentParser(ArgumentParser):
                           metavar="KEY=VALUE1[^VALUE2[^VALUE3...]")
     def parse_args(self, *args, **kwargs):
         namespace = super(DetrendArgumentParser, self).parse_args(*args, **kwargs)
-
+        print 'DetrendArgumentParser.parse_args: namespace = ',namespace
         keys = namespace.butler.getKeys(self.calibName)
+        print 'DetrendArgumentParser.parse_args: keys = ',keys
         parsed = {}
         for name, value in namespace.detrendId.items():
             if not name in keys:
                 self.error("%s is not a relevant detrend identifier key (%s)" % (name, keys))
             parsed[name] = keys[name](value)
+#        parsed['category'] = keys['category'](value)
+#        parsed['site'] = keys['category'](value)
+#        parsed['filter'] = keys['filter'](value)
+        print 'DetrendArgumentParser.parse_args: parsed = ',parsed
         namespace.detrendId = parsed
 
         return namespace
@@ -482,11 +495,17 @@ class DetrendTask(BatchPoolTask):
             self.log.warn("Null identifier received on %s" % NODE)
             return None
         self.log.info("Processing %s on %s" % (ccdId, NODE))
-        sensorRef = lsstButler.getDataRef(cache.butler, ccdId)
+#        sensorRef = lsstButler.getDataRef(cache.butler, ccdId)
+        sensorRef = getDataRef(cache.butler, ccdId)
+        print 'process: sensorRef = ',sensorRef
+        print 'process: dir(sensorRef) = ',dir(sensorRef)
+        print 'process: sensorRef.dataId = ',sensorRef.dataId
+        print 'process: sensorRef.get() = ',sensorRef.get()
         if self.config.clobber or not sensorRef.datasetExists(outputName):
             try:
                 exposure = self.processSingle(sensorRef)
             except Exception as e:
+                print 'exception e = <',e,'>'
                 self.log.warn("Unable to process %s: %s" % (ccdId, e))
                 return None
             self.processWrite(sensorRef, exposure)
@@ -569,7 +588,8 @@ class DetrendTask(BatchPoolTask):
                            ccdScale is final scale for combined image)
         @param outputId    Data identifier for combined image (fully qualified for this CCD)
         """
-        dataRefList = [lsstButler.getDataRef(cache.butler, dataId) if dataId is not None else None for
+#        dataRefList = [lsstButler.getDataRef(cache.butler, dataId) if dataId is not None else None for
+        dataRefList = [getDataRef(cache.butler, dataId) if dataId is not None else None for
                        dataId in struct.ccdIdList]
         self.log.info("Combining %s on %s" % (struct.outputId, NODE))
         detrend = self.combination.run(dataRefList, expScales=struct.scales.expScales,
@@ -700,7 +720,7 @@ class BiasTask(DetrendTask):
     ConfigClass = BiasConfig
     _DefaultName = "bias"
     calibName = "bias"
-#    FilterName = "NONE"
+    FilterName = "NONE"
 
     @classmethod
     def applyOverrides(cls, config):
@@ -929,3 +949,17 @@ class FlatTask(DetrendTask):
         return dict((ccdName, Struct(ccdScale=compScales[indices[ccdName]], expScales=expScales))
                     for ccdName in ccdIdLists.keys())
 
+def getDataRef(butler, dataId, datasetType="raw"):
+    """Construct a dataRef from a butler and data identifier"""
+    dataRefList = [ref for ref in butler.subset(datasetType, **dataId)]
+    print 'getDataRef: dataId = ',dataId
+    camera = dataRefList[0].get("camera")
+    print 'getDataRef: dataRefList[0].get("camera") = ',camera
+    print 'getDataRef: dir(camera) = ',dir(camera)
+    print 'getDataRef: dataRefList[0] = ',dataRefList[0]
+    print 'getDataRef: dir(dataRefList[0]) = ',dir(dataRefList[0])
+    dataRef = dataRefList[0]
+#    exp = dataRef.exposure
+#    print 'getDataRef: exp = ',exp
+    assert len(dataRefList) == 1
+    return dataRefList[0]
