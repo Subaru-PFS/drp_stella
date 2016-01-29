@@ -264,9 +264,9 @@ class DetrendArgumentParser(ArgumentParser):
                           metavar="KEY=VALUE1[^VALUE2[^VALUE3...]")
     def parse_args(self, *args, **kwargs):
         namespace = super(DetrendArgumentParser, self).parse_args(*args, **kwargs)
-        print 'DetrendArgumentParser.parse_args: namespace = ',namespace
+#        self.log.info('DetrendArgumentParser.parse_args: namespace = %s'%(namespace))
         keys = namespace.butler.getKeys(self.calibName)
-        print 'DetrendArgumentParser.parse_args: keys = ',keys
+#        self.log.info('DetrendArgumentParser.parse_args: keys = %s'%(keys))
         parsed = {}
         for name, value in namespace.detrendId.items():
             if not name in keys:
@@ -275,7 +275,7 @@ class DetrendArgumentParser(ArgumentParser):
 #        parsed['category'] = keys['category'](value)
 #        parsed['site'] = keys['category'](value)
 #        parsed['filter'] = keys['filter'](value)
-        print 'DetrendArgumentParser.parse_args: parsed = ',parsed
+#        self.log.info('DetrendArgumentParser.parse_args: parsed = %s'%(parsed))
         namespace.detrendId = parsed
 
         return namespace
@@ -362,22 +362,22 @@ class DetrendTask(BatchPoolTask):
         @param detrendId   Identifier dict for detrend
         """
         
-        print 'DetrendTask.run: expRefList = ',expRefList
-        print 'DetrendTask.run: detrendId = ',detrendId
+        self.log.info('DetrendTask.run: expRefList = %s'%(expRefList))
+        self.log.info('DetrendTask.run: detrendId = %s'%(detrendId))
         outputId = self.getOutputId(expRefList, detrendId)
         ccdKeys, ccdIdLists = getCcdIdListFromExposures(expRefList, level="sensor")
-        print 'DetrendTask.run: outputId = ',outputId
-        print 'DetrendTask.run: ccdKeys = ',ccdKeys
-        print 'DetrendTask.run: ccdIdLists = ',ccdIdLists
+        self.log.info('DetrendTask.run: outputId = %s'%(outputId))
+        self.log.info('DetrendTask.run: ccdKeys = %s'%(ccdKeys))
+        self.log.info('DetrendTask.run: ccdIdLists = %s'%(ccdIdLists))
 
         # Ensure we can generate filenames for each output
         for ccdName in ccdIdLists:
-            print 'DetrendTask.run: ccdName = ',ccdName
+            self.log.info('ccdName = %s' %(ccdName))
             dataId = dict(outputId.items() + [(k, ccdName[i]) for i, k in enumerate(ccdKeys)])
-            print 'DetrendTask.run: dataId = ',dataId
+            self.log.info('DetrendTask.run: dataId = %s'%(dataId))
             try:
                 filename = butler.get(self.calibName + "_filename", dataId)
-                print 'DetrendTask.run: filename = ',filename
+                self.log.info('DetrendTask.run: filename = %s'%(filename))
             except Exception, e:
                 raise RuntimeError("Unable to determine output filename from %s: %s" % (dataId, e))
 
@@ -952,14 +952,10 @@ class FlatTask(DetrendTask):
 def getDataRef(butler, dataId, datasetType="raw"):
     """Construct a dataRef from a butler and data identifier"""
     dataRefList = [ref for ref in butler.subset(datasetType, **dataId)]
-    print 'getDataRef: dataId = ',dataId
+    self.log.info('getDataRef: dataId = %s' % dataId)
     camera = dataRefList[0].get("camera")
-    print 'getDataRef: dataRefList[0].get("camera") = ',camera
-    print 'getDataRef: dir(camera) = ',dir(camera)
-    print 'getDataRef: dataRefList[0] = ',dataRefList[0]
-    print 'getDataRef: dir(dataRefList[0]) = ',dir(dataRefList[0])
+    self.log.info('getDataRef: dataRefList[0].get("camera") = %s' % camera)
+    self.log.info('getDataRef: dataRefList[0] = %s' % dataRefList[0])
     dataRef = dataRefList[0]
-#    exp = dataRef.exposure
-#    print 'getDataRef: exp = ',exp
     assert len(dataRefList) == 1
     return dataRefList[0]
