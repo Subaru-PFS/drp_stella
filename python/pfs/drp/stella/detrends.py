@@ -598,7 +598,7 @@ class DetrendTask(BatchPoolTask):
         self.recordCalibInputs(cache.butler, detrend, struct.ccdIdList, struct.outputId)
 
         self.maskNans(detrend)
-
+        self.log.info("writing detrend=<%s>, struct.outputId=<%s>"%(detrend, struct.outputId))
         self.write(cache.butler, detrend, struct.outputId)
 
 
@@ -728,6 +728,31 @@ class BiasTask(DetrendTask):
         config.isr.doBias = False
         config.isr.doDark = False
         config.isr.doFlat = False
+        config.isr.doFringe = False
+
+
+class TraceDefConfig(DetrendConfig):
+    """Configuration for bias construction.
+
+    No changes required compared to the base class, but
+    subclassed for distinction.
+    """
+    pass
+
+
+class TraceDefTask(DetrendTask):
+    """Bias construction"""
+    ConfigClass = TraceDefConfig
+    _DefaultName = "traceDef"
+    calibName = "traceDef"
+#    FilterName = "NONE"
+
+    @classmethod
+    def applyOverrides(cls, config):
+        """Overrides to apply for traceDef construction"""
+#        config.isr.doBias = False
+#        config.isr.doDark = False
+#        config.isr.doFlat = False
         config.isr.doFringe = False
 
 
@@ -952,10 +977,8 @@ class FlatTask(DetrendTask):
 def getDataRef(butler, dataId, datasetType="raw"):
     """Construct a dataRef from a butler and data identifier"""
     dataRefList = [ref for ref in butler.subset(datasetType, **dataId)]
-    self.log.info('getDataRef: dataId = %s' % dataId)
+    print 'getDataRef: dataId = ',dataId
     camera = dataRefList[0].get("camera")
-    self.log.info('getDataRef: dataRefList[0].get("camera") = %s' % camera)
-    self.log.info('getDataRef: dataRefList[0] = %s' % dataRefList[0])
     dataRef = dataRefList[0]
     assert len(dataRefList) == 1
     return dataRefList[0]

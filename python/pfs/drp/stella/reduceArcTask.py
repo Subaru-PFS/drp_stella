@@ -55,8 +55,10 @@ class ReduceArcArgumentParser(ArgumentParser):
         self.add_id_argument("--id", datasetType="postISRCCD",
                              help="input identifiers, e.g., --id visit=123 ccd=4")
 #        self.add_id_argument("--flatId", nargs="*", action=ReduceArcIdAction, default={},
-        self.add_id_argument("--flatId", datasetType='postISRCCD',
-                          help="identifiers for flat, e.g., --flatId visit=123 spectrograph=2 filter='PFS-R'")
+        self.add_argument("--flatId", nargs="*", action=ReduceArcIdAction, default={},
+                          help="identifiers for detrend, e.g., --detrendId version=1",
+                          metavar="KEY=VALUE1[^VALUE2[^VALUE3...]")#, datasetType='postISRCCD',
+                          #help="identifiers for flat, e.g., --flatId visit=123 spectrograph=2 filter='PFS-R'")
         self.add_argument("--refSpec", help='directory and name of reference spectrum')
         self.add_argument("--lineList", help='directory and name of line list')
 #    def parse_args(self, *args, **kwargs):
@@ -116,6 +118,7 @@ class ReduceArcTask(CmdLineTask):
         print 'butler = ',butler
         print 'refSpec = ',refSpec
         print 'lineList = ',lineList
+        #outputId=<{'category': 'A', 'site': 'S', 'filter': 'PFS-M', 'calibDate': '2015-12-21', 'ccd': 5, 'calibVersion': 'dark'}>
         flat = getDataRef(cache.butler, flatId)
 
         """ find and trace fiber traces """
