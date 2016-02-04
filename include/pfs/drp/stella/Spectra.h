@@ -111,7 +111,8 @@ class Spectrum {
       * to keep in case a weak line close to a strong line gets wrongly identified as the strong
       * line
       **/
-    bool identify( ndarray::Array< double, 2, 1 > const& lineList,
+    template< typename T >
+    bool identify( ndarray::Array< T, 2, 1 > const& lineList,
                    DispCorControl const& dispCorControl );
     
     bool isWavelengthSet() const {return _isWavelengthSet;}

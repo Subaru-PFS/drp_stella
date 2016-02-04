@@ -316,7 +316,6 @@ class DetrendTaskRunner(TaskRunner):
             )
 
 class DetrendTask(BatchPoolTask):
-#class DetrendTask(Task):
     """Base class for constructing detrends.
 
     This should be subclassed for each of the required detrend types.
@@ -406,40 +405,41 @@ class DetrendTask(BatchPoolTask):
 
         @param expRefList  List of data references at exposure level
         """
-        print 'DetrendTask.getOutputId: expRefList = ',expRefList
-        print 'DetrendTask.getOutputId: detrendId = ',detrendId
+        self.log.info('DetrendTask.getOutputId: expRefList = %s' % expRefList)
+        self.log.info('DetrendTask.getOutputId: detrendId = %s' % detrendId)
         expIdList = [expRef.dataId for expRef in expRefList]
-        print 'DetrendTask.getOutputId: expIdList = ',expIdList
+        self.log.info('DetrendTask.getOutputId: expIdList = %s' % expIdList)
         midTime = 0
         filterName = None
-        print 'DetrendTask.getOutputId: filterName set to ',filterName
+        self.log.info('DetrendTask.getOutputId: filterName set to %s' % filterName)
         for expId in expIdList:
-            print 'DetrendTask.getOutputId: expId = ',expId
+            self.log.info('DetrendTask.getOutputId: expId = %s' % expId)
             midTime += self.getMjd(expId)
-            print 'DetrendTask.getOutputId: midTime = ',midTime
-            print 'DetrendTask.getOutputId: self.FilterName = ',self.FilterName
-            print 'DetrendTask.getOutputId: self.getFilter(expId) = ',self.getFilter(expId)
+            self.log.info('DetrendTask.getOutputId: midTime = %g' % midTime)
+            self.log.info('DetrendTask.getOutputId: self.FilterName = %s' % self.FilterName)
+            self.log.info('DetrendTask.getOutputId: self.getFilter(expId) = %s' % self.getFilter(expId))
             if self.FilterName is None:
-                print 'DetrendTask.getOutputId: self.FilterName = ',self.FilterName,' is None'
+                self.log.info('DetrendTask.getOutputId: self.FilterName = %s is None' % self.FilterName)
             else:
-                print 'DetrendTask.getOutputId: self.FilterName = ',self.FilterName,' is not None'
+                self.log.info('DetrendTask.getOutputId: self.FilterName = %s is not None' % self.FilterName)
             thisFilter = self.getFilter(expId) if self.FilterName is None else self.FilterName
-            print 'DetrendTask.getOutputId: thisFilter = ',thisFilter
+            self.log.info('DetrendTask.getOutputId: thisFilter = %s' % thisFilter)
             if filterName is None:
                 filterName = thisFilter
             elif filterName != thisFilter:
                 raise RuntimeError("Filter mismatch for %s: %s vs %s" % (expId, thisFilter, filterName))
-            print 'DetrendTask.getOutputId: filterName = ',filterName
+            self.log.info('DetrendTask.getOutputId: filterName = %s' % filterName)
 
+        self.log.info('DetrendTask.getOutputId: len(expRefList) = %d' % len(expRefList))
         midTime /= len(expRefList)
-        print 'DetrendTask.getOutputId: midTime = ',midTime
+        self.log.info('DetrendTask.getOutputId: midTime = %g' % midTime)
         date = str(dafBase.DateTime(midTime, dafBase.DateTime.MJD).toPython().date())
-        print 'DetrendTask.getOutputId: date = ',date
+        self.log.info('DetrendTask.getOutputId: date = %s' % date)
 
         outputId = {self.config.filter: filterName, self.config.dateCalib: date}
-        print 'DetrendTask.getOutputId: outputId = ',outputId
+        self.log.info('DetrendTask.getOutputId: outputId = %s' % outputId)
         outputId.update(detrendId)
-        print 'DetrendTask.getOutputId: returning outputId = ',outputId
+        self.log.info('DetrendTask.getOutputId: returning outputId = %s' % outputId)
         return outputId
 
     def getMjd(self, dataId):
@@ -491,16 +491,19 @@ class DetrendTask(BatchPoolTask):
 
         Only slave nodes execute this method.
         """
+        self.log.info("ccdId = %s" % ccdId)
+        self.log.info("type(ccdId) = %s" % type(ccdId))
+        self.log.info("dir(ccdId) = %s" % dir(ccdId))
         if ccdId is None:
             self.log.warn("Null identifier received on %s" % NODE)
             return None
         self.log.info("Processing %s on %s" % (ccdId, NODE))
 #        sensorRef = lsstButler.getDataRef(cache.butler, ccdId)
         sensorRef = getDataRef(cache.butler, ccdId)
-        print 'process: sensorRef = ',sensorRef
-        print 'process: dir(sensorRef) = ',dir(sensorRef)
-        print 'process: sensorRef.dataId = ',sensorRef.dataId
-        print 'process: sensorRef.get() = ',sensorRef.get()
+        self.log.info('process: sensorRef = %s' % sensorRef)
+        self.log.info('process: dir(sensorRef) = %s' % dir(sensorRef))
+        self.log.info('process: sensorRef.dataId = %s' % sensorRef.dataId)
+        self.log.info('process: sensorRef.get() = %s' % sensorRef.get())
         if self.config.clobber or not sensorRef.datasetExists(outputName):
             try:
                 exposure = self.processSingle(sensorRef)
@@ -731,31 +734,6 @@ class BiasTask(DetrendTask):
         config.isr.doFringe = False
 
 
-class TraceDefConfig(DetrendConfig):
-    """Configuration for bias construction.
-
-    No changes required compared to the base class, but
-    subclassed for distinction.
-    """
-    pass
-
-
-class TraceDefTask(DetrendTask):
-    """Bias construction"""
-    ConfigClass = TraceDefConfig
-    _DefaultName = "traceDef"
-    calibName = "traceDef"
-#    FilterName = "NONE"
-
-    @classmethod
-    def applyOverrides(cls, config):
-        """Overrides to apply for traceDef construction"""
-#        config.isr.doBias = False
-#        config.isr.doDark = False
-#        config.isr.doFlat = False
-        config.isr.doFringe = False
-
-
 class DarkConfig(DetrendConfig):
     """Configuration for dark construction"""
     doRepair = Field(dtype=bool, default=True, doc="Repair artifacts?")
@@ -962,6 +940,7 @@ class FlatTask(DetrendTask):
 
         expScales = numpy.array([(bgMatrix[:,i] - compScales).mean() for i in range(numExps)])
 
+        self.log.info("expScales = %g" % expScales)
         if numpy.any(numpy.isnan(expScales)):
             raise RuntimeError("Bad exposure scales: %s --> %s" % (bgMatrix, expScales))
 

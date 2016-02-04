@@ -15,36 +15,21 @@ Interface to Stella
 #include "ndarray/swig.h"
 #include "lsst/pex/logging.h"
 #include "lsst/afw.h"
-//#include "lsst/afw/image.h"
-//#include "lsst/afw/image/Image.h"
 #include "lsst/afw/image/MaskedImage.h"
-//#include "boost/numeric/ublas/matrix.hpp"
-//#include "boost/numeric/ublas/matrix_proxy.hpp"
 #include <vector>
 #include "pfs/drp/stella/FiberTraces.h"
-//#include "pfs/drp/stella/blitz.h"
-//#include "pfs/drp/stella/Example.h"
 #include "pfs/drp/stella/utils/Utils.h"
-//#include "pfs/drp/stella/utils/UtilsBlitz.h"
 #include "pfs/drp/stella/math/Math.h"
-//#include "pfs/drp/stella/math/MathBlitz.h"
 #include "pfs/drp/stella/math/SurfaceFitting.h"
 #include "pfs/drp/stella/math/CurveFitting.h"
 #include "pfs/drp/stella/Controls.h"
 #include "pfs/drp/stella/PSF.h"
 #include "pfs/drp/stella/Spectra.h"
 #include "pfs/drp/stella/SurfaceFit.h"
-//#include "pfs/drp/stella/spline.h"
-    // Enable ndarray's NumPy typemaps; types are declared in %included files.
-//#include "numpy/arrayobject.h"
-//#include "ndarray/swig.h"
 #include "ndarray/Array.h"
 #include "ndarray/swig/eigen.h"
 %}
 
-//%init %{
-//    import_array();
-//%}
 %include "ndarray.i"
 %declareNumPyConverters(ndarray::Array<size_t,1,1>);
 %declareNumPyConverters(ndarray::Array<size_t,2,1>);
@@ -78,32 +63,6 @@ Interface to Stella
 
 %import "lsst/afw/geom/geomLib.i"
 %import "lsst/afw/image/imageLib.i"
-
-//%include "pfs/drp/stella/blitz.h"
-//%include "pfs/drp/stella/Example.h"
-//%include "pfs/drp/stella/SurfaceFit.h"
-//
-// Instantiate addImage* for desired types
-//
-//%define %addImages(PIXEL_TYPE)
-//   %template(addImagesWithBlitz) pfs::drp::stella::addImagesWithBlitz<PIXEL_TYPE>;
-//   %template(addImagesWithEigen) pfs::drp::stella::addImagesWithEigen<PIXEL_TYPE>;
-//%enddef
-
-//%addImages(double);
-//%addImages(int);
-//%addImages(float);
-//%include <std_shared_ptr.i>
-/************************************************************************************************************/
-//%shared_ptr(std::vector<float>);
-//%shared_ptr(std::vector<double>);
-//%shared_ptr(std::vector<unsigned short>);
-//%shared_ptr(std::vector<unsigned int>);
-//%shared_ptr(std::vector<int>);
-//%shared_ptr(std::vector<long>);
-
-//%shared_ptr(ndarray::Array<float, 2, 1>);
-//%shared_ptr(ndarray::Array<double, 2, 1>);
 
 %shared_ptr(pfs::drp::stella::FiberTraceFunctionFindingControl);
 %shared_ptr(pfs::drp::stella::FiberTraceFunctionControl);
@@ -211,16 +170,10 @@ Interface to Stella
 %template(SpecVectorDI) std::vector<PTR(pfs::drp::stella::Spectrum<double, unsigned int, float, float>)>;
 
 %include "pfs/drp/stella/utils/Utils.h"
-//%include "pfs/drp/stella/utils/UtilsBlitz.h"
 %include "pfs/drp/stella/math/Math.h"
-//%include "pfs/drp/stella/math/MathBlitz.h"
-//%include "boost/numeric/ublas/matrix.hpp"
-//%include "boost/numeric/ublas/matrix_proxy.hpp"
 %include "pfs/drp/stella/math/CurveFitting.h"
 %include "pfs/drp/stella/math/SurfaceFitting.h"
 %include "pfs/drp/stella/Controls.h"
-//%include "pfs/drp/stella/blitz.h"
-//%include "pfs/drp/stella/spline.h"
 %include "pfs/drp/stella/SurfaceFit.h"
 %include "lsst/"
 
@@ -239,6 +192,11 @@ Interface to Stella
 
 %template(PSFF) pfs::drp::stella::PSF<float>;
 %template(PSFD) pfs::drp::stella::PSF<double>;
+
+%extend pfs::drp::stella::Spectrum{
+    %template(identifyF) identify<float>;
+    %template(identifyD) identify<double>;
+}
 
 %template(SpectrumF) pfs::drp::stella::Spectrum<float, unsigned short, float, float>;
 %template(SpectrumD) pfs::drp::stella::Spectrum<double, unsigned short, float, float>;
