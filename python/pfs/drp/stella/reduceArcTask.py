@@ -1,3 +1,4 @@
+#/Users/azuri/stella-git/drp_stella/bin.src/reduceArc.py '/Volumes/My Passport/data/spectra/pfs/PFS' --id visit=4 filter='PFS-R' spectrograph=2 site='F' category='A' --refSpec '/Users/azuri/stella-git/obs_subaru/pfs/lineLists/refCdHgKrNeXe_red.fits' --lineList '/Users/azuri/stella-git/obs_subaru/pfs/lineLists/CdHgKrNeXe_red.fits' --loglevel 'info'
 import os
 import sys
 import argparse
@@ -36,7 +37,8 @@ class ReduceArcConfig(Config):
     stretchMinLength = Field( doc = "Minimum length to stretched pieces to (< lengthPieces)", dtype = int, default = 460 );
     stretchMaxLength = Field( doc = "Maximum length to stretched pieces to (> lengthPieces)", dtype = int, default = 540 );
     nStretches = Field( doc = "Number of stretches between <stretchMinLength> and <stretchMaxLength>", dtype = int, default = 80 );
-
+    refSpec = Field( doc = "reference reference spectrum including path", dtype = str, default="/Users/azuri/stella-git/obs_subaru/pfs/lineLists/refCdHgKrNeXe_red.fits");
+    lineList = Field( doc = "reference line list including path", dtype = str, default="/Users/azuri/stella-git/obs_subaru/pfs/lineLists/CdHgKrNeXe_red.fits");
 #class ReduceArcIdAction(argparse.Action):
 #    """Split name=value pairs and put the result in a dict"""
 #    def __call__(self, parser, namespace, values, option_string):
@@ -82,22 +84,22 @@ class ReduceArcTaskRunner(TaskRunner):
 
     def __call__(self, args):
         task = self.TaskClass(config=self.config, log=self.log)
-#        if self.doRaise:
-        print 'ReduceArcTask.__call__: args = ',args
-        result = task.run(**args)
-#        else:
-#            try:
-#                result = task.run(**args)
-#            except Exception, e:
-#                task.log.fatal("Failed: %s" % e)
+        if self.doRaise:
+            self.log.info('ReduceArcTask.__call__: args = %s' % args)
+            result = task.run(**args)
+        else:
+            try:
+                result = task.run(**args)
+            except Exception, e:
+                task.log.fatal("Failed: %s" % e)
 #                traceback.print_exc(file=sys.stderr)
 
-#        if self.doReturnResults:
-#            return Struct(
-#                args = args,
-#                metadata = task.metadata,
-#                result = result,
-#            )
+        if self.doReturnResults:
+            return Struct(
+                args = args,
+                metadata = task.metadata,
+                result = result,
+            )
 
 class ReduceArcTask(CmdLineTask):
     """Task to reduce Arc images"""
@@ -106,17 +108,10 @@ class ReduceArcTask(CmdLineTask):
     _DefaultName = "reduceArcTask"
 
     def __init__(self, *args, **kwargs):
-        print 'ReduceArcTask.__init__: args = ',args
-        print 'ReduceArcTask.__init__: kwargs = ',kwargs
-#        print 'ReduceArcTask.__init__: self.config = ',self.config
-        # import pdb; pdb.set_trace()
         super(ReduceArcTask, self).__init__(*args, **kwargs)
 
     @classmethod
     def _makeArgumentParser(cls, *args, **kwargs):
-        #doBatch = kwargs.pop("doBatch", False)
-        print 'ReduceArcTask._makeArgumentParser: args = ',args
-        print 'ReduceArcTask._makeArgumentParser: kwargs = ',kwargs
         parser = ArgumentParser(name=cls._DefaultName)
         parser.add_id_argument("--id", datasetType="postISRCCD",
                                help="input identifiers, e.g., --id visit=123 ccd=4")
@@ -124,23 +119,20 @@ class ReduceArcTask(CmdLineTask):
         parser.add_argument("--lineList", help='directory and name of line list')
         return parser# ReduceArcArgumentParser(name=cls._DefaultName, *args, **kwargs)
 
-    def run(self, expRefList, butler, refSpec, lineList, immediate=True):
-        print 'expRefList = ',expRefList
-        print 'type(expRefList) = ',type(expRefList)
-        print 'dir(expRefList) = ',dir(expRefList)
-        print 'len(expRefList) = ',len(expRefList)
-        print 'butler = ',butler
-        print 'refSpec = ',refSpec
-        print 'lineList = ',lineList
-        #outputId=<{'category': 'A', 'site': 'S', 'filter': 'PFS-M', 'calibDate': '2015-12-21', 'ccd': 5, 'calibVersion': 'dark'}>
-#        if self.config.doAssembleIsrExposures:
-#            exp = self.assembleCcd.assembleCcd(exp)
+    def run(self, expRefList, butler, refSpec=None, lineList=None, immediate=True):
+        if refSpec == None:
+            refSpec = self.config.refSpec
+        if lineList == None:
+            lineList = self.config.lineList
+        self.log.info('expRefList = %s' % expRefList)
+        self.log.info('len(expRefList) = %d' % len(expRefList))
+        self.log.info('refSpec = %s' % refSpec)
+        self.log.info('lineList = %s' % lineList)
 
         arcRef = expRefList[0]
-        print 'arcRef.dataId = ',arcRef.dataId
-        print 'arcRef = ',arcRef
-        print 'type(arcRef) = ',type(arcRef)
-        print 'dir(arcRef) = ',dir(arcRef)
+        self.log.info('arcRef.dataId = %s' % arcRef.dataId)
+        self.log.info('arcRef = %s' % arcRef)
+        self.log.info('type(arcRef) = %s' % type(arcRef))
 
 	try:
             flatExposure = arcRef.get('flat', immediate=immediate)
@@ -148,9 +140,8 @@ class ReduceArcTask(CmdLineTask):
             raise RuntimeError("Unable to retrieve flat for %s: %s" % (arcRef.dataId, e))
         
         arcExp = arcRef.get("postISRCCD", immediate=True)
-        print 'arcExp = ',arcExp
-        print 'type(arcExp) = ',type(arcExp)
-        print 'dir(arcExp) = ',dir(arcExp)
+        self.log.info('arcExp = %s' % arcExp)
+        self.log.info('type(arcExp) = %s' % type(arcExp))
 
         """ find and trace fiber traces """
         print 'tracing flat fiber traces'
@@ -169,19 +160,16 @@ class ReduceArcTask(CmdLineTask):
         myExtractTask = esTask.ExtractSpectraTask()
         aperturesToExtract = [-1]
         spectrumSetFromProfile = myExtractTask.run(arcExp, flatFiberTraceSet, aperturesToExtract)
-        print 'spectrumSetFromProfile = ',spectrumSetFromProfile
-        print 'type(spectrumSetFromProfile) = ',type(spectrumSetFromProfile)
-        print 'dir(spectrumSetFromProfile) = ',dir(spectrumSetFromProfile)
 
-        fig = plt.figure()
-        ax = fig.add_subplot(1, 1, 1)
-        for i in range(spectrumSetFromProfile.size()):
-            ax.plot(spectrumSetFromProfile.getSpectrum(i).getSpectrum(),'-+')
-            plt.xlim(1450,1600)
-            plt.ylim(0,8000)
-        plt.show()
-        plt.close(fig)
-        fig.clf()
+#        fig = plt.figure()
+#        ax = fig.add_subplot(1, 1, 1)
+#        for i in range(spectrumSetFromProfile.size()):
+#            ax.plot(spectrumSetFromProfile.getSpectrum(i).getSpectrum(),'-+')
+#            plt.xlim(1450,1600)
+#            plt.ylim(0,8000)
+#        plt.show()
+#        plt.close(fig)
+#        fig.clf()
         
         """ read line list """
         hdulist = pyfits.open(lineList)
@@ -195,27 +183,24 @@ class ReduceArcTask(CmdLineTask):
         tbdata = hdulist[1].data
         refSpecArr = np.ndarray(shape=(len(tbdata)), dtype='float32')
         refSpecArr[:] = tbdata.field(0)
-        print 'refSpecArr.shape = ',refSpecArr.shape
+        self.log.info('refSpecArr.shape = %d' % refSpecArr.shape)
         
         refSpec = spectrumSetFromProfile.getSpectrum(int(spectrumSetFromProfile.size() / 2))
         ref = refSpec.getSpectrum()
-        print 'ref.shape = ',ref.shape
+        self.log.info('ref.shape = %d' % ref.shape)
         
-        fig = plt.figure()
-        ax = fig.add_subplot(1, 1, 1)
-        ax.plot(ref,'-+')
+#        fig = plt.figure()
+#        ax = fig.add_subplot(1, 1, 1)
+#        ax.plot(ref,'-+')
 #        ax.plot(refSpecArr,'-+')
 #            plt.xlim(1450,1600)
 #            plt.ylim(0,8000)
-        plt.show()
-        plt.close(fig)
-        fig.clf()
+#        plt.show()
+#        plt.close(fig)
+#        fig.clf()
         
         if ref.shape != refSpecArr.shape:
             raise("ref.shape != refSpecArr.shape")
-        for i in range(ref.shape[0]):
-            print 'ref[',i,'] = ',ref[i],', refSpecArr[',i,'] = ',refSpecArr[i]
-
 
         dispCorControl = drpStella.DispCorControl()
         dispCorControl.fittingFunction = self.config.function
@@ -228,34 +213,34 @@ class ReduceArcTask(CmdLineTask):
         dispCorControl.stretchMinLength = self.config.stretchMinLength
         dispCorControl.stretchMaxLength = self.config.stretchMaxLength
         dispCorControl.nStretches = self.config.nStretches
-        print 'dispCorControl.fittingFunction = ',dispCorControl.fittingFunction
-        print 'dispCorControl.order = ',dispCorControl.order
-        print 'dispCorControl.searchRadius = ',dispCorControl.searchRadius
-        print 'dispCorControl.fwhm = ',dispCorControl.fwhm
-        print 'dispCorControl.radiusXCor = ',dispCorControl.radiusXCor
-        print 'dispCorControl.lengthPieces = ',dispCorControl.lengthPieces
-        print 'dispCorControl.nCalcs = ',dispCorControl.nCalcs
-        print 'dispCorControl.stretchMinLength = ',dispCorControl.stretchMinLength
-        print 'dispCorControl.stretchMaxLength = ',dispCorControl.stretchMaxLength
-        print 'dispCorControl.nStretches = ',dispCorControl.nStretches
+        self.log.info('dispCorControl.fittingFunction = %s' % dispCorControl.fittingFunction)
+        self.log.info('dispCorControl.order = %d' % dispCorControl.order)
+        self.log.info('dispCorControl.searchRadius = %d' % dispCorControl.searchRadius)
+        self.log.info('dispCorControl.fwhm = %g' % dispCorControl.fwhm)
+        self.log.info('dispCorControl.radiusXCor = %d' % dispCorControl.radiusXCor)
+        self.log.info('dispCorControl.lengthPieces = %d' % dispCorControl.lengthPieces)
+        self.log.info('dispCorControl.nCalcs = %d' % dispCorControl.nCalcs)
+        self.log.info('dispCorControl.stretchMinLength = %d' % dispCorControl.stretchMinLength)
+        self.log.info('dispCorControl.stretchMaxLength = %d' % dispCorControl.stretchMaxLength)
+        self.log.info('dispCorControl.nStretches = %d' % dispCorControl.nStretches)
 
         for i in range(spectrumSetFromProfile.size()):
             spec = spectrumSetFromProfile.getSpectrum(i)
             specSpec = spec.getSpectrum()
             print 'calibrating spectrum ',i
-            print 'specSpec.shape = ',specSpec.shape
-            print 'lineListArr.shape = ',lineListArr.shape
-            print 'type(specSpec) = ',type(specSpec),': <',type(specSpec[0]),'>'
-            print 'type(refSpecArr) = ',type(refSpecArr),': <',type(refSpecArr[0]),'>'
-            print 'type(lineListArr) = ',type(lineListArr),': <',type(lineListArr[0][0]),'>'
+            self.log.info('specSpec.shape = %d' % specSpec.shape)
+            self.log.info('lineListArr.shape = [%d,%d]' % (lineListArr.shape[0], lineListArr.shape[1]))
+            self.log.info('type(specSpec) = %s: <%s>' % (type(specSpec),type(specSpec[0])))
+            self.log.info('type(refSpecArr) = %s: <%s>' % (type(refSpecArr),type(refSpecArr[0])))
+            self.log.info('type(lineListArr) = %s: <%s>' % (type(lineListArr),type(lineListArr[0][0])))
             result = drpStella.stretchAndCrossCorrelateSpecFF(specSpec, refSpecArr, lineListArr, dispCorControl)
-            print result.lineList
-            print 'type(result.lineList = ',type(result.lineList),': <',type(result.lineList[0]),'>: <',type(result.lineList[0][0])
-            print 'type(spec) = ',type(spec),', ',type(spec.getSpectrum()),', ',type(spec.getSpectrum()[0])
+            #self.log.info("result.lineList = %g" % result.lineList)
+            self.log.info('type(result.lineList) = %s: <%s>: <%s>' % (type(result.lineList),type(result.lineList[0]),type(result.lineList[0][0])))
+            self.log.info('type(spec) = %s: <%s>: <%s>' % (type(spec),type(spec.getSpectrum()),type(spec.getSpectrum()[0])))
             spec.identifyF(result.lineList, dispCorControl)
-            print spec.getDispCoeffs()
-            print spec.getDispRms()
-            print spec.getWavelength()
+            print "FiberTrace ',i,': spec.getDispCoeffs() = ",spec.getDispCoeffs()
+            print "FiberTrace ',i,': spec.getDispRms() = ",spec.getDispRms()
+            #print spec.getWavelength()
             
         fig = plt.figure()
         ax = fig.add_subplot(1, 1, 1)

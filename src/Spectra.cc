@@ -120,7 +120,7 @@ bool pfsDRPStella::Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>::setLength
  * to keep in case a weak line close to a strong line gets wrongly identified as the strong
  * line
  **
-bool CFits::Identify(const Array<double, 1> &D_A1_Spec_In,
+bool Identify(const Array<double, 1> &D_A1_Spec_In,
                      const Array<double, 2> &D_A2_LineList_In,
                      const int I_Radius_In,
                      const double D_FWHM_In,
@@ -340,8 +340,8 @@ bool pfsDRPStella::Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>::identify(
   std::vector< size_t > indices = math::getIndices( V_Index );
   size_t nInd = std::accumulate( V_Index.begin(), V_Index.end(), 0 );
   #ifdef __DEBUG_IDENTIFY__
-    cout << "CFits::Identify: " << nInd << " lines identified" << endl;
-    cout << "CFits::Identify: indices = ";
+    cout << "Identify: " << nInd << " lines identified" << endl;
+    cout << "Identify: indices = ";
     for (int iPos = 0; iPos < indices.size(); ++iPos )
       cout << indices[iPos] << " ";
     cout << endl;
@@ -363,7 +363,7 @@ bool pfsDRPStella::Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>::identify(
 
     D_A1_WLen[ ndarray::view() ] = lineList[ ndarray::view()( 0 ) ];
     ndarray::Array< double, 1, 1 > D_A1_FittedWLen = math::getSubArray( D_A1_WLen, I_A1_IndexPos );
-    cout << "CFits::Identify: found D_A1_FittedWLen = " << D_A1_FittedWLen << endl;
+    cout << "Identify: found D_A1_FittedWLen = " << D_A1_FittedWLen << endl;
 
     _dispCoeffs = ndarray::allocate( dispCorControl.order + 1 );
     _dispCoeffs.deep() = math::PolyFit( D_A1_FittedPos,
@@ -371,15 +371,15 @@ bool pfsDRPStella::Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>::identify(
                                         dispCorControl.order );
     ndarray::Array< double, 1, 1 > D_A1_WLen_Gauss = math::Poly( D_A1_FittedPos, 
                                                                  _dispCoeffs );
-    cout << "CFits::Identify: D_A1_WLen_PolyFit = " << D_A1_WLen_Gauss << endl;
+    cout << "Identify: D_A1_WLen_PolyFit = " << D_A1_WLen_Gauss << endl;
     cout << "identify: _dispCoeffs = " << _dispCoeffs << endl;
-
+    
     ///Calculate RMS
     ndarray::Array< double, 1, 1 > D_A1_WLenMinusFit = ndarray::allocate( D_A1_WLen_Gauss.getShape()[ 0 ] );
     D_A1_WLenMinusFit.deep() = D_A1_FittedWLen - D_A1_WLen_Gauss;
-    cout << "CFits::Identify: D_A1_WLenMinusFit = " << D_A1_WLenMinusFit << endl;
+    cout << "Identify: D_A1_WLenMinusFit = " << D_A1_WLenMinusFit << endl;
     _dispRms = math::calcRMS( D_A1_WLenMinusFit );
-    cout << "CFits::Identify: _dispRms = " << _dispRms << endl;
+    cout << "Identify: _dispRms = " << _dispRms << endl;
     cout << "======================================" << endl;
 
     ///calibrate spectrum
@@ -392,9 +392,9 @@ bool pfsDRPStella::Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>::identify(
 
     /// Check for monotonic
     if ( math::isMonotonic( _wavelength ) == 0 ){
-      cout << "CFits::Identify: WARNING: Wavelength solution is not monotonic => Setting identifyResult.rms to 1000" << endl;
+      cout << "Identify: WARNING: Wavelength solution is not monotonic => Setting identifyResult.rms to 1000" << endl;
       _dispRms = 1000.;
-      cout << "CFits::Identify: RMS = " << _dispRms << endl;
+      cout << "Identify: RMS = " << _dispRms << endl;
       cout << "======================================" << endl;
     }
 
