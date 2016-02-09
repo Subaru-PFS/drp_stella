@@ -912,10 +912,10 @@ namespace pfs { namespace drp { namespace stella { namespace math {
       return stretchAndCrossCorrelateSpecResult;
     }
     
-    template StretchAndCrossCorrelateSpecResult< float, float >;
-    template StretchAndCrossCorrelateSpecResult< double, double >;
-    template StretchAndCrossCorrelateSpecResult< float, double >;
-    template StretchAndCrossCorrelateSpecResult< double, float >;
+//    template StretchAndCrossCorrelateSpecResult< float, float >;
+//    template StretchAndCrossCorrelateSpecResult< double, double >;
+//    template StretchAndCrossCorrelateSpecResult< float, double >;
+//    template StretchAndCrossCorrelateSpecResult< double, float >;
 
     template StretchAndCrossCorrelateSpecResult< float, float > stretchAndCrossCorrelateSpec( ndarray::Array< float, 1, 1 > const&,
                                                                                               ndarray::Array< float, 1, 1 > const&,

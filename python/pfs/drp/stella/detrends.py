@@ -779,7 +779,7 @@ class DarkTask(DetrendTask):
             psf = measAlg.DoubleGaussianPsf(self.config.psfSize, self.config.psfSize,
                                             self.config.psfFwhm/(2*math.sqrt(2*math.log(2))))
             exposure.setPsf(psf)
-            import pdb; pdb.set_trace()
+            #import pdb; pdb.set_trace()
             self.repair.run(exposure, keepCRs=False)
             if self.config.crGrow > 0:
                 mask = exposure.getMaskedImage().getMask().clone()
