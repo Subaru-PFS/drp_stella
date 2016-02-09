@@ -788,7 +788,7 @@ class DarkTask(DetrendTask):
                 fpSet = afwDet.FootprintSet(fpSet, self.config.crGrow, True)
                 fpSet.setMask(exposure.getMaskedImage().getMask(), "CR")
 
-        if True:                # RHL
+        if False:                # RHL
             import lsst.afw.display as afwDisplay
             disp = afwDisplay.Display(frame=1)
             disp.mtv(exposure, title="CR")        
