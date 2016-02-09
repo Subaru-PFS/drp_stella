@@ -506,15 +506,15 @@ class DetrendTask(BatchPoolTask):
         self.log.info('process: sensorRef.get() = %s' % sensorRef.get())
         if self.config.clobber or not sensorRef.datasetExists(outputName):
             import pdb; pdb.set_trace()
-            if self.doRaise:
-                exposure = self.processSingle(sensorRef)
-            else:
-                try:
-                    exposure = self.processSingle(sensorRef)
-                except Exception as e:
-                    print 'exception e = <',e,'>'
-                    self.log.warn("Unable to process %s: %s" % (ccdId, e))
-                    return None
+#            if self.doRaise:
+            exposure = self.processSingle(sensorRef)
+#            else:
+#                try:
+#                    exposure = self.processSingle(sensorRef)
+#                except Exception as e:
+#                    print 'exception e = <',e,'>'
+#                    self.log.warn("Unable to process %s: %s" % (ccdId, e))
+#                    return None
             self.processWrite(sensorRef, exposure)
         else:
             exposure = sensorRef.get(outputName, immediate=True)
