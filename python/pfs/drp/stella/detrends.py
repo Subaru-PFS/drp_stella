@@ -505,7 +505,7 @@ class DetrendTask(BatchPoolTask):
         self.log.info('process: sensorRef.dataId = %s' % sensorRef.dataId)
         self.log.info('process: sensorRef.get() = %s' % sensorRef.get())
         if self.config.clobber or not sensorRef.datasetExists(outputName):
-            import pdb; pdb.set_trace()
+#            import pdb; pdb.set_trace()
 #            if self.doRaise:
             exposure = self.processSingle(sensorRef)
 #            else:
