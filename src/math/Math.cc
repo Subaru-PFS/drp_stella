@@ -3499,8 +3499,8 @@
     template ndarray::Array<size_t, 2, 1> calcMinCenMax(ndarray::Array<float, 1, 1> const&, double const, double const, int const, int const);
     template ndarray::Array<size_t, 2, 1> calcMinCenMax(ndarray::Array<double, 1, 1> const&, double const, double const, int const, int const);
     
-    template StretchAndCrossCorrelateResult< float >;
-    template StretchAndCrossCorrelateResult< double >;
+//    template StretchAndCrossCorrelateResult< float >;
+//    template StretchAndCrossCorrelateResult< double >;
   }/// end namespace math
 
 
