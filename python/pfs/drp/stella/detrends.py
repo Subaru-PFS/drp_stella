@@ -128,20 +128,20 @@ class DetrendCombineTask(Task):
 
     def getDimensions(self, sensorRefList, inputName="postISRCCD"):
         """Get dimensions of the inputs"""
-        print 'DetrendCombineTask: sensorRefList = ',sensorRefList
-        print 'DetrendCombineTask: dir(sensorRefList) = ',dir(sensorRefList)
-        print 'DetrendCombineTask: len(sensorRefList) = ',len(sensorRefList)
+#        print 'DetrendCombineTask: sensorRefList = ',sensorRefList
+#        print 'DetrendCombineTask: dir(sensorRefList) = ',dir(sensorRefList)
+#        print 'DetrendCombineTask: len(sensorRefList) = ',len(sensorRefList)
         dimList = []
         for sensorRef in sensorRefList:
             if sensorRef is None:
                 continue
             md = sensorRef.get(inputName + "_md")
-            print 'DetrendCombineTask: md = ',md
+#            print 'DetrendCombineTask: md = ',md
 #            dimList.append(afwGeom.Extent2I(md.get("NAXIS1"), md.get("NAXIS2")))
             return [md.get("NAXIS1"), md.get("NAXIS2")]
-        print 'DetrendCombineTask: type(dimList) = ',type(dimList)
-        print 'DetrendCombineTask: dir(dimList) = ',dir(dimList)
-        print 'DetrendCombineTask: dimList = ',dimList
+#        print 'DetrendCombineTask: type(dimList) = ',type(dimList)
+#        print 'DetrendCombineTask: dir(dimList) = ',dir(dimList)
+#        print 'DetrendCombineTask: dimList = ',dimList
         return getSize(dimList)#[height, width]
 
     def applyScale(self, exposure, scale=None):
@@ -264,9 +264,7 @@ class DetrendArgumentParser(ArgumentParser):
                           metavar="KEY=VALUE1[^VALUE2[^VALUE3...]")
     def parse_args(self, *args, **kwargs):
         namespace = super(DetrendArgumentParser, self).parse_args(*args, **kwargs)
-#        self.log.info('DetrendArgumentParser.parse_args: namespace = %s'%(namespace))
         keys = namespace.butler.getKeys(self.calibName)
-#        self.log.info('DetrendArgumentParser.parse_args: keys = %s'%(keys))
         parsed = {}
         for name, value in namespace.detrendId.items():
             if not name in keys:
@@ -275,7 +273,7 @@ class DetrendArgumentParser(ArgumentParser):
 #        parsed['category'] = keys['category'](value)
 #        parsed['site'] = keys['category'](value)
 #        parsed['filter'] = keys['filter'](value)
-#        self.log.info('DetrendArgumentParser.parse_args: parsed = %s'%(parsed))
+#        self.log.infodebug('DetrendArgumentParser.parse_args: parsed = %s'%(parsed))
         namespace.detrendId = parsed
 
         return namespace
@@ -361,19 +359,12 @@ class DetrendTask(BatchPoolTask):
         @param detrendId   Identifier dict for detrend
         """
         
-        self.log.info('DetrendTask.run: expRefList = %s'%(expRefList))
-        self.log.info('DetrendTask.run: detrendId = %s'%(detrendId))
         outputId = self.getOutputId(expRefList, detrendId)
         ccdKeys, ccdIdLists = getCcdIdListFromExposures(expRefList, level="sensor")
-        self.log.info('DetrendTask.run: outputId = %s'%(outputId))
-        self.log.info('DetrendTask.run: ccdKeys = %s'%(ccdKeys))
-        self.log.info('DetrendTask.run: ccdIdLists = %s'%(ccdIdLists))
 
         # Ensure we can generate filenames for each output
         for ccdName in ccdIdLists:
-            self.log.info('ccdName = %s' %(ccdName))
             dataId = dict(outputId.items() + [(k, ccdName[i]) for i, k in enumerate(ccdKeys)])
-            self.log.info('DetrendTask.run: dataId = %s'%(dataId))
             try:
                 filename = butler.get(self.calibName + "_filename", dataId)
                 self.log.info('DetrendTask.run: filename = %s'%(filename))
@@ -405,41 +396,22 @@ class DetrendTask(BatchPoolTask):
 
         @param expRefList  List of data references at exposure level
         """
-        self.log.info('DetrendTask.getOutputId: expRefList = %s' % expRefList)
-        self.log.info('DetrendTask.getOutputId: detrendId = %s' % detrendId)
         expIdList = [expRef.dataId for expRef in expRefList]
-        self.log.info('DetrendTask.getOutputId: expIdList = %s' % expIdList)
         midTime = 0
         filterName = None
-        self.log.info('DetrendTask.getOutputId: filterName set to %s' % filterName)
         for expId in expIdList:
-            self.log.info('DetrendTask.getOutputId: expId = %s' % expId)
             midTime += self.getMjd(expId)
-            self.log.info('DetrendTask.getOutputId: midTime = %g' % midTime)
-            self.log.info('DetrendTask.getOutputId: self.FilterName = %s' % self.FilterName)
-            self.log.info('DetrendTask.getOutputId: self.getFilter(expId) = %s' % self.getFilter(expId))
-            if self.FilterName is None:
-                self.log.info('DetrendTask.getOutputId: self.FilterName = %s is None' % self.FilterName)
-            else:
-                self.log.info('DetrendTask.getOutputId: self.FilterName = %s is not None' % self.FilterName)
             thisFilter = self.getFilter(expId) if self.FilterName is None else self.FilterName
-            self.log.info('DetrendTask.getOutputId: thisFilter = %s' % thisFilter)
             if filterName is None:
                 filterName = thisFilter
             elif filterName != thisFilter:
                 raise RuntimeError("Filter mismatch for %s: %s vs %s" % (expId, thisFilter, filterName))
-            self.log.info('DetrendTask.getOutputId: filterName = %s' % filterName)
 
-        self.log.info('DetrendTask.getOutputId: len(expRefList) = %d' % len(expRefList))
         midTime /= len(expRefList)
-        self.log.info('DetrendTask.getOutputId: midTime = %g' % midTime)
         date = str(dafBase.DateTime(midTime, dafBase.DateTime.MJD).toPython().date())
-        self.log.info('DetrendTask.getOutputId: date = %s' % date)
 
         outputId = {self.config.filter: filterName, self.config.dateCalib: date}
-        self.log.info('DetrendTask.getOutputId: outputId = %s' % outputId)
         outputId.update(detrendId)
-        self.log.info('DetrendTask.getOutputId: returning outputId = %s' % outputId)
         return outputId
 
     def getMjd(self, dataId):
@@ -491,21 +463,13 @@ class DetrendTask(BatchPoolTask):
 
         Only slave nodes execute this method.
         """
-        self.log.info("ccdId = %s" % ccdId)
-        self.log.info("type(ccdId) = %s" % type(ccdId))
-        self.log.info("dir(ccdId) = %s" % dir(ccdId))
         if ccdId is None:
             self.log.warn("Null identifier received on %s" % NODE)
             return None
         self.log.info("Processing %s on %s" % (ccdId, NODE))
 #        sensorRef = lsstButler.getDataRef(cache.butler, ccdId)
         sensorRef = getDataRef(cache.butler, ccdId)
-        self.log.info('process: sensorRef = %s' % sensorRef)
-        self.log.info('process: dir(sensorRef) = %s' % dir(sensorRef))
-        self.log.info('process: sensorRef.dataId = %s' % sensorRef.dataId)
-        self.log.info('process: sensorRef.get() = %s' % sensorRef.get())
         if self.config.clobber or not sensorRef.datasetExists(outputName):
-#            import pdb; pdb.set_trace()
 #            if self.doRaise:
             exposure = self.processSingle(sensorRef)
 #            else:
@@ -762,7 +726,7 @@ class DarkTask(DetrendTask):
     ConfigClass = DarkConfig
     _DefaultName = "dark"
     calibName = "dark"
-#    FilterName = "NONE"
+    FilterName = "NONE"
 
     def __init__(self, *args, **kwargs):
         super(DarkTask, self).__init__(*args, **kwargs)
@@ -966,7 +930,7 @@ class FlatTask(DetrendTask):
 def getDataRef(butler, dataId, datasetType="raw"):
     """Construct a dataRef from a butler and data identifier"""
     dataRefList = [ref for ref in butler.subset(datasetType, **dataId)]
-    print 'getDataRef: dataId = ',dataId
+#    print 'getDataRef: dataId = ',dataId
     camera = dataRefList[0].get("camera")
     dataRef = dataRefList[0]
     assert len(dataRefList) == 1
