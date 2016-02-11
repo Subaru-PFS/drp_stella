@@ -489,7 +489,16 @@ class DetrendTask(BatchPoolTask):
 
         Only slave nodes execute this method.
         """
-        return self.isr.run(dataRef.get("raw")).exposure
+        bias = None
+        dark = None
+        flat = None
+        if self.config.isr.doBias:
+            bias = dataRef.get("bias")
+        if self.config.isr.doDark:
+            dark = dataRef.get("dark")
+        if self.config.isr.doFlat:
+            flat = dataRef.get("flat")
+        return self.isr.run(dataRef.get("raw"), bias=bias, dark=dark, flat=flat).exposure
 
     def processWrite(self, dataRef, exposure, outputName="postISRCCD"):
         """Write the processed CCD
