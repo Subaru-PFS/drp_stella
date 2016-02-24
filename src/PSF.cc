@@ -104,7 +104,7 @@ namespace pfs{ namespace drp{ namespace stella{
       cout << "PSF trace" << _iTrace << " bin " << _iBin << "::extractPSFs: spectrumIn.getSpectrum() = " << spectrumIn.getSpectrum() << endl;
     #endif
 
-    ndarray::Array< double, 1, 1 > xCentersTrace = copy( fiberTraceIn.getXCenters() );
+    ndarray::Array< float, 1, 1 > xCentersTrace = copy( fiberTraceIn.getXCenters() );
     ndarray::Array< double, 1, 1 > spectrumSwath = ndarray::allocate( _yMax - _yMin + 1);
     ndarray::Array< double, 1, 1 > spectrumVarianceSwath = ndarray::allocate( _yMax - _yMin + 1 );
 
@@ -165,13 +165,13 @@ namespace pfs{ namespace drp{ namespace stella{
       cout << "PSF trace" << _iTrace << " bin" << _iBin << "::extractPSFs: spectrumSigmaSwath = " << spectrumSigmaSwath << endl;
     #endif
 
-    ndarray::Array< double, 1, 1 > xCentersSwath = ndarray::copy( xCentersTrace[ ndarray::view( _yMin, _yMax + 1 ) ] );
-    ndarray::Array< double, 1, 1 > xCentersSwathFloor = math::floor( ndarray::Array< const double, 1, 1 >( xCentersSwath ), double( 0 ) );
+    ndarray::Array< float, 1, 1 > xCentersSwath = ndarray::copy( xCentersTrace[ ndarray::view( _yMin, _yMax + 1 ) ] );
+    ndarray::Array< float, 1, 1 > xCentersSwathFloor = math::floor( ndarray::Array< const float, 1, 1 >( xCentersSwath ), float( 0 ) );
     #ifdef __DEBUG_CALC2DPSF__
       cout << "PSF trace" << _iTrace << " bin" << _iBin << "::extractPSFs: xCentersSwath = " << xCentersSwath << endl;
     #endif
 
-    ndarray::Array< double, 1, 1 > xCentersSwathOffset = ndarray::copy( xCentersSwath );
+    ndarray::Array< float, 1, 1 > xCentersSwathOffset = ndarray::copy( xCentersSwath );
     xCentersSwathOffset.deep() -= xCentersSwathFloor;
     #ifdef __DEBUG_CALC2DPSF__
       cout << "PSF trace" << _iTrace << " bin" << _iBin << "::extractPSFs: xCentersSwathOffset = " << xCentersSwathOffset << endl;
@@ -430,9 +430,9 @@ namespace pfs{ namespace drp{ namespace stella{
         }
         else{
           double yCenterCCD = gaussCenterY + fiberTraceIn.getFiberTraceFunction()->yCenter + fiberTraceIn.getFiberTraceFunction()->yLow + _yMin;
-          ndarray::Array< double, 1, 1 > yCenterFromGaussCenter = math::indGenNdArr( double( 1 ) );
+          ndarray::Array< float, 1, 1 > yCenterFromGaussCenter = math::indGenNdArr( float( 1 ) );
           yCenterFromGaussCenter.deep() = yCenterCCD;
-          ndarray::Array< double, 1, 1 > xCenterCCDFromYCenterCCD = math::calculateXCenters( fiberTraceIn.getFiberTraceFunction(), 
+          ndarray::Array< float, 1, 1 > xCenterCCDFromYCenterCCD = math::calculateXCenters( fiberTraceIn.getFiberTraceFunction(), 
                                                                                            yCenterFromGaussCenter );
 
           ExtractPSFResult< T > result = extractPSFFromCenterPosition( fiberTraceIn,
@@ -573,18 +573,18 @@ namespace pfs{ namespace drp{ namespace stella{
     T centerPositionYTrace = centerPositionYCCD_In - ( fiberTrace_In.getFiberTraceFunction()->yCenter + fiberTrace_In.getFiberTraceFunction()->yLow );
     T centerPositionYSwath = centerPositionYTrace - _yMin;
     ExtractPSFResult< T > result_Out;
-    ndarray::Array< double, 1, 1 > xCentersTrace = copy( fiberTrace_In.getXCenters() );
+    ndarray::Array< float, 1, 1 > xCentersTrace = copy( fiberTrace_In.getXCenters() );
     #ifdef __DEBUG_CALC2DPSF__
       cout << "PSF::extractPSFFromCenterPosition: fiberTrace_In.getFiberTraceFunction()->yCenter + fiberTrace_In.getFiberTraceFunction()->yLow = " << fiberTrace_In.getFiberTraceFunction()->yCenter + fiberTrace_In.getFiberTraceFunction()->yLow << endl;
       cout << "PSF::extractPSFFromCenterPosition: centerPositionYTrace = " << centerPositionYTrace << ", centerPositionYSwath = " << centerPositionYSwath << endl;
       cout << "PSF::extractPSFFromCenterPosition: _yMin = " << _yMin << ", _yMax = " << _yMax << endl;
       cout << "PSF::extractPSFFromCenterPosition: fiberTrace_In.getImage()->getArray()[ndarray::view(centerPositionYTrace)()] = " << fiberTrace_In.getImage()->getArray()[ndarray::view(int(centerPositionYTrace))()] << endl;
     #endif
-    ndarray::Array< double, 1, 1 > xCentersSwath = ndarray::copy( xCentersTrace[ ndarray::view( _yMin, _yMax + 1 ) ] );
+    ndarray::Array< float, 1, 1 > xCentersSwath = ndarray::copy( xCentersTrace[ ndarray::view( _yMin, _yMax + 1 ) ] );
     #ifdef __DEBUG_CALC2DPSF__
       cout << "PSF::extractPSFFromCenterPosition: xCentersSwath = " << xCentersSwath.getShape() << ": " << xCentersSwath << endl;
     #endif
-    ndarray::Array< size_t, 2, 1 > minCenMax = math::calcMinCenMax( ndarray::Array< double const, 1, 1 >( xCentersSwath ),
+    ndarray::Array< size_t, 2, 1 > minCenMax = math::calcMinCenMax( ndarray::Array< float const, 1, 1 >( xCentersSwath ),
                                                                     double( fiberTrace_In.getFiberTraceFunction()->fiberTraceFunctionControl.xHigh ),
                                                                     double( fiberTrace_In.getFiberTraceFunction()->fiberTraceFunctionControl.xLow ),
                                                                     1,
@@ -609,7 +609,7 @@ namespace pfs{ namespace drp{ namespace stella{
       #endif
       if ( i_Up < xCentersSwath.getShape()[0] ){
         /// x-Centers from Gaussian center
-        ndarray::Array< double, 1, 1 > yCentersFromInputCenterCCD = math::indGenNdArr( double( i_Up - i_Down + 1 ) );
+        ndarray::Array< float, 1, 1 > yCentersFromInputCenterCCD = math::indGenNdArr( float( i_Up - i_Down + 1 ) );
         #ifdef __DEBUG_CALC2DPSF__
           cout << "PSF::extractPSFFromCenterPosition: yCentersFromInputCenterCCD = " << yCentersFromInputCenterCCD << endl;
           cout << "PSF::extractPSFFromCenterPosition: fiberTrace_In.getFiberTraceFunction()->yCenter + fiberTrace_In.getFiberTraceFunction()->yLow = " << fiberTrace_In.getFiberTraceFunction()->yCenter + fiberTrace_In.getFiberTraceFunction()->yLow << endl;
@@ -622,7 +622,7 @@ namespace pfs{ namespace drp{ namespace stella{
         #ifdef __DEBUG_CALC2DPSF__
           cout << "PSF::extractPSFFromCenterPosition: yCentersFromInputCenterCCD = " << yCentersFromInputCenterCCD << endl;
         #endif
-        ndarray::Array< double, 1, 1 > xCentersFromInputCenterCCD = math::calculateXCenters( fiberTrace_In.getFiberTraceFunction(), 
+        ndarray::Array< float, 1, 1 > xCentersFromInputCenterCCD = math::calculateXCenters( fiberTrace_In.getFiberTraceFunction(), 
                                                                                              yCentersFromInputCenterCCD );
         #ifdef __DEBUG_CALC2DPSF__
           cout << "PSF::extractPSFFromCenterPosition: xCentersFromInputCenterCCD = " << xCentersFromInputCenterCCD << endl;

@@ -27,13 +27,15 @@ struct FiberTraceFunctionControl {
   LSST_CONTROL_FIELD(xHigh, float, "Upper (right) limit of aperture relative to center position of trace in x");
   LSST_CONTROL_FIELD(nPixCutLeft, int, "Number of pixels to cut off from the width left of center");
   LSST_CONTROL_FIELD(nPixCutRight, int, "Number of pixels to cut off from the width right of from center");
+  LSST_CONTROL_FIELD(nRows, int, "Number of CCD rows");
   FiberTraceFunctionControl() :
       interpolation("POLYNOMIAL"),
       order(5),
       xLow(-4.),
       xHigh(4.),
       nPixCutLeft(1),
-      nPixCutRight(1) {}
+      nPixCutRight(1),
+      nRows(1){}
       
   FiberTraceFunctionControl(const FiberTraceFunctionControl& ftfc) : 
       interpolation(ftfc.interpolation),
@@ -41,7 +43,8 @@ struct FiberTraceFunctionControl {
       xLow(ftfc.xLow),
       xHigh(ftfc.xHigh),
       nPixCutLeft(ftfc.nPixCutLeft),
-      nPixCutRight(ftfc.nPixCutRight) {}
+      nPixCutRight(ftfc.nPixCutRight),
+      nRows(ftfc.nRows){}
       
   ~FiberTraceFunctionControl() {}
   
@@ -92,7 +95,7 @@ struct FiberTraceFunctionControl {
 
 struct FiberTraceFunction {
   FiberTraceFunctionControl fiberTraceFunctionControl; /// User defined Polynomial interpolation and order, xLow, xHigh (width of fiber trace)
-  double xCenter; /// Central position of fiber trace in x
+  float xCenter; /// Central position of fiber trace in x
   unsigned int yCenter; /// Central position of fiber trace in y
   int yLow; /// lower limit of fiber trace relative to center (< 0)
   unsigned int yHigh; /// lower limit of fiber trace relative to center (>= 0)

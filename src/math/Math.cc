@@ -935,6 +935,18 @@
       }
       return arrOut;
     }
+        
+    template<typename T>
+    ndarray::Array<T, 2, 1> resize(ndarray::Array<T, 2, 1> const& arr, size_t const newSizeRows, size_t const newSizeCols ){
+      ndarray::Array<T, 2, 1> arrOut = ndarray::allocate( newSizeRows, newSizeCols );
+      arrOut.deep() = 0;
+      for (auto itArrRowIn = arr.begin(), itArrRowOut = arrOut.begin(); (itArrRowIn != arr.end()) && (itArrRowOut != arrOut.end()); ++itArrRowIn, ++itArrRowOut){
+        for (auto itArrColIn = itArrRowIn->begin(), itArrColOut = itArrRowOut->begin(); (itArrColIn != itArrRowIn->end()) && (itArrColOut != itArrRowOut->end()); ++itArrColIn, ++itArrColOut){
+          *itArrColOut = *itArrColIn;
+        }
+      }
+      return arrOut;
+    }
     
 /*    template< typename T >
     ndarray::Array< T, 2, 1 > get2DArray(ndarray::Array< T, 1, 1 > const& xIn, ndarray::Array< T, 1, 1 > const& yIn){
@@ -3164,6 +3176,15 @@
     template ndarray::Array< long, 1, 1 > resize( ndarray::Array< long, 1, 1 > const& arr_In, size_t newSize);
     template ndarray::Array< float, 1, 1 > resize( ndarray::Array< float, 1, 1 > const& arr_In, size_t newSize);
     template ndarray::Array< double, 1, 1 > resize( ndarray::Array< double, 1, 1 > const& arr_In, size_t newSize);
+    
+    template ndarray::Array< size_t, 2, 1 > resize( ndarray::Array< size_t, 2, 1 > const& arr_In, size_t, size_t);
+    template ndarray::Array< unsigned short, 2, 1 > resize( ndarray::Array< unsigned short, 2, 1 > const& arr_In, size_t, size_t);
+    template ndarray::Array< short, 2, 1 > resize( ndarray::Array< short, 2, 1 > const& arr_In, size_t, size_t);
+    template ndarray::Array< unsigned int, 2, 1 > resize( ndarray::Array< unsigned int, 2, 1 > const& arr_In, size_t, size_t);
+    template ndarray::Array< int, 2, 1 > resize( ndarray::Array< int, 2, 1 > const& arr_In, size_t, size_t);
+    template ndarray::Array< long, 2, 1 > resize( ndarray::Array< long, 2, 1 > const& arr_In, size_t, size_t);
+    template ndarray::Array< float, 2, 1 > resize( ndarray::Array< float, 2, 1 > const& arr_In, size_t, size_t);
+    template ndarray::Array< double, 2, 1 > resize( ndarray::Array< double, 2, 1 > const& arr_In, size_t, size_t);
 
     template ndarray::Array<size_t, 1, 1> getSubArray(ndarray::Array<size_t, 1, 1> const&, ndarray::Array<size_t, 1, 1> const&);
     template ndarray::Array<int, 1, 1> getSubArray(ndarray::Array<int, 1, 1> const&, ndarray::Array<size_t, 1, 1> const&);

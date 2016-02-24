@@ -11,10 +11,15 @@ pfsDRPStella::Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>::Spectrum(size_
     _iTrace(iTrace),
     _isWavelengthSet(false)
 {
-  _spectrum = ndarray::allocate(length);
-  _mask = ndarray::allocate(length);
-  _variance = ndarray::allocate(length);
-  _wavelength = ndarray::allocate(length);
+  _spectrum = ndarray::allocate( length );
+  _sky = ndarray::allocate( length );
+  _mask = ndarray::allocate( length );
+  _covar = ndarray::allocate( 5, length );
+  _wavelength = ndarray::allocate( length );
+  _dispersion = ndarray::allocate( length );
+  _yLow = 0;
+  _yHigh = length - 1;
+  _nCCDRows = length;
 }
 
 template<typename SpectrumT, typename MaskT, typename VarianceT, typename WavelengthT>
@@ -25,15 +30,22 @@ pfsDRPStella::Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>::Spectrum(Spect
     _isWavelengthSet(spectrum.isWavelengthSet())
 {
   _spectrum = ndarray::allocate(spectrum.getSpectrum().getShape()[0]);
+  _sky = ndarray::allocate(spectrum.getSky().getShape()[0]);
   _mask = ndarray::allocate(spectrum.getMask().getShape()[0]);
-  _variance = ndarray::allocate(spectrum.getVariance().getShape()[0]);
+  _covar = ndarray::allocate(spectrum.getCovar().getShape());
   _wavelength = ndarray::allocate(spectrum.getWavelength().getShape()[0]);
+  _dispersion = ndarray::allocate(spectrum.getDispersion().getShape()[0]);
   _spectrum.deep() = spectrum.getSpectrum();
+  _sky.deep() = spectrum.getSky();
   _mask.deep() = spectrum.getMask();
-  _variance.deep() = spectrum.getVariance();
+  _covar.deep() = spectrum.getCovar();
   _wavelength.deep() = spectrum.getWavelength();
+  _dispersion.deep() = spectrum.getDispersion();
   if (iTrace != 0)
     _iTrace = iTrace;
+  _yLow = spectrum.getYLow();
+  _yHigh = spectrum.getYHigh();
+  _nCCDRows = spectrum.getNCCDRows();
 }
 
 template<typename SpectrumT, typename MaskT, typename VarianceT, typename WavelengthT>
@@ -51,16 +63,44 @@ bool pfsDRPStella::Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>::setSpectr
 }
 
 template<typename SpectrumT, typename MaskT, typename VarianceT, typename WavelengthT>
-bool pfsDRPStella::Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>::setVariance(const ndarray::Array<VarianceT, 1, 1> & variance)
+bool pfsDRPStella::Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>::setSky(const ndarray::Array<SpectrumT, 1, 1> & sky )
 {
-  /// Check length of input variance
-  if (variance.getShape()[0] != _length){
-    string message("pfsDRPStella::Spectrum::setVariance: ERROR: variance->size()=");
-    message += to_string(variance.getShape()[0]) + string(" != _length=") + to_string(_length);
+  /// Check length of input spectrum
+  if (sky.getShape()[0] != _length){
+    string message("pfsDRPStella::Spectrum::setSky: ERROR: spectrum->size()=");
+    message += to_string(sky.getShape()[0]) + string(" != _length=") + to_string(_length);
     cout << message << endl;
     throw LSST_EXCEPT(pexExcept::Exception, message.c_str());    
   }
-  _variance.deep() = variance;
+  _sky.deep() = sky;
+  return true;
+}
+
+template<typename SpectrumT, typename MaskT, typename VarianceT, typename WavelengthT>
+bool pfsDRPStella::Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>::setVariance(const ndarray::Array<VarianceT, 1, 1> & variance )
+{
+  /// Check length of input covar
+  if (variance.getShape()[ 0 ] != _length){
+    string message("pfsDRPStella::Spectrum::setVariance: ERROR: variance->size()=");
+    message += to_string( variance.getShape()[ 0 ] ) + string( " != _length=" ) + to_string( _length );
+    cout << message << endl;
+    throw LSST_EXCEPT(pexExcept::Exception, message.c_str());    
+  }
+  _covar[ ndarray::view( 3 )( ) ] = variance;
+  return true;
+}
+
+template<typename SpectrumT, typename MaskT, typename VarianceT, typename WavelengthT>
+bool pfsDRPStella::Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>::setCovar(const ndarray::Array<VarianceT, 2, 1> & covar )
+{
+  /// Check length of input covar
+  if (covar.getShape()[ 1 ] != _length){
+    string message("pfsDRPStella::Spectrum::setCovar: ERROR: covar->size()=");
+    message += to_string( covar.getShape()[ 1 ] ) + string( " != _length=" ) + to_string( _length );
+    cout << message << endl;
+    throw LSST_EXCEPT(pexExcept::Exception, message.c_str());    
+  }
+  _covar.deep() = covar;
   return true;
 }
 
@@ -75,6 +115,20 @@ bool pfsDRPStella::Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>::setWavele
     throw LSST_EXCEPT(pexExcept::Exception, message.c_str());    
   }
   _wavelength.deep() = wavelength;
+  return true;
+}
+
+template<typename SpectrumT, typename MaskT, typename VarianceT, typename WavelengthT>
+bool pfsDRPStella::Spectrum< SpectrumT, MaskT, VarianceT, WavelengthT >::setDispersion( ndarray::Array< WavelengthT, 1, 1 > const& dispersion )
+{
+  /// Check length of input wavelength
+  if ( dispersion.getShape()[ 0 ] != _length ){
+    string message("pfsDRPStella::Spectrum::setDispersion: ERROR: dispersion->size()=");
+    message += to_string( dispersion.getShape()[ 0 ]) + string(" != _length=") + to_string( _length );
+    cout << message << endl;
+    throw LSST_EXCEPT(pexExcept::Exception, message.c_str());    
+  }
+  _dispersion.deep() = dispersion;
   return true;
 }
 
@@ -96,7 +150,7 @@ template<typename SpectrumT, typename MaskT, typename VarianceT, typename Wavele
 bool pfsDRPStella::Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>::setLength(const size_t length){
   pfsDRPStella::math::resize(_spectrum, length);
   pfsDRPStella::math::resize(_mask, length);
-  pfsDRPStella::math::resize(_variance, length);
+  pfsDRPStella::math::resize(_covar, 5, length);
   pfsDRPStella::math::resize(_wavelength, length);
   if (length > _length){
     WavelengthT val = _wavelength[_length = 1];
@@ -104,6 +158,43 @@ bool pfsDRPStella::Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>::setLength
       *it = val;
   }
   _length = length;
+  _yHigh = _yLow + length - 1;
+  return true;
+}
+
+template<typename SpectrumT, typename MaskT, typename VarianceT, typename WavelengthT>
+bool pfsDRPStella::Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>::setYLow(const size_t yLow){
+  if ( yLow > _nCCDRows ){
+    string message("pfsDRPStella::Spectrum::setYLow: ERROR: yLow=");
+    message += to_string( yLow ) + string(" > _nCCDRows=") + to_string(_nCCDRows);
+    cout << message << endl;
+    throw LSST_EXCEPT(pexExcept::Exception, message.c_str());    
+  }
+  _yLow = yLow;
+  return true;
+}
+
+template<typename SpectrumT, typename MaskT, typename VarianceT, typename WavelengthT>
+bool pfsDRPStella::Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>::setYHigh(const size_t yHigh){
+  if ( yHigh > _nCCDRows ){
+    string message("pfsDRPStella::Spectrum::setYLow: ERROR: yHigh=");
+    message += to_string( yHigh ) + string(" > _nCCDRows=") + to_string(_nCCDRows);
+    cout << message << endl;
+    throw LSST_EXCEPT(pexExcept::Exception, message.c_str());    
+  }
+  _yHigh = yHigh;
+  return true;
+}
+
+template<typename SpectrumT, typename MaskT, typename VarianceT, typename WavelengthT>
+bool pfsDRPStella::Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>::setNCCDRows(const size_t nCCDRows){
+  if ( _yLow > nCCDRows ){
+    string message("pfsDRPStella::Spectrum::setYLow: ERROR: _yLow=");
+    message += to_string( _yLow ) + string(" > nCCDRows=") + to_string(nCCDRows);
+    cout << message << endl;
+    throw LSST_EXCEPT(pexExcept::Exception, message.c_str());    
+  }
+  _nCCDRows = nCCDRows;
   return true;
 }
 
@@ -559,6 +650,98 @@ bool pfsDRPStella::SpectrumSet<ImageT, MaskT, VarianceT, WavelengthT>::erase(con
   return true;
 }
 
+  template<typename ImageT, typename MaskT, typename VarianceT, typename WavelengthT>
+  void pfsDRPStella::SpectrumSet<ImageT, MaskT, VarianceT, WavelengthT>::writeFits(
+        lsst::afw::fits::Fits & fitsfile,
+        CONST_PTR(lsst::daf::base::PropertySet) metadata,
+        CONST_PTR(lsst::daf::base::PropertySet) fluxMetadata ) const
+    {
+      int nFibers = int( size() );
+      int nCCDRows = getSpectrum( 0 )->getNCCDRows();
+      /// allocate memory for the arrays
+      ndarray::Array< float, 2, 1 > flux = ndarray::allocate( nCCDRows, nFibers );
+      ndarray::Array< float, 3, 1 > covar = ndarray::allocate( 5, nCCDRows, nFibers );
+      ndarray::Array< int, 2, 1 > mask = ndarray::allocate( nCCDRows, nFibers );
+      ndarray::Array< float, 2, 1 > wLen = ndarray::allocate( nCCDRows, nFibers );
+      ndarray::Array< float, 2, 1 > wDisp = ndarray::allocate( nCCDRows, nFibers );
+      ndarray::Array< float, 2, 1 > sky = ndarray::allocate( nCCDRows, nFibers );
+      
+      /// write data to arrays
+      flux.deep() = 0.;
+      covar.deep() = 0.;
+      mask.deep() = 0;
+      wLen.deep() = 0.;
+      wDisp.deep() = 0.;
+      sky.deep() = 0.;
+      
+      int iStart, iEnd;
+      for ( int iFiber = 0; iFiber < _spectra->size(); ++iFiber ){
+//        PTR( pfsDRPStella::Spectrum< ImageT, MaskT, VarianceT, WavelengthT > ) spectrum = _spectra[ iFiber ];
+
+        if ( int( _spectra->at( iFiber )->getYHigh() ) - int( _spectra->at( iFiber )->getYLow() + 1 ) != _spectra->at( iFiber )->getSpectrum().getShape()[ 0 ] ){
+          throw LSST_EXCEPT(
+            lsst::pex::exceptions::LogicError,
+            "SpArc: spectrum does not have expected shape"
+          );
+        }
+        int yLow = _spectra->at( iFiber )->getYLow();
+        int yHigh = _spectra->at( iFiber )->getYHigh();
+
+        flux[ ndarray::view( yLow, yHigh + 1 )( iFiber ) ] = _spectra->at( iFiber )->getSpectrum()[ ndarray::view() ];
+        covar[ ndarray::view( )( yLow, yHigh + 1 )( iFiber ) ] = _spectra->at( iFiber )->getCovar()[ ndarray::view() ];
+        mask[ ndarray::view( yLow, yHigh + 1 )( iFiber ) ] = _spectra->at( iFiber )->getMask()[ ndarray::view() ];
+        wLen[ ndarray::view( yLow, yHigh + 1 )( iFiber ) ] = _spectra->at( iFiber )->getWavelength()[ ndarray::view() ];
+        wDisp[ ndarray::view( yLow, yHigh + 1 )( iFiber ) ] = _spectra->at( iFiber )->getDispersion()[ ndarray::view() ];
+        sky[ ndarray::view( yLow, yHigh + 1 )( iFiber ) ] = _spectra->at( iFiber )->getSky()[ ndarray::view() ];
+      }
+
+      PTR(lsst::daf::base::PropertySet) hdr;
+      if (metadata) {
+          hdr = metadata->deepCopy();
+      } else {
+          hdr.reset(new lsst::daf::base::PropertyList());
+      }
+
+      if (fitsfile.countHdus() != 0) {
+          throw LSST_EXCEPT(
+              lsst::pex::exceptions::LogicError,
+              "SpArm::writeFits can only write to an empty file"
+          );
+      }
+      if (fitsfile.getHdu() <= 1) {
+          // Don't ever write images to primary; instead we make an empty primary.
+          fitsfile.createEmpty();
+      } else {
+          fitsfile.setHdu(1);
+      }
+      fitsfile.writeMetadata(*hdr);
+
+//      processPlaneMetadata( fluxMetadata, hdr, "FLUX" );
+      cout << "writing flux" << endl;
+      utils::fits_write_ndarray( fitsfile, flux, fluxMetadata );
+
+//      processPlaneMetadata( fluxMetadata, hdr, "COVARIANCE" );
+      cout << "writing covar" << endl;
+      utils::fits_write_ndarray( fitsfile, covar, fluxMetadata );
+
+//      processPlaneMetadata( fluxMetadata, hdr, "MASK" );
+      cout << "writing mask" << endl;
+      utils::fits_write_ndarray( fitsfile, mask, fluxMetadata );
+
+//      processPlaneMetadata( fluxMetadata, hdr, "WAVELENGTH" );
+      cout << "writing wLen" << endl;
+      utils::fits_write_ndarray( fitsfile, wLen, fluxMetadata );
+
+//      processPlaneMetadata( fluxMetadata, hdr, "DISPERSION" );
+      cout << "writing wDisp" << endl;
+      utils::fits_write_ndarray( fitsfile, wDisp, fluxMetadata );
+
+//      processPlaneMetadata( fluxMetadata, hdr, "SKY" );
+      cout << "writing sky" << endl;
+      utils::fits_write_ndarray( fitsfile, sky, fluxMetadata );
+
+    }
+
 namespace pfs { namespace drp { namespace stella { namespace math {
 
     template< typename T, typename U >
@@ -948,10 +1131,13 @@ template class pfsDRPStella::Spectrum<float, unsigned int, float, float>;
 template class pfsDRPStella::Spectrum<double, unsigned int, float, float>;
 template class pfsDRPStella::Spectrum<float, unsigned short, float, float>;
 template class pfsDRPStella::Spectrum<double, unsigned short, float, float>;
-//template class pfsDRPStella::Spectrum<float, unsigned int, double, double>;
-//template class pfsDRPStella::Spectrum<double, unsigned int, double, double>;
-//template class pfsDRPStella::Spectrum<float, unsigned short, double, double>;
-//template class pfsDRPStella::Spectrum<double, unsigned short, double, double>;
+template class pfsDRPStella::Spectrum<float, int, float, float>;
+template class pfsDRPStella::Spectrum<double, int, float, float>;
+template class pfsDRPStella::Spectrum<double, int, double, double>;
+template class pfsDRPStella::Spectrum<float, unsigned int, double, double>;
+template class pfsDRPStella::Spectrum<double, unsigned int, double, double>;
+template class pfsDRPStella::Spectrum<float, unsigned short, double, double>;
+template class pfsDRPStella::Spectrum<double, unsigned short, double, double>;
 
 template bool pfsDRPStella::Spectrum<float, unsigned int, float, float>::identify(ndarray::Array< float, 2, 1 > const&,
                                                                                               DispCorControl const&);
@@ -969,9 +1155,11 @@ template bool pfsDRPStella::Spectrum<float, unsigned short, float, float>::ident
                                                                                               DispCorControl const&);
 template bool pfsDRPStella::Spectrum<double, unsigned short, float, float>::identify(ndarray::Array< double, 2, 1 > const&,
                                                                                               DispCorControl const&);
+template bool pfsDRPStella::Spectrum<float, int, float, float>::identify(ndarray::Array< float, 2, 1 > const&, 
+                                                                         DispCorControl const&);
 
-//template class pfsDRPStella::SpectrumSet<float>;
-//template class pfsDRPStella::SpectrumSet<double>;
+template class pfsDRPStella::SpectrumSet<float, int, float, float>;
+template class pfsDRPStella::SpectrumSet<double, int, double, double>;
 template class pfsDRPStella::SpectrumSet<float, unsigned int, float, float>;
 template class pfsDRPStella::SpectrumSet<double, unsigned int, float, float>;
 template class pfsDRPStella::SpectrumSet<float, unsigned short, float, float>;
@@ -980,6 +1168,10 @@ template class pfsDRPStella::SpectrumSet<float, unsigned int, float, double>;
 template class pfsDRPStella::SpectrumSet<double, unsigned int, float, double>;
 template class pfsDRPStella::SpectrumSet<float, unsigned short, float, double>;
 template class pfsDRPStella::SpectrumSet<double, unsigned short, float, double>;
+template class pfsDRPStella::SpectrumSet<float, unsigned int, double, double>;
+template class pfsDRPStella::SpectrumSet<double, unsigned int, double, double>;
+template class pfsDRPStella::SpectrumSet<float, unsigned short, double, double>;
+template class pfsDRPStella::SpectrumSet<double, unsigned short, double, double>;
 
 template PTR(afwImage::MaskedImage<float, unsigned short, float>) pfsDRPStella::utils::getPointer(afwImage::MaskedImage<float, unsigned short, float> &);
 template PTR(afwImage::MaskedImage<double, unsigned short, float>) pfsDRPStella::utils::getPointer(afwImage::MaskedImage<double, unsigned short, float> &);
@@ -988,6 +1180,7 @@ template PTR(std::vector<unsigned int>) pfsDRPStella::utils::getPointer(std::vec
 template PTR(std::vector<int>) pfsDRPStella::utils::getPointer(std::vector<int> &);
 template PTR(std::vector<float>) pfsDRPStella::utils::getPointer(std::vector<float> &);
 template PTR(std::vector<double>) pfsDRPStella::utils::getPointer(std::vector<double> &);
+template PTR(pfsDRPStella::Spectrum<float, int, float, float>) pfsDRPStella::utils::getPointer(pfsDRPStella::Spectrum<float, int, float, float> &);
 template PTR(pfsDRPStella::Spectrum<float, unsigned short, float, float>) pfsDRPStella::utils::getPointer(pfsDRPStella::Spectrum<float, unsigned short, float, float> &);
 template PTR(pfsDRPStella::Spectrum<double, unsigned short, float, float>) pfsDRPStella::utils::getPointer(pfsDRPStella::Spectrum<double, unsigned short, float, float> &);
 

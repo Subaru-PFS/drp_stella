@@ -49,27 +49,49 @@ class Spectrum {
     /// Return a shared pointer to the spectrum
     ndarray::Array<SpectrumT, 1, 1> getSpectrum() { return _spectrum; }
     const ndarray::Array<SpectrumT, 1, 1> getSpectrum() const { return _spectrum; }
+
+    /// Return a shared pointer to the sky spectrum
+    ndarray::Array<SpectrumT, 1, 1> getSky() { return _sky; }
+    const ndarray::Array<SpectrumT, 1, 1> getSky() const { return _sky; }
     
     /// Set the spectrum (deep copy)
     /// sets this->_spectrum to spectrum and returns TRUE if spectrum->size() == this->getLength(), otherwise returns false
     /// pre: set length of this to spectrum.size() to adjust length of all vectors in this
-    bool setSpectrum(const ndarray::Array<SpectrumT, 1, 1> & spectrum);
+    bool setSpectrum( const ndarray::Array< SpectrumT, 1, 1 > & spectrum );
 
+    bool setSky( const ndarray::Array< SpectrumT, 1, 1 > & sky );
+    
     /// Return the pointer to the variance of this spectrum
-    ndarray::Array<WavelengthT, 1, 1> getVariance() { return _variance; }
-    const ndarray::Array<VarianceT, 1, 1> getVariance() const { return _variance; }
+    ndarray::Array<VarianceT, 1, 1> getVariance() { return ndarray::Array<VarianceT, 1, 1 >(_covar[ ndarray::view( 3 )( ) ]); }
+    const ndarray::Array<VarianceT, 1, 1> getVariance() const { return _covar[ ndarray::view( 3 )( ) ]; }
+    
+    /// Return the pointer to the covariance of this spectrum
+    ndarray::Array<VarianceT, 2, 1> getCovar() { return _covar; }
+    const ndarray::Array<VarianceT, 2, 1> getCovar() const { return _covar; }
 
-    /// Set the variance pointer of this fiber trace to variance (deep copy)
-    /// sets this->_variance to variance and returns TRUE if variance->size() == this->getLength(), otherwise returns false
-    bool setVariance(const ndarray::Array<VarianceT, 1, 1> & variance);
+    /// Set the covariance pointer of this fiber trace to covar (deep copy)
+    /// sets this->_covar to covar and returns TRUE if covar->size() == this->getLength(), otherwise returns false
+    bool setVariance(const ndarray::Array<VarianceT, 1, 1> & variance );
+
+    /// Set the covariance pointer of this fiber trace to covar (deep copy)
+    /// sets this->_covar to covar and returns TRUE if covar->size() == this->getLength(), otherwise returns false
+    bool setCovar(const ndarray::Array<VarianceT, 2, 1> & covar );
 
     /// Return the pointer to the wavelength vector of this spectrum
     ndarray::Array<WavelengthT, 1, 1> getWavelength() { return _wavelength; }
     const ndarray::Array<WavelengthT, 1, 1> getWavelength() const { return _wavelength; }
 
+    /// Return the pointer to the wavelength dispersion vector of this spectrum
+    ndarray::Array<WavelengthT, 1, 1> getDispersion() { return _dispersion; }
+    const ndarray::Array<WavelengthT, 1, 1> getDispersion() const { return _dispersion; }
+
     /// Set the wavelength vector of this spectrum (deep copy)
     /// sets this->_wavelength to wavelength and returns TRUE if wavelength->size() == this->getLength(), otherwise returns false
     bool setWavelength(const ndarray::Array<WavelengthT, 1, 1> & wavelength);
+
+    /// Set the dispersion vector of this spectrum (deep copy)
+    /// sets this->_dispersion to dispersion and returns TRUE if dispersion->size() == this->getLength(), otherwise returns false
+    bool setDispersion(const ndarray::Array<WavelengthT, 1, 1> & dispersion);
 
     /// Return the pointer to the mask vector of this spectrum
     ndarray::Array<MaskT, 1, 1> getMask() { return _mask; }
@@ -118,14 +140,27 @@ class Spectrum {
     bool isWavelengthSet() const {return _isWavelengthSet;}
 //    void setIsWavelengthSet(bool isWavelengthSet) {_isWavelengthSet = isWavelengthSet;}
     
+    size_t getYLow() const { return _yLow; };
+    size_t getYHigh() const { return _yHigh; };
+    size_t getNCCDRows() const { return _nCCDRows; };
+    
+    bool setYLow( size_t yLow );
+    bool setYHigh( size_t yHigh );
+    bool setNCCDRows( size_t nCCDRows );
+    
   private:
+    size_t _yLow;
+    size_t _yHigh;
     size_t _length;
+    size_t _nCCDRows;
     ndarray::Array<SpectrumT, 1, 1> _spectrum;
+    ndarray::Array<SpectrumT, 1, 1> _sky;
     ndarray::Array<MaskT, 1, 1> _mask;/// 0: all pixels of the wavelength element used for extraction were okay
                                   /// 1: at least one pixel was not okay but the extraction algorithm believes it could fix it
                                   /// 2: at least one pixel was problematic
-    ndarray::Array<VarianceT, 1, 1> _variance;
+    ndarray::Array<VarianceT, 2, 1> _covar;
     ndarray::Array<WavelengthT, 1, 1> _wavelength;
+    ndarray::Array<WavelengthT, 1, 1> _dispersion;
     size_t _iTrace;/// for logging / debugging purposes only
     ndarray::Array< double, 1, 1 > _dispCoeffs;
     double _dispRms;
@@ -182,6 +217,12 @@ class SpectrumSet {
     /// Removes from the vector either a single element (position) or a range of elements ([first,last)).
     /// This effectively reduces the container size by the number of elements removed, which are destroyed.
     bool erase(const size_t iStart, const size_t iEnd=0);
+    
+    void writeFits(
+        lsst::afw::fits::Fits & fitsfile,
+        CONST_PTR(lsst::daf::base::PropertySet) metadata = CONST_PTR(lsst::daf::base::PropertySet)(),
+        CONST_PTR(lsst::daf::base::PropertySet) fluxMetadata = CONST_PTR(lsst::daf::base::PropertySet)()
+    ) const;
     
   private:
     PTR(std::vector<PTR(Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>)>) _spectra; // spectra for each aperture

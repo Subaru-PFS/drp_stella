@@ -1,4 +1,4 @@
-config.isr.doBias=True
+config.isr.doBias=False
 config.isr.doDark=False
 config.isr.doFlat=False
 config.isr.doFringe=False

@@ -242,12 +242,21 @@ class ReduceArcTask(CmdLineTask):
             print "FiberTrace ',i,': spec.getDispRms() = ",spec.getDispRms()
             #print spec.getWavelength()
             
-        fig = plt.figure()
-        ax = fig.add_subplot(1, 1, 1)
-        for i in range(spectrumSetFromProfile.size()):
-            ax.plot(spectrumSetFromProfile.getSpectrum(i).getWavelength(),spectrumSetFromProfile.getSpectrum(i).getSpectrum(),'-+')
-#            plt.xlim(1450,1600)
-#            plt.ylim(0,8000)
-        plt.show()
-        plt.close(fig)
-        fig.clf()
+        if False:
+            fig = plt.figure()
+            ax = fig.add_subplot(1, 1, 1)
+            for i in range(spectrumSetFromProfile.size()):
+                ax.plot(spectrumSetFromProfile.getSpectrum(i).getWavelength(),spectrumSetFromProfile.getSpectrum(i).getSpectrum(),'-+')
+    #            plt.xlim(1450,1600)
+    #            plt.ylim(0,8000)
+            plt.show()
+            plt.close(fig)
+            fig.clf()
+        
+        print 'creating spArm object'
+        print 'type(spectrumSetFromProfile) = ',type(spectrumSetFromProfile)
+        print 'type(flatFiberTraceSet) = ',type(flatFiberTraceSet)
+        spArm = drpStella.SpArm.SpArmFSS(spectrumSetFromProfile, flatFiberTraceSet)
+
+        print 'writing spArm object'
+        buler.put(spArm, 'spArm')

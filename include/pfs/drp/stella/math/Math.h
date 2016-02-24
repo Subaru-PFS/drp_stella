@@ -303,6 +303,9 @@ namespace pfs { namespace drp { namespace stella {
     template< typename T >
     ndarray::Array< T, 1, 1 > resize(ndarray::Array< T, 1, 1 > const& arr_In, size_t newSize); 
 
+    template< typename T >
+    ndarray::Array< T, 2, 1 > resize(ndarray::Array< T, 2, 1 > const& arr_In, size_t newSizeRows, size_t newSizeCols ); 
+
     /*
      * @brief: cross-correlates arrA_In and arrB_In within the range range_In (e.g. [-1.,1.]) in steps stepSize_In
      * 

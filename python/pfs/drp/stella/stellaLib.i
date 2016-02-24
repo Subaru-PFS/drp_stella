@@ -26,6 +26,7 @@ Interface to Stella
 #include "pfs/drp/stella/PSF.h"
 #include "pfs/drp/stella/Spectra.h"
 #include "pfs/drp/stella/SurfaceFit.h"
+#include "pfs/drp/stella/pipe_out/SpArm.h"
 #include "ndarray/Array.h"
 #include "ndarray/swig/eigen.h"
 %}
@@ -176,6 +177,7 @@ Interface to Stella
 %include "pfs/drp/stella/Controls.h"
 %include "pfs/drp/stella/SurfaceFit.h"
 %include "lsst/"
+%include "pfs/drp/stella/pipe_out/SpArm.h"
 
 //%template(PSFSetVectorF) std::vector<PTR(pfs::drp::stella::PSFSet<float>)>;
 //%template(PSFSetVectorD) std::vector<PTR(pfs::drp::stella::PSFSet<double>)>;
@@ -197,7 +199,13 @@ Interface to Stella
     %template(identifyF) identify<float>;
     %template(identifyD) identify<double>;
 }
+//
+//%extend pfs::drp::stella::pipe_out::SpArm{
+//    %template(SpArmFIS) SpArm<float, unsigned int, float, float, unsigned short>;
+//    %template(SpArmFSS) SpArm<float, unsigned short, float, float, unsigned short>;
+//}
 
+//%template(SpectrumF) pfs::drp::stella::Spectrum<float, int, float, float>;
 %template(SpectrumF) pfs::drp::stella::Spectrum<float, unsigned short, float, float>;
 %template(SpectrumD) pfs::drp::stella::Spectrum<double, unsigned short, float, float>;
 %template(SpectrumFI) pfs::drp::stella::Spectrum<float, unsigned int, float, float>;
@@ -209,10 +217,11 @@ Interface to Stella
 %template(PSFSetF) pfs::drp::stella::PSFSet<float>;
 %template(PSFSetD) pfs::drp::stella::PSFSet<double>;
 
+//%template(SpectrumSetF) pfs::drp::stella::SpectrumSet<float, int, float, float>;
 %template(SpectrumSetF) pfs::drp::stella::SpectrumSet<float, unsigned short, float, float>;
 %template(SpectrumSetD) pfs::drp::stella::SpectrumSet<double, unsigned short, float, float>;
-%template(SpectrumSetF) pfs::drp::stella::SpectrumSet<float, unsigned int, float, float>;
-%template(SpectrumSetD) pfs::drp::stella::SpectrumSet<double, unsigned int, float, float>;
+%template(SpectrumSetFI) pfs::drp::stella::SpectrumSet<float, unsigned int, float, float>;
+%template(SpectrumSetDI) pfs::drp::stella::SpectrumSet<double, unsigned int, float, float>;
 
 %template(findAndTraceAperturesF) pfs::drp::stella::math::findAndTraceApertures<float, unsigned short, float>;
 %template(findAndTraceAperturesD) pfs::drp::stella::math::findAndTraceApertures<double, unsigned short, float>;

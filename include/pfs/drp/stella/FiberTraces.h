@@ -137,10 +137,10 @@ class FiberTrace {
     bool setFiberTraceProfileFittingControl( PTR( const FiberTraceProfileFittingControl ) const& fiberTraceProfileFittingControl);// { _fiberTraceProfileFittingControl = fiberTraceProfileFittingControl; }
     
     /// Return the x-centers of the fiber trace
-    const ndarray::Array<double, 1, 1> getXCenters() const { return _xCenters; }
-    void setXCenters( ndarray::Array< double, 1, 1 > const& xCenters );
-    ndarray::Array<double, 2, 1> getXCentersMeas() const { return _xCentersMeas; }
-    void setXCentersMeas( ndarray::Array< double, 2, 1 > const& xCentersMeas);
+    const ndarray::Array< float, 1, 1 > getXCenters() const { return _xCenters; }
+    void setXCenters( ndarray::Array< float, 1, 1 > const& xCenters );
+    ndarray::Array< float, 2, 1 > getXCentersMeas() const { return _xCentersMeas; }
+    void setXCentersMeas( ndarray::Array< float, 2, 1 > const& xCentersMeas);
 
     /// Set the x-center of the fiber trace
     /// Pre: _fiberTraceFunction must be set
@@ -160,7 +160,7 @@ class FiberTrace {
     ndarray::Array<double, 2, 1> calcProfileSwath(ndarray::Array<ImageT const, 2, 1> const& imageSwath,
                                                  ndarray::Array<MaskT const, 2, 1> const& maskSwath,
                                                  ndarray::Array<VarianceT const, 2, 1> const& varianceSwath,
-                                                 ndarray::Array<double const, 1, 1> const& xCentersSwath,
+                                                 ndarray::Array<float const, 1, 1> const& xCentersSwath,
                                                  size_t const iSwath);
 
 /*    bool fitSpline(const blitz::Array<double, 2> &fiberTraceSwath_In,/// 1 bin of CCD (FiberTrace::Image)
@@ -194,8 +194,8 @@ class FiberTrace {
     ///TODO: replace variables with smart pointers?????
     PTR(MaskedImageT) _trace;
     PTR(afwImage::Image<double>) _profile;
-    ndarray::Array<double, 2, 1> _xCentersMeas;
-    ndarray::Array<double, 1, 1> _xCenters;
+    ndarray::Array<float, 2, 1> _xCentersMeas;
+    ndarray::Array<float, 1, 1> _xCenters;
     size_t _iTrace;
     bool _isTraceSet;
     bool _isProfileSet;
@@ -322,7 +322,7 @@ namespace math{
   PTR(FiberTraceSet<ImageT, MaskT, VarianceT>) findAndTraceApertures(const PTR(const afwImage::MaskedImage<ImageT, MaskT, VarianceT>) &maskedImage,
                                                                      const PTR(const FiberTraceFunctionFindingControl) &fiberTraceFunctionFindingControl);
   
-  typedef struct FindCenterPositionsOneTraceResult{
+  struct FindCenterPositionsOneTraceResult{
       std::vector<double> apertureCenterIndex;/// CONVERT ALL TO FLOAT???
       std::vector<double> apertureCenterPos;
       std::vector<double> eApertureCenterPos;
@@ -343,11 +343,11 @@ namespace math{
    * @brief: returns ndarray containing the xCenters of a FiberTrace from 0 to FiberTrace.getTrace().getHeight()-1
    *         NOTE that the WCS starts at [0., 0.], so an xCenter of 1.1 refers to position 0.1 of the second pixel
    */
-  ndarray::Array<double, 1, 1> calculateXCenters(PTR(const ::pfs::drp::stella::FiberTraceFunction) const& fiberTraceFunctionIn,
+  ndarray::Array<float, 1, 1> calculateXCenters(PTR(const ::pfs::drp::stella::FiberTraceFunction) const& fiberTraceFunctionIn,
                                                  size_t const& ccdHeightIn = 0,
                                                  size_t const& ccdWidthIn = 0);
-  ndarray::Array<double, 1, 1> calculateXCenters(PTR(const ::pfs::drp::stella::FiberTraceFunction) const& fiberTraceFunctionIn,
-                                                 ndarray::Array<double, 1, 1> const& yIn,
+  ndarray::Array<float, 1, 1> calculateXCenters(PTR(const ::pfs::drp::stella::FiberTraceFunction) const& fiberTraceFunctionIn,
+                                                 ndarray::Array<float, 1, 1> const& yIn,
                                                  size_t const& ccdHeightIn = 0,
                                                  size_t const& ccdWidthIn = 0);
 
