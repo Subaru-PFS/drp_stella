@@ -177,10 +177,7 @@ bool pfsDRPStella::Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>::setYLow(c
 template<typename SpectrumT, typename MaskT, typename VarianceT, typename WavelengthT>
 bool pfsDRPStella::Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>::setYHigh(const size_t yHigh){
   if ( yHigh > _nCCDRows ){
-    string message("pfsDRPStella::Spectrum::setYLow: ERROR: yHigh=");
-    message += to_string( yHigh ) + string(" > _nCCDRows=") + to_string(_nCCDRows);
-    cout << message << endl;
-    throw LSST_EXCEPT(pexExcept::Exception, message.c_str());    
+    _nCCDRows = _yLow + yHigh;
   }
   _yHigh = yHigh;
   return true;
@@ -650,11 +647,22 @@ bool pfsDRPStella::SpectrumSet<ImageT, MaskT, VarianceT, WavelengthT>::erase(con
   return true;
 }
 
-  template<typename ImageT, typename MaskT, typename VarianceT, typename WavelengthT>
-  void pfsDRPStella::SpectrumSet<ImageT, MaskT, VarianceT, WavelengthT>::writeFits(
-        lsst::afw::fits::Fits & fitsfile,
-        CONST_PTR(lsst::daf::base::PropertySet) metadata,
-        CONST_PTR(lsst::daf::base::PropertySet) fluxMetadata ) const
+    template<typename ImageT, typename MaskT, typename VarianceT, typename WavelengthT>
+    void pfsDRPStella::SpectrumSet<ImageT, MaskT, VarianceT, WavelengthT>::writeFits( std::string const& fileName, int flags ) const
+    {
+      lsst::afw::fits::Fits fitsfile( fileName, "w", lsst::afw::fits::Fits::AUTO_CLOSE | lsst::afw::fits::Fits::AUTO_CHECK );
+      writeFits( fitsfile, flags );
+    }
+
+    template<typename ImageT, typename MaskT, typename VarianceT, typename WavelengthT>
+    void pfsDRPStella::SpectrumSet<ImageT, MaskT, VarianceT, WavelengthT>::writeFits( lsst::afw::fits::MemFileManager & manager, int flags ) const
+    {
+      lsst::afw::fits::Fits fitsfile(manager, "w", lsst::afw::fits::Fits::AUTO_CLOSE | lsst::afw::fits::Fits::AUTO_CHECK);
+      writeFits( fitsfile, flags );
+    }
+    
+    template<typename ImageT, typename MaskT, typename VarianceT, typename WavelengthT>
+    void pfsDRPStella::SpectrumSet<ImageT, MaskT, VarianceT, WavelengthT>::writeFits( lsst::afw::fits::Fits & fitsfile, int flags ) const
     {
       int nFibers = int( size() );
       int nCCDRows = getSpectrum( 0 )->getNCCDRows();
@@ -678,14 +686,15 @@ bool pfsDRPStella::SpectrumSet<ImageT, MaskT, VarianceT, WavelengthT>::erase(con
       for ( int iFiber = 0; iFiber < _spectra->size(); ++iFiber ){
 //        PTR( pfsDRPStella::Spectrum< ImageT, MaskT, VarianceT, WavelengthT > ) spectrum = _spectra[ iFiber ];
 
-        if ( int( _spectra->at( iFiber )->getYHigh() ) - int( _spectra->at( iFiber )->getYLow() + 1 ) != _spectra->at( iFiber )->getSpectrum().getShape()[ 0 ] ){
-          throw LSST_EXCEPT(
-            lsst::pex::exceptions::LogicError,
-            "SpArc: spectrum does not have expected shape"
-          );
-        }
         int yLow = _spectra->at( iFiber )->getYLow();
         int yHigh = _spectra->at( iFiber )->getYHigh();
+        if ( yHigh - yLow + 1 != _spectra->at( iFiber )->getSpectrum().getShape()[ 0 ] ){
+          cout << "SpectrumSet::writeFits: yHigh=" << yHigh << " - yLow=" << yLow << " + 1 (=" << yHigh - yLow + 1 << ") = " << yHigh-yLow + 1 << " != _spectra->at( iFiber )->getSpectrum().getShape()[ 0 ] = " << _spectra->at( iFiber )->getSpectrum().getShape()[ 0 ] << endl;
+          throw LSST_EXCEPT(
+            lsst::pex::exceptions::LogicError,
+            "SpectrumSet::writeFits: spectrum does not have expected shape"
+          );
+        }
 
         flux[ ndarray::view( yLow, yHigh + 1 )( iFiber ) ] = _spectra->at( iFiber )->getSpectrum()[ ndarray::view() ];
         covar[ ndarray::view( )( yLow, yHigh + 1 )( iFiber ) ] = _spectra->at( iFiber )->getCovar()[ ndarray::view() ];
@@ -695,17 +704,18 @@ bool pfsDRPStella::SpectrumSet<ImageT, MaskT, VarianceT, WavelengthT>::erase(con
         sky[ ndarray::view( yLow, yHigh + 1 )( iFiber ) ] = _spectra->at( iFiber )->getSky()[ ndarray::view() ];
       }
 
-      PTR(lsst::daf::base::PropertySet) hdr;
-      if (metadata) {
-          hdr = metadata->deepCopy();
-      } else {
-          hdr.reset(new lsst::daf::base::PropertyList());
-      }
+      CONST_PTR(lsst::daf::base::PropertySet) fluxMetadata = CONST_PTR(lsst::daf::base::PropertySet)();
+      PTR(lsst::daf::base::PropertySet) hdr(new lsst::daf::base::PropertyList());
+//      if (metadata) {
+//          hdr = metadata->deepCopy();
+//      } else {
+//          hdr.reset(new lsst::daf::base::PropertyList());
+//      }
 
       if (fitsfile.countHdus() != 0) {
           throw LSST_EXCEPT(
               lsst::pex::exceptions::LogicError,
-              "SpArm::writeFits can only write to an empty file"
+              "SpectrumSet::writeFits::writeFits can only write to an empty file"
           );
       }
       if (fitsfile.getHdu() <= 1) {

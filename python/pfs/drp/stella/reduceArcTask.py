@@ -253,10 +253,7 @@ class ReduceArcTask(CmdLineTask):
             plt.close(fig)
             fig.clf()
         
-        print 'creating spArm object'
-        print 'type(spectrumSetFromProfile) = ',type(spectrumSetFromProfile)
-        print 'type(flatFiberTraceSet) = ',type(flatFiberTraceSet)
-        spArm = drpStella.SpArm.SpArmFSS(spectrumSetFromProfile, flatFiberTraceSet)
-
-        print 'writing spArm object'
-        buler.put(spArm, 'spArm')
+        print 'writing SpectrumSet object'
+#        import pdb; pdb.set_trace()
+        print 'arcRef.dataId = ',arcRef.dataId
+        butler.put(spectrumSetFromProfile, 'spArm', arcRef.dataId )

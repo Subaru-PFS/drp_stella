@@ -199,11 +199,18 @@ Interface to Stella
     %template(identifyF) identify<float>;
     %template(identifyD) identify<double>;
 }
-//
-//%extend pfs::drp::stella::pipe_out::SpArm{
-//    %template(SpArmFIS) SpArm<float, unsigned int, float, float, unsigned short>;
-//    %template(SpArmFSS) SpArm<float, unsigned short, float, float, unsigned short>;
-//}
+%extend pfs::drp::stella::SpectrumSet{
+    %feature("shadow") writeFits %{
+    def writeFits(self, filename, flags=0):
+        """Write the catalog to a FITS binary table.
+
+        @param[in]  filename    Name of the file to write or a MemFileManager object.
+        @param[in]  flags       Subclass-defined flags to control the details of how
+                                the catalog is written.
+        """
+        $action(self, filename, flags)
+    %}
+}
 
 //%template(SpectrumF) pfs::drp::stella::Spectrum<float, int, float, float>;
 %template(SpectrumF) pfs::drp::stella::Spectrum<float, unsigned short, float, float>;
