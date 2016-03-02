@@ -4,18 +4,27 @@
 #include <vector>
 #include <iostream>
 #include <cmath>
+//#pragma clang diagnostic push
+//#pragma clang diagnostic ignored "-Wunused-variable"
+//#pragma clang diagnostic pop
+#include "boost/algorithm/string/trim.hpp"
 #include "lsst/base.h"
 #include "lsst/afw/geom.h"
 #include "lsst/afw/image/MaskedImage.h"
 #include "lsst/pex/config.h"
-#include "lsst/pex/exceptions/Exception.h"
-//#include "blitz.h"
+#include "lsst/pex/exceptions.h"
+#include "lsst/pex/logging.h"
+//#include "lsst/daf/base/Citizen.h"
+//#include "lsst/daf/base/Persistable.h"
 #include <fitsio.h>
 #include <fitsio2.h>
 #include "math/Math.h"
 #include "math/CurveFitting.h"
 #include "utils/Utils.h"
 #include "Controls.h"
+#include "lsst/afw/fits.h"
+#include "lsst/afw/image/fits/fits_io.h"
+#include "lsst/afw/image/fits/fits_io_mpl.h"
 
 #define stringify( name ) # name
 
@@ -176,7 +185,9 @@ class Spectrum {
  *
  */
 template<typename SpectrumT, typename MaskT = afwImage::MaskPixel, typename VarianceT = afwImage::VariancePixel, typename WavelengthT = afwImage::VariancePixel>
-class SpectrumSet {
+class SpectrumSet// : public lsst::daf::base::Persistable,
+                 //public lsst::daf::base::Citizen 
+{
   public:
     /// Class Constructors and Destructor
       
@@ -187,11 +198,81 @@ class SpectrumSet {
     /// If spectrumSet is not empty, the object shares ownership of spectrumSet's spectrum vector and increases the use count.
     /// If spectrumSet is empty, an empty object is constructed (as if default-constructed).
     explicit SpectrumSet(const SpectrumSet &spectrumSet)
-        : _spectra(spectrumSet.getSpectra())
+        ://     lsst::daf::base::Citizen(typeid(this)),
+              _spectra(spectrumSet.getSpectra())
         {}
 
     /// Construct an object with a copy of spectrumVector
     explicit SpectrumSet(const PTR(std::vector<PTR(Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>)>) &spectrumVector);
+
+    /**
+     *  @brief Construct a SpectrumSet by reading a regular FITS file.
+     *
+     *  @param[in]      fileName      File to read.
+     *  @param[in,out]  metadata      Metadata read from the primary HDU header.
+     *  @param[in,out]  fluxMetadata  Metadata read from the flux HDU header.
+     *  @param[in,out]  covarMetadata Metadata read from the covar HDU header.
+     *  @param[in,out]  maskMetadata  Metadata read from the mask HDU header.
+     *  @param[in,out]  wLenMetadata  Metadata read from the wavelength HDU header.
+     *  @param[in,out]  wDispMetadata Metadata read from the dispersion HDU header.
+     *  @param[in,out]  skyMetadata   Metadata read from the sky HDU header.
+     */
+    explicit SpectrumSet(
+        std::string const& fileName,
+        PTR(lsst::daf::base::PropertySet) metadata=PTR(lsst::daf::base::PropertySet)(),
+        PTR(lsst::daf::base::PropertySet) fluxMetadata=PTR(lsst::daf::base::PropertySet)(),
+        PTR(lsst::daf::base::PropertySet) covarMetadata=PTR(lsst::daf::base::PropertySet)(),
+        PTR(lsst::daf::base::PropertySet) maskMetadata=PTR(lsst::daf::base::PropertySet)(),
+        PTR(lsst::daf::base::PropertySet) wLenMetadata=PTR(lsst::daf::base::PropertySet)(),
+        PTR(lsst::daf::base::PropertySet) wDispMetadata=PTR(lsst::daf::base::PropertySet)(),
+        PTR(lsst::daf::base::PropertySet) skyMetadata=PTR(lsst::daf::base::PropertySet)()
+    );
+
+    /**
+     *  @brief Construct a SpectrumSet by reading a FITS image in memory.
+     *
+     *  @param[in]      manager       An object that manages the memory buffer to read.
+     *  @param[in,out]  metadata      Metadata read from the primary HDU header.
+     *  @param[in,out]  fluxMetadata  Metadata read from the flux HDU header.
+     *  @param[in,out]  covarMetadata Metadata read from the covar HDU header.
+     *  @param[in,out]  maskMetadata  Metadata read from the mask HDU header.
+     *  @param[in,out]  wLenMetadata  Metadata read from the wavelength HDU header.
+     *  @param[in,out]  wDispMetadata Metadata read from the dispersion HDU header.
+     *  @param[in,out]  skyMetadata   Metadata read from the sky HDU header.
+     */
+    explicit SpectrumSet(
+        lsst::afw::fits::MemFileManager const& manager,
+        PTR(lsst::daf::base::PropertySet) metadata=PTR(lsst::daf::base::PropertySet)(),
+        PTR(lsst::daf::base::PropertySet) fluxMetadata=PTR(lsst::daf::base::PropertySet)(),
+        PTR(lsst::daf::base::PropertySet) covarMetadata=PTR(lsst::daf::base::PropertySet)(),
+        PTR(lsst::daf::base::PropertySet) maskMetadata=PTR(lsst::daf::base::PropertySet)(),
+        PTR(lsst::daf::base::PropertySet) wLenMetadata=PTR(lsst::daf::base::PropertySet)(),
+        PTR(lsst::daf::base::PropertySet) wDispMetadata=PTR(lsst::daf::base::PropertySet)(),
+        PTR(lsst::daf::base::PropertySet) skyMetadata=PTR(lsst::daf::base::PropertySet)()
+    );
+
+    /**
+     *  @brief Construct a SpectrumSet from an already-open FITS object.
+     *
+     *  @param[in]      fitsfile      A FITS object to read from.  Current HDU is ignored.
+     *  @param[in,out]  metadata      Metadata read from the primary HDU header.
+     *  @param[in,out]  fluxMetadata  Metadata read from the flux HDU header.
+     *  @param[in,out]  covarMetadata Metadata read from the covar HDU header.
+     *  @param[in,out]  maskMetadata  Metadata read from the mask HDU header.
+     *  @param[in,out]  wLenMetadata  Metadata read from the wavelength HDU header.
+     *  @param[in,out]  wDispMetadata Metadata read from the dispersion HDU header.
+     *  @param[in,out]  skyMetadata   Metadata read from the sky HDU header.
+     */
+    explicit SpectrumSet(
+        lsst::afw::fits::Fits const& fitsfile,
+        PTR(lsst::daf::base::PropertySet) metadata=PTR(lsst::daf::base::PropertySet)(),
+        PTR(lsst::daf::base::PropertySet) fluxMetadata=PTR(lsst::daf::base::PropertySet)(),
+        PTR(lsst::daf::base::PropertySet) covarMetadata=PTR(lsst::daf::base::PropertySet)(),
+        PTR(lsst::daf::base::PropertySet) maskMetadata=PTR(lsst::daf::base::PropertySet)(),
+        PTR(lsst::daf::base::PropertySet) wLenMetadata=PTR(lsst::daf::base::PropertySet)(),
+        PTR(lsst::daf::base::PropertySet) wDispMetadata=PTR(lsst::daf::base::PropertySet)(),
+        PTR(lsst::daf::base::PropertySet) skyMetadata=PTR(lsst::daf::base::PropertySet)()
+    );
         
     virtual ~SpectrumSet() {}
 
@@ -199,7 +280,7 @@ class SpectrumSet {
     size_t size() const { return _spectra->size(); }
 
     /// Return the Spectrum for the ith aperture
-    PTR(Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>) &getSpectrum(const size_t i);
+    PTR(Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>) & getSpectrum(const size_t i);
 
     PTR(const Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>) const& getSpectrum(const size_t i) const;
 
@@ -248,6 +329,26 @@ class SpectrumSet {
      *  to indicate that the primary metadata applies to those HDUs as well.
      */
     void writeFits( lsst::afw::fits::MemFileManager & manager, int flags=0 ) const;
+
+    /**
+     *  @brief Read a SpectrumSet from a regular FITS file.
+     *
+     *  @param[in] filename    Name of the file to read.
+     */
+    static SpectrumSet& readFits( std::string const & filename ) {
+        static SpectrumSet< SpectrumT, MaskT, VarianceT, WavelengthT > spectrumSet( filename );
+        return spectrumSet;
+    }
+
+    /**
+     *  @brief Read a MaskedImage from a FITS RAM file.
+     *
+     *  @param[in] manager     Object that manages the memory to be read.
+     */
+    static SpectrumSet& readFits( lsst::afw::fits::MemFileManager & manager ) {
+        static SpectrumSet< SpectrumT, MaskT, VarianceT, WavelengthT > spectrumSet( manager );
+        return spectrumSet;
+    }
     
   private:
     PTR(std::vector<PTR(Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>)>) _spectra; // spectra for each aperture

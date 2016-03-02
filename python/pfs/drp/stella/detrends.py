@@ -366,6 +366,7 @@ class DetrendTask(BatchPoolTask):
         for ccdName in ccdIdLists:
             dataId = dict(outputId.items() + [(k, ccdName[i]) for i, k in enumerate(ccdKeys)])
             try:
+#                import pdb; pdb.set_trace()
                 filename = butler.get(self.calibName + "_filename", dataId)
                 self.log.info('DetrendTask.run: filename = %s'%(filename))
             except Exception, e:

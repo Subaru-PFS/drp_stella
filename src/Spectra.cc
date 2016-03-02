@@ -529,10 +529,42 @@ bool pfsDRPStella::Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>::identify(
   return _isWavelengthSet;
 }
 
+namespace {
+
+// Helper functions for SpectrumSet FITS ctor.
+
+void checkExtType(
+    lsst::afw::fits::Fits & fitsfile,
+    PTR(lsst::daf::base::PropertySet) metadata,
+    std::string const & expected
+) {
+    try {
+        std::string exttype = boost::algorithm::trim_right_copy(metadata->getAsString("EXTTYPE"));
+        if (exttype != "" && exttype != expected) {
+            throw LSST_EXCEPT(lsst::pex::exceptions::InvalidParameterError,
+                              (boost::format("Reading %s (hdu %d) Expected EXTTYPE==\"%s\", saw \"%s\"") %
+                               expected % fitsfile.getFileName() % fitsfile.getHdu() % exttype).str());
+        }
+        metadata->remove("EXTTYPE");
+    } catch(lsst::pex::exceptions::NotFoundError) {
+        lsst::pex::logging::Log log(lsst::pex::logging::Log::getDefaultLog(), "afw.image.MaskedImage");
+        log.warn(boost::format("Expected extension type not found: %s") % expected);
+    }
+}
+
+void ensureMetadata(PTR(lsst::daf::base::PropertySet) & metadata) {
+    if (!metadata) {
+        metadata.reset(new lsst::daf::base::PropertyList());
+    }
+}
+
+} // anonymous
+
 ///SpectrumSet
 template<typename SpectrumT, typename MaskT, typename VarianceT, typename WavelengthT>
 pfsDRPStella::SpectrumSet<SpectrumT, MaskT, VarianceT, WavelengthT>::SpectrumSet(size_t nSpectra, size_t length)
-        : _spectra(new std::vector<PTR(pfsDRPStella::Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>)>())
+        ://     lsst::daf::base::Citizen(typeid(this)),
+              _spectra(new std::vector<PTR(pfsDRPStella::Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>)>())
 {
   for (size_t i = 0; i < nSpectra; ++i){
     PTR(pfsDRPStella::Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>) spec(new pfsDRPStella::Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>(length));
@@ -543,13 +575,175 @@ pfsDRPStella::SpectrumSet<SpectrumT, MaskT, VarianceT, WavelengthT>::SpectrumSet
     
 template<typename SpectrumT, typename MaskT, typename VarianceT, typename WavelengthT>
 pfsDRPStella::SpectrumSet<SpectrumT, MaskT, VarianceT, WavelengthT>::SpectrumSet(const PTR(std::vector<PTR(Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>)>) &spectrumVector)
-        : _spectra(spectrumVector)
+        ://     lsst::daf::base::Citizen(typeid(this)),
+              _spectra(spectrumVector)
 {}
 //  for (int i = 0; i < spectrumVector->size(); ++i){
 //    (*_spectra)[i]->setITrace(i);
 //  }
 //}
+
+template<typename SpectrumT, typename MaskT, typename VarianceT, typename WavelengthT>
+pfsDRPStella::SpectrumSet<SpectrumT, MaskT, VarianceT, WavelengthT>::SpectrumSet( std::string const & fileName,
+        PTR(lsst::daf::base::PropertySet) metadata,
+        PTR(lsst::daf::base::PropertySet) fluxMetadata,
+        PTR(lsst::daf::base::PropertySet) covarMetadata,
+        PTR(lsst::daf::base::PropertySet) maskMetadata,
+        PTR(lsst::daf::base::PropertySet) wLenMetadata,
+        PTR(lsst::daf::base::PropertySet) wDispMetadata,
+        PTR(lsst::daf::base::PropertySet) skyMetadata )
+://     lsst::daf::base::Citizen(typeid(this)),
+      _spectra(new std::vector<PTR(pfsDRPStella::Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>)>())
+{
+    lsst::afw::fits::Fits fitsfile(fileName, "r", lsst::afw::fits::Fits::AUTO_CLOSE | lsst::afw::fits::Fits::AUTO_CHECK);
+    *this = SpectrumSet(fitsfile, metadata,
+                        fluxMetadata, covarMetadata, maskMetadata, wLenMetadata, wDispMetadata, skyMetadata);
+}
+
+template<typename SpectrumT, typename MaskT, typename VarianceT, typename WavelengthT>
+pfsDRPStella::SpectrumSet<SpectrumT, MaskT, VarianceT, WavelengthT>::SpectrumSet( lsst::afw::fits::MemFileManager const& manager,
+        PTR(lsst::daf::base::PropertySet) metadata,
+        PTR(lsst::daf::base::PropertySet) fluxMetadata,
+        PTR(lsst::daf::base::PropertySet) covarMetadata,
+        PTR(lsst::daf::base::PropertySet) maskMetadata,
+        PTR(lsst::daf::base::PropertySet) wLenMetadata,
+        PTR(lsst::daf::base::PropertySet) wDispMetadata,
+        PTR(lsst::daf::base::PropertySet) skyMetadata )
+://     lsst::daf::base::Citizen(typeid(this)),
+      _spectra(new std::vector<PTR(pfsDRPStella::Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>)>())
+{
+    lsst::afw::fits::Fits fitsfile(const_cast< lsst::afw::fits::MemFileManager& >(manager), "r", lsst::afw::fits::Fits::AUTO_CLOSE | lsst::afw::fits::Fits::AUTO_CHECK);
+    *this = SpectrumSet(fitsfile, metadata, 
+                        fluxMetadata, covarMetadata, maskMetadata, wLenMetadata, wDispMetadata, skyMetadata);
+}
+
+template<typename SpectrumT, typename MaskT, typename VarianceT, typename WavelengthT>
+pfsDRPStella::SpectrumSet<SpectrumT, MaskT, VarianceT, WavelengthT>::SpectrumSet(         
+        lsst::afw::fits::Fits const& fitsfile,
+        PTR(lsst::daf::base::PropertySet) metadata,
+        PTR(lsst::daf::base::PropertySet) fluxMetadata,
+        PTR(lsst::daf::base::PropertySet) covarMetadata,
+        PTR(lsst::daf::base::PropertySet) maskMetadata,
+        PTR(lsst::daf::base::PropertySet) wLenMetadata,
+        PTR(lsst::daf::base::PropertySet) wDispMetadata,
+        PTR(lsst::daf::base::PropertySet) skyMetadata
+ )
+://     lsst::daf::base::Citizen(typeid(this)),
+      _spectra(new std::vector<PTR(pfsDRPStella::Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>)>())
+{
+    lsst::pex::logging::Log log(lsst::pex::logging::Log::getDefaultLog(), "pfs.drp.stella.SpectrumSet");
+
+    typedef boost::mpl::vector<
+        unsigned char, 
+        unsigned short, 
+        short, 
+        int,
+        unsigned int,
+        float,
+        double,
+        boost::uint64_t
+    > fits_image_types;
     
+    enum class Hdu {
+        Primary = 1,
+        Flux,
+        Covariance,
+        Mask,
+        WLen,
+        WDisp,
+        Sky
+    };
+
+    // If the user has requested a non-default HDU and we require all HDUs, we fail.
+    //if (needAllHdus && fitsfile.getHdu() > static_cast<int>(Hdu::Image)) {
+    //    throw LSST_EXCEPT(lsst::afw::fits::FitsError,
+    //                      "Cannot read all HDUs starting from non-default");
+    //}
+
+    auto origHdu = (const_cast< lsst::afw::fits::Fits& >(fitsfile)).getHdu();
+    if (metadata) {
+        // Read primary metadata - only if user asks for it.
+        // If the primary HDU is not empty, this may be the same as imageMetadata.
+        auto prevHdu = (const_cast< lsst::afw::fits::Fits& >(fitsfile)).getHdu();
+        (const_cast< lsst::afw::fits::Fits& >(fitsfile)).setHdu(static_cast<int>(Hdu::Primary));
+        (const_cast< lsst::afw::fits::Fits& >(fitsfile)).readMetadata(*metadata);
+        (const_cast< lsst::afw::fits::Fits& >(fitsfile)).setHdu(prevHdu);
+    }
+
+    // setHdu(0) jumps to the first extension iff the primary HDU is both
+    // empty and currently selected.
+    (const_cast< lsst::afw::fits::Fits& >(fitsfile)).setHdu(0);
+    ensureMetadata(fluxMetadata);
+//    _image.reset(new Image(fitsfile, imageMetadata, bbox, origin));
+
+    if (!metadata) {
+        metadata.reset(new lsst::daf::base::PropertyList());
+    }
+
+//    const lsst::afw::geom::Box2I bbox();
+//    ImageOrigin origin=PARENT;
+    lsst::afw::geom::Point2I xy0;
+    cout << "xy0 = " << xy0 << endl;
+    ndarray::Array< float, 2, 2 > array;
+    
+    lsst::afw::image::fits_read_array( const_cast< lsst::afw::fits::Fits& >(fitsfile), array, xy0, *metadata );
+    cout << "SpectrumSet::SpectrumSet(fitsfile): array.getShape() = " << array.getShape() << endl;
+
+    for (int i = 0; i < metadata->names().size(); ++i){
+      std::cout << "Image::Image(fitsfile, metadata,...): metadata.names()[" << i << "] = " << metadata->names()[i] << std::endl;
+      if (metadata->names()[i].compare("EXPTIME") == 0)
+        std::cout << "Image::Image(fitsfile, metadata,...): metadata->get(EXPTIME) = " << metadata->getAsDouble("EXPTIME") << std::endl;
+    }
+    for (int i = 0; i < metadata->paramNames().size(); ++i){
+      std::cout << "Image::Image(fitsfile, metadata,...): metadata.paramNames()[" << i << "] = " << metadata->paramNames()[i] << std::endl;
+      if (metadata->paramNames()[i].compare("EXPTIME") == 0)
+        std::cout << "Image::Image(fitsfile, metadata,...): metadata->get(EXPTIME) = " << metadata->getAsDouble("EXPTIME") << std::endl;
+    }
+    for (int i = 0; i < metadata->propertySetNames().size(); ++i)
+      std::cout << "Image::Image(fitsfile, metadata,...): metadata.propertySetNames()[" << i << "] = " << metadata->propertySetNames()[i] << std::endl;
+
+    checkExtType( const_cast< lsst::afw::fits::Fits& >(fitsfile), fluxMetadata, "IMAGE" );
+
+/*    if (fitsfile.getHdu() != static_cast<int>(Hdu::Image)) {
+        // Reading the image from a non-default HDU means we do not attempt to
+        // read mask and variance.
+        _mask.reset(new Mask(_image->getBBox()));
+        _variance.reset(new Variance(_image->getBBox()));
+    } else {
+        try {
+            fitsfile.setHdu(static_cast<int>(Hdu::Mask));
+            ensureMetadata(maskMetadata);
+            _mask.reset(new Mask(fitsfile, maskMetadata, bbox, origin, conformMasks));
+            checkExtType(fitsfile, maskMetadata, "MASK");
+        } catch(lsst::afw::fits::FitsError &e) {
+            if (needAllHdus) {
+                LSST_EXCEPT_ADD(e, "Reading Mask");
+                throw e;
+            }
+            log.warn("Mask unreadable; using default");
+            // By resetting the status we are able to read the next HDU (the variance).
+            fitsfile.status = 0;
+            _mask.reset(new Mask(_image->getBBox()));
+        }
+
+        try {
+            fitsfile.setHdu(static_cast<int>(Hdu::Variance));
+            ensureMetadata(varianceMetadata);
+            _variance.reset(new Variance(fitsfile, varianceMetadata, bbox, origin));
+            checkExtType(fitsfile, varianceMetadata, "VARIANCE");
+        } catch(lsst::afw::fits::FitsError &e) {
+            if (needAllHdus) {
+                LSST_EXCEPT_ADD(e, "Reading Variance");
+                throw e;
+            }
+            log.warn("Variance unreadable; using default");
+            fitsfile.status = 0;
+            _variance.reset(new Variance(_image->getBBox()));
+        }
+    }*/
+    (const_cast< lsst::afw::fits::Fits& >(fitsfile)).setHdu(origHdu);
+}
+
 template<typename SpectrumT, typename MaskT, typename VarianceT, typename WavelengthT>
 bool pfsDRPStella::SpectrumSet<SpectrumT, MaskT, VarianceT, WavelengthT>::setSpectrum(const size_t i,     /// which spectrum?
                      const PTR(Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>) & spectrum /// the Spectrum for the ith aperture
