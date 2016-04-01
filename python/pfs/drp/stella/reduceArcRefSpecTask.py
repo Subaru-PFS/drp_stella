@@ -37,7 +37,7 @@ class ReduceArcConfig(Config):
     stretchMinLength = Field( doc = "Minimum length to stretched pieces to (< lengthPieces)", dtype = int, default = 460 );
     stretchMaxLength = Field( doc = "Maximum length to stretched pieces to (> lengthPieces)", dtype = int, default = 540 );
     nStretches = Field( doc = "Number of stretches between <stretchMinLength> and <stretchMaxLength>", dtype = int, default = 80 );
-    wavelengthFile = Field( doc = "reference pixel-wavelength file including path", dtype = str, default="/Users/azuri/stella-git/obs_subaru/pfs/RedFiberPixels.fits.gz");
+    refSpec = Field( doc = "reference reference spectrum including path", dtype = str, default="/Users/azuri/stella-git/obs_subaru/pfs/lineLists/refCdHgKrNeXe_red.fits");
     lineList = Field( doc = "reference line list including path", dtype = str, default="/Users/azuri/stella-git/obs_subaru/pfs/lineLists/CdHgKrNeXe_red.fits");
 #class ReduceArcIdAction(argparse.Action):
 #    """Split name=value pairs and put the result in a dict"""
@@ -79,7 +79,7 @@ class ReduceArcTaskRunner(TaskRunner):
     @staticmethod
     def getTargetList(parsedCmd, **kwargs):
         print 'ReduceArcTask.getTargetList: kwargs = ',kwargs
-        return [dict(expRefList=parsedCmd.id.refList, butler=parsedCmd.butler, wLenFile=parsedCmd.wavelengthFile, lineList=parsedCmd.lineList)]
+        return [dict(expRefList=parsedCmd.id.refList, butler=parsedCmd.butler, refSpec=parsedCmd.refSpec, lineList=parsedCmd.lineList)]
 #        return [dict(expRefList=parsedCmd.id.refList, butler=parsedCmd.butler, flatId=parsedCmd.flatId, refSpec=parsedCmd.refSpec, lineList=parsedCmd.lineList)]
 
     def __call__(self, args):
@@ -115,18 +115,18 @@ class ReduceArcTask(CmdLineTask):
         parser = ArgumentParser(name=cls._DefaultName)
         parser.add_id_argument("--id", datasetType="postISRCCD",
                                help="input identifiers, e.g., --id visit=123 ccd=4")
-        parser.add_argument("--wLenFile", help='directory and name of wavelength file')
+        parser.add_argument("--refSpec", help='directory and name of reference spectrum')
         parser.add_argument("--lineList", help='directory and name of line list')
         return parser# ReduceArcArgumentParser(name=cls._DefaultName, *args, **kwargs)
 
-    def run(self, expRefList, butler, wLenFile=None, lineList=None, immediate=True):
-        if wLenFile == None:
-            wLenFile = self.config.wavelengthFile
+    def run(self, expRefList, butler, refSpec=None, lineList=None, immediate=True):
+        if refSpec == None:
+            refSpec = self.config.refSpec
         if lineList == None:
             lineList = self.config.lineList
         self.log.info('expRefList = %s' % expRefList)
         self.log.info('len(expRefList) = %d' % len(expRefList))
-        self.log.info('wLenFile = %s' % wLenFile)
+        self.log.info('refSpec = %s' % refSpec)
         self.log.info('lineList = %s' % lineList)
 
         arcRef = expRefList[0]
@@ -178,17 +178,30 @@ class ReduceArcTask(CmdLineTask):
         lineListArr[:,0] = tbdata.field(0)
         lineListArr[:,1] = tbdata.field(1)
 
-        """ read wavelength file """
-        hdulist = pyfits.open(wLenFile)
+        """ read reference Spectrum """
+        hdulist = pyfits.open(refSpec)
         tbdata = hdulist[1].data
-        tbdataArr = np.ndarray(shape=(len(tbdata), 5), dtype='float32')
-        tbdataArr[:, 0] = tbdata[:]['fiberNum']
-        tbdataArr[:, 1] = tbdata[:]['pixelRow']
-        tbdataArr[:, 2] = tbdata[:]['pixelWave']
-        tbdataArr[:, 3] = tbdata[:]['xc']
-        tbdataArr[:, 4] = tbdata[:]['yc']
-        self.log.info('tbdataArr.shape = [%d, %d]' % (tbdataArr.shape[0], tbdataArr.shape[1]))
+        refSpecArr = np.ndarray(shape=(len(tbdata)), dtype='float32')
+        refSpecArr[:] = tbdata.field(0)
+        self.log.info('refSpecArr.shape = %d' % refSpecArr.shape)
         
+        refSpec = spectrumSetFromProfile.getSpectrum(int(spectrumSetFromProfile.size() / 2))
+        ref = refSpec.getSpectrum()
+        self.log.info('ref.shape = %d' % ref.shape)
+        
+        if False:
+            fig = plt.figure()
+            ax = fig.add_subplot(1, 1, 1)
+            ax.plot(ref,'-+')
+            ax.plot(refSpecArr,'-+')
+#                plt.xlim(1450,1600)
+#                plt.ylim(0,8000)
+            plt.show()
+            plt.close(fig)
+            fig.clf()
+        
+        if ref.shape != refSpecArr.shape:
+            raise("ref.shape != refSpecArr.shape")
 
         dispCorControl = drpStella.DispCorControl()
         dispCorControl.fittingFunction = self.config.function

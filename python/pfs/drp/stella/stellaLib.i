@@ -606,3 +606,25 @@ Interface to Stella
 
 %template(stretchF) pfs::drp::stella::math::stretch<float>;
 %template(stretchD) pfs::drp::stella::math::stretch<double>;
+
+%template(poly) pfs::drp::stella::math::Poly<float, float>;
+%template(poly) pfs::drp::stella::math::Poly<double, float>;
+%template(poly) pfs::drp::stella::math::Poly<float, double>;
+%template(poly) pfs::drp::stella::math::Poly<double, double>;
+
+%template(assignITrace) pfs::drp::stella::math::assignITrace< float, unsigned short, float, int, float, 0 >;
+%template(assignITrace) pfs::drp::stella::math::assignITrace< double, unsigned short, double, int, float, 0 >;
+%template(assignITrace) pfs::drp::stella::math::assignITrace< float, unsigned short, float, int, double, 0 >;
+%template(assignITrace) pfs::drp::stella::math::assignITrace< double, unsigned short, double, int, double, 0 >;
+%template(assignITrace) pfs::drp::stella::math::assignITrace< float, unsigned short, float, short int, float, 0 >;
+%template(assignITrace) pfs::drp::stella::math::assignITrace< double, unsigned short, double, short int, float, 0 >;
+%template(assignITrace) pfs::drp::stella::math::assignITrace< float, unsigned short, float, short int, double, 0 >;
+%template(assignITrace) pfs::drp::stella::math::assignITrace< double, unsigned short, double, short int, double, 0 >;
+%template(assignITrace) pfs::drp::stella::math::assignITrace< float, unsigned short, float, int, float, 1 >;
+%template(assignITrace) pfs::drp::stella::math::assignITrace< double, unsigned short, double, int, float, 1 >;
+%template(assignITrace) pfs::drp::stella::math::assignITrace< float, unsigned short, float, int, double, 1 >;
+%template(assignITrace) pfs::drp::stella::math::assignITrace< double, unsigned short, double, int, double, 1 >;
+%template(assignITrace) pfs::drp::stella::math::assignITrace< float, unsigned short, float, short int, float, 1 >;
+%template(assignITrace) pfs::drp::stella::math::assignITrace< double, unsigned short, double, short int, float, 1 >;
+%template(assignITrace) pfs::drp::stella::math::assignITrace< float, unsigned short, float, short int, double, 1 >;
+%template(assignITrace) pfs::drp::stella::math::assignITrace< double, unsigned short, double, short int, double, 1 >;

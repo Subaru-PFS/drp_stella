@@ -291,8 +291,8 @@ namespace pfs { namespace drp { namespace stella {
     /*
      * @brief: Returns array to copies of specified elements of arr_In
      */
-    template<typename T, typename U>
-    ndarray::Array<T, 1, 1> getSubArray(ndarray::Array<T, 1, 1> const& arr_In, ndarray::Array<U, 1, 1> const& indices_In);
+    template<typename T, typename U, int I>
+    ndarray::Array<T, 1, 1> getSubArray(ndarray::Array<T, 1, I> const& arr_In, ndarray::Array<U, 1, 1> const& indices_In);
 
     template<typename T, typename U>
     ndarray::Array<T, 1, 1> getSubArray(ndarray::Array<T, 2, 1> const& arr_In, ndarray::Array<U, 2, 1> const& indices_In);
@@ -481,8 +481,8 @@ namespace pfs { namespace drp { namespace stella {
                   ndarray::Array< T, 1, 1 > const& YVecArr, 
                   T const& XM );
     
-    template< typename T, typename U >
-    ndarray::Array< U, 1, 1 > where( ndarray::Array< T, 1, 1 > const& arrayToCompareTo,
+    template< typename T, typename U, int I >
+    ndarray::Array< U, 1, 1 > where( ndarray::Array< T, 1, I > const& arrayToCompareTo,
                                      std::string const& op,
                                      T const valueToCompareTo, 
                                      U const valueIfTrue,
@@ -549,7 +549,7 @@ namespace pfs { namespace drp { namespace stella {
 
     /**
      ValueLocate
-     Returns the Start Index of the Range of the two indixes of the monotonically increasing or decreasing Vector VecArr, in which Val falls.
+     Returns the Start Index of the Range of the two indices of the monotonically increasing or decreasing Vector VecArr, in which Val falls.
      If Vector is monotonically increasing, the result is
        if j = -1       Value(i) < VecArr(0)
        if 0 <= j < N-1 VecArr(j) <= Value(i) < VecArr(j+1)
@@ -724,7 +724,18 @@ namespace pfs { namespace drp { namespace stella {
     ndarray::Array< T, 1, 1 > stretch( ndarray::Array< T, 1, 1 > const& spec,
                                        int newLength );
     
-//    template< typename T >
+    template< typename T, int I >
+    ndarray::Array< T, 1, 1 > unique( ndarray::Array< T, 1, I > const& data );
+    
+    template< typename T > 
+    int find( ndarray::Array< T, 1, 1 > const& arrToSearch,
+              T val );
+    
+    template< typename T > 
+    int find( std::vector< T > const& vecToSearch,
+              T val );
+
+    //    template< typename T >
 //    ndarray::Array< T, 2, 1 > get2DArray(ndarray::Array< T, 1, 1 > const& xIn, ndarray::Array< T, 1, 1 > const& yIn);
   }/// end namespace math
   

@@ -642,8 +642,8 @@
       return D_A1_Out;
     }
     
-    template<typename T, typename U>
-    ndarray::Array<T, 1, 1> getSubArray(ndarray::Array<T, 1, 1> const& arr_In, 
+    template<typename T, typename U, int I>
+    ndarray::Array<T, 1, 1> getSubArray(ndarray::Array<T, 1, I> const& arr_In, 
                                         ndarray::Array<U, 1, 1> const& indices_In){
       ndarray::Array<T, 1, 1> arr_Out = ndarray::allocate(indices_In.getShape()[0]);
       for (int ind = 0; ind < indices_In.getShape()[0]; ++ind){
@@ -2132,8 +2132,8 @@
       return PVecArr;
     }
     
-    template< typename T, typename U >
-    ndarray::Array< U, 1, 1 > where( ndarray::Array< T, 1, 1 > const& arrayToCompareTo,
+    template< typename T, typename U, int I >
+    ndarray::Array< U, 1, 1 > where( ndarray::Array< T, 1, I > const& arrayToCompareTo,
                                      std::string const& op,
                                      T const valueToCompareTo, 
                                      U const valueIfTrue,
@@ -2148,6 +2148,8 @@
         else if ( ( op.compare( ">" ) == 0 ) && ( *itComp > valueToCompareTo ) )
           *itOut = valueIfTrue;
         else if ( ( op.compare( ">=" ) == 0 ) && ( *itComp >= valueToCompareTo ) )
+          *itOut = valueIfTrue;
+        else if ( ( op.compare( "==" ) == 0 ) && ( *itComp == valueToCompareTo ) )
           *itOut = valueIfTrue;
         else
           *itOut = valueIfFalse;
@@ -2172,6 +2174,8 @@
         else if ( ( op.compare( ">" ) == 0 ) && ( *itComp > valueToCompareTo ) )
           *itOut = valueIfTrue;
         else if ( ( op.compare( ">=" ) == 0 ) && ( *itComp >= valueToCompareTo ) )
+          *itOut = valueIfTrue;
+        else if ( ( op.compare( "==" ) == 0 ) && ( *itComp == valueToCompareTo ) )
           *itOut = valueIfTrue;
         else
           *itOut = *itElse;
@@ -2230,6 +2234,12 @@
             #endif
             *itOutCol = valueIfTrue;
           }
+          else if ( ( op.compare( "==" ) == 0 ) && ( *itCompCol == valueToCompareTo ) ){
+            #ifdef __DEBUG_WHERE__
+              cout << "where2D: op = == && " << *itCompCol << " == " << valueToCompareTo << endl;
+            #endif
+            *itOutCol = valueIfTrue;
+          }
           else{
             *itOutCol = valueIfFalse;
           }
@@ -2261,6 +2271,8 @@
           else if ( ( op.compare( ">" ) == 0 ) && ( *itCompCol > valueToCompareTo ) )
             *itOutCol = valueIfTrue;
           else if ( ( op.compare( ">=" ) == 0 ) && ( *itCompCol >= valueToCompareTo ) )
+            *itOutCol = valueIfTrue;
+          else if ( ( op.compare( "==" ) == 0 ) && ( *itCompCol == valueToCompareTo ) )
             *itOutCol = valueIfTrue;
           else
             *itOutCol = *itElseCol;
@@ -2892,6 +2904,64 @@
       return arrOut;
     }
     
+    template< typename T > 
+    int find( ndarray::Array< T, 1, 1 > const& arrToSearch,
+              T val ){
+      int pos = 0;
+      for ( auto it = arrToSearch.begin(); it != arrToSearch.end(); ++it, ++pos ){
+        if ( std::fabs( double(*it) - double(val) ) < 0.000000000001 )
+          return pos;
+      }
+      return -1;
+    }
+    
+    template< typename T > 
+    int find( std::vector< T > const& vecToSearch,
+              T val ){
+      int pos = 0;
+      for ( auto it = vecToSearch.begin(); it != vecToSearch.end(); ++it, ++pos ){
+        if ( std::fabs( double(*it) - double(val) ) < 0.000000000001 )
+          return pos;
+      }
+      return -1;
+    }
+
+    template< typename T, int I >
+    ndarray::Array< T, 1, 1 > unique( ndarray::Array< T, 1, I > const& data ){
+      std::vector< T > vec;
+      vec.push_back( data[ 0 ] );
+      for ( auto it = data.begin(); it != data.end(); ++it ){
+        if ( find( vec, *it ) < 0 )  
+          vec.push_back( *it );
+      }
+      ndarray::Array< T, 1, 1 > out = ndarray::allocate( vec.size() );
+      auto itVec = vec.begin();
+      for ( auto it = out.begin(); it != out.end(); ++it, ++itVec )
+        *it = *itVec;
+      return out;
+    }
+    
+    template int find( ndarray::Array< int, 1, 1 > const&, int );
+    template int find( ndarray::Array< size_t, 1, 1 > const&, size_t );
+    template int find( ndarray::Array< float, 1, 1 > const&, float );
+    template int find( ndarray::Array< double, 1, 1 > const&, double );
+
+    template int find( std::vector< int > const&, int );
+    template int find( std::vector< size_t > const&, size_t );
+    template int find( std::vector< float > const&, float );
+    template int find( std::vector< double > const&, double );
+    
+    template ndarray::Array< size_t, 1, 1 > unique( ndarray::Array< size_t, 1, 0 > const& );
+    template ndarray::Array< short int, 1, 1 > unique( ndarray::Array< short int, 1, 0 > const& );
+    template ndarray::Array< int, 1, 1 > unique( ndarray::Array< int, 1, 0 > const& );
+    template ndarray::Array< float, 1, 1 > unique( ndarray::Array< float, 1, 0 > const& );
+    template ndarray::Array< double, 1, 1 > unique( ndarray::Array< double, 1, 0 > const& );
+    template ndarray::Array< size_t, 1, 1 > unique( ndarray::Array< size_t, 1, 1 > const& );
+    template ndarray::Array< short int, 1, 1 > unique( ndarray::Array< short int, 1, 1 > const& );
+    template ndarray::Array< int, 1, 1 > unique( ndarray::Array< int, 1, 1 > const& );
+    template ndarray::Array< float, 1, 1 > unique( ndarray::Array< float, 1, 1 > const& );
+    template ndarray::Array< double, 1, 1 > unique( ndarray::Array< double, 1, 1 > const& );
+    
     template ndarray::Array< float, 1, 1 > stretch( ndarray::Array< float, 1, 1 > const&, int );
     template ndarray::Array< double, 1, 1 > stretch( ndarray::Array< double, 1, 1 > const&, int );
 
@@ -2978,9 +3048,39 @@
     template ndarray::Array< double, 1, 1 > splineI( ndarray::Array< double, 1, 1 > const&, 
                                                      ndarray::Array< double, 1, 1 > const& );
     
+    template ndarray::Array< int, 1, 1 > where( ndarray::Array< int, 1, 0 > const&,
+                                                std::string const&,
+                                                int const, 
+                                                int const,
+                                                int const );
+
+    template ndarray::Array< int, 1, 1 > where( ndarray::Array< short int, 1, 0 > const&,
+                                                std::string const&,
+                                                short int const, 
+                                                int const,
+                                                int const );
+    
+    template ndarray::Array< int, 1, 1 > where( ndarray::Array< double, 1, 0 > const&,
+                                                std::string const&,
+                                                double const, 
+                                                int const,
+                                                int const );
+
+    template ndarray::Array< double, 1, 1 > where( ndarray::Array< double, 1, 0 > const&,
+                                                   std::string const&,
+                                                   double const, 
+                                                   double const,
+                                                   double const );
+
     template ndarray::Array< int, 1, 1 > where( ndarray::Array< int, 1, 1 > const&,
                                                 std::string const&,
                                                 int const, 
+                                                int const,
+                                                int const );
+
+    template ndarray::Array< int, 1, 1 > where( ndarray::Array< short int, 1, 1 > const&,
+                                                std::string const&,
+                                                short int const, 
                                                 int const,
                                                 int const );
     
@@ -2995,7 +3095,7 @@
                                                    double const, 
                                                    double const,
                                                    double const );
-
+    
     template ndarray::Array< int, 1, 1 > where( ndarray::Array< int, 1, 1 > const&,
                                                 std::string const&,
                                                 int const, 
@@ -3186,6 +3286,16 @@
     template ndarray::Array< float, 2, 1 > resize( ndarray::Array< float, 2, 1 > const& arr_In, size_t, size_t);
     template ndarray::Array< double, 2, 1 > resize( ndarray::Array< double, 2, 1 > const& arr_In, size_t, size_t);
 
+    template ndarray::Array<size_t, 1, 1> getSubArray(ndarray::Array<size_t, 1, 0> const&, ndarray::Array<size_t, 1, 1> const&);
+    template ndarray::Array<int, 1, 1> getSubArray(ndarray::Array<int, 1, 0> const&, ndarray::Array<size_t, 1, 1> const&);
+    template ndarray::Array<long, 1, 1> getSubArray(ndarray::Array<long, 1, 0> const&, ndarray::Array<size_t, 1, 1> const&);
+    template ndarray::Array<float, 1, 1> getSubArray(ndarray::Array<float, 1, 0> const&, ndarray::Array<size_t, 1, 1> const&);
+    template ndarray::Array<double, 1, 1> getSubArray(ndarray::Array<double, 1, 0> const&, ndarray::Array<size_t, 1, 1> const&);
+    template ndarray::Array<size_t, 1, 1> getSubArray(ndarray::Array<size_t, 1, 0> const&, ndarray::Array<int, 1, 1> const&);
+    template ndarray::Array<int, 1, 1> getSubArray(ndarray::Array<int, 1, 0> const&, ndarray::Array<int, 1, 1> const&);
+    template ndarray::Array<long, 1, 1> getSubArray(ndarray::Array<long, 1, 0> const&, ndarray::Array<int, 1, 1> const&);
+    template ndarray::Array<float, 1, 1> getSubArray(ndarray::Array<float, 1, 0> const&, ndarray::Array<int, 1, 1> const&);
+    template ndarray::Array<double, 1, 1> getSubArray(ndarray::Array<double, 1, 0> const&, ndarray::Array<int, 1, 1> const&);
     template ndarray::Array<size_t, 1, 1> getSubArray(ndarray::Array<size_t, 1, 1> const&, ndarray::Array<size_t, 1, 1> const&);
     template ndarray::Array<int, 1, 1> getSubArray(ndarray::Array<int, 1, 1> const&, ndarray::Array<size_t, 1, 1> const&);
     template ndarray::Array<long, 1, 1> getSubArray(ndarray::Array<long, 1, 1> const&, ndarray::Array<size_t, 1, 1> const&);
