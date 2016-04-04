@@ -25,7 +25,7 @@ Interface to Stella
 #include "pfs/drp/stella/Controls.h"
 #include "pfs/drp/stella/PSF.h"
 #include "pfs/drp/stella/Spectra.h"
-#include "pfs/drp/stella/SurfaceFit.h"
+//#include "pfs/drp/stella/SurfaceFit.h"
 #include "ndarray/Array.h"
 #include "ndarray/swig/eigen.h"
 %}
@@ -174,7 +174,7 @@ Interface to Stella
 %include "pfs/drp/stella/math/CurveFitting.h"
 %include "pfs/drp/stella/math/SurfaceFitting.h"
 %include "pfs/drp/stella/Controls.h"
-%include "pfs/drp/stella/SurfaceFit.h"
+//%include "pfs/drp/stella/SurfaceFit.h"
 %include "lsst/"
 
 //%template(PSFSetVectorF) std::vector<PTR(pfs::drp::stella::PSFSet<float>)>;
