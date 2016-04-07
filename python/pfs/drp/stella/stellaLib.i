@@ -628,3 +628,6 @@ Interface to Stella
 %template(assignITrace) pfs::drp::stella::math::assignITrace< double, unsigned short, double, short int, float, 1 >;
 %template(assignITrace) pfs::drp::stella::math::assignITrace< float, unsigned short, float, short int, double, 1 >;
 %template(assignITrace) pfs::drp::stella::math::assignITrace< double, unsigned short, double, short int, double, 1 >;
+
+%template(createLineList) pfs::drp::stella::math::createLineList< float >;
+%template(createLineList) pfs::drp::stella::math::createLineList< double >;

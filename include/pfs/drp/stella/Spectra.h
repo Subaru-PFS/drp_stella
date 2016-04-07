@@ -369,6 +369,10 @@ namespace math{
                                                                              ndarray::Array< T, 1, 1 > const& specRef,
                                                                              ndarray::Array< U, 2, 1 > const& lineList_WLenPix,
                                                                              DispCorControl const& dispCorControl );
+    
+    template< typename T >
+    ndarray::Array< T, 2, 1 > createLineList( ndarray::Array< T, 1, 1 > const& wLen,
+                                              ndarray::Array< T, 1, 1 > const& lines );
 
 }
 

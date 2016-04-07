@@ -1299,6 +1299,33 @@ namespace pfs { namespace drp { namespace stella { namespace math {
       return stretchAndCrossCorrelateSpecResult;
     }
     
+    template< typename T >
+    ndarray::Array< T, 2, 1 > createLineList( ndarray::Array< T, 1, 1 > const& wLen,
+                                              ndarray::Array< T, 1, 1 > const& lines ){
+      ndarray::Array< size_t, 1, 1 > ind = pfsDRPStella::math::getIndicesInValueRange( wLen, T( 1 ), T( 15000 ) );
+      ndarray::Array< T, 1, 1 > indT = ndarray::allocate( ind.getShape()[ 0 ] );
+      indT.deep() = ind;
+      cout << "Spectra::createLineList: indT = " << indT.getShape() << ": " << indT << endl;
+      cout << "Spectra::createLineList: ind[0] = " << ind[0] << ", ind[ind.getShape()[0](=" << ind.getShape()[0] << ")-1] = " << ind[ind.getShape()[0]-1] << endl;
+      ndarray::Array< T, 1, 1 > wavelengths = ndarray::copy( wLen[ ndarray::view( ind[ 0 ], ind[ ind.getShape()[ 0 ] - 1 ] + 1 ) ] );
+      cout << "Spectra::createLineList: wavelengths = " << wavelengths.getShape() << ": " << wavelengths << endl;
+      std::vector< std::string > args( 1 );
+//      args[ 0 ] = "SPLINE";
+      cout << "Spectra::createLineList: lines = " << lines.getShape() << ": " << lines << endl;
+      ndarray::Array< T, 1, 1 > pix = pfsDRPStella::math::interPol( indT, wavelengths, lines, args );
+      cout << "Spectra::createLineList: pix = " << pix.getShape() << ": " << pix << endl;
+      ndarray::Array< T, 2, 1 > out = ndarray::allocate( lines.getShape()[ 0 ], 2 );
+      cout << "Spectra::createLineList: out = " << out.getShape() << endl;
+      cout << "Spectra::createLineList: out[ ndarray::view( )( 0 ) ].getShape() = " << out[ ndarray::view( )( 0 ) ].getShape() << endl;
+      out[ ndarray::view( )( 0 ) ] = pix;//[ ndarray::view( ) ];
+      out[ ndarray::view( )( 1 ) ] = lines;//[ ndarray::view( ) ];
+      cout << "Spectra::createLineList: out = " << out << endl;
+      return out;
+    }
+    
+    template ndarray::Array< float, 2, 1 > createLineList( ndarray::Array< float, 1, 1 > const&, ndarray::Array< float, 1, 1 > const& );
+    template ndarray::Array< double, 2, 1 > createLineList( ndarray::Array< double, 1, 1 > const&, ndarray::Array< double, 1, 1 > const& );
+    
 //    template StretchAndCrossCorrelateSpecResult< float, float >;
 //    template StretchAndCrossCorrelateSpecResult< double, double >;
 //    template StretchAndCrossCorrelateSpecResult< float, double >;

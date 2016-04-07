@@ -28,10 +28,12 @@ import lsst.obs.subaru.isr as lsstIsr
 import lsst.daf.persistence.butler as lsstButler
 
 #from hsc.pipe.base.parallel import BatchPoolTask
-from pfs.drp.stella.parallel import BatchPoolTask
+#from pfs.drp.stella.parallel import BatchPoolTask
+from lsst.ctrl.pool.parallel import BatchPoolTask
 #from lsst.pipe.base import Task
 
-from pfs.drp.stella.pool import Pool, NODE
+#from pfs.drp.stella.pool import Pool, NODE
+from lsst.ctrl.pool.pool import Pool, NODE
 
 from . import checksum
 

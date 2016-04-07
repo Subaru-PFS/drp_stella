@@ -3157,6 +3157,7 @@ namespace pfsDRPStella = pfs::drp::stella;
         cout << "FiberTraces::findITrace: yCenter = " << yCenter << endl;
         //cout << "FiberTraces::findITrace: traceIds = " << traceIds << endl;
       #endif
+
       for ( int i = startPos; i < fiberTraceIds.getShape()[ 0 ]; ++i ){
         #ifdef __DEBUG_FINDITRACE__
           cout << "FiberTraces::findITrace: fiberTraceIds = " << fiberTraceIds << endl;
