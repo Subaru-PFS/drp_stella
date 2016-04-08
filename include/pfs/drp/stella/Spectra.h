@@ -31,6 +31,7 @@
 //#define __DEBUG_IDENTIFY__
 //#define __DEBUG_STRETCHANDCROSSCORRELATESPEC__
 //#define __DEBUG_STRETCHANDCROSSCORRELATESPEC_LINELIST__
+#define __DEBUG_CREATELINELIST__
 
 namespace afwGeom = lsst::afw::geom;
 namespace afwImage = lsst::afw::image;

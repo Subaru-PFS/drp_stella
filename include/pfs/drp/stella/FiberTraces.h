@@ -379,11 +379,12 @@ namespace math{
                         ndarray::Array< U, 1, I > const& xCenters,
                         ndarray::Array< U, 1, I > const& yCenters );
      
-     template< typename ImageT, typename MaskT, typename VarianceT, typename T, typename U, int I >
+     template< typename ImageT, typename MaskT, typename VarianceT, typename U, int I >
      int findITrace( FiberTrace< ImageT, MaskT, VarianceT > const& fiberTrace,
-                     ndarray::Array< T, 1, I > const& traceIds,
                      ndarray::Array< U, 1, I > const& xCenters,
                      ndarray::Array< U, 1, I > const& yCenters,
+                     int nTraces,
+                     int nRows,
                      int startPos = 0 );
   }   
 
