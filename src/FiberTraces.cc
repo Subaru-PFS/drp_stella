@@ -3158,47 +3158,15 @@ namespace pfsDRPStella = pfs::drp::stella;
         //cout << "FiberTraces::findITrace: traceIds = " << traceIds << endl;
       #endif
 
+      ndarray::Array< int, 1, 1 > thisFiberTrace = pfs::drp::stella::math::where( traceIds, "==", fiberTraceIds[ 0 ], int(1), int(0) );
+      int nRows = std::accumulate( thisFiberTrace.begin(), thisFiberTrace.end(), 0 );
+        
       for ( int i = startPos; i < fiberTraceIds.getShape()[ 0 ]; ++i ){
-        #ifdef __DEBUG_FINDITRACE__
-          cout << "FiberTraces::findITrace: fiberTraceIds = " << fiberTraceIds << endl;
-          cout << "FiberTraces::findITrace: i = " << i << ": starting where looking for " << fiberTraceIds[i] << endl;
-        #endif
-        ndarray::Array< int, 1, 1 > thisFiberTrace = pfs::drp::stella::math::where( traceIds, "==", fiberTraceIds[ i ], int(1), int(0) );
-        #ifdef __DEBUG_FINDITRACE__
-          //cout << "FiberTraces::findITrace: i = " << i << ": thisFiberTrace = " << thisFiberTrace << endl;
-          cout << "FiberTraces::findITrace: i = " << i << ": starting getIndices" << endl;
-        #endif
-        ndarray::Array< size_t, 1, 1 > indicesThisFiberTrace = pfs::drp::stella::math::getIndices( thisFiberTrace );
-        if ( indicesThisFiberTrace.getShape()[ 0 ] < 10 ){
-          cout << "FiberTraces::findITrace: i = " << i << ": ERROR: indicesThisFiberTrace.getShape()[ 0 ] = " << indicesThisFiberTrace.getShape()[ 0 ] << " too small" << endl;
-          return -1;
-        }
-        #ifdef __DEBUG_FINDITRACE__
-          cout << "FiberTraces::findITrace: i = " << i << ": indicesThisFiberTrace = " << indicesThisFiberTrace << endl;
-          cout << "FiberTraces::findITrace: i = " << i << ": starting getSubArray" << endl;
-        #endif
-        ndarray::Array< U, 1, 1 > xCenters = pfs::drp::stella::math::getSubArray( xCentersArr, indicesThisFiberTrace );
-        ndarray::Array< U, 1, 1 > yCenters = pfs::drp::stella::math::getSubArray( yCentersArr, indicesThisFiberTrace );
-        #ifdef __DEBUG_FINDITRACE__
-          cout << "FiberTraces::findITrace: i = " << i << ": xCenters = " << xCenters << endl;
-          cout << "FiberTraces::findITrace: i = " << i << ": yCenters = " << yCenters << endl;
-          //exit(EXIT_FAILURE);
-        #endif
-        for ( int iX = yCenter - 10; iX < yCenter + 10; ++iX ){
+        if ( std::fabs( xCentersArr[ i * nRows + yCenter ] - xCenter ) < 2. ){
           #ifdef __DEBUG_FINDITRACE__
-            cout << "FiberTraces::findITrace: i = " << i << ": yCenter = " << yCenter << ": yCenters[" << iX << "] = " << yCenters[iX] << endl;
+            cout << "FiberTraces::findITrace: i = " << i << ": returning i=" << i << endl;
           #endif
-          if ( int( yCenters[ iX ]) == int( yCenter ) ){
-            #ifdef __DEBUG_FINDITRACE__
-              cout << "FiberTraces::findITrace: i = " << i << ": xCenter = " << xCenter << ": xCenters[" << iX << "] = " << xCenters[iX] << endl;
-            #endif
-            if ( std::fabs( xCenters[ iX ] - xCenter ) < 2. ){
-              #ifdef __DEBUG_FINDITRACE__
-                cout << "FiberTraces::findITrace: i = " << i << ": returning i=" << i << endl;
-              #endif
-              return i;
-            }
-          }
+          return i;
         }
       }
       return -1;
