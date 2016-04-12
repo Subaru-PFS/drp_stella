@@ -1,5 +1,6 @@
 setupRequired(pipe_tasks)
 setupRequired(afw)
+setupRequired(obs_pfs)
 
 envPrepend(LD_LIBRARY_PATH, ${PRODUCT_DIR}/lib)
 envPrepend(DYLD_LIBRARY_PATH, ${PRODUCT_DIR}/lib)

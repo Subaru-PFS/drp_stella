@@ -371,6 +371,12 @@ namespace math{
                                                                              ndarray::Array< U, 2, 1 > const& lineList_WLenPix,
                                                                              DispCorControl const& dispCorControl );
     
+    /**
+     * @brief: create line list from wavelength array of size nCCDRows and list of wavelengths of emission lines used to calibrate the spectrum
+     * @param wLen
+     * @param lines
+     * @return array(lines.shape[0], 2) col 0: pixel, col 1: wavelength
+     */
     template< typename T >
     ndarray::Array< T, 2, 1 > createLineList( ndarray::Array< T, 1, 1 > const& wLen,
                                               ndarray::Array< T, 1, 1 > const& lines );

@@ -371,7 +371,9 @@ namespace math{
      /**
       * @brief: assign trace number to set of FiberTraces from x and y center by comparing the center position to the center positions of the zemax model
       * @param fiberTraceSet: FiberTraceSet to assign iTrace to
-      * @param 
+      * @param traceIds: shape(nfibers * nRows)
+      * @param xCenters: shape(nfibers * nRows)
+      * @param yCenters: shape(nfibers * nRows)
       */
      template< typename ImageT, typename MaskT, typename VarianceT, typename T, typename U, int I >
      bool assignITrace( FiberTraceSet< ImageT, MaskT, VarianceT > & fiberTraceSet,
@@ -379,6 +381,16 @@ namespace math{
                         ndarray::Array< U, 1, I > const& xCenters,
                         ndarray::Array< U, 1, I > const& yCenters );
      
+     /**
+      * @brief: compare x and y center of fiberTrace to xCenters and yCenters to identify traceID
+      * @param fiberTrace: fiber trace to identify
+      * @param xCenters: shape(nfibers * nRows)
+      * @param yCenters: shape(nfibers * nRows)
+      * @param nTraces: number of fiber traces on CCD
+      * @param nRows: number of CCD rows
+      * @param startPos: fiber number to start searching
+      * @return fiber trace number
+      */
      template< typename ImageT, typename MaskT, typename VarianceT, typename U, int I >
      int findITrace( FiberTrace< ImageT, MaskT, VarianceT > const& fiberTrace,
                      ndarray::Array< U, 1, I > const& xCenters,

@@ -157,9 +157,30 @@ class ReduceArcTask(CmdLineTask):
         """ optimally extract arc spectra """
         print 'extracting arc spectra'
 
+        """ read wavelength file """
+        hdulist = pyfits.open(wLenFile)
+        tbdata = hdulist[1].data
+        traceIds = np.ndarray(shape=(len(tbdata)), dtype='int')
+        xCenters = np.ndarray(shape=(len(tbdata)), dtype='float32')
+        yCenters = np.ndarray(shape=(len(tbdata)), dtype='float32')
+        wavelengths = np.ndarray(shape=(len(tbdata)), dtype='float32')
+        traceIds[:] = tbdata[:]['fiberNum']
+        wavelengths[:] = tbdata[:]['pixelWave']
+        xCenters[:] = tbdata[:]['xc']
+        yCenters[:] = tbdata[:]['yc']
+
+        """ assign trace number to flatFiberTraceSet """
+        success = drpStella.assignITrace( flatFiberTraceSet, traceIds, xCenters, yCenters )
+
+        if success == False:
+            print 'assignITrace FAILED'
+
         myExtractTask = esTask.ExtractSpectraTask()
         aperturesToExtract = [-1]
         spectrumSetFromProfile = myExtractTask.run(arcExp, flatFiberTraceSet, aperturesToExtract)
+            
+        for i in range(spectrumSetFromProfile.size()):
+            print 'spectrumSetFromProfile[',i,'].iTrace = ',spectrumSetFromProfile.getSpectrum(i).getITrace()
 
 #        fig = plt.figure()
 #        ax = fig.add_subplot(1, 1, 1)
@@ -177,19 +198,7 @@ class ReduceArcTask(CmdLineTask):
         lineListArr = np.ndarray(shape=(len(tbdata),2), dtype='float32')
         lineListArr[:,0] = tbdata.field(0)
         lineListArr[:,1] = tbdata.field(1)
-
-        """ read wavelength file """
-        hdulist = pyfits.open(wLenFile)
-        tbdata = hdulist[1].data
-        tbdataArr = np.ndarray(shape=(len(tbdata), 5), dtype='float32')
-        tbdataArr[:, 0] = tbdata[:]['fiberNum']
-        tbdataArr[:, 1] = tbdata[:]['pixelRow']
-        tbdataArr[:, 2] = tbdata[:]['pixelWave']
-        tbdataArr[:, 3] = tbdata[:]['xc']
-        tbdataArr[:, 4] = tbdata[:]['yc']
-        self.log.info('tbdataArr.shape = [%d, %d]' % (tbdataArr.shape[0], tbdataArr.shape[1]))
         
-
         dispCorControl = drpStella.DispCorControl()
         dispCorControl.fittingFunction = self.config.function
         dispCorControl.order = self.config.order
