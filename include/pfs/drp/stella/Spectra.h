@@ -28,7 +28,7 @@
 
 #define stringify( name ) # name
 
-//#define __DEBUG_IDENTIFY__
+#define __DEBUG_IDENTIFY__
 //#define __DEBUG_STRETCHANDCROSSCORRELATESPEC__
 //#define __DEBUG_STRETCHANDCROSSCORRELATESPEC_LINELIST__
 #define __DEBUG_CREATELINELIST__
@@ -136,12 +136,7 @@ class Spectrum {
       * wavelength-calibration spectrum D_A2_Spec_In [pixel_number, flux]
       * within the given position plus/minus I_Radius_In,
       * fits Gaussians to each line, fits Polynomial of order I_PolyFitOrder_In, and
-      * returns calibrated spectrum D_A2_CalibratedSpec_Out in the format
-      * [WLen, flux] and PolyFit coefficients D_A1_PolyFitCoeffs_Out
-      * 
-      * If D_A2_LineList_In contains 3 columns, the 3rd column will be used to decide which line
-      * to keep in case a weak line close to a strong line gets wrongly identified as the strong
-      * line
+      * writes _wavelength and PolyFit coefficients to _dispCoeffs
       **/
     template< typename T >
     bool identify( ndarray::Array< T, 2, 1 > const& lineList,
@@ -159,6 +154,12 @@ class Spectrum {
     bool setNCCDRows( size_t nCCDRows );
     
   private:
+    /**
+     * @brief: Returns pixel positions of emission lines in lineList fitted in _spectrum
+     */
+    template< typename T >
+    ndarray::Array< double, 1, 1 > hIdentify( ndarray::Array< T, 2, 1 > const& lineList );
+
     size_t _yLow;
     size_t _yHigh;
     size_t _length;
@@ -375,7 +376,7 @@ namespace math{
      * @brief: create line list from wavelength array of size nCCDRows and list of wavelengths of emission lines used to calibrate the spectrum
      * @param wLen
      * @param lines
-     * @return array(lines.shape[0], 2) col 0: pixel, col 1: wavelength
+     * @return array(lines.shape[0], 2) col 0: wavelength, col 1: pixel
      */
     template< typename T >
     ndarray::Array< T, 2, 1 > createLineList( ndarray::Array< T, 1, 1 > const& wLen,

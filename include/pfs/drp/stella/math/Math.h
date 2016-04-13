@@ -359,10 +359,10 @@ namespace pfs { namespace drp { namespace stella {
      * @param vector : vector to be converted to ndarray
      */
     template< typename T >
-    ndarray::Array<T, 1, 1> vectorToNdArray(std::vector<T> & vector);
+    ndarray::Array< T, 1, 1 > vectorToNdArray( std::vector< T > & vector, bool deep = true );
     
     template< typename T >
-    ndarray::Array< T const, 1, 1 > vectorToNdArray(std::vector<T> const& vec_In);
+    ndarray::Array< T const, 1, 1 > vectorToNdArray( std::vector< T > const& vec_In, bool deep = true );
     
     /**
      * @brief return vector containing copy of data in ndarray

@@ -1141,14 +1141,28 @@
     }
     
     template< typename T >
-    ndarray::Array<T, 1, 1> vectorToNdArray(std::vector<T> & vector){
-      ndarray::Array<T, 1, 1> ndArray = ndarray::external(vector.data(), ndarray::makeVector(int(vector.size())), ndarray::makeVector(1));
+    ndarray::Array< T, 1, 1 > vectorToNdArray( std::vector< T > & vector, bool deep ){
+      ndarray::Array< T, 1, 1 > ndArray;
+      if ( deep ){
+        ndarray::Array< T, 1, 1 > temp = ndarray::external( vector.data(), ndarray::makeVector( int( vector.size() ) ), ndarray::makeVector(1) );
+        ndArray = copy( temp );
+      }
+      else{
+        ndArray = ndarray::external( vector.data(), ndarray::makeVector( int( vector.size() ) ), ndarray::makeVector(1) );
+      }
       return ndArray;
     }
     
     template< typename T >
-    ndarray::Array< T const, 1, 1 > vectorToNdArray(std::vector<T> const& vec_In){
-      ndarray::Array< T const, 1, 1 > arr_Out = ndarray::external(vec_In.data(), ndarray::makeVector(int(vec_In.size())), ndarray::makeVector(1));
+    ndarray::Array< T const, 1, 1 > vectorToNdArray( std::vector< T > const& vec_In, bool deep ){
+      ndarray::Array< T const, 1, 1 > arr_Out;
+      if ( deep ){
+        ndarray::Array< T const, 1, 1 > temp = ndarray::external(vec_In.data(), ndarray::makeVector(int(vec_In.size())), ndarray::makeVector( 1 ) );
+        arr_Out = copy( temp );
+      }
+      else{
+        arr_Out = ndarray::external(vec_In.data(), ndarray::makeVector(int(vec_In.size())), ndarray::makeVector( 1 ) );
+      }
       return arr_Out;
     }
 
@@ -3220,21 +3234,21 @@
     template ndarray::Array<float, 2, 2> ndArray22(float, float);
     template ndarray::Array<double, 2, 2> ndArray22(double, double);
     
-    template ndarray::Array< unsigned short const, 1, 1 > vectorToNdArray(std::vector<unsigned short> const&);
-    template ndarray::Array< unsigned int const, 1, 1 > vectorToNdArray(std::vector<unsigned int> const&);
-    template ndarray::Array< unsigned long const, 1, 1> vectorToNdArray(std::vector<unsigned long> const&);
-    template ndarray::Array< int const, 1, 1 > vectorToNdArray(std::vector<int> const&);
-    template ndarray::Array< long const, 1, 1 > vectorToNdArray(std::vector<long> const&);
-    template ndarray::Array< float const, 1, 1 > vectorToNdArray(std::vector<float> const&);
-    template ndarray::Array< double const, 1, 1 > vectorToNdArray(std::vector<double> const&);
+    template ndarray::Array< unsigned short const, 1, 1 > vectorToNdArray(std::vector<unsigned short> const&, bool );
+    template ndarray::Array< unsigned int const, 1, 1 > vectorToNdArray(std::vector<unsigned int> const&, bool );
+    template ndarray::Array< unsigned long const, 1, 1> vectorToNdArray(std::vector<unsigned long> const&, bool );
+    template ndarray::Array< int const, 1, 1 > vectorToNdArray(std::vector<int> const&, bool );
+    template ndarray::Array< long const, 1, 1 > vectorToNdArray(std::vector<long> const&, bool );
+    template ndarray::Array< float const, 1, 1 > vectorToNdArray(std::vector<float> const&, bool );
+    template ndarray::Array< double const, 1, 1 > vectorToNdArray(std::vector<double> const&, bool );
     
-    template ndarray::Array<unsigned short, 1, 1> vectorToNdArray(std::vector<unsigned short> &);
-    template ndarray::Array<unsigned int, 1, 1> vectorToNdArray(std::vector<unsigned int> &);
-    template ndarray::Array<unsigned long, 1, 1> vectorToNdArray(std::vector<unsigned long> &);
-    template ndarray::Array<int, 1, 1> vectorToNdArray(std::vector<int> &);
-    template ndarray::Array<long, 1, 1> vectorToNdArray(std::vector<long> &);
-    template ndarray::Array<float, 1, 1> vectorToNdArray(std::vector<float> &);
-    template ndarray::Array<double, 1, 1> vectorToNdArray(std::vector<double> &);
+    template ndarray::Array<unsigned short, 1, 1> vectorToNdArray(std::vector<unsigned short> &, bool );
+    template ndarray::Array<unsigned int, 1, 1> vectorToNdArray(std::vector<unsigned int> &, bool );
+    template ndarray::Array<unsigned long, 1, 1> vectorToNdArray(std::vector<unsigned long> &, bool );
+    template ndarray::Array<int, 1, 1> vectorToNdArray(std::vector<int> &, bool );
+    template ndarray::Array<long, 1, 1> vectorToNdArray(std::vector<long> &, bool );
+    template ndarray::Array<float, 1, 1> vectorToNdArray(std::vector<float> &, bool );
+    template ndarray::Array<double, 1, 1> vectorToNdArray(std::vector<double> &, bool );
     
     template std::vector< unsigned short > ndArrayToVector( ndarray::Array< unsigned short, 1, 1 > const&);
     template std::vector< unsigned int > ndArrayToVector( ndarray::Array< unsigned int, 1, 1 > const&);
