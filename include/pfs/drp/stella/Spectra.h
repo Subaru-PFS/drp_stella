@@ -28,10 +28,10 @@
 
 #define stringify( name ) # name
 
-#define __DEBUG_IDENTIFY__
+//#define __DEBUG_IDENTIFY__
 //#define __DEBUG_STRETCHANDCROSSCORRELATESPEC__
 //#define __DEBUG_STRETCHANDCROSSCORRELATESPEC_LINELIST__
-#define __DEBUG_CREATELINELIST__
+//#define __DEBUG_CREATELINELIST__
 
 namespace afwGeom = lsst::afw::geom;
 namespace afwImage = lsst::afw::image;
@@ -131,8 +131,7 @@ class Spectrum {
     PTR(DispCorControl) getDispCorControl() const { return _dispCorControl; }
   
     /**
-      * Identify
-      * Identifies calibration lines, given in D_A2_LineList_In the format [wlen, approx_pixel] in
+      * @brief: Identifies calibration lines, given in D_A2_LineList_In the format [wlen, approx_pixel] in
       * wavelength-calibration spectrum D_A2_Spec_In [pixel_number, flux]
       * within the given position plus/minus I_Radius_In,
       * fits Gaussians to each line, fits Polynomial of order I_PolyFitOrder_In, and
@@ -140,6 +139,23 @@ class Spectrum {
       **/
     template< typename T >
     bool identify( ndarray::Array< T, 2, 1 > const& lineList,
+                   DispCorControl const& dispCorControl );
+  
+    /**
+      * @brief: Identifies calibration lines, given in D_A2_LineList_In the format [wlen, approx_pixel] in
+      * wavelength-calibration spectrum D_A2_Spec_In [pixel_number, flux]
+      * within the given position plus/minus I_Radius_In,
+      * fits Gaussians to each line, fits Polynomial of order I_PolyFitOrder_In, and
+      * writes _wavelength and PolyFit coefficients to _dispCoeffs
+      * @param lineList: [ nLines, 2 ]: [ wLen, approx_pixel ]
+      * @param predicted: [ nLines ]: predicted pixel position for each line from the zemax model
+      * @param predictedWLenAllPix: [ nRows in spectrum (yHigh - yLow): predicted wavelength from the zemax model
+      * @param dispCorControl: parameters controlling the dispersion fitting
+      **/
+    template< typename T >
+    bool identify( ndarray::Array< T, 2, 1 > const& lineList,
+                   ndarray::Array< T, 1, 0 > const& predicted,
+                   ndarray::Array< T, 1, 0 > const& predictedWLenAllPix,
                    DispCorControl const& dispCorControl );
     
     bool isWavelengthSet() const {return _isWavelengthSet;}

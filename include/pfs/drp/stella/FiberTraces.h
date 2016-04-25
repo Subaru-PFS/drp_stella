@@ -32,8 +32,8 @@
 
 //#define __DEBUG_BANDSOL__
 //#define __DEBUG_CALC2DPSF__
-#define __DEBUG_CALCPROFILE__
-#define __DEBUG_CALCPROFILESWATH__
+//#define __DEBUG_CALCPROFILE__
+//#define __DEBUG_CALCPROFILESWATH__
 //#define __DEBUG_CALCSWATHBOUNDY__
 //#define __DEBUG_CHECK_INDICES__
 //#define __DEBUG_CREATEFIBERTRACE__
@@ -44,7 +44,7 @@
 //#define __DEBUG_INTERPOL__
 //#define __DEBUG_MINCENMAX__
 //#define __DEBUG_MKPROFIM__
-#define __DEBUG_MKSLITFUNC__
+//#define __DEBUG_MKSLITFUNC__
 //#define __DEBUG_SETFIBERTRACEFUNCTION__
 //#define __DEBUG_SLITFUNC__
 //#define __DEBUG_SLITFUNC_N__

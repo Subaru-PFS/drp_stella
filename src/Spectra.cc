@@ -195,6 +195,117 @@ bool pfsDRPStella::Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>::setNCCDRo
   return true;
 }
 
+template< typename SpectrumT, typename MaskT, typename VarianceT, typename WavelengthT >
+template< typename T >
+bool pfsDRPStella::Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>::identify( ndarray::Array< T, 2, 1 > const& lineList,
+                                                                                 ndarray::Array< T, 1, 0 > const& predicted,
+                                                                                 ndarray::Array< T, 1, 0 > const& predictedWLenAllPix,
+                                                                                 DispCorControl const& dispCorControl ){
+  DispCorControl tempDispCorControl( dispCorControl );
+  _dispCorControl.reset();
+  _dispCorControl = tempDispCorControl.getPointer();
+
+  ///for each line in line list, find maximum in spectrum and fit Gaussian
+  ndarray::Array< double, 1, 1 > D_A1_GaussPos = hIdentify( lineList );
+
+  ///remove lines which could not be found from line list
+  std::vector< int > V_Index( D_A1_GaussPos.getShape()[ 0 ], 0 );
+  size_t pos = 0;
+  for (auto it = D_A1_GaussPos.begin(); it != D_A1_GaussPos.end(); ++it, ++pos ){
+    if ( *it > 0. )
+      V_Index[ pos ] = 1;
+  }
+  #ifdef __DEBUG_IDENTIFY__
+    cout << "identify: D_A1_GaussPos = " << D_A1_GaussPos << endl;
+    cout << "identify: V_Index = ";
+    for (int iPos = 0; iPos < V_Index.size(); ++iPos)
+      cout << V_Index[iPos] << " ";
+    cout << endl;
+  #endif
+  std::vector< size_t > indices = math::getIndices( V_Index );
+  size_t nInd = std::accumulate( V_Index.begin(), V_Index.end(), 0 );
+  #ifdef __DEBUG_IDENTIFY__
+    cout << "Identify: " << nInd << " lines identified" << endl;
+    cout << "Identify: indices = ";
+    for (int iPos = 0; iPos < indices.size(); ++iPos )
+      cout << indices[iPos] << " ";
+    cout << endl;
+  #endif
+  if ( nInd < ( std::round( double( lineList.getShape()[ 0 ] ) * 0.66 ) ) ){
+    std::string message("pfs::drp::stella::identify: ERROR: ");
+    message += "identify: ERROR: less than " + std::to_string( std::round( double( lineList.getShape()[ 0 ] ) * 0.66 ) ) + " lines identified";
+    cout << message << endl;
+    throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
+  }
+  ndarray::Array< size_t, 1, 1 > I_A1_IndexPos = ndarray::external( indices.data(), ndarray::makeVector( int( indices.size() ) ), ndarray::makeVector( 1 ) );
+  ndarray::Array< double, 1, 1 > fittedPosLinesFound = math::getSubArray( D_A1_GaussPos, 
+                                                                          I_A1_IndexPos );
+  #ifdef __DEBUG_IDENTIFY__
+    cout << "identify: fittedPosLinesFound = " << fittedPosLinesFound << endl;
+  #endif
+
+  ndarray::Array< double, 1, 1 > predictedWLen = ndarray::allocate( lineList.getShape()[ 0 ] );
+  predictedWLen[ ndarray::view() ] = lineList[ ndarray::view()( 0 ) ];
+  ndarray::Array< double, 1, 1 > fittedWLenLinesFound = math::getSubArray( predictedWLen, 
+                                                                           I_A1_IndexPos );
+  cout << "Identify: found fittedWLenLinesFound = " << fittedWLenLinesFound << endl;
+
+  ndarray::Array< double, 1, 1 > predictedPos = ndarray::allocate( predicted.getShape()[ 0 ] );
+  predictedPos[ ndarray::view() ] = predicted[ ndarray::view() ];
+
+  ndarray::Array< double, 1, 1 > predictedPosFound = math::getSubArray( predictedPos, 
+                                                                        I_A1_IndexPos );
+
+  ndarray::Array< double, 1, 1 > pixOffsetToFit = ndarray::allocate( nInd );
+  pixOffsetToFit[ ndarray::view() ] = fittedPosLinesFound[ ndarray::view() ] - predictedPosFound[ ndarray::view() ];
+
+  _dispCoeffs = ndarray::allocate( dispCorControl.order + 1 );
+  _dispCoeffs.deep() = math::PolyFit( fittedPosLinesFound,
+                                      pixOffsetToFit,
+                                      dispCorControl.order );
+  ndarray::Array< double, 1, 1 > D_A1_PixOffsetFit = math::Poly( fittedPosLinesFound, 
+                                                                 _dispCoeffs );
+  
+  ///Interpolate wavelength from predicted wavelengths and measured pixel offset
+  ndarray::Array< double, 1, 1 > pixIndex = math::indGenNdArr( double( _length ) );
+  std::vector< std::string > interpolKeyWords( 1 );
+  interpolKeyWords[ 0 ] = std::string( "SPLINE" );
+  ndarray::Array< double, 1, 1 > predictedWLenAllPixA = ndarray::allocate( predictedWLenAllPix.getShape()[ 0 ] );
+  predictedWLenAllPixA.deep() = predictedWLenAllPix;
+  ndarray::Array< double, 1, 1 > wLenLinesFoundCheck = math::interPol( predictedWLenAllPixA, 
+                                                                       pixIndex, 
+                                                                       fittedPosLinesFound,
+                                                                       interpolKeyWords );
+  wLenLinesFoundCheck[ ndarray::view() ] = wLenLinesFoundCheck[ ndarray::view() ] + predictedPosFound[ ndarray::view() ];
+  cout << "Identify: wLenLinesFoundCheck = " << wLenLinesFoundCheck << endl;
+  cout << "identify: _dispCoeffs = " << _dispCoeffs << endl;
+
+  ///Calculate RMS
+  ndarray::Array< double, 1, 1 > D_A1_WLenMinusFit = ndarray::allocate( wLenLinesFoundCheck.getShape()[ 0 ] );
+  D_A1_WLenMinusFit.deep() = fittedWLenLinesFound - wLenLinesFoundCheck;
+  cout << "Identify: D_A1_WLenMinusFit = " << D_A1_WLenMinusFit << endl;
+  _dispRms = math::calcRMS( D_A1_WLenMinusFit );
+  cout << "Identify: _dispRms = " << _dispRms << endl;
+  cout << "======================================" << endl;
+
+  ///calibrate spectrum
+  ndarray::Array< double, 1, 1 > D_A1_Indices = math::indGenNdArr( double( _spectrum.getShape()[ 0 ] ) );
+  _wavelength = ndarray::allocate( _spectrum.getShape()[ 0 ] );
+  _wavelength.deep() = math::Poly( D_A1_Indices, _dispCoeffs );
+  #ifdef __DEBUG_IDENTIFY__
+    cout << "identify: _wavelength = " << _wavelength << endl;
+  #endif
+
+  /// Check for monotonic
+  if ( math::isMonotonic( _wavelength ) == 0 ){
+    cout << "Identify: WARNING: Wavelength solution is not monotonic => Setting identifyResult.rms to 1000" << endl;
+    _dispRms = 1000.;
+    cout << "Identify: RMS = " << _dispRms << endl;
+    cout << "======================================" << endl;
+  }
+  _isWavelengthSet = true;
+  return _isWavelengthSet;
+}
 /**
  * Identify
  * Identifies calibration lines, given in D_A2_LineList_In the format [wlen, approx_pixel] in
@@ -1376,22 +1487,59 @@ template class pfsDRPStella::Spectrum<float, unsigned short, double, double>;
 template class pfsDRPStella::Spectrum<double, unsigned short, double, double>;
 
 template bool pfsDRPStella::Spectrum<float, unsigned int, float, float>::identify(ndarray::Array< float, 2, 1 > const&,
-                                                                                              DispCorControl const&);
+                                                                                  DispCorControl const&);
 template bool pfsDRPStella::Spectrum<double, unsigned int, float, float>::identify(ndarray::Array< float, 2, 1 > const&,
-                                                                                              DispCorControl const&);
+                                                                                   DispCorControl const&);
 template bool pfsDRPStella::Spectrum<float, unsigned short, float, float>::identify(ndarray::Array< float, 2, 1 > const&,
-                                                                                              DispCorControl const&);
+                                                                                    DispCorControl const&);
 template bool pfsDRPStella::Spectrum<double, unsigned short, float, float>::identify(ndarray::Array< float, 2, 1 > const&,
-                                                                                              DispCorControl const&);
+                                                                                     DispCorControl const&);
 template bool pfsDRPStella::Spectrum<float, unsigned int, float, float>::identify(ndarray::Array< double, 2, 1 > const&,
-                                                                                              DispCorControl const&);
+                                                                                  DispCorControl const&);
 template bool pfsDRPStella::Spectrum<double, unsigned int, float, float>::identify(ndarray::Array< double, 2, 1 > const&,
-                                                                                              DispCorControl const&);
+                                                                                   DispCorControl const&);
 template bool pfsDRPStella::Spectrum<float, unsigned short, float, float>::identify(ndarray::Array< double, 2, 1 > const&,
-                                                                                              DispCorControl const&);
+                                                                                    DispCorControl const&);
 template bool pfsDRPStella::Spectrum<double, unsigned short, float, float>::identify(ndarray::Array< double, 2, 1 > const&,
-                                                                                              DispCorControl const&);
+                                                                                     DispCorControl const&);
 template bool pfsDRPStella::Spectrum<float, int, float, float>::identify(ndarray::Array< float, 2, 1 > const&, 
+                                                                         DispCorControl const&);
+
+template bool pfsDRPStella::Spectrum<float, unsigned int, float, float>::identify(ndarray::Array< float, 2, 1 > const&,
+                                                                                  ndarray::Array< float, 1, 0 > const&,
+                                                                                  ndarray::Array< float, 1, 0 > const&,
+                                                                                  DispCorControl const&);
+template bool pfsDRPStella::Spectrum<double, unsigned int, float, float>::identify(ndarray::Array< float, 2, 1 > const&,
+                                                                                   ndarray::Array< float, 1, 0 > const&,
+                                                                                   ndarray::Array< float, 1, 0 > const&,
+                                                                                   DispCorControl const&);
+template bool pfsDRPStella::Spectrum<float, unsigned short, float, float>::identify(ndarray::Array< float, 2, 1 > const&,
+                                                                                   ndarray::Array< float, 1, 0 > const&,
+                                                                                   ndarray::Array< float, 1, 0 > const&,
+                                                                                   DispCorControl const&);
+template bool pfsDRPStella::Spectrum<double, unsigned short, float, float>::identify(ndarray::Array< float, 2, 1 > const&,
+                                                                                     ndarray::Array< float, 1, 0 > const&,
+                                                                                     ndarray::Array< float, 1, 0 > const&,
+                                                                                     DispCorControl const&);
+template bool pfsDRPStella::Spectrum<float, unsigned int, float, float>::identify(ndarray::Array< double, 2, 1 > const&,
+                                                                                  ndarray::Array< double, 1, 0 > const&,
+                                                                                  ndarray::Array< double, 1, 0 > const&,
+                                                                                  DispCorControl const&);
+template bool pfsDRPStella::Spectrum<double, unsigned int, float, float>::identify(ndarray::Array< double, 2, 1 > const&,
+                                                                                   ndarray::Array< double, 1, 0 > const&,
+                                                                                   ndarray::Array< double, 1, 0 > const&,
+                                                                                   DispCorControl const&);
+template bool pfsDRPStella::Spectrum<float, unsigned short, float, float>::identify(ndarray::Array< double, 2, 1 > const&,
+                                                                                    ndarray::Array< double, 1, 0 > const&,
+                                                                                    ndarray::Array< double, 1, 0 > const&,
+                                                                                    DispCorControl const&);
+template bool pfsDRPStella::Spectrum<double, unsigned short, float, float>::identify(ndarray::Array< double, 2, 1 > const&,
+                                                                                     ndarray::Array< double, 1, 0 > const&,
+                                                                                     ndarray::Array< double, 1, 0 > const&,
+                                                                                     DispCorControl const&);
+template bool pfsDRPStella::Spectrum<float, int, float, float>::identify(ndarray::Array< float, 2, 1 > const&, 
+                                                                         ndarray::Array< float, 1, 0 > const&,
+                                                                         ndarray::Array< float, 1, 0 > const&,
                                                                          DispCorControl const&);
 
 template ndarray::Array< double, 1, 1 > pfsDRPStella::Spectrum<float, unsigned int, float, float>::hIdentify(ndarray::Array< float, 2, 1 > const& );

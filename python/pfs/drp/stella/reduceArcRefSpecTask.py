@@ -16,7 +16,7 @@ import numpy as np
 from astropy.io import fits as pyfits
 import matplotlib.pyplot as plt
 
-class ReduceArcConfig(Config):
+class ReduceArcRefSpecConfig(Config):
     """Configuration for reducing arc images"""
     #directoryRoot = Field( dtype = str, default="", doc = "root directory for butler" )
     #flatVisit = Field( dtype = int, default = 0, doc = "visit number of flat exposure for tracing the fiber traces" )
@@ -74,7 +74,7 @@ class ReduceArcConfig(Config):
 
 #        return namespace
 
-class ReduceArcTaskRunner(TaskRunner):
+class ReduceArcRefSpecTaskRunner(TaskRunner):
     """Get parsed values into the ReduceArcTask.run"""
     @staticmethod
     def getTargetList(parsedCmd, **kwargs):
@@ -101,14 +101,14 @@ class ReduceArcTaskRunner(TaskRunner):
                 result = result,
             )
 
-class ReduceArcTask(CmdLineTask):
+class ReduceArcRefSpecTask(CmdLineTask):
     """Task to reduce Arc images"""
-    ConfigClass = ReduceArcConfig
-    RunnerClass = ReduceArcTaskRunner
-    _DefaultName = "reduceArcTask"
+    ConfigClass = ReduceArcRefSpecConfig
+    RunnerClass = ReduceArcRefSpecTaskRunner
+    _DefaultName = "reduceArcRefSpecTask"
 
     def __init__(self, *args, **kwargs):
-        super(ReduceArcTask, self).__init__(*args, **kwargs)
+        super(ReduceArcRefSpecTask, self).__init__(*args, **kwargs)
 
     @classmethod
     def _makeArgumentParser(cls, *args, **kwargs):
@@ -243,7 +243,7 @@ class ReduceArcTask(CmdLineTask):
             print "FiberTrace ",i,": spec.getDispRms() = ",spec.getDispRms()
             #print spec.getWavelength()
 
-        if True:
+        if False:
             xPixMinMax = np.ndarray(2, dtype='float32')
             xPixMinMax[0] = 1000.
             xPixMinMax[1] = 1600.
@@ -260,7 +260,7 @@ class ReduceArcTask(CmdLineTask):
             fig.savefig('/Users/azuri/entwicklung/tex/reports/PFS_pipeline_status_2016-03/images/flux_vs_pix.pdf')
             fig.clf()
             
-        if True:
+        if False:
             xMinMax = drpStella.poly(xPixMinMax, spec.getDispCoeffs())
             fig = plt.figure()
             ax = fig.add_subplot(1, 1, 1)
@@ -276,6 +276,6 @@ class ReduceArcTask(CmdLineTask):
             fig.clf()
         
         print 'writing SpectrumSet object'
-#        import pdb; pdb.set_trace()
+        import pdb; pdb.set_trace()
         print 'arcRef.dataId = ',arcRef.dataId
         butler.put(spectrumSetFromProfile, 'spArm', arcRef.dataId )
