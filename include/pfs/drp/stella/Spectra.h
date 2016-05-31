@@ -139,7 +139,8 @@ class Spectrum {
       **/
     template< typename T >
     bool identify( ndarray::Array< T, 2, 1 > const& lineList,
-                   DispCorControl const& dispCorControl );
+                   DispCorControl const& dispCorControl,
+                   size_t nLinesCheck = 0 );
   
     /**
       * @brief: Identifies calibration lines, given in D_A2_LineList_In the format [wlen, approx_pixel] in
@@ -156,7 +157,8 @@ class Spectrum {
     bool identify( ndarray::Array< T, 2, 1 > const& lineList,
                    ndarray::Array< T, 1, 0 > const& predicted,
                    ndarray::Array< T, 1, 0 > const& predictedWLenAllPix,
-                   DispCorControl const& dispCorControl );
+                   DispCorControl const& dispCorControl,
+                   size_t nLinesCheck = 0 );
     
     bool isWavelengthSet() const {return _isWavelengthSet;}
 //    void setIsWavelengthSet(bool isWavelengthSet) {_isWavelengthSet = isWavelengthSet;}

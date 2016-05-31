@@ -76,7 +76,6 @@ class FiberTrace {
 
     explicit FiberTrace(PTR(const afwImage::MaskedImage<ImageT, MaskT, VarianceT>) const& maskedImage, 
                         PTR(const FiberTraceFunction) const& fiberTraceFunction, 
-//                        ndarray::Array<double const, 1, 1> const& xCenters,
                         size_t iTrace=0);
     
     explicit FiberTrace(FiberTrace<ImageT, MaskT, VarianceT> &fiberTrace, bool const deep=false);
@@ -113,7 +112,7 @@ class FiberTrace {
     PTR(afwImage::Image<double>) getProfile() const{ return _profile; }
 
     /// Set the _profile of this fiber trace to profile
-    bool setProfile(const PTR(afwImage::Image<double>) &profile);
+    bool setProfile( PTR(afwImage::Image<double>) const& profile);
 
     /// Extract the spectrum of this fiber trace using the _profile
     PTR(Spectrum<ImageT, MaskT, VarianceT, VarianceT>) extractFromProfile();

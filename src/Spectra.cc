@@ -200,7 +200,8 @@ template< typename T >
 bool pfsDRPStella::Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>::identify( ndarray::Array< T, 2, 1 > const& lineList,
                                                                                  ndarray::Array< T, 1, 0 > const& predicted,
                                                                                  ndarray::Array< T, 1, 0 > const& predictedWLenAllPix,
-                                                                                 DispCorControl const& dispCorControl ){
+                                                                                 DispCorControl const& dispCorControl,
+                                                                                 size_t nLinesCheck ){
   DispCorControl tempDispCorControl( dispCorControl );
   _dispCorControl.reset();
   _dispCorControl = tempDispCorControl.getPointer();
@@ -317,7 +318,8 @@ bool pfsDRPStella::Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>::identify(
 template< typename SpectrumT, typename MaskT, typename VarianceT, typename WavelengthT >
 template< typename T >
 bool pfsDRPStella::Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>::identify( ndarray::Array< T, 2, 1 > const& lineList,
-                                                                                 DispCorControl const& dispCorControl ){
+                                                                                 DispCorControl const& dispCorControl,
+                                                                                 size_t nLinesCheck ){
   DispCorControl tempDispCorControl( dispCorControl );
   _dispCorControl.reset();
   _dispCorControl = tempDispCorControl.getPointer();
@@ -348,95 +350,80 @@ bool pfsDRPStella::Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>::identify(
       cout << indices[iPos] << " ";
     cout << endl;
   #endif
+
+  /// separate lines to fit and lines for RMS test
+  std::vector< size_t > indCheck;
+  for ( size_t i = 0; i < nLinesCheck; ++i ){
+    srand( 0 ); //seed initialization
+    int randNum = rand() % ( indices.size() - 2 ) + 1; // Generate a random number between 0 and 1
+    indCheck.push_back( size_t( randNum ) );
+    indices.erase( indices.begin() + randNum );
+  }
+
   if ( nInd < ( std::round( double( lineList.getShape()[ 0 ] ) * 0.66 ) ) ){
     std::string message("pfs::drp::stella::identify: ERROR: ");
     message += "identify: ERROR: less than " + std::to_string( std::round( double( lineList.getShape()[ 0 ] ) * 0.66 ) ) + " lines identified";
     cout << message << endl;
     throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
   }
-  else{
-    ndarray::Array< size_t, 1, 1 > I_A1_IndexPos = ndarray::external( indices.data(), ndarray::makeVector( int( indices.size() ) ), ndarray::makeVector( 1 ) );
-    ndarray::Array< double, 1, 1 > D_A1_WLen = ndarray::allocate( lineList.getShape()[ 0 ] );
-    ndarray::Array< double, 1, 1 > D_A1_FittedPos = math::getSubArray( D_A1_GaussPos, 
-                                                                       I_A1_IndexPos );
-    #ifdef __DEBUG_IDENTIFY__
-      cout << "identify: D_A1_FittedPos = " << D_A1_FittedPos << endl;
-    #endif
+  ndarray::Array< size_t, 1, 1 > I_A1_IndexPos = ndarray::external( indices.data(), ndarray::makeVector( int( indices.size() ) ), ndarray::makeVector( 1 ) );
+  ndarray::Array< double, 1, 1 > D_A1_WLen = ndarray::allocate( lineList.getShape()[ 0 ] );
+  ndarray::Array< double, 1, 1 > D_A1_FittedPos = math::getSubArray( D_A1_GaussPos, 
+                                                                     I_A1_IndexPos );
+  ndarray::Array< size_t, 1, 1 > I_A1_IndexCheckPos = ndarray::external( indCheck.data(), ndarray::makeVector( int( indCheck.size() ) ), ndarray::makeVector( 1 ) );
+  ndarray::Array< double, 1, 1 > D_A1_FittedCheckPos = math::getSubArray( D_A1_GaussPos, 
+                                                                          I_A1_IndexCheckPos );
+  #ifdef __DEBUG_IDENTIFY__
+    cout << "identify: D_A1_FittedPos = " << D_A1_FittedPos << endl;
+  #endif
 
-    D_A1_WLen[ ndarray::view() ] = lineList[ ndarray::view()( 0 ) ];
-    ndarray::Array< double, 1, 1 > D_A1_FittedWLen = math::getSubArray( D_A1_WLen, I_A1_IndexPos );
-    cout << "Identify: found D_A1_FittedWLen = " << D_A1_FittedWLen << endl;
+  D_A1_WLen[ ndarray::view() ] = lineList[ ndarray::view()( 0 ) ];
+  ndarray::Array< double, 1, 1 > D_A1_FittedWLen = math::getSubArray( D_A1_WLen, I_A1_IndexPos );
+  cout << "Identify: found D_A1_FittedWLen = " << D_A1_FittedWLen << endl;
 
-    _dispCoeffs = ndarray::allocate( dispCorControl.order + 1 );
-    _dispCoeffs.deep() = math::PolyFit( D_A1_FittedPos,
-                                        D_A1_FittedWLen,
-                                        dispCorControl.order );
-    ndarray::Array< double, 1, 1 > D_A1_WLen_Gauss = math::Poly( D_A1_FittedPos, 
-                                                                 _dispCoeffs );
-    cout << "Identify: D_A1_WLen_PolyFit = " << D_A1_WLen_Gauss << endl;
-    cout << "identify: _dispCoeffs = " << _dispCoeffs << endl;
-    
-    ///Calculate RMS
-    ndarray::Array< double, 1, 1 > D_A1_WLenMinusFit = ndarray::allocate( D_A1_WLen_Gauss.getShape()[ 0 ] );
-    D_A1_WLenMinusFit.deep() = D_A1_FittedWLen - D_A1_WLen_Gauss;
-    cout << "Identify: D_A1_WLenMinusFit = " << D_A1_WLenMinusFit << endl;
-    _dispRms = math::calcRMS( D_A1_WLenMinusFit );
-    cout << "Identify: _dispRms = " << _dispRms << endl;
+  ndarray::Array< double, 1, 1 > D_A1_FittedWLenCheck = math::getSubArray( D_A1_WLen, I_A1_IndexCheckPos );
+  
+  _dispCoeffs = ndarray::allocate( dispCorControl.order + 1 );
+  _dispCoeffs.deep() = math::PolyFit( D_A1_FittedPos,
+                                      D_A1_FittedWLen,
+                                      dispCorControl.order );
+  ndarray::Array< double, 1, 1 > D_A1_WLen_Gauss = math::Poly( D_A1_FittedPos, 
+                                                               _dispCoeffs );
+  ndarray::Array< double, 1, 1 > D_A1_WLen_GaussCheck = math::Poly( D_A1_FittedCheckPos, 
+                                                                    _dispCoeffs );
+  cout << "Identify: D_A1_WLen_PolyFit = " << D_A1_WLen_Gauss << endl;
+  cout << "identify: _dispCoeffs = " << _dispCoeffs << endl;
+
+  ///Calculate RMS
+  ndarray::Array< double, 1, 1 > D_A1_WLenMinusFit = ndarray::allocate( D_A1_WLen_Gauss.getShape()[ 0 ] );
+  D_A1_WLenMinusFit.deep() = D_A1_FittedWLen - D_A1_WLen_Gauss;
+  cout << "Identify: D_A1_WLenMinusFit = " << D_A1_WLenMinusFit << endl;
+  _dispRms = math::calcRMS( D_A1_WLenMinusFit );
+  cout << "Identify: _dispRms = " << _dispRms << endl;
+  cout << "======================================" << endl;
+
+  ///Calculate RMS for test lines
+  ndarray::Array< double, 1, 1 > D_A1_WLenMinusFitCheck = ndarray::allocate( D_A1_WLen_GaussCheck.getShape()[ 0 ] );
+  D_A1_WLenMinusFitCheck.deep() = D_A1_FittedWLenCheck - D_A1_WLen_GaussCheck;
+  cout << "Identify: D_A1_WLenMinusFitCheck = " << D_A1_WLenMinusFitCheck << endl;
+  double dispRmsCheck = math::calcRMS( D_A1_WLenMinusFitCheck );
+  cout << "Identify: dispRmsCheck = " << dispRmsCheck << endl;
+  cout << "======================================" << endl;
+
+  ///calibrate spectrum
+  ndarray::Array< double, 1, 1 > D_A1_Indices = math::indGenNdArr( double( _spectrum.getShape()[ 0 ] ) );
+  _wavelength = ndarray::allocate( _spectrum.getShape()[ 0 ] );
+  _wavelength.deep() = math::Poly( D_A1_Indices, _dispCoeffs );
+  #ifdef __DEBUG_IDENTIFY__
+    cout << "identify: _wavelength = " << _wavelength << endl;
+  #endif
+
+  /// Check for monotonic
+  if ( math::isMonotonic( _wavelength ) == 0 ){
+    cout << "Identify: WARNING: Wavelength solution is not monotonic => Setting identifyResult.rms to 1000" << endl;
+    _dispRms = 1000.;
+    cout << "Identify: RMS = " << _dispRms << endl;
     cout << "======================================" << endl;
-
-    ///calibrate spectrum
-    ndarray::Array< double, 1, 1 > D_A1_Indices = math::indGenNdArr( double( _spectrum.getShape()[ 0 ] ) );
-    _wavelength = ndarray::allocate( _spectrum.getShape()[ 0 ] );
-    _wavelength.deep() = math::Poly( D_A1_Indices, _dispCoeffs );
-    #ifdef __DEBUG_IDENTIFY__
-      cout << "identify: _wavelength = " << _wavelength << endl;
-    #endif
-
-    /// Check for monotonic
-    if ( math::isMonotonic( _wavelength ) == 0 ){
-      cout << "Identify: WARNING: Wavelength solution is not monotonic => Setting identifyResult.rms to 1000" << endl;
-      _dispRms = 1000.;
-      cout << "Identify: RMS = " << _dispRms << endl;
-      cout << "======================================" << endl;
-    }
-
-    #ifdef __WITH_PLOTS__
-      mglGraph gr;
-      mglData MGLData_X;
-      MGLData_X.Link(P_D_A1_Ind->data(), P_D_A1_Ind->size(), 0, 0);
-      mglData MGLData_WLen_Fit;
-      MGLData_WLen_Fit.Link(P_D_A1_WLen_Out->data(), P_D_A1_WLen_Out->size(), 0, 0);
-      mglData MGLData_OrigPos;// = new mglData(2);
-      MGLData_OrigPos.Link(D_A1_FittedPos.data(), D_A1_FittedPos.size(), 0, 0);
-      mglData MGLData_OrigWLen;// = new mglData(2);
-      MGLData_OrigWLen.Link(D_A1_FittedWLen.data(), D_A1_FittedWLen.size(), 0, 0);
-      mglData MGLData_FittedPos;// = new mglData(2);
-      MGLData_FittedPos.Link(D_A1_FittedPos.data(), D_A1_FittedPos.size(), 0, 0);
-      mglData MGLData_FittedWLen;// = new mglData(2);
-      MGLData_FittedWLen.Link(P_D_A1_WLen_Gauss->data(), P_D_A1_WLen_Gauss->size(), 0, 0);
-
-      gr.SetSize(1900,1200);
-      gr.SetRanges(min(*P_D_A1_Ind),max(*P_D_A1_Ind),min(*P_D_A1_WLen_Out),max(*P_D_A1_WLen_Out)+(max(*P_D_A1_WLen_Out) - min(*P_D_A1_WLen_Out)) / 4.5);
-      gr.Axis();
-      gr.Label('y',"Wavelength",0);
-      gr.Label('x',"Pixel Number",0);
-      gr.Plot(MGLData_X, MGLData_WLen_Fit, "r");
-      gr.AddLegend("Fit", "r");
-
-      gr.Plot(MGLData_OrigPos, MGLData_OrigWLen, "bo ");
-      gr.AddLegend("Line List", "bo ");
-
-      gr.Plot(MGLData_FittedPos, MGLData_FittedWLen, "Yx ");
-      gr.AddLegend("Fitted Positions", "Yx ");
-
-      gr.Box();
-      gr.Legend();
-
-      CS_PlotName.Set(CS_FName_In);
-      CS_PlotName.Add(CString("_Pix_WLen.png"));
-      gr.WriteFrame(CS_PlotName.Get());
-
-    #endif
   }
 
   _isWavelengthSet = true;
@@ -1487,60 +1474,78 @@ template class pfsDRPStella::Spectrum<float, unsigned short, double, double>;
 template class pfsDRPStella::Spectrum<double, unsigned short, double, double>;
 
 template bool pfsDRPStella::Spectrum<float, unsigned int, float, float>::identify(ndarray::Array< float, 2, 1 > const&,
-                                                                                  DispCorControl const&);
+                                                                                  DispCorControl const&,
+                                                                                  size_t );
 template bool pfsDRPStella::Spectrum<double, unsigned int, float, float>::identify(ndarray::Array< float, 2, 1 > const&,
-                                                                                   DispCorControl const&);
+                                                                                   DispCorControl const&,
+                                                                                  size_t );
 template bool pfsDRPStella::Spectrum<float, unsigned short, float, float>::identify(ndarray::Array< float, 2, 1 > const&,
-                                                                                    DispCorControl const&);
+                                                                                    DispCorControl const&,
+                                                                                  size_t );
 template bool pfsDRPStella::Spectrum<double, unsigned short, float, float>::identify(ndarray::Array< float, 2, 1 > const&,
-                                                                                     DispCorControl const&);
+                                                                                     DispCorControl const&,
+                                                                                  size_t );
 template bool pfsDRPStella::Spectrum<float, unsigned int, float, float>::identify(ndarray::Array< double, 2, 1 > const&,
-                                                                                  DispCorControl const&);
+                                                                                  DispCorControl const&,
+                                                                                  size_t );
 template bool pfsDRPStella::Spectrum<double, unsigned int, float, float>::identify(ndarray::Array< double, 2, 1 > const&,
-                                                                                   DispCorControl const&);
+                                                                                   DispCorControl const&,
+                                                                                  size_t );
 template bool pfsDRPStella::Spectrum<float, unsigned short, float, float>::identify(ndarray::Array< double, 2, 1 > const&,
-                                                                                    DispCorControl const&);
+                                                                                    DispCorControl const&,
+                                                                                  size_t );
 template bool pfsDRPStella::Spectrum<double, unsigned short, float, float>::identify(ndarray::Array< double, 2, 1 > const&,
-                                                                                     DispCorControl const&);
+                                                                                     DispCorControl const&,
+                                                                                  size_t );
 template bool pfsDRPStella::Spectrum<float, int, float, float>::identify(ndarray::Array< float, 2, 1 > const&, 
-                                                                         DispCorControl const&);
+                                                                         DispCorControl const&,
+                                                                                  size_t );
 
 template bool pfsDRPStella::Spectrum<float, unsigned int, float, float>::identify(ndarray::Array< float, 2, 1 > const&,
                                                                                   ndarray::Array< float, 1, 0 > const&,
                                                                                   ndarray::Array< float, 1, 0 > const&,
-                                                                                  DispCorControl const&);
+                                                                                  DispCorControl const&,
+                                                                                  size_t );
 template bool pfsDRPStella::Spectrum<double, unsigned int, float, float>::identify(ndarray::Array< float, 2, 1 > const&,
                                                                                    ndarray::Array< float, 1, 0 > const&,
                                                                                    ndarray::Array< float, 1, 0 > const&,
-                                                                                   DispCorControl const&);
+                                                                                   DispCorControl const&,
+                                                                                  size_t );
 template bool pfsDRPStella::Spectrum<float, unsigned short, float, float>::identify(ndarray::Array< float, 2, 1 > const&,
                                                                                    ndarray::Array< float, 1, 0 > const&,
                                                                                    ndarray::Array< float, 1, 0 > const&,
-                                                                                   DispCorControl const&);
+                                                                                   DispCorControl const&,
+                                                                                  size_t );
 template bool pfsDRPStella::Spectrum<double, unsigned short, float, float>::identify(ndarray::Array< float, 2, 1 > const&,
                                                                                      ndarray::Array< float, 1, 0 > const&,
                                                                                      ndarray::Array< float, 1, 0 > const&,
-                                                                                     DispCorControl const&);
+                                                                                     DispCorControl const&,
+                                                                                  size_t );
 template bool pfsDRPStella::Spectrum<float, unsigned int, float, float>::identify(ndarray::Array< double, 2, 1 > const&,
                                                                                   ndarray::Array< double, 1, 0 > const&,
                                                                                   ndarray::Array< double, 1, 0 > const&,
-                                                                                  DispCorControl const&);
+                                                                                  DispCorControl const&,
+                                                                                  size_t );
 template bool pfsDRPStella::Spectrum<double, unsigned int, float, float>::identify(ndarray::Array< double, 2, 1 > const&,
                                                                                    ndarray::Array< double, 1, 0 > const&,
                                                                                    ndarray::Array< double, 1, 0 > const&,
-                                                                                   DispCorControl const&);
+                                                                                   DispCorControl const&,
+                                                                                  size_t );
 template bool pfsDRPStella::Spectrum<float, unsigned short, float, float>::identify(ndarray::Array< double, 2, 1 > const&,
                                                                                     ndarray::Array< double, 1, 0 > const&,
                                                                                     ndarray::Array< double, 1, 0 > const&,
-                                                                                    DispCorControl const&);
+                                                                                    DispCorControl const&,
+                                                                                  size_t );
 template bool pfsDRPStella::Spectrum<double, unsigned short, float, float>::identify(ndarray::Array< double, 2, 1 > const&,
                                                                                      ndarray::Array< double, 1, 0 > const&,
                                                                                      ndarray::Array< double, 1, 0 > const&,
-                                                                                     DispCorControl const&);
+                                                                                     DispCorControl const&,
+                                                                                  size_t );
 template bool pfsDRPStella::Spectrum<float, int, float, float>::identify(ndarray::Array< float, 2, 1 > const&, 
                                                                          ndarray::Array< float, 1, 0 > const&,
                                                                          ndarray::Array< float, 1, 0 > const&,
-                                                                         DispCorControl const&);
+                                                                         DispCorControl const&,
+                                                                                  size_t );
 
 template ndarray::Array< double, 1, 1 > pfsDRPStella::Spectrum<float, unsigned int, float, float>::hIdentify(ndarray::Array< float, 2, 1 > const& );
 template ndarray::Array< double, 1, 1 > pfsDRPStella::Spectrum<double, unsigned int, float, float>::hIdentify(ndarray::Array< float, 2, 1 > const& );

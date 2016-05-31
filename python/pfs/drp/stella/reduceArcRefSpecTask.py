@@ -238,12 +238,12 @@ class ReduceArcRefSpecTask(CmdLineTask):
             #self.log.info("result.lineList = %g" % result.lineList)
             self.log.info('type(result.lineList) = %s: <%s>: <%s>' % (type(result.lineList),type(result.lineList[0]),type(result.lineList[0][0])))
             self.log.info('type(spec) = %s: <%s>: <%s>' % (type(spec),type(spec.getSpectrum()),type(spec.getSpectrum()[0])))
-            spec.identifyF(result.lineList, dispCorControl)
+            spec.identifyF(result.lineList, dispCorControl, 8)
             print "FiberTrace ",i,": spec.getDispCoeffs() = ",spec.getDispCoeffs()
             print "FiberTrace ",i,": spec.getDispRms() = ",spec.getDispRms()
             #print spec.getWavelength()
 
-        if False:
+        if True:
             xPixMinMax = np.ndarray(2, dtype='float32')
             xPixMinMax[0] = 1000.
             xPixMinMax[1] = 1600.
@@ -257,10 +257,10 @@ class ReduceArcRefSpecTask(CmdLineTask):
             plt.ylabel('Flux [ADUs]')
             plt.show()
             plt.close(fig)
-            fig.savefig('/Users/azuri/entwicklung/tex/reports/PFS_pipeline_status_2016-03/images/flux_vs_pix.pdf')
+            fig.savefig('/Users/azuri/entwicklung/tex/talks/PFS-pipeline_Princeton_May2016/images/flux_vs_pix.pdf')
             fig.clf()
             
-        if False:
+        if True:
             xMinMax = drpStella.poly(xPixMinMax, spec.getDispCoeffs())
             fig = plt.figure()
             ax = fig.add_subplot(1, 1, 1)
@@ -272,10 +272,9 @@ class ReduceArcRefSpecTask(CmdLineTask):
             plt.ylabel('Flux [ADUs]')
             plt.show()
             plt.close(fig)
-            fig.savefig('/Users/azuri/entwicklung/tex/reports/PFS_pipeline_status_2016-03/images/flux_vs_wlen.pdf')
+            fig.savefig('/Users/azuri/entwicklung/tex/talks/PFS-pipeline_Princeton_May2016/images/flux_vs_wlen.pdf')
             fig.clf()
         
         print 'writing SpectrumSet object'
-        import pdb; pdb.set_trace()
         print 'arcRef.dataId = ',arcRef.dataId
         butler.put(spectrumSetFromProfile, 'spArm', arcRef.dataId )

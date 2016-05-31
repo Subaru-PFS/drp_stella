@@ -46,18 +46,6 @@ class ExampleTestCase(tests.TestCase):
             self.assertEqual(np.max(ima), val, name)
 
         self.assertEqual(result.get(0,0), self.val1 + self.val2, name)
-
-    def testAddImagesWithBlitz(self):
-        print "starting testAddImagesWithBlitz"
-        result = drpStella.addImagesWithBlitz(self.im1, self.im2)
-
-        self.checkAddImages(result, "Blitz")
-
-    def testAddImagesWithEigen(self):
-        print "starting testAddImagesWithEigen"
-        result = drpStella.addImagesWithEigen(self.im1, self.im2)
-
-        self.checkAddImages(result, "Eigen")
     
 #-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 

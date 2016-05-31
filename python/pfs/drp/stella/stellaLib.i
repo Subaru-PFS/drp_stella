@@ -429,7 +429,7 @@ Interface to Stella
 //%template(getRawPointerII) pfs::drp::stella::utils::getRawPointer<lsst::afw::image::Image<int>>;
 //%template(getRawPointerIUI) pfs::drp::stella::utils::getRawPointer<lsst::afw::image::Image<unsigned int>>;
 //%template(getRawPointerID) pfs::drp::stella::utils::getRawPointer<lsst::afw::image::Image<double>>;
-//%template(getRawPointerFTF) pfs::drp::stella::utils::getRawPointer<pfs::drp::stella::FiberTrace<float, unsigned short, float>>;
+%template(getRawPointerFTF) pfs::drp::stella::utils::getRawPointer<pfs::drp::stella::FiberTrace<float, unsigned short, float>>;
 //%template(getRawPointerFTD) pfs::drp::stella::utils::getRawPointer<pfs::drp::stella::FiberTrace<double, unsigned short, float>>;
 
 %template(copyVectorI) pfs::drp::stella::utils::copy<int>;
@@ -487,8 +487,8 @@ Interface to Stella
 %template(interpolatePSFSetThinPlateSplineFD) pfs::drp::stella::math::interpolatePSFSetThinPlateSpline<float, double>;
 %template(interpolatePSFSetThinPlateSplineDD) pfs::drp::stella::math::interpolatePSFSetThinPlateSpline<double, double>;
 
-//%template(mkSlitFuncF) pfs::drp::stella::math::MkSlitFunc<float, unsigned short, float>;
-//%template(mkSlitFuncD) pfs::drp::stella::math::MkSlitFunc<double, unsigned short, float>;
+//%template(calcProfileSwath) pfs::drp::stella::math::calcProfileSwath<float, unsigned short, float>;
+//%template(calcProfileSwath) pfs::drp::stella::math::calcProfileSwath<double, unsigned short, float>;
 
 %template(xCorFF) pfs::drp::stella::math::xCor<float, float>;
 %template(xCorDF) pfs::drp::stella::math::xCor<double, float>;

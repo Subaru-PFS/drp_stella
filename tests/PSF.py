@@ -30,11 +30,11 @@ class PSFTestCase(tests.TestCase):
     def setUp(self):
         latest = True
         if latest:
-            flatfile = "minFlat-Red-nonoise.fits"
-            combfile = "minComb-Red-nonoise.fits"
+            flatfile = "tests/minFlat-Red-nonoise.fits"
+            combfile = "tests/minComb-Red-nonoise.fits"
         else:
-            flatfile = "/Users/azuri/spectra/pfs/2014-10-28/sampledFlatx2-IR-0-23-5-10-nonoise.fits"
-            combfile = "/Users/azuri/spectra/pfs/2014-10-28/sampledCombx2-IR-0-23-5-10-nonoise.fits"
+            flatfile = "tests/sampledFlatx2-IR-0-23-5-10-nonoise.fits"
+            combfile = "tests/sampledCombx2-IR-0-23-5-10-nonoise.fits"
         self.flat = afwImage.ImageF(flatfile)
         self.flat = afwImage.makeExposure(afwImage.makeMaskedImage(self.flat))
         self.bias = afwImage.ImageF(flatfile, 3)
@@ -66,49 +66,50 @@ class PSFTestCase(tests.TestCase):
         del self.tdpsfc
 
     def testPSFConstructors(self):
-        iTrace = 1
-        fiberTraceSet = drpStella.findAndTraceAperturesF(self.flat.getMaskedImage(), self.ftffc)
-        ft = fiberTraceSet.getFiberTrace(iTrace)
-        ft.setFiberTraceProfileFittingControl(self.ftpfc.getPointer())
-        spec = drpStella.mkSlitFuncF(ft)
-        ft.createTrace(self.comb.getMaskedImage())
-        spec = ft.extractFromProfile()
-        psfSet = drpStella.calculate2dPSFPerBinF(ft, spec, self.tdpsfc.getPointer())
-        if True:
+        if False:
+            iTrace = 1
+            fiberTraceSet = drpStella.findAndTraceAperturesF(self.flat.getMaskedImage(), self.ftffc)
+            ft = fiberTraceSet.getFiberTrace(iTrace)
+            ft.setFiberTraceProfileFittingControl(self.ftpfc.getPointer())
+            spec = drpStella.mkSlitFuncF(ft)
+            ft.createTrace(self.comb.getMaskedImage())
+            spec = ft.extractFromProfile()
+            psfSet = drpStella.calculate2dPSFPerBinF(ft, spec, self.tdpsfc.getPointer())
+            if True:
 
-            """Test that we can create a PSF with the standard constructor"""
-            psf = drpStella.PSFF()
-            self.assertEqual(psf.getITrace(), 0)
-            self.assertEqual(psf.getIBin(), 0)
+                """Test that we can create a PSF with the standard constructor"""
+                psf = drpStella.PSFF()
+                self.assertEqual(psf.getITrace(), 0)
+                self.assertEqual(psf.getIBin(), 0)
 
-            psf = drpStella.PSFF(1, 2)
-            self.assertEqual(psf.getITrace(), 1)
-            self.assertEqual(psf.getIBin(), 2)
+                psf = drpStella.PSFF(1, 2)
+                self.assertEqual(psf.getITrace(), 1)
+                self.assertEqual(psf.getIBin(), 2)
 
-            """Test copy constructors"""
-            """shallow copy"""
-            iPSF = 2
-            psf = psfSet.getPSF(iPSF)
-            psfCopy = drpStella.PSFF(psf)
-            psf.getTwoDPSFControl().swathWidth = 250
-            self.assertEqual(psf.getTwoDPSFControl().swathWidth, psfCopy.getTwoDPSFControl().swathWidth)
-            self.assertEqual(psf.getITrace(), iTrace)
-            self.assertEqual(psf.getIBin(), iPSF)
+                """Test copy constructors"""
+                """shallow copy"""
+                iPSF = 2
+                psf = psfSet.getPSF(iPSF)
+                psfCopy = drpStella.PSFF(psf)
+                psf.getTwoDPSFControl().swathWidth = 250
+                self.assertEqual(psf.getTwoDPSFControl().swathWidth, psfCopy.getTwoDPSFControl().swathWidth)
+                self.assertEqual(psf.getITrace(), iTrace)
+                self.assertEqual(psf.getIBin(), iPSF)
 
-            """deep copy"""
-            psfCopy = drpStella.PSFF(psf, True)
-            psf.getTwoDPSFControl().swathWidth = 350
-            self.assertNotEqual(psf.getTwoDPSFControl().swathWidth, psfCopy.getTwoDPSFControl().swathWidth)
+                """deep copy"""
+                psfCopy = drpStella.PSFF(psf, True)
+                psf.getTwoDPSFControl().swathWidth = 350
+                self.assertNotEqual(psf.getTwoDPSFControl().swathWidth, psfCopy.getTwoDPSFControl().swathWidth)
 
-            """Init Constructor"""
-            psf = drpStella.PSFF(350, 750,self.tdpsfc.getPointer(),1,2)
-            self.assertTrue(psf.getYLow(), 350)
-            self.assertTrue(psf.getYHigh(), 750)
-            self.assertTrue(psf.getITrace(), 1)
-            self.assertTrue(psf.getIBin(), 2)
+                """Init Constructor"""
+                psf = drpStella.PSFF(350, 750,self.tdpsfc.getPointer(),1,2)
+                self.assertTrue(psf.getYLow(), 350)
+                self.assertTrue(psf.getYHigh(), 750)
+                self.assertTrue(psf.getITrace(), 1)
+                self.assertTrue(psf.getIBin(), 2)
  
     def testCalculate2DPSFPerBin(self):
-        if True:
+        if False:
             iTrace = 1
             fiberTraceSet = drpStella.findAndTraceAperturesF(self.flat.getMaskedImage(), self.ftffc)
             fiberTrace = fiberTraceSet.getFiberTrace(iTrace)
@@ -127,7 +128,7 @@ class PSFTestCase(tests.TestCase):
                 self.assertEqual(psf.getIBin(), i)
         
     def testPFSGet(self):
-        if True:
+        if False:
             fiberTraceSet = drpStella.findAndTraceAperturesF(self.flat.getMaskedImage(), self.ftffc)
             iTrace = 0
             fiberTrace = fiberTraceSet.getFiberTrace(iTrace)

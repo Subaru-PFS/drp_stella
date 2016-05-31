@@ -603,7 +603,7 @@ namespace pfs { namespace drp { namespace stella {
       ;
       ; INPUTS:
       ;       V:      The input vector can be any type except
-      .
+      ;
       ;
       ;       For regular grids:
       ;       N:      The number of points in the result when both
