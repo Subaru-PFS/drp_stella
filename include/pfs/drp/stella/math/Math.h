@@ -14,7 +14,8 @@
 #include "ndarray.h"
 #include "ndarray/eigen.h"
 #include "../cmpfit-1.2/MPFitting_ndarray.h"
-#include <unsupported/Eigen/Splines>
+#include "/Users/azuri/Downloads/eigen/test/include/unsupported/Eigen/Splines"
+//#include <unsupported/Eigen/Splines>
 
 //#define __DEBUG_FIT__
 //#define __DEBUG_FITARR__
@@ -25,6 +26,7 @@
 //#define __DEBUG_SORT__
 //#define __DEBUG_XCOR__
 //#define __DEBUG_INTERPOL__
+#define __DEBUG_RESIZE__
 //#define __DEBUG_STRETCH__
 //#define __DEBUG_STRETCHANDCROSSCORRELATE__
 //#define __DEBUG_CROSSCORRELATE__
@@ -300,11 +302,17 @@ namespace pfs { namespace drp { namespace stella {
     template<typename T>
     ndarray::Array<T, 1, 1> getSubArray(ndarray::Array<T, 2, 1> const& arr_In, std::vector< std::pair<size_t, size_t> > const& indices_In);
     
+    /*
+     * @brief: resize arr_In to size newSize. Will result in cutting off a longer array at newSize or adding zeros to a shorter array.
+     * 
+     * @param arr_In: array to be resized
+     * @param newSize: new size for arr_In
+     */
     template< typename T >
-    ndarray::Array< T, 1, 1 > resize(ndarray::Array< T, 1, 1 > const& arr_In, size_t newSize); 
+    bool resize(ndarray::Array< T, 1, 1 > & arr_In, size_t newSize); 
 
     template< typename T >
-    ndarray::Array< T, 2, 1 > resize(ndarray::Array< T, 2, 1 > const& arr_In, size_t newSizeRows, size_t newSizeCols ); 
+    bool resize(ndarray::Array< T, 2, 1 > & arr_In, size_t newSizeRows, size_t newSizeCols ); 
 
     /*
      * @brief: cross-correlates arrA_In and arrB_In within the range range_In (e.g. [-1.,1.]) in steps stepSize_In

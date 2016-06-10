@@ -231,14 +231,14 @@ Interface to Stella
 %template(findAndTraceAperturesF) pfs::drp::stella::math::findAndTraceApertures<float, unsigned short, float>;
 %template(findAndTraceAperturesD) pfs::drp::stella::math::findAndTraceApertures<double, unsigned short, float>;
 
-%template(calculate2dPSFPerBinFFF) pfs::drp::stella::math::calculate2dPSFPerBin<float, float, unsigned short, float, float>;
-%template(calculate2dPSFPerBinDFF) pfs::drp::stella::math::calculate2dPSFPerBin<double, float, unsigned short, float, float>;
-%template(calculate2dPSFPerBinFDF) pfs::drp::stella::math::calculate2dPSFPerBin<float, double, unsigned short, float, float>;
-%template(calculate2dPSFPerBinDDF) pfs::drp::stella::math::calculate2dPSFPerBin<double, double, unsigned short, float, float>;
-%template(calculate2dPSFPerBinFFD) pfs::drp::stella::math::calculate2dPSFPerBin<float, float, unsigned short, float, double>;
-%template(calculate2dPSFPerBinDFD) pfs::drp::stella::math::calculate2dPSFPerBin<double, float, unsigned short, float, double>;
-%template(calculate2dPSFPerBinFDD) pfs::drp::stella::math::calculate2dPSFPerBin<float, double, unsigned short, float, double>;
-%template(calculate2dPSFPerBinDDD) pfs::drp::stella::math::calculate2dPSFPerBin<double, double, unsigned short, float, double>;
+%template(calculate2dPSFPerBin) pfs::drp::stella::math::calculate2dPSFPerBin<float, float, unsigned short, float, float>;
+%template(calculate2dPSFPerBin) pfs::drp::stella::math::calculate2dPSFPerBin<double, float, unsigned short, float, float>;
+%template(calculate2dPSFPerBin) pfs::drp::stella::math::calculate2dPSFPerBin<float, double, unsigned short, float, float>;
+%template(calculate2dPSFPerBin) pfs::drp::stella::math::calculate2dPSFPerBin<double, double, unsigned short, float, float>;
+%template(calculate2dPSFPerBin) pfs::drp::stella::math::calculate2dPSFPerBin<float, float, unsigned short, float, double>;
+%template(calculate2dPSFPerBin) pfs::drp::stella::math::calculate2dPSFPerBin<double, float, unsigned short, float, double>;
+%template(calculate2dPSFPerBin) pfs::drp::stella::math::calculate2dPSFPerBin<float, double, unsigned short, float, double>;
+%template(calculate2dPSFPerBin) pfs::drp::stella::math::calculate2dPSFPerBin<double, double, unsigned short, float, double>;
 
 %template(FixU) pfs::drp::stella::math::Fix<unsigned short>;
 %template(FixI) pfs::drp::stella::math::Fix<int>;

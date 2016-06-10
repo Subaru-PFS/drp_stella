@@ -28,7 +28,7 @@ class PSFTestCase(tests.TestCase):
     """A test case for measuring PSF quantities"""
 
     def setUp(self):
-        latest = True
+        latest = False
         if latest:
             flatfile = "tests/minFlat-Red-nonoise.fits"
             combfile = "tests/minComb-Red-nonoise.fits"
@@ -66,15 +66,15 @@ class PSFTestCase(tests.TestCase):
         del self.tdpsfc
 
     def testPSFConstructors(self):
-        if False:
+        if True:
             iTrace = 1
             fiberTraceSet = drpStella.findAndTraceAperturesF(self.flat.getMaskedImage(), self.ftffc)
             ft = fiberTraceSet.getFiberTrace(iTrace)
             ft.setFiberTraceProfileFittingControl(self.ftpfc.getPointer())
-            spec = drpStella.mkSlitFuncF(ft)
+            self.assertTrue(ft.calcProfile())
             ft.createTrace(self.comb.getMaskedImage())
             spec = ft.extractFromProfile()
-            psfSet = drpStella.calculate2dPSFPerBinF(ft, spec, self.tdpsfc.getPointer())
+            psfSet = drpStella.calculate2dPSFPerBin(ft, spec, self.tdpsfc.getPointer())
             if True:
 
                 """Test that we can create a PSF with the standard constructor"""
@@ -109,7 +109,7 @@ class PSFTestCase(tests.TestCase):
                 self.assertTrue(psf.getIBin(), 2)
  
     def testCalculate2DPSFPerBin(self):
-        if False:
+        if True:
             iTrace = 1
             fiberTraceSet = drpStella.findAndTraceAperturesF(self.flat.getMaskedImage(), self.ftffc)
             fiberTrace = fiberTraceSet.getFiberTrace(iTrace)
@@ -118,7 +118,7 @@ class PSFTestCase(tests.TestCase):
             ftComb = drpStella.FiberTraceF(fiberTrace)
             ftComb.createTrace(self.comb.getMaskedImage())
             spec = ftComb.extractFromProfile()
-            psfSet = drpStella.calculate2dPSFPerBinF(fiberTrace, spec, self.tdpsfc.getPointer())
+            psfSet = drpStella.calculate2dPSFPerBin(fiberTrace, spec, self.tdpsfc.getPointer())
             print "psfSet.size() = ",psfSet.size()
             self.assertGreater(psfSet.size(),0)
             for i in range(psfSet.size()):
@@ -128,16 +128,16 @@ class PSFTestCase(tests.TestCase):
                 self.assertEqual(psf.getIBin(), i)
         
     def testPFSGet(self):
-        if False:
+        if True:
             fiberTraceSet = drpStella.findAndTraceAperturesF(self.flat.getMaskedImage(), self.ftffc)
             iTrace = 0
             fiberTrace = fiberTraceSet.getFiberTrace(iTrace)
             self.assertTrue(fiberTrace.setFiberTraceProfileFittingControl(self.ftpfc.getPointer()))
-            spec = drpStella.mkSlitFuncF(fiberTrace)
+            self.assertTrue(fiberTrace.calcProfile())
             ftComb = drpStella.FiberTraceF(fiberTrace)
             ftComb.createTrace(self.comb.getMaskedImage())
             spec = ftComb.extractFromProfile()
-            psfSet = drpStella.calculate2dPSFPerBinF(fiberTrace, spec, self.tdpsfc.getPointer())
+            psfSet = drpStella.calculate2dPSFPerBin(fiberTrace, spec, self.tdpsfc.getPointer())
 
             """test getYLow and getYHigh"""
             swathWidth = self.tdpsfc.swathWidth;
@@ -187,9 +187,13 @@ class PSFTestCase(tests.TestCase):
             spec = ftComb.extractFromProfile()
             psf = drpStella.PSFF(350, 750,self.tdpsfc.getPointer(),1,2)
             self.assertTrue(psf.setTwoDPSFControl(self.tdpsfc.getPointer()))
-            self.assertTrue(psf.extractPSFs(ftComb, spec))
-            self.assertGreater(len(psf.getImagePSF_XTrace()), 0)
-            self.assertTrue(psf.isPSFsExtracted())
+            
+            if False:
+                psf.extractPSFs(ftComb, spec)
+                #self.assertTrue(psf.extractPSFs(ftComb, spec))
+
+                self.assertGreater(len(psf.getImagePSF_XTrace()), 0)
+                self.assertTrue(psf.isPSFsExtracted())
 
 #-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 

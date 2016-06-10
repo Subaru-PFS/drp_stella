@@ -148,17 +148,35 @@ bool pfsDRPStella::Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>::setMask(c
 
 template<typename SpectrumT, typename MaskT, typename VarianceT, typename WavelengthT>
 bool pfsDRPStella::Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>::setLength(const size_t length){
+  #ifdef __DEBUG_SETLENGTH__
+    cout << "pfsDRPStella::Spectrum::setLength: starting to set _length to " << length << endl;
+  #endif
   pfsDRPStella::math::resize(_spectrum, length);
+  #ifdef __DEBUG_SETLENGTH__
+    cout << "pfsDRPStella::Spectrum::setLength: _spectrum resized to " << _spectrum.getShape()[0] << endl;
+  #endif
   pfsDRPStella::math::resize(_mask, length);
+  #ifdef __DEBUG_SETLENGTH__
+    cout << "pfsDRPStella::Spectrum::setLength: _mask resized to " << _mask.getShape()[0] << endl;
+  #endif
   pfsDRPStella::math::resize(_covar, 5, length);
+  #ifdef __DEBUG_SETLENGTH__
+    cout << "pfsDRPStella::Spectrum::setLength: _covar resized to " << _covar.getShape()[0] << "x" << _covar.getShape()[1] << endl;
+  #endif
   pfsDRPStella::math::resize(_wavelength, length);
+  #ifdef __DEBUG_SETLENGTH__
+    cout << "pfsDRPStella::Spectrum::setLength: _wavelength resized to " << _wavelength.getShape()[0] << endl;
+  #endif
   if (length > _length){
     WavelengthT val = _wavelength[_length = 1];
     for (auto it = _wavelength.begin() + length; it != _wavelength.end(); ++it)
       *it = val;
   }
   _length = length;
-  _yHigh = _yLow + length - 1;
+  _yHigh = _yLow + _length - 1;
+  #ifdef __DEBUG_SETLENGTH__
+    cout << "pfsDRPStella::Spectrum::setLength: finishing: _length to " << _length << endl;
+  #endif
   return true;
 }
 

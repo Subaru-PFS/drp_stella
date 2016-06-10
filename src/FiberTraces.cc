@@ -664,6 +664,8 @@ namespace pfsDRPStella = pfs::drp::stella;
 
     #ifdef __DEBUG_CALCSWATHBOUNDY__
       cout << "FiberTrace" << _iTrace << "::calcSwathBoundY: fiberTraceNumber = " << _iTrace << endl;
+      cout << "FiberTrace" << _iTrace << "::calcSwathBoundY: _trace->getHeight() = " << _trace->getHeight() << endl;
+      cout << "FiberTrace" << _iTrace << "::calcSwathBoundY: binHeight = " << binHeight << endl;
       cout << "FiberTrace" << _iTrace << "::calcSwathBoundY: nSwaths set to " << nSwaths << endl;
     #endif
 
@@ -1234,163 +1236,12 @@ namespace pfsDRPStella = pfs::drp::stella;
     #endif
     return profArraySwath;
   }
-/*  
-  template<typename ImageT, typename MaskT, typename VarianceT>
-  bool pfsDRPStella::FiberTrace<ImageT, MaskT, VarianceT>::fitSpline(const blitz::Array<double, 2> &fiberTraceSwath_In,
-                                                                     const blitz::Array<double, 1> &xOverSampled_In,
-                                                                     blitz::Array<double, 1> &profileOverSampled_Out,
-                                                                     const blitz::Array<double, 2> &profileXValuesPerRowOverSampled_In,
-                                                                     const blitz::Array<double, 1> &profileXValuesAllRows_In,
-                                                                     blitz::Array<double, 2> &profilePerRow_Out)
-  {
-    #ifdef __DEBUG_SPLINE__
-      cout << "FiberTrace" << _iTrace << "::fitSpline: fiberTraceSwath_In = " << fiberTraceSwath_In << endl;
-//      cout << "FiberTrace" << _iTrace << "::fitSpline: iFirst_In = " << iFirst_In << endl;
-      cout << "FiberTrace" << _iTrace << "::fitSpline: xOverSampled_In = " << xOverSampled_In << endl;
-      cout << "FiberTrace" << _iTrace << "::fitSpline: profileXValuesPerRowOverSampled_In = " << profileXValuesPerRowOverSampled_In << endl;
-      cout << "FiberTrace" << _iTrace << "::fitSpline: profileXValuesAllRows_In = " << profileXValuesAllRows_In << endl;
-    #endif
-    /// check input paramters
-    if (fiberTraceSwath_In.cols() != static_cast<int>(profileXValuesAllRows_In.size())){
-      string message("FiberTrace");
-      message += to_string(_iTrace) + "::fitSpline: ERROR: profileXValuesAllRows_In.size(=" + to_string(profileXValuesAllRows_In.size());
-      message += ") != fiberTraceSwath_In.cols(=" + to_string(fiberTraceSwath_In.cols()) + ")";
-      cout << message << endl;
-      throw LSST_EXCEPT(pexExcept::Exception, message.c_str());    
-    }
-    if (fiberTraceSwath_In.rows() != profileXValuesPerRowOverSampled_In.rows()){
-      string message("FiberTrace");
-      message += to_string(_iTrace) + "::fitSpline: ERROR: profileXValuesPerRowOverSampled_In.size(=" + to_string(profileXValuesPerRowOverSampled_In.size());
-      message += ") != fiberTraceSwath_In.rows(=" + to_string(fiberTraceSwath_In.rows()) + ")";
-      cout << message << endl;
-      throw LSST_EXCEPT(pexExcept::Exception, message.c_str());    
-    }
-    blitz::Array<double, 1> ccdRow(fiberTraceSwath_In.cols());
-    std::vector<double> xVec(fiberTraceSwath_In.rows() * fiberTraceSwath_In.cols());
-    std::vector<double> yVec(xVec.size());
-    std::vector<double>::iterator iter_xVec = xVec.begin();
-    std::vector<double>::iterator iter_yVec = yVec.begin();
-    blitz::Array<int, 1> TempIVecArr(profileXValuesPerRowOverSampled_In.cols());
-    int NInd, iFirst;
-    blitz::Array<int, 1> IndVecArr(1);
-    for (int i = 0; i < fiberTraceSwath_In.rows(); ++i){
-      TempIVecArr = blitz::where((profileXValuesPerRowOverSampled_In(i, blitz::Range::all()) > 0), 1, 0);
-      math::GetIndex(TempIVecArr, NInd, IndVecArr);
-      iFirst = IndVecArr(0);
-      ccdRow = fiberTraceSwath_In(i,blitz::Range::all()) / blitz::sum(fiberTraceSwath_In(i,blitz::Range::all()));
-      for (int j = 0; j < fiberTraceSwath_In.cols(); ++j){
-        *iter_xVec = double(j) * double(_fiberTraceProfileFittingControl->overSample) + double(iFirst) + (double(_fiberTraceProfileFittingControl->overSample)/2.);
-        *iter_yVec = ccdRow(j);
-        ++iter_xVec;
-        ++iter_yVec;
-      }
-    }
 
-    blitz::Array<double, 1> D_A1_xVec(xVec.data(), blitz::shape(xVec.size()), blitz::neverDeleteData);
-    blitz::Array<double, 1> D_A1_yVec(yVec.data(), blitz::shape(yVec.size()), blitz::neverDeleteData);
-    blitz::Array<int, 1> I_A1_Uniq(1);
-    if (!::pfs::drp::stella::math::Uniq(D_A1_xVec, I_A1_Uniq)){
-      string message("FiberTrace");
-      message += to_string(_iTrace) + "::fitSpline: ERROR: Uniq returned FALSE";
-      cout << message << endl;
-      throw LSST_EXCEPT(pexExcept::Exception, message.c_str());    
-    }
-    #ifdef __DEBUG_SPLINE__
-      cout << "FiberTrace" << _iTrace << "::fitSpline: I_A1_Uniq = " << I_A1_Uniq << endl;
-    #endif
-    std::vector<double> xVecSorted(I_A1_Uniq.size());
-    std::vector<double> yVecSorted(I_A1_Uniq.size());
-    std::vector<double>::iterator iter_xVecSorted = xVecSorted.begin();
-    std::vector<double>::iterator iter_yVecSorted = yVecSorted.begin();
-    blitz::Array<int, 1> I_A1_Where(D_A1_xVec.size());
-    blitz::Array<int, 1> *P_I_A1_Where;
-    blitz::Array<double, 1> D_A1_SubArr(1);
-    int count = 0;
-    double median = 0.;
-    blitz::Array<double, 1> D_A1_XTemp = ::pfs::drp::stella::math::DIndGenArr(xOverSampled_In.size());
-    blitz::Array<double, 1> D_X(1);
-    blitz::Array<double, 1> D_Y(1);
-    for (size_t i = 0; i < I_A1_Uniq.size(); ++i){
-      D_X(0) = D_A1_xVec(I_A1_Uniq(i));
-      if (!::pfs::drp::stella::math::InterPol(xOverSampled_In, D_A1_XTemp, D_X, D_Y)){
-        cout << "FiberTrace" << _iTrace << "::fitSpline: ERROR: InterPos(xOverSampled_In=" << xOverSampled_In << ", D_A1_XTemp=" << D_A1_XTemp << ", D_X=" << D_X << ", D_Y) returned FALSE" << endl;
-        string message("FiberTrace");
-        message += to_string(_iTrace) + "::fitSpline: ERROR: InterPol(xOverSampled_In, D_A1_XTemp, D_X, D_Y) returned FALSE";
-        cout << message << endl;
-        throw LSST_EXCEPT(pexExcept::Exception, message.c_str());    
-      }
-      *iter_xVecSorted = D_Y(0);
-      I_A1_Where = blitz::where(std::fabs(D_A1_xVec - D_A1_xVec(I_A1_Uniq(i))) < 0.000001, 1, 0);
-      P_I_A1_Where = ::pfs::drp::stella::math::GetIndex(I_A1_Where, count);
-      if (!::pfs::drp::stella::math::GetSubArrCopy(D_A1_yVec, *P_I_A1_Where, D_A1_SubArr)){
-        string message("FiberTrace");
-        message += to_string(_iTrace) + "::fitSpline: i=" + to_string(i) + ": ERROR: GetSubArrCopy returned false";
-        cout << message << endl;
-        throw LSST_EXCEPT(pexExcept::Exception, message.c_str());    
-      }
-      median = ::pfs::drp::stella::math::Median(D_A1_SubArr);
-      #ifdef __DEBUG_SPLINE__
-        cout << "FiberTrace" << _iTrace << "::fitSpline: i=" << i << ": D_A1_xVec(I_A1_Uniq(i)=" << I_A1_Uniq(i) << ") = " << D_A1_xVec(I_A1_Uniq(i)) << ": *P_I_A1_Where = " << *P_I_A1_Where << endl;
-        cout << "FiberTrace" << _iTrace << "::fitSpline: i=" << i << ": D_A1_SubArr = " << D_A1_SubArr << endl;
-        cout << "FiberTrace" << _iTrace << "::fitSpline: i=" << i << ": median = " << median << endl;
-      #endif
-      *iter_yVecSorted = median;
-      ++iter_xVecSorted;
-      ++iter_yVecSorted;
-      delete(P_I_A1_Where);
-    }
-    #ifdef __DEBUG_SPLINE__
-      blitz::Array<double, 1> D_A1_XVecSorted(xVecSorted.data(), blitz::shape(xVecSorted.size()), blitz::neverDeleteData);
-      blitz::Array<double, 1> D_A1_YVecSorted(yVecSorted.data(), blitz::shape(yVecSorted.size()), blitz::neverDeleteData);
-      cout << "FiberTrace" << _iTrace << "::fitSpline: xVecSorted = " << D_A1_XVecSorted << endl;
-      cout << "FiberTrace" << _iTrace << "::fitSpline: yVecSorted = " << D_A1_YVecSorted << endl;
-    #endif
-    ::pfs::drp::stella::math::spline<double> spline;
-    spline.set_points(xVecSorted,yVecSorted);    // currently it is required that X is already sorted
-
-    /// calculate oversampled profile for each x in xOverSampled_In
-    if (profileOverSampled_Out.size() != xOverSampled_In.size())
-      profileOverSampled_Out.resize(xOverSampled_In.size());
-    for (int i=0; i < static_cast<int>(xOverSampled_In.size()); ++i){
-      if ((xOverSampled_In(i) < xVecSorted[0]) || (xOverSampled_In(i) > xVecSorted[xVecSorted.size()-1]))
-        profileOverSampled_Out(i) = 0.;
-      else
-        profileOverSampled_Out(i) = spline(xOverSampled_In(i));
-    }
-    #ifdef __DEBUG_SPLINE__
-      cout << "FiberTrace" << _iTrace << "::fitSpline: xOverSampled_In = " << xOverSampled_In << endl;
-      cout << "FiberTrace" << _iTrace << "::fitSpline: profileOverSampled_Out = " << profileOverSampled_Out << endl;
-    #endif
-    profileOverSampled_Out = profileOverSampled_Out * double(_fiberTraceProfileFittingControl->overSample) / blitz::sum(profileOverSampled_Out);
-
-    if ((profilePerRow_Out.rows() != fiberTraceSwath_In.rows()) || (profilePerRow_Out.cols() != fiberTraceSwath_In.cols()))
-      profilePerRow_Out.resize(fiberTraceSwath_In.rows(), fiberTraceSwath_In.cols());
-
-    blitz::Array<double, 1> yProf(profileXValuesAllRows_In.size());
-    for (int i_row = 0; i_row < fiberTraceSwath_In.rows(); i_row++){
-      if (!::pfs::drp::stella::math::InterPol(profileOverSampled_Out, profileXValuesPerRowOverSampled_In(i_row, blitz::Range::all()), profileXValuesAllRows_In, yProf)){
-        cout << "FiberTrace" << _iTrace << "::fitSpline: ERROR: InterPol(profileOverSampled_Out=" << profileOverSampled_Out << ", profileXValuesPerRowOverSampled_In(i_row=" << i_row << ", blitz::Range::all())=" << profileXValuesPerRowOverSampled_In(i_row, blitz::Range::all()) << ", profileXValuesAllRows_In=" << profileXValuesAllRows_In << ", yProf) returned FALSE" << endl;
-        string message("FiberTrace");
-        message += to_string(_iTrace) + "::fitSpline: ERROR: InterPol(profileOverSampled_Out, profileXValuesPerRowOverSampled_In(i_row=";
-        message += to_string(i_row) + ", blitz::Range::all()), profileXValuesAllRows_In, yProf) returned FALSE";
-        cout << message << endl;
-        throw LSST_EXCEPT(pexExcept::Exception, message.c_str());    
-      }
-      profilePerRow_Out(i_row, blitz::Range::all()) = blitz::where(yProf < 0., 0., yProf);
-      profilePerRow_Out(i_row, blitz::Range::all()) = profilePerRow_Out(i_row, blitz::Range::all()) / blitz::sum(profilePerRow_Out(i_row, blitz::Range::all()));
-    }
-    #ifdef __DEBUG_SPLINE__
-      cout << "FiberTrace" << _iTrace << "::fitSpline: profilePerRow_Out = " << profilePerRow_Out << endl;
-    #endif
-    return true;
-  }
-  */
   template<typename ImageT, typename MaskT, typename VarianceT>
   PTR(pfsDRPStella::FiberTrace<ImageT, MaskT, VarianceT>) pfsDRPStella::FiberTrace<ImageT, MaskT, VarianceT>::getPointer(){
     PTR(FiberTrace) ptr(new FiberTrace(*this));
     return ptr;
   }
-
 
   /**
    * class FiberTraceSet
@@ -1484,23 +1335,6 @@ namespace pfsDRPStella = pfs::drp::stella;
     return coeffs;
   }
   
-/*  template<typename ImageT, typename MaskT, typename VarianceT>
-  bool pfsDRPStella::FiberTrace<ImageT, MaskT, VarianceT>::setTraceCoefficients(ndarray::Array<double, 1, 1> const& coeffs){
-    if (coeffs.getShape()[0] > _fiberTraceFunction->coefficients.size()){
-      string message("FiberTrace::setTraceCoefficients: ERROR: coeffs.getShape()[0]=");
-      message += to_string(coeffs.getShape()[0]) + " > _fiberTraceFunction->coefficients.size()=" + to_string(_fiberTraceFunction->coefficients.size());
-      cout << message << endl;
-      throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
-    }
-    for (size_t i = 0; i < _fiberTraceFunction->coefficients.size(); ++i){
-      if (i < coeffs.getShape()[0])
-        _fiberTraceFunction->coefficients[i] = coeffs[i];
-      else
-        _fiberTraceFunction->coefficients[i] = 0.;
-    }
-    return true;
-  }*/
-
   template<typename ImageT, typename MaskT, typename VarianceT>
   bool pfsDRPStella::FiberTraceSet<ImageT, MaskT, VarianceT>::erase(const size_t iStart, const size_t iEnd){
     if (iStart >= _traces->size()){
@@ -1598,24 +1432,7 @@ namespace pfsDRPStella = pfs::drp::stella;
     }
     return true;
   }
-/*
-  template<typename ImageT, typename MaskT, typename VarianceT>
-  PTR(pfsDRPStella::Spectrum<ImageT, MaskT, VarianceT, VarianceT>) pfsDRPStella::FiberTraceSet<ImageT, MaskT, VarianceT>::extractTraceNumber(const size_t traceNumber)
-  {
-    return (*_traces)[traceNumber]->MkSlitFunc();
-  }
 
-  template<typename ImageT, typename MaskT, typename VarianceT>
-  PTR(pfsDRPStella::SpectrumSet<ImageT, MaskT, VarianceT, VarianceT>) pfsDRPStella::FiberTraceSet<ImageT, MaskT, VarianceT>::extractAllTraces()
-  {
-    PTR(pfsDRPStella::SpectrumSet<ImageT, MaskT, VarianceT, VarianceT>) spectrumSet(new pfsDRPStella::SpectrumSet<ImageT, MaskT, VarianceT, VarianceT>(_traces->size()));
-    blitz::Array<std::string, 1> keyWords(1);
-    for (size_t i = 0; i < _traces->size(); ++i){
-      (*(spectrumSet->getSpectra()))[i] = (*_traces)[i]->MkSlitFunc();//keyWords, args);
-    }
-    return spectrumSet;
-  }
-*/
   template<typename ImageT, typename MaskT, typename VarianceT>
   PTR(pfsDRPStella::Spectrum<ImageT, MaskT, VarianceT, VarianceT>) pfsDRPStella::FiberTraceSet<ImageT, MaskT, VarianceT>::extractTraceNumberFromProfile(const size_t traceNumber)
   {

@@ -29,6 +29,7 @@
 #define stringify( name ) # name
 
 //#define __DEBUG_IDENTIFY__
+#define __DEBUG_SETLENGTH__
 //#define __DEBUG_STRETCHANDCROSSCORRELATESPEC__
 //#define __DEBUG_STRETCHANDCROSSCORRELATESPEC_LINELIST__
 //#define __DEBUG_CREATELINELIST__

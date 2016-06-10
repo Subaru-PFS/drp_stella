@@ -253,6 +253,9 @@ namespace pfs{ namespace drp{ namespace stella{
     double gaussCenterY;
     int emissionLineNumber = 0;
     do{
+      #ifdef __DEBUG_CALC2DPSF__
+        cout << "PSF trace" << _iTrace << " bin" << _iBin << "::extractPSFs: starting firstIndexWithValueGEFrom: spectrumSwathZeroBelowThreshold.getShape()[0] = " << spectrumSwathZeroBelowThreshold.getShape()[ 0 ] << ", startIndexSwath = " << startIndexSwath << endl;
+      #endif
       firstWideSignalSwath = math::firstIndexWithValueGEFrom( spectrumSwathZeroBelowThreshold, minWidth, startIndexSwath );
       #ifdef __DEBUG_CALC2DPSF__
         cout << "PSF trace" << _iTrace << " bin" << _iBin << "::extractPSFs: while: firstWideSignalSwath found at index " << firstWideSignalSwath << ", startIndexSwath = " << startIndexSwath << endl;

@@ -162,13 +162,6 @@ class FiberTrace {
                                                  ndarray::Array<float const, 1, 1> const& xCentersSwath,
                                                  size_t const iSwath);
 
-/*    bool fitSpline(const blitz::Array<double, 2> &fiberTraceSwath_In,/// 1 bin of CCD (FiberTrace::Image)
-                   const blitz::Array<double, 1> &xOverSampled_In,/// see XVecArr in SlitFunc
-                   blitz::Array<double, 1> &profileOverSampled_Out,/// output oversampled spatial profile
-                   const blitz::Array<double, 2> &profileXValuesPerRowOverSampled_In,/// (i + 0.5) / double(overSample_In) - 1. + xCentersPixelFraction_In(i)
-                   const blitz::Array<double, 1> &profileXValuesAllRows_In,/// i + 0.5 + (1. / (2. * overSample))
-                   blitz::Array<double, 2> &profilePerRow_Out);/// output 2D profile image
-*/
     ndarray::Array<size_t, 2, 1> calcSwathBoundY(const size_t swathWidth_In) const;
     
     void setITrace(const size_t iTrace){_iTrace = iTrace;}

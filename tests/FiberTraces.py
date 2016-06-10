@@ -28,7 +28,7 @@ class FiberTraceTestCase(tests.TestCase):
     """A test case for measuring FiberTrace quantities"""
 
     def setUp(self):
-        latest = True
+        latest = False
         if latest:
             flatfile = "tests/minFlat-Red-nonoise.fits"
             combfile = "tests/minComb-Red-nonoise.fits"
@@ -665,11 +665,12 @@ class FiberTraceTestCase(tests.TestCase):
             fiberTrace = drpStella.FiberTraceF(width, height)
             binBoundYOut = fiberTrace.calcSwathBoundY(75)
             print 'dir(binBoundYOut) = ',dir(binBoundYOut)
-            self.assertEqual(binBoundYOut.shape[0], 101);
-            self.assertEqual(binBoundYOut[binBoundYOut.getShape()[0]-1, 1], height-1)
+            print 'binBoundYOut.shape = ',binBoundYOut.shape
+            self.assertEqual(binBoundYOut.shape[0], 102);
+            self.assertEqual(binBoundYOut[binBoundYOut.shape[0]-1, 1], height-1)
 
     def testFiberTraceSetConstructor(self):
-        if False:
+        if True:
             size = 0
             fts = drpStella.FiberTraceSetF(size)
             self.assertEqual(fts.size(), size)
@@ -681,40 +682,60 @@ class FiberTraceTestCase(tests.TestCase):
             self.assertEqual(fts.size(), ftsa.size())
 
     def testFiberTraceSetFunctions(self):
-        if False:
+        if True:
             size = 0
             ftsEmpty = drpStella.FiberTraceSetF()
 
             """Test that we can trace fibers"""
             fts = drpStella.findAndTraceAperturesF(self.flat.getMaskedImage(), self.ftffc)
+            for i in range(fts.size()):
+                print "fts.fiberTrace["+str(i)+"]._iTrace = "+str(fts.getFiberTrace(i).getITrace())
             self.assertGreater(fts.size(), 0)
 
             ft = drpStella.FiberTraceF()
+            self.assertEqual(ft.getITrace(), 0)
 
-            """Test that we can add a FiberTrace to the FiberTraceSet"""
+            """Test that we can add a FiberTrace to an empty FiberTraceSet"""
+            print 'adding an empty FiberTrace'
             self.assertTrue(ftsEmpty.addFiberTrace(ft))
+            for i in range(ftsEmpty.size()):
+                print "ftsEmpty.fiberTrace["+str(i)+"]._iTrace = "+str(ftsEmpty.getFiberTrace(i).getITrace())
             self.assertEqual(ftsEmpty.size(), size+1)
+            self.assertEqual(ftsEmpty.getFiberTrace(ftsEmpty.size()-1).getITrace(), 0)
             self.assertNotEqual(drpStella.getRawPointerFTF(ftsEmpty.getFiberTrace(0)), drpStella.getRawPointerFTF(ft.getPointer()))
 
             size = fts.size()
+            print 'adding an empty FiberTrace'
             self.assertTrue(fts.addFiberTrace(ft))
+            for i in range(fts.size()):
+                print "fts.fiberTrace["+str(i)+"]._iTrace = "+str(fts.getFiberTrace(i).getITrace())
             self.assertEqual(fts.size(), size+1)
+            self.assertEqual(fts.getFiberTrace(fts.size()-1).getITrace(), 0)
             self.assertNotEqual(drpStella.getRawPointerFTF(fts.getFiberTrace(size)), drpStella.getRawPointerFTF(ft))
 
             """Test that we can set a FiberTrace at a certain position"""
             ft = fts.getFiberTrace(2)
             comp = ft.getTrace().getImage().getArray()[5,5]
             pos = 0
+            print 'setting fiberTrace[',pos,'] to ft ',ft.getITrace()
             self.assertTrue(fts.setFiberTrace(pos, ft))
+            for i in range(fts.size()):
+                print "fts.fiberTrace["+str(i)+"]._iTrace = "+str(fts.getFiberTrace(i).getITrace())
             self.assertEqual(fts.getFiberTrace(pos).getTrace().getImage().getArray()[5,5], comp)
 
             pos = fts.size()-1
+            print 'setting last existing fiberTrace in fts to ft ',ft.getITrace()
             self.assertTrue(fts.setFiberTrace(pos, ft))
+            for i in range(fts.size()):
+                print "fts.fiberTrace["+str(i)+"]._iTrace = "+str(fts.getFiberTrace(i).getITrace())
             self.assertEqual(fts.getFiberTrace(pos).getTrace().getImage().getArray()[5,5], comp)
 
             """Test that setting a FiberTrace just past the last position adds a FiberTrace"""
             size = fts.size()
+            print 'setting an additional fiberTrace in fts to ft ',ft.getITrace()
             self.assertTrue(fts.setFiberTrace(fts.size(), ft))
+            for i in range(fts.size()):
+                print "fts.fiberTrace["+str(i)+"]._iTrace = "+str(fts.getFiberTrace(i).getITrace())
             self.assertEqual(fts.size(), size+1)
             self.assertEqual(fts.getFiberTrace(fts.size()-1).getTrace().getImage().getArray()[5,5], comp)
 
@@ -744,21 +765,37 @@ class FiberTraceTestCase(tests.TestCase):
 
             """Test that we can erase a FiberTrace"""
             size = fts.size()
+            for i in range(fts.size()):
+                print "fts.fiberTrace["+str(i)+"]._iTrace = "+str(fts.getFiberTrace(i).getITrace())
+            
+            print 'erasing fiberTrace(',fts.size()-1,')'
             self.assertTrue(fts.erase(fts.size()-1))
             self.assertEqual(fts.size(), size-1)
+            for i in range(fts.size()):
+                print "fts.fiberTrace["+str(i)+"]._iTrace = "+str(fts.getFiberTrace(i).getITrace())
+            
+            print 'erasing fiberTrace(0)'
             self.assertTrue(fts.erase(0))
             self.assertEqual(fts.size(), size-2)
             self.assertEqual(fts.getFiberTrace(0).getITrace(), 1)
+            for i in range(fts.size()):
+                print "fts.fiberTrace["+str(i)+"]._iTrace = "+str(fts.getFiberTrace(i).getITrace())
+
+            print 'adding last fiberTrace to fts'
             for i in range(3):
                 ft = drpStella.FiberTraceF(fts.getFiberTrace(0), True)
                 self.assertTrue(fts.addFiberTrace(ft, fts.size()))
-                print "fts.fiberTrace[",str(fts.size()-1),"._iTrace set to ",str(fts.getFiberTrace(fts.size()-1).getITrace())
+                print "fts.fiberTrace[",str(fts.size()-1),"]._iTrace set to ",str(fts.getFiberTrace(fts.size()-1).getITrace())
             size = fts.size()
-            for i in range(size):
+            for i in range(fts.size()):
                 print "fts.fiberTrace["+str(i)+"]._iTrace = "+str(fts.getFiberTrace(i).getITrace())
+            
+            print 'erasing fiberTrace 3-4'
             self.assertTrue(fts.erase(3,5))
+            for i in range(fts.size()):
+                print "fts.fiberTrace["+str(i)+"]._iTrace = "+str(fts.getFiberTrace(i).getITrace())
             self.assertEqual(fts.size(), size-2)
-            self.assertEqual(fts.getFiberTrace(3).getITrace(), 5)
+            self.assertEqual(fts.getFiberTrace(3).getITrace(), 6)
 
             try:
                 self.assertFalse(fts.erase(fts.size()))

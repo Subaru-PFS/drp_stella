@@ -273,15 +273,6 @@
       return (int)Round(ToRound, 0);
     }
     
-//    template<typename T>
-//    void resize(blitz::Array<T, 1> &arr_InOut, unsigned int newSize){
-//      blitz::Array<T, 1> *newArr = new blitz::Array<T, 1>(newSize);
-//      *newArr = 0;
-//      arr_InOut.resize(0);
-//      &arr_InOut = newArr;
-//      return;
-//    }
-    
     template< typename T, typename U >
     U floor1(T const& rhs, U const& outType){
       U outVal = U(std::llround(std::floor(rhs)));
@@ -927,17 +918,45 @@
     }
         
     template<typename T>
-    ndarray::Array<T, 1, 1> resize(ndarray::Array<T, 1, 1> const& arr, size_t const newSize){
+    bool resize(ndarray::Array<T, 1, 1> & arr, size_t const newSize){
+      #ifdef __DEBUG_RESIZE__
+        cout << "math::resize: starting to resize array to new size " << newSize << endl;
+      #endif
+
+      /// Create temporary array of final size and copy data from existing array
       ndarray::Array<T, 1, 1> arrOut = ndarray::allocate(newSize);
+      #ifdef __DEBUG_RESIZE__
+        cout << "math::resize: space allocated for arrOut of size " << arrOut.getShape()[0] << endl;
+      #endif
       arrOut.deep() = 0;
       for (auto itArrIn = arr.begin(), itArrOut = arrOut.begin(); (itArrIn != arr.end()) && (itArrOut != arrOut.end()); ++itArrIn, ++itArrOut){
         *itArrOut = *itArrIn;
       }
-      return arrOut;
+      #ifdef __DEBUG_RESIZE__
+        cout << "math::resize: arr of size " << arr.getShape()[0] << " copied to arrOut of size " << arrOut.getShape()[0] << endl;
+      #endif
+
+      /// resize input array and copy data back
+      arr = ndarray::allocate(newSize);
+      #ifdef __DEBUG_RESIZE__
+        cout << "math::resize: space allocated for arr of size " << arr.getShape()[0] << endl;
+      #endif
+      for (auto itArrIn = arr.begin(), itArrOut = arrOut.begin(); itArrIn != arr.end(); ++itArrIn, ++itArrOut){
+        *itArrIn = *itArrOut;
+      }
+
+      #ifdef __DEBUG_RESIZE__
+        cout << "math::resize: arr of size " << arr.getShape()[0] << " copied to arrOut of size " << arrOut.getShape()[0] << endl;
+        cout << "math::resize: new arr = " << arr << endl;
+      #endif
+      return true;
     }
         
     template<typename T>
-    ndarray::Array<T, 2, 1> resize(ndarray::Array<T, 2, 1> const& arr, size_t const newSizeRows, size_t const newSizeCols ){
+    bool resize( ndarray::Array<T, 2, 1> & arr, 
+                 size_t const newSizeRows, 
+                 size_t const newSizeCols ){
+      /// create temporary array of new size and copy existing array into it
       ndarray::Array<T, 2, 1> arrOut = ndarray::allocate( newSizeRows, newSizeCols );
       arrOut.deep() = 0;
       for (auto itArrRowIn = arr.begin(), itArrRowOut = arrOut.begin(); (itArrRowIn != arr.end()) && (itArrRowOut != arrOut.end()); ++itArrRowIn, ++itArrRowOut){
@@ -945,19 +964,17 @@
           *itArrColOut = *itArrColIn;
         }
       }
-      return arrOut;
-    }
-    
-/*    template< typename T >
-    ndarray::Array< T, 2, 1 > get2DArray(ndarray::Array< T, 1, 1 > const& xIn, ndarray::Array< T, 1, 1 > const& yIn){
-      ndarray::Array< T, 2, 1 > arrOut = ndarray::allocate(yIn.getShape()[0], yIn.getShape()[0]);
-      for (size_t iRow = 0; iRow < yIn.getShape()[0]; ++iRow){
-        for (size_t iCol = 0; iCol < xIn.getShape()[0]; ++iCol){
-          arrOut[iRow][iCol]
+      
+      /// resize input array and copy data back
+      arr = ndarray::allocate( newSizeRows, newSizeCols );
+      for (auto itArrRowIn = arr.begin(), itArrRowOut = arrOut.begin(); (itArrRowIn != arr.end()) && (itArrRowOut != arrOut.end()); ++itArrRowIn, ++itArrRowOut){
+        for (auto itArrColIn = itArrRowIn->begin(), itArrColOut = itArrRowOut->begin(); (itArrColIn != itArrRowIn->end()) && (itArrColOut != itArrRowOut->end()); ++itArrColIn, ++itArrColOut){
+          *itArrColIn = *itArrColOut;
         }
       }
+      return true;
     }
-*/
+    
     double uvalue(double x, double low, double high)
     {
       return (x - low)/(high-low);
@@ -3282,23 +3299,23 @@
     template double xCor(ndarray::Array< double, 2, 1 > const&, ndarray::Array< float, 2, 1 > const&, ndarray::Array< double, 1, 1 > const&, double const&);
     template double xCor(ndarray::Array< double, 2, 1 > const&, ndarray::Array< double, 2, 1 > const&, ndarray::Array< double, 1, 1 > const&, double const&);
     
-    template ndarray::Array< size_t, 1, 1 > resize( ndarray::Array< size_t, 1, 1 > const& arr_In, size_t newSize);
-    template ndarray::Array< unsigned short, 1, 1 > resize( ndarray::Array< unsigned short, 1, 1 > const& arr_In, size_t newSize);
-    template ndarray::Array< short, 1, 1 > resize( ndarray::Array< short, 1, 1 > const& arr_In, size_t newSize);
-    template ndarray::Array< unsigned int, 1, 1 > resize( ndarray::Array< unsigned int, 1, 1 > const& arr_In, size_t newSize);
-    template ndarray::Array< int, 1, 1 > resize( ndarray::Array< int, 1, 1 > const& arr_In, size_t newSize);
-    template ndarray::Array< long, 1, 1 > resize( ndarray::Array< long, 1, 1 > const& arr_In, size_t newSize);
-    template ndarray::Array< float, 1, 1 > resize( ndarray::Array< float, 1, 1 > const& arr_In, size_t newSize);
-    template ndarray::Array< double, 1, 1 > resize( ndarray::Array< double, 1, 1 > const& arr_In, size_t newSize);
+    template bool resize( ndarray::Array< size_t, 1, 1 > &, size_t );
+    template bool resize( ndarray::Array< unsigned short, 1, 1 > &, size_t );
+    template bool resize( ndarray::Array< short, 1, 1 > &, size_t );
+    template bool resize( ndarray::Array< unsigned int, 1, 1 > &, size_t );
+    template bool resize( ndarray::Array< int, 1, 1 > &, size_t );
+    template bool resize( ndarray::Array< long, 1, 1 > &, size_t );
+    template bool resize( ndarray::Array< float, 1, 1 > &, size_t );
+    template bool resize( ndarray::Array< double, 1, 1 > &, size_t );
     
-    template ndarray::Array< size_t, 2, 1 > resize( ndarray::Array< size_t, 2, 1 > const& arr_In, size_t, size_t);
-    template ndarray::Array< unsigned short, 2, 1 > resize( ndarray::Array< unsigned short, 2, 1 > const& arr_In, size_t, size_t);
-    template ndarray::Array< short, 2, 1 > resize( ndarray::Array< short, 2, 1 > const& arr_In, size_t, size_t);
-    template ndarray::Array< unsigned int, 2, 1 > resize( ndarray::Array< unsigned int, 2, 1 > const& arr_In, size_t, size_t);
-    template ndarray::Array< int, 2, 1 > resize( ndarray::Array< int, 2, 1 > const& arr_In, size_t, size_t);
-    template ndarray::Array< long, 2, 1 > resize( ndarray::Array< long, 2, 1 > const& arr_In, size_t, size_t);
-    template ndarray::Array< float, 2, 1 > resize( ndarray::Array< float, 2, 1 > const& arr_In, size_t, size_t);
-    template ndarray::Array< double, 2, 1 > resize( ndarray::Array< double, 2, 1 > const& arr_In, size_t, size_t);
+    template bool resize( ndarray::Array< size_t, 2, 1 > &, size_t, size_t);
+    template bool resize( ndarray::Array< unsigned short, 2, 1 > &, size_t, size_t);
+    template bool resize( ndarray::Array< short, 2, 1 > &, size_t, size_t);
+    template bool resize( ndarray::Array< unsigned int, 2, 1 > &, size_t, size_t);
+    template bool resize( ndarray::Array< int, 2, 1 > &, size_t, size_t);
+    template bool resize( ndarray::Array< long, 2, 1 > &, size_t, size_t);
+    template bool resize( ndarray::Array< float, 2, 1 > &, size_t, size_t);
+    template bool resize( ndarray::Array< double, 2, 1 > &, size_t, size_t);
 
     template ndarray::Array<size_t, 1, 1> getSubArray(ndarray::Array<size_t, 1, 0> const&, ndarray::Array<size_t, 1, 1> const&);
     template ndarray::Array<int, 1, 1> getSubArray(ndarray::Array<int, 1, 0> const&, ndarray::Array<size_t, 1, 1> const&);

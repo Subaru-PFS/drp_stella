@@ -2202,11 +2202,11 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
         return status;
 //          throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
       }
-      D_A1_Sig = math::resize(D_A1_Sig, I_MaskSum);
-      D_A1_CCD = math::resize(D_A1_CCD, I_MaskSum);
-      D_A1_SF = math::resize(D_A1_SF, I_MaskSum);
-      D_A1_WT = math::resize(D_A1_WT, I_MaskSum);
-      D_A1_YFit = math::resize(D_A1_YFit, I_MaskSum);
+      math::resize(D_A1_Sig, I_MaskSum);
+      math::resize(D_A1_CCD, I_MaskSum);
+      math::resize(D_A1_SF, I_MaskSum);
+      math::resize(D_A1_WT, I_MaskSum);
+      math::resize(D_A1_YFit, I_MaskSum);
 
       I_Pos = 0;
       for (size_t ii = 0; ii < P_I_A1_Mask->size(); ii++){

@@ -1,5 +1,7 @@
-#include <Eigen/Dense>
-#include <unsupported/Eigen/LevenbergMarquardt>
+//#include <Eigen/Dense>
+//#include <unsupported/Eigen/LevenbergMarquardt>
+#include "/Users/azuri/Downloads/eigen/test/include/Eigen/Dense"
+#include "/Users/azuri/Downloads/eigen/test/include/unsupported/Eigen/LevenbergMarquardt"
 
 using namespace std;
 
