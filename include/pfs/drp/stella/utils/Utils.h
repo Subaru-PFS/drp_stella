@@ -66,14 +66,17 @@ namespace pfs { namespace drp { namespace stella { namespace utils{
   std::string numberToString_dotToUnderscore( T number, int accuracy = -1 );
   
   std::string dotToUnderscore( std::string number, int accuracy = -1 );
+
+  template< typename PixelT, int C >
+  inline void fits_write_ndarray( lsst::afw::fits::Fits & fitsfile,
+                                  ndarray::Array< PixelT, 2, C > const& array,
+                                  CONST_PTR(lsst::daf::base::PropertySet) metadata_i);
+  template< typename PixelT, int C >
+  inline void fits_write_ndarray( lsst::afw::fits::Fits & fitsfile,
+                                  ndarray::Array< PixelT, 3, C > const& array,
+                                  CONST_PTR(lsst::daf::base::PropertySet) metadata_i);
   
-    template< typename PixelT, int C >
-    inline void fits_write_ndarray( lsst::afw::fits::Fits & fitsfile,
-                                    ndarray::Array< PixelT, 2, C > const& array,
-                                    CONST_PTR(lsst::daf::base::PropertySet) metadata_i);
-    template< typename PixelT, int C >
-    inline void fits_write_ndarray( lsst::afw::fits::Fits & fitsfile,
-                                    ndarray::Array< PixelT, 3, C > const& array,
-                                    CONST_PTR(lsst::daf::base::PropertySet) metadata_i);
+  template< typename T >
+  PTR( T ) getPointer( T & );
 }}}}
 #endif

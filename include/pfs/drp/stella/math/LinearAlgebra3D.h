@@ -18,10 +18,10 @@
 
 #include <cmath>
 
-#define EPSILON 0.00001f
-#define CONST_PI 3.1415926
-#define Deg2Rad(Ang) ((float)( Ang * CONST_PI / 180.0 ))
-#define Rad2Deg(Ang) ((float)( Ang * 180.0 / CONST_PI ))
+#define __EPSILON__ 0.00001f
+#define __CONST_PI__ 3.1415926
+#define Deg2Rad(Ang) ((float)( Ang * __CONST_PI__ / 180.0 ))
+#define Rad2Deg(Ang) ((float)( Ang * 180.0 / __CONST_PI__ ))
 
 namespace pfs{ namespace drp{ namespace stella{ namespace math{
     // =========================================
@@ -64,7 +64,7 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
       Vec &operator /= ( const float src ) { x /= src; y /= src; z /= src; return *this; }
       Vec operator / ( const float src ) const { Vec tmp( *this ); return ( tmp /= src ); }
 
-      bool operator == ( const Vec& b) const { return ((*this)-b).norm() < EPSILON; }
+      bool operator == ( const Vec& b) const { return ((*this)-b).norm() < __EPSILON__; }
       //bool operator == ( const Vec& b) const { return x==b.x && y==b.y && z==b.z; }
     };
 
@@ -175,7 +175,7 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
       float classify( const Vec& pt ) const
       {
         float f = dot( normal, pt ) + d;
-        return ( f > -EPSILON && f < EPSILON ) ? 0 : f;
+        return ( f > -__EPSILON__ && f < __EPSILON__ ) ? 0 : f;
       }
     };
 }}}}

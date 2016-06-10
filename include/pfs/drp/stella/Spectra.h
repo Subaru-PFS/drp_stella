@@ -403,12 +403,5 @@ namespace math{
 
 }
 
-namespace utils{
-  
-  template<typename T>
-  PTR(T) getPointer(T &);
-
-}
-
 }}}
 #endif

@@ -2369,46 +2369,46 @@ namespace pfs{ namespace drp{ namespace stella{
   template class PSF< float >;
   template class PSF< double >;
  
-  template bool PSF< float >::extractPSFFromCenterPositions(FiberTrace< float, unsigned short, float > const&);
-  template bool PSF< float >::extractPSFFromCenterPositions(FiberTrace< float, unsigned short, double > const&);
-  template bool PSF< float >::extractPSFFromCenterPositions(FiberTrace< double, unsigned short, float > const&);
-  template bool PSF< float >::extractPSFFromCenterPositions(FiberTrace< double, unsigned short, double > const&);
-  template bool PSF< double >::extractPSFFromCenterPositions(FiberTrace< float, unsigned short, float > const&);
-  template bool PSF< double >::extractPSFFromCenterPositions(FiberTrace< float, unsigned short, double > const&);
-  template bool PSF< double >::extractPSFFromCenterPositions(FiberTrace< double, unsigned short, float > const&);
-  template bool PSF< double >::extractPSFFromCenterPositions(FiberTrace< double, unsigned short, double > const&);
+  template<> template<> bool PSF< float >::extractPSFFromCenterPositions(FiberTrace< float, unsigned short, float > const&);
+  template<> template<> bool PSF< float >::extractPSFFromCenterPositions(FiberTrace< float, unsigned short, double > const&);
+  template<> template<> bool PSF< float >::extractPSFFromCenterPositions(FiberTrace< double, unsigned short, float > const&);
+  template<> template<> bool PSF< float >::extractPSFFromCenterPositions(FiberTrace< double, unsigned short, double > const&);
+  template<> template<> bool PSF< double >::extractPSFFromCenterPositions(FiberTrace< float, unsigned short, float > const&);
+  template<> template<> bool PSF< double >::extractPSFFromCenterPositions(FiberTrace< float, unsigned short, double > const&);
+  template<> template<> bool PSF< double >::extractPSFFromCenterPositions(FiberTrace< double, unsigned short, float > const&);
+  template<> template<> bool PSF< double >::extractPSFFromCenterPositions(FiberTrace< double, unsigned short, double > const&);
  
-  template ExtractPSFResult< float > PSF< float >::extractPSFFromCenterPosition(FiberTrace< float, unsigned short, float > const&, float const, float const);
-  template ExtractPSFResult< float > PSF< float >::extractPSFFromCenterPosition(FiberTrace< float, unsigned short, double > const&, float const, float const);
-  template ExtractPSFResult< float > PSF< float >::extractPSFFromCenterPosition(FiberTrace< double, unsigned short, float > const&, float const, float const);
-  template ExtractPSFResult< float > PSF< float >::extractPSFFromCenterPosition(FiberTrace< double, unsigned short, double > const&, float const, float const);
-  template ExtractPSFResult< double > PSF< double >::extractPSFFromCenterPosition(FiberTrace< float, unsigned short, float > const&, double const, double const);
-  template ExtractPSFResult< double > PSF< double >::extractPSFFromCenterPosition(FiberTrace< float, unsigned short, double > const&, double const, double const);
-  template ExtractPSFResult< double > PSF< double >::extractPSFFromCenterPosition(FiberTrace< double, unsigned short, float > const&, double const, double const);
-  template ExtractPSFResult< double > PSF< double >::extractPSFFromCenterPosition(FiberTrace< double, unsigned short, double > const&, double const, double const);
+  template<> template<> ExtractPSFResult< float > PSF< float >::extractPSFFromCenterPosition(FiberTrace< float, unsigned short, float > const&, float const, float const);
+  template<> template<> ExtractPSFResult< float > PSF< float >::extractPSFFromCenterPosition(FiberTrace< float, unsigned short, double > const&, float const, float const);
+  template<> template<> ExtractPSFResult< float > PSF< float >::extractPSFFromCenterPosition(FiberTrace< double, unsigned short, float > const&, float const, float const);
+  template<> template<> ExtractPSFResult< float > PSF< float >::extractPSFFromCenterPosition(FiberTrace< double, unsigned short, double > const&, float const, float const);
+  template<> template<> ExtractPSFResult< double > PSF< double >::extractPSFFromCenterPosition(FiberTrace< float, unsigned short, float > const&, double const, double const);
+  template<> template<> ExtractPSFResult< double > PSF< double >::extractPSFFromCenterPosition(FiberTrace< float, unsigned short, double > const&, double const, double const);
+  template<> template<> ExtractPSFResult< double > PSF< double >::extractPSFFromCenterPosition(FiberTrace< double, unsigned short, float > const&, double const, double const);
+  template<> template<> ExtractPSFResult< double > PSF< double >::extractPSFFromCenterPosition(FiberTrace< double, unsigned short, double > const&, double const, double const);
 
-  template bool PSF< float >::extractPSFFromCenterPositions(FiberTrace< float, unsigned short, float > const&,
+  template<> template<> bool PSF< float >::extractPSFFromCenterPositions(FiberTrace< float, unsigned short, float > const&,
                                                             ndarray::Array<float, 1, 1> const&,
                                                             ndarray::Array<float, 1, 1> const&);
-  template bool PSF< float >::extractPSFFromCenterPositions(FiberTrace< float, unsigned short, double > const&,
+  template<> template<> bool PSF< float >::extractPSFFromCenterPositions(FiberTrace< float, unsigned short, double > const&,
                                                             ndarray::Array<float, 1, 1> const&,
                                                             ndarray::Array<float, 1, 1> const&);
-  template bool PSF< float >::extractPSFFromCenterPositions(FiberTrace< double, unsigned short, float > const&,
+  template<> template<> bool PSF< float >::extractPSFFromCenterPositions(FiberTrace< double, unsigned short, float > const&,
                                                             ndarray::Array<float, 1, 1> const&,
                                                             ndarray::Array<float, 1, 1> const&);
-  template bool PSF< float >::extractPSFFromCenterPositions(FiberTrace< double, unsigned short, double > const&,
+  template<> template<> bool PSF< float >::extractPSFFromCenterPositions(FiberTrace< double, unsigned short, double > const&,
                                                             ndarray::Array<float, 1, 1> const&,
                                                             ndarray::Array<float, 1, 1> const&);
-  template bool PSF< double >::extractPSFFromCenterPositions(FiberTrace< float, unsigned short, float > const&,
+  template<> template<> bool PSF< double >::extractPSFFromCenterPositions(FiberTrace< float, unsigned short, float > const&,
                                                             ndarray::Array<double, 1, 1> const&,
                                                             ndarray::Array<double, 1, 1> const&);
-  template bool PSF< double >::extractPSFFromCenterPositions(FiberTrace< float, unsigned short, double > const&,
+  template<> template<> bool PSF< double >::extractPSFFromCenterPositions(FiberTrace< float, unsigned short, double > const&,
                                                             ndarray::Array<double, 1, 1> const&,
                                                             ndarray::Array<double, 1, 1> const&);
-  template bool PSF< double >::extractPSFFromCenterPositions(FiberTrace< double, unsigned short, float > const&,
+  template<> template<> bool PSF< double >::extractPSFFromCenterPositions(FiberTrace< double, unsigned short, float > const&,
                                                             ndarray::Array<double, 1, 1> const&,
                                                             ndarray::Array<double, 1, 1> const&);
-  template bool PSF< double >::extractPSFFromCenterPositions(FiberTrace< double, unsigned short, double > const&,
+  template<> template<> bool PSF< double >::extractPSFFromCenterPositions(FiberTrace< double, unsigned short, double > const&,
                                                             ndarray::Array<double, 1, 1> const&,
                                                             ndarray::Array<double, 1, 1> const&);
   

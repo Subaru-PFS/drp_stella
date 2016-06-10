@@ -385,55 +385,61 @@ namespace pfs { namespace drp { namespace stella { namespace utils{
   }
   
 
-    template< typename PixelT, int C >
-    void fits_write_ndarray( lsst::afw::fits::Fits & fitsfile,
-                             ndarray::Array< PixelT, 3, C > const& array,
-                             CONST_PTR(lsst::daf::base::PropertySet) metadata_i)
-    {
-      ndarray::Array< PixelT, 2, C > arr;
-      arr = ndarray::allocate( array.getShape()[ 0 ] * array.getShape()[ 1 ], array.getShape()[ 2 ] );
-      int iRow = 0;
-      for ( int i = 0; i < array.getShape()[ 0 ]; ++i ){
-        for ( int j = 0; j < array.getShape()[ 1 ]; ++j, ++iRow ){
-          arr[ ndarray::view( iRow )() ] = array[ ndarray::view( i )( j )() ];
-        }
+  template< typename PixelT, int C >
+  void fits_write_ndarray( lsst::afw::fits::Fits & fitsfile,
+                           ndarray::Array< PixelT, 3, C > const& array,
+                           CONST_PTR(lsst::daf::base::PropertySet) metadata_i)
+  {
+    ndarray::Array< PixelT, 2, C > arr;
+    arr = ndarray::allocate( array.getShape()[ 0 ] * array.getShape()[ 1 ], array.getShape()[ 2 ] );
+    int iRow = 0;
+    for ( int i = 0; i < array.getShape()[ 0 ]; ++i ){
+      for ( int j = 0; j < array.getShape()[ 1 ]; ++j, ++iRow ){
+        arr[ ndarray::view( iRow )() ] = array[ ndarray::view( i )( j )() ];
       }
-      fits_write_ndarray( fitsfile, arr, metadata_i );
     }
-    
-    template< typename PixelT, int C >
-    void fits_write_ndarray( lsst::afw::fits::Fits & fitsfile,
-                             ndarray::Array< PixelT, 2, C > const& array,
-                             CONST_PTR(lsst::daf::base::PropertySet) metadata_i)
-    {
-      ndarray::Array< PixelT const, 2, ( C > 2 ? 2 : C) > tempArr(array);
-      cout << "writing ndarray" << endl;
-      PTR(lsst::daf::base::PropertySet) metadata;
-      PTR(lsst::daf::base::PropertySet) wcsAMetadata = lsst::afw::image::detail::createTrivialWcsAsPropertySet( lsst::afw::image::detail::wcsNameForXY0, 0, 0);
-      if ( metadata_i ) {
-          metadata = metadata_i->deepCopy();
-          metadata->combine( wcsAMetadata );
-      } else {
-          metadata = wcsAMetadata;
-      }
-      fitsfile.createImage< PixelT >( array.getShape() );
-      if ( metadata ) {
-          fitsfile.writeMetadata( *metadata );
-      }
-      fitsfile.writeImage( tempArr );
-    }
-    
-    template void fits_write_ndarray( lsst::afw::fits::Fits &, ndarray::Array< float, 2, 1 > const&, CONST_PTR(lsst::daf::base::PropertySet));
-    template void fits_write_ndarray( lsst::afw::fits::Fits &, ndarray::Array< int, 2, 1 > const&, CONST_PTR(lsst::daf::base::PropertySet));
-    template void fits_write_ndarray( lsst::afw::fits::Fits &, ndarray::Array< float, 2, 2 > const&, CONST_PTR(lsst::daf::base::PropertySet));
-    template void fits_write_ndarray( lsst::afw::fits::Fits &, ndarray::Array< int, 2, 2 > const&, CONST_PTR(lsst::daf::base::PropertySet));
-    template void fits_write_ndarray( lsst::afw::fits::Fits &, ndarray::Array< float, 3, 1 > const&, CONST_PTR(lsst::daf::base::PropertySet));
-    template void fits_write_ndarray( lsst::afw::fits::Fits &, ndarray::Array< int, 3, 1 > const&, CONST_PTR(lsst::daf::base::PropertySet));
-    template void fits_write_ndarray( lsst::afw::fits::Fits &, ndarray::Array< float, 3, 2 > const&, CONST_PTR(lsst::daf::base::PropertySet));
-    template void fits_write_ndarray( lsst::afw::fits::Fits &, ndarray::Array< int, 3, 2 > const&, CONST_PTR(lsst::daf::base::PropertySet));
+    fits_write_ndarray( fitsfile, arr, metadata_i );
+  }
 
-    template std::string numberToString_dotToUnderscore( float, int );
-    template std::string numberToString_dotToUnderscore( double, int );
+  template< typename PixelT, int C >
+  void fits_write_ndarray( lsst::afw::fits::Fits & fitsfile,
+                           ndarray::Array< PixelT, 2, C > const& array,
+                           CONST_PTR(lsst::daf::base::PropertySet) metadata_i)
+  {
+    ndarray::Array< PixelT const, 2, ( C > 2 ? 2 : C) > tempArr(array);
+    cout << "writing ndarray" << endl;
+    PTR(lsst::daf::base::PropertySet) metadata;
+    PTR(lsst::daf::base::PropertySet) wcsAMetadata = lsst::afw::image::detail::createTrivialWcsAsPropertySet( lsst::afw::image::detail::wcsNameForXY0, 0, 0);
+    if ( metadata_i ) {
+        metadata = metadata_i->deepCopy();
+        metadata->combine( wcsAMetadata );
+    } else {
+        metadata = wcsAMetadata;
+    }
+    fitsfile.createImage< PixelT >( array.getShape() );
+    if ( metadata ) {
+        fitsfile.writeMetadata( *metadata );
+    }
+    fitsfile.writeImage( tempArr );
+  }
+
+  template<typename T>
+  PTR(T) getPointer(T &obj){
+    PTR(T) pointer(new T(obj));
+    return pointer;
+  }
+
+  template void fits_write_ndarray( lsst::afw::fits::Fits &, ndarray::Array< float, 2, 1 > const&, CONST_PTR(lsst::daf::base::PropertySet));
+  template void fits_write_ndarray( lsst::afw::fits::Fits &, ndarray::Array< int, 2, 1 > const&, CONST_PTR(lsst::daf::base::PropertySet));
+  template void fits_write_ndarray( lsst::afw::fits::Fits &, ndarray::Array< float, 2, 2 > const&, CONST_PTR(lsst::daf::base::PropertySet));
+  template void fits_write_ndarray( lsst::afw::fits::Fits &, ndarray::Array< int, 2, 2 > const&, CONST_PTR(lsst::daf::base::PropertySet));
+  template void fits_write_ndarray( lsst::afw::fits::Fits &, ndarray::Array< float, 3, 1 > const&, CONST_PTR(lsst::daf::base::PropertySet));
+  template void fits_write_ndarray( lsst::afw::fits::Fits &, ndarray::Array< int, 3, 1 > const&, CONST_PTR(lsst::daf::base::PropertySet));
+  template void fits_write_ndarray( lsst::afw::fits::Fits &, ndarray::Array< float, 3, 2 > const&, CONST_PTR(lsst::daf::base::PropertySet));
+  template void fits_write_ndarray( lsst::afw::fits::Fits &, ndarray::Array< int, 3, 2 > const&, CONST_PTR(lsst::daf::base::PropertySet));
+
+  template std::string numberToString_dotToUnderscore( float, int );
+  template std::string numberToString_dotToUnderscore( double, int );
   
 //    template<typename ImageT, typename MaskT, typename VarianceT>
 //    PTR(afwImage::MaskedImage<ImageT, MaskT, VarianceT>) getShared(afwImage::MaskedImage<ImageT, MaskT, VarianceT> const &maskedImage){

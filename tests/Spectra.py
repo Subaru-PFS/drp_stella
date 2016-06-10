@@ -18,6 +18,10 @@ import lsst.afw.geom as afwGeom
 import pfs.drp.stella as drpStella
 import lsst.afw.display.ds9 as ds9
 import lsst.afw.display.utils as displayUtils
+from astropy.io import fits as pyfits
+import pfs.drp.stella.extractSpectraTask as esTask
+import pfs.drp.stella.createFlatFiberTraceProfileTask as cfftpTask
+
 
 try:
     type(display)
@@ -30,27 +34,30 @@ class SpectraTestCase(tests.TestCase):
     def setUp(self):
         latest = True
         if latest:
-            flatfile = "tests/sampledFlatx2-IR-0-23.fits"
-            combfile = "tests/sampledCombx2-IR-0-23.fits"
+            flatfile = "tests/PFFAr2_Flat_postISR.fits"#sampledFlatx2-IR-0-23.fits"
+            #combfile = "tests/sampledCombx2-IR-0-23.fits"
+            combfile = "tests/PFFAr2_Arc_postISR.fits"
         else:
             flatfile = "tests/sampledFlatx2-IR-0-23-5-10-nonoise.fits"
             combfile = "tests/sampledCombx2-IR-0-23-5-10-nonoise.fits"
         self.flat = afwImage.ImageF(flatfile)
         self.flat = afwImage.makeExposure(afwImage.makeMaskedImage(self.flat))
-        self.bias = afwImage.ImageF(flatfile, 3)
-        self.flat.getMaskedImage()[:] -= self.bias
+#        self.bias = afwImage.ImageF(flatfile, 3)
+#        self.flat.getMaskedImage()[:] -= self.bias
 
         self.comb = afwImage.ImageF(combfile)
         self.comb = afwImage.makeExposure(afwImage.makeMaskedImage(self.comb))
-        bias = afwImage.ImageF(combfile, 3)
-        self.comb.getMaskedImage()[:] -= bias
+#        bias = afwImage.ImageF(combfile, 3)
+#        self.comb.getMaskedImage()[:] -= bias
         
         self.ftffc = drpStella.FiberTraceFunctionFindingControl()
-        self.ftffc.fiberTraceFunctionControl.order = 4
+        self.ftffc.fiberTraceFunctionControl.order = 5
+        self.ftffc.fiberTraceFunctionControl.xLow = -5
+        self.ftffc.fiberTraceFunctionControl.xHigh = 5
         
         self.ftpfc = drpStella.FiberTraceProfileFittingControl()
 
-        del bias
+#        del bias
         del flatfile
         del combfile
         del latest
@@ -58,7 +65,7 @@ class SpectraTestCase(tests.TestCase):
     def tearDown(self):
         del self.flat
         del self.comb
-        del self.bias
+#        del self.bias
         del self.ftffc
         del self.ftpfc
 
@@ -373,6 +380,39 @@ class SpectraTestCase(tests.TestCase):
             length = 100
             specSet = drpStella.SpectrumSetF(size,length)
             self.assertEqual(specSet.getSpectra()[0].getSpectrum().shape[0], length)
+
+    def testWavelengthCalibration(self):
+        print "testing wavelength calibration"
+        fiberTraceSet = drpStella.findAndTraceAperturesF(self.flat.getMaskedImage(), self.ftffc)
+        self.assertGreater(fiberTraceSet.size(), 0)
+        print 'found ',fiberTraceSet.size(),' traces'
+        myProfileTask = cfftpTask.CreateFlatFiberTraceProfileTask()
+        myProfileTask.run(fiberTraceSet)
+
+        myExtractTask = esTask.ExtractSpectraTask()
+        aperturesToExtract = [-1]
+        spectrumSetFromProfile = myExtractTask.run(self.comb, fiberTraceSet, aperturesToExtract)
+        self.assertGreater(spectrumSetFromProfile.size(), 0)
+
+        """ read line list """
+        lineList = '../obs_pfs/pfs/lineLists/CdHgKrNeXe_red.fits'
+        hdulist = pyfits.open(lineList)
+        tbdata = hdulist[1].data
+        lineListArr = np.ndarray(shape=(len(tbdata),2), dtype='float32')
+        lineListArr[:,0] = tbdata.field(0)
+        lineListArr[:,1] = tbdata.field(1)
+
+        """ read reference Spectrum """
+        refSpec = '../obs_pfs/pfs/lineLists/refCdHgKrNeXe_red.fits'
+        hdulist = pyfits.open(refSpec)
+        tbdata = hdulist[1].data
+        refSpecArr = np.ndarray(shape=(len(tbdata)), dtype='float32')
+        refSpecArr[:] = tbdata.field(0)
+        
+        refSpec = spectrumSetFromProfile.getSpectrum(int(spectrumSetFromProfile.size() / 2))
+        ref = refSpec.getSpectrum()
+
+        
             
 #-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
