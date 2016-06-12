@@ -78,12 +78,12 @@ namespace pfs { namespace drp { namespace stella {
     /*
      * @brief insert <toInsert_In> into <dataXYVec_In> in sorted order in x
      * 
-     * @param dataXYVec_In vector to insert <toInsert_In> in sorted order
-     * @param toInsert_In  data pair to insert
+     * @param[in,out] dataXYVec_In :: vector to insert <toInsert_In> in sorted order
+     * @param[in] toInsert_In      :: data pair to insert
      */
     template< typename T >
-    void insertSorted(std::vector< dataXY< T > > & dataXYVec_In,
-                      dataXY< T > & toInsert_In);
+    void insertSorted( std::vector< dataXY< T > > & dataXYVec_In,
+                       dataXY< T > & toInsert_In );
     
     /**
      * Calculates aperture minimum pixel, central position, and maximum pixel for the trace,
@@ -91,25 +91,30 @@ namespace pfs { namespace drp { namespace stella {
      * Note that if the width of the trace varies depending on the position of the aperture center,
      * 1 pixel left and/or right of the maximum aperture width will get cut off to reduce possible
      * cross-talk between adjacent apertures
+     * @param[in] xCenters_In       :: x center positions of trace
+     * @param[in] xHigh_In          :: width of trace right of trace (>=0)
+     * @param[in] xLow_In           :: width of trace left of trace (<=0)
+     * @param[in] nPixCutLeft_In    :: number of pixels to cut off left of trace
+     * @param[in] nPixCutRight_In   :: number of pixels to cut off right of trace
      **/
     template< typename T, typename U >
     ndarray::Array<size_t, 2, 1> calcMinCenMax(ndarray::Array<T, 1, 1> const& xCenters_In,
-                                               U const xHigh_In,/// >= 0
-                                               U const xLow_In,/// <= 0
+                                               U const xHigh_In,
+                                               U const xLow_In,
                                                int const nPixCutLeft_In = 0,
                                                int const nPixCutRight_In = 0);
 
     /**
-     * Fix(double)
      * Returns integer value cut at decimal point. If D_In is negative the integer value greater than or equal to D_In is returned,
      * e.g. D_In = -99.8 => returns -99.
+     * @param[in] D_In :: number to fix
      **/
     template <typename T>
     int Fix(T D_In);
-    //%template(fixd) Fix(double);
+
     /**
-     * FixL(double)
      * Returns integer value cut at decimal point (See int Fix(double)).
+     * @param[in] D_In :: number to fix
      **/
     template <typename T>
     long FixL(T D_In);
@@ -134,15 +139,18 @@ namespace pfs { namespace drp { namespace stella {
      * Int(double)
      * Returns integer portion of D_In. If D_In is negative returns the first negative integer less than or equal to Number,
      * e.g. D_In = -99.8 => returns -100.
+     * @param[in] D_In :: number to convert to int
      **/
     template <typename T>
     int Int(T D_In);
 
     /**
      * Returns integer value cut at decimal point (See int Int(double)).
+     * @param[in] D_In :: number to convert to long
      **/
     template <typename T>
     long Long(T D_In);
+
     template <typename T>
     ndarray::Array<double, 1, 1> Double(ndarray::Array<T, 1, 1> const& arr_In);
     
@@ -183,7 +191,6 @@ namespace pfs { namespace drp { namespace stella {
                                            std::vector<T> const& A1_SubArray);
 
     /**
-     *        InvertGaussJ(AArray)
      *        Linear equation solution by Gauss-Jordan elimination with B == Unity
      *        AArray(0:N-1, 0:N-1) is the input matrix.
      *        On output, AArray is replaced by its matrix inverse.
@@ -195,52 +202,62 @@ namespace pfs { namespace drp { namespace stella {
     bool countPixGTZero(ndarray::Array<T, 1, 1> &vec_InOut);
 
     /**
-     *        function FirstIndexWithValueGEFrom
      *        returns first index of integer input vector where value is greater than or equal to I_MinValue, starting at index I_FromIndex
      *        returns -1 if values are always smaller than I_MinValue
+     * @param[in] vecIn     :: 1D array to search for number >= minValue
+     * @param[in] minValue  :: minimum value to search for
+     * @param[in] fromIndex :: index position to start search 
      **/
     template<typename T>
-    int firstIndexWithValueGEFrom(ndarray::Array<T, 1, 1> const& vecIn, const T minValue, const int fromIndex);
+    int firstIndexWithValueGEFrom( ndarray::Array< T, 1, 1 > const& vecIn, 
+                                   const T minValue, 
+                                   const int fromIndex);
 
     /**
-     *        function LastIndexWithZeroValueBefore
      *        returns last index of integer input vector where value is equal to zero, starting at index I_StartPos
      *        returns -1 if values are always greater than 0 before I_StartPos
+     * @param[in] vec_In       :: 1D array to search
+     * @param[in] startPos_In :: index position to start search
      **/
     template<typename T>
-    int lastIndexWithZeroValueBefore(ndarray::Array<T, 1, 1> const& vec_In, const int startPos_In);
+    int lastIndexWithZeroValueBefore( ndarray::Array< T, 1, 1 > const& vec_In, 
+                                      const int startPos_In );
 
     /**
-     *        function FirstIndexWithZeroValueFrom
      *        returns first index of integer input vector where value is equal to zero, starting at index I_StartPos
      *        returns -1 if values are always greater than 0 past I_StartPos
+     * @param[in] vec_In       :: 1D array to search
+     * @param[in] startPos_In :: index position to start search
      **/
     template<typename T>
-    int firstIndexWithZeroValueFrom(ndarray::Array<T, 1, 1> const& vec_In, const int startPos_In);
+    int firstIndexWithZeroValueFrom( ndarray::Array< T, 1, 1 > const& vec_In, 
+                                     const int startPos_In );
 
     bool IsOddNumber(long No);
 
     /**
-     *      SortIndices(vector<T> D_A1_In)
      *      Returns an integer array of the same size like <D_A1_In>,
      *      containing the indixes of <D_A1_In> in sorted order.
+     * @param[in] vec_In       :: 1D array to sort
      **/
     template<typename T>
     std::vector<int> sortIndices(const std::vector<T> &vec_In);
 
     /**
-     *       function GetRowFromIndex(int I_Index_In, int I_NRows_In) const
      *       task: Returns Row specified by I_Index_In from the formula
      *             Col = (int)(I_Index_In / I_NRows_In)
      *             Row = I_Index_In - Col * I_NRows_In
+     * @param[in] I_Index_In   :: index number to convert to row number
+     * @param[in] I_NRows_In   :: number of rows of 2D array
      **/
     int GetRowFromIndex(int I_Index_In, int I_NRows_In);
 
     /**
-     *       function GetColFromIndex(int I_Index_In, int I_NRows_In) const
      *       task: Returns Col specified by I_Index_In from the formula
      *             Col = (int)(I_Index_In / I_NRows_In)
      *             Row = I_Index_In - Col * I_NRows_In
+     * @param[in] I_Index_In   :: index number to convert to column number
+     * @param[in] I_NRows_In   :: number of rows of 2D array
      **/
     int GetColFromIndex(int I_Index_In, int I_NRows_In);
 
@@ -270,37 +287,67 @@ namespace pfs { namespace drp { namespace stella {
     
     /*
      * @brief: Return vector of indices where lowRange_In <= arr_In < highRange_In
+     * @param[in] arr_In         :: 1D array to search for values in given range
+     * @param[in] lowRange_In    :: lower range
+     * @param[in] lowRange_In    :: upper range
      */
-    template<typename T>
-    ndarray::Array<size_t, 1, 1> getIndicesInValueRange(ndarray::Array<T, 1, 1> const& arr_In, T const lowRange_In, T const highRange_In);
-    template<typename T>
-    ndarray::Array<size_t, 2, 1> getIndicesInValueRange(ndarray::Array<T, 2, 1> const& arr_In, T const lowRange_In, T const highRange_In);
+    template< typename T >
+    ndarray::Array< size_t, 1, 1 > getIndicesInValueRange( ndarray::Array< T, 1, 1 > const& arr_In, 
+                                                           T const lowRange_In, 
+                                                           T const highRange_In );
+    /*
+     * @brief: Return vector of indices where lowRange_In <= arr_In < highRange_In
+     * @param[in] arr_In         :: 2D array to search for values in given range
+     * @param[in] lowRange_In    :: lower range
+     * @param[in] lowRange_In    :: upper range
+     */
+    template< typename T >
+    ndarray::Array< size_t, 2, 1 > getIndicesInValueRange( ndarray::Array< T, 2, 1 > const& arr_In, 
+                                                           T const lowRange_In, 
+                                                           T const highRange_In );
 
     /*
      * @brief: Return vector of indices where vec_In == 1
+     * @param[in] vec_In  :: vector to search for ones
      */
     template<typename T>
     std::vector< size_t > getIndices( std::vector< T > const& vec_In );
 
     /*
      * @brief: Return vector of indices where arr_In == 1
+     * @param[in] arr_In  :: 1D array to search for ones
      */
     template<typename T>
     ndarray::Array< size_t, 1, 1 > getIndices( ndarray::Array< T, 1, 1 > const& arr_In );
+    
+    /*
+     * @brief: Return vector of indices where arr_In == 1
+     * @param[in] arr_In  :: 2D array to search for ones
+     */
     template<typename T>
     ndarray::Array< size_t, 2, 1 > getIndices( ndarray::Array< T, 2, 1 > const& arr_In );
 
     /*
      * @brief: Returns array to copies of specified elements of arr_In
+     * @param[in] arr_In     :: 1D array to create subarray from
+     * @param[in] indices_In :: indices of arr_In which shall be copied to output subarray
      */
-    template<typename T, typename U, int I>
-    ndarray::Array<T, 1, 1> getSubArray(ndarray::Array<T, 1, I> const& arr_In, ndarray::Array<U, 1, 1> const& indices_In);
+    template< typename T, typename U, int I >
+    ndarray::Array< T, 1, 1 > getSubArray( ndarray::Array< T, 1, I > const& arr_In, 
+                                           ndarray::Array< U, 1, 1 > const& indices_In );
 
-    template<typename T, typename U>
-    ndarray::Array<T, 1, 1> getSubArray(ndarray::Array<T, 2, 1> const& arr_In, ndarray::Array<U, 2, 1> const& indices_In);
+    /*
+     * @brief: Returns array to copies of specified elements of arr_In
+     * @param[in] arr_In     :: 2D array to create subarray from
+     * @param[in] indices_In :: indices of arr_In which shall be copied to output subarray
+     */
+    template< typename T, typename U >
+    ndarray::Array< T, 1, 1 > getSubArray( ndarray::Array< T, 2, 1 > const& arr_In, 
+                                           ndarray::Array< U, 2, 1 > const& indices_In );
 
-    template<typename T>
-    ndarray::Array<T, 1, 1> getSubArray(ndarray::Array<T, 2, 1> const& arr_In, std::vector< std::pair<size_t, size_t> > const& indices_In);
+    template< typename T >
+    ndarray::Array< T, 1, 1 > getSubArray( ndarray::Array< T, 2, 1 > const& arr_In, 
+                                           std::vector< std::pair< size_t, size_t > > const& indices_In );
     
     /*
      * @brief: resize arr_In to size newSize. Will result in cutting off a longer array at newSize or adding zeros to a shorter array.
@@ -309,16 +356,19 @@ namespace pfs { namespace drp { namespace stella {
      * @param newSize: new size for arr_In
      */
     template< typename T >
-    bool resize(ndarray::Array< T, 1, 1 > & arr_In, size_t newSize); 
+    bool resize( ndarray::Array< T, 1, 1 > & arr_In, 
+                 size_t newSize ); 
 
     template< typename T >
-    bool resize(ndarray::Array< T, 2, 1 > & arr_In, size_t newSizeRows, size_t newSizeCols ); 
+    bool resize( ndarray::Array< T, 2, 1 > & arr_In, 
+                 size_t newSizeRows, 
+                 size_t newSizeCols ); 
 
     /*
      * @brief: cross-correlates arrA_In and arrB_In within the range range_In (e.g. [-1.,1.]) in steps stepSize_In
      * 
      * @param arrA_In: vector to be kept constant arrA_In[:][0]: x values, arrA_In[:][1]: y values
-     * @param arrA_In: vector to be shifted from range_In[0] to range_In[1] with steps of size stepSize_In. This vector will get interpolated to the grid points of vecA_In.
+     * @param arrB_In: vector to be shifted from range_In[0] to range_In[1] with steps of size stepSize_In. This vector will get interpolated to the grid points of vecA_In.
      * @param range_In: 2-element vector containing the lowest and highest shifts, e.g. [-1., 1.]
      * @param stepSize_In: step size for the shifts between range_In[0] and range_In[1]
      */    
@@ -364,7 +414,8 @@ namespace pfs { namespace drp { namespace stella {
     
     /**
      * @brief return ndarray pointing to data of vector
-     * @param vector : vector to be converted to ndarray
+     * @param[in] vector :: vector to be converted to ndarray
+     * @param[in] deep   :: create a deep copy of vec_In?
      */
     template< typename T >
     ndarray::Array< T, 1, 1 > vectorToNdArray( std::vector< T > & vector, bool deep = true );
@@ -381,9 +432,17 @@ namespace pfs { namespace drp { namespace stella {
     
     /**
      * @brief return ndarray of specified size and type
+     * @param[in] nRows  :: number of rows of output array
+     * @param[out] nCols :: number of columns of output array
      */
     template< typename T >
     ndarray::Array<T, 2, 1> ndArray21(T nRows, T nCols);
+    
+    /**
+     * @brief return ndarray of specified size and type
+     * @param[in] nRows  :: number of rows of output array
+     * @param[out] nCols :: number of columns of output array
+     */
     template< typename T >
     ndarray::Array<T, 2, 2> ndArray22(T nRows, T nCols);
     

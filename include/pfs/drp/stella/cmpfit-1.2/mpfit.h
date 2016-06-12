@@ -27,7 +27,7 @@ extern "C" {
 #endif
 
 /* MPFIT version string */
-#define MPFIT_VERSION "1.2"
+#define MPFIT_VERSION "1.2a"
 //#define __DEBUG_MPFIT__
 
 using namespace std;

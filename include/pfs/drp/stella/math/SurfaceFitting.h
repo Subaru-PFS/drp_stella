@@ -188,7 +188,7 @@ namespace pfs { namespace drp { namespace stella {
                  * @param dataPointsX : x positions of input data to fit
                  * @param dataPointsY : y positions of input data to fit
                  * @param dataPointsZ : z values of input data to fit
-                 * @param regularization : >= 0. If 0 the fit is forced through the input data
+                 * @param tpsControl : ThinPlateSplineControl, controls parameters like regularization
                  * @return ThinPlateSpline object
                  */
                 explicit ThinPlateSpline( ndarray::Array< const CoordsT, 1, 1 > const& dataPointsX,
@@ -202,6 +202,7 @@ namespace pfs { namespace drp { namespace stella {
                  * @param dataPointsY : y positions of input data to fit
                  * @param dataPointsZ : z values of input data to fit
                  * @param dataPointsWeights : >= 0. If 0 the fit is forced through the input data
+                 * @param tpsControl : ThinPlateSplineControl, controls parameters like regularization
                  * @return ThinPlateSpline object
                  */
                 explicit ThinPlateSpline( ndarray::Array< const CoordsT, 1, 1 > const& dataPointsX,
@@ -241,8 +242,12 @@ namespace pfs { namespace drp { namespace stella {
                  * @param dataPointsX : x positions of input data to fit
                  * @param dataPointsY : y positions of input data to fit
                  * @param dataPointsZ : z values of input data to fit
-                 * @param gridPointsX : x values of xy-grid on which to fit the thin-plate spline
-                 * @param gridPointsY : y values of xy-grid on which to fit the thin-plate spline
+                 * @param knotsX : x values on which to fit the thin-plate spline
+                 * @param knotsY : y values on which to fit the thin-plate spline
+                 * @param isXYPositionsGridPoints : are knotsX and knotsY grid points? 
+                 *                                  If Yes, there will be knotsX.getShape()[0] X knotsY.getShape()[0] knots, 
+                 *                                  otherwise knotsX.getShape()[0] = knotsY.getShape()[0] knots
+                 * @param tpsControl : ThinPlateSplineControl, controls parameters like regularization
                  * @return ThinPlateSpline object
                  */
                 explicit ThinPlateSplineChiSquare( ndarray::Array< const CoordsT, 1, 1 > const& dataPointsX,

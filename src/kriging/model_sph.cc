@@ -15,7 +15,7 @@ double spherical(double n, double s, double r, double d)
 //
 
 
-int sph_f(const gsl_vector *x, void *params, gsl_vector *f)
+int sph_f( const gsl_vector *x, void *params, gsl_vector *f )
 {
         size_t n = ((LSFParam *)params)->n;
         double *dist = ((LSFParam *)params)->dist;
@@ -38,11 +38,11 @@ int sph_df(const gsl_vector *x, void *params, gsl_matrix *J)
 {
         size_t n = ((LSFParam *)params)->n;
         double *dist = ((LSFParam *)params)->dist;
-        double *vario = ((LSFParam *)params)->vario;
+//        double *vario = ((LSFParam *)params)->vario;
 
-        double sill = gsl_vector_get(x, 0);
+//        double sill = gsl_vector_get(x, 0);
         double range = gsl_vector_get (x, 1);
-        double nugget = gsl_vector_get(x, 2);
+//        double nugget = gsl_vector_get(x, 2);
 
         for (size_t i = 0;i < n;i++)
         {

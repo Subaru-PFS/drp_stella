@@ -110,7 +110,7 @@ namespace pfs{ namespace drp{ namespace stella{
         throw LSST_EXCEPT(pexExcept::Exception, message.c_str());    
       }
 
-      unsigned p = this->_dataPointsX.getShape()[0];
+//      unsigned p = this->_dataPointsX.getShape()[0];
 
       // Allocate the matrix and vector
       this->fillMatrix();//ndarray::allocate( p + 3, p + 3 );

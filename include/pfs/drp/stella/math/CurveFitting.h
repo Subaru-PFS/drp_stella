@@ -61,6 +61,8 @@ namespace pfs { namespace drp { namespace stella {
      * @param  x_In:  The independent variable vector.
      * @param  y_In:  The dependent variable vector, should be same length as x_In.
      * @param  degree_In: The degree of the polynomial to fit.
+     * @param argsKeyWords_In: vector of keywords used to control the behavior of the function (See below)
+     * @param argsValues_In: Keyword values corresponding to the keywords in argsKeyWords_In
      *
      * OUTPUTS:
      *   POLY_FIT returns a vector of coefficients with a length of NDegree+1.
@@ -116,6 +118,9 @@ namespace pfs { namespace drp { namespace stella {
     STATUS=status: int: out
     YFIT=yfit: PTR(ndarray::Array<T, 1, 1>(D_A1_X_In.size())): out
     XRANGE: PTR(ndarray::Array<double, 1, 1>(2)): in
+    YERROR=yerror
+    LSIGMA=lsigma: lower sigma rejection threshold
+    USIGMA=usigma:
     **/
     template< typename T >
     ndarray::Array<double, 1, 1> PolyFit(ndarray::Array<T, 1, 1> const& x_In,
@@ -173,21 +178,30 @@ namespace pfs { namespace drp { namespace stella {
                                          T xRangeMax_In = 1.);
 
     /**
+     * @brief Scale the spatial profile to the FiberTrace row
+       calculates D_Sky_Out and D_SP_Out for the system of equations D_A1_CCD_In = D_Sky_Out + D_SP_Out * D_A1_SF_In
        CHANGES to original function:
          * D_Sky_Out must be >= 0. unless stated otherwise by the ALLOW_SKY_LT_ZERO parameter
          * D_SP_Out must be >= 0. unless stated otherwise by the ALLOW_SPEC_LT_ZERO parameter
          * added REJECT_IN as optinal parameter to reject cosmic rays from fit (times sigma)
          * added MASK_INOUT as optional parameter
+     * @param[in]       D_A1_CCD_In    :: FiberTrace row to scale the spatial profile D_A1_SF_In to
+     * @param[in]       D_A1_SF_In     :: Spatial profile to scale to the FiberTrace row
+     * @param[in,out]   D_SP_Out       :: Fitted scaling factor
+     * @param[in,out]   D_Sky_Out      :: Fitted constant under the fitted signal
+     * @param[in]       B_WithSky      :: Scale spatial profile plus constant background (sky)?
+     * @param[in]       S_A1_Args_In   :: Vector of keywords controlling the procedure
+     * @param[in,out]   ArgV_In        :: Vector of keyword values
      **/
       
       template< typename ImageT, typename SlitFuncT >
-      int LinFitBevingtonEigen(Eigen::Array<ImageT, Eigen::Dynamic, 1> const& D_A1_CCD_In,      /// yvec: in
-                               Eigen::Array<SlitFuncT, Eigen::Dynamic, 1> const& D_A1_SF_In,       /// xvec: in
-                               ImageT &D_SP_Out,                         /// a1: out
-                               ImageT &D_Sky_Out,                        /// a0: in/out
-                               bool B_WithSky,                        /// with sky: in
-                               std::vector<string> const& S_A1_Args_In,   ///: in
-                               std::vector<void *> & ArgV_In);                   ///: in
+      int LinFitBevingtonEigen(Eigen::Array<ImageT, Eigen::Dynamic, 1> const& D_A1_CCD_In,
+                               Eigen::Array<SlitFuncT, Eigen::Dynamic, 1> const& D_A1_SF_In,
+                               ImageT &D_SP_Out,                         
+                               ImageT &D_Sky_Out,                        
+                               bool B_WithSky,                        
+                               std::vector<string> const& S_A1_Args_In,
+                               std::vector<void *> & ArgV_In);         
     /// MEASURE_ERRORS_IN = Eigen::Array<ImageT, Eigen::Dynamic, 1>(D_A1_CCD_In.size)             : in
     /// REJECT_IN = float                                                : in
     /// MASK_INOUT = Eigen::Array<unsigned short, Eigen::Dynamic, 1>(D_A1_CCD_In.size)                    : in/out
@@ -200,18 +214,18 @@ namespace pfs { namespace drp { namespace stella {
 
       
       template< typename ImageT, typename SlitFuncT >
-      SpectrumBackground< ImageT > LinFitBevingtonNdArray( ndarray::Array<ImageT, 1, 1> const& D_A1_CCD_In,      /// yvec: in
-                                                           ndarray::Array<SlitFuncT, 1, 1> const& D_A1_SF_In,       /// xvec: in
-                                                           bool B_WithSky);                          ///: in
+      SpectrumBackground< ImageT > LinFitBevingtonNdArray( ndarray::Array<ImageT, 1, 1> const& D_A1_CCD_In,
+                                                           ndarray::Array<SlitFuncT, 1, 1> const& D_A1_SF_In,
+                                                           bool B_WithSky);
       
       template< typename ImageT, typename SlitFuncT >
-      int LinFitBevingtonNdArray(ndarray::Array<ImageT, 1, 1> const& D_A1_CCD_In,      /// yvec: in
-                                 ndarray::Array<SlitFuncT, 1, 1> const& D_A1_SF_In,       /// xvec: in
-                                 ImageT &D_SP_Out,                         /// a1: out
-                                 ImageT &D_Sky_Out,                        /// a0: in/out
-                                 bool B_WithSky,                        /// with sky: in
-                                 std::vector<string> const& S_A1_Args_In,   ///: in
-                                 std::vector<void *> & ArgV_In);                   ///: in
+      int LinFitBevingtonNdArray(ndarray::Array<ImageT, 1, 1> const& D_A1_CCD_In,
+                                 ndarray::Array<SlitFuncT, 1, 1> const& D_A1_SF_In,
+                                 ImageT &D_SP_Out,
+                                 ImageT &D_Sky_Out,
+                                 bool B_WithSky,
+                                 std::vector<string> const& S_A1_Args_In,
+                                 std::vector<void *> & ArgV_In);
     /// MEASURE_ERRORS_IN = PTR(ndarray::Array<ImageT, 1, 1>(D_A1_CCD_In.size))             : in
     /// REJECT_IN = float                                                : in
     /// MASK_INOUT = ndarray::Array<unsigned short, 1, 1>(D_A1_CCD_In.size)                    : in/out
@@ -222,36 +236,46 @@ namespace pfs { namespace drp { namespace stella {
     /// ALLOW_SKY_LT_ZERO = 1
     /// ALLOW_SPEC_LT_ZERO = 1
 
-     /**
-            CHANGES to original function:
-              * D_Sky_Out must be >= 0.
-              * D_SP_Out must be >= 0.
-              * if D_Sky_Out is set to be < -1.e-10 in input it is set to 0. and D_SP_Out is calculated as if there was no sky at all
-              * added REJECT_IN as optinal parameter to reject cosmic rays from fit (times sigma)
-              * added MASK_INOUT as optional parameter
-      **/
-  /// MEASURE_ERRORS_IN = ndarray::Array<double,2>(D_A2_CCD_In.rows, D_A2_CCD_In.cols) : in
-  /// REJECT_IN = double                                                      : in
-  /// MASK_INOUT = ndarray::Array<double,2>(D_A1_CCD_In.rows,D_A1_CCD_In.cols)         : in/out
-  /// CHISQ_OUT = ndarray::Array<double,1>(D_A2_CCD_In.rows)                           : out
-  /// Q_OUT = ndarray::Array<double,1>(D_A2_CCD_In.rows)                               : out
-  /// SIGMA_OUT = ndarray::Array<double,2>(D_A2_CCD_In.rows, 2): [*,0]: sigma_sp, [*,1]: sigma_sky : out
+    /**
+     * @brief Scale the spatial profile to the FiberTrace row
+       calculates D_Sky_Out and D_SP_Out for the system of equations D_A1_CCD_In = D_Sky_Out + D_SP_Out * D_A1_SF_In
+       CHANGES to original function:
+         * D_Sky_Out must be >= 0.
+         * D_SP_Out must be >= 0.
+         * if D_Sky_Out is set to be < -1.e-10 in input it is set to 0. and D_SP_Out is calculated as if there was no sky at all
+         * added REJECT_IN as optinal parameter to reject cosmic rays from fit (times sigma)
+         * added MASK_INOUT as optional parameter
+     * @param[in]       D_A2_CCD_In    :: FiberTrace row to scale the spatial profile D_A1_SF_In to
+     * @param[in]       D_A2_SF_In     :: Spatial profile to scale to the FiberTrace row
+     * @param[in,out]   D_A1_SP_Out       :: Fitted scaling factor
+     * @param[in,out]   D_A1_Sky_Out      :: Fitted constant under the fitted signal
+     * @param[in]       B_WithSky      :: Scale spatial profile plus constant background (sky)?
+     * @param[in]       S_A1_Args_In   :: Vector of keywords controlling the procedure
+                                            MEASURE_ERRORS_IN = ndarray::Array<double,2>(D_A2_CCD_In.rows, D_A2_CCD_In.cols) : in
+                                            REJECT_IN = double                                                      : in
+                                            MASK_INOUT = ndarray::Array<double,2>(D_A1_CCD_In.rows,D_A1_CCD_In.cols)         : in/out
+                                            CHISQ_OUT = ndarray::Array<double,1>(D_A2_CCD_In.rows)                           : out
+                                            Q_OUT = ndarray::Array<double,1>(D_A2_CCD_In.rows)                               : out
+                                            SIGMA_OUT = ndarray::Array<double,2>(D_A2_CCD_In.rows, 2): [*,0]: sigma_sp, [*,1]: sigma_sky : out
+     * @param[in,out]   ArgV_In        :: Vector of keyword values
+     * */
       template< typename ImageT, typename SlitFuncT>
-      bool LinFitBevingtonEigen(Eigen::Array<ImageT, Eigen::Dynamic, Eigen::Dynamic> const& D_A2_CCD_In,      ///: in
-                                Eigen::Array<SlitFuncT, Eigen::Dynamic, Eigen::Dynamic> const& D_A2_SF_In,       ///: in
-                                Eigen::Array<ImageT, Eigen::Dynamic, 1> & D_A1_SP_Out,             ///: out
-                                Eigen::Array<ImageT, Eigen::Dynamic, 1> & D_A1_Sky_Out,            ///: in/out
-                                bool B_WithSky,                           ///: with sky: in
-                                std::vector<string> const& S_A1_Args_In,   ///: in
-                                std::vector<void *> &ArgV_In);                   ///: in/out
+      bool LinFitBevingtonEigen(Eigen::Array<ImageT, Eigen::Dynamic, Eigen::Dynamic> const& D_A2_CCD_In,
+                                Eigen::Array<SlitFuncT, Eigen::Dynamic, Eigen::Dynamic> const& D_A2_SF_In,
+                                Eigen::Array<ImageT, Eigen::Dynamic, 1> & D_A1_SP_Out,
+                                Eigen::Array<ImageT, Eigen::Dynamic, 1> & D_A1_Sky_Out,
+                                bool B_WithSky,
+                                std::vector<string> const& S_A1_Args_In,
+                                std::vector<void *> &ArgV_In);
+      
       template< typename ImageT, typename SlitFuncT>
-      bool LinFitBevingtonNdArray(ndarray::Array<ImageT, 2, 1> const& D_A2_CCD_In,      ///: in
-                                  ndarray::Array<SlitFuncT, 2, 1> const& D_A2_SF_In,       ///: in
-                                  ndarray::Array<ImageT, 1, 1> & D_A1_SP_Out,             ///: out
-                                  ndarray::Array<ImageT, 1, 1> & D_A1_Sky_Out,            ///: in/out
-                                  bool B_WithSky,                           ///: with sky: in
-                                  std::vector<string> const& S_A1_Args_In,   ///: in
-                                  std::vector<void *> &ArgV_In);                   ///: in/out
+      bool LinFitBevingtonNdArray(ndarray::Array<ImageT, 2, 1> const& D_A2_CCD_In,
+                                  ndarray::Array<SlitFuncT, 2, 1> const& D_A2_SF_In,
+                                  ndarray::Array<ImageT, 1, 1> & D_A1_SP_Out,
+                                  ndarray::Array<ImageT, 1, 1> & D_A1_Sky_Out,
+                                  bool B_WithSky,
+                                  std::vector<string> const& S_A1_Args_In,
+                                  std::vector<void *> &ArgV_In);
     /// MEASURE_ERRORS_IN = ndarray::Array<double,1>(D_A1_CCD_In.size)             : in
     /// REJECT_IN = double                                                : in
     /// MASK_INOUT = ndarray::Array<int,1>(D_A1_CCD_In.size)                    : in/out

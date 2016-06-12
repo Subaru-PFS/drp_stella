@@ -231,7 +231,9 @@ namespace pfs { namespace drp { namespace stella {
       /**
        * @brief Extract the PSF from the given center positions in CCD coordinates
        * 
-       * @param fiberTrace_In: fiberTrace from which this 
+       * @param fiberTrace_In: fiberTrace from which this PSF is to be extracted
+       * @param centerPositionX_In: PSF center position in x
+       * @param centerPositionY_In: PSF center position in y
        */
       template< typename ImageT, typename MaskT = afwImage::MaskPixel, typename VarianceT = afwImage::VariancePixel >
       ExtractPSFResult<T> extractPSFFromCenterPosition( FiberTrace< ImageT, MaskT, VarianceT > const& fiberTrace_In,
@@ -367,10 +369,13 @@ class PSFSet {
 
     const PTR(const PSF<T>) getPSF(const size_t i) const;
 
-    /// Set the ith PSF
-    bool setPSF(const size_t i,     /// which spectrum?
-                const PTR(PSF<T>) & psf /// the PSF at the ith position
-                      );
+    /**
+     * @brief Set the ith PSF
+     * @param[in] i     :: which PSF to set
+     * @param[in] psf   :: the PSF to be set at the ith position
+     * */
+    bool setPSF(const size_t i,
+                const PTR(PSF<T>) & psf );
 
     /// add one PSF to the set
     void addPSF(const PTR(PSF<T>) & psf);
@@ -469,9 +474,10 @@ namespace math{
                                                                  bool const isXYPositionsGridPoints,
                                                                  double const regularization = 0. );
   
+  //weightArr: [nPoints, nPSFs]
   template< typename PsfT = double, typename WeightT = float, typename CoordsT = double >
   ndarray::Array< PsfT, 3, 1 > interpolatePSFSetThinPlateSpline( PSFSet< PsfT > & psfSet,
-                                                                 ndarray::Array< WeightT, 2, 1 > const& weightArr,/// [nPoints, nPSFs]
+                                                                 ndarray::Array< WeightT, 2, 1 > const& weightArr,
                                                                  ndarray::Array< CoordsT, 1, 1 > const& xPositions,
                                                                  ndarray::Array< CoordsT, 1, 1 > const& yPositions,
                                                                  bool const isXYPositionsGridPoints);

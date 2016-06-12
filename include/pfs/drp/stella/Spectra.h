@@ -149,10 +149,11 @@ class Spectrum {
       * within the given position plus/minus I_Radius_In,
       * fits Gaussians to each line, fits Polynomial of order I_PolyFitOrder_In, and
       * writes _wavelength and PolyFit coefficients to _dispCoeffs
-      * @param lineList: [ nLines, 2 ]: [ wLen, approx_pixel ]
-      * @param predicted: [ nLines ]: predicted pixel position for each line from the zemax model
-      * @param predictedWLenAllPix: [ nRows in spectrum (yHigh - yLow): predicted wavelength from the zemax model
-      * @param dispCorControl: parameters controlling the dispersion fitting
+      * @param lineList             :: [ nLines, 2 ]: [ wLen, approx_pixel ]
+      * @param predicted            :: [ nLines ]: predicted pixel position for each line from the zemax model
+      * @param predictedWLenAllPix  :: [ nRows in spectrum (yHigh - yLow): predicted wavelength from the zemax model
+      * @param dispCorControl       :: parameters controlling the dispersion fitting
+      * @param nLinesCheck          :: hold back this many lines from the fit to check the quality of the wavelength solution
       **/
     template< typename T >
     bool identify( ndarray::Array< T, 2, 1 > const& lineList,
@@ -175,6 +176,7 @@ class Spectrum {
   private:
     /**
      * @brief: Returns pixel positions of emission lines in lineList fitted in _spectrum
+     * @param[in] lineList :: line list  [ nLines, 2 ]: [ wLen, approx_pixel ]
      */
     template< typename T >
     ndarray::Array< double, 1, 1 > hIdentify( ndarray::Array< T, 2, 1 > const& lineList );

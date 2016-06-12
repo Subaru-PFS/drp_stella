@@ -7,7 +7,7 @@
 #include <gsl/gsl_blas.h>
 #include <gsl/gsl_multifit_nlin.h>
 
-CVariogram::CVariogram(void)
+CVariogram::CVariogram( void )
 {
         m_pDistance = NULL;
         m_pVariogram = NULL;

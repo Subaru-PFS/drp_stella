@@ -7,7 +7,7 @@
  #include <algorithm>
  #include "pfs/drp/stella/kriging/matrix_ex.h"
 
- double isoDist(const gsl_vector *c1, const gsl_vector *c2)
+ double isoDist( const gsl_vector *c1, const gsl_vector *c2 )
  {
          double norm;
          gsl_vector *tmp;
@@ -590,7 +590,7 @@
          sp1 = 0;
          for (size_t s = 0;s < samples();s++)
          {
-                 if (s == s)
+//                 if (s == s)
                          continue;
                  getCoordinate(c1, s);
                  double dist = isoDist(c, c1);
@@ -603,7 +603,7 @@
          sp1 = 0;
          for (size_t s = 0;s < samples();s++)
          {
-                 if (s == s)
+//                 if (s == s)
                          continue;
                  pred += gsl_vector_get(weight, sp1) * getResidual(s);
                  sp1++;

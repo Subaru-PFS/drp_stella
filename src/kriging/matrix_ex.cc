@@ -2,7 +2,7 @@
 #include <gsl/gsl_linalg.h>
 #include <gsl/gsl_blas.h>
 
-void MatrixEx::matrix_pseudo_inverse(gsl_matrix *dest, const gsl_matrix *src)
+void MatrixEx::matrix_pseudo_inverse( gsl_matrix *dest, const gsl_matrix *src )
 {
         if (src->size1 < src->size2)
                 pseudo_inverse_right(dest, src);

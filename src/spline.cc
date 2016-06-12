@@ -1,19 +1,14 @@
 #include "pfs/drp/stella/spline.h"
 
-// ---------------------------------------------------------------------
-// implementation part, which should be separated into a cpp file
-// ---------------------------------------------------------------------
-
-
 namespace pfs { namespace drp { namespace stella { namespace math {
 
 
 // band_matrix implementation
 // -------------------------
 
-template<typename T>
-band_matrix<T>::band_matrix(int dim, int n_u, int n_l) {
-   resize(dim, n_u, n_l);
+template< typename T >
+band_matrix< T >::band_matrix( int dim, int n_u, int n_l ) {
+   resize( dim, n_u, n_l );
 }
 
 template<typename T>

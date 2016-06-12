@@ -71,7 +71,11 @@ class FiberTrace {
   public:
     typedef afwImage::MaskedImage<ImageT, MaskT, VarianceT> MaskedImageT;
 
-    // Class Constructors and Destructor
+    /** \brief: Class Constructors and Destructor
+     * \param width: width of FiberTrace (number of columns)
+     * \param height: height of FiberTrace (number of rows)
+     * \param iTrace: FiberTrace number
+     * */
     explicit FiberTrace(size_t width = 0, size_t height = 0, size_t iTrace = 0);
 
     explicit FiberTrace(PTR(const afwImage::MaskedImage<ImageT, MaskT, VarianceT>) const& maskedImage, 
@@ -344,13 +348,13 @@ namespace math{
                                                  size_t const& ccdWidthIn = 0);
 
     /**
-     * @brief: extract a wide flatFiberTrace, fit profile, normalize, reduce width
-     * @param maskedImage: CCD image dithered Flat 
-     * @param fiberTraceFunction: FiberTraceFunction (wide) for dithered flat
-     * @param fiberTraceFunctionControl: FiberTraceFunctionControl (narrow) for output FiberTrace
-     * @param profileFittingControl: ProfileFittingControl for fitting the spatial profile of the dithered Flat
-     * @param minSNR: normalized pixel values with an SNR lower than minSNR are set to 1.
-     * @param iTrace: number of FiberTrace
+     * @brief extract a wide flatFiberTrace, fit profile, normalize, reduce width
+     * @param maskedImage : CCD image dithered Flat 
+     * @param fiberTraceFunctionWide : FiberTraceFunction (wide) for dithered flat
+     * @param fiberTraceFunctionControlNarrow : FiberTraceFunctionControl (narrow) for output FiberTrace
+     * @param fiberTraceProfileFittingControl : ProfileFittingControl for fitting the spatial profile of the dithered Flat
+     * @param minSNR : normalized pixel values with an SNR lower than minSNR are set to 1.
+     * @param iTrace : number of FiberTrace
      */
      template< typename ImageT, typename MaskT=afwImage::MaskPixel, typename VarianceT=afwImage::VariancePixel >
      PTR(FiberTrace< ImageT, MaskT, VarianceT >) makeNormFlatFiberTrace( PTR( const afwImage::MaskedImage< ImageT, MaskT, VarianceT >) const& maskedImage,

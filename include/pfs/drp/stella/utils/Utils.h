@@ -35,19 +35,19 @@ namespace pfs { namespace drp { namespace stella { namespace utils{
 
   /**
     *       function int CountLines(const string &fnc: in)
-    *       Returns number of lines of file <fnc>.
+    *       Returns number of lines of file fnc.
     **/
   long countLines(const string &fnc);
 
   /**
     *       function int CountDataLines(const string &fnc: in)
-    *       Returns number of lines which do not start with '#' of file <fnc>.
+    *       Returns number of lines which do not start with '#' of file fnc.
     **/
   long countDataLines(const string &fnc);
 
   /**
-    *      function int CountCols(const string &fnc: in, const string &delimiter: in)
-    *      Returns number of columns of file <fnc>.
+    *      function int CountCols(const string &fileName_In: in, const string &delimiter: in)
+    *      Returns number of columns of file fileName_In.
     **/
   long countCols(const string &fileName_In, const string &delimiter_In);
 
@@ -70,11 +70,38 @@ namespace pfs { namespace drp { namespace stella { namespace utils{
   template< typename PixelT, int C >
   inline void fits_write_ndarray( lsst::afw::fits::Fits & fitsfile,
                                   ndarray::Array< PixelT, 2, C > const& array,
-                                  CONST_PTR(lsst::daf::base::PropertySet) metadata_i);
+                                  CONST_PTR(lsst::daf::base::PropertySet) metadata_i){
+    ndarray::Array< PixelT const, 2, ( C > 2 ? 2 : C) > tempArr(array);
+    cout << "writing ndarray" << endl;
+    PTR(lsst::daf::base::PropertySet) metadata;
+    PTR(lsst::daf::base::PropertySet) wcsAMetadata = lsst::afw::image::detail::createTrivialWcsAsPropertySet( lsst::afw::image::detail::wcsNameForXY0, 0, 0);
+    if ( metadata_i ) {
+        metadata = metadata_i->deepCopy();
+        metadata->combine( wcsAMetadata );
+    } else {
+        metadata = wcsAMetadata;
+    }
+    fitsfile.createImage< PixelT >( array.getShape() );
+    if ( metadata ) {
+        fitsfile.writeMetadata( *metadata );
+    }
+    fitsfile.writeImage( tempArr );
+  }
+  
   template< typename PixelT, int C >
   inline void fits_write_ndarray( lsst::afw::fits::Fits & fitsfile,
                                   ndarray::Array< PixelT, 3, C > const& array,
-                                  CONST_PTR(lsst::daf::base::PropertySet) metadata_i);
+                                  CONST_PTR(lsst::daf::base::PropertySet) metadata_i){
+    ndarray::Array< PixelT, 2, C > arr;
+    arr = ndarray::allocate( array.getShape()[ 0 ] * array.getShape()[ 1 ], array.getShape()[ 2 ] );
+    int iRow = 0;
+    for ( int i = 0; i < array.getShape()[ 0 ]; ++i ){
+      for ( int j = 0; j < array.getShape()[ 1 ]; ++j, ++iRow ){
+        arr[ ndarray::view( iRow )() ] = array[ ndarray::view( i )( j )() ];
+      }
+    }
+    fits_write_ndarray( fitsfile, arr, metadata_i );
+  }
   
   template< typename T >
   PTR( T ) getPointer( T & );

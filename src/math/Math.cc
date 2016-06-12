@@ -1,9 +1,5 @@
 #include "pfs/drp/stella/math/Math.h"
   namespace pfs{ namespace drp{ namespace stella{ namespace math{
-    /**
-     * Calculates aperture minimum pixel, central position, and maximum pixel for the trace,
-     * and writes result to minCenMax_Out and returns it
-     **/
     template< typename T, typename U >
     ndarray::Array<size_t, 2, 1> calcMinCenMax(ndarray::Array<T, 1, 1> const& xCenters_In,
                                                U const xHigh_In,
@@ -142,7 +138,6 @@
       int count = 0;
       if (vec_InOut.getShape()[0] < 1)
         return false;
-      int pos = 0;
       for (auto i = vec_InOut.begin(); i != vec_InOut.end(); ++i){
         #ifdef __DEBUG_COUNTPIXGTZERO__
           cout << "countPixGTZero: pos = " << pos << ": vec_InOut(pos) = " << *i << endl;
@@ -211,7 +206,7 @@
     
     /**
      *  bool IsOddNumber(long No) const
-     *  Returns TRUE, if <No> is an Odd Number, FALSE if <No> is an Even Number.
+     *  Returns TRUE, if No is an Odd Number, FALSE if No is an Even Number.
      **/
     bool IsOddNumber(long No)
     {
@@ -2479,7 +2474,7 @@
                             1, 
                             0 );
           P_I_A1_Ind = getIndices( I_A1_Ind );
-          int I_NInd = P_I_A1_Ind.getShape()[ 0 ];
+          I_NInd = P_I_A1_Ind.getShape()[ 0 ];
           if ( I_NInd < 1 ){
             #ifdef __DEBUG_INTERPOL__
               cout << "CFits::InterPol: WARNING: 1. I_A1_Ind = " << I_A1_Ind << ": I_NInd < 1" << endl;

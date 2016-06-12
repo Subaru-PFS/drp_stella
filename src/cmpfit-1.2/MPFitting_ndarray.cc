@@ -621,7 +621,7 @@ bool MPFitGaussLim(const ndarray::Array< T, 1, 1 >& D_A1_X_In,
                    const ndarray::Array< T, 1, 1 >& D_A1_Guess_In,
                    const ndarray::Array< int, 2, 1 > &I_A2_Limited,
                    const ndarray::Array< T, 2, 1 > &D_A2_Limits,
-                   const int Background,///0-none, 1-constant, 2-linear
+                   const int Background,
                    const bool B_FitArea,
                    ndarray::Array< T, 1, 1 >& D_A1_Coeffs_Out,
                    ndarray::Array< T, 1, 1 >& D_A1_ECoeffs_Out,
@@ -1445,7 +1445,7 @@ int MPFitAnyFunc(int m, int n, double *p, double *dz, double **dvec, void *vars)
   int i;
   struct vars_struct *v = (struct vars_struct *) vars;
   double *x, *y, *z;
-  double xc, yc, sig2;//, sig2_b;
+  double sig2;//, sig2_b;
 
   x = v->x;
   y = v->y;

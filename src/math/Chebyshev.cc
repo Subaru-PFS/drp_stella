@@ -306,7 +306,6 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
     double norm;
     double scale;
     double ssq;
-    double value;
 
     if ( n < 1 || incx < 1 )
     {
@@ -2929,7 +2928,7 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
   //
   {
     double pi = 3.141592653589793;
-    double value;
+    double value = 0.;
 
     if ( i < 0 )
     {
@@ -2945,11 +2944,12 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
       cout << "  0 <= J is required.\n";
       exit ( 1 );
     }
-    if ( i != j )
-    {
-      value = 0.0;
-    }
-    else if ( i == 0 )
+//    if ( i != j )
+//    {
+//      value = 0.0;
+//    }
+//    else 
+    if ( i == 0 )
     {
       value = pi;
     }
@@ -3528,7 +3528,6 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
   //
   {
     int m = x.getShape()[0];
-    int i;
     ndarray::Array<double, 2, 1> v;
     ndarray::Array<double, 1, 1> y = ndarray::allocate(m);
 
@@ -4074,7 +4073,7 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
   //    Chebshev coefficients.
   //
   {
-    int m = x.getShape()[0];
+//    int m = x.getShape()[0];
     ndarray::Array<double, 1, 1> c = ndarray::allocate(n);
     ndarray::Array<double, 2, 1> v;
     ndarray::Array<double, 1, 1> range = ndarray::allocate(2);
@@ -4364,7 +4363,7 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
   //    Output, double T_TRIPLE_PRODUCT_INTEGRAL, the integral.
   //
   {
-    double pi = 3.141592653589793;
+//    double pi = 3.141592653589793;
     double value;
 
     if ( i < 0 )
