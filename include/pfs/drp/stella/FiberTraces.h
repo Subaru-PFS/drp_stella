@@ -119,10 +119,10 @@ class FiberTrace {
     bool setProfile( PTR(afwImage::Image<double>) const& profile);
 
     /// Extract the spectrum of this fiber trace using the _profile
-    PTR(Spectrum<ImageT, MaskT, VarianceT, VarianceT>) extractFromProfile();
+    Spectrum<ImageT, MaskT, VarianceT, VarianceT> extractFromProfile();
     
     /// Simple Sum Extraction of this fiber trace
-    PTR(Spectrum<ImageT, MaskT, VarianceT, VarianceT>) extractSum();
+    Spectrum<ImageT, MaskT, VarianceT, VarianceT> extractSum();
 
     /// Create _trace from maskedImage and _fiberTraceFunction
     /// Pre: _xCenters set/calculated
@@ -150,13 +150,13 @@ class FiberTrace {
 //    bool setXCenters(const PTR(std::vector<float>) &xCenters);// { _xCenters = xCenters; }
 
     /// Return shared pointer to an image containing the reconstructed 2D spectrum of the FiberTrace
-    PTR(afwImage::Image<double>) getReconstructed2DSpectrum(const Spectrum<ImageT, MaskT, VarianceT, VarianceT> & spectrum) const;
+    afwImage::Image<double> getReconstructed2DSpectrum(const Spectrum<ImageT, MaskT, VarianceT, VarianceT> & spectrum) const;
 
     /// Return shared pointer to an image containing the reconstructed background of the FiberTrace
-    PTR(afwImage::Image<double>) getReconstructedBackground(const Spectrum<ImageT, MaskT, VarianceT, VarianceT> & backgroundSpectrum) const;
+    afwImage::Image<double> getReconstructedBackground(const Spectrum<ImageT, MaskT, VarianceT, VarianceT> & backgroundSpectrum) const;
 
     /// Return shared pointer to an image containing the reconstructed 2D spectrum + background of the FiberTrace
-    PTR(afwImage::Image<double>) getReconstructed2DSpectrum(const Spectrum<ImageT, MaskT, VarianceT, VarianceT> & spectrum,
+    afwImage::Image<double> getReconstructed2DSpectrum(const Spectrum<ImageT, MaskT, VarianceT, VarianceT> & spectrum,
                                                            const Spectrum<ImageT, MaskT, VarianceT, VarianceT> & background) const;
     
     bool calcProfile();
@@ -284,8 +284,8 @@ class FiberTraceSet {
     bool calcProfileAllTraces();
     
     /// extract 1D spectrum from previously provided profile
-    PTR(Spectrum<ImageT, MaskT, VarianceT, VarianceT>) extractTraceNumberFromProfile(const size_t traceNumber);
-    PTR(SpectrumSet<ImageT, MaskT, VarianceT, VarianceT>) extractAllTracesFromProfile();
+    Spectrum< ImageT, MaskT, VarianceT, VarianceT> extractTraceNumberFromProfile( const size_t traceNumber );
+    SpectrumSet< ImageT, MaskT, VarianceT, VarianceT > extractAllTracesFromProfile();
 
     ///TODO:
     /// Extract spectrum and background for one slit spectrum
@@ -348,7 +348,7 @@ namespace math{
                                                  size_t const& ccdWidthIn = 0);
 
     /**
-     * @brief extract a wide flatFiberTrace, fit profile, normalize, reduce width
+     * @brief : extract a wide flatFiberTrace, fit profile, normalize, reduce width
      * @param maskedImage : CCD image dithered Flat 
      * @param fiberTraceFunctionWide : FiberTraceFunction (wide) for dithered flat
      * @param fiberTraceFunctionControlNarrow : FiberTraceFunctionControl (narrow) for output FiberTrace
@@ -362,7 +362,7 @@ namespace math{
                                                                           PTR( const ::pfs::drp::stella::FiberTraceFunctionControl ) const& fiberTraceFunctionControlNarrow,
                                                                           PTR( const ::pfs::drp::stella::FiberTraceProfileFittingControl ) const& fiberTraceProfileFittingControl,
                                                                           ImageT minSNR = 100.,
-                                                                          size_t iTrace=0 );
+                                                                          size_t iTrace = 0 );
 
      /**
       * @brief: assign trace number to set of FiberTraces from x and y center by comparing the center position to the center positions of the zemax model

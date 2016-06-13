@@ -104,7 +104,7 @@ Interface to Stella
 %shared_ptr(pfs::drp::stella::SpectrumSet<float, unsigned short, float, float>);
 %shared_ptr(pfs::drp::stella::SpectrumSet<double, unsigned short, float, float>);
 %shared_ptr(pfs::drp::stella::SpectrumSet<float, unsigned int, float, float>);
-%shared_ptr(pfs::drp::stella::SpectrumSet<double, unsigned int, float, float>);
+//%shared_ptr(pfs::drp::stella::SpectrumSet<double, unsigned int, float, float>);
 
 %shared_ptr(std::vector<PTR(ndarray::Array<float, 2, 1>)>);
 %shared_ptr(std::vector<PTR(ndarray::Array<double, 2, 1>)>);
@@ -222,7 +222,7 @@ Interface to Stella
 %template(PSFSetF) pfs::drp::stella::PSFSet<float>;
 %template(PSFSetD) pfs::drp::stella::PSFSet<double>;
 
-//%template(SpectrumSetF) pfs::drp::stella::SpectrumSet<float, int, float, float>;
+%template(SpectrumSetF) pfs::drp::stella::SpectrumSet<float, int, float, float>;
 %template(SpectrumSetF) pfs::drp::stella::SpectrumSet<float, unsigned short, float, float>;
 %template(SpectrumSetD) pfs::drp::stella::SpectrumSet<double, unsigned short, float, float>;
 %template(SpectrumSetFI) pfs::drp::stella::SpectrumSet<float, unsigned int, float, float>;

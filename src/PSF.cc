@@ -71,235 +71,26 @@ namespace pfs{ namespace drp{ namespace stella{
     return true;
   }
   
-  template< typename T > template< typename ImageT, typename MaskT, typename VarianceT >
-  ExtractPSFResult< T > PSF< T >::extractPSFFromCenterPosition( FiberTrace< ImageT, MaskT, VarianceT > const& fiberTrace_In,
-                                                                T const centerPositionXCCD_In,
-                                                                T const centerPositionYCCD_In){
-    #ifdef __DEBUG_PSF__
-      cout << "PSF::extractPSFFromCenterPosition(FiberTrace, centerPositionXCCD, centerPositionYCCD) started" << endl;
-    #endif
-    #ifdef __DEBUG_CALC2DPSF__
-      for ( int i = 0; i < fiberTrace_In.getImage()->getHeight(); ++i )
-        cout << "PSF::extractPSFFromCenterPosition: fiberTrace_In.getImage()->getArray()[" << i << ",*] = " << fiberTrace_In.getImage()->getArray()[ndarray::view(i)()] << endl;
-      cout << "PSF::extractPSFFromCenterPosition: centerPositionXCCD_In = " << centerPositionXCCD_In << endl;
-      cout << "PSF::extractPSFFromCenterPosition: centerPositionYCCD_In = " << centerPositionYCCD_In << endl;
-    #endif
-//          if ((D_A1_GaussFit_Coeffs[2] < (_twoDPSFControl->yFWHM / 1.5)) &&
-//              ((_twoDPSFControl->nTermsGaussFit < 5) ||
-//               ((_twoDPSFControl->nTermsGaussFit > 4) && (D_A1_GaussFit_Coeffs[4] < 1000.)))){
-//            ++emissionLineNumber;
-//            gaussCenterY = D_A1_GaussFit_Coeffs[1] + 0.5;
-//            float yCenterOffset = gaussCenterY - floor(gaussCenterY);
-    T centerPositionYTrace = centerPositionYCCD_In - ( fiberTrace_In.getFiberTraceFunction()->yCenter + fiberTrace_In.getFiberTraceFunction()->yLow );
-    T centerPositionYSwath = centerPositionYTrace - _yMin;
-    ExtractPSFResult< T > result_Out;
-    ndarray::Array< float, 1, 1 > xCentersTrace = copy( fiberTrace_In.getXCenters() );
-    #ifdef __DEBUG_CALC2DPSF__
-      cout << "PSF::extractPSFFromCenterPosition: fiberTrace_In.getFiberTraceFunction()->yCenter + fiberTrace_In.getFiberTraceFunction()->yLow = " << fiberTrace_In.getFiberTraceFunction()->yCenter + fiberTrace_In.getFiberTraceFunction()->yLow << endl;
-      cout << "PSF::extractPSFFromCenterPosition: centerPositionYTrace = " << centerPositionYTrace << ", centerPositionYSwath = " << centerPositionYSwath << endl;
-      cout << "PSF::extractPSFFromCenterPosition: _yMin = " << _yMin << ", _yMax = " << _yMax << endl;
-      cout << "PSF::extractPSFFromCenterPosition: fiberTrace_In.getImage()->getArray()[ndarray::view(centerPositionYTrace)()] = " << fiberTrace_In.getImage()->getArray()[ndarray::view(int(centerPositionYTrace))()] << endl;
-    #endif
-    ndarray::Array< float, 1, 1 > xCentersSwath = ndarray::copy( xCentersTrace[ ndarray::view( _yMin, _yMax + 1 ) ] );
-    #ifdef __DEBUG_CALC2DPSF__
-      cout << "PSF::extractPSFFromCenterPosition: xCentersSwath = " << xCentersSwath.getShape() << ": " << xCentersSwath << endl;
-    #endif
-    ndarray::Array< size_t, 2, 1 > minCenMax = math::calcMinCenMax( ndarray::Array< float const, 1, 1 >( xCentersSwath ),
-                                                                    double( fiberTrace_In.getFiberTraceFunction()->fiberTraceFunctionControl.xHigh ),
-                                                                    double( fiberTrace_In.getFiberTraceFunction()->fiberTraceFunctionControl.xLow ),
-                                                                    1,
-                                                                    1 );
-    double yCenterOffset = centerPositionYCCD_In - std::floor( centerPositionYCCD_In );
-    double dX;
-    double dY = 0.5 - yCenterOffset;
-    #ifdef __DEBUG_CALC2DPSF__
-      cout << "PSF::extractPSFFromCenterPosition: yCenterOffset = " << yCenterOffset << ": dY = " << dY << endl;
-    #endif
-    double halfLength = 2. * _twoDPSFControl->yFWHM;
-    int i_Down = int( centerPositionYSwath - halfLength );/// row index relative to swath start of lowest row belonging to PSF
-    int i_Up, i_Left, i_Right;
-    int nPix = 0;
-    #ifdef __DEBUG_CALC2DPSF__
-      cout << "PSF::extractPSFFromCenterPosition: i_Down = " << i_Down << endl;
-    #endif
-    if ( i_Down >= 0. ){
-      i_Up = int( centerPositionYSwath + halfLength );/// row index relative to swath start of highest row belonging to PSF
-      #ifdef __DEBUG_CALC2DPSF__
-        cout << "PSF::extractPSFFromCenterPosition: fiberTrace_In.getHeight() = " << fiberTrace_In.getHeight() << ", i_Up = " << i_Up << endl;
-      #endif
-      if ( i_Up < xCentersSwath.getShape()[0] ){
-        /// x-Centers from Gaussian center
-        ndarray::Array< float, 1, 1 > yCentersFromInputCenterCCD = math::indGenNdArr( float( i_Up - i_Down + 1 ) );
-        #ifdef __DEBUG_CALC2DPSF__
-          cout << "PSF::extractPSFFromCenterPosition: yCentersFromInputCenterCCD = " << yCentersFromInputCenterCCD << endl;
-          cout << "PSF::extractPSFFromCenterPosition: fiberTrace_In.getFiberTraceFunction()->yCenter + fiberTrace_In.getFiberTraceFunction()->yLow = " << fiberTrace_In.getFiberTraceFunction()->yCenter + fiberTrace_In.getFiberTraceFunction()->yLow << endl;
-        #endif
-        yCentersFromInputCenterCCD.deep() += fiberTrace_In.getFiberTraceFunction()->yCenter + fiberTrace_In.getFiberTraceFunction()->yLow;
-        #ifdef __DEBUG_CALC2DPSF__
-          cout << "PSF::extractPSFFromCenterPosition: yCentersFromInputCenterCCD = " << yCentersFromInputCenterCCD << endl;
-        #endif
-        yCentersFromInputCenterCCD.deep() += _yMin + i_Down + yCenterOffset;
-        #ifdef __DEBUG_CALC2DPSF__
-          cout << "PSF::extractPSFFromCenterPosition: yCentersFromInputCenterCCD = " << yCentersFromInputCenterCCD << endl;
-        #endif
-        ndarray::Array< float, 1, 1 > xCentersFromInputCenterCCD = math::calculateXCenters( fiberTrace_In.getFiberTraceFunction(), 
-                                                                                             yCentersFromInputCenterCCD );
-        #ifdef __DEBUG_CALC2DPSF__
-          cout << "PSF::extractPSFFromCenterPosition: xCentersFromInputCenterCCD = " << xCentersFromInputCenterCCD << endl;
-        #endif
-//        int indCenterPositionY = i_Down - int(centerPositionYCCD_In - int(centerPositionYCCD_In) - halfLength);
-        #ifdef __DEBUG_CALC2DPSF__
-          cout << "PSF::extractPSFFromCenterPosition: i_Down = " << i_Down << ", centerPositionsX_In = " << centerPositionXCCD_In << ", centerPositionYCCD_In = " << centerPositionYCCD_In << endl;//) = " << centerPositionYCCD_In - int(centerPositionYCCD_In) << ", centerPositionYCCD_In - int(centerPositionYCCD_In) - halfLength = " << centerPositionYCCD_In - int(centerPositionYCCD_In) - halfLength << ", indCenterPositionY = " << indCenterPositionY << endl;
-//          cout << "PSF::extractPSFFromCenterPosition: i_Down = " << i_Down << ", centerPositionsX_In = " << centerPositionXCCD_In << ", centerPositionYCCD_In - int(centerPositionYCCD_In) = " << centerPositionYCCD_In - int(centerPositionYCCD_In) << ", centerPositionYCCD_In - int(centerPositionYCCD_In) - halfLength = " << centerPositionYCCD_In - int(centerPositionYCCD_In) - halfLength << ", indCenterPositionY = " << indCenterPositionY << endl;
-        #endif
-        dX = xCentersFromInputCenterCCD[ int(halfLength) ] - centerPositionXCCD_In;
-        #ifdef __DEBUG_CALC2DPSF__
-          cout << "PSF::extractPSFFromCenterPosition: i_Down = " << i_Down << ", i_Up = " << i_Up << ", dY = " << dY << ", dX = " << dX << endl;
-        #endif
-        xCentersFromInputCenterCCD.deep() -= dX;
-
-        #ifdef __DEBUG_CALC2DPSF__
-          cout << "PSF::extractPSFFromCenterPosition: xCentersFromInputCenterCCD = " << xCentersFromInputCenterCCD << endl;
-          cout << "PSF::extractPSFFromCenterPosition: xCentersSwath.getShape() = " << xCentersSwath.getShape() << endl;
-          cout << "PSF::extractPSFFromCenterPosition: xCentersSwath[i_Down:i_Up+1] = " << xCentersSwath[ndarray::view(i_Down, i_Up+1)] << endl;
-//          exit(EXIT_FAILURE);
-        #endif
-
-        unsigned long nPixPSF = 0;
-        double sumPSF = 0.;
-        int yMinRel = i_Down - std::floor( centerPositionYSwath );
-        #ifdef __DEBUG_CALC2DPSF__
-          cout << "PSF::extractPSFFromCenterPosition: yMinRel = " << yMinRel << endl;
-        #endif
-        for ( int iY = 0; iY <= i_Up - i_Down; ++iY ){
-          double xCenterOffset;
-          if ( floor( xCentersFromInputCenterCCD[ iY ] ) == floor( xCentersSwath[ i_Down + iY ] ) ){
-            xCenterOffset = xCentersFromInputCenterCCD[ iY ] - floor( xCentersFromInputCenterCCD[ iY ] );
-          }
-          else if ( floor( xCentersFromInputCenterCCD[ iY ]) < floor( xCentersSwath[ i_Down + iY ] ) ){
-            xCenterOffset = xCentersFromInputCenterCCD[ iY ] - floor( xCentersFromInputCenterCCD[ iY ] ) - 1.;
-          }
-          else{
-            xCenterOffset = xCentersFromInputCenterCCD[ iY ] - floor( xCentersFromInputCenterCCD[ iY ] ) + 1;
-          }
-          dX = 0.5 - xCenterOffset;
-
-          /// most left pixel of FiberTrace affected by PSF of (emissionLineNumber-1) in this row
-          i_Left = int( minCenMax[ ndarray::makeVector( i_Down + iY, 1 ) ] - minCenMax[ ndarray::makeVector( i_Down + iY, 0 ) ] + xCenterOffset - ( 2. * _twoDPSFControl->xFWHM ) );
-
-          /// most right pixel affected by PSF of (emissionLineNumber-1) in this row
-          i_Right = int( minCenMax[ ndarray::makeVector( i_Down + iY, 1 ) ] - minCenMax[ ndarray::makeVector( i_Down + iY, 0 ) ] + xCenterOffset + ( 2. * _twoDPSFControl->xFWHM ) );
-          #ifdef __DEBUG_CALC2DPSF__
-            cout << "PSF::extractPSFFromCenterPosition: i_Left = " << i_Left << ", i_Right = " << i_Right << endl;
-          #endif
-          if ( i_Left < 0 )
-            i_Left = 0;
-          if ( i_Right >= fiberTrace_In.getImage()->getWidth() )
-            i_Right = fiberTrace_In.getImage()->getWidth() - 1;
-          /// HERE!!!
-//                  xStart = int(xCentersSwathOffset[i_Down + iY]) + 0.5 - xCentersSwathOffset[i_Down + iY] + dTraceGaussCenterX - i_xCenter + i_Left;
-//                  #ifdef __DEBUG_CALC2DPSF__
-//                    cout << "int(xCentersSwathOffset[i_Down=" << i_Down << "]=" << xCentersSwathOffset[i_Down] << "), int(xCentersSwathOffset[i_Up=" << i_Up << "]=" <<xCentersSwathOffset[i_Up] << ")" << endl;
-//                  #endif
-
-//                  yStart = i_Down - i_yCenter - pixOffsetY;
-//                  #ifdef __DEBUG_CALC2DPSF__
-//                    cout << "PSF::extractPSFFromCenterPosition: dTrace = " << dTrace << ": i_Left = " << i_Left << ", i_Right = " << i_Right << endl;
-//                    cout << "PSF::extractPSFFromCenterPosition: xStart = " << xStart << endl;
-//                    cout << "PSF::extractPSFFromCenterPosition: yStart = " << yStart << endl;
-//                  #endif*/
-          int rowSwath = i_Down + iY;
-          int rowTrace = rowSwath + _yMin;
-          int xMinRel = minCenMax[ ndarray::makeVector( rowSwath, 0 ) ] - minCenMax[ ndarray::makeVector( rowSwath, 1 ) ];
-          #ifdef __DEBUG_CALC2DPSF__
-            cout << "PSF::extractPSFFromCenterPosition: rowSwath = " << rowSwath << endl;
-            cout << "PSF::extractPSFFromCenterPosition: rowTrace = " << rowTrace << endl;
-            cout << "PSF::extractPSFFromCenterPosition: xMinRel = " << xMinRel << endl;
-            cout << "PSF::extractPSFFromCenterPosition: i_Right = " << i_Right << ", i_Left = " << i_Left << endl;
-          #endif
-          for ( int iX = 0; iX <= i_Right - i_Left; ++iX ){
-            int colTrace = i_Left + iX;
-            #ifdef __DEBUG_CALC2DPSF__
-              cout << "PSF::extractPSFFromCenterPosition: xCentersFromInputCenterCCD[" << iY << "] = " << xCentersFromInputCenterCCD[iY] << ", xCentersSwath[" << iY << "] = " << xCentersSwath[iY] << endl;
-              cout << "PSF::extractPSFFromCenterPosition: iX = " << iX << ": iY = " << iY << endl;
-              cout << "PSF::extractPSFFromCenterPosition: fiberTrace_In.getImage().getArray()[i_Down + iY = " << i_Down + iY << "][i_Left + iX = " << i_Left + iX << "] = " << fiberTrace_In.getImage()->getArray()[ndarray::makeVector(i_Down + iY, i_Left + iX ) ] << endl;
-            #endif
-            result_Out.xRelativeToCenter.push_back( T( dX + double( xMinRel + iX ) ) );
-            result_Out.yRelativeToCenter.push_back( T( dY + double( yMinRel + iY ) ) );
-            result_Out.zNormalized.push_back( T( fiberTrace_In.getImage()->getArray()[ ndarray::makeVector( rowTrace, colTrace ) ] ) );
-            result_Out.zTrace.push_back( T( fiberTrace_In.getImage()->getArray()[ ndarray::makeVector( rowTrace, colTrace ) ] ) );
-            result_Out.weight.push_back( std::fabs( fiberTrace_In.getImage()->getArray()[ ndarray::makeVector( rowTrace, colTrace ) ] ) > 0.000001 ? T( 1. / sqrt( std::fabs( fiberTrace_In.getImage()->getArray()[ ndarray::makeVector( rowTrace, colTrace ) ] ) ) ) : 0.1 );//fiberTrace_In(i_Down+iY, i_Left+iX) > 0 ? sqrt(fiberTrace_In(i_Down+iY, i_Left+iX)) : 0.0000000001);//stddevSwath(i_Down+iY, i_Left+iX) > 0. ? 1./pow(stddevSwath(i_Down+iY, i_Left+iX),2) : 1.);
-            result_Out.xTrace.push_back( T ( colTrace ) );
-            result_Out.yTrace.push_back( T ( rowTrace ) );
-            #ifdef __DEBUG_CALC2DPSF__
-              cout << "PSF::extractPSFFromCenterPosition: x = " << _imagePSF_XRelativeToCenter[ nPix ] << ", y = " << _imagePSF_YRelativeToCenter[nPix] << ": val = " << fiberTrace_In.getImage()->getArray()[ ndarray::makeVector( i_Down + iY, i_Left + iX ) ] << " = " << _imagePSF_ZNormalized[nPix] << "; XOrig = " << _imagePSF_XTrace[nPix] << ", YOrig = " << _imagePSF_YTrace[nPix] << endl;
-            #endif
-            ++nPix;
-            ++nPixPSF;
-            sumPSF += fiberTrace_In.getImage()->getArray()[ ndarray::makeVector( rowTrace, colTrace ) ];
-            #ifdef __DEBUG_CALC2DPSF__
-              cout << "PSF::extractPSFFromCenterPosition: nPixPSF = " << nPixPSF << ", sumPSF = " << sumPSF << endl;
-            #endif
-//                    string message("debug exit");
-//                    throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
-          }/// end for (int iX = 0; iX <= i_Right - i_Left; ++iX){
-        }/// end for (int iY = 0; iY <= i_Up - i_Down; ++iY){
-        result_Out.xCenterPSFCCD = T( centerPositionXCCD_In );
-        result_Out.yCenterPSFCCD = T( centerPositionYCCD_In );
-//        _nPixPerPSF.push_back(nPixPSF);
-        if ( std::fabs( sumPSF ) < 0.00000001 ){
-          string message("PSF::extractPSFs: ERROR: sumPSF == 0");
-          cout << message << endl;
-          throw LSST_EXCEPT( pexExcept::Exception, message.c_str() );
-        }
-        int pixelNo = 0;
-        for ( auto iter = result_Out.zNormalized.begin(); iter != result_Out.zNormalized.end(); ++iter ){
-          #ifdef __DEBUG_CALC2DPSF__
-            cout << "PSF::extractPSFFromCenterPosition: result_Out.zNormalized[pixelNo=" << pixelNo << "] = " << result_Out.zNormalized[ pixelNo ] << ", sumPSF = " << sumPSF << endl;
-          #endif
-          *iter = *iter / sumPSF;
-          #ifdef __DEBUG_CALC2DPSF__
-            cout << "PSF::extractPSFFromCenterPosition: result_Out.zNormalized[pixelNo=" << pixelNo << "] = " << result_Out.zNormalized[pixelNo] << endl;
-          #endif
-          ++pixelNo;
-        }
-      }/// end if (i_Up < fiberTrace_In.getShape()[0]){
-      else{
-        #ifdef __DEBUG_CALC2DPSF__
-          cout << "PSF::extractPSFFromCenterPosition: WARNING: i_Up(=" << i_Up << ") >= fxCentersSwath.getShape()[0](=" << xCentersSwath.getShape()[0] << endl;
-        #endif
-      }
-    }
-    else{
-      #ifdef __DEBUG_CALC2DPSF__
-        cout << "PSF::extractPSFFromCenterPosition: WARNING: i_Down = " << i_Down << " < 0" << endl;
-      #endif
-    }
-  //}
-//          else{
-//            cout << "PSF::extractPSFFromCenterPosition: while: D_A1_GaussFit_Coeffs(2)(=" << D_A1_GaussFit_Coeffs[2] << ") >= (_twoDPSFControl->yFWHM / 1.5)(=" << (_twoDPSFControl->yFWHM / 1.5) << ") || ((_twoDPSFControl->nTermsGaussFit(=" << _twoDPSFControl->nTermsGaussFit << ") < 5) || ((_twoDPSFControl->nTermsGaussFit > 4) && (D_A1_GaussFit_Coeffs(4)(=" << D_A1_GaussFit_Coeffs[4] << ") >= 1000.)) => Skipping emission line" << endl;
-//          }
-    #ifdef __DEBUG_PSF__
-      cout << "PSF::extractPSFFromCenterPosition(FiberTrace, centerPositionXCCD, centerPositionYCCD) finished" << endl;
-    #endif
-    return result_Out;
-  }
+//  template< typename T > template< typename ImageT, typename MaskT, typename VarianceT >
+//  ExtractPSFResult< T > PSF< T >::extractPSFFromCenterPosition( FiberTrace< ImageT, MaskT, VarianceT > const& fiberTrace_In,
+//                                                                T const centerPositionXCCD_In,
+//                                                                T const centerPositionYCCD_In){
  
-  template<> template<> ExtractPSFResult< float > PSF< float >::extractPSFFromCenterPosition(FiberTrace< float, unsigned short, float > const&, float const, float const);
-  template<> template<> ExtractPSFResult< float > PSF< float >::extractPSFFromCenterPosition(FiberTrace< float, unsigned short, double > const&, float const, float const);
-  template<> template<> ExtractPSFResult< float > PSF< float >::extractPSFFromCenterPosition(FiberTrace< double, unsigned short, float > const&, float const, float const);
-  template<> template<> ExtractPSFResult< float > PSF< float >::extractPSFFromCenterPosition(FiberTrace< double, unsigned short, double > const&, float const, float const);
-  template<> template<> ExtractPSFResult< double > PSF< double >::extractPSFFromCenterPosition(FiberTrace< float, unsigned short, float > const&, double const, double const);
-  template<> template<> ExtractPSFResult< double > PSF< double >::extractPSFFromCenterPosition(FiberTrace< float, unsigned short, double > const&, double const, double const);
-  template<> template<> ExtractPSFResult< double > PSF< double >::extractPSFFromCenterPosition(FiberTrace< double, unsigned short, float > const&, double const, double const);
-  template<> template<> ExtractPSFResult< double > PSF< double >::extractPSFFromCenterPosition(FiberTrace< double, unsigned short, double > const&, double const, double const);
+//  template<> template<> ExtractPSFResult< float > PSF< float >::extractPSFFromCenterPosition(FiberTrace< float, unsigned short, float > const&, float const, float const);
+//  template<> template<> ExtractPSFResult< float > PSF< float >::extractPSFFromCenterPosition(FiberTrace< float, unsigned short, double > const&, float const, float const);
+//  template<> template<> ExtractPSFResult< float > PSF< float >::extractPSFFromCenterPosition<double, unsigned short, float>(FiberTrace< double, unsigned short, float > const&, float const, float const);
+//  template<> template<> ExtractPSFResult< float > PSF< float >::extractPSFFromCenterPosition(FiberTrace< double, unsigned short, double > const&, float const, float const);
+//  template<> template<> ExtractPSFResult< double > PSF< double >::extractPSFFromCenterPosition(FiberTrace< float, unsigned short, float > const&, double const, double const);
+//  template<> template<> ExtractPSFResult< double > PSF< double >::extractPSFFromCenterPosition(FiberTrace< float, unsigned short, double > const&, double const, double const);
+//  template<> template<> ExtractPSFResult< double > PSF< double >::extractPSFFromCenterPosition<double, unsigned short, float>(FiberTrace< double, unsigned short, float > const&, double const, double const);
+//  template<> template<> ExtractPSFResult< double > PSF< double >::extractPSFFromCenterPosition(FiberTrace< double, unsigned short, double > const&, double const, double const);
   
   template< typename T > template< typename ImageT, typename MaskT, typename VarianceT >
   bool PSF< T >::extractPSFFromCenterPositions( FiberTrace< ImageT, MaskT, VarianceT > const& fiberTrace_In,
                                                 ndarray::Array< T, 1, 1 > const& centerPositionsXCCD_In,
                                                 ndarray::Array< T, 1, 1 > const& centerPositionsYCCD_In ){
     #ifdef __DEBUG_PSF__
-      cout << "PSF::extractPSFFromCenterPosition(FiberTrace, centerPositionXCCDArray, centerPositionYCCDArray) started" << endl;
+      cout << "PSF::extractPSFFromCenterPositions(FiberTrace, centerPositionXCCDArray, centerPositionYCCDArray) started" << endl;
     #endif
     if (centerPositionsXCCD_In.getShape()[ 0 ] != centerPositionsYCCD_In.getShape()[ 0 ]){
       string message("PSF::extractPSFFromCenterPositions: ERROR: centerPositionsXCCD_In.getShape()[0]=");
@@ -780,11 +571,11 @@ namespace pfs{ namespace drp{ namespace stella{
           cout << "PSF trace " << _iTrace << " bin " << _iBin << "::extractPSFs: WARNING: MPFitGaussLim failed" << endl;
         }
         else{
-          double yCenterCCD = gaussCenterY + fiberTraceIn.getFiberTraceFunction()->yCenter + fiberTraceIn.getFiberTraceFunction()->yLow + _yMin;
+          float yCenterCCD = gaussCenterY + fiberTraceIn.getFiberTraceFunction()->yCenter + fiberTraceIn.getFiberTraceFunction()->yLow + _yMin;
           ndarray::Array< float, 1, 1 > yCenterFromGaussCenter = math::indGenNdArr( float( 1 ) );
           yCenterFromGaussCenter.deep() = yCenterCCD;
           ndarray::Array< float, 1, 1 > xCenterCCDFromYCenterCCD = math::calculateXCenters( fiberTraceIn.getFiberTraceFunction(), 
-                                                                                           yCenterFromGaussCenter );
+                                                                                            yCenterFromGaussCenter );
 
           ExtractPSFResult< T > result = extractPSFFromCenterPosition( fiberTraceIn,
                                                                        xCenterCCDFromYCenterCCD[ 0 ],
@@ -1496,9 +1287,9 @@ namespace pfs{ namespace drp{ namespace stella{
       #endif
       std::vector< PTR(PSFSet< PsfT >)> vecOut(0);
       for (int i = 0; i < fiberTraceSet.size(); ++i){
-        PTR(PSFSet< PsfT >) psfSet = calculate2dPSFPerBin< PsfT, ImageT, MaskT, VarianceT, WavelengthT >(*(fiberTraceSet.getFiberTrace(i)), 
-                                                          *(spectrumSet.getSpectrum(i)), 
-                                                          twoDPSFControl);
+        PTR(PSFSet< PsfT >) psfSet = calculate2dPSFPerBin< PsfT, ImageT, MaskT, VarianceT, WavelengthT >( *( fiberTraceSet.getFiberTrace( i ) ), 
+                                                                                                          spectrumSet.getSpectrum( i ), 
+                                                                                                          twoDPSFControl );
         vecOut.push_back(psfSet);
       }
       #ifdef __DEBUG_PSF__

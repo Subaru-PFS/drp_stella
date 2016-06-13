@@ -52,8 +52,30 @@ class Spectrum {
                       size_t iTrace = 0);
     
     /// iTrace is only assigned to _iTrace if != 0, otherwise spectrum._iTrace is copied to this->_iTrace
-    explicit Spectrum(Spectrum const& spectrum,
-                      size_t iTrace = 0);
+    Spectrum(Spectrum const& spectrum,
+                      size_t iTrace = 0)
+        : _length(spectrum.getLength()),
+          _iTrace(spectrum.getITrace()),
+          _isWavelengthSet(spectrum.isWavelengthSet())
+      {
+        _spectrum = ndarray::allocate(spectrum.getSpectrum().getShape()[0]);
+        _sky = ndarray::allocate(spectrum.getSky().getShape()[0]);
+        _mask = ndarray::allocate(spectrum.getMask().getShape()[0]);
+        _covar = ndarray::allocate(spectrum.getCovar().getShape());
+        _wavelength = ndarray::allocate(spectrum.getWavelength().getShape()[0]);
+        _dispersion = ndarray::allocate(spectrum.getDispersion().getShape()[0]);
+        _spectrum.deep() = spectrum.getSpectrum();
+        _sky.deep() = spectrum.getSky();
+        _mask.deep() = spectrum.getMask();
+        _covar.deep() = spectrum.getCovar();
+        _wavelength.deep() = spectrum.getWavelength();
+        _dispersion.deep() = spectrum.getDispersion();
+        if (iTrace != 0)
+          _iTrace = iTrace;
+        _yLow = spectrum.getYLow();
+        _yHigh = spectrum.getYHigh();
+        _nCCDRows = spectrum.getNCCDRows();
+      }
     
     ~Spectrum() {}
 
@@ -68,7 +90,18 @@ class Spectrum {
     /// Set the spectrum (deep copy)
     /// sets this->_spectrum to spectrum and returns TRUE if spectrum->size() == this->getLength(), otherwise returns false
     /// pre: set length of this to spectrum.size() to adjust length of all vectors in this
-    bool setSpectrum( const ndarray::Array< SpectrumT, 1, 1 > & spectrum );
+    bool setSpectrum( ndarray::Array< SpectrumT, 1, 1 > const& spectrum )
+    {
+      /// Check length of input spectrum
+      if (spectrum.getShape()[0] != _length){
+        string message("pfsDRPStella::Spectrum::setSpectrum: ERROR: spectrum->size()=");
+        message += to_string(spectrum.getShape()[0]) + string(" != _length=") + to_string(_length);
+        cout << message << endl;
+        throw LSST_EXCEPT(pexExcept::Exception, message.c_str());    
+      }
+      _spectrum.deep() = spectrum;
+      return true;
+    }
 
     bool setSky( const ndarray::Array< SpectrumT, 1, 1 > & sky );
     
@@ -82,7 +115,18 @@ class Spectrum {
 
     /// Set the covariance pointer of this fiber trace to covar (deep copy)
     /// sets this->_covar to covar and returns TRUE if covar->size() == this->getLength(), otherwise returns false
-    bool setVariance(const ndarray::Array<VarianceT, 1, 1> & variance );
+    bool setVariance( ndarray::Array<VarianceT, 1, 1> const& variance )
+    {
+      /// Check length of input covar
+      if (variance.getShape()[ 0 ] != _length){
+        string message("pfsDRPStella::Spectrum::setVariance: ERROR: variance->size()=");
+        message += to_string( variance.getShape()[ 0 ] ) + string( " != _length=" ) + to_string( _length );
+        cout << message << endl;
+        throw LSST_EXCEPT(pexExcept::Exception, message.c_str());    
+      }
+      _covar[ ndarray::view( 3 )( ) ] = variance;
+      return true;
+    }
 
     /// Set the covariance pointer of this fiber trace to covar (deep copy)
     /// sets this->_covar to covar and returns TRUE if covar->size() == this->getLength(), otherwise returns false
@@ -110,7 +154,18 @@ class Spectrum {
 
     /// Set the mask vector of this spectrum (deep copy)
     /// sets this->_mask to mask and returns TRUE if mask->size() == this->getLength(), otherwise returns false
-    bool setMask(const ndarray::Array<MaskT, 1, 1> & mask);
+    bool setMask(const ndarray::Array<MaskT, 1, 1> & mask)
+    {
+      /// Check length of input mask
+      if (mask.getShape()[0] != _length){
+        string message("pfsDRPStella::Spectrum::setMask: ERROR: mask->size()=");
+        message += to_string(mask.getShape()[0]) + string(" != _length=") + to_string(_length);
+        cout << message << endl;
+        throw LSST_EXCEPT(pexExcept::Exception, message.c_str());    
+      }
+      _mask.deep() = mask;
+      return true;
+    }
 
     size_t getLength() const {return _length;}
     
@@ -169,9 +224,38 @@ class Spectrum {
     size_t getYHigh() const { return _yHigh; };
     size_t getNCCDRows() const { return _nCCDRows; };
     
-    bool setYLow( size_t yLow );
-    bool setYHigh( size_t yHigh );
-    bool setNCCDRows( size_t nCCDRows );
+    bool setYLow( const size_t yLow )
+    {
+      if ( yLow > _nCCDRows ){
+        string message("pfsDRPStella::Spectrum::setYLow: ERROR: yLow=");
+        message += to_string( yLow ) + string(" > _nCCDRows=") + to_string(_nCCDRows);
+        cout << message << endl;
+        throw LSST_EXCEPT(pexExcept::Exception, message.c_str());    
+      }
+      _yLow = yLow;
+      return true;
+    }
+
+    bool setYHigh( const size_t yHigh )
+    {
+      if ( yHigh > _nCCDRows ){
+        _nCCDRows = _yLow + yHigh;
+      }
+      _yHigh = yHigh;
+      return true;
+    }
+    
+    bool setNCCDRows( const size_t nCCDRows ){
+      if ( _yLow > nCCDRows ){
+        string message("pfsDRPStella::Spectrum::setYLow: ERROR: _yLow=");
+        message += to_string( _yLow ) + string(" > nCCDRows=") + to_string(nCCDRows);
+        cout << message << endl;
+        throw LSST_EXCEPT(pexExcept::Exception, message.c_str());    
+      }
+      _nCCDRows = nCCDRows;
+      return true;
+    }
+
     
   private:
     /**
@@ -179,7 +263,193 @@ class Spectrum {
      * @param[in] lineList :: line list  [ nLines, 2 ]: [ wLen, approx_pixel ]
      */
     template< typename T >
-    ndarray::Array< double, 1, 1 > hIdentify( ndarray::Array< T, 2, 1 > const& lineList );
+    ndarray::Array< double, 1, 1 > hIdentify( ndarray::Array< T, 2, 1 > const& lineList )
+    {
+      ///for each line in line list, find maximum in spectrum and fit Gaussian
+      int I_MaxPos = 0;
+      int I_Start = 0;
+      int I_End = 0;
+      int I_NTerms = 4;
+      std::vector< double > V_GaussSpec( 1, 0. );
+      ndarray::Array< double, 1, 1 > D_A1_GaussCoeffs = ndarray::allocate( I_NTerms );
+      D_A1_GaussCoeffs.deep() = 0.;
+      ndarray::Array< double, 1, 1 > D_A1_EGaussCoeffs = ndarray::allocate( I_NTerms );
+      D_A1_EGaussCoeffs.deep() = 0.;
+      ndarray::Array< int, 2, 1 > I_A2_Limited = ndarray::allocate( I_NTerms, 2 );
+      I_A2_Limited.deep() = 1;
+      ndarray::Array< double, 2, 1 > D_A2_Limits = ndarray::allocate( I_NTerms, 2 );
+      D_A2_Limits.deep() = 0.;
+      ndarray::Array< double, 1, 1 > D_A1_Guess = ndarray::allocate( I_NTerms );
+      std::vector< double > V_MeasureErrors( 2, 0.);
+      ndarray::Array< double, 1, 1 > D_A1_Ind = math::indGenNdArr( double( _spectrum.getShape()[ 0 ] ) );
+      std::vector< double > V_X( 1, 0. );
+      ndarray::Array< double, 1, 1 > D_A1_GaussPos = ndarray::allocate( lineList.getShape()[0] );
+      D_A1_GaussPos.deep() = 0.;
+      #ifdef __WITH_PLOTS__
+        CString CS_PlotName("");
+        CString *P_CS_Num;
+      #endif
+      for ( int i_line = 0; i_line < lineList.getShape()[ 0 ]; ++i_line ){
+        I_Start = int( lineList[ ndarray::makeVector( i_line, 1 ) ] ) - _dispCorControl->searchRadius;
+        if ( I_Start < 0 )
+          I_Start = 0;
+        #ifdef __DEBUG_IDENTIFY__
+          cout << "identify: i_line = " << i_line << ": I_Start = " << I_Start << endl;
+        #endif
+        I_End = int( lineList[ ndarray::makeVector( i_line, 1 ) ] ) + _dispCorControl->searchRadius;
+        if ( I_End >= _spectrum.getShape()[ 0 ] )
+          I_End = _spectrum.getShape()[ 0 ] - 1;
+        if ( ( I_End - I_Start ) > ( 1.5 * _dispCorControl->searchRadius ) ){
+          #ifdef __DEBUG_IDENTIFY__
+            cout << "identify: i_line = " << i_line << ": I_End = " << I_End << endl;
+          #endif
+          if ( I_Start >= I_End ){
+            cout << "identify: Warning: I_Start(=" << I_Start << ") >= I_End(=" << I_End << ")" << endl;// => Returning FALSE" << endl;
+            cout << "identify: _spectrum = " << _spectrum << endl;
+            cout << "identify: lineList = " << lineList << endl;
+          }
+          else{
+            auto itMaxElement = std::max_element( _spectrum.begin() + I_Start, _spectrum.begin() + I_End + 1 );
+            I_MaxPos = std::distance(_spectrum.begin(), itMaxElement);
+      //        #ifdef __DEBUG_IDENTIFY__
+      //          cout << "identify: i_line = " << i_line << ": indexPos = " << indexPos << endl;
+      //        #endif
+      //        I_MaxPos = indexPos;// + I_Start;
+            #ifdef __DEBUG_IDENTIFY__
+              cout << "identify: I_MaxPos = " << I_MaxPos << endl;
+            #endif
+            I_Start = std::round( double( I_MaxPos ) - ( 1.5 * _dispCorControl->fwhm ) );
+            if (I_Start < 0)
+              I_Start = 0;
+            #ifdef __DEBUG_IDENTIFY__
+              cout << "identify: I_Start = " << I_Start << endl;
+            #endif
+            I_End = std::round( double( I_MaxPos ) + ( 1.5 * _dispCorControl->fwhm ) );
+            if ( I_End >= _spectrum.getShape()[ 0 ] )
+              I_End = _spectrum.getShape()[ 0 ] - 1;
+            #ifdef __DEBUG_IDENTIFY__
+              cout << "identify: I_End = " << I_End << endl;
+            #endif
+            if ( I_End < I_Start + 4 ){
+              cout << "identify: WARNING: Line position outside spectrum" << endl;
+            }
+            else{
+              V_GaussSpec.resize( I_End - I_Start + 1 );
+              V_MeasureErrors.resize( I_End - I_Start + 1 );
+              V_X.resize( I_End - I_Start + 1 );
+              auto itSpec = _spectrum.begin() + I_Start;
+              for ( auto itGaussSpec = V_GaussSpec.begin(); itGaussSpec != V_GaussSpec.end(); ++itGaussSpec, ++itSpec )
+                *itGaussSpec = *itSpec;
+              #ifdef __DEBUG_IDENTIFY__
+                cout << "identify: V_GaussSpec = ";
+                for ( int iPos = 0; iPos < V_GaussSpec.size(); ++iPos )
+                  cout << V_GaussSpec[iPos] << " ";
+                cout << endl;
+              #endif
+              for( auto itMeasErr = V_MeasureErrors.begin(), itGaussSpec = V_GaussSpec.begin(); itMeasErr != V_MeasureErrors.end(); ++itMeasErr, ++itGaussSpec ){
+                *itMeasErr = sqrt( std::fabs( *itGaussSpec ) );
+                if (*itMeasErr < 0.00001)
+                  *itMeasErr = 1.;
+              }
+              #ifdef __DEBUG_IDENTIFY__
+                cout << "identify: V_MeasureErrors = ";
+                for (int iPos = 0; iPos < V_MeasureErrors.size(); ++iPos )
+                  cout << V_MeasureErrors[iPos] << " ";
+                cout << endl;
+              #endif
+              auto itInd = D_A1_Ind.begin() + I_Start;
+              for ( auto itX = V_X.begin(); itX != V_X.end(); ++itX, ++itInd )
+                *itX = *itInd;
+              #ifdef __DEBUG_IDENTIFY__
+                cout << "identify: V_X = ";
+                for (int iPos = 0; iPos < V_X.size(); ++iPos )
+                  cout << V_X[iPos] << " ";
+                cout << endl;
+              #endif
+      //        if (!this->GaussFit(D_A1_X,
+      //                            D_A1_GaussSpec,
+      //                            D_A1_GaussCoeffs,
+      //                            CS_A1_KeyWords,
+      //                            PP_Args)){
+
+            /*     p[3] = constant offset
+             *     p[0] = peak y value
+             *     p[1] = x centroid position
+             *     p[2] = gaussian sigma width
+             */
+      //          ndarray::Array< double, 2, 1 > toFit = ndarray::allocate( D_A1_X.getShape()[ 0 ], 2 );
+      //          toFit[ ndarray::view()(0) ] = D_A1_X;
+      //          toFit[ ndarray::view()(1) ] = D_A1_GaussSpec;
+      //            ndarray::Array< double, 1, 1 > gaussFitResult = gaussFit()
+              D_A1_Guess[ 3 ] = *min_element( V_GaussSpec.begin(), V_GaussSpec.end() );
+              D_A1_Guess[ 0 ] = *max_element( V_GaussSpec.begin(), V_GaussSpec.end() ) - D_A1_Guess(3);
+              D_A1_Guess[ 1 ] = V_X[ 0 ] + ( V_X[ V_X.size() - 1 ] - V_X[ 0 ] ) / 2.;
+              D_A1_Guess[ 2 ] = _dispCorControl->fwhm;
+              #ifdef __DEBUG_IDENTIFY__
+                cout << "identify: D_A1_Guess = " << D_A1_Guess << endl;
+              #endif
+              D_A2_Limits[ ndarray::makeVector( 0, 0 ) ] = 0.;
+              D_A2_Limits[ ndarray::makeVector( 0, 1 ) ] = std::fabs( 1.5 * D_A1_Guess[ 0 ] );
+              D_A2_Limits[ ndarray::makeVector( 1, 0 ) ] = V_X[ 1 ];
+              D_A2_Limits[ ndarray::makeVector( 1, 1 ) ] = V_X[ V_X.size() - 2 ];
+              D_A2_Limits[ ndarray::makeVector( 2, 0 ) ] = D_A1_Guess[ 2 ] / 3.;
+              D_A2_Limits[ ndarray::makeVector( 2, 1 ) ] = 2. * D_A1_Guess[ 2 ];
+              D_A2_Limits[ ndarray::makeVector( 3, 1 ) ] = std::fabs( 1.5 * D_A1_Guess[ 3 ] ) + 1;
+              #ifdef __DEBUG_IDENTIFY__
+                cout << "identify: D_A2_Limits = " << D_A2_Limits << endl;
+              #endif
+              ndarray::Array< double, 1, 1 > D_A1_X = ndarray::external( V_X.data(), ndarray::makeVector( int( V_X.size() ) ), ndarray::makeVector( 1 ) );
+              ndarray::Array< double, 1, 1 > D_A1_GaussSpec = ndarray::external( V_GaussSpec.data(), ndarray::makeVector( int( V_GaussSpec.size() ) ), ndarray::makeVector( 1 ) );
+              ndarray::Array< double, 1, 1 > D_A1_MeasureErrors = ndarray::external( V_MeasureErrors.data(), ndarray::makeVector( int( V_MeasureErrors.size() ) ), ndarray::makeVector( 1 ) );
+              if (!MPFitGaussLim(D_A1_X,
+                                 D_A1_GaussSpec,
+                                 D_A1_MeasureErrors,
+                                 D_A1_Guess,
+                                 I_A2_Limited,
+                                 D_A2_Limits,
+                                 true,
+                                 false,
+                                 D_A1_GaussCoeffs,
+                                 D_A1_EGaussCoeffs,
+                                 true)){
+                cout << "identify: WARNING: GaussFit returned FALSE" << endl;
+              //        return false;
+              }
+              else{
+                #ifdef __DEBUG_IDENTIFY__
+                  cout << "identify: i_line = " << i_line << ": D_A1_GaussCoeffs = " << D_A1_GaussCoeffs << endl;
+                #endif
+                if ( std::fabs( double( I_MaxPos ) - D_A1_GaussCoeffs[ 1 ] ) < 2.5 ){//D_FWHM_In){
+                  D_A1_GaussPos[ i_line ] = D_A1_GaussCoeffs[ 1 ];
+                  #ifdef __DEBUG_IDENTIFY__
+                    cout << "identify: D_A1_GaussPos[" << i_line << "] = " << D_A1_GaussPos[ i_line ] << endl;
+                  #endif
+                  if ( i_line > 0 ){
+                    if ( std::fabs( D_A1_GaussPos[ i_line ] - D_A1_GaussPos[ i_line - 1 ] ) < 1.5 ){/// wrong line identified!
+                      if ( lineList.getShape()[ 1 ] > 2 ){
+                        if ( lineList[ ndarray::makeVector( i_line, 2 ) ] < lineList[ ndarray::makeVector( i_line - 1, 2 ) ] ){
+                          cout << "identify: WARNING: i_line=" << i_line << ": line " << i_line << " at " << D_A1_GaussPos[ i_line ] << " has probably been misidentified (D_A1_GaussPos(" << i_line-1 << ")=" << D_A1_GaussPos[ i_line - 1 ] << ") => removing line from line list" << endl;
+                          D_A1_GaussPos[ i_line ] = 0.;
+                        }
+                        else{
+                          cout << "identify: WARNING: i_line=" << i_line << ": line at D_A1_GaussPos[" << i_line-1 << "] = " << D_A1_GaussPos[ i_line - 1 ] << " has probably been misidentified (D_A1_GaussPos(" << i_line << ")=" << D_A1_GaussPos[ i_line ] << ") => removing line from line list" << endl;
+                          D_A1_GaussPos[ i_line - 1 ] = 0.;
+                        }
+      //                  exit(EXIT_FAILURE);
+                      }
+                    }
+                  }
+                }
+                else{
+                  cout << "identify: WARNING: I_MaxPos=" << I_MaxPos << " - D_A1_GaussCoeffs[ 1 ]=" << D_A1_GaussCoeffs[ 1 ] << " >= 2.5 => Skipping line" << endl;
+                }
+              }
+            }
+          }
+        }
+      }/// end for (int i_line=0; i_line < D_A2_LineList_In.rows(); i_line++){
+      return D_A1_GaussPos;
+    }
 
     size_t _yLow;
     size_t _yHigh;
@@ -220,13 +490,13 @@ class SpectrumSet// : public lsst::daf::base::Persistable,
     /// Copy constructor
     /// If spectrumSet is not empty, the object shares ownership of spectrumSet's spectrum vector and increases the use count.
     /// If spectrumSet is empty, an empty object is constructed (as if default-constructed).
-    explicit SpectrumSet(const SpectrumSet &spectrumSet)
+    SpectrumSet( SpectrumSet const& spectrumSet)
         ://     lsst::daf::base::Citizen(typeid(this)),
               _spectra(spectrumSet.getSpectra())
         {}
 
     /// Construct an object with a copy of spectrumVector
-    explicit SpectrumSet(const PTR(std::vector<PTR(Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>)>) &spectrumVector);
+    explicit SpectrumSet( std::vector< Spectrum< SpectrumT, MaskT, VarianceT, WavelengthT > > const& spectrumVector);
 
     /**
      *  @brief Construct a SpectrumSet by reading a regular FITS file.
@@ -300,22 +570,40 @@ class SpectrumSet// : public lsst::daf::base::Persistable,
     virtual ~SpectrumSet() {}
 
     /// Return the number of spectra/apertures
-    size_t size() const { return _spectra->size(); }
+    size_t size() const { return _spectra.size(); }
 
     /// Return the Spectrum for the ith aperture
-    PTR(Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>) & getSpectrum(const size_t i);
+    PTR(Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>) getSpectrum(const size_t i);
 
-    PTR(const Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>) const& getSpectrum(const size_t i) const;
+    Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT> getSpectrum(const size_t i) const
+    { 
+      if (i >= _spectra.size()){
+        string message("SpectrumSet::getSpectrum(i=");
+        message += to_string(i) + "): ERROR: i >= _spectra.size()=" + to_string(_spectra.size());
+        cout << message << endl;
+        throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
+      }
+      return _spectra.at( i );
+    }
 
-    /// Set the ith Spectrum
-    bool setSpectrum(const size_t i,     /// which spectrum?
-                     const PTR(Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>) & spectrum);
+    /**
+     * @brief Set the ith Spectrum
+     * @param i :: Set which spectrum in set?
+     * @param spectrum :: spectrum to copy to this set at position i
+     * */
+    bool setSpectrum(size_t const i,
+                     Spectrum< SpectrumT, MaskT, VarianceT, WavelengthT > const& spectrum);
 
     /// add one Spectrum to the set
-    void addSpectrum(Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT> const& spectrum);
-    void addSpectrum(PTR(Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>) const& spectrum);
+    void addSpectrum( Spectrum< SpectrumT, MaskT, VarianceT, WavelengthT > const& spectrum ) {
+        _spectra.push_back( spectrum );
+    }
+    
+    void addSpectrum( PTR( Spectrum< SpectrumT, MaskT, VarianceT, WavelengthT > ) const& spectrum ){
+        _spectra.push_back( *spectrum );
+    }
 
-    PTR(std::vector<PTR(Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>)>) getSpectra() const { return _spectra; }
+    std::vector< Spectrum< SpectrumT, MaskT, VarianceT, WavelengthT > > getSpectra() const { return _spectra; }
 
     
     /// Removes from the vector either a single element (position) or a range of elements ([first,last)).
@@ -374,7 +662,7 @@ class SpectrumSet// : public lsst::daf::base::Persistable,
     }
     
   private:
-    PTR(std::vector<PTR(Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>)>) _spectra; // spectra for each aperture
+    std::vector< Spectrum< SpectrumT, MaskT, VarianceT, WavelengthT > > _spectra; // spectra for each aperture
 };
 
 namespace math{
