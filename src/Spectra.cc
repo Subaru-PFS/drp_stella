@@ -22,10 +22,6 @@ pfsDRPStella::Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>::Spectrum(size_
   _nCCDRows = length;
 }
 
-//template< typename SpectrumT, typename MaskT, typename VarianceT, typename WavelengthT >
-//pfsDRPStella::Spectrum< SpectrumT, MaskT, VarianceT, WavelengthT >::Spectrum( Spectrum< SpectrumT, MaskT, VarianceT, WavelengthT > const& spectrum,
-//                                                                              size_t iTrace ) 
-
 //template class pfsDRPStella::Spectrum<float, unsigned int, float, float>;
 //template class pfsDRPStella::Spectrum<double, unsigned int, float, float>;
 template class pfsDRPStella::Spectrum<float, unsigned short, float, float>;
@@ -37,9 +33,6 @@ template class pfsDRPStella::Spectrum<double, unsigned short, float, float>;
 //template class pfsDRPStella::Spectrum<double, unsigned int, double, double>;
 template class pfsDRPStella::Spectrum<float, unsigned short, double, double>;
 template class pfsDRPStella::Spectrum<double, unsigned short, double, double>;
-
-//template<typename SpectrumT, typename MaskT, typename VarianceT, typename WavelengthT>
-//bool pfsDRPStella::Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>::setSpectrum( ndarray::Array<SpectrumT, 1, 1> const& spectrum )
 
 template<typename SpectrumT, typename MaskT, typename VarianceT, typename WavelengthT>
 bool pfsDRPStella::Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>::setSky( ndarray::Array<SpectrumT, 1, 1> const& sky )
@@ -57,12 +50,6 @@ bool pfsDRPStella::Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>::setSky( n
 
 template bool pfsDRPStella::Spectrum< double, unsigned short, float, float >::setSky( ndarray::Array< double, 1, 1 > const& );
 template bool pfsDRPStella::Spectrum< float, unsigned short, float, float >::setSky( ndarray::Array< float, 1, 1 > const& );
-
-//template<typename SpectrumT, typename MaskT, typename VarianceT, typename WavelengthT>
-//bool pfsDRPStella::Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>::setVariance( ndarray::Array<VarianceT, 1, 1> const& variance )
-
-//template<typename SpectrumT, typename MaskT, typename VarianceT, typename WavelengthT>
-//bool pfsDRPStella::Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>::setCovar(const ndarray::Array<VarianceT, 2, 1> & covar )
 
 template<typename SpectrumT, typename MaskT, typename VarianceT, typename WavelengthT>
 bool pfsDRPStella::Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>::setWavelength( ndarray::Array<WavelengthT, 1, 1> const& wavelength)
@@ -97,25 +84,6 @@ bool pfsDRPStella::Spectrum< SpectrumT, MaskT, VarianceT, WavelengthT >::setDisp
 
 template bool pfsDRPStella::Spectrum< double, unsigned short, float, float >::setDispersion( ndarray::Array< float, 1, 1 > const& );
 template bool pfsDRPStella::Spectrum< float, unsigned short, float, float >::setDispersion( ndarray::Array< float, 1, 1 > const& );
-
-//template<typename SpectrumT, typename MaskT, typename VarianceT, typename WavelengthT>
-//bool pfsDRPStella::Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>::setMask(const ndarray::Array<MaskT, 1, 1> & mask)
-
-//template<typename SpectrumT, typename MaskT, typename VarianceT, typename WavelengthT>
-//bool pfsDRPStella::Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>::setLength(const size_t length)
-
-//template<typename SpectrumT, typename MaskT, typename VarianceT, typename WavelengthT>
-//bool pfsDRPStella::Spectrum< SpectrumT, MaskT, VarianceT, WavelengthT >::setYLow( const size_t yLow )
-
-//template<typename SpectrumT, typename MaskT, typename VarianceT, typename WavelengthT>
-//bool pfsDRPStella::Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>::setYHigh(const size_t yHigh)
-
-//template<typename SpectrumT, typename MaskT, typename VarianceT, typename WavelengthT>
-//bool pfsDRPStella::Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>::setNCCDRows(const size_t nCCDRows)
-
-//template< typename SpectrumT, typename MaskT, typename VarianceT, typename WavelengthT >
-//template< typename T >
-//ndarray::Array< double, 1, 1 > pfsDRPStella::Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>::hIdentify( ndarray::Array< T, 2, 1 > const& lineList )
 
 //template<> template<> ndarray::Array< double, 1, 1 > pfsDRPStella::Spectrum<float, unsigned int, float, float>::hIdentify(ndarray::Array< float, 2, 1 > const& );
 //template<> template<> ndarray::Array< double, 1, 1 > pfsDRPStella::Spectrum<double, unsigned int, float, float>::hIdentify(ndarray::Array< float, 2, 1 > const& );
@@ -410,9 +378,6 @@ PTR( pfsDRPStella::Spectrum< ImageT, MaskT, VarianceT, WavelengthT > ) pfsDRPSte
   }
   return PTR( pfsDRPStella::Spectrum< ImageT, MaskT, VarianceT, WavelengthT > )( new pfsDRPStella::Spectrum< ImageT, MaskT, VarianceT, WavelengthT >( _spectra.at( i ) ) ); 
 }
-
-//template<typename ImageT, typename MaskT, typename VarianceT, typename WavelengthT>
-//pfsDRPStella::Spectrum< ImageT, MaskT, VarianceT, WavelengthT > pfsDRPStella::SpectrumSet<ImageT, MaskT, VarianceT, WavelengthT>::getSpectrum( const size_t i ) const 
 
 template<typename ImageT, typename MaskT, typename VarianceT, typename WavelengthT>
 bool pfsDRPStella::SpectrumSet<ImageT, MaskT, VarianceT, WavelengthT>::erase(const size_t iStart, const size_t iEnd){
