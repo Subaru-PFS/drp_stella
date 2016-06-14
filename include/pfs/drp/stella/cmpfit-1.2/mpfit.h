@@ -188,17 +188,17 @@ extern int mpfit(mp_func funct, int m, int npar,
 
 
 /* C99 uses isfinite() instead of finite() */
-#if defined(__STDC_VERSION__) && __STDC_VERSION__ >= 199901L
-#define mpfinite(x) isfinite(x)
+//#if defined(__STDC_VERSION__) && __STDC_VERSION__ >= 199901L
+//#define mpfinite(x) isfinite(x)
 
 /* Microsoft C uses _finite(x) instead of finite(x) */
-#elif defined(_MSC_VER) && _MSC_VER
+#if defined(_MSC_VER) && _MSC_VER
 #include <float.h>
 #define mpfinite(x) _finite(x)
 
 /* Default is to assume that compiler/library has finite() function */
 #else
-#define mpfinite(x) finite(x)
+#define mpfinite(x) isfinite(x)
 
 #endif
 

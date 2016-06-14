@@ -82,7 +82,8 @@ class FiberTrace {
                         PTR(const FiberTraceFunction) const& fiberTraceFunction, 
                         size_t iTrace=0);
     
-    explicit FiberTrace(FiberTrace<ImageT, MaskT, VarianceT> &fiberTrace, bool const deep=false);
+    FiberTrace( FiberTrace< ImageT, MaskT, VarianceT > const& fiberTrace );
+    FiberTrace( FiberTrace< ImageT, MaskT, VarianceT > & fiberTrace, bool const deep);
     
     virtual ~FiberTrace() {}
 
@@ -188,7 +189,7 @@ class FiberTrace {
     
   private:
     ///TODO: replace variables with smart pointers?????
-    PTR(MaskedImageT) _trace;
+    PTR(afwImage::MaskedImage<ImageT, MaskT, VarianceT>) _trace;
     PTR(afwImage::Image<double>) _profile;
     ndarray::Array<float, 2, 1> _xCentersMeas;
     ndarray::Array<float, 1, 1> _xCenters;

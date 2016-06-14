@@ -23,7 +23,7 @@ Interface to Stella
 #include "pfs/drp/stella/math/SurfaceFitting.h"
 #include "pfs/drp/stella/math/CurveFitting.h"
 #include "pfs/drp/stella/Controls.h"
-#include "pfs/drp/stella/PSF.h"
+//#include "pfs/drp/stella/PSF.h"
 #include "pfs/drp/stella/Spectra.h"
 //#include "pfs/drp/stella/SurfaceFit.h"
 #include "ndarray/Array.h"
@@ -79,17 +79,17 @@ Interface to Stella
 %shared_ptr(pfs::drp::stella::FiberTraceSet<float, unsigned short, float>);
 %shared_ptr(pfs::drp::stella::FiberTraceSet<double, unsigned short, float>);
 
-%shared_ptr(pfs::drp::stella::PSF<float>);
-%shared_ptr(pfs::drp::stella::PSF<double>);
+//%shared_ptr(pfs::drp::stella::PSF<float>);
+//%shared_ptr(pfs::drp::stella::PSF<double>);
 
-%shared_ptr(std::vector<PTR(pfs::drp::stella::PSF<float>)>);
-%shared_ptr(std::vector<PTR(pfs::drp::stella::PSF<double>)>);
+//%shared_ptr(std::vector<PTR(pfs::drp::stella::PSF<float>)>);
+//%shared_ptr(std::vector<PTR(pfs::drp::stella::PSF<double>)>);
 
-%shared_ptr(pfs::drp::stella::PSFSet<float>);
-%shared_ptr(pfs::drp::stella::PSFSet<double>);
+//%shared_ptr(pfs::drp::stella::PSFSet<float>);
+//%shared_ptr(pfs::drp::stella::PSFSet<double>);
 
-%shared_ptr(std::vector<PTR(pfs::drp::stella::PSFSet<float>)>);
-%shared_ptr(std::vector<PTR(pfs::drp::stella::PSFSet<double>)>);
+//%shared_ptr(std::vector<PTR(pfs::drp::stella::PSFSet<float>)>);
+//%shared_ptr(std::vector<PTR(pfs::drp::stella::PSFSet<double>)>);
 
 %shared_ptr(pfs::drp::stella::Spectrum<float, unsigned short, float, float>);
 %shared_ptr(pfs::drp::stella::Spectrum<double, unsigned short, float, float>);
@@ -104,7 +104,7 @@ Interface to Stella
 %shared_ptr(pfs::drp::stella::SpectrumSet<float, unsigned short, float, float>);
 %shared_ptr(pfs::drp::stella::SpectrumSet<double, unsigned short, float, float>);
 %shared_ptr(pfs::drp::stella::SpectrumSet<float, unsigned int, float, float>);
-//%shared_ptr(pfs::drp::stella::SpectrumSet<double, unsigned int, float, float>);
+%shared_ptr(pfs::drp::stella::SpectrumSet<double, unsigned int, float, float>);
 
 %shared_ptr(std::vector<PTR(ndarray::Array<float, 2, 1>)>);
 %shared_ptr(std::vector<PTR(ndarray::Array<double, 2, 1>)>);
@@ -157,11 +157,11 @@ Interface to Stella
 //%template(NDArrVectorF) std::vector<ndarray::Array<float, 2, 1>>;
 //%template(NDArrVectorD) std::vector<ndarray::Array<double, 2, 1>>;
 
-%include "pfs/drp/stella/PSF.h"
-%template(PSFVectorF) std::vector<PTR(pfs::drp::stella::PSF<float>)>;
-%template(PSFVectorD) std::vector<PTR(pfs::drp::stella::PSF<double>)>;
-%template(PSFSetVectorF) std::vector<PTR(pfs::drp::stella::PSFSet<float>)>;
-%template(PSFSetVectorD) std::vector<PTR(pfs::drp::stella::PSFSet<double>)>;
+//%include "pfs/drp/stella/PSF.h"
+//%template(PSFVectorF) std::vector<PTR(pfs::drp::stella::PSF<float>)>;
+//%template(PSFVectorD) std::vector<PTR(pfs::drp::stella::PSF<double>)>;
+//%template(PSFSetVectorF) std::vector<PTR(pfs::drp::stella::PSFSet<float>)>;
+//%template(PSFSetVectorD) std::vector<PTR(pfs::drp::stella::PSFSet<double>)>;
 
 %include "pfs/drp/stella/Spectra.h"
 %template(SpecVectorF) std::vector<PTR(pfs::drp::stella::Spectrum<float, unsigned short, float, float>)>;
@@ -183,20 +183,32 @@ Interface to Stella
 %template(FiberTraceF) pfs::drp::stella::FiberTrace<float, unsigned short, float>;
 %template(FiberTraceD) pfs::drp::stella::FiberTrace<double, unsigned short, float>;
 
-%extend pfs::drp::stella::PSF{
-    %template(extractPSFFromCenterPositionsFF) extractPSFFromCenterPositions<float, unsigned short, float>;
-    %template(extractPSFFromCenterPositionsFD) extractPSFFromCenterPositions<float, unsigned short, double>;
-    %template(extractPSFFromCenterPositionsDF) extractPSFFromCenterPositions<double, unsigned short, float>;
-    %template(extractPSFFromCenterPositionsDD) extractPSFFromCenterPositions<double, unsigned short, double>;
-}
+%template(FiberTraceSetF) pfs::drp::stella::FiberTraceSet<float, unsigned short, float>;
+%template(FiberTraceSetD) pfs::drp::stella::FiberTraceSet<double, unsigned short, float>;
 
-%template(PSFF) pfs::drp::stella::PSF<float>;
-%template(PSFD) pfs::drp::stella::PSF<double>;
+//%extend pfs::drp::stella::PSF{
+//    %template(extractPSFFromCenterPositionsFF) extractPSFFromCenterPositions<float, unsigned short, float>;
+//    %template(extractPSFFromCenterPositionsFD) extractPSFFromCenterPositions<float, unsigned short, double>;
+//    %template(extractPSFFromCenterPositionsDF) extractPSFFromCenterPositions<double, unsigned short, float>;
+//    %template(extractPSFFromCenterPositionsDD) extractPSFFromCenterPositions<double, unsigned short, double>;
+//}
+
+//%template(PSFF) pfs::drp::stella::PSF<float>;
+//%template(PSFD) pfs::drp::stella::PSF<double>;
+
+//%template(PSFSetF) pfs::drp::stella::PSFSet<float>;
+//%template(PSFSetD) pfs::drp::stella::PSFSet<double>;
 
 %extend pfs::drp::stella::Spectrum{
     %template(identifyF) identify<float>;
     %template(identifyD) identify<double>;
 }
+
+%template(SpectrumF) pfs::drp::stella::Spectrum<float, unsigned short, float, float>;
+%template(SpectrumD) pfs::drp::stella::Spectrum<double, unsigned short, float, float>;
+//%template(SpectrumFI) pfs::drp::stella::Spectrum<float, unsigned int, float, float>;
+//%template(SpectrumDI) pfs::drp::stella::Spectrum<double, unsigned int, float, float>;
+
 %extend pfs::drp::stella::SpectrumSet{
     %feature("shadow") writeFits %{
     def writeFits(self, filename, flags=0):
@@ -210,35 +222,22 @@ Interface to Stella
     %}
 }
 
-//%template(SpectrumF) pfs::drp::stella::Spectrum<float, int, float, float>;
-%template(SpectrumF) pfs::drp::stella::Spectrum<float, unsigned short, float, float>;
-%template(SpectrumD) pfs::drp::stella::Spectrum<double, unsigned short, float, float>;
-%template(SpectrumFI) pfs::drp::stella::Spectrum<float, unsigned int, float, float>;
-%template(SpectrumDI) pfs::drp::stella::Spectrum<double, unsigned int, float, float>;
-
-%template(FiberTraceSetF) pfs::drp::stella::FiberTraceSet<float, unsigned short, float>;
-%template(FiberTraceSetD) pfs::drp::stella::FiberTraceSet<double, unsigned short, float>;
-
-%template(PSFSetF) pfs::drp::stella::PSFSet<float>;
-%template(PSFSetD) pfs::drp::stella::PSFSet<double>;
-
-%template(SpectrumSetF) pfs::drp::stella::SpectrumSet<float, int, float, float>;
-%template(SpectrumSetF) pfs::drp::stella::SpectrumSet<float, unsigned short, float, float>;
-%template(SpectrumSetD) pfs::drp::stella::SpectrumSet<double, unsigned short, float, float>;
-%template(SpectrumSetFI) pfs::drp::stella::SpectrumSet<float, unsigned int, float, float>;
-%template(SpectrumSetDI) pfs::drp::stella::SpectrumSet<double, unsigned int, float, float>;
+%template(SpectrumSet) pfs::drp::stella::SpectrumSet<float, unsigned short, float, float>;
+%template(SpectrumSet) pfs::drp::stella::SpectrumSet<double, unsigned short, float, float>;
+//%template(SpectrumSet) pfs::drp::stella::SpectrumSet<float, unsigned int, float, float>;
+//%template(SpectrumSet) pfs::drp::stella::SpectrumSet<double, unsigned int, float, float>;
 
 %template(findAndTraceAperturesF) pfs::drp::stella::math::findAndTraceApertures<float, unsigned short, float>;
 %template(findAndTraceAperturesD) pfs::drp::stella::math::findAndTraceApertures<double, unsigned short, float>;
 
-%template(calculate2dPSFPerBin) pfs::drp::stella::math::calculate2dPSFPerBin<float, float, unsigned short, float, float>;
-%template(calculate2dPSFPerBin) pfs::drp::stella::math::calculate2dPSFPerBin<double, float, unsigned short, float, float>;
-%template(calculate2dPSFPerBin) pfs::drp::stella::math::calculate2dPSFPerBin<float, double, unsigned short, float, float>;
-%template(calculate2dPSFPerBin) pfs::drp::stella::math::calculate2dPSFPerBin<double, double, unsigned short, float, float>;
-%template(calculate2dPSFPerBin) pfs::drp::stella::math::calculate2dPSFPerBin<float, float, unsigned short, float, double>;
-%template(calculate2dPSFPerBin) pfs::drp::stella::math::calculate2dPSFPerBin<double, float, unsigned short, float, double>;
-%template(calculate2dPSFPerBin) pfs::drp::stella::math::calculate2dPSFPerBin<float, double, unsigned short, float, double>;
-%template(calculate2dPSFPerBin) pfs::drp::stella::math::calculate2dPSFPerBin<double, double, unsigned short, float, double>;
+//%template(calculate2dPSFPerBin) pfs::drp::stella::math::calculate2dPSFPerBin<float, float, unsigned short, float, float>;
+//%template(calculate2dPSFPerBin) pfs::drp::stella::math::calculate2dPSFPerBin<double, float, unsigned short, float, float>;
+//%template(calculate2dPSFPerBin) pfs::drp::stella::math::calculate2dPSFPerBin<float, double, unsigned short, float, float>;
+//%template(calculate2dPSFPerBin) pfs::drp::stella::math::calculate2dPSFPerBin<double, double, unsigned short, float, float>;
+//%template(calculate2dPSFPerBin) pfs::drp::stella::math::calculate2dPSFPerBin<float, float, unsigned short, float, double>;
+//%template(calculate2dPSFPerBin) pfs::drp::stella::math::calculate2dPSFPerBin<double, float, unsigned short, float, double>;
+//%template(calculate2dPSFPerBin) pfs::drp::stella::math::calculate2dPSFPerBin<float, double, unsigned short, float, double>;
+//%template(calculate2dPSFPerBin) pfs::drp::stella::math::calculate2dPSFPerBin<double, double, unsigned short, float, double>;
 
 %template(FixU) pfs::drp::stella::math::Fix<unsigned short>;
 %template(FixI) pfs::drp::stella::math::Fix<int>;
@@ -466,12 +465,12 @@ Interface to Stella
 //%template(interpolatePSFThinPlateSplineFF) pfs::drp::stella::math::interpolatePSFThinPlateSpline<float, float>;
 //%template(interpolatePSFThinPlateSplineDF) pfs::drp::stella::math::interpolatePSFThinPlateSpline<double, float>;
 //%template(interpolatePSFThinPlateSplineFD) pfs::drp::stella::math::interpolatePSFThinPlateSpline<float, double>;
-%template(interpolatePSFThinPlateSplineDD) pfs::drp::stella::math::interpolatePSFThinPlateSpline<double, double>;
+//%template(interpolatePSFThinPlateSplineDD) pfs::drp::stella::math::interpolatePSFThinPlateSpline<double, double>;
 
 //%template(interpolatePSFThinPlateSplineChiSquareFF) pfs::drp::stella::math::interpolatePSFThinPlateSplineChiSquare<float, float>;
 //%template(interpolatePSFThinPlateSplineChiSquareDF) pfs::drp::stella::math::interpolatePSFThinPlateSplineChiSquare<double, float>;
 //%template(interpolatePSFThinPlateSplineChiSquareFD) pfs::drp::stella::math::interpolatePSFThinPlateSplineChiSquare<float, double>;
-%template(interpolatePSFThinPlateSplineChiSquareDD) pfs::drp::stella::math::interpolatePSFThinPlateSplineChiSquare<double, double>;
+//%template(interpolatePSFThinPlateSplineChiSquareDD) pfs::drp::stella::math::interpolatePSFThinPlateSplineChiSquare<double, double>;
 
 //%template(interpolatePSFThinPlateSplineFFF) pfs::drp::stella::math::interpolatePSFThinPlateSpline<float, float, float>;
 //%template(interpolatePSFThinPlateSplineDFF) pfs::drp::stella::math::interpolatePSFThinPlateSpline<double, float, float>;
@@ -480,12 +479,12 @@ Interface to Stella
 //%template(interpolatePSFThinPlateSplineFFD) pfs::drp::stella::math::interpolatePSFThinPlateSpline<float, float, double>;
 //%template(interpolatePSFThinPlateSplineDFD) pfs::drp::stella::math::interpolatePSFThinPlateSpline<double, float, double>;
 //%template(interpolatePSFThinPlateSplineFDD) pfs::drp::stella::math::interpolatePSFThinPlateSpline<float, double, double>;
-%template(interpolatePSFThinPlateSplineDDD) pfs::drp::stella::math::interpolatePSFThinPlateSpline<double, double, double>;
+//%template(interpolatePSFThinPlateSplineDDD) pfs::drp::stella::math::interpolatePSFThinPlateSpline<double, double, double>;
 
-%template(interpolatePSFSetThinPlateSplineFF) pfs::drp::stella::math::interpolatePSFSetThinPlateSpline<float, float>;
-%template(interpolatePSFSetThinPlateSplineDF) pfs::drp::stella::math::interpolatePSFSetThinPlateSpline<double, float>;
-%template(interpolatePSFSetThinPlateSplineFD) pfs::drp::stella::math::interpolatePSFSetThinPlateSpline<float, double>;
-%template(interpolatePSFSetThinPlateSplineDD) pfs::drp::stella::math::interpolatePSFSetThinPlateSpline<double, double>;
+//%template(interpolatePSFSetThinPlateSplineFF) pfs::drp::stella::math::interpolatePSFSetThinPlateSpline<float, float>;
+//%template(interpolatePSFSetThinPlateSplineDF) pfs::drp::stella::math::interpolatePSFSetThinPlateSpline<double, float>;
+//%template(interpolatePSFSetThinPlateSplineFD) pfs::drp::stella::math::interpolatePSFSetThinPlateSpline<float, double>;
+//%template(interpolatePSFSetThinPlateSplineDD) pfs::drp::stella::math::interpolatePSFSetThinPlateSpline<double, double>;
 
 //%template(calcProfileSwath) pfs::drp::stella::math::calcProfileSwath<float, unsigned short, float>;
 //%template(calcProfileSwath) pfs::drp::stella::math::calcProfileSwath<double, unsigned short, float>;
@@ -495,20 +494,20 @@ Interface to Stella
 //%template(xCorFD) pfs::drp::stella::math::xCor<float, double>;
 //%template(xCorDD) pfs::drp::stella::math::xCor<double, double>;
 
-%template(collapsePSFFF) pfs::drp::stella::math::collapsePSF<float, float>;
-%template(collapsePSFDF) pfs::drp::stella::math::collapsePSF<double, float>;
-%template(collapsePSFFD) pfs::drp::stella::math::collapsePSF<float, double>;
-%template(collapsePSFDD) pfs::drp::stella::math::collapsePSF<double, double>;
+//%template(collapsePSFFF) pfs::drp::stella::math::collapsePSF<float, float>;
+//%template(collapsePSFDF) pfs::drp::stella::math::collapsePSF<double, float>;
+//%template(collapsePSFFD) pfs::drp::stella::math::collapsePSF<float, double>;
+//%template(collapsePSFDD) pfs::drp::stella::math::collapsePSF<double, double>;
 
-%template(collapseFittedPSFFF) pfs::drp::stella::math::collapseFittedPSF<float, float>;
-%template(collapseFittedPSFDF) pfs::drp::stella::math::collapseFittedPSF<double, float>;
-%template(collapseFittedPSFFD) pfs::drp::stella::math::collapseFittedPSF<float, double>;
-%template(collapseFittedPSFDD) pfs::drp::stella::math::collapseFittedPSF<double, double>;
+//%template(collapseFittedPSFFF) pfs::drp::stella::math::collapseFittedPSF<float, float>;
+//%template(collapseFittedPSFDF) pfs::drp::stella::math::collapseFittedPSF<double, float>;
+//%template(collapseFittedPSFFD) pfs::drp::stella::math::collapseFittedPSF<float, double>;
+//%template(collapseFittedPSFDD) pfs::drp::stella::math::collapseFittedPSF<double, double>;
 
-%template(compareCenterPositionsFF) pfs::drp::stella::math::compareCenterPositions<float, float>;
-%template(compareCenterPositionsDF) pfs::drp::stella::math::compareCenterPositions<double, float>;
-%template(compareCenterPositionsFD) pfs::drp::stella::math::compareCenterPositions<float, double>;
-%template(compareCenterPositionsDD) pfs::drp::stella::math::compareCenterPositions<double, double>;
+//%template(compareCenterPositionsFF) pfs::drp::stella::math::compareCenterPositions<float, float>;
+//%template(compareCenterPositionsDF) pfs::drp::stella::math::compareCenterPositions<double, float>;
+//%template(compareCenterPositionsFD) pfs::drp::stella::math::compareCenterPositions<float, double>;
+//%template(compareCenterPositionsDD) pfs::drp::stella::math::compareCenterPositions<double, double>;
 
 //%template(vecToNdArrayUS) pfs::drp::stella::math::vecToNdArray<unsigned short>;
 //%template(vecToNdArrayUI) pfs::drp::stella::math::vecToNdArray<unsigned int>;

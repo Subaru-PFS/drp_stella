@@ -55,6 +55,27 @@ namespace pfsDRPStella = pfs::drp::stella;
   }
   
   template<typename ImageT, typename MaskT, typename VarianceT>
+  pfsDRPStella::FiberTrace<ImageT, MaskT, VarianceT>::FiberTrace(pfsDRPStella::FiberTrace<ImageT, MaskT, VarianceT> const& fiberTrace ) :
+  _overSampledProfileFitXPerSwath(),
+  _overSampledProfileFitYPerSwath(),
+  _profileFittingInputXPerSwath(),
+  _profileFittingInputYPerSwath(),
+  _profileFittingInputXMeanPerSwath(),
+  _profileFittingInputYMeanPerSwath(),
+  _trace( new MaskedImageT( *( fiberTrace.getTrace() ) ) ),
+  _profile(fiberTrace.getProfile()),
+  _xCentersMeas(fiberTrace.getXCentersMeas()),
+  _xCenters(fiberTrace.getXCenters()),
+  _iTrace(fiberTrace.getITrace()),
+  _isTraceSet(fiberTrace.isTraceSet()),
+  _isProfileSet(fiberTrace.isProfileSet()),
+  _isFiberTraceProfileFittingControlSet(fiberTrace.isFiberTraceProfileFittingControlSet()),
+  _fiberTraceFunction(fiberTrace.getFiberTraceFunction()),
+  _fiberTraceProfileFittingControl(fiberTrace.getFiberTraceProfileFittingControl())
+  {
+  }
+  
+  template<typename ImageT, typename MaskT, typename VarianceT>
   pfsDRPStella::FiberTrace<ImageT, MaskT, VarianceT>::FiberTrace(pfsDRPStella::FiberTrace<ImageT, MaskT, VarianceT> & fiberTrace, bool const deep) :
   _overSampledProfileFitXPerSwath(),
   _overSampledProfileFitYPerSwath(),

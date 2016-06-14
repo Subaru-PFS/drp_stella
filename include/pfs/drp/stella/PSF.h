@@ -74,6 +74,7 @@ namespace pfs { namespace drp { namespace stella {
                                                      _imagePSF_XRelativeToCenter(0),
                                                      _imagePSF_YRelativeToCenter(0),
                                                      _imagePSF_ZNormalized(0),
+                                                     _imagePSF_ZFit(0),
                                                      _imagePSF_Weight(0),
                                                      _xCentersPSFCCD(0),
                                                      _yCentersPSFCCD(0),
@@ -86,12 +87,42 @@ namespace pfs { namespace drp { namespace stella {
       {};
       
       /**
-       * @brief Copy Constructor (shallow and deep) for a PSF
+       * @brief Copy Constructor for a PSF
        * 
        * @param psf: PSF to be copied
-       * @param deep: type of copy. NOTE that the only shallow copy of psf is psf._twoDPSFControl
        */
-      PSF(PSF &psf, const bool deep = false);
+      PSF( PSF const& psf )
+        : _twoDPSFControl(psf.getTwoDPSFControl()),
+          _iTrace(psf.getITrace()),
+          _iBin(psf.getIBin()),
+          _yMin(psf.getYLow()),
+          _yMax(psf.getYHigh()),
+          _imagePSF_XTrace(psf.getImagePSF_XTrace()),
+          _imagePSF_YTrace(psf.getImagePSF_YTrace()),
+          _imagePSF_ZTrace(psf.getImagePSF_ZTrace()),
+          _imagePSF_XRelativeToCenter(psf.getImagePSF_XRelativeToCenter()),
+          _imagePSF_YRelativeToCenter(psf.getImagePSF_YRelativeToCenter()),
+          _imagePSF_ZNormalized(psf.getImagePSF_ZNormalized()),
+          _imagePSF_ZFit(psf.getImagePSF_ZFit()),
+          _imagePSF_Weight(psf.getImagePSF_Weight()),
+          _xCentersPSFCCD(psf.getXCentersPSFCCD()),
+          _yCentersPSFCCD(psf.getYCentersPSFCCD()),
+          _nPixPerPSF(psf.getNPixPerPSF()),
+          _isTwoDPSFControlSet(psf.isTwoDPSFControlSet()),
+          _isPSFsExtracted(psf.isPSFsExtracted()),
+          _thinPlateSpline(),
+          _thinPlateSplineChiSquare()
+      {
+        #ifdef __DEBUG_PSF__
+          cout << "PSF::Copy Constructor started" << endl;
+        #endif
+        PTR(TwoDPSFControl) ptr(new TwoDPSFControl(*(psf.getTwoDPSFControl())));
+        _twoDPSFControl.reset();
+        _twoDPSFControl = ptr;
+        #ifdef __DEBUG_PSF__
+          cout << "PSF::Copy Constructor finished" << endl;
+        #endif
+      }
       
       /**
        *  @brief Constructor for a PSF
@@ -118,6 +149,7 @@ namespace pfs { namespace drp { namespace stella {
             _imagePSF_XRelativeToCenter(0),
             _imagePSF_YRelativeToCenter(0),
             _imagePSF_ZNormalized(0),
+            _imagePSF_ZFit(0),
             _imagePSF_Weight(0),
             _xCentersPSFCCD(0),
             _yCentersPSFCCD(0),
@@ -154,6 +186,7 @@ namespace pfs { namespace drp { namespace stella {
             _imagePSF_XRelativeToCenter(0),
             _imagePSF_YRelativeToCenter(0),
             _imagePSF_ZNormalized(0),
+            _imagePSF_ZFit(0),
             _imagePSF_Weight(0),
             _xCentersPSFCCD(0),
             _yCentersPSFCCD(0),
@@ -248,12 +281,6 @@ namespace pfs { namespace drp { namespace stella {
           cout << "PSF::extractPSFFromCenterPosition: centerPositionXCCD_In = " << centerPositionXCCD_In << endl;
           cout << "PSF::extractPSFFromCenterPosition: centerPositionYCCD_In = " << centerPositionYCCD_In << endl;
         #endif
-    //          if ((D_A1_GaussFit_Coeffs[2] < (_twoDPSFControl->yFWHM / 1.5)) &&
-    //              ((_twoDPSFControl->nTermsGaussFit < 5) ||
-    //               ((_twoDPSFControl->nTermsGaussFit > 4) && (D_A1_GaussFit_Coeffs[4] < 1000.)))){
-    //            ++emissionLineNumber;
-    //            gaussCenterY = D_A1_GaussFit_Coeffs[1] + 0.5;
-    //            float yCenterOffset = gaussCenterY - floor(gaussCenterY);
         T centerPositionYTrace = centerPositionYCCD_In - ( fiberTrace_In.getFiberTraceFunction()->yCenter + fiberTrace_In.getFiberTraceFunction()->yLow );
         T centerPositionYSwath = centerPositionYTrace - _yMin;
         ExtractPSFResult< T > result_Out;

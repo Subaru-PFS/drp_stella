@@ -66,7 +66,7 @@ class PSFTestCase(tests.TestCase):
         del self.tdpsfc
 
     def testPSFConstructors(self):
-        if True:
+        if False:
             iTrace = 1
             fiberTraceSet = drpStella.findAndTraceAperturesF(self.flat.getMaskedImage(), self.ftffc)
             ft = fiberTraceSet.getFiberTrace(iTrace)
@@ -109,7 +109,7 @@ class PSFTestCase(tests.TestCase):
                 self.assertTrue(psf.getIBin(), 2)
  
     def testCalculate2DPSFPerBin(self):
-        if True:
+        if False:
             iTrace = 1
             fiberTraceSet = drpStella.findAndTraceAperturesF(self.flat.getMaskedImage(), self.ftffc)
             fiberTrace = fiberTraceSet.getFiberTrace(iTrace)
@@ -128,7 +128,7 @@ class PSFTestCase(tests.TestCase):
                 self.assertEqual(psf.getIBin(), i)
         
     def testPFSGet(self):
-        if True:
+        if False:
             fiberTraceSet = drpStella.findAndTraceAperturesF(self.flat.getMaskedImage(), self.ftffc)
             iTrace = 0
             fiberTrace = fiberTraceSet.getFiberTrace(iTrace)

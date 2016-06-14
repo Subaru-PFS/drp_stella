@@ -103,7 +103,7 @@ class Spectrum {
       return true;
     }
 
-    bool setSky( const ndarray::Array< SpectrumT, 1, 1 > & sky );
+    bool setSky( ndarray::Array< SpectrumT, 1, 1 > const& sky );
     
     /// Return the pointer to the variance of this spectrum
     ndarray::Array<VarianceT, 1, 1> getVariance() { return ndarray::Array<VarianceT, 1, 1 >(_covar[ ndarray::view( 3 )( ) ]); }
@@ -130,7 +130,19 @@ class Spectrum {
 
     /// Set the covariance pointer of this fiber trace to covar (deep copy)
     /// sets this->_covar to covar and returns TRUE if covar->size() == this->getLength(), otherwise returns false
-    bool setCovar(const ndarray::Array<VarianceT, 2, 1> & covar );
+    bool setCovar(const ndarray::Array<VarianceT, 2, 1> & covar )
+    {
+        /// Check length of input covar
+        if (covar.getShape()[ 1 ] != _length){
+          string message("pfsDRPStella::Spectrum::setCovar: ERROR: covar->size()=");
+          message += to_string( covar.getShape()[ 1 ] ) + string( " != _length=" ) + to_string( _length );
+          cout << message << endl;
+          throw LSST_EXCEPT(pexExcept::Exception, message.c_str());    
+        }
+        _covar.deep() = covar;
+        return true;
+    }
+
 
     /// Return the pointer to the wavelength vector of this spectrum
     ndarray::Array<WavelengthT, 1, 1> getWavelength() { return _wavelength; }
@@ -142,11 +154,11 @@ class Spectrum {
 
     /// Set the wavelength vector of this spectrum (deep copy)
     /// sets this->_wavelength to wavelength and returns TRUE if wavelength->size() == this->getLength(), otherwise returns false
-    bool setWavelength(const ndarray::Array<WavelengthT, 1, 1> & wavelength);
+    bool setWavelength( ndarray::Array<WavelengthT, 1, 1> const& wavelength );
 
     /// Set the dispersion vector of this spectrum (deep copy)
     /// sets this->_dispersion to dispersion and returns TRUE if dispersion->size() == this->getLength(), otherwise returns false
-    bool setDispersion(const ndarray::Array<WavelengthT, 1, 1> & dispersion);
+    bool setDispersion( ndarray::Array<WavelengthT, 1, 1> const& dispersion );
 
     /// Return the pointer to the mask vector of this spectrum
     ndarray::Array<MaskT, 1, 1> getMask() { return _mask; }
@@ -175,7 +187,40 @@ class Spectrum {
     /// If length is greater than the current container size, the contents of all vectors are expanded by inserting at the end as 
     /// many elements as needed to reach a size of length. The new elements of all vectors except for _wavelength are initialized 
     /// with 0. The new elements of _wavelength are initialized with _wavelength(_length - 1).
-    bool setLength(const size_t length);
+    bool setLength(const size_t length)
+    {
+        #ifdef __DEBUG_SETLENGTH__
+          cout << "pfsDRPStella::Spectrum::setLength: starting to set _length to " << length << endl;
+        #endif
+        pfs::drp::stella::math::resize(_spectrum, length);
+        #ifdef __DEBUG_SETLENGTH__
+          cout << "pfsDRPStella::Spectrum::setLength: _spectrum resized to " << _spectrum.getShape()[0] << endl;
+        #endif
+        pfs::drp::stella::math::resize(_mask, length);
+        #ifdef __DEBUG_SETLENGTH__
+          cout << "pfsDRPStella::Spectrum::setLength: _mask resized to " << _mask.getShape()[0] << endl;
+        #endif
+        pfs::drp::stella::math::resize(_covar, 5, length);
+        #ifdef __DEBUG_SETLENGTH__
+          cout << "pfsDRPStella::Spectrum::setLength: _covar resized to " << _covar.getShape()[0] << "x" << _covar.getShape()[1] << endl;
+        #endif
+        pfs::drp::stella::math::resize(_wavelength, length);
+        #ifdef __DEBUG_SETLENGTH__
+          cout << "pfsDRPStella::Spectrum::setLength: _wavelength resized to " << _wavelength.getShape()[0] << endl;
+        #endif
+        if (length > _length){
+          WavelengthT val = _wavelength[_length = 1];
+          for (auto it = _wavelength.begin() + length; it != _wavelength.end(); ++it)
+            *it = val;
+        }
+        _length = length;
+        _yHigh = _yLow + _length - 1;
+        #ifdef __DEBUG_SETLENGTH__
+          cout << "pfsDRPStella::Spectrum::setLength: finishing: _length to " << _length << endl;
+        #endif
+        return true;
+    }
+
     
     size_t getITrace() const {return _iTrace;}
     void setITrace(size_t iTrace){_iTrace = iTrace;}
@@ -196,7 +241,117 @@ class Spectrum {
     template< typename T >
     bool identify( ndarray::Array< T, 2, 1 > const& lineList,
                    DispCorControl const& dispCorControl,
-                   size_t nLinesCheck = 0 );
+                   size_t nLinesCheck = 0 ){
+        DispCorControl tempDispCorControl( dispCorControl );
+        _dispCorControl.reset();
+        _dispCorControl = tempDispCorControl.getPointer();
+
+        ///for each line in line list, find maximum in spectrum and fit Gaussian
+        ndarray::Array< double, 1, 1 > D_A1_GaussPos = hIdentify( lineList );
+
+        ///remove lines which could not be found from line list
+        std::vector< int > V_Index( D_A1_GaussPos.getShape()[ 0 ], 0 );
+        size_t pos = 0;
+        for (auto it = D_A1_GaussPos.begin(); it != D_A1_GaussPos.end(); ++it, ++pos ){
+          if ( *it > 0. )
+            V_Index[ pos ] = 1;
+        }
+        #ifdef __DEBUG_IDENTIFY__
+          cout << "identify: D_A1_GaussPos = " << D_A1_GaussPos << endl;
+          cout << "identify: V_Index = ";
+          for (int iPos = 0; iPos < V_Index.size(); ++iPos)
+            cout << V_Index[iPos] << " ";
+          cout << endl;
+        #endif
+        std::vector< size_t > indices = math::getIndices( V_Index );
+        size_t nInd = std::accumulate( V_Index.begin(), V_Index.end(), 0 );
+        #ifdef __DEBUG_IDENTIFY__
+          cout << "Identify: " << nInd << " lines identified" << endl;
+          cout << "Identify: indices = ";
+          for (int iPos = 0; iPos < indices.size(); ++iPos )
+            cout << indices[iPos] << " ";
+          cout << endl;
+        #endif
+
+        /// separate lines to fit and lines for RMS test
+        std::vector< size_t > indCheck;
+        for ( size_t i = 0; i < nLinesCheck; ++i ){
+          srand( 0 ); //seed initialization
+          int randNum = rand() % ( indices.size() - 2 ) + 1; // Generate a random number between 0 and 1
+          indCheck.push_back( size_t( randNum ) );
+          indices.erase( indices.begin() + randNum );
+        }
+
+        if ( nInd < ( std::round( double( lineList.getShape()[ 0 ] ) * 0.66 ) ) ){
+          std::string message("pfs::drp::stella::identify: ERROR: ");
+          message += "identify: ERROR: less than " + std::to_string( std::round( double( lineList.getShape()[ 0 ] ) * 0.66 ) ) + " lines identified";
+          cout << message << endl;
+          throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
+        }
+        ndarray::Array< size_t, 1, 1 > I_A1_IndexPos = ndarray::external( indices.data(), ndarray::makeVector( int( indices.size() ) ), ndarray::makeVector( 1 ) );
+        ndarray::Array< double, 1, 1 > D_A1_WLen = ndarray::allocate( lineList.getShape()[ 0 ] );
+        ndarray::Array< double, 1, 1 > D_A1_FittedPos = math::getSubArray( D_A1_GaussPos, 
+                                                                           I_A1_IndexPos );
+        ndarray::Array< size_t, 1, 1 > I_A1_IndexCheckPos = ndarray::external( indCheck.data(), ndarray::makeVector( int( indCheck.size() ) ), ndarray::makeVector( 1 ) );
+        ndarray::Array< double, 1, 1 > D_A1_FittedCheckPos = math::getSubArray( D_A1_GaussPos, 
+                                                                                I_A1_IndexCheckPos );
+        #ifdef __DEBUG_IDENTIFY__
+          cout << "identify: D_A1_FittedPos = " << D_A1_FittedPos << endl;
+        #endif
+
+        D_A1_WLen[ ndarray::view() ] = lineList[ ndarray::view()( 0 ) ];
+        ndarray::Array< double, 1, 1 > D_A1_FittedWLen = math::getSubArray( D_A1_WLen, I_A1_IndexPos );
+        cout << "Identify: found D_A1_FittedWLen = " << D_A1_FittedWLen << endl;
+
+        ndarray::Array< double, 1, 1 > D_A1_FittedWLenCheck = math::getSubArray( D_A1_WLen, I_A1_IndexCheckPos );
+
+        _dispCoeffs = ndarray::allocate( dispCorControl.order + 1 );
+        _dispCoeffs.deep() = math::PolyFit( D_A1_FittedPos,
+                                            D_A1_FittedWLen,
+                                            dispCorControl.order );
+        ndarray::Array< double, 1, 1 > D_A1_WLen_Gauss = math::Poly( D_A1_FittedPos, 
+                                                                     _dispCoeffs );
+        ndarray::Array< double, 1, 1 > D_A1_WLen_GaussCheck = math::Poly( D_A1_FittedCheckPos, 
+                                                                          _dispCoeffs );
+        cout << "Identify: D_A1_WLen_PolyFit = " << D_A1_WLen_Gauss << endl;
+        cout << "identify: _dispCoeffs = " << _dispCoeffs << endl;
+
+        ///Calculate RMS
+        ndarray::Array< double, 1, 1 > D_A1_WLenMinusFit = ndarray::allocate( D_A1_WLen_Gauss.getShape()[ 0 ] );
+        D_A1_WLenMinusFit.deep() = D_A1_FittedWLen - D_A1_WLen_Gauss;
+        cout << "Identify: D_A1_WLenMinusFit = " << D_A1_WLenMinusFit << endl;
+        _dispRms = math::calcRMS( D_A1_WLenMinusFit );
+        cout << "Identify: _dispRms = " << _dispRms << endl;
+        cout << "======================================" << endl;
+
+        ///Calculate RMS for test lines
+        ndarray::Array< double, 1, 1 > D_A1_WLenMinusFitCheck = ndarray::allocate( D_A1_WLen_GaussCheck.getShape()[ 0 ] );
+        D_A1_WLenMinusFitCheck.deep() = D_A1_FittedWLenCheck - D_A1_WLen_GaussCheck;
+        cout << "Identify: D_A1_WLenMinusFitCheck = " << D_A1_WLenMinusFitCheck << endl;
+        double dispRmsCheck = math::calcRMS( D_A1_WLenMinusFitCheck );
+        cout << "Identify: dispRmsCheck = " << dispRmsCheck << endl;
+        cout << "======================================" << endl;
+
+        ///calibrate spectrum
+        ndarray::Array< double, 1, 1 > D_A1_Indices = math::indGenNdArr( double( _spectrum.getShape()[ 0 ] ) );
+        _wavelength = ndarray::allocate( _spectrum.getShape()[ 0 ] );
+        _wavelength.deep() = math::Poly( D_A1_Indices, _dispCoeffs );
+        #ifdef __DEBUG_IDENTIFY__
+          cout << "identify: _wavelength = " << _wavelength << endl;
+        #endif
+
+        /// Check for monotonic
+        if ( math::isMonotonic( _wavelength ) == 0 ){
+          cout << "Identify: WARNING: Wavelength solution is not monotonic => Setting identifyResult.rms to 1000" << endl;
+          _dispRms = 1000.;
+          cout << "Identify: RMS = " << _dispRms << endl;
+          cout << "======================================" << endl;
+        }
+
+        _isWavelengthSet = true;
+        return _isWavelengthSet;
+    }
+
   
     /**
       * @brief: Identifies calibration lines, given in D_A2_LineList_In the format [wlen, approx_pixel] in
@@ -215,7 +370,113 @@ class Spectrum {
                    ndarray::Array< T, 1, 0 > const& predicted,
                    ndarray::Array< T, 1, 0 > const& predictedWLenAllPix,
                    DispCorControl const& dispCorControl,
-                   size_t nLinesCheck = 0 );
+                   size_t nLinesCheck = 0 ){
+        DispCorControl tempDispCorControl( dispCorControl );
+        _dispCorControl.reset();
+        _dispCorControl = tempDispCorControl.getPointer();
+
+        ///for each line in line list, find maximum in spectrum and fit Gaussian
+        ndarray::Array< double, 1, 1 > D_A1_GaussPos = hIdentify( lineList );
+
+        ///remove lines which could not be found from line list
+        std::vector< int > V_Index( D_A1_GaussPos.getShape()[ 0 ], 0 );
+        size_t pos = 0;
+        for (auto it = D_A1_GaussPos.begin(); it != D_A1_GaussPos.end(); ++it, ++pos ){
+          if ( *it > 0. )
+            V_Index[ pos ] = 1;
+        }
+        #ifdef __DEBUG_IDENTIFY__
+          cout << "identify: D_A1_GaussPos = " << D_A1_GaussPos << endl;
+          cout << "identify: V_Index = ";
+          for (int iPos = 0; iPos < V_Index.size(); ++iPos)
+            cout << V_Index[iPos] << " ";
+          cout << endl;
+        #endif
+        std::vector< size_t > indices = math::getIndices( V_Index );
+        size_t nInd = std::accumulate( V_Index.begin(), V_Index.end(), 0 );
+        #ifdef __DEBUG_IDENTIFY__
+          cout << "Identify: " << nInd << " lines identified" << endl;
+          cout << "Identify: indices = ";
+          for (int iPos = 0; iPos < indices.size(); ++iPos )
+            cout << indices[iPos] << " ";
+          cout << endl;
+        #endif
+        if ( nInd < ( std::round( double( lineList.getShape()[ 0 ] ) * 0.66 ) ) ){
+          std::string message("pfs::drp::stella::identify: ERROR: ");
+          message += "identify: ERROR: less than " + std::to_string( std::round( double( lineList.getShape()[ 0 ] ) * 0.66 ) ) + " lines identified";
+          cout << message << endl;
+          throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
+        }
+        ndarray::Array< size_t, 1, 1 > I_A1_IndexPos = ndarray::external( indices.data(), ndarray::makeVector( int( indices.size() ) ), ndarray::makeVector( 1 ) );
+        ndarray::Array< double, 1, 1 > fittedPosLinesFound = math::getSubArray( D_A1_GaussPos, 
+                                                                                I_A1_IndexPos );
+        #ifdef __DEBUG_IDENTIFY__
+          cout << "identify: fittedPosLinesFound = " << fittedPosLinesFound << endl;
+        #endif
+
+        ndarray::Array< double, 1, 1 > predictedWLen = ndarray::allocate( lineList.getShape()[ 0 ] );
+        predictedWLen[ ndarray::view() ] = lineList[ ndarray::view()( 0 ) ];
+        ndarray::Array< double, 1, 1 > fittedWLenLinesFound = math::getSubArray( predictedWLen, 
+                                                                                 I_A1_IndexPos );
+        cout << "Identify: found fittedWLenLinesFound = " << fittedWLenLinesFound << endl;
+
+        ndarray::Array< double, 1, 1 > predictedPos = ndarray::allocate( predicted.getShape()[ 0 ] );
+        predictedPos[ ndarray::view() ] = predicted[ ndarray::view() ];
+
+        ndarray::Array< double, 1, 1 > predictedPosFound = math::getSubArray( predictedPos, 
+                                                                              I_A1_IndexPos );
+
+        ndarray::Array< double, 1, 1 > pixOffsetToFit = ndarray::allocate( nInd );
+        pixOffsetToFit[ ndarray::view() ] = fittedPosLinesFound[ ndarray::view() ] - predictedPosFound[ ndarray::view() ];
+
+        _dispCoeffs = ndarray::allocate( dispCorControl.order + 1 );
+        _dispCoeffs.deep() = math::PolyFit( fittedPosLinesFound,
+                                            pixOffsetToFit,
+                                            dispCorControl.order );
+        ndarray::Array< double, 1, 1 > D_A1_PixOffsetFit = math::Poly( fittedPosLinesFound, 
+                                                                       _dispCoeffs );
+
+        ///Interpolate wavelength from predicted wavelengths and measured pixel offset
+        ndarray::Array< double, 1, 1 > pixIndex = math::indGenNdArr( double( _length ) );
+        std::vector< std::string > interpolKeyWords( 1 );
+        interpolKeyWords[ 0 ] = std::string( "SPLINE" );
+        ndarray::Array< double, 1, 1 > predictedWLenAllPixA = ndarray::allocate( predictedWLenAllPix.getShape()[ 0 ] );
+        predictedWLenAllPixA.deep() = predictedWLenAllPix;
+        ndarray::Array< double, 1, 1 > wLenLinesFoundCheck = math::interPol( predictedWLenAllPixA, 
+                                                                             pixIndex, 
+                                                                             fittedPosLinesFound,
+                                                                             interpolKeyWords );
+        wLenLinesFoundCheck[ ndarray::view() ] = wLenLinesFoundCheck[ ndarray::view() ] + predictedPosFound[ ndarray::view() ];
+        cout << "Identify: wLenLinesFoundCheck = " << wLenLinesFoundCheck << endl;
+        cout << "identify: _dispCoeffs = " << _dispCoeffs << endl;
+
+        ///Calculate RMS
+        ndarray::Array< double, 1, 1 > D_A1_WLenMinusFit = ndarray::allocate( wLenLinesFoundCheck.getShape()[ 0 ] );
+        D_A1_WLenMinusFit.deep() = fittedWLenLinesFound - wLenLinesFoundCheck;
+        cout << "Identify: D_A1_WLenMinusFit = " << D_A1_WLenMinusFit << endl;
+        _dispRms = math::calcRMS( D_A1_WLenMinusFit );
+        cout << "Identify: _dispRms = " << _dispRms << endl;
+        cout << "======================================" << endl;
+
+        ///calibrate spectrum
+        ndarray::Array< double, 1, 1 > D_A1_Indices = math::indGenNdArr( double( _spectrum.getShape()[ 0 ] ) );
+        _wavelength = ndarray::allocate( _spectrum.getShape()[ 0 ] );
+        _wavelength.deep() = math::Poly( D_A1_Indices, _dispCoeffs );
+        #ifdef __DEBUG_IDENTIFY__
+          cout << "identify: _wavelength = " << _wavelength << endl;
+        #endif
+
+        /// Check for monotonic
+        if ( math::isMonotonic( _wavelength ) == 0 ){
+          cout << "Identify: WARNING: Wavelength solution is not monotonic => Setting identifyResult.rms to 1000" << endl;
+          _dispRms = 1000.;
+          cout << "Identify: RMS = " << _dispRms << endl;
+          cout << "======================================" << endl;
+        }
+        _isWavelengthSet = true;
+        return _isWavelengthSet;
+    }
+
     
     bool isWavelengthSet() const {return _isWavelengthSet;}
 //    void setIsWavelengthSet(bool isWavelengthSet) {_isWavelengthSet = isWavelengthSet;}
