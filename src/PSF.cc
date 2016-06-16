@@ -1256,7 +1256,7 @@ namespace pfs{ namespace drp{ namespace stella{
       std::vector< PTR(PSFSet< PsfT >)> vecOut(0);
       for (int i = 0; i < fiberTraceSet.size(); ++i){
         PTR(PSFSet< PsfT >) psfSet = calculate2dPSFPerBin< PsfT, ImageT, MaskT, VarianceT, WavelengthT >( *( fiberTraceSet.getFiberTrace( i ) ), 
-                                                                                                          spectrumSet.getSpectrum( i ), 
+                                                                                                          *( spectrumSet.getSpectrum( i ) ), 
                                                                                                           twoDPSFControl );
         vecOut.push_back(psfSet);
       }

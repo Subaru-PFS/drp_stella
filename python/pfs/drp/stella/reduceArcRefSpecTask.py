@@ -227,7 +227,7 @@ class ReduceArcRefSpecTask(CmdLineTask):
 
         for i in range(spectrumSetFromProfile.size()):
             spec = spectrumSetFromProfile.getSpectrum(i)
-            specSpec = spec.getSpectrum()
+            specSpec = spectrumSetFromProfile.getSpectrum(i).getSpectrum()
             print 'calibrating spectrum ',i
             self.log.info('specSpec.shape = %d' % specSpec.shape)
             self.log.info('lineListArr.shape = [%d,%d]' % (lineListArr.shape[0], lineListArr.shape[1]))
@@ -237,11 +237,30 @@ class ReduceArcRefSpecTask(CmdLineTask):
             result = drpStella.stretchAndCrossCorrelateSpecFF(specSpec, refSpecArr, lineListArr, dispCorControl)
             #self.log.info("result.lineList = %g" % result.lineList)
             self.log.info('type(result.lineList) = %s: <%s>: <%s>' % (type(result.lineList),type(result.lineList[0]),type(result.lineList[0][0])))
-            self.log.info('type(spec) = %s: <%s>: <%s>' % (type(spec),type(spec.getSpectrum()),type(spec.getSpectrum()[0])))
+            self.log.info('type(spectrumSetFromProfile.getSpectrum(i)) = %s: <%s>: <%s>' % (type(spectrumSetFromProfile.getSpectrum(i)),type(spectrumSetFromProfile.getSpectrum(i).getSpectrum()),type(spectrumSetFromProfile.getSpectrum(i).getSpectrum()[0])))
             spec.identifyF(result.lineList, dispCorControl, 8)
             print "FiberTrace ",i,": spec.getDispCoeffs() = ",spec.getDispCoeffs()
             print "FiberTrace ",i,": spec.getDispRms() = ",spec.getDispRms()
-            #print spec.getWavelength()
+            print "FiberTrace ",i,": spectrumSetFromProfile.getSpectrum(',i,').getDispCoeffs() = ",spectrumSetFromProfile.getSpectrum(i).getDispCoeffs()
+            print "FiberTrace ",i,": spectrumSetFromProfile.getSpectrum(',i,').getDispRms() = ",spectrumSetFromProfile.getSpectrum(i).getDispRms()
+            print 'spec.getSpectrum() = ',spec.getSpectrum()
+            print 'spec.getWavelength() = ',spec.getWavelength()
+            print 'spectrumSetFromProfile.getSpectrum(',i,').getWavelength() = ',spectrumSetFromProfile.getSpectrum(i).getWavelength()
+            print 'spectrumSetFromProfile.getSpectrum(',i,').getSpectrum() = ',spectrumSetFromProfile.getSpectrum(i).getSpectrum()
+            if spectrumSetFromProfile.setSpectrum(i, spec ):
+                print 'setSpectrum for spectrumSetFromProfile[',i,'] done'
+            else:
+                print 'setSpectrum for spectrumSetFromProfile[',i,'] failed'
+#            if spectrumSetFromProfile.getSpectrum(i).setWavelength( spec.getWavelength() ):
+#                print 'set wavelength for spectrumSetFromProfile.getSpectrum(i) done'
+#            else:
+#                print 'set wavelength for spectrumSetFromProfile.getSpectrum(i) failed'
+#            if spectrumSetFromProfile.getSpectrum(i).setDispCoeffs( spec.getDispCoeffs() ):
+#                print 'set dispCoeffs for spectrumSetFromProfile.getSpectrum(i) done'
+#            else:
+#                print 'set dispCoeffs for spectrumSetFromProfile.getSpectrum(i) failed'
+            print 'spectrumSetFromProfile.getSpectrum(',i,').getWavelength() = ',spectrumSetFromProfile.getSpectrum(i).getWavelength()
+            print 'spectrumSetFromProfile.getSpectrum(',i,').getDispCoeffs() = ',spectrumSetFromProfile.getSpectrum(i).getDispCoeffs()
 
         if True:
             xPixMinMax = np.ndarray(2, dtype='float32')

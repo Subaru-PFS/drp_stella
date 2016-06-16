@@ -113,7 +113,7 @@ class CreateFlatFiberTraceProfileTask(Task):
         if inTraceNumbers[0] == -1 :
             inFiberTraceSet.calcProfileAllTraces()
         else :
-#            spectrumSet = drpStella.SpectrumSetF()
+#            spectrumSet = drpStella.SpectrumSet()
             for i in inTraceNumbers :
                 inFiberTraceSet.getFiberTrace(i).calcProfile()
         return inFiberTraceSet

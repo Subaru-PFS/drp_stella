@@ -222,8 +222,8 @@ Interface to Stella
     %}
 }
 
-%template(SpectrumSet) pfs::drp::stella::SpectrumSet<float, unsigned short, float, float>;
-%template(SpectrumSet) pfs::drp::stella::SpectrumSet<double, unsigned short, float, float>;
+%template(SpectrumSetF) pfs::drp::stella::SpectrumSet<float, unsigned short, float, float>;
+%template(SpectrumSetD) pfs::drp::stella::SpectrumSet<double, unsigned short, float, float>;
 //%template(SpectrumSet) pfs::drp::stella::SpectrumSet<float, unsigned int, float, float>;
 //%template(SpectrumSet) pfs::drp::stella::SpectrumSet<double, unsigned int, float, float>;
 
@@ -612,21 +612,17 @@ Interface to Stella
 %template(poly) pfs::drp::stella::math::Poly<double, double>;
 
 %template(assignITrace) pfs::drp::stella::math::assignITrace< float, unsigned short, float, int, float, 0 >;
-%template(assignITrace) pfs::drp::stella::math::assignITrace< double, unsigned short, double, int, float, 0 >;
 %template(assignITrace) pfs::drp::stella::math::assignITrace< float, unsigned short, float, int, double, 0 >;
-%template(assignITrace) pfs::drp::stella::math::assignITrace< double, unsigned short, double, int, double, 0 >;
 %template(assignITrace) pfs::drp::stella::math::assignITrace< float, unsigned short, float, short int, float, 0 >;
-%template(assignITrace) pfs::drp::stella::math::assignITrace< double, unsigned short, double, short int, float, 0 >;
 %template(assignITrace) pfs::drp::stella::math::assignITrace< float, unsigned short, float, short int, double, 0 >;
-%template(assignITrace) pfs::drp::stella::math::assignITrace< double, unsigned short, double, short int, double, 0 >;
+%template(assignITrace) pfs::drp::stella::math::assignITrace< float, unsigned short, float, long int, float, 0 >;
+%template(assignITrace) pfs::drp::stella::math::assignITrace< float, unsigned short, float, long int, double, 0 >;
 %template(assignITrace) pfs::drp::stella::math::assignITrace< float, unsigned short, float, int, float, 1 >;
-%template(assignITrace) pfs::drp::stella::math::assignITrace< double, unsigned short, double, int, float, 1 >;
 %template(assignITrace) pfs::drp::stella::math::assignITrace< float, unsigned short, float, int, double, 1 >;
-%template(assignITrace) pfs::drp::stella::math::assignITrace< double, unsigned short, double, int, double, 1 >;
 %template(assignITrace) pfs::drp::stella::math::assignITrace< float, unsigned short, float, short int, float, 1 >;
-%template(assignITrace) pfs::drp::stella::math::assignITrace< double, unsigned short, double, short int, float, 1 >;
 %template(assignITrace) pfs::drp::stella::math::assignITrace< float, unsigned short, float, short int, double, 1 >;
-%template(assignITrace) pfs::drp::stella::math::assignITrace< double, unsigned short, double, short int, double, 1 >;
+%template(assignITrace) pfs::drp::stella::math::assignITrace< float, unsigned short, float, long int, float, 1 >;
+%template(assignITrace) pfs::drp::stella::math::assignITrace< float, unsigned short, float, long int, double, 1 >;
 
 %template(createLineList) pfs::drp::stella::math::createLineList< float >;
 %template(createLineList) pfs::drp::stella::math::createLineList< double >;

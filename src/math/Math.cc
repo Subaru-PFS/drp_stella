@@ -2979,11 +2979,13 @@
     
     template ndarray::Array< size_t, 1, 1 > unique( ndarray::Array< size_t, 1, 0 > const& );
     template ndarray::Array< short int, 1, 1 > unique( ndarray::Array< short int, 1, 0 > const& );
+    template ndarray::Array< long int, 1, 1 > unique( ndarray::Array< long int, 1, 0 > const& );
     template ndarray::Array< int, 1, 1 > unique( ndarray::Array< int, 1, 0 > const& );
     template ndarray::Array< float, 1, 1 > unique( ndarray::Array< float, 1, 0 > const& );
     template ndarray::Array< double, 1, 1 > unique( ndarray::Array< double, 1, 0 > const& );
     template ndarray::Array< size_t, 1, 1 > unique( ndarray::Array< size_t, 1, 1 > const& );
     template ndarray::Array< short int, 1, 1 > unique( ndarray::Array< short int, 1, 1 > const& );
+    template ndarray::Array< long int, 1, 1 > unique( ndarray::Array< long int, 1, 1 > const& );
     template ndarray::Array< int, 1, 1 > unique( ndarray::Array< int, 1, 1 > const& );
     template ndarray::Array< float, 1, 1 > unique( ndarray::Array< float, 1, 1 > const& );
     template ndarray::Array< double, 1, 1 > unique( ndarray::Array< double, 1, 1 > const& );
@@ -3086,11 +3088,41 @@
                                                 int const,
                                                 int const );
     
+    template ndarray::Array< int, 1, 1 > where( ndarray::Array< long int, 1, 0 > const&,
+                                                std::string const&,
+                                                long int const, 
+                                                int const,
+                                                int const );
+    
     template ndarray::Array< int, 1, 1 > where( ndarray::Array< double, 1, 0 > const&,
                                                 std::string const&,
                                                 double const, 
                                                 int const,
                                                 int const );
+    
+    template ndarray::Array< long int, 1, 1 > where( ndarray::Array< int, 1, 0 > const&,
+                                                std::string const&,
+                                                int const, 
+                                                long int const,
+                                                long int const );
+
+    template ndarray::Array< long int, 1, 1 > where( ndarray::Array< short int, 1, 0 > const&,
+                                                std::string const&,
+                                                short int const, 
+                                                long int const,
+                                                long int const );
+
+    template ndarray::Array< long int, 1, 1 > where( ndarray::Array< long int, 1, 0 > const&,
+                                                std::string const&,
+                                                long int const, 
+                                                long int const,
+                                                long int const );
+    
+    template ndarray::Array< long int, 1, 1 > where( ndarray::Array< double, 1, 0 > const&,
+                                                std::string const&,
+                                                double const, 
+                                                long int const,
+                                                long int const );
 
     template ndarray::Array< double, 1, 1 > where( ndarray::Array< double, 1, 0 > const&,
                                                    std::string const&,
@@ -3109,12 +3141,42 @@
                                                 short int const, 
                                                 int const,
                                                 int const );
+
+    template ndarray::Array< int, 1, 1 > where( ndarray::Array< long int, 1, 1 > const&,
+                                                std::string const&,
+                                                long int const, 
+                                                int const,
+                                                int const );
     
     template ndarray::Array< int, 1, 1 > where( ndarray::Array< double, 1, 1 > const&,
                                                 std::string const&,
                                                 double const, 
                                                 int const,
                                                 int const );
+
+    template ndarray::Array< long int, 1, 1 > where( ndarray::Array< int, 1, 1 > const&,
+                                                std::string const&,
+                                                int const, 
+                                                long int const,
+                                                long int const );
+
+    template ndarray::Array< long int, 1, 1 > where( ndarray::Array< short int, 1, 1 > const&,
+                                                std::string const&,
+                                                short int const, 
+                                                long int const,
+                                                long int const );
+
+    template ndarray::Array< long int, 1, 1 > where( ndarray::Array< long int, 1, 1 > const&,
+                                                std::string const&,
+                                                long int const, 
+                                                long int const,
+                                                long int const );
+    
+    template ndarray::Array< long int, 1, 1 > where( ndarray::Array< double, 1, 1 > const&,
+                                                std::string const&,
+                                                double const, 
+                                                long int const,
+                                                long int const );
 
     template ndarray::Array< double, 1, 1 > where( ndarray::Array< double, 1, 1 > const&,
                                                    std::string const&,
@@ -3127,12 +3189,48 @@
                                                 int const, 
                                                 int const,
                                                 ndarray::Array< int, 1, 1 > const& );
+    
+    template ndarray::Array< int, 1, 1 > where( ndarray::Array< short int, 1, 1 > const&,
+                                                std::string const&,
+                                                short int const, 
+                                                int const,
+                                                ndarray::Array< int, 1, 1 > const& );
+    
+    template ndarray::Array< int, 1, 1 > where( ndarray::Array< long int, 1, 1 > const&,
+                                                std::string const&,
+                                                long int const, 
+                                                int const,
+                                                ndarray::Array< int, 1, 1 > const& );
 
     template ndarray::Array< int, 1, 1 > where( ndarray::Array< double, 1, 1 > const&,
                                                 std::string const&,
                                                 double const, 
                                                 int const,
                                                 ndarray::Array< int, 1, 1 > const& );
+    
+    template ndarray::Array< long int, 1, 1 > where( ndarray::Array< int, 1, 1 > const&,
+                                                std::string const&,
+                                                int const, 
+                                                long int const,
+                                                ndarray::Array< long int, 1, 1 > const& );
+    
+    template ndarray::Array< long int, 1, 1 > where( ndarray::Array< short int, 1, 1 > const&,
+                                                std::string const&,
+                                                short int const, 
+                                                long int const,
+                                                ndarray::Array< long int, 1, 1 > const& );
+    
+    template ndarray::Array< long int, 1, 1 > where( ndarray::Array< long int, 1, 1 > const&,
+                                                std::string const&,
+                                                long int const, 
+                                                long int const,
+                                                ndarray::Array< long int, 1, 1 > const& );
+
+    template ndarray::Array< long int, 1, 1 > where( ndarray::Array< double, 1, 1 > const&,
+                                                std::string const&,
+                                                double const, 
+                                                long int const,
+                                                ndarray::Array< long int, 1, 1 > const& );
 
     template ndarray::Array< double, 1, 1 > where( ndarray::Array< double, 1, 1 > const&,
                                                    std::string const&,
@@ -3146,6 +3244,12 @@
                                                 int const,
                                                 int const );
 
+    template ndarray::Array< long int, 2, 1 > where( ndarray::Array< double, 2, 1 > const&,
+                                                std::string const&,
+                                                double const, 
+                                                long int const,
+                                                long int const );
+
     template ndarray::Array< double, 2, 1 > where( ndarray::Array< double, 2, 1 > const&,
                                                    std::string const&,
                                                    double const, 
@@ -3157,6 +3261,12 @@
                                                 double const, 
                                                 int const,
                                                 ndarray::Array< int, 2, 1 > const& );
+
+    template ndarray::Array< long int, 2, 1 > where( ndarray::Array< double, 2, 1 > const&,
+                                                std::string const&,
+                                                double const, 
+                                                long int const,
+                                                ndarray::Array< long int, 2, 1 > const& );
 
     template ndarray::Array< double, 2, 1 > where( ndarray::Array< double, 2, 1 > const&,
                                                    std::string const&,

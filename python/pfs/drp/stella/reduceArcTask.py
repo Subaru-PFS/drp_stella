@@ -31,12 +31,12 @@ class ReduceArcConfig(Config):
     order = Field( doc = "Fitting function order", dtype=int, default = 5 );
     searchRadius = Field( doc = "Radius in pixels relative to line list to search for emission line peak", dtype = int, default = 2 );
     fwhm = Field( doc = "FWHM of emission lines", dtype=float, default = 2.6 );
-    radiusXCor = Field( doc = "Radius in pixels in which to cross correlate a spectrum relative to the reference spectrum", dtype = int, default = 50 );
-    lengthPieces = Field( doc = "Length of pieces of spectrum to match to reference spectrum by stretching and shifting", dtype = int, default = 500 );
-    nCalcs = Field( doc = "Number of iterations > spectrumLength / lengthPieces, e.g. spectrum length is 3800 pixels, <lengthPieces> = 500, <nCalcs> = 15: run 1: pixels 0-499, run 2: 249-749,...", dtype = int, default = 15 );
-    stretchMinLength = Field( doc = "Minimum length to stretched pieces to (< lengthPieces)", dtype = int, default = 460 );
-    stretchMaxLength = Field( doc = "Maximum length to stretched pieces to (> lengthPieces)", dtype = int, default = 540 );
-    nStretches = Field( doc = "Number of stretches between <stretchMinLength> and <stretchMaxLength>", dtype = int, default = 80 );
+#    radiusXCor = Field( doc = "Radius in pixels in which to cross correlate a spectrum relative to the reference spectrum", dtype = int, default = 50 );
+#    lengthPieces = Field( doc = "Length of pieces of spectrum to match to reference spectrum by stretching and shifting", dtype = int, default = 500 );
+#    nCalcs = Field( doc = "Number of iterations > spectrumLength / lengthPieces, e.g. spectrum length is 3800 pixels, <lengthPieces> = 500, <nCalcs> = 15: run 1: pixels 0-499, run 2: 249-749,...", dtype = int, default = 15 );
+#    stretchMinLength = Field( doc = "Minimum length to stretched pieces to (< lengthPieces)", dtype = int, default = 460 );
+#    stretchMaxLength = Field( doc = "Maximum length to stretched pieces to (> lengthPieces)", dtype = int, default = 540 );
+#    nStretches = Field( doc = "Number of stretches between <stretchMinLength> and <stretchMaxLength>", dtype = int, default = 80 );
     wavelengthFile = Field( doc = "reference pixel-wavelength file including path", dtype = str, default="/Users/azuri/stella-git/obs_subaru/pfs/RedFiberPixels.fits.gz");
     lineList = Field( doc = "reference line list including path", dtype = str, default="/Users/azuri/stella-git/obs_subaru/pfs/lineLists/CdHgKrNeXe_red.fits");
 #class ReduceArcIdAction(argparse.Action):
@@ -79,8 +79,7 @@ class ReduceArcTaskRunner(TaskRunner):
     @staticmethod
     def getTargetList(parsedCmd, **kwargs):
         print 'ReduceArcTask.getTargetList: kwargs = ',kwargs
-        return [dict(expRefList=parsedCmd.id.refList, butler=parsedCmd.butler, wLenFile=parsedCmd.wavelengthFile, lineList=parsedCmd.lineList)]
-#        return [dict(expRefList=parsedCmd.id.refList, butler=parsedCmd.butler, flatId=parsedCmd.flatId, refSpec=parsedCmd.refSpec, lineList=parsedCmd.lineList)]
+        return [dict(expRefList=parsedCmd.id.refList, butler=parsedCmd.butler, wLenFile=parsedCmd.wLenFile, lineList=parsedCmd.lineList)]
 
     def __call__(self, args):
         task = self.TaskClass(config=self.config, log=self.log)
@@ -115,7 +114,7 @@ class ReduceArcTask(CmdLineTask):
         parser = ArgumentParser(name=cls._DefaultName)
         parser.add_id_argument("--id", datasetType="postISRCCD",
                                help="input identifiers, e.g., --id visit=123 ccd=4")
-        parser.add_argument("--wLenFile", help='directory and name of wavelength file')
+        parser.add_argument("--wLenFile", help='directory and name of pixel vs. wavelength file')
         parser.add_argument("--lineList", help='directory and name of line list')
         return parser# ReduceArcArgumentParser(name=cls._DefaultName, *args, **kwargs)
 
@@ -170,6 +169,10 @@ class ReduceArcTask(CmdLineTask):
         yCenters[:] = tbdata[:]['yc']
 
         """ assign trace number to flatFiberTraceSet """
+        print 'type(flatFiberTraceSet) = ',type(flatFiberTraceSet),': ',type(flatFiberTraceSet.getFiberTrace(0))
+        print 'type(traceIds) = ',type(traceIds),': ',type(traceIds[0])
+        print 'type(xCenters) = ',type(xCenters),': ',type(xCenters[0])
+        print 'type(yCenters) = ',type(yCenters),': ',type(yCenters[0])
         success = drpStella.assignITrace( flatFiberTraceSet, traceIds, xCenters, yCenters )
 
         if success == False:
@@ -204,40 +207,46 @@ class ReduceArcTask(CmdLineTask):
         dispCorControl.order = self.config.order
         dispCorControl.searchRadius = self.config.searchRadius
         dispCorControl.fwhm = self.config.fwhm
-        dispCorControl.radiusXCor = self.config.radiusXCor
-        dispCorControl.lengthPieces = self.config.lengthPieces
-        dispCorControl.nCalcs = self.config.nCalcs
-        dispCorControl.stretchMinLength = self.config.stretchMinLength
-        dispCorControl.stretchMaxLength = self.config.stretchMaxLength
-        dispCorControl.nStretches = self.config.nStretches
+#        dispCorControl.radiusXCor = self.config.radiusXCor
+#        dispCorControl.lengthPieces = self.config.lengthPieces
+#        dispCorControl.nCalcs = self.config.nCalcs
+#        dispCorControl.stretchMinLength = self.config.stretchMinLength
+#        dispCorControl.stretchMaxLength = self.config.stretchMaxLength
+#        dispCorControl.nStretches = self.config.nStretches
         self.log.info('dispCorControl.fittingFunction = %s' % dispCorControl.fittingFunction)
         self.log.info('dispCorControl.order = %d' % dispCorControl.order)
         self.log.info('dispCorControl.searchRadius = %d' % dispCorControl.searchRadius)
         self.log.info('dispCorControl.fwhm = %g' % dispCorControl.fwhm)
-        self.log.info('dispCorControl.radiusXCor = %d' % dispCorControl.radiusXCor)
-        self.log.info('dispCorControl.lengthPieces = %d' % dispCorControl.lengthPieces)
-        self.log.info('dispCorControl.nCalcs = %d' % dispCorControl.nCalcs)
-        self.log.info('dispCorControl.stretchMinLength = %d' % dispCorControl.stretchMinLength)
-        self.log.info('dispCorControl.stretchMaxLength = %d' % dispCorControl.stretchMaxLength)
-        self.log.info('dispCorControl.nStretches = %d' % dispCorControl.nStretches)
+#        self.log.info('dispCorControl.radiusXCor = %d' % dispCorControl.radiusXCor)
+#        self.log.info('dispCorControl.lengthPieces = %d' % dispCorControl.lengthPieces)
+#        self.log.info('dispCorControl.nCalcs = %d' % dispCorControl.nCalcs)
+#        self.log.info('dispCorControl.stretchMinLength = %d' % dispCorControl.stretchMinLength)
+#        self.log.info('dispCorControl.stretchMaxLength = %d' % dispCorControl.stretchMaxLength)
+#        self.log.info('dispCorControl.nStretches = %d' % dispCorControl.nStretches)
 
         for i in range(spectrumSetFromProfile.size()):
             spec = spectrumSetFromProfile.getSpectrum(i)
             specSpec = spec.getSpectrum()
             print 'calibrating spectrum ',i
+            self.log.info('yCenters.shape = %d' % yCenters.shape)
             self.log.info('specSpec.shape = %d' % specSpec.shape)
             self.log.info('lineListArr.shape = [%d,%d]' % (lineListArr.shape[0], lineListArr.shape[1]))
             self.log.info('type(specSpec) = %s: <%s>' % (type(specSpec),type(specSpec[0])))
-            self.log.info('type(refSpecArr) = %s: <%s>' % (type(refSpecArr),type(refSpecArr[0])))
             self.log.info('type(lineListArr) = %s: <%s>' % (type(lineListArr),type(lineListArr[0][0])))
-            result = drpStella.stretchAndCrossCorrelateSpecFF(specSpec, refSpecArr, lineListArr, dispCorControl)
             #self.log.info("result.lineList = %g" % result.lineList)
             self.log.info('type(result.lineList) = %s: <%s>: <%s>' % (type(result.lineList),type(result.lineList[0]),type(result.lineList[0][0])))
             self.log.info('type(spec) = %s: <%s>: <%s>' % (type(spec),type(spec.getSpectrum()),type(spec.getSpectrum()[0])))
-            spec.identifyF(result.lineList, dispCorControl)
+            lineList = drpStella.createLineList()
+            spec.identifyF(result.lineList, dispCorControl, 10)
             print "FiberTrace ",i,": spec.getDispCoeffs() = ",spec.getDispCoeffs()
             print "FiberTrace ",i,": spec.getDispRms() = ",spec.getDispRms()
-            #print spec.getWavelength()
+            if spectrumSetFromProfile.setSpectrum(i, spec ):
+                print 'setSpectrum for spectrumSetFromProfile[',i,'] done'
+            else:
+                print 'setSpectrum for spectrumSetFromProfile[',i,'] failed'
+            print 'spectrumSetFromProfile.getSpectrum(',i,').getWavelength() = ',spectrumSetFromProfile.getSpectrum(i).getWavelength()
+            print 'spectrumSetFromProfile.getSpectrum(',i,').getSpectrum() = ',spectrumSetFromProfile.getSpectrum(i).getSpectrum()
+            print 'spectrumSetFromProfile.getSpectrum(',i,').getDispCoeffs() = ',spectrumSetFromProfile.getSpectrum(i).getDispCoeffs()
 
         if True:
             xPixMinMax = np.ndarray(2, dtype='float32')
