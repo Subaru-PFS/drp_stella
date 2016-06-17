@@ -169,6 +169,8 @@ class ReduceArcTask(CmdLineTask):
         wavelengths[:] = tbdata[:]['pixelWave']
         xCenters[:] = tbdata[:]['xc']
         yCenters[:] = tbdata[:]['yc']
+        
+        traceIdsUnique = np.unique(traceIds)
 
         """ assign trace number to flatFiberTraceSet """
         print 'type(flatFiberTraceSet) = ',type(flatFiberTraceSet),': ',type(flatFiberTraceSet.getFiberTrace(0))
@@ -178,8 +180,10 @@ class ReduceArcTask(CmdLineTask):
         for i in range( flatFiberTraceSet.size() ):
             print 'flatFiberTraceSet.getFiberTrace(',i,').getITrace() = ',flatFiberTraceSet.getFiberTrace(i).getITrace()
         success = drpStella.assignITrace( flatFiberTraceSet, traceIds, xCenters, yCenters )
+        iTraces = np.ndarray(shape=flatFiberTraceSet.size(), dtype='intp')
         for i in range( flatFiberTraceSet.size() ):
-            print 'after assignITrace: flatFiberTraceSet.getFiberTrace(',i,').getITrace() = ',flatFiberTraceSet.getFiberTrace(i).getITrace()
+            iTraces[i] = flatFiberTraceSet.getFiberTrace(i).getITrace()
+            print 'after assignITrace: flatFiberTraceSet.getFiberTrace(',i,').getITrace() = ',flatFiberTraceSet.getFiberTrace(i).getITrace(),', iTraces[',i,'] = ',iTraces[i]
 
         if success == False:
             print 'assignITrace FAILED'
@@ -189,6 +193,8 @@ class ReduceArcTask(CmdLineTask):
         spectrumSetFromProfile = myExtractTask.run(arcExp, flatFiberTraceSet, aperturesToExtract)
             
         for i in range(spectrumSetFromProfile.size()):
+            # THIS DOESN'T WORK, again a problem with changing getSpectrum()
+            spectrumSetFromProfile.getSpectrum(i).setITrace(flatFiberTraceSet.getFiberTrace(i).getITrace())
             print 'spectrumSetFromProfile[',i,'].iTrace = ',spectrumSetFromProfile.getSpectrum(i).getITrace()
 
 #        fig = plt.figure()
@@ -232,8 +238,12 @@ class ReduceArcTask(CmdLineTask):
 #        self.log.info('dispCorControl.stretchMaxLength = %d' % dispCorControl.stretchMaxLength)
 #        self.log.info('dispCorControl.nStretches = %d' % dispCorControl.nStretches)
 
+        for i in range( flatFiberTraceSet.size() ):
+            print 'flatFiberTraceSet.getFiberTrace(',i,').getITrace() = ',flatFiberTraceSet.getFiberTrace(i).getITrace(),', iTraces[',i,'] = ',iTraces[i]
         for i in range(spectrumSetFromProfile.size()):
             spec = spectrumSetFromProfile.getSpectrum(i)
+            spec.setITrace(iTraces[i])
+            self.log.info('flatFiberTraceSet.getFiberTrace(%d).getITrace() = %d, spec.getITrace() = %d' %(i,flatFiberTraceSet.getFiberTrace(i).getITrace(), spec.getITrace()))
             specSpec = spec.getSpectrum()
             print 'calibrating spectrum ',i,': xCenter = ',flatFiberTraceSet.getFiberTrace(i).getFiberTraceFunction().xCenter
             self.log.info('yCenters.shape = %d' % yCenters.shape)
@@ -251,20 +261,30 @@ class ReduceArcTask(CmdLineTask):
             for j in range(traceIds.shape[0]):
                 if traceIds[j] != l:
                     l = traceIds[j]
-                if traceIds[j] == traceIds[traceId]:
+                if traceIds[j] == traceIdsUnique[traceId]:
                     wLenTemp[k] = wavelengths[j]
-                    print 'wLenTemp[',k,'] = ',wLenTemp[k]
+                    print 'traceIds[j=',j,'] = ',traceIds[j],' == traceIdsUnique[traceId=',traceId,'] = ',traceIdsUnique[traceId],': wLenTemp[k=',k,'] = ',wLenTemp[k]
                     k = k+1
                   
             """cut off both ends of wavelengths where is no signal"""
+            xCenter = flatFiberTraceSet.getFiberTrace(i).getFiberTraceFunction().xCenter
             yCenter = flatFiberTraceSet.getFiberTrace(i).getFiberTraceFunction().yCenter
             yLow = flatFiberTraceSet.getFiberTrace(i).getFiberTraceFunction().yLow
             yHigh = flatFiberTraceSet.getFiberTrace(i).getFiberTraceFunction().yHigh
-            wLen = wLenTemp[ yCenter + yLow + self.config.nRowsPrescan : yCenter + yHigh + self.config.nRowsPrescan + 1]
+            yMin = yCenter + yLow
+            yMax = yCenter + yHigh
+            self.log.info('fiberTrace %d: xCenter = %d' % (i, xCenter))
+            self.log.info('fiberTrace %d: yCenter = %d' % (i, yCenter))
+            self.log.info('fiberTrace %d: yLow = %d' % (i, yLow))
+            self.log.info('fiberTrace %d: yHigh = %d' % (i, yHigh))
+            self.log.info('fiberTrace %d: yMin = %d' % (i, yMin))
+            self.log.info('fiberTrace %d: yMax = %d' % (i, yMax))
+            wLen = wLenTemp[ yMin + self.config.nRowsPrescan : yMax + self.config.nRowsPrescan + 1]
             wLenArr = np.ndarray(shape=wLen.shape, dtype='float32')
             print 'wLen = ',wLen.shape,': '
             for j in range(wLen.shape[0]):
                 wLenArr[j] = wLen[j]
+                self.log.info('wLenArr[%d] = %d' % (j, wLenArr[j]))
             print 'flatFiberTraceSet.getFiberTrace(',i,').getHeight() = ',flatFiberTraceSet.getFiberTrace(i).getHeight()
             wLenLines = lineListArr[:,0]
             wLenLinesArr = np.ndarray(shape=wLenLines.shape, dtype='float32')
@@ -278,7 +298,13 @@ class ReduceArcTask(CmdLineTask):
             print 'type(lineListPix) = ',type(lineListPix),': ',lineListPix.shape,': ',type(lineListPix[0])
             print 'type(wLenArr) = ',type(wLenArr),': ',type(wLenArr[0])
             print 'type(dispCorControl) = ',type(dispCorControl)
-            spec.identifyF(lineListPix, dispCorControl, 8)
+            try:
+                spec.identifyF(lineListPix, dispCorControl, 8)
+            except:
+                e = sys.exc_info()[1]
+                message = str.split(e.message, "\n")
+                for k in range(len(message)):
+                    print "element",k,": <",message[k],">"
 #            spec.identifyF(lineListArr, lineListPix, wLenArr, dispCorControl, 10)
             print "FiberTrace ",i,": spec.getDispCoeffs() = ",spec.getDispCoeffs()
             print "FiberTrace ",i,": spec.getDispRms() = ",spec.getDispRms()

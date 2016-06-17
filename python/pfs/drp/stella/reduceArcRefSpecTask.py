@@ -255,6 +255,8 @@ class ReduceArcRefSpecTask(CmdLineTask):
                 print 'setSpectrum for spectrumSetFromProfile[',i,'] failed'
             print 'spectrumSetFromProfile.getSpectrum(',i,').getWavelength() = ',spectrumSetFromProfile.getSpectrum(i).getWavelength()
             print 'spectrumSetFromProfile.getSpectrum(',i,').getDispCoeffs() = ',spectrumSetFromProfile.getSpectrum(i).getDispCoeffs()
+            for j in range(specSpec.shape[0]):
+                self.log.info('spectrum %d: spec.getWavelength()[%d] = %f' % (i,j,spec.getWavelength()[j]))
 
         if False:
             xPixMinMax = np.ndarray(2, dtype='float32')
