@@ -18,15 +18,6 @@ import matplotlib.pyplot as plt
 
 class ReduceArcRefSpecConfig(Config):
     """Configuration for reducing arc images"""
-    #directoryRoot = Field( dtype = str, default="", doc = "root directory for butler" )
-    #flatVisit = Field( dtype = int, default = 0, doc = "visit number of flat exposure for tracing the fiber traces" )
-    #arcVisit = Field( dtype = int, default = 0, doc = "visit number of arc exposure to extract and calibrate" )
-    #filter = Field( dtype = str, default="None", doc = "key for filter name in exposure/calib registries")
-    #spectrograph = Field( dtype = int, default = 1, doc = "spectrograph number (1-4)" )
-    #site = Field( dtype = str, default = "S", doc = "site (J: JHU, L: LAM, X: Subaru offline, I: IPMU, A: ASIAA, S: Summit, P: Princeton, F: simulation (fake))" )
-    #category = Field( dtype = str, default = "A", doc = "data category (A: science, B: UTR, C: Meterology, D: AG (auto guider))")
-    #refSpec = Field( dtype = str, default = " ", doc = "name of reference spectrum fits file")
-    #lineList = Field( dtype = str, default = " ", doc = "name of lineList fits file")
     function = Field( doc = "Function for fitting the dispersion", dtype=str, default="POLYNOMIAL" );
     order = Field( doc = "Fitting function order", dtype=int, default = 5 );
     searchRadius = Field( doc = "Radius in pixels relative to line list to search for emission line peak", dtype = int, default = 2 );
@@ -39,40 +30,6 @@ class ReduceArcRefSpecConfig(Config):
     nStretches = Field( doc = "Number of stretches between <stretchMinLength> and <stretchMaxLength>", dtype = int, default = 80 );
     refSpec = Field( doc = "reference reference spectrum including path", dtype = str, default="/Users/azuri/stella-git/obs_subaru/pfs/lineLists/refCdHgKrNeXe_red.fits");
     lineList = Field( doc = "reference line list including path", dtype = str, default="/Users/azuri/stella-git/obs_subaru/pfs/lineLists/CdHgKrNeXe_red.fits");
-#class ReduceArcIdAction(argparse.Action):
-#    """Split name=value pairs and put the result in a dict"""
-#    def __call__(self, parser, namespace, values, option_string):
-#        output = getattr(namespace, self.dest, {})
-#        for nameValue in values:
-#            name, sep, valueStr = nameValue.partition("=")
-#            if not valueStr:
-#                parser.error("%s value %s must be in form name=value" % (option_string, nameValue))
-#            output[name] = valueStr
-#        setattr(namespace, self.dest, output)
-
-#class ReduceArcArgumentParser(ArgumentParser):
-#    """Add a --flatId argument to the argument parser"""
-#    def __init__(self, *args, **kwargs):
-#        print 'ReduceArcArgumentParser.__init__: args = ',args
-#        print 'ReduceArcArgumentParser.__init__: kwargs = ',kwargs
-#        super(ReduceArcArgumentParser, self).__init__(*args, **kwargs)
-#        #self.calibName = calibName
-#        self.add_id_argument("--id", datasetType="postISRCCD",
-#                             help="input identifiers, e.g., --id visit=123 ccd=4")
-#        self.add_argument("--refSpec", help='directory and name of reference spectrum')
-#        self.add_argument("--lineList", help='directory and name of line list')
-#    def parse_args(self, *args, **kwargs):
-#        namespace = super(ReduceArcArgumentParser, self).parse_args(*args, **kwargs)
-#        print 'parse_args: namespace = ',namespace
-#        keys = namespace.butler.getKeys('postISRCCD')
-#        parsed = {}
-#        for name, value in namespace.flatId.items():
-#            if not name in keys:
-#                self.error("%s is not a relevant flat identifier key (%s)" % (name, keys))
-#            parsed[name] = keys[name](value)
-#        namespace.flatId = parsed
-
-#        return namespace
 
 class ReduceArcRefSpecTaskRunner(TaskRunner):
     """Get parsed values into the ReduceArcTask.run"""
@@ -80,7 +37,6 @@ class ReduceArcRefSpecTaskRunner(TaskRunner):
     def getTargetList(parsedCmd, **kwargs):
         print 'ReduceArcTask.getTargetList: kwargs = ',kwargs
         return [dict(expRefList=parsedCmd.id.refList, butler=parsedCmd.butler, refSpec=parsedCmd.refSpec, lineList=parsedCmd.lineList)]
-#        return [dict(expRefList=parsedCmd.id.refList, butler=parsedCmd.butler, flatId=parsedCmd.flatId, refSpec=parsedCmd.refSpec, lineList=parsedCmd.lineList)]
 
     def __call__(self, args):
         task = self.TaskClass(config=self.config, log=self.log)
@@ -92,7 +48,6 @@ class ReduceArcRefSpecTaskRunner(TaskRunner):
                 result = task.run(**args)
             except Exception, e:
                 task.log.fatal("Failed: %s" % e)
-#                traceback.print_exc(file=sys.stderr)
 
         if self.doReturnResults:
             return Struct(
@@ -161,16 +116,6 @@ class ReduceArcRefSpecTask(CmdLineTask):
         aperturesToExtract = [-1]
         spectrumSetFromProfile = myExtractTask.run(arcExp, flatFiberTraceSet, aperturesToExtract)
 
-#        fig = plt.figure()
-#        ax = fig.add_subplot(1, 1, 1)
-#        for i in range(spectrumSetFromProfile.size()):
-#            ax.plot(spectrumSetFromProfile.getSpectrum(i).getSpectrum(),'-+')
-#            plt.xlim(1450,1600)
-#            plt.ylim(0,8000)
-#        plt.show()
-#        plt.close(fig)
-#        fig.clf()
-        
         """ read line list """
         hdulist = pyfits.open(lineList)
         tbdata = hdulist[1].data
@@ -194,8 +139,6 @@ class ReduceArcRefSpecTask(CmdLineTask):
             ax = fig.add_subplot(1, 1, 1)
             ax.plot(ref,'-+')
             ax.plot(refSpecArr,'-+')
-#                plt.xlim(1450,1600)
-#                plt.ylim(0,8000)
             plt.show()
             plt.close(fig)
             fig.clf()
