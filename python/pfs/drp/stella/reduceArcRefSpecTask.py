@@ -228,7 +228,7 @@ class ReduceArcRefSpecTask(CmdLineTask):
         for i in range(spectrumSetFromProfile.size()):
             spec = spectrumSetFromProfile.getSpectrum(i)
             specSpec = spectrumSetFromProfile.getSpectrum(i).getSpectrum()
-            print 'calibrating spectrum ',i
+            print 'calibrating spectrum ',i,': xCenter = ',flatFiberTraceSet.getFiberTrace(i).getFiberTraceFunction().xCenter
             self.log.info('specSpec.shape = %d' % specSpec.shape)
             self.log.info('lineListArr.shape = [%d,%d]' % (lineListArr.shape[0], lineListArr.shape[1]))
             self.log.info('type(specSpec) = %s: <%s>' % (type(specSpec),type(specSpec[0])))
@@ -238,6 +238,8 @@ class ReduceArcRefSpecTask(CmdLineTask):
             #self.log.info("result.lineList = %g" % result.lineList)
             self.log.info('type(result.lineList) = %s: <%s>: <%s>' % (type(result.lineList),type(result.lineList[0]),type(result.lineList[0][0])))
             self.log.info('type(spectrumSetFromProfile.getSpectrum(i)) = %s: <%s>: <%s>' % (type(spectrumSetFromProfile.getSpectrum(i)),type(spectrumSetFromProfile.getSpectrum(i).getSpectrum()),type(spectrumSetFromProfile.getSpectrum(i).getSpectrum()[0])))
+            for j in range(result.lineList.shape[0]):
+                print 'result.lineList[',j,'][*] = ',result.lineList[j][0],' ',result.lineList[j][1]
             spec.identifyF(result.lineList, dispCorControl, 8)
             print "FiberTrace ",i,": spec.getDispCoeffs() = ",spec.getDispCoeffs()
             print "FiberTrace ",i,": spec.getDispRms() = ",spec.getDispRms()
@@ -251,18 +253,10 @@ class ReduceArcRefSpecTask(CmdLineTask):
                 print 'setSpectrum for spectrumSetFromProfile[',i,'] done'
             else:
                 print 'setSpectrum for spectrumSetFromProfile[',i,'] failed'
-#            if spectrumSetFromProfile.getSpectrum(i).setWavelength( spec.getWavelength() ):
-#                print 'set wavelength for spectrumSetFromProfile.getSpectrum(i) done'
-#            else:
-#                print 'set wavelength for spectrumSetFromProfile.getSpectrum(i) failed'
-#            if spectrumSetFromProfile.getSpectrum(i).setDispCoeffs( spec.getDispCoeffs() ):
-#                print 'set dispCoeffs for spectrumSetFromProfile.getSpectrum(i) done'
-#            else:
-#                print 'set dispCoeffs for spectrumSetFromProfile.getSpectrum(i) failed'
             print 'spectrumSetFromProfile.getSpectrum(',i,').getWavelength() = ',spectrumSetFromProfile.getSpectrum(i).getWavelength()
             print 'spectrumSetFromProfile.getSpectrum(',i,').getDispCoeffs() = ',spectrumSetFromProfile.getSpectrum(i).getDispCoeffs()
 
-        if True:
+        if False:
             xPixMinMax = np.ndarray(2, dtype='float32')
             xPixMinMax[0] = 1000.
             xPixMinMax[1] = 1600.
@@ -279,7 +273,7 @@ class ReduceArcRefSpecTask(CmdLineTask):
             fig.savefig('/Users/azuri/entwicklung/tex/talks/PFS-pipeline_Princeton_May2016/images/flux_vs_pix.pdf')
             fig.clf()
             
-        if True:
+        if False:
             xMinMax = drpStella.poly(xPixMinMax, spec.getDispCoeffs())
             fig = plt.figure()
             ax = fig.add_subplot(1, 1, 1)

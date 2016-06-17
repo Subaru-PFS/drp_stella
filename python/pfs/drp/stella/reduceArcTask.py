@@ -1,4 +1,4 @@
-#/Users/azuri/stella-git/drp_stella/bin.src/reduceArc.py '/Volumes/My Passport/data/spectra/pfs/PFS' --id visit=4 filter='PFS-R' spectrograph=2 site='F' category='A' --refSpec '/Users/azuri/stella-git/obs_subaru/pfs/lineLists/refCdHgKrNeXe_red.fits' --lineList '/Users/azuri/stella-git/obs_subaru/pfs/lineLists/CdHgKrNeXe_red.fits' --loglevel 'info'
+#/Users/azuri/stella-git/drp_stella/bin.src/reduceArc.py '/Users/azuri/spectra/pfs/PFS' --id visit=4 --wLenFile '/Users/azuri/stella-git/obs_pfs/pfs/RedFiberPixels.fits.gz' --lineList '/Users/azuri/stella-git/obs_pfs/pfs/lineLists/CdHgKrNeXe_red.fits' --loglevel 'info' --calib '/Users/azuri/spectra/pfs/PFS/CALIB/' --output '/Users/azuri/spectra/pfs/PFS'
 import os
 import sys
 import argparse
@@ -31,6 +31,7 @@ class ReduceArcConfig(Config):
     order = Field( doc = "Fitting function order", dtype=int, default = 5 );
     searchRadius = Field( doc = "Radius in pixels relative to line list to search for emission line peak", dtype = int, default = 2 );
     fwhm = Field( doc = "FWHM of emission lines", dtype=float, default = 2.6 );
+    nRowsPrescan = Field( doc = "Number of prescan rows in raw CCD image", dtype=int, default = 49 );
 #    radiusXCor = Field( doc = "Radius in pixels in which to cross correlate a spectrum relative to the reference spectrum", dtype = int, default = 50 );
 #    lengthPieces = Field( doc = "Length of pieces of spectrum to match to reference spectrum by stretching and shifting", dtype = int, default = 500 );
 #    nCalcs = Field( doc = "Number of iterations > spectrumLength / lengthPieces, e.g. spectrum length is 3800 pixels, <lengthPieces> = 500, <nCalcs> = 15: run 1: pixels 0-499, run 2: 249-749,...", dtype = int, default = 15 );
@@ -159,11 +160,12 @@ class ReduceArcTask(CmdLineTask):
         """ read wavelength file """
         hdulist = pyfits.open(wLenFile)
         tbdata = hdulist[1].data
-        traceIds = np.ndarray(shape=(len(tbdata)), dtype='int')
+        traceIdsTemp = np.ndarray(shape=(len(tbdata)), dtype='int')
         xCenters = np.ndarray(shape=(len(tbdata)), dtype='float32')
         yCenters = np.ndarray(shape=(len(tbdata)), dtype='float32')
         wavelengths = np.ndarray(shape=(len(tbdata)), dtype='float32')
-        traceIds[:] = tbdata[:]['fiberNum']
+        traceIdsTemp[:] = tbdata[:]['fiberNum']
+        traceIds = traceIdsTemp.astype('int32')
         wavelengths[:] = tbdata[:]['pixelWave']
         xCenters[:] = tbdata[:]['xc']
         yCenters[:] = tbdata[:]['yc']
@@ -173,7 +175,11 @@ class ReduceArcTask(CmdLineTask):
         print 'type(traceIds) = ',type(traceIds),': ',type(traceIds[0])
         print 'type(xCenters) = ',type(xCenters),': ',type(xCenters[0])
         print 'type(yCenters) = ',type(yCenters),': ',type(yCenters[0])
+        for i in range( flatFiberTraceSet.size() ):
+            print 'flatFiberTraceSet.getFiberTrace(',i,').getITrace() = ',flatFiberTraceSet.getFiberTrace(i).getITrace()
         success = drpStella.assignITrace( flatFiberTraceSet, traceIds, xCenters, yCenters )
+        for i in range( flatFiberTraceSet.size() ):
+            print 'after assignITrace: flatFiberTraceSet.getFiberTrace(',i,').getITrace() = ',flatFiberTraceSet.getFiberTrace(i).getITrace()
 
         if success == False:
             print 'assignITrace FAILED'
@@ -200,7 +206,9 @@ class ReduceArcTask(CmdLineTask):
         tbdata = hdulist[1].data
         lineListArr = np.ndarray(shape=(len(tbdata),2), dtype='float32')
         lineListArr[:,0] = tbdata.field(0)
+        print 'lineListArr[:,0] = ',lineListArr[:,0]
         lineListArr[:,1] = tbdata.field(1)
+        print 'lineListArr[:,1] = ',lineListArr[:,1]
         
         dispCorControl = drpStella.DispCorControl()
         dispCorControl.fittingFunction = self.config.function
@@ -227,26 +235,57 @@ class ReduceArcTask(CmdLineTask):
         for i in range(spectrumSetFromProfile.size()):
             spec = spectrumSetFromProfile.getSpectrum(i)
             specSpec = spec.getSpectrum()
-            print 'calibrating spectrum ',i
+            print 'calibrating spectrum ',i,': xCenter = ',flatFiberTraceSet.getFiberTrace(i).getFiberTraceFunction().xCenter
             self.log.info('yCenters.shape = %d' % yCenters.shape)
             self.log.info('specSpec.shape = %d' % specSpec.shape)
             self.log.info('lineListArr.shape = [%d,%d]' % (lineListArr.shape[0], lineListArr.shape[1]))
             self.log.info('type(specSpec) = %s: <%s>' % (type(specSpec),type(specSpec[0])))
             self.log.info('type(lineListArr) = %s: <%s>' % (type(lineListArr),type(lineListArr[0][0])))
-            #self.log.info("result.lineList = %g" % result.lineList)
-            self.log.info('type(result.lineList) = %s: <%s>: <%s>' % (type(result.lineList),type(result.lineList[0]),type(result.lineList[0][0])))
             self.log.info('type(spec) = %s: <%s>: <%s>' % (type(spec),type(spec.getSpectrum()),type(spec.getSpectrum()[0])))
-            lineList = drpStella.createLineList()
-            spec.identifyF(result.lineList, dispCorControl, 10)
+            
+            traceId = spec.getITrace()
+            print 'traceId = ',traceId
+            wLenTemp = np.ndarray( shape = traceIds.shape[0] / np.unique(traceIds).shape[0], dtype='float32' )
+            k = 0
+            l = -1
+            for j in range(traceIds.shape[0]):
+                if traceIds[j] != l:
+                    l = traceIds[j]
+                if traceIds[j] == traceIds[traceId]:
+                    wLenTemp[k] = wavelengths[j]
+                    print 'wLenTemp[',k,'] = ',wLenTemp[k]
+                    k = k+1
+                  
+            """cut off both ends of wavelengths where is no signal"""
+            yCenter = flatFiberTraceSet.getFiberTrace(i).getFiberTraceFunction().yCenter
+            yLow = flatFiberTraceSet.getFiberTrace(i).getFiberTraceFunction().yLow
+            yHigh = flatFiberTraceSet.getFiberTrace(i).getFiberTraceFunction().yHigh
+            wLen = wLenTemp[ yCenter + yLow + self.config.nRowsPrescan : yCenter + yHigh + self.config.nRowsPrescan + 1]
+            wLenArr = np.ndarray(shape=wLen.shape, dtype='float32')
+            print 'wLen = ',wLen.shape,': '
+            for j in range(wLen.shape[0]):
+                wLenArr[j] = wLen[j]
+            print 'flatFiberTraceSet.getFiberTrace(',i,').getHeight() = ',flatFiberTraceSet.getFiberTrace(i).getHeight()
+            wLenLines = lineListArr[:,0]
+            wLenLinesArr = np.ndarray(shape=wLenLines.shape, dtype='float32')
+            print 'type(wLen) = ',type(wLen),': ',type(wLen[0]),': ',wLen.shape
+            print 'type(wLenLines) = ',type(wLenLines),': ',type(wLenLines[0]),': ',wLenLines.shape
+            for j in range(wLenLines.shape[0]):
+                wLenLinesArr[j] = wLenLines[j]
+            lineListPix = drpStella.createLineList(wLenArr, wLenLinesArr)
+            print 'lineListPix = ',lineListPix
+            print 'type(lineListArr) = ',type(lineListArr),': ',lineListArr.shape,': ',type(lineListArr[0][0])
+            print 'type(lineListPix) = ',type(lineListPix),': ',lineListPix.shape,': ',type(lineListPix[0])
+            print 'type(wLenArr) = ',type(wLenArr),': ',type(wLenArr[0])
+            print 'type(dispCorControl) = ',type(dispCorControl)
+            spec.identifyF(lineListPix, dispCorControl, 8)
+#            spec.identifyF(lineListArr, lineListPix, wLenArr, dispCorControl, 10)
             print "FiberTrace ",i,": spec.getDispCoeffs() = ",spec.getDispCoeffs()
             print "FiberTrace ",i,": spec.getDispRms() = ",spec.getDispRms()
             if spectrumSetFromProfile.setSpectrum(i, spec ):
                 print 'setSpectrum for spectrumSetFromProfile[',i,'] done'
             else:
                 print 'setSpectrum for spectrumSetFromProfile[',i,'] failed'
-            print 'spectrumSetFromProfile.getSpectrum(',i,').getWavelength() = ',spectrumSetFromProfile.getSpectrum(i).getWavelength()
-            print 'spectrumSetFromProfile.getSpectrum(',i,').getSpectrum() = ',spectrumSetFromProfile.getSpectrum(i).getSpectrum()
-            print 'spectrumSetFromProfile.getSpectrum(',i,').getDispCoeffs() = ',spectrumSetFromProfile.getSpectrum(i).getDispCoeffs()
 
         if True:
             xPixMinMax = np.ndarray(2, dtype='float32')

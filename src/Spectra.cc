@@ -703,9 +703,9 @@ namespace pfs { namespace drp { namespace stella { namespace math {
       return stretchAndCrossCorrelateSpecResult;
     }
     
-    template< typename T >
-    ndarray::Array< T, 2, 1 > createLineList( ndarray::Array< T, 1, 1 > const& wLen,
-                                              ndarray::Array< T, 1, 1 > const& lines ){
+    template< typename T, int I >
+    ndarray::Array< T, 2, 1 > createLineList( ndarray::Array< T, 1, I > const& wLen,
+                                              ndarray::Array< T, 1, I > const& linesWLen ){
       ndarray::Array< size_t, 1, 1 > ind = pfsDRPStella::math::getIndicesInValueRange( wLen, T( 1 ), T( 15000 ) );
       ndarray::Array< T, 1, 1 > indT = ndarray::allocate( ind.getShape()[ 0 ] );
       indT.deep() = ind;
@@ -721,25 +721,30 @@ namespace pfs { namespace drp { namespace stella { namespace math {
       std::vector< std::string > args( 1 );
 //      args[ 0 ] = "SPLINE";
       #ifdef __DEBUG_CREATELINELIST__
-        cout << "Spectra::createLineList: lines = " << lines.getShape() << ": " << lines << endl;
+        cout << "Spectra::createLineList: intT = " << indT.getShape() << ": " << indT << endl;
+        cout << "Spectra::createLineList: wavelengths = " << wavelengths.getShape() << ": " << wavelengths << endl;
+        cout << "Spectra::createLineList: linesWLen = " << linesWLen.getShape() << ": " << linesWLen << endl;
+        cout << "Spectra::createLineList: args = " << args.size() << endl;
       #endif
-      ndarray::Array< T, 1, 1 > pix = pfsDRPStella::math::interPol( indT, wavelengths, lines, args );
+      ndarray::Array< T, 1, 1 > linesPix = pfsDRPStella::math::interPol( indT, wavelengths, linesWLen, args );
       #ifdef __DEBUG_CREATELINELIST__
-        cout << "Spectra::createLineList: pix = " << pix.getShape() << ": " << pix << endl;
+        cout << "Spectra::createLineList: linesWLen = " << linesWLen.getShape() << ": " << linesWLen << endl;
       #endif
-      ndarray::Array< T, 2, 1 > out = ndarray::allocate( lines.getShape()[ 0 ], 2 );
+      ndarray::Array< T, 2, 1 > out = ndarray::allocate( linesWLen.getShape()[ 0 ], 2 );
       #ifdef __DEBUG_CREATELINELIST__
         cout << "Spectra::createLineList: out = " << out.getShape() << endl;
         cout << "Spectra::createLineList: out[ ndarray::view( )( 0 ) ].getShape() = " << out[ ndarray::view( )( 0 ) ].getShape() << endl;
       #endif
-      out[ ndarray::view( )( 0 ) ] = lines;//[ ndarray::view( ) ];
-      out[ ndarray::view( )( 1 ) ] = pix;//[ ndarray::view( ) ];
+      out[ ndarray::view( )( 0 ) ] = linesWLen;//[ ndarray::view( ) ];
+      out[ ndarray::view( )( 1 ) ] = linesPix;//[ ndarray::view( ) ];
       #ifdef __DEBUG_CREATELINELIST__
         cout << "Spectra::createLineList: out = " << out << endl;
       #endif
       return out;
     }
     
+    template ndarray::Array< float, 2, 1 > createLineList( ndarray::Array< float, 1, 0 > const&, ndarray::Array< float, 1, 0 > const& );
+    template ndarray::Array< double, 2, 1 > createLineList( ndarray::Array< double, 1, 0 > const&, ndarray::Array< double, 1, 0 > const& );
     template ndarray::Array< float, 2, 1 > createLineList( ndarray::Array< float, 1, 1 > const&, ndarray::Array< float, 1, 1 > const& );
     template ndarray::Array< double, 2, 1 > createLineList( ndarray::Array< double, 1, 1 > const&, ndarray::Array< double, 1, 1 > const& );
     

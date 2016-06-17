@@ -488,15 +488,25 @@
       return outArr;
     }
     
-    template<typename T>
-    ndarray::Array<size_t, 1, 1> getIndicesInValueRange(ndarray::Array<T, 1, 1> const& arr_In, T const lowRange_In, T const highRange_In){
+    template<typename T, int I>
+    ndarray::Array<size_t, 1, 1> getIndicesInValueRange(ndarray::Array<T, 1, I> const& arr_In, T const lowRange_In, T const highRange_In){
       std::vector<size_t> indices;
       size_t pos = 0;
-      for (auto it = arr_In.begin(); it != arr_In.end(); ++it){
-        if ((lowRange_In <= *it) && (*it < highRange_In)){
-          indices.push_back(pos);
+      if ( I == 1 ){
+        for (auto it = arr_In.begin(); it != arr_In.end(); ++it){
+          if ((lowRange_In <= *it) && (*it < highRange_In)){
+            indices.push_back(pos);
+          }
+          ++pos;
         }
-        ++pos;
+      }
+      else{
+        for (int i = 0; i != arr_In.getShape()[0]; ++i){
+          if ((lowRange_In <= arr_In[ i ] ) && ( arr_In[ i ] < highRange_In)){
+            indices.push_back(pos);
+          }
+          ++pos;
+        }
       }
       ndarray::Array<size_t, 1, 1> arr_Out = ndarray::allocate(indices.size());
       auto itVec = indices.begin();
@@ -1922,11 +1932,11 @@
       return D_Out;
     }
 
-    template< typename T >    
+    template< typename T, int I >    
     ndarray::Array< T, 1, 1 > hInterPol( ndarray::Array< T, 1, 1 > const& VVecArr,
                                          ndarray::Array< T, 1, 1 > const& XVecArr,
                                          ndarray::Array< int, 1, 1 > & SVecArr,
-                                         ndarray::Array< T, 1, 1 > const& UVecArr,
+                                         ndarray::Array< T, 1, I > const& UVecArr,
                                          std::vector< string > const& CS_A1_In){
 //                    ndarray::Array< T, 1, 1 > & D1_Out){
       #ifdef __DEBUG_INTERPOL__
@@ -2415,10 +2425,10 @@
                        false);
     }
 
-    template< typename T >
+    template< typename T, int I >
     ndarray::Array< T, 1, 1 > interPol( ndarray::Array< T, 1, 1 > const& VVecArr,
                                         ndarray::Array< T, 1, 1 > const& XVecArr,
-                                        ndarray::Array< T, 1, 1 > const& UVecArr,
+                                        ndarray::Array< T, 1, I > const& UVecArr,
                                         bool B_PreserveFlux){
       std::vector< std::string > cs_a1(1);
       cs_a1[ 0 ] = std::string(" ");
@@ -2547,10 +2557,10 @@
                        cs_a1 );
     }
 
-    template< typename T >
+    template< typename T, int I >
     ndarray::Array< T, 1, 1 > interPol( ndarray::Array< T, 1, 1 > const& VVecArr,
                                         ndarray::Array< T, 1, 1 > const& XVecArr,
-                                        ndarray::Array< T, 1, 1 > const& UVecArr,
+                                        ndarray::Array< T, 1, I > const& UVecArr,
                                         std::vector< std::string > const& CS_A1_In ){
       #ifdef __DEBUG_INTERPOL__
         cout << "CFits::InterPol: VVecArr.size() = " << VVecArr.getShape()[ 0 ] << endl;
@@ -2602,9 +2612,9 @@
                         CS_A1_In );
     }
     
-    template< typename T >
+    template< typename T, int I >
     ndarray::Array< int, 1, 1 > valueLocate( ndarray::Array< T, 1, 1 > const& VecArr, 
-                                             ndarray::Array< T, 1, 1 > const& ValVecArr){
+                                             ndarray::Array< T, 1, I > const& ValVecArr){
       #ifdef __DEBUG_INTERPOL__
         cout << "CFits::ValueLocate: VecArr = " << VecArr << endl;
         cout << "CFits::ValueLocate: ValVecArr = " << ValVecArr << endl;
@@ -3025,6 +3035,14 @@
     
     template ndarray::Array< float, 1, 1 > interPol( ndarray::Array< float, 1, 1 > const&,
                                                      ndarray::Array< float, 1, 1 > const&,
+                                                     ndarray::Array< float, 1, 0 > const&,
+                                                     bool );
+    template ndarray::Array< double, 1, 1 > interPol( ndarray::Array< double, 1, 1 > const&,
+                                                      ndarray::Array< double, 1, 1 > const&,
+                                                      ndarray::Array< double, 1, 0 > const&,
+                                                      bool );
+    template ndarray::Array< float, 1, 1 > interPol( ndarray::Array< float, 1, 1 > const&,
+                                                     ndarray::Array< float, 1, 1 > const&,
                                                      ndarray::Array< float, 1, 1 > const&,
                                                      bool );
     template ndarray::Array< double, 1, 1 > interPol( ndarray::Array< double, 1, 1 > const&,
@@ -3032,6 +3050,14 @@
                                                       ndarray::Array< double, 1, 1 > const&,
                                                       bool );
     
+    template ndarray::Array< float, 1, 1 > interPol( ndarray::Array< float, 1, 1 > const&,
+                                                     ndarray::Array< float, 1, 1 > const&,
+                                                     ndarray::Array< float, 1, 0 > const&,
+                                                     std::vector< std::string > const& );
+    template ndarray::Array< double, 1, 1 > interPol( ndarray::Array< double, 1, 1 > const&,
+                                                      ndarray::Array< double, 1, 1 > const&,
+                                                      ndarray::Array< double, 1, 0 > const&,
+                                                      std::vector< std::string > const& );
     template ndarray::Array< float, 1, 1 > interPol( ndarray::Array< float, 1, 1 > const&,
                                                      ndarray::Array< float, 1, 1 > const&,
                                                      ndarray::Array< float, 1, 1 > const&,
@@ -3042,10 +3068,28 @@
                                                       std::vector< std::string > const& );
     
     template ndarray::Array< int, 1, 1 > valueLocate( ndarray::Array< double, 1, 1 > const&, 
+                                                      ndarray::Array< double, 1, 0 > const&);
+    template ndarray::Array< int, 1, 1 > valueLocate( ndarray::Array< float, 1, 1 > const&, 
+                                                      ndarray::Array< float, 1, 0 > const&);
+    template ndarray::Array< int, 1, 1 > valueLocate( ndarray::Array< int, 1, 1 > const&, 
+                                                      ndarray::Array< int, 1, 0 > const&);
+    template ndarray::Array< int, 1, 1 > valueLocate( ndarray::Array< double, 1, 1 > const&, 
                                                       ndarray::Array< double, 1, 1 > const&);
+    template ndarray::Array< int, 1, 1 > valueLocate( ndarray::Array< float, 1, 1 > const&, 
+                                                      ndarray::Array< float, 1, 1 > const&);
     template ndarray::Array< int, 1, 1 > valueLocate( ndarray::Array< int, 1, 1 > const&, 
                                                       ndarray::Array< int, 1, 1 > const&);
     
+    template ndarray::Array< float, 1, 1 > hInterPol( ndarray::Array< float, 1, 1 > const&,
+                                                      ndarray::Array< float, 1, 1 > const&,
+                                                      ndarray::Array< int, 1, 1 > &,
+                                                      ndarray::Array< float, 1, 0 > const&,
+                                                      std::vector< std::string > const& );
+    template ndarray::Array< double, 1, 1 > hInterPol( ndarray::Array< double, 1, 1 > const&,
+                                                       ndarray::Array< double, 1, 1 > const&,
+                                                       ndarray::Array< int, 1, 1 > &,
+                                                       ndarray::Array< double, 1, 0 > const&,
+                                                       std::vector< std::string > const& );
     template ndarray::Array< float, 1, 1 > hInterPol( ndarray::Array< float, 1, 1 > const&,
                                                       ndarray::Array< float, 1, 1 > const&,
                                                       ndarray::Array< int, 1, 1 > &,
@@ -3491,6 +3535,12 @@
     template ndarray::Array< size_t, 2, 1 > getIndices(ndarray::Array< long, 2, 1 > const&);
     template ndarray::Array< size_t, 2, 1 > getIndices(ndarray::Array< float, 2, 1 > const&);
     template ndarray::Array< size_t, 2, 1 > getIndices(ndarray::Array< double, 2, 1 > const&);
+
+    template ndarray::Array<size_t, 1, 1> getIndicesInValueRange(ndarray::Array<size_t, 1, 0> const&, size_t const, size_t const);
+    template ndarray::Array<size_t, 1, 1> getIndicesInValueRange(ndarray::Array<int, 1, 0> const&, int const, int const);
+    template ndarray::Array<size_t, 1, 1> getIndicesInValueRange(ndarray::Array<long, 1, 0> const&, long const, long const);
+    template ndarray::Array<size_t, 1, 1> getIndicesInValueRange(ndarray::Array<float, 1, 0> const&, float const, float const);
+    template ndarray::Array<size_t, 1, 1> getIndicesInValueRange(ndarray::Array<double, 1, 0> const&, double const, double const);
 
     template ndarray::Array<size_t, 1, 1> getIndicesInValueRange(ndarray::Array<size_t, 1, 1> const&, size_t const, size_t const);
     template ndarray::Array<size_t, 1, 1> getIndicesInValueRange(ndarray::Array<int, 1, 1> const&, int const, int const);

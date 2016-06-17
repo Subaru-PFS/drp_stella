@@ -164,16 +164,31 @@ Interface to Stella
 //%template(PSFSetVectorD) std::vector<PTR(pfs::drp::stella::PSFSet<double>)>;
 
 %include "pfs/drp/stella/Spectra.h"
-%template(SpecVectorF) std::vector<PTR(pfs::drp::stella::Spectrum<float, unsigned short, float, float>)>;
-%template(SpecVectorD) std::vector<PTR(pfs::drp::stella::Spectrum<double, unsigned short, float, float>)>;
-%template(SpecVectorFI) std::vector<PTR(pfs::drp::stella::Spectrum<float, unsigned int, float, float>)>;
-%template(SpecVectorDI) std::vector<PTR(pfs::drp::stella::Spectrum<double, unsigned int, float, float>)>;
+%include "pfs/drp/stella/Controls.h"
+
+%extend pfs::drp::stella::Spectrum{
+    %template(identifyF) identify<float>;
+    %template(identifyD) identify<double>;
+}
+
+%template(SpectrumF) pfs::drp::stella::Spectrum<float, unsigned short, float, float>;
+%template(SpectrumD) pfs::drp::stella::Spectrum<double, unsigned short, float, float>;
+//%template(SpectrumFI) pfs::drp::stella::Spectrum<float, unsigned int, float, float>;
+//%template(SpectrumDI) pfs::drp::stella::Spectrum<double, unsigned int, float, float>;
+
+%template(SpecPtrVectorF) std::vector<PTR(pfs::drp::stella::Spectrum<float, unsigned short, float, float>)>;
+%template(SpecPtrVectorD) std::vector<PTR(pfs::drp::stella::Spectrum<double, unsigned short, float, float>)>;
+//%template(SpecPtrVectorFI) std::vector<PTR(pfs::drp::stella::Spectrum<float, unsigned int, float, float>)>;
+//%template(SpecPtrVectorDI) std::vector<PTR(pfs::drp::stella::Spectrum<double, unsigned int, float, float>)>;
+%template(SpecVectorF) std::vector<pfs::drp::stella::Spectrum<float, unsigned short, float, float>>;
+%template(SpecVectorD) std::vector<pfs::drp::stella::Spectrum<double, unsigned short, float, float>>;
+//%template(SpecVectorFI) std::vector<pfs::drp::stella::Spectrum<float, unsigned int, float, float>>;
+//%template(SpecVectorDI) std::vector<pfs::drp::stella::Spectrum<double, unsigned int, float, float>>;
 
 %include "pfs/drp/stella/utils/Utils.h"
 %include "pfs/drp/stella/math/Math.h"
 %include "pfs/drp/stella/math/CurveFitting.h"
 %include "pfs/drp/stella/math/SurfaceFitting.h"
-%include "pfs/drp/stella/Controls.h"
 //%include "pfs/drp/stella/SurfaceFit.h"
 %include "lsst/"
 
@@ -198,16 +213,6 @@ Interface to Stella
 
 //%template(PSFSetF) pfs::drp::stella::PSFSet<float>;
 //%template(PSFSetD) pfs::drp::stella::PSFSet<double>;
-
-%extend pfs::drp::stella::Spectrum{
-    %template(identifyF) identify<float>;
-    %template(identifyD) identify<double>;
-}
-
-%template(SpectrumF) pfs::drp::stella::Spectrum<float, unsigned short, float, float>;
-%template(SpectrumD) pfs::drp::stella::Spectrum<double, unsigned short, float, float>;
-//%template(SpectrumFI) pfs::drp::stella::Spectrum<float, unsigned int, float, float>;
-//%template(SpectrumDI) pfs::drp::stella::Spectrum<double, unsigned int, float, float>;
 
 %extend pfs::drp::stella::SpectrumSet{
     %feature("shadow") writeFits %{
@@ -624,5 +629,18 @@ Interface to Stella
 %template(assignITrace) pfs::drp::stella::math::assignITrace< float, unsigned short, float, long int, float, 1 >;
 %template(assignITrace) pfs::drp::stella::math::assignITrace< float, unsigned short, float, long int, double, 1 >;
 
-%template(createLineList) pfs::drp::stella::math::createLineList< float >;
-%template(createLineList) pfs::drp::stella::math::createLineList< double >;
+%template(unique) pfs::drp::stella::math::unique<unsigned long, 0>;
+%template(unique) pfs::drp::stella::math::unique<short int, 0>;
+%template(unique) pfs::drp::stella::math::unique<long int, 0>;
+%template(unique) pfs::drp::stella::math::unique<float, 0>;
+%template(unique) pfs::drp::stella::math::unique<double, 0>;
+%template(unique) pfs::drp::stella::math::unique<unsigned long, 1>;
+%template(unique) pfs::drp::stella::math::unique<short int, 1>;
+%template(unique) pfs::drp::stella::math::unique<long int, 1>;
+%template(unique) pfs::drp::stella::math::unique<float, 1>;
+%template(unique) pfs::drp::stella::math::unique<double, 1>;
+
+%template(createLineList) pfs::drp::stella::math::createLineList< float, 0 >;
+%template(createLineList) pfs::drp::stella::math::createLineList< double, 0 >;
+%template(createLineList) pfs::drp::stella::math::createLineList< float, 1 >;
+%template(createLineList) pfs::drp::stella::math::createLineList< double, 1 >;

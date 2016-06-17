@@ -29,7 +29,7 @@
 #define stringify( name ) # name
 
 //#define __DEBUG_IDENTIFY__
-#define __DEBUG_SETLENGTH__
+//#define __DEBUG_SETLENGTH__
 //#define __DEBUG_STRETCHANDCROSSCORRELATESPEC__
 //#define __DEBUG_STRETCHANDCROSSCORRELATESPEC_LINELIST__
 //#define __DEBUG_CREATELINELIST__
@@ -141,7 +141,7 @@ class Spectrum {
   
     /**
       * @brief: Identifies calibration lines, given in D_A2_LineList_In the format [wlen, approx_pixel] in
-      * wavelength-calibration spectrum D_A2_Spec_In [pixel_number, flux]
+      * wavelength-calibration spectrum
       * within the given position plus/minus I_Radius_In,
       * fits Gaussians to each line, fits Polynomial of order I_PolyFitOrder_In, and
       * writes _wavelength and PolyFit coefficients to _dispCoeffs
@@ -157,15 +157,15 @@ class Spectrum {
       * within the given position plus/minus I_Radius_In,
       * fits Gaussians to each line, fits Polynomial of order I_PolyFitOrder_In, and
       * writes _wavelength and PolyFit coefficients to _dispCoeffs
-      * @param lineList             :: [ nLines, 2 ]: [ wLen, approx_pixel ]
-      * @param predicted            :: [ nLines ]: predicted pixel position for each line from the zemax model
+      * @param lineList             :: [ nLines, 2 ]: [ wLen, approx_pixel (predicted) ]
+//      * @param predicted            :: [ nLines ]: predicted pixel position for each line from the zemax model
       * @param predictedWLenAllPix  :: [ nRows in spectrum (yHigh - yLow): predicted wavelength from the zemax model
       * @param dispCorControl       :: parameters controlling the dispersion fitting
       * @param nLinesCheck          :: hold back this many lines from the fit to check the quality of the wavelength solution
       **/
     template< typename T >
     bool identify( ndarray::Array< T, 2, 1 > const& lineList,
-                   ndarray::Array< T, 1, 0 > const& predicted,
+//                   ndarray::Array< T, 1, 0 > const& predicted,
                    ndarray::Array< T, 1, 0 > const& predictedWLenAllPix,
                    DispCorControl const& dispCorControl,
                    size_t nLinesCheck = 0 );
@@ -224,7 +224,7 @@ class SpectrumSet// : public lsst::daf::base::Persistable,
   public:
     /// Class Constructors and Destructor
       
-    /// Creates a new SpectrumSet object of size 0
+    /// Creates a new SpectrumSet object of size 'nSpectra' of length 'length'
     explicit SpectrumSet(size_t nSpectra=0, size_t length=0);
         
     /// Copy constructor
@@ -334,7 +334,8 @@ class SpectrumSet// : public lsst::daf::base::Persistable,
         _spectra.push_back( *spectrum );
     }
 
-    std::vector< Spectrum< SpectrumT, MaskT, VarianceT, WavelengthT > > getSpectra() const { return _spectra; }
+    const std::vector< Spectrum< SpectrumT, MaskT, VarianceT, WavelengthT > > getSpectra() const { return _spectra; }
+    std::vector< Spectrum< SpectrumT, MaskT, VarianceT, WavelengthT > > getSpectra() { return _spectra; }
 
     
     /// Removes from the vector either a single element (position) or a range of elements ([first,last)).
@@ -418,9 +419,9 @@ namespace math{
      * @param lines
      * @return array(lines.shape[0], 2) col 0: wavelength, col 1: pixel
      */
-    template< typename T >
-    ndarray::Array< T, 2, 1 > createLineList( ndarray::Array< T, 1, 1 > const& wLen,
-                                              ndarray::Array< T, 1, 1 > const& lines );
+    template< typename T, int I >
+    ndarray::Array< T, 2, 1 > createLineList( ndarray::Array< T, 1, I > const& wLen,
+                                              ndarray::Array< T, 1, I > const& lines );
 
 }
 

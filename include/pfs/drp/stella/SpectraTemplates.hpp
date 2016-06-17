@@ -527,7 +527,7 @@ bool pfs::drp::stella::Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>::ident
 template< typename SpectrumT, typename MaskT, typename VarianceT, typename WavelengthT >
 template< typename T >
 bool pfs::drp::stella::Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>::identify( ndarray::Array< T, 2, 1 > const& lineList,
-                                                                                     ndarray::Array< T, 1, 0 > const& predicted,
+//                                                                                     ndarray::Array< T, 1, 0 > const& predicted,
                                                                                      ndarray::Array< T, 1, 0 > const& predictedWLenAllPix,
                                                                                      pfs::drp::stella::DispCorControl const& dispCorControl,
                                                                                      size_t nLinesCheck ){
@@ -580,7 +580,7 @@ bool pfs::drp::stella::Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>::ident
                                                                              I_A1_IndexPos );
     cout << "Identify: found fittedWLenLinesFound = " << fittedWLenLinesFound << endl;
 
-    ndarray::Array< double, 1, 1 > predictedPos = ndarray::allocate( predicted.getShape()[ 0 ] );
+/*    ndarray::Array< double, 1, 1 > predictedPos = ndarray::allocate( predicted.getShape()[ 0 ] );
     predictedPos[ ndarray::view() ] = predicted[ ndarray::view() ];
 
     ndarray::Array< double, 1, 1 > predictedPosFound = math::getSubArray( predictedPos, 
@@ -634,7 +634,8 @@ bool pfs::drp::stella::Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>::ident
       cout << "======================================" << endl;
     }
     _isWavelengthSet = true;
-    return _isWavelengthSet;
+    return _isWavelengthSet;*/
+    return true;
 }
 
 template<typename ImageT, typename MaskT, typename VarianceT, typename WavelengthT>

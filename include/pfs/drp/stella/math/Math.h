@@ -291,8 +291,8 @@ namespace pfs { namespace drp { namespace stella {
      * @param[in] lowRange_In    :: lower range
      * @param[in] lowRange_In    :: upper range
      */
-    template< typename T >
-    ndarray::Array< size_t, 1, 1 > getIndicesInValueRange( ndarray::Array< T, 1, 1 > const& arr_In, 
+    template< typename T, int I >
+    ndarray::Array< size_t, 1, 1 > getIndicesInValueRange( ndarray::Array< T, 1, I > const& arr_In, 
                                                            T const lowRange_In, 
                                                            T const highRange_In );
     /*
@@ -606,11 +606,11 @@ namespace pfs { namespace drp { namespace stella {
                  ndarray::Array< T, 1, 1> const& Y2AVecArr, 
                  T X );
 
-    template< typename T >    
+    template< typename T, int I >    
     ndarray::Array< T, 1, 1 > hInterPol( ndarray::Array< T, 1, 1 > const& VVecArr,
                                          ndarray::Array< T, 1, 1 > const& XVecArr,
                                          ndarray::Array< int, 1, 1 > & SVecArr,
-                                         ndarray::Array< T, 1, 1 > const& UVecArr,
+                                         ndarray::Array< T, 1, I > const& UVecArr,
                                          std::vector< string > const& CS_A1_In);
 //                    ndarray::Array< T, 1, 1 > & D1_Out);
 
@@ -627,9 +627,9 @@ namespace pfs { namespace drp { namespace stella {
        if 0 <= j < N-1 VecArr(j+1) <= ValVecArr(i) < VecArr(j)
        if j = N-1      ValVecArr(i) < VecArr(N-1)
     **/
-    template< typename T >
+    template< typename T, int I >
     ndarray::Array< int, 1, 1 > valueLocate( ndarray::Array< T, 1, 1 > const& VecArr, 
-                                             ndarray::Array< T, 1, 1 > const& ValVecArr );
+                                             ndarray::Array< T, 1, I > const& ValVecArr );
 
     /**
       InterPol linear, not regular
@@ -639,10 +639,10 @@ namespace pfs { namespace drp { namespace stella {
                                         ndarray::Array< T, 1, 1 > const& XVecArr,
                                         ndarray::Array< T, 1, 1 > const& UVecArr );
   
-    template< typename T >
+    template< typename T, int I >
     ndarray::Array< T, 1, 1 > interPol( ndarray::Array< T, 1, 1 > const& VVecArr,
                                         ndarray::Array< T, 1, 1 > const& XVecArr,
-                                        ndarray::Array< T, 1, 1 > const& UVecArr,
+                                        ndarray::Array< T, 1, I > const& UVecArr,
                                         bool B_PreserveFlux );
   
     /**
@@ -757,10 +757,10 @@ namespace pfs { namespace drp { namespace stella {
       ;               QUADRATIC, and LSQUADRATIC keywords.
       ;-
       ;**/
-    template< typename T >
+    template< typename T, int I >
     ndarray::Array< T, 1, 1 > interPol( ndarray::Array< T, 1, 1 > const& VVecArr,
                                         ndarray::Array< T, 1, 1 > const& XVecArr,
-                                        ndarray::Array< T, 1, 1 > const& UVecArr,
+                                        ndarray::Array< T, 1, I > const& UVecArr,
                                         std::vector< std::string > const& CS_A1_In );
 
     template< typename T >

@@ -34,9 +34,9 @@ class SpectraTestCase(tests.TestCase):
     def setUp(self):
         latest = True
         if latest:
-            flatfile = "tests/PFFAr2_Flat_postISR.fits"#sampledFlatx2-IR-0-23.fits"
+            flatfile = "tests/data/postISRCCD/2016-01-12/v0000005/PFFAr2.fits"#sampledFlatx2-IR-0-23.fits"
             #combfile = "tests/sampledCombx2-IR-0-23.fits"
-            combfile = "tests/PFFAr2_Arc_postISR.fits"
+            combfile = "tests/data/postISRCCD/2016-01-12/v0000004/PFFAr2.fits"
         else:
             flatfile = "tests/sampledFlatx2-IR-0-23-5-10-nonoise.fits"
             combfile = "tests/sampledCombx2-IR-0-23-5-10-nonoise.fits"
@@ -242,10 +242,10 @@ class SpectraTestCase(tests.TestCase):
             self.assertFalse(spec.isWavelengthSet())
             
     def testSpectrumSetConstructors(self):
-        if False:
+        if True:
             """Test SpectrumSetConstructors"""
             """Test Standard Constructor"""
-            specSet = drpStella.SpectrumSet()
+            specSet = drpStella.SpectrumSetF()
             self.assertEqual(specSet.size(), 0)
 
             size = 3
@@ -285,10 +285,10 @@ class SpectraTestCase(tests.TestCase):
                 self.assertEqual(specSetV.getSpectrum(i).getITrace(), i)
             
     def testSpectrumSetAddSetErase(self):
-        if False:
+        if True:
             size = 3
             length = 100
-            specSet = drpStella.SpectrumSet(size, length)
+            specSet = drpStella.SpectrumSetF(size, length)
             spec = drpStella.SpectrumF(length)
             specNew = drpStella.SpectrumF(length+1)
 
@@ -309,7 +309,7 @@ class SpectraTestCase(tests.TestCase):
                 message = str.split(e.message, "\n")
                 for i in range(len(message)):
                     print "element",i,": <",message[i],">"
-                expected = "SpectrumSet::setSpectrum(i="+str(size+1)+"): ERROR: i > _spectra->size()="+str(size)
+                expected = "SpectrumSet::setSpectrum(i="+str(size+1)+"): ERROR: i > _spectra.size()="+str(size)
                 self.assertEqual(message[0],expected)
 
             """Test that we can set/add a spectrum"""
@@ -330,7 +330,7 @@ class SpectraTestCase(tests.TestCase):
                 message = str.split(e.message, "\n")
                 for i in range(len(message)):
                     print "element",i,": <",message[i],">"
-                expected = "SpectrumSet::erase(iStart="+str(size)+", iEnd=0): ERROR: iStart >= _spectra->size()="+str(size)
+                expected = "SpectrumSet::erase(iStart="+str(size)+", iEnd=0): ERROR: iStart >= _spectra.size()="+str(size)
                 self.assertEqual(message[0],expected)
 
             try:
@@ -340,7 +340,7 @@ class SpectraTestCase(tests.TestCase):
                 message = str.split(e.message, "\n")
                 for i in range(len(message)):
                     print "element",i,": <",message[i],">"
-                expected = "SpectrumSet::erase(iStart="+str(size-1)+", iEnd="+str(size)+"): ERROR: iEnd >= _spectra->size()="+str(size)
+                expected = "SpectrumSet::erase(iStart="+str(size-1)+", iEnd="+str(size)+"): ERROR: iEnd >= _spectra.size()="+str(size)
                 self.assertEqual(message[0],expected)
 
             try:
@@ -374,15 +374,20 @@ class SpectraTestCase(tests.TestCase):
             self.assertEqual(specSet.size(), size-4)
         
     def testGetSpectra(self):
-        if False:
+        if False:#FAILS because spectra is not recognized as a vector of Spectrum(s)
             """test getSpectra"""
             size = 3
             length = 100
-            specSet = drpStella.SpectrumSet(size,length)
-            self.assertEqual(specSet.getSpectra()[0].getSpectrum().shape[0], length)
+            specSet = drpStella.SpectrumSetF(size,length)
+            print 'specSet.size() = ',specSet.size()
+            spectra = specSet.getSpectra()
+            print 'spectra.size() = ',spectra.size()
+            print 'type(spectra[0]) = ',type(spectra[0])
+            print 'dir(spectra[0]) = ',dir(spectra[0])
+            self.assertEqual(spectra[0].getSpectrum().shape[0], length)
 
     def testWavelengthCalibration(self):
-        if False:
+        if True:
             print "testing wavelength calibration"
             fiberTraceSet = drpStella.findAndTraceAperturesF(self.flat.getMaskedImage(), self.ftffc)
             self.assertGreater(fiberTraceSet.size(), 0)
