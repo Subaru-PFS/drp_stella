@@ -1458,7 +1458,8 @@ namespace pfsDRPStella = pfs::drp::stella;
     pfsDRPStella::SpectrumSet<ImageT, MaskT, VarianceT, VarianceT> spectrumSet ( _traces->size() );
     for (size_t i = 0; i < _traces->size(); ++i){
       cout << "extracting FiberTrace " << i << endl;
-      spectrumSet.getSpectra()[i] = (*_traces)[i]->extractFromProfile();
+//      spectrumSet.getSpectra()[i] = (*_traces)[i]->extractFromProfile();
+      spectrumSet.setSpectrum(i, (*_traces)[i]->extractFromProfile());
     }
     return spectrumSet;
   }

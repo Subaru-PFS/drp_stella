@@ -310,10 +310,15 @@ class SpectrumSet// : public lsst::daf::base::Persistable,
     /// Return the number of spectra/apertures
     size_t size() const { return _spectra.size(); }
 
-    /// Return the Spectrum for the ith aperture
-    PTR(Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>) getSpectrum(const size_t i);
+    /** @brief  Return the Spectrum for the ith fiberTrace
+     *  @param i :: number of spectrum ( or number of respective FiberTrace ) to return
+     * **/
+    PTR( Spectrum< SpectrumT, MaskT, VarianceT, WavelengthT > ) getSpectrum( const size_t i );
 
-    const PTR( const Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>) getSpectrum(const size_t i) const;
+    /** @brief  Return the Spectrum for the ith fiberTrace
+     *  @param i :: number of spectrum ( or number of respective FiberTrace ) to return
+     * **/
+    PTR( Spectrum< SpectrumT, MaskT, VarianceT, WavelengthT > ) getSpectrum( const size_t i ) const;
 
     /**
      * @brief Set the ith Spectrum

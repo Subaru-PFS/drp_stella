@@ -18,62 +18,13 @@ import matplotlib.pyplot as plt
 
 class ReduceArcConfig(Config):
     """Configuration for reducing arc images"""
-    #directoryRoot = Field( dtype = str, default="", doc = "root directory for butler" )
-    #flatVisit = Field( dtype = int, default = 0, doc = "visit number of flat exposure for tracing the fiber traces" )
-    #arcVisit = Field( dtype = int, default = 0, doc = "visit number of arc exposure to extract and calibrate" )
-    #filter = Field( dtype = str, default="None", doc = "key for filter name in exposure/calib registries")
-    #spectrograph = Field( dtype = int, default = 1, doc = "spectrograph number (1-4)" )
-    #site = Field( dtype = str, default = "S", doc = "site (J: JHU, L: LAM, X: Subaru offline, I: IPMU, A: ASIAA, S: Summit, P: Princeton, F: simulation (fake))" )
-    #category = Field( dtype = str, default = "A", doc = "data category (A: science, B: UTR, C: Meterology, D: AG (auto guider))")
-    #refSpec = Field( dtype = str, default = " ", doc = "name of reference spectrum fits file")
-    #lineList = Field( dtype = str, default = " ", doc = "name of lineList fits file")
     function = Field( doc = "Function for fitting the dispersion", dtype=str, default="POLYNOMIAL" );
     order = Field( doc = "Fitting function order", dtype=int, default = 5 );
     searchRadius = Field( doc = "Radius in pixels relative to line list to search for emission line peak", dtype = int, default = 2 );
     fwhm = Field( doc = "FWHM of emission lines", dtype=float, default = 2.6 );
     nRowsPrescan = Field( doc = "Number of prescan rows in raw CCD image", dtype=int, default = 49 );
-#    radiusXCor = Field( doc = "Radius in pixels in which to cross correlate a spectrum relative to the reference spectrum", dtype = int, default = 50 );
-#    lengthPieces = Field( doc = "Length of pieces of spectrum to match to reference spectrum by stretching and shifting", dtype = int, default = 500 );
-#    nCalcs = Field( doc = "Number of iterations > spectrumLength / lengthPieces, e.g. spectrum length is 3800 pixels, <lengthPieces> = 500, <nCalcs> = 15: run 1: pixels 0-499, run 2: 249-749,...", dtype = int, default = 15 );
-#    stretchMinLength = Field( doc = "Minimum length to stretched pieces to (< lengthPieces)", dtype = int, default = 460 );
-#    stretchMaxLength = Field( doc = "Maximum length to stretched pieces to (> lengthPieces)", dtype = int, default = 540 );
-#    nStretches = Field( doc = "Number of stretches between <stretchMinLength> and <stretchMaxLength>", dtype = int, default = 80 );
     wavelengthFile = Field( doc = "reference pixel-wavelength file including path", dtype = str, default="/Users/azuri/stella-git/obs_subaru/pfs/RedFiberPixels.fits.gz");
     lineList = Field( doc = "reference line list including path", dtype = str, default="/Users/azuri/stella-git/obs_subaru/pfs/lineLists/CdHgKrNeXe_red.fits");
-#class ReduceArcIdAction(argparse.Action):
-#    """Split name=value pairs and put the result in a dict"""
-#    def __call__(self, parser, namespace, values, option_string):
-#        output = getattr(namespace, self.dest, {})
-#        for nameValue in values:
-#            name, sep, valueStr = nameValue.partition("=")
-#            if not valueStr:
-#                parser.error("%s value %s must be in form name=value" % (option_string, nameValue))
-#            output[name] = valueStr
-#        setattr(namespace, self.dest, output)
-
-#class ReduceArcArgumentParser(ArgumentParser):
-#    """Add a --flatId argument to the argument parser"""
-#    def __init__(self, *args, **kwargs):
-#        print 'ReduceArcArgumentParser.__init__: args = ',args
-#        print 'ReduceArcArgumentParser.__init__: kwargs = ',kwargs
-#        super(ReduceArcArgumentParser, self).__init__(*args, **kwargs)
-#        #self.calibName = calibName
-#        self.add_id_argument("--id", datasetType="postISRCCD",
-#                             help="input identifiers, e.g., --id visit=123 ccd=4")
-#        self.add_argument("--refSpec", help='directory and name of reference spectrum')
-#        self.add_argument("--lineList", help='directory and name of line list')
-#    def parse_args(self, *args, **kwargs):
-#        namespace = super(ReduceArcArgumentParser, self).parse_args(*args, **kwargs)
-#        print 'parse_args: namespace = ',namespace
-#        keys = namespace.butler.getKeys('postISRCCD')
-#        parsed = {}
-#        for name, value in namespace.flatId.items():
-#            if not name in keys:
-#                self.error("%s is not a relevant flat identifier key (%s)" % (name, keys))
-#            parsed[name] = keys[name](value)
-#        namespace.flatId = parsed
-
-#        return namespace
 
 class ReduceArcTaskRunner(TaskRunner):
     """Get parsed values into the ReduceArcTask.run"""
@@ -173,17 +124,17 @@ class ReduceArcTask(CmdLineTask):
         traceIdsUnique = np.unique(traceIds)
 
         """ assign trace number to flatFiberTraceSet """
-        print 'type(flatFiberTraceSet) = ',type(flatFiberTraceSet),': ',type(flatFiberTraceSet.getFiberTrace(0))
-        print 'type(traceIds) = ',type(traceIds),': ',type(traceIds[0])
-        print 'type(xCenters) = ',type(xCenters),': ',type(xCenters[0])
-        print 'type(yCenters) = ',type(yCenters),': ',type(yCenters[0])
-        for i in range( flatFiberTraceSet.size() ):
-            print 'flatFiberTraceSet.getFiberTrace(',i,').getITrace() = ',flatFiberTraceSet.getFiberTrace(i).getITrace()
+#        print 'type(flatFiberTraceSet) = ',type(flatFiberTraceSet),': ',type(flatFiberTraceSet.getFiberTrace(0))
+#        print 'type(traceIds) = ',type(traceIds),': ',type(traceIds[0])
+#        print 'type(xCenters) = ',type(xCenters),': ',type(xCenters[0])
+#        print 'type(yCenters) = ',type(yCenters),': ',type(yCenters[0])
+#        for i in range( flatFiberTraceSet.size() ):
+#            print 'flatFiberTraceSet.getFiberTrace(',i,').getITrace() = ',flatFiberTraceSet.getFiberTrace(i).getITrace()
         success = drpStella.assignITrace( flatFiberTraceSet, traceIds, xCenters, yCenters )
         iTraces = np.ndarray(shape=flatFiberTraceSet.size(), dtype='intp')
         for i in range( flatFiberTraceSet.size() ):
             iTraces[i] = flatFiberTraceSet.getFiberTrace(i).getITrace()
-            print 'after assignITrace: flatFiberTraceSet.getFiberTrace(',i,').getITrace() = ',flatFiberTraceSet.getFiberTrace(i).getITrace(),', iTraces[',i,'] = ',iTraces[i]
+#            print 'after assignITrace: flatFiberTraceSet.getFiberTrace(',i,').getITrace() = ',flatFiberTraceSet.getFiberTrace(i).getITrace(),', iTraces[',i,'] = ',iTraces[i]
 
         if success == False:
             print 'assignITrace FAILED'
@@ -195,7 +146,7 @@ class ReduceArcTask(CmdLineTask):
         for i in range(spectrumSetFromProfile.size()):
             # THIS DOESN'T WORK, again a problem with changing getSpectrum()
             spectrumSetFromProfile.getSpectrum(i).setITrace(flatFiberTraceSet.getFiberTrace(i).getITrace())
-            print 'spectrumSetFromProfile[',i,'].iTrace = ',spectrumSetFromProfile.getSpectrum(i).getITrace()
+#            print 'spectrumSetFromProfile[',i,'].iTrace = ',spectrumSetFromProfile.getSpectrum(i).getITrace()
 
 #        fig = plt.figure()
 #        ax = fig.add_subplot(1, 1, 1)
@@ -212,9 +163,9 @@ class ReduceArcTask(CmdLineTask):
         tbdata = hdulist[1].data
         lineListArr = np.ndarray(shape=(len(tbdata),2), dtype='float32')
         lineListArr[:,0] = tbdata.field(0)
-        print 'lineListArr[:,0] = ',lineListArr[:,0]
+#        print 'lineListArr[:,0] = ',lineListArr[:,0]
         lineListArr[:,1] = tbdata.field(1)
-        print 'lineListArr[:,1] = ',lineListArr[:,1]
+#        print 'lineListArr[:,1] = ',lineListArr[:,1]
         
         dispCorControl = drpStella.DispCorControl()
         dispCorControl.fittingFunction = self.config.function
@@ -238,14 +189,14 @@ class ReduceArcTask(CmdLineTask):
 #        self.log.info('dispCorControl.stretchMaxLength = %d' % dispCorControl.stretchMaxLength)
 #        self.log.info('dispCorControl.nStretches = %d' % dispCorControl.nStretches)
 
-        for i in range( flatFiberTraceSet.size() ):
-            print 'flatFiberTraceSet.getFiberTrace(',i,').getITrace() = ',flatFiberTraceSet.getFiberTrace(i).getITrace(),', iTraces[',i,'] = ',iTraces[i]
+#        for i in range( flatFiberTraceSet.size() ):
+#            print 'flatFiberTraceSet.getFiberTrace(',i,').getITrace() = ',flatFiberTraceSet.getFiberTrace(i).getITrace(),', iTraces[',i,'] = ',iTraces[i]
         for i in range(spectrumSetFromProfile.size()):
             spec = spectrumSetFromProfile.getSpectrum(i)
             spec.setITrace(iTraces[i])
             self.log.info('flatFiberTraceSet.getFiberTrace(%d).getITrace() = %d, spec.getITrace() = %d' %(i,flatFiberTraceSet.getFiberTrace(i).getITrace(), spec.getITrace()))
             specSpec = spec.getSpectrum()
-            print 'calibrating spectrum ',i,': xCenter = ',flatFiberTraceSet.getFiberTrace(i).getFiberTraceFunction().xCenter
+#            print 'calibrating spectrum ',i,': xCenter = ',flatFiberTraceSet.getFiberTrace(i).getFiberTraceFunction().xCenter
             self.log.info('yCenters.shape = %d' % yCenters.shape)
             self.log.info('specSpec.shape = %d' % specSpec.shape)
             self.log.info('lineListArr.shape = [%d,%d]' % (lineListArr.shape[0], lineListArr.shape[1]))
@@ -254,7 +205,7 @@ class ReduceArcTask(CmdLineTask):
             self.log.info('type(spec) = %s: <%s>: <%s>' % (type(spec),type(spec.getSpectrum()),type(spec.getSpectrum()[0])))
             
             traceId = spec.getITrace()
-            print 'traceId = ',traceId
+#            print 'traceId = ',traceId
             wLenTemp = np.ndarray( shape = traceIds.shape[0] / np.unique(traceIds).shape[0], dtype='float32' )
             k = 0
             l = -1
@@ -263,7 +214,7 @@ class ReduceArcTask(CmdLineTask):
                     l = traceIds[j]
                 if traceIds[j] == traceIdsUnique[traceId]:
                     wLenTemp[k] = wavelengths[j]
-                    print 'traceIds[j=',j,'] = ',traceIds[j],' == traceIdsUnique[traceId=',traceId,'] = ',traceIdsUnique[traceId],': wLenTemp[k=',k,'] = ',wLenTemp[k]
+#                    print 'traceIds[j=',j,'] = ',traceIds[j],' == traceIdsUnique[traceId=',traceId,'] = ',traceIdsUnique[traceId],': wLenTemp[k=',k,'] = ',wLenTemp[k]
                     k = k+1
                   
             """cut off both ends of wavelengths where is no signal"""
@@ -281,23 +232,23 @@ class ReduceArcTask(CmdLineTask):
             self.log.info('fiberTrace %d: yMax = %d' % (i, yMax))
             wLen = wLenTemp[ yMin + self.config.nRowsPrescan : yMax + self.config.nRowsPrescan + 1]
             wLenArr = np.ndarray(shape=wLen.shape, dtype='float32')
-            print 'wLen = ',wLen.shape,': '
+#            print 'wLen = ',wLen.shape,': '
             for j in range(wLen.shape[0]):
                 wLenArr[j] = wLen[j]
-                self.log.info('wLenArr[%d] = %d' % (j, wLenArr[j]))
-            print 'flatFiberTraceSet.getFiberTrace(',i,').getHeight() = ',flatFiberTraceSet.getFiberTrace(i).getHeight()
+#                self.log.info('wLenArr[%d] = %d' % (j, wLenArr[j]))
+#            print 'flatFiberTraceSet.getFiberTrace(',i,').getHeight() = ',flatFiberTraceSet.getFiberTrace(i).getHeight()
             wLenLines = lineListArr[:,0]
             wLenLinesArr = np.ndarray(shape=wLenLines.shape, dtype='float32')
-            print 'type(wLen) = ',type(wLen),': ',type(wLen[0]),': ',wLen.shape
-            print 'type(wLenLines) = ',type(wLenLines),': ',type(wLenLines[0]),': ',wLenLines.shape
+#            print 'type(wLen) = ',type(wLen),': ',type(wLen[0]),': ',wLen.shape
+#            print 'type(wLenLines) = ',type(wLenLines),': ',type(wLenLines[0]),': ',wLenLines.shape
             for j in range(wLenLines.shape[0]):
                 wLenLinesArr[j] = wLenLines[j]
             lineListPix = drpStella.createLineList(wLenArr, wLenLinesArr)
-            print 'lineListPix = ',lineListPix
-            print 'type(lineListArr) = ',type(lineListArr),': ',lineListArr.shape,': ',type(lineListArr[0][0])
-            print 'type(lineListPix) = ',type(lineListPix),': ',lineListPix.shape,': ',type(lineListPix[0])
-            print 'type(wLenArr) = ',type(wLenArr),': ',type(wLenArr[0])
-            print 'type(dispCorControl) = ',type(dispCorControl)
+#            print 'lineListPix = ',lineListPix
+#            print 'type(lineListArr) = ',type(lineListArr),': ',lineListArr.shape,': ',type(lineListArr[0][0])
+#            print 'type(lineListPix) = ',type(lineListPix),': ',lineListPix.shape,': ',type(lineListPix[0])
+#            print 'type(wLenArr) = ',type(wLenArr),': ',type(wLenArr[0])
+#            print 'type(dispCorControl) = ',type(dispCorControl)
             try:
                 spec.identifyF(lineListPix, dispCorControl, 8)
             except:

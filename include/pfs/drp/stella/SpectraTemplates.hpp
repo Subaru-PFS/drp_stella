@@ -20,7 +20,6 @@ pfs::drp::stella::Spectrum< SpectrumT, MaskT, VarianceT, WavelengthT >::Spectrum
 {
     if ( deep ){
         /// allocate memory
-        cout << "Spectrum(Spectrum, size_t, bool): calling getSpectrum" << endl;
         _spectrum = ndarray::allocate(spectrum.getSpectrum().getShape()[0]);
         _sky = ndarray::allocate(spectrum.getSky().getShape()[0]);
         _mask = ndarray::allocate(spectrum.getMask().getShape()[0]);
@@ -30,7 +29,6 @@ pfs::drp::stella::Spectrum< SpectrumT, MaskT, VarianceT, WavelengthT >::Spectrum
         _dispCoeffs = ndarray::allocate(spectrum.getDispCoeffs().getShape()[0]);
 
         /// copy variables
-        cout << "Spectrum(Spectrum, size_t, bool): calling getSpectrum" << endl;
         _spectrum.deep() = spectrum.getSpectrum();
         _sky.deep() = spectrum.getSky();
         _mask.deep() = spectrum.getMask();
@@ -56,7 +54,6 @@ pfs::drp::stella::Spectrum< SpectrumT, MaskT, VarianceT, WavelengthT >::Spectrum
         _dispCorControl( spectrum.getDispCorControl() )
 {
     /// allocate memory
-    cout << "Spectrum(Spectrum const): calling getSpectrum" << endl;
     _spectrum = ndarray::allocate(spectrum.getSpectrum().getShape()[0]);
     _sky = ndarray::allocate(spectrum.getSky().getShape()[0]);
     _mask = ndarray::allocate(spectrum.getMask().getShape()[0]);
@@ -66,7 +63,6 @@ pfs::drp::stella::Spectrum< SpectrumT, MaskT, VarianceT, WavelengthT >::Spectrum
     _dispCoeffs = ndarray::allocate(spectrum.getDispCoeffs().getShape()[0]);
 
     /// copy variables
-    cout << "Spectrum(Spectrum const): calling getSpectrum" << endl;
     _spectrum.deep() = spectrum.getSpectrum();
     _sky.deep() = spectrum.getSky();
     _mask.deep() = spectrum.getMask();
@@ -639,23 +635,23 @@ bool pfs::drp::stella::Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>::ident
 }
 
 template<typename ImageT, typename MaskT, typename VarianceT, typename WavelengthT>
-const PTR( const pfs::drp::stella::Spectrum< ImageT, MaskT, VarianceT, WavelengthT > ) pfs::drp::stella::SpectrumSet<ImageT, MaskT, VarianceT, WavelengthT>::getSpectrum( const size_t i ) const 
+PTR( pfs::drp::stella::Spectrum< ImageT, MaskT, VarianceT, WavelengthT > ) pfs::drp::stella::SpectrumSet<ImageT, MaskT, VarianceT, WavelengthT>::getSpectrum( const size_t i ) const 
 {
-    cout << "getSpectrum(size_t) const" << endl;
+//    cout << "getSpectrum(size_t) const" << endl;
     if (i >= _spectra.size()){
         string message("SpectrumSet::getSpectrum(i=");
         message += to_string(i) + "): ERROR: i >= _spectra.size()=" + to_string(_spectra.size());
         cout << message << endl;
         throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
     }
-    const pfs::drp::stella::Spectrum< ImageT, MaskT, VarianceT, WavelengthT > spec( _spectra.at( i ) );
-    return PTR( const pfs::drp::stella::Spectrum< ImageT, MaskT, VarianceT, WavelengthT > )( new pfs::drp::stella::Spectrum< ImageT, MaskT, VarianceT, WavelengthT >( spec ) );
+//    pfs::drp::stella::Spectrum< ImageT, MaskT, VarianceT, WavelengthT > spec( _spectra.at( i ) );
+    return PTR( pfs::drp::stella::Spectrum< ImageT, MaskT, VarianceT, WavelengthT > )( new pfs::drp::stella::Spectrum< ImageT, MaskT, VarianceT, WavelengthT >( _spectra.at( i ) ) );
 }
 
 template<typename ImageT, typename MaskT, typename VarianceT, typename WavelengthT>
 PTR( pfs::drp::stella::Spectrum< ImageT, MaskT, VarianceT, WavelengthT > ) pfs::drp::stella::SpectrumSet<ImageT, MaskT, VarianceT, WavelengthT>::getSpectrum( const size_t i )
 {
-    cout << "getSpectrum(size_t) NOT CONST" << endl;
+ //   cout << "getSpectrum(size_t) NOT CONST" << endl;
     if (i >= _spectra.size()){
         string message("SpectrumSet::getSpectrum(i=");
         message += to_string(i) + "): ERROR: i >= _spectra.size()=" + to_string(_spectra.size());

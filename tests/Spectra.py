@@ -70,7 +70,7 @@ class SpectraTestCase(tests.TestCase):
         del self.ftpfc
 
     def testSpectrumConstructors(self):
-        if False:
+        if True:
             """Test that we can create a Spectrum with the standard constructor"""
             spec = drpStella.SpectrumF()
             self.assertEqual(spec.getLength(), 0)
@@ -88,7 +88,7 @@ class SpectraTestCase(tests.TestCase):
             self.assertEqual(specCopy.getITrace(), iTrace)
         
     def testSpectrumMethods(self):
-        if False:
+        if True:
             """Test getSpectrum"""
             size = 100
             spec = drpStella.SpectrumF(size)
@@ -111,7 +111,7 @@ class SpectraTestCase(tests.TestCase):
                 message = str.split(e.message, "\n")
                 for i in range(len(message)):
                     print "element",i,": <",message[i],">"
-                expected = "pfsDRPStella::Spectrum::setSpectrum: ERROR: spectrum->size()="+str(vecf.shape[0])+" != _length="+str(spec.getLength())
+                expected = "pfs::drp::stella::Spectrum::setSpectrum: ERROR: spectrum->size()="+str(vecf.shape[0])+" != _length="+str(spec.getLength())
                 self.assertEqual(message[0],expected)
             self.assertEqual(spec.getSpectrum().shape[0], size)
 
@@ -134,7 +134,7 @@ class SpectraTestCase(tests.TestCase):
                 message = str.split(e.message, "\n")
                 for i in range(len(message)):
                     print "element",i,": <",message[i],">"
-                expected = "pfsDRPStella::Spectrum::setVariance: ERROR: variance->size()="+str(vecf.shape[0])+" != _length="+str(spec.getLength())
+                expected = "pfs::drp::stella::Spectrum::setVariance: ERROR: variance->size()="+str(vecf.shape[0])+" != _length="+str(spec.getLength())
                 self.assertEqual(message[0],expected)
             self.assertEqual(spec.getVariance().shape[0], size)
 
@@ -183,7 +183,7 @@ class SpectraTestCase(tests.TestCase):
                 message = str.split(e.message, "\n")
                 for i in range(len(message)):
                     print "element",i,": <",message[i],">"
-                expected = "pfsDRPStella::Spectrum::setMask: ERROR: mask->size()="+str(vecus.shape[0])+" != _length="+str(spec.getLength())
+                expected = "pfs::drp::stella::Spectrum::setMask: ERROR: mask->size()="+str(vecus.shape[0])+" != _length="+str(spec.getLength())
                 self.assertEqual(message[0],expected)
             self.assertEqual(spec.getMask().shape[0], size)
 
