@@ -41,6 +41,10 @@ class FiberTraceTestCase(tests.TestCase):
         self.ftffc.fiberTraceFunctionControl.order = 5
         self.ftffc.fiberTraceFunctionControl.xLow = -5
         self.ftffc.fiberTraceFunctionControl.xHigh = 5
+        
+        self.nFiberTraces = 11
+        self.minLength = 3880
+        self.maxLength = 3930
 
         del flatfile
         del arcfile
@@ -227,6 +231,12 @@ class FiberTraceTestCase(tests.TestCase):
             """Test that we can create a FiberTrace given a MaskedImage and a FiberTraceFunction"""
             """Flat"""
             fiberTraceSet = drpStella.findAndTraceAperturesF(self.flat.getMaskedImage(), self.ftffc)
+            """Check that we found self.nFiberTraces FiberTraces"""
+            self.assertEqual(fiberTraceSet.size(), self.nFiberTraces)
+            """Check length of FiberTraces"""
+            for i in range(fiberTraceSet.size()):
+                self.assertLess(fiberTraceSet.getFiberTrace(i).getHeight(), self.maxLength)
+                self.assertGreater(fiberTraceSet.getFiberTrace(i).getHeight(), self.minLength)
             fiberTrace = drpStella.FiberTraceF(self.flat.getMaskedImage(), fiberTraceSet.getFiberTrace(0).getFiberTraceFunction(), iTrace)
             self.assertEqual(fiberTraceSet.getFiberTrace(0).getXCenters()[5], fiberTrace.getXCenters()[5])
 
