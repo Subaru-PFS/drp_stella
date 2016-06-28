@@ -9,6 +9,7 @@ or
    >>> import Spectra; Spectra.run()
 """
 
+import os
 import unittest
 import sys
 import numpy as np
@@ -32,23 +33,14 @@ class SpectraTestCase(tests.TestCase):
     """A test case for measuring Spectra quantities"""
 
     def setUp(self):
-        latest = True
-        if latest:
-            flatfile = "tests/data/postISRCCD/2016-01-12/v0000005/PFFAr2.fits"#sampledFlatx2-IR-0-23.fits"
-            #combfile = "tests/sampledCombx2-IR-0-23.fits"
-            combfile = "tests/data/postISRCCD/2016-01-12/v0000004/PFFAr2.fits"
-        else:
-            flatfile = "tests/sampledFlatx2-IR-0-23-5-10-nonoise.fits"
-            combfile = "tests/sampledCombx2-IR-0-23-5-10-nonoise.fits"
+        drpStellaDataDir = os.environ.get('DRP_STELLA_DATA_DIR')
+        flatfile = drpStellaDataDir+"/data/PFS/CALIB/FLAT/r/flat/pfsFlat-2016-01-12-0-2r.fits"
+        arcfile = drpStellaDataDir+"/data/PFS/postISRCCD/2016-01-12/v0000004/PFFAr2.fits"
         self.flat = afwImage.ImageF(flatfile)
         self.flat = afwImage.makeExposure(afwImage.makeMaskedImage(self.flat))
-#        self.bias = afwImage.ImageF(flatfile, 3)
-#        self.flat.getMaskedImage()[:] -= self.bias
 
-        self.comb = afwImage.ImageF(combfile)
-        self.comb = afwImage.makeExposure(afwImage.makeMaskedImage(self.comb))
-#        bias = afwImage.ImageF(combfile, 3)
-#        self.comb.getMaskedImage()[:] -= bias
+        self.arc = afwImage.ImageF(arcfile)
+        self.arc = afwImage.makeExposure(afwImage.makeMaskedImage(self.arc))
         
         self.ftffc = drpStella.FiberTraceFunctionFindingControl()
         self.ftffc.fiberTraceFunctionControl.order = 5
@@ -57,15 +49,12 @@ class SpectraTestCase(tests.TestCase):
         
         self.ftpfc = drpStella.FiberTraceProfileFittingControl()
 
-#        del bias
         del flatfile
-        del combfile
-        del latest
+        del arcfile
         
     def tearDown(self):
         del self.flat
-        del self.comb
-#        del self.bias
+        del self.arc
         del self.ftffc
         del self.ftpfc
 
@@ -397,11 +386,11 @@ class SpectraTestCase(tests.TestCase):
 
             myExtractTask = esTask.ExtractSpectraTask()
             aperturesToExtract = [-1]
-            spectrumSetFromProfile = myExtractTask.run(self.comb, fiberTraceSet, aperturesToExtract)
+            spectrumSetFromProfile = myExtractTask.run(self.arc, fiberTraceSet, aperturesToExtract)
             self.assertGreater(spectrumSetFromProfile.size(), 0)
 
             """ read line list """
-            lineList = '../obs_pfs/pfs/lineLists/CdHgKrNeXe_red.fits'
+            lineList = os.environ.get('OBS_PFS_DIR')+'/pfs/lineLists/CdHgKrNeXe_red.fits'
             hdulist = pyfits.open(lineList)
             tbdata = hdulist[1].data
             lineListArr = np.ndarray(shape=(len(tbdata),2), dtype='float32')
@@ -409,7 +398,7 @@ class SpectraTestCase(tests.TestCase):
             lineListArr[:,1] = tbdata.field(1)
 
             """ read reference Spectrum """
-            refSpec = '../obs_pfs/pfs/lineLists/refCdHgKrNeXe_red.fits'
+            refSpec = os.environ.get('OBS_PFS_DIR')+'/pfs/arcSpectra/refSpec_CdHgKrNeXe_red.fits'
             hdulist = pyfits.open(refSpec)
             tbdata = hdulist[1].data
             refSpecArr = np.ndarray(shape=(len(tbdata)), dtype='float32')
