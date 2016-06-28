@@ -9,7 +9,6 @@ from lsst.pipe.base import Task
 
 class CreateDetGeomConfig(pexConfig.Config):
     """Configuration for creating the PFS detector geometry files"""
-    outDir = pexConfig.Field( doc = "Name of output directory", dtype=str, default="/Users/azuri/stella-git/obs_pfs/pfs/camera/")
 
 class CreateDetGeomTask(Task):
     """Task to create the detector geometry files for PFS"""
@@ -22,6 +21,11 @@ class CreateDetGeomTask(Task):
     def run(self):
         gain = (1.24, 1.24, 1.27, 1.18, 1.26, 1.20, 1.24, 1.26)
         rdnoise = (3.61, 3.78, 3.18, 2.95, 3.19, 3.80, 4.51, 3.18)
+        
+        outDir = os.getenv('OBS_PFS_DIR', '~/stella_git/obs_pfs')
+        print 'outDir = <',outDir,'>'
+        outDir = outDir+'/pfs/camera'
+        
         amp = 0
         for iArm in range(3):
             for iCCD in range(4):
@@ -35,8 +39,6 @@ class CreateDetGeomTask(Task):
                     y0 = 0
                     y1 = 4299
                     AmpA = detector.addNew()
-                    print 'AmpA = ',type(AmpA)
-                    print 'dir(AmpA) = ',dir(AmpA)
                     AmpA.setName(str(amp))
 
                     bb1 = afwGeom.Point2I(iAmp * 512, 0)
@@ -102,5 +104,5 @@ class CreateDetGeomTask(Task):
                     sArm = 'n'
                 else: 
                     sArm = 'm'
-                detector.writeFits(self.config.outDir+"/"+sArm+"_"+str(iCCD+1)+".fits")
+                detector.writeFits(outDir+"/"+sArm+"_"+str(iCCD+1)+".fits")
 
