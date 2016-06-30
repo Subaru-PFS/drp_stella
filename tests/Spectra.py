@@ -32,23 +32,17 @@ class SpectraTestCase(tests.TestCase):
     """A test case for measuring Spectra quantities"""
 
     def setUp(self):
-        latest = True
-        if latest:
-            flatfile = "tests/data/postISRCCD/2016-01-12/v0000005/PFFAr2.fits"#sampledFlatx2-IR-0-23.fits"
-            #combfile = "tests/sampledCombx2-IR-0-23.fits"
-            combfile = "tests/data/postISRCCD/2016-01-12/v0000004/PFFAr2.fits"
-        else:
-            flatfile = "tests/sampledFlatx2-IR-0-23-5-10-nonoise.fits"
-            combfile = "tests/sampledCombx2-IR-0-23-5-10-nonoise.fits"
+        flatfile = "tests/data/postISRCCD/2016-01-12/v0000005/PFFAr2.fits"#sampledFlatx2-IR-0-23.fits"
+        arcfile = "tests/data/postISRCCD/2016-01-12/v0000004/PFFAr2.fits"
         self.flat = afwImage.ImageF(flatfile)
         self.flat = afwImage.makeExposure(afwImage.makeMaskedImage(self.flat))
 #        self.bias = afwImage.ImageF(flatfile, 3)
 #        self.flat.getMaskedImage()[:] -= self.bias
 
-        self.comb = afwImage.ImageF(combfile)
-        self.comb = afwImage.makeExposure(afwImage.makeMaskedImage(self.comb))
-#        bias = afwImage.ImageF(combfile, 3)
-#        self.comb.getMaskedImage()[:] -= bias
+        self.arc = afwImage.ImageF(arcfile)
+        self.arc = afwImage.makeExposure(afwImage.makeMaskedImage(self.arc))
+#        bias = afwImage.ImageF(arcfile, 3)
+#        self.arc.getMaskedImage()[:] -= bias
         
         self.ftffc = drpStella.FiberTraceFunctionFindingControl()
         self.ftffc.fiberTraceFunctionControl.order = 5
@@ -56,18 +50,21 @@ class SpectraTestCase(tests.TestCase):
         self.ftffc.fiberTraceFunctionControl.xHigh = 5
         
         self.ftpfc = drpStella.FiberTraceProfileFittingControl()
+        
+        self.nFiberTraces = 11
 
 #        del bias
         del flatfile
-        del combfile
+        del arcfile
         del latest
         
     def tearDown(self):
         del self.flat
-        del self.comb
+        del self.arc
 #        del self.bias
         del self.ftffc
         del self.ftpfc
+        del self.nFiberTraces
 
     def testSpectrumConstructors(self):
         if True:
@@ -284,6 +281,22 @@ class SpectraTestCase(tests.TestCase):
             for i in range(specSet.size()):
                 self.assertEqual(specSetV.getSpectrum(i).getITrace(), i)
             
+    def testExtractTask(self):
+        if True:
+            print "testing ExtractSpectraTask"
+            fiberTraceSet = drpStella.findAndTraceAperturesF(self.flat.getMaskedImage(), self.ftffc)
+            self.assertEqual(fiberTraceSet.size(), self.nFiberTraces)
+            print 'found ',fiberTraceSet.size(),' traces'
+            myProfileTask = cfftpTask.CreateFlatFiberTraceProfileTask()
+            myProfileTask.run(fiberTraceSet)
+
+            myExtractTask = esTask.ExtractSpectraTask()
+            aperturesToExtract = [-1]
+            spectrumSetFromProfile = myExtractTask.run(self.comb, fiberTraceSet, aperturesToExtract)
+            self.assertEqual(spectrumSetFromProfile.size(), self.nFiberTraces)
+            for i in range(spectrumSetFromProfile.size()):
+                self.assertEqual(spectrumSetFromProfile.getSpectrum(i).getLength(), fiberTraceSet.getFiberTrace(i).getHeight())
+            
     def testSpectrumSetAddSetErase(self):
         if True:
             size = 3
@@ -397,7 +410,7 @@ class SpectraTestCase(tests.TestCase):
 
             myExtractTask = esTask.ExtractSpectraTask()
             aperturesToExtract = [-1]
-            spectrumSetFromProfile = myExtractTask.run(self.comb, fiberTraceSet, aperturesToExtract)
+            spectrumSetFromProfile = myExtractTask.run(self.arc, fiberTraceSet, aperturesToExtract)
             self.assertGreater(spectrumSetFromProfile.size(), 0)
 
             """ read line list """
