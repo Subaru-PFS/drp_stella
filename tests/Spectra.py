@@ -48,8 +48,14 @@ class SpectraTestCase(tests.TestCase):
         self.ftffc.fiberTraceFunctionControl.xHigh = 5
         
         self.ftpfc = drpStella.FiberTraceProfileFittingControl()
+        self.dispCorControl = drpStella.DispCorControl()
         
         self.nFiberTraces = 11
+        self.nRowsPrescan = 49
+        
+        self.lineList = os.environ.get('OBS_PFS_DIR')+'/pfs/lineLists/CdHgKrNeXe_red.fits'
+        self.refSpec = os.environ.get('OBS_PFS_DIR')+'/pfs/arcSpectra/refSpec_CdHgKrNeXe_red.fits'
+        self.wLenFile = os.environ.get('OBS_PFS_DIR')+'/pfs/RedFiberPixels.fits.gz'
 
         del flatfile
         del arcfile
@@ -60,6 +66,10 @@ class SpectraTestCase(tests.TestCase):
         del self.ftffc
         del self.ftpfc
         del self.nFiberTraces
+        del self.lineList
+        del self.refSpec
+        del self.dispCorControl
+        del self.wLenFile
 
     def testSpectrumConstructors(self):
         if True:
@@ -287,7 +297,7 @@ class SpectraTestCase(tests.TestCase):
 
             myExtractTask = esTask.ExtractSpectraTask()
             aperturesToExtract = [-1]
-            spectrumSetFromProfile = myExtractTask.run(self.comb, fiberTraceSet, aperturesToExtract)
+            spectrumSetFromProfile = myExtractTask.run(self.arc, fiberTraceSet, aperturesToExtract)
             self.assertEqual(spectrumSetFromProfile.size(), self.nFiberTraces)
             for i in range(spectrumSetFromProfile.size()):
                 self.assertEqual(spectrumSetFromProfile.getSpectrum(i).getLength(), fiberTraceSet.getFiberTrace(i).getHeight())
@@ -387,14 +397,10 @@ class SpectraTestCase(tests.TestCase):
             size = 3
             length = 100
             specSet = drpStella.SpectrumSetF(size,length)
-            print 'specSet.size() = ',specSet.size()
             spectra = specSet.getSpectra()
-            print 'spectra.size() = ',spectra.size()
-            print 'type(spectra[0]) = ',type(spectra[0])
-            print 'dir(spectra[0]) = ',dir(spectra[0])
             self.assertEqual(spectra[0].getSpectrum().shape[0], length)
 
-    def testWavelengthCalibration(self):
+    def testWavelengthCalibrationWithRefSpec(self):
         if True:
             print "testing wavelength calibration"
             fiberTraceSet = drpStella.findAndTraceAperturesF(self.flat.getMaskedImage(), self.ftffc)
@@ -406,28 +412,136 @@ class SpectraTestCase(tests.TestCase):
             myExtractTask = esTask.ExtractSpectraTask()
             aperturesToExtract = [-1]
             spectrumSetFromProfile = myExtractTask.run(self.arc, fiberTraceSet, aperturesToExtract)
-            self.assertGreater(spectrumSetFromProfile.size(), 0)
+            self.assertEqual(spectrumSetFromProfile.size(), fiberTraceSet.size())
+
+            self.dispCorControl.fittingFunction = "POLYNOMIAL"
+            self.dispCorControl.order = 5
+            self.dispCorControl.searchRadius = 2
+            self.dispCorControl.fwhm = 2.6
 
             """ read line list """
-            lineList = os.environ.get('OBS_PFS_DIR')+'/pfs/lineLists/CdHgKrNeXe_red.fits'
-            hdulist = pyfits.open(lineList)
+            hdulist = pyfits.open(self.lineList)
             tbdata = hdulist[1].data
             lineListArr = np.ndarray(shape=(len(tbdata),2), dtype='float32')
             lineListArr[:,0] = tbdata.field(0)
             lineListArr[:,1] = tbdata.field(1)
 
             """ read reference Spectrum """
-            refSpec = os.environ.get('OBS_PFS_DIR')+'/pfs/arcSpectra/refSpec_CdHgKrNeXe_red.fits'
-            hdulist = pyfits.open(refSpec)
+            hdulist = pyfits.open(self.refSpec)
             tbdata = hdulist[1].data
             refSpecArr = np.ndarray(shape=(len(tbdata)), dtype='float32')
             refSpecArr[:] = tbdata.field(0)
-
+        
             refSpec = spectrumSetFromProfile.getSpectrum(int(spectrumSetFromProfile.size() / 2))
             ref = refSpec.getSpectrum()
-
-        
+                
+            for i in range(spectrumSetFromProfile.size()):
+                spec = spectrumSetFromProfile.getSpectrum(i)
+                specSpec = spec.getSpectrum()
+                result = drpStella.stretchAndCrossCorrelateSpecFF(specSpec, refSpecArr, lineListArr, self.dispCorControl)
+                spec.identifyF(result.lineList, self.dispCorControl, 8)
+                
+                """Check that wavelength solution is monotonic"""
+                for j in range(spec.getLength()-1):
+                    self.assertLess(spec.getWavelength()[j], spec.getWavelength()[j+1])
+                
+                """Check wavelength range"""
+                print 'spec[',i,'].getWavelength()[0] = ',spec.getWavelength()[0]
+                self.assertGreater(spec.getWavelength()[0], 3800)
+                print 'spec[',i,'].getWavelength()[',spec.getLength()-1,'] = ',spec.getWavelength()[spec.getLength()-1]
+                self.assertLess(spec.getWavelength()[spec.getLength()-1], 9800)
             
+    def testWavelengthCalibrationWithoutRefSpec(self):
+        if True:
+            print "testing wavelength calibration"
+            fiberTraceSet = drpStella.findAndTraceAperturesF(self.flat.getMaskedImage(), self.ftffc)
+            self.assertGreater(fiberTraceSet.size(), 0)
+            print 'found ',fiberTraceSet.size(),' traces'
+            myProfileTask = cfftpTask.CreateFlatFiberTraceProfileTask()
+            myProfileTask.run(fiberTraceSet)
+
+            myExtractTask = esTask.ExtractSpectraTask()
+            aperturesToExtract = [-1]
+            spectrumSetFromProfile = myExtractTask.run(self.arc, fiberTraceSet, aperturesToExtract)
+            self.assertEqual(spectrumSetFromProfile.size(), fiberTraceSet.size())
+            
+            self.dispCorControl.fittingFunction = "POLYNOMIAL"
+            self.dispCorControl.order = 5
+            self.dispCorControl.searchRadius = 2
+            self.dispCorControl.fwhm = 2.6
+
+            """ read wavelength file """
+            hdulist = pyfits.open(self.wLenFile)
+            tbdata = hdulist[1].data
+            traceIdsTemp = np.ndarray(shape=(len(tbdata)), dtype='int')
+            xCenters = np.ndarray(shape=(len(tbdata)), dtype='float32')
+            yCenters = np.ndarray(shape=(len(tbdata)), dtype='float32')
+            wavelengths = np.ndarray(shape=(len(tbdata)), dtype='float32')
+            traceIdsTemp[:] = tbdata[:]['fiberNum']
+            traceIds = traceIdsTemp.astype('int32')
+            wavelengths[:] = tbdata[:]['pixelWave']
+            xCenters[:] = tbdata[:]['xc']
+            yCenters[:] = tbdata[:]['yc']
+
+            traceIdsUnique = np.unique(traceIds)
+
+            """ assign trace number to fiberTraceSet """
+            success = drpStella.assignITrace( fiberTraceSet, traceIds, xCenters, yCenters )
+            iTraces = np.ndarray(shape=fiberTraceSet.size(), dtype='intp')
+            for i in range( fiberTraceSet.size() ):
+                iTraces[i] = fiberTraceSet.getFiberTrace(i).getITrace()
+
+            self.assertTrue(success)
+
+            """ read line list """
+            hdulist = pyfits.open(self.lineList)
+            tbdata = hdulist[1].data
+            lineListArr = np.ndarray(shape=(len(tbdata),2), dtype='float32')
+            lineListArr[:,0] = tbdata.field(0)
+            lineListArr[:,1] = tbdata.field(1)
+
+            for i in range(spectrumSetFromProfile.size()):
+                spec = spectrumSetFromProfile.getSpectrum(i)
+                spec.setITrace(iTraces[i])
+
+                traceId = spec.getITrace()
+                wLenTemp = np.ndarray( shape = traceIds.shape[0] / np.unique(traceIds).shape[0], dtype='float32' )
+                k = 0
+                l = -1
+                for j in range(traceIds.shape[0]):
+                    if traceIds[j] != l:
+                        l = traceIds[j]
+                    if traceIds[j] == traceIdsUnique[traceId]:
+                        wLenTemp[k] = wavelengths[j]
+                        k = k+1
+
+                """cut off both ends of wavelengths where is no signal"""
+                yCenter = fiberTraceSet.getFiberTrace(i).getFiberTraceFunction().yCenter
+                yLow = fiberTraceSet.getFiberTrace(i).getFiberTraceFunction().yLow
+                yHigh = fiberTraceSet.getFiberTrace(i).getFiberTraceFunction().yHigh
+                yMin = yCenter + yLow
+                yMax = yCenter + yHigh
+                wLen = wLenTemp[ yMin + self.nRowsPrescan : yMax + self.nRowsPrescan + 1]
+                wLenArr = np.ndarray(shape=wLen.shape, dtype='float32')
+                for j in range(wLen.shape[0]):
+                    wLenArr[j] = wLen[j]
+                wLenLines = lineListArr[:,0]
+                wLenLinesArr = np.ndarray(shape=wLenLines.shape, dtype='float32')
+                for j in range(wLenLines.shape[0]):
+                    wLenLinesArr[j] = wLenLines[j]
+                lineListPix = drpStella.createLineList(wLenArr, wLenLinesArr)
+                spec.identifyF(lineListPix, self.dispCorControl, 8)
+                
+                """Check that wavelength solution is monotonic"""
+                for j in range(spec.getLength()-1):
+                    self.assertLess(spec.getWavelength()[j], spec.getWavelength()[j+1])
+                
+                """Check wavelength range"""
+                print 'spec[',i,'].getWavelength()[0] = ',spec.getWavelength()[0]
+                self.assertGreater(spec.getWavelength()[0], 3800)
+                print 'spec[',i,'].getWavelength()[',spec.getLength()-1,'] = ',spec.getWavelength()[spec.getLength()-1]
+                self.assertLess(spec.getWavelength()[spec.getLength()-1], 9800)
+
 #-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
 def suite():
