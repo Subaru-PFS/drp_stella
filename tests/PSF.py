@@ -9,6 +9,7 @@ or
    >>> import PSF; PSF.run()
 """
 
+import os
 import unittest
 import sys
 import numpy as np
@@ -28,39 +29,30 @@ class PSFTestCase(tests.TestCase):
     """A test case for measuring PSF quantities"""
 
     def setUp(self):
-        latest = False
-        if latest:
-            flatfile = "tests/minFlat-Red-nonoise.fits"
-            combfile = "tests/minComb-Red-nonoise.fits"
-        else:
-            flatfile = "tests/sampledFlatx2-IR-0-23-5-10-nonoise.fits"
-            combfile = "tests/sampledCombx2-IR-0-23-5-10-nonoise.fits"
+        drpStellaDataDir = os.environ.get('DRP_STELLA_DATA_DIR')
+        flatfile = drpStellaDataDir+"/data/PFS/CALIB/FLAT/r/flat/pfsFlat-2016-01-12-0-2r.fits"
+        arcfile = drpStellaDataDir+"/data/PFS/postISRCCD/2016-01-12/v0000004/PFFAr2.fits"
         self.flat = afwImage.ImageF(flatfile)
         self.flat = afwImage.makeExposure(afwImage.makeMaskedImage(self.flat))
-        self.bias = afwImage.ImageF(flatfile, 3)
-        self.flat.getMaskedImage()[:] -= self.bias
 
-        self.comb = afwImage.ImageF(combfile)
-        self.comb = afwImage.makeExposure(afwImage.makeMaskedImage(self.comb))
-        bias = afwImage.ImageF(combfile, 3)
-        self.comb.getMaskedImage()[:] -= bias
+        self.arc = afwImage.ImageF(arcfile)
+        self.arc = afwImage.makeExposure(afwImage.makeMaskedImage(self.arc))
         
         self.ftffc = drpStella.FiberTraceFunctionFindingControl()
-        self.ftffc.fiberTraceFunctionControl.order = 4
+        self.ftffc.fiberTraceFunctionControl.order = 5
+        self.ftffc.fiberTraceFunctionControl.xLow = -5
+        self.ftffc.fiberTraceFunctionControl.xHigh = 5
         
         self.ftpfc = drpStella.FiberTraceProfileFittingControl()
         
         self.tdpsfc = drpStella.TwoDPSFControl()
 
-        del bias
         del flatfile
-        del combfile
-        del latest
+        del arcfile
         
     def tearDown(self):
         del self.flat
-        del self.comb
-        del self.bias
+        del self.arc
         del self.ftffc
         del self.ftpfc
         del self.tdpsfc
@@ -72,7 +64,7 @@ class PSFTestCase(tests.TestCase):
             ft = fiberTraceSet.getFiberTrace(iTrace)
             ft.setFiberTraceProfileFittingControl(self.ftpfc.getPointer())
             self.assertTrue(ft.calcProfile())
-            ft.createTrace(self.comb.getMaskedImage())
+            ft.createTrace(self.arc.getMaskedImage())
             spec = ft.extractFromProfile()
             psfSet = drpStella.calculate2dPSFPerBin(ft, spec, self.tdpsfc.getPointer())
             if True:
@@ -116,7 +108,7 @@ class PSFTestCase(tests.TestCase):
             self.assertTrue(fiberTrace.setFiberTraceProfileFittingControl(self.ftpfc.getPointer()))
             self.assertTrue(fiberTrace.calcProfile())
             ftComb = drpStella.FiberTraceF(fiberTrace)
-            ftComb.createTrace(self.comb.getMaskedImage())
+            ftComb.createTrace(self.arc.getMaskedImage())
             spec = ftComb.extractFromProfile()
             psfSet = drpStella.calculate2dPSFPerBin(fiberTrace, spec, self.tdpsfc.getPointer())
             print "psfSet.size() = ",psfSet.size()
@@ -135,7 +127,7 @@ class PSFTestCase(tests.TestCase):
             self.assertTrue(fiberTrace.setFiberTraceProfileFittingControl(self.ftpfc.getPointer()))
             self.assertTrue(fiberTrace.calcProfile())
             ftComb = drpStella.FiberTraceF(fiberTrace)
-            ftComb.createTrace(self.comb.getMaskedImage())
+            ftComb.createTrace(self.arc.getMaskedImage())
             spec = ftComb.extractFromProfile()
             psfSet = drpStella.calculate2dPSFPerBin(fiberTrace, spec, self.tdpsfc.getPointer())
 
@@ -183,7 +175,7 @@ class PSFTestCase(tests.TestCase):
             self.assertTrue(fiberTrace.calcProfile())
             spec = fiberTrace.extractFromProfile()
             ftComb = drpStella.FiberTraceF(fiberTrace)
-            ftComb.createTrace(self.comb.getMaskedImage())
+            ftComb.createTrace(self.arc.getMaskedImage())
             spec = ftComb.extractFromProfile()
             psf = drpStella.PSFF(350, 750,self.tdpsfc.getPointer(),1,2)
             self.assertTrue(psf.setTwoDPSFControl(self.tdpsfc.getPointer()))

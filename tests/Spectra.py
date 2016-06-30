@@ -9,6 +9,7 @@ or
    >>> import Spectra; Spectra.run()
 """
 
+import os
 import unittest
 import sys
 import numpy as np
@@ -32,17 +33,14 @@ class SpectraTestCase(tests.TestCase):
     """A test case for measuring Spectra quantities"""
 
     def setUp(self):
-        flatfile = "tests/data/postISRCCD/2016-01-12/v0000005/PFFAr2.fits"#sampledFlatx2-IR-0-23.fits"
-        arcfile = "tests/data/postISRCCD/2016-01-12/v0000004/PFFAr2.fits"
+        drpStellaDataDir = os.environ.get('DRP_STELLA_DATA_DIR')
+        flatfile = drpStellaDataDir+"/data/PFS/CALIB/FLAT/r/flat/pfsFlat-2016-01-12-0-2r.fits"
+        arcfile = drpStellaDataDir+"/data/PFS/postISRCCD/2016-01-12/v0000004/PFFAr2.fits"
         self.flat = afwImage.ImageF(flatfile)
         self.flat = afwImage.makeExposure(afwImage.makeMaskedImage(self.flat))
-#        self.bias = afwImage.ImageF(flatfile, 3)
-#        self.flat.getMaskedImage()[:] -= self.bias
 
         self.arc = afwImage.ImageF(arcfile)
         self.arc = afwImage.makeExposure(afwImage.makeMaskedImage(self.arc))
-#        bias = afwImage.ImageF(arcfile, 3)
-#        self.arc.getMaskedImage()[:] -= bias
         
         self.ftffc = drpStella.FiberTraceFunctionFindingControl()
         self.ftffc.fiberTraceFunctionControl.order = 5
@@ -53,15 +51,12 @@ class SpectraTestCase(tests.TestCase):
         
         self.nFiberTraces = 11
 
-#        del bias
         del flatfile
         del arcfile
-        del latest
         
     def tearDown(self):
         del self.flat
         del self.arc
-#        del self.bias
         del self.ftffc
         del self.ftpfc
         del self.nFiberTraces
@@ -414,7 +409,7 @@ class SpectraTestCase(tests.TestCase):
             self.assertGreater(spectrumSetFromProfile.size(), 0)
 
             """ read line list """
-            lineList = '../obs_pfs/pfs/lineLists/CdHgKrNeXe_red.fits'
+            lineList = os.environ.get('OBS_PFS_DIR')+'/pfs/lineLists/CdHgKrNeXe_red.fits'
             hdulist = pyfits.open(lineList)
             tbdata = hdulist[1].data
             lineListArr = np.ndarray(shape=(len(tbdata),2), dtype='float32')
@@ -422,7 +417,7 @@ class SpectraTestCase(tests.TestCase):
             lineListArr[:,1] = tbdata.field(1)
 
             """ read reference Spectrum """
-            refSpec = '../obs_pfs/pfs/lineLists/refCdHgKrNeXe_red.fits'
+            refSpec = os.environ.get('OBS_PFS_DIR')+'/pfs/arcSpectra/refSpec_CdHgKrNeXe_red.fits'
             hdulist = pyfits.open(refSpec)
             tbdata = hdulist[1].data
             refSpecArr = np.ndarray(shape=(len(tbdata)), dtype='float32')
