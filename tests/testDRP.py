@@ -32,6 +32,7 @@ class testDRPTestCase(tests.TestCase):
         self.testCalibDir = self.testDataDir+'CALIB/'
         self.arcVisit = 4
         self.refSpec = 'pfs/arcSpectra/refSpec_CdHgKrNeXe_red.fits'
+        self.wLenFile = 'pfs/RedFiberPixels.fits.gz'
         self.lineList = 'pfs/lineLists/CdHgKrNeXe_red.fits'
         
     def tearDown(self):
@@ -39,6 +40,7 @@ class testDRPTestCase(tests.TestCase):
         del self.testCalibDir
         del self.arcVisit
         del self.refSpec
+        del self.wLenFile
         del self.lineList
 
     def testDRP(self):
@@ -48,7 +50,8 @@ class testDRPTestCase(tests.TestCase):
         print 'self.refSpec = <',self.refSpec,'>'
         print 'self.lineList = <',self.lineList,'>'
         print "os.environ['OBS_PFS_DIR'] = <",os.environ['OBS_PFS_DIR'],">"
-        print subprocess.Popen("bin.src/reduceArcRefSpec.py %s --id visit=%d --refSpec %s%s --lineList %s%s --loglevel 'info' --calib %s --output %s --clobber-config" % (self.testDataDir, self.arcVisit, os.environ['OBS_PFS_DIR'], self.refSpec, os.environ['OBS_PFS_DIR'], self.lineList, self.testCalibDir, self.testDataDir), shell=True)#, stderr=subprocess.STDOUT, stdout=subprocess.STDOUT)
+        subprocess.Popen("bin.src/reduceArcRefSpec.py %s --id visit=%d --refSpec %s%s --lineList %s%s --loglevel 'info' --calib %s --output %s --clobber-config" % (self.testDataDir, self.arcVisit, os.environ['OBS_PFS_DIR'], self.refSpec, os.environ['OBS_PFS_DIR'], self.lineList, self.testCalibDir, self.testDataDir), shell=True)#, stderr=subprocess.STDOUT, stdout=subprocess.STDOUT)
+        subprocess.Popen("bin.src/reduceArc.py %s --id visit=%d --wLenFile %s%s --lineList %s%s --loglevel 'info' --calib %s --output %s --clobber-config" % (self.testDataDir, self.arcVisit, os.environ['OBS_PFS_DIR'], self.wLenFile, os.environ['OBS_PFS_DIR'], self.lineList, self.testCalibDir, self.testDataDir), shell=True)#, stderr=subprocess.STDOUT, stdout=subprocess.STDOUT)
 #        for line in p.stdout.readlines():
 #            print line,
 #        retval = p.wait()
