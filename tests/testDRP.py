@@ -28,10 +28,10 @@ class testDRPTestCase(tests.TestCase):
 #  --lineList '/Users/azuri/stella-git/obs_subaru/pfs/lineLists/CdHgKrNeXe_red.fits' --loglevel 'info' --calib '/Users/azuri/spectra/pfs/PFS/CALIB/' 
 #  --output '/Users/azuri/spectra/pfs/PFS'
     def setUp(self):
-        self.testDataDir = 'tests/data'
-        self.testCalibDir = 'tests/data/CALIB/'
+        self.testDataDir = os.environ.get('DRP_STELLA_DATA_DIR')+'tests/data/'
+        self.testCalibDir = self.testDataDir+'CALIB/'
         self.arcVisit = 4
-        self.refSpec = 'pfs/lineLists/refCdHgKrNeXe_red.fits'
+        self.refSpec = 'pfs/arcSpectra/refSpec_CdHgKrNeXe_red.fits'
         self.lineList = 'pfs/lineLists/CdHgKrNeXe_red.fits'
         
     def tearDown(self):
