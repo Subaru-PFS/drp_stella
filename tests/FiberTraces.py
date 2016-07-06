@@ -30,16 +30,11 @@ class FiberTraceTestCase(tests.TestCase):
 
     def setUp(self):
         drpStellaDataDir = lsst.utils.getPackageDir("drp_stella_data")
-        print 'drpStellaDataDir = <',drpStellaDataDir,'>'
         flatfile = drpStellaDataDir+"/data/PFS/CALIB/FLAT/r/flat/pfsFlat-2016-01-12-0-2r.fits"
-        print 'flatfile = <',flatfile,'>'
+        self.flat = afwImage.ExposureF(flatfile)
+        
         arcfile = os.path.join(drpStellaDataDir,"data/PFS/postISRCCD/2016-01-12/v0000004/PFFAr2.fits")
-        print 'arcfile = <',arcfile,'>'
-        self.flat = afwImage.ImageF(flatfile)
-        self.flat = afwImage.makeExposure(afwImage.makeMaskedImage(self.flat))
-
-        self.arc = afwImage.ImageF(arcfile)
-        self.arc = afwImage.makeExposure(afwImage.makeMaskedImage(self.arc))
+        self.arc = afwImage.ExposureF(arcfile)
         
         self.ftffc = drpStella.FiberTraceFunctionFindingControl()
         self.ftffc.fiberTraceFunctionControl.order = 5

@@ -36,12 +36,10 @@ class SpectraTestCase(tests.TestCase):
     def setUp(self):
         drpStellaDataDir = lsst.utils.getPackageDir("drp_stella_data")
         flatfile = os.path.join(drpStellaDataDir,"data/PFS/CALIB/FLAT/r/flat/pfsFlat-2016-01-12-0-2r.fits")
-        arcfile = os.path.join(drpStellaDataDir,"data/PFS/postISRCCD/2016-01-12/v0000004/PFFAr2.fits")
-        self.flat = afwImage.ImageF(flatfile)
-        self.flat = afwImage.makeExposure(afwImage.makeMaskedImage(self.flat))
+        self.flat = afwImage.ExposureF(flatfile)
 
-        self.arc = afwImage.ImageF(arcfile)
-        self.arc = afwImage.makeExposure(afwImage.makeMaskedImage(self.arc))
+        arcfile = os.path.join(drpStellaDataDir,"data/PFS/postISRCCD/2016-01-12/v0000004/PFFAr2.fits")
+        self.arc = afwImage.ExposureF(arcfile)
         
         self.ftffc = drpStella.FiberTraceFunctionFindingControl()
         self.ftffc.fiberTraceFunctionControl.order = 5
