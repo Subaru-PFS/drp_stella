@@ -12,6 +12,7 @@ import os
 import unittest
 import sys
 import numpy as np
+import lsst.utils
 import lsst.utils.tests as tests
 import lsst.afw.image as afwImage
 import lsst.afw.geom as afwGeom
@@ -28,7 +29,7 @@ class FiberTraceTestCase(tests.TestCase):
     """A test case for measuring FiberTrace quantities"""
 
     def setUp(self):
-        drpStellaDataDir = os.environ.get('DRP_STELLA_DATA_DIR')
+        drpStellaDataDir = lsst.utils.getPackageDir("drp_stella_data")
         flatfile = drpStellaDataDir+"/data/PFS/CALIB/FLAT/r/flat/pfsFlat-2016-01-12-0-2r.fits"
         arcfile = drpStellaDataDir+"/data/PFS/postISRCCD/2016-01-12/v0000004/PFFAr2.fits"
         self.flat = afwImage.ImageF(flatfile)
