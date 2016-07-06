@@ -286,7 +286,7 @@ class FiberTraceSet {
     
     /// extract 1D spectrum from previously provided profile
     Spectrum< ImageT, MaskT, VarianceT, VarianceT> extractTraceNumberFromProfile( const size_t traceNumber );
-    SpectrumSet< ImageT, MaskT, VarianceT, VarianceT > extractAllTracesFromProfile();
+    PTR(SpectrumSet< ImageT, MaskT, VarianceT, VarianceT >) extractAllTracesFromProfile();
 
     ///TODO:
     /// Extract spectrum and background for one slit spectrum
