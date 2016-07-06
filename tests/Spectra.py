@@ -391,7 +391,7 @@ class SpectraTestCase(tests.TestCase):
             self.assertGreater(spectrumSetFromProfile.size(), 0)
 
             """ read line list """
-            lineList = os.environ.get('OBS_PFS_DIR')+'/pfs/lineLists/CdHgKrNeXe_red.fits'
+            lineList = lsst.utils.getPackageDir('obs_pfs')+'/pfs/lineLists/CdHgKrNeXe_red.fits'
             hdulist = pyfits.open(lineList)
             tbdata = hdulist[1].data
             lineListArr = np.ndarray(shape=(len(tbdata),2), dtype='float32')
@@ -399,7 +399,7 @@ class SpectraTestCase(tests.TestCase):
             lineListArr[:,1] = tbdata.field(1)
 
             """ read reference Spectrum """
-            refSpec = os.environ.get('OBS_PFS_DIR')+'/pfs/arcSpectra/refSpec_CdHgKrNeXe_red.fits'
+            refSpec = lsst.utils.getPackageDir('obs_pfs')+'/pfs/arcSpectra/refSpec_CdHgKrNeXe_red.fits'
             hdulist = pyfits.open(refSpec)
             tbdata = hdulist[1].data
             refSpecArr = np.ndarray(shape=(len(tbdata)), dtype='float32')
