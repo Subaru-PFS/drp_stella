@@ -48,9 +48,6 @@ class SpectraTestCase(tests.TestCase):
         
         self.ftpfc = drpStella.FiberTraceProfileFittingControl()
 
-        del flatfile
-        del arcfile
-        
     def tearDown(self):
         del self.flat
         del self.arc
