@@ -5,14 +5,12 @@
 
 #include <vector>
 #include <iostream>
-//#include "lsst/base.h"
-//#include "lsst/pex/config.h"
 #include "Chebyshev.h"
 #include "../utils/Utils.h"
 #include "ndarray.h"
 #include "ndarray/eigen.h"
 #include "../cmpfit-1.2/MPFitting_ndarray.h"
-#include "unsupported/Eigen/Splines"
+#include <unsupported/Eigen/Splines>
 
 //#define __DEBUG_FIT__
 //#define __DEBUG_FITARR__
