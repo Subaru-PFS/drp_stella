@@ -5,17 +5,14 @@
 
 #include <vector>
 #include <iostream>
-#include "lsst/base.h"
-#include "lsst/afw/geom.h"
-#include "lsst/afw/image/MaskedImage.h"
-#include "lsst/pex/config.h"
+//#include "lsst/base.h"
+//#include "lsst/pex/config.h"
 #include "Chebyshev.h"
 #include "../utils/Utils.h"
 #include "ndarray.h"
 #include "ndarray/eigen.h"
 #include "../cmpfit-1.2/MPFitting_ndarray.h"
-#include "/Users/azuri/Downloads/eigen/test/include/unsupported/Eigen/Splines"
-//#include <unsupported/Eigen/Splines>
+#include "unsupported/Eigen/Splines"
 
 //#define __DEBUG_FIT__
 //#define __DEBUG_FITARR__
@@ -35,8 +32,6 @@
 /// constants
 #define CONST_PI 3.141592653589793238462643383280    /* pi */
 
-namespace afwGeom = lsst::afw::geom;
-namespace afwImage = lsst::afw::image;
 using namespace std;
 
 namespace pfs { namespace drp { namespace stella {
