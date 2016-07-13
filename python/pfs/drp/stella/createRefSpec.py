@@ -1,24 +1,19 @@
 import os
-import sys
-import argparse
 
 import pfs.drp.stella.findAndTraceAperturesTask as fataTask
 import pfs.drp.stella.createFlatFiberTraceProfileTask as cfftpTask
 import pfs.drp.stella.extractSpectraTask as esTask
 import pfs.drp.stella as drpStella
-import lsst.daf.persistence as dafPersist
-import lsst.afw.image as afwImage
-from lsst.pex.config import Config, ConfigField, ConfigurableField, Field, ListField
+from lsst.pex.config import Config, Field
 from lsst.pipe.base import Task, Struct, TaskRunner, ArgumentParser, CmdLineTask
-import lsst.daf.persistence.butler as lsstButler
+import lsst.utils
 import numpy as np
 from astropy.io import fits as pyfits
-import matplotlib.pyplot as plt
 
 class CreateRefSpecConfig(Config):
     """Configuration for creating the reference spectrum"""
-    lineList = Field( doc = "Reference line list including path", dtype = str, default="/Users/azuri/stella-git/obs_pfs/pfs/lineLists/CdHgKrNeXe_red.fits")
-    output = Field( doc = "Name of output file", dtype=str, default="/Users/azuri/stella-git/obs_pfs/pfs/lineLists/refCdHgKrNeXe_red_temp.fits")
+    lineList = Field( doc = "Reference line list including path", dtype = str, default=os.path.join(lsst.utils.getPackageDir('obs_pfs'),"pfs/lineLists/CdHgKrNeXe_red.fits"))
+    output = Field( doc = "Name of output file", dtype=str, default=os.path.join(lsst.utils.getPackageDir('obs_pfs'),"pfs/arcSpectra/refCdHgKrNeXe_red.fits"))
 
 class CreateRefSpecTaskRunner(TaskRunner):
     """Get parsed values into the CreateRefSpecTask.run"""
@@ -51,7 +46,7 @@ class CreateRefSpecTask(CmdLineTask):
     _DefaultName = "createRefSpecTask"
 
     def __init__(self, *args, **kwargs):
-        super(CreateRefSpecTask, self).__init__(*args, **kwargs)
+        CmdLineTask.__init__(self,*args, **kwargs)
 
     @classmethod
     def _makeArgumentParser(cls, *args, **kwargs):
@@ -66,7 +61,7 @@ class CreateRefSpecTask(CmdLineTask):
         print 'expRefList[0] = ',expRefList[0]
         arcRef = expRefList[0]
         try:
-            arcExp = arcRef.get("postISRCCD", immediate=True)
+            arcExp = arcRef.get("postISRCCD", immediate=immediate)
         except Exception, e:
             raise RuntimeError("Unable to retrieve %s: %s" % (arcRef.dataId, e))
 
@@ -75,8 +70,8 @@ class CreateRefSpecTask(CmdLineTask):
         except Exception, e:
             raise RuntimeError("Unable to retrieve flat for %s: %s" % (arcRef.dataId, e))
 
-        """ find and trace fiber traces """
-        print 'tracing flat fiber traces'
+        """ find and trace apertures """
+        print 'tracing apertures of flatfield'
         myFindTask = fataTask.FindAndTraceAperturesTask()
         flatFiberTraceSet = myFindTask.run(flatExposure)
         print flatFiberTraceSet.size(),' traces found'
