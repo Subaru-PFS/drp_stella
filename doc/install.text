@@ -1,0 +1,85 @@
+* install lsst binary distribution (https://pipelines.lsst.io/install/conda.html)
+* install git-lfs (https://git-lfs.github.com/)
+
+* Create a directory for the PFS-DRP repositories:
+
+mkdir ~/stella-git
+cd ~/stella-git
+
+* Clone the relevant git repositories:
+
+git clone https://github.com/Subaru-PFS/drp_stella.git
+git clone https://github.com/Subaru-PFS/drp_stella_data.git
+git clone https://github.com/Subaru-PFS/obs_pfs.git
+
+* Install a newer version of eigen:
+
+eups distrib install eigen 3.2.5.lsst2
+
+* Declare the git repositories:
+
+eups declare obs_pfs 1.0 -c -f Linux64 -r ~/stella-git/drp_stella
+eups declare drp_stella_data 1.0 -c -f Linux64 -r ~/stella-git/drp_stella_data
+eups declare drp_stella 1.0 -c -f Linux64 -r ~/stella-git/drp_stella
+
+* Setup the pipeline:
+
+setup drp_stella 1.0 -v
+
+* Build the pipeline:
+
+cd drp_stella
+scons opt=3 -j8
+
+* Create the defects database:
+
+cd ../obs_pfs
+scons opt=3 -j8
+
+* Now for using the pipeline. First we need to create a directory (actually 2) where we want to store pipeline outputs. Let's
+assume you have a directory ~/spectra and do everything related to spectra there:
+
+mkdir ~/spectra/PFS
+mkdir ~/spectra/PFS/CALIB
+
+* Let's further assume your raw fits files are in ~/spectra/raw/. Configuration parameters can be passed to the pipeline task
+either on the command line or in a config file (e.g. ~/stella-git/obs_pfs/config/pfs/ingest.py, see following example). You 
+can list all possible configuration parameters by appending a "--show config" to the parameter list.
+To ingest the raw images:
+
+cd ~/spectra
+ingestImages.py 'PFS' 'raw/*.fits' --output='PFS' --mode=link -C ~/stella-git/obs_pfs/config/pfs/ingest.py
+
+* You can now inspect the created SQL database with e.g. sqlitebrowser (http://sqlitebrowser.org/).
+Now that we have our database we can start reducing things. We should probably start with the Biases. If the biases we
+want to reduce were observed on 2015-12-03 on spectrograph 2 at site S:
+
+reduceBias.py 'PFS' --calib 'PFS/CALIB' --output 'PFS' --calibId calibVersion=bias arm=m calibDate=2015-12-03 spectrograph=2 --do-exec --id field=BIAS dateObs=2015-12-03 --nodes=1 --procs=1
+
+* Note the 2 config parameters --nodes and --procs at the end. These parameters are required by tasks which are 
+parallelized. Sometimes running the code in parallel can lead to problems (in most cases caused by the 3rd-party libraries
+used), to setting nodes and procs to 1 is a safe choice.
+
+* Now that we have a master bias we need to inject that too into our database:
+
+~/stella-git/obs_pfs/bin.src/genCalibRegistry.py --root='PFS/CALIB' --camera PFS --validity 180
+
+* Now we can create a bias-subtracted Dark and ingest that into our database:
+
+reduceDark.py 'PFS' --calib 'PFS/CALIB' --output 'PFS' --calibId calibVersion=dark arm=m calibDate=2015-12-03 spectrograph=2 --do-exec --id field=DARK dateObs=2015-12-03 --nodes=1 --procs=1 -C ../stella-git/obs_pfs/config/pfs/dark.py
+~/stella-git/obs_pfs/bin.src/genCalibRegistry.py --root='PFS/CALIB' --camera PFS --validity 180
+
+* and a bias and dark-subtracted flat (currently only used to trace the apertures of the fiber traces):
+
+reduceFlat.py 'PFS' --calib 'PFS/CALIB' --calibId calibVersion=flat arm=r calibDate=2015-12-03 filter=m spectrograph=2 --do-exec --id field=FLAT arm=m dateObs=2015-12-03 spectrograph=2 site=F category=A filter=m taiObs=2015-12-03 --loglevel 'info' --config isr.doBias='True' isr.doDark='True' --output 'PFS' --nodes=1 --procs=1
+
+~/stella-git/obs_pfs/bin.src/genCalibRegistry.py --root='PFS/CALIB' --camera PFS --validity 180
+
+* Since we have the Bias and Dark we can also run the Instrumental-Signature Removal (ISR) task for the other spectra:
+
+~/stella-git/obs_pfs/bin.src/detrend.py 'PFS' --calib='PFS/CALIB' --id arm='m' spectrograph=2 dateObs='2015-12-03' -C ~/stella-git/obs_pfs/config/pfs/detrend.py --output 'PFS'
+
+* We now have the postISRCCD images and can extract and wavelength-calibrate our CdHgKrNeXe Arc with the visit
+number 4:
+
+reduceArc.py 'PFS' --id visit=4 --wLenFile '..//stella-git/obs_pfs/pfs/RedFiberPixels.fits.gz' --lineList '../stella-git/obs_pfs/pfs/lineLists/CdHgKrNeXe_red.fits' --loglevel 'info' --calib 'PFS/CALIB/' --output 'PFS'
