@@ -305,16 +305,7 @@ class SpectraTestCase(tests.TestCase):
             spec = drpStella.SpectrumF(length)
             specNew = drpStella.SpectrumF(length+1)
 
-            """Test that we cannot set a spectrum outside the limits 0 <= pos <= size"""
-            try:
-                specSet.setSpectrum(-1, specNew)
-            except:
-                e = sys.exc_info()[1]
-                message = str.split(e.message, "\n")
-                for i in range(len(message)):
-                    print "element",i,": <",message[i],">"
-                expected = "in method 'SpectrumSetF_setSpectrum', argument 2 of type 'size_t'"
-                self.assertEqual(message[0],expected)
+            """Test that we cannot set a spectrum at pos > size"""
             try:
                 specSet.setSpectrum(size+1, specNew)
             except:
@@ -322,7 +313,7 @@ class SpectraTestCase(tests.TestCase):
                 message = str.split(e.message, "\n")
                 for i in range(len(message)):
                     print "element",i,": <",message[i],">"
-                expected = "SpectrumSet::setSpectrum(i="+str(size+1)+"): ERROR: i > _spectra.size()="+str(size)
+                expected = "SpectrumSet::setSpectrum(i="+str(size+1)+"): ERROR: i > _spectra->size()="+str(size)
                 self.assertEqual(message[0],expected)
 
             """Test that we can set/add a spectrum"""
@@ -343,7 +334,7 @@ class SpectraTestCase(tests.TestCase):
                 message = str.split(e.message, "\n")
                 for i in range(len(message)):
                     print "element",i,": <",message[i],">"
-                expected = "SpectrumSet::erase(iStart="+str(size)+", iEnd=0): ERROR: iStart >= _spectra.size()="+str(size)
+                expected = "SpectrumSet::erase(iStart="+str(size)+", iEnd=0): ERROR: iStart >= _spectra->size()="+str(size)
                 self.assertEqual(message[0],expected)
 
             try:
@@ -353,7 +344,7 @@ class SpectraTestCase(tests.TestCase):
                 message = str.split(e.message, "\n")
                 for i in range(len(message)):
                     print "element",i,": <",message[i],">"
-                expected = "SpectrumSet::erase(iStart="+str(size-1)+", iEnd="+str(size)+"): ERROR: iEnd >= _spectra.size()="+str(size)
+                expected = "SpectrumSet::erase(iStart="+str(size-1)+", iEnd="+str(size)+"): ERROR: iEnd >= _spectra->size()="+str(size)
                 self.assertEqual(message[0],expected)
 
             try:
