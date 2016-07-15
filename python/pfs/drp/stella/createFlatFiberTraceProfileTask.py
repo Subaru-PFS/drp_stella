@@ -6,17 +6,6 @@
 #       myExtractTask = createFlatFiberTraceProfileTask.CreateFlatFiberTraceProfileTask()
 #       myExtractTask.run(fts)
 
-#import os
-#import math
-#import numpy
-
-#import matplotlib
-#matplotlib.use('Agg')
-#import matplotlib.pyplot as plt
-#import matplotlib.mlab as mlab
-
-import lsst.afw.geom                    as afwGeom
-import lsst.afw.image                   as afwImage
 import lsst.pex.config                  as pexConfig
 import pfs.drp.stella as drpStella
 from lsst.pipe.base import Task
