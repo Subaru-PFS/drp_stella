@@ -327,7 +327,7 @@ class SpectrumSet// : public lsst::daf::base::Persistable,
     /**
      * @brief Set the ith Spectrum
      * @param i :: Set which spectrum in set?
-     *      * @param spectrum :: spectrum to copy to this set at position i
+     * @param spectrum :: spectrum to copy to this set at position i
      **/
     bool setSpectrum(size_t const i,
                      Spectrum< SpectrumT, MaskT, VarianceT, WavelengthT > const& spectrum);
@@ -350,7 +350,7 @@ class SpectrumSet// : public lsst::daf::base::Persistable,
 
     const PTR( std::vector< PTR( Spectrum< SpectrumT, MaskT, VarianceT, WavelengthT > ) > ) getSpectra() const { return _spectra; }
     PTR( std::vector< PTR( Spectrum< SpectrumT, MaskT, VarianceT, WavelengthT > ) > ) getSpectra() { return _spectra; }
-    
+
     /// Removes from the vector either a single element (position) or a range of elements ([first,last)).
     /// This effectively reduces the container size by the number of elements removed, which are destroyed.
     bool erase(const size_t iStart, const size_t iEnd=0);
