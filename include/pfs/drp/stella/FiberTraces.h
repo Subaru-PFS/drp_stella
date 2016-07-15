@@ -120,10 +120,10 @@ class FiberTrace {
     bool setProfile( PTR(afwImage::Image<double>) const& profile);
 
     /// Extract the spectrum of this fiber trace using the _profile
-    Spectrum<ImageT, MaskT, VarianceT, VarianceT> extractFromProfile();
+    PTR( Spectrum<ImageT, MaskT, VarianceT, VarianceT> ) extractFromProfile();
     
     /// Simple Sum Extraction of this fiber trace
-    Spectrum<ImageT, MaskT, VarianceT, VarianceT> extractSum();
+    PTR( Spectrum<ImageT, MaskT, VarianceT, VarianceT> ) extractSum();
 
     /// Create _trace from maskedImage and _fiberTraceFunction
     /// Pre: _xCenters set/calculated
@@ -285,8 +285,8 @@ class FiberTraceSet {
     bool calcProfileAllTraces();
     
     /// extract 1D spectrum from previously provided profile
-    Spectrum< ImageT, MaskT, VarianceT, VarianceT> extractTraceNumberFromProfile( const size_t traceNumber );
-    PTR(SpectrumSet< ImageT, MaskT, VarianceT, VarianceT >) extractAllTracesFromProfile();
+    PTR( Spectrum< ImageT, MaskT, VarianceT, VarianceT> ) extractTraceNumberFromProfile( const size_t traceNumber );
+    PTR( SpectrumSet< ImageT, MaskT, VarianceT, VarianceT >) extractAllTracesFromProfile();
 
     ///TODO:
     /// Extract spectrum and background for one slit spectrum
