@@ -76,7 +76,7 @@ template<typename SpectrumT, typename MaskT, typename VarianceT, typename Wavele
 bool pfs::drp::stella::Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>::setSpectrum( ndarray::Array<SpectrumT, 1, 1> const& spectrum )
 {
   /// Check length of input spectrum
-  if (spectrum.getShape()[0] != _length){
+  if (static_cast<size_t>(spectrum.getShape()[0]) != _length) {
     string message("pfs::drp::stella::Spectrum::setSpectrum: ERROR: spectrum->size()=");
     message += to_string(spectrum.getShape()[0]) + string(" != _length=") + to_string(_length);
     cout << message << endl;
@@ -90,7 +90,7 @@ template<typename SpectrumT, typename MaskT, typename VarianceT, typename Wavele
 bool pfs::drp::stella::Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>::setVariance( ndarray::Array<VarianceT, 1, 1> const& variance )
 {
   /// Check length of input covar
-  if (variance.getShape()[ 0 ] != _length){
+  if (static_cast<size_t>(variance.getShape()[0]) != _length) {
     string message("pfs::drp::stella::Spectrum::setVariance: ERROR: variance->size()=");
     message += to_string( variance.getShape()[ 0 ] ) + string( " != _length=" ) + to_string( _length );
     cout << message << endl;
@@ -104,7 +104,7 @@ template<typename SpectrumT, typename MaskT, typename VarianceT, typename Wavele
 bool pfs::drp::stella::Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>::setCovar(const ndarray::Array<VarianceT, 2, 1> & covar )
 {
     /// Check length of input covar
-    if (covar.getShape()[ 1 ] != _length){
+    if (static_cast<size_t>(covar.getShape()[1]) != _length) {
       string message("pfs::drp::stella::Spectrum::setCovar: ERROR: covar->size()=");
       message += to_string( covar.getShape()[ 1 ] ) + string( " != _length=" ) + to_string( _length );
       cout << message << endl;
@@ -118,7 +118,7 @@ template<typename SpectrumT, typename MaskT, typename VarianceT, typename Wavele
 bool pfs::drp::stella::Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>::setMask(const ndarray::Array<MaskT, 1, 1> & mask)
 {
   /// Check length of input mask
-  if (mask.getShape()[0] != _length){
+  if (static_cast<size_t>(mask.getShape()[0]) != _length){
     string message("pfs::drp::stella::Spectrum::setMask: ERROR: mask->size()=");
     message += to_string(mask.getShape()[0]) + string(" != _length=") + to_string(_length);
     cout << message << endl;
@@ -665,14 +665,14 @@ template<typename SpectrumT, typename MaskT, typename VarianceT, typename Wavele
 bool pfs::drp::stella::SpectrumSet<SpectrumT, MaskT, VarianceT, WavelengthT>::setSpectrum( size_t const i,
                                                                                        Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT> const& spectrum )
 {
-  if (i > _spectra.size()){
+  if (i > _spectra.size()) {
     string message("SpectrumSet::setSpectrum(i=");
     message += to_string(i) + "): ERROR: i > _spectra.size()=" + to_string(_spectra.size());
     cout << message << endl;
     throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
   }
 
-  if (i == static_cast<int>(_spectra.size())){
+  if (i == _spectra.size()) {
     _spectra.push_back(spectrum);
   }
   else{
@@ -752,7 +752,7 @@ void pfs::drp::stella::SpectrumSet<ImageT, MaskT, VarianceT, WavelengthT>::write
   wDisp.deep() = 0.;
   sky.deep() = 0.;
 
-  for ( int iFiber = 0; iFiber < _spectra.size(); ++iFiber ){
+  for ( size_t iFiber = 0; iFiber < _spectra.size(); ++iFiber ){
 //        PTR( pfs::drp::stella::Spectrum< ImageT, MaskT, VarianceT, WavelengthT > ) spectrum = _spectra[ iFiber ];
 
     int yLow = _spectra.at( iFiber ).getYLow();

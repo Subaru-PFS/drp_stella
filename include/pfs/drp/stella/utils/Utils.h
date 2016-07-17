@@ -2,7 +2,6 @@
 #define __PFS_DRP_STELLA_UTILS_H__
 #include <vector>
 #include <iostream>
-//#include "../blitz.h"
 #include <fitsio.h>
 #include <fitsio2.h>
 #include "lsst/afw/image/MaskedImage.h"
@@ -163,9 +162,6 @@ namespace pfs { namespace drp { namespace stella { namespace utils{
         cout << message << endl;
         throw LSST_EXCEPT(pexExcept::Exception, message.c_str());    
       }
-
-//      firstrow  = 1;  // first row in table to write
-//      firstelem = 1;  // first element in row  (ignored in ASCII tables)
 
       // write names to the first column (character strings)
       // write diameters to the second column (longs)

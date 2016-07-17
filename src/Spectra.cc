@@ -42,7 +42,7 @@ template<typename SpectrumT, typename MaskT, typename VarianceT, typename Wavele
 bool pfsDRPStella::Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>::setSky( ndarray::Array<SpectrumT, 1, 1> const& sky )
 {
   /// Check length of input spectrum
-  if (sky.getShape()[0] != _length){
+  if (static_cast<size_t>(sky.getShape()[0]) != _length){
     string message("pfsDRPStella::Spectrum::setSky: ERROR: spectrum->size()=");
     message += to_string(sky.getShape()[0]) + string(" != _length=") + to_string(_length);
     cout << message << endl;
@@ -59,7 +59,7 @@ template<typename SpectrumT, typename MaskT, typename VarianceT, typename Wavele
 bool pfsDRPStella::Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>::setWavelength( ndarray::Array< WavelengthT, 1, 1 > const& wavelength )
 {
   /// Check length of input wavelength
-  if (wavelength.getShape()[0] != _length){
+  if (static_cast<size_t>(wavelength.getShape()[0]) != _length){
     string message("pfsDRPStella::Spectrum::setWavelength: ERROR: wavelength->size()=");
     message += to_string(wavelength.getShape()[0]) + string(" != _length=") + to_string(_length);
     cout << message << endl;
@@ -76,7 +76,7 @@ template<typename SpectrumT, typename MaskT, typename VarianceT, typename Wavele
 bool pfsDRPStella::Spectrum< SpectrumT, MaskT, VarianceT, WavelengthT >::setDispersion( ndarray::Array< WavelengthT, 1, 1 > const& dispersion )
 {
   /// Check length of input wavelength
-  if ( dispersion.getShape()[ 0 ] != _length ){
+  if (static_cast<size_t>(dispersion.getShape()[0]) != _length ){
     string message("pfsDRPStella::Spectrum::setDispersion: ERROR: dispersion->size()=");
     message += to_string( dispersion.getShape()[ 0 ]) + string(" != _length=") + to_string( _length );
     cout << message << endl;
@@ -263,17 +263,17 @@ pfsDRPStella::SpectrumSet<SpectrumT, MaskT, VarianceT, WavelengthT>::SpectrumSet
     lsst::afw::image::fits_read_array( const_cast< lsst::afw::fits::Fits& >(fitsfile), array, xy0, *metadata );
     cout << "SpectrumSet::SpectrumSet(fitsfile): array.getShape() = " << array.getShape() << endl;
 
-    for (int i = 0; i < metadata->names().size(); ++i){
+    for (size_t i = 0; i < metadata->names().size(); ++i){
       std::cout << "Image::Image(fitsfile, metadata,...): metadata.names()[" << i << "] = " << metadata->names()[i] << std::endl;
       if (metadata->names()[i].compare("EXPTIME") == 0)
         std::cout << "Image::Image(fitsfile, metadata,...): metadata->get(EXPTIME) = " << metadata->getAsDouble("EXPTIME") << std::endl;
     }
-    for (int i = 0; i < metadata->paramNames().size(); ++i){
+    for (size_t i = 0; i < metadata->paramNames().size(); ++i){
       std::cout << "Image::Image(fitsfile, metadata,...): metadata.paramNames()[" << i << "] = " << metadata->paramNames()[i] << std::endl;
       if (metadata->paramNames()[i].compare("EXPTIME") == 0)
         std::cout << "Image::Image(fitsfile, metadata,...): metadata->get(EXPTIME) = " << metadata->getAsDouble("EXPTIME") << std::endl;
     }
-    for (int i = 0; i < metadata->propertySetNames().size(); ++i)
+    for (size_t i = 0; i < metadata->propertySetNames().size(); ++i)
       std::cout << "Image::Image(fitsfile, metadata,...): metadata.propertySetNames()[" << i << "] = " << metadata->propertySetNames()[i] << std::endl;
 
     checkExtType( const_cast< lsst::afw::fits::Fits& >(fitsfile), fluxMetadata, "IMAGE" );
