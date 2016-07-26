@@ -213,6 +213,7 @@ Interface to Stella
 
 //%template(PSFSetF) pfs::drp::stella::PSFSet<float>;
 //%template(PSFSetD) pfs::drp::stella::PSFSet<double>;
+%template(markFiberTraceInMask) pfs::drp::stella::utils::markFiberTraceInMask<float, unsigned short, float>;
 
 %extend pfs::drp::stella::SpectrumSet{
     %feature("shadow") writeFits %{
