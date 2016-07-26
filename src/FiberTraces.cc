@@ -2759,6 +2759,25 @@ namespace pfsDRPStella = pfs::drp::stella;
       return ptr.get();
     }
     
+    template< typename ImageT, typename MaskT, typename VarianceT >
+    bool markFiberTraceInMask( PTR( FiberTrace< ImageT, MaskT, VarianceT > ) const& fiberTrace,
+                               PTR( afwImage::MaskedImage< ImageT, MaskT, VarianceT > ) const& maskedImage ){
+      const PTR(const FiberTraceFunction) ftf = fiberTrace->getFiberTraceFunction();
+      const ndarray::Array< float, 1, 1 > xCenters = fiberTrace->getXCenters();
+      ndarray::Array<size_t, 2, 1> minCenMax = pfsDRPStella::math::calcMinCenMax( xCenters,
+                                                                                  fiberTrace->getFiberTraceFunction()->fiberTraceFunctionControl.xHigh,
+                                                                                  fiberTrace->getFiberTraceFunction()->fiberTraceFunctionControl.xLow,
+                                                                                  fiberTrace->getFiberTraceFunction()->fiberTraceFunctionControl.nPixCutLeft,
+                                                                                  fiberTrace->getFiberTraceFunction()->fiberTraceFunctionControl.nPixCutRight);
+      int y = fiberTrace->getFiberTraceFunction()->yCenter + fiberTrace->getFiberTraceFunction()->yLow;
+      for (int iY = 0; iY < xCenters.getShape()[ 0 ]; ++iY){
+        for (int x = minCenMax[iY][0]; x <= minCenMax[iY][2]; ++x){
+          maskedImage->getMask()->getArray()[ y + iY ][ x ] = 1;
+        }
+      }
+      return true;
+    }
+    
   }
   }}}
 
@@ -2904,6 +2923,9 @@ template const afwImage::Image<unsigned int>* pfsDRPStella::utils::getRawPointer
 template const afwImage::Image<int>* pfsDRPStella::utils::getRawPointer(const PTR(const afwImage::Image<int>) &ptr);
 template const pfsDRPStella::FiberTrace<float, unsigned short, float>* pfsDRPStella::utils::getRawPointer(const PTR(const pfsDRPStella::FiberTrace<float, unsigned short, float>) &ptr);
 template const pfsDRPStella::FiberTrace<double, unsigned short, float>* pfsDRPStella::utils::getRawPointer(const PTR(const pfsDRPStella::FiberTrace<double, unsigned short, float>) &ptr);
+
+template bool pfsDRPStella::utils::markFiberTraceInMask( PTR( FiberTrace< float, unsigned short, float > ) const& fiberTrace,
+                                                         PTR( afwImage::MaskedImage< float, unsigned short, float > ) const& maskedImage );
 
 template PTR(pfsDRPStella::FiberTrace< float, unsigned short, float >) pfsDRPStella::math::makeNormFlatFiberTrace( PTR( const afwImage::MaskedImage< float, unsigned short, float >) const&,
                                                                                                 PTR( const ::pfs::drp::stella::FiberTraceFunction ) const&,
