@@ -320,6 +320,196 @@ pfsDRPStella::SpectrumSet<SpectrumT, MaskT, VarianceT, WavelengthT>::SpectrumSet
     (const_cast< lsst::afw::fits::Fits& >(fitsfile)).setHdu(origHdu);
 }
 
+template<typename SpectrumT, typename MaskT, typename VarianceT, typename WavelengthT>
+const ndarray::Array< const float, 2, 1 > pfsDRPStella::SpectrumSet<SpectrumT, MaskT, VarianceT, WavelengthT>::getAllFluxes() const{
+  int nFibers = int( size() );
+  int nCCDRows = getSpectrum( 0 )->getNCCDRows();
+  /// allocate memory for the array
+  ndarray::Array< float, 2, 1 > flux = ndarray::allocate( nCCDRows, nFibers );
+
+  flux.deep() = 0.;
+
+  for ( int iFiber = 0; iFiber < _spectra->size(); ++iFiber ){
+    PTR( pfs::drp::stella::Spectrum< SpectrumT, MaskT, VarianceT, WavelengthT > ) spectrum = _spectra->at( iFiber );
+
+    int yLow = spectrum->getYLow();
+    int yHigh = spectrum->getYHigh();
+    if ( yHigh - yLow + 1 != spectrum->getSpectrum().getShape()[ 0 ] ){
+      cout << "SpectrumSet::writeFits: yHigh=" << yHigh << " - yLow=" << yLow << " + 1 (=" << yHigh - yLow + 1 << ") = " << yHigh-yLow + 1 << " != spectrum->getSpectrum().getShape()[ 0 ] = " << spectrum->getSpectrum().getShape()[ 0 ] << endl;
+      throw LSST_EXCEPT(
+        lsst::pex::exceptions::LogicError,
+        "SpectrumSet::writeFits: spectrum does not have expected shape"
+      );
+    }
+
+    flux[ ndarray::view( yLow, yHigh + 1 )( iFiber ) ] = spectrum->getSpectrum()[ ndarray::view() ];
+  }
+  return flux;
+}
+
+template<typename SpectrumT, typename MaskT, typename VarianceT, typename WavelengthT>
+const ndarray::Array< const float, 2, 1 > pfsDRPStella::SpectrumSet<SpectrumT, MaskT, VarianceT, WavelengthT>::getAllWavelengths() const{
+  int nFibers = int( size() );
+  int nCCDRows = getSpectrum( 0 )->getNCCDRows();
+  /// allocate memory for the array
+  ndarray::Array< float, 2, 1 > lambda = ndarray::allocate( nCCDRows, nFibers );
+
+  lambda.deep() = 0.;
+
+  for ( int iFiber = 0; iFiber < _spectra->size(); ++iFiber ){
+    PTR( pfs::drp::stella::Spectrum< SpectrumT, MaskT, VarianceT, WavelengthT > ) spectrum = _spectra->at( iFiber );
+
+    int yLow = spectrum->getYLow();
+    int yHigh = spectrum->getYHigh();
+    if ( yHigh - yLow + 1 != spectrum->getSpectrum().getShape()[ 0 ] ){
+      cout << "SpectrumSet::writeFits: yHigh=" << yHigh << " - yLow=" << yLow << " + 1 (=" << yHigh - yLow + 1 << ") = " << yHigh-yLow + 1 << " != spectrum->getSpectrum().getShape()[ 0 ] = " << spectrum->getSpectrum().getShape()[ 0 ] << endl;
+      throw LSST_EXCEPT(
+        lsst::pex::exceptions::LogicError,
+        "SpectrumSet::writeFits: spectrum does not have expected shape"
+      );
+    }
+
+    lambda[ ndarray::view( yLow, yHigh + 1 )( iFiber ) ] = spectrum->getWavelength()[ ndarray::view() ];
+  }
+  return lambda;
+}
+
+template<typename SpectrumT, typename MaskT, typename VarianceT, typename WavelengthT>
+const ndarray::Array< const float, 2, 1 > pfsDRPStella::SpectrumSet<SpectrumT, MaskT, VarianceT, WavelengthT>::getAllDispersions() const{
+  int nFibers = int( size() );
+  int nCCDRows = getSpectrum( 0 )->getNCCDRows();
+  /// allocate memory for the array
+  ndarray::Array< float, 2, 1 > dispersion = ndarray::allocate( nCCDRows, nFibers );
+
+  dispersion.deep() = 0.;
+
+  for ( int iFiber = 0; iFiber < _spectra->size(); ++iFiber ){
+    PTR( pfs::drp::stella::Spectrum< SpectrumT, MaskT, VarianceT, WavelengthT > ) spectrum = _spectra->at( iFiber );
+
+    int yLow = spectrum->getYLow();
+    int yHigh = spectrum->getYHigh();
+    if ( yHigh - yLow + 1 != spectrum->getSpectrum().getShape()[ 0 ] ){
+      cout << "SpectrumSet::writeFits: yHigh=" << yHigh << " - yLow=" << yLow << " + 1 (=" << yHigh - yLow + 1 << ") = " << yHigh-yLow + 1 << " != spectrum->getSpectrum().getShape()[ 0 ] = " << spectrum->getSpectrum().getShape()[ 0 ] << endl;
+      throw LSST_EXCEPT(
+        lsst::pex::exceptions::LogicError,
+        "SpectrumSet::writeFits: spectrum does not have expected shape"
+      );
+    }
+
+    dispersion[ ndarray::view( yLow, yHigh + 1 )( iFiber ) ] = spectrum->getDispersion()[ ndarray::view() ];
+  }
+  return dispersion;
+}
+    
+template<typename SpectrumT, typename MaskT, typename VarianceT, typename WavelengthT>
+const ndarray::Array< const int, 2, 1 > pfsDRPStella::SpectrumSet<SpectrumT, MaskT, VarianceT, WavelengthT>::getAllMasks() const{
+  int nFibers = int( size() );
+  int nCCDRows = getSpectrum( 0 )->getNCCDRows();
+  /// allocate memory for the array
+  ndarray::Array< int, 2, 1 > mask = ndarray::allocate( nCCDRows, nFibers );
+
+  mask.deep() = 0.;
+
+  for ( int iFiber = 0; iFiber < _spectra->size(); ++iFiber ){
+    PTR( pfs::drp::stella::Spectrum< SpectrumT, MaskT, VarianceT, WavelengthT > ) spectrum = _spectra->at( iFiber );
+
+    int yLow = spectrum->getYLow();
+    int yHigh = spectrum->getYHigh();
+    if ( yHigh - yLow + 1 != spectrum->getSpectrum().getShape()[ 0 ] ){
+      cout << "SpectrumSet::writeFits: yHigh=" << yHigh << " - yLow=" << yLow << " + 1 (=" << yHigh - yLow + 1 << ") = " << yHigh-yLow + 1 << " != spectrum->getSpectrum().getShape()[ 0 ] = " << spectrum->getSpectrum().getShape()[ 0 ] << endl;
+      throw LSST_EXCEPT(
+        lsst::pex::exceptions::LogicError,
+        "SpectrumSet::writeFits: spectrum does not have expected shape"
+      );
+    }
+
+    mask[ ndarray::view( yLow, yHigh + 1 )( iFiber ) ] = spectrum->getMask()[ ndarray::view() ];
+  }
+  return mask;
+}
+
+template<typename SpectrumT, typename MaskT, typename VarianceT, typename WavelengthT>
+const ndarray::Array< const float, 2, 1 > pfsDRPStella::SpectrumSet<SpectrumT, MaskT, VarianceT, WavelengthT>::getAllSkies() const{
+  int nFibers = int( size() );
+  int nCCDRows = getSpectrum( 0 )->getNCCDRows();
+  /// allocate memory for the array
+  ndarray::Array< float, 2, 1 > sky = ndarray::allocate( nCCDRows, nFibers );
+
+  sky.deep() = 0.;
+
+  for ( int iFiber = 0; iFiber < _spectra->size(); ++iFiber ){
+    PTR( pfs::drp::stella::Spectrum< SpectrumT, MaskT, VarianceT, WavelengthT > ) spectrum = _spectra->at( iFiber );
+
+    int yLow = spectrum->getYLow();
+    int yHigh = spectrum->getYHigh();
+    if ( yHigh - yLow + 1 != spectrum->getSpectrum().getShape()[ 0 ] ){
+      cout << "SpectrumSet::writeFits: yHigh=" << yHigh << " - yLow=" << yLow << " + 1 (=" << yHigh - yLow + 1 << ") = " << yHigh-yLow + 1 << " != spectrum->getSpectrum().getShape()[ 0 ] = " << spectrum->getSpectrum().getShape()[ 0 ] << endl;
+      throw LSST_EXCEPT(
+        lsst::pex::exceptions::LogicError,
+        "SpectrumSet::writeFits: spectrum does not have expected shape"
+      );
+    }
+
+    sky[ ndarray::view( yLow, yHigh + 1 )( iFiber ) ] = spectrum->getSky()[ ndarray::view() ];
+  }
+  return sky;
+}
+
+template<typename SpectrumT, typename MaskT, typename VarianceT, typename WavelengthT>
+const ndarray::Array< const float, 2, 1 > pfsDRPStella::SpectrumSet<SpectrumT, MaskT, VarianceT, WavelengthT>::getAllVariances() const{
+  int nFibers = int( size() );
+  int nCCDRows = getSpectrum( 0 )->getNCCDRows();
+  /// allocate memory for the array
+  ndarray::Array< float, 2, 1 > var = ndarray::allocate( nCCDRows, nFibers );
+
+  var.deep() = 0.;
+
+  for ( int iFiber = 0; iFiber < _spectra->size(); ++iFiber ){
+    PTR( pfs::drp::stella::Spectrum< SpectrumT, MaskT, VarianceT, WavelengthT > ) spectrum = _spectra->at( iFiber );
+
+    int yLow = spectrum->getYLow();
+    int yHigh = spectrum->getYHigh();
+    if ( yHigh - yLow + 1 != spectrum->getSpectrum().getShape()[ 0 ] ){
+      cout << "SpectrumSet::writeFits: yHigh=" << yHigh << " - yLow=" << yLow << " + 1 (=" << yHigh - yLow + 1 << ") = " << yHigh-yLow + 1 << " != spectrum->getSpectrum().getShape()[ 0 ] = " << spectrum->getSpectrum().getShape()[ 0 ] << endl;
+      throw LSST_EXCEPT(
+        lsst::pex::exceptions::LogicError,
+        "SpectrumSet::writeFits: spectrum does not have expected shape"
+      );
+    }
+
+    var[ ndarray::view( yLow, yHigh + 1 )( iFiber ) ] = spectrum->getVariance()[ ndarray::view() ];
+  }
+  return var;
+}
+    
+template<typename SpectrumT, typename MaskT, typename VarianceT, typename WavelengthT>
+const ndarray::Array< const float, 3, 1 > pfsDRPStella::SpectrumSet<SpectrumT, MaskT, VarianceT, WavelengthT>::getAllCovars() const{
+  int nFibers = int( size() );
+  int nCCDRows = getSpectrum( 0 )->getNCCDRows();
+  /// allocate memory for the array
+  ndarray::Array< float, 3, 1 > covar = ndarray::allocate( nCCDRows, 3, nFibers );
+
+  covar.deep() = 0.;
+
+  for ( int iFiber = 0; iFiber < _spectra->size(); ++iFiber ){
+    PTR( pfs::drp::stella::Spectrum< SpectrumT, MaskT, VarianceT, WavelengthT > ) spectrum = _spectra->at( iFiber );
+
+    int yLow = spectrum->getYLow();
+    int yHigh = spectrum->getYHigh();
+    if ( yHigh - yLow + 1 != spectrum->getSpectrum().getShape()[ 0 ] ){
+      cout << "SpectrumSet::writeFits: yHigh=" << yHigh << " - yLow=" << yLow << " + 1 (=" << yHigh - yLow + 1 << ") = " << yHigh-yLow + 1 << " != spectrum->getSpectrum().getShape()[ 0 ] = " << spectrum->getSpectrum().getShape()[ 0 ] << endl;
+      throw LSST_EXCEPT(
+        lsst::pex::exceptions::LogicError,
+        "SpectrumSet::writeFits: spectrum does not have expected shape"
+      );
+    }
+    cout << "covar[ ndarray::view( " << yLow << ", " << yHigh + 1 << " )( )( " << iFiber << " ) ].getShape() = " << covar[ ndarray::view( yLow, yHigh + 1 )( )( iFiber ) ].getShape() << ", spectrum->getCovar().getShape() = " << spectrum->getCovar().getShape() << endl;
+    covar[ ndarray::view( yLow, yHigh + 1 )( )( iFiber ) ] = spectrum->getCovar()[ ndarray::view() ];
+  }
+  return covar;
+}
+
+
 //template class pfsDRPStella::SpectrumSet<float, int, float, float>;
 //template class pfsDRPStella::SpectrumSet<double, int, double, double>;
 //template class pfsDRPStella::SpectrumSet<float, unsigned int, float, float>;

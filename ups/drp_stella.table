@@ -1,9 +1,9 @@
-setupRequired(pipe_tasks)
-setupRequired(pipe_drivers)
-setupRequired(afw)
+setupRequired(pipe_tasks 12.0)
+setupRequired(pipe_drivers 12.0)
+setupRequired(afw 12.0)
 setupRequired(obs_pfs)
 setupRequired(eigen 3.2.5.lsst2 [>= 3.2.5.lsst2])
-setupRequired(sconsUtils)
+setupRequired(sconsUtils 12.0)
 
 setupOptional(drp_stella_data)
 

@@ -354,26 +354,41 @@ class SpectrumSet// : public lsst::daf::base::Persistable,
     /// Removes from the vector either a single element (position) or a range of elements ([first,last)).
     /// This effectively reduces the container size by the number of elements removed, which are destroyed.
     bool erase(const size_t iStart, const size_t iEnd=0);
-
+    
     /**
-     *  @brief Read a SpectrumSet from a regular FITS file.
-     *
-     *  @param[in] filename    Name of the file to read.
+     * @brief Return all fluxes in an array [nCCDRows x nFibers]
      */
-    static SpectrumSet& readFits( std::string const & filename ) {
-        static SpectrumSet< SpectrumT, MaskT, VarianceT, WavelengthT > spectrumSet( filename );
-        return spectrumSet;
-    }
-
+    const ndarray::Array< const float, 2, 1 > getAllFluxes() const;
+    
     /**
-     *  @brief Read a MaskedImage from a FITS RAM file.
-     *
-     *  @param[in] manager     Object that manages the memory to be read.
+     * @brief Return all wavelengths in an array [nCCDRows x nFibers]
      */
-    static SpectrumSet& readFits( lsst::afw::fits::MemFileManager & manager ) {
-        static SpectrumSet< SpectrumT, MaskT, VarianceT, WavelengthT > spectrumSet( manager );
-        return spectrumSet;
-    }
+    const ndarray::Array< const float, 2, 1 > getAllWavelengths() const;
+    
+    /**
+     * @brief Return all dispersions in an array [nCCDRows x nFibers]
+     */
+    const ndarray::Array< const float, 2, 1 > getAllDispersions() const;
+    
+    /**
+     * @brief Return all masks in an array [nCCDRows x nFibers]
+     */
+    const ndarray::Array< const int, 2, 1 > getAllMasks() const;
+    
+    /**
+     * @brief Return all skies in an array [nCCDRows x nFibers]
+     */
+    const ndarray::Array< const float, 2, 1 > getAllSkies() const;
+    
+    /**
+     * @brief Return all variances in an array [nCCDRows x nFibers]
+     */
+    const ndarray::Array< const float, 2, 1 > getAllVariances() const;
+    
+    /**
+     * @brief Return all covariances in an array [nCCDRows x 3 x nFibers]
+     */
+    const ndarray::Array< const float, 3, 1 > getAllCovars() const;
     
   private:
     PTR( std::vector< PTR(Spectrum< SpectrumT, MaskT, VarianceT, WavelengthT > ) > ) _spectra; // spectra for each aperture
