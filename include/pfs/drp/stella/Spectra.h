@@ -358,37 +358,37 @@ class SpectrumSet// : public lsst::daf::base::Persistable,
     /**
      * @brief Return all fluxes in an array [nCCDRows x nFibers]
      */
-    const ndarray::Array< const float, 2, 1 > getAllFluxes() const;
+    ndarray::Array< float, 2, 1 > getAllFluxes() const;
     
     /**
      * @brief Return all wavelengths in an array [nCCDRows x nFibers]
      */
-    const ndarray::Array< const float, 2, 1 > getAllWavelengths() const;
+    ndarray::Array< float, 2, 1 > getAllWavelengths() const;
     
     /**
      * @brief Return all dispersions in an array [nCCDRows x nFibers]
      */
-    const ndarray::Array< const float, 2, 1 > getAllDispersions() const;
+    ndarray::Array< float, 2, 1 > getAllDispersions() const;
     
     /**
      * @brief Return all masks in an array [nCCDRows x nFibers]
      */
-    const ndarray::Array< const int, 2, 1 > getAllMasks() const;
+    ndarray::Array< int, 2, 1 > getAllMasks() const;
     
     /**
      * @brief Return all skies in an array [nCCDRows x nFibers]
      */
-    const ndarray::Array< const float, 2, 1 > getAllSkies() const;
+    ndarray::Array< float, 2, 1 > getAllSkies() const;
     
     /**
      * @brief Return all variances in an array [nCCDRows x nFibers]
      */
-    const ndarray::Array< const float, 2, 1 > getAllVariances() const;
+    ndarray::Array< float, 2, 1 > getAllVariances() const;
     
     /**
      * @brief Return all covariances in an array [nCCDRows x 3 x nFibers]
      */
-    const ndarray::Array< const float, 3, 1 > getAllCovars() const;
+    ndarray::Array< float, 3, 1 > getAllCovars() const;
     
   private:
     PTR( std::vector< PTR(Spectrum< SpectrumT, MaskT, VarianceT, WavelengthT > ) > ) _spectra; // spectra for each aperture
