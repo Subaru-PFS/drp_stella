@@ -99,6 +99,7 @@ class SpectraTestCase(tests.TestCase):
             self.assertTrue(spec.setSpectrum(vecf))
             self.assertEqual(spec.getSpectrum()[3], vecf[3])
 
+        if True:
             """Test that we can't assign a spectrum of the wrong length"""
             vecf = drpStella.indGenNdArrF(size+1)
             try:
@@ -114,14 +115,17 @@ class SpectraTestCase(tests.TestCase):
 
             """Test getVariance"""
             vec = spec.getVariance()
+            print 'vec.shape = ',vec.shape
             self.assertEqual(vec.shape[0], size)
 
+        if True:
             """Test setVariance"""
             """Test that we can assign a variance vector of the correct length"""
             vecf = drpStella.indGenNdArrF(size)
             self.assertTrue(spec.setVariance(vecf))
             self.assertEqual(spec.getVariance()[3], vecf[3])
 
+        if True:
             """Test that we can't assign a variance vector of the wrong length"""
             vecf = drpStella.indGenNdArrF(size+1)
             try:
@@ -158,7 +162,7 @@ class SpectraTestCase(tests.TestCase):
                 self.assertEqual(message[0],expected)
             self.assertEqual(spec.getWavelength().shape[0], size)
 
-
+        if True:
             """Test getMask"""
             vec = spec.getMask()
             print "vec = ",vec

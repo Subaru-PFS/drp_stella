@@ -86,6 +86,21 @@ bool pfs::drp::stella::Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>::setSp
   return true;
 }
 
+//template<typename SpectrumT, typename MaskT, typename VarianceT, typename WavelengthT>
+//ndarray::Array<VarianceT, 1, 1> pfs::drp::stella::Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>::getVariance()
+//{
+//    ndarray::Array< VarianceT, 1, 1 > variance = _covar[ ndarray::view( )( 1 ) ]; 
+//    return variance;
+//}
+
+template<typename SpectrumT, typename MaskT, typename VarianceT, typename WavelengthT>
+ndarray::Array<VarianceT, 1, 1> pfs::drp::stella::Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>::getVariance() const
+{
+    ndarray::Array< VarianceT, 1, 1 > variance = ndarray::allocate( _covar.getShape()[ 0 ] );
+    variance.deep() = _covar[ ndarray::view( )( 1 ) ];
+    return variance;
+}
+
 template<typename SpectrumT, typename MaskT, typename VarianceT, typename WavelengthT>
 bool pfs::drp::stella::Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>::setVariance( ndarray::Array<VarianceT, 1, 1> const& variance )
 {
@@ -96,7 +111,7 @@ bool pfs::drp::stella::Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>::setVa
     cout << message << endl;
     throw LSST_EXCEPT(pexExcept::Exception, message.c_str());    
   }
-  _covar[ ndarray::view( 3 )( ) ] = variance;
+  _covar[ ndarray::view( )( 1 ) ] = variance;
   return true;
 }
 
@@ -104,9 +119,9 @@ template<typename SpectrumT, typename MaskT, typename VarianceT, typename Wavele
 bool pfs::drp::stella::Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>::setCovar(const ndarray::Array<VarianceT, 2, 1> & covar )
 {
     /// Check length of input covar
-    if (static_cast<size_t>(covar.getShape()[1]) != _length) {
+    if (static_cast<size_t>(covar.getShape()[0]) != _length) {
       string message("pfs::drp::stella::Spectrum::setCovar: ERROR: covar->size()=");
-      message += to_string( covar.getShape()[ 1 ] ) + string( " != _length=" ) + to_string( _length );
+      message += to_string( covar.getShape()[ 0 ] ) + string( " != _length=" ) + to_string( _length );
       cout << message << endl;
       throw LSST_EXCEPT(pexExcept::Exception, message.c_str());    
     }
@@ -142,7 +157,7 @@ bool pfs::drp::stella::Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>::setLe
     #ifdef __DEBUG_SETLENGTH__
       cout << "pfs::drp::stella::Spectrum::setLength: _mask resized to " << _mask.getShape()[0] << endl;
     #endif
-    pfs::drp::stella::math::resize(_covar, 5, length);
+    pfs::drp::stella::math::resize(_covar, length, 3);
     #ifdef __DEBUG_SETLENGTH__
       cout << "pfs::drp::stella::Spectrum::setLength: _covar resized to " << _covar.getShape()[0] << "x" << _covar.getShape()[1] << endl;
     #endif
