@@ -321,7 +321,7 @@ pfsDRPStella::SpectrumSet<SpectrumT, MaskT, VarianceT, WavelengthT>::SpectrumSet
 }
 
 template<typename SpectrumT, typename MaskT, typename VarianceT, typename WavelengthT>
-const ndarray::Array< const float, 2, 1 > pfsDRPStella::SpectrumSet<SpectrumT, MaskT, VarianceT, WavelengthT>::getAllFluxes() const{
+ndarray::Array< float, 2, 1 > pfsDRPStella::SpectrumSet<SpectrumT, MaskT, VarianceT, WavelengthT>::getAllFluxes() const{
   int nFibers = int( size() );
   int nCCDRows = getSpectrum( 0 )->getNCCDRows();
   /// allocate memory for the array
@@ -348,7 +348,7 @@ const ndarray::Array< const float, 2, 1 > pfsDRPStella::SpectrumSet<SpectrumT, M
 }
 
 template<typename SpectrumT, typename MaskT, typename VarianceT, typename WavelengthT>
-const ndarray::Array< const float, 2, 1 > pfsDRPStella::SpectrumSet<SpectrumT, MaskT, VarianceT, WavelengthT>::getAllWavelengths() const{
+ndarray::Array< float, 2, 1 > pfsDRPStella::SpectrumSet<SpectrumT, MaskT, VarianceT, WavelengthT>::getAllWavelengths() const{
   int nFibers = int( size() );
   int nCCDRows = getSpectrum( 0 )->getNCCDRows();
   /// allocate memory for the array
@@ -375,7 +375,7 @@ const ndarray::Array< const float, 2, 1 > pfsDRPStella::SpectrumSet<SpectrumT, M
 }
 
 template<typename SpectrumT, typename MaskT, typename VarianceT, typename WavelengthT>
-const ndarray::Array< const float, 2, 1 > pfsDRPStella::SpectrumSet<SpectrumT, MaskT, VarianceT, WavelengthT>::getAllDispersions() const{
+ndarray::Array< float, 2, 1 > pfsDRPStella::SpectrumSet<SpectrumT, MaskT, VarianceT, WavelengthT>::getAllDispersions() const{
   int nFibers = int( size() );
   int nCCDRows = getSpectrum( 0 )->getNCCDRows();
   /// allocate memory for the array
@@ -402,7 +402,7 @@ const ndarray::Array< const float, 2, 1 > pfsDRPStella::SpectrumSet<SpectrumT, M
 }
     
 template<typename SpectrumT, typename MaskT, typename VarianceT, typename WavelengthT>
-const ndarray::Array< const int, 2, 1 > pfsDRPStella::SpectrumSet<SpectrumT, MaskT, VarianceT, WavelengthT>::getAllMasks() const{
+ndarray::Array< int, 2, 1 > pfsDRPStella::SpectrumSet<SpectrumT, MaskT, VarianceT, WavelengthT>::getAllMasks() const{
   int nFibers = int( size() );
   int nCCDRows = getSpectrum( 0 )->getNCCDRows();
   /// allocate memory for the array
@@ -429,7 +429,7 @@ const ndarray::Array< const int, 2, 1 > pfsDRPStella::SpectrumSet<SpectrumT, Mas
 }
 
 template<typename SpectrumT, typename MaskT, typename VarianceT, typename WavelengthT>
-const ndarray::Array< const float, 2, 1 > pfsDRPStella::SpectrumSet<SpectrumT, MaskT, VarianceT, WavelengthT>::getAllSkies() const{
+ndarray::Array< float, 2, 1 > pfsDRPStella::SpectrumSet<SpectrumT, MaskT, VarianceT, WavelengthT>::getAllSkies() const{
   int nFibers = int( size() );
   int nCCDRows = getSpectrum( 0 )->getNCCDRows();
   /// allocate memory for the array
@@ -456,7 +456,7 @@ const ndarray::Array< const float, 2, 1 > pfsDRPStella::SpectrumSet<SpectrumT, M
 }
 
 template<typename SpectrumT, typename MaskT, typename VarianceT, typename WavelengthT>
-const ndarray::Array< const float, 2, 1 > pfsDRPStella::SpectrumSet<SpectrumT, MaskT, VarianceT, WavelengthT>::getAllVariances() const{
+ndarray::Array< float, 2, 1 > pfsDRPStella::SpectrumSet<SpectrumT, MaskT, VarianceT, WavelengthT>::getAllVariances() const{
   int nFibers = int( size() );
   int nCCDRows = getSpectrum( 0 )->getNCCDRows();
   /// allocate memory for the array
@@ -483,7 +483,7 @@ const ndarray::Array< const float, 2, 1 > pfsDRPStella::SpectrumSet<SpectrumT, M
 }
     
 template<typename SpectrumT, typename MaskT, typename VarianceT, typename WavelengthT>
-const ndarray::Array< const float, 3, 1 > pfsDRPStella::SpectrumSet<SpectrumT, MaskT, VarianceT, WavelengthT>::getAllCovars() const{
+ndarray::Array< float, 3, 1 > pfsDRPStella::SpectrumSet<SpectrumT, MaskT, VarianceT, WavelengthT>::getAllCovars() const{
   int nFibers = int( size() );
   int nCCDRows = getSpectrum( 0 )->getNCCDRows();
   /// allocate memory for the array
