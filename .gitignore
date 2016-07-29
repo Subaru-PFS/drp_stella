@@ -63,3 +63,5 @@ temp/
 tests/.tests/
 
 ups/drp_stella.cfgc
+
+_build
