@@ -15,6 +15,15 @@ src_old/*
 *kdev4*
 *makefile*
 *.ipynb
+bin/*
+bak/*
+doc/*.rtf
+doc/*.html
+doc/xml/*
+*.out
+sourcetreeconfig
+tempfile
+ups/drp_stella.build
 
 .sconf_temp
 .sconsign.dblite
