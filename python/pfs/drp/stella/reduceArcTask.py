@@ -263,7 +263,8 @@ class ReduceArcTask(CmdLineTask):
         pfsArm.flux = spectrumSetFromProfile.getAllFluxes()
         pfsArm.mask = spectrumSetFromProfile.getAllMasks()
         pfsArm.sky = spectrumSetFromProfile.getAllSkies()
-        pfsArm.covar = spectrumSetFromProfile.getAllVariances()
+#        pfsArm.covar = spectrumSetFromProfile.getAllVariances()
+        pfsArm.covar = spectrumSetFromProfile.getAllCovars()
 
 #        print pfsArm
 #        pfsArm.writeFits("/Users/azuri/spectra/pfs/pfsArm.fits")
