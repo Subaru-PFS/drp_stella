@@ -222,5 +222,14 @@ class ReduceArcRefSpecTask(CmdLineTask):
             fig.clf()
         
         print 'writing SpectrumSet object'
-        print 'arcRef.dataId = ',arcRef.dataId
-        butler.put(spectrumSetFromProfile, 'spArm', arcRef.dataId )
+        print 'writing SpectrumSet object'
+        pfsConfig = PfsConfig(pfsConfigId=None, tract=0, patch=0, fiberId=[0], ra=[0], dec=[0], catId=0, objId=0, fiberMag=0, mpsCen=0, filterNames=["g", "r", "i", "z", "y"])
+        pfsArm = PfsArm(arcRef.dataId['visit'], arcRef.dataId['spectrograph'], arcRef.dataId['arm'], pfsConfigId=pfsConfig.pfsConfigId, pfsConfig=pfsConfig)
+        pfsArm.lam = spectrumSetFromProfile.getAllWavelengths()
+        pfsArm.flux = spectrumSetFromProfile.getAllFluxes()
+        pfsArm.mask = spectrumSetFromProfile.getAllMasks()
+        pfsArm.sky = spectrumSetFromProfile.getAllSkies()
+        pfsArm.covar = spectrumSetFromProfile.getAllCovars()
+
+        butler.put(pfsArm, 'pfsArm', arcRef.dataId)
+        return spectrumSetFromProfile
