@@ -20,6 +20,7 @@ conda install matplotlib gcc
 * Create a directory for the PFS-DRP repositories:
 
 export DRP_STELLA=“<your_target_directory>”
+(e.g. export DRP_STELLA="~/stella-git")
 mkdir -p $DRP_STELLA
 cd $DRP_STELLA
 
@@ -72,9 +73,15 @@ scons opt=3
 
 * Now for using the pipeline. Raw test data are in $DRP_STELLA_DATA_DIR/tests/data/raw/ (3 Biases, 3 Darks, 1 Flat, 1 Arc). 
 First we need to create a directory (actually 2) where we want to store pipeline outputs. 
-Let's assume you have a directory ~/spectra and do everything related to spectra there:
+Let's assume you want to store the pipeline outputs in a directory ~/spectra/PFS:
 
-mkdir -p ~/spectra/PFS/CALIB
+export SPECTRA_DIR="~/spectra/PFS"
+mkdir -p $SPECTRA_DIR/CALIB
+
+
+* We need to tell the LSST stack which mapper to use:
+
+echo "lsst.obs.pfs.PfsMapper" > $SPECTRA_DIR/_mapper
 
 
 * Configuration parameters can be passed to the pipeline task either on the command line or in a config file 
@@ -82,39 +89,34 @@ mkdir -p ~/spectra/PFS/CALIB
 appending a "--show config" to the parameter list.
 To ingest the raw images:
 
-cd ~/spectra
-ingestImages.py PFS $DRP_STELLA_DATA_DIR/tests/data/raw/*.fits --output=PFS --mode=link -C $OBS_PFS_DIR/config/pfs/ingest.py
+cd $SPECTRA_DIR
+ingestImages.py . $DRP_STELLA_DATA_DIR/tests/data/raw/*.fits --output=. --mode=link
 
 
-* You can now inspect the created SQL database with e.g. sqlitebrowser (http://sqlitebrowser.org/).
-Now that we have our database we can start reducing things. We should probably start with the Biases. If the biases we
-want to reduce were observed on 2015-12-22 on spectrograph 2, arm red (r) at site S:
+* Now that we have our database we can start reducing things. We start with reducing the Biases. The data we
+want to reduce were observed on 2015-12-22 on spectrograph 2, arm blue (b) at site S:
 
-reduceBias.py PFS --calib PFS/CALIB --output PFS --calibId calibVersion=bias arm=r calibDate=2015-12-22 spectrograph=2 --do-exec --id field=BIAS dateObs=2015-12-22 --clobber-config --nodes=1 --procs=1
+reduceBias.py . --calib CALIB --output . --calibId calibVersion=bias arm=b calibDate=2015-12-22 spectrograph=2 --do-exec --id field=BIAS dateObs=2015-12-22 --nodes=1 --procs=1
 
 
 * Note the 2 config parameters --nodes and --procs at the end. These parameters are required by tasks which are 
 parallelized. Sometimes running the code in parallel can lead to problems (in most cases caused by the 3rd-party libraries
-used), so setting nodes and procs to 1 is a safe choice. —-clobber-config is needed if you re-run the task with different
-config parameters. The config used for each run is written to PFS/config/bias.py and the task won’t run again if you 
-change parameters, unless you say —-clobber-config.
+used), so setting nodes and procs to 1 is a safe choice.
 
 * Now that we have a master bias we need to inject that too into our database:
 
-genCalibRegistry.py --root=PFS/CALIB --camera PFS --validity 180
+genCalibRegistry.py --root=CALIB --camera PFS --validity 180
 
 * Now we can create a bias-subtracted Dark and ingest that into our database:
 
-reduceDark.py PFS --calib PFS/CALIB --output PFS --calibId calibVersion=dark arm=r calibDate=2015-12-22 spectrograph=2 --do-exec --id field=DARK dateObs=2015-12-22 --nodes=1 --procs=1 -C ~/stella-git/obs_pfs/config/pfs/dark.py
-genCalibRegistry.py --root=PFS/CALIB --camera PFS --validity 180
+reduceDark.py . --calib CALIB --output . --calibId calibVersion=dark arm=b calibDate=2015-12-22 spectrograph=2 --do-exec --id field=DARK dateObs=2015-12-22 --nodes=1 --procs=1
+genCalibRegistry.py --root=CALIB --camera PFS --validity 180
 
-* and a bias and dark-subtracted flat (currently only used to trace the apertures of the fiber traces). Note that in this
-example we set the config parameters isr.doBias and isr.doDark to True after <—-config > (instead of the parameter file
-after <-C > in the ingestImages.py example above):
+* and a bias and dark-subtracted flat (currently only used to trace the apertures of the fiber traces):
 
-reduceFlat.py PFS --calib PFS/CALIB --calibId calibVersion=flat arm=r calibDate=2015-12-22 filter=r spectrograph=2 --do-exec --id field=FLAT arm=r dateObs=2015-12-22 spectrograph=2 --loglevel info --config isr.doBias=True isr.doDark=True isr.doLinearize=False --output PFS --nodes=1 --procs=1 --clobber-config
+reduceFlat.py . --calib CALIB --calibId calibVersion=flat arm=b calibDate=2015-12-22 filter=b spectrograph=2 --do-exec --id field=FLAT arm=b dateObs=2015-12-22 spectrograph=2 --output . --nodes=1 --procs=1
 
-genCalibRegistry.py --root=PFS/CALIB --camera PFS --validity 180
+genCalibRegistry.py --root=CALIB --camera PFS --validity 180
 
 * Since we have the Bias and Dark we can also run the Instrumental-Signature Removal (ISR) task for our Arc spectrum:
 

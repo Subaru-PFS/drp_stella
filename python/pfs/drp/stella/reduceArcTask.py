@@ -278,7 +278,6 @@ class ReduceArcTask(CmdLineTask):
             plt.ylabel('Flux [ADUs]')
             plt.show()
             plt.close(fig)
-            fig.savefig('/Users/azuri/entwicklung/tex/reports/PFS_pipeline_status_2016-03/images/flux_vs_pix.pdf')
             fig.clf()
             
         if True:
@@ -293,10 +292,7 @@ class ReduceArcTask(CmdLineTask):
             plt.ylabel('Flux [ADUs]')
             plt.show()
             plt.close(fig)
-            fig.savefig('/Users/azuri/entwicklung/tex/reports/PFS_pipeline_status_2016-03/images/flux_vs_wlen.pdf')
             fig.clf()
         
         print 'writing SpectrumSet object'
-#        import pdb; pdb.set_trace()
-        print 'arcRef.dataId = ',arcRef.dataId
         butler.put(spectrumSetFromProfile, 'spArm', arcRef.dataId )

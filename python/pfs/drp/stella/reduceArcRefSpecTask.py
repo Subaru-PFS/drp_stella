@@ -186,18 +186,10 @@ class ReduceArcRefSpecTask(CmdLineTask):
             spec.identifyF(result.lineList, dispCorControl, 8)
             print "FiberTrace ",i,": spec.getDispCoeffs() = ",spec.getDispCoeffs()
             print "FiberTrace ",i,": spec.getDispRms() = ",spec.getDispRms()
-            print "FiberTrace ",i,": spectrumSetFromProfile.getSpectrum(',i,').getDispCoeffs() = ",spectrumSetFromProfile.getSpectrum(i).getDispCoeffs()
-            print "FiberTrace ",i,": spectrumSetFromProfile.getSpectrum(',i,').getDispRms() = ",spectrumSetFromProfile.getSpectrum(i).getDispRms()
-            print 'spec.getSpectrum() = ',spec.getSpectrum()
-            print 'spec.getWavelength() = ',spec.getWavelength()
-            print 'spectrumSetFromProfile.getSpectrum(',i,').getWavelength() = ',spectrumSetFromProfile.getSpectrum(i).getWavelength()
-            print 'spectrumSetFromProfile.getSpectrum(',i,').getSpectrum() = ',spectrumSetFromProfile.getSpectrum(i).getSpectrum()
             if spectrumSetFromProfile.setSpectrum(i, spec ):
                 print 'setSpectrum for spectrumSetFromProfile[',i,'] done'
             else:
                 print 'setSpectrum for spectrumSetFromProfile[',i,'] failed'
-            print 'spectrumSetFromProfile.getSpectrum(',i,').getWavelength() = ',spectrumSetFromProfile.getSpectrum(i).getWavelength()
-            print 'spectrumSetFromProfile.getSpectrum(',i,').getDispCoeffs() = ',spectrumSetFromProfile.getSpectrum(i).getDispCoeffs()
             for j in range(specSpec.shape[0]):
                 self.log.info('spectrum %d: spec.getWavelength()[%d] = %f' % (i,j,spec.getWavelength()[j]))
 
@@ -215,7 +207,6 @@ class ReduceArcRefSpecTask(CmdLineTask):
             plt.ylabel('Flux [ADUs]')
             plt.show()
             plt.close(fig)
-            fig.savefig('/Users/azuri/entwicklung/tex/talks/PFS-pipeline_Princeton_May2016/images/flux_vs_pix.pdf')
             fig.clf()
             
         if False:
@@ -230,7 +221,6 @@ class ReduceArcRefSpecTask(CmdLineTask):
             plt.ylabel('Flux [ADUs]')
             plt.show()
             plt.close(fig)
-            fig.savefig('/Users/azuri/entwicklung/tex/talks/PFS-pipeline_Princeton_May2016/images/flux_vs_wlen.pdf')
             fig.clf()
         
         print 'writing SpectrumSet object'
