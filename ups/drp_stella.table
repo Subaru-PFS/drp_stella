@@ -1,8 +1,13 @@
 setupRequired(pipe_tasks)
+setupRequired(pipe_drivers)
 setupRequired(afw)
 setupRequired(obs_pfs)
+setupRequired(eigen 3.2.5.lsst2 [>= 3.2.5.lsst2])
+setupRequired(sconsUtils)
 
 setupOptional(drp_stella_data)
+
+envPrepend(PATH, ${PRODUCT_DIR}/bin)
 
 envPrepend(LD_LIBRARY_PATH, ${PRODUCT_DIR}/lib)
 envPrepend(DYLD_LIBRARY_PATH, ${PRODUCT_DIR}/lib)

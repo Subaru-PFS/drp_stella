@@ -772,91 +772,15 @@ namespace pfs { namespace drp { namespace stella { namespace math {
 
 }}}}
   
-
-//template PTR( pfsDRPStella::Spectrum<float, unsigned int, float, float> ) pfsDRPStella::utils::getPointer( pfsDRPStella::Spectrum<float, unsigned int, float, float> & );
-
-//template<> template<> bool pfsDRPStella::Spectrum<float, unsigned int, float, float>::identify( ndarray::Array< float, 2, 1 > const&,
-//                                                                                                DispCorControl const&,
-//                                                                                                size_t );
-//template<> template<> bool pfsDRPStella::Spectrum<double, unsigned int, float, float>::identify(ndarray::Array< float, 2, 1 > const&,
-//                                                                                   DispCorControl const&,
-//                                                                                  size_t );
-template<> template<> bool pfsDRPStella::Spectrum<float, unsigned short, float, float>::identify( ndarray::Array< float, 2, 1 > const&,
-                                                                                                  DispCorControl const&,
-                                                                                                  size_t );
-template<> template<> bool pfsDRPStella::Spectrum<double, unsigned short, float, float>::identify( ndarray::Array< float, 2, 1 > const&,
-                                                                                                   DispCorControl const&,
-                                                                                                   size_t );
-//template<> template<> bool pfsDRPStella::Spectrum<float, unsigned int, float, float>::identify(ndarray::Array< double, 2, 1 > const&,
-//                                                                                  DispCorControl const&,
-//                                                                                  size_t );
-//template<> template<> bool pfsDRPStella::Spectrum<double, unsigned int, float, float>::identify(ndarray::Array< double, 2, 1 > const&,
-//                                                                                   DispCorControl const&,
-//                                                                                  size_t );
-template<> template<> bool pfsDRPStella::Spectrum<float, unsigned short, float, float>::identify( ndarray::Array< double, 2, 1 > const&,
-                                                                                                  DispCorControl const&,
-                                                                                                  size_t );
-template<> template<> bool pfsDRPStella::Spectrum<double, unsigned short, float, float>::identify( ndarray::Array< double, 2, 1 > const&,
-                                                                                                   DispCorControl const&,
-                                                                                                   size_t );
-//template<> template<> bool pfsDRPStella::Spectrum<float, int, float, float>::identify(ndarray::Array< float, 2, 1 > const&, 
-//                                                                         DispCorControl const&,
-//                                                                                  size_t );
-
-//template<> template<> bool pfsDRPStella::Spectrum<float, unsigned int, float, float>::identify(ndarray::Array< float, 2, 1 > const&,
-//                                                                                  ndarray::Array< float, 1, 0 > const&,
-//                                                                                  ndarray::Array< float, 1, 0 > const&,
-//                                                                                  DispCorControl const&,
-//                                                                                  size_t );
-//template<> template<> bool pfsDRPStella::Spectrum<double, unsigned int, float, float>::identify(ndarray::Array< float, 2, 1 > const&,
-//                                                                                   ndarray::Array< float, 1, 0 > const&,
-//                                                                                   ndarray::Array< float, 1, 0 > const&,
-//                                                                                   DispCorControl const&,
-//                                                                                  size_t );
-//template bool pfsDRPStella::Spectrum<float, unsigned short, float, float>::identify(ndarray::Array< float, 2, 1 > const&,
-//                                                                                   ndarray::Array< float, 1, 0 > const&,
-//                                                                                   ndarray::Array< float, 1, 0 > const&,
-//                                                                                   DispCorControl const&,
-//                                                                                  size_t );
-//template<> template<> bool pfsDRPStella::Spectrum<double, unsigned short, float, float>::identify(ndarray::Array< float, 2, 1 > const&,
-//                                                                                     ndarray::Array< float, 1, 0 > const&,
-//                                                                                     ndarray::Array< float, 1, 0 > const&,
-//                                                                                     DispCorControl const&,
-//                                                                                  size_t );
-//template<> template<> bool pfsDRPStella::Spectrum<float, unsigned int, float, float>::identify(ndarray::Array< double, 2, 1 > const&,
-//                                                                                  ndarray::Array< double, 1, 0 > const&,
-//                                                                                  ndarray::Array< double, 1, 0 > const&,
-//                                                                                  DispCorControl const&,
-//                                                                                  size_t );
-//template<> template<> bool pfsDRPStella::Spectrum<double, unsigned int, float, float>::identify(ndarray::Array< double, 2, 1 > const&,
-//                                                                                   ndarray::Array< double, 1, 0 > const&,
-//                                                                                   ndarray::Array< double, 1, 0 > const&,
-//                                                                                   DispCorControl const&,
-//                                                                                  size_t );
-//template<> template<> bool pfsDRPStella::Spectrum<float, unsigned short, float, float>::identify(ndarray::Array< double, 2, 1 > const&,
-//                                                                                    ndarray::Array< double, 1, 0 > const&,
-//                                                                                    ndarray::Array< double, 1, 0 > const&,
-//                                                                                    DispCorControl const&,
-//                                                                                  size_t );
-//template<> template<> bool pfsDRPStella::Spectrum<double, unsigned short, float, float>::identify(ndarray::Array< double, 2, 1 > const&,
-//                                                                                     ndarray::Array< double, 1, 0 > const&,
-//                                                                                     ndarray::Array< double, 1, 0 > const&,
-//                                                                                     DispCorControl const&,
-//                                                                                  size_t );
-//template<> template<> bool pfsDRPStella::Spectrum<float, int, float, float>::identify(ndarray::Array< float, 2, 1 > const&, 
-//                                                                         ndarray::Array< float, 1, 0 > const&,
-//                                                                         ndarray::Array< float, 1, 0 > const&,
-//                                                                         DispCorControl const&,
-//                                                                                  size_t );
-
-//template PTR(afwImage::MaskedImage<float, unsigned short, float>) pfsDRPStella::utils::getPointer(afwImage::MaskedImage<float, unsigned short, float> &);
-//template PTR(afwImage::MaskedImage<double, unsigned short, float>) pfsDRPStella::utils::getPointer(afwImage::MaskedImage<double, unsigned short, float> &);
-//template PTR(std::vector<unsigned short>) pfsDRPStella::utils::getPointer(std::vector<unsigned short> &);
-//template PTR(std::vector<unsigned int>) pfsDRPStella::utils::getPointer(std::vector<unsigned int> &);
-//template PTR(std::vector<int>) pfsDRPStella::utils::getPointer(std::vector<int> &);
-//template PTR(std::vector<float>) pfsDRPStella::utils::getPointer(std::vector<float> &);
-//template PTR(std::vector<double>) pfsDRPStella::utils::getPointer(std::vector<double> &);
-//template PTR(pfsDRPStella::Spectrum<float, int, float, float>) pfsDRPStella::utils::getPointer(pfsDRPStella::Spectrum<float, int, float, float> &);
-//template PTR(pfsDRPStella::Spectrum<float, unsigned short, float, float>) pfsDRPStella::utils::getPointer(pfsDRPStella::Spectrum<float, unsigned short, float, float> &);
-//template PTR(pfsDRPStella::Spectrum<double, unsigned short, float, float>) pfsDRPStella::utils::getPointer(pfsDRPStella::Spectrum<double, unsigned short, float, float> &);
-
+//template<> template<> bool pfsDRPStella::Spectrum<float, unsigned short, float, float>::identify( ndarray::Array< float, 2, 1 > const&,
+//                                                                                                  DispCorControl const&,
+//                                                                                                  size_t );
+//template<> template<> bool pfsDRPStella::Spectrum<double, unsigned short, float, float>::identify( ndarray::Array< float, 2, 1 > const&,
+//                                                                                                   DispCorControl const&,
+//                                                                                                   size_t );
+//template<> template<> bool pfsDRPStella::Spectrum<float, unsigned short, float, float>::identify( ndarray::Array< double, 2, 1 > const&,
+//                                                                                                  DispCorControl const&,
+//                                                                                                  size_t );
+//template<> template<> bool pfsDRPStella::Spectrum<double, unsigned short, float, float>::identify( ndarray::Array< double, 2, 1 > const&,
+//                                                                                                   DispCorControl const&,
+//                                                                                                   size_t );
