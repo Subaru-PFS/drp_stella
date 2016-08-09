@@ -27,6 +27,7 @@ class testDRPTestCase(tests.TestCase):
         self.testDataDir = os.path.join(lsst.utils.getPackageDir("drp_stella_data"),'tests/data/')
         self.testCalibDir = os.path.join(self.testDataDir,'CALIB/')
         self.arcVisit = 4
+        self.wLenFile = os.path.join(lsst.utils.getPackageDir('obs_pfs'), 'pfs/RedFiberPixels.fits.gz')
         self.refSpec = os.path.join(lsst.utils.getPackageDir('obs_pfs'), 'pfs/arcSpectra/refSpec_CdHgKrNeXe_red.fits')
         self.lineList = os.path.join(lsst.utils.getPackageDir('obs_pfs'), 'pfs/lineLists/CdHgKrNeXe_red.fits')
         
@@ -35,6 +36,7 @@ class testDRPTestCase(tests.TestCase):
         del self.testCalibDir
         del self.arcVisit
         del self.refSpec
+        del self.wLenFile
         del self.lineList
 
     def testDRP(self):
@@ -44,10 +46,8 @@ class testDRPTestCase(tests.TestCase):
         print 'self.refSpec = <',self.refSpec,'>'
         print 'self.lineList = <',self.lineList,'>'
         print "os.environ['OBS_PFS_DIR'] = <",os.environ['OBS_PFS_DIR'],">"
-        print subprocess.Popen("bin.src/reduceArcRefSpec.py %s --id visit=%d --refSpec %s --lineList %s --loglevel 'info' --calib %s --output %s --clobber-config" % (self.testDataDir, self.arcVisit, self.refSpec, self.lineList, self.testCalibDir, self.testDataDir), shell=True)
-#        for line in p.stdout.readlines():
-#            print line,
-#        retval = p.wait()
+        subprocess.Popen("bin.src/reduceArcRefSpec.py %s --id visit=%d --refSpec %s --lineList %s --loglevel 'info' --calib %s --output %s --clobber-config" % (self.testDataDir, self.arcVisit, self.refSpec, self.lineList, self.testCalibDir, self.testDataDir), shell=True)
+        subprocess.Popen("bin.src/reduceArc.py %s --id visit=%d --wLenFile %s --lineList %s --loglevel 'info' --calib %s --output %s --clobber-config" % (self.testDataDir, self.arcVisit, self.wLenFile, self.lineList, self.testCalibDir, self.testDataDir), shell=True)
             
 #-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
@@ -57,7 +57,6 @@ def suite():
 
     suites = []
     suites += unittest.makeSuite(testDRPTestCase)
-#    suites += unittest.makeSuite(tests.MemoryTestCase)
     return unittest.TestSuite(suites)
 
 def run(exit = False):

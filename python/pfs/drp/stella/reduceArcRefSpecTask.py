@@ -184,20 +184,10 @@ class ReduceArcRefSpecTask(CmdLineTask):
             for j in range(result.lineList.shape[0]):
                 print 'result.lineList[',j,'][*] = ',result.lineList[j][0],' ',result.lineList[j][1]
             spec.identifyF(result.lineList, dispCorControl, 8)
-            print "FiberTrace ",i,": spec.getDispCoeffs() = ",spec.getDispCoeffs()
-            print "FiberTrace ",i,": spec.getDispRms() = ",spec.getDispRms()
-            print "FiberTrace ",i,": spectrumSetFromProfile.getSpectrum(',i,').getDispCoeffs() = ",spectrumSetFromProfile.getSpectrum(i).getDispCoeffs()
-            print "FiberTrace ",i,": spectrumSetFromProfile.getSpectrum(',i,').getDispRms() = ",spectrumSetFromProfile.getSpectrum(i).getDispRms()
-            print 'spec.getSpectrum() = ',spec.getSpectrum()
-            print 'spec.getWavelength() = ',spec.getWavelength()
-            print 'spectrumSetFromProfile.getSpectrum(',i,').getWavelength() = ',spectrumSetFromProfile.getSpectrum(i).getWavelength()
-            print 'spectrumSetFromProfile.getSpectrum(',i,').getSpectrum() = ',spectrumSetFromProfile.getSpectrum(i).getSpectrum()
             if spectrumSetFromProfile.setSpectrum(i, spec ):
                 print 'setSpectrum for spectrumSetFromProfile[',i,'] done'
             else:
                 print 'setSpectrum for spectrumSetFromProfile[',i,'] failed'
-            print 'spectrumSetFromProfile.getSpectrum(',i,').getWavelength() = ',spectrumSetFromProfile.getSpectrum(i).getWavelength()
-            print 'spectrumSetFromProfile.getSpectrum(',i,').getDispCoeffs() = ',spectrumSetFromProfile.getSpectrum(i).getDispCoeffs()
             for j in range(specSpec.shape[0]):
                 self.log.info('spectrum %d: spec.getWavelength()[%d] = %f' % (i,j,spec.getWavelength()[j]))
 

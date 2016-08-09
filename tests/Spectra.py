@@ -51,6 +51,7 @@ class SpectraTestCase(tests.TestCase):
         
         self.nFiberTraces = 11
         self.nRowsPrescan = 49
+        self.maxRMS = 0.053
         
         self.lineList = os.path.join(lsst.utils.getPackageDir('obs_pfs'),'pfs/lineLists/CdHgKrNeXe_red.fits')
         self.refSpec = os.path.join(lsst.utils.getPackageDir('obs_pfs'),'pfs/arcSpectra/refSpec_CdHgKrNeXe_red.fits')
@@ -66,6 +67,7 @@ class SpectraTestCase(tests.TestCase):
         del self.refSpec
         del self.dispCorControl
         del self.wLenFile
+        del self.maxRMS
 
     def testSpectrumConstructors(self):
         if True:
@@ -446,6 +448,9 @@ class SpectraTestCase(tests.TestCase):
                 self.assertGreater(spec.getWavelength()[0], 3800)
                 print 'spec[',i,'].getWavelength()[',spec.getLength()-1,'] = ',spec.getWavelength()[spec.getLength()-1]
                 self.assertLess(spec.getWavelength()[spec.getLength()-1], 9800)
+                
+                """Check RMS"""
+                self.assertLess(spec.getDispRms(), self.maxRMS)
             
     def testWavelengthCalibrationWithoutRefSpec(self):
         if True:
