@@ -13,6 +13,7 @@ import os
 import unittest
 import sys
 import numpy as np
+import lsst.utils
 import lsst.utils.tests as tests
 import lsst.afw.image as afwImage
 import lsst.afw.geom as afwGeom
@@ -29,26 +30,21 @@ class PSFTestCase(tests.TestCase):
     """A test case for measuring PSF quantities"""
 
     def setUp(self):
-        drpStellaDataDir = os.environ.get('DRP_STELLA_DATA_DIR')
-        flatfile = drpStellaDataDir+"/data/PFS/CALIB/FLAT/r/flat/pfsFlat-2016-01-12-0-2r.fits"
-        arcfile = drpStellaDataDir+"/data/PFS/postISRCCD/2016-01-12/v0000004/PFFAr2.fits"
-        self.flat = afwImage.ImageF(flatfile)
-        self.flat = afwImage.makeExposure(afwImage.makeMaskedImage(self.flat))
+        drpStellaDataDir = lsst.utils.getPackageDir("drp_stella_data")
+        flatfile = os.path.join(drpStellaDataDir,"data/PFS/CALIB/FLAT/r/flat/pfsFlat-2016-01-12-0-2r.fits")
+        self.flat = afwImage.ExposureF(flatfile)
 
-        self.arc = afwImage.ImageF(arcfile)
-        self.arc = afwImage.makeExposure(afwImage.makeMaskedImage(self.arc))
+        arcfile = os.path.join(drpStellaDataDir,"data/PFS/postISRCCD/2016-01-12/v0000004/PFFAr2.fits")
+        self.arc = afwImage.ExposureF(arcfile)
         
         self.ftffc = drpStella.FiberTraceFunctionFindingControl()
-        self.ftffc.fiberTraceFunctionControl.order = 5
+        self.ftffc.fiberTraceFunctionControl.order = 4
         self.ftffc.fiberTraceFunctionControl.xLow = -5
         self.ftffc.fiberTraceFunctionControl.xHigh = 5
         
         self.ftpfc = drpStella.FiberTraceProfileFittingControl()
         
         self.tdpsfc = drpStella.TwoDPSFControl()
-
-        del flatfile
-        del arcfile
         
     def tearDown(self):
         del self.flat

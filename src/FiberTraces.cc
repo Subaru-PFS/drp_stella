@@ -1453,13 +1453,13 @@ namespace pfsDRPStella = pfs::drp::stella;
   }
 
   template<typename ImageT, typename MaskT, typename VarianceT>
-  pfsDRPStella::SpectrumSet<ImageT, MaskT, VarianceT, VarianceT> pfsDRPStella::FiberTraceSet<ImageT, MaskT, VarianceT>::extractAllTracesFromProfile()
+  PTR( pfsDRPStella::SpectrumSet<ImageT, MaskT, VarianceT, VarianceT> ) pfsDRPStella::FiberTraceSet<ImageT, MaskT, VarianceT>::extractAllTracesFromProfile()
   {
-    pfsDRPStella::SpectrumSet<ImageT, MaskT, VarianceT, VarianceT> spectrumSet ( _traces->size() );
+    PTR( pfsDRPStella::SpectrumSet<ImageT, MaskT, VarianceT, VarianceT> ) spectrumSet ( new pfsDRPStella::SpectrumSet<ImageT, MaskT, VarianceT, VarianceT>( _traces->size() ) );
     for (size_t i = 0; i < _traces->size(); ++i){
       cout << "extracting FiberTrace " << i << endl;
 //      spectrumSet.getSpectra()[i] = (*_traces)[i]->extractFromProfile();
-      spectrumSet.setSpectrum(i, (*_traces)[i]->extractFromProfile());
+      spectrumSet->setSpectrum(i, (*_traces)[i]->extractFromProfile());
     }
     return spectrumSet;
   }
@@ -2614,13 +2614,13 @@ namespace pfsDRPStella = pfs::drp::stella;
                                                                          size_t iTrace ){
       /// calculate center positions for fiberTraces
       ndarray::Array< float, 1, 1 > xCenters = calculateXCenters( fiberTraceFunctionWide,
-                                                                   maskedImage->getHeight(),
-                                                                   maskedImage->getWidth() );
+                                                                  maskedImage->getHeight(),
+                                                                  maskedImage->getWidth() );
       
       /// extract wide dithered flat FiberTrace
       FiberTrace< ImageT, MaskT, VarianceT > flatFiberTrace( maskedImage,
-                                                                                                      fiberTraceFunctionWide,
-                                                                                                      iTrace );
+                                                             fiberTraceFunctionWide,
+                                                             iTrace );
 
       if ( xCenters.getShape()[ 0 ] != flatFiberTrace.getHeight() ){
         std::string message("pfs::drp::stella::math::makeNormFlatFiberTrace: ERROR: xCenters.getShape()[ 0 ](=");
@@ -2678,8 +2678,8 @@ namespace pfsDRPStella = pfs::drp::stella;
         }
       }
       FiberTrace< ImageT, MaskT, VarianceT > normFlatFiberTrace( normFlat.getShape()[ 1 ], 
-                                                                                     normFlat.getShape()[ 0 ], 
-                                                                                     iTrace );
+                                                                 normFlat.getShape()[ 0 ], 
+                                                                 iTrace );
       if ( normFlatFiberTrace.getHeight() != flatFiberTrace.getHeight() ){
         std::string message( "pfs::drp::stella::math::makeNormFlatFiberTrace: ERROR: normFlatFiberTrace.getHeight(=" );
         message += std::to_string( normFlatFiberTrace.getHeight() ) + " != flatFiberTrace.getHeight()(=" + std::to_string( flatFiberTrace.getHeight() ) + ")";

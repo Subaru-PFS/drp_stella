@@ -60,7 +60,7 @@ class Spectrum {
     Spectrum( Spectrum const& spectrum );//,
 //              int i );
     
-    ~Spectrum() {}
+    virtual ~Spectrum() {}
 
     /// Return a shared pointer to the spectrum
     ndarray::Array<SpectrumT, 1, 1> getSpectrum() { return _spectrum; }
@@ -169,7 +169,6 @@ class Spectrum {
                    size_t nLinesCheck = 0 );
     
     bool isWavelengthSet() const {return _isWavelengthSet;}
-//    void setIsWavelengthSet(bool isWavelengthSet) {_isWavelengthSet = isWavelengthSet;}
     
     size_t getYLow() const { return _yLow; };
     size_t getYHigh() const { return _yHigh; };

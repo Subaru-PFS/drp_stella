@@ -10,6 +10,7 @@ import unittest
 import sys
 import os
 import numpy as np
+import lsst.utils
 import lsst.utils.tests as tests
 import pfs.drp.stella as drpStella
 import subprocess
@@ -22,18 +23,13 @@ except NameError:
 class testDRPTestCase(tests.TestCase):
     """A test case for trying out the PFS DRP"""
 
-# IGNORE: (DELETE when finished)
-# reduceArcRefSpec.py '/Users/azuri/spectra/pfs/PFS' --id visit=4 
-#  --refSpec '/Users/azuri/stella-git/obs_subaru/pfs/lineLists/refCdHgKrNeXe_red.fits' 
-#  --lineList '/Users/azuri/stella-git/obs_subaru/pfs/lineLists/CdHgKrNeXe_red.fits' --loglevel 'info' --calib '/Users/azuri/spectra/pfs/PFS/CALIB/' 
-#  --output '/Users/azuri/spectra/pfs/PFS'
     def setUp(self):
-        self.testDataDir = os.environ.get('DRP_STELLA_DATA_DIR')+'tests/data/'
-        self.testCalibDir = self.testDataDir+'CALIB/'
+        self.testDataDir = os.path.join(lsst.utils.getPackageDir("drp_stella_data"),'tests/data/')
+        self.testCalibDir = os.path.join(self.testDataDir,'CALIB/')
         self.arcVisit = 4
-        self.refSpec = 'pfs/arcSpectra/refSpec_CdHgKrNeXe_red.fits'
-        self.wLenFile = 'pfs/RedFiberPixels.fits.gz'
-        self.lineList = 'pfs/lineLists/CdHgKrNeXe_red.fits'
+        self.wLenFile = os.path.join(lsst.utils.getPackageDir('obs_pfs'), 'pfs/RedFiberPixels.fits.gz')
+        self.refSpec = os.path.join(lsst.utils.getPackageDir('obs_pfs'), 'pfs/arcSpectra/refSpec_CdHgKrNeXe_red.fits')
+        self.lineList = os.path.join(lsst.utils.getPackageDir('obs_pfs'), 'pfs/lineLists/CdHgKrNeXe_red.fits')
         
     def tearDown(self):
         del self.testDataDir
@@ -50,11 +46,8 @@ class testDRPTestCase(tests.TestCase):
         print 'self.refSpec = <',self.refSpec,'>'
         print 'self.lineList = <',self.lineList,'>'
         print "os.environ['OBS_PFS_DIR'] = <",os.environ['OBS_PFS_DIR'],">"
-        subprocess.Popen("bin.src/reduceArcRefSpec.py %s --id visit=%d --refSpec %s%s --lineList %s%s --loglevel 'info' --calib %s --output %s --clobber-config" % (self.testDataDir, self.arcVisit, os.environ['OBS_PFS_DIR'], self.refSpec, os.environ['OBS_PFS_DIR'], self.lineList, self.testCalibDir, self.testDataDir), shell=True)#, stderr=subprocess.STDOUT, stdout=subprocess.STDOUT)
-        subprocess.Popen("bin.src/reduceArc.py %s --id visit=%d --wLenFile %s%s --lineList %s%s --loglevel 'info' --calib %s --output %s --clobber-config" % (self.testDataDir, self.arcVisit, os.environ['OBS_PFS_DIR'], self.wLenFile, os.environ['OBS_PFS_DIR'], self.lineList, self.testCalibDir, self.testDataDir), shell=True)#, stderr=subprocess.STDOUT, stdout=subprocess.STDOUT)
-#        for line in p.stdout.readlines():
-#            print line,
-#        retval = p.wait()
+        subprocess.Popen("bin.src/reduceArcRefSpec.py %s --id visit=%d --refSpec %s --lineList %s --loglevel 'info' --calib %s --output %s --clobber-config" % (self.testDataDir, self.arcVisit, self.refSpec, self.lineList, self.testCalibDir, self.testDataDir), shell=True)
+        subprocess.Popen("bin.src/reduceArc.py %s --id visit=%d --wLenFile %s --lineList %s --loglevel 'info' --calib %s --output %s --clobber-config" % (self.testDataDir, self.arcVisit, self.wLenFile, self.lineList, self.testCalibDir, self.testDataDir), shell=True)
             
 #-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
@@ -64,7 +57,6 @@ def suite():
 
     suites = []
     suites += unittest.makeSuite(testDRPTestCase)
-#    suites += unittest.makeSuite(tests.MemoryTestCase)
     return unittest.TestSuite(suites)
 
 def run(exit = False):

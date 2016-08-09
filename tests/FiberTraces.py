@@ -12,6 +12,7 @@ import os
 import unittest
 import sys
 import numpy as np
+import lsst.utils
 import lsst.utils.tests as tests
 import lsst.afw.image as afwImage
 import lsst.afw.geom as afwGeom
@@ -28,26 +29,23 @@ class FiberTraceTestCase(tests.TestCase):
     """A test case for measuring FiberTrace quantities"""
 
     def setUp(self):
-        drpStellaDataDir = os.environ.get('DRP_STELLA_DATA_DIR')
-        flatfile = drpStellaDataDir+"/data/PFS/CALIB/FLAT/r/flat/pfsFlat-2016-01-12-0-2r.fits"
-        arcfile = drpStellaDataDir+"/data/PFS/postISRCCD/2016-01-12/v0000004/PFFAr2.fits"
-        self.flat = afwImage.ImageF(flatfile)
-        self.flat = afwImage.makeExposure(afwImage.makeMaskedImage(self.flat))
-
-        self.arc = afwImage.ImageF(arcfile)
-        self.arc = afwImage.makeExposure(afwImage.makeMaskedImage(self.arc))
+        drpStellaDataDir = lsst.utils.getPackageDir("drp_stella_data")
+        flatfile = os.path.join(drpStellaDataDir,"data/PFS/CALIB/FLAT/r/flat/pfsFlat-2016-01-12-0-2r.fits")
+        self.flat = afwImage.ExposureF(flatfile)
+        
+        arcfile = os.path.join(drpStellaDataDir,"data/PFS/postISRCCD/2016-01-12/v0000004/PFFAr2.fits")
+        self.arc = afwImage.ExposureF(arcfile)
         
         self.ftffc = drpStella.FiberTraceFunctionFindingControl()
         self.ftffc.fiberTraceFunctionControl.order = 5
         self.ftffc.fiberTraceFunctionControl.xLow = -5
         self.ftffc.fiberTraceFunctionControl.xHigh = 5
         
+        # This particular flatfile has 11 FiberTraces scattered over the whole CCD
+        # If in the future the test data change we need to change these numbers
         self.nFiberTraces = 11
         self.minLength = 3880
         self.maxLength = 3930
-
-        del flatfile
-        del arcfile
         
     def tearDown(self):
         del self.flat
