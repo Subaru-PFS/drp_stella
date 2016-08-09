@@ -3,24 +3,26 @@ After the installation procedure example commands are given to show you how to
 use the pipeline. The commands have been tested on an Arch Linux machine as well
 as on Mac OS X.
 
-* Install lsst binary distribution (https://pipelines.lsst.io/install/conda.html)
+* Install the LSST binary distribution (https://pipelines.lsst.io/install/conda.html)
+  Here it should not matter whether you install anaconda or miniconda. Don’t forget
+  to setup the LSST environment as mentioned on the website:
+
+source activate lsst
+source eups-setups.sh
+
+
 * Install git-lfs (https://git-lfs.github.com/)
-* Install matplotlib:
+* Install matplotlib and gcc:
 
-conda install matplotlib
-
-
-If you have a very fresh compiler version, this could lead to incompatibilities 
-with the precompiled LSST stack. In case you run into trouble compiling or testing
-the LSST stack please install your compiler in anaconda:
-
-conda install gcc
+conda install matplotlib gcc
 
 
 * Create a directory for the PFS-DRP repositories:
 
-mkdir ~/stella-git
-cd ~/stella-git
+export DRP_STELLA=“<your_target_directory>”
+mkdir -p $DRP_STELLA
+cd $DRP_STELLA
+
 
 * Clone the relevant git repositories:
 
@@ -29,50 +31,50 @@ git clone https://github.com/Subaru-PFS/drp_stella_data.git
 git clone https://github.com/Subaru-PFS/obs_pfs.git
 
 
-* Install a newer version of eigen:
+* Set $EUPS_PKGROOT
+
+export EUPS_PKGROOT="https://sw.lsstcorp.org/eupspkg/"
+
+
+* Install Eigen with the unsupported modules:
 
 eups distrib install eigen 3.2.5.lsst2
 
 
-* Declare the git repositories in Linux (replace <Linux64> with <DarwinX86> for Mac OS X):
+* Declare the git repositories:
 
-eups declare obs_pfs 1.0 -c -f Linux64 -r ~/stella-git/obs_pfs
-eups declare drp_stella_data 1.0 -c -f Linux64 -r ~/stella-git/drp_stella_data
-eups declare drp_stella 1.0 -c -f Linux64 -r ~/stella-git/drp_stella
+eups declare obs_pfs 0.1 -c -r $DRP_STELLA/obs_pfs
+eups declare drp_stella_data 0.1 -c -r $DRP_STELLA/drp_stella_data
+eups declare drp_stella 0.1 -c -r $DRP_STELLA/drp_stella
 
 
 * Setup the pipeline. As obs_pfs and drp_stella_data are required packages they are set up automatically:
 
-setup drp_stella 1.0 -v
+setup drp_stella 0.1 -v
 
-During this step the environment variables $DRP_STELLA_DIR, $DRP_STELLA_DATA_DIR, and $OBS_PFS_DIR are automatically 
-created as well:
+During this step the environment variables $DRP_STELLA_DIR, $DRP_STELLA_DATA_DIR, and $OBS_PFS_DIR are 
+automatically created as well:
 
 echo $DRP_STELLA_DIR
 
 should show you:
 
-~/stella-git/drp_stella
+$DRP_STELLA/drp_stella
 
 
 * Build the pipeline:
 
-cd drp_stella
-scons opt=3 -j8
-
-
-* Create the defects database (done during compilation of the code):
-
+cd $DRP_STELLA/drp_stella
+scons opt=3
 cd ../obs_pfs
-scons opt=3 -j8
+scons opt=3
 
 
 * Now for using the pipeline. Raw test data are in $DRP_STELLA_DATA_DIR/tests/data/raw/ (3 Biases, 3 Darks, 1 Flat, 1 Arc). 
 First we need to create a directory (actually 2) where we want to store pipeline outputs. 
 Let's assume you have a directory ~/spectra and do everything related to spectra there:
 
-mkdir ~/spectra/PFS
-mkdir ~/spectra/PFS/CALIB
+mkdir -p ~/spectra/PFS/CALIB
 
 
 * Configuration parameters can be passed to the pipeline task either on the command line or in a config file 
