@@ -1,17 +1,14 @@
 #/Users/azuri/stella-git/drp_stella/bin.src/reduceArc.py '/Users/azuri/spectra/pfs/PFS' --id visit=4 --wLenFile '/Users/azuri/stella-git/obs_pfs/pfs/RedFiberPixels.fits.gz' --lineList '/Users/azuri/stella-git/obs_pfs/pfs/lineLists/CdHgKrNeXe_red.fits' --loglevel 'info' --calib '/Users/azuri/spectra/pfs/PFS/CALIB/' --output '/Users/azuri/spectra/pfs/PFS'
 import os
 import sys
-import argparse
 
 import pfs.drp.stella.findAndTraceAperturesTask as fataTask
 import pfs.drp.stella.createFlatFiberTraceProfileTask as cfftpTask
 import pfs.drp.stella.extractSpectraTask as esTask
 import pfs.drp.stella as drpStella
-import lsst.daf.persistence as dafPersist
-import lsst.afw.image as afwImage
-from lsst.pex.config import Config, ConfigField, ConfigurableField, Field, ListField
-from lsst.pipe.base import Task, Struct, TaskRunner, ArgumentParser, CmdLineTask
-import lsst.daf.persistence.butler as lsstButler
+from lsst.utils import getPackageDir
+from lsst.pex.config import Config, Field
+from lsst.pipe.base import Struct, TaskRunner, ArgumentParser, CmdLineTask
 import numpy as np
 from astropy.io import fits as pyfits
 import matplotlib.pyplot as plt
@@ -23,8 +20,8 @@ class ReduceArcConfig(Config):
     searchRadius = Field( doc = "Radius in pixels relative to line list to search for emission line peak", dtype = int, default = 2 );
     fwhm = Field( doc = "FWHM of emission lines", dtype=float, default = 2.6 );
     nRowsPrescan = Field( doc = "Number of prescan rows in raw CCD image", dtype=int, default = 49 );
-    wavelengthFile = Field( doc = "reference pixel-wavelength file including path", dtype = str, default="/Users/azuri/stella-git/obs_subaru/pfs/RedFiberPixels.fits.gz");
-    lineList = Field( doc = "reference line list including path", dtype = str, default="/Users/azuri/stella-git/obs_subaru/pfs/lineLists/CdHgKrNeXe_red.fits");
+    wavelengthFile = Field( doc = "reference pixel-wavelength file including path", dtype = str, default=os.path.join(getPackageDir("obs_pfs"), "pfs/RedFiberPixels.fits.gz"));
+    lineList = Field( doc = "reference line list including path", dtype = str, default=os.path.join(getPackageDir("obs_pfs"), "pfs/lineLists/CdHgKrNeXe_red.fits"));
 
 class ReduceArcTaskRunner(TaskRunner):
     """Get parsed values into the ReduceArcTask.run"""
@@ -264,7 +261,7 @@ class ReduceArcTask(CmdLineTask):
             else:
                 print 'setSpectrum for spectrumSetFromProfile[',i,'] failed'
 
-        if True:
+        if False:
             xPixMinMax = np.ndarray(2, dtype='float32')
             xPixMinMax[0] = 1000.
             xPixMinMax[1] = 1600.
@@ -280,7 +277,7 @@ class ReduceArcTask(CmdLineTask):
             plt.close(fig)
             fig.clf()
             
-        if True:
+        if False:
             xMinMax = drpStella.poly(xPixMinMax, spec.getDispCoeffs())
             fig = plt.figure()
             ax = fig.add_subplot(1, 1, 1)

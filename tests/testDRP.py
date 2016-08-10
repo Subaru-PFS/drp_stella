@@ -24,7 +24,7 @@ class testDRPTestCase(tests.TestCase):
     """A test case for trying out the PFS DRP"""
 
     def setUp(self):
-        self.testDataDir = os.path.join(lsst.utils.getPackageDir("drp_stella_data"),'tests/data/')
+        self.testDataDir = os.path.join(lsst.utils.getPackageDir("drp_stella_data"),'tests/data/PFS')
         self.testCalibDir = os.path.join(self.testDataDir,'CALIB/')
         self.arcVisit = 4
         self.refSpec = os.path.join(lsst.utils.getPackageDir('obs_pfs'), 'pfs/arcSpectra/refSpec_CdHgKrNeXe_red.fits')
