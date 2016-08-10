@@ -85,44 +85,47 @@ echo "lsst.obs.pfs.PfsMapper" > $SPECTRA_DIR/_mapper
 
 
 * Configuration parameters can be passed to the pipeline task either on the command line or in a config file 
-(e.g. $OBS_PFS_DIR/config/pfs/ingest.py, see following example). You can list all possible configuration parameters by 
-appending a "--show config" to the parameter list.
+(e.g. $OBS_PFS_DIR/config/pfs/ingest.py). You can list all possible configuration parameters by appending a 
+"--show config" to the parameter list.
 To ingest the raw images:
 
 cd $SPECTRA_DIR
-ingestImages.py . $DRP_STELLA_DATA_DIR/tests/data/raw/*.fits --output=. --mode=link
+ingestImages.py . $DRP_STELLA_DATA_DIR/tests/data/raw/*.fits --output . --mode link
 
 
 * Now that we have our database we can start reducing things. We start with reducing the Biases. The data we
-want to reduce were observed on 2015-12-22 on spectrograph 2, arm blue (b) at site S:
+want to reduce were observed on 2015-12-22 on spectrograph 2, arm red (r) at site S. 
+Note the 2 config parameters --nodes and --procs at the end. These parameters are required by tasks which are 
+parallelized. Sometimes running the code in parallel can lead to problems (in most cases caused by the 3rd-party 
+libraries used), so setting nodes and procs to 1 is a safe choice.
 
-reduceBias.py . --calib CALIB --output . --calibId calibVersion=bias arm=b calibDate=2015-12-22 spectrograph=2 --do-exec --id field=BIAS dateObs=2015-12-22 --nodes=1 --procs=1
+
+reduceBias.py . --calib CALIB --output . --calibId calibVersion=bias arm=r calibDate=2015-12-22 spectrograph=2 --do-exec --id field=BIAS dateObs=2015-12-22 --nodes 1 --procs 1
 
 
-* Note the 2 config parameters --nodes and --procs at the end. These parameters are required by tasks which are 
-parallelized. Sometimes running the code in parallel can lead to problems (in most cases caused by the 3rd-party libraries
-used), so setting nodes and procs to 1 is a safe choice.
+* Now that we have a master bias we need to ingest that too into our database:
 
-* Now that we have a master bias we need to inject that too into our database:
+genCalibRegistry.py --root CALIB --camera PFS --validity 180
 
-genCalibRegistry.py --root=CALIB --camera PFS --validity 180
 
 * Now we can create a bias-subtracted Dark and ingest that into our database:
 
-reduceDark.py . --calib CALIB --output . --calibId calibVersion=dark arm=b calibDate=2015-12-22 spectrograph=2 --do-exec --id field=DARK dateObs=2015-12-22 --nodes=1 --procs=1
-genCalibRegistry.py --root=CALIB --camera PFS --validity 180
+reduceDark.py . --calib CALIB --output . --calibId calibVersion=dark arm=r calibDate=2015-12-22 spectrograph=2 --do-exec --id field=DARK dateObs=2015-12-22 --nodes 1 --procs 1
+genCalibRegistry.py --root CALIB --camera PFS --validity 180
+
 
 * and a bias and dark-subtracted flat (currently only used to trace the apertures of the fiber traces):
 
-reduceFlat.py . --calib CALIB --calibId calibVersion=flat arm=b calibDate=2015-12-22 filter=b spectrograph=2 --do-exec --id field=FLAT arm=b dateObs=2015-12-22 spectrograph=2 --output . --nodes=1 --procs=1
-
+reduceFlat.py . --calib CALIB --calibId calibVersion=flat arm=r calibDate=2015-12-22 filter=r spectrograph=2 --do-exec --id field=FLAT arm=r dateObs=2015-12-22 spectrograph=2 --output . --nodes 1 --procs 1
 genCalibRegistry.py --root=CALIB --camera PFS --validity 180
+
 
 * Since we have the Bias and Dark we can also run the Instrumental-Signature Removal (ISR) task for our Arc spectrum:
 
-detrend.py PFS --calib=PFS/CALIB --id arm=r spectrograph=2 dateObs=2015-12-22 field=ARC -C ~/stella-git/obs_pfs/config/pfs/detrend.py --output PFS
+detrend.py . --calib CALIB --output . --id arm=r spectrograph=2 dateObs=2015-12-22 field=ARC
+
 
 * We now have the postISRCCD images and can extract and wavelength-calibrate our CdHgKrNeXe Arc with the visit
 number 4:
 
-reduceArc.py PFS --id visit=4 --wLenFile $OBS_PFS_DIR/pfs/RedFiberPixels.fits.gz --lineList $OBS_PFS_DIR/pfs/lineLists/CdHgKrNeXe_red.fits --loglevel info --calib PFS/CALIB/ --output PFS
+reduceArc.py . --output . --calib CALIB --id visit=4 --wLenFile $OBS_PFS_DIR/pfs/RedFiberPixels.fits.gz --lineList $OBS_PFS_DIR/pfs/lineLists/CdHgKrNeXe_red.fits
