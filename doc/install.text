@@ -6,8 +6,10 @@ The main goal of this quick-start guide is to enable the user to extract and
 wavelength calibrate an Arc spectrum.
 
 * Install the LSST binary distribution (https://pipelines.lsst.io/install/conda.html)
-  Here it should not matter whether you install anaconda or miniconda. Don’t forget
-  to setup the LSST environment as mentioned on the website:
+  Here it should not matter whether you install anaconda or miniconda. Please note that
+  there's only a need to install lsst-distrib, not lsst-sims.
+  Don’t forget to setup the LSST environment as mentioned on the website. You will need
+  to do this every time you want to use the pipeline in a new shell:
 
 source activate lsst
 source eups-setups.sh
@@ -110,7 +112,7 @@ Note the 2 config parameters --nodes and --procs at the end. These parameters ar
 parallelized. Sometimes running the code in parallel can lead to problems (in most cases caused by the 3rd-party 
 libraries used), so setting nodes and procs to 1 is a safe choice.
 
-reduceBias.py . --calib CALIB --output . --calibId calibVersion=bias arm=r calibDate=2015-12-22 spectrograph=2 --do-exec --id field=BIAS dateObs=2015-12-22 --nodes 1 --procs 1
+constructBias.py . --calib CALIB --output . --calibId calibVersion=bias arm=r calibDate=2015-12-22 spectrograph=2 --do-exec --id field=BIAS dateObs=2015-12-22 --nodes 1 --procs 1
 
 
 * Now that we have a master bias we need to ingest that into our calibration database stored in
