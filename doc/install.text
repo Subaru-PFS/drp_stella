@@ -2,6 +2,8 @@ The following notes should allow you to install the LSST stack and the PFS DRP.
 After the installation procedure example commands are given to show you how to
 use the pipeline. The commands have been tested on an Arch Linux machine as well
 as on Mac OS X.
+The main goal of this quick-start guide is to enable the user to extract and 
+wavelength calibrate an Arc spectrum.
 
 * Install the LSST binary distribution (https://pipelines.lsst.io/install/conda.html)
   Here it should not matter whether you install anaconda or miniconda. Don’t forget
@@ -19,7 +21,7 @@ conda install matplotlib gcc
 
 * Create a directory for the PFS-DRP repositories:
 
-export DRP_STELLA=“<your_target_directory>”
+export DRP_STELLA="<your_target_directory>"
 (e.g. export DRP_STELLA="~/stella-git")
 mkdir -p $DRP_STELLA
 cd $DRP_STELLA
@@ -71,7 +73,14 @@ cd ../obs_pfs
 scons opt=3
 
 
-* Now for using the pipeline. Raw test data are in $DRP_STELLA_DATA_DIR/tests/data/raw/ (3 Biases, 3 Darks, 1 Flat, 1 Arc). 
+* Now for using the pipeline. 
+Raw test data are in $DRP_STELLA_DATA_DIR/tests/data/raw/:
+  - 3 Biases: visit numbers 7251-7253,
+  - 3 Darks: visit numbers 7291-7293,
+  - 1 Flat: visit number 5,
+  - 1 Arc: visit number 4 
+Configuration parameters can be set either in config files (see $OBS_PFS_DIR/config/pfs/) or
+by passing them on the command line (after "--config", e.g. --config isr.doDark=False). 
 First we need to create a directory (actually 2) where we want to store pipeline outputs. 
 Let's assume you want to store the pipeline outputs in a directory ~/spectra/PFS:
 
@@ -84,43 +93,51 @@ mkdir -p $SPECTRA_DIR/CALIB
 echo "lsst.obs.pfs.PfsMapper" > $SPECTRA_DIR/_mapper
 
 
-* Configuration parameters can be passed to the pipeline task either on the command line or in a config file 
-(e.g. $OBS_PFS_DIR/config/pfs/ingest.py). You can list all possible configuration parameters by appending a 
-"--show config" to the parameter list.
-To ingest the raw images:
+* To ingest the raw images into a database stored in $SPECTRA_DIR/registry.sqlite3:
 
 cd $SPECTRA_DIR
 ingestImages.py . $DRP_STELLA_DATA_DIR/tests/data/raw/*.fits --output . --mode link
 
 
-* Now that we have our database we can start reducing things. We start with reducing the Biases. The data we
-want to reduce were observed on 2015-12-22 on spectrograph 2, arm red (r) at site S. 
+* Now that we have our database we can start reducing things. We start with creating a master Bias, followed
+by a Bias-subtracted master Dark. We will then create a Bias- and Dark-subtracted master Flat, which we then use 
+to identify and trace the apertures of the fiber traces. The fiber traces from the Arc image are then extracted
+and wavelength calibrated.
+
+The data we want to reduce were observed/simulated on 2015-12-22 on spectrograph 2, arm r (red) at site S (Summit). 
+
 Note the 2 config parameters --nodes and --procs at the end. These parameters are required by tasks which are 
 parallelized. Sometimes running the code in parallel can lead to problems (in most cases caused by the 3rd-party 
 libraries used), so setting nodes and procs to 1 is a safe choice.
 
-
 reduceBias.py . --calib CALIB --output . --calibId calibVersion=bias arm=r calibDate=2015-12-22 spectrograph=2 --do-exec --id field=BIAS dateObs=2015-12-22 --nodes 1 --procs 1
 
 
-* Now that we have a master bias we need to ingest that too into our database:
+* Now that we have a master bias we need to ingest that into our calibration database stored in
+$SPECTRA_DIR/CALIB/calibRegistry.sqlite3:
 
 genCalibRegistry.py --root CALIB --camera PFS --validity 180
 
 
-* Now we can create a bias-subtracted Dark and ingest that into our database:
+* Now we can create a Bias-subtracted Dark and ingest that into our calibration database. If you don't want 
+Dark subtraction you can skip this step, but remember further down to turn Dark subtraction off:
 
 reduceDark.py . --calib CALIB --output . --calibId calibVersion=dark arm=r calibDate=2015-12-22 spectrograph=2 --do-exec --id field=DARK dateObs=2015-12-22 --nodes 1 --procs 1
 genCalibRegistry.py --root CALIB --camera PFS --validity 180
 
 
-* and a bias and dark-subtracted flat (currently only used to trace the apertures of the fiber traces):
+* Having the master Bias and Dark, we can now create our master Flat. Currently the master Flat is only used to 
+trace the apertures of the fiber traces. If you want to turn off Dark subtraction you can either edit the config
+file $OBS_PFS_DIR/config/pfs/flat.py or simply add "--config isr.doDark=False" to the reduceFlat command, what
+will override the parameter setting in the config file:
 
 reduceFlat.py . --calib CALIB --calibId calibVersion=flat arm=r calibDate=2015-12-22 filter=r spectrograph=2 --do-exec --id field=FLAT arm=r dateObs=2015-12-22 spectrograph=2 --output . --nodes 1 --procs 1
 genCalibRegistry.py --root=CALIB --camera PFS --validity 180
 
 
-* Since we have the Bias and Dark we can also run the Instrumental-Signature Removal (ISR) task for our Arc spectrum:
+* Since we have the Bias and Dark we can also run the Instrumental-Signature Removal (ISR) task for our Arc spectrum.
+Again, if you don't want Dark subtraction, either edit the config file $OBS_PFS_DIR/config/pfs/detrend.py or add 
+"--config isr.doDark=False" at the end of the command:
 
 detrend.py . --calib CALIB --output . --id arm=r spectrograph=2 dateObs=2015-12-22 field=ARC
 
