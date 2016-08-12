@@ -124,7 +124,7 @@ genCalibRegistry.py --root CALIB --camera PFS --validity 180
 * Now we can create a Bias-subtracted Dark and ingest that into our calibration database. If you don't want 
 Dark subtraction you can skip this step, but remember further down to turn Dark subtraction off:
 
-reduceDark.py . --calib CALIB --output . --calibId calibVersion=dark arm=r calibDate=2015-12-22 spectrograph=2 --do-exec --id field=DARK dateObs=2015-12-22 --nodes 1 --procs 1
+constructDark.py . --calib CALIB --output . --calibId calibVersion=dark arm=r calibDate=2015-12-22 spectrograph=2 --do-exec --id field=DARK dateObs=2015-12-22 --nodes 1 --procs 1
 genCalibRegistry.py --root CALIB --camera PFS --validity 180
 
 
