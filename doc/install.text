@@ -5,37 +5,51 @@ as on Mac OS X.
 The main goal of this quick-start guide is to enable the user to extract and 
 wavelength calibrate an Arc spectrum.
 
-* Install the LSST binary distribution (https://pipelines.lsst.io/install/conda.html)
+* Install the LSST binary distribution >= 12.0 (https://pipelines.lsst.io/install/conda.html)
   Here it should not matter whether you install anaconda or miniconda. Please note that
   there's only a need to install lsst-distrib, not lsst-sims.
   Don’t forget to setup the LSST environment as mentioned on the website. You will need
-  to do this every time you want to use the pipeline in a new shell:
+  to do this every time you want to use the pipeline in a new shell, so you might want
+  to add these 2 lines to your .bashrc:
 
 source activate lsst
 source eups-setups.sh
 
 
-* Install git-lfs (https://git-lfs.github.com/)
-* Install matplotlib and gcc:
+* The test data are quite large (~38 MB) and are stored in git using git-lfs. We therefore
+  need to install git-lfs (https://git-lfs.github.com/). Please follow the instructions at
+  https://git-lfs.github.com to installing git-lfs (e.g. using homebrew on os/x), then type
+  
+  git lfs install
 
-conda install matplotlib gcc
-
-
-* Create a directory for the PFS-DRP repositories:
-
-export DRP_STELLA="<your_target_directory>"
-(e.g. export DRP_STELLA="~/stella-git")
-mkdir -p $DRP_STELLA
-cd $DRP_STELLA
+  There's no need to issue any "git lfs track" commands
 
 
-* Clone the relevant git repositories:
+* On Linux, all the anaconda packages were compiled with gcc 4.small and are incompatible
+  with modern versions. Therefore, if you are installing the PFS DRP on a Linux machine, 
+  install gcc in anaconda:
+
+conda install gcc
+
+
+* For convenience of this quick-start guide, create a directory for the PFS-DRP repositories:
+
+export PFS_DRP=<your_target_directory>
+(e.g. export PFS_DRP=$HOME/PFS
+mkdir -p $PFS_DRP
+cd $PFS_DRP
+
+
+* Clone the relevant git repositories. Note that currently a newer version of sconsUtils
+  is needed to suppress some irrelevant compiler warnings. Installing and setting up
+  sconsUtils will be obsolete in the next binary LSST Stack installation.
 
 git clone https://github.com/Subaru-PFS/drp_stella.git
 git clone https://github.com/Subaru-PFS/drp_stella_data.git
 git clone https://github.com/Subaru-PFS/obs_pfs.git
+git clone git@github.com:lsst/sconsUtils.git
 
-
+* The next 2 steps are temporary workarounds until fixed:
 * Set $EUPS_PKGROOT
 
 export EUPS_PKGROOT="https://sw.lsstcorp.org/eupspkg/"
@@ -46,33 +60,30 @@ export EUPS_PKGROOT="https://sw.lsstcorp.org/eupspkg/"
 eups distrib install eigen 3.2.5.lsst2
 
 
-* Declare the git repositories:
+* Build and setup the pipeline. Note that setting up drp_stella will overwrite
+  the already set up sconsUtils version with the standard one, so we need to
+  setup sconsUtils again before compiling drp_stella. There are a few warnings
+  when compiling drp_stella, one type of warnings is a doxygen warning "... not
+  found in argument list..." and the other is a SWIG problem ("...destination for
+  this 'memset' call is a pointer..."). Both types of warnings will be silenced 
+  in future version and can be safely ignored.
 
-eups declare obs_pfs 0.1 -c -r $DRP_STELLA/obs_pfs
-eups declare drp_stella_data 0.1 -c -r $DRP_STELLA/drp_stella_data
-eups declare drp_stella 0.1 -c -r $DRP_STELLA/drp_stella
+cd $PFS_DRP/sconsUtils
+git checkout w.2016.34
+setup -r .
+scons -Q opt=3 -j8 --filterWarn
 
+cd $PFS_DRP/obs_pfs
+setup -r .
+scons -Q opt=3 -j8 --filterWarn
 
-* Setup the pipeline. As obs_pfs and drp_stella_data are required packages they are set up automatically:
+cd $PFS_DRP/drp_stella_data
+setup -r .
 
-setup drp_stella 0.1 -v
-
-During this step the environment variables $DRP_STELLA_DIR, $DRP_STELLA_DATA_DIR, and $OBS_PFS_DIR are 
-automatically created as well:
-
-echo $DRP_STELLA_DIR
-
-should show you:
-
-$DRP_STELLA/drp_stella
-
-
-* Build the pipeline:
-
-cd $DRP_STELLA/drp_stella
-scons opt=3
-cd ../obs_pfs
-scons opt=3
+cd $PFS_DRP/drp_stella
+setup -r .
+setup -r ../sconsUtils
+scons -Q opt=3 -j8 --filterWarn
 
 
 * Now for using the pipeline. 
@@ -84,20 +95,20 @@ Raw test data are in $DRP_STELLA_DATA_DIR/tests/data/raw/:
 Configuration parameters can be set either in config files (see $OBS_PFS_DIR/config/pfs/) or
 by passing them on the command line (after "--config", e.g. --config isr.doDark=False). 
 First we need to create a directory (actually 2) where we want to store pipeline outputs. 
-Let's assume you want to store the pipeline outputs in a directory ~/spectra/PFS:
+Let's assume you want to store the pipeline outputs in a directory $HOME/spectra/PFS:
 
-export SPECTRA_DIR="~/spectra/PFS"
-mkdir -p $SPECTRA_DIR/CALIB
+export PFS_DATA=$HOME/spectra/PFS
+mkdir -p $PFS_DATA/CALIB
 
 
 * We need to tell the LSST stack which mapper to use:
 
-echo "lsst.obs.pfs.PfsMapper" > $SPECTRA_DIR/_mapper
+echo "lsst.obs.pfs.PfsMapper" > $PFS_DATA/_mapper
 
 
-* To ingest the raw images into a database stored in $SPECTRA_DIR/registry.sqlite3:
+* To ingest the raw images into a database stored in $PFS_DATA/registry.sqlite3:
 
-cd $SPECTRA_DIR
+cd $PFS_DATA
 ingestImages.py . $DRP_STELLA_DATA_DIR/tests/data/raw/*.fits --output . --mode link
 
 
@@ -116,12 +127,12 @@ constructBias.py . --calib CALIB --output . --calibId calibVersion=bias arm=r ca
 
 
 * Now that we have a master bias we need to ingest that into our calibration database stored in
-$SPECTRA_DIR/CALIB/calibRegistry.sqlite3:
+$PFS_DATA/CALIB/calibRegistry.sqlite3:
 
 genCalibRegistry.py --root CALIB --camera PFS --validity 180
 
 
-* Now we can create a Bias-subtracted Dark and ingest that into our calibration database. If you don't want 
+* Now we can create a Bias-subtracted master Dark and ingest that into our calibration database. If you don't want 
 Dark subtraction you can skip this step, but remember further down to turn Dark subtraction off:
 
 constructDark.py . --calib CALIB --output . --calibId calibVersion=dark arm=r calibDate=2015-12-22 spectrograph=2 --do-exec --id field=DARK dateObs=2015-12-22 --nodes 1 --procs 1
