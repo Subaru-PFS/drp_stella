@@ -11,15 +11,10 @@ or
 
 import os
 import unittest
-import sys
-import numpy as np
 import lsst.utils
 import lsst.utils.tests as tests
 import lsst.afw.image as afwImage
-import lsst.afw.geom as afwGeom
 import pfs.drp.stella as drpStella
-import lsst.afw.display.ds9 as ds9
-import lsst.afw.display.utils as displayUtils
 
 try:
     type(display)
