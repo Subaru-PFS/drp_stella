@@ -87,75 +87,111 @@ scons -Q opt=3 -j8 --filterWarn
 
 
 * Now for using the pipeline. 
-Raw test data are in $DRP_STELLA_DATA_DIR/tests/data/raw/:
-  - 3 Biases: visit numbers 7251-7253,
-  - 3 Darks: visit numbers 7291-7293,
-  - 1 Flat: visit number 5,
-  - 1 Arc: visit number 4 
-Configuration parameters can be set either in config files (see $OBS_PFS_DIR/config/pfs/) or
-by passing them on the command line (after "--config", e.g. --config isr.doDark=False). 
-First we need to create a directory (actually 2) where we want to store pipeline outputs. 
-Let's assume you want to store the pipeline outputs in a directory $HOME/spectra/PFS:
+  Raw test data are in $DRP_STELLA_DATA_DIR/tests/data/raw/:
+    - 3 Biases: visit numbers 7251-7253,
+    - 3 Darks: visit numbers 7291-7293,
+    - 1 Flat: visit number 5,
+    - 1 Arc: visit number 4 
+  Configuration parameters for the pipeline tasks can be set either in config files
+  (see $OBS_PFS_DIR/config/pfs/) or by passing them on the command line (after 
+  "--config", e.g. --config isr.doDark=False). You can list all configuration
+  parameters by appending a "--show config" to the parameter list. Setting "--show
+  config=glob" 
+
+
+
+
+
+
+
+
+
+
+
+
+  First we need to create a directory (actually 2) where we want to store pipeline outputs. 
+  Let's assume you want to store the pipeline outputs in a directory $HOME/spectra/PFS.
+  For the convenience of this quick-start guide we define another environment variable:
 
 export PFS_DATA=$HOME/spectra/PFS
 mkdir -p $PFS_DATA/CALIB
 
 
-* We need to tell the LSST stack which mapper to use:
+* We need to tell the LSST stack which mapper to use. The mapper gives a logical view
+  of both the raw data and the pipeline outputs which you can query for particular data
+  sets. It abstracts out the physical layout so we don't have to worry about the details.
 
 echo "lsst.obs.pfs.PfsMapper" > $PFS_DATA/_mapper
 
 
-* To ingest the raw images into a database stored in $PFS_DATA/registry.sqlite3:
+* We can now ingest the raw images into a registry stored in $PFS_DATA/registry.sqlite3.
+  The "--mode link" parameter tells the pipeline to create symbolic links instead of copying
+  the raw images. The "-L warn" parameter sets the log level to only print warnings.
 
-cd $PFS_DATA
-ingestImages.py . $DRP_STELLA_DATA_DIR/tests/data/raw/*.fits --output . --mode link
+ingestImages.py $PFS_DATA $DRP_STELLA_DATA_DIR/tests/data/raw/*.fits --mode link -L warn
 
 
 * Now that we have our database we can start reducing things. We start with creating a master Bias, followed
-by a Bias-subtracted master Dark. We will then create a Bias- and Dark-subtracted master Flat, which we then use 
-to identify and trace the apertures of the fiber traces. The fiber traces from the Arc image are then extracted
-and wavelength calibrated.
+  by a Bias-subtracted master Dark. We will then create a Bias- and Dark-subtracted master Flat, which we then use 
+  to identify and trace the apertures of the fiber traces. The fiber traces from the Arc image are then extracted
+  and wavelength calibrated.
 
-The data we want to reduce were observed/simulated on 2015-12-22 on spectrograph 2, arm r (red) at site S (Summit). 
+  The data we want to reduce were observed/simulated on 2015-12-22 on spectrograph 2, arm r (red) at site S (Summit). 
 
-Note the 2 config parameters --nodes and --procs at the end. These parameters are required by tasks which are 
-parallelized. Sometimes running the code in parallel can lead to problems (in most cases caused by the 3rd-party 
-libraries used), so setting nodes and procs to 1 is a safe choice.
+  The parameter "--rerun USERNAME/rmp" (substitute USERNAME with your name) specifies where to store
+  temporary pipeline outputs.
+  Note the parameter "--cores 1" at the end. This parameter is required by tasks which are parallelized.
+  Sometimes running the code in parallel can lead to problems (in most cases caused by the 3rd-party 
+  libraries used), so setting cores to 1 is a safe choice.
 
-constructBias.py . --calib CALIB --output . --calibId calibVersion=bias arm=r calibDate=2015-12-22 spectrograph=2 --do-exec --id field=BIAS dateObs=2015-12-22 --nodes 1 --procs 1
+constructBias.py $PFS_DATA --rerun USERNAME/tmp --id field=BIAS dateObs=2015-12-22 arm=r spectrograph=2 --calibId calibVersion=bias calibDate=2015-12-22 arm=r spectrograph=2 --cores 1
 
 
 * Now that we have a master bias we need to ingest that into our calibration database stored in
-$PFS_DATA/CALIB/calibRegistry.sqlite3:
+  $PFS_DATA/CALIB/calibRegistry.sqlite3. The parameter "--validity 180" specifies that the calibration
+  images are valid for 180 days. We will need to repeat this step every time we create a new calibration
+  image for the butler to find it when its use is required by a later called task.
 
-genCalibRegistry.py --root CALIB --camera PFS --validity 180
+genCalibRegistry.py --root $PFS_DATA/CALIB --camera PFS --validity 180
 
 
-* Now we can create a Bias-subtracted master Dark and ingest that into our calibration database. If you don't want 
-Dark subtraction you can skip this step, but remember further down to turn Dark subtraction off:
+* Now we can create a trimmed and scaled, Bias-subtracted master Dark and ingest that into our calibration registry.
+  Again, you need to substitute USERNAME with your name.
+  If you don't want Dark subtraction you can skip this step, but remember further down to turn Dark subtraction
+  off.
 
-constructDark.py . --calib CALIB --output . --calibId calibVersion=dark arm=r calibDate=2015-12-22 spectrograph=2 --do-exec --id field=DARK dateObs=2015-12-22 --nodes 1 --procs 1
-genCalibRegistry.py --root CALIB --camera PFS --validity 180
+constructDark.py $PFS_DATA --rerun USERNAME/tmp --id field=DARK dateObs=2015-12-22 arm=r spectrograph=2 --calibId calibVersion=dark calibDate=2015-12-22 arm=r spectrograph=2 --cores 1
+genCalibRegistry.py --root $PFS_DATA/CALIB --camera PFS --validity 180
 
 
 * Having the master Bias and Dark, we can now create our master Flat. Currently the master Flat is only used to 
-trace the apertures of the fiber traces. If you want to turn off Dark subtraction you can either edit the config
-file $OBS_PFS_DIR/config/pfs/flat.py or simply add "--config isr.doDark=False" to the reduceFlat command, what
-will override the parameter setting in the config file:
+  trace the apertures of the fiber traces and to calculate the spatial profile for the optimal extraction.
+  Note that for the actual flat-fielding dithered Flats will be used in the near future, and this kind of Flat
+  here will be renamed to apDef (aperture definition).
+  In our data set only visit 5 is a flat, so specifying "--id visit=5" is all you need to specify for the butler
+  to find our flat. In case you  would want to reduce all Flats taken 2015-12-22 for spectrograph 2, red arm,
+  you would need to replace "visit=5" with "field=FLAT arm=r dateObs=2015-12-22 spectrograph=2".
+  If you want to turn off Dark subtraction you can either edit the config file $OBS_PFS_DIR/config/pfs/flat.py
+  or simply add "--config isr.doDark=False" to the reduceFlat command, what will override the parameter setting
+  in the config file:
 
-reduceFlat.py . --calib CALIB --calibId calibVersion=flat arm=r calibDate=2015-12-22 filter=r spectrograph=2 --do-exec --id field=FLAT arm=r dateObs=2015-12-22 spectrograph=2 --output . --nodes 1 --procs 1
-genCalibRegistry.py --root=CALIB --camera PFS --validity 180
+reduceFlat.py $PFS_DATA --rerun USERNAME/tmp --id visit=5 --calibId calibVersion=flat calibDate=2015-12-22 arm=r spectrograph=2 --cores 1
+genCalibRegistry.py --root $PFS_DATA/CALIB --camera PFS --validity 180
 
 
-* Since we have the Bias and Dark we can also run the Instrumental-Signature Removal (ISR) task for our Arc spectrum.
-Again, if you don't want Dark subtraction, either edit the config file $OBS_PFS_DIR/config/pfs/detrend.py or add 
-"--config isr.doDark=False" at the end of the command:
+* Since we have the Bias and Dark we can also perform the Instrumental-Signature Removal (ISR) task for our Arc
+  spectrum (visit=4). The ISR task detrend.py will subtract the Bias and scaled Dark from our Arc image. As
+  mentioned above, flat-fielding is not yet supported by the pipeline, but will be in the near future.
+  In case you would want to reduce all Arcs taken 2015-12-22 for spectrograph 2, red arm, simply replace
+  "visit=4" with "arm=r spectrograph=2 dateObs=2015-12-22 field=ARC". Note that this time you need to specify
+  the output directory as we will need the postISRCCD image in the next step.
+  Again, if you don't want Dark subtraction, either edit the config file $OBS_PFS_DIR/config/pfs/detrend.py or add 
+  "--config isr.doDark=False" at the end of the command:
 
-detrend.py . --calib CALIB --output . --id arm=r spectrograph=2 dateObs=2015-12-22 field=ARC
+detrend.py $PFS_DATA --output $PFS_DATA --id visit=4
 
 
-* We now have the postISRCCD images and can extract and wavelength-calibrate our CdHgKrNeXe Arc with the visit
-number 4:
+* We now have the postISRCCD images for our Flat and Arc and can extract and wavelength-calibrate our CdHgKrNeXe
+  Arc with the visit number 4:
 
-reduceArc.py . --output . --calib CALIB --id visit=4 --wLenFile $OBS_PFS_DIR/pfs/RedFiberPixels.fits.gz --lineList $OBS_PFS_DIR/pfs/lineLists/CdHgKrNeXe_red.fits
+reduceArc.py $PFS_DATA --rerun USERNAME/tmp --id visit=4
