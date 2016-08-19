@@ -95,7 +95,20 @@ scons -Q opt=3 -j8 --filterWarn
   Configuration parameters for the pipeline tasks can be set either in config files
   (see $OBS_PFS_DIR/config/pfs/) or by passing them on the command line (after 
   "--config", e.g. --config isr.doDark=False). You can list all configuration
-  parameters by appending a "--show config=glob" to the parameter list.
+  parameters by appending a "--show config" to the parameter list. Setting "--show
+  config=glob" 
+
+
+
+
+
+
+
+
+
+
+
+
   First we need to create a directory (actually 2) where we want to store pipeline outputs. 
   Let's assume you want to store the pipeline outputs in a directory $HOME/spectra/PFS.
   For the convenience of this quick-start guide we define another environment variable:
@@ -142,31 +155,43 @@ constructBias.py $PFS_DATA --rerun USERNAME/tmp --id field=BIAS dateObs=2015-12-
 genCalibRegistry.py --root $PFS_DATA/CALIB --camera PFS --validity 180
 
 
-* Now we can create a trimmed and Bias-subtracted master Dark and ingest that into our calibration database.
+* Now we can create a trimmed and scaled, Bias-subtracted master Dark and ingest that into our calibration registry.
+  Again, you need to substitute USERNAME with your name.
   If you don't want Dark subtraction you can skip this step, but remember further down to turn Dark subtraction
   off.
 
-constructDark.py $PFS_DATA --output $PFS_DATA --id field=BIAS dateObs=2015-12-22 arm=r spectrograph=2 --calibId calibVersion=dark calibDate=2015-12-22 arm=r spectrograph=2 --cores 1
+constructDark.py $PFS_DATA --rerun USERNAME/tmp --id field=DARK dateObs=2015-12-22 arm=r spectrograph=2 --calibId calibVersion=dark calibDate=2015-12-22 arm=r spectrograph=2 --cores 1
 genCalibRegistry.py --root $PFS_DATA/CALIB --camera PFS --validity 180
 
 
 * Having the master Bias and Dark, we can now create our master Flat. Currently the master Flat is only used to 
-trace the apertures of the fiber traces. If you want to turn off Dark subtraction you can either edit the config
-file $OBS_PFS_DIR/config/pfs/flat.py or simply add "--config isr.doDark=False" to the reduceFlat command, what
-will override the parameter setting in the config file:
+  trace the apertures of the fiber traces and to calculate the spatial profile for the optimal extraction.
+  Note that for the actual flat-fielding dithered Flats will be used in the near future, and this kind of Flat
+  here will be renamed to apDef (aperture definition).
+  In our data set only visit 5 is a flat, so specifying "--id visit=5" is all you need to specify for the butler
+  to find our flat. In case you  would want to reduce all Flats taken 2015-12-22 for spectrograph 2, red arm,
+  you would need to replace "visit=5" with "field=FLAT arm=r dateObs=2015-12-22 spectrograph=2".
+  If you want to turn off Dark subtraction you can either edit the config file $OBS_PFS_DIR/config/pfs/flat.py
+  or simply add "--config isr.doDark=False" to the reduceFlat command, what will override the parameter setting
+  in the config file:
 
-reduceFlat.py $PFS_DATA --output $PFS_DATA --id field=FLAT arm=r dateObs=2015-12-22 spectrograph=2 --calibId calibVersion=flat calibDate=2015-12-22 arm=r spectrograph=2 filter=r --cores 1
+reduceFlat.py $PFS_DATA --rerun USERNAME/tmp --id visit=5 --calibId calibVersion=flat calibDate=2015-12-22 arm=r spectrograph=2 --cores 1
 genCalibRegistry.py --root $PFS_DATA/CALIB --camera PFS --validity 180
 
 
-* Since we have the Bias and Dark we can also run the Instrumental-Signature Removal (ISR) task for our Arc spectrum.
-Again, if you don't want Dark subtraction, either edit the config file $OBS_PFS_DIR/config/pfs/detrend.py or add 
-"--config isr.doDark=False" at the end of the command:
+* Since we have the Bias and Dark we can also perform the Instrumental-Signature Removal (ISR) task for our Arc
+  spectrum (visit=4). The ISR task detrend.py will subtract the Bias and scaled Dark from our Arc image. As
+  mentioned above, flat-fielding is not yet supported by the pipeline, but will be in the near future.
+  In case you would want to reduce all Arcs taken 2015-12-22 for spectrograph 2, red arm, simply replace
+  "visit=4" with "arm=r spectrograph=2 dateObs=2015-12-22 field=ARC". Note that this time you need to specify
+  the output directory as we will need the postISRCCD image in the next step.
+  Again, if you don't want Dark subtraction, either edit the config file $OBS_PFS_DIR/config/pfs/detrend.py or add 
+  "--config isr.doDark=False" at the end of the command:
 
-detrend.py . --calib CALIB --output . --id arm=r spectrograph=2 dateObs=2015-12-22 field=ARC
+detrend.py $PFS_DATA --output $PFS_DATA --id visit=4
 
 
-* We now have the postISRCCD images and can extract and wavelength-calibrate our CdHgKrNeXe Arc with the visit
-number 4:
+* We now have the postISRCCD images for our Flat and Arc and can extract and wavelength-calibrate our CdHgKrNeXe
+  Arc with the visit number 4:
 
-reduceArc.py . --output . --calib CALIB --id visit=4 --wLenFile $OBS_PFS_DIR/pfs/RedFiberPixels.fits.gz --lineList $OBS_PFS_DIR/pfs/lineLists/CdHgKrNeXe_red.fits
+reduceArc.py $PFS_DATA --rerun USERNAME/tmp --id visit=4
