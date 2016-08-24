@@ -2765,11 +2765,11 @@ namespace pfsDRPStella = pfs::drp::stella;
       const PTR(const FiberTraceFunction) ftf = fiberTrace->getFiberTraceFunction();
       const ndarray::Array< float, 1, 1 > xCenters = fiberTrace->getXCenters();
       ndarray::Array<size_t, 2, 1> minCenMax = pfsDRPStella::math::calcMinCenMax( xCenters,
-                                                                                  fiberTrace->getFiberTraceFunction()->fiberTraceFunctionControl.xHigh,
-                                                                                  fiberTrace->getFiberTraceFunction()->fiberTraceFunctionControl.xLow,
-                                                                                  fiberTrace->getFiberTraceFunction()->fiberTraceFunctionControl.nPixCutLeft,
-                                                                                  fiberTrace->getFiberTraceFunction()->fiberTraceFunctionControl.nPixCutRight);
-      int y = fiberTrace->getFiberTraceFunction()->yCenter + fiberTrace->getFiberTraceFunction()->yLow;
+                                                                                  ftf->fiberTraceFunctionControl.xHigh,
+                                                                                  ftf->fiberTraceFunctionControl.xLow,
+                                                                                  ftf->fiberTraceFunctionControl.nPixCutLeft,
+                                                                                  ftf->fiberTraceFunctionControl.nPixCutRight);
+      int y = ftf->yCenter + ftf->yLow;
       for (int iY = 0; iY < xCenters.getShape()[ 0 ]; ++iY){
         for (int x = minCenMax[iY][0]; x <= minCenMax[iY][2]; ++x){
           maskedImage->getMask()->getArray()[ y + iY ][ x ] = 1;
