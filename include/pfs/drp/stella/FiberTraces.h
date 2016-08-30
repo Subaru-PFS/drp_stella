@@ -158,7 +158,7 @@ class FiberTrace {
 
     /// Return shared pointer to an image containing the reconstructed 2D spectrum + background of the FiberTrace
     afwImage::Image<double> getReconstructed2DSpectrum(const Spectrum<ImageT, MaskT, VarianceT, VarianceT> & spectrum,
-                                                           const Spectrum<ImageT, MaskT, VarianceT, VarianceT> & background) const;
+                                                       const Spectrum<ImageT, MaskT, VarianceT, VarianceT> & background) const;
     
     bool calcProfile();
     ndarray::Array<double, 2, 1> calcProfileSwath(ndarray::Array<ImageT const, 2, 1> const& imageSwath,
@@ -395,6 +395,31 @@ namespace math{
                      int nTraces,
                      int nRows,
                      int startPos = 0 );
+
+     /**
+      * @brief: add FiberTrace representation image to CCD image
+      * @param fiberTrace: FiberTrace to mark in maskedImage's Mask
+      * @param fiberTraceRepresentation: FiberTrace image to copy to ccdArray
+      * @param ccdArray: Array to add the FiberTraceRepresentation to
+      */
+     template< typename ImageT, typename MaskT, typename VarianceT, typename arrayT, typename ccdImageT, int dim >
+     bool addFiberTraceToCcdArray( FiberTrace< ImageT, MaskT, VarianceT > const& fiberTrace,
+                                   afwImage::Image< arrayT > const& fiberTraceRepresentation,
+                                   ndarray::Array< ccdImageT, 2, dim > & ccdArray );
+
+     /**
+      * @brief: add FiberTrace representation image to CCD image
+      *         (wrapper for addFiberTraceToCcdImage(FiberTrace, Image, Array) until Swig can successfully parse
+      *         a numpy array
+      * @param fiberTrace: FiberTrace to mark in maskedImage's Mask
+      * @param fiberTraceRepresentation: FiberTrace image to copy to ccdArray
+      * @param ccdArray: Image to add the FiberTraceRepresentation to
+      */
+     template< typename ImageT, typename MaskT, typename VarianceT, typename arrayT, typename ccdImageT >
+     bool addFiberTraceToCcdImage( FiberTrace< ImageT, MaskT, VarianceT > const& fiberTrace,
+                                   afwImage::Image< arrayT > const& fiberTraceRepresentation,
+                                   afwImage::Image< ccdImageT > & ccdImage );
+     
   }   
 
 namespace utils{
@@ -404,7 +429,7 @@ namespace utils{
      /**
       * @brief: mark FiberTrace pixels in Mask image
       * @param fiberTrace: FiberTrace to mark in maskedImage's Mask
-      * @param markedImage: image to mark the FiberTrace in Mask
+      * @param maskedImage: image to mark the FiberTrace in Mask
       */
      template< typename ImageT, typename MaskT, typename VarianceT >
      bool markFiberTraceInMask( PTR( FiberTrace< ImageT, MaskT, VarianceT > ) const& fiberTrace,
