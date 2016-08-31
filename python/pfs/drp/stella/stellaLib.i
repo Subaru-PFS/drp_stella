@@ -651,3 +651,37 @@ Interface to Stella
 %template(addFiberTraceToCcdImage) pfs::drp::stella::math::addFiberTraceToCcdImage< float, unsigned short, float, double, float >;
 %template(addFiberTraceToCcdImage) pfs::drp::stella::math::addFiberTraceToCcdImage< float, unsigned short, float, float, unsigned short >;
 %template(addFiberTraceToCcdImage) pfs::drp::stella::math::addFiberTraceToCcdImage< float, unsigned short, float, double, double >;
+
+%template(where) pfs::drp::stella::math::where< int, int, 0 >;
+%template(where) pfs::drp::stella::math::where< short int, int, 0 >;
+%template(where) pfs::drp::stella::math::where< long int, int, 0 >;
+%template(where) pfs::drp::stella::math::where< double, int, 0 >;
+%template(where) pfs::drp::stella::math::where< int, long int, 0 >;
+%template(where) pfs::drp::stella::math::where< short int, long int, 0 >;
+%template(where) pfs::drp::stella::math::where< long int, long int, 0 >;
+%template(where) pfs::drp::stella::math::where< double, long int, 0 >;
+%template(where) pfs::drp::stella::math::where< double, double, 0 >;
+
+%template(where) pfs::drp::stella::math::where< int, int, 1 >;
+%template(where) pfs::drp::stella::math::where< short int, int, 1 >;
+%template(where) pfs::drp::stella::math::where< long int, int, 1 >;
+%template(where) pfs::drp::stella::math::where< double, int, 1 >;
+%template(where) pfs::drp::stella::math::where< int, long int, 1 >;
+%template(where) pfs::drp::stella::math::where< short int, long int, 1 >;
+%template(where) pfs::drp::stella::math::where< long int, long int, 1 >;
+%template(where) pfs::drp::stella::math::where< double, long int, 1 >;
+%template(where) pfs::drp::stella::math::where< double, double, 1 >;
+
+%template(where) pfs::drp::stella::math::where< int, int >;
+%template(where) pfs::drp::stella::math::where< short int, int >;
+%template(where) pfs::drp::stella::math::where< long int, int >;
+%template(where) pfs::drp::stella::math::where< float, int >;
+%template(where) pfs::drp::stella::math::where< double, int >;
+%template(where) pfs::drp::stella::math::where< int, long int >;
+%template(where) pfs::drp::stella::math::where< short int, long int >;
+%template(where) pfs::drp::stella::math::where< long int, long int >;
+%template(where) pfs::drp::stella::math::where< float, long int >;
+%template(where) pfs::drp::stella::math::where< float, long int >;
+%template(where) pfs::drp::stella::math::where< double, long int >;
+%template(where) pfs::drp::stella::math::where< float, float >;
+%template(where) pfs::drp::stella::math::where< double, double >;
