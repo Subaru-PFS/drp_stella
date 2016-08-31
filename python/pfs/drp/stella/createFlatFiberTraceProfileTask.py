@@ -12,7 +12,7 @@ from lsst.pipe.base import Task
 
 class CreateFlatFiberTraceProfileConfig(pexConfig.Config):
         profileInterpolation = pexConfig.Field(
-            doc = "Method for determining the spatial profile, [PISKUNOV, SPLINE3], default: PISKUNOV",
+            doc = "Method for determining the spatial profile, [PISKUNOV, SPLINE3], default: SPLINE3",
             dtype = str,
             default = "SPLINE3")
         ccdReadOutNoise = pexConfig.Field(
