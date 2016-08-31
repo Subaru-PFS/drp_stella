@@ -2174,6 +2174,12 @@
                                      T const valueToCompareTo, 
                                      U const valueIfTrue,
                                      U const valueIfFalse ){
+      if ( ( op != "<" ) && ( op != "<=" ) && ( op != ">" ) && ( op != ">=" ) && ( op != "==" ) ){
+        std::string message("pfs::drp::stella::math::where: ERROR: op(=");
+        message += op + ") not supported";
+        cout << message << endl;
+        throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
+      }
       ndarray::Array< U, 1, 1 > arrOut = ndarray::allocate( arrayToCompareTo.getShape()[ 0 ] );
       auto itOut = arrOut.begin();
       for ( auto itComp = arrayToCompareTo.begin(); itComp != arrayToCompareTo.end(); ++itComp, ++itOut ){
@@ -2199,6 +2205,17 @@
                                      T const valueToCompareTo, 
                                      U const valueIfTrue,
                                      ndarray::Array< U, 1, 1 > const& valuesIfFalse ){
+      if ( ( op != "<" ) && ( op != "<=" ) && ( op != ">" ) && ( op != ">=" ) && ( op != "==" ) ){
+        std::string message("pfs::drp::stella::math::where: ERROR: op(=");
+        message += op + ") not supported";
+        cout << message << endl;
+        throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
+      }
+      if ( arrayToCompareTo.getShape()[ 0 ] != valuesIfFalse.getShape()[ 0 ] ){
+        std::string message("pfs::drp::stella::math::where: ERROR: input arrays must have same shape");
+        std::cout << message << std::endl;
+        throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
+      }
       ndarray::Array< U, 1, 1 > arrOut = ndarray::allocate( arrayToCompareTo.getShape()[ 0 ] );
       auto itOut = arrOut.begin();
       auto itElse = valuesIfFalse.begin();
@@ -2225,6 +2242,22 @@
                                      T const valueToCompareTo, 
                                      ndarray::Array< U, 1, 1 > const& valuesIfTrue,
                                      ndarray::Array< U, 1, 1 > const& valuesIfFalse ){
+      if ( ( op != "<" ) && ( op != "<=" ) && ( op != ">" ) && ( op != ">=" ) && ( op != "==" ) ){
+        std::string message("pfs::drp::stella::math::where: ERROR: op(=");
+        message += op + ") not supported";
+        cout << message << endl;
+        throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
+      }
+      if ( arrayToCompareTo.getShape()[ 0 ] != valuesIfTrue.getShape()[ 0 ] ){
+        std::string message("pfs::drp::stella::math::where: ERROR: input arrays must have same shape");
+        std::cout << message << std::endl;
+        throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
+      }
+      if ( arrayToCompareTo.getShape()[ 0 ] != valuesIfFalse.getShape()[ 0 ] ){
+        std::string message("pfs::drp::stella::math::where: ERROR: input arrays must have same shape");
+        std::cout << message << std::endl;
+        throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
+      }
       ndarray::Array< U, 1, 1 > arrOut = ndarray::allocate( arrayToCompareTo.getShape()[ 0 ] );
       auto itOut = arrOut.begin();
       auto itTrue = valuesIfTrue.begin();
@@ -2252,6 +2285,12 @@
                                      T const valueToCompareTo, 
                                      U const valueIfTrue,
                                      U const valueIfFalse ){
+      if ( ( op != "<" ) && ( op != "<=" ) && ( op != ">" ) && ( op != ">=" ) && ( op != "==" ) ){
+        std::string message("pfs::drp::stella::math::where: ERROR: op(=");
+        message += op + ") not supported";
+        cout << message << endl;
+        throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
+      }
       #ifdef __DEBUG_WHERE__
         cout << "where2D: array = " << arrayToCompareTo << endl;
         cout << "where2D: op = " << op << endl;
@@ -2320,6 +2359,22 @@
                                      T const valueToCompareTo, 
                                      U const valueIfTrue,
                                      ndarray::Array< U, 2, 1 > const& valuesIfFalse ){
+      if ( ( op != "<" ) && ( op != "<=" ) && ( op != ">" ) && ( op != ">=" ) && ( op != "==" ) ){
+        std::string message("pfs::drp::stella::math::where: ERROR: op(=");
+        message += op + ") not supported";
+        cout << message << endl;
+        throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
+      }
+      if ( arrayToCompareTo.getShape()[ 0 ] != valuesIfFalse.getShape()[ 0 ] ){
+        std::string message("pfs::drp::stella::math::where: ERROR: input arrays must have same shape");
+        std::cout << message << std::endl;
+        throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
+      }
+      if ( arrayToCompareTo.getShape()[ 1 ] != valuesIfFalse.getShape()[ 1 ] ){
+        std::string message("pfs::drp::stella::math::where: ERROR: input arrays must have same shape");
+        std::cout << message << std::endl;
+        throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
+      }
       ndarray::Array< U, 2, 1 > arrOut = ndarray::allocate( arrayToCompareTo.getShape() );
       auto itOutRow = arrOut.begin();
       auto itElseRow = valuesIfFalse.begin();
@@ -2350,6 +2405,32 @@
                                      T const valueToCompareTo, 
                                      ndarray::Array< U, 2, 1 > const& valuesIfTrue,
                                      ndarray::Array< U, 2, 1 > const& valuesIfFalse ){
+      if ( ( op != "<" ) && ( op != "<=" ) && ( op != ">" ) && ( op != ">=" ) && ( op != "==" ) ){
+        std::string message("pfs::drp::stella::math::where: ERROR: op(=");
+        message += op + ") not supported";
+        cout << message << endl;
+        throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
+      }
+      if ( arrayToCompareTo.getShape()[ 0 ] != valuesIfTrue.getShape()[ 0 ] ){
+        std::string message("pfs::drp::stella::math::where: ERROR: input arrays must have same shape");
+        std::cout << message << std::endl;
+        throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
+      }
+      if ( arrayToCompareTo.getShape()[ 1 ] != valuesIfTrue.getShape()[ 1 ] ){
+        std::string message("pfs::drp::stella::math::where: ERROR: input arrays must have same shape");
+        std::cout << message << std::endl;
+        throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
+      }
+      if ( arrayToCompareTo.getShape()[ 0 ] != valuesIfFalse.getShape()[ 0 ] ){
+        std::string message("pfs::drp::stella::math::where: ERROR: input arrays must have same shape");
+        std::cout << message << std::endl;
+        throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
+      }
+      if ( arrayToCompareTo.getShape()[ 1 ] != valuesIfFalse.getShape()[ 1 ] ){
+        std::string message("pfs::drp::stella::math::where: ERROR: input arrays must have same shape");
+        std::cout << message << std::endl;
+        throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
+      }
       ndarray::Array< U, 2, 1 > arrOut = ndarray::allocate( arrayToCompareTo.getShape() );
       auto itOutRow = arrOut.begin();
       auto itTrueRow = valuesIfTrue.begin();
