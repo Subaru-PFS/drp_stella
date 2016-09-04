@@ -163,7 +163,7 @@ genCalibRegistry.py --root $PFS_DATA/CALIB --camera PFS --validity 180
   "visit=4" with "arm=r spectrograph=2 dateObs=2015-12-22 field=ARC". Note that this time you need to specify
   the output directory as we will need the postISRCCD image in the next step.
 
-detrend.py $PFS_DATA --output $PFS_DATA --id visit=4
+detrend.py $PFS_DATA --rerun USERNAME/tmp --id visit=4
 
 
 * We now have the postISRCCD images for our Flat and Arc and can extract and wavelength-calibrate our CdHgKrNeXe
