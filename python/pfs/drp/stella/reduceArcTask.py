@@ -225,7 +225,7 @@ class ReduceArcTask(CmdLineTask):
             else:
                 print 'setSpectrum for spectrumSetFromProfile[',i,'] failed'
 
-        if False:
+        if False:#disable plotting the data
             xPixMinMax = np.ndarray(2, dtype='float32')
             xPixMinMax[0] = 1000.
             xPixMinMax[1] = 1600.
@@ -241,7 +241,6 @@ class ReduceArcTask(CmdLineTask):
             plt.close(fig)
             fig.clf()
             
-        if False:
             xMinMax = drpStella.poly(xPixMinMax, spec.getDispCoeffs())
             fig = plt.figure()
             ax = fig.add_subplot(1, 1, 1)
