@@ -205,7 +205,6 @@ class ReduceArcRefSpecTask(CmdLineTask):
             plt.ylabel('Flux [ADUs]')
             plt.show()
             plt.close(fig)
-            fig.savefig('/Users/azuri/entwicklung/tex/talks/PFS-pipeline_Princeton_May2016/images/flux_vs_pix.pdf')
             fig.clf()
             
         if False:
@@ -220,7 +219,6 @@ class ReduceArcRefSpecTask(CmdLineTask):
             plt.ylabel('Flux [ADUs]')
             plt.show()
             plt.close(fig)
-            fig.savefig('/Users/azuri/entwicklung/tex/talks/PFS-pipeline_Princeton_May2016/images/flux_vs_wlen.pdf')
             fig.clf()
         
         print 'writing SpectrumSet object'
