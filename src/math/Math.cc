@@ -2589,34 +2589,20 @@
         ndarray::Array< int, 1, 1 > I_A1_Ind = ndarray::allocate( D_A1_X.getShape()[ 0 ] );
         ndarray::Array< size_t, 1, 1 > P_I_A1_Ind;
         int I_Start = 0;
-        int I_End = 0;
         int I_NInd = 0;
         double D_Start, D_End;
         for (int i_pix = 0; i_pix < UVecArr.getShape()[ 0 ]; ++i_pix ){
           if ( i_pix == 0 ){
             D_A1_U[ 0 ] = UVecArr[ 0 ] - ( ( UVecArr[ 1 ] - UVecArr[ 0 ] ) / 2. );
             D_A1_U[ 1 ] = UVecArr[ 0 ] + ( ( UVecArr[ 1 ] - UVecArr[ 0 ] ) / 2. );
-    //        if (!this->IntegralUnderCurve(XVecArr, VVecArr, D_A1_X, (*P_A1_Out)(i_pix))){
-    //          cout << "CFits::InterPol: ERROR: IntegralUnderCurve(XVecArr = " << XVecArr << ", VVecArr = " << VVecArr << ", D_A1_X = " << D_A1_X << ") returned FALSE" << endl;
-    //          return false;
-    //        }
           }
           else if ( i_pix == UVecArr.getShape()[ 0 ] - 1 ){
             D_A1_U[ 0 ] = UVecArr[ UVecArr.getShape()[ 0 ] - 1 ] - ( ( UVecArr[ UVecArr.getShape()[ 0 ] - 1 ] - UVecArr[ UVecArr.getShape()[ 0 ] - 2 ] ) / 2. );
             D_A1_U[ 1 ] = UVecArr[ UVecArr.getShape()[ 0 ] - 1 ] + ( ( UVecArr[ UVecArr.getShape()[ 0 ] - 1 ] - UVecArr[ UVecArr.getShape()[ 0 ] - 2 ] ) / 2. );
-    //        if (!this->IntegralUnderCurve(XVecArr, VVecArr, D_A1_X, (*P_A1_Out)(i_pix))){
-    //          cout << "CFits::InterPol: ERROR: IntegralUnderCurve(XVecArr = " << XVecArr << ", VVecArr = " << VVecArr << ", D_A1_X = " << D_A1_X << ") returned FALSE" << endl;
-    //          return false;
-    //        }
-
           }
           else{
             D_A1_U[ 0 ] = UVecArr[ i_pix ] - ( ( UVecArr[ i_pix ] - UVecArr[ i_pix - 1 ] ) / 2. );
             D_A1_U[ 1 ] = UVecArr[ i_pix ] + ( ( UVecArr[ i_pix + 1 ] - UVecArr[ i_pix ] ) / 2. );
-    //        if (!this->IntegralUnderCurve(XVecArr, VVecArr, D_A1_X, (*P_A1_Out)(i_pix))){
-    //          cout << "CFits::InterPol: ERROR: IntegralUnderCurve(XVecArr = " << XVecArr << ", VVecArr = " << VVecArr << ", D_A1_X = " << D_A1_X << ") returned FALSE" << endl;
-    //          return false;
-    //        }
           }
           I_A1_Ind = where( D_A1_X, 
                             "<", 
@@ -2644,18 +2630,6 @@
                             0);
           P_I_A1_Ind = getIndices( I_A1_Ind );
           I_NInd = P_I_A1_Ind.getShape()[ 0 ];
-          if ( I_NInd < 1 ){
-            #ifdef __DEBUG_INTERPOL__
-              cout << "CFits::InterPol: WARNING: 2. I_A1_Ind = " << I_A1_Ind << ": I_NInd < 1" << endl;
-            #endif
-            I_End = D_A1_X.getShape()[ 0 ] - 1;
-          }
-          else{
-            I_End = P_I_A1_Ind[ 0 ];
-          }
-          #ifdef __DEBUG_INTERPOL__
-            cout << "CFits::InterPol: i_pix = " << i_pix << ": D_A1_X(" << I_Start << ":" << I_End << ") = " << D_A1_X[ndarray::view(I_Start, I_End)] << endl;
-          #endif
 
           D_Start = D_A1_U[ 0 ];
           if ( D_A1_X[ I_Start ] > D_A1_U[ 0 ] )
@@ -2670,7 +2644,6 @@
                 D_End = D_A1_X[ I_Start + 1 ];
               }
               #ifdef __DEBUG_INTERPOL__
-                cout << "CFits::InterPol: i_pix = " << i_pix << ": I_Start = " << I_Start << ", I_End = " << I_End << endl;
                 cout << "CFits::InterPol: i_pix = " << i_pix << ": D_Start = " << D_Start << ", D_End = " << D_End << endl;
               #endif
               D_A1_Out[ i_pix ] += VVecArr[ I_Start ] * ( D_End - D_Start ) / ( D_A1_X[ I_Start + 1 ] - D_A1_X[ I_Start ] );
@@ -2684,9 +2657,6 @@
                 break;
             } while ( D_End < D_A1_U[ 1 ]-( ( D_A1_U[ 1 ] - D_A1_U[ 0 ] ) / 100000000.) );
           }
-    //      for (int i_p=I_Start; i_p<I_End; i_p++){
-    //      }
-    //      return false;
         }
         return D_A1_Out;
       }

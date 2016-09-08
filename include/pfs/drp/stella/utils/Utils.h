@@ -103,21 +103,20 @@ namespace pfs { namespace drp { namespace stella { namespace utils{
     fits_write_ndarray( fitsfile, arr, metadata_i );
   }
   
-  inline void fits_write_binTable( lsst::afw::fits::Fits & fitsFile )
+/*  inline void fits_write_binTable( lsst::afw::fits::Fits & fitsFile )
   {
-      fitsfile *fptr;       /* pointer to the FITS file, defined in fitsio.h */
+      fitsfile *fptr;       // pointer to the FITS file, defined in fitsio.h
       int status;
-      long firstrow, firstelem;
 
-      int tfields   = 3;       /* table will have 3 columns */
-      long nrows    = 6;       /* table will have 6 rows    */
+      int tfields   = 3;       // table will have 3 columns
+      long nrows    = 6;       // table will have 6 rows
 
       char filename[1024];
       std::size_t length = fitsFile.getFileName().copy(filename, fitsFile.getFileName().length(), 0);
       filename[length]='\0';
-      char extname[] = "PLANETS_Binary";           /* extension name */
+      char extname[] = "PLANETS_Binary";           // extension name 
 
-      /* define the name, datatype, and physical units for the 3 columns */
+      // define the name, datatype, and physical units for the 3 columns 
       char colNameA[] = "Planet";
       char colNameB[] = "Diameter";
       char colNameC[] = "Density";
@@ -133,7 +132,7 @@ namespace pfs { namespace drp { namespace stella { namespace utils{
       char tUnitC[] = "g/cm";
       char *tunit[] = { tUnitA,      tUnitB,       tUnitC    };
 
-      /* define the name diameter, and density of each planet */
+      // define the name diameter, and density of each planet
 //      char *planet[] = {"Mercury", "Venus", "Earth", "Mars","Jupiter","Saturn"};
 //      long  diameter[] = {4880,     12112,   12742,   6800,  143000,   121000};
 //      float density[]  = { 5.1f,      5.3f,     5.52f,   3.94f,   1.33f,     0.69f};
@@ -146,7 +145,7 @@ namespace pfs { namespace drp { namespace stella { namespace utils{
         throw LSST_EXCEPT(pexExcept::Exception, message.c_str());    
       }
       
-      /* move to 2nd HDU */
+      // move to 2nd HDU
 //      int hdutype;
 //      if ( fits_movabs_hdu(fptr, 2, &hdutype, &status) ) 
 //      {
@@ -156,7 +155,7 @@ namespace pfs { namespace drp { namespace stella { namespace utils{
 //        throw LSST_EXCEPT(pexExcept::Exception, message.c_str());    
 //      }
       
-      /* append a new empty binary table onto the FITS file */
+      // append a new empty binary table onto the FITS file
       if ( fits_create_tbl( fptr, BINARY_TBL, nrows, tfields, ttype, tform,
                             tunit, extname, &status) ) {
         string message("pfs::drp::stella::utils::fits_write_binTable: fits_create_tbl returned status ");
@@ -165,12 +164,12 @@ namespace pfs { namespace drp { namespace stella { namespace utils{
         throw LSST_EXCEPT(pexExcept::Exception, message.c_str());    
       }
 
-      firstrow  = 1;  /* first row in table to write   */
-      firstelem = 1;  /* first element in row  (ignored in ASCII tables) */
+//      firstrow  = 1;  // first row in table to write
+//      firstelem = 1;  // first element in row  (ignored in ASCII tables)
 
-      /* write names to the first column (character strings) */
-      /* write diameters to the second column (longs) */
-      /* write density to the third column (floats) */
+      // write names to the first column (character strings)
+      // write diameters to the second column (longs)
+      // write density to the third column (floats)
 
 //      fits_write_col(fptr, TSTRING, 1, firstrow, firstelem, nrows, planet,
 //                     &status);
@@ -185,7 +184,7 @@ namespace pfs { namespace drp { namespace stella { namespace utils{
         cout << message << endl;
         throw LSST_EXCEPT(pexExcept::Exception, message.c_str());    
       }
-  }
+  }*/
   
   template< typename T >
   PTR( T ) getPointer( T & );

@@ -147,7 +147,6 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
     ndarray::Array<T, 1, 1> D_A1_MeasureErrorsBak = copy(measureErrors);
 
     PTR(std::vector<size_t>) P_I_A1_NotRejected(new std::vector<size_t>());
-    bool B_KeyWordSet_NotRejected = false;
     I_Pos = pfs::drp::stella::utils::KeyWord_Set(S_A1_Args_In, "NOT_REJECTED");
     if (I_Pos >= 0){
       P_I_A1_NotRejected.reset();
@@ -157,15 +156,11 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
         for (auto it = P_I_A1_NotRejected->begin(); it != P_I_A1_NotRejected->end(); ++it)
           cout << *it << " ";
         cout << endl;
-      #endif
-      B_KeyWordSet_NotRejected = true;
-      #ifdef __DEBUG_POLYFIT__
         cout << "pfs::drp::stella::math::CurveFitting::PolyFit: KeyWord NOT_REJECTED read" << endl;
       #endif
     }
 
     PTR(std::vector<size_t>) P_I_A1_Rejected(new std::vector<size_t>());
-    bool B_KeyWordSet_Rejected = false;
     I_Pos = pfs::drp::stella::utils::KeyWord_Set(S_A1_Args_In, "REJECTED");
     if (I_Pos >= 0){
       P_I_A1_Rejected.reset();
@@ -175,15 +170,11 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
         for (auto it = P_I_A1_Rejected->begin(); it != P_I_A1_Rejected->end(); ++it)
           cout << *it << " ";
         cout << endl;
-      #endif
-      B_KeyWordSet_Rejected = true;
-      #ifdef __DEBUG_POLYFIT__
         cout << "pfs::drp::stella::math::CurveFitting::PolyFit: KeyWord REJECTED read" << endl;
       #endif
     }
 
     PTR(int) P_I_NRejected(new int(I_NRejected));
-    bool B_KeyWordSet_NRejected = false;
     I_Pos = pfs::drp::stella::utils::KeyWord_Set(S_A1_Args_In, "N_REJECTED");
     if (I_Pos >= 0){
       #ifdef __DEBUG_POLYFIT__
@@ -194,21 +185,16 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
       P_I_NRejected = *((PTR(int)*)(ArgV[I_Pos]));
       #ifdef __DEBUG_POLYFIT__
         cout << "pfs::drp::stella::math::CurveFitting::PolyFit: P_I_NRejected = " << *P_I_NRejected << endl;
-      #endif
-      B_KeyWordSet_NRejected = true;
-      #ifdef __DEBUG_POLYFIT__
         cout << "pfs::drp::stella::math::CurveFitting::PolyFit: KeyWord N_REJECTED read" << endl;
       #endif
     }
 
-    bool B_HaveXRange = false;
     ndarray::Array<double, 1, 1> xRange = ndarray::allocate(2);
     xRange[0] = pfs::drp::stella::math::min(D_A1_X_In);
     xRange[1] = pfs::drp::stella::math::max(D_A1_X_In);;
     PTR(ndarray::Array<double, 1, 1>) P_D_A1_XRange(new ndarray::Array<double, 1, 1>(xRange));
     if ((I_Pos = pfs::drp::stella::utils::KeyWord_Set(S_A1_Args_In, "XRANGE")) >= 0)
     {
-      B_HaveXRange = true;
       P_D_A1_XRange.reset();
       P_D_A1_XRange = *((PTR(ndarray::Array<double, 1, 1>)*)ArgV[I_Pos]);
       if (P_D_A1_XRange->getShape()[0] != 2){
@@ -219,7 +205,6 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
       }
       xRange.deep() = *P_D_A1_XRange;
       #ifdef __DEBUG_POLYFIT__
-        cout << "pfs::drp::stella::math::CurveFitting::PolyFit: B_HaveXRange set to TRUE" << endl;
         cout << "pfs::drp::stella::math::CurveFitting::PolyFit: *P_D_A1_XRange set to " << *P_D_A1_XRange << endl;
       #endif
     }
@@ -438,14 +423,12 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
       D_A1_MeasureErrors.deep() = 1.;
     }
     
-    bool B_HaveXRange = false;
     ndarray::Array<double, 1, 1> D_A1_XRange = ndarray::allocate(2);
     ndarray::Array<T, 1, 1> xNew;
     PTR(ndarray::Array<double, 1, 1>) P_D_A1_XRange(new ndarray::Array<double, 1, 1>(D_A1_XRange));
     sTemp = "XRANGE";
     if ((I_Pos = pfs::drp::stella::utils::KeyWord_Set(S_A1_Args_In, sTemp)) >= 0)
     {
-      B_HaveXRange = true;
       P_D_A1_XRange.reset();
       P_D_A1_XRange = *((PTR(ndarray::Array<double, 1, 1>)*)ArgV[I_Pos]);
       if (P_D_A1_XRange->getShape()[0] != 2){
@@ -457,7 +440,6 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
 
       D_A1_XRange.deep() = *P_D_A1_XRange;
       #ifdef __DEBUG_POLYFIT__
-        cout << "pfs::drp::stella::math::CurveFitting::PolyFit: B_HaveXRange set to TRUE" << endl;
         cout << "pfs::drp::stella::math::CurveFitting::PolyFit: *P_D_A1_XRange set to " << *P_D_A1_XRange << endl;
       #endif
     }
@@ -2625,7 +2607,7 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
     #ifdef __DEBUG_FIT__
       cout << "CFits::GammP started: a = " << a << ", x = " << x << endl;
     #endif
-    T gamser, gammcf, gln;
+    T gamser, gammcf;
     if (x < 0.){
       string message("pfs::drp::stella::math::CurveFitting::GammP: ERROR: x(=");
       message += to_string(x) + ") < 0.";
@@ -2639,7 +2621,7 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
       throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
     }
     if (x < (a+1.)){
-      gln = GSER(gamser, a, x);
+      GSER(gamser, a, x);
       D_Out = gamser;
       #ifdef __DEBUG_CURVEFIT__
         cout << "CurveFitting::GammP(a, x) finished" << endl;
@@ -2647,7 +2629,7 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
       return D_Out;
     }
     else{
-      gln = GCF(gammcf, a, x);
+      GCF(gammcf, a, x);
       D_Out = 1. - gammcf;
       #ifdef __DEBUG_CURVEFIT__
         cout << "CurveFitting::GammP(a, x) finished" << endl;
@@ -2670,7 +2652,6 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
     #endif
     T gamser = 0.;
     T gammcf = 0.;
-    T gln = 0.;
     if (x < 0.){
       string message("pfs::drp::stella::math::CurveFitting::GammQ: ERROR: x(=");
       message += to_string(x) + ") < 0.";
@@ -2684,7 +2665,7 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
       throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
     }
     if (x < (a+1.)){
-      gln = GSER(gamser, a, x);
+      GSER(gamser, a, x);
       #ifdef __DEBUG_FIT__
         cout << "CFits::GammQ: x < (a+1.): gamser = " << gamser << endl;
       #endif
@@ -2695,7 +2676,7 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
       return D_Out;
     }
     else{
-      gln = GCF(gammcf, a, x);
+      GCF(gammcf, a, x);
       #ifdef __DEBUG_FIT__
         cout << "CFits::GammQ: x < (a+1.): gammcf = " << gammcf << endl;
       #endif

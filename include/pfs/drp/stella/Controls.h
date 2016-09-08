@@ -169,12 +169,12 @@ struct FiberTraceFunction {
   }
   
   bool setCoefficients(ndarray::Array<double, 1, 1> const& coeffs_In){
-      if (coeffs_In.getShape()[0] != (fiberTraceFunctionControl.order + 1)){
+      if ( coeffs_In.getShape()[ 0 ] != static_cast< int >( fiberTraceFunctionControl.order + 1 ) ){
           cout << "FiberTraceFunction::setCoefficients: ERROR: size of coeffs_In must be order + 1" << endl;
           return false;
       }
       coefficients.resize(fiberTraceFunctionControl.order + 1);
-      for (int i = 0; i < (fiberTraceFunctionControl.order + 1); ++i)
+      for (int i = 0; i < static_cast< int >( fiberTraceFunctionControl.order + 1 ); ++i)
           coefficients[i] = coeffs_In[i];
       return true;
   }

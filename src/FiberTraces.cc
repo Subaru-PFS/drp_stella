@@ -1626,7 +1626,6 @@ namespace pfsDRPStella = pfs::drp::stella;
           cout << "FindAndTraceApertures: fiberTraceSet->getFiberTrace( fiberTraceSet->getTraces()->size() - 1 )->getITrace() = " << fiberTraceSet->getFiberTrace( fiberTraceSet->getTraces()->size() - 1 )->getITrace() << endl;
           cout << "FindAndTraceApertures: aperture number " << I_Aperture << " added to fiberTraceSet" << endl;
           ++I_Aperture;
-          //i_Row = I_Row_Bak - 1;
         }/// end if (B_ApertureFound)
         else{
           B_ApertureFound = false;
@@ -1664,7 +1663,7 @@ namespace pfsDRPStella = pfs::drp::stella;
       int I_FirstWideSignal;
       int I_FirstWideSignalEnd;
       int I_FirstWideSignalStart;
-      unsigned int I_Length, I_ApertureLost, I_Row_Bak;//, I_LastRowWhereApertureWasFound
+      unsigned int I_Length, I_ApertureLost;
       int I_ApertureLength;
       int I_RowBak;
       size_t apertureLength = 0;
@@ -1819,7 +1818,6 @@ namespace pfsDRPStella = pfs::drp::stella;
               if (I_FirstWideSignalEnd < 0){
                 #ifdef __DEBUG_FINDANDTRACE__
                   cout << "pfs::drp::stella::math::findCenterPositionsOneTrace: while: i_Row = " << i_Row << ": 2. WARNING: No end of aperture found -> Going to next row." << endl;
-                  cout << "pfs::drp::stella::math::findCenterPositionsOneTrace: while: i_Row = " << i_Row << ": I_Row_Bak = " << I_Row_Bak << endl;
                   cout << "pfs::drp::stella::math::findCenterPositionsOneTrace: while: i_Row = " << i_Row << ": B_ApertureFound = " << B_ApertureFound << endl;
                 #endif
                 break;
@@ -2029,7 +2027,6 @@ namespace pfsDRPStella = pfs::drp::stella;
             cout << "pfs::drp::stella::math::findCenterPositionsOneTrace: i_Row = " << i_Row << ": Starting to trace aperture " << endl;
           #endif
           D_A1_GaussFit_Coeffs_Bak[ndarray::view()].deep() = D_A1_GaussFit_Coeffs;
-          I_Row_Bak = i_Row;
           while(B_ApertureFound && (I_ApertureLost < fiberTraceFunctionFindingControl->nLost) && (i_Row < ccdArray.getShape()[0]-1) && I_Length < fiberTraceFunctionFindingControl->maxLength){
             i_Row++;
             apertureLength++;
