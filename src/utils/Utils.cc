@@ -376,7 +376,7 @@ namespace pfs { namespace drp { namespace stella { namespace utils{
     string out(number);
     int dotPos = out.find( "." );
     cout << "dotPos = " << dotPos << endl;
-    if ( dotPos != std::string::npos ){
+    if ( dotPos != int( std::string::npos ) ){
       out.replace( dotPos, 1, "_" );
       size_t pos = out.find("e");
       if (pos == std::string::npos )
@@ -386,7 +386,7 @@ namespace pfs { namespace drp { namespace stella { namespace utils{
         ex = out.substr(pos);
         cout << "ex = <" << ex << ">" << endl;
       }
-      if ( ( dotPos + accuracy + 1 ) < out.length() ){
+      if ( ( dotPos + accuracy + 1 ) < int( out.length() ) ){
         if ( accuracy == 0 )
           out.resize( dotPos );
         else

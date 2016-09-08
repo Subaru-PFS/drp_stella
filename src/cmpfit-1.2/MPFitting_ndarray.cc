@@ -408,7 +408,6 @@ bool MPFitChebyshev1stKind(const ndarray::Array<T, 1, 1> & D_A1_X_In,
   double perror[I_NParams];			   /* Returned parameter errors */
   mp_par pars[I_NParams];			   /* Parameter constraints */
   struct vars_struct v;
-  int status;
   mp_result result;
 
   memset(&result,0,sizeof(result));      /* Zero results structure */
@@ -420,7 +419,7 @@ bool MPFitChebyshev1stKind(const ndarray::Array<T, 1, 1> & D_A1_X_In,
   v.y = y;
   v.ey = ey;
 
-  status = mpfit(Chebyshev1stKind, I_NPts, I_NParams, p, pars, 0, (void *) &v, &result);
+  result.status = mpfit(Chebyshev1stKind, I_NPts, I_NParams, p, pars, 0, (void *) &v, &result);
 
   for (int i_par=0; i_par<I_NParams; i_par++){
     D_A1_Coeffs_Out[i_par] = p[i_par];
@@ -1409,7 +1408,7 @@ bool MPFit2DGaussLim(const ndarray::Array< T, 1, 1 >& D_A1_X_In,
 
 int MPFitAnyFunc(int m, int n, double *p, double *dz, double **dvec, void *vars){
   struct vars_struct *v = (struct vars_struct *) vars;
-  double **z;
+  double *z;
 
   z = v->ey;
   for (int i=0; i<m; i++) {

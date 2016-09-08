@@ -333,21 +333,6 @@ template class pfsDRPStella::SpectrumSet<double, unsigned short, float, double>;
 //template class pfsDRPStella::SpectrumSet<float, unsigned short, double, double>;
 //template class pfsDRPStella::SpectrumSet<double, unsigned short, double, double>;
 
-/*template<typename SpectrumT, typename MaskT, typename VarianceT, typename WavelengthT>
-void pfsDRPStella::SpectrumSet<SpectrumT, MaskT, VarianceT, WavelengthT>::addSpectrum( Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT> const& spectrum )
-{
-  _spectra.push_back( spectrum );
-  return;
-}
-
-template<typename SpectrumT, typename MaskT, typename VarianceT, typename WavelengthT>
-void pfsDRPStella::SpectrumSet<SpectrumT, MaskT, VarianceT, WavelengthT>::addSpectrum( PTR(Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT> ) const& spectrum /// the Spectrum to add
-)
-{
-  _spectra.push_back( *spectrum );
-  return;
-}*/
-
 namespace pfs { namespace drp { namespace stella { namespace math {
 
     template< typename T, typename U >
@@ -355,15 +340,6 @@ namespace pfs { namespace drp { namespace stella { namespace math {
                                                                              ndarray::Array< T, 1, 1 > const& specRef,
                                                                              ndarray::Array< U, 2, 1 > const& lineList_WLenPix,
                                                                              DispCorControl const& dispCorControl ){
-//                                                            int const dispCorControl.radiusXCor,
-//                                                            int const dispCorControl.stretchMinLength,
-//                                                            int const dispCorControl.stretchMaxLength,
-//                                                            int const dispCorControl.nStretches,
-//                                                            int const dispCorControl.lengthPieces,
-//                                                            int const nCalcs ){
-//                                              int const polyFitOrder_Stretch,
-//                                              int const polyFitOrder_Shift,
-//                                              ndarray::Array< T, 2, 1 > & lineList_WLenPix_Out){
       #ifdef __DEBUG_STRETCHANDCROSSCORRELATESPEC__
         cout << "stretchAndCrossCorrelateSpec: spec = " << spec.getShape() << ": " << spec << endl;
         cout << "stretchAndCrossCorrelateSpec: specRef = " << specRef.getShape() << ": " << specRef << endl;

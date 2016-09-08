@@ -2739,7 +2739,7 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
         else{
           tmpArr.deep() = c0Arr;
           c0Arr.deep() = coeffs_In[coeffs_In.getShape()[0] - i] - c1Arr;
-          c1Arr.deep() = tmp + c1Arr * x2;
+          c1Arr.deep() = tmpArr + c1Arr * x2;
         }
         cout << "chebyshev: i = " << i << ": c0 = " << c0 << ", c0Arr = " << c0Arr << ", c1Arr = " << c1Arr << endl;
       }

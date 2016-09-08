@@ -778,7 +778,7 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
     int l;
     int ll;
     int lls;
-    int ls;
+    int ls=0;
     int lu;
     int maxit = 30;
     int mm;
@@ -1721,7 +1721,7 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
     int j;
     int k;
     int l;
-    int m;
+    int m=0;
     int mml;
     double p;
     double prec;
