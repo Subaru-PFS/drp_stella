@@ -121,7 +121,7 @@ echo "lsst.obs.pfs.PfsMapper" > $PFS_DATA/_mapper
   registry stored in $PFS_DATA/registry.sqlite3.
   The "--mode link" parameter tells the pipeline to create symbolic links instead of copying
   the raw images. If you like you can add a "-L warn" parameter to set the log level to only
-  print warnings, what whill make the script much less verbose.
+  print warnings, what will make the script much less verbose.
 
 ingestImages.py $PFS_DATA $DRP_STELLA_DATA_DIR/tests/data/raw/*.fits --mode link
 
