@@ -32,6 +32,10 @@ Installation
 
   There's no need to issue any ``git lfs track`` commands.
 
+- Install the Anaconda future package::
+
+     conda install future
+
 - On Linux, all the anaconda packages were compiled with gcc 4.small and are
   incompatible with modern versions. Therefore, if you are installing the PFS
   DRP on a Linux machine, install gcc in anaconda::
@@ -62,7 +66,17 @@ Installation
        eups distrib install eigen 3.2.5.lsst2
 
 - Build and setup the pipeline. There are a few warnings when compiling drp_stella
-  which will be silenced in future version and can be safely ignored::
+  which will be silenced in future version and can be safely ignored. Note
+  that setting up pipe_drivers and obs_subaru will be obsolete following the
+  next LSST binary release::
+
+     cd $PFS_DRP/pipe_drivers
+     setup -r .
+     scons -Q opt=3 -j8
+
+     cd $PFS_DRP/obs_subaru
+     setup -r . -j
+     scons -Q opt=3 -j8
 
      cd $PFS_DRP/obs_pfs
      setup -r .
@@ -113,8 +127,8 @@ Now for using the pipeline.
 
   The ``--mode link`` parameter tells the pipeline to create symbolic links
   instead of copying the raw images. If you like you can add a ``-L warn``
-  parameter to set the log level to only print warnings, what whill make the
-  script much less verbose::
+  parameter to set the log level to only print warnings, making the script
+  much less verbose::
 
      ingestImages.py $PFS_DATA $DRP_STELLA_DATA_DIR/tests/data/raw/*.fits --mode link
 
@@ -206,6 +220,8 @@ to easily restore them in a new terminal or after a restart::
    echo "export EUPS_DIR=\"\"" >> $DRP_STELLA_DIR/setup.sh
    echo "source activate lsst" >> $DRP_STELLA_DIR/setup.sh
    echo "source eups-setups.sh" >> $DRP_STELLA_DIR/setup.sh
+   echo "setup -r "$PIPE_DRIVERS_DIR" -j" >> $DRP_STELLA_DIR/setup.sh
+   echo "setup -r "$OBS_SUBARU_DIR" -j" >> $DRP_STELLA_DIR/setup.sh
    echo "setup -r "$OBS_PFS_DIR >> $DRP_STELLA_DIR/setup.sh
    echo "setup -r "$DRP_STELLA_DATA_DIR >> $DRP_STELLA_DIR/setup.sh
    echo "setup -r "$DRP_STELLA_DIR >> $DRP_STELLA_DIR/setup.sh
