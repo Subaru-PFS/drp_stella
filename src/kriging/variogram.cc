@@ -136,7 +136,6 @@ int CVariogram::estimateModel(int model, double &nugget, double &sill, double &r
         gsl_vector_view x;
         gsl_vector *g;
 
-        // ÆpÆâ°ÆÂÂ[Æ^ÆZÆbÆeÆBÆâÆO
         if (power < 0.0 || power > 2.0)
                 return GSL_FAILURE;
 
@@ -146,7 +145,6 @@ int CVariogram::estimateModel(int model, double &nugget, double &sill, double &r
         para.n = countLessDist(maxdist);
         para.power = power;
 
-        // ÂÃâKâ°Â»âÃÂÃÅ ÃÂââÃâoË^
         gsl_multifit_function_fdf f;
 
         m_model = model;
