@@ -31,24 +31,51 @@ Interface to Stella
 %}
 
 %include "ndarray.i"
+%declareNumPyConverters(ndarray::Array<size_t,1,0>);
 %declareNumPyConverters(ndarray::Array<size_t,1,1>);
+%declareNumPyConverters(ndarray::Array<size_t,2,0>);
 %declareNumPyConverters(ndarray::Array<size_t,2,1>);
 %declareNumPyConverters(ndarray::Array<size_t,2,2>);
+%declareNumPyConverters(ndarray::Array<size_t,3,0>);
+%declareNumPyConverters(ndarray::Array<size_t,3,1>);
+%declareNumPyConverters(ndarray::Array<size_t,3,2>);
+%declareNumPyConverters(ndarray::Array<int,1,0>);
+%declareNumPyConverters(ndarray::Array<int,1,1>);
+%declareNumPyConverters(ndarray::Array<int,2,0>);
+%declareNumPyConverters(ndarray::Array<int,2,1>);
+%declareNumPyConverters(ndarray::Array<int,2,2>);
+%declareNumPyConverters(ndarray::Array<int,3,0>);
+%declareNumPyConverters(ndarray::Array<int,3,1>);
+%declareNumPyConverters(ndarray::Array<int,3,2>);
+%declareNumPyConverters(ndarray::Array<unsigned short,1,0>);
 %declareNumPyConverters(ndarray::Array<unsigned short,1,1>);
+%declareNumPyConverters(ndarray::Array<unsigned short,2,0>);
 %declareNumPyConverters(ndarray::Array<unsigned short,2,1>);
 %declareNumPyConverters(ndarray::Array<unsigned short,2,2>);
+%declareNumPyConverters(ndarray::Array<unsigned long,1,0>);
 %declareNumPyConverters(ndarray::Array<unsigned long,1,1>);
+%declareNumPyConverters(ndarray::Array<unsigned long,2,0>);
 %declareNumPyConverters(ndarray::Array<unsigned long,2,1>);
 %declareNumPyConverters(ndarray::Array<unsigned long,2,2>);
+%declareNumPyConverters(ndarray::Array<unsigned long,3,0>);
 %declareNumPyConverters(ndarray::Array<unsigned long,3,1>);
+%declareNumPyConverters(ndarray::Array<unsigned long,3,2>);
+%declareNumPyConverters(ndarray::Array<float,1,0>);
 %declareNumPyConverters(ndarray::Array<float,1,1>);
+%declareNumPyConverters(ndarray::Array<float,2,0>);
 %declareNumPyConverters(ndarray::Array<float,2,1>);
 %declareNumPyConverters(ndarray::Array<float,2,2>);
+%declareNumPyConverters(ndarray::Array<float,3,0>);
 %declareNumPyConverters(ndarray::Array<float,3,1>);
+%declareNumPyConverters(ndarray::Array<float,3,2>);
+%declareNumPyConverters(ndarray::Array<double,1,0>);
 %declareNumPyConverters(ndarray::Array<double,1,1>);
+%declareNumPyConverters(ndarray::Array<double,2,0>);
 %declareNumPyConverters(ndarray::Array<double,2,1>);
 %declareNumPyConverters(ndarray::Array<double,2,2>);
+%declareNumPyConverters(ndarray::Array<double,3,0>);
 %declareNumPyConverters(ndarray::Array<double,3,1>);
+%declareNumPyConverters(ndarray::Array<double,3,2>);
 
 %include "lsst/p_lsstSwig.i"
 
@@ -125,25 +152,40 @@ Interface to Stella
 %template(FTVectorD) std::vector<PTR(pfs::drp::stella::FiberTrace<double, unsigned short, float>)>;
 
 %include "ndarray/Array.h"
-%template(NDArr1I) ndarray::Array<int, 1, 1>;
-%template(NDArr1L) ndarray::Array<long, 1, 1>;
-%template(NDArr1UL) ndarray::Array<unsigned long, 1, 1>;
-%template(NDArr1F) ndarray::Array<float, 1, 1>;
-%template(NDArr1D) ndarray::Array<double, 1, 1>;
+%template(NDArr10I) ndarray::Array<int, 1, 0>;
+%template(NDArr11I) ndarray::Array<int, 1, 1>;
+%template(NDArr10L) ndarray::Array<long, 1, 0>;
+%template(NDArr11L) ndarray::Array<long, 1, 1>;
+%template(NDArr10UL) ndarray::Array<unsigned long, 1, 0>;
+%template(NDArr11UL) ndarray::Array<unsigned long, 1, 1>;
+%template(NDArr10F) ndarray::Array<float, 1, 0>;
+%template(NDArr11F) ndarray::Array<float, 1, 1>;
+%template(NDArr10D) ndarray::Array<double, 1, 0>;
+%template(NDArr11D) ndarray::Array<double, 1, 1>;
+%template(NDArr20I) ndarray::Array<int, 2, 0>;
 %template(NDArr21I) ndarray::Array<int, 2, 1>;
+%template(NDArr20L) ndarray::Array<long, 2, 0>;
 %template(NDArr21L) ndarray::Array<long, 2, 1>;
+%template(NDArr20UL) ndarray::Array<unsigned long, 2, 0>;
 %template(NDArr21UL) ndarray::Array<unsigned long, 2, 1>;
+%template(NDArr20F) ndarray::Array<float, 2, 0>;
 %template(NDArr21F) ndarray::Array<float, 2, 1>;
+%template(NDArr20D) ndarray::Array<double, 2, 0>;
 %template(NDArr21D) ndarray::Array<double, 2, 1>;
 %template(NDArr22I) ndarray::Array<int, 2, 2>;
 %template(NDArr22L) ndarray::Array<long, 2, 2>;
 %template(NDArr22UL) ndarray::Array<unsigned long, 2, 2>;
 %template(NDArr22F) ndarray::Array<float, 2, 2>;
 %template(NDArr22D) ndarray::Array<double, 2, 2>;
+%template(NDArr30I) ndarray::Array<int, 3, 0>;
 %template(NDArr31I) ndarray::Array<int, 3, 1>;
+%template(NDArr30L) ndarray::Array<long, 3, 0>;
 %template(NDArr31L) ndarray::Array<long, 3, 1>;
+%template(NDArr30UL) ndarray::Array<unsigned long, 3, 0>;
 %template(NDArr31UL) ndarray::Array<unsigned long, 3, 1>;
+%template(NDArr30F) ndarray::Array<float, 3, 0>;
 %template(NDArr31F) ndarray::Array<float, 3, 1>;
+%template(NDArr30D) ndarray::Array<double, 3, 0>;
 %template(NDArr31D) ndarray::Array<double, 3, 1>;
 %template(NDArr32I) ndarray::Array<int, 3, 2>;
 %template(NDArr32L) ndarray::Array<long, 3, 2>;
@@ -152,8 +194,10 @@ Interface to Stella
 %template(NDArr32D) ndarray::Array<double, 3, 2>;
 //%template(PNDArrF) PTR(ndarray::Array<float, 2, 1>);
 //%template(PNDArrD) PTR(ndarray::Array<double, 2, 1>);
-%template(PNDArrVectorF) std::vector<PTR(ndarray::Array<float, 2, 1>)>;
-%template(PNDArrVectorD) std::vector<PTR(ndarray::Array<double, 2, 1>)>;
+%template(PNDArrVector0F) std::vector<PTR(ndarray::Array<float, 2, 0>)>;
+%template(PNDArrVector1F) std::vector<PTR(ndarray::Array<float, 2, 1>)>;
+%template(PNDArrVector0D) std::vector<PTR(ndarray::Array<double, 2, 0>)>;
+%template(PNDArrVector1D) std::vector<PTR(ndarray::Array<double, 2, 1>)>;
 //%template(NDArrVectorF) std::vector<ndarray::Array<float, 2, 1>>;
 //%template(NDArrVectorD) std::vector<ndarray::Array<double, 2, 1>>;
 
@@ -645,17 +689,13 @@ Interface to Stella
 %template(createLineList) pfs::drp::stella::math::createLineList< float, 1 >;
 %template(createLineList) pfs::drp::stella::math::createLineList< double, 1 >;
 
-%template(getIndices) pfs::drp::stella::math::getIndices< size_t >;
-%template(getIndices) pfs::drp::stella::math::getIndices< int >;
-%template(getIndices) pfs::drp::stella::math::getIndices< long >;
-%template(getIndices) pfs::drp::stella::math::getIndices< float >;
-%template(getIndices) pfs::drp::stella::math::getIndices< double >;
+//%template(addFiberTraceToCcdImage) pfs::drp::stella::math::addFiberTraceToCcdImage< float, unsigned short, float, float, float >;
+//%template(addFiberTraceToCcdImage) pfs::drp::stella::math::addFiberTraceToCcdImage< float, unsigned short, float, unsigned short, unsigned short >;
+//%template(addFiberTraceToCcdImage) pfs::drp::stella::math::addFiberTraceToCcdImage< float, unsigned short, float, double, float >;
+//%template(addFiberTraceToCcdImage) pfs::drp::stella::math::addFiberTraceToCcdImage< float, unsigned short, float, float, unsigned short >;
+//%template(addFiberTraceToCcdImage) pfs::drp::stella::math::addFiberTraceToCcdImage< float, unsigned short, float, double, double >;
 
-%template(addFiberTraceToCcdImage) pfs::drp::stella::math::addFiberTraceToCcdImage< float, unsigned short, float, float, float >;
-%template(addFiberTraceToCcdImage) pfs::drp::stella::math::addFiberTraceToCcdImage< float, unsigned short, float, unsigned short, unsigned short >;
-%template(addFiberTraceToCcdImage) pfs::drp::stella::math::addFiberTraceToCcdImage< float, unsigned short, float, double, float >;
-%template(addFiberTraceToCcdImage) pfs::drp::stella::math::addFiberTraceToCcdImage< float, unsigned short, float, float, unsigned short >;
-%template(addFiberTraceToCcdImage) pfs::drp::stella::math::addFiberTraceToCcdImage< float, unsigned short, float, double, double >;
+//%template(markFiberTraceInMask) pfs::drp::stella::utils::markFiberTraceInMask<float, unsigned short, float>;
 
 %template(where) pfs::drp::stella::math::where< size_t, size_t, 0 >;
 %template(where) pfs::drp::stella::math::where< size_t, size_t, 1 >;
@@ -1093,3 +1133,9 @@ Interface to Stella
 %template(where) pfs::drp::stella::math::where< double, double >;
 
 %template(isMonotonic) pfs::drp::stella::math::isMonotonic< int >;
+
+%template(getIndices) pfs::drp::stella::math::getIndices< size_t >;
+%template(getIndices) pfs::drp::stella::math::getIndices< int >;
+%template(getIndices) pfs::drp::stella::math::getIndices< long >;
+%template(getIndices) pfs::drp::stella::math::getIndices< float >;
+%template(getIndices) pfs::drp::stella::math::getIndices< double >;

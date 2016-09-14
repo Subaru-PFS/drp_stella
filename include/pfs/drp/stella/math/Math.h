@@ -548,8 +548,8 @@ namespace pfs { namespace drp { namespace stella {
                                      U const valueIfTrue,
                                      U const valueIfFalse );
     
-    template< typename T, typename U >
-    ndarray::Array< U, 2, 1 > where( ndarray::Array< T, 2, 1 > const& arrayToCompareTo,
+    template< typename T, typename U, int I >
+    ndarray::Array< U, 2, 1 > where( ndarray::Array< T, 2, I > const& arrayToCompareTo,
                                      std::string const& op,
                                      T const valueToCompareTo, 
                                      U const valueIfTrue,
@@ -563,10 +563,24 @@ namespace pfs { namespace drp { namespace stella {
                                      ndarray::Array< U, 1, 1 > const& valuesIfFalse );
     
     template< typename T, typename U >
-    ndarray::Array< U, 2, 1 > where( ndarray::Array< T, 2, 1 > const& arrayToCompareTo,
+    ndarray::Array< U, 1, 1 > where( ndarray::Array< T, 1, 1 > const& arrayToCompareTo,
+                                     std::string const& op,
+                                     T const valueToCompareTo, 
+                                     ndarray::Array< U, 1, 1 > const& valuesIfTrue,
+                                     ndarray::Array< U, 1, 1 > const& valuesIfFalse );
+    
+    template< typename T, typename U, int I, int J >
+    ndarray::Array< U, 2, 1 > where( ndarray::Array< T, 2, I > const& arrayToCompareTo,
                                      std::string const& op,
                                      T const valueToCompareTo, 
                                      U const valueIfTrue,
+                                     ndarray::Array< U, 2, J > const& valuesIfFalse );
+    
+    template< typename T, typename U >
+    ndarray::Array< U, 2, 1 > where( ndarray::Array< T, 2, 1 > const& arrayToCompareTo,
+                                     std::string const& op,
+                                     T const valueToCompareTo, 
+                                     ndarray::Array< U, 2, 1 > const& valuesIfTrue,
                                      ndarray::Array< U, 2, 1 > const& valuesIfFalse );
     
     /**
