@@ -644,3 +644,9 @@ Interface to Stella
 %template(createLineList) pfs::drp::stella::math::createLineList< double, 0 >;
 %template(createLineList) pfs::drp::stella::math::createLineList< float, 1 >;
 %template(createLineList) pfs::drp::stella::math::createLineList< double, 1 >;
+
+%template(getIndices) pfs::drp::stella::math::getIndices< size_t >;
+%template(getIndices) pfs::drp::stella::math::getIndices< int >;
+%template(getIndices) pfs::drp::stella::math::getIndices< long >;
+%template(getIndices) pfs::drp::stella::math::getIndices< float >;
+%template(getIndices) pfs::drp::stella::math::getIndices< double >;
