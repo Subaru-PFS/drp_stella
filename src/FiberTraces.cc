@@ -662,32 +662,36 @@ namespace pfsDRPStella = pfs::drp::stella;
 
   /// Return shared pointer to an image containing the reconstructed 2D spectrum of the FiberTrace
   template<typename ImageT, typename MaskT, typename VarianceT>
-  afwImage::Image<double> pfsDRPStella::FiberTrace<ImageT, MaskT, VarianceT>::getReconstructed2DSpectrum(const pfsDRPStella::Spectrum<ImageT, MaskT, VarianceT, VarianceT> & spectrum) const{
-    ndarray::Array<double, 2, 1> F_A2_Rec = ndarray::allocate(_trace->getHeight(), _trace->getWidth());
+  PTR( afwImage::Image< ImageT > ) pfsDRPStella::FiberTrace<ImageT, MaskT, VarianceT>::getReconstructed2DSpectrum(const pfsDRPStella::Spectrum<ImageT, MaskT, VarianceT, VarianceT> & spectrum) const{
+    ndarray::Array<ImageT, 2, 1> F_A2_Rec = ndarray::allocate(_trace->getHeight(), _trace->getWidth());
     int i_row = 0;
-    for (auto itProf = _profile->getArray().begin(), itRec = F_A2_Rec.begin(); itProf != _profile->getArray().end(); ++itProf, ++itRec, ++i_row)
+    auto itRec = F_A2_Rec.begin();
+    for (auto itProf = _profile->getArray().begin(); itProf != _profile->getArray().end(); ++itProf, ++itRec, ++i_row)
       *itRec = (*itProf) * spectrum.getSpectrum()[i_row];
-    return afwImage::Image<double>( F_A2_Rec );
+    PTR( afwImage::Image< ImageT > ) imagePtr( new afwImage::Image< ImageT >( F_A2_Rec ) );
+    return imagePtr;
   }
 
   /// Return shared pointer to an image containing the reconstructed background of the FiberTrace
   template<typename ImageT, typename MaskT, typename VarianceT>
-  afwImage::Image<double> pfsDRPStella::FiberTrace<ImageT, MaskT, VarianceT>::getReconstructedBackground( const pfsDRPStella::Spectrum<ImageT, MaskT, VarianceT, VarianceT> & background) const{
-    ndarray::Array<double, 2, 1> F_A2_Rec = ndarray::allocate(_trace->getHeight(), _trace->getWidth());
+  PTR(afwImage::Image<ImageT>) pfsDRPStella::FiberTrace<ImageT, MaskT, VarianceT>::getReconstructedBackground( const pfsDRPStella::Spectrum<ImageT, MaskT, VarianceT, VarianceT> & background) const{
+    ndarray::Array<ImageT, 2, 1> F_A2_Rec = ndarray::allocate(_trace->getHeight(), _trace->getWidth());
     int i_row = 0;
-    for (auto itProf = _profile->getArray().begin(), itRec = F_A2_Rec.begin(); itProf != _profile->getArray().end(); ++itProf, ++itRec, ++i_row)
+    auto itRec = F_A2_Rec.begin();
+    for (auto itProf = _profile->getArray().begin(); itProf != _profile->getArray().end(); ++itProf, ++itRec, ++i_row)
       itRec->deep() = background.getSpectrum()[i_row];
-    return afwImage::Image<double>(F_A2_Rec);
+    PTR(afwImage::Image<ImageT>) imagePtr( new afwImage::Image<ImageT>( F_A2_Rec ) );
+    return imagePtr;
   }
 
   /// Return shared pointer to an image containing the reconstructed 2D spectrum + background of the FiberTrace
   template<typename ImageT, typename MaskT, typename VarianceT>
-  afwImage::Image<double> pfsDRPStella::FiberTrace<ImageT, MaskT, VarianceT>::getReconstructed2DSpectrum(const pfsDRPStella::Spectrum<ImageT, MaskT, VarianceT, VarianceT> & spectrum,
+  PTR(afwImage::Image<ImageT>) pfsDRPStella::FiberTrace<ImageT, MaskT, VarianceT>::getReconstructed2DSpectrum(const pfsDRPStella::Spectrum<ImageT, MaskT, VarianceT, VarianceT> & spectrum,
                                                                                                              const pfsDRPStella::Spectrum<ImageT, MaskT, VarianceT, VarianceT> & background) const
   {
-    afwImage::Image<double> imageSpectrum(getReconstructed2DSpectrum(spectrum));
-    afwImage::Image<double> imageBackground(getReconstructed2DSpectrum(background));
-    imageSpectrum += imageBackground;
+    PTR(afwImage::Image<ImageT>) imageSpectrum = getReconstructed2DSpectrum(spectrum);
+    PTR(afwImage::Image<ImageT>) imageBackground = getReconstructed2DSpectrum(background);
+    *imageSpectrum += *imageBackground;
     return imageSpectrum;
   }
 
@@ -2567,7 +2571,7 @@ namespace pfsDRPStella = pfs::drp::stella;
       PTR(Spectrum<ImageT, MaskT, VarianceT, VarianceT>) blazeFunc = flatFiberTrace.extractFromProfile();
 
       /// reconstruct dithered Flat from spectrum and profile
-      afwImage::Image< double > reconstructedFlatIm = flatFiberTrace.getReconstructed2DSpectrum( *blazeFunc );
+      PTR(afwImage::Image< ImageT >) reconstructedFlatIm = flatFiberTrace.getReconstructed2DSpectrum( *blazeFunc );
 
       /// calculate minCenMax for wide and narrow FiberTraces
       ndarray::Array<size_t, 2, 1> minCenMaxWide = calcMinCenMax( xCenters,
@@ -2596,7 +2600,7 @@ namespace pfsDRPStella = pfs::drp::stella;
       ndarray::Array< ImageT, 2, 1 > normFlat = ndarray::allocate( flatFiberTrace.getImage()->getArray().getShape()[ 0 ], minCenMaxNarrow[0][2] - minCenMaxNarrow[0][0] + 1 );
       auto itRowIm = flatFiberTrace.getImage()->getArray().begin();
       auto itRowVar = flatFiberTrace.getVariance()->getArray().begin();
-      auto itRowRec = reconstructedFlatIm.getArray().begin();
+      auto itRowRec = reconstructedFlatIm->getArray().begin();
       int iRow = fiberTraceFunctionWide->yCenter + fiberTraceFunctionWide->yLow;
       for (auto itRowNorm = normFlat.begin(); itRowNorm != normFlat.end(); ++itRowIm, ++itRowVar, ++itRowNorm, ++itRowRec, ++iRow ){
         auto itColIm = itRowIm->begin() + minCenMaxWide[iRow][0] - minCenMaxNarrow[iRow][0];
