@@ -398,9 +398,20 @@ namespace math{
   }   
 
 namespace utils{
-  template<typename T>
-  const T* getRawPointer(const PTR(const T) & ptr);
+    template<typename T>
+    const T* getRawPointer(const PTR(const T) & ptr);
 
+     /**
+      * @brief: mark FiberTrace pixels in Mask image
+      * @param fiberTrace: FiberTrace to mark in maskedImage's Mask
+      * @param mask: mask to mark the FiberTrace in
+      * @param value: value to Or into the FiberTrace mask
+      */
+     template< typename ImageT, typename MaskT, typename VarianceT >
+     bool markFiberTraceInMask( PTR( FiberTrace< ImageT, MaskT, VarianceT > ) const& fiberTrace,
+                                PTR( afwImage::Mask< MaskT > ) const& mask,
+                                MaskT value = 1);
+  
 }
 
 //  template<typename ImageT, typename MaskT, typename VarianceT>

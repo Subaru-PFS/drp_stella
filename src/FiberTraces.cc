@@ -2759,44 +2759,28 @@ namespace pfsDRPStella = pfs::drp::stella;
       return ptr.get();
     }
     
+    template< typename ImageT, typename MaskT, typename VarianceT >
+    bool markFiberTraceInMask( PTR( FiberTrace< ImageT, MaskT, VarianceT > ) const& fiberTrace,
+                               PTR( afwImage::Mask< MaskT > ) const& mask,
+                               MaskT value){
+      const PTR(const FiberTraceFunction) ftf = fiberTrace->getFiberTraceFunction();
+      const ndarray::Array< float, 1, 1 > xCenters = fiberTrace->getXCenters();
+      ndarray::Array<size_t, 2, 1> minCenMax = pfsDRPStella::math::calcMinCenMax( xCenters,
+                                                                                  ftf->fiberTraceFunctionControl.xHigh,
+                                                                                  ftf->fiberTraceFunctionControl.xLow,
+                                                                                  ftf->fiberTraceFunctionControl.nPixCutLeft,
+                                                                                  ftf->fiberTraceFunctionControl.nPixCutRight);
+      int y = ftf->yCenter + ftf->yLow;
+      for (int iY = 0; iY < xCenters.getShape()[ 0 ]; ++iY){
+        for (int x = minCenMax[iY][0]; x <= minCenMax[iY][2]; ++x){
+          (*mask)(x, y + iY) |= value;
+        }
+      }
+      return true;
+    }
+    
   }
   }}}
-
-/*  int main(){
-    cout << "Test that we can create a FiberTraceFunctionFindingControl" << endl;
-    pfsDRPStella::FiberTraceFunctionFindingControl ftffc;
-
-    cout << "Test that we can set the parameters of the FiberTraceFunctionFindingControl" << endl;
-    ftffc.fiberTraceFunctionControl.interpolation = "POLYNOMIAL";
-    ftffc.fiberTraceFunctionControl.order = 4;
-    ftffc.fiberTraceFunctionControl.xLow = -4.2;
-    ftffc.fiberTraceFunctionControl.xHigh = 4.2;
-    ftffc.apertureFWHM = 3.2;
-    ftffc.signalThreshold = 4500.;
-    ftffc.nTermsGaussFit = 3;
-    ftffc.saturationLevel = 65500.;
-
-    afwImage::MaskedImage<float> maskedImageFlat = afwImage::MaskedImage<float>("/home/azuri/spectra/pfs/IR-23-0-centerFlatx2.fits");
-    cout << "maskedImageFlat created" << endl;
-
-    cout << "Test that we can trace fibers" << endl;
-    pfsDRPStella::MaskedSpectrographImage<float> maskedSpectrographImageFlat(maskedImageFlat);
-    cout << "maskedSpectrographImageFlat created" << endl;
-
-    maskedSpectrographImageFlat.findAndTraceApertures(ftffc, 0, maskedImageFlat.getHeight(), 10);
-    cout << "msi.findAndTraceApertures finished" << endl;
-
-    cout << "calculate profile and extract from flat" << endl;
-    pfsDRPStella::FiberTraceSet<float> fts = maskedSpectrographImageFlat.getFiberTraceSet();
-
-    pfsDRPStella::FiberTrace<float> ft = fts.getFiberTrace(0);
-    if (!ft.MkProfIm()){
-      cout << "ERROR: ft.MkProfIm returned FALSE" << endl;
-      return 0;
-    }
-
-    return 1;
-  }*/
   
   template bool pfsDRPStella::math::assignITrace( pfsDRPStella::FiberTraceSet< float, unsigned short, float > &, 
                                                   ndarray::Array< int, 1, 0 > const&, 
@@ -2904,6 +2888,10 @@ template const afwImage::Image<unsigned int>* pfsDRPStella::utils::getRawPointer
 template const afwImage::Image<int>* pfsDRPStella::utils::getRawPointer(const PTR(const afwImage::Image<int>) &ptr);
 template const pfsDRPStella::FiberTrace<float, unsigned short, float>* pfsDRPStella::utils::getRawPointer(const PTR(const pfsDRPStella::FiberTrace<float, unsigned short, float>) &ptr);
 template const pfsDRPStella::FiberTrace<double, unsigned short, float>* pfsDRPStella::utils::getRawPointer(const PTR(const pfsDRPStella::FiberTrace<double, unsigned short, float>) &ptr);
+
+template bool pfsDRPStella::utils::markFiberTraceInMask( PTR( FiberTrace< float, unsigned short, float > ) const& fiberTrace,
+                                                         PTR( afwImage::Mask< unsigned short > ) const& mask,
+                                                         unsigned short value );
 
 template PTR(pfsDRPStella::FiberTrace< float, unsigned short, float >) pfsDRPStella::math::makeNormFlatFiberTrace( PTR( const afwImage::MaskedImage< float, unsigned short, float >) const&,
                                                                                                 PTR( const ::pfs::drp::stella::FiberTraceFunction ) const&,
