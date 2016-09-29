@@ -404,11 +404,13 @@ namespace utils{
      /**
       * @brief: mark FiberTrace pixels in Mask image
       * @param fiberTrace: FiberTrace to mark in maskedImage's Mask
-      * @param markedImage: image to mark the FiberTrace in Mask
+      * @param mask: mask to mark the FiberTrace in
+      * @param value: value to Or into the FiberTrace mask
       */
      template< typename ImageT, typename MaskT, typename VarianceT >
      bool markFiberTraceInMask( PTR( FiberTrace< ImageT, MaskT, VarianceT > ) const& fiberTrace,
-                                PTR( afwImage::MaskedImage< ImageT, MaskT, VarianceT > ) const& maskedImage );
+                                PTR( afwImage::Mask< MaskT > ) const& mask,
+                                MaskT value = 1);
   
 }
 
