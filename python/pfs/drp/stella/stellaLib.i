@@ -151,56 +151,6 @@ Interface to Stella
 %template(FTVectorF) std::vector<PTR(pfs::drp::stella::FiberTrace<float, unsigned short, float>)>;
 %template(FTVectorD) std::vector<PTR(pfs::drp::stella::FiberTrace<double, unsigned short, float>)>;
 
-%include "ndarray/Array.h"
-%template(NDArr10I) ndarray::Array<int, 1, 0>;
-%template(NDArr11I) ndarray::Array<int, 1, 1>;
-%template(NDArr10L) ndarray::Array<long, 1, 0>;
-%template(NDArr11L) ndarray::Array<long, 1, 1>;
-%template(NDArr10UL) ndarray::Array<unsigned long, 1, 0>;
-%template(NDArr11UL) ndarray::Array<unsigned long, 1, 1>;
-%template(NDArr10F) ndarray::Array<float, 1, 0>;
-%template(NDArr11F) ndarray::Array<float, 1, 1>;
-%template(NDArr10D) ndarray::Array<double, 1, 0>;
-%template(NDArr11D) ndarray::Array<double, 1, 1>;
-%template(NDArr20I) ndarray::Array<int, 2, 0>;
-%template(NDArr21I) ndarray::Array<int, 2, 1>;
-%template(NDArr20L) ndarray::Array<long, 2, 0>;
-%template(NDArr21L) ndarray::Array<long, 2, 1>;
-%template(NDArr20UL) ndarray::Array<unsigned long, 2, 0>;
-%template(NDArr21UL) ndarray::Array<unsigned long, 2, 1>;
-%template(NDArr20F) ndarray::Array<float, 2, 0>;
-%template(NDArr21F) ndarray::Array<float, 2, 1>;
-%template(NDArr20D) ndarray::Array<double, 2, 0>;
-%template(NDArr21D) ndarray::Array<double, 2, 1>;
-%template(NDArr22I) ndarray::Array<int, 2, 2>;
-%template(NDArr22L) ndarray::Array<long, 2, 2>;
-%template(NDArr22UL) ndarray::Array<unsigned long, 2, 2>;
-%template(NDArr22F) ndarray::Array<float, 2, 2>;
-%template(NDArr22D) ndarray::Array<double, 2, 2>;
-%template(NDArr30I) ndarray::Array<int, 3, 0>;
-%template(NDArr31I) ndarray::Array<int, 3, 1>;
-%template(NDArr30L) ndarray::Array<long, 3, 0>;
-%template(NDArr31L) ndarray::Array<long, 3, 1>;
-%template(NDArr30UL) ndarray::Array<unsigned long, 3, 0>;
-%template(NDArr31UL) ndarray::Array<unsigned long, 3, 1>;
-%template(NDArr30F) ndarray::Array<float, 3, 0>;
-%template(NDArr31F) ndarray::Array<float, 3, 1>;
-%template(NDArr30D) ndarray::Array<double, 3, 0>;
-%template(NDArr31D) ndarray::Array<double, 3, 1>;
-%template(NDArr32I) ndarray::Array<int, 3, 2>;
-%template(NDArr32L) ndarray::Array<long, 3, 2>;
-%template(NDArr32UL) ndarray::Array<unsigned long, 3, 2>;
-%template(NDArr32F) ndarray::Array<float, 3, 2>;
-%template(NDArr32D) ndarray::Array<double, 3, 2>;
-//%template(PNDArrF) PTR(ndarray::Array<float, 2, 1>);
-//%template(PNDArrD) PTR(ndarray::Array<double, 2, 1>);
-%template(PNDArrVector0F) std::vector<PTR(ndarray::Array<float, 2, 0>)>;
-%template(PNDArrVector1F) std::vector<PTR(ndarray::Array<float, 2, 1>)>;
-%template(PNDArrVector0D) std::vector<PTR(ndarray::Array<double, 2, 0>)>;
-%template(PNDArrVector1D) std::vector<PTR(ndarray::Array<double, 2, 1>)>;
-//%template(NDArrVectorF) std::vector<ndarray::Array<float, 2, 1>>;
-//%template(NDArrVectorD) std::vector<ndarray::Array<double, 2, 1>>;
-
 //%include "pfs/drp/stella/PSF.h"
 //%template(PSFVectorF) std::vector<PTR(pfs::drp::stella::PSF<float>)>;
 //%template(PSFVectorD) std::vector<PTR(pfs::drp::stella::PSF<double>)>;
