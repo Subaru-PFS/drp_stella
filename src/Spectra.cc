@@ -1,4 +1,5 @@
 #include "pfs/drp/stella/Spectra.h"
+#include "lsst/log/Log.h"
 
 namespace pfsDRPStella = pfs::drp::stella;
 
@@ -128,8 +129,7 @@ void checkExtType( lsst::afw::fits::Fits & fitsfile,
         }
         metadata->remove("EXTTYPE");
     } catch(lsst::pex::exceptions::NotFoundError) {
-        lsst::pex::logging::Log log(lsst::pex::logging::Log::getDefaultLog(), "afw.image.MaskedImage");
-        log.warn(boost::format("Expected extension type not found: %s") % expected);
+        LOGL_WARN("afw.image.MaskedImage", "Expected extension type not found: %s", expected.c_str());
     }
 }
 
@@ -207,8 +207,6 @@ pfsDRPStella::SpectrumSet<SpectrumT, MaskT, VarianceT, WavelengthT>::SpectrumSet
 ://     lsst::daf::base::Citizen(typeid(this)),
       _spectra()
 {
-    lsst::pex::logging::Log log(lsst::pex::logging::Log::getDefaultLog(), "pfs.drp.stella.SpectrumSet");
-
 /*    typedef boost::mpl::vector<
         unsigned char, 
         unsigned short, 
@@ -296,7 +294,7 @@ pfsDRPStella::SpectrumSet<SpectrumT, MaskT, VarianceT, WavelengthT>::SpectrumSet
                 LSST_EXCEPT_ADD(e, "Reading Mask");
                 throw e;
             }
-            log.warn("Mask unreadable; using default");
+            LOGL_WARN("pfs.drp.stella.SpectrumSet", "Mask unreadable; using default");
             // By resetting the status we are able to read the next HDU (the variance).
             fitsfile.status = 0;
             _mask.reset(new Mask(_image->getBBox()));
@@ -312,7 +310,7 @@ pfsDRPStella::SpectrumSet<SpectrumT, MaskT, VarianceT, WavelengthT>::SpectrumSet
                 LSST_EXCEPT_ADD(e, "Reading Variance");
                 throw e;
             }
-            log.warn("Variance unreadable; using default");
+            LOGL_WARN("pfs.drp.stella.SpectrumSet", "Variance unreadable; using default");
             fitsfile.status = 0;
             _variance.reset(new Variance(_image->getBBox()));
         }

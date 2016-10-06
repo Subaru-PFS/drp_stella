@@ -13,7 +13,6 @@
 #include "lsst/afw/image/MaskedImage.h"
 #include "lsst/pex/config.h"
 #include "lsst/pex/exceptions.h"
-#include "lsst/pex/logging.h"
 //#include "lsst/daf/base/Citizen.h"
 //#include "lsst/daf/base/Persistable.h"
 #include <fitsio.h>
