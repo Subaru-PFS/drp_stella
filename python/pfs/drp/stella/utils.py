@@ -50,9 +50,6 @@ def makeFiberTraceSet(pfsFiberTrace, maskedImage=None):
         if not ft.setFiberTraceProfileFittingControl(ftpfc):
             raise RuntimeError("FiberTrace %d: Failed to set FiberTraceProfileFittingControl" % iFt)
         ft.setITrace(pfsFiberTrace.fiberId[iFt]-1)
-        if maskedImage != None:
-            if not ft.createTrace(maskedImage):
-                raise RuntimeError("FiberTrace %d: Failed to create trace from maskedImage")
         profile = pfsFiberTrace.profiles[iFt]
         trace = np.ndarray(shape=(ftf.yHigh - ftf.yLow + 1, profile.shape[1]), dtype=np.float32)
         if not ft.setTrace(afwImage.makeMaskedImage(afwImage.ImageF(trace))):
@@ -64,5 +61,8 @@ def makeFiberTraceSet(pfsFiberTrace, maskedImage=None):
             raise RuntimeError("FiberTrace %d: Failed to set profile")
         xCenters = drpStella.calculateXCenters(ftf)
         ft.setXCenters(xCenters)
+        if maskedImage != None:
+            if not ft.createTrace(maskedImage):
+                raise RuntimeError("FiberTrace %d: Failed to create trace from maskedImage")
         fts.addFiberTrace(ft)
     return fts
