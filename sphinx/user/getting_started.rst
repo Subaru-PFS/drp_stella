@@ -188,6 +188,11 @@ Now for using the pipeline.
      genCalibRegistry.py --root $PFS_DATA/CALIB --camera PFS --validity 180
 
 
+- In order to extract the arc spectra we first need to identify and trace
+  the apertures for each fiber. This is what constructFiberTrace.py does:
+      
+      constructFiberTrace.py /Users/azuri/spectra/pfs/PFS --rerun azuri/tmp --id field=FLAT dateObs=2015-12-22 arm=r spectrograph=2 --calibId calibDate=2015-12-22 arm=r spectrograph=2 visit=4
+
 - Since we have the Bias and Dark we can now perform the
   Instrumental-Signature Removal (ISR) task for our Arc spectrum (visit=4).
   The program detrend.py will start the ISR task which will subtract the Bias
