@@ -11,15 +11,10 @@ or
 
 import os
 import unittest
-import sys
-import numpy as np
 import lsst.utils
 import lsst.utils.tests as tests
 import lsst.afw.image as afwImage
-import lsst.afw.geom as afwGeom
 import pfs.drp.stella as drpStella
-import lsst.afw.display.ds9 as ds9
-import lsst.afw.display.utils as displayUtils
 
 try:
     type(display)
@@ -32,10 +27,10 @@ class PSFTestCase(tests.TestCase):
     def setUp(self):
         drpStellaDataDir = lsst.utils.getPackageDir("drp_stella_data")
         flatfile = os.path.join(drpStellaDataDir,"tests/data/PFS/CALIB/FLAT/r/flat/pfsFlat-2016-01-12-0-2r.fits")
-        self.flat = afwImage.ExposureF(flatfile)
+        self.flat = afwImage.makeExposure(afwImage.makeMaskedImage(afwImage.ImageF(flatfile)))
 
         arcfile = os.path.join(drpStellaDataDir,"tests/data/PFS/postISRCCD/2016-01-12/v0000004/PFFAr2.fits")
-        self.arc = afwImage.ExposureF(arcfile)
+        self.arc = afwImage.makeExposure(afwImage.makeMaskedImage(afwImage.ImageF(arcfile)))
         
         self.ftffc = drpStella.FiberTraceFunctionFindingControl()
         self.ftffc.fiberTraceFunctionControl.order = 4

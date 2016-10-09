@@ -15,10 +15,8 @@ import numpy as np
 import lsst.utils
 import lsst.utils.tests as tests
 import lsst.afw.image as afwImage
-import lsst.afw.geom as afwGeom
 import pfs.drp.stella as drpStella
 import lsst.afw.display.ds9 as ds9
-import lsst.afw.display.utils as displayUtils
 
 try:
     type(display)
@@ -30,11 +28,11 @@ class FiberTraceTestCase(tests.TestCase):
 
     def setUp(self):
         drpStellaDataDir = lsst.utils.getPackageDir("drp_stella_data")
-        flatfile = os.path.join( drpStellaDataDir, "tests/data/PFS/CALIB/FLAT/r/flat/pfsFlat-2016-01-12-0-2r.fits" )
-        self.flat = afwImage.ExposureF(flatfile)
+        flatfile = os.path.join(drpStellaDataDir,"tests/data/PFS/CALIB/FLAT/r/flat/pfsFlat-2016-01-12-0-2r.fits")
+        self.flat = afwImage.makeExposure(afwImage.makeMaskedImage(afwImage.ImageF(flatfile)))
         
-        arcfile = os.path.join( drpStellaDataDir, "tests/data/PFS/postISRCCD/2016-01-12/v0000004/PFFAr2.fits" )
-        self.arc = afwImage.ExposureF(arcfile)
+        arcfile = os.path.join(drpStellaDataDir,"tests/data/PFS/postISRCCD/2016-01-12/v0000004/PFFAr2.fits")
+        self.arc = afwImage.makeExposure(afwImage.makeMaskedImage(afwImage.ImageF(arcfile)))
         
         self.ftffc = drpStella.FiberTraceFunctionFindingControl()
         self.ftffc.fiberTraceFunctionControl.order = 5
@@ -361,7 +359,6 @@ class FiberTraceTestCase(tests.TestCase):
             self.assertAlmostEqual(fiberTrace.getTrace().getImage().getArray()[5,5], val+2)
             fiberTrace.getTrace().getImage().getArray()[5,5] = val
             self.assertAlmostEqual(fiberTraceMIF.getTrace().getImage().getArray()[5,5], val)
-    #        self.assertIs(drpStella.getRawPointerMIF(fiberTraceMIF.getTrace()), drpStella.getRawPointerMIF(fiberTrace.getTrace()))
 
             """Test setImage"""
             val = 1011.
@@ -379,7 +376,6 @@ class FiberTraceTestCase(tests.TestCase):
             self.assertAlmostEqual(fiberTraceMIF.getImage().getArray()[5,5], val)
             fiberTrace.getImage().getArray()[5,5] = val+2
             self.assertAlmostEqual(fiberTraceMIF.getImage().getArray()[5,5], val+2)
-    #        self.assertIs(fiberTraceMIF.getImage().get(), fiberTrace.getImage().get())
 
             """Test setVariance"""
             val = 1000.
@@ -397,7 +393,6 @@ class FiberTraceTestCase(tests.TestCase):
             self.assertAlmostEqual(fiberTraceMIF.getVariance().getArray()[5,5], val)
             fiberTrace.getVariance().getArray()[5,5] = val+2
             self.assertAlmostEqual(fiberTraceMIF.getVariance().getArray()[5,5], val+2)
-    #        self.assertIs(fiberTrace.getVariance(), fiberTraceMIF.getVariance())
 
             """Test setMask"""
             print "fiberTrace.getMask().getArray()[5,5] = ", fiberTrace.getMask().getArray()[5,5]
@@ -417,7 +412,6 @@ class FiberTraceTestCase(tests.TestCase):
             self.assertEqual(fiberTraceMIF.getMask().getArray()[5,5], val)
             fiberTrace.getMask().getArray()[5,5] = val+2
             self.assertEqual(fiberTraceMIF.getMask().getArray()[5,5], val+2)
-    #        self.assertIs(fiberTraceMIF.getMask(), fiberTrace.getMask())
 
             """Test getProfile/setProfile"""
             val = 1111.
@@ -435,13 +429,11 @@ class FiberTraceTestCase(tests.TestCase):
             self.assertAlmostEqual(fiberTraceMIF.getProfile().getArray()[5,5], val)
             fiberTrace.getProfile().getArray()[5,5] = val+2
             self.assertAlmostEqual(fiberTraceMIF.getProfile().getArray()[5,5], fiberTrace.getProfile().getArray()[5,5])
-    #        self.assertIs(fiberTraceMIF.getProfile(), fiberTrace.getProfile())
 
             """Test getXCenters"""
             xCenters = fiberTrace.getXCenters()
             self.assertEqual(xCenters.shape[0], fiberTrace.getHeight())
             self.assertAlmostEqual(xCenters[5], fiberTrace.getXCenters()[5])
-    #        self.assertIs(xCenters, fiberTrace.getXCenters())
         
     def testFiberTraceCreateTrace(self):
         if True:
@@ -467,19 +459,14 @@ class FiberTraceTestCase(tests.TestCase):
                 profile = fiberTrace.getProfile()
                 print "iTrace = ',iTrace,': profile of trace ",iTrace," is ",profile.getWidth()," pixels wide and ",profile.getHeight()," pixels high"
                 for row in range(0, fiberTrace.getHeight()):
-                    #print "trace[",row,",:] = ",fiberTrace.getTrace().getImage().getArray()[row,:]
-                    #print "profile[",row,",:] = ",len(profile.getArray()[row,:]),": ",profile.getArray()[row,:]
                     profile.getArray()[row,:] = fiberTrace.getTrace().getImage().getArray()[row,:]
                     profile.getArray()[row,:] /= spectrum.getSpectrum()[row]
                 print 'iTrace = ',iTrace,': starting setProfile'
                 self.assertTrue(fiberTrace.setProfile(profile))
-    #            profile.writeFits("profileFromSum_trace"+str(iTrace)+".fits")
                 print 'iTrace = ',iTrace,': starting getReconstructed2DSpectrum'
                 recImage = fiberTrace.getReconstructed2DSpectrum(spectrum)
-    #            recImage.writeFits("recTrace_SpecAndProfileFromSum_trace"+str(iTrace)+".fits")
                 diff = fiberTrace.getTrace().getImage().getArray() - recImage.getArray()
                 print 'iTrace = ',iTrace,': type(diff) = ',type
-                #afwImage.ImageF(diff).writeFits("diffTrace_SpecAndProfileFromSum_trace"+str(iTrace)+".fits")
                 meanDiff = np.mean(diff)
                 self.assertLess(np.absolute(meanDiff), 0.001)
                 stdDevDiff = np.std(diff)
@@ -489,9 +476,7 @@ class FiberTraceTestCase(tests.TestCase):
                 spectrum = fiberTrace.extractFromProfile()
                 print 'iTrace = ',iTrace,': starting getReconstructed2DSpectrum'
                 recImage = fiberTrace.getReconstructed2DSpectrum(spectrum)
-    #            recImage.writeFits("recTrace_SpecFromProfileFromSum_trace"+str(iTrace)+".fits")
                 diff = fiberTrace.getTrace().getImage().getArray() - recImage.getArray()
-                #afwImage.ImageF(diff).writeFits("diffTrace_SpecFromProfileFromSum_trace"+str(iTrace)+".fits")
                 meanDiff = np.mean(diff)
                 self.assertLess(np.absolute(meanDiff), 0.001)
                 stdDevDiff = np.std(diff)
@@ -499,7 +484,6 @@ class FiberTraceTestCase(tests.TestCase):
 
             """Fit profile with MkSlitFunc"""
             ftpfc = drpStella.FiberTraceProfileFittingControl()
-    #        ftpfc.profileInterpolation = "PISKUNOV"
             print 'starting findAndTraceAperturesF(maskedImage, fiberTraceFunctionFindingControl'
             fiberTraceSet = drpStella.findAndTraceAperturesF(self.flat.getMaskedImage(), self.ftffc)
             for iTrace in range(0, fiberTraceSet.size()):
@@ -532,14 +516,6 @@ class FiberTraceTestCase(tests.TestCase):
                 oldestMask = fiberTrace.getMask().getArray().copy()
                 spectrumFromProfile = fiberTrace.extractFromProfile()
                 self.assertEqual(spectrum.getLength(), spectrumFromProfile.getLength())
-     #           meanSpectrum = np.mean(spectrum.getSpectrum())
-     #           meanSpectrumFromProfile = np.mean(spectrumFromProfile.getSpectrum())
-    #            self.assertLess(np.absolute((meanSpectrum - meanSpectrumFromProfile)/meanSpectrum), 0.05)
-    #            stdDevSpectrum = np.std(spectrum.getSpectrum())
-    #            stdDevSpectrumFromProfile = np.std(spectrumFromProfile.getSpectrum())
-    #            self.assertLess(np.absolute((stdDevSpectrum - stdDevSpectrumFromProfile) / stdDevSpectrum), 0.005)
-                # Spectra from MkSlitFunc and extractFromProfile differ
-                #self.assertSequenceEqual(spectrum.getSpectrum(), spectrumFromProfile.getSpectrum())
 
                 """Test createTrace"""
                 oldHeight = fiberTrace.getHeight()
@@ -560,21 +536,11 @@ class FiberTraceTestCase(tests.TestCase):
                 self.assertEqual(oldProfile[5,5], fiberTrace.getProfile().getArray()[5,5])
                 self.assertEqual(oldTrace[5,5], fiberTrace.getTrace().getImage().getArray()[5,5])
 
-    #            import pdb; pdb.set_trace()
-
-    #            self.assertTrue(fiberTrace.setMask(oldMask))
                 fiberTrace.getMask().getArray()[:,:] = 0
                 spectrum = fiberTrace.extractFromProfile()
                 self.assertEqual(spectrum.getLength(), spectrumFromProfile.getLength())
 
                 for i in range(spectrum.getLength()):#10, spectrum.getLength()-10):
-#                    print "oldTrace[",i,",*] = ",oldTrace[i,0],oldTrace[i,1],oldTrace[i,2],oldTrace[i,3],oldTrace[i,4],oldTrace[i,5],oldTrace[i,6],oldTrace[i,7],oldTrace[i,8]
-#                    print "newTrace[",i,",*] = ",trace[i,0],trace[i,1],trace[i,2],trace[i,3],trace[i,4],trace[i,5],trace[i,6],trace[i,7],trace[i,8]
-#                    print "oldProfile[",i,",*] = ",oldProfile[i,0],oldProfile[i,1],oldProfile[i,2],oldProfile[i,3],oldProfile[i,4],oldProfile[i,5],oldProfile[i,6],oldProfile[i,7],oldProfile[i,8]
-#                    print "newProfile[",i,",*] = ",profile[i,0],profile[i,1],profile[i,2],profile[i,3],profile[i,4],profile[i,5],profile[i,6],profile[i,7],profile[i,8]
-#                    print "oldestMask[",i,",*] = ",oldestMask[i,0],oldestMask[i,1],oldestMask[i,2],oldestMask[i,3],oldestMask[i,4],oldestMask[i,5],oldestMask[i,6],oldestMask[i,7],oldestMask[i,8]
-#                    print "oldMask[",i,",*] = ",oldMask[i,0],oldMask[i,1],oldMask[i,2],oldMask[i,3],oldMask[i,4],oldMask[i,5],oldMask[i,6],oldMask[i,7],oldMask[i,8]
-#                    print "newMask[",i,",*] = ",mask[i,0],mask[i,1],mask[i,2],mask[i,3],mask[i,4],mask[i,5],mask[i,6],mask[i,7],mask[i,8]
                     for j in range(len(oldTrace[0,:])):
                         self.assertAlmostEqual(oldTrace[i,j], trace[i,j])
                         self.assertAlmostEqual(oldProfile[i,j], profile[i,j])
@@ -583,7 +549,6 @@ class FiberTraceTestCase(tests.TestCase):
                         self.assertGreaterEqual(profile[i,j], 0.)
 
                 for i in range(spectrum.getLength()):
-#                    print "spectrum[",i,"] = ",spectrum.getSpectrum()[i],", spectrumFromProfile[",i,"] = ",spectrumFromProfile.getSpectrum()[i]
                     self.assertEqual(spectrum.getSpectrum()[i], spectrumFromProfile.getSpectrum()[i])
 
             self.assertTrue(fiberTrace.createTrace(self.arc.getMaskedImage()))
@@ -606,19 +571,6 @@ class FiberTraceTestCase(tests.TestCase):
                 self.assertTrue(fiberTrace.setFiberTraceProfileFittingControl(ftpfc))
                 bool = fiberTrace.calcProfile()
                 self.assertTrue(bool)
-    #            spectrum = fiberTrace.extractFromProfile()
-    #            profile = fiberTrace.getProfile()
-    #            profile.writeFits("profileFromMkSlitFunc_trace"+str(iTrace)+".fits")
-    #            recImage = fiberTrace.getReconstructed2DSpectrum(spectrum)
-    #            recImage.writeFits("recTrace_SpecAndProfFromMkSlitFunc_trace"+str(iTrace)+".fits")
-    #            diff = fiberTrace.getTrace().getImage().getArray() - recImage.getArray()
-    #            afwImage.ImageF(diff).writeFits("diffTrace_SpecAndProfFromMkSlitFunc_trace"+str(iTrace)+".fits")
-    #            if display:
-    #                ds9.mtv(diff,title="reconstruction from MkSlitFunc",frame=iTrace)
-    #            meanDiff = np.mean(diff)
-    #            self.assertLess(np.absolute(meanDiff), 20.)
-    #            stdDevDiff = np.std(diff)
-    #            self.assertLess(np.absolute(stdDevDiff), 600.)
 
                 spectrum = fiberTrace.extractFromProfile()
                 recImage = fiberTrace.getReconstructed2DSpectrum(spectrum)
