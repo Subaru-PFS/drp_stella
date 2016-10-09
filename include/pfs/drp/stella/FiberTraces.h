@@ -4,29 +4,29 @@
 #if !defined(PFS_DRP_STELLA_FIBERTRACES_H)
 #define PFS_DRP_STELLA_FIBERTRACES_H
 
-#include <vector>
+#include <algorithm>
+#include <fitsio.h>
+#include <fitsio2.h>
 #include <iostream>
 #include <utility>
-#include <algorithm>
-#include "lsst/base.h"
+#include <vector>
+#include "cmpfit-1.2/MPFitting_ndarray.h"
+#include "Controls.h"
 #include "lsst/afw/geom.h"
 #include "lsst/afw/image/MaskedImage.h"
 #include "lsst/afw/math/FunctionLibrary.h"
+#include "lsst/base.h"
+#include "lsst/log/Log.h"
 #include "lsst/pex/config.h"
 #include "lsst/pex/exceptions/Exception.h"
 #include "ndarray.h"
 #include "ndarray/eigen.h"
-#include <fitsio.h>
-#include <fitsio2.h>
-#include "Controls.h"
 #include "math/Math.h"
 #include "math/CurveFitting.h"
 #include "math/Chebyshev.h"
-#include "utils/Utils.h"
-//#include "utils/UtilsBlitz.h"
-#include "cmpfit-1.2/MPFitting_ndarray.h"
 #include "spline.h"
 #include "Spectra.h"
+#include "utils/Utils.h"
 
 #define stringify( name ) # name
 

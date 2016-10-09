@@ -1,7 +1,6 @@
-#from pfs.datamodel.pfsFiberTrace import PfsFiberTrace
-import pfs.drp.stella as drpStella
-import numpy as np
 import lsst.afw.image as afwImage
+import numpy as np
+import pfs.drp.stella as drpStella
 
 def makeFiberTraceSet(pfsFiberTrace, maskedImage=None):
     fts = drpStella.FiberTraceSetF()
@@ -16,7 +15,6 @@ def makeFiberTraceSet(pfsFiberTrace, maskedImage=None):
     ftfc.nPixCutLeft = pfsFiberTrace.nCutLeft
     ftfc.nPixCutRight = pfsFiberTrace.nCutRight
     ftfc.nRows = pfsFiberTrace.profiles[0].shape[0]
-    print 'ftfc.nRows set to ',ftfc.nRows
 
     ftpfc.profileInterpolation = pfsFiberTrace.interpol
 #    ftpfc.ccdReadOutNoise = pfsFiberTrace.
@@ -38,11 +36,9 @@ def makeFiberTraceSet(pfsFiberTrace, maskedImage=None):
         ftf.yCenter = pfsFiberTrace.yCenter[iFt]
         ftf.yLow = pfsFiberTrace.yLow[iFt]
         ftf.yHigh = pfsFiberTrace.yHigh[iFt]
-        print 'pfsFiberTrace.coeffs[iFt] = ',pfsFiberTrace.coeffs[iFt]
         coeffs = np.ndarray(len(pfsFiberTrace.coeffs[iFt]), dtype=np.float64)
         for iCoeff in range(coeffs.shape[0]):
             coeffs[iCoeff] = pfsFiberTrace.coeffs[iFt][iCoeff]
-        print 'coeffs = ',coeffs.shape,': ',coeffs
         ftf.coefficients = coeffs
         ft = drpStella.FiberTraceF()
         if not ft.setFiberTraceFunction(ftf):

@@ -1,23 +1,7 @@
 #!/usr/bin/env python
-
-#USAGE: exp = lsst.afw.image.ExposureF("/home/azuri/spectra/pfs/2014-10-14/IR-23-0-sampledFlatx2-nonoise.fits")
-#       myTask = findAndTraceAperturesTask.FindAndTraceAperturesTask()
-#       fts = myTask.run(exp)
-
-#import os
-#import math
-#import numpy
-
-#import matplotlib
-#matplotlib.use('Agg')
-#import matplotlib.pyplot as plt
-#import matplotlib.mlab as mlab
-
-import lsst.afw.geom                    as afwGeom
-import lsst.afw.image                   as afwImage
-import lsst.pex.config                  as pexConfig
-import pfs.drp.stella as drpStella
+import lsst.pex.config as pexConfig
 from lsst.pipe.base import Task
+import pfs.drp.stella as drpStella
 
 class FindAndTraceAperturesConfig(pexConfig.Config):
       interpolation = pexConfig.Field(
@@ -101,11 +85,10 @@ class FindAndTraceAperturesTask(Task):
     
         """Create a FiberTraceSet given a flat-field exposure"""
         inMaskedImage = inExposure.getMaskedImage()
-        print("inMaskedImage created")
         
         """Trace fibers"""
         fts = drpStella.findAndTraceAperturesF(inMaskedImage, self.ftffc.getPointer())
-        print 'fts.size() = ',fts.size()
+        self.log.info('%d FiberTraces found' % fts.size())
         fts.sortTracesByXCenter()
         for i in range(fts.size()):
             fts.getFiberTrace(i).setITrace(i)
