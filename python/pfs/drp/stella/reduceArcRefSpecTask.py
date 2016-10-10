@@ -2,11 +2,13 @@
 from astropy.io import fits as pyfits
 from lsst.pex.config import Config, Field
 from lsst.pipe.base import Struct, TaskRunner, ArgumentParser, CmdLineTask
+from lsst.utils import getPackageDir
 import matplotlib.pyplot as plt
 import numpy as np
-import pfs.drp.stella.createFlatFiberTraceProfileTask as cfftpTask
+import os
 import pfs.drp.stella.extractSpectraTask as esTask
 import pfs.drp.stella as drpStella
+from pfs.drp.stella.utils import makeFiberTraceSet
 
 class ReduceArcRefSpecConfig(Config):
     """Configuration for reducing arc images"""
@@ -20,14 +22,13 @@ class ReduceArcRefSpecConfig(Config):
     stretchMinLength = Field( doc = "Minimum length to stretched pieces to (< lengthPieces)", dtype = int, default = 460 );
     stretchMaxLength = Field( doc = "Maximum length to stretched pieces to (> lengthPieces)", dtype = int, default = 540 );
     nStretches = Field( doc = "Number of stretches between <stretchMinLength> and <stretchMaxLength>", dtype = int, default = 80 );
-    refSpec = Field( doc = "reference reference spectrum including path", dtype = str, default="/Users/azuri/stella-git/obs_subaru/pfs/lineLists/refCdHgKrNeXe_red.fits");
-    lineList = Field( doc = "reference line list including path", dtype = str, default="/Users/azuri/stella-git/obs_subaru/pfs/lineLists/CdHgKrNeXe_red.fits");
+    refSpec = Field( doc = "reference reference spectrum including path", dtype = str, default=os.path.join(getPackageDir("obs_pfs"), "pfs/lineLists/refCdHgKrNeXe_red.fits"));
+    lineList = Field( doc = "reference line list including path", dtype = str, default=os.path.join(getPackageDir("obs_pfs"), "pfs/lineLists/CdHgKrNeXe_red.fits"));
 
 class ReduceArcRefSpecTaskRunner(TaskRunner):
     """Get parsed values into the ReduceArcTask.run"""
     @staticmethod
     def getTargetList(parsedCmd, **kwargs):
-        print 'ReduceArcTask.getTargetList: kwargs = ',kwargs
         return [dict(expRefList=parsedCmd.id.refList, butler=parsedCmd.butler, refSpec=parsedCmd.refSpec, lineList=parsedCmd.lineList)]
 
     def __call__(self, args):
@@ -90,13 +91,8 @@ class ReduceArcRefSpecTask(CmdLineTask):
             self.log.info('arcExp = %s' % arcExp)
             self.log.info('type(arcExp) = %s' % type(arcExp))
 
-            """ find and trace fiber traces """
+            """ construct fiberTraceSet from pfsFiberTrace """
             flatFiberTraceSet = makeFiberTraceSet(fiberTrace)
-            
-            """ calculate spatial profiles """
-            print 'calculating spatial profiles'
-            myProfileTask = cfftpTask.CreateFlatFiberTraceProfileTask()
-            myProfileTask.run(flatFiberTraceSet)
 
             """ optimally extract arc spectra """
             print 'extracting arc spectra'
@@ -178,7 +174,7 @@ class ReduceArcRefSpecTask(CmdLineTask):
                 else:
                     print 'setSpectrum for spectrumSetFromProfile[',i,'] failed'
                 for j in range(specSpec.shape[0]):
-                    self.log.info('spectrum %d: spec.getWavelength()[%d] = %f' % (i,j,spec.getWavelength()[j]))
+                    self.log.debug('spectrum %d: spec.getWavelength()[%d] = %f' % (i,j,spec.getWavelength()[j]))
 
             if False:
                 xPixMinMax = np.ndarray(2, dtype='float32')
