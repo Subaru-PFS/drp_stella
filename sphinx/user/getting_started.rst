@@ -191,7 +191,7 @@ Now for using the pipeline.
 - In order to extract the arc spectra we first need to identify and trace
   the apertures for each fiber. This is what constructFiberTrace.py does:
       
-      constructFiberTrace.py /Users/azuri/spectra/pfs/PFS --rerun azuri/tmp --id field=FLAT dateObs=2015-12-22 arm=r spectrograph=2 --calibId calibDate=2015-12-22 arm=r spectrograph=2 visit=4
+      constructFiberTrace.py $PFS_DATA --rerun USERNAME/tmp --id field=FLAT dateObs=2015-12-22 arm=r spectrograph=2 --calibId calibVersion=fiberTrace calibDate=2015-12-22 arm=r spectrograph=2
 
 - Since we have the Bias and Dark we can now perform the
   Instrumental-Signature Removal (ISR) task for our Arc spectrum (visit=4).
