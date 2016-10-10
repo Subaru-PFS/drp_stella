@@ -1,3 +1,4 @@
+#include <limits>
 #include "pfs/drp/stella/PSF.h"
 
 namespace pfs{ namespace drp{ namespace stella{
@@ -304,7 +305,7 @@ namespace pfs{ namespace drp{ namespace stella{
     _imagePSF_Weight.reserve(1000);
 //    double dX, dY;//, pixOffsetY, xStart, yStart;
 //    int i_Left, i_Right, i_Down, i_Up;//, i_xCenter, i_yCenter;
-    int nPix = 0;
+    size_t nPix = 0;
 
     /// Find emission lines
     /// set everything below signal threshold to zero
@@ -549,7 +550,7 @@ namespace pfs{ namespace drp{ namespace stella{
                                                                        xCenterCCDFromYCenterCCD[ 0 ],
                                                                        yCenterCCD );
           if (result.zTrace.size() > 0){
-            for ( int iPix = 0; iPix < result.xRelativeToCenter.size(); ++iPix ){
+            for (size_t iPix = 0; iPix < result.xRelativeToCenter.size(); ++iPix){
               _imagePSF_XRelativeToCenter.push_back( result.xRelativeToCenter[ iPix ] );
               _imagePSF_YRelativeToCenter.push_back( result.yRelativeToCenter[ iPix ] );
               _imagePSF_ZNormalized.push_back( result.zNormalized[ iPix ] );
@@ -600,7 +601,7 @@ namespace pfs{ namespace drp{ namespace stella{
         cout << message << endl;
         throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
       }
-      for (int iPix=0; iPix<nPix; ++iPix){
+      for (size_t iPix=0; iPix<nPix; ++iPix){
         of << _imagePSF_XRelativeToCenter[iPix];
         of << " " << _imagePSF_XTrace[iPix];
         of << " " << _imagePSF_YRelativeToCenter[iPix];
@@ -1059,7 +1060,7 @@ namespace pfs{ namespace drp{ namespace stella{
       cout << message << endl;
       throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
     }
-    if (i == static_cast<int>(_psfs->size())){
+    if (i == _psfs->size()){
       _psfs->push_back(psf);
     }
     else{
@@ -1254,7 +1255,7 @@ namespace pfs{ namespace drp{ namespace stella{
         cout << "psfMath::calculate2dPSFPerBin(fiberTraceSet, spectrumSet, twoDPSFControl) started" << endl;
       #endif
       std::vector< PTR(PSFSet< PsfT >)> vecOut(0);
-      for (int i = 0; i < fiberTraceSet.size(); ++i){
+      for (size_t i = 0; i < fiberTraceSet.size(); ++i){
         PTR(PSFSet< PsfT >) psfSet = calculate2dPSFPerBin< PsfT, ImageT, MaskT, VarianceT, WavelengthT >( *( fiberTraceSet.getFiberTrace( i ) ), 
                                                                                                           *( spectrumSet.getSpectrum( i ) ), 
                                                                                                           twoDPSFControl );
@@ -1532,7 +1533,7 @@ namespace pfs{ namespace drp{ namespace stella{
         cout << "psfMath::interpolatePSFSetThinPlateSpline(psf, xPositions, yPositions, isXYPositionsGridPoints, regularization) started" << endl;
       #endif
       ndarray::Array< PsfT, 3, 1 > arrOut = ndarray::allocate(yPositions.getShape()[0], xPositions.getShape()[0], psfSet.size());
-      for (int i = 0; i < psfSet.size(); ++i){
+      for (size_t i = 0; i < psfSet.size(); ++i){
         #ifdef __DEBUG_CALC_TPS__
           if (psfSet.getPSF(i)->getImagePSF_XRelativeToCenter().size() < 3){
             string message("PSF::InterPolatePSFSetThinPlateSpline: ERROR: i=");
@@ -1574,7 +1575,7 @@ namespace pfs{ namespace drp{ namespace stella{
         cout << "psfMath::interpolatePSFSetThinPlateSpline(psf, weights, xPositions, yPositions, isXYPositionsGridPoints) started" << endl;
       #endif
       ndarray::Array< PsfT, 3, 1 > arrOut = ndarray::allocate(yPositions.getShape()[0], xPositions.getShape()[0], psfSet.size());
-      for (int i = 0; i < psfSet.size(); ++i){
+      for (size_t i = 0; i < psfSet.size(); ++i){
         #ifdef __DEBUG_CALC_TPS__
         if (psfSet.getPSF(i)->getImagePSF_XRelativeToCenter().size() < 3){
           string message("PSF::InterPolatePSFSetThinPlateSpline: ERROR: i=");
@@ -1643,14 +1644,15 @@ namespace pfs{ namespace drp{ namespace stella{
         collapsedPSF = ndarray::allocate(collapsedPSFLength, 2);
         collapsedPSF[ndarray::view()(0)].deep() = xGridVec_In;
       }
-      for (int iPos = 0; iPos < collapsedPSFLength; ++iPos){
+      for (size_t iPos = 0; iPos < collapsedPSFLength; ++iPos){
+        assert(iPos < std::numeric_limits<int>::max());
         if (direction == 0){
-          tempVec.deep() = zArr_In[ndarray::view(iPos)()];
+          tempVec.deep() = zArr_In[ndarray::view(static_cast<int>(iPos))()];
         }
         else{
-          tempVec.deep() = zArr_In[ndarray::view()(iPos)];
+          tempVec.deep() = zArr_In[ndarray::view()(static_cast<int>(iPos))];
         }
-        collapsedPSF[ ndarray::makeVector( iPos, 1 ) ] = tempVec.asEigen().array().sum();
+        collapsedPSF[ ndarray::makeVector( static_cast<int>(iPos), 1 ) ] = tempVec.asEigen().array().sum();
       }
       #ifdef __DEBUG_PSF__
         cout << "psfMath::collapseFittedPSF(xGridVec, yGridVec, zArr, direction) finished" << endl;
@@ -1713,11 +1715,16 @@ namespace pfs{ namespace drp{ namespace stella{
       #ifdef __DEBUG_CPRTC__
         cout << "PSF::math::calcPositionsRelativeToCenter: dCenter = " << dCenter << endl;
       #endif
-      for (int iPos = 0; iPos <= high - low; ++iPos){
-        arr_Out[ ndarray::makeVector( iPos, 0 ) ] = T(low + iPos);
-        arr_Out[ ndarray::makeVector( iPos, 1 ) ] = arr_Out[ ndarray::makeVector( iPos, 0 ) ] - T(std::floor(centerPos_In)) + dCenter;
+      for (size_t iPos = 0; iPos <= high - low; ++iPos){
+        assert(iPos < std::numeric_limits<int>::max()); // safe to cast
+        arr_Out[ ndarray::makeVector(static_cast<int>(iPos), 0)] = T(low + iPos);
+        arr_Out[ ndarray::makeVector(static_cast<int>(iPos), 1)] =
+            arr_Out[ ndarray::makeVector(static_cast<int>(iPos), 0 ) ] -
+            T(std::floor(centerPos_In)) + dCenter;
         #ifdef __DEBUG_CPRTC__
-          cout << "PSF::math::calcPositionsRelativeToCenter: arr_Out[" << iPos << "][0] = " << arr_Out[ndarray::makeVector( iPos, 0 ) ] << ", arr_Out[" << iPos << "][1] = " << arr_Out[ndarray::makeVector( iPos, 1 ) ] << endl;
+          cout << "PSF::math::calcPositionsRelativeToCenter: arr_Out[" << iPos << "][0] = "
+               << arr_Out[ndarray::makeVector(static_cast<int>(iPos), 0 ) ] << ", arr_Out[" << iPos
+               << "][1] = " << arr_Out[ndarray::makeVector(static_cast<int>(iPos), 1 ) ] << endl;
         #endif
       }
       #ifdef __DEBUG_CPRTC__
@@ -1766,7 +1773,7 @@ namespace pfs{ namespace drp{ namespace stella{
         yPSF = psf.getYCentersPSFCCD()[iPSF];
         found = false;
         iList = 0;
-        while ((!found) && (iList < xPositions.getShape()[0])){
+        while ((!found) && (iList < static_cast<size_t>(xPositions.getShape()[0]))){
           dX = xPositions[iList] - xPSF;
           #ifdef __DEBUG_COMPARECENTERPOSITIONS__
             cout << "pfs::drp::stella::math::compareCenterPositions: spot number " << iPSF << ": xPSF = " << xPSF << ", xPosititions[" << iList << "] = " << xPositions[iList] << ": dX = " << dX << endl;

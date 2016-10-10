@@ -76,7 +76,7 @@ template<typename SpectrumT, typename MaskT, typename VarianceT, typename Wavele
 bool pfs::drp::stella::Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>::setSpectrum( ndarray::Array<SpectrumT, 1, 1> const& spectrum )
 {
   /// Check length of input spectrum
-  if (spectrum.getShape()[0] != _length){
+  if (static_cast<size_t>(spectrum.getShape()[0]) != _length) {
     string message("pfs::drp::stella::Spectrum::setSpectrum: ERROR: spectrum->size()=");
     message += to_string(spectrum.getShape()[0]) + string(" != _length=") + to_string(_length);
     cout << message << endl;
@@ -90,7 +90,7 @@ template<typename SpectrumT, typename MaskT, typename VarianceT, typename Wavele
 bool pfs::drp::stella::Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>::setVariance( ndarray::Array<VarianceT, 1, 1> const& variance )
 {
   /// Check length of input covar
-  if (variance.getShape()[ 0 ] != _length){
+  if (static_cast<size_t>(variance.getShape()[0]) != _length) {
     string message("pfs::drp::stella::Spectrum::setVariance: ERROR: variance->size()=");
     message += to_string( variance.getShape()[ 0 ] ) + string( " != _length=" ) + to_string( _length );
     cout << message << endl;
@@ -104,7 +104,7 @@ template<typename SpectrumT, typename MaskT, typename VarianceT, typename Wavele
 bool pfs::drp::stella::Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>::setCovar(const ndarray::Array<VarianceT, 2, 1> & covar )
 {
     /// Check length of input covar
-    if (covar.getShape()[ 1 ] != _length){
+    if (static_cast<size_t>(covar.getShape()[1]) != _length) {
       string message("pfs::drp::stella::Spectrum::setCovar: ERROR: covar->size()=");
       message += to_string( covar.getShape()[ 1 ] ) + string( " != _length=" ) + to_string( _length );
       cout << message << endl;
@@ -118,7 +118,7 @@ template<typename SpectrumT, typename MaskT, typename VarianceT, typename Wavele
 bool pfs::drp::stella::Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>::setMask(const ndarray::Array<MaskT, 1, 1> & mask)
 {
   /// Check length of input mask
-  if (mask.getShape()[0] != _length){
+  if (static_cast<size_t>(mask.getShape()[0]) != _length){
     string message("pfs::drp::stella::Spectrum::setMask: ERROR: mask->size()=");
     message += to_string(mask.getShape()[0]) + string(" != _length=") + to_string(_length);
     cout << message << endl;
@@ -665,14 +665,14 @@ template<typename SpectrumT, typename MaskT, typename VarianceT, typename Wavele
 bool pfs::drp::stella::SpectrumSet<SpectrumT, MaskT, VarianceT, WavelengthT>::setSpectrum( size_t const i,
                                                                                        Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT> const& spectrum )
 {
-  if (i > _spectra.size()){
+  if (i > _spectra.size()) {
     string message("SpectrumSet::setSpectrum(i=");
     message += to_string(i) + "): ERROR: i > _spectra.size()=" + to_string(_spectra.size());
     cout << message << endl;
     throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
   }
 
-  if (i == static_cast<int>(_spectra.size())){
+  if (i == _spectra.size()) {
     _spectra.push_back(spectrum);
   }
   else{
@@ -715,113 +715,4 @@ bool pfs::drp::stella::SpectrumSet<ImageT, MaskT, VarianceT, WavelengthT>::erase
       _spectra.erase(_spectra.begin() + iStart, _spectra.begin() + iEnd);
   }
   return true;
-}
-
-template<typename ImageT, typename MaskT, typename VarianceT, typename WavelengthT>
-void pfs::drp::stella::SpectrumSet<ImageT, MaskT, VarianceT, WavelengthT>::writeFits( std::string const& fileName, int flags ) const
-{
-  lsst::afw::fits::Fits fitsfile( fileName, "w", lsst::afw::fits::Fits::AUTO_CLOSE | lsst::afw::fits::Fits::AUTO_CHECK );
-  writeFits( fitsfile, flags );
-}
-
-template<typename ImageT, typename MaskT, typename VarianceT, typename WavelengthT>
-void pfs::drp::stella::SpectrumSet<ImageT, MaskT, VarianceT, WavelengthT>::writeFits( lsst::afw::fits::MemFileManager & manager, int flags ) const
-{
-  lsst::afw::fits::Fits fitsfile(manager, "w", lsst::afw::fits::Fits::AUTO_CLOSE | lsst::afw::fits::Fits::AUTO_CHECK);
-  writeFits( fitsfile, flags );
-}
-
-template<typename ImageT, typename MaskT, typename VarianceT, typename WavelengthT>
-void pfs::drp::stella::SpectrumSet<ImageT, MaskT, VarianceT, WavelengthT>::writeFits( lsst::afw::fits::Fits & fitsfile, int flags ) const
-{
-  int nFibers = int( size() );
-  int nCCDRows = getSpectrum( 0 )->getNCCDRows();
-  /// allocate memory for the arrays
-  ndarray::Array< float, 2, 1 > flux = ndarray::allocate( nCCDRows, nFibers );
-  ndarray::Array< float, 3, 1 > covar = ndarray::allocate( 5, nCCDRows, nFibers );
-  ndarray::Array< int, 2, 1 > mask = ndarray::allocate( nCCDRows, nFibers );
-  ndarray::Array< float, 2, 1 > wLen = ndarray::allocate( nCCDRows, nFibers );
-  ndarray::Array< float, 2, 1 > wDisp = ndarray::allocate( nCCDRows, nFibers );
-  ndarray::Array< float, 2, 1 > sky = ndarray::allocate( nCCDRows, nFibers );
-
-  /// write data to arrays
-  flux.deep() = 0.;
-  covar.deep() = 0.;
-  mask.deep() = 0;
-  wLen.deep() = 0.;
-  wDisp.deep() = 0.;
-  sky.deep() = 0.;
-
-  for ( int iFiber = 0; iFiber < _spectra.size(); ++iFiber ){
-//        PTR( pfs::drp::stella::Spectrum< ImageT, MaskT, VarianceT, WavelengthT > ) spectrum = _spectra[ iFiber ];
-
-    int yLow = _spectra.at( iFiber ).getYLow();
-    int yHigh = _spectra.at( iFiber ).getYHigh();
-    if ( yHigh - yLow + 1 != _spectra.at( iFiber ).getSpectrum().getShape()[ 0 ] ){
-      cout << "SpectrumSet::writeFits: yHigh=" << yHigh << " - yLow=" << yLow << " + 1 (=" << yHigh - yLow + 1 << ") = " << yHigh-yLow + 1 << " != _spectra.at( iFiber )->getSpectrum().getShape()[ 0 ] = " << _spectra.at( iFiber ).getSpectrum().getShape()[ 0 ] << endl;
-      throw LSST_EXCEPT(
-        lsst::pex::exceptions::LogicError,
-        "SpectrumSet::writeFits: spectrum does not have expected shape"
-      );
-    }
-
-    flux[ ndarray::view( yLow, yHigh + 1 )( iFiber ) ] = _spectra.at( iFiber ).getSpectrum()[ ndarray::view() ];
-    covar[ ndarray::view( )( yLow, yHigh + 1 )( iFiber ) ] = _spectra.at( iFiber ).getCovar()[ ndarray::view() ];
-    mask[ ndarray::view( yLow, yHigh + 1 )( iFiber ) ] = _spectra.at( iFiber ).getMask()[ ndarray::view() ];
-    wLen[ ndarray::view( yLow, yHigh + 1 )( iFiber ) ] = _spectra.at( iFiber ).getWavelength()[ ndarray::view() ];
-    wDisp[ ndarray::view( yLow, yHigh + 1 )( iFiber ) ] = _spectra.at( iFiber ).getDispersion()[ ndarray::view() ];
-    sky[ ndarray::view( yLow, yHigh + 1 )( iFiber ) ] = _spectra.at( iFiber ).getSky()[ ndarray::view() ];
-  }
-
-  CONST_PTR(lsst::daf::base::PropertySet) fluxMetadata = CONST_PTR(lsst::daf::base::PropertySet)();
-  PTR(lsst::daf::base::PropertySet) hdr(new lsst::daf::base::PropertyList());
-//      if (metadata) {
-//          hdr = metadata->deepCopy();
-//      } else {
-//          hdr.reset(new lsst::daf::base::PropertyList());
-//      }
-
-  if (fitsfile.countHdus() != 0) {
-      throw LSST_EXCEPT(
-          lsst::pex::exceptions::LogicError,
-          "SpectrumSet::writeFits::writeFits can only write to an empty file"
-      );
-  }
-  if (fitsfile.getHdu() <= 1) {
-      // Don't ever write images to primary; instead we make an empty primary.
-      fitsfile.createEmpty();
-  } else {
-      fitsfile.setHdu(1);
-  }
-  fitsfile.writeMetadata(*hdr);
-
-//      processPlaneMetadata( fluxMetadata, hdr, "FLUX" );
-  cout << "writing flux" << endl;
-  utils::fits_write_ndarray( fitsfile, flux, fluxMetadata );
-
-//      processPlaneMetadata( fluxMetadata, hdr, "COVARIANCE" );
-  cout << "writing covar" << endl;
-  utils::fits_write_ndarray( fitsfile, covar, fluxMetadata );
-
-//      processPlaneMetadata( fluxMetadata, hdr, "MASK" );
-  cout << "writing mask" << endl;
-  utils::fits_write_ndarray( fitsfile, mask, fluxMetadata );
-
-//      processPlaneMetadata( fluxMetadata, hdr, "WAVELENGTH" );
-  cout << "writing wLen" << endl;
-  utils::fits_write_ndarray( fitsfile, wLen, fluxMetadata );
-
-//      processPlaneMetadata( fluxMetadata, hdr, "DISPERSION" );
-  cout << "writing wDisp" << endl;
-  utils::fits_write_ndarray( fitsfile, wDisp, fluxMetadata );
-
-//      processPlaneMetadata( fluxMetadata, hdr, "SKY" );
-  cout << "writing sky" << endl;
-  utils::fits_write_ndarray( fitsfile, sky, fluxMetadata );
-
-  cout << "writing binary table" << endl;
-  utils::fits_write_binTable( fitsfile );
-
-  cout << "fitsfile contains " << fitsfile.countHdus() << " HDUs" << endl;
-
 }

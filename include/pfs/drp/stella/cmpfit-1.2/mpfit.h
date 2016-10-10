@@ -203,10 +203,10 @@ extern int mpfit(mp_func funct, int m, int npar,
 #endif
 
 static std::vector<float> yValues;
-static void setYValues(std::vector<float> const& yValues_In){
+/*static void setYValues(std::vector<float> const& yValues_In){
   yValues = yValues_In;
   return;
-}
+}*/
 
 #ifdef __cplusplus
 } /* extern "C" */

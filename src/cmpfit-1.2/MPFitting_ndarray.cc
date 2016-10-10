@@ -408,7 +408,6 @@ bool MPFitChebyshev1stKind(const ndarray::Array<T, 1, 1> & D_A1_X_In,
   double perror[I_NParams];			   /* Returned parameter errors */
   mp_par pars[I_NParams];			   /* Parameter constraints */
   struct vars_struct v;
-  int status;
   mp_result result;
 
   memset(&result,0,sizeof(result));      /* Zero results structure */
@@ -420,7 +419,7 @@ bool MPFitChebyshev1stKind(const ndarray::Array<T, 1, 1> & D_A1_X_In,
   v.y = y;
   v.ey = ey;
 
-  status = mpfit(Chebyshev1stKind, I_NPts, I_NParams, p, pars, 0, (void *) &v, &result);
+  result.status = mpfit(Chebyshev1stKind, I_NPts, I_NParams, p, pars, 0, (void *) &v, &result);
 
   for (int i_par=0; i_par<I_NParams; i_par++){
     D_A1_Coeffs_Out[i_par] = p[i_par];
@@ -484,7 +483,6 @@ bool MPFitGauss(const ndarray::Array< T, 1, 1 >& D_A1_X_In,
   }
 //  int i;
   struct vars_struct v;
-  int status;
   mp_result result;
 
   memset(&result,0,sizeof(result));      /* Zero results structure */
@@ -492,8 +490,6 @@ bool MPFitGauss(const ndarray::Array< T, 1, 1 >& D_A1_X_In,
 
   memset(pars,0,sizeof(pars));        /* Initialize constraint structure */
   /* No constraints */
-
-//  for (i=0; i<10; i++) ey[i] = 0.5;
 
   v.x = x;
   v.y = y;
@@ -503,15 +499,15 @@ bool MPFitGauss(const ndarray::Array< T, 1, 1 >& D_A1_X_In,
      parameters fixed) */
   if (B_WithConstantBackground){
     if (B_FitArea)
-      status = mpfit(MPFitGaussFuncACB, I_NPts, I_NParams, p, pars, 0, (void *) &v, &result);
+      result.status = mpfit(MPFitGaussFuncACB, I_NPts, I_NParams, p, pars, 0, (void *) &v, &result);
     else
-      status = mpfit(MPFitGaussFuncCB, I_NPts, I_NParams, p, pars, 0, (void *) &v, &result);
+      result.status = mpfit(MPFitGaussFuncCB, I_NPts, I_NParams, p, pars, 0, (void *) &v, &result);
   }
   else{
     if (B_FitArea)
-      status = mpfit(MPFitGaussFuncANB, I_NPts, I_NParams, p, pars, 0, (void *) &v, &result);
+      result.status = mpfit(MPFitGaussFuncANB, I_NPts, I_NParams, p, pars, 0, (void *) &v, &result);
     else
-      status = mpfit(MPFitGaussFuncNB, I_NPts, I_NParams, p, pars, 0, (void *) &v, &result);
+      result.status = mpfit(MPFitGaussFuncNB, I_NPts, I_NParams, p, pars, 0, (void *) &v, &result);
   }
 
   for (int i_par=0; i_par<I_NParams; i_par++){
@@ -576,7 +572,6 @@ bool MPFitGaussFix(const ndarray::Array< T, 1, 1 >& D_A1_X_In,
     throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
   }
   struct vars_struct v;
-  int status;
   mp_result result;
 
   memset(&result,0,sizeof(result));      /* Zero results structure */
@@ -595,15 +590,15 @@ bool MPFitGaussFix(const ndarray::Array< T, 1, 1 >& D_A1_X_In,
      parameters fixed) */
   if (B_WithConstantBackground){
     if (B_FitArea)
-      status = mpfit(MPFitGaussFuncACB, I_NPts, I_NParams, p, pars, 0, (void *) &v, &result);
+      result.status = mpfit(MPFitGaussFuncACB, I_NPts, I_NParams, p, pars, 0, (void *) &v, &result);
     else
-      status = mpfit(MPFitGaussFuncCB, I_NPts, I_NParams, p, pars, 0, (void *) &v, &result);
+      result.status = mpfit(MPFitGaussFuncCB, I_NPts, I_NParams, p, pars, 0, (void *) &v, &result);
   }
   else{
     if (B_FitArea)
-      status = mpfit(MPFitGaussFuncANB, I_NPts, I_NParams, p, pars, 0, (void *) &v, &result);
+      result.status = mpfit(MPFitGaussFuncANB, I_NPts, I_NParams, p, pars, 0, (void *) &v, &result);
     else
-      status = mpfit(MPFitGaussFuncNB, I_NPts, I_NParams, p, pars, 0, (void *) &v, &result);
+      result.status = mpfit(MPFitGaussFuncNB, I_NPts, I_NParams, p, pars, 0, (void *) &v, &result);
   }
 
   for (int i_par=0; i_par<I_NParams; i_par++){
@@ -691,7 +686,6 @@ bool MPFitGaussLim(const ndarray::Array< T, 1, 1 >& D_A1_X_In,
     throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
   }
   struct vars_struct v;
-  int status;
   mp_result result;
 
   memset(&result,0,sizeof(result));      /* Zero results structure */
@@ -721,12 +715,10 @@ bool MPFitGaussLim(const ndarray::Array< T, 1, 1 >& D_A1_X_In,
         cout << "MPFitting_ndarray::MPFitGaussLim: Background == 0: starting mpfit" << endl;
     #endif
     if (B_FitArea){
-      status = mpfit(MPFitGaussFuncANB, I_NPts, I_NParams, p, pars, 0, (void *) &v, &result);
-//      status = mpfit(MPFitGaussFuncANB, I_NPts, I_NParams, p, pars, &conf, (void *) &v, &result);
+      result.status = mpfit(MPFitGaussFuncANB, I_NPts, I_NParams, p, pars, 0, (void *) &v, &result);
     }
     else{
-      status = mpfit(MPFitGaussFuncNB, I_NPts, I_NParams, p, pars, 0, (void *) &v, &result);
-//      status = mpfit(MPFitGaussFuncNB, I_NPts, I_NParams, p, pars, &conf, (void *) &v, &result);
+      result.status = mpfit(MPFitGaussFuncNB, I_NPts, I_NParams, p, pars, 0, (void *) &v, &result);
     }
   }
   else if (Background == 1){
@@ -735,9 +727,9 @@ bool MPFitGaussLim(const ndarray::Array< T, 1, 1 >& D_A1_X_In,
         cout << "MPFitting_ndarray::MPFitGaussLim: Background == 1: starting mpfit" << endl;
     #endif
     if (B_FitArea)
-      status = mpfit(MPFitGaussFuncACB, I_NPts, I_NParams, p, pars, 0, (void *) &v, &result);
+      result.status = mpfit(MPFitGaussFuncACB, I_NPts, I_NParams, p, pars, 0, (void *) &v, &result);
     else
-      status = mpfit(MPFitGaussFuncCB, I_NPts, I_NParams, p, pars, 0, (void *) &v, &result);
+      result.status = mpfit(MPFitGaussFuncCB, I_NPts, I_NParams, p, pars, 0, (void *) &v, &result);
   }
   else{/// Background == 2
     #ifdef __DEBUG_GAUSSFITLIM__
@@ -745,13 +737,13 @@ bool MPFitGaussLim(const ndarray::Array< T, 1, 1 >& D_A1_X_In,
         cout << "MPFitting_ndarray::MPFitGaussLim: Background == 2: starting mpfit" << endl;
     #endif
     if (B_FitArea)
-      status = mpfit(MPFitGaussFuncALB, I_NPts, I_NParams, p, pars, 0, (void *) &v, &result);
+      result.status = mpfit(MPFitGaussFuncALB, I_NPts, I_NParams, p, pars, 0, (void *) &v, &result);
     else
-      status = mpfit(MPFitGaussFuncLB, I_NPts, I_NParams, p, pars, 0, (void *) &v, &result);
+      result.status = mpfit(MPFitGaussFuncLB, I_NPts, I_NParams, p, pars, 0, (void *) &v, &result);
   }
   #ifdef __DEBUG_GAUSSFITLIM__
     if (Debug)
-      cout << "MPFitting_ndarray::MPFitGaussLim: mpfit status = " << status << endl;
+      cout << "MPFitting_ndarray::MPFitGaussLim: mpfit status = " << result.status << endl;
   #endif
 
   for (int i_par=0; i_par<I_NParams; i_par++){
@@ -759,12 +751,11 @@ bool MPFitGaussLim(const ndarray::Array< T, 1, 1 >& D_A1_X_In,
     D_A1_ECoeffs_Out[i_par] = result.xerror[i_par];
   }
 
-//  cout << "MPFitting_ndarray:MPFitGaussLim: *** testgaussfix status = " << status << endl;
   #ifdef __DEBUG_GAUSSFITLIM__
     if (Debug)
       PrintResult(p, &result);
   #endif
-  if (status < 1)
+  if (result.status < 1)
     return false;
   return true;
 }
@@ -822,7 +813,6 @@ bool MPFitTwoGauss(const ndarray::Array< T, 1, 1 > &D_A1_X_In,
     throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
   }
   struct vars_struct v;
-  int status;
   mp_result result;
 
   memset(&result,0,sizeof(result));      /* Zero results structure */
@@ -841,19 +831,16 @@ bool MPFitTwoGauss(const ndarray::Array< T, 1, 1 > &D_A1_X_In,
      parameters fixed) */
   if (B_WithConstantBackground){
     if (B_FitArea)
-      status = mpfit(MPFitTwoGaussFuncACB, I_NPts, I_NParams, p, pars, 0, (void *) &v, &result);
+      result.status = mpfit(MPFitTwoGaussFuncACB, I_NPts, I_NParams, p, pars, 0, (void *) &v, &result);
     else
-      status = mpfit(MPFitTwoGaussFuncCB, I_NPts, I_NParams, p, pars, 0, (void *) &v, &result);
+      result.status = mpfit(MPFitTwoGaussFuncCB, I_NPts, I_NParams, p, pars, 0, (void *) &v, &result);
   }
   else{
     if (B_FitArea)
-      status = mpfit(MPFitTwoGaussFuncANB, I_NPts, I_NParams, p, pars, 0, (void *) &v, &result);
+      result.status = mpfit(MPFitTwoGaussFuncANB, I_NPts, I_NParams, p, pars, 0, (void *) &v, &result);
     else
-      status = mpfit(MPFitTwoGaussFuncNB, I_NPts, I_NParams, p, pars, 0, (void *) &v, &result);
+      result.status = mpfit(MPFitTwoGaussFuncNB, I_NPts, I_NParams, p, pars, 0, (void *) &v, &result);
   }
-
-//  cout << "MPFitting_ndarray::MPFitTwoGauss: *** testgaussfit status = " << status << endl;
-//  PrintResult(p, &result);
 
   for (int i_par=0; i_par<I_NParams; i_par++){
     D_A1_Coeffs_Out[i_par] = p[i_par];
@@ -917,7 +904,6 @@ bool MPFitTwoGaussFix(const ndarray::Array< T, 1, 1 > &D_A1_X_In,
     throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
   }
   struct vars_struct v;
-  int status;
   mp_result result;
 
   memset(&result,0,sizeof(result));      /* Zero results structure */
@@ -934,19 +920,16 @@ bool MPFitTwoGaussFix(const ndarray::Array< T, 1, 1 > &D_A1_X_In,
 
   if (B_WithConstantBackground){
     if (B_FitArea)
-      status = mpfit(MPFitTwoGaussFuncACB, I_NPts, I_NParams, p, pars, 0, (void *) &v, &result);
+      result.status = mpfit(MPFitTwoGaussFuncACB, I_NPts, I_NParams, p, pars, 0, (void *) &v, &result);
     else
-      status = mpfit(MPFitTwoGaussFuncCB, I_NPts, I_NParams, p, pars, 0, (void *) &v, &result);
+      result.status = mpfit(MPFitTwoGaussFuncCB, I_NPts, I_NParams, p, pars, 0, (void *) &v, &result);
   }
   else{
     if (B_FitArea)
-      status = mpfit(MPFitTwoGaussFuncANB, I_NPts, I_NParams, p, pars, 0, (void *) &v, &result);
+      result.status = mpfit(MPFitTwoGaussFuncANB, I_NPts, I_NParams, p, pars, 0, (void *) &v, &result);
     else
-      status = mpfit(MPFitTwoGaussFuncNB, I_NPts, I_NParams, p, pars, 0, (void *) &v, &result);
+      result.status = mpfit(MPFitTwoGaussFuncNB, I_NPts, I_NParams, p, pars, 0, (void *) &v, &result);
   }
-
-//  cout << "MPFitting_ndarray:MPFitTwoGaussFix: *** testgaussfix status = " << status << endl;
-//  PrintResult(p, &result);
 
   for (int i_par=0; i_par<I_NParams; i_par++){
     D_A1_Coeffs_Out[i_par] = p[i_par];
@@ -1011,7 +994,6 @@ bool MPFitTwoGaussLim(const ndarray::Array< T, 1, 1 > &D_A1_X_In,
     throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
   }
   struct vars_struct v;
-  int status;
   mp_result result;
 
   memset(&result,0,sizeof(result));      /* Zero results structure */
@@ -1033,24 +1015,21 @@ bool MPFitTwoGaussLim(const ndarray::Array< T, 1, 1 > &D_A1_X_In,
      parameters fixed) */
   if (B_WithConstantBackground){
     if (B_FitArea)
-      status = mpfit(MPFitTwoGaussFuncACB, I_NPts, I_NParams, p, pars, 0, (void *) &v, &result);
+      result.status = mpfit(MPFitTwoGaussFuncACB, I_NPts, I_NParams, p, pars, 0, (void *) &v, &result);
     else
-      status = mpfit(MPFitTwoGaussFuncCB, I_NPts, I_NParams, p, pars, 0, (void *) &v, &result);
+      result.status = mpfit(MPFitTwoGaussFuncCB, I_NPts, I_NParams, p, pars, 0, (void *) &v, &result);
   }
   else{
     if (B_FitArea)
-      status = mpfit(MPFitTwoGaussFuncANB, I_NPts, I_NParams, p, pars, 0, (void *) &v, &result);
+      result.status = mpfit(MPFitTwoGaussFuncANB, I_NPts, I_NParams, p, pars, 0, (void *) &v, &result);
     else
-      status = mpfit(MPFitTwoGaussFuncNB, I_NPts, I_NParams, p, pars, 0, (void *) &v, &result);
+      result.status = mpfit(MPFitTwoGaussFuncNB, I_NPts, I_NParams, p, pars, 0, (void *) &v, &result);
   }
 
   for (int i_par=0; i_par<I_NParams; i_par++){
     D_A1_Coeffs_Out[i_par] = p[i_par];
     D_A1_ECoeffs_Out[i_par] = result.xerror[i_par];
   }
-
-//  cout << "MPFitting_ndarray:MPFitTwoGaussLim: *** testgaussfix status = " << status << endl;
-//  PrintResult(p, &result);
 
   return true;
 }
@@ -1108,7 +1087,6 @@ bool MPFitThreeGauss(const ndarray::Array< T, 1, 1 > &D_A1_X_In,
     throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
   }
   struct vars_struct v;
-  int status;
   mp_result result;
 
   memset(&result,0,sizeof(result));      /* Zero results structure */
@@ -1125,19 +1103,16 @@ bool MPFitThreeGauss(const ndarray::Array< T, 1, 1 > &D_A1_X_In,
      parameters fixed) */
   if (B_WithConstantBackground){
     if (B_FitArea)
-      status = mpfit(MPFitThreeGaussFuncACB, I_NPts, I_NParams, p, pars, 0, (void *) &v, &result);
+      result.status = mpfit(MPFitThreeGaussFuncACB, I_NPts, I_NParams, p, pars, 0, (void *) &v, &result);
     else
-      status = mpfit(MPFitThreeGaussFuncCB, I_NPts, I_NParams, p, pars, 0, (void *) &v, &result);
+      result.status = mpfit(MPFitThreeGaussFuncCB, I_NPts, I_NParams, p, pars, 0, (void *) &v, &result);
   }
   else{
     if (B_FitArea)
-      status = mpfit(MPFitThreeGaussFuncANB, I_NPts, I_NParams, p, pars, 0, (void *) &v, &result);
+      result.status = mpfit(MPFitThreeGaussFuncANB, I_NPts, I_NParams, p, pars, 0, (void *) &v, &result);
     else
-      status = mpfit(MPFitThreeGaussFuncNB, I_NPts, I_NParams, p, pars, 0, (void *) &v, &result);
+      result.status = mpfit(MPFitThreeGaussFuncNB, I_NPts, I_NParams, p, pars, 0, (void *) &v, &result);
   }
-
-//  cout << "MPFitting_ndarray::MPFitThreeGauss: *** testgaussfit status = " << status << endl;
-//  PrintResult(p, &result);
 
   for (int i_par=0; i_par<I_NParams; i_par++){
     D_A1_Coeffs_Out[i_par] = p[i_par];
@@ -1201,7 +1176,6 @@ bool MPFitThreeGaussFix(const ndarray::Array< T, 1, 1 > &D_A1_X_In,
     throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
   }
   struct vars_struct v;
-  int status;
   mp_result result;
 
   memset(&result,0,sizeof(result));      /* Zero results structure */
@@ -1220,19 +1194,16 @@ bool MPFitThreeGaussFix(const ndarray::Array< T, 1, 1 > &D_A1_X_In,
      parameters fixed) */
   if (B_WithConstantBackground){
     if (B_FitArea)
-      status = mpfit(MPFitThreeGaussFuncACB, I_NPts, I_NParams, p, pars, 0, (void *) &v, &result);
+      result.status = mpfit(MPFitThreeGaussFuncACB, I_NPts, I_NParams, p, pars, 0, (void *) &v, &result);
     else
-      status = mpfit(MPFitThreeGaussFuncCB, I_NPts, I_NParams, p, pars, 0, (void *) &v, &result);
+      result.status = mpfit(MPFitThreeGaussFuncCB, I_NPts, I_NParams, p, pars, 0, (void *) &v, &result);
   }
   else{
     if (B_FitArea)
-      status = mpfit(MPFitThreeGaussFuncANB, I_NPts, I_NParams, p, pars, 0, (void *) &v, &result);
+      result.status = mpfit(MPFitThreeGaussFuncANB, I_NPts, I_NParams, p, pars, 0, (void *) &v, &result);
     else
-      status = mpfit(MPFitThreeGaussFuncNB, I_NPts, I_NParams, p, pars, 0, (void *) &v, &result);
+      result.status = mpfit(MPFitThreeGaussFuncNB, I_NPts, I_NParams, p, pars, 0, (void *) &v, &result);
   }
-
-//  cout << "MPFitting_ndarray:MPFitThreeGaussFix: *** testgaussfix status = " << status << endl;
-//  PrintResult(p, &result);
 
   for (int i_par=0; i_par<I_NParams; i_par++){
     D_A1_Coeffs_Out[i_par] = p[i_par];
@@ -1296,9 +1267,7 @@ bool MPFitThreeGaussLim(const ndarray::Array< T, 1, 1 > &D_A1_X_In,
     cout << message << endl;
     throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
   }
-//  int i;
   struct vars_struct v;
-  int status;
   mp_result result;
 
   memset(&result,0,sizeof(result));      /* Zero results structure */
@@ -1318,24 +1287,21 @@ bool MPFitThreeGaussLim(const ndarray::Array< T, 1, 1 > &D_A1_X_In,
 
   if (B_WithConstantBackground){
     if (B_FitArea)
-      status = mpfit(MPFitThreeGaussFuncACB, I_NPts, I_NParams, p, pars, 0, (void *) &v, &result);
+      result.status = mpfit(MPFitThreeGaussFuncACB, I_NPts, I_NParams, p, pars, 0, (void *) &v, &result);
     else
-      status = mpfit(MPFitThreeGaussFuncCB, I_NPts, I_NParams, p, pars, 0, (void *) &v, &result);
+      result.status = mpfit(MPFitThreeGaussFuncCB, I_NPts, I_NParams, p, pars, 0, (void *) &v, &result);
   }
   else{
     if (B_FitArea)
-      status = mpfit(MPFitThreeGaussFuncANB, I_NPts, I_NParams, p, pars, 0, (void *) &v, &result);
+      result.status = mpfit(MPFitThreeGaussFuncANB, I_NPts, I_NParams, p, pars, 0, (void *) &v, &result);
     else
-      status = mpfit(MPFitThreeGaussFuncNB, I_NPts, I_NParams, p, pars, 0, (void *) &v, &result);
+      result.status = mpfit(MPFitThreeGaussFuncNB, I_NPts, I_NParams, p, pars, 0, (void *) &v, &result);
   }
 
   for (int i_par=0; i_par<I_NParams; i_par++){
     D_A1_Coeffs_Out[i_par] = p[i_par];
     D_A1_ECoeffs_Out[i_par] = result.xerror[i_par];
   }
-
-//  cout << "MPFitting_ndarray:MPFitThreeGaussLim: *** testgaussfix status = " << status << endl;
-//  PrintResult(p, &result);
 
   return true;
 }
@@ -1413,7 +1379,6 @@ bool MPFit2DGaussLim(const ndarray::Array< T, 1, 1 >& D_A1_X_In,
     throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
   }
   struct vars_struct v;
-  int status;
   mp_result result;
 
   memset(&result,0,sizeof(result));      /* Zero results structure */
@@ -1431,7 +1396,7 @@ bool MPFit2DGaussLim(const ndarray::Array< T, 1, 1 >& D_A1_X_In,
   v.y = y;
   v.ey = z;
 
-  status = mpfit(MPFit2DGaussFuncCB, I_NPts, I_NParams, p, pars, 0, (void *) &v, &result);
+  result.status = mpfit(MPFit2DGaussFuncCB, I_NPts, I_NParams, p, pars, 0, (void *) &v, &result);
 
   for (int i_par=0; i_par<I_NParams; i_par++){
     D_A1_Coeffs_Out[i_par] = p[i_par];
@@ -1442,23 +1407,14 @@ bool MPFit2DGaussLim(const ndarray::Array< T, 1, 1 >& D_A1_X_In,
 }
 
 int MPFitAnyFunc(int m, int n, double *p, double *dz, double **dvec, void *vars){
-  int i;
   struct vars_struct *v = (struct vars_struct *) vars;
-  double *x, *y, *z;
-  double sig2;//, sig2_b;
+  double *z;
 
-  x = v->x;
-  y = v->y;
   z = v->ey;
-
-  sig2 = p[4]*p[4];
-
-  for (i=0; i<m; i++) {
+  for (int i=0; i<m; i++) {
     dz[i] = z[i] - p[0] * yValues[i];
   }
-
   return 0;
-
 }
 
 template bool MPFitGauss(const ndarray::Array<double, 1, 1> &D_A1_X_In,

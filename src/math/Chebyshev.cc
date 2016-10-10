@@ -778,13 +778,12 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
     int l;
     int ll;
     int lls;
-    int ls;
+    int ls=0;
     int lu;
     int maxit = 30;
     int mm;
     int mm1;
     int mn;
-    int mp1;
     int nct;
     int nctp1;
     int ncu;
@@ -1087,7 +1086,6 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
       }
       else
       {
-        mp1 = mn + 1;
 
         for ( lls = l+1; lls <= mn+1; lls++ )
         {
@@ -1723,7 +1721,7 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
     int j;
     int k;
     int l;
-    int m;
+    int m=0;
     int mml;
     double p;
     double prec;
@@ -4431,15 +4429,13 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
 
     static char time_buffer[TIME_SIZE];
     const struct std::tm *tm_ptr;
-    size_t len;
     std::time_t now;
 
     now = std::time ( NULL );
     tm_ptr = std::localtime ( &now );
 
-    len = std::strftime ( time_buffer, TIME_SIZE, "%d %B %Y %I:%M:%S %p", tm_ptr );
-
-    std::cout << time_buffer << "\n";
+    if ( std::strftime ( time_buffer, TIME_SIZE, "%d %B %Y %I:%M:%S %p", tm_ptr ) >= 0 )
+        std::cout << time_buffer << "\n";
 
     return;
   # undef TIME_SIZE

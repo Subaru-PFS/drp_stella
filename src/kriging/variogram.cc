@@ -310,19 +310,16 @@ bool CVariogram::bubbleSortByDistance(void)
   while(UpperLimit > 0)
   {
     LastSwap = 0;
-    for(size_t Pos = 0;Pos < UpperLimit; ++Pos)
+    for( long Pos = 0; Pos < UpperLimit; ++Pos)
     {
       if(m_pDistance[Pos] > m_pDistance[Pos+1])
       {
-        //        cout << "BubbleSort: (*P_D_A1_Out)(Pos=" << Pos << ")=" << (*P_D_A1_Out)(Pos) << " > (*P_D_A1_Out)(Pos+1=" << Pos+1 << ") = " << (*P_D_A1_Out)(Pos+1) << " => Swapping Positions" << endl;
         std::swap(m_pDistance[Pos], m_pDistance[Pos+1]);
         std::swap(m_pVariogram[Pos], m_pVariogram[Pos+1]);
         LastSwap = Pos;
-//        cout << "BubbleSort: LastSwap set to " << LastSwap << endl;
       }
     }
     UpperLimit = LastSwap;
-//    cout << "BubbleSort: UpperLimit set to " << LastSwap << endl;
   }
   return true;
 }
