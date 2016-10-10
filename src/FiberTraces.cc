@@ -1396,18 +1396,13 @@ namespace pfsDRPStella = pfs::drp::stella;
     }
     if (iTrace > 0){
       (*_traces)[size]->setITrace(iTrace);
-      cout << "FiberTraceSet::addFiberTrace: (*_traces)[" << size << "]->_iTrace set to " << (*_traces)[size]->getITrace() << endl;
     }
-    cout << "FiberTraceSet::addFiberTrace: (*_traces)[" << size << "]->_iTrace = " << (*_traces)[size]->getITrace() << endl;
     return true;
   }
 
   template<typename ImageT, typename MaskT, typename VarianceT>
   void pfsDRPStella::FiberTraceSet< ImageT, MaskT, VarianceT >::sortTracesByXCenter()
   {
-    for (int i = 0; i < static_cast<int>(_traces->size()); ++i){
-      cout << "FiberTraceSet::sortTracesByXCenter: (*_traces)[" << i << "]->getFiberTraceFunction()->xCenter = " << (*_traces)[i]->getFiberTraceFunction()->xCenter << endl;
-    }
     std::vector<float> xCenters;
     for (int iTrace = 0; iTrace < static_cast<int>(_traces->size()); ++iTrace){
       xCenters.push_back((*_traces)[iTrace]->getFiberTraceFunction()->xCenter);
@@ -1550,12 +1545,10 @@ namespace pfsDRPStella = pfs::drp::stella;
           ndarray::Array<double, 1, 1> D_A1_PolyFitCoeffs;
           if (fiberTraceFunction.fiberTraceFunctionControl.interpolation.compare("CHEBYSHEV") == 0)
           {
-            cout << "pfs::drp::stella::math::findAndTraceApertures: Fitting Chebyshev Polynomial" << endl;
+            LOGL_INFO("pfs.drp.stella.math.findAndTraceApertures", "Fitting CHEBYSHEV Polynomial");
             int n = fiberTraceFunction.fiberTraceFunctionControl.order + 1;
             double xRangeMin = double(D_A1_ApertureCenterIndex[0]);
             double xRangeMax = double(D_A1_ApertureCenterIndex[D_A1_ApertureCenterIndex.getShape()[0]-1]);
-            cout << "starting t_project_coefficients_data(" << xRangeMin << ", " << xRangeMax << ", " << n << ",...)" << endl;
-
             D_A1_PolyFitCoeffs = pfs::drp::stella::math::t_project_coefficients_data(D_A1_ApertureCenterIndex, 
                                                                                      D_A1_ApertureCenterPos,
                                                                                      xRangeMin,
@@ -1564,7 +1557,6 @@ namespace pfsDRPStella = pfs::drp::stella;
           }
           else{
             /// Fit Polynomial
-            cout << "pfs::drp::stella::math::findAndTraceApertures: Fitting Polynomial" << endl;
             (*p_xRange)[0] = D_A1_ApertureCenterIndex[0];
             (*p_xRange)[1] = D_A1_ApertureCenterIndex[int(D_A1_ApertureCenterIndex.size()-1)];
             D_A1_PolyFitCoeffs = pfsDRPStella::math::PolyFit(D_A1_ApertureCenterIndex,
@@ -1602,7 +1594,6 @@ namespace pfsDRPStella = pfs::drp::stella;
                                                                                                                                            fiberTraceFunctionPTR,
                                                                                                                                            0 ) );
           fiberTrace->setITrace( fiberTraceSet->getTraces()->size() );
-          cout << "FindAndTraceApertures: fiberTrace->getITrace() = " << fiberTrace->getITrace() << endl;;
           if (fiberTrace->getXCenters().getShape()[0] != (fiberTraceFunction.yHigh - fiberTraceFunction.yLow + 1)){
             string message("FindAndTraceApertures: iTrace = ");
             message += to_string(fiberTraceSet->getTraces()->size()) + string(": 2. ERROR: fiberTrace->getXCenters()->size(=");
@@ -1626,8 +1617,6 @@ namespace pfsDRPStella = pfs::drp::stella;
           xCentersMeas[ndarray::view()(1)].deep() = D_A1_ApertureCenterPos;
           fiberTrace->setXCentersMeas(xCentersMeas);
           fiberTraceSet->addFiberTrace(fiberTrace);
-          cout << "FindAndTraceApertures: fiberTraceSet->getFiberTrace( fiberTraceSet->getTraces()->size() - 1 )->getITrace() = " << fiberTraceSet->getFiberTrace( fiberTraceSet->getTraces()->size() - 1 )->getITrace() << endl;
-          cout << "FindAndTraceApertures: aperture number " << I_Aperture << " added to fiberTraceSet" << endl;
           ++I_Aperture;
         }/// end if (B_ApertureFound)
         else{
