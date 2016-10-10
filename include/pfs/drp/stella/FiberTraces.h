@@ -348,54 +348,54 @@ namespace math{
                                                  size_t const& ccdHeightIn = 0,
                                                  size_t const& ccdWidthIn = 0);
 
-    /**
-     * @brief : extract a wide flatFiberTrace, fit profile, normalize, reduce width
-     * @param maskedImage : CCD image dithered Flat 
-     * @param fiberTraceFunctionWide : FiberTraceFunction (wide) for dithered flat
-     * @param fiberTraceFunctionControlNarrow : FiberTraceFunctionControl (narrow) for output FiberTrace
-     * @param fiberTraceProfileFittingControl : ProfileFittingControl for fitting the spatial profile of the dithered Flat
-     * @param minSNR : normalized pixel values with an SNR lower than minSNR are set to 1.
-     * @param iTrace : number of FiberTrace
-     */
-     template< typename ImageT, typename MaskT=afwImage::MaskPixel, typename VarianceT=afwImage::VariancePixel >
-     PTR(FiberTrace< ImageT, MaskT, VarianceT >) makeNormFlatFiberTrace( PTR( const afwImage::MaskedImage< ImageT, MaskT, VarianceT >) const& maskedImage,
-                                                                          PTR( const ::pfs::drp::stella::FiberTraceFunction ) const& fiberTraceFunctionWide,
-                                                                          PTR( const ::pfs::drp::stella::FiberTraceFunctionControl ) const& fiberTraceFunctionControlNarrow,
-                                                                          PTR( const ::pfs::drp::stella::FiberTraceProfileFittingControl ) const& fiberTraceProfileFittingControl,
-                                                                          ImageT minSNR = 100.,
-                                                                          size_t iTrace = 0 );
+  /**
+   * @brief : extract a wide flatFiberTrace, fit profile, normalize, reduce width
+   * @param maskedImage : CCD image dithered Flat 
+   * @param fiberTraceFunctionWide : FiberTraceFunction (wide) for dithered flat
+   * @param fiberTraceFunctionControlNarrow : FiberTraceFunctionControl (narrow) for output FiberTrace
+   * @param fiberTraceProfileFittingControl : ProfileFittingControl for fitting the spatial profile of the dithered Flat
+   * @param minSNR : normalized pixel values with an SNR lower than minSNR are set to 1.
+   * @param iTrace : number of FiberTrace
+   */
+  template< typename ImageT, typename MaskT=afwImage::MaskPixel, typename VarianceT=afwImage::VariancePixel >
+  PTR(FiberTrace< ImageT, MaskT, VarianceT >) makeNormFlatFiberTrace( PTR( const afwImage::MaskedImage< ImageT, MaskT, VarianceT >) const& maskedImage,
+                                                                      PTR( const ::pfs::drp::stella::FiberTraceFunction ) const& fiberTraceFunctionWide,
+                                                                      PTR( const ::pfs::drp::stella::FiberTraceFunctionControl ) const& fiberTraceFunctionControlNarrow,
+                                                                      PTR( const ::pfs::drp::stella::FiberTraceProfileFittingControl ) const& fiberTraceProfileFittingControl,
+                                                                      ImageT minSNR = 100.,
+                                                                      size_t iTrace = 0 );
 
-     /**
-      * @brief: assign trace number to set of FiberTraces from x and y center by comparing the center position to the center positions of the zemax model
-      * @param fiberTraceSet: FiberTraceSet to assign iTrace to
-      * @param traceIds: shape(nfibers * nRows)
-      * @param xCenters: shape(nfibers * nRows)
-      * @param yCenters: shape(nfibers * nRows)
-      */
-     template< typename ImageT, typename MaskT, typename VarianceT, typename T, typename U, int I >
-     bool assignITrace( FiberTraceSet< ImageT, MaskT, VarianceT > & fiberTraceSet,
-                        ndarray::Array< T, 1, I > const& traceIds,
-                        ndarray::Array< U, 1, I > const& xCenters,
-                        ndarray::Array< U, 1, I > const& yCenters );
-     
-     /**
-      * @brief: compare x and y center of fiberTrace to xCenters and yCenters to identify traceID
-      * @param fiberTrace: fiber trace to identify
-      * @param xCenters: shape(nfibers * nRows)
-      * @param yCenters: shape(nfibers * nRows)
-      * @param nTraces: number of fiber traces on CCD
-      * @param nRows: number of CCD rows
-      * @param startPos: fiber number to start searching
-      * @return fiber trace number
-      */
-     template< typename ImageT, typename MaskT, typename VarianceT, typename U, int I >
-     int findITrace( FiberTrace< ImageT, MaskT, VarianceT > const& fiberTrace,
+  /**
+   * @brief: assign trace number to set of FiberTraces from x and y center by comparing the center position to the center positions of the zemax model
+   * @param fiberTraceSet: FiberTraceSet to assign iTrace to
+   * @param traceIds: shape(nfibers * nRows)
+   * @param xCenters: shape(nfibers * nRows)
+   * @param yCenters: shape(nfibers * nRows)
+   */
+  template< typename ImageT, typename MaskT, typename VarianceT, typename T, typename U, int I >
+  bool assignITrace( FiberTraceSet< ImageT, MaskT, VarianceT > & fiberTraceSet,
+                     ndarray::Array< T, 1, I > const& traceIds,
                      ndarray::Array< U, 1, I > const& xCenters,
-                     ndarray::Array< U, 1, I > const& yCenters,
-                     int nTraces,
-                     int nRows,
-                     int startPos = 0 );
-  }   
+                     ndarray::Array< U, 1, I > const& yCenters );
+
+  /**
+   * @brief: compare x and y center of fiberTrace to xCenters and yCenters to identify traceID
+   * @param fiberTrace: fiber trace to identify
+   * @param xCenters: shape(nfibers * nRows)
+   * @param yCenters: shape(nfibers * nRows)
+   * @param nTraces: number of fiber traces on CCD
+   * @param nRows: number of CCD rows
+   * @param startPos: fiber number to start searching
+   * @return fiber trace number
+   */
+  template< typename ImageT, typename MaskT, typename VarianceT, typename U, int I >
+  int findITrace( FiberTrace< ImageT, MaskT, VarianceT > const& fiberTrace,
+                  ndarray::Array< U, 1, I > const& xCenters,
+                  ndarray::Array< U, 1, I > const& yCenters,
+                  int nTraces,
+                  int nRows,
+                  int startPos = 0 );
+}   
 
 namespace utils{
     template<typename T>
