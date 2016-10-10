@@ -243,7 +243,6 @@ struct FiberTraceProfileFittingControl {
                                                 stringify( BEFORE_EXTRACTION ),
                                                 stringify( DURING_EXTRACTION ) };
     LSST_CONTROL_FIELD(profileInterpolation, std::string, "Method for determining the spatial profile, [PISKUNOV, SPLINE3], default: SPLINE3");
-    LSST_CONTROL_FIELD(ccdReadOutNoise, float, "CCD readout noise");
     LSST_CONTROL_FIELD(swathWidth, size_t, "Size of individual extraction swaths, set to 0 to calculate automatically");
     LSST_CONTROL_FIELD(telluric, std::string, "profileInterpolation==PISKUNOV: Method for determining the background (+sky in case of slit spectra, default: NONE)");
     LSST_CONTROL_FIELD(overSample, unsigned int, "Oversampling factor for the determination of the spatial profile (default: 10)");
@@ -259,7 +258,6 @@ struct FiberTraceProfileFittingControl {
 
     FiberTraceProfileFittingControl() :
         profileInterpolation("SPLINE3"),
-        ccdReadOutNoise(1.),
         swathWidth(500),
         telluric("NONE"),
         overSample(15),
@@ -276,7 +274,6 @@ struct FiberTraceProfileFittingControl {
 
     FiberTraceProfileFittingControl(const FiberTraceProfileFittingControl &fiberTraceProfileFittingControl) :
         profileInterpolation(fiberTraceProfileFittingControl.profileInterpolation),
-        ccdReadOutNoise(fiberTraceProfileFittingControl.ccdReadOutNoise),
         swathWidth(fiberTraceProfileFittingControl.swathWidth),
         telluric(fiberTraceProfileFittingControl.telluric),
         overSample(fiberTraceProfileFittingControl.overSample),
@@ -326,11 +323,6 @@ struct FiberTraceProfileFittingControl {
     }
     if (!isTelluricValid){
       cout << "FiberTraceProfileFittingControl::isClassInvariant: ERROR: telluric(=" << telluric << ") is not valid! => Returning FALSE" << endl;
-      return false;
-    }
-
-    if (ccdReadOutNoise < 0.){
-      cout << "FiberTraceProfileFittingControl::isClassInvariant: ERROR: ccdReadOutNoise(=" << ccdReadOutNoise << ") < 0 => Returning FALSE" << endl;
       return false;
     }
 

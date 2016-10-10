@@ -42,7 +42,6 @@ def calculateTwoDPSF(flatfilename, specfilename):
     ftec = drpStella.FiberTraceProfileFittingControl()
 #    ftec.xCorProf = 20
     ftec.profileInterpolation = "SPLINE3"
-    ftec.ccdReadOutNoise = 1.
     ftec.telluric = "NONE"
     ftec.wingSmoothFactor = 2.
     ftec.overSample = 15
