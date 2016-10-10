@@ -209,19 +209,6 @@ Interface to Stella
 //%template(PSFSetD) pfs::drp::stella::PSFSet<double>;
 %template(markFiberTraceInMask) pfs::drp::stella::utils::markFiberTraceInMask<float, unsigned short, float>;
 
-%extend pfs::drp::stella::SpectrumSet{
-    %feature("shadow") writeFits %{
-    def writeFits(self, filename, flags=0):
-        """Write the catalog to a FITS binary table.
-
-        @param[in]  filename    Name of the file to write or a MemFileManager object.
-        @param[in]  flags       Subclass-defined flags to control the details of how
-                                the catalog is written.
-        """
-        $action(self, filename, flags)
-    %}
-}
-
 %template(SpectrumSetF) pfs::drp::stella::SpectrumSet<float, unsigned short, float, float>;
 %template(SpectrumSetD) pfs::drp::stella::SpectrumSet<double, unsigned short, float, float>;
 //%template(SpectrumSet) pfs::drp::stella::SpectrumSet<float, unsigned int, float, float>;

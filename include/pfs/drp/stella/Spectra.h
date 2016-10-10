@@ -342,37 +342,6 @@ class SpectrumSet// : public lsst::daf::base::Persistable,
     /// Removes from the vector either a single element (position) or a range of elements ([first,last)).
     /// This effectively reduces the container size by the number of elements removed, which are destroyed.
     bool erase(const size_t iStart, const size_t iEnd=0);
-    
-    /**
-     *  @brief Write a FITS binary table to an open file object.
-     *
-     *  @param[in,out] fitsfile Fits file object to write to.
-     *  @param[in] flags        Table-subclass-dependent bitflags that control the details of how to
-     *                          read the catalogs.  See e.g. SourceFitsFlags.
-     */
-    void writeFits(lsst::afw::fits::Fits & fitsfile, int flags=0) const;
-    
-    /**
-     *  @brief Write a FITS binary table to an open file object.
-     *
-     *  @param[in] fileName     Fits file object to write to.
-     *  @param[in] flags        Table-subclass-dependent bitflags that control the details of how to
-     *                          read the catalogs.  See e.g. SourceFitsFlags.
-     */
-    void writeFits( std::string const& fileName, int flags=0) const;
-
-    /**
-     *  @brief Write a MaskedImage to a FITS RAM file.
-     *
-     *  @param[in] manager       Manager object for the memory block to write to.
-     *  @param[in] flags        Table-subclass-dependent bitflags that control the details of how to
-     *                          read the catalogs.  See e.g. SourceFitsFlags.
-     *
-     *  The FITS file will have four HDUs; the primary HDU will contain only metadata,
-     *  while the image, mask, and variance HDU headers will use the "INHERIT='T'" convention
-     *  to indicate that the primary metadata applies to those HDUs as well.
-     */
-    void writeFits( lsst::afw::fits::MemFileManager & manager, int flags=0 ) const;
 
     /**
      *  @brief Read a SpectrumSet from a regular FITS file.
