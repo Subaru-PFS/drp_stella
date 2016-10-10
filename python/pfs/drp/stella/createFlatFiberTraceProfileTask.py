@@ -15,11 +15,6 @@ class CreateFlatFiberTraceProfileConfig(pexConfig.Config):
             doc = "Method for determining the spatial profile, [PISKUNOV, SPLINE3], default: PISKUNOV",
             dtype = str,
             default = "SPLINE3")
-        ccdReadOutNoise = pexConfig.Field(
-            doc = "CCD readout noise",
-            dtype = float,
-            default = 1.,
-            check = lambda x : x > 0.)
         swathWidth = pexConfig.Field(
             doc = "Size of individual extraction swaths",
             dtype = int,
@@ -86,7 +81,6 @@ class CreateFlatFiberTraceProfileTask(Task):
         # --- create FiberTraceProfileFittingControl
         fiberTraceProfileFittingControl = drpStella.FiberTraceProfileFittingControl()
         fiberTraceProfileFittingControl.profileInterpolation = self.config.profileInterpolation
-        fiberTraceProfileFittingControl.ccdReadOutNoise = self.config.ccdReadOutNoise
         fiberTraceProfileFittingControl.swathWidth = self.config.swathWidth
         fiberTraceProfileFittingControl.telluric = self.config.telluric
         fiberTraceProfileFittingControl.overSample = self.config.overSample
