@@ -191,7 +191,7 @@ Now for using the pipeline.
 - In order to extract the arc spectra we first need to identify and trace
   the apertures for each fiber. This is what constructFiberTrace.py does::
       
-     constructFiberTrace.py $PFS_DATA --rerun USERNAME/tmp --id visit=5 dateObs=2015-12-22 arm=r spectrograph=2 --calibId calibVersion=fiberTrace calibDate=2015-12-22 arm=r spectrograph=2
+     constructFiberTrace.py $PFS_DATA --rerun USERNAME/tmp --id visit=5 dateObs=2015-12-22 arm=r spectrograph=2 --calibId calibVersion=fiberTrace calibDate=2015-12-22 arm=r spectrograph=2 --cores 1
      genCalibRegistry.py --root $PFS_DATA/CALIB --camera PFS --validity 180
      
 
