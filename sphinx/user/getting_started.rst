@@ -32,7 +32,7 @@ Installation
     
 where XXX is the root of your conda installation (check that it has an envs directory!).
 Again, for your convenience you might want to add this line to your :file:`.bashrc` as well
-(or follow the steps at the bottom `Initializing the pipeline`).
+(or follow the steps at in `Initializing the pipeline`).
     
 - The test data are quite large (~38 MB) and are stored in git using git-lfs. We therefore
   need to install git-lfs (https://git-lfs.github.com/). Please follow the instructions at
@@ -54,8 +54,10 @@ Again, for your convenience you might want to add this line to your :file:`.bash
      conda install gcc
 
 - For the convenience of this quick-start guide, create a directory for the PFS-DRP
-  repositories and an environment variable to refer to it::
+  repositories and an environment variable to refer to it, plus an environment variable
+  that contains your user name::
 
+     export whoami=$(whoami)
      export PFS_DRP=<your_target_directory>   # e.g. export PFS_DRP=$HOME/PFS
      mkdir -p $PFS_DRP
      cd $PFS_DRP
@@ -104,6 +106,7 @@ Again, for your convenience you might want to add this line to your :file:`.bash
      git checkout tickets/PIPE2D-68
      setup -r .
      scons -Q opt=3 -j8 --filterWarn
+     eups declare -r $DATAMODEL_DIR -c
 
      cd $PFS_DRP/drp_stella
      git checkout tickets/PIPE2D-48
@@ -187,7 +190,7 @@ Now for using the pipeline.
   The data we want to reduce were observed/simulated on 2015-12-22 on
   spectrograph 2, arm ``r`` (“red”) at site ``S`` (“Summit”).
 
-  The parameter ``--rerun USERNAME/tmp`` (substitute USERNAME with your name)
+  The parameter ``--rerun $whoami/tmp``
   specifies where to store temporary pipeline outputs. Please refer to
   https://lsst-web.ncsa.illinois.edu/doxygen/x_masterDoxyDoc/pipe_base.html#pipeBase_argumentParser_rerun
   for a detailed description of the ``rerun`` parameter.
@@ -200,7 +203,7 @@ Now for using the pipeline.
   lead to problems (in most cases caused by the 3rd-party libraries used), so
   setting cores to 1 is a safe choice::
 
-     constructBias.py $PFS_DATA --rerun USERNAME/tmp --id field=BIAS dateObs=2015-12-22 arm=r spectrograph=2 \
+     constructBias.py $PFS_DATA --rerun $whoami/tmp --id field=BIAS dateObs=2015-12-22 arm=r spectrograph=2 \
      --calibId calibVersion=bias calibDate=2015-12-22 arm=r spectrograph=2 --cores 1
 
 - Now that we have a master bias we need to ingest that into our calibration
@@ -212,10 +215,9 @@ Now for using the pipeline.
      genCalibRegistry.py --root $PFS_DATA/CALIB --camera PFS --validity 180
 
 - Now we can create a trimmed and scaled, Bias-subtracted master Dark and
-  ingest that into our calibration registry. Again, you need to substitute
-  ``USERNAME`` with your name::
+  ingest that into our calibration registry::
 
-     constructDark.py $PFS_DATA --rerun USERNAME/tmp --id field=DARK dateObs=2015-12-22 arm=r spectrograph=2 \
+     constructDark.py $PFS_DATA --rerun $whoami/tmp --id field=DARK dateObs=2015-12-22 arm=r spectrograph=2 \
      --calibId calibVersion=dark calibDate=2015-12-22 arm=r spectrograph=2 --cores 1
      genCalibRegistry.py --root $PFS_DATA/CALIB --camera PFS --validity 180
 
@@ -226,8 +228,8 @@ Now for using the pipeline.
   all Flats taken 2015-12-22 for spectrograph 2, red arm, you would replace
   ``visit=5`` with ``field=FLAT arm=r dateObs=2015-12-22 spectrograph=2``::
       
-     constructFiberTrace.py $PFS_DATA --rerun USERNAME/tmp --id visit=5 dateObs=2015-12-22 arm=r spectrograph=2 \
-     --calibId calibVersion=fiberTrace calibDate=2015-12-22 arm=r spectrograph=2 --cores 1
+     constructFiberTrace.py $PFS_DATA --rerun $whoami/tmp --id visit=5 dateObs=2015-12-22 arm=r spectrograph=2 \
+     --calibId calibVersion=fiberTrace calibDate=2015-12-22 arm=r spectrograph=2 --cores 1 --no-versions
      genCalibRegistry.py --root $PFS_DATA/CALIB --camera PFS --validity 180
      
 - Since we have the Bias and Dark we can now perform the
@@ -241,12 +243,12 @@ Now for using the pipeline.
   field=ARC``. Note that this time you need to specify the output directory as
   we will need the ``postISRCCD`` image in the next step::
 
-     detrend.py $PFS_DATA --rerun USERNAME/tmp --id visit=4
+     detrend.py $PFS_DATA --rerun $whoami/tmp --id visit=4 -c isr.doBias=True isr.doDark=True isr.doFlat=False
 
 - We now have the ``postISRCCD`` image for our Arc and can extract and
   wavelength-calibrate our CdHgKrNeXe Arc with the visit number 4::
 
-     reduceArc.py $PFS_DATA --rerun USERNAME/tmp --id visit=4
+     reduceArc.py $PFS_DATA --rerun $whoami/tmp --id visit=4
 
   This program will write a pfsArm file as described in the data model
   (https://github.com/Subaru-PFS/datamodel/blob/master/datamodel.txt).
