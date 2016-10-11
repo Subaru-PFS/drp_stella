@@ -144,20 +144,22 @@ void ensureMetadata(PTR(lsst::daf::base::PropertySet) & metadata) {
 ///SpectrumSet
 template<typename SpectrumT, typename MaskT, typename VarianceT, typename WavelengthT>
 pfsDRPStella::SpectrumSet<SpectrumT, MaskT, VarianceT, WavelengthT>::SpectrumSet( size_t nSpectra, size_t length )
-        : _spectra()
+        : _spectra( new std::vector< PTR( Spectrum< SpectrumT, MaskT, VarianceT, WavelengthT > ) >() )
 {
   for (size_t i = 0; i < nSpectra; ++i){
-    pfsDRPStella::Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT> spec( length );
-    _spectra.push_back(spec);
-    _spectra[i].setITrace( i );
+    PTR(pfsDRPStella::Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>) spec( new pfsDRPStella::Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>( length, i ) );
+    _spectra->push_back(spec);
   }
 }
     
 template<typename SpectrumT, typename MaskT, typename VarianceT, typename WavelengthT>
-pfsDRPStella::SpectrumSet<SpectrumT, MaskT, VarianceT, WavelengthT>::SpectrumSet( std::vector< Spectrum< SpectrumT, MaskT, VarianceT, WavelengthT> > const& spectrumVector )
-        ://     lsst::daf::base::Citizen(typeid(this)),
-              _spectra(spectrumVector)
-{}
+pfsDRPStella::SpectrumSet<SpectrumT, MaskT, VarianceT, WavelengthT>::SpectrumSet( PTR( std::vector< PTR( Spectrum< SpectrumT, MaskT, VarianceT, WavelengthT> ) > ) const& spectrumVector )
+        : _spectra( new std::vector< PTR( Spectrum< SpectrumT, MaskT, VarianceT, WavelengthT > ) >() )
+{
+  for (size_t i = 0; i < spectrumVector->size(); ++i){
+    _spectra->push_back( spectrumVector->at(i) );
+  }
+}
 
 template<typename SpectrumT, typename MaskT, typename VarianceT, typename WavelengthT>
 pfsDRPStella::SpectrumSet<SpectrumT, MaskT, VarianceT, WavelengthT>::SpectrumSet( std::string const & fileName,
@@ -169,7 +171,7 @@ pfsDRPStella::SpectrumSet<SpectrumT, MaskT, VarianceT, WavelengthT>::SpectrumSet
         PTR(lsst::daf::base::PropertySet) wDispMetadata,
         PTR(lsst::daf::base::PropertySet) skyMetadata )
 :
-      _spectra()
+      _spectra( new std::vector< PTR(Spectrum< SpectrumT, MaskT, VarianceT, WavelengthT > ) >() )
 {
     lsst::afw::fits::Fits fitsfile(fileName, "r", lsst::afw::fits::Fits::AUTO_CLOSE | lsst::afw::fits::Fits::AUTO_CHECK);
     *this = SpectrumSet(fitsfile, metadata,
@@ -186,7 +188,7 @@ pfsDRPStella::SpectrumSet<SpectrumT, MaskT, VarianceT, WavelengthT>::SpectrumSet
         PTR(lsst::daf::base::PropertySet) wDispMetadata,
         PTR(lsst::daf::base::PropertySet) skyMetadata )
 ://     lsst::daf::base::Citizen(typeid(this)),
-      _spectra()
+      _spectra( new std::vector< PTR(Spectrum< SpectrumT, MaskT, VarianceT, WavelengthT > ) >( ) )
 {
     lsst::afw::fits::Fits fitsfile(const_cast< lsst::afw::fits::MemFileManager& >(manager), "r", lsst::afw::fits::Fits::AUTO_CLOSE | lsst::afw::fits::Fits::AUTO_CHECK);
     *this = SpectrumSet(fitsfile, metadata, 
@@ -194,7 +196,7 @@ pfsDRPStella::SpectrumSet<SpectrumT, MaskT, VarianceT, WavelengthT>::SpectrumSet
 }
 
 template<typename SpectrumT, typename MaskT, typename VarianceT, typename WavelengthT>
-pfsDRPStella::SpectrumSet<SpectrumT, MaskT, VarianceT, WavelengthT>::SpectrumSet(         
+pfsDRPStella::SpectrumSet<SpectrumT, MaskT, VarianceT, WavelengthT>::SpectrumSet(
         lsst::afw::fits::Fits const& fitsfile,
         PTR(lsst::daf::base::PropertySet) metadata,
         PTR(lsst::daf::base::PropertySet) fluxMetadata,
@@ -205,7 +207,7 @@ pfsDRPStella::SpectrumSet<SpectrumT, MaskT, VarianceT, WavelengthT>::SpectrumSet
         PTR(lsst::daf::base::PropertySet) skyMetadata
  )
 ://     lsst::daf::base::Citizen(typeid(this)),
-      _spectra()
+      _spectra(new std::vector< PTR(Spectrum< SpectrumT, MaskT, VarianceT, WavelengthT > ) >( ) )
 {
 /*    typedef boost::mpl::vector<
         unsigned char, 
