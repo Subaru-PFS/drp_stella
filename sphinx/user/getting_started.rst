@@ -287,7 +287,7 @@ Now for using the pipeline.
   the apertures for each fiber. This is what constructFiberTrace.py does.
   In our data set visit 104 is the only non-dithered flat, so specifying
   ``--id visit=104`` is all we need to specify for our flat to be found::
-      
+
      constructFiberTrace.py $PFS_DATA --rerun $whoami/tmp --id visit=104 --calibId calibVersion=fiberTrace calibDate=2016-11-11 arm=r spectrograph=1 --batch-type none
      genCalibRegistry.py --root $PFS_DATA/CALIB --validity 360
 
