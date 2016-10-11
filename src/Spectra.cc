@@ -16,7 +16,7 @@ pfsDRPStella::Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>::Spectrum(size_
   _spectrum = ndarray::allocate( length );
   _sky = ndarray::allocate( length );
   _mask = ndarray::allocate( length );
-  _covar = ndarray::allocate( 5, length );
+  _covar = ndarray::allocate( length, 3 );
   _wavelength = ndarray::allocate( length );
   _dispersion = ndarray::allocate( length );
   _dispCoeffs = ndarray::allocate( _dispCorControl->order + 1 );

@@ -76,7 +76,7 @@ class Spectrum {
     
     /// Return a copy of the variance of this spectrum
     ndarray::Array<VarianceT, 1, 1> getVariance() const;// { return _covar[ ndarray::view( )( 1 ) ]; }
-//    ndarray::Array<VarianceT, 1, 1> getVariance();// { return _covar[ ndarray::view( )( 1 ) ]; }
+    ndarray::Array<VarianceT, 1, 1> getVariance();// { return _covar[ ndarray::view( )( 1 ) ]; }
     
     /// Return the pointer to the covariance of this spectrum
     ndarray::Array<VarianceT, 2, 1> getCovar() { return _covar; }

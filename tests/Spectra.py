@@ -313,7 +313,7 @@ class SpectraTestCase(tests.TestCase):
                 message = str.split(e.message, "\n")
                 for i in range(len(message)):
                     print "element",i,": <",message[i],">"
-                expected = "in method 'SpectrumSetF_setSpectrum', argument 2 of type 'size_t'"
+                expected = "Wrong number or type of arguments for overloaded function 'SpectrumSetF_setSpectrum'."
                 self.assertEqual(message[0],expected)
             try:
                 specSet.setSpectrum(size+1, specNew)
