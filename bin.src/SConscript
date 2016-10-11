@@ -1,7 +1,3 @@
 # -*- python -*-
 from lsst.sconsUtils import scripts
 scripts.BasicSConscript.shebang()
-<<<<<<< HEAD
-=======
-
->>>>>>> 466091b... Add bin.src/SConscript
