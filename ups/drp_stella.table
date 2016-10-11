@@ -2,6 +2,7 @@ setupRequired(pipe_tasks)
 setupRequired(pipe_drivers)
 setupRequired(afw)
 setupRequired(obs_pfs)
+setupRequired(datamodel)
 setupRequired(eigen 3.2.5.lsst2 [>= 3.2.5.lsst2])
 setupRequired(sconsUtils)
 
