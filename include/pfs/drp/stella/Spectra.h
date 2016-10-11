@@ -55,9 +55,7 @@ class Spectrum {
               size_t iTrace = 0,
               bool deep = false );
 
-    /// i is only a placeholder to separate this copy constructor from the the previous one
     Spectrum( Spectrum const& spectrum );//,
-//              int i );
     
     virtual ~Spectrum() {}
 
@@ -76,9 +74,9 @@ class Spectrum {
 
     bool setSky( ndarray::Array< SpectrumT, 1, 1 > const& sky );
     
-    /// Return the pointer to the variance of this spectrum
-    ndarray::Array<VarianceT, 1, 1> getVariance() { return ndarray::Array<VarianceT, 1, 1 >(_covar[ ndarray::view( 3 )( ) ]); }
-    const ndarray::Array<VarianceT, 1, 1> getVariance() const { return _covar[ ndarray::view( 3 )( ) ]; }
+    /// Return a copy of the variance of this spectrum
+    ndarray::Array<VarianceT, 1, 1> getVariance() const;// { return _covar[ ndarray::view( )( 1 ) ]; }
+    ndarray::Array<VarianceT, 1, 1> getVariance();// { return _covar[ ndarray::view( )( 1 ) ]; }
     
     /// Return the pointer to the covariance of this spectrum
     ndarray::Array<VarianceT, 2, 1> getCovar() { return _covar; }
@@ -232,7 +230,7 @@ class SpectrumSet// : public lsst::daf::base::Persistable,
         {}
 
     /// Construct an object with a copy of spectrumVector
-    explicit SpectrumSet( std::vector< Spectrum< SpectrumT, MaskT, VarianceT, WavelengthT > > const& spectrumVector);
+    explicit SpectrumSet(PTR(std::vector<PTR(Spectrum< SpectrumT, MaskT, VarianceT, WavelengthT>)>) const& spectrumVector);
 
     /**
      *  @brief Construct a SpectrumSet by reading a regular FITS file.
@@ -306,7 +304,7 @@ class SpectrumSet// : public lsst::daf::base::Persistable,
     virtual ~SpectrumSet() {}
 
     /// Return the number of spectra/apertures
-    size_t size() const { return _spectra.size(); }
+    size_t size() const { return _spectra->size(); }
 
     /** @brief  Return the Spectrum for the ith fiberTrace
      *  @param i :: number of spectrum ( or number of respective FiberTrace ) to return
@@ -315,29 +313,43 @@ class SpectrumSet// : public lsst::daf::base::Persistable,
 
     /** @brief  Return the Spectrum for the ith fiberTrace
      *  @param i :: number of spectrum ( or number of respective FiberTrace ) to return
-     * **/
+     **/
     PTR( Spectrum< SpectrumT, MaskT, VarianceT, WavelengthT > ) getSpectrum( const size_t i ) const;
 
     /**
      * @brief Set the ith Spectrum
      * @param i :: Set which spectrum in set?
-     * @param spectrum :: spectrum to copy to this set at position i
-     * */
+     * @param spectrum :: spectrum to set to this set at position i
+     **/
+    bool setSpectrum(size_t const i,
+                     PTR( Spectrum< SpectrumT, MaskT, VarianceT, WavelengthT > ) const& spectrum);
+    
+    /**
+     * @brief Set the ith Spectrum
+     * @param i :: Set which spectrum in set?
+     *      * @param spectrum :: spectrum to copy to this set at position i
+     **/
     bool setSpectrum(size_t const i,
                      Spectrum< SpectrumT, MaskT, VarianceT, WavelengthT > const& spectrum);
 
-    /// add one Spectrum to the set
-    void addSpectrum( Spectrum< SpectrumT, MaskT, VarianceT, WavelengthT > const& spectrum ) {
-        _spectra.push_back( spectrum );
+    /** 
+     * @brief Add one Spectrum to the set
+     * @param spectrum :: spectrum to add 
+     **/
+    void addSpectrum(Spectrum< SpectrumT, MaskT, VarianceT, WavelengthT > const& spectrum) {
+        _spectra->push_back(PTR(Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>)(new Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>(spectrum)));
     }
     
-    void addSpectrum( PTR( Spectrum< SpectrumT, MaskT, VarianceT, WavelengthT > ) const& spectrum ){
-        _spectra.push_back( *spectrum );
+    /** 
+     * @brief Add one Spectrum to the set
+     * @param spectrum :: spectrum to add 
+     **/
+    void addSpectrum(PTR(Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>) const& spectrum){
+        _spectra->push_back(spectrum);
     }
 
-    const std::vector< Spectrum< SpectrumT, MaskT, VarianceT, WavelengthT > > getSpectra() const { return _spectra; }
-    std::vector< Spectrum< SpectrumT, MaskT, VarianceT, WavelengthT > > getSpectra() { return _spectra; }
-
+    const PTR( std::vector< PTR( Spectrum< SpectrumT, MaskT, VarianceT, WavelengthT > ) > ) getSpectra() const { return _spectra; }
+    PTR( std::vector< PTR( Spectrum< SpectrumT, MaskT, VarianceT, WavelengthT > ) > ) getSpectra() { return _spectra; }
     
     /// Removes from the vector either a single element (position) or a range of elements ([first,last)).
     /// This effectively reduces the container size by the number of elements removed, which are destroyed.
@@ -364,7 +376,7 @@ class SpectrumSet// : public lsst::daf::base::Persistable,
     }
     
   private:
-    std::vector< Spectrum< SpectrumT, MaskT, VarianceT, WavelengthT > > _spectra; // spectra for each aperture
+    PTR( std::vector< PTR(Spectrum< SpectrumT, MaskT, VarianceT, WavelengthT > ) > ) _spectra; // spectra for each aperture
 };
 
 namespace math{

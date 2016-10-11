@@ -306,9 +306,9 @@ namespace pfsDRPStella = pfs::drp::stella;
   }
   
   template<typename ImageT, typename MaskT, typename VarianceT>
-  pfsDRPStella::Spectrum<ImageT, MaskT, VarianceT, VarianceT> pfsDRPStella::FiberTrace<ImageT, MaskT, VarianceT>::extractSum()
+  PTR(pfsDRPStella::Spectrum<ImageT, MaskT, VarianceT, VarianceT>) pfsDRPStella::FiberTrace<ImageT, MaskT, VarianceT>::extractSum()
   {
-    pfsDRPStella::Spectrum<ImageT, MaskT, VarianceT, VarianceT> spectrum( _trace->getHeight(), _iTrace );
+    PTR( pfsDRPStella::Spectrum<ImageT, MaskT, VarianceT, VarianceT> ) spectrum( new pfsDRPStella::Spectrum< ImageT, MaskT, VarianceT, VarianceT >( _trace->getHeight(), _iTrace ) );
     ndarray::Array<ImageT, 1, 1> spec = ndarray::allocate(_trace->getHeight());
     ndarray::Array<MaskT, 1, 1> mask = ndarray::allocate(_trace->getHeight());
     ndarray::Array<VarianceT, 1, 1> var = ndarray::allocate(_trace->getHeight());
@@ -320,39 +320,39 @@ namespace pfsDRPStella = pfs::drp::stella;
       *varIt = sum(_trace->getVariance()->getArray()[i]);
       *maskIt = sum(_trace->getMask()->getArray()[i]);
     }
-    if ( !spectrum.setSpectrum( spec ) ){
+    if ( !spectrum->setSpectrum( spec ) ){
       string message("FiberTrace");
-      message += to_string(_iTrace) + "::extractSum: ERROR: spectrum.setSpectrum(spec) returned FALSE";
+      message += to_string(_iTrace) + "::extractSum: ERROR: spectrum->setSpectrum(spec) returned FALSE";
       cout << message << endl;
       throw LSST_EXCEPT(pexExcept::Exception, message.c_str());    
     }
-    if (!spectrum.setVariance(var)){
+    if (!spectrum->setVariance(var)){
       string message("FiberTrace");
-      message += to_string(_iTrace) + "::extractSum: ERROR: spectrum.setVariance(var) returned FALSE";
+      message += to_string(_iTrace) + "::extractSum: ERROR: spectrum->setVariance(var) returned FALSE";
       cout << message << endl;
       throw LSST_EXCEPT(pexExcept::Exception, message.c_str());    
     }
-    if (!spectrum.setMask(mask)){
+    if (!spectrum->setMask(mask)){
       string message("FiberTrace");
-      message += to_string(_iTrace) + "::extractSum: ERROR: spectrum.setMask(mask) returned FALSE";
+      message += to_string(_iTrace) + "::extractSum: ERROR: spectrum->setMask(mask) returned FALSE";
       cout << message << endl;
       throw LSST_EXCEPT(pexExcept::Exception, message.c_str());    
     }
-    if ( !spectrum.setNCCDRows( getHeight() ) ){
+    if ( !spectrum->setNCCDRows( getHeight() ) ){
       string message( "FiberTrace" );
-      message += to_string(_iTrace) + "::extractSum: ERROR: spectrum.setNCCDRows(getHeight()) returned FALSE";
+      message += to_string(_iTrace) + "::extractSum: ERROR: spectrum->setNCCDRows(getHeight()) returned FALSE";
       cout << message << endl;
       throw LSST_EXCEPT(pexExcept::Exception, message.c_str());    
     }
-    if ( !spectrum.setYLow( _fiberTraceFunction->yCenter + _fiberTraceFunction->yLow ) ){
+    if ( !spectrum->setYLow( _fiberTraceFunction->yCenter + _fiberTraceFunction->yLow ) ){
       string message( "FiberTrace" );
-      message += to_string(_iTrace) + "::extractSum: ERROR: spectrum.setYLow(_fiberTraceFunction->yCenter + _fiberTraceFunction->yLow) returned FALSE";
+      message += to_string(_iTrace) + "::extractSum: ERROR: spectrum->setYLow(_fiberTraceFunction->yCenter + _fiberTraceFunction->yLow) returned FALSE";
       cout << message << endl;
       throw LSST_EXCEPT(pexExcept::Exception, message.c_str());    
     }
-    if ( !spectrum.setYHigh( _fiberTraceFunction->yCenter + _fiberTraceFunction->yHigh ) ){
+    if ( !spectrum->setYHigh( _fiberTraceFunction->yCenter + _fiberTraceFunction->yHigh ) ){
       string message( "FiberTrace" );
-      message += to_string(_iTrace) + "::extractSum: ERROR: spectrum.setYHigh(_fiberTraceFunction->yCenter + _fiberTraceFunction->yHigh) returned FALSE";
+      message += to_string(_iTrace) + "::extractSum: ERROR: spectrum->setYHigh(_fiberTraceFunction->yCenter + _fiberTraceFunction->yHigh) returned FALSE";
       cout << message << endl;
       throw LSST_EXCEPT(pexExcept::Exception, message.c_str());    
     }
@@ -360,7 +360,7 @@ namespace pfsDRPStella = pfs::drp::stella;
   }
   
   template<typename ImageT, typename MaskT, typename VarianceT>
-  pfsDRPStella::Spectrum<ImageT, MaskT, VarianceT, VarianceT> pfsDRPStella::FiberTrace<ImageT, MaskT, VarianceT>::extractFromProfile()
+  PTR( pfsDRPStella::Spectrum<ImageT, MaskT, VarianceT, VarianceT> ) pfsDRPStella::FiberTrace<ImageT, MaskT, VarianceT>::extractFromProfile()
   {
     if (!_isTraceSet){
       cout << "FiberTrace.extractFromProfile: ERROR: _trace is not set" << endl;
@@ -478,41 +478,77 @@ namespace pfsDRPStella = pfs::drp::stella;
 //    D_A1_Sky.asEigen() = skyEigen;
 //    D_A2_Sigma_Fit.asEigen() = *P_D_A2_Sigma_Fit;
 
-    pfsDRPStella::Spectrum<ImageT, MaskT, VarianceT, VarianceT> spectrum( _trace->getHeight() );
-    pfsDRPStella::Spectrum<ImageT, MaskT, VarianceT, VarianceT> background( _trace->getHeight() );
+    PTR( pfsDRPStella::Spectrum<ImageT, MaskT, VarianceT, VarianceT> ) spectrum( new pfsDRPStella::Spectrum< ImageT, MaskT, VarianceT, VarianceT >( _trace->getHeight() ) );
+    PTR( pfsDRPStella::Spectrum<ImageT, MaskT, VarianceT, VarianceT> ) background( new pfsDRPStella::Spectrum< ImageT, MaskT, VarianceT, VarianceT >( _trace->getHeight() ) );
     #ifdef __DEBUG_EXTRACTFROMPROFILE__
       cout << "FiberTrace" << _iTrace << "::extractFromProfile: D_A1_SP = " << D_A1_SP << endl;
       cout << "FiberTrace" << _iTrace << "::extractFromProfile: D_A2_Sigma_Fit = " << D_A2_Sigma_Fit << endl;
       cout << "P_D_A2_Sigma_Fit = " << *P_D_A2_Sigma_Fit << endl;
     #endif
+    ndarray::Array< ImageT, 1, 1 > spectrumSpecOut = ndarray::allocate(_trace->getHeight());
+    ndarray::Array< VarianceT, 1, 1 > spectrumVarOut = ndarray::allocate(_trace->getHeight());
+    ndarray::Array< ImageT, 1, 1 > backgroundSpecOut = ndarray::allocate(_trace->getHeight());
+    ndarray::Array< VarianceT, 1, 1 > backgroundVarOut = ndarray::allocate(_trace->getHeight());
     for (int i = 0; i < _trace->getHeight(); i++) {
-      spectrum.getSpectrum()[ i ] = ImageT( D_A1_SP[ i ] );
-      spectrum.getVariance()[ i ] = VarianceT( pow( D_A2_Sigma_Fit[ i ][ 0 ], 2) );
-      background.getSpectrum()[ i ] = ImageT( D_A1_Sky[ i ] );
-      background.getVariance()[ i ] = VarianceT( pow( D_A2_Sigma_Fit[ i ][ 1 ], 2 ) );
+      spectrumSpecOut[ i ] = ImageT( D_A1_SP[ i ] );
+      spectrumVarOut[ i ] = VarianceT( pow( D_A2_Sigma_Fit[ i ][ 0 ], 2) );
+      backgroundSpecOut[ i ] = ImageT( D_A1_Sky[ i ] );
+      backgroundVarOut[ i ] = VarianceT( pow( D_A2_Sigma_Fit[ i ][ 1 ], 2 ) );
     }
-    if ( !spectrum.setNCCDRows( getHeight() ) ){
+    if (!spectrum->setSpectrum(spectrumSpecOut)){
       string message( "FiberTrace" );
-      message += to_string(_iTrace) + "::extractSum: ERROR: spectrum.setNCCDRows(getHeight()) returned FALSE";
+      message += to_string(_iTrace) + "::extractSum: ERROR: spectrum->setSpectrum(spectrumSpecOut) returned FALSE";
       cout << message << endl;
       throw LSST_EXCEPT(pexExcept::Exception, message.c_str());    
     }
-    if ( !spectrum.setYLow( _fiberTraceFunction->yCenter + _fiberTraceFunction->yLow ) ){
+    if (!spectrum->setVariance(spectrumVarOut)){
       string message( "FiberTrace" );
-      message += to_string(_iTrace) + "::extractSum: ERROR: spectrum.setYLow(_fiberTraceFunction->yCenter + _fiberTraceFunction->yLow) returned FALSE";
+      message += to_string(_iTrace) + "::extractSum: ERROR: spectrum->setVariance(spectrumVarOut) returned FALSE";
       cout << message << endl;
       throw LSST_EXCEPT(pexExcept::Exception, message.c_str());    
     }
-    if ( !spectrum.setYHigh( _fiberTraceFunction->yCenter + _fiberTraceFunction->yHigh ) ){
+    if (!background->setSpectrum(backgroundSpecOut)){
       string message( "FiberTrace" );
-      message += to_string(_iTrace) + "::extractSum: ERROR: spectrum.setYHigh(_fiberTraceFunction->yCenter + _fiberTraceFunction->yHigh) returned FALSE";
+      message += to_string(_iTrace) + "::extractSum: ERROR: background->setSpectrum(backgroundSpecOut) returned FALSE";
       cout << message << endl;
       throw LSST_EXCEPT(pexExcept::Exception, message.c_str());    
     }
-    spectrum.setITrace( _iTrace );
+    if (!background->setVariance(backgroundVarOut)){
+      string message( "FiberTrace" );
+      message += to_string(_iTrace) + "::extractSum: ERROR: background->setVariance(backgroundVarOut) returned FALSE";
+      cout << message << endl;
+      throw LSST_EXCEPT(pexExcept::Exception, message.c_str());    
+    }
     #ifdef __DEBUG_EXTRACTFROMPROFILE__
-      cout << "FiberTrace" << _iTrace << "::extractFromProfile: spectrum.getSpectrum() = " << spectrum.getSpectrum() << endl;
-      cout << "FiberTrace" << _iTrace << "::extractFromProfile: spectrum.getVariance() = " << spectrum.getVariance() << endl;
+      cout << "FiberTrace" << _iTrace << "::extractFromProfile: for loop finished" << endl;
+      cout << "FiberTrace" << _iTrace << "::extractFromProfile: starting spectrum->setNCCDRows( getHeight()=" << getHeight() << " )" << endl;
+    #endif
+    if ( !spectrum->setNCCDRows( getHeight() ) ){
+      string message( "FiberTrace" );
+      message += to_string(_iTrace) + "::extractSum: ERROR: spectrum->setNCCDRows(getHeight()) returned FALSE";
+      cout << message << endl;
+      throw LSST_EXCEPT(pexExcept::Exception, message.c_str());    
+    }
+    #ifdef __DEBUG_EXTRACTFROMPROFILE__
+      cout << "FiberTrace" << _iTrace << "::extractFromProfile: starting spectrum->getNCCDRows() = " << spectrum->getNCCDRows() << endl;
+      cout << "FiberTrace" << _iTrace << "::extractFromProfile: starting spectrum->setYLow( _fiberTraceFunction->yCenter + _fiberTraceFunction->yLow=" << _fiberTraceFunction->yCenter + _fiberTraceFunction->yLow << " )" << endl;
+    #endif
+    if ( !spectrum->setYLow( _fiberTraceFunction->yCenter + _fiberTraceFunction->yLow ) ){
+      string message( "FiberTrace" );
+      message += to_string(_iTrace) + "::extractSum: ERROR: spectrum->setYLow(_fiberTraceFunction->yCenter + _fiberTraceFunction->yLow) returned FALSE";
+      cout << message << endl;
+      throw LSST_EXCEPT(pexExcept::Exception, message.c_str());    
+    }
+    if ( !spectrum->setYHigh( _fiberTraceFunction->yCenter + _fiberTraceFunction->yHigh ) ){
+      string message( "FiberTrace" );
+      message += to_string(_iTrace) + "::extractSum: ERROR: spectrum->setYHigh(_fiberTraceFunction->yCenter + _fiberTraceFunction->yHigh) returned FALSE";
+      cout << message << endl;
+      throw LSST_EXCEPT(pexExcept::Exception, message.c_str());    
+    }
+    spectrum->setITrace( _iTrace );
+    #ifdef __DEBUG_EXTRACTFROMPROFILE__
+      cout << "FiberTrace" << _iTrace << "::extractFromProfile: spectrum->getSpectrum() = " << spectrum->getSpectrum() << endl;
+      cout << "FiberTrace" << _iTrace << "::extractFromProfile: spectrum->getVariance() = " << spectrum->getVariance() << endl;
     #endif
     return spectrum;
   }
@@ -1445,7 +1481,7 @@ namespace pfsDRPStella = pfs::drp::stella;
   }
 
   template<typename ImageT, typename MaskT, typename VarianceT>
-  pfsDRPStella::Spectrum<ImageT, MaskT, VarianceT, VarianceT> pfsDRPStella::FiberTraceSet<ImageT, MaskT, VarianceT>::extractTraceNumberFromProfile(const size_t traceNumber)
+  PTR( pfsDRPStella::Spectrum<ImageT, MaskT, VarianceT, VarianceT> ) pfsDRPStella::FiberTraceSet<ImageT, MaskT, VarianceT>::extractTraceNumberFromProfile(const size_t traceNumber)
   {
     return (*_traces)[traceNumber]->extractFromProfile();
   }
@@ -2621,10 +2657,10 @@ namespace pfsDRPStella = pfs::drp::stella;
       /// set ProfileFittingControl, fit spatial profile, and optimally extract Blaze function
       flatFiberTrace.setFiberTraceProfileFittingControl( fiberTraceProfileFittingControl );
       flatFiberTrace.calcProfile();
-      Spectrum<ImageT, MaskT, VarianceT, VarianceT> blazeFunc = flatFiberTrace.extractFromProfile();
+      PTR(Spectrum<ImageT, MaskT, VarianceT, VarianceT>) blazeFunc = flatFiberTrace.extractFromProfile();
       
       /// reconstruct dithered Flat from spectrum and profile
-      afwImage::Image< double > reconstructedFlatIm = flatFiberTrace.getReconstructed2DSpectrum( blazeFunc );
+      afwImage::Image< double > reconstructedFlatIm = flatFiberTrace.getReconstructed2DSpectrum( *blazeFunc );
 
       /// calculate minCenMax for wide and narrow FiberTraces
       ndarray::Array<size_t, 2, 1> minCenMaxWide = calcMinCenMax( xCenters,

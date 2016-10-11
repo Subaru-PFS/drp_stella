@@ -87,16 +87,34 @@ bool pfs::drp::stella::Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>::setSp
 }
 
 template<typename SpectrumT, typename MaskT, typename VarianceT, typename WavelengthT>
+ndarray::Array<VarianceT, 1, 1> pfs::drp::stella::Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>::getVariance()
+{
+    ndarray::Array< VarianceT, 1, 1 > variance = ndarray::allocate(_covar.getShape()[0]);
+    variance[ndarray::view()] = _covar[ ndarray::view( )( 1 ) ];
+    cout << "getVariance not const" << endl;
+    return variance;
+}
+
+template<typename SpectrumT, typename MaskT, typename VarianceT, typename WavelengthT>
+ndarray::Array<VarianceT, 1, 1> pfs::drp::stella::Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>::getVariance() const
+{
+    ndarray::Array< VarianceT, 1, 1 > variance = ndarray::allocate( _covar.getShape()[ 0 ] );
+    variance.deep() = _covar[ ndarray::view( )( 1 ) ];
+    cout << "getVariance const" << endl;
+    return variance;
+}
+
+template<typename SpectrumT, typename MaskT, typename VarianceT, typename WavelengthT>
 bool pfs::drp::stella::Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>::setVariance( ndarray::Array<VarianceT, 1, 1> const& variance )
 {
-  /// Check length of input covar
+  /// Check length of input variance
   if (static_cast<size_t>(variance.getShape()[0]) != _length) {
     string message("pfs::drp::stella::Spectrum::setVariance: ERROR: variance->size()=");
     message += to_string( variance.getShape()[ 0 ] ) + string( " != _length=" ) + to_string( _length );
     cout << message << endl;
     throw LSST_EXCEPT(pexExcept::Exception, message.c_str());    
   }
-  _covar[ ndarray::view( 3 )( ) ] = variance;
+  _covar[ ndarray::view()(1) ] = variance;
   return true;
 }
 
@@ -104,9 +122,15 @@ template<typename SpectrumT, typename MaskT, typename VarianceT, typename Wavele
 bool pfs::drp::stella::Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>::setCovar(const ndarray::Array<VarianceT, 2, 1> & covar )
 {
     /// Check length of input covar
-    if (static_cast<size_t>(covar.getShape()[1]) != _length) {
+    if (static_cast<size_t>(covar.getShape()[0]) != _length) {
       string message("pfs::drp::stella::Spectrum::setCovar: ERROR: covar->size()=");
-      message += to_string( covar.getShape()[ 1 ] ) + string( " != _length=" ) + to_string( _length );
+      message += to_string( covar.getShape()[0] ) + string( " != _length=" ) + to_string( _length );
+      cout << message << endl;
+      throw LSST_EXCEPT(pexExcept::Exception, message.c_str());    
+    }
+    if (covar.getShape()[1] != 3) {
+      string message("pfs::drp::stella::Spectrum::setCovar: ERROR: covar->size()=");
+      message += to_string( covar.getShape()[1] ) + string( " != 3" );
       cout << message << endl;
       throw LSST_EXCEPT(pexExcept::Exception, message.c_str());    
     }
@@ -142,7 +166,7 @@ bool pfs::drp::stella::Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>::setLe
     #ifdef __DEBUG_SETLENGTH__
       cout << "pfs::drp::stella::Spectrum::setLength: _mask resized to " << _mask.getShape()[0] << endl;
     #endif
-    pfs::drp::stella::math::resize(_covar, 5, length);
+    pfs::drp::stella::math::resize(_covar, length, 3);
     #ifdef __DEBUG_SETLENGTH__
       cout << "pfs::drp::stella::Spectrum::setLength: _covar resized to " << _covar.getShape()[0] << "x" << _covar.getShape()[1] << endl;
     #endif
@@ -638,61 +662,81 @@ template<typename ImageT, typename MaskT, typename VarianceT, typename Wavelengt
 PTR( pfs::drp::stella::Spectrum< ImageT, MaskT, VarianceT, WavelengthT > ) pfs::drp::stella::SpectrumSet<ImageT, MaskT, VarianceT, WavelengthT>::getSpectrum( const size_t i ) const 
 {
 //    cout << "getSpectrum(size_t) const" << endl;
-    if (i >= _spectra.size()){
+    if (i >= _spectra->size()){
         string message("SpectrumSet::getSpectrum(i=");
-        message += to_string(i) + "): ERROR: i >= _spectra.size()=" + to_string(_spectra.size());
+        message += to_string(i) + "): ERROR: i >= _spectra->size()=" + to_string(_spectra->size());
         cout << message << endl;
         throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
     }
-//    pfs::drp::stella::Spectrum< ImageT, MaskT, VarianceT, WavelengthT > spec( _spectra.at( i ) );
-    return PTR( pfs::drp::stella::Spectrum< ImageT, MaskT, VarianceT, WavelengthT > )( new pfs::drp::stella::Spectrum< ImageT, MaskT, VarianceT, WavelengthT >( _spectra.at( i ) ) );
+    return PTR( pfs::drp::stella::Spectrum< ImageT, MaskT, VarianceT, WavelengthT > )( new pfs::drp::stella::Spectrum< ImageT, MaskT, VarianceT, WavelengthT >( *( _spectra->at( i ) ) ) );
 }
 
 template<typename ImageT, typename MaskT, typename VarianceT, typename WavelengthT>
 PTR( pfs::drp::stella::Spectrum< ImageT, MaskT, VarianceT, WavelengthT > ) pfs::drp::stella::SpectrumSet<ImageT, MaskT, VarianceT, WavelengthT>::getSpectrum( const size_t i )
 {
  //   cout << "getSpectrum(size_t) NOT CONST" << endl;
-    if (i >= _spectra.size()){
+    if (i >= _spectra->size()){
         string message("SpectrumSet::getSpectrum(i=");
-        message += to_string(i) + "): ERROR: i >= _spectra.size()=" + to_string(_spectra.size());
+        message += to_string(i) + "): ERROR: i >= _spectra->size()=" + to_string(_spectra->size());
         cout << message << endl;
         throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
     }
-    return PTR( pfs::drp::stella::Spectrum< ImageT, MaskT, VarianceT, WavelengthT > )( new pfs::drp::stella::Spectrum< ImageT, MaskT, VarianceT, WavelengthT >( _spectra.at( i ) ) ); 
+    return PTR( pfs::drp::stella::Spectrum< ImageT, MaskT, VarianceT, WavelengthT > )( new pfs::drp::stella::Spectrum< ImageT, MaskT, VarianceT, WavelengthT >( *( _spectra->at( i ) ) ) );
+}
+
+template<typename SpectrumT, typename MaskT, typename VarianceT, typename WavelengthT>
+bool pfs::drp::stella::SpectrumSet<SpectrumT, MaskT, VarianceT, WavelengthT>::setSpectrum(size_t const i,
+                                                                                          Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT> const& spectrum)
+{
+  if (i > _spectra->size()){
+    string message("SpectrumSet::setSpectrum(i=");
+    message += to_string(i) + "): ERROR: i > _spectra->size()=" + to_string(_spectra->size());
+    cout << message << endl;
+    throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
+  }
+  PTR( Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT> ) spectrumPtr( new Spectrum< SpectrumT, MaskT, VarianceT, WavelengthT >( spectrum ) );
+
+  if (i == static_cast<int>(_spectra->size())){
+    _spectra->push_back(spectrumPtr);
+  }
+  else{
+    ( *_spectra )[ i ] = spectrumPtr;
+  }
+  return true;
 }
 
 template<typename SpectrumT, typename MaskT, typename VarianceT, typename WavelengthT>
 bool pfs::drp::stella::SpectrumSet<SpectrumT, MaskT, VarianceT, WavelengthT>::setSpectrum( size_t const i,
-                                                                                       Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT> const& spectrum )
+                                                                                           PTR( Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>) const& spectrum )
 {
-  if (i > _spectra.size()) {
+  if (i > _spectra->size()){
     string message("SpectrumSet::setSpectrum(i=");
-    message += to_string(i) + "): ERROR: i > _spectra.size()=" + to_string(_spectra.size());
+    message += to_string(i) + "): ERROR: i > _spectra->size()=" + to_string(_spectra->size());
     cout << message << endl;
     throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
   }
 
-  if (i == _spectra.size()) {
-    _spectra.push_back(spectrum);
+  if ( i == _spectra->size() ){
+    _spectra->push_back( spectrum );
   }
   else{
-    _spectra[i] = spectrum;
+    ( *_spectra )[ i ] = spectrum;
   }
   return true;
 }
 
 template<typename ImageT, typename MaskT, typename VarianceT, typename WavelengthT>
 bool pfs::drp::stella::SpectrumSet<ImageT, MaskT, VarianceT, WavelengthT>::erase(const size_t iStart, const size_t iEnd){
-  if (iStart >= _spectra.size()){
+  if (iStart >= _spectra->size()){
     string message("SpectrumSet::erase(iStart=");
-    message += to_string(iStart) + ", iEnd=" + to_string(iEnd) + "): ERROR: iStart >= _spectra.size()=" + to_string(_spectra.size());
+    message += to_string(iStart) + ", iEnd=" + to_string(iEnd) + "): ERROR: iStart >= _spectra->size()=" + to_string(_spectra->size());
     cout << message << endl;
     throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
   }
 
-  if (iEnd >= _spectra.size()){
+  if (iEnd >= _spectra->size()){
     string message("SpectrumSet::erase(iStart=");
-    message += to_string(iStart) + ", iEnd=" + to_string(iEnd) + "): ERROR: iEnd >= _spectra.size()=" + to_string(_spectra.size());
+    message += to_string(iStart) + ", iEnd=" + to_string(iEnd) + "): ERROR: iEnd >= _spectra->size()=" + to_string(_spectra->size());
     cout << message << endl;
     throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
   }
@@ -705,14 +749,14 @@ bool pfs::drp::stella::SpectrumSet<ImageT, MaskT, VarianceT, WavelengthT>::erase
       throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
     }
   }
-  if (iStart == (_spectra.size()-1)){
-    _spectra.pop_back();
+  if (iStart == (_spectra->size()-1)){
+    _spectra->pop_back();
   }
   else{
     if (iEnd == 0)
-      _spectra.erase(_spectra.begin() + iStart);
+      _spectra->erase(_spectra->begin() + iStart);
     else
-      _spectra.erase(_spectra.begin() + iStart, _spectra.begin() + iEnd);
+      _spectra->erase(_spectra->begin() + iStart, _spectra->begin() + iEnd);
   }
   return true;
 }
