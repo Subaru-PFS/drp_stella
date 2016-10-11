@@ -123,7 +123,6 @@ to easily restore them in a new terminal or after a restart::
    echo "source activate lsst-v12_1" >> $PFS_DRP/setup.sh
    echo "export OPAL_PREFIX="$OPAL_PREFIX >> $PFS_DRP/setup.sh
    echo "source "$OPAL_PREFIX"/bin/eups-setups.sh" >> $PFS_DRP/setup.sh
-   echo "setup -r "$DATAMODEL_DIR >> $PFS_DRP/setup.sh
    echo "setup -r "$DRP_STELLA_DIR >> $PFS_DRP/setup.sh
    echo "setup -r "$CTRL_POOL_DIR" -j" >> $PFS_DRP/setup.sh
    echo "setup -r "$PIPE_DRIVERS_DIR" -j" >> $PFS_DRP/setup.sh
