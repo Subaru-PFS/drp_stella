@@ -6,6 +6,7 @@ from lsst.utils import getPackageDir
 import matplotlib.pyplot as plt
 import numpy as np
 import os
+from pfs.drp.stella.datamodelIO import spectrumSetToPfsArm, PfsArmIO
 import pfs.drp.stella.extractSpectraTask as esTask
 import pfs.drp.stella as drpStella
 from pfs.drp.stella.utils import makeFiberTraceSet
@@ -205,5 +206,28 @@ class ReduceArcRefSpecTask(CmdLineTask):
                 plt.show()
                 plt.close(fig)
                 fig.clf()
+
+            #
+            # Do the I/O using a trampoline object PfsArmIO (to avoid adding butler-related details
+            # to the datamodel product)
+            #
+            # This is a bit messy as we need to include the pfsConfig file in the pfsArm file
+            #
+            dataId = arcRef.dataId
+
+            md = arcExp.getMetadata().toDict()
+            key = "PFSCONFIGID"
+            if key in md:
+                pfsConfigId = md[key]
+            else:
+                self.log.info('No pfsConfigId is present in postISRCCD file for dataId %s' %
+                              str(dataId.items()))
+                pfsConfigId = 0x0
+                                                                                                 
+            pfsConfig = butler.get("pfsConfig", pfsConfigId=pfsConfigId, dateObs=dataId["dateObs"])
+
+            pfsArm = spectrumSetToPfsArm(pfsConfig, spectrumSetFromProfile,
+                                         dataId["visit"], dataId["spectrograph"], dataId["arm"])
+            butler.put(PfsArmIO(pfsArm), 'pfsArm', dataId)
 
         return spectrumSetFromProfile

@@ -226,5 +226,4 @@ class ReduceArcTask(CmdLineTask):
             pfsArm = spectrumSetToPfsArm(pfsConfig, spectrumSetFromProfile,
                                          dataId["visit"], dataId["spectrograph"], dataId["arm"])
             butler.put(PfsArmIO(pfsArm), 'pfsArm', dataId)
-
         return spectrumSetFromProfile
