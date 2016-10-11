@@ -229,7 +229,7 @@ Now for using the pipeline.
   ``visit=5`` with ``field=FLAT arm=r dateObs=2015-12-22 spectrograph=2``::
       
      constructFiberTrace.py $PFS_DATA --rerun $whoami/tmp --id visit=5 dateObs=2015-12-22 arm=r spectrograph=2 \
-     --calibId calibVersion=fiberTrace calibDate=2015-12-22 arm=r spectrograph=2 --cores 1 --no-versions
+     --calibId calibVersion=fiberTrace calibDate=2015-12-22 arm=r spectrograph=2 --cores 1
      genCalibRegistry.py --root $PFS_DATA/CALIB --camera PFS --validity 180
      
 - Since we have the Bias and Dark we can now perform the
