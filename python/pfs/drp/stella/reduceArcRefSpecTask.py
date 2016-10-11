@@ -206,6 +206,4 @@ class ReduceArcRefSpecTask(CmdLineTask):
                 plt.close(fig)
                 fig.clf()
 
-            print 'writing SpectrumSet object'
-            print 'arcRef.dataId = ',arcRef.dataId
-            butler.put(spectrumSetFromProfile, 'spArm', arcRef.dataId )
+        return spectrumSetFromProfile
