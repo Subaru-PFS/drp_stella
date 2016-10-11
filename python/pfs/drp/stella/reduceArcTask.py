@@ -266,7 +266,5 @@ class ReduceArcTask(CmdLineTask):
 #        pfsArm.covar = spectrumSetFromProfile.getAllVariances()
         pfsArm.covar = spectrumSetFromProfile.getAllCovars()
 
-#        print pfsArm
-#        pfsArm.writeFits("/Users/azuri/spectra/pfs/pfsArm.fits")
         butler.put(pfsArm, 'pfsArm', arcRef.dataId )
         return spectrumSetFromProfile
