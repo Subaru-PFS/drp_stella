@@ -74,7 +74,8 @@ Again, for your convenience you might want to add this line to your :file:`.bash
   which will be silenced in future version and can be safely ignored. Setting up
   ctrl_pool, pipe_drivers, and display_ds9 will be obsolete following the
   next LSST binary release. Note that we need to checkout a certain commit in
-  pipe_drivers::
+  pipe_drivers and at least for the moment certain branches in drp_stella, obs_pfs,
+  and datamodel::
 
      cd $PFS_DRP/ctrl_pool
      setup -r .
@@ -90,6 +91,7 @@ Again, for your convenience you might want to add this line to your :file:`.bash
      scons -Q opt=3 -j8
 
      cd $PFS_DRP/obs_pfs
+     git checkout tickets/PIPE2D-35
      setup -r .
      scons -Q opt=3 -j8 --filterWarn
      eups declare -r $OBS_PFS_DIR -c
@@ -99,10 +101,12 @@ Again, for your convenience you might want to add this line to your :file:`.bash
      eups declare -r $DRP_STELLA_DATA_DIR -c
      
      cd $PFS_DRP/datamodel
+     git checkout tickets/PIPE2D-68
      setup -r .
      scons -Q opt=3 -j8 --filterWarn
 
      cd $PFS_DRP/drp_stella
+     git checkout tickets/PIPE2D-48
      setup -r .
      scons -Q opt=3 -j8 --filterWarn
 
@@ -123,7 +127,7 @@ to easily restore them in a new terminal or after a restart::
    echo "setup -r "$PIPE_DRIVERS_DIR" -j" >> $PFS_DRP/setup.sh
    echo "setup -r "$DISPLAY_DS9_DIR" -j" >> $PFS_DRP/setup.sh
 
-To initialize the pipeline now and again next time you want to use it type::
+To initialize the pipeline now and again next time you want to use it, type::
 
    source $PFS_DRP/setup.sh
 
