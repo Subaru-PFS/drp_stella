@@ -197,13 +197,14 @@ Now for using the pipeline.
   The ``--id`` parameter specifies the identity of the inputs while the
   parameter ``--calibId`` specifies the output.
 
-  Note the parameter ``--cores 1`` at the end. This parameter is required by
+  Note the parameter ``--batch-type none`` at the end. This parameter is required by
   tasks which are parallelized.  Sometimes running the code in parallel can
   lead to problems (in most cases caused by the 3rd-party libraries used), so
-  setting cores to 1 is a safe choice::
+  specifying ``--batch-type none`` is a safe choice. Note that we also add the
+  config parameter ``doLinearize=False`` as we don't yet have the table needed
+  for the linearizer::
 
-     constructBias.py $PFS_DATA --rerun $whoami/tmp --id field=BIAS dateObs=2015-12-22 arm=r spectrograph=2 \
-     --calibId calibVersion=bias calibDate=2015-12-22 arm=r spectrograph=2 --cores 1
+     constructBias.py $PFS_DATA --rerun $whoami/calibs --id field=BIAS dateObs=2015-12-22 arm=r spectrograph=2 --calibId calibVersion=bias calibDate=2015-12-22 arm=r spectrograph=2 -c isr.doLinearize=False --batch-type none
 
 - Now that we have a master bias we need to ingest that into our calibration
   database stored in :file:`$PFS_DATA/CALIB/calibRegistry.sqlite3`. The
@@ -216,22 +217,18 @@ Now for using the pipeline.
 - Now we can create a trimmed and scaled, Bias-subtracted master Dark and
   ingest that into our calibration registry::
 
-     constructDark.py $PFS_DATA --rerun $whoami/tmp --id field=DARK dateObs=2015-12-22 arm=r spectrograph=2 \
-     --calibId calibVersion=dark calibDate=2015-12-22 arm=r spectrograph=2 --cores 1
+     constructDark.py $PFS_DATA --rerun $whoami/calibs --id field=DARK dateObs=2015-12-22 arm=r spectrograph=2 --calibId calibVersion=dark calibDate=2015-12-22 arm=r spectrograph=2 -c isr.doBias=True isr.doLinearize=False --batch-type none
      genCalibRegistry.py --root $PFS_DATA/CALIB --camera PFS --validity 180
 
 - In order to extract the arc spectra we first need to identify and trace
   the apertures for each fiber. This is what constructFiberTrace.py does.
   In our data set only visit 5 is a flat, so specifying ``--id visit=5`` is
-  all we need to specify for our flat to be found. If you wanted to reduce
-  all Flats taken 2015-12-22 for spectrograph 2, red arm, you would replace
-  ``visit=5`` with ``field=FLAT arm=r dateObs=2015-12-22 spectrograph=2``::
+  all we need to specify for our flat to be found::
       
-     constructFiberTrace.py $PFS_DATA --rerun $whoami/tmp --id visit=5 dateObs=2015-12-22 arm=r spectrograph=2 \
-     --calibId calibVersion=fiberTrace calibDate=2015-12-22 arm=r spectrograph=2 --cores 1
+     constructFiberTrace.py $PFS_DATA_DIR --rerun $whoami/calibs --id visit=5 --calibId calibVersion=fiberTrace calibDate=2015-12-22 arm=r spectrograph=2 -c isr.doBias=True isr.doDark=True isr.doFlat=False isr.doLinearize=False --batch-type none
      genCalibRegistry.py --root $PFS_DATA/CALIB --camera PFS --validity 180
      
-- Since we have the Bias and Dark we can now perform the
+- Since we have the master Bias and Dark we can now perform the
   Instrumental-Signature Removal (ISR) task for our Arc spectrum (visit=4).
   The program detrend.py will start the ISR task which will subtract the Bias
   and scaled Dark from our Arc image. Flat-fielding is not yet supported by the
@@ -239,15 +236,14 @@ Now for using the pipeline.
 
   If you want to reduce all Arcs taken 2015-12-22 for spectrograph 2, red arm,
   simply replace ``visit=4`` with ``arm=r spectrograph=2 dateObs=2015-12-22
-  field=ARC``. Note that this time you need to specify the output directory as
-  we will need the ``postISRCCD`` image in the next step::
+  field=ARC``::
 
-     detrend.py $PFS_DATA --rerun $whoami/tmp --id visit=4 -c isr.doBias=True isr.doDark=True isr.doFlat=False
+     detrend.py $PFS_DATA --rerun $whoami/tmp --id visit=4 -c isr.doBias=True isr.doDark=True isr.doFlat=False isr.doLinearize=False
 
 - We now have the ``postISRCCD`` image for our Arc and can extract and
   wavelength-calibrate our CdHgKrNeXe Arc with the visit number 4::
 
      reduceArc.py $PFS_DATA --rerun $whoami/tmp --id visit=4
 
-  This program will write a pfsArm file as described in the data model
-  (https://github.com/Subaru-PFS/datamodel/blob/master/datamodel.txt).
+  Note that this program does not currently write an output file but will do so
+  very soon.

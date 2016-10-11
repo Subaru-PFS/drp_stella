@@ -13,29 +13,23 @@ ingestImages.py $PFS_DATA_DIR $DRP_STELLA_DATA_DIR/tests/data/raw/*.fits --mode 
 constructBias.py $PFS_DATA_DIR --rerun $whoami/calibs \
                  --id field=BIAS dateObs=2015-12-22 arm=r spectrograph=2 \
                  --calibId calibVersion=bias calibDate=2015-12-22 arm=r spectrograph=2 \
-                 --cores 1 &&
+                 -c isr.doLinearize=False --batch-type none &&
 genCalibRegistry.py --root $PFS_DATA_DIR/CALIB --camera PFS --validity 180 &&
 
 constructDark.py $PFS_DATA_DIR --rerun $whoami/calibs \
                  --id field=DARK dateObs=2015-12-22 arm=r spectrograph=2 \
                  --calibId calibVersion=dark calibDate=2015-12-22 arm=r spectrograph=2 \
-                 -c isr.doBias=True --cores 1 &&
+                 -c isr.doBias=True isr.doLinearize=False --batch-type none &&
 genCalibRegistry.py --root $PFS_DATA_DIR/CALIB --camera PFS --validity 180 &&
 
 constructFiberTrace.py $PFS_DATA_DIR --rerun $whoami/calibs \
-                 --id visit=5 --calibId calibVersion=fiberTrace calibDate=2015-12-22 arm=r spectrograph=2 \
-                 --cores 1 &&
+                 --id visit=5 --calibId calibVersion=fiberTrace calibDate=2015-12-22 \
+                 arm=r spectrograph=2 -c isr.doBias=True isr.doDark=True isr.doFlat=False \
+                 isr.doLinearize=False --batch-type none &&
 genCalibRegistry.py --root $PFS_DATA_DIR/CALIB --camera PFS --validity 180 &&
-
-#constructFiberFlat.py $PFS_DATA_DIR --rerun $whoami/calibs \
-#                 --id visit=5 --calibId calibVersion=flat calibDate=2015-12-22 arm=r spectrograph=2 \
-#                 --cores 1 &&
-
-#reduceFlat.py $PFS_DATA_DIR --rerun $whoami/tmp --id visit=5 --calibId calibVersion=flat calibDate=2015-12-22 arm=r spectrograph=2 --cores 1 &&
-#genCalibRegistry.py --root $PFS_DATA_DIR/CALIB --camera PFS --validity 180 &&
 
 #-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
-detrend.py $PFS_DATA_DIR --rerun $whoami/tmp -c isr.doBias=True isr.doDark=True isr.doFlat=False --id visit=4 &&
+detrend.py $PFS_DATA_DIR --rerun $whoami/tmp --id visit=4 -c isr.doBias=True isr.doDark=True isr.doFlat=False isr.doLinearize=False &&
 
 reduceArc.py $PFS_DATA_DIR --rerun $whoami/tmp --id visit=4
