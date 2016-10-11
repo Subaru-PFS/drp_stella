@@ -687,7 +687,7 @@ bool pfs::drp::stella::SpectrumSet<SpectrumT, MaskT, VarianceT, WavelengthT>::se
     throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
   }
 
-  if ( i == static_cast< int >( _spectra->size() ) ){
+  if ( i == _spectra->size() ){
     _spectra->push_back( spectrum );
   }
   else{
@@ -709,7 +709,7 @@ bool pfs::drp::stella::SpectrumSet<SpectrumT, MaskT, VarianceT, WavelengthT>::se
 
   PTR( Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT> ) spectrumPtr( new Spectrum< SpectrumT, MaskT, VarianceT, WavelengthT >( spectrum ) );
   
-  if ( i == static_cast< int >( _spectra->size() ) ){
+  if (i == _spectra->size()){
     _spectra->push_back(  spectrumPtr );
   }
   else{
