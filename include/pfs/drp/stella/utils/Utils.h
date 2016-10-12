@@ -96,7 +96,7 @@ namespace pfs { namespace drp { namespace stella { namespace utils{
     int iRow = 0;
     for ( int i = 0; i < array.getShape()[ 0 ]; ++i ){
       for ( int j = 0; j < array.getShape()[ 1 ]; ++j, ++iRow ){
-        arr[ ndarray::view( iRow )() ] = array[ ndarray::view( i )( j )() ];
+        arr[ ndarray::view( iRow )() ].deep() = array[ ndarray::view( i )( j )() ];
       }
     }
     fits_write_ndarray( fitsfile, arr, metadata_i );

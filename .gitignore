@@ -66,3 +66,11 @@ tests/.tests/
 ups/drp_stella.cfgc
 
 _build
+bak
+doc/install+commentsRHL.rtf
+doc/install.html
+git_log_PIPE2D-32.out
+git_show-branch_PIPE2D-32.out
+sourcetreeconfig
+tempfile
+ups/drp_stella.build

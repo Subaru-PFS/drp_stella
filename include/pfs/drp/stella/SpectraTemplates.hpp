@@ -86,21 +86,27 @@ bool pfs::drp::stella::Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>::setSp
   return true;
 }
 
-template<typename SpectrumT, typename MaskT, typename VarianceT, typename WavelengthT>
-ndarray::Array<VarianceT, 1, 1> pfs::drp::stella::Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>::getVariance()
-{
-    ndarray::Array< VarianceT, 1, 1 > variance = ndarray::allocate(_covar.getShape()[0]);
-    variance[ndarray::view()] = _covar[ ndarray::view( )( 1 ) ];
-    cout << "getVariance not const" << endl;
-    return variance;
-}
+//template<typename SpectrumT, typename MaskT, typename VarianceT, typename WavelengthT>
+//ndarray::Array<VarianceT, 1, 1> pfs::drp::stella::Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>::getVariance()
+//{
+//    ndarray::Array< VarianceT, 1, 1 > variance = _covar[ ndarray::view( )( 1 ) ]; 
+//    return variance;
+//}
 
 template<typename SpectrumT, typename MaskT, typename VarianceT, typename WavelengthT>
 ndarray::Array<VarianceT, 1, 1> pfs::drp::stella::Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>::getVariance() const
 {
     ndarray::Array< VarianceT, 1, 1 > variance = ndarray::allocate( _covar.getShape()[ 0 ] );
     variance.deep() = _covar[ ndarray::view( )( 1 ) ];
-    cout << "getVariance const" << endl;
+    return variance;
+}
+
+template<typename SpectrumT, typename MaskT, typename VarianceT, typename WavelengthT>
+ndarray::Array<VarianceT, 1, 1> pfs::drp::stella::Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>::getVariance()
+{
+    ndarray::Array< VarianceT, 1, 1 > variance = ndarray::allocate(_covar.getShape()[0]);
+    variance[ndarray::view()] = _covar[ ndarray::view( )( 1 ) ];
+    cout << "getVariance not const" << endl;
     return variance;
 }
 
@@ -696,8 +702,8 @@ bool pfs::drp::stella::SpectrumSet<SpectrumT, MaskT, VarianceT, WavelengthT>::se
   }
   PTR( Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT> ) spectrumPtr( new Spectrum< SpectrumT, MaskT, VarianceT, WavelengthT >( spectrum ) );
 
-  if (i == static_cast<int>(_spectra->size())){
-    _spectra->push_back(spectrumPtr);
+  if ( i == _spectra->size() ){
+    _spectra->push_back( spectrumPtr );
   }
   else{
     ( *_spectra )[ i ] = spectrumPtr;
@@ -716,11 +722,12 @@ bool pfs::drp::stella::SpectrumSet<SpectrumT, MaskT, VarianceT, WavelengthT>::se
     throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
   }
 
+  PTR( Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT> ) spectrumPtr( new Spectrum< SpectrumT, MaskT, VarianceT, WavelengthT >( *spectrum ) );
   if ( i == _spectra->size() ){
-    _spectra->push_back( spectrum );
+    _spectra->push_back( spectrumPtr );
   }
   else{
-    ( *_spectra )[ i ] = spectrum;
+    ( *_spectra )[ i ] = spectrumPtr;
   }
   return true;
 }
