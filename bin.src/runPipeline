@@ -7,6 +7,7 @@ mkdir -p $PFS_DATA_DIR/CALIB
 echo "lsst.obs.pfs.PfsMapper" > $PFS_DATA_DIR/_mapper
 
 ingestImages.py $PFS_DATA_DIR $DRP_STELLA_DATA_DIR/tests/data/raw/*.fits --mode link &&
+cp -r $DRP_STELLA_DATA_DIR/tests/pfsState $PFS_DATA_DIR &&
 
 #-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
