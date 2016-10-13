@@ -10,7 +10,6 @@ from lsst.pex.config import Config, Field
 from lsst.pipe.base import Struct, TaskRunner, ArgumentParser, CmdLineTask
 import numpy as np
 from astropy.io import fits as pyfits
-import matplotlib.pyplot as plt
 from pfs.drp.stella.datamodelIO import spectrumSetToPfsArm, PfsArmIO
 
 class ReduceArcConfig(Config):
@@ -126,17 +125,6 @@ class ReduceArcTask(CmdLineTask):
             for i in range(spectrumSetFromProfile.size()):
                 # THIS DOESN'T WORK, again a problem with changing getSpectrum()
                 spectrumSetFromProfile.getSpectrum(i).setITrace(flatFiberTraceSet.getFiberTrace(i).getITrace())
-    #            print 'spectrumSetFromProfile[',i,'].iTrace = ',spectrumSetFromProfile.getSpectrum(i).getITrace()
-
-    #        fig = plt.figure()
-    #        ax = fig.add_subplot(1, 1, 1)
-    #        for i in range(spectrumSetFromProfile.size()):
-    #            ax.plot(spectrumSetFromProfile.getSpectrum(i).getSpectrum(),'-+')
-    #            plt.xlim(1450,1600)
-    #            plt.ylim(0,8000)
-    #        plt.show()
-    #        plt.close(fig)
-    #        fig.clf()
 
             """ read line list """
             hdulist = pyfits.open(lineList)
@@ -215,36 +203,7 @@ class ReduceArcTask(CmdLineTask):
                 else:
                     print 'setSpectrum for spectrumSetFromProfile[',i,'] failed'
 
-            if False:#disable plotting the data
-                xPixMinMax = np.ndarray(2, dtype='float32')
-                xPixMinMax[0] = 1000.
-                xPixMinMax[1] = 1600.
-                fig = plt.figure()
-                ax = fig.add_subplot(1, 1, 1)
-                for i in range(spectrumSetFromProfile.size()):
-                    ax.plot(spectrumSetFromProfile.getSpectrum(i).getSpectrum(),'-+')
-                    plt.xlim(xPixMinMax[0],xPixMinMax[1])
-                    plt.ylim(0,25000)
-                plt.xlabel('Pixel')
-                plt.ylabel('Flux [ADUs]')
-                plt.show()
-                plt.close(fig)
-                fig.clf()
-
-                xMinMax = drpStella.poly(xPixMinMax, spec.getDispCoeffs())
-                fig = plt.figure()
-                ax = fig.add_subplot(1, 1, 1)
-                for i in range(spectrumSetFromProfile.size()):
-                    ax.plot(spectrumSetFromProfile.getSpectrum(i).getWavelength(),spectrumSetFromProfile.getSpectrum(i).getSpectrum(),'-+')
-                    plt.xlim(xMinMax[0],xMinMax[1])
-                    plt.ylim(0,25000)
-                plt.xlabel('Wavelength [Angstroems]')
-                plt.ylabel('Flux [ADUs]')
-                plt.show()
-                plt.close(fig)
-                fig.clf()
-
-        return spectrumSetFromProfile            #
+            #
             # Do the I/O using a trampoline object PfsArmIO (to avoid adding butler-related details
             # to the datamodel product)
             #
