@@ -55,3 +55,18 @@ class PfsArmIO(object):
     def writeFits(self, pathName, flags=None):
         dirName, fileName = os.path.split(pathName)
         self._pfsArm.write(dirName=dirName, fileName=fileName)
+
+#-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+
+class PfsFiberTraceIO(object):
+    """A class to perform butler-based I/O for pfsFiberTrace
+
+    N.b. there's no readFits as we use pfsFiberTrace_bypass() (because it's passed a dataId)
+    """
+
+    def __init__(self, pfsFiberTrace):
+        self._pfsFiberTrace = pfsFiberTrace
+
+    def writeFits(self, pathName, flags=None):
+        dirName, fileName = os.path.split(pathName)
+        self._pfsFiberTrace.write(dirName=dirName, fileName=fileName)
