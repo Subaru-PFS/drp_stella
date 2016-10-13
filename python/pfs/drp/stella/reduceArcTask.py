@@ -11,8 +11,7 @@ from lsst.pipe.base import Struct, TaskRunner, ArgumentParser, CmdLineTask
 import numpy as np
 from astropy.io import fits as pyfits
 import matplotlib.pyplot as plt
-from pfs.datamodel.pfsArm import PfsArm
-from pfs.datamodel.pfsConfig import PfsConfig
+from pfs.drp.stella.datamodelIO import spectrumSetToPfsArm, PfsArmIO
 
 class ReduceArcConfig(Config):
     """Configuration for reducing arc images"""
@@ -244,5 +243,28 @@ class ReduceArcTask(CmdLineTask):
                 plt.show()
                 plt.close(fig)
                 fig.clf()
+
+        return spectrumSetFromProfile            #
+            # Do the I/O using a trampoline object PfsArmIO (to avoid adding butler-related details
+            # to the datamodel product)
+            #
+            # This is a bit messy as we need to include the pfsConfig file in the pfsArm file
+            #
+            dataId = arcRef.dataId
+
+            md = arcExp.getMetadata().toDict()
+            key = "PFSCONFIGID"
+            if key in md:
+                pfsConfigId = md[key]
+            else:
+                self.log.info('No pfsConfigId is present in postISRCCD file for dataId %s' %
+                              str(dataId.items()))
+                pfsConfigId = 0x0
+                                                                                                 
+            pfsConfig = butler.get("pfsConfig", pfsConfigId=pfsConfigId, dateObs=dataId["dateObs"])
+
+            pfsArm = spectrumSetToPfsArm(pfsConfig, spectrumSetFromProfile,
+                                         dataId["visit"], dataId["spectrograph"], dataId["arm"])
+            butler.put(PfsArmIO(pfsArm), 'pfsArm', dataId)
 
         return spectrumSetFromProfile
