@@ -179,6 +179,11 @@ Now for using the pipeline.
 
      ingestImages.py $PFS_DATA $DRP_STELLA_DATA_DIR/tests/data/raw/*.fits --mode link
 
+- We also need a file describing the configuration of the cobras.  For now we'll
+  use the one with all ra and dec values equal to 0.0 which has (as a special case)
+  a pfsConfigId == 0x0
+     cp -r $DRP_STELLA_DATA_DIR/tests/pfsState $PFS_DATA
+
 - Now that we have our database we can start reducing things. We start with
   creating a master Bias, followed by a Bias-subtracted master Dark. We will
   then create a Bias- and Dark-subtracted master Flat, which we then use to
