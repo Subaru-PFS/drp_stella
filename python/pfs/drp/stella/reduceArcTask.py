@@ -83,13 +83,14 @@ class ReduceArcTask(CmdLineTask):
 
             try:
                 fiberTrace = arcRef.get('fiberTrace', immediate=True)
+                flatFiberTraceSet = makeFiberTraceSet(fiberTrace)
             except Exception, e:
-                raise RuntimeError("Unable to retrieve fiberTrace for %s: %s" % (arcRef.dataId, e))
+                raise RuntimeError("Unable to load fiberTrace for %s from %s: %s" %
+                                   (arcRef.dataId, arcRef.get('fiberTrace_filename')[0], e))
 
             arcExp = arcRef.get("postISRCCD", immediate=True)
             self.log.info('arcExp = %s' % arcExp)
             self.log.info('type(arcExp) = %s' % type(arcExp))
-            flatFiberTraceSet = makeFiberTraceSet(fiberTrace)
 
             """ optimally extract arc spectra """
             print 'extracting arc spectra'

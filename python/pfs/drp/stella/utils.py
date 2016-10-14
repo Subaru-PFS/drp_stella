@@ -3,6 +3,9 @@ import numpy as np
 import pfs.drp.stella as drpStella
 
 def makeFiberTraceSet(pfsFiberTrace, maskedImage=None):
+    if pfsFiberTrace.profiles is None or len(pfsFiberTrace.profiles) == 0:
+        raise RuntimeError("There are no fiberTraces in the PfsFiberTrace object")
+
     fts = drpStella.FiberTraceSetF()
     ftfc = drpStella.FiberTraceFunctionControl()
     ftf = drpStella.FiberTraceFunction()
