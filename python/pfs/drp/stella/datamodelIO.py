@@ -3,6 +3,7 @@ import re
 import numpy as np
 from pfs.datamodel.pfsArm import PfsArm
 from pfs.datamodel.pfsConfig import PfsConfig
+from pfs.datamodel.pfsFiberTrace import PfsFiberTrace
 
 class PfsConfigIO(object):
     """A class to perform butler-based I/O for pfsConfig"""
@@ -14,7 +15,7 @@ class PfsConfigIO(object):
     def readFits(pathName, hdu=None, flags=None):
         dirName, fileName = os.path.split(pathName)
 
-        match = re.search(r"pfsConfig-(0x[0-9a-f]+)\.fits$", fileName)
+        match = re.search(r"^pfsConfig-(0x[0-9a-f]+)\.fits$", fileName)
         if not match:
             raise RuntimeError("Unable to extract pfsConfigId from \"%s\"" % pathName)
         pfsConfigId = int(match.group(1), 16)
@@ -66,6 +67,25 @@ class PfsFiberTraceIO(object):
 
     def __init__(self, pfsFiberTrace):
         self._pfsFiberTrace = pfsFiberTrace
+
+#-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+
+    @staticmethod
+    def readFits(pathName, hdu=None, flags=None):
+        dirName, fileName = os.path.split(pathName)
+
+        match = re.search(r"^pfsFiberTrace-(\d{4}-\d{2}-\d{2})-0-([1-4])([brmn])\.fits", fileName)
+        if not match:
+            raise RuntimeError("Unable to extract pfsConfigId from \"%s\"" % pathName)
+
+        dateObs, spectrograph, arm = match.groups()
+        spectrograph = int(spectrograph)
+        pfsFiberTrace = PfsFiberTrace(dateObs, spectrograph, arm)
+        pfsFiberTrace.read(dirName=dirName)
+
+        return pfsFiberTrace
+
+#-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
     def writeFits(self, pathName, flags=None):
         dirName, fileName = os.path.split(pathName)
