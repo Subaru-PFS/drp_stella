@@ -283,7 +283,7 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
           D_A1_Y.push_back(D_A1_Y_In[i_pos]);
           if (B_HaveMeasureErrors)
             D_A1_MeasureErrors.push_back(D_A1_MeasureErrorsBak[i_pos]);
-          I_A1_OrigPos.push_back(D_A1_Y_In[i_pos]);
+          I_A1_OrigPos.push_back(i_pos);
 
           I_DataValues_New++;
         }
