@@ -60,7 +60,7 @@ class ReduceArcTask(CmdLineTask):
     @classmethod
     def _makeArgumentParser(cls, *args, **kwargs):
         parser = ArgumentParser(name=cls._DefaultName)
-        parser.add_id_argument("--id", datasetType="postISRCCD",
+        parser.add_id_argument("--id", datasetType="raw",
                                help="input identifiers, e.g., --id visit=123 ccd=4")
         parser.add_argument("--wLenFile", help='directory and name of pixel vs. wavelength file')
         parser.add_argument("--lineList", help='directory and name of line list')
@@ -81,14 +81,17 @@ class ReduceArcTask(CmdLineTask):
             self.log.info('arcRef = %s' % arcRef)
             self.log.info('type(arcRef) = %s' % type(arcRef))
 
+            """ construct fiberTraceSet from pfsFiberTrace """
             try:
                 fiberTrace = arcRef.get('fiberTrace', immediate=True)
-                flatFiberTraceSet = makeFiberTraceSet(fiberTrace)
             except Exception, e:
                 raise RuntimeError("Unable to load fiberTrace for %s from %s: %s" %
                                    (arcRef.dataId, arcRef.get('fiberTrace_filename')[0], e))
+            flatFiberTraceSet = makeFiberTraceSet(fiberTrace)
 
-            arcExp = arcRef.get("postISRCCD", immediate=True)
+            self.log.info('flatFiberTraceSet.size() = %d' % flatFiberTraceSet.size())
+
+            arcExp = arcRef.get("arc", immediate=True)
             self.log.info('arcExp = %s' % arcExp)
             self.log.info('type(arcExp) = %s' % type(arcExp))
 

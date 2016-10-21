@@ -9,6 +9,8 @@ import os
 from pfs.drp.stella.datamodelIO import spectrumSetToPfsArm, PfsArmIO
 import pfs.drp.stella.extractSpectraTask as esTask
 import pfs.drp.stella as drpStella
+from pfs.drp.stella.datamodelIO import spectrumSetToPfsArm, PfsArmIO
+import pfs.drp.stella.extractSpectraTask as esTask
 from pfs.drp.stella.utils import makeFiberTraceSet
 
 class ReduceArcRefSpecConfig(Config):
@@ -62,7 +64,7 @@ class ReduceArcRefSpecTask(CmdLineTask):
     @classmethod
     def _makeArgumentParser(cls, *args, **kwargs):
         parser = ArgumentParser(name=cls._DefaultName)
-        parser.add_id_argument("--id", datasetType="postISRCCD",
+        parser.add_id_argument("--id", datasetType="raw",
                                help="input identifiers, e.g., --id visit=123 ccd=4")
         parser.add_argument("--refSpec", help='directory and name of reference spectrum')
         parser.add_argument("--lineList", help='directory and name of line list')
@@ -78,22 +80,27 @@ class ReduceArcRefSpecTask(CmdLineTask):
         self.log.debug('refSpec = %s' % refSpec)
         self.log.debug('lineList = %s' % lineList)
 
+        if len(expRefList) == 0:
+            raise RuntimeError("Unable to find exposure reference")
+
         for arcRef in expRefList:
             self.log.debug('arcRef.dataId = %s' % arcRef.dataId)
             self.log.debug('arcRef = %s' % arcRef)
             self.log.debug('type(arcRef) = %s' % type(arcRef))
 
+            """ construct fiberTraceSet from pfsFiberTrace """
             try:
                 fiberTrace = arcRef.get('fiberTrace', immediate=True)
             except Exception, e:
-                raise RuntimeError("Unable to retrieve fiberTrace for %s: %s" % (arcRef.dataId, e))
+                raise RuntimeError("Unable to load fiberTrace for %s from %s: %s" %
+                                   (arcRef.dataId, arcRef.get('fiberTrace_filename')[0], e))
+            flatFiberTraceSet = makeFiberTraceSet(fiberTrace)
 
-            arcExp = arcRef.get("postISRCCD", immediate=True)
+            self.log.info('flatFiberTraceSet.size() = %d' % flatFiberTraceSet.size())
+
+            arcExp = arcRef.get("arc", immediate=True)
             self.log.debug('arcExp = %s' % arcExp)
             self.log.debug('type(arcExp) = %s' % type(arcExp))
-
-            """ construct fiberTraceSet from pfsFiberTrace """
-            flatFiberTraceSet = makeFiberTraceSet(fiberTrace)
 
             """ optimally extract arc spectra """
             self.log.info('extracting arc spectra')
@@ -161,6 +168,7 @@ class ReduceArcRefSpecTask(CmdLineTask):
                 self.log.debug('type(refSpecArr) = %s: <%s>' % (type(refSpecArr),type(refSpecArr[0])))
                 self.log.debug('type(lineListArr) = %s: <%s>' % (type(lineListArr),type(lineListArr[0][0])))
                 result = drpStella.stretchAndCrossCorrelateSpecFF(specSpec, refSpecArr, lineListArr, dispCorControl)
+
                 self.log.debug('type(result.lineList) = %s: <%s>: <%s>' % (type(result.lineList),type(result.lineList[0]),type(result.lineList[0][0])))
                 self.log.debug('type(spectrumSetFromProfile.getSpectrum(i)) = %s: <%s>: <%s>' % (type(spectrumSetFromProfile.getSpectrum(i)),type(spectrumSetFromProfile.getSpectrum(i).getSpectrum()),type(spectrumSetFromProfile.getSpectrum(i).getSpectrum()[0])))
                 for j in range(result.lineList.shape[0]):
