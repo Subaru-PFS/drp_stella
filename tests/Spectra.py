@@ -385,6 +385,12 @@ class SpectraTestCase(tests.TestCase):
             self.dispCorControl.order = 5
             self.dispCorControl.searchRadius = 2
             self.dispCorControl.fwhm = 2.6
+            self.dispCorControl.radiusXCor = 35
+            self.dispCorControl.lengthPieces = 500
+            self.dispCorControl.nCalcs = 15
+            self.dispCorControl.stretchMinLength = 450
+            self.dispCorControl.stretchMaxLength = 550
+            self.dispCorControl.nStretches = 100
 
             """ read line list """
             hdulist = pyfits.open(self.lineList)
