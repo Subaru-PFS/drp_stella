@@ -129,9 +129,6 @@ class ReduceArcRefSpecTask(CmdLineTask):
                 plt.close(fig)
                 fig.clf()
 
-            if ref.shape != refSpecArr.shape:
-                raise("ref.shape != refSpecArr.shape")
-
             dispCorControl = drpStella.DispCorControl()
             dispCorControl.fittingFunction = self.config.function
             dispCorControl.order = self.config.order
