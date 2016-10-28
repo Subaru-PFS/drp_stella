@@ -82,7 +82,7 @@ class ReduceArcTask(CmdLineTask):
             self.log.info('type(arcRef) = %s' % type(arcRef))
 
             try:
-                fiberTrace = arcRef.get('fiberTraceIO', immediate=True)
+                fiberTrace = arcRef.get('fiberTrace', immediate=True)
                 flatFiberTraceSet = makeFiberTraceSet(fiberTrace)
             except Exception, e:
                 raise RuntimeError("Unable to load fiberTrace for %s from %s: %s" %
