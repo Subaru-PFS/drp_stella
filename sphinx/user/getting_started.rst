@@ -41,6 +41,9 @@ Again, for your convenience you might want to add this line to your :file:`.bash
 
      git lfs install
 
+  (note that this doesn't do the install -- you already did that --, it modifies
+    your :file:`.gitconfig` file to use `git lfs`)
+
   There's no need to issue any ``git lfs track`` commands.
 
 - Install the Anaconda future package::
