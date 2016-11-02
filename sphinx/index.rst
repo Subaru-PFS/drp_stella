@@ -26,3 +26,8 @@ Developer Documentation
    :maxdepth: 2
 
    dev/best_practice
+   
+.. toctree::
+    :maxdepth: 2
+    
+    dev/genDefectList
