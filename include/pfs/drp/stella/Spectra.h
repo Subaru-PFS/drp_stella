@@ -107,12 +107,12 @@ class Spectrum {
     bool setDispersion( ndarray::Array<WavelengthT, 1, 1> const& dispersion );
 
     /// Return the pointer to the mask vector of this spectrum
-    ndarray::Array<MaskT, 1, 1> getMask() { return _mask; }
-    const ndarray::Array<MaskT, 1, 1> getMask() const { return _mask; }
+    afwImage::Mask<MaskT> getMask() { return _mask; }
+    const afwImage::Mask<MaskT> getMask() const { return _mask; }
 
     /// Set the mask vector of this spectrum (deep copy)
     /// sets this->_mask to mask and returns TRUE if mask->size() == this->getLength(), otherwise returns false
-    bool setMask(const ndarray::Array<MaskT, 1, 1> & mask);
+    bool setMask(const afwImage::Mask<MaskT> & mask);
 
     size_t getLength() const {return _length;}
     
@@ -191,9 +191,7 @@ class Spectrum {
     size_t _nCCDRows;
     ndarray::Array<SpectrumT, 1, 1> _spectrum;
     ndarray::Array<SpectrumT, 1, 1> _sky;
-    ndarray::Array<MaskT, 1, 1> _mask;/// 0: all pixels of the wavelength element used for extraction were okay
-                                  /// 1: at least one pixel was not okay but the extraction algorithm believes it could fix it
-                                  /// 2: at least one pixel was problematic
+    afwImage::Mask<MaskT> _mask;
     ndarray::Array<VarianceT, 2, 1> _covar;
     ndarray::Array<WavelengthT, 1, 1> _wavelength;
     ndarray::Array<WavelengthT, 1, 1> _dispersion;

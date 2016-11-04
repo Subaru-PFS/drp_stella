@@ -8,7 +8,7 @@ pfs::drp::stella::Spectrum< SpectrumT, MaskT, VarianceT, WavelengthT >::Spectrum
         _nCCDRows( spectrum.getNCCDRows() ),
         _spectrum( spectrum.getSpectrum() ),
         _sky( spectrum.getSky() ),
-        _mask( spectrum.getMask() ),
+        _mask( spectrum.getMask(), deep ),
         _covar( spectrum.getCovar() ),
         _wavelength( spectrum.getWavelength() ),
         _dispersion( spectrum.getDispersion() ),
@@ -22,7 +22,6 @@ pfs::drp::stella::Spectrum< SpectrumT, MaskT, VarianceT, WavelengthT >::Spectrum
         /// allocate memory
         _spectrum = ndarray::allocate(spectrum.getSpectrum().getShape()[0]);
         _sky = ndarray::allocate(spectrum.getSky().getShape()[0]);
-        _mask = ndarray::allocate(spectrum.getMask().getShape()[0]);
         _covar = ndarray::allocate(spectrum.getCovar().getShape());
         _wavelength = ndarray::allocate(spectrum.getWavelength().getShape()[0]);
         _dispersion = ndarray::allocate(spectrum.getDispersion().getShape()[0]);
@@ -31,7 +30,6 @@ pfs::drp::stella::Spectrum< SpectrumT, MaskT, VarianceT, WavelengthT >::Spectrum
         /// copy variables
         _spectrum.deep() = spectrum.getSpectrum();
         _sky.deep() = spectrum.getSky();
-        _mask.deep() = spectrum.getMask();
         _covar.deep() = spectrum.getCovar();
         _wavelength.deep() = spectrum.getWavelength();
         _dispersion.deep() = spectrum.getDispersion();
@@ -39,6 +37,7 @@ pfs::drp::stella::Spectrum< SpectrumT, MaskT, VarianceT, WavelengthT >::Spectrum
     }
     if (iTrace != 0)
         _iTrace = iTrace;
+    _mask.addMaskPlane("REJECTED_LINES");
 }
 
 template< typename SpectrumT, typename MaskT, typename VarianceT, typename WavelengthT >
@@ -48,6 +47,7 @@ pfs::drp::stella::Spectrum< SpectrumT, MaskT, VarianceT, WavelengthT >::Spectrum
         _yHigh( spectrum.getYHigh() ),
         _length( spectrum.getLength() ),
         _nCCDRows( spectrum.getNCCDRows() ),
+        _mask(spectrum.getMask()),
         _iTrace( spectrum.getITrace() ),
         _dispRms( spectrum.getDispRms() ),
         _isWavelengthSet( spectrum.isWavelengthSet() ),
@@ -56,7 +56,6 @@ pfs::drp::stella::Spectrum< SpectrumT, MaskT, VarianceT, WavelengthT >::Spectrum
     /// allocate memory
     _spectrum = ndarray::allocate(spectrum.getSpectrum().getShape()[0]);
     _sky = ndarray::allocate(spectrum.getSky().getShape()[0]);
-    _mask = ndarray::allocate(spectrum.getMask().getShape()[0]);
     _covar = ndarray::allocate(spectrum.getCovar().getShape());
     _wavelength = ndarray::allocate(spectrum.getWavelength().getShape()[0]);
     _dispersion = ndarray::allocate(spectrum.getDispersion().getShape()[0]);
@@ -65,7 +64,6 @@ pfs::drp::stella::Spectrum< SpectrumT, MaskT, VarianceT, WavelengthT >::Spectrum
     /// copy variables
     _spectrum.deep() = spectrum.getSpectrum();
     _sky.deep() = spectrum.getSky();
-    _mask.deep() = spectrum.getMask();
     _covar.deep() = spectrum.getCovar();
     _wavelength.deep() = spectrum.getWavelength();
     _dispersion.deep() = spectrum.getDispersion();
@@ -145,16 +143,16 @@ bool pfs::drp::stella::Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>::setCo
 }
 
 template<typename SpectrumT, typename MaskT, typename VarianceT, typename WavelengthT>
-bool pfs::drp::stella::Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>::setMask(const ndarray::Array<MaskT, 1, 1> & mask)
+bool pfs::drp::stella::Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>::setMask(const afwImage::Mask<MaskT> & mask)
 {
   /// Check length of input mask
-  if (static_cast<size_t>(mask.getShape()[0]) != _length){
-    string message("pfs::drp::stella::Spectrum::setMask: ERROR: mask->size()=");
-    message += to_string(mask.getShape()[0]) + string(" != _length=") + to_string(_length);
+  if (static_cast<size_t>(mask.getWidth()) != _length){
+    string message("pfs::drp::stella::Spectrum::setMask: ERROR: mask.getWidth()=");
+    message += to_string(mask.getWidth()) + string(" != _length=") + to_string(_length);
     cout << message << endl;
     throw LSST_EXCEPT(pexExcept::Exception, message.c_str());    
   }
-  _mask.deep() = mask;
+  _mask = mask;
   return true;
 }
 
@@ -168,9 +166,9 @@ bool pfs::drp::stella::Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>::setLe
     #ifdef __DEBUG_SETLENGTH__
       cout << "pfs::drp::stella::Spectrum::setLength: _spectrum resized to " << _spectrum.getShape()[0] << endl;
     #endif
-    pfs::drp::stella::math::resize(_mask, length);
+    _mask = afwImage::Mask<MaskT>(length, 1);
     #ifdef __DEBUG_SETLENGTH__
-      cout << "pfs::drp::stella::Spectrum::setLength: _mask resized to " << _mask.getShape()[0] << endl;
+      cout << "pfs::drp::stella::Spectrum::setLength: _mask resized to " << _mask.getWidth() << endl;
     #endif
     pfs::drp::stella::math::resize(_covar, length, 3);
     #ifdef __DEBUG_SETLENGTH__
@@ -532,10 +530,19 @@ bool pfs::drp::stella::Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>::ident
     #endif
 
     /// Remove lines rejected by PolyFit from D_A1_FittedPos and D_A1_FittedWLen
-    #ifdef __DEBUG_IDENTIFY__
-        for (int i = 0; i < rejected->size(); ++i)
-            cout << "identify: rejected[" << i << "] = " << (*rejected)[i] << endl;
-    #endif
+    unsigned short maskVal = 1 << _mask.getMaskPlane("REJECTED_LINES");
+    for (int i = 0; i < rejected->size(); ++i){
+        #ifdef __DEBUG_IDENTIFY__
+            cout << "identify: rejected D_A1_FittedPos[" << (*rejected)[i] << "] = " << D_A1_FittedPos[(*rejected)[i]] << endl;
+        #endif
+        for (int p = (D_A1_FittedPos[(*rejected)[i]]-2 < 0 ? 0 : D_A1_FittedPos[(*rejected)[i]]-2);
+                 p < (D_A1_FittedPos[(*rejected)[i]]+2 >= _length ? _length-1 : D_A1_FittedPos[(*rejected)[i]]+2); ++p){
+            _mask(p, 0) |= maskVal;
+            #ifdef __DEBUG_IDENTIFY__
+                cout << "identify: i=" << i << ": (*rejected)[i] _mask(" << p << ", 0) set to " << _mask(p,0) << endl;
+            #endif
+        }
+    }
     ndarray::Array< size_t, 1, 1 > notRejectedArr = ndarray::external( notRejected->data(), ndarray::makeVector( int( notRejected->size() ) ), ndarray::makeVector( 1 ) );
 
     ndarray::Array<double, 1, 1> fittedPosNotRejected = math::getSubArray(D_A1_FittedPos, notRejectedArr);

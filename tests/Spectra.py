@@ -13,6 +13,7 @@ import os
 import unittest
 import sys
 import numpy as np
+import lsst.afw.image as afwImage
 import lsst.utils
 import lsst.utils.tests as tests
 import lsst.daf.persistence as dafPersist
@@ -163,24 +164,25 @@ class SpectraTestCase(tests.TestCase):
         if True:
             """Test getMask"""
             vec = spec.getMask()
-            self.assertEqual(vec.shape[0], size)
+            self.assertEqual(vec.getWidth(), size)
 
             """Test setMask"""
             """Test that we can assign a mask vector of the correct length"""
-            vecf = drpStella.indGenNdArrUS(size)
+            vecf = afwImage.MaskU(size, 1)
             self.assertTrue(spec.setMask(vecf))
-            self.assertEqual(spec.getMask()[3], vecf[3])
 
             """Test that we can't assign a mask vector of the wrong length"""
-            vecus = drpStella.indGenNdArrUS(size+1)
+            vecus = afwImage.MaskU(size+1, 1)
             try:
                 self.assertFalse(spec.setMask(vecus))
             except:
                 e = sys.exc_info()[1]
                 message = str.split(e.message, "\n")
-                expected = "pfs::drp::stella::Spectrum::setMask: ERROR: mask->size()="+str(vecus.shape[0])+" != _length="+str(spec.getLength())
+                for i in range(len(message)):
+                    print "element",i,": <",message[i],">"
+                expected = "pfs::drp::stella::Spectrum::setMask: ERROR: mask.getWidth()="+str(vecus.getWidth())+" != _length="+str(spec.getLength())
                 self.assertEqual(message[0],expected)
-            self.assertEqual(spec.getMask().shape[0], size)
+            self.assertEqual(spec.getMask().getWidth(), size)
 
             if True: 
                 """Test setLength"""
@@ -194,8 +196,7 @@ class SpectraTestCase(tests.TestCase):
                 self.assertEqual(spec.getSpectrum().shape[0], size)
                 self.assertEqual(spec.getVariance().shape[0], size)
                 self.assertEqual(spec.getVariance()[size-1], vecf[size-1])
-                self.assertEqual(spec.getMask().shape[0], size)
-                self.assertEqual(spec.getMask()[size-1], vecus[size-1])
+                self.assertEqual(spec.getMask().getWidth(), size)
                 self.assertEqual(spec.getWavelength().shape[0], size)
                 self.assertEqual(spec.getWavelength()[size-1], vecf[size-1])
 
@@ -208,8 +209,7 @@ class SpectraTestCase(tests.TestCase):
                 self.assertEqual(spec.getSpectrum().shape[0], size+1)
                 self.assertEqual(spec.getVariance().shape[0], size+1)
                 self.assertEqual(spec.getVariance()[size], 0)
-                self.assertEqual(spec.getMask().shape[0], size+1)
-                self.assertEqual(spec.getMask()[size], 0)
+                self.assertEqual(spec.getMask().getWidth(), size+1)
                 self.assertEqual(spec.getWavelength().shape[0], size+1)
                 self.assertAlmostEqual(spec.getWavelength()[size], 0.)
 
@@ -221,8 +221,7 @@ class SpectraTestCase(tests.TestCase):
                 self.assertEqual(spec.getSpectrum().shape[0], size-1)
                 self.assertEqual(spec.getVariance().shape[0], size-1)
                 self.assertEqual(spec.getVariance()[size-2], vecf[size-2])
-                self.assertEqual(spec.getMask().shape[0], size-1)
-                self.assertEqual(spec.getMask()[size-2], vecus[size-2])
+                self.assertEqual(spec.getMask().getWidth(), size-1)
                 self.assertEqual(spec.getWavelength().shape[0], size-1)
                 self.assertEqual(spec.getWavelength()[size-2], vecf[size-2])
 
