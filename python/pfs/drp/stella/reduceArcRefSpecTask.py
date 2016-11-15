@@ -6,6 +6,7 @@ from lsst.utils import getPackageDir
 import matplotlib.pyplot as plt
 import numpy as np
 import os
+from pfs.drp.stella.datamodelIO import spectrumSetToPfsArm, PfsArmIO
 import pfs.drp.stella.extractSpectraTask as esTask
 import pfs.drp.stella as drpStella
 from pfs.drp.stella.utils import makeFiberTraceSet
@@ -22,7 +23,7 @@ class ReduceArcRefSpecConfig(Config):
     stretchMinLength = Field( doc = "Minimum length to stretched pieces to (< lengthPieces)", dtype = int, default = 460 );
     stretchMaxLength = Field( doc = "Maximum length to stretched pieces to (> lengthPieces)", dtype = int, default = 540 );
     nStretches = Field( doc = "Number of stretches between <stretchMinLength> and <stretchMaxLength>", dtype = int, default = 80 );
-    refSpec = Field( doc = "reference reference spectrum including path", dtype = str, default=os.path.join(getPackageDir("obs_pfs"), "pfs/arcSpectra/refCdHgKrNeXe_red.fits"));
+    refSpec = Field( doc = "reference reference spectrum including path", dtype = str, default=os.path.join(getPackageDir("obs_pfs"), "pfs/arcSpectra/refSpec_CdHgKrNeXe_red.fits"));
     lineList = Field( doc = "reference line list including path", dtype = str, default=os.path.join(getPackageDir("obs_pfs"), "pfs/lineLists/CdHgKrNeXe_red.fits"));
 
 class ReduceArcRefSpecTaskRunner(TaskRunner):
@@ -128,9 +129,6 @@ class ReduceArcRefSpecTask(CmdLineTask):
                 plt.close(fig)
                 fig.clf()
 
-            if ref.shape != refSpecArr.shape:
-                raise("ref.shape != refSpecArr.shape")
-
             dispCorControl = drpStella.DispCorControl()
             dispCorControl.fittingFunction = self.config.function
             dispCorControl.order = self.config.order
@@ -205,5 +203,28 @@ class ReduceArcRefSpecTask(CmdLineTask):
                 plt.show()
                 plt.close(fig)
                 fig.clf()
+
+            #
+            # Do the I/O using a trampoline object PfsArmIO (to avoid adding butler-related details
+            # to the datamodel product)
+            #
+            # This is a bit messy as we need to include the pfsConfig file in the pfsArm file
+            #
+            dataId = arcRef.dataId
+
+            md = arcExp.getMetadata().toDict()
+            key = "PFSCONFIGID"
+            if key in md:
+                pfsConfigId = md[key]
+            else:
+                self.log.info('No pfsConfigId is present in postISRCCD file for dataId %s' %
+                              str(dataId.items()))
+                pfsConfigId = 0x0
+                                                                                                 
+            pfsConfig = butler.get("pfsConfig", pfsConfigId=pfsConfigId, dateObs=dataId["dateObs"])
+
+            pfsArm = spectrumSetToPfsArm(pfsConfig, spectrumSetFromProfile,
+                                         dataId["visit"], dataId["spectrograph"], dataId["arm"])
+            butler.put(PfsArmIO(pfsArm), 'pfsArm', dataId)
 
         return spectrumSetFromProfile

@@ -395,7 +395,31 @@ namespace math{
                   int nTraces,
                   int nRows,
                   int startPos = 0 );
-}   
+
+    /**
+     * @brief: add FiberTrace representation image to CCD image
+     * @param fiberTrace: FiberTrace to mark in maskedImage's Mask
+     * @param fiberTraceRepresentation: FiberTrace image to copy to ccdArray
+     * @param ccdArray: Array to add the FiberTraceRepresentation to
+     */
+    template< typename ImageT, typename MaskT, typename VarianceT, typename arrayT, typename ccdImageT, int dim >
+    bool addFiberTraceToCcdArray( FiberTrace< ImageT, MaskT, VarianceT > const& fiberTrace,
+                                  afwImage::Image< arrayT > const& fiberTraceRepresentation,
+                                  ndarray::Array< ccdImageT, 2, dim > & ccdArray );
+
+    /**
+     * @brief: add FiberTrace representation image to CCD image
+     *         (wrapper for addFiberTraceToCcdImage(FiberTrace, Image, Array) until Swig can successfully parse
+     *         a numpy array
+     * @param fiberTrace: FiberTrace to mark in maskedImage's Mask
+     * @param fiberTraceRepresentation: FiberTrace image to copy to ccdArray
+     * @param ccdArray: Image to add the FiberTraceRepresentation to
+     */
+    template< typename ImageT, typename MaskT, typename VarianceT, typename arrayT, typename ccdImageT >
+    bool addFiberTraceToCcdImage( FiberTrace< ImageT, MaskT, VarianceT > const& fiberTrace,
+                                  afwImage::Image< arrayT > const& fiberTraceRepresentation,
+                                  afwImage::Image< ccdImageT > & ccdImage );
+}
 
 namespace utils{
     template<typename T>

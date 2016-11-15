@@ -1,5 +1,6 @@
 import lsst.afw.image as afwImage
 import numpy as np
+from pfs.datamodel.pfsFiberTrace import PfsFiberTrace as pFT
 import pfs.drp.stella as drpStella
 
 def makeFiberTraceSet(pfsFiberTrace, maskedImage=None):
@@ -65,3 +66,52 @@ def makeFiberTraceSet(pfsFiberTrace, maskedImage=None):
                 raise RuntimeError("FiberTrace %d: Failed to create trace from maskedImage")
         fts.addFiberTrace(ft)
     return fts
+
+def createPfsFiberTrace(dataId, fiberTraceSet, nRows):
+    pfsFiberTrace = pFT(dataId['calibDate'], dataId['spectrograph'], dataId['arm'])
+
+    ftf = fiberTraceSet.getFiberTrace(0).getFiberTraceFunction()
+    ftfc = ftf.fiberTraceFunctionControl
+
+    ftpfc = fiberTraceSet.getFiberTrace(0).getFiberTraceProfileFittingControl()
+
+    pfsFiberTrace.fwhm = 0.
+    pfsFiberTrace.threshold = 0.
+    pfsFiberTrace.nTerms = 0
+    pfsFiberTrace.saturationLevel = 0.
+    pfsFiberTrace.minLength = 0
+    pfsFiberTrace.maxLength = 0
+    pfsFiberTrace.nLost = 0
+    pfsFiberTrace.traceFunction = ftfc.interpolation
+    pfsFiberTrace.order = ftfc.order
+    pfsFiberTrace.xLow = ftfc.xLow
+    pfsFiberTrace.xHigh = ftfc.xHigh
+    pfsFiberTrace.nCutLeft = ftfc.nPixCutLeft
+    pfsFiberTrace.nCutRight = ftfc.nPixCutRight
+    
+    pfsFiberTrace.interpol = ftpfc.profileInterpolation
+    pfsFiberTrace.swathLength = ftpfc.swathWidth
+    pfsFiberTrace.overSample = ftpfc.overSample
+    pfsFiberTrace.maxIterSF = ftpfc.maxIterSF
+    pfsFiberTrace.maxIterSig = ftpfc.maxIterSig
+    pfsFiberTrace.lambdaSF = ftpfc.lambdaSF
+    pfsFiberTrace.lambdaSP = ftpfc.lambdaSP
+    pfsFiberTrace.lambdaWing = ftpfc.wingSmoothFactor
+    pfsFiberTrace.lSigma = ftpfc.lowerSigma
+    pfsFiberTrace.uSigma = ftpfc.upperSigma
+
+    for iFt in range(fiberTraceSet.size()):
+        ft = fiberTraceSet.getFiberTrace(iFt)
+        pfsFiberTrace.fiberId.append(ft.getITrace()+1)
+        ftf = ft.getFiberTraceFunction()
+        pfsFiberTrace.xCenter.append(ftf.xCenter)
+        pfsFiberTrace.yCenter.append(ftf.yCenter)
+        pfsFiberTrace.yLow.append(ftf.yLow)
+        pfsFiberTrace.yHigh.append(ftf.yHigh)
+        pfsFiberTrace.coeffs.append(ftf.coefficients)
+        prof = ft.getProfile()
+        profOut = np.zeros(shape=[nRows,prof.getWidth()], dtype=np.float32)
+        profOut[ftf.yCenter + ftf.yLow:ftf.yCenter + ftf.yHigh+1,:] = prof.getArray()[:,:]
+        pfsFiberTrace.profiles.append(profOut)
+
+    return pfsFiberTrace

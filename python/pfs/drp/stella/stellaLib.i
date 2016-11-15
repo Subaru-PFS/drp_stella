@@ -627,13 +627,13 @@ Interface to Stella
 %template(createLineList) pfs::drp::stella::math::createLineList< float, 1 >;
 %template(createLineList) pfs::drp::stella::math::createLineList< double, 1 >;
 
-//%template(addFiberTraceToCcdImage) pfs::drp::stella::math::addFiberTraceToCcdImage< float, unsigned short, float, float, float >;
-//%template(addFiberTraceToCcdImage) pfs::drp::stella::math::addFiberTraceToCcdImage< float, unsigned short, float, unsigned short, unsigned short >;
-//%template(addFiberTraceToCcdImage) pfs::drp::stella::math::addFiberTraceToCcdImage< float, unsigned short, float, double, float >;
-//%template(addFiberTraceToCcdImage) pfs::drp::stella::math::addFiberTraceToCcdImage< float, unsigned short, float, float, unsigned short >;
-//%template(addFiberTraceToCcdImage) pfs::drp::stella::math::addFiberTraceToCcdImage< float, unsigned short, float, double, double >;
+%template(addFiberTraceToCcdImage) pfs::drp::stella::math::addFiberTraceToCcdImage< float, unsigned short, float, float, float >;
+%template(addFiberTraceToCcdImage) pfs::drp::stella::math::addFiberTraceToCcdImage< float, unsigned short, float, unsigned short, unsigned short >;
+%template(addFiberTraceToCcdImage) pfs::drp::stella::math::addFiberTraceToCcdImage< float, unsigned short, float, double, float >;
+%template(addFiberTraceToCcdImage) pfs::drp::stella::math::addFiberTraceToCcdImage< float, unsigned short, float, float, unsigned short >;
+%template(addFiberTraceToCcdImage) pfs::drp::stella::math::addFiberTraceToCcdImage< float, unsigned short, float, double, double >;
 
-//%template(markFiberTraceInMask) pfs::drp::stella::utils::markFiberTraceInMask<float, unsigned short, float>;
+%template(markFiberTraceInMask) pfs::drp::stella::utils::markFiberTraceInMask<float, unsigned short, float>;
 
 %template(where) pfs::drp::stella::math::where< size_t, size_t, 0 >;
 %template(where) pfs::drp::stella::math::where< size_t, size_t, 1 >;

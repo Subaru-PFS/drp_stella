@@ -32,10 +32,10 @@ class SpectraTestCase(tests.TestCase):
 
     def setUp(self):
         drpStellaDataDir = lsst.utils.getPackageDir("drp_stella_data")
-        flatfile = os.path.join(drpStellaDataDir,"tests/data/PFS/CALIB/FLAT/r/flat/pfsFlat-2016-01-12-0-2r.fits")
+        flatfile = os.path.join(drpStellaDataDir,"tests/data/PFS/postISRCCD/2016-08-11/v0000029/PFSAr2.fits")
         self.flat = afwImage.makeExposure(afwImage.makeMaskedImage(afwImage.ImageF(flatfile)))
 
-        arcfile = os.path.join(drpStellaDataDir,"tests/data/PFS/postISRCCD/2016-01-12/v0000004/PFFAr2.fits")
+        arcfile = os.path.join(drpStellaDataDir,"tests/data/PFS/CALIB/ARC/r/arc/pfsArc-2015-12-19-0-2r.fits")
         self.arc = afwImage.makeExposure(afwImage.makeMaskedImage(afwImage.ImageF(arcfile)))
         
         self.ftffc = drpStella.FiberTraceFunctionFindingControl()
@@ -46,7 +46,7 @@ class SpectraTestCase(tests.TestCase):
         self.ftpfc = drpStella.FiberTraceProfileFittingControl()
         self.dispCorControl = drpStella.DispCorControl()
         
-        self.nFiberTraces = 11
+        self.nFiberTraces = 12
         self.nRowsPrescan = 49
         self.maxRMS = 0.053
         
@@ -107,15 +107,12 @@ class SpectraTestCase(tests.TestCase):
             except:
                 e = sys.exc_info()[1]
                 message = str.split(e.message, "\n")
-                for i in range(len(message)):
-                    print "element",i,": <",message[i],">"
                 expected = "pfs::drp::stella::Spectrum::setSpectrum: ERROR: spectrum->size()="+str(vecf.shape[0])+" != _length="+str(spec.getLength())
                 self.assertEqual(message[0],expected)
             self.assertEqual(spec.getSpectrum().shape[0], size)
 
             """Test getVariance"""
             vec = spec.getVariance()
-            print 'vec.shape = ',vec.shape
             self.assertEqual(vec.shape[0], size)
 
         if True:
@@ -133,8 +130,6 @@ class SpectraTestCase(tests.TestCase):
             except:
                 e = sys.exc_info()[1]
                 message = str.split(e.message, "\n")
-                for i in range(len(message)):
-                    print "element",i,": <",message[i],">"
                 expected = "pfs::drp::stella::Spectrum::setVariance: ERROR: variance->size()="+str(vecf.shape[0])+" != _length="+str(spec.getLength())
                 self.assertEqual(message[0],expected)
             self.assertEqual(spec.getVariance().shape[0], size)
@@ -156,8 +151,6 @@ class SpectraTestCase(tests.TestCase):
             except:
                 e = sys.exc_info()[1]
                 message = str.split(e.message, "\n")
-                for i in range(len(message)):
-                    print "element",i,": <",message[i],">"
                 expected = "pfsDRPStella::Spectrum::setWavelength: ERROR: wavelength->size()="+str(vecf.shape[0])+" != _length="+str(spec.getLength())
                 self.assertEqual(message[0],expected)
             self.assertEqual(spec.getWavelength().shape[0], size)
@@ -165,8 +158,6 @@ class SpectraTestCase(tests.TestCase):
         if True:
             """Test getMask"""
             vec = spec.getMask()
-            print "vec = ",vec
-            print "dir(vec): ",dir(vec)
             self.assertEqual(vec.shape[0], size)
 
             """Test setMask"""
@@ -182,8 +173,6 @@ class SpectraTestCase(tests.TestCase):
             except:
                 e = sys.exc_info()[1]
                 message = str.split(e.message, "\n")
-                for i in range(len(message)):
-                    print "element",i,": <",message[i],">"
                 expected = "pfs::drp::stella::Spectrum::setMask: ERROR: mask->size()="+str(vecus.shape[0])+" != _length="+str(spec.getLength())
                 self.assertEqual(message[0],expected)
             self.assertEqual(spec.getMask().shape[0], size)
@@ -207,9 +196,7 @@ class SpectraTestCase(tests.TestCase):
 
             if True: 
                 """Test longer size"""
-                print 'trying to change length of Spectrum'
                 self.assertTrue(spec.setLength(size+1))
-                print 'spec = ',spec
             if True: 
                 self.assertEqual(spec.getLength(), size+1)
                 self.assertEqual(spec.getSpectrum()[size], 0)
@@ -270,9 +257,6 @@ class SpectraTestCase(tests.TestCase):
                 val = 3.3
                 pos = 3
                 vecf = list(drpStella.indGenF(length))
-                print type(vecf)
-                print vecf
-                print dir(vecf)
                 vecf[pos] = val
                 pvecf = drpStella.SpecVectorF(vecf)
                 self.assertTrue(specSet.getSpectrum(0).setSpectrum(pvecf))
@@ -287,10 +271,8 @@ class SpectraTestCase(tests.TestCase):
             
     def testExtractTask(self):
         if True:
-            print "testing ExtractSpectraTask"
             fiberTraceSet = drpStella.findAndTraceAperturesF(self.flat.getMaskedImage(), self.ftffc)
             self.assertEqual(fiberTraceSet.size(), self.nFiberTraces)
-            print 'found ',fiberTraceSet.size(),' traces'
             myProfileTask = cfftpTask.CreateFlatFiberTraceProfileTask()
             myProfileTask.run(fiberTraceSet)
 
@@ -315,8 +297,6 @@ class SpectraTestCase(tests.TestCase):
             except:
                 e = sys.exc_info()[1]
                 message = str.split(e.message, "\n")
-                for i in range(len(message)):
-                    print "element",i,": <",message[i],">"
                 expected = "Wrong number or type of arguments for overloaded function 'SpectrumSetF_setSpectrum'."
                 self.assertEqual(message[0],expected)
             try:
@@ -324,8 +304,6 @@ class SpectraTestCase(tests.TestCase):
             except:
                 e = sys.exc_info()[1]
                 message = str.split(e.message, "\n")
-                for i in range(len(message)):
-                    print "element",i,": <",message[i],">"
                 expected = "SpectrumSet::setSpectrum(i="+str(size+1)+"): ERROR: i > _spectra->size()="+str(size)
                 self.assertEqual(message[0],expected)
 
@@ -345,8 +323,6 @@ class SpectraTestCase(tests.TestCase):
             except:
                 e = sys.exc_info()[1]
                 message = str.split(e.message, "\n")
-                for i in range(len(message)):
-                    print "element",i,": <",message[i],">"
                 expected = "SpectrumSet::erase(iStart="+str(size)+", iEnd=0): ERROR: iStart >= _spectra->size()="+str(size)
                 self.assertEqual(message[0],expected)
 
@@ -355,8 +331,6 @@ class SpectraTestCase(tests.TestCase):
             except:
                 e = sys.exc_info()[1]
                 message = str.split(e.message, "\n")
-                for i in range(len(message)):
-                    print "element",i,": <",message[i],">"
                 expected = "SpectrumSet::erase(iStart="+str(size-1)+", iEnd="+str(size)+"): ERROR: iEnd >= _spectra->size()="+str(size)
                 self.assertEqual(message[0],expected)
 
@@ -365,8 +339,6 @@ class SpectraTestCase(tests.TestCase):
             except:
                 e = sys.exc_info()[1]
                 message = str.split(e.message, "\n")
-                for i in range(len(message)):
-                    print "element",i,": <",message[i],">"
                 expected = "SpectrumSet::erase(iStart=2, iEnd=1): ERROR: iStart > iEnd"
                 self.assertEqual(message[0],expected)
 
@@ -375,8 +347,6 @@ class SpectraTestCase(tests.TestCase):
             except:
                 e = sys.exc_info()[1]
                 message = str.split(e.message, "\n")
-                for i in range(len(message)):
-                    print "element",i,": <",message[i],">"
                 expected = "Wrong number or type of arguments for overloaded function 'SpectrumSetF_erase'."
                 self.assertEqual(message[0],expected)
 
@@ -401,10 +371,8 @@ class SpectraTestCase(tests.TestCase):
 
     def testWavelengthCalibrationWithRefSpec(self):
         if True:
-            print "testing wavelength calibration"
             fiberTraceSet = drpStella.findAndTraceAperturesF(self.flat.getMaskedImage(), self.ftffc)
             self.assertGreater(fiberTraceSet.size(), 0)
-            print 'found ',fiberTraceSet.size(),' traces'
             myProfileTask = cfftpTask.CreateFlatFiberTraceProfileTask()
             myProfileTask.run(fiberTraceSet)
 
@@ -417,6 +385,12 @@ class SpectraTestCase(tests.TestCase):
             self.dispCorControl.order = 5
             self.dispCorControl.searchRadius = 2
             self.dispCorControl.fwhm = 2.6
+            self.dispCorControl.radiusXCor = 35
+            self.dispCorControl.lengthPieces = 500
+            self.dispCorControl.nCalcs = 15
+            self.dispCorControl.stretchMinLength = 450
+            self.dispCorControl.stretchMaxLength = 550
+            self.dispCorControl.nStretches = 100
 
             """ read line list """
             hdulist = pyfits.open(self.lineList)
@@ -445,9 +419,7 @@ class SpectraTestCase(tests.TestCase):
                     self.assertLess(spec.getWavelength()[j], spec.getWavelength()[j+1])
                 
                 """Check wavelength range"""
-                print 'spec[',i,'].getWavelength()[0] = ',spec.getWavelength()[0]
                 self.assertGreater(spec.getWavelength()[0], 3800)
-                print 'spec[',i,'].getWavelength()[',spec.getLength()-1,'] = ',spec.getWavelength()[spec.getLength()-1]
                 self.assertLess(spec.getWavelength()[spec.getLength()-1], 9800)
                 
                 """Check RMS"""
@@ -455,10 +427,8 @@ class SpectraTestCase(tests.TestCase):
             
     def testWavelengthCalibrationWithoutRefSpec(self):
         if True:
-            print "testing wavelength calibration"
             fiberTraceSet = drpStella.findAndTraceAperturesF(self.flat.getMaskedImage(), self.ftffc)
             self.assertGreater(fiberTraceSet.size(), 0)
-            print 'found ',fiberTraceSet.size(),' traces'
             myProfileTask = cfftpTask.CreateFlatFiberTraceProfileTask()
             myProfileTask.run(fiberTraceSet)
 
@@ -539,9 +509,7 @@ class SpectraTestCase(tests.TestCase):
                     self.assertLess(spec.getWavelength()[j], spec.getWavelength()[j+1])
                 
                 """Check wavelength range"""
-                print 'spec[',i,'].getWavelength()[0] = ',spec.getWavelength()[0]
                 self.assertGreater(spec.getWavelength()[0], 3800)
-                print 'spec[',i,'].getWavelength()[',spec.getLength()-1,'] = ',spec.getWavelength()[spec.getLength()-1]
                 self.assertLess(spec.getWavelength()[spec.getLength()-1], 9800)
 
 #-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-

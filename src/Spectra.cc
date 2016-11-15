@@ -503,7 +503,9 @@ ndarray::Array< float, 3, 1 > pfsDRPStella::SpectrumSet<SpectrumT, MaskT, Varian
         "SpectrumSet::writeFits: spectrum does not have expected shape"
       );
     }
-    cout << "covar[ ndarray::view( " << yLow << ", " << yHigh + 1 << " )( )( " << iFiber << " ) ].getShape() = " << covar[ ndarray::view( yLow, yHigh + 1 )( )( iFiber ) ].getShape() << ", spectrum->getCovar().getShape() = " << spectrum->getCovar().getShape() << endl;
+    #ifdef __DEBUG_GETALLCOVARS__
+      cout << "covar[ ndarray::view( " << yLow << ", " << yHigh + 1 << " )( )( " << iFiber << " ) ].getShape() = " << covar[ ndarray::view( yLow, yHigh + 1 )( )( iFiber ) ].getShape() << ", spectrum->getCovar().getShape() = " << spectrum->getCovar().getShape() << endl;
+    #endif
     covar[ ndarray::view( yLow, yHigh + 1 )( )( iFiber ) ] = spectrum->getCovar()[ ndarray::view() ];
   }
   return covar;
