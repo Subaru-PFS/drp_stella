@@ -1,4 +1,0 @@
-setup -r ../../../../ -v
-setup pipe_base
-setup pipe_tasks
-
