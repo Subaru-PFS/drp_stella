@@ -146,8 +146,8 @@ Now for using the pipeline.
 
     - 3 Biases: visit numbers 7251-7253;
     - 3 Darks: visit numbers 7291-7293;
-    - 1 Flat: visit number 5;
-    - 1 Arc: visit number 4.
+    - 11 dithered Flats: visit numbers 29, 41, 42, 44, 45, 46, 47, 48, 49, 51, and 53;
+    - 1 Arc: visit number 58.
 
   Configuration parameters for the pipeline tasks can be set either in config
   files (see :file:`$OBS_PFS_DIR/config/pfs/`) or by passing them on the
@@ -228,8 +228,8 @@ Now for using the pipeline.
 
 - In order to extract the arc spectra we first need to identify and trace
   the apertures for each fiber. This is what constructFiberTrace.py does.
-  In our data set only visit 29 is a flat, so specifying ``--id visit=29`` is
-  all we need to specify for our flat to be found::
+  In our data set only visit 29 is a not dithered flat, so specifying
+  ``--id visit=29`` is all we need to specify for our flat to be found::
       
      constructFiberTrace.py $PFS_DATA --rerun $whoami/tmp --id visit=29 --calibId calibVersion=fiberTrace calibDate=2015-12-22 arm=r spectrograph=2 --batch-type none
      genCalibRegistry.py --root $PFS_DATA/CALIB --camera PFS --validity 360

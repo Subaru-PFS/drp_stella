@@ -1,4 +1,4 @@
-export PFS_DATA_DIR=$HOME/PFS/Data2
+export PFS_DATA_DIR=$HOME/PFS/Data
 export whoami=$(whoami)
 
 rm -rf $PFS_DATA_DIR
