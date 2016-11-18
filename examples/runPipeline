@@ -12,29 +12,29 @@ cp -r $DRP_STELLA_DATA_DIR/tests/data/PFS/pfsState $PFS_DATA_DIR &&
 #-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
 constructBias.py $PFS_DATA_DIR --rerun $whoami/calibs \
-                 --id field=BIAS dateObs=2015-12-22 arm=r spectrograph=2 \
-                 --calibId calibVersion=bias calibDate=2015-12-22 arm=r spectrograph=2 \
+                 --id field=BIAS dateObs=2015-12-22 arm=r spectrograph=1 \
+                 --calibId calibVersion=bias calibDate=2015-12-22 arm=r spectrograph=1 \
                  --batch-type none &&
 genCalibRegistry.py --root $PFS_DATA_DIR/CALIB --validity 360 &&
 
 constructDark.py $PFS_DATA_DIR --rerun $whoami/calibs \
-                 --id field=DARK dateObs=2015-12-22 arm=r spectrograph=2 \
-                 --calibId calibVersion=dark calibDate=2015-12-22 arm=r spectrograph=2 \
+                 --id field=DARK dateObs=2015-12-22 arm=r spectrograph=1 \
+                 --calibId calibVersion=dark calibDate=2015-12-22 arm=r spectrograph=1 \
                  --batch-type none &&
 genCalibRegistry.py --root $PFS_DATA_DIR/CALIB --validity 360 &&
 
 constructFiberTrace.py $PFS_DATA_DIR --rerun $whoami/calibs \
-                 --id visit=29 --calibId calibVersion=fiberTrace calibDate=2015-12-22 \
-                 arm=r spectrograph=2 --batch-type none &&
-genCalibRegistry.py --root $PFS_DATA_DIR/CALIB --validity 360 &&
+                 --id visit=104 --calibId calibVersion=fiberTrace calibDate=2016-11-11 \
+                 arm=r spectrograph=1 --batch-type none &&
+genCalibRegistry.py --root $PFS_DATA_DIR/CALIB --camera PFS --validity 360 &&
 
 constructFiberFlat.py $PFS_DATA_DIR --rerun $whoami/calibs \
-                 --id visit=29..53 --calibId calibVersion=flat calibDate=2015-12-22 arm=r spectrograph=2 \
+                 --id visit=104..112 --calibId calibVersion=flat calibDate=2016-11-11 arm=r spectrograph=1 \
                  --batch-type none &&
 genCalibRegistry.py --root $PFS_DATA_DIR/CALIB --validity 360 &&
 
 #-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
-detrend.py $PFS_DATA_DIR --rerun $whoami/tmp --id visit=58 &&
+detrend.py $PFS_DATA_DIR --rerun $whoami/tmp --id visit=103 &&
 
-reduceArcRefSpec.py $PFS_DATA_DIR --rerun $whoami/tmp --id visit=58
+reduceArcRefSpec.py $PFS_DATA_DIR --rerun $whoami/tmp --id visit=103
