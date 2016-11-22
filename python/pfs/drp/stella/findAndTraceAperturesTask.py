@@ -75,23 +75,23 @@ class FindAndTraceAperturesTask(Task):
 
     def __init__(self, *args, **kwargs):
         super(FindAndTraceAperturesTask, self).__init__(*args, **kwargs)
-
-        """create FiberTraceFunctionFindingControl"""
         self.ftffc = drpStella.FiberTraceFunctionFindingControl()
-        ftffc = self.ftffc
-        ftffc.fiberTraceFunctionControl.interpolation = self.config.interpolation
-        ftffc.fiberTraceFunctionControl.order = self.config.order
-        ftffc.fiberTraceFunctionControl.xLow = self.config.xLow
-        ftffc.fiberTraceFunctionControl.xHigh = self.config.xHigh
-        ftffc.apertureFWHM = self.config.apertureFWHM
-        ftffc.signalThreshold = self.config.signalThreshold
-        ftffc.nTermsGaussFit = self.config.nTermsGaussFit
-        ftffc.saturationLevel = self.config.saturationLevel
-        ftffc.minLength = self.config.minLength
-        ftffc.maxLength = self.config.maxLength
-        ftffc.nLost = self.config.nLost
 
     def findAndTraceApertures(self, inExposure):
+
+        """create FiberTraceFunctionFindingControl"""
+        self.ftffc.fiberTraceFunctionControl.interpolation = self.config.interpolation
+        self.ftffc.fiberTraceFunctionControl.order = self.config.order
+        self.ftffc.fiberTraceFunctionControl.xLow = self.config.xLow
+        self.ftffc.fiberTraceFunctionControl.xHigh = self.config.xHigh
+        self.ftffc.apertureFWHM = self.config.apertureFWHM
+        self.ftffc.signalThreshold = self.config.signalThreshold
+        self.ftffc.nTermsGaussFit = self.config.nTermsGaussFit
+        self.ftffc.saturationLevel = self.config.saturationLevel
+        self.ftffc.minLength = self.config.minLength
+        self.ftffc.maxLength = self.config.maxLength
+        self.ftffc.nLost = self.config.nLost
+
         """Create a FiberTraceSet given a flat-field exposure"""
         inMaskedImage = inExposure.getMaskedImage()
 
