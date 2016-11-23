@@ -218,13 +218,13 @@ Now for using the pipeline.
   for 180 days. We will need to repeat this step every time we create a new
   calibration image so that successive tasks can find them::
 
-     genCalibRegistry.py --root $PFS_DATA/CALIB --camera PFS --validity 360
+     genCalibRegistry.py --root $PFS_DATA/CALIB --validity 360
 
 - Now we can create a trimmed and scaled, Bias-subtracted master Dark and
   ingest that into our calibration registry::
 
      constructDark.py $PFS_DATA --rerun $whoami/calibs --id field=DARK dateObs=2015-12-22 arm=r spectrograph=2 --calibId calibVersion=dark calibDate=2015-12-22 arm=r spectrograph=2 --batch-type none
-     genCalibRegistry.py --root $PFS_DATA/CALIB --camera PFS --validity 360
+     genCalibRegistry.py --root $PFS_DATA/CALIB --validity 360
 
 - In order to extract the arc spectra we first need to identify and trace
   the apertures for each fiber. This is what constructFiberTrace.py does.
@@ -232,7 +232,7 @@ Now for using the pipeline.
   ``--id visit=29`` is all we need to specify for our flat to be found::
       
      constructFiberTrace.py $PFS_DATA --rerun $whoami/tmp --id visit=29 --calibId calibVersion=fiberTrace calibDate=2015-12-22 arm=r spectrograph=2 --batch-type none
-     genCalibRegistry.py --root $PFS_DATA/CALIB --camera PFS --validity 360
+     genCalibRegistry.py --root $PFS_DATA/CALIB --validity 360
 
 - We can now construct our master Flat from the dithered Flats, which have the
   visit numbers 29, 41, 42, 44, 45, 46, 47, 48, 49, 51, and 53. Since these are
@@ -241,7 +241,7 @@ Now for using the pipeline.
   for dataId=OrderedDict([('visit', 38)])`, which you can safely ignore::
       
      constructFiberFlat.py $PFS_DATA --rerun $whoami/tmp --id visit=29..53 --calibId calibVersion=flat calibDate=2015-12-22 arm=r spectrograph=2 --batch-type none
-     genCalibRegistry.py --root $PFS_DATA/CALIB --camera PFS --validity 360
+     genCalibRegistry.py --root $PFS_DATA/CALIB --validity 360
      
 - Since we have the master Bias, Dark, and Flat we can now perform the
   Instrumental-Signature Removal (ISR) task for our Arc spectrum (visit=58).
