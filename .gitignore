@@ -20,3 +20,4 @@ python/pfs/drp/stella/stellaLib_wrap.cc
 python/pfs/drp/stella/version.py
 tests/.tests/
 ups/drp_stella.cfgc
+sphinx/_build/
