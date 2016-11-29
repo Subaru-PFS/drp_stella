@@ -89,7 +89,7 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
     return pfs::drp::stella::math::PolyFit(D_A1_X_In,
                                            D_A1_Y_In,
                                            I_Degree_In,
-                                           D_Reject_In,
+                                           -1.*D_Reject_In,
                                            D_Reject_In,
                                            -1,
                                            S_A1_Args_In,
