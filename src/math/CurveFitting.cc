@@ -185,8 +185,8 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
     }
 
     ndarray::Array<double, 1, 1> xRange = ndarray::allocate(2);
-    xRange[0] = pfs::drp::stella::math::min(D_A1_X_In);
-    xRange[1] = pfs::drp::stella::math::max(D_A1_X_In);;
+    xRange[0] = -1.;
+    xRange[1] = 1.;
     PTR(ndarray::Array<double, 1, 1>) P_D_A1_XRange(new ndarray::Array<double, 1, 1>(xRange));
     if ((I_Pos = pfs::drp::stella::utils::KeyWord_Set(S_A1_Args_In, "XRANGE")) >= 0)
     {
@@ -214,9 +214,10 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
     #ifdef __DEBUG_POLY__
       cout << "pfs::drp::stella::math::CurveFitting::Poly: D_A1_X_In = " << D_A1_X_In << endl;
       cout << "pfs::drp::stella::math::CurveFitting::Poly: xNew = " << xNew << endl;
+      cout << "pfs::drp::stella::math::CurveFitting::PolyFit: xRange = " << xRange << endl;
     #endif
 
-    std::vector<T> D_A1_X(xNew.begin(), xNew.end());
+    std::vector<T> D_A1_X(D_A1_X_In.begin(), D_A1_X_In.end());
     std::vector<T> D_A1_Y(D_A1_Y_In.begin(), D_A1_Y_In.end());
     std::vector<size_t> I_A1_OrigPos(D_A1_X_In.getShape()[0]);
     std::vector<T> V_MeasureErrors(P_D_A1_MeasureErrors->begin(), P_D_A1_MeasureErrors->end());
@@ -290,7 +291,7 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
 //        D_A1_Temp.deep() = D_A1_Temp / D_A1_Y.size();
       double D_SDev = double(sqrt(D_A1_Temp.asEigen().sum()));
 
-      D_A1_PolyRes.deep() = pfs::drp::stella::math::Poly(xNew,
+      D_A1_PolyRes.deep() = pfs::drp::stella::math::Poly(D_A1_X_In,
                                                          D_A1_Coeffs_Out,
                                                          T(xRange[0]),
                                                          T(xRange[1]));
@@ -304,7 +305,7 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
         D_Dev = D_A1_Y_In[i_pos] - D_A1_PolyRes[i_pos];
         if (((D_Dev < 0) && (D_Dev > (D_LReject_In * D_SDev))) ||
             ((D_Dev >= 0) && (D_Dev < (D_UReject_In * D_SDev)))){
-          D_A1_X.push_back(xNew[i_pos]);
+          D_A1_X.push_back(D_A1_X_In[i_pos]);
           D_A1_Y.push_back(D_A1_Y_In[i_pos]);
           if (B_HaveMeasureErrors)
             V_MeasureErrors.push_back((*P_D_A1_MeasureErrors)[i_pos]);
@@ -477,13 +478,18 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
       #ifdef __DEBUG_POLYFIT__
         cout << "pfs::drp::stella::math::CurveFitting::PolyFit: *P_D_A1_XRange set to " << *P_D_A1_XRange << endl;
       #endif
+      xNew = pfs::drp::stella::math::convertRangeToUnity(D_A1_X_In,
+                                                         D_A1_XRange);
     }
     else{
-      D_A1_XRange[0] = pfs::drp::stella::math::min(D_A1_X_In);
-      D_A1_XRange[1] = pfs::drp::stella::math::max(D_A1_X_In);
+      D_A1_XRange[0] = -1.;
+      D_A1_XRange[1] = 1.;
+      xNew = D_A1_X_In;
     }
-    xNew = pfs::drp::stella::math::convertRangeToUnity(D_A1_X_In,
-                                                       D_A1_XRange);
+    #ifdef __DEBUG_POLYFIT__
+      cout << "PolyFit: xNew = " << xNew << endl;
+      cout << "++++++++++++++++++++++++++++++++++++" << endl;
+    #endif
 
     D_A1_SDevSquare.deep() = D_A1_MeasureErrors * D_A1_MeasureErrors;
     #ifdef __DEBUG_POLYFIT__
