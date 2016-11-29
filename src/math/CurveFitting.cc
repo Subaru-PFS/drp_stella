@@ -355,9 +355,6 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
       I_A1_OrigPos.resize(D_A1_X_In.getShape()[0]);
       for (size_t i_pos = 0; i_pos < I_A1_OrigPos.size(); ++i_pos)
         I_A1_OrigPos[i_pos] = i_pos;
-      std::vector<size_t> V_OrigPos(I_A1_OrigPos.begin(), I_A1_OrigPos.end());
-      std::vector<size_t> V_NotRejected(P_I_A1_NotRejected->begin(), P_I_A1_NotRejected->end());
-      *P_I_A1_Rejected = pfs::drp::stella::math::removeSubArrayFromArray(V_OrigPos, V_NotRejected);
     }
     #ifdef __DEBUG_CURVEFIT__
       cout << "CurveFitting::PolyFit(x, y, deg, lReject, uReject, nIter, Args, ArgV) finished" << endl;
