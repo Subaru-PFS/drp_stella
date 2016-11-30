@@ -246,14 +246,35 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
 
     for (size_t i = 0; i < I_A1_OrigPos.size(); ++i)
       I_A1_OrigPos[i] = i;
-    ndarray::Array<T, 1, 1> D_A1_PolyRes = ndarray::allocate(D_A1_X_In.getShape()[0]);
     int I_NRejected_Old = 0;
     std::vector<size_t> I_A1_Rejected_Old(D_A1_X_In.size());
     bool B_Run = true;
     unsigned int i_iter = 0;
+    ndarray::Array<T, 1, 1> D_A1_YFit = ndarray::allocate(D_A1_X_In.getShape()[0]);
+    D_A1_YFit.deep() = 0.;
+    PTR(ndarray::Array<T, 1, 1>) P_D_A1_YFit(new ndarray::Array<T, 1, 1>(D_A1_YFit));
+    bool haveYFit = false;
+    if ((I_Pos = pfs::drp::stella::utils::KeyWord_Set(S_A1_Args_In, "YFIT")) >= 0){
+      haveYFit = true;
+      P_D_A1_YFit.reset();
+      P_D_A1_YFit = (*((PTR(ndarray::Array<T, 1, 1>)*)ArgV[I_Pos]));
+      if (P_D_A1_YFit->getShape()[0] != D_A1_X_In.getShape()[0]){
+        std::string message("pfs::drp::stella::math::CurveFitting::PolyFit: KeyWord_Set(YFIT): ERROR: P_D_A1_YFit->getShape()[0](=");
+        message += to_string(P_D_A1_YFit->getShape()[0]) + ") != D_A1_X_In.getShape()[0](=" + to_string(D_A1_X_In.getShape()[0]) + ")";
+        throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
+      }
+      #ifdef __DEBUG_POLYFIT__
+        cout << "pfs::drp::stella::math::CurveFitting::PolyFit: 1. KeyWord_Set(YFIT): P_D_A1_YFit = " << *P_D_A1_YFit << endl;
+      #endif
+    }
     size_t nArgs = S_A1_Args_In.size();
-    std::vector<void*> args(nArgs);
-
+    std::vector<void*> args(ArgV);
+    std::vector<string> keyWords(S_A1_Args_In);
+    if (!haveYFit){
+      ++nArgs;
+      keyWords.push_back("YFIT");
+      args.resize(nArgs);
+    }
     while (B_Run){
       I_A1_Rejected_Old = *P_I_A1_Rejected;
       I_NRejected_Old = *P_I_NRejected;
@@ -262,15 +283,21 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
       I_DataValues_New = 0;
       ndarray::Array<T, 1, 1> D_A1_XArr = ndarray::external(D_A1_X.data(), ndarray::makeVector(int(D_A1_X.size())), ndarray::makeVector(1));
       ndarray::Array<T, 1, 1> D_A1_YArr = ndarray::external(D_A1_Y.data(), ndarray::makeVector(int(D_A1_X.size())), ndarray::makeVector(1));
-      for (size_t iArg=0; iArg<nArgs; ++iArg){
-        if (S_A1_Args_In[iArg] == "MEASURE_ERRORS"){
+      ndarray::Array<T, 1, 1> yFit = ndarray::allocate(D_A1_X.size());
+      PTR(ndarray::Array<T, 1, 1>) pYFit(new ndarray::Array<T, 1, 1>(yFit));
+      for (size_t iArg=0; iArg < nArgs; ++iArg){
+        if (iArg >= S_A1_Args_In.size() || S_A1_Args_In[iArg] == "YFIT"){
+          #ifdef __DEBUG_POLYFIT__
+            cout << "pfs::drp::stella::math::CurveFitting::PolyFit: Setting args[" << iArg << "] to pYFit" << endl;
+          #endif
+          args[iArg] = &pYFit;
+        }
+        else if (S_A1_Args_In[iArg] == "MEASURE_ERRORS"){
           #ifdef __DEBUG_POLYFIT__
             cout << "pfs::drp::stella::math::CurveFitting::PolyFit: Setting args[" << iArg << "] to P_D_A1_MeasureErrorsTemp = " << *P_D_A1_MeasureErrorsTemp << endl;
           #endif
           args[iArg] = &P_D_A1_MeasureErrorsTemp;
         }
-        else
-          args[iArg] = ArgV[I_Pos];
       }
       #ifdef __DEBUG_POLYFIT__
         cout << "pfs::drp::stella::math::CurveFitting::PolyFit: D_A1_XArr = " << D_A1_XArr << endl;
@@ -284,29 +311,33 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
       D_A1_Coeffs_Out = pfs::drp::stella::math::PolyFit(D_A1_XArr,
                                                         D_A1_YArr,
                                                         I_Degree_In,
-                                                        S_A1_Args_In,
+                                                        keyWords,
                                                         args);
       #ifdef __DEBUG_POLYFIT__
-        cout << "pfs::drp::stella::math::CurveFitting::PolyFit: PolyFit(D_A1_XArr, D_A1_YArr, I_Degree_In, S_A1_Args_In, ArgV) returned D_A1_Coeffs_Out = " << D_A1_Coeffs_Out << endl;
+        cout << "pfs::drp::stella::math::CurveFitting::PolyFit: PolyFit(D_A1_XArr, D_A1_YArr, I_Degree_In, keyWords, args) returned D_A1_Coeffs_Out = " << D_A1_Coeffs_Out << endl;
+        cout << "pfs::drp::stella::math::CurveFitting::PolyFit: yFit = " << *pYFit << endl;
       #endif
-      ndarray::Array<T, 1, 1> D_A1_YFit;
-      D_A1_YFit = pfs::drp::stella::math::Poly(D_A1_XArr,
-                                               D_A1_Coeffs_Out,
-                                               T(xRange[0]),
-                                               T(xRange[1]));
-
       ndarray::Array<T, 1, 1> D_A1_Temp = ndarray::allocate(D_A1_Y.size());
-      for (int pos = 0; pos < D_A1_Y.size(); ++pos)
-        D_A1_Temp[pos] = D_A1_Y[pos] - D_A1_YFit[pos];
+      auto itY = D_A1_YArr.begin();
+      auto itYFit = pYFit->begin();
+      for (auto itTemp = D_A1_Temp.begin(); itTemp < D_A1_Temp.end(); ++itTemp, ++itY, ++itYFit)
+        *itTemp = (*itY) - (*itYFit);
+      #ifdef __DEBUG_POLYFIT__
+        cout << "pfs::drp::stella::math::CurveFitting::PolyFit: 1. D_A1_Temp = " << D_A1_Temp << endl;
+      #endif
       Eigen::Array<T, Eigen::Dynamic, 1> tempEArr = D_A1_Temp.asEigen();
       D_A1_Temp.asEigen() = tempEArr.pow(2) / T(D_A1_Y.size());
-//        D_A1_Temp.deep() = D_A1_Temp / D_A1_Y.size();
+      #ifdef __DEBUG_POLYFIT__
+        cout << "pfs::drp::stella::math::CurveFitting::PolyFit: 2. D_A1_Temp = " << D_A1_Temp << endl;
+      #endif
       double D_SDev = double(sqrt(D_A1_Temp.asEigen().sum()));
-
-      D_A1_PolyRes.deep() = pfs::drp::stella::math::Poly(D_A1_X_In,
+      P_D_A1_YFit->deep() = pfs::drp::stella::math::Poly(D_A1_X_In,
                                                          D_A1_Coeffs_Out,
-                                                         T(xRange[0]),
-                                                         T(xRange[1]));
+                                                         xRange[0],
+                                                         xRange[1]);
+      #ifdef __DEBUG_POLYFIT__
+        cout << "pfs::drp::stella::math::CurveFitting::PolyFit: P_D_A1_YFit = " << *P_D_A1_YFit << endl;
+      #endif
       double D_Dev;
       D_A1_X.resize(0);
       D_A1_Y.resize(0);
@@ -314,7 +345,10 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
       I_A1_OrigPos.resize(0);
       P_I_A1_Rejected->resize(0);
       for (size_t i_pos=0; i_pos < D_A1_Y_In.getShape()[0]; i_pos++){
-        D_Dev = D_A1_Y_In[i_pos] - D_A1_PolyRes[i_pos];
+        D_Dev = D_A1_Y_In[i_pos] - (*P_D_A1_YFit)[i_pos];
+        #ifdef __DEBUG_POLYFIT__
+          cout << "pfs::drp::stella::math::CurveFitting::PolyFit: i_pos = " << i_pos << ": D_Dev = " << D_Dev << ", D_SDev = " << D_SDev << endl;
+        #endif
         if (((D_Dev < 0) && (D_Dev > (D_LReject_In * D_SDev))) ||
             ((D_Dev >= 0) && (D_Dev < (D_UReject_In * D_SDev)))){
           D_A1_X.push_back(D_A1_X_In[i_pos]);
@@ -515,6 +549,10 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
       #ifdef __DEBUG_POLYFIT__
         cout << "pfs::drp::stella::math::CurveFitting::PolyFit: KeyWord_Set(YFIT)" << endl;
       #endif
+      if (P_D_A1_YFit->getShape()[0] != D_A1_X_In.getShape()[0]){
+        std::string message("pfs::drp::stella::math::CurveFitting::PolyFit: ERROR: P_D_A1_YFit->getShape()[0] != D_A1_X_In.getShape()[0]");
+        throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
+      }
     }
     P_D_A1_YFit->deep() = 0.;
 
