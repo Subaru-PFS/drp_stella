@@ -183,6 +183,7 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
         cout << "pfs::drp::stella::math::CurveFitting::PolyFit: KeyWord N_REJECTED read" << endl;
       #endif
     }
+    *P_I_NRejected = 0;
 
     ndarray::Array<double, 1, 1> xRange = ndarray::allocate(2);
     xRange[0] = -1.;
