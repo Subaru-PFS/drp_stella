@@ -204,7 +204,7 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
         cout << "pfs::drp::stella::math::CurveFitting::PolyFit: *P_D_A1_XRange set to " << *P_D_A1_XRange << endl;
       #endif
     }
-    ndarray::Array<T, 1, 1> xNew;
+    ndarray::Array<T, 1, 1> xNew = ndarray::allocate(D_A1_X_In.getShape()[0]);
     /// shift and rescale x_In to fit into range [-1.,1.]
     if ((std::fabs(xRange[0] + 1.) > 0.00000001) || (std::fabs(xRange[1] - 1.) > 0.00000001)){
       xNew = pfs::drp::stella::math::convertRangeToUnity(D_A1_X_In, xRange);
