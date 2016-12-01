@@ -17,6 +17,14 @@ All the PFS-specific code is hosted in the `Subaru-PFS`_ organization on
 policy`_, then provide `pfsprojectoffice@ipmu.jp`_ with the details they
 request.
 
+Significant packages include:
+
+- `datamodel <http://github.com/Subaru-PFS/datamodel>`_: data model definition.
+- `obs_pfs <http://github.com/Subaru-PFS/obs_pfs>`_: interface package for I/O.
+- `drp_stella <http://github.com/Subaru-PFS/drp_stella>`_: algorithms for 2D spectra reduction.
+- `drp_stella_data <http://github.com/Subaru-PFS/drp_stella_data>`_: test data.
+- `pfs_pipe2d <http://github.com/Subaru-PFS/pfs_pipe2d>`_: 2D pipeline build and test scripts.
+
 .. _Subaru-PFS: https://github.com/Subaru-PFS/
 .. _GitHub: https://github.com/
 .. _pfs_ipmu_jp account policy: http://sumire.pbworks.com/w/page/84391630/pfs_ipmu_jp%20account%20policy#Technicalteammember
@@ -130,7 +138,7 @@ exactly what code they are supposed to be reviewing (e.g. by linking to the
 relevant branches on GitHub).
 
 Do not merge to the ``master`` branch until the reviewer is satisfied with the
-work. It is not required to agree with or implement every suggestion the
+work and the :ref:`dev-ci` passes. It is not required to agree with or implement every suggestion the
 reviewer makes, but, when disagreeing, make this clear and iterate with the
 reviewer to a solution you are both happy with.
 
@@ -159,3 +167,83 @@ policy: their use is specifically permitted.
 .. _Boost: https://developer.lsst.io/coding/using_boost.html
 .. _Astropy: https://developer.lsst.io/coding/using_astropy.html
 .. _Eigen's unsupported modules: https://developer.lsst.io/coding/using_eigen.html
+
+
+.. _dev-ci:
+
+Continuous Integration
+======================
+
+An integration test is available in the `pfs_pipe2d`_ package. The integration test consists of more than just
+running the unit tests of individual packages, but exercises the actual commands users will employ to reduce
+data, ensuring that the individual packages still work together to achieve what we have declared the pipeline
+is capable of doing. Therefore, this test should be run before merging any work to the ``master`` branch;
+this ensures that the ``master`` branch always works. Timing will vary according to resource availability and
+the number of cores used, but the test typically takes about half an hour to run.
+
+The test can be run in one of two ways: on the developer's own system at the command-line, or on `Travis-CI`_.
+The Travis-CI method is recommended because it is requires little effort, uses external resources and provides
+a visible demonstration to the team that the code works.
+
+.. _pfs_pipe2d: http://github.com/Subaru-PFS/pfs_pipe2d
+.. _Travis-CI: http://travis-ci.org
+
+
+Command-line use
+----------------
+
+You can run the integration test using :file:`pfs_integration_test.sh` on the command-line. Note that this
+command only runs the integration test, and does *not* build or install the code. It is the user's
+responsibility to set up the environment (e.g., sourcing the appropriate :file:`pfs_setups.sh` file; see
+:ref:`user-script-install`), including the packages to be tested.
+
+Unless you've modified the ``drp_stella_data`` package as part of your work (in which case you need to use
+the ``-b <BRANCH>`` flag), the only argument you need is the directory under which to operate. For example::
+
+  /path/to/pfs_pipe2d/bin/pfs_integration_test.sh /data/pfs
+
+The full usage information for :file:`pfs_integration_test.sh` is::
+
+    Exercise the PFS 2D pipeline code
+    
+    Usage: /path/to/pfs_pipe2d/bin/pfs_integration_test.sh [-b <BRANCH>] [-r <RERUN>] [-d DIRNAME] [-c CORES] [-n] <PREFIX>
+    
+        -b <BRANCH> : branch of drp_stella_data to use
+        -r <RERUN> : rerun name to use (default: 'integration')
+        -d <DIRNAME> : directory name to give data repo (default: 'INTEGRATION')
+        -c <CORES> : number of cores to use (default: 1)
+        -n : don't cleanup temporary products
+        <PREFIX> : directory under which to operate
+
+
+Travis use
+----------
+
+The integration test will run automatically under `Travis-CI`_ when GitHub pull requests are issued for any
+of the following products:
+
+- pfs_pipe2d
+- drp_stella
+- drp_stella_data
+- obs_pfs
+- datamodel
+
+After issuing a pull request, all you need to do is wait for the test to finish successfully. You'll see a
+yellow circle while the test runs; you can click on the "Details" button to see the build output. If it
+finished successfully, you'll get a green circle and the statement "All checks have passed"; then you're
+clear to merge after review. If the Travis check fails, you'll get a red circle, which signals that you need
+to fix your contribution. In that case, have a look at the Travis log for clues as to what the problem might
+be.
+
+As you push new commits to the pull request, Travis will automatically trigger new integration tests. Because
+Travis is triggered on GitHub pull requests, you should ensure you have pushed your work on a common ticket
+branch to all appropriate repos before making pull requests. If you want to signal Travis `not to
+automatically test a commit`_, add the text ``[ci skip]`` to your commit message.
+
+Unfortunately, due to Travis resource limitations, only 4 MB of logs can be generated. We therefore trap the
+build and test output and display only the last 100 lines when the process completes. If this makes it
+difficult to determine what's causing your build to fail, you can always run the integration test on the
+command-line of your own system.
+
+.. _Travis-CI: http://travis-ci.org
+.. _not to automatically test a commit: http://docs.travis-ci.com/user/customizing-the-build#Skipping-a-build

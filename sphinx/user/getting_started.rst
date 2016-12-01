@@ -4,12 +4,71 @@ Getting Started
 
 The following notes should allow you to install the LSST stack and the PFS
 DRP.  After the installation procedure example commands are given to show you
-how to use the pipeline. The commands have been tested on an Arch Linux
-machine as well as on Mac OS X.  The main goal of this quick-start guide is to
+how to use the pipeline. The main goal of this quick-start guide is to
 enable the user to extract and wavelength calibrate an Arc spectrum.
 
+The installation can be done using a :ref:`user-script-install`, or :ref:`user-manual-install`. You are
+encouraged to use the :ref:`user-script-install` because it is intended to be convenient and we would like to
+ensure the pipeline is simple to install.
+
+.. _user-script-install:
+
+Script-based install
+====================
+
+The script-based install was constructed using the :ref:`user-manual-install`, and is intended to simplify
+the installation process. Please `report`_ any problems using the script so that we can improve it.
+
+The script has currently only been tested on Linux; we hope to verify its functionality on Mac OSX soon.
+
+.. _report: mailto:reduction-software@pfs.ipmu.jp
+
+
 Installation
-============
+------------
+
+The installation script, :file:`install_pfs.sh`, lives in the `pfs_pipe2d`_ package.
+It will automatically install the LSST stack and the PFS DRP.
+
+Unless you're a developer wanting to build a particular feature, the only argument you need is the directory
+under which to install. For example::
+
+    /path/to/pfs_pipe2d/bin/install_pfs.sh /data/pfs
+
+The full usage information for :file:`install_pfs.sh` is::
+
+    Install the PFS 2D pipeline.
+    
+    Usage: /path/to/pfs_pipe2d/bin/install_pfs.sh [-b <BRANCH>] <PREFIX>
+    
+        -b <BRANCH> : name of branch on PFS to install
+        <PREFIX> : directory in which to install
+
+.. _pfs_pipe2d: http://github.com/Subaru-PFS/pfs_pipe2d
+
+
+Initializing the Pipeline
+-------------------------
+
+The :file:`install_pfs.sh` script writes a script called :file:`pfs_setups.sh` in the install directory that
+you can use to set up your environment to use the PFS pipeline. For example, if you installed the PFS
+pipeline in :file:`/data/pfs`, then you need to::
+
+    . /data/pfs/pfs_setups.sh
+
+You may want to add this to your :file:`~/.bashrc` file.
+
+
+.. _user-manual-install:
+
+
+Manual install
+==============
+
+Installation
+------------
+
+The following commands have been tested on an Arch Linux machine as well as on Mac OS X.
 
 - Install conda from http://conda.pydata.org/miniconda.html (or install anaconda).
 - Install the LSST binary distribution >= 12.1::
@@ -114,7 +173,7 @@ Again, for your convenience you might want to add this line to your :file:`.bash
 
 
 Initializing the Pipeline
-=========================
+-------------------------
 
 During the above, we defined a number of environment variables which are local
 to our current session. For convenience, we can create a :file:`setup.sh` file

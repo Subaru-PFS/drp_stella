@@ -2,8 +2,8 @@
 Subaru Prime Focus Spectrograph
 ###############################
 
-2D Pipeline
-===========
+Introduction
+------------
 
 This documentation is targeted at PFS developers in Princeton and users of the
 2D Pipeline. It is not representative of or applicable to the project as a
@@ -15,7 +15,7 @@ User Documentation
 ------------------
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 3
 
    user/getting_started
 
@@ -23,6 +23,14 @@ Developer Documentation
 -----------------------
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 3
 
    dev/best_practice
+
+Maintainer Documentation
+------------------------
+
+.. toctree::
+   :maxdepth: 3
+
+   maintainer/maintainer
