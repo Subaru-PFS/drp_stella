@@ -573,6 +573,7 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
         cout << "pfs::drp::stella::math::CurveFitting::PolyFit: KeyWord_Set(SIGMA): *P_D_A1_Sigma set to " << (*P_D_A1_Sigma) << endl;
       #endif
     }
+    P_D_A1_Sigma->deep() = 0.;
 
     ndarray::Array<T, 2, 2> D_A2_Covar = ndarray::allocate(nCoeffs, nCoeffs);
     PTR(ndarray::Array<T, 2, 2>) P_D_A2_Covar(new ndarray::Array<T, 2, 2>(D_A2_Covar));
@@ -597,6 +598,7 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
         cout << "pfs::drp::stella::math::CurveFitting::PolyFit: KeyWord_Set(COVAR): *P_D_A2_Covar set to " << (*P_D_A2_Covar) << endl;
       #endif
     }
+    P_D_A2_Covar->deep() = 0.;
 
     ndarray::Array<T, 1, 1> D_A1_B = ndarray::allocate(nCoeffs);
     ndarray::Array<T, 1, 1> D_A1_Z = ndarray::allocate(nDataPoints);
