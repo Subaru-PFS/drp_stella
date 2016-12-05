@@ -4,6 +4,43 @@ Maintainer notes
 
 These notes are intended to assist in maintaining the PFS DRP software and associated products.
 
+Build status
+============
+
++-----------------+---------------------------+
+| pfs_pipe2d      | |pfs-pipe2d-status|_      |
++-----------------+---------------------------+
+| drp_stella      | |drp-stella-status|_      |
++-----------------+---------------------------+
+| obs_pfs         | |obs-pfs-status|_         |
++-----------------+---------------------------+
+| datamodel       | |datamodel-status|_       |
++-----------------+---------------------------+
+| drp_stella_data | |drp-stella-data-status|_ |
++-----------------+---------------------------+
+| Docs            | |docs-status|_            |
++-----------------+---------------------------+
+
+.. |pfs-pipe2d-status| image:: https://travis-ci.org/Subaru-PFS/pfs_pipe2d.svg?branch=master
+   :alt: not available
+.. _pfs-pipe2d-status: https://travis-ci.org/Subaru-PFS/pfs_pipe2d
+.. |drp-stella-status| image:: https://travis-ci.org/Subaru-PFS/drp_stella.svg?branch=master
+   :alt: not available
+.. _drp-stella-status: https://travis-ci.org/Subaru-PFS/drp_stella
+.. |obs-pfs-status| image:: https://travis-ci.org/Subaru-PFS/obs_pfs.svg?branch=master
+   :alt: not available
+.. _obs-pfs-status: https://travis-ci.org/Subaru-PFS/obs_pfs
+.. |datamodel-status| image:: https://travis-ci.org/Subaru-PFS/datamodel.svg?branch=master
+   :alt: not available
+.. _datamodel-status: https://travis-ci.org/Subaru-PFS/datamodel
+.. |drp-stella-data-status| image:: https://travis-ci.org/Subaru-PFS/drp_stella_data.svg?branch=master
+   :alt: not available
+.. _drp-stella-data-status: https://travis-ci.org/Subaru-PFS/drp_stella_data
+.. |docs-status| image:: https://readthedocs.org/projects/pfs-2d-pipeline/badge/?version=latest
+   :alt: not available
+.. _docs-status: https://readthedocs.org/projects/pfs-2d-pipeline
+
+
 Build system
 ============
 
