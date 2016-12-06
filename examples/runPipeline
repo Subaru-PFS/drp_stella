@@ -26,7 +26,7 @@ genCalibRegistry.py --root $PFS_DATA_DIR/CALIB --validity 360 &&
 constructFiberTrace.py $PFS_DATA_DIR --rerun $whoami/calibs \
                  --id visit=104 --calibId calibVersion=fiberTrace calibDate=2016-11-11 \
                  arm=r spectrograph=1 --batch-type none &&
-genCalibRegistry.py --root $PFS_DATA_DIR/CALIB --camera PFS --validity 360 &&
+genCalibRegistry.py --root $PFS_DATA_DIR/CALIB --validity 360 &&
 
 constructFiberFlat.py $PFS_DATA_DIR --rerun $whoami/calibs \
                  --id visit=104..112 --calibId calibVersion=flat calibDate=2016-11-11 arm=r spectrograph=1 \
