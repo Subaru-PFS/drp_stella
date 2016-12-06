@@ -13,7 +13,6 @@ import os
 import unittest
 import lsst.utils
 import lsst.utils.tests as tests
-import lsst.afw.image as afwImage
 import lsst.daf.persistence as dafPersist
 import pfs.drp.stella as drpStella
 
