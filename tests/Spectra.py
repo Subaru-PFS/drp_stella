@@ -405,9 +405,6 @@ class SpectraTestCase(tests.TestCase):
             tbdata = hdulist[1].data
             refSpecArr = np.ndarray(shape=(len(tbdata)), dtype='float32')
             refSpecArr[:] = tbdata.field(0)
-        
-            refSpec = spectrumSetFromProfile.getSpectrum(int(spectrumSetFromProfile.size() / 2))
-            ref = refSpec.getSpectrum()
                 
             for i in range(spectrumSetFromProfile.size()):
                 spec = spectrumSetFromProfile.getSpectrum(i)
