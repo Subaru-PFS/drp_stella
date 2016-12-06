@@ -652,17 +652,10 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
       cout << "pfs::drp::stella::math::CurveFitting::PolyFit: MatrixTimesVecArr: P_D_A1_YFit->size() = " << P_D_A1_YFit->getShape()[0] << ": D_A1_Out set to " << D_A1_Out << endl;
     #endif
 
-    P_D_A1_YFit->deep() = D_A1_Out[I_Degree_In];
-//    #ifdef __DEBUG_POLYFIT__
-//      cout << "pfs::drp::stella::math::CurveFitting::PolyFit: InvertGaussJ: (*P_D_A1_YFit) set to " << (*P_D_A1_YFit) << endl;
-//    #endif
-
-    for (int k=I_Degree_In-1; k >= 0; k--){
-      P_D_A1_YFit->deep() = D_A1_Out[k] + (*P_D_A1_YFit) * xNew;
-    }
-    #ifdef __DEBUG_POLYFIT__
-      cout << "pfs::drp::stella::math::CurveFitting::PolyFit: after for(k...): (*P_D_A1_YFit) set to " << (*P_D_A1_YFit) << endl;
-    #endif
+    P_D_A1_YFit->deep() = pfs::drp::stella::math::Poly(D_A1_X_In,
+                                                       D_A1_Out,
+                                                       D_A1_XRange[0],
+                                                       D_A1_XRange[1]);
 
     for (int k = 0; k < nCoeffs; k++){
       (*P_D_A1_Sigma)[k] = (*P_D_A2_Covar)[ ndarray::makeVector( k, k ) ];
@@ -672,10 +665,15 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
     }
     #ifdef __DEBUG_POLYFIT__
       cout << "pfs::drp::stella::math::CurveFitting::PolyFit: (*P_D_A1_Sigma) set to " << (*P_D_A1_Sigma) << endl;
+      cout << "pfs::drp::stella::math::CurveFitting::PolyFit: *P_D_A1_YFit = " << *P_D_A1_YFit << endl;
     #endif
 
     double D_ChiSq = 0.;
     ndarray::Array<T, 1, 1> D_A1_Diff = ndarray::allocate(nDataPoints);
+    #ifdef __DEBUG_POLYFIT__
+      cout << "pfs::drp::stella::math::CurveFitting::PolyFit: D_A1_Y_In = " << D_A1_Y_In << endl;
+      cout << "pfs::drp::stella::math::CurveFitting::PolyFit: *P_D_A1_YFit = " << *P_D_A1_YFit << endl;
+    #endif
     Eigen::Array<T, Eigen::Dynamic, 1> EArr_Temp = D_A1_Y_In.asEigen() - P_D_A1_YFit->asEigen();
     D_A1_Diff.asEigen() = EArr_Temp.pow(2);
     if (B_HaveMeasureError){
