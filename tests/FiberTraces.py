@@ -43,7 +43,7 @@ class FiberTraceTestCase(tests.TestCase):
         
         # This particular flatfile has 12 FiberTraces scattered over the whole CCD
         # If in the future the test data change we need to change these numbers
-        self.nFiberTraces = 12
+        self.nFiberTraces = 11
         self.minLength = 3880
         self.maxLength = 3930
         
