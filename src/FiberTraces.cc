@@ -1129,6 +1129,7 @@ namespace pfsDRPStella = pfs::drp::stella;
     }
     #ifdef __DEBUG_CALCPROFILESWATH__
       cout << "FiberTrace::calcProfileSwath: iSwath = " << iSwath << ": xOverSampled = " << xOverSampled << endl;
+      cout << "FiberTrace::calcProfileSwath: _fiberTraceProfileFittingControl->maxIterSig = " << _fiberTraceProfileFittingControl->maxIterSig << endl;
     #endif
     PTR(vector<double>) xOverSampledFitVec(new vector<double>(xOverSampled.begin(), xOverSampled.end()));
     _overSampledProfileFitXPerSwath.push_back(xOverSampledFitVec);
@@ -1166,6 +1167,9 @@ namespace pfsDRPStella = pfs::drp::stella;
       for (int i = 0; i < indicesInValueRange.getShape()[0]; ++i){
         indicesInValueRangeVec[i].first = indicesInValueRange[i][0];
         indicesInValueRangeVec[i].second = indicesInValueRange[i][1];
+        #ifdef __DEBUG_CALCPROFILESWATH__
+          cout << "FiberTrace::calcProfileSwath: iSwath = " << iSwath << ": iStep" << iStep << ": indicesInValueRangeVec[" << i << "].first = " << indicesInValueRangeVec[i].first << ", indicesInValueRangeVec[" << i << "].second = " << indicesInValueRangeVec[i].second << endl;
+        #endif
       }
       do{
         ndarray::Array<double, 1, 1> subArr = math::getSubArray(imageSwathNormalized, indicesInValueRangeVec);
@@ -1232,7 +1236,7 @@ namespace pfsDRPStella = pfs::drp::stella;
     PTR(std::vector<double>) yVecMeanF(new vector<double>(yVecMean.size()));
     auto itF = yVecMeanF->begin();
     for (auto itT = yVecMean.begin(); itT != yVecMean.end(); ++itT, ++itF){
-      *itF = float(*itT);
+      *itF = double(*itT);
     }
     _profileFittingInputXMeanPerSwath.push_back(xVecMean);
     _profileFittingInputYMeanPerSwath.push_back(yVecMeanF);
@@ -1254,19 +1258,28 @@ namespace pfsDRPStella = pfs::drp::stella;
 
     /// calculate profile for each row in imageSwath
     ndarray::Array<double, 2, 1> profArraySwath = ndarray::allocate(imageSwath.getShape()[0], imageSwath.getShape()[1]);
+    double tmpVal = 0.0;
     for (int iRow = 0; iRow < imageSwath.getShape()[0]; ++iRow){
       #ifdef __DEBUG_CALCPROFILESWATH__
         cout << "FiberTrace::calcProfileSwath: iSwath = " << iSwath << ": xArray[" << iRow << "][*] = " << xArray[ndarray::view(iRow)()] << endl;
       #endif
       for (int iCol = 0; iCol < imageSwath.getShape()[1]; ++iCol){
-        if (xArray[iRow][iCol] < (*xVecMean)[0])
-          profArraySwath[iRow][iCol] = (*yVecMeanF)[0];
-        else if (xArray[iRow][iCol] > (*xVecMean)[xVecMean->size() - 1])
-          profArraySwath[iRow][iCol] = (*yVecMeanF)[yVecMeanF->size() - 1];
-        else
-          profArraySwath[iRow][iCol] = spline(xArray[iRow][iCol]);
-        if (profArraySwath[iRow][iCol] < 0.)
-          profArraySwath[iRow][iCol] = 0.;
+        /// The spline's knots are calculated from bins in x centered at the
+        /// oversampled positions in x.
+        /// Outside the range in x on which the spline is defined, which is
+        /// [min(xRange) + overSample/2., max(xRange) - overSample/2.], so to
+        /// say in the outer (half overSample), the spline is extrapolated from
+        /// the 1st derivative at the end points.
+        tmpVal = spline(xArray[iRow][iCol]);
+
+        /// Set possible negative profile values to Zero as they are not physical
+        profArraySwath[iRow][iCol] = (tmpVal >= 0. ? tmpVal : 0.);
+        #ifdef __DEBUG_CALCPROFILESWATH__
+          if (xArray[iRow][iCol] < (*xVecMean)[0]){
+            cout << "FiberTrace::calcProfileSwath: xArray[" << iRow << "][" << iCol << "] = " << xArray[iRow][iCol] << endl;
+            cout << "FiberTrace::calcProfileSwath: profArraySwath[" << iRow << "][" << iCol << "] = " << profArraySwath[iRow][iCol] << endl;
+          }
+        #endif
       }
       #ifdef __DEBUG_CALCPROFILESWATH__
         cout << "FiberTrace::calcProfileSwath: iSwath = " << iSwath << ": profArraySwath[" << iRow << "][*] = " << profArraySwath[ndarray::view(iRow)()] << endl;
