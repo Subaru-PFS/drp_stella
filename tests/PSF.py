@@ -13,7 +13,7 @@ import os
 import unittest
 import lsst.utils
 import lsst.utils.tests as tests
-import lsst.afw.image as afwImage
+import lsst.daf.persistence as dafPersist
 import pfs.drp.stella as drpStella
 
 try:
@@ -26,11 +26,12 @@ class PSFTestCase(tests.TestCase):
 
     def setUp(self):
         drpStellaDataDir = lsst.utils.getPackageDir("drp_stella_data")
-        flatfile = os.path.join(drpStellaDataDir,"tests/data/PFS/postISRCCD/2016-08-11/v0000029/PFSAr2.fits")
-        self.flat = afwImage.makeExposure(afwImage.makeMaskedImage(afwImage.ImageF(flatfile)))
+        butler = dafPersist.Butler(os.path.join(drpStellaDataDir,"tests/data/PFS/"))
+        dataId = dict(field="FLAT", visit=104, spectrograph=1, arm="r")
+        self.flat = butler.get("postISRCCD", dataId, immediate=True)
 
-        arcfile = os.path.join(drpStellaDataDir,"tests/data/PFS/postISRCCD/2015-12-19/v0000058/PFSAr2.fits")
-        self.arc = afwImage.makeExposure(afwImage.makeMaskedImage(afwImage.ImageF(arcfile)))
+        dataId = dict(field="ARC", visit=103, spectrograph=1, arm="r")
+        self.arc = butler.get("postISRCCD", dataId, immediate=True)
         
         self.ftffc = drpStella.FiberTraceFunctionFindingControl()
         self.ftffc.fiberTraceFunctionControl.order = 4

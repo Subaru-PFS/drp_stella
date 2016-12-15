@@ -8,15 +8,16 @@ or
    python
    >>> import FiberTrace; FiberTrace.run()
 """
-import os
-import unittest
-import sys
-import numpy as np
+import lsst.afw.image as afwImage
+import lsst.afw.display.ds9 as ds9
+import lsst.daf.persistence as dafPersist
 import lsst.utils
 import lsst.utils.tests as tests
-import lsst.afw.image as afwImage
+import numpy as np
+import os
 import pfs.drp.stella as drpStella
-import lsst.afw.display.ds9 as ds9
+import sys
+import unittest
 
 try:
     type(display)
@@ -28,11 +29,12 @@ class FiberTraceTestCase(tests.TestCase):
 
     def setUp(self):
         drpStellaDataDir = lsst.utils.getPackageDir("drp_stella_data")
-        flatfile = os.path.join(drpStellaDataDir,"tests/data/PFS/postISRCCD/2016-08-11/v0000029/PFSAr2.fits")
-        self.flat = afwImage.makeExposure(afwImage.makeMaskedImage(afwImage.ImageF(flatfile)))
-        
-        arcfile = os.path.join(drpStellaDataDir,"tests/data/PFS/postISRCCD/2015-12-19/v0000058/PFSAr2.fits")
-        self.arc = afwImage.makeExposure(afwImage.makeMaskedImage(afwImage.ImageF(arcfile)))
+        butler = dafPersist.Butler(os.path.join(drpStellaDataDir,"tests/data/PFS/"))
+        dataId = dict(field="FLAT", visit=104, spectrograph=1, arm="r")
+        self.flat = butler.get("postISRCCD", dataId, immediate=True)
+
+        dataId = dict(field="ARC", visit=103, spectrograph=1, arm="r")
+        self.arc = butler.get("postISRCCD", dataId, immediate=True)
         
         self.ftffc = drpStella.FiberTraceFunctionFindingControl()
         self.ftffc.fiberTraceFunctionControl.order = 5
@@ -41,7 +43,7 @@ class FiberTraceTestCase(tests.TestCase):
         
         # This particular flatfile has 12 FiberTraces scattered over the whole CCD
         # If in the future the test data change we need to change these numbers
-        self.nFiberTraces = 12
+        self.nFiberTraces = 11
         self.minLength = 3880
         self.maxLength = 3930
         

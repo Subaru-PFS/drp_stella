@@ -91,7 +91,7 @@ The following commands have been tested on an Arch Linux machine as well as on M
     
 where XXX is the root of your conda installation (check that it has an envs directory!).
 Again, for your convenience you might want to add this line to your :file:`.bashrc` as well
-(or follow the steps at in `Initializing the pipeline`).
+(or follow the steps in `Initializing the pipeline`).
     
 - The test data are quite large (~38 MB) and are stored in git using git-lfs. We therefore
   need to install git-lfs (https://git-lfs.github.com/). Please follow the instructions at
@@ -141,16 +141,16 @@ Again, for your convenience you might want to add this line to your :file:`.bash
   commit in pipe_drivers::
 
      cd $PFS_DRP/ctrl_pool
-     setup -r .
+     setup -r . -j
      scons -Q opt=3 -j8
 
      cd $PFS_DRP/pipe_drivers
      git checkout e677033910672
-     setup -r .
+     setup -r . -j
      scons -Q opt=3 -j8
 
      cd $PFS_DRP/display_ds9
-     setup -r .
+     setup -r . -j
      scons -Q opt=3 -j8
 
      cd $PFS_DRP/obs_pfs
@@ -188,7 +188,7 @@ to easily restore them in a new terminal or after a restart::
    echo "setup -r "$PIPE_DRIVERS_DIR" -j" >> $PFS_DRP/setup.sh
    echo "setup -r "$DISPLAY_DS9_DIR" -j" >> $PFS_DRP/setup.sh
 
-To initialize the pipeline now and again next time you want to use it, type::
+To initialize the pipeline again next time you want to use it, type::
 
    source $PFS_DRP/setup.sh
 
@@ -203,10 +203,10 @@ Now for using the pipeline.
 
 - Raw test data are in :file:`$DRP_STELLA_DATA_DIR/tests/data/raw/`:
 
-    - 3 Biases: visit numbers 7251-7253;
+    - 5 Biases: visit numbers 7251-7255;
     - 3 Darks: visit numbers 7291-7293;
-    - 11 dithered Flats: visit numbers 29, 41, 42, 44, 45, 46, 47, 48, 49, 51, and 53;
-    - 1 Arc: visit number 58.
+    - 9 dithered Flats: visit number 104-112;
+    - 1 Arc: visit number 103.
 
   Configuration parameters for the pipeline tasks can be set either in config
   files (see :file:`$OBS_PFS_DIR/config/pfs/`) or by passing them on the
@@ -216,10 +216,10 @@ Now for using the pipeline.
 
 - First we need to create a directory (actually 2) where we want to store
   pipeline outputs. Let's assume you want to store the pipeline outputs in a
-  directory :file:`$HOME/spectra/PFS`. For the convenience of this
+  directory :file:`$HOME/PFS/Data`. For the convenience of this
   quick-start guide we define another environment variable::
 
-     export PFS_DATA=$HOME/spectra/PFS
+     export PFS_DATA=$HOME/PFS/Data
      mkdir -p $PFS_DATA/CALIB
 
 - We need to tell the LSST stack which mapper to use. The mapper provides a logical view
@@ -239,20 +239,20 @@ Now for using the pipeline.
 
      ingestImages.py $PFS_DATA $DRP_STELLA_DATA_DIR/tests/data/raw/*.fits --mode link
 
-- We also need a file describing the configuration of the cobras.  For now we'll
+- We also need a file describing the configuration of the cobras. For now we will
   use the one with all ra and dec values equal to 0.0 which has (as a special case)
   a pfsConfigId == 0x0
   
      cp -r $DRP_STELLA_DATA_DIR/tests/data/PFS/pfsState $PFS_DATA
 
-- Now that we have our database we can start reducing things. We start with
-  creating a master Bias, followed by a Bias-subtracted master Dark. We will
-  then create a Bias- and Dark-subtracted master Flat, which we then use to
+- Now that we have our database we can start reducing our data. We start with
+  creating a trimmed master Bias, followed by a Bias-subtracted master Dark. We
+  will then create a Bias- and Dark-subtracted master Flat, which we then use to
   identify and trace the apertures of the fiber traces. The fiber traces from
   the Arc image are then extracted and wavelength calibrated.
 
-  The data we want to reduce were observed/simulated on 2015-12-22 on
-  spectrograph 2, arm ``r`` (“red”) at site ``S`` (“Summit”).
+  The data we want to reduce were observed/simulated on 2015-12-22/2016-11-11 on
+  spectrograph 1, arm ``r`` (“red”) at site ``J`` (“JHU”)/``F`` (“Simulations”).
 
   The parameter ``--rerun $whoami/tmp``
   specifies where to store temporary pipeline outputs. Please refer to
@@ -265,16 +265,14 @@ Now for using the pipeline.
   Note the parameter ``--batch-type none`` at the end. This parameter is required by
   tasks which are parallelized.  Sometimes running the code in parallel can
   lead to problems (in most cases caused by the 3rd-party libraries used), so
-  specifying ``--batch-type none`` is a safe choice. Note that we also add the
-  config parameter ``doLinearize=False`` as we don't yet have the table needed
-  for the linearizer::
+  specifying ``--batch-type none`` is a safe choice::
 
-     constructBias.py $PFS_DATA --rerun $whoami/calibs --id field=BIAS dateObs=2015-12-22 arm=r spectrograph=2 --calibId calibVersion=bias calibDate=2015-12-22 arm=r spectrograph=2 --batch-type none
+     constructBias.py $PFS_DATA --rerun $whoami/tmp --id field=BIAS dateObs=2015-12-22 arm=r spectrograph=1 --calibId calibVersion=bias calibDate=2015-12-22 arm=r spectrograph=1 --batch-type none
 
 - Now that we have a master bias we need to ingest that into our calibration
   database stored in :file:`$PFS_DATA/CALIB/calibRegistry.sqlite3`. The
-  parameter ``--validity 180`` specifies that the calibration images are valid
-  for 180 days. We will need to repeat this step every time we create a new
+  parameter ``--validity 360`` specifies that the calibration images are valid
+  for 360 days. We will need to repeat this step every time we create a new
   calibration image so that successive tasks can find them::
 
      genCalibRegistry.py --root $PFS_DATA/CALIB --validity 360
@@ -282,41 +280,38 @@ Now for using the pipeline.
 - Now we can create a trimmed and scaled, Bias-subtracted master Dark and
   ingest that into our calibration registry::
 
-     constructDark.py $PFS_DATA --rerun $whoami/calibs --id field=DARK dateObs=2015-12-22 arm=r spectrograph=2 --calibId calibVersion=dark calibDate=2015-12-22 arm=r spectrograph=2 --batch-type none
-     genCalibRegistry.py --root $PFS_DATA/CALIB --validity 360
+     constructDark.py $PFS_DATA --rerun $whoami/tmp --id field=DARK dateObs=2015-12-22 arm=r spectrograph=1 --calibId calibVersion=dark calibDate=2015-12-22 arm=r spectrograph=1 --batch-type none
+     genCalibRegistry.py --root $PFS_DATA/CALIB --camera PFS --validity 360
 
 - In order to extract the arc spectra we first need to identify and trace
   the apertures for each fiber. This is what constructFiberTrace.py does.
-  In our data set only visit 29 is a not dithered flat, so specifying
-  ``--id visit=29`` is all we need to specify for our flat to be found::
+  In our data set visit 104 is the only non-dithered flat, so specifying
+  ``--id visit=104`` is all we need to specify for our flat to be found::
       
-     constructFiberTrace.py $PFS_DATA --rerun $whoami/tmp --id visit=29 --calibId calibVersion=fiberTrace calibDate=2015-12-22 arm=r spectrograph=2 --batch-type none
-     genCalibRegistry.py --root $PFS_DATA/CALIB --validity 360
+     constructFiberTrace.py $PFS_DATA --rerun $whoami/tmp --id visit=104 --calibId calibVersion=fiberTrace calibDate=2016-11-11 arm=r spectrograph=1 --batch-type none
+     genCalibRegistry.py --root $PFS_DATA/CALIB --camera PFS --validity 360
 
-- We can now construct our master Flat from the dithered Flats, which have the
-  visit numbers 29, 41, 42, 44, 45, 46, 47, 48, 49, 51, and 53. Since these are
-  the only visit numbers between 29 and 53 we can just specify 'visit=29..53',
-  however note that you will see some warnings like `root WARN: No data found
-  for dataId=OrderedDict([('visit', 38)])`, which you can safely ignore::
+- We can now construct our master Flat from all the dithered Flats, which have
+  the visit numbers 104-112::
       
-     constructFiberFlat.py $PFS_DATA --rerun $whoami/tmp --id visit=29..53 --calibId calibVersion=flat calibDate=2015-12-22 arm=r spectrograph=2 --batch-type none
-     genCalibRegistry.py --root $PFS_DATA/CALIB --validity 360
+     constructFiberFlat.py $PFS_DATA --rerun $whoami/tmp --id visit=104..112 --calibId calibVersion=flat calibDate=2016-11-11 arm=r spectrograph=1 --batch-type none
+     genCalibRegistry.py --root $PFS_DATA/CALIB --camera PFS --validity 360
      
 - Since we have the master Bias, Dark, and Flat we can now perform the
-  Instrumental-Signature Removal (ISR) task for our Arc spectrum (visit=58).
+  Instrumental-Signature Removal (ISR) task for our Arc spectrum (visit=103).
   The program detrend.py will start the ISR task which will subtract the Bias
-  and scaled Dark from our Arc image.
+  and scaled Dark from our Arc image and flatfield it.
 
-  If you want to reduce all Arcs taken 2015-12-19 for spectrograph 2, red arm,
-  simply replace ``visit=58`` with ``arm=r spectrograph=2 dateObs=2015-12-19
+  If you want to reduce all Arcs taken 2016-11-11 for spectrograph 1, red arm,
+  simply replace ``visit=103`` with ``arm=r spectrograph=1 dateObs=2016-11-11
   field=ARC``::
 
-     detrend.py $PFS_DATA --rerun $whoami/tmp --id visit=58
+     detrend.py $PFS_DATA --rerun $whoami/tmp --id visit=103
 
 - We now have the ``postISRCCD`` image for our Arc and can extract and
-  wavelength-calibrate our CdHgKrNeXe Arc with the visit number 58::
+  wavelength-calibrate our CdHgKrNeXe Arc with the visit number 103::
 
-     reduceArcRefSpec.py $PFS_DATA --rerun $whoami/tmp --id visit=58
+     reduceArcRefSpec.py $PFS_DATA --rerun $whoami/tmp --id visit=103
 
   This program writes a pfsArm file as described in the data model
   (https://github.com/Subaru-PFS/datamodel/blob/master/datamodel.txt).
