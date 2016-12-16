@@ -719,25 +719,23 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
     #endif
 
     double D_ChiSq = 0.;
-    ndarray::Array<T, 1, 1> D_A1_Diff = ndarray::allocate(nDataPoints);
+    Eigen::Array<T, Eigen::Dynamic, 1> Diff = D_A1_Y_In.asEigen() - P_D_A1_YFit->asEigen();
     #ifdef __DEBUG_POLYFIT__
-      cout << "pfs::drp::stella::math::CurveFitting::PolyFit: D_A1_Y_In = " << D_A1_Y_In << endl;
-      cout << "pfs::drp::stella::math::CurveFitting::PolyFit: *P_D_A1_YFit = " << *P_D_A1_YFit << endl;
+      cout << "pfs::drp::stella::math::CurveFitting::PolyFit: Diff set to " << Diff << endl;
     #endif
-    Eigen::Array<T, Eigen::Dynamic, 1> EArr_Temp = D_A1_Y_In.asEigen() - P_D_A1_YFit->asEigen();
-    D_A1_Diff.asEigen() = EArr_Temp.pow(2);
+    ndarray::Array<T, 1, 1> Err_Temp = ndarray::allocate(nDataPoints);
+    Err_Temp.asEigen() = Diff.pow(2);
+    #ifdef __DEBUG_POLYFIT__
+      cout << "pfs::drp::stella::math::CurveFitting::PolyFit: Err_Temp set to " << Err_Temp << endl;
+    #endif
     if (B_HaveMeasureError){
-      #ifdef __DEBUG_POLYFIT__
-        cout << "pfs::drp::stella::math::CurveFitting::PolyFit: B_HaveMeasureError: D_A1_Diff set to " << D_A1_Diff << endl;
-      #endif
-      D_ChiSq = sum(D_A1_Diff / D_A1_SDevSquare);
+      D_ChiSq = sum(Err_Temp / D_A1_SDevSquare);
       #ifdef __DEBUG_POLYFIT__
         cout << "pfs::drp::stella::math::CurveFitting::PolyFit: B_HaveMeasureError: D_ChiSq set to " << D_ChiSq << endl;
       #endif
-
     }
     else{
-      D_ChiSq = sum(D_A1_Diff);
+      D_ChiSq = sum(Err_Temp);
       #ifdef __DEBUG_POLYFIT__
         cout << "pfs::drp::stella::math::CurveFitting::PolyFit: !B_HaveMeasureError: D_ChiSq set to " << D_ChiSq << endl;
       #endif
