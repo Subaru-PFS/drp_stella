@@ -709,40 +709,6 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
     return D_A1_Out;
   }
 
-  /** **********************************************************************/
-
-  template< typename T >
-  ndarray::Array<double, 1, 1> PolyFit(ndarray::Array<T, 1, 1> const& D_A1_X_In,
-                                       ndarray::Array<T, 1, 1> const& D_A1_Y_In,
-                                       size_t const I_Degree_In,
-                                       T const D_Reject_In,
-                                       T xRangeMin_In,
-                                       T xRangeMax_In){
-    #ifdef __DEBUG_CURVEFIT__
-      cout << "CurveFitting::PolyFit(x, y, deg, reject, xRangeMin, xRangeMax) started" << endl;
-    #endif
-    #ifdef __DEBUG_POLYFIT__
-      cout << "pfs::drp::stella::math::CurveFitting::PolyFit: Starting " << endl;
-    #endif
-    std::vector<string> S_A1_Args(1);
-    S_A1_Args[0] = "XRANGE";
-    std::vector<void *> PP_Args(1);
-    ndarray::Array<double, 1, 1> xRange = ndarray::allocate(2);
-    xRange[0] = xRangeMin_In;
-    xRange[1] = xRangeMax_In;
-    PTR(ndarray::Array<double, 1, 1>) p_xRange(new ndarray::Array<double, 1, 1>(xRange));
-    PP_Args[0] = &p_xRange;
-    #ifdef __DEBUG_CURVEFIT__
-      cout << "CurveFitting::PolyFit(x, y, deg, reject, xRangeMin, xRangeMax) finishing" << endl;
-    #endif
-    return pfs::drp::stella::math::PolyFit(D_A1_X_In,
-                                           D_A1_Y_In,
-                                           I_Degree_In,
-                                           D_Reject_In,
-                                           S_A1_Args,
-                                           PP_Args);
-  }
-
   template< typename T>
   ndarray::Array<double, 1, 1> PolyFit(ndarray::Array<T, 1, 1> const& D_A1_X_In,
                                        ndarray::Array<T, 1, 1> const& D_A1_Y_In,
@@ -2859,7 +2825,6 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
 //  template ndarray::Array<double, 1, 1> PolyFit(ndarray::Array<float, 1, 1> const&, ndarray::Array<float, 1, 1> const&, size_t const, float, float);
   template ndarray::Array<double, 1, 1> PolyFit(ndarray::Array<double, 1, 1> const&, ndarray::Array<double, 1, 1> const&, size_t const, double, double);
 //  template ndarray::Array<double, 1, 1> PolyFit(ndarray::Array<float, 1, 1> const&, ndarray::Array<float, 1, 1> const&, size_t const, float const, float, float);
-  template ndarray::Array<double, 1, 1> PolyFit(ndarray::Array<double, 1, 1> const&, ndarray::Array<double, 1, 1> const&, size_t const, double const, double, double);
 //  template ndarray::Array<double, 1, 1> PolyFit(ndarray::Array<float, 1, 1> const&, ndarray::Array<float, 1, 1> const&, size_t const, float const, float const, size_t const, float, float);
   template ndarray::Array<double, 1, 1> PolyFit(ndarray::Array<double, 1, 1> const&, ndarray::Array<double, 1, 1> const&, size_t const, double const, double const, size_t const, double, double);
 

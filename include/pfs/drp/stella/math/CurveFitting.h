@@ -159,14 +159,6 @@ namespace pfs { namespace drp { namespace stella {
                                          std::vector<string> const& S_A1_Args_In,
                                          std::vector<void *> & ArgV);
 
-    template< typename T >
-    ndarray::Array<double, 1, 1> PolyFit(ndarray::Array<T, 1, 1> const& D_A1_X_In,
-                                         ndarray::Array<T, 1, 1> const& D_A1_Y_In,
-                                         size_t const I_Degree_In,
-                                         T const D_Reject_In,
-                                         T xRangeMin_In = -1.,
-                                         T xRangeMax_In = 1.);
-
     template< typename T>
     ndarray::Array<double, 1, 1> PolyFit(ndarray::Array<T, 1, 1> const& D_A1_X_In,
                                          ndarray::Array<T, 1, 1> const& D_A1_Y_In,
