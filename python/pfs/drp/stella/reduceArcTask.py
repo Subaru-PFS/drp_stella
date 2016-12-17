@@ -252,7 +252,7 @@ class ReduceArcTask(CmdLineTask):
             if key in md:
                 pfsConfigId = md[key]
             else:
-                self.logger.info('No pfsConfigId is present in postISRCCD file for dataId %s' %
+                self.logger.warn('No pfsConfigId is present in postISRCCD file for dataId %s' %
                               str(dataId.items()))
                 pfsConfigId = 0x0
 
