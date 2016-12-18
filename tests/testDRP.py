@@ -7,12 +7,9 @@ Run with:
 """
 
 import unittest
-import sys
 import os
-import numpy as np
 import lsst.utils
 import lsst.utils.tests as tests
-import pfs.drp.stella as drpStella
 import subprocess
 
 try:
