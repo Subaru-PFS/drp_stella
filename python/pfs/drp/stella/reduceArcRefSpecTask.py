@@ -35,7 +35,7 @@ class ReduceArcRefSpecTaskRunner(TaskRunner):
     def __call__(self, args):
         task = self.TaskClass(config=self.config, log=self.log)
         if self.doRaise:
-            self.log.info('ReduceArcTask.__call__: args = %s' % args)
+            self.log.debug('ReduceArcTask.__call__: args = %s' % args)
             result = task.run(**args)
         else:
             try:
@@ -73,15 +73,15 @@ class ReduceArcRefSpecTask(CmdLineTask):
             refSpec = self.config.refSpec
         if lineList == None:
             lineList = self.config.lineList
-        self.log.info('expRefList = %s' % expRefList)
-        self.log.info('len(expRefList) = %d' % len(expRefList))
-        self.log.info('refSpec = %s' % refSpec)
-        self.log.info('lineList = %s' % lineList)
+        self.log.debug('expRefList = %s' % expRefList)
+        self.log.debug('len(expRefList) = %d' % len(expRefList))
+        self.log.debug('refSpec = %s' % refSpec)
+        self.log.debug('lineList = %s' % lineList)
 
         for arcRef in expRefList:
-            self.log.info('arcRef.dataId = %s' % arcRef.dataId)
-            self.log.info('arcRef = %s' % arcRef)
-            self.log.info('type(arcRef) = %s' % type(arcRef))
+            self.log.debug('arcRef.dataId = %s' % arcRef.dataId)
+            self.log.debug('arcRef = %s' % arcRef)
+            self.log.debug('type(arcRef) = %s' % type(arcRef))
 
             try:
                 fiberTrace = arcRef.get('fiberTrace', immediate=True)
@@ -89,14 +89,14 @@ class ReduceArcRefSpecTask(CmdLineTask):
                 raise RuntimeError("Unable to retrieve fiberTrace for %s: %s" % (arcRef.dataId, e))
 
             arcExp = arcRef.get("postISRCCD", immediate=True)
-            self.log.info('arcExp = %s' % arcExp)
-            self.log.info('type(arcExp) = %s' % type(arcExp))
+            self.log.debug('arcExp = %s' % arcExp)
+            self.log.debug('type(arcExp) = %s' % type(arcExp))
 
             """ construct fiberTraceSet from pfsFiberTrace """
             flatFiberTraceSet = makeFiberTraceSet(fiberTrace)
 
             """ optimally extract arc spectra """
-            print 'extracting arc spectra'
+            self.log.info('extracting arc spectra')
 
             myExtractTask = esTask.ExtractSpectraTask()
             aperturesToExtract = [-1]
@@ -114,11 +114,11 @@ class ReduceArcRefSpecTask(CmdLineTask):
             tbdata = hdulist[1].data
             refSpecArr = np.ndarray(shape=(len(tbdata)), dtype='float32')
             refSpecArr[:] = tbdata.field(0)
-            self.log.info('refSpecArr.shape = %d' % refSpecArr.shape)
+            self.log.debug('len(refSpecArr) = %d' % len(refSpecArr))
 
             refSpec = spectrumSetFromProfile.getSpectrum(int(spectrumSetFromProfile.size() / 2))
             ref = refSpec.getSpectrum()
-            self.log.info('ref.shape = %d' % ref.shape)
+            self.log.debug('len(ref) = %d' % len(ref))
 
             if False:
                 fig = plt.figure()
@@ -140,37 +140,36 @@ class ReduceArcRefSpecTask(CmdLineTask):
             dispCorControl.stretchMinLength = self.config.stretchMinLength
             dispCorControl.stretchMaxLength = self.config.stretchMaxLength
             dispCorControl.nStretches = self.config.nStretches
-            self.log.info('dispCorControl.fittingFunction = %s' % dispCorControl.fittingFunction)
-            self.log.info('dispCorControl.order = %d' % dispCorControl.order)
-            self.log.info('dispCorControl.searchRadius = %d' % dispCorControl.searchRadius)
-            self.log.info('dispCorControl.fwhm = %g' % dispCorControl.fwhm)
-            self.log.info('dispCorControl.radiusXCor = %d' % dispCorControl.radiusXCor)
-            self.log.info('dispCorControl.lengthPieces = %d' % dispCorControl.lengthPieces)
-            self.log.info('dispCorControl.nCalcs = %d' % dispCorControl.nCalcs)
-            self.log.info('dispCorControl.stretchMinLength = %d' % dispCorControl.stretchMinLength)
-            self.log.info('dispCorControl.stretchMaxLength = %d' % dispCorControl.stretchMaxLength)
-            self.log.info('dispCorControl.nStretches = %d' % dispCorControl.nStretches)
+            self.log.debug('dispCorControl.fittingFunction = %s' % dispCorControl.fittingFunction)
+            self.log.debug('dispCorControl.order = %d' % dispCorControl.order)
+            self.log.debug('dispCorControl.searchRadius = %d' % dispCorControl.searchRadius)
+            self.log.debug('dispCorControl.fwhm = %g' % dispCorControl.fwhm)
+            self.log.debug('dispCorControl.radiusXCor = %d' % dispCorControl.radiusXCor)
+            self.log.debug('dispCorControl.lengthPieces = %d' % dispCorControl.lengthPieces)
+            self.log.debug('dispCorControl.nCalcs = %d' % dispCorControl.nCalcs)
+            self.log.debug('dispCorControl.stretchMinLength = %d' % dispCorControl.stretchMinLength)
+            self.log.debug('dispCorControl.stretchMaxLength = %d' % dispCorControl.stretchMaxLength)
+            self.log.debug('dispCorControl.nStretches = %d' % dispCorControl.nStretches)
 
             for i in range(spectrumSetFromProfile.size()):
                 spec = spectrumSetFromProfile.getSpectrum(i)
                 specSpec = spectrumSetFromProfile.getSpectrum(i).getSpectrum()
-                print 'calibrating spectrum ',i,': xCenter = ',flatFiberTraceSet.getFiberTrace(i).getFiberTraceFunction().xCenter
-                self.log.info('specSpec.shape = %d' % specSpec.shape)
-                self.log.info('lineListArr.shape = [%d,%d]' % (lineListArr.shape[0], lineListArr.shape[1]))
-                self.log.info('type(specSpec) = %s: <%s>' % (type(specSpec),type(specSpec[0])))
-                self.log.info('type(refSpecArr) = %s: <%s>' % (type(refSpecArr),type(refSpecArr[0])))
-                self.log.info('type(lineListArr) = %s: <%s>' % (type(lineListArr),type(lineListArr[0][0])))
+                self.log.info('calibrating spectrum %d: xCenter = %f' % (i,flatFiberTraceSet.getFiberTrace(i).getFiberTraceFunction().xCenter))
+                self.log.debug('specSpec.shape = %d' % specSpec.shape)
+                self.log.debug('lineListArr.shape = [%d,%d]' % (lineListArr.shape[0], lineListArr.shape[1]))
+                self.log.debug('type(specSpec) = %s: <%s>' % (type(specSpec),type(specSpec[0])))
+                self.log.debug('type(refSpecArr) = %s: <%s>' % (type(refSpecArr),type(refSpecArr[0])))
+                self.log.debug('type(lineListArr) = %s: <%s>' % (type(lineListArr),type(lineListArr[0][0])))
                 result = drpStella.stretchAndCrossCorrelateSpecFF(specSpec, refSpecArr, lineListArr, dispCorControl)
-                #self.log.info("result.lineList = %g" % result.lineList)
-                self.log.info('type(result.lineList) = %s: <%s>: <%s>' % (type(result.lineList),type(result.lineList[0]),type(result.lineList[0][0])))
-                self.log.info('type(spectrumSetFromProfile.getSpectrum(i)) = %s: <%s>: <%s>' % (type(spectrumSetFromProfile.getSpectrum(i)),type(spectrumSetFromProfile.getSpectrum(i).getSpectrum()),type(spectrumSetFromProfile.getSpectrum(i).getSpectrum()[0])))
+                self.log.debug('type(result.lineList) = %s: <%s>: <%s>' % (type(result.lineList),type(result.lineList[0]),type(result.lineList[0][0])))
+                self.log.debug('type(spectrumSetFromProfile.getSpectrum(i)) = %s: <%s>: <%s>' % (type(spectrumSetFromProfile.getSpectrum(i)),type(spectrumSetFromProfile.getSpectrum(i).getSpectrum()),type(spectrumSetFromProfile.getSpectrum(i).getSpectrum()[0])))
                 for j in range(result.lineList.shape[0]):
-                    print 'result.lineList[',j,'][*] = ',result.lineList[j][0],' ',result.lineList[j][1]
+                    self.log.debug('result.lineList[%d][*] = %f, %f' % (j,result.lineList[j][0],result.lineList[j][1]))
                 spec.identifyF(result.lineList, dispCorControl, 8)
                 if spectrumSetFromProfile.setSpectrum(i, spec ):
-                    print 'setSpectrum for spectrumSetFromProfile[',i,'] done'
+                    self.log.debug('setSpectrum for spectrumSetFromProfile[%d] done' % i)
                 else:
-                    print 'setSpectrum for spectrumSetFromProfile[',i,'] failed'
+                    self.log.warn('setSpectrum for spectrumSetFromProfile[%d] failed' % i)
                 for j in range(specSpec.shape[0]):
                     self.log.debug('spectrum %d: spec.getWavelength()[%d] = %f' % (i,j,spec.getWavelength()[j]))
 
@@ -217,7 +216,7 @@ class ReduceArcRefSpecTask(CmdLineTask):
             if key in md:
                 pfsConfigId = md[key]
             else:
-                self.log.info('No pfsConfigId is present in postISRCCD file for dataId %s' %
+                self.log.warn('No pfsConfigId is present in postISRCCD file for dataId %s' %
                               str(dataId.items()))
                 pfsConfigId = 0x0
                                                                                                  

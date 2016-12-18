@@ -11,6 +11,7 @@
 #include "lsst/base.h"
 #include "lsst/afw/geom.h"
 #include "lsst/afw/image/MaskedImage.h"
+#include "lsst/log/Log.h"
 #include "lsst/pex/config.h"
 #include "lsst/pex/exceptions.h"
 //#include "lsst/daf/base/Citizen.h"
