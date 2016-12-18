@@ -100,18 +100,16 @@ class ReduceArcTask(CmdLineTask):
             tbdata = hdulist[1].data
             traceIdsTemp = np.ndarray(shape=(len(tbdata)), dtype='int')
             xCenters = np.ndarray(shape=(len(tbdata)), dtype='float32')
-            yCenters = np.ndarray(shape=(len(tbdata)), dtype='float32')
             wavelengths = np.ndarray(shape=(len(tbdata)), dtype='float32')
             traceIdsTemp[:] = tbdata[:]['fiberNum']
             traceIds = traceIdsTemp.astype('int32')
             wavelengths[:] = tbdata[:]['pixelWave']
             xCenters[:] = tbdata[:]['xc']
-            yCenters[:] = tbdata[:]['yc']
 
             traceIdsUnique = np.unique(traceIds)
 
             """ assign trace number to flatFiberTraceSet """
-            success = drpStella.assignITrace( flatFiberTraceSet, traceIds, xCenters, yCenters )
+            success = drpStella.assignITrace( flatFiberTraceSet, traceIds, xCenters )
             iTraces = np.ndarray(shape=flatFiberTraceSet.size(), dtype='intp')
             for i in range( flatFiberTraceSet.size() ):
                 iTraces[i] = flatFiberTraceSet.getFiberTrace(i).getITrace()
@@ -149,7 +147,6 @@ class ReduceArcTask(CmdLineTask):
                 spec.setITrace(iTraces[i])
                 self.log.info('flatFiberTraceSet.getFiberTrace(%d).getITrace() = %d, spec.getITrace() = %d' %(i,flatFiberTraceSet.getFiberTrace(i).getITrace(), spec.getITrace()))
                 specSpec = spec.getSpectrum()
-                self.log.info('yCenters.shape = %d' % yCenters.shape)
                 self.log.info('specSpec.shape = %d' % specSpec.shape)
                 self.log.info('lineListArr.shape = [%d,%d]' % (lineListArr.shape[0], lineListArr.shape[1]))
                 self.log.info('type(specSpec) = %s: <%s>' % (type(specSpec),type(specSpec[0])))

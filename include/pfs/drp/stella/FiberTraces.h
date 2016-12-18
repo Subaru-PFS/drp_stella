@@ -376,8 +376,7 @@ namespace math{
   template< typename ImageT, typename MaskT, typename VarianceT, typename T, typename U, int I >
   bool assignITrace( FiberTraceSet< ImageT, MaskT, VarianceT > & fiberTraceSet,
                      ndarray::Array< T, 1, I > const& traceIds,
-                     ndarray::Array< U, 1, I > const& xCenters,
-                     ndarray::Array< U, 1, I > const& yCenters );
+                     ndarray::Array< U, 1, I > const& xCenters );
 
   /**
    * @brief: compare x and y center of fiberTrace to xCenters and yCenters to identify traceID
@@ -392,7 +391,6 @@ namespace math{
   template< typename ImageT, typename MaskT, typename VarianceT, typename U, int I >
   int findITrace( FiberTrace< ImageT, MaskT, VarianceT > const& fiberTrace,
                   ndarray::Array< U, 1, I > const& xCenters,
-                  ndarray::Array< U, 1, I > const& yCenters,
                   int nTraces,
                   int nRows,
                   int startPos = 0 );

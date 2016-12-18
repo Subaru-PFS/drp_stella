@@ -2629,8 +2629,7 @@ namespace pfsDRPStella = pfs::drp::stella;
     template< typename ImageT, typename MaskT, typename VarianceT, typename T, typename U, int I >
     bool assignITrace( FiberTraceSet< ImageT, MaskT, VarianceT > & fiberTraceSet,
                        ndarray::Array< T, 1, I > const& fiberIds,
-                       ndarray::Array< U, 1, I > const& xCenters,
-                       ndarray::Array< U, 1, I > const& yCenters ){
+                       ndarray::Array< U, 1, I > const& xCenters ){
       int iTrace;
       int startPos = 0;
       const ndarray::Array< T, 1, 1 > fiberTraceIds = pfs::drp::stella::math::unique( fiberIds );
@@ -2640,7 +2639,6 @@ namespace pfsDRPStella = pfs::drp::stella;
         PTR( FiberTrace<ImageT, MaskT, VarianceT> ) fiberTrace = fiberTraceSet.getFiberTrace( i );
         iTrace = findITrace( *fiberTrace,
                              xCenters,
-                             yCenters,
                              fiberTraceIds.getShape()[ 0 ],
                              nRows,
                              startPos );
@@ -2658,7 +2656,6 @@ namespace pfsDRPStella = pfs::drp::stella;
     template< typename ImageT, typename MaskT, typename VarianceT, typename U, int I >
     int findITrace( FiberTrace< ImageT, MaskT, VarianceT > const& fiberTrace,
                     ndarray::Array< U, 1, I > const& xCentersArr,
-                    ndarray::Array< U, 1, I > const& yCentersArr,
                     int nTraces,
                     int nRows,
                     int startPos ){
@@ -2762,74 +2759,58 @@ namespace pfsDRPStella = pfs::drp::stella;
 
 template bool pfsDRPStella::math::assignITrace( pfsDRPStella::FiberTraceSet< float, unsigned short, float > &,
                                                 ndarray::Array< int, 1, 0 > const&,
-                                                ndarray::Array< float, 1, 0 > const&,
                                                 ndarray::Array< float, 1, 0 > const& );
 template bool pfsDRPStella::math::assignITrace( pfsDRPStella::FiberTraceSet< float, unsigned short, float > &,
                                                 ndarray::Array< int, 1, 0 > const&,
-                                                ndarray::Array< double, 1, 0 > const&,
                                                 ndarray::Array< double, 1, 0 > const& );
 template bool pfsDRPStella::math::assignITrace( pfsDRPStella::FiberTraceSet< float, unsigned short, float > &,
                                                 ndarray::Array< short int, 1, 0 > const&,
-                                                ndarray::Array< float, 1, 0 > const&,
                                                 ndarray::Array< float, 1, 0 > const& );
 template bool pfsDRPStella::math::assignITrace( pfsDRPStella::FiberTraceSet< float, unsigned short, float > &,
                                                 ndarray::Array< short int, 1, 0 > const&,
-                                                ndarray::Array< double, 1, 0 > const&,
                                                 ndarray::Array< double, 1, 0 > const& );
 template bool pfsDRPStella::math::assignITrace( pfsDRPStella::FiberTraceSet< float, unsigned short, float > &,
                                                 ndarray::Array< long int, 1, 0 > const&,
-                                                ndarray::Array< float, 1, 0 > const&,
                                                 ndarray::Array< float, 1, 0 > const& );
 template bool pfsDRPStella::math::assignITrace( pfsDRPStella::FiberTraceSet< float, unsigned short, float > &,
                                                 ndarray::Array< long int, 1, 0 > const&,
-                                                ndarray::Array< double, 1, 0 > const&,
                                                 ndarray::Array< double, 1, 0 > const& );
 
 template bool pfsDRPStella::math::assignITrace( pfsDRPStella::FiberTraceSet< float, unsigned short, float > &,
                                                 ndarray::Array< int, 1, 1 > const&,
-                                                ndarray::Array< float, 1, 1 > const&,
                                                 ndarray::Array< float, 1, 1 > const& );
 template bool pfsDRPStella::math::assignITrace( pfsDRPStella::FiberTraceSet< float, unsigned short, float > &,
                                                 ndarray::Array< int, 1, 1 > const&,
-                                                ndarray::Array< double, 1, 1 > const&,
                                                 ndarray::Array< double, 1, 1 > const& );
 template bool pfsDRPStella::math::assignITrace( pfsDRPStella::FiberTraceSet< float, unsigned short, float > &,
                                                 ndarray::Array< short int, 1, 1 > const&,
-                                                ndarray::Array< float, 1, 1 > const&,
                                                 ndarray::Array< float, 1, 1 > const& );
 template bool pfsDRPStella::math::assignITrace( pfsDRPStella::FiberTraceSet< float, unsigned short, float > &,
                                                 ndarray::Array< short int, 1, 1 > const&,
-                                                ndarray::Array< double, 1, 1 > const&,
                                                 ndarray::Array< double, 1, 1 > const& );
 template bool pfsDRPStella::math::assignITrace( pfsDRPStella::FiberTraceSet< float, unsigned short, float > &,
                                                 ndarray::Array< long int, 1, 1 > const&,
-                                                ndarray::Array< float, 1, 1 > const&,
                                                 ndarray::Array< float, 1, 1 > const& );
 template bool pfsDRPStella::math::assignITrace( pfsDRPStella::FiberTraceSet< float, unsigned short, float > &,
                                                 ndarray::Array< long int, 1, 1 > const&,
-                                                ndarray::Array< double, 1, 1 > const&,
                                                 ndarray::Array< double, 1, 1 > const& );
 
 template int pfsDRPStella::math::findITrace( pfsDRPStella::FiberTrace< float, unsigned short, float > const&,
-                                             ndarray::Array< float, 1, 0 > const&,
                                              ndarray::Array< float, 1, 0 > const&,
                                              int,
                                              int,
                                              int );
 template int pfsDRPStella::math::findITrace( pfsDRPStella::FiberTrace< double, unsigned short, double > const&,
                                              ndarray::Array< float, 1, 0 > const&,
-                                             ndarray::Array< float, 1, 0 > const&,
                                              int,
                                              int,
                                              int );
 template int pfsDRPStella::math::findITrace( pfsDRPStella::FiberTrace< float, unsigned short, float > const&,
                                              ndarray::Array< double, 1, 0 > const&,
-                                             ndarray::Array< double, 1, 0 > const&,
                                              int,
                                              int,
                                              int );
 template int pfsDRPStella::math::findITrace( pfsDRPStella::FiberTrace< double, unsigned short, double > const&,
-                                             ndarray::Array< double, 1, 0 > const&,
                                              ndarray::Array< double, 1, 0 > const&,
                                              int,
                                              int,

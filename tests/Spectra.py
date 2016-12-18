@@ -445,21 +445,20 @@ class SpectraTestCase(tests.TestCase):
             tbdata = hdulist[1].data
             traceIdsTemp = np.ndarray(shape=(len(tbdata)), dtype='int')
             xCenters = np.ndarray(shape=(len(tbdata)), dtype='float32')
-            yCenters = np.ndarray(shape=(len(tbdata)), dtype='float32')
             wavelengths = np.ndarray(shape=(len(tbdata)), dtype='float32')
             traceIdsTemp[:] = tbdata[:]['fiberNum']
             traceIds = traceIdsTemp.astype('int32')
             wavelengths[:] = tbdata[:]['pixelWave']
             xCenters[:] = tbdata[:]['xc']
-            yCenters[:] = tbdata[:]['yc']
 
             traceIdsUnique = np.unique(traceIds)
 
             """ assign trace number to fiberTraceSet """
-            success = drpStella.assignITrace( fiberTraceSet, traceIds, xCenters, yCenters )
+            success = drpStella.assignITrace( fiberTraceSet, traceIds, xCenters )
             iTraces = np.ndarray(shape=fiberTraceSet.size(), dtype='intp')
             for i in range( fiberTraceSet.size() ):
                 iTraces[i] = fiberTraceSet.getFiberTrace(i).getITrace()
+                self.assertNotEqual(iTraces[i], -1)
 
             self.assertTrue(success)
 
