@@ -281,7 +281,7 @@ Now for using the pipeline.
   ingest that into our calibration registry::
 
      constructDark.py $PFS_DATA --rerun $whoami/tmp --id field=DARK dateObs=2015-12-22 arm=r spectrograph=1 --calibId calibVersion=dark calibDate=2015-12-22 arm=r spectrograph=1 --batch-type none
-     genCalibRegistry.py --root $PFS_DATA/CALIB --camera PFS --validity 360
+     genCalibRegistry.py --root $PFS_DATA/CALIB --validity 360
 
 - In order to extract the arc spectra we first need to identify and trace
   the apertures for each fiber. This is what constructFiberTrace.py does.
@@ -289,13 +289,13 @@ Now for using the pipeline.
   ``--id visit=104`` is all we need to specify for our flat to be found::
       
      constructFiberTrace.py $PFS_DATA --rerun $whoami/tmp --id visit=104 --calibId calibVersion=fiberTrace calibDate=2016-11-11 arm=r spectrograph=1 --batch-type none
-     genCalibRegistry.py --root $PFS_DATA/CALIB --camera PFS --validity 360
+     genCalibRegistry.py --root $PFS_DATA/CALIB --validity 360
 
 - We can now construct our master Flat from all the dithered Flats, which have
   the visit numbers 104-112::
       
      constructFiberFlat.py $PFS_DATA --rerun $whoami/tmp --id visit=104..112 --calibId calibVersion=flat calibDate=2016-11-11 arm=r spectrograph=1 --batch-type none
-     genCalibRegistry.py --root $PFS_DATA/CALIB --camera PFS --validity 360
+     genCalibRegistry.py --root $PFS_DATA/CALIB --validity 360
      
 - Since we have the master Bias, Dark, and Flat we can now perform the
   Instrumental-Signature Removal (ISR) task for our Arc spectrum (visit=103).
