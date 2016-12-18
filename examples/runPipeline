@@ -37,4 +37,4 @@ genCalibRegistry.py --root $PFS_DATA_DIR/CALIB --validity 360 &&
 
 detrend.py $PFS_DATA_DIR --rerun $whoami/tmp --id visit=103 &&
 
-reduceArcRefSpec.py $PFS_DATA_DIR --rerun $whoami/tmp --id visit=103
+reduceArc.py $PFS_DATA_DIR --rerun $whoami/tmp --id visit=103

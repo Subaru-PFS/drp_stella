@@ -311,7 +311,7 @@ Now for using the pipeline.
 - We now have the ``postISRCCD`` image for our Arc and can extract and
   wavelength-calibrate our CdHgKrNeXe Arc with the visit number 103::
 
-     reduceArcRefSpec.py $PFS_DATA --rerun $whoami/tmp --id visit=103
+     reduceArc.py $PFS_DATA --rerun $whoami/tmp --id visit=103
 
   This program writes a pfsArm file as described in the data model
   (https://github.com/Subaru-PFS/datamodel/blob/master/datamodel.txt).
