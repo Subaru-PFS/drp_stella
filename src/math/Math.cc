@@ -1467,8 +1467,9 @@
       CrossCorrelateResult crossCorrelateResult;
       /// Check that both arrays have the same size
       if ( DA1_Moving.getShape()[ 0 ] != DA1_Static.getShape()[ 0 ] ){
-        cout << "crossCorrelate: ERROR: DA1_Moving.size() = " << DA1_Moving.getShape()[ 0 ] << " != DA1_Static.size() = " << DA1_Static.getShape()[ 0 ] << endl;
-        exit(EXIT_FAILURE);
+        std::string message("crossCorrelate: ERROR: DA1_Moving.size() = ");
+        message += to_string(DA1_Moving.getShape()[ 0 ]) + " != DA1_Static.size() = " + to_string(DA1_Static.getShape()[ 0 ]);
+        throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
       }
       #ifdef __CHECK_FOR_NANS__
         for (auto it=DA1_Static.begin(); it!=DA1_Static.end(); ++it){
@@ -1620,8 +1621,7 @@
         cout << "crossCorrelate: D_A2_Limits[3,:] = " << D_A2_Limits[ndarray::view(3)()] << endl;
       #endif
       if ( D_A2_Limits[ ndarray::makeVector( 3, 1 ) ] < D_A2_Limits[ ndarray::makeVector( 3, 0 ) ] ){
-        cout << "crossCorrelate: ERROR: D_A2_Limits(3,1) < D_A2_Limits(3,0)" << endl;
-        exit(EXIT_FAILURE);
+        throw LSST_EXCEPT(pexExcept::Exception, "crossCorrelate: ERROR: D_A2_Limits(3,1) < D_A2_Limits(3,0)");
       }
       D_A2_Limits[ ndarray::makeVector( 0, 0 ) ] = 1.5 * D_A1_Guess[ 0 ];
       D_A2_Limits[ ndarray::makeVector( 0, 1 ) ] = 0.;
@@ -1629,8 +1629,7 @@
         cout << "crossCorrelate: D_A2_Limits[0,:] = " << D_A2_Limits[ndarray::view(0)()] << endl;
       #endif
       if ( D_A2_Limits[ ndarray::makeVector( 0, 1 ) ] < D_A2_Limits[ ndarray::makeVector( 0, 0 ) ] ){
-        cout << "crossCorrelate: ERROR: D_A2_Limits(0,1) < D_A2_Limits(0,0)" << endl;
-        exit(EXIT_FAILURE);
+        throw LSST_EXCEPT(pexExcept::Exception, "crossCorrelate: ERROR: D_A2_Limits(0,1) < D_A2_Limits(0,0)");
       }
       #ifdef __DEBUG_CROSSCORRELATE__
         cout << "crossCorrelate: minInd = " << minInd << endl;
@@ -1641,9 +1640,10 @@
         cout << "crossCorrelate: D_A2_Limits[1,:] = " << D_A2_Limits[ndarray::view(1)()] << endl;
       #endif
       if ( D_A2_Limits[ ndarray::makeVector( 1, 1 ) ] < D_A2_Limits[ ndarray::makeVector( 1, 0 ) ] ){
-        cout << "crossCorrelate: D_A2_Limits[ ndarray::makeVector( 1, 1 ) ](=" << D_A2_Limits[ ndarray::makeVector( 1, 1 ) ] << ") < D_A2_Limits[ ndarray::makeVector( 1, 0 ) ](=" << D_A2_Limits[ ndarray::makeVector( 1, 0 ) ] << ")" << endl;
-        cout << "crossCorrelate: ERROR: D_A2_Limits(1,1) < D_A2_Limits(1,0)" << endl;
-        exit(EXIT_FAILURE);
+        std::string message("crossCorrelate: D_A2_Limits[ ndarray::makeVector( 1, 1 ) ](=");
+        message += to_string(D_A2_Limits[ ndarray::makeVector( 1, 1 ) ]) + ") < D_A2_Limits[ ndarray::makeVector( 1, 0 ) ](=";
+        message += to_string(D_A2_Limits[ ndarray::makeVector( 1, 0 ) ]) + ")";
+        throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
       }
       D_A2_Limits[ ndarray::makeVector( 2, 0 ) ] = 0.;
       D_A2_Limits[ ndarray::makeVector( 2, 1 ) ] = DA1_ChiSquare.getShape()[ 0 ];
@@ -1651,8 +1651,7 @@
         cout << "crossCorrelate: D_A2_Limits[2,:] = " << D_A2_Limits[ndarray::view(2)()] << endl;
       #endif
       if ( D_A2_Limits[ ndarray::makeVector( 2, 1 ) ] < D_A2_Limits[ ndarray::makeVector( 2, 0 ) ] ){
-        cout << "crossCorrelate: ERROR: D_A2_Limits(2,1) < D_A2_Limits(2,0)" << endl;
-        exit(EXIT_FAILURE);
+        throw LSST_EXCEPT(pexExcept::Exception, "crossCorrelate: ERROR: D_A2_Limits(2,1) < D_A2_Limits(2,0)");
       }
       ndarray::Array< double, 1, 1 > D_A1_GaussCoeffs = ndarray::allocate( 4 );
       D_A1_GaussCoeffs.deep() = 0.;
