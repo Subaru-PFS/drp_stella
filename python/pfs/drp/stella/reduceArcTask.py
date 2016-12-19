@@ -5,6 +5,7 @@ import sys
 import pfs.drp.stella.extractSpectraTask as esTask
 import pfs.drp.stella as drpStella
 from pfs.drp.stella.utils import makeFiberTraceSet
+import lsst.log
 from lsst.utils import getPackageDir
 from lsst.pex.config import Config, Field
 from lsst.pipe.base import Struct, TaskRunner, ArgumentParser, CmdLineTask
@@ -33,7 +34,7 @@ class ReduceArcTaskRunner(TaskRunner):
     def __call__(self, args):
         task = self.TaskClass(config=self.config, log=self.log)
         if self.doRaise:
-            self.log.info('ReduceArcTask.__call__: args = %s' % args)
+            self.logger.info('ReduceArcTask.__call__: args = %s' % args)
             result = task.run(**args)
         else:
             try:
@@ -57,6 +58,7 @@ class ReduceArcTask(CmdLineTask):
 
     def __init__(self, *args, **kwargs):
         super(ReduceArcTask, self).__init__(*args, **kwargs)
+        self.logger = lsst.log.Log.getLogger("pfs.drp.stella.ReduceArcTask")
 
     @classmethod
     def _makeArgumentParser(cls, *args, **kwargs):
@@ -72,15 +74,15 @@ class ReduceArcTask(CmdLineTask):
             wLenFile = self.config.wavelengthFile
         if lineList == None:
             lineList = self.config.lineList
-        self.log.info('expRefList = %s' % expRefList)
-        self.log.info('len(expRefList) = %d' % len(expRefList))
-        self.log.info('wLenFile = %s' % wLenFile)
-        self.log.info('lineList = %s' % lineList)
+        self.logger.info('expRefList = %s' % expRefList)
+        self.logger.info('len(expRefList) = %d' % len(expRefList))
+        self.logger.info('wLenFile = %s' % wLenFile)
+        self.logger.info('lineList = %s' % lineList)
 
         for arcRef in expRefList:
-            self.log.info('arcRef.dataId = %s' % arcRef.dataId)
-            self.log.info('arcRef = %s' % arcRef)
-            self.log.info('type(arcRef) = %s' % type(arcRef))
+            self.logger.info('arcRef.dataId = %s' % arcRef.dataId)
+            self.logger.info('arcRef = %s' % arcRef)
+            self.logger.info('type(arcRef) = %s' % type(arcRef))
 
             try:
                 fiberTrace = arcRef.get('fiberTrace', immediate=True)
@@ -90,8 +92,8 @@ class ReduceArcTask(CmdLineTask):
                                    (arcRef.dataId, arcRef.get('fiberTrace_filename')[0], e))
 
             arcExp = arcRef.get("postISRCCD", immediate=True)
-            self.log.info('arcExp = %s' % arcExp)
-            self.log.info('type(arcExp) = %s' % type(arcExp))
+            self.logger.info('arcExp = %s' % arcExp)
+            self.logger.info('type(arcExp) = %s' % type(arcExp))
 
             """ optimally extract arc spectra """
             print 'extracting arc spectra'
@@ -138,22 +140,16 @@ class ReduceArcTask(CmdLineTask):
             dispCorControl.order = self.config.order
             dispCorControl.searchRadius = self.config.searchRadius
             dispCorControl.fwhm = self.config.fwhm
-            self.log.info('dispCorControl.fittingFunction = %s' % dispCorControl.fittingFunction)
-            self.log.info('dispCorControl.order = %d' % dispCorControl.order)
-            self.log.info('dispCorControl.searchRadius = %d' % dispCorControl.searchRadius)
-            self.log.info('dispCorControl.fwhm = %g' % dispCorControl.fwhm)
+            self.logger.info('dispCorControl.fittingFunction = %s' % dispCorControl.fittingFunction)
+            self.logger.info('dispCorControl.order = %d' % dispCorControl.order)
+            self.logger.info('dispCorControl.searchRadius = %d' % dispCorControl.searchRadius)
+            self.logger.info('dispCorControl.fwhm = %g' % dispCorControl.fwhm)
 
             for i in range(spectrumSetFromProfile.size()):
                 spec = spectrumSetFromProfile.getSpectrum(i)
                 spec.setITrace(iTraces[i])
-                self.log.info('flatFiberTraceSet.getFiberTrace(%d).getITrace() = %d, spec.getITrace() = %d' %(i,flatFiberTraceSet.getFiberTrace(i).getITrace(), spec.getITrace()))
                 specSpec = spec.getSpectrum()
-                self.log.info('yCenters.shape = %d' % yCenters.shape)
-                self.log.info('specSpec.shape = %d' % specSpec.shape)
-                self.log.info('lineListArr.shape = [%d,%d]' % (lineListArr.shape[0], lineListArr.shape[1]))
-                self.log.info('type(specSpec) = %s: <%s>' % (type(specSpec),type(specSpec[0])))
-                self.log.info('type(lineListArr) = %s: <%s>' % (type(lineListArr),type(lineListArr[0][0])))
-                self.log.info('type(spec) = %s: <%s>: <%s>' % (type(spec),type(spec.getSpectrum()),type(spec.getSpectrum()[0])))
+                self.logger.info('flatFiberTraceSet.getFiberTrace(%d).getITrace() = %d, spec.getITrace() = %d' %(i,flatFiberTraceSet.getFiberTrace(i).getITrace(), spec.getITrace()))
 
                 traceId = spec.getITrace()
     #            print 'traceId = ',traceId
@@ -174,12 +170,6 @@ class ReduceArcTask(CmdLineTask):
                 yHigh = flatFiberTraceSet.getFiberTrace(i).getFiberTraceFunction().yHigh
                 yMin = yCenter + yLow
                 yMax = yCenter + yHigh
-                self.log.info('fiberTrace %d: xCenter = %d' % (i, xCenter))
-                self.log.info('fiberTrace %d: yCenter = %d' % (i, yCenter))
-                self.log.info('fiberTrace %d: yLow = %d' % (i, yLow))
-                self.log.info('fiberTrace %d: yHigh = %d' % (i, yHigh))
-                self.log.info('fiberTrace %d: yMin = %d' % (i, yMin))
-                self.log.info('fiberTrace %d: yMax = %d' % (i, yMax))
                 wLen = wLenTemp[ yMin + self.config.nRowsPrescan : yMax + self.config.nRowsPrescan + 1]
                 wLenArr = np.ndarray(shape=wLen.shape, dtype='float32')
                 for j in range(wLen.shape[0]):
@@ -189,6 +179,8 @@ class ReduceArcTask(CmdLineTask):
                 for j in range(wLenLines.shape[0]):
                     wLenLinesArr[j] = wLenLines[j]
                 lineListPix = drpStella.createLineList(wLenArr, wLenLinesArr)
+                self.logger.info('fiberTrace %d: yMin = %d' % (i, yMin))
+                self.logger.info('fiberTrace %d: yMax = %d' % (i, yMax))
                 try:
                     spec.identifyF(lineListPix, dispCorControl, 8)
                 except:
@@ -216,7 +208,7 @@ class ReduceArcTask(CmdLineTask):
             if key in md:
                 pfsConfigId = md[key]
             else:
-                self.log.info('No pfsConfigId is present in postISRCCD file for dataId %s' %
+                self.logger.info('No pfsConfigId is present in postISRCCD file for dataId %s' %
                               str(dataId.items()))
                 pfsConfigId = 0x0
 
