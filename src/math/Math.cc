@@ -1470,7 +1470,16 @@
         cout << "crossCorrelate: ERROR: DA1_Moving.size() = " << DA1_Moving.getShape()[ 0 ] << " != DA1_Static.size() = " << DA1_Static.getShape()[ 0 ] << endl;
         exit(EXIT_FAILURE);
       }
-
+      #ifdef __CHECK_FOR_NANS__
+        for (auto it=DA1_Static.begin(); it!=DA1_Static.end(); ++it){
+          if (isnan(*it))
+            throw LSST_EXCEPT(pexExcept::Exception, "nan found in DA1_Static");
+        }
+        for (auto it=DA1_Moving.begin(); it!=DA1_Moving.end(); ++it){
+          if (isnan(*it))
+            throw LSST_EXCEPT(pexExcept::Exception, "nan found in DA1_Moving");
+        }
+      #endif
       int I_Size = DA1_Static.getShape()[ 0 ];
 
       /// Check I_NPixMaxLeft and I_NPixMaxRight
@@ -1532,6 +1541,16 @@
           DA1_StaticTemp[ ndarray::view() ] = DA1_Static[ ndarray::view( i, DA1_Static.getShape()[ 0 ] ) ];
           DA1_MovingTemp[ ndarray::view() ] = DA1_Moving[ ndarray::view( 0, DA1_Moving.getShape()[ 0 ] - i ) ];
         }
+        #ifdef __CHECK_FOR_NANS__
+          for (auto it=DA1_StaticTemp.begin(); it!=DA1_StaticTemp.end(); ++it){
+            if (isnan(*it))
+              throw LSST_EXCEPT(pexExcept::Exception, "nan found in DA1_StaticTemp");
+          }
+          for (auto it=DA1_MovingTemp.begin(); it!=DA1_MovingTemp.end(); ++it){
+            if (isnan(*it))
+              throw LSST_EXCEPT(pexExcept::Exception, "nan found in DA1_MovingTemp");
+          }
+        #endif
         #ifdef __DEBUG_CROSSCORRELATE__
           cout << "crossCorrelate: DA1_StaticTemp = " << DA1_StaticTemp << endl;
           cout << "crossCorrelate: DA1_MovingTemp = " << DA1_MovingTemp << endl;
@@ -2809,6 +2828,16 @@
                                                                   int const stretchMinLength,
                                                                   int const stretchMaxLength,
                                                                   int const nStretches ){
+      #ifdef __CHECK_FOR_NANS__
+        for (auto it=specRef.begin(); it!=specRef.end(); ++it){
+          if (isnan(*it))
+            throw LSST_EXCEPT(pexExcept::Exception, "nan found in specRef");
+        }
+        for (auto it=spec.begin(); it!=spec.end(); ++it){
+          if (isnan(*it))
+            throw LSST_EXCEPT(pexExcept::Exception, "nan found in spec");
+        }
+      #endif
       /// Stretch Reference Spectrum
       ndarray::Array< T, 1, 1 > refX = indGenNdArr( T(specRef.getShape()[ 0 ] ) );
       #ifdef __DEBUG_STRETCHANDCROSSCORRELATE__
@@ -2854,8 +2883,16 @@
         specTemp.deep() = spec;
         specRefTemp = ndarray::allocate( refY.getShape()[ 0 ] );
         specRefTemp.deep() = refY;
-        #ifdef __DEBUG_STRETCHANDCROSSCORRELATE__
-          cout << "stretchAndCrossCorrelate: i_stretch = " << i_stretch << ": specRefTemp = " << specRefTemp.getShape() << ": " << specRefTemp << endl;
+
+        #ifdef __CHECK_FOR_NANS__
+          for (auto it=refY.begin(); it!=refY.end(); ++it){
+            if (isnan(*it))
+              throw LSST_EXCEPT(pexExcept::Exception, "nan found in refY");
+          }
+          for (auto it=spec.begin(); it!=spec.end(); ++it){
+            if (isnan(*it))
+              throw LSST_EXCEPT(pexExcept::Exception, "nan found in spec");
+          }
         #endif
 
         /// if size of specTemp < size of specRefTemp resize and preserve specRefTemp
@@ -2879,6 +2916,16 @@
           specTemp = ndarray::allocate( specRefTemp.getShape()[ 0 ] );
           specTemp[ ndarray::view() ] = tempArr[ ndarray::view( 0, specRefTemp.getShape()[ 0 ] ) ];
         }
+        #ifdef __CHECK_FOR_NANS__
+          for (auto it=specRefTemp.begin(); it!=specRefTemp.end(); ++it){
+            if (isnan(*it))
+              throw LSST_EXCEPT(pexExcept::Exception, "nan found in specRefTemp");
+          }
+          for (auto it=specTemp.begin(); it!=specTemp.end(); ++it){
+            if (isnan(*it))
+              throw LSST_EXCEPT(pexExcept::Exception, "nan found in specTemp");
+          }
+        #endif
 
         #ifdef __DEBUG_STRETCHANDCROSSCORRELATE__
           cout << "stretchAndCrossCorrelate: i_stretch = " << i_stretch << ": starting crossCorrelate(specRefTemp, specTemp, radiusXCor, radiusXCor)" << endl;
@@ -3022,6 +3069,20 @@
       #endif
       ndarray::Array< T, 1, 1 > xArr = indGenNdArr( T( spec.getShape()[ 0 ] ) );
       ndarray::Array< T, 1, 1 > xNewArr = indGenNdArr( T( newLength ) );
+      #ifdef __CHECK_FOR_NANS__
+        for (auto it=spec.begin(); it!=spec.end(); ++it){
+          if (isnan(*it))
+            throw LSST_EXCEPT(pexExcept::Exception, "nan found in spec");
+        }
+        for (auto it=xArr.begin(); it!=xArr.end(); ++it){
+          if (isnan(*it))
+            throw LSST_EXCEPT(pexExcept::Exception, "nan found in xArr");
+        }
+        for (auto it=xNewArr.begin(); it!=xNewArr.end(); ++it){
+          if (isnan(*it))
+            throw LSST_EXCEPT(pexExcept::Exception, "nan found in xNewArr");
+        }
+      #endif
       float fac = float( newLength ) / float( spec.getShape()[ 0 ] );
       #ifdef __DEBUG_STRETCH__
         cout << "stretch: fac = " << fac << endl;
@@ -3038,6 +3099,12 @@
                                                    xNewArr );
       #ifdef __DEBUG_STRETCH__
         cout << "stretch: arrOut = " << arrOut << endl;
+      #endif
+      #ifdef __CHECK_FOR_NANS__
+        for (auto it=arrOut.begin(); it!=arrOut.end(); ++it){
+          if (isnan(*it))
+            throw LSST_EXCEPT(pexExcept::Exception, "nan found in arrOut");
+        }
       #endif
       return arrOut;
     }

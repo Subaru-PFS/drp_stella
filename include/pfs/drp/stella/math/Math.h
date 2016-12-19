@@ -28,6 +28,8 @@
 //#define __DEBUG_CROSSCORRELATE__
 //#define __DEBUG_WHERE__
 
+#define __CHECK_FOR_NANS__
+
 /// constants
 #define CONST_PI 3.141592653589793238462643383280    /* pi */
 
