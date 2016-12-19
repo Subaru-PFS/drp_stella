@@ -7,7 +7,7 @@ namespace pfsDRPStella = pfs::drp::stella;
  */
 template<typename SpectrumT, typename MaskT, typename VarianceT, typename WavelengthT>
 pfsDRPStella::Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>::Spectrum(size_t length,
-                                                                           size_t iTrace ) 
+                                                                           size_t iTrace )
   : _length(length),
     _iTrace(iTrace),
     _isWavelengthSet(false),
@@ -46,7 +46,7 @@ bool pfsDRPStella::Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>::setSky( n
     string message("pfsDRPStella::Spectrum::setSky: ERROR: spectrum->size()=");
     message += to_string(sky.getShape()[0]) + string(" != _length=") + to_string(_length);
     cout << message << endl;
-    throw LSST_EXCEPT(pexExcept::Exception, message.c_str());    
+    throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
   }
   _sky.deep() = sky;
   return true;
@@ -63,7 +63,7 @@ bool pfsDRPStella::Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>::setWavele
     string message("pfsDRPStella::Spectrum::setWavelength: ERROR: wavelength->size()=");
     message += to_string(wavelength.getShape()[0]) + string(" != _length=") + to_string(_length);
     cout << message << endl;
-    throw LSST_EXCEPT(pexExcept::Exception, message.c_str());    
+    throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
   }
   _wavelength.deep() = wavelength;
   return true;
@@ -80,7 +80,7 @@ bool pfsDRPStella::Spectrum< SpectrumT, MaskT, VarianceT, WavelengthT >::setDisp
     string message("pfsDRPStella::Spectrum::setDispersion: ERROR: dispersion->size()=");
     message += to_string( dispersion.getShape()[ 0 ]) + string(" != _length=") + to_string( _length );
     cout << message << endl;
-    throw LSST_EXCEPT(pexExcept::Exception, message.c_str());    
+    throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
   }
   _dispersion.deep() = dispersion;
   return true;
@@ -151,7 +151,7 @@ pfsDRPStella::SpectrumSet<SpectrumT, MaskT, VarianceT, WavelengthT>::SpectrumSet
     _spectra->push_back(spec);
   }
 }
-    
+
 template<typename SpectrumT, typename MaskT, typename VarianceT, typename WavelengthT>
 pfsDRPStella::SpectrumSet<SpectrumT, MaskT, VarianceT, WavelengthT>::SpectrumSet( PTR( std::vector< PTR( Spectrum< SpectrumT, MaskT, VarianceT, WavelengthT> ) > ) const& spectrumVector )
         : _spectra( new std::vector< PTR( Spectrum< SpectrumT, MaskT, VarianceT, WavelengthT > ) >() )
@@ -191,7 +191,7 @@ pfsDRPStella::SpectrumSet<SpectrumT, MaskT, VarianceT, WavelengthT>::SpectrumSet
       _spectra( new std::vector< PTR(Spectrum< SpectrumT, MaskT, VarianceT, WavelengthT > ) >( ) )
 {
     lsst::afw::fits::Fits fitsfile(const_cast< lsst::afw::fits::MemFileManager& >(manager), "r", lsst::afw::fits::Fits::AUTO_CLOSE | lsst::afw::fits::Fits::AUTO_CHECK);
-    *this = SpectrumSet(fitsfile, metadata, 
+    *this = SpectrumSet(fitsfile, metadata,
                         fluxMetadata, covarMetadata, maskMetadata, wLenMetadata, wDispMetadata, skyMetadata);
 }
 
@@ -210,16 +210,16 @@ pfsDRPStella::SpectrumSet<SpectrumT, MaskT, VarianceT, WavelengthT>::SpectrumSet
       _spectra(new std::vector< PTR(Spectrum< SpectrumT, MaskT, VarianceT, WavelengthT > ) >( ) )
 {
 /*    typedef boost::mpl::vector<
-        unsigned char, 
-        unsigned short, 
-        short, 
+        unsigned char,
+        unsigned short,
+        short,
         int,
         unsigned int,
         float,
         double,
         boost::uint64_t
     > fits_image_types;
-*/    
+*/
     enum class Hdu {
         Primary = 1,
         Flux,
@@ -261,7 +261,7 @@ pfsDRPStella::SpectrumSet<SpectrumT, MaskT, VarianceT, WavelengthT>::SpectrumSet
     lsst::afw::geom::Point2I xy0;
     cout << "xy0 = " << xy0 << endl;
     ndarray::Array< float, 2, 2 > array;
-    
+
     lsst::afw::image::fits_read_array( const_cast< lsst::afw::fits::Fits& >(fitsfile), array, xy0, *metadata );
     cout << "SpectrumSet::SpectrumSet(fitsfile): array.getShape() = " << array.getShape() << endl;
 
@@ -400,7 +400,7 @@ ndarray::Array< float, 2, 1 > pfsDRPStella::SpectrumSet<SpectrumT, MaskT, Varian
   }
   return dispersion;
 }
-    
+
 template<typename SpectrumT, typename MaskT, typename VarianceT, typename WavelengthT>
 ndarray::Array< int, 2, 1 > pfsDRPStella::SpectrumSet<SpectrumT, MaskT, VarianceT, WavelengthT>::getAllMasks() const{
   int nFibers = int( size() );
@@ -481,7 +481,7 @@ ndarray::Array< float, 2, 1 > pfsDRPStella::SpectrumSet<SpectrumT, MaskT, Varian
   }
   return var;
 }
-    
+
 template<typename SpectrumT, typename MaskT, typename VarianceT, typename WavelengthT>
 ndarray::Array< float, 3, 1 > pfsDRPStella::SpectrumSet<SpectrumT, MaskT, VarianceT, WavelengthT>::getAllCovars() const{
   int nFibers = int( size() );
@@ -545,6 +545,8 @@ namespace pfs { namespace drp { namespace stella { namespace math {
         cout << "stretchAndCrossCorrelateSpec: fac = " << fac << endl;
         cout << "stretchAndCrossCorrelateSpec: stretchedSpec = " << stretchedSpec.getShape() << ": " << stretchedSpec << endl;
       #endif
+      LOGLS_DEBUG(_log, "fac = " << fac);
+      LOGLS_DEBUG(_log, "stretchedSpec = " << stretchedSpec.getShape() << ": " << stretchedSpec);
 
       if ( stretchedSpec.getShape()[ 0 ] != specRef.getShape()[ 0 ] ){
         cout << "stretchAndCrossCorrelate: ERROR: stretchedSpec.getShape()[0](=" << stretchedSpec.getShape()[ 0 ] << " != specRef.getShape()[0](=" << specRef.getShape() << ") => Returning FALSE" << endl;
@@ -559,11 +561,9 @@ namespace pfs { namespace drp { namespace stella { namespace math {
       int nCalcs = dispCorControl.nCalcs;
       if ( nCalcs < spec.getShape()[ 0 ] / dispCorControl.lengthPieces ){
         nCalcs = 2 * int( spec.getShape()[ 0 ] / dispCorControl.lengthPieces );
-        cout << "stretchAndCrossCorrelate: Warning: dispCorControl.nCalcs(=" << dispCorControl.nCalcs << ") < spec.getShape()[0](=" << spec.getShape()[ 0 ] << ") / dispCorControl.lengthPieces(=" << dispCorControl.lengthPieces << ") => nCalcs set to " << nCalcs << endl;
+        LOGLS_WARN(_log, "dispCorControl.nCalcs(=" << dispCorControl.nCalcs << ") < spec.getShape()[0](=" << spec.getShape()[ 0 ] << ") / dispCorControl.lengthPieces(=" << dispCorControl.lengthPieces << ") => nCalcs set to " << nCalcs);
       }
-      #ifdef __DEBUG_STRETCHANDCROSSCORRELATESPEC__
-        cout << "stretchAndCrossCorrelateSpec: nCalcs = " << nCalcs << endl;
-      #endif
+      LOGLS_DEBUG(_log, "nCalcs = " << nCalcs);
       ndarray::Array< double, 1, 1 > chiSqMin_Stretch = ndarray::allocate( nCalcs );
       chiSqMin_Stretch.deep() = 0.;
       ndarray::Array< double, 1, 1 > chiSqMin_Shift = ndarray::allocate( nCalcs );
@@ -583,39 +583,26 @@ namespace pfs { namespace drp { namespace stella { namespace math {
 
       for ( int i_run = 0; i_run < nCalcs; i_run++ ){
         end = start + dispCorControl.lengthPieces;
-        #ifdef __DEBUG_STRETCHANDCROSSCORRELATESPEC__
-          cout << "stretchAndCrossCorrelateSpec: i_run = " << i_run << ": dispCorControl.lengthPieces = " << dispCorControl.lengthPieces << endl;
-          cout << "stretchAndCrossCorrelateSpec: i_run = " << i_run << ": start = " << start << ", end = " << end << endl;
-          cout << "stretchAndCrossCorrelateSpec: i_run = " << i_run << ": stretchedSpec.getShape()[0] = " << stretchedSpec.getShape()[0] << endl;
-          cout << "stretchAndCrossCorrelateSpec: i_run = " << i_run << ": spec.getShape()[0] = " << spec.getShape()[0] << endl;
-        #endif
+        LOGLS_DEBUG(_log, "i_run = " << i_run << ": dispCorControl.lengthPieces = " << dispCorControl.lengthPieces);
+        LOGLS_DEBUG(_log, "i_run = " << i_run << ": start = " << start << ", end = " << end);
+        LOGLS_DEBUG(_log, "i_run = " << i_run << ": stretchedSpec.getShape()[0] = " << stretchedSpec.getShape()[0]);
+        LOGLS_DEBUG(_log, "i_run = " << i_run << ": spec.getShape()[0] = " << spec.getShape()[0]);
         if ( end >= stretchedSpec.getShape()[ 0 ] )
           end = stretchedSpec.getShape()[ 0 ] - 1;
-        #ifdef __DEBUG_STRETCHANDCROSSCORRELATESPEC__
-          cout << "stretchAndCrossCorrelateSpec: i_run = " << i_run << ": start = " << start << ", end = " << end << endl;
-        #endif
+        LOGLS_DEBUG(_log, "i_run = " << i_run << ": start = " << start << ", end = " << end);
         if ( end <= start ){
           cout << "stretchAndCrossCorrelateSpec: i_run = " << i_run << ": ERROR: end <= start" << endl;
           exit( EXIT_FAILURE );
         }
         xCenter[ i_run ] = double( start ) + ( double( end - start ) / 2. );
-        #ifdef __DEBUG_STRETCHANDCROSSCORRELATESPEC__
-          cout << "stretchAndCrossCorrelateSpec: i_run = " << i_run << ": xCenter = " << xCenter[ i_run ] << endl;
-        #endif
+        LOGLS_DEBUG(_log, "i_run = " << i_run << ": xCenter = " << xCenter[ i_run ]);
 
         specPiece = ndarray::allocate( end - start + 1 );
         specPiece.deep() = stretchedSpec[ ndarray::view( start, end + 1 ) ];
-        #ifdef __DEBUG_STRETCHANDCROSSCORRELATESPEC__
-          cout << "stretchAndCrossCorrelateSpec: i_run = " << i_run << ": specPiece = " << specPiece.getShape() << ": " << specPiece << endl;
-        #endif
-        #ifdef __DEBUG_STRETCHANDCROSSCORRELATESPEC__
-          cout << "stretchAndCrossCorrelateSpec: i_run = " << i_run << ": specRefPiece = " << specRefPiece.getShape() << endl;
-        #endif
         specRefPiece = ndarray::allocate( end - start + 1 );
+        LOGLS_DEBUG(_log, "i_run = " << i_run << ": specPiece = " << specPiece.getShape() << ": " << specPiece);
         specRefPiece.deep() = specRef[ ndarray::view( start, end + 1 ) ];
-        #ifdef __DEBUG_STRETCHANDCROSSCORRELATESPEC__
-          cout << "stretchAndCrossCorrelateSpec: i_run = " << i_run << ": specRefPiece = " << specRefPiece.getShape() << ": " << specRefPiece << endl;
-        #endif
+        LOGLS_DEBUG(_log, "i_run = " << i_run << ": specRefPiece = " << specRefPiece.getShape() << ": " << specRefPiece);
         /// stretch and crosscorrelate pieces
         StretchAndCrossCorrelateResult< double > stretchAndCrossCorrelateResult = stretchAndCrossCorrelate( specPiece,
                                                                                                             specRefPiece,
@@ -625,11 +612,9 @@ namespace pfs { namespace drp { namespace stella { namespace math {
                                                                                                             dispCorControl.nStretches );
         chiSqMin_Stretch[ i_run ] = stretchAndCrossCorrelateResult.stretch;
         chiSqMin_Shift[ i_run ] = stretchAndCrossCorrelateResult.shift;
-        #ifdef __DEBUG_STRETCHANDCROSSCORRELATESPEC__
-          cout << "stretchAndCrossCorrelateSpec: i_run=" << i_run << ": chiSqMin_Stretch = " << chiSqMin_Stretch[i_run] << endl;
-          cout << "stretchAndCrossCorrelateSpec: i_run=" << i_run << ": chiSqMin_Shift = " << chiSqMin_Shift[i_run] << endl;
-          cout << "stretchAndCrossCorrelateSpec: i_run=" << i_run << ": stretchAndCrossCorrelateResult.specStretchedMinChiSq = " << stretchAndCrossCorrelateResult.specStretchedMinChiSq.getShape() << ": " << stretchAndCrossCorrelateResult.specStretchedMinChiSq << endl;
-        #endif
+        LOGLS_DEBUG(_log, "i_run=" << i_run << ": chiSqMin_Stretch = " << chiSqMin_Stretch[i_run]);
+        LOGLS_DEBUG(_log, "i_run=" << i_run << ": chiSqMin_Shift = " << chiSqMin_Shift[i_run]);
+        LOGLS_DEBUG(_log, "i_run=" << i_run << ": stretchAndCrossCorrelateResult.specStretchedMinChiSq = " << stretchAndCrossCorrelateResult.specStretchedMinChiSq.getShape() << ": " << stretchAndCrossCorrelateResult.specStretchedMinChiSq);
 
         specPieceStretched_MinChiSq = ndarray::allocate( stretchAndCrossCorrelateResult.specStretchedMinChiSq.getShape() );
         specPieceStretched_MinChiSq.deep() = stretchAndCrossCorrelateResult.specStretchedMinChiSq;
@@ -637,15 +622,11 @@ namespace pfs { namespace drp { namespace stella { namespace math {
           stretchAndCrossCorrelateSpecResult.specPieces[ ndarray::makeVector( iSpecPos, 0, i_run ) ] = specPieceStretched_MinChiSq[ ndarray::makeVector( iSpecPos, 0 ) ] + start;
           stretchAndCrossCorrelateSpecResult.specPieces[ ndarray::makeVector( iSpecPos, 1, i_run ) ] = specPieceStretched_MinChiSq[ ndarray::makeVector( iSpecPos, 1 ) ];
         }
-        #ifdef __DEBUG_STRETCHANDCROSSCORRELATESPEC__
-          cout << "stretchAndCrossCorrelateSpec: stretchAndCrossCorrelateSpecResult.specPieces.getShape() = " << stretchAndCrossCorrelateSpecResult.specPieces.getShape() << endl;
-          cout << "stretchAndCrossCorrelateSpec: stretchAndCrossCorrelateSpecResult.specPieces[ ndarray::view( 0, " << specPieceStretched_MinChiSq.getShape()[ 0 ] << " )( 0 )( " << i_run << " ) ] = " << stretchAndCrossCorrelateSpecResult.specPieces[ ndarray::view( 0, specPieceStretched_MinChiSq.getShape()[ 0 ] )( 0 )( i_run ) ] << endl;
-          cout << "stretchAndCrossCorrelateSpec: stretchAndCrossCorrelateSpecResult.specPieces[ ndarray::view( 0, " << specPieceStretched_MinChiSq.getShape()[ 0 ] << " )( 1 )( " << i_run << " ) ] = " << stretchAndCrossCorrelateSpecResult.specPieces[ ndarray::view( 0, specPieceStretched_MinChiSq.getShape()[ 0 ] )( 1 )( i_run ) ] << endl;
-        #endif
-        #ifdef __DEBUG_STRETCHANDCROSSCORRELATESPEC__
-          cout << "stretchAndCrossCorrelateSpec: i_run=" << i_run << ": after stretchAndCrossCorrelate: stretchAndCrossCorrelateResult.specStretchedMinChiSq.getShape() = " << stretchAndCrossCorrelateResult.specStretchedMinChiSq.getShape() << endl;
-          cout << "stretchAndCrossCorrelateSpec: i_run=" << i_run << ": after stretchAndCrossCorrelate: specPieceStretched_MinChiSq = " << specPieceStretched_MinChiSq.getShape() << ": " << specPieceStretched_MinChiSq << endl;
-        #endif
+        LOGLS_DEBUG(_log, "stretchAndCrossCorrelateSpecResult.specPieces.getShape() = " << stretchAndCrossCorrelateSpecResult.specPieces.getShape());
+        LOGLS_DEBUG(_log, "stretchAndCrossCorrelateSpecResult.specPieces[ ndarray::view( 0, " << specPieceStretched_MinChiSq.getShape()[ 0 ] << " )( 0 )( " << i_run << " ) ] = " << stretchAndCrossCorrelateSpecResult.specPieces[ ndarray::view( 0, specPieceStretched_MinChiSq.getShape()[ 0 ] )( 0 )( i_run ) ]);
+        LOGLS_DEBUG(_log, "stretchAndCrossCorrelateSpecResult.specPieces[ ndarray::view( 0, " << specPieceStretched_MinChiSq.getShape()[ 0 ] << " )( 1 )( " << i_run << " ) ] = " << stretchAndCrossCorrelateSpecResult.specPieces[ ndarray::view( 0, specPieceStretched_MinChiSq.getShape()[ 0 ] )( 1 )( i_run ) ]);
+        LOGLS_DEBUG(_log, "i_run=" << i_run << ": after stretchAndCrossCorrelate: stretchAndCrossCorrelateResult.specStretchedMinChiSq.getShape() = " << stretchAndCrossCorrelateResult.specStretchedMinChiSq.getShape());
+        LOGLS_DEBUG(_log, "i_run=" << i_run << ": after stretchAndCrossCorrelate: specPieceStretched_MinChiSq = " << specPieceStretched_MinChiSq.getShape() << ": " << specPieceStretched_MinChiSq);
 
         xPiece = ndarray::allocate( end - start + 1 );
         xPiece.deep() = x[ndarray::view( start, end + 1 ) ];
@@ -655,10 +636,8 @@ namespace pfs { namespace drp { namespace stella { namespace math {
         for ( int i_pix=1; i_pix < xPieceStretched.getShape()[ 0 ]; i_pix++ ){
           xPieceStretched[ i_pix ] = xPieceStretched[ i_pix - 1 ] + (xPiece.getShape()[ 0 ] / chiSqMin_Stretch[ i_run ] );
         }
-        #ifdef __DEBUG_STRETCHANDCROSSCORRELATESPEC__
-          cout << "stretchAndCrossCorrelateSpec: i_run=" << i_run << ": xPieceStretched = " << xPiece.getShape() << ": " << xPiece << endl;
-          cout << "stretchAndCrossCorrelateSpec: i_run=" << i_run << ": xPieceStretched = " << xPieceStretched.getShape() << ": " << xPieceStretched << endl;
-        #endif
+        LOGLS_DEBUG(_log, "i_run=" << i_run << ": xPieceStretched = " << xPiece.getShape() << ": " << xPiece);
+        LOGLS_DEBUG(_log, "i_run=" << i_run << ": xPieceStretched = " << xPieceStretched.getShape() << ": " << xPieceStretched);
 
         double weightLeft = 0.;
         double weightRight = 0.;
@@ -668,26 +647,18 @@ namespace pfs { namespace drp { namespace stella { namespace math {
           auto itListCol = itList->begin() + 1;
           *itTemp = double( *itListCol );//lineList_WLenPix[ ndarray::view()( 1 ) ] );
         }
-        #ifdef __DEBUG_STRETCHANDCROSSCORRELATESPEC__
-          cout << "stretchAndCrossCorrelateSpec: i_run=" << i_run << ": lineListPix = " << lineListPix.getShape() << ": " << lineListPix << endl;
-        #endif
+        LOGLS_DEBUG(_log, "i_run=" << i_run << ": lineListPix = " << lineListPix.getShape() << ": " << lineListPix);
 
         ndarray::Array< int, 1, 1 > valueLocated = valueLocate( xPieceStretched,
                                                                 lineListPix );
         for ( int i_line = 0; i_line < lineList_Pixels_AllPieces.getShape()[ 0 ]; i_line++ ){//i_line < lineList_Pixels_AllPieces.rows()
-          #ifdef __DEBUG_STRETCHANDCROSSCORRELATESPEC__
-            cout << "stretchAndCrossCorrelateSpec: i_run=" << i_run << ": i_line = " << i_line << ": valueLocated[ i_line ] = " << valueLocated[i_line] << ", xPieceStretched.getShape() = " << xPieceStretched.getShape() << endl;
-          #endif
+          LOGLS_DEBUG(_log, "i_run=" << i_run << ": i_line = " << i_line << ": valueLocated[ i_line ] = " << valueLocated[i_line] << ", xPieceStretched.getShape() = " << xPieceStretched.getShape());
           if ( ( valueLocated[ i_line ] >= 0 ) && ( valueLocated[ i_line ] < xPieceStretched.getShape()[ 0 ] - 1 ) ){
             weightRight = ( xPieceStretched[ valueLocated[ i_line ] + 1 ] - xPieceStretched[ valueLocated[ i_line ] ] ) * ( lineList_WLenPix[ ndarray::makeVector( i_line, 1 ) ] - xPieceStretched[ valueLocated[ i_line ] ] );
             weightLeft = 1. - weightRight;
-            #ifdef __DEBUG_STRETCHANDCROSSCORRELATESPEC__
-              cout << "stretchAndCrossCorrelateSpec: i_run=" << i_run << ": i_line = " << i_line << ": xPieceStretched[ valueLocated[ i_line ]=" << valueLocated[i_line] << ") = " << xPieceStretched[valueLocated[i_line]] << ", xPieceStretched[valueLocate[i_line]+1=" << valueLocated[i_line]+1 << ") = " << xPieceStretched[valueLocated[i_line]+1] << ", weightRight = " << weightRight << ": weightLeft = " << weightLeft << endl;
-            #endif
+            LOGLS_DEBUG(_log, "i_run=" << i_run << ": i_line = " << i_line << ": xPieceStretched[ valueLocated[ i_line ]=" << valueLocated[i_line] << ") = " << xPieceStretched[valueLocated[i_line]] << ", xPieceStretched[valueLocate[i_line]+1=" << valueLocated[i_line]+1 << ") = " << xPieceStretched[valueLocated[i_line]+1] << ", weightRight = " << weightRight << ": weightLeft = " << weightLeft);
             lineList_Pixels_AllPieces[ ndarray::makeVector( i_line, i_run ) ] = start + ( valueLocated[ i_line ] * weightLeft ) + ( ( valueLocated[ i_line ] + 1 ) * weightRight ) - chiSqMin_Shift[ i_run ];
-            #ifdef __DEBUG_STRETCHANDCROSSCORRELATESPEC__
-              cout << "stretchAndCrossCorrelateSpec: i_run=" << i_run << ": i_line = " << i_line << ": lineList_Pixels_AllPieces[i_line][i_run] = " << lineList_Pixels_AllPieces[ndarray::makeVector( i_line, i_run ) ] << endl;
-            #endif
+            LOGLS_DEBUG(_log, "i_run=" << i_run << ": i_line = " << i_line << ": lineList_Pixels_AllPieces[i_line][i_run] = " << lineList_Pixels_AllPieces[ndarray::makeVector( i_line, i_run ) ]);
           }
         }
 
@@ -695,11 +666,9 @@ namespace pfs { namespace drp { namespace stella { namespace math {
         start += ( stretchedSpec.getShape()[ 0 ] - dispCorControl.lengthPieces ) / ( nCalcs - 1 );
       }/// end for (int i_run = 0; i_run < I_NStretches_In; i_run++){
 
-      #ifdef __DEBUG_STRETCHANDCROSSCORRELATESPEC__
-        cout << "stretchAndCrossCorrelateSpec: chiSqMin_Shift = " << chiSqMin_Shift << endl;
-        cout << "stretchAndCrossCorrelateSpec: chiSqMin_Stretch = " << chiSqMin_Stretch << endl;
-        cout << "stretchAndCrossCorrelateSpec: lineList_Pixels_AllPieces = " << lineList_Pixels_AllPieces << endl;
-      #endif
+      LOGLS_DEBUG(_log, "chiSqMin_Shift = " << chiSqMin_Shift);
+      LOGLS_DEBUG(_log, "chiSqMin_Stretch = " << chiSqMin_Stretch);
+      LOGLS_DEBUG(_log, "lineList_Pixels_AllPieces = " << lineList_Pixels_AllPieces);
 
       int nInd = 0;
       for ( int iLine = 0; iLine < lineList_WLenPix.getShape()[ 0 ]; ++iLine ){
@@ -714,42 +683,28 @@ namespace pfs { namespace drp { namespace stella { namespace math {
                                                       1,
                                                       0 );
         nInd = std::accumulate( whereVec.begin(), whereVec.end(), 0 );
-        #ifdef __DEBUG_STRETCHANDCROSSCORRELATESPEC_LINELIST__
-          cout << "stretchAndCrossCorrelateSpec: i_line = " << i_line << ": whereVec = " << whereVec << ": nInd = " << nInd << endl;
-        #endif
+        LOGLS_DEBUG(_log, "i_line = " << i_line << ": whereVec = " << whereVec << ": nInd = " << nInd);
         ndarray::Array< size_t, 1, 1 > indWhere = getIndices( whereVec );
-        #ifdef __DEBUG_STRETCHANDCROSSCORRELATESPEC_LINELIST__
-          cout << "stretchAndCrossCorrelateSpec: i_line = " << i_line << ": indWhere = " << indWhere << ", nInd = " << nInd << endl;
-        #endif
+        LOGLS_DEBUG(_log, "i_line = " << i_line << ": indWhere = " << indWhere << ", nInd = " << nInd);
         if ( nInd == 1 ){
           stretchAndCrossCorrelateSpecResult.lineList[ ndarray::makeVector( i_line, 1 ) ] = lineList_Pixels_AllPieces[ ndarray::makeVector( i_line, int( indWhere[ 0 ] ) ) ];
-          #ifdef __DEBUG_STRETCHANDCROSSCORRELATESPEC_LINELIST__
-            cout << "stretchAndCrossCorrelateSpec: i_line = " << i_line << ": nInd == 1: stretchAndCrossCorrelateSpecResult.lineList[ ndarray::makeVector( i_line, 1 ) ] set to " << stretchAndCrossCorrelateSpecResult.lineList[ ndarray::makeVector( i_line, 1 ) ] << endl;
-          #endif
+          LOGLS_DEBUG(_log, "i_line = " << i_line << ": nInd == 1: stretchAndCrossCorrelateSpecResult.lineList[ ndarray::makeVector( i_line, 1 ) ] set to " << stretchAndCrossCorrelateSpecResult.lineList[ ndarray::makeVector( i_line, 1 ) ]);
         }
         else{
           stretchAndCrossCorrelateSpecResult.lineList[ ndarray::makeVector( i_line, 1 ) ] = 0.;
           for (int i_ind = 0; i_ind < nInd; i_ind++){
             stretchAndCrossCorrelateSpecResult.lineList[ ndarray::makeVector( i_line, 1 ) ] += lineList_Pixels_AllPieces[ ndarray::makeVector( i_line, int( indWhere[ i_ind ] ) ) ];
-            #ifdef __DEBUG_STRETCHANDCROSSCORRELATESPEC_LINELIST__
-              cout << "stretchAndCrossCorrelateSpec: i_line = " << i_line << ": nInd != 1: stretchAndCrossCorrelateSpecResult.lineList[ ndarray::makeVector( i_line, 1 ) ] set to " << stretchAndCrossCorrelateSpecResult.lineList[ ndarray::makeVector( i_line, 1 ) ] << endl;
-            #endif
+            LOGLS_DEBUG(_log, "i_line = " << i_line << ": nInd != 1: stretchAndCrossCorrelateSpecResult.lineList[ ndarray::makeVector( i_line, 1 ) ] set to " << stretchAndCrossCorrelateSpecResult.lineList[ ndarray::makeVector( i_line, 1 ) ]);
           }
           stretchAndCrossCorrelateSpecResult.lineList[ ndarray::makeVector( i_line, 1 ) ] = stretchAndCrossCorrelateSpecResult.lineList[ ndarray::makeVector( i_line, 1 ) ] / nInd;
-          #ifdef __DEBUG_STRETCHANDCROSSCORRELATESPEC_LINELIST__
-            cout << "stretchAndCrossCorrelateSpec: i_line = " << i_line << ": nInd != 1: stretchAndCrossCorrelateSpecResult.lineList[ ndarray::makeVector( i_line, 1 ) ] set to " << stretchAndCrossCorrelateSpecResult.lineList[ ndarray::makeVector( i_line, 1 ) ] << endl;
-          #endif
+          LOGLS_DEBUG(_log, "i_line = " << i_line << ": nInd != 1: stretchAndCrossCorrelateSpecResult.lineList[ ndarray::makeVector( i_line, 1 ) ] set to " << stretchAndCrossCorrelateSpecResult.lineList[ ndarray::makeVector( i_line, 1 ) ]);
         }
         if ( lineList_WLenPix.getShape()[ 1 ] == 3 ){
           stretchAndCrossCorrelateSpecResult.lineList[ ndarray::makeVector( i_line, 2 ) ] = lineList_WLenPix[ ndarray::makeVector( i_line, 2 ) ];
-          #ifdef __DEBUG_STRETCHANDCROSSCORRELATESPEC_LINELIST__
-            cout << "stretchAndCrossCorrelateSpec: i_line = " << i_line << ": stretchAndCrossCorrelateSpecResult.lineList[ ndarray::makeVector( i_line, 2 ) ] set to " << stretchAndCrossCorrelateSpecResult.lineList[ ndarray::makeVector( i_line, 2 ) ] << endl;
-          #endif
+          LOGLS_DEBUG(_log, "i_line = " << i_line << ": stretchAndCrossCorrelateSpecResult.lineList[ ndarray::makeVector( i_line, 2 ) ] set to " << stretchAndCrossCorrelateSpecResult.lineList[ ndarray::makeVector( i_line, 2 ) ]);
         }
       }
-      #ifdef __DEBUG_STRETCHANDCROSSCORRELATESPEC_LINELIST__
-        cout << "stretchAndCrossCorrelateSpec: stretchAndCrossCorrelateSpecResult.lineList = " << stretchAndCrossCorrelateSpecResult.lineList << endl;
-      #endif
+      LOGLS_DEBUG(_log, "stretchAndCrossCorrelateSpecResult.lineList = " << stretchAndCrossCorrelateSpecResult.lineList);
 
       /// Check positions
       ndarray::Array< double, 2, 1 > dist = ndarray::allocate( lineList_Pixels_AllPieces.getShape() );
@@ -760,44 +715,30 @@ namespace pfs { namespace drp { namespace stella { namespace math {
             dist[ ndarray::makeVector( i_row, i_col ) ] = lineList_Pixels_AllPieces[ ndarray::makeVector( i_row, i_col ) ] - lineList_WLenPix[ ndarray::makeVector( i_row, 1 ) ];
         }
       }
-      #ifdef __DEBUG_STRETCHANDCROSSCORRELATESPEC_LINELIST__
-        cout << "stretchAndCrossCorrelateSpec: dist = " << dist << endl;
-        cout << "stretchAndCrossCorrelateSpec: lineList_Pixels_AllPieces = " << lineList_Pixels_AllPieces << endl;
-      #endif
+      LOGLS_DEBUG(_log, "dist = " << dist);
+      LOGLS_DEBUG(_log, "lineList_Pixels_AllPieces = " << lineList_Pixels_AllPieces);
       ndarray::Array< int, 2, 1 > whereArr = where( lineList_Pixels_AllPieces,
                                                     ">",
                                                     0.000001,
                                                     1,
                                                     0);
-      #ifdef __DEBUG_STRETCHANDCROSSCORRELATESPEC_LINELIST__
-        cout << "stretchAndCrossCorrelateSpec: whereArr = " << whereArr << endl;
-      #endif
+      LOGLS_DEBUG(_log, "whereArr = " << whereArr);
       ndarray::Array< size_t, 2, 1 > indWhereArr = getIndices( whereArr );
-      #ifdef __DEBUG_STRETCHANDCROSSCORRELATESPEC_LINELIST__
-        cout << "stretchAndCrossCorrelateSpec: indWhereArr = " << indWhereArr << endl;
-      #endif
+      LOGLS_DEBUG(_log, "indWhereArr = " << indWhereArr);
       ndarray::Array< double, 1, 1 > dist_SubArr = getSubArray( dist, indWhereArr );
-      #ifdef __DEBUG_STRETCHANDCROSSCORRELATESPEC_LINELIST__
-        cout << "stretchAndCrossCorrelateSpec: dist_SubArr = " << dist_SubArr << endl;
-      #endif
+      LOGLS_DEBUG(_log, "dist_SubArr = " << dist_SubArr);
       double medianDiff = median( dist_SubArr );
       ndarray::Array< double, 1, 1 > sorted = ndarray::allocate( dist_SubArr.getShape()[ 0 ] );
       sorted.deep() = dist_SubArr;
       std::sort( sorted.begin(), sorted.end() );
-      #ifdef __DEBUG_STRETCHANDCROSSCORRELATESPEC_LINELIST__
-        cout << "stretchAndCrossCorrelateSpec: medianDiff = " << medianDiff << endl;
-        cout << "stretchAndCrossCorrelateSpec: sorted = " << sorted << endl;
-      #endif
+      LOGLS_DEBUG(_log, "medianDiff = " << medianDiff);
+      LOGLS_DEBUG(_log, "sorted = " << sorted);
       ndarray::Array< double, 1, 1 > dist_Temp = ndarray::allocate( dist_SubArr.getShape()[ 0 ] - 4 );
       dist_Temp = sorted[ ndarray::view( 2, dist_SubArr.getShape()[ 0 ] - 2 ) ];
-      #ifdef __DEBUG_STRETCHANDCROSSCORRELATESPEC_LINELIST__
-        cout << "stretchAndCrossCorrelateSpec: dist_Temp = " << dist_Temp << endl;
-      #endif
+      LOGLS_DEBUG(_log, "dist_Temp = " << dist_Temp);
       ndarray::Array< double, 1, 1 > moments = moment( dist_Temp, 2 );
       double stdDev_Diff = moments[ 1 ];
-      #ifdef __DEBUG_STRETCHANDCROSSCORRELATESPEC_LINELIST__
-        cout << "stretchAndCrossCorrelateSpec: stdDev_Diff = " << stdDev_Diff << endl;
-      #endif
+      LOGLS_DEBUG(_log, "stretchAndCrossCorrelateSpec: stdDev_Diff = " << stdDev_Diff);
       ndarray::Array< double, 1, 1 > tempDist = ndarray::copy( dist_SubArr - medianDiff );
       for ( auto itDist = tempDist.begin(); itDist != tempDist.end(); ++itDist )
         *itDist = std::fabs( *itDist );
@@ -806,24 +747,16 @@ namespace pfs { namespace drp { namespace stella { namespace math {
                                                     3. * stdDev_Diff,
                                                     1,
                                                     0 );
-      #ifdef __DEBUG_STRETCHANDCROSSCORRELATESPEC_LINELIST__
-        cout << "stretchAndCrossCorrelateSpec: whereVec = " << whereVec << endl;
-      #endif
+      LOGLS_DEBUG(_log, "whereVec = " << whereVec);
       int nBad = std::accumulate( whereVec.begin(), whereVec.end(), 0 );
       if ( nBad > 0 ){
         ndarray::Array< size_t, 1, 1 > indWhereA = getIndices( whereVec );
-        #ifdef __DEBUG_STRETCHANDCROSSCORRELATESPEC_LINELIST__
-          cout << "stretchAndCrossCorrelateSpec: nBad = " << nBad << ": indWhereA = " << indWhereA << endl;
-        #endif
+        LOGLS_DEBUG(_log, "nBad = " << nBad << ": indWhereA = " << indWhereA);
         for ( int i_bad = 0; i_bad < nBad; ++i_bad ){
           lineList_Pixels_AllPieces[ ndarray::makeVector( int( indWhereArr[ ndarray::makeVector( int( indWhereA[ i_bad ] ), 0 ) ] ), int( indWhereArr[ ndarray::makeVector( int( indWhereA[ i_bad ] ), 1 ) ] ) ) ] = 0.;
-          #ifdef __DEBUG_STRETCHANDCROSSCORRELATESPEC_LINELIST__
-            cout << "stretchAndCrossCorrelateSpec: i_bad = " << i_bad << ": lineList_Pixels_AllPieces[" << indWhereArr[ ndarray::makeVector( int(indWhereA[ i_bad ]), 0 ) ] << "][" << indWhereArr[ ndarray::makeVector( int(indWhereA[ i_bad ]), 1 ) ] << "] set to " << lineList_Pixels_AllPieces[ ndarray::makeVector( int(indWhereArr[ ndarray::makeVector( int(indWhereA[i_bad]), 0 ) ]), int(indWhereArr[ ndarray::makeVector( int(indWhereA[ i_bad ]), 1 ) ] ) ) ] << endl;
-          #endif
+          LOGLS_DEBUG(_log, "i_bad = " << i_bad << ": lineList_Pixels_AllPieces[" << indWhereArr[ ndarray::makeVector( int(indWhereA[ i_bad ]), 0 ) ] << "][" << indWhereArr[ ndarray::makeVector( int(indWhereA[ i_bad ]), 1 ) ] << "] set to " << lineList_Pixels_AllPieces[ ndarray::makeVector( int(indWhereArr[ ndarray::makeVector( int(indWhereA[i_bad]), 0 ) ]), int(indWhereArr[ ndarray::makeVector( int(indWhereA[ i_bad ]), 1 ) ] ) ) ]);
         }
-        #ifdef __DEBUG_STRETCHANDCROSSCORRELATESPEC_LINELIST__
-          cout << "stretchAndCrossCorrelateSpec: lineList_Pixels_AllPieces = " << lineList_Pixels_AllPieces << endl;
-        #endif
+        LOGLS_DEBUG(_log, "lineList_Pixels_AllPieces = " << lineList_Pixels_AllPieces);
 
         stretchAndCrossCorrelateSpecResult.lineList[ ndarray::view()(1) ] = 0.;
         ndarray::Array< double, 1, 1 > tempList = ndarray::allocate( lineList_Pixels_AllPieces.getShape()[ 1 ] );
@@ -838,9 +771,7 @@ namespace pfs { namespace drp { namespace stella { namespace math {
                                                         0 );
           nInd = std::accumulate( whereVec.begin(), whereVec.end(), 0 );
           ndarray::Array< size_t, 1, 1 > indWhereB = getIndices( whereVec );
-          #ifdef __DEBUG_STRETCHANDCROSSCORRELATESPEC_LINELIST__
-            cout << "stretchAndCrossCorrelateSpec: i_line = " << i_line << ": nInd = " << nInd << endl;
-          #endif
+          LOGLS_DEBUG(_log, "i_line = " << i_line << ": nInd = " << nInd);
           if ( nInd == 0 )
             stretchAndCrossCorrelateSpecResult.lineList[ ndarray::makeVector( i_line, 1 ) ] = lineList_WLenPix[ ndarray::makeVector( i_line, 1 ) ] + medianDiff;
           else if ( nInd == 1 )
@@ -848,25 +779,19 @@ namespace pfs { namespace drp { namespace stella { namespace math {
           else{
             for (int i_ind = 0; i_ind < nInd; i_ind++ ){
               stretchAndCrossCorrelateSpecResult.lineList[ ndarray::makeVector( i_line, 1 ) ] += lineList_Pixels_AllPieces[ ndarray::makeVector( i_line, int( indWhereB[ i_ind ] ) ) ];
-              #ifdef __DEBUG_STRETCHANDCROSSCORRELATESPEC_LINELIST__
-                cout << "stretchAndCrossCorrelateSpec: i_line = " << i_line << ": i_ind = " << i_ind << ": indWhereB[" << i_ind << "] = " << indWhereB[i_ind] << endl;
-                cout << "stretchAndCrossCorrelateSpec: i_line = " << i_line << ": i_ind = " << i_ind << ": stretchAndCrossCorrelateSpecResult.lineList[" << i_line << "][1] set to " << stretchAndCrossCorrelateSpecResult.lineList[ ndarray::makeVector( i_line, 1 ) ] << endl;
-              #endif
+              LOGLS_DEBUG(_log, "i_line = " << i_line << ": i_ind = " << i_ind << ": indWhereB[" << i_ind << "] = " << indWhereB[i_ind]);
+              LOGLS_DEBUG(_log, "i_line = " << i_line << ": i_ind = " << i_ind << ": stretchAndCrossCorrelateSpecResult.lineList[" << i_line << "][1] set to " << stretchAndCrossCorrelateSpecResult.lineList[ ndarray::makeVector( i_line, 1 ) ]);
             }
             stretchAndCrossCorrelateSpecResult.lineList[ ndarray::makeVector( i_line, 1 ) ] = stretchAndCrossCorrelateSpecResult.lineList[ ndarray::makeVector( i_line, 1 ) ] / nInd;
           }
-          #ifdef __DEBUG_STRETCHANDCROSSCORRELATESPEC_LINELIST__
-            cout << "stretchAndCrossCorrelateSpec: stretchAndCrossCorrelateSpecResult.lineList[" << i_line << "][1] set to " << stretchAndCrossCorrelateSpecResult.lineList[ndarray::makeVector(i_line,1)] << endl;
-          #endif
+          LOGLS_DEBUG(_log, "stretchAndCrossCorrelateSpecResult.lineList[" << i_line << "][1] set to " << stretchAndCrossCorrelateSpecResult.lineList[ndarray::makeVector(i_line,1)]);
         }
       }
 
       stretchAndCrossCorrelateSpecResult.lineList[ ndarray::view()( 1 ) ] = stretchAndCrossCorrelateSpecResult.lineList[ ndarray::view()( 1 ) ] / fac;
-      #ifdef __DEBUG_STRETCHANDCROSSCORRELATESPEC__
-        cout << "stretchAndCrossCorrelateSpec: lineList_Pixels_AllPieces = " << lineList_Pixels_AllPieces << endl;
-        cout << "stretchAndCrossCorrelateSpec: lineList_WLenPix = " << lineList_WLenPix << endl;
-        cout << "stretchAndCrossCorrelateSpec: stretchAndCrossCorrelateSpecResult.lineList = " << stretchAndCrossCorrelateSpecResult.lineList << endl;
-      #endif
+      LOGLS_DEBUG(_log, "lineList_Pixels_AllPieces = " << lineList_Pixels_AllPieces);
+      LOGLS_DEBUG(_log, "stretchAndCrossCorrelateSpec: lineList_WLenPix = " << lineList_WLenPix);
+      LOGLS_DEBUG(_log, "stretchAndCrossCorrelateSpecResult.lineList = " << stretchAndCrossCorrelateSpecResult.lineList);
 
       return stretchAndCrossCorrelateSpecResult;
     }
