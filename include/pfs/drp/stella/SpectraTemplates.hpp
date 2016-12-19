@@ -387,7 +387,7 @@ ndarray::Array< double, 1, 1 > pfs::drp::stella::Spectrum<SpectrumT, MaskT, Vari
             #ifdef __DEBUG_IDENTIFY__
               cout << "identify: i_line = " << i_line << ": D_A1_GaussCoeffs = " << D_A1_GaussCoeffs << endl;
             #endif
-            if ( std::fabs( double( I_MaxPos ) - D_A1_GaussCoeffs[ 1 ] ) < 2.5 ){//D_FWHM_In){
+            if ( std::fabs( double( I_MaxPos ) - D_A1_GaussCoeffs[ 1 ] ) < _dispCorControl->maxDistance ){
               D_A1_GaussPos[ i_line ] = D_A1_GaussCoeffs[ 1 ];
               #ifdef __DEBUG_IDENTIFY__
                 cout << "identify: D_A1_GaussPos[" << i_line << "] = " << D_A1_GaussPos[ i_line ] << endl;
@@ -409,7 +409,7 @@ ndarray::Array< double, 1, 1 > pfs::drp::stella::Spectrum<SpectrumT, MaskT, Vari
               }
             }
             else{
-              cout << "identify: WARNING: I_MaxPos=" << I_MaxPos << " - D_A1_GaussCoeffs[ 1 ]=" << D_A1_GaussCoeffs[ 1 ] << " >= 2.5 => Skipping line" << endl;
+              cout << "identify: WARNING: I_MaxPos=" << I_MaxPos << " - D_A1_GaussCoeffs[ 1 ]=" << D_A1_GaussCoeffs[ 1 ] << " >= " << _dispCorControl->maxDistance << " => Skipping line" << endl;
             }
           }
         }

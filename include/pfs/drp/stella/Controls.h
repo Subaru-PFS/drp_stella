@@ -480,6 +480,9 @@ struct DispCorControl {
     LSST_CONTROL_FIELD( fittingFunction, std::string, "Function for fitting the dispersion" );
     LSST_CONTROL_FIELD( order, int, "Fitting function order" );
     LSST_CONTROL_FIELD( searchRadius, int, "Radius in pixels relative to line list to search for emission line peak" );
+    LSST_CONTROL_FIELD( maxDistance, float, "Reject emission lines which center is more than this value away from the predicted position" );
+//The main difference between 'searchRadius' and 'maxDistance' is that searchRadius is an int while maxDistance is a float.
+//While searchRadius is used to determine the range to fit, maxDistance is then used to check the result of the fit.
     LSST_CONTROL_FIELD( fwhm, float, "FWHM of emission lines" );
     LSST_CONTROL_FIELD( radiusXCor, int, "Radius in pixels in which to cross correlate a spectrum relative to the reference spectrum" );
     LSST_CONTROL_FIELD( lengthPieces, int, "Length of pieces of spectrum to match to reference spectrum by stretching and shifting" );
@@ -493,6 +496,7 @@ struct DispCorControl {
         fittingFunction( "POLYNOMIAL" ),
         order( 5 ),
         searchRadius( 2 ),
+        maxDistance( 2.5 ),
         fwhm( 2.6 ),
         radiusXCor( 35 ),
         lengthPieces( 500 ),
@@ -507,6 +511,7 @@ struct DispCorControl {
         fittingFunction( dispCorControl.fittingFunction ),
         order( dispCorControl.order ),
         searchRadius( dispCorControl.searchRadius ),
+        maxDistance( dispCorControl.maxDistance ),
         fwhm( dispCorControl.fwhm ),
         radiusXCor( dispCorControl.radiusXCor ),
         lengthPieces( dispCorControl.lengthPieces ),
