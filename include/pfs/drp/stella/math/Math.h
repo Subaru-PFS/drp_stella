@@ -71,7 +71,7 @@ namespace pfs { namespace drp { namespace stella {
     template<typename T>
     int firstIndexWithValueGEFrom( ndarray::Array< T, 1, 1 > const& vecIn, 
                                    const T minValue, 
-                                   const int fromIndex);
+                                   const int fromIndex = 0);
 
     /**
      *        returns last index of integer input vector where value is equal to zero, starting at index I_StartPos
