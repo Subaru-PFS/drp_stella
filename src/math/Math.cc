@@ -1502,13 +1502,13 @@
       LOGLS_DEBUG(_log, "I_Pix = " << I_Pix);
       LOGLS_DEBUG(_log, "I_NPixMove = " << I_NPixMove);
 
-      ndarray::Array< double, 1, 1 > DA1_StaticTemp;
-      ndarray::Array< double, 1, 1 > DA1_MovingTemp;
-      ndarray::Array< double, 1, 1 > DA1_Diff;
       ndarray::Array< double, 1, 1 > DA1_ChiSquare = ndarray::allocate( I_NPixMove );
       ndarray::Array< int, 1, 1 > IA1_NPix = ndarray::allocate( I_NPixMove );
 
       for (int i = I_Pix; i <= nPixMaxRight; i++){
+        ndarray::Array< double, 1, 1 > DA1_StaticTemp;
+        ndarray::Array< double, 1, 1 > DA1_MovingTemp;
+        ndarray::Array< double, 1, 1 > DA1_Diff;
         if (i < 0){
           DA1_StaticTemp = ndarray::allocate( DA1_Static.getShape()[ 0 ] + i );
           DA1_MovingTemp = ndarray::allocate( DA1_Static.getShape()[ 0 ] + i );
@@ -2789,8 +2789,6 @@
       LOGLS_DEBUG(_log, "refX = " << refX.getShape()[0] << ": " << refX);
       LOGLS_DEBUG(_log, "specRef = " << specRef.getShape()[ 0 ] << ": " << specRef);
 
-      ndarray::Array< T, 1, 1 > specTemp;
-      ndarray::Array< T, 1, 1 > specRefTemp;
       ndarray::Array< T, 1, 1 > refY;
       ndarray::Array< T, 1, 1 > refXStretched;
       ndarray::Array< double, 1, 1 > xCorChiSq = ndarray::allocate( nStretches );
@@ -2801,6 +2799,8 @@
       refStretchLength[ 0 ] = stretchMinLength;
       double D_Temp = 0.;
       for (int i_stretch = 0; i_stretch < nStretches; i_stretch++){
+        ndarray::Array< T, 1, 1 > specTemp;
+        ndarray::Array< T, 1, 1 > specRefTemp;
         refXStretched = ndarray::allocate( refStretchLength[ i_stretch ] );
         refXStretched[ 0 ] = refX[ 0 ];
         for (int i_x_stretch=1; i_x_stretch < refStretchLength[ i_stretch ]; i_x_stretch++)
@@ -2810,12 +2810,6 @@
                          refX,
                          refXStretched );
 
-        
-        /// Cross-correlate D_A1_Spec to reference spectrum
-        specTemp = ndarray::allocate( spec.getShape()[ 0 ] );
-        specTemp.deep() = spec;
-        specRefTemp = ndarray::allocate( refY.getShape()[ 0 ] );
-        specRefTemp.deep() = refY;
         LOGLS_DEBUG(_log, "i_stretch = " << i_stretch << ": refY = " << refY.getShape() << ": " << refY);
 
         #ifdef __CHECK_FOR_NANS__
@@ -2829,20 +2823,29 @@
           }
         #endif
 
-        /// if size of specTemp < size of specRefTemp resize and preserve specRefTemp
-        if ( specTemp.getShape()[ 0 ] < specRefTemp.getShape()[ 0 ] ){
-          ndarray::Array< T, 1, 1 > tempArr = ndarray::allocate( specRefTemp.getShape()[ 0 ] );
-          tempArr.deep() = specRefTemp;
-          specRefTemp = ndarray::allocate( specTemp.getShape()[ 0 ] );
-          specRefTemp[ ndarray::view( ) ] = tempArr[ ndarray::view( 0, specTemp.getShape()[ 0 ] ) ];
+        /// Cross-correlate D_A1_Spec to reference spectrum
+        /// if size of spec < size of refY resize and preserve refY
+        if ( spec.getShape()[ 0 ] < refY.getShape()[ 0 ] ){
+          LOGLS_DEBUG(_log, "i_stretch = " << i_stretch << ": spec.getShape()(=" << spec.getShape() << ") < refY.getShape()(=" << refY.getShape() << ")");
+          specTemp = ndarray::allocate( spec.getShape()[ 0 ] );
+          specTemp.deep() = spec;
+          specRefTemp = ndarray::allocate( spec.getShape()[ 0 ] );
+          specRefTemp.deep() = refY[ ndarray::view( 0, spec.getShape()[ 0 ] ) ];
         }
-          
-        /// if size of specRefTemp < size of specTemp resize and preserve specTemp
-        if ( specRefTemp.getShape()[ 0 ] < specTemp.getShape()[ 0 ] ){
-          ndarray::Array< T, 1, 1 > tempArr = ndarray::allocate( specTemp.getShape()[ 0 ] );
-          tempArr.deep() = specTemp;
-          specTemp = ndarray::allocate( specRefTemp.getShape()[ 0 ] );
-          specTemp[ ndarray::view() ] = tempArr[ ndarray::view( 0, specRefTemp.getShape()[ 0 ] ) ];
+        /// if size of refY < size of spec resize and preserve spec
+        else if ( refY.getShape()[ 0 ] < spec.getShape()[ 0 ] ){
+          LOGLS_DEBUG(_log, "i_stretch = " << i_stretch << ": spec.getShape()(=" << spec.getShape() << ") > refY.getShape()(=" << refY.getShape() << ")");
+          specTemp = ndarray::allocate( refY.getShape()[ 0 ] );
+          specTemp.deep() = spec[ ndarray::view( 0, refY.getShape()[ 0 ] ) ];
+          specRefTemp = ndarray::allocate( refY.getShape()[ 0 ] );
+          specRefTemp.deep() = refY;
+        }
+        else{
+          specTemp = ndarray::allocate( spec.getShape()[ 0 ] );
+          specTemp.deep() = spec;
+          specRefTemp = ndarray::allocate( refY.getShape()[ 0 ] );
+          specRefTemp.deep() = refY;
+          LOGLS_DEBUG(_log, "i_stretch = " << i_stretch << ": specRefTemp = " << specRefTemp.getShape() << ": " << specRefTemp);
         }
         #ifdef __CHECK_FOR_NANS__
           for (auto it=specRefTemp.begin(); it!=specRefTemp.end(); ++it){
