@@ -111,13 +111,11 @@ class ReduceArcTask(CmdLineTask):
             traceIdsUnique = np.unique(traceIds)
 
             """ assign trace number to flatFiberTraceSet """
-            success = drpStella.assignITrace( flatFiberTraceSet, traceIds, xCenters, yCenters )
+            drpStella.assignITrace( flatFiberTraceSet, traceIds, xCenters )
             iTraces = np.ndarray(shape=flatFiberTraceSet.size(), dtype='intp')
             for i in range( flatFiberTraceSet.size() ):
                 iTraces[i] = flatFiberTraceSet.getFiberTrace(i).getITrace()
-
-            if success == False:
-                print 'assignITrace FAILED'
+                self.logger.debug('iTraces[%d] = $d' % (i,iTraces[i]))
 
             myExtractTask = esTask.ExtractSpectraTask()
             aperturesToExtract = [-1]

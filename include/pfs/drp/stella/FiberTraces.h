@@ -30,6 +30,7 @@
 
 #define stringify( name ) # name
 
+//#define __DEBUG_ASSIGNITRACE__
 //#define __DEBUG_BANDSOL__
 //#define __DEBUG_CALC2DPSF__
 //#define __DEBUG_CALCPROFILE__
@@ -39,6 +40,7 @@
 //#define __DEBUG_CREATEFIBERTRACE__
 //#define __DEBUG_EXTRACTFROMPROFILE__
 //#define __DEBUG_FINDANDTRACE__
+//#define __DEBUG_FINDITRACE__
 //#define __DEBUG_FIT__
 //#define __DEBUG_SPLINE__
 //#define __DEBUG_INTERPOL__
@@ -373,28 +375,26 @@ namespace math{
    * @param yCenters: shape(nfibers * nRows)
    */
   template< typename ImageT, typename MaskT, typename VarianceT, typename T, typename U, int I >
-  bool assignITrace( FiberTraceSet< ImageT, MaskT, VarianceT > & fiberTraceSet,
+  void assignITrace( FiberTraceSet< ImageT, MaskT, VarianceT > & fiberTraceSet,
                      ndarray::Array< T, 1, I > const& traceIds,
-                     ndarray::Array< U, 1, I > const& xCenters,
-                     ndarray::Array< U, 1, I > const& yCenters );
+                     ndarray::Array< U, 1, I > const& xCenters );
 
   /**
    * @brief: compare x and y center of fiberTrace to xCenters and yCenters to identify traceID
    * @param fiberTrace: fiber trace to identify
-   * @param xCenters: shape(nfibers * nRows)
-   * @param yCenters: shape(nfibers * nRows)
+   * @param xCenters: shape(nFibers * nRows), [0,..,nRows-1,nRows,..,nFibers*nRows-1] input from redFiberTraces.fits in obs_pfs
+   * @param yCenters: shape(nFibers * nRows), [0,..,nRows-1,nRows,..,nFibers*nRows-1] input from redFiberTraces.fits in obs_pfs
    * @param nTraces: number of fiber traces on CCD
    * @param nRows: number of CCD rows
    * @param startPos: fiber number to start searching
    * @return fiber trace number
    */
   template< typename ImageT, typename MaskT, typename VarianceT, typename U, int I >
-  int findITrace( FiberTrace< ImageT, MaskT, VarianceT > const& fiberTrace,
-                  ndarray::Array< U, 1, I > const& xCenters,
-                  ndarray::Array< U, 1, I > const& yCenters,
-                  int nTraces,
-                  int nRows,
-                  int startPos = 0 );
+  size_t findITrace( FiberTrace< ImageT, MaskT, VarianceT > const& fiberTrace,
+                     ndarray::Array< U, 1, I > const& xCenters,
+                     size_t nTraces,
+                     size_t nRows,
+                     size_t startPos = 0 );
 
     /**
      * @brief: add FiberTrace representation image to CCD image
