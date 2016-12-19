@@ -17,6 +17,7 @@
 //#define __DEBUG_POLY__
 //#define __DEBUG_POLYFIT__
 //#define __DEBUG_MINCENMAX__
+//#define __DEBUG_MININDEX__
 //#define __DEBUG_INDGEN__
 //#define __DEBUG_SORT__
 //#define __DEBUG_XCOR__
@@ -266,6 +267,12 @@ namespace pfs { namespace drp { namespace stella {
     template<typename T>
     T min(ndarray::Array<T, 1, 1> const& in);
  
+    /**
+     * @brief find index position of minimum element of <in>
+     * @param in Array to search for minimum element
+     * @return index position of minimum element of <in>. If more than one element is minimal
+     *         the position of the first minimum element is returned
+     */
     template<typename T>
     size_t minIndex(ndarray::Array<T, 1, 1> const& in);
 

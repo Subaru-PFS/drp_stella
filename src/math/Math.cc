@@ -337,16 +337,8 @@
 
     template<typename T>
     size_t minIndex(ndarray::Array<T, 1, 1> const& in){
-      T min = in[0];
-      size_t minIndex = 0;
-      size_t ind = 0;
-      for (auto it = in.begin(); it != in.end(); ++it, ++ind){
-        if (*it < min){
-          min = *it;
-          minIndex = ind;
-        }
-      }
-      return minIndex;
+      auto minIt = std::min_element(in.begin(), in.end());
+      return std::distance(std::begin(in), minIt);
     }
     
     template <typename T>
