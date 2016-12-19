@@ -672,7 +672,7 @@ namespace pfs { namespace drp { namespace stella { namespace math {
           cout << "stretchAndCrossCorrelateSpec: i_run=" << i_run << ": lineListPix = " << lineListPix.getShape() << ": " << lineListPix << endl;
         #endif
 
-        ndarray::Array< int, 1, 1 > valueLocated = valueLocate( xPieceStretched, 
+        ndarray::Array< int, 1, 1 > valueLocated = valueLocate( xPieceStretched,
                                                                 lineListPix );
         for ( int i_line = 0; i_line < lineList_Pixels_AllPieces.getShape()[ 0 ]; i_line++ ){//i_line < lineList_Pixels_AllPieces.rows()
           #ifdef __DEBUG_STRETCHANDCROSSCORRELATESPEC__
@@ -709,9 +709,9 @@ namespace pfs { namespace drp { namespace stella { namespace math {
       for (int i_line=0; i_line < lineList_WLenPix.getShape()[ 0 ]; i_line++){
         tempArr[ ndarray::view() ] = lineList_Pixels_AllPieces[ ndarray::view( i_line )() ];
         ndarray::Array< int, 1, 1 > whereVec = where( tempArr,
-                                                      ">", 
-                                                      0.001, 
-                                                      1, 
+                                                      ">",
+                                                      0.001,
+                                                      1,
                                                       0 );
         nInd = std::accumulate( whereVec.begin(), whereVec.end(), 0 );
         #ifdef __DEBUG_STRETCHANDCROSSCORRELATESPEC_LINELIST__
@@ -766,8 +766,8 @@ namespace pfs { namespace drp { namespace stella { namespace math {
       #endif
       ndarray::Array< int, 2, 1 > whereArr = where( lineList_Pixels_AllPieces,
                                                     ">",
-                                                    0.000001, 
-                                                    1, 
+                                                    0.000001,
+                                                    1,
                                                     0);
       #ifdef __DEBUG_STRETCHANDCROSSCORRELATESPEC_LINELIST__
         cout << "stretchAndCrossCorrelateSpec: whereArr = " << whereArr << endl;
@@ -801,10 +801,10 @@ namespace pfs { namespace drp { namespace stella { namespace math {
       ndarray::Array< double, 1, 1 > tempDist = ndarray::copy( dist_SubArr - medianDiff );
       for ( auto itDist = tempDist.begin(); itDist != tempDist.end(); ++itDist )
         *itDist = std::fabs( *itDist );
-      ndarray::Array< int, 1, 1 > whereVec = where( tempDist, 
-                                                    ">", 
-                                                    3. * stdDev_Diff, 
-                                                    1, 
+      ndarray::Array< int, 1, 1 > whereVec = where( tempDist,
+                                                    ">",
+                                                    3. * stdDev_Diff,
+                                                    1,
                                                     0 );
       #ifdef __DEBUG_STRETCHANDCROSSCORRELATESPEC_LINELIST__
         cout << "stretchAndCrossCorrelateSpec: whereVec = " << whereVec << endl;
@@ -833,8 +833,8 @@ namespace pfs { namespace drp { namespace stella { namespace math {
             *itTemp = std::fabs( *itTemp );
           ndarray::Array< int, 1, 1 > whereVec = where( tempList,
                                                         ">",
-                                                        0.001, 
-                                                        1, 
+                                                        0.001,
+                                                        1,
                                                         0 );
           nInd = std::accumulate( whereVec.begin(), whereVec.end(), 0 );
           ndarray::Array< size_t, 1, 1 > indWhereB = getIndices( whereVec );
@@ -870,7 +870,7 @@ namespace pfs { namespace drp { namespace stella { namespace math {
 
       return stretchAndCrossCorrelateSpecResult;
     }
-    
+
     template< typename T, int I >
     ndarray::Array< T, 2, 1 > createLineList( ndarray::Array< T, 1, I > const& wLen,
                                               ndarray::Array< T, 1, I > const& linesWLen ){
@@ -910,7 +910,7 @@ namespace pfs { namespace drp { namespace stella { namespace math {
       #endif
       return out;
     }
-    
+
     template ndarray::Array< float, 2, 1 > createLineList( ndarray::Array< float, 1, 0 > const&, ndarray::Array< float, 1, 0 > const& );
     template ndarray::Array< double, 2, 1 > createLineList( ndarray::Array< double, 1, 0 > const&, ndarray::Array< double, 1, 0 > const& );
     template ndarray::Array< float, 2, 1 > createLineList( ndarray::Array< float, 1, 1 > const&, ndarray::Array< float, 1, 1 > const& );
