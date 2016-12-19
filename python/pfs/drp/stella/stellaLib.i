@@ -300,11 +300,11 @@ Interface to Stella
 //%template(CountPixGTZeroF) pfs::drp::stella::math::CountPixGTZero<float>;
 //%template(CountPixGTZeroD) pfs::drp::stella::math::CountPixGTZero<double>;
 
-//%template(FirstIndexWithValueGEFromU) pfs::drp::stella::math::FirstIndexWithValueGEFrom<unsigned short>;
-//%template(FirstIndexWithValueGEFromI) pfs::drp::stella::math::FirstIndexWithValueGEFrom<int>;
-//%template(FirstIndexWithValueGEFromL) pfs::drp::stella::math::FirstIndexWithValueGEFrom<long>;
-//%template(FirstIndexWithValueGEFromF) pfs::drp::stella::math::FirstIndexWithValueGEFrom<float>;
-//%template(FirstIndexWithValueGEFromD) pfs::drp::stella::math::FirstIndexWithValueGEFrom<double>;
+%template(firstIndexWithValueGEFrom) pfs::drp::stella::math::firstIndexWithValueGEFrom<unsigned short>;
+%template(firstIndexWithValueGEFrom) pfs::drp::stella::math::firstIndexWithValueGEFrom<int>;
+%template(firstIndexWithValueGEFrom) pfs::drp::stella::math::firstIndexWithValueGEFrom<long>;
+%template(firstIndexWithValueGEFrom) pfs::drp::stella::math::firstIndexWithValueGEFrom<float>;
+%template(firstIndexWithValueGEFrom) pfs::drp::stella::math::firstIndexWithValueGEFrom<double>;
 
 //%template(LastIndexWithZeroValueBeforeU) pfs::drp::stella::math::LastIndexWithZeroValueBefore<unsigned short>;
 //%template(LastIndexWithZeroValueBeforeI) pfs::drp::stella::math::LastIndexWithZeroValueBefore<int>;
