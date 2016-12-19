@@ -11,6 +11,7 @@ from lsst.pipe.base import Struct, TaskRunner, ArgumentParser, CmdLineTask
 import numpy as np
 from astropy.io import fits as pyfits
 from pfs.drp.stella.datamodelIO import spectrumSetToPfsArm, PfsArmIO
+import traceback
 
 class ReduceArcConfig(Config):
     """Configuration for reducing arc images"""
@@ -39,7 +40,7 @@ class ReduceArcTaskRunner(TaskRunner):
                 result = task.run(**args)
             except Exception, e:
                 task.log.fatal("Failed: %s" % e)
-#                traceback.print_exc(file=sys.stderr)
+                traceback.print_exc(file=sys.stderr)
 
         if self.doReturnResults:
             return Struct(
