@@ -1569,21 +1569,8 @@
           cout << "crossCorrelate: DA1_ChiSquare(run = " << run << ") = " << DA1_ChiSquare[run] << endl;
         #endif
 
-        /// Save number of pixels used for calculations
-    //    IA1_NPix(run) = DA1_StaticTemp.size();
-    //    #ifdef __DEBUG_CROSSCORRELATE__
-    //      cout << "crossCorrelate: IA1_NPix(run = " << run << ") = " << IA1_NPix(run) << endl;
-    //    #endif
-
         run++;
       }
-      /// Normalise DA1_ChiSquare to number of pixels
-    //  Array<double, 1> DA1_NPix(IA1_NPix.size());
-    //  if (!this->CastIntArrToDblArr(IA1_NPix, DA1_NPix)){
-    //    cout << "crossCorrelate: ERROR: CastIntArrToDblArr(IA1_NPix) returned FALSE" << endl;
-    //    returm false;
-    //  }
-    //  DA1_ChiSquare = DA1_ChiSquare / DA1_NPix;
       #ifdef __DEBUG_CROSSCORRELATE__
         cout << "crossCorrelate: DA1_ChiSquare = " << DA1_ChiSquare << endl;
       #endif
@@ -1617,8 +1604,6 @@
       D_A1_ChiSqu = DA1_ChiSquare[ ndarray::view( I_Start, I_End ) ];
       ndarray::Array< double, 1, 1 > P_D_A1_MeasureErrors = replicate(1., D_A1_ChiSqu.size());
       ndarray::Array< double, 1, 1 > D_A1_Guess = ndarray::allocate( 4 );
-//      cout << "check guess, limits, output for 0: peak, 1: position, 2: sigma, 3: background" << endl;
-//      exit(EXIT_FAILURE);
       D_A1_Guess[ 3 ] = max( DA1_ChiSquare );//background
       D_A1_Guess[ 0 ] = 0. - ( max( DA1_ChiSquare ) - DA1_ChiSquare[ minInd ] );///peak
       D_A1_Guess[ 1 ] = double( minInd );///pos
@@ -2847,12 +2832,6 @@
 
       ndarray::Array< T, 1, 1 > specTemp;
       ndarray::Array< T, 1, 1 > specRefTemp;
-//      ndarray::Array< T, 2, 1 > specCalib_Out;
-//      double rmsOut = 0.;
-    //  int I_PixShift = 0;
-//      int linePos = 0;
-//      int lineTemp = 0;
-//      int nLines = 0;
       ndarray::Array< T, 1, 1 > refY;
       ndarray::Array< T, 1, 1 > refXStretched;
       ndarray::Array< double, 1, 1 > xCorChiSq = ndarray::allocate( nStretches );

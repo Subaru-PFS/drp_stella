@@ -1,4 +1,3 @@
-///TODO: split profile calculation and 1d extraction
 ///TODO: Create own class for FiberTraceProfile?
 ///TODO: Add deep option to copy constructors
 #if !defined(PFS_DRP_STELLA_FIBERTRACES_H)

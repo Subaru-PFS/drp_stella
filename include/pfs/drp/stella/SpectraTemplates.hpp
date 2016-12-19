@@ -279,10 +279,6 @@ ndarray::Array< double, 1, 1 > pfs::drp::stella::Spectrum<SpectrumT, MaskT, Vari
       else{
         auto itMaxElement = std::max_element( _spectrum.begin() + I_Start, _spectrum.begin() + I_End + 1 );
         I_MaxPos = std::distance(_spectrum.begin(), itMaxElement);
-  //        #ifdef __DEBUG_IDENTIFY__
-  //          cout << "identify: i_line = " << i_line << ": indexPos = " << indexPos << endl;
-  //        #endif
-  //        I_MaxPos = indexPos;// + I_Start;
         #ifdef __DEBUG_IDENTIFY__
           cout << "identify: I_MaxPos = " << I_MaxPos << endl;
         #endif
@@ -334,21 +330,11 @@ ndarray::Array< double, 1, 1 > pfs::drp::stella::Spectrum<SpectrumT, MaskT, Vari
               cout << V_X[iPos] << " ";
             cout << endl;
           #endif
-  //        if (!this->GaussFit(D_A1_X,
-  //                            D_A1_GaussSpec,
-  //                            D_A1_GaussCoeffs,
-  //                            CS_A1_KeyWords,
-  //                            PP_Args)){
-
         /*     p[3] = constant offset
          *     p[0] = peak y value
          *     p[1] = x centroid position
          *     p[2] = gaussian sigma width
          */
-  //          ndarray::Array< double, 2, 1 > toFit = ndarray::allocate( D_A1_X.getShape()[ 0 ], 2 );
-  //          toFit[ ndarray::view()(0) ] = D_A1_X;
-  //          toFit[ ndarray::view()(1) ] = D_A1_GaussSpec;
-  //            ndarray::Array< double, 1, 1 > gaussFitResult = gaussFit()
           D_A1_Guess[ 3 ] = *min_element( V_GaussSpec.begin(), V_GaussSpec.end() );
           D_A1_Guess[ 0 ] = *max_element( V_GaussSpec.begin(), V_GaussSpec.end() ) - D_A1_Guess(3);
           D_A1_Guess[ 1 ] = V_X[ 0 ] + ( V_X[ V_X.size() - 1 ] - V_X[ 0 ] ) / 2.;
