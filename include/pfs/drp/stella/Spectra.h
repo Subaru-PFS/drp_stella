@@ -28,6 +28,8 @@
 
 #define stringify( name ) # name
 
+#define __CHECK_FOR_NANS__
+
 //#define __DEBUG_IDENTIFY__
 //#define __DEBUG_SETLENGTH__
 //#define __DEBUG_STRETCHANDCROSSCORRELATESPEC__

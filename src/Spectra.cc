@@ -534,16 +534,33 @@ namespace pfs { namespace drp { namespace stella { namespace math {
                                                                              ndarray::Array< T, 1, 1 > const& specRef,
                                                                              ndarray::Array< U, 2, 1 > const& lineList_WLenPix,
                                                                              DispCorControl const& dispCorControl ){
-      #ifdef __DEBUG_STRETCHANDCROSSCORRELATESPEC__
-        cout << "stretchAndCrossCorrelateSpec: spec = " << spec.getShape() << ": " << spec << endl;
-        cout << "stretchAndCrossCorrelateSpec: specRef = " << specRef.getShape() << ": " << specRef << endl;
-        cout << "stretchAndCrossCorrelateSpec: lineList_WLenPix = " << lineList_WLenPix.getShape() << ": " << lineList_WLenPix << endl;
+      LOG_LOGGER _log = LOG_GET("pfs::drp::stella::math::stretchAndCrossCorrelateSpec");
+      LOGLS_DEBUG(_log, "spec = " << spec.getShape() << ": " << spec);
+      LOGLS_DEBUG(_log, "specRef = " << specRef.getShape() << ": " << specRef);
+      LOGLS_DEBUG(_log, "lineList_WLenPix = " << lineList_WLenPix.getShape() << ": " << lineList_WLenPix);
+      #ifdef __CHECK_FOR_NANS__
+        for (auto it=spec.begin(); it!=spec.end(); ++it){
+          if (isnan(*it))
+            throw LSST_EXCEPT(pexExcept::Exception, "nan found in spec");
+        }
+        for (auto it=specRef.begin(); it!=specRef.end(); ++it){
+          if (isnan(*it))
+            throw LSST_EXCEPT(pexExcept::Exception, "nan found in specRef");
+        }
+        for (auto itX=lineList_WLenPix.begin(); itX!=lineList_WLenPix.end(); ++itX){
+          for (auto itY=itX->begin(); itY!=itX->end(); ++itY){
+            if (isnan(*itY))
+              throw LSST_EXCEPT(pexExcept::Exception, "nan found in lineList_WLenPix");
+          }
+        }
       #endif
       double fac = double( specRef.getShape()[ 0 ] ) / double( spec.getShape()[ 0 ] );
       ndarray::Array< T, 1, 1 > stretchedSpec = stretch( spec, specRef.getShape()[ 0 ] );
-      #ifdef __DEBUG_STRETCHANDCROSSCORRELATESPEC__
-        cout << "stretchAndCrossCorrelateSpec: fac = " << fac << endl;
-        cout << "stretchAndCrossCorrelateSpec: stretchedSpec = " << stretchedSpec.getShape() << ": " << stretchedSpec << endl;
+      #ifdef __CHECK_FOR_NANS__
+        for (auto it=stretchedSpec.begin(); it!=stretchedSpec.end(); ++it){
+          if (isnan(*it))
+            throw LSST_EXCEPT(pexExcept::Exception, "nan found in stretchedSpec");
+        }
       #endif
       LOGLS_DEBUG(_log, "fac = " << fac);
       LOGLS_DEBUG(_log, "stretchedSpec = " << stretchedSpec.getShape() << ": " << stretchedSpec);
@@ -604,6 +621,16 @@ namespace pfs { namespace drp { namespace stella { namespace math {
         specRefPiece.deep() = specRef[ ndarray::view( start, end + 1 ) ];
         LOGLS_DEBUG(_log, "i_run = " << i_run << ": specRefPiece = " << specRefPiece.getShape() << ": " << specRefPiece);
         /// stretch and crosscorrelate pieces
+        #ifdef __CHECK_FOR_NANS__
+          for (auto it=specRefPiece.begin(); it!=specRefPiece.end(); ++it){
+            if (isnan(*it))
+              throw LSST_EXCEPT(pexExcept::Exception, "nan found in specRefPiece");
+          }
+          for (auto it=specPiece.begin(); it!=specPiece.end(); ++it){
+            if (isnan(*it))
+              throw LSST_EXCEPT(pexExcept::Exception, "nan found in specPiece");
+          }
+        #endif
         StretchAndCrossCorrelateResult< double > stretchAndCrossCorrelateResult = stretchAndCrossCorrelate( specPiece,
                                                                                                             specRefPiece,
                                                                                                             dispCorControl.radiusXCor,
