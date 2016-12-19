@@ -7,6 +7,7 @@
 #include <iostream>
 #include "Chebyshev.h"
 #include "../utils/Utils.h"
+#include "lsst/log/Log.h"
 #include "ndarray.h"
 #include "ndarray/eigen.h"
 #include "../cmpfit-1.2/MPFitting_ndarray.h"

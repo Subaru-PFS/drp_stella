@@ -1464,6 +1464,7 @@
                                          ndarray::Array<T, 1, 1> const& DA1_Moving,
                                          int const I_NPixMaxLeft,
                                          int const I_NPixMaxRight){
+      LOG_LOGGER _log = LOG_GET("pfs::drp::stella::math::crossCorrelate");
       CrossCorrelateResult crossCorrelateResult;
       /// Check that both arrays have the same size
       if ( DA1_Moving.getShape()[ 0 ] != DA1_Static.getShape()[ 0 ] ){
@@ -1487,21 +1488,19 @@
       int nPixMaxLeft = I_NPixMaxLeft;
       if ( nPixMaxLeft >= I_Size ){
         nPixMaxLeft = I_Size - 1;
-        cout << "crossCorrelate: Warning: nPixMaxLeft too large, set to " << nPixMaxLeft << endl;
+        LOGLS_DEBUG(_log, "Warning: nPixMaxLeft too large, set to " << nPixMaxLeft);
       }
       int nPixMaxRight = I_NPixMaxRight;
       if ( nPixMaxRight >= I_Size ){
         nPixMaxRight = I_Size - 1;
-        cout << "crossCorrelate: Warning: nPixMaxRight too large, set to " << nPixMaxRight << endl;
+        LOGLS_WARN(_log, "nPixMaxRight too large, set to " << nPixMaxRight);
       }
 
       int I_Pix = 0. - nPixMaxLeft;
       int I_NPixMove = nPixMaxLeft + nPixMaxRight + 1;
       int run = 0;
-      #ifdef __DEBUG_CROSSCORRELATE__
-        cout << "crossCorrelate: I_Pix = " << I_Pix << endl;
-        cout << "crossCorrelate: I_NPixMove = " << I_NPixMove << endl;
-      #endif
+      LOGLS_DEBUG(_log, "I_Pix = " << I_Pix);
+      LOGLS_DEBUG(_log, "I_NPixMove = " << I_NPixMove);
 
       ndarray::Array< double, 1, 1 > DA1_StaticTemp;
       ndarray::Array< double, 1, 1 > DA1_MovingTemp;
@@ -1511,31 +1510,21 @@
 
       for (int i = I_Pix; i <= nPixMaxRight; i++){
         if (i < 0){
-          #ifdef __DEBUG_CROSSCORRELATE__
-            cout << "crossCorrelate: i=" << i << " < 0: new array size = " << DA1_Static.getShape()[ 0 ] + i << endl;
-            cout << "crossCorrelate: i=" << i << " < 0: DA1_StaticTemp.size() = " << DA1_StaticTemp.getShape()[ 0 ] << endl;
-          #endif
           DA1_StaticTemp = ndarray::allocate( DA1_Static.getShape()[ 0 ] + i );
-          #ifdef __DEBUG_CROSSCORRELATE__
-            cout << "crossCorrelate: i=" << i << " < 0: DA1_MovingTemp.getShape()[ 0  = " << DA1_MovingTemp.getShape()[ 0 ] << endl;
-          #endif
           DA1_MovingTemp = ndarray::allocate( DA1_Static.getShape()[ 0 ] + i );
           DA1_Diff = ndarray::allocate( DA1_Static.getShape()[ 0 ] + i );
-          #ifdef __DEBUG_CROSSCORRELATE__
-            cout << "crossCorrelate: i," << i << " < 0: DA1_Static = " << DA1_Static << endl;
-            cout << "crossCorrelate: i," << i << " < 0: Setting DA1_StaticTemp to DA1_Static(Range(0," << DA1_Static.getShape()[ 0 ] + i - 1 << "))" << endl;
-          #endif
           DA1_StaticTemp[ ndarray::view() ] = DA1_Static[ ndarray::view( 0, DA1_Static.getShape()[ 0 ] + i ) ];
-          #ifdef __DEBUG_CROSSCORRELATE__
-            cout << "crossCorrelate: i," << i << " < 0: DA1_moving = " << DA1_Moving << endl;
-            cout << "crossCorrelate: i," << i << " < 0: Setting DA1_MovingTemp to DA1_Moving(Range(" << 0-i << "," << DA1_Moving.getShape()[ 0 ] - 1 << "))" << endl;
-          #endif
+          LOGLS_DEBUG(_log, "i=" << i << " < 0: new array size = " << DA1_Static.getShape()[ 0 ] + i);
+          LOGLS_DEBUG(_log, "i=" << i << " < 0: DA1_StaticTemp.size() = " << DA1_StaticTemp.getShape()[ 0 ]);
+          LOGLS_DEBUG(_log, "i=" << i << " < 0: DA1_MovingTemp.getShape()[ 0  = " << DA1_MovingTemp.getShape()[ 0 ]);
+          LOGLS_DEBUG(_log, "i," << i << " < 0: DA1_Static = " << DA1_Static);
+          LOGLS_DEBUG(_log, "i," << i << " < 0: Setting DA1_StaticTemp to DA1_Static(Range(0," << DA1_Static.getShape()[ 0 ] + i - 1 << "))");
+          LOGLS_DEBUG(_log, "i," << i << " < 0: DA1_moving = " << DA1_Moving);
+          LOGLS_DEBUG(_log, "i," << i << " < 0: Setting DA1_MovingTemp to DA1_Moving(Range(" << 0-i << "," << DA1_Moving.getShape()[ 0 ] - 1 << "))");
           DA1_MovingTemp[ ndarray::view() ] = DA1_Moving[ ndarray::view( 0 - i, DA1_Moving.getShape()[ 0 ] )];
         }
         else{
-          #ifdef __DEBUG_CROSSCORRELATE__
-            cout << "crossCorrelate: i=" << i << " >= 0: new array size = " << DA1_Static.getShape()[ 0 ] + i << endl;
-          #endif
+          LOGLS_DEBUG(_log, "i=" << i << " >= 0: new array size = " << DA1_Static.getShape()[ 0 ] + i);
           DA1_StaticTemp = ndarray::allocate( DA1_Static.getShape()[ 0 ] - i );
           DA1_MovingTemp = ndarray::allocate( DA1_Static.getShape()[ 0 ] - i );
           DA1_Diff = ndarray::allocate( DA1_Static.getShape()[ 0 ] - i );
@@ -1552,44 +1541,33 @@
               throw LSST_EXCEPT(pexExcept::Exception, "nan found in DA1_MovingTemp");
           }
         #endif
-        #ifdef __DEBUG_CROSSCORRELATE__
-          cout << "crossCorrelate: DA1_StaticTemp = " << DA1_StaticTemp << endl;
-          cout << "crossCorrelate: DA1_MovingTemp = " << DA1_MovingTemp << endl;
-        #endif
+        LOGLS_DEBUG(_log, "DA1_StaticTemp = " << DA1_StaticTemp);
+        LOGLS_DEBUG(_log, "DA1_MovingTemp = " << DA1_MovingTemp);
 
         /// Calculate difference of both arrays and square
         DA1_Diff.deep() = DA1_StaticTemp - DA1_MovingTemp;
         DA1_Diff.deep() = DA1_Diff * DA1_Diff;
-        #ifdef __DEBUG_CROSSCORRELATE__
-          cout << "crossCorrelate: DA1_Diff = " << DA1_Diff << endl;
-        #endif
+        LOGLS_DEBUG(_log, "DA1_Diff = " << DA1_Diff);
 
         /// Calculate sum of squares of differences
-        DA1_ChiSquare[ run ] = std::accumulate( DA1_Diff.begin(), DA1_Diff.end(), 0. ) / double( DA1_Diff.getShape()[ 0 ] );
-        #ifdef __DEBUG_CROSSCORRELATE__
-          cout << "crossCorrelate: DA1_ChiSquare(run = " << run << ") = " << DA1_ChiSquare[run] << endl;
-        #endif
+        double sumDiff = std::accumulate( DA1_Diff.begin(), DA1_Diff.end(), 0. );
+        DA1_ChiSquare[ run ] = sumDiff / double( DA1_Diff.getShape()[ 0 ] );
+        LOGLS_DEBUG(_log, "sumDiff = " << sumDiff << ", double( DA1_Diff.getShape()[ 0 ]) = " << double( DA1_Diff.getShape()[ 0 ]));
+        LOGLS_DEBUG(_log, "DA1_ChiSquare(run = " << run << ") = " << DA1_ChiSquare[run]);
 
         run++;
       }
-      #ifdef __DEBUG_CROSSCORRELATE__
-        cout << "crossCorrelate: DA1_ChiSquare = " << DA1_ChiSquare << endl;
-      #endif
-
+      LOGLS_DEBUG(_log, "DA1_ChiSquare = " << DA1_ChiSquare);
 
       size_t minInd = minIndex( DA1_ChiSquare );
-      #ifdef __DEBUG_CROSSCORRELATE__
-        cout << "crossCorrelate: minInd = " << minInd << endl;
-        cout << "crossCorrelate: DA1_ChiSquare(minInd) = " << DA1_ChiSquare[ minInd ] << endl;
-      #endif
+      LOGLS_DEBUG(_log, "minInd = " << minInd);
+      LOGLS_DEBUG(_log, "DA1_ChiSquare(minInd) = " << DA1_ChiSquare[ minInd ]);
       if ( ( minInd < 2 ) || ( minInd > ( DA1_ChiSquare.getShape()[ 0 ] - 3 ) ) ){
         crossCorrelateResult.pixShift = double( minInd ) - double( nPixMaxLeft );
         crossCorrelateResult.chiSquare = DA1_ChiSquare[ minInd ];
-        #ifdef __DEBUG_CROSSCORRELATE__
-          cout << "crossCorrelate: minInd = " << minInd << " < 2 || > " << DA1_ChiSquare.getShape()[0]-3 << endl;
-          cout << "crossCorrelate: crossCorrelateResult.pixShift = " << crossCorrelateResult.pixShift << endl;
-          cout << "crossCorrelate: crossCorrelateResult.chiSquare = " << crossCorrelateResult.chiSquare << endl;
-        #endif
+        LOGLS_DEBUG(_log, "minInd = " << minInd << " < 2 || > " << DA1_ChiSquare.getShape()[0]-3);
+        LOGLS_DEBUG(_log, "crossCorrelateResult.pixShift = " << crossCorrelateResult.pixShift);
+        LOGLS_DEBUG(_log, "crossCorrelateResult.chiSquare = " << crossCorrelateResult.chiSquare);
         return crossCorrelateResult;
       }
       int I_Start = minInd - 2;
@@ -1609,36 +1587,26 @@
       D_A1_Guess[ 0 ] = 0. - ( max( DA1_ChiSquare ) - DA1_ChiSquare[ minInd ] );///peak
       D_A1_Guess[ 1 ] = double( minInd );///pos
       D_A1_Guess[ 2 ] = 2.;///sigma
-      #ifdef __DEBUG_CROSSCORRELATE__
-        cout << "crossCorrelate: D_A1_Guess = " << D_A1_Guess << endl;
-      #endif
+      LOGLS_DEBUG(_log, "D_A1_Guess = " << D_A1_Guess);
       ndarray::Array< int, 2, 1 > I_A2_Limited = ndarray::allocate( ndarray::makeVector( 4, 2 ) );
       I_A2_Limited.deep() = 1;
       ndarray::Array< double, 2, 1 > D_A2_Limits = ndarray::allocate( ndarray::makeVector( 4, 2 ) );
       D_A2_Limits[ ndarray::makeVector( 3, 0 ) ] = D_A1_Guess[ 3 ] / 2.;
       D_A2_Limits[ ndarray::makeVector( 3, 1 ) ] = D_A1_Guess[ 3 ] * 1.1;
-      #ifdef __DEBUG_CROSSCORRELATE__
-        cout << "crossCorrelate: D_A2_Limits[3,:] = " << D_A2_Limits[ndarray::view(3)()] << endl;
-      #endif
+      LOGLS_DEBUG(_log, "D_A2_Limits[3,:] = " << D_A2_Limits[ndarray::view(3)()]);
       if ( D_A2_Limits[ ndarray::makeVector( 3, 1 ) ] < D_A2_Limits[ ndarray::makeVector( 3, 0 ) ] ){
         throw LSST_EXCEPT(pexExcept::Exception, "crossCorrelate: ERROR: D_A2_Limits(3,1) < D_A2_Limits(3,0)");
       }
       D_A2_Limits[ ndarray::makeVector( 0, 0 ) ] = 1.5 * D_A1_Guess[ 0 ];
       D_A2_Limits[ ndarray::makeVector( 0, 1 ) ] = 0.;
-      #ifdef __DEBUG_CROSSCORRELATE__
-        cout << "crossCorrelate: D_A2_Limits[0,:] = " << D_A2_Limits[ndarray::view(0)()] << endl;
-      #endif
+      LOGLS_DEBUG(_log, "D_A2_Limits[0,:] = " << D_A2_Limits[ndarray::view(0)()]);
       if ( D_A2_Limits[ ndarray::makeVector( 0, 1 ) ] < D_A2_Limits[ ndarray::makeVector( 0, 0 ) ] ){
         throw LSST_EXCEPT(pexExcept::Exception, "crossCorrelate: ERROR: D_A2_Limits(0,1) < D_A2_Limits(0,0)");
       }
-      #ifdef __DEBUG_CROSSCORRELATE__
-        cout << "crossCorrelate: minInd = " << minInd << endl;
-      #endif
+      LOGLS_DEBUG(_log, "minInd = " << minInd);
       D_A2_Limits[ ndarray::makeVector( 1, 0 ) ] = double( minInd - 1 );
       D_A2_Limits[ ndarray::makeVector( 1, 1 ) ] = double( minInd + 1 );
-      #ifdef __DEBUG_CROSSCORRELATE__
-        cout << "crossCorrelate: D_A2_Limits[1,:] = " << D_A2_Limits[ndarray::view(1)()] << endl;
-      #endif
+      LOGLS_DEBUG(_log, "D_A2_Limits[1,:] = " << D_A2_Limits[ndarray::view(1)()]);
       if ( D_A2_Limits[ ndarray::makeVector( 1, 1 ) ] < D_A2_Limits[ ndarray::makeVector( 1, 0 ) ] ){
         std::string message("crossCorrelate: D_A2_Limits[ ndarray::makeVector( 1, 1 ) ](=");
         message += to_string(D_A2_Limits[ ndarray::makeVector( 1, 1 ) ]) + ") < D_A2_Limits[ ndarray::makeVector( 1, 0 ) ](=";
@@ -1647,9 +1615,7 @@
       }
       D_A2_Limits[ ndarray::makeVector( 2, 0 ) ] = 0.;
       D_A2_Limits[ ndarray::makeVector( 2, 1 ) ] = DA1_ChiSquare.getShape()[ 0 ];
-      #ifdef __DEBUG_CROSSCORRELATE__
-        cout << "crossCorrelate: D_A2_Limits[2,:] = " << D_A2_Limits[ndarray::view(2)()] << endl;
-      #endif
+      LOGLS_DEBUG(_log, "D_A2_Limits[2,:] = " << D_A2_Limits[ndarray::view(2)()]);
       if ( D_A2_Limits[ ndarray::makeVector( 2, 1 ) ] < D_A2_Limits[ ndarray::makeVector( 2, 0 ) ] ){
         throw LSST_EXCEPT(pexExcept::Exception, "crossCorrelate: ERROR: D_A2_Limits(2,1) < D_A2_Limits(2,0)");
       }
@@ -1667,23 +1633,18 @@
                            false,
                            D_A1_GaussCoeffs,
                            D_A1_EGaussCoeffs ) ){
-        cout << "crossCorrelate: WARNING: GaussFit returned FALSE" << endl;
-        //        return false;
+        LOGLS_WARN(_log, "GaussFit returned FALSE");
       }
-      #ifdef __DEBUG_CROSSCORRELATE__
-        cout << "crossCorrelate: D_A1_X = " << D_A1_X << endl;
-        cout << "crossCorrelate: D_A1_ChiSqu = " << D_A1_ChiSqu << endl;
-        cout << "crossCorrelate: D_A1_Guess = " << D_A1_Guess << endl;
-        cout << "crossCorrelate: D_A2_Limits = " << D_A2_Limits << endl;
-        cout << "crossCorrelate: D_A1_GaussCoeffs = " << D_A1_GaussCoeffs << endl;
-        cout << "crossCorrelate: nPixMaxLeft = " << nPixMaxLeft << endl;
-      #endif
+      LOGLS_DEBUG(_log, "D_A1_X = " << D_A1_X);
+      LOGLS_DEBUG(_log, "D_A1_ChiSqu = " << D_A1_ChiSqu);
+      LOGLS_DEBUG(_log, "D_A1_Guess = " << D_A1_Guess);
+      LOGLS_DEBUG(_log, "D_A2_Limits = " << D_A2_Limits);
+      LOGLS_DEBUG(_log, "D_A1_GaussCoeffs = " << D_A1_GaussCoeffs);
+      LOGLS_DEBUG(_log, "nPixMaxLeft = " << nPixMaxLeft);
       crossCorrelateResult.pixShift = D_A1_GaussCoeffs[ 1 ] - double( nPixMaxLeft );
       crossCorrelateResult.chiSquare = DA1_ChiSquare[ minInd ];//D_A1_GaussCoeffs[ 0 ] + D_A1_GaussCoeffs[ 3 ];
-      #ifdef __DEBUG_CROSSCORRELATE__
-        cout << "crossCorrelate: crossCorrelateResult.pixShift = " << crossCorrelateResult.pixShift << endl;
-        cout << "crossCorrelate: crossCorrelateResult.chiSquare = " << crossCorrelateResult.chiSquare << endl;
-      #endif
+      LOGLS_DEBUG(_log, "crossCorrelateResult.pixShift = " << crossCorrelateResult.pixShift);
+      LOGLS_DEBUG(_log, "crossCorrelateResult.chiSquare = " << crossCorrelateResult.chiSquare);
       return crossCorrelateResult;
     }
 
@@ -2812,6 +2773,7 @@
                                                                   int const stretchMinLength,
                                                                   int const stretchMaxLength,
                                                                   int const nStretches ){
+      LOG_LOGGER _log = LOG_GET("pfs::drp::stella::math::stretchAndCrossCorrelate");
       #ifdef __CHECK_FOR_NANS__
         for (auto it=specRef.begin(); it!=specRef.end(); ++it){
           if (isnan(*it))
@@ -2824,10 +2786,8 @@
       #endif
       /// Stretch Reference Spectrum
       ndarray::Array< T, 1, 1 > refX = indGenNdArr( T(specRef.getShape()[ 0 ] ) );
-      #ifdef __DEBUG_STRETCHANDCROSSCORRELATE__
-        cout << "stretchAndCrossCorrelate: refX = " << refX.getShape()[0] << ": " << refX << endl;
-        cout << "stretchAndCrossCorrelate: specRef = " << specRef.getShape()[ 0 ] << ": " << specRef << endl;
-      #endif
+      LOGLS_DEBUG(_log, "refX = " << refX.getShape()[0] << ": " << refX);
+      LOGLS_DEBUG(_log, "specRef = " << specRef.getShape()[ 0 ] << ": " << specRef);
 
       ndarray::Array< T, 1, 1 > specTemp;
       ndarray::Array< T, 1, 1 > specRefTemp;
@@ -2845,22 +2805,18 @@
         refXStretched[ 0 ] = refX[ 0 ];
         for (int i_x_stretch=1; i_x_stretch < refStretchLength[ i_stretch ]; i_x_stretch++)
           refXStretched[ i_x_stretch ] = refXStretched[ i_x_stretch - 1 ] + ( ( refX[ refX.getShape()[ 0 ] - 1 ] - refX[ 0 ] ) / refStretchLength[ i_stretch ] );
-        #ifdef __DEBUG_STRETCHANDCROSSCORRELATE__
-          cout << "stretchAndCrossCorrelate: i_stretch = " << i_stretch << ": refStretchLength = " << refStretchLength[i_stretch] << ": refXStretched = " << refXStretched.getShape() << ": " << refXStretched << endl;
-        #endif
+        LOGLS_DEBUG(_log, "i_stretch = " << i_stretch << ": refStretchLength = " << refStretchLength[i_stretch] << ": refXStretched = " << refXStretched.getShape() << ": " << refXStretched);
         refY = interPol( specRef,
                          refX,
                          refXStretched );
 
-        #ifdef __DEBUG_STRETCHANDCROSSCORRELATE__
-          cout << "stretchAndCrossCorrelate: i_stretch = " << i_stretch << ": refY = " << refY.getShape() << ": " << refY << endl;
-        #endif
         
         /// Cross-correlate D_A1_Spec to reference spectrum
         specTemp = ndarray::allocate( spec.getShape()[ 0 ] );
         specTemp.deep() = spec;
         specRefTemp = ndarray::allocate( refY.getShape()[ 0 ] );
         specRefTemp.deep() = refY;
+        LOGLS_DEBUG(_log, "i_stretch = " << i_stretch << ": refY = " << refY.getShape() << ": " << refY);
 
         #ifdef __CHECK_FOR_NANS__
           for (auto it=refY.begin(); it!=refY.end(); ++it){
@@ -2875,9 +2831,6 @@
 
         /// if size of specTemp < size of specRefTemp resize and preserve specRefTemp
         if ( specTemp.getShape()[ 0 ] < specRefTemp.getShape()[ 0 ] ){
-          #ifdef __DEBUG_STRETCHANDCROSSCORRELATE__
-            cout << "stretchAndCrossCorrelate: i_stretch = " << i_stretch << ": specTemp.getShape()(=" << specTemp.getShape() << ") < specRefTemp.getShape()(=" << specRefTemp.getShape() << ")" << endl;
-          #endif
           ndarray::Array< T, 1, 1 > tempArr = ndarray::allocate( specRefTemp.getShape()[ 0 ] );
           tempArr.deep() = specRefTemp;
           specRefTemp = ndarray::allocate( specTemp.getShape()[ 0 ] );
@@ -2886,9 +2839,6 @@
           
         /// if size of specRefTemp < size of specTemp resize and preserve specTemp
         if ( specRefTemp.getShape()[ 0 ] < specTemp.getShape()[ 0 ] ){
-          #ifdef __DEBUG_STRETCHANDCROSSCORRELATE__
-            cout << "stretchAndCrossCorrelate: i_stretch = " << i_stretch << ": specTemp.getShape()(=" << specTemp.getShape() << ") > specRefTemp.getShape()(=" << specRefTemp.getShape() << ")" << endl;
-          #endif
           ndarray::Array< T, 1, 1 > tempArr = ndarray::allocate( specTemp.getShape()[ 0 ] );
           tempArr.deep() = specTemp;
           specTemp = ndarray::allocate( specRefTemp.getShape()[ 0 ] );
@@ -2905,9 +2855,7 @@
           }
         #endif
 
-        #ifdef __DEBUG_STRETCHANDCROSSCORRELATE__
-          cout << "stretchAndCrossCorrelate: i_stretch = " << i_stretch << ": starting crossCorrelate(specRefTemp, specTemp, radiusXCor, radiusXCor)" << endl;
-        #endif
+        LOGLS_DEBUG(_log, "i_stretch = " << i_stretch << ": starting crossCorrelate(specRefTemp, specTemp, radiusXCor, radiusXCor)");
 
         CrossCorrelateResult crossCorrelateResult = crossCorrelate( specRefTemp,
                                                                     specTemp,
@@ -2915,72 +2863,54 @@
                                                                     radiusXCor);
         pixShift[ i_stretch ] = crossCorrelateResult.pixShift;
         xCorChiSq[ i_stretch ] = crossCorrelateResult.chiSquare;
-        #ifdef __DEBUG_STRETCHANDCROSSCORRELATE__
-          cout << "stretchAndCrossCorrelate: i_stretch = " << i_stretch << ": refStretchLength = " << refStretchLength[i_stretch] << ": pixShift[i_stretch] = " << pixShift[i_stretch] << endl;
-          cout << "stretchAndCrossCorrelate: i_stretch = " << i_stretch << ": refStretchLength = " << refStretchLength[i_stretch] << ": xCorChiSq[i_stretch] = " << xCorChiSq[i_stretch] << endl;
-        #endif
+        LOGLS_DEBUG(_log, "i_stretch = " << i_stretch << ": refStretchLength = " << refStretchLength[i_stretch] << ": pixShift[i_stretch] = " << pixShift[i_stretch]);
+        LOGLS_DEBUG(_log, "i_stretch = " << i_stretch << ": refStretchLength = " << refStretchLength[i_stretch] << ": xCorChiSq[i_stretch] = " << xCorChiSq[i_stretch]);
         if (i_stretch < nStretches - 1){
           D_Temp = double( stretchMaxLength - stretchMinLength ) / double( nStretches );
           refStretchLength[ i_stretch + 1 ] = refStretchLength[ i_stretch ] + int(D_Temp);
-          #ifdef __DEBUG_STRETCHANDCROSSCORRELATE__
-            cout << "stretchAndCrossCorrelate: i_stretch = " << i_stretch << ": stretchMaxLength(=" << stretchMaxLength << ") - stretchMinLength(=" << stretchMinLength << ") / nStretches(=" << nStretches << ") = " << D_Temp << ", int(D_Temp) = " << int(D_Temp) << endl;
-            cout << "stretchAndCrossCorrelate: i_stretch = " << i_stretch << ": refStretchLength(i+1) = " << refStretchLength[i_stretch+1] << endl;
-          #endif
+          LOGLS_DEBUG(_log, "i_stretch = " << i_stretch << ": stretchMaxLength(=" << stretchMaxLength << ") - stretchMinLength(=" << stretchMinLength << ") / nStretches(=" << nStretches << ") = " << D_Temp << ", int(D_Temp) = " << int(D_Temp));
+          LOGLS_DEBUG(_log, "i_stretch = " << i_stretch << ": refStretchLength(i+1) = " << refStretchLength[i_stretch+1]);
         }
       }/// end for (int i_stretch=0; i_stretch<I_N_Stretches_In; i_stretch++){
 
-      #ifdef __DEBUG_STRETCHANDCROSSCORRELATE__
-        cout << "stretchAndCrossCorrelate: refStretchLength = " << refStretchLength << endl;
-        cout << "stretchAndCrossCorrelate: xCorChiSq = " << xCorChiSq << endl;
-        cout << "stretchAndCrossCorrelate: pixShift = " << pixShift << endl;
-      #endif
+      LOGLS_DEBUG(_log, "refStretchLength = " << refStretchLength);
+      LOGLS_DEBUG(_log, "xCorChiSq = " << xCorChiSq);
+      LOGLS_DEBUG(_log, "pixShift = " << pixShift);
 
       double minXCorChiSq = max( xCorChiSq );
       int minXCorChiSqPos = 0;
       for ( int i_stretch = 0; i_stretch < nStretches; i_stretch++ ){
-        #ifdef __DEBUG_STRETCHANDCROSSCORRELATE__
-          cout << "stretchAndCrossCorrelate: i_stretch = " << i_stretch << ": minXCorChiSq = " << minXCorChiSq << endl;
-          cout << "stretchAndCrossCorrelate: i_stretch = " << i_stretch << ": minXCorChiSqPos = " << minXCorChiSqPos << endl;
-          cout << "stretchAndCrossCorrelate: i_stretch = " << i_stretch << ": xCorChiSq[" << i_stretch << "] = " << xCorChiSq[i_stretch] << endl;
-        #endif
+        LOGLS_DEBUG(_log, "i_stretch = " << i_stretch << ": minXCorChiSq = " << minXCorChiSq);
+        LOGLS_DEBUG(_log, "i_stretch = " << i_stretch << ": minXCorChiSqPos = " << minXCorChiSqPos);
+        LOGLS_DEBUG(_log, "i_stretch = " << i_stretch << ": xCorChiSq[" << i_stretch << "] = " << xCorChiSq[i_stretch]);
         if ( xCorChiSq[ i_stretch ] < minXCorChiSq ){
           minXCorChiSq = xCorChiSq[ i_stretch ];
           minXCorChiSqPos = i_stretch;
         }
       }
-      #ifdef __DEBUG_STRETCHANDCROSSCORRELATE__
-        cout << "stretchAndCrossCorrelate: minXCorChiSqPos = " << minXCorChiSqPos << endl;
-      #endif
+      LOGLS_DEBUG(_log, "minXCorChiSqPos = " << minXCorChiSqPos);
       double shift_Out = pixShift[ minXCorChiSqPos ];
       double stretch_Out = double( refStretchLength[ minXCorChiSqPos ] );
-      #ifdef __DEBUG_STRETCHANDCROSSCORRELATE__
-        cout << "stretchAndCrossCorrelate: pixShift = " << pixShift << endl;
-        cout << "stretchAndCrossCorrelate: refStretchLength = " << refStretchLength << endl;
-        cout << "stretchAndCrossCorrelate: shift_Out = " << shift_Out << ", stretch_Out = " << stretch_Out << endl;
-      #endif
+      LOGLS_DEBUG(_log, "pixShift = " << pixShift);
+      LOGLS_DEBUG(_log, "refStretchLength = " << refStretchLength);
+      LOGLS_DEBUG(_log, "shift_Out = " << shift_Out << ", stretch_Out = " << stretch_Out);
 
       refXStretched = ndarray::allocate( refStretchLength[ minXCorChiSqPos ] );
       refXStretched[ 0 ] = refX[ 0 ];
       for (int i_x_stretch = 1; i_x_stretch < refStretchLength[ minXCorChiSqPos ]; i_x_stretch++)
         refXStretched[ i_x_stretch ] = refXStretched[ i_x_stretch - 1 ] + ( ( refX[ refX.getShape()[ 0 ] - 1 ] - refX[ 0 ] ) / stretch_Out );
-      #ifdef __DEBUG_STRETCHANDCROSSCORRELATE__
-        cout << "stretchAndCrossCorrelate: minXCorChiSqPos = " << minXCorChiSqPos << ": refStretchLength = " << refStretchLength[minXCorChiSqPos] << ": refXStretched = " << refXStretched << endl;
-      #endif
+      LOGLS_DEBUG(_log, "minXCorChiSqPos = " << minXCorChiSqPos << ": refStretchLength = " << refStretchLength[minXCorChiSqPos] << ": refXStretched = " << refXStretched);
       refY = interPol( specRef,
                        refX,
                        refXStretched );
 
-      #ifdef __DEBUG_STRETCHANDCROSSCORRELATE__
-        cout << "stretchAndCrossCorrelate: after interpol: refY = " << refY.getShape() << ": " << refY << endl;
-      #endif
+      LOGLS_DEBUG(_log, "after interpol: refY = " << refY.getShape() << ": " << refY);
 
       ndarray::Array< T, 1, 1 > refXTemp = indGenNdArr( T( refY.getShape()[ 0 ] ) );
       refXStretched = ndarray::allocate( refY.getShape()[ 0 ] );
       refXStretched.deep() = refXTemp - shift_Out;
 
-      #ifdef __DEBUG_STRETCHANDCROSSCORRELATE__
-        cout << "stretchAndCrossCorrelate: refXStretched = " << refXStretched.getShape() << ": " << refXStretched << endl;
-      #endif
+      LOGLS_DEBUG(_log, "refXStretched = " << refXStretched.getShape() << ": " << refXStretched);
 
       StretchAndCrossCorrelateResult< T > result;
       result.stretch = stretch_Out;
@@ -2989,11 +2919,9 @@
       result.specStretchedMinChiSq[ ndarray::view()( 0 ) ] = refXStretched;//[ ndarray::view() ];
       result.specStretchedMinChiSq[ ndarray::view()( 1 ) ] = refY;
 
-      #ifdef __DEBUG_STRETCHANDCROSSCORRELATE__
-        cout << "stretchAndCrossCorrelate: result.stretch = " << result.stretch << endl;
-        cout << "stretchAndCrossCorrelate: result.shift = " << result.shift << endl;
-        cout << "stretchAndCrossCorrelate: result.specStretchedMinChiSq = " << result.specStretchedMinChiSq << endl;
-      #endif
+      LOGLS_DEBUG(_log, "result.stretch = " << result.stretch);
+      LOGLS_DEBUG(_log, "result.shift = " << result.shift);
+      LOGLS_DEBUG(_log, "result.specStretchedMinChiSq = " << result.specStretchedMinChiSq);
 
       return result;
     }
