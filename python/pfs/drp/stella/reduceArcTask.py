@@ -23,6 +23,7 @@ class ReduceArcConfig(Config):
     nRowsPrescan = Field( doc = "Number of prescan rows in raw CCD image", dtype=int, default = 49 );
     wavelengthFile = Field( doc = "reference pixel-wavelength file including path", dtype = str, default=os.path.join(getPackageDir("obs_pfs"), "pfs/RedFiberPixels.fits.gz"));
     lineList = Field( doc = "reference line list including path", dtype = str, default=os.path.join(getPackageDir("obs_pfs"), "pfs/lineLists/CdHgKrNeXe_red.fits"));
+    percentageOfLinesForCheck = Field( doc = "Hold back this percentage of lines in the line list for check", dtype=int, default=10)
 
 class ReduceArcTaskRunner(TaskRunner):
     """Get parsed values into the ReduceArcTask.run"""
@@ -184,7 +185,9 @@ class ReduceArcTask(CmdLineTask):
                 self.logger.debug('fiberTrace %d: yMin = %d' % (i, yMin))
                 self.logger.debug('fiberTrace %d: yMax = %d' % (i, yMax))
                 try:
-                    spec.identifyF(lineListPix, dispCorControl, 8)
+                    spec.identifyF(lineListWLenPix,
+                                   dispCorControl,
+                                   int(lineListWLenPix.shape[0] * self.config.percentageOfLinesForCheck / 100))
                 except:
                     e = sys.exc_info()[1]
                     message = str.split(e.message, "\n")
