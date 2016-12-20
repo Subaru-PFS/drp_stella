@@ -134,7 +134,8 @@ class Spectrum {
     
     bool setDispCoeffs( ndarray::Array< double, 1, 1 > const& dispCoeffs );
 
-    double getDispRms( ) const { return _dispRms; };
+    float getDispRms( ) const { return _dispRms; };
+    float getDispRmsCheck( ) const { return _dispRmsCheck; };
     
     /// Return _dispCorControl
     PTR(DispCorControl) getDispCorControl() const { return _dispCorControl; }
@@ -185,7 +186,8 @@ class Spectrum {
     ndarray::Array<WavelengthT, 1, 1> _dispersion;
     size_t _iTrace;/// for logging / debugging purposes only
     ndarray::Array< double, 1, 1 > _dispCoeffs;
-    double _dispRms;
+    float _dispRmsCheck;
+    float _dispRms;
     bool _isWavelengthSet;
     PTR(DispCorControl) _dispCorControl;
 
