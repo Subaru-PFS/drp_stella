@@ -344,7 +344,6 @@ ndarray::Array< double, 1, 1 > pfs::drp::stella::Spectrum<SpectrumT, MaskT, Vari
                              D_A1_GaussCoeffs,
                              D_A1_EGaussCoeffs,
                              true)){
-          //        return false;
             LOGLS_WARN(_log, "GaussFit returned FALSE");
           }
           else{
@@ -363,7 +362,6 @@ ndarray::Array< double, 1, 1 > pfs::drp::stella::Spectrum<SpectrumT, MaskT, Vari
                       LOGLS_WARN(_log, "i_line=" << i_line << ": line at D_A1_GaussPos[" << i_line-1 << "] = " << D_A1_GaussPos[ i_line - 1 ] << " has probably been misidentified (D_A1_GaussPos(" << i_line << ")=" << D_A1_GaussPos[ i_line ] << ") => removing line from line list");
                       D_A1_GaussPos[ i_line - 1 ] = 0.;
                     }
-  //                  exit(EXIT_FAILURE);
                   }
                 }
               }
@@ -438,7 +436,6 @@ bool pfs::drp::stella::Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>::ident
     if ( nInd < ( std::round( double( lineList.getShape()[ 0 ] ) * 0.66 ) ) ){
       std::string message("pfs::drp::stella::identify: ERROR: ");
       message += "identify: ERROR: less than " + std::to_string( std::round( double( lineList.getShape()[ 0 ] ) * 0.66 ) ) + " lines identified";
-      cout << message << endl;
       throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
     }
     ndarray::Array< size_t, 1, 1 > I_A1_IndexPos = ndarray::external( indices.data(), ndarray::makeVector( int( indices.size() ) ), ndarray::makeVector( 1 ) );
