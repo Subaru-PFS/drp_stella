@@ -443,9 +443,9 @@ class SpectraTestCase(tests.TestCase):
             """ read wavelength file """
             hdulist = pyfits.open(self.wLenFile)
             tbdata = hdulist[1].data
-            traceIdsTemp = np.ndarray(shape=(len(tbdata)), dtype='int')
-            xCenters = np.ndarray(shape=(len(tbdata)), dtype='float32')
-            wavelengths = np.ndarray(shape=(len(tbdata)), dtype='float32')
+            traceIdsTemp = np.ndarray(shape=(len(tbdata)), dtype=np.int)
+            xCenters = np.ndarray(shape=(len(tbdata)), dtype=np.float32)
+            wavelengths = np.ndarray(shape=(len(tbdata)), dtype=np.float32)
             traceIdsTemp[:] = tbdata[:]['fiberNum']
             traceIds = traceIdsTemp.astype('int32')
             wavelengths[:] = tbdata[:]['pixelWave']
