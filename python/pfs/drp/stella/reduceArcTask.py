@@ -77,6 +77,39 @@ class ReduceArcTask(CmdLineTask):
         parser.add_argument("--lineList", help='directory and name of line list')
         return parser# ReduceArcArgumentParser(name=cls._DefaultName, *args, **kwargs)
 
+    # lambdaPix and fluxPix have the shape (fiberTrace.yHigh - fiberTrace.yLow + 1)
+    def createLineList(self, lambdaPix, fluxPix, lambdaLines, strengthLines, dispCorControl, nRows):
+
+        calculatedFlux = np.ndarray(shape=lambdaPix.shape[0], dtype=np.float32)
+        calculatedFlux[:] = np.median(fluxPix)
+
+        lineList = np.ndarray(shape=(lambdaLines.shape[0],2),dtype=np.float32)
+        lineList[:,0] = lambdaLines
+
+        linePos = []
+        for k in range(len(lambdaLines)):
+            linePos.append(lambdaLines[k])
+            minDist = 1000
+            for yFt in range(len(lambdaPix)):
+                dist = abs(lambdaLines[k] - lambdaPix[yFt])
+                if dist < minDist:
+                    minDist = dist
+                    linePos[len(linePos)-1] = yFt
+            self.logger.debug('linePos for line %d is at %f' % (len(linePos)-1, linePos[len(linePos)-1]))
+            xWidth = int(2. * self.config.fwhm)
+            x = np.linspace(-1 * xWidth, xWidth, (2 * xWidth) + 1)
+            self.logger.debug('x = %s, strengthLines[%d] = %f' % (np.array_str(x), k, strengthLines[k]))
+            fac = np.exp(-np.power(nRows - linePos[len(linePos) - 1], 2.) / (2 * np.power(1000., 2.)))
+            self.logger.debug('fac = %f' % fac)
+            gaussian = fac * strengthLines[k] * np.exp(-np.power(x, 2.) / (2 * np.power(self.config.fwhm/2.34, 2.)))
+            self.logger.debug('%s' % np.array_str(gaussian))
+            calculatedFlux[linePos[len(linePos) - 1] - xWidth:linePos[len(linePos) - 1] + xWidth + 1] += gaussian
+            if np.isnan(np.min(calculatedFlux)):
+                raise RuntimeError("calculatedFlux contains NaNs")
+
+        lineList[:,1] = linePos
+        return drpStella.stretchAndCrossCorrelateSpecFF(fluxPix,calculatedFlux,lineList,dispCorControl).lineList
+
     def run(self, expRefList, butler, wLenFile=None, lineList=None, immediate=True):
         if wLenFile == None:
             wLenFile = self.config.wavelengthFile
@@ -108,11 +141,11 @@ class ReduceArcTask(CmdLineTask):
             hdulist = pyfits.open(wLenFile)
             tbdata = hdulist[1].data
             traceIdsTemp = np.ndarray(shape=(len(tbdata)), dtype='int')
-            xCenters = np.ndarray(shape=(len(tbdata)), dtype='float32')
-            wavelengths = np.ndarray(shape=(len(tbdata)), dtype='float32')
             traceIdsTemp[:] = tbdata[:]['fiberNum']
             traceIds = traceIdsTemp.astype('int32')
-            wavelengths[:] = tbdata[:]['pixelWave']
+            lambdaPix = np.ndarray(shape=(len(tbdata)), dtype='float32')
+            lambdaPix[:] = tbdata[:]['pixelWave']
+            xCenters = np.ndarray(shape=(len(tbdata)), dtype='float32')
             xCenters[:] = tbdata[:]['xc']
 
             traceIdsUnique = np.unique(traceIds)
@@ -137,9 +170,10 @@ class ReduceArcTask(CmdLineTask):
             """ read line list """
             hdulist = pyfits.open(lineList)
             tbdata = hdulist[1].data
-            lineListArr = np.ndarray(shape=(len(tbdata),2), dtype='float32')
-            lineListArr[:,0] = tbdata.field(0)
-            lineListArr[:,1] = tbdata.field(1)
+            lambdaLines = np.ndarray(shape=(len(tbdata)), dtype='float32')
+            lambdaLines[:] = tbdata.field(0)
+            strengthLines = np.ndarray(shape=(len(tbdata)), dtype='float32')
+            strengthLines[:] = tbdata.field(2)
 
             dispCorControl = drpStella.DispCorControl()
             dispCorControl.fittingFunction = self.config.function
@@ -163,40 +197,38 @@ class ReduceArcTask(CmdLineTask):
             for i in range(spectrumSetFromProfile.size()):
                 spec = spectrumSetFromProfile.getSpectrum(i)
                 spec.setITrace(iTraces[i])
-                specSpec = spec.getSpectrum()
                 self.logger.debug('flatFiberTraceSet.getFiberTrace(%d).getITrace() = %d, spec.getITrace() = %d' %(i,flatFiberTraceSet.getFiberTrace(i).getITrace(), spec.getITrace()))
+                fluxPix = spec.getSpectrum()
+                self.logger.debug('fluxPix.shape = %d' % fluxPix.shape)
+                self.logger.debug('type(fluxPix) = %s: <%s>' % (type(fluxPix),type(fluxPix[0])))
                 self.logger.debug('type(spec) = %s: <%s>: <%s>' % (type(spec),type(spec.getSpectrum()),type(spec.getSpectrum()[0])))
 
+                nRows = traceIds.shape[0] / traceIdsUnique.shape[0]
                 traceId = spec.getITrace()
-    #            print 'traceId = ',traceId
-                wLenTemp = np.ndarray( shape = traceIds.shape[0] / np.unique(traceIds).shape[0], dtype='float32' )
-                k = 0
-                l = -1
-                for j in range(traceIds.shape[0]):
-                    if traceIds[j] != l:
-                        l = traceIds[j]
-                    if traceIds[j] == traceIdsUnique[traceId]:
-                        wLenTemp[k] = wavelengths[j]
-                        k = k+1
+                self.logger.info('traceId = %d' % traceId)
 
                 """cut off both ends of wavelengths where is no signal"""
-                xCenter = flatFiberTraceSet.getFiberTrace(i).getFiberTraceFunction().xCenter
-                yCenter = flatFiberTraceSet.getFiberTrace(i).getFiberTraceFunction().yCenter
-                yLow = flatFiberTraceSet.getFiberTrace(i).getFiberTraceFunction().yLow
-                yHigh = flatFiberTraceSet.getFiberTrace(i).getFiberTraceFunction().yHigh
-                yMin = yCenter + yLow
-                yMax = yCenter + yHigh
-                wLen = wLenTemp[ yMin + self.config.nRowsPrescan : yMax + self.config.nRowsPrescan + 1]
-                wLenArr = np.ndarray(shape=wLen.shape, dtype='float32')
-                for j in range(wLen.shape[0]):
-                    wLenArr[j] = wLen[j]
-                wLenLines = lineListArr[:,0]
-                wLenLinesArr = np.ndarray(shape=wLenLines.shape, dtype='float32')
-                for j in range(wLenLines.shape[0]):
-                    wLenLinesArr[j] = wLenLines[j]
-                lineListPix = drpStella.createLineList(wLenArr, wLenLinesArr)
+                yMin = (flatFiberTraceSet.getFiberTrace(i).getFiberTraceFunction().yCenter +
+                        flatFiberTraceSet.getFiberTrace(i).getFiberTraceFunction().yLow)
+                yMax = (flatFiberTraceSet.getFiberTrace(i).getFiberTraceFunction().yCenter +
+                        flatFiberTraceSet.getFiberTrace(i).getFiberTraceFunction().yHigh)
                 self.logger.debug('fiberTrace %d: yMin = %d' % (i, yMin))
                 self.logger.debug('fiberTrace %d: yMax = %d' % (i, yMax))
+
+                lambdaPixFiberTrace = lambdaPix[drpStella.firstIndexWithValueGEFrom(traceIds,
+                                                                                    traceIdsUnique[traceId]) + self.config.nRowsPrescan+yMin:
+                                                drpStella.firstIndexWithValueGEFrom(traceIds,
+                                                                                    traceIdsUnique[traceId]) + self.config.nRowsPrescan+yMax+1]
+                if len(lambdaPixFiberTrace) != len(fluxPix):
+                    raise RuntimeError("reduceArcTask.py: ERROR: len(lambdaPixFiberTrace)(=%d) != len(fluxPix)(=%d)" % (len(lambdaPixFiberTrace), len(fluxPix)))
+                if len(lambdaLines) != len(strengthLines):
+                    raise RuntimeError("reduceArcTask.py: ERROR: len(lambdaLines)(=%d) != len(strengthLines)(=%d)" % (len(lambdaLines), len(strengthLines)))
+                lineListWLenPix = self.createLineList(lambdaPixFiberTrace,
+                                                      spec.getSpectrum(),
+                                                      lambdaLines,
+                                                      strengthLines,
+                                                      dispCorControl,
+                                                      nRows)
                 try:
                     spec.identifyF(lineListWLenPix,
                                    dispCorControl,
