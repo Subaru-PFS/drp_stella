@@ -235,9 +235,7 @@ class ReduceArcTask(CmdLineTask):
                                    int(lineListWLenPix.shape[0] * self.config.percentageOfLinesForCheck / 100))
                 except:
                     e = sys.exc_info()[1]
-                    message = str.split(e.message, "\n")
-                    for k in range(len(message)):
-                        print "element",k,": <",message[k],">"
+                    raise RuntimeError("reduceArcTask.py: ERROR: %s" % e.message)
                 self.logger.debug("FiberTrace %d: spec.getDispCoeffs() = %s" % (i,np.array_str(spec.getDispCoeffs())))
                 self.logger.info("FiberTrace %d: spec.getDispRms() = %f" % (i, spec.getDispRms()))
                 self.logger.info("FiberTrace %d: spec.getDispRmsCheck() = %f" % (i, spec.getDispRmsCheck()))
