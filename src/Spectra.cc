@@ -1,5 +1,4 @@
 #include "pfs/drp/stella/Spectra.h"
-#include "lsst/log/Log.h"
 
 namespace pfsDRPStella = pfs::drp::stella;
 
