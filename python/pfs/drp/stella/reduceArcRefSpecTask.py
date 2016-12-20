@@ -10,6 +10,8 @@ from pfs.drp.stella.datamodelIO import spectrumSetToPfsArm, PfsArmIO
 import pfs.drp.stella.extractSpectraTask as esTask
 import pfs.drp.stella as drpStella
 from pfs.drp.stella.utils import makeFiberTraceSet
+import sys
+import traceback
 
 class ReduceArcRefSpecConfig(Config):
     """Configuration for reducing arc images"""
@@ -42,6 +44,7 @@ class ReduceArcRefSpecTaskRunner(TaskRunner):
                 result = task.run(**args)
             except Exception, e:
                 task.log.fatal("Failed: %s" % e)
+                traceback.print_exc(file=sys.stderr)
 
         if self.doReturnResults:
             return Struct(
