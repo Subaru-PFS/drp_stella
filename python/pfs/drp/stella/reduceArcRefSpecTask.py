@@ -27,6 +27,7 @@ class ReduceArcRefSpecConfig(Config):
     nStretches = Field( doc = "Number of stretches between <stretchMinLength> and <stretchMaxLength>", dtype = int, default = 80 );
     refSpec = Field( doc = "reference spectrum including path", dtype = str, default=os.path.join(getPackageDir("obs_pfs"), "pfs/arcSpectra/refSpec_CdHgKrNeXe_red.fits"));
     lineList = Field( doc = "reference line list including path", dtype = str, default=os.path.join(getPackageDir("obs_pfs"), "pfs/lineLists/CdHgKrNeXe_red.fits"));
+    percentageOfLinesForCheck = Field( doc = "Hold back this percentage of lines in the line list for check", dtype=int, default=10)
 
 class ReduceArcRefSpecTaskRunner(TaskRunner):
     """Get parsed values into the ReduceArcTask.run"""
@@ -164,10 +165,10 @@ class ReduceArcRefSpecTask(CmdLineTask):
                 self.log.debug('type(refSpecArr) = %s: <%s>' % (type(refSpecArr),type(refSpecArr[0])))
                 self.log.debug('type(lineListArr) = %s: <%s>' % (type(lineListArr),type(lineListArr[0][0])))
                 result = drpStella.stretchAndCrossCorrelateSpecFF(specSpec, refSpecArr, lineListArr, dispCorControl)
-                spec.identifyF(result.lineList, dispCorControl, 8)
                 self.log.debug("result.lineList = %s" % np.array_str(result.lineList))
                 self.log.debug('type(result.lineList) = %s: <%s>: <%s>' % (type(result.lineList),type(result.lineList[0]),type(result.lineList[0][0])))
                 self.log.debug('type(spectrumSetFromProfile.getSpectrum(i)) = %s: <%s>: <%s>' % (type(spectrumSetFromProfile.getSpectrum(i)),type(spectrumSetFromProfile.getSpectrum(i).getSpectrum()),type(spectrumSetFromProfile.getSpectrum(i).getSpectrum()[0])))
+                spec.identifyF(result.lineList, dispCorControl, int(lineListArr.shape[0] * self.config.percentageOfLinesForCheck / 100.))
                 for j in range(specSpec.shape[0]):
                     self.log.debug('spectrum %d: spec.getWavelength()[%d] = %f' % (i,j,spec.getWavelength()[j]))
 
