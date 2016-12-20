@@ -21,8 +21,15 @@ class ReduceArcConfig(Config):
     searchRadius = Field( doc = "Radius in pixels relative to line list to search for emission line peak", dtype = int, default = 2 );
     fwhm = Field( doc = "FWHM of emission lines", dtype=float, default = 2.6 );
     nRowsPrescan = Field( doc = "Number of prescan rows in raw CCD image", dtype=int, default = 49 );
+    radiusXCor = Field( doc = "Radius in pixels in which to cross correlate a spectrum relative to the reference spectrum", dtype=int, default=10);
+    lengthPieces = Field( doc = "Length of pieces of spectrum to match to reference spectrum by stretching and shifting", dtype=int, default=2000);
+    nCalcs = Field( doc = "Number of iterations > spectrumLength / lengthPieces, e.g. spectrum length is 3800 pixels, <lengthPieces> = 500, <nCalcs> = 15: run 1: pixels 0-499, run 2: 249-749,...", dtype=int, default=5);
+    stretchMinLength = Field( doc = "Minimum length to stretched pieces to (< lengthPieces)", dtype=int, default=2000);
+    stretchMaxLength = Field( doc = "Maximum length to stretched pieces to (> lengthPieces)", dtype=int, default=2000);
+    nStretches = Field( doc = "Number of stretches between <stretchMinLength> and <stretchMaxLength>", dtype=int, default=1);
     wavelengthFile = Field( doc = "reference pixel-wavelength file including path", dtype = str, default=os.path.join(getPackageDir("obs_pfs"), "pfs/RedFiberPixels.fits.gz"));
     lineList = Field( doc = "reference line list including path", dtype = str, default=os.path.join(getPackageDir("obs_pfs"), "pfs/lineLists/CdHgKrNeXe_red.fits"));
+    maxDistance = Field( doc = "Reject emission lines which center is more than this value away from the predicted position", dtype=float, default = 2.5 );
     percentageOfLinesForCheck = Field( doc = "Hold back this percentage of lines in the line list for check", dtype=int, default=10)
 
 class ReduceArcTaskRunner(TaskRunner):
@@ -141,6 +148,14 @@ class ReduceArcTask(CmdLineTask):
             dispCorControl.order = self.config.order
             dispCorControl.searchRadius = self.config.searchRadius
             dispCorControl.fwhm = self.config.fwhm
+            dispCorControl.radiusXCor = self.config.radiusXCor
+            dispCorControl.lengthPieces = self.config.lengthPieces
+            dispCorControl.nCalcs = self.config.nCalcs
+            dispCorControl.stretchMinLength = self.config.stretchMinLength
+            dispCorControl.stretchMaxLength = self.config.stretchMaxLength
+            dispCorControl.nStretches = self.config.nStretches
+            dispCorControl.verticalPrescanHeight = self.config.nRowsPrescan
+            dispCorControl.maxDistance = self.config.maxDistance
             self.logger.debug('dispCorControl.fittingFunction = %s' % dispCorControl.fittingFunction)
             self.logger.debug('dispCorControl.order = %d' % dispCorControl.order)
             self.logger.debug('dispCorControl.searchRadius = %d' % dispCorControl.searchRadius)
