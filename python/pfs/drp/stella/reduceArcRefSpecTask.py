@@ -171,36 +171,6 @@ class ReduceArcRefSpecTask(CmdLineTask):
                 spec.identifyF(result.lineList, dispCorControl, int(lineListArr.shape[0] * self.config.percentageOfLinesForCheck / 100.))
                 for j in range(specSpec.shape[0]):
                     self.log.debug('spectrum %d: spec.getWavelength()[%d] = %f' % (i,j,spec.getWavelength()[j]))
-
-            if False:
-                xPixMinMax = np.ndarray(2, dtype='float32')
-                xPixMinMax[0] = 1000.
-                xPixMinMax[1] = 1600.
-                fig = plt.figure()
-                ax = fig.add_subplot(1, 1, 1)
-                for i in range(spectrumSetFromProfile.size()):
-                    ax.plot(spectrumSetFromProfile.getSpectrum(i).getSpectrum(),'-+')
-                    plt.xlim(xPixMinMax[0],xPixMinMax[1])
-                    plt.ylim(0,25000)
-                plt.xlabel('Pixel')
-                plt.ylabel('Flux [ADUs]')
-                plt.show()
-                plt.close(fig)
-                fig.clf()
-
-            if False:
-                xMinMax = drpStella.poly(xPixMinMax, spec.getDispCoeffs())
-                fig = plt.figure()
-                ax = fig.add_subplot(1, 1, 1)
-                for i in range(spectrumSetFromProfile.size()):
-                    ax.plot(spectrumSetFromProfile.getSpectrum(i).getWavelength(),spectrumSetFromProfile.getSpectrum(i).getSpectrum(),'-+')
-                    plt.xlim(xMinMax[0],xMinMax[1])
-                    plt.ylim(0,25000)
-                plt.xlabel('Wavelength [Angstroems]')
-                plt.ylabel('Flux [ADUs]')
-                plt.show()
-                plt.close(fig)
-                fig.clf()
                 self.log.debug("FiberTrace %d: spec.getDispCoeffs() = %s" % (i,np.array_str(spec.getDispCoeffs())))
                 self.log.info("FiberTrace %d: spec.getDispRms() = %f" % (i, spec.getDispRms()))
                 self.log.info("FiberTrace %d: spec.getDispRmsCheck() = %f" % (i, spec.getDispRmsCheck()))
