@@ -151,23 +151,6 @@ class Spectrum {
                    DispCorControl const& dispCorControl,
                    size_t nLinesCheck = 0 );
   
-    /**
-      * @brief: Identifies calibration lines, given in D_A2_LineList_In the format [wlen, approx_pixel] in
-      * wavelength-calibration spectrum D_A2_Spec_In [pixel_number, flux]
-      * within the given position plus/minus I_Radius_In,
-      * fits Gaussians to each line, fits Polynomial of order I_PolyFitOrder_In, and
-      * writes _wavelength and PolyFit coefficients to _dispCoeffs
-      * @param lineList             :: [ nLines, 2 ]: [ wLen, approx_pixel (predicted) ]
-      * @param predictedWLenAllPix  :: [ nRows in spectrum (yHigh - yLow): predicted wavelength from the zemax model
-      * @param dispCorControl       :: parameters controlling the dispersion fitting
-      * @param nLinesCheck          :: hold back this many lines from the fit to check the quality of the wavelength solution
-      **/
-    template< typename T >
-    bool identify( ndarray::Array< T, 2, 1 > const& lineList,
-                   ndarray::Array< T, 1, 0 > const& predictedWLenAllPix,
-                   DispCorControl const& dispCorControl,
-                   size_t nLinesCheck = 0 );
-    
     bool isWavelengthSet() const {return _isWavelengthSet;}
     
     size_t getYLow() const { return _yLow; };
