@@ -184,5 +184,13 @@ namespace pfs { namespace drp { namespace stella { namespace utils{
   
   template< typename T >
   PTR( T ) getPointer( T & );
+
+  template<typename T>
+  ndarray::Array<T, 1, 1> vectorToNdArray(std::vector<T> & vec);
+  template<typename T>
+  ndarray::Array<T const, 1, 1> vectorToNdArray(std::vector<T> const& vec);
+
+  template<typename T, typename U>
+  ndarray::Array<U, 1, 1> typeCastNdArray(ndarray::Array<T const, 1, 1> const& arr, U const& newType);
 }}}}
 #endif

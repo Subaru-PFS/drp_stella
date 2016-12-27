@@ -99,7 +99,7 @@ struct FiberTraceFunction {
   unsigned int yCenter; /// Central position of fiber trace in y
   int yLow; /// lower limit of fiber trace relative to center (< 0)
   unsigned int yHigh; /// lower limit of fiber trace relative to center (>= 0)
-  std::vector<double> coefficients; /// polynomial coefficients of fiber trace function
+  std::vector<float> coefficients; /// polynomial coefficients of fiber trace function
 
   FiberTraceFunction() :
   fiberTraceFunctionControl(),
@@ -168,7 +168,7 @@ struct FiberTraceFunction {
     return true;
   }
   
-  bool setCoefficients(ndarray::Array<double, 1, 1> const& coeffs_In){
+  bool setCoefficients(ndarray::Array<float, 1, 1> const& coeffs_In){
       assert(coeffs_In.getShape()[0] > 0); // safe to cast
       if (static_cast<size_t>(coeffs_In.getShape()[0]) != (fiberTraceFunctionControl.order + 1)) {
           cout << "FiberTraceFunction::setCoefficients: ERROR: size of coeffs_In must be order + 1" << endl;

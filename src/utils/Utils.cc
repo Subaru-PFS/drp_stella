@@ -1,6 +1,6 @@
 #include "pfs/drp/stella/utils/Utils.h"
 namespace pfs { namespace drp { namespace stella { namespace utils{
-  
+
   int KeyWord_Set(vector<string> const& keyWords_In,
                   string const& str_In){
     for (int m = 0; m < int(keyWords_In.size()); ++m){
@@ -9,15 +9,15 @@ namespace pfs { namespace drp { namespace stella { namespace utils{
     }
     return -1;
   }
-  
+
   /**************************************************************************/
-  
+
   bool trimString(string &str, const int mode){
     return trimString(str, ' ', mode);
   }
 
   /**************************************************************************/
-  
+
   bool trimString(string &str, const char chr, const int mode){
     if ((mode == 0) || (mode == 2)){
       while (str.find(chr) == 0){
@@ -33,7 +33,7 @@ namespace pfs { namespace drp { namespace stella { namespace utils{
   }
 
   /**************************************************************************/
-  
+
   bool sToD(const string &str, double &D_Out){
     D_Out = 0;
     for (unsigned int i=0; i<str.length(); i++){
@@ -90,7 +90,7 @@ namespace pfs { namespace drp { namespace stella { namespace utils{
   }
 
   /**************************************************************************/
-  
+
   bool FileAccess(const string &fn){
     FILE *ffile;
 
@@ -105,7 +105,7 @@ namespace pfs { namespace drp { namespace stella { namespace utils{
   }
 
   /**************************************************************************/
-  
+
   long countLines(const string &fnc){
     if (fnc.length() > 255){
       cout << "countLines: ERROR: input file name = <" << fnc << "> too long => Returning -1" << endl;
@@ -151,7 +151,7 @@ namespace pfs { namespace drp { namespace stella { namespace utils{
   }
 
   /**************************************************************************/
-  
+
   long countDataLines(const string &fnc){
     FILE *ffile;
     long nelements;
@@ -195,7 +195,7 @@ namespace pfs { namespace drp { namespace stella { namespace utils{
   }
 
   /**************************************************************************/
-  
+
   long countCols(const string &fileName_In, const string &delimiter){
     long L_Cols = 0;
     long L_OldCols = 0;
@@ -304,7 +304,7 @@ namespace pfs { namespace drp { namespace stella { namespace utils{
   }
 
   /**************************************************************************/
-  
+
   template<typename T>
   ndarray::Array<T, 2, 1> get2DndArray(T nRows, T nCols){
     ndarray::Array<T, 2, 1> out = ndarray::allocate(nRows, nCols);
@@ -313,7 +313,7 @@ namespace pfs { namespace drp { namespace stella { namespace utils{
   }
 
   /**************************************************************************/
-  
+
   template<typename T>
   ndarray::Array<T, 1, 1> get1DndArray(T size){
     ndarray::Array<T, 1, 1> out = ndarray::allocate(size);
@@ -322,7 +322,7 @@ namespace pfs { namespace drp { namespace stella { namespace utils{
   }
 
   /**************************************************************************/
-  
+
   template<typename T>
   std::vector<T> copy(const std::vector<T> &vecIn){
     std::vector<T> vecOut = vecIn;
@@ -330,8 +330,8 @@ namespace pfs { namespace drp { namespace stella { namespace utils{
   }
 
   /**************************************************************************/
-  
-  template< typename T > 
+
+  template< typename T >
   std::string numberToString_dotToUnderscore( T number, int accuracy ){
     string out;
     if ( ( number > 1.e5 ) || ( ( number < 1.e-5 ) && ( number > 1.e-15 ) ) ){
@@ -371,7 +371,7 @@ namespace pfs { namespace drp { namespace stella { namespace utils{
   }
 
   /**************************************************************************/
-  
+
   std::string dotToUnderscore( std::string number, int accuracy ){
     string out(number);
     int dotPos = out.find( "." );
@@ -400,18 +400,44 @@ namespace pfs { namespace drp { namespace stella { namespace utils{
     }
     return out;
   }
-  
+
   /**************************************************************************/
-  
+
   template<typename T>
   PTR(T) getPointer(T &obj){
     PTR(T) pointer(new T(obj));
     return pointer;
   }
 
+  template<typename T>
+  ndarray::Array<T, 1, 1> vectorToNdArray(std::vector<T> & vec){
+    ndarray::Array<T, 1, 1> array = external(vec.data(),
+                                             ndarray::makeVector(int(vec.size())),
+                                             ndarray::makeVector(1));
+    return array;
+  }
+
+  template<typename T>
+  ndarray::Array<T const, 1, 1> vectorToNdArray(std::vector<T> const& vec){
+    const ndarray::Array<T const, 1, 1> array = external(vec.data(),
+                                                         ndarray::makeVector(int(vec.size())),
+                                                         ndarray::makeVector(1));
+    return array;
+  }
+
+  template<typename T, typename U>
+  ndarray::Array<U, 1, 1> typeCastNdArray(ndarray::Array<T const, 1, 1> const& arr, U const& newType){
+    ndarray::Array<U, 1, 1> out = ndarray::allocate(arr.getShape()[0]);
+    auto itOut = out.begin();
+    for (auto itIn = arr.begin(); itIn != arr.end(); ++itIn, ++itOut){
+      *itOut = U(*itIn);
+    }
+    return out;
+  }
+
   template std::string numberToString_dotToUnderscore( float, int );
   template std::string numberToString_dotToUnderscore( double, int );
-  
+
   template std::vector<int> copy(const std::vector<int>&);
   template std::vector<float> copy(const std::vector<float>&);
   template std::vector<double> copy(const std::vector<double>&);
@@ -426,5 +452,23 @@ namespace pfs { namespace drp { namespace stella { namespace utils{
   template ndarray::Array<int, 2, 1> get2DndArray(int, int);
   template ndarray::Array<float, 2, 1> get2DndArray(float, float);
   template ndarray::Array<double, 2, 1> get2DndArray(double, double);
+
+  template ndarray::Array<size_t const, 1, 1> vectorToNdArray(std::vector<size_t> const&);
+  template ndarray::Array<int const, 1, 1> vectorToNdArray(std::vector<int> const&);
+  template ndarray::Array<long const, 1, 1> vectorToNdArray(std::vector<long> const&);
+  template ndarray::Array<float const, 1, 1> vectorToNdArray(std::vector<float> const&);
+  template ndarray::Array<double const, 1, 1> vectorToNdArray(std::vector<double> const&);
+
+  template ndarray::Array<size_t, 1, 1> vectorToNdArray(std::vector<size_t> &);
+  template ndarray::Array<int, 1, 1> vectorToNdArray(std::vector<int> &);
+  template ndarray::Array<long, 1, 1> vectorToNdArray(std::vector<long> &);
+  template ndarray::Array<float, 1, 1> vectorToNdArray(std::vector<float> &);
+  template ndarray::Array<double, 1, 1> vectorToNdArray(std::vector<double> &);
+
+  template ndarray::Array<double, 1, 1> typeCastNdArray(ndarray::Array<float const, 1, 1> const&, double const&);
+  template ndarray::Array<float, 1, 1> typeCastNdArray(ndarray::Array<double const, 1, 1> const&, float const&);
+  template ndarray::Array<int, 1, 1> typeCastNdArray(ndarray::Array<size_t const, 1, 1> const&, int const&);
+  template ndarray::Array<float, 1, 1> typeCastNdArray(ndarray::Array<int const, 1, 1> const&, float const&);
+  template ndarray::Array<double, 1, 1> typeCastNdArray(ndarray::Array<int const, 1, 1> const&, double const&);
 }
 }}}
