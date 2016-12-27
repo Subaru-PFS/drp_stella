@@ -409,6 +409,22 @@ namespace pfs { namespace drp { namespace stella { namespace utils{
     return pointer;
   }
 
+  template<typename T>
+  ndarray::Array<T, 1, 1> vectorToNdArray(std::vector<T> & vec){
+    ndarray::Array<T, 1, 1> array = external(vec.data(),
+                                             ndarray::makeVector(int(vec.size())),
+                                             ndarray::makeVector(1));
+    return array;
+  }
+
+  template<typename T>
+  ndarray::Array<T const, 1, 1> vectorToNdArray(std::vector<T> const& vec){
+    const ndarray::Array<T const, 1, 1> array = external(vec.data(),
+                                                         ndarray::makeVector(int(vec.size())),
+                                                         ndarray::makeVector(1));
+    return array;
+  }
+
   template std::string numberToString_dotToUnderscore( float, int );
   template std::string numberToString_dotToUnderscore( double, int );
   
@@ -426,5 +442,17 @@ namespace pfs { namespace drp { namespace stella { namespace utils{
   template ndarray::Array<int, 2, 1> get2DndArray(int, int);
   template ndarray::Array<float, 2, 1> get2DndArray(float, float);
   template ndarray::Array<double, 2, 1> get2DndArray(double, double);
+
+  template ndarray::Array<size_t const, 1, 1> vectorToNdArray(std::vector<size_t> const&);
+  template ndarray::Array<int const, 1, 1> vectorToNdArray(std::vector<int> const&);
+  template ndarray::Array<long const, 1, 1> vectorToNdArray(std::vector<long> const&);
+  template ndarray::Array<float const, 1, 1> vectorToNdArray(std::vector<float> const&);
+  template ndarray::Array<double const, 1, 1> vectorToNdArray(std::vector<double> const&);
+
+  template ndarray::Array<size_t, 1, 1> vectorToNdArray(std::vector<size_t> &);
+  template ndarray::Array<int, 1, 1> vectorToNdArray(std::vector<int> &);
+  template ndarray::Array<long, 1, 1> vectorToNdArray(std::vector<long> &);
+  template ndarray::Array<float, 1, 1> vectorToNdArray(std::vector<float> &);
+  template ndarray::Array<double, 1, 1> vectorToNdArray(std::vector<double> &);
 }
 }}}
