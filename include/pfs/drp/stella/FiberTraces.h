@@ -62,6 +62,7 @@ namespace afwImage = lsst::afw::image;
 namespace pexExcept = lsst::pex::exceptions;
 
 using namespace std;
+
 namespace pfs { namespace drp { namespace stella {
 /**
  * \brief Describe a single fiber trace
@@ -320,7 +321,7 @@ namespace math{
                                                                      const PTR(const FiberTraceFunctionFindingControl) &fiberTraceFunctionFindingControl);
   
   struct FindCenterPositionsOneTraceResult{
-      std::vector<float> apertureCenterIndex;/// CONVERT ALL TO FLOAT???
+      std::vector<float> apertureCenterIndex;
       std::vector<float> apertureCenterPos;
       std::vector<float> eApertureCenterPos;
   };
