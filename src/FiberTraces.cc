@@ -1556,26 +1556,17 @@ namespace pfsDRPStella = pfs::drp::stella;
         }
       }
       do{
-        FindCenterPositionsOneTraceResult findCenterPositionsOneTraceResult = findCenterPositionsOneTrace( ccdImage,
-                                                                                                           ccdVarianceImage,
-                                                                                                           fiberTraceFunctionFindingControl );
-        if (findCenterPositionsOneTraceResult.apertureCenterIndex.size() > fiberTraceFunctionFindingControl->minLength){
+        FindCenterPositionsOneTraceResult result = findCenterPositionsOneTrace( ccdImage,
+                                                                                ccdVarianceImage,
+                                                                                fiberTraceFunctionFindingControl );
+        if (result.apertureCenterIndex.size() > fiberTraceFunctionFindingControl->minLength){
           B_ApertureFound = true;
-          const ndarray::Array<float, 1, 1> F_A1_ApertureCenterIndex = ndarray::external(findCenterPositionsOneTraceResult.apertureCenterIndex.data(), ndarray::makeVector(int(findCenterPositionsOneTraceResult.apertureCenterIndex.size())), ndarray::makeVector(1));
-          const ndarray::Array<float, 1, 1> F_A1_ApertureCenterPos = ndarray::external(findCenterPositionsOneTraceResult.apertureCenterPos.data(), ndarray::makeVector(int(findCenterPositionsOneTraceResult.apertureCenterPos.size())), ndarray::makeVector(1));
-          const ndarray::Array<float, 1, 1> F_A1_EApertureCenterPos = ndarray::external(findCenterPositionsOneTraceResult.eApertureCenterPos.data(), ndarray::makeVector(int(findCenterPositionsOneTraceResult.eApertureCenterPos.size())), ndarray::makeVector(1));
-          ndarray::Array<double, 1, 1> D_A1_ApertureCenterIndex = ndarray::allocate(F_A1_ApertureCenterIndex.getShape()[0]);
-          auto itDI = D_A1_ApertureCenterIndex.begin();
-          for (auto itF = F_A1_ApertureCenterIndex.begin(); itF != F_A1_ApertureCenterIndex.end(); ++itF, ++itDI)
-            *itDI = double(*itF);
-          ndarray::Array<double, 1, 1> D_A1_ApertureCenterPos = ndarray::allocate(F_A1_ApertureCenterPos.getShape()[0]);
-          auto itDP = D_A1_ApertureCenterPos.begin();
-          for (auto itF = F_A1_ApertureCenterPos.begin(); itF != F_A1_ApertureCenterPos.end(); ++itF, ++itDP)
-            *itDP = double(*itF);
-          ndarray::Array<double, 1, 1> D_A1_EApertureCenterPos = ndarray::allocate(F_A1_EApertureCenterPos.getShape()[0]);
-          auto itDE = D_A1_EApertureCenterPos.begin();
-          for (auto itF = F_A1_EApertureCenterPos.begin(); itF != F_A1_EApertureCenterPos.end(); ++itF, ++itDE)
-            *itDE = double(*itF);
+          const ndarray::Array<float const, 1, 1> F_A1_ApertureCenterIndex = vectorToNdArray(result.apertureCenterIndex);
+          const ndarray::Array<float const, 1, 1> F_A1_ApertureCenterPos = vectorToNdArray(result.apertureCenterPos);
+          const ndarray::Array<float const, 1, 1> F_A1_EApertureCenterPos = vectorToNdArray(result.eApertureCenterPos);
+          ndarray::Array<double, 1, 1> D_A1_ApertureCenterIndex = utils::typeCastNdArray(F_A1_ApertureCenterIndex, double(0.));
+          ndarray::Array<double, 1, 1> D_A1_ApertureCenterPos = utils::typeCastNdArray(F_A1_ApertureCenterPos, double(0.));
+          ndarray::Array<double, 1, 1> D_A1_EApertureCenterPos = utils::typeCastNdArray(F_A1_EApertureCenterPos, double(0.));
 
           #ifdef __DEBUG_FINDANDTRACE__
             cout << "::pfs::drp::stella::math::findAndTraceApertures: D_A1_ApertureCenterIndex = " << D_A1_ApertureCenterIndex << endl;
