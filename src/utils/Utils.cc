@@ -1,6 +1,6 @@
 #include "pfs/drp/stella/utils/Utils.h"
 namespace pfs { namespace drp { namespace stella { namespace utils{
-  
+
   int KeyWord_Set(vector<string> const& keyWords_In,
                   string const& str_In){
     for (int m = 0; m < int(keyWords_In.size()); ++m){
@@ -9,15 +9,15 @@ namespace pfs { namespace drp { namespace stella { namespace utils{
     }
     return -1;
   }
-  
+
   /**************************************************************************/
-  
+
   bool trimString(string &str, const int mode){
     return trimString(str, ' ', mode);
   }
 
   /**************************************************************************/
-  
+
   bool trimString(string &str, const char chr, const int mode){
     if ((mode == 0) || (mode == 2)){
       while (str.find(chr) == 0){
@@ -33,7 +33,7 @@ namespace pfs { namespace drp { namespace stella { namespace utils{
   }
 
   /**************************************************************************/
-  
+
   bool sToD(const string &str, double &D_Out){
     D_Out = 0;
     for (unsigned int i=0; i<str.length(); i++){
@@ -90,7 +90,7 @@ namespace pfs { namespace drp { namespace stella { namespace utils{
   }
 
   /**************************************************************************/
-  
+
   bool FileAccess(const string &fn){
     FILE *ffile;
 
@@ -105,7 +105,7 @@ namespace pfs { namespace drp { namespace stella { namespace utils{
   }
 
   /**************************************************************************/
-  
+
   long countLines(const string &fnc){
     if (fnc.length() > 255){
       cout << "countLines: ERROR: input file name = <" << fnc << "> too long => Returning -1" << endl;
@@ -151,7 +151,7 @@ namespace pfs { namespace drp { namespace stella { namespace utils{
   }
 
   /**************************************************************************/
-  
+
   long countDataLines(const string &fnc){
     FILE *ffile;
     long nelements;
@@ -195,7 +195,7 @@ namespace pfs { namespace drp { namespace stella { namespace utils{
   }
 
   /**************************************************************************/
-  
+
   long countCols(const string &fileName_In, const string &delimiter){
     long L_Cols = 0;
     long L_OldCols = 0;
@@ -304,7 +304,7 @@ namespace pfs { namespace drp { namespace stella { namespace utils{
   }
 
   /**************************************************************************/
-  
+
   template<typename T>
   ndarray::Array<T, 2, 1> get2DndArray(T nRows, T nCols){
     ndarray::Array<T, 2, 1> out = ndarray::allocate(nRows, nCols);
@@ -313,7 +313,7 @@ namespace pfs { namespace drp { namespace stella { namespace utils{
   }
 
   /**************************************************************************/
-  
+
   template<typename T>
   ndarray::Array<T, 1, 1> get1DndArray(T size){
     ndarray::Array<T, 1, 1> out = ndarray::allocate(size);
@@ -322,7 +322,7 @@ namespace pfs { namespace drp { namespace stella { namespace utils{
   }
 
   /**************************************************************************/
-  
+
   template<typename T>
   std::vector<T> copy(const std::vector<T> &vecIn){
     std::vector<T> vecOut = vecIn;
@@ -330,8 +330,8 @@ namespace pfs { namespace drp { namespace stella { namespace utils{
   }
 
   /**************************************************************************/
-  
-  template< typename T > 
+
+  template< typename T >
   std::string numberToString_dotToUnderscore( T number, int accuracy ){
     string out;
     if ( ( number > 1.e5 ) || ( ( number < 1.e-5 ) && ( number > 1.e-15 ) ) ){
@@ -371,7 +371,7 @@ namespace pfs { namespace drp { namespace stella { namespace utils{
   }
 
   /**************************************************************************/
-  
+
   std::string dotToUnderscore( std::string number, int accuracy ){
     string out(number);
     int dotPos = out.find( "." );
@@ -400,9 +400,9 @@ namespace pfs { namespace drp { namespace stella { namespace utils{
     }
     return out;
   }
-  
+
   /**************************************************************************/
-  
+
   template<typename T>
   PTR(T) getPointer(T &obj){
     PTR(T) pointer(new T(obj));
@@ -427,7 +427,7 @@ namespace pfs { namespace drp { namespace stella { namespace utils{
 
   template std::string numberToString_dotToUnderscore( float, int );
   template std::string numberToString_dotToUnderscore( double, int );
-  
+
   template std::vector<int> copy(const std::vector<int>&);
   template std::vector<float> copy(const std::vector<float>&);
   template std::vector<double> copy(const std::vector<double>&);
