@@ -425,6 +425,16 @@ namespace pfs { namespace drp { namespace stella { namespace utils{
     return array;
   }
 
+  template<typename T, typename U>
+  ndarray::Array<U, 1, 1> typeCastNdArray(ndarray::Array<T const, 1, 1> const& arr, U const& newType){
+    ndarray::Array<U, 1, 1> out = ndarray::allocate(arr.getShape()[0]);
+    auto itOut = out.begin();
+    for (auto itIn = arr.begin(); itIn != arr.end(); ++itIn, ++itOut){
+      *itOut = U(*itIn);
+    }
+    return out;
+  }
+
   template std::string numberToString_dotToUnderscore( float, int );
   template std::string numberToString_dotToUnderscore( double, int );
 
@@ -454,5 +464,11 @@ namespace pfs { namespace drp { namespace stella { namespace utils{
   template ndarray::Array<long, 1, 1> vectorToNdArray(std::vector<long> &);
   template ndarray::Array<float, 1, 1> vectorToNdArray(std::vector<float> &);
   template ndarray::Array<double, 1, 1> vectorToNdArray(std::vector<double> &);
+
+  template ndarray::Array<double, 1, 1> typeCastNdArray(ndarray::Array<float const, 1, 1> const&, double const&);
+  template ndarray::Array<float, 1, 1> typeCastNdArray(ndarray::Array<double const, 1, 1> const&, float const&);
+  template ndarray::Array<int, 1, 1> typeCastNdArray(ndarray::Array<size_t const, 1, 1> const&, int const&);
+  template ndarray::Array<float, 1, 1> typeCastNdArray(ndarray::Array<int const, 1, 1> const&, float const&);
+  template ndarray::Array<double, 1, 1> typeCastNdArray(ndarray::Array<int const, 1, 1> const&, double const&);
 }
 }}}
