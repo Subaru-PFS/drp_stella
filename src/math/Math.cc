@@ -65,20 +65,12 @@ namespace pfs {
           return minCenMax_Out;
         }
 
-        /**
-         * Fix(double)
-         * Returns integer value cut at decimal point. If D_In is negative the integer value greater or equal than D_In is returned.
-         **/
         template <typename T>
         int Fix( T D_In )
         {
           return (((D_In < T(0.)) && (T(static_cast < int > (D_In)) < D_In)) ? static_cast < int > (D_In) + 1 : static_cast < int > (D_In));
         }
 
-        /**
-         * Fix(double)
-         * Returns long integer value cut at decimal point (See int Fix(double)).
-         **/
         template <typename T>
         long FixL( T D_In )
         {
@@ -126,23 +118,6 @@ namespace pfs {
           }
           return A1_Array_Out;
         }
-
-                /*    template< typename T >
-            bool InvertGaussJ(ndarray::Array<T, 2, 1> & AArray){
-              int N = AArray.getShape()[1];
-              assert(N == AArray.getShape()[0]);
-              ndarray::Array<T, 2, 1> Unity(N, N);
-              Unity.deep() = 0.;
-              for (int m = 0; m < N; m ++){
-                Unity[m][m] = 1.;
-              }
-              if (!pfs::drp::stella::math::InvertGaussJ(AArray, Unity)){
-                cout << "InvertGaussJ: ERROR: InvertGaussJ(AArray=" << AArray << ", Unity=" << Unity << ") retuned FALSE" << endl;
-                return false;
-              }
-              return true;
-            }
-         */
 
         template<typename T>
         bool countPixGTZero( ndarray::Array<T, 1, 1> &vec_InOut )
@@ -219,32 +194,16 @@ namespace pfs {
           return -1;
         }
 
-        /**
-         *  bool IsOddNumber(long No) const
-         *  Returns TRUE, if No is an Odd Number, FALSE if No is an Even Number.
-         **/
         bool IsOddNumber( long No )
         {
           return (std::fabs(( double ) ((( double ) No) / 2.) - ( double ) ( int ) ((( double ) No) / 2.)) > 0.3);
         }
 
-        /**
-         * function GetRowFromIndex(int I_Index_In, int I_NRows_In) const
-         * task: Returns Row specified by I_Index_In from the formula
-         *       Col = (int)(I_Index_In / I_NRows_In)
-         *       Row = fiberTraceNumber - Col * I_NRows_In
-         **/
         int GetRowFromIndex( int I_Index_In, int I_NRows_In )
         {
           return (I_Index_In - (I_NRows_In * pfs::drp::stella::math::GetColFromIndex(I_Index_In, I_NRows_In)));
         }
 
-        /**
-         * function GetColFromIndex(int I_Index_In, int I_NRows_In) const
-         * task: Returns Col specified by I_Index_In from the formula
-         *       Col = (int)(I_Index_In / I_NRows_In)
-         *       Row = fiberTraceNumber - Col * I_NRows_In
-         **/
         int GetColFromIndex( int I_Index_In, int I_NRows_In )
         {
           return (( int ) (I_Index_In / I_NRows_In));
@@ -459,16 +418,6 @@ namespace pfs {
           }
           return arr_Out;
         }
-
-        //  template <typename T>
-        //  ndarray::Array<int, 1, 1> Int(ndarray::Array<T, 1, 1> const& arr_In){
-        //    ndarray::Array<int, 1, 1> arr_Out = ndarray::allocate(arr_In.getShape()[0]);
-        //    auto it_arr_Out = arr_Out.begin();
-        //    auto it_arr_In = arr_In.begin();
-        //    for (int i = 0; i < arr_In.getShape()[0]; ++i)
-        //      (*(it_arr_Out + i)) = int((*(it_arr_In + i)));
-        //    return arr_Out;
-        //  }
 
         template<typename T>
         ndarray::Array<T, 1, 1> indGenNdArr( T const size )
@@ -689,19 +638,6 @@ namespace pfs {
           return arr_Out;
         }
 
-                /*    template<typename T>
-            ndarray::Array<T, 1, 1> getSubArray(ndarray::Array<T, 2, 1> const& arr_In,
-                                                ndarray::Array<size_t, 2, 1> const& indices_In){
-              ndarray::Array<T, 1, 1> arr_Out = ndarray::allocate(indices_In.getShape()[0]);
-              for (size_t iRow = 0; iRow < indices_In.getShape()[0]; ++iRow){
-                arr_Out[iRow] = arr_In[indices_In[iRow][0]][indices_In[iRow][1]];
-                #ifdef __DEBUG_GETSUBARRAY__
-                  cout << "getSubArray: arr_Out[" << iRow << "] = " << arr_Out[iRow] << endl;
-                #endif
-              }
-              return arr_Out;
-            }*/
-
         template< typename T, typename U >
         ndarray::Array<T, 1, 1> getSubArray( ndarray::Array<T, 2, 1> const& arr_In,
                                              ndarray::Array<U, 2, 1> const& indices_In )
@@ -769,201 +705,6 @@ namespace pfs {
             if ( !isInserted )
               I_A1_Indx.push_back(i);
           }
-          /*      int I_M = 7;
-                int I_NStack = 50;
-
-                int I_Ir = I_SizeIn - 1;
-                int I_L = 0;
-
-                int I_I, I_Indxt, I_J, I_K;
-                int I_JStack = 0;
-                std::vector<int> I_A1_IStack(I_NStack);
-                for (int i = 0; i < I_SizeIn; ++i)
-                  I_A1_Indx[i] = i;
-                for (auto it = I_A1_IStack.begin(); it != I_A1_IStack.end(); ++it)
-           *it = 0;
-                T D_A;
-
-                #ifdef __DEBUG_SORT__
-                  cout << "SortIndices() starting for(;;)" << endl;
-                #endif
-                for(;;)
-                {
-                  if (I_Ir - I_L < I_M)
-                  {
-                    for (I_J = I_L + 1; I_J <= I_Ir; I_J++)
-                    {
-                      I_Indxt = I_A1_Indx[I_J];
-                      #ifdef __DEBUG_SORT__
-                        cout << "SortIndices(): I_Indxt set to " << I_Indxt << endl;
-                      #endif
-                      D_A = vec_In[I_Indxt];
-                      #ifdef __DEBUG_SORT__
-                        cout << "SortIndices(): D_A set to " << D_A << endl;
-                      #endif
-                      for (I_I = I_J - 1; I_I >= I_L; I_I--)
-                      {
-                        if (vec_In[I_A1_Indx[I_I]] <= D_A)
-                        {
-                          #ifdef __DEBUG_SORT__
-                            cout << "SortIndices(): vec_In[P_I_A1_Indx(I_I = " << I_I << ") = " << I_A1_Indx[I_I] << "] <= D_A = " << D_A << " =>  BREAK" << endl;
-                          #endif
-                          break;
-                        }
-                        I_A1_Indx[I_I + 1] = I_A1_Indx[I_I];
-                      }
-                      I_A1_Indx[I_I + 1] = I_Indxt;
-                    }
-                    if (I_JStack == 0)
-                    {
-                      #ifdef __DEBUG_SORT__
-                        cout << "SortIndices(): I_JStack <= 0 =>  BREAK" << endl;
-                      #endif
-                      break;
-                    }
-                    I_Ir = I_A1_IStack[I_JStack--];
-                    #ifdef __DEBUG_SORT__
-                      cout << "SortIndices(): I_Ir(=" << I_Ir << ") set to I_A1_IStack(I_JStack--=" << I_JStack << ") = " << I_A1_IStack[I_JStack] << endl;
-                    #endif
-                    I_L  = I_A1_IStack[I_JStack--];
-                    #ifdef __DEBUG_SORT__
-                      cout << "SortIndices(): I_L(=" << I_L << ") set to I_A1_IStack(I_JStack--=" << I_JStack << ") = " << I_A1_IStack[I_JStack] << endl;
-                    #endif
-
-                  }
-                  else
-                  {
-                    I_K = (I_L + I_Ir) >> 1;
-                    #ifdef __DEBUG_SORT__
-                      cout << "SortIndices(): I_K(=" << I_K << ") set to (I_L[=" << I_L << "] + I_Ir[=" << I_Ir << "] >> 1)  = " << ((I_L + I_Ir) >> 1) << endl;
-                    #endif
-                    std::swap(I_A1_Indx[I_K],
-                         I_A1_Indx[I_L + 1]);
-                    #ifdef __DEBUG_SORT__
-                      cout << "SortIndices(vec_In): P_I_A1_Indx(I_K=" << I_K << ")=" << I_A1_Indx[I_K] << " and P_I_A1_Indx(I_L(=" << I_L << ")+1)=" << I_A1_Indx[I_L+1] << " std::swapped" << endl;
-                    #endif
-                    if (vec_In[I_A1_Indx[I_L]]
-                      > vec_In[I_A1_Indx[I_Ir]])
-                    {
-                      std::swap(I_A1_Indx[I_L],
-                           I_A1_Indx[I_Ir]);
-                      #ifdef __DEBUG_SORT__
-                        cout << "SortIndices(vec_In): P_I_A1_Indx(I_L=" << I_L << ")=" << I_A1_Indx[I_L] << " and P_I_A1_Indx(I_Ir(=" << I_Ir << "))=" << I_A1_Indx[I_Ir] << " std::swapped" << endl;
-                      #endif
-
-                    }
-                    if (vec_In[I_A1_Indx[I_L + 1]]
-                      > vec_In[I_A1_Indx[I_Ir]])
-                    {
-                      std::swap(I_A1_Indx[I_L + 1],
-                           I_A1_Indx[I_Ir]);
-                      #ifdef __DEBUG_SORT__
-                        cout << "SortIndices(vec_In): P_I_A1_Indx(I_L=" << I_L << "+1)=" << I_A1_Indx[I_L + 1] << " and P_I_A1_Indx(I_Ir(=" << I_Ir << "))=" << I_A1_Indx[I_L+1] << " std::swapped" << endl;
-                      #endif
-
-                    }
-                    if (vec_In[I_A1_Indx[I_L]]
-                      > vec_In[I_A1_Indx[I_L + 1]])
-                    {
-                      std::swap(I_A1_Indx[I_L],
-                           I_A1_Indx[I_L + 1]);
-                      #ifdef __DEBUG_SORT__
-                        cout << "SortIndices(vec_In): P_I_A1_Indx(I_L=" << I_L << ")=" << I_A1_Indx[I_L] << " and P_I_A1_Indx(I_L(=" << I_L << ")+1)=" << I_A1_Indx[I_L+1] << " std::swapped" << endl;
-                      #endif
-
-                    }
-                    I_I = I_L + 1;
-                    #ifdef __DEBUG_SORT__
-                      cout << "SortIndices(vec_In): I_I(=" << I_I << ") set to (I_L[=" << I_L << "] + 1)  = " << I_L + 1 << endl;
-                    #endif
-                    I_J = I_Ir;
-                    #ifdef __DEBUG_SORT__
-                      cout << "SortIndices(vec_In): I_J(=" << I_J << ") set to I_Ir[=" << I_Ir << "]" << endl;
-                    #endif
-                    I_Indxt = I_A1_Indx[I_L + 1];
-                    #ifdef __DEBUG_SORT__
-                      cout << "SortIndices(vec_In): I_Indxt(=" << I_Indxt << ") set to P_I_A1_Indx(I_L = " << I_L << "+1)" << endl;
-                    #endif
-                    D_A = vec_In[I_Indxt];
-                    #ifdef __DEBUG_SORT__
-                      cout << "SortIndices(vec_In): D_A(=" << D_A << ") set to vec_In[I_Indxt = " << I_Indxt << "]" << endl;
-                    #endif
-                    for (;;)
-                    {
-                      do
-                      {
-                        I_I++;
-                        #ifdef __DEBUG_SORT__
-                          cout << "SortIndices(vec_In): I_I set to " << I_I << " => vec_In[P_I_A1_Indx(I_I)] = " << vec_In[I_A1_Indx[I_I]] << endl;
-                        #endif
-                      }
-                      while(vec_In[I_A1_Indx[I_I]] < D_A && I_I < I_SizeIn - 2);
-                      do
-                      {
-                        I_J--;
-                        #ifdef __DEBUG_SORT__
-                          cout << "SortIndices(vec_In): I_J set to " << I_J << " => vec_In(P_I_A1_Indx(I_J)) = " << vec_In[I_A1_Indx[I_J]] << endl;
-                        #endif
-                      }
-                      while(vec_In[I_A1_Indx[I_J]] > D_A && I_J > 0);
-                      if (I_J < I_I)
-                      {
-                        #ifdef __DEBUG_SORT__
-                          cout << "SortIndices(vec_In): I_J(=" << I_J << ") < I_I(=" << I_I << ") => BREAK" << endl;
-                        #endif
-                        break;
-                      }
-                      std::swap(I_A1_Indx[I_I],
-                           I_A1_Indx[I_J]);
-                      #ifdef __DEBUG_SORT__
-                        cout << "SortIndices(vec_In): P_I_A1_Indx(I_I=" << I_I << ")=" << I_A1_Indx[I_I] << " and P_I_A1_Indx(I_J(=" << I_J << "))=" << I_A1_Indx[I_J] << " std::swapped" << endl;
-                      #endif
-                    }
-                    I_A1_Indx[I_L + 1] = I_A1_Indx[I_J];
-                    #ifdef __DEBUG_SORT__
-                      cout << "SortIndices(vec_In): P_I_A1_Indx(I_L=" << I_L << "+1) set to P_I_A1_Indx(I_J=" << I_J << ") = " << I_A1_Indx[I_L+1] << endl;
-                    #endif
-                    I_A1_Indx[I_J] = I_Indxt;
-                    #ifdef __DEBUG_SORT__
-                      cout << "SortIndices(vec_In): P_I_A1_Indx(I_J=" << I_J << ") set to I_Indxt(=" << I_Indxt << ")" << endl;
-                    #endif
-                    I_JStack += 2;
-                    #ifdef __DEBUG_SORT__
-                      cout << "SortIndices(vec_In): I_JStack = " << I_JStack << endl;
-                    #endif
-                    if (I_JStack > I_NStack)
-                    {
-                      cout << "SortIndices: ERROR: I_NStack ( = " << I_NStack << ") too small!!!";
-                      exit(EXIT_FAILURE);
-                    }
-                    if (I_Ir - I_I + 1 >= I_J - I_L)
-                    {
-                      #ifdef __DEBUG_SORT__
-                        cout << "SortIndices(vec_In): I_Ir(= " << I_Ir << ") - I_I(=" << I_I << ") + 1 = " << I_Ir - I_I + 1 << " >= I_J(="<< I_J << ") + I_L(=" << I_L << ") = " << I_J - I_L << endl;
-                      #endif
-                      I_A1_IStack[I_JStack] = I_Ir;
-                      I_A1_IStack[I_JStack - 1] = I_I;
-                      I_Ir = I_J - 1;
-                      #ifdef __DEBUG_SORT__
-                        cout << "SortIndices(vec_In): I_I set to I_J(=" << I_J << ") - 1" << endl;
-                      #endif
-
-                    }
-                    else
-                    {
-                      #ifdef __DEBUG_SORT__
-                        cout << "SortIndices(vec_In): I_Ir(= " << I_Ir << ") - I_I(=" << I_I << ") + 1 = " << I_Ir - I_I + 1 << " < I_J(="<< I_J << ") + I_L(=" << I_L << ") = " << I_J - I_L << endl;
-                      #endif
-                      I_A1_IStack[I_JStack] = I_J - 1;
-                      I_A1_IStack[I_JStack - 1] = I_L;
-                      I_L = I_I;
-                      #ifdef __DEBUG_SORT__
-                        cout << "SortIndices(vec_In): I_L set to I_I(=" << I_I << endl;
-                      #endif
-
-                    }
-                  }
-                }*/
           return (I_A1_Indx);
         }
 
@@ -1115,7 +856,6 @@ namespace pfs {
 #ifdef __DEBUG_XCOR__
           cout << "pfs::drp::stella::math::xCor: chiSquareArr = " << chiSquareArr << endl;
 #endif
-          //      cout << " check guess, limits, and output: 0: peak, 1: pos, 2: sigma, 3: background" << endl;
           //      exit(EXIT_FAILURE);
           D_A1_Guess[3] = max(chiSquareArr); ///constant offset
           D_A1_Guess[0] = 0. - D_A1_Guess[3] + min(chiSquareArr); ///peak
@@ -1528,9 +1268,6 @@ namespace pfs {
           return sqrt(rms);
         }
 
-        /**
-          CrossCorrelate with Gauss fit to ChiSquare to find subpixel of minimum
-         **/
         template< typename T >
         CrossCorrelateResult crossCorrelate( ndarray::Array<T, 1, 1> const& DA1_Static,
                                              ndarray::Array<T, 1, 1> const& DA1_Moving,
@@ -1623,21 +1360,8 @@ namespace pfs {
             cout << "crossCorrelate: DA1_ChiSquare(run = " << run << ") = " << DA1_ChiSquare[run] << endl;
 #endif
 
-            /// Save number of pixels used for calculations
-            //    IA1_NPix(run) = DA1_StaticTemp.size();
-            //    #ifdef __DEBUG_CROSSCORRELATE__
-            //      cout << "crossCorrelate: IA1_NPix(run = " << run << ") = " << IA1_NPix(run) << endl;
-            //    #endif
-
             run++;
           }
-          /// Normalise DA1_ChiSquare to number of pixels
-          //  Array<double, 1> DA1_NPix(IA1_NPix.size());
-          //  if (!this->CastIntArrToDblArr(IA1_NPix, DA1_NPix)){
-          //    cout << "crossCorrelate: ERROR: CastIntArrToDblArr(IA1_NPix) returned FALSE" << endl;
-          //    returm false;
-          //  }
-          //  DA1_ChiSquare = DA1_ChiSquare / DA1_NPix;
 #ifdef __DEBUG_CROSSCORRELATE__
           cout << "crossCorrelate: DA1_ChiSquare = " << DA1_ChiSquare << endl;
 #endif
@@ -1671,8 +1395,6 @@ namespace pfs {
           D_A1_ChiSqu = DA1_ChiSquare[ ndarray::view(I_Start, I_End) ];
           ndarray::Array< double, 1, 1 > P_D_A1_MeasureErrors = replicate(1., D_A1_ChiSqu.size());
           ndarray::Array< double, 1, 1 > D_A1_Guess = ndarray::allocate(4);
-          //      cout << "check guess, limits, output for 0: peak, 1: position, 2: sigma, 3: background" << endl;
-          //      exit(EXIT_FAILURE);
           D_A1_Guess[ 3 ] = max(DA1_ChiSquare); //background
           D_A1_Guess[ 0 ] = 0. - (max(DA1_ChiSquare) - DA1_ChiSquare[ minInd ]); ///peak
           D_A1_Guess[ 1 ] = double( minInd); ///pos
@@ -1738,7 +1460,6 @@ namespace pfs {
                               D_A1_GaussCoeffs,
                               D_A1_EGaussCoeffs) ) {
             cout << "crossCorrelate: WARNING: GaussFit returned FALSE" << endl;
-            //        return false;
           }
 #ifdef __DEBUG_CROSSCORRELATE__
           cout << "crossCorrelate: D_A1_X = " << D_A1_X << endl;
@@ -1757,9 +1478,6 @@ namespace pfs {
           return crossCorrelateResult;
         }
 
-        /**
-          CrossCorrelate
-         **/
         template< typename T >
         CrossCorrelateResult crossCorrelateI( ndarray::Array< T, 1, 1 > const& DA1_Static,
                                               ndarray::Array< T, 1> const& DA1_Moving,
@@ -1877,9 +1595,6 @@ namespace pfs {
           return crossCorrelateResult;
         }
 
-        /**
-          LsToFit
-         **/
         template< typename T >
         T lsToFit( ndarray::Array< T, 1, 1 > const& XXVecArr,
                    ndarray::Array< T, 1, 1 > const& YVecArr,
@@ -2228,9 +1943,6 @@ namespace pfs {
 #ifdef __DEBUG_INTERPOL__
           cout << "CFits::HInterPol: Ready: Returning PVecArr = " << PVecArr << endl;
 #endif
-
-          //      D1_Out = ndarray::allocate( PVecArr.getShape()[ 0 ]);
-          //      D1_Out.deep() = PVecArr;
 
           return PVecArr;
         }
@@ -2587,10 +2299,6 @@ namespace pfs {
                          T(1.0e30));
         }
 
-        /**
-          SplInt
-          Given the Arrays XAVecArr(0:N-1) and YAVecArr(0:N-1), which tabulate a function (whith the XAVecArr(i)'s in order), and given the array Y2AVecArr(0:N-1), which is the output from Spline above, and given a value of X, this routine returns a cubic-spline interpolated value Y;
-         **/
         template< typename T >
         T splInt( ndarray::Array< T, 1, 1 > const& XAVecArr,
                   ndarray::Array< T, 1, 1 > const& YAVecArr,
@@ -2625,9 +2333,6 @@ namespace pfs {
           return Y;
         }
 
-        /**
-          InterPol linear, not regular
-         **/
         template< typename T >
         ndarray::Array< T, 1, 1 > interPol( ndarray::Array< T, 1, 1 > const& VVecArr,
                                             ndarray::Array< T, 1, 1 > const& XVecArr,
@@ -2761,8 +2466,6 @@ namespace pfs {
 #ifdef __DEBUG_INTERPOL__
           cout << "CFits::InterPol(D_A1_V, D_A1_X, D_A1_U, CS_A1_In): M set to " << M << endl;
 #endif
-          //      firstIndex i;
-
           if ( XVecArr.getShape()[ 0 ] != M ) {
             cout << "CFits::InterPol: ERROR: XVecArr and VVecArr must have same # of elements!" << endl;
             exit(EXIT_FAILURE);
@@ -2905,12 +2608,6 @@ namespace pfs {
 
           ndarray::Array< T, 1, 1 > specTemp;
           ndarray::Array< T, 1, 1 > specRefTemp;
-          //      ndarray::Array< T, 2, 1 > specCalib_Out;
-          //      double rmsOut = 0.;
-          //  int I_PixShift = 0;
-          //      int linePos = 0;
-          //      int lineTemp = 0;
-          //      int nLines = 0;
           ndarray::Array< T, 1, 1 > refY;
           ndarray::Array< T, 1, 1 > refXStretched;
           ndarray::Array< double, 1, 1 > xCorChiSq = ndarray::allocate(nStretches);
