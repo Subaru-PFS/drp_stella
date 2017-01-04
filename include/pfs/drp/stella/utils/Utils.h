@@ -192,5 +192,9 @@ namespace pfs { namespace drp { namespace stella { namespace utils{
 
   template<typename T, typename U>
   ndarray::Array<U, 1, 1> typeCastNdArray(ndarray::Array<T const, 1, 1> const& arr, U const& newType);
+  template<typename T, typename U>
+  ndarray::Array<U, 1, 1> typeCastNdArray(ndarray::ArrayRef<T const, 1, 1> const& arr, U const& newType);
+  template<typename T, typename U>
+  ndarray::Array<U, 1, 1> typeCastNdArray(ndarray::ArrayRef<T, 1, 1> const& arr, U const& newType);
 }}}}
 #endif

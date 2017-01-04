@@ -435,6 +435,16 @@ namespace pfs { namespace drp { namespace stella { namespace utils{
     return out;
   }
 
+  template<typename T, typename U>
+  ndarray::Array<U, 1, 1> typeCastNdArray(ndarray::ArrayRef<T const, 1, 1> const& arr, U const& newType){
+    return typeCastNdArray(ndarray::Array<T const, 1, 1>(arr), newType);
+  }
+
+  template<typename T, typename U>
+  ndarray::Array<U, 1, 1> typeCastNdArray(ndarray::ArrayRef<T, 1, 1> const& arr, U const& newType){
+    return typeCastNdArray(ndarray::Array<T const, 1, 1>(arr), newType);
+  }
+
   template std::string numberToString_dotToUnderscore( float, int );
   template std::string numberToString_dotToUnderscore( double, int );
 
@@ -466,9 +476,33 @@ namespace pfs { namespace drp { namespace stella { namespace utils{
   template ndarray::Array<double, 1, 1> vectorToNdArray(std::vector<double> &);
 
   template ndarray::Array<double, 1, 1> typeCastNdArray(ndarray::Array<float const, 1, 1> const&, double const&);
+  template ndarray::Array<float, 1, 1> typeCastNdArray(ndarray::Array<float const, 1, 1> const&, float const&);
+  template ndarray::Array<double, 1, 1> typeCastNdArray(ndarray::Array<double const, 1, 1> const&, double const&);
   template ndarray::Array<float, 1, 1> typeCastNdArray(ndarray::Array<double const, 1, 1> const&, float const&);
+  template ndarray::Array<size_t, 1, 1> typeCastNdArray(ndarray::Array<size_t const, 1, 1> const&, size_t const&);
   template ndarray::Array<int, 1, 1> typeCastNdArray(ndarray::Array<size_t const, 1, 1> const&, int const&);
+  template ndarray::Array<int, 1, 1> typeCastNdArray(ndarray::Array<int const, 1, 1> const&, int const&);
   template ndarray::Array<float, 1, 1> typeCastNdArray(ndarray::Array<int const, 1, 1> const&, float const&);
   template ndarray::Array<double, 1, 1> typeCastNdArray(ndarray::Array<int const, 1, 1> const&, double const&);
+
+  template ndarray::Array<double, 1, 1> typeCastNdArray(ndarray::ArrayRef<float const, 1, 1> const&, double const&);
+  template ndarray::Array<float, 1, 1> typeCastNdArray(ndarray::ArrayRef<float const, 1, 1> const&, float const&);
+  template ndarray::Array<double, 1, 1> typeCastNdArray(ndarray::ArrayRef<double const, 1, 1> const&, double const&);
+  template ndarray::Array<float, 1, 1> typeCastNdArray(ndarray::ArrayRef<double const, 1, 1> const&, float const&);
+  template ndarray::Array<size_t, 1, 1> typeCastNdArray(ndarray::ArrayRef<size_t const, 1, 1> const&, size_t const&);
+  template ndarray::Array<int, 1, 1> typeCastNdArray(ndarray::ArrayRef<size_t const, 1, 1> const&, int const&);
+  template ndarray::Array<int, 1, 1> typeCastNdArray(ndarray::ArrayRef<int const, 1, 1> const&, int const&);
+  template ndarray::Array<float, 1, 1> typeCastNdArray(ndarray::ArrayRef<int const, 1, 1> const&, float const&);
+  template ndarray::Array<double, 1, 1> typeCastNdArray(ndarray::ArrayRef<int const, 1, 1> const&, double const&);
+
+  template ndarray::Array<double, 1, 1> typeCastNdArray(ndarray::ArrayRef<float, 1, 1> const&, double const&);
+  template ndarray::Array<float, 1, 1> typeCastNdArray(ndarray::ArrayRef<float, 1, 1> const&, float const&);
+  template ndarray::Array<double, 1, 1> typeCastNdArray(ndarray::ArrayRef<double, 1, 1> const&, double const&);
+  template ndarray::Array<float, 1, 1> typeCastNdArray(ndarray::ArrayRef<double, 1, 1> const&, float const&);
+  template ndarray::Array<size_t, 1, 1> typeCastNdArray(ndarray::ArrayRef<size_t, 1, 1> const&, size_t const&);
+  template ndarray::Array<int, 1, 1> typeCastNdArray(ndarray::ArrayRef<size_t, 1, 1> const&, int const&);
+  template ndarray::Array<int, 1, 1> typeCastNdArray(ndarray::ArrayRef<int, 1, 1> const&, int const&);
+  template ndarray::Array<float, 1, 1> typeCastNdArray(ndarray::ArrayRef<int, 1, 1> const&, float const&);
+  template ndarray::Array<double, 1, 1> typeCastNdArray(ndarray::ArrayRef<int, 1, 1> const&, double const&);
 }
 }}}
