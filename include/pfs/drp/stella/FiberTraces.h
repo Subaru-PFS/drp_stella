@@ -55,7 +55,7 @@
 //#define __DEBUG_TRACEFUNC__
 //#define __DEBUG_UNIQ__
 //#define __DEBUG_XCENTERS__
-#define DEBUGDIR "/Users/azuri/spectra/pfs/2014-11-02/debug/"// /home/azuri/entwicklung/idl/REDUCE/16_03_2013/"//stella/ses-pipeline/c/msimulateskysubtraction/data/"//spectra/elaina/eso_archive/red_564/red_r/"
+#define DEBUGDIR "/Users/azuri/spectra/pfs/2014-11-02/debug/"
 
 namespace afwGeom = lsst::afw::geom;
 namespace afwImage = lsst::afw::image;
@@ -94,25 +94,25 @@ class FiberTrace {
     
     /// Set the 2D image of this fiber trace to imageTrace
     /// Pre: _fiberTraceFunction must be set
-    bool setTrace(PTR(MaskedImageT) & trace);// { _trace = trace; }
+    bool setTrace(PTR(MaskedImageT) & trace);
 
     /// Return the pointer to the image of this fiber trace
     PTR(afwImage::Image<ImageT>) getImage() const { return _trace->getImage(); }
 
     /// Set the image pointer of this fiber trace to image
-    bool setImage(const PTR(afwImage::Image<ImageT>) &image);// { _trace->getImage() = image; }
+    bool setImage(const PTR(afwImage::Image<ImageT>) &image);
 
     /// Return the pointer to the mask of this fiber trace
     PTR(afwImage::Mask<MaskT>) getMask() const{ return _trace->getMask(); }
 
     /// Set the mask pointer of this fiber trace to mask
-    bool setMask(const PTR(afwImage::Mask<MaskT>) &mask);// { _trace->getMask() = mask; }
+    bool setMask(const PTR(afwImage::Mask<MaskT>) &mask);
 
     /// Return the pointer to the variance of this fiber trace
     PTR(afwImage::Image<VarianceT>) getVariance() const { return _trace->getVariance(); }
 
     /// Set the variance pointer of this fiber trace to variance
-    bool setVariance(const PTR(afwImage::Image<VarianceT>) &variance);// { _trace->getVariance() = variance; }
+    bool setVariance(const PTR(afwImage::Image<VarianceT>) &variance);
 
     /// Return the image of the spatial profile
     PTR(afwImage::Image<double>) getProfile() const{ return _profile; }
