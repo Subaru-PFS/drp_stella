@@ -998,12 +998,12 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
         Eigen::Array<ImageT, Eigen::Dynamic, 1> ccdRow(D_A2_CCD_In.row(i));
         Eigen::Array<SlitFuncT, Eigen::Dynamic, 1> slitFuncRow(D_A2_SF_In.row(i));
         int status = pfs::drp::stella::math::LinFitBevingtonEigen(ccdRow,
-                                                          slitFuncRow,
-                                                          D_A1_SP_Out(i),
-                                                          D_A1_Sky_Out(i),
-                                                          B_WithSky,
-                                                          S_A1_Args_Fit,
-                                                          Args_Fit);
+                                                                  slitFuncRow,
+                                                                  D_A1_SP_Out(i),
+                                                                  D_A1_Sky_Out(i),
+                                                                  B_WithSky,
+                                                                  S_A1_Args_Fit,
+                                                                  Args_Fit);
         if (status != 1){
           #ifdef __WARNINGS_ON__
             string message("CFits::LinFitBevington: WARNING: LinFitBevington(D_A2_CCD_In(i,blitz::Range::all()),D_A2_SF_In(i,blitz::Range::all()),D_A1_SP_Out(i),D_A1_Sky_Out(i),D_A1_STDDEV_Out(i),D_A1_Covariance_Out(i)) returned status = ");
