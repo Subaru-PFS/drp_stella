@@ -431,7 +431,7 @@ class FiberTraceTestCase(tests.TestCase):
                 except:
                     e = sys.exc_info()[1]
                     message = str.split(e.message, "\n")
-                    expected = "FiberTrace "+str(iTrace)+"::calcProfile: ERROR: _fiberTraceProfileFittingControl is not set"
+                    expected = "FiberTrace "+str(iTrace)+"::calcProfile: ERROR: _profileFittingControl is not set"
                     self.assertEqual(message[0],expected)
                 self.assertTrue(fiberTrace.setFiberTraceProfileFittingControl(ftpfc))
                 self.assertTrue(fiberTrace.calcProfile())

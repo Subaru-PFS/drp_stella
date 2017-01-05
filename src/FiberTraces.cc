@@ -23,7 +23,7 @@ namespace pfsDRPStella = pfs::drp::stella;
   _isProfileSet(false),
   _isFiberTraceProfileFittingControlSet(false),
   _fiberTraceFunction(new pfsDRPStella::FiberTraceFunction),
-  _fiberTraceProfileFittingControl(new FiberTraceProfileFittingControl)
+  _profileFittingControl(new FiberTraceProfileFittingControl)
   {
 
   }
@@ -45,7 +45,7 @@ namespace pfsDRPStella = pfs::drp::stella;
   _isProfileSet(false),
   _isFiberTraceProfileFittingControlSet(false),
   _fiberTraceFunction(fiberTraceFunction),
-  _fiberTraceProfileFittingControl(new FiberTraceProfileFittingControl)
+  _profileFittingControl(new FiberTraceProfileFittingControl)
   {
     _xCenters = ::pfs::drp::stella::math::calculateXCenters( fiberTraceFunction,
                                                              maskedImage->getHeight(),
@@ -71,7 +71,7 @@ namespace pfsDRPStella = pfs::drp::stella;
   _isProfileSet(fiberTrace.isProfileSet()),
   _isFiberTraceProfileFittingControlSet(fiberTrace.isFiberTraceProfileFittingControlSet()),
   _fiberTraceFunction(fiberTrace.getFiberTraceFunction()),
-  _fiberTraceProfileFittingControl(fiberTrace.getFiberTraceProfileFittingControl())
+  _profileFittingControl(fiberTrace.getFiberTraceProfileFittingControl())
   {
   }
 
@@ -92,7 +92,7 @@ namespace pfsDRPStella = pfs::drp::stella;
   _isProfileSet(fiberTrace.isProfileSet()),
   _isFiberTraceProfileFittingControlSet(fiberTrace.isFiberTraceProfileFittingControlSet()),
   _fiberTraceFunction(fiberTrace.getFiberTraceFunction()),
-  _fiberTraceProfileFittingControl(fiberTrace.getFiberTraceProfileFittingControl())
+  _profileFittingControl(fiberTrace.getFiberTraceProfileFittingControl())
   {
     if (deep){
       PTR(afwImage::MaskedImage<ImageT, MaskT, VarianceT>) ptr(new afwImage::MaskedImage<ImageT, MaskT, VarianceT>(*(fiberTrace.getTrace()), true));
@@ -129,9 +129,9 @@ namespace pfsDRPStella = pfs::drp::stella;
       throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
     }
 
-    /// test passed -> copy fiberTraceProfileFittingControl to _fiberTraceProfileFittingControl
-    _fiberTraceProfileFittingControl.reset();
-    _fiberTraceProfileFittingControl = fiberTraceProfileFittingControl;
+    /// test passed -> copy fiberTraceProfileFittingControl to _profileFittingControl
+    _profileFittingControl.reset();
+    _profileFittingControl = fiberTraceProfileFittingControl;
     _isFiberTraceProfileFittingControlSet = true;
 
     return true;
@@ -162,10 +162,10 @@ namespace pfsDRPStella = pfs::drp::stella;
       throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
     }
 
-    /// test passed -> copy fiberTraceProfileFittingControl to _fiberTraceProfileFittingControl
-    pfsDRPStella::FiberTraceProfileFittingControl ftpfc( *fiberTraceProfileFittingControl );
-    _fiberTraceProfileFittingControl.reset();
-    _fiberTraceProfileFittingControl = fiberTraceProfileFittingControl->getPointer();
+    /// test passed -> copy fiberTraceProfileFittingControl to _profileFittingControl
+    stella::FiberTraceProfileFittingControl ftpfc( *fiberTraceProfileFittingControl );
+    _profileFittingControl.reset();
+    _profileFittingControl = fiberTraceProfileFittingControl->getPointer();
     _isFiberTraceProfileFittingControlSet = true;
 
     return true;
@@ -448,7 +448,7 @@ namespace pfsDRPStella = pfs::drp::stella;
     P_Args_Fit[2] = &P_D_A2_Sigma_Fit;
 
     bool B_WithSky = false;
-    if (_fiberTraceProfileFittingControl->telluric.compare(_fiberTraceProfileFittingControl->TELLURIC_NAMES[0]) != 0){
+    if (_profileFittingControl->telluric.compare(_profileFittingControl->TELLURIC_NAMES[0]) != 0){
       D_A1_Sky.deep() = 1.;
       B_WithSky = true;
       cout << "extractFromProfile: Sky switched ON" << endl;
@@ -793,13 +793,14 @@ namespace pfsDRPStella = pfs::drp::stella;
     }
     if (!_isFiberTraceProfileFittingControlSet){
       string message("FiberTrace ");
-      message += to_string(_iTrace) + "::calcProfile: ERROR: _fiberTraceProfileFittingControl is not set";
+      message += to_string(_iTrace) + "::calcProfile: ERROR: _profileFittingControl is not set";
       cout << message << endl;
       throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
     }
 
     /// Calculate boundaries for swaths
-    const ndarray::Array<const size_t, 2, 1> swathBoundsY = calcSwathBoundY(_fiberTraceProfileFittingControl->swathWidth);
+    size_t swathWidth = _profileFittingControl->swathWidth;
+    const ndarray::Array<const size_t, 2, 1> swathBoundsY = calcSwathBoundY(swathWidth);
     #ifdef __DEBUG_CALCPROFILE__
       cout << "FiberTrace" << _iTrace << "::calcProfile: swathBoundsY = " << swathBoundsY << endl;
     #endif
@@ -1108,7 +1109,7 @@ namespace pfsDRPStella = pfs::drp::stella;
       cout << "FiberTrace::calcProfileSwath: iSwath = " << iSwath << ": xArray = " << xArray << endl;
       cout << "FiberTrace::calcProfileSwath: iSwath = " << iSwath << ": xMin = " << xMin << ", xMax = " << xMax << endl;
     #endif
-    double xOverSampleStep = 1. / _fiberTraceProfileFittingControl->overSample;
+    double xOverSampleStep = 1. / _profileFittingControl->overSample;
     #ifdef __DEBUG_CALCPROFILESWATH__
       cout << "FiberTrace::calcProfileSwath: iSwath = " << iSwath << ": initial xOverSampleStep = " << xOverSampleStep << endl;
     #endif
@@ -1178,18 +1179,29 @@ namespace pfsDRPStella = pfs::drp::stella;
             cout << "FiberTrace::calcProfileSwath: iSwath = " << iSwath << ": iStep = " << iStep << ": iterSig = " << iterSig << ": xSubArr = [" << xSubArr.getShape()[0] << "]: " << xSubArr << endl;
             cout << "FiberTrace::calcProfileSwath: iSwath = " << iSwath << ": iStep = " << iStep << ": iterSig = " << iterSig << ": subArr = [" << subArr.getShape()[0] << "]: " << subArr << endl;
           #endif
-          if (_fiberTraceProfileFittingControl->maxIterSig > iterSig){
+          if (_profileFittingControl->maxIterSig > iterSig){
             ndarray::Array<double, 1, 1> moments = math::moment(subArr, 2);
             #ifdef __DEBUG_CALCPROFILESWATH__
               cout << "FiberTrace::calcProfileSwath: iSwath = " << iSwath << ": iStep = " << iStep << ": iterSig = " << iterSig << ": moments = " << moments << endl;
             #endif
             for (int i = subArr.getShape()[0] - 1; i >= 0; --i){
               #ifdef __DEBUG_CALCPROFILESWATH__
-                cout << "FiberTrace::calcProfileSwath: iSwath = " << iSwath << ": iStep" << iStep << ": iterSig = " << iterSig << ": moments[0](=" << moments[0] << ") - subArr[" << i << "](=" << subArr[i] << ") = " << moments[0] - subArr[i] << ", 0. - (_fiberTraceProfileFittingControl->upperSigma(=" << _fiberTraceProfileFittingControl->upperSigma << ") * sqrt(moments[1](=" << moments[1] << "))(= " << sqrt(moments[1]) << ") = " << 0. - (_fiberTraceProfileFittingControl->upperSigma * sqrt(moments[1])) << endl;
-                cout << "FiberTrace::calcProfileSwath: iSwath = " << iSwath << ": iStep" << iStep << ": iterSig = " << iterSig << ": _fiberTraceProfileFittingControl->lowerSigma(=" << _fiberTraceProfileFittingControl->lowerSigma << ") * sqrt(moments[1](=" << moments[1] << "))(= " << sqrt(moments[1]) << ") = " << _fiberTraceProfileFittingControl->lowerSigma * sqrt(moments[1]) << endl;
+                cout << "FiberTrace::calcProfileSwath: iSwath = " << iSwath << ": iStep" << iStep;
+                cout << ": iterSig = " << iterSig << ": moments[0](=" << moments[0] << ") - subArr[";
+                cout << i << "](=" << subArr[i] << ") = " << moments[0] - subArr[i];
+                cout << ", 0. - (_profileFittingControl->upperSigma(=" << _profileFittingControl->upperSigma;
+                cout << ") * sqrt(moments[1](=" << moments[1] << "))(= " << sqrt(moments[1]) << ") = ";
+                cout << 0. - (_profileFittingControl->upperSigma * sqrt(moments[1])) << endl;
+                cout << "FiberTrace::calcProfileSwath: iSwath = " << iSwath << ": iStep" << iStep;
+                cout << ": iterSig = " << iterSig << ": _profileFittingControl->lowerSigma(=";
+                cout << _profileFittingControl->lowerSigma << ") * sqrt(moments[1](=" << moments[1];
+                cout << "))(= " << sqrt(moments[1]) << ") = ";
+                cout << _profileFittingControl->lowerSigma * sqrt(moments[1]) << endl;
               #endif
-              if ((moments[0] - subArr[i] < 0. - (_fiberTraceProfileFittingControl->upperSigma * sqrt(moments[1])))
-               || (moments[0] - subArr[i] > (_fiberTraceProfileFittingControl->lowerSigma * sqrt(moments[1])))){
+              bool const isSubArrITooLow((moments[0] - subArr[i]) < 0. - (_profileFittingControl->lowerSigma * sqrt(moments[1])));
+              bool const isSubArrITooHigh((moments[0] - subArr[i]) > (_profileFittingControl->upperSigma * sqrt(moments[1])));
+              if (isSubArrITooLow || isSubArrITooHigh)
+              {
                 #ifdef __DEBUG_CALCPROFILESWATH__
                   cout << "FiberTrace::calcProfileSwath: iSwath = " << iSwath << ": iStep = " << iStep << ": iterSig = " << iterSig << ": rejecting element " << i << "from subArr" << endl;
                 #endif
@@ -1206,7 +1218,7 @@ namespace pfsDRPStella = pfs::drp::stella;
           bThisStepHasValues = true;
         }
         ++iterSig;
-      } while (iterSig <= _fiberTraceProfileFittingControl->maxIterSig);
+      } while (iterSig <= _profileFittingControl->maxIterSig);
       if (bThisStepHasValues){
         valOverSampledVec.push_back(std::pair<double, double>(*it, mean));
         #ifdef __DEBUG_CALCPROFILESWATH__

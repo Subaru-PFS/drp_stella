@@ -207,7 +207,7 @@ class FiberTrace {
     bool _isProfileSet;
     bool _isFiberTraceProfileFittingControlSet;
     PTR(const FiberTraceFunction) _fiberTraceFunction;
-    PTR(FiberTraceProfileFittingControl) _fiberTraceProfileFittingControl;
+    PTR(FiberTraceProfileFittingControl) _profileFittingControl;
 
     /// for debugging purposes only
 
