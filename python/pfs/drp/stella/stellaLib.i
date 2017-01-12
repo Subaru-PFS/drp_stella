@@ -1089,3 +1089,5 @@ Interface to Stella
 %template(calcMinCenMax) pfs::drp::stella::math::calcMinCenMax<double, float>;
 %template(calcMinCenMax) pfs::drp::stella::math::calcMinCenMax<float, double>;
 %template(calcMinCenMax) pfs::drp::stella::math::calcMinCenMax<double, double>;
+
+%template(findITrace) pfs::drp::stella::math::findITrace<float, unsigned short, float, float, 0>;

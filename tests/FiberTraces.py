@@ -8,9 +8,11 @@ or
    python
    >>> import FiberTrace; FiberTrace.run()
 """
+from astropy.io import fits as pyfits
 import lsst.afw.image as afwImage
 import lsst.afw.display.ds9 as ds9
 import lsst.daf.persistence as dafPersist
+import lsst.log
 import lsst.utils
 import lsst.utils.tests as tests
 import numpy as np
@@ -46,6 +48,8 @@ class FiberTraceTestCase(tests.TestCase):
         self.nFiberTraces = 11
         self.minLength = 3880
         self.maxLength = 3930
+
+        self.wLenFile = os.path.join(lsst.utils.getPackageDir('obs_pfs'),'pfs/RedFiberPixels.fits.gz')
 
     def tearDown(self):
         del self.flat
@@ -716,6 +720,131 @@ class FiberTraceTestCase(tests.TestCase):
             ftOrig = ftsOrig.getFiberTrace(iFt)
             ftNew = fts.getFiberTrace(iFt)
             np.testing.assert_array_equal(ftOrig.getImage().getArray(), ftNew.getImage().getArray())
+
+    def testFindITrace(self):
+        logger = lsst.log.Log.getLogger("pfs::drp::stella::math::findITrace")
+        logger.setLevel(logger.WARN)
+
+        ft = drpStella.FiberTraceF(10,100)
+        fiberTraceFunction = drpStella.FiberTraceFunction()
+        fiberTraceFunction.xCenter = 6.0
+        fiberTraceFunction.yCenter = 60
+        ft.setFiberTraceFunction(fiberTraceFunction)
+
+        xCenters = np.ndarray(shape=(360),dtype=np.float32)
+        xCenters[0:120] = 5.0
+        xCenters[120:240] = 15.0
+        xCenters[240:360] = 25.0
+        nTraces = 3
+
+        for xCenter in [4.9,6.0,9.99,10.01,19.99,20.01]:
+            ft.getFiberTraceFunction().xCenter = xCenter
+            self.assertAlmostEqual(ft.getFiberTraceFunction().xCenter, xCenter, places=6)
+            iTrace = drpStella.findITrace(ft,
+                                          xCenters,
+                                          nTraces,
+                                          xCenters.shape[0] / nTraces,
+                                          0)
+            iTraceCheck = 0
+            if xCenter > 20.0:
+                iTraceCheck = 2
+            elif xCenter > 10.0:
+                iTraceCheck = 1
+            self.assertEqual(iTrace, iTraceCheck)
+
+            iTrace = drpStella.findITrace(ft,
+                                          xCenters,
+                                          nTraces,
+                                          xCenters.shape[0] / nTraces,
+                                          1)
+            if iTraceCheck == 0:
+                iTraceCheck = 1
+            self.assertEqual(iTrace, iTraceCheck)
+
+            iTrace = drpStella.findITrace(ft,
+                                          xCenters,
+                                          nTraces,
+                                          xCenters.shape[0] / nTraces,
+                                          2)
+            if iTraceCheck == 1:
+                iTraceCheck = 2
+            self.assertEqual(iTrace, iTraceCheck)
+
+        fts = drpStella.findAndTraceAperturesF(self.flat.getMaskedImage(), self.ftffc)
+
+        """ read wavelength file """
+        hdulist = pyfits.open(self.wLenFile)
+        tbdata = hdulist[1].data
+        traceIdsTemp = np.ndarray(shape=(len(tbdata)), dtype='int')
+        xCenters = np.ndarray(shape=(len(tbdata)), dtype='float32')
+        wavelengths = np.ndarray(shape=(len(tbdata)), dtype='float32')
+        traceIdsTemp[:] = tbdata[:]['fiberNum']
+        traceIds = traceIdsTemp.astype('int32')
+        wavelengths[:] = tbdata[:]['pixelWave']
+        xCenters[:] = tbdata[:]['xc']
+
+        traceIdsUnique = np.unique(traceIds)
+        nTraces = traceIdsUnique.shape[0]
+
+        traceNumbersCheck = [0,60,200,270,299,300,329,399,469,539,599]
+
+        for iFt in range(fts.size()):
+            ft = fts.getFiberTrace(iFt)
+            iTrace = drpStella.findITrace(ft,
+                                          xCenters,
+                                          nTraces,
+                                          xCenters.shape[0] / nTraces,
+                                          0)
+            self.assertEqual(iTrace, traceNumbersCheck[iFt])
+
+        ft = fts.getFiberTrace(0)
+        ftFunction = ft.getFiberTraceFunction()
+        ftFunction.yCenter = xCenters.shape[0] / nTraces / 2
+        for iFt in range(traceIdsUnique.shape[0]):
+            ftFunction.xCenter = xCenters[np.where(traceIds == traceIdsUnique[iFt])][ftFunction.yCenter]
+            ft.setFiberTraceFunction(ftFunction)
+            iTrace = drpStella.findITrace(ft,
+                                          xCenters,
+                                          nTraces,
+                                          xCenters.shape[0] / nTraces,
+                                          0)
+            self.assertEqual(iTrace, iFt)
+
+    def testAssignITrace(self):
+        fts = drpStella.findAndTraceAperturesF(self.flat.getMaskedImage(), self.ftffc)
+
+        """ read wavelength file """
+        hdulist = pyfits.open(self.wLenFile)
+        tbdata = hdulist[1].data
+        traceIdsTemp = np.ndarray(shape=(len(tbdata)), dtype='int')
+        xCenters = np.ndarray(shape=(len(tbdata)), dtype='float32')
+        traceIdsTemp[:] = tbdata[:]['fiberNum']
+        traceIds = traceIdsTemp.astype('int32')
+        xCenters[:] = tbdata[:]['xc']
+        traceIdsUnique = np.unique(traceIds)
+        nTraces = traceIdsUnique.shape[0]
+
+        traceNumbersCheck = [2,64,212,286,315,337,366,440,513,588,650]
+
+        """ assign trace number to fiberTraceSet """
+        drpStella.assignITrace( fts, traceIds, xCenters )
+        for i in range( fts.size() ):
+            iTrace = fts.getFiberTrace(i).getITrace()
+            self.assertEqual(iTrace, traceNumbersCheck[i])
+
+        fts.erase(1,fts.size())
+        self.assertEqual(fts.size(), 1)
+        ft = fts.getFiberTrace(0)
+        ftFunction = ft.getFiberTraceFunction()
+        ftFunction.yCenter = xCenters.shape[0] / nTraces / 2
+        for iFt in range(traceIdsUnique.shape[0]):
+            ftFunction.xCenter = xCenters[np.where(traceIds == traceIdsUnique[iFt])][ftFunction.yCenter]
+            ft.setFiberTraceFunction(ftFunction)
+            drpStella.assignITrace(fts,
+                                   traceIds,
+                                   xCenters)
+            iTrace = fts.getFiberTrace(0).getITrace()
+            self.assertEqual(iTrace, traceIdsUnique[iFt])
 
 #-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
