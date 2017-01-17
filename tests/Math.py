@@ -33,6 +33,37 @@ class MathTestCase(tests.TestCase):
         # SWIG handle a vector of void pointers to different objects.
         drpStella.testPolyFit()
 
+    def testSortIndices(self):
+        """Test drpStella.sortIndices"""
+
+        """ascending list"""
+        int1DArr = np.ndarray(shape=(10), dtype=np.int32)
+        int1DArr[:] = range(10)[:]
+        sortedIndices = drpStella.sortIndices(int1DArr)
+        for ind, val in zip(sortedIndices, int1DArr):
+            self.assertEqual(ind, val)
+
+        """descending list"""
+        int1DArr[:] = np.arange(9,-1,-1)[:]
+        sortedIndices = drpStella.sortIndices(int1DArr)
+        for ind, val in zip(sortedIndices, int1DArr):
+            self.assertEqual(ind, val)
+
+        """unordered list"""
+        int1DArr[0] = 5
+        int1DArr[1] = 8
+        int1DArr[2] = 0
+        int1DArr[3] = 9
+        int1DArr[4] = 1
+        int1DArr[5] = 6
+        int1DArr[6] = 4
+        int1DArr[7] = 2
+        int1DArr[8] = 3
+        int1DArr[9] = 7
+        sortedIndices = drpStella.sortIndices(int1DArr)
+        for ind, val in zip(sortedIndices, [2,4,7,8,6,0,5,9,1,3]):
+            self.assertEqual(ind, val)
+
 #-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
 def suite():
