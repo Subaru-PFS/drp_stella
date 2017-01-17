@@ -77,6 +77,9 @@ class FindAndTraceAperturesTask(Task):
         super(FindAndTraceAperturesTask, self).__init__(*args, **kwargs)
         self.ftffc = drpStella.FiberTraceFunctionFindingControl()
 
+    def getFiberTraceFunctionFindingControl(self):
+        return self.ftffc
+
     def findAndTraceApertures(self, inExposure):
 
         """create FiberTraceFunctionFindingControl"""
