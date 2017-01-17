@@ -19,6 +19,8 @@ import os
 import pfs.drp.stella as drpStella
 import pfs.drp.stella.createFlatFiberTraceProfileTask as cfftpTask
 import pfs.drp.stella.extractSpectraTask as esTask
+import pfs.drp.stella.findAndTraceAperturesTask as fataTask
+import pfs.drp.stella.math as drpStellaMath
 import sys
 import unittest
 
@@ -369,6 +371,49 @@ class SpectraTestCase(tests.TestCase):
             specSet = drpStella.SpectrumSetF(size,length)
             spectra = specSet.getSpectra()
             self.assertEqual(spectra[0].getSpectrum().shape[0], length)
+
+    def testProfile(self):
+        """
+        Test that there are no systematics in the profile
+        We compare the original FiberTrace images to the reconstructed ones.
+        The reconstructed images are calculated from the spatial profile images
+        and the extracted spectra.
+        We sort the ratio of both images (original / recreated) from all
+        FiberTraces by the distance of the pixel to the FiberTrace's center,
+        bin them in small bins (10 times the oversampling rate used for the
+        profile calculation), and calculate the mean and standard deviation
+        for each bin. The test passes if 1.0 is within 1 standard deviation
+        of the mean value.
+        """
+        nBinsPerOverSampleStep = 10.
+        myFindTask = fataTask.FindAndTraceAperturesTask()
+        myFindTask.config.xLow = -5.
+        myFindTask.config.xHigh = 5.
+        fts = myFindTask.run(self.flat)
+
+        myProfileTask = cfftpTask.CreateFlatFiberTraceProfileTask()
+        myProfileTask.config.overSample = 10
+
+        for interpolation in ['SPLINE3', 'PISKUNOV']:
+            myProfileTask.config.profileInterpolation = interpolation
+            myProfileTask.run(fts)
+
+            distanceFromCenterOrigProfRec = drpStellaMath.getDistTraceProfRec(fts)
+            dist, orig, rec = [distanceFromCenterOrigProfRec[:,0],
+                               distanceFromCenterOrigProfRec[:,1],
+                               distanceFromCenterOrigProfRec[:,3]]
+            ratio = orig / np.where(rec < 0.1, 1., rec)
+
+            binWidth = 1. / (myProfileTask.getFiberTraceProfileFittingControl().overSample
+                             * nBinsPerOverSampleStep)
+            distanceMeanStd = drpStellaMath.getMeanStdXBins(dist,
+                                                            ratio,
+                                                            binWidth)
+            print 'type(distanceMeanStd) = ',type(distanceMeanStd)
+            for iBin in range(distanceMeanStd.shape[0]):
+                self.assertTrue((distanceMeanStd[iBin, 1, 0] - distanceMeanStd[iBin, 1, 1] < 1.)
+                                and
+                                (distanceMeanStd[iBin, 1, 0] + distanceMeanStd[iBin, 1, 1] > 1.))
 
     def testWavelengthCalibrationWithRefSpec(self):
         if True:
