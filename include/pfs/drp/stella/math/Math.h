@@ -229,12 +229,14 @@ namespace pfs { namespace drp { namespace stella {
     bool IsOddNumber(long No);
 
     /**
-     *      Returns an integer array of the same size like <D_A1_In>,
-     *      containing the indixes of <D_A1_In> in sorted order.
-     * @param[in] vec_In       :: 1D array to sort
+     *      Returns an integer array of the same size like <vec_In>,
+     *      containing the indixes of <vec_In> in sorted order.
+     * @param[in] vec_In       :: vector to sort
      **/
     template<typename T>
     std::vector<int> sortIndices(const std::vector<T> &vec_In);
+    template<typename T>
+    ndarray::Array<size_t, 1, 1> sortIndices(ndarray::Array<T, 1, 1> const& arr_In);
 
     /**
      *       task: Returns Row specified by I_Index_In from the formula

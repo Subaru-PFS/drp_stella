@@ -709,6 +709,7 @@
     std::vector<int> sortIndices(const std::vector<T> &vec_In){
       int I_SizeIn = vec_In.size();
       std::vector<int> I_A1_Indx(1);
+      I_A1_Indx.reserve(I_SizeIn);
       I_A1_Indx[0] = 0;
       bool isInserted = false;
       for (int i = 1; i < I_SizeIn; ++i){
@@ -724,19 +725,23 @@
         if (!isInserted)
           I_A1_Indx.push_back(i);
       }
-/*      int I_M = 7;
-      int I_NStack = 50;
+      return (I_A1_Indx);
+    }
 
+    template<typename T>
+    ndarray::Array<size_t, 1, 1> sortIndices(ndarray::Array<T, 1, 1> const& arr_in){
+      size_t I_M = 7;
+      size_t I_NStack = 50;
+
+      size_t I_SizeIn = arr_in.getShape()[0];
       int I_Ir = I_SizeIn - 1;
       int I_L = 0;
 
       int I_I, I_Indxt, I_J, I_K;
       int I_JStack = 0;
-      std::vector<int> I_A1_IStack(I_NStack);
-      for (int i = 0; i < I_SizeIn; ++i)
-        I_A1_Indx[i] = i;
-      for (auto it = I_A1_IStack.begin(); it != I_A1_IStack.end(); ++it)
-        *it = 0;
+      ndarray::Array<int, 1, 1> I_A1_IStack = ndarray::allocate(I_NStack);
+      I_A1_IStack.deep() = 0.;
+      ndarray::Array<size_t, 1, 1> I_A1_Indx = indGenNdArr(I_SizeIn);
       T D_A;
 
       #ifdef __DEBUG_SORT__
@@ -752,22 +757,36 @@
             #ifdef __DEBUG_SORT__
               cout << "SortIndices(): I_Indxt set to " << I_Indxt << endl;
             #endif
-            D_A = vec_In[I_Indxt];
+            D_A = arr_in[I_Indxt];
             #ifdef __DEBUG_SORT__
               cout << "SortIndices(): D_A set to " << D_A << endl;
+              cout << "SortIndices(): i_J = " << I_J << ", I_L = " << I_L << ", I_A1_Indx.getShape()[0] = " << I_A1_Indx.getShape()[0] << endl;
             #endif
             for (I_I = I_J - 1; I_I >= I_L; I_I--)
             {
-              if (vec_In[I_A1_Indx[I_I]] <= D_A)
+              if (arr_in[I_A1_Indx[I_I]] <= D_A)
               {
                 #ifdef __DEBUG_SORT__
-                  cout << "SortIndices(): vec_In[P_I_A1_Indx(I_I = " << I_I << ") = " << I_A1_Indx[I_I] << "] <= D_A = " << D_A << " =>  BREAK" << endl;
+                  cout << "SortIndices(): arr_in[P_I_A1_Indx(I_I = " << I_I << ") = " << I_A1_Indx[I_I] << "] <= D_A = " << D_A << " =>  BREAK" << endl;
                 #endif
                 break;
               }
+              #ifdef __DEBUG_SORT__
+                cout << "SortIndices(): setting I_A1_Indx[ = " << I_I + 1 << "] to I_A1_Indx[ = " << I_I << "]" << endl;
+              #endif
               I_A1_Indx[I_I + 1] = I_A1_Indx[I_I];
+              #ifdef __DEBUG_SORT__
+                cout << "SortIndices(): I_A1_Indx[ = " << I_I + 1 << "] set to " << I_A1_Indx[I_I+1] << endl;
+              #endif
             }
+            #ifdef __DEBUG_SORT__
+              cout << "SortIndices(): after loop: setting I_A1_Indx[ = " << I_I + 1 << "] to I_A1_Indx[ = " << I_I << "]" << endl;
+            #endif
+            assert(I_Indxt >= 0);
             I_A1_Indx[I_I + 1] = I_Indxt;
+            #ifdef __DEBUG_SORT__
+              cout << "SortIndices(): after loop: I_A1_Indx[ = " << I_I + 1 << "] set to " << I_A1_Indx[I_I+1] << endl;
+            #endif
           }
           if (I_JStack == 0)
           {
@@ -795,53 +814,53 @@
           std::swap(I_A1_Indx[I_K],
                I_A1_Indx[I_L + 1]);
           #ifdef __DEBUG_SORT__
-            cout << "SortIndices(vec_In): P_I_A1_Indx(I_K=" << I_K << ")=" << I_A1_Indx[I_K] << " and P_I_A1_Indx(I_L(=" << I_L << ")+1)=" << I_A1_Indx[I_L+1] << " std::swapped" << endl;
+            cout << "SortIndices(arr_in): P_I_A1_Indx(I_K=" << I_K << ")=" << I_A1_Indx[I_K] << " and P_I_A1_Indx(I_L(=" << I_L << ")+1)=" << I_A1_Indx[I_L+1] << " std::swapped" << endl;
           #endif
-          if (vec_In[I_A1_Indx[I_L]]
-            > vec_In[I_A1_Indx[I_Ir]])
+          if (arr_in[I_A1_Indx[I_L]]
+            > arr_in[I_A1_Indx[I_Ir]])
           {
             std::swap(I_A1_Indx[I_L],
                  I_A1_Indx[I_Ir]);
             #ifdef __DEBUG_SORT__
-              cout << "SortIndices(vec_In): P_I_A1_Indx(I_L=" << I_L << ")=" << I_A1_Indx[I_L] << " and P_I_A1_Indx(I_Ir(=" << I_Ir << "))=" << I_A1_Indx[I_Ir] << " std::swapped" << endl;
+              cout << "SortIndices(arr_in): P_I_A1_Indx(I_L=" << I_L << ")=" << I_A1_Indx[I_L] << " and P_I_A1_Indx(I_Ir(=" << I_Ir << "))=" << I_A1_Indx[I_Ir] << " std::swapped" << endl;
             #endif
 
           }
-          if (vec_In[I_A1_Indx[I_L + 1]]
-            > vec_In[I_A1_Indx[I_Ir]])
+          if (arr_in[I_A1_Indx[I_L + 1]]
+            > arr_in[I_A1_Indx[I_Ir]])
           {
             std::swap(I_A1_Indx[I_L + 1],
                  I_A1_Indx[I_Ir]);
             #ifdef __DEBUG_SORT__
-              cout << "SortIndices(vec_In): P_I_A1_Indx(I_L=" << I_L << "+1)=" << I_A1_Indx[I_L + 1] << " and P_I_A1_Indx(I_Ir(=" << I_Ir << "))=" << I_A1_Indx[I_L+1] << " std::swapped" << endl;
+              cout << "SortIndices(arr_in): P_I_A1_Indx(I_L=" << I_L << "+1)=" << I_A1_Indx[I_L + 1] << " and P_I_A1_Indx(I_Ir(=" << I_Ir << "))=" << I_A1_Indx[I_L+1] << " std::swapped" << endl;
             #endif
 
           }
-          if (vec_In[I_A1_Indx[I_L]]
-            > vec_In[I_A1_Indx[I_L + 1]])
+          if (arr_in[I_A1_Indx[I_L]]
+            > arr_in[I_A1_Indx[I_L + 1]])
           {
             std::swap(I_A1_Indx[I_L],
                  I_A1_Indx[I_L + 1]);
             #ifdef __DEBUG_SORT__
-              cout << "SortIndices(vec_In): P_I_A1_Indx(I_L=" << I_L << ")=" << I_A1_Indx[I_L] << " and P_I_A1_Indx(I_L(=" << I_L << ")+1)=" << I_A1_Indx[I_L+1] << " std::swapped" << endl;
+              cout << "SortIndices(arr_in): P_I_A1_Indx(I_L=" << I_L << ")=" << I_A1_Indx[I_L] << " and P_I_A1_Indx(I_L(=" << I_L << ")+1)=" << I_A1_Indx[I_L+1] << " std::swapped" << endl;
             #endif
 
           }
           I_I = I_L + 1;
           #ifdef __DEBUG_SORT__
-            cout << "SortIndices(vec_In): I_I(=" << I_I << ") set to (I_L[=" << I_L << "] + 1)  = " << I_L + 1 << endl;
+            cout << "SortIndices(arr_in): I_I(=" << I_I << ") set to (I_L[=" << I_L << "] + 1)  = " << I_L + 1 << endl;
           #endif
           I_J = I_Ir;
           #ifdef __DEBUG_SORT__
-            cout << "SortIndices(vec_In): I_J(=" << I_J << ") set to I_Ir[=" << I_Ir << "]" << endl;
+            cout << "SortIndices(arr_in): I_J(=" << I_J << ") set to I_Ir[=" << I_Ir << "]" << endl;
           #endif
           I_Indxt = I_A1_Indx[I_L + 1];
           #ifdef __DEBUG_SORT__
-            cout << "SortIndices(vec_In): I_Indxt(=" << I_Indxt << ") set to P_I_A1_Indx(I_L = " << I_L << "+1)" << endl;
+            cout << "SortIndices(arr_in): I_Indxt(=" << I_Indxt << ") set to P_I_A1_Indx(I_L = " << I_L << "+1)" << endl;
           #endif
-          D_A = vec_In[I_Indxt];
+          D_A = arr_in[I_Indxt];
           #ifdef __DEBUG_SORT__
-            cout << "SortIndices(vec_In): D_A(=" << D_A << ") set to vec_In[I_Indxt = " << I_Indxt << "]" << endl;
+            cout << "SortIndices(arr_in): D_A(=" << D_A << ") set to arr_in[I_Indxt = " << I_Indxt << "]" << endl;
           #endif
           for (;;)
           {
@@ -849,42 +868,43 @@
             {
               I_I++;
               #ifdef __DEBUG_SORT__
-                cout << "SortIndices(vec_In): I_I set to " << I_I << " => vec_In[P_I_A1_Indx(I_I)] = " << vec_In[I_A1_Indx[I_I]] << endl;
+                cout << "SortIndices(arr_in): I_I set to " << I_I << " => arr_in[P_I_A1_Indx(I_I)] = " << arr_in[I_A1_Indx[I_I]] << endl;
               #endif
             }
-            while(vec_In[I_A1_Indx[I_I]] < D_A && I_I < I_SizeIn - 2);
+            while(arr_in[I_A1_Indx[I_I]] < D_A && I_I < I_SizeIn - 2);
             do
             {
               I_J--;
               #ifdef __DEBUG_SORT__
-                cout << "SortIndices(vec_In): I_J set to " << I_J << " => vec_In(P_I_A1_Indx(I_J)) = " << vec_In[I_A1_Indx[I_J]] << endl;
+                cout << "SortIndices(arr_in): I_J set to " << I_J << " => arr_in(P_I_A1_Indx(I_J)) = " << arr_in[I_A1_Indx[I_J]] << endl;
               #endif
             }
-            while(vec_In[I_A1_Indx[I_J]] > D_A && I_J > 0);
+            while(arr_in[I_A1_Indx[I_J]] > D_A && I_J > 0);
             if (I_J < I_I)
             {
               #ifdef __DEBUG_SORT__
-                cout << "SortIndices(vec_In): I_J(=" << I_J << ") < I_I(=" << I_I << ") => BREAK" << endl;
+                cout << "SortIndices(arr_in): I_J(=" << I_J << ") < I_I(=" << I_I << ") => BREAK" << endl;
               #endif
               break;
             }
             std::swap(I_A1_Indx[I_I],
                  I_A1_Indx[I_J]);
             #ifdef __DEBUG_SORT__
-              cout << "SortIndices(vec_In): P_I_A1_Indx(I_I=" << I_I << ")=" << I_A1_Indx[I_I] << " and P_I_A1_Indx(I_J(=" << I_J << "))=" << I_A1_Indx[I_J] << " std::swapped" << endl;
+              cout << "SortIndices(arr_in): P_I_A1_Indx(I_I=" << I_I << ")=" << I_A1_Indx[I_I] << " and P_I_A1_Indx(I_J(=" << I_J << "))=" << I_A1_Indx[I_J] << " std::swapped" << endl;
             #endif
           }
           I_A1_Indx[I_L + 1] = I_A1_Indx[I_J];
           #ifdef __DEBUG_SORT__
-            cout << "SortIndices(vec_In): P_I_A1_Indx(I_L=" << I_L << "+1) set to P_I_A1_Indx(I_J=" << I_J << ") = " << I_A1_Indx[I_L+1] << endl;
+            cout << "SortIndices(arr_in): P_I_A1_Indx(I_L=" << I_L << "+1) set to P_I_A1_Indx(I_J=" << I_J << ") = " << I_A1_Indx[I_L+1] << endl;
           #endif
+          assert(I_Indxt >= 0);
           I_A1_Indx[I_J] = I_Indxt;
           #ifdef __DEBUG_SORT__
-            cout << "SortIndices(vec_In): P_I_A1_Indx(I_J=" << I_J << ") set to I_Indxt(=" << I_Indxt << ")" << endl;
+            cout << "SortIndices(arr_in): P_I_A1_Indx(I_J=" << I_J << ") set to I_Indxt(=" << I_Indxt << ")" << endl;
           #endif
           I_JStack += 2;
           #ifdef __DEBUG_SORT__
-            cout << "SortIndices(vec_In): I_JStack = " << I_JStack << endl;
+            cout << "SortIndices(arr_in): I_JStack = " << I_JStack << endl;
           #endif
           if (I_JStack > I_NStack)
           {
@@ -894,31 +914,31 @@
           if (I_Ir - I_I + 1 >= I_J - I_L)
           {
             #ifdef __DEBUG_SORT__
-              cout << "SortIndices(vec_In): I_Ir(= " << I_Ir << ") - I_I(=" << I_I << ") + 1 = " << I_Ir - I_I + 1 << " >= I_J(="<< I_J << ") + I_L(=" << I_L << ") = " << I_J - I_L << endl;
+              cout << "SortIndices(arr_in): I_Ir(= " << I_Ir << ") - I_I(=" << I_I << ") + 1 = " << I_Ir - I_I + 1 << " >= I_J(="<< I_J << ") + I_L(=" << I_L << ") = " << I_J - I_L << endl;
             #endif
             I_A1_IStack[I_JStack] = I_Ir;
             I_A1_IStack[I_JStack - 1] = I_I;
             I_Ir = I_J - 1;
             #ifdef __DEBUG_SORT__
-              cout << "SortIndices(vec_In): I_I set to I_J(=" << I_J << ") - 1" << endl;
+              cout << "SortIndices(arr_in): I_I set to I_J(=" << I_J << ") - 1" << endl;
             #endif
 
           }
           else
           {
             #ifdef __DEBUG_SORT__
-              cout << "SortIndices(vec_In): I_Ir(= " << I_Ir << ") - I_I(=" << I_I << ") + 1 = " << I_Ir - I_I + 1 << " < I_J(="<< I_J << ") + I_L(=" << I_L << ") = " << I_J - I_L << endl;
+              cout << "SortIndices(arr_in): I_Ir(= " << I_Ir << ") - I_I(=" << I_I << ") + 1 = " << I_Ir - I_I + 1 << " < I_J(="<< I_J << ") + I_L(=" << I_L << ") = " << I_J - I_L << endl;
             #endif
             I_A1_IStack[I_JStack] = I_J - 1;
             I_A1_IStack[I_JStack - 1] = I_L;
             I_L = I_I;
             #ifdef __DEBUG_SORT__
-              cout << "SortIndices(vec_In): I_L set to I_I(=" << I_I << endl;
+              cout << "SortIndices(arr_in): I_L set to I_I(=" << I_I << endl;
             #endif
 
           }
         }
-      }*/
+      }
       return (I_A1_Indx);
     }
 
@@ -7383,6 +7403,13 @@
     template std::vector<int> sortIndices(const std::vector<long> &vec_In);
     template std::vector<int> sortIndices(const std::vector<float> &vec_In);
     template std::vector<int> sortIndices(const std::vector<double> &vec_In);
+
+    template ndarray::Array<size_t, 1, 1> sortIndices(ndarray::Array<unsigned short, 1, 1> const& vec_In);
+    template ndarray::Array<size_t, 1, 1> sortIndices(ndarray::Array<unsigned int, 1, 1> const& vec_In);
+    template ndarray::Array<size_t, 1, 1> sortIndices(ndarray::Array<int, 1, 1> const& vec_In);
+    template ndarray::Array<size_t, 1, 1> sortIndices(ndarray::Array<long, 1, 1> const& vec_In);
+    template ndarray::Array<size_t, 1, 1> sortIndices(ndarray::Array<float, 1, 1> const& vec_In);
+    template ndarray::Array<size_t, 1, 1> sortIndices(ndarray::Array<double, 1, 1> const& vec_In);
 
     template std::vector<unsigned short> indGen(unsigned short);
     template std::vector<unsigned int> indGen(unsigned int);

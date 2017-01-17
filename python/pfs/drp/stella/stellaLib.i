@@ -358,12 +358,12 @@ Interface to Stella
 //%template(resizeU) pfs::drp::stella::math::resize<float>;
 //%template(resizeU) pfs::drp::stella::math::resize<double>;
 
-//%template(sortIndicesU) pfs::drp::stella::math::sortIndices<unsigned short>;
-//%template(sortIndicesUI) pfs::drp::stella::math::sortIndices<unsigned int>;
-//%template(sortIndicesI) pfs::drp::stella::math::sortIndices<int>;
-//%template(sortIndicesL) pfs::drp::stella::math::sortIndices<long>;
-//%template(sortIndicesF) pfs::drp::stella::math::sortIndices<float>;
-//%template(sortIndicesD) pfs::drp::stella::math::sortIndices<double>;
+%template(sortIndices) pfs::drp::stella::math::sortIndices<unsigned short>;
+%template(sortIndices) pfs::drp::stella::math::sortIndices<unsigned int>;
+%template(sortIndices) pfs::drp::stella::math::sortIndices<int>;
+%template(sortIndices) pfs::drp::stella::math::sortIndices<long>;
+%template(sortIndices) pfs::drp::stella::math::sortIndices<float>;
+%template(sortIndices) pfs::drp::stella::math::sortIndices<double>;
 
 //%template(WriteFitsU) pfs::drp::stella::utils::WriteFits<unsigned short>;
 //%template(WriteFitsI) pfs::drp::stella::utils::WriteFits<int>;
