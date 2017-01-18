@@ -7,7 +7,7 @@ namespace pfsDRPStella = pfs::drp::stella;
  */
 template<typename SpectrumT, typename MaskT, typename VarianceT, typename WavelengthT>
 pfsDRPStella::Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>::Spectrum(size_t length,
-                                                                           size_t iTrace ) 
+                                                                           size_t iTrace )
   : _length(length),
     _mask(length, 1),
     _iTrace(iTrace),
@@ -46,7 +46,7 @@ bool pfsDRPStella::Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>::setSky( n
     string message("pfsDRPStella::Spectrum::setSky: ERROR: spectrum->size()=");
     message += to_string(sky.getShape()[0]) + string(" != _length=") + to_string(_length);
     cout << message << endl;
-    throw LSST_EXCEPT(pexExcept::Exception, message.c_str());    
+    throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
   }
   _sky.deep() = sky;
   return true;
@@ -63,7 +63,7 @@ bool pfsDRPStella::Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>::setWavele
     string message("pfsDRPStella::Spectrum::setWavelength: ERROR: wavelength->size()=");
     message += to_string(wavelength.getShape()[0]) + string(" != _length=") + to_string(_length);
     cout << message << endl;
-    throw LSST_EXCEPT(pexExcept::Exception, message.c_str());    
+    throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
   }
   _wavelength.deep() = wavelength;
   return true;
@@ -80,7 +80,7 @@ bool pfsDRPStella::Spectrum< SpectrumT, MaskT, VarianceT, WavelengthT >::setDisp
     string message("pfsDRPStella::Spectrum::setDispersion: ERROR: dispersion->size()=");
     message += to_string( dispersion.getShape()[ 0 ]) + string(" != _length=") + to_string( _length );
     cout << message << endl;
-    throw LSST_EXCEPT(pexExcept::Exception, message.c_str());    
+    throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
   }
   _dispersion.deep() = dispersion;
   return true;
@@ -151,7 +151,7 @@ pfsDRPStella::SpectrumSet<SpectrumT, MaskT, VarianceT, WavelengthT>::SpectrumSet
     _spectra->push_back(spec);
   }
 }
-    
+
 template<typename SpectrumT, typename MaskT, typename VarianceT, typename WavelengthT>
 pfsDRPStella::SpectrumSet<SpectrumT, MaskT, VarianceT, WavelengthT>::SpectrumSet( PTR( std::vector< PTR( Spectrum< SpectrumT, MaskT, VarianceT, WavelengthT> ) > ) const& spectrumVector )
         : _spectra( new std::vector< PTR( Spectrum< SpectrumT, MaskT, VarianceT, WavelengthT > ) >() )
@@ -191,7 +191,7 @@ pfsDRPStella::SpectrumSet<SpectrumT, MaskT, VarianceT, WavelengthT>::SpectrumSet
       _spectra( new std::vector< PTR(Spectrum< SpectrumT, MaskT, VarianceT, WavelengthT > ) >( ) )
 {
     lsst::afw::fits::Fits fitsfile(const_cast< lsst::afw::fits::MemFileManager& >(manager), "r", lsst::afw::fits::Fits::AUTO_CLOSE | lsst::afw::fits::Fits::AUTO_CHECK);
-    *this = SpectrumSet(fitsfile, metadata, 
+    *this = SpectrumSet(fitsfile, metadata,
                         fluxMetadata, covarMetadata, maskMetadata, wLenMetadata, wDispMetadata, skyMetadata);
 }
 
@@ -210,16 +210,16 @@ pfsDRPStella::SpectrumSet<SpectrumT, MaskT, VarianceT, WavelengthT>::SpectrumSet
       _spectra(new std::vector< PTR(Spectrum< SpectrumT, MaskT, VarianceT, WavelengthT > ) >( ) )
 {
 /*    typedef boost::mpl::vector<
-        unsigned char, 
-        unsigned short, 
-        short, 
+        unsigned char,
+        unsigned short,
+        short,
         int,
         unsigned int,
         float,
         double,
         boost::uint64_t
     > fits_image_types;
-*/    
+*/
     enum class Hdu {
         Primary = 1,
         Flux,
@@ -261,7 +261,7 @@ pfsDRPStella::SpectrumSet<SpectrumT, MaskT, VarianceT, WavelengthT>::SpectrumSet
     lsst::afw::geom::Point2I xy0;
     cout << "xy0 = " << xy0 << endl;
     ndarray::Array< float, 2, 2 > array;
-    
+
     lsst::afw::image::fits_read_array( const_cast< lsst::afw::fits::Fits& >(fitsfile), array, xy0, *metadata );
     cout << "SpectrumSet::SpectrumSet(fitsfile): array.getShape() = " << array.getShape() << endl;
 
@@ -400,7 +400,7 @@ ndarray::Array< float, 2, 1 > pfsDRPStella::SpectrumSet<SpectrumT, MaskT, Varian
   }
   return dispersion;
 }
-    
+
 template<typename SpectrumT, typename MaskT, typename VarianceT, typename WavelengthT>
 ndarray::Array< int, 2, 1 > pfsDRPStella::SpectrumSet<SpectrumT, MaskT, VarianceT, WavelengthT>::getAllMasks() const{
   int nFibers = int( size() );
@@ -479,7 +479,7 @@ ndarray::Array< float, 2, 1 > pfsDRPStella::SpectrumSet<SpectrumT, MaskT, Varian
   }
   return var;
 }
-    
+
 template<typename SpectrumT, typename MaskT, typename VarianceT, typename WavelengthT>
 ndarray::Array< float, 3, 1 > pfsDRPStella::SpectrumSet<SpectrumT, MaskT, VarianceT, WavelengthT>::getAllCovars() const{
   int nFibers = int( size() );
@@ -670,7 +670,7 @@ namespace pfs { namespace drp { namespace stella { namespace math {
           cout << "stretchAndCrossCorrelateSpec: i_run=" << i_run << ": lineListPix = " << lineListPix.getShape() << ": " << lineListPix << endl;
         #endif
 
-        ndarray::Array< int, 1, 1 > valueLocated = valueLocate( xPieceStretched, 
+        ndarray::Array< int, 1, 1 > valueLocated = valueLocate( xPieceStretched,
                                                                 lineListPix );
         for ( int i_line = 0; i_line < lineList_Pixels_AllPieces.getShape()[ 0 ]; i_line++ ){//i_line < lineList_Pixels_AllPieces.rows()
           #ifdef __DEBUG_STRETCHANDCROSSCORRELATESPEC__
@@ -707,9 +707,9 @@ namespace pfs { namespace drp { namespace stella { namespace math {
       for (int i_line=0; i_line < lineList_WLenPix.getShape()[ 0 ]; i_line++){
         tempArr[ ndarray::view() ] = lineList_Pixels_AllPieces[ ndarray::view( i_line )() ];
         ndarray::Array< int, 1, 1 > whereVec = where( tempArr,
-                                                      ">", 
-                                                      0.001, 
-                                                      1, 
+                                                      ">",
+                                                      0.001,
+                                                      1,
                                                       0 );
         nInd = std::accumulate( whereVec.begin(), whereVec.end(), 0 );
         #ifdef __DEBUG_STRETCHANDCROSSCORRELATESPEC_LINELIST__
@@ -764,8 +764,8 @@ namespace pfs { namespace drp { namespace stella { namespace math {
       #endif
       ndarray::Array< int, 2, 1 > whereArr = where( lineList_Pixels_AllPieces,
                                                     ">",
-                                                    0.000001, 
-                                                    1, 
+                                                    0.000001,
+                                                    1,
                                                     0);
       #ifdef __DEBUG_STRETCHANDCROSSCORRELATESPEC_LINELIST__
         cout << "stretchAndCrossCorrelateSpec: whereArr = " << whereArr << endl;
@@ -799,10 +799,10 @@ namespace pfs { namespace drp { namespace stella { namespace math {
       ndarray::Array< double, 1, 1 > tempDist = ndarray::copy( dist_SubArr - medianDiff );
       for ( auto itDist = tempDist.begin(); itDist != tempDist.end(); ++itDist )
         *itDist = std::fabs( *itDist );
-      ndarray::Array< int, 1, 1 > whereVec = where( tempDist, 
-                                                    ">", 
-                                                    3. * stdDev_Diff, 
-                                                    1, 
+      ndarray::Array< int, 1, 1 > whereVec = where( tempDist,
+                                                    ">",
+                                                    3. * stdDev_Diff,
+                                                    1,
                                                     0 );
       #ifdef __DEBUG_STRETCHANDCROSSCORRELATESPEC_LINELIST__
         cout << "stretchAndCrossCorrelateSpec: whereVec = " << whereVec << endl;
@@ -831,8 +831,8 @@ namespace pfs { namespace drp { namespace stella { namespace math {
             *itTemp = std::fabs( *itTemp );
           ndarray::Array< int, 1, 1 > whereVec = where( tempList,
                                                         ">",
-                                                        0.001, 
-                                                        1, 
+                                                        0.001,
+                                                        1,
                                                         0 );
           nInd = std::accumulate( whereVec.begin(), whereVec.end(), 0 );
           ndarray::Array< size_t, 1, 1 > indWhereB = getIndices( whereVec );
@@ -868,7 +868,7 @@ namespace pfs { namespace drp { namespace stella { namespace math {
 
       return stretchAndCrossCorrelateSpecResult;
     }
-    
+
     template< typename T, int I >
     ndarray::Array< T, 2, 1 > createLineList( ndarray::Array< T, 1, I > const& wLen,
                                               ndarray::Array< T, 1, I > const& linesWLen ){
@@ -908,12 +908,12 @@ namespace pfs { namespace drp { namespace stella { namespace math {
       #endif
       return out;
     }
-    
+
     template ndarray::Array< float, 2, 1 > createLineList( ndarray::Array< float, 1, 0 > const&, ndarray::Array< float, 1, 0 > const& );
     template ndarray::Array< double, 2, 1 > createLineList( ndarray::Array< double, 1, 0 > const&, ndarray::Array< double, 1, 0 > const& );
     template ndarray::Array< float, 2, 1 > createLineList( ndarray::Array< float, 1, 1 > const&, ndarray::Array< float, 1, 1 > const& );
     template ndarray::Array< double, 2, 1 > createLineList( ndarray::Array< double, 1, 1 > const&, ndarray::Array< double, 1, 1 > const& );
-    
+
 //    template StretchAndCrossCorrelateSpecResult< float, float >;
 //    template StretchAndCrossCorrelateSpecResult< double, double >;
 //    template StretchAndCrossCorrelateSpecResult< float, double >;
@@ -937,7 +937,7 @@ namespace pfs { namespace drp { namespace stella { namespace math {
                                                                                                DispCorControl const& );
 
 }}}}
-  
+
 //template<> template<> bool pfsDRPStella::Spectrum<float, unsigned short, float, float>::identify( ndarray::Array< float, 2, 1 > const&,
 //                                                                                                  DispCorControl const&,
 //                                                                                                  size_t );

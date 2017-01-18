@@ -13,14 +13,9 @@ namespace pfs { namespace drp { namespace stella {
  */
 struct FiberTraceFunctionControl {
   /// enum corresponding to legal values of interpolation string
-//  enum INTERPOLATION {  CHEBYSHEV=0, LEGENDRE, CUBIC, LINEAR, POLYNOMIAL, NVALUES };
   enum INTERPOLATION {  POLYNOMIAL=0, CHEBYSHEV, NVALUES };
-  std::vector<std::string> INTERPOLATION_NAMES = { stringify( CHEBYSHEV ),
-//                                                   stringify( LEGENDRE ),
-//                                                   stringify( CUBIC ),
-//                                                   stringify( LINEAR ),
-                                                   stringify( POLYNOMIAL) };
-//  std::vector<std::string> INTERPOLATION_NAMES = { stringify( POLYNOMIAL ) };
+  std::vector<std::string> INTERPOLATION_NAMES = { stringify( POLYNOMIAL ),
+                                                   stringify( CHEBYSHEV ) };
   LSST_CONTROL_FIELD(interpolation, std::string, "Interpolation schemes, NOTE that only POLYNOMIAL fitting is implement yet!");
   LSST_CONTROL_FIELD(order, unsigned int, "Polynomial order");
   LSST_CONTROL_FIELD(xLow, float, "Lower (left) limit of aperture relative to center position of trace in x (< 0.)");
@@ -355,22 +350,16 @@ struct FiberTraceProfileFittingControl {
       cout << "FiberTraceProfileFittingControl::isClassInvariant: ERROR: wingSmoothFactor(=" << wingSmoothFactor << ") < 0. => Returning FALSE" << endl;
       return false;
     }
-    
+
     if (lowerSigma <= 0.){
       cout << "FiberTraceProfileFittingControl::isClassInvariant: ERROR: lowerSigma(=" << lowerSigma << ") <= 0. => Returning FALSE" << endl;
       return false;
     }
-    
-    if (lowerSigma <= 0.){
-      cout << "FiberTraceProfileFittingControl::isClassInvariant: ERROR: lowerSigma(=" << lowerSigma << ") <= 0. => Returning FALSE" << endl;
-      return false;
-    }
-    
+
     if (upperSigma <= 0.){
       cout << "FiberTraceProfileFittingControl::isClassInvariant: ERROR: upperSigma(=" << upperSigma << ") <= 0. => Returning FALSE" << endl;
       return false;
     }
-    
     return true;
   }
         

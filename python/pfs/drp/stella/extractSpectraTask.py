@@ -18,7 +18,7 @@ class ExtractSpectraTask(Task):
         super(ExtractSpectraTask, self).__init__(*args, **kwargs)
 
     def extractSpectra(self, inExposure, inFiberTraceSetWithProfiles, inTraceNumbers):
-    
+
         if inTraceNumbers[0] == -1:
             traceNumbers = range(inFiberTraceSetWithProfiles.size())
         else:
@@ -59,9 +59,9 @@ class ExtractSpectraTask(Task):
 
         This method is the top-level for running the automatic 1D extraction of the fiber traces on the Exposure
         of the object spectra as a stand-alone BatchPoolTask.
-        
+
         This method returns a SpectrumSet
         """
-        
+
         spectrumSet = self.extractSpectra(inExposure, inFiberTraceSetWithProfiles, inTraceNumbers)
         return spectrumSet

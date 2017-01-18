@@ -26,7 +26,7 @@ class MathTestCase(tests.TestCase):
         for i in range(10):
             if i != 5:
                 self.assertEqual(int1DArrRes[i], 0)
-                
+
     def testPolyFit(self):
         # We are running a C++ test function here because PolyFit functions with
         # keywords are not exposed to Python as I couldn't find a way to make

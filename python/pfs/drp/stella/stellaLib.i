@@ -538,7 +538,7 @@ Interface to Stella
 %template(chebyshevFD) pfs::drp::stella::math::chebyshev<float, double>;
 %template(chebyshevDF) pfs::drp::stella::math::chebyshev<double, float>;
 %template(chebyshevDD) pfs::drp::stella::math::chebyshev<double, double>;
-   
+
 %template(convertRangeToUnityFF) pfs::drp::stella::math::convertRangeToUnity<float, float>;
 %template(convertRangeToUnityFD) pfs::drp::stella::math::convertRangeToUnity<float, double>;
 %template(convertRangeToUnityDF) pfs::drp::stella::math::convertRangeToUnity<double, float>;

@@ -9,19 +9,18 @@ or
    >>> import Spectra; Spectra.run()
 """
 
-import os
-import unittest
-import sys
-import numpy as np
+from astropy.io import fits as pyfits
 import lsst.afw.image as afwImage
+import lsst.daf.persistence as dafPersist
 import lsst.utils
 import lsst.utils.tests as tests
-import lsst.daf.persistence as dafPersist
+import numpy as np
+import os
 import pfs.drp.stella as drpStella
-from astropy.io import fits as pyfits
-import pfs.drp.stella.extractSpectraTask as esTask
 import pfs.drp.stella.createFlatFiberTraceProfileTask as cfftpTask
-
+import pfs.drp.stella.extractSpectraTask as esTask
+import sys
+import unittest
 
 try:
     type(display)
@@ -39,15 +38,14 @@ class SpectraTestCase(tests.TestCase):
 
         dataId = dict(field="ARC", visit=103, spectrograph=1, arm="r")
         self.arc = butler.get("postISRCCD", dataId, immediate=True)
-        
+
         self.ftffc = drpStella.FiberTraceFunctionFindingControl()
         self.ftffc.fiberTraceFunctionControl.order = 5
         self.ftffc.fiberTraceFunctionControl.xLow = -5
         self.ftffc.fiberTraceFunctionControl.xHigh = 5
-        
-        self.ftpfc = drpStella.FiberTraceProfileFittingControl()
+
         self.dispCorControl = drpStella.DispCorControl()
-        
+
         self.nFiberTraces = 11
         self.nRowsPrescan = 49
 
@@ -55,7 +53,7 @@ class SpectraTestCase(tests.TestCase):
         # It serves as a regression test to make sure that changes in the code
         # didn't make it worse.
         self.maxRMS = 0.06
-        
+
         self.lineList = os.path.join(lsst.utils.getPackageDir('obs_pfs'),'pfs/lineLists/CdHgKrNeXe_red.fits')
         self.refSpec = os.path.join(lsst.utils.getPackageDir('obs_pfs'),'pfs/arcSpectra/refSpec_CdHgKrNeXe_red.fits')
         self.wLenFile = os.path.join(lsst.utils.getPackageDir('obs_pfs'),'pfs/RedFiberPixels.fits.gz')
@@ -64,7 +62,6 @@ class SpectraTestCase(tests.TestCase):
         del self.flat
         del self.arc
         del self.ftffc
-        del self.ftpfc
         del self.nFiberTraces
         del self.lineList
         del self.refSpec
@@ -89,7 +86,7 @@ class SpectraTestCase(tests.TestCase):
             specCopy = drpStella.SpectrumF(spec)
             self.assertEqual(specCopy.getLength(), length)
             self.assertEqual(specCopy.getITrace(), iTrace)
-        
+
     def testSpectrumMethods(self):
         if True:
             """Test getSpectrum"""
@@ -184,7 +181,7 @@ class SpectraTestCase(tests.TestCase):
                 self.assertEqual(message[0],expected)
             self.assertEqual(spec.getMask().getWidth(), size)
 
-            if True: 
+            if True:
                 """Test setLength"""
                 """If newLength < oldLength, vectors are supposed to be cut off, otherwise ZEROs are appended to the end of the vectors (last wavelength value for wavelength vector)"""
                 """Test same size"""
@@ -200,10 +197,10 @@ class SpectraTestCase(tests.TestCase):
                 self.assertEqual(spec.getWavelength().shape[0], size)
                 self.assertEqual(spec.getWavelength()[size-1], vecf[size-1])
 
-            if True: 
+            if True:
                 """Test longer size"""
                 self.assertTrue(spec.setLength(size+1))
-            if True: 
+            if True:
                 self.assertEqual(spec.getLength(), size+1)
                 self.assertEqual(spec.getSpectrum()[size], 0)
                 self.assertEqual(spec.getSpectrum().shape[0], size+1)
@@ -213,7 +210,7 @@ class SpectraTestCase(tests.TestCase):
                 self.assertEqual(spec.getWavelength().shape[0], size+1)
                 self.assertAlmostEqual(spec.getWavelength()[size], 0.)
 
-            if True: 
+            if True:
                 """Test shorter size"""
                 self.assertTrue(spec.setLength(size-1))
                 self.assertEqual(spec.getLength(), size-1)
@@ -232,7 +229,7 @@ class SpectraTestCase(tests.TestCase):
 
             """Test isWaveLengthSet"""
             self.assertFalse(spec.isWavelengthSet())
-            
+
     def testSpectrumSetConstructors(self):
         if True:
             """Test SpectrumSetConstructors"""
@@ -272,7 +269,7 @@ class SpectraTestCase(tests.TestCase):
             self.assertEqual(specSet.size(), specSetV.size())
             for i in range(specSet.size()):
                 self.assertEqual(specSetV.getSpectrum(i).getITrace(), i)
-            
+
     def testExtractTask(self):
         if True:
             fiberTraceSet = drpStella.findAndTraceAperturesF(self.flat.getMaskedImage(), self.ftffc)
@@ -286,7 +283,7 @@ class SpectraTestCase(tests.TestCase):
             self.assertEqual(spectrumSetFromProfile.size(), self.nFiberTraces)
             for i in range(spectrumSetFromProfile.size()):
                 self.assertEqual(spectrumSetFromProfile.getSpectrum(i).getLength(), fiberTraceSet.getFiberTrace(i).getHeight())
-            
+
     def testSpectrumSetAddSetErase(self):
         if True:
             size = 3
@@ -363,7 +360,7 @@ class SpectraTestCase(tests.TestCase):
 
             self.assertTrue(specSet.erase(0,2))
             self.assertEqual(specSet.size(), size-4)
-        
+
     def testGetSpectra(self):
         if False:#FAILS because spectra is not recognized as a vector of Spectrum(s)
             """test getSpectra"""
@@ -408,24 +405,24 @@ class SpectraTestCase(tests.TestCase):
             tbdata = hdulist[1].data
             refSpecArr = np.ndarray(shape=(len(tbdata)), dtype='float32')
             refSpecArr[:] = tbdata.field(0)
-                
+
             for i in range(spectrumSetFromProfile.size()):
                 spec = spectrumSetFromProfile.getSpectrum(i)
                 specSpec = spec.getSpectrum()
                 result = drpStella.stretchAndCrossCorrelateSpecFF(specSpec, refSpecArr, lineListArr, self.dispCorControl)
                 spec.identifyF(result.lineList, self.dispCorControl, 8)
-                
+
                 """Check that wavelength solution is monotonic"""
                 for j in range(spec.getLength()-1):
                     self.assertLess(spec.getWavelength()[j], spec.getWavelength()[j+1])
-                
+
                 """Check wavelength range"""
                 self.assertGreater(spec.getWavelength()[0], 3800)
                 self.assertLess(spec.getWavelength()[spec.getLength()-1], 9800)
-                
+
                 """Check RMS"""
                 self.assertLess(spec.getDispRms(), self.maxRMS)
-            
+
     def testWavelengthCalibrationWithoutRefSpec(self):
         if True:
             fiberTraceSet = drpStella.findAndTraceAperturesF(self.flat.getMaskedImage(), self.ftffc)
@@ -437,7 +434,7 @@ class SpectraTestCase(tests.TestCase):
             aperturesToExtract = [-1]
             spectrumSetFromProfile = myExtractTask.run(self.arc, fiberTraceSet, aperturesToExtract)
             self.assertEqual(spectrumSetFromProfile.size(), fiberTraceSet.size())
-            
+
             self.dispCorControl.fittingFunction = "POLYNOMIAL"
             self.dispCorControl.order = 5
             self.dispCorControl.searchRadius = 2
@@ -504,11 +501,11 @@ class SpectraTestCase(tests.TestCase):
                     wLenLinesArr[j] = wLenLines[j]
                 lineListPix = drpStella.createLineList(wLenArr, wLenLinesArr)
                 spec.identifyF(lineListPix, self.dispCorControl, 8)
-                
+
                 """Check that wavelength solution is monotonic"""
                 for j in range(spec.getLength()-1):
                     self.assertLess(spec.getWavelength()[j], spec.getWavelength()[j+1])
-                
+
                 """Check wavelength range"""
                 self.assertGreater(spec.getWavelength()[0], 3800)
                 self.assertLess(spec.getWavelength()[spec.getLength()-1], 9800)

@@ -84,13 +84,6 @@ bool pfs::drp::stella::Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>::setSp
   return true;
 }
 
-//template<typename SpectrumT, typename MaskT, typename VarianceT, typename WavelengthT>
-//ndarray::Array<VarianceT, 1, 1> pfs::drp::stella::Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>::getVariance()
-//{
-//    ndarray::Array< VarianceT, 1, 1 > variance = _covar[ ndarray::view( )( 1 ) ]; 
-//    return variance;
-//}
-
 template<typename SpectrumT, typename MaskT, typename VarianceT, typename WavelengthT>
 ndarray::Array<VarianceT, 1, 1> pfs::drp::stella::Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>::getVariance() const
 {

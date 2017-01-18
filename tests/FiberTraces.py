@@ -495,16 +495,14 @@ class FiberTraceTestCase(tests.TestCase):
             ftpfc.profileInterpolation = "PISKUNOV"
             for iTrace in range(0, fiberTraceSet.size()):
                 fiberTrace = fiberTraceSet.getFiberTrace(iTrace)
-                #fiberTrace.getTrace().getImage().writeFits("Trace"+str(iTrace)+".fits")
                 self.assertTrue(fiberTrace.setFiberTraceProfileFittingControl(ftpfc))
                 bool = fiberTrace.calcProfile()
                 self.assertTrue(bool)
 
                 spectrum = fiberTrace.extractFromProfile()
+
                 recImage = fiberTrace.getReconstructed2DSpectrum(spectrum)
-                #recImage.writeFits("recTrace_SpecFromProfileFromMkSlitFunc_trace"+str(iTrace)+".fits")
                 diff = fiberTrace.getTrace().getImage().getArray() - recImage.getArray()
-                #afwImage.ImageF(diff).writeFits("diffTrace_SpecFromProfileFromMkSlitFunc_trace"+str(iTrace)+".fits")
                 if display:
                     ds9.mtv(diff,title="reconstruction from MkSlitFunc",frame=fiberTraceSet.size()+iTrace)
                 meanDiff = np.mean(diff)

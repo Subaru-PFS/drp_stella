@@ -385,7 +385,6 @@ namespace pfsDRPStella = pfs::drp::stella;
       cout << message << endl;
       throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
     }
-    ///TODO: change to sqrt(T_A2_VarianceArray)
     for (auto itRow = _trace->getVariance()->getArray().begin(); itRow != _trace->getVariance()->getArray().end(); ++itRow){
       for (auto itCol = itRow->begin(); itCol != itRow->end(); ++itCol){
         if (*itCol < 0.00000001)
@@ -471,9 +470,6 @@ namespace pfsDRPStella = pfs::drp::stella;
       S_MaskFinalOut = "D_A2_CCD_Ap" + CS_SF_DebugFilesSuffix + ".fits";
       ::pfs::drp::stella::utils::WriteFits(&D_A2_CCDArray, S_MaskFinalOut);
     #endif
-//    D_A1_SP.asEigen() = specEigen;
-//    D_A1_Sky.asEigen() = skyEigen;
-//    D_A2_Sigma_Fit.asEigen() = *P_D_A2_Sigma_Fit;
 
     PTR( pfsDRPStella::Spectrum<ImageT, MaskT, VarianceT, VarianceT> ) spectrum( new pfsDRPStella::Spectrum< ImageT, MaskT, VarianceT, VarianceT >( _trace->getHeight() ) );
     PTR( pfsDRPStella::Spectrum<ImageT, MaskT, VarianceT, VarianceT> ) background( new pfsDRPStella::Spectrum< ImageT, MaskT, VarianceT, VarianceT >( _trace->getHeight() ) );
@@ -609,9 +605,11 @@ namespace pfsDRPStella = pfs::drp::stella;
     typename ndarray::Array<MaskT, 2, 1>::Iterator yIterTraceMask = traceMaskArray.begin();
     int iy = 0;//_fiberTraceFunction->yCenter + _fiberTraceFunction->yLow;
     for (iy = 0; iy <= static_cast<int>(_fiberTraceFunction->yHigh - _fiberTraceFunction->yLow); ++iy) {
+
       typename ndarray::Array<ImageT, 2, 1>::Iterator yIter = imageArray.begin() + _fiberTraceFunction->yCenter + _fiberTraceFunction->yLow + iy;
       typename ndarray::Array<VarianceT, 2, 1>::Iterator yIterV = varianceArray.begin() + _fiberTraceFunction->yCenter + _fiberTraceFunction->yLow + iy;
       typename ndarray::Array<MaskT, 2, 1>::Iterator yIterM = maskArray.begin() + _fiberTraceFunction->yCenter + _fiberTraceFunction->yLow + iy;
+
       typename ndarray::Array<ImageT, 2, 1>::Reference::Iterator ptrImageStart = yIter->begin() + minCenMax[iy][0];
       typename ndarray::Array<ImageT, 2, 1>::Reference::Iterator ptrImageEnd = yIter->begin() + minCenMax[iy][2] + 1;
       typename ndarray::Array<ImageT, 2, 1>::Reference::Iterator ptrTraceStart = yIterTrace->begin();
@@ -626,6 +624,7 @@ namespace pfsDRPStella = pfs::drp::stella;
       typename ndarray::Array<MaskT, 2, 1>::Reference::Iterator ptrMaskEnd = yIterM->begin() + minCenMax[iy][2] + 1;
       typename ndarray::Array<MaskT, 2, 1>::Reference::Iterator ptrTraceMaskStart = yIterTraceMask->begin();
       std::copy(ptrMaskStart, ptrMaskEnd, ptrTraceMaskStart);
+
       ++yIterTrace;
       ++yIterTraceVariance;
       ++yIterTraceMask;
@@ -1242,7 +1241,7 @@ namespace pfsDRPStella = pfs::drp::stella;
     for (auto itX = xOverSampledFitVec->begin(), itY = yOverSampledFitVec->begin(); itX != xOverSampledFitVec->end(); ++itX, ++itY)
       *itY = spline(*itX);
     #ifdef __DEBUG_CALCPROFILESWATH__
-    std::vector<float> yVecFit(yVecMean.size());
+      std::vector<float> yVecFit(yVecMean.size());
       for (int iRow = 0; iRow < yVecMean.size(); ++iRow){
         yVecFit[iRow] = spline((*xVecMean)[iRow]);
         cout << "FiberTrace::calcProfileSwath: iSwath = " << iSwath << ": yVecMean[" << iRow << "] = " << yVecMean[iRow] << ", yVecFit[" << iRow << "] = " << yVecFit[iRow] << endl;
@@ -2697,14 +2696,14 @@ namespace pfsDRPStella = pfs::drp::stella;
                                                                                     ftf->fiberTraceFunctionControl.nPixCutRight);
       /// Check fiberTraceRepresentation dimension
       if ( fiberTraceRepresentation.getDimensions()[ 0 ] != ( minCenMax[ 0 ][ 2 ] - minCenMax[ 0 ][ 0 ] + 1 ) ){
-        string message("pfs::drp::stella::math::addFiberTraceToCcdImage: ERROR: fiberTraceRepresentation.getDimensions()[ 0 ](=");
+        string message("pfs::drp::stella::math::addFiberTraceToCcdArray: ERROR: fiberTraceRepresentation.getDimensions()[ 0 ](=");
         message += to_string( fiberTraceRepresentation.getDimensions()[ 0 ] ) + " != ( minCenMax[ 0 ][ 2 ] - minCenMax[ 0 ][ 0 ] + 1 )(= ";
         message += to_string( minCenMax[ 0 ][ 2 ] - minCenMax[ 0 ][ 0 ] + 1 ) + ")";
         cout << message << endl;
         throw LSST_EXCEPT( pexExcept::Exception, message.c_str() );
       }
       if ( fiberTraceRepresentation.getDimensions()[ 1 ] != minCenMax.getShape()[ 0 ] ){
-        string message( "pfs::drp::stella::math::addFiberTraceToCcdImage: ERROR: fiberTraceRepresentation.getDimensions()[ 1 ] )(=");
+        string message( "pfs::drp::stella::math::addFiberTraceToCcdArray: ERROR: fiberTraceRepresentation.getDimensions()[ 1 ] )(=");
         message += to_string( fiberTraceRepresentation.getDimensions()[ 1 ] ) + ") != minCenMax.getShape()[ 0 ](=" + to_string( minCenMax.getShape()[ 0 ] ) + ")";
         cout << message << endl;
         throw LSST_EXCEPT( pexExcept::Exception, message.c_str() );
