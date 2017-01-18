@@ -1084,3 +1084,8 @@ Interface to Stella
 %template(addArrayIntoArray) pfs::drp::stella::math::addArrayIntoArray< float const, float, 2, 1 >;
 %template(addArrayIntoArray) pfs::drp::stella::math::addArrayIntoArray< float const, float, 1, 2 >;
 %template(addArrayIntoArray) pfs::drp::stella::math::addArrayIntoArray< float const, float, 2, 2 >;
+
+%template(calcMinCenMax) pfs::drp::stella::math::calcMinCenMax<float, float>;
+%template(calcMinCenMax) pfs::drp::stella::math::calcMinCenMax<double, float>;
+%template(calcMinCenMax) pfs::drp::stella::math::calcMinCenMax<float, double>;
+%template(calcMinCenMax) pfs::drp::stella::math::calcMinCenMax<double, double>;
