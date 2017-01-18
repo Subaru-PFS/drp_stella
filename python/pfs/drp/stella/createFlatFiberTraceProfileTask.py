@@ -59,6 +59,16 @@ class CreateFlatFiberTraceProfileConfig(pexConfig.Config):
             dtype = float,
             default = 0.,
             check = lambda x : x >= 0)
+        lowerSigma = pexConfig.Field(
+            dtype = float, 
+            doc = "lower sigma rejection threshold if maxIterSig > 0 (default: 3.)", 
+            default = 3., 
+            check = lambda x : x >= 0 )
+        upperSigma = pexConfig.Field(
+            dtype = float,
+            doc = "upper sigma rejection threshold if maxIterSig > 0 (default: 3.)",
+            default = 3.,
+            check = lambda x : x >= 0 )
 
 class CreateFlatFiberTraceProfileTask(Task):
     ConfigClass = CreateFlatFiberTraceProfileConfig
@@ -80,6 +90,8 @@ class CreateFlatFiberTraceProfileTask(Task):
         fiberTraceProfileFittingControl.lambdaSF = self.config.lambdaSF
         fiberTraceProfileFittingControl.lambdaSP = self.config.lambdaSP
         fiberTraceProfileFittingControl.wingSmoothFactor = self.config.wingSmoothFactor
+        fiberTraceProfileFittingControl.lowerSigma = self.config.lowerSigma
+        fiberTraceProfileFittingControl.upperSigma = self.config.upperSigma
         
         """Calculate spatial profile"""
         inFiberTraceSet.setFiberTraceProfileFittingControl(fiberTraceProfileFittingControl)

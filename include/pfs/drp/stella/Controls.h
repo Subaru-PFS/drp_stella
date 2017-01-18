@@ -248,7 +248,7 @@ struct FiberTraceProfileFittingControl {
     LSST_CONTROL_FIELD(lambdaSP, float, "profileInterpolation==PISKUNOV: Lambda smoothing factor for spectrum (default: 0)");
     LSST_CONTROL_FIELD(wingSmoothFactor, float, "profileInterpolation==PISKUNOV: Lambda smoothing factor to remove possible oscillation of the wings of the spatial profile (default: 0.)");
     LSST_CONTROL_FIELD(lowerSigma, float, "lower sigma rejection threshold if maxIterSig > 0 (default: 3.)");
-    LSST_CONTROL_FIELD(upperSigma, float, "upper sigma rejection threshold if maxIterSig > 0 (default: 2.5)");
+    LSST_CONTROL_FIELD(upperSigma, float, "upper sigma rejection threshold if maxIterSig > 0 (default: 3.)");
 //    LSST_CONTROL_FIELD(xCorProf, unsigned short, "Number of Cross-correlations of profile and spectrum from one pixel to the left to one pixel to the right");
 
     FiberTraceProfileFittingControl() :
