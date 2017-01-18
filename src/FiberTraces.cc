@@ -2683,7 +2683,7 @@ namespace pfsDRPStella = pfs::drp::stella;
     }
 
     template< typename ImageT, typename MaskT, typename VarianceT, typename arrayT, typename ccdImageT, int dim >
-    bool addFiberTraceToCcdArray( FiberTrace< ImageT, MaskT, VarianceT > const& fiberTrace,
+    void addFiberTraceToCcdArray( FiberTrace< ImageT, MaskT, VarianceT > const& fiberTrace,
                                   afwImage::Image< arrayT > const& fiberTraceRepresentation,
                                   ndarray::Array< ccdImageT, 2, dim > & ccdArray ){
 
@@ -2710,16 +2710,18 @@ namespace pfsDRPStella = pfs::drp::stella;
       }
 
       int y = ftf->yCenter + ftf->yLow;
-      for (int iY = 0; iY < xCenters.getShape()[ 0 ]; ++iY){
-        for (int x = minCenMax[ iY ][ 0 ]; x <= minCenMax[ iY ][ 2 ]; ++x){
-          ccdArray[ y + iY ][ x ] += fiberTraceRepresentation.getArray()[ iY ][ x - minCenMax[ iY ][ 0 ] ];
-        }
-      }
-      return true;
+      ndarray::Array<size_t, 2, 1> xMinMax = ndarray::allocate(minCenMax.getShape()[0], 2);
+      xMinMax[ndarray::view()(0)] = minCenMax[ndarray::view()(0)];
+      xMinMax[ndarray::view()(1)] = minCenMax[ndarray::view()(2)];
+      addArrayIntoArray(fiberTraceRepresentation.getArray(),
+                        xMinMax,
+                        y,
+                        ccdArray);
+      return;
     }
 
     template< typename ImageT, typename MaskT, typename VarianceT, typename arrayT, typename ccdImageT >
-    bool addFiberTraceToCcdImage( FiberTrace< ImageT, MaskT, VarianceT > const& fiberTrace,
+    void addFiberTraceToCcdImage( FiberTrace< ImageT, MaskT, VarianceT > const& fiberTrace,
                                   afwImage::Image< arrayT > const& fiberTraceRepresentation,
                                   afwImage::Image< ccdImageT > & ccdImage ){
       ndarray::Array< ccdImageT, 2, 1 > arr = ccdImage.getArray();
@@ -2892,67 +2894,67 @@ template PTR(pfsDRPStella::FiberTrace< double, unsigned short, float >) pfsDRPSt
                                                                                                  double,
                                                                                                  size_t );
 
-template bool pfsDRPStella::math::addFiberTraceToCcdArray( pfsDRPStella::FiberTrace< float, unsigned short, float > const&,
+template void pfsDRPStella::math::addFiberTraceToCcdArray( pfsDRPStella::FiberTrace< float, unsigned short, float > const&,
                                                            afwImage::Image< float > const&,
                                                            ndarray::Array< float, 2, 0 > & );
-template bool pfsDRPStella::math::addFiberTraceToCcdArray( pfsDRPStella::FiberTrace< float, unsigned short, float > const&,
+template void pfsDRPStella::math::addFiberTraceToCcdArray( pfsDRPStella::FiberTrace< float, unsigned short, float > const&,
                                                            afwImage::Image< unsigned short > const&,
                                                            ndarray::Array< unsigned short, 2, 0 > & );
-template bool pfsDRPStella::math::addFiberTraceToCcdArray( pfsDRPStella::FiberTrace< float, unsigned short, float > const&,
+template void pfsDRPStella::math::addFiberTraceToCcdArray( pfsDRPStella::FiberTrace< float, unsigned short, float > const&,
                                                            afwImage::Image< double > const&,
                                                            ndarray::Array< float, 2, 0 > & );
-template bool pfsDRPStella::math::addFiberTraceToCcdArray( pfsDRPStella::FiberTrace< float, unsigned short, float > const&,
+template void pfsDRPStella::math::addFiberTraceToCcdArray( pfsDRPStella::FiberTrace< float, unsigned short, float > const&,
                                                            afwImage::Image< float > const&,
                                                            ndarray::Array< unsigned short, 2, 0 > & );
-template bool pfsDRPStella::math::addFiberTraceToCcdArray( pfsDRPStella::FiberTrace< float, unsigned short, float > const&,
+template void pfsDRPStella::math::addFiberTraceToCcdArray( pfsDRPStella::FiberTrace< float, unsigned short, float > const&,
                                                            afwImage::Image< double > const&,
                                                            ndarray::Array< double, 2, 0 > & );
 
-template bool pfsDRPStella::math::addFiberTraceToCcdArray( pfsDRPStella::FiberTrace< float, unsigned short, float > const&,
+template void pfsDRPStella::math::addFiberTraceToCcdArray( pfsDRPStella::FiberTrace< float, unsigned short, float > const&,
                                                            afwImage::Image< float > const&,
                                                            ndarray::Array< float, 2, 1 > & );
-template bool pfsDRPStella::math::addFiberTraceToCcdArray( pfsDRPStella::FiberTrace< float, unsigned short, float > const&,
+template void pfsDRPStella::math::addFiberTraceToCcdArray( pfsDRPStella::FiberTrace< float, unsigned short, float > const&,
                                                            afwImage::Image< unsigned short > const&,
                                                            ndarray::Array< unsigned short, 2, 1 > & );
-template bool pfsDRPStella::math::addFiberTraceToCcdArray( pfsDRPStella::FiberTrace< float, unsigned short, float > const&,
+template void pfsDRPStella::math::addFiberTraceToCcdArray( pfsDRPStella::FiberTrace< float, unsigned short, float > const&,
                                                            afwImage::Image< double > const&,
                                                            ndarray::Array< float, 2, 1 > & );
-template bool pfsDRPStella::math::addFiberTraceToCcdArray( pfsDRPStella::FiberTrace< float, unsigned short, float > const&,
+template void pfsDRPStella::math::addFiberTraceToCcdArray( pfsDRPStella::FiberTrace< float, unsigned short, float > const&,
                                                            afwImage::Image< float > const&,
                                                            ndarray::Array< unsigned short, 2, 1 > & );
-template bool pfsDRPStella::math::addFiberTraceToCcdArray( pfsDRPStella::FiberTrace< float, unsigned short, float > const&,
+template void pfsDRPStella::math::addFiberTraceToCcdArray( pfsDRPStella::FiberTrace< float, unsigned short, float > const&,
                                                            afwImage::Image< double > const&,
                                                            ndarray::Array< double, 2, 1 > & );
 
-template bool pfsDRPStella::math::addFiberTraceToCcdArray( pfsDRPStella::FiberTrace< float, unsigned short, float > const&,
+template void pfsDRPStella::math::addFiberTraceToCcdArray( pfsDRPStella::FiberTrace< float, unsigned short, float > const&,
                                                            afwImage::Image< float > const&,
                                                            ndarray::Array< float, 2, 2 > & );
-template bool pfsDRPStella::math::addFiberTraceToCcdArray( pfsDRPStella::FiberTrace< float, unsigned short, float > const&,
+template void pfsDRPStella::math::addFiberTraceToCcdArray( pfsDRPStella::FiberTrace< float, unsigned short, float > const&,
                                                            afwImage::Image< unsigned short > const&,
                                                            ndarray::Array< unsigned short, 2, 2 > & );
-template bool pfsDRPStella::math::addFiberTraceToCcdArray( pfsDRPStella::FiberTrace< float, unsigned short, float > const&,
+template void pfsDRPStella::math::addFiberTraceToCcdArray( pfsDRPStella::FiberTrace< float, unsigned short, float > const&,
                                                            afwImage::Image< double > const&,
                                                            ndarray::Array< float, 2, 2 > & );
-template bool pfsDRPStella::math::addFiberTraceToCcdArray( pfsDRPStella::FiberTrace< float, unsigned short, float > const&,
+template void pfsDRPStella::math::addFiberTraceToCcdArray( pfsDRPStella::FiberTrace< float, unsigned short, float > const&,
                                                            afwImage::Image< float > const&,
                                                            ndarray::Array< unsigned short, 2, 2 > & );
-template bool pfsDRPStella::math::addFiberTraceToCcdArray( pfsDRPStella::FiberTrace< float, unsigned short, float > const&,
+template void pfsDRPStella::math::addFiberTraceToCcdArray( pfsDRPStella::FiberTrace< float, unsigned short, float > const&,
                                                            afwImage::Image< double > const&,
                                                            ndarray::Array< double, 2, 2 > & );
 
-template bool pfsDRPStella::math::addFiberTraceToCcdImage( pfsDRPStella::FiberTrace< float, unsigned short, float > const&,
+template void pfsDRPStella::math::addFiberTraceToCcdImage( pfsDRPStella::FiberTrace< float, unsigned short, float > const&,
                                                            afwImage::Image< float > const&,
                                                            afwImage::Image< float > & );
-template bool pfsDRPStella::math::addFiberTraceToCcdImage( pfsDRPStella::FiberTrace< float, unsigned short, float > const&,
+template void pfsDRPStella::math::addFiberTraceToCcdImage( pfsDRPStella::FiberTrace< float, unsigned short, float > const&,
                                                            afwImage::Image< unsigned short > const&,
                                                            afwImage::Image< unsigned short > & );
-template bool pfsDRPStella::math::addFiberTraceToCcdImage( pfsDRPStella::FiberTrace< float, unsigned short, float > const&,
+template void pfsDRPStella::math::addFiberTraceToCcdImage( pfsDRPStella::FiberTrace< float, unsigned short, float > const&,
                                                            afwImage::Image< double > const&,
                                                            afwImage::Image< float > & );
-template bool pfsDRPStella::math::addFiberTraceToCcdImage( pfsDRPStella::FiberTrace< float, unsigned short, float > const&,
+template void pfsDRPStella::math::addFiberTraceToCcdImage( pfsDRPStella::FiberTrace< float, unsigned short, float > const&,
                                                            afwImage::Image< float > const&,
                                                            afwImage::Image< unsigned short > & );
-template bool pfsDRPStella::math::addFiberTraceToCcdImage( pfsDRPStella::FiberTrace< float, unsigned short, float > const&,
+template void pfsDRPStella::math::addFiberTraceToCcdImage( pfsDRPStella::FiberTrace< float, unsigned short, float > const&,
                                                            afwImage::Image< double > const&,
                                                            afwImage::Image< double > & );
 

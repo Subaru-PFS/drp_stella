@@ -404,7 +404,7 @@ namespace math{
      * @param ccdArray: Array to add the FiberTraceRepresentation to
      */
     template< typename ImageT, typename MaskT, typename VarianceT, typename arrayT, typename ccdImageT, int dim >
-    bool addFiberTraceToCcdArray( FiberTrace< ImageT, MaskT, VarianceT > const& fiberTrace,
+    void addFiberTraceToCcdArray( FiberTrace< ImageT, MaskT, VarianceT > const& fiberTrace,
                                   afwImage::Image< arrayT > const& fiberTraceRepresentation,
                                   ndarray::Array< ccdImageT, 2, dim > & ccdArray );
 
@@ -417,7 +417,7 @@ namespace math{
      * @param ccdArray: Image to add the FiberTraceRepresentation to
      */
     template< typename ImageT, typename MaskT, typename VarianceT, typename arrayT, typename ccdImageT >
-    bool addFiberTraceToCcdImage( FiberTrace< ImageT, MaskT, VarianceT > const& fiberTrace,
+    void addFiberTraceToCcdImage( FiberTrace< ImageT, MaskT, VarianceT > const& fiberTrace,
                                   afwImage::Image< arrayT > const& fiberTraceRepresentation,
                                   afwImage::Image< ccdImageT > & ccdImage );
      
