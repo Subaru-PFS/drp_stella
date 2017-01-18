@@ -1079,3 +1079,8 @@ Interface to Stella
 %template(getIndices) pfs::drp::stella::math::getIndices< double >;
 
 %template(PolyFit) pfs::drp::stella::math::PolyFit<double>;
+
+%template(addArrayIntoArray) pfs::drp::stella::math::addArrayIntoArray< float const, float, 1, 1 >;
+%template(addArrayIntoArray) pfs::drp::stella::math::addArrayIntoArray< float const, float, 2, 1 >;
+%template(addArrayIntoArray) pfs::drp::stella::math::addArrayIntoArray< float const, float, 1, 2 >;
+%template(addArrayIntoArray) pfs::drp::stella::math::addArrayIntoArray< float const, float, 2, 2 >;

@@ -2725,6 +2725,21 @@ namespace pfsDRPStella = pfs::drp::stella;
       ndarray::Array< ccdImageT, 2, 1 > arr = ccdImage.getArray();
       return addFiberTraceToCcdArray( fiberTrace, fiberTraceRepresentation, arr );
     }
+
+    template< typename smallT, typename bigT, int I, int J >
+    void addArrayIntoArray( ndarray::Array< smallT, 2, I > const& smallArr,
+                            ndarray::Array< size_t, 2, 1 > const& xMinMax,
+                            size_t const& yMin,
+                            ndarray::Array< bigT, 2, J > & bigArr ){
+      assert( smallArr.getShape()[ 0 ] == xMinMax.getShape()[ 0 ] );
+      assert( xMinMax.getShape()[ 1 ] == 2 );
+      assert( smallArr.getShape()[ 0 ] + yMin <= bigArr.getShape()[ 0 ] );
+      assert( smallArr.getShape()[ 1 ] + xMinMax[ 0 ][ 0 ] <= bigArr.getShape()[ 1 ] );
+      for ( int i = 0; i < smallArr.getShape()[ 0 ]; ++i ){
+        bigArr[ndarray::view(int(yMin) + i)(xMinMax[i][0], xMinMax[i][1] + 1)] += smallArr[ndarray::view(i)()];
+      }
+      return;
+    }
   }
 
   namespace utils{
@@ -2940,3 +2955,14 @@ template bool pfsDRPStella::math::addFiberTraceToCcdImage( pfsDRPStella::FiberTr
 template bool pfsDRPStella::math::addFiberTraceToCcdImage( pfsDRPStella::FiberTrace< float, unsigned short, float > const&,
                                                            afwImage::Image< double > const&,
                                                            afwImage::Image< double > & );
+
+#define INSTANTIATE_ADDARRAYINTOARRAY(T1, T2, I1, I2) \
+template void pfsDRPStella::math::addArrayIntoArray( ndarray::Array< T1, 2, I1 > const&, \
+                                                     ndarray::Array< size_t, 2, 1 > const&, \
+                                                     size_t const&, \
+                                                     ndarray::Array< T2, 2, I2 > & ); \
+
+INSTANTIATE_ADDARRAYINTOARRAY(float const, float, 1, 1);
+INSTANTIATE_ADDARRAYINTOARRAY(float const, float, 1, 2);
+INSTANTIATE_ADDARRAYINTOARRAY(float const, float, 2, 1);
+INSTANTIATE_ADDARRAYINTOARRAY(float const, float, 2, 2);

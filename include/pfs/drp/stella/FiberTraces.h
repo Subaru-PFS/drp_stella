@@ -420,7 +420,23 @@ namespace math{
     bool addFiberTraceToCcdImage( FiberTrace< ImageT, MaskT, VarianceT > const& fiberTrace,
                                   afwImage::Image< arrayT > const& fiberTraceRepresentation,
                                   afwImage::Image< ccdImageT > & ccdImage );
-}
+     
+    /**
+     * @brief: Add one array into certain positions in another array
+     *         The purpose of the function is to add a curved FiberTrace
+     *         representation into an array representing a CCD image.
+     * @param smallArr in: Array to be added to <bigArr> in the area defined by <xMinMax> and <yMin>
+     * @param xMinMax in: 2D array of shape(smallArr.getShape()[0],2) containing the x limits where to add
+     *                 each row from <smallArr> in
+     * @param yMin in: row number in which to start adding <smallArr> into
+     * @param bigArr in/out: Array to which to add <smallArr>
+     */
+    template< typename smallT, typename bigT, int I, int J >
+    void addArrayIntoArray( ndarray::Array< smallT, 2, I > const& smallArr,
+                            ndarray::Array< size_t, 2, 1 > const& xMinMax,
+                            size_t const& yMin,
+                            ndarray::Array< bigT, 2, J > & bigArr );
+}   
 
 namespace utils{
     template<typename T>
