@@ -123,7 +123,12 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
     int I_NRejected = 0;
     bool B_HaveMeasureErrors = false;
     ndarray::Array<double, 1, 1> D_A1_Coeffs_Out = ndarray::allocate(I_Degree_In + 1);
-    PTR(ndarray::Array<T, 1, 1>) P_D_A1_MeasureErrors(new ndarray::Array<T, 1, 1>(D_A1_X_In));
+
+    // We need at least an existing array to which P_D_A1_MeasureErrors points
+    // so we can define the vector V_MeasureErrors and P_D_A1_MeasureErrosTemp
+    // later in the block/namespace where they are possibly needed
+    ndarray::Array<T, 1, 1> D_A1_MeasureErrors = ndarray::allocate(1);
+    PTR(ndarray::Array<T, 1, 1>) P_D_A1_MeasureErrors(new ndarray::Array<T, 1, 1>(D_A1_MeasureErrors));
 
     int I_Pos = -1;
     if ((I_Pos = pfs::drp::stella::utils::KeyWord_Set(S_A1_Args_In, "MEASURE_ERRORS")) >= 0){
@@ -221,6 +226,12 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
     std::vector<T> D_A1_X(D_A1_X_In.begin(), D_A1_X_In.end());
     std::vector<T> D_A1_Y(D_A1_Y_In.begin(), D_A1_Y_In.end());
     std::vector<size_t> I_A1_OrigPos(D_A1_X_In.getShape()[0]);
+
+    // Copy (deep) P_D_A1_MeasureErrors to a vector and then to another temporary
+    // array pointer which is used for the measure errors during the sigma-rejection
+    // iterations.
+    // We create the vector of the correct size here because it will be used again
+    // later in a different context
     std::vector<T> V_MeasureErrors(P_D_A1_MeasureErrors->begin(), P_D_A1_MeasureErrors->end());
     #ifdef __DEBUG_POLYFIT__
       cout << "pfs::drp::stella::math::CurveFitting::PolyFit: V_MeasureErrors = " << V_MeasureErrors << endl;
