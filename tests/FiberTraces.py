@@ -12,7 +12,7 @@ from astropy.io import fits as pyfits
 import lsst.afw.image as afwImage
 import lsst.afw.display.ds9 as ds9
 import lsst.daf.persistence as dafPersist
-import lsst.log
+import lsst.log as log
 import lsst.utils
 import lsst.utils.tests as tests
 import numpy as np
@@ -50,6 +50,9 @@ class FiberTraceTestCase(tests.TestCase):
         self.maxLength = 3930
 
         self.wLenFile = os.path.join(lsst.utils.getPackageDir('obs_pfs'),'pfs/RedFiberPixels.fits.gz')
+
+        """Quiet down loggers which are too verbose"""
+        log.setLevel("pfs::drp::stella::math::findITrace", log.WARN)
 
     def tearDown(self):
         del self.flat
@@ -722,9 +725,6 @@ class FiberTraceTestCase(tests.TestCase):
             np.testing.assert_array_equal(ftOrig.getImage().getArray(), ftNew.getImage().getArray())
 
     def testFindITrace(self):
-        logger = lsst.log.Log.getLogger("pfs::drp::stella::math::findITrace")
-        logger.setLevel(logger.WARN)
-
         ft = drpStella.FiberTraceF(10,100)
         fiberTraceFunction = drpStella.FiberTraceFunction()
         fiberTraceFunction.xCenter = 6.0
@@ -994,6 +994,10 @@ def suite():
     return unittest.TestSuite(suites)
 
 def run(exit = False):
+    """Quiet down loggers which are too verbose"""
+    log.setLevel("CameraMapper", log.FATAL)
+    log.setLevel("afw.image.ExposureInfo", log.FATAL)
+
     """Run the tests"""
     tests.run(suite(), exit)
 
