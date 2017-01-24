@@ -1468,9 +1468,10 @@ namespace pfsDRPStella = pfs::drp::stella;
   template<typename ImageT, typename MaskT, typename VarianceT>
   PTR( pfsDRPStella::SpectrumSet<ImageT, MaskT, VarianceT, VarianceT> ) pfsDRPStella::FiberTraceSet<ImageT, MaskT, VarianceT>::extractAllTracesFromProfile()
   {
+    LOG_LOGGER _log = LOG_GET("pfs::drp::stella::FiberTraceSet::extractAllTracesFromProfile");
     PTR( pfsDRPStella::SpectrumSet<ImageT, MaskT, VarianceT, VarianceT> ) spectrumSet ( new pfsDRPStella::SpectrumSet<ImageT, MaskT, VarianceT, VarianceT>( _traces->size() ) );
     for (size_t i = 0; i < _traces->size(); ++i){
-      cout << "extracting FiberTrace " << i << endl;
+      LOGLS_DEBUG(_log, "extracting FiberTrace " << i);
       spectrumSet->setSpectrum(i, (*_traces)[i]->extractFromProfile());
     }
     return spectrumSet;
