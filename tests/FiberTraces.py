@@ -73,110 +73,56 @@ class FiberTraceTestCase(tests.TestCase):
         self.assertNotEqual(interpolation, oldInterpolation)
         self.ftffc.fiberTraceFunctionControl.interpolation = interpolation
         self.assertEqual(self.ftffc.fiberTraceFunctionControl.interpolation, interpolation)
-        if interpolation is self.ftffc.fiberTraceFunctionControl.interpolation:
-            print "interpolation IS self.ftffc.fiberTraceFunctionControl.interpolation"
-        else:
-            print "interpolation IS NOT self.ftffc.fiberTraceFunctionControl.interpolation"
-        print " "
 
         order = 4
         self.ftffc.fiberTraceFunctionControl.order = order
         self.assertEqual(self.ftffc.fiberTraceFunctionControl.order, order)
         self.assertIs(order, self.ftffc.fiberTraceFunctionControl.order)
-        if order is self.ftffc.fiberTraceFunctionControl.order:
-            print "order IS self.ftffc.fiberTraceFunctionControl.order"
-        else:
-            print "order IS NOT self.ftffc.fiberTraceFunctionControl.order"
-        print " "
 
         xLow = -5.
         self.ftffc.fiberTraceFunctionControl.xLow = xLow
         self.assertAlmostEqual(self.ftffc.fiberTraceFunctionControl.xLow, xLow)
         self.assertIsNot(xLow, self.ftffc.fiberTraceFunctionControl.xLow)
-        if xLow is self.ftffc.fiberTraceFunctionControl.xLow:
-            print "xLow IS self.ftffc.fiberTraceFunctionControl.xLow"
-        else:
-            print "xLow IS NOT self.ftffc.fiberTraceFunctionControl.xLow"
-        print " "
 
         xHigh = 5.
         self.ftffc.fiberTraceFunctionControl.xHigh = xHigh
         self.assertAlmostEqual(self.ftffc.fiberTraceFunctionControl.xHigh, xHigh)
         self.assertIsNot(xHigh, self.ftffc.fiberTraceFunctionControl.xHigh)
-        if xHigh is self.ftffc.fiberTraceFunctionControl.xHigh:
-            print "xHigh IS self.ftffc.fiberTraceFunctionControl.xHigh"
-        else:
-            print "xHigh IS NOT self.ftffc.fiberTraceFunctionControl.xHigh"
-        print " "
 
         apertureFWHM = 2.6
         self.ftffc.apertureFWHM = apertureFWHM
         self.assertAlmostEqual(self.ftffc.apertureFWHM, apertureFWHM, places=6)
         self.assertIsNot(apertureFWHM, self.ftffc.apertureFWHM)
-        if apertureFWHM is self.ftffc.apertureFWHM:
-            print "apertureFWHM IS self.ftffc.apertureFWHM"
-        else:
-            print "apertureFWHM IS NOT self.ftffc.apertureFWHM"
-        print " "
 
         signalThreshold = 10.
         self.ftffc.signalThreshold = signalThreshold
         self.assertAlmostEqual(self.ftffc.signalThreshold, signalThreshold)
         self.assertIsNot(signalThreshold, self.ftffc.signalThreshold)
-        if signalThreshold is self.ftffc.signalThreshold:
-            print "signalThreshold IS self.ftffc.signalThreshold"
-        else:
-            print "signalThreshold IS NOT self.ftffc.signalThreshold"
-        print " "
 
         nTermsGaussFit = 4
         self.ftffc.nTermsGaussFit = nTermsGaussFit
         self.assertEqual(self.ftffc.nTermsGaussFit, nTermsGaussFit)
         self.assertIs(nTermsGaussFit, self.ftffc.nTermsGaussFit)
-        if nTermsGaussFit is self.ftffc.nTermsGaussFit:
-            print "nTermsGaussFit IS self.ftffc.nTermsGaussFit"
-        else:
-            print "nTermsGaussFit IS NOT self.ftffc.nTermsGaussFit"
-        print " "
 
         saturationLevel = 65550.
         self.ftffc.saturationLevel = saturationLevel
         self.assertAlmostEqual(self.ftffc.saturationLevel, saturationLevel)
         self.assertIsNot(saturationLevel, self.ftffc.saturationLevel)
-        if saturationLevel is self.ftffc.saturationLevel:
-            print "saturationLevel IS self.ftffc.saturationLevel"
-        else:
-            print "saturationLevel IS NOT self.ftffc.saturationLevel"
-        print " "
 
         minLength = 20
         self.ftffc.minLength = minLength
         self.assertEqual(self.ftffc.minLength, minLength)
         self.assertIs(minLength, self.ftffc.minLength)
-        if minLength is self.ftffc.minLength:
-            print "minLength IS self.ftffc.minLength"
-        else:
-            print "minLength IS NOT self.ftffc.minLength"
-        print " "
 
         maxLength = 4000
         self.ftffc.maxLength = maxLength
         self.assertEqual(self.ftffc.maxLength, maxLength)
         self.assertIsNot(maxLength, self.ftffc.maxLength)
-        if maxLength is self.ftffc.maxLength:
-            print "maxLength IS self.ftffc.maxLength"
-        else:
-            print "maxLength IS NOT self.ftffc.maxLength"
-        print " "
 
         nLost = 20
         self.ftffc.nLost = nLost
         self.assertEqual(self.ftffc.nLost, nLost)
         self.assertIs(nLost, self.ftffc.nLost)
-        if nLost is self.ftffc.nLost:
-            print "nLost IS self.ftffc.nLost"
-        else:
-            print "nLost IS NOT self.ftffc.nLost"
 
     def testFiberTraceConstructors(self):
         if True:
@@ -255,12 +201,6 @@ class FiberTraceTestCase(tests.TestCase):
             self.assertEqual(fiberTraceSet.getFiberTrace(1).getTrace().getImage().getArray()[5, 5], fiberTraceSetNew.getFiberTrace(1).getTrace().getImage().getArray()[5,5])
             for i in range(nTraces):
                 self.assertEqual(fiberTraceSetNew.getFiberTrace(i).getITrace(), i)
-
-#        """Test that we can create a FiberTraceSet from a vector of FiberTraces"""
-#        fiberTraceSetNew = drpStella.FiberTraceSetF(fiberTraceSet.getTraces())
-#        self.assertEqual(fiberTraceSetNew.size(), nTraces)
-#        for i in range(nTraces):
-#            self.assertEqual(fiberTraceSetNew.getFiberTrace(i).getITrace(), i)
 
     def testFiberTraceGetSetFunctions(self):
         if True:
@@ -990,7 +930,6 @@ def suite():
 
     suites = []
     suites += unittest.makeSuite(FiberTraceTestCase)
-#    suites += unittest.makeSuite(tests.MemoryTestCase)
     return unittest.TestSuite(suites)
 
 def run(exit = False):
