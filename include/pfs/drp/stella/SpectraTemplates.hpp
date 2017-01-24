@@ -141,7 +141,6 @@ bool pfs::drp::stella::Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>::setMa
   if (static_cast<size_t>(mask.getWidth()) != _length){
     string message("pfs::drp::stella::Spectrum::setMask: ERROR: mask.getWidth()=");
     message += to_string(mask.getWidth()) + string(" != _length=") + to_string(_length);
-    cout << message << endl;
     throw LSST_EXCEPT(pexExcept::Exception, message.c_str());    
   }
   _mask = mask;
