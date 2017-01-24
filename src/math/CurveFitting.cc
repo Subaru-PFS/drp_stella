@@ -296,7 +296,8 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
       for (size_t i_pos=0; i_pos < D_A1_Y_In.getShape()[0]; i_pos++){
         D_Dev = D_A1_Y_In[i_pos] - (*P_D_A1_YFit)[i_pos];
         LOGLS_DEBUG(_log, "i_pos = " << i_pos << ": D_Dev = " << D_Dev << ", D_SDev = " << D_SDev);
-        if (((D_Dev < 0) && (D_Dev > (D_LReject_In * D_SDev))) ||
+        if ((I_NIter == 0) ||
+            ((D_Dev < 0) && (D_Dev > (D_LReject_In * D_SDev))) ||
             ((D_Dev >= 0) && (D_Dev < (D_UReject_In * D_SDev)))){
           D_A1_X.push_back(D_A1_X_In[i_pos]);
           D_A1_Y.push_back(D_A1_Y_In[i_pos]);
