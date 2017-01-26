@@ -39,11 +39,7 @@ def extractFromProfile(flatfilename, flatprofilename, specfilename):
 
     # --- create FiberTraceExtractionControl
     ftec = drpStella.FiberTraceExtractionControl()
-#    ftec.xCorProf = 20
-    ftec.wingSmoothFactor = 2.
     ftec.overSample = 15
-    ftec.lambdaSF = 1. / ftec.overSample
-    ftec.maxIterSF = 10
     ftec.swathWidth = 500
 
     """Create a afwImage::MaskedImageF from the flat fits file"""

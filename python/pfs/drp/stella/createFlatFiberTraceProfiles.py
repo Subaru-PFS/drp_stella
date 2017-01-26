@@ -44,13 +44,9 @@ def createFlatFiberTraceProfiles(filename):
     # --- create FiberTraceExtractionControl
     ftec = drpStella.FiberTraceExtractionControl()
     ftec.xCorProf = 0
-    ftec.wingSmoothFactor = 0.
     ftec.overSample = 30
-    ftec.lambdaSF = 5000. / ftec.overSample
-    ftec.maxIterSF = 10
     ftec.swathWidth = 500
     ftec.telluric = "NONE"
-    ftec.maxIterSky = 1
     
     """Create a FiberTraceSet given a flat-field fits file name"""
     mif = afwImage.MaskedImageF(filename)

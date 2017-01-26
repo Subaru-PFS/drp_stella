@@ -43,14 +43,9 @@ def createFlatFiberTraceProfile(filename):
 
     # --- create FiberTraceExtractionControl
     ftec = drpStella.FiberTraceExtractionControl()
-    ftec.profileInterpolation = "SPLINE3"
-    ftec.wingSmoothFactor = 0.#2
     ftec.overSample = 30
-    ftec.lambdaSF = 50000. / ftec.overSample
-    ftec.maxIterSF = 10
     ftec.swathWidth = 500
     ftec.telluric = "NONE"
-    ftec.maxIterSky = 1
     
     """Create a FiberTraceSet given a flat-field fits file name"""
 #    filename = "/home/azuri/spectra/pfs/2014-10-14/IR-23-0-sampledFlatx2-nonoise.fits"

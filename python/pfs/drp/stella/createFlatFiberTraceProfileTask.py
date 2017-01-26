@@ -11,10 +11,6 @@ import pfs.drp.stella as drpStella
 from lsst.pipe.base import Task
 
 class CreateFlatFiberTraceProfileConfig(pexConfig.Config):
-        profileInterpolation = pexConfig.Field(
-            doc = "Method for determining the spatial profile, [PISKUNOV, SPLINE3], default: PISKUNOV",
-            dtype = str,
-            default = "SPLINE3")
         swathWidth = pexConfig.Field(
             doc = "Size of individual extraction swaths",
             dtype = int,
@@ -64,14 +60,12 @@ class CreateFlatFiberTraceProfileTask(Task):
 
     def createFlatFiberTraceProfile(self, inFiberTraceSet, inTraceNumbers):
         # --- create FiberTraceProfileFittingControl
-        fiberTraceProfileFittingControl = drpStella.FiberTraceProfileFittingControl()
-        fiberTraceProfileFittingControl.profileInterpolation = self.config.profileInterpolation
-        fiberTraceProfileFittingControl.swathWidth = self.config.swathWidth
-        fiberTraceProfileFittingControl.telluric = self.config.telluric
-        fiberTraceProfileFittingControl.overSample = self.config.overSample
-        fiberTraceProfileFittingControl.maxIterSig = self.config.maxIterSig
-        fiberTraceProfileFittingControl.lowerSigma = self.config.lowerSigma
-        fiberTraceProfileFittingControl.upperSigma = self.config.upperSigma
+        self.fiberTraceProfileFittingControl.swathWidth = self.config.swathWidth
+        self.fiberTraceProfileFittingControl.telluric = self.config.telluric
+        self.fiberTraceProfileFittingControl.overSample = self.config.overSample
+        self.fiberTraceProfileFittingControl.maxIterSig = self.config.maxIterSig
+        self.fiberTraceProfileFittingControl.lowerSigma = self.config.lowerSigma
+        self.fiberTraceProfileFittingControl.upperSigma = self.config.upperSigma
 
         """Calculate spatial profile"""
         inFiberTraceSet.setFiberTraceProfileFittingControl(fiberTraceProfileFittingControl)

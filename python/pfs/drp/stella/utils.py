@@ -20,17 +20,10 @@ def makeFiberTraceSet(pfsFiberTrace, maskedImage=None):
     ftfc.nPixCutRight = pfsFiberTrace.nCutRight
     ftfc.nRows = pfsFiberTrace.profiles[0].shape[0]
 
-    ftpfc.profileInterpolation = pfsFiberTrace.interpol
-#    ftpfc.ccdReadOutNoise = pfsFiberTrace.
     ftpfc.swathWidth = pfsFiberTrace.swathLength
     ftpfc.telluric = 'NONE'
     ftpfc.overSample = pfsFiberTrace.overSample
-    ftpfc.maxIterSF = pfsFiberTrace.maxIterSF
-    ftpfc.maxIterSky = 0
     ftpfc.maxIterSig = pfsFiberTrace.maxIterSig
-    ftpfc.lambdaSF = pfsFiberTrace.lambdaSF
-    ftpfc.lambdaSP = pfsFiberTrace.lambdaSP
-    ftpfc.wingSmoothFactor = pfsFiberTrace.lambdaWing
     ftpfc.lowerSigma = pfsFiberTrace.lSigma
     ftpfc.upperSigma = pfsFiberTrace.uSigma
 
@@ -89,14 +82,9 @@ def createPfsFiberTrace(dataId, fiberTraceSet, nRows):
     pfsFiberTrace.nCutLeft = ftfc.nPixCutLeft
     pfsFiberTrace.nCutRight = ftfc.nPixCutRight
     
-    pfsFiberTrace.interpol = ftpfc.profileInterpolation
     pfsFiberTrace.swathLength = ftpfc.swathWidth
     pfsFiberTrace.overSample = ftpfc.overSample
-    pfsFiberTrace.maxIterSF = ftpfc.maxIterSF
     pfsFiberTrace.maxIterSig = ftpfc.maxIterSig
-    pfsFiberTrace.lambdaSF = ftpfc.lambdaSF
-    pfsFiberTrace.lambdaSP = ftpfc.lambdaSP
-    pfsFiberTrace.lambdaWing = ftpfc.wingSmoothFactor
     pfsFiberTrace.lSigma = ftpfc.lowerSigma
     pfsFiberTrace.uSigma = ftpfc.upperSigma
 
