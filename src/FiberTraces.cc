@@ -675,11 +675,11 @@ namespace pfsDRPStella = pfs::drp::stella;
   /// Return shared pointer to an image containing the reconstructed background of the FiberTrace
   template<typename ImageT, typename MaskT, typename VarianceT>
   PTR(afwImage::Image<ImageT>) pfsDRPStella::FiberTrace<ImageT, MaskT, VarianceT>::getReconstructedBackground( const pfsDRPStella::Spectrum<ImageT, MaskT, VarianceT, VarianceT> & background) const{
-    ndarray::Array<ImageT, 2, 1> F_A2_Rec = ndarray::allocate(_trace->getHeight(), _trace->getWidth());
-    int i_row = 0;
-    auto itRec = F_A2_Rec.begin();
-    for (auto itProf = _profile->getArray().begin(); itProf != _profile->getArray().end(); ++itProf, ++itRec, ++i_row)
-      itRec->deep() = background.getSpectrum()[i_row];
+    ndarray::Array<ImageT, 1, 1> oneRow = ndarray::allocate(_trace->getWidth());
+    oneRow.deep() = 1.;
+    ndarray::Array<ImageT, 2, 1> F_A2_Rec = ndarray::allocate(_trace->getHeight(),
+                                                              _trace->getWidth());
+    F_A2_Rec.asEigen() = background.getSky().asEigen() * oneRow.asEigen().transpose();
     PTR(afwImage::Image<ImageT>) imagePtr( new afwImage::Image<ImageT>( F_A2_Rec ) );
     return imagePtr;
   }
