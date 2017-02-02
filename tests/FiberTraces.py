@@ -510,6 +510,14 @@ class FiberTraceTestCase(tests.TestCase):
                 stdDevDiff = np.std(diff)
                 self.assertLess(np.absolute(stdDevDiff), 600.)
 
+                backgroundSpectrum = spectrum.getSky()
+                recBackground = fiberTrace.getReconstructedBackground(spectrum).getArray()
+                for iRow in range(recBackground.shape[0]):
+                    self.assertGreaterEqual(backgroundSpectrum[iRow], 0)
+                    for iCol in range(recBackground.shape[1]):
+                        self.assertAlmostEqual(recBackground[iRow, iCol],
+                                               backgroundSpectrum[iRow])
+
     def testFiberTraceOtherFunctions(self):
         if True:
             """Test FiberTrace.calcSwathBoundY(swathwidth)"""
