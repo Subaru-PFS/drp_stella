@@ -664,10 +664,10 @@ namespace pfsDRPStella = pfs::drp::stella;
   template<typename ImageT, typename MaskT, typename VarianceT>
   PTR( afwImage::Image< ImageT > ) pfsDRPStella::FiberTrace<ImageT, MaskT, VarianceT>::getReconstructed2DSpectrum(const pfsDRPStella::Spectrum<ImageT, MaskT, VarianceT, VarianceT> & spectrum) const{
     ndarray::Array<ImageT, 2, 1> F_A2_Rec = ndarray::allocate(_trace->getHeight(), _trace->getWidth());
-    int i_row = 0;
     auto itRec = F_A2_Rec.begin();
-    for (auto itProf = _profile->getArray().begin(); itProf != _profile->getArray().end(); ++itProf, ++itRec, ++i_row)
-      *itRec = (*itProf) * spectrum.getSpectrum()[i_row];
+    auto itSpec = spectrum.getSpectrum().begin();
+    for (auto itProf = _profile->getArray().begin(); itProf != _profile->getArray().end(); ++itProf, ++itRec, ++itSpec)
+      (*itRec) = (*itProf) * (*itSpec);
     PTR( afwImage::Image< ImageT > ) imagePtr( new afwImage::Image< ImageT >( F_A2_Rec ) );
     return imagePtr;
   }
