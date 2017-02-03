@@ -15,11 +15,17 @@ pfsDRPStella::Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>::Spectrum(size_
     _dispCorControl( new DispCorControl )
 {
   _spectrum = ndarray::allocate( length );
+  _spectrum.deep() = 0.;
   _sky = ndarray::allocate( length );
+  _sky.deep() = 0.;
   _covar = ndarray::allocate( length, 3 );
+  _covar.deep() = 0.;
   _wavelength = ndarray::allocate( length );
+  _wavelength.deep() = 0.;
   _dispersion = ndarray::allocate( length );
+  _dispersion.deep() = 0.;
   _dispCoeffs = ndarray::allocate( _dispCorControl->order + 1 );
+  _dispCoeffs.deep() = 0.;
   _dispRms = 0.;
   _yLow = 0;
   _yHigh = length - 1;
