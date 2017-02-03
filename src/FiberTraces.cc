@@ -409,8 +409,8 @@ namespace pfsDRPStella = pfs::drp::stella;
     D_A1_SP.deep() = 0.;
     ndarray::Array<ImageT, 1, 1> D_A1_Sky = ndarray::allocate(_trace->getHeight());
     D_A1_Sky.deep() = 0.;
-    vector<string> S_A1_Args_Fit(3);
-    vector<void *> P_Args_Fit(3);
+    vector<string> S_A1_Args_Fit(5);
+    vector<void *> P_Args_Fit(5);
 
     ndarray::Array<ImageT, 2, 2> D_A2_ErrArray = ndarray::allocate(_trace->getImage()->getArray().getShape());
     for (int i_row = 0; i_row < _trace->getHeight(); ++i_row){
@@ -443,6 +443,15 @@ namespace pfsDRPStella = pfs::drp::stella;
     ndarray::Array<ImageT, 2, 2> D_A2_Sigma_Fit = ndarray::allocate(_trace->getHeight(), 2);
     PTR(ndarray::Array<ImageT, 2, 2>) P_D_A2_Sigma_Fit(new ndarray::Array<ImageT, 2, 2>(D_A2_Sigma_Fit));
     P_Args_Fit[2] = &P_D_A2_Sigma_Fit;
+
+    /// Disallow background and spectrum to go below Zero as it is not physical
+    S_A1_Args_Fit[3] = "ALLOW_SKY_LT_ZERO";
+    int allowSkyLtZero = 0;
+    P_Args_Fit[3] = &allowSkyLtZero;
+
+    S_A1_Args_Fit[4] = "ALLOW_SPEC_LT_ZERO";
+    int allowSpecLtZero = 0;
+    P_Args_Fit[4] = &allowSpecLtZero;
 
     bool B_WithSky = false;
     if (_fiberTraceProfileFittingControl->telluric.compare(_fiberTraceProfileFittingControl->TELLURIC_NAMES[0]) != 0){
