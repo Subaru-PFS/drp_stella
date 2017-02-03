@@ -75,14 +75,9 @@ class FindAndTraceAperturesTask(Task):
 
     def __init__(self, *args, **kwargs):
         super(FindAndTraceAperturesTask, self).__init__(*args, **kwargs)
-        self.ftffc = drpStella.FiberTraceFunctionFindingControl()
-
-    def getFiberTraceFunctionFindingControl(self):
-        return self.ftffc
-
-    def findAndTraceApertures(self, inExposure):
 
         """create FiberTraceFunctionFindingControl"""
+        self.ftffc = drpStella.FiberTraceFunctionFindingControl()
         self.ftffc.fiberTraceFunctionControl.interpolation = self.config.interpolation
         self.ftffc.fiberTraceFunctionControl.order = self.config.order
         self.ftffc.fiberTraceFunctionControl.xLow = self.config.xLow
@@ -95,26 +90,20 @@ class FindAndTraceAperturesTask(Task):
         self.ftffc.maxLength = self.config.maxLength
         self.ftffc.nLost = self.config.nLost
 
-        """Create a FiberTraceSet given a flat-field exposure"""
-        inMaskedImage = inExposure.getMaskedImage()
-
-        """Trace fibers"""
-        fts = drpStella.findAndTraceAperturesF(inMaskedImage, self.ftffc.getPointer())
-        self.log.info('%d FiberTraces found' % fts.size())
-        fts.sortTracesByXCenter()
-        for i in range(fts.size()):
-            fts.getFiberTrace(i).setITrace(i)
-        return fts
-
     def run(self, inExposure):
-        """Find and trace fiber traces
-
-        This method is the top-level for running the automatic finding and tracing of fiber traces on the CCD image
-        as a stand-alone BatchPoolTask.
+        """
+        This method runs the automatic finding and tracing of fiber traces on
+        the CCD image.
 
         This method returns a FiberTraceSet
         """
 
-        fiberTraceSet = self.findAndTraceApertures(inExposure)
-
+        """Create a FiberTraceSet given a flat-field exposure"""
+        inMaskedImage = inExposure.getMaskedImage()
+        fiberTraceSet = drpStella.findAndTraceAperturesF(inMaskedImage,
+                                                         self.ftffc.getPointer())
+        self.log.info('%d FiberTraces found' % fiberTraceSet.size())
+        fiberTraceSet.sortTracesByXCenter()
+        for i in range(fiberTraceSet.size()):
+            fiberTraceSet.getFiberTrace(i).setITrace(i)
         return fiberTraceSet

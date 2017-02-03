@@ -406,14 +406,11 @@ class SpectraTestCase(tests.TestCase):
 
             binWidth = 1. / (myProfileTask.fiberTraceProfileFittingControl.overSample
                              * nBinsPerOverSampleStep)
-            distanceMeanStd = drpStellaMath.getMeanStdXBins(dist,
+            bins, mean, std = drpStellaMath.getMeanStdXBins(dist,
                                                             ratio,
                                                             binWidth)
-            print 'type(distanceMeanStd) = ',type(distanceMeanStd)
-            for iBin in range(distanceMeanStd.shape[0]):
-                self.assertTrue((distanceMeanStd[iBin, 1, 0] - distanceMeanStd[iBin, 1, 1] < 1.)
-                                and
-                                (distanceMeanStd[iBin, 1, 0] + distanceMeanStd[iBin, 1, 1] > 1.))
+            for iBin in range(bins.shape[0]):
+                self.assertTrue(np.all(np.fabs(mean - 1.0) < std))
 
     def testWavelengthCalibrationWithRefSpec(self):
         if True:
