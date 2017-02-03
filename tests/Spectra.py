@@ -404,7 +404,7 @@ class SpectraTestCase(tests.TestCase):
                                distanceFromCenterOrigProfRec[:,3]]
             ratio = orig / np.where(rec < 0.1, 1., rec)
 
-            binWidth = 1. / (myProfileTask.getFiberTraceProfileFittingControl().overSample
+            binWidth = 1. / (myProfileTask.fiberTraceProfileFittingControl.overSample
                              * nBinsPerOverSampleStep)
             distanceMeanStd = drpStellaMath.getMeanStdXBins(dist,
                                                             ratio,
