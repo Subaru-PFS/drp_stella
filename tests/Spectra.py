@@ -402,6 +402,10 @@ class SpectraTestCase(tests.TestCase):
             dist, orig, rec = [distanceFromCenterOrigProfRec[:,0],
                                distanceFromCenterOrigProfRec[:,1],
                                distanceFromCenterOrigProfRec[:,3]]
+
+            """to avoid division by zero and effectively multiplying the"""
+            """original values with a large number, we set the ratio to"""
+            """unity where the reconstructed values are smaller than 0.1"""
             ratio = orig / np.where(rec < 0.1, 1., rec)
 
             binWidth = 1. / (myProfileTask.fiberTraceProfileFittingControl.overSample
