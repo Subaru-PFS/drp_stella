@@ -236,7 +236,11 @@ class FiberTraceSet {
     /// Return the number of apertures
     size_t size() const { return _traces->size(); }
     
-    /// Extract FiberTraces from new MaskedImage
+    /*
+     * @brief Extract FiberTraces from new MaskedImage
+     *        NOTE that this changes this FiberTraceSet!
+     * @param maskedImage in: MaskedImage from which to extract the FiberTraces
+    */
     bool createTraces(const PTR(const MaskedImageT) &maskedImage);
 
     /// Return the FiberTrace for the ith aperture
