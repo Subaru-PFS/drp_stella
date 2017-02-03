@@ -481,7 +481,6 @@ namespace pfsDRPStella = pfs::drp::stella;
     #endif
 
     PTR( pfsDRPStella::Spectrum<ImageT, MaskT, VarianceT, VarianceT> ) spectrum( new pfsDRPStella::Spectrum< ImageT, MaskT, VarianceT, VarianceT >( _trace->getHeight() ) );
-    PTR( pfsDRPStella::Spectrum<ImageT, MaskT, VarianceT, VarianceT> ) background( new pfsDRPStella::Spectrum< ImageT, MaskT, VarianceT, VarianceT >( _trace->getHeight() ) );
     #ifdef __DEBUG_EXTRACTFROMPROFILE__
       cout << "FiberTrace" << _iTrace << "::extractFromProfile: D_A1_SP = " << D_A1_SP << endl;
       cout << "FiberTrace" << _iTrace << "::extractFromProfile: D_A2_Sigma_Fit = " << D_A2_Sigma_Fit << endl;
@@ -509,18 +508,20 @@ namespace pfsDRPStella = pfs::drp::stella;
       cout << message << endl;
       throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
     }
-    if (!background->setSpectrum(backgroundSpecOut)){
+    if (!spectrum->setSky(backgroundSpecOut)){
       string message( "FiberTrace" );
-      message += to_string(_iTrace) + "::extractSum: ERROR: background->setSpectrum(backgroundSpecOut) returned FALSE";
+      message += to_string(_iTrace) + "::extractSum: ERROR: spectrum->setSky(backgroundSpecOut) returned FALSE";
       cout << message << endl;
       throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
     }
-    if (!background->setVariance(backgroundVarOut)){
-      string message( "FiberTrace" );
-      message += to_string(_iTrace) + "::extractSum: ERROR: background->setVariance(backgroundVarOut) returned FALSE";
-      cout << message << endl;
-      throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
-    }
+
+    /// TODO: Add background(sky)Variance to Spectrum class
+//    if (!background->setVariance(backgroundVarOut)){
+//      string message( "FiberTrace" );
+//      message += to_string(_iTrace) + "::extractSum: ERROR: background->setVariance(backgroundVarOut) returned FALSE";
+//      cout << message << endl;
+//      throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
+//    }
     #ifdef __DEBUG_EXTRACTFROMPROFILE__
       cout << "FiberTrace" << _iTrace << "::extractFromProfile: for loop finished" << endl;
       cout << "FiberTrace" << _iTrace << "::extractFromProfile: starting spectrum->setNCCDRows( getHeight()=" << getHeight() << " )" << endl;
