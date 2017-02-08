@@ -510,6 +510,64 @@ class SpectraTestCase(tests.TestCase):
                 self.assertGreater(spec.getWavelength()[0], 3800)
                 self.assertLess(spec.getWavelength()[spec.getLength()-1], 9800)
 
+    def testPolyFit(self):
+        fiberTraceSet = drpStella.findAndTraceAperturesF(self.flat.getMaskedImage(), self.ftffc)
+        self.assertEqual(fiberTraceSet.size(), self.nFiberTraces)
+        myProfileTask = cfftpTask.CreateFlatFiberTraceProfileTask()
+        myProfileTask.run(fiberTraceSet)
+
+        myExtractTask = esTask.ExtractSpectraTask()
+        aperturesToExtract = [-1]
+        spectrumSetFromProfile = myExtractTask.run(self.arc, fiberTraceSet, aperturesToExtract)
+        self.assertEqual(spectrumSetFromProfile.size(), self.nFiberTraces)
+
+        spectrum = spectrumSetFromProfile.getSpectrum(0)
+
+        """ read line list """
+        hdulist = pyfits.open(self.lineList)
+        tbdata = hdulist[1].data
+        lineListArr = np.ndarray(shape=(len(tbdata),2), dtype='float32')
+        lineListArr[:,0] = tbdata.field(0)
+        lineListArr[:,1] = tbdata.field(1)
+
+        """ read reference Spectrum """
+        hdulist = pyfits.open(self.refSpec)
+        tbdata = hdulist[1].data
+        refSpecArr = np.ndarray(shape=(len(tbdata)), dtype='float32')
+        refSpecArr[:] = tbdata.field(0)
+
+        spec = spectrum.getSpectrum()
+        result = drpStella.stretchAndCrossCorrelateSpecFF(spec, refSpecArr, lineListArr, self.dispCorControl)
+
+        # we're not holding back any emission lines from the check to make
+        # sure the line we will disturb is not one of the lines held back
+        spectrum.identifyF(result.lineList, self.dispCorControl, 0)
+        dispRMSOrig = spectrum.getDispRms()
+
+        """Find an emission line"""
+        distances = []
+        for i in np.arange(1,lineListArr.shape[0]-1):
+            distances.append(min(lineListArr[i][1]-lineListArr[i-1][1],
+                                 lineListArr[i+1][1]-lineListArr[i][1]))
+        linePos = 1 + max(xrange(len(distances)), key=distances.__getitem__)
+        wavelengths = abs(spectrum.getWavelength() - lineListArr[linePos][0])
+        linePos = min(xrange(len(wavelengths)), key=wavelengths.__getitem__)
+
+        """include 'cosmic' next to line"""
+        spectrum.getSpectrum()[linePos:linePos+4] += [10000.,20000.,30000., 20000.]
+
+        spectrum.identifyF(result.lineList, self.dispCorControl, 0)# we're not holding back any emission lines
+        dispRMSCosmic = spectrum.getDispRms()
+        self.assertNotAlmostEqual(dispRMSOrig, dispRMSCosmic)
+        mask = spectrum.getMask()
+        maskArr = mask.getArray()
+        maskVal = 1 << mask.getMaskPlane("REJECTED_LINES");
+        print 'maskVal = ',maskVal
+        self.assertEqual(maskArr[0,linePos-2],0)
+        self.assertEqual(maskArr[0,linePos+4],0)
+        for i in np.arange(linePos-1,linePos+4):
+            self.assertEqual(maskArr[0,i], maskVal)
+
 #-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
 def suite():

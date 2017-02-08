@@ -1077,3 +1077,5 @@ Interface to Stella
 %template(getIndices) pfs::drp::stella::math::getIndices< long >;
 %template(getIndices) pfs::drp::stella::math::getIndices< float >;
 %template(getIndices) pfs::drp::stella::math::getIndices< double >;
+
+%template(PolyFit) pfs::drp::stella::math::PolyFit<double>;
