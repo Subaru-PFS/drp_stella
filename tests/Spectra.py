@@ -49,6 +49,10 @@ class SpectraTestCase(tests.TestCase):
         
         self.nFiberTraces = 11
         self.nRowsPrescan = 49
+
+        # This value is a measured value which is otherwise poorly justified.
+        # It serves as a regression test to make sure that changes in the code
+        # didn't make it worse.
         self.maxRMS = 0.06
         
         self.lineList = os.path.join(lsst.utils.getPackageDir('obs_pfs'),'pfs/lineLists/CdHgKrNeXe_red.fits')
