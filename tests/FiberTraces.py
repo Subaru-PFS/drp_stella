@@ -491,6 +491,11 @@ class FiberTraceTestCase(tests.TestCase):
     def testFiberTraceReconstruct(self):
         if True:
             fiberTraceSet = drpStella.findAndTraceAperturesF(self.flat.getMaskedImage(), self.ftffc)
+            self.ftffc.fiberTraceFunctionControl.xHigh = 6.0
+            self.assertFalse(
+                self.ftffc.fiberTraceFunctionControl is
+                fiberTraceSet.getFiberTrace(0).getFiberTraceFunction().fiberTraceFunctionControl
+            )
             ftpfc = drpStella.FiberTraceProfileFittingControl()
             ftpfc.profileInterpolation = "PISKUNOV"
             for iTrace in range(0, fiberTraceSet.size()):
