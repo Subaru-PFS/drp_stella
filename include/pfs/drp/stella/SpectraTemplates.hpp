@@ -503,29 +503,78 @@ bool pfs::drp::stella::Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>::ident
 
     ndarray::Array< double, 1, 1 > D_A1_FittedWLenCheck = math::getSubArray( D_A1_WLen, I_A1_IndexCheckPos );
 
+    std::vector<string> S_A1_Args(3);
+    std::vector<void *> PP_Args(3);
+    S_A1_Args[0] = "XRANGE";
+    ndarray::Array<double, 1, 1> xRange = ndarray::allocate(2);
+    xRange[0] = 0.;
+    xRange[1] = _length-1;
+    PTR(ndarray::Array<double, 1, 1>) pXRange(new ndarray::Array<double, 1, 1>(xRange));
+    PP_Args[0] = &pXRange;
+    S_A1_Args[1] = "REJECTED";
+    PTR(std::vector<size_t>) rejected(new std::vector<size_t>());
+    PP_Args[1] = &rejected;
+    S_A1_Args[2] = "NOT_REJECTED";
+    PTR(std::vector<size_t>) notRejected(new std::vector<size_t>());
+    PP_Args[2] = &notRejected;
+
     _dispCoeffs = ndarray::allocate( dispCorControl.order + 1 );
     _dispCoeffs.deep() = math::PolyFit( D_A1_FittedPos,
                                         D_A1_FittedWLen,
-                                        dispCorControl.order );
-    ndarray::Array< double, 1, 1 > D_A1_WLen_Gauss = math::Poly( D_A1_FittedPos, 
-                                                                 _dispCoeffs );
-    ndarray::Array< double, 1, 1 > D_A1_WLen_GaussCheck = math::Poly( D_A1_FittedCheckPos, 
-                                                                      _dispCoeffs );
-    cout << "Identify: D_A1_WLen_PolyFit = " << D_A1_WLen_Gauss << endl;
-    cout << "identify: _dispCoeffs = " << _dispCoeffs << endl;
+                                        dispCorControl.order,
+                                        double(0. - dispCorControl.sigmaReject),
+                                        double(dispCorControl.sigmaReject),
+                                        dispCorControl.nIterReject,
+                                        S_A1_Args,
+                                        PP_Args);
+    #ifdef __DEBUG_IDENTIFY__
+        cout << "identify: _dispCoeffs = " << _dispCoeffs << endl;
+    #endif
+
+    /// Remove lines rejected by PolyFit from D_A1_FittedPos and D_A1_FittedWLen
+    #ifdef __DEBUG_IDENTIFY__
+        for (int i = 0; i < rejected->size(); ++i)
+            cout << "identify: rejected[" << i << "] = " << (*rejected)[i] << endl;
+    #endif
+    ndarray::Array< size_t, 1, 1 > notRejectedArr = ndarray::external( notRejected->data(), ndarray::makeVector( int( notRejected->size() ) ), ndarray::makeVector( 1 ) );
+
+    ndarray::Array<double, 1, 1> fittedPosNotRejected = math::getSubArray(D_A1_FittedPos, notRejectedArr);
+    #ifdef __DEBUG_IDENTIFY__
+        cout << "identify: fittedPosNotRejected = " << fittedPosNotRejected.getShape()[0] << ": " << fittedPosNotRejected << endl;
+    #endif
+
+    ndarray::Array<double, 1, 1> fittedWLenNotRejected = math::getSubArray(D_A1_FittedWLen, notRejectedArr);
+    #ifdef __DEBUG_IDENTIFY__
+        cout << "identify: fittedWLenNotRejected = " << fittedWLenNotRejected.getShape()[0] << ": " << fittedWLenNotRejected << endl;
+    #endif
+    ndarray::Array< double, 1, 1 > D_A1_WLen_Gauss = math::Poly( fittedPosNotRejected,
+                                                                 _dispCoeffs,
+                                                                 xRange[0],
+                                                                 xRange[1]);
+    ndarray::Array< double, 1, 1 > D_A1_WLen_GaussCheck = math::Poly( D_A1_FittedCheckPos,
+                                                                      _dispCoeffs,
+                                                                      xRange[0],
+                                                                      xRange[1]);
+    #ifdef __DEBUG_IDENTIFY__
+        cout << "Identify: D_A1_WLen_PolyFit = " << D_A1_WLen_Gauss << endl;
+        cout << "identify: _dispCoeffs = " << _dispCoeffs << endl;
+    #endif
 
     ///Calculate RMS
     ndarray::Array< double, 1, 1 > D_A1_WLenMinusFit = ndarray::allocate( D_A1_WLen_Gauss.getShape()[ 0 ] );
-    D_A1_WLenMinusFit.deep() = D_A1_FittedWLen - D_A1_WLen_Gauss;
-    cout << "Identify: D_A1_WLenMinusFit = " << D_A1_WLenMinusFit << endl;
+    D_A1_WLenMinusFit.deep() = fittedWLenNotRejected - D_A1_WLen_Gauss;
+    #ifdef __DEBUG_IDENTIFY__
+        cout << "Identify: D_A1_WLenMinusFit = " << D_A1_WLenMinusFit << endl;
+    #endif
     _dispRms = math::calcRMS( D_A1_WLenMinusFit );
     cout << "Identify: _dispRms = " << _dispRms << endl;
-    cout << "======================================" << endl;
 
     ///Calculate RMS for test lines
     ndarray::Array< double, 1, 1 > D_A1_WLenMinusFitCheck = ndarray::allocate( D_A1_WLen_GaussCheck.getShape()[ 0 ] );
     D_A1_WLenMinusFitCheck.deep() = D_A1_FittedWLenCheck - D_A1_WLen_GaussCheck;
-    cout << "Identify: D_A1_WLenMinusFitCheck = " << D_A1_WLenMinusFitCheck << endl;
+    #ifdef __DEBUG_IDENTIFY__
+        cout << "Identify: D_A1_WLenMinusFitCheck = " << D_A1_WLenMinusFitCheck << endl;
+    #endif
     double dispRmsCheck = math::calcRMS( D_A1_WLenMinusFitCheck );
     cout << "Identify: dispRmsCheck = " << dispRmsCheck << endl;
     cout << "======================================" << endl;
@@ -533,7 +582,7 @@ bool pfs::drp::stella::Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>::ident
     ///calibrate spectrum
     ndarray::Array< double, 1, 1 > D_A1_Indices = math::indGenNdArr( double( _spectrum.getShape()[ 0 ] ) );
     _wavelength = ndarray::allocate( _spectrum.getShape()[ 0 ] );
-    _wavelength.deep() = math::Poly( D_A1_Indices, _dispCoeffs );
+    _wavelength.deep() = math::Poly( D_A1_Indices, _dispCoeffs, xRange[0], xRange[1] );
     #ifdef __DEBUG_IDENTIFY__
       cout << "identify: _wavelength = " << _wavelength << endl;
     #endif
