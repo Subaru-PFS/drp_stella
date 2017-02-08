@@ -58,9 +58,10 @@ def makeFiberTraceSet(pfsFiberTrace, maskedImage=None):
         trace = np.ndarray(shape=(ftf.yHigh - ftf.yLow + 1, profile.shape[1]), dtype=np.float32)
         if not ft.setTrace(afwImage.makeMaskedImage(afwImage.ImageF(trace))):
             raise RuntimeError("FiberTrace %d: Failed to set trace")
+
+        yMin = ftf.yCenter + ftf.yLow
         prof = np.ndarray(shape=(ftf.yHigh - ftf.yLow + 1, profile.shape[1]), dtype=np.float64)
-        for iRow in range(prof.shape[0]):
-            prof[iRow,:] = profile[ftf.yCenter + ftf.yLow + iRow,:]
+        prof[:,:] = profile[yMin : yMin + prof.shape[0],:]
         if not ft.setProfile(afwImage.ImageD(prof)):
             raise RuntimeError("FiberTrace %d: Failed to set profile")
 
@@ -70,6 +71,12 @@ def makeFiberTraceSet(pfsFiberTrace, maskedImage=None):
         if maskedImage != None:
             if not ft.createTrace(maskedImage):
                 raise RuntimeError("FiberTrace %d: Failed to create trace from maskedImage")
+
+        if ft.getImage().getHeight() != ft.getProfile().getHeight():
+            raise RuntimeError("FiberTrace %d: trace and profile have different sizes")
+        if ft.getImage().getWidth() != ft.getProfile().getWidth():
+            raise RuntimeError("FiberTrace %d: trace and profile have different sizes")
+
         fts.addFiberTrace(ft)
     return fts
 
