@@ -1673,6 +1673,30 @@ namespace pfsDRPStella = pfs::drp::stella;
             cout << message << endl;
             throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
           }
+          if (fiberTraceFunctionFindingControl->fiberTraceFunctionControl.xLow
+              != fiberTrace->getFiberTraceFunction()->fiberTraceFunctionControl.xLow){
+            string message("FindAndTraceApertures: iTrace = ");
+            message += to_string(fiberTraceSet->getTraces()->size());
+            message += ": ERROR: fiberTrace->getFiberTraceFunction().";
+            message += "FiberTraceFunctionControl.xLow(=";
+            message += to_string(fiberTraceFunctionFindingControl->fiberTraceFunctionControl.xLow);
+            message += ") != fiberTrace->getFiberTraceFunction()->fiberTraceFunctionControl.xLow(=";
+            message += to_string(fiberTrace->getFiberTraceFunction()->fiberTraceFunctionControl.xLow);
+            message += ")";
+            throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
+          }
+          if (fiberTraceFunctionFindingControl->fiberTraceFunctionControl.xHigh
+              != fiberTrace->getFiberTraceFunction()->fiberTraceFunctionControl.xHigh){
+            string message("FindAndTraceApertures: iTrace = ");
+            message += to_string(fiberTraceSet->getTraces()->size());
+            message += ": ERROR: fiberTrace->getFiberTraceFunction()->";
+            message += "FiberTraceFunctionControl.xHigh(=";
+            message += to_string(fiberTraceFunctionFindingControl->fiberTraceFunctionControl.xHigh);
+            message += ") != fiberTrace->getFiberTraceFunction()->fiberTraceFunctionControl.xHigh(=";
+            message += to_string(fiberTrace->getFiberTraceFunction()->fiberTraceFunctionControl.xHigh);
+            message += ")";
+            throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
+          }
           ndarray::Array<float, 2, 1> xCentersMeas = ndarray::allocate(D_A1_ApertureCenterPos.getShape()[0], 2);
           xCentersMeas[ndarray::view()(0)].deep() = D_A1_ApertureCenterIndex;
           xCentersMeas[ndarray::view()(1)].deep() = D_A1_ApertureCenterPos;
