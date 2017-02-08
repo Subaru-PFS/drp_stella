@@ -562,9 +562,11 @@ namespace pfsDRPStella = pfs::drp::stella;
   template<typename ImageT, typename MaskT, typename VarianceT>
   bool pfsDRPStella::FiberTrace<ImageT, MaskT, VarianceT>::createTrace( const PTR(const MaskedImageT) &maskedImage ){
     size_t oldTraceHeight = 0;
-    if (_isTraceSet)
+    size_t oldTraceWidth = 0;
+    if (_isTraceSet){
+      oldTraceWidth = getWidth();
       oldTraceHeight = getHeight();
-
+    }
     if (_xCenters.getShape()[0] >= 0 &&
         static_cast<size_t>(_xCenters.getShape()[0]) != (_fiberTraceFunction->yHigh - _fiberTraceFunction->yLow + 1)) {
       string message("FiberTrace");
@@ -593,8 +595,6 @@ namespace pfsDRPStella = pfs::drp::stella;
       throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
     }
 
-    _trace.reset(new MaskedImageT(int(minCenMax[0][2] - minCenMax[0][0] + 1), _fiberTraceFunction->yHigh - _fiberTraceFunction->yLow + 1));// minCenMax.rows());
-
     if (oldTraceHeight > 0){
       if (oldTraceHeight != getHeight()){
         string message("FiberTrace ");
@@ -602,7 +602,15 @@ namespace pfsDRPStella = pfs::drp::stella;
         cout << message << endl;
         throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
       }
+      if (oldTraceWidth != getWidth()){
+        string message("FiberTrace ");
+        message += to_string(_iTrace) + string("::createTrace: ERROR: oldTraceWidth(=") + to_string(oldTraceWidth) + string(") != getWidth(=") + to_string(getWidth());
+        cout << message << endl;
+        throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
+      }
     }
+
+    _trace.reset(new MaskedImageT(int(minCenMax[0][2] - minCenMax[0][0] + 1), _fiberTraceFunction->yHigh - _fiberTraceFunction->yLow + 1));// minCenMax.rows());
 
     ndarray::Array<ImageT, 2, 1> imageArray = maskedImage->getImage()->getArray();
     ndarray::Array<VarianceT, 2, 1> varianceArray = maskedImage->getVariance()->getArray();
