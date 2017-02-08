@@ -9,13 +9,13 @@ template<typename SpectrumT, typename MaskT, typename VarianceT, typename Wavele
 pfsDRPStella::Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>::Spectrum(size_t length,
                                                                            size_t iTrace ) 
   : _length(length),
+    _mask(length, 1),
     _iTrace(iTrace),
     _isWavelengthSet(false),
     _dispCorControl( new DispCorControl )
 {
   _spectrum = ndarray::allocate( length );
   _sky = ndarray::allocate( length );
-  _mask = ndarray::allocate( length );
   _covar = ndarray::allocate( length, 3 );
   _wavelength = ndarray::allocate( length );
   _dispersion = ndarray::allocate( length );
@@ -422,8 +422,6 @@ ndarray::Array< int, 2, 1 > pfsDRPStella::SpectrumSet<SpectrumT, MaskT, Variance
         "SpectrumSet::writeFits: spectrum does not have expected shape"
       );
     }
-
-    mask[ ndarray::view( yLow, yHigh + 1 )( iFiber ) ] = spectrum->getMask()[ ndarray::view() ];
   }
   return mask;
 }

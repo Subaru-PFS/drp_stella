@@ -309,15 +309,13 @@ namespace pfsDRPStella = pfs::drp::stella;
   {
     PTR( pfsDRPStella::Spectrum<ImageT, MaskT, VarianceT, VarianceT> ) spectrum( new pfsDRPStella::Spectrum< ImageT, MaskT, VarianceT, VarianceT >( _trace->getHeight(), _iTrace ) );
     ndarray::Array<ImageT, 1, 1> spec = ndarray::allocate(_trace->getHeight());
-    ndarray::Array<MaskT, 1, 1> mask = ndarray::allocate(_trace->getHeight());
+    afwImage::Mask<MaskT> mask(_trace->getHeight(), 1);
     ndarray::Array<VarianceT, 1, 1> var = ndarray::allocate(_trace->getHeight());
     auto specIt = spec.begin();
     auto varIt = var.begin();
-    auto maskIt = mask.begin();
-    for (int i = 0; i < _trace->getHeight(); ++i, ++specIt, ++varIt, ++maskIt){
+    for (int i = 0; i < _trace->getHeight(); ++i, ++specIt, ++varIt){
       *specIt = sum(_trace->getImage()->getArray()[i]);
       *varIt = sum(_trace->getVariance()->getArray()[i]);
-      *maskIt = sum(_trace->getMask()->getArray()[i]);
     }
     if ( !spectrum->setSpectrum( spec ) ){
       string message("FiberTrace");

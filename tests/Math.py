@@ -16,24 +16,23 @@ import pfs.drp.stella as drpStella
 class MathTestCase(tests.TestCase):
     """A test case for Stella math functions"""
 
-    def setUp(self):
-        self.int1DArr = np.ndarray(shape=(10), dtype=np.int32)
-        self.float1DArr = np.ndarray(shape=(10), dtype='float32')
-        
-    def tearDown(self):
-        del self.int1DArr
-        del self.float1DArr
-
     def testWhere(self):
         """Test that we can pass a numpy array as ndArray"""
-        self.int1DArr[:] = 0;
-        self.int1DArr[5] = 1;
-        int1DArrRes = drpStella.where( self.int1DArr, '>', 0, 2, 0 )
+        int1DArr = np.ndarray(shape=(10), dtype=np.int32)
+        int1DArr[:] = 0;
+        int1DArr[5] = 1;
+        int1DArrRes = drpStella.where(int1DArr, '>', 0, 2, 0)
         self.assertEqual(int1DArrRes[5], 2)
         for i in range(10):
             if i != 5:
                 self.assertEqual(int1DArrRes[i], 0)
-            
+                
+    def testPolyFit(self):
+        # We are running a C++ test function here because PolyFit functions with
+        # keywords are not exposed to Python as I couldn't find a way to make
+        # SWIG handle a vector of void pointers to different objects.
+        drpStella.testPolyFit()
+
 #-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
 def suite():

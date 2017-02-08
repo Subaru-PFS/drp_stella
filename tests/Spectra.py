@@ -13,6 +13,7 @@ import os
 import unittest
 import sys
 import numpy as np
+import lsst.afw.image as afwImage
 import lsst.utils
 import lsst.utils.tests as tests
 import lsst.daf.persistence as dafPersist
@@ -49,6 +50,10 @@ class SpectraTestCase(tests.TestCase):
         
         self.nFiberTraces = 11
         self.nRowsPrescan = 49
+
+        # This value is a measured value which is otherwise poorly justified.
+        # It serves as a regression test to make sure that changes in the code
+        # didn't make it worse.
         self.maxRMS = 0.06
         
         self.lineList = os.path.join(lsst.utils.getPackageDir('obs_pfs'),'pfs/lineLists/CdHgKrNeXe_red.fits')
@@ -159,24 +164,25 @@ class SpectraTestCase(tests.TestCase):
         if True:
             """Test getMask"""
             vec = spec.getMask()
-            self.assertEqual(vec.shape[0], size)
+            self.assertEqual(vec.getWidth(), size)
 
             """Test setMask"""
             """Test that we can assign a mask vector of the correct length"""
-            vecf = drpStella.indGenNdArrUS(size)
+            vecf = afwImage.MaskU(size, 1)
             self.assertTrue(spec.setMask(vecf))
-            self.assertEqual(spec.getMask()[3], vecf[3])
 
             """Test that we can't assign a mask vector of the wrong length"""
-            vecus = drpStella.indGenNdArrUS(size+1)
+            vecus = afwImage.MaskU(size+1, 1)
             try:
                 self.assertFalse(spec.setMask(vecus))
             except:
                 e = sys.exc_info()[1]
                 message = str.split(e.message, "\n")
-                expected = "pfs::drp::stella::Spectrum::setMask: ERROR: mask->size()="+str(vecus.shape[0])+" != _length="+str(spec.getLength())
+                for i in range(len(message)):
+                    print "element",i,": <",message[i],">"
+                expected = "pfs::drp::stella::Spectrum::setMask: ERROR: mask.getWidth()="+str(vecus.getWidth())+" != _length="+str(spec.getLength())
                 self.assertEqual(message[0],expected)
-            self.assertEqual(spec.getMask().shape[0], size)
+            self.assertEqual(spec.getMask().getWidth(), size)
 
             if True: 
                 """Test setLength"""
@@ -190,8 +196,7 @@ class SpectraTestCase(tests.TestCase):
                 self.assertEqual(spec.getSpectrum().shape[0], size)
                 self.assertEqual(spec.getVariance().shape[0], size)
                 self.assertEqual(spec.getVariance()[size-1], vecf[size-1])
-                self.assertEqual(spec.getMask().shape[0], size)
-                self.assertEqual(spec.getMask()[size-1], vecus[size-1])
+                self.assertEqual(spec.getMask().getWidth(), size)
                 self.assertEqual(spec.getWavelength().shape[0], size)
                 self.assertEqual(spec.getWavelength()[size-1], vecf[size-1])
 
@@ -204,8 +209,7 @@ class SpectraTestCase(tests.TestCase):
                 self.assertEqual(spec.getSpectrum().shape[0], size+1)
                 self.assertEqual(spec.getVariance().shape[0], size+1)
                 self.assertEqual(spec.getVariance()[size], 0)
-                self.assertEqual(spec.getMask().shape[0], size+1)
-                self.assertEqual(spec.getMask()[size], 0)
+                self.assertEqual(spec.getMask().getWidth(), size+1)
                 self.assertEqual(spec.getWavelength().shape[0], size+1)
                 self.assertAlmostEqual(spec.getWavelength()[size], 0.)
 
@@ -217,8 +221,7 @@ class SpectraTestCase(tests.TestCase):
                 self.assertEqual(spec.getSpectrum().shape[0], size-1)
                 self.assertEqual(spec.getVariance().shape[0], size-1)
                 self.assertEqual(spec.getVariance()[size-2], vecf[size-2])
-                self.assertEqual(spec.getMask().shape[0], size-1)
-                self.assertEqual(spec.getMask()[size-2], vecus[size-2])
+                self.assertEqual(spec.getMask().getWidth(), size-1)
                 self.assertEqual(spec.getWavelength().shape[0], size-1)
                 self.assertEqual(spec.getWavelength()[size-2], vecf[size-2])
 
@@ -509,6 +512,64 @@ class SpectraTestCase(tests.TestCase):
                 """Check wavelength range"""
                 self.assertGreater(spec.getWavelength()[0], 3800)
                 self.assertLess(spec.getWavelength()[spec.getLength()-1], 9800)
+
+    def testPolyFit(self):
+        fiberTraceSet = drpStella.findAndTraceAperturesF(self.flat.getMaskedImage(), self.ftffc)
+        self.assertEqual(fiberTraceSet.size(), self.nFiberTraces)
+        myProfileTask = cfftpTask.CreateFlatFiberTraceProfileTask()
+        myProfileTask.run(fiberTraceSet)
+
+        myExtractTask = esTask.ExtractSpectraTask()
+        aperturesToExtract = [-1]
+        spectrumSetFromProfile = myExtractTask.run(self.arc, fiberTraceSet, aperturesToExtract)
+        self.assertEqual(spectrumSetFromProfile.size(), self.nFiberTraces)
+
+        spectrum = spectrumSetFromProfile.getSpectrum(0)
+
+        """ read line list """
+        hdulist = pyfits.open(self.lineList)
+        tbdata = hdulist[1].data
+        lineListArr = np.ndarray(shape=(len(tbdata),2), dtype='float32')
+        lineListArr[:,0] = tbdata.field(0)
+        lineListArr[:,1] = tbdata.field(1)
+
+        """ read reference Spectrum """
+        hdulist = pyfits.open(self.refSpec)
+        tbdata = hdulist[1].data
+        refSpecArr = np.ndarray(shape=(len(tbdata)), dtype='float32')
+        refSpecArr[:] = tbdata.field(0)
+
+        spec = spectrum.getSpectrum()
+        result = drpStella.stretchAndCrossCorrelateSpecFF(spec, refSpecArr, lineListArr, self.dispCorControl)
+
+        # we're not holding back any emission lines from the check to make
+        # sure the line we will disturb is not one of the lines held back
+        spectrum.identifyF(result.lineList, self.dispCorControl, 0)
+        dispRMSOrig = spectrum.getDispRms()
+
+        """Find an emission line"""
+        distances = []
+        for i in np.arange(1,lineListArr.shape[0]-1):
+            distances.append(min(lineListArr[i][1]-lineListArr[i-1][1],
+                                 lineListArr[i+1][1]-lineListArr[i][1]))
+        linePos = 1 + max(xrange(len(distances)), key=distances.__getitem__)
+        wavelengths = abs(spectrum.getWavelength() - lineListArr[linePos][0])
+        linePos = min(xrange(len(wavelengths)), key=wavelengths.__getitem__)
+
+        """include 'cosmic' next to line"""
+        spectrum.getSpectrum()[linePos:linePos+4] += [10000.,20000.,30000., 20000.]
+
+        spectrum.identifyF(result.lineList, self.dispCorControl, 0)# we're not holding back any emission lines
+        dispRMSCosmic = spectrum.getDispRms()
+        self.assertNotAlmostEqual(dispRMSOrig, dispRMSCosmic)
+        mask = spectrum.getMask()
+        maskArr = mask.getArray()
+        maskVal = 1 << mask.getMaskPlane("REJECTED_LINES");
+        print 'maskVal = ',maskVal
+        self.assertEqual(maskArr[0,linePos-2],0)
+        self.assertEqual(maskArr[0,linePos+4],0)
+        for i in np.arange(linePos-1,linePos+4):
+            self.assertEqual(maskArr[0,i], maskVal)
 
 #-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 

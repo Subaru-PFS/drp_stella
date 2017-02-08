@@ -488,6 +488,8 @@ struct DispCorControl {
     LSST_CONTROL_FIELD( stretchMaxLength, int, "Maximum length to stretched pieces to (> lengthPieces)" );
     LSST_CONTROL_FIELD( nStretches, int, "Number of stretches between <stretchMinLength> and <stretchMaxLength>");
     LSST_CONTROL_FIELD( verticalPrescanHeight, int, "Number of rows in the raw image containing the vertical prescan");
+    LSST_CONTROL_FIELD( sigmaReject, float, "Sigma rejection threshold" );
+    LSST_CONTROL_FIELD( nIterReject, size_t, "Number of sigma rejection iterations" );
 
     DispCorControl() :
         fittingFunction( "POLYNOMIAL" ),
@@ -500,7 +502,9 @@ struct DispCorControl {
         stretchMinLength( 450 ),
         stretchMaxLength( 550 ),
         nStretches( 100 ),
-        verticalPrescanHeight( 50 )
+        verticalPrescanHeight( 50 ),
+        sigmaReject(3.),
+        nIterReject(1)
         {}
 
     DispCorControl( const DispCorControl &dispCorControl ) :
@@ -514,7 +518,9 @@ struct DispCorControl {
         stretchMinLength( dispCorControl.stretchMinLength ),
         stretchMaxLength( dispCorControl.stretchMaxLength ),
         nStretches( dispCorControl.nStretches ),
-        verticalPrescanHeight( dispCorControl.verticalPrescanHeight )
+        verticalPrescanHeight( dispCorControl.verticalPrescanHeight ),
+        sigmaReject(dispCorControl.sigmaReject),
+        nIterReject(dispCorControl.nIterReject)
         {}
         
     ~DispCorControl() {}

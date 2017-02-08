@@ -6,6 +6,7 @@
 #include "lsst/base.h"
 #include "lsst/afw/geom.h"
 #include "lsst/afw/image/MaskedImage.h"
+#include "lsst/log/Log.h"
 #include "lsst/pex/config.h"
 #include "lsst/pex/exceptions/Exception.h"
 #include "../utils/Utils.h"
@@ -75,10 +76,10 @@ namespace pfs { namespace drp { namespace stella {
      *   CHISQ=chisq: double: out:
      *     Sum of squared errors divided by MEASURE_ERRORS if specified.
      *
-     *   COVAR=covar: ndarray::Array<double, 2>(I_Degree+1, I_Degree+1): out:
+     *   COVAR=covar: ndarray::Array<double, 2, 2>(I_Degree+1, I_Degree+1): out:
      *     Covariance matrix of the coefficients.
      *
-     *   MEASURE_ERRORS=measure_errors: ndarray::Array<double, 1>(D_A1_X_In.size()): in:
+     *   MEASURE_ERRORS=measure_errors: ndarray::Array<double, 1, 1>(D_A1_X_In.size()): in:
      *     Set this keyword to a vector containing standard
      *     measurement errors for each point Y[i].  This vector must be the same
      *     length as X and Y.
@@ -88,7 +89,7 @@ namespace pfs { namespace drp { namespace stella {
      *       deviations of each point in Y. For Poisson or statistical weighting
      *       MEASURE_ERRORS should be set to sqrt(Y).
      *
-     *   SIGMA=sigma: ndarray::Array<double, 1>(I_Degree+1): out:
+     *   SIGMA=sigma: ndarray::Array<double, 1, 1>(I_Degree+1): out:
      *     The 1-sigma error estimates of the returned parameters.
      *
      *     Note: if MEASURE_ERRORS is omitted, then you are assuming that
@@ -105,7 +106,7 @@ namespace pfs { namespace drp { namespace stella {
      *     warning that a small pivot element was used and that significant
      *     accuracy was probably lost.
      *
-     *   YFIT:   Vector of calculated Y's. These values have an error
+     *   YFIT:   ndarray::Array<double, 1, 1>(D_A1_X_In.size()) of calculated Y's. These values have an error
      *           of + or - YBAND.
      * 
      *   XRANGE: x range from which the original x_In values are from
@@ -158,14 +159,6 @@ namespace pfs { namespace drp { namespace stella {
                                          size_t const I_NIter,
                                          std::vector<string> const& S_A1_Args_In,
                                          std::vector<void *> & ArgV);
-
-    template< typename T >
-    ndarray::Array<double, 1, 1> PolyFit(ndarray::Array<T, 1, 1> const& D_A1_X_In,
-                                         ndarray::Array<T, 1, 1> const& D_A1_Y_In,
-                                         size_t const I_Degree_In,
-                                         T const D_Reject_In,
-                                         T xRangeMin_In = -1.,
-                                         T xRangeMax_In = 1.);
 
     template< typename T>
     ndarray::Array<double, 1, 1> PolyFit(ndarray::Array<T, 1, 1> const& D_A1_X_In,
