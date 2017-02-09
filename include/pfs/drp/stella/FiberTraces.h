@@ -152,14 +152,14 @@ class FiberTrace {
 //    bool setXCenters(const PTR(std::vector<float>) &xCenters);// { _xCenters = xCenters; }
 
     /// Return shared pointer to an image containing the reconstructed 2D spectrum of the FiberTrace
-    afwImage::Image<double> getReconstructed2DSpectrum(const Spectrum<ImageT, MaskT, VarianceT, VarianceT> & spectrum) const;
+    PTR(afwImage::Image<ImageT>) getReconstructed2DSpectrum(const Spectrum<ImageT, MaskT, VarianceT, VarianceT> & spectrum) const;
 
     /// Return shared pointer to an image containing the reconstructed background of the FiberTrace
-    afwImage::Image<double> getReconstructedBackground(const Spectrum<ImageT, MaskT, VarianceT, VarianceT> & backgroundSpectrum) const;
+    PTR(afwImage::Image<ImageT>) getReconstructedBackground(const Spectrum<ImageT, MaskT, VarianceT, VarianceT> & backgroundSpectrum) const;
 
     /// Return shared pointer to an image containing the reconstructed 2D spectrum + background of the FiberTrace
-    afwImage::Image<double> getReconstructed2DSpectrum(const Spectrum<ImageT, MaskT, VarianceT, VarianceT> & spectrum,
-                                                           const Spectrum<ImageT, MaskT, VarianceT, VarianceT> & background) const;
+    PTR(afwImage::Image<ImageT>) getReconstructed2DSpectrum(const Spectrum<ImageT, MaskT, VarianceT, VarianceT> & spectrum,
+                                                            const Spectrum<ImageT, MaskT, VarianceT, VarianceT> & background) const;
     
     bool calcProfile();
     ndarray::Array<double, 2, 1> calcProfileSwath(ndarray::Array<ImageT const, 2, 1> const& imageSwath,
@@ -236,7 +236,11 @@ class FiberTraceSet {
     /// Return the number of apertures
     size_t size() const { return _traces->size(); }
     
-    /// Extract FiberTraces from new MaskedImage
+    /*
+     * @brief Extract FiberTraces from new MaskedImage
+     *        NOTE that this changes this FiberTraceSet!
+     * @param maskedImage in: MaskedImage from which to extract the FiberTraces
+    */
     bool createTraces(const PTR(const MaskedImageT) &maskedImage);
 
     /// Return the FiberTrace for the ith aperture
@@ -404,7 +408,7 @@ namespace math{
      * @param ccdArray: Array to add the FiberTraceRepresentation to
      */
     template< typename ImageT, typename MaskT, typename VarianceT, typename arrayT, typename ccdImageT, int dim >
-    bool addFiberTraceToCcdArray( FiberTrace< ImageT, MaskT, VarianceT > const& fiberTrace,
+    void addFiberTraceToCcdArray( FiberTrace< ImageT, MaskT, VarianceT > const& fiberTrace,
                                   afwImage::Image< arrayT > const& fiberTraceRepresentation,
                                   ndarray::Array< ccdImageT, 2, dim > & ccdArray );
 
@@ -417,10 +421,26 @@ namespace math{
      * @param ccdArray: Image to add the FiberTraceRepresentation to
      */
     template< typename ImageT, typename MaskT, typename VarianceT, typename arrayT, typename ccdImageT >
-    bool addFiberTraceToCcdImage( FiberTrace< ImageT, MaskT, VarianceT > const& fiberTrace,
+    void addFiberTraceToCcdImage( FiberTrace< ImageT, MaskT, VarianceT > const& fiberTrace,
                                   afwImage::Image< arrayT > const& fiberTraceRepresentation,
                                   afwImage::Image< ccdImageT > & ccdImage );
-}
+     
+    /**
+     * @brief: Add one array into certain positions in another array
+     *         The purpose of the function is to add a curved FiberTrace
+     *         representation into an array representing a CCD image.
+     * @param smallArr in: Array to be added to <bigArr> in the area defined by <xMinMax> and <yMin>
+     * @param xMinMax in: 2D array of shape(smallArr.getShape()[0],2) containing the x limits where to add
+     *                 each row from <smallArr> in
+     * @param yMin in: row number in which to start adding <smallArr> into
+     * @param bigArr in/out: Array to which to add <smallArr>
+     */
+    template< typename smallT, typename bigT, int I, int J >
+    void addArrayIntoArray( ndarray::Array< smallT, 2, I > const& smallArr,
+                            ndarray::Array< size_t, 2, 1 > const& xMinMax,
+                            size_t const& yMin,
+                            ndarray::Array< bigT, 2, J > & bigArr );
+}   
 
 namespace utils{
     template<typename T>

@@ -12,7 +12,7 @@ from lsst.pipe.base import Task
 
 class CreateFlatFiberTraceProfileConfig(pexConfig.Config):
         profileInterpolation = pexConfig.Field(
-            doc = "Method for determining the spatial profile, [PISKUNOV, SPLINE3], default: PISKUNOV",
+            doc = "Method for determining the spatial profile, [PISKUNOV, SPLINE3], default: SPLINE3",
             dtype = str,
             default = "SPLINE3")
         swathWidth = pexConfig.Field(
@@ -59,6 +59,16 @@ class CreateFlatFiberTraceProfileConfig(pexConfig.Config):
             dtype = float,
             default = 0.,
             check = lambda x : x >= 0)
+        lowerSigma = pexConfig.Field(
+            dtype = float,
+            doc = "lower sigma rejection threshold if maxIterSig > 0 (default: 3.)",
+            default = 3.,
+            check = lambda x : x >= 0 )
+        upperSigma = pexConfig.Field(
+            dtype = float,
+            doc = "upper sigma rejection threshold if maxIterSig > 0 (default: 3.)",
+            default = 3.,
+            check = lambda x : x >= 0 )
 
 class CreateFlatFiberTraceProfileTask(Task):
     ConfigClass = CreateFlatFiberTraceProfileConfig
@@ -66,48 +76,24 @@ class CreateFlatFiberTraceProfileTask(Task):
 
     def __init__(self, *args, **kwargs):
         super(CreateFlatFiberTraceProfileTask, self).__init__(*args, **kwargs)
-#        self.makeSubtask("isr")
-#        self.schema = afwTable.SourceTable.makeMinimalSchema()
-#        self.makeSubtask("detection", schema=self.schema)
-#        self.makeSubtask("measurement", schema=self.schema)
-#        self.starSelector = self.config.starSelector.apply()
-#        self.candidateKey = self.schema.addField(
-#            "calib.psf.candidate", type="Flag",
-#            doc=("Flag set if the source was a candidate for PSF determination, "
-#                 "as determined by the '%s' star selector.") % self.config.starSelector.name
-#        )
-
-    def createFlatFiberTraceProfile(self, inFiberTraceSet, inTraceNumbers):
-        # --- create FiberTraceProfileFittingControl
-        fiberTraceProfileFittingControl = drpStella.FiberTraceProfileFittingControl()
-        fiberTraceProfileFittingControl.profileInterpolation = self.config.profileInterpolation
-        fiberTraceProfileFittingControl.swathWidth = self.config.swathWidth
-        fiberTraceProfileFittingControl.telluric = self.config.telluric
-        fiberTraceProfileFittingControl.overSample = self.config.overSample
-        fiberTraceProfileFittingControl.maxIterSF = self.config.maxIterSF
-        fiberTraceProfileFittingControl.maxIterSky = self.config.maxIterSky
-        fiberTraceProfileFittingControl.maxIterSig = self.config.maxIterSig
-        fiberTraceProfileFittingControl.lambdaSF = self.config.lambdaSF
-        fiberTraceProfileFittingControl.lambdaSP = self.config.lambdaSP
-        fiberTraceProfileFittingControl.wingSmoothFactor = self.config.wingSmoothFactor
-        
-        """Calculate spatial profile"""
-        inFiberTraceSet.setFiberTraceProfileFittingControl(fiberTraceProfileFittingControl)
-        if inTraceNumbers[0] == -1 :
-            inFiberTraceSet.calcProfileAllTraces()
-        else :
-#            spectrumSet = drpStella.SpectrumSet()
-            for i in inTraceNumbers :
-                inFiberTraceSet.getFiberTrace(i).calcProfile()
-        return inFiberTraceSet
+        self.fiberTraceProfileFittingControl = drpStella.FiberTraceProfileFittingControl()
+        self.fiberTraceProfileFittingControl.profileInterpolation = self.config.profileInterpolation
+        self.fiberTraceProfileFittingControl.swathWidth = self.config.swathWidth
+        self.fiberTraceProfileFittingControl.telluric = self.config.telluric
+        self.fiberTraceProfileFittingControl.overSample = self.config.overSample
+        self.fiberTraceProfileFittingControl.maxIterSig = self.config.maxIterSig
+        self.fiberTraceProfileFittingControl.lowerSigma = self.config.lowerSigma
+        self.fiberTraceProfileFittingControl.upperSigma = self.config.upperSigma
 
     def run(self, inFiberTraceSet, inTraceNumbers=[-1]):
         """Calculate spatial profile and extract FiberTrace number inTraceNumber to 1D
 
         This method changes the input FiberTraceSet and returns void
         """
-        
-        spectrumSet = self.createFlatFiberTraceProfile(inFiberTraceSet, inTraceNumbers)
-        
-        return spectrumSet
- 
+
+        inFiberTraceSet.setFiberTraceProfileFittingControl(self.fiberTraceProfileFittingControl)
+        if inTraceNumbers[0] == -1 :
+            inFiberTraceSet.calcProfileAllTraces()
+        else :
+            for i in inTraceNumbers :
+                inFiberTraceSet.getFiberTrace(i).calcProfile()

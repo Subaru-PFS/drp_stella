@@ -358,12 +358,12 @@ Interface to Stella
 //%template(resizeU) pfs::drp::stella::math::resize<float>;
 //%template(resizeU) pfs::drp::stella::math::resize<double>;
 
-//%template(sortIndicesU) pfs::drp::stella::math::sortIndices<unsigned short>;
-//%template(sortIndicesUI) pfs::drp::stella::math::sortIndices<unsigned int>;
-//%template(sortIndicesI) pfs::drp::stella::math::sortIndices<int>;
-//%template(sortIndicesL) pfs::drp::stella::math::sortIndices<long>;
-//%template(sortIndicesF) pfs::drp::stella::math::sortIndices<float>;
-//%template(sortIndicesD) pfs::drp::stella::math::sortIndices<double>;
+%template(sortIndices) pfs::drp::stella::math::sortIndices<unsigned short>;
+%template(sortIndices) pfs::drp::stella::math::sortIndices<unsigned int>;
+%template(sortIndices) pfs::drp::stella::math::sortIndices<int>;
+%template(sortIndices) pfs::drp::stella::math::sortIndices<long>;
+%template(sortIndices) pfs::drp::stella::math::sortIndices<float>;
+%template(sortIndices) pfs::drp::stella::math::sortIndices<double>;
 
 //%template(WriteFitsU) pfs::drp::stella::utils::WriteFits<unsigned short>;
 //%template(WriteFitsI) pfs::drp::stella::utils::WriteFits<int>;
@@ -538,7 +538,7 @@ Interface to Stella
 %template(chebyshevFD) pfs::drp::stella::math::chebyshev<float, double>;
 %template(chebyshevDF) pfs::drp::stella::math::chebyshev<double, float>;
 %template(chebyshevDD) pfs::drp::stella::math::chebyshev<double, double>;
-   
+
 %template(convertRangeToUnityFF) pfs::drp::stella::math::convertRangeToUnity<float, float>;
 %template(convertRangeToUnityFD) pfs::drp::stella::math::convertRangeToUnity<float, double>;
 %template(convertRangeToUnityDF) pfs::drp::stella::math::convertRangeToUnity<double, float>;
@@ -1079,3 +1079,13 @@ Interface to Stella
 %template(getIndices) pfs::drp::stella::math::getIndices< double >;
 
 %template(PolyFit) pfs::drp::stella::math::PolyFit<double>;
+
+%template(addArrayIntoArray) pfs::drp::stella::math::addArrayIntoArray< float const, float, 1, 1 >;
+%template(addArrayIntoArray) pfs::drp::stella::math::addArrayIntoArray< float const, float, 2, 1 >;
+%template(addArrayIntoArray) pfs::drp::stella::math::addArrayIntoArray< float const, float, 1, 2 >;
+%template(addArrayIntoArray) pfs::drp::stella::math::addArrayIntoArray< float const, float, 2, 2 >;
+
+%template(calcMinCenMax) pfs::drp::stella::math::calcMinCenMax<float, float>;
+%template(calcMinCenMax) pfs::drp::stella::math::calcMinCenMax<double, float>;
+%template(calcMinCenMax) pfs::drp::stella::math::calcMinCenMax<float, double>;
+%template(calcMinCenMax) pfs::drp::stella::math::calcMinCenMax<double, double>;

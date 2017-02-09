@@ -220,7 +220,7 @@ class ReduceArcTask(CmdLineTask):
                 self.log.info('No pfsConfigId is present in postISRCCD file for dataId %s' %
                               str(dataId.items()))
                 pfsConfigId = 0x0
-                                                                                                 
+
             pfsConfig = butler.get("pfsConfig", pfsConfigId=pfsConfigId, dateObs=dataId["dateObs"])
 
             pfsArm = spectrumSetToPfsArm(pfsConfig, spectrumSetFromProfile,
