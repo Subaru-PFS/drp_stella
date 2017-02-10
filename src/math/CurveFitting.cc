@@ -97,8 +97,6 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
       throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
     }
 
-    int I_NReject = 0;
-    int I_DataValues_New = 0;
     int I_NRejected = 0;
     bool B_HaveMeasureErrors = false;
     ndarray::Array<double, 1, 1> D_A1_Coeffs_Out = ndarray::allocate(I_Degree_In + 1);
@@ -222,9 +220,7 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
     while (B_Run){
       I_A1_Rejected_Old = *P_I_A1_Rejected;
       I_NRejected_Old = *P_I_NRejected;
-      I_NReject = 0;
       *P_I_NRejected = 0;
-      I_DataValues_New = 0;
       ndarray::Array<T, 1, 1> D_A1_XArr = ndarray::external(D_A1_X.data(), ndarray::makeVector(int(D_A1_X.size())), ndarray::makeVector(1));
       ndarray::Array<T, 1, 1> D_A1_YArr = ndarray::external(D_A1_Y.data(), ndarray::makeVector(int(D_A1_X.size())), ndarray::makeVector(1));
       ndarray::Array<T, 1, 1> yFit = ndarray::allocate(D_A1_X.size());
@@ -274,13 +270,10 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
           if (B_HaveMeasureErrors)
             V_MeasureErrors.push_back((*P_D_A1_MeasureErrors)[i_pos]);
           I_A1_OrigPos.push_back(i_pos);
-
-          I_DataValues_New++;
         }
         else{
           P_I_A1_Rejected->push_back(i_pos);
           LOGLS_DEBUG(_log, "Rejecting D_A1_X_In(" << i_pos << ") = " << D_A1_X_In[i_pos]);
-          I_NReject++;
           ++(*P_I_NRejected);
         }
       }
@@ -304,7 +297,6 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
         B_Run = false;
     }
     LOGLS_DEBUG(_log, "*P_I_NRejected = " << *P_I_NRejected);
-    LOGLS_DEBUG(_log, "I_DataValues_New = " << I_DataValues_New);
     *P_I_A1_NotRejected = I_A1_OrigPos;
     if (*P_I_NRejected > 0){
       I_A1_OrigPos.resize(D_A1_X_In.getShape()[0]);
