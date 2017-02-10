@@ -51,10 +51,6 @@ namespace pfs { namespace drp { namespace stella {
                                  ndarray::Array<U, 1, 1> const& coeffs_In,
                                  T xRangeMin_In = -1.,
                                  T xRangeMax_In = 1.);
-//    template<typename T, typename U>
-//    ndarray::Array<T, 1, 1> Poly(ndarray::Array<T, 1, 1> const& x_In,
-//                                 ndarray::Array<U, 1, 1> const& coeffs_In,
-//                                 ndarray::Array<double, 1, 1> const& xRange_In);///shift and rescale x_In to fit into specified range
 
     /**
      * @brief  Perform a least-square polynomial fit using matrix inversion with optional error estimates.

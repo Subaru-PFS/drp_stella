@@ -62,23 +62,6 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
     return arr_Out;
   }
 
-/*  template<typename T, typename U>
-  ndarray::Array<T, 1, 1> Poly(ndarray::Array<T, 1, 1> const& x_In,
-                               ndarray::Array<U, 1, 1> const& coeffs_In,
-                               ndarray::Array<double, 1, 1> const& xRange_In){
-    ndarray::Array<T, 1, 1> xNew = ndarray::allocate(x_In.getShape()[0]);
-    T xMin = pfs::drp::stella::math::min(x_In);
-    T xMax = pfs::drp::stella::math::max(x_In);
-    for (int i = 0; i < x_In.getShape()[0]; ++i){
-      xNew[i] = ((xRange_In[1] - xRange_In[0]) * (x_In[i] - xMin) / (xMax - xMin)) + xRange_In[0];
-    }
-    #ifdef __DEBUG_POLY__
-      cout << "pfs::drp::stella::math::CurveFitting::Poly: x_In = " << x_In << endl;
-      cout << "pfs::drp::stella::math::CurveFitting::Poly: xNew = " << xNew << endl;
-    #endif
-    return Poly(xNew, coeffs_In);
-  }*/
-
   template<typename T>
   ndarray::Array<double, 1, 1> PolyFit(ndarray::Array<T, 1, 1> const& D_A1_X_In,
                                        ndarray::Array<T, 1, 1> const& D_A1_Y_In,
@@ -2704,16 +2687,10 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
   template ndarray::Array<double, 1, 1> Poly(ndarray::Array<double, 1, 1> const&, ndarray::Array<float, 1, 1> const&, double, double);
   template ndarray::Array<double, 1, 1> Poly(ndarray::Array<double, 1, 1> const&, ndarray::Array<double, 1, 1> const&, double, double);
 
-//  template ndarray::Array<double, 1, 1> PolyFit(ndarray::Array<float, 1, 1> const&, ndarray::Array<float, 1, 1> const&, size_t const, float const, std::vector<string> const&, std::vector<void *> &);
   template ndarray::Array<double, 1, 1> PolyFit(ndarray::Array<double, 1, 1> const&, ndarray::Array<double, 1, 1> const&, size_t const, double const, std::vector<string> const&, std::vector<void *> &);
-//  template ndarray::Array<double, 1, 1> PolyFit(ndarray::Array<float, 1, 1> const&, ndarray::Array<float, 1, 1> const&, size_t const, float const, float const, size_t const, std::vector<string> const&, std::vector<void *> &);
   template ndarray::Array<double, 1, 1> PolyFit(ndarray::Array<double, 1, 1> const&, ndarray::Array<double, 1, 1> const&, size_t const, double const, double const, size_t const, std::vector<string> const&, std::vector<void *> &);
-//  template ndarray::Array<double, 1, 1> PolyFit(ndarray::Array<float, 1, 1> const&, ndarray::Array<float, 1, 1> const&, size_t const, std::vector<string> const&, std::vector<void *> &);
   template ndarray::Array<double, 1, 1> PolyFit(ndarray::Array<double, 1, 1> const&, ndarray::Array<double, 1, 1> const&, size_t const, std::vector<string> const&, std::vector<void *> &);
-//  template ndarray::Array<double, 1, 1> PolyFit(ndarray::Array<float, 1, 1> const&, ndarray::Array<float, 1, 1> const&, size_t const, float, float);
   template ndarray::Array<double, 1, 1> PolyFit(ndarray::Array<double, 1, 1> const&, ndarray::Array<double, 1, 1> const&, size_t const, double, double);
-//  template ndarray::Array<double, 1, 1> PolyFit(ndarray::Array<float, 1, 1> const&, ndarray::Array<float, 1, 1> const&, size_t const, float const, float, float);
-//  template ndarray::Array<double, 1, 1> PolyFit(ndarray::Array<float, 1, 1> const&, ndarray::Array<float, 1, 1> const&, size_t const, float const, float const, size_t const, float, float);
   template ndarray::Array<double, 1, 1> PolyFit(ndarray::Array<double, 1, 1> const&, ndarray::Array<double, 1, 1> const&, size_t const, double const, double const, size_t const, double, double);
 
   template int LinFitBevingtonEigen(Eigen::Array<float, Eigen::Dynamic, 1> const&,

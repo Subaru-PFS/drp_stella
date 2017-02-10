@@ -34,15 +34,8 @@ pfsDRPStella::Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>::Spectrum(size_
   _nCCDRows = length;
 }
 
-//template class pfsDRPStella::Spectrum<float, unsigned int, float, float>;
-//template class pfsDRPStella::Spectrum<double, unsigned int, float, float>;
 template class pfsDRPStella::Spectrum<float, unsigned short, float, float>;
 template class pfsDRPStella::Spectrum<double, unsigned short, float, float>;
-//template class pfsDRPStella::Spectrum<float, int, float, float>;
-//template class pfsDRPStella::Spectrum<double, int, float, float>;
-//template class pfsDRPStella::Spectrum<double, int, double, double>;
-//template class pfsDRPStella::Spectrum<float, unsigned int, double, double>;
-//template class pfsDRPStella::Spectrum<double, unsigned int, double, double>;
 template class pfsDRPStella::Spectrum<float, unsigned short, double, double>;
 template class pfsDRPStella::Spectrum<double, unsigned short, double, double>;
 
@@ -96,30 +89,6 @@ bool pfsDRPStella::Spectrum< SpectrumT, MaskT, VarianceT, WavelengthT >::setDisp
 
 template bool pfsDRPStella::Spectrum< double, unsigned short, float, float >::setDispersion( ndarray::Array< float, 1, 1 > const& );
 template bool pfsDRPStella::Spectrum< float, unsigned short, float, float >::setDispersion( ndarray::Array< float, 1, 1 > const& );
-
-//template<> template<> ndarray::Array< double, 1, 1 > pfsDRPStella::Spectrum<float, unsigned int, float, float>::hIdentify(ndarray::Array< float, 2, 1 > const& );
-//template<> template<> ndarray::Array< double, 1, 1 > pfsDRPStella::Spectrum<double, unsigned int, float, float>::hIdentify(ndarray::Array< float, 2, 1 > const& );
-//template<> template<> ndarray::Array< double, 1, 1 > pfsDRPStella::Spectrum<float, unsigned short, float, float>::hIdentify(ndarray::Array< float, 2, 1 > const& );
-//template<> template<> ndarray::Array< double, 1, 1 > pfsDRPStella::Spectrum<double, unsigned short, float, float>::hIdentify(ndarray::Array< float, 2, 1 > const& );
-//template<> template<> ndarray::Array< double, 1, 1 > pfsDRPStella::Spectrum<float, unsigned int, float, float>::hIdentify(ndarray::Array< double, 2, 1 > const& );
-//template<> template<> ndarray::Array< double, 1, 1 > pfsDRPStella::Spectrum<double, unsigned int, float, float>::hIdentify(ndarray::Array< double, 2, 1 > const& );
-//template<> template<> ndarray::Array< double, 1, 1 > pfsDRPStella::Spectrum<float, unsigned short, float, float>::hIdentify(ndarray::Array< double, 2, 1 > const& );
-//template<> template<> ndarray::Array< double, 1, 1 > pfsDRPStella::Spectrum<double, unsigned short, float, float>::hIdentify(ndarray::Array< double, 2, 1 > const& );
-//template<> template<> ndarray::Array< double, 1, 1 > pfsDRPStella::Spectrum<float, int, float, float>::hIdentify(ndarray::Array< float, 2, 1 > const& );
-
-//template< typename SpectrumT, typename MaskT, typename VarianceT, typename WavelengthT >
-//template< typename T >
-//bool pfsDRPStella::Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>::identify( ndarray::Array< T, 2, 1 > const& lineList,
-//                                                                                 ndarray::Array< T, 1, 0 > const& predicted,
-//                                                                                 ndarray::Array< T, 1, 0 > const& predictedWLenAllPix,
-//                                                                                 DispCorControl const& dispCorControl,
-//                                                                                 size_t nLinesCheck )
-
-//template< typename SpectrumT, typename MaskT, typename VarianceT, typename WavelengthT >
-//template< typename T >
-//bool pfsDRPStella::Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>::identify( ndarray::Array< T, 2, 1 > const& lineList,
-//                                                                                 DispCorControl const& dispCorControl,
-//                                                                                 size_t nLinesCheck )
 
 ///SpectrumSet
 template<typename SpectrumT, typename MaskT, typename VarianceT, typename WavelengthT>
@@ -330,21 +299,10 @@ ndarray::Array< float, 3, 1 > pfsDRPStella::SpectrumSet<SpectrumT, MaskT, Varian
   return covar;
 }
 
-
-//template class pfsDRPStella::SpectrumSet<float, int, float, float>;
-//template class pfsDRPStella::SpectrumSet<double, int, double, double>;
-//template class pfsDRPStella::SpectrumSet<float, unsigned int, float, float>;
-//template class pfsDRPStella::SpectrumSet<double, unsigned int, float, float>;
 template class pfsDRPStella::SpectrumSet<float, unsigned short, float, float>;
 template class pfsDRPStella::SpectrumSet<double, unsigned short, float, float>;
-//template class pfsDRPStella::SpectrumSet<float, unsigned int, float, double>;
-//template class pfsDRPStella::SpectrumSet<double, unsigned int, float, double>;
 template class pfsDRPStella::SpectrumSet<float, unsigned short, float, double>;
 template class pfsDRPStella::SpectrumSet<double, unsigned short, float, double>;
-//template class pfsDRPStella::SpectrumSet<float, unsigned int, double, double>;
-//template class pfsDRPStella::SpectrumSet<double, unsigned int, double, double>;
-//template class pfsDRPStella::SpectrumSet<float, unsigned short, double, double>;
-//template class pfsDRPStella::SpectrumSet<double, unsigned short, double, double>;
 
 namespace pfs { namespace drp { namespace stella { namespace math {
 
@@ -739,11 +697,6 @@ namespace pfs { namespace drp { namespace stella { namespace math {
     template ndarray::Array< float, 2, 1 > createLineList( ndarray::Array< float, 1, 1 > const&, ndarray::Array< float, 1, 1 > const& );
     template ndarray::Array< double, 2, 1 > createLineList( ndarray::Array< double, 1, 1 > const&, ndarray::Array< double, 1, 1 > const& );
 
-//    template StretchAndCrossCorrelateSpecResult< float, float >;
-//    template StretchAndCrossCorrelateSpecResult< double, double >;
-//    template StretchAndCrossCorrelateSpecResult< float, double >;
-//    template StretchAndCrossCorrelateSpecResult< double, float >;
-
     template StretchAndCrossCorrelateSpecResult< float, float > stretchAndCrossCorrelateSpec( ndarray::Array< float, 1, 1 > const&,
                                                                                               ndarray::Array< float, 1, 1 > const&,
                                                                                               ndarray::Array< float, 2, 1 > const&,
@@ -762,16 +715,3 @@ namespace pfs { namespace drp { namespace stella { namespace math {
                                                                                                DispCorControl const& );
 
 }}}}
-
-//template<> template<> bool pfsDRPStella::Spectrum<float, unsigned short, float, float>::identify( ndarray::Array< float, 2, 1 > const&,
-//                                                                                                  DispCorControl const&,
-//                                                                                                  size_t );
-//template<> template<> bool pfsDRPStella::Spectrum<double, unsigned short, float, float>::identify( ndarray::Array< float, 2, 1 > const&,
-//                                                                                                   DispCorControl const&,
-//                                                                                                   size_t );
-//template<> template<> bool pfsDRPStella::Spectrum<float, unsigned short, float, float>::identify( ndarray::Array< double, 2, 1 > const&,
-//                                                                                                  DispCorControl const&,
-//                                                                                                  size_t );
-//template<> template<> bool pfsDRPStella::Spectrum<double, unsigned short, float, float>::identify( ndarray::Array< double, 2, 1 > const&,
-//                                                                                                   DispCorControl const&,
-//                                                                                                   size_t );
