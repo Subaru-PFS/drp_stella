@@ -114,7 +114,7 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
       P_D_A1_MeasureErrors = (*((PTR(ndarray::Array<T, 1, 1>)*)ArgV[I_Pos]));
       B_HaveMeasureErrors = true;
       if (P_D_A1_MeasureErrors->getShape()[0] != D_A1_X_In.getShape()[0]){
-        string message("pfs::drp::stella::math::CurfFitting::PolyFit: Error: P_D_A1_MeasureErrors->getShape()[0](=");
+        string message("pfs::drp::stella::math::CurveFitting::PolyFit: Error: P_D_A1_MeasureErrors->getShape()[0](=");
         message += to_string(P_D_A1_MeasureErrors->getShape()[0]) + ") != D_A1_X_In.getShape()[0](=" + to_string(D_A1_X_In.getShape()[0]) + ")";
         throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
       }

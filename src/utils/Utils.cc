@@ -601,7 +601,7 @@ namespace pfs { namespace drp { namespace stella { namespace utils{
     }
     catch (const std::exception& e) {
       std::string errorMessage = e.what();
-      std::string testMessage("pfs::drp::stella::math::CurfFitting::PolyFit: Error:");
+      std::string testMessage("pfs::drp::stella::math::CurveFitting::PolyFit: Error:");
       testMessage += " P_D_A1_MeasureErrors->getShape()[0](=" + to_string(nX-1);
       testMessage += ") != D_A1_X_In.getShape()[0](=" + to_string(nX) + ")";
       if (errorMessage.compare(testMessage) != 0)
