@@ -101,7 +101,6 @@ ndarray::Array<VarianceT, 1, 1> pfs::drp::stella::Spectrum<SpectrumT, MaskT, Var
 {
     ndarray::Array< VarianceT, 1, 1 > variance = ndarray::allocate(_covar.getShape()[0]);
     variance[ndarray::view()] = _covar[ ndarray::view( )( 1 ) ];
-    cout << "getVariance not const" << endl;
     return variance;
 }
 
@@ -543,10 +542,14 @@ bool pfs::drp::stella::Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>::ident
 
     /// Check for monotonic
     if ( math::isMonotonic( _wavelength ) == 0 ){
-      cout << "Identify: WARNING: Wavelength solution is not monotonic => Setting identifyResult.rms to 1000" << endl;
+      LOGLS_DEBUG(_log, "WARNING: Wavelength solution is not monotonic => Setting identifyResult.rms to 1000");
+      LOGLS_DEBUG(_log, "_wavelength = " << _wavelength);
       _dispRms = 1000.;
       LOGLS_WARN(_log, "Identify: RMS = " << _dispRms);
       LOGLS_WARN(_log, "======================================");
+    }
+    else{
+      LOGLS_DEBUG(_log, "_wavelength is monotonic ");
     }
 
     _isWavelengthSet = true;
