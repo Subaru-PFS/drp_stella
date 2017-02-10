@@ -59,19 +59,11 @@
       return minCenMax_Out;
     }
 
-    /**
-     * Fix(double)
-     * Returns integer value cut at decimal point. If D_In is negative the integer value greater or equal than D_In is returned.
-     **/
     template <typename T>
     int Fix(T D_In){
       return (((D_In < T(0.)) && (T(static_cast<int>(D_In)) < D_In)) ? static_cast<int>(D_In) + 1 : static_cast<int>(D_In));
     }
 
-    /**
-     * Fix(double)
-     * Returns long integer value cut at decimal point (See int Fix(double)).
-     **/
     template <typename T>
     long FixL(T D_In){
       return ((D_In < 0.) && (T(static_cast<long>(D_In)) < D_In)) ? static_cast<long>(D_In) + 1 : static_cast<long>(D_In);
@@ -114,24 +106,6 @@
       }
       return A1_Array_Out;
     }
-
-
-/*    template< typename T >
-    bool InvertGaussJ(ndarray::Array<T, 2, 1> & AArray){
-      int N = AArray.getShape()[1];
-      assert(N == AArray.getShape()[0]);
-      ndarray::Array<T, 2, 1> Unity(N, N);
-      Unity.deep() = 0.;
-      for (int m = 0; m < N; m ++){
-        Unity[m][m] = 1.;
-      }
-      if (!pfs::drp::stella::math::InvertGaussJ(AArray, Unity)){
-        cout << "InvertGaussJ: ERROR: InvertGaussJ(AArray=" << AArray << ", Unity=" << Unity << ") retuned FALSE" << endl;
-        return false;
-      }
-      return true;
-    }
-*/
 
     template<typename T>
     bool countPixGTZero(ndarray::Array<T, 1, 1> &vec_InOut){
@@ -204,32 +178,16 @@
       return -1;
     }
 
-    /**
-     *  bool IsOddNumber(long No) const
-     *  Returns TRUE, if No is an Odd Number, FALSE if No is an Even Number.
-     **/
     bool IsOddNumber(long No)
     {
       return (std::fabs((double)(((double)No) / 2.) - (double)(int)(((double)No) / 2.)) > 0.3);
     }
 
-    /**
-     * function GetRowFromIndex(int I_Index_In, int I_NRows_In) const
-     * task: Returns Row specified by I_Index_In from the formula
-     *       Col = (int)(I_Index_In / I_NRows_In)
-     *       Row = fiberTraceNumber - Col * I_NRows_In
-     **/
     int GetRowFromIndex(int I_Index_In, int I_NRows_In)
     {
       return (I_Index_In - (I_NRows_In * pfs::drp::stella::math::GetColFromIndex(I_Index_In, I_NRows_In)));
     }
 
-    /**
-     * function GetColFromIndex(int I_Index_In, int I_NRows_In) const
-     * task: Returns Col specified by I_Index_In from the formula
-     *       Col = (int)(I_Index_In / I_NRows_In)
-     *       Row = fiberTraceNumber - Col * I_NRows_In
-     **/
     int GetColFromIndex(int I_Index_In, int I_NRows_In)
     {
       return ((int)(I_Index_In / I_NRows_In));
@@ -429,16 +387,6 @@
       return arr_Out;
     }
 
-  //  template <typename T>
-  //  ndarray::Array<int, 1, 1> Int(ndarray::Array<T, 1, 1> const& arr_In){
-  //    ndarray::Array<int, 1, 1> arr_Out = ndarray::allocate(arr_In.getShape()[0]);
-  //    auto it_arr_Out = arr_Out.begin();
-  //    auto it_arr_In = arr_In.begin();
-  //    for (int i = 0; i < arr_In.getShape()[0]; ++i)
-  //      (*(it_arr_Out + i)) = int((*(it_arr_In + i)));
-  //    return arr_Out;
-  //  }
-
     template<typename T>
     ndarray::Array<T, 1, 1> indGenNdArr(T const size){
       ndarray::Array<T, 1, 1> outArr = ndarray::allocate(int(size));
@@ -618,7 +566,6 @@
       D_A1_Resid.deep() -= D_Mean;
 
       Eigen::Array<T, Eigen::Dynamic, 1> E_A1_Resid = D_A1_Resid.asEigen();
-//      T sum = E_A1_Resid.sum();
       D_Var = (E_A1_Resid.pow(2).sum() - pow(E_A1_Resid.sum(), 2)/T(I_NElements)) / (T(I_NElements)-1.);
       D_A1_Out[1] = D_Var;
       if (maxMoment_In <= 2)
@@ -648,19 +595,6 @@
       return arr_Out;
     }
 
-/*    template<typename T>
-    ndarray::Array<T, 1, 1> getSubArray(ndarray::Array<T, 2, 1> const& arr_In,
-                                        ndarray::Array<size_t, 2, 1> const& indices_In){
-      ndarray::Array<T, 1, 1> arr_Out = ndarray::allocate(indices_In.getShape()[0]);
-      for (size_t iRow = 0; iRow < indices_In.getShape()[0]; ++iRow){
-        arr_Out[iRow] = arr_In[indices_In[iRow][0]][indices_In[iRow][1]];
-        #ifdef __DEBUG_GETSUBARRAY__
-          cout << "getSubArray: arr_Out[" << iRow << "] = " << arr_Out[iRow] << endl;
-        #endif
-      }
-      return arr_Out;
-    }*/
-
     template< typename T, typename U >
     ndarray::Array<T, 1, 1> getSubArray(ndarray::Array<T, 2, 1> const& arr_In,
                                         ndarray::Array<U, 2, 1> const& indices_In){
@@ -677,7 +611,6 @@
     template<typename T>
     ndarray::Array<T, 1, 1> getSubArray(ndarray::Array<T, 2, 1> const& arr_In,
                                         std::vector< std::pair<size_t, size_t> > const& indices_In){
-//      cout << "getSubArray: arr_In = " << arr_In << endl;
       ndarray::Array<T, 1, 1> arr_Out = ndarray::allocate(indices_In.size());
       for ( int iRow = 0; iRow < indices_In.size(); ++iRow){
         arr_Out[ iRow ] = arr_In[ ndarray::makeVector( int( indices_In[ iRow ].first), int( indices_In[ iRow ].second ) ) ];
@@ -803,7 +736,6 @@
           #ifdef __DEBUG_SORT__
             cout << "SortIndices(): I_L(=" << I_L << ") set to I_A1_IStack(I_JStack--=" << I_JStack << ") = " << I_A1_IStack[I_JStack] << endl;
           #endif
-
         }
         else
         {
@@ -824,7 +756,6 @@
             #ifdef __DEBUG_SORT__
               cout << "SortIndices(arr_in): P_I_A1_Indx(I_L=" << I_L << ")=" << I_A1_Indx[I_L] << " and P_I_A1_Indx(I_Ir(=" << I_Ir << "))=" << I_A1_Indx[I_Ir] << " std::swapped" << endl;
             #endif
-
           }
           if (arr_in[I_A1_Indx[I_L + 1]]
             > arr_in[I_A1_Indx[I_Ir]])
@@ -834,7 +765,6 @@
             #ifdef __DEBUG_SORT__
               cout << "SortIndices(arr_in): P_I_A1_Indx(I_L=" << I_L << "+1)=" << I_A1_Indx[I_L + 1] << " and P_I_A1_Indx(I_Ir(=" << I_Ir << "))=" << I_A1_Indx[I_L+1] << " std::swapped" << endl;
             #endif
-
           }
           if (arr_in[I_A1_Indx[I_L]]
             > arr_in[I_A1_Indx[I_L + 1]])
@@ -922,7 +852,6 @@
             #ifdef __DEBUG_SORT__
               cout << "SortIndices(arr_in): I_I set to I_J(=" << I_J << ") - 1" << endl;
             #endif
-
           }
           else
           {
@@ -935,7 +864,6 @@
             #ifdef __DEBUG_SORT__
               cout << "SortIndices(arr_in): I_L set to I_I(=" << I_I << endl;
             #endif
-
           }
         }
       }
@@ -1087,8 +1015,6 @@
       #ifdef __DEBUG_XCOR__
         cout << "pfs::drp::stella::math::xCor: chiSquareArr = " << chiSquareArr << endl;
       #endif
-//      cout << " check guess, limits, and output: 0: peak, 1: pos, 2: sigma, 3: background" << endl;
-//      exit(EXIT_FAILURE);
       D_A1_Guess[3] = max(chiSquareArr);///constant offset
       D_A1_Guess[0] = 0. - D_A1_Guess[3] + min(chiSquareArr);///peak
       D_A1_Guess[1] = 0.;///pos
@@ -1320,7 +1246,6 @@
                                                T phiStep ){
       size_t nStepsR = (rMax / rStep);
       size_t nStepsPhi = (360. / phiStep);
-//      cout << "nStepsR = " << nStepsR << ", nStepsPhi = " << nStepsPhi << endl;
       ndarray::Array< T, 2, 1 > arrOut = ndarray::allocate( nStepsR * nStepsPhi + 1, 2 );
       T r = 0.;
       T phi = 0.;
@@ -1329,14 +1254,11 @@
       size_t pos = 1;
       for (size_t iR = 1; iR <= nStepsR; ++iR ){
         r += rStep;
-//        cout << "r = " << r << endl;
         phi = 0.;
         for (size_t iPhi = 1; iPhi <= nStepsPhi; ++iPhi){
           phi += phiStep;
-//          cout << "phi = " << phi << endl;
           arrOut[ ndarray::makeVector( int( pos ), 0 ) ] = r * cos( phi * 2. * D_PI / 360.);
           arrOut[ ndarray::makeVector( int( pos ), 1 ) ] = r * sin( phi * 2. * D_PI / 360.);
-//          cout << "arrOut[" << pos << "][0] = " << arrOut[ndarray::makeVector(pos,0)] << ", arrOut[" << pos << "][1] = " << arrOut[ndarray::makeVector(int(pos),1)] << endl;
           ++pos;
         }
       }
@@ -1578,21 +1500,8 @@
           cout << "crossCorrelate: DA1_ChiSquare(run = " << run << ") = " << DA1_ChiSquare[run] << endl;
         #endif
 
-        /// Save number of pixels used for calculations
-    //    IA1_NPix(run) = DA1_StaticTemp.size();
-    //    #ifdef __DEBUG_CROSSCORRELATE__
-    //      cout << "crossCorrelate: IA1_NPix(run = " << run << ") = " << IA1_NPix(run) << endl;
-    //    #endif
-
         run++;
       }
-      /// Normalise DA1_ChiSquare to number of pixels
-    //  Array<double, 1> DA1_NPix(IA1_NPix.size());
-    //  if (!this->CastIntArrToDblArr(IA1_NPix, DA1_NPix)){
-    //    cout << "crossCorrelate: ERROR: CastIntArrToDblArr(IA1_NPix) returned FALSE" << endl;
-    //    returm false;
-    //  }
-    //  DA1_ChiSquare = DA1_ChiSquare / DA1_NPix;
       #ifdef __DEBUG_CROSSCORRELATE__
         cout << "crossCorrelate: DA1_ChiSquare = " << DA1_ChiSquare << endl;
       #endif
@@ -1626,8 +1535,6 @@
       D_A1_ChiSqu = DA1_ChiSquare[ ndarray::view( I_Start, I_End ) ];
       ndarray::Array< double, 1, 1 > P_D_A1_MeasureErrors = replicate(1., D_A1_ChiSqu.size());
       ndarray::Array< double, 1, 1 > D_A1_Guess = ndarray::allocate( 4 );
-//      cout << "check guess, limits, output for 0: peak, 1: position, 2: sigma, 3: background" << endl;
-//      exit(EXIT_FAILURE);
       D_A1_Guess[ 3 ] = max( DA1_ChiSquare );//background
       D_A1_Guess[ 0 ] = 0. - ( max( DA1_ChiSquare ) - DA1_ChiSquare[ minInd ] );///peak
       D_A1_Guess[ 1 ] = double( minInd );///pos
@@ -1693,7 +1600,6 @@
                            D_A1_GaussCoeffs,
                            D_A1_EGaussCoeffs ) ){
         cout << "crossCorrelate: WARNING: GaussFit returned FALSE" << endl;
-        //        return false;
       }
       #ifdef __DEBUG_CROSSCORRELATE__
         cout << "crossCorrelate: D_A1_X = " << D_A1_X << endl;
@@ -1958,7 +1864,6 @@
                                          ndarray::Array< int, 1, 1 > & SVecArr,
                                          ndarray::Array< T, 1, I > const& UVecArr,
                                          std::vector< string > const& CS_A1_In){
-//                    ndarray::Array< T, 1, 1 > & D1_Out){
       #ifdef __DEBUG_INTERPOL__
         cout << "CFits::HInterPol: VVecArr.size() = " << VVecArr.getShape()[ 0 ] << endl;
         cout << "CFits::HInterPol: XVecArr.size() = " << XVecArr.getShape()[ 0 ] << endl;
@@ -1968,7 +1873,6 @@
       #endif
 
       int M = VVecArr.getShape()[ 0 ];
-//      firstIndex i;
 
       ndarray::Array< int, 1, 1 > IA1_Temp = ndarray::allocate( SVecArr.getShape()[ 0 ] );
       IA1_Temp.deep() = 0;
@@ -2181,9 +2085,6 @@
       #ifdef __DEBUG_INTERPOL__
         cout << "CFits::HInterPol: Ready: Returning PVecArr = " << PVecArr << endl;
       #endif
-
-//      D1_Out = ndarray::allocate( PVecArr.getShape()[ 0 ]);
-//      D1_Out.deep() = PVecArr;
 
       return PVecArr;
     }
@@ -2704,7 +2605,6 @@
       #ifdef __DEBUG_INTERPOL__
         cout << "CFits::InterPol(D_A1_V, D_A1_X, D_A1_U, CS_A1_In): M set to " << M << endl;
       #endif
-//      firstIndex i;
 
       if ( XVecArr.getShape()[ 0 ] != M ){
         cout << "CFits::InterPol: ERROR: XVecArr and VVecArr must have same # of elements!" << endl;
@@ -2730,9 +2630,6 @@
                               SVecArr );
       #ifdef __DEBUG_INTERPOL__
         cout << "CFits::InterPol(D_A1_V, D_A1_X, D_A1_U, CS_A1_In): SVecArr set to " << SVecArr << endl;
-      #endif
-
-      #ifdef __DEBUG_INTERPOL__
         cout << "CFits::InterPol(D_A1_V, D_A1_X, D_A1_U, CS_A1_In): Starting HInterPol " << endl;
       #endif
       return hInterPol( VVecArr,
@@ -2846,12 +2743,6 @@
 
       ndarray::Array< T, 1, 1 > specTemp;
       ndarray::Array< T, 1, 1 > specRefTemp;
-//      ndarray::Array< T, 2, 1 > specCalib_Out;
-//      double rmsOut = 0.;
-    //  int I_PixShift = 0;
-//      int linePos = 0;
-//      int lineTemp = 0;
-//      int nLines = 0;
       ndarray::Array< T, 1, 1 > refY;
       ndarray::Array< T, 1, 1 > refXStretched;
       ndarray::Array< double, 1, 1 > xCorChiSq = ndarray::allocate( nStretches );
@@ -7219,12 +7110,6 @@
     template ndarray::Array<float, 2, 2> Float(ndarray::Array<float, 2, 2> const&);
     template ndarray::Array<float, 2, 2> Float(ndarray::Array<double, 2, 2> const&);
 
-//    template ndarray::Array<int, 1, 1> Int(ndarray::Array<size_t, 1, 1> const&);
-//    template ndarray::Array<int, 1, 1> Int(ndarray::Array<unsigned short, 1, 1> const&);
-//    template ndarray::Array<int, 1, 1> Int(ndarray::Array<long, 1, 1> const&);
-//    template ndarray::Array<int, 1, 1> Int(ndarray::Array<float, 1, 1> const&);
-//    template ndarray::Array<int, 1, 1> Int(ndarray::Array<double, 1, 1> const&);
-
     template size_t min(ndarray::Array<size_t, 1, 1> const&);
     template unsigned short min(ndarray::Array<unsigned short, 1, 1> const&);
     template int min(ndarray::Array<int, 1, 1> const&);
@@ -7257,8 +7142,6 @@
     template size_t floor1(double const&, size_t const&);
     template unsigned int floor1(float const&, unsigned int const&);
     template unsigned int floor1(double const&, unsigned int const&);
-//    template unsigned long math::floor(float, unsigned long);
-//    template unsigned long math::floor(double, unsigned long);
     template float floor1(float const&, float const&);
     template float floor1(double const&, float const&);
     template double floor1(float const&, double const&);
@@ -7272,8 +7155,6 @@
     template ndarray::Array<unsigned int, 1, 1> floor(const ndarray::Array<const double, 1, 1>&, const unsigned int);
     template ndarray::Array<unsigned int, 1, 1> floor(const ndarray::Array<float, 1, 1>&, const unsigned int);
     template ndarray::Array<unsigned int, 1, 1> floor(const ndarray::Array<double, 1, 1>&, const unsigned int);
-  //  template ndarray::Array<unsigned long, 1, 1> math::floor(const ndarray::Array<const float, 1, 1>&, const unsigned long);
-  //  template ndarray::Array<unsigned long, 1, 1> math::floor(const ndarray::Array<const double, 1, 1>&, const unsigned long);
     template ndarray::Array<float, 1, 1> floor(const ndarray::Array<const float, 1, 1>&, const float);
     template ndarray::Array<float, 1, 1> floor(const ndarray::Array<const double, 1, 1>&, const float);
     template ndarray::Array<double, 1, 1> floor(const ndarray::Array<const float, 1, 1>&, const double);
@@ -7283,8 +7164,6 @@
     template ndarray::Array<size_t, 2, 2> floor(const ndarray::Array<const double, 2, 2>&, const size_t);
     template ndarray::Array<unsigned int, 2, 2> floor(const ndarray::Array<const float, 2, 2>&, const unsigned int);
     template ndarray::Array<unsigned int, 2, 2> floor(const ndarray::Array<const double, 2, 2>&, const unsigned int);
-  //  template ndarray::Array<unsigned long math::floor(ndarray::Array<float, 2, 2>, unsigned long);
-  //  template ndarray::Array<unsigned long math::floor(ndarray::Array<double, 2, 2>, unsigned double);
     template ndarray::Array<float, 2, 2> floor(const ndarray::Array<const float, 2, 2>&, const float);
     template ndarray::Array<float, 2, 2> floor(const ndarray::Array<const double, 2, 2>&, const float);
     template ndarray::Array<double, 2, 2> floor(const ndarray::Array<const float, 2, 2>&, const double);
@@ -7427,11 +7306,7 @@
     template ndarray::Array<size_t, 2, 1> calcMinCenMax(ndarray::Array<float, 1, 1> const&, double const, double const, int const, int const);
     template ndarray::Array<size_t, 2, 1> calcMinCenMax(ndarray::Array<double, 1, 1> const&, double const, double const, int const, int const);
 
-//    template StretchAndCrossCorrelateResult< float >;
-//    template StretchAndCrossCorrelateResult< double >;
   }/// end namespace math
-
-
 }}}
 
 template< typename T >
