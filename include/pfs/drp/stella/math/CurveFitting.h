@@ -134,8 +134,8 @@ namespace pfs { namespace drp { namespace stella {
                                          T xRangeMax_In = 1.);
 
 /** Additional Keywords:
-    REJECTED=ndarray::Array<int, 1>
-    NOT_REJECTED=ndarray::Array<int, 1>
+    REJECTED=vector<int>
+    NOT_REJECTED=vector<int>
     N_REJECTED=int
     **/
     template<typename T>
