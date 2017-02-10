@@ -381,8 +381,9 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
       P_D_A1_MeasureErrors.reset();
       P_D_A1_MeasureErrors = *((PTR(ndarray::Array<T, 1, 1>)*)ArgV[I_Pos]);
       if (P_D_A1_MeasureErrors->getShape()[0] != nDataPoints){
-        string message("pfs::drp::stella::math::CurveFitting::PolyFit: ERROR: P_D_A1_MeasureErrors->getShape()[0](=");
-        message += to_string(P_D_A1_MeasureErrors->getShape()[0]) + ") != nDataPoints(=" + to_string(nDataPoints) + ")";
+        string message("pfs::drp::stella::math::CurveFitting::PolyFit: KeyWordSet(MEASURE_ERRORS): ERROR:");
+        message += "P_D_A1_MeasureErrors->getShape()[0](=" + to_string(P_D_A1_MeasureErrors->getShape()[0]);
+        message += ") != nDataPoints(=" + to_string(nDataPoints) + ")";
         throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
       }
       D_A1_MeasureErrors.deep() = *P_D_A1_MeasureErrors;
