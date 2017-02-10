@@ -231,20 +231,12 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
       PTR(ndarray::Array<T, 1, 1>) pYFit(new ndarray::Array<T, 1, 1>(yFit));
       for (size_t iArg=0; iArg < nArgs; ++iArg){
         if (iArg >= S_A1_Args_In.size() || S_A1_Args_In[iArg] == "YFIT"){
-          LOGLS_DEBUG(_log, "Setting args[" << iArg << "] to pYFit");
           args[iArg] = &pYFit;
         }
         else if (S_A1_Args_In[iArg] == "MEASURE_ERRORS"){
-          LOGLS_DEBUG(_log, "Setting args[" << iArg << "] to P_D_A1_MeasureErrorsTemp = " << *P_D_A1_MeasureErrorsTemp);
           args[iArg] = &P_D_A1_MeasureErrorsTemp;
         }
       }
-      LOGLS_DEBUG(_log, "D_A1_XArr = " << D_A1_XArr);
-      LOGLS_DEBUG(_log, "D_A1_YArr = " << D_A1_YArr);
-      LOGLS_DEBUG(_log, "I_Degree_In = " << I_Degree_In);
-      LOGLS_DEBUG(_log, "S_A1_Args_In = ");
-      for (size_t iS = 0; iS < S_A1_Args_In.size(); ++iS)
-        LOGLS_DEBUG(_log, S_A1_Args_In[iS]);
       D_A1_Coeffs_Out = pfs::drp::stella::math::PolyFit(D_A1_XArr,
                                                         D_A1_YArr,
                                                         I_Degree_In,
@@ -257,10 +249,8 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
       auto itYFit = pYFit->begin();
       for (auto itTemp = D_A1_Temp.begin(); itTemp < D_A1_Temp.end(); ++itTemp, ++itY, ++itYFit)
         *itTemp = (*itY) - (*itYFit);
-      LOGLS_DEBUG(_log, "1. D_A1_Temp = " << D_A1_Temp);
       Eigen::Array<T, Eigen::Dynamic, 1> tempEArr = D_A1_Temp.asEigen();
       D_A1_Temp.asEigen() = tempEArr.pow(2) / T(D_A1_Y.size());
-      LOGLS_DEBUG(_log, "2. D_A1_Temp = " << D_A1_Temp);
       double D_SDev = double(sqrt(D_A1_Temp.asEigen().sum()));
       P_D_A1_YFit->deep() = pfs::drp::stella::math::Poly(D_A1_X_In,
                                                          D_A1_Coeffs_Out,
@@ -298,9 +288,6 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
         P_D_A1_MeasureErrorsTemp.reset(new ndarray::Array<T, 1, 1>(ndarray::external(V_MeasureErrors.data(),
                                                                                      ndarray::makeVector(int(V_MeasureErrors.size())),
                                                                                      ndarray::makeVector(1))));
-        LOGLS_DEBUG(_log, "D_A1_X.size() = " << D_A1_X.size());
-        LOGLS_DEBUG(_log, "V_MeasureErrors.size() = " << V_MeasureErrors.size());
-        LOGLS_DEBUG(_log, "P_D_A1_MeasureErrorsTemp.getShape()[0] = " << P_D_A1_MeasureErrorsTemp->getShape()[0]);
       }
 
       B_Run = false;
@@ -381,7 +368,6 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
     int i, j, I_Pos;
 
     const int nDataPoints(D_A1_X_In.getShape()[0]);
-    LOGLS_DEBUG(_log, "nDataPoints set to " << nDataPoints);
 
     ndarray::Array<T, 1, 1> D_A1_SDevSquare = ndarray::allocate(nDataPoints);
 
@@ -496,10 +482,6 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
 
     if (B_HaveMeasureError){
       D_A1_WY.deep() = D_A1_WY / D_A1_SDevSquare;
-      LOGLS_DEBUG(_log, "B_HaveMeasureError: D_A1_WY set to " << D_A1_WY);
-    }
-
-    if (B_HaveMeasureError){
       (*P_D_A2_Covar)[ ndarray::makeVector( 0, 0 ) ] = sum(1./D_A1_SDevSquare);
       LOGLS_DEBUG(_log, "B_HaveMeasureError: (*P_D_A2_Covar)(0,0) set to " << (*P_D_A2_Covar)[ ndarray::makeVector( 0, 0 ) ]);
     }
@@ -509,22 +491,18 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
     }
 
     D_A1_B[0] = sum(D_A1_WY);
-    LOGLS_DEBUG(_log, "D_A1_B(0) set to " << D_A1_B[0]);
 
     T D_Sum;
     for (int p = 1; p <= 2 * I_Degree_In; p++){
       D_A1_Z.deep() = D_A1_Z * xNew;
       if (p < nCoeffs){
         D_A1_B[p] = sum(D_A1_WY * D_A1_Z);
-        LOGLS_DEBUG(_log, "for(p(=" << p << ")...): p < nCoeffs(=" << nCoeffs << "): D_A1_B(p) set to " << D_A1_B[p]);
       }
       if (B_HaveMeasureError){
         D_Sum = sum(D_A1_Z / D_A1_SDevSquare);
-        LOGLS_DEBUG(_log, "for(p(=" << p << ")...): B_HaveMeasureError: D_Sum set to " << D_Sum);
       }
       else{
         D_Sum = sum(D_A1_Z);
-        LOGLS_DEBUG(_log, "for(p(=" << p << ")...): !B_HaveMeasureError: D_Sum set to " << D_Sum);
       }
       if (p - int(I_Degree_In) > 0){
         i = p - int(I_Degree_In);
@@ -532,7 +510,6 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
       else{
         i = 0;
       }
-      LOGLS_DEBUG(_log, "for(p(=" << p << ")...): I_Degree_In = " << I_Degree_In << ": i set to " << i);
       for (j = i; j <= I_Degree_In; j++){
         (*P_D_A2_Covar)[ ndarray::makeVector( j, p-j ) ] = D_Sum;
       }
