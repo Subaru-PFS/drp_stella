@@ -188,8 +188,6 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
                                                                                                         ndarray::makeVector(1))));
     LOGLS_DEBUG(_log, "P_D_A1_MeasureErrorsTemp = " << *P_D_A1_MeasureErrorsTemp);
 
-    for (size_t i = 0; i < I_A1_OrigPos.size(); ++i)
-      I_A1_OrigPos[i] = i;
     int I_NRejected_Old = 0;
     std::vector<size_t> I_A1_Rejected_Old(0);
     bool B_Run = true;
@@ -298,11 +296,6 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
     }
     LOGLS_DEBUG(_log, "*P_I_NRejected = " << *P_I_NRejected);
     *P_I_A1_NotRejected = I_A1_OrigPos;
-    if (*P_I_NRejected > 0){
-      I_A1_OrigPos.resize(D_A1_X_In.getShape()[0]);
-      for (size_t i_pos = 0; i_pos < I_A1_OrigPos.size(); ++i_pos)
-        I_A1_OrigPos[i_pos] = i_pos;
-    }
     LOGLS_DEBUG(_log, "CurveFitting::PolyFit(x, y, deg, lReject, uReject, nIter, Args, ArgV) finished");
     return D_A1_Coeffs_Out;
   }
