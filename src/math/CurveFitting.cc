@@ -110,7 +110,7 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
     PTR(ndarray::Array<T, 1, 1>) P_D_A1_MeasureErrors(new ndarray::Array<T, 1, 1>(D_A1_MeasureErrors));
 
     int I_Pos = -1;
-    if ((I_Pos = pfs::drp::stella::utils::KeyWord_Set(S_A1_Args_In, "MEASURE_ERRORS")) >= 0){
+    if ((I_Pos = pfs::drp::stella::utils::KeyWord_Set(S_A1_Args_In, "MEASURE_ERRORS")) >= 0) {
       LOGLS_DEBUG(_log, "Reading MEASURE_ERRORS");
       P_D_A1_MeasureErrors.reset();
       P_D_A1_MeasureErrors = (*((PTR(ndarray::Array<T, 1, 1>)*)ArgV[I_Pos]));
@@ -123,24 +123,21 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
     }
 
     PTR(std::vector<size_t>) P_I_A1_NotRejected(new std::vector<size_t>());
-    I_Pos = pfs::drp::stella::utils::KeyWord_Set(S_A1_Args_In, "NOT_REJECTED");
-    if (I_Pos >= 0){
+    if ((I_Pos = pfs::drp::stella::utils::KeyWord_Set(S_A1_Args_In, "NOT_REJECTED")) >= 0) {
       P_I_A1_NotRejected.reset();
       P_I_A1_NotRejected = *((PTR(std::vector<size_t>)*)(ArgV[I_Pos]));
       LOGLS_DEBUG(_log, "KeyWord NOT_REJECTED read");
     }
 
     PTR(std::vector<size_t>) P_I_A1_Rejected(new std::vector<size_t>());
-    I_Pos = pfs::drp::stella::utils::KeyWord_Set(S_A1_Args_In, "REJECTED");
-    if (I_Pos >= 0){
+    if ((I_Pos = pfs::drp::stella::utils::KeyWord_Set(S_A1_Args_In, "REJECTED")) >= 0) {
       P_I_A1_Rejected.reset();
       P_I_A1_Rejected = *((PTR(std::vector<size_t>)*)(ArgV[I_Pos]));
       LOGLS_DEBUG(_log, "KeyWord REJECTED read");
     }
 
     PTR(int) P_I_NRejected(new int(I_NRejected));
-    I_Pos = pfs::drp::stella::utils::KeyWord_Set(S_A1_Args_In, "N_REJECTED");
-    if (I_Pos >= 0){
+    if ((I_Pos = pfs::drp::stella::utils::KeyWord_Set(S_A1_Args_In, "N_REJECTED")) >= 0) {
       P_I_NRejected.reset();
       P_I_NRejected = *((PTR(int)*)(ArgV[I_Pos]));
       LOGLS_DEBUG(_log, "KeyWord N_REJECTED read");
@@ -151,8 +148,7 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
     xRange[0] = -1.;
     xRange[1] = 1.;
     PTR(ndarray::Array<double, 1, 1>) P_D_A1_XRange(new ndarray::Array<double, 1, 1>(xRange));
-    if ((I_Pos = pfs::drp::stella::utils::KeyWord_Set(S_A1_Args_In, "XRANGE")) >= 0)
-    {
+    if ((I_Pos = pfs::drp::stella::utils::KeyWord_Set(S_A1_Args_In, "XRANGE")) >= 0) {
       P_D_A1_XRange.reset();
       P_D_A1_XRange = *((PTR(ndarray::Array<double, 1, 1>)*)ArgV[I_Pos]);
       if (P_D_A1_XRange->getShape()[0] != 2){
@@ -178,7 +174,8 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
 
     std::vector<T> D_A1_X(D_A1_X_In.begin(), D_A1_X_In.end());
     std::vector<T> D_A1_Y(D_A1_Y_In.begin(), D_A1_Y_In.end());
-    std::vector<size_t> I_A1_OrigPos(D_A1_X_In.getShape()[0]);
+    std::vector<size_t> I_A1_OrigPos(0);
+    I_A1_OrigPos.reserve(D_A1_X_In.getShape()[0]);
 
     // Copy (deep) P_D_A1_MeasureErrors to a vector and then to another temporary
     // array pointer which is used for the measure errors during the sigma-rejection
@@ -196,7 +193,7 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
     for (size_t i = 0; i < I_A1_OrigPos.size(); ++i)
       I_A1_OrigPos[i] = i;
     int I_NRejected_Old = 0;
-    std::vector<size_t> I_A1_Rejected_Old(D_A1_X_In.size());
+    std::vector<size_t> I_A1_Rejected_Old(0);
     bool B_Run = true;
     unsigned int i_iter = 0;
     ndarray::Array<T, 1, 1> D_A1_YFit = ndarray::allocate(D_A1_X_In.getShape()[0]);
@@ -311,7 +308,7 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
         B_Run = true;
       else{
         for (int i_pos=0; i_pos < *P_I_NRejected; i_pos++){
-          if (std::fabs((*P_I_A1_Rejected)[i_pos] - I_A1_Rejected_Old[i_pos]) > 0.0001)
+          if ((*P_I_A1_Rejected)[i_pos] != I_A1_Rejected_Old[i_pos])
             B_Run = true;
         }
       }
