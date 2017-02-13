@@ -21,6 +21,11 @@ class ReduceArcConfig(Config):
     nRowsPrescan = Field( doc = "Number of prescan rows in raw CCD image", dtype=int, default = 49 );
     wavelengthFile = Field( doc = "reference pixel-wavelength file including path", dtype = str, default=os.path.join(getPackageDir("obs_pfs"), "pfs/RedFiberPixels.fits.gz"));
     lineList = Field( doc = "reference line list including path", dtype = str, default=os.path.join(getPackageDir("obs_pfs"), "pfs/lineLists/CdHgKrNeXe_red.fits"));
+    nTestLines = Field(
+        doc = "Percentage of lines to be held back for wavelength calibration check",
+        dtype = int,
+        default = 10
+    );
 
 class ReduceArcTaskRunner(TaskRunner):
     """Get parsed values into the ReduceArcTask.run"""
@@ -191,7 +196,9 @@ class ReduceArcTask(CmdLineTask):
                     wLenLinesArr[j] = wLenLines[j]
                 lineListPix = drpStella.createLineList(wLenArr, wLenLinesArr)
                 try:
-                    spec.identifyF(lineListPix, dispCorControl, 8)
+                    spec.identifyF(lineListPix,
+                                   dispCorControl,
+                                   self.config.nTestLines)
                 except:
                     e = sys.exc_info()[1]
                     message = str.split(e.message, "\n")
