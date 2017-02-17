@@ -392,7 +392,7 @@ namespace pfsDRPStella = pfs::drp::stella;
       }
     }
 
-    ndarray::Array<unsigned short, 2, 2> US_A2_MaskArray = ndarray::allocate(_trace->getImage()->getArray().getShape());
+    ndarray::Array<unsigned short, 2, 1> US_A2_MaskArray = ndarray::allocate(_trace->getImage()->getArray().getShape());
     for (int i_row = 0; i_row < _trace->getHeight(); ++i_row){
       for (int i_col = 0; i_col < _trace->getWidth(); ++i_col){
         if (_trace->getMask()->getArray()[i_row][i_col] == 0)
@@ -412,7 +412,7 @@ namespace pfsDRPStella = pfs::drp::stella;
     vector<string> S_A1_Args_Fit(5);
     vector<void *> P_Args_Fit(5);
 
-    ndarray::Array<ImageT, 2, 2> D_A2_ErrArray = ndarray::allocate(_trace->getImage()->getArray().getShape());
+    ndarray::Array<ImageT, 2, 1> D_A2_ErrArray = ndarray::allocate(_trace->getImage()->getArray().getShape());
     for (int i_row = 0; i_row < _trace->getHeight(); ++i_row){
       for (int i_col = 0; i_col < _trace->getWidth(); ++i_col){
         D_A2_ErrArray[i_row][i_col] = ImageT(sqrt(_trace->getVariance()->getArray()[i_row][i_col]));
@@ -426,22 +426,22 @@ namespace pfsDRPStella = pfs::drp::stella;
       cout << "S_A1_Args_Fit[0] set to <" << S_A1_Args_Fit[0] << ">" << endl;
       cout << "D_A2_ErrArray.getShape() = " << D_A2_ErrArray.getShape() << endl;
     #endif
-    PTR(ndarray::Array<ImageT, 2, 2>) P_D_A2_ErrArray(new ndarray::Array<ImageT, 2, 2>(D_A2_ErrArray));
+    PTR(ndarray::Array<ImageT, 2, 1>) P_D_A2_ErrArray(new ndarray::Array<ImageT, 2, 1>(D_A2_ErrArray));
     P_Args_Fit[0] = &P_D_A2_ErrArray;
     #ifdef __DEBUG_EXTRACTFROMPROFILE__
       cout << "FiberTrace" << _iTrace << "::extractFromProfile: *P_D_A2_ErrArray = " << *P_D_A2_ErrArray << endl;
     #endif
 
     S_A1_Args_Fit[1] = "MASK_INOUT";
-    PTR(ndarray::Array<unsigned short, 2, 2>) P_US_A2_MaskArray(new ndarray::Array<unsigned short, 2, 2>(US_A2_MaskArray));
+    PTR(ndarray::Array<unsigned short, 2, 1>) P_US_A2_MaskArray(new ndarray::Array<unsigned short, 2, 1>(US_A2_MaskArray));
     P_Args_Fit[1] = &P_US_A2_MaskArray;
     #ifdef __DEBUG_EXTRACTFROMPROFILE__
       cout << "P_E_A2_MaskArray = " << *P_US_A2_MaskArray << endl;
     #endif
 
     S_A1_Args_Fit[2] = "SIGMA_OUT";
-    ndarray::Array<ImageT, 2, 2> D_A2_Sigma_Fit = ndarray::allocate(_trace->getHeight(), 2);
-    PTR(ndarray::Array<ImageT, 2, 2>) P_D_A2_Sigma_Fit(new ndarray::Array<ImageT, 2, 2>(D_A2_Sigma_Fit));
+    ndarray::Array<ImageT, 2, 1> D_A2_Sigma_Fit = ndarray::allocate(_trace->getHeight(), 2);
+    PTR(ndarray::Array<ImageT, 2, 1>) P_D_A2_Sigma_Fit(new ndarray::Array<ImageT, 2, 1>(D_A2_Sigma_Fit));
     P_Args_Fit[2] = &P_D_A2_Sigma_Fit;
 
     /// Disallow background and spectrum to go below Zero as it is not physical

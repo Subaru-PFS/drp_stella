@@ -244,12 +244,13 @@ namespace pfs { namespace drp { namespace stella {
      * @param[in,out]   D_A1_Sky_Out      :: Fitted constant under the fitted signal
      * @param[in]       B_WithSky      :: Scale spatial profile plus constant background (sky)?
      * @param[in]       S_A1_Args_In   :: Vector of keywords controlling the procedure
-                                            MEASURE_ERRORS_IN = ndarray::Array<double,2>(D_A2_CCD_In.rows, D_A2_CCD_In.cols) : in
-                                            REJECT_IN = double                                                      : in
-                                            MASK_INOUT = ndarray::Array<double,2>(D_A1_CCD_In.rows,D_A1_CCD_In.cols)         : in/out
-                                            CHISQ_OUT = ndarray::Array<double,1>(D_A2_CCD_In.rows)                           : out
-                                            Q_OUT = ndarray::Array<double,1>(D_A2_CCD_In.rows)                               : out
-                                            SIGMA_OUT = ndarray::Array<double,2>(D_A2_CCD_In.rows, 2): [*,0]: sigma_sp, [*,1]: sigma_sky : out
+     *                MEASURE_ERRORS_IN = ndarray::Array<ImageT,2,1>(D_A2_CCD_In.getShape())   : in
+     *                REJECT_IN = ImageT                                                       : in
+     *                MASK_INOUT = ndarray::Array<unsigned short, 1, 1>(D_A2_CCD_In.getShape()): in/out
+     *                CHISQ_OUT = ndarray::Array<ImageT, 1, 1>(D_A2_CCD_In.getShape()[0])      : out
+     *                Q_OUT = ndarray::Array<ImageT, 1, 1>(D_A2_CCD_In.getShape()[0])          : out
+     *                SIGMA_OUT = ndarray::Array<ImageT, 2, 1>(D_A2_CCD_In.getShape()[0], 2): [*,0]: sigma_sp, [*,1]: sigma_sky : out
+     *                YFIT_OUT = ndarray::Array<ImageT, 2, 1>(D_A2_CCD_In.getShape()[0], D_A2_CCD_In.getShape()[1]) : out
      * @param[in,out]   ArgV_In        :: Vector of keyword values
      * */
       template< typename ImageT, typename SlitFuncT>
@@ -269,13 +270,6 @@ namespace pfs { namespace drp { namespace stella {
                                   bool B_WithSky,
                                   std::vector<string> const& S_A1_Args_In,
                                   std::vector<void *> &ArgV_In);
-    /// MEASURE_ERRORS_IN = ndarray::Array<double,1>(D_A1_CCD_In.size)             : in
-    /// REJECT_IN = double                                                : in
-    /// MASK_INOUT = ndarray::Array<int,1>(D_A1_CCD_In.size)                    : in/out
-    /// CHISQ_OUT = double                                                : out
-    /// Q_OUT = double                                                    : out
-    /// SIGMA_OUT = ndarray::Array<double,1>(2): [*,0]: sigma_sp, [*,1]: sigma_sky : out
-    /// YFIT_OUT = ndarray::Array<double, 1>(D_A1_CCD_In.size)                     : out
 
     /**
      *       Helper function to calculate incomplete Gamma Function

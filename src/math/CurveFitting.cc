@@ -964,13 +964,13 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
                               bool B_WithSky,
                               std::vector<string> const& S_A1_Args_In,
                               std::vector<void *> & ArgV_In)
-  /// MEASURE_ERRORS_IN = blitz::Array<double, 2>(D_A2_CCD_In.rows(), D_A2_CCD_In.cols())
-  /// REJECT_IN         = double
-  /// MASK_INOUT        = blitz::Array<double, 2>(D_A2_CCD_In.rows(), D_A2_CCD_In.cols())
-  /// CHISQ_OUT         = blitz::Array<double, 1>(D_A2_CCD_In.rows())
-  /// Q_OUT             = blitz::Array<double, 1>(D_A2_CCD_In.rows())
-  /// SIGMA_OUT         = blitz::Array<double, 2>(D_A2_CCD_In.rows(),2)
-  /// YFIT_OUT          = blitz::Array<double, 2>(D_A2_CCD_In.rows(), D_A2_CCD_In.cols())
+    /// MEASURE_ERRORS_IN = ndarray::Array<ImageT,2,1>(D_A2_CCD_In.getShape())   : in
+    /// REJECT_IN = ImageT                                                       : in
+    /// MASK_INOUT = ndarray::Array<unsigned short, 1, 1>(D_A2_CCD_In.getShape()): in/out
+    /// CHISQ_OUT = ndarray::Array<ImageT, 1, 1>(D_A2_CCD_In.getShape()[0])      : out
+    /// Q_OUT = ndarray::Array<ImageT, 1, 1>(D_A2_CCD_In.getShape()[0])          : out
+    /// SIGMA_OUT = ndarray::Array<ImageT, 2, 1>(D_A2_CCD_In.getShape()[0], 2): [*,0]: sigma_sp, [*,1]: sigma_sky : out
+    /// YFIT_OUT = ndarray::Array<ImageT, 2, 1>(D_A2_CCD_In.getShape()[0], D_A2_CCD_In.getShape()[1]) : out
   {
     #ifdef __DEBUG_CURVEFIT__
       cout << "CurveFitting::LinFitBevingtonNdArray(D_A2_CCD, D_A2_SF, SP, Sky, withSky, Args, ArgV) started" << endl;
@@ -1017,13 +1017,13 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
     ndarray::Array<ImageT, 1, 1> D_A1_Sigma = ndarray::allocate(D_A2_CCD_In.getShape()[1]);
     PTR(ndarray::Array<ImageT, 1, 1>) P_D_A1_Sigma(new ndarray::Array<ImageT, 1, 1>(D_A1_Sigma));
 
-    ndarray::Array<ImageT, 2, 2> D_A2_Sigma = ndarray::allocate(D_A2_CCD_In.getShape()[0], D_A2_CCD_In.getShape()[1]);
-    PTR(ndarray::Array<ImageT, 2, 2>) P_D_A2_Sigma(new ndarray::Array<ImageT, 2, 2>(D_A2_Sigma));
+    ndarray::Array<ImageT, 2, 1> D_A2_Sigma = ndarray::allocate(D_A2_CCD_In.getShape()[0], D_A2_CCD_In.getShape()[1]);
+    PTR(ndarray::Array<ImageT, 2, 1>) P_D_A2_Sigma(new ndarray::Array<ImageT, 2, 1>(D_A2_Sigma));
     I_KeywordSet_MeasureErrors = pfs::drp::stella::utils::KeyWord_Set(S_A1_Args_In, "MEASURE_ERRORS_IN");
     if (I_KeywordSet_MeasureErrors >= 0)
     {
       P_D_A2_Sigma.reset();
-      P_D_A2_Sigma = *((PTR(ndarray::Array<ImageT, 2, 2>)*)ArgV_In[I_KeywordSet_MeasureErrors]);
+      P_D_A2_Sigma = *((PTR(ndarray::Array<ImageT, 2, 1>)*)ArgV_In[I_KeywordSet_MeasureErrors]);
       if (P_D_A2_Sigma->getShape()[0] != D_A2_CCD_In.getShape()[0]){
         string message("pfs::drp::stella::math::CurveFitting::LinFitBevingtonNdArray: ERROR: D_A2_CCD_In.getShape()[0](=");
         message += to_string(D_A2_CCD_In.getShape()[0]) + ") != P_D_A2_Sigma->getShape()[0](=" + to_string(P_D_A2_Sigma->getShape()[0]) + ")";
@@ -1080,13 +1080,13 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
     ndarray::Array<ImageT, 1, 1> D_A1_Sigma_Out = ndarray::allocate(2);
     PTR(ndarray::Array<ImageT, 1, 1>) P_D_A1_Sigma_Out(new ndarray::Array<ImageT, 1, 1>(D_A1_Sigma_Out));
 
-    ndarray::Array<ImageT, 2, 2> D_A2_Sigma_Out = ndarray::allocate(D_A2_CCD_In.getShape()[0], 2);
-    PTR(ndarray::Array<ImageT, 2, 2>) P_D_A2_Sigma_Out(new ndarray::Array<ImageT, 2, 2>(D_A2_Sigma_Out));
+    ndarray::Array<ImageT, 2, 1> D_A2_Sigma_Out = ndarray::allocate(D_A2_CCD_In.getShape()[0], 2);
+    PTR(ndarray::Array<ImageT, 2, 1>) P_D_A2_Sigma_Out(new ndarray::Array<ImageT, 2, 1>(D_A2_Sigma_Out));
     I_KeywordSet_Sigma = pfs::drp::stella::utils::KeyWord_Set(S_A1_Args_In, "SIGMA_OUT");
     if (I_KeywordSet_Sigma >= 0)
     {
       P_D_A2_Sigma_Out.reset();
-      P_D_A2_Sigma_Out = *((PTR(ndarray::Array<ImageT, 2, 2>)*)ArgV_In[I_KeywordSet_Sigma]);
+      P_D_A2_Sigma_Out = *((PTR(ndarray::Array<ImageT, 2, 1>)*)ArgV_In[I_KeywordSet_Sigma]);
       if (P_D_A2_Sigma_Out->getShape()[0] != D_A2_CCD_In.getShape()[0]){
         string message("pfs::drp::stella::math::CurveFitting::LinFitBevingtonNdArray: ERROR: D_A2_CCD_In.getShape()[0](=");
         message += to_string(D_A2_CCD_In.getShape()[0]) + ") != P_D_A2_Sigma_Out->getShape()[0](=" + to_string(P_D_A2_Sigma_Out->getShape()[0]) + ")";
@@ -1107,13 +1107,13 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
     ndarray::Array<ImageT, 1, 1> D_A1_YFit = ndarray::allocate(D_A2_CCD_In.getShape()[1]);
     PTR(ndarray::Array<ImageT, 1, 1>) P_D_A1_YFit(new ndarray::Array<ImageT, 1, 1>(D_A1_YFit));
 
-    ndarray::Array<ImageT, 2, 2> D_A2_YFit = ndarray::allocate(D_A2_CCD_In.getShape()[0], D_A2_CCD_In.getShape()[1]);
-    PTR(ndarray::Array<ImageT, 2, 2>) P_D_A2_YFit(new ndarray::Array<ImageT, 2, 2>(D_A2_YFit));
+    ndarray::Array<ImageT, 2, 1> D_A2_YFit = ndarray::allocate(D_A2_CCD_In.getShape()[0], D_A2_CCD_In.getShape()[1]);
+    PTR(ndarray::Array<ImageT, 2, 1>) P_D_A2_YFit(new ndarray::Array<ImageT, 2, 1>(D_A2_YFit));
     I_KeywordSet_YFit = pfs::drp::stella::utils::KeyWord_Set(S_A1_Args_In, "YFIT_OUT");
     if (I_KeywordSet_YFit >= 0)
     {
       P_D_A2_YFit.reset();
-      P_D_A2_YFit = *((PTR(ndarray::Array<ImageT, 2, 2>)*)ArgV_In[I_KeywordSet_YFit]);
+      P_D_A2_YFit = *((PTR(ndarray::Array<ImageT, 2, 1>)*)ArgV_In[I_KeywordSet_YFit]);
       if (P_D_A2_YFit->getShape()[0] != D_A2_CCD_In.getShape()[0]){
         string message("pfs::drp::stella::math::CurveFitting::LinFitBevingtonNdArray: ERROR: D_A2_CCD_In.getShape()[0](=");
         message += to_string(D_A2_CCD_In.getShape()[0]) + ") != P_D_A2_YFit->getShape()[0](=" + to_string(P_D_A2_YFit->getShape()[0]) + ")";
@@ -1146,14 +1146,14 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
     ndarray::Array<unsigned short, 1, 1> I_A1_Mask = ndarray::allocate(D_A2_CCD_In.getShape()[1]);
     PTR(ndarray::Array<unsigned short, 1, 1>) P_I_A1_Mask(new ndarray::Array<unsigned short, 1, 1>(I_A1_Mask));
 
-    ndarray::Array<unsigned short, 2, 2> I_A2_Mask = ndarray::allocate(D_A2_CCD_In.getShape()[0], D_A2_CCD_In.getShape()[1]);
+    ndarray::Array<unsigned short, 2, 1> I_A2_Mask = ndarray::allocate(D_A2_CCD_In.getShape()[0], D_A2_CCD_In.getShape()[1]);
     I_A2_Mask.deep() = 1;
-    PTR(ndarray::Array<unsigned short, 2, 2>) P_I_A2_Mask(new ndarray::Array<unsigned short, 2, 2>(I_A2_Mask));
+    PTR(ndarray::Array<unsigned short, 2, 1>) P_I_A2_Mask(new ndarray::Array<unsigned short, 2, 1>(I_A2_Mask));
     I_KeywordSet_Mask = pfs::drp::stella::utils::KeyWord_Set(S_A1_Args_In, "MASK_INOUT");
     if (I_KeywordSet_Mask >= 0)
     {
       P_I_A2_Mask.reset();
-      P_I_A2_Mask = *((PTR(ndarray::Array<unsigned short, 2, 2>)*)ArgV_In[I_KeywordSet_Mask]);
+      P_I_A2_Mask = *((PTR(ndarray::Array<unsigned short, 2, 1>)*)ArgV_In[I_KeywordSet_Mask]);
       if (P_I_A2_Mask->getShape()[0] != D_A2_CCD_In.getShape()[0]){
         string message("pfs::drp::stella::math::CurveFitting::LinFitBevingtonNdArray: ERROR: D_A2_CCD_In.getShape()[0](=");
         message += to_string(D_A2_CCD_In.getShape()[0]) + ") != P_I_A2_Mask->getShape()[0](=" + to_string(P_I_A2_Mask->getShape()[0]) + ")";
