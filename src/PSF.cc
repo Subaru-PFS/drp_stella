@@ -1189,7 +1189,9 @@ namespace pfs{ namespace drp{ namespace stella{
 
       PTR(PSFSet< PsfT >) psfSet(new PSFSet< PsfT >());
       for (int iBin = 0; iBin < binBoundY.getShape()[0]; ++iBin){
-        cout << "binBoundY = " << binBoundY << endl;
+        #ifdef __DEBUG_CALC2DPSF__
+          cout << "binBoundY = " << binBoundY << endl;
+        #endif
         /// start calculate2dPSF for bin iBin
         if ( binBoundY[ ndarray::makeVector( iBin, 1 ) ] >= fiberTrace.getHeight()){
           string message("calculate2dPSFPerBin: FiberTrace");
