@@ -2687,6 +2687,7 @@ namespace pfsDRPStella = pfs::drp::stella;
                        ndarray::Array< T, 1, I > const& fiberIds,
                        ndarray::Array< U, 1, I > const& xCenters,
                        ndarray::Array< U, 1, I > const& yCenters ){
+      LOG_LOGGER _log = LOG_GET("pfs::drp::stella::math::assignITrace");
       int iTrace;
       int startPos = 0;
       const ndarray::Array< T, 1, 1 > fiberTraceIds = pfs::drp::stella::math::unique( fiberIds );
@@ -2701,9 +2702,9 @@ namespace pfsDRPStella = pfs::drp::stella;
                              nRows,
                              startPos );
         startPos = iTrace + 1;
-        cout << "FiberTraces::assignITrace: i = " << i << ": iTrace = " << iTrace << endl;
+        LOGLS_DEBUG(_log, "i = " << i << ": iTrace = " << iTrace);
         if ( iTrace < 0 ){
-          cout << "FiberTraces::assignITrace: i = " << i << ": trace not found => returning FALSE" << endl;
+          LOGLS_WARN(_log, "FiberTraces::assignITrace: i = " << i << ": trace not found => returning FALSE");
           return false;
         }
         fiberTrace->setITrace( iTrace );
