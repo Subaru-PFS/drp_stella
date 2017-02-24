@@ -779,7 +779,6 @@ namespace pfs{ namespace drp{ namespace stella{
       if (*itX > *itMax){
         string message("PSF::setXCentersPSFCCD: ERROR: xCentersPSFCCD_In[iPos=");
         message += to_string(iPos) + "]=" + to_string(*itX) + " > max(_imagePSF_XTrace)=" + to_string(*itMax);
-        cout << message << endl;
         throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
       }
     }*/
@@ -802,13 +801,11 @@ namespace pfs{ namespace drp{ namespace stella{
       if (*it < *itMin){
         string message("PSF::setYCentersPSFCCD: ERROR: yCentersPSFCCD_In[iPos=");
         message += to_string(iPos) + "]=" + to_string(*it) + " < min(_imagePSF_YTrace)=" + to_string(*itMin);
-        cout << message << endl;
         throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
       }
       if (*it > *itMax){
         string message("PSF::setXCentersPSFCCD: ERROR: yCentersPSFCCD_In[iPos=");
         message += to_string(iPos) + "]=" + to_string(*it) + " > max(_imagePSF_YTrace)=" + to_string(*itMax);
-        cout << message << endl;
         throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
       }
     }*/
@@ -834,7 +831,6 @@ namespace pfs{ namespace drp{ namespace stella{
       message += to_string( zFit_In.getShape()[ 0 ] ) + ") * zFit_In.getShape()[ 1 ](=" + to_string( zFit_In.getShape()[ 1 ] );
       message += ") (=" + to_string( zFit_In.getShape()[ 0 ] * zFit_In.getShape()[ 1 ] ) + ") != xGridRelativeToCenterFit_In.getShape()[ 0 ](=";
       message += to_string( nX ) + ") * yGridRelativeToCenterFit_In.getShape()[ 0 ](=" + to_string( nY ) + ") (=" + to_string( nX * nY ) + ")";
-      cout << message << endl;
       throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
     }
     
@@ -904,7 +900,6 @@ namespace pfs{ namespace drp{ namespace stella{
       message += to_string( zFit_In.getShape()[ 0 ] ) + ") * zFit_In.getShape()[ 1 ](=" + to_string( zFit_In.getShape()[ 1 ] );
       message += ") (=" + to_string( zFit_In.getShape()[ 0 ] * zFit_In.getShape()[ 1 ] ) + ") != xGridRelativeToCenterFit_In.getShape()[ 0 ](=";
       message += to_string( nX ) + ") * yGridRelativeToCenterFit_In.getShape()[ 0 ](=" + to_string( nY ) + ") (=" + to_string( nX * nY ) + ")";
-      cout << message << endl;
       throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
     }
     if ( weights_In.getShape()[ 0 ] * weights_In.getShape()[ 1 ] != nX * nY ){
@@ -912,7 +907,6 @@ namespace pfs{ namespace drp{ namespace stella{
       message += to_string( weights_In.getShape()[ 0 ] ) + ") * weights_In.getShape()[ 1 ](=" + to_string( weights_In.getShape()[ 1 ] );
       message += ") (=" + to_string( zFit_In.getShape()[ 0 ] * zFit_In.getShape()[ 1 ] ) + ") != xGridRelativeToCenterFit_In.getShape()[ 0 ](=";
       message += to_string( nX ) + ") * yGridRelativeToCenterFit_In.getShape()[ 0 ](=" + to_string( nY ) + ") (=" + to_string( nX * nY ) + ")";
-      cout << message << endl;
       throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
     }
     
@@ -1057,7 +1051,6 @@ namespace pfs{ namespace drp{ namespace stella{
     if (i > _psfs->size()){
       string message("PSFSet::setPSF: ERROR: i=");
       message += to_string(i) + " > _psfs->size()=" + to_string(_psfs->size()) + " => Returning FALSE";
-      cout << message << endl;
       throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
     }
     if (i == _psfs->size()){
@@ -1087,7 +1080,6 @@ namespace pfs{ namespace drp{ namespace stella{
     if (i >= _psfs->size()){
       string message("PSFSet::getPSF(i=");
       message += to_string(i) + string("): ERROR: i > _psfs->size()=") + to_string(_psfs->size());
-      cout << message << endl;
       throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
     }
     #ifdef __DEBUG_PSFSet__
@@ -1104,7 +1096,6 @@ namespace pfs{ namespace drp{ namespace stella{
     if (i >= _psfs->size()){
       string message("PSFSet::getPSF(i=");
       message += to_string(i) + string("): ERROR: i > _psfs->size()=") + to_string(_psfs->size());
-      cout << message << endl;
       throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
     }
     #ifdef __DEBUG_PSFSet__
@@ -1121,19 +1112,16 @@ namespace pfs{ namespace drp{ namespace stella{
     if (iStart >= _psfs->size()){
       string message("PSFSet::erase(iStart=");
       message += to_string(iStart) + string("): ERROR: iStart >= _psfs->size()=") + to_string(_psfs->size());
-      cout << message << endl;
       throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
     }
     if (iEnd >= _psfs->size()){
       string message("PSFSet::erase(iEnd=");
       message += to_string(iEnd) + string("): ERROR: iEnd >= _psfs->size()=") + to_string(_psfs->size());
-      cout << message << endl;
       throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
     }
     if ((iEnd > 0) && (iStart > iEnd)){
       string message("PSFSet::erase(iStart=");
       message += to_string(iStart) + string("): ERROR: iStart > iEnd=") + to_string(iEnd);
-      cout << message << endl;
       throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
     }
     if (iStart == (_psfs->size()-1)){
@@ -1179,7 +1167,6 @@ namespace pfs{ namespace drp{ namespace stella{
         message += to_string(fiberTrace.getITrace()) + ": ERROR: binBoundY[binBoundY.getShape()[0]-1=";
         message += to_string(binBoundY.getShape()[0]-1) + "][1] = " + to_string( binBoundY[ ndarray::makeVector<size_t>( binBoundY.getShape()[0]-1, 1 ) ] ) + "!= fiberTrace.getHeight()-1 = ";
         message += to_string(fiberTrace.getHeight()-1);
-        cout << message << endl;
         throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
       }
       #ifdef __DEBUG_CALC2DPSF__
@@ -1195,7 +1182,6 @@ namespace pfs{ namespace drp{ namespace stella{
           string message("calculate2dPSFPerBin: FiberTrace");
           message += to_string(fiberTrace.getITrace()) + ": iBin " + to_string(iBin) + ": ERROR: binBoundY[" + to_string(iBin) + "][1]=";
           message += to_string( binBoundY[ ndarray::makeVector( iBin, 1 ) ] ) + " >= fiberTrace.getHeight()=" + to_string(fiberTrace.getHeight());
-          cout << message << endl;
           throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
         }
         #ifdef __DEBUG_CALC2DPSF__
@@ -1211,7 +1197,6 @@ namespace pfs{ namespace drp{ namespace stella{
           string message("calculate2dPSFPerBin: FiberTrace");
           message += to_string(fiberTrace.getITrace()) + ": iBin " + to_string(iBin) + ": ERROR: psf->getYHigh(=";
           message += to_string(psf->getYHigh()) + ") != binBoundY[" + to_string(iBin) + "][1]=" + to_string(binBoundY[ ndarray::makeVector( iBin, 1 ) ] );
-          cout << message << endl;
           throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
         }
         #ifdef __DEBUG_CALC2DPSF__
@@ -1280,7 +1265,6 @@ namespace pfs{ namespace drp{ namespace stella{
       #endif
       if (mode > 1){
         string message("PSF::InterPolateThinPlateSplineChiSquare: ERROR: mode must be 0 or 1");
-        cout << message << endl;
         throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
       }
       std::vector< PsfT > xRelativeToCenter = psf.getImagePSF_XRelativeToCenter();
@@ -1290,7 +1274,6 @@ namespace pfs{ namespace drp{ namespace stella{
       if (xRelativeToCenter.size() < 3){
         string message("PSF::InterPolateThinPlateSpline: ERROR: xRelativeToCenter.size()(=");
         message += to_string( xRelativeToCenter.size() ) + ") < 3";
-        cout << message << endl;
         throw LSST_EXCEPT( pexExcept::Exception, message.c_str() );
       }
 
@@ -1353,7 +1336,6 @@ namespace pfs{ namespace drp{ namespace stella{
       #endif
       if (mode > 1){
         string message("PSF::InterPolateThinPlateSplineChiSquare: ERROR: mode must be 0 or 1");
-        cout << message << endl;
         throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
       }
       std::vector< PsfT > xRelativeToCenter = psf.getImagePSF_XRelativeToCenter();
@@ -1363,7 +1345,6 @@ namespace pfs{ namespace drp{ namespace stella{
       if (xRelativeToCenter.size() < 3){
         string message("PSF::InterPolateThinPlateSpline: ERROR: xRelativeToCenter.size()(=");
         message += to_string( xRelativeToCenter.size() ) + ") < 3";
-        cout << message << endl;
         throw LSST_EXCEPT( pexExcept::Exception, message.c_str() );
       }
 
@@ -1445,7 +1426,6 @@ namespace pfs{ namespace drp{ namespace stella{
       #endif
       if (mode > 1){
         string message("PSF::InterPolateThinPlateSplineChiSquare: ERROR: mode must be 0 or 1");
-        cout << message << endl;
         throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
       }
       std::vector< PsfT > xRelativeToCenter = psf.getImagePSF_XRelativeToCenter();
@@ -1455,7 +1435,6 @@ namespace pfs{ namespace drp{ namespace stella{
       if (xRelativeToCenter.size() < 3){
         string message("PSF::InterPolateThinPlateSplineChiSquare: ERROR: xRelativeToCenter.size()(=");
         message += to_string( xRelativeToCenter.size() ) + ") < 3";
-        cout << message << endl;
         throw LSST_EXCEPT( pexExcept::Exception, message.c_str() );
       }
 
@@ -1538,7 +1517,6 @@ namespace pfs{ namespace drp{ namespace stella{
           if (psfSet.getPSF(i)->getImagePSF_XRelativeToCenter().size() < 3){
             string message("PSF::InterPolatePSFSetThinPlateSpline: ERROR: i=");
             message += to_string(i) + ": imagePSF_XRelativeToCenter().size()=" + to_string(psfSet.getPSF(i)->getImagePSF_XRelativeToCenter().size()) + " < 3";
-            cout << message << endl;
             throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
           }
         #endif
@@ -1580,7 +1558,6 @@ namespace pfs{ namespace drp{ namespace stella{
         if (psfSet.getPSF(i)->getImagePSF_XRelativeToCenter().size() < 3){
           string message("PSF::InterPolatePSFSetThinPlateSpline: ERROR: i=");
           message += to_string(i) + ": imagePSF_XRelativeToCenter().size()=" + to_string(psfSet.getPSF(i)->getImagePSF_XRelativeToCenter().size()) + " < 3";
-          cout << message << endl;
           throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
         }
         #endif
@@ -1620,13 +1597,11 @@ namespace pfs{ namespace drp{ namespace stella{
       if (xGridVec_In.getShape()[0] != zArr_In.getShape()[1]){
         string message("PSF::math::collapseFittedPSF: ERROR: xGridVec_In.getShape()[0]=");
         message += to_string(xGridVec_In.getShape()[0]) + " != zArr_In.getShape()[1]=" + to_string(zArr_In.getShape()[1]);
-        cout << message << endl;
         throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
       }
       if (yGridVec_In.getShape()[0] != zArr_In.getShape()[0]){
         string message("PSF::math::collapseFittedPSF: ERROR: yGridVec_In.getShape()[0]=");
         message += to_string(yGridVec_In.getShape()[0]) + " != zArr_In.getShape()[0]=" + to_string(zArr_In.getShape()[0]);
-        cout << message << endl;
         throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
       }
       size_t collapsedPSFLength;
@@ -1750,7 +1725,6 @@ namespace pfs{ namespace drp{ namespace stella{
       if (xPositions.getShape()[0] != yPositions.getShape()[0]){
         string message("pfs::drp::stella::math::compareCenterPositions: ERROR: xPositions.getShape()[0]=");
         message += to_string(xPositions.getShape()[0]) + " != yPositions.getShape()[1]=" + to_string(yPositions.getShape()[1]);
-        cout << message << endl;
         throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
       }
       #ifdef __DEBUG_COMPARECENTERPOSITIONS__
@@ -1814,12 +1788,10 @@ namespace pfs{ namespace drp{ namespace stella{
       if (setPsfXY){
         if (!psf.setXCentersPSFCCD(xCenters_Out)){
           string message("pfs::drp::stella::math::compareCenterPositions: ERROR: psf.setXCentersPSFCCD(xCenters_Out) returned FALSE");
-          cout << message << endl;
           throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
         }
         if (!psf.setYCentersPSFCCD(yCenters_Out)){
           string message("pfs::drp::stella::math::compareCenterPositions: ERROR: psf.setYCentersPSFCCD(yCenters_Out) returned FALSE");
-          cout << message << endl;
           throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
         }
       }
