@@ -1270,7 +1270,7 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
     D_A1_CCD = D_A1_CCD_In;
 
     if ((D_A1_CCD_In.sum() == 0.) || (D_A1_SF.sum() == 0.)){
-      #ifdef __WARNINGS_ON__
+      #ifdef __LINFIT1D_WARNINGS_ON__
         cout << "CFits::LinFitBevington: Warning: (D_A1_CCD_In.sum(=" << D_A1_CCD_In.sum() << " == 0.) || (D_A1_SF.sum(=" << D_A1_SF.sum() << ") == 0.) => returning false" << endl;
       #endif
       D_SP_Out = 0.;
