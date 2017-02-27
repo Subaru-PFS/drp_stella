@@ -943,6 +943,45 @@ class FiberTraceTestCase(tests.TestCase):
         self.assertAlmostEqual(coordsRelativeToCenter.x, xCoordCheck, places=6)
         self.assertAlmostEqual(coordsRelativeToCenter.y, yCoordCheck, places=6)
 
+    def testFiberTraceCenter(self):
+        nRows = 100
+        nCols = 20
+        PIXEL_CENTER = drpStella.PIXEL_CENTER
+        ccd = np.zeros(shape=(nRows,nCols), dtype=np.float32)
+        row = np.zeros(shape=(nCols), dtype=np.float32)
+        center = 10.0
+        for i in range(nCols):
+            row[i] = 10000. * np.exp(-(i-center)*(i-center) / 4.)
+        for i in range(nRows):
+            ccd[i,:] = row[:]
+        fiberTraceFunctionControl = drpStella.FiberTraceFunctionControl()
+        fiberTraceFunctionControl.interpolation = "POLYNOMIAL"
+        fiberTraceFunctionControl.order = 0
+        fiberTraceFunctionControl.xLow = -5.
+        fiberTraceFunctionControl.xHigh = 5.
+        fiberTraceFunctionControl.nPixCutLeft = 0
+        fiberTraceFunctionControl.nPixCutRight = 0
+        fiberTraceFunctionControl.nRows = nRows
+
+        fiberTraceFunctionFindingControl = drpStella.FiberTraceFunctionFindingControl()
+        fiberTraceFunctionFindingControl.fiberTraceFunctionControl = fiberTraceFunctionControl
+        fiberTraceFunctionFindingControl.apertureFWHM = 4.
+        fiberTraceFunctionFindingControl.signalThreshold = 1.
+        fiberTraceFunctionFindingControl.nTermsGaussFit = 3
+        fiberTraceFunctionFindingControl.saturationLevel = 65000.
+        fiberTraceFunctionFindingControl.minLength = 10
+        fiberTraceFunctionFindingControl.maxLength = nRows
+        fiberTraceFunctionFindingControl.nLost = 10
+
+        fiberTraceSet = drpStella.findAndTraceAperturesF(
+            afwImage.makeMaskedImage(afwImage.ImageF(ccd)),
+            fiberTraceFunctionFindingControl)
+
+        fiberTrace = fiberTraceSet.getFiberTrace(0)
+        xCenters = fiberTrace.getXCenters()
+        for i in range(xCenters.shape[0]):
+            self.assertAlmostEqual(xCenters[i],center + drpStella.PIXEL_CENTER)
+
 #-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
 def suite():
