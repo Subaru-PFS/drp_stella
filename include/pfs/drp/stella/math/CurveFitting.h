@@ -3,17 +3,13 @@
 
 #include <vector>
 #include <iostream>
-#include "lsst/base.h"
-#include "lsst/afw/geom.h"
-#include "lsst/afw/image/MaskedImage.h"
+#include "CurveFittingGaussian.h"
 #include "lsst/log/Log.h"
-#include "lsst/pex/config.h"
 #include "lsst/pex/exceptions/Exception.h"
-#include "../utils/Utils.h"
 #include "Math.h"
 #include "ndarray.h"
 #include "ndarray/eigen.h"
-#include "CurveFittingGaussian.h"
+#include "../utils/Utils.h"
 
 //#define __DEBUG_CURVEFIT__
 //#define __DEBUG_FIT__
@@ -21,8 +17,7 @@
 //#define __DEBUG_POLY__
 //#define __DEBUG_POLYFIT__
 
-namespace afwGeom = lsst::afw::geom;
-namespace afwImage = lsst::afw::image;
+namespace pexExcept = lsst::pex::exceptions;
 using namespace std;
 
 namespace pfs { namespace drp { namespace stella {

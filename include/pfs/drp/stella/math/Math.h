@@ -5,7 +5,6 @@
 
 #include <vector>
 #include <iostream>
-#include "Chebyshev.h"
 #include "../utils/Utils.h"
 #include "ndarray.h"
 #include "ndarray/eigen.h"

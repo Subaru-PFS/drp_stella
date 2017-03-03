@@ -2,15 +2,8 @@
 #define __PFS_DRP_STELLA_UTILS_H__
 #include <vector>
 #include <iostream>
-#include <fitsio.h>
-#include <fitsio2.h>
-#include "lsst/afw/image/MaskedImage.h"
+#include "lsst/base.h"
 #include "ndarray.h"
-#include "lsst/afw/image.h"
-#include "lsst/afw/image/Image.h"
-#include "lsst/afw/fits.h"
-
-namespace afwImage = lsst::afw::image;
 #include "pfs/drp/stella/math/CurveFitting.h"
 
 using namespace std;

@@ -1,30 +1,16 @@
 #if !defined(PFS_DRP_STELLA_SPECTRA_H)
 #define PFS_DRP_STELLA_SPECTRA_H
 
-#include <vector>
 #include <iostream>
-#include <cmath>
-//#pragma clang diagnostic push
-//#pragma clang diagnostic ignored "-Wunused-variable"
-//#pragma clang diagnostic pop
-#include "boost/algorithm/string/trim.hpp"
-#include "lsst/base.h"
-#include "lsst/afw/geom.h"
+#include "Controls.h"
+#include "lsst/afw/image/Image.h"
 #include "lsst/afw/image/MaskedImage.h"
 #include "lsst/log/Log.h"
-#include "lsst/pex/config.h"
 #include "lsst/pex/exceptions.h"
-//#include "lsst/daf/base/Citizen.h"
-//#include "lsst/daf/base/Persistable.h"
-#include <fitsio.h>
-#include <fitsio2.h>
-#include "math/Math.h"
+#include "ndarray.h"
 #include "math/CurveFitting.h"
+#include "math/Math.h"
 #include "utils/Utils.h"
-#include "Controls.h"
-#include "lsst/afw/fits.h"
-#include "lsst/afw/image/fits/fits_io.h"
-#include "lsst/afw/image/fits/fits_io_mpl.h"
 
 #define stringify( name ) # name
 
@@ -34,7 +20,6 @@
 //#define __DEBUG_STRETCHANDCROSSCORRELATESPEC_LINELIST__
 //#define __DEBUG_CREATELINELIST__
 
-namespace afwGeom = lsst::afw::geom;
 namespace afwImage = lsst::afw::image;
 namespace pexExcept = lsst::pex::exceptions;
 
