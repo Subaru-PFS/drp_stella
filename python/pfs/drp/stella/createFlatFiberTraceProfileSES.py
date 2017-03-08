@@ -34,7 +34,7 @@ def createFlatFiberTraceProfileSES(filename):
     ftec.lambdaSF = .1
     ftec.maxIterSF = 8
 
-    """Create a FiberTraceSet given a flat-field fits file name"""
+    # --- Create a FiberTraceSet given a flat-field fits file name
     mif = afwImage.MaskedImageF(filename)
     print("mif created")
 

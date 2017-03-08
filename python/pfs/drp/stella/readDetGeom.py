@@ -8,7 +8,7 @@ def main(fitsFileName):
 
     ampInfoCatalog = lsst.afw.table.AmpInfoCatalog(lsst.afw.table.AmpInfoTable.makeMinimalSchema())
 
-    """ Create instance of ampInfoCatalog by reading fitsFileName """
+    # Create instance of ampInfoCatalog by reading fitsFileName
     amps = ampInfoCatalog.readFits(fitsFileName)
 
     for iAmp in range(len(amps)):#range(nAmps):

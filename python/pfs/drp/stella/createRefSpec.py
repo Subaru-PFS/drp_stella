@@ -70,21 +70,21 @@ class CreateRefSpecTask(CmdLineTask):
         except Exception, e:
             raise RuntimeError("Unable to retrieve flat for %s: %s" % (arcRef.dataId, e))
 
-        """ find and trace apertures """
+        # find and trace apertures
         print 'tracing apertures of flatfield'
         myFindTask = fataTask.FindAndTraceAperturesTask()
         flatFiberTraceSet = myFindTask.run(flatExposure)
         print flatFiberTraceSet.size(),' traces found'
 
-        """ calculate spatial profiles """
+        # calculate spatial profiles
         print 'calculating spatial profiles'
         myProfileTask = cfftpTask.CreateFlatFiberTraceProfileTask()
         myProfileTask.run(flatFiberTraceSet)
 
-        """ optimally extract arc spectra """
+        # optimally extract arc spectra
         print 'extracting arc spectra'
 
-        """Extract all apertures"""
+        # Extract all apertures
         myExtractTask = esTask.ExtractSpectraTask()
         aperturesToExtract = [-1]
         spectrumSetFromProfile = myExtractTask.run(arcExp, flatFiberTraceSet, aperturesToExtract)

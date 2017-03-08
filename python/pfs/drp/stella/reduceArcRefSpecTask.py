@@ -101,21 +101,21 @@ class ReduceArcRefSpecTask(CmdLineTask):
             self.log.debug('arcExp = %s' % arcExp)
             self.log.debug('type(arcExp) = %s' % type(arcExp))
 
-            """ optimally extract arc spectra """
-            self.log.debug('extracting arc spectra')
+            # optimally extract arc spectra
+            self.log.info('extracting arc spectra')
 
             myExtractTask = esTask.ExtractSpectraTask()
             aperturesToExtract = [-1]
             spectrumSetFromProfile = myExtractTask.run(arcExp, flatFiberTraceSet, aperturesToExtract)
 
-            """ read line list """
+            # read line list
             hdulist = pyfits.open(lineList)
             tbdata = hdulist[1].data
             lineListArr = np.ndarray(shape=(len(tbdata),2), dtype='float32')
             lineListArr[:,0] = tbdata.field(0)
             lineListArr[:,1] = tbdata.field(1)
 
-            """ read reference Spectrum """
+            # read reference Spectrum
             hdulist = pyfits.open(refSpec)
             tbdata = hdulist[1].data
             refSpecArr = np.ndarray(shape=(len(tbdata)), dtype='float32')

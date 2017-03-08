@@ -24,7 +24,7 @@ class ExtractFromProfileTask(Task):
         fiberTraceExtractionControl = drpStella.FiberTraceExtractionControl()
         fiberTraceExtractionControl.maxIterSig = self.config.maxIterSig
 
-        """Create a FiberTraceSet given a flat-field fits file name"""
+        #Create a FiberTraceSet given a flat-field fits file name
         specFiberTraceSet = inFlatFiberTraceSet
         if inTraceNumbers[0] == -1:
             for i in specFiberTraceSet:

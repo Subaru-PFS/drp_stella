@@ -76,7 +76,7 @@ class FindAndTraceAperturesTask(Task):
     def __init__(self, *args, **kwargs):
         super(FindAndTraceAperturesTask, self).__init__(*args, **kwargs)
 
-        """create FiberTraceFunctionFindingControl"""
+        # create FiberTraceFunctionFindingControl
         self.ftffc = drpStella.FiberTraceFunctionFindingControl()
         self.ftffc.fiberTraceFunctionControl.interpolation = self.config.interpolation
         self.ftffc.fiberTraceFunctionControl.order = self.config.order
@@ -98,7 +98,7 @@ class FindAndTraceAperturesTask(Task):
         This method returns a FiberTraceSet
         """
 
-        """Create a FiberTraceSet given a flat-field exposure"""
+        #Create a FiberTraceSet given a flat-field exposure
         inMaskedImage = inExposure.getMaskedImage()
         fiberTraceSet = drpStella.findAndTraceAperturesF(inMaskedImage,
                                                          self.ftffc.getPointer())

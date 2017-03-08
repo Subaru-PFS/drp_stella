@@ -47,13 +47,13 @@ def calculateTwoDPSF(flatfilename, specfilename):
 
     bias = pyfits.getdata(flatfilename, 3)
 
-    """Create a afwImage::MaskedImageF from the flat fits file"""
+    # --- Create a afwImage::MaskedImageF from the flat fits file
     mif = afwImage.MaskedImageF(flatfilename)
     bias = afwImage.ImageF(flatfilename, 3)
     mif[:] -= bias
     print("mif created")
 
-    """Trace fibers"""
+    # --- Trace fibers
     ftffcp = ftffc.getPointer()
     fts = drpStella.findAndTraceAperturesF(mif, ftffcp)
     print("findAndTraceApertures finished")

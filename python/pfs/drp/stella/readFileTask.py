@@ -26,7 +26,7 @@ class ReadFileTask(Task):
         inFile.closed
         nDataLines = nLines
 
-        """ remove comment lines from nDataLines """
+        # remove comment lines from nDataLines
         with open(fileToRead, 'r') as inFile:
             for iLine in np.arange(0,nLines,1):
                 line = inFile.readline()
@@ -57,7 +57,7 @@ class ReadFileTask(Task):
         nCols = self.countCols(fileToRead, nDataLines)
         print 'readFile: nCols = ',nCols
 
-        """ read file to dataArr """
+        # read file to dataArr
         print 'readFile: dType = <',self.config.dType,'>'
         print 'readFile: type(nDataLines) = ',type(nDataLines)
         print 'readFile: type(nCols) = ',type(nCols)

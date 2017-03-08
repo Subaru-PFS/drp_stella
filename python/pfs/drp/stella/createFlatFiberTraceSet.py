@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-
 import numpy as np
 import lsst.afw.image as afwImage
 import lsst.afw.geom as afwGeom
@@ -24,11 +23,11 @@ def createFlatFiberTraceSet(filename):
     ftffc.nTermsGaussFit = 3
     ftffc.saturationLevel = 65500.
 
-    """Create a FiberTraceSet given a flat-field fits file name"""
+    # Create a FiberTraceSet given a flat-field fits file name
     mif = afwImage.MaskedImageF(filename)
     print("mif created")
 
-    """Trace fibers"""
+    # Trace fibers
     msi = drpStella.MaskedSpectrographImageF(mif)
     print("msi created")
 
