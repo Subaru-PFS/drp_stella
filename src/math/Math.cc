@@ -1084,7 +1084,6 @@ CoordT xCor( ndarray::Array< CoordT, 2, 1 > const& arrA_In,
                       D_A1_GaussFitECoeffs,
                       true) ) {
     string message("pfs::drp::stella::math::xCor: ERROR: MPFitGaussLim returned FALSE");
-    cout << message << endl;
     throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
   }
   CoordT minShift = CoordT(D_A1_GaussFitCoeffs[1]); //T(xShift[std::min_element(chiSquare.begin(), chiSquare.end()) - chiSquare.begin()]);
@@ -1105,7 +1104,6 @@ T convertRangeToUnity( T number,
   if ( range.getShape()[0] != 2 ) {
     string message("pfs::drp::stella::math::convertRangeToUnity: ERROR: range.getShape()[0](=");
     message += to_string(range.getShape()[0]) + ") != 2";
-    cout << message << endl;
     throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
   }
 #ifdef __DEBUG_CONVERTRANGETOUNITY__
@@ -1210,25 +1208,21 @@ ndarray::Array< T, 1, 1 > getZMinMaxInRange( ndarray::Array< T, 1, 1 > const& x_
   if ( sizeX != sizeY ) {
     string message("pfs::drp::stella::math::getZMinMaxInRange: ERROR: x_In.getShape()[ 0 ](=");
     message += to_string(sizeX) + ") != y_In.getShape()[ 0 ](=" + to_string(sizeY) + ")";
-    cout << message << endl;
     throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
   }
   if ( sizeX != sizeZ ) {
     string message("pfs::drp::stella::math::getZMinMaxInRange: ERROR: x_In.getShape()[ 0 ](=");
     message += to_string(sizeX) + ") != z_In.getShape()[ 0 ](=" + to_string(sizeZ) + ")";
-    cout << message << endl;
     throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
   }
   if ( sizeXRange != 2 ) {
     string message("pfs::drp::stella::math::getZMinMaxInRange: ERROR: xRange_In.getShape()[ 0 ](=");
     message += to_string(sizeXRange) + ") != 2";
-    cout << message << endl;
     throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
   }
   if ( sizeYRange != 2 ) {
     string message("pfs::drp::stella::math::getZMinMaxInRange: ERROR: yRange_In.getShape()[ 0 ](=");
     message += to_string(sizeYRange) + ") != 2";
-    cout << message << endl;
     throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
   }
   T minValue = 0.;
@@ -1316,14 +1310,12 @@ T calculateChiSquare( ndarray::Array< T, 1, 1 > const& expected,
     string message("pfs::drp::stella::math::calculateChiSquare: ERROR: expected.getShape()[ 0 ](=");
     message += to_string(expected.getShape()[ 0 ]) + ") != observed.getShape()[ 0 ] (= ";
     message += to_string(observed.getShape()[ 0 ]) + "0";
-    cout << message << endl;
     throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
   }
   T chiSquare = 0.;
   size_t pos = 0;
   for ( auto itExp = expected.begin(), itObs = observed.begin(); itExp != expected.end(); ++itExp, ++itObs, ++pos ) {
     chiSquare += pow(*itExp - *itObs, T(2.)) / *itExp;
-    cout << "calculateChiSquare: pos = " << pos << ": *itExp = " << *itExp << ", *itObs = " << *itObs << ": chiSquare = " << chiSquare << endl;
   }
   return chiSquare;
 }
@@ -1339,26 +1331,22 @@ ndarray::Array< T, 1, 1 > getDataInRange( ndarray::Array< T, 1, 1 > const& xArr,
     string message("pfs::drp::stella::math::getDataInRange: ERROR: xArr.getShape()[ 0 ](=");
     message += to_string(xArr.getShape()[ 0 ]) + ") != yArr.getShape()[ 0 ] (= ";
     message += to_string(yArr.getShape()[ 0 ]) + "0";
-    cout << message << endl;
     throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
   }
   if ( xArr.getShape()[ 0 ] != zArr.getShape()[ 0 ] ) {
     string message("pfs::drp::stella::math::getDataInRange: ERROR: xArr.getShape()[ 0 ](=");
     message += to_string(xArr.getShape()[ 0 ]) + ") != zArr.getShape()[ 0 ] (= ";
     message += to_string(zArr.getShape()[ 0 ]) + "0";
-    cout << message << endl;
     throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
   }
   if ( xRange.getShape()[ 0 ] != 2 ) {
     string message("pfs::drp::stella::math::getDataInRange: ERROR: xRange.getShape()[ 0 ](=");
     message += to_string(xRange.getShape()[ 0 ]) + ") != 2";
-    cout << message << endl;
     throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
   }
   if ( yRange.getShape()[ 0 ] != 2 ) {
     string message("pfs::drp::stella::math::getDataInRange: ERROR: yRange.getShape()[ 0 ](=");
     message += to_string(yRange.getShape()[ 0 ]) + ") != 2";
-    cout << message << endl;
     throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
   }
   std::vector< size_t > indices;
@@ -1384,20 +1372,17 @@ ndarray::Array< T, 1, 1 > getDataInRange( ndarray::Array< T, 1, 1 > const& xArr,
     string message("pfs::drp::stella::math::getDataInRange: ERROR: xArr.getShape()[ 0 ](=");
     message += to_string(xArr.getShape()[ 0 ]) + ") != yArr.getShape()[ 0 ] (= ";
     message += to_string(yArr.getShape()[ 0 ]) + "0";
-    cout << message << endl;
     throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
   }
   if ( xArr.getShape()[ 0 ] != zArr.getShape()[ 0 ] ) {
     string message("pfs::drp::stella::math::getDataInRange: ERROR: xArr.getShape()[ 0 ](=");
     message += to_string(xArr.getShape()[ 0 ]) + ") != zArr.getShape()[ 0 ] (= ";
     message += to_string(zArr.getShape()[ 0 ]) + "0";
-    cout << message << endl;
     throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
   }
   if ( rRange.getShape()[ 0 ] != 2 ) {
     string message("pfs::drp::stella::math::getDataInRange: ERROR: rRange.getShape()[ 0 ](=");
     message += to_string(rRange.getShape()[ 0 ]) + ") != 2";
-    cout << message << endl;
     throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
   }
   std::vector< size_t > indices;
@@ -2150,7 +2135,6 @@ ndarray::Array< U, 1, 1 > where( ndarray::Array< T, 1, I > const& arrayToCompare
   if ( (op != "<") && (op != "<=") && (op != ">") && (op != ">=") && (op != "==") ) {
     std::string message("pfs::drp::stella::math::where: ERROR: op(=");
     message += op + ") not supported";
-    cout << message << endl;
     throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
   }
   ndarray::Array< U, 1, 1 > arrOut = ndarray::allocate(arrayToCompareTo.getShape()[ 0 ]);
@@ -2182,12 +2166,10 @@ ndarray::Array< U, 1, 1 > where( ndarray::Array< T, 1, 1 > const& arrayToCompare
   if ( (op != "<") && (op != "<=") && (op != ">") && (op != ">=") && (op != "==") ) {
     std::string message("pfs::drp::stella::math::where: ERROR: op(=");
     message += op + ") not supported";
-    cout << message << endl;
     throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
   }
   if ( arrayToCompareTo.getShape()[ 0 ] != valuesIfFalse.getShape()[ 0 ] ) {
     std::string message("pfs::drp::stella::math::where: ERROR: input arrays must have same shape");
-    std::cout << message << std::endl;
     throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
   }
   ndarray::Array< U, 1, 1 > arrOut = ndarray::allocate(arrayToCompareTo.getShape()[ 0 ]);
@@ -2220,17 +2202,14 @@ ndarray::Array< U, 1, 1 > where( ndarray::Array< T, 1, 1 > const& arrayToCompare
   if ( (op != "<") && (op != "<=") && (op != ">") && (op != ">=") && (op != "==") ) {
     std::string message("pfs::drp::stella::math::where: ERROR: op(=");
     message += op + ") not supported";
-    cout << message << endl;
     throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
   }
   if ( arrayToCompareTo.getShape()[ 0 ] != valuesIfTrue.getShape()[ 0 ] ) {
     std::string message("pfs::drp::stella::math::where: ERROR: input arrays must have same shape");
-    std::cout << message << std::endl;
     throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
   }
   if ( arrayToCompareTo.getShape()[ 0 ] != valuesIfFalse.getShape()[ 0 ] ) {
     std::string message("pfs::drp::stella::math::where: ERROR: input arrays must have same shape");
-    std::cout << message << std::endl;
     throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
   }
   ndarray::Array< U, 1, 1 > arrOut = ndarray::allocate(arrayToCompareTo.getShape()[ 0 ]);
@@ -2264,7 +2243,6 @@ ndarray::Array< U, 2, 1 > where( ndarray::Array< T, 2, I > const& arrayToCompare
   if ( (op != "<") && (op != "<=") && (op != ">") && (op != ">=") && (op != "==") ) {
     std::string message("pfs::drp::stella::math::where: ERROR: op(=");
     message += op + ") not supported";
-    cout << message << endl;
     throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
   }
 #ifdef __DEBUG_WHERE__
@@ -2339,17 +2317,14 @@ ndarray::Array< U, 2, 1 > where( ndarray::Array< T, 2, I > const& arrayToCompare
   if ( (op != "<") && (op != "<=") && (op != ">") && (op != ">=") && (op != "==") ) {
     std::string message("pfs::drp::stella::math::where: ERROR: op(=");
     message += op + ") not supported";
-    cout << message << endl;
     throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
   }
   if ( arrayToCompareTo.getShape()[ 0 ] != valuesIfFalse.getShape()[ 0 ] ) {
     std::string message("pfs::drp::stella::math::where: ERROR: input arrays must have same shape");
-    std::cout << message << std::endl;
     throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
   }
   if ( arrayToCompareTo.getShape()[ 1 ] != valuesIfFalse.getShape()[ 1 ] ) {
     std::string message("pfs::drp::stella::math::where: ERROR: input arrays must have same shape");
-    std::cout << message << std::endl;
     throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
   }
   ndarray::Array< U, 2, 1 > arrOut = ndarray::allocate(arrayToCompareTo.getShape());
@@ -2386,27 +2361,22 @@ ndarray::Array< U, 2, 1 > where( ndarray::Array< T, 2, 1 > const& arrayToCompare
   if ( (op != "<") && (op != "<=") && (op != ">") && (op != ">=") && (op != "==") ) {
     std::string message("pfs::drp::stella::math::where: ERROR: op(=");
     message += op + ") not supported";
-    cout << message << endl;
     throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
   }
   if ( arrayToCompareTo.getShape()[ 0 ] != valuesIfTrue.getShape()[ 0 ] ) {
     std::string message("pfs::drp::stella::math::where: ERROR: input arrays must have same shape");
-    std::cout << message << std::endl;
     throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
   }
   if ( arrayToCompareTo.getShape()[ 1 ] != valuesIfTrue.getShape()[ 1 ] ) {
     std::string message("pfs::drp::stella::math::where: ERROR: input arrays must have same shape");
-    std::cout << message << std::endl;
     throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
   }
   if ( arrayToCompareTo.getShape()[ 0 ] != valuesIfFalse.getShape()[ 0 ] ) {
     std::string message("pfs::drp::stella::math::where: ERROR: input arrays must have same shape");
-    std::cout << message << std::endl;
     throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
   }
   if ( arrayToCompareTo.getShape()[ 1 ] != valuesIfFalse.getShape()[ 1 ] ) {
     std::string message("pfs::drp::stella::math::where: ERROR: input arrays must have same shape");
-    std::cout << message << std::endl;
     throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
   }
   ndarray::Array< U, 2, 1 > arrOut = ndarray::allocate(arrayToCompareTo.getShape());
