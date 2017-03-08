@@ -33,7 +33,7 @@ class ExtractFromProfileTask(Task):
     _DefaultName = "extractFromProfileTask"
 
     def __init__(self, *args, **kwargs):
-        super(ExtractFromProfileTask, self).__init__(*args, **kwargs)
+        Task(ExtractFromProfileTask, self).__init__(*args, **kwargs)
 
     def extractFromProfile(self, inFlatFiberTraceSet, inExposure, inTraceNumbers):
         # --- create FiberTraceFunctionFindingControl
