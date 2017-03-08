@@ -341,11 +341,9 @@ namespace pfsDRPStella = pfs::drp::stella;
   PTR( pfsDRPStella::Spectrum<ImageT, MaskT, VarianceT, VarianceT> ) pfsDRPStella::FiberTrace<ImageT, MaskT, VarianceT>::extractFromProfile()
   {
     if (!_isTraceSet){
-      cout << "FiberTrace.extractFromProfile: ERROR: _trace is not set" << endl;
       throw LSST_EXCEPT(pexExcept::Exception, "FiberTrace.extractFromProfile: ERROR: _trace is not set");
     }
     if (!_isProfileSet){
-      cout << "FiberTrace.extractFromProfile: ERROR: _profile is not set" << endl;
       throw LSST_EXCEPT(pexExcept::Exception, "FiberTrace.extractFromProfile: ERROR: _profile is not set");
     }
     if (_trace->getWidth() != _profile->getWidth()){
@@ -354,7 +352,6 @@ namespace pfsDRPStella = pfs::drp::stella;
       message += std::string(") != _profile.getWidth(=");
       message += std::to_string(_profile->getWidth());
       message += std::string(")");
-      cout << message << endl;
       throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
     }
     if (_trace->getHeight() != _profile->getHeight()){
@@ -363,7 +360,6 @@ namespace pfsDRPStella = pfs::drp::stella;
       message += std::string(") != _profile.getHeight(=");
       message += std::to_string(_profile->getHeight());
       message += std::string(")");
-      cout << message << endl;
       throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
     }
     for (auto itRow = _trace->getVariance()->getArray().begin(); itRow != _trace->getVariance()->getArray().end(); ++itRow){
@@ -450,7 +446,6 @@ namespace pfsDRPStella = pfs::drp::stella;
       std::string message("FiberTrace");
       message += std::to_string(_iTrace);
       message += std::string("::extractFromProfile: 2. ERROR: LinFitBevington(...) returned FALSE");
-      cout << message << endl;
       throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
     }
     #ifdef __DEBUG_MkSLITFUNC_FILES__
@@ -480,19 +475,16 @@ namespace pfsDRPStella = pfs::drp::stella;
     if (!spectrum->setSpectrum(spectrumSpecOut)){
       string message( "FiberTrace" );
       message += to_string(_iTrace) + "::extractSum: ERROR: spectrum->setSpectrum(spectrumSpecOut) returned FALSE";
-      cout << message << endl;
       throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
     }
     if (!spectrum->setVariance(spectrumVarOut)){
       string message( "FiberTrace" );
       message += to_string(_iTrace) + "::extractSum: ERROR: spectrum->setVariance(spectrumVarOut) returned FALSE";
-      cout << message << endl;
       throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
     }
     if (!spectrum->setSky(backgroundSpecOut)){
       string message( "FiberTrace" );
       message += to_string(_iTrace) + "::extractSum: ERROR: spectrum->setSky(backgroundSpecOut) returned FALSE";
-      cout << message << endl;
       throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
     }
 
@@ -510,7 +502,6 @@ namespace pfsDRPStella = pfs::drp::stella;
     if ( !spectrum->setNCCDRows( getHeight() ) ){
       string message( "FiberTrace" );
       message += to_string(_iTrace) + "::extractSum: ERROR: spectrum->setNCCDRows(getHeight()) returned FALSE";
-      cout << message << endl;
       throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
     }
     #ifdef __DEBUG_EXTRACTFROMPROFILE__
@@ -520,13 +511,11 @@ namespace pfsDRPStella = pfs::drp::stella;
     if ( !spectrum->setYLow( _fiberTraceFunction->yCenter + _fiberTraceFunction->yLow ) ){
       string message( "FiberTrace" );
       message += to_string(_iTrace) + "::extractSum: ERROR: spectrum->setYLow(_fiberTraceFunction->yCenter + _fiberTraceFunction->yLow) returned FALSE";
-      cout << message << endl;
       throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
     }
     if ( !spectrum->setYHigh( _fiberTraceFunction->yCenter + _fiberTraceFunction->yHigh ) ){
       string message( "FiberTrace" );
       message += to_string(_iTrace) + "::extractSum: ERROR: spectrum->setYHigh(_fiberTraceFunction->yCenter + _fiberTraceFunction->yHigh) returned FALSE";
-      cout << message << endl;
       throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
     }
     spectrum->setITrace( _iTrace );
