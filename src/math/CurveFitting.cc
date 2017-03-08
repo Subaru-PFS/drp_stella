@@ -972,14 +972,10 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
   /// SIGMA_OUT         = blitz::Array<double, 2>(D_A2_CCD_In.rows(),2)
   /// YFIT_OUT          = blitz::Array<double, 2>(D_A2_CCD_In.rows(), D_A2_CCD_In.cols())
   {
-    #ifdef __DEBUG_CURVEFIT__
-      cout << "CurveFitting::LinFitBevingtonNdArray(D_A2_CCD, D_A2_SF, SP, Sky, withSky, Args, ArgV) started" << endl;
-    #endif
-    #ifdef __DEBUG_FITARR__
-      cout << "CFits::LinFitBevington(Array, Array, Array, Array, bool, CSArr, PPArr) started" << endl;
-      cout << "CFits::LinFitBevington(Array, Array, Array, Array, bool, CSArr, PPArr): D_A2_CCD_In = " << D_A2_CCD_In << endl;
-      cout << "CFits::LinFitBevington(Array, Array, Array, Array, bool, CSArr, PPArr): D_A2_SF_In = " << D_A2_SF_In << endl;
-    #endif
+    LOG_LOGGER _log = LOG_GET("pfs::drp::stella::math::CurveFitting::LinFitBevingtonNdArray2D");
+    LOGLS_DEBUG(_log, "LinFitBevingtonNdArray(D_A2_CCD, D_A2_SF, SP, Sky, withSky, Args, ArgV) started");
+    LOGLS_DEBUG(_log, ": D_A2_CCD_In = " << D_A2_CCD_In);
+    LOGLS_DEBUG(_log, ": D_A2_SF_In = " << D_A2_SF_In);
     if (D_A2_CCD_In.getShape()[0] != D_A2_SF_In.getShape()[0]){
       string message("pfs::drp::stella::math::CurveFitting::LinFitBevingtonNdArray: ERROR: D_A2_CCD_In.getShape()[0](=");
       message += to_string(D_A2_CCD_In.getShape()[0]) + ") != D_A2_SF_In.getShape()[0](=" + to_string(D_A2_SF_In.getShape()[0]) + ")";
@@ -1036,9 +1032,7 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
         cout << message << endl;
         throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
       }
-      #ifdef __DEBUG_FITARR__
-        cout << "CFits::LinFitBevington(Array, Array, Array, Array): P_D_A2_Sigma = " << *P_D_A2_Sigma << endl;
-      #endif
+      LOGLS_DEBUG(_log, ": P_D_A2_Sigma = " << *P_D_A2_Sigma);
       S_A1_Args_Fit[I_ArgPos] = "MEASURE_ERRORS_IN";
       I_ArgPos++;
     }
@@ -1136,9 +1130,7 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
     {
       P_D_Reject.reset();
       P_D_Reject = *((PTR(ImageT)*)ArgV_In[I_KeywordSet_Reject]);
-      #ifdef __DEBUG_FITARR__
-        cout << "CFits::LinFitBevington2D: P_D_Reject = " << *P_D_Reject << endl;
-      #endif
+      LOGLS_DEBUG(_log, ": P_D_Reject = " << *P_D_Reject);
       S_A1_Args_Fit[I_ArgPos] = "REJECT_IN";
       I_ArgPos++;
     }
@@ -1166,9 +1158,7 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
         cout << message << endl;
         throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
       }
-      #ifdef __DEBUG_FITARR__
-        cout << "CFits::LinFitBevington2D: P_I_A2_Mask = " << *P_I_A2_Mask << endl;
-      #endif
+      LOGLS_DEBUG(_log, ": P_I_A2_Mask = " << *P_I_A2_Mask);
       S_A1_Args_Fit[I_ArgPos] = "MASK_INOUT";
       I_ArgPos++;
     }
@@ -1179,13 +1169,9 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
       I_ArgPos = 0;
       if (I_KeywordSet_MeasureErrors >= 0){
         *P_D_A1_Sigma = (*P_D_A2_Sigma)[ndarray::view(i)()];
-        #ifdef __DEBUG_FITARR__
-          cout << "CFits::LinFitBevington(Array, Array, Array, Array): P_D_A1_Sigma set to " << *P_D_A1_Sigma << endl;
-        #endif
+        LOGLS_DEBUG(_log, ": P_D_A1_Sigma set to " << *P_D_A1_Sigma);
         Args_Fit[I_ArgPos] = &P_D_A1_Sigma;
-        #ifdef __DEBUG_FITARR__
-          cout << "CFits::LinFitBevington(Array, Array, Array, Array): PP_Args_Fit[I_ArgPos=" << I_ArgPos << "] = " << *((PTR(Eigen::Array<ImageT, Eigen::Dynamic, 1>)*)Args_Fit[I_ArgPos]) << endl;
-        #endif
+        LOGLS_DEBUG(_log, ": PP_Args_Fit[I_ArgPos=" << I_ArgPos << "] = " << *((PTR(Eigen::Array<ImageT, Eigen::Dynamic, 1>)*)Args_Fit[I_ArgPos]));
         I_ArgPos++;
       }
 
@@ -1225,13 +1211,9 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
           B_DoFit = false;
       }
 
-      #ifdef __DEBUG_FITARR__
-        cout << "CFits::LinFitBevington: Starting Fit1D: D_A2_CCD_In(i=" << i << ", *) = " << D_A2_CCD_In[ndarray::view(i)()] << endl;
-      #endif
+      LOGLS_DEBUG(_log, ": Starting Fit1D: D_A2_CCD_In(i=" << i << ", *) = " << D_A2_CCD_In[ndarray::view(i)()]);
       if (B_DoFit){
-        #ifdef __DEBUG_FITARR__
-          cout << "CFits::LinFitBevington: D_A2_SF_In(i=" << i << ", *) = " << D_A2_SF_In[ndarray::view(i)()] << endl;
-        #endif
+        LOGLS_DEBUG(_log, ": D_A2_SF_In(i=" << i << ", *) = " << D_A2_SF_In[ndarray::view(i)()]);
         ndarray::Array<ImageT, 1, 1> D_A1_CCD(D_A2_CCD_In[ndarray::view(i)()]);
         ndarray::Array<SlitFuncT, 1, 1> D_A1_SF(D_A2_SF_In[ndarray::view(i)()]);
         int status = math::LinFitBevingtonNdArray(D_A1_CCD,
@@ -1243,49 +1225,37 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
                                                   Args_Fit);
         if (status != 1){
           #ifdef __WARNINGS_ON__
-            string message("CFits::LinFitBevington: WARNING: LinFitBevington(D_A2_CCD_In(i,blitz::Range::all()),D_A2_SF_In(i,blitz::Range::all()),D_A1_SP_Out(i),D_A1_Sky_Out(i),D_A1_STDDEV_Out(i),D_A1_Covariance_Out(i)) returned status = ");
-            message += to_string(status);
-            cout << message << endl;
-            cout << "CFits::LinFitBevington: D_A2_SF_In(0, *) = " << D_A2_SF_In[ndarray::view(0)()] << ": LinFitBevingtonNdArray returned status = " << status << endl;
+            string message("CFits::LinFitBevington: WARNING: LinFitBevington(D_A2_CCD_In(i,blitz::Range::all()),");
+            message += "D_A2_SF_In(i,blitz::Range::all()),D_A1_SP_Out(i),D_A1_Sky_Out(i),D_A1_STDDEV_Out(i),";
+            message += "D_A1_Covariance_Out(i)) returned status = " + to_string(status);
+            LOGLS_WARN(_log, message);
+            LOGLS_WARN(_log, ": D_A2_SF_In(0, *) = " << D_A2_SF_In[ndarray::view(0)()] << ": LinFitBevingtonNdArray returned status = " << status);
           #endif
 //            throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
         }
       }
-      #ifdef __DEBUG_FITARR__
-        cout << "CFits::LinFitBevington(Array, Array, Array, Array): D_A1_SP_Out(i=" << i << ") set to " << D_A1_SP_Out[i] << endl;
-        cout << "CFits::LinFitBevington(Array, Array, Array, Array): D_A1_Sky_Out(i=" << i << ") set to " << D_A1_Sky_Out[i] << endl;
-      #endif
+      LOGLS_DEBUG(_log, ": D_A1_SP_Out(i=" << i << ") set to " << D_A1_SP_Out[i]);
+      LOGLS_DEBUG(_log, ": D_A1_Sky_Out(i=" << i << ") set to " << D_A1_Sky_Out[i]);
 
       if (I_KeywordSet_Sigma >= 0){
-        #ifdef __DEBUG_FITARR__
-          cout << "CFits::LinFitBevington(Array, Array, Array, Array): P_D_A1_Sigma_Out = " << (*P_D_A1_Sigma_Out) << endl;
-          cout << "CFits::LinFitBevington(Array, Array, Array, Array): P_D_A2_Sigma_Out(i=" << i << ",*) = " << (*P_D_A2_Sigma_Out)[ndarray::view(i)()] << endl;
-        #endif
+        LOGLS_DEBUG(_log, ": P_D_A1_Sigma_Out = " << (*P_D_A1_Sigma_Out));
+        LOGLS_DEBUG(_log, ": P_D_A2_Sigma_Out(i=" << i << ",*) = " << (*P_D_A2_Sigma_Out)[ndarray::view(i)()]);
         (*P_D_A2_Sigma_Out)[ndarray::view(i)()] = (*P_D_A1_Sigma_Out);
       }
 
       if (I_KeywordSet_YFit >= 0){
         (*P_D_A2_YFit)[ndarray::view(i)()] = (*P_D_A1_YFit);
-        #ifdef __DEBUG_FITARR__
-          cout << "CFits::LinFitBevington(Array, Array, Array, Array): P_D_A2_YFit(i=" << i << ",*) set to " << (*P_D_A2_YFit)[ndarray::view(i)()] << endl;
-        #endif
+        LOGLS_DEBUG(_log, ": P_D_A2_YFit(i=" << i << ",*) set to " << (*P_D_A2_YFit)[ndarray::view(i)()]);
       }
 
       if (I_KeywordSet_Mask >= 0){
         (*P_I_A2_Mask)[ndarray::view(i)()] = (*P_I_A1_Mask);
-        #ifdef __DEBUG_FITARR__
-          cout << "CFits::LinFitBevington(Array, Array, Array, Array): P_I_A1_Mask = " << (*P_I_A1_Mask) << endl;
-          cout << "CFits::LinFitBevington(Array, Array, Array, Array): P_I_A2_Mask(i=" << i << ",*) set to " << (*P_I_A2_Mask)[ndarray::view(i)()] << endl;
-        #endif
+        LOGLS_DEBUG(_log, ": P_I_A1_Mask = " << (*P_I_A1_Mask));
+        LOGLS_DEBUG(_log, ": P_I_A2_Mask(i=" << i << ",*) set to " << (*P_I_A2_Mask)[ndarray::view(i)()]);
       }
     }
-    #ifdef __DEBUG_FITARR__
-      cout << "CFits::LinFitBevington(Array, Array, Array, Array): D_A1_SP_Out = " << D_A1_SP_Out << endl;
-//        cout << "CFits::LinFitBevington(Array, Array, Array, Array): D_A1_Sky_Out set to " << D_A1_Sky_Out << endl;
-    #endif
-    #ifdef __DEBUG_CURVEFIT__
-      cout << "CurveFitting::LinFitBevingtonNdArray(D_A2_CCD, D_A2_SF, SP, Sky, withSky, Args, ArgV) finished" << endl;
-    #endif
+    LOGLS_DEBUG(_log, ": D_A1_SP_Out = " << D_A1_SP_Out);
+    LOGLS_DEBUG(_log, ": LinFitBevingtonNdArray(D_A2_CCD, D_A2_SF, SP, Sky, withSky, Args, ArgV) finished");
     return true;
   }
 
@@ -1814,15 +1784,12 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
   /// ALLOW_SKY_LT_ZERO = 1
   /// ALLOW_SPEC_LT_ZERO = 1
   {
-    #ifdef __DEBUG_CURVEFIT__
-      cout << "CurveFitting::LinFitBevingtonNdArray(D_A1_CCD, D_A1_SF, SP, Sky, withSky, Args, ArgV) started" << endl;
-    #endif
+    LOG_LOGGER _log = LOG_GET("pfs::drp::stella::math::CurveFitting::LinFitBevingtonNdArray1D");
+    LOGLS_DEBUG(_log, "LinFitBevingtonNdArray(D_A1_CCD, D_A1_SF, SP, Sky, withSky, Args, ArgV) started");
     int status = 1;
-    #ifdef __DEBUG_FIT__
-      cout << "CFits::LinFitBevington(Array, Array, double, double, bool, CSArr, PPArr) started" << endl;
-      cout << "CFits::LinFitBevington: D_A1_CCD_In = " << D_A1_CCD_In << endl;
-      cout << "CFits::LinFitBevington: D_A1_SF_In = " << D_A1_SF_In << endl;
-    #endif
+    LOGLS_DEBUG(_log, ": LinFitBevington(Array, Array, double, double, bool, CSArr, PPArr) started");
+    LOGLS_DEBUG(_log, " D_A1_CCD_In = " << D_A1_CCD_In);
+    LOGLS_DEBUG(_log, " D_A1_SF_In = " << D_A1_SF_In);
 
     if (D_A1_CCD_In.size() != D_A1_SF_In.size()){
       string message("CFits::LinFitBevington: ERROR: D_A1_CCD_In.size(=");
@@ -1838,9 +1805,7 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
     D_A1_CCD.deep() = D_A1_CCD_In;
 
     if ((D_A1_CCD_In.asEigen().sum() == 0.) || (D_A1_SF.asEigen().sum() == 0.)){
-      #ifdef __WARNINGS_ON__
-        cout << "CFits::LinFitBevington: Warning: (D_A1_CCD_In.sum(=" << D_A1_CCD_In.asEigen().sum() << " == 0.) || (D_A1_SF.sum(=" << D_A1_SF.asEigen().sum() << ") == 0.) => returning false" << endl;
-      #endif
+      LOGLS_WARN(_log, " Warning: (D_A1_CCD_In.sum(=" << D_A1_CCD_In.asEigen().sum() << " == 0.) || (D_A1_SF.sum(=" << D_A1_SF.asEigen().sum() << ") == 0.) => returning false");
       D_SP_Out = 0.;
       D_Sky_Out = 0.;
       status = 0;
@@ -1864,7 +1829,7 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
     if (I_KeywordSet_AllowSkyLTZero >= 0){
       if(*((int*)ArgV_In[I_KeywordSet_AllowSkyLTZero]) > 0){
         B_AllowSkyLTZero = true;
-        cout << "CFits::LinFitBevington: KeyWord_Set(ALLOW_SKY_LT_ZERO)" << endl;
+        LOGLS_DEBUG(_log, " KeyWord_Set(ALLOW_SKY_LT_ZERO)");
       }
     }
 
@@ -1874,7 +1839,7 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
       if (I_KeywordSet_AllowSkyLTZero < 0){
         if (*((int*)ArgV_In[I_KeywordSet_AllowSkyLTZero]) > 0){
           B_AllowSpecLTZero = true;
-          cout << "CFits::LinFitBevington: KeyWord_Set(ALLOW_SPEC_LT_ZERO)" << endl;
+          LOGLS_DEBUG(_log, " KeyWord_Set(ALLOW_SPEC_LT_ZERO)");
         }
       }
     }
@@ -1884,9 +1849,7 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
     if (I_KeywordSet_Reject >= 0)
     {
       D_Reject = *(float*)ArgV_In[I_KeywordSet_Reject];
-      #ifdef __DEBUG_FIT__
-        cout << "CFits::LinFitBevington: KeyWord_Set(REJECT_IN): D_Reject = " << D_Reject << endl;
-      #endif
+      LOGLS_DEBUG(_log, " KeyWord_Set(REJECT_IN): D_Reject = " << D_Reject);
     }
     bool B_Reject = false;
     if (D_Reject > 0.)
@@ -1907,15 +1870,11 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
         cout << message << endl;
         throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
       }
-      #ifdef __DEBUG_FIT__
-        cout << "CFits::LinFitBevington: KeyWord_Set(MASK_INOUT): *P_I_A1_Mask = " << *P_I_A1_Mask << endl;
-      #endif
+      LOGLS_DEBUG(_log, " KeyWord_Set(MASK_INOUT): *P_I_A1_Mask = " << *P_I_A1_Mask);
     }
     I_A1_Mask_Orig.deep() = *P_I_A1_Mask;
-    #ifdef __DEBUG_FIT__
-      cout << "CFits::LinFitBevington: *P_I_A1_Mask set to " << *P_I_A1_Mask << endl;
-      cout << "CFits::LinFitBevington: I_A1_Mask_Orig set to " << I_A1_Mask_Orig << endl;
-    #endif
+    LOGLS_DEBUG(_log, " *P_I_A1_Mask set to " << *P_I_A1_Mask);
+    LOGLS_DEBUG(_log, " I_A1_Mask_Orig set to " << I_A1_Mask_Orig);
 
     ndarray::Array<ImageT, 1, 1> D_A1_Sigma_Out = ndarray::allocate(2);
     PTR(ndarray::Array<ImageT, 1, 1>) P_D_A1_Sigma_Out(new ndarray::Array<ImageT, 1, 1>(D_A1_Sigma_Out));
@@ -1930,14 +1889,10 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
         cout << message << endl;
         throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
       }
-      #ifdef __DEBUG_FIT__
-        cout << "CFits::LinFitBevington: KeyWord_Set(SIGMA_OUT)" << endl;
-      #endif
+      LOGLS_DEBUG(_log, " KeyWord_Set(SIGMA_OUT)");
     }
     P_D_A1_Sigma_Out->deep() = 0.;
-    #ifdef __DEBUG_FIT__
-      cout << "CFits::LinFitBevington: *P_D_A1_Sigma_Out set to " << *P_D_A1_Sigma_Out << endl;
-    #endif
+    LOGLS_DEBUG(_log, " *P_D_A1_Sigma_Out set to " << *P_D_A1_Sigma_Out);
 
     PTR(ImageT) P_D_ChiSqr_Out(new ImageT(0.));
     I_KeywordSet_ChiSqOut = pfs::drp::stella::utils::KeyWord_Set(S_A1_Args_In, "CHISQ_OUT");
@@ -1945,14 +1900,10 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
     {
       P_D_ChiSqr_Out.reset();
       P_D_ChiSqr_Out = *(PTR(ImageT)*)ArgV_In[I_KeywordSet_ChiSqOut];
-      #ifdef __DEBUG_FIT__
-        cout << "CFits::LinFitBevington: KeyWord_Set(CHISQ_OUT)" << endl;
-      #endif
+      LOGLS_DEBUG(_log, " KeyWord_Set(CHISQ_OUT)");
     }
     *P_D_ChiSqr_Out = 0.;
-    #ifdef __DEBUG_FIT__
-      cout << "CFits::LinFitBevington: *P_D_ChiSqr_Out set to " << *P_D_ChiSqr_Out << endl;
-    #endif
+    LOGLS_DEBUG(_log, " *P_D_ChiSqr_Out set to " << *P_D_ChiSqr_Out);
 
     PTR(ImageT) P_D_Q_Out(new ImageT(0.));
     I_KeywordSet_QOut = pfs::drp::stella::utils::KeyWord_Set(S_A1_Args_In, "Q_OUT");
@@ -1960,27 +1911,19 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
     {
       P_D_Q_Out.reset();
       P_D_Q_Out = *(PTR(ImageT)*)ArgV_In[I_KeywordSet_QOut];
-      #ifdef __DEBUG_FIT__
-        cout << "CFits::LinFitBevington: KeyWord_Set(Q_OUT)" << endl;
-      #endif
+      LOGLS_DEBUG(_log, " KeyWord_Set(Q_OUT)");
     }
     *P_D_Q_Out = 1.;
-    #ifdef __DEBUG_FIT__
-      cout << "CFits::LinFitBevington: *P_D_Q_Out set to " << *P_D_Q_Out << endl;
-    #endif
+    LOGLS_DEBUG(_log, " *P_D_Q_Out set to " << *P_D_Q_Out);
 
     D_SP_Out = 0.0;
     I_KeywordSet_MeasureErrors = pfs::drp::stella::utils::KeyWord_Set(S_A1_Args_In, "MEASURE_ERRORS_IN");
     if (I_KeywordSet_MeasureErrors >= 0)
     {
-      #ifdef __DEBUG_FIT__
-        cout << "CFits::LinFitBevington: keyword MEASURE_ERRORS_IN set" << endl;
-      #endif
+      LOGLS_DEBUG(_log, " keyword MEASURE_ERRORS_IN set");
       P_D_A1_Sig.reset();
       P_D_A1_Sig = *(PTR(ndarray::Array<ImageT, 1, 1>)*)ArgV_In[I_KeywordSet_MeasureErrors];
-      #ifdef __DEBUG_FIT__
-        cout << "CFits::LinFitBevington: *P_D_A1_Sig = " << *P_D_A1_Sig << endl;
-      #endif
+      LOGLS_DEBUG(_log, " *P_D_A1_Sig = " << *P_D_A1_Sig);
       if (P_D_A1_Sig->getShape()[0] != ndata){
         string message("pfs::drp::stella::math::CurveFitting::LinFitBevingtonNdArray: ERROR: P_D_A1_Sig->size()(=");
         message += to_string(P_D_A1_Sig->size()) + ") != ndata(=" + to_string(ndata) + ")";
@@ -1988,9 +1931,7 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
         throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
       }
       D_A1_Sig.deep() = *P_D_A1_Sig;
-      #ifdef __DEBUG_FIT__
-        cout << "CFits::LinFitBevington: KeyWord_Set(MEASURE_ERRORS_IN): *P_D_A1_Sig = " << *P_D_A1_Sig << endl;
-      #endif
+      LOGLS_DEBUG(_log, " KeyWord_Set(MEASURE_ERRORS_IN): *P_D_A1_Sig = " << *P_D_A1_Sig);
     }
 
     ndarray::Array<ImageT, 1, 1> D_A1_YFit = ndarray::allocate(ndata);
@@ -2008,20 +1949,14 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
       }
     }
     P_D_A1_YFit->deep() = 0.;
-    #ifdef __DEBUG_FIT__
-      cout << "CFits::LinFitBevington: *P_D_A1_YFit set to " << *P_D_A1_YFit << endl;
-    #endif
+    LOGLS_DEBUG(_log, " *P_D_A1_YFit set to " << *P_D_A1_YFit);
 
     if (P_I_A1_Mask->asEigen().sum() == 0){
-      #ifdef __WARNINGS_ON__
-        cout << "CFits::LinFitBevington: WARNING: P_I_A1_Mask->sum() == 0" << endl;
-      #endif
+      LOGLS_DEBUG(_log, " WARNING: P_I_A1_Mask->sum() == 0");
       D_SP_Out = 0.;
       D_Sky_Out = 0.;
       status = 0;
-      #ifdef __DEBUG_CURVEFIT__
-        cout << "CurveFitting::LinFitBevingtonNdArray(D_A1_CCD, D_A1_SF, SP, Sky, withSky, Args, ArgV) finished, status = " << status << endl;
-      #endif
+      LOGLS_DEBUG(_log, ":LinFitBevingtonNdArray(D_A1_CCD, D_A1_SF, SP, Sky, withSky, Args, ArgV) finished, status = " << status);
       return status;
     }
 
@@ -2041,21 +1976,16 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
     bool B_Run = true;
     int I_Run = -1;
     int I_MaskSum;
-    #ifdef __DEBUG_FIT__
-      cout << "CFits::LinFitBevington: starting while loop" << endl;
-    #endif
+    LOGLS_DEBUG(_log, " starting while loop");
     while (B_Run){
       D_SP_Out = 0.0;
 
       I_Run++;
       /// remove bad pixels marked by mask
       I_MaskSum = P_I_A1_Mask->asEigen().sum();
-      #ifdef __DEBUG_FIT__
-        cout << "CFits::LinFitBevington: I_Run=" << I_Run << ": I_MaskSum = " << I_MaskSum << endl;
-      #endif
+      LOGLS_DEBUG(_log, " I_Run=" << I_Run << ": I_MaskSum = " << I_MaskSum);
       if (I_MaskSum == 0){
-        string message("LinFitBevington: WARNING: I_MaskSum == 0");
-        cout << message << endl;
+        LOGLS_WARN(_log, "LinFitBevington: WARNING: I_MaskSum == 0");
         status = 0;
         return status;
 //          throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
@@ -2075,11 +2005,9 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
           I_Pos++;
         }
       }
-      #ifdef __DEBUG_FIT__
-        cout << "CFits::LinFitBevington: I_Run=" << I_Run << ": D_A1_CCD set to " << D_A1_CCD << endl;
-        cout << "CFits::LinFitBevington: I_Run=" << I_Run << ": D_A1_SF set to " << D_A1_SF << endl;
-        cout << "CFits::LinFitBevington: I_Run=" << I_Run << ": D_A1_Sig set to " << D_A1_Sig << endl;
-      #endif
+      LOGLS_DEBUG(_log, " I_Run=" << I_Run << ": D_A1_CCD set to " << D_A1_CCD);
+      LOGLS_DEBUG(_log, " I_Run=" << I_Run << ": D_A1_SF set to " << D_A1_SF);
+      LOGLS_DEBUG(_log, " I_Run=" << I_Run << ": D_A1_Sig set to " << D_A1_Sig);
 
       D_Sum_Weights = 0.;
       D_Sum_XSquareTimesWeight = 0.;
@@ -2101,9 +2029,7 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
           }
           D_A1_WT[i] = 1. / pow(D_A1_Sig[i], 2);
         }
-        #ifdef __DEBUG_FIT__
-          cout << "CFits::LinFitBevington: I_Run=" << I_Run << ":: D_A1_WT set to " << D_A1_WT << endl;
-        #endif
+        LOGLS_DEBUG(_log, " I_Run=" << I_Run << ":: D_A1_WT set to " << D_A1_WT);
         for (i=0; i < I_MaskSum; i++)
         {
           D_Sum_Weights += D_A1_WT[i];
@@ -2127,72 +2053,55 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
       }
       D_Delta = D_Sum_Weights * D_Sum_XSquareTimesWeight - pow(D_Sum_XTimesWeight, 2);
 
-      #ifdef __DEBUG_FIT__
-        cout << "CFits::LinFitBevington: I_Run=" << I_Run << ": D_Sum_Weights set to " << D_Sum_Weights << endl;
-        cout << "CFits::LinFitBevington: I_Run=" << I_Run << ": D_Sum_XTimesWeight set to " << D_Sum_XTimesWeight << endl;
-        cout << "CFits::LinFitBevington: I_Run=" << I_Run << ": D_Sum_YTimesWeight set to " << D_Sum_YTimesWeight << endl;
-        cout << "CFits::LinFitBevington: I_Run=" << I_Run << ": D_Sum_XYTimesWeight set to " << D_Sum_XYTimesWeight << endl;
-        cout << "CFits::LinFitBevington: I_Run=" << I_Run << ": D_Sum_XSquareTimesWeight set to " << D_Sum_XSquareTimesWeight << endl;
-        cout << "CFits::LinFitBevington: I_Run=" << I_Run << ": D_Delta set to " << D_Delta << endl;
-      #endif
-
+      LOGLS_DEBUG(_log, " I_Run=" << I_Run << ": D_Sum_Weights set to " << D_Sum_Weights);
+      LOGLS_DEBUG(_log, " I_Run=" << I_Run << ": D_Sum_XTimesWeight set to " << D_Sum_XTimesWeight);
+      LOGLS_DEBUG(_log, " I_Run=" << I_Run << ": D_Sum_YTimesWeight set to " << D_Sum_YTimesWeight);
+      LOGLS_DEBUG(_log, " I_Run=" << I_Run << ": D_Sum_XYTimesWeight set to " << D_Sum_XYTimesWeight);
+      LOGLS_DEBUG(_log, " I_Run=" << I_Run << ": D_Sum_XSquareTimesWeight set to " << D_Sum_XSquareTimesWeight);
+      LOGLS_DEBUG(_log, " I_Run=" << I_Run << ": D_Delta set to " << D_Delta);
 
       if (!B_WithSky)
       {
-        #ifdef __DEBUG_FIT__
-          cout << "CFits::LinFitBevington: I_Run=" << I_Run << ": D_Sky_Out < 0. = setting D_Sky_Out to 0 " << endl;
-        #endif
+        LOGLS_DEBUG(_log, " I_Run=" << I_Run << ": D_Sky_Out < 0. = setting D_Sky_Out to 0 ");
         D_SP_Out = D_Sum_XYTimesWeight / D_Sum_XSquareTimesWeight;
         D_Sky_Out = 0.0;
       }
       else
       {
-        #ifdef __DEBUG_FIT__
-          cout << "CFits::LinFitBevington: I_Run=" << I_Run << ": D_Sky_Out >= 0." << D_Sky_Out << endl;
-        #endif
+        LOGLS_DEBUG(_log, " I_Run=" << I_Run << ": D_Sky_Out >= 0." << D_Sky_Out);
         D_Sky_Out = ((D_Sum_XSquareTimesWeight * D_Sum_YTimesWeight) - (D_Sum_XTimesWeight * D_Sum_XYTimesWeight)) / D_Delta;
 
         D_SP_Out = ((D_Sum_Weights * D_Sum_XYTimesWeight) - (D_Sum_XTimesWeight * D_Sum_YTimesWeight)) / D_Delta;
-        #ifdef __DEBUG_FIT__
-          cout << "CFits::LinFitBevington: I_Run=" << I_Run << ": D_SP_Out set to " << D_SP_Out << endl;
-          cout << "CFits::LinFitBevington: I_Run=" << I_Run << ": D_Sky_Out set to " << D_Sky_Out << endl;
-        #endif
+        LOGLS_DEBUG(_log, " I_Run=" << I_Run << ": D_SP_Out set to " << D_SP_Out);
+        LOGLS_DEBUG(_log, " I_Run=" << I_Run << ": D_Sky_Out set to " << D_Sky_Out);
       }
-      #ifdef __DEBUG_FIT__
-        cout << "CFits::LinFitBevington: I_Run=" << I_Run << ": D_Sum_Weights >= " << D_Sum_Weights << endl;
-        cout << "CFits::LinFitBevington: I_Run=" << I_Run << ": D_Sum_XSquareTimesWeight >= " << D_Sum_XSquareTimesWeight << endl;
-        cout << "CFits::LinFitBevington: I_Run=" << I_Run << ": D_Delta >= " << D_Delta << endl;
-      #endif
+      LOGLS_DEBUG(_log, " I_Run=" << I_Run << ": D_Sum_Weights >= " << D_Sum_Weights);
+      LOGLS_DEBUG(_log, " I_Run=" << I_Run << ": D_Sum_XSquareTimesWeight >= " << D_Sum_XSquareTimesWeight);
+      LOGLS_DEBUG(_log, " I_Run=" << I_Run << ": D_Delta >= " << D_Delta);
+
       (*P_D_A1_Sigma_Out)[0] = sqrt(D_Sum_Weights / D_Delta);
       (*P_D_A1_Sigma_Out)[1] = sqrt(D_Sum_XSquareTimesWeight / D_Delta);
-      #ifdef __DEBUG_FIT__
-        cout << "CFits::LinFitBevington: I_Run=" << I_Run << ": P_D_A1_Sigma_Out(0) set to " << (*P_D_A1_Sigma_Out)[0] << endl;
-        cout << "CFits::LinFitBevington: I_Run=" << I_Run << ": P_D_A1_Sigma_Out(1) set to " << (*P_D_A1_Sigma_Out)[1] << endl;
-      #endif
+      LOGLS_DEBUG(_log, " I_Run=" << I_Run << ": P_D_A1_Sigma_Out(0) set to " << (*P_D_A1_Sigma_Out)[0]);
+      LOGLS_DEBUG(_log, " I_Run=" << I_Run << ": P_D_A1_Sigma_Out(1) set to " << (*P_D_A1_Sigma_Out)[1]);
+
       if ((!B_AllowSpecLTZero) && (D_SP_Out < 0.))
         D_SP_Out = 0.;
 
-      #ifdef __DEBUG_FIT__
-        cout << "CFits::LinFitBevington: I_Run=" << I_Run << ": D_Sky_Out set to " << D_Sky_Out << endl;
-        cout << "CFits::LinFitBevington: I_Run=" << I_Run << ": D_SP_Out set to " << D_SP_Out << endl;
-        cout << "CFits::LinFitBevington: I_Run=" << I_Run << ": std::fabs(D_SP_Out) = " << std::fabs(D_SP_Out) << endl;
-      #endif
+      LOGLS_DEBUG(_log, " I_Run=" << I_Run << ": D_Sky_Out set to " << D_Sky_Out);
+      LOGLS_DEBUG(_log, " I_Run=" << I_Run << ": D_SP_Out set to " << D_SP_Out);
+      LOGLS_DEBUG(_log, " I_Run=" << I_Run << ": std::fabs(D_SP_Out) = " << std::fabs(D_SP_Out));
 
       P_D_A1_YFit->deep() = D_Sky_Out + D_SP_Out * D_A1_SF_In;//.template cast<ImageT>();
       D_A1_YFit.deep() = D_Sky_Out + D_SP_Out * D_A1_SF;//.template cast<ImageT>();
-      #ifdef __DEBUG_FIT__
-        cout << "CFits::LinFitBevington: I_Run=" << I_Run << ": *P_D_A1_YFit set to " << *P_D_A1_YFit << endl;
-        cout << "CFits::LinFitBevington: I_Run=" << I_Run << ": D_A1_YFit set to " << D_A1_YFit << endl;
-      #endif
+      LOGLS_DEBUG(_log, " I_Run=" << I_Run << ": *P_D_A1_YFit set to " << *P_D_A1_YFit);
+      LOGLS_DEBUG(_log, " I_Run=" << I_Run << ": D_A1_YFit set to " << D_A1_YFit);
       *P_D_ChiSqr_Out = 0.;
       if (I_KeywordSet_MeasureErrors < 0)
       {
         for (i = 0; i < I_MaskSum; i++)
         {
           *P_D_ChiSqr_Out += pow(D_A1_CCD[i] - D_A1_YFit[i], 2);
-          #ifdef __DEBUG_FIT__
-            cout << "CFits::LinFitBevington: I_Run=" << I_Run << ": i = " << i << ": P_D_ChiSqr_Out set to " << *P_D_ChiSqr_Out << endl;
-          #endif
+          LOGLS_DEBUG(_log, " I_Run=" << I_Run << ": i = " << i << ": P_D_ChiSqr_Out set to " << *P_D_ChiSqr_Out);
         }
 
         /// for unweighted data evaluate typical sig using chi2, and adjust the standard deviations
@@ -2210,12 +2119,10 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
       {
         for (i = 0; i < I_MaskSum; i++)
         {
-          #ifdef __DEBUG_FIT__
-            cout << "CFits::LinFitBevington: I_Run=" << I_Run << ": i = " << i << ": D_A1_CCD(" << i << ") = " << D_A1_CCD[i] << endl;
-            cout << "CFits::LinFitBevington: I_Run=" << I_Run << ": i = " << i << ": D_A1_SF(" << i << ") = " << D_A1_SF[i] << endl;
-            cout << "CFits::LinFitBevington: I_Run=" << I_Run << ": i = " << i << ": D_A1_Sig(" << i << ") = " << D_A1_Sig[i] << endl;
-            cout << "CFits::LinFitBevington: I_Run=" << I_Run << ": i = " << i << ": D_A1_YFit(" << i << ") = " << D_A1_YFit[i] << endl;
-          #endif
+          LOGLS_DEBUG(_log, " I_Run=" << I_Run << ": i = " << i << ": D_A1_CCD(" << i << ") = " << D_A1_CCD[i]);
+          LOGLS_DEBUG(_log, " I_Run=" << I_Run << ": i = " << i << ": D_A1_SF(" << i << ") = " << D_A1_SF[i]);
+          LOGLS_DEBUG(_log, " I_Run=" << I_Run << ": i = " << i << ": D_A1_Sig(" << i << ") = " << D_A1_Sig[i]);
+          LOGLS_DEBUG(_log, " I_Run=" << I_Run << ": i = " << i << ": D_A1_YFit(" << i << ") = " << D_A1_YFit[i]);
           if (abs(D_A1_Sig[i]) < 0.00000000000000001){
             string message("CFits::LinFitBevington: I_Run=");
             message += to_string(I_Run) + ": i = " + to_string(i) + ": ERROR: D_A1_Sig(" + to_string(i) + ") == 0.";
@@ -2223,13 +2130,9 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
             throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
           }
           *P_D_ChiSqr_Out += pow((D_A1_CCD[i] - D_A1_YFit[i]) / D_A1_Sig[i], 2);
-          #ifdef __DEBUG_FIT__
-            cout << "CFits::LinFitBevington: I_Run=" << I_Run << ": i = " << i << ": P_D_ChiSqr_Out set to " << *P_D_ChiSqr_Out << endl;
-          #endif
+          LOGLS_DEBUG(_log, " I_Run=" << I_Run << ": i = " << i << ": P_D_ChiSqr_Out set to " << *P_D_ChiSqr_Out);
         }
-        #ifdef __DEBUG_FIT__
-          cout << "CFits::LinFitBevington: I_Run=" << I_Run << ": P_D_ChiSqr_Out set to " << *P_D_ChiSqr_Out << endl;
-        #endif
+        LOGLS_DEBUG(_log, " I_Run=" << I_Run << ": P_D_ChiSqr_Out set to " << *P_D_ChiSqr_Out);
         if (I_MaskSum > 2)
           *P_D_Q_Out = pfs::drp::stella::math::GammQ(0.5 * (I_MaskSum - 2), 0.5 * (*P_D_ChiSqr_Out));
       }
@@ -2240,11 +2143,10 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
       else{
 
         I_SumMaskLast = P_I_A1_Mask->asEigen().sum();
-        #ifdef __DEBUG_FIT__
-          cout << "CFits::LinFitBevington: I_Run=" << I_Run << ": Reject: I_SumMaskLast = " << I_SumMaskLast << endl;
-          cout << "CFits::LinFitBevington: I_Run=" << I_Run << ": Reject: D_A1_CCD = " << D_A1_CCD << endl;
-          cout << "CFits::LinFitBevington: I_Run=" << I_Run << ": Reject: D_A1_YFit = " << D_A1_YFit << endl;
-        #endif
+        LOGLS_DEBUG(_log, " I_Run=" << I_Run << ": Reject: I_SumMaskLast = " << I_SumMaskLast);
+        LOGLS_DEBUG(_log, " I_Run=" << I_Run << ": Reject: D_A1_CCD = " << D_A1_CCD);
+        LOGLS_DEBUG(_log, " I_Run=" << I_Run << ": Reject: D_A1_YFit = " << D_A1_YFit);
+
         ndarray::Array<ImageT, 1, 1> tempArr = ndarray::allocate(D_A1_CCD.getShape()[0]);
         tempArr.deep() = D_A1_CCD - D_A1_YFit;
         Eigen::Array<ImageT, Eigen::Dynamic, 1> tempEArr = tempArr.asEigen();
@@ -2252,18 +2154,15 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
         D_SDevReject = sqrt(tempArr.asEigen().sum() / ImageT(I_SumMaskLast));
 
         D_A1_Diff.deep() = D_A1_CCD_In - (*P_D_A1_YFit);
-        #ifdef __DEBUG_FIT__
-          cout << "CFits::LinFitBevington: I_Run=" << I_Run << ": Reject: D_SDevReject = " << D_SDevReject << endl;
-          cout << "CFits::LinFitBevington: I_Run=" << I_Run << ": Reject: D_A1_CCD_In = " << D_A1_CCD_In << endl;
-          cout << "CFits::LinFitBevington: I_Run=" << I_Run << ": Reject: *P_D_A1_YFit = " << *P_D_A1_YFit << endl;
-          cout << "CFits::LinFitBevington: I_Run=" << I_Run << ": Reject: D_A1_CCD_In - (*P_D_A1_YFit) = " << D_A1_Diff << endl;
-        #endif
+        LOGLS_DEBUG(_log, " I_Run=" << I_Run << ": Reject: D_SDevReject = " << D_SDevReject);
+        LOGLS_DEBUG(_log, " I_Run=" << I_Run << ": Reject: D_A1_CCD_In = " << D_A1_CCD_In);
+        LOGLS_DEBUG(_log, " I_Run=" << I_Run << ": Reject: *P_D_A1_YFit = " << *P_D_A1_YFit);
+        LOGLS_DEBUG(_log, " I_Run=" << I_Run << ": Reject: D_A1_CCD_In - (*P_D_A1_YFit) = " << D_A1_Diff);
+
         tempEArr = D_A1_Diff.asEigen();
         D_A1_Check.asEigen() = tempEArr.abs();
-        #ifdef __DEBUG_FIT__
-          cout << "CFits::LinFitBevington: I_Run=" << I_Run << ": Reject: D_A1_Check = " << D_A1_Check << endl;
-          cout << "CFits::LinFitBevington: I_Run=" << I_Run << ": before Reject: *P_I_A1_Mask = " << *P_I_A1_Mask << endl;
-        #endif
+        LOGLS_DEBUG(_log, " I_Run=" << I_Run << ": Reject: D_A1_Check = " << D_A1_Check);
+        LOGLS_DEBUG(_log, " I_Run=" << I_Run << ": before Reject: *P_I_A1_Mask = " << *P_I_A1_Mask);
         I_A1_LastMask = *P_I_A1_Mask;
         for (size_t pos = 0; pos < D_A1_Check.getShape()[0]; ++pos){
           (*P_I_A1_Mask)[pos] = (D_A1_Check[pos] > (D_Reject * D_SDevReject)) ? 0 : 1;
@@ -2277,14 +2176,10 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
             if (I_A1_LastMask[pos] < 1)
               (*P_I_A1_Mask)[pos] = 0;
         }
-        #ifdef __DEBUG_FIT__
-          cout << "CFits::LinFitBevington: I_Run=" << I_Run << ": Reject: *P_I_A1_Mask = " << *P_I_A1_Mask << endl;
-        #endif
+        LOGLS_DEBUG(_log, " I_Run=" << I_Run << ": Reject: *P_I_A1_Mask = " << *P_I_A1_Mask);
         if (I_SumMaskLast == P_I_A1_Mask->asEigen().sum()){
           B_Run = false;
-          #ifdef __DEBUG_FIT__
-            cout << "CFits::LinFitBevington: I_Run=" << I_Run << ": leaving while loop" << endl;
-          #endif
+          LOGLS_DEBUG(_log, " I_Run=" << I_Run << ": leaving while loop");
         }
         else{
           D_Sky_Out = 0.;
@@ -2296,13 +2191,9 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
       }
     }/// end while (B_Run)
 
-    #ifdef __DEBUG_FIT__
-      cout << "CFits::LinFitBevington: *P_D_A1_YFit set to " << *P_D_A1_YFit << endl;
-      cout << "CFits::LinFitBevington: *P_I_A1_Mask set to " << *P_I_A1_Mask << endl;
-    #endif
-    #ifdef __DEBUG_CURVEFIT__
-      cout << "CurveFitting::LinFitBevingtonNdArray(D_A1_CCD, D_A1_SF, SP, Sky, withSky, Args, ArgV) finished" << endl;
-    #endif
+    LOGLS_DEBUG(_log, " *P_D_A1_YFit set to " << *P_D_A1_YFit);
+    LOGLS_DEBUG(_log, " *P_I_A1_Mask set to " << *P_I_A1_Mask);
+    LOGLS_DEBUG(_log, ": LinFitBevingtonNdArray(D_A1_CCD, D_A1_SF, SP, Sky, withSky, Args, ArgV) finished");
     return status;
   }
 
