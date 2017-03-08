@@ -2,16 +2,7 @@
 *.os
 *.pyc
 *.so
-*.dat
-*.fits
-*.text
-*.log
-*.bak
 bin
-src_old/*
-.sconf_temp
-.sconsign.dblite
-config.log
 doc/html
 doc/doxygen.conf
 doc/drp_stella.tag
