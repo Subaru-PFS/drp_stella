@@ -936,7 +936,7 @@ namespace pfsDRPStella = pfs::drp::stella;
           #ifdef __DEBUG_CALCPROFILE__
             cout << "FiberTrace" << _iTrace << "::calcProfile: slitFuncsSwaths(iRowSwath, *, I_Bin) = " << ndarray::Array<double, 1, 0>(slitFuncsSwaths[ndarray::view(iRowSwath)()(I_Bin)]) << ", slitFuncsSwaths(int(i_row - swathBoundsY[I_Bin+1][0])=" << int(i_row - swathBoundsY[I_Bin+1][0]) << ", *, I_Bin+1) = " << ndarray::Array<double, 1, 0>(slitFuncsSwaths[ndarray::view(int(i_row - swathBoundsY[I_Bin+1][0]))()(I_Bin+1)]) << endl;
           #endif
-          _profile->getArray()[ndarray::view(static_cast<int>(i_row))()] = (ndarray::Array<double, 1, 0>(slitFuncsSwaths[ndarray::view(iRowSwath)()(I_Bin)]) * D_Weight_Bin0) + (ndarray::Array<double, 1, 0>(slitFuncsSwaths[ndarray::view(int(i_row - swathBoundsY[I_Bin+1][0]))()(I_Bin+1)]) * D_Weight_Bin1);
+          _profile->getArray()[ndarray::view(i_row)()] = (slitFuncsSwaths[ndarray::view(iRowSwath)()(I_Bin)] * D_Weight_Bin0) + (slitFuncsSwaths[ndarray::view(int(i_row - swathBoundsY[I_Bin+1][0]))()(I_Bin+1)] * D_Weight_Bin1);
         }
         int int_i_row = static_cast<int>(i_row);
         double dSumSFRow = ndarray::sum(_profile->getArray()[ndarray::view(int_i_row)()]);
