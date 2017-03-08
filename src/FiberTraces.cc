@@ -782,13 +782,11 @@ namespace pfsDRPStella = pfs::drp::stella;
     if (!_isTraceSet){
       string message("FiberTrace ");
       message += to_string(_iTrace) + "::calcProfile: ERROR: _Trace is not set";
-      cout << message << endl;
       throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
     }
     if (!_isFiberTraceProfileFittingControlSet){
       string message("FiberTrace ");
       message += to_string(_iTrace) + "::calcProfile: ERROR: _fiberTraceProfileFittingControl is not set";
-      cout << message << endl;
       throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
     }
 
@@ -1017,31 +1015,26 @@ namespace pfsDRPStella = pfs::drp::stella;
     if (imageSwath.getShape()[0] != maskSwath.getShape()[0]){
       string message("pfs::drp::stella::FiberTrace::calcProfileSwath: ERROR: imageSwath.getShape()[0](=");
       message += to_string(imageSwath.getShape()[0]) + ") != maskSwath.getShape()[0](=" + to_string(maskSwath.getShape()[0]);
-      cout << message << endl;
       throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
     }
     if (imageSwath.getShape()[0] != varianceSwath.getShape()[0]){
       string message("pfs::drp::stella::FiberTrace::calcProfileSwath: ERROR: imageSwath.getShape()[0](=");
       message += to_string(imageSwath.getShape()[0]) + ") != varianceSwath.getShape()[0](=" + to_string(varianceSwath.getShape()[0]);
-      cout << message << endl;
       throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
     }
     if (imageSwath.getShape()[0] != xCentersSwath.getShape()[0]){
       string message("pfs::drp::stella::FiberTrace::calcProfileSwath: ERROR: imageSwath.getShape()[0](=");
       message += to_string(imageSwath.getShape()[0]) + ") != xCentersSwath.getShape()[0](=" + to_string(xCentersSwath.getShape()[0]);
-      cout << message << endl;
       throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
     }
     if (imageSwath.getShape()[1] != maskSwath.getShape()[1]){
       string message("pfs::drp::stella::FiberTrace::calcProfileSwath: ERROR: imageSwath.getShape()[1](=");
       message += to_string(imageSwath.getShape()[1]) + ") != maskSwath.getShape()[1](=" + to_string(maskSwath.getShape()[1]);
-      cout << message << endl;
       throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
     }
     if (imageSwath.getShape()[1] != varianceSwath.getShape()[1]){
       string message("pfs::drp::stella::FiberTrace::calcProfileSwath: ERROR: imageSwath.getShape()[1](=");
       message += to_string(imageSwath.getShape()[1]) + ") != varianceSwath.getShape()[1](=" + to_string(varianceSwath.getShape()[1]);
-      cout << message << endl;
       throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
     }
 
