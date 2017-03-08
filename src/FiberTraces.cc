@@ -125,7 +125,6 @@ namespace pfsDRPStella = pfs::drp::stella;
 
     if (!fiberTraceProfileFittingControl->isClassInvariant()){
       string message("FiberTrace::setFiberTraceProfileFittingControl: ERROR: fiberTraceProfileFittingControl is not ClassInvariant");
-      cout << message << endl;
       throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
     }
 
@@ -158,7 +157,6 @@ namespace pfsDRPStella = pfs::drp::stella;
 
     if (!fiberTraceProfileFittingControl->isClassInvariant()){
       string message("FiberTrace::setFiberTraceProfileFittingControl: ERROR: fiberTraceProfileFittingControl is not ClassInvariant");
-      cout << message << endl;
       throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
     }
 
@@ -179,13 +177,11 @@ namespace pfsDRPStella = pfs::drp::stella;
     if (image->getWidth() != int(_trace->getWidth())){
       string message("FiberTrace.setImage: ERROR: image.getWidth(=");
       message += to_string(image->getWidth()) + string(") != _trace->getWidth(=") + to_string(_trace->getWidth()) + string(")");
-      cout << message << endl;
       throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
     }
     if (image->getHeight() != int(_trace->getHeight())){
       string message("FiberTrace.setImage: ERROR: image.getHeight(=");
       message += to_string(image->getHeight()) + string(") != _trace->getHeight(=") + to_string(_trace->getHeight()) + string(")");
-      cout << message << endl;
       throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
     }
 
@@ -202,13 +198,11 @@ namespace pfsDRPStella = pfs::drp::stella;
     if (mask->getWidth() != int(_trace->getWidth())){
       string message("FiberTrace.setMask: ERROR: mask.getWidth(=");
       message += to_string(mask->getWidth()) + string(") != _trace->getWidth()(=") + to_string(_trace->getWidth()) + string(")");
-      cout << message << endl;
       throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
     }
     if (mask->getHeight() != int(_trace->getHeight())){
       string message("FiberTrace.setMask: ERROR: mask.getHeight(=");
       message += to_string(mask->getHeight()) + string(") != _trace->getHeight()(=") + to_string(_trace->getHeight()) + string(")");
-      cout << message << endl;
       throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
     }
 
@@ -225,13 +219,11 @@ namespace pfsDRPStella = pfs::drp::stella;
     if (variance->getWidth() != int(_trace->getWidth())){
       string message("FiberTrace.setVariance: ERROR: variance.getWidth(=");
       message += to_string(variance->getWidth()) + string(") != _trace->getWidth(=") + to_string(_trace->getWidth()) + string(")");
-      cout << message << endl;
       throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
     }
     if (variance->getHeight() != int(_trace->getHeight())){
       string message("FiberTrace.setVariance: ERROR: variance.getHeight(=");
       message += to_string(variance->getHeight()) + string(") != _trace->getHeight(=") + to_string(_trace->getHeight()) + string(")");
-      cout << message << endl;
       throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
     }
 
@@ -247,14 +239,12 @@ namespace pfsDRPStella = pfs::drp::stella;
       string message( "FiberTrace" );
       message += to_string( _iTrace ) + string( "::setTrace: ERROR: trace->getHeight(=" ) + to_string( trace->getHeight() ) + string( ") != _trace->getHeight(=" );
       message += to_string( _trace->getHeight() ) + string( ")" );
-      cout << message << endl;
       throw LSST_EXCEPT( pexExcept::Exception, message.c_str() );
     }
     if ( _isTraceSet && ( trace->getWidth() != int( _trace->getWidth() ) ) ){
       string message ( "FiberTrace");
       message += to_string( _iTrace ) + string( "::setTrace: ERROR: trace->getWidth(=" ) + to_string( trace->getWidth() ) + string( ") != _trace->getWidth(=" );
       message += to_string( _trace->getWidth() ) + string( ")" );
-      cout << message << endl;
       throw LSST_EXCEPT( pexExcept::Exception, message.c_str() );
     }
 
@@ -271,7 +261,6 @@ namespace pfsDRPStella = pfs::drp::stella;
     if (!_isTraceSet){
       string message("FiberTrace");
       message += to_string(_iTrace) + string("::setProfile: ERROR: _trace not set");
-      cout << message << endl;
       throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
     }
 
@@ -279,13 +268,11 @@ namespace pfsDRPStella = pfs::drp::stella;
     if (profile->getWidth() != _trace->getWidth()){
       string message("FiberTrace.setProfile: ERROR: profile->getWidth(=");
       message += to_string(profile->getWidth()) + string(") != _trace->getWidth(=") + to_string(_trace->getWidth()) + string(")");
-      cout << message << endl;
       throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
     }
     if (profile->getHeight() != _trace->getHeight()){
       string message("FiberTrace.setProfile: ERROR: profile->getHeight(=");
       message += to_string(profile->getHeight()) + string(") != _trace->getHeight(=") + to_string(_trace->getHeight()) + string(")");
-      cout << message << endl;
       throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
     }
 
@@ -320,37 +307,31 @@ namespace pfsDRPStella = pfs::drp::stella;
     if ( !spectrum->setSpectrum( spec ) ){
       string message("FiberTrace");
       message += to_string(_iTrace) + "::extractSum: ERROR: spectrum->setSpectrum(spec) returned FALSE";
-      cout << message << endl;
       throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
     }
     if (!spectrum->setVariance(var)){
       string message("FiberTrace");
       message += to_string(_iTrace) + "::extractSum: ERROR: spectrum->setVariance(var) returned FALSE";
-      cout << message << endl;
       throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
     }
     if (!spectrum->setMask(mask)){
       string message("FiberTrace");
       message += to_string(_iTrace) + "::extractSum: ERROR: spectrum->setMask(mask) returned FALSE";
-      cout << message << endl;
       throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
     }
     if ( !spectrum->setNCCDRows( getHeight() ) ){
       string message( "FiberTrace" );
       message += to_string(_iTrace) + "::extractSum: ERROR: spectrum->setNCCDRows(getHeight()) returned FALSE";
-      cout << message << endl;
       throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
     }
     if ( !spectrum->setYLow( _fiberTraceFunction->yCenter + _fiberTraceFunction->yLow ) ){
       string message( "FiberTrace" );
       message += to_string(_iTrace) + "::extractSum: ERROR: spectrum->setYLow(_fiberTraceFunction->yCenter + _fiberTraceFunction->yLow) returned FALSE";
-      cout << message << endl;
       throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
     }
     if ( !spectrum->setYHigh( _fiberTraceFunction->yCenter + _fiberTraceFunction->yHigh ) ){
       string message( "FiberTrace" );
       message += to_string(_iTrace) + "::extractSum: ERROR: spectrum->setYHigh(_fiberTraceFunction->yCenter + _fiberTraceFunction->yHigh) returned FALSE";
-      cout << message << endl;
       throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
     }
     return spectrum;
@@ -573,7 +554,6 @@ namespace pfsDRPStella = pfs::drp::stella;
       message += to_string(_iTrace) + string("::createTrace: ERROR: _xCenters.getShape()[0]=") + to_string(_xCenters.getShape()[0]);
       message += string(" != (_fiberTraceFunction->yHigh(=") + to_string(_fiberTraceFunction->yHigh) + string(") - _fiberTraceFunction->yLow(=");
       message += to_string(_fiberTraceFunction->yLow) + string(") + 1)=") + to_string(_fiberTraceFunction->yHigh - _fiberTraceFunction->yLow + 1);
-      cout << message << endl;
       throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
     }
 
@@ -591,7 +571,6 @@ namespace pfsDRPStella = pfs::drp::stella;
       message += to_string(_iTrace) + string("::createTrace: ERROR: _trace.getHeight(=") + to_string(_trace->getHeight()) + string(") != (_fiberTraceFunction->yHigh(=");
       message += to_string(_fiberTraceFunction->yHigh) + string(") - _fiberTraceFunction->yLow(=") + to_string(_fiberTraceFunction->yLow) + string(") + 1) = ");
       message += to_string(_fiberTraceFunction->yHigh - _fiberTraceFunction->yLow + 1);
-      cout << message << endl;
       throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
     }
 
@@ -599,13 +578,11 @@ namespace pfsDRPStella = pfs::drp::stella;
       if (oldTraceHeight != getHeight()){
         string message("FiberTrace ");
         message += to_string(_iTrace) + string("::createTrace: ERROR: oldTraceHeight(=") + to_string(oldTraceHeight) + string(") != getHeight(=") + to_string(getHeight());
-        cout << message << endl;
         throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
       }
       if (oldTraceWidth != getWidth()){
         string message("FiberTrace ");
         message += to_string(_iTrace) + string("::createTrace: ERROR: oldTraceWidth(=") + to_string(oldTraceWidth) + string(") != getWidth(=") + to_string(getWidth());
-        cout << message << endl;
         throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
       }
     }
@@ -656,7 +633,6 @@ namespace pfsDRPStella = pfs::drp::stella;
       message += to_string(_iTrace) + string("::createTrace: 2. ERROR: _trace.getHeight(=") + to_string(_trace->getHeight()) + string(") != (_fiberTraceFunction->yHigh(=");
       message += to_string(_fiberTraceFunction->yHigh) + string(") - _fiberTraceFunction->yLow(=") + to_string(_fiberTraceFunction->yLow) + string(") + 1) = ");
       message += to_string(_fiberTraceFunction->yHigh - _fiberTraceFunction->yLow + 1);
-      cout << message << endl;
       throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
     }
     if (static_cast<size_t>(_xCenters.getShape()[0]) !=
@@ -665,7 +641,6 @@ namespace pfsDRPStella = pfs::drp::stella;
       message += to_string(_iTrace) + string("::createTrace: 2. ERROR: xCenters.getShape()[0]=") + to_string(_xCenters.getShape()[0]);
       message += string(") != (_fiberTraceFunction->yHigh(=") + to_string(_fiberTraceFunction->yHigh) + string(") - _fiberTraceFunction->yLow(=");
       message += to_string(_fiberTraceFunction->yLow) + string(") + 1)=") + to_string(_fiberTraceFunction->yHigh - _fiberTraceFunction->yLow + 1);
-      cout << message << endl;
       throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
     }
     #ifdef __DEBUG_CREATETRACE__
@@ -1019,7 +994,6 @@ namespace pfsDRPStella = pfs::drp::stella;
       string message("pfs::drp::stella::FiberTrace::setXCenters: ERROR: xCenters.getShape()[ 0 ](=" );
       message += std::to_string( xCenters.getShape()[ 0 ] ) + ") != _fiberTraceFunction.yHigh - _fiberTraceFunction.yLow + 1(=";
       message += std::to_string( _fiberTraceFunction->yHigh - _fiberTraceFunction->yLow + 1 )+ ")";
-      cout << message << endl;
       throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
     }
     _xCenters = ndarray::allocate( xCenters.getShape()[0] );
@@ -1356,7 +1330,6 @@ namespace pfsDRPStella = pfs::drp::stella;
       if (!(*_traces)[i]->createTrace(maskedImage)){
         string message("FiberTraceSet::createTraces: ERROR: _traces[");
         message += to_string(i) + string("] returned FALSE");
-        cout << message << endl;
         throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
       }
     }
@@ -1369,7 +1342,6 @@ namespace pfsDRPStella = pfs::drp::stella;
   ){
     if (i > static_cast<int>(_traces->size())){
       string message("FiberTraceSet::setFiberTrace: ERROR: position for trace outside range!");
-      cout << message << endl;
       throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
     }
     if (i == static_cast<int>(_traces->size())){
@@ -1386,7 +1358,6 @@ namespace pfsDRPStella = pfs::drp::stella;
     if (i >= _traces->size()){
       string message("FiberTraceSet::getFiberTrace(i=");
       message += to_string(i) + string("): ERROR: i > _traces->size()=") + to_string(_traces->size());
-      cout << message << endl;
       throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
     }
     return _traces->at(i);
@@ -1397,7 +1368,6 @@ namespace pfsDRPStella = pfs::drp::stella;
     if (i >= _traces->size()){
       string message("FiberTraceSet::getFiberTrace(i=");
       message += to_string(i) + "): ERROR: i > _traces->size()=" + to_string(_traces->size());
-      cout << message << endl;
       throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
     }
     return _traces->at(i);
@@ -1417,20 +1387,17 @@ namespace pfsDRPStella = pfs::drp::stella;
     if (iStart >= _traces->size()){
       string message("FiberTraceSet::erase(iStart=");
       message += to_string(iStart) + ", iEnd=" + to_string(iEnd) + "): ERROR: iStart >= _traces->size()=" + to_string(_traces->size());
-      cout << message << endl;
       throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
     }
     if (iEnd >= _traces->size()){
       string message("FiberTraceSet::erase(iStart=");
       message += to_string(iStart) + ", iEnd=" + to_string(iEnd) + "): ERROR: iEnd >= _traces->size()=" + to_string(_traces->size());
-      cout << message << endl;
       throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
     }
     if (iEnd > 0){
       if (iStart > iEnd){
         string message("FiberTraceSet::erase(iStart=");
         message += to_string(iStart) + ", iEnd=" + to_string(iEnd) + "): ERROR: iStart > iEnd";
-        cout << message << endl;
         throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
       }
     }
@@ -1498,7 +1465,6 @@ namespace pfsDRPStella = pfs::drp::stella;
       if (!(*_traces)[i]->setFiberTraceProfileFittingControl(fiberTraceProfileFittingControl)){
         string message("FiberTraceSet::setFiberTraceProfileFittingControl: ERROR: (*_traces)[");
         message += to_string(i) + "]->setFiberTraceProfileFittingControl(fiberTraceProfileFittingControl) returned FALSE";
-        cout << message << endl;
         throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
       }
     }
@@ -1528,7 +1494,6 @@ namespace pfsDRPStella = pfs::drp::stella;
       if (!(*_traces)[i]->setProfile(fiberTraceSet->getFiberTrace(i)->getProfile())){
         string message("FiberTraceSet::copyAllProfiles: ERROR: (*_traces)[");
         message += to_string(i) + "].setProfile(fiberTraceSet->getFiberTrace(" + to_string(i) + ")->getProfile()) returned FALSE";
-        cout << message << endl;
         throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
       }
     }
@@ -1541,7 +1506,6 @@ namespace pfsDRPStella = pfs::drp::stella;
       if (!(*_traces)[i]->calcProfile()){
         string message("FiberTraceSet::copyAllProfiles: ERROR: (*_traces)[");
         message += to_string(i) + "].calcProfile() returned FALSE";
-        cout << message << endl;
         throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
       }
     }
@@ -1661,7 +1625,6 @@ namespace pfsDRPStella = pfs::drp::stella;
             message += to_string(fiberTrace->getXCenters().getShape()[0]) + string(") != (fiberTraceFunction.yHigh(=");
             message += to_string(fiberTraceFunction.yHigh) + string(") - fiberTraceFunction.yLow(=") + to_string(fiberTraceFunction.yLow);
             message += string(") + 1) = ") + to_string(fiberTraceFunction.yHigh - fiberTraceFunction.yLow + 1);
-            cout << message << endl;
             throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
           }
           if (fiberTrace->getTrace()->getHeight() != (fiberTraceFunction.yHigh - fiberTraceFunction.yLow + 1)){
@@ -1670,7 +1633,6 @@ namespace pfsDRPStella = pfs::drp::stella;
             message += to_string(fiberTrace->getTrace()->getHeight()) + string(")!= (fiberTraceFunction.yHigh(=");
             message += to_string(fiberTraceFunction.yHigh) + string(") - fiberTraceFunction.yLow(=") + to_string(fiberTraceFunction.yLow);
             message += string(") + 1) = ") + to_string(fiberTraceFunction.yHigh - fiberTraceFunction.yLow + 1);
-            cout << message << endl;
             throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
           }
           if (fiberTraceFunctionFindingControl->fiberTraceFunctionControl.xLow
@@ -2230,7 +2192,6 @@ namespace pfsDRPStella = pfs::drp::stella;
                       string message("pfs::drp::stella::math::findCenterPositionsOneTrace: ERROR: (D_A2_Limits[1][0](=");
                       message += to_string(D_A2_Limits[1][0]) + ") > max(D_A1_X)(=" + to_string(max(D_A1_X)) + ")) || (D_A2_Limits[1][1](=";
                       message += to_string(D_A2_Limits[1][1]) + ") < min(D_A1_X)(=" + to_string(min(D_A1_X)) + "))";
-                      cout << message << endl;
                       throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
                     }
                     if (!MPFitGaussLim(D_A1_X,
@@ -2467,7 +2428,6 @@ namespace pfsDRPStella = pfs::drp::stella;
           cout << "pfs::drp::stella::calculateXCenters: yLow = " << fiberTraceFunctionIn->yLow << endl;
           cout << "pfs::drp::stella::calculateXCenters: yHigh = " << fiberTraceFunctionIn->yHigh << endl;
           std::string message("pfs::drp::stella::calculateXCenters: ERROR: Legendre(...) returned FALSE!!!");
-          cout << message << endl;
           throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
         }
         #ifdef __DEBUG_XCENTERS__
@@ -2501,7 +2461,6 @@ namespace pfsDRPStella = pfs::drp::stella;
                              int(ccdWidth),
                              int(ccdHeight))){
           std::string message("pfs::drp::stella::calculateXCenters: ERROR: Chebyshev(...) returned FALSE!!!");
-          cout << message << endl;
           throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
         }
         xCenters -= 1.;*/
@@ -2552,7 +2511,6 @@ namespace pfsDRPStella = pfs::drp::stella;
                                               int(ccdWidth),
                                               int(ccdHeight))){
           std::string message("pfs::drp::stella::calculateXCenters: ERROR: LinearSpline(...) returned FALSE!!!");
-          cout << message << endl;
           throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
         }
         xCenters -= 1.;
@@ -2574,7 +2532,6 @@ namespace pfsDRPStella = pfs::drp::stella;
                                              int(ccdWidth),
                                              int(ccdHeight))){
           std::string message("pfs::drp::stella::calculateXCenters: ERROR: CubicSpline(...) returned FALSE!!!");
-          cout << message << endl;
           throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
         }
         xCenters -= 1.;
@@ -2616,7 +2573,6 @@ namespace pfsDRPStella = pfs::drp::stella;
       if ( xCenters.getShape()[ 0 ] != flatFiberTrace.getHeight() ){
         std::string message("pfs::drp::stella::math::makeNormFlatFiberTrace: ERROR: xCenters.getShape()[ 0 ](=");
         message += std::to_string(xCenters.getShape()[ 0 ]) + " != flatFiberTrace.getHeight()(=" + std::to_string(flatFiberTrace.getHeight()) + ")";
-        cout << message << endl;
         throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
       }
 
@@ -2647,7 +2603,6 @@ namespace pfsDRPStella = pfs::drp::stella;
       if ( xCenters.getShape()[ 0 ] != minCenMaxWide.getShape()[0] ){
         std::string message("pfs::drp::stella::math::makeNormFlatFiberTrace: ERROR: xCenters.getShape()[ 0 ](=");
         message += std::to_string(xCenters.getShape()[ 0 ]) + " != minCenMaxWide.getShape()[0](=" + std::to_string(minCenMaxWide.getShape()[0]) + ")";
-        cout << message << endl;
         throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
       }
 
@@ -2674,7 +2629,6 @@ namespace pfsDRPStella = pfs::drp::stella;
       if ( normFlatFiberTrace.getHeight() != flatFiberTrace.getHeight() ){
         std::string message( "pfs::drp::stella::math::makeNormFlatFiberTrace: ERROR: normFlatFiberTrace.getHeight(=" );
         message += std::to_string( normFlatFiberTrace.getHeight() ) + " != flatFiberTrace.getHeight()(=" + std::to_string( flatFiberTrace.getHeight() ) + ")";
-        cout << message << endl;
         throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
       }
       normFlatFiberTrace.setFiberTraceFunction( fiberTraceFunctionNarrow.getPointer() );
@@ -2758,13 +2712,11 @@ namespace pfsDRPStella = pfs::drp::stella;
         string message("pfs::drp::stella::math::addFiberTraceToCcdArray: ERROR: fiberTraceRepresentation.getDimensions()[ 0 ](=");
         message += to_string( fiberTraceRepresentation.getDimensions()[ 0 ] ) + " != ( minCenMax[ 0 ][ 2 ] - minCenMax[ 0 ][ 0 ] + 1 )(= ";
         message += to_string( minCenMax[ 0 ][ 2 ] - minCenMax[ 0 ][ 0 ] + 1 ) + ")";
-        cout << message << endl;
         throw LSST_EXCEPT( pexExcept::Exception, message.c_str() );
       }
       if ( fiberTraceRepresentation.getDimensions()[ 1 ] != minCenMax.getShape()[ 0 ] ){
         string message( "pfs::drp::stella::math::addFiberTraceToCcdArray: ERROR: fiberTraceRepresentation.getDimensions()[ 1 ] )(=");
         message += to_string( fiberTraceRepresentation.getDimensions()[ 1 ] ) + ") != minCenMax.getShape()[ 0 ](=" + to_string( minCenMax.getShape()[ 0 ] ) + ")";
-        cout << message << endl;
         throw LSST_EXCEPT( pexExcept::Exception, message.c_str() );
       }
 
