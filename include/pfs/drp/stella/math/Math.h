@@ -816,7 +816,7 @@ namespace pfs { namespace drp { namespace stella {
     //    template< typename T >
 //    ndarray::Array< T, 2, 1 > get2DArray(ndarray::Array< T, 1, 1 > const& xIn, ndarray::Array< T, 1, 1 > const& yIn);
   }/// end namespace math
-  
+
 }}}
 
 template< typename T >
