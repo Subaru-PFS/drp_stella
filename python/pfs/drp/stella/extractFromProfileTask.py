@@ -39,19 +39,19 @@ class ExtractFromProfileTask(Task):
         # --- create FiberTraceFunctionFindingControl
         fiberTraceExtractionControl = drpStella.FiberTraceExtractionControl()
         fiberTraceExtractionControl.maxIterSig = self.config.maxIterSig
-    
+
         """Create a FiberTraceSet given a flat-field fits file name"""
         specFiberTraceSet = inFlatFiberTraceSet
 #        maskedImage = boost::shared_ptr< afwImage::MaskedImageF >(inExposure.getMaskedImage())
-        if inTraceNumbers[0] == -1 :
-            for i in specFiberTraceSet : 
+        if inTraceNumbers[0] == -1:
+            for i in specFiberTraceSet:
                 i.createTrace(inExposure.getMaskedImage())
                 i.extractFromProfile()
-        else :
-            for i in inTraceNumbers :
+        else:
+            for i in inTraceNumbers:
                 specFiberTraceSet.getFiberTrace(i).createTrace(inExposure.getMaskedImage())
                 specFiberTraceSet.getFiberTrace(i).extractFromProfile()
-          
+
         return specFiberTraceSet
 
     def run(self, inFlatFiberTraceSet, inExposure, inTraceNumbers=[-1]):
@@ -59,8 +59,7 @@ class ExtractFromProfileTask(Task):
 
         This method changes the input FiberTraceSet and returns void
         """
-        
+
         self.extractFromProfile(inFlatFiberTraceSet, inExposure, inTraceNumbers)
-        
+
         return
- 
