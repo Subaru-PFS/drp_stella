@@ -1044,7 +1044,6 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
       I_ArgPos++;
     }
 
-
     ndarray::Array<ImageT, 1, 1> D_A1_YFit = ndarray::allocate(D_A2_CCD_In.getShape()[1]);
     PTR(ndarray::Array<ImageT, 1, 1>) P_D_A1_YFit(new ndarray::Array<ImageT, 1, 1>(D_A1_YFit));
 
