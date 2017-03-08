@@ -235,7 +235,7 @@ namespace pfs { namespace drp { namespace stella {
       const std::vector< T > getYCentersPSFCCD() const { return _yCentersPSFCCD; }
       const std::vector< unsigned long > getNPixPerPSF() const { return _nPixPerPSF; }
       const std::vector< T > getXRangePolynomial() const { return _xRangePolynomial; }
-      
+
       bool setImagePSF_ZTrace( ndarray::Array< T, 1, 1 > const& zTrace);
       bool setImagePSF_ZTrace( std::vector< T > const& zTrace);
       bool setImagePSF_ZNormalized( ndarray::Array< T, 1, 1 > const& zNormalized);
@@ -567,7 +567,7 @@ namespace math{
                                                          float dXMax = 1.,
                                                          float dYMax = 1.,
                                                          bool setPsfXY = false);
-  
+
 }
 }}}
 #include "PSFTemplates.hpp"
