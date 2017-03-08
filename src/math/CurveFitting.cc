@@ -983,25 +983,21 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
     if (D_A2_CCD_In.getShape()[0] != D_A2_SF_In.getShape()[0]){
       string message("pfs::drp::stella::math::CurveFitting::LinFitBevingtonNdArray: ERROR: D_A2_CCD_In.getShape()[0](=");
       message += to_string(D_A2_CCD_In.getShape()[0]) + ") != D_A2_SF_In.getShape()[0](=" + to_string(D_A2_SF_In.getShape()[0]) + ")";
-      cout << message << endl;
       throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
     }
     if (D_A2_CCD_In.getShape()[1] != D_A2_SF_In.getShape()[1]){
       string message("pfs::drp::stella::math::CurveFitting::LinFitBevingtonNdArray: ERROR: D_A2_CCD_In.getShape()[1](=");
       message += to_string(D_A2_CCD_In.getShape()[1]) + ") != D_A2_SF_In.getShape()[1](=" + to_string(D_A2_SF_In.getShape()[1]) + ")";
-      cout << message << endl;
       throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
     }
     if (D_A1_SP_Out.getShape()[0] != D_A2_CCD_In.getShape()[0]){
       string message("pfs::drp::stella::math::CurveFitting::LinFitBevingtonNdArray: ERROR: D_A2_CCD_In.getShape()[0](=");
       message += to_string(D_A2_CCD_In.getShape()[0]) + ") != D_A1_SP_Out.getShape()[0](=" + to_string(D_A1_SP_Out.getShape()[0]) + ")";
-      cout << message << endl;
       throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
     }
     if (D_A1_Sky_Out.getShape()[0] != D_A2_CCD_In.getShape()[0]){
       string message("pfs::drp::stella::math::CurveFitting::LinFitBevingtonNdArray: ERROR: D_A2_CCD_In.getShape()[0](=");
       message += to_string(D_A2_CCD_In.getShape()[0]) + ") != D_A1_Sky_Out.getShape()[0](=" + to_string(D_A1_Sky_Out.getShape()[0]) + ")";
-      cout << message << endl;
       throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
     }
     int i, I_ArgPos = 0;
@@ -1027,13 +1023,11 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
       if (P_D_A2_Sigma->getShape()[0] != D_A2_CCD_In.getShape()[0]){
         string message("pfs::drp::stella::math::CurveFitting::LinFitBevingtonNdArray: ERROR: D_A2_CCD_In.getShape()[0](=");
         message += to_string(D_A2_CCD_In.getShape()[0]) + ") != P_D_A2_Sigma->getShape()[0](=" + to_string(P_D_A2_Sigma->getShape()[0]) + ")";
-        cout << message << endl;
         throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
       }
       if (P_D_A2_Sigma->getShape()[1] != D_A2_CCD_In.getShape()[1]){
         string message("pfs::drp::stella::math::CurveFitting::LinFitBevingtonNdArray: ERROR: D_A2_CCD_In.getShape()[1](=");
         message += to_string(D_A2_CCD_In.getShape()[1]) + ") != P_D_A2_Sigma->getShape()[1](=" + to_string(P_D_A2_Sigma->getShape()[1]) + ")";
-        cout << message << endl;
         throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
       }
       #ifdef __DEBUG_FITARR__
@@ -1053,7 +1047,6 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
       if (P_D_A1_ChiSq->getShape()[0] != D_A2_CCD_In.getShape()[0]){
         string message("pfs::drp::stella::math::CurveFitting::LinFitBevingtonNdArray: ERROR: D_A2_CCD_In.getShape()[0](=");
         message += to_string(D_A2_CCD_In.getShape()[0]) + ") != P_D_A1_ChiSq->getShape()[0](=" + to_string(P_D_A1_ChiSq->getShape()[0]) + ")";
-        cout << message << endl;
         throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
       }
       S_A1_Args_Fit[I_ArgPos] = "CHISQ_OUT";
@@ -1070,7 +1063,6 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
       if (P_D_A1_Q->getShape()[0] != D_A2_CCD_In.getShape()[0]){
         string message("pfs::drp::stella::math::CurveFitting::LinFitBevingtonNdArray: ERROR: D_A2_CCD_In.getShape()[0](=");
         message += to_string(D_A2_CCD_In.getShape()[0]) + ") != P_D_A1_Q->getShape()[0](=" + to_string(P_D_A1_Q->getShape()[0]) + ")";
-        cout << message << endl;
         throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
       }
       S_A1_Args_Fit[I_ArgPos] = "Q_OUT";
@@ -1090,13 +1082,11 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
       if (P_D_A2_Sigma_Out->getShape()[0] != D_A2_CCD_In.getShape()[0]){
         string message("pfs::drp::stella::math::CurveFitting::LinFitBevingtonNdArray: ERROR: D_A2_CCD_In.getShape()[0](=");
         message += to_string(D_A2_CCD_In.getShape()[0]) + ") != P_D_A2_Sigma_Out->getShape()[0](=" + to_string(P_D_A2_Sigma_Out->getShape()[0]) + ")";
-        cout << message << endl;
         throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
       }
       if (P_D_A2_Sigma_Out->getShape()[1] != 2){
         string message("pfs::drp::stella::math::CurveFitting::LinFitBevingtonNdArray: ERROR: P_D_A2_Sigma->getShape()[1](=");
         message += to_string(P_D_A2_Sigma->getShape()[0]) + ") != 2";
-        cout << message << endl;
         throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
       }
       S_A1_Args_Fit[I_ArgPos] = "SIGMA_OUT";
@@ -1117,13 +1107,11 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
       if (P_D_A2_YFit->getShape()[0] != D_A2_CCD_In.getShape()[0]){
         string message("pfs::drp::stella::math::CurveFitting::LinFitBevingtonNdArray: ERROR: D_A2_CCD_In.getShape()[0](=");
         message += to_string(D_A2_CCD_In.getShape()[0]) + ") != P_D_A2_YFit->getShape()[0](=" + to_string(P_D_A2_YFit->getShape()[0]) + ")";
-        cout << message << endl;
         throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
       }
       if (P_D_A2_YFit->getShape()[1] != D_A2_CCD_In.getShape()[1]){
         string message("pfs::drp::stella::math::CurveFitting::LinFitBevingtonNdArray: ERROR: D_A2_CCD_In.getShape()[1](=");
         message += to_string(D_A2_CCD_In.getShape()[1]) + ") != P_D_A2_YFit->getShape()[1](=" + to_string(P_D_A2_YFit->getShape()[1]) + ")";
-        cout << message << endl;
         throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
       }
       S_A1_Args_Fit[I_ArgPos] = "YFIT_OUT";
@@ -1157,13 +1145,11 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
       if (P_I_A2_Mask->getShape()[0] != D_A2_CCD_In.getShape()[0]){
         string message("pfs::drp::stella::math::CurveFitting::LinFitBevingtonNdArray: ERROR: D_A2_CCD_In.getShape()[0](=");
         message += to_string(D_A2_CCD_In.getShape()[0]) + ") != P_I_A2_Mask->getShape()[0](=" + to_string(P_I_A2_Mask->getShape()[0]) + ")";
-        cout << message << endl;
         throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
       }
       if (P_I_A2_Mask->getShape()[1] != D_A2_CCD_In.getShape()[1]){
         string message("pfs::drp::stella::math::CurveFitting::LinFitBevingtonNdArray: ERROR: D_A2_CCD_In.getShape()[1](=");
         message += to_string(D_A2_CCD_In.getShape()[1]) + ") != P_I_A2_Mask->getShape()[1](=" + to_string(P_I_A2_Mask->getShape()[1]) + ")";
-        cout << message << endl;
         throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
       }
       #ifdef __DEBUG_FITARR__
@@ -1827,7 +1813,6 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
     if (D_A1_CCD_In.size() != D_A1_SF_In.size()){
       string message("CFits::LinFitBevington: ERROR: D_A1_CCD_In.size(=");
       message += to_string(D_A1_CCD_In.size()) + ") != D_A1_SF_In.size(=" + to_string(D_A1_SF_In.size()) + ")";
-      cout << message << endl;
       throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
     }
 
@@ -1904,7 +1889,6 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
       if (P_I_A1_Mask->getShape()[0] != ndata){
         string message("pfs::drp::stella::math::CurveFitting::LinFitBevingtonNdArray: ERROR: P_I_A1_Mask->getShape()[0](=");
         message += to_string(P_I_A1_Mask->getShape()[0]) + ") != ndata(=" + to_string(ndata) + ")";
-        cout << message << endl;
         throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
       }
       #ifdef __DEBUG_FIT__
@@ -1927,7 +1911,6 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
       if (P_D_A1_Sigma_Out->getShape()[0] != 2){
         string message("pfs::drp::stella::math::CurveFitting::LinFitBevingtonNdArray: ERROR: P_D_A1_Sigma_Out->getShape()[0](=");
         message += to_string(P_D_A1_Sigma_Out->getShape()[0]) + ") != 2";
-        cout << message << endl;
         throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
       }
       #ifdef __DEBUG_FIT__
@@ -2003,7 +1986,6 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
       if (P_D_A1_YFit->getShape()[0] != ndata){
         string message("pfs::drp::stella::math::CurveFitting::LinFitBevingtonNdArray: ERROR: P_D_A1_YFit->size()(=");
         message += to_string(P_D_A1_YFit->size()) + ") != ndata(=" + to_string(ndata) + ")";
-        cout << message << endl;
         throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
       }
     }
@@ -2096,7 +2078,6 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
             cout << "CFits::LinFitBevington: I_Run=" << I_Run << ": i = " << i << ": ERROR: D_A1_Sig = " << D_A1_Sig << endl;
             string message("CFits::LinFitBevington: I_Run=");
             message += to_string(I_Run) + ": i = " + to_string(i) + ": ERROR: D_A1_Sig(" + to_string(i) + ") == 0.";
-            cout << message << endl;
             throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
           }
           D_A1_WT[i] = 1. / pow(D_A1_Sig[i], 2);
@@ -2199,7 +2180,6 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
         if (I_MaskSum == 2){
           string message("CFits::LinFitBevington: I_Run=");
           message += to_string(I_Run) + ": ERROR: Sum of Mask (=" + to_string(I_MaskSum) + ") must be greater than 2";
-          cout << message << endl;
           throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
         }
         sigdat = sqrt((*P_D_ChiSqr_Out) / (I_MaskSum - 2));
@@ -2219,7 +2199,6 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
           if (abs(D_A1_Sig[i]) < 0.00000000000000001){
             string message("CFits::LinFitBevington: I_Run=");
             message += to_string(I_Run) + ": i = " + to_string(i) + ": ERROR: D_A1_Sig(" + to_string(i) + ") == 0.";
-            cout << message << endl;
             throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
           }
           *P_D_ChiSqr_Out += pow((D_A1_CCD[i] - D_A1_YFit[i]) / D_A1_Sig[i], 2);
