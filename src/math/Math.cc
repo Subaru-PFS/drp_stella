@@ -4295,6 +4295,18 @@ template ndarray::Array< double, 2, 1 > where( ndarray::Array< double, 2, 2 > co
                                                double const,
                                                double const );
 
+template ndarray::Array< unsigned short, 2, 1 > where( ndarray::Array< unsigned short, 2, 1 > const&,
+                                                       std::string const&,
+                                                       unsigned short const,
+                                                       unsigned short const,
+                                                       unsigned short const );
+
+template ndarray::Array< unsigned short, 2, 1 > where( ndarray::Array< unsigned short, 2, 2 > const&,
+                                                       std::string const&,
+                                                       unsigned short const,
+                                                       unsigned short const,
+                                                       unsigned short const );
+
 template ndarray::Array< size_t, 1, 1 > where( ndarray::Array< size_t, 1, 1 > const&,
                                                std::string const&,
                                                size_t const,
@@ -7233,6 +7245,10 @@ template ndarray::Array<float, 1, 1> floor( const ndarray::Array<const float, 1,
 template ndarray::Array<float, 1, 1> floor( const ndarray::Array<const double, 1, 1>&, const float );
 template ndarray::Array<double, 1, 1> floor( const ndarray::Array<const float, 1, 1>&, const double );
 template ndarray::Array<double, 1, 1> floor( const ndarray::Array<const double, 1, 1>&, const double );
+template ndarray::Array<float, 1, 1> floor( const ndarray::Array<float, 1, 1>&, const float );
+template ndarray::Array<float, 1, 1> floor( const ndarray::Array<double, 1, 1>&, const float );
+template ndarray::Array<double, 1, 1> floor( const ndarray::Array<float, 1, 1>&, const double );
+template ndarray::Array<double, 1, 1> floor( const ndarray::Array<double, 1, 1>&, const double );
 
 template ndarray::Array<size_t, 2, 2> floor( const ndarray::Array<const float, 2, 2>&, const size_t );
 template ndarray::Array<size_t, 2, 2> floor( const ndarray::Array<const double, 2, 2>&, const size_t );
