@@ -1,21 +1,4 @@
 #!/usr/bin/env python
-
-#DESCRIPTION: If inExposure != NULL the input inFiberTraceWithProfile will be changed, meaning that inFiberTraceWithProfile._trace
-#             will contain the trace of the Exposure to be extracted
-
-#USAGE: exp = lsst.afw.image.ExposureF("/home/azuri/spectra/pfs/2014-10-14/IR-23-0-sampledFlatx2-nonoise.fits")
-#       myTask = findAndTraceAperturesTask.FindAndTraceAperturesTask()
-#       fts = myTask.run(exp)
-
-#import os
-#import math
-#import numpy
-
-#import matplotlib
-#matplotlib.use('Agg')
-#import matplotlib.pyplot as plt
-#import matplotlib.mlab as mlab
-
 import lsst.afw.geom                    as afwGeom
 import lsst.afw.image                   as afwImage
 import lsst.pex.config                  as pexConfig
@@ -123,14 +106,7 @@ class GetTwoDPsfPerBinTask(Task):
                 spectrum = inSpectrumSet.getSpectrum(i)
 
                 psfSet = drpStella.calculate2dPSFPerBinF(trace, spectrum, tdpsfcp)
-#                print "psfSet = ", psfSet
-#                print "psfSet.size() = ",psfSet.size()
-#                print "psfSet.getPSFs() = ",psfSet.getPSFs()
-#                print "psfSet.getPSFs()[0] = ", psfSet.getPSFs()[0]
-#                print "psfSets.size() = ",psfSets.size()
                 psfSets.push_back(psfSet)
-#                print "psfSets.size() = ",psfSets.size()
-#                print "psfSets[0] = ",psfSets[0]
                 print "trace ",i," done"
 
             print "getTwoDPsfPerBinTask::getTwoDPsfPerBin finished"

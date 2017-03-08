@@ -1,17 +1,6 @@
 #!/usr/bin/env python
-"""
-Tests for measuring things
 
-Run with:
-   python FiberTrace.py
-or
-   python
-   >>> import FiberTrace; FiberTrace.run()
-"""
-
-#import unittest
 import numpy as np
-#import lsst.utils.tests as tests
 import lsst.afw.image as afwImage
 import lsst.afw.geom as afwGeom
 import pfs.drp.stella as drpStella
@@ -46,8 +35,7 @@ def createFlatFiberTraceSet(filename):
     msi.findAndTraceApertures(ftffc, 0, mif.getHeight(), 10)
     print("msi.findAndTraceApertures finished")
 
-    return msi;#.getFiberTraceSet();
-
+    return msi;
 #-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
 def main(argv=None):

@@ -1,5 +1,3 @@
-///TODO: split profile calculation and 1d extraction
-///TODO: Create own class for FiberTraceProfile?
 ///TODO: Add deep option to copy constructors
 #if !defined(PFS_DRP_STELLA_FIBERTRACES_H)
 #define PFS_DRP_STELLA_FIBERTRACES_H
@@ -30,32 +28,7 @@
 
 #define stringify( name ) # name
 
-//#define __DEBUG_BANDSOL__
-//#define __DEBUG_CALC2DPSF__
-//#define __DEBUG_CALCPROFILE__
-//#define __DEBUG_CALCPROFILESWATH__
-//#define __DEBUG_CALCSWATHBOUNDY__
-//#define __DEBUG_CHECK_INDICES__
-//#define __DEBUG_CREATEFIBERTRACE__
-//#define __DEBUG_EXTRACTFROMPROFILE__
-//#define __DEBUG_FINDANDTRACE__
-//#define __DEBUG_FIT__
-//#define __DEBUG_SPLINE__
-//#define __DEBUG_INTERPOL__
-//#define __DEBUG_MINCENMAX__
-//#define __DEBUG_MKPROFIM__
-//#define __DEBUG_MKSLITFUNC__
-//#define __DEBUG_SETFIBERTRACEFUNCTION__
-//#define __DEBUG_SLITFUNC__
-//#define __DEBUG_SLITFUNC_N__
-//#define __DEBUG_SLITFUNC_PISKUNOV__
-//#define __DEBUG_SLITFUNC_X__
-//#define __DEBUG_SORTTRACESBYXCENTER__
-//#define __DEBUG_TELLURIC__
-//#define __DEBUG_TRACEFUNC__
-//#define __DEBUG_UNIQ__
-//#define __DEBUG_XCENTERS__
-#define DEBUGDIR "/Users/azuri/spectra/pfs/2014-11-02/debug/"// /home/azuri/entwicklung/idl/REDUCE/16_03_2013/"//stella/ses-pipeline/c/msimulateskysubtraction/data/"//spectra/elaina/eso_archive/red_564/red_r/"
+#define DEBUGDIR "/Users/azuri/spectra/pfs/2014-11-02/debug/"
 
 namespace afwGeom = lsst::afw::geom;
 namespace afwImage = lsst::afw::image;
@@ -147,10 +120,6 @@ class FiberTrace {
     ndarray::Array< float, 2, 1 > getXCentersMeas() const { return _xCentersMeas; }
     void setXCentersMeas( ndarray::Array< float, 2, 1 > const& xCentersMeas);
 
-    /// Set the x-center of the fiber trace
-    /// Pre: _fiberTraceFunction must be set
-//    bool setXCenters(const PTR(std::vector<float>) &xCenters);// { _xCenters = xCenters; }
-
     /// Return shared pointer to an image containing the reconstructed 2D spectrum of the FiberTrace
     PTR(afwImage::Image<ImageT>) getReconstructed2DSpectrum(const Spectrum<ImageT, MaskT, VarianceT, VarianceT> & spectrum) const;
 
@@ -178,7 +147,6 @@ class FiberTrace {
     size_t getWidth() const {return _trace->getImage()->getWidth();}
     size_t getHeight() const {return _trace->getImage()->getHeight();}
     ndarray::Array<float, 1, 1> getTraceCoefficients() const;
-//    bool setTraceCoefficients(ndarray::Array<double, 1, 1> const& coeffs);
     PTR(FiberTrace) getPointer();
 
     std::vector<PTR(std::vector<double>)> _overSampledProfileFitXPerSwath;
@@ -200,8 +168,6 @@ class FiberTrace {
     bool _isFiberTraceProfileFittingControlSet;
     PTR(const FiberTraceFunction) _fiberTraceFunction;
     PTR(FiberTraceProfileFittingControl) _fiberTraceProfileFittingControl;
-
-    /// for debugging purposes only
 
   protected:
 };
@@ -225,11 +191,6 @@ class FiberTraceSet {
     /// If fiberTraceSet is not empty, the object shares ownership of fiberTraceSet's fiber trace vector and increases the use count.
     /// If fiberTraceSet is empty, an empty object is constructed (as if default-constructed).
     explicit FiberTraceSet(const FiberTraceSet &fiberTraceSet, bool const deep = false);
-    
-    /// Construct an object with a copy of fiberTraceVector
-///    explicit FiberTraceSet(const std::vector<PTR(FiberTrace<ImageT, MaskT, VarianceT>)> &fiberTraceVector)
-///        : _traces(new std::vector<PTR(FiberTrace<ImageT, MaskT, VarianceT>)>(fiberTraceVector))
-///        {}
         
     virtual ~FiberTraceSet() {}
 
@@ -261,7 +222,6 @@ class FiberTraceSet {
     bool addFiberTrace(const PTR(FiberTrace<ImageT, MaskT, VarianceT>) &trace, const size_t iTrace = 0);
 
     PTR(std::vector<PTR(FiberTrace<ImageT, MaskT, VarianceT>)>) getTraces() const { return _traces; }
-//    PTR(const std::vector<PTR(FiberTrace<ImageT, MaskT, VarianceT>)>) getTraces() const { return _traces; }
 
     bool setFiberTraceProfileFittingControl(PTR(FiberTraceProfileFittingControl) const& fiberTraceProfileFittingControl);
 
@@ -271,10 +231,6 @@ class FiberTraceSet {
 
     /// re-order the traces in _traces by the xCenter of each trace
     void sortTracesByXCenter();
-
-    /// calculate spatial profile and extract to 1D
-//    PTR(Spectrum<ImageT, MaskT, VarianceT, VarianceT>) extractTraceNumber(const size_t traceNumber);
-//    PTR(SpectrumSet<ImageT, MaskT, VarianceT, VarianceT>) extractAllTraces();
 
     ///TODO:
     /// Extract spectrum and background for one slit spectrum
@@ -482,9 +438,5 @@ namespace utils{
   
 }
 
-//  template<typename ImageT, typename MaskT, typename VarianceT>
-//  PTR(afwImage::MaskedImage<ImageT, MaskT, VarianceT>) getShared(afwImage::MaskedImage<ImageT, MaskT, VarianceT> const &maskedImage);
-
 }}}
-//int main();
 #endif

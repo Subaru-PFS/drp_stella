@@ -1,20 +1,4 @@
 #!/usr/bin/env python
-
-#USAGE: exp = lsst.afw.image.ExposureF("/home/azuri/spectra/pfs/2014-10-14/IR-23-0-sampledFlatx2-nonoise.fits")
-#       myFindTask = findAndTraceAperturesTask.FindAndTraceAperturesTask()
-#       fts = myFindTask.run(exp)
-#       myExtractTask = createFlatFiberTraceProfileTask.CreateFlatFiberTraceProfileTask()
-#       myExtractTask.run(fts)
-
-#import os
-#import math
-#import numpy
-
-#import matplotlib
-#matplotlib.use('Agg')
-#import matplotlib.pyplot as plt
-#import matplotlib.mlab as mlab
-
 from pfs.drp.stella.readFileTask import ReadFileTask
 from astropy.io import fits as pyfits
 from lsst.pipe.base import Task
@@ -48,10 +32,7 @@ class AddDummyHeaderKeywordsTask(Task):
             print 'frameID = <',frameID,'>'
             print 'fitsFile = <',fitsFile,'>'
             hduList = pyfits.open(fitsFile, mode='update')
-            #print 'dir(hduList) = ',dir(hduList)
-            #print 'len(hduList) = ',len(hduList)
             header = hduList[0].header
-            #print 'header = ',header
 
             if 'EXP-ID' in header:
                 print 'EXP-ID = <',header['EXP-ID'],'>'
@@ -67,7 +48,6 @@ class AddDummyHeaderKeywordsTask(Task):
 
             if 'INST-PA' in header:
                 print 'INST-PA = <',header['INST-PA'],'>'
-        #    else:
             if self.config.editHeader:
                 header['INST-PA'] = '0.0'
 
@@ -83,7 +63,6 @@ class AddDummyHeaderKeywordsTask(Task):
 
             if 'PROP-ID' in header:
                 print 'PROP-ID = <',header['PROP-ID'],'>'
-        #    else:
             if self.config.editHeader:
                 header['PROP-ID'] = dateObs
                 header['VISIT'] = dateObs
@@ -96,7 +75,6 @@ class AddDummyHeaderKeywordsTask(Task):
 
             if 'T_AG' in header:
                 print 'T_AG = <',header['T_AG'],'>'
-        #    else:
             if self.config.editHeader:
                 header['T_AG'] = 'FALSE'
 

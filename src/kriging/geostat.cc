@@ -48,19 +48,14 @@
  {
          destroy();
 
-         //cout << "CGeostat::allocate: Starting push_back1" << endl;
          for (size_t s = 0;s < smpl;s++)
                  m_coords.push_back(gsl_vector_alloc(dim));
 
-         //cout << "CGeostat::allocate: Starting push_back2" << endl;
          for (size_t d = 0;d < dim;d++)
                  m_domain.push_back( std::pair<double, double>(0, 0) );
 
-         //cout << "CGeostat::allocate: Starting m_pData gsl_vector_alloc" << endl;
          m_pData = gsl_vector_alloc(smpl);
-         //cout << "CGeostat::allocate: Starting m_pTrend gsl_vector_alloc" << endl;
          m_pTrend = gsl_vector_calloc(dim + 1);
-         //cout << "CGeostat::allocate: Creating new variograms" << endl;
          m_pVarioCloud = new CVariogram;
          m_pVariogram = new CVariogram;
 

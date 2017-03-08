@@ -149,10 +149,6 @@ std::vector<T> band_matrix<T>::lu_solve(const std::vector<T>& b,
    return x;
 }
 
-
-
-
-
 // spline implementation
 // -----------------------
 template< typename T >

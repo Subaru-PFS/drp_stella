@@ -1,4 +1,3 @@
-#/Users/azuri/stella-git/drp_stella/bin.src/reduceArc.py '/Users/azuri/spectra/pfs/PFS' --id visit=4 --wLenFile '/Users/azuri/stella-git/obs_pfs/pfs/RedFiberPixels.fits.gz' --lineList '/Users/azuri/stella-git/obs_pfs/pfs/lineLists/CdHgKrNeXe_red.fits' --loglevel 'info' --calib '/Users/azuri/spectra/pfs/PFS/CALIB/' --output '/Users/azuri/spectra/pfs/PFS'
 import os
 import sys
 
@@ -65,7 +64,7 @@ class ReduceArcTask(CmdLineTask):
                                help="input identifiers, e.g., --id visit=123 ccd=4")
         parser.add_argument("--wLenFile", help='directory and name of pixel vs. wavelength file')
         parser.add_argument("--lineList", help='directory and name of line list')
-        return parser# ReduceArcArgumentParser(name=cls._DefaultName, *args, **kwargs)
+        return parser
 
     def run(self, expRefList, butler, wLenFile=None, lineList=None, immediate=True):
         if wLenFile == None:

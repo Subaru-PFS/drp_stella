@@ -847,7 +847,6 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
             cout << message << endl;
             cout << "CFits::LinFitBevington: D_A2_SF_In(0, *) = " << D_A2_SF_In.row(0) << ": LinFitBevingtonEigen returned status = " << status << endl;
           #endif
-//            throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
         }
       }
       #ifdef __DEBUG_FITARR__
@@ -891,7 +890,6 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
     }
     #ifdef __DEBUG_FITARR__
       cout << "CFits::LinFitBevington(Array, Array, Array, Array): D_A1_SP_Out = " << D_A1_SP_Out << endl;
-//        cout << "CFits::LinFitBevington(Array, Array, Array, Array): D_A1_Sky_Out set to " << D_A1_Sky_Out << endl;
     #endif
     #ifdef __DEBUG_CURVEFIT__
       cout << "CurveFitting::LinFitBevingtonEigen(D_A2_CCD, D_A2_SF, SP, Sky, withSky, Args, ArgV) finished" << endl;
@@ -1191,7 +1189,6 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
             cout << message << endl;
             cout << "CFits::LinFitBevington: D_A2_SF_In(0, *) = " << D_A2_SF_In[ndarray::view(0)()] << ": LinFitBevingtonNdArray returned status = " << status << endl;
           #endif
-//            throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
         }
       }
       #ifdef __DEBUG_FITARR__
@@ -1224,7 +1221,6 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
     }
     #ifdef __DEBUG_FITARR__
       cout << "CFits::LinFitBevington(Array, Array, Array, Array): D_A1_SP_Out = " << D_A1_SP_Out << endl;
-//        cout << "CFits::LinFitBevington(Array, Array, Array, Array): D_A1_Sky_Out set to " << D_A1_Sky_Out << endl;
     #endif
     #ifdef __DEBUG_CURVEFIT__
       cout << "CurveFitting::LinFitBevingtonNdArray(D_A2_CCD, D_A2_SF, SP, Sky, withSky, Args, ArgV) finished" << endl;
@@ -1505,7 +1501,6 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
       D_Sum_YTimesWeight = 0.;
       if (I_KeywordSet_MeasureErrors >= 0)
       {
-        ///    D_A1_WT = D_A1_SF;
         for (i=0; i < I_MaskSum; i++)
         {
           /// ... with weights
@@ -2001,7 +1996,6 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
         cout << message << endl;
         status = 0;
         return status;
-//          throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
       }
       math::resize(D_A1_Sig, I_MaskSum);
       math::resize(D_A1_CCD, I_MaskSum);
@@ -2031,7 +2025,6 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
       D_Sum_YTimesWeight = 0.;
       if (I_KeywordSet_MeasureErrors >= 0)
       {
-        ///    D_A1_WT = D_A1_SF;
         for (i=0; i < I_MaskSum; i++)
         {
           /// ... with weights
@@ -2591,25 +2584,6 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
       cout << "CurveFitting::chebyshev(a, coeffs) finished" << endl;
     #endif
     return yCalc;
-    /*
-    ndarray::Array<double, 1, 1> Tn = ndarray::allocate(coeffs_In.getShape()[0]);
-    Tn[0] = 1;
-    for (int i = 0; i < x_In.getShape()[0]; ++i){
-      if (nCoeffs > 1)
-        Tn[1] = x_In[i];
-      for (int j = 2; j < nCoeffs; ++j){
-        Tn[j] = 2. * x_In[i] * Tn[j-1] - Tn[j-2];
-        cout << "pfs::drp::stella::math::CurveFitting::chebyshev: x_In[" << i << "] = " << x_In[i] << ": Tn[" << j-2 << "] = " << Tn[j-2] << ", Tn[" << j-1 << "] = " << Tn[j-1] << ": Tn[" << j << "] = " << Tn[j] << endl;
-      }
-      yCalc[i] = coeffs_In[0];
-      cout << "pfs::drp::stella::math::CurveFitting::chebyshev: yCalc[" << i << "] = " << yCalc[i] << endl;
-      for (int j = 1; j < nCoeffs; ++j){
-        yCalc[i] += coeffs_In[j] * Tn[j];
-        printf("pfs::drp::stella::math::CurveFitting::chebyshev: Tn[%i] = %.12f, coeffs_In[j] * Tn[j] = %.12f: yCalc[%i] = %.12f\n", j, Tn[j], coeffs_In[j] * Tn[j], i, yCalc[i]);
-      }
-    }
-    return yCalc;
-    */
   }
 
   ndarray::Array<double, 1, 1> gaussFit(ndarray::Array<double, 2, 1> const& xy_In,
@@ -2618,7 +2592,6 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
       cout << "CurveFitting::gaussFit(xy, guess) started" << endl;
     #endif
     gaussian_functor gf(xy_In.asEigen());
-//    gaussian_functor<Eigen::Derived> gf(xy_In.asEigen());
     Eigen::VectorXd guess(3);
     guess[0] = guess_In[0];
     guess[1] = guess_In[1];

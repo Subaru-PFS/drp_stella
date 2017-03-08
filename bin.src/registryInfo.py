@@ -152,8 +152,6 @@ FROM %s
 GROUP BY calibDate
 ORDER BY calibDate
 """ % (what, where)
-#GROUP BY filter, calibDate
-#ORDER BY filter, calibDate
 
     n = {}; expTimes = {}; visits = {}
 

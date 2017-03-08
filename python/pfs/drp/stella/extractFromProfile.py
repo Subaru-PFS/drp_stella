@@ -1,17 +1,5 @@
 #!/usr/bin/env python
-"""
-Tests for measuring things
-
-Run with:
-   python FiberTrace.py
-or
-   python
-   >>> import FiberTrace; FiberTrace.run()
-"""
-
-#import unittest
 import numpy as np
-#import lsst.utils.tests as tests
 import lsst.afw.image as afwImage
 import lsst.afw.geom as afwGeom
 import pfs.drp.stella as drpStella
@@ -39,7 +27,6 @@ def extractFromProfile(flatfilename, flatprofilename, specfilename):
 
     # --- create FiberTraceExtractionControl
     ftec = drpStella.FiberTraceExtractionControl()
-#    ftec.xCorProf = 20
     ftec.wingSmoothFactor = 2.
     ftec.overSample = 15
     ftec.lambdaSF = 1. / ftec.overSample
@@ -64,7 +51,6 @@ def extractFromProfile(flatfilename, flatprofilename, specfilename):
     # --- create Fiber Trace for object exposure
     mis = afwImage.MaskedImageF(specfilename)
     msis = drpStella.MaskedSpectrographImageF(mis)
-#    fts = drpStella.FiberTraceSet()
     ft = drpStella.FiberTraceF(mis)
     ft.setFiberTraceFunction(msi.getFiberTraceSet().getFiberTrace(0).getFiberTraceFunction())
     ft.calculateXCenters()
@@ -79,9 +65,6 @@ def extractFromProfile(flatfilename, flatprofilename, specfilename):
 
     # --- add FiberTrace to FiberTraceSet
     msis.getFiberTraceSet().addFiberTrace(ft)
-
-    # --- set msis::_fiberTraceSet to fts
-#    msis.getFiberTraceSet() = fts
 
     # --- get reconstructed 2D spectrum and write to fits file
     reconstructed = msis.getFiberTraceSet().getFiberTrace(0).getReconstructed2DSpectrum()
@@ -104,12 +87,10 @@ def extractFromProfile(flatfilename, flatprofilename, specfilename):
     specfilename_spec = specfilename.replace(".fits", "_trace0_specFromProf.fits")
     pyfits.writeto(specfilename_spec,np_spec,clobber=True)
 
-    return msis;#.getFiberTraceSet();
-
+    return msis;
 #-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
 def main(argv=None):
-# --- start with <msi=extractFromProfile.main('-f="/home/azuri/spectra/pfs/IR-23-0-centerSkyx2.fits" -p="/home/azuri/spectra/pfs/IR-23-0-centerFlatx2.fits_trace0_prof.fits')>
     if argv is None:
       import sys
       argv = sys.argv[1:]

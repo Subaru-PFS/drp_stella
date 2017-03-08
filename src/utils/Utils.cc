@@ -56,7 +56,6 @@ namespace pfs { namespace drp { namespace stella { namespace utils{
         return false;
         }
     }
-    //  D_Out = stod(str);
     D_Out = double(atof(str.c_str()));
     return true;
   }

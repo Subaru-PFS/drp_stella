@@ -490,9 +490,6 @@ int mpfit(mp_func funct, int m, int npar,
   iter = 1;
   for (i=0; i<nfree; i++) {
     qtf[i] = 0;
-//    #ifdef __DEBUG_MPFIT__
-//      printf("mpfit: qtf[%d] = %10.4g\n",i, qtf[i]);
-//    #endif
   }
 
   /* Beginning of the outer loop */
@@ -612,17 +609,17 @@ int mpfit(mp_func funct, int m, int npar,
       ij = jj;
       for (i=j; i<m; i++ ) {
 	sum += fjac[ij] * wa4[i];
-	ij += 1;	/* fjac[i+m*j] */
+	ij += 1;
       }
       temp = -sum / temp3;
       ij = jj;
       for (i=j; i<m; i++ ) {
 	wa4[i] += fjac[ij] * temp;
-	ij += 1;	/* fjac[i+m*j] */
+	ij += 1;
       }
     }
     fjac[jj] = wa1[j];
-    jj += m+1;	/* fjac[j+m*j] */
+    jj += m+1;
     qtf[j] = wa4[j];
   }
 
@@ -666,7 +663,7 @@ int mpfit(mp_func funct, int m, int npar,
 	ij = jj;
 	for (i=0; i<=j; i++ ) {
 	  sum += fjac[ij]*(qtf[i]/fnorm);
-	  ij += 1; /* fjac[i+m*j] */
+	  ij += 1;
 	}
 	gnorm = mp_dmax1(gnorm,fabs(sum/wa2[l]));
         #ifdef __DEBUG_MPFIT__
@@ -832,7 +829,7 @@ int mpfit(mp_func funct, int m, int npar,
     ij = jj;
     for (i=0; i<=j; i++ ) {
       wa3[i] += fjac[ij]*temp;
-      ij += 1; /* fjac[i+m*j] */
+      ij += 1;
     }
     jj += m;
   }
@@ -1275,13 +1272,13 @@ int mp_fdjac2(mp_func funct,
       if (! debug) {
 	/* Non-debug path for speed */
 	for (i=0; i<m; i++, ij++) {
-	  fjac[ij] = (wa[i] - fvec[i])/h; /* fjac[i+m*j] */
+	  fjac[ij] = (wa[i] - fvec[i])/h;
 	}
       } else {
 	/* Debug path for correctness */
 	for (i=0; i<m; i++, ij++) {
 	  double fjold = fjac[ij];
-	  fjac[ij] = (wa[i] - fvec[i])/h; /* fjac[i+m*j] */
+	  fjac[ij] = (wa[i] - fvec[i])/h;
 	  if ((da == 0 && dr == 0 && (fjold != 0 || fjac[ij] != 0)) ||
 	      ((da != 0 || dr != 0) && (fabs(fjold-fjac[ij]) > da + fabs(fjold)*dr))) {
 	    printf("   %10d %10.4g %10.4g %10.4g %10.4g %10.4g\n",
@@ -1308,12 +1305,12 @@ int mp_fdjac2(mp_func funct,
       ij -= m;
       if (! debug ) {
 	for (i=0; i<m; i++, ij++) {
-	  fjac[ij] = (fjac[ij] - wa[i])/(2*h); /* fjac[i+m*j] */
+	  fjac[ij] = (fjac[ij] - wa[i])/(2*h);
 	}
       } else {
 	for (i=0; i<m; i++, ij++) {
 	  double fjold = fjac[ij];
-	  fjac[ij] = (fjac[ij] - wa[i])/(2*h); /* fjac[i+m*j] */
+	  fjac[ij] = (fjac[ij] - wa[i])/(2*h);
 	  if ((da == 0 && dr == 0 && (fjold != 0 || fjac[ij] != 0)) ||
 	      ((da != 0 || dr != 0) && (fabs(fjold-fjac[ij]) > da + fabs(fjold)*dr))) {
 	    printf("   %10d %10.4g %10.4g %10.4g %10.4g %10.4g\n",
@@ -1446,7 +1443,7 @@ void mp_qrfac(int m, int n, double *a, int lda,
     wa[j] = rdiag[j];
     if (pivot != 0)
       ipvt[j] = j;
-    ij += m; /* m*j */
+    ij += m;
   }
   /*
    *     reduce a to r with householder transformations.
@@ -1471,8 +1468,8 @@ void mp_qrfac(int m, int n, double *a, int lda,
     jj = m * kmax;
     for (i=0; i<m; i++)
       {
-	temp = a[ij]; /* [i+m*j] */
-	a[ij] = a[jj]; /* [i+m*kmax] */
+	temp = a[ij];
+	a[ij] = a[jj];
 	a[jj] = temp;
 	ij += 1;
 	jj += 1;
@@ -1498,7 +1495,7 @@ void mp_qrfac(int m, int n, double *a, int lda,
     for (i=j; i<m; i++)
       {
 	a[ij] /= ajnorm;
-	ij += 1; /* [i+m*j] */
+	ij += 1;
       }
     a[jj] += one;
     /*
@@ -1516,8 +1513,8 @@ void mp_qrfac(int m, int n, double *a, int lda,
 	    for (i=j; i<m; i++)
 	      {
 		sum += a[jj]*a[ij];
-		ij += 1; /* [i+m*k] */
-		jj += 1; /* [i+m*j] */
+		ij += 1;
+		jj += 1;
 	      }
 	    temp = sum/a[j+m*j];
 	    ij = j + m*k;
@@ -1525,8 +1522,8 @@ void mp_qrfac(int m, int n, double *a, int lda,
 	    for (i=j; i<m; i++)
 	      {
 		a[ij] -= temp*a[jj];
-		ij += 1; /* [i+m*k] */
-		jj += 1; /* [i+m*j] */
+		ij += 1;
+		jj += 1;
 	      }
 	    if ((pivot != 0) && (rdiag[k] != zero))
 	      {
@@ -1656,12 +1653,12 @@ void mp_qrsolv(int n, double *r, int ldr, int *ipvt, double *diag,
     for (i=j; i<n; i++)
       {
 	r[ij] = r[ik];
-	ij += 1;   /* [i+ldr*j] */
-	ik += ldr; /* [j+ldr*i] */
+	ij += 1;
+	ik += ldr;
       }
     x[j] = r[kk];
     wa[j] = qtb[j];
-    kk += ldr+1; /* j+ldr*j */
+    kk += ldr+1;
   }
 
   /*
@@ -1725,7 +1722,7 @@ void mp_qrsolv(int n, double *r, int ldr, int *ipvt, double *diag,
 		temp = cosx*r[ik] + sinx*sdiag[i];
 		sdiag[i] = -sinx*r[ik] + cosx*sdiag[i];
 		r[ik] = temp;
-		ik += 1; /* [i+ldr*k] */
+		ik += 1;
 	      }
 	  }
       }
@@ -1762,7 +1759,7 @@ void mp_qrsolv(int n, double *r, int ldr, int *ipvt, double *diag,
 	for (i=jp1; i<nsing; i++)
 	  {
 	    sum += r[ij]*wa[i];
-	    ij += 1; /* [i+ldr*j] */
+	    ij += 1;
 	  }
       }
     wa[j] = (wa[j] - sum)/sdiag[j];
@@ -1902,7 +1899,7 @@ void mp_lmpar(int n, double *r, int ldr, int *ipvt, int *ifree, double *diag,
       nsing = j;
     if (nsing < n)
       wa1[j] = zero;
-    jj += ldr+1; /* [j+ldr*j] */
+    jj += ldr+1;
   }
 
   if (nsing >= 1) {
@@ -1968,7 +1965,7 @@ void mp_lmpar(int n, double *r, int ldr, int *ipvt, int *ifree, double *diag,
 	      }
 	  }
 	wa1[j] = (wa1[j] - sum)/r[j+ldr*j];
-	jj += ldr; /* [i+ldr*j] */
+	jj += ldr;
       }
     temp = mp_enorm(n,wa1);
     parl = ((fp/delta)/temp)/temp;
@@ -1987,7 +1984,7 @@ void mp_lmpar(int n, double *r, int ldr, int *ipvt, int *ifree, double *diag,
       }
     l = ipvt[j];
     wa1[j] = sum/diag[ifree[l]];
-    jj += ldr; /* [i+ldr*j] */
+    jj += ldr;
   }
   gnorm = mp_enorm(n,wa1);
   paru = gnorm/delta;
@@ -2048,10 +2045,10 @@ void mp_lmpar(int n, double *r, int ldr, int *ipvt, int *ifree, double *diag,
 	for (i=jp1; i<n; i++)
 	  {
 	    wa1[i] -= r[ij]*temp;
-	    ij += 1; /* [i+ldr*j] */
+	    ij += 1;
 	  }
       }
-    jj += ldr; /* ldr*j */
+    jj += ldr;
   }
   temp = mp_enorm(n,wa1);
   parc = ((fp/delta)/temp)/temp;
@@ -2421,4 +2418,3 @@ int mp_covar(int n, double *r, int ldr, int *ipvt, double tol, double *wa)
 
   return 0;
 }
-

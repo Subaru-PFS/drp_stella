@@ -475,9 +475,6 @@ int mpfit(mp_func funct, int m, int npar,
   iter = 1;
   for (i=0; i<nfree; i++) {
     qtf[i] = 0;
-//    #ifdef __DEBUG_MPFIT__
-//      printf("mpfit: qtf[%d] = %10.4g\n",i, qtf[i]);
-//    #endif
   }
 
   /* Beginning of the outer loop */
@@ -650,7 +647,7 @@ int mpfit(mp_func funct, int m, int npar,
 	ij = jj;
 	for (i=0; i<=j; i++ ) {
 	  sum += fjac[ij]*(qtf[i]/fnorm);
-	  ij += 1; /* fjac[i+m*j] */
+	  ij += 1;
 	}
 	gnorm = mp_dmax1(gnorm,fabs(sum/wa2[l]));
         #ifdef __DEBUG_MPFIT__
@@ -1398,7 +1395,7 @@ void mp_qrfac(int m, int n, double *a, int lda,
     wa[j] = rdiag[j];
     if (pivot != 0)
       ipvt[j] = j;
-    ij += m; /* m*j */
+    ij += m;
   }
   /*
    *     reduce a to r with householder transformations.
@@ -1423,8 +1420,8 @@ void mp_qrfac(int m, int n, double *a, int lda,
     jj = m * kmax;
     for (i=0; i<m; i++)
       {
-	temp = a[ij]; /* [i+m*j] */
-	a[ij] = a[jj]; /* [i+m*kmax] */
+	temp = a[ij];
+	a[ij] = a[jj];
 	a[jj] = temp;
 	ij += 1;
 	jj += 1;
@@ -1450,7 +1447,7 @@ void mp_qrfac(int m, int n, double *a, int lda,
     for (i=j; i<m; i++)
       {
 	a[ij] /= ajnorm;
-	ij += 1; /* [i+m*j] */
+	ij += 1;
       }
     a[jj] += one;
     /*
@@ -1468,8 +1465,8 @@ void mp_qrfac(int m, int n, double *a, int lda,
 	    for (i=j; i<m; i++)
 	      {
 		sum += a[jj]*a[ij];
-		ij += 1; /* [i+m*k] */
-		jj += 1; /* [i+m*j] */
+		ij += 1;
+		jj += 1;
 	      }
 	    temp = sum/a[j+m*j];
 	    ij = j + m*k;
@@ -1477,8 +1474,8 @@ void mp_qrfac(int m, int n, double *a, int lda,
 	    for (i=j; i<m; i++)
 	      {
 		a[ij] -= temp*a[jj];
-		ij += 1; /* [i+m*k] */
-		jj += 1; /* [i+m*j] */
+		ij += 1;
+		jj += 1;
 	      }
 	    if ((pivot != 0) && (rdiag[k] != zero))
 	      {
@@ -1608,12 +1605,12 @@ void mp_qrsolv(int n, double *r, int ldr, int *ipvt, double *diag,
     for (i=j; i<n; i++)
       {
 	r[ij] = r[ik];
-	ij += 1;   /* [i+ldr*j] */
-	ik += ldr; /* [j+ldr*i] */
+	ij += 1;
+	ik += ldr;
       }
     x[j] = r[kk];
     wa[j] = qtb[j];
-    kk += ldr+1; /* j+ldr*j */
+    kk += ldr+1;
   }
 
   /*
@@ -1677,7 +1674,7 @@ void mp_qrsolv(int n, double *r, int ldr, int *ipvt, double *diag,
 		temp = cosx*r[ik] + sinx*sdiag[i];
 		sdiag[i] = -sinx*r[ik] + cosx*sdiag[i];
 		r[ik] = temp;
-		ik += 1; /* [i+ldr*k] */
+		ik += 1;
 	      }
 	  }
       }
@@ -1714,7 +1711,7 @@ void mp_qrsolv(int n, double *r, int ldr, int *ipvt, double *diag,
 	for (i=jp1; i<nsing; i++)
 	  {
 	    sum += r[ij]*wa[i];
-	    ij += 1; /* [i+ldr*j] */
+	    ij += 1;
 	  }
       }
     wa[j] = (wa[j] - sum)/sdiag[j];
@@ -1838,7 +1835,6 @@ void mp_lmpar(int n, double *r, int ldr, int *ipvt, int *ifree, double *diag,
   double dxnorm,fp,gnorm,parc,parl,paru;
   double sum,temp;
   static double zero = 0.0;
-  /* static double one = 1.0; */
   static double p1 = 0.1;
   static double p001 = 0.001;
 
@@ -1854,7 +1850,7 @@ void mp_lmpar(int n, double *r, int ldr, int *ipvt, int *ifree, double *diag,
       nsing = j;
     if (nsing < n)
       wa1[j] = zero;
-    jj += ldr+1; /* [j+ldr*j] */
+    jj += ldr+1;
   }
 
   if (nsing >= 1) {
@@ -1920,7 +1916,7 @@ void mp_lmpar(int n, double *r, int ldr, int *ipvt, int *ifree, double *diag,
 	      }
 	  }
 	wa1[j] = (wa1[j] - sum)/r[j+ldr*j];
-	jj += ldr; /* [i+ldr*j] */
+	jj += ldr;
       }
     temp = mp_enorm(n,wa1);
     parl = ((fp/delta)/temp)/temp;
@@ -1939,7 +1935,7 @@ void mp_lmpar(int n, double *r, int ldr, int *ipvt, int *ifree, double *diag,
       }
     l = ipvt[j];
     wa1[j] = sum/diag[ifree[l]];
-    jj += ldr; /* [i+ldr*j] */
+    jj += ldr;
   }
   gnorm = mp_enorm(n,wa1);
   paru = gnorm/delta;
@@ -2000,10 +1996,10 @@ void mp_lmpar(int n, double *r, int ldr, int *ipvt, int *ifree, double *diag,
 	for (i=jp1; i<n; i++)
 	  {
 	    wa1[i] -= r[ij]*temp;
-	    ij += 1; /* [i+ldr*j] */
+	    ij += 1;
 	  }
       }
-    jj += ldr; /* ldr*j */
+    jj += ldr;
   }
   temp = mp_enorm(n,wa1);
   parc = ((fp/delta)/temp)/temp;

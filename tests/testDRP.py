@@ -1,10 +1,10 @@
+#!/usr/bin/env python
 """
 Integration test for reduceArc.py and reduceArcRefSpec.py
 
 Run with:
    python testDRP.py
 """
-
 import unittest
 import os
 import lsst.utils

@@ -120,7 +120,6 @@ namespace pfsDRPStella = pfs::drp::stella;
       cout << "FiberTrace" << _iTrace << "::setFiberTraceProfileFittingControl: fiberTraceProfileFittingControl->lambdaSF = <" << fiberTraceProfileFittingControl->lambdaSF << ">" << endl;
       cout << "FiberTrace" << _iTrace << "::setFiberTraceProfileFittingControl: fiberTraceProfileFittingControl->lambdaSP = <" << fiberTraceProfileFittingControl->lambdaSP << ">" << endl;
       cout << "FiberTrace" << _iTrace << "::setFiberTraceProfileFittingControl: fiberTraceProfileFittingControl->wingSmoothFactor = <" << fiberTraceProfileFittingControl->wingSmoothFactor << ">" << endl;
-      //cout << "FiberTrace" << _iTrace << "::setFiberTraceProfileFittingControl: fiberTraceProfileFittingControl->xCorProf = <" << fiberTraceProfileFittingControl->xCorProf << ">" << endl;
     #endif
 
     if (!fiberTraceProfileFittingControl->isClassInvariant()){
@@ -152,7 +151,6 @@ namespace pfsDRPStella = pfs::drp::stella;
       cout << "FiberTrace" << _iTrace << "::setFiberTraceProfileFittingControl: fiberTraceProfileFittingControl->lambdaSF = <" << fiberTraceProfileFittingControl->lambdaSF << ">" << endl;
       cout << "FiberTrace" << _iTrace << "::setFiberTraceProfileFittingControl: fiberTraceProfileFittingControl->lambdaSP = <" << fiberTraceProfileFittingControl->lambdaSP << ">" << endl;
       cout << "FiberTrace" << _iTrace << "::setFiberTraceProfileFittingControl: fiberTraceProfileFittingControl->wingSmoothFactor = <" << fiberTraceProfileFittingControl->wingSmoothFactor << ">" << endl;
-      //cout << "FiberTrace" << _iTrace << "::setFiberTraceProfileFittingControl: fiberTraceProfileFittingControl->xCorProf = <" << fiberTraceProfileFittingControl->xCorProf << ">" << endl;
     #endif
 
     if (!fiberTraceProfileFittingControl->isClassInvariant()){
@@ -896,7 +894,6 @@ namespace pfsDRPStella = pfs::drp::stella;
     for (size_t i_row = 0; i_row < static_cast<size_t>(_trace->getHeight()); ++i_row){
       iRowSwath = i_row - swathBoundsY[I_Bin][0];
       #ifdef __DEBUG_CALCPROFILE__
-//        cout << "swathBoundsY = " << swathBoundsY << endl;
         cout << "i_row = " << i_row << ", I_Bin = " << I_Bin << ", iRowSwath = " << iRowSwath << endl;
       #endif
       if ((I_Bin == 0) && (i_row < swathBoundsY[1][0])){
@@ -1304,7 +1301,6 @@ namespace pfsDRPStella = pfs::drp::stella;
       _traces = ptr;
       for (size_t i = 0; i < fiberTraceSet.size(); ++i){
         PTR(FiberTrace<ImageT, MaskT, VarianceT>) tra(new pfsDRPStella::FiberTrace<ImageT, MaskT, VarianceT>(*(fiberTraceSet.getFiberTrace(i)), true));
-//        _traces[i].reset();
         (*_traces)[i] = tra;
       }
     }
@@ -2395,40 +2391,6 @@ namespace pfsDRPStella = pfs::drp::stella;
         cout << "pfs::drp::stella::calculateXCenters: fiberTraceFunctionIn->fiberTraceFunctionControl.interpolation = " << fiberTraceFunctionIn->fiberTraceFunctionControl.interpolation << endl;
         cout << "pfs::drp::stella::calculateXCenters: fiberTraceFunctionIn->fiberTraceFunctionControl.order = " << fiberTraceFunctionIn->fiberTraceFunctionControl.order << endl;
       #endif
-/*      if (fiberTraceFunctionIn->fiberTraceFunctionControl.interpolation.compare("LEGENDRE") == 0){
-        #ifdef __DEBUG_XCENTERS__
-          cout << "pfs::drp::stella::calculateXCenters: Function = LEGENDRE" << endl;
-          cout << "pfs::drp::stella::calculateXCenters: Coeffs = " << fiberTraceFunctionCoefficients << endl;
-        #endif
-        if (!::pfs::drp::stella::math::Legendre(xCenters,
-                                          D_YMin,
-                                          D_YMax,
-                                          fiberTraceFunctionCoefficients,
-                                          double(fiberTraceFunctionIn->xCenter)+1.,
-                                          double(fiberTraceFunctionIn->yCenter)+1.,
-                                          double(fiberTraceFunctionIn->yCenter + fiberTraceFunctionIn->yLow + 1),//1.
-                                          double(int(fiberTraceFunctionIn->yCenter + fiberTraceFunctionIn->yHigh)+1),//static_cast<double>(ccdHeight)
-                                          double(fiberTraceFunctionIn->fiberTraceFunctionControl.xLow),
-                                          double(fiberTraceFunctionIn->fiberTraceFunctionControl.xHigh),
-                                          fiberTraceFunctionIn->fiberTraceFunctionControl.order,
-                                          int(ccdWidth),
-                                          int(ccdHeight))){
-          cout << "pfs::drp::stella::calculateXCenters: yCenter = " << fiberTraceFunctionIn->yCenter << endl;
-          cout << "pfs::drp::stella::calculateXCenters: yLow = " << fiberTraceFunctionIn->yLow << endl;
-          cout << "pfs::drp::stella::calculateXCenters: yHigh = " << fiberTraceFunctionIn->yHigh << endl;
-          std::string message("pfs::drp::stella::calculateXCenters: ERROR: Legendre(...) returned FALSE!!!");
-          throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
-        }
-        #ifdef __DEBUG_XCENTERS__
-          cout << "pfs::drp::stella::calculateXCenters: Legendre: D_YMin set to " << D_YMin << endl;
-          cout << "pfs::drp::stella::calculateXCenters: Legendre: D_YMax set to " << D_YMax << endl;
-        #endif
-
-        xCenters -= 1.;
-        #ifdef __DEBUG_XCENTERS__
-          cout << "pfs::drp::stella::calculateXCenters: Legendre: xCenters set to " << xCenters << endl;
-        #endif
-      }*/
       if (fiberTraceFunctionIn->fiberTraceFunctionControl.interpolation.compare("CHEBYSHEV") == 0)
       {
         #ifdef __DEBUG_XCENTERS__
@@ -2436,35 +2398,6 @@ namespace pfsDRPStella = pfs::drp::stella;
           cout << "pfs::drp::stella::calculateXCenters: Function = Chebyshev" << endl;
           cout << "pfs::drp::stella::calculateXCenters: Coeffs = " << fiberTraceFunctionCoefficients << endl;
         #endif
-/*        if (!::pfs::drp::stella::math::Chebyshev(xCenters,
-                             D_YMin,
-                             D_YMax,
-                             fiberTraceFunctionCoefficients,
-                             double(fiberTraceFunctionIn->xCenter)+1.,
-                             double(fiberTraceFunctionIn->yCenter)+1.,
-                             double(fiberTraceFunctionIn->yCenter + fiberTraceFunctionIn->yLow + 1),//1.
-                             double(fiberTraceFunctionIn->yCenter + fiberTraceFunctionIn->yHigh + 1),//int(ccdHeight)
-                             double(fiberTraceFunctionIn->fiberTraceFunctionControl.xLow),
-                             double(fiberTraceFunctionIn->fiberTraceFunctionControl.xHigh),
-                             int(fiberTraceFunctionIn->fiberTraceFunctionControl.order),
-                             int(ccdWidth),
-                             int(ccdHeight))){
-          std::string message("pfs::drp::stella::calculateXCenters: ERROR: Chebyshev(...) returned FALSE!!!");
-          throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
-        }
-        xCenters -= 1.;*/
-/*        lsst::afw::math::Chebyshev1Function1<double> chebyFunc(fiberTraceFunctionIn->fiberTraceFunctionControl.order);
-        chebyFunc.setParameters(fiberTraceFunctionIn->coefficients);
-        ndarray::Array<double, 1, 1> range = ndarray::allocate(2);
-        range[0] = fiberTraceFunctionIn->yCenter + fiberTraceFunctionIn->yLow;
-        range[1] = fiberTraceFunctionIn->yCenter + fiberTraceFunctionIn->yHigh;
-        ndarray::Array<double, 1, 1> yNew = Double(convertRangeToUnity(yIn, range));
-        xCenters = ndarray::allocate(yIn.getShape()[0]);
-        auto itY = yIn.begin();
-        for (auto itXC = xCenters.begin(); itXC != xCenters.end(); ++itXC){
-          *itXC = float(chebyFunc(*itY));
-          ++itY;
-        }*/
         ndarray::Array<double, 1, 1> range = ndarray::allocate(2);
         range[0] = fiberTraceFunctionIn->yCenter + fiberTraceFunctionIn->yLow + PIXEL_CENTER;
         range[1] = fiberTraceFunctionIn->yCenter + fiberTraceFunctionIn->yHigh + PIXEL_CENTER;
@@ -2483,48 +2416,6 @@ namespace pfsDRPStella = pfs::drp::stella;
         #endif
         xCenters = pfs::drp::stella::math::chebyshev(yNew, coeffs);
       }
-/*      else if (fiberTraceFunctionIn->fiberTraceFunctionControl.interpolation.compare("LINEAR") == 0){
-        #ifdef __DEBUG_XCENTERS__
-          cout << "pfs::drp::stella::calculateXCenters: Function = spline1" << endl;
-          cout << "pfs::drp::stella::calculateXCenters: Coeffs = " << fiberTraceFunctionCoefficients << endl;
-        #endif
-        if (!::pfs::drp::stella::math::LinearSpline(xCenters,
-                                              fiberTraceFunctionCoefficients,
-                                              double(fiberTraceFunctionIn->xCenter) + 1.,
-                                              double(fiberTraceFunctionIn->yCenter) + 1.,
-                                              double(fiberTraceFunctionIn->yCenter + fiberTraceFunctionIn->yLow + 1),//1.
-                                              double(fiberTraceFunctionIn->yCenter + fiberTraceFunctionIn->yHigh + 1),//int(ccdHeight)
-                                              double(fiberTraceFunctionIn->fiberTraceFunctionControl.xLow),
-                                              double(fiberTraceFunctionIn->fiberTraceFunctionControl.xHigh),
-                                              int(fiberTraceFunctionIn->fiberTraceFunctionControl.order),
-                                              int(ccdWidth),
-                                              int(ccdHeight))){
-          std::string message("pfs::drp::stella::calculateXCenters: ERROR: LinearSpline(...) returned FALSE!!!");
-          throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
-        }
-        xCenters -= 1.;
-      }
-      else if (fiberTraceFunctionIn->fiberTraceFunctionControl.interpolation.compare("CUBIC") == 0){
-        #ifdef __DEBUG_XCENTERS__
-          cout << "pfs::drp::stella::calculateXCenters: Function = spline3" << endl;
-          cout << "pfs::drp::stella::calculateXCenters: Coeffs = " << fiberTraceFunctionCoefficients << endl;
-        #endif
-        if (!::pfs::drp::stella::math::CubicSpline(xCenters,
-                                             fiberTraceFunctionCoefficients,
-                                             double(fiberTraceFunctionIn->xCenter) + 1.,
-                                             double(fiberTraceFunctionIn->yCenter) + 1.,
-                                             double(fiberTraceFunctionIn->yCenter + fiberTraceFunctionIn->yLow + 1),//1.
-                                             double(fiberTraceFunctionIn->yCenter + fiberTraceFunctionIn->yHigh + 1),//int(ccdHeight)
-                                             double(fiberTraceFunctionIn->fiberTraceFunctionControl.xLow),
-                                             double(fiberTraceFunctionIn->fiberTraceFunctionControl.xHigh),
-                                             int(fiberTraceFunctionIn->fiberTraceFunctionControl.order),
-                                             int(ccdWidth),
-                                             int(ccdHeight))){
-          std::string message("pfs::drp::stella::calculateXCenters: ERROR: CubicSpline(...) returned FALSE!!!");
-          throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
-        }
-        xCenters -= 1.;
-      }*/
       else /// Polynomial
       {
         #ifdef __DEBUG_XCENTERS__

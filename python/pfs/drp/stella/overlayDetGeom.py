@@ -1,6 +1,4 @@
 #!/usr/bin/env python
-#python readDetGeom.py '/Users/azuri/stella-git/obs_subaru/pfs/camera/0_00.fits'
-
 import argparse
 import lsst.afw.table
 import lsst.afw.cameraGeom as camGeom
@@ -9,7 +7,6 @@ import numpy
 import matplotlib.pyplot as pyplot
 import lsst.daf.persistence as dafPersist
 
-#def main(rootDir, fitsFileName, nAmps):
 def main(rootDir, visit, arm, ccd, fitsFileName):
 
     # make a butler and specify your dataId
@@ -36,19 +33,11 @@ def main(rootDir, visit, arm, ccd, fitsFileName):
     """ Create instance of ampInfoCatalog by reading fitsFileName """
     amps = ampInfoCatalog.readFits(fitsFileName)
 
-#    for iAmp in range(len(amps)):#range(nAmps):
-#        ampSchema = amps[iAmp].getSchema()
-#        for name in ampSchema.getNames():
-#            print 'amps[',iAmp,']: ',name,': value = ',amps[iAmp].get(name)
-#        print ' '
-
     """ Get CCD image """
     print 'dir(exposure) = ',dir(exposure)
     det = exposure.getDetector()
-#    det = camGeom.Detector(0)
     print 'det.getBBox() = ',det.getBBox()
     butlerImage = camGeomUtils.ButlerImage(butler, "raw", visit=visit, arm=arm, isTrimmed=True, verbose=True)
-#    butlerImage = camGeomUtils.ButlerImage(butler, "raw", visit=visit, arm=arm, ccd=ccd, isTrimmed=, verbose=True)
     print 'butlerImage = ',butlerImage
     print 'dir(butlerImage) = ',dir(butlerImage)
     print 'butlerImage.isTrimmed = ',butlerImage.isTrimmed

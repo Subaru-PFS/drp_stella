@@ -325,10 +325,8 @@ namespace pfs { namespace drp { namespace stella { namespace math {
       }
       StretchAndCrossCorrelateSpecResult< T, U > stretchAndCrossCorrelateSpecResult;
       stretchAndCrossCorrelateSpecResult.lineList = ndarray::allocate( lineList_WLenPix.getShape() );
-////      #ifdef __DEBUG_STRETCHANDCROSSCORRELATESPEC__
-        stretchAndCrossCorrelateSpecResult.specPieces = ndarray::allocate( ndarray::makeVector( dispCorControl.stretchMaxLength, 2, dispCorControl.nCalcs ) );
-        stretchAndCrossCorrelateSpecResult.specPieces.deep() = 0.;
-////      #endif
+      stretchAndCrossCorrelateSpecResult.specPieces = ndarray::allocate( ndarray::makeVector( dispCorControl.stretchMaxLength, 2, dispCorControl.nCalcs ) );
+      stretchAndCrossCorrelateSpecResult.specPieces.deep() = 0.;
       int nCalcs = dispCorControl.nCalcs;
       if ( nCalcs < spec.getShape()[ 0 ] / dispCorControl.lengthPieces ){
         nCalcs = 2 * int( spec.getShape()[ 0 ] / dispCorControl.lengthPieces );
@@ -380,8 +378,6 @@ namespace pfs { namespace drp { namespace stella { namespace math {
         specPiece.deep() = stretchedSpec[ ndarray::view( start, end + 1 ) ];
         #ifdef __DEBUG_STRETCHANDCROSSCORRELATESPEC__
           cout << "stretchAndCrossCorrelateSpec: i_run = " << i_run << ": specPiece = " << specPiece.getShape() << ": " << specPiece << endl;
-        #endif
-        #ifdef __DEBUG_STRETCHANDCROSSCORRELATESPEC__
           cout << "stretchAndCrossCorrelateSpec: i_run = " << i_run << ": specRefPiece = " << specRefPiece.getShape() << endl;
         #endif
         specRefPiece = ndarray::allocate( end - start + 1 );
@@ -414,8 +410,6 @@ namespace pfs { namespace drp { namespace stella { namespace math {
           cout << "stretchAndCrossCorrelateSpec: stretchAndCrossCorrelateSpecResult.specPieces.getShape() = " << stretchAndCrossCorrelateSpecResult.specPieces.getShape() << endl;
           cout << "stretchAndCrossCorrelateSpec: stretchAndCrossCorrelateSpecResult.specPieces[ ndarray::view( 0, " << specPieceStretched_MinChiSq.getShape()[ 0 ] << " )( 0 )( " << i_run << " ) ] = " << stretchAndCrossCorrelateSpecResult.specPieces[ ndarray::view( 0, specPieceStretched_MinChiSq.getShape()[ 0 ] )( 0 )( i_run ) ] << endl;
           cout << "stretchAndCrossCorrelateSpec: stretchAndCrossCorrelateSpecResult.specPieces[ ndarray::view( 0, " << specPieceStretched_MinChiSq.getShape()[ 0 ] << " )( 1 )( " << i_run << " ) ] = " << stretchAndCrossCorrelateSpecResult.specPieces[ ndarray::view( 0, specPieceStretched_MinChiSq.getShape()[ 0 ] )( 1 )( i_run ) ] << endl;
-        #endif
-        #ifdef __DEBUG_STRETCHANDCROSSCORRELATESPEC__
           cout << "stretchAndCrossCorrelateSpec: i_run=" << i_run << ": after stretchAndCrossCorrelate: stretchAndCrossCorrelateResult.specStretchedMinChiSq.getShape() = " << stretchAndCrossCorrelateResult.specStretchedMinChiSq.getShape() << endl;
           cout << "stretchAndCrossCorrelateSpec: i_run=" << i_run << ": after stretchAndCrossCorrelate: specPieceStretched_MinChiSq = " << specPieceStretched_MinChiSq.getShape() << ": " << specPieceStretched_MinChiSq << endl;
         #endif
@@ -664,7 +658,6 @@ namespace pfs { namespace drp { namespace stella { namespace math {
           cout << "Spectra::createLineList: indT[" << i << "] = " << indT[ i ] << ": wavelengths[" << i << "] = " << wavelengths[ i ] << endl;
       #endif
       std::vector< std::string > args( 1 );
-//      args[ 0 ] = "SPLINE";
       #ifdef __DEBUG_CREATELINELIST__
         cout << "Spectra::createLineList: intT = " << indT.getShape() << ": " << indT << endl;
         cout << "Spectra::createLineList: wavelengths = " << wavelengths.getShape() << ": " << wavelengths << endl;

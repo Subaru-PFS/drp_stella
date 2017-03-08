@@ -1671,9 +1671,6 @@ CrossCorrelateResult crossCorrelate( ndarray::Array<T, 1, 1> const& DA1_Static,
   return crossCorrelateResult;
 }
 
-/**
-  CrossCorrelate
- **/
 template< typename T >
 CrossCorrelateResult crossCorrelateI( ndarray::Array< T, 1, 1 > const& DA1_Static,
                                       ndarray::Array< T, 1> const& DA1_Moving,
@@ -1791,9 +1788,6 @@ CrossCorrelateResult crossCorrelateI( ndarray::Array< T, 1, 1 > const& DA1_Stati
   return crossCorrelateResult;
 }
 
-/**
-  LsToFit
- **/
 template< typename T >
 T lsToFit( ndarray::Array< T, 1, 1 > const& XXVecArr,
            ndarray::Array< T, 1, 1 > const& YVecArr,
@@ -2496,10 +2490,6 @@ ndarray::Array< T, 1, 1 > splineI( ndarray::Array< T, 1, 1 > const& XVecArr,
                  T(1.0e30));
 }
 
-/**
-  SplInt
-  Given the Arrays XAVecArr(0:N-1) and YAVecArr(0:N-1), which tabulate a function (whith the XAVecArr(i)'s in order), and given the array Y2AVecArr(0:N-1), which is the output from Spline above, and given a value of X, this routine returns a cubic-spline interpolated value Y;
- **/
 template< typename T >
 T splInt( ndarray::Array< T, 1, 1 > const& XAVecArr,
           ndarray::Array< T, 1, 1 > const& YAVecArr,
@@ -2512,7 +2502,10 @@ T splInt( ndarray::Array< T, 1, 1 > const& XAVecArr,
 
   N = XAVecArr.getShape()[ 0 ];
   /**
-  We will find the right place in the table by means of bisection. This is optimal if sequential calls to this routine are at random values of X. If sequential calls are in order, and closely spaced, one would do better to store previous values of klo and khi and test if they remain appropriate on the next call.
+   *  We will find the right place in the table by means of bisection. This is optimal
+   * if sequential calls to this routine are at random values of X. If sequential calls
+   * are in order, and closely spaced, one would do better to store previous values of
+   * klo and khi and test if they remain appropriate on the next call.
    **/
   klo = 1;
   khi = N;

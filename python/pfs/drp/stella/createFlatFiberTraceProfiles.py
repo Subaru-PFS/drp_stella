@@ -1,21 +1,8 @@
 #!/usr/bin/env python
-"""
-Tests for measuring things
-
-Run with:
-   python FiberTrace.py
-or
-   python
-   >>> import FiberTrace; FiberTrace.run()
-"""
-
-#import unittest
 import numpy as np
-#import lsst.utils.tests as tests
 import lsst.afw.image as afwImage
 import lsst.afw.geom as afwGeom
 import pfs.drp.stella as drpStella
-#import pfs.drp.stella.math as drpStellaMath
 import pyfits
 
 try:
@@ -126,12 +113,10 @@ def createFlatFiberTraceProfiles(filename):
         filename_specFromProf = filename.replace(".fits", "_trace"+str(i)+"_specFromProf.fits")
         pyfits.writeto(filename_specFromProf,np_speca,clobber=True)
 
-    return fts;#.getFiberTraceSet();
-
+    return fts;
 #-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
 def main(argv=None):
-# --- start with <msi=createFlatFiberTraceProfiles.main('-f="/home/azuri/spectra/pfs/IR-23-0-centerFlatx2.fits"')>
     if argv is None:
       import sys
       argv = sys.argv[1:]

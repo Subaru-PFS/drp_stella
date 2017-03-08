@@ -676,7 +676,6 @@ def suite():
 
     suites = []
     suites += unittest.makeSuite(SpectraTestCase)
-#    suites += unittest.makeSuite(tests.MemoryTestCase)
     return unittest.TestSuite(suites)
 
 def run(exit = False):

@@ -33,7 +33,7 @@ public:
         CGeostat(void);
         // destructor
         virtual ~CGeostat(void);
-                // initializer
+        // initializer
         bool initialize(size_t smpl, size_t dim);
 
 //

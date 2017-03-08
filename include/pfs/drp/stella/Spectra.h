@@ -14,12 +14,6 @@
 
 #define stringify( name ) # name
 
-//#define __DEBUG_IDENTIFY__
-//#define __DEBUG_SETLENGTH__
-//#define __DEBUG_STRETCHANDCROSSCORRELATESPEC__
-//#define __DEBUG_STRETCHANDCROSSCORRELATESPEC_LINELIST__
-//#define __DEBUG_CREATELINELIST__
-
 namespace afwImage = lsst::afw::image;
 namespace pexExcept = lsst::pex::exceptions;
 
@@ -210,8 +204,7 @@ class SpectrumSet// : public lsst::daf::base::Persistable,
     /// If spectrumSet is not empty, the object shares ownership of spectrumSet's spectrum vector and increases the use count.
     /// If spectrumSet is empty, an empty object is constructed (as if default-constructed).
     SpectrumSet( SpectrumSet const& spectrumSet)
-        ://     lsst::daf::base::Citizen(typeid(this)),
-              _spectra(spectrumSet.getSpectra())
+        : _spectra(spectrumSet.getSpectra())
         {}
 
     /// Construct an object with a copy of spectrumVector
@@ -315,9 +308,7 @@ namespace math{
     template< typename T, typename U >
     struct StretchAndCrossCorrelateSpecResult{
         ndarray::Array< U, 2, 1 > lineList;
-//        #ifdef __DEBUG_STRETCHANDCROSSCORRELATESPEC__
-            ndarray::Array< T, 3, 1 > specPieces;
-//        #endif
+        ndarray::Array< T, 3, 1 > specPieces;
     };
     
     template< typename T, typename U >

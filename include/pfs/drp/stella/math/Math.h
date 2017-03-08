@@ -11,21 +11,6 @@
 #include "../cmpfit-1.2/MPFitting_ndarray.h"
 #include <unsupported/Eigen/Splines>
 
-//#define __DEBUG_FIT__
-//#define __DEBUG_FITARR__
-//#define __DEBUG_POLY__
-//#define __DEBUG_POLYFIT__
-//#define __DEBUG_MINCENMAX__
-//#define __DEBUG_INDGEN__
-//#define __DEBUG_SORT__
-//#define __DEBUG_XCOR__
-//#define __DEBUG_INTERPOL__
-//#define __DEBUG_RESIZE__
-//#define __DEBUG_STRETCH__
-//#define __DEBUG_STRETCHANDCROSSCORRELATE__
-//#define __DEBUG_CROSSCORRELATE__
-//#define __DEBUG_WHERE__
-
 /// constants
 #define CONST_PI 3.141592653589793238462643383280    /* pi */
 
@@ -185,14 +170,6 @@ namespace pfs { namespace drp { namespace stella {
     std::vector<T> removeSubArrayFromArray(std::vector<T> const& A1_Array_InOut,
                                            std::vector<T> const& A1_SubArray);
 
-    /**
-     *        Linear equation solution by Gauss-Jordan elimination with B == Unity
-     *        AArray(0:N-1, 0:N-1) is the input matrix.
-     *        On output, AArray is replaced by its matrix inverse.
-     **
-    template< typename T >
-    bool InvertGaussJ(ndarray::Array<T, 2, 1> &AArray);
-*/
     template<typename T>
     bool countPixGTZero(ndarray::Array<T, 1, 1> &vec_InOut);
 
@@ -611,6 +588,10 @@ namespace pfs { namespace drp { namespace stella {
     ndarray::Array< T, 1, 1 > splineI( ndarray::Array< T, 1, 1 > const& XVecArr, 
                                        ndarray::Array< T, 1, 1 > const& YVecArr);
 
+    /**
+      SplInt
+      Given the Arrays XAVecArr(0:N-1) and YAVecArr(0:N-1), which tabulate a function (whith the XAVecArr(i)'s in order), and given the array Y2AVecArr(0:N-1), which is the output from Spline above, and given a value of X, this routine returns a cubic-spline interpolated value Y;
+     **/
     template< typename T >
     T splInt( ndarray::Array< T, 1, 1 > const& XAVecArr, 
                  ndarray::Array< T, 1, 1 > const& YAVecArr, 
@@ -623,7 +604,6 @@ namespace pfs { namespace drp { namespace stella {
                                          ndarray::Array< int, 1, 1 > & SVecArr,
                                          ndarray::Array< T, 1, I > const& UVecArr,
                                          std::vector< string > const& CS_A1_In);
-//                    ndarray::Array< T, 1, 1 > & D1_Out);
 
     /**
      ValueLocate
@@ -812,9 +792,6 @@ namespace pfs { namespace drp { namespace stella {
     template< typename T > 
     int find( std::vector< T > const& vecToSearch,
               T val );
-
-    //    template< typename T >
-//    ndarray::Array< T, 2, 1 > get2DArray(ndarray::Array< T, 1, 1 > const& xIn, ndarray::Array< T, 1, 1 > const& yIn);
   }/// end namespace math
 
 }}}

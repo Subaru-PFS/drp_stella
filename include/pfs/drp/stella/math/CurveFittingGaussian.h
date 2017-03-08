@@ -20,9 +20,6 @@ namespace pfs { namespace drp { namespace stella {
 	  auto num = -(m_x0 - ValueType::Constant(values(),x[1])).array().square();
 		auto den = 2 * x[2] * x[2];
           
-    // this definition doesn't converge...
-//		fvec = m_y0.array() - x[0] * (num / den).exp();
-		// ...but this does??
 		fvec = x[0] * (num / den).exp() - m_y0.array();
 		return 0;
 	}

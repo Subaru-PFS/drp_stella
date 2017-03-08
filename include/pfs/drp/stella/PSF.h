@@ -17,7 +17,6 @@
 #include "math/Math.h"
 #include "math/LinearAlgebra3D.h"
 #include "math/SurfaceFitting.h"
-//#include "SurfaceFit.h"
 #include "cmpfit-1.2/MPFitting_ndarray.h"
 #include "FiberTraces.h"
 #include "Spectra.h"
@@ -25,22 +24,11 @@
 #include "boost/numeric/ublas/matrix.hpp"
 #include "ndarray/eigen.h"
 
-//#include "lsst/afw/table/io/InputArchive.h"
-//#include "lsst/afw/table/io/OutputArchive.h"
-//#include "lsst/afw/table/io/CatalogVector.h"
-
-//#define __DEBUG_CALC2DPSF__
-//#define __DEBUG_CPRTC__
-//#define __DEBUG_CALC_TPS__
-//#define __DEBUG_PFS_RECONSTRUCTPFSFROMFIT__
-//#define __DEBUG_COMPARECENTERPOSITIONS__
-//#define __DEBUG_PSF__
-#define __DEBUGDIR__ ""//~/spectra/pfs/2014-11-02/debug/"// 
+#define __DEBUGDIR__ ""
 
 namespace afwGeom = lsst::afw::geom;
 namespace afwImage = lsst::afw::image;
 namespace pexExcept = lsst::pex::exceptions;
-//namespace blas = boost::numeric;//::ublas;
 
 using namespace std;
 namespace pfs { namespace drp { namespace stella {
@@ -58,11 +46,9 @@ namespace pfs { namespace drp { namespace stella {
     T yCenterPSFCCD;
   };
 
-  template<typename T>//, typename MaskT=afwImage::MaskPixel, typename VarianceT=afwImage::VariancePixel>//, typename WavelengthT=afwImage::VariancePixel>
+  template<typename T>
   class PSF {
     public:
-//      typedef afwImage::MaskedImage<ImageT, MaskT, VarianceT> MaskedImageT;
-
       explicit PSF(size_t iTrace=0, size_t iBin=0) : _twoDPSFControl(new TwoDPSFControl()),
                                                      _iTrace(iTrace),
                                                      _iBin(iBin),
@@ -200,14 +186,6 @@ namespace pfs { namespace drp { namespace stella {
       
       virtual ~PSF() {};
 
-      /// Polymorphic deep copy; should usually be unnecessary because Psfs are immutable.
-//      virtual PTR(PSF) clone() const;
-
-      /// Return the dimensions of the images returned by computeImage()
-//      geom::Extent2I getDimensions() const { return _dimensions; }
-
-      /// Whether the Psf is persistable; always true.
-//      virtual bool isPersistable() const { return true; }
       size_t getIBin() const { return _iBin; }
       size_t getITrace() const { return _iTrace; }
       size_t getYLow() const { return _yMin; }
@@ -283,8 +261,6 @@ namespace pfs { namespace drp { namespace stella {
        */
       template< typename ImageT, typename MaskT = afwImage::MaskPixel, typename VarianceT = afwImage::VariancePixel >
       bool extractPSFFromCenterPositions(FiberTrace< ImageT, MaskT, VarianceT > const& fiberTrace_In);
-      //bool fitPSFKernel();
-      //bool calculatePSF();
       
       /*
        * @brief fit regularized thin-plate spline to PSF and reconstruct zNormalized from that fit
@@ -332,12 +308,6 @@ namespace pfs { namespace drp { namespace stella {
       }
       
   protected:
-
-//    virtual std::string getPersistenceName() const;
-
-//    virtual std::string getPythonModule() const;
-
-//    virtual void write(OutputArchiveHandle & handle) const;
 
     private:
       PTR(TwoDPSFControl) _twoDPSFControl;
