@@ -846,6 +846,103 @@ class FiberTraceTestCase(tests.TestCase):
             iTrace = fts.getFiberTrace(0).getITrace()
             self.assertEqual(iTrace, traceIdsUnique[iFt])
 
+    def testCcdToFiberTraceCoordinates(self):
+        ft = drpStella.FiberTraceF(3,5)
+        ftfc = drpStella.FiberTraceFunctionControl()
+        ftfc.order = 0
+        ftfc.xLow = -1.
+        ftfc.xHigh = 1.
+        ftfc.nPixCutLeft = 0
+        ftfc.nPixCutRight = 0
+        ftfc.nRows = 10
+        ftf = drpStella.FiberTraceFunction()
+        ftf.fiberTraceFunctionControl = ftfc
+        ftf.xCenter = 3.0
+        ftf.yCenter = 4
+        ftf.yLow = -2
+        ftf.yHigh = 2
+        coefficients = np.ndarray(shape=(1), dtype=np.float32)
+        coefficients[0] = 3.0
+        xCenters = np.ndarray(shape=(5), dtype=np.float32)
+        xCenters[:] = 3.0
+        self.assertTrue(ft.setFiberTraceFunction(ftf))
+        ft.setXCenters(xCenters)
+        coords = drpStella.CoordinatesF()
+        coords.x = 3.0
+        coords.y = 4.0
+        coordsTrace = drpStella.ccdToFiberTraceCoordinates(coords, ft)
+        xCoordTraceCheck = 1.0
+        yCoordTraceCheck = 2.0
+        self.assertAlmostEqual(coordsTrace.x, xCoordTraceCheck, places=6)
+        self.assertAlmostEqual(coordsTrace.y, yCoordTraceCheck, places=6)
+
+        coords.x = 2.1
+        coords.y = 2.1
+        coordsTrace = drpStella.ccdToFiberTraceCoordinates(coords, ft)
+        xCoordTraceCheck = 0.1
+        yCoordTraceCheck = 0.1
+        self.assertAlmostEqual(coordsTrace.x, xCoordTraceCheck, places=6)
+        self.assertAlmostEqual(coordsTrace.y, yCoordTraceCheck, places=6)
+
+        coords.x = 4.49
+        coords.y = 6.49
+        coordsTrace = drpStella.ccdToFiberTraceCoordinates(coords, ft)
+        xCoordTraceCheck = 2.49
+        yCoordTraceCheck = 4.49
+        self.assertAlmostEqual(coordsTrace.x, xCoordTraceCheck, places=6)
+        self.assertAlmostEqual(coordsTrace.y, yCoordTraceCheck, places=6)
+
+    def testFiberTraceCoordinatesRelativeTo(self):
+        ft = drpStella.FiberTraceF(3,5)
+        ftfc = drpStella.FiberTraceFunctionControl()
+        ftfc.order = 0
+        ftfc.xLow = -1.
+        ftfc.xHigh = 1.
+        ftfc.nPixCutLeft = 0
+        ftfc.nPixCutRight = 0
+        ftfc.nRows = 10
+        ftf = drpStella.FiberTraceFunction()
+        ftf.fiberTraceFunctionControl = ftfc
+        ftf.xCenter = 3.0
+        ftf.yCenter = 4
+        ftf.yLow = -2
+        ftf.yHigh = 2
+        coefficients = np.ndarray(shape=(1), dtype=np.float32)
+        coefficients[0] = 3.0
+        xCenters = np.ndarray(shape=(5), dtype=np.float32)
+        xCenters[:] = 3.0
+        self.assertTrue(ft.setFiberTraceFunction(ftf))
+        ft.setXCenters(xCenters)
+
+        coords = drpStella.CoordinatesF()
+        coords.x = 3.0
+        coords.y = 4.0
+        coordsCenter = drpStella.CoordinatesF()
+        coordsCenter.x = 3.0
+        coordsCenter.y = 4.0
+        coordsTrace = drpStella.ccdToFiberTraceCoordinates(coords, ft)
+        coordsRelativeToCenter = drpStella.fiberTraceCoordinatesRelativeTo(coordsTrace,
+                                                                           coordsCenter,
+                                                                           ft)
+        xCoordCheck = 0.0
+        yCoordCheck = 0.0
+        self.assertAlmostEqual(coordsRelativeToCenter.x, xCoordCheck, places=6)
+        self.assertAlmostEqual(coordsRelativeToCenter.y, yCoordCheck, places=6)
+
+        coords.x = 3.0
+        coords.y = 4.0
+        coordsCenter = drpStella.CoordinatesF()
+        coordsCenter.x = 3.6
+        coordsCenter.y = 4.3
+        coordsTrace = drpStella.ccdToFiberTraceCoordinates(coords, ft)
+        coordsRelativeToCenter = drpStella.fiberTraceCoordinatesRelativeTo(coordsTrace,
+                                                                           coordsCenter,
+                                                                           ft)
+        xCoordCheck = -0.6
+        yCoordCheck = -0.3
+        self.assertAlmostEqual(coordsRelativeToCenter.x, xCoordCheck, places=6)
+        self.assertAlmostEqual(coordsRelativeToCenter.y, yCoordCheck, places=6)
+
 #-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
 def suite():
