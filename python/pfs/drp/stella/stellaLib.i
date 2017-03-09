@@ -23,7 +23,7 @@ Interface to Stella
 #include "pfs/drp/stella/math/SurfaceFitting.h"
 #include "pfs/drp/stella/math/CurveFitting.h"
 #include "pfs/drp/stella/Controls.h"
-//#include "pfs/drp/stella/PSF.h"
+#include "pfs/drp/stella/PSF.h"
 #include "pfs/drp/stella/Spectra.h"
 //#include "pfs/drp/stella/SurfaceFit.h"
 #include "ndarray/Array.h"
@@ -151,7 +151,7 @@ Interface to Stella
 %template(FTVectorF) std::vector<PTR(pfs::drp::stella::FiberTrace<float, unsigned short, float>)>;
 %template(FTVectorD) std::vector<PTR(pfs::drp::stella::FiberTrace<double, unsigned short, float>)>;
 
-//%include "pfs/drp/stella/PSF.h"
+%include "pfs/drp/stella/PSF.h"
 //%template(PSFVectorF) std::vector<PTR(pfs::drp::stella::PSF<float>)>;
 //%template(PSFVectorD) std::vector<PTR(pfs::drp::stella::PSF<double>)>;
 //%template(PSFSetVectorF) std::vector<PTR(pfs::drp::stella::PSFSet<float>)>;
@@ -1089,3 +1089,6 @@ Interface to Stella
 %template(calcMinCenMax) pfs::drp::stella::math::calcMinCenMax<double, float>;
 %template(calcMinCenMax) pfs::drp::stella::math::calcMinCenMax<float, double>;
 %template(calcMinCenMax) pfs::drp::stella::math::calcMinCenMax<double, double>;
+
+%template(calcPositionsRelativeToCenter) pfs::drp::stella::math::calcPositionsRelativeToCenter<float>;
+%template(calcPositionsRelativeToCenter) pfs::drp::stella::math::calcPositionsRelativeToCenter<double>;

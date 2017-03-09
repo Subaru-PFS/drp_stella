@@ -1711,7 +1711,7 @@ namespace pfs{ namespace drp{ namespace stella{
         cout << "PSF::math::calcPositionsRelativeToCenter: low = " << low << ", high = " << high << endl;
       #endif
       ndarray::Array< T, 2, 1 > arr_Out = ndarray::allocate(high - low + 1, 2);
-      double dCenter = 0.5 - centerPos_In + std::floor(centerPos_In);
+      double dCenter = PIXEL_CENTER - centerPos_In + std::floor(centerPos_In);
       #ifdef __DEBUG_CPRTC__
         cout << "PSF::math::calcPositionsRelativeToCenter: dCenter = " << dCenter << endl;
       #endif

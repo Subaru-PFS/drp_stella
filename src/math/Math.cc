@@ -11,7 +11,11 @@ ndarray::Array<size_t, 2, 1> calcMinCenMax( ndarray::Array<T, 1, 1> const& xCent
                                             int const nPixCutLeft_In,
                                             int const nPixCutRight_In )
 {
-  ndarray::Array<size_t, 1, 1> floor = pfs::drp::stella::math::floor(xCenters_In, size_t(0));
+  ndarray::Array<double, 1, 1> tempCenter = ndarray::allocate(xCenters_In.getShape()[0]);
+  tempCenter.deep() = xCenters_In + 0.5 - PIXEL_CENTER;
+
+  ndarray::Array<size_t, 1, 1> floor = pfs::drp::stella::math::floor(tempCenter,
+                                                                     size_t(0));
   ndarray::Array<size_t, 2, 2> minCenMax_Out = ndarray::allocate(xCenters_In.getShape()[0], 3);
   minCenMax_Out[ndarray::view()()] = 0;
 
@@ -21,14 +25,14 @@ ndarray::Array<size_t, 2, 1> calcMinCenMax( ndarray::Array<T, 1, 1> const& xCent
   cout << "calcMinCenMax: minCenMax_Out(*,1) = " << minCenMax_Out[ndarray::view()(1)] << endl;
 #endif
   ndarray::Array<double, 1, 1> D_A1_Temp = ndarray::allocate(xCenters_In.getShape()[0]);
-  D_A1_Temp.deep() = xCenters_In + xLow_In;
+  D_A1_Temp.deep() = tempCenter + xLow_In;
 
   minCenMax_Out[ndarray::view()(0)] = pfs::drp::stella::math::floor(ndarray::Array<double const, 1, 1>(D_A1_Temp), size_t(0));
 
 #ifdef __DEBUG_MINCENMAX__
   cout << "calcMinCenMax: minCenMax_Out(*,0) = " << minCenMax_Out[ndarray::view()(0)] << endl;
 #endif
-  D_A1_Temp.deep() = xCenters_In + xHigh_In;
+  D_A1_Temp.deep() = tempCenter + xHigh_In;
 
   minCenMax_Out[ndarray::view()(2)] = pfs::drp::stella::math::floor(ndarray::Array<double const, 1, 1>(D_A1_Temp), size_t(0));
 
