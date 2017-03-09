@@ -74,7 +74,7 @@ def getDistTraceProfRec(fiberTraceSet):
                 distanceFromCenterRatio[iRow * width + col, :] = [(minCenMax[row, 0]
                                                                    + col
                                                                    - xCenters[row]
-                                                                   + 0.5),
+                                                                   + drpStella.PIXEL_CENTER),
                                                                   orig[row, col],
                                                                   prof[row, col],
                                                                   rec[row, col]]

@@ -179,6 +179,23 @@ class PSFTestCase(tests.TestCase):
                 self.assertGreater(len(psf.getImagePSF_XTrace()), 0)
                 self.assertTrue(psf.isPSFsExtracted())
 
+    def testCalcPositionsRelativeToCenter(self):
+        pixCenter = drpStella.PIXEL_CENTER
+        centerPosition = 5.0
+        width = 10.0
+        positionsRelativeToCenter = drpStella.calcPositionsRelativeToCenter(centerPosition, width)
+        self.assertAlmostEqual(positionsRelativeToCenter[5][1],pixCenter, places=6)
+
+        centerPosition = 5.1
+        width = 10.0
+        positionsRelativeToCenter = drpStella.calcPositionsRelativeToCenter(centerPosition, width)
+        self.assertAlmostEqual(positionsRelativeToCenter[5][1],pixCenter-0.1, places=6)
+
+        centerPosition = 5.9
+        width = 10.0
+        positionsRelativeToCenter = drpStella.calcPositionsRelativeToCenter(centerPosition, width)
+        self.assertAlmostEqual(positionsRelativeToCenter[5][1],pixCenter-0.9, places=6)
+
 #-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
 def suite():

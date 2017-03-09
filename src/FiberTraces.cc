@@ -1084,9 +1084,11 @@ namespace pfsDRPStella = pfs::drp::stella;
     #endif
 
     /// Calculate pixel offset to xCenter
-    const ndarray::Array<size_t const, 1, 1> xCentersInt = math::floor(xCentersSwath, size_t(0));
+    ndarray::Array<float, 1, 1> xCentersTemp = ndarray::allocate(xCentersSwath.getShape()[0]);
+    xCentersTemp.deep() = xCentersSwath + 0.5 - PIXEL_CENTER;
+    const ndarray::Array<size_t const, 1, 1> xCentersInt = math::floor(xCentersTemp, size_t(0));
     ndarray::Array<double, 1, 1> pixelOffset = ndarray::allocate(xCentersSwath.getShape()[0]);
-    pixelOffset.deep() = 0.5;
+    pixelOffset.deep() = PIXEL_CENTER;
     pixelOffset.deep() -= xCentersSwath;
     pixelOffset.deep() += xCentersInt;
     #ifdef __DEBUG_CALCPROFILESWATH__
@@ -2075,7 +2077,7 @@ namespace pfsDRPStella = pfs::drp::stella;
               }
               else{
                 D_A1_ApertureCenter[i_Row] = maxPos;
-                D_A1_EApertureCenter[i_Row] = 0.5;
+                D_A1_EApertureCenter[i_Row] = 0.5;/// Half a pixel uncertainty
                 #ifdef __DEBUG_FINDANDTRACE__
                   cout << "pfs::drp::stella::math::findCenterPositionsOneTrace: i_Row = " << i_Row << ": Aperture found at " << D_A1_ApertureCenter[i_Row] << endl;
                 #endif
@@ -2387,8 +2389,8 @@ namespace pfsDRPStella = pfs::drp::stella;
             if (*(itCen + iInd) > 0.){
               (*(itInd + iInd)) = 1;
               ++I_ApertureLength;
-              result.apertureCenterIndex.push_back(double(iInd + 0.5));
-              result.apertureCenterPos.push_back((*(itCen + iInd)) + 0.5);
+              result.apertureCenterIndex.push_back(double(iInd + PIXEL_CENTER));
+              result.apertureCenterPos.push_back((*(itCen + iInd)) + PIXEL_CENTER);
               result.eApertureCenterPos.push_back((*(itECen + iInd)));
               #ifdef __DEBUG_FINDANDTRACE__
                 cout << "pfs::drp::stella::math::findCenterPositionsOneTrace: i_Row = " << i_Row << ": result.apertureCenterIndex[" << result.apertureCenterIndex.size()-1 << "] set to " << result.apertureCenterIndex[result.apertureCenterIndex.size()-1] << endl;
@@ -2419,7 +2421,7 @@ namespace pfsDRPStella = pfs::drp::stella;
                                                   size_t const& ccdHeightIn,
                                                   size_t const& ccdWidthIn){
       ndarray::Array<float, 1, 1> xRowIndex = ndarray::allocate(fiberTraceFunctionIn->yHigh - fiberTraceFunctionIn->yLow + 1);
-      float xRowInd = fiberTraceFunctionIn->yCenter + fiberTraceFunctionIn->yLow + 0.5;
+      float xRowInd = fiberTraceFunctionIn->yCenter + fiberTraceFunctionIn->yLow + PIXEL_CENTER;
       for (auto i = xRowIndex.begin(); i != xRowIndex.end(); ++i){
         *i = xRowInd;
         ++xRowInd;
@@ -2518,8 +2520,8 @@ namespace pfsDRPStella = pfs::drp::stella;
           ++itY;
         }*/
         ndarray::Array<double, 1, 1> range = ndarray::allocate(2);
-        range[0] = fiberTraceFunctionIn->yCenter + fiberTraceFunctionIn->yLow + 0.5;
-        range[1] = fiberTraceFunctionIn->yCenter + fiberTraceFunctionIn->yHigh + 0.5;
+        range[0] = fiberTraceFunctionIn->yCenter + fiberTraceFunctionIn->yLow + PIXEL_CENTER;
+        range[1] = fiberTraceFunctionIn->yCenter + fiberTraceFunctionIn->yHigh + PIXEL_CENTER;
         #ifdef __DEBUG_XCENTERS__
           cout << "pfs::drp::stella::calculateXCenters: CHEBYSHEV: yIn = " << yIn << endl;
           cout << "pfs::drp::stella::calculateXCenters: CHEBYSHEV: range = " << range << endl;
@@ -2589,8 +2591,8 @@ namespace pfsDRPStella = pfs::drp::stella;
         #endif
         xCenters = pfsDRPStella::math::Poly( yIn,
                                               fiberTraceFunctionCoefficients,
-                                              float(fiberTraceFunctionIn->yCenter + fiberTraceFunctionIn->yLow + 0.5),
-                                              float(fiberTraceFunctionIn->yCenter + fiberTraceFunctionIn->yHigh + 0.5));
+                                              float(fiberTraceFunctionIn->yCenter + fiberTraceFunctionIn->yLow + PIXEL_CENTER),
+                                              float(fiberTraceFunctionIn->yCenter + fiberTraceFunctionIn->yHigh + PIXEL_CENTER));
       }
 
       return xCenters;
