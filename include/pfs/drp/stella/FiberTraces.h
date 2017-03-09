@@ -440,6 +440,33 @@ namespace math{
                             ndarray::Array< size_t, 2, 1 > const& xMinMax,
                             size_t const& yMin,
                             ndarray::Array< bigT, 2, J > & bigArr );
+
+    /**
+     * @brief Convert CCD coordinates into Trace coordinates
+     * @param ccdCoordinates in: CCD Coordinates with PIXEL_CENTER (normally 0.0
+     *                           or 0.5) as pixel center
+     * @param fiberTrace in: FiberTrace for which to make the coordinate conversion
+     * output Coordinates : x (column) and y (row) in FiberTrace.image Coordinates
+     */
+    template<typename CoordT, typename ImageT, typename MaskT=afwImage::MaskPixel, typename VarianceT=afwImage::VariancePixel>
+    dataXY<CoordT> ccdToFiberTraceCoordinates(
+        dataXY<CoordT> const& ccdCoordinates,
+        pfs::drp::stella::FiberTrace<ImageT, MaskT, VarianceT> const& fiberTrace);
+
+    /**
+     * @brief Convert FiberTrace coordinates into coordinates relative to the given CCD Coordinates
+     * @param fiberTraceCoordinatesTrace in: Coordinates in the Trace Coordinate System
+     * @param ccdCoordinatesCenter in: CCD Coordinates as center for new Coordinate system
+     * @param fiberTrace in: FiberTrace for which to make the coordinate conversion
+     * @param psf in: PSF for which to make the coordinate conversion
+     * output Coordinates : x (column) and y (row) relative to the ccdCoordinatesCenter
+     */
+    template<typename CoordT, typename ImageT, typename MaskT=afwImage::MaskPixel, typename VarianceT=afwImage::VariancePixel>
+    dataXY<CoordT> fiberTraceCoordinatesRelativeTo(
+        dataXY<CoordT> const& fiberTraceCoordinates,
+        dataXY<CoordT> const& ccdCoordinatesCenter,
+        pfs::drp::stella::FiberTrace<ImageT, MaskT, VarianceT> const& fiberTrace
+    );
 }   
 
 namespace utils{

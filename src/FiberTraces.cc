@@ -2803,6 +2803,66 @@ namespace pfsDRPStella = pfs::drp::stella;
       }
       return;
     }
+
+    template<typename CoordT, typename ImageT, typename MaskT, typename VarianceT>
+    dataXY<CoordT> ccdToFiberTraceCoordinates(
+        dataXY<CoordT> const& ccdCoordinates,
+        pfs::drp::stella::FiberTrace<ImageT, MaskT, VarianceT> const& fiberTrace)
+    {
+      LOG_LOGGER _log = LOG_GET("pfs::drp::stella::math::ccdToFiberTraceCoordinates");
+      dataXY<CoordT> coordsOut;
+
+      ndarray::Array< size_t, 2, 1 > minCenMax = calcMinCenMax(
+            fiberTrace.getXCenters(),
+            double( fiberTrace.getFiberTraceFunction()->fiberTraceFunctionControl.xHigh ),
+            double( fiberTrace.getFiberTraceFunction()->fiberTraceFunctionControl.xLow ),
+            fiberTrace.getFiberTraceFunction()->fiberTraceFunctionControl.nPixCutLeft,
+            fiberTrace.getFiberTraceFunction()->fiberTraceFunctionControl.nPixCutRight );
+      LOGLS_DEBUG(_log, "minCenMax[coordsOut.y=" << coordsOut.y << "] = " << minCenMax[coordsOut.y]);
+
+      const PTR(const pfs::drp::stella::FiberTraceFunction) fiberTraceFunction = fiberTrace.getFiberTraceFunction();
+      LOGLS_DEBUG(_log, "fiberTraceFunction->yCenter = " << fiberTraceFunction->yCenter);
+      LOGLS_DEBUG(_log, "fiberTraceFunction->yLow = " << fiberTraceFunction->yLow);
+      LOGLS_DEBUG(_log, "ccdCoordinates = (" << ccdCoordinates.x << ", " << ccdCoordinates.y << ")");
+      coordsOut.y = ccdCoordinates.y
+                    - (fiberTraceFunction->yCenter
+                       + fiberTraceFunction->yLow);
+      coordsOut.x = ccdCoordinates.x - minCenMax[coordsOut.y][0];
+      LOGLS_DEBUG(_log, "coordsOut = (" << coordsOut.x << ", " << coordsOut.y << ")");
+
+      return coordsOut;
+    }
+
+    template<typename CoordT, typename ImageT, typename MaskT, typename VarianceT>
+    dataXY<CoordT> fiberTraceCoordinatesRelativeTo(
+        dataXY<CoordT> const& fiberTraceCoordinates,
+        dataXY<CoordT> const& ccdCoordinatesCenter,
+        pfs::drp::stella::FiberTrace<ImageT, MaskT, VarianceT> const& fiberTrace)
+    {
+      LOG_LOGGER _log = LOG_GET("pfs::drp::stella::math::fiberTraceCoordinatesRelativeTo");
+
+      dataXY<CoordT> traceCoordinatesCenter = ccdToFiberTraceCoordinates(
+              ccdCoordinatesCenter,
+              fiberTrace);
+      string message("traceCoordinatesCenter = (");
+      message += to_string(traceCoordinatesCenter.x) + ", ";
+      message += to_string(traceCoordinatesCenter.y) + ")";
+      LOGLS_DEBUG(_log, message);
+
+      dataXY<CoordT> fiberTraceCoordinatesRelativeToCenter;
+      message = "fiberTraceCoordinates = (";
+      message += to_string(fiberTraceCoordinates.x) + ", ";
+      message += to_string(fiberTraceCoordinates.y) + ")";
+      LOGLS_DEBUG(_log, message);
+      fiberTraceCoordinatesRelativeToCenter.x = fiberTraceCoordinates.x - traceCoordinatesCenter.x;
+      fiberTraceCoordinatesRelativeToCenter.y = fiberTraceCoordinates.y - traceCoordinatesCenter.y;
+      message = "fiberTraceCoordinatesRelativeToCenter = (";
+      message += to_string(fiberTraceCoordinatesRelativeToCenter.x) + ", ";
+      message += to_string(fiberTraceCoordinatesRelativeToCenter.y) + ")";
+      LOGLS_DEBUG(_log, message);
+
+      return fiberTraceCoordinatesRelativeToCenter;
+    }
   }
 
   namespace utils{
@@ -2909,6 +2969,44 @@ template int pfsDRPStella::math::findITrace( pfsDRPStella::FiberTrace< double, u
                                              int,
                                              int,
                                              int );
+
+template pfs::drp::stella::math::dataXY<float> pfsDRPStella::math::ccdToFiberTraceCoordinates(
+    pfs::drp::stella::math::dataXY<float> const&,
+    pfsDRPStella::FiberTrace<float, unsigned short, float> const&
+);
+template pfs::drp::stella::math::dataXY<double> pfsDRPStella::math::ccdToFiberTraceCoordinates(
+    pfs::drp::stella::math::dataXY<double> const&,
+    pfsDRPStella::FiberTrace<float, unsigned short, float> const&
+);
+template pfs::drp::stella::math::dataXY<float> pfsDRPStella::math::ccdToFiberTraceCoordinates(
+    pfs::drp::stella::math::dataXY<float> const&,
+    pfsDRPStella::FiberTrace<double, unsigned short, float> const&
+);
+template pfs::drp::stella::math::dataXY<double> pfsDRPStella::math::ccdToFiberTraceCoordinates(
+    pfs::drp::stella::math::dataXY<double> const&,
+    pfsDRPStella::FiberTrace<double, unsigned short, float> const&
+);
+
+template pfs::drp::stella::math::dataXY<float> pfsDRPStella::math::fiberTraceCoordinatesRelativeTo(
+    pfs::drp::stella::math::dataXY<float> const&,
+    pfs::drp::stella::math::dataXY<float> const&,
+    pfs::drp::stella::FiberTrace<float, unsigned short, float> const&
+);
+template pfs::drp::stella::math::dataXY<double> pfsDRPStella::math::fiberTraceCoordinatesRelativeTo(
+    pfs::drp::stella::math::dataXY<double> const&,
+    pfs::drp::stella::math::dataXY<double> const&,
+    pfs::drp::stella::FiberTrace<float, unsigned short, float> const&
+);
+template pfs::drp::stella::math::dataXY<float> pfsDRPStella::math::fiberTraceCoordinatesRelativeTo(
+    pfs::drp::stella::math::dataXY<float> const&,
+    pfs::drp::stella::math::dataXY<float> const&,
+    pfs::drp::stella::FiberTrace<double, unsigned short, float> const&
+);
+template pfs::drp::stella::math::dataXY<double> pfsDRPStella::math::fiberTraceCoordinatesRelativeTo(
+    pfs::drp::stella::math::dataXY<double> const&,
+    pfs::drp::stella::math::dataXY<double> const&,
+    pfs::drp::stella::FiberTrace<double, unsigned short, float> const&
+);
 
 template class pfsDRPStella::FiberTrace<float, unsigned short, float>;
 template class pfsDRPStella::FiberTrace<double, unsigned short, float>;

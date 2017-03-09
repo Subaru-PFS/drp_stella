@@ -1092,3 +1092,8 @@ Interface to Stella
 
 %template(calcPositionsRelativeToCenter) pfs::drp::stella::math::calcPositionsRelativeToCenter<float>;
 %template(calcPositionsRelativeToCenter) pfs::drp::stella::math::calcPositionsRelativeToCenter<double>;
+
+%template(ccdToFiberTraceCoordinates) pfs::drp::stella::math::ccdToFiberTraceCoordinates<float, float, unsigned short, float>;
+%template(fiberTraceCoordinatesRelativeTo) pfs::drp::stella::math::fiberTraceCoordinatesRelativeTo<float, float, unsigned short, float>;
+
+%template(CoordinatesF) pfs::drp::stella::math::dataXY<float>;
