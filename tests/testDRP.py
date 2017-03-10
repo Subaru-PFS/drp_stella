@@ -1,5 +1,5 @@
 """
-Tests for measuring things
+Integration test for reduceArc.py and reduceArcRefSpec.py
 
 Run with:
    python testDRP.py
