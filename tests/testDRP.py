@@ -32,39 +32,46 @@ class testDRPTestCase(tests.TestCase):
 
     def testDRP(self):
         logLevel = {0: "WARN", 1: "INFO", 2: "DEBUG"}[verbose]
-        subprocess.Popen(["bin/reduceArcRefSpec.py",
-                          self.testDataDir,
-                          "--id",
-                          "visit=%d" % (self.arcVisit,),
-                          "--refSpec",
-                          "%s" % (self.refSpec),
-                          "--lineList", "%s" % (self.lineList),
-                          "--loglevel",
-                          "%s" % (logLevel),
-                          "--calib",
-                          "%s" % (self.testCalibDir),
-                          "--output",
-                          "%s" % (self.testDataDir),
-                          "--clobber-config",
-                          "--clobber-versions"
-                         ] )
-        subprocess.Popen(["bin/reduceArc.py",
-                          self.testDataDir,
-                          "--id",
-                          "visit=%d" % (self.arcVisit),
-                          "--wLenFile",
-                          "%s" % (self.wLenFile),
-                          "--lineList",
-                          "%s" % (self.lineList),
-                          "--loglevel",
-                          "%s" % (logLevel),
-                          "--calib",
-                          "%s" % (self.testCalibDir),
-                          "--output",
-                          "%s" % (self.testDataDir),
-                          "--clobber-config",
-                          "--clobber-versions"
-                         ])
+        proc = subprocess.Popen(["bin/reduceArcRefSpec.py",
+                                 self.testDataDir,
+                                 "--id",
+                                 "visit=%d" % (self.arcVisit,),
+                                 "--refSpec",
+                                 "%s" % (self.refSpec),
+                                 "--lineList", "%s" % (self.lineList),
+                                 "--loglevel",
+                                 "%s" % (logLevel),
+                                 "--calib",
+                                 "%s" % (self.testCalibDir),
+                                 "--output",
+                                 "%s" % (self.testDataDir),
+                                 "--clobber-config",
+                                 "--clobber-versions",
+                                 "--doraise"
+                                ])
+        proc.communicate()
+        self.assertEqual(proc.returncode, 0)
+
+        proc = subprocess.Popen(["bin/reduceArc.py",
+                                 self.testDataDir,
+                                 "--id",
+                                 "visit=%d" % (self.arcVisit),
+                                 "--wLenFile",
+                                 "%s" % (self.wLenFile),
+                                 "--lineList",
+                                 "%s" % (self.lineList),
+                                 "--loglevel",
+                                 "%s" % (logLevel),
+                                 "--calib",
+                                 "%s" % (self.testCalibDir),
+                                 "--output",
+                                 "%s" % (self.testDataDir),
+                                 "--clobber-config",
+                                 "--clobber-versions",
+                                 "--doraise"
+                                ])
+        proc.communicate()
+        self.assertEqual(proc.returncode, 0)
 
 #-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
