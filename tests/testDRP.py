@@ -30,7 +30,7 @@ class testDRPTestCase(tests.TestCase):
         self.wLenFile = os.path.join(lsst.utils.getPackageDir('obs_pfs'), 'pfs/RedFiberPixels.fits.gz')
         self.refSpec = os.path.join(lsst.utils.getPackageDir('obs_pfs'), 'pfs/arcSpectra/refSpec_CdHgKrNeXe_red.fits')
         self.lineList = os.path.join(lsst.utils.getPackageDir('obs_pfs'), 'pfs/lineLists/CdHgKrNeXe_red.fits')
-        
+
     def tearDown(self):
         del self.testDataDir
         del self.testCalibDir
@@ -48,7 +48,7 @@ class testDRPTestCase(tests.TestCase):
         print "os.environ['OBS_PFS_DIR'] = <",os.environ['OBS_PFS_DIR'],">"
         subprocess.Popen("bin.src/reduceArcRefSpec.py %s --id visit=%d --refSpec %s --lineList %s --loglevel 'info' --calib %s --output %s --clobber-config --clobber-versions" % (self.testDataDir, self.arcVisit, self.refSpec, self.lineList, self.testCalibDir, self.testDataDir), shell=True)
         subprocess.Popen("bin.src/reduceArc.py %s --id visit=%d --wLenFile %s --lineList %s --loglevel 'info' --calib %s --output %s --clobber-config --clobber-versions" % (self.testDataDir, self.arcVisit, self.wLenFile, self.lineList, self.testCalibDir, self.testDataDir), shell=True)
-            
+
 #-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
 def suite():
