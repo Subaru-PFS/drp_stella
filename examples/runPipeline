@@ -1,3 +1,12 @@
+#!/bin/bash
+
+# On MacOS El Capitan and later we need to pass through the library load path
+if [[ $(uname -s) = Darwin* ]]; then
+    if [[ -z "$DYLD_LIBRARY_PATH" ]]; then
+        export DYLD_LIBRARY_PATH=$LSST_LIBRARY_PATH
+    fi
+fi
+
 export PFS_DATA_DIR=$HOME/PFS/Data
 export whoami=$(whoami)
 

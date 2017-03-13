@@ -1,24 +1,15 @@
-#!/usr/bin/env python
 """
-Tests for measuring things
+Integration test for reduceArc.py and reduceArcRefSpec.py
 
 Run with:
    python testDRP.py
 """
 
 import unittest
-import sys
 import os
-import numpy as np
 import lsst.utils
 import lsst.utils.tests as tests
-import pfs.drp.stella as drpStella
 import subprocess
-
-try:
-    type(display)
-except NameError:
-    display = False
 
 class testDRPTestCase(tests.TestCase):
     """A test case for trying out the PFS DRP"""
@@ -30,7 +21,7 @@ class testDRPTestCase(tests.TestCase):
         self.wLenFile = os.path.join(lsst.utils.getPackageDir('obs_pfs'), 'pfs/RedFiberPixels.fits.gz')
         self.refSpec = os.path.join(lsst.utils.getPackageDir('obs_pfs'), 'pfs/arcSpectra/refSpec_CdHgKrNeXe_red.fits')
         self.lineList = os.path.join(lsst.utils.getPackageDir('obs_pfs'), 'pfs/lineLists/CdHgKrNeXe_red.fits')
-        
+
     def tearDown(self):
         del self.testDataDir
         del self.testCalibDir
@@ -40,15 +31,41 @@ class testDRPTestCase(tests.TestCase):
         del self.lineList
 
     def testDRP(self):
-        print 'self.testDataDir = <',self.testDataDir,'>'
-        print 'self.testCalibDir = <',self.testCalibDir,'>'
-        print 'self.arcVisit = <',self.arcVisit,'>'
-        print 'self.refSpec = <',self.refSpec,'>'
-        print 'self.lineList = <',self.lineList,'>'
-        print "os.environ['OBS_PFS_DIR'] = <",os.environ['OBS_PFS_DIR'],">"
-        subprocess.Popen("bin.src/reduceArcRefSpec.py %s --id visit=%d --refSpec %s --lineList %s --loglevel 'info' --calib %s --output %s --clobber-config --clobber-versions" % (self.testDataDir, self.arcVisit, self.refSpec, self.lineList, self.testCalibDir, self.testDataDir), shell=True)
-        subprocess.Popen("bin.src/reduceArc.py %s --id visit=%d --wLenFile %s --lineList %s --loglevel 'info' --calib %s --output %s --clobber-config --clobber-versions" % (self.testDataDir, self.arcVisit, self.wLenFile, self.lineList, self.testCalibDir, self.testDataDir), shell=True)
-            
+        logLevel = {0: "WARN", 1: "INFO", 2: "DEBUG"}[verbose]
+        subprocess.Popen(["bin/reduceArcRefSpec.py",
+                          self.testDataDir,
+                          "--id",
+                          "visit=%d" % (self.arcVisit,),
+                          "--refSpec",
+                          "%s" % (self.refSpec),
+                          "--lineList", "%s" % (self.lineList),
+                          "--loglevel",
+                          "%s" % (logLevel),
+                          "--calib",
+                          "%s" % (self.testCalibDir),
+                          "--output",
+                          "%s" % (self.testDataDir),
+                          "--clobber-config",
+                          "--clobber-versions"
+                         ] )
+        subprocess.Popen(["bin/reduceArc.py",
+                          self.testDataDir,
+                          "--id",
+                          "visit=%d" % (self.arcVisit),
+                          "--wLenFile",
+                          "%s" % (self.wLenFile),
+                          "--lineList",
+                          "%s" % (self.lineList),
+                          "--loglevel",
+                          "%s" % (logLevel),
+                          "--calib",
+                          "%s" % (self.testCalibDir),
+                          "--output",
+                          "%s" % (self.testDataDir),
+                          "--clobber-config",
+                          "--clobber-versions"
+                         ])
+
 #-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
 def suite():
@@ -66,9 +83,7 @@ def run(exit = False):
 if __name__ == "__main__":
     from argparse import ArgumentParser
     parser = ArgumentParser()
-    parser.add_argument("--display", '-d', default=False, action="store_true", help="Activate display?")
-    parser.add_argument("--verbose", '-v', type=int, default=0, help="Verbosity level")
+    parser.add_argument("--verbose", '-v', type=int, default=0, help="Verbosity level. 0: WARN, 1: INFO, 2: DEBUG")
     args = parser.parse_args()
-    display = args.display
     verbose = args.verbose
     run(True)
