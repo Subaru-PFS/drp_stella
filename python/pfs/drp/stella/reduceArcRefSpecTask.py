@@ -174,7 +174,7 @@ class ReduceArcRefSpecTask(CmdLineTask):
                     self.log.debug('spectrum %d: spec.getWavelength()[%d] = %f' % (i,j,spec.getWavelength()[j]))
 
             if False:
-                xPixMinMax = np.ndarray(2, dtype='float32')
+                xPixMinMax = np.empty(2, dtype=np.float32)
                 xPixMinMax[0] = 1000.
                 xPixMinMax[1] = 1600.
                 fig = plt.figure()
