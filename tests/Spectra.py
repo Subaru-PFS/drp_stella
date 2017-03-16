@@ -24,11 +24,6 @@ import pfs.drp.stella.math as drpStellaMath
 import sys
 import unittest
 
-try:
-    type(display)
-except NameError:
-    display = False
-
 class SpectraTestCase(tests.TestCase):
     """A test case for measuring Spectra quantities"""
 
@@ -632,9 +627,7 @@ def run(exit = False):
 if __name__ == "__main__":
     from argparse import ArgumentParser
     parser = ArgumentParser()
-    parser.add_argument("--display", '-d', default=False, action="store_true", help="Activate display?")
     parser.add_argument("--verbose", '-v', type=int, default=0, help="Verbosity level")
     args = parser.parse_args()
-    display = args.display
     verbose = args.verbose
     run(True)
