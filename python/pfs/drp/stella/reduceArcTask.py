@@ -14,20 +14,53 @@ from pfs.drp.stella.datamodelIO import spectrumSetToPfsArm, PfsArmIO
 
 class ReduceArcConfig(Config):
     """Configuration for reducing arc images"""
-    function = Field( doc = "Function for fitting the dispersion", dtype=str, default="POLYNOMIAL" );
-    order = Field( doc = "Fitting function order", dtype=int, default = 5 );
-    searchRadius = Field( doc = "Radius in pixels relative to line list to search for emission line peak", dtype = int, default = 2 );
-    fwhm = Field( doc = "FWHM of emission lines", dtype=float, default = 2.6 );
-    nRowsPrescan = Field( doc = "Number of prescan rows in raw CCD image", dtype=int, default = 49 );
-    wavelengthFile = Field( doc = "reference pixel-wavelength file including path", dtype = str, default=os.path.join(getPackageDir("obs_pfs"), "pfs/RedFiberPixels.fits.gz"));
-    lineList = Field( doc = "reference line list including path", dtype = str, default=os.path.join(getPackageDir("obs_pfs"), "pfs/lineLists/CdHgKrNeXe_red.fits"));
+    function = Field(
+        doc = "Function for fitting the dispersion",
+        dtype = str,
+        default = "POLYNOMIAL",
+    )
+    order = Field(
+        doc = "Fitting function order",
+        dtype = int,
+        default = 5,
+    )
+    searchRadius = Field(
+        doc = "Radius in pixels relative to line list to search for emission line peak",
+        dtype = int,
+        default = 2,
+    )
+    fwhm = Field(
+        doc = "FWHM of emission lines",
+        dtype = float,
+        default = 2.6,
+    )
+    nRowsPrescan = Field(
+        doc = "Number of prescan rows in raw CCD image",
+        dtype = int,
+        default = 49,
+    )
+    wavelengthFile = Field(
+        doc = "reference pixel-wavelength file including path",
+        dtype = str,
+        default = os.path.join(getPackageDir("obs_pfs"), "pfs/RedFiberPixels.fits.gz"),
+    )
+    lineList = Field(
+        doc = "reference line list including path",
+        dtype = str,
+        default=os.path.join(getPackageDir("obs_pfs"), "pfs/lineLists/CdHgKrNeXe_red.fits"),
+    )
 
 class ReduceArcTaskRunner(TaskRunner):
     """Get parsed values into the ReduceArcTask.run"""
     @staticmethod
     def getTargetList(parsedCmd, **kwargs):
         print 'ReduceArcTask.getTargetList: kwargs = ',kwargs
-        return [dict(expRefList=parsedCmd.id.refList, butler=parsedCmd.butler, wLenFile=parsedCmd.wLenFile, lineList=parsedCmd.lineList)]
+        return [dict(expRefList = parsedCmd.id.refList,
+                     butler = parsedCmd.butler,
+                     wLenFile=parsedCmd.wLenFile,
+                     lineList=parsedCmd.lineList,
+                    ),
+               ]
 
     def __call__(self, args):
         task = self.TaskClass(config=self.config, log=self.log)
@@ -60,10 +93,19 @@ class ReduceArcTask(CmdLineTask):
     @classmethod
     def _makeArgumentParser(cls, *args, **kwargs):
         parser = ArgumentParser(name=cls._DefaultName)
-        parser.add_id_argument("--id", datasetType="postISRCCD",
-                               help="input identifiers, e.g., --id visit=123 ccd=4")
-        parser.add_argument("--wLenFile", help='directory and name of pixel vs. wavelength file')
-        parser.add_argument("--lineList", help='directory and name of line list')
+        parser.add_id_argument(
+            "--id",
+            datasetType="postISRCCD",
+            help="input identifiers, e.g., --id visit=123 ccd=4",
+        )
+        parser.add_argument(
+            "--wLenFile",
+            help='directory and name of pixel vs. wavelength file',
+        )
+        parser.add_argument(
+            "--lineList",
+            help='directory and name of line list',
+        )
         return parser# ReduceArcArgumentParser(name=cls._DefaultName, *args, **kwargs)
 
     def run(self, expRefList, butler, wLenFile=None, lineList=None, immediate=True):
@@ -147,7 +189,13 @@ class ReduceArcTask(CmdLineTask):
             for i in range(spectrumSetFromProfile.size()):
                 spec = spectrumSetFromProfile.getSpectrum(i)
                 spec.setITrace(iTraces[i])
-                self.log.info('flatFiberTraceSet.getFiberTrace(%d).getITrace() = %d, spec.getITrace() = %d' %(i,flatFiberTraceSet.getFiberTrace(i).getITrace(), spec.getITrace()))
+                self.log.debug(
+                    'flatFiberTraceSet.getFiberTrace(%d).getITrace() = %d, spec.getITrace() = %d' %
+                    (i,
+                     flatFiberTraceSet.getFiberTrace(i).getITrace(),
+                     spec.getITrace(),
+                    )
+                )
                 specSpec = spec.getSpectrum()
                 self.log.info('yCenters.shape = %d' % yCenters.shape)
                 self.log.info('specSpec.shape = %d' % specSpec.shape)
@@ -197,8 +245,13 @@ class ReduceArcTask(CmdLineTask):
                     message = str.split(e.message, "\n")
                     for k in range(len(message)):
                         print "element",k,": <",message[k],">"
-                print "FiberTrace ",i,": spec.getDispCoeffs() = ",spec.getDispCoeffs()
-                print "FiberTrace ",i,": spec.getDispRms() = ",spec.getDispRms()
+                self.log.info("FiberTrace %d: spec.getDispCoeffs() = %s" %
+                    (i,
+                     ["%.2f" % x for x in spec.getDispCoeffs()],
+                    )
+                )
+                self.log.info("FiberTrace %d: spec.getDispRms() = %f" % (i, spec.getDispRms()))
+
                 if spectrumSetFromProfile.setSpectrum(i, spec ):
                     print 'setSpectrum for spectrumSetFromProfile[',i,'] done'
                 else:
