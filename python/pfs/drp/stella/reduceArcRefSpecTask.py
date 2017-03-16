@@ -25,6 +25,11 @@ class ReduceArcRefSpecConfig(Config):
     nStretches = Field( doc = "Number of stretches between <stretchMinLength> and <stretchMaxLength>", dtype = int, default = 80 );
     refSpec = Field( doc = "reference reference spectrum including path", dtype = str, default=os.path.join(getPackageDir("obs_pfs"), "pfs/arcSpectra/refSpec_CdHgKrNeXe_red.fits"));
     lineList = Field( doc = "reference line list including path", dtype = str, default=os.path.join(getPackageDir("obs_pfs"), "pfs/lineLists/CdHgKrNeXe_red.fits"));
+    doPlot = Field(
+        doc = "Plot reference spectrum, flux vs. pixel, flux vs. wavelength?",
+        dtype = bool,
+        default = False,
+    )
 
 class ReduceArcRefSpecTaskRunner(TaskRunner):
     """Get parsed values into the ReduceArcTask.run"""
@@ -116,11 +121,12 @@ class ReduceArcRefSpecTask(CmdLineTask):
             refSpecArr[:] = tbdata.field(0)
             self.log.debug('len(refSpecArr) = %d' % len(refSpecArr))
 
-            refSpec = spectrumSetFromProfile.getSpectrum(int(spectrumSetFromProfile.size() / 2))
-            ref = refSpec.getSpectrum()
-            self.log.debug('len(ref) = %d' % len(ref))
+            if self.config.doPlot:
+                # Plot reference spectrum and the middle spectrum of spectrumSetFromProfile
+                refSpecTemp = spectrumSetFromProfile.getSpectrum(int(spectrumSetFromProfile.size() / 2))
+                ref = refSpecTemp.getSpectrum()
+                self.log.debug('len(ref) = %d' % len(ref))
 
-            if False:
                 fig = plt.figure()
                 ax = fig.add_subplot(1, 1, 1)
                 ax.plot(ref,'-+')
@@ -173,8 +179,8 @@ class ReduceArcRefSpecTask(CmdLineTask):
                 for j in range(specSpec.shape[0]):
                     self.log.debug('spectrum %d: spec.getWavelength()[%d] = %f' % (i,j,spec.getWavelength()[j]))
 
-            if False:
-                xPixMinMax = np.ndarray(2, dtype='float32')
+            if self.config.doPlot:
+                xPixMinMax = np.empty(2, dtype=np.float32)
                 xPixMinMax[0] = 1000.
                 xPixMinMax[1] = 1600.
                 fig = plt.figure()
@@ -189,8 +195,8 @@ class ReduceArcRefSpecTask(CmdLineTask):
                 plt.close(fig)
                 fig.clf()
 
-            if False:
-                xMinMax = drpStella.poly(xPixMinMax, spec.getDispCoeffs())
+                wave = spectrumSetFromProfile.getSpectrum(0).getWavelength()
+                xMinMax = [wave[xPixMinMax[0]], wave[xPixMinMax[1]]]
                 fig = plt.figure()
                 ax = fig.add_subplot(1, 1, 1)
                 for i in range(spectrumSetFromProfile.size()):
