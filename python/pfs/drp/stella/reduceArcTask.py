@@ -112,7 +112,7 @@ class ReduceArcTask(CmdLineTask):
 
             """ assign trace number to flatFiberTraceSet """
             success = drpStella.assignITrace( flatFiberTraceSet, traceIds, xCenters, yCenters )
-            iTraces = np.ndarray(shape=flatFiberTraceSet.size(), dtype='intp')
+            iTraces = np.empty(shape=flatFiberTraceSet.size(), dtype='intp')
             for i in range( flatFiberTraceSet.size() ):
                 iTraces[i] = flatFiberTraceSet.getFiberTrace(i).getITrace()
 
@@ -158,7 +158,9 @@ class ReduceArcTask(CmdLineTask):
 
                 traceId = spec.getITrace()
     #            print 'traceId = ',traceId
-                wLenTemp = np.ndarray( shape = traceIds.shape[0] / np.unique(traceIds).shape[0], dtype='float32' )
+
+                # Construct ndarray of length CCDRows
+                wLenTemp = np.empty(shape=traceIds.shape[0] / np.unique(traceIds).shape[0], dtype=np.float32)
                 k = 0
                 l = -1
                 for j in range(traceIds.shape[0]):
