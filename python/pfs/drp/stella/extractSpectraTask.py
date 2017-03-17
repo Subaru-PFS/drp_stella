@@ -12,7 +12,7 @@ class ExtractSpectraConfig(pexConfig.Config):
 
 class ExtractSpectraTask(Task):
     ConfigClass = ExtractSpectraConfig
-    _DefaultName = "extractSpectra"
+    _DefaultName = "ExtractSpectraTask"
 
     def __init__(self, *args, **kwargs):
         super(ExtractSpectraTask, self).__init__(*args, **kwargs)
