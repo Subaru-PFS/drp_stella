@@ -22,8 +22,8 @@ class ExtractSpectraTask(Task):
         traceNumbers = inTraceNumbers
         if inTraceNumbers[0] == -1:
             traceNumbers = range(inFiberTraceSetWithProfiles.size())
-        self.log.info("inTraceNumbers = %s" % inTraceNumbers)
-        self.log.info("traceNumbers = %s" % traceNumbers)
+        self.log.debug("inTraceNumbers = %s" % inTraceNumbers)
+        self.log.debug("traceNumbers = %s" % traceNumbers)
 
         spectrumSet = drpStella.SpectrumSetF()
 
