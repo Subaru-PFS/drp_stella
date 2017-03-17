@@ -169,6 +169,8 @@ class ReduceArcTask(CmdLineTask):
                 for j in range(wLenLines.shape[0]):
                     wLenLinesArr[j] = wLenLines[j]
                 lineListPix = drpStella.createLineList(wLenArr, wLenLinesArr)
+
+                # Idendify emission lines and fit dispersion
                 try:
                     spec.identifyF(lineListPix, dispCorControl, 8)
                 except:
