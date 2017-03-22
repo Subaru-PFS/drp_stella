@@ -148,6 +148,7 @@ class ReduceArcTask(CmdLineTask):
 
                 traceId = spec.getITrace()
                 wLenTemp = wavelengths[np.where(traceIds == traceId)]
+                assert wLenTemp.shape[0] == traceIds.shape[0] / np.unique(traceIds).shape[0]
 
                 """cut off both ends of wavelengths where is no signal"""
                 xCenter = flatFiberTraceSet.getFiberTrace(i).getFiberTraceFunction().xCenter
