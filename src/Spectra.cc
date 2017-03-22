@@ -881,6 +881,10 @@ namespace pfs { namespace drp { namespace stella { namespace math {
     ndarray::Array< T, 2, 1 > createLineList( ndarray::Array< T, 1, I > const& wLen,
                                               ndarray::Array< T, 1, I > const& linesWLen ){
       ndarray::Array< size_t, 1, 1 > ind = pfsDRPStella::math::getIndicesInValueRange( wLen, T( 1 ), T( 15000 ) );
+      assert(ind.getShape()[0] > 0);
+      #ifdef __DEBUG_CREATELINELIST__
+        cout << "Spectra::createLineList: ind = " << ind.getShape() << ": " << ind << endl;
+      #endif
       ndarray::Array< T, 1, 1 > indT = ndarray::allocate( ind.getShape()[ 0 ] );
       indT.deep() = ind;
       #ifdef __DEBUG_CREATELINELIST__
