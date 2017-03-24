@@ -2,6 +2,7 @@ import lsst.afw.image as afwImage
 import numpy as np
 from pfs.datamodel.pfsFiberTrace import PfsFiberTrace as pFT
 import pfs.drp.stella as drpStella
+from timeit import default_timer as timer
 
 def makeFiberTraceSet(pfsFiberTrace, maskedImage=None):
     if pfsFiberTrace.profiles is None or len(pfsFiberTrace.profiles) == 0:
@@ -128,3 +129,27 @@ def createPfsFiberTrace(dataId, fiberTraceSet, nRows):
         pfsFiberTrace.profiles.append(profOut)
 
     return pfsFiberTrace
+
+class benchmark(object):
+    # Usage example:
+    # from pfs.drp.stella.utils import benchmark
+    # with benchmark("findITrace") as a:
+    #     iTrace = drpStella.findITrace(ft,
+    #                                   xCenters,
+    #                                   nTraces,
+    #                                   xCenters.shape[0] / nTraces,
+    #                                   0)
+    # print a.time
+
+    def __init__(self, msg, fmt="%0.3g"):
+        self.msg = msg
+        self.fmt = fmt
+
+    def __enter__(self):
+        self.start = timer()
+        return self
+
+    def __exit__(self, *args):
+        t = timer() - self.start
+        print(("%s : " + self.fmt + " seconds") % (self.msg, t))
+        self.time = t
