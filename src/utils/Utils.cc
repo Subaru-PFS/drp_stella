@@ -740,6 +740,64 @@ namespace pfs { namespace drp { namespace stella { namespace utils{
     return out;
   }
 
+  void testWhere(){
+    /// Test 1D version of the where function
+    ndarray::Array<int, 1, 1> int1DArr = ndarray::allocate(10);
+    int1DArr.deep() = 0;
+    int1DArr[5] = 1;
+    ndarray::Array<int, 1, 1> int1DArrRes = math::where(int1DArr,
+                                                        std::greater<int>(),
+                                                        0,
+                                                        2,
+                                                        0);
+    for (int i=0; i < 10; ++i){
+      if (i != 5){
+        if (int1DArrRes[i] != 0){
+          std::string message("testWhere: ERROR: int1DArrRes[i=");
+          message += to_string(i) + "](=" + to_string(int1DArrRes[i]) + ") != 0";
+          throw std::runtime_error(message);
+        }
+      }
+      else{
+        if (int1DArrRes[5] != 2){
+          std::string message("testWhere: ERROR: int1DArrRes[5](=");
+          message += to_string(int1DArrRes[5]) + ") != 2";
+          throw std::runtime_error(message);
+        }
+      }
+    }
+
+    /// Test 2D version of the where function
+    ndarray::Array<int, 2, 1> int2DArr = ndarray::allocate(10, 2);
+    int2DArr.deep() = 0;
+    int2DArr[ndarray::view(5)()] = 1;
+    ndarray::Array<int, 2, 1> int2DArrRes = math::where(int2DArr,
+                                                        std::greater<int>(),
+                                                        0,
+                                                        2,
+                                                        0);
+    for (int i=0; i < 10; ++i){
+      for (int j=0; j < 2; ++j){
+        if (i != 5){
+          if (int2DArrRes[i][j] != 0){
+            std::string message("testWhere: ERROR: int2DArrRes[i=");
+            message += to_string(i) + "][j=" + to_string(j) + "](=";
+            message += to_string(int2DArrRes[i][j]) + ") != 0";
+            throw std::runtime_error(message);
+          }
+        }
+        else{
+          if (int2DArrRes[5][j] != 2){
+            std::string message("testWhere: ERROR: int2DArrRes[5][j=");
+            message += to_string(j) + "](=";
+            message += to_string(int2DArrRes[5][j]) + ") != 2";
+            throw std::runtime_error(message);
+          }
+        }
+      }
+    }
+  }
+
   template std::string numberToString_dotToUnderscore( float, int );
   template std::string numberToString_dotToUnderscore( double, int );
 

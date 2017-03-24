@@ -713,7 +713,7 @@ namespace pfs { namespace drp { namespace stella { namespace math {
       for (int i_line=0; i_line < lineList_WLenPix.getShape()[ 0 ]; i_line++){
         tempArr[ ndarray::view() ] = lineList_Pixels_AllPieces[ ndarray::view( i_line )() ];
         ndarray::Array< int, 1, 1 > whereVec = where( tempArr,
-                                                      ">",
+                                                      std::greater<double>(),
                                                       0.001,
                                                       1,
                                                       0 );
@@ -769,7 +769,7 @@ namespace pfs { namespace drp { namespace stella { namespace math {
         cout << "stretchAndCrossCorrelateSpec: lineList_Pixels_AllPieces = " << lineList_Pixels_AllPieces << endl;
       #endif
       ndarray::Array< int, 2, 1 > whereArr = where( lineList_Pixels_AllPieces,
-                                                    ">",
+                                                    std::greater<double>(),
                                                     0.000001,
                                                     1,
                                                     0);
@@ -806,7 +806,7 @@ namespace pfs { namespace drp { namespace stella { namespace math {
       for ( auto itDist = tempDist.begin(); itDist != tempDist.end(); ++itDist )
         *itDist = std::fabs( *itDist );
       ndarray::Array< int, 1, 1 > whereVec = where( tempDist,
-                                                    ">",
+                                                    std::greater<double>(),
                                                     3. * stdDev_Diff,
                                                     1,
                                                     0 );
@@ -836,7 +836,7 @@ namespace pfs { namespace drp { namespace stella { namespace math {
           for ( auto itTemp = tempList.begin(); itTemp != tempList.end(); ++itTemp )
             *itTemp = std::fabs( *itTemp );
           ndarray::Array< int, 1, 1 > whereVec = where( tempList,
-                                                        ">",
+                                                        std::greater<double>(),
                                                         0.001,
                                                         1,
                                                         0 );

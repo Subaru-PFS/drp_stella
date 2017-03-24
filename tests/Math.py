@@ -17,15 +17,7 @@ class MathTestCase(tests.TestCase):
     """A test case for Stella math functions"""
 
     def testWhere(self):
-        """Test that we can pass a numpy array as ndArray"""
-        int1DArr = np.ndarray(shape=(10), dtype=np.int32)
-        int1DArr[:] = 0;
-        int1DArr[5] = 1;
-        int1DArrRes = drpStella.where(int1DArr, '>', 0, 2, 0)
-        self.assertEqual(int1DArrRes[5], 2)
-        for i in range(10):
-            if i != 5:
-                self.assertEqual(int1DArrRes[i], 0)
+        drpStella.testWhere()
 
     def testPolyFit(self):
         # We are running a C++ test function here because PolyFit functions with

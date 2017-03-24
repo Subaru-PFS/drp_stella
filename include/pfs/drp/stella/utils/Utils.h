@@ -201,5 +201,7 @@ namespace pfs { namespace drp { namespace stella { namespace utils{
    * does not get swigged.
    */
   void testPolyFit();
+
+  void testWhere();
 }}}}
 #endif

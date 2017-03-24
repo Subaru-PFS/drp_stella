@@ -2585,7 +2585,7 @@ ndarray::Array< T, 1, 1 > interPol( ndarray::Array< T, 1, 1 > const& VVecArr,
         D_A1_U[ 1 ] = UVecArr[ i_pix ] + ((UVecArr[ i_pix + 1 ] - UVecArr[ i_pix ]) / 2.);
       }
       I_A1_Ind = where(D_A1_X,
-                       "<",
+                       std::less<T>(),
                        D_A1_U[ 0 ],
                        1,
                        0);
@@ -2604,7 +2604,7 @@ ndarray::Array< T, 1, 1 > interPol( ndarray::Array< T, 1, 1 > const& VVecArr,
       cout << "CFits::InterPol: i_pix = " << i_pix << ": D_A1_U = " << D_A1_U << endl;
 #endif
       I_A1_Ind = where(D_A1_X,
-                       ">",
+                       std::greater<T>(),
                        D_A1_U(1),
                        1,
                        0);

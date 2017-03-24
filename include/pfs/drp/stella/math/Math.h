@@ -542,6 +542,41 @@ namespace pfs { namespace drp { namespace stella {
     T lsToFit( ndarray::Array< T, 1, 1 > const& XXVecArr, 
                   ndarray::Array< T, 1, 1 > const& YVecArr, 
                   T const& XM );
+
+    template< typename T, typename U, int I, class F >
+    ndarray::Array< U, 1, 1 > where( ndarray::Array< T, 1, I > const& arrayToCompareTo,
+                                     F func,
+                                     T const valueToCompareTo,
+                                     U const valueIfTrue,
+                                     U const valueIfFalse )
+    {
+      ndarray::Array< U, 1, 1 > arrOut = ndarray::allocate(arrayToCompareTo.getShape()[ 0 ]);
+      auto itOut = arrOut.begin();
+      for (auto itComp = arrayToCompareTo.begin(); itComp != arrayToCompareTo.end(); ++itComp, ++itOut){
+        *itOut = func(*itComp, valueToCompareTo) ? valueIfTrue : valueIfFalse;
+      }
+      return arrOut;
+    }
+
+    template< typename T, typename U, int I, class F >
+    ndarray::Array< U, 2, 1 > where( ndarray::Array< T, 2, I > const& arrayToCompareTo,
+                                     F func,
+                                     T const valueToCompareTo,
+                                     U const valueIfTrue,
+                                     U const valueIfFalse )
+    {
+        ndarray::Array< U, 2, 1 > arrOut = ndarray::allocate(arrayToCompareTo.getShape());
+        auto itOutRow = arrOut.begin();
+        for (auto itCompRow = arrayToCompareTo.begin();
+             itCompRow != arrayToCompareTo.end();
+             ++itCompRow, ++itOutRow)
+        {
+          auto itOutCol = itOutRow->begin();
+          for (auto itCompCol = itCompRow->begin(); itCompCol != itCompRow->end(); ++itCompCol, ++itOutCol)
+            *itOutCol = func(*itCompCol, valueToCompareTo) ? valueIfTrue : valueIfFalse;
+        }
+        return arrOut;
+      }
     
     template< typename T, typename U, int I >
     ndarray::Array< U, 1, 1 > where( ndarray::Array< T, 1, I > const& arrayToCompareTo,
