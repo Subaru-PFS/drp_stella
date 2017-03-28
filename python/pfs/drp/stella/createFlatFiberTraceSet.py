@@ -38,16 +38,16 @@ def createFlatFiberTraceSet(filename):
     """Create a FiberTraceSet given a flat-field fits file name"""
     mif = afwImage.MaskedImageF(filename)
     print("mif created")
-        
+
     """Trace fibers"""
     msi = drpStella.MaskedSpectrographImageF(mif)
     print("msi created")
-        
+
     msi.findAndTraceApertures(ftffc, 0, mif.getHeight(), 10)
     print("msi.findAndTraceApertures finished")
 
     return msi;#.getFiberTraceSet();
-    
+
 #-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
 def main(argv=None):
@@ -58,7 +58,7 @@ def main(argv=None):
     if isinstance(argv, basestring):
       import shlex
       argv = shlex.split(argv)
-      
+
     from argparse import ArgumentParser
     parser = ArgumentParser()
     parser.add_argument("--display", '-d', default=False, action="store_true", help="Activate display?")
@@ -69,7 +69,6 @@ def main(argv=None):
     verbose = args.verbose
     fileName = args.filename
     return createFlatFiberTraceSet(fileName)
-  
+
 if __name__ == "__main__":
     main()
-    

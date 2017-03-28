@@ -80,7 +80,7 @@ class CreateRefSpecTask(CmdLineTask):
         print 'calculating spatial profiles'
         myProfileTask = cfftpTask.CreateFlatFiberTraceProfileTask()
         myProfileTask.run(flatFiberTraceSet)
-        
+
         """ optimally extract arc spectra """
         print 'extracting arc spectra'
 

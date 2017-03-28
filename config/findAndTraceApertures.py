@@ -11,4 +11,3 @@ config.saturationLevel = 65000.0
 config.minLength = 3000
 config.maxLength = 4096
 config.nLost = 10
-

@@ -34,10 +34,10 @@ def formatVisits(visits):
                 v0 = v
                 dv = -1                 # visit stride
                 continue
-            
+
             if dv < 0:
                 dv = v - v0
-            
+
             if visits[i - 2] + dv != v:
                 i -= 1                  # process this visit again later
                 v = visits[i - 1]       # previous value of v
@@ -57,7 +57,7 @@ def formatVisits(visits):
 
     return "^".join(visitSummary)
 
-    
+
 def queryRegistry(field=None, visit=None, filterName=None, summary=False):
     """Query an input registry"""
     where = []; vals = []
@@ -88,11 +88,11 @@ ORDER BY max(expTime), visit
     else:
         pgsqlConf = PgSqlConfig()
         pgsqlConf.load(registryFile)
-        conn = pgsql.connect(host=pgsqlConf.host, port=pgsqlConf.port, 
+        conn = pgsql.connect(host=pgsqlConf.host, port=pgsqlConf.port,
                              user=pgsqlConf.user, password=pgsqlConf.password,
                              database=pgsqlConf.db)
         isSqlite = False
-        
+
     cursor = conn.cursor()
 
     if args.summary:
@@ -163,7 +163,7 @@ ORDER BY calibDate
     else:
         pgsqlConf = PgSqlConfig()
         pgsqlConf.load(registryFile)
-        conn = pgsql.connect(host=pgsqlConf.host, port=pgsqlConf.port, 
+        conn = pgsql.connect(host=pgsqlConf.host, port=pgsqlConf.port,
                            user=pgsqlConf.user, password=pgsqlConf.password,
                            database=pgsqlConf.db)
         isSqlite = False
@@ -211,7 +211,7 @@ If no registry is provided, try $SUPRIME_DATA_DIR
     parser.add_argument('--verbose', action="store_true", help="How chatty should I be?", default=0)
     parser.add_argument('--visit', type=int, help="Just tell me about this visit")
     parser.add_argument('-s', '--summary', action="store_true", help="Print summary (grouped by field)")
-    
+
     args = parser.parse_args()
 
     if not args.registryFile:

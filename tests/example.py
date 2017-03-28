@@ -33,7 +33,7 @@ class ExampleTestCase(tests.TestCase):
         self.im1 = bim1[2:4, 3:6];        self.im1[:] = self.val1 # i.e. memory is not contiguous
         self.im1.setXY0(0, 0)
         self.im2 = self.im1.clone();      self.im2[:] = self.val2
-        
+
     def tearDown(self):
         del self.im1
         del self.im2
@@ -46,7 +46,7 @@ class ExampleTestCase(tests.TestCase):
             self.assertEqual(np.max(ima), val, name)
 
         self.assertEqual(result.get(0,0), self.val1 + self.val2, name)
-    
+
 #-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
 def suite():

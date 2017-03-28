@@ -32,7 +32,7 @@ class ReadFileTask(Task):
                 nLines = nLines + 1
         inFile.closed
         nDataLines = nLines
-        
+
         """ remove comment lines from nDataLines """
         with open(fileToRead, 'r') as inFile:
             for iLine in np.arange(0,nLines,1):
@@ -43,7 +43,7 @@ class ReadFileTask(Task):
                     if line[0] == '#':
                         nDataLines = nDataLines - 1
         return nDataLines
-    
+
     def countCols(self, fileToRead, nLines):
         nCols = 0
         with open( fileToRead, 'r' ) as inFile:
@@ -60,7 +60,7 @@ class ReadFileTask(Task):
     def readFile(self, fileToRead):
         nDataLines = self.countLines(fileToRead)
         print 'readFile: nDataLines = ',nDataLines
-        
+
         nCols = self.countCols(fileToRead, nDataLines)
         print 'readFile: nCols = ',nCols
 
@@ -89,7 +89,7 @@ class ReadFileTask(Task):
         return dataArr
 
     def run(self, fileToRead):
-        
+
         dataArr = self.readFile(fileToRead)
-        
+
         return dataArr

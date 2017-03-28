@@ -19,7 +19,7 @@ class PfsConfigIO(object):
         if not match:
             raise RuntimeError("Unable to extract pfsConfigId from \"%s\"" % pathName)
         pfsConfigId = int(match.group(1), 16)
-        
+
         pfsConfig = PfsConfig(pfsConfigId)
         pfsConfig.read(dirName=dirName)
 
@@ -33,7 +33,7 @@ class PfsConfigIO(object):
 
 def spectrumSetToPfsArm(pfsConfig, spectrumSet, visit, spectrograph, arm):
     pfsArm = PfsArm(visit, spectrograph, arm, pfsConfigId=pfsConfig.pfsConfigId, pfsConfig=pfsConfig)
-    
+
     pfsArm.flux = spectrumSet.getAllFluxes().T
     pfsArm.covar = spectrumSet.getAllCovars().T
     pfsArm.mask = spectrumSet.getAllMasks().T

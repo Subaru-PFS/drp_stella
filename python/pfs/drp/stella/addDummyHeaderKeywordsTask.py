@@ -106,5 +106,5 @@ class AddDummyHeaderKeywordsTask(Task):
 
     def run(self, fileList):
         self.addDummyHeaderKeywords(fileList)
-        
+
         return None

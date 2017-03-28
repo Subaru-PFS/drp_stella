@@ -51,19 +51,19 @@ def createFlatFiberTraceProfile(filename):
     ftec.swathWidth = 500
     ftec.telluric = "NONE"
     ftec.maxIterSky = 1
-    
+
     """Create a FiberTraceSet given a flat-field fits file name"""
 #    filename = "/home/azuri/spectra/pfs/2014-10-14/IR-23-0-sampledFlatx2-nonoise.fits"
     mif = afwImage.MaskedImageF(filename)
     print("mif created")
-        
+
     """Trace fibers"""
     fts = drpStella.findAndTraceAperturesF(mif, ftffc)
     print("findAndTraceApertures finished")
-    
+
     # --- sort traces by xCenters
     fts.sortTracesByXCenter();
-    
+
     # --- write trace 0 to fits file
     filename_trace = filename.replace(".fits", "_trace0.fits")
     fts.getFiberTrace(0).getImage().writeFits(filename_trace)
@@ -73,7 +73,7 @@ def createFlatFiberTraceProfile(filename):
 #    print("fts.getFiberTrace(0).getFiberTraceExtractionControl().overSample = ",fts.getFiberTrace(0).getFiberTraceExtractionControl().overSample)
 #    return fts;
     fts.getFiberTrace(0).MkSlitFunc()
-    
+
     # --- get profile and write profile to fits file
     profile = fts.getFiberTrace(0).getProfile()
     print("got profile: profile.getArray() = ",profile.getArray())
@@ -81,14 +81,14 @@ def createFlatFiberTraceProfile(filename):
     filename_flatprof = filename.replace(".fits", "_trace0_prof.fits")
     profile.writeFits(filename_flatprof)
     print("profile written to ",filename_flatprof)
-   
+
     # --- get reconstructed 2D spectrum and write to fits file
     reconstructed = fts.getFiberTrace(0).getReconstructed2DSpectrum()
     print("got reconstructed 2D spectrum: reconstructed.getArray() = ", reconstructed.getArray())
     filename_flatrec = filename.replace(".fits", "_trace0_rec.fits")
     reconstructed.writeFits(filename_flatrec)
     print("reconstructed spectrum written to ",filename_flatrec)
-    
+
     # --- subtract reconstructed spectrum from input spectrum
     imMinusRec = fts.getFiberTrace(0).getImage().getArray() - reconstructed.getArray()
     filename_flatMinusRec = filename.replace(".fits", "_trace0-rec.fits")
@@ -96,13 +96,13 @@ def createFlatFiberTraceProfile(filename):
     print("got difference of original image and reconstructed 2D spectrum: imMinusRecIm.getArray() = ", imMinusRecIm.getArray())
     imMinusRecIm.writeFits(filename_flatMinusRec)
     print("difference of original and reconstructed spectrum written to ",filename_flatMinusRec)
-    
+
     # --- write extracted 1D spectrum (from MkSlitFunc) to fits file
     spec = fts.getFiberTrace(0).getSpectrum()
     np_spec = np.fromiter(spec, dtype=np.float)
     filename_spec = filename.replace(".fits", "_trace0_spec.fits")
     pyfits.writeto(filename_spec,np_spec,clobber=True)
-    
+
     # --- extract 1D spectrum from profile
     fts.getFiberTrace(0).extractFromProfile()
 
@@ -112,7 +112,7 @@ def createFlatFiberTraceProfile(filename):
     filename_flatrec = filename.replace(".fits", "_trace0_recFromProf.fits")
     reconstructed.writeFits(filename_flatrec)
     print("reconstructed spectrum written to ",filename_flatrec)
-    
+
     # --- subtract reconstructed spectrum from input spectrum
     imMinusRec = fts.getFiberTrace(0).getImage().getArray() - reconstructed.getArray()
     filename_flatMinusRec = filename.replace(".fits", "_trace0-recFromProf.fits")
@@ -120,7 +120,7 @@ def createFlatFiberTraceProfile(filename):
     print("got difference of original image and reconstructed 2D spectrum: imMinusRecIm.getArray() = ", imMinusRecIm.getArray())
     imMinusRecIm.writeFits(filename_flatMinusRec)
     print("difference of original and reconstructed spectrum written to ",filename_flatMinusRec)
-    
+
     # --- write extracted 1D spectrum (from extractFromProfile) to fits file
     speca = fts.getFiberTrace(0).getSpectrum()
     np_speca = np.fromiter(speca, dtype=np.float)
@@ -128,7 +128,7 @@ def createFlatFiberTraceProfile(filename):
     pyfits.writeto(filename_specFromProf,np_speca,clobber=True)
 
     return fts;#.getFiberTraceSet();
-    
+
 #-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
 def main(argv=None):
@@ -139,7 +139,7 @@ def main(argv=None):
     if isinstance(argv, basestring):
       import shlex
       argv = shlex.split(argv)
-      
+
     from argparse import ArgumentParser
     parser = ArgumentParser()
     parser.add_argument("--display", '-d', default=False, action="store_true", help="Activate display?")
@@ -150,7 +150,6 @@ def main(argv=None):
     verbose = args.verbose
     fileName = args.filename
     return createFlatFiberTraceProfile(fileName)
-  
+
 if __name__ == "__main__":
     main()
-    

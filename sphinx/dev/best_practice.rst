@@ -205,9 +205,9 @@ the ``-b <BRANCH>`` flag), the only argument you need is the directory under whi
 The full usage information for :file:`pfs_integration_test.sh` is::
 
     Exercise the PFS 2D pipeline code
-    
+
     Usage: /path/to/pfs_pipe2d/bin/pfs_integration_test.sh [-b <BRANCH>] [-r <RERUN>] [-d DIRNAME] [-c CORES] [-n] <PREFIX>
-    
+
         -b <BRANCH> : branch of drp_stella_data to use
         -r <RERUN> : rerun name to use (default: 'integration')
         -d <DIRNAME> : directory name to give data repo (default: 'INTEGRATION')
