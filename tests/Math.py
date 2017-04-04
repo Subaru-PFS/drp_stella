@@ -17,7 +17,7 @@ class MathTestCase(tests.TestCase):
     """A test case for Stella math functions"""
 
     def testWhere(self):
-        """Test that we can pass a numpy array as ndArray"""
+        # Test that we can pass a numpy array as ndArray
         int1DArr = np.ndarray(shape=(10), dtype=np.int32)
         int1DArr[:] = 0;
         int1DArr[5] = 1;
@@ -36,20 +36,20 @@ class MathTestCase(tests.TestCase):
     def testSortIndices(self):
         """Test drpStella.sortIndices"""
 
-        """ascending list"""
+        # ascending list
         int1DArr = np.ndarray(shape=(10), dtype=np.int32)
         int1DArr[:] = range(10)[:]
         sortedIndices = drpStella.sortIndices(int1DArr)
         for ind, val in zip(sortedIndices, int1DArr):
             self.assertEqual(ind, val)
 
-        """descending list"""
+        # descending list
         int1DArr[:] = np.arange(9,-1,-1)[:]
         sortedIndices = drpStella.sortIndices(int1DArr)
         for ind, val in zip(sortedIndices, int1DArr):
             self.assertEqual(ind, val)
 
-        """unordered list"""
+        # unordered list
         int1DArr[0] = 5
         int1DArr[1] = 8
         int1DArr[2] = 0
