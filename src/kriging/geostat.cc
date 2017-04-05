@@ -265,22 +265,16 @@
          std::vector<CVariogram::VarioItm> vcloud;
          double n, s, r;
 
-         cout << "CGeostat::estimate: starting approximateTrendSurface" << endl;
          approximateTrendSurface();
 
-         cout << "CGeostat::estimate: starting computeVariogramCloud" << endl;
          vcloud = computeVariogramCloud();
-         cout << "CGeostat::estimate: starting setSample" << endl;
          m_pVarioCloud->setSample(vcloud);
 
-         cout << "CGeostat::estimate: starting computeExperimentalVariogram" << endl;
          m_pVariogram->setSample(computeExperimentalVariogram(vcloud, step));
          n = 0;
          m_pVariogram->getSample(m_pVariogram->samples() / 2, r, s);
-         cout << "CGeostat::estimate: starting estimateModel" << endl;
          m_pVariogram->estimateModel(model, n, s, r, power, m_pVariogram->maxDistance() / 2.0);
 
-         cout << "CGeostat::estimate: starting precomputeKrigingSystem" << endl;
          precomputeKrigingSystem();
 
          return true;
@@ -583,26 +577,11 @@
 
 
          sp1 = 0;
-         for (size_t s = 0;s < samples();s++)
-         {
-//                 if (s == s)
-                         continue;
-                 getCoordinate(c1, s);
-                 double dist = isoDist(c, c1);
-                 gsl_vector_set(vvario, sp1++, m_pVariogram->getModelData(dist));
-         }
          gsl_vector_set(vvario, samples() - 1, 1.0);
          gsl_blas_dgemv(CblasNoTrans, 1.0, mGamma, vvario, 0.0, weight);
 
          pred = getTrend(c);
          sp1 = 0;
-         for (size_t s = 0;s < samples();s++)
-         {
-//                 if (s == s)
-                         continue;
-                 pred += gsl_vector_get(weight, sp1) * getResidual(s);
-                 sp1++;
-         }
          gsl_vector_set(vvario, samples() - 1, 0.0);
          gsl_blas_ddot(weight, vvario, &var);
 
