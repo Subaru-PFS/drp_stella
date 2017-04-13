@@ -9,15 +9,11 @@
 #include <fitsio2.h>
 
 #include "Controls.h"
-#include "lsst/afw/geom.h"
 #include "lsst/log/Log.h"
 #include "lsst/pex/exceptions.h"
 #include "math/CurveFitting.h"
 #include "math/Math.h"
 #include "utils/Utils.h"
-#include "lsst/afw/fits.h"
-#include "lsst/afw/image/fits/fits_io.h"
-#include "lsst/afw/image/fits/fits_io_mpl.h"
 
 #define stringify( name ) # name
 
