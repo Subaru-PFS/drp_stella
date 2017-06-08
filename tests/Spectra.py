@@ -107,7 +107,6 @@ class SpectraTestCase(tests.TestCase):
             self.assertTrue(spec.setSpectrum(vecf))
             self.assertEqual(spec.getSpectrum()[3], vecf[3])
 
-        if True:
             """Test that we can't assign a spectrum of the wrong length"""
             vecf = drpStella.indGenNdArrF(size+1)
             try:
@@ -123,14 +122,12 @@ class SpectraTestCase(tests.TestCase):
             vec = spec.getVariance()
             self.assertEqual(vec.shape[0], size)
 
-        if True:
             """Test setVariance"""
             """Test that we can assign a variance vector of the correct length"""
             vecf = drpStella.indGenNdArrF(size)
             self.assertTrue(spec.setVariance(vecf))
             self.assertEqual(spec.getVariance()[3], vecf[3])
 
-        if True:
             """Test that we can't assign a variance vector of the wrong length"""
             vecf = drpStella.indGenNdArrF(size+1)
             try:
@@ -163,7 +160,6 @@ class SpectraTestCase(tests.TestCase):
                 self.assertEqual(message[0],expected)
             self.assertEqual(spec.getWavelength().shape[0], size)
 
-        if True:
             """Test getMask"""
             vec = spec.getMask()
             self.assertEqual(vec.getWidth(), size)
@@ -259,15 +255,6 @@ class SpectraTestCase(tests.TestCase):
             self.assertEqual(specSetCopy.size(), specSet.size())
             for i in range(specSet.size()):
                 self.assertEqual(specSetCopy.getSpectrum(i).getLength(), specSet.getSpectrum(i).getLength())
-            if False:
-                val = 3.3
-                pos = 3
-                vecf = list(drpStella.indGenF(length))
-                vecf[pos] = val
-                pvecf = drpStella.SpecVectorF(vecf)
-                self.assertTrue(specSet.getSpectrum(0).setSpectrum(pvecf))
-                specSetCopy.getSpectrum(0).setSpectrum(pvecf)
-                self.assertAlmostEqual(specSetCopy.getSpectrum(i).getSpectrum()[pos], val)
 
             """Test constructor from vector of spectra"""
             specSetV = drpStella.SpectrumSetF(specSet.getSpectra())
@@ -367,13 +354,12 @@ class SpectraTestCase(tests.TestCase):
             self.assertEqual(specSet.size(), size-4)
 
     def testGetSpectra(self):
-        if False:#FAILS because spectra is not recognized as a vector of Spectrum(s)
-            """test getSpectra"""
-            size = 3
-            length = 100
-            specSet = drpStella.SpectrumSetF(size,length)
-            spectra = specSet.getSpectra()
-            self.assertEqual(spectra[0].getSpectrum().shape[0], length)
+        """test getSpectra"""
+        size = 3
+        length = 100
+        specSet = drpStella.SpectrumSetF(size,length)
+        spectra = specSet.getSpectra()
+        self.assertEqual(spectra[0].getSpectrum().shape[0], length)
 
     def testProfile(self):
         """
