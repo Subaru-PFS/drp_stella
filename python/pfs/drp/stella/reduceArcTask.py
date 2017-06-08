@@ -191,9 +191,9 @@ class ReduceArcTask(CmdLineTask):
                               % (i, spec.getDispRms()))
 
                 if spectrumSetFromProfile.setSpectrum(i, spec ):
-                    print 'setSpectrum for spectrumSetFromProfile[',i,'] done'
+                    self.log.debug('setSpectrum for spectrumSetFromProfile[%d] done' % (i))
                 else:
-                    print 'setSpectrum for spectrumSetFromProfile[',i,'] failed'
+                    self.log.warn('setSpectrum for spectrumSetFromProfile[%d] failed' % (i))
 
             #
             # Do the I/O using a trampoline object PfsArmIO (to avoid adding butler-related details
