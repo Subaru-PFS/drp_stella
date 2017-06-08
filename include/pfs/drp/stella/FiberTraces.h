@@ -55,7 +55,6 @@
 //#define __DEBUG_TRACEFUNC__
 //#define __DEBUG_UNIQ__
 //#define __DEBUG_XCENTERS__
-#define DEBUGDIR "/Users/azuri/spectra/pfs/2014-11-02/debug/"
 
 namespace afwGeom = lsst::afw::geom;
 namespace afwImage = lsst::afw::image;
