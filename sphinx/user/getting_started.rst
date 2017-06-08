@@ -228,6 +228,12 @@ Now for using the pipeline.
   can avoid worrying about implementation details::
 
      echo "lsst.obs.pfs.PfsMapper" > $PFS_DATA/_mapper
+     
+- We also need a Pfs State File which can conveniently be found in
+  `$DRP_STELLA_DATA_DIR/tests/data/PFS/pfsState`. Please copy this directory into your
+  `$PFS_DATA` directory:
+
+    cp -pr $DRP_STELLA_DATA_DIR/tests/data/PFS/pfsState $PFS_DATA_DIR/
 
 - We can now copy/symlink the raw images into the repository and ingest them into a
   registry stored in :file:`$PFS_DATA/registry.sqlite3`.
@@ -306,12 +312,13 @@ Now for using the pipeline.
   simply replace ``visit=103`` with ``arm=r spectrograph=1 dateObs=2016-11-11
   field=ARC``::
 
-     detrend.py $PFS_DATA --rerun $whoami/tmp --id visit=103
+     constructArc.py $PFS_DATA --rerun $whoami/calibs --id visit=58 --calibId calibVersion=arc calibDate=2015-12-19 arm=r spectrograph=2 -c isr.doBias=True isr.doDark=True isr.doFlat=False isr.doLinearize=False --batch-type none
+     genCalibRegistry.py --root $PFS_DATA/CALIB --camera PFS --validity 360
 
-- We now have the ``postISRCCD`` image for our Arc and can extract and
-  wavelength-calibrate our CdHgKrNeXe Arc with the visit number 103::
+- We now have our master Arc and can extract and wavelength-calibrate our
+  CdHgKrNeXe Arc with the visit number 58::
 
-     reduceArcRefSpec.py $PFS_DATA --rerun $whoami/tmp --id visit=103
+     reduceArcRefSpec.py $PFS_DATA --rerun $whoami/tmp --id visit=58
 
-  This program writes a pfsArm file as described in the data model
-  (https://github.com/Subaru-PFS/datamodel/blob/master/datamodel.txt).
+  The output file created by reduceArcRefSpec.py is a pfsArm file as described
+  in the data model.
