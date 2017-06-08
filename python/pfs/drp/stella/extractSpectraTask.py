@@ -19,10 +19,9 @@ class ExtractSpectraTask(Task):
 
     def extractSpectra(self, inExposure, inFiberTraceSetWithProfiles, inTraceNumbers):
 
+        traceNumbers = inTraceNumbers
         if inTraceNumbers[0] == -1:
             traceNumbers = range(inFiberTraceSetWithProfiles.size())
-        else:
-            traceNumbers = inTraceNumbers
         self.log.info("inTraceNumbers = %s" % inTraceNumbers)
         self.log.info("traceNumbers = %s" % traceNumbers)
 
@@ -33,14 +32,9 @@ class ExtractSpectraTask(Task):
             inMaskedImage = inExposure.getMaskedImage()
 
         """Create traces and extract spectrum"""
-        for i in traceNumbers:
-            if i < 0:
-                raise Exception("i < 0")
-            elif i >= inFiberTraceSetWithProfiles.size():
-                raise Exception("i >= inFiberTraceSetWithProfiles.size()")
-
-            trace = inFiberTraceSetWithProfiles.getFiberTrace(i)
-            if trace.isProfileSet() == False:
+        for i in range(len(traceNumbers)):
+            trace = inFiberTraceSetWithProfiles.getFiberTrace(traceNumbers[i])
+            if not trace.isProfileSet():
                 raise Exception("profile not set")
 
             """Create trace from inMaskedImage"""

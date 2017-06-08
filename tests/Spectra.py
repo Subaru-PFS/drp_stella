@@ -265,16 +265,59 @@ class SpectraTestCase(tests.TestCase):
     def testExtractTask(self):
         if True:
             fiberTraceSet = drpStella.findAndTraceAperturesF(self.flat.getMaskedImage(), self.ftffc)
+
+            """ read wavelength file """
+            hdulist = pyfits.open(self.wLenFile)
+            tbdata = hdulist[1].data
+            traceIdsTemp = np.ndarray(shape=(len(tbdata)), dtype='int')
+            xCenters = np.ndarray(shape=(len(tbdata)), dtype='float32')
+            yCenters = np.ndarray(shape=(len(tbdata)), dtype='float32')
+            wavelengths = np.ndarray(shape=(len(tbdata)), dtype='float32')
+            traceIdsTemp[:] = tbdata[:]['fiberNum']
+            traceIds = traceIdsTemp.astype('int32')
+            wavelengths[:] = tbdata[:]['pixelWave']
+            xCenters[:] = tbdata[:]['xc']
+            yCenters[:] = tbdata[:]['yc']
+
+            """ assign trace number to fiberTraceSet """
+            drpStella.assignITrace( fiberTraceSet, traceIds, xCenters )
+
             self.assertEqual(fiberTraceSet.size(), self.nFiberTraces)
             myProfileTask = cfftpTask.CreateFlatFiberTraceProfileTask()
             myProfileTask.run(fiberTraceSet)
 
             myExtractTask = esTask.ExtractSpectraTask()
+
+            # test that we can extract all FiberTraces
             aperturesToExtract = [-1]
             spectrumSetFromProfile = myExtractTask.run(self.arc, fiberTraceSet, aperturesToExtract)
             self.assertEqual(spectrumSetFromProfile.size(), self.nFiberTraces)
             for i in range(spectrumSetFromProfile.size()):
                 self.assertEqual(spectrumSetFromProfile.getSpectrum(i).getLength(), fiberTraceSet.getFiberTrace(i).getHeight())
+                self.assertEqual(spectrumSetFromProfile.getSpectrum(i).getITrace(),
+                                 fiberTraceSet.getFiberTrace(i).getITrace())
+
+            # test that we can extract individual FiberTraces
+            for i in range(fiberTraceSet.size()):
+                aperturesToExtract = [i]
+                spectrumSetFromProfile = myExtractTask.run(self.arc, fiberTraceSet, aperturesToExtract)
+                self.assertEqual(spectrumSetFromProfile.size(), 1)
+                self.assertEqual(spectrumSetFromProfile.getSpectrum(0).getLength(), fiberTraceSet.getFiberTrace(i).getHeight())
+                self.assertEqual(spectrumSetFromProfile.getSpectrum(0).getITrace(),
+                                 fiberTraceSet.getFiberTrace(i).getITrace())
+
+            # test that we can extract 2 individual FiberTraces
+            for i in range(fiberTraceSet.size()-1):
+                aperturesToExtract = [i, i+1]
+                spectrumSetFromProfile = myExtractTask.run(self.arc, fiberTraceSet, aperturesToExtract)
+                self.assertEqual(spectrumSetFromProfile.size(), 2)
+                self.assertEqual(spectrumSetFromProfile.getSpectrum(0).getLength(), fiberTraceSet.getFiberTrace(i).getHeight())
+                self.assertEqual(spectrumSetFromProfile.getSpectrum(1).getLength(), fiberTraceSet.getFiberTrace(i+1).getHeight())
+                self.assertEqual(spectrumSetFromProfile.getSpectrum(0).getITrace(),
+                                 fiberTraceSet.getFiberTrace(i).getITrace())
+                self.assertEqual(spectrumSetFromProfile.getSpectrum(1).getITrace(),
+                                 fiberTraceSet.getFiberTrace(i+1).getITrace())
+
 
     def testSpectrumSetAddSetErase(self):
         if True:
