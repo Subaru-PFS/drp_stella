@@ -501,6 +501,10 @@ class SpectraTestCase(tests.TestCase):
                 self.assertLess(spec.getDispRms(), self.maxRMS)
 
     def testPolyFit(self):
+        # This test is an integration test for <PolyFit> called by <identify>
+        # We will disturb one line and then test that <PolyFit> properly
+        # identified the line as outlier and rejected it from the fit
+
         fiberTraceSet = drpStella.findAndTraceAperturesF(self.flat.getMaskedImage(), self.ftffc)
         self.assertEqual(fiberTraceSet.size(), self.nFiberTraces)
         myProfileTask = cfftpTask.CreateFlatFiberTraceProfileTask()
@@ -513,14 +517,14 @@ class SpectraTestCase(tests.TestCase):
 
         spectrum = spectrumSetFromProfile.getSpectrum(0)
 
-        """ read line list """
+        # read line list
         hdulist = pyfits.open(self.lineList)
         tbdata = hdulist[1].data
         lineListArr = np.ndarray(shape=(len(tbdata),2), dtype='float32')
         lineListArr[:,0] = tbdata.field(0)
         lineListArr[:,1] = tbdata.field(1)
 
-        """ read reference Spectrum """
+        # read reference Spectrum
         hdulist = pyfits.open(self.refSpec)
         tbdata = hdulist[1].data
         refSpecArr = np.ndarray(shape=(len(tbdata)), dtype='float32')
@@ -534,7 +538,8 @@ class SpectraTestCase(tests.TestCase):
         spectrum.identifyF(result.lineList, self.dispCorControl, 0)
         dispRMSOrig = spectrum.getDispRms()
 
-        """Find an emission line"""
+        # Find an emission line which we can disturb to test that it is
+        # identified as problematic and rejected by PolyFit
         distances = []
         for i in np.arange(1,lineListArr.shape[0]-1):
             distances.append(min(lineListArr[i][1]-lineListArr[i-1][1],
@@ -543,7 +548,7 @@ class SpectraTestCase(tests.TestCase):
         wavelengths = abs(spectrum.getWavelength() - lineListArr[linePos][0])
         linePos = min(xrange(len(wavelengths)), key=wavelengths.__getitem__)
 
-        """include 'cosmic' next to line"""
+        # include 'cosmic' next to line
         spectrum.getSpectrum()[linePos:linePos+4] += [10000.,20000.,30000., 20000.]
 
         spectrum.identifyF(result.lineList, self.dispCorControl, 0)# we're not holding back any emission lines
@@ -552,7 +557,6 @@ class SpectraTestCase(tests.TestCase):
         mask = spectrum.getMask()
         maskArr = mask.getArray()
         maskVal = 1 << mask.getMaskPlane("REJECTED_LINES");
-        print 'maskVal = ',maskVal
         self.assertEqual(maskArr[0,linePos-2],0)
         self.assertEqual(maskArr[0,linePos+4],0)
         for i in np.arange(linePos-1,linePos+4):
