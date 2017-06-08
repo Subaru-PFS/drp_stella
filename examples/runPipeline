@@ -21,32 +21,28 @@ cp -r $DRP_STELLA_DATA_DIR/tests/data/PFS/pfsState $PFS_DATA_DIR &&
 #-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
 constructBias.py $PFS_DATA_DIR --rerun $whoami/calibs \
-                 --id field=BIAS dateObs=2015-12-22 arm=r spectrograph=1 \
-                 --calibId calibVersion=bias calibDate=2015-12-22 arm=r spectrograph=1 \
+                 --id dateObs=2015-12-22 arm=r spectrograph=1 \
                  --batch-type none &&
 genCalibRegistry.py --root $PFS_DATA_DIR/CALIB --validity 360 &&
 
 constructDark.py $PFS_DATA_DIR --rerun $whoami/calibs \
-                 --id field=DARK dateObs=2015-12-22 arm=r spectrograph=1 \
-                 --calibId calibVersion=dark calibDate=2015-12-22 arm=r spectrograph=1 \
+                 --id dateObs=2015-12-22 arm=r spectrograph=1 \
                  --batch-type none &&
 genCalibRegistry.py --root $PFS_DATA_DIR/CALIB --validity 360 &&
 
 constructFiberTrace.py $PFS_DATA_DIR --rerun $whoami/calibs \
-                 --id visit=104 --calibId calibVersion=fiberTrace calibDate=2016-11-11 \
-                 arm=r spectrograph=1 --batch-type none &&
+                 --id visit=104 --batch-type none &&
 genCalibRegistry.py --root $PFS_DATA_DIR/CALIB --validity 360 &&
 
 constructFiberFlat.py $PFS_DATA_DIR --rerun $whoami/calibs \
-                 --id visit=104..112 --calibId calibVersion=flat calibDate=2016-11-11 arm=r spectrograph=1 \
-                 --batch-type none &&
+                 --id visit=104..112 --batch-type none &&
 genCalibRegistry.py --root $PFS_DATA_DIR/CALIB --validity 360 &&
 
 #-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
-constructArc.py $PFS_DATA_DIR --rerun $whoami/calibs --id visit=103 --calibId calibVersion=arc \
-                 calibDate=2016-11-11 arm=r spectrograph=1 -c isr.doBias=True isr.doDark=True \
-                 isr.doFlat=True isr.doLinearize=False --batch-type none &&
+constructArc.py $PFS_DATA_DIR --rerun $whoami/calibs --id visit=103 -c \
+                 isr.doBias=True isr.doDark=True isr.doFlat=True \
+                 isr.doLinearize=False --batch-type none &&
 genCalibRegistry.py --root $PFS_DATA_DIR/CALIB --validity 360 &&
 
 reduceArcRefSpec.py $PFS_DATA_DIR --rerun $whoami/tmp --id visit=103
