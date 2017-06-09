@@ -38,8 +38,7 @@ class ReduceArcTaskRunner(TaskRunner):
             try:
                 result = task.run(**args)
             except Exception, e:
-                task.log.fatal("Failed: %s" % e)
-#                traceback.print_exc(file=sys.stderr)
+                task.log.warn("Failed: %s" % e)
 
         if self.doReturnResults:
             return Struct(
