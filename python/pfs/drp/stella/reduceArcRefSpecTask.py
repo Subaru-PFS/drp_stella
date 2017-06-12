@@ -43,7 +43,7 @@ class ReduceArcRefSpecTaskRunner(TaskRunner):
             try:
                 result = task.run(**args)
             except Exception, e:
-                task.log.fatal("Failed: %s" % e)
+                task.log.warn("Failed: %s" % e)
 
         if self.doReturnResults:
             return Struct(
