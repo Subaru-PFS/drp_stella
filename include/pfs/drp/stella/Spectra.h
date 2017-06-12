@@ -118,11 +118,12 @@ class Spectrum {
     size_t getLength() const {return _length;}
     
     /// Resize all vectors to size length.
-    /// If length is smaller than the current container size, the contents of all vectors are reduced to their first length elements, 
-    /// removing those beyond (and destroying them).
-    /// If length is greater than the current container size, the contents of all vectors are expanded by inserting at the end as 
-    /// many elements as needed to reach a size of length. The new elements of all vectors except for _wavelength are initialized 
-    /// with 0. The new elements of _wavelength are initialized with _wavelength(_length - 1).
+    /// If length is smaller than the current container size, the contents of all vectors are reduced to
+    /// their first length elements, removing those beyond (and destroying them).
+    /// If length is greater than the current container size, the contents of all vectors are expanded by
+    /// inserting at the end as many elements as needed to reach a size of length. The new elements of all
+    /// vectors except for _wavelength are initialized with 0. The new elements of _wavelength are
+    /// initialized with _wavelength(_length - 1).
     bool setLength(const size_t length);
     
     size_t getITrace() const {return _iTrace;}
@@ -151,31 +152,16 @@ class Spectrum {
     PTR(DispCorControl) getDispCorControl() const { return _dispCorControl; }
   
     /**
-      * @brief: Identifies calibration lines, given in D_A2_LineList_In the format [wlen, approx_pixel] in
+      * @brief: Identifies calibration lines, given in <lineList> in the format [wlen, approx_pixel] in
       * wavelength-calibration spectrum
-      * within the given position plus/minus I_Radius_In,
       * fits Gaussians to each line, fits Polynomial of order I_PolyFitOrder_In, and
       * writes _wavelength and PolyFit coefficients to _dispCoeffs
+      * @param lineList in: input line list [wLen, approx_pixel]
+      * @param dispCorControl in: DispCorControl to use for wavelength calibration
+      * @param nLinesCheck in: number of lines to hold back from fitting procedure
       **/
     template< typename T >
     bool identify( ndarray::Array< T, 2, 1 > const& lineList,
-                   DispCorControl const& dispCorControl,
-                   size_t nLinesCheck = 0 );
-  
-    /**
-      * @brief: Identifies calibration lines, given in D_A2_LineList_In the format [wlen, approx_pixel] in
-      * wavelength-calibration spectrum D_A2_Spec_In [pixel_number, flux]
-      * within the given position plus/minus I_Radius_In,
-      * fits Gaussians to each line, fits Polynomial of order I_PolyFitOrder_In, and
-      * writes _wavelength and PolyFit coefficients to _dispCoeffs
-      * @param lineList             :: [ nLines, 2 ]: [ wLen, approx_pixel (predicted) ]
-      * @param predictedWLenAllPix  :: [ nRows in spectrum (yHigh - yLow): predicted wavelength from the zemax model
-      * @param dispCorControl       :: parameters controlling the dispersion fitting
-      * @param nLinesCheck          :: hold back this many lines from the fit to check the quality of the wavelength solution
-      **/
-    template< typename T >
-    bool identify( ndarray::Array< T, 2, 1 > const& lineList,
-                   ndarray::Array< T, 1, 0 > const& predictedWLenAllPix,
                    DispCorControl const& dispCorControl,
                    size_t nLinesCheck = 0 );
     

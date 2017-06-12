@@ -27,13 +27,12 @@ class ReduceArcTaskRunner(TaskRunner):
     """Get parsed values into the ReduceArcTask.run"""
     @staticmethod
     def getTargetList(parsedCmd, **kwargs):
-        print 'ReduceArcTask.getTargetList: kwargs = ',kwargs
         return [dict(expRefList=parsedCmd.id.refList, butler=parsedCmd.butler, wLenFile=parsedCmd.wLenFile, lineList=parsedCmd.lineList)]
 
     def __call__(self, args):
         task = self.TaskClass(config=self.config, log=self.log)
         if self.doRaise:
-            self.log.info('ReduceArcTask.__call__: args = %s' % args)
+            self.log.debug('ReduceArcTask.__call__: args = %s' % args)
             result = task.run(**args)
         else:
             try:
@@ -71,15 +70,15 @@ class ReduceArcTask(CmdLineTask):
             wLenFile = self.config.wavelengthFile
         if lineList == None:
             lineList = self.config.lineList
-        self.log.info('expRefList = %s' % expRefList)
-        self.log.info('len(expRefList) = %d' % len(expRefList))
-        self.log.info('wLenFile = %s' % wLenFile)
-        self.log.info('lineList = %s' % lineList)
+        self.log.debug('expRefList = %s' % expRefList)
+        self.log.debug('len(expRefList) = %d' % len(expRefList))
+        self.log.debug('wLenFile = %s' % wLenFile)
+        self.log.debug('lineList = %s' % lineList)
 
         for arcRef in expRefList:
-            self.log.info('arcRef.dataId = %s' % arcRef.dataId)
-            self.log.info('arcRef = %s' % arcRef)
-            self.log.info('type(arcRef) = %s' % type(arcRef))
+            self.log.debug('arcRef.dataId = %s' % arcRef.dataId)
+            self.log.debug('arcRef = %s' % arcRef)
+            self.log.debug('type(arcRef) = %s' % type(arcRef))
 
             """ construct fiberTraceSet from pfsFiberTrace """
             try:
@@ -89,14 +88,12 @@ class ReduceArcTask(CmdLineTask):
                                    (arcRef.dataId, arcRef.get('fiberTrace_filename')[0], e))
             flatFiberTraceSet = makeFiberTraceSet(fiberTrace)
 
-            self.log.info('flatFiberTraceSet.size() = %d' % flatFiberTraceSet.size())
-
             arcExp = arcRef.get("arc", immediate=True)
-            self.log.info('arcExp = %s' % arcExp)
-            self.log.info('type(arcExp) = %s' % type(arcExp))
+            self.log.debug('arcExp = %s' % arcExp)
+            self.log.debug('type(arcExp) = %s' % type(arcExp))
 
             """ optimally extract arc spectra """
-            print 'extracting arc spectra'
+            self.log.info('extracting arc spectra')
 
             """ read wavelength file """
             hdulist = pyfits.open(wLenFile)
@@ -130,22 +127,21 @@ class ReduceArcTask(CmdLineTask):
             dispCorControl.order = self.config.order
             dispCorControl.searchRadius = self.config.searchRadius
             dispCorControl.fwhm = self.config.fwhm
-            self.log.info('dispCorControl.fittingFunction = %s' % dispCorControl.fittingFunction)
-            self.log.info('dispCorControl.order = %d' % dispCorControl.order)
-            self.log.info('dispCorControl.searchRadius = %d' % dispCorControl.searchRadius)
-            self.log.info('dispCorControl.fwhm = %g' % dispCorControl.fwhm)
             dispCorControl.maxDistance = self.config.maxDistance
+            self.log.debug('dispCorControl.fittingFunction = %s' % dispCorControl.fittingFunction)
+            self.log.debug('dispCorControl.order = %d' % dispCorControl.order)
+            self.log.debug('dispCorControl.searchRadius = %d' % dispCorControl.searchRadius)
+            self.log.debug('dispCorControl.fwhm = %g' % dispCorControl.fwhm)
             self.log.debug('dispCorControl.maxDistance = %g' % dispCorControl.maxDistance)
 
             for i in range(spectrumSetFromProfile.size()):
                 spec = spectrumSetFromProfile.getSpectrum(i)
                 specSpec = spec.getSpectrum()
-                self.log.info('xCenters.shape = %d' % xCenters.shape)
-                self.log.info('specSpec.shape = %d' % specSpec.shape)
-                self.log.info('lineListArr.shape = [%d,%d]' % (lineListArr.shape[0], lineListArr.shape[1]))
-                self.log.info('type(specSpec) = %s: <%s>' % (type(specSpec),type(specSpec[0])))
-                self.log.info('type(lineListArr) = %s: <%s>' % (type(lineListArr),type(lineListArr[0][0])))
-                self.log.info('type(spec) = %s: <%s>: <%s>' % (type(spec),type(spec.getSpectrum()),type(spec.getSpectrum()[0])))
+                self.log.debug('specSpec.shape = %d' % specSpec.shape)
+                self.log.debug('lineListArr.shape = [%d,%d]' % (lineListArr.shape[0], lineListArr.shape[1]))
+                self.log.debug('type(specSpec) = %s: <%s>' % (type(specSpec),type(specSpec[0])))
+                self.log.debug('type(lineListArr) = %s: <%s>' % (type(lineListArr),type(lineListArr[0][0])))
+                self.log.debug('type(spec) = %s: <%s>: <%s>' % (type(spec),type(spec.getSpectrum()),type(spec.getSpectrum()[0])))
 
                 traceId = spec.getITrace()
                 wLenTemp = wavelengths[np.where(traceIds == traceId)]
@@ -157,12 +153,12 @@ class ReduceArcTask(CmdLineTask):
                 yHigh = flatFiberTraceSet.getFiberTrace(i).getFiberTraceFunction().yHigh
                 yMin = yCenter + yLow
                 yMax = yCenter + yHigh
-                self.log.info('fiberTrace %d: xCenter = %d' % (i, xCenter))
-                self.log.info('fiberTrace %d: yCenter = %d' % (i, yCenter))
-                self.log.info('fiberTrace %d: yLow = %d' % (i, yLow))
-                self.log.info('fiberTrace %d: yHigh = %d' % (i, yHigh))
-                self.log.info('fiberTrace %d: yMin = %d' % (i, yMin))
-                self.log.info('fiberTrace %d: yMax = %d' % (i, yMax))
+                self.log.debug('fiberTrace %d: xCenter = %d' % (i, xCenter))
+                self.log.debug('fiberTrace %d: yCenter = %d' % (i, yCenter))
+                self.log.debug('fiberTrace %d: yLow = %d' % (i, yLow))
+                self.log.debug('fiberTrace %d: yHigh = %d' % (i, yHigh))
+                self.log.debug('fiberTrace %d: yMin = %d' % (i, yMin))
+                self.log.debug('fiberTrace %d: yMax = %d' % (i, yMax))
                 wLen = wLenTemp[ yMin + self.config.nRowsPrescan : yMax + self.config.nRowsPrescan + 1]
                 wLenArr = np.ndarray(shape=wLen.shape, dtype='float32')
                 for j in range(wLen.shape[0]):
