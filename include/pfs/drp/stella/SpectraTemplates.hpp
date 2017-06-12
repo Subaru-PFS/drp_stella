@@ -344,7 +344,7 @@ ndarray::Array< double, 1, 1 > pfs::drp::stella::Spectrum<SpectrumT, MaskT, Vari
           }
           else{
             LOGLS_DEBUG(_log, "i_line = " << i_line << ": D_A1_GaussCoeffs = " << D_A1_GaussCoeffs);
-            if ( std::fabs( double( I_MaxPos ) - D_A1_GaussCoeffs[ 1 ] ) < 2.5 ){//D_FWHM_In){
+            if ( std::fabs( double( I_MaxPos ) - D_A1_GaussCoeffs[ 1 ] ) < _dispCorControl->maxDistance ){
               D_A1_GaussPos[ i_line ] = D_A1_GaussCoeffs[ 1 ];
               LOGLS_DEBUG(_log, "D_A1_GaussPos[" << i_line << "] = " << D_A1_GaussPos[ i_line ]);
               if ( i_line > 0 ){
@@ -363,7 +363,11 @@ ndarray::Array< double, 1, 1 > pfs::drp::stella::Spectrum<SpectrumT, MaskT, Vari
               }
             }
             else{
-              LOGLS_WARN(_log, "WARNING: I_MaxPos=" << I_MaxPos << " - D_A1_GaussCoeffs[ 1 ]=" << D_A1_GaussCoeffs[ 1 ] << " >= 2.5 => Skipping line");
+                string message("WARNING: I_MaxPos=");
+                message += to_string(I_MaxPos) + " - D_A1_GaussCoeffs[ 1 ]=" + to_string(D_A1_GaussCoeffs[ 1 ]);
+                message += "(=" + to_string(std::fabs( double( I_MaxPos ) - D_A1_GaussCoeffs[ 1 ] ));
+                message += ") >= " + to_string(_dispCorControl->maxDistance) + " => Skipping line";
+              LOGLS_WARN(_log, message);
             }
           }
         }

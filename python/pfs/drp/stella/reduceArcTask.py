@@ -21,6 +21,7 @@ class ReduceArcConfig(Config):
     nRowsPrescan = Field( doc = "Number of prescan rows in raw CCD image", dtype=int, default = 49 );
     wavelengthFile = Field( doc = "reference pixel-wavelength file including path", dtype = str, default=os.path.join(getPackageDir("obs_pfs"), "pfs/RedFiberPixels.fits.gz"));
     lineList = Field( doc = "reference line list including path", dtype = str, default=os.path.join(getPackageDir("obs_pfs"), "pfs/lineLists/CdHgKrNeXe_red.fits"));
+    maxDistance = Field( doc = "Reject emission lines which center is more than this value away from the predicted position", dtype=float, default = 2.5 );
 
 class ReduceArcTaskRunner(TaskRunner):
     """Get parsed values into the ReduceArcTask.run"""
@@ -133,6 +134,8 @@ class ReduceArcTask(CmdLineTask):
             self.log.info('dispCorControl.order = %d' % dispCorControl.order)
             self.log.info('dispCorControl.searchRadius = %d' % dispCorControl.searchRadius)
             self.log.info('dispCorControl.fwhm = %g' % dispCorControl.fwhm)
+            dispCorControl.maxDistance = self.config.maxDistance
+            self.log.debug('dispCorControl.maxDistance = %g' % dispCorControl.maxDistance)
 
             for i in range(spectrumSetFromProfile.size()):
                 spec = spectrumSetFromProfile.getSpectrum(i)

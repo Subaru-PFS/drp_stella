@@ -480,6 +480,11 @@ struct DispCorControl {
     LSST_CONTROL_FIELD( verticalPrescanHeight, int, "Number of rows in the raw image containing the vertical prescan");
     LSST_CONTROL_FIELD( sigmaReject, float, "Sigma rejection threshold" );
     LSST_CONTROL_FIELD( nIterReject, size_t, "Number of sigma rejection iterations" );
+    /// <maxDistance> should be large enough to allow small differences between the
+    /// predicted and the measured emission line, but small enough to make sure that
+    /// mis-identified lines are identified as such. As a rule of thumb about 1 half
+    /// of the FWHM should be a good start
+    LSST_CONTROL_FIELD( maxDistance, float, "Reject emission lines which center is more than this value away from the predicted position" );
 
     DispCorControl() :
         fittingFunction( "POLYNOMIAL" ),
@@ -495,7 +500,8 @@ struct DispCorControl {
         nStretches( 100 ),
         verticalPrescanHeight( 50 ),
         sigmaReject(3.),
-        nIterReject(1)
+        nIterReject(1),
+        maxDistance(1.5)
         {}
 
     DispCorControl( const DispCorControl &dispCorControl ) :
@@ -512,8 +518,9 @@ struct DispCorControl {
         nStretches( dispCorControl.nStretches ),
         verticalPrescanHeight( dispCorControl.verticalPrescanHeight ),
         sigmaReject(dispCorControl.sigmaReject),
-        nIterReject(dispCorControl.nIterReject)
-        {}
+        nIterReject(dispCorControl.nIterReject),
+        maxDistance(dispCorControl.maxDistance)
+    {}
         
     ~DispCorControl() {}
     
