@@ -1420,7 +1420,7 @@ namespace pfsDRPStella = pfs::drp::stella;
       cout << message << endl;
       throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
     }
-    if (iEnd >= _traces->size()){
+    if (iEnd > _traces->size()){
       string message("FiberTraceSet::erase(iStart=");
       message += to_string(iStart) + ", iEnd=" + to_string(iEnd) + "): ERROR: iEnd >= _traces->size()=" + to_string(_traces->size());
       cout << message << endl;

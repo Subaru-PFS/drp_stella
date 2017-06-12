@@ -630,9 +630,12 @@ class FiberTraceTestCase(tests.TestCase):
             self.assertEqual(fts.size(), size-2)
             self.assertEqual(fts.getFiberTrace(0).getITrace(), 1)
 
-            for i in range(3):
-                ft = drpStella.FiberTraceF(fts.getFiberTrace(0), True)
+            ft = drpStella.FiberTraceF(fts.getFiberTrace(0), True)
+            for i in range(4):
                 self.assertTrue(fts.addFiberTrace(ft, fts.size()))
+
+            self.assertTrue(fts.erase(fts.size()-1, fts.size()))
+
             size = fts.size()
 
             self.assertTrue(fts.erase(3,5))
