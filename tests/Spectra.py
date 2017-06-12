@@ -446,6 +446,7 @@ class SpectraTestCase(tests.TestCase):
                 """Check RMS"""
                 self.assertGreater(spec.getWavelength()[0], 3800)
                 self.assertLess(spec.getDispRms(), self.maxRMS)
+                self.assertLess(spec.getDispRmsCheck(), self.maxRMS)
 
     def testWavelengthCalibrationWithoutRefSpec(self):
         if True:

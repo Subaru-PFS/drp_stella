@@ -132,8 +132,21 @@ class Spectrum {
     
     bool setDispCoeffs( ndarray::Array< double, 1, 1 > const& dispCoeffs );
 
-    double getDispRms( ) const { return _dispRms; };
-    
+    /*
+     * @brief Return the Root Mean Squared (RMS) of the lines used for the wavelength calibration
+     */
+    double getDispRms() const {return _dispRms;}
+
+    /*
+     * @brief Return the Root Mean Squared (RMS) of the lines held back from the wavelength calibration
+     */
+    double getDispRmsCheck() const {return _dispRmsCheck;}
+
+    /*
+     * @brief Return the number of not rejected lines used for the wavelength calibration
+     */
+    size_t getNGoodLines() const {return _nGoodLines;}
+
     /// Return _dispCorControl
     PTR(DispCorControl) getDispCorControl() const { return _dispCorControl; }
   
@@ -199,6 +212,8 @@ class Spectrum {
     size_t _iTrace;/// for logging / debugging purposes only
     ndarray::Array< double, 1, 1 > _dispCoeffs;
     double _dispRms;
+    double _dispRmsCheck;
+    size_t _nGoodLines;
     bool _isWavelengthSet;
     PTR(DispCorControl) _dispCorControl;
 
