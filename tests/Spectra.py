@@ -12,6 +12,7 @@ or
 from astropy.io import fits as pyfits
 import lsst.afw.image as afwImage
 import lsst.daf.persistence as dafPersist
+import lsst.log as log
 import lsst.utils
 import lsst.utils.tests as tests
 import numpy as np
@@ -446,6 +447,7 @@ class SpectraTestCase(tests.TestCase):
                 """Check RMS"""
                 self.assertGreater(spec.getWavelength()[0], 3800)
                 self.assertLess(spec.getDispRms(), self.maxRMS)
+                self.assertLess(spec.getDispRmsCheck(), self.maxRMS)
 
     def testWavelengthCalibrationWithoutRefSpec(self):
         if True:
@@ -526,6 +528,106 @@ class SpectraTestCase(tests.TestCase):
         self.assertEqual(maskArr[0,linePos+4],0)
         for i in np.arange(linePos-1,linePos+4):
             self.assertEqual(maskArr[0,i], maskVal)
+
+    def testMaxDistance(self):
+        # The values we are comparing the RMS of the lines used for the wavelength
+        # calibration and the RMS of the lines held back from the calibration
+        # procedure to are solely measured values which are otherwise poorly
+        # justified. They serve as a regression test to make sure that changes in the code
+        # didn't make it worse.
+
+        fiberTraceSet = drpStella.findAndTraceAperturesF(self.flat.getMaskedImage(), self.ftffc)
+        self.assertGreater(fiberTraceSet.size(), 0)
+        myProfileTask = cfftpTask.CreateFlatFiberTraceProfileTask()
+        myProfileTask.run(fiberTraceSet)
+
+        """ read wavelength file """
+        hdulist = pyfits.open(self.wLenFile)
+        tbdata = hdulist[1].data
+        traceIdsTemp = np.ndarray(shape=(len(tbdata)), dtype='int')
+        xCenters = np.ndarray(shape=(len(tbdata)), dtype='float32')
+        wavelengths = np.ndarray(shape=(len(tbdata)), dtype='float32')
+        traceIdsTemp[:] = tbdata[:]['fiberNum']
+        traceIds = traceIdsTemp.astype('int32')
+        wavelengths[:] = tbdata[:]['pixelWave']
+        xCenters[:] = tbdata[:]['xc']
+
+        traceIdsUnique = np.unique(traceIds)
+        nRows = traceIds.shape[0] / traceIdsUnique.shape[0]
+
+        """ assign trace number to fiberTraceSet """
+        drpStella.assignITrace( fiberTraceSet, traceIds, xCenters )
+        iTraces = np.ndarray(shape=fiberTraceSet.size(), dtype='intp')
+        for i in range( fiberTraceSet.size() ):
+            iTraces[i] = fiberTraceSet.getFiberTrace(i).getITrace()
+
+        myExtractTask = esTask.ExtractSpectraTask()
+        aperturesToExtract = [0]
+        spectrumSetFromProfile = myExtractTask.run(self.arc, fiberTraceSet, aperturesToExtract)
+        self.assertEqual(spectrumSetFromProfile.size(), 1)
+
+        self.dispCorControl.fittingFunction = "POLYNOMIAL"
+        self.dispCorControl.order = 5
+        self.dispCorControl.searchRadius = 2
+        self.dispCorControl.fwhm = 2.6
+
+        """ read line list """
+        hdulist = pyfits.open(self.lineList)
+        tbdata = hdulist[1].data
+        lineListArr = np.ndarray(shape=(len(tbdata),2), dtype='float32')
+        lineListArr[:,0] = tbdata.field(0)
+        lineListArr[:,1] = tbdata.field(1)
+
+        for i in range(spectrumSetFromProfile.size()):
+            spec = spectrumSetFromProfile.getSpectrum(i)
+            traceId = spec.getITrace()
+
+            wLenTemp = wavelengths[np.where(traceIds == traceId)]
+            self.assertEqual(wLenTemp.shape[0], nRows)
+
+            """cut off both ends of wavelengths where is no signal"""
+            yCenter = fiberTraceSet.getFiberTrace(i).getFiberTraceFunction().yCenter
+            yLow = fiberTraceSet.getFiberTrace(i).getFiberTraceFunction().yLow
+            yHigh = fiberTraceSet.getFiberTrace(i).getFiberTraceFunction().yHigh
+            yMin = yCenter + yLow
+            yMax = yCenter + yHigh
+            wLen = wLenTemp[ yMin + self.nRowsPrescan : yMax + self.nRowsPrescan + 1]
+            wLenArr = np.ndarray(shape=wLen.shape, dtype='float32')
+            for j in range(wLen.shape[0]):
+                wLenArr[j] = wLen[j]
+            wLenLines = lineListArr[:,0]
+            wLenLinesArr = np.ndarray(shape=wLenLines.shape, dtype='float32')
+            for j in range(wLenLines.shape[0]):
+                wLenLinesArr[j] = wLenLines[j]
+            lineListPix = drpStella.createLineList(wLenArr, wLenLinesArr)
+
+            maxLines = 0
+            for maxDistance in np.arange(0.2,1.5,0.1):
+                self.dispCorControl.maxDistance = maxDistance
+                if maxDistance < 0.49:
+                    try:
+                        logger = log.Log.getLogger("pfs::drp::stella::Spectra::identify")
+                        logger.setLevel(log.WARN)
+                        spec.identifyF(lineListPix, self.dispCorControl, 8)
+                        self.assertTrue(False)
+                    except:
+                        e = sys.exc_info()[1]
+                        message = str.split(e.message, "\n")
+                        # the number 59 is equal to nLines * 2/3, which is the
+                        # minimum number of lines required for a successful
+                        # wavelength calibration
+                        expected = "identify: ERROR: less than 59 lines identified"
+                        self.assertEqual(message[0],expected)
+                else:
+                    spec.identifyF(lineListPix, self.dispCorControl, 8)
+                    # make sure that the number of 'good' lines increases with
+                    # a growing maxDistance
+                    self.assertGreaterEqual(spec.getNGoodLines(),maxLines)
+                    if spec.getNGoodLines() > maxLines:
+                        maxLines = spec.getNGoodLines()
+
+                    self.assertLess(spec.getDispRms(), self.maxRMS)
+                    self.assertLess(spec.getDispRmsCheck(), self.maxRMS)
 
 #-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 

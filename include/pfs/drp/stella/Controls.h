@@ -255,9 +255,9 @@ struct FiberTraceProfileFittingControl {
         profileInterpolation("SPLINE3"),
         swathWidth(500),
         telluric("NONE"),
+        overSample(10),
         maxIterSF(8),
         maxIterSky(0),
-        overSample(10),
         maxIterSig(1),
         lambdaSF(1./static_cast<float>(overSample)),
         lambdaSP(0.),
@@ -472,6 +472,7 @@ struct DispCorControl {
     LSST_CONTROL_FIELD( fwhm, float, "FWHM of emission lines" );
     LSST_CONTROL_FIELD( radiusXCor, int, "Radius in pixels in which to cross correlate a spectrum relative to the reference spectrum" );
     LSST_CONTROL_FIELD( lengthPieces, int, "Length of pieces of spectrum to match to reference spectrum by stretching and shifting" );
+    LSST_CONTROL_FIELD( minPercentageOfLines, float, "Minimum percentage of lines to be identified for <identify> to pass" );
     LSST_CONTROL_FIELD( nCalcs, int, "Number of iterations > spectrumLength / lengthPieces, e.g. spectrum length is 3800 pixels, <lengthPieces> = 500, <nCalcs> = 15: run 1: pixels 0-499, run 2: 249-749,...");
     LSST_CONTROL_FIELD( stretchMinLength, int, "Minimum length to stretched pieces to (< lengthPieces)" );
     LSST_CONTROL_FIELD( stretchMaxLength, int, "Maximum length to stretched pieces to (> lengthPieces)" );
@@ -479,6 +480,11 @@ struct DispCorControl {
     LSST_CONTROL_FIELD( verticalPrescanHeight, int, "Number of rows in the raw image containing the vertical prescan");
     LSST_CONTROL_FIELD( sigmaReject, float, "Sigma rejection threshold" );
     LSST_CONTROL_FIELD( nIterReject, size_t, "Number of sigma rejection iterations" );
+    /// <maxDistance> should be large enough to allow small differences between the
+    /// predicted and the measured emission line, but small enough to make sure that
+    /// mis-identified lines are identified as such. As a rule of thumb about 1 half
+    /// of the FWHM should be a good start
+    LSST_CONTROL_FIELD( maxDistance, float, "Reject emission lines which center is more than this value away from the predicted position" );
 
     DispCorControl() :
         fittingFunction( "POLYNOMIAL" ),
@@ -487,13 +493,15 @@ struct DispCorControl {
         fwhm( 2.6 ),
         radiusXCor( 35 ),
         lengthPieces( 500 ),
+        minPercentageOfLines ( 66.7 ),
         nCalcs( 15 ),
         stretchMinLength( 450 ),
         stretchMaxLength( 550 ),
         nStretches( 100 ),
         verticalPrescanHeight( 50 ),
         sigmaReject(3.),
-        nIterReject(1)
+        nIterReject(1),
+        maxDistance(1.5)
         {}
 
     DispCorControl( const DispCorControl &dispCorControl ) :
@@ -503,14 +511,16 @@ struct DispCorControl {
         fwhm( dispCorControl.fwhm ),
         radiusXCor( dispCorControl.radiusXCor ),
         lengthPieces( dispCorControl.lengthPieces ),
+        minPercentageOfLines( dispCorControl.minPercentageOfLines ),
         nCalcs( dispCorControl.nCalcs ),
         stretchMinLength( dispCorControl.stretchMinLength ),
         stretchMaxLength( dispCorControl.stretchMaxLength ),
         nStretches( dispCorControl.nStretches ),
         verticalPrescanHeight( dispCorControl.verticalPrescanHeight ),
         sigmaReject(dispCorControl.sigmaReject),
-        nIterReject(dispCorControl.nIterReject)
-        {}
+        nIterReject(dispCorControl.nIterReject),
+        maxDistance(dispCorControl.maxDistance)
+    {}
         
     ~DispCorControl() {}
     

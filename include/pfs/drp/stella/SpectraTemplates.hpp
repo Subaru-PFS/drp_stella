@@ -15,6 +15,8 @@ pfs::drp::stella::Spectrum< SpectrumT, MaskT, VarianceT, WavelengthT >::Spectrum
         _iTrace( spectrum.getITrace() ),
         _dispCoeffs( spectrum.getDispCoeffs() ),
         _dispRms( spectrum.getDispRms() ),
+        _dispRmsCheck( spectrum.getDispRmsCheck() ),
+        _nGoodLines( spectrum.getNGoodLines() ),
         _isWavelengthSet( spectrum.isWavelengthSet() ),
         _dispCorControl( spectrum.getDispCorControl() )
 {
@@ -50,6 +52,8 @@ pfs::drp::stella::Spectrum< SpectrumT, MaskT, VarianceT, WavelengthT >::Spectrum
         _mask(spectrum.getMask()),
         _iTrace( spectrum.getITrace() ),
         _dispRms( spectrum.getDispRms() ),
+        _dispRmsCheck( spectrum.getDispRmsCheck() ),
+        _nGoodLines( spectrum.getNGoodLines() ),
         _isWavelengthSet( spectrum.isWavelengthSet() ),
         _dispCorControl( spectrum.getDispCorControl() )
 {
@@ -340,7 +344,7 @@ ndarray::Array< double, 1, 1 > pfs::drp::stella::Spectrum<SpectrumT, MaskT, Vari
           }
           else{
             LOGLS_DEBUG(_log, "i_line = " << i_line << ": D_A1_GaussCoeffs = " << D_A1_GaussCoeffs);
-            if ( std::fabs( double( I_MaxPos ) - D_A1_GaussCoeffs[ 1 ] ) < 2.5 ){//D_FWHM_In){
+            if ( std::fabs( double( I_MaxPos ) - D_A1_GaussCoeffs[ 1 ] ) < _dispCorControl->maxDistance ){
               D_A1_GaussPos[ i_line ] = D_A1_GaussCoeffs[ 1 ];
               LOGLS_DEBUG(_log, "D_A1_GaussPos[" << i_line << "] = " << D_A1_GaussPos[ i_line ]);
               if ( i_line > 0 ){
@@ -359,7 +363,11 @@ ndarray::Array< double, 1, 1 > pfs::drp::stella::Spectrum<SpectrumT, MaskT, Vari
               }
             }
             else{
-              LOGLS_WARN(_log, "WARNING: I_MaxPos=" << I_MaxPos << " - D_A1_GaussCoeffs[ 1 ]=" << D_A1_GaussCoeffs[ 1 ] << " >= 2.5 => Skipping line");
+                string message("WARNING: I_MaxPos=");
+                message += to_string(I_MaxPos) + " - D_A1_GaussCoeffs[ 1 ]=" + to_string(D_A1_GaussCoeffs[ 1 ]);
+                message += "(=" + to_string(std::fabs( double( I_MaxPos ) - D_A1_GaussCoeffs[ 1 ] ));
+                message += ") >= " + to_string(_dispCorControl->maxDistance) + " => Skipping line";
+              LOGLS_WARN(_log, message);
             }
           }
         }
@@ -426,9 +434,12 @@ bool pfs::drp::stella::Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>::ident
       indices.erase( indices.begin() + randNum );
     }
 
-    if ( nInd < ( std::round( double( lineList.getShape()[ 0 ] ) * 0.66 ) ) ){
-      std::string message("pfs::drp::stella::identify: ERROR: ");
-      message += "identify: ERROR: less than " + std::to_string( std::round( double( lineList.getShape()[ 0 ] ) * 0.66 ) ) + " lines identified";
+    _nGoodLines = nInd;
+    const long nLinesIdentifiedMin(std::lround(double(lineList.getShape()[0])
+                                               * dispCorControl.minPercentageOfLines / 100.));
+    if ( _nGoodLines < nLinesIdentifiedMin ){
+      std::string message("identify: ERROR: less than ");
+      message += std::to_string(nLinesIdentifiedMin) + " lines identified";
       throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
     }
     ndarray::Array< size_t, 1, 1 > I_A1_IndexPos = ndarray::external( indices.data(), ndarray::makeVector( int( indices.size() ) ), ndarray::makeVector( 1 ) );
@@ -482,13 +493,21 @@ bool pfs::drp::stella::Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>::ident
             LOGLS_DEBUG(_log, "i=" << i << ": (*rejected)[i] _mask(" << p << ", 0) set to " << _mask(p,0));
         }
     }
-    ndarray::Array< size_t, 1, 1 > notRejectedArr = ndarray::external( notRejected->data(), ndarray::makeVector( int( notRejected->size() ) ), ndarray::makeVector( 1 ) );
+    _nGoodLines = notRejected->size();
+    if ( _nGoodLines < nLinesIdentifiedMin ){
+      string message ("identify: ERROR: less than ");
+      message += to_string(nLinesIdentifiedMin) + " lines identified";
+      throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
+    }
+    ndarray::Array< size_t, 1, 1 > notRejectedArr = ndarray::external(notRejected->data(),
+                                                                      ndarray::makeVector(_nGoodLines),
+                                                                      ndarray::makeVector( 1 ) );
 
     ndarray::Array<double, 1, 1> fittedPosNotRejected = math::getSubArray(D_A1_FittedPos, notRejectedArr);
-    LOGLS_DEBUG(_log, "fittedPosNotRejected = " << fittedPosNotRejected.getShape()[0] << ": " << fittedPosNotRejected);
+    LOGLS_DEBUG(_log, "fittedPosNotRejected = " << _nGoodLines << ": " << fittedPosNotRejected);
     
     ndarray::Array<double, 1, 1> fittedWLenNotRejected = math::getSubArray(D_A1_FittedWLen, notRejectedArr);
-    LOGLS_DEBUG(_log, "fittedWLenNotRejected = " << fittedWLenNotRejected.getShape()[0] << ": " << fittedWLenNotRejected);
+    LOGLS_DEBUG(_log, "fittedWLenNotRejected = " << _nGoodLines << ": " << fittedWLenNotRejected);
     ndarray::Array< double, 1, 1 > D_A1_WLen_Gauss = math::Poly( fittedPosNotRejected,
                                                                  _dispCoeffs,
                                                                  xRange[0],
@@ -505,14 +524,15 @@ bool pfs::drp::stella::Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>::ident
     D_A1_WLenMinusFit.deep() = fittedWLenNotRejected - D_A1_WLen_Gauss;
     LOGLS_DEBUG(_log, "D_A1_WLenMinusFit = " << D_A1_WLenMinusFit);
     _dispRms = math::calcRMS( D_A1_WLenMinusFit );
+    LOGLS_INFO(_log, "_nGoodLines = " << _nGoodLines);
     LOGLS_INFO(_log, "_dispRms = " << _dispRms);
 
     ///Calculate RMS for test lines
     ndarray::Array< double, 1, 1 > D_A1_WLenMinusFitCheck = ndarray::allocate( D_A1_WLen_GaussCheck.getShape()[ 0 ] );
     D_A1_WLenMinusFitCheck.deep() = D_A1_FittedWLenCheck - D_A1_WLen_GaussCheck;
     LOGLS_DEBUG(_log, "D_A1_WLenMinusFitCheck = " << D_A1_WLenMinusFitCheck);
-    double dispRmsCheck = math::calcRMS( D_A1_WLenMinusFitCheck );
-    LOGLS_INFO(_log, "dispRmsCheck = " << dispRmsCheck);
+    _dispRmsCheck = math::calcRMS( D_A1_WLenMinusFitCheck );
+    LOGLS_INFO(_log, "dispRmsCheck = " << _dispRmsCheck);
     LOGLS_INFO(_log, "======================================");
 
     ///calibrate spectrum
@@ -533,116 +553,9 @@ bool pfs::drp::stella::Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>::ident
     return _isWavelengthSet;
 }
 
-template< typename SpectrumT, typename MaskT, typename VarianceT, typename WavelengthT >
-template< typename T >
-bool pfs::drp::stella::Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>::identify( ndarray::Array< T, 2, 1 > const& lineList,
-//                                                                                     ndarray::Array< T, 1, 0 > const& predicted,
-                                                                                     ndarray::Array< T, 1, 0 > const& predictedWLenAllPix,
-                                                                                     pfs::drp::stella::DispCorControl const& dispCorControl,
-                                                                                     size_t nLinesCheck ){
-    LOG_LOGGER _log = LOG_GET("pfs::drp::stella::Spectra::identify");
-    pfs::drp::stella::DispCorControl tempDispCorControl( dispCorControl );
-    _dispCorControl.reset();
-    _dispCorControl = tempDispCorControl.getPointer();
-
-    ///for each line in line list, find maximum in spectrum and fit Gaussian
-    ndarray::Array< double, 1, 1 > D_A1_GaussPos = hIdentify( lineList );
-
-    ///remove lines which could not be found from line list
-    std::vector< int > V_Index( D_A1_GaussPos.getShape()[ 0 ], 0 );
-    size_t pos = 0;
-    for (auto it = D_A1_GaussPos.begin(); it != D_A1_GaussPos.end(); ++it, ++pos ){
-      if ( *it > 0. )
-        V_Index[ pos ] = 1;
-    }
-    LOGLS_DEBUG(_log, "D_A1_GaussPos = " << D_A1_GaussPos);
-    LOGLS_DEBUG(_log, "V_Index = ");
-    for (int iPos = 0; iPos < V_Index.size(); ++iPos)
-        LOGLS_DEBUG(_log, V_Index[iPos] << " ");
-    std::vector< size_t > indices = math::getIndices( V_Index );
-    size_t nInd = std::accumulate( V_Index.begin(), V_Index.end(), 0 );
-    LOGLS_DEBUG(_log, nInd << " lines identified");
-    LOGLS_DEBUG(_log, "indices = ");
-    for (int iPos = 0; iPos < indices.size(); ++iPos )
-        LOGLS_DEBUG(_log, indices[iPos] << " ");
-    if ( nInd < ( std::round( double( lineList.getShape()[ 0 ] ) * 0.66 ) ) ){
-      std::string message("pfs::drp::stella::identify: ERROR: ");
-      message += "identify: ERROR: less than " + std::to_string( std::round( double( lineList.getShape()[ 0 ] ) * 0.66 ) ) + " lines identified";
-      throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
-    }
-    ndarray::Array< size_t, 1, 1 > I_A1_IndexPos = ndarray::external( indices.data(), ndarray::makeVector( int( indices.size() ) ), ndarray::makeVector( 1 ) );
-    ndarray::Array< double, 1, 1 > fittedPosLinesFound = math::getSubArray( D_A1_GaussPos, 
-                                                                            I_A1_IndexPos );
-    LOGLS_DEBUG(_log, "fittedPosLinesFound = " << fittedPosLinesFound);
-
-    ndarray::Array< double, 1, 1 > predictedWLen = ndarray::allocate( lineList.getShape()[ 0 ] );
-    predictedWLen[ ndarray::view() ] = lineList[ ndarray::view()( 0 ) ];
-    ndarray::Array< double, 1, 1 > fittedWLenLinesFound = math::getSubArray( predictedWLen, 
-                                                                             I_A1_IndexPos );
-    LOGLS_DEBUG(_log, "found fittedWLenLinesFound = " << fittedWLenLinesFound);
-
-/*    ndarray::Array< double, 1, 1 > predictedPos = ndarray::allocate( predicted.getShape()[ 0 ] );
-    predictedPos[ ndarray::view() ] = predicted[ ndarray::view() ];
-
-    ndarray::Array< double, 1, 1 > predictedPosFound = math::getSubArray( predictedPos, 
-                                                                          I_A1_IndexPos );
-
-    ndarray::Array< double, 1, 1 > pixOffsetToFit = ndarray::allocate( nInd );
-    pixOffsetToFit[ ndarray::view() ] = fittedPosLinesFound[ ndarray::view() ] - predictedPosFound[ ndarray::view() ];
-
-    _dispCoeffs = ndarray::allocate( dispCorControl.order + 1 );
-    _dispCoeffs.deep() = math::PolyFit( fittedPosLinesFound,
-                                        pixOffsetToFit,
-                                        dispCorControl.order );
-    ndarray::Array< double, 1, 1 > D_A1_PixOffsetFit = math::Poly( fittedPosLinesFound, 
-                                                                   _dispCoeffs );
-
-    ///Interpolate wavelength from predicted wavelengths and measured pixel offset
-    ndarray::Array< double, 1, 1 > pixIndex = math::indGenNdArr( double( _length ) );
-    std::vector< std::string > interpolKeyWords( 1 );
-    interpolKeyWords[ 0 ] = std::string( "SPLINE" );
-    ndarray::Array< double, 1, 1 > predictedWLenAllPixA = ndarray::allocate( predictedWLenAllPix.getShape()[ 0 ] );
-    predictedWLenAllPixA.deep() = predictedWLenAllPix;
-    ndarray::Array< double, 1, 1 > wLenLinesFoundCheck = math::interPol( predictedWLenAllPixA, 
-                                                                         pixIndex, 
-                                                                         fittedPosLinesFound,
-                                                                         interpolKeyWords );
-    wLenLinesFoundCheck[ ndarray::view() ] = wLenLinesFoundCheck[ ndarray::view() ] + predictedPosFound[ ndarray::view() ];
-    cout << "Identify: wLenLinesFoundCheck = " << wLenLinesFoundCheck << endl;
-    cout << "identify: _dispCoeffs = " << _dispCoeffs << endl;
-
-    ///Calculate RMS
-    ndarray::Array< double, 1, 1 > D_A1_WLenMinusFit = ndarray::allocate( wLenLinesFoundCheck.getShape()[ 0 ] );
-    D_A1_WLenMinusFit.deep() = fittedWLenLinesFound - wLenLinesFoundCheck;
-    cout << "Identify: D_A1_WLenMinusFit = " << D_A1_WLenMinusFit << endl;
-    _dispRms = math::calcRMS( D_A1_WLenMinusFit );
-    cout << "Identify: _dispRms = " << _dispRms << endl;
-    cout << "======================================" << endl;
-
-    ///calibrate spectrum
-    ndarray::Array< double, 1, 1 > D_A1_Indices = math::indGenNdArr( double( _spectrum.getShape()[ 0 ] ) );
-    _wavelength = ndarray::allocate( _spectrum.getShape()[ 0 ] );
-    _wavelength.deep() = math::Poly( D_A1_Indices, _dispCoeffs );
-    #ifdef __DEBUG_IDENTIFY__
-      cout << "identify: _wavelength = " << _wavelength << endl;
-    #endif
-
-    /// Check for monotonic
-    if ( math::isMonotonic( _wavelength ) == 0 ){
-      cout << "Identify: WARNING: Wavelength solution is not monotonic => Setting identifyResult.rms to 1000" << endl;
-      _dispRms = 1000.;
-      cout << "Identify: RMS = " << _dispRms << endl;
-      cout << "======================================" << endl;
-    }
-    _isWavelengthSet = true;
-    return _isWavelengthSet;*/
-    return true;
-}
-
 template<typename ImageT, typename MaskT, typename VarianceT, typename WavelengthT>
 PTR( pfs::drp::stella::Spectrum< ImageT, MaskT, VarianceT, WavelengthT > ) pfs::drp::stella::SpectrumSet<ImageT, MaskT, VarianceT, WavelengthT>::getSpectrum( const size_t i ) const 
 {
-//    cout << "getSpectrum(size_t) const" << endl;
     if (i >= _spectra->size()){
         string message("SpectrumSet::getSpectrum(i=");
         message += to_string(i) + "): ERROR: i >= _spectra->size()=" + to_string(_spectra->size());
@@ -655,7 +568,6 @@ PTR( pfs::drp::stella::Spectrum< ImageT, MaskT, VarianceT, WavelengthT > ) pfs::
 template<typename ImageT, typename MaskT, typename VarianceT, typename WavelengthT>
 PTR( pfs::drp::stella::Spectrum< ImageT, MaskT, VarianceT, WavelengthT > ) pfs::drp::stella::SpectrumSet<ImageT, MaskT, VarianceT, WavelengthT>::getSpectrum( const size_t i )
 {
- //   cout << "getSpectrum(size_t) NOT CONST" << endl;
     if (i >= _spectra->size()){
         string message("SpectrumSet::getSpectrum(i=");
         message += to_string(i) + "): ERROR: i >= _spectra->size()=" + to_string(_spectra->size());
