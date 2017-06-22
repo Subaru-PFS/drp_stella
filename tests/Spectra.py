@@ -180,8 +180,6 @@ class SpectraTestCase(tests.TestCase):
             except:
                 e = sys.exc_info()[1]
                 message = str.split(e.message, "\n")
-                for i in range(len(message)):
-                    print "element",i,": <",message[i],">"
                 expected = "pfs::drp::stella::Spectrum::setMask: ERROR: mask.getWidth()="+str(vecus.getWidth())+" != _length="+str(spec.getLength())
                 self.assertEqual(message[0],expected)
             self.assertEqual(spec.getMask().getWidth(), size)
