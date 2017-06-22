@@ -5,12 +5,14 @@ import sys
 import pfs.drp.stella.extractSpectraTask as esTask
 import pfs.drp.stella as drpStella
 from pfs.drp.stella.utils import makeFiberTraceSet
+import lsst.log as log
 from lsst.utils import getPackageDir
 from lsst.pex.config import Config, Field
 from lsst.pipe.base import Struct, TaskRunner, ArgumentParser, CmdLineTask
 import numpy as np
 from astropy.io import fits as pyfits
 from pfs.drp.stella.datamodelIO import spectrumSetToPfsArm, PfsArmIO
+import traceback
 
 class ReduceArcConfig(Config):
     """Configuration for reducing arc images"""
@@ -82,13 +84,14 @@ class ReduceArcTask(CmdLineTask):
 
             """ construct fiberTraceSet from pfsFiberTrace """
             try:
-                fiberTrace = arcRef.get('fiberTrace', immediate=True)
+                fiberTrace = arcRef.get('fiberTrace', immediate=immediate)
             except Exception, e:
                 raise RuntimeError("Unable to load fiberTrace for %s from %s: %s" %
                                    (arcRef.dataId, arcRef.get('fiberTrace_filename')[0], e))
             flatFiberTraceSet = makeFiberTraceSet(fiberTrace)
+            self.log.info('flatFiberTraceSet.size() = %d' % flatFiberTraceSet.size())
 
-            arcExp = arcRef.get("arc", immediate=True)
+            arcExp = arcRef.get("arc", immediate=immediate)
             self.log.debug('arcExp = %s' % arcExp)
             self.log.debug('type(arcExp) = %s' % type(arcExp))
 
@@ -145,6 +148,7 @@ class ReduceArcTask(CmdLineTask):
 
                 traceId = spec.getITrace()
                 wLenTemp = wavelengths[np.where(traceIds == traceId)]
+                assert wLenTemp.shape[0] == traceIds.shape[0] / np.unique(traceIds).shape[0]
 
                 """cut off both ends of wavelengths where is no signal"""
                 xCenter = flatFiberTraceSet.getFiberTrace(i).getFiberTraceFunction().xCenter
@@ -168,19 +172,28 @@ class ReduceArcTask(CmdLineTask):
                 for j in range(wLenLines.shape[0]):
                     wLenLinesArr[j] = wLenLines[j]
                 lineListPix = drpStella.createLineList(wLenArr, wLenLinesArr)
+
+                log.logging.getLogger("pfs::drp::stella::math::createLineList").setLevel(log.DEBUG)
+                try:
+                    lineListPix = drpStella.createLineList(wLenArr, wLenLinesArr)
+                except Exception as e:
+                    self.log.warn("Error occured during createLineList: %s" % (e.message))
+
+                # Idendify emission lines and fit dispersion
                 try:
                     spec.identifyF(lineListPix, dispCorControl, 8)
-                except:
-                    e = sys.exc_info()[1]
-                    message = str.split(e.message, "\n")
-                    for k in range(len(message)):
-                        print "element",k,": <",message[k],">"
-                print "FiberTrace ",i,": spec.getDispCoeffs() = ",spec.getDispCoeffs()
-                print "FiberTrace ",i,": spec.getDispRms() = ",spec.getDispRms()
+                except Exception as e:
+                    self.log.warn("Error occured during identify: %s" % (e.message))
+
+                self.log.trace("FiberTrace %d: spec.getDispCoeffs() = %s"
+                               % (i, np.array_str(spec.getDispCoeffs())))
+                self.log.info("FiberTrace %d: spec.getDispRms() = %f"
+                              % (i, spec.getDispRms()))
+
                 if spectrumSetFromProfile.setSpectrum(i, spec ):
-                    print 'setSpectrum for spectrumSetFromProfile[',i,'] done'
+                    self.log.debug('setSpectrum for spectrumSetFromProfile[%d] done' % (i))
                 else:
-                    print 'setSpectrum for spectrumSetFromProfile[',i,'] failed'
+                    self.log.warn('setSpectrum for spectrumSetFromProfile[%d] failed' % (i))
 
             #
             # Do the I/O using a trampoline object PfsArmIO (to avoid adding butler-related details

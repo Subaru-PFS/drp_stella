@@ -12,19 +12,18 @@ class ExtractSpectraConfig(pexConfig.Config):
 
 class ExtractSpectraTask(Task):
     ConfigClass = ExtractSpectraConfig
-    _DefaultName = "extractSpectra"
+    _DefaultName = "ExtractSpectraTask"
 
     def __init__(self, *args, **kwargs):
         super(ExtractSpectraTask, self).__init__(*args, **kwargs)
 
     def extractSpectra(self, inExposure, inFiberTraceSetWithProfiles, inTraceNumbers):
 
+        traceNumbers = inTraceNumbers
         if inTraceNumbers[0] == -1:
             traceNumbers = range(inFiberTraceSetWithProfiles.size())
-        else:
-            traceNumbers = inTraceNumbers
-        self.log.info("inTraceNumbers = %s" % inTraceNumbers)
-        self.log.info("traceNumbers = %s" % traceNumbers)
+        self.log.debug("inTraceNumbers = %s" % inTraceNumbers)
+        self.log.debug("traceNumbers = %s" % traceNumbers)
 
         spectrumSet = drpStella.SpectrumSetF()
 
@@ -33,14 +32,9 @@ class ExtractSpectraTask(Task):
             inMaskedImage = inExposure.getMaskedImage()
 
         """Create traces and extract spectrum"""
-        for i in traceNumbers:
-            if i < 0:
-                raise Exception("i < 0")
-            elif i >= inFiberTraceSetWithProfiles.size():
-                raise Exception("i >= inFiberTraceSetWithProfiles.size()")
-
-            trace = inFiberTraceSetWithProfiles.getFiberTrace(i)
-            if trace.isProfileSet() == False:
+        for i in range(len(traceNumbers)):
+            trace = inFiberTraceSetWithProfiles.getFiberTrace(traceNumbers[i])
+            if not trace.isProfileSet():
                 raise Exception("profile not set")
 
             """Create trace from inMaskedImage"""
