@@ -190,10 +190,8 @@ class ReduceArcTask(CmdLineTask):
                 self.log.info("FiberTrace %d: spec.getDispRms() = %f"
                               % (i, spec.getDispRms()))
 
-                if spectrumSetFromProfile.setSpectrum(i, spec ):
-                    self.log.debug('setSpectrum for spectrumSetFromProfile[%d] done' % (i))
-                else:
-                    self.log.warn('setSpectrum for spectrumSetFromProfile[%d] failed' % (i))
+                if not spectrumSetFromProfile.setSpectrum(i, spec):
+                    raise RuntimeError('setSpectrum for spectrumSetFromProfile[%d] failed' % (i))
 
             #
             # Do the I/O using a trampoline object PfsArmIO (to avoid adding butler-related details
