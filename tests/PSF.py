@@ -50,7 +50,7 @@ class PSFTestCase(tests.TestCase):
         del self.tdpsfc
 
     def testPSFConstructors(self):
-        if False:
+        if True:
             iTrace = 1
             fiberTraceSet = drpStella.findAndTraceAperturesF(self.flat.getMaskedImage(), self.ftffc)
             ft = fiberTraceSet.getFiberTrace(iTrace)
@@ -70,20 +70,14 @@ class PSFTestCase(tests.TestCase):
                 self.assertEqual(psf.getITrace(), 1)
                 self.assertEqual(psf.getIBin(), 2)
 
-                """Test copy constructors"""
-                """shallow copy"""
+                """Test copy constructor"""
                 iPSF = 2
                 psf = psfSet.getPSF(iPSF)
                 psfCopy = drpStella.PSFF(psf)
                 psf.getTwoDPSFControl().swathWidth = 250
-                self.assertEqual(psf.getTwoDPSFControl().swathWidth, psfCopy.getTwoDPSFControl().swathWidth)
+                self.assertNotEqual(psf.getTwoDPSFControl().swathWidth, psfCopy.getTwoDPSFControl().swathWidth)
                 self.assertEqual(psf.getITrace(), iTrace)
                 self.assertEqual(psf.getIBin(), iPSF)
-
-                """deep copy"""
-                psfCopy = drpStella.PSFF(psf, True)
-                psf.getTwoDPSFControl().swathWidth = 350
-                self.assertNotEqual(psf.getTwoDPSFControl().swathWidth, psfCopy.getTwoDPSFControl().swathWidth)
 
                 """Init Constructor"""
                 psf = drpStella.PSFF(350, 750,self.tdpsfc.getPointer(),1,2)
@@ -93,7 +87,7 @@ class PSFTestCase(tests.TestCase):
                 self.assertTrue(psf.getIBin(), 2)
  
     def testCalculate2DPSFPerBin(self):
-        if False:
+        if True:
             iTrace = 1
             fiberTraceSet = drpStella.findAndTraceAperturesF(self.flat.getMaskedImage(), self.ftffc)
             fiberTrace = fiberTraceSet.getFiberTrace(iTrace)
@@ -112,7 +106,7 @@ class PSFTestCase(tests.TestCase):
                 self.assertEqual(psf.getIBin(), i)
         
     def testPFSGet(self):
-        if False:
+        if True:
             fiberTraceSet = drpStella.findAndTraceAperturesF(self.flat.getMaskedImage(), self.ftffc)
             iTrace = 0
             fiberTrace = fiberTraceSet.getFiberTrace(iTrace)
@@ -178,6 +172,23 @@ class PSFTestCase(tests.TestCase):
 
                 self.assertGreater(len(psf.getImagePSF_XTrace()), 0)
                 self.assertTrue(psf.isPSFsExtracted())
+
+    def testCalcPositionsRelativeToCenter(self):
+        pixCenter = drpStella.PIXEL_CENTER
+        centerPosition = 5.0
+        width = 10.0
+        positionsRelativeToCenter = drpStella.calcPositionsRelativeToCenter(centerPosition, width)
+        self.assertAlmostEqual(positionsRelativeToCenter[5][1],pixCenter, places=6)
+
+        centerPosition = 5.1
+        width = 10.0
+        positionsRelativeToCenter = drpStella.calcPositionsRelativeToCenter(centerPosition, width)
+        self.assertAlmostEqual(positionsRelativeToCenter[5][1],pixCenter-0.1, places=6)
+
+        centerPosition = 5.9
+        width = 10.0
+        positionsRelativeToCenter = drpStella.calcPositionsRelativeToCenter(centerPosition, width)
+        self.assertAlmostEqual(positionsRelativeToCenter[5][1],pixCenter-0.9, places=6)
 
 #-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 

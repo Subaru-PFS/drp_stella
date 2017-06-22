@@ -11,7 +11,11 @@ ndarray::Array<size_t, 2, 1> calcMinCenMax( ndarray::Array<T, 1, 1> const& xCent
                                             int const nPixCutLeft_In,
                                             int const nPixCutRight_In )
 {
-  ndarray::Array<size_t, 1, 1> floor = pfs::drp::stella::math::floor(xCenters_In, size_t(0));
+  ndarray::Array<double, 1, 1> tempCenter = ndarray::allocate(xCenters_In.getShape()[0]);
+  tempCenter.deep() = xCenters_In + 0.5 - PIXEL_CENTER;
+
+  ndarray::Array<size_t, 1, 1> floor = pfs::drp::stella::math::floor(tempCenter,
+                                                                     size_t(0));
   ndarray::Array<size_t, 2, 2> minCenMax_Out = ndarray::allocate(xCenters_In.getShape()[0], 3);
   minCenMax_Out[ndarray::view()()] = 0;
 
@@ -21,14 +25,14 @@ ndarray::Array<size_t, 2, 1> calcMinCenMax( ndarray::Array<T, 1, 1> const& xCent
   cout << "calcMinCenMax: minCenMax_Out(*,1) = " << minCenMax_Out[ndarray::view()(1)] << endl;
 #endif
   ndarray::Array<double, 1, 1> D_A1_Temp = ndarray::allocate(xCenters_In.getShape()[0]);
-  D_A1_Temp.deep() = xCenters_In + xLow_In;
+  D_A1_Temp.deep() = tempCenter + xLow_In;
 
   minCenMax_Out[ndarray::view()(0)] = pfs::drp::stella::math::floor(ndarray::Array<double const, 1, 1>(D_A1_Temp), size_t(0));
 
 #ifdef __DEBUG_MINCENMAX__
   cout << "calcMinCenMax: minCenMax_Out(*,0) = " << minCenMax_Out[ndarray::view()(0)] << endl;
 #endif
-  D_A1_Temp.deep() = xCenters_In + xHigh_In;
+  D_A1_Temp.deep() = tempCenter + xHigh_In;
 
   minCenMax_Out[ndarray::view()(2)] = pfs::drp::stella::math::floor(ndarray::Array<double const, 1, 1>(D_A1_Temp), size_t(0));
 
@@ -147,7 +151,7 @@ template<typename T>
 int firstIndexWithValueGEFrom( ndarray::Array<T, 1, 1> const& vec_In, const T minValue_In, const int fromIndex_In )
 {
   if ( (vec_In.getShape()[0] < 1) || (fromIndex_In >= int(vec_In.getShape()[0])) ) {
-    cout << "pfs::drp::stella::math::firstIndexWithValueGEFrom: Error: vec_In.getShape()[0] =" << vec_In.getShape()[0] << " < 1 or fromIndex_In(=" << fromIndex_In << ") >= vec_In.getShape()[0] => Returning -1" << endl;
+    cout << "pfs::drp::stella::math::firstIndexWithValueGEFrom: WARNING: vec_In.getShape()[0] =" << vec_In.getShape()[0] << " < 1 or fromIndex_In(=" << fromIndex_In << ") >= vec_In.getShape()[0] => Returning -1" << endl;
     return -1;
   }
   int pos = fromIndex_In;
@@ -4291,6 +4295,18 @@ template ndarray::Array< double, 2, 1 > where( ndarray::Array< double, 2, 2 > co
                                                double const,
                                                double const );
 
+template ndarray::Array< unsigned short, 2, 1 > where( ndarray::Array< unsigned short, 2, 1 > const&,
+                                                       std::string const&,
+                                                       unsigned short const,
+                                                       unsigned short const,
+                                                       unsigned short const );
+
+template ndarray::Array< unsigned short, 2, 1 > where( ndarray::Array< unsigned short, 2, 2 > const&,
+                                                       std::string const&,
+                                                       unsigned short const,
+                                                       unsigned short const,
+                                                       unsigned short const );
+
 template ndarray::Array< size_t, 1, 1 > where( ndarray::Array< size_t, 1, 1 > const&,
                                                std::string const&,
                                                size_t const,
@@ -7229,6 +7245,10 @@ template ndarray::Array<float, 1, 1> floor( const ndarray::Array<const float, 1,
 template ndarray::Array<float, 1, 1> floor( const ndarray::Array<const double, 1, 1>&, const float );
 template ndarray::Array<double, 1, 1> floor( const ndarray::Array<const float, 1, 1>&, const double );
 template ndarray::Array<double, 1, 1> floor( const ndarray::Array<const double, 1, 1>&, const double );
+template ndarray::Array<float, 1, 1> floor( const ndarray::Array<float, 1, 1>&, const float );
+template ndarray::Array<float, 1, 1> floor( const ndarray::Array<double, 1, 1>&, const float );
+template ndarray::Array<double, 1, 1> floor( const ndarray::Array<float, 1, 1>&, const double );
+template ndarray::Array<double, 1, 1> floor( const ndarray::Array<double, 1, 1>&, const double );
 
 template ndarray::Array<size_t, 2, 2> floor( const ndarray::Array<const float, 2, 2>&, const size_t );
 template ndarray::Array<size_t, 2, 2> floor( const ndarray::Array<const double, 2, 2>&, const size_t );

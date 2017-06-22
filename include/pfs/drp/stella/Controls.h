@@ -26,8 +26,8 @@ struct FiberTraceFunctionControl {
   FiberTraceFunctionControl() :
       interpolation("POLYNOMIAL"),
       order(5),
-      xLow(-4.),
-      xHigh(4.),
+      xLow(-5.),
+      xHigh(5.),
       nPixCutLeft(1),
       nPixCutRight(1),
       nRows(1){}
