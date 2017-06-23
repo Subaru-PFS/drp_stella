@@ -96,14 +96,14 @@ class ReduceArcRefSpecTask(CmdLineTask):
                                    (arcRef.dataId, arcRef.get('fiberTrace_filename')[0], e))
             flatFiberTraceSet = makeFiberTraceSet(fiberTrace)
 
-            self.log.info('flatFiberTraceSet.size() = %d' % flatFiberTraceSet.size())
+            self.log.debug('flatFiberTraceSet.size() = %d' % flatFiberTraceSet.size())
 
             arcExp = arcRef.get("arc", immediate=True)
             self.log.debug('arcExp = %s' % arcExp)
             self.log.debug('type(arcExp) = %s' % type(arcExp))
 
             """ optimally extract arc spectra """
-            self.log.info('extracting arc spectra')
+            self.log.debug('extracting arc spectra')
 
             myExtractTask = esTask.ExtractSpectraTask()
             aperturesToExtract = [-1]
@@ -161,7 +161,7 @@ class ReduceArcRefSpecTask(CmdLineTask):
             for i in range(spectrumSetFromProfile.size()):
                 spec = spectrumSetFromProfile.getSpectrum(i)
                 specSpec = spectrumSetFromProfile.getSpectrum(i).getSpectrum()
-                self.log.info('calibrating spectrum %d: xCenter = %f' % (i,flatFiberTraceSet.getFiberTrace(i).getFiberTraceFunction().xCenter))
+                self.log.debug('calibrating spectrum %d: xCenter = %f' % (i,flatFiberTraceSet.getFiberTrace(i).getFiberTraceFunction().xCenter))
                 self.log.debug('specSpec.shape = %d' % specSpec.shape)
                 self.log.debug('lineListArr.shape = [%d,%d]' % (lineListArr.shape[0], lineListArr.shape[1]))
                 self.log.debug('type(specSpec) = %s: <%s>' % (type(specSpec),type(specSpec[0])))

@@ -45,7 +45,6 @@ bool pfsDRPStella::Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>::setSky( n
   if (static_cast<size_t>(sky.getShape()[0]) != _length){
     string message("pfsDRPStella::Spectrum::setSky: ERROR: spectrum->size()=");
     message += to_string(sky.getShape()[0]) + string(" != _length=") + to_string(_length);
-    cout << message << endl;
     throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
   }
   _sky.deep() = sky;
@@ -62,7 +61,6 @@ bool pfsDRPStella::Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>::setWavele
   if (static_cast<size_t>(wavelength.getShape()[0]) != _length){
     string message("pfsDRPStella::Spectrum::setWavelength: ERROR: wavelength->size()=");
     message += to_string(wavelength.getShape()[0]) + string(" != _length=") + to_string(_length);
-    cout << message << endl;
     throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
   }
   _wavelength.deep() = wavelength;
@@ -79,7 +77,6 @@ bool pfsDRPStella::Spectrum< SpectrumT, MaskT, VarianceT, WavelengthT >::setDisp
   if (static_cast<size_t>(dispersion.getShape()[0]) != _length ){
     string message("pfsDRPStella::Spectrum::setDispersion: ERROR: dispersion->size()=");
     message += to_string( dispersion.getShape()[ 0 ]) + string(" != _length=") + to_string( _length );
-    cout << message << endl;
     throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
   }
   _dispersion.deep() = dispersion;

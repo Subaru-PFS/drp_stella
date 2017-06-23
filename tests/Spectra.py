@@ -63,6 +63,10 @@ class SpectraTestCase(tests.TestCase):
         self.refSpec = os.path.join(lsst.utils.getPackageDir('obs_pfs'),'pfs/arcSpectra/refSpec_CdHgKrNeXe_red.fits')
         self.wLenFile = os.path.join(lsst.utils.getPackageDir('obs_pfs'),'pfs/RedFiberPixels.fits.gz')
 
+        """Quiet down loggers which are too verbose"""
+        log.setLevel("findAndTraceApertures", log.WARN)
+        log.setLevel("extractSpectra", log.FATAL)
+
     def tearDown(self):
         del self.flat
         del self.arc
@@ -176,8 +180,6 @@ class SpectraTestCase(tests.TestCase):
             except:
                 e = sys.exc_info()[1]
                 message = str.split(e.message, "\n")
-                for i in range(len(message)):
-                    print "element",i,": <",message[i],">"
                 expected = "pfs::drp::stella::Spectrum::setMask: ERROR: mask.getWidth()="+str(vecus.getWidth())+" != _length="+str(spec.getLength())
                 self.assertEqual(message[0],expected)
             self.assertEqual(spec.getMask().getWidth(), size)
@@ -450,6 +452,8 @@ class SpectraTestCase(tests.TestCase):
 
     def testWavelengthCalibrationWithRefSpec(self):
         if True:
+            log.setLevel("reduceArcRefSpecTask", log.FATAL)
+
             myReduceArcTask = reduceArcRefSpecTask.ReduceArcRefSpecTask()
             dataRefList = [ref for ref in self.butler.subset('postISRCCD',
                                                              'visit',
@@ -480,6 +484,8 @@ class SpectraTestCase(tests.TestCase):
 
     def testWavelengthCalibrationWithoutRefSpec(self):
         if True:
+            logger = log.Log.getLogger("reduceArcTask")
+            logger.setLevel(log.WARN)
             myReduceArcTask = reduceArcTask.ReduceArcTask()
             dataRefList = [ref for ref in self.butler.subset("postISRCCD", 'visit', self.dataIdArc)]
             spectrumSetFromProfile = myReduceArcTask.run(dataRefList, self.butler, self.wLenFile, self.lineList)
@@ -640,7 +646,7 @@ class SpectraTestCase(tests.TestCase):
                 if maxDistance < 0.49:
                     try:
                         logger = log.Log.getLogger("pfs::drp::stella::Spectra::identify")
-                        logger.setLevel(log.WARN)
+                        logger.setLevel(log.FATAL)
                         spec.identifyF(lineListPix, self.dispCorControl, 8)
                         self.assertTrue(False)
                     except:
@@ -674,6 +680,10 @@ def suite():
     return unittest.TestSuite(suites)
 
 def run(exit = False):
+    """Quiet down loggers which are too verbose"""
+    log.setLevel("CameraMapper", log.FATAL)
+    log.setLevel("afw.image.ExposureInfo", log.FATAL)
+
     """Run the tests"""
     tests.run(suite(), exit)
 
