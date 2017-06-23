@@ -30,10 +30,10 @@ def main(rootDir, visit, arm, ccd, fitsFileName):
 
     ampInfoCatalog = lsst.afw.table.AmpInfoCatalog(lsst.afw.table.AmpInfoTable.makeMinimalSchema())
 
-    """ Create instance of ampInfoCatalog by reading fitsFileName """
+    # Create instance of ampInfoCatalog by reading fitsFileName
     amps = ampInfoCatalog.readFits(fitsFileName)
 
-    """ Get CCD image """
+    # Get CCD image
     print 'dir(exposure) = ',dir(exposure)
     det = exposure.getDetector()
     print 'det.getBBox() = ',det.getBBox()

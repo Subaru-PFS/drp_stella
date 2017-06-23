@@ -18,8 +18,7 @@ class AddDummyHeaderKeywordsTask(Task):
         super(AddDummyHeaderKeywordsTask, self).__init__(*args, **kwargs)
 
     def addDummyHeaderKeywords(self, fileList):
-
-        """ read fileList """
+        # read fileList
         readFileTask = ReadFileTask()
         fitsList = readFileTask.run(fileList)
         for fitsFile in fitsList:

@@ -33,15 +33,15 @@ def extractFromProfile(flatfilename, flatprofilename, specfilename):
     ftec.maxIterSF = 10
     ftec.swathWidth = 500
 
-    """Create a afwImage::MaskedImageF from the flat fits file"""
+    # Create a afwImage::MaskedImageF from the flat fits file
     mif = afwImage.MaskedImageF(flatfilename)
     print("mif created")
 
-    """Create a FiberTraceSet given a fits file name"""
+    # Create a FiberTraceSet given a fits file name
     msi = drpStella.MaskedSpectrographImageF(mif)
     print("msi created")
 
-    """Trace fibers"""
+    # Trace fibers
     msi.findAndTraceApertures(ftffc, 0, mif.getHeight(), 10)
     print("msi.findAndTraceApertures finished")
 

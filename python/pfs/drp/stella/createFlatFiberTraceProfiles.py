@@ -39,11 +39,11 @@ def createFlatFiberTraceProfiles(filename):
     ftec.telluric = "NONE"
     ftec.maxIterSky = 1
 
-    """Create a FiberTraceSet given a flat-field fits file name"""
+    # --- Create a FiberTraceSet given a flat-field fits file name
     mif = afwImage.MaskedImageF(filename)
     print("mif created")
 
-    """Trace fibers"""
+    # --- Trace fibers
     fts = drpStella.findAndTraceAperturesF(mif, ftffc)
     print("findAndTraceApertures finished")
 

@@ -62,7 +62,7 @@ class PSFTestCase(tests.TestCase):
             psfSet = drpStella.calculate2dPSFPerBin(ft, spec, self.tdpsfc.getPointer())
             if True:
 
-                """Test that we can create a PSF with the standard constructor"""
+                # Test that we can create a PSF with the standard constructor
                 psf = drpStella.PSFF()
                 self.assertEqual(psf.getITrace(), 0)
                 self.assertEqual(psf.getIBin(), 0)
@@ -71,7 +71,8 @@ class PSFTestCase(tests.TestCase):
                 self.assertEqual(psf.getITrace(), 1)
                 self.assertEqual(psf.getIBin(), 2)
 
-                """Test copy constructor"""
+                # Test copy constructors
+                # shallow copy
                 iPSF = 2
                 psf = psfSet.getPSF(iPSF)
                 psfCopy = drpStella.PSFF(psf)
@@ -80,7 +81,12 @@ class PSFTestCase(tests.TestCase):
                 self.assertEqual(psf.getITrace(), iTrace)
                 self.assertEqual(psf.getIBin(), iPSF)
 
-                """Init Constructor"""
+                # deep copy
+                psfCopy = drpStella.PSFF(psf, True)
+                psf.getTwoDPSFControl().swathWidth = 350
+                self.assertNotEqual(psf.getTwoDPSFControl().swathWidth, psfCopy.getTwoDPSFControl().swathWidth)
+
+                # Init Constructor
                 psf = drpStella.PSFF(350, 750,self.tdpsfc.getPointer(),1,2)
                 self.assertTrue(psf.getYLow(), 350)
                 self.assertTrue(psf.getYHigh(), 750)
@@ -120,7 +126,7 @@ class PSFTestCase(tests.TestCase):
             spec = ftComb.extractFromProfile()
             psfSet = drpStella.calculate2dPSFPerBin(fiberTrace, spec, self.tdpsfc.getPointer())
 
-            """test getYLow and getYHigh"""
+            # test getYLow and getYHigh
             swathWidth = self.tdpsfc.swathWidth;
             ndArr = fiberTrace.calcSwathBoundY(swathWidth);
             print "ndArr = ",ndArr[:]
@@ -134,7 +140,7 @@ class PSFTestCase(tests.TestCase):
             for i in range(2, psfSet.size()):
                 self.assertEqual(psfSet.getPSF(i).getYLow(), psfSet.getPSF(i-2).getYHigh()+1)
 
-            """test get..."""
+            # test get...
             for i in range(psfSet.size()):
                 size = len(psfSet.getPSF(i).getImagePSF_XTrace())
                 self.assertGreater(size, 0)
@@ -147,17 +153,17 @@ class PSFTestCase(tests.TestCase):
                 self.assertEqual(psfSet.getPSF(i).getITrace(), iTrace)
                 self.assertEqual(psfSet.getPSF(i).getIBin(), i)
 
-            """test isTwoDPSFControlSet"""
+            # test isTwoDPSFControlSet
             psf = drpStella.PSFF()
             self.assertFalse(psf.isTwoDPSFControlSet())
             self.assertTrue(psf.setTwoDPSFControl(self.tdpsfc.getPointer()))
             self.assertTrue(psf.isTwoDPSFControlSet())
 
-            """test isPSFsExtracted"""
+            # test isPSFsExtracted
             self.assertFalse(psf.isPSFsExtracted())
             self.assertTrue(psfSet.getPSF(2).isPSFsExtracted())
 
-            """test extractPSFs"""
+            # test extractPSFs
             fiberTraceSet = drpStella.findAndTraceAperturesF(self.flat.getMaskedImage(), self.ftffc)
             fiberTrace = fiberTraceSet.getFiberTrace(0)
             self.assertTrue(fiberTrace.setFiberTraceProfileFittingControl(self.ftpfc.getPointer()))

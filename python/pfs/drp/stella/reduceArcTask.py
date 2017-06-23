@@ -94,10 +94,10 @@ class ReduceArcTask(CmdLineTask):
             self.log.debug('arcExp = %s' % arcExp)
             self.log.debug('type(arcExp) = %s' % type(arcExp))
 
-            """ optimally extract arc spectra """
+            # optimally extract arc spectra
             self.log.info('extracting arc spectra')
 
-            """ read wavelength file """
+            # read wavelength file
             hdulist = pyfits.open(wLenFile)
             tbdata = hdulist[1].data
             traceIdsTemp = np.ndarray(shape=(len(tbdata)), dtype='int')
@@ -108,7 +108,7 @@ class ReduceArcTask(CmdLineTask):
             wavelengths[:] = tbdata[:]['pixelWave']
             xCenters[:] = tbdata[:]['xc']
 
-            """ assign trace number to flatFiberTraceSet """
+            # assign trace number to flatFiberTraceSet
             drpStella.assignITrace( flatFiberTraceSet, traceIds, xCenters )
             for i in range( flatFiberTraceSet.size() ):
                 self.log.info('iTraces[%d] = %d' % (i, flatFiberTraceSet.getFiberTrace(i).getITrace()))
@@ -117,7 +117,7 @@ class ReduceArcTask(CmdLineTask):
             aperturesToExtract = [-1]
             spectrumSetFromProfile = myExtractTask.run(arcExp, flatFiberTraceSet, aperturesToExtract)
 
-            """ read line list """
+            # read line list
             hdulist = pyfits.open(lineList)
             tbdata = hdulist[1].data
             lineListArr = np.ndarray(shape=(len(tbdata),2), dtype='float32')
@@ -149,7 +149,7 @@ class ReduceArcTask(CmdLineTask):
                 wLenTemp = wavelengths[np.where(traceIds == traceId)]
                 assert wLenTemp.shape[0] == traceIds.shape[0] / np.unique(traceIds).shape[0]
 
-                """cut off both ends of wavelengths where is no signal"""
+                # cut off both ends of wavelengths where is no signal
                 xCenter = flatFiberTraceSet.getFiberTrace(i).getFiberTraceFunction().xCenter
                 yCenter = flatFiberTraceSet.getFiberTrace(i).getFiberTraceFunction().yCenter
                 yLow = flatFiberTraceSet.getFiberTrace(i).getFiberTraceFunction().yLow

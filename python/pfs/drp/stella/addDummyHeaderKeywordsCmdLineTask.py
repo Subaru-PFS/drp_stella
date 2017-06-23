@@ -3,7 +3,11 @@ import lsst.pipe.base as pipeBase
 import pfs.drp.stella as drpStella
 
 class AddDummyHeaderKeywordsCmdLineConfig(pexConfig.Config):
-    """!Configuration for AddDummyHeaderKeywordsCmdLineTask     """
+    """ Configuration for AddDummyHeaderKeywordsCmdLineTask
+
+    No changes required compared to the base class, but
+    subclassed for distinction."""
+    pass
 
 class AddDummyHeaderKeywordsCmdLineTask(pipeBase.CmdLineTask):
     ConfigClass = AddDummyHeaderKeywordsCmdLineConfig

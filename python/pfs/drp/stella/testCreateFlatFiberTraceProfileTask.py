@@ -11,13 +11,13 @@ myFindTask = fataTask.FindAndTraceAperturesTask()
 fts = myFindTask.run(exp)
 myExtractTask = cfftpTask.CreateFlatFiberTraceProfileTask()
 
-"""Extract all apertures"""
+# Extract all apertures
 myExtractTask.run(fts)
 
-"""Extract aperture 0"""
+# Extract aperture 0
 iAperturesToExtract = [0]
 myExtractTask.run(fts, iAperturesToExtract)
 
-"""Extract apertures 0 and 1"""
+# Extract apertures 0 and 1
 iAperturesToExtract = range(2)
 myExtractTask.run(fts, iAperturesToExtract)

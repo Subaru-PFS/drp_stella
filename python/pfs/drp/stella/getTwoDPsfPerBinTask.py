@@ -67,7 +67,7 @@ class GetTwoDPsfPerBinTask(Task):
     def __init__(self, *args, **kwargs):
         super(GetTwoDPsfPerBinTask, self).__init__(*args, **kwargs)
 
-        """create TwoDPSFControl"""
+        # create TwoDPSFControl
         self.tdpsfc = drpStella.TwoDPSFControl()
         tdpsfc = self.tdpsfc
         tdpsfc.signalThreshold = self.config.signalThreshold
@@ -95,7 +95,7 @@ class GetTwoDPsfPerBinTask(Task):
                 print "inSpectrumSet.size(=", inSpectrumSet.size(), ") != inFiberTraceSet.size(=", inFiberTraceSet.size(),")"
                 raise Exception("inSpectrumSet.size(=", inSpectrumSet.size(), ") != inFiberTraceSet.size(=", inFiberTraceSet.size(),")")
 
-            """Create PSFSet"""
+            # Create PSFSet
             for i in traceNumbers:
                 if i < 0:
                     raise Exception("i < 0")
