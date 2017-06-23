@@ -30,18 +30,18 @@ def main(rootDir, visit, arm, ccd, fitsFileName):
     # stretch it with arcsinh and make a png with pyplot
     pyplot.imshow(numpy.arcsinh(nimg), cmap='gray')
     pyplot.gcf().savefig("test.png")
-    
+
     ampInfoCatalog = lsst.afw.table.AmpInfoCatalog(lsst.afw.table.AmpInfoTable.makeMinimalSchema())
-    
+
     """ Create instance of ampInfoCatalog by reading fitsFileName """
     amps = ampInfoCatalog.readFits(fitsFileName)
-    
+
 #    for iAmp in range(len(amps)):#range(nAmps):
 #        ampSchema = amps[iAmp].getSchema()
 #        for name in ampSchema.getNames():
 #            print 'amps[',iAmp,']: ',name,': value = ',amps[iAmp].get(name)
 #        print ' '
-    
+
     """ Get CCD image """
     print 'dir(exposure) = ',dir(exposure)
     det = exposure.getDetector()
@@ -54,7 +54,7 @@ def main(rootDir, visit, arm, ccd, fitsFileName):
     print 'butlerImage.isTrimmed = ',butlerImage.isTrimmed
     camGeomUtils.showCcd(det, imageSource=butlerImage, frame=2)
 
-    
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("root", help="Root directory of data repository")
@@ -63,5 +63,5 @@ if __name__ == '__main__':
     parser.add_argument("ccd", type=int, help="CCD to show")
     parser.add_argument("fitsFileName", help="Name of fits file containing the detector geometry")
     args = parser.parse_args()
-    
+
     main(args.root, args.visit, args.arm, args.ccd, args.fitsFileName)

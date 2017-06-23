@@ -30,4 +30,3 @@ class DemoTask(CmdLineTask):
 
 if __name__ == "__main__":
     DemoTask.parseAndRun()
-

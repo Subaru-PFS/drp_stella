@@ -664,7 +664,7 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
   }
   //****************************************************************************80
 
-  int dsvdc ( double a[], int lda, int m, int n, double s[], double e[], 
+  int dsvdc ( double a[], int lda, int m, int n, double s[], double e[],
     double u[], int ldu, double v[], int ldv, double work[], int job )
 
   //****************************************************************************80
@@ -686,7 +686,7 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
   //
   //  Licensing:
   //
-  //    This code is distributed under the GNU LGPL license. 
+  //    This code is distributed under the GNU LGPL license.
   //
   //  Modified:
   //
@@ -709,7 +709,7 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
   //
   //    Input/output, double A[LDA*N].  On input, the M by N matrix whose
   //    singular value decomposition is to be computed.  On output, the matrix
-  //    has been destroyed.  Depending on the user's requests, the matrix may 
+  //    has been destroyed.  Depending on the user's requests, the matrix may
   //    contain other useful information.
   //
   //    Input, int LDA, the leading dimension of the array A.
@@ -864,7 +864,7 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
   //
         if ( l <= nct && s[l-1] != 0.0 )
         {
-          t = - ddot ( m-l+1, a+l-1+(l-1)*lda, 1, a+l-1+(j-1)*lda, 1 ) 
+          t = - ddot ( m-l+1, a+l-1+(l-1)*lda, 1, a+l-1+(j-1)*lda, 1 )
             / a[l-1+(l-1)*lda];
           daxpy ( m-l+1, t, a+l-1+(l-1)*lda, 1, a+l-1+(j-1)*lda, 1 );
         }
@@ -985,7 +985,7 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
         {
           for ( j = l+1; j <= ncu; j++ )
           {
-            t = - ddot ( m-l+1, u+(l-1)+(l-1)*ldu, 1, u+(l-1)+(j-1)*ldu, 1 ) 
+            t = - ddot ( m-l+1, u+(l-1)+(l-1)*ldu, 1, u+(l-1)+(j-1)*ldu, 1 )
               / u[l-1+(l-1)*ldu];
             daxpy ( m-l+1, t, u+(l-1)+(l-1)*ldu, 1, u+(l-1)+(j-1)*ldu, 1 );
           }
@@ -1020,7 +1020,7 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
         {
           for ( j = l+1; j <= n; j++ )
           {
-            t = - ddot ( n-l, v+l+(l-1)*ldv, 1, v+l+(j-1)*ldv, 1 ) 
+            t = - ddot ( n-l, v+l+(l-1)*ldv, 1, v+l+(j-1)*ldv, 1 )
               / v[l+(l-1)*ldv];
             daxpy ( n-l, t, v+l+(l-1)*ldv, 1, v+l+(j-1)*ldv, 1 );
           }
@@ -1190,9 +1190,9 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
   //
   //  Calculate the shift.
   //
-        scale = r8_max ( std::fabs ( s[mn-1] ), 
-                r8_max ( std::fabs ( s[mn-2] ), 
-                r8_max ( std::fabs ( e[mn-2] ), 
+        scale = r8_max ( std::fabs ( s[mn-1] ),
+                r8_max ( std::fabs ( s[mn-2] ),
+                r8_max ( std::fabs ( e[mn-2] ),
                 r8_max ( std::fabs ( s[l-1] ), std::fabs ( e[l-1] ) ) ) ) );
 
         sm = s[mn-1] / scale;
@@ -1658,20 +1658,20 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
   //
   //  Discussion:
   //
-  //    This routine is a slightly modified version of the EISPACK routine to 
-  //    perform the implicit QL algorithm on a symmetric tridiagonal matrix. 
+  //    This routine is a slightly modified version of the EISPACK routine to
+  //    perform the implicit QL algorithm on a symmetric tridiagonal matrix.
   //
   //    The authors thank the authors of EISPACK for permission to use this
-  //    routine. 
+  //    routine.
   //
-  //    It has been modified to produce the product Q' * Z, where Z is an input 
-  //    vector and Q is the orthogonal matrix diagonalizing the input matrix.  
+  //    It has been modified to produce the product Q' * Z, where Z is an input
+  //    vector and Q is the orthogonal matrix diagonalizing the input matrix.
   //    The changes consist (essentialy) of applying the orthogonal transformations
   //    directly to Z as they are generated.
   //
   //  Licensing:
   //
-  //    This code is distributed under the GNU LGPL license. 
+  //    This code is distributed under the GNU LGPL license.
   //
   //  Modified:
   //
@@ -1685,7 +1685,7 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
   //  Reference:
   //
   //    Sylvan Elhay, Jaroslav Kautsky,
-  //    Algorithm 655: IQPACK, FORTRAN Subroutines for the Weights of 
+  //    Algorithm 655: IQPACK, FORTRAN Subroutines for the Weights of
   //    Interpolatory Quadrature,
   //    ACM Transactions on Mathematical Software,
   //    Volume 13, Number 4, December 1987, pages 399-415.
@@ -1702,7 +1702,7 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
   //    Input/output, double D(N), the diagonal entries of the matrix.
   //    On output, the information in D has been overwritten.
   //
-  //    Input/output, double E(N), the subdiagonal entries of the 
+  //    Input/output, double E(N), the subdiagonal entries of the
   //    matrix, in entries E(1) through E(N-1).  On output, the information in
   //    E has been overwritten.
   //
@@ -2397,8 +2397,8 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
     {
       for ( i = 0; i < n; i++ )
       {
-        a[i] = ( ( double ) ( n - 1 - i ) * a_first 
-               + ( double ) (         i ) * a_last ) 
+        a[i] = ( ( double ) ( n - 1 - i ) * a_first
+               + ( double ) (         i ) * a_last )
                / ( double ) ( n - 1     );
       }
     }
@@ -2768,12 +2768,12 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
   //
   //  Discussion:
   //
-  //    The vector X returned by this routine should always minimize the 
+  //    The vector X returned by this routine should always minimize the
   //    Euclidean norm of the residual ||A*x-b||.
   //
   //    If the matrix A does not have full column rank, then there are multiple
   //    vectors that attain the minimum residual.  In that case, the vector
-  //    X returned by this routine is the unique such minimizer that has the 
+  //    X returned by this routine is the unique such minimizer that has the
   //    the minimum possible Euclidean norm, that is, ||A*x-b|| and ||x||
   //    are both minimized.
   //
@@ -2858,7 +2858,7 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
     ub = r8mat_mtv_new ( m, m, u, b );
   //
   //  For singular problems, there may be tiny but nonzero singular values
-  //  that should be ignored.  This is a reasonable attempt to avoid such 
+  //  that should be ignored.  This is a reasonable attempt to avoid such
   //  problems, although in general, the user might wish to control the tolerance.
   //
     smax = r8vec_max ( n, sdiag );
@@ -2946,7 +2946,7 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
 //    {
 //      value = 0.0;
 //    }
-//    else 
+//    else
     if ( i == 0 )
     {
       value = pi;
@@ -2969,8 +2969,8 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
   //
   //  Discussion:
   //
-  //    Set 
-  //      x = cos ( theta ), 
+  //    Set
+  //      x = cos ( theta ),
   //      dx = - sin ( theta ) d theta = - sqrt ( 1 - x^2 ) d theta
   //    to transform the integral to
   //      integral ( 0 <= theta <= pi ) - ( cos ( theta ) )^e d theta
@@ -3165,7 +3165,7 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
   //
   //  Licensing:
   //
-  //    This code is distributed under the GNU LGPL license. 
+  //    This code is distributed under the GNU LGPL license.
   //
   //  Modified:
   //
@@ -3374,7 +3374,7 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
   //
   //  Licensing:
   //
-  //    This code is distributed under the GNU LGPL license. 
+  //    This code is distributed under the GNU LGPL license.
   //
   //  Modified:
   //
@@ -3480,8 +3480,8 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
 
     for ( i = 0; i < m; i++ )
     {
-      y[i] = ( ( b - x[i]     )   
-             - (     x[i] - a ) ) 
+      y[i] = ( ( b - x[i]     )
+             - (     x[i] - a ) )
              / ( b        - a );
     }
 
@@ -3531,8 +3531,8 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
 
     for ( auto itX = x.begin(), itY = y.begin(); itX < x.end(); ++itX, ++itY )
     {
-      *itY = ( ( b - *itX     )   
-             - (     *itX - a ) ) 
+      *itY = ( ( b - *itX     )
+             - (     *itX - a ) )
              / ( b        - a );
     }
 
@@ -3571,7 +3571,7 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
   //
   //  Licensing:
   //
-  //    This code is distributed under the GNU LGPL license. 
+  //    This code is distributed under the GNU LGPL license.
   //
   //  Modified:
   //
@@ -3594,7 +3594,7 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
   //    Input, int N, the highest order polynomial to compute.
   //    Note that polynomials 0 through N will be computed.
   //
-  //    Output, double T_POLYNOMIAL_COEFFICIENTS[(N+1)*(N+1)], the coefficients 
+  //    Output, double T_POLYNOMIAL_COEFFICIENTS[(N+1)*(N+1)], the coefficients
   //    of the Chebyshev T polynomials.
   //
   {
@@ -3657,7 +3657,7 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
   //
   //  Licensing:
   //
-  //    This code is distributed under the GNU LGPL license. 
+  //    This code is distributed under the GNU LGPL license.
   //
   //  Modified:
   //
@@ -3828,7 +3828,7 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
   //
   //  Licensing:
   //
-  //    This code is distributed under the GNU LGPL license. 
+  //    This code is distributed under the GNU LGPL license.
   //
   //  Modified:
   //
@@ -3896,7 +3896,7 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
   //
   //    Input, double F ( double X ), evaluates the function.
   //
-  //    Output, double T_PROJECT_COEFFICIENTS[N+1], the projection coefficients 
+  //    Output, double T_PROJECT_COEFFICIENTS[N+1], the projection coefficients
   //    of f(x) onto T(0,x) through T(n,x).
   //
   {
@@ -3926,7 +3926,7 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
       total = 0.0;
       for ( k = 0; k <= n; k++ )
       {
-        total = total + d[k] * cos ( ( pi * ( double ) ( j ) ) 
+        total = total + d[k] * cos ( ( pi * ( double ) ( j ) )
           * ( ( ( double ) ( k ) + 0.5 ) / ( double ) ( n + 1 ) ) );
       }
       c[j] = fac * total;
@@ -3940,7 +3940,7 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
   }
   //****************************************************************************80
 
-  double *t_project_coefficients_ab ( int n, double f ( double x ), double a, 
+  double *t_project_coefficients_ab ( int n, double f ( double x ), double a,
     double b )
 
   //****************************************************************************80
@@ -3979,7 +3979,7 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
   //
   //    Input, double A, B, the interval of definition.
   //
-  //    Output, double T_PROJECT_COEFFICIENTS_AB[N+1], the projection coefficients 
+  //    Output, double T_PROJECT_COEFFICIENTS_AB[N+1], the projection coefficients
   //    of f(x) onto T(0,x) through T(n,x).
   //
   {
@@ -3999,8 +3999,8 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
     {
       t = cos ( pi * ( ( double ) ( k ) + 0.5 ) / ( double ) ( n + 1 ) );
 
-      y = ( ( 1.0 + t ) * b   
-          + ( 1.0 - t ) * a ) 
+      y = ( ( 1.0 + t ) * b
+          + ( 1.0 - t ) * a )
           /   2.0;
 
       d[k] = f ( y );
@@ -4015,7 +4015,7 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
       total = 0.0;
       for ( k = 0; k <= n; k++ )
       {
-        total = total + d[k] * cos ( ( pi * ( double ) ( j ) ) 
+        total = total + d[k] * cos ( ( pi * ( double ) ( j ) )
           * ( ( ( double ) ( k ) + 0.5 ) / ( double ) ( n + 1 ) ) );
       }
       c[j] = fac * total;
@@ -4029,10 +4029,10 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
   }
   //****************************************************************************80
 
-  ndarray::Array<double, 1, 1> t_project_coefficients_data ( ndarray::Array<double, 1, 1> const& x, 
-                                                             ndarray::Array<double, 1, 1> const& d, 
-                                                             double a, 
-                                                             double b, 
+  ndarray::Array<double, 1, 1> t_project_coefficients_data ( ndarray::Array<double, 1, 1> const& x,
+                                                             ndarray::Array<double, 1, 1> const& d,
+                                                             double a,
+                                                             double b,
                                                              int n)
 
   //****************************************************************************80
@@ -4059,15 +4059,15 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
   //
   //    Input, int M, the number of data values.
   //
-  //    Input, int N, the desired order of the Chebyshev 
+  //    Input, int N, the desired order of the Chebyshev
   //    expansion.
   //
-  //    Input, double X[M], the data abscissas.  These need not 
+  //    Input, double X[M], the data abscissas.  These need not
   //    be sorted.  It must be the case that A <= X() <= B.
   //
   //    Input, double D[M], the data values.
   //
-  //    Output, double T_PROJECT_COEFFICIENTS_DATA[N+1], the approximate 
+  //    Output, double T_PROJECT_COEFFICIENTS_DATA[N+1], the approximate
   //    Chebshev coefficients.
   //
   {
@@ -4184,7 +4184,7 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
   }
   //****************************************************************************80
 
-  double *t_project_value_ab ( int m, int n, double x[], double c[], double a, 
+  double *t_project_value_ab ( int m, int n, double x[], double c[], double a,
     double b )
 
   //****************************************************************************80
@@ -4332,7 +4332,7 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
   //
   //  Discussion:
   //
-  //    
+  //
   //  Licensing:
   //
   //    This code is distributed under the GNU LGPL license.
@@ -4388,8 +4388,8 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
       exit ( 1 );
     }
 
-    value = 0.5 * ( 
-        t_double_product_integral (       i + j,   k ) + 
+    value = 0.5 * (
+        t_double_product_integral (       i + j,   k ) +
       + t_double_product_integral ( abs ( i - j ), k ) );
 
     return value;
@@ -4510,8 +4510,8 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
   //  Discussion:
   //
   //     E    U_INTEGRAL
-  //    --    -------------- 
-  //     0         pi /    2 
+  //    --    --------------
+  //     0         pi /    2
   //     2         pi /    8
   //     4         pi /   16
   //     6     5 * pi /  128
@@ -4594,7 +4594,7 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
   //
   //  Licensing:
   //
-  //    This code is distributed under the GNU LGPL license. 
+  //    This code is distributed under the GNU LGPL license.
   //
   //  Modified:
   //
@@ -4681,7 +4681,7 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
   //
   //  Licensing:
   //
-  //    This code is distributed under the GNU LGPL license. 
+  //    This code is distributed under the GNU LGPL license.
   //
   //  Modified:
   //
@@ -4704,7 +4704,7 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
   //    Input, int N, the highest order polynomial to compute.
   //    Note that polynomials 0 through N will be computed.
   //
-  //    Output, double U_POLYNOMIAL_COEFFICIENTS[(N+1)*((N+1)], the coefficients 
+  //    Output, double U_POLYNOMIAL_COEFFICIENTS[(N+1)*((N+1)], the coefficients
   //    of the Chebyshev U polynomials.
   //
   {
@@ -4886,7 +4886,7 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
   //
   //  Licensing:
   //
-  //    This code is distributed under the GNU LGPL license. 
+  //    This code is distributed under the GNU LGPL license.
   //
   //  Modified:
   //
@@ -5044,7 +5044,7 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
   //
   //  Licensing:
   //
-  //    This code is distributed under the GNU LGPL license. 
+  //    This code is distributed under the GNU LGPL license.
   //
   //  Modified:
   //
@@ -5161,18 +5161,18 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
   # define N_MAX 13
 
     static double fx_vec[N_MAX] = {
-       1.0000000000000000E+00, 
-       0.6000000000000000E+00, 
-      -0.0400000000000000E+00, 
-      -0.6640000000000000E+00, 
-      -1.0224000000000000E+00, 
-      -0.9718400000000000E+00, 
-      -0.5325440000000000E+00, 
-       0.1197696000000000E+00, 
-       0.7241753600000000E+00, 
-       1.0389109760000000E+00, 
-       0.9380822016000000E+00, 
-       0.4620205465600000E+00, 
+       1.0000000000000000E+00,
+       0.6000000000000000E+00,
+      -0.0400000000000000E+00,
+      -0.6640000000000000E+00,
+      -1.0224000000000000E+00,
+      -0.9718400000000000E+00,
+      -0.5325440000000000E+00,
+       0.1197696000000000E+00,
+       0.7241753600000000E+00,
+       1.0389109760000000E+00,
+       0.9380822016000000E+00,
+       0.4620205465600000E+00,
       -0.1988493271040000E+00 };
 
     static int n_vec[N_MAX] = {
@@ -5233,7 +5233,7 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
   //
   //  Licensing:
   //
-  //    This code is distributed under the GNU LGPL license. 
+  //    This code is distributed under the GNU LGPL license.
   //
   //  Modified:
   //
@@ -5334,7 +5334,7 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
   //
   //  Licensing:
   //
-  //    This code is distributed under the GNU LGPL license. 
+  //    This code is distributed under the GNU LGPL license.
   //
   //  Modified:
   //
@@ -5451,18 +5451,18 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
   # define N_MAX 13
 
     static double fx_vec[N_MAX] = {
-       1.000000000000000E+00, 
-       2.600000000000000E+00, 
-       3.160000000000000E+00, 
-       2.456000000000000E+00, 
-       0.769600000000000E+00, 
-      -1.224640000000000E+00, 
-      -2.729024000000000E+00, 
-      -3.141798400000000E+00, 
-      -2.297853440000000E+00, 
-      -0.534767104000000E+00, 
-       1.442226073600000E+00, 
-       2.842328821760000E+00, 
+       1.000000000000000E+00,
+       2.600000000000000E+00,
+       3.160000000000000E+00,
+       2.456000000000000E+00,
+       0.769600000000000E+00,
+      -1.224640000000000E+00,
+      -2.729024000000000E+00,
+      -3.141798400000000E+00,
+      -2.297853440000000E+00,
+      -0.534767104000000E+00,
+       1.442226073600000E+00,
+       2.842328821760000E+00,
        3.105500041216000E+00 };
 
     static int n_vec[N_MAX] = {
@@ -5523,7 +5523,7 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
   //
   //  Licensing:
   //
-  //    This code is distributed under the GNU LGPL license. 
+  //    This code is distributed under the GNU LGPL license.
   //
   //  Modified:
   //

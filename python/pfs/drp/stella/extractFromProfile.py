@@ -49,15 +49,15 @@ def extractFromProfile(flatfilename, flatprofilename, specfilename):
     """Create a afwImage::MaskedImageF from the flat fits file"""
     mif = afwImage.MaskedImageF(flatfilename)
     print("mif created")
-    
+
     """Create a FiberTraceSet given a fits file name"""
     msi = drpStella.MaskedSpectrographImageF(mif)
     print("msi created")
-        
+
     """Trace fibers"""
     msi.findAndTraceApertures(ftffc, 0, mif.getHeight(), 10)
     print("msi.findAndTraceApertures finished")
-    
+
     # --- sort traces by xCenters
     msi.getFiberTraceSet().sortTracesByXCenter();
 
@@ -70,16 +70,16 @@ def extractFromProfile(flatfilename, flatprofilename, specfilename):
     ft.calculateXCenters()
     ft.createTrace()
     ft.getImage().writeFits(specfilename.replace(".fits", "_trace0.fits"))
-    
+
     # ---  read profile and extract fiber trace 0
     ft.setFiberTraceExtractionControl(ftec)
     profile = afwImage.ImageF(flatprofilename)
     ft.setProfile(profile)
     ft.extractFromProfile()
-    
+
     # --- add FiberTrace to FiberTraceSet
     msis.getFiberTraceSet().addFiberTrace(ft)
-    
+
     # --- set msis::_fiberTraceSet to fts
 #    msis.getFiberTraceSet() = fts
 
@@ -89,7 +89,7 @@ def extractFromProfile(flatfilename, flatprofilename, specfilename):
     specfilename_rec = specfilename.replace(".fits", "_trace0_recFromProf.fits")
     reconstructed.writeFits(specfilename_rec)
     print("reconstructed spectrum written to ",specfilename_rec)
-    
+
     # --- subtract reconstructed spectrum from input Flat spectrum
     imMinusRec = msis.getFiberTraceSet().getFiberTrace(0).getImage().getArray() - reconstructed.getArray()
     specfilename_MinusRec = specfilename.replace(".fits", "_trace0-recFromProf.fits")
@@ -97,7 +97,7 @@ def extractFromProfile(flatfilename, flatprofilename, specfilename):
     print("got difference of original image and reconstructed 2D spectrum: imMinusRecIm.getArray() = ", imMinusRecIm.getArray())
     imMinusRecIm.writeFits(specfilename_MinusRec)
     print("difference of original and reconstructed spectrum written to ",specfilename_MinusRec)
-    
+
     # --- write extracted 1D spectrum (from MkSlitFunc) to fits file
     spec = msis.getFiberTraceSet().getFiberTrace(0).getSpectrum()
     np_spec = np.fromiter(spec, dtype=np.float)
@@ -105,7 +105,7 @@ def extractFromProfile(flatfilename, flatprofilename, specfilename):
     pyfits.writeto(specfilename_spec,np_spec,clobber=True)
 
     return msis;#.getFiberTraceSet();
-    
+
 #-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
 def main(argv=None):
@@ -116,7 +116,7 @@ def main(argv=None):
     if isinstance(argv, basestring):
       import shlex
       argv = shlex.split(argv)
-      
+
     from argparse import ArgumentParser
     parser = ArgumentParser()
     parser.add_argument("--display", '-d', default=False, action="store_true", help="Activate display?")
@@ -131,7 +131,6 @@ def main(argv=None):
     flatProfileName = args.flatprofilename
     specFileName = args.specfilename
     return extractFromProfile(flatFileName, flatProfileName, specFileName)
-  
+
 if __name__ == "__main__":
     main()
-    

@@ -45,17 +45,17 @@ def createFlatFiberTraceProfileSES(filename):
     ftec.wingSmoothFactor = 2.
     ftec.lambdaSF = .1
     ftec.maxIterSF = 8
-    
+
     """Create a FiberTraceSet given a flat-field fits file name"""
     mif = afwImage.MaskedImageF(filename)
     print("mif created")
-        
+
     fts = drpStella.findAndTraceApertures(mif, ftffc)
     print("findAndTraceApertures finished")
-    
+
     # --- sort traces by xCenters
 #    msi.getFiberTraceSet().sortTracesByXCenter();
-    
+
     # --- write trace 0 to fits file
     filename_trace = filename + '_trace20.fits'
     fts.getFiberTrace(20).getImage().writeFits(filename_trace)
@@ -63,7 +63,7 @@ def createFlatFiberTraceProfileSES(filename):
     # ---  create profile and extract fiber trace 0
     fts.getFiberTrace(20).setFiberTraceExtractionControl(ftec)
     fts.getFiberTrace(20).MkSlitFunc()
-    
+
     # --- get profile and write profile to fits file
 #    profile = fts.getFiberTrace(20).getProfile()
 #    print("got profile: profile.getArray() = ",profile.getArray())
@@ -71,14 +71,14 @@ def createFlatFiberTraceProfileSES(filename):
 #    filename_flatprof = filename + '_trace20_prof.fits'
 #    profile.writeFits(filename_flatprof)
 #    print("profile written to ",filename_flatprof)
-   
+
     # --- get reconstructed 2D spectrum and write to fits file
 #    reconstructed = fts.getFiberTrace(20).getReconstructed2DSpectrum()
 #    print("got reconstructed 2D spectrum: reconstructed.getArray() = ", reconstructed.getArray())
 #    filename_flatrec = filename + '_trace20_rec.fits'
 #    reconstructed.writeFits(filename_flatrec)
 #    print("reconstructed spectrum written to ",filename_flatrec)
-    
+
     # --- subtract reconstructed spectrum from input spectrum
 #    imMinusRec = fts.getFiberTrace(20).getImage().getArray() - reconstructed.getArray()
 #    filename_flatMinusRec = filename + '_trace20-rec.fits'
@@ -88,7 +88,7 @@ def createFlatFiberTraceProfileSES(filename):
 #    print("difference of original and reconstructed spectrum written to ",filename_flatMinusRec)
 
     return msi;#.getFiberTraceSet();
-    
+
 #-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
 def main(argv=None):
@@ -99,7 +99,7 @@ def main(argv=None):
     if isinstance(argv, basestring):
       import shlex
       argv = shlex.split(argv)
-      
+
     from argparse import ArgumentParser
     parser = ArgumentParser()
     parser.add_argument("--display", '-d', default=False, action="store_true", help="Activate display?")
@@ -110,7 +110,6 @@ def main(argv=None):
     verbose = args.verbose
     fileName = args.filename
     return createFlatFiberTraceProfileSES("/home/azuri/spectra/SES/test/combinedFlat.fits")#fileName)
-  
+
 if __name__ == "__main__":
     main()
-    

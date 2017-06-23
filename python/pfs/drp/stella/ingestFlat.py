@@ -11,6 +11,6 @@ flatExp = afwImage.makeExposure(afwImage.makeMaskedImage(flat))
 butler = dafPersist.Butler('/Users/azuri/spectra/pfs/PFS/2015-11-20/')
 dataId = {'calibDate': '2015-11-20', 'calibVersion': 'flat', 'visit': 5445, 'ccd': 2, 'arm': 1}
 
-butler.put(flatExp, "flat", dataId)    
+butler.put(flatExp, "flat", dataId)
 
 

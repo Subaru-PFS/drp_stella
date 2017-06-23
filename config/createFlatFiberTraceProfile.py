@@ -10,4 +10,3 @@ config.lambdaSP = 0.0
 config.wingSmoothFactor = 0.0
 config.lowerSigma = 3.0
 config.upperSigma = 3.0
-

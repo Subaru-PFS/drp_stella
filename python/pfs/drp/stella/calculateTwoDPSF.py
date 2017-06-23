@@ -102,7 +102,7 @@ def calculateTwoDPSF(flatfilename, specfilename):
         if False:
             for j in range(0,len(psfset)) :
                 psfa = psfset[j]
-            
+
                 xvec = psfa.getImagePSF_XRelativeToCenter()
                 yvec = psfa.getImagePSF_YRelativeToCenter()
                 zvec = psfa.getImagePSF_ZNormalized()
@@ -118,13 +118,13 @@ def calculateTwoDPSF(flatfilename, specfilename):
                 fig.tight_layout()
 
                 plt.show()
-            
-        
+
+
 
 #    trace = fts.getFiberTrace(0)
 #    print "FiberTrace 00: isProfileSet() = ", fts.getFiberTrace(0).isProfileSet()
 #    trace.calculate2dPSFPerBin()
-    
+
 #    print trace
 #    psfvec = trace.getPSFVector()
 #    print psfvec

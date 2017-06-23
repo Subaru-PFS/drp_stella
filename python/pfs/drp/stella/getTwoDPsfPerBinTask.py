@@ -28,49 +28,49 @@ class GetTwoDPsfPerBinConfig(pexConfig.Config):
               dtype = float,
             default = 1000.,
               check = lambda x : x > 0.)
-    
+
     swathWidth = pexConfig.Field(
            doc = "Size of individual extraction swaths",
          dtype = int,
        default = 500,
          check = lambda x : x > 100)
-    
+
     xFWHM = pexConfig.Field(
       doc = "FWHM of an assumed Gaussian PSF perpendicular to the dispersion direction in pixels",
     dtype = float,
     default = 2.5,
       check = lambda x : x > 1.)
-    
+
     yFWHM = pexConfig.Field(
       doc = "FWHM of an assumed Gaussian PSF in the dispersion direction in pixels",
     dtype = float,
     default = 2.5,
       check = lambda x : x > 1.)
-    
+
     nTermsGaussFit = pexConfig.Field(
                doc = "3 to fit Gaussian; 4 to fit Gaussian plus constant (sky), profile must be at least 5 pixels wide; 5 to fit Gaussian plus linear term (sloped sky), profile must be at least 6 pixels wide",
              dtype = int,
            default = 5,
              check = lambda x : x < 6)
-    
+
     saturationLevel = pexConfig.Field(
                 doc = "CCD saturation level",
               dtype = float,
             default = 65000.,
               check = lambda x : x > 0.)
-              
+
     nKnotsX = pexConfig.Field(
         doc = "Number of interpolation knots in X direction",
       dtype = int,
     default = 75,
       check = lambda x : x > 1)
-      
+
     nKnotsY = pexConfig.Field(
         doc = "Number of interpolation knots in Y direction",
       dtype = int,
     default = 75,
       check = lambda x : x > 1)
-      
+
     smooth = pexConfig.Field(
        doc = "Smoothing factor for bidirectional spline interpolation",
      dtype = float,
@@ -97,7 +97,7 @@ class GetTwoDPsfPerBinTask(Task):
         tdpsfc.smooth = self.config.smooth
 
     def getTwoDPsfPerBin(self, inFiberTraceSet, inSpectrumSet, inTraceNumbers):
-    
+
         try:
             tdpsfcp = self.tdpsfc.getPointer()
             if inTraceNumbers[0] == -1:
@@ -142,10 +142,10 @@ class GetTwoDPsfPerBinTask(Task):
         """Create one 2DPSF per bin of size swathWidth and return a set of 2DPSFs
 
         This method is the top-level for running the automatic extraction of the 2D PSFs from the inFiberTraceSet as a stand-alone BatchPoolTask.
-        
+
         This method returns a SpectrumSet
         """
-        
+
         psfSets = self.getTwoDPsfPerBin(inFiberTraceSet, inSpectrumSet, inTraceNumbers)
         print "self.run finished"
         return psfSets

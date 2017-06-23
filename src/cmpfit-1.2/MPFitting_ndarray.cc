@@ -105,18 +105,18 @@ int MPFitGaussFuncLB(int m, int n, double *p, double *dy, double **dvec, void *v
   struct vars_struct *v = (struct vars_struct *) vars;
   double *x, *y, *ey;
   double xc, sig2;
-  
+
   x = v->x;
   y = v->y;
   ey = v->ey;
-  
+
   sig2 = p[2]*p[2];
-  
+
   for (i=0; i<m; i++) {
     xc = x[i]-p[1];
     dy[i] = (y[i] - p[0]*exp(-0.5*xc*xc/sig2) - p[3] - p[4]*(x[i]-x[0]))/ey[i];
   }
-  
+
   return 0;
 }
 
@@ -125,18 +125,18 @@ int MPFitGaussFuncALB(int m, int n, double *p, double *dy, double **dvec, void *
   struct vars_struct *v = (struct vars_struct *) vars;
   double *x, *y, *ey;
   double xc, sig2;
-  
+
   x = v->x;
   y = v->y;
   ey = v->ey;
-  
+
   sig2 = p[2]*p[2];
-  
+
   for (i=0; i<m; i++) {
     xc = x[i]-p[1];
     dy[i] = (y[i] - (p[0]*exp(-0.5*xc*xc/sig2)/(sqrt(2. * D_PI) * p[2])) - p[3] - p[4]*(x[i]-x[0]))/ey[i];
   }
-  
+
   return 0;
 }
 
@@ -338,7 +338,7 @@ int Chebyshev1stKind(int m, int n, double *p, double *dy, double **dvec, void *v
   return 0;
 }
 
-template<typename T> 
+template<typename T>
 bool MPFitChebyshev1stKind(const ndarray::Array<T, 1, 1> & D_A1_X_In,
                            const ndarray::Array<T, 1, 1> & D_A1_Y_In,
                            const ndarray::Array<T, 1, 1> & D_A1_EY_In,
@@ -359,7 +359,7 @@ bool MPFitChebyshev1stKind(const ndarray::Array<T, 1, 1> & D_A1_X_In,
                                D_A1_ECoeffs_Out);
 }
 
-template<typename T> 
+template<typename T>
 bool MPFitChebyshev1stKind(const ndarray::Array<T, 1, 1> & D_A1_X_In,
                            const ndarray::Array<T, 1, 1> & D_A1_Y_In,
                            const ndarray::Array<T, 1, 1> & D_A1_EY_In,
@@ -384,7 +384,7 @@ bool MPFitChebyshev1stKind(const ndarray::Array<T, 1, 1> & D_A1_X_In,
     cout << "MPFitting_ndarray::MPFitChebyshev1stKind: ERROR: D_A1_Guess_In and D_A1_Coeffs_Out must have same size" << endl;
     return false;
   }
-  
+
   double x[I_NPts];
   double y[I_NPts];
   double ey[I_NPts];
@@ -396,7 +396,7 @@ bool MPFitChebyshev1stKind(const ndarray::Array<T, 1, 1> & D_A1_X_In,
   xRange[0] = xMin;
   xRange[1] = xMax;
   ndarray::Array<T, 1, 1> xNew = pfs::drp::stella::math::convertRangeToUnity(D_A1_X_In, xRange);
-  
+
   for (int i_pt=0; i_pt<I_NPts; i_pt++){
     x[i_pt] = double(xNew[i_pt]);
     y[i_pt] = D_A1_Y_In[i_pt];
@@ -621,13 +621,13 @@ bool MPFitGaussLim(const ndarray::Array< T, 1, 1 >& D_A1_X_In,
                    ndarray::Array< T, 1, 1 >& D_A1_Coeffs_Out,
                    ndarray::Array< T, 1, 1 >& D_A1_ECoeffs_Out,
                    bool Debug){
-  
+
   int I_NParams = 3;
   if (Background == 1)
     I_NParams = 4;
   else if (Background == 2)
     I_NParams = 5;
-    
+
   ///Check Limits
   for (int i_par=0; i_par<I_NParams; i_par++){
     if ((I_A2_Limited(i_par, 0) == 1) && (I_A2_Limited(i_par, 1) == 1)){
