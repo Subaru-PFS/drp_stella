@@ -1044,7 +1044,6 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
       I_ArgPos++;
     }
 
-
     ndarray::Array<ImageT, 1, 1> D_A1_YFit = ndarray::allocate(D_A2_CCD_In.getShape()[1]);
     PTR(ndarray::Array<ImageT, 1, 1>) P_D_A1_YFit(new ndarray::Array<ImageT, 1, 1>(D_A1_YFit));
 
@@ -1270,7 +1269,7 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
     D_A1_CCD = D_A1_CCD_In;
 
     if ((D_A1_CCD_In.sum() == 0.) || (D_A1_SF.sum() == 0.)){
-      #ifdef __WARNINGS_ON__
+      #ifdef __LINFIT1D_WARNINGS_ON__
         cout << "CFits::LinFitBevington: Warning: (D_A1_CCD_In.sum(=" << D_A1_CCD_In.sum() << " == 0.) || (D_A1_SF.sum(=" << D_A1_SF.sum() << ") == 0.) => returning false" << endl;
       #endif
       D_SP_Out = 0.;

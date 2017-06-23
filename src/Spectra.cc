@@ -121,11 +121,11 @@ ndarray::Array< float, 2, 1 > pfsDRPStella::SpectrumSet<SpectrumT, MaskT, Varian
     int yLow = spectrum->getYLow();
     int yHigh = spectrum->getYHigh();
     if ( yHigh - yLow + 1 != spectrum->getSpectrum().getShape()[ 0 ] ){
-      cout << "SpectrumSet::getAllFluxes: yHigh=" << yHigh << " - yLow=" << yLow << " + 1 (=" << yHigh - yLow + 1 << ") = " << yHigh-yLow + 1 << " != spectrum->getSpectrum().getShape()[ 0 ] = " << spectrum->getSpectrum().getShape()[ 0 ] << endl;
-      throw LSST_EXCEPT(
-        lsst::pex::exceptions::LogicError,
-        "SpectrumSet::getAllFluxes: spectrum does not have expected shape"
-      );
+      string message("SpectrumSet::writeFits: spectrum does not have expected shape: yHigh=");
+      message += to_string(yHigh) + " - yLow=" + to_string(yLow) + " + 1 (=" + to_string(yHigh - yLow + 1);
+      message += + ") = " +to_string(yHigh-yLow + 1) + " != spectrum->getSpectrum().getShape()[ 0 ] = ";
+      message += to_string(spectrum->getSpectrum().getShape()[ 0 ]);
+      throw LSST_EXCEPT(lsst::pex::exceptions::LogicError,message.c_str());
     }
 
     flux[ ndarray::view( yLow, yHigh + 1 )( iFiber ) ] = spectrum->getSpectrum()[ ndarray::view() ];
@@ -148,11 +148,11 @@ ndarray::Array< float, 2, 1 > pfsDRPStella::SpectrumSet<SpectrumT, MaskT, Varian
     int yLow = spectrum->getYLow();
     int yHigh = spectrum->getYHigh();
     if ( yHigh - yLow + 1 != spectrum->getSpectrum().getShape()[ 0 ] ){
-      cout << "SpectrumSet::getAllWavelengths: yHigh=" << yHigh << " - yLow=" << yLow << " + 1 (=" << yHigh - yLow + 1 << ") = " << yHigh-yLow + 1 << " != spectrum->getSpectrum().getShape()[ 0 ] = " << spectrum->getSpectrum().getShape()[ 0 ] << endl;
-      throw LSST_EXCEPT(
-        lsst::pex::exceptions::LogicError,
-        "SpectrumSet::getAllWavelengths: spectrum does not have expected shape"
-      );
+      string message("SpectrumSet::writeFits: spectrum does not have expected shape: yHigh=");
+      message += to_string(yHigh) + " - yLow=" +to_string(yLow) + " + 1 (=" + to_string(yHigh - yLow + 1);
+      message += ") = " + to_string(yHigh-yLow + 1) + " != spectrum->getSpectrum().getShape()[ 0 ] = ";
+      message += to_string(spectrum->getSpectrum().getShape()[ 0 ]);
+      throw LSST_EXCEPT(lsst::pex::exceptions::LogicError,message.c_str());
     }
 
     lambda[ ndarray::view( yLow, yHigh + 1 )( iFiber ) ] = spectrum->getWavelength()[ ndarray::view() ];
@@ -175,11 +175,11 @@ ndarray::Array< float, 2, 1 > pfsDRPStella::SpectrumSet<SpectrumT, MaskT, Varian
     int yLow = spectrum->getYLow();
     int yHigh = spectrum->getYHigh();
     if ( yHigh - yLow + 1 != spectrum->getSpectrum().getShape()[ 0 ] ){
-      cout << "SpectrumSet::getAllDispersions: yHigh=" << yHigh << " - yLow=" << yLow << " + 1 (=" << yHigh - yLow + 1 << ") = " << yHigh-yLow + 1 << " != spectrum->getSpectrum().getShape()[ 0 ] = " << spectrum->getSpectrum().getShape()[ 0 ] << endl;
-      throw LSST_EXCEPT(
-        lsst::pex::exceptions::LogicError,
-        "SpectrumSet::getAllDispersions: spectrum does not have expected shape"
-      );
+      string message("SpectrumSet::writeFits: spectrum does not have expected shape: yHigh=");
+      message += to_string(yHigh) + " - yLow=" + to_string(yLow) + " + 1 (=" + to_string(yHigh - yLow + 1);
+      message += ") = " + to_string(yHigh-yLow + 1) + " != spectrum->getSpectrum().getShape()[ 0 ] = ";
+      message += to_string(spectrum->getSpectrum().getShape()[ 0 ]);
+      throw LSST_EXCEPT(lsst::pex::exceptions::LogicError,message.c_str());
     }
 
     dispersion[ ndarray::view( yLow, yHigh + 1 )( iFiber ) ] = spectrum->getDispersion()[ ndarray::view() ];
@@ -202,11 +202,11 @@ ndarray::Array< int, 2, 1 > pfsDRPStella::SpectrumSet<SpectrumT, MaskT, Variance
     int yLow = spectrum->getYLow();
     int yHigh = spectrum->getYHigh();
     if ( yHigh - yLow + 1 != spectrum->getSpectrum().getShape()[ 0 ] ){
-      cout << "SpectrumSet::getAllMasks: yHigh=" << yHigh << " - yLow=" << yLow << " + 1 (=" << yHigh - yLow + 1 << ") = " << yHigh-yLow + 1 << " != spectrum->getSpectrum().getShape()[ 0 ] = " << spectrum->getSpectrum().getShape()[ 0 ] << endl;
-      throw LSST_EXCEPT(
-        lsst::pex::exceptions::LogicError,
-        "SpectrumSet::getAllMasks: spectrum does not have expected shape"
-      );
+      string message("SpectrumSet::writeFits: spectrum does not have expected shape: yHigh=");
+      message += to_string(yHigh) + " - yLow=" +to_string(yLow) + " + 1 (=" + to_string(yHigh - yLow + 1);
+      message += ") = " + to_string(yHigh-yLow + 1) + " != spectrum->getSpectrum().getShape()[ 0 ] = ";
+      message += to_string(spectrum->getSpectrum().getShape()[ 0 ]);
+      throw LSST_EXCEPT(lsst::pex::exceptions::LogicError,message.c_str());
     }
   }
   return mask;
@@ -254,11 +254,11 @@ ndarray::Array< float, 2, 1 > pfsDRPStella::SpectrumSet<SpectrumT, MaskT, Varian
     int yLow = spectrum->getYLow();
     int yHigh = spectrum->getYHigh();
     if ( yHigh - yLow + 1 != spectrum->getSpectrum().getShape()[ 0 ] ){
-      cout << "SpectrumSet::getAllVariances: yHigh=" << yHigh << " - yLow=" << yLow << " + 1 (=" << yHigh - yLow + 1 << ") = " << yHigh-yLow + 1 << " != spectrum->getSpectrum().getShape()[ 0 ] = " << spectrum->getSpectrum().getShape()[ 0 ] << endl;
-      throw LSST_EXCEPT(
-        lsst::pex::exceptions::LogicError,
-        "SpectrumSet::getAllVariances: spectrum does not have expected shape"
-      );
+      string message("SpectrumSet::writeFits: spectrum does not have expected shape: yHigh=");
+      message += to_string(yHigh) + " - yLow=" + to_string(yLow) + " + 1 (=" + to_string(yHigh - yLow + 1);
+      message += ") = " + to_string(yHigh-yLow + 1) + " != spectrum->getSpectrum().getShape()[ 0 ] = ";
+      message += to_string(spectrum->getSpectrum().getShape()[ 0 ]);
+      throw LSST_EXCEPT(lsst::pex::exceptions::LogicError,message.c_str());
     }
 
     var[ ndarray::view( yLow, yHigh + 1 )( iFiber ) ] = spectrum->getVariance()[ ndarray::view() ];
@@ -281,11 +281,11 @@ ndarray::Array< float, 3, 1 > pfsDRPStella::SpectrumSet<SpectrumT, MaskT, Varian
     int yLow = spectrum->getYLow();
     int yHigh = spectrum->getYHigh();
     if ( yHigh - yLow + 1 != spectrum->getSpectrum().getShape()[ 0 ] ){
-      cout << "SpectrumSet::getAllCovars: yHigh=" << yHigh << " - yLow=" << yLow << " + 1 (=" << yHigh - yLow + 1 << ") = " << yHigh-yLow + 1 << " != spectrum->getSpectrum().getShape()[ 0 ] = " << spectrum->getSpectrum().getShape()[ 0 ] << endl;
-      throw LSST_EXCEPT(
-        lsst::pex::exceptions::LogicError,
-        "SpectrumSet::getAllCovars: spectrum does not have expected shape"
-      );
+      string message("SpectrumSet::writeFits: spectrum does not have expected shape: yHigh=");
+      message += to_string(yHigh) + " - yLow=" + to_string(yLow) + " + 1 (=" + to_string(yHigh - yLow + 1);
+      message += ") = " + to_string(yHigh-yLow + 1) + " != spectrum->getSpectrum().getShape()[ 0 ] = ";
+      message += to_string(spectrum->getSpectrum().getShape()[ 0 ]);
+      throw LSST_EXCEPT(lsst::pex::exceptions::LogicError,message.c_str());
     }
     #ifdef __DEBUG_GETALLCOVARS__
       cout << "covar[ ndarray::view( " << yLow << ", " << yHigh + 1 << " )( )( " << iFiber << " ) ].getShape() = " << covar[ ndarray::view( yLow, yHigh + 1 )( )( iFiber ) ].getShape() << ", spectrum->getCovar().getShape() = " << spectrum->getCovar().getShape() << endl;

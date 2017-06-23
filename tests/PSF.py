@@ -11,6 +11,7 @@ or
 
 import os
 import unittest
+import lsst.log as log
 import lsst.utils
 import lsst.utils.tests as tests
 import lsst.daf.persistence as dafPersist
@@ -210,6 +211,22 @@ def suite():
     return unittest.TestSuite(suites)
 
 def run(exit = False):
+    """Silence verbose loggers"""
+    for logger in ["afw.image.ExposureInfo",
+                   "CameraMapper",
+                   "pfs::drp::stella::FiberTrace::calcProfile",
+                   "pfs::drp::stella::FiberTrace::calcProfileSwath",
+                   "pfs::drp::stella::math::ccdToFiberTraceCoordinates",
+                   "pfs::drp::stella::math::CurveFitting::LinFitBevingtonNdArray1D",
+                   "pfs::drp::stella::math::CurveFitting::LinFitBevingtonNdArray2D",
+                   "pfs::drp::stella::math::CurfFitting::PolyFit",
+                   "pfs::drp::stella::math::psfCoordinatesRelativeTo",
+                   "pfs::drp::stella::PSF::extractPSFs",
+                   "pfs::drp::stella::PSF::extractPSFFromCenterPosition",
+                   "pfs::drp::stella::PSF::extractPSFFromCenterPositions",
+                   ]:
+        log.Log.getLogger(logger).setLevel(log.WARN)
+
     """Run the tests"""
     tests.run(suite(), exit)
 
