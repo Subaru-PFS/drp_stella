@@ -32,16 +32,16 @@ class PSFTestCase(tests.TestCase):
 
         dataId = dict(field="ARC", visit=103, spectrograph=1, arm="r")
         self.arc = butler.get("postISRCCD", dataId, immediate=True)
-        
+
         self.ftffc = drpStella.FiberTraceFunctionFindingControl()
         self.ftffc.fiberTraceFunctionControl.order = 4
         self.ftffc.fiberTraceFunctionControl.xLow = -5
         self.ftffc.fiberTraceFunctionControl.xHigh = 5
-        
+
         self.ftpfc = drpStella.FiberTraceProfileFittingControl()
-        
+
         self.tdpsfc = drpStella.TwoDPSFControl()
-        
+
     def tearDown(self):
         del self.flat
         del self.arc
@@ -49,6 +49,7 @@ class PSFTestCase(tests.TestCase):
         del self.ftpfc
         del self.tdpsfc
 
+    @unittest.skip("PSF.h not loaded in stellaLib.i")
     def testPSFConstructors(self):
         if True:
             iTrace = 1
@@ -85,7 +86,8 @@ class PSFTestCase(tests.TestCase):
                 self.assertTrue(psf.getYHigh(), 750)
                 self.assertTrue(psf.getITrace(), 1)
                 self.assertTrue(psf.getIBin(), 2)
- 
+
+    @unittest.skip("PSF.h not loaded in stellaLib.i")
     def testCalculate2DPSFPerBin(self):
         if True:
             iTrace = 1
@@ -104,7 +106,8 @@ class PSFTestCase(tests.TestCase):
                 self.assertGreater(psf.getYHigh(), psf.getYLow())
                 self.assertEqual(psf.getITrace(), iTrace)
                 self.assertEqual(psf.getIBin(), i)
-        
+
+    @unittest.skip("PSF.h not loaded in stellaLib.i")
     def testPFSGet(self):
         if True:
             fiberTraceSet = drpStella.findAndTraceAperturesF(self.flat.getMaskedImage(), self.ftffc)
@@ -165,7 +168,7 @@ class PSFTestCase(tests.TestCase):
             spec = ftComb.extractFromProfile()
             psf = drpStella.PSFF(350, 750,self.tdpsfc.getPointer(),1,2)
             self.assertTrue(psf.setTwoDPSFControl(self.tdpsfc.getPointer()))
-            
+
             if False:
                 psf.extractPSFs(ftComb, spec)
                 #self.assertTrue(psf.extractPSFs(ftComb, spec))
@@ -173,6 +176,7 @@ class PSFTestCase(tests.TestCase):
                 self.assertGreater(len(psf.getImagePSF_XTrace()), 0)
                 self.assertTrue(psf.isPSFsExtracted())
 
+    @unittest.skip("PSF.h not loaded in stellaLib.i")
     def testCalcPositionsRelativeToCenter(self):
         pixCenter = drpStella.PIXEL_CENTER
         centerPosition = 5.0

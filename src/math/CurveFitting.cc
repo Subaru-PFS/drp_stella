@@ -62,23 +62,6 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
     return arr_Out;
   }
 
-/*  template<typename T, typename U>
-  ndarray::Array<T, 1, 1> Poly(ndarray::Array<T, 1, 1> const& x_In,
-                               ndarray::Array<U, 1, 1> const& coeffs_In,
-                               ndarray::Array<double, 1, 1> const& xRange_In){
-    ndarray::Array<T, 1, 1> xNew = ndarray::allocate(x_In.getShape()[0]);
-    T xMin = pfs::drp::stella::math::min(x_In);
-    T xMax = pfs::drp::stella::math::max(x_In);
-    for (int i = 0; i < x_In.getShape()[0]; ++i){
-      xNew[i] = ((xRange_In[1] - xRange_In[0]) * (x_In[i] - xMin) / (xMax - xMin)) + xRange_In[0];
-    }
-    #ifdef __DEBUG_POLY__
-      cout << "pfs::drp::stella::math::CurveFitting::Poly: x_In = " << x_In << endl;
-      cout << "pfs::drp::stella::math::CurveFitting::Poly: xNew = " << xNew << endl;
-    #endif
-    return Poly(xNew, coeffs_In);
-  }*/
-
   template<typename T>
   ndarray::Array<double, 1, 1> PolyFit(ndarray::Array<T, 1, 1> const& D_A1_X_In,
                                        ndarray::Array<T, 1, 1> const& D_A1_Y_In,
@@ -114,8 +97,6 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
       throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
     }
 
-    int I_NReject = 0;
-    int I_DataValues_New = 0;
     int I_NRejected = 0;
     bool B_HaveMeasureErrors = false;
     ndarray::Array<double, 1, 1> D_A1_Coeffs_Out = ndarray::allocate(I_Degree_In + 1);
@@ -127,37 +108,34 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
     PTR(ndarray::Array<T, 1, 1>) P_D_A1_MeasureErrors(new ndarray::Array<T, 1, 1>(D_A1_MeasureErrors));
 
     int I_Pos = -1;
-    if ((I_Pos = pfs::drp::stella::utils::KeyWord_Set(S_A1_Args_In, "MEASURE_ERRORS")) >= 0){
+    if ((I_Pos = pfs::drp::stella::utils::KeyWord_Set(S_A1_Args_In, "MEASURE_ERRORS")) >= 0) {
       LOGLS_DEBUG(_log, "Reading MEASURE_ERRORS");
       P_D_A1_MeasureErrors.reset();
       P_D_A1_MeasureErrors = (*((PTR(ndarray::Array<T, 1, 1>)*)ArgV[I_Pos]));
       B_HaveMeasureErrors = true;
       if (P_D_A1_MeasureErrors->getShape()[0] != D_A1_X_In.getShape()[0]){
-        string message("pfs::drp::stella::math::CurfFitting::PolyFit: Error: P_D_A1_MeasureErrors->getShape()[0](=");
+        string message("pfs::drp::stella::math::CurveFitting::PolyFit: Error: P_D_A1_MeasureErrors->getShape()[0](=");
         message += to_string(P_D_A1_MeasureErrors->getShape()[0]) + ") != D_A1_X_In.getShape()[0](=" + to_string(D_A1_X_In.getShape()[0]) + ")";
         throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
       }
     }
 
     PTR(std::vector<size_t>) P_I_A1_NotRejected(new std::vector<size_t>());
-    I_Pos = pfs::drp::stella::utils::KeyWord_Set(S_A1_Args_In, "NOT_REJECTED");
-    if (I_Pos >= 0){
+    if ((I_Pos = pfs::drp::stella::utils::KeyWord_Set(S_A1_Args_In, "NOT_REJECTED")) >= 0) {
       P_I_A1_NotRejected.reset();
       P_I_A1_NotRejected = *((PTR(std::vector<size_t>)*)(ArgV[I_Pos]));
       LOGLS_DEBUG(_log, "KeyWord NOT_REJECTED read");
     }
 
     PTR(std::vector<size_t>) P_I_A1_Rejected(new std::vector<size_t>());
-    I_Pos = pfs::drp::stella::utils::KeyWord_Set(S_A1_Args_In, "REJECTED");
-    if (I_Pos >= 0){
+    if ((I_Pos = pfs::drp::stella::utils::KeyWord_Set(S_A1_Args_In, "REJECTED")) >= 0) {
       P_I_A1_Rejected.reset();
       P_I_A1_Rejected = *((PTR(std::vector<size_t>)*)(ArgV[I_Pos]));
       LOGLS_DEBUG(_log, "KeyWord REJECTED read");
     }
 
     PTR(int) P_I_NRejected(new int(I_NRejected));
-    I_Pos = pfs::drp::stella::utils::KeyWord_Set(S_A1_Args_In, "N_REJECTED");
-    if (I_Pos >= 0){
+    if ((I_Pos = pfs::drp::stella::utils::KeyWord_Set(S_A1_Args_In, "N_REJECTED")) >= 0) {
       P_I_NRejected.reset();
       P_I_NRejected = *((PTR(int)*)(ArgV[I_Pos]));
       LOGLS_DEBUG(_log, "KeyWord N_REJECTED read");
@@ -168,8 +146,7 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
     xRange[0] = -1.;
     xRange[1] = 1.;
     PTR(ndarray::Array<double, 1, 1>) P_D_A1_XRange(new ndarray::Array<double, 1, 1>(xRange));
-    if ((I_Pos = pfs::drp::stella::utils::KeyWord_Set(S_A1_Args_In, "XRANGE")) >= 0)
-    {
+    if ((I_Pos = pfs::drp::stella::utils::KeyWord_Set(S_A1_Args_In, "XRANGE")) >= 0) {
       P_D_A1_XRange.reset();
       P_D_A1_XRange = *((PTR(ndarray::Array<double, 1, 1>)*)ArgV[I_Pos]);
       if (P_D_A1_XRange->getShape()[0] != 2){
@@ -195,7 +172,8 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
 
     std::vector<T> D_A1_X(D_A1_X_In.begin(), D_A1_X_In.end());
     std::vector<T> D_A1_Y(D_A1_Y_In.begin(), D_A1_Y_In.end());
-    std::vector<size_t> I_A1_OrigPos(D_A1_X_In.getShape()[0]);
+    std::vector<size_t> I_A1_OrigPos(0);
+    I_A1_OrigPos.reserve(D_A1_X_In.getShape()[0]);
 
     // Copy (deep) P_D_A1_MeasureErrors to a vector and then to another temporary
     // array pointer which is used for the measure errors during the sigma-rejection
@@ -210,10 +188,8 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
                                                                                                         ndarray::makeVector(1))));
     LOGLS_DEBUG(_log, "P_D_A1_MeasureErrorsTemp = " << *P_D_A1_MeasureErrorsTemp);
 
-    for (size_t i = 0; i < I_A1_OrigPos.size(); ++i)
-      I_A1_OrigPos[i] = i;
     int I_NRejected_Old = 0;
-    std::vector<size_t> I_A1_Rejected_Old(D_A1_X_In.size());
+    std::vector<size_t> I_A1_Rejected_Old(0);
     bool B_Run = true;
     unsigned int i_iter = 0;
     ndarray::Array<T, 1, 1> D_A1_YFit = ndarray::allocate(D_A1_X_In.getShape()[0]);
@@ -242,29 +218,19 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
     while (B_Run){
       I_A1_Rejected_Old = *P_I_A1_Rejected;
       I_NRejected_Old = *P_I_NRejected;
-      I_NReject = 0;
       *P_I_NRejected = 0;
-      I_DataValues_New = 0;
       ndarray::Array<T, 1, 1> D_A1_XArr = ndarray::external(D_A1_X.data(), ndarray::makeVector(int(D_A1_X.size())), ndarray::makeVector(1));
       ndarray::Array<T, 1, 1> D_A1_YArr = ndarray::external(D_A1_Y.data(), ndarray::makeVector(int(D_A1_X.size())), ndarray::makeVector(1));
       ndarray::Array<T, 1, 1> yFit = ndarray::allocate(D_A1_X.size());
       PTR(ndarray::Array<T, 1, 1>) pYFit(new ndarray::Array<T, 1, 1>(yFit));
       for (size_t iArg=0; iArg < nArgs; ++iArg){
         if (iArg >= S_A1_Args_In.size() || S_A1_Args_In[iArg] == "YFIT"){
-          LOGLS_DEBUG(_log, "Setting args[" << iArg << "] to pYFit");
           args[iArg] = &pYFit;
         }
         else if (S_A1_Args_In[iArg] == "MEASURE_ERRORS"){
-          LOGLS_DEBUG(_log, "Setting args[" << iArg << "] to P_D_A1_MeasureErrorsTemp = " << *P_D_A1_MeasureErrorsTemp);
           args[iArg] = &P_D_A1_MeasureErrorsTemp;
         }
       }
-      LOGLS_DEBUG(_log, "D_A1_XArr = " << D_A1_XArr);
-      LOGLS_DEBUG(_log, "D_A1_YArr = " << D_A1_YArr);
-      LOGLS_DEBUG(_log, "I_Degree_In = " << I_Degree_In);
-      LOGLS_DEBUG(_log, "S_A1_Args_In = ");
-      for (size_t iS = 0; iS < S_A1_Args_In.size(); ++iS)
-        LOGLS_DEBUG(_log, S_A1_Args_In[iS]);
       D_A1_Coeffs_Out = pfs::drp::stella::math::PolyFit(D_A1_XArr,
                                                         D_A1_YArr,
                                                         I_Degree_In,
@@ -277,10 +243,8 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
       auto itYFit = pYFit->begin();
       for (auto itTemp = D_A1_Temp.begin(); itTemp < D_A1_Temp.end(); ++itTemp, ++itY, ++itYFit)
         *itTemp = (*itY) - (*itYFit);
-      LOGLS_DEBUG(_log, "1. D_A1_Temp = " << D_A1_Temp);
       Eigen::Array<T, Eigen::Dynamic, 1> tempEArr = D_A1_Temp.asEigen();
       D_A1_Temp.asEigen() = tempEArr.pow(2) / T(D_A1_Y.size());
-      LOGLS_DEBUG(_log, "2. D_A1_Temp = " << D_A1_Temp);
       double D_SDev = double(sqrt(D_A1_Temp.asEigen().sum()));
       P_D_A1_YFit->deep() = pfs::drp::stella::math::Poly(D_A1_X_In,
                                                          D_A1_Coeffs_Out,
@@ -304,13 +268,10 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
           if (B_HaveMeasureErrors)
             V_MeasureErrors.push_back((*P_D_A1_MeasureErrors)[i_pos]);
           I_A1_OrigPos.push_back(i_pos);
-
-          I_DataValues_New++;
         }
         else{
           P_I_A1_Rejected->push_back(i_pos);
           LOGLS_DEBUG(_log, "Rejecting D_A1_X_In(" << i_pos << ") = " << D_A1_X_In[i_pos]);
-          I_NReject++;
           ++(*P_I_NRejected);
         }
       }
@@ -318,9 +279,6 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
         P_D_A1_MeasureErrorsTemp.reset(new ndarray::Array<T, 1, 1>(ndarray::external(V_MeasureErrors.data(),
                                                                                      ndarray::makeVector(int(V_MeasureErrors.size())),
                                                                                      ndarray::makeVector(1))));
-        LOGLS_DEBUG(_log, "D_A1_X.size() = " << D_A1_X.size());
-        LOGLS_DEBUG(_log, "V_MeasureErrors.size() = " << V_MeasureErrors.size());
-        LOGLS_DEBUG(_log, "P_D_A1_MeasureErrorsTemp.getShape()[0] = " << P_D_A1_MeasureErrorsTemp->getShape()[0]);
       }
 
       B_Run = false;
@@ -328,7 +286,7 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
         B_Run = true;
       else{
         for (int i_pos=0; i_pos < *P_I_NRejected; i_pos++){
-          if (std::fabs((*P_I_A1_Rejected)[i_pos] - I_A1_Rejected_Old[i_pos]) > 0.0001)
+          if ((*P_I_A1_Rejected)[i_pos] != I_A1_Rejected_Old[i_pos])
             B_Run = true;
         }
       }
@@ -337,13 +295,7 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
         B_Run = false;
     }
     LOGLS_DEBUG(_log, "*P_I_NRejected = " << *P_I_NRejected);
-    LOGLS_DEBUG(_log, "I_DataValues_New = " << I_DataValues_New);
     *P_I_A1_NotRejected = I_A1_OrigPos;
-    if (*P_I_NRejected > 0){
-      I_A1_OrigPos.resize(D_A1_X_In.getShape()[0]);
-      for (size_t i_pos = 0; i_pos < I_A1_OrigPos.size(); ++i_pos)
-        I_A1_OrigPos[i_pos] = i_pos;
-    }
     LOGLS_DEBUG(_log, "CurveFitting::PolyFit(x, y, deg, lReject, uReject, nIter, Args, ArgV) finished");
     return D_A1_Coeffs_Out;
   }
@@ -401,7 +353,6 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
     int i, j, I_Pos;
 
     const int nDataPoints(D_A1_X_In.getShape()[0]);
-    LOGLS_DEBUG(_log, "nDataPoints set to " << nDataPoints);
 
     ndarray::Array<T, 1, 1> D_A1_SDevSquare = ndarray::allocate(nDataPoints);
 
@@ -415,8 +366,9 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
       P_D_A1_MeasureErrors.reset();
       P_D_A1_MeasureErrors = *((PTR(ndarray::Array<T, 1, 1>)*)ArgV[I_Pos]);
       if (P_D_A1_MeasureErrors->getShape()[0] != nDataPoints){
-        string message("pfs::drp::stella::math::CurveFitting::PolyFit: ERROR: P_D_A1_MeasureErrors->getShape()[0](=");
-        message += to_string(P_D_A1_MeasureErrors->getShape()[0]) + ") != nDataPoints(=" + to_string(nDataPoints) + ")";
+        string message("pfs::drp::stella::math::CurveFitting::PolyFit: KeyWordSet(MEASURE_ERRORS): ERROR:");
+        message += "P_D_A1_MeasureErrors->getShape()[0](=" + to_string(P_D_A1_MeasureErrors->getShape()[0]);
+        message += ") != nDataPoints(=" + to_string(nDataPoints) + ")";
         throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
       }
       D_A1_MeasureErrors.deep() = *P_D_A1_MeasureErrors;
@@ -516,10 +468,6 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
 
     if (B_HaveMeasureError){
       D_A1_WY.deep() = D_A1_WY / D_A1_SDevSquare;
-      LOGLS_DEBUG(_log, "B_HaveMeasureError: D_A1_WY set to " << D_A1_WY);
-    }
-
-    if (B_HaveMeasureError){
       (*P_D_A2_Covar)[ ndarray::makeVector( 0, 0 ) ] = sum(1./D_A1_SDevSquare);
       LOGLS_DEBUG(_log, "B_HaveMeasureError: (*P_D_A2_Covar)(0,0) set to " << (*P_D_A2_Covar)[ ndarray::makeVector( 0, 0 ) ]);
     }
@@ -529,22 +477,18 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
     }
 
     D_A1_B[0] = sum(D_A1_WY);
-    LOGLS_DEBUG(_log, "D_A1_B(0) set to " << D_A1_B[0]);
 
     T D_Sum;
     for (int p = 1; p <= 2 * I_Degree_In; p++){
       D_A1_Z.deep() = D_A1_Z * xNew;
       if (p < nCoeffs){
         D_A1_B[p] = sum(D_A1_WY * D_A1_Z);
-        LOGLS_DEBUG(_log, "for(p(=" << p << ")...): p < nCoeffs(=" << nCoeffs << "): D_A1_B(p) set to " << D_A1_B[p]);
       }
       if (B_HaveMeasureError){
         D_Sum = sum(D_A1_Z / D_A1_SDevSquare);
-        LOGLS_DEBUG(_log, "for(p(=" << p << ")...): B_HaveMeasureError: D_Sum set to " << D_Sum);
       }
       else{
         D_Sum = sum(D_A1_Z);
-        LOGLS_DEBUG(_log, "for(p(=" << p << ")...): !B_HaveMeasureError: D_Sum set to " << D_Sum);
       }
       if (p - int(I_Degree_In) > 0){
         i = p - int(I_Degree_In);
@@ -552,7 +496,6 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
       else{
         i = 0;
       }
-      LOGLS_DEBUG(_log, "for(p(=" << p << ")...): I_Degree_In = " << I_Degree_In << ": i set to " << i);
       for (j = i; j <= I_Degree_In; j++){
         (*P_D_A2_Covar)[ ndarray::makeVector( j, p-j ) ] = D_Sum;
       }
@@ -2704,16 +2647,10 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
   template ndarray::Array<double, 1, 1> Poly(ndarray::Array<double, 1, 1> const&, ndarray::Array<float, 1, 1> const&, double, double);
   template ndarray::Array<double, 1, 1> Poly(ndarray::Array<double, 1, 1> const&, ndarray::Array<double, 1, 1> const&, double, double);
 
-//  template ndarray::Array<double, 1, 1> PolyFit(ndarray::Array<float, 1, 1> const&, ndarray::Array<float, 1, 1> const&, size_t const, float const, std::vector<string> const&, std::vector<void *> &);
   template ndarray::Array<double, 1, 1> PolyFit(ndarray::Array<double, 1, 1> const&, ndarray::Array<double, 1, 1> const&, size_t const, double const, std::vector<string> const&, std::vector<void *> &);
-//  template ndarray::Array<double, 1, 1> PolyFit(ndarray::Array<float, 1, 1> const&, ndarray::Array<float, 1, 1> const&, size_t const, float const, float const, size_t const, std::vector<string> const&, std::vector<void *> &);
   template ndarray::Array<double, 1, 1> PolyFit(ndarray::Array<double, 1, 1> const&, ndarray::Array<double, 1, 1> const&, size_t const, double const, double const, size_t const, std::vector<string> const&, std::vector<void *> &);
-//  template ndarray::Array<double, 1, 1> PolyFit(ndarray::Array<float, 1, 1> const&, ndarray::Array<float, 1, 1> const&, size_t const, std::vector<string> const&, std::vector<void *> &);
   template ndarray::Array<double, 1, 1> PolyFit(ndarray::Array<double, 1, 1> const&, ndarray::Array<double, 1, 1> const&, size_t const, std::vector<string> const&, std::vector<void *> &);
-//  template ndarray::Array<double, 1, 1> PolyFit(ndarray::Array<float, 1, 1> const&, ndarray::Array<float, 1, 1> const&, size_t const, float, float);
   template ndarray::Array<double, 1, 1> PolyFit(ndarray::Array<double, 1, 1> const&, ndarray::Array<double, 1, 1> const&, size_t const, double, double);
-//  template ndarray::Array<double, 1, 1> PolyFit(ndarray::Array<float, 1, 1> const&, ndarray::Array<float, 1, 1> const&, size_t const, float const, float, float);
-//  template ndarray::Array<double, 1, 1> PolyFit(ndarray::Array<float, 1, 1> const&, ndarray::Array<float, 1, 1> const&, size_t const, float const, float const, size_t const, float, float);
   template ndarray::Array<double, 1, 1> PolyFit(ndarray::Array<double, 1, 1> const&, ndarray::Array<double, 1, 1> const&, size_t const, double const, double const, size_t const, double, double);
 
   template int LinFitBevingtonEigen(Eigen::Array<float, Eigen::Dynamic, 1> const&,

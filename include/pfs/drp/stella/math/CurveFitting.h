@@ -3,17 +3,13 @@
 
 #include <vector>
 #include <iostream>
-#include "lsst/base.h"
-#include "lsst/afw/geom.h"
-#include "lsst/afw/image/MaskedImage.h"
+#include "CurveFittingGaussian.h"
 #include "lsst/log/Log.h"
-#include "lsst/pex/config.h"
 #include "lsst/pex/exceptions/Exception.h"
-#include "../utils/Utils.h"
 #include "Math.h"
 #include "ndarray.h"
 #include "ndarray/eigen.h"
-#include "CurveFittingGaussian.h"
+#include "../utils/Utils.h"
 
 //#define __DEBUG_CURVEFIT__
 //#define __DEBUG_FIT__
@@ -21,8 +17,7 @@
 //#define __DEBUG_POLY__
 //#define __DEBUG_POLYFIT__
 
-namespace afwGeom = lsst::afw::geom;
-namespace afwImage = lsst::afw::image;
+namespace pexExcept = lsst::pex::exceptions;
 using namespace std;
 
 namespace pfs { namespace drp { namespace stella {
@@ -51,10 +46,6 @@ namespace pfs { namespace drp { namespace stella {
                                  ndarray::Array<U, 1, 1> const& coeffs_In,
                                  T xRangeMin_In = -1.,
                                  T xRangeMax_In = 1.);
-//    template<typename T, typename U>
-//    ndarray::Array<T, 1, 1> Poly(ndarray::Array<T, 1, 1> const& x_In,
-//                                 ndarray::Array<U, 1, 1> const& coeffs_In,
-//                                 ndarray::Array<double, 1, 1> const& xRange_In);///shift and rescale x_In to fit into specified range
 
     /**
      * @brief  Perform a least-square polynomial fit using matrix inversion with optional error estimates.
@@ -138,8 +129,8 @@ namespace pfs { namespace drp { namespace stella {
                                          T xRangeMax_In = 1.);
 
 /** Additional Keywords:
-    REJECTED=ndarray::Array<int, 1>
-    NOT_REJECTED=ndarray::Array<int, 1>
+    REJECTED=vector<int>
+    NOT_REJECTED=vector<int>
     N_REJECTED=int
     **/
     template<typename T>

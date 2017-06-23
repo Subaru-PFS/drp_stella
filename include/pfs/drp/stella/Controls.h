@@ -3,6 +3,8 @@
 
 #include <vector>
 #include "lsst/base.h"
+#include "lsst/pex/config.h"
+#include "ndarray.h"
 
 #define stringify( name ) # name
 using namespace std;
@@ -13,7 +15,7 @@ namespace pfs { namespace drp { namespace stella {
  */
 struct FiberTraceFunctionControl {
   /// enum corresponding to legal values of interpolation string
-  enum INTERPOLATION {  POLYNOMIAL=0, CHEBYSHEV, NVALUES };
+  enum INTERPOLATION { POLYNOMIAL=0, CHEBYSHEV, NVALUES };
   std::vector<std::string> INTERPOLATION_NAMES = { stringify( POLYNOMIAL ),
                                                    stringify( CHEBYSHEV ) };
   LSST_CONTROL_FIELD(interpolation, std::string, "Interpolation schemes, NOTE that only POLYNOMIAL fitting is implement yet!");

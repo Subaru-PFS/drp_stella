@@ -425,7 +425,7 @@ namespace pfs { namespace drp { namespace stella { namespace utils{
     double goodVal = yArr[badPos];
     yArr[badPos] = badVal;
 
-    /// Test PolyFit(xArr, yArr, nDeg)
+    cout << "Test PolyFit(xArr, yArr, nDeg)" << endl;
     #ifdef __DEBUG_POLYFIT__
       cout << "testPolyFit: Testing PolyFit(xArr=" << xArr << ", yArr=" << yArr << ", nDeg=" << nDeg << ")" << endl;
     #endif
@@ -447,7 +447,7 @@ namespace pfs { namespace drp { namespace stella { namespace utils{
       }
     }
 
-    /// Test PolyFit(xArr, yArr, nDeg, lSig, uSig, nIter)
+    cout << "Test PolyFit(xArr, yArr, nDeg, lSig, uSig, nIter)" << endl;
     double lSig = -2.;
     double uSig = 2.;
     size_t nIter = 2;
@@ -514,7 +514,7 @@ namespace pfs { namespace drp { namespace stella { namespace utils{
       cout << "testPolyFit: Testing PolyFit(xNorm=" << xNorm << ", yArr=" << yArr << ", nDeg=" << nDeg << ", lSig=" << lSig << ", uSig=" << uSig << ", nIter=" << nIter << ", keyWords, args)" << endl;
     #endif
 
-    /// Test PolyFit without MeasureErrors and without re-scaling the xRange, using the already re-scaled xRange 'xNorm'
+    cout << "Test PolyFit without MeasureErrors and without re-scaling the xRange, using the already re-scaled xRange 'xNorm'" << endl;
     coeffs = pfs::drp::stella::math::PolyFit(xNorm, yArr, nDeg, lSig, uSig, nIter, keyWords, args);
     #ifdef __DEBUG_POLYFIT__
       cout << "testPolyFit: xRange = " << xRange << endl;
@@ -583,7 +583,7 @@ namespace pfs { namespace drp { namespace stella { namespace utils{
       }
     }
 
-    /// Test with Measure Errors (wrong length) and with re-scaling the xRange to [-1,1]
+    cout << "Test with Measure Errors (wrong length) and with re-scaling the xRange to [-1,1]" << endl;
     keyWords[3] = std::string("XRANGE");
     args[3] = &pXRange;
     keyWords[4] = std::string("MEASURE_ERRORS");
@@ -601,7 +601,7 @@ namespace pfs { namespace drp { namespace stella { namespace utils{
     }
     catch (const std::exception& e) {
       std::string errorMessage = e.what();
-      std::string testMessage("pfs::drp::stella::math::CurfFitting::PolyFit: Error:");
+      std::string testMessage("pfs::drp::stella::math::CurveFitting::PolyFit: Error:");
       testMessage += " P_D_A1_MeasureErrors->getShape()[0](=" + to_string(nX-1);
       testMessage += ") != D_A1_X_In.getShape()[0](=" + to_string(nX) + ")";
       if (errorMessage.compare(testMessage) != 0)
@@ -616,7 +616,7 @@ namespace pfs { namespace drp { namespace stella { namespace utils{
       }
     }
 
-    /// Test with Measure Errors (correct length) and with re-scaling the xRange to [-1,1]
+    cout << "Test with Measure Errors (correct length) and with re-scaling the xRange to [-1,1]" << endl;
     ndarray::Array<double, 1, 1> measureErrors = ndarray::allocate(xArr.getShape()[0]);
     for (size_t pos=0; pos<xArr.getShape()[0]; ++pos)
       measureErrors[pos] = sqrt(fabs(yArr[pos]));
