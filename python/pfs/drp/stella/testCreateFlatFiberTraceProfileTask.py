@@ -15,7 +15,7 @@ myExtractTask = cfftpTask.CreateFlatFiberTraceProfileTask()
 myExtractTask.run(fts)
 
 """Extract aperture 0"""
-iAperturesToExtract = [0]#np.arange(0,2,1,int)
+iAperturesToExtract = [0]
 myExtractTask.run(fts, iAperturesToExtract)
 
 """Extract apertures 0 and 1"""

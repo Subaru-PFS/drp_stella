@@ -11,12 +11,6 @@
 #include "ndarray/eigen.h"
 #include "../utils/Utils.h"
 
-//#define __DEBUG_CURVEFIT__
-//#define __DEBUG_FIT__
-//#define __DEBUG_FITARR__
-//#define __DEBUG_POLY__
-//#define __DEBUG_POLYFIT__
-
 namespace pexExcept = lsst::pex::exceptions;
 using namespace std;
 

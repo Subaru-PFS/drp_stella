@@ -2942,11 +2942,6 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
       cout << "  0 <= J is required.\n";
       exit ( 1 );
     }
-//    if ( i != j )
-//    {
-//      value = 0.0;
-//    }
-//    else
     if ( i == 0 )
     {
       value = pi;
@@ -3422,7 +3417,6 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
     for (  i = 0; i < m; i++ )
     {
       v[ ndarray::makeVector( i, 1 ) ] = x[i];
-//      v[i+1*m] = x[i];
     }
 
     for ( j = 2; j <= n; j++ )
@@ -3430,7 +3424,6 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
       for ( i = 0; i < m; i++ )
       {
         v[ ndarray::makeVector( i, j ) ] = 2.0 * x[i] * v[ ndarray::makeVector( i, j-1 ) ] - v[ ndarray::makeVector( i, j-2 ) ];
-//        v[i+j*m] = 2.0 * x[i] * v[i+(j-1)*m] - v[i+(j-2)*m];
       }
     }
 
@@ -4097,10 +4090,7 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
     Eigen::JacobiSVD<Eigen::MatrixXd> svd(v.asEigen(), Eigen::ComputeThinU | Eigen::ComputeThinV);
     auto cEigen = svd.solve(d.asEigen());
     c.asEigen() = cEigen;
-//    c = svd_solve ( m, n + 1, v, d );
     cout << "Compute the least-squares solution C finished. cEigen = " << cEigen << endl;
-//    for (int i = 0; i < n; ++i)
-//      c[i] = cEigen[i];
     cout << "Compute the least-squares solution C finished. c = " << c << endl;
 
     return c;

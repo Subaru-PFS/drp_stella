@@ -144,7 +144,7 @@ int MPFitTwoGaussFuncCB(int m, int n, double *p, double *dy, double **dvec, void
   int i;
   struct vars_struct *v = (struct vars_struct *) vars;
   double *x, *y, *ey;
-  double xc_a, xc_b, sig2;//, sig2_b;
+  double xc_a, xc_b, sig2;
 
   x = v->x;
   y = v->y;
@@ -165,7 +165,7 @@ int MPFitTwoGaussFuncNB(int m, int n, double *p, double *dy, double **dvec, void
   int i;
   struct vars_struct *v = (struct vars_struct *) vars;
   double *x, *y, *ey;
-  double xc_a, xc_b, sig2;//_a, sig2_b;
+  double xc_a, xc_b, sig2;
 
   x = v->x;
   y = v->y;
@@ -186,7 +186,7 @@ int MPFitTwoGaussFuncACB(int m, int n, double *p, double *dy, double **dvec, voi
   int i;
   struct vars_struct *v = (struct vars_struct *) vars;
   double *x, *y, *ey;
-  double xc_a, xc_b, sig2;//_a, sig2_b;
+  double xc_a, xc_b, sig2;
 
   x = v->x;
   y = v->y;
@@ -207,7 +207,7 @@ int MPFitTwoGaussFuncANB(int m, int n, double *p, double *dy, double **dvec, voi
   int i;
   struct vars_struct *v = (struct vars_struct *) vars;
   double *x, *y, *ey;
-  double xc_a, xc_b, sig2;//_a, sig2_b;
+  double xc_a, xc_b, sig2;
 
   x = v->x;
   y = v->y;
@@ -228,7 +228,7 @@ int MPFitThreeGaussFuncCB(int m, int n, double *p, double *dy, double **dvec, vo
   int i;
   struct vars_struct *v = (struct vars_struct *) vars;
   double *x, *y, *ey;
-  double xc_a, xc_b, xc_c, sig2;//, sig2_b;
+  double xc_a, xc_b, xc_c, sig2;
 
   x = v->x;
   y = v->y;
@@ -250,7 +250,7 @@ int MPFitThreeGaussFuncNB(int m, int n, double *p, double *dy, double **dvec, vo
   int i;
   struct vars_struct *v = (struct vars_struct *) vars;
   double *x, *y, *ey;
-  double xc_a, xc_b, xc_c, sig2;//_a, sig2_b;
+  double xc_a, xc_b, xc_c, sig2;
 
   x = v->x;
   y = v->y;
@@ -272,7 +272,7 @@ int MPFitThreeGaussFuncACB(int m, int n, double *p, double *dy, double **dvec, v
   int i;
   struct vars_struct *v = (struct vars_struct *) vars;
   double *x, *y, *ey;
-  double xc_a, xc_b, xc_c, sig2;//_a, sig2_b;
+  double xc_a, xc_b, xc_c, sig2;
 
   x = v->x;
   y = v->y;
@@ -294,7 +294,7 @@ int MPFitThreeGaussFuncANB(int m, int n, double *p, double *dy, double **dvec, v
   int i;
   struct vars_struct *v = (struct vars_struct *) vars;
   double *x, *y, *ey;
-  double xc_a, xc_b, xc_c, sig2;//_a, sig2_b;
+  double xc_a, xc_b, xc_c, sig2;
 
   x = v->x;
   y = v->y;
@@ -349,7 +349,7 @@ bool MPFitChebyshev1stKind(const ndarray::Array<T, 1, 1> & D_A1_X_In,
   ndarray::Array<T, 1, 1> moments = pfs::drp::stella::math::moment(D_A1_Y_In, 1);
   D_A1_Guess[0] = moments[0];
   for (int i_par=1; i_par<I_NParams; i_par++){
-    D_A1_Guess[i_par] = 1.0*pow(10, -7.);//*double(i_par));//D_A1_Guess_In[i_par];       /* Initial conditions */
+    D_A1_Guess[i_par] = 1.0*pow(10, -7.);   /* Initial conditions */
   }
   return MPFitChebyshev1stKind(D_A1_X_In,
                                D_A1_Y_In,
@@ -403,7 +403,7 @@ bool MPFitChebyshev1stKind(const ndarray::Array<T, 1, 1> & D_A1_X_In,
     ey[i_pt] = D_A1_EY_In[i_pt];
   }
   for (int i_par=0; i_par<I_NParams; i_par++){
-    p[i_par] = D_A1_Guess_In[i_par];//*double(i_par));//D_A1_Guess_In[i_par];       /* Initial conditions */
+    p[i_par] = D_A1_Guess_In[i_par]; /* Initial conditions */
   }
   double perror[I_NParams];			   /* Returned parameter errors */
   mp_par pars[I_NParams];			   /* Parameter constraints */
@@ -466,7 +466,6 @@ bool MPFitGauss(const ndarray::Array< T, 1, 1 >& D_A1_X_In,
   for (int i_par=0; i_par<I_NParams; i_par++){
     p[i_par] = D_A1_Guess_In[i_par];       /* Initial conditions */
   }
-//  double pactual[] = {0.0, 4.70, 0.0, 0.5};/* Actual values used to make data*/
   double perror[I_NParams];			   /* Returned parameter errors */
   mp_par pars[I_NParams];			   /* Parameter constraints */
   if (D_A1_Coeffs_Out.getShape()[0] != I_NParams){
@@ -481,7 +480,6 @@ bool MPFitGauss(const ndarray::Array< T, 1, 1 >& D_A1_X_In,
     cout << message << endl;
     throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
   }
-//  int i;
   struct vars_struct v;
   mp_result result;
 
@@ -556,7 +554,6 @@ bool MPFitGaussFix(const ndarray::Array< T, 1, 1 >& D_A1_X_In,
   for (int i_par=0; i_par<I_NParams; i_par++){
     p[i_par] = D_A1_Guess_In[i_par];       /* Initial conditions */
   }
-  //  double pactual[] = {0.0, 4.70, 0.0, 0.5};/* Actual values used to make data*/
   double perror[I_NParams];                        /* Returned parameter errors */
   mp_par pars[I_NParams];                          /* Parameter constraints */
   if (D_A1_Coeffs_Out.getShape()[0] != I_NParams){
@@ -670,7 +667,6 @@ bool MPFitGaussLim(const ndarray::Array< T, 1, 1 >& D_A1_X_In,
         cout << "MPFitting_ndarray::MPFitGaussLim: p[" << i_par << "] = " << p[i_par] << endl;
     #endif
   }
-  //  double pactual[] = {0.0, 4.70, 0.0, 0.5};/* Actual values used to make data*/
   double perror[I_NParams];                        /* Returned parameter errors */
   mp_par pars[I_NParams];                          /* Parameter constraints */
   if (D_A1_Coeffs_Out.getShape()[0] != I_NParams){
@@ -797,7 +793,6 @@ bool MPFitTwoGauss(const ndarray::Array< T, 1, 1 > &D_A1_X_In,
   for (int i_par=0; i_par<I_NParams; i_par++){
     p[i_par] = D_A1_Guess_In[i_par];       /* Initial conditions */
   }
-//  double pactual[] = {0.0, 4.70, 0.0, 0.5};/* Actual values used to make data*/
   double perror[I_NParams];                        /* Returned parameter errors */
   mp_par pars[I_NParams];                          /* Parameter constraints */
   if (D_A1_Coeffs_Out.getShape()[0] != I_NParams){
@@ -819,9 +814,6 @@ bool MPFitTwoGauss(const ndarray::Array< T, 1, 1 > &D_A1_X_In,
   result.xerror = perror;
 
   memset(pars,0,sizeof(pars));        /* Initialize constraint structure */
-  /* No constraints */
-
-//  for (i=0; i<10; i++) ey[i] = 0.5;
 
   v.x = x;
   v.y = y;
@@ -888,7 +880,6 @@ bool MPFitTwoGaussFix(const ndarray::Array< T, 1, 1 > &D_A1_X_In,
   for (int i_par=0; i_par<I_NParams; i_par++){
     p[i_par] = D_A1_Guess_In[i_par];       /* Initial conditions */
   }
-  //  double pactual[] = {0.0, 4.70, 0.0, 0.5};/* Actual values used to make data*/
   double perror[I_NParams];                        /* Returned parameter errors */
   mp_par pars[I_NParams];                          /* Parameter constraints */
   if (D_A1_Coeffs_Out.getShape()[0] != I_NParams){
@@ -978,7 +969,6 @@ bool MPFitTwoGaussLim(const ndarray::Array< T, 1, 1 > &D_A1_X_In,
   for (int i_par=0; i_par<I_NParams; i_par++){
     p[i_par] = D_A1_Guess_In[i_par];       /* Initial conditions */
   }
-  //  double pactual[] = {0.0, 4.70, 0.0, 0.5};/* Actual values used to make data*/
   double perror[I_NParams];                        /* Returned parameter errors */
   mp_par pars[I_NParams];                          /* Parameter constraints */
   if (D_A1_Coeffs_Out.getShape()[0] != I_NParams){
@@ -1071,7 +1061,6 @@ bool MPFitThreeGauss(const ndarray::Array< T, 1, 1 > &D_A1_X_In,
   for (int i_par=0; i_par<I_NParams; i_par++){
     p[i_par] = D_A1_Guess_In[i_par];       /* Initial conditions */
   }
-//  double pactual[] = {0.0, 4.70, 0.0, 0.5};/* Actual values used to make data*/
   double perror[I_NParams];                        /* Returned parameter errors */
   mp_par pars[I_NParams];                          /* Parameter constraints */
   if (D_A1_Coeffs_Out.getShape()[0] != I_NParams){
@@ -1160,7 +1149,6 @@ bool MPFitThreeGaussFix(const ndarray::Array< T, 1, 1 > &D_A1_X_In,
   for (int i_par=0; i_par<I_NParams; i_par++){
     p[i_par] = D_A1_Guess_In[i_par];       /* Initial conditions */
   }
-  //  double pactual[] = {0.0, 4.70, 0.0, 0.5};/* Actual values used to make data*/
   double perror[I_NParams];                        /* Returned parameter errors */
   mp_par pars[I_NParams];                          /* Parameter constraints */
   if (D_A1_Coeffs_Out.getShape()[0] != I_NParams){
@@ -1252,7 +1240,6 @@ bool MPFitThreeGaussLim(const ndarray::Array< T, 1, 1 > &D_A1_X_In,
   for (int i_par=0; i_par<I_NParams; i_par++){
     p[i_par] = D_A1_Guess_In[i_par];       /* Initial conditions */
   }
-  //  double pactual[] = {0.0, 4.70, 0.0, 0.5};/* Actual values used to make data*/
   double perror[I_NParams];                        /* Returned parameter errors */
   mp_par pars[I_NParams];                          /* Parameter constraints */
   if (D_A1_Coeffs_Out.getShape()[0] != I_NParams){
@@ -1310,7 +1297,7 @@ int MPFit2DGaussFuncCB(int m, int n, double *p, double *dz, double **dvec, void 
   int i;
   struct vars_struct *v = (struct vars_struct *) vars;
   double *x, *y, *z;
-  double xc, yc, sig2;//, sig2_b;
+  double xc, yc, sig2;
 
   x = v->x;
   y = v->y;
@@ -1363,7 +1350,6 @@ bool MPFit2DGaussLim(const ndarray::Array< T, 1, 1 >& D_A1_X_In,
   for (int i_par=0; i_par<I_NParams; i_par++){
     p[i_par] = D_A1_Guess_In[i_par];       /* Initial conditions */
   }
-  //  double pactual[] = {0.0, 4.70, 0.0, 0.5};/* Actual values used to make data*/
   double perror[I_NParams];                        /* Returned parameter errors */
   mp_par pars[I_NParams];                          /* Parameter constraints */
   if (D_A1_Coeffs_Out.getShape()[0] != I_NParams){

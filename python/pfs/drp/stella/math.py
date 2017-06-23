@@ -24,7 +24,6 @@ This module contains python math function related to pfs.drp.stella
 
 @author Andreas Ritter, Princeton University
 """
-#import matplotlib.pyplot as plt
 import numpy as np
 import pfs.drp.stella as drpStella
 

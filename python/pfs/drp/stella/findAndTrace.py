@@ -6,12 +6,6 @@ from scipy import signal
 from sklearn.decomposition import FastICA, PCA
 from astropy.io import fits as pyfits
 
-#flatfile = "/Users/azuri/spectra/pfs/2015-03-08/flat-x2-IR-nonoise.fits"
-#combfile = "/Users/azuri/spectra/pfs/2015-03-08/comb-x2-IR-nonoise.fits"
-#flatfile = "/Users/azuri/spectra/pfs/2015-04-13/constantFlat0.fits"
-#combfile = "/Users/azuri/spectra/pfs/2015-04-13/constantComb0.fits"
-#flatfile = "/Users/azuri/spectra/pfs/2015-04-14/constantFlat0-constantX.fits"
-#combfile = "/Users/azuri/spectra/pfs/2015-04-14/constantComb0-constantX.fits"
 flatfile = "/Users/azuri/spectra/pfs/2015-04-24/IR-flatFieldx10-0-23-noNoise-constantPsf.fz"
 combfile = "/Users/azuri/spectra/pfs/2015-04-24/IR-combFieldx10-0-23-noNoise-constantPsf.fz"
 

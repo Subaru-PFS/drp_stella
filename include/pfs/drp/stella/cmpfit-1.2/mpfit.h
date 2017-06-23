@@ -28,7 +28,6 @@ extern "C" {
 
 /* MPFIT version string */
 #define MPFIT_VERSION "1.2a"
-//#define __DEBUG_MPFIT__
 
 using namespace std;
     
@@ -185,12 +184,6 @@ extern int mpfit(mp_func funct, int m, int npar,
 		 void *private_data,
 		 mp_result *result);
 
-
-
-/* C99 uses isfinite() instead of finite() */
-//#if defined(__STDC_VERSION__) && __STDC_VERSION__ >= 199901L
-//#define mpfinite(x) isfinite(x)
-
 /* Microsoft C uses _finite(x) instead of finite(x) */
 #if defined(_MSC_VER) && _MSC_VER
 #include <float.h>
@@ -203,10 +196,6 @@ extern int mpfit(mp_func funct, int m, int npar,
 #endif
 
 static std::vector<float> yValues;
-/*static void setYValues(std::vector<float> const& yValues_In){
-  yValues = yValues_In;
-  return;
-}*/
 
 #ifdef __cplusplus
 } /* extern "C" */

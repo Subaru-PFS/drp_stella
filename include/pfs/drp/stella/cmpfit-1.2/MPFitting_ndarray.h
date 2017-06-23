@@ -57,8 +57,6 @@ using namespace std;
 
 #define D_PI 3.14159265359
 
-//#define __DEBUG_GAUSSFITLIM__
-
 /* This is the private data structure which contains the data points
    and their uncertainties */
 struct vars_struct {

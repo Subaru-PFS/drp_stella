@@ -5,7 +5,6 @@
 #include <iostream>
 #include <cmath>
 #include <cstdio>
-//#include <cstring>
 #include "boost/numeric/ublas/matrix.hpp"
 #include "boost/numeric/ublas/matrix_proxy.hpp"
 #include "lsst/base.h"
@@ -19,16 +18,6 @@
 #include "ndarray/eigen.h"
 
 #include "LinearAlgebra3D.h"
-
-//#define __TPS_BASE_FUNC_MULTIQUADRIC__
-//#define __DEBUG_CALC_TPS__
-//#define __DEBUG_CALCULATE_COEFFICIENTS__
-//#define __DEBUG_FILL_REGULARIZED_MATRIX__
-//#define __DEBUG_FILL_WEIGHTED_MATRIX__
-//#define __DEBUG_FILL_MATRIX__
-//#define __DEBUG_FILL_RHS__
-//#define __DEBUG_TPS__
-//#define __DEBUG_TPS_FITPOINT__
 
 namespace afwGeom = lsst::afw::geom;
 namespace afwImage = lsst::afw::image;
@@ -170,8 +159,6 @@ namespace pfs { namespace drp { namespace stella {
                 ndarray::Array< double, 2, 1 > _matrix;
                 ndarray::Array< double, 1, 1 > _rhs;
                 TPSControl _tpsControl;
-//                double _regularization;
-//                ValueT _shapeParameter;
                 ValueT _bendingEnergy;
                 ValueT _chiSquare;
                 ValueT _regularizationBase;
@@ -223,11 +210,6 @@ namespace pfs { namespace drp { namespace stella {
                 /** @brief fill rhs vector for fit
                  */
                 virtual void fillRHS();
-                
-                /** @brief Calculate coefficients
-                 * 
-                 */
-//                virtual bool calculateCoefficients();
 
             private:
         };

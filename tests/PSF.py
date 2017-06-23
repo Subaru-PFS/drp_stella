@@ -171,7 +171,6 @@ class PSFTestCase(tests.TestCase):
 
             if False:
                 psf.extractPSFs(ftComb, spec)
-                #self.assertTrue(psf.extractPSFs(ftComb, spec))
 
                 self.assertGreater(len(psf.getImagePSF_XTrace()), 0)
                 self.assertTrue(psf.isPSFsExtracted())
@@ -202,7 +201,6 @@ def suite():
 
     suites = []
     suites += unittest.makeSuite(PSFTestCase)
-#    suites += unittest.makeSuite(tests.MemoryTestCase)
     return unittest.TestSuite(suites)
 
 def run(exit = False):

@@ -1,11 +1,4 @@
 #!/usr/bin/env python
-
-#USAGE: exp = lsst.afw.image.ExposureF("/home/azuri/spectra/pfs/2014-10-14/IR-23-0-sampledFlatx2-nonoise.fits")
-#       myFindTask = findAndTraceAperturesTask.FindAndTraceAperturesTask()
-#       fts = myFindTask.run(exp)
-#       myExtractTask = createFlatFiberTraceProfileTask.CreateFlatFiberTraceProfileTask()
-#       myExtractTask.run(fts)
-
 import numpy as np
 from lsst.pipe.base import Task
 import lsst.pex.config as pexConfig
@@ -82,7 +75,6 @@ class ReadFileTask(Task):
                                 dataArr[iDataLine, iWord] = float(words[iWord])
                             else: # dType == "string"
                                 dataArr[iDataLine, iWord] = words[iWord]
-        #                    print 'readFile: dataArr[',iDataLine,', ',iWord,'] = <',dataArr[iDataLine, iWord],'>'
                         iDataLine = iDataLine + 1
         inFile.closed
 

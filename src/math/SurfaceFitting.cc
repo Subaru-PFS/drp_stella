@@ -16,8 +16,6 @@ namespace pfs{ namespace drp{ namespace stella{
       _zFit(),
       _matrix(),
       _rhs(),
-//      _regularization(0.),
-//      _shapeParameter(1.),
       _tpsControl(),
       _bendingEnergy(0.),
       _chiSquare(0.),
@@ -38,8 +36,6 @@ namespace pfs{ namespace drp{ namespace stella{
       _knots( tpsb.getKnots() ),
       _matrix( tpsb.getMatrix() ),
       _rhs( tpsb.getRHS() ),
-//      _regularization( tpsb.getRegularization() ),
-//      _shapeParameter( tpsb.getRadiusNormalizationFactor() ),
       _tpsControl(),
       _bendingEnergy( tpsb.getBendingEnergy() ),
       _chiSquare( tpsb.getChiSquare() ),
@@ -69,7 +65,6 @@ namespace pfs{ namespace drp{ namespace stella{
         throw LSST_EXCEPT( pexExcept::Exception, message.c_str() );
       }
       _tpsControl = tpsb.getTPSControl();
-//      cout << "tpsb(tpsb): tpsb.getTPSControl().shapeParameter = " << tpsb.getTPSControl().shapeParameter << ", _tpsControl.shapeParameter = " << _tpsControl.shapeParameter << endl;
       #ifdef __DEBUG_TPS__
         cout << "ThinPlateSplineBase( ThinPlateSplineBase ) finished: _zFit.shape = " << _zFit.getShape() << endl;
       #endif
@@ -110,16 +105,10 @@ namespace pfs{ namespace drp{ namespace stella{
         throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
       }
 
-//      unsigned p = this->_dataPointsX.getShape()[0];
-
       // Allocate the matrix and vector
       this->fillMatrix();//ndarray::allocate( p + 3, p + 3 );
       this->fillRHS();//ndarray::allocate( p + 3 );
-//      #ifdef __DEBUG_CALCULATE_COEFFICIENTS__
-//        std::cout << "ThinPlateSplineBase::calcualteCoefficients: memory for mtx_l, mtx_v allocated" << std::endl;
-//      #endif
 
-//      mtx_l.deep() = fillMatrix();
       #ifdef __DEBUG_CALCULATE_COEFFICIENTS__
         Eigen::EigenSolver<Eigen::MatrixXd> es( this->_matrix.asEigen() );
         cout << "ThinPlateSpline::calculateCoefficients: EigenValues of mtx_l = " << es.eigenvalues() << endl;
@@ -135,12 +124,9 @@ namespace pfs{ namespace drp{ namespace stella{
         cout << "ThinPlateSpline::calculateCoefficients: EigenValues a of mtx_l = " << es.eigenvalues() << endl;
         cout << "ThinPlateSpline::calculateCoefficients: EigenVectors a of mtx_l = " << es.eigenvectors() << endl;
       #endif
-      // Fill the right hand vector V
-//      mtx_v.deep() = this->fillRHSVector();
 
       // Solve the linear system "inplace"
       this->_coefficients.asEigen() = this->_matrix.asEigen().fullPivLu().solve( this->_rhs.asEigen() );
-//      this->_coefficients.asEigen() = mtx_l.asEigen().colPivHouseholderQr().solve(mtx_v.asEigen());
       #ifdef __DEBUG_CALCULATE_COEFFICIENTS__
         std::cout << "ThinPlateSplineBase::calculateCoefficients: after colPivHouseholderQr: _coefficients = " << this->_coefficients << std::endl;
       #endif
@@ -213,12 +199,10 @@ namespace pfs{ namespace drp{ namespace stella{
         cout << "ThinPlateSplineBase::addWeightsToMatrix() started" << endl;
       #endif
 
-//      cout << "8. * CONST_PI = " << 8. * CONST_PI << endl;
       for ( int i = 0; i < this->_knots.getShape()[0]; ++i ){
         if ( this->_dataPointsWeight[ i ] < 0.000000000000001 )
           this->_matrix[ ndarray::makeVector( i, i ) ] = 0.;
         else{
-//          mtx_l[i][i] = _regularizationBase / _dataPointsWeight[i];
           this->_matrix[ ndarray::makeVector( i, i ) ] = 8. * CONST_PI / this->_dataPointsWeight[i];
         }
       }
@@ -306,14 +290,6 @@ namespace pfs{ namespace drp{ namespace stella{
         }
       }
 
-      // Calc bending energy
-    /*  matrix<double> w( p, 1 );
-      for ( int i=0; i<p; ++i )
-        w(i,0) = mtx_v(i,0);
-      matrix<double> be = prod( prod<matrix<double> >( trans(w), mtx_orig_k ), w );
-      bending_energy = be(0,0);
-      std::cout << "ThinPlateSpline::fitArray: bending_energy = " << bending_energy << std::endl;
-    */
       #ifdef __DEBUG_CALC_TPS__
         std::cout << "ThinPlateSplineBase::fitArray: arrOut = " << arrOut << std::endl;
       #endif
@@ -326,10 +302,6 @@ namespace pfs{ namespace drp{ namespace stella{
 
     template< typename ValueT, typename CoordsT >
     ValueT ThinPlateSplineBase< ValueT, CoordsT >::tps_base_func( ValueT r ){
-//      cout << "tps_base_func: _tpsControl.shapeParameter = " << this->_tpsControl.shapeParameter << endl;
-//      cout << "tps_base_func: _tpsControl.shapeParameter = " << _tpsControl.shapeParameter << endl;
-      //    enum BASE_FUNC {  TPS=0, MULTIQUADRIC, MULTIQUADRIC_A, R, R_CUBE, INVERSE_MULTIQUADRIC, GENERALIZED_INVERSE_MULTIQUADRIC, WENDLAND_CSRBF, GAUSSIAN, MATERN_C0, MATERN_C2, MATERN_C4 };
-
       if ( _tpsControl.baseFunc.compare( "MULTIQUADRIC" ) == 0 ){
         return ( sqrt( ( r * r ) + _tpsControl.shapeParameter ) );
       }
@@ -396,13 +368,10 @@ namespace pfs{ namespace drp{ namespace stella{
       _matrix = copy( tps.getMatrix() );
       _rhs = copy( tps.getRHS() );
       _tpsControl = tps.getTPSControl();
-//      _regularization = tps.getRegularization();
-//      _shapeParameter = tps.getRadiusNormalizationFactor();
       _bendingEnergy = tps.getBendingEnergy();
       _chiSquare = tps.getChiSquare();
       _regularizationBase = tps.getRegularizationBase();
       _isWeightsSet = tps.isWeightsSet();
-//      cout << "operator=: tps.getTPSControl().shapeParameter = " << tps.getTPSControl().shapeParameter << ", _tpsControl.shapeParameter = " << _tpsControl.shapeParameter << endl;
       #ifdef __DEBUG_TPS__
         cout << " this->getDataPointsX.getShape()[ 0 ] = " << this->getDataPointsX().getShape()[ 0 ] << endl;
         cout << "ThinPlateSplineBase::operator=(tps) finished" << endl;
@@ -450,10 +419,7 @@ namespace pfs{ namespace drp{ namespace stella{
       this->_dataPointsY = ndarray::copy( dataPointsY );
       this->_dataPointsZ = ndarray::copy( dataPointsZ );
       this->_dataPointsWeight = pfsDRPStella::utils::get1DndArray( ValueT( dataPointsZ.getShape()[ 0 ] ) );
-//      this->_regularization = regularization;
-//      this->_shapeParameter = shapeParameter;
       this->_tpsControl = tpsControl;
-//      cout << "tps(ndarray, ndarray, ndarray, TPSControl): tpsControl.shapeParameter = " << tpsControl.shapeParameter << ", _tpsControl.shapeParameter = " << this->_tpsControl.shapeParameter << endl;
 
       /// Check input data:
       if (dataPointsX.getShape()[ 0 ] != dataPointsY.getShape()[ 0 ]){
@@ -535,7 +501,6 @@ namespace pfs{ namespace drp{ namespace stella{
       this->_dataPointsZ = ndarray::copy( dataPointsZ );
       this->_dataPointsWeight = ndarray::copy( dataPointsWeights );
       this->_tpsControl = tpsControl;
-//      cout << "tps(ndarray, ndarray, ndarray, ndarray, TPSControl): tpsControl.shapeParameter = " << tpsControl.shapeParameter << ", _tpsControl.shapeParameter = " << this->_tpsControl.shapeParameter << endl;
       this->_zFit = ndarray::allocate( dataPointsZ.getShape()[ 0 ] );
       if ( this->_zFit.getShape()[ 0 ] == 0 ){
         string message( "calculateCoefficients: ERROR: _zFit.getShape()[0] == 0" );
@@ -567,7 +532,6 @@ namespace pfs{ namespace drp{ namespace stella{
     ThinPlateSpline< ValueT, CoordsT >::ThinPlateSpline( ThinPlateSpline< ValueT, CoordsT > const& tps ):
         ThinPlateSplineBase< ValueT, CoordsT >( tps )
     {
-      //cout << "tps(tps): tps.getTPSControl().shapeParameter = " << tps.getTPSControl().shapeParameter << ", _tpsControl.shapeParameter = " << this->_tpsControl.shapeParameter << endl;
       #ifdef __DEBUG_TPS__
         cout << "ThinPlateSpline(tps): _coefficients = " << this->_coefficients << endl;
         cout << "ThinPlateSpline(tps) finished" << endl;
@@ -672,20 +636,6 @@ namespace pfs{ namespace drp{ namespace stella{
       return;
     }
 
-/*    template< typename ValueT, typename CoordsT >
-    ThinPlateSpline< ValueT, CoordsT >& ThinPlateSpline< ValueT, CoordsT >::operator=(ThinPlateSpline< ValueT, CoordsT > const& tps){
-      #ifdef __DEBUG_TPS__
-        cout << "ThinPlateSpline::operator=(tps) started" << endl;
-        cout << " tps.getControlPointsX.getShape()[ 0 ] = " << tps.getControlPointsX().getShape()[ 0 ] << endl;
-      #endif
-      ThinPlateSplineBase::operator=( tps );
-      #ifdef __DEBUG_TPS__
-        cout << " this->getControlPointsX.getShape()[ 0 ] = " << this->getControlPointsX().getShape()[ 0 ] << endl;
-        cout << "ThinPlateSplineBase::operator=(tps) finished" << endl;
-      #endif
-      return *this;
-    }*/
-
     template class ThinPlateSpline< float, float >;
     template class ThinPlateSpline< float, double >;
     template class ThinPlateSpline< double, float >;
@@ -732,7 +682,6 @@ namespace pfs{ namespace drp{ namespace stella{
       this->_dataPointsY = ndarray::copy( dataPointsY );
       this->_dataPointsZ = ndarray::copy( dataPointsZ );
       this->_tpsControl = tpsControl;
-      //cout << "tpscs(ndarray, ndarray, ndarray, ndarray, ndarray, bool, TPSControl): tpsControl.shapeParameter = " << tpsControl.shapeParameter << ", _tpsControl.shapeParameter = " << this->_tpsControl.shapeParameter << endl;
 
       if (isXYPositionsGridPoints){
         this->_knots = ndarray::allocate( knotsX.getShape()[ 0 ] * knotsY.getShape()[ 0 ], 2 );
@@ -777,10 +726,10 @@ namespace pfs{ namespace drp{ namespace stella{
     ThinPlateSplineChiSquare< ValueT, CoordsT >::ThinPlateSplineChiSquare( ThinPlateSplineChiSquare< ValueT, CoordsT > const& tps ):
             ThinPlateSplineBase< ValueT, CoordsT >( tps )
     {
-      //cout << "tpscs(tpscs): tps.getTPSControl().shapeParameter = " << tps.getTPSControl().shapeParameter << ", _tpsControl.shapeParameter = " << this->_tpsControl.shapeParameter << endl;
       #ifdef __DEBUG_TPS__
-        cout << "ThinPlateSplineChiSquare(tps) finished" << endl;
+        cout << "ThinPlateSplineChiSquare(tps) not yet implemented" << endl;
       #endif
+      exit(EXIT_FAILURE);
     }
 
     template< typename ValueT, typename CoordsT >
@@ -803,55 +752,18 @@ namespace pfs{ namespace drp{ namespace stella{
       }
 
       unsigned nKnots = this->_knots.getShape()[ 0 ];
-      //unsigned nDataPoints = this->_dataPointsX.getShape()[ 0 ];
 
       // Allocate the matrix and vector
       this->fillMatrix();//ndarray::allocate( nKnots + 6, nKnots + 6);
       this->fillRHS();//ndarray::allocate( nKnots + 6);
-//      mtx_v.deep() = 0.;
-//      #ifdef __DEBUG_CALC_TPS__
-//        std::cout << "ThinPlateSplineChiSquare::calculateCoefficients: memory for mtx_l, mtx_v allocated" << std::endl;
-//      #endif
-//
-//      mtx_l.deep() = fillMatrix();
 
       // Fill the right hand vector V
-/*      ndarray::Array< double, 1, 1 > pt_i = ndarray::allocate(2);
-      ndarray::Array< double, 1, 1 > pt_k = ndarray::allocate(2);
-      ndarray::Array< double, 1, 1 > pt_diff = ndarray::allocate(2);
-      double elen_ik;
-//      double r_ik;
-      for ( unsigned i = 0; i < nKnots; ++i ){
-        pt_i[ 0 ] = this->_knots[ i ][ 0 ];
-        pt_i[ 1 ] = this->_knots[ i ][ 1 ];
-        for ( unsigned k = 0; k < nDataPoints; ++k ){
-          pt_k[ 0 ] = this->_dataPointsX[ k ];
-          pt_k[ 1 ] = this->_dataPointsY[ k ];
-          pt_diff.deep() = pt_i - pt_k;
-          pt_diff.asEigen() = pt_diff.asEigen().array() * pt_diff.asEigen().array();
-          elen_ik = sqrt( pt_diff.asEigen().sum() );
-          mtx_v[ i ] += 2. * this->tps_base_func( elen_ik );// - _dataPointsZ[ k ];
-        }
-      }
-      mtx_v[ nKnots ] = 2. * double( nDataPoints );
-      for (unsigned k = 0; k < nDataPoints; ++k ){
-        mtx_v[ nKnots + 1 ] += 2. * this->_dataPointsX[ k ];
-        mtx_v[ nKnots + 2 ] += 2. * this->_dataPointsY[ k ];
-      }
-      //mtx_v[ nKnots + 3 ] = mtx_v[ nKnots + 4 ] = mtx_v[ nKnots + 5 ] = 0.;
-      #ifdef __DEBUG_CALC_TPS__
-        std::cout << "ThinPlateSplineChiSquare::calculateCoefficients: mtx_v = " << mtx_v << std::endl;
-      #endif
-*/
       #ifdef __DEBUG_CALCUATE_COEFFICIENTS__
         Eigen::EigenSolver<Eigen::MatrixXd> es( this->_matrix.asEigen() );
-//      ndarray::Array< double, 2, 1 > eigenValues = ndarray::allocate( nKnots, 2 );
-//      eigenValues.asEigen() = es.eigenvalues();
         cout << "ThinPlateSpline::calculateCoefficients: EigenValues of mtx_l = " << es.eigenvalues() << endl;
         cout << "ThinPlateSpline::calculateCoefficients: EigenVectors of mtx_l = " << es.eigenvectors() << endl;
       #endif
       // Solve the linear system "inplace"
-//      this->_coefficients.asEigen() = this->_matrix.asEigen().fullPivLu().solve( this->_rhs.asEigen() );
       this->_coefficients.asEigen() = this->_matrix.asEigen().colPivHouseholderQr().solve( this->_rhs.asEigen() );
       #ifdef __DEBUG_CALC_TPS__
         std::cout << "ThinPlateSplineChiSquare::calculateCoefficients: after colPivHouseholderQr: _coefficients = " << this->_coefficients << std::endl;
@@ -1026,7 +938,6 @@ namespace pfs{ namespace drp{ namespace stella{
 
         // P (p x 3, upper right)
         // P transposed (3 x p, bottom left)
-        //*
         for ( int k = 0; k < nDataPoints; ++k ){
           pt_k[0] = this->_dataPointsX[k];
           pt_k[1] = this->_dataPointsY[k];
@@ -1057,7 +968,6 @@ namespace pfs{ namespace drp{ namespace stella{
         this->_matrix[ ndarray::makeVector( i, nKnots + 4 ) ] = this->_matrix[ ndarray::makeVector( nKnots + 4, i ) ] = this->_knots[ ndarray::makeVector( i, 0 ) ];
         this->_matrix[ ndarray::makeVector( i, nKnots + 5 ) ] = this->_matrix[ ndarray::makeVector( nKnots + 5, i ) ] = this->_knots[ ndarray::makeVector( i, 1 ) ];
       }
-      //*
       // (3 x 3, lower right)
       for ( int k = 0; k < nDataPoints; ++k ){
         this->_matrix[ ndarray::makeVector( nKnots + 0, nKnots + 0 ) ] += 2. / this->_dataPointsZ[ k ];
@@ -1076,30 +986,6 @@ namespace pfs{ namespace drp{ namespace stella{
       this->_matrix[ ndarray::makeVector( nKnots + 1, nKnots + 0 ) ] = this->_matrix[ ndarray::makeVector( nKnots + 0, nKnots + 1 ) ];
       this->_matrix[ ndarray::makeVector( nKnots + 2, nKnots + 0 ) ] = this->_matrix[ ndarray::makeVector( nKnots + 0, nKnots + 2 ) ];
       this->_matrix[ ndarray::makeVector( nKnots + 2, nKnots + 1 ) ] = this->_matrix[ ndarray::makeVector( nKnots + 1, nKnots + 2 ) ];
-      //*/
-
-
-/*
-
-        // Fill the rest of L
-
-        // P (p x 3, upper right)
-        // P transposed (3 x p, bottom left)
-      for ( unsigned i = 0; i < nKnots; ++i ){
-        mtx_l[ i ][ nKnots + 0 ] = mtx_l[ nKnots + 0 ][ i ] = 1.0;
-        mtx_l[ i ][ nKnots + 1] = mtx_l[ nKnots + 1 ][ i ] = _knots[ i ][ 0 ];
-        mtx_l[ i ][ nKnots + 2] = mtx_l[ nKnots + 2][ i ] = _knots[ i ][ 1 ];
-
-        // O (3 x 3, lower right)
-        for ( unsigned i = nKnots; i < nKnots + 3; ++i ){
-          for ( unsigned j = nKnots; j < nKnots + 3; ++j ){
-            mtx_l[i][j] = 0.0;
-          }
-        }
-      }
-
-*/
-
 
       #ifdef __DEBUG_FILL_MATRIX__
         std::cout << "ThinPlateSplineChiSquare::fillMatrix: this->_matrix set to " << this->_matrix << std::endl;

@@ -1,5 +1,3 @@
-#python /Users/azuri/stella-git/drp_stella/python/pfs/drp/stella/demo.py '/Volumes/My Passport/data/spectra/pfs/PFS' --calib='/Volumes/My Passport/data/spectra/pfs/PFS/CALIB' --id site='S' category='A' filter='PFS-M' spectrograph=2 dateObs='2015-12-22' -C myConfig.py
-
 from lsst.pex.config import Config, ConfigurableField
 from lsst.pipe.base import CmdLineTask
 from lsst.obs.subaru.isr import SubaruIsrTask

@@ -197,9 +197,6 @@ int CVariogram::estimateModel(int model, double &nugget, double &sill, double &r
                 if (status > 0)
                         break;
 
-                // convergence check by variation
-//              status = gsl_multifit_test_delta(s->dx, s->x, 1e-4, 1e-4);
-
                 // convergence check by gradient
                 gsl_multifit_gradient(s->J, s->f, g);
                 status = gsl_multifit_test_gradient(g, 0.01);
@@ -272,14 +269,6 @@ double CVariogram::getModelCovariance(double dist) const
 
 bool CVariogram::sortByDistance(void)
 {
-//  bool b_std = true;
-//  if (b_std){
-//    std::vector<double> stdvec;
-//    for (size_t i=0; i<samples(); i++){
-//      stdvec.push_back(m_)
-//    }
-//  }
-//  else{
         if (!isActive())
                 return false;
 
@@ -295,7 +284,6 @@ bool CVariogram::sortByDistance(void)
                         }
                 }
         }
-//  }
   return true;
 }
 

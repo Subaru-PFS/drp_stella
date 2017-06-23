@@ -65,7 +65,6 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
       Vec operator / ( const float src ) const { Vec tmp( *this ); return ( tmp /= src ); }
 
       bool operator == ( const Vec& b) const { return ((*this)-b).norm() < __EPSILON__; }
-      //bool operator == ( const Vec& b) const { return x==b.x && y==b.y && z==b.z; }
     };
 
       // Left hand float multplication

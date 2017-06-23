@@ -40,21 +40,16 @@ int stb_df(const gsl_vector *x, void *params, gsl_matrix *J)
 {
         size_t n = ((LSFParam *)params)->n;
         double *dist = ((LSFParam *)params)->dist;
-//        double *vario = ((LSFParam *)params)->vario;
         double power = ((LSFParam *)params)->power;
 
         double sill = gsl_vector_get(x, 0);
         double range = gsl_vector_get (x, 1);
-//        double nugget = gsl_vector_get(x, 2);
 
         for (size_t i = 0;i < n;i++)
         {
                 double e = exp(-pow(dist[i] / range, power));
-                // df / d(sill)
                 gsl_matrix_set(J, i, 0, 1.0 - e);
-                // df / d(range)
                 gsl_matrix_set(J, i, 1,  -power * sill / range * pow(dist[i] / range, power) * e);
-                // df / d(nugget)
                 gsl_matrix_set(J, i, 2, 1.0);
         }
         return GSL_SUCCESS;

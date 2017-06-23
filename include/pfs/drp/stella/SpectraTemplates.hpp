@@ -300,10 +300,10 @@ ndarray::Array< double, 1, 1 > pfs::drp::stella::Spectrum<SpectrumT, MaskT, Vari
           for (int iPos = 0; iPos < V_X.size(); ++iPos )
               LOGLS_DEBUG(_log, V_X[iPos] << " ");
 
-        /*     p[3] = constant offset
-         *     p[0] = peak y value
-         *     p[1] = x centroid position
-         *     p[2] = gaussian sigma width
+        /*     D_A1_Guess[3] = constant offset
+         *     D_A1_Guess[0] = peak y value
+         *     D_A1_Guess[1] = x centroid position
+         *     D_A1_Guess[2] = gaussian sigma width
          */
           D_A1_Guess[ 3 ] = *min_element( V_GaussSpec.begin(), V_GaussSpec.end() );
           D_A1_Guess[ 0 ] = *max_element( V_GaussSpec.begin(), V_GaussSpec.end() ) - D_A1_Guess(3);

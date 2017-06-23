@@ -1,23 +1,10 @@
 #!/usr/bin/env python
-"""
-Tests for measuring things
-
-Run with:
-   python calculateTwoDPSF.py
-or
-   python
-   >>> import FiberTrace; FiberTrace.run()
-"""
-
-#import unittest
 import numpy as np
 import matplotlib.pyplot as plt
-#import lsst.utils.tests as tests
 import lsst.afw.image as afwImage
 import lsst.afw.geom as afwGeom
 import pfs.drp.stella as drpStella
 import pyfits
-#import astropy.io.fits as pyfits
 try:
     type(display)
 except NameError:
@@ -40,7 +27,6 @@ def calculateTwoDPSF(flatfilename, specfilename):
 
     # --- create FiberTraceProfileFittingControl
     ftec = drpStella.FiberTraceProfileFittingControl()
-#    ftec.xCorProf = 20
     ftec.profileInterpolation = "SPLINE3"
     ftec.telluric = "NONE"
     ftec.wingSmoothFactor = 2.
@@ -75,13 +61,11 @@ def calculateTwoDPSF(flatfilename, specfilename):
     # --- sort traces by xCenters
     fts.sortTracesByXCenter()
     tdpsfcp = tdpsfc.getPointer()
-#    fts.setTwoDPSFControl(tdpsfcp)
     ftecp = ftec.getPointer()
     fts.setFiberTraceProfileFittingControl(ftecp)
     fts.calcProfileAllTraces()
 
     # --- create FiberTraceSet for object exposure
-    #afw.ImageF(specfilename, hdu=2)...
     bias = pyfits.getdata(specfilename, 3)
     mis = afwImage.MaskedImageF(specfilename)
     bias = afwImage.ImageF(specfilename, 3)
@@ -91,7 +75,6 @@ def calculateTwoDPSF(flatfilename, specfilename):
         trace.setITrace(i)
         trace.createTrace(mis)
         spectrum = trace.extractFromProfile()
-#        print "FiberTrace ",i,": _trace = ",trace.getSpectrum()
         if i == 5:
             return fts
         if i != 5:
@@ -119,29 +102,11 @@ def calculateTwoDPSF(flatfilename, specfilename):
 
                 plt.show()
 
-
-
-#    trace = fts.getFiberTrace(0)
-#    print "FiberTrace 00: isProfileSet() = ", fts.getFiberTrace(0).isProfileSet()
-#    trace.calculate2dPSFPerBin()
-
-#    print trace
-#    psfvec = trace.getPSFVector()
-#    print psfvec
-#    psfa = trace.getPSF(0)
-#    print psfa
-#    xvec = psfa.getImagePSF_XRelative()
-#    yvec = psfa.getImagePSF_XTrace()
-#    zvec = psfa.getImagePSF_XTrace()
-#    wvec = psfa.getImagePSF_XTrace()
-#    print xvec
-
     return fts;
 
 #-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
 def main(argv=None):
-# --- start with <msi=calculateTwoDPSF.main('-f="/home/azuri/spectra/pfs/IR-23-0-centerSkyx2.fits" -p="/home/azuri/spectra/pfs/IR-23-0-centerFlatx2.fits_trace0_prof.fits')>
     if argv is None:
       import sys
       argv = sys.argv[1:]

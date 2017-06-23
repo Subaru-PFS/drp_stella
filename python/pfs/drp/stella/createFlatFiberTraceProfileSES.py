@@ -1,17 +1,5 @@
 #!/usr/bin/env python
-"""
-Tests for measuring things
-
-Run with:
-   python FiberTrace.py
-or
-   python
-   >>> import FiberTrace; FiberTrace.run()
-"""
-
-#import unittest
 import numpy as np
-#import lsst.utils.tests as tests
 import lsst.afw.image as afwImage
 import lsst.afw.geom as afwGeom
 import pfs.drp.stella as drpStella
@@ -53,9 +41,6 @@ def createFlatFiberTraceProfileSES(filename):
     fts = drpStella.findAndTraceApertures(mif, ftffc)
     print("findAndTraceApertures finished")
 
-    # --- sort traces by xCenters
-#    msi.getFiberTraceSet().sortTracesByXCenter();
-
     # --- write trace 0 to fits file
     filename_trace = filename + '_trace20.fits'
     fts.getFiberTrace(20).getImage().writeFits(filename_trace)
@@ -63,36 +48,11 @@ def createFlatFiberTraceProfileSES(filename):
     # ---  create profile and extract fiber trace 0
     fts.getFiberTrace(20).setFiberTraceExtractionControl(ftec)
     fts.getFiberTrace(20).MkSlitFunc()
-
-    # --- get profile and write profile to fits file
-#    profile = fts.getFiberTrace(20).getProfile()
-#    print("got profile: profile.getArray() = ",profile.getArray())
-#    print("writing profile to fits file")
-#    filename_flatprof = filename + '_trace20_prof.fits'
-#    profile.writeFits(filename_flatprof)
-#    print("profile written to ",filename_flatprof)
-
-    # --- get reconstructed 2D spectrum and write to fits file
-#    reconstructed = fts.getFiberTrace(20).getReconstructed2DSpectrum()
-#    print("got reconstructed 2D spectrum: reconstructed.getArray() = ", reconstructed.getArray())
-#    filename_flatrec = filename + '_trace20_rec.fits'
-#    reconstructed.writeFits(filename_flatrec)
-#    print("reconstructed spectrum written to ",filename_flatrec)
-
-    # --- subtract reconstructed spectrum from input spectrum
-#    imMinusRec = fts.getFiberTrace(20).getImage().getArray() - reconstructed.getArray()
-#    filename_flatMinusRec = filename + '_trace20-rec.fits'
-#    imMinusRecIm = afwImage.ImageF(imMinusRec)
-#    print("got difference of original image and reconstructed 2D spectrum: imMinusRecIm.getArray() = ", imMinusRecIm.getArray())
-#    imMinusRecIm.writeFits(filename_flatMinusRec)
-#    print("difference of original and reconstructed spectrum written to ",filename_flatMinusRec)
-
-    return msi;#.getFiberTraceSet();
+    return msi;
 
 #-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
 def main(argv=None):
-# --- start with <msi=createFlatFiberTraceProfile.main('-f="/home/azuri/spectra/pfs/IR-23-0-centerFlatx2.fits"')>
     if argv is None:
       import sys
       argv = sys.argv[1:]

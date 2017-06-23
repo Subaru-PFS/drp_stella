@@ -1,4 +1,3 @@
-#/Users/azuri/stella-git/drp_stella/bin.src/reduceArc.py '/Volumes/My Passport/data/spectra/pfs/PFS' --id visit=4 filter='PFS-R' spectrograph=2 site='F' category='A' --refSpec '/Users/azuri/stella-git/obs_subaru/pfs/lineLists/refCdHgKrNeXe_red.fits' --lineList '/Users/azuri/stella-git/obs_subaru/pfs/lineLists/CdHgKrNeXe_red.fits' --loglevel 'info'
 from astropy.io import fits as pyfits
 from lsst.pex.config import Config, Field
 from lsst.pipe.base import Struct, TaskRunner, ArgumentParser, CmdLineTask
@@ -68,7 +67,7 @@ class ReduceArcRefSpecTask(CmdLineTask):
                                help="input identifiers, e.g., --id visit=123 ccd=4")
         parser.add_argument("--refSpec", help='directory and name of reference spectrum')
         parser.add_argument("--lineList", help='directory and name of line list')
-        return parser# ReduceArcArgumentParser(name=cls._DefaultName, *args, **kwargs)
+        return parser
 
     def run(self, expRefList, butler, refSpec=None, lineList=None, immediate=True):
         if refSpec == None:
