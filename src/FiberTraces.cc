@@ -362,22 +362,17 @@ namespace pfsDRPStella = pfs::drp::stella;
       message += std::string(")");
       throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
     }
-    for (auto itRow = _trace->getVariance()->getArray().begin(); itRow != _trace->getVariance()->getArray().end(); ++itRow){
-      for (auto itCol = itRow->begin(); itCol != itRow->end(); ++itCol){
-        if (*itCol < 0.00000001)
-          *itCol = 1.;
-      }
-    }
+    ndarray::Array<VarianceT, 2, 1> variance = math::where(_trace->getVariance()->getArray(),
+                                                           "<",
+                                                           VarianceT(1.0),
+                                                           VarianceT(1.0),
+                                                           _trace->getVariance()->getArray());
 
-    ndarray::Array<unsigned short, 2, 1> US_A2_MaskArray = ndarray::allocate(_trace->getImage()->getArray().getShape());
-    for (int i_row = 0; i_row < _trace->getHeight(); ++i_row){
-      for (int i_col = 0; i_col < _trace->getWidth(); ++i_col){
-        if (_trace->getMask()->getArray()[i_row][i_col] == 0)
-          US_A2_MaskArray[i_row][i_col] = 1;
-        else
-          US_A2_MaskArray[i_row][i_col] = 0;
-      }
-    }
+    ndarray::Array<MaskT, 2, 1> US_A2_MaskArray = math::where(_trace->getMask()->getArray(),
+                                                              "==",
+                                                               MaskT(0),
+                                                               MaskT(1),
+                                                               MaskT(0));
     #ifdef __DEBUG_EXTRACTFROMPROFILE__
       cout << "US_A2_MaskArray = " << US_A2_MaskArray << endl;
     #endif
@@ -392,7 +387,7 @@ namespace pfsDRPStella = pfs::drp::stella;
     ndarray::Array<ImageT, 2, 1> D_A2_ErrArray = ndarray::allocate(_trace->getImage()->getArray().getShape());
     for (int i_row = 0; i_row < _trace->getHeight(); ++i_row){
       for (int i_col = 0; i_col < _trace->getWidth(); ++i_col){
-        D_A2_ErrArray[i_row][i_col] = ImageT(sqrt(_trace->getVariance()->getArray()[i_row][i_col]));
+        D_A2_ErrArray[i_row][i_col] = ImageT(sqrt(variance[i_row][i_col]));
       }
     }
     #ifdef __DEBUG_EXTRACTFROMPROFILE__
