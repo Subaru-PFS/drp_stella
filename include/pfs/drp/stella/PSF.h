@@ -3,30 +3,23 @@
 #ifndef __PFS_DRP_STELLA_PSF_H__
 #define __PFS_DRP_STELLA_PSF_H__
 
-#include <vector>
 #include <iostream>
-#include <cassert>
-#include "lsst/base.h"
-#include "lsst/afw/image/Image.h"
-#include "lsst/afw/geom.h"
-#include "lsst/afw/image/MaskedImage.h"
-#include "lsst/pex/config.h"
-#include "lsst/pex/exceptions/Exception.h"
-#include "Controls.h"
-#include "utils/Utils.h"
-#include "math/Math.h"
-#include "math/LinearAlgebra3D.h"
-#include "math/SurfaceFitting.h"
+#include <limits>
+#include <vector>
+
 #include "cmpfit-1.2/MPFitting_ndarray.h"
+#include "Controls.h"
 #include "FiberTraces.h"
-#include "Spectra.h"
-#include "boost/make_shared.hpp"
-#include "boost/numeric/ublas/matrix.hpp"
+#include "lsst/afw/image.h"
+#include "lsst/pex/exceptions/Exception.h"
+#include "math/Math.h"
+#include "math/SurfaceFitting.h"
 #include "ndarray/eigen.h"
+#include "Spectra.h"
+#include "utils/Utils.h"
 
 #define __DEBUGDIR__ ""
 
-namespace afwGeom = lsst::afw::geom;
 namespace afwImage = lsst::afw::image;
 namespace pexExcept = lsst::pex::exceptions;
 

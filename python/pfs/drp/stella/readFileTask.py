@@ -1,13 +1,14 @@
 #!/usr/bin/env python
 import numpy as np
+
 from lsst.pipe.base import Task
 import lsst.pex.config as pexConfig
 
 class ReadFileConfig(pexConfig.Config):
-        dType = pexConfig.Field(
-            doc = "data type to be read",
-            dtype = str,
-            default = "S120")
+    dType = pexConfig.Field(
+        doc = "data type to be read",
+        dtype = str,
+        default = "S120")
 
 class ReadFileTask(Task):
     ConfigClass = ReadFileConfig

@@ -2,12 +2,15 @@
 #define __PFS_DRP_STELLA_CONTROLS_H__
 
 #include <vector>
+
 #include "lsst/base.h"
 #include "lsst/pex/config.h"
 #include "ndarray.h"
 
 #define stringify( name ) # name
+
 using namespace std;
+
 namespace pfs { namespace drp { namespace stella {
 
 /**

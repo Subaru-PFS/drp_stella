@@ -5,11 +5,12 @@ Integration test for reduceArc.py and reduceArcRefSpec.py
 Run with:
    python testDRP.py
 """
-import unittest
 import os
+import subprocess
+import unittest
+
 import lsst.utils
 import lsst.utils.tests as tests
-import subprocess
 
 class testDRPTestCase(tests.TestCase):
     """A test case for trying out the PFS DRP"""

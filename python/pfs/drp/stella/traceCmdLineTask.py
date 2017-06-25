@@ -1,7 +1,4 @@
-from lsst.pex.config import Config, Field, DictField, ListField, ConfigurableField
-import lsst.pex.exceptions
-from lsst.pipe.base import Task, Struct, ArgumentParser
-import lsst.afw.image as afwImage
+from lsst.pipe.base import ArgumentParser
 
 class TraceArgumentParser(ArgumentParser):
     """Argument parser to support tracing spectra"""

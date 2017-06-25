@@ -1,17 +1,17 @@
 import os
 import sys
 
-import pfs.drp.stella.extractSpectraTask as esTask
-import pfs.drp.stella as drpStella
-from pfs.drp.stella.utils import makeFiberTraceSet
+from astropy.io import fits as pyfits
+import numpy as np
+
 import lsst.log as log
-from lsst.utils import getPackageDir
 from lsst.pex.config import Config, Field
 from lsst.pipe.base import Struct, TaskRunner, ArgumentParser, CmdLineTask
-import numpy as np
-from astropy.io import fits as pyfits
+from lsst.utils import getPackageDir
+import pfs.drp.stella as drpStella
 from pfs.drp.stella.datamodelIO import spectrumSetToPfsArm, PfsArmIO
-import traceback
+import pfs.drp.stella.extractSpectraTask as esTask
+from pfs.drp.stella.utils import makeFiberTraceSet
 
 class ReduceArcConfig(Config):
     """Configuration for reducing arc images"""

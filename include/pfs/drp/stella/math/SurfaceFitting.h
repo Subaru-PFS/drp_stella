@@ -1,27 +1,26 @@
 #ifndef __PFS_DRP_STELLA_MATH_SURFACEFITTING_H__
 #define __PFS_DRP_STELLA_MATH_SURFACEFITTING_H__
 
-#include <vector>
 #include <iostream>
-#include <cmath>
-#include <cstdio>
+#include <vector>
+
 #include "boost/numeric/ublas/matrix.hpp"
-#include "boost/numeric/ublas/matrix_proxy.hpp"
-#include "lsst/base.h"
-#include "lsst/afw/geom.h"
-#include "lsst/afw/image/MaskedImage.h"
-#include "lsst/pex/config.h"
-#include "../utils/Utils.h"
+#include <Eigen/LU>
+#include <Eigen/QR>
+
 #include "../Controls.h"
-#include "Math.h"
+#include "lsst/pex/exceptions/Exception.h"
 #include "ndarray.h"
 #include "ndarray/eigen.h"
+#include "ndarray/eigen_fwd.h"
+#include "../utils/Utils.h"
 
-#include "LinearAlgebra3D.h"
+/// constants
+#define CONST_PI 3.141592653589793238462643383280    /* pi */
 
-namespace afwGeom = lsst::afw::geom;
-namespace afwImage = lsst::afw::image;
+namespace pexExcept = lsst::pex::exceptions;
 namespace pfsDRPStella = pfs::drp::stella;
+
 using namespace std;
 
 namespace pfs { namespace drp { namespace stella {

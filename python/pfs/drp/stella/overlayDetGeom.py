@@ -1,10 +1,11 @@
 #!/usr/bin/env python
 import argparse
-import lsst.afw.table
-import lsst.afw.cameraGeom as camGeom
-import lsst.afw.cameraGeom.utils as camGeomUtils
-import numpy
+
 import matplotlib.pyplot as pyplot
+import numpy
+
+import lsst.afw.cameraGeom.utils as camGeomUtils
+import lsst.afw.table
 import lsst.daf.persistence as dafPersist
 
 def main(rootDir, visit, arm, ccd, fitsFileName):

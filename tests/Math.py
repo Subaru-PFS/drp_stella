@@ -9,7 +9,9 @@ or
    >>> import Math; Math.run()
 """
 import unittest
+
 import numpy as np
+
 import lsst.utils.tests as tests
 import pfs.drp.stella as drpStella
 

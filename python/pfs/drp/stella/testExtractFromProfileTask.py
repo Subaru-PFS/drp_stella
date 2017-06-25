@@ -1,9 +1,9 @@
 #!/usr/bin/env python
 
-import lsst.afw.image                                 as afwImage
+import lsst.afw.image as afwImage
 import pfs.drp.stella.createFlatFiberTraceProfileTask as cfftpTask
-import pfs.drp.stella.findAndTraceAperturesTask       as fataTask
-import pfs.drp.stella.extractFromProfileTask          as efpTask
+import pfs.drp.stella.extractFromProfileTask as efpTask
+import pfs.drp.stella.findAndTraceAperturesTask as fataTask
 
 expFlat = afwImage.ExposureF("/home/azuri/spectra/pfs/2014-10-14/IR-23-0-sampledFlatx2-nonoise.fits")
 expSpec = afwImage.ExposureF("/home/azuri/spectra/pfs/2014-10-14/IR-23-0-sampledFlatx2.fits")

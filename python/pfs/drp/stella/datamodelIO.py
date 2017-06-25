@@ -1,6 +1,8 @@
 import os
 import re
+
 import numpy as np
+
 from pfs.datamodel.pfsArm import PfsArm
 from pfs.datamodel.pfsConfig import PfsConfig
 from pfs.datamodel.pfsFiberTrace import PfsFiberTrace
