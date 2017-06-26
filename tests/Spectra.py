@@ -75,326 +75,316 @@ class SpectraTestCase(tests.TestCase):
         del self.maxRMS
 
     def testSpectrumConstructors(self):
-        if True:
-            # Test that we can create a Spectrum with the standard constructor
-            spec = drpStella.SpectrumF()
-            self.assertEqual(spec.getLength(), 0)
-            self.assertEqual(spec.getITrace(), 0)
+        # Test that we can create a Spectrum with the standard constructor
+        spec = drpStella.SpectrumF()
+        self.assertEqual(spec.getLength(), 0)
+        self.assertEqual(spec.getITrace(), 0)
 
-            length = 10
-            iTrace = 2
-            spec = drpStella.SpectrumF(length, iTrace)
-            self.assertEqual(spec.getLength(), length)
-            self.assertEqual(spec.getITrace(), iTrace)
+        length = 10
+        iTrace = 2
+        spec = drpStella.SpectrumF(length, iTrace)
+        self.assertEqual(spec.getLength(), length)
+        self.assertEqual(spec.getITrace(), iTrace)
 
-            # Test copy constructor
-            specCopy = drpStella.SpectrumF(spec)
-            self.assertEqual(specCopy.getLength(), length)
-            self.assertEqual(specCopy.getITrace(), iTrace)
+        # Test copy constructor
+        specCopy = drpStella.SpectrumF(spec)
+        self.assertEqual(specCopy.getLength(), length)
+        self.assertEqual(specCopy.getITrace(), iTrace)
 
     def testSpectrumMethods(self):
-        if True:
-            # Test getSpectrum
-            size = 100
-            spec = drpStella.SpectrumF(size)
-            vec = spec.getSpectrum()
-            self.assertEqual(vec.shape[0], size)
-            self.assertEqual(spec.getSpectrum().shape[0], size)
+        # Test getSpectrum
+        size = 100
+        spec = drpStella.SpectrumF(size)
+        vec = spec.getSpectrum()
+        self.assertEqual(vec.shape[0], size)
+        self.assertEqual(spec.getSpectrum().shape[0], size)
 
-            # Test setSpectrum
-            # Test that we can assign a spectrum of the correct length
-            vecf = drpStella.indGenNdArrF(size)
-            self.assertTrue(spec.setSpectrum(vecf))
-            self.assertEqual(spec.getSpectrum()[3], vecf[3])
+        # Test setSpectrum
+        # Test that we can assign a spectrum of the correct length
+        vecf = drpStella.indGenNdArrF(size)
+        self.assertTrue(spec.setSpectrum(vecf))
+        self.assertEqual(spec.getSpectrum()[3], vecf[3])
 
-            # Test that we can't assign a spectrum of the wrong length
-            vecf = drpStella.indGenNdArrF(size+1)
-            try:
-                spec.setSpectrum(vecf)
-            except:
-                e = sys.exc_info()[1]
-                message = str.split(e.message, "\n")
-                expected = "pfs::drp::stella::Spectrum::setSpectrum: ERROR: spectrum->size()="+str(vecf.shape[0])+" != _length="+str(spec.getLength())
-                self.assertEqual(message[0],expected)
-            self.assertEqual(spec.getSpectrum().shape[0], size)
+        # Test that we can't assign a spectrum of the wrong length
+        vecf = drpStella.indGenNdArrF(size+1)
+        try:
+            spec.setSpectrum(vecf)
+        except:
+            e = sys.exc_info()[1]
+            message = str.split(e.message, "\n")
+            expected = "pfs::drp::stella::Spectrum::setSpectrum: ERROR: spectrum->size()="+str(vecf.shape[0])+" != _length="+str(spec.getLength())
+            self.assertEqual(message[0],expected)
+        self.assertEqual(spec.getSpectrum().shape[0], size)
 
-            # Test getVariance
-            vec = spec.getVariance()
-            self.assertEqual(vec.shape[0], size)
+        # Test getVariance
+        vec = spec.getVariance()
+        self.assertEqual(vec.shape[0], size)
 
-            # Test setVariance
-            # Test that we can assign a variance vector of the correct length
-            vecf = drpStella.indGenNdArrF(size)
-            self.assertTrue(spec.setVariance(vecf))
-            self.assertEqual(spec.getVariance()[3], vecf[3])
+        # Test setVariance
+        # Test that we can assign a variance vector of the correct length
+        vecf = drpStella.indGenNdArrF(size)
+        self.assertTrue(spec.setVariance(vecf))
+        self.assertEqual(spec.getVariance()[3], vecf[3])
 
-            # Test that we can't assign a variance vector of the wrong length
-            vecf = drpStella.indGenNdArrF(size+1)
-            try:
-                self.assertFalse(spec.setVariance(vecf))
-            except:
-                e = sys.exc_info()[1]
-                message = str.split(e.message, "\n")
-                expected = "pfs::drp::stella::Spectrum::setVariance: ERROR: variance->size()="+str(vecf.shape[0])+" != _length="+str(spec.getLength())
-                self.assertEqual(message[0],expected)
-            self.assertEqual(spec.getVariance().shape[0], size)
+        # Test that we can't assign a variance vector of the wrong length
+        vecf = drpStella.indGenNdArrF(size+1)
+        try:
+            self.assertFalse(spec.setVariance(vecf))
+        except:
+            e = sys.exc_info()[1]
+            message = str.split(e.message, "\n")
+            expected = "pfs::drp::stella::Spectrum::setVariance: ERROR: variance->size()="+str(vecf.shape[0])+" != _length="+str(spec.getLength())
+            self.assertEqual(message[0],expected)
+        self.assertEqual(spec.getVariance().shape[0], size)
 
-            # Test getWavelength
-            vec = spec.getWavelength()
-            self.assertEqual(vec.shape[0], size)
+        # Test getWavelength
+        vec = spec.getWavelength()
+        self.assertEqual(vec.shape[0], size)
 
-            # Test setWavelength
-            # Test that we can assign a wavelength vector of the correct length
-            vecf = drpStella.indGenNdArrF(size)
-            self.assertTrue(spec.setWavelength(vecf))
-            self.assertEqual(spec.getWavelength()[3], vecf[3])
+        # Test setWavelength
+        # Test that we can assign a wavelength vector of the correct length
+        vecf = drpStella.indGenNdArrF(size)
+        self.assertTrue(spec.setWavelength(vecf))
+        self.assertEqual(spec.getWavelength()[3], vecf[3])
 
-            # Test that we can't assign a wavelength vector of the wrong length
-            vecf = drpStella.indGenNdArrF(size+1)
-            try:
-                self.assertFalse(spec.setWavelength(vecf))
-            except:
-                e = sys.exc_info()[1]
-                message = str.split(e.message, "\n")
-                expected = "pfsDRPStella::Spectrum::setWavelength: ERROR: wavelength->size()="+str(vecf.shape[0])+" != _length="+str(spec.getLength())
-                self.assertEqual(message[0],expected)
-            self.assertEqual(spec.getWavelength().shape[0], size)
+        # Test that we can't assign a wavelength vector of the wrong length
+        vecf = drpStella.indGenNdArrF(size+1)
+        try:
+            self.assertFalse(spec.setWavelength(vecf))
+        except:
+            e = sys.exc_info()[1]
+            message = str.split(e.message, "\n")
+            expected = "pfsDRPStella::Spectrum::setWavelength: ERROR: wavelength->size()="+str(vecf.shape[0])+" != _length="+str(spec.getLength())
+            self.assertEqual(message[0],expected)
+        self.assertEqual(spec.getWavelength().shape[0], size)
 
-            # Test getMask
-            vec = spec.getMask()
-            self.assertEqual(vec.getWidth(), size)
+        # Test getMask
+        vec = spec.getMask()
+        self.assertEqual(vec.getWidth(), size)
 
-            # Test setMask
-            # Test that we can assign a mask vector of the correct length
-            vecf = afwImage.MaskU(size, 1)
-            self.assertTrue(spec.setMask(vecf))
+        # Test setMask
+        # Test that we can assign a mask vector of the correct length
+        vecf = afwImage.MaskU(size, 1)
+        self.assertTrue(spec.setMask(vecf))
 
-            # Test that we can't assign a mask vector of the wrong length
-            vecus = afwImage.MaskU(size+1, 1)
-            try:
-                self.assertFalse(spec.setMask(vecus))
-            except:
-                e = sys.exc_info()[1]
-                message = str.split(e.message, "\n")
-                expected = "pfs::drp::stella::Spectrum::setMask: ERROR: mask.getWidth()="+str(vecus.getWidth())+" != _length="+str(spec.getLength())
-                self.assertEqual(message[0],expected)
-            self.assertEqual(spec.getMask().getWidth(), size)
+        # Test that we can't assign a mask vector of the wrong length
+        vecus = afwImage.MaskU(size+1, 1)
+        try:
+            self.assertFalse(spec.setMask(vecus))
+        except:
+            e = sys.exc_info()[1]
+            message = str.split(e.message, "\n")
+            expected = "pfs::drp::stella::Spectrum::setMask: ERROR: mask.getWidth()="+str(vecus.getWidth())+" != _length="+str(spec.getLength())
+            self.assertEqual(message[0],expected)
+        self.assertEqual(spec.getMask().getWidth(), size)
 
-            if True:
-                # Test setLength
-                # If newLength < oldLength, vectors are supposed to be cut off,
-                # otherwise ZEROs are appended to the end of the vectors (last
-                # wavelength value for wavelength vector)
-                # Test same size
-                vecf = drpStella.indGenNdArrF(size)
-                vecus = drpStella.indGenNdArrUS(size)
-                self.assertTrue(spec.setLength(size))
-                self.assertEqual(spec.getLength(), size)
-                self.assertEqual(spec.getSpectrum()[size-1], vecf[size-1])
-                self.assertEqual(spec.getSpectrum().shape[0], size)
-                self.assertEqual(spec.getVariance().shape[0], size)
-                self.assertEqual(spec.getVariance()[size-1], vecf[size-1])
-                self.assertEqual(spec.getMask().getWidth(), size)
-                self.assertEqual(spec.getWavelength().shape[0], size)
-                self.assertEqual(spec.getWavelength()[size-1], vecf[size-1])
+        # Test setLength
+        # If newLength < oldLength, vectors are supposed to be cut off,
+        # otherwise ZEROs are appended to the end of the vectors (last
+        # wavelength value for wavelength vector)
+        # Test same size
+        vecf = drpStella.indGenNdArrF(size)
+        vecus = drpStella.indGenNdArrUS(size)
+        self.assertTrue(spec.setLength(size))
+        self.assertEqual(spec.getLength(), size)
+        self.assertEqual(spec.getSpectrum()[size-1], vecf[size-1])
+        self.assertEqual(spec.getSpectrum().shape[0], size)
+        self.assertEqual(spec.getVariance().shape[0], size)
+        self.assertEqual(spec.getVariance()[size-1], vecf[size-1])
+        self.assertEqual(spec.getMask().getWidth(), size)
+        self.assertEqual(spec.getWavelength().shape[0], size)
+        self.assertEqual(spec.getWavelength()[size-1], vecf[size-1])
 
-            if True:
-                # Test longer size
-                self.assertTrue(spec.setLength(size+1))
-            if True:
-                self.assertEqual(spec.getLength(), size+1)
-                self.assertEqual(spec.getSpectrum()[size], 0)
-                self.assertEqual(spec.getSpectrum().shape[0], size+1)
-                self.assertEqual(spec.getVariance().shape[0], size+1)
-                self.assertEqual(spec.getVariance()[size], 0)
-                self.assertEqual(spec.getMask().getWidth(), size+1)
-                self.assertEqual(spec.getWavelength().shape[0], size+1)
-                self.assertAlmostEqual(spec.getWavelength()[size], 0.)
+        # Test longer size
+        self.assertTrue(spec.setLength(size+1))
+        self.assertEqual(spec.getLength(), size+1)
+        self.assertEqual(spec.getSpectrum()[size], 0)
+        self.assertEqual(spec.getSpectrum().shape[0], size+1)
+        self.assertEqual(spec.getVariance().shape[0], size+1)
+        self.assertEqual(spec.getVariance()[size], 0)
+        self.assertEqual(spec.getMask().getWidth(), size+1)
+        self.assertEqual(spec.getWavelength().shape[0], size+1)
+        self.assertAlmostEqual(spec.getWavelength()[size], 0.)
 
-            if True:
-                # Test shorter size
-                self.assertTrue(spec.setLength(size-1))
-                self.assertEqual(spec.getLength(), size-1)
-                self.assertEqual(spec.getSpectrum()[size-2], vecf[size-2])
-                self.assertEqual(spec.getSpectrum().shape[0], size-1)
-                self.assertEqual(spec.getVariance().shape[0], size-1)
-                self.assertEqual(spec.getVariance()[size-2], vecf[size-2])
-                self.assertEqual(spec.getMask().getWidth(), size-1)
-                self.assertEqual(spec.getWavelength().shape[0], size-1)
-                self.assertEqual(spec.getWavelength()[size-2], vecf[size-2])
+        # Test shorter size
+        self.assertTrue(spec.setLength(size-1))
+        self.assertEqual(spec.getLength(), size-1)
+        self.assertEqual(spec.getSpectrum()[size-2], vecf[size-2])
+        self.assertEqual(spec.getSpectrum().shape[0], size-1)
+        self.assertEqual(spec.getVariance().shape[0], size-1)
+        self.assertEqual(spec.getVariance()[size-2], vecf[size-2])
+        self.assertEqual(spec.getMask().getWidth(), size-1)
+        self.assertEqual(spec.getWavelength().shape[0], size-1)
+        self.assertEqual(spec.getWavelength()[size-2], vecf[size-2])
 
-            # Test get/setITrace
-            self.assertEqual(spec.getITrace(), 0)
-            spec.setITrace(10)
-            self.assertEqual(spec.getITrace(), 10)
+        # Test get/setITrace
+        self.assertEqual(spec.getITrace(), 0)
+        spec.setITrace(10)
+        self.assertEqual(spec.getITrace(), 10)
 
-            # Test isWaveLengthSet
-            self.assertFalse(spec.isWavelengthSet())
+        # Test isWaveLengthSet
+        self.assertFalse(spec.isWavelengthSet())
 
     def testSpectrumSetConstructors(self):
-        if True:
-            # Test SpectrumSetConstructors
-            # Test Standard Constructor
-            specSet = drpStella.SpectrumSetF()
-            self.assertEqual(specSet.size(), 0)
+        # Test SpectrumSetConstructors
+        # Test Standard Constructor
+        specSet = drpStella.SpectrumSetF()
+        self.assertEqual(specSet.size(), 0)
 
-            size = 3
-            specSet = drpStella.SpectrumSetF(size)
-            self.assertEqual(specSet.size(), size)
-            for i in range(size):
-                self.assertEqual(specSet.getSpectrum(i).getSpectrum().shape[0], 0)
+        size = 3
+        specSet = drpStella.SpectrumSetF(size)
+        self.assertEqual(specSet.size(), size)
+        for i in range(size):
+            self.assertEqual(specSet.getSpectrum(i).getSpectrum().shape[0], 0)
 
-            length = 33
-            specSet = drpStella.SpectrumSetF(size, length)
-            self.assertEqual(specSet.size(), size)
-            for i in range(size):
-                self.assertEqual(specSet.getSpectrum(i).getSpectrum().shape[0], length)
+        length = 33
+        specSet = drpStella.SpectrumSetF(size, length)
+        self.assertEqual(specSet.size(), size)
+        for i in range(size):
+            self.assertEqual(specSet.getSpectrum(i).getSpectrum().shape[0], length)
 
-            # Test copy constructor
-            specSetCopy = drpStella.SpectrumSetF(specSet)
-            self.assertEqual(specSetCopy.size(), specSet.size())
-            for i in range(specSet.size()):
-                self.assertEqual(specSetCopy.getSpectrum(i).getLength(), specSet.getSpectrum(i).getLength())
+        # Test copy constructor
+        specSetCopy = drpStella.SpectrumSetF(specSet)
+        self.assertEqual(specSetCopy.size(), specSet.size())
+        for i in range(specSet.size()):
+            self.assertEqual(specSetCopy.getSpectrum(i).getLength(), specSet.getSpectrum(i).getLength())
 
-            # Test constructor from vector of spectra
-            specSetV = drpStella.SpectrumSetF(specSet.getSpectra())
-            self.assertEqual(specSet.size(), specSetV.size())
-            for i in range(specSet.size()):
-                self.assertEqual(specSetV.getSpectrum(i).getITrace(), i)
+        # Test constructor from vector of spectra
+        specSetV = drpStella.SpectrumSetF(specSet.getSpectra())
+        self.assertEqual(specSet.size(), specSetV.size())
+        for i in range(specSet.size()):
+            self.assertEqual(specSetV.getSpectrum(i).getITrace(), i)
 
     def testExtractTask(self):
-        if True:
-            fiberTraceSet = drpStella.findAndTraceAperturesF(self.flat.getMaskedImage(), self.ftffc)
+        fiberTraceSet = drpStella.findAndTraceAperturesF(self.flat.getMaskedImage(), self.ftffc)
 
-            """ read wavelength file """
-            hdulist = pyfits.open(self.wLenFile)
-            tbdata = hdulist[1].data
-            traceIdsTemp = np.ndarray(shape=(len(tbdata)), dtype='int')
-            xCenters = np.ndarray(shape=(len(tbdata)), dtype='float32')
-            yCenters = np.ndarray(shape=(len(tbdata)), dtype='float32')
-            wavelengths = np.ndarray(shape=(len(tbdata)), dtype='float32')
-            traceIdsTemp[:] = tbdata[:]['fiberNum']
-            traceIds = traceIdsTemp.astype('int32')
-            wavelengths[:] = tbdata[:]['pixelWave']
-            xCenters[:] = tbdata[:]['xc']
-            yCenters[:] = tbdata[:]['yc']
+        """ read wavelength file """
+        hdulist = pyfits.open(self.wLenFile)
+        tbdata = hdulist[1].data
+        traceIdsTemp = np.ndarray(shape=(len(tbdata)), dtype='int')
+        xCenters = np.ndarray(shape=(len(tbdata)), dtype='float32')
+        yCenters = np.ndarray(shape=(len(tbdata)), dtype='float32')
+        wavelengths = np.ndarray(shape=(len(tbdata)), dtype='float32')
+        traceIdsTemp[:] = tbdata[:]['fiberNum']
+        traceIds = traceIdsTemp.astype('int32')
+        wavelengths[:] = tbdata[:]['pixelWave']
+        xCenters[:] = tbdata[:]['xc']
+        yCenters[:] = tbdata[:]['yc']
 
-            """ assign trace number to fiberTraceSet """
-            drpStella.assignITrace( fiberTraceSet, traceIds, xCenters )
+        """ assign trace number to fiberTraceSet """
+        drpStella.assignITrace( fiberTraceSet, traceIds, xCenters )
 
-            self.assertEqual(fiberTraceSet.size(), self.nFiberTraces)
-            myProfileTask = cfftpTask.CreateFlatFiberTraceProfileTask()
-            myProfileTask.run(fiberTraceSet)
+        self.assertEqual(fiberTraceSet.size(), self.nFiberTraces)
+        myProfileTask = cfftpTask.CreateFlatFiberTraceProfileTask()
+        myProfileTask.run(fiberTraceSet)
 
-            myExtractTask = esTask.ExtractSpectraTask()
+        myExtractTask = esTask.ExtractSpectraTask()
 
-            # test that we can extract all FiberTraces
-            aperturesToExtract = [-1]
+        # test that we can extract all FiberTraces
+        aperturesToExtract = [-1]
+        spectrumSetFromProfile = myExtractTask.run(self.arc, fiberTraceSet, aperturesToExtract)
+        self.assertEqual(spectrumSetFromProfile.size(), self.nFiberTraces)
+        for i in range(spectrumSetFromProfile.size()):
+            self.assertEqual(spectrumSetFromProfile.getSpectrum(i).getLength(), fiberTraceSet.getFiberTrace(i).getHeight())
+            self.assertEqual(spectrumSetFromProfile.getSpectrum(i).getITrace(),
+                             fiberTraceSet.getFiberTrace(i).getITrace())
+
+        # test that we can extract individual FiberTraces
+        for i in range(fiberTraceSet.size()):
+            aperturesToExtract = [i]
             spectrumSetFromProfile = myExtractTask.run(self.arc, fiberTraceSet, aperturesToExtract)
-            self.assertEqual(spectrumSetFromProfile.size(), self.nFiberTraces)
-            for i in range(spectrumSetFromProfile.size()):
-                self.assertEqual(spectrumSetFromProfile.getSpectrum(i).getLength(), fiberTraceSet.getFiberTrace(i).getHeight())
-                self.assertEqual(spectrumSetFromProfile.getSpectrum(i).getITrace(),
-                                 fiberTraceSet.getFiberTrace(i).getITrace())
+            self.assertEqual(spectrumSetFromProfile.size(), 1)
+            self.assertEqual(spectrumSetFromProfile.getSpectrum(0).getLength(), fiberTraceSet.getFiberTrace(i).getHeight())
+            self.assertEqual(spectrumSetFromProfile.getSpectrum(0).getITrace(),
+                             fiberTraceSet.getFiberTrace(i).getITrace())
 
-            # test that we can extract individual FiberTraces
-            for i in range(fiberTraceSet.size()):
-                aperturesToExtract = [i]
-                spectrumSetFromProfile = myExtractTask.run(self.arc, fiberTraceSet, aperturesToExtract)
-                self.assertEqual(spectrumSetFromProfile.size(), 1)
-                self.assertEqual(spectrumSetFromProfile.getSpectrum(0).getLength(), fiberTraceSet.getFiberTrace(i).getHeight())
-                self.assertEqual(spectrumSetFromProfile.getSpectrum(0).getITrace(),
-                                 fiberTraceSet.getFiberTrace(i).getITrace())
-
-            # test that we can extract 2 individual FiberTraces
-            for i in range(fiberTraceSet.size()-1):
-                aperturesToExtract = [i, i+1]
-                spectrumSetFromProfile = myExtractTask.run(self.arc, fiberTraceSet, aperturesToExtract)
-                self.assertEqual(spectrumSetFromProfile.size(), 2)
-                self.assertEqual(spectrumSetFromProfile.getSpectrum(0).getLength(), fiberTraceSet.getFiberTrace(i).getHeight())
-                self.assertEqual(spectrumSetFromProfile.getSpectrum(1).getLength(), fiberTraceSet.getFiberTrace(i+1).getHeight())
-                self.assertEqual(spectrumSetFromProfile.getSpectrum(0).getITrace(),
-                                 fiberTraceSet.getFiberTrace(i).getITrace())
-                self.assertEqual(spectrumSetFromProfile.getSpectrum(1).getITrace(),
-                                 fiberTraceSet.getFiberTrace(i+1).getITrace())
-
+        # test that we can extract 2 individual FiberTraces
+        for i in range(fiberTraceSet.size()-1):
+            aperturesToExtract = [i, i+1]
+            spectrumSetFromProfile = myExtractTask.run(self.arc, fiberTraceSet, aperturesToExtract)
+            self.assertEqual(spectrumSetFromProfile.size(), 2)
+            self.assertEqual(spectrumSetFromProfile.getSpectrum(0).getLength(), fiberTraceSet.getFiberTrace(i).getHeight())
+            self.assertEqual(spectrumSetFromProfile.getSpectrum(1).getLength(), fiberTraceSet.getFiberTrace(i+1).getHeight())
+            self.assertEqual(spectrumSetFromProfile.getSpectrum(0).getITrace(),
+                             fiberTraceSet.getFiberTrace(i).getITrace())
+            self.assertEqual(spectrumSetFromProfile.getSpectrum(1).getITrace(),
+                             fiberTraceSet.getFiberTrace(i+1).getITrace())
 
     def testSpectrumSetAddSetErase(self):
-        if True:
-            size = 3
-            length = 100
-            specSet = drpStella.SpectrumSetF(size, length)
-            spec = drpStella.SpectrumF(length)
-            specNew = drpStella.SpectrumF(length+1)
+        size = 3
+        length = 100
+        specSet = drpStella.SpectrumSetF(size, length)
+        spec = drpStella.SpectrumF(length)
+        specNew = drpStella.SpectrumF(length+1)
 
-            # Test that we cannot set a spectrum outside the limits 0 <= pos <= size
-            try:
-                specSet.setSpectrum(-1, specNew)
-            except:
-                e = sys.exc_info()[1]
-                message = str.split(e.message, "\n")
-                expected = "Wrong number or type of arguments for overloaded function 'SpectrumSetF_setSpectrum'."
-                self.assertEqual(message[0],expected)
-            try:
-                specSet.setSpectrum(size+1, specNew)
-            except:
-                e = sys.exc_info()[1]
-                message = str.split(e.message, "\n")
-                expected = "SpectrumSet::setSpectrum(i="+str(size+1)+"): ERROR: i > _spectra->size()="+str(size)
-                self.assertEqual(message[0],expected)
+        # Test that we cannot set a spectrum outside the limits 0 <= pos <= size
+        try:
+            specSet.setSpectrum(-1, specNew)
+        except:
+            e = sys.exc_info()[1]
+            message = str.split(e.message, "\n")
+            expected = "Wrong number or type of arguments for overloaded function 'SpectrumSetF_setSpectrum'."
+            self.assertEqual(message[0],expected)
+        try:
+            specSet.setSpectrum(size+1, specNew)
+        except:
+            e = sys.exc_info()[1]
+            message = str.split(e.message, "\n")
+            expected = "SpectrumSet::setSpectrum(i="+str(size+1)+"): ERROR: i > _spectra->size()="+str(size)
+            self.assertEqual(message[0],expected)
 
-            # Test that we can set/add a spectrum
-            self.assertTrue(specSet.setSpectrum(size-1, specNew))
-            self.assertEqual(specSet.size(), size)
-            self.assertTrue(specSet.setSpectrum(size, specNew))
-            self.assertEqual(specSet.size(), size+1)
+        # Test that we can set/add a spectrum
+        self.assertTrue(specSet.setSpectrum(size-1, specNew))
+        self.assertEqual(specSet.size(), size)
+        self.assertTrue(specSet.setSpectrum(size, specNew))
+        self.assertEqual(specSet.size(), size+1)
 
-            specSet.addSpectrum(specNew)
-            self.assertEqual(specSet.size(), size+2)
+        specSet.addSpectrum(specNew)
+        self.assertEqual(specSet.size(), size+2)
 
-            # Test that we can't erase spectra outside the limits
-            size = specSet.size()
-            try:
-                specSet.erase(size)
-            except:
-                e = sys.exc_info()[1]
-                message = str.split(e.message, "\n")
-                expected = "SpectrumSet::erase(iStart="+str(size)+", iEnd=0): ERROR: iStart >= _spectra->size()="+str(size)
-                self.assertEqual(message[0],expected)
+        # Test that we can't erase spectra outside the limits
+        size = specSet.size()
+        try:
+            specSet.erase(size)
+        except:
+            e = sys.exc_info()[1]
+            message = str.split(e.message, "\n")
+            expected = "SpectrumSet::erase(iStart="+str(size)+", iEnd=0): ERROR: iStart >= _spectra->size()="+str(size)
+            self.assertEqual(message[0],expected)
 
-            try:
-                specSet.erase(size-1, size)
-            except:
-                e = sys.exc_info()[1]
-                message = str.split(e.message, "\n")
-                expected = "SpectrumSet::erase(iStart="+str(size-1)+", iEnd="+str(size)+"): ERROR: iEnd >= _spectra->size()="+str(size)
-                self.assertEqual(message[0],expected)
+        try:
+            specSet.erase(size-1, size)
+        except:
+            e = sys.exc_info()[1]
+            message = str.split(e.message, "\n")
+            expected = "SpectrumSet::erase(iStart="+str(size-1)+", iEnd="+str(size)+"): ERROR: iEnd >= _spectra->size()="+str(size)
+            self.assertEqual(message[0],expected)
 
-            try:
-                specSet.erase(2, 1)
-            except:
-                e = sys.exc_info()[1]
-                message = str.split(e.message, "\n")
-                expected = "SpectrumSet::erase(iStart=2, iEnd=1): ERROR: iStart > iEnd"
-                self.assertEqual(message[0],expected)
+        try:
+            specSet.erase(2, 1)
+        except:
+            e = sys.exc_info()[1]
+            message = str.split(e.message, "\n")
+            expected = "SpectrumSet::erase(iStart=2, iEnd=1): ERROR: iStart > iEnd"
+            self.assertEqual(message[0],expected)
 
-            try:
-                specSet.erase(-1)
-            except:
-                e = sys.exc_info()[1]
-                message = str.split(e.message, "\n")
-                expected = "Wrong number or type of arguments for overloaded function 'SpectrumSetF_erase'."
-                self.assertEqual(message[0],expected)
+        try:
+            specSet.erase(-1)
+        except:
+            e = sys.exc_info()[1]
+            message = str.split(e.message, "\n")
+            expected = "Wrong number or type of arguments for overloaded function 'SpectrumSetF_erase'."
+            self.assertEqual(message[0],expected)
 
-            # Test that we CAN erase spectra inside the limits
-            self.assertTrue(specSet.erase(size-1))
-            self.assertEqual(specSet.size(), size-1)
+        # Test that we CAN erase spectra inside the limits
+        self.assertTrue(specSet.erase(size-1))
+        self.assertEqual(specSet.size(), size-1)
 
-            self.assertTrue(specSet.erase(0, 1))
-            self.assertEqual(specSet.size(), size-2)
+        self.assertTrue(specSet.erase(0, 1))
+        self.assertEqual(specSet.size(), size-2)
 
-            self.assertTrue(specSet.erase(0,2))
-            self.assertEqual(specSet.size(), size-4)
+        self.assertTrue(specSet.erase(0,2))
+        self.assertEqual(specSet.size(), size-4)
 
     def testGetSpectra(self):
         """test getSpectra"""
@@ -449,60 +439,58 @@ class SpectraTestCase(tests.TestCase):
                 self.assertTrue(np.all(np.fabs(mean - 1.0) < std))
 
     def testWavelengthCalibrationWithRefSpec(self):
-        if True:
-            log.setLevel("reduceArcRefSpecTask", log.FATAL)
+        log.setLevel("reduceArcRefSpecTask", log.FATAL)
 
-            myReduceArcTask = reduceArcRefSpecTask.ReduceArcRefSpecTask()
-            dataRefList = [ref for ref in self.butler.subset('postISRCCD',
-                                                             'visit',
-                                                             self.dataIdArc)]
-            spectrumSetFromProfile = myReduceArcTask.run(
-                dataRefList,
-                self.butler,
-                refSpec=self.refSpec,
-                lineList=self.lineList
-            )
+        myReduceArcTask = reduceArcRefSpecTask.ReduceArcRefSpecTask()
+        dataRefList = [ref for ref in self.butler.subset('postISRCCD',
+                                                         'visit',
+                                                         self.dataIdArc)]
+        spectrumSetFromProfile = myReduceArcTask.run(
+            dataRefList,
+            self.butler,
+            refSpec=self.refSpec,
+            lineList=self.lineList
+        )
 
-            for i in range(spectrumSetFromProfile.size()):
-                spec = spectrumSetFromProfile.getSpectrum(i)
+        for i in range(spectrumSetFromProfile.size()):
+            spec = spectrumSetFromProfile.getSpectrum(i)
 
-                # Check that wavelength solution is monotonic
-                wavelength = spec.getWavelength()
-                for j in range(spec.getLength()-1):
-                    self.assertLess(wavelength[j], wavelength[j+1])
+            # Check that wavelength solution is monotonic
+            wavelength = spec.getWavelength()
+            for j in range(spec.getLength()-1):
+                self.assertLess(wavelength[j], wavelength[j+1])
 
-                # Check wavelength range
-                self.assertGreater(wavelength[0], 3800)
-                self.assertLess(wavelength[spec.getLength()-1], 9800)
+            # Check wavelength range
+            self.assertGreater(wavelength[0], 3800)
+            self.assertLess(wavelength[spec.getLength()-1], 9800)
 
-                # Check RMS
-                self.assertGreater(spec.getWavelength()[0], 3800)
-                self.assertLess(spec.getDispRms(), self.maxRMS)
-                self.assertLess(spec.getDispRmsCheck(), self.maxRMS)
+            # Check RMS
+            self.assertGreater(spec.getWavelength()[0], 3800)
+            self.assertLess(spec.getDispRms(), self.maxRMS)
+            self.assertLess(spec.getDispRmsCheck(), self.maxRMS)
 
     def testWavelengthCalibrationWithoutRefSpec(self):
-        if True:
-            logger = log.Log.getLogger("reduceArcTask")
-            logger.setLevel(log.WARN)
-            myReduceArcTask = reduceArcTask.ReduceArcTask()
-            dataRefList = [ref for ref in self.butler.subset("postISRCCD", 'visit', self.dataIdArc)]
-            spectrumSetFromProfile = myReduceArcTask.run(dataRefList, self.butler, self.wLenFile, self.lineList)
+        logger = log.Log.getLogger("reduceArcTask")
+        logger.setLevel(log.WARN)
+        myReduceArcTask = reduceArcTask.ReduceArcTask()
+        dataRefList = [ref for ref in self.butler.subset("postISRCCD", 'visit', self.dataIdArc)]
+        spectrumSetFromProfile = myReduceArcTask.run(dataRefList, self.butler, self.wLenFile, self.lineList)
 
-            for i in range(spectrumSetFromProfile.size()):
-                spec = spectrumSetFromProfile.getSpectrum(i)
+        for i in range(spectrumSetFromProfile.size()):
+            spec = spectrumSetFromProfile.getSpectrum(i)
 
-                # Check that wavelength solution is monotonic
-                wavelength = spec.getWavelength()
-                for j in range(spec.getLength()-1):
-                    self.assertLess(wavelength[j], wavelength[j+1])
+            # Check that wavelength solution is monotonic
+            wavelength = spec.getWavelength()
+            for j in range(spec.getLength()-1):
+                self.assertLess(wavelength[j], wavelength[j+1])
 
-                # Check wavelength range
-                self.assertGreater(wavelength[0], 3800)
-                self.assertLess(wavelength[spec.getLength()-1], 9800)
+            # Check wavelength range
+            self.assertGreater(wavelength[0], 3800)
+            self.assertLess(wavelength[spec.getLength()-1], 9800)
 
-                # Check RMS
-                self.assertGreater(wavelength[0], 3800)
-                self.assertLess(spec.getDispRms(), self.maxRMS)
+            # Check RMS
+            self.assertGreater(wavelength[0], 3800)
+            self.assertLess(spec.getDispRms(), self.maxRMS)
 
     def testPolyFit(self):
         # This test is an integration test for <PolyFit> called by <identify>
