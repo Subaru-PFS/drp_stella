@@ -1,7 +1,10 @@
+from astropy.io import fits as pyfits
 import lsst.afw.image as afwImage
+import lsst.log as log
 import numpy as np
 from pfs.datamodel.pfsFiberTrace import PfsFiberTrace as pFT
 import pfs.drp.stella as drpStella
+from pfs.drp.stella.datamodelIO import spectrumSetToPfsArm, PfsArmIO
 
 def makeFiberTraceSet(pfsFiberTrace, maskedImage=None):
     if pfsFiberTrace.profiles is None or len(pfsFiberTrace.profiles) == 0:
@@ -128,3 +131,58 @@ def createPfsFiberTrace(dataId, fiberTraceSet, nRows):
         pfsFiberTrace.profiles.append(profOut)
 
     return pfsFiberTrace
+
+def readWavelengthFile(wLenFile):
+    """read wavelength file"""
+    hdulist = pyfits.open(wLenFile)
+    tbdata = hdulist[1].data
+    traceIdsTemp = np.ndarray(shape=(len(tbdata)), dtype='int')
+    xCenters = np.ndarray(shape=(len(tbdata)), dtype='float32')
+    wavelengths = np.ndarray(shape=(len(tbdata)), dtype='float32')
+    traceIdsTemp[:] = tbdata[:]['fiberNum']
+    traceIds = traceIdsTemp.astype('int32')
+    wavelengths[:] = tbdata[:]['pixelWave']
+    xCenters[:] = tbdata[:]['xc']
+    return [xCenters, wavelengths, traceIds]
+
+def readLineListFile(lineList):
+    """read line list"""
+    hdulist = pyfits.open(lineList)
+    tbdata = hdulist[1].data
+    lineListArr = np.ndarray(shape=(len(tbdata),2), dtype='float32')
+    lineListArr[:,0] = tbdata.field(0)
+    lineListArr[:,1] = tbdata.field(1)
+    return lineListArr
+
+def readReferenceSpectrum(refSpec):
+    """read reference Spectrum"""
+    hdulist = pyfits.open(refSpec)
+    tbdata = hdulist[1].data
+    refSpecArr = np.ndarray(shape=(len(tbdata)), dtype='float32')
+    refSpecArr[:] = tbdata.field(0)
+    return refSpecArr
+
+def writePfsArm(butler, arcExposure, spectrumSet, dataId):
+    """
+    Do the I/O using a trampoline object PfsArmIO (to avoid adding butler-related details
+    to the datamodel product)
+
+    This is a bit messy as we need to include the pfsConfig file in the pfsArm file
+    """
+    md = arcExposure.getMetadata().toDict()
+    key = "PFSCONFIGID"
+    if key in md:
+        pfsConfigId = md[key]
+    else:
+        log.log("writePfsArm",
+                log.WARN,
+                'No pfsConfigId is present in postISRCCD file for dataId %s' %
+                str(dataId.items()))
+        pfsConfigId = 0x0
+
+    pfsConfig = butler.get("pfsConfig", pfsConfigId=pfsConfigId, dateObs=dataId["dateObs"])
+
+    pfsArm = spectrumSetToPfsArm(pfsConfig, spectrumSet,
+                                 dataId["visit"], dataId["spectrograph"], dataId["arm"])
+    butler.put(PfsArmIO(pfsArm), 'pfsArm', dataId)
+

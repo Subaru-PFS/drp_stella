@@ -11,7 +11,8 @@ from lsst.utils import getPackageDir
 import pfs.drp.stella as drpStella
 from pfs.drp.stella.datamodelIO import spectrumSetToPfsArm, PfsArmIO
 import pfs.drp.stella.extractSpectraTask as esTask
-from pfs.drp.stella.utils import makeFiberTraceSet
+from pfs.drp.stella.utils import makeFiberTraceSet, readWavelengthFile
+from pfs.drp.stella.utils import readLineListFile, writePfsArm
 
 class ReduceArcConfig(Config):
     """Configuration for reducing arc images"""
@@ -76,6 +77,12 @@ class ReduceArcTask(CmdLineTask):
         self.log.debug('wLenFile = %s' % wLenFile)
         self.log.debug('lineList = %s' % lineList)
 
+        # read wavelength file
+        xCenters, wavelengths, traceIds = readWavelengthFile(wLenFile)
+
+        # read line list
+        lineListArr = readLineListFile(lineList)
+
         for arcRef in expRefList:
             self.log.debug('arcRef.dataId = %s' % arcRef.dataId)
             self.log.debug('arcRef = %s' % arcRef)
@@ -97,17 +104,6 @@ class ReduceArcTask(CmdLineTask):
             # optimally extract arc spectra
             self.log.info('extracting arc spectra')
 
-            # read wavelength file
-            hdulist = pyfits.open(wLenFile)
-            tbdata = hdulist[1].data
-            traceIdsTemp = np.ndarray(shape=(len(tbdata)), dtype='int')
-            xCenters = np.ndarray(shape=(len(tbdata)), dtype='float32')
-            wavelengths = np.ndarray(shape=(len(tbdata)), dtype='float32')
-            traceIdsTemp[:] = tbdata[:]['fiberNum']
-            traceIds = traceIdsTemp.astype('int32')
-            wavelengths[:] = tbdata[:]['pixelWave']
-            xCenters[:] = tbdata[:]['xc']
-
             # assign trace number to flatFiberTraceSet
             drpStella.assignITrace( flatFiberTraceSet, traceIds, xCenters )
             for i in range( flatFiberTraceSet.size() ):
@@ -116,13 +112,6 @@ class ReduceArcTask(CmdLineTask):
             myExtractTask = esTask.ExtractSpectraTask()
             aperturesToExtract = [-1]
             spectrumSetFromProfile = myExtractTask.run(arcExp, flatFiberTraceSet, aperturesToExtract)
-
-            # read line list
-            hdulist = pyfits.open(lineList)
-            tbdata = hdulist[1].data
-            lineListArr = np.ndarray(shape=(len(tbdata),2), dtype='float32')
-            lineListArr[:,0] = tbdata.field(0)
-            lineListArr[:,1] = tbdata.field(1)
 
             dispCorControl = drpStella.DispCorControl()
             dispCorControl.fittingFunction = self.config.function
@@ -192,26 +181,6 @@ class ReduceArcTask(CmdLineTask):
                 if not spectrumSetFromProfile.setSpectrum(i, spec):
                     raise RuntimeError('setSpectrum for spectrumSetFromProfile[%d] failed' % (i))
 
-            #
-            # Do the I/O using a trampoline object PfsArmIO (to avoid adding butler-related details
-            # to the datamodel product)
-            #
-            # This is a bit messy as we need to include the pfsConfig file in the pfsArm file
-            #
-            dataId = arcRef.dataId
+            writePfsArm(butler, arcExp, spectrumSetFromProfile, arcRef.dataId)
 
-            md = arcExp.getMetadata().toDict()
-            key = "PFSCONFIGID"
-            if key in md:
-                pfsConfigId = md[key]
-            else:
-                self.log.info('No pfsConfigId is present in postISRCCD file for dataId %s' %
-                              str(dataId.items()))
-                pfsConfigId = 0x0
-
-            pfsConfig = butler.get("pfsConfig", pfsConfigId=pfsConfigId, dateObs=dataId["dateObs"])
-
-            pfsArm = spectrumSetToPfsArm(pfsConfig, spectrumSetFromProfile,
-                                         dataId["visit"], dataId["spectrograph"], dataId["arm"])
-            butler.put(PfsArmIO(pfsArm), 'pfsArm', dataId)
         return spectrumSetFromProfile

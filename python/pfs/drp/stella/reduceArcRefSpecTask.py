@@ -1,6 +1,5 @@
 import os
 
-from astropy.io import fits as pyfits
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -8,9 +7,9 @@ from lsst.pex.config import Config, Field
 from lsst.pipe.base import Struct, TaskRunner, ArgumentParser, CmdLineTask
 from lsst.utils import getPackageDir
 import pfs.drp.stella as drpStella
-from pfs.drp.stella.datamodelIO import spectrumSetToPfsArm, PfsArmIO
 import pfs.drp.stella.extractSpectraTask as esTask
-from pfs.drp.stella.utils import makeFiberTraceSet
+from pfs.drp.stella.utils import makeFiberTraceSet, readLineListFile
+from pfs.drp.stella.utils import readReferenceSpectrum, writePfsArm
 
 class ReduceArcRefSpecConfig(Config):
     """Configuration for reducing arc images"""
@@ -82,6 +81,13 @@ class ReduceArcRefSpecTask(CmdLineTask):
         if len(expRefList) == 0:
             raise RuntimeError("Unable to find exposure reference")
 
+        # read line list
+        lineListArr = readLineListFile(lineList)
+
+        # read reference Spectrum
+        refSpecArr = readReferenceSpectrum(refSpec)
+        self.log.debug('len(refSpecArr) = %d' % len(refSpecArr))
+
         for arcRef in expRefList:
             self.log.debug('arcRef.dataId = %s' % arcRef.dataId)
             self.log.debug('arcRef = %s' % arcRef)
@@ -107,20 +113,6 @@ class ReduceArcRefSpecTask(CmdLineTask):
             myExtractTask = esTask.ExtractSpectraTask()
             aperturesToExtract = [-1]
             spectrumSetFromProfile = myExtractTask.run(arcExp, flatFiberTraceSet, aperturesToExtract)
-
-            # read line list
-            hdulist = pyfits.open(lineList)
-            tbdata = hdulist[1].data
-            lineListArr = np.ndarray(shape=(len(tbdata),2), dtype='float32')
-            lineListArr[:,0] = tbdata.field(0)
-            lineListArr[:,1] = tbdata.field(1)
-
-            # read reference Spectrum
-            hdulist = pyfits.open(refSpec)
-            tbdata = hdulist[1].data
-            refSpecArr = np.ndarray(shape=(len(tbdata)), dtype='float32')
-            refSpecArr[:] = tbdata.field(0)
-            self.log.debug('len(refSpecArr) = %d' % len(refSpecArr))
 
             refSpec = spectrumSetFromProfile.getSpectrum(int(spectrumSetFromProfile.size() / 2))
             ref = refSpec.getSpectrum()
@@ -210,27 +202,6 @@ class ReduceArcRefSpecTask(CmdLineTask):
                 plt.close(fig)
                 fig.clf()
 
-            #
-            # Do the I/O using a trampoline object PfsArmIO (to avoid adding butler-related details
-            # to the datamodel product)
-            #
-            # This is a bit messy as we need to include the pfsConfig file in the pfsArm file
-            #
-            dataId = arcRef.dataId
-
-            md = arcExp.getMetadata().toDict()
-            key = "PFSCONFIGID"
-            if key in md:
-                pfsConfigId = md[key]
-            else:
-                self.log.warn('No pfsConfigId is present in postISRCCD file for dataId %s' %
-                              str(dataId.items()))
-                pfsConfigId = 0x0
-
-            pfsConfig = butler.get("pfsConfig", pfsConfigId=pfsConfigId, dateObs=dataId["dateObs"])
-
-            pfsArm = spectrumSetToPfsArm(pfsConfig, spectrumSetFromProfile,
-                                         dataId["visit"], dataId["spectrograph"], dataId["arm"])
-            butler.put(PfsArmIO(pfsArm), 'pfsArm', dataId)
+            writePfsArm(butler, arcExp, spectrumSetFromProfile, arcRef.dataId)
 
         return spectrumSetFromProfile
