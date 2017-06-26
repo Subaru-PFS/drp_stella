@@ -12,7 +12,6 @@ import os
 import sys
 import unittest
 
-from astropy.io import fits as pyfits
 import numpy as np
 
 import lsst.afw.image as afwImage
@@ -27,6 +26,8 @@ import pfs.drp.stella.findAndTraceAperturesTask as fataTask
 import pfs.drp.stella.math as drpStellaMath
 import pfs.drp.stella.reduceArcRefSpecTask as reduceArcRefSpecTask
 import pfs.drp.stella.reduceArcTask as reduceArcTask
+from pfs.drp.stella.utils import readLineListFile, readReferenceSpectrum
+from pfs.drp.stella.utils import readWavelengthFile
 
 class SpectraTestCase(tests.TestCase):
     """A test case for measuring Spectra quantities"""
@@ -258,20 +259,10 @@ class SpectraTestCase(tests.TestCase):
     def testExtractTask(self):
         fiberTraceSet = drpStella.findAndTraceAperturesF(self.flat.getMaskedImage(), self.ftffc)
 
-        """ read wavelength file """
-        hdulist = pyfits.open(self.wLenFile)
-        tbdata = hdulist[1].data
-        traceIdsTemp = np.ndarray(shape=(len(tbdata)), dtype='int')
-        xCenters = np.ndarray(shape=(len(tbdata)), dtype='float32')
-        yCenters = np.ndarray(shape=(len(tbdata)), dtype='float32')
-        wavelengths = np.ndarray(shape=(len(tbdata)), dtype='float32')
-        traceIdsTemp[:] = tbdata[:]['fiberNum']
-        traceIds = traceIdsTemp.astype('int32')
-        wavelengths[:] = tbdata[:]['pixelWave']
-        xCenters[:] = tbdata[:]['xc']
-        yCenters[:] = tbdata[:]['yc']
+        # read wavelength file
+        xCenters, wavelengths, traceIds = readWavelengthFile(self.wLenFile)
 
-        """ assign trace number to fiberTraceSet """
+        # assign trace number to fiberTraceSet
         drpStella.assignITrace( fiberTraceSet, traceIds, xCenters )
 
         self.assertEqual(fiberTraceSet.size(), self.nFiberTraces)
@@ -510,17 +501,10 @@ class SpectraTestCase(tests.TestCase):
         spectrum = spectrumSetFromProfile.getSpectrum(0)
 
         # read line list
-        hdulist = pyfits.open(self.lineList)
-        tbdata = hdulist[1].data
-        lineListArr = np.ndarray(shape=(len(tbdata),2), dtype='float32')
-        lineListArr[:,0] = tbdata.field(0)
-        lineListArr[:,1] = tbdata.field(1)
+        lineListArr = readLineListFile(self.lineList)
 
         # read reference Spectrum
-        hdulist = pyfits.open(self.refSpec)
-        tbdata = hdulist[1].data
-        refSpecArr = np.ndarray(shape=(len(tbdata)), dtype='float32')
-        refSpecArr[:] = tbdata.field(0)
+        refSpecArr = readReferenceSpectrum(self.refSpec)
 
         spec = spectrum.getSpectrum()
         result = drpStella.stretchAndCrossCorrelateSpecFF(spec, refSpecArr, lineListArr, self.dispCorControl)
@@ -566,21 +550,13 @@ class SpectraTestCase(tests.TestCase):
         myProfileTask = cfftpTask.CreateFlatFiberTraceProfileTask()
         myProfileTask.run(fiberTraceSet)
 
-        """ read wavelength file """
-        hdulist = pyfits.open(self.wLenFile)
-        tbdata = hdulist[1].data
-        traceIdsTemp = np.ndarray(shape=(len(tbdata)), dtype='int')
-        xCenters = np.ndarray(shape=(len(tbdata)), dtype='float32')
-        wavelengths = np.ndarray(shape=(len(tbdata)), dtype='float32')
-        traceIdsTemp[:] = tbdata[:]['fiberNum']
-        traceIds = traceIdsTemp.astype('int32')
-        wavelengths[:] = tbdata[:]['pixelWave']
-        xCenters[:] = tbdata[:]['xc']
+        # read wavelength file
+        xCenters, wavelengths, traceIds = readWavelengthFile(self.wLenFile)
 
         traceIdsUnique = np.unique(traceIds)
         nRows = traceIds.shape[0] / traceIdsUnique.shape[0]
 
-        """ assign trace number to fiberTraceSet """
+        # assign trace number to fiberTraceSet
         drpStella.assignITrace( fiberTraceSet, traceIds, xCenters )
         iTraces = np.ndarray(shape=fiberTraceSet.size(), dtype='intp')
         for i in range( fiberTraceSet.size() ):
@@ -596,12 +572,8 @@ class SpectraTestCase(tests.TestCase):
         self.dispCorControl.searchRadius = 2
         self.dispCorControl.fwhm = 2.6
 
-        """ read line list """
-        hdulist = pyfits.open(self.lineList)
-        tbdata = hdulist[1].data
-        lineListArr = np.ndarray(shape=(len(tbdata),2), dtype='float32')
-        lineListArr[:,0] = tbdata.field(0)
-        lineListArr[:,1] = tbdata.field(1)
+        # read line list
+        lineListArr = readLineListFile(self.lineList)
 
         for i in range(spectrumSetFromProfile.size()):
             spec = spectrumSetFromProfile.getSpectrum(i)
@@ -610,7 +582,7 @@ class SpectraTestCase(tests.TestCase):
             wLenTemp = wavelengths[np.where(traceIds == traceId)]
             self.assertEqual(wLenTemp.shape[0], nRows)
 
-            """cut off both ends of wavelengths where is no signal"""
+            #cut off both ends of wavelengths where is no signal
             yCenter = fiberTraceSet.getFiberTrace(i).getFiberTraceFunction().yCenter
             yLow = fiberTraceSet.getFiberTrace(i).getFiberTraceFunction().yLow
             yHigh = fiberTraceSet.getFiberTrace(i).getFiberTraceFunction().yHigh
@@ -665,7 +637,7 @@ def suite():
     return unittest.TestSuite(suites)
 
 def run(exit = False):
-    """Quiet down loggers which are too verbose"""
+    #Quiet down loggers which are too verbose
     for logger in ["afw.image.ExposureInfo",
                    "CameraMapper",
                    "extractSpectra",
@@ -684,7 +656,7 @@ def run(exit = False):
                    ]:
         log.Log.getLogger(logger).setLevel(log.WARN)
 
-    """Run the tests"""
+    #Run the tests
     tests.run(suite(), exit)
 
 if __name__ == "__main__":
