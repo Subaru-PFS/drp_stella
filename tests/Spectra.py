@@ -259,10 +259,10 @@ class SpectraTestCase(tests.TestCase):
     def testExtractTask(self):
         fiberTraceSet = drpStella.findAndTraceAperturesF(self.flat.getMaskedImage(), self.ftffc)
 
-        """ assign trace number to fiberTraceSet """
         # read wavelength file
         xCenters, wavelengths, traceIds = readWavelengthFile(self.wLenFile)
 
+        # assign trace number to fiberTraceSet
         drpStella.assignITrace( fiberTraceSet, traceIds, xCenters )
 
         self.assertEqual(fiberTraceSet.size(), self.nFiberTraces)
@@ -556,7 +556,7 @@ class SpectraTestCase(tests.TestCase):
         traceIdsUnique = np.unique(traceIds)
         nRows = traceIds.shape[0] / traceIdsUnique.shape[0]
 
-        """ assign trace number to fiberTraceSet """
+        # assign trace number to fiberTraceSet
         drpStella.assignITrace( fiberTraceSet, traceIds, xCenters )
         iTraces = np.ndarray(shape=fiberTraceSet.size(), dtype='intp')
         for i in range( fiberTraceSet.size() ):
@@ -582,7 +582,7 @@ class SpectraTestCase(tests.TestCase):
             wLenTemp = wavelengths[np.where(traceIds == traceId)]
             self.assertEqual(wLenTemp.shape[0], nRows)
 
-            """cut off both ends of wavelengths where is no signal"""
+            #cut off both ends of wavelengths where is no signal
             yCenter = fiberTraceSet.getFiberTrace(i).getFiberTraceFunction().yCenter
             yLow = fiberTraceSet.getFiberTrace(i).getFiberTraceFunction().yLow
             yHigh = fiberTraceSet.getFiberTrace(i).getFiberTraceFunction().yHigh
@@ -637,7 +637,7 @@ def suite():
     return unittest.TestSuite(suites)
 
 def run(exit = False):
-    """Quiet down loggers which are too verbose"""
+    #Quiet down loggers which are too verbose
     for logger in ["afw.image.ExposureInfo",
                    "CameraMapper",
                    "extractSpectra",
@@ -656,7 +656,7 @@ def run(exit = False):
                    ]:
         log.Log.getLogger(logger).setLevel(log.WARN)
 
-    """Run the tests"""
+    #Run the tests
     tests.run(suite(), exit)
 
 if __name__ == "__main__":

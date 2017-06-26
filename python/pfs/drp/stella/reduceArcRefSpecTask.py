@@ -93,7 +93,7 @@ class ReduceArcRefSpecTask(CmdLineTask):
             self.log.debug('arcRef = %s' % arcRef)
             self.log.debug('type(arcRef) = %s' % type(arcRef))
 
-            """ construct fiberTraceSet from pfsFiberTrace """
+            # construct fiberTraceSet from pfsFiberTrace
             try:
                 fiberTrace = arcRef.get('fiberTrace', immediate=True)
             except Exception, e:
