@@ -1,12 +1,12 @@
+import os
+
 from astropy.io import fits as pyfits
+import matplotlib.pyplot as plt
+import numpy as np
+
 from lsst.pex.config import Config, Field
 from lsst.pipe.base import Struct, TaskRunner, ArgumentParser, CmdLineTask
 from lsst.utils import getPackageDir
-import matplotlib.pyplot as plt
-import numpy as np
-import os
-from pfs.drp.stella.datamodelIO import spectrumSetToPfsArm, PfsArmIO
-import pfs.drp.stella.extractSpectraTask as esTask
 import pfs.drp.stella as drpStella
 from pfs.drp.stella.datamodelIO import spectrumSetToPfsArm, PfsArmIO
 import pfs.drp.stella.extractSpectraTask as esTask

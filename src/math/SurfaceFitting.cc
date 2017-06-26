@@ -1,7 +1,5 @@
 #include "pfs/drp/stella/math/SurfaceFitting.h"
 
-using namespace boost::numeric::ublas;
-
 namespace pfs{ namespace drp{ namespace stella{
   namespace math{
 
@@ -1051,19 +1049,3 @@ namespace pfs{ namespace drp{ namespace stella{
 
   }
 }}}
-
-template< typename T >
-std::ostream& operator<<(std::ostream& os, matrix<T> const& obj)
-{
-  for (int i = 0 ; i < obj.size1(); ++i){
-    for (int j = 0; j < obj.size2(); ++j){
-      os << obj(i, j) << " ";
-    }
-    os << endl;
-  }
-  return os;
-}
-
-template std::ostream& operator<<(std::ostream&, matrix<int> const&);
-template std::ostream& operator<<(std::ostream&, matrix<float> const&);
-template std::ostream& operator<<(std::ostream&, matrix<double> const&);

@@ -1,8 +1,9 @@
 #ifndef __PFS_DRP_STELLA_MATH_CURVEFITTING_H__
 #define __PFS_DRP_STELLA_MATH_CURVEFITTING_H__
 
-#include <vector>
 #include <iostream>
+#include <vector>
+
 #include "CurveFittingGaussian.h"
 #include "lsst/log/Log.h"
 #include "lsst/pex/exceptions/Exception.h"

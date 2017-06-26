@@ -8,18 +8,20 @@ or
    python
    >>> import FiberTrace; FiberTrace.run()
 """
+import os
+import sys
+import unittest
+
 from astropy.io import fits as pyfits
-import lsst.afw.image as afwImage
+import numpy as np
+
 import lsst.afw.display.ds9 as ds9
+import lsst.afw.image as afwImage
 import lsst.daf.persistence as dafPersist
 import lsst.log as log
 import lsst.utils
 import lsst.utils.tests as tests
-import numpy as np
-import os
 import pfs.drp.stella as drpStella
-import sys
-import unittest
 
 try:
     type(display)

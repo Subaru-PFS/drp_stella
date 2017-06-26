@@ -1,10 +1,16 @@
 #ifndef __PFS_DRP_STELLA_UTILS_H__
 #define __PFS_DRP_STELLA_UTILS_H__
-#include <vector>
+
 #include <iostream>
-#include "lsst/base.h"
+#include <vector>
+
+#include "lsst/afw/fits.h"
+#include "lsst/afw/image.h"
 #include "ndarray.h"
 #include "pfs/drp/stella/math/CurveFitting.h"
+#include "pfs/drp/stella/math/Math.h"
+
+namespace afwImage = lsst::afw::image;
 
 using namespace std;
 namespace pfs { namespace drp { namespace stella { namespace utils{

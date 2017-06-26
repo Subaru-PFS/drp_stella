@@ -1,7 +1,5 @@
-import argparse
-import numpy
-import lsst.daf.persistence as dafPersist
 import lsst.afw.image as afwImage
+import lsst.daf.persistence as dafPersist
 
 flatFile = '/Users/azuri/spectra/pfs/2015-12-14/Red-Lam1Flat-0-23.fz'
 flat = afwImage.ImageF(flatFile)

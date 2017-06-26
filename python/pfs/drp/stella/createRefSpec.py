@@ -1,14 +1,15 @@
 import os
 
-import pfs.drp.stella.findAndTraceAperturesTask as fataTask
+from astropy.io import fits as pyfits
+import numpy as np
+
+from lsst.pex.config import Config, Field
+from lsst.pipe.base import Struct, TaskRunner, ArgumentParser, CmdLineTask
+import lsst.utils
+import pfs.drp.stella as drpStella
 import pfs.drp.stella.createFlatFiberTraceProfileTask as cfftpTask
 import pfs.drp.stella.extractSpectraTask as esTask
-import pfs.drp.stella as drpStella
-from lsst.pex.config import Config, Field
-from lsst.pipe.base import Task, Struct, TaskRunner, ArgumentParser, CmdLineTask
-import lsst.utils
-import numpy as np
-from astropy.io import fits as pyfits
+import pfs.drp.stella.findAndTraceAperturesTask as fataTask
 
 class CreateRefSpecConfig(Config):
     """Configuration for creating the reference spectrum"""

@@ -1,10 +1,5 @@
-import pfs.drp.stella as drpStella
 import lsst.afw.image as afwImage
-import matplotlib.pyplot as plt
-import numpy as np
-from scipy import signal
-from sklearn.decomposition import FastICA, PCA
-from astropy.io import fits as pyfits
+import pfs.drp.stella as drpStella
 
 flatfile = "/Users/azuri/spectra/pfs/2015-04-24/IR-flatFieldx10-0-23-noNoise-constantPsf.fz"
 combfile = "/Users/azuri/spectra/pfs/2015-04-24/IR-combFieldx10-0-23-noNoise-constantPsf.fz"

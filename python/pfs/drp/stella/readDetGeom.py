@@ -1,8 +1,8 @@
 #!/usr/bin/env python
 
 import argparse
+
 import lsst.afw.table
-import lsst.afw.cameraGeom as camGeom
 
 def main(fitsFileName):
 

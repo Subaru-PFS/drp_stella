@@ -1,9 +1,7 @@
 #!/usr/bin/env python
-import lsst.afw.geom                    as afwGeom
-import lsst.afw.image                   as afwImage
-import lsst.pex.config                  as pexConfig
-import pfs.drp.stella as drpStella
+import lsst.pex.config as pexConfig
 from lsst.pipe.base import Task
+import pfs.drp.stella as drpStella
 
 class ExtractFromProfileConfig(pexConfig.Config):
         maxIterSig = pexConfig.Field(

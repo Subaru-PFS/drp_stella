@@ -1,6 +1,6 @@
+import cPickle as pickle
 import hashlib
 import zlib
-import cPickle as pickle
 
 import lsst.afw.image as afwImage
 

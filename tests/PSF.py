@@ -11,16 +11,12 @@ or
 
 import os
 import unittest
+
+import lsst.daf.persistence as dafPersist
 import lsst.log as log
 import lsst.utils
 import lsst.utils.tests as tests
-import lsst.daf.persistence as dafPersist
 import pfs.drp.stella as drpStella
-
-try:
-    type(display)
-except NameError:
-    display = False
 
 class PSFTestCase(tests.TestCase):
     """A test case for measuring PSF quantities"""

@@ -1,17 +1,9 @@
 #!/usr/bin/env python
 import numpy as np
-import lsst.afw.image as afwImage
-import lsst.afw.geom as afwGeom
-import pfs.drp.stella as drpStella
 import pyfits
 
-try:
-    type(display)
-except NameError:
-    display = False
-
-import lsst.afw.display.ds9 as ds9
-import lsst.afw.display.utils as displayUtils
+import lsst.afw.image as afwImage
+import pfs.drp.stella as drpStella
 
 def createFlatFiberTraceProfiles(filename):
     # --- create FiberTraceFunctionFindingControl

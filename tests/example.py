@@ -8,21 +8,12 @@ or
    python
    >>> import example; example.run()
 """
-
 import unittest
+
 import numpy as np
-import lsst.utils.tests as tests
+
 import lsst.afw.image as afwImage
-import pfs.drp.stella as drpStella
-
-
-try:
-    type(display)
-except NameError:
-    display = False
-
-import lsst.afw.display.ds9 as ds9
-import lsst.afw.display.utils as displayUtils
+import lsst.utils.tests as tests
 
 class ExampleTestCase(tests.TestCase):
     """A test case for measuring Example quantities"""

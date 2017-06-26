@@ -8,29 +8,25 @@ or
    python
    >>> import Spectra; Spectra.run()
 """
+import os
+import sys
+import unittest
 
 from astropy.io import fits as pyfits
+import numpy as np
+
 import lsst.afw.image as afwImage
 import lsst.daf.persistence as dafPersist
 import lsst.log as log
 import lsst.utils
 import lsst.utils.tests as tests
-import numpy as np
-import os
 import pfs.drp.stella as drpStella
 import pfs.drp.stella.createFlatFiberTraceProfileTask as cfftpTask
 import pfs.drp.stella.extractSpectraTask as esTask
 import pfs.drp.stella.findAndTraceAperturesTask as fataTask
 import pfs.drp.stella.math as drpStellaMath
-import pfs.drp.stella.reduceArcTask as reduceArcTask
 import pfs.drp.stella.reduceArcRefSpecTask as reduceArcRefSpecTask
-import sys
-import unittest
-
-try:
-    type(display)
-except NameError:
-    display = False
+import pfs.drp.stella.reduceArcTask as reduceArcTask
 
 class SpectraTestCase(tests.TestCase):
     """A test case for measuring Spectra quantities"""

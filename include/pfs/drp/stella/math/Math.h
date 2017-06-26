@@ -3,18 +3,24 @@
 #ifndef __PFS_DRP_STELLA_MATH_H__
 #define __PFS_DRP_STELLA_MATH_H__
 
-#include <vector>
 #include <iostream>
-#include "../utils/Utils.h"
+#include <numeric>      // std::accumulate
+#include <vector>
+
+#include <unsupported/Eigen/Splines>
+
+#include "../cmpfit-1.2/MPFitting_ndarray.h"
+#include "lsst/pex/exceptions.h"
 #include "ndarray.h"
 #include "ndarray/eigen.h"
-#include "../cmpfit-1.2/MPFitting_ndarray.h"
-#include <unsupported/Eigen/Splines>
+#include "ndarray/eigen_fwd.h"
+#include "../utils/Utils.h"
 
 /// constants
 #define CONST_PI 3.141592653589793238462643383280    /* pi */
 
 using namespace std;
+namespace pexExcept = lsst::pex::exceptions;
 
 namespace pfs { namespace drp { namespace stella {
   /// Center of Pixel Zero (0.0 means that [0,0] is the center of the pixel, 0.5 means that [0,0] is the lower left corner)

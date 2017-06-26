@@ -1,4 +1,3 @@
-#include <limits>
 #include "pfs/drp/stella/PSF.h"
 
 namespace pfs{ namespace drp{ namespace stella{

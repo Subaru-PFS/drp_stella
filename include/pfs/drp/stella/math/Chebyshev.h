@@ -1,18 +1,16 @@
-# include <cstdlib>
-# include <stdio.h>
-# include <cmath>
-# include <iostream>
-# include <iomanip>
-# include <ctime>
 # include <cstring>
+# include <iomanip>
+# include <iostream>
+# include <stdio.h>
+
 #include "ndarray.h"
-#include "lsst/base.h"
-#include "lsst/pex/config.h"
+#include "ndarray/eigen.h"
 #include "lsst/pex/exceptions/Exception.h"
 #include "pfs/drp/stella/math/Math.h"
-#include "ndarray/eigen.h"
 
 using namespace std;
+namespace pexExcept = lsst::pex::exceptions;
+
 namespace pfs{ namespace drp{ namespace stella{ namespace math{
     void daxpy ( int n, double da, double dx[], int incx, double dy[], int incy );
     double ddot ( int n, double dx[], int incx, double dy[], int incy );

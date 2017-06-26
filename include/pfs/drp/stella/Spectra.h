@@ -2,12 +2,15 @@
 #define PFS_DRP_STELLA_SPECTRA_H
 
 #include <iostream>
+#include <vector>
+
+#include "boost/algorithm/string/trim.hpp"
+#include <fitsio.h>
+#include <fitsio2.h>
+
 #include "Controls.h"
-#include "lsst/afw/image/Image.h"
-#include "lsst/afw/image/MaskedImage.h"
 #include "lsst/log/Log.h"
 #include "lsst/pex/exceptions.h"
-#include "ndarray.h"
 #include "math/CurveFitting.h"
 #include "math/Math.h"
 #include "utils/Utils.h"

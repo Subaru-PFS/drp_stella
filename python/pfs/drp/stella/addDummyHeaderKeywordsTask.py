@@ -1,8 +1,9 @@
 #!/usr/bin/env python
-from pfs.drp.stella.readFileTask import ReadFileTask
 from astropy.io import fits as pyfits
-from lsst.pipe.base import Task
+
 import lsst.pex.config as pexConfig
+from lsst.pipe.base import Task
+from pfs.drp.stella.readFileTask import ReadFileTask
 
 class AddDummyHeaderKeywordsConfig(pexConfig.Config):
         editHeader = pexConfig.Field(
