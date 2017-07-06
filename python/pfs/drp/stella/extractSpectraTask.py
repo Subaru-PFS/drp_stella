@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 import lsst.pex.config as pexConfig
 from lsst.pipe.base import Task
+import lsst.afw.display as afwDisplay
 import pfs.drp.stella as drpStella
 
 class ExtractSpectraConfig(pexConfig.Config):
@@ -17,6 +18,9 @@ class ExtractSpectraTask(Task):
     def __init__(self, *args, **kwargs):
         super(ExtractSpectraTask, self).__init__(*args, **kwargs)
 
+        import lsstDebug
+        self.debugInfo = lsstDebug.Info(__name__)
+
     def extractSpectra(self, inExposure, inFiberTraceSetWithProfiles, inTraceNumbers):
 
         traceNumbers = inTraceNumbers
@@ -30,6 +34,21 @@ class ExtractSpectraTask(Task):
         # Create FiberTraces for inExposure and store them in inFiberTraceSetWithProfile
         if inExposure != None:
             inMaskedImage = inExposure.getMaskedImage()
+
+            if self.debugInfo.display:
+                  from pfs.drp.stella import markFiberTraceInMask
+                  disp = afwDisplay.Display(frame=self.debugInfo.input_frame)
+
+                  maskPlane = "FIBERTRACE"
+                  mask = inExposure.getMaskedImage().getMask()
+                  mask.addMaskPlane(maskPlane)
+                  disp.setMaskPlaneColor(maskPlane, "GREEN")
+
+                  ftMask = mask.getPlaneBitMask(maskPlane)
+                  for ft in inFiberTraceSetWithProfiles.getTraces():
+                        markFiberTraceInMask(ft, mask, ftMask)
+                  
+                  disp.mtv(inExposure, "input")
 
         # Create traces and extract spectrum
         for i in range(len(traceNumbers)):
