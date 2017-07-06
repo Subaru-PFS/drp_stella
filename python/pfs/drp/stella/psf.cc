@@ -91,8 +91,8 @@ void declarePSFSet(py::module &mod, std::string const& suffix) {
     // Doesn't look like this is used from python...
 }
 
-PYBIND11_PLUGIN(_psf) {
-    py::module mod("_psf");
+PYBIND11_PLUGIN(psf) {
+    py::module mod("psf");
 
     // Need to import numpy for ndarray and eigen conversions
     if (_import_array() < 0) {

@@ -142,8 +142,8 @@ void declareStretchAndCrossCorrelate(py::module &mod, std::string const& suffix)
             "spec"_a, "specRef"_a, "lineList_WLenPix"_a, "dispCorControl"_a);
 }
 
-PYBIND11_PLUGIN(_spectra) {
-    py::module mod("_spectra");
+PYBIND11_PLUGIN(spectra) {
+    py::module mod("spectra");
 
     // Need to import numpy for ndarray and eigen conversions
     if (_import_array() < 0) {

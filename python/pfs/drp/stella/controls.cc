@@ -100,8 +100,8 @@ void declareTwoDPSFControl(py::module &mod)
 }
 
 
-PYBIND11_PLUGIN(_controls) {
-    py::module mod("_controls");
+PYBIND11_PLUGIN(controls) {
+    py::module mod("controls");
 
     declareFiberTraceFunction(mod);
     declareFiberTraceFunctionControl(mod);

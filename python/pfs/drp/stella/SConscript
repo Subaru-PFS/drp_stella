@@ -2,7 +2,6 @@
 from lsst.sconsUtils import scripts
 scripts.BasicSConscript.pybind11(
     ['spectra',
-#     'psf',
      'controls',
      'fiberTraces',
      ],

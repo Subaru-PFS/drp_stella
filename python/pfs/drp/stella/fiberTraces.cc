@@ -148,8 +148,8 @@ void declareFunctions(py::module &mod, std::string const& suffix)
 }
 
 
-PYBIND11_PLUGIN(_fiberTraces) {
-    py::module mod("_fiberTraces");
+PYBIND11_PLUGIN(fiberTraces) {
+    py::module mod("fiberTraces");
 
     // Need to import numpy for ndarray and eigen conversions
     if (_import_array() < 0) {
