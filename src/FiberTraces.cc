@@ -1260,7 +1260,7 @@ namespace pfsDRPStella = pfs::drp::stella;
   }
 
   template< typename ImageT, typename MaskT, typename VarianceT >
-  PTR( pfsDRPStella::FiberTrace< ImageT, MaskT, VarianceT >) & pfsDRPStella::FiberTraceSet< ImageT, MaskT, VarianceT >::getFiberTrace( const size_t i ){
+  PTR( pfsDRPStella::FiberTrace< ImageT, MaskT, VarianceT >) pfsDRPStella::FiberTraceSet< ImageT, MaskT, VarianceT >::getFiberTrace( const size_t i ){
     if (i >= _traces->size()){
       string message("FiberTraceSet::getFiberTrace(i=");
       message += to_string(i) + string("): ERROR: i > _traces->size()=") + to_string(_traces->size());
@@ -1270,7 +1270,7 @@ namespace pfsDRPStella = pfs::drp::stella;
   }
 
   template<typename ImageT, typename MaskT, typename VarianceT>
-  PTR(pfsDRPStella::FiberTrace<ImageT, MaskT, VarianceT>) const& pfsDRPStella::FiberTraceSet<ImageT, MaskT, VarianceT>::getFiberTrace(const size_t i) const {
+  PTR(pfsDRPStella::FiberTrace<ImageT, MaskT, VarianceT>) const pfsDRPStella::FiberTraceSet<ImageT, MaskT, VarianceT>::getFiberTrace(const size_t i) const {
     if (i >= _traces->size()){
       string message("FiberTraceSet::getFiberTrace(i=");
       message += to_string(i) + "): ERROR: i > _traces->size()=" + to_string(_traces->size());

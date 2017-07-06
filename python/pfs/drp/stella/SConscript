@@ -5,6 +5,7 @@ scripts.BasicSConscript.pybind11(
      'spectra',
 #     'psf',
      'controls',
+     'fiberTraces',
      ],
     addUnderscore=False
 )
