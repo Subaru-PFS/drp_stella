@@ -1,4 +1,5 @@
 #include <pybind11/pybind11.h>
+#include <pybind11/stl.h>
 
 #include "numpy/arrayobject.h"
 #include "ndarray/pybind11.h"
@@ -17,11 +18,14 @@ namespace {
 void declareFiberTraceFunction(py::module &mod)
 {
     py::class_<FiberTraceFunction, std::shared_ptr<FiberTraceFunction>> cls(mod, "FiberTraceFunction");
+    cls.def(py::init<>());
+    cls.def(py::init<FiberTraceFunction const&>(), "ftf"_a);
+    cls.def_readwrite("fiberTraceFunctionControl", &FiberTraceFunction::fiberTraceFunctionControl);
     cls.def_readwrite("xCenter", &FiberTraceFunction::xCenter);
     cls.def_readwrite("yCenter", &FiberTraceFunction::yCenter);
     cls.def_readwrite("yLow", &FiberTraceFunction::yLow);
     cls.def_readwrite("yHigh", &FiberTraceFunction::yHigh);
-    cls.def_readonly("coefficients", &FiberTraceFunction::coefficients);
+    cls.def_readwrite("coefficients", &FiberTraceFunction::coefficients);
     cls.def("setCoefficients", &FiberTraceFunction::setCoefficients, "coeffs"_a);
 }
 
@@ -99,6 +103,28 @@ void declareTwoDPSFControl(py::module &mod)
     LSST_DECLARE_CONTROL_FIELD(cls, TwoDPSFControl, weightBase);
 }
 
+void declareDispCorControl(py::module &mod)
+{
+    py::class_<DispCorControl, std::shared_ptr<DispCorControl>> cls(mod, "DispCorControl");
+    cls.def(py::init<>());
+    cls.def(py::init<DispCorControl const&>(), "control"_a);
+    LSST_DECLARE_CONTROL_FIELD(cls, DispCorControl, fittingFunction);
+    LSST_DECLARE_CONTROL_FIELD(cls, DispCorControl, order);
+    LSST_DECLARE_CONTROL_FIELD(cls, DispCorControl, searchRadius);
+    LSST_DECLARE_CONTROL_FIELD(cls, DispCorControl, fwhm);
+    LSST_DECLARE_CONTROL_FIELD(cls, DispCorControl, radiusXCor);
+    LSST_DECLARE_CONTROL_FIELD(cls, DispCorControl, lengthPieces);
+    LSST_DECLARE_CONTROL_FIELD(cls, DispCorControl, minPercentageOfLines);
+    LSST_DECLARE_CONTROL_FIELD(cls, DispCorControl, nCalcs);
+    LSST_DECLARE_CONTROL_FIELD(cls, DispCorControl, stretchMinLength);
+    LSST_DECLARE_CONTROL_FIELD(cls, DispCorControl, stretchMaxLength);
+    LSST_DECLARE_CONTROL_FIELD(cls, DispCorControl, nStretches);
+    LSST_DECLARE_CONTROL_FIELD(cls, DispCorControl, verticalPrescanHeight);
+    LSST_DECLARE_CONTROL_FIELD(cls, DispCorControl, sigmaReject);
+    LSST_DECLARE_CONTROL_FIELD(cls, DispCorControl, nIterReject);
+    LSST_DECLARE_CONTROL_FIELD(cls, DispCorControl, maxDistance);
+}
+
 
 PYBIND11_PLUGIN(controls) {
     py::module mod("controls");
@@ -108,6 +134,7 @@ PYBIND11_PLUGIN(controls) {
     declareFiberTraceFunctionFindingControl(mod);
     declareFiberTraceProfileFittingControl(mod);
     declareTwoDPSFControl(mod);
+    declareDispCorControl(mod);
 
     return mod.ptr();
 }

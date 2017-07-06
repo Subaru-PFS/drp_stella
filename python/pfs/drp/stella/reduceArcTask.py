@@ -178,8 +178,7 @@ class ReduceArcTask(CmdLineTask):
                 self.log.info("FiberTrace %d: spec.getDispRms() = %f"
                               % (i, spec.getDispRms()))
 
-                if not spectrumSetFromProfile.setSpectrum(i, spec):
-                    raise RuntimeError('setSpectrum for spectrumSetFromProfile[%d] failed' % (i))
+                spectrumSetFromProfile.setSpectrum(i, spec)
 
             writePfsArm(butler, arcExp, spectrumSetFromProfile, arcRef.dataId)
 

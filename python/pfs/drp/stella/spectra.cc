@@ -1,4 +1,5 @@
 #include <pybind11/pybind11.h>
+#include <pybind11/stl.h>
 
 #include "numpy/arrayobject.h"
 #include "ndarray/pybind11.h"
@@ -74,9 +75,7 @@ void declareSpectrum(py::module &mod, std::string const& suffix) {
 
     cls.def("getDispCorControl", &Class::getDispCorControl);
 
-    cls.def("identify", &Class::template identify<float>, "lineList"_a, "dispCorControl"_a,
-            "nLinesCheck"_a=0);
-    cls.def("identify", &Class::template identify<double>, "lineList"_a, "dispCorControl"_a,
+    cls.def("identifyF", &Class::template identify<float>, "lineList"_a, "dispCorControl"_a,
             "nLinesCheck"_a=0);
 
     cls.def("isWavelengthSet", &Class::isWavelengthSet);

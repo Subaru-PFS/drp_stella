@@ -1,4 +1,5 @@
 #include <pybind11/pybind11.h>
+#include <pybind11/stl.h>
 
 #include "numpy/arrayobject.h"
 #include "ndarray/pybind11.h"
@@ -19,7 +20,7 @@ template <typename ImageT,
 void declareFiberTrace(py::module &mod, std::string const& suffix)
 {
     using Class = FiberTrace<ImageT, MaskT, VarianceT>;
-    py::class_<Class, std::shared_ptr<Class>> cls(mod, ("FiberTrace" + suffix).c_str());
+    py::class_<Class, PTR(Class)> cls(mod, ("FiberTrace" + suffix).c_str());
 
     cls.def(py::init<std::size_t, std::size_t, std::size_t>(), "width"_a=0, "height"_a=0, "iTrace"_a=0);
     cls.def(py::init<PTR(typename Class::MaskedImageT const) const&,
@@ -87,7 +88,7 @@ template <typename ImageT,
 void declareFiberTraceSet(py::module &mod, std::string const& suffix)
 {
     using Class = FiberTraceSet<ImageT, MaskT, VarianceT>;
-    py::class_<Class, std::shared_ptr<Class>> cls(mod, ("FiberTraceSet" + suffix).c_str());
+    py::class_<Class, PTR(Class)> cls(mod, ("FiberTraceSet" + suffix).c_str());
 
     cls.def(py::init<std::size_t>(), "nTraces"_a=0);
     cls.def(py::init<Class const&, bool>(), "fiberTraceSet"_a, "deep"_a=false);
@@ -101,7 +102,7 @@ void declareFiberTraceSet(py::module &mod, std::string const& suffix)
     cls.def("erase", &Class::erase, "iStart"_a, "iEnd"_a=0);
     cls.def("setFiberTrace", &Class::setFiberTrace, "index"_a, "trace"_a);
     cls.def("addFiberTrace", &Class::addFiberTrace, "trace"_a, "index"_a=0);
-    cls.def("getTraces", &Class::getTraces);
+    cls.def("getTraces", [](Class const& self) { return *self.getTraces(); });
     cls.def("setFiberTraceProfileFittingControl", &Class::setFiberTraceProfileFittingControl, "control"_a);
     cls.def("setAllProfiles", &Class::setAllProfiles, "fiberTraceSet"_a);
     cls.def("sortTracesByXCenter", &Class::sortTracesByXCenter);
@@ -121,7 +122,7 @@ void declareFunctions(py::module &mod, std::string const& suffix)
     mod.def(("makeNormFlatFiberTrace" + suffix).c_str(), math::makeNormFlatFiberTrace<ImageT>,
             "maskedImage"_a, "fiberTraceFunctionWide"_a, "fiberTraceFunctionControlNarrow"_a,
             "fiberTraceProfileFittingControl"_a, "minSNR"_a=100.0, "iTrace"_a=0);
-    mod.def(("assignITrace" + suffix).c_str(),
+    mod.def("assignITrace",
             math::assignITrace<ImageT, lsst::afw::image::MaskPixel, lsst::afw::image::VariancePixel,
                                int, float, 1>,
             "fiberTraceSet"_a, "traceIds"_a, "xCenters"_a);
