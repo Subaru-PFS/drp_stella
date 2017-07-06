@@ -110,8 +110,7 @@ class ReduceArcTask(CmdLineTask):
                 self.log.debug('iTraces[%d] = %d' % (i, flatFiberTraceSet.getFiberTrace(i).getITrace()))
 
             myExtractTask = esTask.ExtractSpectraTask()
-            aperturesToExtract = [-1]
-            spectrumSetFromProfile = myExtractTask.run(arcExp, flatFiberTraceSet, aperturesToExtract)
+            spectrumSetFromProfile = myExtractTask.run(arcExp, flatFiberTraceSet)
 
             dispCorControl = drpStella.DispCorControl()
             dispCorControl.fittingFunction = self.config.function
