@@ -107,7 +107,7 @@ class ReduceArcTask(CmdLineTask):
             # assign trace number to flatFiberTraceSet
             drpStella.assignITrace( flatFiberTraceSet, traceIds, xCenters )
             for i in range( flatFiberTraceSet.size() ):
-                self.log.info('iTraces[%d] = %d' % (i, flatFiberTraceSet.getFiberTrace(i).getITrace()))
+                self.log.debug('iTraces[%d] = %d' % (i, flatFiberTraceSet.getFiberTrace(i).getITrace()))
 
             myExtractTask = esTask.ExtractSpectraTask()
             aperturesToExtract = [-1]
