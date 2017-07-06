@@ -42,7 +42,7 @@ class FiberTrace {
      * @param height : height of FiberTrace (number of rows)
      * @param iTrace : FiberTrace number
      * */
-    explicit FiberTrace(size_t width = 0, size_t height = 0, size_t iTrace = 0);
+    explicit FiberTrace(std::size_t width = 0, std::size_t height = 0, std::size_t iTrace = 0);
 
     /**
      * @brief Create a FiberTrace form a MaskedImage and a FiberTraceFunction
@@ -50,9 +50,9 @@ class FiberTrace {
      * @param fiberTraceFunction : FiberTraceFunction defining the FiberTrace
      * @param iTrace : set this number to this._iTrace
      */
-    explicit FiberTrace(PTR(const afwImage::MaskedImage<ImageT, MaskT, VarianceT>) const& maskedImage, 
+    explicit FiberTrace(PTR(const MaskedImageT) const& maskedImage, 
                         PTR(const FiberTraceFunction) const& fiberTraceFunction, 
-                        size_t iTrace=0);
+                        std::size_t iTrace=0);
     
     /**
      * @brief Copy constructor (shallow)
@@ -248,7 +248,7 @@ class FiberTrace {
                                                  ndarray::Array<MaskT const, 2, 1> const& maskSwath,
                                                  ndarray::Array<VarianceT const, 2, 1> const& varianceSwath,
                                                  ndarray::Array<float const, 1, 1> const& xCentersSwath,
-                                                 size_t const iSwath);
+                                                 std::size_t const iSwath);
 
     /**
      * @brief Calculate boundaries for the swaths used for profile calculation
@@ -257,18 +257,18 @@ class FiberTrace {
      * @return 2D array containing the pixel numbers for the start and the end
      * of each swath
      */
-    ndarray::Array<size_t, 2, 1> calcSwathBoundY(const size_t swathWidth_In) const;
+    ndarray::Array<std::size_t, 2, 1> calcSwathBoundY(const std::size_t swathWidth_In) const;
     
     /**
      * @brief set the ID number of this trace (_iTrace) to this number
      * @param iTrace : ID to be assigned to this FiberTrace
      */
-    void setITrace(const size_t iTrace){_iTrace = iTrace;}
+    void setITrace(const std::size_t iTrace){_iTrace = iTrace;}
 
     /**
      * @brief Return ID of this FiberTrace
      */
-    size_t getITrace() const {return _iTrace;}
+    std::size_t getITrace() const {return _iTrace;}
 
     /**
      * @brief Check if _trace is set
@@ -288,12 +288,12 @@ class FiberTrace {
     /**
      * @brief Return width of this FiberTrace
      */
-    size_t getWidth() const {return _trace->getImage()->getWidth();}
+    std::size_t getWidth() const {return _trace->getImage()->getWidth();}
 
     /**
      * @brief Return height of this FiberTrace
      */
-    size_t getHeight() const {return _trace->getImage()->getHeight();}
+    std::size_t getHeight() const {return _trace->getImage()->getHeight();}
 
     /**
      * @brief Return the coefficients of the trace function of the xCenters
@@ -305,6 +305,7 @@ class FiberTrace {
      */
     PTR(FiberTrace) getPointer();
 
+  private:
     std::vector<PTR(std::vector<double>)> _overSampledProfileFitXPerSwath;
     std::vector<PTR(std::vector<double>)> _overSampledProfileFitYPerSwath;
     std::vector<PTR(std::vector<double>)> _profileFittingInputXPerSwath;
@@ -312,13 +313,12 @@ class FiberTrace {
     std::vector<PTR(std::vector<double>)> _profileFittingInputXMeanPerSwath;
     std::vector<PTR(std::vector<double>)> _profileFittingInputYMeanPerSwath;
     
-  private:
     ///TODO: replace variables with smart pointers?????
     PTR(afwImage::MaskedImage<ImageT, MaskT, VarianceT>) _trace;
     PTR(afwImage::Image<double>) _profile;
     ndarray::Array<float, 2, 1> _xCentersMeas;
     ndarray::Array<float, 1, 1> _xCenters;
-    size_t _iTrace;
+    std::size_t _iTrace;
     bool _isTraceSet;
     bool _isProfileSet;
     bool _isFiberTraceProfileFittingControlSet;
@@ -346,7 +346,7 @@ class FiberTraceSet {
      * @brief Creates a new FiberTraceSet object of size nTraces
      * @param nTraces : Size (length) of the new FiberTraceSet
      */
-    explicit FiberTraceSet(size_t nTraces=0);
+    explicit FiberTraceSet(std::size_t nTraces=0);
 
     /**
      * @brief Copy constructor
@@ -367,7 +367,7 @@ class FiberTraceSet {
     /**
      * @brief Return the number of apertures
      */
-    size_t size() const { return _traces->size(); }
+    std::size_t size() const { return _traces->size(); }
     
     /*
      * @brief Extract FiberTraces from new MaskedImage
@@ -380,13 +380,13 @@ class FiberTraceSet {
      * @brief Return the FiberTrace for the ith aperture
      * @param i : Position in _traces from which to return the FiberTrace
      */
-    PTR(FiberTrace<ImageT, MaskT, VarianceT>) &getFiberTrace(const size_t i);
+    PTR(FiberTrace<ImageT, MaskT, VarianceT>) &getFiberTrace(const std::size_t i);
 
     /**
      * @brief Return a copy of the FiberTrace for the ith aperture
      * @param i : Position in _traces from which to return a copy of the FiberTrace
      */
-    PTR(FiberTrace<ImageT, MaskT, VarianceT>) const& getFiberTrace(const size_t i) const;
+    PTR(FiberTrace<ImageT, MaskT, VarianceT>) const& getFiberTrace(const std::size_t i) const;
     
     /**
      * @brief Removes from the vector either a single element (position) or a range of elements ([first,last)).
@@ -394,14 +394,14 @@ class FiberTraceSet {
      * @param iStart : FiberTrace number to remove if iEnd == 0, otherwise starting position of range to be removed
      * @param iEnd : if != 0 end + 1 of range of FiberTraces to be removed from _traces
      */
-    bool erase(const size_t iStart, const size_t iEnd=0);
+    bool erase(const std::size_t iStart, const std::size_t iEnd=0);
 
     /**
      * @brief Set the ith FiberTrace
      * @param i : position in _traces which is to be replaced bye trace
      * @param trace : FiberTrace to replace _traces[i]
      */
-    bool setFiberTrace(const size_t i,     ///< which aperture?
+    bool setFiberTrace(const std::size_t i,     ///< which aperture?
                        const PTR(FiberTrace<ImageT, MaskT, VarianceT>) &trace ///< the FiberTrace for the ith aperture
                       );
 
@@ -410,7 +410,7 @@ class FiberTraceSet {
      * @param trace : FiberTrace to be added to _traces
      * @param iTrace : if != 0, set the ID of trace to this number
      */
-    bool addFiberTrace(const PTR(FiberTrace<ImageT, MaskT, VarianceT>) &trace, const size_t iTrace = 0);
+    bool addFiberTrace(const PTR(FiberTrace<ImageT, MaskT, VarianceT>) &trace, const std::size_t iTrace = 0);
 
     /**
      * @brief Return this->_traces
@@ -438,7 +438,7 @@ class FiberTraceSet {
     ///TODO:
     /// Extract spectrum and background for one slit spectrum
     /// Returns vector of size 2 (0: Spectrum, 1: Background)
-    /// PTR(std::vector<PTR(Spectrum<ImageT, MaskT, VarianceT, ImageT>)>) extractSpectrumAndBackground(const size_t traceNumber)
+    /// PTR(std::vector<PTR(Spectrum<ImageT, MaskT, VarianceT, ImageT>)>) extractSpectrumAndBackground(const std::size_t traceNumber)
 
     ///TODO:
     /// Extract spectrum and background for all slit spectra
@@ -454,7 +454,7 @@ class FiberTraceSet {
      * @brief 'optimally' extract 1D spectrum from previously provided profile
      * @param traceNumber : 'optimally' extract _traces[traceNumber] from its profile
      */
-    PTR(Spectrum< ImageT, MaskT, VarianceT, VarianceT>) extractTraceNumberFromProfile( const size_t traceNumber );
+    PTR(Spectrum< ImageT, MaskT, VarianceT, VarianceT>) extractTraceNumberFromProfile( const std::size_t traceNumber );
 
     /**
      * @brief 'optimally' extract 1D spectra from their profiles
@@ -519,8 +519,8 @@ namespace math{
    * @param ccdWidthIn : Not used, remove
    */
   ndarray::Array<float, 1, 1> calculateXCenters(PTR(const ::pfs::drp::stella::FiberTraceFunction) const& fiberTraceFunctionIn,
-                                                 size_t const& ccdHeightIn = 0,
-                                                 size_t const& ccdWidthIn = 0);
+                                                 std::size_t const& ccdHeightIn = 0,
+                                                 std::size_t const& ccdWidthIn = 0);
 
   /**
    * @brief: returns ndarray containing the xCenters of a FiberTrace from 0 to FiberTrace.getTrace().getHeight()-1
@@ -532,8 +532,8 @@ namespace math{
    */
   ndarray::Array<float, 1, 1> calculateXCenters(PTR(const ::pfs::drp::stella::FiberTraceFunction) const& fiberTraceFunctionIn,
                                                  ndarray::Array<float, 1, 1> const& yIn,
-                                                 size_t const& ccdHeightIn = 0,
-                                                 size_t const& ccdWidthIn = 0);
+                                                 std::size_t const& ccdHeightIn = 0,
+                                                 std::size_t const& ccdWidthIn = 0);
 
   /**
    * @brief : extract a wide flatFiberTrace, fit profile, normalize, reduce width
@@ -550,7 +550,7 @@ namespace math{
                                                                       PTR( const ::pfs::drp::stella::FiberTraceFunctionControl ) const& fiberTraceFunctionControlNarrow,
                                                                       PTR( const ::pfs::drp::stella::FiberTraceProfileFittingControl ) const& fiberTraceProfileFittingControl,
                                                                       ImageT minSNR = 100.,
-                                                                      size_t iTrace = 0 );
+                                                                      std::size_t iTrace = 0 );
 
   /**
    * @brief: assign trace number to set of FiberTraces from x and y center by comparing the center position to the center positions of the zemax model
@@ -573,11 +573,11 @@ namespace math{
    * @return fiber trace number
    */
   template< typename ImageT, typename MaskT, typename VarianceT, typename U, int I >
-  size_t findITrace( FiberTrace< ImageT, MaskT, VarianceT > const& fiberTrace,
+  std::size_t findITrace( FiberTrace< ImageT, MaskT, VarianceT > const& fiberTrace,
                      ndarray::Array< U, 1, I > const& xCenters,
-                     size_t nTraces,
-                     size_t nRows,
-                     size_t startPos = 0 );
+                     std::size_t nTraces,
+                     std::size_t nRows,
+                     std::size_t startPos = 0 );
 
     /**
      * @brief: add FiberTrace representation image to CCD image
@@ -615,8 +615,8 @@ namespace math{
      */
     template< typename smallT, typename bigT, int I, int J >
     void addArrayIntoArray( ndarray::Array< smallT, 2, I > const& smallArr,
-                            ndarray::Array< size_t, 2, 1 > const& xMinMax,
-                            size_t const& yMin,
+                            ndarray::Array< std::size_t, 2, 1 > const& xMinMax,
+                            std::size_t const& yMin,
                             ndarray::Array< bigT, 2, J > & bigArr );
 
     /**
