@@ -234,6 +234,7 @@ namespace pfsDRPStella = pfs::drp::stella;
   /// Set the _trace of this fiber trace to trace
   template< typename ImageT, typename MaskT, typename VarianceT >
   bool pfsDRPStella::FiberTrace< ImageT, MaskT, VarianceT >::setTrace( PTR( MaskedImageT ) & trace){
+#if 0                                   // why do we constrain the trace to be the same size?
     if ( _isTraceSet && ( trace->getHeight() != int( _trace->getHeight() ) ) ){
       string message( "FiberTrace" );
       message += to_string( _iTrace ) + string( "::setTrace: ERROR: trace->getHeight(=" ) + to_string( trace->getHeight() ) + string( ") != _trace->getHeight(=" );
@@ -246,6 +247,7 @@ namespace pfsDRPStella = pfs::drp::stella;
       message += to_string( _trace->getWidth() ) + string( ")" );
       throw LSST_EXCEPT( pexExcept::Exception, message.c_str() );
     }
+#endif
 
     _trace.reset();
     _trace = trace;
