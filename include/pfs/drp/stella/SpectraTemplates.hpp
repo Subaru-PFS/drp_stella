@@ -515,16 +515,15 @@ bool pfs::drp::stella::Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>::ident
     D_A1_WLenMinusFit.deep() = fittedWLenNotRejected - D_A1_WLen_Gauss;
     LOGLS_DEBUG(_log, "D_A1_WLenMinusFit = " << D_A1_WLenMinusFit);
     _dispRms = math::calcRMS( D_A1_WLenMinusFit );
-    LOGLS_INFO(_log, "_nGoodLines = " << _nGoodLines);
-    LOGLS_INFO(_log, "_dispRms = " << _dispRms);
+    LOGLS_DEBUG(_log, "_nGoodLines = " << _nGoodLines);
+    LOGLS_DEBUG(_log, "_dispRms = " << _dispRms);
 
     ///Calculate RMS for test lines
     ndarray::Array< double, 1, 1 > D_A1_WLenMinusFitCheck = ndarray::allocate( D_A1_WLen_GaussCheck.getShape()[ 0 ] );
     D_A1_WLenMinusFitCheck.deep() = D_A1_FittedWLenCheck - D_A1_WLen_GaussCheck;
     LOGLS_DEBUG(_log, "D_A1_WLenMinusFitCheck = " << D_A1_WLenMinusFitCheck);
     _dispRmsCheck = math::calcRMS( D_A1_WLenMinusFitCheck );
-    LOGLS_INFO(_log, "dispRmsCheck = " << _dispRmsCheck);
-    LOGLS_INFO(_log, "======================================");
+    LOGLS_DEBUG(_log, "dispRmsCheck = " << _dispRmsCheck);
 
     ///calibrate spectrum
     ndarray::Array< double, 1, 1 > D_A1_Indices = math::indGenNdArr( double( _spectrum.getShape()[ 0 ] ) );
@@ -538,9 +537,7 @@ bool pfs::drp::stella::Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>::ident
       LOGLS_DEBUG(_log, "_wavelength = " << _wavelength);
       _dispRms = 1000.;
       LOGLS_WARN(_log, "Identify: RMS = " << _dispRms);
-      LOGLS_WARN(_log, "======================================");
-    }
-    else{
+    } else {
       LOGLS_DEBUG(_log, "_wavelength is monotonic ");
     }
 
