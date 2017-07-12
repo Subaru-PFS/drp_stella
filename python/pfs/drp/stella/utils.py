@@ -58,14 +58,16 @@ def makeFiberTraceSet(pfsFiberTrace, maskedImage=None):
 
         profile = pfsFiberTrace.profiles[iFt]
 
-        trace = np.ndarray(shape=(ftf.yHigh - ftf.yLow + 1, profile.shape[1]), dtype=np.float32)
-        if not ft.setTrace(afwImage.makeMaskedImage(afwImage.ImageF(trace))):
-            raise RuntimeError("FiberTrace %d: Failed to set trace")
-
         yMin = ftf.yCenter + ftf.yLow
-        prof = np.ndarray(shape=(ftf.yHigh - ftf.yLow + 1, profile.shape[1]), dtype=np.float64)
-        prof[:,:] = profile[yMin : yMin + prof.shape[0],:]
-        if not ft.setProfile(afwImage.ImageD(prof)):
+        prof = afwImage.ImageD(profile.shape[1], ftf.yHigh - ftf.yLow + 1)
+        prof.getArray()[:] = profile[yMin : yMin + prof.getHeight()].astype(np.float64)
+
+        pixelData = afwImage.MaskedImageF(profile.shape[1], ftf.yHigh - ftf.yLow + 1)
+        pixelData[:] = np.nan
+        
+        if not ft.setTrace(pixelData):
+            raise RuntimeError("FiberTrace %d: Failed to set trace")
+        if not ft.setProfile(prof):
             raise RuntimeError("FiberTrace %d: Failed to set profile")
 
         xCenters = drpStella.calculateXCenters(ftf)
