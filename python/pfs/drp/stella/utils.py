@@ -186,3 +186,12 @@ def writePfsArm(butler, arcExposure, spectrumSet, dataId):
                                  dataId["visit"], dataId["spectrograph"], dataId["arm"])
     butler.put(PfsArmIO(pfsArm), 'pfsArm', dataId)
 
+def addFiberTraceSetToMask(mask, fiberTraceSet, display=None, maskPlaneName="FIBERTRACE"):
+    mask.addMaskPlane(maskPlaneName)
+
+    ftMask = mask.getPlaneBitMask(maskPlaneName)
+    for ft in fiberTraceSet.getTraces():
+        drpStella.markFiberTraceInMask(ft, mask, ftMask)
+
+    if display:
+        display.setMaskPlaneColor(maskPlaneName, "GREEN")                  

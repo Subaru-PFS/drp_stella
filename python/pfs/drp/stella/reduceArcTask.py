@@ -4,15 +4,17 @@ import sys
 from astropy.io import fits as pyfits
 import numpy as np
 
+import lsstDebug
 import lsst.log as log
 from lsst.pex.config import Config, Field
 from lsst.pipe.base import Struct, TaskRunner, ArgumentParser, CmdLineTask
 from lsst.utils import getPackageDir
+import lsst.afw.display as afwDisplay
 import pfs.drp.stella as drpStella
 from pfs.drp.stella.datamodelIO import spectrumSetToPfsArm, PfsArmIO
 import pfs.drp.stella.extractSpectraTask as esTask
 from pfs.drp.stella.utils import makeFiberTraceSet, readWavelengthFile
-from pfs.drp.stella.utils import readLineListFile, writePfsArm
+from pfs.drp.stella.utils import readLineListFile, writePfsArm, addFiberTraceSetToMask
 
 class ReduceArcConfig(Config):
     """Configuration for reducing arc images"""
@@ -58,6 +60,8 @@ class ReduceArcTask(CmdLineTask):
     def __init__(self, *args, **kwargs):
         super(ReduceArcTask, self).__init__(*args, **kwargs)
 
+        self.debugInfo = lsstDebug.Info(__name__)
+
     @classmethod
     def _makeArgumentParser(cls, *args, **kwargs):
         parser = ArgumentParser(name=cls._DefaultName)
@@ -96,10 +100,17 @@ class ReduceArcTask(CmdLineTask):
                                    (arcRef.dataId, arcRef.get('fibertrace_filename')[0], e))
             flatFiberTraceSet = makeFiberTraceSet(fiberTrace)
             self.log.info('flatFiberTraceSet.size() = %d' % flatFiberTraceSet.size())
+            if self.debugInfo.display and self.debugInfo.arc_frame >= 0:
+                display = afwDisplay.Display(self.debugInfo.arc_frame)
 
             arcExp = arcRef.get("arc", immediate=immediate)
             self.log.debug('arcExp = %s' % arcExp)
             self.log.debug('type(arcExp) = %s' % type(arcExp))
+                addFiberTraceSetToMask(inExposure.getMaskedImage().getMask(),
+                                       inFiberTraceSetWithProfiles.getTraces(), display)
+                
+                display.setMaskTransparency(50)
+                display.mtv(arcExp, "Arcs")
 
             # optimally extract arc spectra
             self.log.info('extracting arc spectra')

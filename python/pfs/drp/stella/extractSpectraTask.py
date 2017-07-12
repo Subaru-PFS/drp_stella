@@ -3,6 +3,7 @@ import lsst.pex.config as pexConfig
 from lsst.pipe.base import Task
 import lsst.afw.display as afwDisplay
 import pfs.drp.stella as drpStella
+import pfs.drp.stella.utils as dsUtils
 
 class ExtractSpectraConfig(pexConfig.Config):
       saturationLevel = pexConfig.Field(
@@ -36,19 +37,12 @@ class ExtractSpectraTask(Task):
             inMaskedImage = inExposure.getMaskedImage()
 
             if self.debugInfo.display:
-                  from pfs.drp.stella import markFiberTraceInMask
-                  disp = afwDisplay.Display(frame=self.debugInfo.input_frame)
+                  display = afwDisplay.Display(frame=self.debugInfo.input_frame)
 
-                  maskPlane = "FIBERTRACE"
-                  mask = inExposure.getMaskedImage().getMask()
-                  mask.addMaskPlane(maskPlane)
-                  disp.setMaskPlaneColor(maskPlane, "GREEN")
+                  dsUtils.addFiberTraceSetToMask(inExposure.getMaskedImage().getMask(),
+                                                 inFiberTraceSetWithProfiles.getTraces(), display)
 
-                  ftMask = mask.getPlaneBitMask(maskPlane)
-                  for ft in inFiberTraceSetWithProfiles.getTraces():
-                        markFiberTraceInMask(ft, mask, ftMask)
-                  
-                  disp.mtv(inExposure, "input")
+                  display.mtv(inExposure, "input")
 
         # Create traces and extract spectrum
         for i in range(len(traceNumbers)):
