@@ -49,10 +49,8 @@ def makeFiberTraceSet(pfsFiberTrace, maskedImage=None):
         ftf.coefficients = coeffs
 
         ft = drpStella.FiberTraceF()
-        if not ft.setFiberTraceFunction(ftf):
-            raise RuntimeError("FiberTrace %d: Failed to set FiberTraceFunction" % iFt)
-        if not ft.setFiberTraceProfileFittingControl(ftpfc):
-            raise RuntimeError("FiberTrace %d: Failed to set FiberTraceProfileFittingControl" % iFt)
+        ft.setFiberTraceFunction(ftf)
+        ft.setFiberTraceProfileFittingControl(ftpfc)
 
         ft.setITrace(pfsFiberTrace.fiberId[iFt]-1)
 
@@ -65,17 +63,14 @@ def makeFiberTraceSet(pfsFiberTrace, maskedImage=None):
         pixelData = afwImage.MaskedImageF(profile.shape[1], ftf.yHigh - ftf.yLow + 1)
         pixelData[:] = np.nan
         
-        if not ft.setTrace(pixelData):
-            raise RuntimeError("FiberTrace %d: Failed to set trace")
-        if not ft.setProfile(prof):
-            raise RuntimeError("FiberTrace %d: Failed to set profile")
+        ft.setTrace(pixelData):
+        ft.setProfile(prof):
 
         xCenters = drpStella.calculateXCenters(ftf)
         ft.setXCenters(xCenters)
 
         if maskedImage != None:
-            if not ft.createTrace(maskedImage):
-                raise RuntimeError("FiberTrace %d: Failed to create trace from maskedImage")
+            ft.createTrace(maskedImage)
 
         if ft.getImage().getHeight() != ft.getProfile().getHeight():
             raise RuntimeError("FiberTrace %d: trace and profile have different sizes")
