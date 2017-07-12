@@ -11,8 +11,8 @@ from lsst.pipe.base import Struct, TaskRunner, ArgumentParser, CmdLineTask
 from lsst.utils import getPackageDir
 import lsst.afw.display as afwDisplay
 import pfs.drp.stella as drpStella
+from pfs.drp.stella.extractSpectraTask import ExtractSpectraTask
 from pfs.drp.stella.datamodelIO import spectrumSetToPfsArm, PfsArmIO
-import pfs.drp.stella.extractSpectraTask as esTask
 from pfs.drp.stella.utils import makeFiberTraceSet, readWavelengthFile
 from pfs.drp.stella.utils import readLineListFile, writePfsArm, addFiberTraceSetToMask
 
@@ -120,8 +120,8 @@ class ReduceArcTask(CmdLineTask):
             for i in range( flatFiberTraceSet.size() ):
                 self.log.debug('iTraces[%d] = %d' % (i, flatFiberTraceSet.getFiberTrace(i).getITrace()))
 
-            myExtractTask = esTask.ExtractSpectraTask()
-            spectrumSetFromProfile = myExtractTask.run(arcExp, flatFiberTraceSet)
+            extractSpectraTask = ExtractSpectraTask()
+            spectrumSetFromProfile = extractSpectraTask.run(arcExp, flatFiberTraceSet)
 
             dispCorControl = drpStella.DispCorControl()
             dispCorControl.fittingFunction = self.config.function
