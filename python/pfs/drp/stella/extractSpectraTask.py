@@ -32,7 +32,6 @@ class ExtractSpectraTask(Task):
 
         spectrumSet = drpStella.SpectrumSetF()
 
-        # Create FiberTraces for inExposure and store them in inFiberTraceSetWithProfile
         if inExposure != None:
             inMaskedImage = inExposure.getMaskedImage()
 
@@ -44,15 +43,17 @@ class ExtractSpectraTask(Task):
 
                   display.mtv(inExposure, "input")
 
-        # Create traces and extract spectrum
+        # Store pixel values from inMaskedImage in inFiberTraceSetWithProfile's FiberTraces
+        # and proceed to extract the spectra
+
         for i in range(len(traceNumbers)):
-            trace = inFiberTraceSetWithProfiles.getFiberTrace(traceNumbers[i])
-            if not trace.isProfileSet():
+            fiberTrace = inFiberTraceSetWithProfiles.getFiberTrace(traceNumbers[i])
+            if not fiberTrace.isProfileSet():
                 raise Exception("profile not set")
 
-            # Create trace from inMaskedImage
+            # Set pixels in FiberTrace from inMaskedImage
             if inExposure != None:
-                trace.createTrace(inMaskedImage)
+                fiberTrace.createTrace(inMaskedImage)
 
             # Extract spectrum from profile
             spectrum = trace.extractFromProfile()
