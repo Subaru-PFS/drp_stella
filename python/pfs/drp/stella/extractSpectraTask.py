@@ -6,7 +6,7 @@ import pfs.drp.stella as drpStella
 import pfs.drp.stella.utils as dsUtils
 
 class ExtractSpectraConfig(pexConfig.Config):
-      saturationLevel = pexConfig.Field(
+    saturationLevel = pexConfig.Field(
           doc = "CCD saturation level",
           dtype = float,
           default = 65000.,
