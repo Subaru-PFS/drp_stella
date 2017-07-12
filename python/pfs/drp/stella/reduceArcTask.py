@@ -100,12 +100,15 @@ class ReduceArcTask(CmdLineTask):
 
             flatFiberTraceSet = makeFiberTraceSet(fiberTrace)
             self.log.info('Found %d fibers in fiberTrace calibration file' % flatFiberTraceSet.size())
+
+            if not arcRef.datasetExists("calexp"):
+                raise RuntimeError("Unable to load calexp image for %s" % (arcRef.dataId))
+
+            arcExp = arcRef.get("calexp")
+
             if self.debugInfo.display and self.debugInfo.arc_frame >= 0:
                 display = afwDisplay.Display(self.debugInfo.arc_frame)
 
-            arcExp = arcRef.get("arc", immediate=immediate)
-            self.log.debug('arcExp = %s' % arcExp)
-            self.log.debug('type(arcExp) = %s' % type(arcExp))
                 addFiberTraceSetToMask(inExposure.getMaskedImage().getMask(),
                                        inFiberTraceSetWithProfiles.getTraces(), display)
                 
@@ -113,7 +116,7 @@ class ReduceArcTask(CmdLineTask):
                 display.mtv(arcExp, "Arcs")
 
             # optimally extract arc spectra
-            self.log.info('extracting arc spectra')
+            self.log.info('extracting arc spectra from %s', arcRef.dataId)
 
             # assign trace number to flatFiberTraceSet
             drpStella.assignITrace( flatFiberTraceSet, traceIds, xCenters )
