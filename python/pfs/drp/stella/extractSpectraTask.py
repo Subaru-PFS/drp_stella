@@ -64,7 +64,12 @@ class ExtractSpectraTask(Task):
                 fiberTrace.setTrace(trace[:width, :])
 
             # Extract spectrum from profile
-            spectrum = trace.extractFromProfile()
+            try:
+                spectrum = fiberTrace.extractFromProfile()
+            except Exception as e:
+                self.log.warn("Extraction of fibre %d failed: %s" % (fiberTrace.getITrace(), e))
+                continue
+
             spectrumSet.addSpectrum(spectrum)
 
         return spectrumSet
