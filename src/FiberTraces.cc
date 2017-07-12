@@ -234,7 +234,15 @@ namespace pfsDRPStella = pfs::drp::stella;
   /// Set the _trace of this fiber trace to trace
   template< typename ImageT, typename MaskT, typename VarianceT >
   bool pfsDRPStella::FiberTrace< ImageT, MaskT, VarianceT >::setTrace( PTR( MaskedImageT ) & trace){
-#if 0                                   // why do we constrain the trace to be the same size?
+#if 0
+      /*
+       * Andreas points out that the problem with removing this check is that the width is implied
+       * by the FiberTraceFunctionControl in FiberTraceFunction which implicitly sets trace's width
+       * via a call to calcMinCenMax()
+       *
+       * I'm going to leave this in for now as I need it to workaround PIPE2D-217 but it needs
+       * to be reverted when that's fixed.
+       */
     if ( _isTraceSet && ( trace->getHeight() != int( _trace->getHeight() ) ) ){
       string message( "FiberTrace" );
       message += to_string( _iTrace ) + string( "::setTrace: ERROR: trace->getHeight(=" ) + to_string( trace->getHeight() ) + string( ") != _trace->getHeight(=" );
