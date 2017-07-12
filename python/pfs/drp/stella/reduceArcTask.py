@@ -92,14 +92,14 @@ class ReduceArcTask(CmdLineTask):
             self.log.debug('arcRef = %s' % arcRef)
             self.log.debug('type(arcRef) = %s' % type(arcRef))
 
-            # construct fiberTraceSet from pfsFiberTrace
+            # read pfsFiberTrace and then construct FiberTraceSet
             try:
-                fiberTrace = arcRef.get('fibertrace', immediate=immediate)
+                fiberTrace = arcRef.get('fibertrace')
             except Exception, e:
-                raise RuntimeError("Unable to load fiberTrace for %s from %s: %s" %
-                                   (arcRef.dataId, arcRef.get('fibertrace_filename')[0], e))
+                raise RuntimeError("Unable to load fiberTrace for %s: %s" % (arcRef.dataId, e))
+
             flatFiberTraceSet = makeFiberTraceSet(fiberTrace)
-            self.log.info('flatFiberTraceSet.size() = %d' % flatFiberTraceSet.size())
+            self.log.info('Found %d fibers in fiberTrace calibration file' % flatFiberTraceSet.size())
             if self.debugInfo.display and self.debugInfo.arc_frame >= 0:
                 display = afwDisplay.Display(self.debugInfo.arc_frame)
 
