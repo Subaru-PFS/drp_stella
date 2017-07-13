@@ -89,9 +89,9 @@ Interface to Stella
 %import "lsst/afw/geom/geomLib.i"
 %import "lsst/afw/image/imageLib.i"
 
-%shared_ptr(pfs::drp::stella::FiberTraceFunctionFindingControl);
 %shared_ptr(pfs::drp::stella::FiberTraceFunction);
 %shared_ptr(pfs::drp::stella::FiberTraceFunctionControl);
+%shared_ptr(pfs::drp::stella::FiberTraceFunctionFindingControl);
 %shared_ptr(pfs::drp::stella::FiberTraceProfileFittingControl);
 %shared_ptr(pfs::drp::stella::GaussCoeffs);
 %shared_ptr(pfs::drp::stella::NistLine);
@@ -133,34 +133,33 @@ Interface to Stella
 %include "pfs/drp/stella/math/Math.h"
 %include "pfs/drp/stella/math/CurveFitting.h"
 
+%template(CoordinatesF) pfs::drp::stella::math::dataXY<float>;
 %template(FiberTraceF) pfs::drp::stella::FiberTrace<float, unsigned short, float>;
 %template(FiberTraceSetF) pfs::drp::stella::FiberTraceSet<float, unsigned short, float>;
-
-%template(markFiberTraceInMask) pfs::drp::stella::utils::markFiberTraceInMask<float, unsigned short, float>;
 %template(SpectrumSetF) pfs::drp::stella::SpectrumSet<float, unsigned short, float, float>;
+
+%template(addFiberTraceToCcdImage) pfs::drp::stella::math::addFiberTraceToCcdImage< float, unsigned short, float, float, float >;
+%template(assignITrace) pfs::drp::stella::math::assignITrace< float, unsigned short, float, int, float, 1 >;
+%template(calcMinCenMax) pfs::drp::stella::math::calcMinCenMax<float, float>;
+%template(ccdToFiberTraceCoordinates) pfs::drp::stella::math::ccdToFiberTraceCoordinates<float, float, unsigned short, float>;
+%template(createLineList) pfs::drp::stella::math::createLineList< float, 1 >;
 %template(crossCorrelate) pfs::drp::stella::math::crossCorrelate<float>;
+%template(fiberTraceCoordinatesRelativeTo) pfs::drp::stella::math::fiberTraceCoordinatesRelativeTo<float, float, unsigned short, float>;
 %template(findAndTraceAperturesF) pfs::drp::stella::math::findAndTraceApertures<float, unsigned short, float>;
-%template(sortIndices) pfs::drp::stella::math::sortIndices<unsigned short>;
-%template(sortIndices) pfs::drp::stella::math::sortIndices<int>;
+%template(findCenterPositionsOneTraceF) pfs::drp::stella::math::findCenterPositionsOneTrace<float, float>;
+%template(findITrace) pfs::drp::stella::math::findITrace<float, unsigned short, float, float, 0>;
 %template(firstIndexWithValueGEFrom) pfs::drp::stella::math::firstIndexWithValueGEFrom<int>;
 %template(getRawPointerFTF) pfs::drp::stella::utils::getRawPointer<pfs::drp::stella::FiberTrace<float, unsigned short, float>>;
 %template(indGenF) pfs::drp::stella::math::indGen<float>;
-%template(indGenNdArrUS) pfs::drp::stella::math::indGenNdArr<unsigned short>;
 %template(indGenNdArrF) pfs::drp::stella::math::indGenNdArr<float>;
-%template(findCenterPositionsOneTraceF) pfs::drp::stella::math::findCenterPositionsOneTrace<float, float>;
+%template(indGenNdArrUS) pfs::drp::stella::math::indGenNdArr<unsigned short>;
+%template(isMonotonic) pfs::drp::stella::math::isMonotonic< int >;
+%template(markFiberTraceInMask) pfs::drp::stella::utils::markFiberTraceInMask<float, unsigned short, float>;
+%template(poly) pfs::drp::stella::math::Poly<float, double>;
+%template(PolyFit) pfs::drp::stella::math::PolyFit<double>;
+%template(sortIndices) pfs::drp::stella::math::sortIndices<int>;
+%template(sortIndices) pfs::drp::stella::math::sortIndices<unsigned short>;
 %template(stretchAndCrossCorrelateSpecFF) pfs::drp::stella::math::stretchAndCrossCorrelateSpec<float, float>;
 %template(StretchAndCrossCorrelateSpecResultFF) pfs::drp::stella::math::StretchAndCrossCorrelateSpecResult<float, float>;
-%template(poly) pfs::drp::stella::math::Poly<float, double>;
-%template(assignITrace) pfs::drp::stella::math::assignITrace< float, unsigned short, float, int, float, 1 >;
 %template(unique) pfs::drp::stella::math::unique<long int, 1>;
-%template(createLineList) pfs::drp::stella::math::createLineList< float, 1 >;
-%template(addFiberTraceToCcdImage) pfs::drp::stella::math::addFiberTraceToCcdImage< float, unsigned short, float, float, float >;
-%template(markFiberTraceInMask) pfs::drp::stella::utils::markFiberTraceInMask<float, unsigned short, float>;
 %template(where) pfs::drp::stella::math::where< int, int, 1 >;
-%template(isMonotonic) pfs::drp::stella::math::isMonotonic< int >;
-%template(PolyFit) pfs::drp::stella::math::PolyFit<double>;
-%template(calcMinCenMax) pfs::drp::stella::math::calcMinCenMax<float, float>;
-%template(findITrace) pfs::drp::stella::math::findITrace<float, unsigned short, float, float, 0>;
-%template(ccdToFiberTraceCoordinates) pfs::drp::stella::math::ccdToFiberTraceCoordinates<float, float, unsigned short, float>;
-%template(fiberTraceCoordinatesRelativeTo) pfs::drp::stella::math::fiberTraceCoordinatesRelativeTo<float, float, unsigned short, float>;
-%template(CoordinatesF) pfs::drp::stella::math::dataXY<float>;
