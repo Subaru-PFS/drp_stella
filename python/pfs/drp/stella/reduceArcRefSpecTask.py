@@ -3,6 +3,7 @@ import os
 import matplotlib.pyplot as plt
 import numpy as np
 
+import lsst.log as log
 from lsst.pex.config import Config, Field
 from lsst.pipe.base import Struct, TaskRunner, ArgumentParser, CmdLineTask
 from lsst.utils import getPackageDir
@@ -50,6 +51,23 @@ class ReduceArcRefSpecTask(ReduceArcTask):
         return parser
 
     def run(self, expRefList, butler, refSpec=None, lineList=None, immediate=True):
+        # Silence verbose loggers
+        for logger in ["afw.ExposureFormatter",
+                       "afw.image.ExposureInfo",
+                       "afw.image.Mask",
+                       "afw.ImageFormatter",
+                       "CameraMapper",
+                       "daf.persistence.butler",
+                       "daf.persistence.LogicalLocation",
+                       "extractSpectra",
+                       "gaussFit",
+                       "pfs::drp::stella::math::assignITrace",
+                       "pfs::drp::stella::math::CurfFitting::PolyFit",
+                       "pfs::drp::stella::math::findITrace",
+                      ]:
+            log.setLevel(logger, log.WARN)
+        log.setLevel("pfs::drp::stella::Spectra::identify", log.FATAL)
+
         if refSpec == None:
             refSpec = self.config.refSpec
         if lineList == None:
