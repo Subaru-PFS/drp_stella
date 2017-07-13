@@ -63,8 +63,8 @@ def makeFiberTraceSet(pfsFiberTrace, maskedImage=None):
         pixelData = afwImage.MaskedImageF(profile.shape[1], ftf.yHigh - ftf.yLow + 1)
         pixelData[:] = np.nan
         
-        ft.setTrace(pixelData):
-        ft.setProfile(prof):
+        ft.setTrace(pixelData)
+        ft.setProfile(prof)
 
         xCenters = drpStella.calculateXCenters(ftf)
         ft.setXCenters(xCenters)
