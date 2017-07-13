@@ -169,6 +169,15 @@ namespace pfs { namespace drp { namespace stella {
 
     /*
      * @brief: Returns array to copies of specified elements of arr_In
+     * @param[in] arr_In     :: 1D vector to create subarray from
+     * @param[in] indices_In :: indices of arr_In which shall be copied to output subarray
+     */
+    template< typename T, typename U >
+    std::vector< T > getSubVector( std::vector< T > const& arr_In,
+                                   std::vector< U > const& indices_In );
+
+    /*
+     * @brief: Returns array to copies of specified elements of arr_In
      * @param[in] arr_In     :: 2D array to create subarray from
      * @param[in] indices_In :: indices of arr_In which shall be copied to output subarray
      */

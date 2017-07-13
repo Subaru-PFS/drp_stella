@@ -375,6 +375,18 @@ ndarray::Array<T, 1, 1> getSubArray( ndarray::Array<T, 1, I> const& arr_In,
   return arr_Out;
 }
 
+template<typename T, typename U>
+std::vector<T> getSubVector( std::vector<T> const& arr_In,
+                            std::vector<U> const& indices_In )
+{
+  std::vector<T> arr_Out(0);
+  arr_Out.reserve(indices_In.size());
+  for ( int ind = 0; ind < indices_In.size(); ++ind ) {
+    arr_Out.push_back(arr_In[indices_In[ind]]);
+  }
+  return arr_Out;
+}
+
 template< typename T, typename U >
 ndarray::Array<T, 1, 1> getSubArray( ndarray::Array<T, 2, 1> const& arr_In,
                                      ndarray::Array<U, 2, 1> const& indices_In )
@@ -2029,6 +2041,10 @@ template bool resize( ndarray::Array< float, 2, 1 > &, size_t, size_t );
 template ndarray::Array<float, 1, 1> getSubArray( ndarray::Array<float, 1, 1> const&, ndarray::Array<size_t, 1, 1> const& );
 template ndarray::Array<float, 1, 1> getSubArray( ndarray::Array<float, 2, 1> const&, ndarray::Array<size_t, 2, 1> const& );
 template ndarray::Array<float, 1, 1> getSubArray( ndarray::Array<float, 2, 1> const&, std::vector< std::pair<size_t, size_t> > const& );
+template std::vector<size_t> getSubVector(std::vector<size_t> const&, std::vector<size_t> const&);
+template std::vector<int> getSubVector(std::vector<int> const&, std::vector<size_t> const&);
+template std::vector<size_t> getSubVector(std::vector<size_t> const&, std::vector<int> const&);
+template std::vector<int> getSubVector(std::vector<int> const&, std::vector<int> const&);
 template std::vector<size_t> getIndices( std::vector<int> const& );
 template ndarray::Array< size_t, 1, 1 > getIndices( ndarray::Array< int, 1, 1 > const& );
 template ndarray::Array< size_t, 2, 1 > getIndices( ndarray::Array< int, 2, 1 > const& );
