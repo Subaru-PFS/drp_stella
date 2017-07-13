@@ -95,10 +95,10 @@ class ReduceArcRefSpecTask(CmdLineTask):
 
             # construct fiberTraceSet from pfsFiberTrace
             try:
-                fiberTrace = arcRef.get('fiberTrace', immediate=True)
+                fiberTrace = arcRef.get('fibertrace', immediate=True)
             except Exception, e:
-                raise RuntimeError("Unable to load fiberTrace for %s from %s: %s" %
-                                   (arcRef.dataId, arcRef.get('fiberTrace_filename')[0], e))
+                raise RuntimeError("Unable to load fibertrace for %s from %s: %s" %
+                                   (arcRef.dataId, arcRef.get('fibertrace_filename')[0], e))
             flatFiberTraceSet = makeFiberTraceSet(fiberTrace)
 
             self.log.debug('flatFiberTraceSet.size() = %d' % flatFiberTraceSet.size())
