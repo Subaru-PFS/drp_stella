@@ -370,6 +370,19 @@ namespace pfs { namespace drp { namespace stella { namespace utils{
     return out;
   }
 
+  template<typename T>
+  int find(std::vector<T> const& vec, T number){
+      int ind = std::find(vec.begin(),
+                          vec.end(),
+                          number)
+                         - vec.begin();
+      if (ind < vec.size())
+          return ind;
+      return -1;
+  }
+
+  template int find(std::vector<int> const&, int);
+  template int find(std::vector<size_t> const&, size_t);
   template ndarray::Array<float, 1, 1> get1DndArray(float);
   template ndarray::Array<float, 2, 1> get2DndArray(float, float);
   template ndarray::Array<float, 1, 1> typeCastNdArray(ndarray::Array<double, 1, 1> const&, float const&);

@@ -29,5 +29,15 @@ namespace pfs { namespace drp { namespace stella { namespace utils{
    * does not get swigged.
    */
   void testPolyFit();
-}}}}
+
+  /**
+   * @brief check a vector for a number
+   * @param vec : vector to search for number
+   * @param number : number to search for
+   * @return -1 if not found, otherwise the position in vec where number was found
+   */
+  template<typename T>
+  int find(std::vector<T> const& vec, T number);
+}// End namespace utils
+}}}
 #endif
