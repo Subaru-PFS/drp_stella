@@ -25,7 +25,61 @@ This module contains python math function related to pfs.drp.stella
 @author Andreas Ritter, Princeton University
 """
 import numpy as np
+from scipy.optimize import curve_fit
+
+import lsst.log as log
 import pfs.drp.stella as drpStella
+
+def gaussFunc(x, *p0):
+    """
+    Gaussian Function
+    @param x : x values (array like)
+    @param p0 : ['strength', 'mu', 'sima']
+    """
+    logger = log.Log.getLogger("gaussFunc")
+    strength, mu, sigma = p0
+    logger.trace('strength = %f, mu = %f, sigma = %f' % (strength, mu, sigma))
+    logger.trace('x = %s' % (np.array_str(np.array(x))))
+    if sigma > 0.0:
+        return strength * np.exp(-(np.array(x) - mu) ** 2 / (2. * sigma ** 2))
+    logger.warn('sigma <= 0.0')
+    return x * 0.0
+
+def gauss(x, gaussCoeffs):
+    """
+    Gaussian Function
+    @param x : x values (array like)
+    @param gaussCoeffs : ['strength', 'mu', 'sima']
+    """
+    logger = log.Log.getLogger("gauss")
+    logger.trace('x = %s' % (np.array_str(np.array(x))))
+    logger.trace('gaussCoeffs = [strength = %f, mu = %f, sigma = %f'
+                 % (gaussCoeffs.strength, gaussCoeffs.mu, gaussCoeffs.sigma))
+    p = [gaussCoeffs.strength, gaussCoeffs.mu, gaussCoeffs.sigma]
+    logger.trace('p = %s' % (np.array_str(np.array(p))))
+    return gaussFunc(x, *p)
+
+def gaussFit(x, y, guess):
+    """
+    Fit Gauss curve to x and y
+    @param x : independent values
+    @param y : dependent values
+    @param guess : GaussCoeffs, initial guess for the fitting coefficients (strength, mu, and sigma above)
+    @return : [strength, mu, sigma, eStrength, eMu, eSigma]
+    """
+    logger = log.Log.getLogger("gaussFit")
+    p0 = [guess.strength, guess.mu, guess.sigma]
+    failed = False
+    try:
+        coeffs, varCoeffs = curve_fit(gaussFunc, x, y, p0=p0)
+    except:
+        failed = True
+    if failed or (True in np.isinf(varCoeffs)):
+        coeffs = [0.0, 0.0, 0.0]
+        varCoeffs = [coeffs, coeffs, coeffs]
+    logger.trace('coeffs: strength = %f, mu = %f, sigma = %f'
+                 % (coeffs[0], coeffs[1], coeffs[2]))
+    return [coeffs[0], coeffs[1], coeffs[2], varCoeffs[0][0], varCoeffs[1][1], varCoeffs[2][2]]
 
 def getDistTraceProfRec(fiberTraceSet):
     """
