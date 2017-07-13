@@ -130,8 +130,7 @@ class ReduceArcRefSpecTask(ReduceArcTask):
                 self.log.debug('type(specSpec) = %s: <%s>' % (type(specSpec),type(specSpec[0])))
                 self.log.debug('type(refSpecArr) = %s: <%s>' % (type(refSpecArr),type(refSpecArr[0])))
                 self.log.debug('type(lineListArr) = %s: <%s>' % (type(lineListArr),type(lineListArr[0][0])))
-                result = drpStella.stretchAndCrossCorrelateSpec(specSpec, refSpecArr, lineListArr, dispCorControl)
-
+                result = drpStella.stretchAndCrossCorrelateSpecFF(specSpec, refSpecArr, lineListArr, dispCorControl)
                 self.log.debug('type(result.lineList) = %s: <%s>: <%s>' % (type(result.lineList),type(result.lineList[0]),type(result.lineList[0][0])))
                 self.log.debug('type(spectrumSetFromProfile.getSpectrum(i)) = %s: <%s>: <%s>' % (type(spectrumSetFromProfile.getSpectrum(i)),type(spectrumSetFromProfile.getSpectrum(i).getSpectrum()),type(spectrumSetFromProfile.getSpectrum(i).getSpectrum()[0])))
                 for j in range(result.lineList.shape[0]):
