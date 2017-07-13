@@ -226,7 +226,6 @@ namespace pfs { namespace drp { namespace stella { namespace math {
     // We create the vector of the correct size here because it will be used again
     // later in a different context
     std::vector<T> V_MeasureErrors(P_D_A1_MeasureErrors->begin(), P_D_A1_MeasureErrors->end());
-    LOGLS_DEBUG(_log, "V_MeasureErrors = " << V_MeasureErrors);
 
     PTR(ndarray::Array<T, 1, 1>) P_D_A1_MeasureErrorsTemp(new ndarray::Array<T, 1, 1>(ndarray::external(V_MeasureErrors.data(),
                                                                                                         ndarray::makeVector(int(V_MeasureErrors.size())),
@@ -302,9 +301,13 @@ namespace pfs { namespace drp { namespace stella { namespace math {
       V_MeasureErrors.resize(0);
       I_A1_OrigPos.resize(0);
       P_I_A1_Rejected->resize(0);
+      LOGLS_DEBUG(_log, "i_iter = " << i_iter << ": D_LReject_In(=" << D_LReject_In << ") * D_SDev(="
+                        << D_SDev << ") = " << D_LReject_In * D_SDev);
       for (size_t i_pos=0; i_pos < D_A1_Y_In.getShape()[0]; i_pos++){
         D_Dev = D_A1_Y_In[i_pos] - (*P_D_A1_YFit)[i_pos];
-        LOGLS_DEBUG(_log, "i_pos = " << i_pos << ": D_Dev = " << D_Dev << ", D_SDev = " << D_SDev);
+        LOGLS_DEBUG(_log, "i_pos = " << i_pos << ": D_Dev = " << D_Dev << ", D_SDev = " << D_SDev
+                          << ", D_LReject_In = " << D_LReject_In << ", D_URejecte_In = "
+                          << D_UReject_In);
         if ((I_NIter == 0) ||
             ((D_Dev < 0) && (D_Dev >= (D_LReject_In * D_SDev))) ||
             ((D_Dev >= 0) && (D_Dev <= (D_UReject_In * D_SDev)))){
