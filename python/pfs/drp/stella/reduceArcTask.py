@@ -101,10 +101,14 @@ class ReduceArcTask(CmdLineTask):
             flatFiberTraceSet = makeFiberTraceSet(fiberTrace)
             self.log.info('Found %d fibers in fiberTrace calibration file' % flatFiberTraceSet.size())
 
-            if not arcRef.datasetExists("calexp"):
-                raise RuntimeError("Unable to load calexp image for %s" % (arcRef.dataId))
+            arcExp = None
+            for dataType in ["calexp", "postISRCCD"]:
+                if arcRef.datasetExists(dataType):
+                    arcExp = arcRef.get(dataType)
+                    break
 
-            arcExp = arcRef.get("calexp")
+            if arcExp is None:
+                raise RuntimeError("Unable to load postISRCCD or calexp image for %s" % (arcRef.dataId))
 
             if self.debugInfo.display and self.debugInfo.arc_frame >= 0:
                 display = afwDisplay.Display(self.debugInfo.arc_frame)
