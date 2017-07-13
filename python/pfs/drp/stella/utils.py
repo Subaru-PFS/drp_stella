@@ -35,6 +35,12 @@ import pfs.drp.stella as drpStella
 from pfs.drp.stella.datamodelIO import spectrumSetToPfsArm, PfsArmIO
 
 def makeFiberTraceSet(pfsFiberTrace, maskedImage=None):
+    """
+    take a pfsFiberTrace and return a FiberTraceSet
+    @param pfsFiberTrace : pfsFiberTrace from which to reconstruct the FiberTraceSet
+    @param maskedImage : if given, take the FiberTrace definitions and create a new
+                         FiberTraceSet from it
+    """
     if pfsFiberTrace.profiles is None or len(pfsFiberTrace.profiles) == 0:
         raise RuntimeError("There are no fiberTraces in the PfsFiberTrace object")
 
@@ -109,6 +115,12 @@ def makeFiberTraceSet(pfsFiberTrace, maskedImage=None):
     return fts
 
 def createPfsFiberTrace(dataId, fiberTraceSet, nRows):
+    """
+    take a fiberTraceSet and dataId and return a pfsFiberTrace object
+    @param dataId : dataId for pfsFiberTrace to be returned
+    @param fiberTraceSet : FiberTraceSet to convert to a pfsFiberTrace object
+    @param nRows : number of CCD rows in the postISRCCD image
+    """
     pfsFiberTrace = pFT(dataId['calibDate'], dataId['spectrograph'], dataId['arm'])
 
     ftf = fiberTraceSet.getFiberTrace(0).getFiberTraceFunction()
@@ -158,7 +170,11 @@ def createPfsFiberTrace(dataId, fiberTraceSet, nRows):
     return pfsFiberTrace
 
 def readWavelengthFile(wLenFile):
-    """read wavelength file"""
+    """
+    read wavelength file containing the predicted wavelengths per pixel
+    @param wLenFile : name of file to read
+    @return : dictionary{xCenters, yCenters, wavelengths, traceIds}
+    """
     hdulist = pyfits.open(wLenFile)
     tbdata = hdulist[1].data
     traceIdsTemp = np.ndarray(shape=(len(tbdata)), dtype='int')
@@ -171,7 +187,11 @@ def readWavelengthFile(wLenFile):
     return [xCenters, wavelengths, traceIds]
 
 def readLineListFile(lineList):
-    """read line list"""
+    """
+    read line list
+    @param lineList : name of file to read
+    @return : ndarray of shape nLines x 2, [0: wavelength, 1: pixel]
+    """
     hdulist = pyfits.open(lineList)
     tbdata = hdulist[1].data
     lineListArr = np.ndarray(shape=(len(tbdata),2), dtype='float32')
@@ -180,7 +200,11 @@ def readLineListFile(lineList):
     return lineListArr
 
 def readReferenceSpectrum(refSpec):
-    """read reference Spectrum"""
+    """
+    read reference Spectrum
+    @param refSpec : name of reference spectrum to read
+    @return : flux ndarray of length nPixels
+    """
     hdulist = pyfits.open(refSpec)
     tbdata = hdulist[1].data
     refSpecArr = np.ndarray(shape=(len(tbdata)), dtype='float32')
@@ -193,6 +217,10 @@ def writePfsArm(butler, arcExposure, spectrumSet, dataId):
     to the datamodel product)
 
     This is a bit messy as we need to include the pfsConfig file in the pfsArm file
+    @param butler : butler to use
+    @param arcExposure : Exposure object containing an Arc
+    @param spectrumSet : SpectrumSet to convert to a pfsArm object
+    @param dataId : Data ID for pfsArm object
     """
     md = arcExposure.getMetadata().toDict()
     key = "PFSCONFIGID"
