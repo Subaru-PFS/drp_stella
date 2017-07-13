@@ -24,8 +24,8 @@ import pfs.drp.stella.createFlatFiberTraceProfileTask as cfftpTask
 import pfs.drp.stella.extractSpectraTask as esTask
 import pfs.drp.stella.findAndTraceAperturesTask as fataTask
 import pfs.drp.stella.math as drpStellaMath
-import pfs.drp.stella.reduceArcRefSpecTask as reduceArcRefSpecTask
-import pfs.drp.stella.reduceArcTask as reduceArcTask
+from pfs.drp.stella.reduceArcRefSpecTask import ReduceArcRefSpecTask
+from pfs.drp.stella.reduceArcTask import ReduceArcTask
 from pfs.drp.stella.utils import readLineListFile, readReferenceSpectrum
 from pfs.drp.stella.utils import readWavelengthFile
 
@@ -51,10 +51,11 @@ class SpectraTestCase(tests.TestCase):
         self.nFiberTraces = 11
         self.nRowsPrescan = 49
 
-        # This value is a measured value which is otherwise poorly justified.
-        # It serves as a regression test to make sure that changes in the code
+        # These values are measured values which are otherwise poorly justified.
+        # They serve as a regression test to make sure that changes in the code
         # didn't make it worse.
         self.maxRMS = 0.06
+        self.maxRMSCheck = 0.18
 
         self.lineList = os.path.join(lsst.utils.getPackageDir('obs_pfs'),'pfs/lineLists/CdHgKrNeXe_red.fits')
         self.refSpec = os.path.join(lsst.utils.getPackageDir('obs_pfs'),'pfs/arcSpectra/refSpec_CdHgKrNeXe_red.fits')
@@ -70,6 +71,7 @@ class SpectraTestCase(tests.TestCase):
         del self.dispCorControl
         del self.wLenFile
         del self.maxRMS
+        del self.maxRMSCheck
 
     def testSpectrumConstructors(self):
         # Test that we can create a Spectrum with the standard constructor
@@ -412,7 +414,7 @@ class SpectraTestCase(tests.TestCase):
                 self.assertTrue(np.all(np.fabs(mean - 1.0) < std))
 
     def testWavelengthCalibrationWithRefSpec(self):
-        myReduceArcTask = reduceArcRefSpecTask.ReduceArcRefSpecTask()
+        myReduceArcTask = ReduceArcRefSpecTask()
         dataRefList = [ref for ref in self.butler.subset('postISRCCD',
                                                          'visit',
                                                          self.dataIdArc)]
@@ -437,7 +439,7 @@ class SpectraTestCase(tests.TestCase):
 
             # Check RMS
             self.assertLess(spec.getDispRms(), self.maxRMS)
-            self.assertLess(spec.getDispRmsCheck(), self.maxRMS)
+            self.assertLess(spec.getDispRmsCheck(), self.maxRMSCheck)
 
     def testWavelengthCalibrationWithoutRefSpec(self):
         myReduceArcTask = reduceArcTask.ReduceArcTask()
@@ -458,6 +460,7 @@ class SpectraTestCase(tests.TestCase):
 
             # Check RMS
             self.assertLess(spec.getDispRms(), self.maxRMS)
+            self.assertLess(spec.getDispRmsCheck(), self.maxRMSCheck)
 
     def testPolyFit(self):
         # This test is an integration test for <PolyFit> called by <identify>
@@ -605,7 +608,7 @@ class SpectraTestCase(tests.TestCase):
                         maxLines = spec.getNGoodLines()
 
                     self.assertLess(spec.getDispRms(), self.maxRMS)
-                    self.assertLess(spec.getDispRmsCheck(), self.maxRMS)
+                    self.assertLess(spec.getDispRmsCheck(), self.maxRMSCheck)
 
 #-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
