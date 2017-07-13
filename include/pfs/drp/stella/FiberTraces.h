@@ -349,6 +349,21 @@ class FiberTraceSet {
      * @param i : Position in _traces from which to return a copy of the FiberTrace
      */
     PTR(FiberTraceT) const getFiberTrace(const std::size_t i) const;
+
+    /**
+     * @brief Return the FiberTrace with the ID id
+     * @param id : FiberTracd ID of the FiberTrace to be returned
+     * @return : PTR(FiberTrace<ImageT, MaskT, VarianceT>): Shared pointer to FiberTrace with Id=id
+     */
+    PTR(FiberTrace<ImageT, MaskT, VarianceT>) &getFiberTraceWithId(const size_t id);
+    PTR(FiberTrace<ImageT, MaskT, VarianceT>) const& getFiberTraceWithId(const size_t id) const;
+
+    /**
+     * @brief Return the index of the FiberTrace with the ID id if found in this, else -1
+     * @param id : ID of the FiberTrace to find in this and return its index in the FiberTraceSet
+     * @return : index of the FiberTrace with ID id, -1 if not found
+     */
+    int getIndexWithId(const size_t id) const;
     
     /**
      * @brief Removes from the vector either a single element (position) or a range of elements ([first,last)).

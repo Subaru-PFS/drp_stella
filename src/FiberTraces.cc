@@ -1251,6 +1251,41 @@ namespace pfs { namespace drp { namespace stella {
   }
 
   template<typename ImageT, typename MaskT, typename VarianceT>
+  PTR(pfsDRPStella::FiberTrace<ImageT, MaskT, VarianceT>) & pfsDRPStella::FiberTraceSet<
+      ImageT, MaskT, VarianceT>::getFiberTraceWithId(const size_t id)
+  {
+      int index = getIndexWithId(id);
+      if (index < 0){
+          string message("FiberTraceSet::getFiberTraceWithId(id=");
+          message += to_string(id) + string("): ERROR: id not found");
+          throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
+      }
+      return _traces->at(index);
+  }
+
+  template<typename ImageT, typename MaskT, typename VarianceT>
+  PTR(pfsDRPStella::FiberTrace<ImageT, MaskT, VarianceT>) const&
+      pfsDRPStella::FiberTraceSet<ImageT, MaskT, VarianceT>::getFiberTraceWithId(const size_t id) const
+  {
+      int index = getIndexWithId(id);
+      if (index < 0){
+          string message("FiberTraceSet::getFiberTraceWithId(id=");
+          message += to_string(id) + string("): ERROR: id not found");
+          throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
+      }
+      return _traces->at(index);
+  }
+
+  template<typename ImageT, typename MaskT, typename VarianceT>
+  int pfsDRPStella::FiberTraceSet<ImageT, MaskT, VarianceT>::getIndexWithId(const size_t id) const{
+      for (int i = 0; i < this->size(); ++i){
+          if (_traces->at(i)->getITrace() == id)
+              return i;
+      }
+      return -1;
+  }
+
+  template<typename ImageT, typename MaskT, typename VarianceT>
   ndarray::Array<float, 1, 1> FiberTrace<ImageT, MaskT, VarianceT>::getTraceCoefficients() const{
     ndarray::Array<float, 1, 1> coeffs = ndarray::allocate(_fiberTraceFunction->coefficients.size());
     auto itCo = _fiberTraceFunction->coefficients.begin();
@@ -2656,5 +2691,5 @@ namespace pfs { namespace drp { namespace stella {
 
 template class FiberTrace<float, lsst::afw::image::MaskPixel, float>;
 template class FiberTraceSet<float, lsst::afw::image::MaskPixel, float>;
-            
+
 }}}
