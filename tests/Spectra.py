@@ -443,11 +443,10 @@ class SpectraTestCase(tests.TestCase):
                 self.assertLess(wavelength[j], wavelength[j+1])
 
             # Check wavelength range
-            self.assertGreater(wavelength[0], 3800)
-            self.assertLess(wavelength[spec.getLength()-1], 9800)
+            self.assertGreater(wavelength[0], 380)
+            self.assertLess(wavelength[spec.getLength()-1], 980)
 
             # Check RMS
-            self.assertGreater(spec.getWavelength()[0], 3800)
             self.assertLess(spec.getDispRms(), self.maxRMS)
             self.assertLess(spec.getDispRmsCheck(), self.maxRMS)
 
@@ -467,11 +466,10 @@ class SpectraTestCase(tests.TestCase):
                 self.assertLess(wavelength[j], wavelength[j+1])
 
             # Check wavelength range
-            self.assertGreater(wavelength[0], 3800)
-            self.assertLess(wavelength[spec.getLength()-1], 9800)
+            self.assertGreater(wavelength[0], 380)
+            self.assertLess(wavelength[spec.getLength()-1], 980)
 
             # Check RMS
-            self.assertGreater(wavelength[0], 3800)
             self.assertLess(spec.getDispRms(), self.maxRMS)
 
     def testPolyFit(self):

@@ -41,7 +41,6 @@ def spectrumSetToPfsArm(pfsConfig, spectrumSet, visit, spectrograph, arm):
     pfsArm.mask = spectrumSet.getAllMasks().T
     pfsArm.lam = spectrumSet.getAllWavelengths().T
     pfsArm.lam[pfsArm.lam == 0] = np.nan
-    pfsArm.lam /= 10.0                  # convert from AA to nm
     pfsArm.sky = spectrumSet.getAllSkies().T
 
     return pfsArm
