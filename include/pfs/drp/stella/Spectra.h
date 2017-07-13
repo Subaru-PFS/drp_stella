@@ -315,8 +315,8 @@ namespace math{
     
     /**
      * @brief: create line list from wavelength array of size nCCDRows and list of wavelengths of emission lines used to calibrate the spectrum
-     * @param wLen
-     * @param lines
+     * @param wLen : wavelength array of size nCCDRows
+     * @param lines : list of wavelengths of emission lines used to calibrate the spectrum
      * @return array(lines.shape[0], 2) col 0: wavelength, col 1: pixel
      */
     template <typename T, int I>
