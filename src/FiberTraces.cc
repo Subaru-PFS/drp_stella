@@ -2383,6 +2383,8 @@ namespace pfs { namespace drp { namespace stella {
         LOGLS_DEBUG(_log, "assignITrace: i = " << i << ": fiberIdsUnique[" << iTrace << "] = "
                     << fiberIdsUnique[iTrace]);
         fiberTrace->setITrace(fiberIdsUnique[iTrace]);
+        LOGLS_DEBUG(_log, "assignITrace: i = " << i << ": fiberTrace->getITrace() = "
+                << fiberTrace->getITrace());
       }
       return;
     }
