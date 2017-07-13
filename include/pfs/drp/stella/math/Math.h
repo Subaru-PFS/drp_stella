@@ -199,8 +199,8 @@ namespace pfs { namespace drp { namespace stella {
     bool resize( ndarray::Array< T, 1, 1 > & arr_In, 
                  size_t newSize ); 
 
-    template< typename T >
-    bool resize( ndarray::Array< T, 2, 1 > & arr_In, 
+    template< typename T, int I >
+    bool resize( ndarray::Array< T, 2, I > & arr_In,
                  size_t newSizeRows, 
                  size_t newSizeCols ); 
 

@@ -493,13 +493,13 @@ bool resize( ndarray::Array<T, 1, 1> & arr, size_t const newSize )
   return true;
 }
 
-template<typename T>
-bool resize( ndarray::Array<T, 2, 1> & arr,
+template<typename T, int I>
+bool resize( ndarray::Array<T, 2, I> & arr,
              size_t const newSizeRows,
              size_t const newSizeCols )
 {
   /// create temporary array of new size and copy existing array into it
-  ndarray::Array<T, 2, 1> arrOut = ndarray::allocate(newSizeRows, newSizeCols);
+  ndarray::Array<T, 2, I> arrOut = ndarray::allocate(newSizeRows, newSizeCols);
   arrOut.deep() = 0;
   for ( auto itArrRowIn = arr.begin(), itArrRowOut = arrOut.begin(); (itArrRowIn != arr.end()) && (itArrRowOut != arrOut.end()); ++itArrRowIn, ++itArrRowOut ) {
     for ( auto itArrColIn = itArrRowIn->begin(), itArrColOut = itArrRowOut->begin(); (itArrColIn != itArrRowIn->end()) && (itArrColOut != itArrRowOut->end()); ++itArrColIn, ++itArrColOut ) {
