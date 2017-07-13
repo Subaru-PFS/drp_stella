@@ -195,8 +195,8 @@ def readLineListFile(lineList):
     hdulist = pyfits.open(lineList)
     tbdata = hdulist[1].data
     lineListArr = np.ndarray(shape=(len(tbdata),2), dtype='float32')
-    lineListArr[:,0] = tbdata.field(0)
-    lineListArr[:,1] = tbdata.field(1)
+    lineListArr[:,0] = tbdata.field('wavelength')
+    lineListArr[:,1] = tbdata.field('pixel')
     return lineListArr
 
 def readReferenceSpectrum(refSpec):
@@ -208,7 +208,7 @@ def readReferenceSpectrum(refSpec):
     hdulist = pyfits.open(refSpec)
     tbdata = hdulist[1].data
     refSpecArr = np.ndarray(shape=(len(tbdata)), dtype='float32')
-    refSpecArr[:] = tbdata.field(0)
+    refSpecArr[:] = tbdata.field('flux')
     return refSpecArr
 
 def writePfsArm(butler, arcExposure, spectrumSet, dataId):
