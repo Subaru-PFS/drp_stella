@@ -169,3 +169,63 @@ def getMeanStdXBins(x, y, binWidthX):
         binRange[0] = binRange[1]
         binRange[1] += binWidthX
     return binRanges, mean, std
+
+def makeArtificialSpectrum(lambdaPix, lines, lambdaMin=0.0, lambdaMax=0.0, fwhm=1.0):
+    """
+    Create and return an artificial spectrum
+    @param lambdaPix : predicted wavelengths for the spectrum
+    @param lines : array of NistLines
+    @param lambdaMin : minimum wavelength of spectrum, if 0 take min(lambdaPix)
+    @param lambdaMax : maximum wavelength of spectrum, if 0 take max(lambdaPix)
+    @param fwhm : FWHM of the artificial emission lines in pixels
+    @return calculated flux
+    """
+    logger = log.Log.getLogger("makeArtificialSpectrum")
+    logger.debug('len(lines) = %d',len(lines))
+    logger.debug('lambdaPix = %d: %s' % (len(lambdaPix),
+                                         np.array_str(lambdaPix)))
+    logger.trace('lambdaMin = %f, lambdaMax = %f' % (lambdaMin, lambdaMax))
+    xWidth = int(2. * fwhm)
+
+    if lambdaMin == 0.0:
+        lambdaMin = np.min(lambdaPix)
+    if lambdaMax == 0.0:
+        lambdaMax = np.max(lambdaPix)
+    logger.trace('lambdaMin = %f, lambdaMax = %f' % (lambdaMin, lambdaMax))
+
+    lambdaLines = [line.laboratoryWavelength for line in lines]
+    logger.trace('len(lambdaLines) = %d',len(lambdaLines))
+    strengthLines = [line.predictedStrength for line in lines]
+
+    calculatedFlux = np.ndarray(shape=lambdaPix.shape[0], dtype=np.float32)
+    calculatedFlux[:] = 0.
+
+    for k in range(len(lambdaLines)):
+        logger.trace('lambdaLines[%d] = %f' % (k, lambdaLines[k]))
+        if lambdaLines[k] > lambdaMin and lambdaLines[k] < lambdaMax:
+            logger.debug('lambdaLines[%d] = %f, lambdaPix[0] = %f'
+                % (k, lambdaLines[k], lambdaPix[0]))
+            dist = abs(lambdaLines[k] - lambdaPix)
+            linePos = np.argmin(dist)
+            logger.debug('linePos for line %d is at %f' % (k, linePos))
+            x = np.linspace(-1 * xWidth, xWidth, (2 * xWidth) + 1)
+            logger.debug('x = %s, strengthLines[%d] = %f'
+                % (np.array_str(x), k, strengthLines[k]))
+            gaussCoeff = drpStella.GaussCoeffs()
+            gaussCoeff.strength, gaussCoeff.mu, gaussCoeff.sigma = [strengthLines[k],
+                                                                    0.0,
+                                                                    fwhm / 1.1774]
+            logger.trace('k=%d: gaussCoeff: strength = %f, mu = %f, sigma = %f' %
+                         (k, gaussCoeff.strength, gaussCoeff.mu, gaussCoeff.sigma))
+            gaussian = gauss(x, gaussCoeff)
+            logger.trace('k=%d: gaussian = %s' % (k, np.array_str(gaussian)))
+            if (linePos - xWidth >= 0
+                and linePos + xWidth < len(calculatedFlux)):
+                calculatedFlux[linePos - xWidth:linePos + xWidth + 1] += gaussian
+            if np.isnan(np.min(calculatedFlux)):
+                raise RuntimeError("calculatedFlux contains NaNs")
+
+    logger.debug('calculatedFlux = %d: ' % (len(calculatedFlux)))
+    for iF in range(len(calculatedFlux)):
+        logger.trace("%d %f "% (iF, calculatedFlux[iF]))
+    return calculatedFlux
