@@ -436,8 +436,10 @@ namespace pfs { namespace drp { namespace stella {
       oldTraceWidth = getWidth();
       oldTraceHeight = getHeight();
     }
-    if (_xCenters.getShape()[0] >= 0 &&
-        static_cast<size_t>(_xCenters.getShape()[0]) != (_fiberTraceFunction->yHigh - _fiberTraceFunction->yLow + 1)) {
+    if ((_xCenters.getShape()[0] >= 0) &&
+        (static_cast<size_t>(_xCenters.getShape()[0])
+         != (_fiberTraceFunction->yHigh - _fiberTraceFunction->yLow + 1)))
+    {
       string message("FiberTrace");
       message += to_string(_iTrace) + string("::createTrace: ERROR: _xCenters.getShape()[0]=") + to_string(_xCenters.getShape()[0]);
       message += string(" != (_fiberTraceFunction->yHigh(=") + to_string(_fiberTraceFunction->yHigh) + string(") - _fiberTraceFunction->yLow(=");
