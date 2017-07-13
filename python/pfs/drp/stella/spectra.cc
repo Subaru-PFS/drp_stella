@@ -112,7 +112,7 @@ void declareSpectrumSet(py::module &mod, std::string const& suffix) {
     cls.def("addSpectrum", (void (Class::*)(PTR(typename Class::SpectrumT) const&)) &Class::addSpectrum,
             "spectrum"_a);
 
-    cls.def("getSpectra", (PTR(typename Class::Spectra) (Class::*)())&Class::getSpectra);
+    cls.def("getSpectra", [](Class const& self) { return *self.getSpectra(); });
 
     cls.def("erase", &Class::erase, "iStart"_a, "iEnd"_a=0);
 
