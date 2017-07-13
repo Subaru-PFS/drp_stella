@@ -1,6 +1,18 @@
+template <typename T>
+pfs::drp::stella::PSF<T>::ExtractPSFResult::ExtractPSFResult(std::size_t length)
+  : xRelativeToCenter(ndarray::allocate(int(length))),
+    yRelativeToCenter(ndarray::allocate(int(length))),
+    zNormalized(ndarray::allocate(int(length))),
+    zTrace(ndarray::allocate(int(length))),
+    weight(ndarray::allocate(int(length))),
+    xTrace(ndarray::allocate(int(length))),
+    yTrace(ndarray::allocate(int(length)))
+  {}
+
+
 template< typename T >
 template< typename ImageT, typename MaskT, typename VarianceT >
-pfs::drp::stella::ExtractPSFResult<T> pfs::drp::stella::PSF<T>::extractPSFFromCenterPosition(
+typename pfs::drp::stella::PSF<T>::ExtractPSFResult pfs::drp::stella::PSF<T>::extractPSFFromCenterPosition(
     pfs::drp::stella::FiberTrace< ImageT, MaskT, VarianceT > const& fiberTrace_In,
     T const centerPositionXCCD_In,
     T const centerPositionYCCD_In)
@@ -19,9 +31,6 @@ pfs::drp::stella::ExtractPSFResult<T> pfs::drp::stella::PSF<T>::extractPSFFromCe
     xyCenterCCD.x = centerPositionXCCD_In;
     xyCenterCCD.y = centerPositionYCCD_In;
 
-    // Define output
-    ExtractPSFResult< T > result_Out;
-
     // Calculate offset of our coordinates to the Center of the PSF
     size_t nPix = 0;
     double sumPSF = 0.;
@@ -38,8 +47,11 @@ pfs::drp::stella::ExtractPSFResult<T> pfs::drp::stella::PSF<T>::extractPSFFromCe
     int rowMax = xyCenterTrace.y + halfLength;
     if (rowMax >= fiberTrace_In.getHeight())
         rowMax = fiberTrace_In.getHeight() - 1;
-    for (size_t iY = rowMin; iY <= rowMax; ++iY){
-        for (size_t iX = 0; iX < fiberTrace_In.getWidth(); ++iX){
+
+    ExtractPSFResult result_Out{(rowMax - rowMin + 1)*fiberTrace_In.getWidth()};
+
+    for (size_t iY = rowMin, ii = 0; iY <= rowMax; ++iY){
+        for (size_t iX = 0; iX < fiberTrace_In.getWidth(); ++iX, ++ii){
             LOGLS_DEBUG(_log, "iX = " << iX << ": iY = " << iY);
             psfCoordinates.x = iX;
             psfCoordinates.y = iY;
@@ -48,14 +60,14 @@ pfs::drp::stella::ExtractPSFResult<T> pfs::drp::stella::PSF<T>::extractPSFFromCe
                     xyCenterCCD,
                     fiberTrace_In
             );
-            result_Out.xRelativeToCenter.push_back(relativeToCenter.x);
-            result_Out.yRelativeToCenter.push_back(relativeToCenter.y);
+            result_Out.xRelativeToCenter[ii] = relativeToCenter.x;
+            result_Out.yRelativeToCenter[ii] = relativeToCenter.y;
             T zTrace = trace[ndarray::makeVector(int(iY), int(iX))];
-            result_Out.zNormalized.push_back(zTrace);
-            result_Out.zTrace.push_back(zTrace);
-            result_Out.weight.push_back(std::fabs(zTrace) > 0.000001 ? T(1. / sqrt(std::fabs(zTrace))) : 0.1);
-            result_Out.xTrace.push_back( T ( iX ) );
-            result_Out.yTrace.push_back( T ( iY ) );
+            result_Out.zNormalized[ii] = zTrace;
+            result_Out.zTrace[ii] = zTrace;
+            result_Out.weight[ii] = std::fabs(zTrace) > 0.000001 ? T(1. / sqrt(std::fabs(zTrace))) : 0.1;
+            result_Out.xTrace[ii] = T(iX);
+            result_Out.yTrace[ii] = T(iY);
             string message("x = ");
             message += to_string(_imagePSF_XRelativeToCenter[nPix]) + ", y = ";
             message += to_string(_imagePSF_YRelativeToCenter[nPix]) + ": val = " + to_string(zTrace);
@@ -90,10 +102,10 @@ pfs::drp::stella::ExtractPSFResult<T> pfs::drp::stella::PSF<T>::extractPSFFromCe
 }
 
 template< typename T > template< typename ImageT, typename MaskT, typename VarianceT >
-bool pfs::drp::stella::PSF< T >::extractPSFFromCenterPositions(
+void pfs::drp::stella::PSF< T >::extractPSFFromCenterPositions(
     pfs::drp::stella::FiberTrace< ImageT, MaskT, VarianceT > const& fiberTrace_In,
-    ndarray::Array< T, 1, 1 > const& centerPositionsXCCD_In,
-    ndarray::Array< T, 1, 1 > const& centerPositionsYCCD_In )
+    Vector const& centerPositionsXCCD_In,
+    Vector const& centerPositionsYCCD_In )
 {
     LOG_LOGGER _log = LOG_GET("pfs::drp::stella::PSF::extractPSFFromCenterPositions");
     LOGLS_DEBUG(_log, "PSF::extractPSFFromCenterPositions(FiberTrace, centerPositionXCCDArray, centerPositionYCCDArray) started");
@@ -104,40 +116,42 @@ bool pfs::drp::stella::PSF< T >::extractPSFFromCenterPositions(
       message += to_string(centerPositionsYCCD_In.getShape()[0]);
       throw LSST_EXCEPT( pexExcept::Exception, message.c_str() );
     }
-    _imagePSF_XRelativeToCenter.resize( 0 );
-    _imagePSF_YRelativeToCenter.resize( 0 );
-    _imagePSF_XTrace.resize( 0 );
-    _imagePSF_YTrace.resize( 0 );
-    _imagePSF_ZNormalized.resize( 0 );
-    _imagePSF_ZTrace.resize( 0 );
-    _imagePSF_Weight.resize( 0 );
-    _xCentersPSFCCD.resize( 0 );
-    _yCentersPSFCCD.resize( 0 );
-    _nPixPerPSF.resize( 0 );
+    std::vector<T> xRelativeToCenter;
+    std::vector<T> yRelativeToCenter;
+    std::vector<T> xTrace;
+    std::vector<T> yTrace;
+    std::vector<T> zNormalized;
+    std::vector<T> zTrace;
+    std::vector<T> weight;
+    std::size_t const num = centerPositionsXCCD_In.getShape()[0];
+    _xCentersPSFCCD = ndarray::allocate(num);
+    _yCentersPSFCCD = ndarray::allocate(num);
+    _nPixPerPSF = ndarray::allocate(num);
 
-    _imagePSF_XRelativeToCenter.reserve( 1000 );
-    _imagePSF_YRelativeToCenter.reserve( 1000 );
-    _imagePSF_XTrace.reserve( 1000 );
-    _imagePSF_YTrace.reserve( 1000 );
-    _imagePSF_ZNormalized.reserve( 1000 );
-    _imagePSF_ZTrace.reserve( 1000 );
-    _imagePSF_Weight.reserve( 1000 );
-    for ( int iPSF = 0; iPSF < centerPositionsXCCD_In.getShape()[ 0 ]; ++iPSF ){
-        ExtractPSFResult< T > result = extractPSFFromCenterPosition( fiberTrace_In,
-                                                                     centerPositionsXCCD_In[ iPSF ],
-                                                                     centerPositionsYCCD_In[ iPSF ] );
+    std::size_t const reserve = 1000;
+    xRelativeToCenter.reserve(reserve);
+    yRelativeToCenter.reserve(reserve);
+    xTrace.reserve(reserve);
+    yTrace.reserve(reserve);
+    zNormalized.reserve(reserve);
+    zTrace.reserve(reserve);
+    weight.reserve(reserve);
+    for ( int iPSF = 0; iPSF < num; ++iPSF ){
+        ExtractPSFResult result = extractPSFFromCenterPosition(fiberTrace_In,
+                                                               centerPositionsXCCD_In[iPSF],
+                                                               centerPositionsYCCD_In[iPSF]);
         for ( int iPix = 0; iPix < result.xRelativeToCenter.size(); ++iPix ){
-            _imagePSF_XRelativeToCenter.push_back( result.xRelativeToCenter[ iPix ] );
-            _imagePSF_YRelativeToCenter.push_back( result.yRelativeToCenter[ iPix ] );
-            _imagePSF_ZNormalized.push_back( result.zNormalized[ iPix ] );
-            _imagePSF_ZTrace.push_back( result.zTrace[ iPix ] );
-            _imagePSF_Weight.push_back( result.weight[ iPix ] );
-            _imagePSF_XTrace.push_back( result.xTrace[ iPix ] );
-            _imagePSF_YTrace.push_back( result.yTrace[ iPix ] );
+            xRelativeToCenter.push_back(result.xRelativeToCenter[iPix]);
+            yRelativeToCenter.push_back(result.yRelativeToCenter[iPix]);
+            zNormalized.push_back(result.zNormalized[iPix]);
+            zTrace.push_back(result.zTrace[iPix]);
+            weight.push_back(result.weight[iPix]);
+            xTrace.push_back(result.xTrace[iPix]);
+            yTrace.push_back(result.yTrace[iPix]);
         }
-        _xCentersPSFCCD.push_back( result.xCenterPSFCCD );
-        _yCentersPSFCCD.push_back( result.yCenterPSFCCD );
-        _nPixPerPSF.push_back( result.xRelativeToCenter.size() );
+        _xCentersPSFCCD[iPSF] = result.xCenterPSFCCD;
+        _yCentersPSFCCD[iPSF] = result.yCenterPSFCCD;
+        _nPixPerPSF[iPSF] = result.xRelativeToCenter.size();
         LOGLS_DEBUG(_log, "_nPixPerPSF[" << _nPixPerPSF.size()-1 << "] = " << _nPixPerPSF[_nPixPerPSF.size()-1]);
         if ( _nPixPerPSF[ _nPixPerPSF.size() - 1 ] == 0 ){
             string message( "PSF trace" );
@@ -147,71 +161,33 @@ bool pfs::drp::stella::PSF< T >::extractPSFFromCenterPositions(
             throw LSST_EXCEPT( pexExcept::Exception, message.c_str() );
         }
     }
+
+    // Now we know the size, pull the data out of the std::vector.
+    _imagePSF_XRelativeToCenter = toArray(xRelativeToCenter).deep();
+    _imagePSF_YRelativeToCenter = toArray(yRelativeToCenter).deep();
+    _imagePSF_XTrace = toArray(xTrace).deep();
+    _imagePSF_YTrace = toArray(yTrace).deep();
+    _imagePSF_ZNormalized = toArray(zNormalized).deep();
+    _imagePSF_ZTrace = toArray(zTrace).deep();
+    _imagePSF_Weight = toArray(weight).deep();
+
     LOGLS_DEBUG(_log, "PSF::extractPSFFromCenterPosition(FiberTrace, centerPositionXCCDArray, centerPositionYCCDArray) finished");
-    return true;
 }
 
 template< typename T > template< typename ImageT, typename MaskT, typename VarianceT >
-bool pfs::drp::stella::PSF< T >::extractPSFFromCenterPositions(
+void pfs::drp::stella::PSF< T >::extractPSFFromCenterPositions(
     pfs::drp::stella::FiberTrace< ImageT, MaskT, VarianceT > const& fiberTrace_In)
 {
     LOG_LOGGER _log = LOG_GET("pfs::drp::stella::PSF::extractPSFFromCenterPositions");
     LOGLS_DEBUG(_log, "PSF::extractPSFFromCenterPositions(FiberTrace) started");
-    ndarray::Array< T, 1, 1 > centerPositionsX = ndarray::allocate( _xCentersPSFCCD.size() );
-    ndarray::Array< T, 1, 1 > centerPositionsY = ndarray::allocate( _yCentersPSFCCD.size() );
-    auto itXVec = _xCentersPSFCCD.begin();
-    auto itYVec = _yCentersPSFCCD.begin();
-    for ( auto itXArr = centerPositionsX.begin(), itYArr = centerPositionsY.begin(); itXArr != centerPositionsX.end(); ++itXArr, ++itYArr, ++itXVec, ++itYVec ){
-        *itXArr = *itXVec;
-        *itYArr = *itYVec;
-    }
-    _imagePSF_XRelativeToCenter.resize( 0 );
-    _imagePSF_YRelativeToCenter.resize( 0 );
-    _imagePSF_XTrace.resize( 0 );
-    _imagePSF_YTrace.resize( 0 );
-    _imagePSF_ZNormalized.resize( 0 );
-    _imagePSF_ZTrace.resize( 0 );
-    _imagePSF_Weight.resize( 0 );
-    _xCentersPSFCCD.resize( 0 );
-    _yCentersPSFCCD.resize( 0 );
-    _nPixPerPSF.resize( 0 );
-
-    _imagePSF_XRelativeToCenter.reserve( 1000 );
-    _imagePSF_YRelativeToCenter.reserve( 1000 );
-    _imagePSF_XTrace.reserve( 1000 );
-    _imagePSF_YTrace.reserve( 1000 );
-    _imagePSF_ZNormalized.reserve( 1000 );
-    _imagePSF_ZTrace.reserve( 1000 );
-    _imagePSF_Weight.reserve( 1000 );
-    for ( int iPSF = 0; iPSF < centerPositionsX.getShape()[0]; ++iPSF ){
-        ExtractPSFResult< T > result = extractPSFFromCenterPosition( fiberTrace_In,
-                                                                     centerPositionsX[ iPSF ],
-                                                                     centerPositionsY[ iPSF ]);
-        for ( int iPix = 0; iPix < result.xRelativeToCenter.size(); ++iPix ){
-            _imagePSF_XRelativeToCenter.push_back( result.xRelativeToCenter[ iPix ] );
-            _imagePSF_YRelativeToCenter.push_back( result.yRelativeToCenter[ iPix ] );
-            _imagePSF_ZNormalized.push_back( result.zNormalized[ iPix ] );
-            _imagePSF_ZTrace.push_back( result.zTrace[ iPix ] );
-            _imagePSF_Weight.push_back( result.weight[ iPix ] );
-            _imagePSF_XTrace.push_back( result.xTrace[ iPix ] );
-            _imagePSF_YTrace.push_back( result.yTrace[ iPix ] );
-        }
-        _xCentersPSFCCD.push_back( result.xCenterPSFCCD );
-        _yCentersPSFCCD.push_back( result.yCenterPSFCCD );
-        _nPixPerPSF.push_back( result.xRelativeToCenter.size() );
-        if ( _nPixPerPSF[ _nPixPerPSF.size() - 1 ] == 0 ){
-            string message( "PSF trace" );
-            message += to_string(_iTrace) + " bin" + to_string( _iBin ) + "::extractPSFFromCenterPositionsA: ERROR: _nPixPerPSF[_nPixPerPSF.size()-1=" + to_string(_nPixPerPSF.size()-1);
-            message += "]=" + to_string(_nPixPerPSF[_nPixPerPSF.size()-1]) + " == 0";
-            throw LSST_EXCEPT( pexExcept::Exception, message.c_str() );
-        }
-    }
+    ndarray::Array< T, 1, 1 > centerPositionsX = ndarray::copy(_xCentersPSFCCD);
+    ndarray::Array< T, 1, 1 > centerPositionsY = ndarray::copy(_yCentersPSFCCD);
+    extractPSFFromCenterPositions(fiberTrace_In, centerPositionsX, centerPositionsY);
     LOGLS_DEBUG(_log, "PSF::extractPSFFromCenterPositions(FiberTrace) finished");
-    return true;
 }
 
 template<typename T> template< typename ImageT, typename MaskT, typename VarianceT, typename WavelengthT>
-bool pfs::drp::stella::PSF<T>::extractPSFs(
+void pfs::drp::stella::PSF<T>::extractPSFs(
     pfs::drp::stella::FiberTrace<ImageT, MaskT, VarianceT> const& fiberTraceIn,
     pfs::drp::stella::Spectrum<ImageT, MaskT, VarianceT, WavelengthT> const& spectrumIn)
 {
@@ -223,10 +199,10 @@ bool pfs::drp::stella::PSF<T>::extractPSFs(
 }
 
 template< typename T > template< typename ImageT, typename MaskT, typename VarianceT, typename WavelengthT >
-bool pfs::drp::stella::PSF< T >::extractPSFs(
+void pfs::drp::stella::PSF< T >::extractPSFs(
     pfs::drp::stella::FiberTrace< ImageT, MaskT, VarianceT > const& fiberTraceIn,
     pfs::drp::stella::Spectrum< ImageT, MaskT, VarianceT, WavelengthT> const& spectrumIn,
-    ndarray::Array< T, 2, 1 > const& collapsedPSF)
+    Image const& collapsedPSF)
 {
   #ifdef __DEBUG_PSF__
     cout << "PSF::extractPSFs(FiberTrace, Spectrum, collapsedPSF) started" << endl;
@@ -247,7 +223,7 @@ bool pfs::drp::stella::PSF< T >::extractPSFs(
     cout << "PSF trace" << _iTrace << " bin " << _iBin << "::extractPSFs: spectrumIn.getSpectrum() = " << spectrumIn.getSpectrum() << endl;
   #endif
 
-  ndarray::Array< float, 1, 1 > xCentersTrace = copy( fiberTraceIn.getXCenters() );
+  ndarray::Array< float, 1, 1 > xCentersTrace = ndarray::copy(fiberTraceIn.getXCenters());
   ndarray::Array< double, 1, 1 > spectrumSwath = ndarray::allocate( _yMax - _yMin + 1);
   ndarray::Array< double, 1, 1 > spectrumVarianceSwath = ndarray::allocate( _yMax - _yMin + 1 );
 
@@ -321,24 +297,24 @@ bool pfs::drp::stella::PSF< T >::extractPSFs(
     cout << "PSF trace" << _iTrace << " bin" << _iBin << "::extractPSFs: xCentersSwathOffset = " << xCentersSwathOffset << endl;
   #endif
 
-  _imagePSF_XRelativeToCenter.resize(0);
-  _imagePSF_YRelativeToCenter.resize(0);
-  _imagePSF_XTrace.resize(0);
-  _imagePSF_YTrace.resize(0);
-  _imagePSF_ZNormalized.resize(0);
-  _imagePSF_ZTrace.resize(0);
-  _imagePSF_Weight.resize(0);
-  _xCentersPSFCCD.resize(0);
-  _yCentersPSFCCD.resize(0);
-  _nPixPerPSF.resize(0);
+  std::vector<T> xRelativeToCenter;
+  std::vector<T> yRelativeToCenter;
+  std::vector<T> xTrace;
+  std::vector<T> yTrace;
+  std::vector<T> zNormalized;
+  std::vector<T> zTrace;
+  std::vector<T> weight;
+  std::vector<T> xCentersPSFCCD;
+  std::vector<T> yCentersPSFCCD;
+  std::vector<unsigned long> nPixPerPSF;
 
-  _imagePSF_XRelativeToCenter.reserve(1000);
-  _imagePSF_YRelativeToCenter.reserve(1000);
-  _imagePSF_XTrace.reserve(1000);
-  _imagePSF_YTrace.reserve(1000);
-  _imagePSF_ZNormalized.reserve(1000);
-  _imagePSF_ZTrace.reserve(1000);
-  _imagePSF_Weight.reserve(1000);
+  xRelativeToCenter.reserve(1000);
+  yRelativeToCenter.reserve(1000);
+  xTrace.reserve(1000);
+  yTrace.reserve(1000);
+  zNormalized.reserve(1000);
+  zTrace.reserve(1000);
+  weight.reserve(1000);
   size_t nPix = 0;
 
   /// Find emission lines
@@ -587,22 +563,20 @@ bool pfs::drp::stella::PSF< T >::extractPSFs(
         ndarray::Array< float, 1, 1 > xCenterCCDFromYCenterCCD = pfs::drp::stella::math::calculateXCenters( fiberTraceIn.getFiberTraceFunction(),
                                                                                                             yCenterFromGaussCenter );
         const T xTemp(xCenterCCDFromYCenterCCD[0]);
-        ExtractPSFResult< T > result = extractPSFFromCenterPosition( fiberTraceIn,
-                                                                     xTemp,
-                                                                     yCenterCCD );
+        ExtractPSFResult result = extractPSFFromCenterPosition(fiberTraceIn, xTemp, yCenterCCD);
         if (result.zTrace.size() > 0){
           for (size_t iPix = 0; iPix < result.xRelativeToCenter.size(); ++iPix){
-            _imagePSF_XRelativeToCenter.push_back( result.xRelativeToCenter[ iPix ] );
-            _imagePSF_YRelativeToCenter.push_back( result.yRelativeToCenter[ iPix ] );
-            _imagePSF_ZNormalized.push_back( result.zNormalized[ iPix ] );
-            _imagePSF_ZTrace.push_back( result.zTrace[ iPix ] );
-            _imagePSF_Weight.push_back( result.weight[ iPix ] );
-            _imagePSF_XTrace.push_back( result.xTrace[ iPix ] );
-            _imagePSF_YTrace.push_back( result.yTrace[ iPix ] );
+            xRelativeToCenter.push_back(result.xRelativeToCenter[iPix]);
+            yRelativeToCenter.push_back(result.yRelativeToCenter[iPix]);
+            zNormalized.push_back(result.zNormalized[iPix]);
+            zTrace.push_back(result.zTrace[iPix]);
+            weight.push_back(result.weight[iPix]);
+            xTrace.push_back(result.xTrace[iPix]);
+            yTrace.push_back(result.yTrace[iPix]);
           }
-          _xCentersPSFCCD.push_back( result.xCenterPSFCCD );
-          _yCentersPSFCCD.push_back( result.yCenterPSFCCD );
-          _nPixPerPSF.push_back( result.xRelativeToCenter.size() );
+          xCentersPSFCCD.push_back(result.xCenterPSFCCD);
+          yCentersPSFCCD.push_back(result.yCenterPSFCCD);
+          nPixPerPSF.push_back(result.xRelativeToCenter.size());
           #ifdef __DEBUG_CALC2DPSF__
               cout << "PSF trace" << _iTrace << " bin " << _iBin << "::extractPSFs: _nPixPerPSF[" << _nPixPerPSF.size()-1 << "] = " << _nPixPerPSF[_nPixPerPSF.size()-1] << endl;
           #endif
@@ -627,6 +601,18 @@ bool pfs::drp::stella::PSF< T >::extractPSFs(
       #endif
     }
   } while( true );
+
+    _imagePSF_XRelativeToCenter = toArray(xRelativeToCenter).deep();
+    _imagePSF_YRelativeToCenter = toArray(yRelativeToCenter).deep();
+    _imagePSF_XTrace = toArray(xTrace).deep();
+    _imagePSF_YTrace = toArray(yTrace).deep();
+    _imagePSF_ZNormalized = toArray(zNormalized).deep();
+    _imagePSF_ZTrace = toArray(zTrace).deep();
+    _imagePSF_Weight = toArray(weight).deep();
+    _xCentersPSFCCD = toArray(xCentersPSFCCD).deep();
+    _yCentersPSFCCD = toArray(yCentersPSFCCD).deep();
+    _nPixPerPSF = toArray(nPixPerPSF).deep();
+
   #ifdef __DEBUG_CALC2DPSF__
     cout << "PSF trace" << _iTrace << " bin" << _iBin << "::extractPSFs: nPix = " << nPix << ", _imagePSF_XRelativeToCenter.size() = " << _imagePSF_XRelativeToCenter.size() << endl;
     cout << "PSF trace" << _iTrace << " bin" << _iBin << "::extractPSFs: nPix = " << nPix << ", _imagePSF_XTrace.size() = " << _imagePSF_XTrace.size() << endl;
@@ -659,44 +645,8 @@ bool pfs::drp::stella::PSF< T >::extractPSFs(
     of.close();
     cout << "ofname = <" << ofname << "> written" << endl;
   #endif
-  if ( nPix != _imagePSF_XRelativeToCenter.size() ){
-    string message( "PSF trace" );
-    message += to_string( _iTrace ) + " bin" + to_string( _iBin ) + "::extractPSFs: ERROR: nPix != _imagePSF_XRelativeToCenter.size()";
-    throw LSST_EXCEPT( pexExcept::Exception, message.c_str() );
-  }
-  if ( nPix != _imagePSF_XTrace.size() ){
-    string message("PSF trace");
-    message += to_string( _iTrace ) + " bin" + to_string( _iBin ) + "::extractPSFs: ERROR: nPix != _imagePSF_XTrace.size()";
-    throw LSST_EXCEPT( pexExcept::Exception, message.c_str() );
-  }
-  if (nPix != _imagePSF_YRelativeToCenter.size()){
-    string message("PSF trace");
-    message += to_string( _iTrace ) + " bin" + to_string( _iBin ) + "::extractPSFs: ERROR: nPix != _imagePSF_YRelativeToCenter.size()";
-    throw LSST_EXCEPT( pexExcept::Exception, message.c_str() );
-  }
-  if ( nPix != _imagePSF_YTrace.size() ){
-    string message("PSF trace");
-    message += to_string( _iTrace ) + " bin" + to_string( _iBin ) + "::extractPSFs: ERROR: nPix != _imagePSF_YTrace.size()";
-    throw LSST_EXCEPT( pexExcept::Exception, message.c_str() );
-  }
-  if ( nPix != _imagePSF_ZTrace.size() ){
-    string message("PSF trace");
-    message += to_string( _iTrace ) + " bin" + to_string( _iBin ) + "::extractPSFs: ERROR: nPix != _imagePSF_ZTrace.size()";
-    throw LSST_EXCEPT( pexExcept::Exception, message.c_str() );
-  }
-  if ( nPix != _imagePSF_ZNormalized.size() ){
-    string message("PSF trace");
-    message += to_string( _iTrace ) + " bin" + to_string( _iBin ) + "::extractPSFs: ERROR: nPix != _imagePSF_ZNormalized.size()";
-    throw LSST_EXCEPT( pexExcept::Exception, message.c_str() );
-  }
-  if ( nPix != _imagePSF_Weight.size() ){
-    string message("PSF trace");
-    message += to_string( _iTrace ) + " bin" + to_string( _iBin ) + "::extractPSFs: ERROR: nPix != _imagePSF_Weight.size()";
-    throw LSST_EXCEPT( pexExcept::Exception, message.c_str() );
-  }
   _isPSFsExtracted = true;
   #ifdef __DEBUG_PSF__
     cout << "PSF::extractPSFs(FiberTrace, Spectrum, collapsedPSF) finished" << endl;
   #endif
-  return true;
 }

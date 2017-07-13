@@ -1,6 +1,6 @@
-template< typename SpectrumT, typename MaskT, typename VarianceT, typename WavelengthT >
-pfs::drp::stella::Spectrum< SpectrumT, MaskT, VarianceT, WavelengthT >::Spectrum( Spectrum< SpectrumT, MaskT, VarianceT, WavelengthT > & spectrum,
-                                                                                  size_t iTrace,
+template< typename ImageT, typename MaskT, typename VarianceT, typename WavelengthT >
+pfs::drp::stella::Spectrum< ImageT, MaskT, VarianceT, WavelengthT >::Spectrum( Spectrum< ImageT, MaskT, VarianceT, WavelengthT > & spectrum,
+                                                                                  std::size_t iTrace,
                                                                                   bool deep ) 
 :       _yLow( spectrum.getYLow() ),
         _yHigh( spectrum.getYHigh() ),
@@ -42,8 +42,8 @@ pfs::drp::stella::Spectrum< SpectrumT, MaskT, VarianceT, WavelengthT >::Spectrum
     _mask.addMaskPlane("REJECTED_LINES");
 }
 
-template< typename SpectrumT, typename MaskT, typename VarianceT, typename WavelengthT >
-pfs::drp::stella::Spectrum< SpectrumT, MaskT, VarianceT, WavelengthT >::Spectrum( Spectrum< SpectrumT, MaskT, VarianceT, WavelengthT > const& spectrum) //,
+template< typename ImageT, typename MaskT, typename VarianceT, typename WavelengthT >
+pfs::drp::stella::Spectrum< ImageT, MaskT, VarianceT, WavelengthT >::Spectrum( Spectrum< ImageT, MaskT, VarianceT, WavelengthT > const& spectrum) //,
                                                                                   //int i ) 
 :       _yLow( spectrum.getYLow() ),
         _yHigh( spectrum.getYHigh() ),
@@ -74,53 +74,51 @@ pfs::drp::stella::Spectrum< SpectrumT, MaskT, VarianceT, WavelengthT >::Spectrum
     _dispCoeffs.deep() = spectrum.getDispCoeffs();
 }
 
-template<typename SpectrumT, typename MaskT, typename VarianceT, typename WavelengthT>
-bool pfs::drp::stella::Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>::setSpectrum( ndarray::Array<SpectrumT, 1, 1> const& spectrum )
+template<typename ImageT, typename MaskT, typename VarianceT, typename WavelengthT>
+void pfs::drp::stella::Spectrum<ImageT, MaskT, VarianceT, WavelengthT>::setSpectrum( ndarray::Array<ImageT, 1, 1> const& spectrum )
 {
   /// Check length of input spectrum
-  if (static_cast<size_t>(spectrum.getShape()[0]) != _length) {
+  if (static_cast<std::size_t>(spectrum.getShape()[0]) != _length) {
     string message("pfs::drp::stella::Spectrum::setSpectrum: ERROR: spectrum->size()=");
     message += to_string(spectrum.getShape()[0]) + string(" != _length=") + to_string(_length);
     throw LSST_EXCEPT(pexExcept::Exception, message.c_str());    
   }
   _spectrum.deep() = spectrum;
-  return true;
 }
 
-template<typename SpectrumT, typename MaskT, typename VarianceT, typename WavelengthT>
-ndarray::Array<VarianceT, 1, 1> pfs::drp::stella::Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>::getVariance() const
+template<typename ImageT, typename MaskT, typename VarianceT, typename WavelengthT>
+ndarray::Array<VarianceT, 1, 1> pfs::drp::stella::Spectrum<ImageT, MaskT, VarianceT, WavelengthT>::getVariance() const
 {
     ndarray::Array< VarianceT, 1, 1 > variance = ndarray::allocate( _covar.getShape()[ 0 ] );
     variance.deep() = _covar[ ndarray::view( )( 1 ) ];
     return variance;
 }
 
-template<typename SpectrumT, typename MaskT, typename VarianceT, typename WavelengthT>
-ndarray::Array<VarianceT, 1, 1> pfs::drp::stella::Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>::getVariance()
+template<typename ImageT, typename MaskT, typename VarianceT, typename WavelengthT>
+ndarray::Array<VarianceT, 1, 1> pfs::drp::stella::Spectrum<ImageT, MaskT, VarianceT, WavelengthT>::getVariance()
 {
     ndarray::Array< VarianceT, 1, 1 > variance = ndarray::allocate(_covar.getShape()[0]);
     variance[ndarray::view()] = _covar[ ndarray::view( )( 1 ) ];
     return variance;
 }
 
-template<typename SpectrumT, typename MaskT, typename VarianceT, typename WavelengthT>
-bool pfs::drp::stella::Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>::setVariance( ndarray::Array<VarianceT, 1, 1> const& variance )
+template<typename ImageT, typename MaskT, typename VarianceT, typename WavelengthT>
+void pfs::drp::stella::Spectrum<ImageT, MaskT, VarianceT, WavelengthT>::setVariance( ndarray::Array<VarianceT, 1, 1> const& variance )
 {
   /// Check length of input variance
-  if (static_cast<size_t>(variance.getShape()[0]) != _length) {
+  if (static_cast<std::size_t>(variance.getShape()[0]) != _length) {
     string message("pfs::drp::stella::Spectrum::setVariance: ERROR: variance->size()=");
     message += to_string( variance.getShape()[ 0 ] ) + string( " != _length=" ) + to_string( _length );
     throw LSST_EXCEPT(pexExcept::Exception, message.c_str());    
   }
   _covar[ ndarray::view()(1) ] = variance;
-  return true;
 }
 
-template<typename SpectrumT, typename MaskT, typename VarianceT, typename WavelengthT>
-bool pfs::drp::stella::Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>::setCovar(const ndarray::Array<VarianceT, 2, 1> & covar )
+template<typename ImageT, typename MaskT, typename VarianceT, typename WavelengthT>
+void pfs::drp::stella::Spectrum<ImageT, MaskT, VarianceT, WavelengthT>::setCovar(const ndarray::Array<VarianceT, 2, 1> & covar )
 {
     /// Check length of input covar
-    if (static_cast<size_t>(covar.getShape()[0]) != _length) {
+    if (static_cast<std::size_t>(covar.getShape()[0]) != _length) {
       string message("pfs::drp::stella::Spectrum::setCovar: ERROR: covar->size()=");
       message += to_string( covar.getShape()[0] ) + string( " != _length=" ) + to_string( _length );
       throw LSST_EXCEPT(pexExcept::Exception, message.c_str());    
@@ -131,24 +129,22 @@ bool pfs::drp::stella::Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>::setCo
       throw LSST_EXCEPT(pexExcept::Exception, message.c_str());    
     }
     _covar.deep() = covar;
-    return true;
 }
 
-template<typename SpectrumT, typename MaskT, typename VarianceT, typename WavelengthT>
-bool pfs::drp::stella::Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>::setMask(const afwImage::Mask<MaskT> & mask)
+template<typename ImageT, typename MaskT, typename VarianceT, typename WavelengthT>
+void pfs::drp::stella::Spectrum<ImageT, MaskT, VarianceT, WavelengthT>::setMask(const afwImage::Mask<MaskT> & mask)
 {
   /// Check length of input mask
-  if (static_cast<size_t>(mask.getWidth()) != _length){
+  if (static_cast<std::size_t>(mask.getWidth()) != _length){
     string message("pfs::drp::stella::Spectrum::setMask: ERROR: mask.getWidth()=");
     message += to_string(mask.getWidth()) + string(" != _length=") + to_string(_length);
     throw LSST_EXCEPT(pexExcept::Exception, message.c_str());    
   }
   _mask = mask;
-  return true;
 }
 
-template<typename SpectrumT, typename MaskT, typename VarianceT, typename WavelengthT>
-bool pfs::drp::stella::Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>::setLength(const size_t length)
+template<typename ImageT, typename MaskT, typename VarianceT, typename WavelengthT>
+void pfs::drp::stella::Spectrum<ImageT, MaskT, VarianceT, WavelengthT>::setLength(const std::size_t length)
 {
     #ifdef __DEBUG_SETLENGTH__
       cout << "pfs::drp::stella::Spectrum::setLength: starting to set _length to " << length << endl;
@@ -179,11 +175,10 @@ bool pfs::drp::stella::Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>::setLe
     #ifdef __DEBUG_SETLENGTH__
       cout << "pfs::drp::stella::Spectrum::setLength: finishing: _length to " << _length << endl;
     #endif
-    return true;
 }
 
-template<typename SpectrumT, typename MaskT, typename VarianceT, typename WavelengthT>
-bool pfs::drp::stella::Spectrum< SpectrumT, MaskT, VarianceT, WavelengthT >::setYLow( const size_t yLow )
+template<typename ImageT, typename MaskT, typename VarianceT, typename WavelengthT>
+void pfs::drp::stella::Spectrum< ImageT, MaskT, VarianceT, WavelengthT >::setYLow( const std::size_t yLow )
 {
   if ( yLow > _nCCDRows ){
     string message("pfs::drp::stella::Spectrum::setYLow: ERROR: yLow=");
@@ -191,21 +186,19 @@ bool pfs::drp::stella::Spectrum< SpectrumT, MaskT, VarianceT, WavelengthT >::set
     throw LSST_EXCEPT(pexExcept::Exception, message.c_str());    
   }
   _yLow = yLow;
-  return true;
 }
 
-template<typename SpectrumT, typename MaskT, typename VarianceT, typename WavelengthT>
-bool pfs::drp::stella::Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>::setYHigh(const size_t yHigh)
+template<typename ImageT, typename MaskT, typename VarianceT, typename WavelengthT>
+void pfs::drp::stella::Spectrum<ImageT, MaskT, VarianceT, WavelengthT>::setYHigh(const std::size_t yHigh)
 {
   if ( yHigh > _nCCDRows ){
     _nCCDRows = _yLow + yHigh;
   }
   _yHigh = yHigh;
-  return true;
 }
 
-template<typename SpectrumT, typename MaskT, typename VarianceT, typename WavelengthT>
-bool pfs::drp::stella::Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>::setNCCDRows(const size_t nCCDRows)
+template<typename ImageT, typename MaskT, typename VarianceT, typename WavelengthT>
+void pfs::drp::stella::Spectrum<ImageT, MaskT, VarianceT, WavelengthT>::setNCCDRows(const std::size_t nCCDRows)
 {
   if ( _yLow > nCCDRows ){
     string message("pfs::drp::stella::Spectrum::setYLow: ERROR: _yLow=");
@@ -213,12 +206,11 @@ bool pfs::drp::stella::Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>::setNC
     throw LSST_EXCEPT(pexExcept::Exception, message.c_str());    
   }
   _nCCDRows = nCCDRows;
-  return true;
 }
 
-template< typename SpectrumT, typename MaskT, typename VarianceT, typename WavelengthT >
+template< typename ImageT, typename MaskT, typename VarianceT, typename WavelengthT >
 template< typename T >
-ndarray::Array< double, 1, 1 > pfs::drp::stella::Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>::hIdentify( ndarray::Array< T, 2, 1 > const& lineList )
+ndarray::Array< double, 1, 1 > pfs::drp::stella::Spectrum<ImageT, MaskT, VarianceT, WavelengthT>::hIdentify( ndarray::Array< T, 2, 1 > const& lineList )
 {
   LOG_LOGGER _log = LOG_GET("pfs::drp::stella::Spectra::identify");
   ///for each line in line list, find maximum in spectrum and fit Gaussian
@@ -369,8 +361,8 @@ ndarray::Array< double, 1, 1 > pfs::drp::stella::Spectrum<SpectrumT, MaskT, Vari
   return D_A1_GaussPos;
 }
 
-template<typename SpectrumT, typename MaskT, typename VarianceT, typename WavelengthT>
-bool pfs::drp::stella::Spectrum< SpectrumT, MaskT, VarianceT, WavelengthT >::setDispCoeffs( ndarray::Array< double, 1, 1 > const& dispCoeffs )
+template<typename ImageT, typename MaskT, typename VarianceT, typename WavelengthT>
+void pfs::drp::stella::Spectrum< ImageT, MaskT, VarianceT, WavelengthT >::setDispCoeffs( ndarray::Array< double, 1, 1 > const& dispCoeffs )
 {
   /// Check length of input dispCoeffs
   if (dispCoeffs.getShape()[0] != ( _dispCorControl->order + 1 ) ){
@@ -381,14 +373,13 @@ bool pfs::drp::stella::Spectrum< SpectrumT, MaskT, VarianceT, WavelengthT >::set
   _dispCoeffs = ndarray::allocate( dispCoeffs.getShape()[ 0 ] );
   _dispCoeffs.deep() = dispCoeffs;
   cout << "pfsDRPStella::setDispCoeffs: _dispCoeffs set to " << _dispCoeffs << endl;
-  return true;
 }
 
-template< typename SpectrumT, typename MaskT, typename VarianceT, typename WavelengthT >
+template< typename ImageT, typename MaskT, typename VarianceT, typename WavelengthT >
 template< typename T >
-bool pfs::drp::stella::Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>::identify( ndarray::Array< T, 2, 1 > const& lineList,
+void pfs::drp::stella::Spectrum<ImageT, MaskT, VarianceT, WavelengthT>::identify( ndarray::Array< T, 2, 1 > const& lineList,
                                                                                      pfs::drp::stella::DispCorControl const& dispCorControl,
-                                                                                     size_t nLinesCheck ){
+                                                                                     std::size_t nLinesCheck ){
     LOG_LOGGER _log = LOG_GET("pfs::drp::stella::Spectra::identify");
 
     pfs::drp::stella::DispCorControl tempDispCorControl( dispCorControl );
@@ -400,7 +391,7 @@ bool pfs::drp::stella::Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>::ident
 
     ///remove lines which could not be found from line list
     std::vector< int > V_Index( D_A1_GaussPos.getShape()[ 0 ], 0 );
-    size_t pos = 0;
+    std::size_t pos = 0;
     for (auto it = D_A1_GaussPos.begin(); it != D_A1_GaussPos.end(); ++it, ++pos ){
       if ( *it > 0. )
         V_Index[ pos ] = 1;
@@ -409,19 +400,19 @@ bool pfs::drp::stella::Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>::ident
     LOGLS_DEBUG(_log, "V_Index = ");
     for (int iPos = 0; iPos < V_Index.size(); ++iPos)
         LOGLS_DEBUG(_log, V_Index[iPos] << " ");
-    std::vector< size_t > indices = math::getIndices( V_Index );
-    size_t nInd = std::accumulate( V_Index.begin(), V_Index.end(), 0 );
+    std::vector< std::size_t > indices = math::getIndices( V_Index );
+    std::size_t nInd = std::accumulate( V_Index.begin(), V_Index.end(), 0 );
     LOGLS_DEBUG(_log, nInd << " lines identified");
     LOGLS_DEBUG(_log, "indices = ");
     for (int iPos = 0; iPos < indices.size(); ++iPos )
         LOGLS_DEBUG(_log, indices[iPos] << " ");
 
     /// separate lines to fit and lines for RMS test
-    std::vector< size_t > indCheck;
-    for ( size_t i = 0; i < nLinesCheck; ++i ){
+    std::vector< std::size_t > indCheck;
+    for ( std::size_t i = 0; i < nLinesCheck; ++i ){
       srand( 0 ); //seed initialization
       int randNum = rand() % ( indices.size() - 2 ) + 1; // Generate a random number between 0 and 1
-      indCheck.push_back( size_t( randNum ) );
+      indCheck.push_back( std::size_t( randNum ) );
       indices.erase( indices.begin() + randNum );
     }
 
@@ -433,11 +424,11 @@ bool pfs::drp::stella::Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>::ident
       message += std::to_string(nLinesIdentifiedMin) + " lines identified";
       throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
     }
-    ndarray::Array< size_t, 1, 1 > I_A1_IndexPos = ndarray::external( indices.data(), ndarray::makeVector( int( indices.size() ) ), ndarray::makeVector( 1 ) );
+    ndarray::Array< std::size_t, 1, 1 > I_A1_IndexPos = ndarray::external( indices.data(), ndarray::makeVector( int( indices.size() ) ), ndarray::makeVector( 1 ) );
     ndarray::Array< double, 1, 1 > D_A1_WLen = ndarray::allocate( lineList.getShape()[ 0 ] );
     ndarray::Array< double, 1, 1 > D_A1_FittedPos = math::getSubArray( D_A1_GaussPos, 
                                                                        I_A1_IndexPos );
-    ndarray::Array< size_t, 1, 1 > I_A1_IndexCheckPos = ndarray::external( indCheck.data(), ndarray::makeVector( int( indCheck.size() ) ), ndarray::makeVector( 1 ) );
+    ndarray::Array< std::size_t, 1, 1 > I_A1_IndexCheckPos = ndarray::external( indCheck.data(), ndarray::makeVector( int( indCheck.size() ) ), ndarray::makeVector( 1 ) );
     ndarray::Array< double, 1, 1 > D_A1_FittedCheckPos = math::getSubArray( D_A1_GaussPos, 
                                                                             I_A1_IndexCheckPos );
     LOGLS_DEBUG(_log, "D_A1_FittedPos = " << D_A1_FittedPos << endl);
@@ -457,10 +448,10 @@ bool pfs::drp::stella::Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>::ident
     PTR(ndarray::Array<double, 1, 1>) pXRange(new ndarray::Array<double, 1, 1>(xRange));
     PP_Args[0] = &pXRange;
     S_A1_Args[1] = "REJECTED";
-    PTR(std::vector<size_t>) rejected(new std::vector<size_t>());
+    PTR(std::vector<std::size_t>) rejected(new std::vector<std::size_t>());
     PP_Args[1] = &rejected;
     S_A1_Args[2] = "NOT_REJECTED";
-    PTR(std::vector<size_t>) notRejected(new std::vector<size_t>());
+    PTR(std::vector<std::size_t>) notRejected(new std::vector<std::size_t>());
     PP_Args[2] = &notRejected;
 
     _dispCoeffs = ndarray::allocate( dispCorControl.order + 1 );
@@ -490,7 +481,7 @@ bool pfs::drp::stella::Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>::ident
       message += to_string(nLinesIdentifiedMin) + " lines identified";
       throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
     }
-    ndarray::Array< size_t, 1, 1 > notRejectedArr = ndarray::external(notRejected->data(),
+    ndarray::Array< std::size_t, 1, 1 > notRejectedArr = ndarray::external(notRejected->data(),
                                                                       ndarray::makeVector(_nGoodLines),
                                                                       ndarray::makeVector( 1 ) );
 
@@ -542,11 +533,10 @@ bool pfs::drp::stella::Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>::ident
     }
 
     _isWavelengthSet = true;
-    return _isWavelengthSet;
 }
 
 template<typename ImageT, typename MaskT, typename VarianceT, typename WavelengthT>
-PTR( pfs::drp::stella::Spectrum< ImageT, MaskT, VarianceT, WavelengthT > ) pfs::drp::stella::SpectrumSet<ImageT, MaskT, VarianceT, WavelengthT>::getSpectrum( const size_t i ) const 
+PTR( pfs::drp::stella::Spectrum< ImageT, MaskT, VarianceT, WavelengthT > ) pfs::drp::stella::SpectrumSet<ImageT, MaskT, VarianceT, WavelengthT>::getSpectrum( const std::size_t i ) const
 {
     if (i >= _spectra->size()){
         string message("SpectrumSet::getSpectrum(i=");
@@ -557,7 +547,7 @@ PTR( pfs::drp::stella::Spectrum< ImageT, MaskT, VarianceT, WavelengthT > ) pfs::
 }
 
 template<typename ImageT, typename MaskT, typename VarianceT, typename WavelengthT>
-PTR( pfs::drp::stella::Spectrum< ImageT, MaskT, VarianceT, WavelengthT > ) pfs::drp::stella::SpectrumSet<ImageT, MaskT, VarianceT, WavelengthT>::getSpectrum( const size_t i )
+PTR( pfs::drp::stella::Spectrum< ImageT, MaskT, VarianceT, WavelengthT > ) pfs::drp::stella::SpectrumSet<ImageT, MaskT, VarianceT, WavelengthT>::getSpectrum( const std::size_t i )
 {
     if (i >= _spectra->size()){
         string message("SpectrumSet::getSpectrum(i=");
@@ -567,16 +557,16 @@ PTR( pfs::drp::stella::Spectrum< ImageT, MaskT, VarianceT, WavelengthT > ) pfs::
     return PTR( pfs::drp::stella::Spectrum< ImageT, MaskT, VarianceT, WavelengthT > )( new pfs::drp::stella::Spectrum< ImageT, MaskT, VarianceT, WavelengthT >( *( _spectra->at( i ) ) ) );
 }
 
-template<typename SpectrumT, typename MaskT, typename VarianceT, typename WavelengthT>
-bool pfs::drp::stella::SpectrumSet<SpectrumT, MaskT, VarianceT, WavelengthT>::setSpectrum(size_t const i,
-                                                                                          Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT> const& spectrum)
+template<typename ImageT, typename MaskT, typename VarianceT, typename WavelengthT>
+void pfs::drp::stella::SpectrumSet<ImageT, MaskT, VarianceT, WavelengthT>::setSpectrum(std::size_t const i,
+                                                                                          Spectrum<ImageT, MaskT, VarianceT, WavelengthT> const& spectrum)
 {
   if (i > _spectra->size()){
     string message("SpectrumSet::setSpectrum(i=");
     message += to_string(i) + "): ERROR: i > _spectra->size()=" + to_string(_spectra->size());
     throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
   }
-  PTR( Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT> ) spectrumPtr( new Spectrum< SpectrumT, MaskT, VarianceT, WavelengthT >( spectrum ) );
+  PTR( Spectrum<ImageT, MaskT, VarianceT, WavelengthT> ) spectrumPtr( new Spectrum< ImageT, MaskT, VarianceT, WavelengthT >( spectrum ) );
 
   if ( i == _spectra->size() ){
     _spectra->push_back( spectrumPtr );
@@ -584,31 +574,29 @@ bool pfs::drp::stella::SpectrumSet<SpectrumT, MaskT, VarianceT, WavelengthT>::se
   else{
     ( *_spectra )[ i ] = spectrumPtr;
   }
-  return true;
-}
-
-template<typename SpectrumT, typename MaskT, typename VarianceT, typename WavelengthT>
-bool pfs::drp::stella::SpectrumSet<SpectrumT, MaskT, VarianceT, WavelengthT>::setSpectrum( size_t const i,
-                                                                                           PTR( Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>) const& spectrum )
-{
-  if (i > _spectra->size()){
-    string message("SpectrumSet::setSpectrum(i=");
-    message += to_string(i) + "): ERROR: i > _spectra->size()=" + to_string(_spectra->size());
-    throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
-  }
-
-  PTR( Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT> ) spectrumPtr( new Spectrum< SpectrumT, MaskT, VarianceT, WavelengthT >( *spectrum ) );
-  if ( i == _spectra->size() ){
-    _spectra->push_back( spectrumPtr );
-  }
-  else{
-    ( *_spectra )[ i ] = spectrumPtr;
-  }
-  return true;
 }
 
 template<typename ImageT, typename MaskT, typename VarianceT, typename WavelengthT>
-bool pfs::drp::stella::SpectrumSet<ImageT, MaskT, VarianceT, WavelengthT>::erase(const size_t iStart, const size_t iEnd){
+void pfs::drp::stella::SpectrumSet<ImageT, MaskT, VarianceT, WavelengthT>::setSpectrum( std::size_t const i,
+                                                                                           PTR( Spectrum<ImageT, MaskT, VarianceT, WavelengthT>) const& spectrum )
+{
+  if (i > _spectra->size()){
+    string message("SpectrumSet::setSpectrum(i=");
+    message += to_string(i) + "): ERROR: i > _spectra->size()=" + to_string(_spectra->size());
+    throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
+  }
+
+  PTR( Spectrum<ImageT, MaskT, VarianceT, WavelengthT> ) spectrumPtr( new Spectrum< ImageT, MaskT, VarianceT, WavelengthT >( *spectrum ) );
+  if ( i == _spectra->size() ){
+    _spectra->push_back( spectrumPtr );
+  }
+  else{
+    ( *_spectra )[ i ] = spectrumPtr;
+  }
+}
+
+template<typename ImageT, typename MaskT, typename VarianceT, typename WavelengthT>
+void pfs::drp::stella::SpectrumSet<ImageT, MaskT, VarianceT, WavelengthT>::erase(const std::size_t iStart, const std::size_t iEnd){
   if (iStart >= _spectra->size()){
     string message("SpectrumSet::erase(iStart=");
     message += to_string(iStart) + ", iEnd=" + to_string(iEnd) + "): ERROR: iStart >= _spectra->size()=" + to_string(_spectra->size());
@@ -637,5 +625,4 @@ bool pfs::drp::stella::SpectrumSet<ImageT, MaskT, VarianceT, WavelengthT>::erase
     else
       _spectra->erase(_spectra->begin() + iStart, _spectra->begin() + iEnd);
   }
-  return true;
 }
