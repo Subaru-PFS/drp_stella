@@ -483,6 +483,7 @@ struct DispCorControl {
     LSST_CONTROL_FIELD( maxDistance, float, "Reject emission lines which center is more than this value away from the predicted position" );
 
     LSST_CONTROL_FIELD( minDistanceLines, float, "Minimum distance between 2 lines to be identified" );
+    LSST_CONTROL_FIELD( minErr, float, "Minimum measure error for PolyFit" );
     LSST_CONTROL_FIELD( minPercentageOfLines, float, "Minimum percentage of lines to be identified for <identify> to pass" );
     LSST_CONTROL_FIELD( nCalcs, int, "Number of iterations > spectrumLength / lengthPieces, e.g. spectrum length is 3800 pixels, <lengthPieces> = 500, <nCalcs> = 15: run 1: pixels 0-499, run 2: 249-749,...");
     LSST_CONTROL_FIELD( nIterReject, size_t, "Number of sigma rejection iterations" );
@@ -501,6 +502,7 @@ struct DispCorControl {
         lengthPieces( 500 ),
         maxDistance( 2.5 ),
         minDistanceLines( 1.5 ),
+        minErr( 1e-3 ),
         minPercentageOfLines ( 66.7 ),
         nCalcs( 15 ),
         nIterReject(3),
@@ -521,6 +523,7 @@ struct DispCorControl {
         lengthPieces( dispCorControl.lengthPieces ),
         maxDistance( dispCorControl.maxDistance ),
         minDistanceLines( dispCorControl.minDistanceLines ),
+        minErr( dispCorControl.minErr ),
         minPercentageOfLines( dispCorControl.minPercentageOfLines ),
         nCalcs( dispCorControl.nCalcs ),
         nIterReject(dispCorControl.nIterReject),

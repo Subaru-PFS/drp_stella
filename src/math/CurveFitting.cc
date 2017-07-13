@@ -402,9 +402,18 @@ namespace pfs { namespace drp { namespace stella { namespace math {
 
     ndarray::Array<double, 1, 1> D_A1_SDevSquare = ndarray::allocate(nDataPoints);
 
+    std::string sTemp = "MIN_ERR";
+    PTR(T) pMinErr(new T(1e-1));
+    if ((I_Pos = pfs::drp::stella::utils::KeyWord_Set(S_A1_Args_In, sTemp)) >= 0)
+    {
+        pMinErr.reset();
+        pMinErr = *((PTR(T)*)ArgV[I_Pos]);
+        LOGLS_INFO(_log, "pMinErr set to " << pMinErr);
+    }
+
     bool B_HaveMeasureError = false;
     ndarray::Array<T, 1, 1> D_A1_MeasureErrors = ndarray::allocate(nDataPoints);
-    std::string sTemp = "MEASURE_ERRORS";
+    sTemp = "MEASURE_ERRORS";
     PTR(ndarray::Array<T, 1, 1>) P_D_A1_MeasureErrors(new ndarray::Array<T, 1, 1>(D_A1_MeasureErrors));
     if ((I_Pos = pfs::drp::stella::utils::KeyWord_Set(S_A1_Args_In, sTemp)) >= 0)
     {
@@ -420,6 +429,12 @@ namespace pfs { namespace drp { namespace stella { namespace math {
       D_A1_MeasureErrors.deep() = *P_D_A1_MeasureErrors;
       LOGLS_DEBUG(_log, "B_HaveMeasureError set to TRUE");
       LOGLS_DEBUG(_log, "*P_D_A1_MeasureErrors set to " << *P_D_A1_MeasureErrors);
+
+      // Set measure errors below *pMinErr to *pMinErr
+      for (auto it=D_A1_MeasureErrors.begin(); it!=D_A1_MeasureErrors.end(); ++it){
+          if (std::fabs(*it) < *pMinErr)
+              *it = *pMinErr;
+      }
     }
     else{
       D_A1_MeasureErrors.deep() = 1.;

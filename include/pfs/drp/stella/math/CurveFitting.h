@@ -158,7 +158,8 @@ namespace pfs { namespace drp { namespace stella {
     XRANGE: PTR(ndarray::Array<float, 1, 1>(2)): in
     YERROR=yerror
     LSIGMA=lsigma: lower sigma rejection threshold
-    USIGMA=usigma:
+    USIGMA=usigma: upper sigma rejection threshold
+    MIN_ERR=minErr: T minimum error, replace errors smaller than this by this number
     **/
     template< typename T >
     ndarray::Array<float, 1, 1> PolyFit(ndarray::Array<T, 1, 1> const& x_In,
