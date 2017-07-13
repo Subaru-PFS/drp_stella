@@ -99,15 +99,6 @@ class ReduceArcRefSpecTask(ReduceArcTask):
             ref = refSpec.getSpectrum()
             self.log.debug('ref.shape = %d' % ref.shape)
 
-            if False:
-                fig = plt.figure()
-                ax = fig.add_subplot(1, 1, 1)
-                ax.plot(ref,'-+')
-                ax.plot(refSpecArr,'-+')
-                plt.show()
-                plt.close(fig)
-                fig.clf()
-
             dispCorControl = drpStella.DispCorControl()
             dispCorControl.fittingFunction = self.config.function
             dispCorControl.order = self.config.order
@@ -158,35 +149,7 @@ class ReduceArcRefSpecTask(ReduceArcTask):
                 for j in range(specSpec.shape[0]):
                     self.log.debug('spectrum %d: spec.getWavelength()[%d] = %f' % (i,j,spec.getWavelength()[j]))
 
-            if False:
-                xPixMinMax = np.ndarray(2, dtype='float32')
-                xPixMinMax[0] = 1000.
-                xPixMinMax[1] = 1600.
-                fig = plt.figure()
-                ax = fig.add_subplot(1, 1, 1)
-                for i in range(spectrumSetFromProfile.size()):
-                    ax.plot(spectrumSetFromProfile.getSpectrum(i).getSpectrum(),'-+')
-                    plt.xlim(xPixMinMax[0],xPixMinMax[1])
-                    plt.ylim(0,25000)
-                plt.xlabel('Pixel')
-                plt.ylabel('Flux [ADUs]')
-                plt.show()
-                plt.close(fig)
-                fig.clf()
 
-            if False:
-                xMinMax = drpStella.poly(xPixMinMax, spec.getDispCoeffs())
-                fig = plt.figure()
-                ax = fig.add_subplot(1, 1, 1)
-                for i in range(spectrumSetFromProfile.size()):
-                    ax.plot(spectrumSetFromProfile.getSpectrum(i).getWavelength(),spectrumSetFromProfile.getSpectrum(i).getSpectrum(),'-+')
-                    plt.xlim(xMinMax[0],xMinMax[1])
-                    plt.ylim(0,25000)
-                plt.xlabel('Wavelength [Angstroems]')
-                plt.ylabel('Flux [ADUs]')
-                plt.show()
-                plt.close(fig)
-                fig.clf()
 
             writePfsArm(butler, arcExp, spectrumSetFromProfile, arcRef.dataId)
 
