@@ -249,7 +249,7 @@ namespace pfs { namespace drp { namespace stella {
     template< typename T >
     T calcRMS( ndarray::Array< T, 1, 1 > const& arrIn );
     struct CrossCorrelateResult{
-        float pixShift;
+        float pixShift;///double( minInd ) - double( nPixMaxLeft )
         float chiSquare;
     };
     
