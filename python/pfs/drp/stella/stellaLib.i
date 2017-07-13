@@ -22,6 +22,7 @@ Interface to Stella
 #include "pfs/drp/stella/math/Math.h"
 #include "pfs/drp/stella/math/CurveFitting.h"
 #include "pfs/drp/stella/Controls.h"
+#include "pfs/drp/stella/Lines.h"
 #include "pfs/drp/stella/Spectra.h"
 #include "ndarray/Array.h"
 #include "ndarray/converter/eigen.h"
@@ -92,6 +93,8 @@ Interface to Stella
 %shared_ptr(pfs::drp::stella::FiberTraceFunction);
 %shared_ptr(pfs::drp::stella::FiberTraceProfileFittingControl);
 %shared_ptr(pfs::drp::stella::GaussCoeffs);
+%shared_ptr(pfs::drp::stella::NistLine);
+%shared_ptr(pfs::drp::stella::NistLineMeas);
 
 %shared_ptr(pfs::drp::stella::FiberTrace<float, unsigned short, float>);
 %shared_ptr(std::vector<PTR(pfs::drp::stella::FiberTrace<float, unsigned short, float>)>);
@@ -102,6 +105,9 @@ Interface to Stella
 %shared_ptr(pfs::drp::stella::SpectrumSet<float, unsigned short, float, float>);
 %shared_ptr(std::vector<PTR(ndarray::Array<float, 2, 1>)>);
 
+%shared_ptr(std::vector<PTR(pfs::drp::stella::NistLine)>);
+%shared_ptr(std::vector<PTR(pfs::drp::stella::NistLineMeas)>);
+
 %include "std_vector.i"
 %include "pfs/drp/stella/FiberTraces.h"
 
@@ -109,6 +115,7 @@ Interface to Stella
 
 %include "pfs/drp/stella/Spectra.h"
 %include "pfs/drp/stella/Controls.h"
+%include "pfs/drp/stella/Lines.h"
 
 %extend pfs::drp::stella::Spectrum{
     %template(identifyF) identify<float>;
@@ -117,6 +124,9 @@ Interface to Stella
 %template(SpectrumF) pfs::drp::stella::Spectrum<float, unsigned short, float, float>;
 %template(SpecPtrVectorF) std::vector<PTR(pfs::drp::stella::Spectrum<float, unsigned short, float, float>)>;
 %template(SpecVectorF) std::vector<pfs::drp::stella::Spectrum<float, unsigned short, float, float>>;
+
+%template(NistLinePtrVector) std::vector<PTR(pfs::drp::stella::NistLine)>;
+%template(NistLineMeasPtrVector) std::vector<PTR(pfs::drp::stella::NistLineMeas)>;
 
 %include "pfs/drp/stella/utils/Utils.h"
 %include "pfs/drp/stella/math/Math.h"
