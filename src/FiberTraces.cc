@@ -2333,6 +2333,7 @@ namespace pfs { namespace drp { namespace stella {
                              nTraces,
                              nRows,
                              startPos );
+        /// The input fiberTraceSet is ordered in pixel space, so for the next FiberTrace we can start the search at the next position from here
         startPos = iTrace + 1;
         LOGLS_DEBUG(_log, "assignITrace: i = " << i << ": iTrace = " << iTrace);
         LOGLS_DEBUG(_log, "assignITrace: i = " << i << ": fiberIdsUnique[" << iTrace << "] = "
