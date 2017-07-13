@@ -31,6 +31,7 @@ Spectrum<ImageT, MaskT, VarianceT, WavelengthT>::Spectrum(size_t length, size_t 
   _dispersion.deep() = 0.;
   _dispCoeffs = ndarray::allocate( _dispCorControl->order + 1 );
   _dispCoeffs.deep() = 0.;
+  _dispRmsCheck = 0.;
   _dispRms = 0.;
   _dispRmsCheck = 0.;
   _nGoodLines = 0;
