@@ -55,6 +55,34 @@ class ReduceArcTask(CmdLineTask):
         return parser
 
     def run(self, expRefList, butler, wLenFile=None, lineList=None, immediate=True):
+        # Silence verbose loggers
+        for logger in ["afw.ExposureFormatter",
+                       "afw.image.ExposureInfo",
+                       "afw.image.Mask",
+                       "afw.ImageFormatter",
+                       "CameraMapper",
+                       "createLineListForFiberTrace",
+                       "createLineListForLamps",
+                       "daf.persistence.butler",
+                       "daf.persistence.LogicalLocation",
+                       "extractSpectra",
+                       "gaussFit",
+                       "getLinesInWavelengthRange",
+                       "makeArtificialSpectrum",
+                       "measureLines",
+                       "measureLinesInPixelSpace",
+                       "pfs::drp::stella::FiberTrace::createTrace",
+                       "pfs::drp::stella::math::assignITrace",
+                       "pfs::drp::stella::math::CurfFitting::PolyFit",
+                       "pfs::drp::stella::math::findITrace",
+                       "removeBadLines",
+                      ]:
+            log.setLevel(logger, log.WARN)
+        for logger in ["gaussFunc",
+                       "pfs::drp::stella::Spectra::identify",
+                      ]:
+            log.setLevel(logger, log.FATAL)
+
         if wLenFile == None:
             wLenFile = self.config.wavelengthFile
         if lineList == None:
