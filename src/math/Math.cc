@@ -21,6 +21,7 @@ ndarray::Array<size_t, 2, 1> calcMinCenMax( ndarray::Array<T, 1, 1> const& xCent
                                             int const nPixCutLeft_In,
                                             int const nPixCutRight_In )
 {
+  LOG_LOGGER _log = LOG_GET("pfs::drp::stella::math::calcMinCenMax");
   ndarray::Array<float, 1, 1> tempCenter = ndarray::allocate(xCenters_In.getShape()[0]);
   tempCenter.deep() = xCenters_In + 0.5;
 
@@ -31,34 +32,26 @@ ndarray::Array<size_t, 2, 1> calcMinCenMax( ndarray::Array<T, 1, 1> const& xCent
 
   minCenMax_Out[ndarray::view()(1)] = floor;
 
-#ifdef __DEBUG_MINCENMAX__
-  cout << "calcMinCenMax: minCenMax_Out(*,1) = " << minCenMax_Out[ndarray::view()(1)] << endl;
-#endif
+  LOGLS_TRACE(_log, "minCenMax_Out(*,1) = " << minCenMax_Out[ndarray::view()(1)]);
   ndarray::Array<float, 1, 1> D_A1_Temp = ndarray::allocate(xCenters_In.getShape()[0]);
   D_A1_Temp.deep() = tempCenter + xLow_In;
 
   minCenMax_Out[ndarray::view()(0)] = pfs::drp::stella::math::floor(ndarray::Array<float const, 1, 1>(D_A1_Temp), size_t(0));
 
-#ifdef __DEBUG_MINCENMAX__
-  cout << "calcMinCenMax: minCenMax_Out(*,0) = " << minCenMax_Out[ndarray::view()(0)] << endl;
-#endif
+  LOGLS_TRACE(_log, "minCenMax_Out(*,0) = " << minCenMax_Out[ndarray::view()(0)]);
   D_A1_Temp.deep() = tempCenter + xHigh_In;
 
   minCenMax_Out[ndarray::view()(2)] = pfs::drp::stella::math::floor(ndarray::Array<float const, 1, 1>(D_A1_Temp), size_t(0));
 
-#ifdef __DEBUG_MINCENMAX__
-  cout << "calcMinCenMax: minCenMax_Out(*,2) = " << minCenMax_Out[ndarray::view()(2)] << endl;
-#endif
+  LOGLS_TRACE(_log, "minCenMax_Out(*,2) = " << minCenMax_Out[ndarray::view()(2)]);
 
   ndarray::Array<size_t, 1, 1> I_A1_NPixLeft = ndarray::copy(minCenMax_Out[ndarray::view()(1)] - minCenMax_Out[ndarray::view()(0)]);
   ndarray::Array<size_t, 1, 1> I_A1_NPixRight = ndarray::copy(minCenMax_Out[ndarray::view()(2)] - minCenMax_Out[ndarray::view()(1)]);
   ndarray::Array<size_t, 1, 1> I_A1_I_NPixX = ndarray::copy(minCenMax_Out[ndarray::view()(2)] - minCenMax_Out[ndarray::view()(0)] + 1);
 
-#ifdef __DEBUG_MINCENMAX__
-  cout << "calcMinCenMax: I_A1_NPixLeft(=" << I_A1_NPixLeft << endl;
-  cout << "calcMinCenMax: I_A1_NPixRight(=" << I_A1_NPixRight << endl;
-  cout << "calcMinCenMax: I_A1_I_NPixX = " << I_A1_I_NPixX << endl;
-#endif
+  LOGLS_TRACE(_log, "I_A1_NPixLeft(=" << I_A1_NPixLeft);
+  LOGLS_TRACE(_log, "I_A1_NPixRight(=" << I_A1_NPixRight);
+  LOGLS_TRACE(_log, "I_A1_I_NPixX = " << I_A1_I_NPixX);
 
   size_t I_MaxPixLeft = max(I_A1_NPixLeft);
   size_t I_MaxPixRight = max(I_A1_NPixRight);
@@ -71,9 +64,7 @@ ndarray::Array<size_t, 2, 1> calcMinCenMax( ndarray::Array<T, 1, 1> const& xCent
   if ( I_MaxPixRight > I_MinPixRight )
     minCenMax_Out[ndarray::view()(2)] = minCenMax_Out[ndarray::view()(1)] + I_MaxPixRight - nPixCutRight_In;
 
-#ifdef __DEBUG_MINCENMAX__
-  cout << "calcMinCenMax: minCenMax_Out = " << minCenMax_Out << endl;
-#endif
+  LOGLS_DEBUG(_log, "minCenMax_Out = " << minCenMax_Out);
 
   return minCenMax_Out;
 }

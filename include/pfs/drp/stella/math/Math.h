@@ -6,6 +6,7 @@
 #include <numeric>      // std::accumulate
 #include <vector>
 
+#include "lsst/log/Log.h"
 #include "ndarray.h"
 
 #include "pfs/drp/stella/utils/Utils.h"
