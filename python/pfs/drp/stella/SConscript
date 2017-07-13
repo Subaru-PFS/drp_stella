@@ -4,6 +4,7 @@ scripts.BasicSConscript.pybind11(
     ['spectra',
      'controls',
      'fiberTraces',
+     'lines',
      '_math',
      ],
     addUnderscore=False
