@@ -91,6 +91,7 @@ Interface to Stella
 %shared_ptr(pfs::drp::stella::FiberTraceFunctionFindingControl);
 %shared_ptr(pfs::drp::stella::FiberTraceFunction);
 %shared_ptr(pfs::drp::stella::FiberTraceProfileFittingControl);
+%shared_ptr(pfs::drp::stella::GaussCoeffs);
 
 %shared_ptr(pfs::drp::stella::FiberTrace<float, unsigned short, float>);
 %shared_ptr(std::vector<PTR(pfs::drp::stella::FiberTrace<float, unsigned short, float>)>);

@@ -14,6 +14,66 @@ namespace pfs { namespace drp { namespace stella {
         T spectrum;
         T background;
     };
+
+    struct GaussCoeffs {
+        float constantBackground;
+        float linearBackground;
+        float mu;
+        float sigma;
+        float strength;
+
+        /**
+         * @brief Standard Constructor
+         */
+        GaussCoeffs():
+        constantBackground(0.0),
+        linearBackground(0.0),
+        mu(0.0),
+        sigma(0.0),
+        strength(0.0)
+        {}
+
+        /**
+         * @brief Copy Constructor
+         * @param gaussCoeffs : GaussCoeffs to be copied to this
+         */
+        GaussCoeffs(GaussCoeffs const& gaussCoeffs):
+        constantBackground(gaussCoeffs.constantBackground),
+        linearBackground(gaussCoeffs.linearBackground),
+        mu(gaussCoeffs.mu),
+        sigma(gaussCoeffs.sigma),
+        strength(gaussCoeffs.strength)
+        {}
+
+        /**
+         * @brief Destructor
+         */
+        ~GaussCoeffs(){}
+
+        /**
+         * @brief Return a ndarray<float> of shape(5) containing the coefficients
+         * @return ndarray<float>(5) [0: strength, 1: mu, 2: sigma, 3: constant background,
+         *                            4: linear background]
+         */
+        ndarray::Array<float, 1, 1> toNdArray();
+
+        /**
+         * @brief convert an ndarray of shape>=3 to coefficients in this
+         * @param coeffs : ndarray containing the coefficients
+         *                 [0: strength, 1: mu, 2: sigma, (3: constant background,
+         *                  (4: linear background))]
+         */
+        template<typename T>
+        void set(ndarray::Array<T, 1, 1> const& coeffs);
+    };
+
+    /**
+     * @brief write GaussCoeffs to basic_ostream
+     * @param os : basic_ostream to be written to
+     * @param coeffs : GaussCoeffs to be written to basic_ostream
+     * @return basic_ostream
+     */
+    std::ostream& operator<< (std::ostream& os, const GaussCoeffs& coeffs);
       
     /*
      * @brief calculate y positions for given x positions and a polynomial of given coefficients

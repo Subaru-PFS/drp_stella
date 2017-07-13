@@ -14,6 +14,37 @@
 namespace pexExcept = lsst::pex::exceptions;
 
 namespace pfs { namespace drp { namespace stella { namespace math {
+  ndarray::Array<float, 1, 1> GaussCoeffs::toNdArray(){
+      ndarray::Array<float, 1, 1> coeffs = ndarray::allocate(5);
+      coeffs[0] = strength;
+      coeffs[1] = mu;
+      coeffs[2] = sigma;
+      coeffs[3] = constantBackground;
+      coeffs[4] = linearBackground;
+      return coeffs;
+  }
+
+  template<typename T>
+  void GaussCoeffs::set(ndarray::Array<T, 1, 1> const& coeffs){
+      if (coeffs.getShape()[0] < 3)
+          throw std::runtime_error("coeffs.getShape(0) < 3");
+      strength = float(coeffs[0]);
+      mu = float(coeffs[1]);
+      sigma = float(coeffs[2]);
+      if (coeffs.getShape()[0] > 3)
+          constantBackground = float(coeffs[3]);
+      if (coeffs.getShape()[0] > 4)
+          linearBackground = float(coeffs[4]);
+  }
+  template void GaussCoeffs::set(ndarray::Array<float, 1, 1> const&);
+  template void GaussCoeffs::set(ndarray::Array<double, 1, 1> const&);
+
+  std::ostream& operator<< (std::ostream& os, const GaussCoeffs& coeffs){
+      os << "strength = " << coeffs.strength << ", mu = " << coeffs.mu << ", sigma = " << coeffs.sigma;
+      os << "constantBackground = " << coeffs.constantBackground;
+      os << "linearBackground = " << coeffs.linearBackground;
+      return os;
+  }
 
   template<typename T, typename U>
   ndarray::Array<T, 1, 1> Poly(ndarray::Array<T, 1, 1> const& x_In,
