@@ -18,6 +18,7 @@ import pfs.drp.stella as drpStella
 class MathTestCase(tests.TestCase):
     """A test case for Stella math functions"""
 
+    @unittest.skip("'where' is strongly deprecated and is not bound to python")
     def testWhere(self):
         # Test that we can pass a numpy array as ndArray
         int1DArr = np.ndarray(shape=(10), dtype=np.int32)
@@ -29,12 +30,14 @@ class MathTestCase(tests.TestCase):
             if i != 5:
                 self.assertEqual(int1DArrRes[i], 0)
 
+    @unittest.skip("Not bound to python; will use boost::unittest if we need tests")
     def testPolyFit(self):
         # We are running a C++ test function here because PolyFit functions with
         # keywords are not exposed to Python as I couldn't find a way to make
         # SWIG handle a vector of void pointers to different objects.
         drpStella.testPolyFit()
 
+    @unittest.skip("'sortIndices' is strongly deprecated and is not bound to python")
     def testSortIndices(self):
         """Test drpStella.sortIndices"""
 
