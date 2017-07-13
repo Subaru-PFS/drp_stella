@@ -18,14 +18,101 @@ from pfs.drp.stella.utils import readLineListFile, writePfsArm, addFiberTraceSet
 
 class ReduceArcConfig(Config):
     """Configuration for reducing arc images"""
-    function = Field( doc = "Function for fitting the dispersion", dtype=str, default="POLYNOMIAL" );
-    order = Field( doc = "Fitting function order", dtype=int, default = 5 );
-    searchRadius = Field( doc = "Radius in pixels relative to line list to search for emission line peak", dtype = int, default = 2 );
-    fwhm = Field( doc = "FWHM of emission lines", dtype=float, default = 2.6 );
-    nRowsPrescan = Field( doc = "Number of prescan rows in raw CCD image", dtype=int, default = 49 );
-    wavelengthFile = Field( doc = "reference pixel-wavelength file including path", dtype = str, default=os.path.join(getPackageDir("obs_pfs"), "pfs/RedFiberPixels.fits.gz"));
-    lineList = Field( doc = "reference line list including path", dtype = str, default=os.path.join(getPackageDir("obs_pfs"), "pfs/lineLists/CdHgKrNeXe_red.fits"));
-    maxDistance = Field( doc = "Reject emission lines which center is more than this value away from the predicted position", dtype=float, default = 2.5 );
+    elements = Field(
+        doc = "Element(s) to create line list for, separated by ',' (e.g. Hg,Ar)",
+        dtype = str,
+        default = "Hg,Ar"
+    )
+    function = Field(
+        doc = "Function for fitting the dispersion",
+        dtype = str,
+        default = "POLYNOMIAL"
+    )
+    fwhm = Field(
+        doc = "FWHM of emission lines in pixels",
+        dtype = float,
+        default = 2.6
+    )
+    lineListSuffix = Field(
+        doc = "Suffix of line list to read (vac or air)",
+        dtype = str,
+        default = 'vac'
+    )
+    maxDistance = Field(
+        doc = "Reject emission lines which center is more than this value in pixels away from the predicted position",
+        dtype = float,
+        default = 3.2
+    )
+    minDistance = Field(
+        doc="Minimum distance between lines for creation of line list in FWHM (see below)",
+        dtype = float,
+        default = 2.1
+    )
+    minDistanceLines = Field(
+        doc="Minimum distance between 2 lines to be identified",
+        dtype = float,
+        default = 1.5
+    )
+    minErr = Field(
+        doc="Minimum measure error for PolyFit",
+        dtype = float,
+        default = 0.01
+    )
+    minPercentageOfLines = Field(
+        doc = "Minimum percentage of lines to be identified for <identify> to pass",
+        dtype = float,
+        default = 66.6
+    )
+    nIterReject = Field(
+        doc = "Number of sigma rejection iterations",
+        dtype = int,
+        default = 3
+    )
+    nRowsPrescan = Field(
+        doc = "Number of prescan rows in raw CCD image",
+        dtype = int,
+        default = 48
+    )
+    order = Field(
+        doc = "Fitting function order",
+        dtype = int,
+        default = 6
+    )
+    percentageOfLinesForCheck = Field(
+        doc = "Hold back this percentage of lines in the line list for check",
+        dtype = int,
+        default = 10
+    )
+    plot = Field(
+        doc = "FiberTraceId to plot (set to -1 for none)",
+        dtype = int,
+        default = -1
+    )
+    removeLines = Field(
+        doc = "Remove lines from line list (e.g. HgII,NeII)",
+        dtype = str,
+        default = 'HgII,NeII'
+    )
+    searchRadius = Field(
+        doc = "Radius in pixels relative to line list to search for emission line peak",
+        dtype = int,
+        default = 1
+    )
+    sigmaReject = Field(
+        doc = "Sigma rejection threshold for polynomial fitting",
+        dtype = float,
+        default = 2.5,
+    )
+    wavelengthFile = Field(
+        doc = "Reference pixel-wavelength file including path",
+        dtype = str,
+        default = os.path.join(getPackageDir("obs_pfs"), "pfs/RedFiberPixels.fits.gz")
+    )
+    xCorRadius = Field(
+        doc = "Radius in pixels for cross correlating spectrum and line list",
+        dtype = int,
+        default = 15,
+    )
 
 class ReduceArcTaskRunner(TaskRunner):
     """Get parsed values into the ReduceArcTask.run"""
@@ -95,6 +182,27 @@ class ReduceArcTask(CmdLineTask):
         # read wavelength file
         xCenters, wavelengths, traceIds = readWavelengthFile(wLenFile)
 
+        # create DispCorControl
+        dispCorControl = drpStella.DispCorControl()
+        dispCorControl.fittingFunction = self.config.function
+        dispCorControl.fwhm = self.config.fwhm
+        dispCorControl.maxDistance = self.config.maxDistance
+        dispCorControl.minDistanceLines = self.config.minDistanceLines
+        dispCorControl.minErr = self.config.minErr
+        dispCorControl.minPercentageOfLines = self.config.minPercentageOfLines
+        dispCorControl.nIterReject = self.config.nIterReject
+        dispCorControl.order = self.config.order
+        dispCorControl.percentageOfLinesForCheck = self.config.percentageOfLinesForCheck
+        dispCorControl.searchRadius = self.config.searchRadius
+        dispCorControl.sigmaReject = self.config.sigmaReject
+        dispCorControl.verticalPrescanHeight = self.config.nRowsPrescan
+
+        self.log.trace('dispCorControl.fittingFunction = %s' % dispCorControl.fittingFunction)
+        self.log.trace('dispCorControl.order = %d' % dispCorControl.order)
+        self.log.trace('dispCorControl.searchRadius = %d' % dispCorControl.searchRadius)
+        self.log.trace('dispCorControl.fwhm = %g' % dispCorControl.fwhm)
+        self.log.trace('dispCorControl.maxDistance = %g' % dispCorControl.maxDistance)
+
         # read line list
         lineListArr = readLineListFile(lineList)
 
@@ -139,18 +247,6 @@ class ReduceArcTask(CmdLineTask):
 
             extractSpectraTask = ExtractSpectraTask()
             spectrumSetFromProfile = extractSpectraTask.run(arcExp, flatFiberTraceSet)
-
-            dispCorControl = drpStella.DispCorControl()
-            dispCorControl.fittingFunction = self.config.function
-            dispCorControl.order = self.config.order
-            dispCorControl.searchRadius = self.config.searchRadius
-            dispCorControl.fwhm = self.config.fwhm
-            dispCorControl.maxDistance = self.config.maxDistance
-            self.log.debug('dispCorControl.fittingFunction = %s' % dispCorControl.fittingFunction)
-            self.log.debug('dispCorControl.order = %d' % dispCorControl.order)
-            self.log.debug('dispCorControl.searchRadius = %d' % dispCorControl.searchRadius)
-            self.log.debug('dispCorControl.fwhm = %g' % dispCorControl.fwhm)
-            self.log.debug('dispCorControl.maxDistance = %g' % dispCorControl.maxDistance)
 
             for i in range(spectrumSetFromProfile.size()):
                 spec = spectrumSetFromProfile.getSpectrum(i)
