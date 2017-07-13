@@ -91,6 +91,7 @@ Interface to Stella
 
 %shared_ptr(pfs::drp::stella::FiberTraceFunctionFindingControl);
 %shared_ptr(pfs::drp::stella::FiberTraceFunction);
+%shared_ptr(pfs::drp::stella::FiberTraceFunctionControl);
 %shared_ptr(pfs::drp::stella::FiberTraceProfileFittingControl);
 %shared_ptr(pfs::drp::stella::GaussCoeffs);
 %shared_ptr(pfs::drp::stella::NistLine);
@@ -137,9 +138,11 @@ Interface to Stella
 
 %template(markFiberTraceInMask) pfs::drp::stella::utils::markFiberTraceInMask<float, unsigned short, float>;
 %template(SpectrumSetF) pfs::drp::stella::SpectrumSet<float, unsigned short, float, float>;
+%template(crossCorrelate) pfs::drp::stella::math::crossCorrelate<float>;
 %template(findAndTraceAperturesF) pfs::drp::stella::math::findAndTraceApertures<float, unsigned short, float>;
 %template(sortIndices) pfs::drp::stella::math::sortIndices<unsigned short>;
 %template(sortIndices) pfs::drp::stella::math::sortIndices<int>;
+%template(firstIndexWithValueGEFrom) pfs::drp::stella::math::firstIndexWithValueGEFrom<int>;
 %template(getRawPointerFTF) pfs::drp::stella::utils::getRawPointer<pfs::drp::stella::FiberTrace<float, unsigned short, float>>;
 %template(indGenF) pfs::drp::stella::math::indGen<float>;
 %template(indGenNdArrUS) pfs::drp::stella::math::indGenNdArr<unsigned short>;
