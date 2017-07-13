@@ -445,14 +445,21 @@ namespace pfs { namespace drp { namespace stella {
       throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
     }
 
+    LOGLS_TRACE(_log, "_xCenters = " << _xCenters);
+    LOGLS_TRACE(_log, "_fiberTraceFunction->fiberTraceFunctionControl.xHigh = "
+            << _fiberTraceFunction->fiberTraceFunctionControl.xHigh);
+    LOGLS_TRACE(_log, "_fiberTraceFunction->fiberTraceFunctionControl.xLow = "
+            << _fiberTraceFunction->fiberTraceFunctionControl.xLow);
+    LOGLS_TRACE(_log, "_fiberTraceFunction->fiberTraceFunctionControl.nPixCutLeft = "
+            << _fiberTraceFunction->fiberTraceFunctionControl.nPixCutLeft);
+    LOGLS_TRACE(_log, "_fiberTraceFunction->fiberTraceFunctionControl.nPixCutRight = "
+            << _fiberTraceFunction->fiberTraceFunctionControl.nPixCutRight);
+
     ndarray::Array<size_t, 2, 1> minCenMax = math::calcMinCenMax( _xCenters,
-                                                                                _fiberTraceFunction->fiberTraceFunctionControl.xHigh,
-                                                                                _fiberTraceFunction->fiberTraceFunctionControl.xLow,
-                                                                                _fiberTraceFunction->fiberTraceFunctionControl.nPixCutLeft,
-                                                                                _fiberTraceFunction->fiberTraceFunctionControl.nPixCutRight );
-    #ifdef __DEBUG_CREATEFIBERTRACE__
-      cout << "FiberTrace" << _iTrace << "::CreateFiberTrace: minCenMax = " << minCenMax << endl;
-    #endif
+                                                                  _fiberTraceFunction->fiberTraceFunctionControl.xHigh,
+                                                                  _fiberTraceFunction->fiberTraceFunctionControl.xLow,
+                                                                  _fiberTraceFunction->fiberTraceFunctionControl.nPixCutLeft,
+                                                                  _fiberTraceFunction->fiberTraceFunctionControl.nPixCutRight );
 
     if ((_isTraceSet) && (static_cast<size_t>(_trace->getHeight()) != (_fiberTraceFunction->yHigh - _fiberTraceFunction->yLow + 1))){
       string message("FiberTrace ");
@@ -461,6 +468,7 @@ namespace pfs { namespace drp { namespace stella {
       message += to_string(_fiberTraceFunction->yHigh - _fiberTraceFunction->yLow + 1);
       throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
     }
+    LOGLS_DEBUG(_log, "FiberTrace" << _iTrace << "::CreateFiberTrace: minCenMax = " << minCenMax);
 
     if (oldTraceHeight > 0){
       if (oldTraceHeight != getHeight()){
@@ -519,9 +527,6 @@ namespace pfs { namespace drp { namespace stella {
       ++yIterTrace;
       ++yIterTraceVariance;
       ++yIterTraceMask;
-      #ifdef __DEBUG_CREATETRACE__
-        cout << "FiberTrace " << _iTrace << "::createTrace: iy = " << iy << endl;
-      #endif
     }
     if (static_cast<size_t>(_trace->getHeight()) !=
         (_fiberTraceFunction->yHigh - _fiberTraceFunction->yLow + 1)) {
@@ -539,9 +544,6 @@ namespace pfs { namespace drp { namespace stella {
       message += to_string(_fiberTraceFunction->yLow) + string(") + 1)=") + to_string(_fiberTraceFunction->yHigh - _fiberTraceFunction->yLow + 1);
       throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
     }
-    #ifdef __DEBUG_CREATETRACE__
-      cout << "FiberTrace::createFiberTrace: _trace set to " << _trace->getImage()->getArray() << endl;
-    #endif
     if (!_isProfileSet){
       _profile.reset(new afwImage::Image<float>(_trace->getWidth(), _trace->getHeight()));
     }
