@@ -62,8 +62,8 @@ namespace pfs { namespace drp { namespace stella {
   {
     _xCenters = ::pfs::drp::stella::math::calculateXCenters( fiberTraceFunction,
                                                              maskedImage->getHeight(),
-                                                             maskedImage->getWidth() );//new std::vector<const float>(fiberTraceFunction->yHigh - fiberTraceFunction->yLow + 1)),
-    _xCentersMeas = utils::get2DndArray(float(_xCenters.getShape()[0]), float(2)),
+                                                             maskedImage->getWidth() );
+    _xCentersMeas = utils::get2DndArray(float(_xCenters.getShape()[0]), float(2));
     createTrace(maskedImage);
   }
 
