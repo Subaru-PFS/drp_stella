@@ -159,13 +159,16 @@ bool MPFitGauss(const ndarray::Array< T, 1, 1 >& D_A1_X_In,
                 const ndarray::Array< T, 1, 1 >& D_A1_Y_In,
                 const ndarray::Array< T, 1, 1 >& D_A1_EY_In,
                 const ndarray::Array< T, 1, 1 >& D_A1_Guess_In,
-                const bool B_WithConstantBackground,
+                const int Background,
                 const bool B_FitArea,
                 ndarray::Array< T, 1, 1 >& D_A1_Coeffs_Out,
                 ndarray::Array< T, 1, 1 >& D_A1_ECoeffs_Out){
-  int I_NParams = 4;
-  if (!B_WithConstantBackground)
-    I_NParams = 3;
+  int I_NParams = 3;
+  if (Background == 1)
+    I_NParams = 4;
+  else if (Background == 2)
+    I_NParams = 5;
+
   unsigned int I_NPts = D_A1_X_In.getShape()[0];
   if (D_A1_Y_In.getShape()[0] != I_NPts){
     cout << "MPFitting_ndarray::MPFitGauss: ERROR: D_A1_X_In and D_A1_Y_In must have same size" << endl;
@@ -220,17 +223,37 @@ bool MPFitGauss(const ndarray::Array< T, 1, 1 >& D_A1_X_In,
 
   /* Call fitting function for 10 data points and 4 parameters (no
      parameters fixed) */
-  if (B_WithConstantBackground){
+  if (Background == 0){
+    #ifdef __DEBUG_GAUSSFITLIM__
+      if (Debug)
+        cout << "MPFitting_ndarray::MPFitGaussLim: Background == 0: starting mpfit" << endl;
+    #endif
+    if (B_FitArea){
+      result.status = mpfit(MPFitGaussFuncANB, I_NPts, I_NParams, p, pars, 0, (void *) &v, &result);
+    }
+    else{
+      result.status = mpfit(MPFitGaussFuncNB, I_NPts, I_NParams, p, pars, 0, (void *) &v, &result);
+    }
+  }
+  else if (Background == 1){
+    #ifdef __DEBUG_GAUSSFITLIM__
+      if (Debug)
+        cout << "MPFitting_ndarray::MPFitGaussLim: Background == 1: starting mpfit" << endl;
+    #endif
     if (B_FitArea)
       result.status = mpfit(MPFitGaussFuncACB, I_NPts, I_NParams, p, pars, 0, (void *) &v, &result);
     else
       result.status = mpfit(MPFitGaussFuncCB, I_NPts, I_NParams, p, pars, 0, (void *) &v, &result);
   }
-  else{
+  else{/// Background == 2
+    #ifdef __DEBUG_GAUSSFITLIM__
+      if (Debug)
+        cout << "MPFitting_ndarray::MPFitGaussLim: Background == 2: starting mpfit" << endl;
+    #endif
     if (B_FitArea)
-      result.status = mpfit(MPFitGaussFuncANB, I_NPts, I_NParams, p, pars, 0, (void *) &v, &result);
+      result.status = mpfit(MPFitGaussFuncALB, I_NPts, I_NParams, p, pars, 0, (void *) &v, &result);
     else
-      result.status = mpfit(MPFitGaussFuncNB, I_NPts, I_NParams, p, pars, 0, (void *) &v, &result);
+      result.status = mpfit(MPFitGaussFuncLB, I_NPts, I_NParams, p, pars, 0, (void *) &v, &result);
   }
 
   for (int i_par=0; i_par<I_NParams; i_par++){
@@ -304,13 +327,15 @@ bool MPFitGaussLim(const ndarray::Array< T, 1, 1 >& D_A1_X_In,
   }
   double perror[I_NParams];                        /* Returned parameter errors */
   mp_par pars[I_NParams];                          /* Parameter constraints */
-  if (D_A1_Coeffs_Out.getShape()[0] != I_NParams){
+
+  //We allow arrays which have at least as much space as needed
+  if (D_A1_Coeffs_Out.getShape()[0] < I_NParams){
     string message("MPFitting_ndarray::MPFitGaussLim: ERROR: D_A1_Coeffs_Out.getShape()[0]=");
     message += to_string(D_A1_Coeffs_Out.getShape()[0]) + " != I_NParams=" + to_string(I_NParams);
     cout << message << endl;
     throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
   }
-  if (D_A1_ECoeffs_Out.getShape()[0] != I_NParams){
+  if (D_A1_ECoeffs_Out.getShape()[0] < I_NParams){
     string message("MPFitting_ndarray::MPFitGaussLim: ERROR: D_A1_ECoeffs_Out.getShape()[0]=");
     message += to_string(D_A1_ECoeffs_Out.getShape()[0]) + " != I_NParams=" + to_string(I_NParams);
     cout << message << endl;
@@ -395,7 +420,7 @@ template bool MPFitGauss(const ndarray::Array<float, 1, 1> &D_A1_X_In,
                          const ndarray::Array<float, 1, 1> &D_A1_Y_In,
                          const ndarray::Array<float, 1, 1> &D_A1_EY_In,
                          const ndarray::Array<float, 1, 1> &D_A1_Guess_In,
-                         const bool B_WithConstantBackground,
+                         const int Background,
                          const bool B_FitArea,
                          ndarray::Array<float, 1, 1> &D_A1_Coeffs_Out,
                          ndarray::Array<float, 1, 1>& D_A1_ECoeffs_Out);

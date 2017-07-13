@@ -53,7 +53,7 @@
  * \param D_A1_Y_In y values to fit
  * \param D_A1_EY_In uncertainties in y values to fit
  * \param D_A1_Guess_In guessed values for fitting parameters
- * \param B_WithConstantBackground Fit one Gaussian plus a constant background?
+ * \param[in] Background:: Fit one Gaussian plus background? 0-none, 1-constant, 2-linear background
  * \param B_FitArea Fit area (YES) or amplitude (No)?
  * \param D_A1_Coeffs_Out fitted coefficients (output parameter)
  * \param D_A1_ECoeffs_Out uncertainties of fitted coefficients (output parameter)
@@ -63,10 +63,11 @@ bool MPFitGauss(const ndarray::Array<T, 1, 1> &D_A1_X_In,
                 const ndarray::Array<T, 1, 1> &D_A1_Y_In,
                 const ndarray::Array<T, 1, 1> &D_A1_EY_In,
                 const ndarray::Array<T, 1, 1> &D_A1_Guess_In,
-                const bool B_WithConstantBackground,
+                const int Background,
                 const bool B_FitArea,
                 ndarray::Array<T, 1, 1> &D_A1_Coeffs_Out,
                 ndarray::Array< T, 1, 1>& D_A1_ECoeffs_Out);
+
 /** 
  * @brief Procedure for fitting one Gaussian holding some fitting parameters within certain limits
  * 
