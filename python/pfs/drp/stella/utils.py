@@ -96,7 +96,7 @@ def makeFiberTraceSet(pfsFiberTrace, maskedImage=None):
 
         pixelData = afwImage.MaskedImageF(profile.shape[1], ftf.yHigh - ftf.yLow + 1)
         pixelData[:] = np.nan
-        
+
         ft.setTrace(pixelData)
         ft.setProfile(prof)
 
@@ -107,9 +107,9 @@ def makeFiberTraceSet(pfsFiberTrace, maskedImage=None):
             ft.createTrace(maskedImage)
 
         if ft.getTrace().getHeight() != ft.getProfile().getHeight():
-            raise RuntimeError("FiberTrace %d: trace and profile have different sizes")
+            raise RuntimeError("FiberTrace %d: trace and profile have different heights" % (ft.getITrace()))
         if ft.getTrace().getWidth() != ft.getProfile().getWidth():
-            raise RuntimeError("FiberTrace %d: trace and profile have different sizes")
+            raise RuntimeError("FiberTrace %d: trace and profile have different widths" % (ft.getITrace()))
 
         fts.addFiberTrace(ft)
     return fts
@@ -247,4 +247,4 @@ def addFiberTraceSetToMask(mask, fiberTraceSet, display=None, maskPlaneName="FIB
         drpStella.markFiberTraceInMask(ft, mask, ftMask)
 
     if display:
-        display.setMaskPlaneColor(maskPlaneName, "GREEN")                  
+        display.setMaskPlaneColor(maskPlaneName, "GREEN")
