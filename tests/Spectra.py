@@ -446,7 +446,7 @@ class SpectraTestCase(tests.TestCase):
             self.assertLess(spec.getDispRmsCheck(), self.maxRMSCheck)
 
     def testWavelengthCalibrationWithoutRefSpec(self):
-        myReduceArcTask = ReduceArcTask()
+        myReduceArcTask = reduceArcTask.ReduceArcTask()
         myReduceArcTask.config.elements = self.elements
         dataRefList = [ref for ref in self.butler.subset("postISRCCD", 'visit', self.dataIdArc)]
 
