@@ -39,5 +39,19 @@ namespace pfs { namespace drp { namespace stella { namespace utils{
   template<typename T>
   int find(std::vector<T> const& vec, T number);
 }// End namespace utils
+
+/**
+ * @brief print all elements in vec to os
+ * @param os : ostream to print to
+ * @param vec : vector from which to print all elements to os
+ */
+template<typename T>
+ostream& operator<<(ostream& os, std::vector<T> const& vec){
+    os << "[";
+    for (auto el = vec.begin(); el != vec.end()-1; ++el)
+        os << *el << ", ";
+    os << vec[vec.size()-1] << "]";
+    return os;
+}
 }}}
 #endif
