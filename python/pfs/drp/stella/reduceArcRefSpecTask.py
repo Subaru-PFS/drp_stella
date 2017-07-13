@@ -97,7 +97,7 @@ class ReduceArcRefSpecTask(ReduceArcTask):
 
             refSpec = spectrumSetFromProfile.getSpectrum(int(spectrumSetFromProfile.size() / 2))
             ref = refSpec.getSpectrum()
-            self.log.debug('len(ref) = %d' % len(ref))
+            self.log.debug('ref.shape = %d' % ref.shape)
 
             if False:
                 fig = plt.figure()
