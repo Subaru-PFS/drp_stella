@@ -61,7 +61,7 @@ void declareSpectrum(py::module &mod, std::string const& suffix) {
     cls.def_property("length", &Class::getLength, &Class::setLength);
 
     cls.def("getITrace", &Class::getITrace);
-    cls.def("setITrace", &Class::setLength, "iTrace"_a);
+    cls.def("setITrace", &Class::setItrace, "iTrace"_a);
     cls.def_property("iTrace", &Class::getITrace, &Class::setITrace);
 
     cls.def("getDispCoeffs", &Class::getDispCoeffs);
