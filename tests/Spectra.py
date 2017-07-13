@@ -47,6 +47,7 @@ class SpectraTestCase(tests.TestCase):
         self.ftffc.fiberTraceFunctionControl.xHigh = 5
 
         self.dispCorControl = drpStella.DispCorControl()
+        self.elements = 'Cd,Hg,Kr,Ne,Xe'
 
         self.nFiberTraces = 11
         self.nRowsPrescan = 49
@@ -58,6 +59,7 @@ class SpectraTestCase(tests.TestCase):
         self.maxRMSCheck = 0.18
 
         self.lineList = os.path.join(lsst.utils.getPackageDir('obs_pfs'),'pfs/lineLists/CdHgKrNeXe_red.fits')
+        self.masterLineList = os.path.join(lsst.utils.getPackageDir('obs_pfs'),'pfs/lineLists/NeXeHgAr_1r.fits')
         self.refSpec = os.path.join(lsst.utils.getPackageDir('obs_pfs'),'pfs/arcSpectra/refSpec_CdHgKrNeXe_red.fits')
         self.wLenFile = os.path.join(lsst.utils.getPackageDir('obs_pfs'),'pfs/RedFiberPixels.fits.gz')
 
@@ -69,7 +71,9 @@ class SpectraTestCase(tests.TestCase):
         del self.lineList
         del self.refSpec
         del self.dispCorControl
+        del self.elements
         del self.wLenFile
+        del self.masterLineList
         del self.maxRMS
         del self.maxRMSCheck
 
@@ -443,6 +447,7 @@ class SpectraTestCase(tests.TestCase):
 
     def testWavelengthCalibrationWithoutRefSpec(self):
         myReduceArcTask = reduceArcTask.ReduceArcTask()
+        myReduceArcTask.config.elements = self.elements
         dataRefList = [ref for ref in self.butler.subset("postISRCCD", 'visit', self.dataIdArc)]
         spectrumSetFromProfile = myReduceArcTask.run(dataRefList, self.butler, self.wLenFile, self.lineList)
 
