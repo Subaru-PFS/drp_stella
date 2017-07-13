@@ -50,6 +50,8 @@ class ExtractSpectraTask(Task):
             fiberTrace = inFiberTraceSetWithProfiles.getFiberTrace(traceNumbers[i])
             if not fiberTrace.isProfileSet():
                 raise Exception("profile not set")
+            assert(fiberTrace.getTrace().getWidth() == fiberTrace.getProfile().getWidth())
+            assert(fiberTrace.getTrace().getHeight() == fiberTrace.getProfile().getHeight())
 
             # Set pixels in FiberTrace from inMaskedImage
             if inExposure != None:
