@@ -5,8 +5,10 @@
 
 #include "lsst/afw/image/MaskedImage.h"
 #include "pfs/drp/stella/Controls.h"
+#include "pfs/drp/stella/Lines.h"
 
 namespace pfs { namespace drp { namespace stella {
+
 /**
  * \brief Describe a single fiber trace
  */
@@ -121,21 +123,19 @@ class Spectrum {
     PTR(DispCorControl) getDispCorControl() const { return _dispCorControl; }
   
     /**
-      * @brief: Identifies calibration lines, given in <lineList> in the format [wlen, approx_pixel] in
+      * @brief: Identifies calibration lines, given in lineList in the format [wlen, approx_pixel] in
       * wavelength-calibration spectrum
+      * within the given position plus/minus I_Radius_In,
       * fits Gaussians to each line, fits Polynomial of order I_PolyFitOrder_In, and
       * writes _wavelength and PolyFit coefficients to _dispCoeffs
       * @param lineList in: input line list [wLen, approx_pixel]
       * @param dispCorControl in: DispCorControl to use for wavelength calibration
-      * @param nLinesCheck in: number of lines to hold back from fitting procedure
       **/
-    template <typename T>
-    void identify(ndarray::Array<T, 2, 1> const& lineList,
-                  DispCorControl const& dispCorControl,
-                  std::size_t nLinesCheck=0);
+    void identify(std::vector<PTR(NistLineMeas)> & lineList,
+                  DispCorControl const& dispCorControl);
     
     bool isWavelengthSet() const { return _isWavelengthSet; }
-    
+      
     std::size_t getYLow() const { return _yLow; };
     std::size_t getYHigh() const { return _yHigh; };
     std::size_t getNCCDRows() const { return _nCCDRows; };
@@ -147,10 +147,11 @@ class Spectrum {
   private:
     /**
      * @brief: Returns pixel positions of emission lines in lineList fitted in _spectrum
-     * @param[in] lineList :: line list  [ nLines, 2 ]: [ wLen, approx_pixel ]
+     * @param[in,out] lineList :: line list  std::vector<PTR(NistLineMeas)>, only laboratoryWavelength,
+     *                            predictedStrength, and PixelPosPredicted are needed
+     * @return void
      */
-    template< typename T >
-    ndarray::Array< float, 1, 1 > hIdentify( ndarray::Array< T, 2, 1 > const& lineList );
+    void hIdentify( std::vector<PTR(NistLineMeas)> & lineList ) const;
 
     std::size_t _yLow;
     std::size_t _yHigh;

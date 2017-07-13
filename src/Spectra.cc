@@ -504,42 +504,35 @@ Spectrum<ImageT, MaskT, VarianceT, WavelengthT>::setNCCDRows(const std::size_t n
   _nCCDRows = nCCDRows;
 }
 
-template< typename ImageT, typename MaskT, typename VarianceT, typename WavelengthT >
-template< typename T >
-ndarray::Array<float, 1, 1 >
-Spectrum<ImageT, MaskT, VarianceT, WavelengthT>::hIdentify( ndarray::Array< T, 2, 1 > const& lineList )
+template< typename ImageT, typename MaskT, typename VarianceT, typename WavelengthT>
+void pfs::drp::stella::Spectrum<ImageT, MaskT, VarianceT, WavelengthT>::hIdentify(
+    std::vector<PTR(NistLineMeas)> & lineList) const
 {
-  LOG_LOGGER _log = LOG_GET("Spectra::identify");
+  LOG_LOGGER _log = LOG_GET("pfs.drp.stella.Spectra.hIdentify");
   ///for each line in line list, find maximum in spectrum and fit Gaussian
   int I_MaxPos = 0;
   int I_Start = 0;
   int I_End = 0;
   int I_NTerms = 4;
-  std::vector<float> V_GaussSpec( 1, 0. );
-  ndarray::Array<float, 1, 1 > D_A1_GaussCoeffs = ndarray::allocate( I_NTerms );
-  D_A1_GaussCoeffs.deep() = 0.;
-  ndarray::Array< float, 1, 1 > D_A1_EGaussCoeffs = ndarray::allocate( I_NTerms );
-  D_A1_EGaussCoeffs.deep() = 0.;
+  std::vector< double > V_GaussSpec( 1, 0. );
   ndarray::Array< int, 2, 1 > I_A2_Limited = ndarray::allocate( I_NTerms, 2 );
   I_A2_Limited.deep() = 1;
-  ndarray::Array< float, 2, 1 > D_A2_Limits = ndarray::allocate( I_NTerms, 2 );
+  ndarray::Array< double, 2, 1 > D_A2_Limits = ndarray::allocate( I_NTerms, 2 );
   D_A2_Limits.deep() = 0.;
-  ndarray::Array< float, 1, 1 > D_A1_Guess = ndarray::allocate( I_NTerms );
-  std::vector< float > V_MeasureErrors( 2, 0.);
-  ndarray::Array< float, 1, 1 > D_A1_Ind = math::indGenNdArr( float( _spectrum.getShape()[ 0 ] ) );
-  std::vector< float > V_X( 1, 0. );
-  ndarray::Array< float, 1, 1 > D_A1_GaussPos = ndarray::allocate( lineList.getShape()[0] );
-  D_A1_GaussPos.deep() = 0.;
+  ndarray::Array< double, 1, 1 > D_A1_Guess = ndarray::allocate( I_NTerms );
+  std::vector< double > V_MeasureErrors( 2, 0.);
+  ndarray::Array< double, 1, 1 > D_A1_Ind = math::indGenNdArr( double( _spectrum.getShape()[ 0 ] ) );
+  std::vector< double > V_X( 1, 0. );
   #ifdef __WITH_PLOTS__
     CString CS_PlotName("");
     CString *P_CS_Num;
   #endif
-  for ( int i_line = 0; i_line < lineList.getShape()[ 0 ]; ++i_line ){
-    I_Start = int( lineList[ ndarray::makeVector( i_line, 1 ) ] ) - _dispCorControl->searchRadius;
+  for ( int i_line = 0; i_line < lineList.size(); ++i_line ){
+    I_Start = int( lineList[i_line]->pixelPosPredicted ) - _dispCorControl->searchRadius;
     if ( I_Start < 0 )
       I_Start = 0;
     LOGLS_DEBUG(_log, "i_line = " << i_line << ": I_Start = " << I_Start);
-    I_End = int( lineList[ ndarray::makeVector( i_line, 1 ) ] ) + _dispCorControl->searchRadius;
+    I_End = int( lineList[i_line]->pixelPosPredicted ) + _dispCorControl->searchRadius;
     if ( I_End >= _spectrum.getShape()[ 0 ] )
       I_End = _spectrum.getShape()[ 0 ] - 1;
     if ( ( I_End - I_Start ) > ( 1.5 * _dispCorControl->searchRadius ) ){
@@ -553,28 +546,34 @@ Spectrum<ImageT, MaskT, VarianceT, WavelengthT>::hIdentify( ndarray::Array< T, 2
         auto itMaxElement = std::max_element( _spectrum.begin() + I_Start, _spectrum.begin() + I_End + 1 );
         I_MaxPos = std::distance(_spectrum.begin(), itMaxElement);
         LOGLS_DEBUG(_log, "I_MaxPos = " << I_MaxPos);
-        I_Start = std::round( float( I_MaxPos ) - ( 1.5 * _dispCorControl->fwhm ) );
+        I_Start = std::round( double( I_MaxPos ) - ( 1.5 * _dispCorControl->fwhm ) );
         if (I_Start < 0)
           I_Start = 0;
         LOGLS_DEBUG(_log, "I_Start = " << I_Start);
-        I_End = std::round( float( I_MaxPos ) + ( 1.5 * _dispCorControl->fwhm ) );
+        I_End = std::round( double( I_MaxPos ) + ( 1.5 * _dispCorControl->fwhm ) );
         if ( I_End >= _spectrum.getShape()[ 0 ] )
           I_End = _spectrum.getShape()[ 0 ] - 1;
         LOGLS_DEBUG(_log, "I_End = " << I_End);
         if ( I_End < I_Start + 4 ){
-          LOGLS_WARN(_log, "WARNING: Line position outside spectrum");
+          LOGLS_WARN(_log, "Line position outside spectrum");
         }
         else{
           V_GaussSpec.resize( I_End - I_Start + 1 );
           V_MeasureErrors.resize( I_End - I_Start + 1 );
           V_X.resize( I_End - I_Start + 1 );
           auto itSpec = _spectrum.begin() + I_Start;
-          for ( auto itGaussSpec = V_GaussSpec.begin(); itGaussSpec != V_GaussSpec.end(); ++itGaussSpec, ++itSpec )
+          for ( auto itGaussSpec = V_GaussSpec.begin();
+                itGaussSpec != V_GaussSpec.end();
+               ++itGaussSpec, ++itSpec )
             *itGaussSpec = *itSpec;
           LOGLS_DEBUG(_log, "V_GaussSpec = ");
           for ( int iPos = 0; iPos < V_GaussSpec.size(); ++iPos )
               LOGLS_DEBUG(_log, V_GaussSpec[iPos] << " ");
-          for( auto itMeasErr = V_MeasureErrors.begin(), itGaussSpec = V_GaussSpec.begin(); itMeasErr != V_MeasureErrors.end(); ++itMeasErr, ++itGaussSpec ){
+          for( auto itMeasErr = V_MeasureErrors.begin(),
+               itGaussSpec = V_GaussSpec.begin();
+               itMeasErr != V_MeasureErrors.end();
+               ++itMeasErr, ++itGaussSpec )
+          {
             *itMeasErr = sqrt( std::fabs( *itGaussSpec ) );
             if (*itMeasErr < 0.00001)
               *itMeasErr = 1.;
@@ -607,9 +606,28 @@ Spectrum<ImageT, MaskT, VarianceT, WavelengthT>::hIdentify( ndarray::Array< T, 2
           D_A2_Limits[ ndarray::makeVector( 2, 1 ) ] = 2. * D_A1_Guess[ 2 ];
           D_A2_Limits[ ndarray::makeVector( 3, 1 ) ] = std::fabs( 1.5 * D_A1_Guess[ 3 ] ) + 1;
           LOGLS_DEBUG(_log, "D_A2_Limits = " << D_A2_Limits);
-          ndarray::Array< float, 1, 1 > D_A1_X = ndarray::external( V_X.data(), ndarray::makeVector( int( V_X.size() ) ), ndarray::makeVector( 1 ) );
-          ndarray::Array< float, 1, 1 > D_A1_GaussSpec = ndarray::external( V_GaussSpec.data(), ndarray::makeVector( int( V_GaussSpec.size() ) ), ndarray::makeVector( 1 ) );
-          ndarray::Array< float, 1, 1 > D_A1_MeasureErrors = ndarray::external( V_MeasureErrors.data(), ndarray::makeVector( int( V_MeasureErrors.size() ) ), ndarray::makeVector( 1 ) );
+          ndarray::Array<double, 1, 1> D_A1_X = ndarray::external(
+                V_X.data(),
+                ndarray::makeVector( int( V_X.size() ) ),
+                ndarray::makeVector( 1 ) );
+          ndarray::Array<double, 1, 1> D_A1_GaussSpec = ndarray::external(
+                V_GaussSpec.data(),
+                ndarray::makeVector(int(V_GaussSpec.size())),
+                ndarray::makeVector(1));
+          ndarray::Array<double, 1, 1> D_A1_MeasureErrors = ndarray::external(
+                V_MeasureErrors.data(),
+                ndarray::makeVector(int(V_MeasureErrors.size())),
+                ndarray::makeVector(1));
+          ndarray::Array<double, 1, 1> gaussCoeffsPixel
+                = lineList[i_line]->gaussCoeffsPixel.toDoubleNdArray();
+          LOGLS_DEBUG(_log, "before MPFitGaussLim: lineList[" << i_line
+                            << "]->gaussCoeffsPixel = "
+                            << gaussCoeffsPixel);
+          ndarray::Array<double, 1, 1> eGaussCoeffsPixel
+                = lineList[i_line]->eGaussCoeffsPixel.toDoubleNdArray();
+          LOGLS_DEBUG(_log, "before MPFitGaussLim: lineList[" << i_line
+                            << "]->eGaussCoeffsPixel = "
+                            << eGaussCoeffsPixel);
           if (!MPFitGaussLim(D_A1_X,
                              D_A1_GaussSpec,
                              D_A1_MeasureErrors,
@@ -618,44 +636,56 @@ Spectrum<ImageT, MaskT, VarianceT, WavelengthT>::hIdentify( ndarray::Array< T, 2
                              D_A2_Limits,
                              true,
                              false,
-                             D_A1_GaussCoeffs,
-                             D_A1_EGaussCoeffs,
+                             gaussCoeffsPixel,
+                             eGaussCoeffsPixel,
                              true)){
-            LOGLS_WARN(_log, "WARNING: GaussFit returned FALSE");
+            LOGLS_WARN(_log, "GaussFit returned FALSE");
           }
           else{
-            LOGLS_DEBUG(_log, "i_line = " << i_line << ": D_A1_GaussCoeffs = " << D_A1_GaussCoeffs);
-            if ( std::fabs( float( I_MaxPos ) - D_A1_GaussCoeffs[ 1 ] ) < _dispCorControl->maxDistance ){
-              D_A1_GaussPos[ i_line ] = D_A1_GaussCoeffs[ 1 ];
-              LOGLS_DEBUG(_log, "D_A1_GaussPos[" << i_line << "] = " << D_A1_GaussPos[ i_line ]);
+            lineList[i_line]->gaussCoeffsPixel.set(gaussCoeffsPixel);
+            lineList[i_line]->eGaussCoeffsPixel.set(eGaussCoeffsPixel);
+            LOGLS_DEBUG(_log, "lineList[" << i_line << "]->gaussCoeffsPixel = "
+                              << lineList[i_line]->gaussCoeffsPixel);
+            if ( std::fabs( double( I_MaxPos ) - lineList[i_line]->gaussCoeffsPixel.mu )
+                 < _dispCorControl->maxDistance ){
               if ( i_line > 0 ){
-                if ( std::fabs( D_A1_GaussPos[ i_line ] - D_A1_GaussPos[ i_line - 1 ] ) < 1.5 ){/// wrong line identified!
-                  if ( lineList.getShape()[ 1 ] > 2 ){
-                    if ( lineList[ ndarray::makeVector( i_line, 2 ) ] < lineList[ ndarray::makeVector( i_line - 1, 2 ) ] ){
-                      LOGLS_WARN(_log, "WARNING: i_line=" << i_line << ": line " << i_line << " at " << D_A1_GaussPos[ i_line ] << " has probably been misidentified (D_A1_GaussPos(" << i_line-1 << ")=" << D_A1_GaussPos[ i_line - 1 ] << ") => removing line from line list");
-                      D_A1_GaussPos[ i_line ] = 0.;
+                if (std::fabs(lineList[i_line]->gaussCoeffsPixel.mu
+                              - lineList[i_line-1]->gaussCoeffsPixel.mu)
+                    < _dispCorControl->minDistanceLines ){/// wrong line identified!
+                    if (lineList[i_line]->nistLine.predictedStrength
+                        < lineList[i_line-1]->nistLine.predictedStrength){
+                      LOGLS_WARN(_log, "i_line=" << i_line << ": line " << i_line << " at "
+                                       << lineList[i_line]->gaussCoeffsPixel.mu
+                                       << " has probably been misidentified (D_A3_GaussPos("
+                                       << i_line-1 << ")="
+                                       << lineList[i_line-1]->gaussCoeffsPixel.mu
+                                       << ") => removing line from line list");
+                      lineList[i_line]->flags += "i";
                     }
                     else{
-                      LOGLS_WARN(_log, "WARNING: i_line=" << i_line << ": line at D_A1_GaussPos[" << i_line-1 << "] = " << D_A1_GaussPos[ i_line - 1 ] << " has probably been misidentified (D_A1_GaussPos(" << i_line << ")=" << D_A1_GaussPos[ i_line ] << ") => removing line from line list");
-                      D_A1_GaussPos[ i_line - 1 ] = 0.;
+                      LOGLS_WARN(_log, "i_line=" << i_line << ": line at D_A3_GaussPos[" << i_line-1
+                                       << "] = " << lineList[i_line-1]->gaussCoeffsPixel.mu
+                                       << " has probably been misidentified (D_A3_GaussPos("
+                                       << i_line << ")=" << lineList[i_line]->gaussCoeffsPixel.mu
+                                       << ") => removing line from line list");
+                      lineList[i_line-1]->flags += "i";
                     }
-                  }
                 }
               }
             }
             else{
-                string message("WARNING: I_MaxPos=");
-                message += to_string(I_MaxPos) + " - D_A1_GaussCoeffs[ 1 ]=" + to_string(D_A1_GaussCoeffs[ 1 ]);
-                message += "(=" + to_string(std::fabs( float( I_MaxPos ) - D_A1_GaussCoeffs[ 1 ] ));
-                message += ") >= " + to_string(_dispCorControl->maxDistance) + " => Skipping line";
-              LOGLS_WARN(_log, message);
+              LOGLS_WARN(_log, "iTrace = " << getITrace() << ": I_MaxPos=" << I_MaxPos
+                               << " - lineList[" << i_line << "]->gaussCoeffsPixel.mu="
+                               << lineList[i_line]->gaussCoeffsPixel.mu
+                               << " >= " << _dispCorControl->maxDistance << " => Skipping line");
+              lineList[i_line]->flags += "i";
             }
           }
         }
       }
     }
   }/// end for (int i_line=0; i_line < D_A2_LineList_In.rows(); i_line++){
-  return D_A1_GaussPos;
+  return;
 }
 
 template<typename ImageT, typename MaskT, typename VarianceT, typename WavelengthT>
@@ -674,164 +704,280 @@ Spectrum< ImageT, MaskT, VarianceT, WavelengthT >::setDispCoeffs( ndarray::Array
 }
 
 template< typename ImageT, typename MaskT, typename VarianceT, typename WavelengthT >
-template< typename T >
-void
-Spectrum<ImageT, MaskT, VarianceT, WavelengthT>::identify( ndarray::Array< T, 2, 1 > const& lineList,
-                                                                                     DispCorControl const& dispCorControl,
-                                                                                     std::size_t nLinesCheck ){
-    LOG_LOGGER _log = LOG_GET("Spectra::identify");
+void pfs::drp::stella::Spectrum<ImageT, MaskT, VarianceT, WavelengthT>::identify(
+    std::vector<PTR(NistLineMeas)> & lineList,
+    pfs::drp::stella::DispCorControl const& dispCorControl)
+{
+    LOG_LOGGER _log = LOG_GET("pfs.drp.stella.Spectra.identify");
 
-    DispCorControl tempDispCorControl( dispCorControl );
+    pfs::drp::stella::DispCorControl tempDispCorControl( dispCorControl );
     _dispCorControl.reset();
     _dispCorControl = tempDispCorControl.getPointer();
+    size_t nLines = lineList.size();
+    LOGLS_DEBUG(_log, nLines << " lines in lineList");
 
-    ///for each line in line list, find maximum in spectrum and fit Gaussian
-    ndarray::Array< float, 1, 1 > D_A1_GaussPos = hIdentify( lineList );
+    /// for each line in line list, find maximum in spectrum and fit Gaussian
+    /// and save result in lineList[i].gaussCoeffsPixel and lineList[i].eGaussCoeffsPixel
+    hIdentify( lineList );
 
-    ///remove lines which could not be found from line list
-    std::vector< int > V_Index( D_A1_GaussPos.getShape()[ 0 ], 0 );
-    std::size_t pos = 0;
-    for (auto it = D_A1_GaussPos.begin(); it != D_A1_GaussPos.end(); ++it, ++pos ){
-      if ( *it > 0. )
-        V_Index[ pos ] = 1;
-    }
-    LOGLS_DEBUG(_log, "D_A1_GaussPos = " << D_A1_GaussPos);
-    LOGLS_DEBUG(_log, "V_Index = ");
-    for (int iPos = 0; iPos < V_Index.size(); ++iPos)
-        LOGLS_DEBUG(_log, V_Index[iPos] << " ");
-    std::vector< std::size_t > indices = math::getIndices( V_Index );
-    std::size_t nInd = std::accumulate( V_Index.begin(), V_Index.end(), 0 );
-    LOGLS_DEBUG(_log, nInd << " lines identified");
-    LOGLS_DEBUG(_log, "indices = ");
-    for (int iPos = 0; iPos < indices.size(); ++iPos )
-        LOGLS_DEBUG(_log, indices[iPos] << " ");
-
-    /// separate lines to fit and lines for RMS test
-    std::vector< std::size_t > indCheck;
-    for ( std::size_t i = 0; i < nLinesCheck; ++i ){
-      srand( 0 ); //seed initialization
-      int randNum = rand() % ( indices.size() - 2 ) + 1; // Generate a random number between 0 and 1
-      indCheck.push_back( std::size_t( randNum ) );
-      indices.erase( indices.begin() + randNum );
+    /// find lines in lineList which could be fitted by a Gaussian
+    std::vector< int > V_Index( lineList.size(), 0 );
+    for (int pos = 0; pos < V_Index.size(); ++pos ){
+        if ( lineList[pos]->flags.find("i") == string::npos ){
+            V_Index[ pos ] = 1;
+            LOGLS_TRACE(_log, "V_Index[" << pos << "] set to " << V_Index[pos]);
+        }
+        else
+            LOGLS_TRACE(_log, "flag 'i' found: V_Index[" << pos << "] set to " << V_Index[pos]);
     }
 
-    _nGoodLines = nInd;
-    const long nLinesIdentifiedMin(std::lround(float(lineList.getShape()[0])
+    std::vector< size_t > goodIndices = math::getIndices( V_Index );
+    LOGLS_TRACE(_log, "goodIndices = " << goodIndices);
+    _nGoodLines = std::accumulate( V_Index.begin(), V_Index.end(), 0 );
+    LOGLS_INFO(_log, _nGoodLines << " lines identified");
+
+    const long nLinesIdentifiedMin(std::lround(double(lineList.size())
                                                * dispCorControl.minPercentageOfLines / 100.));
     if ( _nGoodLines < nLinesIdentifiedMin ){
       std::string message("identify: ERROR: less than ");
       message += std::to_string(nLinesIdentifiedMin) + " lines identified";
       throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
     }
-    ndarray::Array< std::size_t, 1, 1 > I_A1_IndexPos = ndarray::external( indices.data(), ndarray::makeVector( int( indices.size() ) ), ndarray::makeVector( 1 ) );
-    ndarray::Array< float, 1, 1 > D_A1_WLen = ndarray::allocate( lineList.getShape()[ 0 ] );
-    ndarray::Array< float, 1, 1 > D_A1_FittedPos = math::getSubArray( D_A1_GaussPos,
-                                                                       I_A1_IndexPos );
-    ndarray::Array< std::size_t, 1, 1 > I_A1_IndexCheckPos = ndarray::external( indCheck.data(), ndarray::makeVector( int( indCheck.size() ) ), ndarray::makeVector( 1 ) );
-    ndarray::Array< float, 1, 1 > D_A1_FittedCheckPos = math::getSubArray( D_A1_GaussPos,
-                                                                            I_A1_IndexCheckPos );
-    LOGLS_DEBUG(_log, "D_A1_FittedPos = " << D_A1_FittedPos << endl);
 
-    D_A1_WLen[ ndarray::view() ] = lineList[ ndarray::view()( 0 ) ];
-    ndarray::Array< float, 1, 1 > D_A1_FittedWLen = math::getSubArray( D_A1_WLen, I_A1_IndexPos );
-    LOGLS_DEBUG(_log, "found D_A1_FittedWLen = " << D_A1_FittedWLen);
+    /// separate lines to fit and lines for RMS test, make sure to keep most outer lines
+    int nLinesHoldBack = dispCorControl.percentageOfLinesForCheck * nLines / 100;
+    ndarray::Array< size_t, 1, 1 > indicesHeldBackLines = ndarray::allocate(nLinesHoldBack);
+    LOGLS_DEBUG(_log, "dispCorControl.percentageOfLinesForCheck = " <<
+                      dispCorControl.percentageOfLinesForCheck << ", nLines = " << nLines <<
+                      ", nLinesHoldBack = " << nLinesHoldBack);
+    srand( 0 ); //seed initialization
+    for ( size_t i = 0; i < nLinesHoldBack; ++i ){
+      int randNum = rand() % ( goodIndices.size() - 2 ) + 1; // Generate a random number between 0 and 1
+      indicesHeldBackLines[i] = goodIndices[randNum];
+      LOGLS_DEBUG(_log, "indicesHeldBackLines[" << i << "] = " << indicesHeldBackLines[i]);
+      goodIndices.erase( goodIndices.begin() + randNum );
+    }
+    LOGLS_DEBUG(_log, "goodIndices after removing the held back ones = " << goodIndices);
 
-    ndarray::Array< float, 1, 1 > D_A1_FittedWLenCheck = math::getSubArray( D_A1_WLen, I_A1_IndexCheckPos );
+    ndarray::Array< size_t, 1, 1 > goodIndicesNotHeldBackArr = ndarray::external(
+            goodIndices.data(),
+            ndarray::makeVector( int( goodIndices.size() ) ),
+            ndarray::makeVector( 1 ) );
 
-    std::vector<string> S_A1_Args(3);
-    std::vector<void *> PP_Args(3);
+    ndarray::Array< double, 1, 1 > laboratoryWavelengthsAllLinesInLineList = ndarray::allocate( nLines );
+    ndarray::Array< double, 1, 1 > fittedGaussPosPixelAllLinesInLineList = ndarray::allocate(nLines);
+    ndarray::Array< double, 1, 1 > fittedGaussPosErrPixelAllLinesInLineList = ndarray::allocate(nLines);
+    for (size_t i = 0; i < nLines; ++i){
+        laboratoryWavelengthsAllLinesInLineList[i] = lineList[i]->nistLine.laboratoryWavelength;
+        fittedGaussPosPixelAllLinesInLineList[i] = lineList[i]->gaussCoeffsPixel.mu;
+        fittedGaussPosErrPixelAllLinesInLineList[i] = lineList[i]->eGaussCoeffsPixel.mu;
+    }
+
+    ndarray::Array< double, 1, 1 > laboratoryWavelengthsUsedLines = math::getSubArray(
+            laboratoryWavelengthsAllLinesInLineList,
+            goodIndicesNotHeldBackArr );
+    LOGLS_TRACE(_log, "using lines with laboratory wavelengths laboratoryWavelengthsUsedLines = "
+                      << laboratoryWavelengthsUsedLines);
+
+    ndarray::Array< double, 1, 1 > laboratoryWavelengthHeldBackLines = math::getSubArray(
+            laboratoryWavelengthsAllLinesInLineList,
+            indicesHeldBackLines );
+    LOGLS_TRACE(_log, "holding back lines with laboratory wavelengths laboratoryWavelengthHeldBackLines = "
+                      << laboratoryWavelengthHeldBackLines);
+
+    ndarray::Array< double, 1, 1 > fittedGaussPosPixelUsedLines = math::getSubArray(
+            fittedGaussPosPixelAllLinesInLineList,
+            goodIndicesNotHeldBackArr );
+    ndarray::Array< double, 1, 1 > fittedGaussPosPixelHeldBackLines = math::getSubArray(
+            fittedGaussPosPixelAllLinesInLineList,
+            indicesHeldBackLines );
+    LOGLS_TRACE(_log, "fittedGaussPosPixelUsedLines = " << fittedGaussPosPixelUsedLines << endl);
+
+    ndarray::Array<double, 1, 1> fittedGaussPosPixelErrUsedLines = math::getSubArray(
+            fittedGaussPosErrPixelAllLinesInLineList,
+            goodIndicesNotHeldBackArr);
+
+    /// Run PolyFit on lines not rejected by GaussFit and not held back
+    std::vector<string> S_A1_Args(5);
+    std::vector<void *> PP_Args(5);
     S_A1_Args[0] = "XRANGE";
-    ndarray::Array<float, 1, 1> xRange = ndarray::allocate(2);
+    ndarray::Array<double, 1, 1> xRange = ndarray::allocate(2);
     xRange[0] = 0.;
     xRange[1] = _length-1;
-    PTR(ndarray::Array<float, 1, 1>) pXRange(new ndarray::Array<float, 1, 1>(xRange));
+    PTR(ndarray::Array<double, 1, 1>) pXRange(new ndarray::Array<double, 1, 1>(xRange));
     PP_Args[0] = &pXRange;
+
     S_A1_Args[1] = "REJECTED";
-    PTR(std::vector<std::size_t>) rejected(new std::vector<std::size_t>());
-    PP_Args[1] = &rejected;
+    PTR(std::vector<size_t>) indicesUsedLinesRejectedByPolyFitVecPtr(new std::vector<size_t>());
+    PP_Args[1] = &indicesUsedLinesRejectedByPolyFitVecPtr;
+
     S_A1_Args[2] = "NOT_REJECTED";
-    PTR(std::vector<std::size_t>) notRejected(new std::vector<std::size_t>());
-    PP_Args[2] = &notRejected;
+    PTR(std::vector<size_t>) indicesUsedLinesNotRejectedByPolyFitVecPtr(new std::vector<size_t>());
+    PP_Args[2] = &indicesUsedLinesNotRejectedByPolyFitVecPtr;
+
+    S_A1_Args[3] = "MEASURE_ERRORS";
+    PTR(ndarray::Array<double, 1, 1>) P_D_A1_fittedGaussPosPixelErrUsedLines(
+            new ndarray::Array<double, 1, 1>(fittedGaussPosPixelErrUsedLines));
+    PP_Args[3] = &P_D_A1_fittedGaussPosPixelErrUsedLines;
+
+    S_A1_Args[4] = "YFIT";
+    ndarray::Array<double, 1, 1> yFitFittedGausPosPixelUsedLines = ndarray::allocate(
+            fittedGaussPosPixelUsedLines.getShape()[0]);
+    PTR(ndarray::Array<double, 1, 1>) P_D_A1_yFitFittedGausPosPixelUsedLines(
+            new ndarray::Array<double, 1, 1>(yFitFittedGausPosPixelUsedLines));
+    PP_Args[4] = &P_D_A1_yFitFittedGausPosPixelUsedLines;
 
     _dispCoeffs = ndarray::allocate( dispCorControl.order + 1 );
-    _dispCoeffs.deep() = math::PolyFit( D_A1_FittedPos,
-                                        D_A1_FittedWLen,
+    _dispCoeffs.deep() = math::PolyFit( fittedGaussPosPixelUsedLines,
+                                        laboratoryWavelengthsUsedLines,
                                         dispCorControl.order,
-                                        float(0. - dispCorControl.sigmaReject),
-                                        float(dispCorControl.sigmaReject),
+                                        double(0. - dispCorControl.sigmaReject),
+                                        double(dispCorControl.sigmaReject),
                                         dispCorControl.nIterReject,
                                         S_A1_Args,
                                         PP_Args);
     LOGLS_DEBUG(_log, "_dispCoeffs = " << _dispCoeffs);
+    LOGLS_DEBUG(_log, "yFitFittedGausPosPixelUsedLines = " << yFitFittedGausPosPixelUsedLines.size()
+                      << ": " << yFitFittedGausPosPixelUsedLines);
 
-    /// Remove lines rejected by PolyFit from D_A1_FittedPos and D_A1_FittedWLen
+    /// Mask lines rejected by PolyFit
     lsst::afw::image::MaskPixel maskVal = 1 << _mask.getMaskPlane("REJECTED_LINES");
-    for (int i = 0; i < rejected->size(); ++i){
-        LOGLS_DEBUG(_log, "rejected D_A1_FittedPos[" << (*rejected)[i] << "] = " << D_A1_FittedPos[(*rejected)[i]]);
-        for (int p = (D_A1_FittedPos[(*rejected)[i]]-2 < 0 ? 0 : D_A1_FittedPos[(*rejected)[i]]-2);
-                 p < (D_A1_FittedPos[(*rejected)[i]]+2 >= _length ? _length-1 : D_A1_FittedPos[(*rejected)[i]]+2); ++p){
+    for (int i = 0; i < indicesUsedLinesRejectedByPolyFitVecPtr->size(); ++i){
+        LOGLS_DEBUG(_log, "rejected fittedGaussPosPixelUsedLines["
+                          << (*indicesUsedLinesRejectedByPolyFitVecPtr)[i] << "] = "
+                          << fittedGaussPosPixelUsedLines[(*indicesUsedLinesRejectedByPolyFitVecPtr)[i]]);
+        lineList[goodIndices[(*indicesUsedLinesRejectedByPolyFitVecPtr)[i]]]->flags += "f";
+        LOGLS_WARN(_log, "marked line goodIndices[(*indicesUsedLinesRejectedByPolyFitVecPtr)[i=" << i
+                          << "]=" << (*indicesUsedLinesRejectedByPolyFitVecPtr)[i] << "] = "
+                          << goodIndices[(*indicesUsedLinesRejectedByPolyFitVecPtr)[i]]
+                          << " as rejected by PolyFit");
+        for (int p = (fittedGaussPosPixelUsedLines[(*indicesUsedLinesRejectedByPolyFitVecPtr)[i]]-2 < 0 ? 0 :
+                      fittedGaussPosPixelUsedLines[(*indicesUsedLinesRejectedByPolyFitVecPtr)[i]]-2);
+                 p < (fittedGaussPosPixelUsedLines[(*indicesUsedLinesRejectedByPolyFitVecPtr)[i]]+2
+                      >= _length ? _length-1 :
+                      fittedGaussPosPixelUsedLines[(*indicesUsedLinesRejectedByPolyFitVecPtr)[i]]+2);
+                 ++p){
             _mask(p, 0) |= maskVal;
-            LOGLS_DEBUG(_log, "i=" << i << ": (*rejected)[i] _mask(" << p << ", 0) set to " << _mask(p,0));
+            LOGLS_DEBUG(_log, "i=" << i << ": (*indicesUsedLinesRejectedByPolyFitVecPtr)[i] _mask(" << p
+                              << ", 0) set to " << _mask(p,0));
         }
     }
-    _nGoodLines = notRejected->size();
+
+    //// Count remaining good lines and check if we still have enough lines
+    _nGoodLines = indicesUsedLinesNotRejectedByPolyFitVecPtr->size();
     if ( _nGoodLines < nLinesIdentifiedMin ){
       string message ("identify: ERROR: less than ");
       message += to_string(nLinesIdentifiedMin) + " lines identified";
       throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
     }
-    ndarray::Array< std::size_t, 1, 1 > notRejectedArr = ndarray::external(notRejected->data(),
-                                                                      ndarray::makeVector(_nGoodLines),
-                                                                      ndarray::makeVector( 1 ) );
 
-    ndarray::Array<float, 1, 1> fittedPosNotRejected = math::getSubArray(D_A1_FittedPos, notRejectedArr);
-    LOGLS_DEBUG(_log, "fittedPosNotRejected = " << _nGoodLines << ": " << fittedPosNotRejected);
+    /// Remove lines rejected by PolyFit from fittedGaussPosPixelUsedLines and laboratoryWavelengthsUsedLines
+    /// create indices of used lines not rejected by PolyFit
+    ndarray::Array< size_t, 1, 1 > indicesUsedLinesNotRejectedByPolyFitArr = ndarray::external(
+            indicesUsedLinesNotRejectedByPolyFitVecPtr->data(),
+            ndarray::makeVector( int( indicesUsedLinesNotRejectedByPolyFitVecPtr->size() ) ),
+            ndarray::makeVector( 1 ) );
+    LOGLS_TRACE(_log, "indicesUsedLinesNotRejectedByPolyFitArr = "
+                      << indicesUsedLinesNotRejectedByPolyFitArr);
 
-    ndarray::Array<float, 1, 1> fittedWLenNotRejected = math::getSubArray(D_A1_FittedWLen, notRejectedArr);
-    LOGLS_DEBUG(_log, "fittedWLenNotRejected = " << _nGoodLines << ": " << fittedWLenNotRejected);
-    ndarray::Array< float, 1, 1 > D_A1_WLen_Gauss = math::Poly( fittedPosNotRejected,
-                                                                 _dispCoeffs,
-                                                                 xRange[0],
-                                                                 xRange[1]);
-    ndarray::Array< float, 1, 1 > D_A1_WLen_GaussCheck = math::Poly( D_A1_FittedCheckPos,
-                                                                      _dispCoeffs,
-                                                                      xRange[0],
-                                                                      xRange[1]);
-    LOGLS_DEBUG(_log, "D_A1_WLen_PolyFit = " << D_A1_WLen_Gauss);
+    /// create laboratoryWavelengthUsedLinesNotRejectedByPolyFit
+    ndarray::Array<double, 1, 1> laboratoryWavelengthUsedLinesNotRejectedByPolyFit = math::getSubArray(
+            laboratoryWavelengthsUsedLines,
+            indicesUsedLinesNotRejectedByPolyFitArr);
+    LOGLS_DEBUG(_log, "laboratoryWavelengthUsedLinesNotRejectedByPolyFit = "
+                      << laboratoryWavelengthUsedLinesNotRejectedByPolyFit.getShape()[0] << ": "
+                      << laboratoryWavelengthUsedLinesNotRejectedByPolyFit);
+
+    /// calculate wavelengths from pixel positions of fittedGaussPosPixelHeldBackLines
+    ndarray::Array< double, 1, 1 > wLenFromPixelPosAndPolyHeldBackLines = math::Poly(
+        fittedGaussPosPixelHeldBackLines,
+        _dispCoeffs,
+        xRange[0],
+        xRange[1]);
+    ndarray::Array< double, 1, 1 > wLenFromPixelPosAndPolyUsedLinesNotRejectedByPolyFit = math::getSubArray(
+        yFitFittedGausPosPixelUsedLines,
+        indicesUsedLinesNotRejectedByPolyFitArr);
+    LOGLS_DEBUG(_log, "wLenFromPixelPosAndPolyUsedLinesNotRejectedByPolyFit = "
+                      << wLenFromPixelPosAndPolyUsedLinesNotRejectedByPolyFit);
+    LOGLS_DEBUG(_log, "wLenFromPixelPosAndPolyHeldBackLines = " << wLenFromPixelPosAndPolyHeldBackLines);
     LOGLS_DEBUG(_log, "_dispCoeffs = " << _dispCoeffs);
 
+    /// for each line set wavelengthFromPixelPosAndPoly and 'h' flag if held back
+    for (size_t i=0; i<lineList.size(); ++i){
+        /// line used for PolyFit?
+        int indGoodLines = utils::find(goodIndices, i);
+        if (indGoodLines >= 0){/// line was good and used by PolyFit
+            LOGLS_TRACE(_log, "line " << i << " found in goodIndices => line was used and not held back");
+            lineList[i]->wavelengthFromPixelPosAndPoly = yFitFittedGausPosPixelUsedLines[indGoodLines];
+            LOGLS_TRACE(_log, "lineList[" << i << "]->wavelengthFromPixelPosAndPoly set to "
+                              << lineList[i]->wavelengthFromPixelPosAndPoly);
+        }
+
+        /// line held back from PolyFit?
+        int indHeldBack = utils::find(std::vector<size_t>(indicesHeldBackLines.begin(),
+                                                          indicesHeldBackLines.end()),
+                                      i);
+        if (indHeldBack >= 0){
+            lineList[i]->wavelengthFromPixelPosAndPoly = wLenFromPixelPosAndPolyHeldBackLines[indHeldBack];
+            lineList[i]->flags += "h";
+            LOGLS_DEBUG(_log, "lineList[" << i << "](held back).wavelengthFromPixelPosAndPoly set to "
+                                << lineList[i]->wavelengthFromPixelPosAndPoly);
+        }
+    }
+
     ///Calculate RMS
-    ndarray::Array< float, 1, 1 > D_A1_WLenMinusFit = ndarray::allocate( D_A1_WLen_Gauss.getShape()[ 0 ] );
-    D_A1_WLenMinusFit.deep() = fittedWLenNotRejected - D_A1_WLen_Gauss;
+    ndarray::Array< double, 1, 1 > D_A1_WLenMinusFit = ndarray::allocate(
+        wLenFromPixelPosAndPolyUsedLinesNotRejectedByPolyFit.getShape()[0]);
+    D_A1_WLenMinusFit.deep() = laboratoryWavelengthUsedLinesNotRejectedByPolyFit
+                               - wLenFromPixelPosAndPolyUsedLinesNotRejectedByPolyFit;
     LOGLS_DEBUG(_log, "D_A1_WLenMinusFit = " << D_A1_WLenMinusFit);
     _dispRms = math::calcRMS( D_A1_WLenMinusFit );
     LOGLS_DEBUG(_log, "_nGoodLines = " << _nGoodLines);
     LOGLS_DEBUG(_log, "_dispRms = " << _dispRms);
 
     ///Calculate RMS for test lines
-    ndarray::Array< float, 1, 1 > D_A1_WLenMinusFitCheck = ndarray::allocate( D_A1_WLen_GaussCheck.getShape()[ 0 ] );
-    D_A1_WLenMinusFitCheck.deep() = D_A1_FittedWLenCheck - D_A1_WLen_GaussCheck;
+    LOGLS_DEBUG(_log, "laboratoryWavelengthHeldBackLines = "
+                     << laboratoryWavelengthHeldBackLines);
+    LOGLS_DEBUG(_log, "wLenFromPixelPosAndPolyHeldBackLines = "
+                     << wLenFromPixelPosAndPolyHeldBackLines);
+    ndarray::Array< double, 1, 1 > D_A1_WLenMinusFitCheck = ndarray::allocate(
+        wLenFromPixelPosAndPolyHeldBackLines.getShape()[0]);
+    D_A1_WLenMinusFitCheck.deep() = (laboratoryWavelengthHeldBackLines
+                                     - wLenFromPixelPosAndPolyHeldBackLines);
     LOGLS_DEBUG(_log, "D_A1_WLenMinusFitCheck = " << D_A1_WLenMinusFitCheck);
     _dispRmsCheck = math::calcRMS( D_A1_WLenMinusFitCheck );
-    LOGLS_DEBUG(_log, "dispRmsCheck = " << _dispRmsCheck);
+    LOGLS_INFO(_log, "dispRmsCheck = " << _dispRmsCheck);
+    LOGLS_INFO(_log, "_dispRmsCheck = " << _dispRmsCheck);
+    LOGLS_INFO(_log, "======================================");
 
-    ///calibrate spectrum
-    ndarray::Array< float, 1, 1 > D_A1_Indices = math::indGenNdArr( float( _spectrum.getShape()[ 0 ] ) );
+    /// calibrate spectrum by calculating _wavelength
+    ndarray::Array< double, 1, 1 > D_A1_Indices = math::indGenNdArr( double( _spectrum.getShape()[ 0 ] ) );
     _wavelength = ndarray::allocate( _spectrum.getShape()[ 0 ] );
     _wavelength.deep() = math::Poly( D_A1_Indices, _dispCoeffs, xRange[0], xRange[1] );
     LOGLS_DEBUG(_log, "_wavelength = " << _wavelength);
 
+    /// calculate _dispersion
+    int spectrumLength = _spectrum.getShape()[ 0 ];
+    _dispersion = ndarray::allocate( spectrumLength );
+    _dispersion[0] = _wavelength[1] - _wavelength[0];
+    _dispersion[spectrumLength-1] = _wavelength[spectrumLength-1] - _wavelength[spectrumLength-2];
+    for (auto itWave = _wavelength.begin()+1, itDisp = _dispersion.begin()+1;
+            itWave != _wavelength.end()-1; ++itWave, ++itDisp){
+        *itDisp = (*(itWave+1) - *(itWave-1)) / 2.;
+    }
+
     /// Check for monotonic
     if ( math::isMonotonic( _wavelength ) == 0 ){
-      LOGLS_DEBUG(_log, "WARNING: Wavelength solution is not monotonic => Setting identifyResult.rms to 1000");
-      LOGLS_DEBUG(_log, "_wavelength = " << _wavelength);
+      LOGLS_WARN(_log, "Wavelength solution is not monotonic => Setting identifyResult.rms to 1000");
       _dispRms = 1000.;
-      LOGLS_WARN(_log, "Identify: RMS = " << _dispRms);
-    } else {
+      LOGLS_DEBUG(_log, "RMS = " << _dispRms);
+    }
+    else{
       LOGLS_DEBUG(_log, "_wavelength is monotonic ");
     }
 
     _isWavelengthSet = true;
+    return;
 }
 
 template<typename ImageT, typename MaskT, typename VarianceT, typename WavelengthT>
@@ -1326,9 +1472,6 @@ namespace math {
  * Explicit instantiations
  */
 template class Spectrum<float, lsst::afw::image::MaskPixel, float, float>;
-template void Spectrum<float, lsst::afw::image::MaskPixel, float>::identify(ndarray::Array<float, 2, 1> const&,
-                                                                            DispCorControl const&,
-                                                                            std::size_t);
 template class SpectrumSet<float, lsst::afw::image::MaskPixel, float, float>;
 
 }}}

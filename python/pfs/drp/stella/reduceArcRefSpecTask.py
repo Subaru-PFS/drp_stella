@@ -145,7 +145,12 @@ class ReduceArcRefSpecTask(ReduceArcTask):
                 self.log.debug('type(spectrumSetFromProfile.getSpectrum(i)) = %s: <%s>: <%s>' % (type(spectrumSetFromProfile.getSpectrum(i)),type(spectrumSetFromProfile.getSpectrum(i).getSpectrum()),type(spectrumSetFromProfile.getSpectrum(i).getSpectrum()[0])))
                 for j in range(result.lineList.shape[0]):
                     self.log.debug('result.lineList[%d][*] = %f, %f' % (j,result.lineList[j][0],result.lineList[j][1]))
-                spec.identify(result.lineList, dispCorControl, 8)
+
+                spec.identifyF(drpStella.createLineListFromWLenPix(result.lineList),
+                               dispCorControl)
+
+                # set Spectrum in spectrumSetFromProfile because it is not
+                # identitical anymore to the original object
                 if spectrumSetFromProfile.setSpectrum(i, spec ):
                     self.log.debug('setSpectrum for spectrumSetFromProfile[%d] done' % i)
                 else:
