@@ -499,6 +499,13 @@ namespace pfs { namespace drp { namespace stella {
       typename ndarray::Array<ImageT, 2, 1>::Reference::Iterator ptrTraceStart = yIterTrace->begin();
       std::copy(ptrImageStart, ptrImageEnd, ptrTraceStart);
 
+      #ifdef __CHECK_FOR_NANS__
+        for (auto it=ptrImageStart; it!=ptrImageEnd; ++it){
+          if (isnan(*it))
+            throw LSST_EXCEPT(pexExcept::Exception, "nan found in spec");
+        }
+      #endif
+
       typename ndarray::Array<VarianceT, 2, 1>::Reference::Iterator ptrVarianceStart = yIterV->begin() + minCenMax[iy][0];
       typename ndarray::Array<VarianceT, 2, 1>::Reference::Iterator ptrVarianceEnd = yIterV->begin() + minCenMax[iy][2] + 1;
       typename ndarray::Array<VarianceT, 2, 1>::Reference::Iterator ptrTraceVarianceStart = yIterTraceVariance->begin();
