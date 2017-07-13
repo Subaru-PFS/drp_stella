@@ -496,6 +496,9 @@ class SpectraTestCase(tests.TestCase):
         # we're not holding back any emission lines from the check to make
         # sure the line we will disturb is not one of the lines held back
         spectrum.identify(result.lineList, self.dispCorControl, 0)
+        self.dispCorControl.percentageOfLinesForCheck = 0
+        spectrum.identifyF(drpStella.createLineListFromWLenPix(result.lineList),
+                           self.dispCorControl)
         dispRMSOrig = spectrum.getDispRms()
 
         # Find an emission line which we can disturb to test that it is
@@ -511,7 +514,9 @@ class SpectraTestCase(tests.TestCase):
         # include 'cosmic' next to line
         spectrum.getSpectrum()[linePos:linePos+4] += [10000.,20000.,30000., 20000.]
 
-        spectrum.identify(result.lineList, self.dispCorControl, 0)# we're not holding back any emission lines
+        #run identify again
+        spectrum.identifyF(drpStella.createLineListFromWLenPix(result.lineList),
+                           self.dispCorControl)# we're not holding back any emission lines
         dispRMSCosmic = spectrum.getDispRms()
         self.assertNotAlmostEqual(dispRMSOrig, dispRMSCosmic)
         mask = spectrum.getMask()
@@ -589,17 +594,20 @@ class SpectraTestCase(tests.TestCase):
                     try:
                         logger = log.Log.getLogger("pfs::drp::stella::Spectra::identify")
                         logger.setLevel(log.FATAL)
-                        spec.identify(lineListPix, self.dispCorControl, 8)
+                        spec.identifyF(drpStella.createLineListFromWLenPix(lineListPix),
+                                       self.dispCorControl)
                         self.assertTrue(False) # i.e. the previous line should raise an exception
                     except Exception as e:
                         message = str.split(str(e.message), "\n")
+                        self.assertTrue(False)
                         # the number 59 is equal to nLines * 2/3, which is the
                         # minimum number of lines required for a successful
                         # wavelength calibration
                         expected = "identify: ERROR: less than 59 lines identified"
                         self.assertEqual(message[0],expected)
                 else:
-                    spec.identify(lineListPix, self.dispCorControl, 8)
+                    spec.identifyF(drpStella.createLineListFromWLenPix(lineListPix),
+                                   self.dispCorControl)
                     # make sure that the number of 'good' lines increases with
                     # a growing maxDistance
                     self.assertGreaterEqual(spec.getNGoodLines(),maxLines)
