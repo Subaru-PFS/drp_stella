@@ -1136,16 +1136,11 @@ namespace math {
       chiSqMin_Shift.deep() = 0.;
       ndarray::Array< float, 1, 1 > xCenter = ndarray::allocate( nCalcs );
       xCenter.deep() = 0.;
-      ndarray::Array< float, 1, 1 > specPiece = ndarray::allocate( dispCorControl.lengthPieces );
-      ndarray::Array< float, 1, 1 > specRefPiece = ndarray::allocate( dispCorControl.lengthPieces );
       int start = 0;
       int end = 0;
-      ndarray::Array< float, 2, 1 > specPieceStretched_MinChiSq;
       ndarray::Array< float, 2, 1 > lineList_Pixels_AllPieces = ndarray::allocate( lineList_WLenPix.getShape()[ 0 ], nCalcs );
       lineList_Pixels_AllPieces.deep() = 0.;
       ndarray::Array< float, 1, 1 > x = indGenNdArr( float( specRef.getShape()[ 0 ] ) );
-      ndarray::Array< float, 1, 1 > xPiece;
-      ndarray::Array< float, 1, 1 > xPieceStretched;
 
       for ( int i_run = 0; i_run < nCalcs; i_run++ ){
         end = start + dispCorControl.lengthPieces;
@@ -1163,10 +1158,10 @@ namespace math {
         xCenter[ i_run ] = float( start ) + ( float( end - start ) / 2. );
         LOGLS_TRACE(_log, "i_run = " << i_run << ": xCenter = " << xCenter[ i_run ]);
 
-        specPiece = ndarray::allocate( end - start + 1 );
+        ndarray::Array< double, 1, 1 > specPiece = ndarray::allocate( end - start + 1 );
         specPiece.deep() = stretchedSpec[ ndarray::view( start, end + 1 ) ];
-        specRefPiece = ndarray::allocate( end - start + 1 );
         LOGLS_TRACE(_log, "i_run = " << i_run << ": specPiece = " << specPiece.getShape() << ": " << specPiece);
+        ndarray::Array< double, 1, 1 > specRefPiece = ndarray::allocate( end - start + 1 );
         specRefPiece.deep() = specRef[ ndarray::view( start, end + 1 ) ];
         LOGLS_TRACE(_log, "i_run = " << i_run << ": specRefPiece = " << specRefPiece.getShape() << ": " << specRefPiece);
         /// stretch and crosscorrelate pieces
@@ -1194,7 +1189,7 @@ namespace math {
         LOGLS_TRACE(_log, "i_run=" << i_run << ": chiSqMin_Shift = " << chiSqMin_Shift[i_run]);
         LOGLS_TRACE(_log, "i_run=" << i_run << ": stretchAndCrossCorrelateResult.specStretchedMinChiSq = " << stretchAndCrossCorrelateResult.specStretchedMinChiSq.getShape() << ": " << stretchAndCrossCorrelateResult.specStretchedMinChiSq);
 
-        specPieceStretched_MinChiSq = ndarray::allocate( stretchAndCrossCorrelateResult.specStretchedMinChiSq.getShape() );
+        ndarray::Array< double, 2, 1 > specPieceStretched_MinChiSq = ndarray::allocate( stretchAndCrossCorrelateResult.specStretchedMinChiSq.getShape() );
         specPieceStretched_MinChiSq.deep() = stretchAndCrossCorrelateResult.specStretchedMinChiSq;
         for ( int iSpecPos = 0; iSpecPos < specPieceStretched_MinChiSq.getShape()[ 0 ]; ++iSpecPos ){
           stretchAndCrossCorrelateSpecResult.specPieces[ ndarray::makeVector( iSpecPos, 0, i_run ) ] = specPieceStretched_MinChiSq[ ndarray::makeVector( iSpecPos, 0 ) ] + start;
@@ -1206,10 +1201,10 @@ namespace math {
         LOGLS_TRACE(_log, "i_run=" << i_run << ": after stretchAndCrossCorrelate: stretchAndCrossCorrelateResult.specStretchedMinChiSq.getShape() = " << stretchAndCrossCorrelateResult.specStretchedMinChiSq.getShape());
         LOGLS_TRACE(_log, "i_run=" << i_run << ": after stretchAndCrossCorrelate: specPieceStretched_MinChiSq = " << specPieceStretched_MinChiSq.getShape() << ": " << specPieceStretched_MinChiSq);
 
-        xPiece = ndarray::allocate( end - start + 1 );
+        ndarray::Array< double, 1, 1 > xPiece = ndarray::allocate( end - start + 1 );
         xPiece.deep() = x[ndarray::view( start, end + 1 ) ];
 
-        xPieceStretched = ndarray::allocate( chiSqMin_Stretch[ i_run ] );
+        ndarray::Array< double, 1, 1 > xPieceStretched = ndarray::allocate( chiSqMin_Stretch[ i_run ] );
         xPieceStretched[ 0 ] = start;
         for ( int i_pix=1; i_pix < xPieceStretched.getShape()[ 0 ]; i_pix++ ){
           xPieceStretched[ i_pix ] = xPieceStretched[ i_pix - 1 ] + (xPiece.getShape()[ 0 ] / chiSqMin_Stretch[ i_run ] );
