@@ -5,6 +5,7 @@
 #include "ndarray/pybind11.h"
 
 #include "pfs/drp/stella/PSF.h"
+#include "pfs/drp/stella/utils/Utils.h" // for pfs::drp::stella::utils::testPolyFit
 
 namespace py = pybind11;
 
@@ -195,6 +196,9 @@ PYBIND11_PLUGIN(fiberTraces) {
                                             ndarray::Array<float, 1, 1> const&,
                                             std::size_t const&, std::size_t const&))&math::calculateXCenters,
             "fiberTraceFunction"_a, "yIn"_a, "height"_a=0, "width"_a=0);
+
+    // Doesn't really belong here, but putting it in its own file would be overkill
+    mod.def("testPolyFit", &utils::testPolyFit);
 
     return mod.ptr();
 }
