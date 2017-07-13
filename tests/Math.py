@@ -30,7 +30,7 @@ class MathTestCase(tests.TestCase):
             if i != 5:
                 self.assertEqual(int1DArrRes[i], 0)
 
-    @unittest.skip("Not bound to python; will use boost::unittest if we need tests")
+    # @unittest.skip("Not bound to python; will use boost::unittest if we need tests")
     def testPolyFit(self):
         # We are running a C++ test function here because PolyFit functions with
         # keywords are not exposed to Python as I couldn't find a way to make
