@@ -473,20 +473,37 @@ namespace pfs { namespace drp { namespace stella {
     LOGLS_DEBUG(_log, "FiberTrace" << _iTrace << "::CreateFiberTrace: minCenMax = " << minCenMax);
 
     if (oldTraceHeight > 0){
-      if (oldTraceHeight != getHeight()){
+      if (oldTraceHeight != _fiberTraceFunction->yHigh - _fiberTraceFunction->yLow + 1){
         string message("FiberTrace ");
-        message += to_string(_iTrace) + string("::createTrace: ERROR: oldTraceHeight(=") + to_string(oldTraceHeight) + string(") != getHeight(=") + to_string(getHeight());
+        message += to_string(_iTrace) + string("::createTrace: ERROR: oldTraceHeight(=")
+                + to_string(oldTraceHeight)
+                + string(") != _fiberTraceFunction->yHigh - _fiberTraceFunction->yLow + 1(=")
+                + to_string(_fiberTraceFunction->yHigh - _fiberTraceFunction->yLow + 1);
         throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
       }
-      if (oldTraceWidth != getWidth()){
+      if (oldTraceWidth != int(minCenMax[0][2] - minCenMax[0][0] + 1)){
         string message("FiberTrace ");
-        message += to_string(_iTrace) + string("::createTrace: ERROR: oldTraceWidth(=") + to_string(oldTraceWidth) + string(") != getWidth(=") + to_string(getWidth());
-        cout << message << endl;
+        message += to_string(_iTrace) + string("::createTrace: ERROR: oldTraceWidth(=")
+                + to_string(oldTraceWidth)
+                + string(") != int(minCenMax[0][2] - minCenMax[0][0] + 1)(=")
+                + to_string(int(minCenMax[0][2] - minCenMax[0][0] + 1));
         throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
       }
     }
 
-    _trace.reset(new MaskedImageT(int(minCenMax[0][2] - minCenMax[0][0] + 1), _fiberTraceFunction->yHigh - _fiberTraceFunction->yLow + 1));// minCenMax.rows());
+    if (_isProfileSet){
+      if (_profile->getWidth() != int(minCenMax[0][2] - minCenMax[0][0] + 1)){
+        string message("FiberTrace ");
+        message += to_string(_iTrace) + string("::createTrace: ERROR: _profile->getWidth(=")
+                + to_string(_profile->getWidth())
+                + string(") != int(minCenMax[0][2] - minCenMax[0][0] + 1)(=")
+                + to_string(int(minCenMax[0][2] - minCenMax[0][0] + 1));
+        throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
+      }
+    }
+
+    _trace.reset(new MaskedImageT(int(minCenMax[0][2] - minCenMax[0][0] + 1),
+                                  _fiberTraceFunction->yHigh - _fiberTraceFunction->yLow + 1));
 
     ndarray::Array<ImageT, 2, 1> imageArray = maskedImage->getImage()->getArray();
     ndarray::Array<VarianceT, 2, 1> varianceArray = maskedImage->getVariance()->getArray();
