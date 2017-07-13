@@ -60,10 +60,6 @@ class SpectraTestCase(tests.TestCase):
         self.refSpec = os.path.join(lsst.utils.getPackageDir('obs_pfs'),'pfs/arcSpectra/refSpec_CdHgKrNeXe_red.fits')
         self.wLenFile = os.path.join(lsst.utils.getPackageDir('obs_pfs'),'pfs/RedFiberPixels.fits.gz')
 
-        """Quiet down loggers which are too verbose"""
-        log.setLevel("findAndTraceApertures", log.WARN)
-        log.setLevel("extractSpectra", log.FATAL)
-
     def tearDown(self):
         del self.flat
         del self.arc
@@ -416,8 +412,6 @@ class SpectraTestCase(tests.TestCase):
                 self.assertTrue(np.all(np.fabs(mean - 1.0) < std))
 
     def testWavelengthCalibrationWithRefSpec(self):
-        log.setLevel("reduceArcRefSpecTask", log.FATAL)
-
         myReduceArcTask = reduceArcRefSpecTask.ReduceArcRefSpecTask()
         dataRefList = [ref for ref in self.butler.subset('postISRCCD',
                                                          'visit',
@@ -446,8 +440,6 @@ class SpectraTestCase(tests.TestCase):
             self.assertLess(spec.getDispRmsCheck(), self.maxRMS)
 
     def testWavelengthCalibrationWithoutRefSpec(self):
-        logger = log.Log.getLogger("reduceArcTask")
-        logger.setLevel(log.WARN)
         myReduceArcTask = reduceArcTask.ReduceArcTask()
         dataRefList = [ref for ref in self.butler.subset("postISRCCD", 'visit', self.dataIdArc)]
         spectrumSetFromProfile = myReduceArcTask.run(dataRefList, self.butler, self.wLenFile, self.lineList)
@@ -592,8 +584,6 @@ class SpectraTestCase(tests.TestCase):
                 self.dispCorControl.maxDistance = maxDistance
                 if maxDistance < 0.49:
                     try:
-                        logger = log.Log.getLogger("pfs::drp::stella::Spectra::identify")
-                        logger.setLevel(log.FATAL)
                         spec.identifyF(drpStella.createLineListFromWLenPix(lineListPix),
                                        self.dispCorControl)
                         self.assertTrue(False) # i.e. the previous line should raise an exception
@@ -633,19 +623,29 @@ def run(exit = False):
                    "CameraMapper",
                    "extractSpectra",
                    "FiberTraces::assignITrace",
+                   "findAndTraceApertures",
                    "pfs::drp::stella::FiberTrace::calcProfile",
                    "pfs::drp::stella::FiberTrace::calcProfileSwath",
+                   "pfs::drp::stella::FiberTrace::createTrace",
                    "pfs::drp::stella::math::ccdToFiberTraceCoordinates",
                    "pfs::drp::stella::math::CurveFitting::LinFitBevingtonNdArray1D",
                    "pfs::drp::stella::math::CurveFitting::LinFitBevingtonNdArray2D",
-                   "pfs::drp::stella::math::CurfFitting::PolyFit",
                    "pfs::drp::stella::math::psfCoordinatesRelativeTo",
                    "pfs::drp::stella::PSF::extractPSFs",
                    "pfs::drp::stella::PSF::extractPSFFromCenterPosition",
                    "pfs::drp::stella::PSF::extractPSFFromCenterPositions",
-                   "pfs::drp::stella::Spectra::identify"
+                   "reduceArcTask",
+                   "reduceArcRefSpecTask",
                    ]:
-        log.Log.getLogger(logger).setLevel(log.WARN)
+        log.setLevel(logger, log.WARN)
+
+    for logger in ["extractSpectra",
+                   "gaussFunc",
+                   "pfs::drp::stella::Spectra::identify",
+                   "pfs::drp::stella::math::CurfFitting::PolyFit",
+                   "writePfsArm"
+                   ]:
+        log.setLevel(logger, log.FATAL)
 
     #Run the tests
     tests.run(suite(), exit)
