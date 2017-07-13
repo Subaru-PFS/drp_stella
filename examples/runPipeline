@@ -32,14 +32,14 @@ constructDark.py $PFS_DATA_DIR --rerun $whoami/calibs \
                  --batch-type none &&
 genCalibRegistry.py --root $PFS_DATA_DIR/CALIB --validity 360 &&
 
-constructFiberTrace.py $PFS_DATA_DIR --rerun $whoami/calibs \
-                 --id visit=104 \
+constructFiberFlat.py $PFS_DATA_DIR --rerun $whoami/calibs \
+                 --id visit=104..112 \
                  --calibId arm=r spectrograph=1 \
                  --batch-type none &&
 genCalibRegistry.py --root $PFS_DATA_DIR/CALIB --validity 360 &&
 
-constructFiberFlat.py $PFS_DATA_DIR --rerun $whoami/calibs \
-                 --id visit=104..112 \
+constructFiberTrace.py $PFS_DATA_DIR --rerun $whoami/calibs \
+                 --id visit=104 \
                  --calibId arm=r spectrograph=1 \
                  --batch-type none &&
 genCalibRegistry.py --root $PFS_DATA_DIR/CALIB --validity 360 &&
