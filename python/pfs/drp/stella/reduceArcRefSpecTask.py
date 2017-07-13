@@ -22,6 +22,11 @@ class ReduceArcRefSpecConfig(Config):
     radiusXCor = Field( doc = "Radius in pixels in which to cross correlate a spectrum relative to the reference spectrum", dtype = int, default = 50 );
     lengthPieces = Field( doc = "Length of pieces of spectrum to match to reference spectrum by stretching and shifting", dtype = int, default = 500 );
     nCalcs = Field( doc = "Number of iterations > spectrumLength / lengthPieces, e.g. spectrum length is 3800 pixels, <lengthPieces> = 500, <nCalcs> = 15: run 1: pixels 0-499, run 2: 249-749,...", dtype = int, default = 15 );
+    percentageOfLinesForCheck = Field(
+        doc = "Hold back this percentage of lines in the line list for check",
+        dtype = int,
+        default = 10
+    )
     stretchMinLength = Field( doc = "Minimum length to stretched pieces to (< lengthPieces)", dtype = int, default = 460 );
     stretchMaxLength = Field( doc = "Maximum length to stretched pieces to (> lengthPieces)", dtype = int, default = 540 );
     nStretches = Field( doc = "Number of stretches between <stretchMinLength> and <stretchMaxLength>", dtype = int, default = 80 );
@@ -125,6 +130,7 @@ class ReduceArcRefSpecTask(ReduceArcTask):
             dispCorControl.radiusXCor = self.config.radiusXCor
             dispCorControl.lengthPieces = self.config.lengthPieces
             dispCorControl.nCalcs = self.config.nCalcs
+            dispCorControl.percentageOfLinesForCheck = self.config.percentageOfLinesForCheck
             dispCorControl.stretchMinLength = self.config.stretchMinLength
             dispCorControl.stretchMaxLength = self.config.stretchMaxLength
             dispCorControl.nStretches = self.config.nStretches
