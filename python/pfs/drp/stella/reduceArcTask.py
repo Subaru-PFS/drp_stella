@@ -1,7 +1,5 @@
 import os
-import sys
 
-from astropy.io import fits as pyfits
 import numpy as np
 
 import lsstDebug
@@ -12,9 +10,15 @@ from lsst.utils import getPackageDir
 import lsst.afw.display as afwDisplay
 import pfs.drp.stella as drpStella
 from pfs.drp.stella.extractSpectraTask import ExtractSpectraTask
-from pfs.drp.stella.datamodelIO import spectrumSetToPfsArm, PfsArmIO
-from pfs.drp.stella.utils import makeFiberTraceSet, readWavelengthFile
-from pfs.drp.stella.utils import readLineListFile, writePfsArm, addFiberTraceSetToMask
+from pfs.drp.stella.math import makeArtificialSpectrum
+from pfs.drp.stella.utils import createLineListForLamps, findPixelOffsetFunction
+from pfs.drp.stella.utils import getLineList, makeFiberTraceSet
+from pfs.drp.stella.utils import measureLinesInPixelSpace, readWavelengthFile
+from pfs.drp.stella.utils import writePfsArm
+
+lineListFileName = os.path.join(
+    getPackageDir("obs_pfs"),
+    "pfs/lineLists/NeXeHgAr_%d%s.fits") # % (spectrograph, arm)
 
 class ReduceArcConfig(Config):
     """Configuration for reducing arc images"""
@@ -118,8 +122,7 @@ class ReduceArcTaskRunner(TaskRunner):
     """Get parsed values into the ReduceArcTask.run"""
     @staticmethod
     def getTargetList(parsedCmd, **kwargs):
-        return [(parsedCmd.id.refList,
-                 dict(butler=parsedCmd.butler, wLenFile=parsedCmd.wLenFile, lineList=parsedCmd.lineList))]
+        return [(parsedCmd.id.refList, dict(butler=parsedCmd.butler, wLenFile=parsedCmd.wLenFile))]
 
 class ReduceArcTask(CmdLineTask):
     """Task to reduce Arc images"""
@@ -141,7 +144,19 @@ class ReduceArcTask(CmdLineTask):
         parser.add_argument("--lineList", help='directory and name of line list')
         return parser
 
-    def run(self, expRefList, butler, wLenFile=None, lineList=None, immediate=True):
+    def run(self,
+            expRefList,
+            butler,
+            wLenFile=None,
+            immediate=True,
+           ):
+        """
+        @param expRefList : reference list of Arc exposures
+        @param butler : butler to use
+        @param wLenFile : simulator output with the predicted wavelengths for
+                          each pixel
+        @param immediate : let butler read file immediately or only when needed?
+        """
         # Silence verbose loggers
         for logger in ["afw.ExposureFormatter",
                        "afw.image.ExposureInfo",
@@ -172,15 +187,11 @@ class ReduceArcTask(CmdLineTask):
 
         if wLenFile == None:
             wLenFile = self.config.wavelengthFile
-        if lineList == None:
-            lineList = self.config.lineList
-        self.log.debug('expRefList = %s' % expRefList)
         self.log.debug('len(expRefList) = %d' % len(expRefList))
         self.log.debug('wLenFile = %s' % wLenFile)
-        self.log.debug('lineList = %s' % lineList)
 
         # read wavelength file
-        xCenters, wavelengths, traceIds = readWavelengthFile(wLenFile)
+        xCenters, lambdaPix, traceIds = readWavelengthFile(wLenFile)
 
         # create DispCorControl
         dispCorControl = drpStella.DispCorControl()
@@ -203,13 +214,16 @@ class ReduceArcTask(CmdLineTask):
         self.log.trace('dispCorControl.fwhm = %g' % dispCorControl.fwhm)
         self.log.trace('dispCorControl.maxDistance = %g' % dispCorControl.maxDistance)
 
-        # read line list
-        lineListArr = readLineListFile(lineList)
+        # create the line list from the master line list
+        lines = createLineListForLamps(self.config.elements,
+                                       self.config.lineListSuffix,
+                                       self.config.removeLines)
+        self.log.info('raw line list contains %d lines' % (len(lines)))
 
+        measuredLinesPerArc = []
+        offsetPerArc = []
         for arcRef in expRefList:
             self.log.debug('arcRef.dataId = %s' % arcRef.dataId)
-            self.log.debug('arcRef = %s' % arcRef)
-            self.log.debug('type(arcRef) = %s' % type(arcRef))
 
             # read pfsFiberTrace and then construct FiberTraceSet
             try:
@@ -233,7 +247,7 @@ class ReduceArcTask(CmdLineTask):
                 display = afwDisplay.Display(self.debugInfo.arc_frame)
 
                 addFiberTraceSetToMask(arcExp.maskedImage.mask, flatFiberTraceSet, display)
-                
+
                 display.setMaskTransparency(50)
                 display.mtv(arcExp, "Arcs")
 
@@ -248,63 +262,93 @@ class ReduceArcTask(CmdLineTask):
             extractSpectraTask = ExtractSpectraTask()
             spectrumSetFromProfile = extractSpectraTask.run(arcExp, flatFiberTraceSet)
 
+            measuredLinesPerFiberTrace = []
+            offsetPerFiberTrace = []
             for i in range(spectrumSetFromProfile.size()):
                 spec = spectrumSetFromProfile.getSpectrum(i)
-                specSpec = spec.getSpectrum()
-                self.log.debug('specSpec.shape = %d' % specSpec.shape)
-                self.log.debug('lineListArr.shape = [%d,%d]' % (lineListArr.shape[0], lineListArr.shape[1]))
-                self.log.debug('type(specSpec) = %s: <%s>' % (type(specSpec),type(specSpec[0])))
-                self.log.debug('type(lineListArr) = %s: <%s>' % (type(lineListArr),type(lineListArr[0][0])))
-                self.log.debug('type(spec) = %s: <%s>: <%s>' % (type(spec),type(spec.getSpectrum()),type(spec.getSpectrum()[0])))
+                self.log.trace('i = %d: spec.getITrace() = %d' % (i, spec.getITrace()))
+                fluxPix = spec.getSpectrum()
+                self.log.trace('fluxPix.shape = %d' % fluxPix.shape)
+                self.log.trace('type(fluxPix) = %s: <%s>' % (type(fluxPix),type(fluxPix[0])))
+                self.log.trace('type(spec) = %s: <%s>: <%s>'
+                    % (type(spec),type(spec.getSpectrum()),type(spec.getSpectrum()[0])))
 
                 traceId = spec.getITrace()
-                wLenTemp = wavelengths[np.where(traceIds == traceId)]
-                assert wLenTemp.shape[0] == traceIds.shape[0] / np.unique(traceIds).shape[0]
+                self.log.debug('traceId = %d' % traceId)
 
                 # cut off both ends of wavelengths where is no signal
-                xCenter = flatFiberTraceSet.getFiberTrace(i).getFiberTraceFunction().xCenter
-                yCenter = flatFiberTraceSet.getFiberTrace(i).getFiberTraceFunction().yCenter
-                yLow = flatFiberTraceSet.getFiberTrace(i).getFiberTraceFunction().yLow
-                yHigh = flatFiberTraceSet.getFiberTrace(i).getFiberTraceFunction().yHigh
-                yMin = yCenter + yLow
-                yMax = yCenter + yHigh
-                self.log.debug('fiberTrace %d: xCenter = %d' % (i, xCenter))
-                self.log.debug('fiberTrace %d: yCenter = %d' % (i, yCenter))
-                self.log.debug('fiberTrace %d: yLow = %d' % (i, yLow))
-                self.log.debug('fiberTrace %d: yHigh = %d' % (i, yHigh))
+                yMin = (flatFiberTraceSet.getFiberTrace(i).getFiberTraceFunction().yCenter +
+                        flatFiberTraceSet.getFiberTrace(i).getFiberTraceFunction().yLow)
+                yMax = (flatFiberTraceSet.getFiberTrace(i).getFiberTraceFunction().yCenter +
+                        flatFiberTraceSet.getFiberTrace(i).getFiberTraceFunction().yHigh)
                 self.log.debug('fiberTrace %d: yMin = %d' % (i, yMin))
                 self.log.debug('fiberTrace %d: yMax = %d' % (i, yMax))
-                wLen = wLenTemp[ yMin + self.config.nRowsPrescan : yMax + self.config.nRowsPrescan + 1]
-                wLenArr = np.ndarray(shape=wLen.shape, dtype='float32')
-                for j in range(wLen.shape[0]):
-                    wLenArr[j] = wLen[j]
-                wLenLines = lineListArr[:,0]
-                wLenLinesArr = np.ndarray(shape=wLenLines.shape, dtype='float32')
-                for j in range(wLenLines.shape[0]):
-                    wLenLinesArr[j] = wLenLines[j]
-                lineListPix = drpStella.createLineList(wLenArr, wLenLinesArr)
 
+                startIndex = drpStella.firstIndexWithValueGEFrom(traceIds,traceId)
+                self.log.trace('startIndex = %d' % startIndex)
+                self.log.trace('copying lambdaPix[%d:%d]'
+                    % (startIndex + self.config.nRowsPrescan + yMin,
+                       startIndex + self.config.nRowsPrescan + yMax + 1))
+                lambdaPixFiberTrace = lambdaPix[startIndex + self.config.nRowsPrescan + yMin:
+                                                startIndex + self.config.nRowsPrescan + yMax + 1]
+                if len(lambdaPixFiberTrace) != len(fluxPix):
+                    raise RuntimeError(
+                        "reduceArcTask.py: ERROR: len(lambdaPixFiberTrace)(=%d) != len(fluxPix)(=%d)"
+                        % (len(lambdaPixFiberTrace), len(fluxPix)))
+
+                lineList = getLineList(lineListFileName % (arcRef.dataId['spectrograph'],
+                                                           arcRef.dataId['arm']),
+                                       self.config.elements)
+                self.log.debug('type(lineList) = %s, len(lineList) = %d'
+                               % (type(lineList), len(lineList)))
+
+                artificialSpectrum = makeArtificialSpectrum(lambdaPixFiberTrace, lineList)
+                assert(len(fluxPix) == len(lambdaPixFiberTrace))
+                lambdaPixShifted, artificialSpectrum, offset = findPixelOffsetFunction(fluxPix,
+                                                                                       artificialSpectrum,
+                                                                                       lambdaPixFiberTrace,
+                                                                                       self.config.xCorRadius)
+                self.log.trace('offset = %s' % (np.array_str(offset)))
+                measuredLines = measureLinesInPixelSpace(lines = lineList,
+                                                         lambdaPix = lambdaPixShifted,
+                                                         fluxPix = fluxPix,
+                                                         fwhm = self.config.fwhm)
+                for line in measuredLines:
+                    line.flags += 'g'
+
+                self.log.debug('new line list created')
+                self.log.info('len(lineList) = %d' % (len(lineList)))
+
+                # use line list to calibrate the Arc spectrum
                 try:
-                    lineListPix = drpStella.createLineList(wLenArr, wLenLinesArr)
-                except Exception as e:
-                    self.log.warn("Error occured during createLineList: %s" % (e.message))
-
-                # Idendify emission lines and fit dispersion
-                try:
-                    spec.identify(lineListPix, dispCorControl, 8)
-                except Exception as e:
-                    self.log.warn("Error occured during identify: %s" % (e.message))
-
-                self.log.trace("FiberTrace %d: spec.getDispCoeffs() = %s"
-                               % (i, np.array_str(spec.getDispCoeffs())))
-                self.log.info("FiberTrace %d: spec.getDispRms() = %f"
-                              % (i, spec.getDispRms()))
-
+                    spec.identifyF(measuredLines, dispCorControl)
+                except Exception, e:
+                    raise RuntimeError(
+                        "reduceArcTask.py: %dth FiberTrace: traceId = %d: ERROR: %s"
+                        % (i,traceId,e.message))
                 spectrumSetFromProfile.setSpectrum(i, spec)
 
-            writePfsArm(butler, arcExp, spectrumSetFromProfile, arcRef.dataId)
+                measuredLinesPerFiberTrace.append(measuredLines)
+                offsetPerFiberTrace.append(offset)
 
-        return spectrumSetFromProfile
+                self.log.trace("FiberTrace %d: spec.getWavelength() = %s"
+                    % (i, np.array_str(spec.getWavelength())))
+                self.log.trace("FiberTrace %d: spec.getDispCoeffs() = %s"
+                    % (i,np.array_str(spec.getDispCoeffs())))
+                self.log.info("FiberTrace %d (ID=%d): spec.getDispRms() = %f"
+                    % (i, spec.getITrace(), spec.getDispRms()))
+                self.log.info("FiberTrace %d (ID=%d): spec.getDispRmsCheck() = %f"
+                    % (i, spec.getITrace(), spec.getDispRmsCheck()))
+                spectrumSetFromProfile.setSpectrum(i, spec)
+
+            measuredLinesPerArc.append(measuredLinesPerFiberTrace)
+            offsetPerArc.append(offsetPerFiberTrace)
+            writePfsArm(butler, arcExp, spectrumSetFromProfile, arcRef.dataId)
+        return [spectrumSetFromProfile,
+                measuredLinesPerArc,
+                offsetPerArc,
+                flatFiberTraceSet]
+
     #
     # Disable writing metadata (doesn't work with lists of dataRefs anyway)
     #
