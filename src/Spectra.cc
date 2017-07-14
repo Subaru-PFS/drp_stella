@@ -287,7 +287,7 @@ ndarray::Array< float, 3, 1 > SpectrumSet<ImageT, MaskT, VarianceT, WavelengthT>
 template< typename ImageT, typename MaskT, typename VarianceT, typename WavelengthT >
 Spectrum< ImageT, MaskT, VarianceT, WavelengthT >::Spectrum( Spectrum< ImageT, MaskT, VarianceT, WavelengthT > & spectrum,
                                                                                   std::size_t iTrace,
-                                                                                  bool deep ) 
+                                                                                  bool deep )
 :       _yLow( spectrum.getYLow() ),
         _yHigh( spectrum.getYHigh() ),
         _length( spectrum.getLength() ),
@@ -330,7 +330,7 @@ Spectrum< ImageT, MaskT, VarianceT, WavelengthT >::Spectrum( Spectrum< ImageT, M
 
 template< typename ImageT, typename MaskT, typename VarianceT, typename WavelengthT >
 Spectrum< ImageT, MaskT, VarianceT, WavelengthT >::Spectrum( Spectrum< ImageT, MaskT, VarianceT, WavelengthT > const& spectrum) //,
-                                                                                  //int i ) 
+                                                                                  //int i )
 :       _yLow( spectrum.getYLow() ),
         _yHigh( spectrum.getYHigh() ),
         _length( spectrum.getLength() ),
@@ -368,7 +368,7 @@ Spectrum<ImageT, MaskT, VarianceT, WavelengthT>::setSpectrum( ndarray::Array<Ima
   if (static_cast<std::size_t>(spectrum.getShape()[0]) != _length) {
     string message("pfs::drp::stella::Spectrum::setSpectrum: ERROR: spectrum->size()=");
     message += to_string(spectrum.getShape()[0]) + string(" != _length=") + to_string(_length);
-    throw LSST_EXCEPT(pexExcept::Exception, message.c_str());    
+    throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
   }
   _spectrum.deep() = spectrum;
 }
@@ -399,7 +399,7 @@ Spectrum<ImageT, MaskT, VarianceT, WavelengthT>::setVariance( ndarray::Array<Var
   if (static_cast<std::size_t>(variance.getShape()[0]) != _length) {
     string message("pfs::drp::stella::Spectrum::setVariance: ERROR: variance->size()=");
     message += to_string( variance.getShape()[ 0 ] ) + string( " != _length=" ) + to_string( _length );
-    throw LSST_EXCEPT(pexExcept::Exception, message.c_str());    
+    throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
   }
   _covar[ ndarray::view()(1) ] = variance;
 }
@@ -412,12 +412,12 @@ Spectrum<ImageT, MaskT, VarianceT, WavelengthT>::setCovar(const ndarray::Array<V
     if (static_cast<std::size_t>(covar.getShape()[0]) != _length) {
       string message("pfs::drp::stella::Spectrum::setCovar: ERROR: covar->size()=");
       message += to_string( covar.getShape()[0] ) + string( " != _length=" ) + to_string( _length );
-      throw LSST_EXCEPT(pexExcept::Exception, message.c_str());    
+      throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
     }
     if (covar.getShape()[1] != 3) {
       string message("pfs::drp::stella::Spectrum::setCovar: ERROR: covar->size()=");
       message += to_string( covar.getShape()[1] ) + string( " != 3" );
-      throw LSST_EXCEPT(pexExcept::Exception, message.c_str());    
+      throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
     }
     _covar.deep() = covar;
 }
@@ -430,7 +430,7 @@ Spectrum<ImageT, MaskT, VarianceT, WavelengthT>::setMask(const lsst::afw::image:
   if (static_cast<std::size_t>(mask.getWidth()) != _length){
     string message("pfs::drp::stella::Spectrum::setMask: ERROR: mask.getWidth()=");
     message += to_string(mask.getWidth()) + string(" != _length=") + to_string(_length);
-    throw LSST_EXCEPT(pexExcept::Exception, message.c_str());    
+    throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
   }
   _mask = mask;
 }
@@ -477,7 +477,7 @@ Spectrum< ImageT, MaskT, VarianceT, WavelengthT >::setYLow( const std::size_t yL
   if ( yLow > _nCCDRows ){
     string message("pfs::drp::stella::Spectrum::setYLow: ERROR: yLow=");
     message += to_string( yLow ) + string(" > _nCCDRows=") + to_string(_nCCDRows);
-    throw LSST_EXCEPT(pexExcept::Exception, message.c_str());    
+    throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
   }
   _yLow = yLow;
 }
@@ -499,7 +499,7 @@ Spectrum<ImageT, MaskT, VarianceT, WavelengthT>::setNCCDRows(const std::size_t n
   if ( _yLow > nCCDRows ){
     string message("pfs::drp::stella::Spectrum::setYLow: ERROR: _yLow=");
     message += to_string( _yLow ) + string(" > nCCDRows=") + to_string(nCCDRows);
-    throw LSST_EXCEPT(pexExcept::Exception, message.c_str());    
+    throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
   }
   _nCCDRows = nCCDRows;
 }
@@ -666,7 +666,7 @@ Spectrum< ImageT, MaskT, VarianceT, WavelengthT >::setDispCoeffs( ndarray::Array
   if (dispCoeffs.getShape()[0] != ( _dispCorControl->order + 1 ) ){
     string message("pfsDRPStella::Spectrum::setDispCoeffs: ERROR: dispCoeffs.size()=");
     message += to_string(dispCoeffs.getShape()[0]) + string(" != _dispCorControl->order + 1 =") + to_string( _dispCorControl->order + 1 );
-    throw LSST_EXCEPT(pexExcept::Exception, message.c_str());    
+    throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
   }
   _dispCoeffs = ndarray::allocate( dispCoeffs.getShape()[ 0 ] );
   _dispCoeffs.deep() = dispCoeffs;
@@ -725,10 +725,10 @@ Spectrum<ImageT, MaskT, VarianceT, WavelengthT>::identify( ndarray::Array< T, 2,
     }
     ndarray::Array< std::size_t, 1, 1 > I_A1_IndexPos = ndarray::external( indices.data(), ndarray::makeVector( int( indices.size() ) ), ndarray::makeVector( 1 ) );
     ndarray::Array< float, 1, 1 > D_A1_WLen = ndarray::allocate( lineList.getShape()[ 0 ] );
-    ndarray::Array< float, 1, 1 > D_A1_FittedPos = math::getSubArray( D_A1_GaussPos, 
+    ndarray::Array< float, 1, 1 > D_A1_FittedPos = math::getSubArray( D_A1_GaussPos,
                                                                        I_A1_IndexPos );
     ndarray::Array< std::size_t, 1, 1 > I_A1_IndexCheckPos = ndarray::external( indCheck.data(), ndarray::makeVector( int( indCheck.size() ) ), ndarray::makeVector( 1 ) );
-    ndarray::Array< float, 1, 1 > D_A1_FittedCheckPos = math::getSubArray( D_A1_GaussPos, 
+    ndarray::Array< float, 1, 1 > D_A1_FittedCheckPos = math::getSubArray( D_A1_GaussPos,
                                                                             I_A1_IndexCheckPos );
     LOGLS_DEBUG(_log, "D_A1_FittedPos = " << D_A1_FittedPos << endl);
 
@@ -763,7 +763,7 @@ Spectrum<ImageT, MaskT, VarianceT, WavelengthT>::identify( ndarray::Array< T, 2,
                                         S_A1_Args,
                                         PP_Args);
     LOGLS_DEBUG(_log, "_dispCoeffs = " << _dispCoeffs);
-    
+
     /// Remove lines rejected by PolyFit from D_A1_FittedPos and D_A1_FittedWLen
     lsst::afw::image::MaskPixel maskVal = 1 << _mask.getMaskPlane("REJECTED_LINES");
     for (int i = 0; i < rejected->size(); ++i){
@@ -786,7 +786,7 @@ Spectrum<ImageT, MaskT, VarianceT, WavelengthT>::identify( ndarray::Array< T, 2,
 
     ndarray::Array<float, 1, 1> fittedPosNotRejected = math::getSubArray(D_A1_FittedPos, notRejectedArr);
     LOGLS_DEBUG(_log, "fittedPosNotRejected = " << _nGoodLines << ": " << fittedPosNotRejected);
-    
+
     ndarray::Array<float, 1, 1> fittedWLenNotRejected = math::getSubArray(D_A1_FittedWLen, notRejectedArr);
     LOGLS_DEBUG(_log, "fittedWLenNotRejected = " << _nGoodLines << ": " << fittedWLenNotRejected);
     ndarray::Array< float, 1, 1 > D_A1_WLen_Gauss = math::Poly( fittedPosNotRejected,
@@ -906,7 +906,7 @@ void SpectrumSet<ImageT, MaskT, VarianceT, WavelengthT>::erase(const std::size_t
     throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
   }
 
-  if (iEnd >= _spectra->size()){
+  if (iEnd > _spectra->size()){
     string message("SpectrumSet::erase(iStart=");
     message += to_string(iStart) + ", iEnd=" + to_string(iEnd) + "): ERROR: iEnd >= _spectra->size()=" + to_string(_spectra->size());
     throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
@@ -1330,5 +1330,5 @@ template void Spectrum<float, lsst::afw::image::MaskPixel, float>::identify(ndar
                                                                             DispCorControl const&,
                                                                             std::size_t);
 template class SpectrumSet<float, lsst::afw::image::MaskPixel, float, float>;
-                
+
 }}}

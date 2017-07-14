@@ -338,13 +338,6 @@ class SpectraTestCase(tests.TestCase):
             self.assertEqual(message[0],expected)
 
         try:
-            specSet.erase(size-1, size)
-        except Exception as e:
-            message = str.split(str(e.message), "\n")
-            expected = "SpectrumSet::erase(iStart="+str(size-1)+", iEnd="+str(size)+"): ERROR: iEnd >= _spectra->size()="+str(size)
-            self.assertEqual(message[0],expected)
-
-        try:
             specSet.erase(2, 1)
         except Exception as e:
             message = str.split(str(e.message), "\n")
@@ -359,14 +352,16 @@ class SpectraTestCase(tests.TestCase):
             self.assertEqual(message[0],expected)
 
         # Test that we CAN erase spectra inside the limits
-        specSet.erase(size-1)
+        self.assertTrue(specSet.erase(size-1, size))
         self.assertEqual(specSet.size(), size-1)
-
-        specSet.erase(0, 1)
+        self.assertTrue(specSet.erase(size-2))
         self.assertEqual(specSet.size(), size-2)
 
-        specSet.erase(0,2)
-        self.assertEqual(specSet.size(), size-4)
+        self.assertTrue(specSet.erase(0, 1))
+        self.assertEqual(specSet.size(), size-3)
+
+        self.assertTrue(specSet.erase(0,2))
+        self.assertEqual(specSet.size(), size-5)
 
     def testGetSpectra(self):
         """test getSpectra"""
