@@ -482,10 +482,15 @@ struct DispCorControl {
     LSST_CONTROL_FIELD( verticalPrescanHeight, int, "Number of rows in the raw image containing the vertical prescan");
     LSST_CONTROL_FIELD( sigmaReject, float, "Sigma rejection threshold" );
     LSST_CONTROL_FIELD( nIterReject, size_t, "Number of sigma rejection iterations" );
+
     /// <maxDistance> should be large enough to allow small differences between the
     /// predicted and the measured emission line, but small enough to make sure that
     /// mis-identified lines are identified as such. As a rule of thumb about 1 half
     /// of the FWHM should be a good start
+    /// The main difference between 'searchRadius' and 'maxDistance' is that
+    /// searchRadius is an int while maxDistance is a float.
+    /// While searchRadius is used to determine the range to fit, maxDistance
+    /// is then used to check the result of the fit.
     LSST_CONTROL_FIELD( maxDistance, float, "Reject emission lines which center is more than this value away from the predicted position" );
 
     DispCorControl() :
