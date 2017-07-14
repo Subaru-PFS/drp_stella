@@ -469,19 +469,8 @@ struct DispCorControl {
     std::vector<std::string> PROFILE_INTERPOLATION_NAMES = { stringify( POLYNOMIAL ),
                                                              stringify( CHEBYSHEV ) };
     LSST_CONTROL_FIELD( fittingFunction, std::string, "Function for fitting the dispersion" );
-    LSST_CONTROL_FIELD( order, int, "Fitting function order" );
-    LSST_CONTROL_FIELD( searchRadius, int, "Radius in pixels relative to line list to search for emission line peak" );
-    LSST_CONTROL_FIELD( fwhm, float, "FWHM of emission lines" );
-    LSST_CONTROL_FIELD( radiusXCor, int, "Radius in pixels in which to cross correlate a spectrum relative to the reference spectrum" );
+    LSST_CONTROL_FIELD( fwhm, float, "FWHM of emission lines (in pixels)" );
     LSST_CONTROL_FIELD( lengthPieces, int, "Length of pieces of spectrum to match to reference spectrum by stretching and shifting" );
-    LSST_CONTROL_FIELD( minPercentageOfLines, float, "Minimum percentage of lines to be identified for <identify> to pass" );
-    LSST_CONTROL_FIELD( nCalcs, int, "Number of iterations > spectrumLength / lengthPieces, e.g. spectrum length is 3800 pixels, <lengthPieces> = 500, <nCalcs> = 15: run 1: pixels 0-499, run 2: 249-749,...");
-    LSST_CONTROL_FIELD( stretchMinLength, int, "Minimum length to stretched pieces to (< lengthPieces)" );
-    LSST_CONTROL_FIELD( stretchMaxLength, int, "Maximum length to stretched pieces to (> lengthPieces)" );
-    LSST_CONTROL_FIELD( nStretches, int, "Number of stretches between <stretchMinLength> and <stretchMaxLength>");
-    LSST_CONTROL_FIELD( verticalPrescanHeight, int, "Number of rows in the raw image containing the vertical prescan");
-    LSST_CONTROL_FIELD( sigmaReject, float, "Sigma rejection threshold" );
-    LSST_CONTROL_FIELD( nIterReject, size_t, "Number of sigma rejection iterations" );
 
     /// <maxDistance> should be large enough to allow small differences between the
     /// predicted and the measured emission line, but small enough to make sure that
@@ -493,40 +482,57 @@ struct DispCorControl {
     /// is then used to check the result of the fit.
     LSST_CONTROL_FIELD( maxDistance, float, "Reject emission lines which center is more than this value away from the predicted position" );
 
+    LSST_CONTROL_FIELD( minDistanceLines, float, "Minimum distance between 2 lines to be identified" );
+    LSST_CONTROL_FIELD( minPercentageOfLines, float, "Minimum percentage of lines to be identified for <identify> to pass" );
+    LSST_CONTROL_FIELD( nCalcs, int, "Number of iterations > spectrumLength / lengthPieces, e.g. spectrum length is 3800 pixels, <lengthPieces> = 500, <nCalcs> = 15: run 1: pixels 0-499, run 2: 249-749,...");
+    LSST_CONTROL_FIELD( nIterReject, size_t, "Number of sigma rejection iterations" );
+    LSST_CONTROL_FIELD( nStretches, int, "Number of stretches between <stretchMinLength> and <stretchMaxLength>");
+    LSST_CONTROL_FIELD( order, int, "Fitting function order" );
+    LSST_CONTROL_FIELD( percentageOfLinesForCheck, int, "Hold back this percentage of lines in the line list for check");
+    LSST_CONTROL_FIELD( radiusXCor, int, "Radius in pixels in which to cross correlate a spectrum relative to the reference spectrum" );
+    LSST_CONTROL_FIELD( searchRadius, int, "Radius in pixels relative to line list to search for emission line peak" );
+    LSST_CONTROL_FIELD( sigmaReject, float, "Sigma rejection threshold" );
+    LSST_CONTROL_FIELD( stretchMaxLength, int, "Maximum length to stretched pieces to (> lengthPieces)" );
+    LSST_CONTROL_FIELD( stretchMinLength, int, "Minimum length to stretched pieces to (< lengthPieces)" );
+    LSST_CONTROL_FIELD( verticalPrescanHeight, int, "Number of rows in the raw image containing the vertical prescan");
     DispCorControl() :
         fittingFunction( "POLYNOMIAL" ),
-        order( 5 ),
-        searchRadius( 2 ),
         fwhm( 2.6 ),
-        radiusXCor( 35 ),
         lengthPieces( 500 ),
+        maxDistance( 2.5 ),
+        minDistanceLines( 1.5 ),
         minPercentageOfLines ( 66.7 ),
         nCalcs( 15 ),
-        stretchMinLength( 450 ),
-        stretchMaxLength( 550 ),
+        nIterReject(3),
         nStretches( 100 ),
-        verticalPrescanHeight( 50 ),
+        order( 5 ),
+        percentageOfLinesForCheck(10),
+        radiusXCor( 35 ),
+        searchRadius( 2 ),
         sigmaReject(3.),
-        nIterReject(1),
-        maxDistance(1.5)
+        stretchMaxLength( 550 ),
+        stretchMinLength( 450 ),
+        verticalPrescanHeight( 50 )
         {}
 
     DispCorControl( const DispCorControl &dispCorControl ) :
         fittingFunction( dispCorControl.fittingFunction ),
-        order( dispCorControl.order ),
-        searchRadius( dispCorControl.searchRadius ),
         fwhm( dispCorControl.fwhm ),
-        radiusXCor( dispCorControl.radiusXCor ),
         lengthPieces( dispCorControl.lengthPieces ),
+        maxDistance( dispCorControl.maxDistance ),
+        minDistanceLines( dispCorControl.minDistanceLines ),
         minPercentageOfLines( dispCorControl.minPercentageOfLines ),
         nCalcs( dispCorControl.nCalcs ),
-        stretchMinLength( dispCorControl.stretchMinLength ),
-        stretchMaxLength( dispCorControl.stretchMaxLength ),
-        nStretches( dispCorControl.nStretches ),
-        verticalPrescanHeight( dispCorControl.verticalPrescanHeight ),
-        sigmaReject(dispCorControl.sigmaReject),
         nIterReject(dispCorControl.nIterReject),
-        maxDistance(dispCorControl.maxDistance)
+        nStretches( dispCorControl.nStretches ),
+        order( dispCorControl.order ),
+        percentageOfLinesForCheck(dispCorControl.percentageOfLinesForCheck),
+        radiusXCor( dispCorControl.radiusXCor ),
+        searchRadius( dispCorControl.searchRadius ),
+        sigmaReject(dispCorControl.sigmaReject),
+        stretchMaxLength( dispCorControl.stretchMaxLength ),
+        stretchMinLength( dispCorControl.stretchMinLength ),
+        verticalPrescanHeight( dispCorControl.verticalPrescanHeight )
     {}
         
     ~DispCorControl() {}
