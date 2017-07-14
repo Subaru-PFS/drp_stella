@@ -61,8 +61,6 @@ class testDRPTestCase(tests.TestCase):
                 "visit=%d" % (self.arcVisit),
                 "--wLenFile",
                 "%s" % (self.wLenFile),
-                "--lineList",
-                "%s" % (self.lineList),
                 "--loglevel",
                 "%s" % (logLevel),
                 "--calib",
