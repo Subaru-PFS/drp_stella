@@ -51,11 +51,12 @@ class SpectraTestCase(tests.TestCase):
 
         self.nFiberTraces = 11
         self.nRowsPrescan = 49
+        self.minPercentageOfLines = 66.7
 
         # These values are measured values which are otherwise poorly justified.
         # They serve as a regression test to make sure that changes in the code
         # didn't make it worse.
-        self.maxRMS = 0.06
+        self.maxRMS = 0.019
         self.maxRMSCheck = 0.18
 
         self.lineList = os.path.join(lsst.utils.getPackageDir('obs_pfs'),'pfs/lineLists/CdHgKrNeXe_red.fits')
@@ -563,6 +564,7 @@ class SpectraTestCase(tests.TestCase):
         self.dispCorControl.order = 5
         self.dispCorControl.searchRadius = 2
         self.dispCorControl.fwhm = 2.6
+        self.dispCorControl.minPercentageOfLines = self.minPercentageOfLines
 
         # read line list
         lineListArr = readLineListFile(self.lineList)
@@ -589,6 +591,8 @@ class SpectraTestCase(tests.TestCase):
             for j in range(wLenLines.shape[0]):
                 wLenLinesArr[j] = wLenLines[j]
             lineListPix = drpStella.createLineList(wLenArr, wLenLinesArr)
+            nLines = lineListPix.shape[0]
+            minGoodLines = int(nLines * self.minPercentageOfLines / 100.0)
 
             maxLines = 0
             for maxDistance in np.arange(0.2,1.5,0.1):
@@ -601,10 +605,15 @@ class SpectraTestCase(tests.TestCase):
                     except Exception as e:
                         message = str.split(str(e.message), "\n")
                         self.assertTrue(False)
-                        # the number 59 is equal to nLines * 2/3, which is the
+                    except:
+                        e = sys.exc_info()[1]
+                        message = str.split(e.message, "\n")
+                        # the number minGoodLines is equal to
+                        # nLines * self.minPercentageOfLines / 100, which is the
                         # minimum number of lines required for a successful
                         # wavelength calibration
-                        expected = "identify: ERROR: less than 59 lines identified"
+                        expected = ("identify: ERROR: less than %d lines identified"
+                                    % (minGoodLines))
                         self.assertEqual(message[0],expected)
                 else:
                     spec.identifyF(drpStella.createLineListFromWLenPix(lineListPix),
