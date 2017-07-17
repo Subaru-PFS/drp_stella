@@ -95,7 +95,7 @@ namespace pfs { namespace drp { namespace stella { namespace math {
     auto xNew_begin = xNew.begin();
     auto coeffs_In_begin = coeffs_In.begin();
     for (ii = I_PolynomialOrder-1; ii >= 0; ii--){
-      for (int i = 0; i < arr_Out.getShape()[0]; ++i)
+      for (int i = 0; i < static_cast<int>(arr_Out.getShape()[0]); ++i)
         *(arr_Out_begin + i) = (*(arr_Out_begin + i)) * (*(xNew_begin + i)) + (*(coeffs_In_begin + ii));
       #ifdef __DEBUG_POLY__
         std::cout << "Poly: I_PolynomialOrder != 0: for (ii = " << ii << "; ii >= 0; ii--) arr_Out set to " << arr_Out << std::endl;
@@ -423,7 +423,7 @@ namespace pfs { namespace drp { namespace stella { namespace math {
       B_HaveMeasureError = true;
       P_D_A1_MeasureErrors.reset();
       P_D_A1_MeasureErrors = *((PTR(ndarray::Array<T, 1, 1>)*)ArgV[I_Pos]);
-      if (P_D_A1_MeasureErrors->getShape()[0] != nDataPoints){
+      if (static_cast<int>(P_D_A1_MeasureErrors->getShape()[0]) != nDataPoints){
         std::string message("pfs::drp::stella::math::CurveFitting::PolyFit: KeyWordSet(MEASURE_ERRORS): ERROR:");
         message += "P_D_A1_MeasureErrors->getShape()[0](=" + std::to_string(P_D_A1_MeasureErrors->getShape()[0]);
         message += ") != nDataPoints(=" + std::to_string(nDataPoints) + ")";
@@ -550,7 +550,7 @@ namespace pfs { namespace drp { namespace stella { namespace math {
     double D_Sum;
     for (int p = 1; p <= 2 * degree; p++){
       D_A1_Z.deep() = D_A1_Z * xNew;
-      if (p < nCoeffs){
+      if (p < static_cast<int>(nCoeffs)){
         D_A1_B[p] = sum(D_A1_WY * D_A1_Z);
       }
       if (B_HaveMeasureError){
@@ -866,7 +866,7 @@ namespace pfs { namespace drp { namespace stella { namespace math {
     }
 
     bool B_DoFit = true;
-    for (i = 0; i < D_A2_CCD_In.getShape()[0]; i++)
+    for (i = 0; i < static_cast<int>(D_A2_CCD_In.getShape()[0]); i++)
     {
       I_ArgPos = 0;
       if (I_KeywordSet_MeasureErrors >= 0){
@@ -1096,7 +1096,7 @@ namespace pfs { namespace drp { namespace stella { namespace math {
     {
       P_I_A1_Mask.reset();
       P_I_A1_Mask = *((PTR(ndarray::Array<lsst::afw::image::MaskPixel, 1, 1>)*)ArgV_In[I_KeywordSet_Mask]);
-      if (P_I_A1_Mask->getShape()[0] != ndata){
+      if (static_cast<int>(P_I_A1_Mask->getShape()[0]) != ndata){
         std::string message("pfs::drp::stella::math::CurveFitting::LinFitBevingtonNdArray: ERROR: P_I_A1_Mask->getShape()[0](=");
         message += std::to_string(P_I_A1_Mask->getShape()[0]) + ") != ndata(=" + std::to_string(ndata) + ")";
         std::cout << message << std::endl;
@@ -1176,7 +1176,7 @@ namespace pfs { namespace drp { namespace stella { namespace math {
       #ifdef __DEBUG_FIT__
         std::cout << "CFits::LinFitBevington: *P_D_A1_Sig = " << *P_D_A1_Sig << std::endl;
       #endif
-      if (P_D_A1_Sig->getShape()[0] != ndata){
+      if (static_cast<int>(P_D_A1_Sig->getShape()[0]) != ndata){
         std::string message("pfs::drp::stella::math::CurveFitting::LinFitBevingtonNdArray: ERROR: P_D_A1_Sig->size()(=");
         message += std::to_string(P_D_A1_Sig->size()) + ") != ndata(=" + std::to_string(ndata) + ")";
         std::cout << message << std::endl;
@@ -1195,7 +1195,7 @@ namespace pfs { namespace drp { namespace stella { namespace math {
     {
       P_D_A1_YFit.reset();
       P_D_A1_YFit = *(PTR(ndarray::Array<ImageT, 1, 1>)*)ArgV_In[I_KeywordSet_YFitOut];
-      if (P_D_A1_YFit->getShape()[0] != ndata){
+      if (static_cast<int>(P_D_A1_YFit->getShape()[0]) != ndata){
         std::string message("pfs::drp::stella::math::CurveFitting::LinFitBevingtonNdArray: ERROR: P_D_A1_YFit->size()(=");
         message += std::to_string(P_D_A1_YFit->size()) + ") != ndata(=" + std::to_string(ndata) + ")";
         std::cout << message << std::endl;
@@ -1811,7 +1811,7 @@ namespace pfs { namespace drp { namespace stella { namespace math {
       c0 = coeffs_In[coeffs_In.getShape()[0] - 2];
       c1 = coeffs_In[coeffs_In.getShape()[0] - 1];
       std::cout << "chebyshev: c0 = " << c0 << ", c1 = " << c1 << std::endl;
-      for (int i = 3; i <= coeffs_In.getShape()[0]; ++i){
+      for (int i = 3; i <= static_cast<int>(coeffs_In.getShape()[0]); ++i){
         if (i == 3){
           tmp = c0;
           c0 = coeffs_In[coeffs_In.getShape()[0] - i] - c1;
