@@ -99,7 +99,7 @@ class ReduceArcTask(CmdLineTask):
                 raise RuntimeError("Unable to load fiberTrace for %s: %s" % (arcRef.dataId, e))
 
             flatFiberTraceSet = makeFiberTraceSet(fiberTrace)
-            self.log.info('Found %d fibers in fiberTrace calibration file' % flatFiberTraceSet.size())
+            self.log.debug('fiberTrace calibration file contains %d fibers' % flatFiberTraceSet.size())
 
             arcExp = None
             for dataType in ["calexp", "postISRCCD"]:
@@ -178,7 +178,6 @@ class ReduceArcTask(CmdLineTask):
                     wLenLinesArr[j] = wLenLines[j]
                 lineListPix = drpStella.createLineList(wLenArr, wLenLinesArr)
 
-                log.logging.getLogger("pfs::drp::stella::math::createLineList").setLevel(log.DEBUG)
                 try:
                     lineListPix = drpStella.createLineList(wLenArr, wLenLinesArr)
                 except Exception as e:
