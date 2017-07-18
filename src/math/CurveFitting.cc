@@ -632,8 +632,8 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
 
     PTR(Eigen::Array<ImageT, Eigen::Dynamic, 1>) P_D_A1_YFit(new Eigen::Array<ImageT, Eigen::Dynamic, 1>(D_A2_CCD_In.cols()));
     PTR(Eigen::Array<ImageT, Eigen::Dynamic, Eigen::Dynamic>) P_D_A2_YFit(new Eigen::Array<ImageT, Eigen::Dynamic, Eigen::Dynamic>(D_A2_CCD_In.rows(), D_A2_CCD_In.cols()));
-    PTR(Eigen::Array<unsigned short, Eigen::Dynamic, 1>) P_I_A1_Mask(new Eigen::Array<unsigned short, Eigen::Dynamic, 1>(D_A2_CCD_In.cols()));
-    PTR(Eigen::Array<unsigned short, Eigen::Dynamic, Eigen::Dynamic>) P_I_A2_Mask(new Eigen::Array<unsigned short, Eigen::Dynamic, Eigen::Dynamic>(D_A2_CCD_In.rows(), D_A2_CCD_In.cols()));
+    PTR(Eigen::Array<lsst::afw::image::MaskPixel, Eigen::Dynamic, 1>) P_I_A1_Mask(new Eigen::Array<lsst::afw::image::MaskPixel, Eigen::Dynamic, 1>(D_A2_CCD_In.cols()));
+    PTR(Eigen::Array<lsst::afw::image::MaskPixel, Eigen::Dynamic, Eigen::Dynamic>) P_I_A2_Mask(new Eigen::Array<lsst::afw::image::MaskPixel, Eigen::Dynamic, Eigen::Dynamic>(D_A2_CCD_In.rows(), D_A2_CCD_In.cols()));
 
     PTR(Eigen::Array<ImageT, Eigen::Dynamic, 1>) P_D_A1_Sigma(new Eigen::Array<ImageT, Eigen::Dynamic, 1>(D_A2_CCD_In.cols()));
     PTR(Eigen::Array<ImageT, Eigen::Dynamic, 1>) P_D_A1_Sigma_Out(new Eigen::Array<ImageT, Eigen::Dynamic, 1>(2));
@@ -752,7 +752,7 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
     if (I_KeywordSet_Mask >= 0)
     {
       P_I_A2_Mask.reset();
-      P_I_A2_Mask = *((PTR(Eigen::Array<unsigned short, Eigen::Dynamic, Eigen::Dynamic>)*)ArgV_In[I_KeywordSet_Mask]);
+      P_I_A2_Mask = *((PTR(Eigen::Array<lsst::afw::image::MaskPixel, Eigen::Dynamic, Eigen::Dynamic>)*)ArgV_In[I_KeywordSet_Mask]);
       if (P_I_A2_Mask->rows() != D_A2_CCD_In.rows()){
         string message("pfs::drp::stella::math::CurveFitting::LinFitBevingtonEigen: ERROR: P_I_A2_Mask->rows()(=");
         message += to_string(P_I_A2_Mask->rows()) +") != D_A2_CCD_In.rows()(=" + to_string(D_A2_CCD_In.rows()) + ")";
@@ -1083,17 +1083,17 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
       I_ArgPos++;
     }
 
-    ndarray::Array<unsigned short, 1, 1> I_A1_Mask = ndarray::allocate(D_A2_CCD_In.getShape()[1]);
-    PTR(ndarray::Array<unsigned short, 1, 1>) P_I_A1_Mask(new ndarray::Array<unsigned short, 1, 1>(I_A1_Mask));
+    ndarray::Array<lsst::afw::image::MaskPixel, 1, 1> I_A1_Mask = ndarray::allocate(D_A2_CCD_In.getShape()[1]);
+    PTR(ndarray::Array<lsst::afw::image::MaskPixel, 1, 1>) P_I_A1_Mask(new ndarray::Array<lsst::afw::image::MaskPixel, 1, 1>(I_A1_Mask));
 
-    ndarray::Array<unsigned short, 2, 1> I_A2_Mask = ndarray::allocate(D_A2_CCD_In.getShape()[0], D_A2_CCD_In.getShape()[1]);
+    ndarray::Array<lsst::afw::image::MaskPixel, 2, 1> I_A2_Mask = ndarray::allocate(D_A2_CCD_In.getShape()[0], D_A2_CCD_In.getShape()[1]);
     I_A2_Mask.deep() = 1;
-    PTR(ndarray::Array<unsigned short, 2, 1>) P_I_A2_Mask(new ndarray::Array<unsigned short, 2, 1>(I_A2_Mask));
+    PTR(ndarray::Array<lsst::afw::image::MaskPixel, 2, 1>) P_I_A2_Mask(new ndarray::Array<lsst::afw::image::MaskPixel, 2, 1>(I_A2_Mask));
     I_KeywordSet_Mask = pfs::drp::stella::utils::KeyWord_Set(S_A1_Args_In, "MASK_INOUT");
     if (I_KeywordSet_Mask >= 0)
     {
       P_I_A2_Mask.reset();
-      P_I_A2_Mask = *((PTR(ndarray::Array<unsigned short, 2, 1>)*)ArgV_In[I_KeywordSet_Mask]);
+      P_I_A2_Mask = *((PTR(ndarray::Array<lsst::afw::image::MaskPixel, 2, 1>)*)ArgV_In[I_KeywordSet_Mask]);
       if (P_I_A2_Mask->getShape()[0] != D_A2_CCD_In.getShape()[0]){
         string message("pfs::drp::stella::math::CurveFitting::LinFitBevingtonNdArray: ERROR: D_A2_CCD_In.getShape()[0](=");
         message += to_string(D_A2_CCD_In.getShape()[0]) + ") != P_I_A2_Mask->getShape()[0](=" + to_string(P_I_A2_Mask->getShape()[0]) + ")";
@@ -1323,14 +1323,14 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
     if (D_Reject > 0.)
       B_Reject = true;
 
-    PTR(Eigen::Array<unsigned short, Eigen::Dynamic, 1>) P_I_A1_Mask(new Eigen::Array<unsigned short, Eigen::Dynamic, 1>(D_A1_CCD_In.size()));
-    Eigen::Array<unsigned short, Eigen::Dynamic, 1> I_A1_Mask_Orig(D_A1_CCD_In.size());
+    PTR(Eigen::Array<lsst::afw::image::MaskPixel, Eigen::Dynamic, 1>) P_I_A1_Mask(new Eigen::Array<lsst::afw::image::MaskPixel, Eigen::Dynamic, 1>(D_A1_CCD_In.size()));
+    Eigen::Array<lsst::afw::image::MaskPixel, Eigen::Dynamic, 1> I_A1_Mask_Orig(D_A1_CCD_In.size());
     P_I_A1_Mask->setConstant(1);
     I_KeywordSet_Mask = pfs::drp::stella::utils::KeyWord_Set(S_A1_Args_In, "MASK_INOUT");
     if (I_KeywordSet_Mask >= 0)
     {
       P_I_A1_Mask.reset();
-      P_I_A1_Mask = *((PTR(Eigen::Array<unsigned short, Eigen::Dynamic, 1>)*)ArgV_In[I_KeywordSet_Mask]);
+      P_I_A1_Mask = *((PTR(Eigen::Array<lsst::afw::image::MaskPixel, Eigen::Dynamic, 1>)*)ArgV_In[I_KeywordSet_Mask]);
       if (P_I_A1_Mask->size() != D_A1_CCD_In.size()){
         string message("pfs::drp::stella::math::CurveFitting::LinFitBevingtonEigen: ERROR: P_I_A1_Mask->size()(=");
         message += to_string(P_I_A1_Mask->size()) + ") != D_A1_CCD_In.size()(=" + to_string(D_A1_CCD_In.size()) + ")";
@@ -1440,7 +1440,7 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
     int I_SumMaskLast;
     ImageT D_SDevReject;
     Eigen::Array<ImageT, Eigen::Dynamic, 1> D_A1_Check(D_A1_CCD_In.size());
-    Eigen::Array<unsigned short, Eigen::Dynamic, 1> I_A1_LastMask(P_I_A1_Mask->size());
+    Eigen::Array<lsst::afw::image::MaskPixel, Eigen::Dynamic, 1> I_A1_LastMask(P_I_A1_Mask->size());
     Eigen::Array<ImageT, Eigen::Dynamic, 1> D_A1_Diff(D_A1_CCD_In.size());
     D_A1_Diff.setConstant(0.);
     ImageT D_Sum_Weights = 0.;
@@ -1829,15 +1829,15 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
     if (D_Reject > 0.)
       B_Reject = true;
 
-    ndarray::Array<unsigned short, 1, 1> I_A1_Mask_Orig = ndarray::allocate(ndata);
-    ndarray::Array<unsigned short, 1, 1> I_A1_Mask = ndarray::allocate(ndata);
+    ndarray::Array<lsst::afw::image::MaskPixel, 1, 1> I_A1_Mask_Orig = ndarray::allocate(ndata);
+    ndarray::Array<lsst::afw::image::MaskPixel, 1, 1> I_A1_Mask = ndarray::allocate(ndata);
     I_A1_Mask.deep() = 1;
-    PTR(ndarray::Array<unsigned short, 1, 1>) P_I_A1_Mask(new ndarray::Array<unsigned short, 1, 1>(I_A1_Mask));
+    PTR(ndarray::Array<lsst::afw::image::MaskPixel, 1, 1>) P_I_A1_Mask(new ndarray::Array<lsst::afw::image::MaskPixel, 1, 1>(I_A1_Mask));
     I_KeywordSet_Mask = pfs::drp::stella::utils::KeyWord_Set(S_A1_Args_In, "MASK_INOUT");
     if (I_KeywordSet_Mask >= 0)
     {
       P_I_A1_Mask.reset();
-      P_I_A1_Mask = *((PTR(ndarray::Array<unsigned short, 1, 1>)*)ArgV_In[I_KeywordSet_Mask]);
+      P_I_A1_Mask = *((PTR(ndarray::Array<lsst::afw::image::MaskPixel, 1, 1>)*)ArgV_In[I_KeywordSet_Mask]);
       if (P_I_A1_Mask->getShape()[0] != ndata){
         string message("pfs::drp::stella::math::CurveFitting::LinFitBevingtonNdArray: ERROR: P_I_A1_Mask->getShape()[0](=");
         message += to_string(P_I_A1_Mask->getShape()[0]) + ") != ndata(=" + to_string(ndata) + ")";
@@ -1965,7 +1965,7 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
     int I_SumMaskLast;
     ImageT D_SDevReject;
     ndarray::Array<ImageT, 1, 1> D_A1_Check = ndarray::allocate(ndata);
-    ndarray::Array<unsigned short, 1, 1> I_A1_LastMask = ndarray::allocate(P_I_A1_Mask->getShape()[0]);
+    ndarray::Array<lsst::afw::image::MaskPixel, 1, 1> I_A1_LastMask = ndarray::allocate(P_I_A1_Mask->getShape()[0]);
     ndarray::Array<ImageT, 1, 1> D_A1_Diff = ndarray::allocate(ndata);
     D_A1_Diff.deep() = 0.;
     ImageT D_Sum_Weights = 0.;

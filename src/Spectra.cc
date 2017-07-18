@@ -4,8 +4,8 @@ namespace pfsDRPStella = pfs::drp::stella;
 
 /** @brief Construct a Spectrum with empty vectors of specified size (default 0)
  */
-template<typename SpectrumT, typename MaskT, typename VarianceT, typename WavelengthT>
-pfsDRPStella::Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>::Spectrum(size_t length,
+template<typename ImageT, typename MaskT, typename VarianceT, typename WavelengthT>
+pfsDRPStella::Spectrum<ImageT, MaskT, VarianceT, WavelengthT>::Spectrum(size_t length,
                                                                            size_t iTrace )
   : _length(length),
     _mask(length, 1),
@@ -33,13 +33,13 @@ pfsDRPStella::Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>::Spectrum(size_
   _nCCDRows = length;
 }
 
-template class pfsDRPStella::Spectrum<float, unsigned short, float, float>;
-template class pfsDRPStella::Spectrum<double, unsigned short, float, float>;
-template class pfsDRPStella::Spectrum<float, unsigned short, double, double>;
-template class pfsDRPStella::Spectrum<double, unsigned short, double, double>;
+template class pfsDRPStella::Spectrum<float, lsst::afw::image::MaskPixel, float, float>;
+template class pfsDRPStella::Spectrum<double, lsst::afw::image::MaskPixel, float, float>;
+template class pfsDRPStella::Spectrum<float, lsst::afw::image::MaskPixel, double, double>;
+template class pfsDRPStella::Spectrum<double, lsst::afw::image::MaskPixel, double, double>;
 
-template<typename SpectrumT, typename MaskT, typename VarianceT, typename WavelengthT>
-bool pfsDRPStella::Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>::setSky( ndarray::Array<SpectrumT, 1, 1> const& sky )
+template<typename ImageT, typename MaskT, typename VarianceT, typename WavelengthT>
+void pfsDRPStella::Spectrum<ImageT, MaskT, VarianceT, WavelengthT>::setSky( ndarray::Array<ImageT, 1, 1> const& sky )
 {
   /// Check length of input spectrum
   if (static_cast<size_t>(sky.getShape()[0]) != _length){
@@ -48,14 +48,13 @@ bool pfsDRPStella::Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>::setSky( n
     throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
   }
   _sky.deep() = sky;
-  return true;
 }
 
-template bool pfsDRPStella::Spectrum< double, unsigned short, float, float >::setSky( ndarray::Array< double, 1, 1 > const& );
-template bool pfsDRPStella::Spectrum< float, unsigned short, float, float >::setSky( ndarray::Array< float, 1, 1 > const& );
+template void pfsDRPStella::Spectrum< double, lsst::afw::image::MaskPixel, float, float >::setSky( ndarray::Array< double, 1, 1 > const& );
+template void pfsDRPStella::Spectrum< float, lsst::afw::image::MaskPixel, float, float >::setSky( ndarray::Array< float, 1, 1 > const& );
 
-template<typename SpectrumT, typename MaskT, typename VarianceT, typename WavelengthT>
-bool pfsDRPStella::Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>::setWavelength( ndarray::Array< WavelengthT, 1, 1 > const& wavelength )
+template<typename ImageT, typename MaskT, typename VarianceT, typename WavelengthT>
+void pfsDRPStella::Spectrum<ImageT, MaskT, VarianceT, WavelengthT>::setWavelength( ndarray::Array< WavelengthT, 1, 1 > const& wavelength )
 {
   /// Check length of input wavelength
   if (static_cast<size_t>(wavelength.getShape()[0]) != _length){
@@ -64,14 +63,13 @@ bool pfsDRPStella::Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>::setWavele
     throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
   }
   _wavelength.deep() = wavelength;
-  return true;
 }
 
-template bool pfsDRPStella::Spectrum< double, unsigned short, float, float >::setWavelength( ndarray::Array< float, 1, 1 > const& );
-template bool pfsDRPStella::Spectrum< float, unsigned short, float, float >::setWavelength( ndarray::Array< float, 1, 1 > const& );
+template void pfsDRPStella::Spectrum< double, lsst::afw::image::MaskPixel, float, float >::setWavelength( ndarray::Array< float, 1, 1 > const& );
+template void pfsDRPStella::Spectrum< float, lsst::afw::image::MaskPixel, float, float >::setWavelength( ndarray::Array< float, 1, 1 > const& );
 
-template<typename SpectrumT, typename MaskT, typename VarianceT, typename WavelengthT>
-bool pfsDRPStella::Spectrum< SpectrumT, MaskT, VarianceT, WavelengthT >::setDispersion( ndarray::Array< WavelengthT, 1, 1 > const& dispersion )
+template<typename ImageT, typename MaskT, typename VarianceT, typename WavelengthT>
+void pfsDRPStella::Spectrum< ImageT, MaskT, VarianceT, WavelengthT >::setDispersion( ndarray::Array< WavelengthT, 1, 1 > const& dispersion )
 {
   /// Check length of input wavelength
   if (static_cast<size_t>(dispersion.getShape()[0]) != _length ){
@@ -80,34 +78,33 @@ bool pfsDRPStella::Spectrum< SpectrumT, MaskT, VarianceT, WavelengthT >::setDisp
     throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
   }
   _dispersion.deep() = dispersion;
-  return true;
 }
 
-template bool pfsDRPStella::Spectrum< double, unsigned short, float, float >::setDispersion( ndarray::Array< float, 1, 1 > const& );
-template bool pfsDRPStella::Spectrum< float, unsigned short, float, float >::setDispersion( ndarray::Array< float, 1, 1 > const& );
+template void pfsDRPStella::Spectrum< double, lsst::afw::image::MaskPixel, float, float >::setDispersion( ndarray::Array< float, 1, 1 > const& );
+template void pfsDRPStella::Spectrum< float, lsst::afw::image::MaskPixel, float, float >::setDispersion( ndarray::Array< float, 1, 1 > const& );
 
 ///SpectrumSet
-template<typename SpectrumT, typename MaskT, typename VarianceT, typename WavelengthT>
-pfsDRPStella::SpectrumSet<SpectrumT, MaskT, VarianceT, WavelengthT>::SpectrumSet( size_t nSpectra, size_t length )
-        : _spectra( new std::vector< PTR( Spectrum< SpectrumT, MaskT, VarianceT, WavelengthT > ) >() )
+template<typename ImageT, typename MaskT, typename VarianceT, typename WavelengthT>
+pfsDRPStella::SpectrumSet<ImageT, MaskT, VarianceT, WavelengthT>::SpectrumSet( size_t nSpectra, size_t length )
+        : _spectra( new std::vector< PTR( Spectrum< ImageT, MaskT, VarianceT, WavelengthT > ) >() )
 {
   for (size_t i = 0; i < nSpectra; ++i){
-    PTR(pfsDRPStella::Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>) spec( new pfsDRPStella::Spectrum<SpectrumT, MaskT, VarianceT, WavelengthT>( length, i ) );
+    PTR(pfsDRPStella::Spectrum<ImageT, MaskT, VarianceT, WavelengthT>) spec( new pfsDRPStella::Spectrum<ImageT, MaskT, VarianceT, WavelengthT>( length, i ) );
     _spectra->push_back(spec);
   }
 }
 
-template<typename SpectrumT, typename MaskT, typename VarianceT, typename WavelengthT>
-pfsDRPStella::SpectrumSet<SpectrumT, MaskT, VarianceT, WavelengthT>::SpectrumSet( PTR( std::vector< PTR( Spectrum< SpectrumT, MaskT, VarianceT, WavelengthT> ) > ) const& spectrumVector )
-        : _spectra( new std::vector< PTR( Spectrum< SpectrumT, MaskT, VarianceT, WavelengthT > ) >() )
+template<typename ImageT, typename MaskT, typename VarianceT, typename WavelengthT>
+pfsDRPStella::SpectrumSet<ImageT, MaskT, VarianceT, WavelengthT>::SpectrumSet( std::vector< PTR( Spectrum< ImageT, MaskT, VarianceT, WavelengthT> > ) const& spectrumVector )
+        : _spectra( new std::vector< PTR( Spectrum< ImageT, MaskT, VarianceT, WavelengthT > ) >() )
 {
-  for (size_t i = 0; i < spectrumVector->size(); ++i){
-    _spectra->push_back( spectrumVector->at(i) );
+  for (size_t i = 0; i < spectrumVector.size(); ++i){
+    _spectra->push_back( spectrumVector.at(i) );
   }
 }
 
-template<typename SpectrumT, typename MaskT, typename VarianceT, typename WavelengthT>
-ndarray::Array< float, 2, 1 > pfsDRPStella::SpectrumSet<SpectrumT, MaskT, VarianceT, WavelengthT>::getAllFluxes() const{
+template<typename ImageT, typename MaskT, typename VarianceT, typename WavelengthT>
+ndarray::Array< float, 2, 1 > pfsDRPStella::SpectrumSet<ImageT, MaskT, VarianceT, WavelengthT>::getAllFluxes() const{
   int nFibers = int( size() );
   int nCCDRows = getSpectrum( 0 )->getNCCDRows();
   /// allocate memory for the array
@@ -116,7 +113,7 @@ ndarray::Array< float, 2, 1 > pfsDRPStella::SpectrumSet<SpectrumT, MaskT, Varian
   flux.deep() = 0.;
 
   for ( int iFiber = 0; iFiber < _spectra->size(); ++iFiber ){
-    PTR( pfs::drp::stella::Spectrum< SpectrumT, MaskT, VarianceT, WavelengthT > ) spectrum = _spectra->at( iFiber );
+    PTR( pfs::drp::stella::Spectrum< ImageT, MaskT, VarianceT, WavelengthT > ) spectrum = _spectra->at( iFiber );
 
     int yLow = spectrum->getYLow();
     int yHigh = spectrum->getYHigh();
@@ -133,8 +130,8 @@ ndarray::Array< float, 2, 1 > pfsDRPStella::SpectrumSet<SpectrumT, MaskT, Varian
   return flux;
 }
 
-template<typename SpectrumT, typename MaskT, typename VarianceT, typename WavelengthT>
-ndarray::Array< float, 2, 1 > pfsDRPStella::SpectrumSet<SpectrumT, MaskT, VarianceT, WavelengthT>::getAllWavelengths() const{
+template<typename ImageT, typename MaskT, typename VarianceT, typename WavelengthT>
+ndarray::Array< float, 2, 1 > pfsDRPStella::SpectrumSet<ImageT, MaskT, VarianceT, WavelengthT>::getAllWavelengths() const{
   int nFibers = int( size() );
   int nCCDRows = getSpectrum( 0 )->getNCCDRows();
   /// allocate memory for the array
@@ -143,7 +140,7 @@ ndarray::Array< float, 2, 1 > pfsDRPStella::SpectrumSet<SpectrumT, MaskT, Varian
   lambda.deep() = 0.;
 
   for ( int iFiber = 0; iFiber < _spectra->size(); ++iFiber ){
-    PTR( pfs::drp::stella::Spectrum< SpectrumT, MaskT, VarianceT, WavelengthT > ) spectrum = _spectra->at( iFiber );
+    PTR( pfs::drp::stella::Spectrum< ImageT, MaskT, VarianceT, WavelengthT > ) spectrum = _spectra->at( iFiber );
 
     int yLow = spectrum->getYLow();
     int yHigh = spectrum->getYHigh();
@@ -160,8 +157,8 @@ ndarray::Array< float, 2, 1 > pfsDRPStella::SpectrumSet<SpectrumT, MaskT, Varian
   return lambda;
 }
 
-template<typename SpectrumT, typename MaskT, typename VarianceT, typename WavelengthT>
-ndarray::Array< float, 2, 1 > pfsDRPStella::SpectrumSet<SpectrumT, MaskT, VarianceT, WavelengthT>::getAllDispersions() const{
+template<typename ImageT, typename MaskT, typename VarianceT, typename WavelengthT>
+ndarray::Array< float, 2, 1 > pfsDRPStella::SpectrumSet<ImageT, MaskT, VarianceT, WavelengthT>::getAllDispersions() const{
   int nFibers = int( size() );
   int nCCDRows = getSpectrum( 0 )->getNCCDRows();
   /// allocate memory for the array
@@ -170,7 +167,7 @@ ndarray::Array< float, 2, 1 > pfsDRPStella::SpectrumSet<SpectrumT, MaskT, Varian
   dispersion.deep() = 0.;
 
   for ( int iFiber = 0; iFiber < _spectra->size(); ++iFiber ){
-    PTR( pfs::drp::stella::Spectrum< SpectrumT, MaskT, VarianceT, WavelengthT > ) spectrum = _spectra->at( iFiber );
+    PTR( pfs::drp::stella::Spectrum< ImageT, MaskT, VarianceT, WavelengthT > ) spectrum = _spectra->at( iFiber );
 
     int yLow = spectrum->getYLow();
     int yHigh = spectrum->getYHigh();
@@ -187,8 +184,8 @@ ndarray::Array< float, 2, 1 > pfsDRPStella::SpectrumSet<SpectrumT, MaskT, Varian
   return dispersion;
 }
 
-template<typename SpectrumT, typename MaskT, typename VarianceT, typename WavelengthT>
-ndarray::Array< int, 2, 1 > pfsDRPStella::SpectrumSet<SpectrumT, MaskT, VarianceT, WavelengthT>::getAllMasks() const{
+template<typename ImageT, typename MaskT, typename VarianceT, typename WavelengthT>
+ndarray::Array< int, 2, 1 > pfsDRPStella::SpectrumSet<ImageT, MaskT, VarianceT, WavelengthT>::getAllMasks() const{
   int nFibers = int( size() );
   int nCCDRows = getSpectrum( 0 )->getNCCDRows();
   /// allocate memory for the array
@@ -197,7 +194,7 @@ ndarray::Array< int, 2, 1 > pfsDRPStella::SpectrumSet<SpectrumT, MaskT, Variance
   mask.deep() = 0.;
 
   for ( int iFiber = 0; iFiber < _spectra->size(); ++iFiber ){
-    PTR( pfs::drp::stella::Spectrum< SpectrumT, MaskT, VarianceT, WavelengthT > ) spectrum = _spectra->at( iFiber );
+    PTR( pfs::drp::stella::Spectrum< ImageT, MaskT, VarianceT, WavelengthT > ) spectrum = _spectra->at( iFiber );
 
     int yLow = spectrum->getYLow();
     int yHigh = spectrum->getYHigh();
@@ -212,8 +209,8 @@ ndarray::Array< int, 2, 1 > pfsDRPStella::SpectrumSet<SpectrumT, MaskT, Variance
   return mask;
 }
 
-template<typename SpectrumT, typename MaskT, typename VarianceT, typename WavelengthT>
-ndarray::Array< float, 2, 1 > pfsDRPStella::SpectrumSet<SpectrumT, MaskT, VarianceT, WavelengthT>::getAllSkies() const{
+template<typename ImageT, typename MaskT, typename VarianceT, typename WavelengthT>
+ndarray::Array< float, 2, 1 > pfsDRPStella::SpectrumSet<ImageT, MaskT, VarianceT, WavelengthT>::getAllSkies() const{
   int nFibers = int( size() );
   int nCCDRows = getSpectrum( 0 )->getNCCDRows();
   /// allocate memory for the array
@@ -222,7 +219,7 @@ ndarray::Array< float, 2, 1 > pfsDRPStella::SpectrumSet<SpectrumT, MaskT, Varian
   sky.deep() = 0.;
 
   for ( int iFiber = 0; iFiber < _spectra->size(); ++iFiber ){
-    PTR( pfs::drp::stella::Spectrum< SpectrumT, MaskT, VarianceT, WavelengthT > ) spectrum = _spectra->at( iFiber );
+    PTR( pfs::drp::stella::Spectrum< ImageT, MaskT, VarianceT, WavelengthT > ) spectrum = _spectra->at( iFiber );
 
     int yLow = spectrum->getYLow();
     int yHigh = spectrum->getYHigh();
@@ -239,8 +236,8 @@ ndarray::Array< float, 2, 1 > pfsDRPStella::SpectrumSet<SpectrumT, MaskT, Varian
   return sky;
 }
 
-template<typename SpectrumT, typename MaskT, typename VarianceT, typename WavelengthT>
-ndarray::Array< float, 2, 1 > pfsDRPStella::SpectrumSet<SpectrumT, MaskT, VarianceT, WavelengthT>::getAllVariances() const{
+template<typename ImageT, typename MaskT, typename VarianceT, typename WavelengthT>
+ndarray::Array< float, 2, 1 > pfsDRPStella::SpectrumSet<ImageT, MaskT, VarianceT, WavelengthT>::getAllVariances() const{
   int nFibers = int( size() );
   int nCCDRows = getSpectrum( 0 )->getNCCDRows();
   /// allocate memory for the array
@@ -249,7 +246,7 @@ ndarray::Array< float, 2, 1 > pfsDRPStella::SpectrumSet<SpectrumT, MaskT, Varian
   var.deep() = 0.;
 
   for ( int iFiber = 0; iFiber < _spectra->size(); ++iFiber ){
-    PTR( pfs::drp::stella::Spectrum< SpectrumT, MaskT, VarianceT, WavelengthT > ) spectrum = _spectra->at( iFiber );
+    PTR( pfs::drp::stella::Spectrum< ImageT, MaskT, VarianceT, WavelengthT > ) spectrum = _spectra->at( iFiber );
 
     int yLow = spectrum->getYLow();
     int yHigh = spectrum->getYHigh();
@@ -266,8 +263,8 @@ ndarray::Array< float, 2, 1 > pfsDRPStella::SpectrumSet<SpectrumT, MaskT, Varian
   return var;
 }
 
-template<typename SpectrumT, typename MaskT, typename VarianceT, typename WavelengthT>
-ndarray::Array< float, 3, 1 > pfsDRPStella::SpectrumSet<SpectrumT, MaskT, VarianceT, WavelengthT>::getAllCovars() const{
+template<typename ImageT, typename MaskT, typename VarianceT, typename WavelengthT>
+ndarray::Array< float, 3, 1 > pfsDRPStella::SpectrumSet<ImageT, MaskT, VarianceT, WavelengthT>::getAllCovars() const{
   int nFibers = int( size() );
   int nCCDRows = getSpectrum( 0 )->getNCCDRows();
   /// allocate memory for the array
@@ -276,7 +273,7 @@ ndarray::Array< float, 3, 1 > pfsDRPStella::SpectrumSet<SpectrumT, MaskT, Varian
   covar.deep() = 0.;
 
   for ( int iFiber = 0; iFiber < _spectra->size(); ++iFiber ){
-    PTR( pfs::drp::stella::Spectrum< SpectrumT, MaskT, VarianceT, WavelengthT > ) spectrum = _spectra->at( iFiber );
+    PTR( pfs::drp::stella::Spectrum< ImageT, MaskT, VarianceT, WavelengthT > ) spectrum = _spectra->at( iFiber );
 
     int yLow = spectrum->getYLow();
     int yHigh = spectrum->getYHigh();
@@ -295,10 +292,10 @@ ndarray::Array< float, 3, 1 > pfsDRPStella::SpectrumSet<SpectrumT, MaskT, Varian
   return covar;
 }
 
-template class pfsDRPStella::SpectrumSet<float, unsigned short, float, float>;
-template class pfsDRPStella::SpectrumSet<double, unsigned short, float, float>;
-template class pfsDRPStella::SpectrumSet<float, unsigned short, float, double>;
-template class pfsDRPStella::SpectrumSet<double, unsigned short, float, double>;
+template class pfsDRPStella::SpectrumSet<float, lsst::afw::image::MaskPixel, float, float>;
+template class pfsDRPStella::SpectrumSet<double, lsst::afw::image::MaskPixel, float, float>;
+template class pfsDRPStella::SpectrumSet<float, lsst::afw::image::MaskPixel, float, double>;
+template class pfsDRPStella::SpectrumSet<double, lsst::afw::image::MaskPixel, float, double>;
 
 namespace pfs { namespace drp { namespace stella { namespace math {
 

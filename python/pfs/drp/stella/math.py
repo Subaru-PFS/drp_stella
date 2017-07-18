@@ -70,13 +70,12 @@ def getDistTraceProfRec(fiberTraceSet):
                                             ftfc.nPixCutRight)
         for row in range(ft.getHeight()):
             for col in range(ft.getWidth()):
-                distanceFromCenterRatio[iRow * width + col, :] = [(minCenMax[row, 0]
-                                                                   + col
-                                                                   - xCenters[row]
-                                                                   + drpStella.PIXEL_CENTER),
-                                                                  orig[row, col],
-                                                                  prof[row, col],
-                                                                  rec[row, col]]
+                distanceFromCenterRatio[iRow * width + col, :] = [
+                    (minCenMax[row, 0] + col - xCenters[row]),
+                    orig[row, col],
+                    prof[row, col],
+                    rec[row, col]
+                ]
             iRow += 1
     distanceFromCenterRatio = distanceFromCenterRatio[distanceFromCenterRatio[:,0].argsort()]
     return distanceFromCenterRatio

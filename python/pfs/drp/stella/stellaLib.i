@@ -13,6 +13,7 @@ Interface to Stella
 #define PY_ARRAY_UNIQUE_SYMBOL PFS_DRP_STELLA_NUMPY_ARRAY_API
 #include "numpy/arrayobject.h"
 #include "ndarray/swig.h"
+#include "lsst/log/Log.h"
 #include "lsst/afw.h"
 #include "lsst/afw/image/MaskedImage.h"
 #include <vector>
@@ -23,7 +24,7 @@ Interface to Stella
 #include "pfs/drp/stella/Controls.h"
 #include "pfs/drp/stella/Spectra.h"
 #include "ndarray/Array.h"
-#include "ndarray/swig/eigen.h"
+#include "ndarray/converter/eigen.h"
 %}
 
 %include "ndarray.i"

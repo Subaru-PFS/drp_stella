@@ -102,17 +102,16 @@ class SpectraTestCase(tests.TestCase):
 
         # Test setSpectrum
         # Test that we can assign a spectrum of the correct length
-        vecf = drpStella.indGenNdArrF(size)
-        self.assertTrue(spec.setSpectrum(vecf))
+        vecf = np.arange(size, dtype=np.float32)
+        spec.setSpectrum(vecf)
         self.assertEqual(spec.getSpectrum()[3], vecf[3])
 
         # Test that we can't assign a spectrum of the wrong length
-        vecf = drpStella.indGenNdArrF(size+1)
+        vecf = np.arange(size + 1, dtype=np.float32)
         try:
             spec.setSpectrum(vecf)
-        except:
-            e = sys.exc_info()[1]
-            message = str.split(e.message, "\n")
+        except Exception as e:
+            message = str.split(str(e.message), "\n")
             expected = "pfs::drp::stella::Spectrum::setSpectrum: ERROR: spectrum->size()="+str(vecf.shape[0])+" != _length="+str(spec.getLength())
             self.assertEqual(message[0],expected)
         self.assertEqual(spec.getSpectrum().shape[0], size)
@@ -123,17 +122,16 @@ class SpectraTestCase(tests.TestCase):
 
         # Test setVariance
         # Test that we can assign a variance vector of the correct length
-        vecf = drpStella.indGenNdArrF(size)
-        self.assertTrue(spec.setVariance(vecf))
+        vecf = np.arange(size, dtype=np.float32)
+        spec.setVariance(vecf)
         self.assertEqual(spec.getVariance()[3], vecf[3])
 
         # Test that we can't assign a variance vector of the wrong length
-        vecf = drpStella.indGenNdArrF(size+1)
+        vecf = np.arange(size + 1, dtype=np.float32)
         try:
             self.assertFalse(spec.setVariance(vecf))
-        except:
-            e = sys.exc_info()[1]
-            message = str.split(e.message, "\n")
+        except Exception as e:
+            message = str.split(str(e.message), "\n")
             expected = "pfs::drp::stella::Spectrum::setVariance: ERROR: variance->size()="+str(vecf.shape[0])+" != _length="+str(spec.getLength())
             self.assertEqual(message[0],expected)
         self.assertEqual(spec.getVariance().shape[0], size)
@@ -144,17 +142,16 @@ class SpectraTestCase(tests.TestCase):
 
         # Test setWavelength
         # Test that we can assign a wavelength vector of the correct length
-        vecf = drpStella.indGenNdArrF(size)
-        self.assertTrue(spec.setWavelength(vecf))
+        vecf = np.arange(size, dtype=np.float32)
+        spec.setWavelength(vecf)
         self.assertEqual(spec.getWavelength()[3], vecf[3])
 
         # Test that we can't assign a wavelength vector of the wrong length
-        vecf = drpStella.indGenNdArrF(size+1)
+        vecf = np.arange(size + 1, dtype=np.float32)
         try:
             self.assertFalse(spec.setWavelength(vecf))
-        except:
-            e = sys.exc_info()[1]
-            message = str.split(e.message, "\n")
+        except Exception as e:
+            message = str.split(str(e.message), "\n")
             expected = "pfsDRPStella::Spectrum::setWavelength: ERROR: wavelength->size()="+str(vecf.shape[0])+" != _length="+str(spec.getLength())
             self.assertEqual(message[0],expected)
         self.assertEqual(spec.getWavelength().shape[0], size)
@@ -165,16 +162,15 @@ class SpectraTestCase(tests.TestCase):
 
         # Test setMask
         # Test that we can assign a mask vector of the correct length
-        vecf = afwImage.MaskU(size, 1)
-        self.assertTrue(spec.setMask(vecf))
+        vecf = afwImage.Mask(size, 1)
+        spec.setMask(vecf)
 
         # Test that we can't assign a mask vector of the wrong length
-        vecus = afwImage.MaskU(size+1, 1)
+        vecus = afwImage.Mask(size+1, 1)
         try:
             self.assertFalse(spec.setMask(vecus))
-        except:
-            e = sys.exc_info()[1]
-            message = str.split(e.message, "\n")
+        except Exception as e:
+            message = str.split(str(e.message), "\n")
             expected = "pfs::drp::stella::Spectrum::setMask: ERROR: mask.getWidth()="+str(vecus.getWidth())+" != _length="+str(spec.getLength())
             self.assertEqual(message[0],expected)
         self.assertEqual(spec.getMask().getWidth(), size)
@@ -184,9 +180,9 @@ class SpectraTestCase(tests.TestCase):
         # otherwise ZEROs are appended to the end of the vectors (last
         # wavelength value for wavelength vector)
         # Test same size
-        vecf = drpStella.indGenNdArrF(size)
-        vecus = drpStella.indGenNdArrUS(size)
-        self.assertTrue(spec.setLength(size))
+        vecf = np.arange(size, dtype=np.float32)
+        vecus = np.arange(size, dtype=np.uint32)
+        spec.setLength(size)
         self.assertEqual(spec.getLength(), size)
         self.assertEqual(spec.getSpectrum()[size-1], vecf[size-1])
         self.assertEqual(spec.getSpectrum().shape[0], size)
@@ -197,7 +193,7 @@ class SpectraTestCase(tests.TestCase):
         self.assertEqual(spec.getWavelength()[size-1], vecf[size-1])
 
         # Test longer size
-        self.assertTrue(spec.setLength(size+1))
+        spec.setLength(size+1)
         self.assertEqual(spec.getLength(), size+1)
         self.assertEqual(spec.getSpectrum()[size], 0)
         self.assertEqual(spec.getSpectrum().shape[0], size+1)
@@ -208,7 +204,7 @@ class SpectraTestCase(tests.TestCase):
         self.assertAlmostEqual(spec.getWavelength()[size], 0.)
 
         # Test shorter size
-        self.assertTrue(spec.setLength(size-1))
+        spec.setLength(size-1)
         self.assertEqual(spec.getLength(), size-1)
         self.assertEqual(spec.getSpectrum()[size-2], vecf[size-2])
         self.assertEqual(spec.getSpectrum().shape[0], size-1)
@@ -311,23 +307,22 @@ class SpectraTestCase(tests.TestCase):
         # Test that we cannot set a spectrum outside the limits 0 <= pos <= size
         try:
             specSet.setSpectrum(-1, specNew)
-        except:
-            e = sys.exc_info()[1]
-            message = str.split(e.message, "\n")
-            expected = "Wrong number or type of arguments for overloaded function 'SpectrumSetF_setSpectrum'."
+        except Exception as e:
+            message = str.split(str(e.message), "\n")
+            expected = "setSpectrum(): incompatible function arguments." \
+                       " The following argument types are supported:"
             self.assertEqual(message[0],expected)
         try:
             specSet.setSpectrum(size+1, specNew)
-        except:
-            e = sys.exc_info()[1]
-            message = str.split(e.message, "\n")
+        except Exception as e:
+            message = str.split(str(e.message), "\n")
             expected = "SpectrumSet::setSpectrum(i="+str(size+1)+"): ERROR: i > _spectra->size()="+str(size)
             self.assertEqual(message[0],expected)
 
         # Test that we can set/add a spectrum
-        self.assertTrue(specSet.setSpectrum(size-1, specNew))
+        specSet.setSpectrum(size-1, specNew)
         self.assertEqual(specSet.size(), size)
-        self.assertTrue(specSet.setSpectrum(size, specNew))
+        specSet.setSpectrum(size, specNew)
         self.assertEqual(specSet.size(), size+1)
 
         specSet.addSpectrum(specNew)
@@ -337,44 +332,40 @@ class SpectraTestCase(tests.TestCase):
         size = specSet.size()
         try:
             specSet.erase(size)
-        except:
-            e = sys.exc_info()[1]
-            message = str.split(e.message, "\n")
+        except Exception as e:
+            message = str.split(str(e.message), "\n")
             expected = "SpectrumSet::erase(iStart="+str(size)+", iEnd=0): ERROR: iStart >= _spectra->size()="+str(size)
             self.assertEqual(message[0],expected)
 
         try:
             specSet.erase(size-1, size)
-        except:
-            e = sys.exc_info()[1]
-            message = str.split(e.message, "\n")
+        except Exception as e:
+            message = str.split(str(e.message), "\n")
             expected = "SpectrumSet::erase(iStart="+str(size-1)+", iEnd="+str(size)+"): ERROR: iEnd >= _spectra->size()="+str(size)
             self.assertEqual(message[0],expected)
 
         try:
             specSet.erase(2, 1)
-        except:
-            e = sys.exc_info()[1]
-            message = str.split(e.message, "\n")
+        except Exception as e:
+            message = str.split(str(e.message), "\n")
             expected = "SpectrumSet::erase(iStart=2, iEnd=1): ERROR: iStart > iEnd"
             self.assertEqual(message[0],expected)
 
         try:
             specSet.erase(-1)
-        except:
-            e = sys.exc_info()[1]
-            message = str.split(e.message, "\n")
-            expected = "Wrong number or type of arguments for overloaded function 'SpectrumSetF_erase'."
+        except Exception as e:
+            message = str.split(str(e.message), "\n")
+            expected = "erase(): incompatible function arguments. The following argument types are supported:"
             self.assertEqual(message[0],expected)
 
         # Test that we CAN erase spectra inside the limits
-        self.assertTrue(specSet.erase(size-1))
+        specSet.erase(size-1)
         self.assertEqual(specSet.size(), size-1)
 
-        self.assertTrue(specSet.erase(0, 1))
+        specSet.erase(0, 1)
         self.assertEqual(specSet.size(), size-2)
 
-        self.assertTrue(specSet.erase(0,2))
+        specSet.erase(0,2)
         self.assertEqual(specSet.size(), size-4)
 
     def testGetSpectra(self):
@@ -606,10 +597,9 @@ class SpectraTestCase(tests.TestCase):
                         logger = log.Log.getLogger("pfs::drp::stella::Spectra::identify")
                         logger.setLevel(log.FATAL)
                         spec.identifyF(lineListPix, self.dispCorControl, 8)
-                        self.assertTrue(False)
-                    except:
-                        e = sys.exc_info()[1]
-                        message = str.split(e.message, "\n")
+                        self.assertTrue(False) # i.e. the previous line should raise an exception
+                    except Exception as e:
+                        message = str.split(str(e.message), "\n")
                         # the number 59 is equal to nLines * 2/3, which is the
                         # minimum number of lines required for a successful
                         # wavelength calibration

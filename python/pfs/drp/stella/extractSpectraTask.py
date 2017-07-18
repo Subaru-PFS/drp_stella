@@ -1,10 +1,12 @@
 #!/usr/bin/env python
 import lsst.pex.config as pexConfig
 from lsst.pipe.base import Task
+import lsst.afw.display as afwDisplay
 import pfs.drp.stella as drpStella
+import pfs.drp.stella.utils as dsUtils
 
 class ExtractSpectraConfig(pexConfig.Config):
-      saturationLevel = pexConfig.Field(
+    saturationLevel = pexConfig.Field(
           doc = "CCD saturation level",
           dtype = float,
           default = 65000.,
@@ -17,6 +19,9 @@ class ExtractSpectraTask(Task):
     def __init__(self, *args, **kwargs):
         super(ExtractSpectraTask, self).__init__(*args, **kwargs)
 
+        import lsstDebug
+        self.debugInfo = lsstDebug.Info(__name__)
+
     def extractSpectra(self, inExposure, inFiberTraceSetWithProfiles, inTraceNumbers):
 
         traceNumbers = inTraceNumbers
@@ -27,22 +32,44 @@ class ExtractSpectraTask(Task):
 
         spectrumSet = drpStella.SpectrumSetF()
 
-        # Create FiberTraces for inExposure and store them in inFiberTraceSetWithProfile
         if inExposure != None:
             inMaskedImage = inExposure.getMaskedImage()
 
-        # Create traces and extract spectrum
+            if self.debugInfo.display:
+                  display = afwDisplay.Display(frame=self.debugInfo.input_frame)
+
+                  dsUtils.addFiberTraceSetToMask(inExposure.getMaskedImage().getMask(),
+                                                 inFiberTraceSetWithProfiles.getTraces(), display)
+
+                  display.mtv(inExposure, "input")
+
+        # Store pixel values from inMaskedImage in inFiberTraceSetWithProfile's FiberTraces
+        # and proceed to extract the spectra
+
         for i in range(len(traceNumbers)):
-            trace = inFiberTraceSetWithProfiles.getFiberTrace(traceNumbers[i])
-            if not trace.isProfileSet():
+            fiberTrace = inFiberTraceSetWithProfiles.getFiberTrace(traceNumbers[i])
+            if not fiberTrace.isProfileSet():
                 raise Exception("profile not set")
 
-            # Create trace from inMaskedImage
+            # Set pixels in FiberTrace from inMaskedImage
             if inExposure != None:
-                trace.createTrace(inMaskedImage)
+                fiberTrace.createTrace(inMaskedImage)
+            #
+            # There is no guarantee that createTrace generates images ("trace"s) whose dimensions
+            # match the profiles.  This is a bug (PIPE2D-219); for now we'll trim the traces
+            #
+            trace = fiberTrace.getTrace()
+            width = fiberTrace.getProfile().getWidth()
+            if trace.getWidth() != width:
+                fiberTrace.setTrace(trace[:width, :])
 
             # Extract spectrum from profile
-            spectrum = trace.extractFromProfile()
+            try:
+                spectrum = fiberTrace.extractFromProfile()
+            except Exception as e:
+                self.log.warn("Extraction of fibre %d failed: %s" % (fiberTrace.getITrace(), e))
+                continue
+
             spectrumSet.addSpectrum(spectrum)
 
         return spectrumSet

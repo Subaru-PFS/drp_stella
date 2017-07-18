@@ -3,8 +3,9 @@ setupRequired(pipe_drivers)
 setupRequired(afw)
 setupRequired(obs_pfs)
 setupRequired(datamodel)
-setupRequired(eigen 3.2.5.lsst2 [>= 3.2.5.lsst2])
+setupRequired(eigen)
 setupRequired(sconsUtils)
+setupRequired(pybind11)
 
 setupOptional(drp_stella_data)
 

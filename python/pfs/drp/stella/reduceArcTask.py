@@ -4,15 +4,17 @@ import sys
 from astropy.io import fits as pyfits
 import numpy as np
 
+import lsstDebug
 import lsst.log as log
 from lsst.pex.config import Config, Field
 from lsst.pipe.base import Struct, TaskRunner, ArgumentParser, CmdLineTask
 from lsst.utils import getPackageDir
+import lsst.afw.display as afwDisplay
 import pfs.drp.stella as drpStella
+from pfs.drp.stella.extractSpectraTask import ExtractSpectraTask
 from pfs.drp.stella.datamodelIO import spectrumSetToPfsArm, PfsArmIO
-import pfs.drp.stella.extractSpectraTask as esTask
 from pfs.drp.stella.utils import makeFiberTraceSet, readWavelengthFile
-from pfs.drp.stella.utils import readLineListFile, writePfsArm
+from pfs.drp.stella.utils import readLineListFile, writePfsArm, addFiberTraceSetToMask
 
 class ReduceArcConfig(Config):
     """Configuration for reducing arc images"""
@@ -58,6 +60,8 @@ class ReduceArcTask(CmdLineTask):
     def __init__(self, *args, **kwargs):
         super(ReduceArcTask, self).__init__(*args, **kwargs)
 
+        self.debugInfo = lsstDebug.Info(__name__)
+
     @classmethod
     def _makeArgumentParser(cls, *args, **kwargs):
         parser = ArgumentParser(name=cls._DefaultName)
@@ -88,30 +92,43 @@ class ReduceArcTask(CmdLineTask):
             self.log.debug('arcRef = %s' % arcRef)
             self.log.debug('type(arcRef) = %s' % type(arcRef))
 
-            # construct fiberTraceSet from pfsFiberTrace
+            # read pfsFiberTrace and then construct FiberTraceSet
             try:
-                fiberTrace = arcRef.get('fiberTrace', immediate=immediate)
+                fiberTrace = arcRef.get('fibertrace')
             except Exception, e:
-                raise RuntimeError("Unable to load fiberTrace for %s from %s: %s" %
-                                   (arcRef.dataId, arcRef.get('fiberTrace_filename')[0], e))
-            flatFiberTraceSet = makeFiberTraceSet(fiberTrace)
-            self.log.info('flatFiberTraceSet.size() = %d' % flatFiberTraceSet.size())
+                raise RuntimeError("Unable to load fiberTrace for %s: %s" % (arcRef.dataId, e))
 
-            arcExp = arcRef.get("arc", immediate=immediate)
-            self.log.debug('arcExp = %s' % arcExp)
-            self.log.debug('type(arcExp) = %s' % type(arcExp))
+            flatFiberTraceSet = makeFiberTraceSet(fiberTrace)
+            self.log.debug('fiberTrace calibration file contains %d fibers' % flatFiberTraceSet.size())
+
+            arcExp = None
+            for dataType in ["calexp", "postISRCCD"]:
+                if arcRef.datasetExists(dataType):
+                    arcExp = arcRef.get(dataType)
+                    break
+
+            if arcExp is None:
+                raise RuntimeError("Unable to load postISRCCD or calexp image for %s" % (arcRef.dataId))
+
+            if self.debugInfo.display and self.debugInfo.arc_frame >= 0:
+                display = afwDisplay.Display(self.debugInfo.arc_frame)
+
+                addFiberTraceSetToMask(inExposure.getMaskedImage().getMask(),
+                                       inFiberTraceSetWithProfiles.getTraces(), display)
+                
+                display.setMaskTransparency(50)
+                display.mtv(arcExp, "Arcs")
 
             # optimally extract arc spectra
-            self.log.info('extracting arc spectra')
+            self.log.info('extracting arc spectra from %s', arcRef.dataId)
 
             # assign trace number to flatFiberTraceSet
             drpStella.assignITrace( flatFiberTraceSet, traceIds, xCenters )
             for i in range( flatFiberTraceSet.size() ):
-                self.log.info('iTraces[%d] = %d' % (i, flatFiberTraceSet.getFiberTrace(i).getITrace()))
+                self.log.debug('iTraces[%d] = %d' % (i, flatFiberTraceSet.getFiberTrace(i).getITrace()))
 
-            myExtractTask = esTask.ExtractSpectraTask()
-            aperturesToExtract = [-1]
-            spectrumSetFromProfile = myExtractTask.run(arcExp, flatFiberTraceSet, aperturesToExtract)
+            extractSpectraTask = ExtractSpectraTask()
+            spectrumSetFromProfile = extractSpectraTask.run(arcExp, flatFiberTraceSet)
 
             dispCorControl = drpStella.DispCorControl()
             dispCorControl.fittingFunction = self.config.function
@@ -161,7 +178,6 @@ class ReduceArcTask(CmdLineTask):
                     wLenLinesArr[j] = wLenLines[j]
                 lineListPix = drpStella.createLineList(wLenArr, wLenLinesArr)
 
-                log.logging.getLogger("pfs::drp::stella::math::createLineList").setLevel(log.DEBUG)
                 try:
                     lineListPix = drpStella.createLineList(wLenArr, wLenLinesArr)
                 except Exception as e:
@@ -178,8 +194,7 @@ class ReduceArcTask(CmdLineTask):
                 self.log.info("FiberTrace %d: spec.getDispRms() = %f"
                               % (i, spec.getDispRms()))
 
-                if not spectrumSetFromProfile.setSpectrum(i, spec):
-                    raise RuntimeError('setSpectrum for spectrumSetFromProfile[%d] failed' % (i))
+                spectrumSetFromProfile.setSpectrum(i, spec)
 
             writePfsArm(butler, arcExp, spectrumSetFromProfile, arcRef.dataId)
 
