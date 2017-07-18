@@ -33,10 +33,10 @@ pfsDRPStella::Spectrum<ImageT, MaskT, VarianceT, WavelengthT>::Spectrum(size_t l
   _nCCDRows = length;
 }
 
-template class pfsDRPStella::Spectrum<float, unsigned short, float, float>;
-template class pfsDRPStella::Spectrum<double, unsigned short, float, float>;
-template class pfsDRPStella::Spectrum<float, unsigned short, double, double>;
-template class pfsDRPStella::Spectrum<double, unsigned short, double, double>;
+template class pfsDRPStella::Spectrum<float, lsst::afw::image::MaskPixel, float, float>;
+template class pfsDRPStella::Spectrum<double, lsst::afw::image::MaskPixel, float, float>;
+template class pfsDRPStella::Spectrum<float, lsst::afw::image::MaskPixel, double, double>;
+template class pfsDRPStella::Spectrum<double, lsst::afw::image::MaskPixel, double, double>;
 
 template<typename ImageT, typename MaskT, typename VarianceT, typename WavelengthT>
 void pfsDRPStella::Spectrum<ImageT, MaskT, VarianceT, WavelengthT>::setSky( ndarray::Array<ImageT, 1, 1> const& sky )
@@ -50,8 +50,8 @@ void pfsDRPStella::Spectrum<ImageT, MaskT, VarianceT, WavelengthT>::setSky( ndar
   _sky.deep() = sky;
 }
 
-template void pfsDRPStella::Spectrum< double, unsigned short, float, float >::setSky( ndarray::Array< double, 1, 1 > const& );
-template void pfsDRPStella::Spectrum< float, unsigned short, float, float >::setSky( ndarray::Array< float, 1, 1 > const& );
+template void pfsDRPStella::Spectrum< double, lsst::afw::image::MaskPixel, float, float >::setSky( ndarray::Array< double, 1, 1 > const& );
+template void pfsDRPStella::Spectrum< float, lsst::afw::image::MaskPixel, float, float >::setSky( ndarray::Array< float, 1, 1 > const& );
 
 template<typename ImageT, typename MaskT, typename VarianceT, typename WavelengthT>
 void pfsDRPStella::Spectrum<ImageT, MaskT, VarianceT, WavelengthT>::setWavelength( ndarray::Array< WavelengthT, 1, 1 > const& wavelength )
@@ -65,8 +65,8 @@ void pfsDRPStella::Spectrum<ImageT, MaskT, VarianceT, WavelengthT>::setWavelengt
   _wavelength.deep() = wavelength;
 }
 
-template void pfsDRPStella::Spectrum< double, unsigned short, float, float >::setWavelength( ndarray::Array< float, 1, 1 > const& );
-template void pfsDRPStella::Spectrum< float, unsigned short, float, float >::setWavelength( ndarray::Array< float, 1, 1 > const& );
+template void pfsDRPStella::Spectrum< double, lsst::afw::image::MaskPixel, float, float >::setWavelength( ndarray::Array< float, 1, 1 > const& );
+template void pfsDRPStella::Spectrum< float, lsst::afw::image::MaskPixel, float, float >::setWavelength( ndarray::Array< float, 1, 1 > const& );
 
 template<typename ImageT, typename MaskT, typename VarianceT, typename WavelengthT>
 void pfsDRPStella::Spectrum< ImageT, MaskT, VarianceT, WavelengthT >::setDispersion( ndarray::Array< WavelengthT, 1, 1 > const& dispersion )
@@ -80,8 +80,8 @@ void pfsDRPStella::Spectrum< ImageT, MaskT, VarianceT, WavelengthT >::setDispers
   _dispersion.deep() = dispersion;
 }
 
-template void pfsDRPStella::Spectrum< double, unsigned short, float, float >::setDispersion( ndarray::Array< float, 1, 1 > const& );
-template void pfsDRPStella::Spectrum< float, unsigned short, float, float >::setDispersion( ndarray::Array< float, 1, 1 > const& );
+template void pfsDRPStella::Spectrum< double, lsst::afw::image::MaskPixel, float, float >::setDispersion( ndarray::Array< float, 1, 1 > const& );
+template void pfsDRPStella::Spectrum< float, lsst::afw::image::MaskPixel, float, float >::setDispersion( ndarray::Array< float, 1, 1 > const& );
 
 ///SpectrumSet
 template<typename ImageT, typename MaskT, typename VarianceT, typename WavelengthT>
@@ -292,10 +292,10 @@ ndarray::Array< float, 3, 1 > pfsDRPStella::SpectrumSet<ImageT, MaskT, VarianceT
   return covar;
 }
 
-template class pfsDRPStella::SpectrumSet<float, unsigned short, float, float>;
-template class pfsDRPStella::SpectrumSet<double, unsigned short, float, float>;
-template class pfsDRPStella::SpectrumSet<float, unsigned short, float, double>;
-template class pfsDRPStella::SpectrumSet<double, unsigned short, float, double>;
+template class pfsDRPStella::SpectrumSet<float, lsst::afw::image::MaskPixel, float, float>;
+template class pfsDRPStella::SpectrumSet<double, lsst::afw::image::MaskPixel, float, float>;
+template class pfsDRPStella::SpectrumSet<float, lsst::afw::image::MaskPixel, float, double>;
+template class pfsDRPStella::SpectrumSet<double, lsst::afw::image::MaskPixel, float, double>;
 
 namespace pfs { namespace drp { namespace stella { namespace math {
 

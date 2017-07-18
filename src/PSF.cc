@@ -524,7 +524,7 @@ namespace pfs{ namespace drp{ namespace stella{
                                                                bool const isXYPositionsGridPoints,
                                                                double const regularization,
                                                                PsfT const shapeParameter,
-                                                               unsigned short const mode ){
+                                                               unsigned int const mode ){
       #ifdef __DEBUG_PSF__
         cout << "psfMath::interpolatePSFThinPlateSpline(psf, xPositions, yPositions, isXYPositionsGridPoints, regularization) started" << endl;
       #endif
@@ -588,7 +588,7 @@ namespace pfs{ namespace drp{ namespace stella{
                                                                ndarray::Array<CoordsT, 1, 1> const& yPositions,
                                                                bool const isXYPositionsGridPoints,
                                                                PsfT const shapeParameter,
-                                                               unsigned short const mode ){
+                                                               unsigned int const mode ){
       #ifdef __DEBUG_PSF__
         cout << "psfMath::interpolatePSFThinPlateSpline(psf, weights, xPositions, yPositions, isXYPositionsGridPoints) started" << endl;
       #endif
@@ -658,7 +658,7 @@ namespace pfs{ namespace drp{ namespace stella{
                                                                          bool const isXYPositionsGridPoints,
                                                                          PsfT const regularization,
                                                                          PsfT const shapeParameter,
-                                                                         unsigned short const mode ){
+                                                                         unsigned int const mode ){
       #ifdef __DEBUG_PSF__
         cout << "psfMath::interpolatePSFThinPlateSplineChiSquare(psf, xPositions, yPositions, isXYPositionsGridPoints, regularization) started" << endl;
       #endif
@@ -1072,7 +1072,7 @@ namespace pfs{ namespace drp{ namespace stella{
                                                                           bool const,
                                                                           double const,
                                                                           double const,
-                                                                          unsigned short const);
+                                                                          unsigned int const);
 
     template ndarray::Array<double, 2, 1> interpolatePSFThinPlateSpline(PSF< double > &,
                                                                         ndarray::Array< double, 1, 1 > const&,
@@ -1080,7 +1080,7 @@ namespace pfs{ namespace drp{ namespace stella{
                                                                         ndarray::Array< double, 1, 1 > const&,
                                                                         bool const,
                                                                         double const,
-                                                                        unsigned short const);
+                                                                        unsigned int const);
 
     template ndarray::Array< double, 2, 1 > interpolatePSFThinPlateSplineChiSquare( PSF< double > &,
                                                                                     ndarray::Array< double, 1, 1 > const&,
@@ -1088,7 +1088,7 @@ namespace pfs{ namespace drp{ namespace stella{
                                                                                     bool const,
                                                                                     double const,
                                                                                     double const,
-                                                                                    unsigned short const );
+                                                                                    unsigned int const );
 
     template ndarray::Array< float, 3, 1 > interpolatePSFSetThinPlateSpline(PSFSet< float > &,
                                                                             ndarray::Array< float, 1, 1 > const&,
@@ -1152,87 +1152,87 @@ namespace pfs{ namespace drp{ namespace stella{
                                                                              ndarray::Array< double, 1, 1 > const&,
                                                                              bool const);
 
-    template PTR(PSFSet< float >) calculate2dPSFPerBin(FiberTrace< float, unsigned short, float > const&,
-                                                       Spectrum< float, unsigned short, float, float > const&,
+    template PTR(PSFSet< float >) calculate2dPSFPerBin(FiberTrace< float, lsst::afw::image::MaskPixel, float > const&,
+                                                       Spectrum< float, lsst::afw::image::MaskPixel, float, float > const&,
                                                        TwoDPSFControl const&);
-    template PTR(PSFSet< double >) calculate2dPSFPerBin(FiberTrace< float, unsigned short, float > const&,
-                                                        Spectrum< float, unsigned short, float, float > const&,
+    template PTR(PSFSet< double >) calculate2dPSFPerBin(FiberTrace< float, lsst::afw::image::MaskPixel, float > const&,
+                                                        Spectrum< float, lsst::afw::image::MaskPixel, float, float > const&,
                                                         TwoDPSFControl const&);
-    template PTR(PSFSet< float >) calculate2dPSFPerBin(FiberTrace< double, unsigned short, float > const&,
-                                                       Spectrum< double, unsigned short, float, float > const&,
+    template PTR(PSFSet< float >) calculate2dPSFPerBin(FiberTrace< double, lsst::afw::image::MaskPixel, float > const&,
+                                                       Spectrum< double, lsst::afw::image::MaskPixel, float, float > const&,
                                                        TwoDPSFControl const&);
-    template PTR(PSFSet< double >) calculate2dPSFPerBin(FiberTrace< double, unsigned short, float > const&,
-                                                        Spectrum< double, unsigned short, float, float > const&,
+    template PTR(PSFSet< double >) calculate2dPSFPerBin(FiberTrace< double, lsst::afw::image::MaskPixel, float > const&,
+                                                        Spectrum< double, lsst::afw::image::MaskPixel, float, float > const&,
                                                         TwoDPSFControl const&);
-    template PTR(PSFSet< float >) calculate2dPSFPerBin(FiberTrace< float, unsigned short, float > const&,
-                                                       Spectrum< float, unsigned short, float, double > const&,
+    template PTR(PSFSet< float >) calculate2dPSFPerBin(FiberTrace< float, lsst::afw::image::MaskPixel, float > const&,
+                                                       Spectrum< float, lsst::afw::image::MaskPixel, float, double > const&,
                                                        TwoDPSFControl const&);
-    template PTR(PSFSet< double >) calculate2dPSFPerBin(FiberTrace< float, unsigned short, float > const&,
-                                                        Spectrum< float, unsigned short, float, double > const&,
+    template PTR(PSFSet< double >) calculate2dPSFPerBin(FiberTrace< float, lsst::afw::image::MaskPixel, float > const&,
+                                                        Spectrum< float, lsst::afw::image::MaskPixel, float, double > const&,
                                                         TwoDPSFControl const&);
-    template PTR(PSFSet< float >) calculate2dPSFPerBin(FiberTrace< double, unsigned short, float > const&,
-                                                       Spectrum< double, unsigned short, float, double > const&,
+    template PTR(PSFSet< float >) calculate2dPSFPerBin(FiberTrace< double, lsst::afw::image::MaskPixel, float > const&,
+                                                       Spectrum< double, lsst::afw::image::MaskPixel, float, double > const&,
                                                        TwoDPSFControl const&);
-    template PTR(PSFSet< double >) calculate2dPSFPerBin(FiberTrace< double, unsigned short, float > const&,
-                                                        Spectrum< double, unsigned short, float, double > const&,
+    template PTR(PSFSet< double >) calculate2dPSFPerBin(FiberTrace< double, lsst::afw::image::MaskPixel, float > const&,
+                                                        Spectrum< double, lsst::afw::image::MaskPixel, float, double > const&,
                                                         TwoDPSFControl const&);
 
-    template PTR(PSFSet< float >) calculate2dPSFPerBin(FiberTrace< float, unsigned short, float > const&,
-                                                       Spectrum< float, unsigned short, float, float > const&,
+    template PTR(PSFSet< float >) calculate2dPSFPerBin(FiberTrace< float, lsst::afw::image::MaskPixel, float > const&,
+                                                       Spectrum< float, lsst::afw::image::MaskPixel, float, float > const&,
                                                        TwoDPSFControl const&,
                                                         ndarray::Array< float, 2, 1 > const&);
-    template PTR(PSFSet< double >) calculate2dPSFPerBin(FiberTrace< float, unsigned short, float > const&,
-                                                        Spectrum< float, unsigned short, float, float > const&,
+    template PTR(PSFSet< double >) calculate2dPSFPerBin(FiberTrace< float, lsst::afw::image::MaskPixel, float > const&,
+                                                        Spectrum< float, lsst::afw::image::MaskPixel, float, float > const&,
                                                         TwoDPSFControl const&,
                                                         ndarray::Array< double, 2, 1 > const&);
-    template PTR(PSFSet< float >) calculate2dPSFPerBin(FiberTrace< double, unsigned short, float > const&,
-                                                       Spectrum< double, unsigned short, float, float > const&,
+    template PTR(PSFSet< float >) calculate2dPSFPerBin(FiberTrace< double, lsst::afw::image::MaskPixel, float > const&,
+                                                       Spectrum< double, lsst::afw::image::MaskPixel, float, float > const&,
                                                        TwoDPSFControl const&,
                                                         ndarray::Array< float, 2, 1 > const&);
-    template PTR(PSFSet< double >) calculate2dPSFPerBin(FiberTrace< double, unsigned short, float > const&,
-                                                        Spectrum< double, unsigned short, float, float > const&,
+    template PTR(PSFSet< double >) calculate2dPSFPerBin(FiberTrace< double, lsst::afw::image::MaskPixel, float > const&,
+                                                        Spectrum< double, lsst::afw::image::MaskPixel, float, float > const&,
                                                         TwoDPSFControl const&,
                                                         ndarray::Array< double, 2, 1 > const&);
-    template PTR(PSFSet< float >) calculate2dPSFPerBin(FiberTrace< float, unsigned short, float > const&,
-                                                       Spectrum< float, unsigned short, float, double > const&,
+    template PTR(PSFSet< float >) calculate2dPSFPerBin(FiberTrace< float, lsst::afw::image::MaskPixel, float > const&,
+                                                       Spectrum< float, lsst::afw::image::MaskPixel, float, double > const&,
                                                        TwoDPSFControl const&,
                                                         ndarray::Array< float, 2, 1 > const&);
-    template PTR(PSFSet< double >) calculate2dPSFPerBin(FiberTrace< float, unsigned short, float > const&,
-                                                        Spectrum< float, unsigned short, float, double > const&,
+    template PTR(PSFSet< double >) calculate2dPSFPerBin(FiberTrace< float, lsst::afw::image::MaskPixel, float > const&,
+                                                        Spectrum< float, lsst::afw::image::MaskPixel, float, double > const&,
                                                         TwoDPSFControl const&,
                                                         ndarray::Array< double, 2, 1 > const&);
-    template PTR(PSFSet< float >) calculate2dPSFPerBin(FiberTrace< double, unsigned short, float > const&,
-                                                       Spectrum< double, unsigned short, float, double > const&,
+    template PTR(PSFSet< float >) calculate2dPSFPerBin(FiberTrace< double, lsst::afw::image::MaskPixel, float > const&,
+                                                       Spectrum< double, lsst::afw::image::MaskPixel, float, double > const&,
                                                        TwoDPSFControl const&,
                                                         ndarray::Array< float, 2, 1 > const&);
-    template PTR(PSFSet< double >) calculate2dPSFPerBin(FiberTrace< double, unsigned short, float > const&,
-                                                        Spectrum< double, unsigned short, float, double > const&,
+    template PTR(PSFSet< double >) calculate2dPSFPerBin(FiberTrace< double, lsst::afw::image::MaskPixel, float > const&,
+                                                        Spectrum< double, lsst::afw::image::MaskPixel, float, double > const&,
                                                         TwoDPSFControl const&,
                                                         ndarray::Array< double, 2, 1 > const&);
 
-    template std::vector<PTR(PSFSet< float >)> calculate2dPSFPerBin( FiberTraceSet< float, unsigned short, float > const&,
-                                                                     SpectrumSet< float, unsigned short, float, float > const&,
+    template std::vector<PTR(PSFSet< float >)> calculate2dPSFPerBin( FiberTraceSet< float, lsst::afw::image::MaskPixel, float > const&,
+                                                                     SpectrumSet< float, lsst::afw::image::MaskPixel, float, float > const&,
                                                                      TwoDPSFControl const&);
-    template std::vector<PTR(PSFSet< double >)> calculate2dPSFPerBin( FiberTraceSet< float, unsigned short, float > const&,
-                                                                      SpectrumSet< float, unsigned short, float, float > const&,
+    template std::vector<PTR(PSFSet< double >)> calculate2dPSFPerBin( FiberTraceSet< float, lsst::afw::image::MaskPixel, float > const&,
+                                                                      SpectrumSet< float, lsst::afw::image::MaskPixel, float, float > const&,
                                                                       TwoDPSFControl const&);
-    template std::vector<PTR(PSFSet< float >)> calculate2dPSFPerBin( FiberTraceSet< double, unsigned short, float > const&,
-                                                                     SpectrumSet< double, unsigned short, float, float > const&,
+    template std::vector<PTR(PSFSet< float >)> calculate2dPSFPerBin( FiberTraceSet< double, lsst::afw::image::MaskPixel, float > const&,
+                                                                     SpectrumSet< double, lsst::afw::image::MaskPixel, float, float > const&,
                                                                      TwoDPSFControl const&);
-    template std::vector<PTR(PSFSet< double >)> calculate2dPSFPerBin( FiberTraceSet< double, unsigned short, float > const&,
-                                                                      SpectrumSet< double, unsigned short, float, float > const&,
+    template std::vector<PTR(PSFSet< double >)> calculate2dPSFPerBin( FiberTraceSet< double, lsst::afw::image::MaskPixel, float > const&,
+                                                                      SpectrumSet< double, lsst::afw::image::MaskPixel, float, float > const&,
                                                                       TwoDPSFControl const&);
-    template std::vector<PTR(PSFSet< float >)> calculate2dPSFPerBin( FiberTraceSet< float, unsigned short, float > const&,
-                                                                     SpectrumSet< float, unsigned short, float, double > const&,
+    template std::vector<PTR(PSFSet< float >)> calculate2dPSFPerBin( FiberTraceSet< float, lsst::afw::image::MaskPixel, float > const&,
+                                                                     SpectrumSet< float, lsst::afw::image::MaskPixel, float, double > const&,
                                                                      TwoDPSFControl const&);
-    template std::vector<PTR(PSFSet< double >)> calculate2dPSFPerBin( FiberTraceSet< float, unsigned short, float > const&,
-                                                                      SpectrumSet< float, unsigned short, float, double > const&,
+    template std::vector<PTR(PSFSet< double >)> calculate2dPSFPerBin( FiberTraceSet< float, lsst::afw::image::MaskPixel, float > const&,
+                                                                      SpectrumSet< float, lsst::afw::image::MaskPixel, float, double > const&,
                                                                       TwoDPSFControl const&);
-    template std::vector<PTR(PSFSet< float >)> calculate2dPSFPerBin( FiberTraceSet< double, unsigned short, float > const&,
-                                                                     SpectrumSet< double, unsigned short, float, double > const&,
+    template std::vector<PTR(PSFSet< float >)> calculate2dPSFPerBin( FiberTraceSet< double, lsst::afw::image::MaskPixel, float > const&,
+                                                                     SpectrumSet< double, lsst::afw::image::MaskPixel, float, double > const&,
                                                                      TwoDPSFControl const&);
-    template std::vector<PTR(PSFSet< double >)> calculate2dPSFPerBin( FiberTraceSet< double, unsigned short, float > const&,
-                                                                      SpectrumSet< double, unsigned short, float, double > const&,
+    template std::vector<PTR(PSFSet< double >)> calculate2dPSFPerBin( FiberTraceSet< double, lsst::afw::image::MaskPixel, float > const&,
+                                                                      SpectrumSet< double, lsst::afw::image::MaskPixel, float, double > const&,
                                                                       TwoDPSFControl const&);
   }
 

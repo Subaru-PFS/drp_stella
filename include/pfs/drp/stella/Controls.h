@@ -191,7 +191,7 @@ struct FiberTraceFunctionFindingControl {
   LSST_CONTROL_FIELD(fiberTraceFunctionControl, FiberTraceFunctionControl, "Interpolation function and order");
   LSST_CONTROL_FIELD(apertureFWHM, float, "FWHM of an assumed Gaussian spatial profile for tracing the spectra");
   LSST_CONTROL_FIELD(signalThreshold, float, "Signal below this threshold is assumed zero for tracing the spectra");   // Should we use lsst::afw::detection::Threshold?
-  LSST_CONTROL_FIELD(nTermsGaussFit, unsigned short, "1 to look for maximum only without GaussFit; 3 to fit Gaussian; 4 to fit Gaussian plus constant (sky), Spatial profile must be at least 5 pixels wide; 5 to fit Gaussian plus linear term (sloped sky), Spatial profile must be at least 6 pixels wide");
+  LSST_CONTROL_FIELD(nTermsGaussFit, unsigned int, "1 to look for maximum only without GaussFit; 3 to fit Gaussian; 4 to fit Gaussian plus constant (sky), Spatial profile must be at least 5 pixels wide; 5 to fit Gaussian plus linear term (sloped sky), Spatial profile must be at least 6 pixels wide");
   LSST_CONTROL_FIELD(saturationLevel, float, "CCD saturation level");
   LSST_CONTROL_FIELD(minLength, unsigned int, "Minimum aperture length to count as found FiberTrace");
   LSST_CONTROL_FIELD(maxLength, unsigned int, "Maximum aperture length to count as found FiberTrace");
@@ -380,7 +380,7 @@ struct TwoDPSFControl {
     LSST_CONTROL_FIELD(swathWidth, unsigned int, "Size of individual extraction swaths");
     LSST_CONTROL_FIELD(xFWHM, float, "FWHM of an assumed Gaussian PSF perpendicular to the dispersion direction");
     LSST_CONTROL_FIELD(yFWHM, float, "FWHM of an assumed Gaussian PSF in the dispersion direction");
-    LSST_CONTROL_FIELD(nTermsGaussFit, unsigned short, "3 to fit Gaussian; 4 to fit Gaussian plus constant (sky), profile must be at least 5 pixels wide; 5 to fit Gaussian plus linear term (sloped sky), profile must be at least 6 pixels wide");
+    LSST_CONTROL_FIELD(nTermsGaussFit, unsigned int, "3 to fit Gaussian; 4 to fit Gaussian plus constant (sky), profile must be at least 5 pixels wide; 5 to fit Gaussian plus linear term (sloped sky), profile must be at least 6 pixels wide");
     LSST_CONTROL_FIELD(xCorRangeLowLimit, float, "Lower limit for cross-corellation to given collapsed PSF relative to estimated center position");
     LSST_CONTROL_FIELD(xCorRangeHighLimit, float, "Upper limit for cross-corellation to given collapsed PSF relative to estimated center position");
     LSST_CONTROL_FIELD(xCorStepSize, float, "Step size for cross-corellation to given collapsed PSF");

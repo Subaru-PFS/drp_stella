@@ -466,7 +466,7 @@ void pfs::drp::stella::Spectrum<ImageT, MaskT, VarianceT, WavelengthT>::identify
     LOGLS_DEBUG(_log, "_dispCoeffs = " << _dispCoeffs);
     
     /// Remove lines rejected by PolyFit from D_A1_FittedPos and D_A1_FittedWLen
-    unsigned short maskVal = 1 << _mask.getMaskPlane("REJECTED_LINES");
+    lsst::afw::image::MaskPixel maskVal = 1 << _mask.getMaskPlane("REJECTED_LINES");
     for (int i = 0; i < rejected->size(); ++i){
         LOGLS_DEBUG(_log, "rejected D_A1_FittedPos[" << (*rejected)[i] << "] = " << D_A1_FittedPos[(*rejected)[i]]);
         for (int p = (D_A1_FittedPos[(*rejected)[i]]-2 < 0 ? 0 : D_A1_FittedPos[(*rejected)[i]]-2);

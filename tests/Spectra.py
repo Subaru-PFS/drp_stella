@@ -162,11 +162,11 @@ class SpectraTestCase(tests.TestCase):
 
         # Test setMask
         # Test that we can assign a mask vector of the correct length
-        vecf = afwImage.MaskU(size, 1)
+        vecf = afwImage.Mask(size, 1)
         spec.setMask(vecf)
 
         # Test that we can't assign a mask vector of the wrong length
-        vecus = afwImage.MaskU(size+1, 1)
+        vecus = afwImage.Mask(size+1, 1)
         try:
             self.assertFalse(spec.setMask(vecus))
         except Exception as e:

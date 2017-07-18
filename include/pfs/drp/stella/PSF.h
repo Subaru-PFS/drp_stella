@@ -388,7 +388,7 @@ namespace math{
                                                               bool const isXYPositionsGridPoints,
                                                               double const regularization = 0.,
                                                               PsfT const shapeParameter = 1.,
-                                                              unsigned short const mode = 0 );
+                                                              unsigned int const mode = 0 );
   
   /*
    * @brief: fit PSF and interpolate to new coordinates using weighted thin-plate splines, reconstruct psf._imagePSF_ZNormalized and write to psf._imagePSF_ZFit
@@ -408,7 +408,7 @@ namespace math{
                                                               ndarray::Array< CoordsT, 1, 1 > const& yPositions,
                                                               bool const isXYPositionsGridPoints,
                                                               PsfT const shapeParameter = 1.,
-                                                              unsigned short const mode = 0 );
+                                                              unsigned int const mode = 0 );
   
   /*
    * @brief: fit PSF and interpolate to new coordinates using thin-plate splines with Chi-square minimization, 
@@ -428,7 +428,7 @@ namespace math{
                                                                        bool const isXYPositionsGridPoints,
                                                                        PsfT const regularization = 0.,
                                                                        PsfT const shapeParameter = 1.,
-                                                                       unsigned short const mode = 0 );
+                                                                       unsigned int const mode = 0 );
   
   template< typename PsfT = double, typename CoordsT = double>
   ndarray::Array< PsfT, 3, 1 > interpolatePSFSetThinPlateSpline( PSFSet< PsfT > & psfSet,
