@@ -12,7 +12,7 @@ ndarray::Array<size_t, 2, 1> calcMinCenMax( ndarray::Array<T, 1, 1> const& xCent
                                             int const nPixCutRight_In )
 {
   ndarray::Array<double, 1, 1> tempCenter = ndarray::allocate(xCenters_In.getShape()[0]);
-  tempCenter.deep() = xCenters_In + 0.5 - PIXEL_CENTER;
+  tempCenter.deep() = xCenters_In + 0.5;
 
   ndarray::Array<size_t, 1, 1> floor = pfs::drp::stella::math::floor(tempCenter,
                                                                      size_t(0));

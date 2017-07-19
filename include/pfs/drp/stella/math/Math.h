@@ -23,9 +23,6 @@ using namespace std;
 namespace pexExcept = lsst::pex::exceptions;
 
 namespace pfs { namespace drp { namespace stella {
-  /// Center of Pixel Zero (0.0 means that [0,0] is the center of the pixel, 0.5 means that [0,0] is the lower left corner)
-  const float PIXEL_CENTER = 0.0;
-
   namespace math{
     
     template< typename T >
