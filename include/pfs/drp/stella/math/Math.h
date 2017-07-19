@@ -26,36 +26,9 @@ namespace pfs { namespace drp { namespace stella {
   namespace math{
     
     template< typename T >
-    struct dataIndex { 
-        T number;
-        size_t index;
-    };
-
-    template< typename T >
-    struct by_number { 
-        bool operator()(dataIndex<T> const &left, dataIndex<T> const &right) { 
-            return left.number < right.number;
-        }
-    };
-    
-    template< typename T >
     struct dataXY { 
         T x;
         T y;
-    };
-
-    template< typename T >
-    struct byX { 
-        bool operator()(dataXY<T> const &left, dataXY<T> const &right) { 
-            return left.x < right.x;
-        }
-    };
-
-    template< typename T >
-    struct byY { 
-        bool operator()(dataXY<T> const &left, dataXY<T> const &right) { 
-            return left.y < right.y;
-        }
     };
 
     /*
@@ -110,71 +83,7 @@ namespace pfs { namespace drp { namespace stella {
      * @return rounded down value of rhs, type of outType
      */
     template <typename T, typename U>
-    U floor1(T const& rhs, U const& outType);
-    
-    template <typename T, typename U>
     ndarray::Array<U, 1, 1> floor(ndarray::Array<T, 1, 1> const& rhs, U const outType);
-    
-    template <typename T, typename U>
-    ndarray::Array<U, 2, 2> floor(ndarray::Array<T, 2, 2> const& rhs, U const outType);
-
-    /**
-     * Int(double)
-     * Returns integer portion of D_In. If D_In is negative returns the first negative integer less than or equal to Number,
-     * e.g. D_In = -99.8 => returns -100.
-     * @param[in] D_In :: number to convert to int
-     **/
-    template <typename T>
-    int Int(T D_In);
-
-    /**
-     * Returns integer value cut at decimal point (See int Int(double)).
-     * @param[in] D_In :: number to convert to long
-     **/
-    template <typename T>
-    long Long(T D_In);
-
-    template <typename T>
-    ndarray::Array<double, 1, 1> Double(ndarray::Array<T, 1, 1> const& arr_In);
-    
-    template <typename T>
-    ndarray::Array<double, 2, 1> Double(ndarray::Array<T, 2, 1> const& arr_In);
-    
-    template <typename T>
-    ndarray::Array<double, 2, 2> Double(ndarray::Array<T, 2, 2> const& arr_In);
-    
-    template <typename T>
-    ndarray::Array<float, 1, 1> Float(ndarray::Array<T, 1, 1> const& arr_In);
-    
-    template <typename T>
-    ndarray::Array<float, 2, 1> Float(ndarray::Array<T, 2, 1> const& arr_In);
-    
-    template <typename T>
-    ndarray::Array<float, 2, 2> Float(ndarray::Array<T, 2, 2> const& arr_In);
-    
-    template <typename T>
-    int Round(const T ToRound);
-
-    template <typename T>
-    T Round(const T ToRound, int DigitsBehindDot);
-
-    template <typename T>
-    long RoundL(const T ToRound);
-    
-    /**
-     * @brief Creates standard vector of length len containing the index numbers as values
-     * @param len: length of output vector
-     * @return 
-     */
-    template<typename T>
-    std::vector<T> indGen(T len);
-    
-    template< typename T >
-    std::vector<T> removeSubArrayFromArray(std::vector<T> const& A1_Array_InOut,
-                                           std::vector<T> const& A1_SubArray);
-
-    template<typename T>
-    bool countPixGTZero(ndarray::Array<T, 1, 1> &vec_InOut);
 
     /**
      *        returns first index of integer input vector where value is greater than or equal to I_MinValue, starting at index I_FromIndex
@@ -208,8 +117,6 @@ namespace pfs { namespace drp { namespace stella {
     int firstIndexWithZeroValueFrom( ndarray::Array< T, 1, 1 > const& vec_In, 
                                      const int startPos_In );
 
-    bool IsOddNumber(long No);
-
     /**
      *      Returns an integer array of the same size like <vec_In>,
      *      containing the indixes of <vec_In> in sorted order.
@@ -219,15 +126,6 @@ namespace pfs { namespace drp { namespace stella {
     std::vector<int> sortIndices(const std::vector<T> &vec_In);
     template<typename T>
     ndarray::Array<size_t, 1, 1> sortIndices(ndarray::Array<T, 1, 1> const& arr_In);
-
-    /**
-     *       task: Returns Row specified by I_Index_In from the formula
-     *             Col = (int)(I_Index_In / I_NRows_In)
-     *             Row = I_Index_In - Col * I_NRows_In
-     * @param[in] I_Index_In   :: index number to convert to row number
-     * @param[in] I_NRows_In   :: number of rows of 2D array
-     **/
-    int GetRowFromIndex(int I_Index_In, int I_NRows_In);
 
     /**
      *       task: Returns Col specified by I_Index_In from the formula
@@ -243,24 +141,15 @@ namespace pfs { namespace drp { namespace stella {
 
     template<typename T>
     T max(ndarray::Array<T, 1, 1> const& in);
-
-    template<typename T>
-    size_t maxIndex(ndarray::Array<T, 1, 1> const& in);
  
     template<typename T>
     T min(ndarray::Array<T, 1, 1> const& in);
- 
-    template<typename T>
-    size_t minIndex(ndarray::Array<T, 1, 1> const& in);
 
     template<typename T>
     ndarray::Array<T, 1, 1> indGenNdArr(T const size);
 
     template<typename T>
     ndarray::Array<T, 1, 1> replicate(T const val, int const size);
-    
-    template<typename T>
-    ndarray::Array<T, 2, 1> calcPosRelativeToCenter(ndarray::Array<T, 2, 1> const& swath_In, ndarray::Array<T, 1, 1> const& xCenters_In);
     
     /*
      * @brief: Return vector of indices where lowRange_In <= arr_In < highRange_In
@@ -348,28 +237,7 @@ namespace pfs { namespace drp { namespace stella {
      * @param arrB_In: vector to be shifted from range_In[0] to range_In[1] with steps of size stepSize_In. This vector will get interpolated to the grid points of vecA_In.
      * @param range_In: 2-element vector containing the lowest and highest shifts, e.g. [-1., 1.]
      * @param stepSize_In: step size for the shifts between range_In[0] and range_In[1]
-     */    
-    template< typename PsfT, typename CoordT >
-    CoordT xCor(ndarray::Array< CoordT, 2, 1 > const& arrA_In,
-                ndarray::Array< PsfT, 2, 1 > const& arrB_In,
-                ndarray::Array< CoordT, 1, 1 > const& range_In,
-                CoordT const& stepSize_In);
-
-    /*
-     * Helper methods for xCor
-     */    
-    double uvalue(double x, double low, double high);
-    Eigen::VectorXd uvalues(Eigen::VectorXd const& xvals);
-    
-    /*
-     * @brief convert given number in given range to a number in range [-1,1]
-     * @param number: number to be converted
-     * @param range: range number is from
      */
-    template< typename T, typename U >
-    T convertRangeToUnity(T number,
-                          ndarray::Array<U, 1, 1> const& range);
-    
     /*
      * @brief convert given numbers in given range to a number in range [-1,1]
      * @param numbers: numbers to be converted
