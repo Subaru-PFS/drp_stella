@@ -1,8 +1,0 @@
-mv ../bin/makeprofile ../bin/makeprofile.bak
-g++ -s -O2 -fpermissive -lm -lgsl -lgslcblas -I/usr/local/include -L. -lm -lcfitsio -lblitz -o ../bin/makeprofile ../../cfits/src/CAny.cpp ../../cfits/src/CString.cpp ../../cfits/src/CFits.cpp MMakeProfile.cpp ../../cfits/src/kriging/geostat.cpp ../../cfits/src/kriging/matrix_ex.cpp ../../cfits/src/kriging/model_sph.cpp ../../cfits/src/kriging/model_stable.cpp ../../cfits/src/kriging/variogram.cpp ../../cmpfit-1.2/mpfit.c ../../cmpfit-1.2/MyFit.cpp
-chmod a+x ../bin/makeprofile
-rm ~/bin/makeprofile
-cp -p ../bin/makeprofile ~/bin/
-rm ~/stella/bin/makeprofile
-ln -s ~/bin/makeprofile ~/stella/bin/makeprofile
-

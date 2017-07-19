@@ -1,7 +1,0 @@
-mv ../bin/setapsylow ../bin/setapsylow.bak
-g++ -s -O2 -fpermissive -lm -lgsl -lgslcblas -I/usr/local/include -L. -lm -lcfitsio -lblitz -o ../bin/setapsylow ../../cfits/src/CAny.cpp ../../cfits/src/CString.cpp ../../cfits/src/CFits.cpp MSetApsYLow.cpp ../../cfits/src/kriging/geostat.cpp ../../cfits/src/kriging/matrix_ex.cpp ../../cfits/src/kriging/model_sph.cpp ../../cfits/src/kriging/model_stable.cpp ../../cfits/src/kriging/variogram.cpp ../../cmpfit-1.2/mpfit.c ../../cmpfit-1.2/MyFit.cpp
-chmod a+x ../bin/setapsylow
-rm ~/bin/setapsylow
-cp -p ../bin/setapsylow ~/bin/
-rm ~/stella/bin/setapsylow
-ln -s ~/bin/setapsylow ~/stella/bin/setapsylow

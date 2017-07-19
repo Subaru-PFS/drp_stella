@@ -1,7 +1,0 @@
-mv ../bin/extractsum ../bin/extractsum.bak
-g++ -s -O2 -fpermissive -lm -lgsl -lgslcblas -I/usr/local/include -lm -lcfitsio -L. -o ../bin/extractsum ../../cfits/src/CAny.cpp ../../cfits/src/CString.cpp ../../cfits/src/CFits.cpp MExtractSum.cpp ../../cfits/src/kriging/geostat.cpp ../../cfits/src/kriging/matrix_ex.cpp ../../cfits/src/kriging/model_sph.cpp ../../cfits/src/kriging/model_stable.cpp ../../cfits/src/kriging/variogram.cpp ../../cmpfit-1.2/mpfit.c ../../cmpfit-1.2/MyFit.cpp
-chmod a+x ../bin/extractsum
-rm ~/bin/extractsum
-cp -p ../bin/extractsum ~/bin/
-rm ~/stella/bin/extractsum
-ln -s ~/bin/extractsum ~/stella/bin/extractsum

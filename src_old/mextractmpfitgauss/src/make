@@ -1,7 +1,0 @@
-mv ../bin/extractmpfitgauss ../bin/extractmpfitgauss.bak
-g++ -s -O2 -fpermissive -lm -lgsl -lgslcblas -I/usr/local/include -lm -lcfitsio -L. -o ../bin/extractmpfitgauss ../../cfits/src/CAny.cpp ../../cfits/src/CString.cpp ../../cfits/src/CFits.cpp MExtractMPFitGauss.cpp ../../cfits/src/kriging/geostat.cpp ../../cfits/src/kriging/matrix_ex.cpp ../../cfits/src/kriging/model_sph.cpp ../../cfits/src/kriging/model_stable.cpp ../../cfits/src/kriging/variogram.cpp ../../cmpfit-1.2/mpfit.c ../../cmpfit-1.2/MyFit.cpp
-chmod a+x ../bin/extractmpfitgauss
-rm ~/bin/extractmpfitgauss
-cp -p ../bin/extractmpfitgauss ~/bin/
-rm ~/stella/bin/extractmpfitgauss
-ln -s ~/bin/extractmpfitgauss ~/stella/bin/extractmpfitgauss
