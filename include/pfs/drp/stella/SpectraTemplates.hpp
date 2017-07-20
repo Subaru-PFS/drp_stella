@@ -1,3 +1,5 @@
+#include "pfs/drp/stella/cmpfit-1.2/MPFitting_ndarray.h"
+
 template< typename ImageT, typename MaskT, typename VarianceT, typename WavelengthT >
 pfs::drp::stella::Spectrum< ImageT, MaskT, VarianceT, WavelengthT >::Spectrum( Spectrum< ImageT, MaskT, VarianceT, WavelengthT > & spectrum,
                                                                                   std::size_t iTrace,

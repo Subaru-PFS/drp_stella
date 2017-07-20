@@ -1,5 +1,6 @@
 #include <algorithm>
 #include "pfs/drp/stella/FiberTraces.h"
+#include "pfs/drp/stella/cmpfit-1.2/MPFitting_ndarray.h"
 
 //#define __DEBUG_FINDANDTRACE__ 1
 namespace pfsDRPStella = pfs::drp::stella;

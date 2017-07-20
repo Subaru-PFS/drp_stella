@@ -9,7 +9,6 @@
 
 #include <unsupported/Eigen/Splines>
 
-#include "../cmpfit-1.2/MPFitting_ndarray.h"
 #include "lsst/pex/exceptions.h"
 #include "ndarray.h"
 #include "ndarray/eigen.h"

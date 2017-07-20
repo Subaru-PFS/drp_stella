@@ -1,4 +1,6 @@
 #include "pfs/drp/stella/math/Math.h"
+#include "pfs/drp/stella/cmpfit-1.2/MPFitting_ndarray.h"
+
 namespace pfs {
 namespace drp {
 namespace stella {

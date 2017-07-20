@@ -5,7 +5,6 @@
 #include <iostream>
 #include <vector>
 
-#include "cmpfit-1.2/MPFitting_ndarray.h"
 #include "Controls.h"
 #include "lsst/afw/image/MaskedImage.h"
 #include "lsst/log/Log.h"
