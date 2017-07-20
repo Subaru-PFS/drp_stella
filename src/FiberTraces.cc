@@ -1,4 +1,6 @@
+#include <algorithm>
 #include "pfs/drp/stella/FiberTraces.h"
+#include "pfs/drp/stella/cmpfit-1.2/MPFitting_ndarray.h"
 
 //#define __DEBUG_FINDANDTRACE__ 1
 namespace pfsDRPStella = pfs::drp::stella;
@@ -16,7 +18,7 @@ namespace pfsDRPStella = pfs::drp::stella;
   _profileFittingInputXMeanPerSwath(),
   _profileFittingInputYMeanPerSwath(),
   _trace(new afwImage::MaskedImage<ImageT, MaskT, VarianceT>(width, height)),
-  _profile(new afwImage::Image<double>(width, height)),
+  _profile(new afwImage::Image<float>(width, height)),
   _xCentersMeas(pfsDRPStella::utils::get2DndArray(float(height), float(2))),
   _xCenters(pfsDRPStella::utils::get1DndArray(float(height))),
   _iTrace(iTrace),
@@ -38,7 +40,7 @@ namespace pfsDRPStella = pfs::drp::stella;
   _profileFittingInputXMeanPerSwath(),
   _profileFittingInputYMeanPerSwath(),
   _trace(new afwImage::MaskedImage<ImageT, MaskT, VarianceT>(fiberTraceFunction->yHigh - fiberTraceFunction->yLow + 1, int(fiberTraceFunction->fiberTraceFunctionControl.xHigh - fiberTraceFunction->fiberTraceFunctionControl.xLow + 1))),
-  _profile(new afwImage::Image<double>(fiberTraceFunction->yHigh - fiberTraceFunction->yLow + 1, int(fiberTraceFunction->fiberTraceFunctionControl.xHigh - fiberTraceFunction->fiberTraceFunctionControl.xLow + 1))),
+  _profile(new afwImage::Image<float>(fiberTraceFunction->yHigh - fiberTraceFunction->yLow + 1, int(fiberTraceFunction->fiberTraceFunctionControl.xHigh - fiberTraceFunction->fiberTraceFunctionControl.xLow + 1))),
   _iTrace(iTrace),
   _isTraceSet(false),
   _isProfileSet(false),
@@ -96,7 +98,7 @@ namespace pfsDRPStella = pfs::drp::stella;
       PTR(afwImage::MaskedImage<ImageT, MaskT, VarianceT>) ptr(new afwImage::MaskedImage<ImageT, MaskT, VarianceT>(*(fiberTrace.getTrace()), true));
       _trace.reset();
       _trace = ptr;
-      PTR(afwImage::Image<double>) prof(new afwImage::Image<double>(*(fiberTrace.getProfile()), true));
+      PTR(afwImage::Image<float>) prof(new afwImage::Image<float>(*(fiberTrace.getProfile()), true));
       _profile.reset();
       _profile = prof;
     }
@@ -252,7 +254,7 @@ namespace pfsDRPStella = pfs::drp::stella;
 
   /// Set the profile image of this fiber trace to profile
   template<typename ImageT, typename MaskT, typename VarianceT>
-  void pfsDRPStella::FiberTrace<ImageT, MaskT, VarianceT>::setProfile( PTR(afwImage::Image<double>) const& profile){
+  void pfsDRPStella::FiberTrace<ImageT, MaskT, VarianceT>::setProfile( PTR(afwImage::Image<float>) const& profile){
     if (!_isTraceSet){
       string message("FiberTrace");
       message += to_string(_iTrace) + string("::setProfile: ERROR: _trace not set");
@@ -579,7 +581,7 @@ namespace pfsDRPStella = pfs::drp::stella;
       cout << "FiberTrace::createFiberTrace: _trace set to " << _trace->getImage()->getArray() << endl;
     #endif
     if (!_isProfileSet){
-      _profile.reset(new afwImage::Image<double>(_trace->getWidth(), _trace->getHeight()));
+      _profile.reset(new afwImage::Image<float>(_trace->getWidth(), _trace->getHeight()));
     }
     _isTraceSet = true;
   }
@@ -653,7 +655,7 @@ namespace pfsDRPStella = pfs::drp::stella;
     for (size_t iSwath = 1; iSwath < nSwaths; iSwath++){
       I_BinHeight_Temp = binHeight;
       if (iSwath == 1)
-        swathBoundYTemp[iSwath][0] = swathBoundYTemp[iSwath-1][0] + size_t(double(binHeight) / 2.);
+        swathBoundYTemp[iSwath][0] = swathBoundYTemp[iSwath-1][0] + size_t(0.5*binHeight);
       else
         swathBoundYTemp[iSwath][0] = swathBoundYTemp[iSwath-2][1] + 1;
       swathBoundYTemp[iSwath][1] = swathBoundYTemp[iSwath][0] + I_BinHeight_Temp;
@@ -667,7 +669,7 @@ namespace pfsDRPStella = pfs::drp::stella;
 
     ndarray::Array<size_t, 2, 1> swathBoundY = ndarray::allocate(int(nSwaths), 2);
     #ifdef __DEBUG_CALCSWATHBOUNDY__
-      ndarray::Array<double, 2, 1>::Index shape = swathBoundY.getShape();
+      ndarray::Array<float, 2, 1>::Index shape = swathBoundY.getShape();
       cout << "FiberTrace" << _iTrace << "::calcSwathBoundY: shape = " << shape << endl;
     #endif
     swathBoundY[0][0] = 0;
@@ -682,7 +684,7 @@ namespace pfsDRPStella = pfs::drp::stella;
     for (size_t iSwath = 1; iSwath < nSwaths; iSwath++){
       I_BinHeight_Temp = binHeight;
       if (iSwath == 1)
-        swathBoundY[iSwath][0] = swathBoundY[iSwath-1][0] + size_t(double(binHeight) / 2.);
+        swathBoundY[iSwath][0] = swathBoundY[iSwath-1][0] + size_t(0.5*binHeight);
       else
         swathBoundY[iSwath][0] = swathBoundY[iSwath-2][1] + 1;
       #ifdef __DEBUG_CALCSWATHBOUNDY__
@@ -738,16 +740,16 @@ namespace pfsDRPStella = pfs::drp::stella;
     #endif
 
     /// for each swath
-    ndarray::Array<double, 3, 2> slitFuncsSwaths = ndarray::allocate(nPixArr[0], _trace->getWidth(), int(nSwaths-1));
-    ndarray::Array<double, 2, 1> lastSlitFuncSwath = ndarray::allocate(nPixArr[nPixArr.getShape()[0] - 1], _trace->getWidth());
+    ndarray::Array<float, 3, 2> slitFuncsSwaths = ndarray::allocate(nPixArr[0], _trace->getWidth(), int(nSwaths-1));
+    ndarray::Array<float, 2, 1> lastSlitFuncSwath = ndarray::allocate(nPixArr[nPixArr.getShape()[0] - 1], _trace->getWidth());
     #ifdef __DEBUG_CALCPROFILE__
       cout << "slitFuncsSwaths.getShape() = " << slitFuncsSwaths.getShape() << endl;
       cout << "slitFuncsSwaths.getShape()[0] = " << slitFuncsSwaths.getShape()[0] << ", slitFuncsSwaths.getShape()[1] = " << slitFuncsSwaths.getShape()[1] << ", slitFuncsSwaths.getShape()[2] = " << slitFuncsSwaths.getShape()[2] << endl;
-      cout << "slitFuncsSwaths[view(0)()(0) = " << ndarray::Array<double, 1, 0>(slitFuncsSwaths[ndarray::view(0)()(0)]) << endl;
-      cout << "slitFuncsSwaths[view(0)(0,9)(0) = " << ndarray::Array<double, 1, 0>(slitFuncsSwaths[ndarray::view(0)(0,slitFuncsSwaths.getShape()[1])(0)]) << endl;
+      cout << "slitFuncsSwaths[view(0)()(0) = " << ndarray::Array<float, 1, 0>(slitFuncsSwaths[ndarray::view(0)()(0)]) << endl;
+      cout << "slitFuncsSwaths[view(0)(0,9)(0) = " << ndarray::Array<float, 1, 0>(slitFuncsSwaths[ndarray::view(0)(0,slitFuncsSwaths.getShape()[1])(0)]) << endl;
     #endif
     #ifdef __DEBUG_CALCPROFILE__
-      ndarray::Array<double, 3, 1>::Index shapeSFsSwaths = slitFuncsSwaths.getShape();
+      ndarray::Array<float, 3, 1>::Index shapeSFsSwaths = slitFuncsSwaths.getShape();
       cout << "FiberTrace" << _iTrace << "::calcProfile: shapeSFsSwaths = (" << shapeSFsSwaths[0] << ", " << shapeSFsSwaths[1] << ", " << shapeSFsSwaths[2] << ")" << endl;
     #endif
     _overSampledProfileFitXPerSwath.resize(0);
@@ -804,14 +806,14 @@ namespace pfsDRPStella = pfs::drp::stella;
     double D_RowSum;
     for (size_t iSwath = 0; iSwath < nSwaths - 1; iSwath++){
       for (size_t i_row = 0; i_row < nPixArr[iSwath]; i_row++){
-        D_RowSum = ndarray::sum(ndarray::Array<double, 1, 0>(slitFuncsSwaths[ndarray::view(static_cast<int>(i_row))()(iSwath)]));
+        D_RowSum = ndarray::sum(ndarray::Array<float, 1, 0>(slitFuncsSwaths[ndarray::view(static_cast<int>(i_row))()(iSwath)]));
         if (std::fabs(D_RowSum) > 0.00000000000000001){
           for (int iPix = 0; iPix < slitFuncsSwaths.getShape()[1]; iPix++){
             slitFuncsSwaths[i_row][iPix][iSwath] = slitFuncsSwaths[i_row][iPix][iSwath] / D_RowSum;
           }
           #ifdef __DEBUG_CALCPROFILE__
-            cout << "slitFuncsSwaths(" << i_row << ", *, " << iSwath << ") = " << ndarray::Array<double, 1, 0>(slitFuncsSwaths[ndarray::view(static_cast<int>(i_row))()(iSwath)]) << endl;
-            D_RowSum = ndarray::sum(ndarray::Array<double, 1, 0>(slitFuncsSwaths[ndarray::view(static_cast<int>(i_row))()(iSwath)]));
+            cout << "slitFuncsSwaths(" << i_row << ", *, " << iSwath << ") = " << ndarray::Array<float, 1, 0>(slitFuncsSwaths[ndarray::view(static_cast<int>(i_row))()(iSwath)]) << endl;
+            D_RowSum = ndarray::sum(ndarray::Array<float, 1, 0>(slitFuncsSwaths[ndarray::view(static_cast<int>(i_row))()(iSwath)]));
             cout << "i_row = " << i_row << ": iSwath = " << iSwath << ": D_RowSum = " << D_RowSum << endl;
           #endif
         }
@@ -840,7 +842,7 @@ namespace pfsDRPStella = pfs::drp::stella;
         #ifdef __DEBUG_CALCPROFILE__
           cout << "I_Bin=" << I_Bin << " == 0 && i_row=" << i_row << " < swathBoundsY[1][0]=" << swathBoundsY[1][0] << endl;
         #endif
-        _profile->getArray()[ndarray::view(static_cast<int>(i_row))()] = ndarray::Array<double, 1, 0>(slitFuncsSwaths[ndarray::view(iRowSwath)()(0)]);
+        _profile->getArray()[ndarray::view(static_cast<int>(i_row))()] = ndarray::Array<float, 1, 0>(slitFuncsSwaths[ndarray::view(iRowSwath)()(0)]);
       }
       else if ((I_Bin == nSwaths-1) && (i_row >= swathBoundsY[I_Bin-1][1])){// && (i_row > (I_A2_IBound(I_Bin-1, 1) - (I_A2_IBound(0,1) / 2.)))){
         #ifdef __DEBUG_CALCPROFILE__
@@ -849,7 +851,7 @@ namespace pfsDRPStella = pfs::drp::stella;
         _profile->getArray()[ndarray::view(static_cast<int>(i_row))()] = lastSlitFuncSwath[ndarray::view(iRowSwath)()];
       }
       else{
-        D_Weight_Bin1 = double(i_row - swathBoundsY[I_Bin+1][0]) / double(swathBoundsY[I_Bin][1] - swathBoundsY[I_Bin+1][0]);
+        D_Weight_Bin1 = float(i_row - swathBoundsY[I_Bin+1][0])/(swathBoundsY[I_Bin][1] - swathBoundsY[I_Bin+1][0]);
         D_Weight_Bin0 = 1. - D_Weight_Bin1;
         #ifdef __DEBUG_CALCPROFILE__
           cout << "FiberTrace" << _iTrace << "::calcProfile: i_row = " << i_row << ": nSwaths = " << nSwaths << endl;
@@ -861,25 +863,25 @@ namespace pfsDRPStella = pfs::drp::stella;
         #endif
         if (I_Bin == nSwaths - 2){
           #ifdef __DEBUG_CALCPROFILE__
-            cout << "FiberTrace" << _iTrace << "::calcProfile: slitFuncsSwaths(iRowSwath, *, I_Bin) = " << ndarray::Array<double, 1, 0>(slitFuncsSwaths[ndarray::view(iRowSwath)()(I_Bin)]) << ", lastSlitFuncSwath[ndarray::view(int(i_row - swathBoundsY[I_Bin+1][0])=" << int(i_row - swathBoundsY[I_Bin+1][0]) << ")] = " << lastSlitFuncSwath[ndarray::view(int(i_row - swathBoundsY[I_Bin+1][0]))()] << endl;
+            cout << "FiberTrace" << _iTrace << "::calcProfile: slitFuncsSwaths(iRowSwath, *, I_Bin) = " << ndarray::Array<float, 1, 0>(slitFuncsSwaths[ndarray::view(iRowSwath)()(I_Bin)]) << ", lastSlitFuncSwath[ndarray::view(int(i_row - swathBoundsY[I_Bin+1][0])=" << int(i_row - swathBoundsY[I_Bin+1][0]) << ")] = " << lastSlitFuncSwath[ndarray::view(int(i_row - swathBoundsY[I_Bin+1][0]))()] << endl;
             cout << "FiberTrace" << _iTrace << "::calcProfile: _profile->getArray().getShape() = " << _profile->getArray().getShape() << endl;
             cout << "FiberTrace" << _iTrace << "::calcProfile: slitFuncsSwath.getShape() = " << slitFuncsSwaths.getShape() << endl;
             cout << "FiberTrace" << _iTrace << "::calcProfile: lastSlitFuncSwath.getShape() = " << lastSlitFuncSwath.getShape() << endl;
             cout << "FiberTrace" << _iTrace << "::calcProfile: i_row = " << i_row << ", iRowSwath = " << iRowSwath << ", I_Bin = " << I_Bin << ", swathBoundsY[I_Bin+1][0] = " << swathBoundsY[I_Bin+1][0] << ", i_row - swathBoundsY[I_Bin+1][0] = " << i_row - swathBoundsY[I_Bin+1][0] << endl;
-            cout << "FiberTrace" << _iTrace << "::calcProfile: _profile->getArray()[ndarray::view(i_row)()] = " << ndarray::Array<double, 1, 1>(_profile->getArray()[ndarray::view(i_row)()]) << endl;
-            cout << "FiberTrace" << _iTrace << "::calcProfile: slitFuncsSwaths[ndarray::view(iRowSwath)()(I_Bin)] = " << ndarray::Array<double, 1, 0>(slitFuncsSwaths[ndarray::view(iRowSwath)()(I_Bin)]) << endl;
-            cout << "FiberTrace" << _iTrace << "::calcProfile: ndarray::Array<double, 1, 0>(slitFuncsSwaths[ndarray::view(iRowSwath)()(I_Bin)]).getShape() = " << ndarray::Array<double, 1, 1>(slitFuncsSwaths[ndarray::view(iRowSwath)()(I_Bin)]).getShape() << endl;
+            cout << "FiberTrace" << _iTrace << "::calcProfile: _profile->getArray()[ndarray::view(i_row)()] = " << ndarray::Array<float, 1, 1>(_profile->getArray()[ndarray::view(i_row)()]) << endl;
+            cout << "FiberTrace" << _iTrace << "::calcProfile: slitFuncsSwaths[ndarray::view(iRowSwath)()(I_Bin)] = " << ndarray::Array<float, 1, 0>(slitFuncsSwaths[ndarray::view(iRowSwath)()(I_Bin)]) << endl;
+            cout << "FiberTrace" << _iTrace << "::calcProfile: ndarray::Array<float, 1, 0>(slitFuncsSwaths[ndarray::view(iRowSwath)()(I_Bin)]).getShape() = " << ndarray::Array<float, 1, 1>(slitFuncsSwaths[ndarray::view(iRowSwath)()(I_Bin)]).getShape() << endl;
             cout << "FiberTrace" << _iTrace << "::calcProfile: D_Weight_Bin0 = " << D_Weight_Bin0 << ", D_Weight_Bin1 = " << D_Weight_Bin1 << endl;
-            cout << "FiberTrace" << _iTrace << "::calcProfile: lastSlitFuncSwath[ndarray::view(int(i_row - swathBoundsY[I_Bin+1][0]))()] = " << ndarray::Array<double, 1, 1>(lastSlitFuncSwath[ndarray::view(int(i_row - swathBoundsY[I_Bin+1][0]))()]) << endl;
+            cout << "FiberTrace" << _iTrace << "::calcProfile: lastSlitFuncSwath[ndarray::view(int(i_row - swathBoundsY[I_Bin+1][0]))()] = " << ndarray::Array<float, 1, 1>(lastSlitFuncSwath[ndarray::view(int(i_row - swathBoundsY[I_Bin+1][0]))()]) << endl;
           #endif
-          _profile->getArray()[ndarray::view(static_cast<int>(i_row))()] = (ndarray::Array<double, 1, 0>(slitFuncsSwaths[ndarray::view(iRowSwath)()(I_Bin)]) * D_Weight_Bin0) + (lastSlitFuncSwath[ndarray::view(int(i_row - swathBoundsY[I_Bin+1][0]))()] * D_Weight_Bin1);
+          _profile->getArray()[ndarray::view(static_cast<int>(i_row))()] = (ndarray::Array<float, 1, 0>(slitFuncsSwaths[ndarray::view(iRowSwath)()(I_Bin)]) * D_Weight_Bin0) + (lastSlitFuncSwath[ndarray::view(int(i_row - swathBoundsY[I_Bin+1][0]))()] * D_Weight_Bin1);
           #ifdef __DEBUG_CALCPROFILE__
             cout << "FiberTrace" << _iTrace << "::calcProfile: _profile->getArray()[ndarray::view(i_row)()] set to " << _profile->getArray()[ndarray::view(i_row)()] << endl;
           #endif
         }
         else{
           #ifdef __DEBUG_CALCPROFILE__
-            cout << "FiberTrace" << _iTrace << "::calcProfile: slitFuncsSwaths(iRowSwath, *, I_Bin) = " << ndarray::Array<double, 1, 0>(slitFuncsSwaths[ndarray::view(iRowSwath)()(I_Bin)]) << ", slitFuncsSwaths(int(i_row - swathBoundsY[I_Bin+1][0])=" << int(i_row - swathBoundsY[I_Bin+1][0]) << ", *, I_Bin+1) = " << ndarray::Array<double, 1, 0>(slitFuncsSwaths[ndarray::view(int(i_row - swathBoundsY[I_Bin+1][0]))()(I_Bin+1)]) << endl;
+            cout << "FiberTrace" << _iTrace << "::calcProfile: slitFuncsSwaths(iRowSwath, *, I_Bin) = " << ndarray::Array<float, 1, 0>(slitFuncsSwaths[ndarray::view(iRowSwath)()(I_Bin)]) << ", slitFuncsSwaths(int(i_row - swathBoundsY[I_Bin+1][0])=" << int(i_row - swathBoundsY[I_Bin+1][0]) << ", *, I_Bin+1) = " << ndarray::Array<float, 1, 0>(slitFuncsSwaths[ndarray::view(int(i_row - swathBoundsY[I_Bin+1][0]))()(I_Bin+1)]) << endl;
           #endif
           _profile->getArray()[ndarray::view(i_row)()] = (slitFuncsSwaths[ndarray::view(iRowSwath)()(I_Bin)] * D_Weight_Bin0) + (slitFuncsSwaths[ndarray::view(int(i_row - swathBoundsY[I_Bin+1][0]))()(I_Bin+1)] * D_Weight_Bin1);
         }
@@ -934,7 +936,7 @@ namespace pfsDRPStella = pfs::drp::stella;
   }
 
   template<typename ImageT, typename MaskT, typename VarianceT>
-  ndarray::Array<double, 2, 1> pfsDRPStella::FiberTrace<ImageT, MaskT, VarianceT>::calcProfileSwath(ndarray::Array<ImageT const, 2, 1> const& imageSwath,
+  ndarray::Array<float, 2, 1> pfsDRPStella::FiberTrace<ImageT, MaskT, VarianceT>::calcProfileSwath(ndarray::Array<ImageT const, 2, 1> const& imageSwath,
                                                                                                     ndarray::Array<MaskT const, 2, 1> const& maskSwath,
                                                                                                     ndarray::Array<VarianceT const, 2, 1> const& varianceSwath,
                                                                                                     ndarray::Array<float const, 1, 1> const& xCentersSwath,
@@ -968,8 +970,8 @@ namespace pfsDRPStella = pfs::drp::stella;
     }
 
     /// Normalize rows in imageSwath
-    ndarray::Array<double, 2, 1> imageSwathNormalized = ndarray::allocate(imageSwath.getShape()[0], imageSwath.getShape()[1]);
-    ndarray::Array<double, 1, 1> sumArr = ndarray::allocate(imageSwath.getShape()[1]);
+    ndarray::Array<float, 2, 1> imageSwathNormalized = ndarray::allocate(imageSwath.getShape()[0], imageSwath.getShape()[1]);
+    ndarray::Array<float, 1, 1> sumArr = ndarray::allocate(imageSwath.getShape()[1]);
     for (int iRow = 0; iRow < imageSwath.getShape()[0]; ++iRow){
       sumArr.deep() = ndarray::Array<ImageT const, 1, 1>(imageSwath[ndarray::view(iRow)()]);
       imageSwathNormalized[ndarray::view(iRow)()] = ndarray::Array<ImageT const, 1, 1>(imageSwath[ndarray::view(iRow)()]) / ndarray::sum(sumArr);
@@ -981,18 +983,20 @@ namespace pfsDRPStella = pfs::drp::stella;
 
     /// Calculate pixel offset to xCenter
     ndarray::Array<float, 1, 1> xCentersTemp = ndarray::allocate(xCentersSwath.getShape()[0]);
-    xCentersTemp.deep() = xCentersSwath + 0.5 - PIXEL_CENTER;
+    xCentersTemp.deep() = xCentersSwath + 0.5;
     const ndarray::Array<size_t const, 1, 1> xCentersInt = math::floor(xCentersTemp, size_t(0));
-    ndarray::Array<double, 1, 1> pixelOffset = ndarray::allocate(xCentersSwath.getShape()[0]);
-    pixelOffset.deep() = PIXEL_CENTER;
+    ndarray::Array<float, 1, 1> pixelOffset = ndarray::allocate(xCentersSwath.getShape()[0]);
+    pixelOffset.deep() = 0.0;
     pixelOffset.deep() -= xCentersSwath;
     pixelOffset.deep() += xCentersInt;
     #ifdef __DEBUG_CALCPROFILESWATH__
       cout << "FiberTrace::calcProfileSwath: iSwath = " << iSwath << ": pixelOffset = " << pixelOffset << endl;
     #endif
-    const ndarray::Array<double const, 1, 1> xCenterArrayIndexX = math::indGenNdArr(double(imageSwath.getShape()[1]));
-    const ndarray::Array<double const, 1, 1> xCenterArrayIndexY = math::replicate(double(1), int(imageSwath.getShape()[0]));
-    ndarray::Array<double, 2, 1> xArray = ndarray::allocate(imageSwath.getShape()[0], imageSwath.getShape()[1]);
+    const ndarray::Array<float const, 1, 1> xCenterArrayIndexX =
+        math::indGenNdArr(float(imageSwath.getShape()[1]));
+    const ndarray::Array<float const, 1, 1> xCenterArrayIndexY =
+        math::replicate<float>(1.0, int(imageSwath.getShape()[0]));
+    ndarray::Array<float, 2, 1> xArray = ndarray::allocate(imageSwath.getShape()[0], imageSwath.getShape()[1]);
     xArray.asEigen() = xCenterArrayIndexY.asEigen() * xCenterArrayIndexX.asEigen().transpose();
     double xMin = 1.;
     double xMax = -1.;
@@ -1007,16 +1011,16 @@ namespace pfsDRPStella = pfs::drp::stella;
       }
       ++itOffset;
     }
-    PTR(vector<double>) xVecPtr(new vector<double>());
+    PTR(vector<float>) xVecPtr(new vector<float>());
     xVecPtr->reserve(xArray.getShape()[0] * xArray.getShape()[1]);
-    PTR(vector<double>) yVecPtr(new vector<double>());
+    PTR(vector<float>) yVecPtr(new vector<float>());
     yVecPtr->reserve(xArray.getShape()[0] * xArray.getShape()[1]);
     auto itRowIm = imageSwathNormalized.begin();
     for (auto itRow = xArray.begin(); itRow != xArray.end(); ++itRow, ++itRowIm){
       auto itColIm = itRowIm->begin();
       for (auto itCol = itRow->begin(); itCol != itRow->end(); ++itCol, ++itColIm){
         xVecPtr->push_back(*itCol);
-        yVecPtr->push_back(double(*itColIm));
+        yVecPtr->push_back(static_cast<float>(*itColIm));
       }
     }
     _profileFittingInputXPerSwath.push_back(xVecPtr);
@@ -1036,8 +1040,8 @@ namespace pfsDRPStella = pfs::drp::stella;
     #ifdef __DEBUG_CALCPROFILESWATH__
       cout << "FiberTrace::calcProfileSwath: iSwath = " << iSwath << ": final xOverSampleStep = " << xOverSampleStep << endl;
     #endif
-    ndarray::Array<double, 1, 1> xOverSampled = ndarray::allocate(nSteps);
-    double xStart = xMin + (xOverSampleStep / 2.);
+    ndarray::Array<float, 1, 1> xOverSampled = ndarray::allocate(nSteps);
+    double xStart = xMin + 0.5*xOverSampleStep;
     int iStep = 0;
     for (auto it = xOverSampled.begin(); it != xOverSampled.end(); ++it){
       *it = xStart + (iStep * xOverSampleStep);
@@ -1047,16 +1051,16 @@ namespace pfsDRPStella = pfs::drp::stella;
       cout << "FiberTrace::calcProfileSwath: iSwath = " << iSwath << ": xOverSampled = " << xOverSampled << endl;
       cout << "FiberTrace::calcProfileSwath: _fiberTraceProfileFittingControl->maxIterSig = " << _fiberTraceProfileFittingControl->maxIterSig << endl;
     #endif
-    PTR(vector<double>) xOverSampledFitVec(new vector<double>(xOverSampled.begin(), xOverSampled.end()));
+    PTR(vector<float>) xOverSampledFitVec(new vector<float>(xOverSampled.begin(), xOverSampled.end()));
     _overSampledProfileFitXPerSwath.push_back(xOverSampledFitVec);
 
     /// calculate oversampled profile values
     iStep = 0;
-    std::vector< std::pair<double, double> > valOverSampledVec;
+    std::vector<std::pair<float, float>> valOverSampledVec;
     int iStepsWithValues = 0;
     int bThisStepHasValues = false;
     ImageT mean = 0.;
-    double rangeStart = double(xOverSampled[0] - (xOverSampleStep / 2.));
+    double rangeStart = xOverSampled[0] - 0.5*xOverSampleStep;
     double rangeEnd = rangeStart + xOverSampleStep;
     for (auto it = xOverSampled.begin(); it != xOverSampled.end(); ++it, ++iStep){
       bThisStepHasValues = false;
@@ -1075,7 +1079,8 @@ namespace pfsDRPStella = pfs::drp::stella;
         cout << "FiberTrace::calcProfileSwath: iSwath = " << iSwath << ": iStep" << iStep << ": rangeStart = " << rangeStart << ", rangeEnd = " << rangeEnd << endl;
         printf("rangeStart = %.9f, rangeEnd = %.9f\n", rangeStart, rangeEnd);
       #endif
-      ndarray::Array<size_t, 2, 1> indicesInValueRange = math::getIndicesInValueRange(xArray, rangeStart, rangeEnd);
+      ndarray::Array<size_t, 2, 1> indicesInValueRange =
+          math::getIndicesInValueRange<float>(xArray, rangeStart, rangeEnd);
       #ifdef __DEBUG_CALCPROFILESWATH__
         cout << "FiberTrace::calcProfileSwath: iSwath = " << iSwath << ": iStep" << iStep << ": indicesInValueRange = " << indicesInValueRange << endl;
       #endif
@@ -1088,8 +1093,8 @@ namespace pfsDRPStella = pfs::drp::stella;
         #endif
       }
       do{
-        ndarray::Array<double, 1, 1> subArr = math::getSubArray(imageSwathNormalized, indicesInValueRangeVec);
-        ndarray::Array<double, 1, 1> xSubArr = math::getSubArray(xArray, indicesInValueRangeVec);
+        ndarray::Array<float, 1, 1> subArr = math::getSubArray(imageSwathNormalized, indicesInValueRangeVec);
+        ndarray::Array<float, 1, 1> xSubArr = math::getSubArray(xArray, indicesInValueRangeVec);
         nValues = subArr.getShape()[0];
         #ifdef __DEBUG_CALCPROFILESWATH__
           cout << "FiberTrace::calcProfileSwath: iSwath = " << iSwath << ": iStep" << iStep << ": iterSig = " << iterSig << ": nValues = " << nValues << endl;
@@ -1100,7 +1105,7 @@ namespace pfsDRPStella = pfs::drp::stella;
             cout << "FiberTrace::calcProfileSwath: iSwath = " << iSwath << ": iStep = " << iStep << ": iterSig = " << iterSig << ": subArr = [" << subArr.getShape()[0] << "]: " << subArr << endl;
           #endif
           if (_fiberTraceProfileFittingControl->maxIterSig > iterSig){
-            ndarray::Array<double, 1, 1> moments = math::moment(subArr, 2);
+            ndarray::Array<float, 1, 1> moments = math::moment(subArr, 2);
             #ifdef __DEBUG_CALCPROFILESWATH__
               cout << "FiberTrace::calcProfileSwath: iSwath = " << iSwath << ": iStep = " << iStep << ": iterSig = " << iterSig << ": moments = " << moments << endl;
             #endif
@@ -1118,7 +1123,7 @@ namespace pfsDRPStella = pfs::drp::stella;
               }
             }
           }
-          ndarray::Array<double, 1, 1> moments = math::moment(subArr, 1);
+          ndarray::Array<float, 1, 1> moments = math::moment(subArr, 1);
           mean = moments[0];
           #ifdef __DEBUG_CALCPROFILESWATH__
             cout << "FiberTrace::calcProfileSwath: iSwath = " << iSwath << ": iStep = " << iStep << ": iterSig = " << iterSig << ": mean = " << mean << endl;
@@ -1129,7 +1134,7 @@ namespace pfsDRPStella = pfs::drp::stella;
         ++iterSig;
       } while (iterSig <= _fiberTraceProfileFittingControl->maxIterSig);
       if (bThisStepHasValues){
-        valOverSampledVec.push_back(std::pair<double, double>(*it, mean));
+        valOverSampledVec.push_back(std::pair<float, float>(*it, mean));
         #ifdef __DEBUG_CALCPROFILESWATH__
           cout << "FiberTrace::calcProfileSwath: iSwath = " << iSwath << ": valOverSampledVec[" << iStep << "] = (" << valOverSampledVec[iStep].first << ", " << valOverSampledVec[iStep].second << ")" << endl;
         #endif
@@ -1137,8 +1142,8 @@ namespace pfsDRPStella = pfs::drp::stella;
       rangeStart = rangeEnd;
       rangeEnd += xOverSampleStep;
     }
-    ndarray::Array<double, 1, 1> valOverSampled = ndarray::allocate(valOverSampledVec.size());
-    ndarray::Array<double, 1, 1> xValOverSampled = ndarray::allocate(valOverSampledVec.size());
+    ndarray::Array<float, 1, 1> valOverSampled = ndarray::allocate(valOverSampledVec.size());
+    ndarray::Array<float, 1, 1> xValOverSampled = ndarray::allocate(valOverSampledVec.size());
     for (int iRow = 0; iRow < valOverSampledVec.size(); ++iRow){
       xValOverSampled[iRow] = valOverSampledVec[iRow].first;
       valOverSampled[iRow] = valOverSampledVec[iRow].second;
@@ -1146,21 +1151,21 @@ namespace pfsDRPStella = pfs::drp::stella;
         cout << "FiberTrace::calcProfileSwath: iSwath = " << iSwath << ": (x)valOverSampled[" << iRow << "] = (" << xValOverSampled[iRow] << "," << valOverSampled[iRow] << ")" << endl;
       #endif
     }
-    PTR(std::vector<double>) xVecMean(new vector<double>(xValOverSampled.begin(), xValOverSampled.end()));
+    PTR(std::vector<float>) xVecMean(new vector<float>(xValOverSampled.begin(), xValOverSampled.end()));
     std::vector<ImageT> yVecMean(valOverSampled.begin(), valOverSampled.end());
 
-    PTR(std::vector<double>) yVecMeanF(new vector<double>(yVecMean.size()));
+    PTR(std::vector<float>) yVecMeanF(new vector<float>(yVecMean.size()));
     auto itF = yVecMeanF->begin();
     for (auto itT = yVecMean.begin(); itT != yVecMean.end(); ++itT, ++itF){
-      *itF = double(*itT);
+        *itF = static_cast<float>(*itT);
     }
     _profileFittingInputXMeanPerSwath.push_back(xVecMean);
     _profileFittingInputYMeanPerSwath.push_back(yVecMeanF);
 
-    math::spline<double> spline;
+    math::spline<float> spline;
     spline.set_points(*xVecMean, *yVecMeanF);    // currently it is required that X is already sorted
 
-    PTR(vector<double>) yOverSampledFitVec(new vector<double>(nSteps));
+    PTR(vector<float>) yOverSampledFitVec(new vector<float>(nSteps));
     _overSampledProfileFitYPerSwath.push_back(yOverSampledFitVec);
     for (auto itX = xOverSampledFitVec->begin(), itY = yOverSampledFitVec->begin(); itX != xOverSampledFitVec->end(); ++itX, ++itY)
       *itY = spline(*itX);
@@ -1173,7 +1178,7 @@ namespace pfsDRPStella = pfs::drp::stella;
     #endif
 
     /// calculate profile for each row in imageSwath
-    ndarray::Array<double, 2, 1> profArraySwath = ndarray::allocate(imageSwath.getShape()[0], imageSwath.getShape()[1]);
+    ndarray::Array<float, 2, 1> profArraySwath = ndarray::allocate(imageSwath.getShape()[0], imageSwath.getShape()[1]);
     double tmpVal = 0.0;
     for (int iRow = 0; iRow < imageSwath.getShape()[0]; ++iRow){
       #ifdef __DEBUG_CALCPROFILESWATH__
@@ -1440,8 +1445,8 @@ namespace pfsDRPStella = pfs::drp::stella;
       std::vector<std::string> keywords(1);
       keywords[0] = "XRANGE";
       std::vector<void*> args(1);
-      ndarray::Array<double, 1, 1> xRange = ndarray::allocate(2);
-      PTR(ndarray::Array<double, 1, 1>) p_xRange(new ndarray::Array<double, 1, 1>(xRange));
+      ndarray::Array<float, 1, 1> xRange = ndarray::allocate(2);
+      PTR(ndarray::Array<float, 1, 1>) p_xRange(new ndarray::Array<float, 1, 1>(xRange));
       args[0] = &p_xRange;
 
       /// Set all pixels below fiberTraceFunctionFindingControl->signalThreshold to 0.
@@ -1458,30 +1463,27 @@ namespace pfsDRPStella = pfs::drp::stella;
                                                                                 fiberTraceFunctionFindingControl );
         if (result.apertureCenterIndex.size() > fiberTraceFunctionFindingControl->minLength){
           B_ApertureFound = true;
-          const ndarray::Array<float const, 1, 1> F_A1_ApertureCenterIndex = vectorToNdArray(result.apertureCenterIndex);
-          const ndarray::Array<float const, 1, 1> F_A1_ApertureCenterPos = vectorToNdArray(result.apertureCenterPos);
-          const ndarray::Array<float const, 1, 1> F_A1_EApertureCenterPos = vectorToNdArray(result.eApertureCenterPos);
-          ndarray::Array<double, 1, 1> D_A1_ApertureCenterIndex = utils::typeCastNdArray(F_A1_ApertureCenterIndex, double(0.));
-          ndarray::Array<double, 1, 1> D_A1_ApertureCenterPos = utils::typeCastNdArray(F_A1_ApertureCenterPos, double(0.));
-          ndarray::Array<double, 1, 1> D_A1_EApertureCenterPos = utils::typeCastNdArray(F_A1_EApertureCenterPos, double(0.));
+          const ndarray::Array<float, 1, 1> D_A1_ApertureCenterIndex = vectorToNdArray(result.apertureCenterIndex);
+          const ndarray::Array<float, 1, 1> D_A1_ApertureCenterPos = vectorToNdArray(result.apertureCenterPos);
+          const ndarray::Array<float, 1, 1> D_A1_EApertureCenterPos = vectorToNdArray(result.eApertureCenterPos);
 
           #if defined(__DEBUG_FINDANDTRACE__)
             cout << "::pfs::drp::stella::math::findAndTraceApertures: D_A1_ApertureCenterIndex = " << D_A1_ApertureCenterIndex << endl;
             cout << "::pfs::drp::stella::math::findAndTraceApertures: D_A1_ApertureCenterPos = " << D_A1_ApertureCenterPos << endl;
           #endif
 
-          ndarray::Array<double, 1, 1> D_A1_PolyFitCoeffs;
+          ndarray::Array<float, 1, 1> D_A1_PolyFitCoeffs;
           if (fiberTraceFunction.fiberTraceFunctionControl.interpolation.compare("CHEBYSHEV") == 0)
           {
             LOGL_INFO("pfs.drp.stella.math.findAndTraceApertures", "Fitting CHEBYSHEV Polynomial");
             int n = fiberTraceFunction.fiberTraceFunctionControl.order + 1;
-            double xRangeMin = double(D_A1_ApertureCenterIndex[0]);
-            double xRangeMax = double(D_A1_ApertureCenterIndex[D_A1_ApertureCenterIndex.getShape()[0]-1]);
-            D_A1_PolyFitCoeffs = pfs::drp::stella::math::t_project_coefficients_data(D_A1_ApertureCenterIndex,
-                                                                                     D_A1_ApertureCenterPos,
-                                                                                     xRangeMin,
-                                                                                     xRangeMax,
-                                                                                     n);
+            float xRangeMin = D_A1_ApertureCenterIndex[0];
+            float xRangeMax = D_A1_ApertureCenterIndex[D_A1_ApertureCenterIndex.getShape()[0] - 1];
+            D_A1_PolyFitCoeffs = math::t_project_coefficients_data(D_A1_ApertureCenterIndex,
+                                                                   D_A1_ApertureCenterPos,
+                                                                   xRangeMin,
+                                                                   xRangeMax,
+                                                                   n);
           }
           else{
             /// Fit Polynomial
@@ -1584,16 +1586,16 @@ namespace pfsDRPStella = pfs::drp::stella;
       int I_MinWidth = int(1.5 * fiberTraceFunctionFindingControl->apertureFWHM);
       if (I_MinWidth < fiberTraceFunctionFindingControl->nTermsGaussFit)
         I_MinWidth = fiberTraceFunctionFindingControl->nTermsGaussFit;
-      double D_MaxTimesApertureWidth = 4.;
-      std::vector<double> gaussFitVariances(0);
-      std::vector<double> gaussFitMean(0);
-      ndarray::Array<double, 1, 1> xCorRange = ndarray::allocate(2);
+      float D_MaxTimesApertureWidth = 4.0;
+      std::vector<float> gaussFitVariances(0);
+      std::vector<float> gaussFitMean(0);
+      ndarray::Array<float, 1, 1> xCorRange = ndarray::allocate(2);
       xCorRange[0] = -0.5;
       xCorRange[1] = 0.5;
-      double xCorMinPos = 0.;
+      float xCorMinPos = 0.;
       int nInd = 100;
-      ndarray::Array<double, 2, 1> indGaussArr = ndarray::allocate(nInd, 2);
-      std::vector<pfs::drp::stella::math::dataXY<double>> xySorted(0);
+      ndarray::Array<float, 2, 1> indGaussArr = ndarray::allocate(nInd, 2);
+      std::vector<pfs::drp::stella::math::dataXY<float>> xySorted(0);
       xySorted.reserve(((fiberTraceFunctionFindingControl->apertureFWHM * D_MaxTimesApertureWidth) + 2) * ccdImage->getHeight());
 
       int I_StartIndex;
@@ -1605,17 +1607,18 @@ namespace pfsDRPStella = pfs::drp::stella;
       int I_RowBak;
       size_t apertureLength = 0;
       bool B_ApertureFound;
-      ndarray::Array<double, 1, 1> D_A1_IndexCol = pfsDRPStella::math::indGenNdArr(double(ccdArray.getShape()[1]));
+      ndarray::Array<float, 1, 1> D_A1_IndexCol =
+          pfsDRPStella::math::indGenNdArr(static_cast<float>(ccdArray.getShape()[1]));
       #if defined(__DEBUG_FINDANDTRACE__) && __DEBUG_FINDANDTRACE__ > 2
         cout << "pfs::drp::stella::math::findCenterPositionsOneTrace: D_A1_IndexCol = " << D_A1_IndexCol << endl;
       #endif
-      ndarray::Array<double, 1, 1> D_A1_Guess = ndarray::allocate(fiberTraceFunctionFindingControl->nTermsGaussFit);
-      ndarray::Array<double, 1, 1> D_A1_GaussFit_Coeffs = ndarray::allocate(fiberTraceFunctionFindingControl->nTermsGaussFit);
-      ndarray::Array<double, 1, 1> D_A1_GaussFit_Coeffs_Bak = ndarray::allocate(fiberTraceFunctionFindingControl->nTermsGaussFit);
+      ndarray::Array<float, 1, 1> D_A1_Guess = ndarray::allocate(fiberTraceFunctionFindingControl->nTermsGaussFit);
+      ndarray::Array<float, 1, 1> D_A1_GaussFit_Coeffs = ndarray::allocate(fiberTraceFunctionFindingControl->nTermsGaussFit);
+      ndarray::Array<float, 1, 1> D_A1_GaussFit_Coeffs_Bak = ndarray::allocate(fiberTraceFunctionFindingControl->nTermsGaussFit);
       ndarray::Array<int, 1, 1> I_A1_Signal = ndarray::allocate(ccdArray.getShape()[1]);
       I_A1_Signal[ndarray::view()] = 0;
-      ndarray::Array<double, 1, 1> D_A1_ApertureCenter = ndarray::allocate(ccdArray.getShape()[0]);
-      ndarray::Array<double, 1, 1> D_A1_EApertureCenter = ndarray::allocate(ccdArray.getShape()[0]);
+      ndarray::Array<float, 1, 1> D_A1_ApertureCenter = ndarray::allocate(ccdArray.getShape()[0]);
+      ndarray::Array<float, 1, 1> D_A1_EApertureCenter = ndarray::allocate(ccdArray.getShape()[0]);
       ndarray::Array<int, 1, 1> I_A1_ApertureCenterIndex = ndarray::allocate(ccdArray.getShape()[0]);
       ndarray::Array<int, 1, 1> I_A1_IndSignal;
       #if defined(__DEBUG_FINDANDTRACE__)
@@ -1774,8 +1777,8 @@ namespace pfsDRPStella = pfs::drp::stella;
                 }
                 else{
                   /// populate Arrays for GaussFit
-                  ndarray::Array<double, 1, 1> D_A1_X = copy(ndarray::Array<double, 1, 1>(D_A1_IndexCol[ndarray::view(I_FirstWideSignalStart, I_FirstWideSignalEnd + 1)]));
-                  ndarray::Array<double, 1, 1> D_A1_Y = ndarray::allocate(I_FirstWideSignalEnd - I_FirstWideSignalStart + 1);
+                  ndarray::Array<float, 1, 1> D_A1_X = copy(ndarray::Array<float, 1, 1>(D_A1_IndexCol[ndarray::view(I_FirstWideSignalStart, I_FirstWideSignalEnd + 1)]));
+                  ndarray::Array<float, 1, 1> D_A1_Y = ndarray::allocate(I_FirstWideSignalEnd - I_FirstWideSignalStart + 1);
                   D_A1_Y.deep() = ccdArray[ndarray::view(i_Row)(I_FirstWideSignalStart, I_FirstWideSignalEnd + 1)];
                   for (auto it = D_A1_Y.begin(); it != D_A1_Y.end(); ++it){
                     if (*it < 0.000001)
@@ -1786,22 +1789,23 @@ namespace pfsDRPStella = pfs::drp::stella;
                   #endif
                   ndarray::Array<VarianceT, 1, 1> T_A1_MeasureErrors = ndarray::allocate(I_FirstWideSignalEnd - I_FirstWideSignalStart + 1);
                   T_A1_MeasureErrors.deep() = ccdVarianceArray[ndarray::view(i_Row)(I_FirstWideSignalStart, I_FirstWideSignalEnd + 1)];
-                  ndarray::Array<double, 1, 1> D_A1_MeasureErrors = ndarray::allocate(I_FirstWideSignalEnd - I_FirstWideSignalStart + 1);
+                  ndarray::Array<float, 1, 1> D_A1_MeasureErrors = ndarray::allocate(I_FirstWideSignalEnd - I_FirstWideSignalStart + 1);
                   for (int ooo = 0; ooo < I_FirstWideSignalEnd - I_FirstWideSignalStart + 1; ++ooo){
                     if (T_A1_MeasureErrors[ooo] > 0)
-                      D_A1_MeasureErrors[ooo] = double(sqrt(T_A1_MeasureErrors[ooo]));
+                      D_A1_MeasureErrors[ooo] = sqrt(T_A1_MeasureErrors[ooo]);
                     else
                       D_A1_MeasureErrors[ooo] = 1;
                   }
 
                   /// Guess values for GaussFit
                   if (fiberTraceFunctionFindingControl->nTermsGaussFit == 3){
-                    D_A1_Guess[0] = math::max(D_A1_Y);
-                    D_A1_Guess[1] = double(I_FirstWideSignalStart) + (double((I_FirstWideSignalEnd - I_FirstWideSignalStart)) / 2.);
-                    D_A1_Guess[2] = double(fiberTraceFunctionFindingControl->apertureFWHM) / 2.;
+                    D_A1_Guess[0] = max(D_A1_Y);
+                    D_A1_Guess[1] = I_FirstWideSignalStart +
+                        0.5*(I_FirstWideSignalEnd - I_FirstWideSignalStart);
+                    D_A1_Guess[2] = 0.5*fiberTraceFunctionFindingControl->apertureFWHM;
                   }
                   else if (fiberTraceFunctionFindingControl->nTermsGaussFit > 3){
-                    D_A1_Guess[3] = std::min(D_A1_Y[0], D_A1_Y[D_A1_Y.getShape()[0]-1]);
+                     D_A1_Guess[3] = std::min(D_A1_Y[0], D_A1_Y[D_A1_Y.getShape()[0]-1]);
                     if (D_A1_Guess[3] < 0.)
                       D_A1_Guess[3] = 0.1;
                     if (fiberTraceFunctionFindingControl->nTermsGaussFit > 4)
@@ -1809,7 +1813,7 @@ namespace pfsDRPStella = pfs::drp::stella;
                   }
 
                   D_A1_GaussFit_Coeffs[ndarray::view()] = 0.;
-                  ndarray::Array<double, 1, 1> D_A1_GaussFit_ECoeffs = ndarray::allocate(D_A1_GaussFit_Coeffs.size());
+                  ndarray::Array<float, 1, 1> D_A1_GaussFit_ECoeffs = ndarray::allocate(D_A1_GaussFit_Coeffs.size());
                   D_A1_GaussFit_ECoeffs[ndarray::view()] = 0.;
 
                   #if defined(__DEBUG_FINDANDTRACE__)
@@ -1818,13 +1822,13 @@ namespace pfsDRPStella = pfs::drp::stella;
 
                   ndarray::Array<int, 2, 1> I_A2_Limited = ndarray::allocate(fiberTraceFunctionFindingControl->nTermsGaussFit, 2);
                   I_A2_Limited[ndarray::view()] = 1;
-                  ndarray::Array<double, 2, 1> D_A2_Limits = ndarray::allocate(fiberTraceFunctionFindingControl->nTermsGaussFit, 2);
+                  ndarray::Array<float, 2, 1> D_A2_Limits = ndarray::allocate(fiberTraceFunctionFindingControl->nTermsGaussFit, 2);
                   D_A2_Limits[0][0] = 0.;/// Peak lower limit
                   D_A2_Limits[0][1] = 2. * D_A1_Guess[0];/// Peak upper limit
-                  D_A2_Limits[1][0] = double(I_FirstWideSignalStart);/// Centroid lower limit
-                  D_A2_Limits[1][1] = double(I_FirstWideSignalEnd);/// Centroid upper limit
-                  D_A2_Limits[2][0] = double(fiberTraceFunctionFindingControl->apertureFWHM) / 4.;/// Sigma lower limit
-                  D_A2_Limits[2][1] = double(fiberTraceFunctionFindingControl->apertureFWHM);/// Sigma upper limit
+                  D_A2_Limits[1][0] = I_FirstWideSignalStart;      /// Centroid lower limit
+                  D_A2_Limits[1][1] = I_FirstWideSignalEnd;/// Centroid upper limit
+                  D_A2_Limits[2][0] = 0.25*fiberTraceFunctionFindingControl->apertureFWHM;/// Sigma lower limit
+                  D_A2_Limits[2][1] = fiberTraceFunctionFindingControl->apertureFWHM; /// Sigma upper limit
                   if (fiberTraceFunctionFindingControl->nTermsGaussFit > 3){
                     D_A2_Limits[3][0] = 0.;
                     D_A2_Limits[3][1] = 2. * D_A1_Guess[3];
@@ -1861,11 +1865,13 @@ namespace pfsDRPStella = pfs::drp::stella;
                       if (D_A1_GaussFit_Coeffs[0] > fiberTraceFunctionFindingControl->saturationLevel){
                         cout << "pfs::drp::stella::math::findCenterPositionsOneTrace: i_Row = " << i_Row << ": while: WARNING: Signal appears to be saturated" << endl;
                       }
-                      if ((D_A1_GaussFit_Coeffs[1] < double(I_FirstWideSignalStart) + (double(I_Length)/4.)) || (D_A1_GaussFit_Coeffs[1] > double(I_FirstWideSignalStart) + (double(I_Length) * 3./4.))){
+                      if (D_A1_GaussFit_Coeffs[1] < I_FirstWideSignalStart + 0.25*I_Length ||
+                          D_A1_GaussFit_Coeffs[1] > I_FirstWideSignalStart + 0.75*I_Length) {
                         cout << "pfs::drp::stella::math::findCenterPositionsOneTrace: i_Row = " << i_Row << ": while: Warning: Center of Gaussian far away from middle of signal" << endl;
                       }
                     #endif
-                    if ((D_A1_GaussFit_Coeffs[1] < double(I_FirstWideSignalStart)) || (D_A1_GaussFit_Coeffs[1] > double(I_FirstWideSignalEnd))){
+                    if (D_A1_GaussFit_Coeffs[1] < I_FirstWideSignalStart ||
+                        D_A1_GaussFit_Coeffs[1] > I_FirstWideSignalEnd) {
                       #if defined(__DEBUG_FINDANDTRACE__)
                         cout << "pfs::drp::stella::math::findCenterPositionsOneTrace: i_Row = " << i_Row << ": while: Warning: Center of Gaussian too far away from middle of signal -> abandoning aperture" << endl;
                       #endif
@@ -1901,7 +1907,7 @@ namespace pfsDRPStella = pfs::drp::stella;
                         #endif
                         ccdArray[ndarray::view(i_Row)(I_FirstWideSignalStart+1, I_FirstWideSignalEnd)] = 0.;
                       }
-                    }/// end else if ((D_A1_GaussFit_Coeffs(1) > double(I_FirstWideSignalStart)) && (D_A1_GaussFit_Coeffs(1) < double(I_FirstWideSignalEnd)))
+                    }/// end else if ((D_A1_GaussFit_Coeffs(1) > I_FirstWideSignalStart) && (D_A1_GaussFit_Coeffs(1) < I_FirstWideSignalEnd))
                   }/// else else if (GaussFit returned TRUE)
                 }/// end else if (I_Length >= 4)
               }/// end else if GaussFit
@@ -1980,11 +1986,11 @@ namespace pfsDRPStella = pfs::drp::stella;
                   I_ApertureLost++;
                 }
                 else{
-                  ndarray::Array<double, 1, 1> D_A1_X = copy(ndarray::Array<double, 1, 1>(D_A1_IndexCol[ndarray::view(I_FirstWideSignalStart, I_FirstWideSignalEnd+1)]));
-                  ndarray::Array<double, 1, 1> D_A1_Y = ndarray::allocate(I_FirstWideSignalEnd - I_FirstWideSignalStart + 1);
+                  ndarray::Array<float, 1, 1> D_A1_X = copy(ndarray::Array<float, 1, 1>(D_A1_IndexCol[ndarray::view(I_FirstWideSignalStart, I_FirstWideSignalEnd+1)]));
+                  ndarray::Array<float, 1, 1> D_A1_Y = ndarray::allocate(I_FirstWideSignalEnd - I_FirstWideSignalStart + 1);
                   D_A1_Y.deep() = ccdArray[ndarray::view(i_Row)(I_FirstWideSignalStart, I_FirstWideSignalEnd+1)];
                   ndarray::Array<VarianceT, 1, 1> T_A1_MeasureErrors = copy(ccdVarianceArray[ndarray::view(i_Row)(I_FirstWideSignalStart, I_FirstWideSignalEnd + 1)]);
-                  ndarray::Array<double, 1, 1> D_A1_MeasureErrors = ndarray::allocate(I_FirstWideSignalEnd - I_FirstWideSignalStart + 1);
+                  ndarray::Array<float, 1, 1> D_A1_MeasureErrors = ndarray::allocate(I_FirstWideSignalEnd - I_FirstWideSignalStart + 1);
                   for (int ooo = 0; ooo < I_FirstWideSignalEnd - I_FirstWideSignalStart + 1; ++ooo){
                     if (T_A1_MeasureErrors[ooo] > 0)
                       D_A1_MeasureErrors[ooo] = ImageT(sqrt(T_A1_MeasureErrors[ooo]));
@@ -2019,7 +2025,7 @@ namespace pfsDRPStella = pfs::drp::stella;
                     D_A1_Guess.deep() = D_A1_GaussFit_Coeffs_Bak;
 
                     D_A1_GaussFit_Coeffs[ndarray::view()] = 0.;
-                    ndarray::Array<double, 1, 1> D_A1_GaussFit_ECoeffs = ndarray::allocate(D_A1_GaussFit_Coeffs.size());
+                    ndarray::Array<float, 1, 1> D_A1_GaussFit_ECoeffs = ndarray::allocate(D_A1_GaussFit_Coeffs.size());
                     D_A1_GaussFit_ECoeffs[ndarray::view()] = 0.;
 
                     #if defined(__DEBUG_FINDANDTRACE__)
@@ -2028,16 +2034,16 @@ namespace pfsDRPStella = pfs::drp::stella;
 
                     ndarray::Array<int, 2, 1> I_A2_Limited = ndarray::allocate(fiberTraceFunctionFindingControl->nTermsGaussFit, 2);
                     I_A2_Limited[ndarray::view()] = 1;
-                    ndarray::Array<double, 2, 1> D_A2_Limits = ndarray::allocate(fiberTraceFunctionFindingControl->nTermsGaussFit, 2);
+                    ndarray::Array<float, 2, 1> D_A2_Limits = ndarray::allocate(fiberTraceFunctionFindingControl->nTermsGaussFit, 2);
                     D_A2_Limits[0][0] = 0.;/// Peak lower limit
                     D_A2_Limits[0][1] = 2. * D_A1_Guess[0];/// Peak upper limit
-                    D_A2_Limits[1][0] = double(I_FirstWideSignalStart);/// Centroid lower limit
-                    D_A2_Limits[1][1] = double(I_FirstWideSignalEnd);/// Centroid upper limit
-                    D_A2_Limits[2][0] = double(fiberTraceFunctionFindingControl->apertureFWHM) / 4.;/// Sigma lower limit
-                    D_A2_Limits[2][1] = double(fiberTraceFunctionFindingControl->apertureFWHM);/// Sigma upper limit
+                    D_A2_Limits[1][0] = I_FirstWideSignalStart;/// Centroid lower limit
+                    D_A2_Limits[1][1] = I_FirstWideSignalEnd;/// Centroid upper limit
+                    D_A2_Limits[2][0] = 0.25*fiberTraceFunctionFindingControl->apertureFWHM;/// Sigma lower limit
+                    D_A2_Limits[2][1] = fiberTraceFunctionFindingControl->apertureFWHM;/// Sigma upper limit
                     if (gaussFitVariances.size() > 15){
                       double sum = std::accumulate(gaussFitMean.end()-10, gaussFitMean.end(), 0.0);
-                      double mean = sum / 10.;
+                      double mean = sum/10.; // we're using the last 10 points; see previous line
                       #if defined(__DEBUG_FINDANDTRACE__) && __DEBUG_FINDANDTRACE__ > 2
                         for (int iMean = 0; iMean < gaussFitMean.size(); ++iMean){
                           cout << "gaussFitMean[" << iMean << "] = " << gaussFitMean[iMean] << endl;
@@ -2085,7 +2091,7 @@ namespace pfsDRPStella = pfs::drp::stella;
                     #if defined(__DEBUG_FINDANDTRACE__)
                       cout << "pfs::drp::stella::math::findCenterPositionsOneTrace: i_Row = " << i_Row << ": while: 2. starting MPFitGaussLim: D_A2_Limits = " << D_A2_Limits << endl;
                     #endif
-                    ndarray::Array<double, 2, 1> D_A2_XY = ndarray::allocate(D_A1_X.getShape()[0], 2);
+                    ndarray::Array<float, 2, 1> D_A2_XY = ndarray::allocate(D_A1_X.getShape()[0], 2);
                     D_A2_XY[ndarray::view()(0)] = D_A1_X;
                     D_A2_XY[ndarray::view()(1)] = D_A1_Y;
                     D_A1_MeasureErrors.deep() = 1.;
@@ -2171,7 +2177,7 @@ namespace pfsDRPStella = pfs::drp::stella;
                             D_A1_GaussFit_Coeffs_Bak[ndarray::view()] = D_A1_GaussFit_Coeffs[ndarray::view()];
                             xCorMinPos = 0.;
                             int ind = 0;
-                            ndarray::Array<double, 2, 1> xyRelativeToCenter = ndarray::allocate(D_A1_X.getShape()[0] + 2, 2);
+                            ndarray::Array<float, 2, 1> xyRelativeToCenter = ndarray::allocate(D_A1_X.getShape()[0] + 2, 2);
                             xyRelativeToCenter[0][0] = D_A1_X[0] - D_A1_GaussFit_Coeffs[1] - 1.;
                             xyRelativeToCenter[0][1] = 0.;
                             xyRelativeToCenter[xyRelativeToCenter.getShape()[0]-1][0] = D_A1_X[D_A1_X.getShape()[0]-1] - D_A1_GaussFit_Coeffs[1] + 1.;
@@ -2182,14 +2188,14 @@ namespace pfsDRPStella = pfs::drp::stella;
                             }
                             indGaussArr[ndarray::view()(0)] = xyRelativeToCenter[0][0];
                             ind = 0;
-                            double fac = (xyRelativeToCenter[xyRelativeToCenter.getShape()[0]-1][0] - xyRelativeToCenter[0][0]) / nInd;
+                            float fac = (xyRelativeToCenter[xyRelativeToCenter.getShape()[0]-1][0] - xyRelativeToCenter[0][0]) / nInd;
                             for (auto itRow = indGaussArr.begin(); itRow != indGaussArr.end(); ++itRow, ++ind){
                               auto itCol = itRow->begin();
                               *itCol = *itCol + (ind * fac);
                               *(itCol + 1) = D_A1_GaussFit_Coeffs[0] * exp(0. - ((*itCol) * (*itCol)) / (2. * D_A1_Guess[2] * D_A1_Guess[2]));
                             }
                             if (gaussFitVariances.size() > 20){
-                              ndarray::Array<double, 2, 1> xysRelativeToCenter = ndarray::allocate(xySorted.size(), 2);
+                              ndarray::Array<float, 2, 1> xysRelativeToCenter = ndarray::allocate(xySorted.size(), 2);
                               ind = 0;
                               auto itSorted = xySorted.begin();
                               for (auto itRow = xysRelativeToCenter.begin(); itRow != xysRelativeToCenter.end(); ++itRow, ++ind, ++itSorted){
@@ -2203,7 +2209,7 @@ namespace pfsDRPStella = pfs::drp::stella;
                             }
                             if (gaussFitVariances.size() > 10){
                               for (int iX = 0; iX < xyRelativeToCenter.getShape()[0]; ++iX){
-                                dataXY<double> xyStruct;
+                                dataXY<float> xyStruct;
                                 xyStruct.x = xyRelativeToCenter[iX][0] + xCorMinPos;
                                 xyStruct.y = xyRelativeToCenter[iX][1];
                                 pfs::drp::stella::math::insertSorted(xySorted, xyStruct);
@@ -2249,8 +2255,8 @@ namespace pfsDRPStella = pfs::drp::stella;
             if (*(itCen + iInd) > 0.){
               (*(itInd + iInd)) = 1;
               ++I_ApertureLength;
-              result.apertureCenterIndex.push_back(double(iInd + PIXEL_CENTER));
-              result.apertureCenterPos.push_back((*(itCen + iInd)) + PIXEL_CENTER);
+              result.apertureCenterIndex.push_back(iInd);
+              result.apertureCenterPos.push_back((*(itCen + iInd)));
               result.eApertureCenterPos.push_back((*(itECen + iInd)));
               #if defined(__DEBUG_FINDANDTRACE__)
                 cout << "pfs::drp::stella::math::findCenterPositionsOneTrace: i_Row = " << i_Row << ": result.apertureCenterIndex[" << result.apertureCenterIndex.size()-1 << "] set to " << result.apertureCenterIndex[result.apertureCenterIndex.size()-1] << endl;
@@ -2281,7 +2287,7 @@ namespace pfsDRPStella = pfs::drp::stella;
                                                   size_t const& ccdHeightIn,
                                                   size_t const& ccdWidthIn){
       ndarray::Array<float, 1, 1> xRowIndex = ndarray::allocate(fiberTraceFunctionIn->yHigh - fiberTraceFunctionIn->yLow + 1);
-      float xRowInd = fiberTraceFunctionIn->yCenter + fiberTraceFunctionIn->yLow + PIXEL_CENTER;
+      float xRowInd = fiberTraceFunctionIn->yCenter + fiberTraceFunctionIn->yLow;
       for (auto i = xRowIndex.begin(); i != xRowIndex.end(); ++i){
         *i = xRowInd;
         ++xRowInd;
@@ -2314,9 +2320,9 @@ namespace pfsDRPStella = pfs::drp::stella;
           cout << "pfs::drp::stella::calculateXCenters: Function = Chebyshev" << endl;
           cout << "pfs::drp::stella::calculateXCenters: Coeffs = " << fiberTraceFunctionCoefficients << endl;
         #endif
-        ndarray::Array<double, 1, 1> range = ndarray::allocate(2);
-        range[0] = fiberTraceFunctionIn->yCenter + fiberTraceFunctionIn->yLow + PIXEL_CENTER;
-        range[1] = fiberTraceFunctionIn->yCenter + fiberTraceFunctionIn->yHigh + PIXEL_CENTER;
+        ndarray::Array<float, 1, 1> range = ndarray::allocate(2);
+        range[0] = fiberTraceFunctionIn->yCenter + fiberTraceFunctionIn->yLow;
+        range[1] = fiberTraceFunctionIn->yCenter + fiberTraceFunctionIn->yHigh;
         #ifdef __DEBUG_XCENTERS__
           cout << "pfs::drp::stella::calculateXCenters: CHEBYSHEV: yIn = " << yIn << endl;
           cout << "pfs::drp::stella::calculateXCenters: CHEBYSHEV: range = " << range << endl;
@@ -2340,10 +2346,10 @@ namespace pfsDRPStella = pfs::drp::stella;
           cout << "pfs::drp::stella::calculateXCenters: Coeffs = " << fiberTraceFunctionCoefficients << endl;
           cout << "pfs::drp::stella::calculateXCenters: fiberTraceFunctionCoefficients = " << fiberTraceFunctionCoefficients << endl;
         #endif
-        xCenters = pfsDRPStella::math::Poly( yIn,
-                                              fiberTraceFunctionCoefficients,
-                                              float(fiberTraceFunctionIn->yCenter + fiberTraceFunctionIn->yLow + PIXEL_CENTER),
-                                              float(fiberTraceFunctionIn->yCenter + fiberTraceFunctionIn->yHigh + PIXEL_CENTER));
+        xCenters = pfsDRPStella::math::Poly(yIn,
+                                            fiberTraceFunctionCoefficients,
+                                            float(fiberTraceFunctionIn->yCenter + fiberTraceFunctionIn->yLow),
+                                            float(fiberTraceFunctionIn->yCenter + fiberTraceFunctionIn->yHigh));
       }
 
       return xCenters;
@@ -2558,8 +2564,8 @@ namespace pfsDRPStella = pfs::drp::stella;
 
       ndarray::Array< size_t, 2, 1 > minCenMax = calcMinCenMax(
             fiberTrace.getXCenters(),
-            double( fiberTrace.getFiberTraceFunction()->fiberTraceFunctionControl.xHigh ),
-            double( fiberTrace.getFiberTraceFunction()->fiberTraceFunctionControl.xLow ),
+            static_cast<float>(fiberTrace.getFiberTraceFunction()->fiberTraceFunctionControl.xHigh),
+            static_cast<float>(fiberTrace.getFiberTraceFunction()->fiberTraceFunctionControl.xLow),
             fiberTrace.getFiberTraceFunction()->fiberTraceFunctionControl.nPixCutLeft,
             fiberTrace.getFiberTraceFunction()->fiberTraceFunctionControl.nPixCutRight );
       LOGLS_DEBUG(_log, "minCenMax[coordsOut.y=" << coordsOut.y << "] = " << minCenMax[coordsOut.y]);
@@ -2651,66 +2657,42 @@ namespace pfsDRPStella = pfs::drp::stella;
                                 size_t,
                                 size_t,
                                 size_t );
-    template size_t findITrace( pfsDRPStella::FiberTrace< double, lsst::afw::image::MaskPixel, double > const&,
-                                ndarray::Array< float, 1, 0 > const&,
-                                size_t,
-                                size_t,
-                                size_t );
     template size_t findITrace( pfsDRPStella::FiberTrace< float, lsst::afw::image::MaskPixel, float > const&,
                                 ndarray::Array< double, 1, 0 > const&,
                                 size_t,
                                 size_t,
                                 size_t );
-    template size_t findITrace( pfsDRPStella::FiberTrace< double, lsst::afw::image::MaskPixel, double > const&,
-                                ndarray::Array< double, 1, 0 > const&,
-                                size_t,
-                                size_t,
-                                size_t );
 
-    template PTR(pfsDRPStella::FiberTraceSet<float, lsst::afw::image::MaskPixel, float>) findAndTraceApertures(PTR(const afwImage::MaskedImage<float, lsst::afw::image::MaskPixel, float>) const&,
-                                                                                               PTR(const pfsDRPStella::FiberTraceFunctionFindingControl) const&);
-    template PTR(pfsDRPStella::FiberTraceSet<double, lsst::afw::image::MaskPixel, float>) findAndTraceApertures(PTR(const afwImage::MaskedImage<double, lsst::afw::image::MaskPixel, float>) const&,
-                                                                                                PTR(const pfsDRPStella::FiberTraceFunctionFindingControl) const&);
+    template PTR(pfsDRPStella::FiberTraceSet<float, lsst::afw::image::MaskPixel, float>)
+    findAndTraceApertures(PTR(const afwImage::MaskedImage<float, lsst::afw::image::MaskPixel, float>) const&,
+                          PTR(const pfsDRPStella::FiberTraceFunctionFindingControl) const&);
 
-    template FindCenterPositionsOneTraceResult findCenterPositionsOneTrace( PTR(afwImage::Image<float>) &,
-                                                                                                                    PTR(afwImage::Image<float>) &,
-                                                                                                                    PTR(const FiberTraceFunctionFindingControl) const&);
-    template FindCenterPositionsOneTraceResult findCenterPositionsOneTrace( PTR(afwImage::Image<double>) &,
-                                                                                                                    PTR(afwImage::Image<float>) &,
-                                                                                                                    PTR(const FiberTraceFunctionFindingControl) const&);
+    template FindCenterPositionsOneTraceResult
+    findCenterPositionsOneTrace( PTR(afwImage::Image<float>) &,
+                                 PTR(afwImage::Image<float>) &,
+                                 PTR(const FiberTraceFunctionFindingControl) const&);
 
-    template PTR(pfsDRPStella::FiberTrace< float, lsst::afw::image::MaskPixel, float >) makeNormFlatFiberTrace( PTR( const afwImage::MaskedImage< float, lsst::afw::image::MaskPixel, float >) const&,
-                                                                                                    PTR( const ::pfs::drp::stella::FiberTraceFunction ) const&,
-                                                                                                    PTR( const ::pfs::drp::stella::FiberTraceFunctionControl ) const&,
-                                                                                                    PTR( const ::pfs::drp::stella::FiberTraceProfileFittingControl ) const&,
-                                                                                                    float,
-                                                                                                    size_t );
-    template PTR(pfsDRPStella::FiberTrace< double, lsst::afw::image::MaskPixel, float >) makeNormFlatFiberTrace( PTR( const afwImage::MaskedImage< double, lsst::afw::image::MaskPixel, float >) const&,
-                                                                                                     PTR( const ::pfs::drp::stella::FiberTraceFunction ) const&,
-                                                                                                     PTR( const ::pfs::drp::stella::FiberTraceFunctionControl ) const&,
-                                                                                                     PTR( const ::pfs::drp::stella::FiberTraceProfileFittingControl ) const&,
-                                                                                                     double,
-                                                                                                     size_t );
+    template PTR(pfsDRPStella::FiberTrace< float, lsst::afw::image::MaskPixel, float >)
+        makeNormFlatFiberTrace(PTR(const afwImage::MaskedImage< float, lsst::afw::image::MaskPixel, float >) const&,
+                               PTR( const ::pfs::drp::stella::FiberTraceFunction ) const&,
+                               PTR( const ::pfs::drp::stella::FiberTraceFunctionControl ) const&,
+                               PTR( const ::pfs::drp::stella::FiberTraceProfileFittingControl ) const&,
+                               float,
+                               size_t );
 
-    template void addFiberTraceToCcdArray( pfsDRPStella::FiberTrace< float, lsst::afw::image::MaskPixel, float > const&,
-                                                               afwImage::Image< float > const&,
-                                                               ndarray::Array< float, 2, 0 > & );
-    template void addFiberTraceToCcdArray( pfsDRPStella::FiberTrace< float, lsst::afw::image::MaskPixel, float > const&,
-                                                               afwImage::Image< lsst::afw::image::MaskPixel > const&,
-                                                               ndarray::Array< lsst::afw::image::MaskPixel, 2, 0 > & );
-    template void addFiberTraceToCcdArray( pfsDRPStella::FiberTrace< float, lsst::afw::image::MaskPixel, float > const&,
-                                                               afwImage::Image< double > const&,
-                                                               ndarray::Array< float, 2, 0 > & );
-    template void addFiberTraceToCcdArray( pfsDRPStella::FiberTrace< float, lsst::afw::image::MaskPixel, float > const&,
-                                                               afwImage::Image< float > const&,
-                                                               ndarray::Array< lsst::afw::image::MaskPixel, 2, 0 > & );
-    template void addFiberTraceToCcdArray( pfsDRPStella::FiberTrace< float, lsst::afw::image::MaskPixel, float > const&,
-                                                               afwImage::Image< double > const&,
-                                                               ndarray::Array< double, 2, 0 > & );
+    template void addFiberTraceToCcdArray(pfsDRPStella::FiberTrace< float, lsst::afw::image::MaskPixel, float > const&,
+                                          afwImage::Image< float > const&,
+                                          ndarray::Array< float, 2, 0 > & );
+    template void addFiberTraceToCcdArray(pfsDRPStella::FiberTrace< float, lsst::afw::image::MaskPixel, float > const&,
+                                          afwImage::Image< lsst::afw::image::MaskPixel > const&,
+                                          ndarray::Array< lsst::afw::image::MaskPixel, 2, 0 > & );
+    template void addFiberTraceToCcdArray(pfsDRPStella::FiberTrace< float, lsst::afw::image::MaskPixel, float > const&,
+                                          afwImage::Image< float > const&,
+                                          ndarray::Array< lsst::afw::image::MaskPixel, 2, 0 > & );
 
-    template void addFiberTraceToCcdArray( pfsDRPStella::FiberTrace< float, lsst::afw::image::MaskPixel, float > const&,
-                                                               afwImage::Image< float > const&,
-                                                               ndarray::Array< float, 2, 1 > & );
+    template void addFiberTraceToCcdArray(pfsDRPStella::FiberTrace< float, lsst::afw::image::MaskPixel, float > const&,
+                                          afwImage::Image< float > const&,
+                                          ndarray::Array< float, 2, 1 > & );
     template void addFiberTraceToCcdArray( pfsDRPStella::FiberTrace< float, lsst::afw::image::MaskPixel, float > const&,
                                                                afwImage::Image< lsst::afw::image::MaskPixel > const&,
                                                                ndarray::Array< lsst::afw::image::MaskPixel, 2, 1 > & );
@@ -2756,67 +2738,19 @@ namespace pfsDRPStella = pfs::drp::stella;
                                                                afwImage::Image< double > const&,
                                                                afwImage::Image< double > & );
 
-    template dataXY<double> ccdToFiberTraceCoordinates<double,
-                                                       double,
-                                                       lsst::afw::image::MaskPixel,
-                                                       float>(dataXY<double> const&,
-                                                              pfsDRPStella::FiberTrace<double,
-                                                                                       lsst::afw::image::MaskPixel,
-                                                                                       float> const&);
-    template dataXY<double> ccdToFiberTraceCoordinates<double,
-                                                       float,
-                                                       lsst::afw::image::MaskPixel,
-                                                       float>(dataXY<double> const&,
-                                                              pfsDRPStella::FiberTrace<float,
-                                                                                       lsst::afw::image::MaskPixel,
-                                                                                       float> const&);
-    template dataXY<float> ccdToFiberTraceCoordinates<float,
-                                                      double,
+    template dataXY<float> ccdToFiberTraceCoordinates(dataXY<float> const&,
+                                                      pfsDRPStella::FiberTrace<float,
                                                       lsst::afw::image::MaskPixel,
-                                                      float>(dataXY<float> const&,
-                                                             pfsDRPStella::FiberTrace<double,
-                                                                                      lsst::afw::image::MaskPixel,
-                                                                                      float> const&);
-    template dataXY<float> ccdToFiberTraceCoordinates<float,
-                                                      float,
-                                                      lsst::afw::image::MaskPixel,
-                                                      float>(dataXY<float> const&,
-                                                             pfsDRPStella::FiberTrace<float,
-                                                                                      lsst::afw::image::MaskPixel,
-                                                                                      float> const&);
+                                                      float> const&);
 
-    template dataXY<double> fiberTraceCoordinatesRelativeTo<double,
-                                                            double,
-                                                            lsst::afw::image::MaskPixel,
-                                                            float>(dataXY<double> const&,
-                                                                   dataXY<double> const&,
-                                                                   pfsDRPStella::FiberTrace<double,
-                                                                                            lsst::afw::image::MaskPixel,
-                                                                                            float> const&);
-    template dataXY<double> fiberTraceCoordinatesRelativeTo<double,
-                                                            float,
-                                                            lsst::afw::image::MaskPixel,
-                                                            float>(dataXY<double> const&,
-                                                                   dataXY<double> const&,
-                                                                   pfsDRPStella::FiberTrace<float,
-                                                                                            lsst::afw::image::MaskPixel,
-                                                                                            float> const&);
-    template dataXY<float> fiberTraceCoordinatesRelativeTo<float,
-                                                           double,
-                                                           lsst::afw::image::MaskPixel,
-                                                           float>(dataXY<float> const&,
-                                                                  dataXY<float> const&,
-                                                                  pfsDRPStella::FiberTrace<double,
-                                                                                           lsst::afw::image::MaskPixel,
-                                                                                           float> const&);
     template dataXY<float> fiberTraceCoordinatesRelativeTo<float,
                                                            float,
                                                            lsst::afw::image::MaskPixel,
                                                            float>(dataXY<float> const&,
                                                                   dataXY<float> const&,
                                                                   pfsDRPStella::FiberTrace<float,
-                                                                                           lsst::afw::image::MaskPixel,
-                                                                                           float> const&);
+                                                                  lsst::afw::image::MaskPixel,
+                                                                  float> const&);
 
     #define INSTANTIATE_ADDARRAYINTOARRAY(T1, T2, I1, I2) \
     template void addArrayIntoArray( ndarray::Array< T1, 2, I1 > const&, \
@@ -2857,23 +2791,16 @@ namespace pfsDRPStella = pfs::drp::stella;
     }
 
     template const afwImage::MaskedImage<float, lsst::afw::image::MaskPixel, float>* getRawPointer(const PTR(const afwImage::MaskedImage<float, lsst::afw::image::MaskPixel, float>) &ptr);
-    template const afwImage::MaskedImage<double, lsst::afw::image::MaskPixel, float>* getRawPointer(const PTR(const afwImage::MaskedImage<double, lsst::afw::image::MaskPixel, float>) &ptr);
     template const afwImage::Image<float>* getRawPointer(const PTR(const afwImage::Image<float>) &ptr);
-    template const afwImage::Image<double>* getRawPointer(const PTR(const afwImage::Image<double>) &ptr);
     template const afwImage::Image<unsigned short>* getRawPointer(const PTR(const afwImage::Image<unsigned short>) &ptr);
-    template const afwImage::Image<unsigned int>* getRawPointer(const PTR(const afwImage::Image<unsigned int>) &ptr);
     template const afwImage::Image<int>* getRawPointer(const PTR(const afwImage::Image<int>) &ptr);
     template const pfsDRPStella::FiberTrace<float, lsst::afw::image::MaskPixel, float>* getRawPointer(const PTR(const pfsDRPStella::FiberTrace<float, lsst::afw::image::MaskPixel, float>) &ptr);
-    template const pfsDRPStella::FiberTrace<double, lsst::afw::image::MaskPixel, float>* getRawPointer(const PTR(const pfsDRPStella::FiberTrace<double, lsst::afw::image::MaskPixel, float>) &ptr);
 
-    template void markFiberTraceInMask( PTR( FiberTrace< float, lsst::afw::image::MaskPixel, float > ) const& fiberTrace,
-                                                             PTR( afwImage::Mask< lsst::afw::image::MaskPixel > ) const& mask,
-                                                             lsst::afw::image::MaskPixel value );
+      template void markFiberTraceInMask(PTR( FiberTrace< float, lsst::afw::image::MaskPixel, float > ) const&,
+                                         PTR( afwImage::Mask< lsst::afw::image::MaskPixel > ) const&,
+                                         lsst::afw::image::MaskPixel);
   }
 }}}
 
 template class pfsDRPStella::FiberTrace<float, lsst::afw::image::MaskPixel, float>;
-template class pfsDRPStella::FiberTrace<double, lsst::afw::image::MaskPixel, float>;
-
 template class pfsDRPStella::FiberTraceSet<float, lsst::afw::image::MaskPixel, float>;
-template class pfsDRPStella::FiberTraceSet<double, lsst::afw::image::MaskPixel, float>;

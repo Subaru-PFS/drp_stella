@@ -36,8 +36,8 @@ exposure = butler.get('postISRCCD', dataId)
 
 # Trace apertures
 fiberTraceFunctionFindingControl = drpStella.FiberTraceFunctionFindingControl()
-fts = drpStella.findAndTraceAperturesF(exposure.getMaskedImage(),
-                                       fiberTraceFunctionFindingControl)
+fts = drpStella.findAndTraceApertures(exposure.getMaskedImage(),
+                                      fiberTraceFunctionFindingControl)
 
 # Mark FiberTrace in mask
 maskPlane = "FIBERTRACE"

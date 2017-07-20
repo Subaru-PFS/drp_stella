@@ -59,13 +59,13 @@ namespace pfs { namespace drp { namespace stella {
      *          otherwise [min(x_In), max(x_In)]
      * 
      * KEYWORDS and values:
-     *   CHISQ=chisq: double: out:
+     *   CHISQ=chisq: float: out:
      *     Sum of squared errors divided by MEASURE_ERRORS if specified.
      *
-     *   COVAR=covar: ndarray::Array<double, 2, 2>(I_Degree+1, I_Degree+1): out:
+     *   COVAR=covar: ndarray::Array<float, 2, 2>(I_Degree+1, I_Degree+1): out:
      *     Covariance matrix of the coefficients.
      *
-     *   MEASURE_ERRORS=measure_errors: ndarray::Array<double, 1, 1>(D_A1_X_In.size()): in:
+     *   MEASURE_ERRORS=measure_errors: ndarray::Array<float, 1, 1>(D_A1_X_In.size()): in:
      *     Set this keyword to a vector containing standard
      *     measurement errors for each point Y[i].  This vector must be the same
      *     length as X and Y.
@@ -75,7 +75,7 @@ namespace pfs { namespace drp { namespace stella {
      *       deviations of each point in Y. For Poisson or statistical weighting
      *       MEASURE_ERRORS should be set to sqrt(Y).
      *
-     *   SIGMA=sigma: ndarray::Array<double, 1, 1>(I_Degree+1): out:
+     *   SIGMA=sigma: ndarray::Array<float, 1, 1>(I_Degree+1): out:
      *     The 1-sigma error estimates of the returned parameters.
      *
      *     Note: if MEASURE_ERRORS is omitted, then you are assuming that
@@ -92,32 +92,32 @@ namespace pfs { namespace drp { namespace stella {
      *     warning that a small pivot element was used and that significant
      *     accuracy was probably lost.
      *
-     *   YFIT:   ndarray::Array<double, 1, 1>(D_A1_X_In.size()) of calculated Y's. These values have an error
+     *   YFIT:   ndarray::Array<float, 1, 1>(D_A1_X_In.size()) of calculated Y's. These values have an error
      *           of + or - YBAND.
      * 
      *   XRANGE: x range from which the original x_In values are from
      *           x will be rescaled from [xrange[0], xrange[1]] to [-1.,1.]
      *
-    CHISQ=chisq: double: out
-    COVAR=covar: PTR(ndarray::Array<double, 2, 1>(I_Degree+1, I_Degree+1)): out
-    MEASURE_ERRORS=measure_errors: PTR(ndarray::Array<double, 1, 1>(D_A1_X_In.size())): in
-    SIGMA=sigma: PTR(ndarray::Array<double, 1, 1>(I_Degree+1)): out
+    CHISQ=chisq: float: out
+    COVAR=covar: PTR(ndarray::Array<float, 2, 1>(I_Degree+1, I_Degree+1)): out
+    MEASURE_ERRORS=measure_errors: PTR(ndarray::Array<float, 1, 1>(D_A1_X_In.size())): in
+    SIGMA=sigma: PTR(ndarray::Array<float, 1, 1>(I_Degree+1)): out
     STATUS=status: int: out
     YFIT=yfit: PTR(ndarray::Array<T, 1, 1>(D_A1_X_In.size())): out
-    XRANGE: PTR(ndarray::Array<double, 1, 1>(2)): in
+    XRANGE: PTR(ndarray::Array<float, 1, 1>(2)): in
     YERROR=yerror
     LSIGMA=lsigma: lower sigma rejection threshold
     USIGMA=usigma:
     **/
     template< typename T >
-    ndarray::Array<double, 1, 1> PolyFit(ndarray::Array<T, 1, 1> const& x_In,
+    ndarray::Array<float, 1, 1> PolyFit(ndarray::Array<T, 1, 1> const& x_In,
                                          ndarray::Array<T, 1, 1> const& y_In,
                                          size_t const degree_In,
                                          std::vector<string> const& argsKeyWords_In,
                                          std::vector<void *> & argsValues_In);
 
     template< typename T >
-    ndarray::Array<double, 1, 1> PolyFit(ndarray::Array<T, 1, 1> const& D_A1_X_In,
+    ndarray::Array<float, 1, 1> PolyFit(ndarray::Array<T, 1, 1> const& D_A1_X_In,
                                          ndarray::Array<T, 1, 1> const& D_A1_Y_In,
                                          size_t const I_Degree_In,
                                          T xRangeMin_In = -1.,
@@ -129,7 +129,7 @@ namespace pfs { namespace drp { namespace stella {
     N_REJECTED=int
     **/
     template<typename T>
-    ndarray::Array<double, 1, 1> PolyFit(ndarray::Array<T, 1, 1> const& D_A1_X_In,
+    ndarray::Array<float, 1, 1> PolyFit(ndarray::Array<T, 1, 1> const& D_A1_X_In,
                                          ndarray::Array<T, 1, 1> const& D_A1_Y_In,
                                          size_t const I_Degree_In,
                                          T const D_Reject_In,
@@ -137,7 +137,7 @@ namespace pfs { namespace drp { namespace stella {
                                          std::vector<void *> & ArgV);
 
     template< typename T >
-    ndarray::Array<double, 1, 1> PolyFit(ndarray::Array<T, 1, 1> const& D_A1_X_In,
+    ndarray::Array<float, 1, 1> PolyFit(ndarray::Array<T, 1, 1> const& D_A1_X_In,
                                          ndarray::Array<T, 1, 1> const& D_A1_Y_In,
                                          size_t const I_Degree_In,
                                          T const D_LReject_In,
@@ -147,7 +147,7 @@ namespace pfs { namespace drp { namespace stella {
                                          std::vector<void *> & ArgV);
 
     template< typename T>
-    ndarray::Array<double, 1, 1> PolyFit(ndarray::Array<T, 1, 1> const& D_A1_X_In,
+    ndarray::Array<float, 1, 1> PolyFit(ndarray::Array<T, 1, 1> const& D_A1_X_In,
                                          ndarray::Array<T, 1, 1> const& D_A1_Y_In,
                                          size_t const I_Degree_In,
                                          T const D_LReject_In,
@@ -208,8 +208,8 @@ namespace pfs { namespace drp { namespace stella {
     /// MEASURE_ERRORS_IN = PTR(ndarray::Array<ImageT, 1, 1>(D_A1_CCD_In.size))             : in
     /// REJECT_IN = float                                                : in
     /// MASK_INOUT = ndarray::Array<unsigned short, 1, 1>(D_A1_CCD_In.size)                    : in/out
-    /// CHISQ_OUT = double                                                : out
-    /// Q_OUT = double                                                    : out
+    /// CHISQ_OUT = float                                                : out
+    /// Q_OUT = float                                                    : out
     /// SIGMA_OUT = ndarray::Array<ImageT,1, 1>(2): [*,0]: sigma_sp, [*,1]: sigma_sky : out
     /// YFIT_OUT = ndarray::Array<ImageT, 1, 1>(D_A1_CCD_In.size)                     : out
     /// ALLOW_SKY_LT_ZERO = 1
@@ -297,8 +297,8 @@ namespace pfs { namespace drp { namespace stella {
      * @param xy_In 2d array (ndata, 2) [*][0]: x, [*][1]: y
      * @param guess_In [0]: peak, [1]: center, [2]: sigma
      */
-    ndarray::Array<double, 1, 1> gaussFit(ndarray::Array<double, 2, 1> const& xy_In,
-                                          ndarray::Array<double, 1, 1> const& guess_In);
+    ndarray::Array<float, 1, 1> gaussFit(ndarray::Array<float, 2, 1> const& xy_In,
+                                         ndarray::Array<float, 1, 1> const& guess_In);
 
   }
 }}}

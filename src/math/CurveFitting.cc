@@ -63,7 +63,7 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
   }
 
   template<typename T>
-  ndarray::Array<double, 1, 1> PolyFit(ndarray::Array<T, 1, 1> const& D_A1_X_In,
+  ndarray::Array<float, 1, 1> PolyFit(ndarray::Array<T, 1, 1> const& D_A1_X_In,
                                        ndarray::Array<T, 1, 1> const& D_A1_Y_In,
                                        size_t const I_Degree_In,
                                        T const D_Reject_In,
@@ -80,7 +80,7 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
   }
 
   template< typename T >
-  ndarray::Array<double, 1, 1> PolyFit(ndarray::Array<T, 1, 1> const& D_A1_X_In,
+  ndarray::Array<float, 1, 1> PolyFit(ndarray::Array<T, 1, 1> const& D_A1_X_In,
                                        ndarray::Array<T, 1, 1> const& D_A1_Y_In,
                                        size_t const I_Degree_In,
                                        T const D_LReject_In,
@@ -99,7 +99,7 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
 
     int I_NRejected = 0;
     bool B_HaveMeasureErrors = false;
-    ndarray::Array<double, 1, 1> D_A1_Coeffs_Out = ndarray::allocate(I_Degree_In + 1);
+    ndarray::Array<float, 1, 1> D_A1_Coeffs_Out = ndarray::allocate(I_Degree_In + 1);
 
     // We need at least an existing array to which P_D_A1_MeasureErrors points
     // so we can define the vector V_MeasureErrors and P_D_A1_MeasureErrosTemp
@@ -142,13 +142,13 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
     }
     *P_I_NRejected = 0;
 
-    ndarray::Array<double, 1, 1> xRange = ndarray::allocate(2);
+    ndarray::Array<float, 1, 1> xRange = ndarray::allocate(2);
     xRange[0] = -1.;
     xRange[1] = 1.;
-    PTR(ndarray::Array<double, 1, 1>) P_D_A1_XRange(new ndarray::Array<double, 1, 1>(xRange));
+    PTR(ndarray::Array<float, 1, 1>) P_D_A1_XRange(new ndarray::Array<float, 1, 1>(xRange));
     if ((I_Pos = pfs::drp::stella::utils::KeyWord_Set(S_A1_Args_In, "XRANGE")) >= 0) {
       P_D_A1_XRange.reset();
-      P_D_A1_XRange = *((PTR(ndarray::Array<double, 1, 1>)*)ArgV[I_Pos]);
+      P_D_A1_XRange = *((PTR(ndarray::Array<float, 1, 1>)*)ArgV[I_Pos]);
       if (P_D_A1_XRange->getShape()[0] != 2){
         string message("pfs::drp::stella::math::CurveFitting::PolyFit: ERROR: P_D_A1_XRange->getShape()[0](=");
         message += to_string(P_D_A1_XRange->getShape()[0]) + " != 2";
@@ -245,13 +245,13 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
         *itTemp = (*itY) - (*itYFit);
       Eigen::Array<T, Eigen::Dynamic, 1> tempEArr = D_A1_Temp.asEigen();
       D_A1_Temp.asEigen() = tempEArr.pow(2) / T(D_A1_Y.size());
-      double D_SDev = double(sqrt(D_A1_Temp.asEigen().sum()));
+      float D_SDev = float(sqrt(D_A1_Temp.asEigen().sum()));
       P_D_A1_YFit->deep() = pfs::drp::stella::math::Poly(D_A1_X_In,
                                                          D_A1_Coeffs_Out,
                                                          xRange[0],
                                                          xRange[1]);
       LOGLS_DEBUG(_log, "P_D_A1_YFit = " << *P_D_A1_YFit);
-      double D_Dev;
+      float D_Dev;
       D_A1_X.resize(0);
       D_A1_Y.resize(0);
       V_MeasureErrors.resize(0);
@@ -303,7 +303,7 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
   /** **********************************************************************/
 
   template< typename T >
-  ndarray::Array<double, 1, 1> PolyFit(ndarray::Array<T, 1, 1> const& D_A1_X_In,
+  ndarray::Array<float, 1, 1> PolyFit(ndarray::Array<T, 1, 1> const& D_A1_X_In,
                                        ndarray::Array<T, 1, 1> const& D_A1_Y_In,
                                        size_t const I_Degree_In,
                                        T xRangeMin_In,
@@ -318,10 +318,10 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
     std::vector<string> S_A1_Args(1);
     S_A1_Args[0] = "XRANGE";
     std::vector<void *> PP_Args(1);
-    ndarray::Array<double, 1, 1> xRange = ndarray::allocate(2);
+    ndarray::Array<float, 1, 1> xRange = ndarray::allocate(2);
     xRange[0] = xRangeMin_In;
     xRange[1] = xRangeMax_In;
-    PTR(ndarray::Array<double, 1, 1>) pXRange(new ndarray::Array<double, 1, 1>(xRange));
+    PTR(ndarray::Array<float, 1, 1>) pXRange(new ndarray::Array<float, 1, 1>(xRange));
     PP_Args[0] = &pXRange;
     LOGLS_DEBUG(_log, "PolyFit(x, y, deg, xRangeMin, xRangeMax) finishing");
     return PolyFit(D_A1_X_In,
@@ -332,7 +332,7 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
   }
 
   template< typename T >
-  ndarray::Array<double, 1, 1> PolyFit(ndarray::Array<T, 1, 1> const& D_A1_X_In,
+  ndarray::Array<float, 1, 1> PolyFit(ndarray::Array<T, 1, 1> const& D_A1_X_In,
                                        ndarray::Array<T, 1, 1> const& D_A1_Y_In,
                                        size_t const I_Degree_In,
                                        std::vector<string> const& S_A1_Args_In,
@@ -348,7 +348,7 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
     LOGLS_DEBUG(_log, "D_A1_Y_In = " << D_A1_Y_In);
     size_t const nCoeffs(I_Degree_In + 1);
     LOGLS_DEBUG(_log, "nCoeffs set to " << nCoeffs);
-    ndarray::Array<double, 1, 1> D_A1_Out = ndarray::allocate(nCoeffs);
+    ndarray::Array<float, 1, 1> D_A1_Out = ndarray::allocate(nCoeffs);
     D_A1_Out.deep() = 0.;
     int i, j, I_Pos;
 
@@ -379,14 +379,14 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
       D_A1_MeasureErrors.deep() = 1.;
     }
 
-    ndarray::Array<double, 1, 1> D_A1_XRange = ndarray::allocate(2);
+    ndarray::Array<float, 1, 1> D_A1_XRange = ndarray::allocate(2);
     ndarray::Array<T, 1, 1> xNew;
-    PTR(ndarray::Array<double, 1, 1>) P_D_A1_XRange(new ndarray::Array<double, 1, 1>(D_A1_XRange));
+    PTR(ndarray::Array<float, 1, 1>) P_D_A1_XRange(new ndarray::Array<float, 1, 1>(D_A1_XRange));
     sTemp = "XRANGE";
     if ((I_Pos = pfs::drp::stella::utils::KeyWord_Set(S_A1_Args_In, sTemp)) >= 0)
     {
       P_D_A1_XRange.reset();
-      P_D_A1_XRange = *((PTR(ndarray::Array<double, 1, 1>)*)ArgV[I_Pos]);
+      P_D_A1_XRange = *((PTR(ndarray::Array<float, 1, 1>)*)ArgV[I_Pos]);
       if (P_D_A1_XRange->getShape()[0] != 2){
         string message("pfs::drp::stella::math::CurveFitting::PolyFit: ERROR: P_D_A1_XRange->getShape()[0](=");
         message += to_string(P_D_A1_XRange->getShape()[0]) +") != 2";
@@ -525,7 +525,7 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
     LOGLS_DEBUG(_log, "(*P_D_A1_Sigma) set to " << (*P_D_A1_Sigma));
     LOGLS_DEBUG(_log, "*P_D_A1_YFit = " << *P_D_A1_YFit);
 
-    double D_ChiSq = 0.;
+    float D_ChiSq = 0.;
     Eigen::Array<T, Eigen::Dynamic, 1> Diff = D_A1_Y_In.asEigen() - P_D_A1_YFit->asEigen();
     LOGLS_DEBUG(_log, "Diff set to " << Diff);
     ndarray::Array<T, 1, 1> Err_Temp = ndarray::allocate(nDataPoints);
@@ -539,7 +539,7 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
       D_ChiSq = sum(Err_Temp);
       LOGLS_DEBUG(_log, "!B_HaveMeasureError: D_ChiSq set to " << D_ChiSq);
 
-      double dTemp = sqrt(D_ChiSq / (nDataPoints - nCoeffs));
+      float dTemp = sqrt(D_ChiSq / (nDataPoints - nCoeffs));
       P_D_A1_Sigma->deep() = (*P_D_A1_Sigma) * dTemp;
       LOGLS_DEBUG(_log, "!B_HaveMeasureError: (*P_D_A1_Sigma) set to " << (*P_D_A1_Sigma));
     }
@@ -549,7 +549,7 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
   }
 
   template< typename T>
-  ndarray::Array<double, 1, 1> PolyFit(ndarray::Array<T, 1, 1> const& D_A1_X_In,
+  ndarray::Array<float, 1, 1> PolyFit(ndarray::Array<T, 1, 1> const& D_A1_X_In,
                                        ndarray::Array<T, 1, 1> const& D_A1_Y_In,
                                        size_t const I_Degree_In,
                                        T const D_LReject_In,
@@ -562,12 +562,12 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
     std::vector<string> S_A1_Args(1);
     S_A1_Args[0] = "XRANGE";
     std::vector<void *> PP_Args(1);
-    ndarray::Array<double, 1, 1> xRange = ndarray::allocate(2);
+    ndarray::Array<float, 1, 1> xRange = ndarray::allocate(2);
     xRange[0] = xRangeMin_In;
     xRange[1] = xRangeMax_In;
-    PTR(ndarray::Array<double, 1, 1>) p_xRange(new ndarray::Array<double, 1, 1>(xRange));
+    PTR(ndarray::Array<float, 1, 1>) p_xRange(new ndarray::Array<float, 1, 1>(xRange));
     PP_Args[0] = &p_xRange;
-    ndarray::Array<double, 1, 1> D_A1_Out = ndarray::allocate(I_Degree_In + 1);
+    ndarray::Array<float, 1, 1> D_A1_Out = ndarray::allocate(I_Degree_In + 1);
     D_A1_Out = pfs::drp::stella::math::PolyFit(D_A1_X_In,
                                                D_A1_Y_In,
                                                I_Degree_In,
@@ -589,13 +589,13 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
                             bool B_WithSky,
                             std::vector<string> const& S_A1_Args_In,
                             std::vector<void *> & ArgV_In)
-  /// MEASURE_ERRORS_IN = blitz::Array<double, 2>(D_A2_CCD_In.rows(), D_A2_CCD_In.cols())
-  /// REJECT_IN         = double
-  /// MASK_INOUT        = blitz::Array<double, 2>(D_A2_CCD_In.rows(), D_A2_CCD_In.cols())
-  /// CHISQ_OUT         = blitz::Array<double, 1>(D_A2_CCD_In.rows())
-  /// Q_OUT             = blitz::Array<double, 1>(D_A2_CCD_In.rows())
-  /// SIGMA_OUT         = blitz::Array<double, 2>(D_A2_CCD_In.rows(),2)
-  /// YFIT_OUT          = blitz::Array<double, 2>(D_A2_CCD_In.rows(), D_A2_CCD_In.cols())
+  /// MEASURE_ERRORS_IN = blitz::Array<float, 2>(D_A2_CCD_In.rows(), D_A2_CCD_In.cols())
+  /// REJECT_IN         = float
+  /// MASK_INOUT        = blitz::Array<float, 2>(D_A2_CCD_In.rows(), D_A2_CCD_In.cols())
+  /// CHISQ_OUT         = blitz::Array<float, 1>(D_A2_CCD_In.rows())
+  /// Q_OUT             = blitz::Array<float, 1>(D_A2_CCD_In.rows())
+  /// SIGMA_OUT         = blitz::Array<float, 2>(D_A2_CCD_In.rows(),2)
+  /// YFIT_OUT          = blitz::Array<float, 2>(D_A2_CCD_In.rows(), D_A2_CCD_In.cols())
   {
     #ifdef __DEBUG_CURVEFIT__
       cout << "CurveFitting::LinFitBevingtonEigen(D_A2_CCD, D_A2_SF, SP, Sky, withSky, Args, ArgV) started" << endl;
@@ -1235,13 +1235,13 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
                             bool B_WithSky,
                             std::vector<string> const& S_A1_Args_In,
                             std::vector<void *> & ArgV_In)
-  /// MEASURE_ERRORS_IN = blitz::Array<double,1>(D_A1_CCD_In.size)
-  /// REJECT_IN = double
-  /// MASK_INOUT = blitz::Array<double,1>(D_A1_CCD_In.size)
-  /// CHISQ_OUT = double
-  /// Q_OUT = double
-  /// SIGMA_OUT = blitz::Array<double,1>(2): [0]: sigma_sp, [1]: sigma_sky
-  /// YFIT_OUT = blitz::Array<double, 1>(D_A1_CCD_In.size)
+  /// MEASURE_ERRORS_IN = blitz::Array<float,1>(D_A1_CCD_In.size)
+  /// REJECT_IN = float
+  /// MASK_INOUT = blitz::Array<float,1>(D_A1_CCD_In.size)
+  /// CHISQ_OUT = float
+  /// Q_OUT = float
+  /// SIGMA_OUT = blitz::Array<float,1>(2): [0]: sigma_sp, [1]: sigma_sky
+  /// YFIT_OUT = blitz::Array<float, 1>(D_A1_CCD_In.size)
   /// ALLOW_SKY_LT_ZERO = 1
   /// ALLOW_SPEC_LT_ZERO = 1
   {
@@ -1250,7 +1250,7 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
     #endif
     int status = 1;
     #ifdef __DEBUG_FIT__
-      cout << "CFits::LinFitBevington(Array, Array, double, double, bool, CSArr, PPArr) started" << endl;
+      cout << "CFits::LinFitBevington(Array, Array, float, float, bool, CSArr, PPArr) started" << endl;
       cout << "CFits::LinFitBevington: D_A1_CCD_In = " << D_A1_CCD_In << endl;
       cout << "CFits::LinFitBevington: D_A1_SF_In = " << D_A1_SF_In << endl;
     #endif
@@ -1279,7 +1279,7 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
     }
     int i, I_Pos;
     int I_KeywordSet_Reject, I_KeywordSet_Mask, I_KeywordSet_MeasureErrors, I_KeywordSet_SigmaOut, I_KeywordSet_ChiSqOut, I_KeywordSet_QOut, I_KeywordSet_YFitOut, I_KeywordSet_AllowSkyLTZero, I_KeywordSet_AllowSpecLTZero;
-    double sigdat;
+    float sigdat;
     int ndata = D_A1_CCD_In.size();
     PTR(Eigen::Array<ImageT, Eigen::Dynamic, 1>) P_D_A1_Sig(new Eigen::Array<ImageT, Eigen::Dynamic, 1>(D_A1_CCD_In.size()));
     P_D_A1_Sig->setConstant(0.);
@@ -1741,13 +1741,13 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
                              bool B_WithSky,
                              std::vector<string> const& S_A1_Args_In,
                              std::vector<void *> & ArgV_In)
-  /// MEASURE_ERRORS_IN = blitz::Array<double,1>(D_A1_CCD_In.size)
-  /// REJECT_IN = double
-  /// MASK_INOUT = blitz::Array<double,1>(D_A1_CCD_In.size)
-  /// CHISQ_OUT = double
-  /// Q_OUT = double
-  /// SIGMA_OUT = blitz::Array<double,1>(2): [0]: sigma_sp, [1]: sigma_sky
-  /// YFIT_OUT = blitz::Array<double, 1>(D_A1_CCD_In.size)
+  /// MEASURE_ERRORS_IN = blitz::Array<float,1>(D_A1_CCD_In.size)
+  /// REJECT_IN = float
+  /// MASK_INOUT = blitz::Array<float,1>(D_A1_CCD_In.size)
+  /// CHISQ_OUT = float
+  /// Q_OUT = float
+  /// SIGMA_OUT = blitz::Array<float,1>(2): [0]: sigma_sp, [1]: sigma_sky
+  /// YFIT_OUT = blitz::Array<float, 1>(D_A1_CCD_In.size)
   /// ALLOW_SKY_LT_ZERO = 1
   /// ALLOW_SPEC_LT_ZERO = 1
   {
@@ -1756,7 +1756,7 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
     #endif
     int status = 1;
     #ifdef __DEBUG_FIT__
-      cout << "CFits::LinFitBevington(Array, Array, double, double, bool, CSArr, PPArr) started" << endl;
+      cout << "CFits::LinFitBevington(Array, Array, float, float, bool, CSArr, PPArr) started" << endl;
       cout << "CFits::LinFitBevington: D_A1_CCD_In = " << D_A1_CCD_In << endl;
       cout << "CFits::LinFitBevington: D_A1_SF_In = " << D_A1_SF_In << endl;
     #endif
@@ -1785,7 +1785,7 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
     }
     int i, I_Pos;
     int I_KeywordSet_Reject, I_KeywordSet_Mask, I_KeywordSet_MeasureErrors, I_KeywordSet_SigmaOut, I_KeywordSet_ChiSqOut, I_KeywordSet_QOut, I_KeywordSet_YFitOut, I_KeywordSet_AllowSkyLTZero, I_KeywordSet_AllowSpecLTZero;
-    double sigdat;
+    float sigdat;
     const int ndata(D_A1_CCD_In.getShape()[0]);
     ndarray::Array<ImageT, 1, 1> D_A1_Sig = ndarray::allocate(ndata);
     D_A1_Sig.deep() = 0.;
@@ -2253,7 +2253,7 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
     T D_GLn_Out = 0;
     int n;
     int ITMax = 100;
-    double d_sum, del, ap;
+    float d_sum, del, ap;
 
     #ifdef __DEBUG_LINFIT__
       cout << "CFits::GSER: D_Gamser_Out = " << D_Gamser_Out << endl;
@@ -2315,8 +2315,8 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
     #ifdef __DEBUG_CURVEFIT__
       cout << "CurveFitting::GammLn(xx) started" << endl;
     #endif
-    double x,y,tmp,ser;
-    static double cof[6]={76.18009172947146, -86.50532032941677,24.01409824083091,-1.231739572450155,0.1208650973866179e-2,-0.5395239384953e-5};
+    float x,y,tmp,ser;
+    static float cof[6]={76.18009172947146, -86.50532032941677,24.01409824083091,-1.231739572450155,0.1208650973866179e-2,-0.5395239384953e-5};
 
     #ifdef __DEBUG_LINFIT__
       cout << "CFits::GammLn: xx = " << xx << endl;
@@ -2356,8 +2356,8 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
     int n;
     int ITMAX = 100;             /// Maximum allowed number of iterations
     T an, b, c, d, del, h;
-    double FPMIN = 1.0e-30;      /// Number near the smallest representable floating-point number
-    double EPS = 1.0e-7;         /// Relative accuracy
+    float FPMIN = 1.0e-30;      /// Number near the smallest representable floating-point number
+    float EPS = 1.0e-7;         /// Relative accuracy
 
     D_GLn_Out = GammLn(a);
     #ifdef __DEBUG_FIT__
@@ -2527,7 +2527,7 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
       printf("%.12f ", coeffs_In[i]);
     printf("\n");
 
-    ndarray::Array<double, 1, 1> range = ndarray::allocate(2);
+    ndarray::Array<float, 1, 1> range = ndarray::allocate(2);
     range[0] = min(x_In);
     range[1] = max(x_In);
     cout << "chebyshev: range = " << range << endl;
@@ -2538,7 +2538,7 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
     ndarray::Array<T, 1, 1> c0Arr = ndarray::allocate(x_In.getShape()[0]);
     ndarray::Array<T, 1, 1> c1Arr = ndarray::allocate(x_In.getShape()[0]);
     ndarray::Array<T, 1, 1> yCalc = ndarray::allocate(x_In.getShape()[0]);
-    double c0, c1, tmp;
+    float c0, c1, tmp;
     if (coeffs_In.getShape()[0] == 1){
         c0 = coeffs_In[0];
         c1 = 0;
@@ -2548,7 +2548,7 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
         c1 = coeffs_In[1];
     }
     else{
-      ndarray::Array<double, 1, 1> x2 = ndarray::allocate(xScaled.getShape()[0]);
+      ndarray::Array<float, 1, 1> x2 = ndarray::allocate(xScaled.getShape()[0]);
       x2.deep() = 2. * xScaled;
       c0 = coeffs_In[coeffs_In.getShape()[0] - 2];
       c1 = coeffs_In[coeffs_In.getShape()[0] - 1];
@@ -2585,13 +2585,13 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
     return yCalc;
   }
 
-  ndarray::Array<double, 1, 1> gaussFit(ndarray::Array<double, 2, 1> const& xy_In,
-                                        ndarray::Array<double, 1, 1> const& guess_In){
+  ndarray::Array<float, 1, 1> gaussFit(ndarray::Array<float, 2, 1> const& xy_In,
+                                       ndarray::Array<float, 1, 1> const& guess_In){
     #ifdef __DEBUG_CURVEFIT__
       cout << "CurveFitting::gaussFit(xy, guess) started" << endl;
     #endif
     gaussian_functor gf(xy_In.asEigen());
-    Eigen::VectorXd guess(3);
+    Eigen::VectorXf guess(3);
     guess[0] = guess_In[0];
     guess[1] = guess_In[1];
     guess[2] = guess_In[2];
@@ -2599,7 +2599,7 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
     solver.setXtol(1.0e-6);
     solver.setFtol(1.0e-6);
     solver.minimize(guess);
-    ndarray::Array<double, 1, 1> result = ndarray::allocate(guess_In.getShape()[0]);
+    ndarray::Array<float, 1, 1> result = ndarray::allocate(guess_In.getShape()[0]);
     result[0] = guess[0];
     result[1] = guess[1];
     result[2] = guess[2];
@@ -2608,165 +2608,20 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
     #endif
     return result;
   }
-
+                
   template ndarray::Array<float, 1, 1> chebyshev(ndarray::Array<float, 1, 1> const& x_In, ndarray::Array<float, 1, 1> const& coeffs_In);
-  template ndarray::Array<double, 1, 1> chebyshev(ndarray::Array<double, 1, 1> const& x_In, ndarray::Array<float, 1, 1> const& coeffs_In);
-  template ndarray::Array<float, 1, 1> chebyshev(ndarray::Array<float, 1, 1> const& x_In, ndarray::Array<double, 1, 1> const& coeffs_In);
-  template ndarray::Array<double, 1, 1> chebyshev(ndarray::Array<double, 1, 1> const& x_In, ndarray::Array<double, 1, 1> const& coeffs_In);
 
   template ndarray::Array<float, 1, 1> Poly(ndarray::Array<float, 1, 1> const&, ndarray::Array<float, 1, 1> const&, float, float);
-  template ndarray::Array<float, 1, 1> Poly(ndarray::Array<float, 1, 1> const&, ndarray::Array<double, 1, 1> const&, float, float);
-  template ndarray::Array<double, 1, 1> Poly(ndarray::Array<double, 1, 1> const&, ndarray::Array<float, 1, 1> const&, double, double);
-  template ndarray::Array<double, 1, 1> Poly(ndarray::Array<double, 1, 1> const&, ndarray::Array<double, 1, 1> const&, double, double);
 
-  template ndarray::Array<double, 1, 1> PolyFit(ndarray::Array<double, 1, 1> const&, ndarray::Array<double, 1, 1> const&, size_t const, double const, std::vector<string> const&, std::vector<void *> &);
-  template ndarray::Array<double, 1, 1> PolyFit(ndarray::Array<double, 1, 1> const&, ndarray::Array<double, 1, 1> const&, size_t const, double const, double const, size_t const, std::vector<string> const&, std::vector<void *> &);
-  template ndarray::Array<double, 1, 1> PolyFit(ndarray::Array<double, 1, 1> const&, ndarray::Array<double, 1, 1> const&, size_t const, std::vector<string> const&, std::vector<void *> &);
-  template ndarray::Array<double, 1, 1> PolyFit(ndarray::Array<double, 1, 1> const&, ndarray::Array<double, 1, 1> const&, size_t const, double, double);
-  template ndarray::Array<double, 1, 1> PolyFit(ndarray::Array<double, 1, 1> const&, ndarray::Array<double, 1, 1> const&, size_t const, double const, double const, size_t const, double, double);
-
-  template int LinFitBevingtonEigen(Eigen::Array<float, Eigen::Dynamic, 1> const&,
-                                          Eigen::Array<float, Eigen::Dynamic, 1> const&,
-                                          float &,
-                                          float &,
-                                          bool,
-                                          std::vector<string> const&,
-                                          std::vector<void *> &);
-  template int LinFitBevingtonEigen(Eigen::Array<double, Eigen::Dynamic, 1> const&,
-                                          Eigen::Array<float, Eigen::Dynamic, 1> const&,
-                                          double &,
-                                          double &,
-                                          bool,
-                                          std::vector<string> const&,
-                                          std::vector<void *> &);
-  template int LinFitBevingtonEigen(Eigen::Array<float, Eigen::Dynamic, 1> const&,
-                                          Eigen::Array<double, Eigen::Dynamic, 1> const&,
-                                          float &,
-                                          float &,
-                                          bool,
-                                          std::vector<string> const&,
-                                          std::vector<void *> &);
-  template int LinFitBevingtonEigen(Eigen::Array<double, Eigen::Dynamic, 1> const&,
-                                          Eigen::Array<double, Eigen::Dynamic, 1> const&,
-                                          double &,
-                                          double &,
-                                          bool,
-                                          std::vector<string> const&,
-                                          std::vector<void *> &);
-
-  template SpectrumBackground< float > LinFitBevingtonNdArray( ndarray::Array<float, 1, 1> const&,
-                                                               ndarray::Array<float, 1, 1> const&,
-                                                               bool );
-  template SpectrumBackground< double > LinFitBevingtonNdArray( ndarray::Array<double, 1, 1> const&,
-                                                                ndarray::Array<float, 1, 1> const&,
-                                                                bool );
-  template SpectrumBackground< float > LinFitBevingtonNdArray( ndarray::Array<float, 1, 1> const&,
-                                                               ndarray::Array<double, 1, 1> const&,
-                                                               bool );
-  template SpectrumBackground< double > LinFitBevingtonNdArray( ndarray::Array<double, 1, 1> const&,
-                                                                ndarray::Array<double, 1, 1> const&,
-                                                                bool );
-
-  template int LinFitBevingtonNdArray(ndarray::Array<float, 1, 1> const&,
-                                            ndarray::Array<float, 1, 1> const&,
-                                            float &,
-                                            float &,
-                                            bool,
-                                            std::vector<string> const&,
-                                            std::vector<void *> &);
-  template int LinFitBevingtonNdArray(ndarray::Array<double, 1, 1> const&,
-                                            ndarray::Array<float, 1, 1> const&,
-                                            double &,
-                                            double &,
-                                            bool,
-                                            std::vector<string> const&,
-                                            std::vector<void *> &);
-  template int LinFitBevingtonNdArray(ndarray::Array<float, 1, 1> const&,
-                                            ndarray::Array<double, 1, 1> const&,
-                                            float &,
-                                            float &,
-                                            bool,
-                                            std::vector<string> const&,
-                                            std::vector<void *> &);
-  template int LinFitBevingtonNdArray(ndarray::Array<double, 1, 1> const&,
-                                            ndarray::Array<double, 1, 1> const&,
-                                            double &,
-                                            double &,
-                                            bool,
-                                            std::vector<string> const&,
-                                            std::vector<void *> &);
-
-  template bool LinFitBevingtonEigen(Eigen::Array<float, Eigen::Dynamic, Eigen::Dynamic> const&,
-                                           Eigen::Array<float, Eigen::Dynamic, Eigen::Dynamic> const&,
-                                           Eigen::Array<float, Eigen::Dynamic, 1> &,
-                                           Eigen::Array<float, Eigen::Dynamic, 1> &,
-                                           bool,
-                                           std::vector<string> const&,
-                                           std::vector<void *> &);
-  template bool LinFitBevingtonEigen(const Eigen::Array<double, Eigen::Dynamic, Eigen::Dynamic> &,
-                                           const Eigen::Array<float, Eigen::Dynamic, Eigen::Dynamic> &,
-                                           Eigen::Array<double, Eigen::Dynamic, 1> &,
-                                           Eigen::Array<double, Eigen::Dynamic, 1> &,
-                                           bool,
-                                           const std::vector<string> &,
-                                           std::vector<void *> &);
-  template bool LinFitBevingtonEigen(const Eigen::Array<float, Eigen::Dynamic, Eigen::Dynamic> &,
-                                           const Eigen::Array<double, Eigen::Dynamic, Eigen::Dynamic> &,
-                                           Eigen::Array<float, Eigen::Dynamic, 1> &,
-                                           Eigen::Array<float, Eigen::Dynamic, 1> &,
-                                           bool,
-                                           const std::vector<string> &,
-                                           std::vector<void *> &);
-  template bool LinFitBevingtonEigen(Eigen::Array<double, Eigen::Dynamic, Eigen::Dynamic> const&,
-                                           Eigen::Array<double, Eigen::Dynamic, Eigen::Dynamic> const&,
-                                           Eigen::Array<double, Eigen::Dynamic, 1> &,
-                                           Eigen::Array<double, Eigen::Dynamic, 1> &,
-                                           bool,
-                                           std::vector<string> const&,
-                                           std::vector<void *> &);
+  template ndarray::Array<float, 1, 1> PolyFit(ndarray::Array<float, 1, 1> const&, ndarray::Array<float, 1, 1> const&, size_t const, float const, float const, size_t const, std::vector<string> const&, std::vector<void *> &);
+  template ndarray::Array<float, 1, 1> PolyFit(ndarray::Array<float, 1, 1> const&, ndarray::Array<float, 1, 1> const&, size_t const, float, float);
+  template ndarray::Array<float, 1, 1> PolyFit(ndarray::Array<float, 1, 1> const&, ndarray::Array<float, 1, 1> const&, size_t const, float const, float const, size_t const, float, float);
 
   template bool LinFitBevingtonNdArray(ndarray::Array<float, 2, 1> const&,
                                              ndarray::Array<float, 2, 1> const&,
                                              ndarray::Array<float, 1, 1> &,
                                              ndarray::Array<float, 1, 1> &,
                                              bool,
-                                             std::vector<string> const&,
-                                             std::vector<void *> &);
-  template bool LinFitBevingtonNdArray(ndarray::Array<double, 2, 1> const&,
-                                             ndarray::Array<float, 2, 1> const&,
-                                             ndarray::Array<double, 1, 1> &,
-                                             ndarray::Array<double, 1, 1> &,
-                                             bool,
                                              const std::vector<string> &,
                                              std::vector<void *> &);
-  template bool LinFitBevingtonNdArray(ndarray::Array<float, 2, 1> const&,
-                                             ndarray::Array<double, 2, 1> const&,
-                                             ndarray::Array<float, 1, 1> &,
-                                             ndarray::Array<float, 1, 1> &,
-                                             bool,
-                                             const std::vector<string> &,
-                                             std::vector<void *> &);
-  template bool LinFitBevingtonNdArray(ndarray::Array<double, 2, 1> const&,
-                                             ndarray::Array<double, 2, 1> const&,
-                                             ndarray::Array<double, 1, 1> &,
-                                             ndarray::Array<double, 1, 1> &,
-                                             bool,
-                                             std::vector<string> const&,
-                                             std::vector<void *> &);
-
-  template float GammLn(float const D_X_In);
-  template double GammLn(double const D_X_In);
-
-  template float GCF(float & D_Gamser_In, float const a, float const x);
-  template double GCF(double & D_Gamser_In, double const a, double const x);
-
-  template float GammP(float const a, float const x);
-  template double GammP(double const a, double const x);
-
-  template float GammQ(float const a, float const x);
-  template double GammQ(double const a, double const x);
-
-  template float GSER(float & D_Gamser_In, float const a, float const x);
-  template double GSER(double & D_Gamser_In, double const a, double const x);
-
 }}}}

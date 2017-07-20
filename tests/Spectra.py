@@ -77,25 +77,25 @@ class SpectraTestCase(tests.TestCase):
 
     def testSpectrumConstructors(self):
         # Test that we can create a Spectrum with the standard constructor
-        spec = drpStella.SpectrumF()
+        spec = drpStella.Spectrum()
         self.assertEqual(spec.getLength(), 0)
         self.assertEqual(spec.getITrace(), 0)
 
         length = 10
         iTrace = 2
-        spec = drpStella.SpectrumF(length, iTrace)
+        spec = drpStella.Spectrum(length, iTrace)
         self.assertEqual(spec.getLength(), length)
         self.assertEqual(spec.getITrace(), iTrace)
 
         # Test copy constructor
-        specCopy = drpStella.SpectrumF(spec)
+        specCopy = drpStella.Spectrum(spec)
         self.assertEqual(specCopy.getLength(), length)
         self.assertEqual(specCopy.getITrace(), iTrace)
 
     def testSpectrumMethods(self):
         # Test getSpectrum
         size = 100
-        spec = drpStella.SpectrumF(size)
+        spec = drpStella.Spectrum(size)
         vec = spec.getSpectrum()
         self.assertEqual(vec.shape[0], size)
         self.assertEqual(spec.getSpectrum().shape[0], size)
@@ -225,35 +225,35 @@ class SpectraTestCase(tests.TestCase):
     def testSpectrumSetConstructors(self):
         # Test SpectrumSetConstructors
         # Test Standard Constructor
-        specSet = drpStella.SpectrumSetF()
+        specSet = drpStella.SpectrumSet()
         self.assertEqual(specSet.size(), 0)
 
         size = 3
-        specSet = drpStella.SpectrumSetF(size)
+        specSet = drpStella.SpectrumSet(size)
         self.assertEqual(specSet.size(), size)
         for i in range(size):
             self.assertEqual(specSet.getSpectrum(i).getSpectrum().shape[0], 0)
 
         length = 33
-        specSet = drpStella.SpectrumSetF(size, length)
+        specSet = drpStella.SpectrumSet(size, length)
         self.assertEqual(specSet.size(), size)
         for i in range(size):
             self.assertEqual(specSet.getSpectrum(i).getSpectrum().shape[0], length)
 
         # Test copy constructor
-        specSetCopy = drpStella.SpectrumSetF(specSet)
+        specSetCopy = drpStella.SpectrumSet(specSet)
         self.assertEqual(specSetCopy.size(), specSet.size())
         for i in range(specSet.size()):
             self.assertEqual(specSetCopy.getSpectrum(i).getLength(), specSet.getSpectrum(i).getLength())
 
         # Test constructor from vector of spectra
-        specSetV = drpStella.SpectrumSetF(specSet.getSpectra())
+        specSetV = drpStella.SpectrumSet(specSet.getSpectra())
         self.assertEqual(specSet.size(), specSetV.size())
         for i in range(specSet.size()):
             self.assertEqual(specSetV.getSpectrum(i).getITrace(), i)
 
     def testExtractTask(self):
-        fiberTraceSet = drpStella.findAndTraceAperturesF(self.flat.getMaskedImage(), self.ftffc)
+        fiberTraceSet = drpStella.findAndTraceApertures(self.flat.getMaskedImage(), self.ftffc)
 
         # read wavelength file
         xCenters, wavelengths, traceIds = readWavelengthFile(self.wLenFile)
@@ -300,9 +300,9 @@ class SpectraTestCase(tests.TestCase):
     def testSpectrumSetAddSetErase(self):
         size = 3
         length = 100
-        specSet = drpStella.SpectrumSetF(size, length)
-        spec = drpStella.SpectrumF(length)
-        specNew = drpStella.SpectrumF(length+1)
+        specSet = drpStella.SpectrumSet(size, length)
+        spec = drpStella.Spectrum(length)
+        specNew = drpStella.Spectrum(length+1)
 
         # Test that we cannot set a spectrum outside the limits 0 <= pos <= size
         try:
@@ -372,7 +372,7 @@ class SpectraTestCase(tests.TestCase):
         """test getSpectra"""
         size = 3
         length = 100
-        specSet = drpStella.SpectrumSetF(size,length)
+        specSet = drpStella.SpectrumSet(size,length)
         spectra = specSet.getSpectra()
         self.assertEqual(spectra[0].getSpectrum().shape[0], length)
 
@@ -479,7 +479,7 @@ class SpectraTestCase(tests.TestCase):
         # We will disturb one line and then test that <PolyFit> properly
         # identified the line as outlier and rejected it from the fit
 
-        fiberTraceSet = drpStella.findAndTraceAperturesF(self.flat.getMaskedImage(), self.ftffc)
+        fiberTraceSet = drpStella.findAndTraceApertures(self.flat.getMaskedImage(), self.ftffc)
         self.assertEqual(fiberTraceSet.size(), self.nFiberTraces)
         myProfileTask = cfftpTask.CreateFlatFiberTraceProfileTask()
         myProfileTask.run(fiberTraceSet)
@@ -498,11 +498,11 @@ class SpectraTestCase(tests.TestCase):
         refSpecArr = readReferenceSpectrum(self.refSpec)
 
         spec = spectrum.getSpectrum()
-        result = drpStella.stretchAndCrossCorrelateSpecFF(spec, refSpecArr, lineListArr, self.dispCorControl)
+        result = drpStella.stretchAndCrossCorrelateSpec(spec, refSpecArr, lineListArr, self.dispCorControl)
 
         # we're not holding back any emission lines from the check to make
         # sure the line we will disturb is not one of the lines held back
-        spectrum.identifyF(result.lineList, self.dispCorControl, 0)
+        spectrum.identify(result.lineList, self.dispCorControl, 0)
         dispRMSOrig = spectrum.getDispRms()
 
         # Find an emission line which we can disturb to test that it is
@@ -518,7 +518,7 @@ class SpectraTestCase(tests.TestCase):
         # include 'cosmic' next to line
         spectrum.getSpectrum()[linePos:linePos+4] += [10000.,20000.,30000., 20000.]
 
-        spectrum.identifyF(result.lineList, self.dispCorControl, 0)# we're not holding back any emission lines
+        spectrum.identify(result.lineList, self.dispCorControl, 0)# we're not holding back any emission lines
         dispRMSCosmic = spectrum.getDispRms()
         self.assertNotAlmostEqual(dispRMSOrig, dispRMSCosmic)
         mask = spectrum.getMask()
@@ -536,7 +536,7 @@ class SpectraTestCase(tests.TestCase):
         # justified. They serve as a regression test to make sure that changes in the code
         # didn't make it worse.
 
-        fiberTraceSet = drpStella.findAndTraceAperturesF(self.flat.getMaskedImage(), self.ftffc)
+        fiberTraceSet = drpStella.findAndTraceApertures(self.flat.getMaskedImage(), self.ftffc)
         self.assertGreater(fiberTraceSet.size(), 0)
         myProfileTask = cfftpTask.CreateFlatFiberTraceProfileTask()
         myProfileTask.run(fiberTraceSet)
@@ -596,7 +596,7 @@ class SpectraTestCase(tests.TestCase):
                     try:
                         logger = log.Log.getLogger("pfs::drp::stella::Spectra::identify")
                         logger.setLevel(log.FATAL)
-                        spec.identifyF(lineListPix, self.dispCorControl, 8)
+                        spec.identify(lineListPix, self.dispCorControl, 8)
                         self.assertTrue(False) # i.e. the previous line should raise an exception
                     except Exception as e:
                         message = str.split(str(e.message), "\n")
@@ -606,7 +606,7 @@ class SpectraTestCase(tests.TestCase):
                         expected = "identify: ERROR: less than 59 lines identified"
                         self.assertEqual(message[0],expected)
                 else:
-                    spec.identifyF(lineListPix, self.dispCorControl, 8)
+                    spec.identify(lineListPix, self.dispCorControl, 8)
                     # make sure that the number of 'good' lines increases with
                     # a growing maxDistance
                     self.assertGreaterEqual(spec.getNGoodLines(),maxLines)

@@ -1,1 +1,0 @@
-valgrind --tool=memcheck --leak-check=yes --show-reachable=yes --log-file=logfile_valgrind.log -v ./cfits

@@ -35,7 +35,7 @@ class Spectrum {
     typedef ndarray::Array<WavelengthT, 1, 1> WavelengthVector;
     typedef ndarray::Array<VarianceT, 2, 1> CovarianceMatrix;
     typedef lsst::afw::image::Mask<MaskT> Mask;
-    typedef ndarray::Array<double, 1, 1> Coefficients;
+    typedef ndarray::Array<float, 1, 1> Coefficients;
 
     // Class Constructors and Destructor
     explicit Spectrum(std::size_t length=0,
@@ -119,12 +119,12 @@ class Spectrum {
     /*
      * @brief Return the Root Mean Squared (RMS) of the lines used for the wavelength calibration
      */
-    double getDispRms() const { return _dispRms; }
+    float getDispRms() const { return _dispRms; }
 
     /*
      * @brief Return the Root Mean Squared (RMS) of the lines held back from the wavelength calibration
      */
-    double getDispRmsCheck() const { return _dispRmsCheck; }
+    float getDispRmsCheck() const { return _dispRmsCheck; }
 
     /*
      * @brief Return the number of not rejected lines used for the wavelength calibration
@@ -164,7 +164,7 @@ class Spectrum {
      * @param[in] lineList :: line list  [ nLines, 2 ]: [ wLen, approx_pixel ]
      */
     template< typename T >
-    ndarray::Array< double, 1, 1 > hIdentify( ndarray::Array< T, 2, 1 > const& lineList );
+    ndarray::Array< float, 1, 1 > hIdentify( ndarray::Array< T, 2, 1 > const& lineList );
 
     std::size_t _yLow;
     std::size_t _yHigh;
@@ -178,8 +178,8 @@ class Spectrum {
     WavelengthVector _dispersion;
     std::size_t _iTrace;/// for logging / debugging purposes only
     Coefficients _dispCoeffs;
-    double _dispRms;
-    double _dispRmsCheck;
+    float _dispRms;
+    float _dispRmsCheck;
     std::size_t _nGoodLines;
     bool _isWavelengthSet;
     PTR(DispCorControl) _dispCorControl;

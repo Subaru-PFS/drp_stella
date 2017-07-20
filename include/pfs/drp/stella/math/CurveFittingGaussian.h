@@ -6,12 +6,12 @@ using namespace std;
 namespace pfs { namespace drp { namespace stella {
   namespace math{
 
-    struct gaussian_functor : Eigen::DenseFunctor<double> {
-	Eigen::VectorXd m_x0;
-	Eigen::VectorXd m_y0;
+    struct gaussian_functor : Eigen::DenseFunctor<float> {
+	Eigen::VectorXf m_x0;
+	Eigen::VectorXf m_y0;
  
-	gaussian_functor(const Eigen::MatrixX2d & f0) : 
-		Eigen::DenseFunctor<double>(3,f0.rows()), 
+	gaussian_functor(const Eigen::MatrixX2f & f0) : 
+		Eigen::DenseFunctor<float>(3,f0.rows()), 
 		m_x0(f0.col(0)),
 		m_y0(f0.col(1))
 					 {}

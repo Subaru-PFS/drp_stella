@@ -4,7 +4,6 @@
 #include "numpy/arrayobject.h"
 #include "ndarray/pybind11.h"
 
-#include "pfs/drp/stella/PSF.h"
 #include "pfs/drp/stella/utils/Utils.h" // for pfs::drp::stella::utils::testPolyFit
 
 namespace py = pybind11;

@@ -1,8 +1,0 @@
-mv ../bin/findandtraceaps ../bin/findandtraceaps.bak
-g++ -s -O3 -fpermissive -lm -lgsl -lgslcblas -lcfitsio -I/usr/local/include -L. -std=c++11 -o ../bin/findandtraceaps ../../cfits/src/CAny.cpp ../../cfits/src/CString.cpp ../../cfits/src/CFits.cpp MFindAndTraceAps.cpp ../../cfits/src/kriging/geostat.cpp ../../cfits/src/kriging/matrix_ex.cpp ../../cfits/src/kriging/model_sph.cpp ../../cfits/src/kriging/model_stable.cpp ../../cfits/src/kriging/variogram.cpp ../../cmpfit-1.2/mpfit.c ../../cmpfit-1.2/MyFit.cpp
-chmod a+x ../bin/findandtraceaps
-rm ~/bin/findandtraceaps
-cp -p ../bin/findandtraceaps ~/bin/
-rm ~/stella/bin/findandtraceaps
-ln -s ~/bin/findandtraceaps ~/stella/bin/findandtraceaps
-

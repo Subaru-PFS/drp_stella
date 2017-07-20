@@ -15,9 +15,9 @@ namespace pfs { namespace drp { namespace stella {
 namespace {
 
 template <typename T>
-void declareSpectrum(py::module &mod, std::string const& suffix) {
+void declareSpectrum(py::module &mod) {
     using Class = Spectrum<T>;
-    py::class_<Class, std::shared_ptr<Class>> cls(mod, ("Spectrum" + suffix).c_str());
+    py::class_<Class, std::shared_ptr<Class>> cls(mod, "Spectrum");
 
     cls.def(py::init<std::size_t, std::size_t>(), "length"_a=0, "iTrace"_a=0);
     cls.def(py::init<Class&, std::size_t, bool>(), "spectrum"_a, "iTrace"_a=0, "deep"_a=false);
@@ -75,7 +75,7 @@ void declareSpectrum(py::module &mod, std::string const& suffix) {
 
     cls.def("getDispCorControl", &Class::getDispCorControl);
 
-    cls.def("identifyF", &Class::template identify<float>, "lineList"_a, "dispCorControl"_a,
+    cls.def("identify", &Class::template identify<float>, "lineList"_a, "dispCorControl"_a,
             "nLinesCheck"_a=0);
 
     cls.def("isWavelengthSet", &Class::isWavelengthSet);
@@ -94,9 +94,9 @@ void declareSpectrum(py::module &mod, std::string const& suffix) {
 }
 
 template <typename T>
-void declareSpectrumSet(py::module &mod, std::string const& suffix) {
+void declareSpectrumSet(py::module &mod) {
     using Class = SpectrumSet<T>;
-    py::class_<Class, PTR(Class)> cls(mod, ("SpectrumSet" + suffix).c_str());
+    py::class_<Class, PTR(Class)> cls(mod, "SpectrumSet");
 
     cls.def(py::init<std::size_t, std::size_t>(), "nSpectra"_a=0, "length"_a=0);
     cls.def(py::init<Class const&>(), "spectrumSet"_a);
@@ -130,14 +130,13 @@ void declareSpectrumSet(py::module &mod, std::string const& suffix) {
 }
 
 template <typename T, typename U>
-void declareStretchAndCrossCorrelate(py::module &mod, std::string const& suffix) {
+void declareStretchAndCrossCorrelate(py::module &mod) {
     using Class = math::StretchAndCrossCorrelateSpecResult<T, U>;
-    py::class_<Class, std::shared_ptr<Class>> cls(mod,
-                                                  ("StretchAndCrossCorrelateSpecResult" + suffix).c_str());
+    py::class_<Class, std::shared_ptr<Class>> cls(mod, "StretchAndCrossCorrelateSpecResult");
     cls.def_readonly("lineList", &Class::lineList);
     cls.def_readonly("specPieces", &Class::specPieces);
 
-    mod.def(("stretchAndCrossCorrelateSpec" + suffix).c_str(), math::stretchAndCrossCorrelateSpec<T, U>,
+    mod.def("stretchAndCrossCorrelateSpec", math::stretchAndCrossCorrelateSpec<T, U>,
             "spec"_a, "specRef"_a, "lineList_WLenPix"_a, "dispCorControl"_a);
 }
 
@@ -150,13 +149,11 @@ PYBIND11_PLUGIN(spectra) {
         return nullptr;
     }
 
-    declareSpectrum<float>(mod, "F");
-    declareSpectrum<double>(mod, "D");
+    declareSpectrum<float>(mod);
 
-    declareSpectrumSet<float>(mod, "F");
-    declareSpectrumSet<double>(mod, "D");
+    declareSpectrumSet<float>(mod);
 
-    declareStretchAndCrossCorrelate<float, float>(mod, "FF");
+    declareStretchAndCrossCorrelate<float, float>(mod);
 
     mod.def("createLineList", math::createLineList<float, 1>, "wLen"_a, "lines"_a);
 

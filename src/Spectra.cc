@@ -1,4 +1,5 @@
 #include "pfs/drp/stella/Spectra.h"
+#include "pfs/drp/stella/cmpfit-1.2/MPFitting_ndarray.h"
 
 namespace pfsDRPStella = pfs::drp::stella;
 
@@ -33,11 +34,6 @@ pfsDRPStella::Spectrum<ImageT, MaskT, VarianceT, WavelengthT>::Spectrum(size_t l
   _nCCDRows = length;
 }
 
-template class pfsDRPStella::Spectrum<float, lsst::afw::image::MaskPixel, float, float>;
-template class pfsDRPStella::Spectrum<double, lsst::afw::image::MaskPixel, float, float>;
-template class pfsDRPStella::Spectrum<float, lsst::afw::image::MaskPixel, double, double>;
-template class pfsDRPStella::Spectrum<double, lsst::afw::image::MaskPixel, double, double>;
-
 template<typename ImageT, typename MaskT, typename VarianceT, typename WavelengthT>
 void pfsDRPStella::Spectrum<ImageT, MaskT, VarianceT, WavelengthT>::setSky( ndarray::Array<ImageT, 1, 1> const& sky )
 {
@@ -49,9 +45,6 @@ void pfsDRPStella::Spectrum<ImageT, MaskT, VarianceT, WavelengthT>::setSky( ndar
   }
   _sky.deep() = sky;
 }
-
-template void pfsDRPStella::Spectrum< double, lsst::afw::image::MaskPixel, float, float >::setSky( ndarray::Array< double, 1, 1 > const& );
-template void pfsDRPStella::Spectrum< float, lsst::afw::image::MaskPixel, float, float >::setSky( ndarray::Array< float, 1, 1 > const& );
 
 template<typename ImageT, typename MaskT, typename VarianceT, typename WavelengthT>
 void pfsDRPStella::Spectrum<ImageT, MaskT, VarianceT, WavelengthT>::setWavelength( ndarray::Array< WavelengthT, 1, 1 > const& wavelength )
@@ -65,9 +58,6 @@ void pfsDRPStella::Spectrum<ImageT, MaskT, VarianceT, WavelengthT>::setWavelengt
   _wavelength.deep() = wavelength;
 }
 
-template void pfsDRPStella::Spectrum< double, lsst::afw::image::MaskPixel, float, float >::setWavelength( ndarray::Array< float, 1, 1 > const& );
-template void pfsDRPStella::Spectrum< float, lsst::afw::image::MaskPixel, float, float >::setWavelength( ndarray::Array< float, 1, 1 > const& );
-
 template<typename ImageT, typename MaskT, typename VarianceT, typename WavelengthT>
 void pfsDRPStella::Spectrum< ImageT, MaskT, VarianceT, WavelengthT >::setDispersion( ndarray::Array< WavelengthT, 1, 1 > const& dispersion )
 {
@@ -79,9 +69,6 @@ void pfsDRPStella::Spectrum< ImageT, MaskT, VarianceT, WavelengthT >::setDispers
   }
   _dispersion.deep() = dispersion;
 }
-
-template void pfsDRPStella::Spectrum< double, lsst::afw::image::MaskPixel, float, float >::setDispersion( ndarray::Array< float, 1, 1 > const& );
-template void pfsDRPStella::Spectrum< float, lsst::afw::image::MaskPixel, float, float >::setDispersion( ndarray::Array< float, 1, 1 > const& );
 
 ///SpectrumSet
 template<typename ImageT, typename MaskT, typename VarianceT, typename WavelengthT>
@@ -293,9 +280,6 @@ ndarray::Array< float, 3, 1 > pfsDRPStella::SpectrumSet<ImageT, MaskT, VarianceT
 }
 
 template class pfsDRPStella::SpectrumSet<float, lsst::afw::image::MaskPixel, float, float>;
-template class pfsDRPStella::SpectrumSet<double, lsst::afw::image::MaskPixel, float, float>;
-template class pfsDRPStella::SpectrumSet<float, lsst::afw::image::MaskPixel, float, double>;
-template class pfsDRPStella::SpectrumSet<double, lsst::afw::image::MaskPixel, float, double>;
 
 namespace pfs { namespace drp { namespace stella { namespace math {
 
@@ -309,7 +293,7 @@ namespace pfs { namespace drp { namespace stella { namespace math {
         cout << "stretchAndCrossCorrelateSpec: specRef = " << specRef.getShape() << ": " << specRef << endl;
         cout << "stretchAndCrossCorrelateSpec: lineList_WLenPix = " << lineList_WLenPix.getShape() << ": " << lineList_WLenPix << endl;
       #endif
-      double fac = double( specRef.getShape()[ 0 ] ) / double( spec.getShape()[ 0 ] );
+      float fac = float( specRef.getShape()[ 0 ] ) / float( spec.getShape()[ 0 ] );
       ndarray::Array< T, 1, 1 > stretchedSpec = stretch( spec, specRef.getShape()[ 0 ] );
       #ifdef __DEBUG_STRETCHANDCROSSCORRELATESPEC__
         cout << "stretchAndCrossCorrelateSpec: fac = " << fac << endl;
@@ -332,22 +316,22 @@ namespace pfs { namespace drp { namespace stella { namespace math {
       #ifdef __DEBUG_STRETCHANDCROSSCORRELATESPEC__
         cout << "stretchAndCrossCorrelateSpec: nCalcs = " << nCalcs << endl;
       #endif
-      ndarray::Array< double, 1, 1 > chiSqMin_Stretch = ndarray::allocate( nCalcs );
+      ndarray::Array< float, 1, 1 > chiSqMin_Stretch = ndarray::allocate( nCalcs );
       chiSqMin_Stretch.deep() = 0.;
-      ndarray::Array< double, 1, 1 > chiSqMin_Shift = ndarray::allocate( nCalcs );
+      ndarray::Array< float, 1, 1 > chiSqMin_Shift = ndarray::allocate( nCalcs );
       chiSqMin_Shift.deep() = 0.;
-      ndarray::Array< double, 1, 1 > xCenter = ndarray::allocate( nCalcs );
+      ndarray::Array< float, 1, 1 > xCenter = ndarray::allocate( nCalcs );
       xCenter.deep() = 0.;
-      ndarray::Array< double, 1, 1 > specPiece = ndarray::allocate( dispCorControl.lengthPieces );
-      ndarray::Array< double, 1, 1 > specRefPiece = ndarray::allocate( dispCorControl.lengthPieces );
+      ndarray::Array< float, 1, 1 > specPiece = ndarray::allocate( dispCorControl.lengthPieces );
+      ndarray::Array< float, 1, 1 > specRefPiece = ndarray::allocate( dispCorControl.lengthPieces );
       int start = 0;
       int end = 0;
-      ndarray::Array< double, 2, 1 > specPieceStretched_MinChiSq;
-      ndarray::Array< double, 2, 1 > lineList_Pixels_AllPieces = ndarray::allocate( lineList_WLenPix.getShape()[ 0 ], nCalcs );
+      ndarray::Array< float, 2, 1 > specPieceStretched_MinChiSq;
+      ndarray::Array< float, 2, 1 > lineList_Pixels_AllPieces = ndarray::allocate( lineList_WLenPix.getShape()[ 0 ], nCalcs );
       lineList_Pixels_AllPieces.deep() = 0.;
-      ndarray::Array< double, 1, 1 > x = indGenNdArr( double( specRef.getShape()[ 0 ] ) );
-      ndarray::Array< double, 1, 1 > xPiece;
-      ndarray::Array< double, 1, 1 > xPieceStretched;
+      ndarray::Array< float, 1, 1 > x = indGenNdArr( float( specRef.getShape()[ 0 ] ) );
+      ndarray::Array< float, 1, 1 > xPiece;
+      ndarray::Array< float, 1, 1 > xPieceStretched;
 
       for ( int i_run = 0; i_run < nCalcs; i_run++ ){
         end = start + dispCorControl.lengthPieces;
@@ -366,7 +350,7 @@ namespace pfs { namespace drp { namespace stella { namespace math {
           cout << "stretchAndCrossCorrelateSpec: i_run = " << i_run << ": ERROR: end <= start" << endl;
           exit( EXIT_FAILURE );
         }
-        xCenter[ i_run ] = double( start ) + ( double( end - start ) / 2. );
+        xCenter[ i_run ] = float( start ) + ( float( end - start ) / 2. );
         #ifdef __DEBUG_STRETCHANDCROSSCORRELATESPEC__
           cout << "stretchAndCrossCorrelateSpec: i_run = " << i_run << ": xCenter = " << xCenter[ i_run ] << endl;
         #endif
@@ -383,7 +367,7 @@ namespace pfs { namespace drp { namespace stella { namespace math {
           cout << "stretchAndCrossCorrelateSpec: i_run = " << i_run << ": specRefPiece = " << specRefPiece.getShape() << ": " << specRefPiece << endl;
         #endif
         /// stretch and crosscorrelate pieces
-        StretchAndCrossCorrelateResult< double > stretchAndCrossCorrelateResult = stretchAndCrossCorrelate( specPiece,
+        StretchAndCrossCorrelateResult< float > stretchAndCrossCorrelateResult = stretchAndCrossCorrelate( specPiece,
                                                                                                             specRefPiece,
                                                                                                             dispCorControl.radiusXCor,
                                                                                                             dispCorControl.stretchMinLength,
@@ -424,13 +408,13 @@ namespace pfs { namespace drp { namespace stella { namespace math {
           cout << "stretchAndCrossCorrelateSpec: i_run=" << i_run << ": xPieceStretched = " << xPieceStretched.getShape() << ": " << xPieceStretched << endl;
         #endif
 
-        double weightLeft = 0.;
-        double weightRight = 0.;
-        ndarray::Array< double, 1, 1 > lineListPix = ndarray::allocate( lineList_WLenPix.getShape()[ 0 ] );
+        float weightLeft = 0.;
+        float weightRight = 0.;
+        ndarray::Array< float, 1, 1 > lineListPix = ndarray::allocate( lineList_WLenPix.getShape()[ 0 ] );
         auto itTemp = lineListPix.begin();
         for ( auto itList = lineList_WLenPix.begin(); itList != lineList_WLenPix.end(); ++itList, ++itTemp ){
           auto itListCol = itList->begin() + 1;
-          *itTemp = double( *itListCol );//lineList_WLenPix[ ndarray::view()( 1 ) ] );
+          *itTemp = float( *itListCol );//lineList_WLenPix[ ndarray::view()( 1 ) ] );
         }
         #ifdef __DEBUG_STRETCHANDCROSSCORRELATESPEC__
           cout << "stretchAndCrossCorrelateSpec: i_run=" << i_run << ": lineListPix = " << lineListPix.getShape() << ": " << lineListPix << endl;
@@ -469,14 +453,14 @@ namespace pfs { namespace drp { namespace stella { namespace math {
       for ( int iLine = 0; iLine < lineList_WLenPix.getShape()[ 0 ]; ++iLine ){
         stretchAndCrossCorrelateSpecResult.lineList[ ndarray::makeVector( iLine, 0 ) ] = lineList_WLenPix[ ndarray::makeVector( iLine, 0 ) ];
       }
-      ndarray::Array< double, 1, 1 > tempArr = ndarray::allocate( lineList_Pixels_AllPieces.getShape()[ 1 ] );
+      ndarray::Array< float, 1, 1 > tempArr = ndarray::allocate( lineList_Pixels_AllPieces.getShape()[ 1 ] );
       for (int i_line=0; i_line < lineList_WLenPix.getShape()[ 0 ]; i_line++){
         tempArr[ ndarray::view() ] = lineList_Pixels_AllPieces[ ndarray::view( i_line )() ];
-        ndarray::Array< int, 1, 1 > whereVec = where( tempArr,
-                                                      ">",
-                                                      0.001,
-                                                      1,
-                                                      0 );
+        ndarray::Array< int, 1, 1 > whereVec = where<float, int>( tempArr,
+                                                                  ">",
+                                                                  0.001,
+                                                                  1,
+                                                                  0 );
         nInd = std::accumulate( whereVec.begin(), whereVec.end(), 0 );
         #ifdef __DEBUG_STRETCHANDCROSSCORRELATESPEC_LINELIST__
           cout << "stretchAndCrossCorrelateSpec: i_line = " << i_line << ": whereVec = " << whereVec << ": nInd = " << nInd << endl;
@@ -516,7 +500,7 @@ namespace pfs { namespace drp { namespace stella { namespace math {
       #endif
 
       /// Check positions
-      ndarray::Array< double, 2, 1 > dist = ndarray::allocate( lineList_Pixels_AllPieces.getShape() );
+      ndarray::Array< float, 2, 1 > dist = ndarray::allocate( lineList_Pixels_AllPieces.getShape() );
       dist.deep() = 0.;
       for ( int i_row = 0; i_row < lineList_Pixels_AllPieces.getShape()[ 0 ]; i_row++){
         for (int i_col = 0; i_col < lineList_Pixels_AllPieces.getShape()[ 1 ]; i_col++){
@@ -528,11 +512,11 @@ namespace pfs { namespace drp { namespace stella { namespace math {
         cout << "stretchAndCrossCorrelateSpec: dist = " << dist << endl;
         cout << "stretchAndCrossCorrelateSpec: lineList_Pixels_AllPieces = " << lineList_Pixels_AllPieces << endl;
       #endif
-      ndarray::Array< int, 2, 1 > whereArr = where( lineList_Pixels_AllPieces,
-                                                    ">",
-                                                    0.000001,
-                                                    1,
-                                                    0);
+      ndarray::Array< int, 2, 1 > whereArr = where<float, int>(lineList_Pixels_AllPieces,
+                                                               ">",
+                                                               0.000001,
+                                                               1,
+                                                               0);
       #ifdef __DEBUG_STRETCHANDCROSSCORRELATESPEC_LINELIST__
         cout << "stretchAndCrossCorrelateSpec: whereArr = " << whereArr << endl;
       #endif
@@ -540,36 +524,36 @@ namespace pfs { namespace drp { namespace stella { namespace math {
       #ifdef __DEBUG_STRETCHANDCROSSCORRELATESPEC_LINELIST__
         cout << "stretchAndCrossCorrelateSpec: indWhereArr = " << indWhereArr << endl;
       #endif
-      ndarray::Array< double, 1, 1 > dist_SubArr = getSubArray( dist, indWhereArr );
+      ndarray::Array< float, 1, 1 > dist_SubArr = getSubArray( dist, indWhereArr );
       #ifdef __DEBUG_STRETCHANDCROSSCORRELATESPEC_LINELIST__
         cout << "stretchAndCrossCorrelateSpec: dist_SubArr = " << dist_SubArr << endl;
       #endif
-      double medianDiff = median( dist_SubArr );
-      ndarray::Array< double, 1, 1 > sorted = ndarray::allocate( dist_SubArr.getShape()[ 0 ] );
+      float medianDiff = median( dist_SubArr );
+      ndarray::Array< float, 1, 1 > sorted = ndarray::allocate( dist_SubArr.getShape()[ 0 ] );
       sorted.deep() = dist_SubArr;
       std::sort( sorted.begin(), sorted.end() );
       #ifdef __DEBUG_STRETCHANDCROSSCORRELATESPEC_LINELIST__
         cout << "stretchAndCrossCorrelateSpec: medianDiff = " << medianDiff << endl;
         cout << "stretchAndCrossCorrelateSpec: sorted = " << sorted << endl;
       #endif
-      ndarray::Array< double, 1, 1 > dist_Temp = ndarray::allocate( dist_SubArr.getShape()[ 0 ] - 4 );
+      ndarray::Array< float, 1, 1 > dist_Temp = ndarray::allocate( dist_SubArr.getShape()[ 0 ] - 4 );
       dist_Temp = sorted[ ndarray::view( 2, dist_SubArr.getShape()[ 0 ] - 2 ) ];
       #ifdef __DEBUG_STRETCHANDCROSSCORRELATESPEC_LINELIST__
         cout << "stretchAndCrossCorrelateSpec: dist_Temp = " << dist_Temp << endl;
       #endif
-      ndarray::Array< double, 1, 1 > moments = moment( dist_Temp, 2 );
-      double stdDev_Diff = moments[ 1 ];
+      ndarray::Array< float, 1, 1 > moments = moment( dist_Temp, 2 );
+      float stdDev_Diff = moments[ 1 ];
       #ifdef __DEBUG_STRETCHANDCROSSCORRELATESPEC_LINELIST__
         cout << "stretchAndCrossCorrelateSpec: stdDev_Diff = " << stdDev_Diff << endl;
       #endif
-      ndarray::Array< double, 1, 1 > tempDist = ndarray::copy( dist_SubArr - medianDiff );
+      ndarray::Array< float, 1, 1 > tempDist = ndarray::copy( dist_SubArr - medianDiff );
       for ( auto itDist = tempDist.begin(); itDist != tempDist.end(); ++itDist )
         *itDist = std::fabs( *itDist );
-      ndarray::Array< int, 1, 1 > whereVec = where( tempDist,
-                                                    ">",
-                                                    3. * stdDev_Diff,
-                                                    1,
-                                                    0 );
+      ndarray::Array< int, 1, 1 > whereVec = where<float, int>(tempDist,
+                                                               ">",
+                                                               3. * stdDev_Diff,
+                                                               1,
+                                                               0);
       #ifdef __DEBUG_STRETCHANDCROSSCORRELATESPEC_LINELIST__
         cout << "stretchAndCrossCorrelateSpec: whereVec = " << whereVec << endl;
       #endif
@@ -590,16 +574,16 @@ namespace pfs { namespace drp { namespace stella { namespace math {
         #endif
 
         stretchAndCrossCorrelateSpecResult.lineList[ ndarray::view()(1) ] = 0.;
-        ndarray::Array< double, 1, 1 > tempList = ndarray::allocate( lineList_Pixels_AllPieces.getShape()[ 1 ] );
+        ndarray::Array< float, 1, 1 > tempList = ndarray::allocate( lineList_Pixels_AllPieces.getShape()[ 1 ] );
         for (int i_line=0; i_line < lineList_WLenPix.getShape()[ 0 ]; i_line++){
           tempList = lineList_Pixels_AllPieces[ ndarray::view(i_line)() ];
           for ( auto itTemp = tempList.begin(); itTemp != tempList.end(); ++itTemp )
             *itTemp = std::fabs( *itTemp );
-          ndarray::Array< int, 1, 1 > whereVec = where( tempList,
-                                                        ">",
-                                                        0.001,
-                                                        1,
-                                                        0 );
+          ndarray::Array< int, 1, 1 > whereVec = where<float, int>(tempList,
+                                                                   ">",
+                                                                   0.001,
+                                                                   1,
+                                                                   0);
           nInd = std::accumulate( whereVec.begin(), whereVec.end(), 0 );
           ndarray::Array< size_t, 1, 1 > indWhereB = getIndices( whereVec );
           #ifdef __DEBUG_STRETCHANDCROSSCORRELATESPEC_LINELIST__
@@ -679,25 +663,21 @@ namespace pfs { namespace drp { namespace stella { namespace math {
     }
 
     template ndarray::Array< float, 2, 1 > createLineList( ndarray::Array< float, 1, 0 > const&, ndarray::Array< float, 1, 0 > const& );
-    template ndarray::Array< double, 2, 1 > createLineList( ndarray::Array< double, 1, 0 > const&, ndarray::Array< double, 1, 0 > const& );
     template ndarray::Array< float, 2, 1 > createLineList( ndarray::Array< float, 1, 1 > const&, ndarray::Array< float, 1, 1 > const& );
-    template ndarray::Array< double, 2, 1 > createLineList( ndarray::Array< double, 1, 1 > const&, ndarray::Array< double, 1, 1 > const& );
 
     template StretchAndCrossCorrelateSpecResult< float, float > stretchAndCrossCorrelateSpec( ndarray::Array< float, 1, 1 > const&,
                                                                                               ndarray::Array< float, 1, 1 > const&,
                                                                                               ndarray::Array< float, 2, 1 > const&,
                                                                                               DispCorControl const& );
-    template StretchAndCrossCorrelateSpecResult< double, double > stretchAndCrossCorrelateSpec( ndarray::Array< double, 1, 1 > const&,
-                                                                                                ndarray::Array< double, 1, 1 > const&,
-                                                                                                ndarray::Array< double, 2, 1 > const&,
-                                                                                                DispCorControl const& );
-    template StretchAndCrossCorrelateSpecResult< double, float > stretchAndCrossCorrelateSpec( ndarray::Array< double, 1, 1 > const&,
-                                                                                               ndarray::Array< double, 1, 1 > const&,
-                                                                                               ndarray::Array< float, 2, 1 > const&,
-                                                                                               DispCorControl const& );
-    template StretchAndCrossCorrelateSpecResult< float, double > stretchAndCrossCorrelateSpec( ndarray::Array< float, 1, 1 > const&,
-                                                                                               ndarray::Array< float, 1, 1 > const&,
-                                                                                               ndarray::Array< double, 2, 1 > const&,
-                                                                                               DispCorControl const& );
+}
 
-}}}}
+/************************************************************************************************************/
+/*
+ * Explicit instantiations
+ */
+template class Spectrum<float, lsst::afw::image::MaskPixel, float, float>;
+template void Spectrum<float, lsst::afw::image::MaskPixel, float>::identify(ndarray::Array<float, 2, 1> const&,
+                                                                            DispCorControl const&,
+                                                                            std::size_t);
+                
+}}}

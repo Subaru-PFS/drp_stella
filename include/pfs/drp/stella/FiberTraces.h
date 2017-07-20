@@ -5,7 +5,6 @@
 #include <iostream>
 #include <vector>
 
-#include "cmpfit-1.2/MPFitting_ndarray.h"
 #include "Controls.h"
 #include "lsst/afw/image/MaskedImage.h"
 #include "lsst/log/Log.h"
@@ -134,13 +133,13 @@ class FiberTrace {
     /**
      * @brief Return the image of the spatial profile
      */
-    PTR(afwImage::Image<double>) getProfile() const{ return _profile; }
+    PTR(afwImage::Image<float>) getProfile() const{ return _profile; }
 
     /**
      * @brief Set the _profile of this fiber trace to profile
      * @param profile : Profile to set _profile to
      */
-    void setProfile( PTR(afwImage::Image<double>) const& profile);
+    void setProfile( PTR(afwImage::Image<float>) const& profile);
 
     /**
      * @brief Extract the spectrum of this fiber trace using the _profile
@@ -251,7 +250,7 @@ class FiberTrace {
      * @param xCentersSwath : 1D array containing the x center positions for the swath
      * @param iSwath : number of swath
      */
-    ndarray::Array<double, 2, 1> calcProfileSwath(ndarray::Array<ImageT const, 2, 1> const& imageSwath,
+    ndarray::Array<float, 2, 1> calcProfileSwath(ndarray::Array<ImageT const, 2, 1> const& imageSwath,
                                                  ndarray::Array<MaskT const, 2, 1> const& maskSwath,
                                                  ndarray::Array<VarianceT const, 2, 1> const& varianceSwath,
                                                  ndarray::Array<float const, 1, 1> const& xCentersSwath,
@@ -313,16 +312,16 @@ class FiberTrace {
     PTR(FiberTrace) getPointer();
 
   private:
-    std::vector<PTR(std::vector<double>)> _overSampledProfileFitXPerSwath;
-    std::vector<PTR(std::vector<double>)> _overSampledProfileFitYPerSwath;
-    std::vector<PTR(std::vector<double>)> _profileFittingInputXPerSwath;
-    std::vector<PTR(std::vector<double>)> _profileFittingInputYPerSwath;
-    std::vector<PTR(std::vector<double>)> _profileFittingInputXMeanPerSwath;
-    std::vector<PTR(std::vector<double>)> _profileFittingInputYMeanPerSwath;
+    std::vector<PTR(std::vector<float>)> _overSampledProfileFitXPerSwath;
+    std::vector<PTR(std::vector<float>)> _overSampledProfileFitYPerSwath;
+    std::vector<PTR(std::vector<float>)> _profileFittingInputXPerSwath;
+    std::vector<PTR(std::vector<float>)> _profileFittingInputYPerSwath;
+    std::vector<PTR(std::vector<float>)> _profileFittingInputXMeanPerSwath;
+    std::vector<PTR(std::vector<float>)> _profileFittingInputYMeanPerSwath;
     
     ///TODO: replace variables with smart pointers?????
     PTR(afwImage::MaskedImage<ImageT, MaskT, VarianceT>) _trace;
-    PTR(afwImage::Image<double>) _profile;
+    PTR(afwImage::Image<float>) _profile;
     ndarray::Array<float, 2, 1> _xCentersMeas;
     ndarray::Array<float, 1, 1> _xCenters;
     std::size_t _iTrace;
@@ -631,8 +630,7 @@ namespace math{
 
     /**
      * @brief Convert CCD coordinates into Trace coordinates
-     * @param ccdCoordinates in: CCD Coordinates with PIXEL_CENTER (normally 0.0
-     *                           or 0.5) as pixel center
+     * @param ccdCoordinates in: CCD Coordinates with the centre of the pixel (0.0, 0.0)
      * @param fiberTrace in: FiberTrace for which to make the coordinate conversion
      * output Coordinates : x (column) and y (row) in FiberTrace.image Coordinates
      */

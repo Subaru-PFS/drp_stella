@@ -36,7 +36,7 @@ def createFlatFiberTraceProfile(filename):
     print("mif created")
 
     # --- Trace fibers
-    fts = drpStella.findAndTraceAperturesF(mif, ftffc)
+    fts = drpStella.findAndTraceApertures(mif, ftffc)
     print("findAndTraceApertures finished")
 
     # --- sort traces by xCenters

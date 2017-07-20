@@ -1,8 +1,0 @@
-mv ../bin/writefitsareatotext ../bin/writefitsareatotext.bak
-g++ -s -O2 -fpermissive -lm -lgsl -lgslcblas -I/usr/local/include -L. -lm -lcfitsio -lblitz -o ../bin/writefitsareatotext ../../cfits/src/CAny.cpp ../../cfits/src/CString.cpp ../../cfits/src/CFits.cpp MWriteFitsAreaToText.cpp ../../cfits/src/kriging/geostat.cpp ../../cfits/src/kriging/matrix_ex.cpp ../../cfits/src/kriging/model_sph.cpp ../../cfits/src/kriging/model_stable.cpp ../../cfits/src/kriging/variogram.cpp ../../cmpfit-1.2/mpfit.c ../../cmpfit-1.2/MyFit.cpp
-chmod a+x ../bin/writefitsareatotext
-rm ~/bin/writefitsareatotext
-cp -p ../bin/writefitsareatotext ~/bin/
-rm ~/stella/bin/writefitsareatotext
-ln -s ~/bin/writefitsareatotext ~/stella/bin/writefitsareatotext
-

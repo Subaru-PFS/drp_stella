@@ -30,7 +30,7 @@ def extractFromProfile(flatfilename, flatprofilename, specfilename):
     print("mif created")
 
     # Create a FiberTraceSet given a fits file name
-    msi = drpStella.MaskedSpectrographImageF(mif)
+    msi = drpStella.MaskedSpectrographImage(mif)
     print("msi created")
 
     # Trace fibers
@@ -42,8 +42,8 @@ def extractFromProfile(flatfilename, flatprofilename, specfilename):
 
     # --- create Fiber Trace for object exposure
     mis = afwImage.MaskedImageF(specfilename)
-    msis = drpStella.MaskedSpectrographImageF(mis)
-    ft = drpStella.FiberTraceF(mis)
+    msis = drpStella.MaskedSpectrographImage(mis)
+    ft = drpStella.FiberTrace(mis)
     ft.setFiberTraceFunction(msi.getFiberTraceSet().getFiberTrace(0).getFiberTraceFunction())
     ft.calculateXCenters()
     ft.createTrace()
