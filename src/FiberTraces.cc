@@ -1,3 +1,4 @@
+#include <algorithm>
 #include "pfs/drp/stella/FiberTraces.h"
 
 //#define __DEBUG_FINDANDTRACE__ 1
@@ -1796,12 +1797,12 @@ namespace pfsDRPStella = pfs::drp::stella;
 
                   /// Guess values for GaussFit
                   if (fiberTraceFunctionFindingControl->nTermsGaussFit == 3){
-                    D_A1_Guess[0] = math::max(D_A1_Y);
+                    D_A1_Guess[0] = max(D_A1_Y);
                     D_A1_Guess[1] = double(I_FirstWideSignalStart) + (double((I_FirstWideSignalEnd - I_FirstWideSignalStart)) / 2.);
                     D_A1_Guess[2] = double(fiberTraceFunctionFindingControl->apertureFWHM) / 2.;
                   }
                   else if (fiberTraceFunctionFindingControl->nTermsGaussFit > 3){
-                    D_A1_Guess[3] = std::min(D_A1_Y[0], D_A1_Y[D_A1_Y.getShape()[0]-1]);
+                     D_A1_Guess[3] = std::min(D_A1_Y[0], D_A1_Y[D_A1_Y.getShape()[0]-1]);
                     if (D_A1_Guess[3] < 0.)
                       D_A1_Guess[3] = 0.1;
                     if (fiberTraceFunctionFindingControl->nTermsGaussFit > 4)
