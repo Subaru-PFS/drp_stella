@@ -5,7 +5,6 @@
 #include <iostream>
 #include <vector>
 
-#include "cmpfit-1.2/MPFitting_ndarray.h"
 #include "Controls.h"
 #include "lsst/afw/image/MaskedImage.h"
 #include "lsst/log/Log.h"
@@ -631,8 +630,7 @@ namespace math{
 
     /**
      * @brief Convert CCD coordinates into Trace coordinates
-     * @param ccdCoordinates in: CCD Coordinates with PIXEL_CENTER (normally 0.0
-     *                           or 0.5) as pixel center
+     * @param ccdCoordinates in: CCD Coordinates with the centre of the pixel (0.0, 0.0)
      * @param fiberTrace in: FiberTrace for which to make the coordinate conversion
      * output Coordinates : x (column) and y (row) in FiberTrace.image Coordinates
      */

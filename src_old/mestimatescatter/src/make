@@ -1,8 +1,0 @@
-mv ../bin/estimatescatter ../bin/estimatescatter.bak
-g++ -s -O2 -fpermissive -lm -lgsl -lgslcblas -I/usr/local/include -L. -lm -lcfitsio -lblitz -o ../bin/estimatescatter ../../cfits/src/CAny.cpp ../../cfits/src/CString.cpp ../../cfits/src/CFits.cpp MEstimateScatter.cpp ../../cfits/src/kriging/geostat.cpp ../../cfits/src/kriging/matrix_ex.cpp ../../cfits/src/kriging/model_sph.cpp ../../cfits/src/kriging/model_stable.cpp ../../cfits/src/kriging/variogram.cpp ../../cmpfit-1.2/mpfit.c ../../cmpfit-1.2/MyFit.cpp
-chmod a+x ../bin/estimatescatter
-rm ~/bin/estimatescatter
-cp -p ../bin/estimatescatter ~/bin/
-rm ~/stella/bin/estimatescatter
-ln -s ~/bin/estimatescatter ~/stella/bin/estimatescatter
-

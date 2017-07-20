@@ -1,4 +1,5 @@
 #include "pfs/drp/stella/Spectra.h"
+#include "pfs/drp/stella/cmpfit-1.2/MPFitting_ndarray.h"
 
 namespace pfsDRPStella = pfs::drp::stella;
 

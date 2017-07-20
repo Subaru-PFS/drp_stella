@@ -1,7 +1,0 @@
-mv ../bin/identify ../bin/identify.bak
-g++ -s -O2 -fpermissive -lm -lgsl -lgslcblas -I/usr/local/include -lm -lcfitsio -L. -o ../bin/identify ../../cfits/src/CAny.cpp ../../cfits/src/CString.cpp ../../cfits/src/CFits.cpp MIdentify.cpp ../../cfits/src/kriging/geostat.cpp ../../cfits/src/kriging/matrix_ex.cpp ../../cfits/src/kriging/model_sph.cpp ../../cfits/src/kriging/model_stable.cpp ../../cfits/src/kriging/variogram.cpp ../../cmpfit-1.2/mpfit.c ../../cmpfit-1.2/MyFit.cpp
-chmod a+x ../bin/identify
-rm ~/bin/identify
-cp -p ../bin/identify ~/bin/
-rm ~/stella/bin/identify
-ln -s ~/bin/identify ~/stella/bin/identify

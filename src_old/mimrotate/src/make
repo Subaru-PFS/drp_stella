@@ -1,8 +1,0 @@
-mv ../bin/imrotate ../bin/imrotate.bak
-g++ -s -O2 -fpermissive -lm -lgsl -lgslcblas -I/usr/local/include -lm -lcfitsio -L. -o ../bin/imrotate ../../cfits/src/CAny.cpp ../../cfits/src/CString.cpp ../../cfits/src/CFits.cpp MImRotate.cpp ../../cfits/src/kriging/geostat.cpp ../../cfits/src/kriging/matrix_ex.cpp ../../cfits/src/kriging/model_sph.cpp ../../cfits/src/kriging/model_stable.cpp ../../cfits/src/kriging/variogram.cpp ../../cmpfit-1.2/mpfit.c ../../cmpfit-1.2/MyFit.cpp
-chmod a+x ../bin/imrotate
-rm ~/bin/imrotate
-cp -p ../bin/imrotate ~/bin/
-rm ~/stella/bin/imrotate
-ln -s ~/bin/imrotate ~/stella/bin/imrotate
-

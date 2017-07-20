@@ -1,7 +1,0 @@
-mv ../bin/mergespecweightconv ../bin/mergespecweightconv.bak
-gcc -s -O2 -lm -o ../bin/mergespecweightconv MBasis.c mmergespecweightconv.c
-chmod a+x ../bin/mergespecweightconv
-rm ~/bin/mergespecweightconv
-cp -p ../bin/mergespecweightconv ~/bin/
-rm ~/stella/bin/mergespecweightconv
-ln -s ~/bin/mergespecweightconv ~/stella/bin/mergespecweightconv

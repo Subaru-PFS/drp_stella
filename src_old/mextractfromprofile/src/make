@@ -1,7 +1,0 @@
-mv ../bin/extractfromprofile ../bin/extractfromprofile.bak
-g++ -s -O2 -fpermissive -lm -lgsl -lgslcblas -I/usr/local/include -lm -lcfitsio -L. -o ../bin/extractfromprofile ../../cfits/src/CAny.cpp ../../cfits/src/CString.cpp ../../cfits/src/CFits.cpp MExtractFromProfile.cpp ../../cfits/src/kriging/geostat.cpp ../../cfits/src/kriging/matrix_ex.cpp ../../cfits/src/kriging/model_sph.cpp ../../cfits/src/kriging/model_stable.cpp ../../cfits/src/kriging/variogram.cpp ../../cmpfit-1.2/mpfit.c ../../cmpfit-1.2/MyFit.cpp
-chmod a+x ../bin/extractfromprofile
-rm ~/bin/extractfromprofile
-cp -p ../bin/extractfromprofile ~/bin/
-rm ~/stella/bin/extractfromprofile
-ln -s ~/bin/extractfromprofile ~/stella/bin/extractfromprofile

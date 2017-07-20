@@ -9,7 +9,6 @@
 
 #include <unsupported/Eigen/Splines>
 
-#include "../cmpfit-1.2/MPFitting_ndarray.h"
 #include "lsst/pex/exceptions.h"
 #include "ndarray.h"
 #include "ndarray/eigen.h"
@@ -23,42 +22,12 @@ using namespace std;
 namespace pexExcept = lsst::pex::exceptions;
 
 namespace pfs { namespace drp { namespace stella {
-  /// Center of Pixel Zero (0.0 means that [0,0] is the center of the pixel, 0.5 means that [0,0] is the lower left corner)
-  const float PIXEL_CENTER = 0.0;
-
   namespace math{
-    
-    template< typename T >
-    struct dataIndex { 
-        T number;
-        size_t index;
-    };
-
-    template< typename T >
-    struct by_number { 
-        bool operator()(dataIndex<T> const &left, dataIndex<T> const &right) { 
-            return left.number < right.number;
-        }
-    };
     
     template< typename T >
     struct dataXY { 
         T x;
         T y;
-    };
-
-    template< typename T >
-    struct byX { 
-        bool operator()(dataXY<T> const &left, dataXY<T> const &right) { 
-            return left.x < right.x;
-        }
-    };
-
-    template< typename T >
-    struct byY { 
-        bool operator()(dataXY<T> const &left, dataXY<T> const &right) { 
-            return left.y < right.y;
-        }
     };
 
     /*
@@ -91,21 +60,6 @@ namespace pfs { namespace drp { namespace stella {
                                                int const nPixCutRight_In = 0);
 
     /**
-     * Returns integer value cut at decimal point. If D_In is negative the integer value greater than or equal to D_In is returned,
-     * e.g. D_In = -99.8 => returns -99.
-     * @param[in] D_In :: number to fix
-     **/
-    template <typename T>
-    int Fix(T D_In);
-
-    /**
-     * Returns integer value cut at decimal point (See int Fix(double)).
-     * @param[in] D_In :: number to fix
-     **/
-    template <typename T>
-    long FixL(T D_In);
-
-    /**
      * Rounds x downward, returning the largest integral value that is not greater than x.
 
      * @param rhs: value to be rounded down
@@ -113,71 +67,7 @@ namespace pfs { namespace drp { namespace stella {
      * @return rounded down value of rhs, type of outType
      */
     template <typename T, typename U>
-    U floor1(T const& rhs, U const& outType);
-    
-    template <typename T, typename U>
     ndarray::Array<U, 1, 1> floor(ndarray::Array<T, 1, 1> const& rhs, U const outType);
-    
-    template <typename T, typename U>
-    ndarray::Array<U, 2, 2> floor(ndarray::Array<T, 2, 2> const& rhs, U const outType);
-
-    /**
-     * Int(double)
-     * Returns integer portion of D_In. If D_In is negative returns the first negative integer less than or equal to Number,
-     * e.g. D_In = -99.8 => returns -100.
-     * @param[in] D_In :: number to convert to int
-     **/
-    template <typename T>
-    int Int(T D_In);
-
-    /**
-     * Returns integer value cut at decimal point (See int Int(double)).
-     * @param[in] D_In :: number to convert to long
-     **/
-    template <typename T>
-    long Long(T D_In);
-
-    template <typename T>
-    ndarray::Array<double, 1, 1> Double(ndarray::Array<T, 1, 1> const& arr_In);
-    
-    template <typename T>
-    ndarray::Array<double, 2, 1> Double(ndarray::Array<T, 2, 1> const& arr_In);
-    
-    template <typename T>
-    ndarray::Array<double, 2, 2> Double(ndarray::Array<T, 2, 2> const& arr_In);
-    
-    template <typename T>
-    ndarray::Array<float, 1, 1> Float(ndarray::Array<T, 1, 1> const& arr_In);
-    
-    template <typename T>
-    ndarray::Array<float, 2, 1> Float(ndarray::Array<T, 2, 1> const& arr_In);
-    
-    template <typename T>
-    ndarray::Array<float, 2, 2> Float(ndarray::Array<T, 2, 2> const& arr_In);
-    
-    template <typename T>
-    int Round(const T ToRound);
-
-    template <typename T>
-    T Round(const T ToRound, int DigitsBehindDot);
-
-    template <typename T>
-    long RoundL(const T ToRound);
-    
-    /**
-     * @brief Creates standard vector of length len containing the index numbers as values
-     * @param len: length of output vector
-     * @return 
-     */
-    template<typename T>
-    std::vector<T> indGen(T len);
-    
-    template< typename T >
-    std::vector<T> removeSubArrayFromArray(std::vector<T> const& A1_Array_InOut,
-                                           std::vector<T> const& A1_SubArray);
-
-    template<typename T>
-    bool countPixGTZero(ndarray::Array<T, 1, 1> &vec_InOut);
 
     /**
      *        returns first index of integer input vector where value is greater than or equal to I_MinValue, starting at index I_FromIndex
@@ -211,8 +101,6 @@ namespace pfs { namespace drp { namespace stella {
     int firstIndexWithZeroValueFrom( ndarray::Array< T, 1, 1 > const& vec_In, 
                                      const int startPos_In );
 
-    bool IsOddNumber(long No);
-
     /**
      *      Returns an integer array of the same size like <vec_In>,
      *      containing the indixes of <vec_In> in sorted order.
@@ -220,50 +108,21 @@ namespace pfs { namespace drp { namespace stella {
      **/
     template<typename T>
     std::vector<int> sortIndices(const std::vector<T> &vec_In);
-    template<typename T>
-    ndarray::Array<size_t, 1, 1> sortIndices(ndarray::Array<T, 1, 1> const& arr_In);
-
-    /**
-     *       task: Returns Row specified by I_Index_In from the formula
-     *             Col = (int)(I_Index_In / I_NRows_In)
-     *             Row = I_Index_In - Col * I_NRows_In
-     * @param[in] I_Index_In   :: index number to convert to row number
-     * @param[in] I_NRows_In   :: number of rows of 2D array
-     **/
-    int GetRowFromIndex(int I_Index_In, int I_NRows_In);
-
-    /**
-     *       task: Returns Col specified by I_Index_In from the formula
-     *             Col = (int)(I_Index_In / I_NRows_In)
-     *             Row = I_Index_In - Col * I_NRows_In
-     * @param[in] I_Index_In   :: index number to convert to column number
-     * @param[in] I_NRows_In   :: number of rows of 2D array
-     **/
-    int GetColFromIndex(int I_Index_In, int I_NRows_In);
 
     template<typename T>
     ndarray::Array<T, 1, 1> moment(ndarray::Array<T, 1, 1> const& arr_In, int maxMoment_In);
 
     template<typename T>
     T max(ndarray::Array<T, 1, 1> const& in);
-
-    template<typename T>
-    size_t maxIndex(ndarray::Array<T, 1, 1> const& in);
  
     template<typename T>
     T min(ndarray::Array<T, 1, 1> const& in);
- 
-    template<typename T>
-    size_t minIndex(ndarray::Array<T, 1, 1> const& in);
 
     template<typename T>
     ndarray::Array<T, 1, 1> indGenNdArr(T const size);
 
     template<typename T>
     ndarray::Array<T, 1, 1> replicate(T const val, int const size);
-    
-    template<typename T>
-    ndarray::Array<T, 2, 1> calcPosRelativeToCenter(ndarray::Array<T, 2, 1> const& swath_In, ndarray::Array<T, 1, 1> const& xCenters_In);
     
     /*
      * @brief: Return vector of indices where lowRange_In <= arr_In < highRange_In
@@ -345,35 +204,6 @@ namespace pfs { namespace drp { namespace stella {
                  size_t newSizeCols ); 
 
     /*
-     * @brief: cross-correlates arrA_In and arrB_In within the range range_In (e.g. [-1.,1.]) in steps stepSize_In
-     * 
-     * @param arrA_In: vector to be kept constant arrA_In[:][0]: x values, arrA_In[:][1]: y values
-     * @param arrB_In: vector to be shifted from range_In[0] to range_In[1] with steps of size stepSize_In. This vector will get interpolated to the grid points of vecA_In.
-     * @param range_In: 2-element vector containing the lowest and highest shifts, e.g. [-1., 1.]
-     * @param stepSize_In: step size for the shifts between range_In[0] and range_In[1]
-     */    
-    template< typename PsfT, typename CoordT >
-    CoordT xCor(ndarray::Array< CoordT, 2, 1 > const& arrA_In,
-                ndarray::Array< PsfT, 2, 1 > const& arrB_In,
-                ndarray::Array< CoordT, 1, 1 > const& range_In,
-                CoordT const& stepSize_In);
-
-    /*
-     * Helper methods for xCor
-     */    
-    double uvalue(double x, double low, double high);
-    Eigen::VectorXd uvalues(Eigen::VectorXd const& xvals);
-    
-    /*
-     * @brief convert given number in given range to a number in range [-1,1]
-     * @param number: number to be converted
-     * @param range: range number is from
-     */
-    template< typename T, typename U >
-    T convertRangeToUnity(T number,
-                          ndarray::Array<U, 1, 1> const& range);
-    
-    /*
      * @brief convert given numbers in given range to a number in range [-1,1]
      * @param numbers: numbers to be converted
      * @param range: range numbers are from
@@ -381,7 +211,7 @@ namespace pfs { namespace drp { namespace stella {
     template< typename T, typename U >
     ndarray::Array<T, 1, 1> convertRangeToUnity(ndarray::Array<T, 1, 1> const& numbers,
                                                 ndarray::Array<U, 1, 1> const& range);
-    
+
     /**
      * @brief check if the values in numbers are within the given range
      * @param numbers numbers to be check if they all fall into the given range
@@ -391,7 +221,7 @@ namespace pfs { namespace drp { namespace stella {
     template< typename T, typename U >
     bool checkIfValuesAreInRange(ndarray::Array<T, 1, 1> const& numbers,
                                  ndarray::Array<U, 1, 1> const& range);
-    
+
     /**
      * @brief return ndarray pointing to data of vector
      * @param[in] vector :: vector to be converted to ndarray
@@ -402,91 +232,7 @@ namespace pfs { namespace drp { namespace stella {
     
     template< typename T >
     ndarray::Array< T const, 1, 1 > vectorToNdArray( std::vector< T > const& vec_In, bool deep = true );
-    
-    /**
-     * @brief return vector containing copy of data in ndarray
-     * @param ndArray_In : ndarray to be converted to vector
-     */
-    template< typename T >
-    std::vector< T > ndArrayToVector( ndarray::Array< T, 1, 1 > const& ndArray_In);
-    
-    /**
-     * @brief return ndarray of specified size and type
-     * @param[in] nRows  :: number of rows of output array
-     * @param[out] nCols :: number of columns of output array
-     */
-    template< typename T >
-    ndarray::Array<T, 2, 1> ndArray21(T nRows, T nCols);
-    
-    /**
-     * @brief return ndarray of specified size and type
-     * @param[in] nRows  :: number of rows of output array
-     * @param[out] nCols :: number of columns of output array
-     */
-    template< typename T >
-    ndarray::Array<T, 2, 2> ndArray22(T nRows, T nCols);
-    
-    /**
-     * @brief return minimum and maximum z value in given x and y range. return value: (zMin, zMax)
-     * @param x_In: x values, size N
-     * @param y_In: y values, size N
-     * @param z_In: z values, size N
-     * @param xRange_In: (xMin, xMax)
-     * @param yRange_In: (yMin, yMax)
-     */
-    template< typename T >
-    ndarray::Array< T, 1, 1 > getZMinMaxInRange( ndarray::Array< T, 1, 1 > const& x_In,
-                                                 ndarray::Array< T, 1, 1 > const& y_In,
-                                                 ndarray::Array< T, 1, 1 > const& z_In,
-                                                 ndarray::Array< T, 1, 1 > const& xRange_In,
-                                                 ndarray::Array< T, 1, 1 > const& yRange_In );
 
-    /**
-     * @brief return array( 2, nGridPoints ) with x = array(0,*) and y = array(1,*)
-     * @param xRange: [xMin, xMax]
-     * @param yRange: [yMin, yMax]
-     * @param xStep: dX
-     * @param yStep: dY
-     */    
-    template< typename T >
-    ndarray::Array< T, 2, 1 > createRectangularGrid( ndarray::Array< T, 1, 1 > const& xRange,
-                                                     ndarray::Array< T, 1, 1 > const& yRange,
-                                                     T xStep,
-                                                     T yStep );
-    
-    /**
-     * @brief return array( 2, nGridPoints ) with x = array(0,*) and y = array(1,*)
-     * @param rMax: 0 <= r <= rMax
-     * @param rStep: dR
-     * @param phiStep: dPhi (degrees)
-     */    
-    template< typename T >
-    ndarray::Array< T, 2, 1 > createPolarGrid( T rMax,
-                                               T rStep,
-                                               T phiStep );
-    
-    /**
-     * @brief: Calculate the Chi-square for the expected and observed data values as Xhi^2 = sum_i (expected_i - observed_i )^2 / expected_i
-     * @param expected: 1d array of length n of expected data values
-     * @param observed: 1d array of length n of observed data values
-     */
-    template< typename T >
-    T calculateChiSquare( ndarray::Array< T, 1, 1 > const& expected,
-                          ndarray::Array< T, 1, 1 > const& observed );
-    
-    template< typename T > 
-    ndarray::Array< T, 1, 1 > getDataInRange( ndarray::Array< T, 1, 1 > const& xArr,
-                                              ndarray::Array< T, 1, 1 > const& yArr,
-                                              ndarray::Array< T, 1, 1 > const& zArr,
-                                              ndarray::Array< T, 1, 1 > const& xRange,
-                                              ndarray::Array< T, 1, 1 > const& yRange );
-    
-    template< typename T > 
-    ndarray::Array< T, 1, 1 > getDataInRange( ndarray::Array< T, 1, 1 > const& xArr,
-                                              ndarray::Array< T, 1, 1 > const& yArr,
-                                              ndarray::Array< T, 1, 1 > const& zArr,
-                                              ndarray::Array< T, 1, 1 > const& rRange );
-    
     /**
      * Returns -1 if D_A1_Array_In is monotonically decreasing
      *         0  if D_A1_Array_In is non monotonic
@@ -500,7 +246,6 @@ namespace pfs { namespace drp { namespace stella {
      */
     template< typename T >
     T calcRMS( ndarray::Array< T, 1, 1 > const& arrIn );
-    
     struct CrossCorrelateResult{
         double pixShift;
         double chiSquare;
@@ -514,20 +259,6 @@ namespace pfs { namespace drp { namespace stella {
                                          ndarray::Array<T, 1, 1> const& DA1_Moving,
                                          int const I_NPixMaxLeft,
                                          int const I_NPixMaxRight );
-    
-    /**
-      CrossCorrelate
-     **/
-    template< typename T >
-    CrossCorrelateResult crossCorrelateI( ndarray::Array< T, 1, 1 > const& DA1_Static,
-                                          ndarray::Array< T, 1, 1 > const& DA1_Moving,
-                                          int const I_NPixMaxLeft,
-                                          int const I_NPixMaxRight );
-    template< typename T >
-    T lsToFit( ndarray::Array< T, 1, 1 > const& XXVecArr, 
-                  ndarray::Array< T, 1, 1 > const& YVecArr, 
-                  T const& XM );
-    
     template< typename T, typename U, int I >
     ndarray::Array< U, 1, 1 > where( ndarray::Array< T, 1, I > const& arrayToCompareTo,
                                      std::string const& op,
@@ -779,24 +510,11 @@ namespace pfs { namespace drp { namespace stella {
     double median( ndarray::Array< T, 1, 1 > const& vec );
     
     template< typename T >
-    ndarray::Array< T, 1, 1 > fabs( ndarray::Array< T, 1, 1 > const& arr );
-
-    template< typename T >
-    ndarray::Array< T, 2, 1 > fabs( ndarray::Array< T, 2, 1 > const& arr );
-    
-    template< typename T >
     ndarray::Array< T, 1, 1 > stretch( ndarray::Array< T, 1, 1 > const& spec,
                                        int newLength );
     
-    template< typename T, int I >
-    ndarray::Array< T, 1, 1 > unique( ndarray::Array< T, 1, I > const& data );
-    
     template< typename T > 
     int find( ndarray::Array< T, 1, 1 > const& arrToSearch,
-              T val );
-    
-    template< typename T > 
-    int find( std::vector< T > const& vecToSearch,
               T val );
   }/// end namespace math
 

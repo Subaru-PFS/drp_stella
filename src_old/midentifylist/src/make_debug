@@ -1,6 +1,0 @@
-g++ -g -fpermissive -lm -lgsl -lmgl -lgslcblas -I/usr/local/include -lm -lcfitsio -static-libgcc -L. -o ../bin/identifylist_debug ../../cfits/src/CAny.cpp ../../cfits/src/CString.cpp ../../cfits/src/CFits.cpp MIdentifyList.cpp ../../cfits/src/kriging/geostat.cpp ../../cfits/src/kriging/matrix_ex.cpp ../../cfits/src/kriging/model_sph.cpp ../../cfits/src/kriging/model_stable.cpp ../../cfits/src/kriging/variogram.cpp ../../cmpfit-1.2/mpfit.c ../../cmpfit-1.2/MyFit.cpp
-chmod a+x ../bin/identifylist_debug
-rm ~/bin/identifylist_debug
-cp -p ../bin/identifylist_debug ~/bin/
-rm ~/stella/bin/identifylist_debug
-ln -s ~/bin/identifylist_debug ~/stella/bin/identifylist_debug

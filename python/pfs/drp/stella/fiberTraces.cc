@@ -4,7 +4,7 @@
 #include "numpy/arrayobject.h"
 #include "ndarray/pybind11.h"
 
-#include "pfs/drp/stella/PSF.h"
+#include "pfs/drp/stella/FiberTraces.h"
 
 namespace py = pybind11;
 

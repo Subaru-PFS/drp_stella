@@ -1,3 +1,0 @@
-mv ../bin/optextract ../bin/optextract.bak
-g++ -g -fpermissive -lm -lgsl -lgslcblas -I/usr/local/include -lm -lcfitsio -L. -std=c++11 -o ../bin/optextract ../../cfits/src/CAny.cpp ../../cfits/src/CFits.cpp MExtract.cpp ../../cfits/src/kriging/geostat.cpp ../../cfits/src/kriging/matrix_ex.cpp ../../cfits/src/kriging/model_sph.cpp ../../cfits/src/kriging/model_stable.cpp ../../cfits/src/kriging/variogram.cpp ../../cmpfit-1.2/mpfit.c ../../cmpfit-1.2/MyFit.cpp
-chmod a+x ../bin/optextract
