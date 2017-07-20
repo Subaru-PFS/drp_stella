@@ -2608,137 +2608,17 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
     #endif
     return result;
   }
-
+                
   template ndarray::Array<float, 1, 1> chebyshev(ndarray::Array<float, 1, 1> const& x_In, ndarray::Array<float, 1, 1> const& coeffs_In);
-  template ndarray::Array<double, 1, 1> chebyshev(ndarray::Array<double, 1, 1> const& x_In, ndarray::Array<float, 1, 1> const& coeffs_In);
-  template ndarray::Array<float, 1, 1> chebyshev(ndarray::Array<float, 1, 1> const& x_In, ndarray::Array<double, 1, 1> const& coeffs_In);
-  template ndarray::Array<double, 1, 1> chebyshev(ndarray::Array<double, 1, 1> const& x_In, ndarray::Array<double, 1, 1> const& coeffs_In);
 
   template ndarray::Array<float, 1, 1> Poly(ndarray::Array<float, 1, 1> const&, ndarray::Array<float, 1, 1> const&, float, float);
-  template ndarray::Array<float, 1, 1> Poly(ndarray::Array<float, 1, 1> const&, ndarray::Array<double, 1, 1> const&, float, float);
-  template ndarray::Array<double, 1, 1> Poly(ndarray::Array<double, 1, 1> const&, ndarray::Array<float, 1, 1> const&, double, double);
   template ndarray::Array<double, 1, 1> Poly(ndarray::Array<double, 1, 1> const&, ndarray::Array<double, 1, 1> const&, double, double);
 
   template ndarray::Array<double, 1, 1> PolyFit(ndarray::Array<double, 1, 1> const&, ndarray::Array<double, 1, 1> const&, size_t const, double const, std::vector<string> const&, std::vector<void *> &);
   template ndarray::Array<double, 1, 1> PolyFit(ndarray::Array<double, 1, 1> const&, ndarray::Array<double, 1, 1> const&, size_t const, double const, double const, size_t const, std::vector<string> const&, std::vector<void *> &);
-  template ndarray::Array<double, 1, 1> PolyFit(ndarray::Array<double, 1, 1> const&, ndarray::Array<double, 1, 1> const&, size_t const, std::vector<string> const&, std::vector<void *> &);
   template ndarray::Array<double, 1, 1> PolyFit(ndarray::Array<double, 1, 1> const&, ndarray::Array<double, 1, 1> const&, size_t const, double, double);
   template ndarray::Array<double, 1, 1> PolyFit(ndarray::Array<double, 1, 1> const&, ndarray::Array<double, 1, 1> const&, size_t const, double const, double const, size_t const, double, double);
 
-  template int LinFitBevingtonEigen(Eigen::Array<float, Eigen::Dynamic, 1> const&,
-                                          Eigen::Array<float, Eigen::Dynamic, 1> const&,
-                                          float &,
-                                          float &,
-                                          bool,
-                                          std::vector<string> const&,
-                                          std::vector<void *> &);
-  template int LinFitBevingtonEigen(Eigen::Array<double, Eigen::Dynamic, 1> const&,
-                                          Eigen::Array<float, Eigen::Dynamic, 1> const&,
-                                          double &,
-                                          double &,
-                                          bool,
-                                          std::vector<string> const&,
-                                          std::vector<void *> &);
-  template int LinFitBevingtonEigen(Eigen::Array<float, Eigen::Dynamic, 1> const&,
-                                          Eigen::Array<double, Eigen::Dynamic, 1> const&,
-                                          float &,
-                                          float &,
-                                          bool,
-                                          std::vector<string> const&,
-                                          std::vector<void *> &);
-  template int LinFitBevingtonEigen(Eigen::Array<double, Eigen::Dynamic, 1> const&,
-                                          Eigen::Array<double, Eigen::Dynamic, 1> const&,
-                                          double &,
-                                          double &,
-                                          bool,
-                                          std::vector<string> const&,
-                                          std::vector<void *> &);
-
-  template SpectrumBackground< float > LinFitBevingtonNdArray( ndarray::Array<float, 1, 1> const&,
-                                                               ndarray::Array<float, 1, 1> const&,
-                                                               bool );
-  template SpectrumBackground< double > LinFitBevingtonNdArray( ndarray::Array<double, 1, 1> const&,
-                                                                ndarray::Array<float, 1, 1> const&,
-                                                                bool );
-  template SpectrumBackground< float > LinFitBevingtonNdArray( ndarray::Array<float, 1, 1> const&,
-                                                               ndarray::Array<double, 1, 1> const&,
-                                                               bool );
-  template SpectrumBackground< double > LinFitBevingtonNdArray( ndarray::Array<double, 1, 1> const&,
-                                                                ndarray::Array<double, 1, 1> const&,
-                                                                bool );
-
-  template int LinFitBevingtonNdArray(ndarray::Array<float, 1, 1> const&,
-                                            ndarray::Array<float, 1, 1> const&,
-                                            float &,
-                                            float &,
-                                            bool,
-                                            std::vector<string> const&,
-                                            std::vector<void *> &);
-  template int LinFitBevingtonNdArray(ndarray::Array<double, 1, 1> const&,
-                                            ndarray::Array<float, 1, 1> const&,
-                                            double &,
-                                            double &,
-                                            bool,
-                                            std::vector<string> const&,
-                                            std::vector<void *> &);
-  template int LinFitBevingtonNdArray(ndarray::Array<float, 1, 1> const&,
-                                            ndarray::Array<double, 1, 1> const&,
-                                            float &,
-                                            float &,
-                                            bool,
-                                            std::vector<string> const&,
-                                            std::vector<void *> &);
-  template int LinFitBevingtonNdArray(ndarray::Array<double, 1, 1> const&,
-                                            ndarray::Array<double, 1, 1> const&,
-                                            double &,
-                                            double &,
-                                            bool,
-                                            std::vector<string> const&,
-                                            std::vector<void *> &);
-
-  template bool LinFitBevingtonEigen(Eigen::Array<float, Eigen::Dynamic, Eigen::Dynamic> const&,
-                                           Eigen::Array<float, Eigen::Dynamic, Eigen::Dynamic> const&,
-                                           Eigen::Array<float, Eigen::Dynamic, 1> &,
-                                           Eigen::Array<float, Eigen::Dynamic, 1> &,
-                                           bool,
-                                           std::vector<string> const&,
-                                           std::vector<void *> &);
-  template bool LinFitBevingtonEigen(const Eigen::Array<double, Eigen::Dynamic, Eigen::Dynamic> &,
-                                           const Eigen::Array<float, Eigen::Dynamic, Eigen::Dynamic> &,
-                                           Eigen::Array<double, Eigen::Dynamic, 1> &,
-                                           Eigen::Array<double, Eigen::Dynamic, 1> &,
-                                           bool,
-                                           const std::vector<string> &,
-                                           std::vector<void *> &);
-  template bool LinFitBevingtonEigen(const Eigen::Array<float, Eigen::Dynamic, Eigen::Dynamic> &,
-                                           const Eigen::Array<double, Eigen::Dynamic, Eigen::Dynamic> &,
-                                           Eigen::Array<float, Eigen::Dynamic, 1> &,
-                                           Eigen::Array<float, Eigen::Dynamic, 1> &,
-                                           bool,
-                                           const std::vector<string> &,
-                                           std::vector<void *> &);
-  template bool LinFitBevingtonEigen(Eigen::Array<double, Eigen::Dynamic, Eigen::Dynamic> const&,
-                                           Eigen::Array<double, Eigen::Dynamic, Eigen::Dynamic> const&,
-                                           Eigen::Array<double, Eigen::Dynamic, 1> &,
-                                           Eigen::Array<double, Eigen::Dynamic, 1> &,
-                                           bool,
-                                           std::vector<string> const&,
-                                           std::vector<void *> &);
-
-  template bool LinFitBevingtonNdArray(ndarray::Array<float, 2, 1> const&,
-                                             ndarray::Array<float, 2, 1> const&,
-                                             ndarray::Array<float, 1, 1> &,
-                                             ndarray::Array<float, 1, 1> &,
-                                             bool,
-                                             std::vector<string> const&,
-                                             std::vector<void *> &);
-  template bool LinFitBevingtonNdArray(ndarray::Array<double, 2, 1> const&,
-                                             ndarray::Array<float, 2, 1> const&,
-                                             ndarray::Array<double, 1, 1> &,
-                                             ndarray::Array<double, 1, 1> &,
-                                             bool,
-                                             const std::vector<string> &,
-                                             std::vector<void *> &);
   template bool LinFitBevingtonNdArray(ndarray::Array<float, 2, 1> const&,
                                              ndarray::Array<double, 2, 1> const&,
                                              ndarray::Array<float, 1, 1> &,
@@ -2753,20 +2633,4 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
                                              bool,
                                              std::vector<string> const&,
                                              std::vector<void *> &);
-
-  template float GammLn(float const D_X_In);
-  template double GammLn(double const D_X_In);
-
-  template float GCF(float & D_Gamser_In, float const a, float const x);
-  template double GCF(double & D_Gamser_In, double const a, double const x);
-
-  template float GammP(float const a, float const x);
-  template double GammP(double const a, double const x);
-
-  template float GammQ(float const a, float const x);
-  template double GammQ(double const a, double const x);
-
-  template float GSER(float & D_Gamser_In, float const a, float const x);
-  template double GSER(double & D_Gamser_In, double const a, double const x);
-
 }}}}
