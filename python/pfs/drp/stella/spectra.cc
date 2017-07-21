@@ -75,8 +75,7 @@ void declareSpectrum(py::module &mod) {
 
     cls.def("getDispCorControl", &Class::getDispCorControl);
 
-    cls.def("identify", &Class::template identify<float>, "lineList"_a, "dispCorControl"_a,
-            "nLinesCheck"_a=0);
+    cls.def("identify", &Class::identify, "lineList"_a, "dispCorControl"_a);
 
     cls.def("isWavelengthSet", &Class::isWavelengthSet);
 

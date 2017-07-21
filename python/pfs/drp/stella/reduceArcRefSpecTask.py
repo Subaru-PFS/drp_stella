@@ -71,7 +71,7 @@ class ReduceArcRefSpecTask(ReduceArcTask):
                        "pfs::drp::stella::math::findITrace",
                       ]:
             log.setLevel(logger, log.WARN)
-        log.setLevel("pfs::drp::stella::Spectra::identify", log.FATAL)
+        log.setLevel("pfs.drp.stella.Spectra.identify", log.FATAL)
 
         if refSpec == None:
             refSpec = self.config.refSpec
@@ -161,8 +161,8 @@ class ReduceArcRefSpecTask(ReduceArcTask):
                 for j in range(result.lineList.shape[0]):
                     self.log.debug('result.lineList[%d][*] = %f, %f' % (j,result.lineList[j][0],result.lineList[j][1]))
 
-                spec.identifyF(drpStella.createLineListFromWLenPix(result.lineList),
-                               dispCorControl)
+                spec.identify(drpStella.createLineListFromWLenPix(result.lineList),
+                              dispCorControl)
 
                 # set Spectrum in spectrumSetFromProfile because it is not
                 # identitical anymore to the original object

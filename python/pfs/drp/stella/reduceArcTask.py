@@ -321,7 +321,7 @@ class ReduceArcTask(CmdLineTask):
 
                 # use line list to calibrate the Arc spectrum
                 try:
-                    spec.identifyF(measuredLines, dispCorControl)
+                    spec.identify(measuredLines, dispCorControl)
                 except Exception, e:
                     raise RuntimeError(
                         "reduceArcTask.py: %dth FiberTrace: traceId = %d: ERROR: %s"

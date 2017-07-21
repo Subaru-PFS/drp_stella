@@ -501,7 +501,7 @@ class SpectraTestCase(tests.TestCase):
         # sure the line we will disturb is not one of the lines held back
         spectrum.identify(result.lineList, self.dispCorControl, 0)
         self.dispCorControl.percentageOfLinesForCheck = 0
-        spectrum.identifyF(drpStella.createLineListFromWLenPix(result.lineList),
+        spectrum.identify(drpStella.createLineListFromWLenPix(result.lineList),
                            self.dispCorControl)
         dispRMSOrig = spectrum.getDispRms()
 
@@ -519,7 +519,7 @@ class SpectraTestCase(tests.TestCase):
         spectrum.getSpectrum()[linePos:linePos+4] += [10000.,20000.,30000., 20000.]
 
         #run identify again
-        spectrum.identifyF(drpStella.createLineListFromWLenPix(result.lineList),
+        spectrum.identify(drpStella.createLineListFromWLenPix(result.lineList),
                            self.dispCorControl)# we're not holding back any emission lines
         dispRMSCosmic = spectrum.getDispRms()
         self.assertNotAlmostEqual(dispRMSOrig, dispRMSCosmic)
@@ -599,7 +599,7 @@ class SpectraTestCase(tests.TestCase):
                 self.dispCorControl.maxDistance = maxDistance
                 if maxDistance < 0.49:
                     try:
-                        spec.identifyF(drpStella.createLineListFromWLenPix(lineListPix),
+                        spec.identify(drpStella.createLineListFromWLenPix(lineListPix),
                                        self.dispCorControl)
                         self.assertTrue(False) # i.e. the previous line should raise an exception
                     except Exception as e:
@@ -616,7 +616,7 @@ class SpectraTestCase(tests.TestCase):
                                     % (minGoodLines))
                         self.assertEqual(message[0],expected)
                 else:
-                    spec.identifyF(drpStella.createLineListFromWLenPix(lineListPix),
+                    spec.identify(drpStella.createLineListFromWLenPix(lineListPix),
                                    self.dispCorControl)
                     # make sure that the number of 'good' lines increases with
                     # a growing maxDistance
@@ -661,7 +661,7 @@ def run(exit = False):
 
     for logger in ["extractSpectra",
                    "gaussFunc",
-                   "pfs::drp::stella::Spectra::identify",
+                   "pfs.drp.stella.Spectra.identify",
                    "pfs::drp::stella::math::CurfFitting::PolyFit",
                    "writePfsArm"
                    ]:
