@@ -870,7 +870,10 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
                                                   Args_Fit);
         if (status != 1){
           #ifdef __WARNINGS_ON__
-            string message("CFits::LinFitBevington: WARNING: LinFitBevington(D_A2_CCD_In(i,blitz::Range::all()),D_A2_SF_In(i,blitz::Range::all()),D_A1_SP_Out(i),D_A1_Sky_Out(i),D_A1_STDDEV_Out(i),D_A1_Covariance_Out(i)) returned status = ");
+            string message("CFits::LinFitBevington: WARNING: LinFitBevington(" +
+                           "D_A1_CCD, D_A1_SF, D_A1_SP_Out[i], D_A1_Sky_Out[i], " +
+                           "B_WithSky, S_A1_Args_Fit, Args_Fit" +
+                           ") returned status = ");
             message += to_string(status);
             cout << message << endl;
             cout << "CFits::LinFitBevington: D_A2_SF_In(0, *) = " << D_A2_SF_In[ndarray::view(0)()] << ": LinFitBevingtonNdArray returned status = " << status << endl;
