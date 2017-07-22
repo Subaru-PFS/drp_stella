@@ -35,10 +35,14 @@ class ReduceArcTaskRunner(TaskRunner):
 
     def __call__(self, args):
         task = self.TaskClass(config=self.config, log=self.log)
+
+        exitStatus = 0
         if self.doRaise:
             self.log.debug('ReduceArcTask.__call__: args = %s' % args)
             result = task.run(**args)
         else:
+            exitStatus = 1
+
             try:
                 result = task.run(**args)
             except Exception, e:
@@ -46,9 +50,14 @@ class ReduceArcTaskRunner(TaskRunner):
 
         if self.doReturnResults:
             return Struct(
+                exitStatus=exitStatus,
                 args = args,
                 metadata = task.metadata,
                 result = result,
+            )
+        else:
+            return Struct(
+                exitStatus=exitStatus,
             )
 
 class ReduceArcTask(CmdLineTask):
