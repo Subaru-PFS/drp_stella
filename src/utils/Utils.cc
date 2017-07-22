@@ -90,9 +90,11 @@ namespace pfs { namespace drp { namespace stella { namespace utils{
       }
     }
     for (size_t i = 0; i <= nDeg; ++i){
-      if (fabs(coeffs[i] - coeffsIn[i]) > 0.0000001){
+      float const tol = 7e-6;
+      if (fabs(coeffs[i] - coeffsIn[i]) > tol) {
         std::string message("error: fabs(coeffs[i](=");
-        message += to_string(coeffs[i]) + ") - coeffsIn[i](=" + to_string(coeffsIn[i]) + ")) > 0.0000001";
+        message += to_string(coeffs[i]) + ") - coeffsIn[i](=" + to_string(coeffsIn[i]) + ")) > " +
+            to_string(tol);
         throw std::runtime_error(message);
       }
     }
