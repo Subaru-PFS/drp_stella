@@ -72,9 +72,9 @@ def makeFiberTraceSet(pfsFiberTrace, maskedImage=None):
         if maskedImage != None:
             ft.createTrace(maskedImage)
 
-        if ft.getImage().getHeight() != ft.getProfile().getHeight():
+        if ft.getTrace().getHeight() != ft.getProfile().getHeight():
             raise RuntimeError("FiberTrace %d: trace and profile have different sizes")
-        if ft.getImage().getWidth() != ft.getProfile().getWidth():
+        if ft.getTrace().getWidth() != ft.getProfile().getWidth():
             raise RuntimeError("FiberTrace %d: trace and profile have different sizes")
 
         fts.addFiberTrace(ft)

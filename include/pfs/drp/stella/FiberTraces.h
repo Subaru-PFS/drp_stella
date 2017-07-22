@@ -18,10 +18,6 @@
 #include "spline.h"
 #include "utils/Utils.h"
 
-#define stringify( name ) # name
-
-#define DEBUGDIR "/Users/azuri/spectra/pfs/2014-11-02/debug/"
-
 namespace afwImage = lsst::afw::image;
 namespace pexExcept = lsst::pex::exceptions;
 
@@ -96,39 +92,6 @@ class FiberTrace {
      * Pre: _fiberTraceFunction must be set
      */
     void setTrace(PTR(MaskedImageT) & trace);// { _trace = trace; }
-
-    /**
-     * @brief Return the pointer to the image of this fiber trace
-     */
-    PTR(Image) getImage() const { return _trace->getImage(); }
-
-    /**
-     * @brief Set the image pointer of this fiber trace to image
-     * @param image : Image to set _trace.Image to
-     */
-    void setImage(const PTR(Image) &image);// { _trace->getImage() = image; }
-
-    /**
-     * @brief Return the pointer to the mask of this fiber trace
-     */
-    PTR(Mask) getMask() const{ return _trace->getMask(); }
-
-    /**
-     * @brief Set the mask pointer of this fiber trace to mask
-     * @param mask : Mask to set _trace.Mask to
-     */
-    void setMask(const PTR(Mask) &mask);// { _trace->getMask() = mask; }
-
-    /**
-     * @brief Return the pointer to the variance of this fiber trace
-     */
-    PTR(Variance) getVariance() const { return _trace->getVariance(); }
-
-    /**
-     * @brief Set the variance pointer of this fiber trace to variance
-     * @param variance : Variance to set _trace.Variance to
-     */
-    void setVariance(const PTR(Variance) &variance);// { _trace->getVariance() = variance; }
 
     /**
      * @brief Return the image of the spatial profile

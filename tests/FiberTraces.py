@@ -131,9 +131,9 @@ class FiberTraceTestCase(tests.TestCase):
         iTrace = 1
         fiberTrace = drpStella.FiberTrace(width, height, iTrace)
         self.assertEqual(fiberTrace.getWidth(), width)
-        self.assertEqual(fiberTrace.getImage().getWidth(), width)
+        self.assertEqual(fiberTrace.getTrace().getWidth(), width)
         self.assertEqual(fiberTrace.getHeight(), height)
-        self.assertEqual(fiberTrace.getImage().getHeight(), height)
+        self.assertEqual(fiberTrace.getTrace().getHeight(), height)
         self.assertEqual(fiberTrace.getITrace(), iTrace)
 
         # Test that we can create a FiberTrace given a MaskedImage and a FiberTraceFunction
@@ -253,57 +253,19 @@ class FiberTraceTestCase(tests.TestCase):
             self.assertTrue("Failed to throw exception; see PIPE2D-217")
             fiberTraceMIF.setTrace(savedTraceImage) # reset 
             
-        self.assertAlmostEqual(fiberTraceMIF.getTrace().getImage().getArray()[5,5], val)
-        fiberTraceMIF.getTrace().getImage().getArray()[5,5] = val+2
-        self.assertAlmostEqual(fiberTrace.getTrace().getImage().getArray()[5,5], val+2)
-        fiberTrace.getTrace().getImage().getArray()[5,5] = val
-        self.assertAlmostEqual(fiberTraceMIF.getTrace().getImage().getArray()[5,5], val)
-
-        # Test setImage
+        # Test setting the Trace
         val = 1011.
-        fiberTrace.getImage().getArray()[5,5] = val
-        fiberTraceMIF.setImage(fiberTrace.getImage())
+        fiberTrace.getTrace().getImage()[5,5] = val
+        fiberTraceMIF.getTrace().getImage()[:] = fiberTrace.getTrace().getImage()
         try:
-            fiberTraceMIF.setImage(maskedImageWrongSize.getImage())
-        except:
-            e = sys.exc_info()[1]
+            fiberTraceMIF.getTrace()[:] = maskedImageWrongSize
+        except Exception as e:
             message = str.split(str(e.message), "\n")
-            expected = "FiberTrace.setImage: ERROR: image.getHeight(="+str(height)+") != _trace->getHeight(="+str(fiberTraceMIF.getHeight())+")"
-            self.assertEqual(message[0],expected)
-        self.assertAlmostEqual(fiberTraceMIF.getImage().getArray()[5,5], val)
-        fiberTrace.getImage().getArray()[5,5] = val+2
-        self.assertAlmostEqual(fiberTraceMIF.getImage().getArray()[5,5], val+2)
-
-        # Test setVariance
-        val = 1000.
-        fiberTrace.getVariance().getArray()[5,5] = val
-        fiberTraceMIF.setVariance(fiberTrace.getVariance())
-        try:
-            fiberTraceMIF.setVariance(maskedImageWrongSize.getVariance())
-        except:
-            e = sys.exc_info()[1]
-            message = str.split(str(e.message), "\n")
-            expected = "FiberTrace.setVariance: ERROR: variance.getHeight(="+str(maskedImageWrongSize.getVariance().getHeight())+") != _trace->getHeight(="+str(fiberTraceMIF.getHeight())+")"
-            self.assertEqual(message[0],expected)
-        self.assertAlmostEqual(fiberTraceMIF.getVariance().getArray()[5,5], val)
-        fiberTrace.getVariance().getArray()[5,5] = val+2
-        self.assertAlmostEqual(fiberTraceMIF.getVariance().getArray()[5,5], val+2)
-
-        # Test setMask
-        val = 1
-        fiberTrace.getMask().getArray()[5,5] = val
-        fiberTraceMIF.setMask(fiberTrace.getMask())
-        try:
-            fiberTraceMIF.setMask(maskedImageWrongSize.getMask())
-        except:
-            e = sys.exc_info()[1]
-            message = str.split(str(e.message), "\n")
-            expected = "FiberTrace.setMask: ERROR: mask.getHeight(="+str(maskedImageWrongSize.getMask().getHeight())+") != _trace->getHeight()(="+str(fiberTraceMIF.getMask().getHeight())+")"
-            self.assertEqual(message[0],expected)
-
-        self.assertEqual(fiberTraceMIF.getMask().getArray()[5,5], val)
-        fiberTrace.getMask().getArray()[5,5] = val+2
-        self.assertEqual(fiberTraceMIF.getMask().getArray()[5,5], val+2)
+            expected = "Dimension mismatch: 10x3909 v. 10x100"
+            self.assertEqual(message[0], expected)
+        self.assertAlmostEqual(fiberTraceMIF.getTrace().getImage().get(5,5), val)
+        fiberTrace.getTrace().getImage()[5,5] = val+2
+        self.assertAlmostEqual(fiberTraceMIF.getTrace().getImage().get(5,5), val+2)
 
         # Test getXCenters
         xCenters = fiberTrace.getXCenters()
@@ -366,8 +328,8 @@ class FiberTraceTestCase(tests.TestCase):
             except:
                 raise
             self.assertEqual(spectrum.getLength(), fiberTrace.getHeight())
-            fiberTrace.getMask().getArray()[:,:] = 0
-            oldestMask = fiberTrace.getMask().getArray().copy()
+            fiberTrace.getTrace().getMask().getArray()[:,:] = 0
+            oldestMask = fiberTrace.getTrace().getMask().getArray().copy()
             spectrumFromProfile = fiberTrace.extractFromProfile()
             self.assertEqual(spectrum.getLength(), spectrumFromProfile.getLength())
 
@@ -376,21 +338,21 @@ class FiberTraceTestCase(tests.TestCase):
             oldWidth = fiberTrace.getWidth()
             oldProfile = fiberTrace.getProfile().getArray().copy()
             oldTrace = fiberTrace.getTrace().getImage().getArray().copy()
-            oldMask = fiberTrace.getMask().getArray()
+            oldMask = fiberTrace.getTrace().getMask().getArray()
 
             fiberTrace.createTrace(self.flat.getMaskedImage())
             trace = fiberTrace.getTrace().getImage().getArray()
             self.assertFalse(id(oldTrace) == id(trace))
             profile = fiberTrace.getProfile().getArray()
             self.assertFalse(id(oldProfile) == id(profile))
-            mask = fiberTrace.getMask().getArray()
+            mask = fiberTrace.getTrace().getMask().getArray()
 
             self.assertEqual(oldHeight, fiberTrace.getHeight())
             self.assertEqual(oldWidth, fiberTrace.getWidth())
             self.assertEqual(oldProfile[5,5], fiberTrace.getProfile().getArray()[5,5])
             self.assertEqual(oldTrace[5,5], fiberTrace.getTrace().getImage().getArray()[5,5])
 
-            fiberTrace.getMask().getArray()[:,:] = 0
+            fiberTrace.getTrace().getMask().getArray()[:,:] = 0
             spectrum = fiberTrace.extractFromProfile()
             self.assertEqual(spectrum.getLength(), spectrumFromProfile.getLength())
 
@@ -627,12 +589,13 @@ class FiberTraceTestCase(tests.TestCase):
         ftsOrig = fts
         for iFt in range(fts.size()):
             ft = fts.getFiberTrace(iFt)
-            drpStella.addFiberTraceToCcdImage(ft, ft.getImage(), sumImage)
+            drpStella.addFiberTraceToCcdImage(ft, ft.getTrace().getImage(), sumImage)
         fts.createTraces(afwImage.makeMaskedImage(sumImage))
         for iFt in range(fts.size()):
             ftOrig = ftsOrig.getFiberTrace(iFt)
             ftNew = fts.getFiberTrace(iFt)
-            np.testing.assert_array_equal(ftOrig.getImage().getArray(), ftNew.getImage().getArray())
+            np.testing.assert_array_equal(ftOrig.getTrace().getImage().getArray(),
+                                          ftNew.getTrace().getImage().getArray())
 
     def testFindITrace(self):
         ft = drpStella.FiberTrace(10,100)

@@ -57,7 +57,7 @@ def getDistTraceProfRec(fiberTraceSet):
         if not ft.isProfileSet():
             raise RuntimeError("ERROR: iTrace = ",iTrace,": profile not set")
         spec = ft.extractFromProfile()
-        orig = ft.getImage().getArray()
+        orig = ft.getTrace().getImage().getArray()
         rec = ft.getReconstructed2DSpectrum(spec).getArray()
         prof = ft.getProfile().getArray()
         xCenters = ft.getXCenters()
