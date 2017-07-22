@@ -1,5 +1,15 @@
 #include "pfs/drp/stella/cmpfit-1.2/MPFitting_ndarray.h"
 
+/* This is the private data structure which contains the data points
+   and their uncertainties */
+struct vars_struct {
+  double *x;
+  double *y;
+  double *ey;
+};
+
+namespace {
+#ifdef __DEBUG_GAUSSFITLIM__
 /* Simple routine to print the fit results */
 void PrintResult(double *x, mp_result *result){
   int i;
@@ -14,8 +24,8 @@ void PrintResult(double *x, mp_result *result){
   for (i=0; i<result->npar; i++) {
     cout << "MPFitting_ndarray:  P[" << i << "] = " << x[i] << " +/- " << result->xerror[i] << endl;
   }
-
 }
+#endif
 
 int MPFitGaussFuncCB(int m, int n, double *p, double *dy, double **dvec, void *vars)
 {
