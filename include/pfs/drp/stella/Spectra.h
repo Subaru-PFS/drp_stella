@@ -1,33 +1,19 @@
 #if !defined(PFS_DRP_STELLA_SPECTRA_H)
 #define PFS_DRP_STELLA_SPECTRA_H
 
-#include <iostream>
 #include <vector>
 
-#include "boost/algorithm/string/trim.hpp"
-#include <fitsio.h>
-#include <fitsio2.h>
-
-#include "Controls.h"
-#include "lsst/log/Log.h"
-#include "lsst/pex/exceptions.h"
-#include "math/CurveFitting.h"
-#include "math/Math.h"
-#include "utils/Utils.h"
-
-#define stringify( name ) # name
-
-namespace afwImage = lsst::afw::image;
-namespace pexExcept = lsst::pex::exceptions;
+#include "lsst/afw/image/MaskedImage.h"
+#include "pfs/drp/stella/Controls.h"
 
 namespace pfs { namespace drp { namespace stella {
 /**
  * \brief Describe a single fiber trace
  */
 template<typename PixelT,
-         typename MaskT=afwImage::MaskPixel,
-         typename VarianceT=afwImage::VariancePixel,
-         typename WavelengthT=afwImage::VariancePixel>
+         typename MaskT=lsst::afw::image::MaskPixel,
+         typename VarianceT=lsst::afw::image::VariancePixel,
+         typename WavelengthT=lsst::afw::image::VariancePixel>
 class Spectrum {
   public:
     typedef ndarray::Array<PixelT, 1, 1> SpectrumVector;
@@ -193,9 +179,9 @@ class Spectrum {
  *
  */
 template <typename ImageT,
-          typename MaskT=afwImage::MaskPixel,
-          typename VarianceT=afwImage::VariancePixel,
-          typename WavelengthT=afwImage::VariancePixel>
+          typename MaskT=lsst::afw::image::MaskPixel,
+          typename VarianceT=lsst::afw::image::VariancePixel,
+          typename WavelengthT=lsst::afw::image::VariancePixel>
 class SpectrumSet
 {
   public:

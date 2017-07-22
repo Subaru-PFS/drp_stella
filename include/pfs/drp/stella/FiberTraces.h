@@ -2,40 +2,29 @@
 #if !defined(PFS_DRP_STELLA_FIBERTRACES_H)
 #define PFS_DRP_STELLA_FIBERTRACES_H
 
-#include <iostream>
 #include <vector>
 
-#include "Controls.h"
-#include "lsst/afw/image/MaskedImage.h"
-#include "lsst/log/Log.h"
-#include "lsst/pex/exceptions/Exception.h"
 #include "ndarray.h"
-#include "ndarray/eigen.h"
-#include "math/Chebyshev.h"
-#include "math/CurveFitting.h"
-#include "math/Math.h"
-#include "Spectra.h"
-#include "spline.h"
-#include "utils/Utils.h"
 
-namespace afwImage = lsst::afw::image;
-namespace pexExcept = lsst::pex::exceptions;
+#include "lsst/afw/image/MaskedImage.h"
 
-using namespace std;
+#include "pfs/drp/stella/Controls.h"
+#include "pfs/drp/stella/math/Math.h"
+#include "pfs/drp/stella/Spectra.h"
 
 namespace pfs { namespace drp { namespace stella {
 /**
  * @brief Describe a single fiber trace
  */
 template<typename ImageT,
-         typename MaskT=afwImage::MaskPixel,
-         typename VarianceT=afwImage::VariancePixel>
+         typename MaskT=lsst::afw::image::MaskPixel,
+         typename VarianceT=lsst::afw::image::VariancePixel>
 class FiberTrace {
   public:
-    typedef afwImage::MaskedImage<ImageT, MaskT, VarianceT> MaskedImageT;
-    typedef afwImage::Image<ImageT> Image;
-    typedef afwImage::Mask<MaskT> Mask;
-    typedef afwImage::Image<VarianceT> Variance;
+    typedef lsst::afw::image::MaskedImage<ImageT, MaskT, VarianceT> MaskedImageT;
+    typedef lsst::afw::image::Image<ImageT> Image;
+    typedef lsst::afw::image::Mask<MaskT> Mask;
+    typedef lsst::afw::image::Image<VarianceT> Variance;
     typedef Spectrum<ImageT, MaskT, VarianceT, VarianceT> SpectrumT;
 
 
@@ -96,13 +85,13 @@ class FiberTrace {
     /**
      * @brief Return the image of the spatial profile
      */
-    PTR(afwImage::Image<float>) getProfile() const{ return _profile; }
+    PTR(lsst::afw::image::Image<float>) getProfile() const{ return _profile; }
 
     /**
      * @brief Set the _profile of this fiber trace to profile
      * @param profile : Profile to set _profile to
      */
-    void setProfile( PTR(afwImage::Image<float>) const& profile);
+    void setProfile( PTR(lsst::afw::image::Image<float>) const& profile);
 
     /**
      * @brief Extract the spectrum of this fiber trace using the _profile
@@ -283,8 +272,8 @@ class FiberTrace {
     std::vector<PTR(std::vector<float>)> _profileFittingInputYMeanPerSwath;
     
     ///TODO: replace variables with smart pointers?????
-    PTR(afwImage::MaskedImage<ImageT, MaskT, VarianceT>) _trace;
-    PTR(afwImage::Image<float>) _profile;
+    PTR(lsst::afw::image::MaskedImage<ImageT, MaskT, VarianceT>) _trace;
+    PTR(lsst::afw::image::Image<float>) _profile;
     ndarray::Array<float, 2, 1> _xCentersMeas;
     ndarray::Array<float, 1, 1> _xCenters;
     std::size_t _iTrace;
@@ -302,10 +291,11 @@ class FiberTrace {
  * @brief Describe a set of fiber traces
  *
  */
-template<typename ImageT, typename MaskT=afwImage::MaskPixel, typename VarianceT=afwImage::VariancePixel>
+template<typename ImageT, typename MaskT=lsst::afw::image::MaskPixel,
+         typename VarianceT=lsst::afw::image::VariancePixel>
 class FiberTraceSet {
   public:
-    typedef afwImage::MaskedImage<ImageT, MaskT, VarianceT> MaskedImageT;
+    typedef lsst::afw::image::MaskedImage<ImageT, MaskT, VarianceT> MaskedImageT;
     typedef FiberTrace<ImageT, MaskT, VarianceT> FiberTraceT;
     typedef Spectrum<ImageT, MaskT, VarianceT, VarianceT> SpectrumT;
     typedef std::vector<PTR(FiberTraceT)> Collection;
@@ -462,10 +452,12 @@ namespace math{
    * @param maskedImage : MaskedImage in which to find and trace the FiberTraces
    * @param fiberTraceFunctionFindingControl : Control to be used in task
    **/
-  template<typename ImageT, typename MaskT=afwImage::MaskPixel, typename VarianceT=afwImage::VariancePixel>
-  PTR(FiberTraceSet<ImageT, MaskT, VarianceT>) findAndTraceApertures(const PTR(const afwImage::MaskedImage<ImageT, MaskT, VarianceT>) &maskedImage,
-                                                                     const PTR(const FiberTraceFunctionFindingControl) &fiberTraceFunctionFindingControl);
-  
+  template<typename ImageT, typename MaskT=lsst::afw::image::MaskPixel,
+           typename VarianceT=lsst::afw::image::VariancePixel>
+  PTR(FiberTraceSet<ImageT, MaskT, VarianceT>) findAndTraceApertures(
+                    const PTR(const lsst::afw::image::MaskedImage<ImageT, MaskT, VarianceT>) &maskedImage,
+                    const PTR(const FiberTraceFunctionFindingControl) &fiberTraceFunctionFindingControl);
+    
   struct FindCenterPositionsOneTraceResult{
       std::vector<float> apertureCenterIndex;
       std::vector<float> apertureCenterPos;
@@ -478,10 +470,11 @@ namespace math{
    * @param ccdImageVariance: variance of image to trace (used for fitting)
    * @param fiberTraceFunctionFindingControl: parameters to find and trace a fiberTrace
    * */
-  template<typename ImageT, typename VarianceT=afwImage::VariancePixel>
-  FindCenterPositionsOneTraceResult findCenterPositionsOneTrace( PTR(afwImage::Image<ImageT>) & ccdImage,
-                                                                 PTR(afwImage::Image<VarianceT>) & ccdImageVariance,
-                                                                 PTR(const FiberTraceFunctionFindingControl) const& fiberTraceFunctionFindingControl);
+  template<typename ImageT, typename VarianceT=lsst::afw::image::VariancePixel>
+  FindCenterPositionsOneTraceResult findCenterPositionsOneTrace(
+	PTR(lsst::afw::image::Image<ImageT>) & ccdImage,
+        PTR(lsst::afw::image::Image<VarianceT>) & ccdImageVariance,
+        PTR(const FiberTraceFunctionFindingControl) const& fiberTraceFunctionFindingControl);
   
   /**
    * @brief: returns ndarray containing the xCenters of a FiberTrace from 0 to FiberTrace.getTrace().getHeight()-1
@@ -516,13 +509,15 @@ namespace math{
    * @param minSNR : normalized pixel values with an SNR lower than minSNR are set to 1.
    * @param iTrace : number of FiberTrace
    */
-  template< typename ImageT, typename MaskT=afwImage::MaskPixel, typename VarianceT=afwImage::VariancePixel >
-  PTR(FiberTrace< ImageT, MaskT, VarianceT >) makeNormFlatFiberTrace( PTR( const afwImage::MaskedImage< ImageT, MaskT, VarianceT >) const& maskedImage,
-                                                                      PTR( const ::pfs::drp::stella::FiberTraceFunction ) const& fiberTraceFunctionWide,
-                                                                      PTR( const ::pfs::drp::stella::FiberTraceFunctionControl ) const& fiberTraceFunctionControlNarrow,
-                                                                      PTR( const ::pfs::drp::stella::FiberTraceProfileFittingControl ) const& fiberTraceProfileFittingControl,
-                                                                      ImageT minSNR = 100.,
-                                                                      std::size_t iTrace = 0 );
+  template< typename ImageT, typename MaskT=lsst::afw::image::MaskPixel,
+            typename VarianceT=lsst::afw::image::VariancePixel >
+  PTR(FiberTrace< ImageT, MaskT, VarianceT >) makeNormFlatFiberTrace(
+	PTR(const lsst::afw::image::MaskedImage< ImageT, MaskT, VarianceT >) const& maskedImage,
+        PTR(const ::pfs::drp::stella::FiberTraceFunction) const& fiberTraceFunctionWide,
+        PTR(const ::pfs::drp::stella::FiberTraceFunctionControl) const& fiberTraceFunctionControlNarrow,
+        PTR(const ::pfs::drp::stella::FiberTraceProfileFittingControl) const& fiberTraceProfileFittingControl,
+        ImageT minSNR = 100.,
+        std::size_t iTrace = 0);
 
   /**
    * @brief: assign trace number to set of FiberTraces from x and y center by comparing the center position to the center positions of the zemax model
@@ -559,7 +554,7 @@ namespace math{
      */
     template< typename ImageT, typename MaskT, typename VarianceT, typename arrayT, typename ccdImageT, int dim >
     void addFiberTraceToCcdArray( FiberTrace< ImageT, MaskT, VarianceT > const& fiberTrace,
-                                  afwImage::Image< arrayT > const& fiberTraceRepresentation,
+                                  lsst::afw::image::Image< arrayT > const& fiberTraceRepresentation,
                                   ndarray::Array< ccdImageT, 2, dim > & ccdArray );
 
     /**
@@ -572,8 +567,8 @@ namespace math{
      */
     template< typename ImageT, typename MaskT, typename VarianceT, typename arrayT, typename ccdImageT >
     void addFiberTraceToCcdImage( FiberTrace< ImageT, MaskT, VarianceT > const& fiberTrace,
-                                  afwImage::Image< arrayT > const& fiberTraceRepresentation,
-                                  afwImage::Image< ccdImageT > & ccdImage );
+                                  lsst::afw::image::Image< arrayT > const& fiberTraceRepresentation,
+                                  lsst::afw::image::Image< ccdImageT > & ccdImage );
      
     /**
      * @brief: Add one array into certain positions in another array
@@ -597,7 +592,8 @@ namespace math{
      * @param fiberTrace in: FiberTrace for which to make the coordinate conversion
      * output Coordinates : x (column) and y (row) in FiberTrace.image Coordinates
      */
-    template<typename CoordT, typename ImageT, typename MaskT=afwImage::MaskPixel, typename VarianceT=afwImage::VariancePixel>
+    template<typename CoordT, typename ImageT, typename MaskT=lsst::afw::image::MaskPixel,
+             typename VarianceT=lsst::afw::image::VariancePixel>
     dataXY<CoordT> ccdToFiberTraceCoordinates(
         dataXY<CoordT> const& ccdCoordinates,
         pfs::drp::stella::FiberTrace<ImageT, MaskT, VarianceT> const& fiberTrace);
@@ -610,7 +606,8 @@ namespace math{
      * @param psf in: PSF for which to make the coordinate conversion
      * output Coordinates : x (column) and y (row) relative to the ccdCoordinatesCenter
      */
-    template<typename CoordT, typename ImageT, typename MaskT=afwImage::MaskPixel, typename VarianceT=afwImage::VariancePixel>
+    template<typename CoordT, typename ImageT, typename MaskT=lsst::afw::image::MaskPixel,
+             typename VarianceT=lsst::afw::image::VariancePixel>
     dataXY<CoordT> fiberTraceCoordinatesRelativeTo(
         dataXY<CoordT> const& fiberTraceCoordinates,
         dataXY<CoordT> const& ccdCoordinatesCenter,
@@ -634,7 +631,7 @@ namespace utils{
       */
      template< typename ImageT, typename MaskT, typename VarianceT >
      void markFiberTraceInMask( PTR( FiberTrace< ImageT, MaskT, VarianceT > ) const& fiberTrace,
-                                PTR( afwImage::Mask< MaskT > ) const& mask,
+                                PTR( lsst::afw::image::Mask< MaskT > ) const& mask,
                                 MaskT value = 1);
   
 }

@@ -1,4 +1,7 @@
+#include "lsst/pex/exceptions.h"
 #include "pfs/drp/stella/cmpfit-1.2/MPFitting_ndarray.h"
+
+namespace pexExcept = lsst::pex::exceptions;
 
 /* This is the private data structure which contains the data points
    and their uncertainties */

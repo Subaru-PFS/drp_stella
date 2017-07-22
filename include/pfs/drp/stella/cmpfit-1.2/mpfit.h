@@ -22,7 +22,6 @@
 /* This is a C library.  Allow compilation with a C++ compiler */
 #ifdef __cplusplus
 #include <vector>
-#include <iostream>
 extern "C" {
 #endif
 
