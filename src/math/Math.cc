@@ -2016,8 +2016,6 @@ template ndarray::Array<float, 1, 1> vectorToNdArray( std::vector<float> &, bool
 template ndarray::Array<unsigned long, 1, 1> vectorToNdArray( std::vector<unsigned long> &, bool );
 template bool checkIfValuesAreInRange( ndarray::Array<float, 1, 1> const&, ndarray::Array<float, 1, 1> const& range );
 template ndarray::Array<float, 1, 1> convertRangeToUnity( ndarray::Array<float, 1, 1> const&, ndarray::Array<float, 1, 1> const& );
-template ndarray::Array<double, 1, 1> pfs::drp::stella::math::convertRangeToUnity(ndarray::Array<double, 1, 1> const&, ndarray::Array<double, 1, 1> const&);
-template ndarray::Array<float, 1, 1> pfs::drp::stella::math::convertRangeToUnity(ndarray::Array<float, 1, 1> const&, ndarray::Array<double, 1, 1> const&);
 template bool resize( ndarray::Array< float, 1, 1 > &, size_t );
 template bool resize( ndarray::Array< float, 2, 1 > &, size_t, size_t );
 template ndarray::Array<float, 1, 1> getSubArray( ndarray::Array<float, 1, 1> const&, ndarray::Array<size_t, 1, 1> const& );
@@ -2032,9 +2030,7 @@ template ndarray::Array<size_t, 2, 1> getIndicesInValueRange( ndarray::Array<siz
 template ndarray::Array<size_t, 2, 1> getIndicesInValueRange( ndarray::Array<float, 2, 1> const&, float const, float const );
 template ndarray::Array<float, 1, 1> replicate( float const val, int const size );
 template ndarray::Array<float, 1, 1> indGenNdArr( float const );
-template double min( ndarray::Array<double, 1, 1> const& );
 template float min( ndarray::Array<float, 1, 1> const& );
-template double max( ndarray::Array<double, 1, 1> const& );
 template float max( ndarray::Array<float, 1, 1> const& );
 template ndarray::Array<size_t, 1, 1> floor( const ndarray::Array<const float, 1, 1>&, const size_t );
 template ndarray::Array<size_t, 1, 1> floor( const ndarray::Array<float, 1, 1>&, const size_t );
@@ -2046,7 +2042,6 @@ template int firstIndexWithValueGEFrom( ndarray::Array<int, 1, 1> const& vecIn,
 template int lastIndexWithZeroValueBefore( ndarray::Array<int, 1, 1> const& vec_In,
                                            const int startPos_In );
 template ndarray::Array<float, 1, 1> moment( const ndarray::Array<float, 1, 1> &D_A1_Arr_In, int I_MaxMoment_In );
-template ndarray::Array<double, 1, 1> moment( const ndarray::Array<double, 1, 1> &D_A1_Arr_In, int I_MaxMoment_In );
 template std::vector<int> sortIndices( const std::vector<float> &vec_In );
 template ndarray::Array<size_t, 2, 1> calcMinCenMax( ndarray::Array<float, 1, 1> const&, float const, float const, int const, int const );
 }/// end namespace math
