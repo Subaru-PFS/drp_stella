@@ -32,12 +32,6 @@ void declareFiberTrace(py::module &mod)
 
     cls.def("getTrace", (PTR(typename Class::MaskedImageT)(Class::*)())&Class::getTrace);
     cls.def("setTrace", &Class::setTrace, "trace"_a);
-    cls.def("getImage", &Class::getImage);
-    cls.def("setImage", &Class::setImage, "image"_a);
-    cls.def("getMask", &Class::getMask);
-    cls.def("setMask", &Class::setMask, "mask"_a);
-    cls.def("getVariance", &Class::getVariance);
-    cls.def("setVariance", &Class::setVariance, "variance"_a);
     cls.def("getProfile", &Class::getProfile);
     cls.def("setProfile", &Class::setProfile, "profile"_a);
     cls.def("getFiberTraceFunction", &Class::getFiberTraceFunction);

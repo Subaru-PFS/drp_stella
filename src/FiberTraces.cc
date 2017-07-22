@@ -1,8 +1,10 @@
 #include <algorithm>
+#include "lsst/afw/image/MaskedImage.h"
 #include "pfs/drp/stella/FiberTraces.h"
 #include "pfs/drp/stella/cmpfit-1.2/MPFitting_ndarray.h"
 
 //#define __DEBUG_FINDANDTRACE__ 1
+namespace afwImage = lsst::afw::image;
 namespace pfsDRPStella = pfs::drp::stella;
 
   template<typename ImageT, typename MaskT, typename VarianceT>
@@ -161,63 +163,6 @@ namespace pfsDRPStella = pfs::drp::stella;
     _fiberTraceProfileFittingControl.reset();
     _fiberTraceProfileFittingControl = fiberTraceProfileFittingControl->getPointer();
     _isFiberTraceProfileFittingControlSet = true;
-  }
-
-  /// Set the image pointer of this fiber trace to image
-  template<typename ImageT, typename MaskT, typename VarianceT>
-  void pfsDRPStella::FiberTrace<ImageT, MaskT, VarianceT>::setImage(const PTR(afwImage::Image<ImageT>) &image){
-
-    /// Check input image size
-    if (image->getWidth() != int(_trace->getWidth())){
-      string message("FiberTrace.setImage: ERROR: image.getWidth(=");
-      message += to_string(image->getWidth()) + string(") != _trace->getWidth(=") + to_string(_trace->getWidth()) + string(")");
-      throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
-    }
-    if (image->getHeight() != int(_trace->getHeight())){
-      string message("FiberTrace.setImage: ERROR: image.getHeight(=");
-      message += to_string(image->getHeight()) + string(") != _trace->getHeight(=") + to_string(_trace->getHeight()) + string(")");
-      throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
-    }
-
-    _trace->getImage() = image;
-  }
-
-  /// Set the mask pointer of this fiber trace to mask
-  template<typename ImageT, typename MaskT, typename VarianceT>
-  void pfsDRPStella::FiberTrace<ImageT, MaskT, VarianceT>::setMask(const PTR(afwImage::Mask<MaskT>) &mask){
-
-    /// Check input mask size
-    if (mask->getWidth() != int(_trace->getWidth())){
-      string message("FiberTrace.setMask: ERROR: mask.getWidth(=");
-      message += to_string(mask->getWidth()) + string(") != _trace->getWidth()(=") + to_string(_trace->getWidth()) + string(")");
-      throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
-    }
-    if (mask->getHeight() != int(_trace->getHeight())){
-      string message("FiberTrace.setMask: ERROR: mask.getHeight(=");
-      message += to_string(mask->getHeight()) + string(") != _trace->getHeight()(=") + to_string(_trace->getHeight()) + string(")");
-      throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
-    }
-
-    _trace->getMask() = mask;
-  }
-
-  /// Set the variance pointer of this fiber trace to variance
-  template<typename ImageT, typename MaskT, typename VarianceT>
-  void pfsDRPStella::FiberTrace<ImageT, MaskT, VarianceT>::setVariance(const PTR(afwImage::Image<VarianceT>) &variance){
-
-    /// Check input variance size
-    if (variance->getWidth() != int(_trace->getWidth())){
-      string message("FiberTrace.setVariance: ERROR: variance.getWidth(=");
-      message += to_string(variance->getWidth()) + string(") != _trace->getWidth(=") + to_string(_trace->getWidth()) + string(")");
-      throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
-    }
-    if (variance->getHeight() != int(_trace->getHeight())){
-      string message("FiberTrace.setVariance: ERROR: variance.getHeight(=");
-      message += to_string(variance->getHeight()) + string(") != _trace->getHeight(=") + to_string(_trace->getHeight()) + string(")");
-      throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
-    }
-
-    _trace->getVariance() = variance;
   }
 
   /// Set the _trace of this fiber trace to trace
@@ -2409,9 +2354,11 @@ namespace pfsDRPStella = pfs::drp::stella;
       }
 
       /// create normalized flat
-      ndarray::Array< ImageT, 2, 1 > normFlat = ndarray::allocate( flatFiberTrace.getImage()->getArray().getShape()[ 0 ], minCenMaxNarrow[0][2] - minCenMaxNarrow[0][0] + 1 );
-      auto itRowIm = flatFiberTrace.getImage()->getArray().begin();
-      auto itRowVar = flatFiberTrace.getVariance()->getArray().begin();
+      ndarray::Array< ImageT, 2, 1 > normFlat =
+          ndarray::allocate(flatFiberTrace.getTrace()->getImage()->getArray().getShape()[ 0 ],
+                            minCenMaxNarrow[0][2] - minCenMaxNarrow[0][0] + 1 );
+      auto itRowIm = flatFiberTrace.getTrace()->getImage()->getArray().begin();
+      auto itRowVar = flatFiberTrace.getTrace()->getVariance()->getArray().begin();
       auto itRowRec = reconstructedFlatIm->getArray().begin();
       int iRow = fiberTraceFunctionWide->yCenter + fiberTraceFunctionWide->yLow;
       for (auto itRowNorm = normFlat.begin(); itRowNorm != normFlat.end(); ++itRowIm, ++itRowVar, ++itRowNorm, ++itRowRec, ++iRow ){
