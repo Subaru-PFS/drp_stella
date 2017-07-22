@@ -10,7 +10,7 @@ def makeFiberTraceSet(pfsFiberTrace, maskedImage=None):
     if pfsFiberTrace.profiles is None or len(pfsFiberTrace.profiles) == 0:
         raise RuntimeError("There are no fiberTraces in the PfsFiberTrace object")
 
-    fts = drpStella.FiberTraceSetF()
+    fts = drpStella.FiberTraceSet()
     ftfc = drpStella.FiberTraceFunctionControl()
     ftf = drpStella.FiberTraceFunction()
     ftpfc = drpStella.FiberTraceProfileFittingControl()
@@ -48,7 +48,7 @@ def makeFiberTraceSet(pfsFiberTrace, maskedImage=None):
             coeffs[iCoeff] = pfsFiberTrace.coeffs[iFt][iCoeff]
         ftf.coefficients = coeffs
 
-        ft = drpStella.FiberTraceF()
+        ft = drpStella.FiberTrace()
         ft.setFiberTraceFunction(ftf)
         ft.setFiberTraceProfileFittingControl(ftpfc)
 
@@ -57,7 +57,7 @@ def makeFiberTraceSet(pfsFiberTrace, maskedImage=None):
         profile = pfsFiberTrace.profiles[iFt]
 
         yMin = ftf.yCenter + ftf.yLow
-        prof = afwImage.ImageD(profile.shape[1], ftf.yHigh - ftf.yLow + 1)
+        prof = afwImage.ImageF(profile.shape[1], ftf.yHigh - ftf.yLow + 1)
         prof.getArray()[:] = profile[yMin : yMin + prof.getHeight()].astype(np.float64)
 
         pixelData = afwImage.MaskedImageF(profile.shape[1], ftf.yHigh - ftf.yLow + 1)

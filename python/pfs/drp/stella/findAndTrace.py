@@ -31,4 +31,4 @@ swathWidth = 500
 meanOnly = False
 iFT = 0
 
-fts = drpStella.findAndTraceAperturesF(flat.getMaskedImage(), ftffc)
+fts = drpStella.findAndTraceApertures(flat.getMaskedImage(), ftffc)

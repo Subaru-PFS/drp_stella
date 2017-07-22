@@ -32,29 +32,29 @@ namespace pfs { namespace drp { namespace stella { namespace utils{
 
   void testPolyFit(){
     size_t nX = 10;
-    ndarray::Array<double, 1, 1> xArr = ndarray::allocate(nX);
+    ndarray::Array<float, 1, 1> xArr = ndarray::allocate(nX);
     size_t nDeg = 1;
     size_t badPos = 6;
-    double badVal = -10.;
-    ndarray::Array<double, 1, 1> coeffsIn = ndarray::allocate(nDeg+1);
+    float badVal = -10.;
+    ndarray::Array<float, 1, 1> coeffsIn = ndarray::allocate(nDeg+1);
     for (size_t i = 0; i <= nDeg; ++i)
       coeffsIn[i] = i + 1.;
     for (size_t pos = 0; pos < xArr.getShape()[0]; ++pos){
-      xArr[pos] = double(pos);
+      xArr[pos] = float(pos);
     }
-    ndarray::Array<double, 1, 1> yArr = pfs::drp::stella::math::Poly(xArr, coeffsIn);
-    double goodVal = yArr[badPos];
+    ndarray::Array<float, 1, 1> yArr = pfs::drp::stella::math::Poly(xArr, coeffsIn);
+    float goodVal = yArr[badPos];
     yArr[badPos] = badVal;
 
     cout << "Test PolyFit(xArr, yArr, nDeg)" << endl;
     #ifdef __DEBUG_POLYFIT__
       cout << "testPolyFit: Testing PolyFit(xArr=" << xArr << ", yArr=" << yArr << ", nDeg=" << nDeg << ")" << endl;
     #endif
-    ndarray::Array<double, 1, 1> coeffs = pfs::drp::stella::math::PolyFit(xArr, yArr, nDeg);
+    ndarray::Array<float, 1, 1> coeffs = pfs::drp::stella::math::PolyFit(xArr, yArr, nDeg);
     #ifdef __DEBUG_POLYFIT__
       cout << "testPolyFit: coeffs = " << coeffs << endl;
     #endif
-    ndarray::Array<double, 1, 1> yFit = pfs::drp::stella::math::Poly(xArr, coeffs);
+    ndarray::Array<float, 1, 1> yFit = pfs::drp::stella::math::Poly(xArr, coeffs);
     #ifdef __DEBUG_POLYFIT__
       cout << "testPolyFit: yFit = " << yFit << endl;
     #endif
@@ -69,8 +69,8 @@ namespace pfs { namespace drp { namespace stella { namespace utils{
     }
 
     cout << "Test PolyFit(xArr, yArr, nDeg, lSig, uSig, nIter)" << endl;
-    double lSig = -2.;
-    double uSig = 2.;
+    float lSig = -2.;
+    float uSig = 2.;
     size_t nIter = 2;
     coeffs = pfs::drp::stella::math::PolyFit(xArr, yArr, nDeg, lSig, uSig, nIter);
     #ifdef __DEBUG_POLYFIT__
@@ -97,11 +97,11 @@ namespace pfs { namespace drp { namespace stella { namespace utils{
       }
     }
 
-    ndarray::Array<double, 1, 1> xRange = ndarray::allocate(2);
+    ndarray::Array<float, 1, 1> xRange = ndarray::allocate(2);
     xRange[0] = 0.;
     xRange[1] = xArr[xArr.getShape()[0]-1];
 
-    ndarray::Array<double, 1, 1> xNorm = pfs::drp::stella::math::convertRangeToUnity(xArr, xRange);
+    ndarray::Array<float, 1, 1> xNorm = pfs::drp::stella::math::convertRangeToUnity(xArr, xRange);
     #ifdef __DEBUG_POLYFIT__
       cout << "testPolyFit: xNorm = " << xNorm << endl;
     #endif
@@ -115,19 +115,19 @@ namespace pfs { namespace drp { namespace stella { namespace utils{
     PTR(std::vector<size_t>) P_I_A1_NotRejected(new std::vector<size_t>());
     int I_NRejected = 3;
     PTR(int) P_I_NRejected(new int(I_NRejected));
-    PTR(ndarray::Array<double, 1, 1>) pXRange(new ndarray::Array<double, 1, 1>(xRange));
-    ndarray::Array<double, 1, 1> xRangeBak = ndarray::allocate(xRange.getShape()[0]);
+    PTR(ndarray::Array<float, 1, 1>) pXRange(new ndarray::Array<float, 1, 1>(xRange));
+    ndarray::Array<float, 1, 1> xRangeBak = ndarray::allocate(xRange.getShape()[0]);
     xRangeBak.deep() = xRange;
     std::vector<void*> args(nArgs);
     args[0] = &P_I_A1_Rejected;
     args[1] = &P_I_A1_NotRejected;
     args[2] = &P_I_NRejected;
-    ndarray::Array<double, 1, 1> sigma = ndarray::allocate(nDeg+1);
-    PTR(ndarray::Array<double, 1, 1>) pSigma(new ndarray::Array<double, 1, 1>(sigma));
+    ndarray::Array<float, 1, 1> sigma = ndarray::allocate(nDeg+1);
+    PTR(ndarray::Array<float, 1, 1>) pSigma(new ndarray::Array<float, 1, 1>(sigma));
     keyWords[6] = std::string("SIGMA");
     args[6] = &pSigma;
-    ndarray::Array<double, 2, 2> covar = ndarray::allocate(ndarray::makeVector(nDeg+1,nDeg+1));
-    PTR(ndarray::Array<double, 2, 2>) pCovar(new ndarray::Array<double, 2, 2>(covar));
+    ndarray::Array<float, 2, 2> covar = ndarray::allocate(ndarray::makeVector(nDeg+1,nDeg+1));
+    PTR(ndarray::Array<float, 2, 2>) pCovar(new ndarray::Array<float, 2, 2>(covar));
     keyWords[7] = std::string("COVAR");
     args[7] = &pCovar;
     #ifdef __DEBUG_POLYFIT__
@@ -187,7 +187,7 @@ namespace pfs { namespace drp { namespace stella { namespace utils{
       throw std::runtime_error(message);
     }
 
-    yFit = pfs::drp::stella::math::Poly(xNorm, coeffs, -1., 1.);
+    yFit = pfs::drp::stella::math::Poly<float>(xNorm, coeffs, -1., 1.);
     for (size_t i = 0; i < yFit.getShape()[0]; ++i){
       #ifdef __DEBUG_POLYFIT__
         cout << "testPolyFit: yArr[" << i << "] = " << yArr[i] << ", yFit[" << i << "] = " << yFit[i] << endl;
@@ -208,10 +208,10 @@ namespace pfs { namespace drp { namespace stella { namespace utils{
     keyWords[3] = std::string("XRANGE");
     args[3] = &pXRange;
     keyWords[4] = std::string("MEASURE_ERRORS");
-    ndarray::Array<double, 1, 1> measureErrorsWrongSize = ndarray::allocate(xArr.getShape()[0]-1);
+    ndarray::Array<float, 1, 1> measureErrorsWrongSize = ndarray::allocate(xArr.getShape()[0]-1);
     for (size_t pos = 0; pos < measureErrorsWrongSize.getShape()[0]; ++pos)
       measureErrorsWrongSize[pos] = sqrt(fabs(yArr[pos]));
-    PTR(ndarray::Array<double, 1, 1>) pMeasureErrorsWrongSize(new ndarray::Array<double, 1, 1>(measureErrorsWrongSize));
+    PTR(ndarray::Array<float, 1, 1>) pMeasureErrorsWrongSize(new ndarray::Array<float, 1, 1>(measureErrorsWrongSize));
     args[4] = &pMeasureErrorsWrongSize;
     #ifdef __DEBUG_POLYFIT__
       cout << "=================================================================" << endl;
@@ -238,13 +238,13 @@ namespace pfs { namespace drp { namespace stella { namespace utils{
     }
 
     cout << "Test with Measure Errors (correct length) and with re-scaling the xRange to [-1,1]" << endl;
-    ndarray::Array<double, 1, 1> measureErrors = ndarray::allocate(xArr.getShape()[0]);
+    ndarray::Array<float, 1, 1> measureErrors = ndarray::allocate(xArr.getShape()[0]);
     for (size_t pos=0; pos<xArr.getShape()[0]; ++pos)
       measureErrors[pos] = sqrt(fabs(yArr[pos]));
-    PTR(ndarray::Array<double, 1, 1>) pMeasureErrors(new ndarray::Array<double, 1, 1>(measureErrors));
+    PTR(ndarray::Array<float, 1, 1>) pMeasureErrors(new ndarray::Array<float, 1, 1>(measureErrors));
     args[4] = &pMeasureErrors;
-    ndarray::Array<double, 1, 1> yFitCheck = ndarray::allocate(xArr.getShape()[0]);
-    PTR(ndarray::Array<double, 1, 1>) pYFitCheck(new ndarray::Array<double, 1, 1>(yFitCheck));
+    ndarray::Array<float, 1, 1> yFitCheck = ndarray::allocate(xArr.getShape()[0]);
+    PTR(ndarray::Array<float, 1, 1>) pYFitCheck(new ndarray::Array<float, 1, 1>(yFitCheck));
     keyWords[5] = std::string("YFIT");
     args[5] = &pYFitCheck;
     #ifdef __DEBUG_POLYFIT__
@@ -362,10 +362,7 @@ namespace pfs { namespace drp { namespace stella { namespace utils{
   }
 
   template ndarray::Array<float, 1, 1> get1DndArray(float);
-  template ndarray::Array<double, 1, 1> get1DndArray(double);
   template ndarray::Array<float, 2, 1> get2DndArray(float, float);
-  template ndarray::Array<double, 2, 1> get2DndArray(double, double);
-  template ndarray::Array<double, 1, 1> typeCastNdArray(ndarray::Array<float const, 1, 1> const&, double const&);
-  template ndarray::Array<float, 1, 1> typeCastNdArray(ndarray::Array<double const, 1, 1> const&, float const&);
+  template ndarray::Array<float, 1, 1> typeCastNdArray(ndarray::Array<float const, 1, 1> const&, float const&);
 }
 }}}

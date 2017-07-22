@@ -28,10 +28,10 @@ namespace pfs { namespace drp { namespace stella { namespace math {
    *
    * \returns the approximate Chebyshev coefficients (n + 1 values)
    */
-    ndarray::Array<double, 1, 1> t_project_coefficients_data(ndarray::Array<double, 1, 1> const& x, 
-                                                             ndarray::Array<double, 1, 1> const& d, 
-                                                             double a, 
-                                                             double b, 
-                                                             int n);                
+    ndarray::Array<float, 1, 1> t_project_coefficients_data(ndarray::Array<float, 1, 1> const& x, 
+                                                            ndarray::Array<float, 1, 1> const& d, 
+                                                            float a, 
+                                                            float b, 
+                                                            int n);                
 }}}}
 #endif

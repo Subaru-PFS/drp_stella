@@ -13,7 +13,7 @@ ndarray::Array<size_t, 2, 1> calcMinCenMax( ndarray::Array<T, 1, 1> const& xCent
                                             int const nPixCutLeft_In,
                                             int const nPixCutRight_In )
 {
-  ndarray::Array<double, 1, 1> tempCenter = ndarray::allocate(xCenters_In.getShape()[0]);
+  ndarray::Array<float, 1, 1> tempCenter = ndarray::allocate(xCenters_In.getShape()[0]);
   tempCenter.deep() = xCenters_In + 0.5;
 
   ndarray::Array<size_t, 1, 1> floor = pfs::drp::stella::math::floor(tempCenter,
@@ -26,17 +26,17 @@ ndarray::Array<size_t, 2, 1> calcMinCenMax( ndarray::Array<T, 1, 1> const& xCent
 #ifdef __DEBUG_MINCENMAX__
   cout << "calcMinCenMax: minCenMax_Out(*,1) = " << minCenMax_Out[ndarray::view()(1)] << endl;
 #endif
-  ndarray::Array<double, 1, 1> D_A1_Temp = ndarray::allocate(xCenters_In.getShape()[0]);
+  ndarray::Array<float, 1, 1> D_A1_Temp = ndarray::allocate(xCenters_In.getShape()[0]);
   D_A1_Temp.deep() = tempCenter + xLow_In;
 
-  minCenMax_Out[ndarray::view()(0)] = pfs::drp::stella::math::floor(ndarray::Array<double const, 1, 1>(D_A1_Temp), size_t(0));
+  minCenMax_Out[ndarray::view()(0)] = pfs::drp::stella::math::floor(ndarray::Array<float const, 1, 1>(D_A1_Temp), size_t(0));
 
 #ifdef __DEBUG_MINCENMAX__
   cout << "calcMinCenMax: minCenMax_Out(*,0) = " << minCenMax_Out[ndarray::view()(0)] << endl;
 #endif
   D_A1_Temp.deep() = tempCenter + xHigh_In;
 
-  minCenMax_Out[ndarray::view()(2)] = pfs::drp::stella::math::floor(ndarray::Array<double const, 1, 1>(D_A1_Temp), size_t(0));
+  minCenMax_Out[ndarray::view()(2)] = pfs::drp::stella::math::floor(ndarray::Array<float const, 1, 1>(D_A1_Temp), size_t(0));
 
 #ifdef __DEBUG_MINCENMAX__
   cout << "calcMinCenMax: minCenMax_Out(*,2) = " << minCenMax_Out[ndarray::view()(2)] << endl;
@@ -96,7 +96,7 @@ int lastIndexWithZeroValueBefore( ndarray::Array<T, 1, 1> const& vec_In, const i
     return -1;
   int pos = startPos_In;
   for ( auto i = vec_In.begin() + startPos_In; i != vec_In.begin(); --i ) {
-    if ( std::fabs(double(*i)) < 0.00000000000000001 )
+    if ( std::fabs(float(*i)) < 0.00000000000000001 )
       return pos;
     --pos;
   }
@@ -576,7 +576,7 @@ int isMonotonic( ndarray::Array< T, 1, 1 > const& arrIn )
   int I_M = 0;
   if ( arrIn.getShape()[ 0 ] < 2 )
     return I_M;
-  double D_DA = arrIn[ 1 ] - arrIn[ 0 ];
+  float D_DA = arrIn[ 1 ] - arrIn[ 0 ];
   if ( D_DA < 0 )
     I_M = -1;
   else if ( D_DA > 0 )
@@ -604,7 +604,7 @@ T calcRMS( ndarray::Array< T, 1, 1 > const& arrIn )
 {
   T rms = 0;
   for ( auto itArr = arrIn.begin(); itArr != arrIn.end(); ++itArr )
-    rms += T(pow(double( *itArr), 2.));
+    rms += T(pow(float( *itArr), 2.));
   rms = rms / arrIn.getShape()[ 0 ];
   return sqrt(rms);
 }
@@ -647,10 +647,10 @@ CrossCorrelateResult crossCorrelate( ndarray::Array<T, 1, 1> const& DA1_Static,
   cout << "crossCorrelate: I_NPixMove = " << I_NPixMove << endl;
 #endif
 
-  ndarray::Array< double, 1, 1 > DA1_StaticTemp;
-  ndarray::Array< double, 1, 1 > DA1_MovingTemp;
-  ndarray::Array< double, 1, 1 > DA1_Diff;
-  ndarray::Array< double, 1, 1 > DA1_ChiSquare = ndarray::allocate(I_NPixMove);
+  ndarray::Array< float, 1, 1 > DA1_StaticTemp;
+  ndarray::Array< float, 1, 1 > DA1_MovingTemp;
+  ndarray::Array< float, 1, 1 > DA1_Diff;
+  ndarray::Array< float, 1, 1 > DA1_ChiSquare = ndarray::allocate(I_NPixMove);
   ndarray::Array< int, 1, 1 > IA1_NPix = ndarray::allocate(I_NPixMove);
 
   for ( int i = I_Pix; i <= nPixMaxRight; i++ ) {
@@ -699,7 +699,7 @@ CrossCorrelateResult crossCorrelate( ndarray::Array<T, 1, 1> const& DA1_Static,
 #endif
 
     /// Calculate sum of squares of differences
-    DA1_ChiSquare[ run ] = std::accumulate(DA1_Diff.begin(), DA1_Diff.end(), 0.) / double( DA1_Diff.getShape()[ 0 ]);
+    DA1_ChiSquare[ run ] = std::accumulate(DA1_Diff.begin(), DA1_Diff.end(), 0.) / float( DA1_Diff.getShape()[ 0 ]);
 #ifdef __DEBUG_CROSSCORRELATE__
     cout << "crossCorrelate: DA1_ChiSquare(run = " << run << ") = " << DA1_ChiSquare[run] << endl;
 #endif
@@ -717,7 +717,7 @@ CrossCorrelateResult crossCorrelate( ndarray::Array<T, 1, 1> const& DA1_Static,
   cout << "crossCorrelate: DA1_ChiSquare(minInd) = " << DA1_ChiSquare[ minInd ] << endl;
 #endif
   if ( (minInd < 2) || (minInd > (DA1_ChiSquare.getShape()[ 0 ] - 3)) ) {
-    crossCorrelateResult.pixShift = double( minInd) - double( nPixMaxLeft);
+    crossCorrelateResult.pixShift = float( minInd) - float( nPixMaxLeft);
     crossCorrelateResult.chiSquare = DA1_ChiSquare[ minInd ];
 #ifdef __DEBUG_CROSSCORRELATE__
     cout << "crossCorrelate: minInd = " << minInd << " < 2 || > " << DA1_ChiSquare.getShape()[0] - 3 << endl;
@@ -732,23 +732,23 @@ CrossCorrelateResult crossCorrelate( ndarray::Array<T, 1, 1> const& DA1_Static,
   int I_End = minInd + 2;
   if ( I_End >= DA1_ChiSquare.getShape()[ 0 ] )
     I_End = DA1_ChiSquare.getShape()[ 0 ];
-  ndarray::Array< double, 1, 1 > P_D_A1_X = indGenNdArr(double( DA1_ChiSquare.getShape()[ 0 ]));
-  ndarray::Array< double, 1, 1 > D_A1_X = ndarray::allocate(I_End - I_Start);
+  ndarray::Array< float, 1, 1 > P_D_A1_X = indGenNdArr(float( DA1_ChiSquare.getShape()[ 0 ]));
+  ndarray::Array< float, 1, 1 > D_A1_X = ndarray::allocate(I_End - I_Start);
   D_A1_X = P_D_A1_X[ ndarray::view(I_Start, I_End) ];
-  ndarray::Array< double, 1, 1 > D_A1_ChiSqu = ndarray::allocate(I_End - I_Start);
+  ndarray::Array< float, 1, 1 > D_A1_ChiSqu = ndarray::allocate(I_End - I_Start);
   D_A1_ChiSqu = DA1_ChiSquare[ ndarray::view(I_Start, I_End) ];
-  ndarray::Array< double, 1, 1 > P_D_A1_MeasureErrors = replicate(1., D_A1_ChiSqu.size());
-  ndarray::Array< double, 1, 1 > D_A1_Guess = ndarray::allocate(4);
+  ndarray::Array< float, 1, 1 > P_D_A1_MeasureErrors = replicate<float>(1., D_A1_ChiSqu.size());
+  ndarray::Array< float, 1, 1 > D_A1_Guess = ndarray::allocate(4);
   D_A1_Guess[ 3 ] = max(DA1_ChiSquare); //background
   D_A1_Guess[ 0 ] = 0. - (max(DA1_ChiSquare) - DA1_ChiSquare[ minInd ]); ///peak
-  D_A1_Guess[ 1 ] = double( minInd); ///pos
+  D_A1_Guess[ 1 ] = float( minInd); ///pos
   D_A1_Guess[ 2 ] = 2.; ///sigma
 #ifdef __DEBUG_CROSSCORRELATE__
   cout << "crossCorrelate: D_A1_Guess = " << D_A1_Guess << endl;
 #endif
   ndarray::Array< int, 2, 1 > I_A2_Limited = ndarray::allocate(ndarray::makeVector(4, 2));
   I_A2_Limited.deep() = 1;
-  ndarray::Array< double, 2, 1 > D_A2_Limits = ndarray::allocate(ndarray::makeVector(4, 2));
+  ndarray::Array< float, 2, 1 > D_A2_Limits = ndarray::allocate(ndarray::makeVector(4, 2));
   D_A2_Limits[ ndarray::makeVector(3, 0) ] = D_A1_Guess[ 3 ] / 2.;
   D_A2_Limits[ ndarray::makeVector(3, 1) ] = D_A1_Guess[ 3 ] * 1.1;
 #ifdef __DEBUG_CROSSCORRELATE__
@@ -770,8 +770,8 @@ CrossCorrelateResult crossCorrelate( ndarray::Array<T, 1, 1> const& DA1_Static,
 #ifdef __DEBUG_CROSSCORRELATE__
   cout << "crossCorrelate: minInd = " << minInd << endl;
 #endif
-  D_A2_Limits[ ndarray::makeVector(1, 0) ] = double( minInd - 1);
-  D_A2_Limits[ ndarray::makeVector(1, 1) ] = double( minInd + 1);
+  D_A2_Limits[ ndarray::makeVector(1, 0) ] = float( minInd - 1);
+  D_A2_Limits[ ndarray::makeVector(1, 1) ] = float( minInd + 1);
 #ifdef __DEBUG_CROSSCORRELATE__
   cout << "crossCorrelate: D_A2_Limits[1,:] = " << D_A2_Limits[ndarray::view(1)()] << endl;
 #endif
@@ -789,9 +789,9 @@ CrossCorrelateResult crossCorrelate( ndarray::Array<T, 1, 1> const& DA1_Static,
     cout << "crossCorrelate: ERROR: D_A2_Limits(2,1) < D_A2_Limits(2,0)" << endl;
     exit(EXIT_FAILURE);
   }
-  ndarray::Array< double, 1, 1 > D_A1_GaussCoeffs = ndarray::allocate(4);
+  ndarray::Array< float, 1, 1 > D_A1_GaussCoeffs = ndarray::allocate(4);
   D_A1_GaussCoeffs.deep() = 0.;
-  ndarray::Array< double, 1, 1 > D_A1_EGaussCoeffs = ndarray::allocate(4);
+  ndarray::Array< float, 1, 1 > D_A1_EGaussCoeffs = ndarray::allocate(4);
   D_A1_EGaussCoeffs.deep() = 0.;
   if ( !MPFitGaussLim(D_A1_X,
                       D_A1_ChiSqu,
@@ -813,7 +813,7 @@ CrossCorrelateResult crossCorrelate( ndarray::Array<T, 1, 1> const& DA1_Static,
   cout << "crossCorrelate: D_A1_GaussCoeffs = " << D_A1_GaussCoeffs << endl;
   cout << "crossCorrelate: nPixMaxLeft = " << nPixMaxLeft << endl;
 #endif
-  crossCorrelateResult.pixShift = D_A1_GaussCoeffs[ 1 ] - double( nPixMaxLeft);
+  crossCorrelateResult.pixShift = D_A1_GaussCoeffs[ 1 ] - float( nPixMaxLeft);
   crossCorrelateResult.chiSquare = DA1_ChiSquare[ minInd ]; //D_A1_GaussCoeffs[ 0 ] + D_A1_GaussCoeffs[ 3 ];
 #ifdef __DEBUG_CROSSCORRELATE__
   cout << "crossCorrelate: crossCorrelateResult.pixShift = " << crossCorrelateResult.pixShift << endl;
@@ -929,7 +929,7 @@ T lsToFit( ndarray::Array< T, 1, 1 > const& XXVecArr,
   cout << "CFits::LsToFit: p_CVecArr set to " << p_CVecArr << endl;
 #endif
 
-  double XM0 = XM - XXVecArr[0];
+  float XM0 = XM - XXVecArr[0];
 #ifdef __DEBUG_FITS_LSTOFIT__
   cout << "CFits::LsToFit: XM0 set to " << XM0 << endl;
 #endif
@@ -1016,7 +1016,7 @@ ndarray::Array< T, 1, 1 > hInterPol( ndarray::Array< T, 1, 1 > const& VVecArr,
   u[i] is between x[s[i]] and x[s[i]+1].
    **/
   int s0int;
-  double s0;
+  float s0;
   /// Least square fit quadratic, 4 points
   if ( pfs::drp::stella::utils::KeyWord_Set(CS_A1_In, std::string("LSQUADRATIC")) >= 0 ) {
 #ifdef __DEBUG_INTERPOL__
@@ -1037,7 +1037,7 @@ ndarray::Array< T, 1, 1 > hInterPol( ndarray::Array< T, 1, 1 > const& VVecArr,
 #endif
     PVecArr.deep() = VVecArr[ 0 ]; /// Result
     for ( int m = 0; m < SVecArr.getShape()[ 0 ]; m++ ) {
-      s0 = double( SVecArr[ m ]) - 1.;
+      s0 = float( SVecArr[ m ]) - 1.;
       s0int = ( int ) s0;
       TmpVecArr.deep() = TmpVecArr + s0;
       T1VecArr.deep() = XVecArr[ ndarray::view(s0int, s0int + 4) ];
@@ -1371,7 +1371,7 @@ ndarray::Array< T, 1, 1 > splineI( ndarray::Array< T, 1, 1 > const& XVecArr,
                                    T const YPN )
 {
   int m, o, N = XVecArr.getShape()[ 0 ];
-  double p, qn, sig, un;
+  float p, qn, sig, un;
   ndarray::Array< T, 1, 1 > UVecArr = ndarray::allocate(N - 1);
   ndarray::Array< T, 1, 1 > Y2VecArr = ndarray::allocate(N);
 
@@ -1428,7 +1428,7 @@ T splInt( ndarray::Array< T, 1, 1 > const& XAVecArr,
           T X )
 {
   int klo, khi, o, N;
-  double h, b, a;
+  float h, b, a;
   T Y;
 
   N = XAVecArr.getShape()[ 0 ];
@@ -1498,7 +1498,7 @@ ndarray::Array< T, 1, 1 > interPol( ndarray::Array< T, 1, 1 > const& VVecArr,
     ndarray::Array< size_t, 1, 1 > P_I_A1_Ind;
     int I_Start = 0;
     int I_NInd = 0;
-    double D_Start, D_End;
+    float D_Start, D_End;
     for ( int i_pix = 0; i_pix < UVecArr.getShape()[ 0 ]; ++i_pix ) {
       if ( i_pix == 0 ) {
         D_A1_U[ 0 ] = UVecArr[ 0 ] - ((UVecArr[ 1 ] - UVecArr[ 0 ]) / 2.);
@@ -1736,13 +1736,13 @@ StretchAndCrossCorrelateResult< T > stretchAndCrossCorrelate( ndarray::Array< T,
   ndarray::Array< T, 1, 1 > specRefTemp;
   ndarray::Array< T, 1, 1 > refY;
   ndarray::Array< T, 1, 1 > refXStretched;
-  ndarray::Array< double, 1, 1 > xCorChiSq = ndarray::allocate(nStretches);
+  ndarray::Array< float, 1, 1 > xCorChiSq = ndarray::allocate(nStretches);
   ndarray::Array< int, 1, 1 > refStretchLength = ndarray::allocate(nStretches);
-  ndarray::Array< double, 1, 1 > pixShift = ndarray::allocate(nStretches);
+  ndarray::Array< float, 1, 1 > pixShift = ndarray::allocate(nStretches);
   refStretchLength.deep() = 0;
   xCorChiSq.deep() = 0.;
   refStretchLength[ 0 ] = stretchMinLength;
-  double D_Temp = 0.;
+  float D_Temp = 0.;
   for ( int i_stretch = 0; i_stretch < nStretches; i_stretch++ ) {
     refXStretched = ndarray::allocate(refStretchLength[ i_stretch ]);
     refXStretched[ 0 ] = refX[ 0 ];
@@ -1805,7 +1805,7 @@ StretchAndCrossCorrelateResult< T > stretchAndCrossCorrelate( ndarray::Array< T,
     cout << "stretchAndCrossCorrelate: i_stretch = " << i_stretch << ": refStretchLength = " << refStretchLength[i_stretch] << ": xCorChiSq[i_stretch] = " << xCorChiSq[i_stretch] << endl;
 #endif
     if ( i_stretch < nStretches - 1 ) {
-      D_Temp = double( stretchMaxLength - stretchMinLength) / double( nStretches);
+      D_Temp = float( stretchMaxLength - stretchMinLength) / float( nStretches);
       refStretchLength[ i_stretch + 1 ] = refStretchLength[ i_stretch ] + int(D_Temp);
 #ifdef __DEBUG_STRETCHANDCROSSCORRELATE__
       cout << "stretchAndCrossCorrelate: i_stretch = " << i_stretch << ": stretchMaxLength(=" << stretchMaxLength << ") - stretchMinLength(=" << stretchMinLength << ") / nStretches(=" << nStretches << ") = " << D_Temp << ", int(D_Temp) = " << int(D_Temp) << endl;
@@ -1820,7 +1820,7 @@ StretchAndCrossCorrelateResult< T > stretchAndCrossCorrelate( ndarray::Array< T,
   cout << "stretchAndCrossCorrelate: pixShift = " << pixShift << endl;
 #endif
 
-  double minXCorChiSq = max(xCorChiSq);
+  float minXCorChiSq = max(xCorChiSq);
   int minXCorChiSqPos = 0;
   for ( int i_stretch = 0; i_stretch < nStretches; i_stretch++ ) {
 #ifdef __DEBUG_STRETCHANDCROSSCORRELATE__
@@ -1836,8 +1836,8 @@ StretchAndCrossCorrelateResult< T > stretchAndCrossCorrelate( ndarray::Array< T,
 #ifdef __DEBUG_STRETCHANDCROSSCORRELATE__
   cout << "stretchAndCrossCorrelate: minXCorChiSqPos = " << minXCorChiSqPos << endl;
 #endif
-  double shift_Out = pixShift[ minXCorChiSqPos ];
-  double stretch_Out = double( refStretchLength[ minXCorChiSqPos ]);
+  float shift_Out = pixShift[ minXCorChiSqPos ];
+  float stretch_Out = float( refStretchLength[ minXCorChiSqPos ]);
 #ifdef __DEBUG_STRETCHANDCROSSCORRELATE__
   cout << "stretchAndCrossCorrelate: pixShift = " << pixShift << endl;
   cout << "stretchAndCrossCorrelate: refStretchLength = " << refStretchLength << endl;
@@ -1884,7 +1884,7 @@ StretchAndCrossCorrelateResult< T > stretchAndCrossCorrelate( ndarray::Array< T,
 }
 
 template< typename T >
-double median( ndarray::Array< T, 1, 1 > const& arr )
+float median( ndarray::Array< T, 1, 1 > const& arr )
 {
   if ( arr.getShape()[ 0 ] == 0 ) {
     cout << "math::median: ERROR: arr is empty" << endl;
@@ -1894,7 +1894,7 @@ double median( ndarray::Array< T, 1, 1 > const& arr )
   arrCopy.deep() = arr;
   auto n = arrCopy.getShape()[ 0 ] / 2;
   nth_element(arrCopy.begin(), arrCopy.begin() + n, arrCopy.end());
-  double med = double( arrCopy[ n ]);
+  float med = float( arrCopy[ n ]);
   if ( !(n & 1) ) { //If n is even
     auto max_it = max_element(arrCopy.begin(), arrCopy.begin() + n);
     med = (*max_it + med) / 2;
@@ -1938,63 +1938,45 @@ int find( ndarray::Array< T, 1, 1 > const& arrToSearch,
 {
   int pos = 0;
   for ( auto it = arrToSearch.begin(); it != arrToSearch.end(); ++it, ++pos ) {
-    if ( std::fabs(double(*it) - double(val)) < 0.000000000001 )
+    if ( std::fabs(float(*it) - float(val)) < 0.000000000001 )
       return pos;
   }
   return -1;
 }
 
 template int find( ndarray::Array< size_t, 1, 1 > const&, size_t );
-template ndarray::Array< float, 1, 1 > stretch( ndarray::Array< float, 1, 1 > const&, int );
-template ndarray::Array< double, 1, 1 > stretch( ndarray::Array< double, 1, 1 > const&, int );
-template double median( ndarray::Array< double, 1, 1 > const& );
+template ndarray::Array<float, 1, 1> stretch(ndarray::Array< float, 1, 1 > const&, int);
+template float median(ndarray::Array<float, 1, 1 > const &);
 
-template StretchAndCrossCorrelateResult< float > stretchAndCrossCorrelate( ndarray::Array< float, 1, 1 > const&,
-                                                                           ndarray::Array< float, 1, 1 > const&,
-                                                                           int const,
-                                                                           int const,
-                                                                           int const,
-                                                                           int const );
-template StretchAndCrossCorrelateResult< double > stretchAndCrossCorrelate( ndarray::Array< double, 1, 1 > const&,
-                                                                            ndarray::Array< double, 1, 1 > const&,
-                                                                            int const,
-                                                                            int const,
-                                                                            int const,
-                                                                            int const );
-template ndarray::Array< double, 1, 1 > interPol( ndarray::Array< double, 1, 1 > const&,
-                                                  ndarray::Array< double, 1, 1 > const&,
-                                                  ndarray::Array< double, 1, 1 > const& );
-template ndarray::Array< double, 1, 1 > interPol( ndarray::Array< double, 1, 1 > const&,
-                                                  ndarray::Array< double, 1, 1 > const&,
-                                                  ndarray::Array< double, 1, 1 > const&,
-                                                  bool );
-template ndarray::Array< float, 1, 1 > interPol( ndarray::Array< float, 1, 1 > const&,
-                                                 ndarray::Array< float, 1, 1 > const&,
-                                                 ndarray::Array< float, 1, 0 > const&,
-                                                 std::vector< std::string > const& );
-template ndarray::Array< double, 1, 1 > interPol( ndarray::Array< double, 1, 1 > const&,
-                                                  ndarray::Array< double, 1, 1 > const&,
-                                                  ndarray::Array< double, 1, 0 > const&,
-                                                  std::vector< std::string > const& );
-template ndarray::Array< int, 1, 1 > valueLocate( ndarray::Array< double, 1, 1 > const&,
-                                                  ndarray::Array< double, 1, 1 > const& );
-template ndarray::Array< double, 1, 1 > hInterPol( ndarray::Array< double, 1, 1 > const&,
-                                                   ndarray::Array< double, 1, 1 > const&,
-                                                   ndarray::Array< int, 1, 1 > &,
-                                                   ndarray::Array< double, 1, 0 > const&,
-                                                   std::vector< std::string > const& );
-template ndarray::Array< float, 1, 1 > splineI( ndarray::Array< float, 1, 1 > const&,
-                                                ndarray::Array< float, 1, 1 > const& );
-template ndarray::Array< double, 1, 1 > splineI( ndarray::Array< double, 1, 1 > const&,
-                                                 ndarray::Array< double, 1, 1 > const& );
-template ndarray::Array< short int, 1, 1 > where( ndarray::Array< double, 1, 0 > const&,
+template StretchAndCrossCorrelateResult<float> stretchAndCrossCorrelate(ndarray::Array< float, 1, 1 > const&,
+                                                                          ndarray::Array< float, 1, 1 > const&,
+                                                                          int const,
+                                                                          int const,
+                                                                          int const,
+                                                                          int const);
+template ndarray::Array<float, 1, 1> interPol(ndarray::Array< float, 1, 1 > const&,
+                                              ndarray::Array< float, 1, 1 > const&,
+                                              ndarray::Array< float, 1, 1 > const&);
+template ndarray::Array<float, 1, 1> interPol(ndarray::Array< float, 1, 1 > const&,
+                                              ndarray::Array< float, 1, 1 > const&,
+                                              ndarray::Array< float, 1, 1 > const&,
+                                              bool);
+template ndarray::Array<float, 1, 1> interPol(ndarray::Array< float, 1, 1 > const&,
+                                              ndarray::Array< float, 1, 1 > const&,
+                                              ndarray::Array< float, 1, 0 > const&,
+                                              std::vector< std::string > const&);
+template ndarray::Array<int, 1, 1> valueLocate(ndarray::Array< float, 1, 1 > const&,
+                                               ndarray::Array< float, 1, 1 > const& );
+template ndarray::Array<float, 1, 1> splineI( ndarray::Array< float, 1, 1 > const&,
+                                              ndarray::Array< float, 1, 1 > const& );
+template ndarray::Array< short int, 1, 1 > where( ndarray::Array< float, 1, 0 > const&,
                                                   std::string const&,
-                                                  double const,
+                                                  float const,
                                                   short int const,
                                                   short int const );
-template ndarray::Array< int, 1, 1 > where( ndarray::Array< double, 1, 1 > const&,
+template ndarray::Array< int, 1, 1 > where( ndarray::Array< float, 1, 1 > const&,
                                             std::string const&,
-                                            double const,
+                                            float const,
                                             int const,
                                             int const );
 template ndarray::Array< int, 2, 1 > where( ndarray::Array< size_t, 2, 1 > const&,
@@ -2007,9 +1989,9 @@ template ndarray::Array< int, 2, 1 > where( ndarray::Array< int, 2, 1 > const&,
                                             int const,
                                             int const,
                                             int const );
-template ndarray::Array< int, 2, 1 > where( ndarray::Array< double, 2, 1 > const&,
+template ndarray::Array< int, 2, 1 > where( ndarray::Array< float, 2, 1 > const&,
                                             std::string const&,
-                                            double const,
+                                            float const,
                                             int const,
                                             int const );
 template ndarray::Array< int, 1, 1 > where( ndarray::Array< int, 1, 1 > const&,
@@ -2022,47 +2004,40 @@ template ndarray::Array< float, 2, 1 > where( ndarray::Array< float, 2, 1 > cons
                                               float const,
                                               float const,
                                               ndarray::Array< float, 2, 1 > const& );
-template CrossCorrelateResult crossCorrelate( ndarray::Array< double, 1, 1 > const&,
-                                              ndarray::Array< double, 1, 1 > const&,
+template CrossCorrelateResult crossCorrelate( ndarray::Array< float, 1, 1 > const&,
+                                              ndarray::Array< float, 1, 1 > const&,
                                               int const,
                                               int const );
-template double calcRMS( ndarray::Array< double, 1, 1 > const& );
+template float calcRMS( ndarray::Array< float, 1, 1 > const& );
 template int isMonotonic( ndarray::Array< float, 1, 1 > const& );
-template void insertSorted( std::vector< dataXY< double > > &, dataXY< double > & );
+template void insertSorted( std::vector< dataXY< float > > &, dataXY< float > & );
 template ndarray::Array< unsigned long const, 1, 1> vectorToNdArray( std::vector<unsigned long> const&, bool );
 template ndarray::Array<float, 1, 1> vectorToNdArray( std::vector<float> &, bool );
 template ndarray::Array<unsigned long, 1, 1> vectorToNdArray( std::vector<unsigned long> &, bool );
-template bool checkIfValuesAreInRange( ndarray::Array<double, 1, 1> const&, ndarray::Array<double, 1, 1> const& range );
+template bool checkIfValuesAreInRange( ndarray::Array<float, 1, 1> const&, ndarray::Array<float, 1, 1> const& range );
 template ndarray::Array<float, 1, 1> convertRangeToUnity( ndarray::Array<float, 1, 1> const&, ndarray::Array<float, 1, 1> const& );
-template ndarray::Array<float, 1, 1> convertRangeToUnity( ndarray::Array<float, 1, 1> const&, ndarray::Array<double, 1, 1> const& );
-template ndarray::Array<double, 1, 1> convertRangeToUnity( ndarray::Array<double, 1, 1> const&, ndarray::Array<double, 1, 1> const& );
+template ndarray::Array<double, 1, 1> pfs::drp::stella::math::convertRangeToUnity(ndarray::Array<double, 1, 1> const&, ndarray::Array<double, 1, 1> const&);
+template ndarray::Array<float, 1, 1> pfs::drp::stella::math::convertRangeToUnity(ndarray::Array<float, 1, 1> const&, ndarray::Array<double, 1, 1> const&);
 template bool resize( ndarray::Array< float, 1, 1 > &, size_t );
-template bool resize( ndarray::Array< double, 1, 1 > &, size_t );
 template bool resize( ndarray::Array< float, 2, 1 > &, size_t, size_t );
-template bool resize( ndarray::Array< double, 2, 1 > &, size_t, size_t );
-template ndarray::Array<double, 1, 1> getSubArray( ndarray::Array<double, 1, 1> const&, ndarray::Array<size_t, 1, 1> const& );
-template ndarray::Array<double, 1, 1> getSubArray( ndarray::Array<double, 2, 1> const&, ndarray::Array<size_t, 2, 1> const& );
-template ndarray::Array<double, 1, 1> getSubArray( ndarray::Array<double, 2, 1> const&, std::vector< std::pair<size_t, size_t> > const& );
+template ndarray::Array<float, 1, 1> getSubArray( ndarray::Array<float, 1, 1> const&, ndarray::Array<size_t, 1, 1> const& );
+template ndarray::Array<float, 1, 1> getSubArray( ndarray::Array<float, 2, 1> const&, ndarray::Array<size_t, 2, 1> const& );
+template ndarray::Array<float, 1, 1> getSubArray( ndarray::Array<float, 2, 1> const&, std::vector< std::pair<size_t, size_t> > const& );
 template std::vector<size_t> getIndices( std::vector<int> const& );
 template ndarray::Array< size_t, 1, 1 > getIndices( ndarray::Array< int, 1, 1 > const& );
 template ndarray::Array< size_t, 2, 1 > getIndices( ndarray::Array< int, 2, 1 > const& );
 template ndarray::Array<size_t, 1, 1> getIndicesInValueRange( ndarray::Array<float, 1, 0> const&, float const, float const );
-template ndarray::Array<size_t, 1, 1> getIndicesInValueRange( ndarray::Array<double, 1, 0> const&, double const, double const );
 template ndarray::Array<size_t, 1, 1> getIndicesInValueRange( ndarray::Array<float, 1, 1> const&, float const, float const );
-template ndarray::Array<size_t, 1, 1> getIndicesInValueRange( ndarray::Array<double, 1, 1> const&, double const, double const );
 template ndarray::Array<size_t, 2, 1> getIndicesInValueRange( ndarray::Array<size_t, 2, 1> const&, size_t const, size_t const );
 template ndarray::Array<size_t, 2, 1> getIndicesInValueRange( ndarray::Array<float, 2, 1> const&, float const, float const );
-template ndarray::Array<size_t, 2, 1> getIndicesInValueRange( ndarray::Array<double, 2, 1> const&, double const, double const );
-template ndarray::Array<double, 1, 1> replicate( double const val, int const size );
-template ndarray::Array<double, 1, 1> indGenNdArr( double const );
-template float min( ndarray::Array<float, 1, 1> const& );
+template ndarray::Array<float, 1, 1> replicate( float const val, int const size );
+template ndarray::Array<float, 1, 1> indGenNdArr( float const );
 template double min( ndarray::Array<double, 1, 1> const& );
-template float max( ndarray::Array<float, 1, 1> const& );
+template float min( ndarray::Array<float, 1, 1> const& );
 template double max( ndarray::Array<double, 1, 1> const& );
+template float max( ndarray::Array<float, 1, 1> const& );
 template ndarray::Array<size_t, 1, 1> floor( const ndarray::Array<const float, 1, 1>&, const size_t );
 template ndarray::Array<size_t, 1, 1> floor( const ndarray::Array<float, 1, 1>&, const size_t );
-template ndarray::Array<size_t, 1, 1> floor( const ndarray::Array<double, 1, 1>&, const size_t );
-template ndarray::Array<size_t, 1, 1> floor( const ndarray::Array<const double, 1, 1>&, const size_t );
 template int firstIndexWithZeroValueFrom( ndarray::Array<int, 1, 1> const& vec_In,
                                           const int startPos_In );
 template int firstIndexWithValueGEFrom( ndarray::Array<int, 1, 1> const& vecIn,
@@ -2073,7 +2048,6 @@ template int lastIndexWithZeroValueBefore( ndarray::Array<int, 1, 1> const& vec_
 template ndarray::Array<float, 1, 1> moment( const ndarray::Array<float, 1, 1> &D_A1_Arr_In, int I_MaxMoment_In );
 template ndarray::Array<double, 1, 1> moment( const ndarray::Array<double, 1, 1> &D_A1_Arr_In, int I_MaxMoment_In );
 template std::vector<int> sortIndices( const std::vector<float> &vec_In );
-template ndarray::Array<size_t, 2, 1> calcMinCenMax( ndarray::Array<float, 1, 1> const&, double const, double const, int const, int const );
 template ndarray::Array<size_t, 2, 1> calcMinCenMax( ndarray::Array<float, 1, 1> const&, float const, float const, int const, int const );
 }/// end namespace math
 }
@@ -2090,4 +2064,4 @@ std::ostream& operator<<(std::ostream& os, std::vector<T> const& obj)
   return os;
 }
 
-template std::ostream& operator<<(std::ostream&, std::vector<double> const& );
+template std::ostream& operator<<(std::ostream&, std::vector<float> const& );

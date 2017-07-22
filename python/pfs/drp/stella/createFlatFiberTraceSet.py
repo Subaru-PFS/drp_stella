@@ -18,7 +18,7 @@ def createFlatFiberTraceSet(filename):
     print("mif created")
 
     # Trace fibers
-    msi = drpStella.MaskedSpectrographImageF(mif)
+    msi = drpStella.MaskedSpectrographImage(mif)
     print("msi created")
 
     msi.findAndTraceApertures(ftffc, 0, mif.getHeight(), 10)

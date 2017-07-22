@@ -30,7 +30,7 @@ class ExtractSpectraTask(Task):
         self.log.debug("inTraceNumbers = %s" % inTraceNumbers)
         self.log.debug("traceNumbers = %s" % traceNumbers)
 
-        spectrumSet = drpStella.SpectrumSetF()
+        spectrumSet = drpStella.SpectrumSet()
 
         if inExposure != None:
             inMaskedImage = inExposure.getMaskedImage()

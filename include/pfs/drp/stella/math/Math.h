@@ -247,8 +247,8 @@ namespace pfs { namespace drp { namespace stella {
     template< typename T >
     T calcRMS( ndarray::Array< T, 1, 1 > const& arrIn );
     struct CrossCorrelateResult{
-        double pixShift;
-        double chiSquare;
+        float pixShift;
+        float chiSquare;
     };
     
     /**
@@ -438,8 +438,8 @@ namespace pfs { namespace drp { namespace stella {
       ;       determined by interpolating the input vector by the
       ;       specified method.
       ;
-      ;       If the input vector is double or complex, the result is
-      ;       double or complex.
+      ;       If the input vector is float or complex, the result is
+      ;       float or complex.
       ;
       ; COMMON BLOCKS:
       ;       None.
@@ -493,8 +493,8 @@ namespace pfs { namespace drp { namespace stella {
 
     template< typename T >
     struct StretchAndCrossCorrelateResult{
-        double stretch;
-        double shift;
+        float stretch;
+        float shift;
         ndarray::Array< T, 2, 1 > specStretchedMinChiSq;
     };
     
@@ -507,7 +507,7 @@ namespace pfs { namespace drp { namespace stella {
                                                                   int const nStretches );
     
     template< typename T > 
-    double median( ndarray::Array< T, 1, 1 > const& vec );
+    float median( ndarray::Array< T, 1, 1 > const& vec );
     
     template< typename T >
     ndarray::Array< T, 1, 1 > stretch( ndarray::Array< T, 1, 1 > const& spec,

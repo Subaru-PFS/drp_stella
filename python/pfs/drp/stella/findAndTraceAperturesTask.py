@@ -100,7 +100,7 @@ class FindAndTraceAperturesTask(Task):
 
         #Create a FiberTraceSet given a flat-field exposure
         inMaskedImage = inExposure.getMaskedImage()
-        fiberTraceSet = drpStella.findAndTraceAperturesF(inMaskedImage,
+        fiberTraceSet = drpStella.findAndTraceApertures(inMaskedImage,
                                                          self.ftffc)
         fiberTraceSet.sortTracesByXCenter()
         for i in range(fiberTraceSet.size()):

@@ -185,7 +185,7 @@ class ReduceArcTask(CmdLineTask):
 
                 # Idendify emission lines and fit dispersion
                 try:
-                    spec.identifyF(lineListPix, dispCorControl, 8)
+                    spec.identify(lineListPix, dispCorControl, 8)
                 except Exception as e:
                     self.log.warn("Error occured during identify: %s" % (e.message))
 

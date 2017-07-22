@@ -17,10 +17,10 @@ namespace {
 template <typename ImageT,
           typename MaskT=lsst::afw::image::MaskPixel,
           typename VarianceT=lsst::afw::image::VariancePixel>
-void declareFiberTrace(py::module &mod, std::string const& suffix)
+void declareFiberTrace(py::module &mod)
 {
     using Class = FiberTrace<ImageT, MaskT, VarianceT>;
-    py::class_<Class, PTR(Class)> cls(mod, ("FiberTrace" + suffix).c_str());
+    py::class_<Class, PTR(Class)> cls(mod, "FiberTrace");
 
     cls.def(py::init<std::size_t, std::size_t, std::size_t>(), "width"_a=0, "height"_a=0, "iTrace"_a=0);
     cls.def(py::init<PTR(typename Class::MaskedImageT const) const&,
@@ -85,10 +85,10 @@ void declareFiberTrace(py::module &mod, std::string const& suffix)
 template <typename ImageT,
           typename MaskT=lsst::afw::image::MaskPixel,
           typename VarianceT=lsst::afw::image::VariancePixel>
-void declareFiberTraceSet(py::module &mod, std::string const& suffix)
+void declareFiberTraceSet(py::module &mod)
 {
     using Class = FiberTraceSet<ImageT, MaskT, VarianceT>;
-    py::class_<Class, PTR(Class)> cls(mod, ("FiberTraceSet" + suffix).c_str());
+    py::class_<Class, PTR(Class)> cls(mod, "FiberTraceSet");
 
     cls.def(py::init<std::size_t>(), "nTraces"_a=0);
     cls.def(py::init<Class const&, bool>(), "fiberTraceSet"_a, "deep"_a=false);
@@ -113,13 +113,13 @@ void declareFiberTraceSet(py::module &mod, std::string const& suffix)
 
 
 template <typename ImageT>
-void declareFunctions(py::module &mod, std::string const& suffix)
+void declareFunctions(py::module &mod)
 {
-    mod.def(("findAndTraceApertures" + suffix).c_str(), math::findAndTraceApertures<ImageT>,
+    mod.def("findAndTraceApertures", math::findAndTraceApertures<ImageT>,
             "maskedImage"_a, "control"_a);
-    mod.def(("findCenterPositionsOneTrace" + suffix).c_str(), math::findCenterPositionsOneTrace<ImageT>,
+    mod.def("findCenterPositionsOneTrace", math::findCenterPositionsOneTrace<ImageT>,
             "ccdImage"_a, "ccdImageVariance"_a, "control"_a);
-    mod.def(("makeNormFlatFiberTrace" + suffix).c_str(), math::makeNormFlatFiberTrace<ImageT>,
+    mod.def("makeNormFlatFiberTrace", math::makeNormFlatFiberTrace<ImageT>,
             "maskedImage"_a, "fiberTraceFunctionWide"_a, "fiberTraceFunctionControlNarrow"_a,
             "fiberTraceProfileFittingControl"_a, "minSNR"_a=100.0, "iTrace"_a=0);
     mod.def("assignITrace",
@@ -158,13 +158,11 @@ PYBIND11_PLUGIN(fiberTraces) {
         return nullptr;
     }
 
-    declareFiberTrace<float>(mod, "F");
-    declareFiberTrace<double>(mod, "D");
+    declareFiberTrace<float>(mod);
 
-    declareFiberTraceSet<float>(mod, "F");
-    declareFiberTraceSet<double>(mod, "D");
+    declareFiberTraceSet<float>(mod);
 
-    declareFunctions<float>(mod, "F");
+    declareFunctions<float>(mod);
 
     py::class_<math::FindCenterPositionsOneTraceResult, PTR(math::FindCenterPositionsOneTraceResult)>
         findResult(mod, "FindCenterPositionsOneTraceResult");
@@ -175,7 +173,7 @@ PYBIND11_PLUGIN(fiberTraces) {
     findResult.def_readwrite("eApertureCenterPos",
                              &math::FindCenterPositionsOneTraceResult::eApertureCenterPos);
 
-    py::class_<math::dataXY<float>, PTR(math::dataXY<float>)> coord(mod, "CoordinatesF");
+    py::class_<math::dataXY<float>, PTR(math::dataXY<float>)> coord(mod, "Coordinates");
     coord.def(py::init<>());
     coord.def("__init__",
               [](math::dataXY<float>& self, float x_, float y_) {

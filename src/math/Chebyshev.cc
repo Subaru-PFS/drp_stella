@@ -175,24 +175,23 @@ namespace {
   //
   //    Input, int N, the highest polynomial to compute.
   //
-  //    Input, double X[M], the evaluation points.
+  //    Input, float X[M], the evaluation points.
   //
-  //    Output, double T_POLYNOMIAL[M*(N+1)], the values of the Chebyshev polynomials.
+  //    Output, float T_POLYNOMIAL[M*(N+1)], the values of the Chebyshev polynomials.
   //
-  ndarray::Array<double, 2, 1>
-  t_polynomial(ndarray::Array<double, 1, 1> const& x, int n)
+  ndarray::Array<float, 2, 1>
+  t_polynomial(ndarray::Array<float, 1, 1> const& x, int n)
   {
     int m = x.getShape()[0];
     int i;
     int j;
-    ndarray::Array<double, 2, 1> v;
 
     if ( n < 0 )
     {
       throw LSST_EXCEPT(lsst::pex::exceptions::Exception, "t_polynomial: ERROR: n < 0");
     }
 
-    v = ndarray::allocate(m, n+1);
+    ndarray::Array<float, 2, 1> v = ndarray::allocate(m, n+1);
 
     for ( auto itRow = v.begin(); itRow != v.end(); ++itRow )
     {
@@ -240,23 +239,23 @@ namespace {
   //
   //  Parameters:
   //
-  //    Input, double A, B, the domain of definition.
+  //    Input, float A, B, the domain of definition.
   //
   //    Input, int M, the number of evaluation points.
   //
   //    Input, int N, the highest polynomial to compute.
   //
-  //    Input, double X[M], the evaluation points.
+  //    Input, float X[M], the evaluation points.
   //    It must be the case that A <= X(*) <= B.
   //
-  //    Output, double T_POLYNOMIAL_AB[M*(N+1)], the values.
+  //    Output, float T_POLYNOMIAL_AB[M*(N+1)], the values.
   //
-  ndarray::Array<double, 2, 1>
-  t_polynomial_ab(ndarray::Array<double, 1, 1> const& x, int n, double a, double b)
+  ndarray::Array<float, 2, 1>
+  t_polynomial_ab(ndarray::Array<float, 1, 1> const& x, int n, float a, float b)
   {
     int m = x.getShape()[0];
-    ndarray::Array<double, 2, 1> v;
-    ndarray::Array<double, 1, 1> y = ndarray::allocate(m);
+    ndarray::Array<float, 2, 1> v;
+    ndarray::Array<float, 1, 1> y = ndarray::allocate(m);
 
     for ( auto itX = x.begin(), itY = y.begin(); itX < x.end(); ++itX, ++itY )
     {
@@ -369,29 +368,29 @@ namespace {
   //
   //  Parameters:
   //
-  //    Input, double A, B, the domain of definition (both of size M)
+  //    Input, float A, B, the domain of definition (both of size M)
   //
   //    Input, int N, the desired order of the Chebyshev
   //    expansion.
   //
-  //    Input, double X[M], the data abscissas.  These need not
+  //    Input, float X[M], the data abscissas.  These need not
   //    be sorted.  It must be the case that A <= X() <= B.
   //
-  //    Input, double D[M], the data values.
+  //    Input, float D[M], the data values.
   //
-  //    Output, double T_PROJECT_COEFFICIENTS_DATA[N+1], the approximate
+  //    Output, float T_PROJECT_COEFFICIENTS_DATA[N+1], the approximate
   //    Chebshev coefficients.
   //
-  ndarray::Array<double, 1, 1>
-  t_project_coefficients_data(ndarray::Array<double, 1, 1> const& x,
-                              ndarray::Array<double, 1, 1> const& d,
-                              double a,
-                              double b,
+  ndarray::Array<float, 1, 1>
+  t_project_coefficients_data(ndarray::Array<float, 1, 1> const& x,
+                              ndarray::Array<float, 1, 1> const& d,
+                              float a,
+                              float b,
                               int n)
   {
-    ndarray::Array<double, 1, 1> c = ndarray::allocate(n);
-    ndarray::Array<double, 2, 1> v;
-    ndarray::Array<double, 1, 1> range = ndarray::allocate(2);
+    ndarray::Array<float, 1, 1> c = ndarray::allocate(n);
+    ndarray::Array<float, 2, 1> v;
+    ndarray::Array<float, 1, 1> range = ndarray::allocate(2);
     range[0] = a;
     range[1] = b;
 
@@ -413,7 +412,7 @@ namespace {
     //  Compute the least-squares solution C.
     //
     //cout << "Compute the least-squares solution C. d.getShape() = " << d.getShape() << endl;
-    Eigen::JacobiSVD<Eigen::MatrixXd> svd(v.asEigen(), Eigen::ComputeThinU | Eigen::ComputeThinV);
+    Eigen::JacobiSVD<Eigen::MatrixXf> svd(v.asEigen(), Eigen::ComputeThinU | Eigen::ComputeThinV);
     auto cEigen = svd.solve(d.asEigen());
     c.asEigen() = cEigen;
     //cout << "Compute the least-squares solution C finished. cEigen = " << cEigen << endl;
