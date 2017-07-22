@@ -340,6 +340,4 @@ namespace math{
 
 }}}
 
-#include "SpectraTemplates.hpp"
-
 #endif
