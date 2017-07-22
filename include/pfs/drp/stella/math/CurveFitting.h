@@ -9,11 +9,7 @@
 #include "lsst/pex/exceptions/Exception.h"
 #include "Math.h"
 #include "ndarray.h"
-#include "ndarray/eigen.h"
 #include "../utils/Utils.h"
-
-namespace pexExcept = lsst::pex::exceptions;
-using namespace std;
 
 namespace pfs { namespace drp { namespace stella {
   namespace math{
@@ -172,26 +168,6 @@ namespace pfs { namespace drp { namespace stella {
      * @param[in]       S_A1_Args_In   :: Vector of keywords controlling the procedure
      * @param[in,out]   ArgV_In        :: Vector of keyword values
      **/
-      
-      template< typename ImageT, typename SlitFuncT >
-      int LinFitBevingtonEigen(Eigen::Array<ImageT, Eigen::Dynamic, 1> const& D_A1_CCD_In,
-                               Eigen::Array<SlitFuncT, Eigen::Dynamic, 1> const& D_A1_SF_In,
-                               ImageT &D_SP_Out,                         
-                               ImageT &D_Sky_Out,                        
-                               bool B_WithSky,                        
-                               std::vector<string> const& S_A1_Args_In,
-                               std::vector<void *> & ArgV_In);         
-    /// MEASURE_ERRORS_IN = Eigen::Array<ImageT, Eigen::Dynamic, 1>(D_A1_CCD_In.size)             : in
-    /// REJECT_IN = float                                                : in
-    /// MASK_INOUT = Eigen::Array<unsigned short, Eigen::Dynamic, 1>(D_A1_CCD_In.size)                    : in/out
-    /// CHISQ_OUT = ImageT                                                : out
-    /// Q_OUT = float                                                    : out
-    /// SIGMA_OUT = Eigen::Array<ImageT, Eigen::Dynamic, 1>(2): [*,0]: sigma_sp, [*,1]: sigma_sky : out
-    /// YFIT_OUT = ndarray::Array<ImageT, 1>(D_A1_CCD_In.size)                     : out
-    /// ALLOW_SKY_LT_ZERO = int[0,1]
-    /// ALLOW_SPEC_LT_ZERO = int[0,1]
-
-      
       template< typename ImageT, typename SlitFuncT >
       SpectrumBackground< ImageT > LinFitBevingtonNdArray( ndarray::Array<ImageT, 1, 1> const& D_A1_CCD_In,
                                                            ndarray::Array<SlitFuncT, 1, 1> const& D_A1_SF_In,
@@ -205,16 +181,6 @@ namespace pfs { namespace drp { namespace stella {
                                  bool B_WithSky,
                                  std::vector<string> const& S_A1_Args_In,
                                  std::vector<void *> & ArgV_In);
-    /// MEASURE_ERRORS_IN = PTR(ndarray::Array<ImageT, 1, 1>(D_A1_CCD_In.size))             : in
-    /// REJECT_IN = float                                                : in
-    /// MASK_INOUT = ndarray::Array<unsigned short, 1, 1>(D_A1_CCD_In.size)                    : in/out
-    /// CHISQ_OUT = float                                                : out
-    /// Q_OUT = float                                                    : out
-    /// SIGMA_OUT = ndarray::Array<ImageT,1, 1>(2): [*,0]: sigma_sp, [*,1]: sigma_sky : out
-    /// YFIT_OUT = ndarray::Array<ImageT, 1, 1>(D_A1_CCD_In.size)                     : out
-    /// ALLOW_SKY_LT_ZERO = 1
-    /// ALLOW_SPEC_LT_ZERO = 1
-
     /**
      * @brief Scale the spatial profile to the FiberTrace row
        calculates D_Sky_Out and D_SP_Out for the system of equations D_A1_CCD_In = D_Sky_Out + D_SP_Out * D_A1_SF_In
@@ -239,15 +205,6 @@ namespace pfs { namespace drp { namespace stella {
      *                YFIT_OUT = ndarray::Array<ImageT, 2, 1>(D_A2_CCD_In.getShape()[0], D_A2_CCD_In.getShape()[1]) : out
      * @param[in,out]   ArgV_In        :: Vector of keyword values
      * */
-      template< typename ImageT, typename SlitFuncT>
-      bool LinFitBevingtonEigen(Eigen::Array<ImageT, Eigen::Dynamic, Eigen::Dynamic> const& D_A2_CCD_In,
-                                Eigen::Array<SlitFuncT, Eigen::Dynamic, Eigen::Dynamic> const& D_A2_SF_In,
-                                Eigen::Array<ImageT, Eigen::Dynamic, 1> & D_A1_SP_Out,
-                                Eigen::Array<ImageT, Eigen::Dynamic, 1> & D_A1_Sky_Out,
-                                bool B_WithSky,
-                                std::vector<string> const& S_A1_Args_In,
-                                std::vector<void *> &ArgV_In);
-      
       template< typename ImageT, typename SlitFuncT>
       bool LinFitBevingtonNdArray(ndarray::Array<ImageT, 2, 1> const& D_A2_CCD_In,
                                   ndarray::Array<SlitFuncT, 2, 1> const& D_A2_SF_In,
@@ -293,7 +250,7 @@ namespace pfs { namespace drp { namespace stella {
     ndarray::Array<T, 1, 1> chebyshev(ndarray::Array<T, 1, 1> const& x_In, ndarray::Array<U, 1, 1> const& coeffs_In);
                 
     /*
-     * @brief fit a Gaussian to noisy data using Eigen's Levenberg Marquardt
+     * @brief fit a Gaussian to noisy data using Levenberg Marquardt
      * @param xy_In 2d array (ndata, 2) [*][0]: x, [*][1]: y
      * @param guess_In [0]: peak, [1]: center, [2]: sigma
      */
