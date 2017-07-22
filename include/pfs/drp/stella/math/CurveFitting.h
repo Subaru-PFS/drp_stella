@@ -1,18 +1,13 @@
 #ifndef __PFS_DRP_STELLA_MATH_CURVEFITTING_H__
 #define __PFS_DRP_STELLA_MATH_CURVEFITTING_H__
 
-#include <iostream>
+#include <string>
 #include <vector>
 
-#include "CurveFittingGaussian.h"
-#include "lsst/log/Log.h"
-#include "lsst/pex/exceptions/Exception.h"
-#include "Math.h"
 #include "ndarray.h"
-#include "../utils/Utils.h"
 
 namespace pfs { namespace drp { namespace stella {
-  namespace math{
+  namespace math {
       
     template< typename T >
     struct SpectrumBackground { 
@@ -107,10 +102,10 @@ namespace pfs { namespace drp { namespace stella {
     **/
     template< typename T >
     ndarray::Array<float, 1, 1> PolyFit(ndarray::Array<T, 1, 1> const& x_In,
-                                         ndarray::Array<T, 1, 1> const& y_In,
-                                         size_t const degree_In,
-                                         std::vector<string> const& argsKeyWords_In,
-                                         std::vector<void *> & argsValues_In);
+                                        ndarray::Array<T, 1, 1> const& y_In,
+                                        size_t const degree_In,
+                                        std::vector<std::string> const& argsKeyWords_In,
+                                        std::vector<void *> & argsValues_In);
 
     template< typename T >
     ndarray::Array<float, 1, 1> PolyFit(ndarray::Array<T, 1, 1> const& D_A1_X_In,
@@ -126,21 +121,21 @@ namespace pfs { namespace drp { namespace stella {
     **/
     template<typename T>
     ndarray::Array<float, 1, 1> PolyFit(ndarray::Array<T, 1, 1> const& D_A1_X_In,
-                                         ndarray::Array<T, 1, 1> const& D_A1_Y_In,
-                                         size_t const I_Degree_In,
-                                         T const D_Reject_In,
-                                         std::vector<string> const& S_A1_Args_In,
-                                         std::vector<void *> & ArgV);
+                                        ndarray::Array<T, 1, 1> const& D_A1_Y_In,
+                                        size_t const I_Degree_In,
+                                        T const D_Reject_In,
+                                        std::vector<std::string> const& S_A1_Args_In,
+                                        std::vector<void *> & ArgV);
 
     template< typename T >
     ndarray::Array<float, 1, 1> PolyFit(ndarray::Array<T, 1, 1> const& D_A1_X_In,
-                                         ndarray::Array<T, 1, 1> const& D_A1_Y_In,
-                                         size_t const I_Degree_In,
-                                         T const D_LReject_In,
-                                         T const D_UReject_In,
-                                         size_t const I_NIter,
-                                         std::vector<string> const& S_A1_Args_In,
-                                         std::vector<void *> & ArgV);
+                                        ndarray::Array<T, 1, 1> const& D_A1_Y_In,
+                                        size_t const I_Degree_In,
+                                        T const D_LReject_In,
+                                        T const D_UReject_In,
+                                        size_t const I_NIter,
+                                        std::vector<std::string> const& S_A1_Args_In,
+                                        std::vector<void *> & ArgV);
 
     template< typename T>
     ndarray::Array<float, 1, 1> PolyFit(ndarray::Array<T, 1, 1> const& D_A1_X_In,
@@ -179,7 +174,7 @@ namespace pfs { namespace drp { namespace stella {
                                  ImageT &D_SP_Out,
                                  ImageT &D_Sky_Out,
                                  bool B_WithSky,
-                                 std::vector<string> const& S_A1_Args_In,
+                                 std::vector<std::string> const& S_A1_Args_In,
                                  std::vector<void *> & ArgV_In);
     /**
      * @brief Scale the spatial profile to the FiberTrace row
@@ -211,7 +206,7 @@ namespace pfs { namespace drp { namespace stella {
                                   ndarray::Array<ImageT, 1, 1> & D_A1_SP_Out,
                                   ndarray::Array<ImageT, 1, 1> & D_A1_Sky_Out,
                                   bool B_WithSky,
-                                  std::vector<string> const& S_A1_Args_In,
+                                  std::vector<std::string> const& S_A1_Args_In,
                                   std::vector<void *> &ArgV_In);
 
     /**

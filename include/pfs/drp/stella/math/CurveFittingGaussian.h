@@ -1,7 +1,4 @@
 #include <Eigen/Dense>
-#include <unsupported/Eigen/LevenbergMarquardt>
-
-using namespace std;
 
 namespace pfs { namespace drp { namespace stella {
   namespace math{

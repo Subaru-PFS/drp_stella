@@ -1,5 +1,13 @@
+#include <Eigen/Eigen>
+
+#include "ndarray/eigen.h"
+
+#include "lsst/pex/exceptions.h"
+
 #include "pfs/drp/stella/math/Math.h"
 #include "pfs/drp/stella/cmpfit-1.2/MPFitting_ndarray.h"
+
+namespace pexExcept = lsst::pex::exceptions;
 
 namespace pfs {
 namespace drp {

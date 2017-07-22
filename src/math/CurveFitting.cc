@@ -1,8 +1,19 @@
+#include "ndarray/eigen.h"
+
+#include <unsupported/Eigen/LevenbergMarquardt>
+
+#include "lsst/log/Log.h"
+#include "lsst/pex/exceptions/Exception.h"
+#include "lsst/afw/image/MaskedImage.h"
+
 #include "pfs/drp/stella/math/CurveFitting.h"
+#include "pfs/drp/stella/math/CurveFittingGaussian.h"
+#include "pfs/drp/stella/math/Math.h"
+#include "pfs/drp/stella/utils/Utils.h"
 
 namespace pexExcept = lsst::pex::exceptions;
 
-namespace pfs{ namespace drp{ namespace stella{ namespace math{
+namespace pfs { namespace drp { namespace stella { namespace math {
 
   template<typename T, typename U>
   ndarray::Array<T, 1, 1> Poly(ndarray::Array<T, 1, 1> const& x_In,
@@ -10,7 +21,7 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
                                T xRangeMin_In,
                                T xRangeMax_In){
     #ifdef __DEBUG_CURVEFIT__
-      cout << "CurveFitting::Poly(x, coeffs, xRangeMin, xRangeMax) started" << endl;
+      std::cout << "CurveFitting::Poly(x, coeffs, xRangeMin, xRangeMax) started" << std::endl;
     #endif
     ndarray::Array<T, 1, 1> xNew;
     /// shift and rescale x_In to fit into range [-1.,1.]
@@ -24,29 +35,29 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
       xNew = x_In;
     }
     #ifdef __DEBUG_POLY__
-      cout << "pfs::drp::stella::math::CurveFitting::Poly: x_In = " << x_In << endl;
-      cout << "pfs::drp::stella::math::CurveFitting::Poly: xNew = " << xNew << endl;
+      std::cout << "pfs::drp::stella::math::CurveFitting::Poly: x_In = " << x_In << std::endl;
+      std::cout << "pfs::drp::stella::math::CurveFitting::Poly: xNew = " << xNew << std::endl;
     #endif
 
     int ii = 0;
     ndarray::Array<T, 1, 1> arr_Out = ndarray::allocate(int(x_In.size()));
     #ifdef __DEBUG_POLY__
-      cout << "Poly: coeffs_In = " << coeffs_In << endl;
+      std::cout << "Poly: coeffs_In = " << coeffs_In << std::endl;
     #endif
     int I_PolynomialOrder = coeffs_In.size() - 1;
     #ifdef __DEBUG_POLY__
-      cout << "Poly: I_PolynomialOrder set to " << I_PolynomialOrder << endl;
+      std::cout << "Poly: I_PolynomialOrder set to " << I_PolynomialOrder << std::endl;
     #endif
     if (I_PolynomialOrder == 0){
       arr_Out[ndarray::view()] = coeffs_In(0);
       #ifdef __DEBUG_POLY__
-        cout << "Poly: I_PolynomialOrder == 0: arr_Out set to " << arr_Out << endl;
+        std::cout << "Poly: I_PolynomialOrder == 0: arr_Out set to " << arr_Out << std::endl;
       #endif
       return arr_Out;
     }
     arr_Out[ndarray::view()] = coeffs_In(I_PolynomialOrder);
     #ifdef __DEBUG_POLY__
-      cout << "Poly: I_PolynomialOrder != 0: arr_Out set to " << arr_Out << endl;
+      std::cout << "Poly: I_PolynomialOrder != 0: arr_Out set to " << arr_Out << std::endl;
     #endif
 
     auto arr_Out_begin = arr_Out.begin();
@@ -56,11 +67,11 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
       for (int i = 0; i < arr_Out.getShape()[0]; ++i)
         *(arr_Out_begin + i) = (*(arr_Out_begin + i)) * (*(xNew_begin + i)) + (*(coeffs_In_begin + ii));
       #ifdef __DEBUG_POLY__
-        cout << "Poly: I_PolynomialOrder != 0: for (ii = " << ii << "; ii >= 0; ii--) arr_Out set to " << arr_Out << endl;
+        std::cout << "Poly: I_PolynomialOrder != 0: for (ii = " << ii << "; ii >= 0; ii--) arr_Out set to " << arr_Out << std::endl;
       #endif
     }
     #ifdef __DEBUG_CURVEFIT__
-      cout << "CurveFitting::Poly(x, coeffs, xRangeMin, xRangeMax) finished" << endl;
+      std::cout << "CurveFitting::Poly(x, coeffs, xRangeMin, xRangeMax) finished" << std::endl;
     #endif
     return arr_Out;
   }
@@ -70,7 +81,7 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
                                        ndarray::Array<T, 1, 1> const& D_A1_Y_In,
                                        size_t const I_Degree_In,
                                        T const D_Reject_In,
-                                       std::vector<string> const& S_A1_Args_In,
+                                       std::vector<std::string> const& S_A1_Args_In,
                                        std::vector<void *> & ArgV){
     return pfs::drp::stella::math::PolyFit(D_A1_X_In,
                                            D_A1_Y_In,
@@ -89,14 +100,14 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
                                        T const D_LReject_In,
                                        T const D_UReject_In,
                                        size_t const I_NIter,
-                                       std::vector<string> const& S_A1_Args_In,
+                                       std::vector<std::string> const& S_A1_Args_In,
                                        std::vector<void *> &ArgV){
     LOG_LOGGER _log = LOG_GET("pfs::drp::stella::math::CurfFitting::PolyFit");
 
     LOGLS_DEBUG(_log, "CurveFitting::PolyFit(x, y, deg, lReject, uReject, nIter, Args, ArgV) started");
     if (D_A1_X_In.getShape()[0] != D_A1_Y_In.getShape()[0]){
-      string message("pfs::drp::stella::math::CurfFitting::PolyFit: ERROR: D_A1_X_In.getShape()[0](=");
-      message += to_string(D_A1_X_In.getShape()[0]) + " != D_A1_Y_In.getShape()[0](=" + to_string(D_A1_Y_In.getShape()[0]) + ")";
+      std::string message("pfs::drp::stella::math::CurfFitting::PolyFit: ERROR: D_A1_X_In.getShape()[0](=");
+      message += std::to_string(D_A1_X_In.getShape()[0]) + " != D_A1_Y_In.getShape()[0](=" + std::to_string(D_A1_Y_In.getShape()[0]) + ")";
       throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
     }
 
@@ -117,8 +128,8 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
       P_D_A1_MeasureErrors = (*((PTR(ndarray::Array<T, 1, 1>)*)ArgV[I_Pos]));
       B_HaveMeasureErrors = true;
       if (P_D_A1_MeasureErrors->getShape()[0] != D_A1_X_In.getShape()[0]){
-        string message("pfs::drp::stella::math::CurveFitting::PolyFit: Error: P_D_A1_MeasureErrors->getShape()[0](=");
-        message += to_string(P_D_A1_MeasureErrors->getShape()[0]) + ") != D_A1_X_In.getShape()[0](=" + to_string(D_A1_X_In.getShape()[0]) + ")";
+        std::string message("pfs::drp::stella::math::CurveFitting::PolyFit: Error: P_D_A1_MeasureErrors->getShape()[0](=");
+        message += std::to_string(P_D_A1_MeasureErrors->getShape()[0]) + ") != D_A1_X_In.getShape()[0](=" + std::to_string(D_A1_X_In.getShape()[0]) + ")";
         throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
       }
     }
@@ -153,8 +164,8 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
       P_D_A1_XRange.reset();
       P_D_A1_XRange = *((PTR(ndarray::Array<float, 1, 1>)*)ArgV[I_Pos]);
       if (P_D_A1_XRange->getShape()[0] != 2){
-        string message("pfs::drp::stella::math::CurveFitting::PolyFit: ERROR: P_D_A1_XRange->getShape()[0](=");
-        message += to_string(P_D_A1_XRange->getShape()[0]) + " != 2";
+        std::string message("pfs::drp::stella::math::CurveFitting::PolyFit: ERROR: P_D_A1_XRange->getShape()[0](=");
+        message += std::to_string(P_D_A1_XRange->getShape()[0]) + " != 2";
         throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
       }
       xRange.deep() = *P_D_A1_XRange;
@@ -205,14 +216,14 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
       P_D_A1_YFit = (*((PTR(ndarray::Array<T, 1, 1>)*)ArgV[I_Pos]));
       if (P_D_A1_YFit->getShape()[0] != D_A1_X_In.getShape()[0]){
         std::string message("pfs::drp::stella::math::CurveFitting::PolyFit: KeyWord_Set(YFIT): ERROR: P_D_A1_YFit->getShape()[0](=");
-        message += to_string(P_D_A1_YFit->getShape()[0]) + ") != D_A1_X_In.getShape()[0](=" + to_string(D_A1_X_In.getShape()[0]) + ")";
+        message += std::to_string(P_D_A1_YFit->getShape()[0]) + ") != D_A1_X_In.getShape()[0](=" + std::to_string(D_A1_X_In.getShape()[0]) + ")";
         throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
       }
       LOGLS_DEBUG(_log, "1. KeyWord_Set(YFIT): P_D_A1_YFit = " << *P_D_A1_YFit);
     }
     size_t nArgs = S_A1_Args_In.size();
     std::vector<void*> args(ArgV);
-    std::vector<string> keyWords(S_A1_Args_In);
+    std::vector<std::string> keyWords(S_A1_Args_In);
     if (!haveYFit){
       ++nArgs;
       keyWords.push_back("YFIT");
@@ -314,11 +325,11 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
     LOG_LOGGER _log = LOG_GET("pfs::drp::stella::math::CurfFitting::PolyFit");
     LOGLS_DEBUG(_log, "CurveFitting::PolyFit(x, y, deg, xRangeMin, xRangeMax) started");
     if (D_A1_X_In.getShape()[0] != D_A1_Y_In.getShape()[0]){
-      string message("pfs::drp::stella::math::CurveFitting::PolyFit: ERROR: D_A1_X_In.getShape()[0](=");
-      message += to_string(D_A1_X_In.getShape()[0]) +") != D_A1_Y_In.getShape()[0](=" + to_string(D_A1_Y_In.getShape()[0]) + ")";
+      std::string message("pfs::drp::stella::math::CurveFitting::PolyFit: ERROR: D_A1_X_In.getShape()[0](=");
+      message += std::to_string(D_A1_X_In.getShape()[0]) +") != D_A1_Y_In.getShape()[0](=" + std::to_string(D_A1_Y_In.getShape()[0]) + ")";
       throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
     }
-    std::vector<string> S_A1_Args(1);
+    std::vector<std::string> S_A1_Args(1);
     S_A1_Args[0] = "XRANGE";
     std::vector<void *> PP_Args(1);
     ndarray::Array<float, 1, 1> xRange = ndarray::allocate(2);
@@ -338,13 +349,13 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
   ndarray::Array<float, 1, 1> PolyFit(ndarray::Array<T, 1, 1> const& D_A1_X_In,
                                        ndarray::Array<T, 1, 1> const& D_A1_Y_In,
                                        size_t const I_Degree_In,
-                                       std::vector<string> const& S_A1_Args_In,
+                                       std::vector<std::string> const& S_A1_Args_In,
                                        std::vector<void *> & ArgV){
     LOG_LOGGER _log = LOG_GET("pfs::drp::stella::math::CurfFitting::PolyFit");
     LOGLS_DEBUG(_log, "PolyFit(x, y, deg, Args, ArgV) started");
     if (D_A1_X_In.getShape()[0] != D_A1_Y_In.getShape()[0]){
-      string message("pfs::drp::stella::math::CurveFitting::PolyFit: ERROR: D_A1_X_In.getShape()[0](=");
-      message += to_string(D_A1_X_In.getShape()[0]) + ") != D_A1_Y_In.getShape()[0](=" + to_string(D_A1_Y_In.getShape()[0]) + ")";
+      std::string message("pfs::drp::stella::math::CurveFitting::PolyFit: ERROR: D_A1_X_In.getShape()[0](=");
+      message += std::to_string(D_A1_X_In.getShape()[0]) + ") != D_A1_Y_In.getShape()[0](=" + std::to_string(D_A1_Y_In.getShape()[0]) + ")";
       throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
     }
 
@@ -361,7 +372,7 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
 
     bool B_HaveMeasureError = false;
     ndarray::Array<T, 1, 1> D_A1_MeasureErrors = ndarray::allocate(nDataPoints);
-    string sTemp = "MEASURE_ERRORS";
+    std::string sTemp = "MEASURE_ERRORS";
     PTR(ndarray::Array<T, 1, 1>) P_D_A1_MeasureErrors(new ndarray::Array<T, 1, 1>(D_A1_MeasureErrors));
     if ((I_Pos = pfs::drp::stella::utils::KeyWord_Set(S_A1_Args_In, sTemp)) >= 0)
     {
@@ -369,9 +380,9 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
       P_D_A1_MeasureErrors.reset();
       P_D_A1_MeasureErrors = *((PTR(ndarray::Array<T, 1, 1>)*)ArgV[I_Pos]);
       if (P_D_A1_MeasureErrors->getShape()[0] != nDataPoints){
-        string message("pfs::drp::stella::math::CurveFitting::PolyFit: KeyWordSet(MEASURE_ERRORS): ERROR:");
-        message += "P_D_A1_MeasureErrors->getShape()[0](=" + to_string(P_D_A1_MeasureErrors->getShape()[0]);
-        message += ") != nDataPoints(=" + to_string(nDataPoints) + ")";
+        std::string message("pfs::drp::stella::math::CurveFitting::PolyFit: KeyWordSet(MEASURE_ERRORS): ERROR:");
+        message += "P_D_A1_MeasureErrors->getShape()[0](=" + std::to_string(P_D_A1_MeasureErrors->getShape()[0]);
+        message += ") != nDataPoints(=" + std::to_string(nDataPoints) + ")";
         throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
       }
       D_A1_MeasureErrors.deep() = *P_D_A1_MeasureErrors;
@@ -391,8 +402,8 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
       P_D_A1_XRange.reset();
       P_D_A1_XRange = *((PTR(ndarray::Array<float, 1, 1>)*)ArgV[I_Pos]);
       if (P_D_A1_XRange->getShape()[0] != 2){
-        string message("pfs::drp::stella::math::CurveFitting::PolyFit: ERROR: P_D_A1_XRange->getShape()[0](=");
-        message += to_string(P_D_A1_XRange->getShape()[0]) +") != 2";
+        std::string message("pfs::drp::stella::math::CurveFitting::PolyFit: ERROR: P_D_A1_XRange->getShape()[0](=");
+        message += std::to_string(P_D_A1_XRange->getShape()[0]) +") != 2";
         throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
       }
 
@@ -433,8 +444,8 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
       P_D_A1_Sigma.reset();
       P_D_A1_Sigma = *((PTR(ndarray::Array<T, 1, 1>)*)ArgV[I_Pos]);
       if (P_D_A1_Sigma->getShape()[0] != nCoeffs){
-        string message("pfs::drp::stella::math::CurveFitting::PolyFit: ERROR: P_D_A1_Sigma->getShape()[0](=");
-        message += to_string(P_D_A1_Sigma->getShape()[0]) +") != nCoeffs(=" + to_string(nCoeffs) + ")";
+        std::string message("pfs::drp::stella::math::CurveFitting::PolyFit: ERROR: P_D_A1_Sigma->getShape()[0](=");
+        message += std::to_string(P_D_A1_Sigma->getShape()[0]) +") != nCoeffs(=" + std::to_string(nCoeffs) + ")";
         throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
       }
       LOGLS_DEBUG(_log, "KeyWord_Set(SIGMA): *P_D_A1_Sigma set to " << (*P_D_A1_Sigma));
@@ -449,13 +460,13 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
       P_D_A2_Covar.reset();
       P_D_A2_Covar = *((PTR(ndarray::Array<T, 2, 2>)*)ArgV[I_Pos]);
       if (P_D_A2_Covar->getShape()[0] != nCoeffs){
-        string message("pfs::drp::stella::math::CurveFitting::PolyFit: ERROR: P_D_A2_Covar->getShape()[0](=");
-        message += to_string(P_D_A2_Covar->getShape()[0]) + ") != nCoeffs(=" + to_string(nCoeffs) + ")";
+        std::string message("pfs::drp::stella::math::CurveFitting::PolyFit: ERROR: P_D_A2_Covar->getShape()[0](=");
+        message += std::to_string(P_D_A2_Covar->getShape()[0]) + ") != nCoeffs(=" + std::to_string(nCoeffs) + ")";
         throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
       }
       if (P_D_A2_Covar->getShape()[1] != nCoeffs){
-        string message("pfs::drp::stella::math::CurveFitting::PolyFit: ERROR: P_D_A2_Covar->getShape()[1](=");
-        message += to_string(P_D_A2_Covar->getShape()[1]) + ") != nCoeffs(=" + to_string(nCoeffs) + ")";
+        std::string message("pfs::drp::stella::math::CurveFitting::PolyFit: ERROR: P_D_A2_Covar->getShape()[1](=");
+        message += std::to_string(P_D_A2_Covar->getShape()[1]) + ") != nCoeffs(=" + std::to_string(nCoeffs) + ")";
         throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
       }
       LOGLS_DEBUG(_log, "KeyWord_Set(COVAR): *P_D_A2_Covar set to " << (*P_D_A2_Covar));
@@ -562,7 +573,7 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
                                        T xRangeMax_In){
     LOG_LOGGER _log = LOG_GET("pfs::drp::stella::math::CurfFitting::PolyFit");
     LOGLS_DEBUG(_log, "PolyFit(x, y, deg, lReject, hReject, nIter, xRangeMin, xRangeMax) started");
-    std::vector<string> S_A1_Args(1);
+    std::vector<std::string> S_A1_Args(1);
     S_A1_Args[0] = "XRANGE";
     std::vector<void *> PP_Args(1);
     ndarray::Array<float, 1, 1> xRange = ndarray::allocate(2);
@@ -590,7 +601,7 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
                               ndarray::Array<ImageT, 1, 1> & D_A1_SP_Out,
                               ndarray::Array<ImageT, 1, 1> & D_A1_Sky_Out,
                               bool B_WithSky,
-                              std::vector<string> const& S_A1_Args_In,
+                              std::vector<std::string> const& S_A1_Args_In,
                               std::vector<void *> & ArgV_In)
     /// MEASURE_ERRORS_IN = ndarray::Array<ImageT,2,1>(D_A2_CCD_In.getShape())   : in
     /// REJECT_IN = ImageT                                                       : in
@@ -601,35 +612,35 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
     /// YFIT_OUT = ndarray::Array<ImageT, 2, 1>(D_A2_CCD_In.getShape()[0], D_A2_CCD_In.getShape()[1]) : out
   {
     #ifdef __DEBUG_CURVEFIT__
-      cout << "CurveFitting::LinFitBevingtonNdArray(D_A2_CCD, D_A2_SF, SP, Sky, withSky, Args, ArgV) started" << endl;
+      std::cout << "CurveFitting::LinFitBevingtonNdArray(D_A2_CCD, D_A2_SF, SP, Sky, withSky, Args, ArgV) started" << std::endl;
     #endif
     #ifdef __DEBUG_FITARR__
-      cout << "CFits::LinFitBevington(Array, Array, Array, Array, bool, CSArr, PPArr) started" << endl;
-      cout << "CFits::LinFitBevington(Array, Array, Array, Array, bool, CSArr, PPArr): D_A2_CCD_In = " << D_A2_CCD_In << endl;
-      cout << "CFits::LinFitBevington(Array, Array, Array, Array, bool, CSArr, PPArr): D_A2_SF_In = " << D_A2_SF_In << endl;
+      std::cout << "CFits::LinFitBevington(Array, Array, Array, Array, bool, CSArr, PPArr) started" << std::endl;
+      std::cout << "CFits::LinFitBevington(Array, Array, Array, Array, bool, CSArr, PPArr): D_A2_CCD_In = " << D_A2_CCD_In << std::endl;
+      std::cout << "CFits::LinFitBevington(Array, Array, Array, Array, bool, CSArr, PPArr): D_A2_SF_In = " << D_A2_SF_In << std::endl;
     #endif
     if (D_A2_CCD_In.getShape()[0] != D_A2_SF_In.getShape()[0]){
-      string message("pfs::drp::stella::math::CurveFitting::LinFitBevingtonNdArray: ERROR: D_A2_CCD_In.getShape()[0](=");
-      message += to_string(D_A2_CCD_In.getShape()[0]) + ") != D_A2_SF_In.getShape()[0](=" + to_string(D_A2_SF_In.getShape()[0]) + ")";
-      cout << message << endl;
+      std::string message("pfs::drp::stella::math::CurveFitting::LinFitBevingtonNdArray: ERROR: D_A2_CCD_In.getShape()[0](=");
+      message += std::to_string(D_A2_CCD_In.getShape()[0]) + ") != D_A2_SF_In.getShape()[0](=" + std::to_string(D_A2_SF_In.getShape()[0]) + ")";
+      std::cout << message << std::endl;
       throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
     }
     if (D_A2_CCD_In.getShape()[1] != D_A2_SF_In.getShape()[1]){
-      string message("pfs::drp::stella::math::CurveFitting::LinFitBevingtonNdArray: ERROR: D_A2_CCD_In.getShape()[1](=");
-      message += to_string(D_A2_CCD_In.getShape()[1]) + ") != D_A2_SF_In.getShape()[1](=" + to_string(D_A2_SF_In.getShape()[1]) + ")";
-      cout << message << endl;
+      std::string message("pfs::drp::stella::math::CurveFitting::LinFitBevingtonNdArray: ERROR: D_A2_CCD_In.getShape()[1](=");
+      message += std::to_string(D_A2_CCD_In.getShape()[1]) + ") != D_A2_SF_In.getShape()[1](=" + std::to_string(D_A2_SF_In.getShape()[1]) + ")";
+      std::cout << message << std::endl;
       throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
     }
     if (D_A1_SP_Out.getShape()[0] != D_A2_CCD_In.getShape()[0]){
-      string message("pfs::drp::stella::math::CurveFitting::LinFitBevingtonNdArray: ERROR: D_A2_CCD_In.getShape()[0](=");
-      message += to_string(D_A2_CCD_In.getShape()[0]) + ") != D_A1_SP_Out.getShape()[0](=" + to_string(D_A1_SP_Out.getShape()[0]) + ")";
-      cout << message << endl;
+      std::string message("pfs::drp::stella::math::CurveFitting::LinFitBevingtonNdArray: ERROR: D_A2_CCD_In.getShape()[0](=");
+      message += std::to_string(D_A2_CCD_In.getShape()[0]) + ") != D_A1_SP_Out.getShape()[0](=" + std::to_string(D_A1_SP_Out.getShape()[0]) + ")";
+      std::cout << message << std::endl;
       throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
     }
     if (D_A1_Sky_Out.getShape()[0] != D_A2_CCD_In.getShape()[0]){
-      string message("pfs::drp::stella::math::CurveFitting::LinFitBevingtonNdArray: ERROR: D_A2_CCD_In.getShape()[0](=");
-      message += to_string(D_A2_CCD_In.getShape()[0]) + ") != D_A1_Sky_Out.getShape()[0](=" + to_string(D_A1_Sky_Out.getShape()[0]) + ")";
-      cout << message << endl;
+      std::string message("pfs::drp::stella::math::CurveFitting::LinFitBevingtonNdArray: ERROR: D_A2_CCD_In.getShape()[0](=");
+      message += std::to_string(D_A2_CCD_In.getShape()[0]) + ") != D_A1_Sky_Out.getShape()[0](=" + std::to_string(D_A1_Sky_Out.getShape()[0]) + ")";
+      std::cout << message << std::endl;
       throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
     }
     int i, I_ArgPos = 0;
@@ -637,7 +648,7 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
     D_A1_SP_Out.deep() = 0;
     D_A1_Sky_Out.deep() = 0;
 
-    std::vector<string> S_A1_Args_Fit(10);
+    std::vector<std::string> S_A1_Args_Fit(10);
     for (auto it = S_A1_Args_Fit.begin(); it != S_A1_Args_Fit.end(); ++it)
       *it = " ";
     std::vector<void *> Args_Fit(10);
@@ -653,19 +664,19 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
       P_D_A2_Sigma.reset();
       P_D_A2_Sigma = *((PTR(ndarray::Array<ImageT, 2, 1>)*)ArgV_In[I_KeywordSet_MeasureErrors]);
       if (P_D_A2_Sigma->getShape()[0] != D_A2_CCD_In.getShape()[0]){
-        string message("pfs::drp::stella::math::CurveFitting::LinFitBevingtonNdArray: ERROR: D_A2_CCD_In.getShape()[0](=");
-        message += to_string(D_A2_CCD_In.getShape()[0]) + ") != P_D_A2_Sigma->getShape()[0](=" + to_string(P_D_A2_Sigma->getShape()[0]) + ")";
-        cout << message << endl;
+        std::string message("pfs::drp::stella::math::CurveFitting::LinFitBevingtonNdArray: ERROR: D_A2_CCD_In.getShape()[0](=");
+        message += std::to_string(D_A2_CCD_In.getShape()[0]) + ") != P_D_A2_Sigma->getShape()[0](=" + std::to_string(P_D_A2_Sigma->getShape()[0]) + ")";
+        std::cout << message << std::endl;
         throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
       }
       if (P_D_A2_Sigma->getShape()[1] != D_A2_CCD_In.getShape()[1]){
-        string message("pfs::drp::stella::math::CurveFitting::LinFitBevingtonNdArray: ERROR: D_A2_CCD_In.getShape()[1](=");
-        message += to_string(D_A2_CCD_In.getShape()[1]) + ") != P_D_A2_Sigma->getShape()[1](=" + to_string(P_D_A2_Sigma->getShape()[1]) + ")";
-        cout << message << endl;
+        std::string message("pfs::drp::stella::math::CurveFitting::LinFitBevingtonNdArray: ERROR: D_A2_CCD_In.getShape()[1](=");
+        message += std::to_string(D_A2_CCD_In.getShape()[1]) + ") != P_D_A2_Sigma->getShape()[1](=" + std::to_string(P_D_A2_Sigma->getShape()[1]) + ")";
+        std::cout << message << std::endl;
         throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
       }
       #ifdef __DEBUG_FITARR__
-        cout << "CFits::LinFitBevington(Array, Array, Array, Array): P_D_A2_Sigma = " << *P_D_A2_Sigma << endl;
+        std::cout << "CFits::LinFitBevington(Array, Array, Array, Array): P_D_A2_Sigma = " << *P_D_A2_Sigma << std::endl;
       #endif
       S_A1_Args_Fit[I_ArgPos] = "MEASURE_ERRORS_IN";
       I_ArgPos++;
@@ -679,9 +690,9 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
       P_D_A1_ChiSq.reset();
       P_D_A1_ChiSq = *((PTR(ndarray::Array<ImageT, 1, 1>)*)ArgV_In[I_KeywordSet_ChiSq]);
       if (P_D_A1_ChiSq->getShape()[0] != D_A2_CCD_In.getShape()[0]){
-        string message("pfs::drp::stella::math::CurveFitting::LinFitBevingtonNdArray: ERROR: D_A2_CCD_In.getShape()[0](=");
-        message += to_string(D_A2_CCD_In.getShape()[0]) + ") != P_D_A1_ChiSq->getShape()[0](=" + to_string(P_D_A1_ChiSq->getShape()[0]) + ")";
-        cout << message << endl;
+        std::string message("pfs::drp::stella::math::CurveFitting::LinFitBevingtonNdArray: ERROR: D_A2_CCD_In.getShape()[0](=");
+        message += std::to_string(D_A2_CCD_In.getShape()[0]) + ") != P_D_A1_ChiSq->getShape()[0](=" + std::to_string(P_D_A1_ChiSq->getShape()[0]) + ")";
+        std::cout << message << std::endl;
         throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
       }
       S_A1_Args_Fit[I_ArgPos] = "CHISQ_OUT";
@@ -696,9 +707,9 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
       P_D_A1_Q.reset();
       P_D_A1_Q = *((PTR(ndarray::Array<ImageT, 1, 1>)*)ArgV_In[I_KeywordSet_Q]);
       if (P_D_A1_Q->getShape()[0] != D_A2_CCD_In.getShape()[0]){
-        string message("pfs::drp::stella::math::CurveFitting::LinFitBevingtonNdArray: ERROR: D_A2_CCD_In.getShape()[0](=");
-        message += to_string(D_A2_CCD_In.getShape()[0]) + ") != P_D_A1_Q->getShape()[0](=" + to_string(P_D_A1_Q->getShape()[0]) + ")";
-        cout << message << endl;
+        std::string message("pfs::drp::stella::math::CurveFitting::LinFitBevingtonNdArray: ERROR: D_A2_CCD_In.getShape()[0](=");
+        message += std::to_string(D_A2_CCD_In.getShape()[0]) + ") != P_D_A1_Q->getShape()[0](=" + std::to_string(P_D_A1_Q->getShape()[0]) + ")";
+        std::cout << message << std::endl;
         throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
       }
       S_A1_Args_Fit[I_ArgPos] = "Q_OUT";
@@ -716,15 +727,15 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
       P_D_A2_Sigma_Out.reset();
       P_D_A2_Sigma_Out = *((PTR(ndarray::Array<ImageT, 2, 1>)*)ArgV_In[I_KeywordSet_Sigma]);
       if (P_D_A2_Sigma_Out->getShape()[0] != D_A2_CCD_In.getShape()[0]){
-        string message("pfs::drp::stella::math::CurveFitting::LinFitBevingtonNdArray: ERROR: D_A2_CCD_In.getShape()[0](=");
-        message += to_string(D_A2_CCD_In.getShape()[0]) + ") != P_D_A2_Sigma_Out->getShape()[0](=" + to_string(P_D_A2_Sigma_Out->getShape()[0]) + ")";
-        cout << message << endl;
+        std::string message("pfs::drp::stella::math::CurveFitting::LinFitBevingtonNdArray: ERROR: D_A2_CCD_In.getShape()[0](=");
+        message += std::to_string(D_A2_CCD_In.getShape()[0]) + ") != P_D_A2_Sigma_Out->getShape()[0](=" + std::to_string(P_D_A2_Sigma_Out->getShape()[0]) + ")";
+        std::cout << message << std::endl;
         throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
       }
       if (P_D_A2_Sigma_Out->getShape()[1] != 2){
-        string message("pfs::drp::stella::math::CurveFitting::LinFitBevingtonNdArray: ERROR: P_D_A2_Sigma->getShape()[1](=");
-        message += to_string(P_D_A2_Sigma->getShape()[0]) + ") != 2";
-        cout << message << endl;
+        std::string message("pfs::drp::stella::math::CurveFitting::LinFitBevingtonNdArray: ERROR: P_D_A2_Sigma->getShape()[1](=");
+        message += std::to_string(P_D_A2_Sigma->getShape()[0]) + ") != 2";
+        std::cout << message << std::endl;
         throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
       }
       S_A1_Args_Fit[I_ArgPos] = "SIGMA_OUT";
@@ -742,15 +753,15 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
       P_D_A2_YFit.reset();
       P_D_A2_YFit = *((PTR(ndarray::Array<ImageT, 2, 1>)*)ArgV_In[I_KeywordSet_YFit]);
       if (P_D_A2_YFit->getShape()[0] != D_A2_CCD_In.getShape()[0]){
-        string message("pfs::drp::stella::math::CurveFitting::LinFitBevingtonNdArray: ERROR: D_A2_CCD_In.getShape()[0](=");
-        message += to_string(D_A2_CCD_In.getShape()[0]) + ") != P_D_A2_YFit->getShape()[0](=" + to_string(P_D_A2_YFit->getShape()[0]) + ")";
-        cout << message << endl;
+        std::string message("pfs::drp::stella::math::CurveFitting::LinFitBevingtonNdArray: ERROR: D_A2_CCD_In.getShape()[0](=");
+        message += std::to_string(D_A2_CCD_In.getShape()[0]) + ") != P_D_A2_YFit->getShape()[0](=" + std::to_string(P_D_A2_YFit->getShape()[0]) + ")";
+        std::cout << message << std::endl;
         throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
       }
       if (P_D_A2_YFit->getShape()[1] != D_A2_CCD_In.getShape()[1]){
-        string message("pfs::drp::stella::math::CurveFitting::LinFitBevingtonNdArray: ERROR: D_A2_CCD_In.getShape()[1](=");
-        message += to_string(D_A2_CCD_In.getShape()[1]) + ") != P_D_A2_YFit->getShape()[1](=" + to_string(P_D_A2_YFit->getShape()[1]) + ")";
-        cout << message << endl;
+        std::string message("pfs::drp::stella::math::CurveFitting::LinFitBevingtonNdArray: ERROR: D_A2_CCD_In.getShape()[1](=");
+        message += std::to_string(D_A2_CCD_In.getShape()[1]) + ") != P_D_A2_YFit->getShape()[1](=" + std::to_string(P_D_A2_YFit->getShape()[1]) + ")";
+        std::cout << message << std::endl;
         throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
       }
       S_A1_Args_Fit[I_ArgPos] = "YFIT_OUT";
@@ -764,7 +775,7 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
       P_D_Reject.reset();
       P_D_Reject = *((PTR(ImageT)*)ArgV_In[I_KeywordSet_Reject]);
       #ifdef __DEBUG_FITARR__
-        cout << "CFits::LinFitBevington2D: P_D_Reject = " << *P_D_Reject << endl;
+        std::cout << "CFits::LinFitBevington2D: P_D_Reject = " << *P_D_Reject << std::endl;
       #endif
       S_A1_Args_Fit[I_ArgPos] = "REJECT_IN";
       I_ArgPos++;
@@ -782,19 +793,19 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
       P_I_A2_Mask.reset();
       P_I_A2_Mask = *((PTR(ndarray::Array<lsst::afw::image::MaskPixel, 2, 1>)*)ArgV_In[I_KeywordSet_Mask]);
       if (P_I_A2_Mask->getShape()[0] != D_A2_CCD_In.getShape()[0]){
-        string message("pfs::drp::stella::math::CurveFitting::LinFitBevingtonNdArray: ERROR: D_A2_CCD_In.getShape()[0](=");
-        message += to_string(D_A2_CCD_In.getShape()[0]) + ") != P_I_A2_Mask->getShape()[0](=" + to_string(P_I_A2_Mask->getShape()[0]) + ")";
-        cout << message << endl;
+        std::string message("pfs::drp::stella::math::CurveFitting::LinFitBevingtonNdArray: ERROR: D_A2_CCD_In.getShape()[0](=");
+        message += std::to_string(D_A2_CCD_In.getShape()[0]) + ") != P_I_A2_Mask->getShape()[0](=" + std::to_string(P_I_A2_Mask->getShape()[0]) + ")";
+        std::cout << message << std::endl;
         throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
       }
       if (P_I_A2_Mask->getShape()[1] != D_A2_CCD_In.getShape()[1]){
-        string message("pfs::drp::stella::math::CurveFitting::LinFitBevingtonNdArray: ERROR: D_A2_CCD_In.getShape()[1](=");
-        message += to_string(D_A2_CCD_In.getShape()[1]) + ") != P_I_A2_Mask->getShape()[1](=" + to_string(P_I_A2_Mask->getShape()[1]) + ")";
-        cout << message << endl;
+        std::string message("pfs::drp::stella::math::CurveFitting::LinFitBevingtonNdArray: ERROR: D_A2_CCD_In.getShape()[1](=");
+        message += std::to_string(D_A2_CCD_In.getShape()[1]) + ") != P_I_A2_Mask->getShape()[1](=" + std::to_string(P_I_A2_Mask->getShape()[1]) + ")";
+        std::cout << message << std::endl;
         throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
       }
       #ifdef __DEBUG_FITARR__
-        cout << "CFits::LinFitBevington2D: P_I_A2_Mask = " << *P_I_A2_Mask << endl;
+        std::cout << "CFits::LinFitBevington2D: P_I_A2_Mask = " << *P_I_A2_Mask << std::endl;
       #endif
       S_A1_Args_Fit[I_ArgPos] = "MASK_INOUT";
       I_ArgPos++;
@@ -807,11 +818,11 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
       if (I_KeywordSet_MeasureErrors >= 0){
         *P_D_A1_Sigma = (*P_D_A2_Sigma)[ndarray::view(i)()];
         #ifdef __DEBUG_FITARR__
-          cout << "CFits::LinFitBevington(Array, Array, Array, Array): P_D_A1_Sigma set to " << *P_D_A1_Sigma << endl;
+          std::cout << "CFits::LinFitBevington(Array, Array, Array, Array): P_D_A1_Sigma set to " << *P_D_A1_Sigma << std::endl;
         #endif
         Args_Fit[I_ArgPos] = &P_D_A1_Sigma;
         #ifdef __DEBUG_FITARR__
-          cout << "CFits::LinFitBevington(Array, Array, Array, Array): PP_Args_Fit[I_ArgPos=" << I_ArgPos << "] = " << *((PTR(Eigen::Array<ImageT, Eigen::Dynamic, 1>)*)Args_Fit[I_ArgPos]) << endl;
+          std::cout << "CFits::LinFitBevington(Array, Array, Array, Array): PP_Args_Fit[I_ArgPos=" << I_ArgPos << "] = " << *((PTR(Eigen::Array<ImageT, Eigen::Dynamic, 1>)*)Args_Fit[I_ArgPos]) << std::endl;
         #endif
         I_ArgPos++;
       }
@@ -853,11 +864,11 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
       }
 
       #ifdef __DEBUG_FITARR__
-        cout << "CFits::LinFitBevington: Starting Fit1D: D_A2_CCD_In(i=" << i << ", *) = " << D_A2_CCD_In[ndarray::view(i)()] << endl;
+        std::cout << "CFits::LinFitBevington: Starting Fit1D: D_A2_CCD_In(i=" << i << ", *) = " << D_A2_CCD_In[ndarray::view(i)()] << std::endl;
       #endif
       if (B_DoFit){
         #ifdef __DEBUG_FITARR__
-          cout << "CFits::LinFitBevington: D_A2_SF_In(i=" << i << ", *) = " << D_A2_SF_In[ndarray::view(i)()] << endl;
+          std::cout << "CFits::LinFitBevington: D_A2_SF_In(i=" << i << ", *) = " << D_A2_SF_In[ndarray::view(i)()] << std::endl;
         #endif
         ndarray::Array<ImageT, 1, 1> D_A1_CCD(D_A2_CCD_In[ndarray::view(i)()]);
         ndarray::Array<SlitFuncT, 1, 1> D_A1_SF(D_A2_SF_In[ndarray::view(i)()]);
@@ -870,25 +881,25 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
                                                   Args_Fit);
         if (status != 1){
           #ifdef __WARNINGS_ON__
-            string message("CFits::LinFitBevington: WARNING: LinFitBevington(" +
+            std::string message("CFits::LinFitBevington: WARNING: LinFitBevington(" +
                            "D_A1_CCD, D_A1_SF, D_A1_SP_Out[i], D_A1_Sky_Out[i], " +
                            "B_WithSky, S_A1_Args_Fit, Args_Fit" +
                            ") returned status = ");
-            message += to_string(status);
-            cout << message << endl;
-            cout << "CFits::LinFitBevington: D_A2_SF_In(0, *) = " << D_A2_SF_In[ndarray::view(0)()] << ": LinFitBevingtonNdArray returned status = " << status << endl;
+            message += std::to_string(status);
+            std::cout << message << std::endl;
+            std::cout << "CFits::LinFitBevington: D_A2_SF_In(0, *) = " << D_A2_SF_In[ndarray::view(0)()] << ": LinFitBevingtonNdArray returned status = " << status << std::endl;
           #endif
         }
       }
       #ifdef __DEBUG_FITARR__
-        cout << "CFits::LinFitBevington(Array, Array, Array, Array): D_A1_SP_Out(i=" << i << ") set to " << D_A1_SP_Out[i] << endl;
-        cout << "CFits::LinFitBevington(Array, Array, Array, Array): D_A1_Sky_Out(i=" << i << ") set to " << D_A1_Sky_Out[i] << endl;
+        std::cout << "CFits::LinFitBevington(Array, Array, Array, Array): D_A1_SP_Out(i=" << i << ") set to " << D_A1_SP_Out[i] << std::endl;
+        std::cout << "CFits::LinFitBevington(Array, Array, Array, Array): D_A1_Sky_Out(i=" << i << ") set to " << D_A1_Sky_Out[i] << std::endl;
       #endif
 
       if (I_KeywordSet_Sigma >= 0){
         #ifdef __DEBUG_FITARR__
-          cout << "CFits::LinFitBevington(Array, Array, Array, Array): P_D_A1_Sigma_Out = " << (*P_D_A1_Sigma_Out) << endl;
-          cout << "CFits::LinFitBevington(Array, Array, Array, Array): P_D_A2_Sigma_Out(i=" << i << ",*) = " << (*P_D_A2_Sigma_Out)[ndarray::view(i)()] << endl;
+          std::cout << "CFits::LinFitBevington(Array, Array, Array, Array): P_D_A1_Sigma_Out = " << (*P_D_A1_Sigma_Out) << std::endl;
+          std::cout << "CFits::LinFitBevington(Array, Array, Array, Array): P_D_A2_Sigma_Out(i=" << i << ",*) = " << (*P_D_A2_Sigma_Out)[ndarray::view(i)()] << std::endl;
         #endif
         (*P_D_A2_Sigma_Out)[ndarray::view(i)()] = (*P_D_A1_Sigma_Out);
       }
@@ -896,23 +907,23 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
       if (I_KeywordSet_YFit >= 0){
         (*P_D_A2_YFit)[ndarray::view(i)()] = (*P_D_A1_YFit);
         #ifdef __DEBUG_FITARR__
-          cout << "CFits::LinFitBevington(Array, Array, Array, Array): P_D_A2_YFit(i=" << i << ",*) set to " << (*P_D_A2_YFit)[ndarray::view(i)()] << endl;
+          std::cout << "CFits::LinFitBevington(Array, Array, Array, Array): P_D_A2_YFit(i=" << i << ",*) set to " << (*P_D_A2_YFit)[ndarray::view(i)()] << std::endl;
         #endif
       }
 
       if (I_KeywordSet_Mask >= 0){
         (*P_I_A2_Mask)[ndarray::view(i)()] = (*P_I_A1_Mask);
         #ifdef __DEBUG_FITARR__
-          cout << "CFits::LinFitBevington(Array, Array, Array, Array): P_I_A1_Mask = " << (*P_I_A1_Mask) << endl;
-          cout << "CFits::LinFitBevington(Array, Array, Array, Array): P_I_A2_Mask(i=" << i << ",*) set to " << (*P_I_A2_Mask)[ndarray::view(i)()] << endl;
+          std::cout << "CFits::LinFitBevington(Array, Array, Array, Array): P_I_A1_Mask = " << (*P_I_A1_Mask) << std::endl;
+          std::cout << "CFits::LinFitBevington(Array, Array, Array, Array): P_I_A2_Mask(i=" << i << ",*) set to " << (*P_I_A2_Mask)[ndarray::view(i)()] << std::endl;
         #endif
       }
     }
     #ifdef __DEBUG_FITARR__
-      cout << "CFits::LinFitBevington(Array, Array, Array, Array): D_A1_SP_Out = " << D_A1_SP_Out << endl;
+      std::cout << "CFits::LinFitBevington(Array, Array, Array, Array): D_A1_SP_Out = " << D_A1_SP_Out << std::endl;
     #endif
     #ifdef __DEBUG_CURVEFIT__
-      cout << "CurveFitting::LinFitBevingtonNdArray(D_A2_CCD, D_A2_SF, SP, Sky, withSky, Args, ArgV) finished" << endl;
+      std::cout << "CurveFitting::LinFitBevingtonNdArray(D_A2_CCD, D_A2_SF, SP, Sky, withSky, Args, ArgV) finished" << std::endl;
     #endif
     return true;
   }
@@ -923,7 +934,7 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
                                                        bool B_WithSky )
   {
     SpectrumBackground< ImageT > out;
-    std::vector< string > args(1, " ");
+    std::vector< std::string > args(1, " ");
     std::vector< void * > argV(1);
     LinFitBevingtonNdArray( D_A1_CCD_In,
                             D_A1_SF_In,
@@ -941,23 +952,23 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
                              ImageT &D_SP_Out,
                              ImageT &D_Sky_Out,
                              bool B_WithSky,
-                             std::vector<string> const& S_A1_Args_In,
+                             std::vector<std::string> const& S_A1_Args_In,
                              std::vector<void *> & ArgV_In)
   {
     #ifdef __DEBUG_CURVEFIT__
-      cout << "CurveFitting::LinFitBevingtonNdArray(D_A1_CCD, D_A1_SF, SP, Sky, withSky, Args, ArgV) started" << endl;
+      std::cout << "CurveFitting::LinFitBevingtonNdArray(D_A1_CCD, D_A1_SF, SP, Sky, withSky, Args, ArgV) started" << std::endl;
     #endif
     int status = 1;
     #ifdef __DEBUG_FIT__
-      cout << "CFits::LinFitBevington(Array, Array, float, float, bool, CSArr, PPArr) started" << endl;
-      cout << "CFits::LinFitBevington: D_A1_CCD_In = " << D_A1_CCD_In << endl;
-      cout << "CFits::LinFitBevington: D_A1_SF_In = " << D_A1_SF_In << endl;
+      std::cout << "CFits::LinFitBevington(Array, Array, float, float, bool, CSArr, PPArr) started" << std::endl;
+      std::cout << "CFits::LinFitBevington: D_A1_CCD_In = " << D_A1_CCD_In << std::endl;
+      std::cout << "CFits::LinFitBevington: D_A1_SF_In = " << D_A1_SF_In << std::endl;
     #endif
 
     if (D_A1_CCD_In.size() != D_A1_SF_In.size()){
-      string message("CFits::LinFitBevington: ERROR: D_A1_CCD_In.size(=");
-      message += to_string(D_A1_CCD_In.size()) + ") != D_A1_SF_In.size(=" + to_string(D_A1_SF_In.size()) + ")";
-      cout << message << endl;
+      std::string message("CFits::LinFitBevington: ERROR: D_A1_CCD_In.size(=");
+      message += std::to_string(D_A1_CCD_In.size()) + ") != D_A1_SF_In.size(=" + std::to_string(D_A1_SF_In.size()) + ")";
+      std::cout << message << std::endl;
       throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
     }
 
@@ -969,7 +980,7 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
 
     if ((D_A1_CCD_In.asEigen().sum() == 0.) || (D_A1_SF.asEigen().sum() == 0.)){
       #ifdef __WARNINGS_ON__
-        cout << "CFits::LinFitBevington: Warning: (D_A1_CCD_In.sum(=" << D_A1_CCD_In.asEigen().sum() << " == 0.) || (D_A1_SF.sum(=" << D_A1_SF.asEigen().sum() << ") == 0.) => returning false" << endl;
+        std::cout << "CFits::LinFitBevington: Warning: (D_A1_CCD_In.sum(=" << D_A1_CCD_In.asEigen().sum() << " == 0.) || (D_A1_SF.sum(=" << D_A1_SF.asEigen().sum() << ") == 0.) => returning false" << std::endl;
       #endif
       D_SP_Out = 0.;
       D_Sky_Out = 0.;
@@ -994,7 +1005,7 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
     if (I_KeywordSet_AllowSkyLTZero >= 0){
       if(*((int*)ArgV_In[I_KeywordSet_AllowSkyLTZero]) > 0){
         B_AllowSkyLTZero = true;
-        cout << "CFits::LinFitBevington: KeyWord_Set(ALLOW_SKY_LT_ZERO)" << endl;
+        std::cout << "CFits::LinFitBevington: KeyWord_Set(ALLOW_SKY_LT_ZERO)" << std::endl;
       }
     }
 
@@ -1004,7 +1015,7 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
       if (I_KeywordSet_AllowSkyLTZero < 0){
         if (*((int*)ArgV_In[I_KeywordSet_AllowSkyLTZero]) > 0){
           B_AllowSpecLTZero = true;
-          cout << "CFits::LinFitBevington: KeyWord_Set(ALLOW_SPEC_LT_ZERO)" << endl;
+          std::cout << "CFits::LinFitBevington: KeyWord_Set(ALLOW_SPEC_LT_ZERO)" << std::endl;
         }
       }
     }
@@ -1015,7 +1026,7 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
     {
       D_Reject = *(float*)ArgV_In[I_KeywordSet_Reject];
       #ifdef __DEBUG_FIT__
-        cout << "CFits::LinFitBevington: KeyWord_Set(REJECT_IN): D_Reject = " << D_Reject << endl;
+        std::cout << "CFits::LinFitBevington: KeyWord_Set(REJECT_IN): D_Reject = " << D_Reject << std::endl;
       #endif
     }
     bool B_Reject = false;
@@ -1032,19 +1043,19 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
       P_I_A1_Mask.reset();
       P_I_A1_Mask = *((PTR(ndarray::Array<lsst::afw::image::MaskPixel, 1, 1>)*)ArgV_In[I_KeywordSet_Mask]);
       if (P_I_A1_Mask->getShape()[0] != ndata){
-        string message("pfs::drp::stella::math::CurveFitting::LinFitBevingtonNdArray: ERROR: P_I_A1_Mask->getShape()[0](=");
-        message += to_string(P_I_A1_Mask->getShape()[0]) + ") != ndata(=" + to_string(ndata) + ")";
-        cout << message << endl;
+        std::string message("pfs::drp::stella::math::CurveFitting::LinFitBevingtonNdArray: ERROR: P_I_A1_Mask->getShape()[0](=");
+        message += std::to_string(P_I_A1_Mask->getShape()[0]) + ") != ndata(=" + std::to_string(ndata) + ")";
+        std::cout << message << std::endl;
         throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
       }
       #ifdef __DEBUG_FIT__
-        cout << "CFits::LinFitBevington: KeyWord_Set(MASK_INOUT): *P_I_A1_Mask = " << *P_I_A1_Mask << endl;
+        std::cout << "CFits::LinFitBevington: KeyWord_Set(MASK_INOUT): *P_I_A1_Mask = " << *P_I_A1_Mask << std::endl;
       #endif
     }
     I_A1_Mask_Orig.deep() = *P_I_A1_Mask;
     #ifdef __DEBUG_FIT__
-      cout << "CFits::LinFitBevington: *P_I_A1_Mask set to " << *P_I_A1_Mask << endl;
-      cout << "CFits::LinFitBevington: I_A1_Mask_Orig set to " << I_A1_Mask_Orig << endl;
+      std::cout << "CFits::LinFitBevington: *P_I_A1_Mask set to " << *P_I_A1_Mask << std::endl;
+      std::cout << "CFits::LinFitBevington: I_A1_Mask_Orig set to " << I_A1_Mask_Orig << std::endl;
     #endif
 
     ndarray::Array<ImageT, 1, 1> D_A1_Sigma_Out = ndarray::allocate(2);
@@ -1055,18 +1066,18 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
       P_D_A1_Sigma_Out.reset();
       P_D_A1_Sigma_Out = *(PTR(ndarray::Array<ImageT, 1, 1>)*)ArgV_In[I_KeywordSet_SigmaOut];
       if (P_D_A1_Sigma_Out->getShape()[0] != 2){
-        string message("pfs::drp::stella::math::CurveFitting::LinFitBevingtonNdArray: ERROR: P_D_A1_Sigma_Out->getShape()[0](=");
-        message += to_string(P_D_A1_Sigma_Out->getShape()[0]) + ") != 2";
-        cout << message << endl;
+        std::string message("pfs::drp::stella::math::CurveFitting::LinFitBevingtonNdArray: ERROR: P_D_A1_Sigma_Out->getShape()[0](=");
+        message += std::to_string(P_D_A1_Sigma_Out->getShape()[0]) + ") != 2";
+        std::cout << message << std::endl;
         throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
       }
       #ifdef __DEBUG_FIT__
-        cout << "CFits::LinFitBevington: KeyWord_Set(SIGMA_OUT)" << endl;
+        std::cout << "CFits::LinFitBevington: KeyWord_Set(SIGMA_OUT)" << std::endl;
       #endif
     }
     P_D_A1_Sigma_Out->deep() = 0.;
     #ifdef __DEBUG_FIT__
-      cout << "CFits::LinFitBevington: *P_D_A1_Sigma_Out set to " << *P_D_A1_Sigma_Out << endl;
+      std::cout << "CFits::LinFitBevington: *P_D_A1_Sigma_Out set to " << *P_D_A1_Sigma_Out << std::endl;
     #endif
 
     PTR(ImageT) P_D_ChiSqr_Out(new ImageT(0.));
@@ -1076,12 +1087,12 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
       P_D_ChiSqr_Out.reset();
       P_D_ChiSqr_Out = *(PTR(ImageT)*)ArgV_In[I_KeywordSet_ChiSqOut];
       #ifdef __DEBUG_FIT__
-        cout << "CFits::LinFitBevington: KeyWord_Set(CHISQ_OUT)" << endl;
+        std::cout << "CFits::LinFitBevington: KeyWord_Set(CHISQ_OUT)" << std::endl;
       #endif
     }
     *P_D_ChiSqr_Out = 0.;
     #ifdef __DEBUG_FIT__
-      cout << "CFits::LinFitBevington: *P_D_ChiSqr_Out set to " << *P_D_ChiSqr_Out << endl;
+      std::cout << "CFits::LinFitBevington: *P_D_ChiSqr_Out set to " << *P_D_ChiSqr_Out << std::endl;
     #endif
 
     PTR(ImageT) P_D_Q_Out(new ImageT(0.));
@@ -1091,12 +1102,12 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
       P_D_Q_Out.reset();
       P_D_Q_Out = *(PTR(ImageT)*)ArgV_In[I_KeywordSet_QOut];
       #ifdef __DEBUG_FIT__
-        cout << "CFits::LinFitBevington: KeyWord_Set(Q_OUT)" << endl;
+        std::cout << "CFits::LinFitBevington: KeyWord_Set(Q_OUT)" << std::endl;
       #endif
     }
     *P_D_Q_Out = 1.;
     #ifdef __DEBUG_FIT__
-      cout << "CFits::LinFitBevington: *P_D_Q_Out set to " << *P_D_Q_Out << endl;
+      std::cout << "CFits::LinFitBevington: *P_D_Q_Out set to " << *P_D_Q_Out << std::endl;
     #endif
 
     D_SP_Out = 0.0;
@@ -1104,22 +1115,22 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
     if (I_KeywordSet_MeasureErrors >= 0)
     {
       #ifdef __DEBUG_FIT__
-        cout << "CFits::LinFitBevington: keyword MEASURE_ERRORS_IN set" << endl;
+        std::cout << "CFits::LinFitBevington: keyword MEASURE_ERRORS_IN set" << std::endl;
       #endif
       P_D_A1_Sig.reset();
       P_D_A1_Sig = *(PTR(ndarray::Array<ImageT, 1, 1>)*)ArgV_In[I_KeywordSet_MeasureErrors];
       #ifdef __DEBUG_FIT__
-        cout << "CFits::LinFitBevington: *P_D_A1_Sig = " << *P_D_A1_Sig << endl;
+        std::cout << "CFits::LinFitBevington: *P_D_A1_Sig = " << *P_D_A1_Sig << std::endl;
       #endif
       if (P_D_A1_Sig->getShape()[0] != ndata){
-        string message("pfs::drp::stella::math::CurveFitting::LinFitBevingtonNdArray: ERROR: P_D_A1_Sig->size()(=");
-        message += to_string(P_D_A1_Sig->size()) + ") != ndata(=" + to_string(ndata) + ")";
-        cout << message << endl;
+        std::string message("pfs::drp::stella::math::CurveFitting::LinFitBevingtonNdArray: ERROR: P_D_A1_Sig->size()(=");
+        message += std::to_string(P_D_A1_Sig->size()) + ") != ndata(=" + std::to_string(ndata) + ")";
+        std::cout << message << std::endl;
         throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
       }
       D_A1_Sig.deep() = *P_D_A1_Sig;
       #ifdef __DEBUG_FIT__
-        cout << "CFits::LinFitBevington: KeyWord_Set(MEASURE_ERRORS_IN): *P_D_A1_Sig = " << *P_D_A1_Sig << endl;
+        std::cout << "CFits::LinFitBevington: KeyWord_Set(MEASURE_ERRORS_IN): *P_D_A1_Sig = " << *P_D_A1_Sig << std::endl;
       #endif
     }
 
@@ -1131,26 +1142,26 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
       P_D_A1_YFit.reset();
       P_D_A1_YFit = *(PTR(ndarray::Array<ImageT, 1, 1>)*)ArgV_In[I_KeywordSet_YFitOut];
       if (P_D_A1_YFit->getShape()[0] != ndata){
-        string message("pfs::drp::stella::math::CurveFitting::LinFitBevingtonNdArray: ERROR: P_D_A1_YFit->size()(=");
-        message += to_string(P_D_A1_YFit->size()) + ") != ndata(=" + to_string(ndata) + ")";
-        cout << message << endl;
+        std::string message("pfs::drp::stella::math::CurveFitting::LinFitBevingtonNdArray: ERROR: P_D_A1_YFit->size()(=");
+        message += std::to_string(P_D_A1_YFit->size()) + ") != ndata(=" + std::to_string(ndata) + ")";
+        std::cout << message << std::endl;
         throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
       }
     }
     P_D_A1_YFit->deep() = 0.;
     #ifdef __DEBUG_FIT__
-      cout << "CFits::LinFitBevington: *P_D_A1_YFit set to " << *P_D_A1_YFit << endl;
+      std::cout << "CFits::LinFitBevington: *P_D_A1_YFit set to " << *P_D_A1_YFit << std::endl;
     #endif
 
     if (P_I_A1_Mask->asEigen().sum() == 0){
       #ifdef __WARNINGS_ON__
-        cout << "CFits::LinFitBevington: WARNING: P_I_A1_Mask->sum() == 0" << endl;
+        std::cout << "CFits::LinFitBevington: WARNING: P_I_A1_Mask->sum() == 0" << std::endl;
       #endif
       D_SP_Out = 0.;
       D_Sky_Out = 0.;
       status = 0;
       #ifdef __DEBUG_CURVEFIT__
-        cout << "CurveFitting::LinFitBevingtonNdArray(D_A1_CCD, D_A1_SF, SP, Sky, withSky, Args, ArgV) finished, status = " << status << endl;
+        std::cout << "CurveFitting::LinFitBevingtonNdArray(D_A1_CCD, D_A1_SF, SP, Sky, withSky, Args, ArgV) finished, status = " << status << std::endl;
       #endif
       return status;
     }
@@ -1172,7 +1183,7 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
     int I_Run = -1;
     int I_MaskSum;
     #ifdef __DEBUG_FIT__
-      cout << "CFits::LinFitBevington: starting while loop" << endl;
+      std::cout << "CFits::LinFitBevington: starting while loop" << std::endl;
     #endif
     while (B_Run){
       D_SP_Out = 0.0;
@@ -1181,11 +1192,11 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
       /// remove bad pixels marked by mask
       I_MaskSum = P_I_A1_Mask->asEigen().sum();
       #ifdef __DEBUG_FIT__
-        cout << "CFits::LinFitBevington: I_Run=" << I_Run << ": I_MaskSum = " << I_MaskSum << endl;
+        std::cout << "CFits::LinFitBevington: I_Run=" << I_Run << ": I_MaskSum = " << I_MaskSum << std::endl;
       #endif
       if (I_MaskSum == 0){
-        string message("LinFitBevington: WARNING: I_MaskSum == 0");
-        cout << message << endl;
+        std::string message("LinFitBevington: WARNING: I_MaskSum == 0");
+        std::cout << message << std::endl;
         status = 0;
         return status;
       }
@@ -1205,9 +1216,9 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
         }
       }
       #ifdef __DEBUG_FIT__
-        cout << "CFits::LinFitBevington: I_Run=" << I_Run << ": D_A1_CCD set to " << D_A1_CCD << endl;
-        cout << "CFits::LinFitBevington: I_Run=" << I_Run << ": D_A1_SF set to " << D_A1_SF << endl;
-        cout << "CFits::LinFitBevington: I_Run=" << I_Run << ": D_A1_Sig set to " << D_A1_Sig << endl;
+        std::cout << "CFits::LinFitBevington: I_Run=" << I_Run << ": D_A1_CCD set to " << D_A1_CCD << std::endl;
+        std::cout << "CFits::LinFitBevington: I_Run=" << I_Run << ": D_A1_SF set to " << D_A1_SF << std::endl;
+        std::cout << "CFits::LinFitBevington: I_Run=" << I_Run << ": D_A1_Sig set to " << D_A1_Sig << std::endl;
       #endif
 
       D_Sum_Weights = 0.;
@@ -1221,16 +1232,16 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
         {
           /// ... with weights
           if (std::fabs(D_A1_Sig[i]) < 0.00000000000000001){
-            cout << "CFits::LinFitBevington: I_Run=" << I_Run << ": i = " << i << ": ERROR: D_A1_Sig = " << D_A1_Sig << endl;
-            string message("CFits::LinFitBevington: I_Run=");
-            message += to_string(I_Run) + ": i = " + to_string(i) + ": ERROR: D_A1_Sig(" + to_string(i) + ") == 0.";
-            cout << message << endl;
+            std::cout << "CFits::LinFitBevington: I_Run=" << I_Run << ": i = " << i << ": ERROR: D_A1_Sig = " << D_A1_Sig << std::endl;
+            std::string message("CFits::LinFitBevington: I_Run=");
+            message += std::to_string(I_Run) + ": i = " + std::to_string(i) + ": ERROR: D_A1_Sig(" + std::to_string(i) + ") == 0.";
+            std::cout << message << std::endl;
             throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
           }
           D_A1_WT[i] = 1. / pow(D_A1_Sig[i], 2);
         }
         #ifdef __DEBUG_FIT__
-          cout << "CFits::LinFitBevington: I_Run=" << I_Run << ":: D_A1_WT set to " << D_A1_WT << endl;
+          std::cout << "CFits::LinFitBevington: I_Run=" << I_Run << ":: D_A1_WT set to " << D_A1_WT << std::endl;
         #endif
         for (i=0; i < I_MaskSum; i++)
         {
@@ -1256,19 +1267,19 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
       D_Delta = D_Sum_Weights * D_Sum_XSquareTimesWeight - pow(D_Sum_XTimesWeight, 2);
 
       #ifdef __DEBUG_FIT__
-        cout << "CFits::LinFitBevington: I_Run=" << I_Run << ": D_Sum_Weights set to " << D_Sum_Weights << endl;
-        cout << "CFits::LinFitBevington: I_Run=" << I_Run << ": D_Sum_XTimesWeight set to " << D_Sum_XTimesWeight << endl;
-        cout << "CFits::LinFitBevington: I_Run=" << I_Run << ": D_Sum_YTimesWeight set to " << D_Sum_YTimesWeight << endl;
-        cout << "CFits::LinFitBevington: I_Run=" << I_Run << ": D_Sum_XYTimesWeight set to " << D_Sum_XYTimesWeight << endl;
-        cout << "CFits::LinFitBevington: I_Run=" << I_Run << ": D_Sum_XSquareTimesWeight set to " << D_Sum_XSquareTimesWeight << endl;
-        cout << "CFits::LinFitBevington: I_Run=" << I_Run << ": D_Delta set to " << D_Delta << endl;
+        std::cout << "CFits::LinFitBevington: I_Run=" << I_Run << ": D_Sum_Weights set to " << D_Sum_Weights << std::endl;
+        std::cout << "CFits::LinFitBevington: I_Run=" << I_Run << ": D_Sum_XTimesWeight set to " << D_Sum_XTimesWeight << std::endl;
+        std::cout << "CFits::LinFitBevington: I_Run=" << I_Run << ": D_Sum_YTimesWeight set to " << D_Sum_YTimesWeight << std::endl;
+        std::cout << "CFits::LinFitBevington: I_Run=" << I_Run << ": D_Sum_XYTimesWeight set to " << D_Sum_XYTimesWeight << std::endl;
+        std::cout << "CFits::LinFitBevington: I_Run=" << I_Run << ": D_Sum_XSquareTimesWeight set to " << D_Sum_XSquareTimesWeight << std::endl;
+        std::cout << "CFits::LinFitBevington: I_Run=" << I_Run << ": D_Delta set to " << D_Delta << std::endl;
       #endif
 
 
       if (!B_WithSky)
       {
         #ifdef __DEBUG_FIT__
-          cout << "CFits::LinFitBevington: I_Run=" << I_Run << ": D_Sky_Out < 0. = setting D_Sky_Out to 0 " << endl;
+          std::cout << "CFits::LinFitBevington: I_Run=" << I_Run << ": D_Sky_Out < 0. = setting D_Sky_Out to 0 " << std::endl;
         #endif
         D_SP_Out = D_Sum_XYTimesWeight / D_Sum_XSquareTimesWeight;
         D_Sky_Out = 0.0;
@@ -1276,41 +1287,41 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
       else
       {
         #ifdef __DEBUG_FIT__
-          cout << "CFits::LinFitBevington: I_Run=" << I_Run << ": D_Sky_Out >= 0." << D_Sky_Out << endl;
+          std::cout << "CFits::LinFitBevington: I_Run=" << I_Run << ": D_Sky_Out >= 0." << D_Sky_Out << std::endl;
         #endif
         D_Sky_Out = ((D_Sum_XSquareTimesWeight * D_Sum_YTimesWeight) - (D_Sum_XTimesWeight * D_Sum_XYTimesWeight)) / D_Delta;
 
         D_SP_Out = ((D_Sum_Weights * D_Sum_XYTimesWeight) - (D_Sum_XTimesWeight * D_Sum_YTimesWeight)) / D_Delta;
         #ifdef __DEBUG_FIT__
-          cout << "CFits::LinFitBevington: I_Run=" << I_Run << ": D_SP_Out set to " << D_SP_Out << endl;
-          cout << "CFits::LinFitBevington: I_Run=" << I_Run << ": D_Sky_Out set to " << D_Sky_Out << endl;
+          std::cout << "CFits::LinFitBevington: I_Run=" << I_Run << ": D_SP_Out set to " << D_SP_Out << std::endl;
+          std::cout << "CFits::LinFitBevington: I_Run=" << I_Run << ": D_Sky_Out set to " << D_Sky_Out << std::endl;
         #endif
       }
       #ifdef __DEBUG_FIT__
-        cout << "CFits::LinFitBevington: I_Run=" << I_Run << ": D_Sum_Weights >= " << D_Sum_Weights << endl;
-        cout << "CFits::LinFitBevington: I_Run=" << I_Run << ": D_Sum_XSquareTimesWeight >= " << D_Sum_XSquareTimesWeight << endl;
-        cout << "CFits::LinFitBevington: I_Run=" << I_Run << ": D_Delta >= " << D_Delta << endl;
+        std::cout << "CFits::LinFitBevington: I_Run=" << I_Run << ": D_Sum_Weights >= " << D_Sum_Weights << std::endl;
+        std::cout << "CFits::LinFitBevington: I_Run=" << I_Run << ": D_Sum_XSquareTimesWeight >= " << D_Sum_XSquareTimesWeight << std::endl;
+        std::cout << "CFits::LinFitBevington: I_Run=" << I_Run << ": D_Delta >= " << D_Delta << std::endl;
       #endif
       (*P_D_A1_Sigma_Out)[0] = sqrt(D_Sum_Weights / D_Delta);
       (*P_D_A1_Sigma_Out)[1] = sqrt(D_Sum_XSquareTimesWeight / D_Delta);
       #ifdef __DEBUG_FIT__
-        cout << "CFits::LinFitBevington: I_Run=" << I_Run << ": P_D_A1_Sigma_Out(0) set to " << (*P_D_A1_Sigma_Out)[0] << endl;
-        cout << "CFits::LinFitBevington: I_Run=" << I_Run << ": P_D_A1_Sigma_Out(1) set to " << (*P_D_A1_Sigma_Out)[1] << endl;
+        std::cout << "CFits::LinFitBevington: I_Run=" << I_Run << ": P_D_A1_Sigma_Out(0) set to " << (*P_D_A1_Sigma_Out)[0] << std::endl;
+        std::cout << "CFits::LinFitBevington: I_Run=" << I_Run << ": P_D_A1_Sigma_Out(1) set to " << (*P_D_A1_Sigma_Out)[1] << std::endl;
       #endif
       if ((!B_AllowSpecLTZero) && (D_SP_Out < 0.))
         D_SP_Out = 0.;
 
       #ifdef __DEBUG_FIT__
-        cout << "CFits::LinFitBevington: I_Run=" << I_Run << ": D_Sky_Out set to " << D_Sky_Out << endl;
-        cout << "CFits::LinFitBevington: I_Run=" << I_Run << ": D_SP_Out set to " << D_SP_Out << endl;
-        cout << "CFits::LinFitBevington: I_Run=" << I_Run << ": std::fabs(D_SP_Out) = " << std::fabs(D_SP_Out) << endl;
+        std::cout << "CFits::LinFitBevington: I_Run=" << I_Run << ": D_Sky_Out set to " << D_Sky_Out << std::endl;
+        std::cout << "CFits::LinFitBevington: I_Run=" << I_Run << ": D_SP_Out set to " << D_SP_Out << std::endl;
+        std::cout << "CFits::LinFitBevington: I_Run=" << I_Run << ": std::fabs(D_SP_Out) = " << std::fabs(D_SP_Out) << std::endl;
       #endif
 
       P_D_A1_YFit->deep() = D_Sky_Out + D_SP_Out * D_A1_SF_In;//.template cast<ImageT>();
       D_A1_YFit.deep() = D_Sky_Out + D_SP_Out * D_A1_SF;//.template cast<ImageT>();
       #ifdef __DEBUG_FIT__
-        cout << "CFits::LinFitBevington: I_Run=" << I_Run << ": *P_D_A1_YFit set to " << *P_D_A1_YFit << endl;
-        cout << "CFits::LinFitBevington: I_Run=" << I_Run << ": D_A1_YFit set to " << D_A1_YFit << endl;
+        std::cout << "CFits::LinFitBevington: I_Run=" << I_Run << ": *P_D_A1_YFit set to " << *P_D_A1_YFit << std::endl;
+        std::cout << "CFits::LinFitBevington: I_Run=" << I_Run << ": D_A1_YFit set to " << D_A1_YFit << std::endl;
       #endif
       *P_D_ChiSqr_Out = 0.;
       if (I_KeywordSet_MeasureErrors < 0)
@@ -1319,15 +1330,15 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
         {
           *P_D_ChiSqr_Out += pow(D_A1_CCD[i] - D_A1_YFit[i], 2);
           #ifdef __DEBUG_FIT__
-            cout << "CFits::LinFitBevington: I_Run=" << I_Run << ": i = " << i << ": P_D_ChiSqr_Out set to " << *P_D_ChiSqr_Out << endl;
+            std::cout << "CFits::LinFitBevington: I_Run=" << I_Run << ": i = " << i << ": P_D_ChiSqr_Out set to " << *P_D_ChiSqr_Out << std::endl;
           #endif
         }
 
         /// for unweighted data evaluate typical sig using chi2, and adjust the standard deviations
         if (I_MaskSum == 2){
-          string message("CFits::LinFitBevington: I_Run=");
-          message += to_string(I_Run) + ": ERROR: Sum of Mask (=" + to_string(I_MaskSum) + ") must be greater than 2";
-          cout << message << endl;
+          std::string message("CFits::LinFitBevington: I_Run=");
+          message += std::to_string(I_Run) + ": ERROR: Sum of Mask (=" + std::to_string(I_MaskSum) + ") must be greater than 2";
+          std::cout << message << std::endl;
           throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
         }
         sigdat = sqrt((*P_D_ChiSqr_Out) / (I_MaskSum - 2));
@@ -1339,24 +1350,24 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
         for (i = 0; i < I_MaskSum; i++)
         {
           #ifdef __DEBUG_FIT__
-            cout << "CFits::LinFitBevington: I_Run=" << I_Run << ": i = " << i << ": D_A1_CCD(" << i << ") = " << D_A1_CCD[i] << endl;
-            cout << "CFits::LinFitBevington: I_Run=" << I_Run << ": i = " << i << ": D_A1_SF(" << i << ") = " << D_A1_SF[i] << endl;
-            cout << "CFits::LinFitBevington: I_Run=" << I_Run << ": i = " << i << ": D_A1_Sig(" << i << ") = " << D_A1_Sig[i] << endl;
-            cout << "CFits::LinFitBevington: I_Run=" << I_Run << ": i = " << i << ": D_A1_YFit(" << i << ") = " << D_A1_YFit[i] << endl;
+            std::cout << "CFits::LinFitBevington: I_Run=" << I_Run << ": i = " << i << ": D_A1_CCD(" << i << ") = " << D_A1_CCD[i] << std::endl;
+            std::cout << "CFits::LinFitBevington: I_Run=" << I_Run << ": i = " << i << ": D_A1_SF(" << i << ") = " << D_A1_SF[i] << std::endl;
+            std::cout << "CFits::LinFitBevington: I_Run=" << I_Run << ": i = " << i << ": D_A1_Sig(" << i << ") = " << D_A1_Sig[i] << std::endl;
+            std::cout << "CFits::LinFitBevington: I_Run=" << I_Run << ": i = " << i << ": D_A1_YFit(" << i << ") = " << D_A1_YFit[i] << std::endl;
           #endif
-          if (abs(D_A1_Sig[i]) < 0.00000000000000001){
-            string message("CFits::LinFitBevington: I_Run=");
-            message += to_string(I_Run) + ": i = " + to_string(i) + ": ERROR: D_A1_Sig(" + to_string(i) + ") == 0.";
-            cout << message << endl;
+          if (std::abs(D_A1_Sig[i]) < 0.00000000000000001){
+            std::string message("CFits::LinFitBevington: I_Run=");
+            message += std::to_string(I_Run) + ": i = " + std::to_string(i) + ": ERROR: D_A1_Sig(" + std::to_string(i) + ") == 0.";
+            std::cout << message << std::endl;
             throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
           }
           *P_D_ChiSqr_Out += pow((D_A1_CCD[i] - D_A1_YFit[i]) / D_A1_Sig[i], 2);
           #ifdef __DEBUG_FIT__
-            cout << "CFits::LinFitBevington: I_Run=" << I_Run << ": i = " << i << ": P_D_ChiSqr_Out set to " << *P_D_ChiSqr_Out << endl;
+            std::cout << "CFits::LinFitBevington: I_Run=" << I_Run << ": i = " << i << ": P_D_ChiSqr_Out set to " << *P_D_ChiSqr_Out << std::endl;
           #endif
         }
         #ifdef __DEBUG_FIT__
-          cout << "CFits::LinFitBevington: I_Run=" << I_Run << ": P_D_ChiSqr_Out set to " << *P_D_ChiSqr_Out << endl;
+          std::cout << "CFits::LinFitBevington: I_Run=" << I_Run << ": P_D_ChiSqr_Out set to " << *P_D_ChiSqr_Out << std::endl;
         #endif
         if (I_MaskSum > 2)
           *P_D_Q_Out = pfs::drp::stella::math::GammQ(0.5 * (I_MaskSum - 2), 0.5 * (*P_D_ChiSqr_Out));
@@ -1369,9 +1380,9 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
 
         I_SumMaskLast = P_I_A1_Mask->asEigen().sum();
         #ifdef __DEBUG_FIT__
-          cout << "CFits::LinFitBevington: I_Run=" << I_Run << ": Reject: I_SumMaskLast = " << I_SumMaskLast << endl;
-          cout << "CFits::LinFitBevington: I_Run=" << I_Run << ": Reject: D_A1_CCD = " << D_A1_CCD << endl;
-          cout << "CFits::LinFitBevington: I_Run=" << I_Run << ": Reject: D_A1_YFit = " << D_A1_YFit << endl;
+          std::cout << "CFits::LinFitBevington: I_Run=" << I_Run << ": Reject: I_SumMaskLast = " << I_SumMaskLast << std::endl;
+          std::cout << "CFits::LinFitBevington: I_Run=" << I_Run << ": Reject: D_A1_CCD = " << D_A1_CCD << std::endl;
+          std::cout << "CFits::LinFitBevington: I_Run=" << I_Run << ": Reject: D_A1_YFit = " << D_A1_YFit << std::endl;
         #endif
         ndarray::Array<ImageT, 1, 1> tempArr = ndarray::allocate(D_A1_CCD.getShape()[0]);
         tempArr.deep() = D_A1_CCD - D_A1_YFit;
@@ -1381,16 +1392,16 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
 
         D_A1_Diff.deep() = D_A1_CCD_In - (*P_D_A1_YFit);
         #ifdef __DEBUG_FIT__
-          cout << "CFits::LinFitBevington: I_Run=" << I_Run << ": Reject: D_SDevReject = " << D_SDevReject << endl;
-          cout << "CFits::LinFitBevington: I_Run=" << I_Run << ": Reject: D_A1_CCD_In = " << D_A1_CCD_In << endl;
-          cout << "CFits::LinFitBevington: I_Run=" << I_Run << ": Reject: *P_D_A1_YFit = " << *P_D_A1_YFit << endl;
-          cout << "CFits::LinFitBevington: I_Run=" << I_Run << ": Reject: D_A1_CCD_In - (*P_D_A1_YFit) = " << D_A1_Diff << endl;
+          std::cout << "CFits::LinFitBevington: I_Run=" << I_Run << ": Reject: D_SDevReject = " << D_SDevReject << std::endl;
+          std::cout << "CFits::LinFitBevington: I_Run=" << I_Run << ": Reject: D_A1_CCD_In = " << D_A1_CCD_In << std::endl;
+          std::cout << "CFits::LinFitBevington: I_Run=" << I_Run << ": Reject: *P_D_A1_YFit = " << *P_D_A1_YFit << std::endl;
+          std::cout << "CFits::LinFitBevington: I_Run=" << I_Run << ": Reject: D_A1_CCD_In - (*P_D_A1_YFit) = " << D_A1_Diff << std::endl;
         #endif
         tempEArr = D_A1_Diff.asEigen();
         D_A1_Check.asEigen() = tempEArr.abs();
         #ifdef __DEBUG_FIT__
-          cout << "CFits::LinFitBevington: I_Run=" << I_Run << ": Reject: D_A1_Check = " << D_A1_Check << endl;
-          cout << "CFits::LinFitBevington: I_Run=" << I_Run << ": before Reject: *P_I_A1_Mask = " << *P_I_A1_Mask << endl;
+          std::cout << "CFits::LinFitBevington: I_Run=" << I_Run << ": Reject: D_A1_Check = " << D_A1_Check << std::endl;
+          std::cout << "CFits::LinFitBevington: I_Run=" << I_Run << ": before Reject: *P_I_A1_Mask = " << *P_I_A1_Mask << std::endl;
         #endif
         I_A1_LastMask = *P_I_A1_Mask;
         for (size_t pos = 0; pos < D_A1_Check.getShape()[0]; ++pos){
@@ -1406,12 +1417,12 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
               (*P_I_A1_Mask)[pos] = 0;
         }
         #ifdef __DEBUG_FIT__
-          cout << "CFits::LinFitBevington: I_Run=" << I_Run << ": Reject: *P_I_A1_Mask = " << *P_I_A1_Mask << endl;
+          std::cout << "CFits::LinFitBevington: I_Run=" << I_Run << ": Reject: *P_I_A1_Mask = " << *P_I_A1_Mask << std::endl;
         #endif
         if (I_SumMaskLast == P_I_A1_Mask->asEigen().sum()){
           B_Run = false;
           #ifdef __DEBUG_FIT__
-            cout << "CFits::LinFitBevington: I_Run=" << I_Run << ": leaving while loop" << endl;
+            std::cout << "CFits::LinFitBevington: I_Run=" << I_Run << ": leaving while loop" << std::endl;
           #endif
         }
         else{
@@ -1425,11 +1436,11 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
     }/// end while (B_Run)
 
     #ifdef __DEBUG_FIT__
-      cout << "CFits::LinFitBevington: *P_D_A1_YFit set to " << *P_D_A1_YFit << endl;
-      cout << "CFits::LinFitBevington: *P_I_A1_Mask set to " << *P_I_A1_Mask << endl;
+      std::cout << "CFits::LinFitBevington: *P_D_A1_YFit set to " << *P_D_A1_YFit << std::endl;
+      std::cout << "CFits::LinFitBevington: *P_I_A1_Mask set to " << *P_I_A1_Mask << std::endl;
     #endif
     #ifdef __DEBUG_CURVEFIT__
-      cout << "CurveFitting::LinFitBevingtonNdArray(D_A1_CCD, D_A1_SF, SP, Sky, withSky, Args, ArgV) finished" << endl;
+      std::cout << "CurveFitting::LinFitBevingtonNdArray(D_A1_CCD, D_A1_SF, SP, Sky, withSky, Args, ArgV) finished" << std::endl;
     #endif
     return status;
   }
@@ -1441,7 +1452,7 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
   T GSER(T & D_Gamser_Out, T const a, T const x)
   {
     #ifdef __DEBUG_CURVEFIT__
-      cout << "CurveFitting::GSER(Gamser, a, x) started" << endl;
+      std::cout << "CurveFitting::GSER(Gamser, a, x) started" << std::endl;
     #endif
     T D_GLn_Out = 0;
     int n;
@@ -1449,28 +1460,28 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
     float d_sum, del, ap;
 
     #ifdef __DEBUG_LINFIT__
-      cout << "CFits::GSER: D_Gamser_Out = " << D_Gamser_Out << endl;
-      cout << "CFits::GSER: a = " << a << endl;
-      cout << "CFits::GSER: x = " << x << endl;
+      std::cout << "CFits::GSER: D_Gamser_Out = " << D_Gamser_Out << std::endl;
+      std::cout << "CFits::GSER: a = " << a << std::endl;
+      std::cout << "CFits::GSER: x = " << x << std::endl;
     #endif
 
     D_GLn_Out = GammLn(a);
     #ifdef __DEBUG_LINFIT__
-      cout << "CFits::GSER: D_GLn_Out = " << D_GLn_Out << endl;
+      std::cout << "CFits::GSER: D_GLn_Out = " << D_GLn_Out << std::endl;
     #endif
     if (x <= 0.){
       if (x < 0.){
-        string message("CFits::GSER: ERROR: x less than 0!");
-        cout << message << endl;
+        std::string message("CFits::GSER: ERROR: x less than 0!");
+        std::cout << message << std::endl;
         throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
       }
       D_Gamser_Out = 0.;
       #ifdef __DEBUG_LINFIT__
-        cout << "CFits::GSER: x<=0: D_Gamser_Out = " << D_Gamser_Out << endl;
-        cout << "CFits::GSER: x<=0: D_GLn_Out = " << D_GLn_Out << endl;
+        std::cout << "CFits::GSER: x<=0: D_Gamser_Out = " << D_Gamser_Out << std::endl;
+        std::cout << "CFits::GSER: x<=0: D_GLn_Out = " << D_GLn_Out << std::endl;
       #endif
       #ifdef __DEBUG_CURVEFIT__
-        cout << "CurveFitting::GSER(Gamser, a, x) finished" << endl;
+        std::cout << "CurveFitting::GSER(Gamser, a, x) finished" << std::endl;
       #endif
       return D_GLn_Out;
     }
@@ -1484,17 +1495,17 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
         if (std::fabs(del) < std::fabs(d_sum) * 3.e-7){
           D_Gamser_Out = d_sum * exp(-x+a*log(x) - D_GLn_Out);
           #ifdef __DEBUG_LINFIT__
-            cout << "CFits::GSER: x>0: D_Gamser_Out = " << D_Gamser_Out << endl;
-            cout << "CFits::GSER: x>0: D_GLn_Out = " << D_GLn_Out << endl;
+            std::cout << "CFits::GSER: x>0: D_Gamser_Out = " << D_Gamser_Out << std::endl;
+            std::cout << "CFits::GSER: x>0: D_GLn_Out = " << D_GLn_Out << std::endl;
           #endif
           #ifdef __DEBUG_CURVEFIT__
-            cout << "CurveFitting::GSER(Gamser, a, x) finished" << endl;
+            std::cout << "CurveFitting::GSER(Gamser, a, x) finished" << std::endl;
           #endif
           return D_GLn_Out;
         }
       }
-      string message("CFits::GSER: ERROR: a too large, ITMax too small in routine GSER");
-      cout << message << endl;
+      std::string message("CFits::GSER: ERROR: a too large, ITMax too small in routine GSER");
+      std::cout << message << std::endl;
       throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
     }
   }
@@ -1506,20 +1517,20 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
   T GammLn(T const xx)
   {
     #ifdef __DEBUG_CURVEFIT__
-      cout << "CurveFitting::GammLn(xx) started" << endl;
+      std::cout << "CurveFitting::GammLn(xx) started" << std::endl;
     #endif
     float x,y,tmp,ser;
     static float cof[6]={76.18009172947146, -86.50532032941677,24.01409824083091,-1.231739572450155,0.1208650973866179e-2,-0.5395239384953e-5};
 
     #ifdef __DEBUG_LINFIT__
-      cout << "CFits::GammLn: xx = " << xx << endl;
+      std::cout << "CFits::GammLn: xx = " << xx << std::endl;
     #endif
 
     y = x = xx;
     tmp = x + 5.5;
     tmp -= (x+0.5) * log(tmp);
     #ifdef __DEBUG_LINFIT__
-      cout << "CFits::GammLn: tmp = " << tmp << endl;
+      std::cout << "CFits::GammLn: tmp = " << tmp << std::endl;
     #endif
     ser = 1.000000000190015;
     for (int o = 0; o <= 5; o++){
@@ -1527,11 +1538,11 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
     }
     T D_Result = T(-tmp + log(2.5066282746310005 * ser / x));
     #ifdef __DEBUG_LINFIT__
-      cout << "CFits::GammLn: ser = " << ser << endl;
-      cout << "CFits::GammLn: returning (-tmp + log(2.5066282746310005 * ser / xx)) = " << D_Result << endl;
+      std::cout << "CFits::GammLn: ser = " << ser << std::endl;
+      std::cout << "CFits::GammLn: returning (-tmp + log(2.5066282746310005 * ser / xx)) = " << D_Result << std::endl;
     #endif
     #ifdef __DEBUG_CURVEFIT__
-      cout << "CurveFitting::GammLn(xx) finished" << endl;
+      std::cout << "CurveFitting::GammLn(xx) finished" << std::endl;
     #endif
     return D_Result;
   }
@@ -1543,7 +1554,7 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
   T GCF(T & D_GammCF_Out, T const a, T const x)
   {
     #ifdef __DEBUG_CURVEFIT__
-      cout << "CurveFitting::GCF(GammCF, a, x) Started" << endl;
+      std::cout << "CurveFitting::GCF(GammCF, a, x) Started" << std::endl;
     #endif
     T D_GLn_Out = 0;
     int n;
@@ -1554,50 +1565,50 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
 
     D_GLn_Out = GammLn(a);
     #ifdef __DEBUG_FIT__
-      cout << "CFits::GCF: D_GLn_Out set to " << D_GLn_Out << endl;
+      std::cout << "CFits::GCF: D_GLn_Out set to " << D_GLn_Out << std::endl;
     #endif
 
     b = x + 1. - a;
     #ifdef __DEBUG_FIT__
-      cout << "CFits::GCF: x=" << x << ", a=" << a << ": b set to " << b << endl;
+      std::cout << "CFits::GCF: x=" << x << ", a=" << a << ": b set to " << b << std::endl;
     #endif
     c = 1. / FPMIN;
     #ifdef __DEBUG_FIT__
-      cout << "CFits::GCF: c set to " << c << endl;
+      std::cout << "CFits::GCF: c set to " << c << std::endl;
     #endif
     d = 1. / b;
     #ifdef __DEBUG_FIT__
-      cout << "CFits::GCF: d set to " << d << endl;
+      std::cout << "CFits::GCF: d set to " << d << std::endl;
     #endif
     h = d;
     for (n=1; n <= ITMAX; n++){
       an = -n * (n - a);
       #ifdef __DEBUG_FIT__
-        cout << "CFits::GCF: n = " << n << ": an set to " << an << endl;
+        std::cout << "CFits::GCF: n = " << n << ": an set to " << an << std::endl;
       #endif
       b += 2.;
       #ifdef __DEBUG_FIT__
-        cout << "CFits::GCF: n = " << n << ": b set to " << b << endl;
+        std::cout << "CFits::GCF: n = " << n << ": b set to " << b << std::endl;
       #endif
       d = an * d + b;
       #ifdef __DEBUG_FIT__
-        cout << "CFits::GCF: n = " << n << ": d set to " << d << endl;
+        std::cout << "CFits::GCF: n = " << n << ": d set to " << d << std::endl;
       #endif
       if (std::fabs(d) < FPMIN)
         d = FPMIN;
       c = b + an / c;
       #ifdef __DEBUG_FIT__
-        cout << "CFits::GCF: n = " << n << ": c set to " << c << endl;
+        std::cout << "CFits::GCF: n = " << n << ": c set to " << c << std::endl;
       #endif
       if (std::fabs(c) < FPMIN)
         c = FPMIN;
       d = 1. / d;
       #ifdef __DEBUG_FIT__
-        cout << "CFits::GCF: n = " << n << ": d set to " << d << endl;
+        std::cout << "CFits::GCF: n = " << n << ": d set to " << d << std::endl;
       #endif
       del = d * c;
       #ifdef __DEBUG_FIT__
-        cout << "CFits::GCF: n = " << n << ": del set to " << del << endl;
+        std::cout << "CFits::GCF: n = " << n << ": del set to " << del << std::endl;
       #endif
 
       h *= del;
@@ -1605,13 +1616,13 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
         break;
     }
     if (n > ITMAX){
-      string message("CFits::GCF: ERROR: a too large, ITMAX too small in GCF");
-      cout << message << endl;
+      std::string message("CFits::GCF: ERROR: a too large, ITMAX too small in GCF");
+      std::cout << message << std::endl;
       throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
     }
     D_GammCF_Out = exp(-x+a*log(x) - D_GLn_Out) * h;
     #ifdef __DEBUG_CURVEFIT__
-      cout << "CurveFitting::GCF(GammCF, a, x) finished" << endl;
+      std::cout << "CurveFitting::GCF(GammCF, a, x) finished" << std::endl;
     #endif
     return D_GLn_Out;
   }
@@ -1622,30 +1633,30 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
   template<typename T>
   T GammP(T const a, T const x){
     #ifdef __DEBUG_CURVEFIT__
-      cout << "CurveFitting::GammP(a, x) Started" << endl;
+      std::cout << "CurveFitting::GammP(a, x) Started" << std::endl;
     #endif
     T D_Out = 0;
     #ifdef __DEBUG_FIT__
-      cout << "CFits::GammP started: a = " << a << ", x = " << x << endl;
+      std::cout << "CFits::GammP started: a = " << a << ", x = " << x << std::endl;
     #endif
     T gamser, gammcf;
     if (x < 0.){
-      string message("pfs::drp::stella::math::CurveFitting::GammP: ERROR: x(=");
-      message += to_string(x) + ") < 0.";
-      cout << message << endl;
+      std::string message("pfs::drp::stella::math::CurveFitting::GammP: ERROR: x(=");
+      message += std::to_string(x) + ") < 0.";
+      std::cout << message << std::endl;
       throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
     }
     if (a <= 0.){
-      string message("pfs::drp::stella::math::CurveFitting::GammP: ERROR: a(=");
-      message += to_string(a) + ") <= 0.";
-      cout << message << endl;
+      std::string message("pfs::drp::stella::math::CurveFitting::GammP: ERROR: a(=");
+      message += std::to_string(a) + ") <= 0.";
+      std::cout << message << std::endl;
       throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
     }
     if (x < (a+1.)){
       GSER(gamser, a, x);
       D_Out = gamser;
       #ifdef __DEBUG_CURVEFIT__
-        cout << "CurveFitting::GammP(a, x) finished" << endl;
+        std::cout << "CurveFitting::GammP(a, x) finished" << std::endl;
       #endif
       return D_Out;
     }
@@ -1653,7 +1664,7 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
       GCF(gammcf, a, x);
       D_Out = 1. - gammcf;
       #ifdef __DEBUG_CURVEFIT__
-        cout << "CurveFitting::GammP(a, x) finished" << endl;
+        std::cout << "CurveFitting::GammP(a, x) finished" << std::endl;
       #endif
       return D_Out;
     }
@@ -1665,45 +1676,45 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
   template<typename T>
   T GammQ(T const a, T const x){
     #ifdef __DEBUG_CURVEFIT__
-      cout << "CurveFitting::GammQ(a, x) started" << endl;
+      std::cout << "CurveFitting::GammQ(a, x) started" << std::endl;
     #endif
     T D_Out = 0;
     #ifdef __DEBUG_FIT__
-      cout << "CFits::GammQ started: a = " << a << ", x = " << x << endl;
+      std::cout << "CFits::GammQ started: a = " << a << ", x = " << x << std::endl;
     #endif
     T gamser = 0.;
     T gammcf = 0.;
     if (x < 0.){
-      string message("pfs::drp::stella::math::CurveFitting::GammQ: ERROR: x(=");
-      message += to_string(x) + ") < 0.";
-      cout << message << endl;
+      std::string message("pfs::drp::stella::math::CurveFitting::GammQ: ERROR: x(=");
+      message += std::to_string(x) + ") < 0.";
+      std::cout << message << std::endl;
       throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
     }
     if(a <= 0.){
-      string message("pfs::drp::stella::math::CurveFitting::GammQ: ERROR: a(=");
-      message += to_string(a) + ") < 0.";
-      cout << message << endl;
+      std::string message("pfs::drp::stella::math::CurveFitting::GammQ: ERROR: a(=");
+      message += std::to_string(a) + ") < 0.";
+      std::cout << message << std::endl;
       throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
     }
     if (x < (a+1.)){
       GSER(gamser, a, x);
       #ifdef __DEBUG_FIT__
-        cout << "CFits::GammQ: x < (a+1.): gamser = " << gamser << endl;
+        std::cout << "CFits::GammQ: x < (a+1.): gamser = " << gamser << std::endl;
       #endif
       D_Out = 1. - gamser;
       #ifdef __DEBUG_CURVEFIT__
-        cout << "CurveFitting::GammQ(a, x) finished" << endl;
+        std::cout << "CurveFitting::GammQ(a, x) finished" << std::endl;
       #endif
       return D_Out;
     }
     else{
       GCF(gammcf, a, x);
       #ifdef __DEBUG_FIT__
-        cout << "CFits::GammQ: x < (a+1.): gammcf = " << gammcf << endl;
+        std::cout << "CFits::GammQ: x < (a+1.): gammcf = " << gammcf << std::endl;
       #endif
       D_Out = gammcf;
       #ifdef __DEBUG_CURVEFIT__
-        cout << "CurveFitting::GammQ(a, x) finished" << endl;
+        std::cout << "CurveFitting::GammQ(a, x) finished" << std::endl;
       #endif
       return D_Out;
     }
@@ -1712,10 +1723,10 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
   template< typename T, typename U >
   ndarray::Array<T, 1, 1> chebyshev(ndarray::Array<T, 1, 1> const& x_In, ndarray::Array<U, 1, 1> const& coeffs_In){
     #ifdef __DEBUG_CURVEFIT__
-      cout << "CurveFitting::chebyshev(a, coeffs) started" << endl;
+      std::cout << "CurveFitting::chebyshev(a, coeffs) started" << std::endl;
     #endif
     int nCoeffs = coeffs_In.getShape()[0];
-    cout << "pfs::drp::stella::math::CurveFitting::chebyshev: coeffs_In = " << nCoeffs << ": ";
+    std::cout << "pfs::drp::stella::math::CurveFitting::chebyshev: coeffs_In = " << nCoeffs << ": ";
     for (int i = 0; i < nCoeffs; ++i)
       printf("%.12f ", coeffs_In[i]);
     printf("\n");
@@ -1723,9 +1734,9 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
     ndarray::Array<float, 1, 1> range = ndarray::allocate(2);
     range[0] = min(x_In);
     range[1] = max(x_In);
-    cout << "chebyshev: range = " << range << endl;
+    std::cout << "chebyshev: range = " << range << std::endl;
     ndarray::Array<T, 1, 1> xScaled = pfs::drp::stella::math::convertRangeToUnity(x_In, range);
-    cout << "chebyshev: xScaled = " << xScaled << endl;
+    std::cout << "chebyshev: xScaled = " << xScaled << std::endl;
 
     ndarray::Array<T, 1, 1> tmpArr = ndarray::allocate(x_In.getShape()[0]);
     ndarray::Array<T, 1, 1> c0Arr = ndarray::allocate(x_In.getShape()[0]);
@@ -1745,7 +1756,7 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
       x2.deep() = 2. * xScaled;
       c0 = coeffs_In[coeffs_In.getShape()[0] - 2];
       c1 = coeffs_In[coeffs_In.getShape()[0] - 1];
-      cout << "chebyshev: c0 = " << c0 << ", c1 = " << c1 << endl;
+      std::cout << "chebyshev: c0 = " << c0 << ", c1 = " << c1 << std::endl;
       for (int i = 3; i <= coeffs_In.getShape()[0]; ++i){
         if (i == 3){
           tmp = c0;
@@ -1762,7 +1773,7 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
           c0Arr.deep() = coeffs_In[coeffs_In.getShape()[0] - i] - c1Arr;
           c1Arr.deep() = tmpArr + c1Arr * x2;
         }
-        cout << "chebyshev: i = " << i << ": c0 = " << c0 << ", c0Arr = " << c0Arr << ", c1Arr = " << c1Arr << endl;
+        std::cout << "chebyshev: i = " << i << ": c0 = " << c0 << ", c0Arr = " << c0Arr << ", c1Arr = " << c1Arr << std::endl;
       }
     }
     if (coeffs_In.getShape()[0] < 3)
@@ -1771,9 +1782,9 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
       yCalc.deep() = c0 + c1Arr * xScaled;
     else
       yCalc.deep() = c0Arr + c1Arr * xScaled;
-    cout << "chebyshev: yCalc = " << yCalc << endl;
+    std::cout << "chebyshev: yCalc = " << yCalc << std::endl;
     #ifdef __DEBUG_CURVEFIT__
-      cout << "CurveFitting::chebyshev(a, coeffs) finished" << endl;
+      std::cout << "CurveFitting::chebyshev(a, coeffs) finished" << std::endl;
     #endif
     return yCalc;
   }
@@ -1781,7 +1792,7 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
   ndarray::Array<float, 1, 1> gaussFit(ndarray::Array<float, 2, 1> const& xy_In,
                                        ndarray::Array<float, 1, 1> const& guess_In){
     #ifdef __DEBUG_CURVEFIT__
-      cout << "CurveFitting::gaussFit(xy, guess) started" << endl;
+      std::cout << "CurveFitting::gaussFit(xy, guess) started" << std::endl;
     #endif
     gaussian_functor gf(xy_In.asEigen());
     Eigen::VectorXf guess(3);
@@ -1797,7 +1808,7 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
     result[1] = guess[1];
     result[2] = guess[2];
     #ifdef __DEBUG_CURVEFIT__
-      cout << "CurveFitting::gaussFit(xy, guess) finished" << endl;
+      std::cout << "CurveFitting::gaussFit(xy, guess) finished" << std::std::endl;
     #endif
     return result;
   }
@@ -1806,7 +1817,7 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
 
   template ndarray::Array<float, 1, 1> Poly(ndarray::Array<float, 1, 1> const&, ndarray::Array<float, 1, 1> const&, float, float);
 
-  template ndarray::Array<float, 1, 1> PolyFit(ndarray::Array<float, 1, 1> const&, ndarray::Array<float, 1, 1> const&, size_t const, float const, float const, size_t const, std::vector<string> const&, std::vector<void *> &);
+  template ndarray::Array<float, 1, 1> PolyFit(ndarray::Array<float, 1, 1> const&, ndarray::Array<float, 1, 1> const&, size_t const, float const, float const, size_t const, std::vector<std::string> const&, std::vector<void *> &);
   template ndarray::Array<float, 1, 1> PolyFit(ndarray::Array<float, 1, 1> const&, ndarray::Array<float, 1, 1> const&, size_t const, float, float);
   template ndarray::Array<float, 1, 1> PolyFit(ndarray::Array<float, 1, 1> const&, ndarray::Array<float, 1, 1> const&, size_t const, float const, float const, size_t const, float, float);
 
@@ -1815,6 +1826,6 @@ namespace pfs{ namespace drp{ namespace stella{ namespace math{
                                              ndarray::Array<float, 1, 1> &,
                                              ndarray::Array<float, 1, 1> &,
                                              bool,
-                                             const std::vector<string> &,
+                                             const std::vector<std::string> &,
                                              std::vector<void *> &);
 }}}}

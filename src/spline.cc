@@ -1,3 +1,5 @@
+#include <cassert>
+
 #include "pfs/drp/stella/spline.h"
 
 namespace pfs { namespace drp { namespace stella { namespace math {

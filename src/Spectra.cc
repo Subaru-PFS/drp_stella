@@ -1,4 +1,10 @@
+#include "lsst/log/Log.h"
+#include "lsst/pex/exceptions.h"
+#include "lsst/afw/image/MaskedImage.h"
+
 #include "pfs/drp/stella/Spectra.h"
+#include "pfs/drp/stella/math/Math.h"
+#include "pfs/drp/stella/math/CurveFitting.h"
 #include "pfs/drp/stella/cmpfit-1.2/MPFitting_ndarray.h"
 
 namespace pfs { namespace drp { namespace stella {
@@ -6,8 +12,7 @@ namespace pfs { namespace drp { namespace stella {
 /** @brief Construct a Spectrum with empty vectors of specified size (default 0)
  */
 template<typename ImageT, typename MaskT, typename VarianceT, typename WavelengthT>
-Spectrum<ImageT, MaskT, VarianceT, WavelengthT>::Spectrum(size_t length,
-                                                                           size_t iTrace )
+Spectrum<ImageT, MaskT, VarianceT, WavelengthT>::Spectrum(size_t length, size_t iTrace )
   : _length(length),
     _mask(length, 1),
     _iTrace(iTrace),
@@ -419,7 +424,7 @@ Spectrum<ImageT, MaskT, VarianceT, WavelengthT>::setCovar(const ndarray::Array<V
 
 template<typename ImageT, typename MaskT, typename VarianceT, typename WavelengthT>
 void
-Spectrum<ImageT, MaskT, VarianceT, WavelengthT>::setMask(const afwImage::Mask<MaskT> & mask)
+Spectrum<ImageT, MaskT, VarianceT, WavelengthT>::setMask(const lsst::afw::image::Mask<MaskT> & mask)
 {
   /// Check length of input mask
   if (static_cast<std::size_t>(mask.getWidth()) != _length){
@@ -441,7 +446,7 @@ Spectrum<ImageT, MaskT, VarianceT, WavelengthT>::setLength(const std::size_t len
     #ifdef __DEBUG_SETLENGTH__
       cout << "pfs::drp::stella::Spectrum::setLength: _spectrum resized to " << _spectrum.getShape()[0] << endl;
     #endif
-    _mask = afwImage::Mask<MaskT>(length, 1);
+    _mask = lsst::afw::image::Mask<MaskT>(length, 1);
     #ifdef __DEBUG_SETLENGTH__
       cout << "pfs::drp::stella::Spectrum::setLength: _mask resized to " << _mask.getWidth() << endl;
     #endif

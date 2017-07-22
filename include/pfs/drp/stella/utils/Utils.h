@@ -1,21 +1,13 @@
 #ifndef __PFS_DRP_STELLA_UTILS_H__
 #define __PFS_DRP_STELLA_UTILS_H__
 
-#include <iostream>
 #include <vector>
 
-#include "lsst/afw/fits.h"
-#include "lsst/afw/image.h"
 #include "ndarray.h"
-#include "pfs/drp/stella/math/CurveFitting.h"
-#include "pfs/drp/stella/math/Math.h"
 
-namespace afwImage = lsst::afw::image;
-
-using namespace std;
 namespace pfs { namespace drp { namespace stella { namespace utils{
-  int KeyWord_Set(vector<string> const& S_A1_In,
-                  string const& str_In);
+  int KeyWord_Set(std::vector<std::string> const& S_A1_In,
+                  std::string const& str_In);
     
   template<typename T>
   ndarray::Array<T, 2, 1> get2DndArray(T nRows, T nCols);

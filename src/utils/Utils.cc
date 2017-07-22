@@ -1,8 +1,15 @@
+#include <iostream>
+#include "lsst/base.h"
+
+#include "pfs/drp/stella/math/CurveFitting.h"
+#include "pfs/drp/stella/math/Math.h"
 #include "pfs/drp/stella/utils/Utils.h"
+
 namespace pfs { namespace drp { namespace stella { namespace utils{
 
-  int KeyWord_Set(vector<string> const& keyWords_In,
-                  string const& str_In){
+   int KeyWord_Set(std::vector<std::string> const& keyWords_In,
+                   std::string const& str_In)
+  {
     for (int m = 0; m < int(keyWords_In.size()); ++m){
       if (keyWords_In[m].compare(str_In) == 0)
         return m;
@@ -46,45 +53,45 @@ namespace pfs { namespace drp { namespace stella { namespace utils{
     float goodVal = yArr[badPos];
     yArr[badPos] = badVal;
 
-    cout << "Test PolyFit(xArr, yArr, nDeg)" << endl;
+    std::cout << "Test PolyFit(xArr, yArr, nDeg)" << std::endl;
     #ifdef __DEBUG_POLYFIT__
-      cout << "testPolyFit: Testing PolyFit(xArr=" << xArr << ", yArr=" << yArr << ", nDeg=" << nDeg << ")" << endl;
+      std::cout << "testPolyFit: Testing PolyFit(xArr=" << xArr << ", yArr=" << yArr << ", nDeg=" << nDeg << ")" << std::endl;
     #endif
     ndarray::Array<float, 1, 1> coeffs = pfs::drp::stella::math::PolyFit(xArr, yArr, nDeg);
     #ifdef __DEBUG_POLYFIT__
-      cout << "testPolyFit: coeffs = " << coeffs << endl;
+      std::cout << "testPolyFit: coeffs = " << coeffs << std::endl;
     #endif
     ndarray::Array<float, 1, 1> yFit = pfs::drp::stella::math::Poly(xArr, coeffs);
     #ifdef __DEBUG_POLYFIT__
-      cout << "testPolyFit: yFit = " << yFit << endl;
+      std::cout << "testPolyFit: yFit = " << yFit << std::endl;
     #endif
     for (size_t i = 0; i < xArr.getShape()[0]; ++i){
       if (i != badPos){
         if (fabs(yArr[i] - yFit[i]) < 0.01){
           std::string message("error: fabs(yArr[");
-          message += to_string(i) + "] - yFit[" + to_string(i) + "]) = " + to_string(fabs(yArr[i]-yFit[i])) + " < 0.01";
+          message += std::to_string(i) + "] - yFit[" + std::to_string(i) + "]) = " + std::to_string(fabs(yArr[i]-yFit[i])) + " < 0.01";
           throw std::runtime_error(message);
         }
       }
     }
 
-    cout << "Test PolyFit(xArr, yArr, nDeg, lSig, uSig, nIter)" << endl;
+    std::cout << "Test PolyFit(xArr, yArr, nDeg, lSig, uSig, nIter)" << std::endl;
     float lSig = -2.;
     float uSig = 2.;
     size_t nIter = 2;
     coeffs = pfs::drp::stella::math::PolyFit(xArr, yArr, nDeg, lSig, uSig, nIter);
     #ifdef __DEBUG_POLYFIT__
-      cout << "testPolyFit:coeffs = " << coeffs << endl;
+      std::cout << "testPolyFit:coeffs = " << coeffs << std::endl;
     #endif
     yFit = pfs::drp::stella::math::Poly(xArr, coeffs);
     #ifdef __DEBUG_POLYFIT__
-      cout << "testPolyFit: yFit = " << yFit << endl;
+      std::cout << "testPolyFit: yFit = " << yFit << std::endl;
     #endif
     for (size_t i = 0; i < xArr.getShape()[0]; ++i){
       if (i != badPos){
         if (fabs(yArr[i] - yFit[i]) > 0.01){
           std::string message("error: fabs(yArr[");
-          message += to_string(i) + "] - yFit[" + to_string(i) + "]) = " + to_string(fabs(yArr[i]-yFit[i])) + " > 0.01";
+          message += std::to_string(i) + "] - yFit[" + std::to_string(i) + "]) = " + std::to_string(fabs(yArr[i]-yFit[i])) + " > 0.01";
           throw std::runtime_error(message);
         }
       }
@@ -93,8 +100,8 @@ namespace pfs { namespace drp { namespace stella { namespace utils{
       float const tol = 7e-6;
       if (fabs(coeffs[i] - coeffsIn[i]) > tol) {
         std::string message("error: fabs(coeffs[i](=");
-        message += to_string(coeffs[i]) + ") - coeffsIn[i](=" + to_string(coeffsIn[i]) + ")) > " +
-            to_string(tol);
+        message += std::to_string(coeffs[i]) + ") - coeffsIn[i](=" + std::to_string(coeffsIn[i]) + ")) > " +
+            std::to_string(tol);
         throw std::runtime_error(message);
       }
     }
@@ -105,7 +112,7 @@ namespace pfs { namespace drp { namespace stella { namespace utils{
 
     ndarray::Array<float, 1, 1> xNorm = pfs::drp::stella::math::convertRangeToUnity(xArr, xRange);
     #ifdef __DEBUG_POLYFIT__
-      cout << "testPolyFit: xNorm = " << xNorm << endl;
+      std::cout << "testPolyFit: xNorm = " << xNorm << std::endl;
     #endif
 
     int nArgs = 8;
@@ -133,44 +140,44 @@ namespace pfs { namespace drp { namespace stella { namespace utils{
     keyWords[7] = std::string("COVAR");
     args[7] = &pCovar;
     #ifdef __DEBUG_POLYFIT__
-      cout << "=================================================================" << endl;
-      cout << "testPolyFit: Testing PolyFit(xNorm=" << xNorm << ", yArr=" << yArr << ", nDeg=" << nDeg << ", lSig=" << lSig << ", uSig=" << uSig << ", nIter=" << nIter << ", keyWords, args)" << endl;
+      std::cout << "=================================================================" << std::endl;
+      std::cout << "testPolyFit: Testing PolyFit(xNorm=" << xNorm << ", yArr=" << yArr << ", nDeg=" << nDeg << ", lSig=" << lSig << ", uSig=" << uSig << ", nIter=" << nIter << ", keyWords, args)" << std::endl;
     #endif
 
-    cout << "Test PolyFit without MeasureErrors and without re-scaling the xRange, using the already re-scaled xRange 'xNorm'" << endl;
+    std::cout << "Test PolyFit without MeasureErrors and without re-scaling the xRange, using the already re-scaled xRange 'xNorm'" << std::endl;
     coeffs = pfs::drp::stella::math::PolyFit(xNorm, yArr, nDeg, lSig, uSig, nIter, keyWords, args);
     #ifdef __DEBUG_POLYFIT__
-      cout << "testPolyFit: xRange = " << xRange << endl;
-      cout << "testPolyFit: xRangeBak = " << xRangeBak << endl;
-      cout << "testPolyFit: coeffs = " << coeffs << endl;
-      cout << "testPolyFit: P_I_A1_Rejected = ";
+      std::cout << "testPolyFit: xRange = " << xRange << std::endl;
+      std::cout << "testPolyFit: xRangeBak = " << xRangeBak << std::endl;
+      std::cout << "testPolyFit: coeffs = " << coeffs << std::endl;
+      std::cout << "testPolyFit: P_I_A1_Rejected = ";
       for (size_t pos = 0; pos < P_I_A1_Rejected->size(); ++pos)
-        cout << (*P_I_A1_Rejected)[pos] << ", ";
-      cout << endl;
-      cout << "testPolyFit: not rejected = ";
+        std::cout << (*P_I_A1_Rejected)[pos] << ", ";
+      std::cout << std::endl;
+      std::cout << "testPolyFit: not rejected = ";
       for (size_t pos = 0; pos < P_I_A1_NotRejected->size(); ++pos)
-        cout << (*P_I_A1_NotRejected)[pos] << ", ";
-      cout << endl;
-      cout << "testPolyFit: n rejected = " << *P_I_NRejected << endl;
+        std::cout << (*P_I_A1_NotRejected)[pos] << ", ";
+      std::cout << std::endl;
+      std::cout << "testPolyFit: n rejected = " << *P_I_NRejected << std::endl;
     #endif
     if (*P_I_NRejected != 1){
       std::string message("testPolyFit: ERROR: *P_I_NRejected(=");
-      message += to_string(*P_I_NRejected) + " != 1";
+      message += std::to_string(*P_I_NRejected) + " != 1";
       throw std::runtime_error(message);
     }
     if (P_I_A1_Rejected->size() != 1){
       std::string message("testPolyFit: ERROR: P_I_A1_Rejected->size()=");
-      message += to_string(P_I_A1_Rejected->size()) + " != 1";
+      message += std::to_string(P_I_A1_Rejected->size()) + " != 1";
       throw std::runtime_error(message);
     }
     if ((*P_I_A1_Rejected)[0] != badPos){
       std::string message("testPolyFit: ERROR: P_I_A1_Rejected[0]=");
-      message += to_string((*P_I_A1_Rejected)[0]) + "!= badPos=" + to_string(badPos);
+      message += std::to_string((*P_I_A1_Rejected)[0]) + "!= badPos=" + std::to_string(badPos);
       throw std::runtime_error(message);
     }
     if (P_I_A1_NotRejected->size() != (nX - 1)){
       std::string message("testPolyFit: ERROR: P_I_A1_NotRejected-size(=");
-      message += to_string(P_I_A1_NotRejected->size()) + ") != " + to_string(nX-1);
+      message += std::to_string(P_I_A1_NotRejected->size()) + ") != " + std::to_string(nX-1);
       throw std::runtime_error(message);
     }
     if (pfs::drp::stella::math::find(pfs::drp::stella::math::vectorToNdArray(*P_I_A1_NotRejected, false), (*P_I_A1_Rejected)[0]) >= 0){
@@ -179,34 +186,34 @@ namespace pfs { namespace drp { namespace stella { namespace utils{
     }
     if (pSigma->getShape()[0] != (nDeg + 1)){
       std::string message("testPolyFit: ERROR: pSigma->getShape()[0] != nDeg+1(=");
-      message += to_string(nDeg+1);
+      message += std::to_string(nDeg+1);
       throw std::runtime_error(message);
     }
     if ((pCovar->getShape()[0] != (nDeg + 1))
         || (pCovar->getShape()[1] != (nDeg + 1))){
       std::string message("testPolyFit: ERROR: pCovar not (nDeg+1)x(nDeg+1)( = ");
-      message += to_string(nDeg+1) + "x" + to_string(nDeg+1);
+      message += std::to_string(nDeg+1) + "x" + std::to_string(nDeg+1);
       throw std::runtime_error(message);
     }
 
     yFit = pfs::drp::stella::math::Poly<float>(xNorm, coeffs, -1., 1.);
     for (size_t i = 0; i < yFit.getShape()[0]; ++i){
       #ifdef __DEBUG_POLYFIT__
-        cout << "testPolyFit: yArr[" << i << "] = " << yArr[i] << ", yFit[" << i << "] = " << yFit[i] << endl;
+        std::cout << "testPolyFit: yArr[" << i << "] = " << yArr[i] << ", yFit[" << i << "] = " << yFit[i] << std::endl;
       #endif
       if ((i != badPos) && (fabs(yFit[i] - yArr[i]) > 0.1)){
         std::string message("testPolyFit: ERROR1: fabs(yFit[");
-        message += to_string(i) + "] - yArr[" + to_string(i) + "])=" + to_string(fabs(yFit[i]-yArr[i])) + " > 0.1";
+        message += std::to_string(i) + "] - yArr[" + std::to_string(i) + "])=" + std::to_string(fabs(yFit[i]-yArr[i])) + " > 0.1";
         throw std::runtime_error(message);
       }
       if ((i == badPos) && (fabs(yFit[i] - goodVal) > 0.1)){
         std::string message("testPolyFit: ERROR1: fabs(yFit[");
-        message += to_string(i) + "] - goodVal=" + to_string(goodVal) + " = " + to_string(fabs(yFit[i]-goodVal)) + " > 0.1";
+        message += std::to_string(i) + "] - goodVal=" + std::to_string(goodVal) + " = " + std::to_string(fabs(yFit[i]-goodVal)) + " > 0.1";
         throw std::runtime_error(message);
       }
     }
 
-    cout << "Test with Measure Errors (wrong length) and with re-scaling the xRange to [-1,1]" << endl;
+    std::cout << "Test with Measure Errors (wrong length) and with re-scaling the xRange to [-1,1]" << std::endl;
     keyWords[3] = std::string("XRANGE");
     args[3] = &pXRange;
     keyWords[4] = std::string("MEASURE_ERRORS");
@@ -216,8 +223,8 @@ namespace pfs { namespace drp { namespace stella { namespace utils{
     PTR(ndarray::Array<float, 1, 1>) pMeasureErrorsWrongSize(new ndarray::Array<float, 1, 1>(measureErrorsWrongSize));
     args[4] = &pMeasureErrorsWrongSize;
     #ifdef __DEBUG_POLYFIT__
-      cout << "=================================================================" << endl;
-      cout << "testPolyFit: Testing PolyFit(xArr=" << xArr << ", yArr=" << yArr << ", nDeg=" << nDeg << ", lSig=" << lSig << ", uSig=" << uSig << ", nIter=" << nIter << ", keyWords, args)" << endl;
+      std::cout << "=================================================================" << std::endl;
+      std::cout << "testPolyFit: Testing PolyFit(xArr=" << xArr << ", yArr=" << yArr << ", nDeg=" << nDeg << ", lSig=" << lSig << ", uSig=" << uSig << ", nIter=" << nIter << ", keyWords, args)" << std::endl;
     #endif
     try{
       coeffs = pfs::drp::stella::math::PolyFit(xArr, yArr, nDeg, lSig, uSig, nIter, keyWords, args);
@@ -225,21 +232,21 @@ namespace pfs { namespace drp { namespace stella { namespace utils{
     catch (const std::exception& e) {
       std::string errorMessage = e.what();
       std::string testMessage("pfs::drp::stella::math::CurveFitting::PolyFit: Error:");
-      testMessage += " P_D_A1_MeasureErrors->getShape()[0](=" + to_string(nX-1);
-      testMessage += ") != D_A1_X_In.getShape()[0](=" + to_string(nX) + ")";
+      testMessage += " P_D_A1_MeasureErrors->getShape()[0](=" + std::to_string(nX-1);
+      testMessage += ") != D_A1_X_In.getShape()[0](=" + std::to_string(nX) + ")";
       if (errorMessage.compare(testMessage) != 0)
         throw;
     }
     for (size_t i = 0; i < pXRange->getShape()[0]; ++i){
       if (fabs((*pXRange)[i] - xRangeBak[i]) > 0.0000001){
-        string message("error: fabs((*pXRange)[");
-        message += to_string(i) +"](=" + to_string((*pXRange)[i]) + ") - xRangeBak[" + to_string(i) + "](=" + to_string(xRangeBak[i]) + ")) = ";
-        message += to_string(fabs((*pXRange)[i] - xRangeBak[i])) + " > 0.0000001";
+        std::string message("error: fabs((*pXRange)[");
+        message += std::to_string(i) +"](=" + std::to_string((*pXRange)[i]) + ") - xRangeBak[" + std::to_string(i) + "](=" + std::to_string(xRangeBak[i]) + ")) = ";
+        message += std::to_string(fabs((*pXRange)[i] - xRangeBak[i])) + " > 0.0000001";
         throw std::runtime_error(message);
       }
     }
 
-    cout << "Test with Measure Errors (correct length) and with re-scaling the xRange to [-1,1]" << endl;
+    std::cout << "Test with Measure Errors (correct length) and with re-scaling the xRange to [-1,1]" << std::endl;
     ndarray::Array<float, 1, 1> measureErrors = ndarray::allocate(xArr.getShape()[0]);
     for (size_t pos=0; pos<xArr.getShape()[0]; ++pos)
       measureErrors[pos] = sqrt(fabs(yArr[pos]));
@@ -250,88 +257,88 @@ namespace pfs { namespace drp { namespace stella { namespace utils{
     keyWords[5] = std::string("YFIT");
     args[5] = &pYFitCheck;
     #ifdef __DEBUG_POLYFIT__
-      cout << "=================================================================" << endl;
-      cout << "testPolyFit: Testing PolyFit(xArr=" << xArr << ", yArr=" << yArr << ", nDeg=" << nDeg << ", lSig=" << lSig << ", uSig=" << uSig << ", nIter=" << nIter << ", keyWords, args)" << endl;
+      std::cout << "=================================================================" << std::endl;
+      std::cout << "testPolyFit: Testing PolyFit(xArr=" << xArr << ", yArr=" << yArr << ", nDeg=" << nDeg << ", lSig=" << lSig << ", uSig=" << uSig << ", nIter=" << nIter << ", keyWords, args)" << std::endl;
     #endif
     coeffs = pfs::drp::stella::math::PolyFit(xArr, yArr, nDeg, lSig, uSig, nIter, keyWords, args);
     for (size_t i = 0; i < pXRange->getShape()[0]; ++i){
       if (fabs((*pXRange)[i] - xRangeBak[i]) > 0.0000001){
-        string message("error: 2. fabs((*pXRange)[");
-        message += to_string(i) +"](=" + to_string((*pXRange)[i]) + ") - xRangeBak[" + to_string(i) + "](=" + to_string(xRangeBak[i]) + ")) = ";
-        message += to_string(fabs((*pXRange)[i] - xRangeBak[i])) + " > 0.0000001";
+        std::string message("error: 2. fabs((*pXRange)[");
+        message += std::to_string(i) +"](=" + std::to_string((*pXRange)[i]) + ") - xRangeBak[" + std::to_string(i) + "](=" + std::to_string(xRangeBak[i]) + ")) = ";
+        message += std::to_string(fabs((*pXRange)[i] - xRangeBak[i])) + " > 0.0000001";
         throw std::runtime_error(message);
       }
     }
     #ifdef __DEBUG_POLYFIT__
-      cout << "testPolyFit: coeffs = " << coeffs << endl;
-      cout << "testPolyFit: P_I_A1_Rejected = ";
+      std::cout << "testPolyFit: coeffs = " << coeffs << std::endl;
+      std::cout << "testPolyFit: P_I_A1_Rejected = ";
       for (size_t pos = 0; pos < P_I_A1_Rejected->size(); ++pos)
-        cout << (*P_I_A1_Rejected)[pos] << ", ";
-      cout << endl;
-      cout << "testPolyFit: not rejected = ";
+        std::cout << (*P_I_A1_Rejected)[pos] << ", ";
+      std::cout << std::endl;
+      std::cout << "testPolyFit: not rejected = ";
       for (size_t pos = 0; pos < P_I_A1_NotRejected->size(); ++pos)
-        cout << (*P_I_A1_NotRejected)[pos] << ", ";
-      cout << endl;
-      cout << "testPolyFit: n rejected = " << *P_I_NRejected << endl;
+        std::cout << (*P_I_A1_NotRejected)[pos] << ", ";
+      std::cout << std::endl;
+      std::cout << "testPolyFit: n rejected = " << *P_I_NRejected << std::endl;
     #endif
     if (pMeasureErrors->getShape()[0] != xArr.getShape()[0]){
       std::string message("error: pMeasureErrors->getShape()[0](=");
-      message += to_string(pMeasureErrors->getShape()[0]) + ") != xArr.getShape()[0](=" + to_string(xArr.getShape()[0]) + ")";
+      message += std::to_string(pMeasureErrors->getShape()[0]) + ") != xArr.getShape()[0](=" + std::to_string(xArr.getShape()[0]) + ")";
       throw std::runtime_error(message);
     }
     for (size_t pos = 0; pos < P_I_A1_NotRejected->size(); ++pos){
       if ((*P_I_A1_NotRejected)[pos] > xArr.getShape()[0]){
         std::string message("testPolyFit: ERROR: (*P_I_A1_NotRejected)[pos] = ");
-        message += to_string((*P_I_A1_NotRejected)[pos]) + " outside limits";
+        message += std::to_string((*P_I_A1_NotRejected)[pos]) + " outside limits";
         throw std::runtime_error(message);
       }
     }
     if (*P_I_NRejected != 1){
       std::string message("testPolyFit: error: *P_I_NRejected=");
-      message += to_string(*P_I_NRejected) + " != 1";
+      message += std::to_string(*P_I_NRejected) + " != 1";
       throw std::runtime_error(message);
     }
     yFit = pfs::drp::stella::math::Poly(xArr, coeffs, xRange[0], xRange[1]);
     #ifdef __DEBUG_POLYFIT__
-      cout << "testPolyFit: yFit = " << yFit << endl;
-      cout << "testPolyFit: yFitCheck = " << yFitCheck << endl;
+      std::cout << "testPolyFit: yFit = " << yFit << std::endl;
+      std::cout << "testPolyFit: yFitCheck = " << yFitCheck << std::endl;
     #endif
     for (size_t i = 0; i < yFit.getShape()[0]; ++i){
       #ifdef __DEBUG_POLYFIT__
-        cout << "testPolyFit: yArr[" << i << "] = " << yArr[i] << ", yFit[" << i << "] = " << yFit[i] << endl;
+        std::cout << "testPolyFit: yArr[" << i << "] = " << yArr[i] << ", yFit[" << i << "] = " << yFit[i] << std::endl;
       #endif
       if ((i != badPos) && (fabs(yArr[i] - yFit[i]) > 0.0001)){
         std::string message("testPolyFit: ERROR: fabs(yArr[");
-        message += to_string(i) + "]=" + to_string(yArr[i]) + ") - yFit[" + to_string(i) + "]=" + to_string(yFit[i]);
-        message += ") = " + to_string(fabs(yArr[i] - yFit[i])) + " > 0.0001";
+        message += std::to_string(i) + "]=" + std::to_string(yArr[i]) + ") - yFit[" + std::to_string(i) + "]=" + std::to_string(yFit[i]);
+        message += ") = " + std::to_string(fabs(yArr[i] - yFit[i])) + " > 0.0001";
         throw std::runtime_error(message);
       }
       if ((i == badPos) && (fabs(yFit[i] - goodVal) > 0.0001)){
         std::string message("testPolyFit: ERROR2: fabs(yFit[");
-        message += to_string(i) + "]=" + to_string(yFit[i]) + " - goodVal=" + to_string(goodVal);
-        message += " = " + to_string(fabs(yFit[i] - goodVal)) + " > 0.0001";
+        message += std::to_string(i) + "]=" + std::to_string(yFit[i]) + " - goodVal=" + std::to_string(goodVal);
+        message += " = " + std::to_string(fabs(yFit[i] - goodVal)) + " > 0.0001";
         throw std::runtime_error(message);
       }
       if (fabs(yFit[i] - yFitCheck[i]) > 0.0001){
         std::string message("testPolyFit: ERROR2: fabs(yFit[");
-        message += to_string(i) + "]=" + to_string(yFit[i]) + ") - yFitCheck[" + to_string(i) + "]=" + to_string(yFitCheck[i]);
-        message += ") = " + to_string(fabs(yFit[i] - yFitCheck[i])) + " > 0.0001";
+        message += std::to_string(i) + "]=" + std::to_string(yFit[i]) + ") - yFitCheck[" + std::to_string(i) + "]=" + std::to_string(yFitCheck[i]);
+        message += ") = " + std::to_string(fabs(yFit[i] - yFitCheck[i])) + " > 0.0001";
         throw std::runtime_error(message);
       }
     }
     if (pSigma->getShape()[0] != nDeg+1){
         std::string message("testPolyFit: ERROR: pSigma->getShape()[0](=");
-        message += to_string(pSigma->getShape()[0]) + ") != nDeg+1(=" + to_string(nDeg+1);
+        message += std::to_string(pSigma->getShape()[0]) + ") != nDeg+1(=" + std::to_string(nDeg+1);
         throw std::runtime_error(message);
     }
     if (pCovar->getShape()[0] != nDeg+1){
         std::string message("testPolyFit: ERROR: pCovar->getShape()[0](=");
-        message += to_string(pCovar->getShape()[0]) + ") != nDeg+1(=" + to_string(nDeg+1);
+        message += std::to_string(pCovar->getShape()[0]) + ") != nDeg+1(=" + std::to_string(nDeg+1);
         throw std::runtime_error(message);
     }
     if (pCovar->getShape()[1] != nDeg+1){
         std::string message("testPolyFit: ERROR: pCovar->getShape()[0](=");
-        message += to_string(pCovar->getShape()[1]) + ") != nDeg+1(=" + to_string(nDeg+1);
+        message += std::to_string(pCovar->getShape()[1]) + ") != nDeg+1(=" + std::to_string(nDeg+1);
         throw std::runtime_error(message);
     }
     return;

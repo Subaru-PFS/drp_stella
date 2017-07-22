@@ -3,6 +3,9 @@
 # include <iostream>
 # include <stdio.h>
 
+#include "Eigen/SVD"
+#include "ndarray/eigen.h"
+
 #include "lsst/pex/exceptions/Exception.h"
 #include "pfs/drp/stella/math/Math.h"
 #include "pfs/drp/stella/math/Chebyshev.h"

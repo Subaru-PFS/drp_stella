@@ -43,17 +43,8 @@
 #ifndef __MYFIT_H__
 #define __MYFIT_H__
 
-#include <stdio.h>
-#include <string.h>
-
-#include "lsst/pex/exceptions/Exception.h"
 #include "mpfit.h"
 #include "ndarray.h"
-#include "pfs/drp/stella/math/Math.h"
-
-namespace pexExcept = lsst::pex::exceptions;
-using namespace std;
-namespace pexExcept = lsst::pex::exceptions;
 
 #define D_PI 3.14159265359
 

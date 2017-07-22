@@ -1,14 +1,24 @@
 #include <algorithm>
+#include "ndarray/eigen.h"
+
+#include "lsst/log/Log.h"
+#include "lsst/pex/exceptions/Exception.h"
 #include "lsst/afw/image/MaskedImage.h"
+
 #include "pfs/drp/stella/FiberTraces.h"
 #include "pfs/drp/stella/cmpfit-1.2/MPFitting_ndarray.h"
+#include "pfs/drp/stella/math/Chebyshev.h"
+#include "pfs/drp/stella/math/CurveFitting.h"
+#include "pfs/drp/stella/spline.h"
+#include "pfs/drp/stella/utils/Utils.h"
 
 //#define __DEBUG_FINDANDTRACE__ 1
 namespace afwImage = lsst::afw::image;
-namespace pfsDRPStella = pfs::drp::stella;
+
+namespace pfs { namespace drp { namespace stella {
 
   template<typename ImageT, typename MaskT, typename VarianceT>
-  pfsDRPStella::FiberTrace<ImageT, MaskT, VarianceT>::FiberTrace(
+  FiberTrace<ImageT, MaskT, VarianceT>::FiberTrace(
     size_t width,
     size_t height,
     size_t iTrace
@@ -21,19 +31,19 @@ namespace pfsDRPStella = pfs::drp::stella;
   _profileFittingInputYMeanPerSwath(),
   _trace(new afwImage::MaskedImage<ImageT, MaskT, VarianceT>(width, height)),
   _profile(new afwImage::Image<float>(width, height)),
-  _xCentersMeas(pfsDRPStella::utils::get2DndArray(float(height), float(2))),
-  _xCenters(pfsDRPStella::utils::get1DndArray(float(height))),
+  _xCentersMeas(utils::get2DndArray(float(height), float(2))),
+  _xCenters(utils::get1DndArray(float(height))),
   _iTrace(iTrace),
   _isTraceSet(false),
   _isProfileSet(false),
   _isFiberTraceProfileFittingControlSet(false),
-  _fiberTraceFunction(new pfsDRPStella::FiberTraceFunction),
+  _fiberTraceFunction(new FiberTraceFunction),
   _fiberTraceProfileFittingControl(new FiberTraceProfileFittingControl)
   {}
 
   template<typename ImageT, typename MaskT, typename VarianceT>
-  pfsDRPStella::FiberTrace<ImageT, MaskT, VarianceT>::FiberTrace(PTR(const afwImage::MaskedImage<ImageT, MaskT, VarianceT>) const & maskedImage, ///< desired image width/height
-                                                                 PTR(const pfsDRPStella::FiberTraceFunction) const& fiberTraceFunction,
+  FiberTrace<ImageT, MaskT, VarianceT>::FiberTrace(PTR(const afwImage::MaskedImage<ImageT, MaskT, VarianceT>) const & maskedImage, ///< desired image width/height
+                                                                 PTR(const FiberTraceFunction) const& fiberTraceFunction,
                                                                  size_t iTrace) :
   _overSampledProfileFitXPerSwath(),
   _overSampledProfileFitYPerSwath(),
@@ -53,12 +63,12 @@ namespace pfsDRPStella = pfs::drp::stella;
     _xCenters = ::pfs::drp::stella::math::calculateXCenters( fiberTraceFunction,
                                                              maskedImage->getHeight(),
                                                              maskedImage->getWidth() );//new std::vector<const float>(fiberTraceFunction->yHigh - fiberTraceFunction->yLow + 1)),
-    _xCentersMeas = pfsDRPStella::utils::get2DndArray(float(_xCenters.getShape()[0]), float(2)),
+    _xCentersMeas = utils::get2DndArray(float(_xCenters.getShape()[0]), float(2)),
     createTrace(maskedImage);
   }
 
   template<typename ImageT, typename MaskT, typename VarianceT>
-  pfsDRPStella::FiberTrace<ImageT, MaskT, VarianceT>::FiberTrace(pfsDRPStella::FiberTrace<ImageT, MaskT, VarianceT> const& fiberTrace ) :
+  FiberTrace<ImageT, MaskT, VarianceT>::FiberTrace(FiberTrace<ImageT, MaskT, VarianceT> const& fiberTrace ) :
   _overSampledProfileFitXPerSwath(),
   _overSampledProfileFitYPerSwath(),
   _profileFittingInputXPerSwath(),
@@ -78,7 +88,7 @@ namespace pfsDRPStella = pfs::drp::stella;
   {}
 
   template<typename ImageT, typename MaskT, typename VarianceT>
-  pfsDRPStella::FiberTrace<ImageT, MaskT, VarianceT>::FiberTrace(pfsDRPStella::FiberTrace<ImageT, MaskT, VarianceT> & fiberTrace, bool const deep) :
+  FiberTrace<ImageT, MaskT, VarianceT>::FiberTrace(FiberTrace<ImageT, MaskT, VarianceT> & fiberTrace, bool const deep) :
   _overSampledProfileFitXPerSwath(),
   _overSampledProfileFitYPerSwath(),
   _profileFittingInputXPerSwath(),
@@ -108,7 +118,7 @@ namespace pfsDRPStella = pfs::drp::stella;
 
   /** **************************************************************/
   template<typename ImageT, typename MaskT, typename VarianceT>
-  void pfsDRPStella::FiberTrace<ImageT, MaskT, VarianceT>::setFiberTraceProfileFittingControl(PTR(FiberTraceProfileFittingControl) const& fiberTraceProfileFittingControl){
+  void FiberTrace<ImageT, MaskT, VarianceT>::setFiberTraceProfileFittingControl(PTR(FiberTraceProfileFittingControl) const& fiberTraceProfileFittingControl){
 
     /// Check for valid values in fiberTraceFunctionControl
     #ifdef __DEBUG_SETFIBERTRACEPROFILEFITTINGCONTROL__
@@ -137,7 +147,7 @@ namespace pfsDRPStella = pfs::drp::stella;
 
   /** **************************************************************/
   template<typename ImageT, typename MaskT, typename VarianceT>
-  void pfsDRPStella::FiberTrace<ImageT, MaskT, VarianceT>::setFiberTraceProfileFittingControl( PTR( const FiberTraceProfileFittingControl ) const& fiberTraceProfileFittingControl ){
+  void FiberTrace<ImageT, MaskT, VarianceT>::setFiberTraceProfileFittingControl( PTR( const FiberTraceProfileFittingControl ) const& fiberTraceProfileFittingControl ){
 
     /// Check for valid values in fiberTraceFunctionControl
     #ifdef __DEBUG_SETFIBERTRACEEXTRACTIONCONTROL__
@@ -159,7 +169,7 @@ namespace pfsDRPStella = pfs::drp::stella;
     }
 
     /// test passed -> copy fiberTraceProfileFittingControl to _fiberTraceProfileFittingControl
-    pfsDRPStella::FiberTraceProfileFittingControl ftpfc( *fiberTraceProfileFittingControl );
+    FiberTraceProfileFittingControl ftpfc( *fiberTraceProfileFittingControl );
     _fiberTraceProfileFittingControl.reset();
     _fiberTraceProfileFittingControl = fiberTraceProfileFittingControl->getPointer();
     _isFiberTraceProfileFittingControlSet = true;
@@ -167,7 +177,7 @@ namespace pfsDRPStella = pfs::drp::stella;
 
   /// Set the _trace of this fiber trace to trace
   template< typename ImageT, typename MaskT, typename VarianceT >
-  void pfsDRPStella::FiberTrace< ImageT, MaskT, VarianceT >::setTrace( PTR( MaskedImageT ) & trace){
+  void FiberTrace< ImageT, MaskT, VarianceT >::setTrace( PTR( MaskedImageT ) & trace){
 #if 0
       /*
        * Andreas points out that the problem with removing this check is that the width is implied
@@ -199,7 +209,7 @@ namespace pfsDRPStella = pfs::drp::stella;
 
   /// Set the profile image of this fiber trace to profile
   template<typename ImageT, typename MaskT, typename VarianceT>
-  void pfsDRPStella::FiberTrace<ImageT, MaskT, VarianceT>::setProfile( PTR(afwImage::Image<float>) const& profile){
+  void FiberTrace<ImageT, MaskT, VarianceT>::setProfile( PTR(afwImage::Image<float>) const& profile){
     if (!_isTraceSet){
       string message("FiberTrace");
       message += to_string(_iTrace) + string("::setProfile: ERROR: _trace not set");
@@ -225,16 +235,16 @@ namespace pfsDRPStella = pfs::drp::stella;
   }
 
   template<typename ImageT, typename MaskT, typename VarianceT>
-  void pfsDRPStella::FiberTrace< ImageT, MaskT, VarianceT >::setFiberTraceFunction( PTR( const FiberTraceFunction ) fiberTraceFunction ){
-    pfsDRPStella::FiberTraceFunction ftf( *fiberTraceFunction );
+  void FiberTrace< ImageT, MaskT, VarianceT >::setFiberTraceFunction( PTR( const FiberTraceFunction ) fiberTraceFunction ){
+    FiberTraceFunction ftf( *fiberTraceFunction );
     _fiberTraceFunction.reset();
     _fiberTraceFunction = ftf.getPointer();
   }
 
   template<typename ImageT, typename MaskT, typename VarianceT>
-  PTR(pfsDRPStella::Spectrum<ImageT, MaskT, VarianceT, VarianceT>) pfsDRPStella::FiberTrace<ImageT, MaskT, VarianceT>::extractSum()
+  PTR(Spectrum<ImageT, MaskT, VarianceT, VarianceT>) FiberTrace<ImageT, MaskT, VarianceT>::extractSum()
   {
-    PTR( pfsDRPStella::Spectrum<ImageT, MaskT, VarianceT, VarianceT> ) spectrum( new pfsDRPStella::Spectrum< ImageT, MaskT, VarianceT, VarianceT >( _trace->getHeight(), _iTrace ) );
+    PTR( Spectrum<ImageT, MaskT, VarianceT, VarianceT> ) spectrum( new Spectrum< ImageT, MaskT, VarianceT, VarianceT >( _trace->getHeight(), _iTrace ) );
     ndarray::Array<ImageT, 1, 1> spec = ndarray::allocate(_trace->getHeight());
     afwImage::Mask<MaskT> mask(_trace->getHeight(), 1);
     ndarray::Array<VarianceT, 1, 1> var = ndarray::allocate(_trace->getHeight());
@@ -254,7 +264,7 @@ namespace pfsDRPStella = pfs::drp::stella;
   }
 
   template<typename ImageT, typename MaskT, typename VarianceT>
-  PTR( pfsDRPStella::Spectrum<ImageT, MaskT, VarianceT, VarianceT> ) pfsDRPStella::FiberTrace<ImageT, MaskT, VarianceT>::extractFromProfile()
+  PTR( Spectrum<ImageT, MaskT, VarianceT, VarianceT> ) FiberTrace<ImageT, MaskT, VarianceT>::extractFromProfile()
   {
     if (!_isTraceSet){
       cout << "FiberTrace.extractFromProfile: ERROR: _trace is not set" << endl;
@@ -369,7 +379,7 @@ namespace pfsDRPStella = pfs::drp::stella;
       ::pfs::drp::stella::utils::WriteFits(&D_A2_CCDArray, S_MaskFinalOut);
     #endif
 
-    PTR( pfsDRPStella::Spectrum<ImageT, MaskT, VarianceT, VarianceT> ) spectrum( new pfsDRPStella::Spectrum< ImageT, MaskT, VarianceT, VarianceT >( _trace->getHeight() ) );
+    PTR( Spectrum<ImageT, MaskT, VarianceT, VarianceT> ) spectrum( new Spectrum< ImageT, MaskT, VarianceT, VarianceT >( _trace->getHeight() ) );
     #ifdef __DEBUG_EXTRACTFROMPROFILE__
       cout << "FiberTrace" << _iTrace << "::extractFromProfile: D_A1_SP = " << D_A1_SP << endl;
       cout << "FiberTrace" << _iTrace << "::extractFromProfile: D_A2_Sigma_Fit = " << D_A2_Sigma_Fit << endl;
@@ -419,7 +429,7 @@ namespace pfsDRPStella = pfs::drp::stella;
    * createTrace
    * ************************************************************************/
   template<typename ImageT, typename MaskT, typename VarianceT>
-  void pfsDRPStella::FiberTrace<ImageT, MaskT, VarianceT>::createTrace( const PTR(const MaskedImageT) &maskedImage ){
+  void FiberTrace<ImageT, MaskT, VarianceT>::createTrace( const PTR(const MaskedImageT) &maskedImage ){
     size_t oldTraceHeight = 0;
     size_t oldTraceWidth = 0;
     if (_isTraceSet){
@@ -435,7 +445,7 @@ namespace pfsDRPStella = pfs::drp::stella;
       throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
     }
 
-    ndarray::Array<size_t, 2, 1> minCenMax = pfsDRPStella::math::calcMinCenMax( _xCenters,
+    ndarray::Array<size_t, 2, 1> minCenMax = math::calcMinCenMax( _xCenters,
                                                                                 _fiberTraceFunction->fiberTraceFunctionControl.xHigh,
                                                                                 _fiberTraceFunction->fiberTraceFunctionControl.xLow,
                                                                                 _fiberTraceFunction->fiberTraceFunctionControl.nPixCutLeft,
@@ -533,7 +543,7 @@ namespace pfsDRPStella = pfs::drp::stella;
 
   /// Return shared pointer to an image containing the reconstructed 2D spectrum of the FiberTrace
   template<typename ImageT, typename MaskT, typename VarianceT>
-  PTR( afwImage::Image< ImageT > ) pfsDRPStella::FiberTrace<ImageT, MaskT, VarianceT>::getReconstructed2DSpectrum(const pfsDRPStella::Spectrum<ImageT, MaskT, VarianceT, VarianceT> & spectrum) const{
+  PTR( afwImage::Image< ImageT > ) FiberTrace<ImageT, MaskT, VarianceT>::getReconstructed2DSpectrum(const Spectrum<ImageT, MaskT, VarianceT, VarianceT> & spectrum) const{
     ndarray::Array<ImageT, 2, 1> F_A2_Rec = ndarray::allocate(_trace->getHeight(), _trace->getWidth());
     auto itRec = F_A2_Rec.begin();
     auto itSpec = spectrum.getSpectrum().begin();
@@ -545,7 +555,7 @@ namespace pfsDRPStella = pfs::drp::stella;
 
   /// Return shared pointer to an image containing the reconstructed background of the FiberTrace
   template<typename ImageT, typename MaskT, typename VarianceT>
-  PTR(afwImage::Image<ImageT>) pfsDRPStella::FiberTrace<ImageT, MaskT, VarianceT>::getReconstructedBackground( const pfsDRPStella::Spectrum<ImageT, MaskT, VarianceT, VarianceT> & background) const{
+  PTR(afwImage::Image<ImageT>) FiberTrace<ImageT, MaskT, VarianceT>::getReconstructedBackground( const Spectrum<ImageT, MaskT, VarianceT, VarianceT> & background) const{
     ndarray::Array<ImageT, 1, 1> oneRow = ndarray::allocate(_trace->getWidth());
     oneRow.deep() = 1.;
     ndarray::Array<ImageT, 2, 1> F_A2_Rec = ndarray::allocate(_trace->getHeight(),
@@ -557,8 +567,8 @@ namespace pfsDRPStella = pfs::drp::stella;
 
   /// Return shared pointer to an image containing the reconstructed 2D spectrum + background of the FiberTrace
   template<typename ImageT, typename MaskT, typename VarianceT>
-  PTR(afwImage::Image<ImageT>) pfsDRPStella::FiberTrace<ImageT, MaskT, VarianceT>::getReconstructed2DSpectrum(const pfsDRPStella::Spectrum<ImageT, MaskT, VarianceT, VarianceT> & spectrum,
-                                                                                                             const pfsDRPStella::Spectrum<ImageT, MaskT, VarianceT, VarianceT> & background) const
+  PTR(afwImage::Image<ImageT>) FiberTrace<ImageT, MaskT, VarianceT>::getReconstructed2DSpectrum(const Spectrum<ImageT, MaskT, VarianceT, VarianceT> & spectrum,
+                                                                                                             const Spectrum<ImageT, MaskT, VarianceT, VarianceT> & background) const
   {
     PTR(afwImage::Image<ImageT>) imageSpectrum = getReconstructed2DSpectrum(spectrum);
     PTR(afwImage::Image<ImageT>) imageBackground = getReconstructed2DSpectrum(background);
@@ -567,7 +577,7 @@ namespace pfsDRPStella = pfs::drp::stella;
   }
 
   template<typename ImageT, typename MaskT, typename VarianceT>
-  ndarray::Array<size_t, 2, 1> pfsDRPStella::FiberTrace<ImageT, MaskT, VarianceT>::calcSwathBoundY(const size_t swathWidth) const{
+  ndarray::Array<size_t, 2, 1> FiberTrace<ImageT, MaskT, VarianceT>::calcSwathBoundY(const size_t swathWidth) const{
     size_t nSwaths = 0;
 
     size_t swathWidth_mutable = swathWidth;
@@ -656,7 +666,7 @@ namespace pfsDRPStella = pfs::drp::stella;
   }
 
   template<typename ImageT, typename MaskT, typename VarianceT>
-  void pfsDRPStella::FiberTrace<ImageT, MaskT, VarianceT>::calcProfile(){
+  void FiberTrace<ImageT, MaskT, VarianceT>::calcProfile(){
     if (!_isTraceSet){
       string message("FiberTrace ");
       message += to_string(_iTrace) + "::calcProfile: ERROR: _Trace is not set";
@@ -862,7 +872,7 @@ namespace pfsDRPStella = pfs::drp::stella;
   }
 
   template<typename ImageT, typename MaskT, typename VarianceT>
-  void pfsDRPStella::FiberTrace<ImageT, MaskT, VarianceT>::setXCenters( ndarray::Array< float, 1, 1 > const& xCenters){
+  void FiberTrace<ImageT, MaskT, VarianceT>::setXCenters( ndarray::Array< float, 1, 1 > const& xCenters){
     if (static_cast<size_t>(xCenters.getShape()[0])
         != (_fiberTraceFunction->yHigh - _fiberTraceFunction->yLow + 1)){
       string message("pfs::drp::stella::FiberTrace::setXCenters: ERROR: xCenters.getShape()[ 0 ](=" );
@@ -875,13 +885,13 @@ namespace pfsDRPStella = pfs::drp::stella;
   }
 
   template<typename ImageT, typename MaskT, typename VarianceT>
-  void pfsDRPStella::FiberTrace<ImageT, MaskT, VarianceT>::setXCentersMeas( ndarray::Array< float, 2, 1 > const& xCentersMeas){
+  void FiberTrace<ImageT, MaskT, VarianceT>::setXCentersMeas( ndarray::Array< float, 2, 1 > const& xCentersMeas){
     _xCentersMeas = ndarray::allocate(xCentersMeas.getShape()[0], xCentersMeas.getShape()[1]);
     _xCentersMeas.deep() = xCentersMeas;
   }
 
   template<typename ImageT, typename MaskT, typename VarianceT>
-  ndarray::Array<float, 2, 1> pfsDRPStella::FiberTrace<ImageT, MaskT, VarianceT>::calcProfileSwath(ndarray::Array<ImageT const, 2, 1> const& imageSwath,
+  ndarray::Array<float, 2, 1> FiberTrace<ImageT, MaskT, VarianceT>::calcProfileSwath(ndarray::Array<ImageT const, 2, 1> const& imageSwath,
                                                                                                     ndarray::Array<MaskT const, 2, 1> const& maskSwath,
                                                                                                     ndarray::Array<VarianceT const, 2, 1> const& varianceSwath,
                                                                                                     ndarray::Array<float const, 1, 1> const& xCentersSwath,
@@ -1162,7 +1172,7 @@ namespace pfsDRPStella = pfs::drp::stella;
   }
 
   template<typename ImageT, typename MaskT, typename VarianceT>
-  PTR(pfsDRPStella::FiberTrace<ImageT, MaskT, VarianceT>) pfsDRPStella::FiberTrace<ImageT, MaskT, VarianceT>::getPointer(){
+  PTR(FiberTrace<ImageT, MaskT, VarianceT>) FiberTrace<ImageT, MaskT, VarianceT>::getPointer(){
     PTR(FiberTrace) ptr(new FiberTrace(*this));
     return ptr;
   }
@@ -1171,7 +1181,7 @@ namespace pfsDRPStella = pfs::drp::stella;
    * class FiberTraceSet
    **/
   template<typename ImageT, typename MaskT, typename VarianceT>
-  pfsDRPStella::FiberTraceSet<ImageT, MaskT, VarianceT>::FiberTraceSet(size_t nTraces)
+  FiberTraceSet<ImageT, MaskT, VarianceT>::FiberTraceSet(size_t nTraces)
         : _traces(new std::vector<PTR(FiberTrace<ImageT, MaskT, VarianceT>)>(nTraces))
   {
     for (size_t i=0; i<nTraces; ++i){
@@ -1181,7 +1191,7 @@ namespace pfsDRPStella = pfs::drp::stella;
   }
 
   template<typename ImageT, typename MaskT, typename VarianceT>
-  pfsDRPStella::FiberTraceSet<ImageT, MaskT, VarianceT>::FiberTraceSet(pfsDRPStella::FiberTraceSet<ImageT, MaskT, VarianceT> const &fiberTraceSet, bool const deep)
+  FiberTraceSet<ImageT, MaskT, VarianceT>::FiberTraceSet(FiberTraceSet<ImageT, MaskT, VarianceT> const &fiberTraceSet, bool const deep)
       : _traces(fiberTraceSet.getTraces())
   {
     if (deep){
@@ -1189,7 +1199,7 @@ namespace pfsDRPStella = pfs::drp::stella;
       _traces.reset();
       _traces = ptr;
       for (size_t i = 0; i < fiberTraceSet.size(); ++i){
-        PTR(FiberTrace<ImageT, MaskT, VarianceT>) tra(new pfsDRPStella::FiberTrace<ImageT, MaskT, VarianceT>(*(fiberTraceSet.getFiberTrace(i)), true));
+        PTR(FiberTrace<ImageT, MaskT, VarianceT>) tra(new FiberTrace<ImageT, MaskT, VarianceT>(*(fiberTraceSet.getFiberTrace(i)), true));
         (*_traces)[i] = tra;
       }
     }
@@ -1198,14 +1208,14 @@ namespace pfsDRPStella = pfs::drp::stella;
 
   /// Extract FiberTraces from new MaskedImage
   template<typename ImageT, typename MaskT, typename VarianceT>
-  void pfsDRPStella::FiberTraceSet<ImageT, MaskT, VarianceT>::createTraces(const PTR(const MaskedImageT) &maskedImage){
+  void FiberTraceSet<ImageT, MaskT, VarianceT>::createTraces(const PTR(const MaskedImageT) &maskedImage){
     for (int i = 0; i < _traces->size(); ++i){
       (*_traces)[i]->createTrace(maskedImage);
     }
   }
 
   template<typename ImageT, typename MaskT, typename VarianceT>
-  void pfsDRPStella::FiberTraceSet<ImageT, MaskT, VarianceT>::setFiberTrace(const size_t i,     ///< which aperture?
+  void FiberTraceSet<ImageT, MaskT, VarianceT>::setFiberTrace(const size_t i,     ///< which aperture?
                                                                             const PTR(FiberTrace<ImageT, MaskT, VarianceT>) &trace ///< the FiberTrace for the ith aperture
   ){
     if (i > static_cast<int>(_traces->size())){
@@ -1221,7 +1231,7 @@ namespace pfsDRPStella = pfs::drp::stella;
   }
 
   template< typename ImageT, typename MaskT, typename VarianceT >
-  PTR( pfsDRPStella::FiberTrace< ImageT, MaskT, VarianceT >) pfsDRPStella::FiberTraceSet< ImageT, MaskT, VarianceT >::getFiberTrace( const size_t i ){
+  PTR( FiberTrace< ImageT, MaskT, VarianceT >) FiberTraceSet< ImageT, MaskT, VarianceT >::getFiberTrace( const size_t i ){
     if (i >= _traces->size()){
       string message("FiberTraceSet::getFiberTrace(i=");
       message += to_string(i) + string("): ERROR: i > _traces->size()=") + to_string(_traces->size());
@@ -1231,7 +1241,7 @@ namespace pfsDRPStella = pfs::drp::stella;
   }
 
   template<typename ImageT, typename MaskT, typename VarianceT>
-  PTR(pfsDRPStella::FiberTrace<ImageT, MaskT, VarianceT>) const pfsDRPStella::FiberTraceSet<ImageT, MaskT, VarianceT>::getFiberTrace(const size_t i) const {
+  PTR(FiberTrace<ImageT, MaskT, VarianceT>) const FiberTraceSet<ImageT, MaskT, VarianceT>::getFiberTrace(const size_t i) const {
     if (i >= _traces->size()){
       string message("FiberTraceSet::getFiberTrace(i=");
       message += to_string(i) + "): ERROR: i > _traces->size()=" + to_string(_traces->size());
@@ -1241,7 +1251,7 @@ namespace pfsDRPStella = pfs::drp::stella;
   }
 
   template<typename ImageT, typename MaskT, typename VarianceT>
-  ndarray::Array<float, 1, 1> pfsDRPStella::FiberTrace<ImageT, MaskT, VarianceT>::getTraceCoefficients() const{
+  ndarray::Array<float, 1, 1> FiberTrace<ImageT, MaskT, VarianceT>::getTraceCoefficients() const{
     ndarray::Array<float, 1, 1> coeffs = ndarray::allocate(_fiberTraceFunction->coefficients.size());
     auto itCo = _fiberTraceFunction->coefficients.begin();
     for (auto it = coeffs.begin(); it != coeffs.end(); ++it, ++itCo)
@@ -1250,7 +1260,7 @@ namespace pfsDRPStella = pfs::drp::stella;
   }
 
   template<typename ImageT, typename MaskT, typename VarianceT>
-  void pfsDRPStella::FiberTraceSet<ImageT, MaskT, VarianceT>::erase(const size_t iStart, const size_t iEnd){
+  void FiberTraceSet<ImageT, MaskT, VarianceT>::erase(const size_t iStart, const size_t iEnd){
     if (iStart >= _traces->size()){
       string message("FiberTraceSet::erase(iStart=");
       message += to_string(iStart) + ", iEnd=" + to_string(iEnd) + "): ERROR: iStart >= _traces->size()=" + to_string(_traces->size());
@@ -1280,7 +1290,7 @@ namespace pfsDRPStella = pfs::drp::stella;
   }
 
   template<typename ImageT, typename MaskT, typename VarianceT>
-  void pfsDRPStella::FiberTraceSet<ImageT, MaskT, VarianceT>::addFiberTrace(const PTR(FiberTrace<ImageT, MaskT, VarianceT>) &trace, const size_t iTrace) ///< the FiberTrace for the ith aperture
+  void FiberTraceSet<ImageT, MaskT, VarianceT>::addFiberTrace(const PTR(FiberTrace<ImageT, MaskT, VarianceT>) &trace, const size_t iTrace) ///< the FiberTrace for the ith aperture
   {
     size_t size = _traces->size();
     _traces->push_back(trace);
@@ -1294,7 +1304,7 @@ namespace pfsDRPStella = pfs::drp::stella;
   }
 
   template<typename ImageT, typename MaskT, typename VarianceT>
-  void pfsDRPStella::FiberTraceSet< ImageT, MaskT, VarianceT >::sortTracesByXCenter()
+  void FiberTraceSet< ImageT, MaskT, VarianceT >::sortTracesByXCenter()
   {
     std::vector<float> xCenters;
     for (int iTrace = 0; iTrace < static_cast<int>(_traces->size()); ++iTrace){
@@ -1325,23 +1335,23 @@ namespace pfsDRPStella = pfs::drp::stella;
   }
 
   template<typename ImageT, typename MaskT, typename VarianceT>
-  void pfsDRPStella::FiberTraceSet<ImageT, MaskT, VarianceT>::setFiberTraceProfileFittingControl(PTR(FiberTraceProfileFittingControl) const& fiberTraceProfileFittingControl){
+  void FiberTraceSet<ImageT, MaskT, VarianceT>::setFiberTraceProfileFittingControl(PTR(FiberTraceProfileFittingControl) const& fiberTraceProfileFittingControl){
     for (unsigned int i=0; i<_traces->size(); ++i){
       (*_traces)[i]->setFiberTraceProfileFittingControl(fiberTraceProfileFittingControl);
     }
   }
 
   template<typename ImageT, typename MaskT, typename VarianceT>
-  PTR( pfsDRPStella::Spectrum<ImageT, MaskT, VarianceT, VarianceT> ) pfsDRPStella::FiberTraceSet<ImageT, MaskT, VarianceT>::extractTraceNumberFromProfile(const size_t traceNumber)
+  PTR( Spectrum<ImageT, MaskT, VarianceT, VarianceT> ) FiberTraceSet<ImageT, MaskT, VarianceT>::extractTraceNumberFromProfile(const size_t traceNumber)
   {
     return (*_traces)[traceNumber]->extractFromProfile();
   }
 
   template<typename ImageT, typename MaskT, typename VarianceT>
-  PTR( pfsDRPStella::SpectrumSet<ImageT, MaskT, VarianceT, VarianceT> ) pfsDRPStella::FiberTraceSet<ImageT, MaskT, VarianceT>::extractAllTracesFromProfile()
+  PTR( SpectrumSet<ImageT, MaskT, VarianceT, VarianceT> ) FiberTraceSet<ImageT, MaskT, VarianceT>::extractAllTracesFromProfile()
   {
     LOG_LOGGER _log = LOG_GET("pfs::drp::stella::FiberTraceSet::extractAllTracesFromProfile");
-    PTR( pfsDRPStella::SpectrumSet<ImageT, MaskT, VarianceT, VarianceT> ) spectrumSet ( new pfsDRPStella::SpectrumSet<ImageT, MaskT, VarianceT, VarianceT>( _traces->size() ) );
+    PTR( SpectrumSet<ImageT, MaskT, VarianceT, VarianceT> ) spectrumSet ( new SpectrumSet<ImageT, MaskT, VarianceT, VarianceT>( _traces->size() ) );
     for (size_t i = 0; i < _traces->size(); ++i){
       LOGLS_DEBUG(_log, "extracting FiberTrace " << i);
       spectrumSet->setSpectrum(i, (*_traces)[i]->extractFromProfile());
@@ -1350,23 +1360,23 @@ namespace pfsDRPStella = pfs::drp::stella;
   }
 
   template<typename ImageT, typename MaskT, typename VarianceT>
-  void pfsDRPStella::FiberTraceSet<ImageT, MaskT, VarianceT>::setAllProfiles(const PTR(FiberTraceSet<ImageT, MaskT, VarianceT>) &fiberTraceSet){
+  void FiberTraceSet<ImageT, MaskT, VarianceT>::setAllProfiles(const PTR(FiberTraceSet<ImageT, MaskT, VarianceT>) &fiberTraceSet){
     for (size_t i = 0; i < _traces->size(); ++i){
       (*_traces)[i]->setProfile(fiberTraceSet->getFiberTrace(i)->getProfile());
     }
   }
 
   template<typename ImageT, typename MaskT, typename VarianceT>
-  void pfsDRPStella::FiberTraceSet<ImageT, MaskT, VarianceT>::calcProfileAllTraces(){
+  void FiberTraceSet<ImageT, MaskT, VarianceT>::calcProfileAllTraces(){
     for (size_t i = 0; i < _traces->size(); ++i){
       (*_traces)[i]->calcProfile();
     }
   }
 
-  namespace pfs { namespace drp { namespace stella { namespace math {
+  namespace math {
     template<typename ImageT, typename MaskT, typename VarianceT>
-    PTR(pfsDRPStella::FiberTraceSet<ImageT, MaskT, VarianceT>) findAndTraceApertures(const PTR(const afwImage::MaskedImage<ImageT, MaskT, VarianceT>) &maskedImage,
-                                                                                     const PTR(const pfsDRPStella::FiberTraceFunctionFindingControl) &fiberTraceFunctionFindingControl){
+    PTR(FiberTraceSet<ImageT, MaskT, VarianceT>) findAndTraceApertures(const PTR(const afwImage::MaskedImage<ImageT, MaskT, VarianceT>) &maskedImage,
+                                                                                     const PTR(const FiberTraceFunctionFindingControl) &fiberTraceFunctionFindingControl){
       #if defined(__DEBUG_FINDANDTRACE__)
         cout << "::pfs::drp::stella::math::findAndTraceApertures started" << endl;
       #endif
@@ -1374,8 +1384,8 @@ namespace pfsDRPStella = pfs::drp::stella;
         cout << "::pfs::drp::stella::math::findAndTraceApertures: WARNING: fiberTraceFunctionFindingControl->apertureFWHM too small for GaussFit -> Try lower fiberTraceFunctionFindingControl->nTermsGaussFit!" << endl;
         exit(EXIT_FAILURE);
       }
-      PTR(pfsDRPStella::FiberTraceSet<ImageT, MaskT, VarianceT>) fiberTraceSet(new pfsDRPStella::FiberTraceSet<ImageT, MaskT, VarianceT>());
-      pfsDRPStella::FiberTraceFunction fiberTraceFunction;
+      PTR(FiberTraceSet<ImageT, MaskT, VarianceT>) fiberTraceSet(new FiberTraceSet<ImageT, MaskT, VarianceT>());
+      FiberTraceFunction fiberTraceFunction;
       fiberTraceFunction.fiberTraceFunctionControl = fiberTraceFunctionFindingControl->fiberTraceFunctionControl;
       #if defined(__DEBUG_FINDANDTRACE__)
         cout << "::pfs::drp::stella::math::findAndTraceApertures: fiberTraceFunction.fiberTraceFunctionControl set" << endl;
@@ -1434,7 +1444,7 @@ namespace pfsDRPStella = pfs::drp::stella;
             /// Fit Polynomial
             (*p_xRange)[0] = D_A1_ApertureCenterIndex[0];
             (*p_xRange)[1] = D_A1_ApertureCenterIndex[int(D_A1_ApertureCenterIndex.size()-1)];
-            D_A1_PolyFitCoeffs = pfsDRPStella::math::PolyFit(D_A1_ApertureCenterIndex,
+            D_A1_PolyFitCoeffs = math::PolyFit(D_A1_ApertureCenterIndex,
                                                              D_A1_ApertureCenterPos,
                                                              fiberTraceFunctionFindingControl->fiberTraceFunctionControl.order,
                                                              keywords,
@@ -1461,9 +1471,9 @@ namespace pfsDRPStella = pfs::drp::stella;
             cout << "::pfs::drp::stella::math::findAndTraceApertures: fiberTraceFunction.yLow = " << fiberTraceFunction.yLow << endl;
             cout << "::pfs::drp::stella::math::findAndTraceApertures: fiberTraceFunction.yHigh = " << fiberTraceFunction.yHigh << endl;
           #endif
-          PTR(const pfsDRPStella::FiberTraceFunction) fiberTraceFunctionPTR(new pfsDRPStella::FiberTraceFunction(fiberTraceFunction));
+          PTR(const FiberTraceFunction) fiberTraceFunctionPTR(new FiberTraceFunction(fiberTraceFunction));
 
-          PTR( pfsDRPStella::FiberTrace< ImageT, MaskT, VarianceT >) fiberTrace( new pfsDRPStella::FiberTrace< ImageT, MaskT, VarianceT >( maskedImage,
+          PTR( FiberTrace< ImageT, MaskT, VarianceT >) fiberTrace( new FiberTrace< ImageT, MaskT, VarianceT >( maskedImage,
                                                                                                                                            fiberTraceFunctionPTR,
                                                                                                                                            0 ) );
           fiberTrace->setITrace( fiberTraceSet->getTraces()->size() );
@@ -1553,7 +1563,7 @@ namespace pfsDRPStella = pfs::drp::stella;
       size_t apertureLength = 0;
       bool B_ApertureFound;
       ndarray::Array<float, 1, 1> D_A1_IndexCol =
-          pfsDRPStella::math::indGenNdArr(static_cast<float>(ccdArray.getShape()[1]));
+          math::indGenNdArr(static_cast<float>(ccdArray.getShape()[1]));
       #if defined(__DEBUG_FINDANDTRACE__) && __DEBUG_FINDANDTRACE__ > 2
         cout << "pfs::drp::stella::math::findCenterPositionsOneTrace: D_A1_IndexCol = " << D_A1_IndexCol << endl;
       #endif
@@ -1620,7 +1630,7 @@ namespace pfsDRPStella = pfs::drp::stella;
             cout << "pfs::drp::stella::math::findAndTraceApertures: while: I_MinWidth = " << I_MinWidth << endl;
             cout << "pfs::drp::stella::math::findAndTraceApertures: while: I_StartIndex = " << I_StartIndex << endl;
           #endif
-          I_FirstWideSignal = pfsDRPStella::math::firstIndexWithValueGEFrom(I_A1_Signal, I_MinWidth, I_StartIndex);
+          I_FirstWideSignal = math::firstIndexWithValueGEFrom(I_A1_Signal, I_MinWidth, I_StartIndex);
           #if defined(__DEBUG_FINDANDTRACE__)
             cout << "pfs::drp::stella::math::findCenterPositionsOneTrace: while: i_Row = " << i_Row << ": I_FirstWideSignal found at index " << I_FirstWideSignal << ", I_StartIndex = " << I_StartIndex << endl;
           #endif
@@ -1636,7 +1646,7 @@ namespace pfsDRPStella = pfs::drp::stella;
               cout << "pfs::drp::stella::math::findCenterPositionsOneTrace: while: i_Row = " << i_Row << ": 1. I_FirstWideSignalStart = " << I_FirstWideSignalStart << endl;
             #endif
 
-            I_FirstWideSignalEnd = pfsDRPStella::math::firstIndexWithZeroValueFrom(I_A1_Signal, I_FirstWideSignal) - 1;
+            I_FirstWideSignalEnd = math::firstIndexWithZeroValueFrom(I_A1_Signal, I_FirstWideSignal) - 1;
             #if defined(__DEBUG_FINDANDTRACE__)
               cout << "pfs::drp::stella::math::findCenterPositionsOneTrace: while: i_Row = " << i_Row << ": I_FirstWideSignalEnd = " << I_FirstWideSignalEnd << endl;
             #endif
@@ -2228,7 +2238,7 @@ namespace pfsDRPStella = pfs::drp::stella;
     /** *******************************************************************************************************/
 
     /// Calculate the x-centers of the fiber trace
-    ndarray::Array<float, 1, 1> calculateXCenters(PTR(const pfsDRPStella::FiberTraceFunction) const& fiberTraceFunctionIn,
+    ndarray::Array<float, 1, 1> calculateXCenters(PTR(const FiberTraceFunction) const& fiberTraceFunctionIn,
                                                   size_t const& ccdHeightIn,
                                                   size_t const& ccdWidthIn){
       ndarray::Array<float, 1, 1> xRowIndex = ndarray::allocate(fiberTraceFunctionIn->yHigh - fiberTraceFunctionIn->yLow + 1);
@@ -2250,7 +2260,7 @@ namespace pfsDRPStella = pfs::drp::stella;
 
       ndarray::Array<float, 1, 1> xCenters;
 
-      PTR(pfsDRPStella::FiberTraceFunction) pFTF = const_pointer_cast<pfsDRPStella::FiberTraceFunction>(fiberTraceFunctionIn);
+      PTR(FiberTraceFunction) pFTF = const_pointer_cast<FiberTraceFunction>(fiberTraceFunctionIn);
       const ndarray::Array<float, 1, 1> fiberTraceFunctionCoefficients = ndarray::external(pFTF->coefficients.data(), ndarray::makeVector(int(fiberTraceFunctionIn->coefficients.size())), ndarray::makeVector(1));
 
       #ifdef __DEBUG_XCENTERS__
@@ -2291,7 +2301,7 @@ namespace pfsDRPStella = pfs::drp::stella;
           cout << "pfs::drp::stella::calculateXCenters: Coeffs = " << fiberTraceFunctionCoefficients << endl;
           cout << "pfs::drp::stella::calculateXCenters: fiberTraceFunctionCoefficients = " << fiberTraceFunctionCoefficients << endl;
         #endif
-        xCenters = pfsDRPStella::math::Poly(yIn,
+        xCenters = math::Poly(yIn,
                                             fiberTraceFunctionCoefficients,
                                             float(fiberTraceFunctionIn->yCenter + fiberTraceFunctionIn->yLow),
                                             float(fiberTraceFunctionIn->yCenter + fiberTraceFunctionIn->yHigh));
@@ -2449,7 +2459,7 @@ namespace pfsDRPStella = pfs::drp::stella;
 
       const PTR(const FiberTraceFunction) ftf = fiberTrace.getFiberTraceFunction();
       const ndarray::Array< float, 1, 1 > xCenters = fiberTrace.getXCenters();
-      ndarray::Array< size_t, 2, 1 > minCenMax = pfsDRPStella::math::calcMinCenMax( xCenters,
+      ndarray::Array< size_t, 2, 1 > minCenMax = math::calcMinCenMax( xCenters,
                                                                                     ftf->fiberTraceFunctionControl.xHigh,
                                                                                     ftf->fiberTraceFunctionControl.xLow,
                                                                                     ftf->fiberTraceFunctionControl.nPixCutLeft,
@@ -2561,65 +2571,65 @@ namespace pfsDRPStella = pfs::drp::stella;
       return fiberTraceCoordinatesRelativeToCenter;
     }
 
-    template void assignITrace( pfsDRPStella::FiberTraceSet< float, lsst::afw::image::MaskPixel, float > &,
+    template void assignITrace( FiberTraceSet< float, lsst::afw::image::MaskPixel, float > &,
                                 ndarray::Array< int, 1, 0 > const&,
                                 ndarray::Array< float, 1, 0 > const& );
-    template void assignITrace( pfsDRPStella::FiberTraceSet< float, lsst::afw::image::MaskPixel, float > &,
+    template void assignITrace( FiberTraceSet< float, lsst::afw::image::MaskPixel, float > &,
                                 ndarray::Array< int, 1, 0 > const&,
                                 ndarray::Array< double, 1, 0 > const& );
-    template void assignITrace( pfsDRPStella::FiberTraceSet< float, lsst::afw::image::MaskPixel, float > &,
+    template void assignITrace( FiberTraceSet< float, lsst::afw::image::MaskPixel, float > &,
                                 ndarray::Array< short int, 1, 0 > const&,
                                 ndarray::Array< float, 1, 0 > const& );
-    template void assignITrace( pfsDRPStella::FiberTraceSet< float, lsst::afw::image::MaskPixel, float > &,
+    template void assignITrace( FiberTraceSet< float, lsst::afw::image::MaskPixel, float > &,
                                 ndarray::Array< short int, 1, 0 > const&,
                                 ndarray::Array< double, 1, 0 > const& );
-    template void assignITrace( pfsDRPStella::FiberTraceSet< float, lsst::afw::image::MaskPixel, float > &,
+    template void assignITrace( FiberTraceSet< float, lsst::afw::image::MaskPixel, float > &,
                                 ndarray::Array< long int, 1, 0 > const&,
                                 ndarray::Array< float, 1, 0 > const& );
-    template void assignITrace( pfsDRPStella::FiberTraceSet< float, lsst::afw::image::MaskPixel, float > &,
+    template void assignITrace( FiberTraceSet< float, lsst::afw::image::MaskPixel, float > &,
                                 ndarray::Array< long int, 1, 0 > const&,
                                 ndarray::Array< double, 1, 0 > const& );
 
-    template void assignITrace( pfsDRPStella::FiberTraceSet< float, lsst::afw::image::MaskPixel, float > &,
+    template void assignITrace( FiberTraceSet< float, lsst::afw::image::MaskPixel, float > &,
                                 ndarray::Array< int, 1, 1 > const&,
                                 ndarray::Array< float, 1, 1 > const& );
-    template void assignITrace( pfsDRPStella::FiberTraceSet< float, lsst::afw::image::MaskPixel, float > &,
+    template void assignITrace( FiberTraceSet< float, lsst::afw::image::MaskPixel, float > &,
                                 ndarray::Array< int, 1, 1 > const&,
                                 ndarray::Array< double, 1, 1 > const& );
-    template void assignITrace( pfsDRPStella::FiberTraceSet< float, lsst::afw::image::MaskPixel, float > &,
+    template void assignITrace( FiberTraceSet< float, lsst::afw::image::MaskPixel, float > &,
                                 ndarray::Array< short int, 1, 1 > const&,
                                 ndarray::Array< float, 1, 1 > const& );
-    template void assignITrace( pfsDRPStella::FiberTraceSet< float, lsst::afw::image::MaskPixel, float > &,
+    template void assignITrace( FiberTraceSet< float, lsst::afw::image::MaskPixel, float > &,
                                 ndarray::Array< short int, 1, 1 > const&,
                                 ndarray::Array< double, 1, 1 > const& );
-    template void assignITrace( pfsDRPStella::FiberTraceSet< float, lsst::afw::image::MaskPixel, float > &,
+    template void assignITrace( FiberTraceSet< float, lsst::afw::image::MaskPixel, float > &,
                                 ndarray::Array< long int, 1, 1 > const&,
                                 ndarray::Array< float, 1, 1 > const& );
-    template void assignITrace( pfsDRPStella::FiberTraceSet< float, lsst::afw::image::MaskPixel, float > &,
+    template void assignITrace( FiberTraceSet< float, lsst::afw::image::MaskPixel, float > &,
                                 ndarray::Array< long int, 1, 1 > const&,
                                 ndarray::Array< double, 1, 1 > const& );
 
-    template size_t findITrace( pfsDRPStella::FiberTrace< float, lsst::afw::image::MaskPixel, float > const&,
+    template size_t findITrace( FiberTrace< float, lsst::afw::image::MaskPixel, float > const&,
                                 ndarray::Array< float, 1, 0 > const&,
                                 size_t,
                                 size_t,
                                 size_t );
-    template size_t findITrace( pfsDRPStella::FiberTrace< float, lsst::afw::image::MaskPixel, float > const&,
+    template size_t findITrace( FiberTrace< float, lsst::afw::image::MaskPixel, float > const&,
                                 ndarray::Array< double, 1, 0 > const&,
                                 size_t,
                                 size_t,
                                 size_t );
 
-    template PTR(pfsDRPStella::FiberTraceSet<float, lsst::afw::image::MaskPixel, float>)
+    template PTR(FiberTraceSet<float, lsst::afw::image::MaskPixel, float>)
     findAndTraceApertures(PTR(const afwImage::MaskedImage<float, lsst::afw::image::MaskPixel, float>) const&,
-                          PTR(const pfsDRPStella::FiberTraceFunctionFindingControl) const&);
+                          PTR(const FiberTraceFunctionFindingControl) const&);
 
     template FindCenterPositionsOneTraceResult
     findCenterPositionsOneTrace( PTR(afwImage::Image<float>) &,
                                  PTR(afwImage::Image<float>) &,
                                  PTR(const FiberTraceFunctionFindingControl) const&);
 
-    template PTR(pfsDRPStella::FiberTrace< float, lsst::afw::image::MaskPixel, float >)
+    template PTR(FiberTrace< float, lsst::afw::image::MaskPixel, float >)
         makeNormFlatFiberTrace(PTR(const afwImage::MaskedImage< float, lsst::afw::image::MaskPixel, float >) const&,
                                PTR( const ::pfs::drp::stella::FiberTraceFunction ) const&,
                                PTR( const ::pfs::drp::stella::FiberTraceFunctionControl ) const&,
@@ -2627,66 +2637,66 @@ namespace pfsDRPStella = pfs::drp::stella;
                                float,
                                size_t );
 
-    template void addFiberTraceToCcdArray(pfsDRPStella::FiberTrace< float, lsst::afw::image::MaskPixel, float > const&,
+    template void addFiberTraceToCcdArray(FiberTrace< float, lsst::afw::image::MaskPixel, float > const&,
                                           afwImage::Image< float > const&,
                                           ndarray::Array< float, 2, 0 > & );
-    template void addFiberTraceToCcdArray(pfsDRPStella::FiberTrace< float, lsst::afw::image::MaskPixel, float > const&,
+    template void addFiberTraceToCcdArray(FiberTrace< float, lsst::afw::image::MaskPixel, float > const&,
                                           afwImage::Image< lsst::afw::image::MaskPixel > const&,
                                           ndarray::Array< lsst::afw::image::MaskPixel, 2, 0 > & );
-    template void addFiberTraceToCcdArray(pfsDRPStella::FiberTrace< float, lsst::afw::image::MaskPixel, float > const&,
+    template void addFiberTraceToCcdArray(FiberTrace< float, lsst::afw::image::MaskPixel, float > const&,
                                           afwImage::Image< float > const&,
                                           ndarray::Array< lsst::afw::image::MaskPixel, 2, 0 > & );
 
-    template void addFiberTraceToCcdArray(pfsDRPStella::FiberTrace< float, lsst::afw::image::MaskPixel, float > const&,
+    template void addFiberTraceToCcdArray(FiberTrace< float, lsst::afw::image::MaskPixel, float > const&,
                                           afwImage::Image< float > const&,
                                           ndarray::Array< float, 2, 1 > & );
-    template void addFiberTraceToCcdArray( pfsDRPStella::FiberTrace< float, lsst::afw::image::MaskPixel, float > const&,
+    template void addFiberTraceToCcdArray( FiberTrace< float, lsst::afw::image::MaskPixel, float > const&,
                                                                afwImage::Image< lsst::afw::image::MaskPixel > const&,
                                                                ndarray::Array< lsst::afw::image::MaskPixel, 2, 1 > & );
-    template void addFiberTraceToCcdArray( pfsDRPStella::FiberTrace< float, lsst::afw::image::MaskPixel, float > const&,
+    template void addFiberTraceToCcdArray( FiberTrace< float, lsst::afw::image::MaskPixel, float > const&,
                                                                afwImage::Image< double > const&,
                                                                ndarray::Array< float, 2, 1 > & );
-    template void addFiberTraceToCcdArray( pfsDRPStella::FiberTrace< float, lsst::afw::image::MaskPixel, float > const&,
+    template void addFiberTraceToCcdArray( FiberTrace< float, lsst::afw::image::MaskPixel, float > const&,
                                                                afwImage::Image< float > const&,
                                                                ndarray::Array< lsst::afw::image::MaskPixel, 2, 1 > & );
-    template void addFiberTraceToCcdArray( pfsDRPStella::FiberTrace< float, lsst::afw::image::MaskPixel, float > const&,
+    template void addFiberTraceToCcdArray( FiberTrace< float, lsst::afw::image::MaskPixel, float > const&,
                                                                afwImage::Image< double > const&,
                                                                ndarray::Array< double, 2, 1 > & );
 
-    template void addFiberTraceToCcdArray( pfsDRPStella::FiberTrace< float, lsst::afw::image::MaskPixel, float > const&,
+    template void addFiberTraceToCcdArray( FiberTrace< float, lsst::afw::image::MaskPixel, float > const&,
                                                                afwImage::Image< float > const&,
                                                                ndarray::Array< float, 2, 2 > & );
-    template void addFiberTraceToCcdArray( pfsDRPStella::FiberTrace< float, lsst::afw::image::MaskPixel, float > const&,
+    template void addFiberTraceToCcdArray( FiberTrace< float, lsst::afw::image::MaskPixel, float > const&,
                                                                afwImage::Image< lsst::afw::image::MaskPixel > const&,
                                                                ndarray::Array< lsst::afw::image::MaskPixel, 2, 2 > & );
-    template void addFiberTraceToCcdArray( pfsDRPStella::FiberTrace< float, lsst::afw::image::MaskPixel, float > const&,
+    template void addFiberTraceToCcdArray( FiberTrace< float, lsst::afw::image::MaskPixel, float > const&,
                                                                afwImage::Image< double > const&,
                                                                ndarray::Array< float, 2, 2 > & );
-    template void addFiberTraceToCcdArray( pfsDRPStella::FiberTrace< float, lsst::afw::image::MaskPixel, float > const&,
+    template void addFiberTraceToCcdArray( FiberTrace< float, lsst::afw::image::MaskPixel, float > const&,
                                                                afwImage::Image< float > const&,
                                                                ndarray::Array< lsst::afw::image::MaskPixel, 2, 2 > & );
-    template void addFiberTraceToCcdArray( pfsDRPStella::FiberTrace< float, lsst::afw::image::MaskPixel, float > const&,
+    template void addFiberTraceToCcdArray( FiberTrace< float, lsst::afw::image::MaskPixel, float > const&,
                                                                afwImage::Image< double > const&,
                                                                ndarray::Array< double, 2, 2 > & );
 
-    template void addFiberTraceToCcdImage( pfsDRPStella::FiberTrace< float, lsst::afw::image::MaskPixel, float > const&,
+    template void addFiberTraceToCcdImage( FiberTrace< float, lsst::afw::image::MaskPixel, float > const&,
                                                                afwImage::Image< float > const&,
                                                                afwImage::Image< float > & );
-    template void addFiberTraceToCcdImage( pfsDRPStella::FiberTrace< float, lsst::afw::image::MaskPixel, float > const&,
+    template void addFiberTraceToCcdImage( FiberTrace< float, lsst::afw::image::MaskPixel, float > const&,
                                                                afwImage::Image< lsst::afw::image::MaskPixel > const&,
                                                                afwImage::Image< lsst::afw::image::MaskPixel > & );
-    template void addFiberTraceToCcdImage( pfsDRPStella::FiberTrace< float, lsst::afw::image::MaskPixel, float > const&,
+    template void addFiberTraceToCcdImage( FiberTrace< float, lsst::afw::image::MaskPixel, float > const&,
                                                                afwImage::Image< double > const&,
                                                                afwImage::Image< float > & );
-    template void addFiberTraceToCcdImage( pfsDRPStella::FiberTrace< float, lsst::afw::image::MaskPixel, float > const&,
+    template void addFiberTraceToCcdImage( FiberTrace< float, lsst::afw::image::MaskPixel, float > const&,
                                                                afwImage::Image< float > const&,
                                                                afwImage::Image< lsst::afw::image::MaskPixel > & );
-    template void addFiberTraceToCcdImage( pfsDRPStella::FiberTrace< float, lsst::afw::image::MaskPixel, float > const&,
+    template void addFiberTraceToCcdImage( FiberTrace< float, lsst::afw::image::MaskPixel, float > const&,
                                                                afwImage::Image< double > const&,
                                                                afwImage::Image< double > & );
 
     template dataXY<float> ccdToFiberTraceCoordinates(dataXY<float> const&,
-                                                      pfsDRPStella::FiberTrace<float,
+                                                      FiberTrace<float,
                                                       lsst::afw::image::MaskPixel,
                                                       float> const&);
 
@@ -2695,7 +2705,7 @@ namespace pfsDRPStella = pfs::drp::stella;
                                                            lsst::afw::image::MaskPixel,
                                                            float>(dataXY<float> const&,
                                                                   dataXY<float> const&,
-                                                                  pfsDRPStella::FiberTrace<float,
+                                                                  FiberTrace<float,
                                                                   lsst::afw::image::MaskPixel,
                                                                   float> const&);
 
@@ -2711,7 +2721,7 @@ namespace pfsDRPStella = pfs::drp::stella;
     INSTANTIATE_ADDARRAYINTOARRAY(float const, float, 2, 2);
   }
 
-  namespace utils{
+  namespace utils {
 
     template<typename T>
     const T* getRawPointer(const PTR(const T) & ptr){
@@ -2724,7 +2734,7 @@ namespace pfsDRPStella = pfs::drp::stella;
                                MaskT value){
       const PTR(const FiberTraceFunction) ftf = fiberTrace->getFiberTraceFunction();
       const ndarray::Array< float, 1, 1 > xCenters = fiberTrace->getXCenters();
-      ndarray::Array<size_t, 2, 1> minCenMax = pfsDRPStella::math::calcMinCenMax( xCenters,
+      ndarray::Array<size_t, 2, 1> minCenMax = math::calcMinCenMax( xCenters,
                                                                                   ftf->fiberTraceFunctionControl.xHigh,
                                                                                   ftf->fiberTraceFunctionControl.xLow,
                                                                                   ftf->fiberTraceFunctionControl.nPixCutLeft,
@@ -2741,13 +2751,14 @@ namespace pfsDRPStella = pfs::drp::stella;
     template const afwImage::Image<float>* getRawPointer(const PTR(const afwImage::Image<float>) &ptr);
     template const afwImage::Image<unsigned short>* getRawPointer(const PTR(const afwImage::Image<unsigned short>) &ptr);
     template const afwImage::Image<int>* getRawPointer(const PTR(const afwImage::Image<int>) &ptr);
-    template const pfsDRPStella::FiberTrace<float, lsst::afw::image::MaskPixel, float>* getRawPointer(const PTR(const pfsDRPStella::FiberTrace<float, lsst::afw::image::MaskPixel, float>) &ptr);
+    template const FiberTrace<float, lsst::afw::image::MaskPixel, float>* getRawPointer(const PTR(const FiberTrace<float, lsst::afw::image::MaskPixel, float>) &ptr);
 
       template void markFiberTraceInMask(PTR( FiberTrace< float, lsst::afw::image::MaskPixel, float > ) const&,
                                          PTR( afwImage::Mask< lsst::afw::image::MaskPixel > ) const&,
                                          lsst::afw::image::MaskPixel);
   }
-}}}
 
-template class pfsDRPStella::FiberTrace<float, lsst::afw::image::MaskPixel, float>;
-template class pfsDRPStella::FiberTraceSet<float, lsst::afw::image::MaskPixel, float>;
+template class FiberTrace<float, lsst::afw::image::MaskPixel, float>;
+template class FiberTraceSet<float, lsst::afw::image::MaskPixel, float>;
+            
+}}}

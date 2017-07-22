@@ -3,23 +3,15 @@
 #ifndef __PFS_DRP_STELLA_MATH_H__
 #define __PFS_DRP_STELLA_MATH_H__
 
-#include <iostream>
 #include <numeric>      // std::accumulate
 #include <vector>
 
-#include <unsupported/Eigen/Splines>
-
-#include "lsst/pex/exceptions.h"
 #include "ndarray.h"
-#include "ndarray/eigen.h"
-#include "ndarray/eigen_fwd.h"
-#include "../utils/Utils.h"
+
+#include "pfs/drp/stella/utils/Utils.h"
 
 /// constants
 #define CONST_PI 3.141592653589793238462643383280    /* pi */
-
-using namespace std;
-namespace pexExcept = lsst::pex::exceptions;
 
 namespace pfs { namespace drp { namespace stella {
   namespace math{
@@ -340,7 +332,7 @@ namespace pfs { namespace drp { namespace stella {
                                          ndarray::Array< T, 1, 1 > const& XVecArr,
                                          ndarray::Array< int, 1, 1 > & SVecArr,
                                          ndarray::Array< T, 1, I > const& UVecArr,
-                                         std::vector< string > const& CS_A1_In);
+                                         std::vector<std::string> const& CS_A1_In);
 
     /**
      ValueLocate
