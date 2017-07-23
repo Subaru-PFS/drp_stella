@@ -14,12 +14,12 @@ for logger in ["afw.ExposureFormatter",
                "CameraMapper",
                "daf.persistence.LogicalLocation",
                "daf.persistence.butler",
-               "pfs::drp::stella::FiberTrace::calcProfile",
-               "pfs::drp::stella::FiberTrace::calcProfileSwath",
-               "pfs::drp::stella::FiberTrace::extractFromProfile",
-               "pfs::drp::stella::math::CurveFitting::LinFitBevingtonNdArray1D",
-               "pfs::drp::stella::math::CurveFitting::LinFitBevingtonNdArray2D",
-               "pfs::drp::stella::math::CurfFitting::PolyFit",
+               "pfs.drp.stella.FiberTrace.calcProfile",
+               "pfs.drp.stella.FiberTrace.calcProfileSwath",
+               "pfs.drp.stella.FiberTrace.extractFromProfile",
+               "pfs.drp.stella.math.CurveFitting.LinFitBevingtonNdArray1D",
+               "pfs.drp.stella.math.CurveFitting.LinFitBevingtonNdArray2D",
+               "pfs.drp.stella.math.CurveFittingPolyFit",
               ]:
     log.Log.getLogger(logger).setLevel(log.WARN)
 

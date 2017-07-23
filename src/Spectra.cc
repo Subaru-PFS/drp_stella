@@ -509,7 +509,7 @@ template< typename T >
 ndarray::Array<float, 1, 1 >
 Spectrum<ImageT, MaskT, VarianceT, WavelengthT>::hIdentify( ndarray::Array< T, 2, 1 > const& lineList )
 {
-  LOG_LOGGER _log = LOG_GET("Spectra::identify");
+  LOG_LOGGER _log = LOG_GET("pfs.drp.stella.Spectra.identify");
   ///for each line in line list, find maximum in spectrum and fit Gaussian
   int I_MaxPos = 0;
   int I_Start = 0;
@@ -679,7 +679,7 @@ void
 Spectrum<ImageT, MaskT, VarianceT, WavelengthT>::identify( ndarray::Array< T, 2, 1 > const& lineList,
                                                                                      DispCorControl const& dispCorControl,
                                                                                      std::size_t nLinesCheck ){
-    LOG_LOGGER _log = LOG_GET("Spectra::identify");
+    LOG_LOGGER _log = LOG_GET("pfs.drp.stella.Spectra.identify");
 
     DispCorControl tempDispCorControl( dispCorControl );
     _dispCorControl.reset();
@@ -1275,39 +1275,39 @@ namespace math {
       ndarray::Array< size_t, 1, 1 > ind = math::getIndicesInValueRange( wLen, T( 1 ), T( 15000 ) );
       assert(ind.getShape()[0] > 0);
       #ifdef __DEBUG_CREATELINELIST__
-        cout << "Spectra::createLineList: ind = " << ind.getShape() << ": " << ind << endl;
+        cout << "pfs.drp.stella.Spectra.createLineList: ind = " << ind.getShape() << ": " << ind << endl;
       #endif
       ndarray::Array< T, 1, 1 > indT = ndarray::allocate( ind.getShape()[ 0 ] );
       indT.deep() = ind;
       #ifdef __DEBUG_CREATELINELIST__
-        cout << "Spectra::createLineList: indT = " << indT.getShape() << ": " << indT << endl;
-        cout << "Spectra::createLineList: ind[0] = " << ind[0] << ", ind[ind.getShape()[0](=" << ind.getShape()[0] << ")-1] = " << ind[ind.getShape()[0]-1] << endl;
+        cout << "pfs.drp.stella.Spectra.createLineList: indT = " << indT.getShape() << ": " << indT << endl;
+        cout << "pfs.drp.stella.Spectra.createLineList: ind[0] = " << ind[0] << ", ind[ind.getShape()[0](=" << ind.getShape()[0] << ")-1] = " << ind[ind.getShape()[0]-1] << endl;
       #endif
       ndarray::Array< T, 1, 1 > wavelengths = ndarray::copy( wLen[ ndarray::view( ind[ 0 ], ind[ ind.getShape()[ 0 ] - 1 ] + 1 ) ] );
       #ifdef __DEBUG_CREATELINELIST__
         for (int i = 0; i < indT.getShape()[ 0 ]; ++i )
-          cout << "Spectra::createLineList: indT[" << i << "] = " << indT[ i ] << ": wavelengths[" << i << "] = " << wavelengths[ i ] << endl;
+          cout << "pfs.drp.stella.Spectra.createLineList: indT[" << i << "] = " << indT[ i ] << ": wavelengths[" << i << "] = " << wavelengths[ i ] << endl;
       #endif
       std::vector< std::string > args( 1 );
       #ifdef __DEBUG_CREATELINELIST__
-        cout << "Spectra::createLineList: intT = " << indT.getShape() << ": " << indT << endl;
-        cout << "Spectra::createLineList: wavelengths = " << wavelengths.getShape() << ": " << wavelengths << endl;
-        cout << "Spectra::createLineList: linesWLen = " << linesWLen.getShape() << ": " << linesWLen << endl;
-        cout << "Spectra::createLineList: args = " << args.size() << endl;
+        cout << "pfs.drp.stella.Spectra.createLineList: intT = " << indT.getShape() << ": " << indT << endl;
+        cout << "pfs.drp.stella.Spectra.createLineList: wavelengths = " << wavelengths.getShape() << ": " << wavelengths << endl;
+        cout << "pfs.drp.stella.Spectra.createLineList: linesWLen = " << linesWLen.getShape() << ": " << linesWLen << endl;
+        cout << "pfs.drp.stella.Spectra.createLineList: args = " << args.size() << endl;
       #endif
       ndarray::Array< T, 1, 1 > linesPix = math::interPol( indT, wavelengths, linesWLen, args );
       #ifdef __DEBUG_CREATELINELIST__
-        cout << "Spectra::createLineList: linesWLen = " << linesWLen.getShape() << ": " << linesWLen << endl;
+        cout << "pfs.drp.stella.Spectra.createLineList: linesWLen = " << linesWLen.getShape() << ": " << linesWLen << endl;
       #endif
       ndarray::Array< T, 2, 1 > out = ndarray::allocate( linesWLen.getShape()[ 0 ], 2 );
       #ifdef __DEBUG_CREATELINELIST__
-        cout << "Spectra::createLineList: out = " << out.getShape() << endl;
-        cout << "Spectra::createLineList: out[ ndarray::view( )( 0 ) ].getShape() = " << out[ ndarray::view( )( 0 ) ].getShape() << endl;
+        cout << "pfs.drp.stella.Spectra.createLineList: out = " << out.getShape() << endl;
+        cout << "pfs.drp.stella.Spectra.createLineList: out[ ndarray::view( )( 0 ) ].getShape() = " << out[ ndarray::view( )( 0 ) ].getShape() << endl;
       #endif
       out[ ndarray::view( )( 0 ) ] = linesWLen;//[ ndarray::view( ) ];
       out[ ndarray::view( )( 1 ) ] = linesPix;//[ ndarray::view( ) ];
       #ifdef __DEBUG_CREATELINELIST__
-        cout << "Spectra::createLineList: out = " << out << endl;
+        cout << "pfs.drp.stella.Spectra.createLineList: out = " << out << endl;
       #endif
       return out;
     }
