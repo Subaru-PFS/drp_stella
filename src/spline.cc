@@ -238,8 +238,5 @@ T spline<T>::operator() (T x) const {
 }
 
 template class band_matrix<float>;
-template class band_matrix<double>;
-
 template class spline<float>;
-template class spline<double>;
 }}}}
