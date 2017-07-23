@@ -15,7 +15,7 @@ import unittest
 from astropy.io import fits as pyfits
 import numpy as np
 
-import lsst.afw.display.ds9 as ds9
+import lsst.afw.display as afwDisplay
 import lsst.afw.image as afwImage
 import lsst.daf.persistence as dafPersist
 import lsst.log as log
@@ -393,9 +393,13 @@ class FiberTraceTestCase(tests.TestCase):
             spectrum = fiberTrace.extractFromProfile()
 
             recImage = fiberTrace.getReconstructed2DSpectrum(spectrum)
-            diff = fiberTrace.getTrace().getImage().getArray() - recImage.getArray()
+            diff = fiberTrace.getTrace().getImage().clone()
+            diff -= recImage
             if display:
-                ds9.mtv(diff,title="reconstruction from MkSlitFunc",frame=fiberTraceSet.size()+iTrace)
+                disp = afwDisplay.Display(1 + iTrace)
+                disp.mtv(diff, title="reconstruction %d from MkSlitFunc" % iTrace)
+
+            diff = diff.getArray()
             meanDiff = np.mean(diff)
             self.assertLess(np.absolute(meanDiff), 50.)
             stdDevDiff = np.std(diff)
