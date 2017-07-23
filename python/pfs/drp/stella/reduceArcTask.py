@@ -113,8 +113,7 @@ class ReduceArcTask(CmdLineTask):
             if self.debugInfo.display and self.debugInfo.arc_frame >= 0:
                 display = afwDisplay.Display(self.debugInfo.arc_frame)
 
-                addFiberTraceSetToMask(inExposure.getMaskedImage().getMask(),
-                                       inFiberTraceSetWithProfiles.getTraces(), display)
+                addFiberTraceSetToMask(arcExp.maskedImage.mask, flatFiberTraceSet, display)
                 
                 display.setMaskTransparency(50)
                 display.mtv(arcExp, "Arcs")
