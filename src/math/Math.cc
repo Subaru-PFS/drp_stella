@@ -1978,7 +1978,7 @@ template ndarray::Array<float, 1, 1> interPol(ndarray::Array< float, 1, 1 > cons
 template ndarray::Array<int, 1, 1> valueLocate(ndarray::Array< float, 1, 1 > const&,
                                                ndarray::Array< float, 1, 1 > const& );
 template ndarray::Array<float, 1, 1> splineI( ndarray::Array< float, 1, 1 > const&,
-                                              ndarray::Array< float, 1, 1 > const& );
+                                              ndarray::Array< float, 1, 1 > const&, float, float);
 template ndarray::Array< short int, 1, 1 > where( ndarray::Array< float, 1, 0 > const&,
                                                   std::string const&,
                                                   float const,

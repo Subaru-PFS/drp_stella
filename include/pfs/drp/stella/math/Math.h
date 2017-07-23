@@ -304,19 +304,9 @@ namespace pfs { namespace drp { namespace stella {
     template< typename T >
     ndarray::Array< T, 1, 1 > splineI( ndarray::Array< T, 1, 1 > const& XVecArr, 
                                        ndarray::Array< T, 1, 1 > const& YVecArr, 
-                                       T const YP1, 
-                                       T const YPN);
+                                       T const YP1=1e30, 
+                                       T const YPN=1e30);
     
-    /**
-      Spline
-      Given Arrays XVecArr(0:N-1) and YVecArr(0:N-1) containing a tabulated function, i.e., y_i = f(x_i), with x_1 < x_2 < ... < x_N, 
-      this routine returns an Array y2(0:N-1) that contains the second derivatives of the interpolating function at the tabulated points x_i. 
-      The routine is signaled to set the corresponding boundary condition for a natural spline, with zero second derivative on that boundary.
-     **/
-    template< typename T >
-    ndarray::Array< T, 1, 1 > splineI( ndarray::Array< T, 1, 1 > const& XVecArr, 
-                                       ndarray::Array< T, 1, 1 > const& YVecArr);
-
     /**
       SplInt
       Given the Arrays XAVecArr(0:N-1) and YAVecArr(0:N-1), which tabulate a function (whith the XAVecArr(i)'s in order), and given the array Y2AVecArr(0:N-1), which is the output from Spline above, and given a value of X, this routine returns a cubic-spline interpolated value Y;
