@@ -31,34 +31,7 @@ class ReduceArcTaskRunner(TaskRunner):
     """Get parsed values into the ReduceArcTask.run"""
     @staticmethod
     def getTargetList(parsedCmd, **kwargs):
-        return [dict(expRefList=parsedCmd.id.refList, butler=parsedCmd.butler, wLenFile=parsedCmd.wLenFile, lineList=parsedCmd.lineList)]
-
-    def __call__(self, args):
-        task = self.TaskClass(config=self.config, log=self.log)
-
-        exitStatus = 0
-        if self.doRaise:
-            self.log.debug('ReduceArcTask.__call__: args = %s' % args)
-            result = task.run(**args)
-        else:
-            exitStatus = 1
-
-            try:
-                result = task.run(**args)
-            except Exception, e:
-                task.log.warn("Failed: %s" % e)
-
-        if self.doReturnResults:
-            return Struct(
-                exitStatus=exitStatus,
-                args = args,
-                metadata = task.metadata,
-                result = result,
-            )
-        else:
-            return Struct(
-                exitStatus=exitStatus,
-            )
+        return [(parsedCmd.id.refList, dict(butler=parsedCmd.butler, wLenFile=parsedCmd.wLenFile, lineList=parsedCmd.lineList))]
 
 class ReduceArcTask(CmdLineTask):
     """Task to reduce Arc images"""
@@ -207,3 +180,8 @@ class ReduceArcTask(CmdLineTask):
             writePfsArm(butler, arcExp, spectrumSetFromProfile, arcRef.dataId)
 
         return spectrumSetFromProfile
+    #
+    # Disable writing metadata (doesn't work with lists of dataRefs anyway)
+    #
+    def _getMetadataName(self):
+        return None
