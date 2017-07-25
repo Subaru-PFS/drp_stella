@@ -8,6 +8,7 @@ from lsst.pipe.base import Struct, TaskRunner, ArgumentParser, CmdLineTask
 from lsst.utils import getPackageDir
 import pfs.drp.stella as drpStella
 import pfs.drp.stella.extractSpectraTask as esTask
+from pfs.drp.stella.reduceArcTask import ReduceArcTaskRunner
 from pfs.drp.stella.utils import makeFiberTraceSet, readLineListFile
 from pfs.drp.stella.utils import readReferenceSpectrum, writePfsArm
 
@@ -26,29 +27,11 @@ class ReduceArcRefSpecConfig(Config):
     refSpec = Field( doc = "reference reference spectrum including path", dtype = str, default=os.path.join(getPackageDir("obs_pfs"), "pfs/arcSpectra/refSpec_CdHgKrNeXe_red.fits"));
     lineList = Field( doc = "reference line list including path", dtype = str, default=os.path.join(getPackageDir("obs_pfs"), "pfs/lineLists/CdHgKrNeXe_red.fits"));
 
-class ReduceArcRefSpecTaskRunner(TaskRunner):
+class ReduceArcRefSpecTaskRunner(ReduceArcTaskRunner):
     """Get parsed values into the ReduceArcTask.run"""
     @staticmethod
     def getTargetList(parsedCmd, **kwargs):
         return [dict(expRefList=parsedCmd.id.refList, butler=parsedCmd.butler, refSpec=parsedCmd.refSpec, lineList=parsedCmd.lineList)]
-
-    def __call__(self, args):
-        task = self.TaskClass(config=self.config, log=self.log)
-        if self.doRaise:
-            self.log.debug('ReduceArcTask.__call__: args = %s' % args)
-            result = task.run(**args)
-        else:
-            try:
-                result = task.run(**args)
-            except Exception, e:
-                task.log.warn("Failed: %s" % e)
-
-        if self.doReturnResults:
-            return Struct(
-                args = args,
-                metadata = task.metadata,
-                result = result,
-            )
 
 class ReduceArcRefSpecTask(CmdLineTask):
     """Task to reduce Arc images"""
