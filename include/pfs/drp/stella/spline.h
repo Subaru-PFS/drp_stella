@@ -102,7 +102,7 @@ private:
    std::vector<T> m_x,m_y;           // x,y coordinates of points
    // interpolation parameters
    // f(x) = a*(x-x_i)^3 + b*(x-x_i)^2 + c*(x-x_i) + y_i
-   std::vector<T> m_a,m_b,m_c,m_d;
+   std::vector<T> m_a,m_b,m_c;
 public:
    void set_points(const std::vector<T>& x,
                    const std::vector<T>& y, bool cubic_spline=true);
