@@ -8,7 +8,7 @@ from lsst.pipe.base import Struct, TaskRunner, ArgumentParser, CmdLineTask
 from lsst.utils import getPackageDir
 import pfs.drp.stella as drpStella
 import pfs.drp.stella.extractSpectraTask as esTask
-from pfs.drp.stella.reduceArcTask import ReduceArcTaskRunner
+from pfs.drp.stella.reduceArcTask import ReduceArcTask, ReduceArcTaskRunner
 from pfs.drp.stella.utils import makeFiberTraceSet, readLineListFile
 from pfs.drp.stella.utils import readReferenceSpectrum, writePfsArm
 
@@ -31,16 +31,14 @@ class ReduceArcRefSpecTaskRunner(ReduceArcTaskRunner):
     """Get parsed values into the ReduceArcTask.run"""
     @staticmethod
     def getTargetList(parsedCmd, **kwargs):
-        return [dict(expRefList=parsedCmd.id.refList, butler=parsedCmd.butler, refSpec=parsedCmd.refSpec, lineList=parsedCmd.lineList)]
+        return [(parsedCmd.id.refList,
+                 dict(butler=parsedCmd.butler, refSpec=parsedCmd.refSpec, lineList=parsedCmd.lineList))]
 
-class ReduceArcRefSpecTask(CmdLineTask):
+class ReduceArcRefSpecTask(ReduceArcTask):
     """Task to reduce Arc images"""
     ConfigClass = ReduceArcRefSpecConfig
     RunnerClass = ReduceArcRefSpecTaskRunner
     _DefaultName = "reduceArcRefSpecTask"
-
-    def __init__(self, *args, **kwargs):
-        super(ReduceArcRefSpecTask, self).__init__(*args, **kwargs)
 
     @classmethod
     def _makeArgumentParser(cls, *args, **kwargs):

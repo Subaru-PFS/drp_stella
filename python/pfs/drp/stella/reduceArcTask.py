@@ -31,7 +31,8 @@ class ReduceArcTaskRunner(TaskRunner):
     """Get parsed values into the ReduceArcTask.run"""
     @staticmethod
     def getTargetList(parsedCmd, **kwargs):
-        return [(parsedCmd.id.refList, dict(butler=parsedCmd.butler, wLenFile=parsedCmd.wLenFile, lineList=parsedCmd.lineList))]
+        return [(parsedCmd.id.refList,
+                 dict(butler=parsedCmd.butler, wLenFile=parsedCmd.wLenFile, lineList=parsedCmd.lineList))]
 
 class ReduceArcTask(CmdLineTask):
     """Task to reduce Arc images"""
