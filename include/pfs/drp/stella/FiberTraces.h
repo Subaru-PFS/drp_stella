@@ -501,25 +501,6 @@ namespace math{
                                                  std::size_t const& ccdWidthIn = 0);
 
   /**
-   * @brief : extract a wide flatFiberTrace, fit profile, normalize, reduce width
-   * @param maskedImage : CCD image dithered Flat 
-   * @param fiberTraceFunctionWide : FiberTraceFunction (wide) for dithered flat
-   * @param fiberTraceFunctionControlNarrow : FiberTraceFunctionControl (narrow) for output FiberTrace
-   * @param fiberTraceProfileFittingControl : ProfileFittingControl for fitting the spatial profile of the dithered Flat
-   * @param minSNR : normalized pixel values with an SNR lower than minSNR are set to 1.
-   * @param iTrace : number of FiberTrace
-   */
-  template< typename ImageT, typename MaskT=lsst::afw::image::MaskPixel,
-            typename VarianceT=lsst::afw::image::VariancePixel >
-  PTR(FiberTrace< ImageT, MaskT, VarianceT >) makeNormFlatFiberTrace(
-	PTR(const lsst::afw::image::MaskedImage< ImageT, MaskT, VarianceT >) const& maskedImage,
-        PTR(const ::pfs::drp::stella::FiberTraceFunction) const& fiberTraceFunctionWide,
-        PTR(const ::pfs::drp::stella::FiberTraceFunctionControl) const& fiberTraceFunctionControlNarrow,
-        PTR(const ::pfs::drp::stella::FiberTraceProfileFittingControl) const& fiberTraceProfileFittingControl,
-        ImageT minSNR = 100.,
-        std::size_t iTrace = 0);
-
-  /**
    * @brief: assign trace number to set of FiberTraces from x and y center by comparing the center position to the center positions of the zemax model
    * @param fiberTraceSet: FiberTraceSet to assign iTrace to
    * @param traceIds: shape(nfibers * nRows)
@@ -616,13 +597,6 @@ namespace math{
 }   
 
 namespace utils{
-    /**
-     * @brief return raw pointer to ptr
-     * @param ptr : object to which to return the raw pointer
-     */
-    template<typename T>
-    const T* getRawPointer(const PTR(const T) & ptr);
-
      /**
       * @brief mark FiberTrace pixels in Mask image
       * @param fiberTrace : FiberTrace to mark in maskedImage's Mask
