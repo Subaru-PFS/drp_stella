@@ -113,9 +113,6 @@ void declareFunctions(py::module &mod)
             "maskedImage"_a, "control"_a);
     mod.def("findCenterPositionsOneTrace", math::findCenterPositionsOneTrace<ImageT>,
             "ccdImage"_a, "ccdImageVariance"_a, "control"_a);
-    mod.def("makeNormFlatFiberTrace", math::makeNormFlatFiberTrace<ImageT>,
-            "maskedImage"_a, "fiberTraceFunctionWide"_a, "fiberTraceFunctionControlNarrow"_a,
-            "fiberTraceProfileFittingControl"_a, "minSNR"_a=100.0, "iTrace"_a=0);
     mod.def("assignITrace",
             math::assignITrace<ImageT, lsst::afw::image::MaskPixel, lsst::afw::image::VariancePixel,
                                int, float, 1>,

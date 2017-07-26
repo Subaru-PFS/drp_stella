@@ -2310,91 +2310,6 @@ namespace pfs { namespace drp { namespace stella {
       return xCenters;
     }
 
-    template< typename ImageT, typename MaskT, typename VarianceT >
-    PTR(FiberTrace< ImageT, MaskT, VarianceT >) makeNormFlatFiberTrace( PTR( const afwImage::MaskedImage< ImageT, MaskT, VarianceT >) const& maskedImage,
-                                                                         PTR( const ::pfs::drp::stella::FiberTraceFunction ) const& fiberTraceFunctionWide,
-                                                                         PTR( const ::pfs::drp::stella::FiberTraceFunctionControl ) const& fiberTraceFunctionControlNarrow,
-                                                                         PTR( const ::pfs::drp::stella::FiberTraceProfileFittingControl ) const& fiberTraceProfileFittingControl,
-                                                                         ImageT minSNR,
-                                                                         size_t iTrace ){
-      /// calculate center positions for fiberTraces
-      ndarray::Array< float, 1, 1 > xCenters = calculateXCenters( fiberTraceFunctionWide,
-                                                                  maskedImage->getHeight(),
-                                                                  maskedImage->getWidth() );
-
-      /// extract wide dithered flat FiberTrace
-      FiberTrace< ImageT, MaskT, VarianceT > flatFiberTrace( maskedImage,
-                                                             fiberTraceFunctionWide,
-                                                             iTrace );
-
-      if ( xCenters.getShape()[ 0 ] != flatFiberTrace.getHeight() ){
-        std::string message("pfs::drp::stella::math::makeNormFlatFiberTrace: ERROR: xCenters.getShape()[ 0 ](=");
-        message += std::to_string(xCenters.getShape()[ 0 ]) + " != flatFiberTrace.getHeight()(=" + std::to_string(flatFiberTrace.getHeight()) + ")";
-        throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
-      }
-
-      /// set ProfileFittingControl, fit spatial profile, and optimally extract Blaze function
-      flatFiberTrace.setFiberTraceProfileFittingControl( fiberTraceProfileFittingControl );
-      flatFiberTrace.calcProfile();
-      PTR(Spectrum<ImageT, MaskT, VarianceT, VarianceT>) blazeFunc = flatFiberTrace.extractFromProfile();
-
-      /// reconstruct dithered Flat from spectrum and profile
-      PTR(afwImage::Image< ImageT >) reconstructedFlatIm = flatFiberTrace.getReconstructed2DSpectrum( *blazeFunc );
-
-      /// calculate minCenMax for wide and narrow FiberTraces
-      ndarray::Array<size_t, 2, 1> minCenMaxWide = calcMinCenMax( xCenters,
-                                                                  fiberTraceFunctionWide->fiberTraceFunctionControl.xHigh,/// >= 0
-                                                                  fiberTraceFunctionWide->fiberTraceFunctionControl.xLow,/// <= 0
-                                                                  fiberTraceFunctionWide->fiberTraceFunctionControl.nPixCutLeft,
-                                                                  fiberTraceFunctionWide->fiberTraceFunctionControl.nPixCutRight );
-
-      FiberTraceFunction fiberTraceFunctionNarrow( *fiberTraceFunctionWide );
-      fiberTraceFunctionNarrow.fiberTraceFunctionControl = *fiberTraceFunctionControlNarrow;
-
-      ndarray::Array<size_t, 2, 1> minCenMaxNarrow = calcMinCenMax( xCenters,
-                                                                    fiberTraceFunctionNarrow.fiberTraceFunctionControl.xHigh,/// >= 0
-                                                                    fiberTraceFunctionNarrow.fiberTraceFunctionControl.xLow,/// <= 0
-                                                                    fiberTraceFunctionNarrow.fiberTraceFunctionControl.nPixCutLeft,
-                                                                    fiberTraceFunctionNarrow.fiberTraceFunctionControl.nPixCutRight );
-
-      if ( xCenters.getShape()[ 0 ] != minCenMaxWide.getShape()[0] ){
-        std::string message("pfs::drp::stella::math::makeNormFlatFiberTrace: ERROR: xCenters.getShape()[ 0 ](=");
-        message += std::to_string(xCenters.getShape()[ 0 ]) + " != minCenMaxWide.getShape()[0](=" + std::to_string(minCenMaxWide.getShape()[0]) + ")";
-        throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
-      }
-
-      /// create normalized flat
-      ndarray::Array< ImageT, 2, 1 > normFlat =
-          ndarray::allocate(flatFiberTrace.getTrace()->getImage()->getArray().getShape()[ 0 ],
-                            minCenMaxNarrow[0][2] - minCenMaxNarrow[0][0] + 1 );
-      auto itRowIm = flatFiberTrace.getTrace()->getImage()->getArray().begin();
-      auto itRowVar = flatFiberTrace.getTrace()->getVariance()->getArray().begin();
-      auto itRowRec = reconstructedFlatIm->getArray().begin();
-      int iRow = fiberTraceFunctionWide->yCenter + fiberTraceFunctionWide->yLow;
-      for (auto itRowNorm = normFlat.begin(); itRowNorm != normFlat.end(); ++itRowIm, ++itRowVar, ++itRowNorm, ++itRowRec, ++iRow ){
-        auto itColIm = itRowIm->begin() + minCenMaxWide[iRow][0] - minCenMaxNarrow[iRow][0];
-        auto itColVar = itRowVar->begin() + minCenMaxWide[iRow][0] - minCenMaxNarrow[iRow][0];
-        auto itColRec = itRowRec->begin() + minCenMaxWide[iRow][0] - minCenMaxNarrow[iRow][0];
-        for (auto itColNorm = itRowNorm->begin(); itColNorm != itRowNorm->end(); ++itColIm, ++itColVar, ++itColNorm, ++itColRec ){
-          if ( ( *itColIm / sqrt( *itColVar ) ) < minSNR )
-            *itColNorm = 1.;
-          else
-            *itColNorm = *itColIm / *itColRec;
-        }
-      }
-      FiberTrace< ImageT, MaskT, VarianceT > normFlatFiberTrace( normFlat.getShape()[ 1 ],
-                                                                 normFlat.getShape()[ 0 ],
-                                                                 iTrace );
-      if ( normFlatFiberTrace.getHeight() != flatFiberTrace.getHeight() ){
-        std::string message( "pfs::drp::stella::math::makeNormFlatFiberTrace: ERROR: normFlatFiberTrace.getHeight(=" );
-        message += std::to_string( normFlatFiberTrace.getHeight() ) + " != flatFiberTrace.getHeight()(=" + std::to_string( flatFiberTrace.getHeight() ) + ")";
-        throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
-      }
-      normFlatFiberTrace.setFiberTraceFunction( fiberTraceFunctionNarrow.getPointer() );
-      normFlatFiberTrace.setXCenters( xCenters );
-      return normFlatFiberTrace.getPointer();
-    }
-
     template< typename ImageT, typename MaskT, typename VarianceT, typename T, typename U, int I >
     void assignITrace( FiberTraceSet< ImageT, MaskT, VarianceT > & fiberTraceSet,
                        ndarray::Array< T, 1, I > const& fiberIds,
@@ -2629,14 +2544,6 @@ namespace pfs { namespace drp { namespace stella {
                                  PTR(afwImage::Image<float>) &,
                                  PTR(const FiberTraceFunctionFindingControl) const&);
 
-    template PTR(FiberTrace< float, lsst::afw::image::MaskPixel, float >)
-        makeNormFlatFiberTrace(PTR(const afwImage::MaskedImage< float, lsst::afw::image::MaskPixel, float >) const&,
-                               PTR( const ::pfs::drp::stella::FiberTraceFunction ) const&,
-                               PTR( const ::pfs::drp::stella::FiberTraceFunctionControl ) const&,
-                               PTR( const ::pfs::drp::stella::FiberTraceProfileFittingControl ) const&,
-                               float,
-                               size_t );
-
     template void addFiberTraceToCcdArray(FiberTrace< float, lsst::afw::image::MaskPixel, float > const&,
                                           afwImage::Image< float > const&,
                                           ndarray::Array< float, 2, 0 > & );
@@ -2722,12 +2629,6 @@ namespace pfs { namespace drp { namespace stella {
   }
 
   namespace utils {
-
-    template<typename T>
-    const T* getRawPointer(const PTR(const T) & ptr){
-      return ptr.get();
-    }
-
     template< typename ImageT, typename MaskT, typename VarianceT >
     void markFiberTraceInMask( PTR( FiberTrace< ImageT, MaskT, VarianceT > ) const& fiberTrace,
                                PTR( afwImage::Mask< MaskT > ) const& mask,
@@ -2746,12 +2647,6 @@ namespace pfs { namespace drp { namespace stella {
         }
       }
     }
-
-    template const afwImage::MaskedImage<float, lsst::afw::image::MaskPixel, float>* getRawPointer(const PTR(const afwImage::MaskedImage<float, lsst::afw::image::MaskPixel, float>) &ptr);
-    template const afwImage::Image<float>* getRawPointer(const PTR(const afwImage::Image<float>) &ptr);
-    template const afwImage::Image<unsigned short>* getRawPointer(const PTR(const afwImage::Image<unsigned short>) &ptr);
-    template const afwImage::Image<int>* getRawPointer(const PTR(const afwImage::Image<int>) &ptr);
-    template const FiberTrace<float, lsst::afw::image::MaskPixel, float>* getRawPointer(const PTR(const FiberTrace<float, lsst::afw::image::MaskPixel, float>) &ptr);
 
       template void markFiberTraceInMask(PTR( FiberTrace< float, lsst::afw::image::MaskPixel, float > ) const&,
                                          PTR( afwImage::Mask< lsst::afw::image::MaskPixel > ) const&,
