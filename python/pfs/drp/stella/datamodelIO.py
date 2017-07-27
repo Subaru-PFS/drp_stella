@@ -76,11 +76,11 @@ class PfsFiberTraceIO(object):
     def readFits(pathName, hdu=None, flags=None):
         dirName, fileName = os.path.split(pathName)
 
-        match = re.search(r"^pfsFiberTrace-(\d{4}-\d{2}-\d{2})-0-([1-4])([brmn])\.fits", fileName)
+        match = re.search(r"^pfsFiberTrace-(\d{4}-\d{2}-\d{2})-0-([brmn])([1-4])\.fits", fileName)
         if not match:
             raise RuntimeError("Unable to extract pfsConfigId from \"%s\"" % pathName)
 
-        dateObs, spectrograph, arm = match.groups()
+        dateObs, arm, spectrograph = match.groups()
         spectrograph = int(spectrograph)
         pfsFiberTrace = PfsFiberTrace(dateObs, spectrograph, arm)
         pfsFiberTrace.read(dirName=dirName)
