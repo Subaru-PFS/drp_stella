@@ -2054,6 +2054,9 @@ template int firstIndexWithZeroValueFrom( ndarray::Array<int, 1, 1> const& vec_I
 template int firstIndexWithValueGEFrom( ndarray::Array<int, 1, 1> const& vecIn,
                                         const int minValue,
                                         const int fromIndex );
+template int firstIndexWithValueGEFrom( ndarray::Array<long, 1, 1> const& vecIn,
+                                        const long minValue,
+                                        const int fromIndex );
 template int lastIndexWithZeroValueBefore( ndarray::Array<int, 1, 1> const& vec_In,
                                            const int startPos_In );
 template ndarray::Array<float, 1, 1> moment( const ndarray::Array<float, 1, 1> &D_A1_Arr_In, int I_MaxMoment_In );
