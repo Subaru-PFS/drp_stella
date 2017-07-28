@@ -499,7 +499,6 @@ class SpectraTestCase(tests.TestCase):
 
         # we're not holding back any emission lines from the check to make
         # sure the line we will disturb is not one of the lines held back
-        spectrum.identify(result.lineList, self.dispCorControl, 0)
         self.dispCorControl.percentageOfLinesForCheck = 0
         spectrum.identify(drpStella.createLineListFromWLenPix(result.lineList),
                            self.dispCorControl)
@@ -604,10 +603,6 @@ class SpectraTestCase(tests.TestCase):
                         self.assertTrue(False) # i.e. the previous line should raise an exception
                     except Exception as e:
                         message = str.split(str(e.message), "\n")
-                        self.assertTrue(False)
-                    except:
-                        e = sys.exc_info()[1]
-                        message = str.split(e.message, "\n")
                         # the number minGoodLines is equal to
                         # nLines * self.minPercentageOfLines / 100, which is the
                         # minimum number of lines required for a successful
