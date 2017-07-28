@@ -46,7 +46,7 @@ namespace pfs { namespace drp { namespace stella { namespace utils{
  * @param vec : vector from which to print all elements to os
  */
 template<typename T>
-ostream& operator<<(ostream& os, std::vector<T> const& vec){
+std::ostream& operator<<(std::ostream& os, std::vector<T> const& vec){
     os << "[";
     for (auto el = vec.begin(); el != vec.end()-1; ++el)
         os << *el << ", ";
