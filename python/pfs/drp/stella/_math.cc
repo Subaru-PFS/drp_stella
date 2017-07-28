@@ -24,7 +24,18 @@ PYBIND11_PLUGIN(_math) {
         return nullptr;
     }
 
+    py::class_<math::CrossCorrelateResult, std::shared_ptr<math::CrossCorrelateResult>>
+            cls(mod, "CrossCorrelateResult");
+    cls.def_readwrite("pixShift", &math::CrossCorrelateResult::pixShift);
+    cls.def_readwrite("chiSquare", &math::CrossCorrelateResult::chiSquare);
+
+    mod.def("crossCorrelate", &math::crossCorrelate<float>,
+            "DA1_Static"_a, "DA1_Moving"_a, "I_NPixMaxLeft"_a, "I_NPixMaxRight"_a);
     mod.def("calcMinCenMax", &math::calcMinCenMax<float, float>);
+    mod.def("firstIndexWithValueGEFrom", &math::firstIndexWithValueGEFrom<long>,
+            "vecIn"_a, "minValue"_a, "fromIndex"_a=0);
+    mod.def("firstIndexWithValueGEFrom", &math::firstIndexWithValueGEFrom<int>,
+            "vecIn"_a, "minValue"_a, "fromIndex"_a=0);
 
     // Doesn't really belong here, but putting it in its own file would be overkill
     mod.def("testPolyFit", &utils::testPolyFit);

@@ -114,8 +114,11 @@ void declareDispCorControl(py::module &mod)
     LSST_DECLARE_CONTROL_FIELD(cls, DispCorControl, fwhm);
     LSST_DECLARE_CONTROL_FIELD(cls, DispCorControl, radiusXCor);
     LSST_DECLARE_CONTROL_FIELD(cls, DispCorControl, lengthPieces);
+    LSST_DECLARE_CONTROL_FIELD(cls, DispCorControl, minDistanceLines);
+    LSST_DECLARE_CONTROL_FIELD(cls, DispCorControl, minErr);
     LSST_DECLARE_CONTROL_FIELD(cls, DispCorControl, minPercentageOfLines);
     LSST_DECLARE_CONTROL_FIELD(cls, DispCorControl, nCalcs);
+    LSST_DECLARE_CONTROL_FIELD(cls, DispCorControl, percentageOfLinesForCheck);
     LSST_DECLARE_CONTROL_FIELD(cls, DispCorControl, stretchMinLength);
     LSST_DECLARE_CONTROL_FIELD(cls, DispCorControl, stretchMaxLength);
     LSST_DECLARE_CONTROL_FIELD(cls, DispCorControl, nStretches);

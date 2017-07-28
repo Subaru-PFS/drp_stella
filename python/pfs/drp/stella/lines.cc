@@ -58,7 +58,6 @@ PYBIND11_PLUGIN(lines) {
 
     mod.def("getNistLineMeasVec", &getNistLineMeasVec);
     mod.def("getNistLineVec", &getNistLineVec);
-//    mod.def("createLineListFromWLenPix", (std::vector<PTR(NistLineMeas)>(*)(ndarray::Array<float, 2, 1> const&))&createLineListFromWLenPix, "linesIn"_a);
     mod.def("createLineListFromWLenPix", &createLineListFromWLenPix);
     mod.def("getIndexOfLineWithID", &getIndexOfLineWithID, "lines"_a, "id"_a);
     mod.def("getLinesWithFlags", &getLinesWithFlags, "lines"_a, "needFlags"_a, "ignoreFlags"_a = "");

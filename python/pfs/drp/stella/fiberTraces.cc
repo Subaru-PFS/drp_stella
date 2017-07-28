@@ -97,6 +97,7 @@ void declareFiberTraceSet(py::module &mod)
     cls.def("setFiberTrace", &Class::setFiberTrace, "index"_a, "trace"_a);
     cls.def("addFiberTrace", &Class::addFiberTrace, "trace"_a, "index"_a=0);
     cls.def("getTraces", [](Class const& self) { return *self.getTraces(); });
+    cls.def("getIndexWithId", &Class::getIndexWithId);
     cls.def("setFiberTraceProfileFittingControl", &Class::setFiberTraceProfileFittingControl, "control"_a);
     cls.def("setAllProfiles", &Class::setAllProfiles, "fiberTraceSet"_a);
     cls.def("sortTracesByXCenter", &Class::sortTracesByXCenter);
