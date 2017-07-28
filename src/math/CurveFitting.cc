@@ -359,16 +359,17 @@ namespace pfs { namespace drp { namespace stella { namespace math {
       throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
     }
 
+    const int degree(I_Degree_In);
     LOGLS_DEBUG(_log, "D_A1_Y_In = " << D_A1_Y_In);
     size_t const nCoeffs(I_Degree_In + 1);
     LOGLS_DEBUG(_log, "nCoeffs set to " << nCoeffs);
-    ndarray::Array<float, 1, 1> D_A1_Out = ndarray::allocate(nCoeffs);
+    ndarray::Array<double, 1, 1> D_A1_Out = ndarray::allocate(nCoeffs);
     D_A1_Out.deep() = 0.;
     int i, j, I_Pos;
 
     const int nDataPoints(D_A1_X_In.getShape()[0]);
 
-    ndarray::Array<T, 1, 1> D_A1_SDevSquare = ndarray::allocate(nDataPoints);
+    ndarray::Array<double, 1, 1> D_A1_SDevSquare = ndarray::allocate(nDataPoints);
 
     bool B_HaveMeasureError = false;
     ndarray::Array<T, 1, 1> D_A1_MeasureErrors = ndarray::allocate(nDataPoints);
@@ -419,7 +420,10 @@ namespace pfs { namespace drp { namespace stella { namespace math {
     }
     LOGLS_DEBUG(_log, "xNew = " << xNew);
 
-    D_A1_SDevSquare.deep() = D_A1_MeasureErrors * D_A1_MeasureErrors;
+    auto itM = D_A1_MeasureErrors.begin();
+    for (auto it=D_A1_SDevSquare.begin(); it!=D_A1_SDevSquare.end(); ++it, ++itM){
+        *it = ::pow(static_cast<double>(*itM), 2.0);
+    }
     LOGLS_DEBUG(_log, "D_A1_SDevSquare set to " << D_A1_SDevSquare);
     ndarray::Array<T, 1, 1> D_A1_YFit = ndarray::allocate(nDataPoints);
     PTR(ndarray::Array<T, 1, 1>) P_D_A1_YFit(new ndarray::Array<T, 1, 1>(D_A1_YFit));
@@ -472,28 +476,30 @@ namespace pfs { namespace drp { namespace stella { namespace math {
       LOGLS_DEBUG(_log, "KeyWord_Set(COVAR): *P_D_A2_Covar set to " << (*P_D_A2_Covar));
     }
     P_D_A2_Covar->deep() = 0.;
+    ndarray::Array<double, 2, 2> covarTemp = ndarray::allocate(P_D_A2_Covar->getShape());
 
-    ndarray::Array<T, 1, 1> D_A1_B = ndarray::allocate(nCoeffs);
-    ndarray::Array<T, 1, 1> D_A1_Z = ndarray::allocate(nDataPoints);
-    D_A1_Z.deep() = 1;
+    ndarray::Array<double, 1, 1> D_A1_B = ndarray::allocate(nCoeffs);
+    ndarray::Array<double, 1, 1> D_A1_Z = ndarray::allocate(nDataPoints);
+    D_A1_Z.deep() = 1.0;
 
-    ndarray::Array<T, 1, 1> D_A1_WY = ndarray::allocate(nDataPoints);
-    D_A1_WY.deep() = D_A1_Y_In;
+    ndarray::Array<double, 1, 1> D_A1_WY = pfs::drp::stella::utils::typeCastNdArray(D_A1_Y_In, double(0.0));
 
     if (B_HaveMeasureError){
       D_A1_WY.deep() = D_A1_WY / D_A1_SDevSquare;
-      (*P_D_A2_Covar)[ ndarray::makeVector( 0, 0 ) ] = sum(1./D_A1_SDevSquare);
-      LOGLS_DEBUG(_log, "B_HaveMeasureError: (*P_D_A2_Covar)(0,0) set to " << (*P_D_A2_Covar)[ ndarray::makeVector( 0, 0 ) ]);
+      covarTemp[ ndarray::makeVector( 0, 0 ) ] = sum(1./D_A1_SDevSquare);
+      LOGLS_DEBUG(_log, "B_HaveMeasureError: (*P_D_A2_Covar)(0,0) set to "
+                        << covarTemp[ ndarray::makeVector( 0, 0 ) ]);
     }
     else{
-      (*P_D_A2_Covar)[ ndarray::makeVector( 0, 0 ) ] = nDataPoints;
-      LOGLS_DEBUG(_log, "!B_HaveMeasureError: (*P_D_A2_Covar)(0,0) set to " << (*P_D_A2_Covar)[ ndarray::makeVector(0, 0 ) ]);
+      covarTemp[ ndarray::makeVector( 0, 0 ) ] = nDataPoints;
+      LOGLS_DEBUG(_log, "!B_HaveMeasureError: (*P_D_A2_Covar)(0,0) set to "
+                        << covarTemp[ ndarray::makeVector(0, 0 ) ]);
     }
 
     D_A1_B[0] = sum(D_A1_WY);
 
-    T D_Sum;
-    for (int p = 1; p <= 2 * I_Degree_In; p++){
+    double D_Sum;
+    for (int p = 1; p <= 2 * degree; p++){
       D_A1_Z.deep() = D_A1_Z * xNew;
       if (p < nCoeffs){
         D_A1_B[p] = sum(D_A1_WY * D_A1_Z);
@@ -504,34 +510,32 @@ namespace pfs { namespace drp { namespace stella { namespace math {
       else{
         D_Sum = sum(D_A1_Z);
       }
-      if (p - int(I_Degree_In) > 0){
-        i = p - int(I_Degree_In);
+      if (p - degree > 0){
+        i = p - degree;
       }
       else{
         i = 0;
       }
-      for (j = i; j <= I_Degree_In; j++){
-        (*P_D_A2_Covar)[ ndarray::makeVector( j, p-j ) ] = D_Sum;
+      for (j = i; j <= degree; j++){
+        covarTemp[ ndarray::makeVector( j, p-j ) ] = D_Sum;
       }
     }
 
-    LOGLS_DEBUG(_log, "before InvertGaussJ: (*P_D_A2_Covar) = " << (*P_D_A2_Covar));
-    P_D_A2_Covar->asEigen() = P_D_A2_Covar->asEigen().inverse();
-    LOGLS_DEBUG(_log, "(*P_D_A2_Covar) set to " << (*P_D_A2_Covar));
-    LOGLS_DEBUG(_log, "P_D_A2_Covar->getShape() = " << P_D_A2_Covar->getShape());
-    ndarray::Array<T, 1, 1> T_A1_Out = ndarray::allocate(D_A1_Out.getShape()[0]);
-    T_A1_Out.asEigen() = P_D_A2_Covar->asEigen() * D_A1_B.asEigen();
-    for (int pos = 0; pos < D_A1_Out.getShape()[0]; ++pos)
-      D_A1_Out[pos] = T_A1_Out[pos];
-    LOGLS_DEBUG(_log, "P_D_A1_YFit->size() = " << P_D_A1_YFit->getShape()[0] << ": D_A1_Out set to " << D_A1_Out);
+    LOGLS_DEBUG(_log, "before InvertGaussJ: (*P_D_A2_Covar) = " << covarTemp);
+    covarTemp.asEigen() = covarTemp.asEigen().inverse();
+    LOGLS_DEBUG(_log, "(*P_D_A2_Covar) set to " << covarTemp);
+    D_A1_Out.asEigen() = covarTemp.asEigen() * D_A1_B.asEigen();
+    ndarray::Array<T, 1, 1> T_A1_Out = pfs::drp::stella::utils::typeCastNdArray(D_A1_Out, T(0));
+    LOGLS_DEBUG(_log, "P_D_A1_YFit->size() = " << P_D_A1_YFit->getShape()[0]
+                      << ": T_A1_Out set to " << T_A1_Out);
 
     P_D_A1_YFit->deep() = pfs::drp::stella::math::Poly(D_A1_X_In,
-                                                       D_A1_Out,
+                                                       T_A1_Out,
                                                        D_A1_XRange[0],
                                                        D_A1_XRange[1]);
 
-    for (int k = 0; k < nCoeffs; k++){
-      (*P_D_A1_Sigma)[k] = (*P_D_A2_Covar)[ ndarray::makeVector( k, k ) ];
+    for (int k = 0; k < static_cast<int>(nCoeffs); k++){
+      (*P_D_A1_Sigma)[k] = covarTemp[ ndarray::makeVector( k, k ) ];
     }
     for (auto it = P_D_A1_Sigma->begin(); it != P_D_A1_Sigma->end(); ++it){
       *it = (*it > 0) ? sqrt(*it) : 1.;
@@ -559,7 +563,8 @@ namespace pfs { namespace drp { namespace stella { namespace math {
     }
     LOGLS_DEBUG(_log, "returning D_A1_Out = " << D_A1_Out);
     LOGLS_DEBUG(_log, "PolyFit(x, y, deg, Args, ArgV) finished");
-    return D_A1_Out;
+    ndarray::Array<float, 1, 1> out = pfs::drp::stella::utils::typeCastNdArray(T_A1_Out, float(0.0));
+    return out;
   }
 
   template< typename T>
@@ -1812,7 +1817,7 @@ namespace pfs { namespace drp { namespace stella { namespace math {
     #endif
     return result;
   }
-                
+
   template ndarray::Array<float, 1, 1> chebyshev(ndarray::Array<float, 1, 1> const& x_In, ndarray::Array<float, 1, 1> const& coeffs_In);
 
   template ndarray::Array<float, 1, 1> Poly(ndarray::Array<float, 1, 1> const&, ndarray::Array<float, 1, 1> const&, float, float);
