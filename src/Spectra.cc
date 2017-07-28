@@ -1320,7 +1320,6 @@ namespace math {
                                                                3. * stdDev_Diff,
                                                                1,
                                                                0);
-      ndarray::Array< double, 1, 1 > tempDist = ndarray::copy( dist_SubArr - medianDiff );
       LOGLS_TRACE(_log, "whereVec = " << whereVec);
       int nBad = std::accumulate( whereVec.begin(), whereVec.end(), 0 );
       if ( nBad > 0 ){
