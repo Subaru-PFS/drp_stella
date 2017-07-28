@@ -355,15 +355,15 @@ class SpectraTestCase(tests.TestCase):
             self.assertEqual(message[0],expected)
 
         # Test that we CAN erase spectra inside the limits
-        self.assertTrue(specSet.erase(size-1, size))
+        specSet.erase(size-1, size)
         self.assertEqual(specSet.size(), size-1)
-        self.assertTrue(specSet.erase(size-2))
+        specSet.erase(size-2)
         self.assertEqual(specSet.size(), size-2)
 
-        self.assertTrue(specSet.erase(0, 1))
+        specSet.erase(0, 1)
         self.assertEqual(specSet.size(), size-3)
 
-        self.assertTrue(specSet.erase(0,2))
+        specSet.erase(0,2)
         self.assertEqual(specSet.size(), size-5)
 
     def testGetSpectra(self):
