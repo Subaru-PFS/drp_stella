@@ -642,14 +642,14 @@ def run(exit = False):
     for logger in ["afw.image.ExposureInfo",
                    "CameraMapper",
                    "extractSpectra",
-                   "FiberTraces::assignITrace",
-                   "findAndTraceApertures",
-                   "pfs::drp::stella::FiberTrace::calcProfile",
-                   "pfs::drp::stella::FiberTrace::calcProfileSwath",
-                   "pfs::drp::stella::FiberTrace::createTrace",
-                   "pfs::drp::stella::math::ccdToFiberTraceCoordinates",
-                   "pfs::drp::stella::math::CurveFitting::LinFitBevingtonNdArray1D",
-                   "pfs::drp::stella::math::CurveFitting::LinFitBevingtonNdArray2D",
+                   "pfs.drp.stella.math.assignITrace",
+                   "pfs.drp.stella.math.findAndTraceApertures",
+                   "pfs.drp.stella.FiberTrace.calcProfile",
+                   "pfs.drp.stella.FiberTrace.calcProfileSwath",
+                   "pfs.drp.stella.FiberTrace.createTrace",
+                   "pfs.drp.stella.math.ccdToFiberTraceCoordinates",
+                   "pfs.drp.stella.math.CurveFitting.LinFitBevingtonNdArray1D",
+                   "pfs.drp.stella.math.CurveFitting.LinFitBevingtonNdArray2D",
                    "pfs::drp::stella::math::psfCoordinatesRelativeTo",
                    "pfs::drp::stella::PSF::extractPSFs",
                    "pfs::drp::stella::PSF::extractPSFFromCenterPosition",
@@ -661,8 +661,9 @@ def run(exit = False):
 
     for logger in ["extractSpectra",
                    "gaussFunc",
+                   "pfs.drp.stella.Spectra.hIdentify",
                    "pfs.drp.stella.Spectra.identify",
-                   "pfs::drp::stella::math::CurfFitting::PolyFit",
+                   "pfs.drp.stella.math.CurfFitting.PolyFit",
                    "writePfsArm"
                    ]:
         log.setLevel(logger, log.FATAL)
