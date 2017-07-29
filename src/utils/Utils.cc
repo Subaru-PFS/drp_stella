@@ -361,7 +361,7 @@ namespace pfs { namespace drp { namespace stella { namespace utils{
   }
 
   template<typename T, typename U>
-  ndarray::Array<U, 1, 1> typeCastNdArray(ndarray::Array<T const, 1, 1> const& arr, U const& newType){
+  ndarray::Array<U, 1, 1> typeCastNdArray(ndarray::Array<T, 1, 1> const& arr, U const& newType){
     ndarray::Array<U, 1, 1> out = ndarray::allocate(arr.getShape()[0]);
     auto itOut = out.begin();
     for (auto itIn = arr.begin(); itIn != arr.end(); ++itIn, ++itOut){
@@ -372,6 +372,8 @@ namespace pfs { namespace drp { namespace stella { namespace utils{
 
   template ndarray::Array<float, 1, 1> get1DndArray(float);
   template ndarray::Array<float, 2, 1> get2DndArray(float, float);
-  template ndarray::Array<float, 1, 1> typeCastNdArray(ndarray::Array<float const, 1, 1> const&, float const&);
+  template ndarray::Array<float, 1, 1> typeCastNdArray(ndarray::Array<double, 1, 1> const&, float const&);
+  template ndarray::Array<float, 1, 1> typeCastNdArray(ndarray::Array<float, 1, 1> const&, float const&);
+  template ndarray::Array<double, 1, 1> typeCastNdArray(ndarray::Array<float, 1, 1> const&, double const&);
 }
 }}}
