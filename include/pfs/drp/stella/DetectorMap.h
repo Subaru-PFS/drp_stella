@@ -22,12 +22,14 @@ namespace pfs { namespace drp { namespace stella {
  */
 class DetectorMap {
 public:
+    static const int FIBER_DX=0, FIBER_DY=1, FIBER_DFOCUS=2;
+
     /** \brief ctor */
     explicit DetectorMap(lsst::afw::geom::Box2I bbox,                    ///< detector's bounding box
                          ndarray::Array<int, 1, 1> const& fiberIds,      ///< 1-indexed IDs for each fibre
                          ndarray::Array<float, 2, 1> const& xCenters,    ///< center of trace for each fibre
                          ndarray::Array<float, 2, 1> const& wavelengths, ///< wavelengths for each fibre
-                         ndarray::Array<float, 1, 1> const* slitOffsets, ///< per-fibre wavelength offsets
+                         ndarray::Array<float, 2, 1> const* slitOffsets, ///< per-fibre offsets
                          std::size_t nKnot                               ///< number of knots to use
                         );
 
@@ -38,15 +40,24 @@ public:
     std::vector<int> & getFiberIds() { return _fiberIds; }
 
     /**
-     * Set the offsets of the wavelengths of each fibre (in floating-point pixels)
+     * Set the offsets of the wavelengths and x-centres (in floating-point pixels) and focus (in microns)
+     * of each fibre.
+     *
+     * See getSlitOffsets()
      */
-    void setSlitOffsets(ndarray::Array<float, 1, 1> const& slitOffsets ///< new values of offsets
+    void setSlitOffsets(ndarray::Array<float, 2, 1> const& slitOffsets ///< new values of offsets
                        );
 
     /**
-     * Return the offsets of the wavelengths of each fibre (in floating-point pixels)
+     * Get the offsets of the wavelengths and x-centres (in floating-point pixels) and focus (in microns)
+     * of each fibre
+     *
+     * The return value is a (3, nFiber) array, which may be indexed by FIBER_DX, FIBER_DY, and FIBER_DFOCUS,
+     * e.g.
+     *  ftMap.getSlitOffsets()[FIBER_DX][100]
+     * is the offset in the x-direction for the 100th fiber (n.b. not fiberId necessarily; cf. findFiberId())
      */
-    ndarray::Array<float, 1, 1> const& getSlitOffsets() const { return _slitOffsets; }
+    ndarray::Array<float, 2, 1> const& getSlitOffsets() const { return _slitOffsets; }
 
     /**
      * Return the wavelength values for a fibre
@@ -65,6 +76,11 @@ public:
      */
     int findFiberId(lsst::afw::geom::PointD pixelPos ///< position on detector
                    ) const;
+    /** \brief
+     * Return the index of a fiber, given its fiber ID
+     */
+    std::size_t getFiberIdx(std::size_t fiberId) const;
+
 private:
     int _nFiber;                        // number of fibers
     lsst::afw::geom::Box2I _bbox;       // bounding box of detector
@@ -80,14 +96,12 @@ private:
     //
     ndarray::Array<int, 1, 1> _xToFiberId;
     //
-    // offset (in pixels) for each trace in lambda direction, indexed by fiberId
+    // offset (in pixels) for each trace in x, and y and in focus (microns); all indexed by fiberId
     //
-    ndarray::Array<float, 1, 1> _slitOffsets; 
+    ndarray::Array<float, 2, 1> _slitOffsets; 
     /*
      * Private helper functions
      */
-    std::size_t _getFiberIdx(std::size_t fiberId) const;
-
     ndarray::Array<float, 1, 1> _getSomething(std::vector<math::spline<float>> const&,
                                               std::size_t, bool const) const;
 

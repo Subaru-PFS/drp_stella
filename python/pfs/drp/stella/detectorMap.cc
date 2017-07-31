@@ -24,18 +24,23 @@ void declareDetectorMap(py::module &mod)
                      ndarray::Array<int,   1, 1> const,
                      ndarray::Array<float, 2, 1> const,
                      ndarray::Array<float, 2, 1> const,
-                     ndarray::Array<float, 1, 1> const*,
+                     ndarray::Array<float, 2, 1> const*,
                      std::size_t
             >(),
             "bbox"_a, "fiberIds"_a, "xCenters"_a, "wavelengths"_a, "slitOffsets"_a=nullptr, "nKnot"_a=25);
 
+    cls.attr("FIBER_DX") =     &Class::FIBER_DX;
+    cls.attr("FIBER_DY") =     &Class::FIBER_DY;
+    cls.attr("FIBER_DFOCUS") = &Class::FIBER_DFOCUS;
+    
     cls.def("findFiberId", &Class::findFiberId, "pixelPos"_a);
     cls.def("getFiberIds", &Class::getFiberIds);
     cls.def("getWavelength", &Class::getWavelength, "fiberId"_a);
     cls.def("getXCenter", &Class::getXCenter, "fiberId"_a);
     cls.def("getSlitOffsets", &Class::getSlitOffsets);
     cls.def("setSlitOffsets", &Class::setSlitOffsets, "slitOffsets"_a);
-    }
+    cls.def("getFiberIdx", &Class::getFiberIdx);
+}
 
 void declareFunctions(py::module &mod)
 {

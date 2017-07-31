@@ -8,6 +8,11 @@
 #include "pfs/drp/stella/DetectorMap.h"
 
 namespace pfs { namespace drp { namespace stella {
+
+const int DetectorMap::FIBER_DX;
+const int DetectorMap::FIBER_DY;
+const int DetectorMap::FIBER_DFOCUS;
+
 /*
  * ctor
  */
@@ -15,7 +20,7 @@ DetectorMap::DetectorMap(lsst::afw::geom::Box2I bbox,                    // dete
                          ndarray::Array<int, 1, 1> const& fiberIds,      // 1-indexed IDs for each fibre
                          ndarray::Array<float, 2, 1> const& xCenters,    // center of trace for each fibre
                          ndarray::Array<float, 2, 1> const& wavelengths, // wavelengths for each fibre
-                         ndarray::Array<float, 1, 1> const* slitOffsets, // per-fibre wavelength offsets
+                         ndarray::Array<float, 2, 1> const* slitOffsets, // per-fibre x, y, focus offsets 
                          std::size_t nKnot                               // number of knots
                         ) :
     _nFiber(fiberIds.getShape()[0]),
@@ -25,7 +30,7 @@ DetectorMap::DetectorMap(lsst::afw::geom::Box2I bbox,                    // dete
     _yToXCenter(_nFiber),
     _yToWavelength(_nFiber),
     _xToFiberId(_bbox.getWidth()),
-    _slitOffsets(_nFiber)
+    _slitOffsets(ndarray::makeVector(_nFiber, 3))
 {
     /*
      * Check inputs
@@ -66,7 +71,7 @@ DetectorMap::DetectorMap(lsst::afw::geom::Box2I bbox,                    // dete
  * Return a fiberIdx given a fiberId
  */
 std::size_t
-DetectorMap::_getFiberIdx(std::size_t fiberId) const
+DetectorMap::getFiberIdx(std::size_t fiberId) const
 {
     auto el = std::lower_bound(_fiberIds.begin(), _fiberIds.end(), fiberId);
     if (el == _fiberIds.end() || *el != fiberId) {
@@ -81,11 +86,17 @@ DetectorMap::_getFiberIdx(std::size_t fiberId) const
  * Set the offsets of the wavelengths of each fibre (in floating-point pixels)
  */
 void
-DetectorMap::setSlitOffsets(ndarray::Array<float, 1, 1> const& slitOffsets)
+DetectorMap::setSlitOffsets(ndarray::Array<float, 2, 1> const& slitOffsets)
 {
-    if (slitOffsets.getShape()[0] != _nFiber) {
+    if (slitOffsets.getShape()[0] != 3) {
         std::ostringstream os;
-        os << "Number of offsets == " << slitOffsets.getShape()[0] <<
+        os << "Number of types of offsets == " << slitOffsets.getShape()[0] <<
+            ".  Expected three (dx, dy, dfocus)";
+        throw LSST_EXCEPT(lsst::pex::exceptions::LengthError, os.str());
+    }
+    if (slitOffsets.getShape()[1] != _nFiber) {
+        std::ostringstream os;
+        os << "Number of offsets == " << slitOffsets.getShape()[1] <<
             " != number of fibres == " << _nFiber;
         throw LSST_EXCEPT(lsst::pex::exceptions::LengthError, os.str());
     }
@@ -102,9 +113,9 @@ DetectorMap::_getSomething(std::vector<math::spline<float>> const& something,
                            bool const applySlitOffset
                           ) const
 {
-    int const fidx = _getFiberIdx(fiberId);
+    int const fidx = getFiberIdx(fiberId);
     auto const & spline = something[fidx];
-    float slitOffset = applySlitOffset ? _slitOffsets[fidx] : 0.0;
+    float slitOffset = applySlitOffset ? _slitOffsets[FIBER_DY][fidx] : 0.0;
 
     ndarray::Array<float, 1, 1> res(_bbox.getHeight());
     for (int i = 0; i != _bbox.getHeight(); ++i) {
@@ -148,7 +159,7 @@ DetectorMap::findFiberId(lsst::afw::geom::PointD pixelPos // position on detecto
     }
 
     int fiberId = _xToFiberId[(int)(x)];    // first guess at the fiberId
-    int fidx = _getFiberIdx(fiberId);
+    int fidx = getFiberIdx(fiberId);
     bool updatedFidx = true;
     while (updatedFidx) {
         auto const & spline_0 = _yToXCenter[fidx];

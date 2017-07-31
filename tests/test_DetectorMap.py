@@ -99,19 +99,28 @@ class DetectorMapTestCase(tests.TestCase):
         if not self.ftMap:                # ctor failed; see testCtor()
             return
 
+        nFiber = len(self.ftMap.getFiberIds())
+
         val = 666.0
-        offsets = np.empty(len(self.ftMap.getFiberIds()), dtype=np.float32)
+        offsets = np.empty((3, nFiber), dtype=np.float32)
         offsets[:] = val
         self.ftMap.setSlitOffsets(offsets);
 
-        self.assertTrue((self.ftMap.getSlitOffsets() == val).all())
+        slitOffsets = self.ftMap.getSlitOffsets()
+        self.assertTrue(slitOffsets.shape[0] == 3) # dx, dy, dfocus
+
+        for i in (self.ftMap.FIBER_DX, self.ftMap.FIBER_DY, self.ftMap.FIBER_DFOCUS):
+            self.assertTrue((self.ftMap.getSlitOffsets()[i] == val).all())
         
         with self.assertRaises(pexExcept.LengthError):
-            self.ftMap.setSlitOffsets(np.empty(1, dtype=np.float32))
+            self.ftMap.setSlitOffsets(np.empty((3, 1), dtype=np.float32))
+
+        with self.assertRaises(pexExcept.LengthError):
+            self.ftMap.setSlitOffsets(np.empty((2, nFiber), dtype=np.float32))
 
     def testSlitOffset2(self):
-        """Test that we can set slitOffset in ctor"""
-        slitOffsets = np.ones_like(self.fiberIds, dtype=np.float32)
+        """Test that we can set slitOffsets in ctor"""
+        slitOffsets = np.ones((3, len(self.fiberIds)), dtype=np.float32)
 
         ftMap = detectorMap.DetectorMap(self.bbox, self.fiberIds, self.xCenters, self.wavelengths,
                                             slitOffsets=slitOffsets)
