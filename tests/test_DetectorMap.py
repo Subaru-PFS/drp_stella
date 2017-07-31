@@ -46,7 +46,7 @@ class DetectorMapTestCase(tests.TestCase):
     def setUpClass(cls):
         cls.fiberIds, cls.xCenters, cls.wavelengths = read_fiberIdsxCentersWavelengths()
         cls.bbox = afwGeom.BoxI(afwGeom.PointI(0, 0), afwGeom.ExtentI(400, cls.xCenters.shape[1]))
-        cls.nKnot = 100
+        cls.nKnot = 25
 
     @classmethod
     def tearDownClass(cls):
@@ -139,7 +139,7 @@ class DetectorMapTestCase(tests.TestCase):
 
         delta = delta[np.isfinite(self.wavelengths[fid])]
 
-        self.assertLess(np.max(np.abs(delta)), 0.05) # too large!  Due to the use of "natural" splines
+        self.assertLess(np.max(np.abs(delta)), 2e-3)
 
     def testGetXCenter(self):
         """Test that we recover XCenter correctly"""
@@ -157,7 +157,7 @@ class DetectorMapTestCase(tests.TestCase):
 
         delta = delta[np.isfinite(self.xCenters[fid])]
         
-        self.assertLess(np.max(np.abs(delta)), 0.02)
+        self.assertLess(np.max(np.abs(delta)), 2.5e-4)
 
     def testFindFiberId(self):
         """Test that we can find a fiber ID"""
