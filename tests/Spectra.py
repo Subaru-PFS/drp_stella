@@ -594,7 +594,7 @@ class SpectraTestCase(tests.TestCase):
                 self.dispCorControl.maxDistance = maxDistance
                 if maxDistance < 0.49:
                     try:
-                        logger = log.Log.getLogger("pfs::drp::stella::Spectra::identify")
+                        logger = log.Log.getLogger("pfs.drp.stella.Spectra.identify")
                         logger.setLevel(log.FATAL)
                         spec.identify(lineListPix, self.dispCorControl, 8)
                         self.assertTrue(False) # i.e. the previous line should raise an exception
@@ -630,19 +630,15 @@ def run(exit = False):
     #Quiet down loggers which are too verbose
     for logger in ["afw.image.ExposureInfo",
                    "CameraMapper",
-                   "extractSpectra",
-                   "FiberTraces::assignITrace",
-                   "pfs::drp::stella::FiberTrace::calcProfile",
-                   "pfs::drp::stella::FiberTrace::calcProfileSwath",
-                   "pfs::drp::stella::math::ccdToFiberTraceCoordinates",
-                   "pfs::drp::stella::math::CurveFitting::LinFitBevingtonNdArray1D",
-                   "pfs::drp::stella::math::CurveFitting::LinFitBevingtonNdArray2D",
-                   "pfs::drp::stella::math::CurfFitting::PolyFit",
-                   "pfs::drp::stella::math::psfCoordinatesRelativeTo",
-                   "pfs::drp::stella::PSF::extractPSFs",
-                   "pfs::drp::stella::PSF::extractPSFFromCenterPosition",
-                   "pfs::drp::stella::PSF::extractPSFFromCenterPositions",
-                   "pfs::drp::stella::Spectra::identify"
+                   "pfs.drp.stella.FiberTraces.assignITrace",
+                   "pfs.drp.stella.FiberTrace.calcProfile",
+                   "pfs.drp.stella.FiberTrace.calcProfileSwath",
+                   "pfs.drp.stella.math.ccdToFiberTraceCoordinates",
+                   "pfs.drp.stella.math.CurveFitting.LinFitBevingtonNdArray1D",
+                   "pfs.drp.stella.math.CurveFitting.LinFitBevingtonNdArray2D",
+                   "pfs.drp.stella.math.CurfFitting.PolyFit",
+                   "pfs.drp.stella.math.psfCoordinatesRelativeTo",
+                   "pfs.drp.stella.Spectra.identify"
                    ]:
         log.Log.getLogger(logger).setLevel(log.WARN)
 

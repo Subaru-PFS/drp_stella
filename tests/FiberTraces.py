@@ -869,12 +869,12 @@ def run(exit = False):
     for logger in ["afw.image.ExposureInfo",
                    "afw.image.Mask",
                    "CameraMapper",
-                   "pfs::drp::stella::FiberTrace::calcProfile",
-                   "pfs::drp::stella::FiberTrace::calcProfileSwath",
-                   "pfs::drp::stella::FiberTrace::extractFromProfile",
-                   "pfs::drp::stella::math::CurveFitting::LinFitBevingtonNdArray1D",
-                   "pfs::drp::stella::math::CurveFitting::LinFitBevingtonNdArray2D",
-                   "pfs::drp::stella::math::CurfFitting::PolyFit",
+                   "pfs.drp.stella.FiberTrace.calcProfile",
+                   "pfs.drp.stella.FiberTrace.calcProfileSwath",
+                   "pfs.drp.stella.FiberTrace.extractFromProfile",
+                   "pfs.drp.stella.math.CurveFitting.LinFitBevingtonNdArray1D",
+                   "pfs.drp.stella.math.CurveFitting.LinFitBevingtonNdArray2D",
+                   "pfs.drp.stella.math.CurveFitting.PolyFit",
                    ]:
         log.Log.getLogger(logger).setLevel(log.WARN)
 

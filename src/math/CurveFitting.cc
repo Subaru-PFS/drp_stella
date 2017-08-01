@@ -102,11 +102,11 @@ namespace pfs { namespace drp { namespace stella { namespace math {
                                        size_t const I_NIter,
                                        std::vector<std::string> const& S_A1_Args_In,
                                        std::vector<void *> &ArgV){
-    LOG_LOGGER _log = LOG_GET("pfs::drp::stella::math::CurfFitting::PolyFit");
+    LOG_LOGGER _log = LOG_GET("pfs.drp.stella.math.CurveFitting.PolyFit");
 
-    LOGLS_DEBUG(_log, "CurveFitting::PolyFit(x, y, deg, lReject, uReject, nIter, Args, ArgV) started");
+    LOGLS_DEBUG(_log, "PolyFit(x, y, deg, lReject, uReject, nIter, Args, ArgV) started");
     if (D_A1_X_In.getShape()[0] != D_A1_Y_In.getShape()[0]){
-      std::string message("pfs::drp::stella::math::CurfFitting::PolyFit: ERROR: D_A1_X_In.getShape()[0](=");
+      std::string message("pfs::drp::stella::math::CurveFitting::PolyFit: ERROR: D_A1_X_In.getShape()[0](=");
       message += std::to_string(D_A1_X_In.getShape()[0]) + " != D_A1_Y_In.getShape()[0](=" + std::to_string(D_A1_Y_In.getShape()[0]) + ")";
       throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
     }
@@ -310,7 +310,7 @@ namespace pfs { namespace drp { namespace stella { namespace math {
     }
     LOGLS_DEBUG(_log, "*P_I_NRejected = " << *P_I_NRejected);
     *P_I_A1_NotRejected = I_A1_OrigPos;
-    LOGLS_DEBUG(_log, "CurveFitting::PolyFit(x, y, deg, lReject, uReject, nIter, Args, ArgV) finished");
+    LOGLS_DEBUG(_log, "PolyFit(x, y, deg, lReject, uReject, nIter, Args, ArgV) finished");
     return D_A1_Coeffs_Out;
   }
 
@@ -322,8 +322,8 @@ namespace pfs { namespace drp { namespace stella { namespace math {
                                        size_t const I_Degree_In,
                                        T xRangeMin_In,
                                        T xRangeMax_In){
-    LOG_LOGGER _log = LOG_GET("pfs::drp::stella::math::CurfFitting::PolyFit");
-    LOGLS_DEBUG(_log, "CurveFitting::PolyFit(x, y, deg, xRangeMin, xRangeMax) started");
+    LOG_LOGGER _log = LOG_GET("pfs.drp.stella.math.CurveFitting.PolyFit");
+    LOGLS_DEBUG(_log, "PolyFit(x, y, deg, xRangeMin, xRangeMax) started");
     if (D_A1_X_In.getShape()[0] != D_A1_Y_In.getShape()[0]){
       std::string message("pfs::drp::stella::math::CurveFitting::PolyFit: ERROR: D_A1_X_In.getShape()[0](=");
       message += std::to_string(D_A1_X_In.getShape()[0]) +") != D_A1_Y_In.getShape()[0](=" + std::to_string(D_A1_Y_In.getShape()[0]) + ")";
@@ -351,7 +351,7 @@ namespace pfs { namespace drp { namespace stella { namespace math {
                                        size_t const I_Degree_In,
                                        std::vector<std::string> const& S_A1_Args_In,
                                        std::vector<void *> & ArgV){
-    LOG_LOGGER _log = LOG_GET("pfs::drp::stella::math::CurfFitting::PolyFit");
+    LOG_LOGGER _log = LOG_GET("pfs.drp.stella.math.CurveFitting.PolyFit");
     LOGLS_DEBUG(_log, "PolyFit(x, y, deg, Args, ArgV) started");
     if (D_A1_X_In.getShape()[0] != D_A1_Y_In.getShape()[0]){
       std::string message("pfs::drp::stella::math::CurveFitting::PolyFit: ERROR: D_A1_X_In.getShape()[0](=");
@@ -576,7 +576,7 @@ namespace pfs { namespace drp { namespace stella { namespace math {
                                        size_t const I_NIter,
                                        T xRangeMin_In,
                                        T xRangeMax_In){
-    LOG_LOGGER _log = LOG_GET("pfs::drp::stella::math::CurfFitting::PolyFit");
+    LOG_LOGGER _log = LOG_GET("pfs.drp.stella.math.CurveFitting.PolyFit");
     LOGLS_DEBUG(_log, "PolyFit(x, y, deg, lReject, hReject, nIter, xRangeMin, xRangeMax) started");
     std::vector<std::string> S_A1_Args(1);
     S_A1_Args[0] = "XRANGE";

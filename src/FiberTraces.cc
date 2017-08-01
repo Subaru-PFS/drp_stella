@@ -1350,7 +1350,7 @@ namespace pfs { namespace drp { namespace stella {
   template<typename ImageT, typename MaskT, typename VarianceT>
   PTR( SpectrumSet<ImageT, MaskT, VarianceT, VarianceT> ) FiberTraceSet<ImageT, MaskT, VarianceT>::extractAllTracesFromProfile()
   {
-    LOG_LOGGER _log = LOG_GET("pfs::drp::stella::FiberTraceSet::extractAllTracesFromProfile");
+    LOG_LOGGER _log = LOG_GET("pfs.drp.stella.FiberTraceSet.extractAllTracesFromProfile");
     PTR( SpectrumSet<ImageT, MaskT, VarianceT, VarianceT> ) spectrumSet ( new SpectrumSet<ImageT, MaskT, VarianceT, VarianceT>( _traces->size() ) );
     for (size_t i = 0; i < _traces->size(); ++i){
       LOGLS_DEBUG(_log, "extracting FiberTrace " << i);
@@ -2314,7 +2314,7 @@ namespace pfs { namespace drp { namespace stella {
     void assignITrace( FiberTraceSet< ImageT, MaskT, VarianceT > & fiberTraceSet,
                        ndarray::Array< T, 1, I > const& fiberIds,
                        ndarray::Array< U, 1, I > const& xCenters ){
-      LOG_LOGGER _log = LOG_GET("pfs::drp::stella::math::assignITrace");
+      LOG_LOGGER _log = LOG_GET("pfs.drp.stella.math.assignITrace");
 
       size_t iTrace;
       size_t startPos = 0;
@@ -2348,7 +2348,7 @@ namespace pfs { namespace drp { namespace stella {
                        size_t nTraces,
                        size_t nRows,
                        size_t startPos ){
-      LOG_LOGGER _log = LOG_GET("pfs::drp::stella::math::findITrace");
+      LOG_LOGGER _log = LOG_GET("pfs.drp.stella.math.findITrace");
       float xCenter = fiberTrace.getFiberTraceFunction()->xCenter;
       unsigned int yCenter = fiberTrace.getFiberTraceFunction()->yCenter;
       LOGLS_DEBUG(_log, "xCenter = " << xCenter);
@@ -2431,7 +2431,7 @@ namespace pfs { namespace drp { namespace stella {
         dataXY<CoordT> const& ccdCoordinates,
         pfs::drp::stella::FiberTrace<ImageT, MaskT, VarianceT> const& fiberTrace)
     {
-      LOG_LOGGER _log = LOG_GET("pfs::drp::stella::math::ccdToFiberTraceCoordinates");
+      LOG_LOGGER _log = LOG_GET("pfs.drp.stella.math.ccdToFiberTraceCoordinates");
       dataXY<CoordT> coordsOut;
 
       ndarray::Array< size_t, 2, 1 > minCenMax = calcMinCenMax(
@@ -2461,7 +2461,7 @@ namespace pfs { namespace drp { namespace stella {
         dataXY<CoordT> const& ccdCoordinatesCenter,
         pfs::drp::stella::FiberTrace<ImageT, MaskT, VarianceT> const& fiberTrace)
     {
-      LOG_LOGGER _log = LOG_GET("pfs::drp::stella::math::fiberTraceCoordinatesRelativeTo");
+      LOG_LOGGER _log = LOG_GET("pfs.drp.stella.math.fiberTraceCoordinatesRelativeTo");
 
       dataXY<CoordT> traceCoordinatesCenter = ccdToFiberTraceCoordinates(
               ccdCoordinatesCenter,
