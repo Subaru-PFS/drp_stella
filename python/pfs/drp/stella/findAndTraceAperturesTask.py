@@ -90,6 +90,8 @@ class FindAndTraceAperturesTask(Task):
         self.ftffc.maxLength = self.config.maxLength
         self.ftffc.nLost = self.config.nLost
 
+        self.ftpfc = drpStella.FiberTraceProfileFittingControl()
+
     def run(self, inExposure):
         """
         This method runs the automatic finding and tracing of fiber traces on
@@ -101,8 +103,7 @@ class FindAndTraceAperturesTask(Task):
         #Create a FiberTraceSet given a flat-field exposure
         inMaskedImage = inExposure.getMaskedImage()
         fiberTraceSet = drpStella.findAndTraceApertures(inMaskedImage,
-                                                         self.ftffc)
+                                                        self.ftffc,
+                                                        self.ftpfc)
         fiberTraceSet.sortTracesByXCenter()
-        for i in range(fiberTraceSet.size()):
-            fiberTraceSet.getFiberTrace(i).setITrace(i)
         return fiberTraceSet

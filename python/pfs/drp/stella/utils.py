@@ -1,145 +1,38 @@
 from astropy.io import fits as pyfits
+import lsst.afw.geom as afwGeom
 import lsst.afw.image as afwImage
 import lsst.log as log
 import numpy as np
-from pfs.datamodel.pfsFiberTrace import PfsFiberTrace as pFT
 import pfs.drp.stella as drpStella
 from pfs.drp.stella.datamodelIO import spectrumSetToPfsArm, PfsArmIO
 
-def makeFiberTraceSet(pfsFiberTrace, maskedImage=None):
-    if pfsFiberTrace.profiles is None or len(pfsFiberTrace.profiles) == 0:
+def makeFiberTraceSet(pfsFiberTrace):
+    if pfsFiberTrace.traces is None or len(pfsFiberTrace.traces) == 0:
         raise RuntimeError("There are no fiberTraces in the PfsFiberTrace object")
 
     fts = drpStella.FiberTraceSet()
-    ftfc = drpStella.FiberTraceFunctionControl()
-    ftf = drpStella.FiberTraceFunction()
-    ftpfc = drpStella.FiberTraceProfileFittingControl()
 
-    ftfc.interpolation = pfsFiberTrace.traceFunction
-    ftfc.order = pfsFiberTrace.order
-    ftfc.xLow = pfsFiberTrace.xLow
-    ftfc.xHigh = pfsFiberTrace.xHigh
-    ftfc.nPixCutLeft = pfsFiberTrace.nCutLeft
-    ftfc.nPixCutRight = pfsFiberTrace.nCutRight
-    ftfc.nRows = pfsFiberTrace.profiles[0].shape[0]
-
-    ftpfc.profileInterpolation = pfsFiberTrace.interpol
-    ftpfc.swathWidth = pfsFiberTrace.swathLength
-    ftpfc.telluric = 'NONE'
-    ftpfc.overSample = pfsFiberTrace.overSample
-    ftpfc.maxIterSF = pfsFiberTrace.maxIterSF
-    ftpfc.maxIterSky = 0
-    ftpfc.maxIterSig = pfsFiberTrace.maxIterSig
-    ftpfc.lambdaSF = pfsFiberTrace.lambdaSF
-    ftpfc.lambdaSP = pfsFiberTrace.lambdaSP
-    ftpfc.wingSmoothFactor = pfsFiberTrace.lambdaWing
-    ftpfc.lowerSigma = pfsFiberTrace.lSigma
-    ftpfc.upperSigma = pfsFiberTrace.uSigma
-
-    for iFt in range(pfsFiberTrace.xCenter.shape[0]):
-        ftf.fiberTraceFunctionControl = ftfc
-        ftf.xCenter = pfsFiberTrace.xCenter[iFt]
-        ftf.yCenter = pfsFiberTrace.yCenter[iFt]
-        ftf.yLow = pfsFiberTrace.yLow[iFt]
-        ftf.yHigh = pfsFiberTrace.yHigh[iFt]
-
-        coeffs = np.ndarray(len(pfsFiberTrace.coeffs[iFt]), dtype=np.float64)
-        for iCoeff in range(coeffs.shape[0]):
-            coeffs[iCoeff] = pfsFiberTrace.coeffs[iFt][iCoeff]
-        ftf.coefficients = coeffs
-
-        ft = drpStella.FiberTrace()
-        ft.setFiberTraceFunction(ftf)
-        ft.setFiberTraceProfileFittingControl(ftpfc)
-
-        ft.setITrace(pfsFiberTrace.fiberId[iFt]-1)
-
-        profile = pfsFiberTrace.profiles[iFt]
-
-        yMin = ftf.yCenter + ftf.yLow
-        prof = afwImage.ImageF(profile.shape[1], ftf.yHigh - ftf.yLow + 1)
-        prof.getArray()[:] = profile[yMin : yMin + prof.getHeight()].astype(np.float64)
-
-        pixelData = afwImage.MaskedImageF(profile.shape[1], ftf.yHigh - ftf.yLow + 1)
-        pixelData[:] = np.nan
-        
-        ft.setTrace(pixelData)
-        ft.setProfile(prof)
-
-        xCenters = drpStella.calculateXCenters(ftf)
-        ft.setXCenters(xCenters)
-
-        if maskedImage != None:
-            ft.createTrace(maskedImage)
-
-        if ft.getTrace().getHeight() != ft.getProfile().getHeight():
-            raise RuntimeError("FiberTrace %d: trace and profile have different sizes")
-        if ft.getTrace().getWidth() != ft.getProfile().getWidth():
-            raise RuntimeError("FiberTrace %d: trace and profile have different sizes")
+    for iFt in range(len(pfsFiberTrace.traces)):
+        ft = drpStella.FiberTrace(pfsFiberTrace.traces[iFt],
+                                  pfsFiberTrace.fiberId[iFt] - 1)
 
         fts.addFiberTrace(ft)
     return fts
 
-def createPfsFiberTrace(dataId, fiberTraceSet, nRows):
-    pfsFiberTrace = pFT(dataId['calibDate'], dataId['spectrograph'], dataId['arm'])
-
-    ftf = fiberTraceSet.getFiberTrace(0).getFiberTraceFunction()
-    ftfc = ftf.fiberTraceFunctionControl
-
-    ftpfc = fiberTraceSet.getFiberTrace(0).getFiberTraceProfileFittingControl()
-
-    pfsFiberTrace.fwhm = 0.
-    pfsFiberTrace.threshold = 0.
-    pfsFiberTrace.nTerms = 0
-    pfsFiberTrace.saturationLevel = 0.
-    pfsFiberTrace.minLength = 0
-    pfsFiberTrace.maxLength = 0
-    pfsFiberTrace.nLost = 0
-    pfsFiberTrace.traceFunction = ftfc.interpolation
-    pfsFiberTrace.order = ftfc.order
-    pfsFiberTrace.xLow = ftfc.xLow
-    pfsFiberTrace.xHigh = ftfc.xHigh
-    pfsFiberTrace.nCutLeft = ftfc.nPixCutLeft
-    pfsFiberTrace.nCutRight = ftfc.nPixCutRight
-
-    pfsFiberTrace.interpol = ftpfc.profileInterpolation
-    pfsFiberTrace.swathLength = ftpfc.swathWidth
-    pfsFiberTrace.overSample = ftpfc.overSample
-    pfsFiberTrace.maxIterSF = ftpfc.maxIterSF
-    pfsFiberTrace.maxIterSig = ftpfc.maxIterSig
-    pfsFiberTrace.lambdaSF = ftpfc.lambdaSF
-    pfsFiberTrace.lambdaSP = ftpfc.lambdaSP
-    pfsFiberTrace.lambdaWing = ftpfc.wingSmoothFactor
-    pfsFiberTrace.lSigma = ftpfc.lowerSigma
-    pfsFiberTrace.uSigma = ftpfc.upperSigma
-
-    for iFt in range(fiberTraceSet.size()):
-        ft = fiberTraceSet.getFiberTrace(iFt)
-        pfsFiberTrace.fiberId.append(ft.getITrace()+1)
-        ftf = ft.getFiberTraceFunction()
-        pfsFiberTrace.xCenter.append(ftf.xCenter)
-        pfsFiberTrace.yCenter.append(ftf.yCenter)
-        pfsFiberTrace.yLow.append(ftf.yLow)
-        pfsFiberTrace.yHigh.append(ftf.yHigh)
-        pfsFiberTrace.coeffs.append(ftf.coefficients)
-        prof = ft.getProfile()
-        profOut = np.zeros(shape=[nRows,prof.getWidth()], dtype=np.float32)
-        profOut[ftf.yCenter + ftf.yLow:ftf.yCenter + ftf.yHigh+1,:] = prof.getArray()[:,:]
-        pfsFiberTrace.profiles.append(profOut)
-
-    return pfsFiberTrace
-
 def readWavelengthFile(wLenFile):
-    """read wavelength file"""
+    """read wavelength file and return 1-D arrays of length nFibre*nwavelength
+
+    These arrays are used by evaluating e.g. wavelengths[np.where(traceId == fid)]
+    """
     hdulist = pyfits.open(wLenFile)
     tbdata = hdulist[1].data
-    traceIdsTemp = np.ndarray(shape=(len(tbdata)), dtype='int')
-    xCenters = np.ndarray(shape=(len(tbdata)), dtype='float32')
-    wavelengths = np.ndarray(shape=(len(tbdata)), dtype='float32')
-    traceIdsTemp[:] = tbdata[:]['fiberNum']
-    traceIds = traceIdsTemp.astype('int32')
-    wavelengths[:] = tbdata[:]['pixelWave']
-    xCenters[:] = tbdata[:]['xc']
+    traceIds = tbdata[:]['fiberNum'].astype('int32')
+    wavelengths = tbdata[:]['pixelWave'].astype('float32')
+    xCenters = tbdata[:]['xc'].astype('float32')
+
+    traceIdSet = np.unique(traceIds)
+    assert len(wavelengths) == len(traceIds[traceIds == traceIdSet[0]])*len(traceIdSet) # could check all
+
     return [xCenters, wavelengths, traceIds]
 
 def readLineListFile(lineList):
@@ -147,8 +40,8 @@ def readLineListFile(lineList):
     hdulist = pyfits.open(lineList)
     tbdata = hdulist[1].data
     lineListArr = np.ndarray(shape=(len(tbdata),2), dtype='float32')
-    lineListArr[:,0] = tbdata.field(0)
-    lineListArr[:,1] = tbdata.field(1)
+    lineListArr[:,0] = tbdata.field(0)  # wavelength
+    lineListArr[:,1] = tbdata.field(1)  # ??
     return lineListArr
 
 def readReferenceSpectrum(refSpec):
@@ -183,12 +76,10 @@ def writePfsArm(butler, arcExposure, spectrumSet, dataId):
                                  dataId["visit"], dataId["spectrograph"], dataId["arm"])
     butler.put(PfsArmIO(pfsArm), 'pfsArm', dataId)
 
-def addFiberTraceSetToMask(mask, fiberTraceSet, display=None, maskPlaneName="FIBERTRACE"):
-    mask.addMaskPlane(maskPlaneName)
-
-    ftMask = mask.getPlaneBitMask(maskPlaneName)
+def addFiberTraceSetToMask(mask, fiberTraceSet):
     for ft in fiberTraceSet.getTraces():
-        drpStella.markFiberTraceInMask(ft, mask, ftMask)
-
-    if display:
-        display.setMaskPlaneColor(maskPlaneName, "GREEN")                  
+        traceMask = ft.getTrace().mask
+        if False:                       # requires w_2017_32 or later
+            mask[traceMask.getBBox(), afwImage.PARENT] |= mask
+        else:
+            mask.Factory(mask, traceMask.getBBox(), afwImage.PARENT)[:] |= traceMask

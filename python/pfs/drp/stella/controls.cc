@@ -20,6 +20,7 @@ void declareFiberTraceFunction(py::module &mod)
     py::class_<FiberTraceFunction, std::shared_ptr<FiberTraceFunction>> cls(mod, "FiberTraceFunction");
     cls.def(py::init<>());
     cls.def(py::init<FiberTraceFunction const&>(), "ftf"_a);
+    cls.def(py::init<std::shared_ptr<FiberTraceFunction> const&>(), "ftf"_a);
     cls.def_readwrite("fiberTraceFunctionControl", &FiberTraceFunction::fiberTraceFunctionControl);
     cls.def_readwrite("xCenter", &FiberTraceFunction::xCenter);
     cls.def_readwrite("yCenter", &FiberTraceFunction::yCenter);
@@ -128,6 +129,12 @@ void declareDispCorControl(py::module &mod)
 
 PYBIND11_PLUGIN(controls) {
     py::module mod("controls");
+
+    // Need to import numpy for ndarray and eigen conversions
+    if (_import_array() < 0) {
+        PyErr_SetString(PyExc_ImportError, "numpy.core.multiarray failed to import");
+        return nullptr;
+    }
 
     declareFiberTraceFunction(mod);
     declareFiberTraceFunctionControl(mod);

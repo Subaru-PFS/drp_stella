@@ -1,18 +1,15 @@
 import os
-import sys
 
-from astropy.io import fits as pyfits
 import numpy as np
 
 import lsstDebug
 import lsst.log as log
 from lsst.pex.config import Config, Field
-from lsst.pipe.base import Struct, TaskRunner, ArgumentParser, CmdLineTask
+from lsst.pipe.base import TaskRunner, ArgumentParser, CmdLineTask
 from lsst.utils import getPackageDir
 import lsst.afw.display as afwDisplay
 import pfs.drp.stella as drpStella
 from pfs.drp.stella.extractSpectraTask import ExtractSpectraTask
-from pfs.drp.stella.datamodelIO import spectrumSetToPfsArm, PfsArmIO
 from pfs.drp.stella.utils import makeFiberTraceSet, readWavelengthFile
 from pfs.drp.stella.utils import readLineListFile, writePfsArm, addFiberTraceSetToMask
 
@@ -66,9 +63,11 @@ class ReduceArcTask(CmdLineTask):
 
         # read wavelength file
         xCenters, wavelengths, traceIds = readWavelengthFile(wLenFile)
+        del xCenters
 
         # read line list
         lineListArr = readLineListFile(lineList)
+        wLenLinesArr = np.array(lineListArr[:, 0])
 
         for arcRef in expRefList:
             self.log.debug('arcRef.dataId = %s' % arcRef.dataId)
@@ -77,6 +76,7 @@ class ReduceArcTask(CmdLineTask):
 
             # read pfsFiberTrace and then construct FiberTraceSet
             try:
+                self.log.debug('fiberTrace file name = %s' % (arcRef.get('fibertrace_filename')))
                 fiberTrace = arcRef.get('fibertrace')
             except Exception, e:
                 raise RuntimeError("Unable to load fiberTrace for %s: %s" % (arcRef.dataId, e))
@@ -104,11 +104,6 @@ class ReduceArcTask(CmdLineTask):
             # optimally extract arc spectra
             self.log.info('extracting arc spectra from %s', arcRef.dataId)
 
-            # assign trace number to flatFiberTraceSet
-            drpStella.assignITrace( flatFiberTraceSet, traceIds, xCenters )
-            for i in range( flatFiberTraceSet.size() ):
-                self.log.debug('iTraces[%d] = %d' % (i, flatFiberTraceSet.getFiberTrace(i).getITrace()))
-
             extractSpectraTask = ExtractSpectraTask()
             spectrumSetFromProfile = extractSpectraTask.run(arcExp, flatFiberTraceSet)
 
@@ -128,48 +123,19 @@ class ReduceArcTask(CmdLineTask):
                 spec = spectrumSetFromProfile.getSpectrum(i)
                 specSpec = spec.getSpectrum()
                 self.log.debug('specSpec.shape = %d' % specSpec.shape)
-                self.log.debug('lineListArr.shape = [%d,%d]' % (lineListArr.shape[0], lineListArr.shape[1]))
-                self.log.debug('type(specSpec) = %s: <%s>' % (type(specSpec),type(specSpec[0])))
-                self.log.debug('type(lineListArr) = %s: <%s>' % (type(lineListArr),type(lineListArr[0][0])))
-                self.log.debug('type(spec) = %s: <%s>: <%s>' % (type(spec),type(spec.getSpectrum()),type(spec.getSpectrum()[0])))
 
                 traceId = spec.getITrace()
                 wLenTemp = wavelengths[np.where(traceIds == traceId)]
-                assert wLenTemp.shape[0] == traceIds.shape[0] / np.unique(traceIds).shape[0]
+                wLenTemp = wLenTemp[self.config.nRowsPrescan:] # this should be fixed in the wavelengths file
 
                 # cut off both ends of wavelengths where is no signal
-                xCenter = flatFiberTraceSet.getFiberTrace(i).getFiberTraceFunction().xCenter
-                yCenter = flatFiberTraceSet.getFiberTrace(i).getFiberTraceFunction().yCenter
-                yLow = flatFiberTraceSet.getFiberTrace(i).getFiberTraceFunction().yLow
-                yHigh = flatFiberTraceSet.getFiberTrace(i).getFiberTraceFunction().yHigh
-                yMin = yCenter + yLow
-                yMax = yCenter + yHigh
-                self.log.debug('fiberTrace %d: xCenter = %d' % (i, xCenter))
-                self.log.debug('fiberTrace %d: yCenter = %d' % (i, yCenter))
-                self.log.debug('fiberTrace %d: yLow = %d' % (i, yLow))
-                self.log.debug('fiberTrace %d: yHigh = %d' % (i, yHigh))
-                self.log.debug('fiberTrace %d: yMin = %d' % (i, yMin))
-                self.log.debug('fiberTrace %d: yMax = %d' % (i, yMax))
-                wLen = wLenTemp[ yMin + self.config.nRowsPrescan : yMax + self.config.nRowsPrescan + 1]
-                wLenArr = np.ndarray(shape=wLen.shape, dtype='float32')
-                for j in range(wLen.shape[0]):
-                    wLenArr[j] = wLen[j]
-                wLenLines = lineListArr[:,0]
-                wLenLinesArr = np.ndarray(shape=wLenLines.shape, dtype='float32')
-                for j in range(wLenLines.shape[0]):
-                    wLenLinesArr[j] = wLenLines[j]
+                bbox = flatFiberTraceSet.getFiberTrace(i).getTrace().getBBox()
+                wLenArr = np.array(wLenTemp[bbox.getMinY() : bbox.getMaxY()])
+
                 lineListPix = drpStella.createLineList(wLenArr, wLenLinesArr)
 
-                try:
-                    lineListPix = drpStella.createLineList(wLenArr, wLenLinesArr)
-                except Exception as e:
-                    self.log.warn("Error occured during createLineList: %s" % (e.message))
-
-                # Idendify emission lines and fit dispersion
-                try:
-                    spec.identify(lineListPix, dispCorControl, 8)
-                except Exception as e:
-                    self.log.warn("Error occured during identify: %s" % (e.message))
+                # Identify emission lines and fit dispersion
+                spec.identify(lineListPix, dispCorControl, 8)
 
                 self.log.trace("FiberTrace %d: spec.getDispCoeffs() = %s"
                                % (i, np.array_str(spec.getDispCoeffs())))

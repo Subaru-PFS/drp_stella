@@ -22,57 +22,26 @@ void declareFiberTrace(py::module &mod)
     using Class = FiberTrace<ImageT, MaskT, VarianceT>;
     py::class_<Class, PTR(Class)> cls(mod, "FiberTrace");
 
-    cls.def(py::init<std::size_t, std::size_t, std::size_t>(), "width"_a=0, "height"_a=0, "iTrace"_a=0);
+    cls.def(py::init<PTR(typename Class::MaskedImageT const) const&,
+                     std::size_t>(),
+            "maskedImage"_a, "fiberTraceId"_a=0);
     cls.def(py::init<PTR(typename Class::MaskedImageT const) const&,
                      PTR(FiberTraceFunction const) const&,
+                     PTR(FiberTraceProfileFittingControl) const&,
                      std::size_t>(),
-            "maskedImage"_a, "fiberTraceFunction"_a, "iTrace"_a=0);
-    cls.def(py::init<Class const&>(), "fiberTrace"_a);
-    cls.def(py::init<Class&, bool>(), "fiberTrace"_a, "deep"_a);
+            "maskedImage"_a, "fiberTraceFunction"_a, "fiberTraceProfileFittingControl"_a, "iTrace"_a=0);
+    cls.def(py::init<Class&, bool>(), "fiberTrace"_a, "deep"_a=false);
 
     cls.def("getTrace", (PTR(typename Class::MaskedImageT)(Class::*)())&Class::getTrace);
-    cls.def("setTrace", &Class::setTrace, "trace"_a);
-    cls.def("getProfile", &Class::getProfile);
-    cls.def("setProfile", &Class::setProfile, "profile"_a);
-    cls.def("getFiberTraceFunction", &Class::getFiberTraceFunction);
-    cls.def("setFiberTraceFunction", &Class::setFiberTraceFunction, "function"_a);
-    cls.def("getFiberTraceProfileFittingControl", &Class::getFiberTraceProfileFittingControl);
-    cls.def("setFiberTraceProfileFittingControl",
-            (void (Class::*)(PTR(FiberTraceProfileFittingControl const) const&))
-                &Class::setFiberTraceProfileFittingControl,
-            "control"_a);
     cls.def("getXCenters", &Class::getXCenters);
-    cls.def("setXCenters", &Class::setXCenters, "centers"_a);
-    cls.def("getXCentersMeas", &Class::getXCentersMeas);
-    cls.def("setXCentersMeas", &Class::setXCentersMeas, "centers"_a);
     cls.def("getITrace", &Class::getITrace);
-    cls.def("setITrace", &Class::setITrace, "iTrace"_a);
-    cls.def("getWidth", &Class::getWidth);
-    cls.def("getHeight", &Class::getHeight);
-    cls.def("getTraceCoefficients", &Class::getTraceCoefficients);
 
-    cls.def("extractFromProfile", &Class::extractFromProfile);
-    cls.def("extractSum", &Class::extractSum);
-    cls.def("createTrace", &Class::createTrace, "maskedImage"_a);
-    cls.def("calcProfile", &Class::calcProfile);
+    cls.def("extractFromProfile", &Class::extractFromProfile, "spectrumImage"_a);
+    cls.def("extractSum", &Class::extractSum, "spectrumImage"_a);
 
     cls.def("getReconstructed2DSpectrum",
             (PTR(typename Class::Image)(Class::*)(typename Class::SpectrumT const&) const)
                 &Class::getReconstructed2DSpectrum, "spectrum"_a);
-    cls.def("getReconstructed2DSpectrum",
-            (PTR(typename Class::Image)(Class::*)(typename Class::SpectrumT const&,
-                                                  typename Class::SpectrumT const&) const)
-                &Class::getReconstructed2DSpectrum,
-            "spectrum"_a, "background"_a);
-    cls.def("getReconstructedBackground", &Class::getReconstructedBackground, "background"_a);
-
-    cls.def("calcProfileSwath", &Class::calcProfileSwath, "image"_a, "mask"_a, "variance"_a, "xCenters"_a,
-            "index"_a);
-    cls.def("calcSwathBoundY", &Class::calcSwathBoundY, "width"_a);
-
-    cls.def("isTraceSet", &Class::isTraceSet);
-    cls.def("isProfileSet", &Class::isProfileSet);
-    cls.def("isFiberTraceProfileFittingControlSet", &Class::isFiberTraceProfileFittingControlSet);
 }
 
 
@@ -84,25 +53,23 @@ void declareFiberTraceSet(py::module &mod)
     using Class = FiberTraceSet<ImageT, MaskT, VarianceT>;
     py::class_<Class, PTR(Class)> cls(mod, "FiberTraceSet");
 
-    cls.def(py::init<std::size_t>(), "nTraces"_a=0);
+    cls.def(py::init<>());
     cls.def(py::init<Class const&, bool>(), "fiberTraceSet"_a, "deep"_a=false);
     cls.def("size", &Class::size);
     cls.def("__len__", &Class::size);
-    cls.def("createTraces", &Class::createTraces, "maskedImage"_a);
     cls.def("getFiberTrace",
             (PTR(typename Class::FiberTraceT)(Class::*)(std::size_t const))&Class::getFiberTrace,
             "index"_a);
     cls.def("__getitem__", [](Class const& self, std::size_t index) { return self.getFiberTrace(index); });
+    cls.def("assignTraceIDs", &Class::assignTraceIDs, "fiberIds"_a, "xCenters"_a);
     cls.def("erase", &Class::erase, "iStart"_a, "iEnd"_a=0);
     cls.def("setFiberTrace", &Class::setFiberTrace, "index"_a, "trace"_a);
     cls.def("addFiberTrace", &Class::addFiberTrace, "trace"_a, "index"_a=0);
     cls.def("getTraces", [](Class const& self) { return *self.getTraces(); });
-    cls.def("setFiberTraceProfileFittingControl", &Class::setFiberTraceProfileFittingControl, "control"_a);
-    cls.def("setAllProfiles", &Class::setAllProfiles, "fiberTraceSet"_a);
     cls.def("sortTracesByXCenter", &Class::sortTracesByXCenter);
-    cls.def("calcProfileAllTraces", &Class::calcProfileAllTraces);
-    cls.def("extractTraceNumberFromProfile", &Class::extractTraceNumberFromProfile, "index"_a);
-    cls.def("extractAllTracesFromProfile", &Class::extractAllTracesFromProfile);
+    cls.def("extractTraceNumberFromProfile", &Class::extractTraceNumberFromProfile,
+            "spectrumImage"_a, "index"_a);
+    cls.def("extractAllTracesFromProfile", &Class::extractAllTracesFromProfile, "spectrumImage"_a);
 }
 
 
@@ -110,33 +77,10 @@ template <typename ImageT>
 void declareFunctions(py::module &mod)
 {
     mod.def("findAndTraceApertures", math::findAndTraceApertures<ImageT>,
-            "maskedImage"_a, "control"_a);
+            "maskedImage"_a, "fiberTraceFunctionFindingControl"_a,
+            " fiberTraceProfileFittingControl"_a);
     mod.def("findCenterPositionsOneTrace", math::findCenterPositionsOneTrace<ImageT>,
             "ccdImage"_a, "ccdImageVariance"_a, "control"_a);
-    mod.def("assignITrace",
-            math::assignITrace<ImageT, lsst::afw::image::MaskPixel, lsst::afw::image::VariancePixel,
-                               int, float, 1>,
-            "fiberTraceSet"_a, "traceIds"_a, "xCenters"_a);
-    mod.def("findITrace", math::findITrace<ImageT, lsst::afw::image::MaskPixel,
-                                           lsst::afw::image::VariancePixel, float, 0>,
-            "fiberTrace"_a, "xCenters"_a, "nTraces"_a, "nRows"_a, "startPos"_a=0);
-    mod.def("addFiberTraceToCcdImage",
-            math::addFiberTraceToCcdImage<ImageT, lsst::afw::image::MaskPixel,
-                                          lsst::afw::image::VariancePixel, float, float>,
-            "fiberTrace"_a, "fiberTraceRepresentation"_a, "ccdImage"_a);
-
-    mod.def("ccdToFiberTraceCoordinates",
-            math::ccdToFiberTraceCoordinates<float, ImageT, lsst::afw::image::MaskPixel,
-                                             lsst::afw::image::VariancePixel>,
-            "ccdCoordinates"_a, "fiberTrace"_a);
-
-    mod.def("fiberTraceCoordinatesRelativeTo",
-            math::fiberTraceCoordinatesRelativeTo<float, ImageT, lsst::afw::image::MaskPixel,
-                                                  lsst::afw::image::VariancePixel>,
-            "fiberTraceCoordinates"_a, "ccdCoordinatesCenter"_a, "fiberTrace"_a);
-    mod.def("markFiberTraceInMask", utils::markFiberTraceInMask<ImageT, lsst::afw::image::MaskPixel,
-                                                               lsst::afw::image::VariancePixel>,
-            "fiberTrace"_a, "mask"_a, "value"_a=1);
 }
 
 

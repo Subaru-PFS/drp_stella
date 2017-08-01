@@ -25,60 +25,9 @@ This module contains python math function related to pfs.drp.stella
 @author Andreas Ritter, Princeton University
 """
 import numpy as np
-import pfs.drp.stella as drpStella
 
-def getDistTraceProfRec(fiberTraceSet):
-    """
-    @brief This function returns the center distances (sorted), the original
-    values, the spatial profile, and the reconstructed values (from spatial
-    profile and extracted spectrum) for each pixel in each FiberTrace in
-    fiberTraceSet as a numpy array of shape(sum(FiberTraceHeights)*FiberTraceWidth,4)
-    output[:,0]: distance of each pixel to the FiberTrace center (sorted)
-    output[:,1]: original pixel values
-    output[:,2]: spatial profile
-    output[:,3]: reconstructed pixel values from spatial profile and spectrum
-    @param fiberTraceSet: FiberTraceSet for which to perform the operation, profile calculated
-    @return ouput array with 4 columns, sorted by the first column (center distance)
-    """
-    sumHeights = 0
-    width = fiberTraceSet.getFiberTrace(0).getWidth()
-    for iTrace in range(fiberTraceSet.size()):
-        ft = fiberTraceSet.getFiberTrace(iTrace)
-        sumHeights += ft.getHeight()
-    distanceFromCenterRatioLength = (sumHeights
-                                     * fiberTraceSet.getFiberTrace(0).getWidth())
-    distanceFromCenterRatio = np.ndarray(shape=(distanceFromCenterRatioLength,
-                                                4),
-                                         dtype=np.float32)
+import lsst.afw.image as afwImage
 
-    iRow = 0
-    for iTrace in range(fiberTraceSet.size()):
-        ft = fiberTraceSet.getFiberTrace(iTrace)
-        if not ft.isProfileSet():
-            raise RuntimeError("ERROR: iTrace = ",iTrace,": profile not set")
-        spec = ft.extractFromProfile()
-        orig = ft.getTrace().getImage().getArray()
-        rec = ft.getReconstructed2DSpectrum(spec).getArray()
-        prof = ft.getProfile().getArray()
-        xCenters = ft.getXCenters()
-
-        ftfc = ft.getFiberTraceFunction().fiberTraceFunctionControl
-        minCenMax = drpStella.calcMinCenMax(xCenters,
-                                            ftfc.xHigh,
-                                            ftfc.xLow,
-                                            ftfc.nPixCutLeft,
-                                            ftfc.nPixCutRight)
-        for row in range(ft.getHeight()):
-            for col in range(ft.getWidth()):
-                distanceFromCenterRatio[iRow * width + col, :] = [
-                    (minCenMax[row, 0] + col - xCenters[row]),
-                    orig[row, col],
-                    prof[row, col],
-                    rec[row, col]
-                ]
-            iRow += 1
-    distanceFromCenterRatio = distanceFromCenterRatio[distanceFromCenterRatio[:,0].argsort()]
-    return distanceFromCenterRatio
 
 def getMeanStdXBins(x, y, binWidthX):
     """

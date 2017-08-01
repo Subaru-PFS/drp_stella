@@ -20,7 +20,6 @@ import lsst.log as log
 import lsst.utils
 import lsst.utils.tests as tests
 import pfs.drp.stella as drpStella
-import pfs.drp.stella.createFlatFiberTraceProfileTask as cfftpTask
 import pfs.drp.stella.extractSpectraTask as esTask
 import pfs.drp.stella.findAndTraceAperturesTask as fataTask
 import pfs.drp.stella.math as drpStellaMath
@@ -45,6 +44,8 @@ class SpectraTestCase(tests.TestCase):
         self.ftffc.fiberTraceFunctionControl.order = 5
         self.ftffc.fiberTraceFunctionControl.xLow = -5
         self.ftffc.fiberTraceFunctionControl.xHigh = 5
+
+        self.ftpfc = drpStella.FiberTraceProfileFittingControl()
 
         self.dispCorControl = drpStella.DispCorControl()
 
@@ -253,17 +254,17 @@ class SpectraTestCase(tests.TestCase):
             self.assertEqual(specSetV.getSpectrum(i).getITrace(), i)
 
     def testExtractTask(self):
-        fiberTraceSet = drpStella.findAndTraceApertures(self.flat.getMaskedImage(), self.ftffc)
+        fiberTraceSet = drpStella.findAndTraceApertures(self.flat.getMaskedImage(),
+                                                        self.ftffc,
+                                                        self.ftpfc)
 
         # read wavelength file
         xCenters, wavelengths, traceIds = readWavelengthFile(self.wLenFile)
 
         # assign trace number to fiberTraceSet
-        drpStella.assignITrace( fiberTraceSet, traceIds, xCenters )
+        fiberTraceSet.assignTraceIDs(traceIds, xCenters)
 
         self.assertEqual(fiberTraceSet.size(), self.nFiberTraces)
-        myProfileTask = cfftpTask.CreateFlatFiberTraceProfileTask()
-        myProfileTask.run(fiberTraceSet)
 
         myExtractTask = esTask.ExtractSpectraTask()
 
@@ -272,7 +273,8 @@ class SpectraTestCase(tests.TestCase):
         spectrumSetFromProfile = myExtractTask.run(self.arc, fiberTraceSet, aperturesToExtract)
         self.assertEqual(spectrumSetFromProfile.size(), self.nFiberTraces)
         for i in range(spectrumSetFromProfile.size()):
-            self.assertEqual(spectrumSetFromProfile.getSpectrum(i).getLength(), fiberTraceSet.getFiberTrace(i).getHeight())
+            self.assertEqual(spectrumSetFromProfile.getSpectrum(i).getLength(),
+                             fiberTraceSet.getFiberTrace(i).getTrace().getImage().getHeight())
             self.assertEqual(spectrumSetFromProfile.getSpectrum(i).getITrace(),
                              fiberTraceSet.getFiberTrace(i).getITrace())
 
@@ -281,7 +283,8 @@ class SpectraTestCase(tests.TestCase):
             aperturesToExtract = [i]
             spectrumSetFromProfile = myExtractTask.run(self.arc, fiberTraceSet, aperturesToExtract)
             self.assertEqual(spectrumSetFromProfile.size(), 1)
-            self.assertEqual(spectrumSetFromProfile.getSpectrum(0).getLength(), fiberTraceSet.getFiberTrace(i).getHeight())
+            self.assertEqual(spectrumSetFromProfile.getSpectrum(0).getLength(),
+                             fiberTraceSet.getFiberTrace(i).getTrace().getImage().getHeight())
             self.assertEqual(spectrumSetFromProfile.getSpectrum(0).getITrace(),
                              fiberTraceSet.getFiberTrace(i).getITrace())
 
@@ -290,8 +293,10 @@ class SpectraTestCase(tests.TestCase):
             aperturesToExtract = [i, i+1]
             spectrumSetFromProfile = myExtractTask.run(self.arc, fiberTraceSet, aperturesToExtract)
             self.assertEqual(spectrumSetFromProfile.size(), 2)
-            self.assertEqual(spectrumSetFromProfile.getSpectrum(0).getLength(), fiberTraceSet.getFiberTrace(i).getHeight())
-            self.assertEqual(spectrumSetFromProfile.getSpectrum(1).getLength(), fiberTraceSet.getFiberTrace(i+1).getHeight())
+            self.assertEqual(spectrumSetFromProfile.getSpectrum(0).getLength(),
+                             fiberTraceSet.getFiberTrace(i).getTrace().getImage().getHeight())
+            self.assertEqual(spectrumSetFromProfile.getSpectrum(1).getLength(),
+                             fiberTraceSet.getFiberTrace(i+1).getTrace().getImage().getHeight())
             self.assertEqual(spectrumSetFromProfile.getSpectrum(0).getITrace(),
                              fiberTraceSet.getFiberTrace(i).getITrace())
             self.assertEqual(spectrumSetFromProfile.getSpectrum(1).getITrace(),
@@ -387,7 +392,8 @@ class SpectraTestCase(tests.TestCase):
         bin them in small bins (10 times the oversampling rate used for the
         profile calculation), and calculate the mean and standard deviation
         for each bin. The test passes if 1.0 is within 1 standard deviation
-        of the mean value.
+        of the mean value for at least 99% of the samples. The 1% of samples
+        we allow to be off to account for possible cosmics.
         """
         nBinsPerOverSampleStep = 10.
         myFindTask = fataTask.FindAndTraceAperturesTask()
@@ -395,30 +401,26 @@ class SpectraTestCase(tests.TestCase):
         myFindTask.config.xHigh = 5.
         fts = myFindTask.run(self.flat)
 
-        myProfileTask = cfftpTask.CreateFlatFiberTraceProfileTask()
-        myProfileTask.config.overSample = 10
+        distanceFromCenterOrigProfRec = drpStellaMath.getDistTraceProfRec(fts, self.flat.getMaskedImage())
+        dist, orig, rec = [distanceFromCenterOrigProfRec[:,0],
+                           distanceFromCenterOrigProfRec[:,1],
+                           distanceFromCenterOrigProfRec[:,3]]
 
-        for interpolation in ['SPLINE3', 'PISKUNOV']:
-            myProfileTask.config.profileInterpolation = interpolation
-            myProfileTask.run(fts)
+        # to avoid division by zero and effectively multiplying the
+        # original values with a large number, we set the ratio to
+        # unity where the reconstructed values are smaller than 0.1
+        ratio = orig / np.where(rec < 0.1, 1., rec)
 
-            distanceFromCenterOrigProfRec = drpStellaMath.getDistTraceProfRec(fts)
-            dist, orig, rec = [distanceFromCenterOrigProfRec[:,0],
-                               distanceFromCenterOrigProfRec[:,1],
-                               distanceFromCenterOrigProfRec[:,3]]
-
-            # to avoid division by zero and effectively multiplying the
-            # original values with a large number, we set the ratio to
-            # unity where the reconstructed values are smaller than 0.1
-            ratio = orig / np.where(rec < 0.1, 1., rec)
-
-            binWidth = 1. / (myProfileTask.fiberTraceProfileFittingControl.overSample
-                             * nBinsPerOverSampleStep)
-            bins, mean, std = drpStellaMath.getMeanStdXBins(dist,
-                                                            ratio,
-                                                            binWidth)
-            for iBin in range(bins.shape[0]):
-                self.assertTrue(np.all(np.fabs(mean - 1.0) < std))
+        binWidth = 1. / (10 * nBinsPerOverSampleStep)
+        bins, mean, std = drpStellaMath.getMeanStdXBins(dist,
+                                                        ratio,
+                                                        binWidth)
+        nVals= 0
+        for iBin in range(bins.shape[0]):
+            val = np.fabs(mean[iBin] - 1.0) - std[iBin]
+            if val > 0.:
+                nVals += 1
+        self.assertTrue(nVals < 0.99 * bins.shape[0])
 
     def testWavelengthCalibrationWithRefSpec(self):
         log.setLevel("reduceArcRefSpecTask", log.FATAL)
@@ -443,11 +445,10 @@ class SpectraTestCase(tests.TestCase):
                 self.assertLess(wavelength[j], wavelength[j+1])
 
             # Check wavelength range
-            self.assertGreater(wavelength[0], 3800)
-            self.assertLess(wavelength[spec.getLength()-1], 9800)
+            self.assertGreater(wavelength[0], 380)
+            self.assertLess(wavelength[spec.getLength()-1], 980)
 
             # Check RMS
-            self.assertGreater(spec.getWavelength()[0], 3800)
             self.assertLess(spec.getDispRms(), self.maxRMS)
             self.assertLess(spec.getDispRmsCheck(), self.maxRMS)
 
@@ -456,7 +457,10 @@ class SpectraTestCase(tests.TestCase):
         logger.setLevel(log.WARN)
         myReduceArcTask = reduceArcTask.ReduceArcTask()
         dataRefList = [ref for ref in self.butler.subset("postISRCCD", 'visit', self.dataIdArc)]
+        import timeit
+        start_time=timeit.default_timer()
         spectrumSetFromProfile = myReduceArcTask.run(dataRefList, self.butler, self.wLenFile, self.lineList)
+        print 'time to run reduceArcTask: ',timeit.default_timer()-start_time
 
         for i in range(spectrumSetFromProfile.size()):
             spec = spectrumSetFromProfile.getSpectrum(i)
@@ -467,11 +471,10 @@ class SpectraTestCase(tests.TestCase):
                 self.assertLess(wavelength[j], wavelength[j+1])
 
             # Check wavelength range
-            self.assertGreater(wavelength[0], 3800)
-            self.assertLess(wavelength[spec.getLength()-1], 9800)
+            self.assertGreater(wavelength[0], 380)
+            self.assertLess(wavelength[spec.getLength()-1], 980)
 
             # Check RMS
-            self.assertGreater(wavelength[0], 3800)
             self.assertLess(spec.getDispRms(), self.maxRMS)
 
     def testPolyFit(self):
@@ -479,10 +482,10 @@ class SpectraTestCase(tests.TestCase):
         # We will disturb one line and then test that <PolyFit> properly
         # identified the line as outlier and rejected it from the fit
 
-        fiberTraceSet = drpStella.findAndTraceApertures(self.flat.getMaskedImage(), self.ftffc)
+        fiberTraceSet = drpStella.findAndTraceApertures(self.flat.getMaskedImage(),
+                                                        self.ftffc,
+                                                        self.ftpfc)
         self.assertEqual(fiberTraceSet.size(), self.nFiberTraces)
-        myProfileTask = cfftpTask.CreateFlatFiberTraceProfileTask()
-        myProfileTask.run(fiberTraceSet)
 
         myExtractTask = esTask.ExtractSpectraTask()
         aperturesToExtract = [-1]
@@ -536,10 +539,10 @@ class SpectraTestCase(tests.TestCase):
         # justified. They serve as a regression test to make sure that changes in the code
         # didn't make it worse.
 
-        fiberTraceSet = drpStella.findAndTraceApertures(self.flat.getMaskedImage(), self.ftffc)
+        fiberTraceSet = drpStella.findAndTraceApertures(self.flat.getMaskedImage(),
+                                                        self.ftffc,
+                                                        self.ftpfc)
         self.assertGreater(fiberTraceSet.size(), 0)
-        myProfileTask = cfftpTask.CreateFlatFiberTraceProfileTask()
-        myProfileTask.run(fiberTraceSet)
 
         # read wavelength file
         xCenters, wavelengths, traceIds = readWavelengthFile(self.wLenFile)
@@ -548,10 +551,7 @@ class SpectraTestCase(tests.TestCase):
         nRows = traceIds.shape[0] / traceIdsUnique.shape[0]
 
         # assign trace number to fiberTraceSet
-        drpStella.assignITrace( fiberTraceSet, traceIds, xCenters )
-        iTraces = np.ndarray(shape=fiberTraceSet.size(), dtype='intp')
-        for i in range( fiberTraceSet.size() ):
-            iTraces[i] = fiberTraceSet.getFiberTrace(i).getITrace()
+        fiberTraceSet.assignTraceIDs(traceIds, xCenters)
 
         myExtractTask = esTask.ExtractSpectraTask()
         aperturesToExtract = [0]
@@ -574,11 +574,9 @@ class SpectraTestCase(tests.TestCase):
             self.assertEqual(wLenTemp.shape[0], nRows)
 
             #cut off both ends of wavelengths where is no signal
-            yCenter = fiberTraceSet.getFiberTrace(i).getFiberTraceFunction().yCenter
-            yLow = fiberTraceSet.getFiberTrace(i).getFiberTraceFunction().yLow
-            yHigh = fiberTraceSet.getFiberTrace(i).getFiberTraceFunction().yHigh
-            yMin = yCenter + yLow
-            yMax = yCenter + yHigh
+            bbox = fiberTraceSet.getFiberTrace(i).getTrace().getBBox()
+            yMin = bbox.getMinY()
+            yMax = bbox.getMaxY()
             wLen = wLenTemp[ yMin + self.nRowsPrescan : yMax + self.nRowsPrescan + 1]
             wLenArr = np.ndarray(shape=wLen.shape, dtype='float32')
             for j in range(wLen.shape[0]):
@@ -630,7 +628,9 @@ def run(exit = False):
     #Quiet down loggers which are too verbose
     for logger in ["afw.image.ExposureInfo",
                    "CameraMapper",
-                   "pfs.drp.stella.FiberTraces.assignITrace",
+                   "pfs.drp.stella.createLineList",
+                   "pfs.drp.stella.FiberTrace.assignTraceID",
+                   "pfs.drp.stella.FiberTraceSet.assignTraceIDs",
                    "pfs.drp.stella.FiberTrace.calcProfile",
                    "pfs.drp.stella.FiberTrace.calcProfileSwath",
                    "pfs.drp.stella.math.ccdToFiberTraceCoordinates",

@@ -6,6 +6,7 @@
 #include "lsst/base.h"
 #include "lsst/pex/config.h"
 #include "ndarray.h"
+#include "pfs/drp/stella/utils/Utils.h"
 
 #define stringify( name ) # name
 
@@ -93,102 +94,116 @@ struct FiberTraceFunctionControl {
   }
 };
 
-struct FiberTraceFunction {
-  FiberTraceFunctionControl fiberTraceFunctionControl; /// User defined Polynomial interpolation and order, xLow, xHigh (width of fiber trace)
+struct FiberTraceFunction{
+  PTR(FiberTraceFunctionControl) fiberTraceFunctionControl; /// User defined Polynomial interpolation and order, xLow, xHigh (width of fiber trace)
   float xCenter; /// Central position of fiber trace in x
   unsigned int yCenter; /// Central position of fiber trace in y
   int yLow; /// lower limit of fiber trace relative to center (< 0)
   unsigned int yHigh; /// lower limit of fiber trace relative to center (>= 0)
-  std::vector<float> coefficients; /// polynomial coefficients of fiber trace function
+  ndarray::Array<float, 1, 1> coefficients; /// polynomial coefficients of fiber trace function
 
   FiberTraceFunction() :
-  fiberTraceFunctionControl(),
+  fiberTraceFunctionControl(new FiberTraceFunctionControl()),
   xCenter(0.),
   yCenter(0),
   yLow(0),
   yHigh(0),
-  coefficients(4) {}
+  coefficients(utils::get1DndArray(float(1))){
+  };
   
-  FiberTraceFunction(const FiberTraceFunction &ftf) :
-  fiberTraceFunctionControl(ftf.fiberTraceFunctionControl),
-  xCenter(ftf.xCenter),
-  yCenter(ftf.yCenter),
-  yLow(ftf.yLow),
-  yHigh(ftf.yHigh),
-  coefficients(ftf.coefficients) {}
+
+  FiberTraceFunction(const PTR(FiberTraceFunction) &ftf) :
+  fiberTraceFunctionControl(new FiberTraceFunctionControl(*(ftf->fiberTraceFunctionControl))),
+  xCenter(ftf->xCenter),
+  yCenter(ftf->yCenter),
+  yLow(ftf->yLow),
+  yHigh(ftf->yHigh),
+  coefficients(utils::get1DndArray(float(ftf->coefficients.getShape()[0]))){
+    coefficients.deep() = ftf->coefficients;
+    cout << "FiberTraceFunction(const PTR(FiberTraceFunction) &ftf) : coefficients = " << coefficients << endl;
+  };
   
-  ~FiberTraceFunction() {}
-  
+  ~FiberTraceFunction() {};
+
   bool isClassInvariant() const{
-    if (!fiberTraceFunctionControl.isClassInvariant()){
-      cout << "FiberTraceFunction::isClassInvariant: ERROR: fiberTraceFunctionControl is not valid! => Returning FALSE" << endl;
+    if (!fiberTraceFunctionControl->isClassInvariant()){
+      cout << "FiberTraceFunction::isClassInvariant: ERROR: fiberTraceFunctionControl is "
+              << "not valid! => Returning FALSE" << endl;
       return false;
     }
 
-    if (coefficients.size() <= fiberTraceFunctionControl.order){
-      cout << "FiberTraceFunction::isClassInvariant: ERROR: coefficients.size(=" << coefficients.size() << ") < fiberTraceFunctionControl.order(=" << fiberTraceFunctionControl.order << ") => Returning FALSE" << endl;
+    if (coefficients.getShape()[0] <= fiberTraceFunctionControl->order){
+      cout << "FiberTraceFunction::isClassInvariant: ERROR: coefficients.getShape()[0](="
+           << coefficients.getShape()[0] << ") < fiberTraceFunctionControl->order(="
+           << fiberTraceFunctionControl->order << ") => Returning FALSE" << endl;
       return false;
     }
 
     if (xCenter < 0.){
-      cout << "FiberTraceFunction::isClassInvariant: ERROR: xCenter(=" << xCenter << ") < 0 => Returning FALSE" << endl;
+      cout << "FiberTraceFunction::isClassInvariant: ERROR: xCenter(=" << xCenter
+              << ") < 0 => Returning FALSE" << endl;
       return false;
     }
 
     if (yCenter < 0.){
-      cout << "FiberTraceFunction::isClassInvariant: ERROR: yCenter(=" << yCenter << ") < 0 => Returning FALSE" << endl;
+      cout << "FiberTraceFunction::isClassInvariant: ERROR: yCenter(=" << yCenter
+              << ") < 0 => Returning FALSE" << endl;
       return false;
     }
 
-    if ((fiberTraceFunctionControl.xLow + xCenter) < 0.){
-      cout << "FiberTraceFunction::isClassInvariant: ERROR: (fiberTraceFunctionControl.xLow(=" << fiberTraceFunctionControl.xLow << ") + xCenter(=" << xCenter << ") = " << fiberTraceFunctionControl.xLow + xCenter << " < 0 => Returning FALSE" << endl;
+    if ((fiberTraceFunctionControl->xLow + xCenter) < 0.){
+      cout << "FiberTraceFunction::isClassInvariant: ERROR: (fiberTraceFunctionControl->xLow(="
+              << fiberTraceFunctionControl->xLow << ") + xCenter(=" << xCenter << ") = "
+              << fiberTraceFunctionControl->xLow + xCenter << " < 0 => Returning FALSE" << endl;
       return false;
     }
 
     if (yLow > 0.){
-      cout << "FiberTraceFunction::isClassInvariant: ERROR: (yLow(=" << yLow << ") > 0 => Returning FALSE" << endl;
+      cout << "FiberTraceFunction::isClassInvariant: ERROR: (yLow(=" << yLow
+              << ") > 0 => Returning FALSE" << endl;
       return false;
     }
 
     if (yLow + yCenter < 0.){
-      cout << "FiberTraceFunction::isClassInvariant: ERROR: (yLow(=" << yLow << ") + yCenter(=" << yCenter << ") = " << yLow + yCenter << " < 0 => Returning FALSE" << endl;
+      cout << "FiberTraceFunction::isClassInvariant: ERROR: (yLow(=" << yLow << ") + yCenter(="
+              << yCenter << ") = " << yLow + yCenter << " < 0 => Returning FALSE" << endl;
       return false;
     }
 
     if (yHigh < 0.){
-      cout << "FiberTraceFunction::isClassInvariant: ERROR: (yHigh(=" << yHigh << ") < 0 => Returning FALSE" << endl;
+      cout << "FiberTraceFunction::isClassInvariant: ERROR: (yHigh(=" << yHigh
+              << ") < 0 => Returning FALSE" << endl;
       return false;
     }
     
-    if ( double( fiberTraceFunctionControl.nPixCutLeft + fiberTraceFunctionControl.nPixCutRight )  - ( fiberTraceFunctionControl.xHigh - fiberTraceFunctionControl.xLow ) < 3. ){
-      cout << "FiberTraceFunction::isClassInvariant: ERROR: (fiberTraceFunctionControl.nPixCutLeft + fiberTraceFunctionControl.nPixCutRight  - ( fiberTraceFunctionControl.xHigh - fiberTraceFunctionControl.xLow )(=" << (fiberTraceFunctionControl.nPixCutLeft + fiberTraceFunctionControl.nPixCutRight ) - ( fiberTraceFunctionControl.xHigh - fiberTraceFunctionControl.xLow ) << ") < 3 => Returning FALSE" << endl;
+    if ( double( fiberTraceFunctionControl->nPixCutLeft + fiberTraceFunctionControl->nPixCutRight )  - ( fiberTraceFunctionControl->xHigh - fiberTraceFunctionControl->xLow ) < 3. ){
+      cout << "FiberTraceFunction::isClassInvariant: ERROR: (fiberTraceFunctionControl->nPixCutLeft + fiberTraceFunctionControl->nPixCutRight  - ( fiberTraceFunctionControl->xHigh - fiberTraceFunctionControl->xLow )(=" << (fiberTraceFunctionControl->nPixCutLeft + fiberTraceFunctionControl->nPixCutRight ) - ( fiberTraceFunctionControl->xHigh - fiberTraceFunctionControl->xLow ) << ") < 3 => Returning FALSE" << endl;
       return false;
     }
 
     return true;
-  }
   
+  };
   bool setCoefficients(ndarray::Array<float, 1, 1> const& coeffs_In){
       assert(coeffs_In.getShape()[0] > 0); // safe to cast
-      if (static_cast<size_t>(coeffs_In.getShape()[0]) != (fiberTraceFunctionControl.order + 1)) {
+      if (static_cast<size_t>(coeffs_In.getShape()[0]) != (fiberTraceFunctionControl->order + 1)) {
           cout << "FiberTraceFunction::setCoefficients: ERROR: size of coeffs_In must be order + 1" << endl;
           return false;
       }
-      coefficients.resize(fiberTraceFunctionControl.order + 1);
-      for (size_t i = 0; i < (fiberTraceFunctionControl.order + 1); ++i)
-          coefficients[i] = coeffs_In[i];
+      coefficients = ndarray::allocate(fiberTraceFunctionControl->order + 1);
+      coefficients.deep() = coeffs_In;
       return true;
-  }
+  };
   
   PTR(FiberTraceFunction) getPointer(){
     PTR(FiberTraceFunction) ptr(new FiberTraceFunction(*this));
     return ptr;
-  }
+  };
 };
 
 struct FiberTraceFunctionFindingControl {
   /// enum corresponding to legal values of interpolation string
-  LSST_CONTROL_FIELD(fiberTraceFunctionControl, FiberTraceFunctionControl, "Interpolation function and order");
+  LSST_CONTROL_FIELD(fiberTraceFunctionControl, PTR(FiberTraceFunctionControl), "Interpolation function and order");
   LSST_CONTROL_FIELD(apertureFWHM, float, "FWHM of an assumed Gaussian spatial profile for tracing the spectra");
   LSST_CONTROL_FIELD(signalThreshold, float, "Signal below this threshold is assumed zero for tracing the spectra");   // Should we use lsst::afw::detection::Threshold?
   LSST_CONTROL_FIELD(nTermsGaussFit, unsigned int, "1 to look for maximum only without GaussFit; 3 to fit Gaussian; 4 to fit Gaussian plus constant (sky), Spatial profile must be at least 5 pixels wide; 5 to fit Gaussian plus linear term (sloped sky), Spatial profile must be at least 6 pixels wide");
@@ -198,7 +213,7 @@ struct FiberTraceFunctionFindingControl {
   LSST_CONTROL_FIELD(nLost, unsigned int, "Number of consecutive times the trace is lost before aborting the tracing");
 
   FiberTraceFunctionFindingControl() :
-  fiberTraceFunctionControl(),
+  fiberTraceFunctionControl(new FiberTraceFunctionControl()),
   apertureFWHM(2.5),
   signalThreshold(10.),
   nTermsGaussFit(3),
@@ -283,6 +298,22 @@ struct FiberTraceProfileFittingControl {
         wingSmoothFactor(fiberTraceProfileFittingControl.wingSmoothFactor),
         lowerSigma(fiberTraceProfileFittingControl.lowerSigma),
         upperSigma(fiberTraceProfileFittingControl.upperSigma)
+        {}
+
+    FiberTraceProfileFittingControl(PTR(const FiberTraceProfileFittingControl)
+        const& fiberTraceProfileFittingControl) :
+        profileInterpolation(fiberTraceProfileFittingControl->profileInterpolation),
+        swathWidth(fiberTraceProfileFittingControl->swathWidth),
+        telluric(fiberTraceProfileFittingControl->telluric),
+        overSample(fiberTraceProfileFittingControl->overSample),
+        maxIterSF(fiberTraceProfileFittingControl->maxIterSF),
+        maxIterSky(fiberTraceProfileFittingControl->maxIterSky),
+        maxIterSig(fiberTraceProfileFittingControl->maxIterSig),
+        lambdaSF(fiberTraceProfileFittingControl->lambdaSF),
+        lambdaSP(fiberTraceProfileFittingControl->lambdaSP),
+        wingSmoothFactor(fiberTraceProfileFittingControl->wingSmoothFactor),
+        lowerSigma(fiberTraceProfileFittingControl->lowerSigma),
+        upperSigma(fiberTraceProfileFittingControl->upperSigma)
         {}
         
     ~FiberTraceProfileFittingControl() {}

@@ -48,27 +48,16 @@ class ExtractSpectraTask(Task):
 
         for i in range(len(traceNumbers)):
             fiberTrace = inFiberTraceSetWithProfiles.getFiberTrace(traceNumbers[i])
-            if not fiberTrace.isProfileSet():
-                raise Exception("profile not set")
-
-            # Set pixels in FiberTrace from inMaskedImage
-            if inExposure != None:
-                fiberTrace.createTrace(inMaskedImage)
-            #
-            # There is no guarantee that createTrace generates images ("trace"s) whose dimensions
-            # match the profiles.  This is a bug (PIPE2D-219); for now we'll trim the traces
-            #
-            trace = fiberTrace.getTrace()
-            width = fiberTrace.getProfile().getWidth()
-            if trace.getWidth() != width:
-                fiberTrace.setTrace(trace[:width, :])
 
             # Extract spectrum from profile
             try:
-                spectrum = fiberTrace.extractFromProfile()
+                spectrum = fiberTrace.extractFromProfile(inExposure.getMaskedImage())
             except Exception as e:
                 self.log.warn("Extraction of fibre %d failed: %s" % (fiberTrace.getITrace(), e))
                 continue
+            bbox = fiberTrace.getTrace().getBBox()
+            spectrum.setYLow(bbox.getMinY())
+            spectrum.setYHigh(bbox.getMaxY())
 
             spectrumSet.addSpectrum(spectrum)
 
