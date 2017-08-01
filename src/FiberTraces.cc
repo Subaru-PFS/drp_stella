@@ -866,7 +866,7 @@ namespace pfs { namespace drp { namespace stella {
     _profileFittingInputXMeanPerSwath.push_back(xVecMean);
     _profileFittingInputYMeanPerSwath.push_back(yVecMeanF);
 
-    math::spline<float> spline(*xVecMean, *yVecMeanF); // X must be sorted
+    math::spline<float> spline(*xVecMean, *yVecMeanF, math::spline<float>::CUBIC_NATURAL); // X must be sorted
 
     PTR(vector<float>) yOverSampledFitVec(new vector<float>(nSteps));
     _overSampledProfileFitYPerSwath.push_back(yOverSampledFitVec);
