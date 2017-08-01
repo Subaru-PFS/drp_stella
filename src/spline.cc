@@ -53,11 +53,10 @@ namespace {
 }
 
 template<typename T>
-void
-spline<T>::set_points(std::vector<T> const& x,
-                      std::vector<T> const& y,
-                      InterpolationTypes interpolationType
-                     )
+spline<T>::spline(std::vector<T> const& x,
+                  std::vector<T> const& y,
+                  InterpolationTypes interpolationType
+                 )
 {
     int const n = x.size();
     if (n < 3) {

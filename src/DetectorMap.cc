@@ -204,7 +204,6 @@ DetectorMap::_setSplines(ndarray::Array<float, 2, 1> const& xCenters,     // cen
     /*
      * loop over the fibers, setting the splines.  Note the fidx != fiberId (that's _fiberId[idx])
      */
-    math::spline<float> spline;
     for (int fidx = 0; fidx != _nFiber; ++fidx) {
         // look for finite values
         auto const wl = wavelengths[fidx];
@@ -238,11 +237,8 @@ DetectorMap::_setSplines(ndarray::Array<float, 2, 1> const& xCenters,     // cen
         /*
          * We have the arrays so we can set up the splines for each fibre
          */
-        spline.set_points(yIndices, xCenter); // first xCenter
-        _yToXCenter[fidx] = spline;           // N.b. moves/copies spline into the vector
-
-        spline.set_points(yIndices, wavelength); // then wavelength
-        _yToWavelength[fidx] = spline;           // N.b. moves/copies spline into the vector
+        _yToXCenter[fidx] = math::spline<float>(yIndices, xCenter);       // first xCenter
+        _yToWavelength[fidx] = math::spline<float>(yIndices, wavelength); // then wavelength
     }
     /*
      * Now set _xToFiberId, an array giving the fiber ID for each pixel across the centre of the chip

@@ -10,10 +10,17 @@ class spline {
 public:
     enum InterpolationTypes { CUBIC_NOTAKNOT, CUBIC_NATURAL };
 
-    void set_points(std::vector<T> const& x,                             ///< positions of knots
-                    std::vector<T> const& y,                             ///< values of function at knots
-                    InterpolationTypes interpolationType=CUBIC_NOTAKNOT  ///< spline boundary conditions
-                   );
+    spline() = default;                                        // needed as we have vectors<spline>
+    spline(std::vector<T> const& x,                            ///< positions of knots
+           std::vector<T> const& y,                            ///< values of function at knots
+           InterpolationTypes interpolationType=CUBIC_NOTAKNOT ///< spline boundary conditions
+          );
+    // That ctor disables the move ctors
+    spline(const spline &) = default;
+    spline(spline &&) = default;
+    spline& operator=(const spline &) = default;
+    spline& operator=(spline &&) = default;
+
     T operator() (T const x) const;
 private:
     std::vector<T> _x, _y;              // x,y coordinates of points
