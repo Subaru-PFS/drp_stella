@@ -49,7 +49,9 @@ def spectrumSetToPfsArm(pfsConfig, spectrumSet, visit, spectrograph, arm):
 class PfsArmIO(object):
     """A class to perform butler-based I/O for pfsArm
 
-    N.b. there's no readFits as we use pfsArm_bypass() (because it's passed a dataId)
+    N.b. there's no readFits as we use pfsArm_bypass() (because it's passed a dataId); Stop Press!
+    this isn't true as recent versions of the butler silently ignore the _bypass function if the
+    file doesn't exist; so for now there *is* a readFits that parses the filename.  Ughh.
     """
 
     def __init__(self, pfsArm):
@@ -58,6 +60,44 @@ class PfsArmIO(object):
     def writeFits(self, pathName, flags=None):
         dirName, fileName = os.path.split(pathName)
         self._pfsArm.write(dirName=dirName, fileName=fileName)
+
+    @staticmethod
+    def readFits(pathName, hdu=None, flags=None):
+        """Read a PfsArm object from pathName
+
+        Note that we need to parse the filename -- see comment at top of class
+        """
+        fileName = os.path.split(pathName)[1]
+
+        pfsArmRE = r"^pfsArm-(\d{6})-([brnm])(\d)\.fits"
+        mat = re.search(pfsArmRE, fileName)
+        if not mat:
+            #
+            # See if our RE matches the datamodel
+            #
+            v, a, s = 666, 'r', 1            
+            exampleName = PfsArm.fileNameFormat % (v, a, s)
+            mat = re.search(pfsArmRE, exampleName)
+            if not mat:
+                # if doesn't match
+                raise RuntimeError("filename %s doesn't match pfsArm pattern, "
+                                   "which doesn't match PfsArm.fileNameFormat" % fileName)
+
+            raise RuntimeError("filename %s doesn't match pfsArm pattern" % fileName)
+        #
+        # All is well; proceed to read the file
+        #
+        visit, arm, spectrograph = mat.groups()
+        visit = int(visit)
+        spectrograph = int(spectrograph)
+        
+        pfsArm = PfsArm(visit, spectrograph, arm)
+        try:
+            pfsArm.read(dirName=dirName, setPfsConfig=False)
+        except Exception as e:
+            pass
+        else:
+            return pfsArm
 
 #-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
