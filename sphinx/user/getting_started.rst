@@ -233,7 +233,7 @@ Now for using the pipeline.
   `$DRP_STELLA_DATA_DIR/tests/data/PFS/pfsState`. Please copy this directory into your
   `$PFS_DATA` directory:
 
-    cp -pr $DRP_STELLA_DATA_DIR/tests/data/PFS/pfsState $PFS_DATA_DIR/
+    cp -pr $DRP_STELLA_DATA_DIR/tests/data/PFS/pfsState $PFS_DATA/
 
 - We can now copy/symlink the raw images into the repository and ingest them into a
   registry stored in :file:`$PFS_DATA/registry.sqlite3`.
