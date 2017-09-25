@@ -45,7 +45,7 @@ namespace pfs { namespace drp { namespace stella {
      * @param[in] nPixCutRight_In   :: number of pixels to cut off right of trace
      **/
     template< typename T, typename U >
-    ndarray::Array<size_t, 2, 1> calcMinCenMax(ndarray::Array<T, 1, 1> const& xCenters_In,
+    ndarray::Array<size_t, 2, -2> calcMinCenMax(ndarray::Array<T, 1, 1> const& xCenters_In,
                                                U const xHigh_In,
                                                U const xLow_In,
                                                int const nPixCutLeft_In = 0,

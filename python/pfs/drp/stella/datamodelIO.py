@@ -41,7 +41,6 @@ def spectrumSetToPfsArm(pfsConfig, spectrumSet, visit, spectrograph, arm):
     pfsArm.mask = spectrumSet.getAllMasks().T
     pfsArm.lam = spectrumSet.getAllWavelengths().T
     pfsArm.lam[pfsArm.lam == 0] = np.nan
-    pfsArm.lam /= 10.0                  # convert from AA to nm
     pfsArm.sky = spectrumSet.getAllSkies().T
 
     return pfsArm
@@ -67,7 +66,7 @@ class PfsArmIO(object):
 
         Note that we need to parse the filename -- see comment at top of class
         """
-        fileName = os.path.split(pathName)[1]
+        dirName, fileName = os.path.split(pathName)
 
         pfsArmRE = r"^pfsArm-(\d{6})-([brnm])(\d)\.fits"
         mat = re.search(pfsArmRE, fileName)

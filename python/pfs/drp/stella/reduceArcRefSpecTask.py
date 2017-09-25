@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 from lsst.pex.config import Config, Field
-from lsst.pipe.base import Struct, TaskRunner, ArgumentParser, CmdLineTask
+from lsst.pipe.base import ArgumentParser
 from lsst.utils import getPackageDir
 import pfs.drp.stella as drpStella
 import pfs.drp.stella.extractSpectraTask as esTask
@@ -76,11 +76,11 @@ class ReduceArcRefSpecTask(ReduceArcTask):
 
             # construct fiberTraceSet from pfsFiberTrace
             try:
-                fiberTrace = arcRef.get('fibertrace', immediate=True)
+                pfsFiberTrace = arcRef.get('fibertrace', immediate=True)
             except Exception, e:
                 raise RuntimeError("Unable to load fibertrace for %s from %s: %s" %
                                    (arcRef.dataId, arcRef.get('fibertrace_filename')[0], e))
-            flatFiberTraceSet = makeFiberTraceSet(fiberTrace)
+            flatFiberTraceSet = makeFiberTraceSet(pfsFiberTrace)
 
             self.log.debug('flatFiberTraceSet.size() = %d' % flatFiberTraceSet.size())
 
@@ -133,23 +133,14 @@ class ReduceArcRefSpecTask(ReduceArcTask):
             for i in range(spectrumSetFromProfile.size()):
                 spec = spectrumSetFromProfile.getSpectrum(i)
                 specSpec = spectrumSetFromProfile.getSpectrum(i).getSpectrum()
-                self.log.debug('calibrating spectrum %d: xCenter = %f' % (i,flatFiberTraceSet.getFiberTrace(i).getFiberTraceFunction().xCenter))
                 self.log.debug('specSpec.shape = %d' % specSpec.shape)
                 self.log.debug('lineListArr.shape = [%d,%d]' % (lineListArr.shape[0], lineListArr.shape[1]))
-                self.log.debug('type(specSpec) = %s: <%s>' % (type(specSpec),type(specSpec[0])))
-                self.log.debug('type(refSpecArr) = %s: <%s>' % (type(refSpecArr),type(refSpecArr[0])))
-                self.log.debug('type(lineListArr) = %s: <%s>' % (type(lineListArr),type(lineListArr[0][0])))
                 result = drpStella.stretchAndCrossCorrelateSpec(specSpec, refSpecArr, lineListArr, dispCorControl)
 
-                self.log.debug('type(result.lineList) = %s: <%s>: <%s>' % (type(result.lineList),type(result.lineList[0]),type(result.lineList[0][0])))
-                self.log.debug('type(spectrumSetFromProfile.getSpectrum(i)) = %s: <%s>: <%s>' % (type(spectrumSetFromProfile.getSpectrum(i)),type(spectrumSetFromProfile.getSpectrum(i).getSpectrum()),type(spectrumSetFromProfile.getSpectrum(i).getSpectrum()[0])))
                 for j in range(result.lineList.shape[0]):
                     self.log.debug('result.lineList[%d][*] = %f, %f' % (j,result.lineList[j][0],result.lineList[j][1]))
                 spec.identify(result.lineList, dispCorControl, 8)
-                if spectrumSetFromProfile.setSpectrum(i, spec ):
-                    self.log.debug('setSpectrum for spectrumSetFromProfile[%d] done' % i)
-                else:
-                    self.log.warn('setSpectrum for spectrumSetFromProfile[%d] failed' % i)
+                spectrumSetFromProfile.setSpectrum(i, spec )
                 for j in range(specSpec.shape[0]):
                     self.log.debug('spectrum %d: spec.getWavelength()[%d] = %f' % (i,j,spec.getWavelength()[j]))
 

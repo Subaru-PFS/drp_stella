@@ -11,45 +11,41 @@ export PFS_DATA_DIR=$HOME/PFS/Data
 export whoami=$(whoami)
 
 rm -rf $PFS_DATA_DIR
-mkdir -p $PFS_DATA_DIR/CALIB
+mkdir -p $PFS_DATA_DIR
 
 echo "lsst.obs.pfs.PfsMapper" > $PFS_DATA_DIR/_mapper
 
 ingestImages.py $PFS_DATA_DIR $DRP_STELLA_DATA_DIR/tests/data/raw/*.fits --mode link &&
-cp -r $DRP_STELLA_DATA_DIR/tests/data/PFS/pfsState $PFS_DATA_DIR &&
-
 #-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
-
-constructBias.py $PFS_DATA_DIR --rerun $whoami/calibs \
+constructBias.py $PFS_DATA_DIR --calib $PFS_DATA_DIR/XCALIB --rerun $whoami/calib \
                  --id visit=7251..7255 \
-                 --calibId arm=r spectrograph=1 \
-                 --batch-type none &&
-genCalibRegistry.py --root $PFS_DATA_DIR/CALIB --validity 360 &&
+                 --batch-type none -j 4 --clobber-versions --clobber-config &&
+ingestCalibs.py $PFS_DATA_DIR --output $PFS_DATA_DIR/XCALIB --validity 1800 \
+        $PFS_DATA_DIR/rerun/$whoami/calib/BIAS/*.fits --mode move &&
 
-constructDark.py $PFS_DATA_DIR --rerun $whoami/calibs \
+constructDark.py $PFS_DATA_DIR --calib $PFS_DATA_DIR/XCALIB --rerun $whoami/calib \
                  --id visit=7291..7293 \
-                 --calibId arm=r spectrograph=1 \
-                 --batch-type none &&
-genCalibRegistry.py --root $PFS_DATA_DIR/CALIB --validity 360 &&
+                 --batch-type none -j 4 --clobber-versions --clobber-config &&
+ingestCalibs.py $PFS_DATA_DIR --output $PFS_DATA_DIR/XCALIB --validity 1800 \
+        $PFS_DATA_DIR/rerun/$whoami/calib/DARK/*.fits --mode move &&
 
-constructFiberTrace.py $PFS_DATA_DIR --rerun $whoami/calibs \
-                 --id visit=104 \
-                 --calibId arm=r spectrograph=1 \
-                 --batch-type none &&
-genCalibRegistry.py --root $PFS_DATA_DIR/CALIB --validity 360 &&
-
-constructFiberFlat.py $PFS_DATA_DIR --rerun $whoami/calibs \
+constructFiberFlat.py $PFS_DATA_DIR --calib $PFS_DATA_DIR/XCALIB --rerun $whoami/calib \
                  --id visit=104..112 \
-                 --calibId arm=r spectrograph=1 \
-                 --batch-type none &&
-genCalibRegistry.py --root $PFS_DATA_DIR/CALIB --validity 360 &&
+                 --batch-type none -j 4 --clobber-versions --clobber-config &&
+ingestCalibs.py $PFS_DATA_DIR --output $PFS_DATA_DIR/XCALIB --validity 1800 \
+        $PFS_DATA_DIR/rerun/$whoami/calib/FLAT/*.fits --mode move &&
 
+constructFiberTrace.py $PFS_DATA_DIR --calib $PFS_DATA_DIR/XCALIB --rerun $whoami/calib \
+                 --id visit=104 \
+                 --batch-type none -j 4 --clobber-versions --clobber-config &&
+ingestCalibs.py $PFS_DATA_DIR --output $PFS_DATA_DIR/XCALIB --validity 1800 \
+        $PFS_DATA_DIR/rerun/$whoami/calib/FIBERTRACE/*.fits --mode move &&
 #-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+#
+# Use our new calibs
+#
+ln -s $PFS_DATA_DIR/XCALIB $PFS_DATA_DIR/CALIB
+#-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+detrend.py $PFS_DATA_DIR --rerun $whoami/tmp -c isr.doFlat=False --id visit=103 --clobber-versions --clobber-config &&
 
-constructArc.py $PFS_DATA_DIR --rerun $whoami/calibs \
-                 --id visit=103 \
-                 --calibId arm=r spectrograph=1 \
-                 --batch-type none &&
-genCalibRegistry.py --root $PFS_DATA_DIR/CALIB --validity 360 &&
-
-reduceArc.py $PFS_DATA_DIR --rerun $whoami/tmp --id visit=103
+reduceArc.py $PFS_DATA_DIR --rerun $whoami/tmp --id visit=103 --clobber-versions --clobber-config

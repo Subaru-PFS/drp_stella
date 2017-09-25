@@ -15,7 +15,7 @@ namespace stella {
 namespace math {
 
 template< typename T, typename U >
-ndarray::Array<size_t, 2, 1> calcMinCenMax( ndarray::Array<T, 1, 1> const& xCenters_In,
+ndarray::Array<size_t, 2, -2> calcMinCenMax( ndarray::Array<T, 1, 1> const& xCenters_In,
                                             U const xHigh_In,
                                             U const xLow_In,
                                             int const nPixCutLeft_In,
@@ -26,7 +26,7 @@ ndarray::Array<size_t, 2, 1> calcMinCenMax( ndarray::Array<T, 1, 1> const& xCent
 
   ndarray::Array<size_t, 1, 1> floor = pfs::drp::stella::math::floor(tempCenter,
                                                                      size_t(0));
-  ndarray::Array<size_t, 2, 2> minCenMax_Out = ndarray::allocate(xCenters_In.getShape()[0], 3);
+  ndarray::Array<size_t, 2, -2> minCenMax_Out = ndarray::allocate(xCenters_In.getShape()[0], 3);
   minCenMax_Out[ndarray::view()()] = 0;
 
   minCenMax_Out[ndarray::view()(1)] = floor;
@@ -1598,14 +1598,16 @@ ndarray::Array< T, 1, 1 > interPol( ndarray::Array< T, 1, 1 > const& VVecArr,
   cout << "CFits::InterPol(D_A1_V = " << VVecArr << ", D_A1_X = " << XVecArr << ", D_A1_U = " << UVecArr << ", CS_A1_In) Started" << endl;
 #endif
 
-  int M = VVecArr.getShape()[ 0 ];
+  const int M = VVecArr.getShape()[ 0 ];
 #ifdef __DEBUG_INTERPOL__
   cout << "CFits::InterPol(D_A1_V, D_A1_X, D_A1_U, CS_A1_In): M set to " << M << endl;
 #endif
 
   if ( XVecArr.getShape()[ 0 ] != M ) {
-    cout << "CFits::InterPol: ERROR: XVecArr and VVecArr must have same # of elements!" << endl;
-    exit(EXIT_FAILURE);
+      string message("pfs::drp::stella::math::interPol: XVecArr and VVecArr must have same # of elements! ");
+      message += to_string(XVecArr.getShape()[0]) + " != " + to_string(M);
+      cout << message << endl;
+      throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
   }
   ndarray::Array< int, 1, 1 > SVecArr = valueLocate(XVecArr, UVecArr);
 #ifdef __DEBUG_INTERPOL__
@@ -2051,7 +2053,7 @@ template int lastIndexWithZeroValueBefore( ndarray::Array<int, 1, 1> const& vec_
                                            const int startPos_In );
 template ndarray::Array<float, 1, 1> moment( const ndarray::Array<float, 1, 1> &D_A1_Arr_In, int I_MaxMoment_In );
 template std::vector<int> sortIndices( const std::vector<float> &vec_In );
-template ndarray::Array<size_t, 2, 1> calcMinCenMax( ndarray::Array<float, 1, 1> const&, float const, float const, int const, int const );
+template ndarray::Array<size_t, 2, -2> calcMinCenMax( ndarray::Array<float, 1, 1> const&, float const, float const, int const, int const );
 }/// end namespace math
 }
 }
