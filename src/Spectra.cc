@@ -349,9 +349,8 @@ Spectrum<ImageT, MaskT, VarianceT>::setNCCDRows(const std::size_t nCCDRows)
 }
 
 template< typename ImageT, typename MaskT, typename VarianceT >
-template< typename T >
 ndarray::Array<float, 1, 1 >
-Spectrum<ImageT, MaskT, VarianceT>::hIdentify( ndarray::Array< T, 2, 1 > const& lineList )
+Spectrum<ImageT, MaskT, VarianceT>::hIdentify( ndarray::Array< float, 2, 1 > const& lineList )
 {
   LOG_LOGGER _log = LOG_GET("pfs.drp.stella.Spectra.identify");
   ///for each line in line list, find maximum in spectrum and fit Gaussian
@@ -504,9 +503,8 @@ Spectrum<ImageT, MaskT, VarianceT>::hIdentify( ndarray::Array< T, 2, 1 > const& 
 }
 
 template< typename ImageT, typename MaskT, typename VarianceT >
-template< typename T >
 void
-Spectrum<ImageT, MaskT, VarianceT>::identify( ndarray::Array< T, 2, 1 > const& lineList,
+Spectrum<ImageT, MaskT, VarianceT>::identify( ndarray::Array< float, 2, 1 > const& lineList,
                                                                                      DispCorControl const& dispCorControl,
                                                                                      std::size_t nLinesCheck ){
     LOG_LOGGER _log = LOG_GET("pfs.drp.stella.Spectra.identify");
@@ -1154,9 +1152,6 @@ namespace math {
  * Explicit instantiations
  */
 template class Spectrum<float, lsst::afw::image::MaskPixel, float>;
-template void Spectrum<float, lsst::afw::image::MaskPixel, float>::identify(ndarray::Array<float, 2, 1> const&,
-                                                                            DispCorControl const&,
-                                                                            std::size_t);
 template class SpectrumSet<float, lsst::afw::image::MaskPixel, float>;
                 
 }}}
