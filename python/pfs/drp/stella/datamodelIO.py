@@ -41,7 +41,7 @@ def spectrumSetToPfsArm(pfsConfig, spectrumSet, visit, spectrograph, arm):
     pfsArm.mask = spectrumSet.getAllMasks().T
     pfsArm.lam = spectrumSet.getAllWavelengths().T
     pfsArm.lam[pfsArm.lam == 0] = np.nan
-    pfsArm.sky = spectrumSet.getAllSkies().T
+    pfsArm.sky = np.zeros_like(pfsArm.flux)
 
     return pfsArm
 
