@@ -25,7 +25,7 @@ class FiberTrace {
     typedef lsst::afw::image::Image<ImageT> Image;
     typedef lsst::afw::image::Mask<MaskT> Mask;
     typedef lsst::afw::image::Image<VarianceT> Variance;
-    typedef Spectrum<ImageT, MaskT, VarianceT, VarianceT> SpectrumT;
+    typedef Spectrum<ImageT, MaskT, VarianceT> SpectrumT;
 
 
     /** @brief Class Constructors and Destructor
@@ -206,7 +206,7 @@ class FiberTraceSet {
   public:
     typedef lsst::afw::image::MaskedImage<ImageT, MaskT, VarianceT> MaskedImageT;
     typedef FiberTrace<ImageT, MaskT, VarianceT> FiberTraceT;
-    typedef Spectrum<ImageT, MaskT, VarianceT, VarianceT> SpectrumT;
+    typedef Spectrum<ImageT, MaskT, VarianceT> SpectrumT;
     typedef std::vector<PTR(FiberTraceT)> Collection;
 
     /**

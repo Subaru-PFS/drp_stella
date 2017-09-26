@@ -88,11 +88,11 @@ namespace pfs { namespace drp { namespace stella {
   }
 
   template<typename ImageT, typename MaskT, typename VarianceT>
-  PTR(Spectrum<ImageT, MaskT, VarianceT, VarianceT>) FiberTrace<ImageT, MaskT, VarianceT>::extractSum(
+  PTR(Spectrum<ImageT, MaskT, VarianceT>) FiberTrace<ImageT, MaskT, VarianceT>::extractSum(
     PTR(const MaskedImageT) const& spectrumImage)
   {
-    PTR( Spectrum<ImageT, MaskT, VarianceT, VarianceT> ) spectrum(
-            new Spectrum< ImageT, MaskT, VarianceT, VarianceT >(
+    PTR( Spectrum<ImageT, MaskT, VarianceT> ) spectrum(
+            new Spectrum< ImageT, MaskT, VarianceT >(
             _trace->getImage()->getHeight(), _iTrace ) );
     ndarray::Array<ImageT, 1, 1> spec = ndarray::allocate(_trace->getImage()->getHeight());
     afwImage::Mask<MaskT> mask(_trace->getImage()->getHeight(), 1);
@@ -131,7 +131,7 @@ namespace pfs { namespace drp { namespace stella {
   }
 
   template<typename ImageT, typename MaskT, typename VarianceT>
-  PTR( Spectrum<ImageT, MaskT, VarianceT, VarianceT> ) FiberTrace<ImageT, MaskT, VarianceT>::extractFromProfile(
+  PTR( Spectrum<ImageT, MaskT, VarianceT> ) FiberTrace<ImageT, MaskT, VarianceT>::extractFromProfile(
     PTR(const MaskedImageT) const& spectrumImage)
   {
     LOG_LOGGER _log = LOG_GET("pfs.drp.stella.FiberTrace.extractFromProfile");
@@ -148,10 +148,7 @@ namespace pfs { namespace drp { namespace stella {
     for (auto itRow = US_A2_MaskArray.begin(); itRow != US_A2_MaskArray.end(); ++itRow, ++itRowBin){
         auto itColBin = itRowBin->begin();
         for (auto itCol = itRow->begin(); itCol != itRow->end(); ++itCol, ++itColBin){
-            if (*itColBin & ftMask)
-                *itCol = 1;
-            else
-                *itCol = 0;
+            *itCol = (*itColBin & ftMask) ? 1 : 0;
         }
     }
     LOGLS_TRACE(_log, "_iTrace = " << _iTrace << ": _trace->getWidth() = " << width);
@@ -227,8 +224,8 @@ namespace pfs { namespace drp { namespace stella {
       ::pfs::drp::stella::utils::WriteFits(&D_A2_CCDArray, S_MaskFinalOut);
     #endif
 
-    PTR( Spectrum<ImageT, MaskT, VarianceT, VarianceT> ) spectrum(
-            new Spectrum< ImageT, MaskT, VarianceT, VarianceT >(_trace->getImage()->getHeight()));
+    PTR( Spectrum<ImageT, MaskT, VarianceT> ) spectrum(
+            new Spectrum< ImageT, MaskT, VarianceT >(_trace->getImage()->getHeight()));
     LOGLS_TRACE(_log, "_iTrace = " << _iTrace << ": D_A1_SP = " << D_A1_SP);
     LOGLS_TRACE(_log, "_iTrace = " << _iTrace << ": D_A2_Sigma_Fit = " << D_A2_Sigma_Fit);
     LOGLS_TRACE(_log, "_iTrace = " << _iTrace << ": P_D_A2_Sigma_Fit = " << *P_D_A2_Sigma_Fit);
@@ -323,7 +320,7 @@ namespace pfs { namespace drp { namespace stella {
 
   /// Return shared pointer to an image containing the reconstructed 2D spectrum of the FiberTrace
   template<typename ImageT, typename MaskT, typename VarianceT>
-  PTR( afwImage::Image< ImageT > ) FiberTrace<ImageT, MaskT, VarianceT>::getReconstructed2DSpectrum(const Spectrum<ImageT, MaskT, VarianceT, VarianceT> & spectrum) const{
+  PTR( afwImage::Image< ImageT > ) FiberTrace<ImageT, MaskT, VarianceT>::getReconstructed2DSpectrum(const Spectrum<ImageT, MaskT, VarianceT> & spectrum) const{
     ndarray::Array<ImageT, 2, 1> F_A2_Rec = ndarray::allocate(_trace->getImage()->getHeight(),
                                                               _trace->getImage()->getWidth());
     auto itRec = F_A2_Rec.begin();

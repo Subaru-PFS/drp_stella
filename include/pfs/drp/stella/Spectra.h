@@ -12,13 +12,12 @@ namespace pfs { namespace drp { namespace stella {
  */
 template<typename PixelT,
          typename MaskT=lsst::afw::image::MaskPixel,
-         typename VarianceT=lsst::afw::image::VariancePixel,
-         typename WavelengthT=lsst::afw::image::VariancePixel>
+         typename VarianceT=lsst::afw::image::VariancePixel>
 class Spectrum {
   public:
     typedef ndarray::Array<PixelT, 1, 1> SpectrumVector;
     typedef ndarray::Array<VarianceT, 1, 1> VarianceVector;
-    typedef ndarray::Array<WavelengthT, 1, 1> WavelengthVector;
+    typedef ndarray::Array<float, 1, 1> WavelengthVector;
     typedef ndarray::Array<VarianceT, 2, 1> CovarianceMatrix;
     typedef lsst::afw::image::Mask<MaskT> Mask;
     typedef ndarray::Array<float, 1, 1> Coefficients;
@@ -173,12 +172,11 @@ class Spectrum {
  */
 template <typename ImageT,
           typename MaskT=lsst::afw::image::MaskPixel,
-          typename VarianceT=lsst::afw::image::VariancePixel,
-          typename WavelengthT=lsst::afw::image::VariancePixel>
+          typename VarianceT=lsst::afw::image::VariancePixel>
 class SpectrumSet
 {
   public:
-    typedef Spectrum<ImageT, MaskT, VarianceT, WavelengthT> SpectrumT;
+    typedef Spectrum<ImageT, MaskT, VarianceT> SpectrumT;
     typedef std::vector<PTR(SpectrumT)> Spectra;
 
     /// Class Constructors and Destructor
