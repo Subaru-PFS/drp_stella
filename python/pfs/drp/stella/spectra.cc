@@ -28,10 +28,6 @@ void declareSpectrum(py::module &mod) {
     cls.def_property("spectrum", (typename Class::SpectrumVector (Class::*)()) &Class::getSpectrum,
                              &Class::setSpectrum);
 
-    cls.def("getSky", (typename Class::SpectrumVector (Class::*)()) &Class::getSky);
-    cls.def("setSky", &Class::setSpectrum, "sky"_a);
-    cls.def_property("sky", (typename Class::SpectrumVector (Class::*)()) &Class::getSky, &Class::setSky);
-
     cls.def("getVariance", (typename Class::VarianceVector (Class::*)()) &Class::getVariance);
     cls.def("setVariance", &Class::setVariance, "variance"_a);
     cls.def_property("variance", (typename Class::VarianceVector (Class::*)()) &Class::getVariance,
@@ -120,7 +116,6 @@ void declareSpectrumSet(py::module &mod) {
     cls.def("getAllWavelengths", &Class::getAllWavelengths);
     cls.def("getAllDispersions", &Class::getAllDispersions);
     cls.def("getAllMasks", &Class::getAllMasks);
-    cls.def("getAllSkies", &Class::getAllSkies);
     cls.def("getAllVariances", &Class::getAllVariances);
     cls.def("getAllCovars", &Class::getAllCovars);
 

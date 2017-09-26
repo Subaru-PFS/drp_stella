@@ -287,29 +287,6 @@ class FiberTraceSet {
      */
     void sortTracesByXCenter();
 
-    ///TODO:
-    /// Extract spectrum and background for one slit spectrum
-    /// Returns vector of size 2 (0: Spectrum, 1: Background)
-    /// PTR(std::vector<PTR(Spectrum<ImageT, MaskT, VarianceT, ImageT>)>) extractSpectrumAndBackground(const std::size_t traceNumber)
-
-    ///TODO:
-    /// Extract spectrum and background for all slit spectra
-    /// Returns vector of size 2 (0: Spectrum, 1: Background)
-    /// PTR(std::vector<PTR(SpectrumSet<ImageT, MaskT, VarianceT, ImageT>)>) extractSpectrumAndBackground()
-    
-    /**
-     * @brief 'optimally' extract 1D spectrum from previously provided profile
-     * @param traceNumber : 'optimally' extract _traces[traceNumber] from its profile
-     */
-    PTR(SpectrumT) extractTraceNumberFromProfile(PTR(const MaskedImageT) const& spectrumImage,
-                                                 const std::size_t traceNumber);
-
-    /**
-     * @brief 'optimally' extract 1D spectra from their profiles
-     */
-    PTR(SpectrumSet<ImageT, MaskT, VarianceT, VarianceT>) extractAllTracesFromProfile(
-            PTR(const MaskedImageT) const& spectrumImage);
-
     /**
      * @brief: assign trace number to set of FiberTraces from x and y center by comparing
      *         the center position to the center positions of the zemax model

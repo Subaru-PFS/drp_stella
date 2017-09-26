@@ -40,15 +40,9 @@ class Spectrum {
     SpectrumVector getSpectrum() { return _spectrum; }
     SpectrumVector const getSpectrum() const { return _spectrum; }
 
-    /// Return a shared pointer to the sky spectrum
-    SpectrumVector getSky() { return _sky; }
-    SpectrumVector const getSky() const { return _sky; }
-    
     /// Set the spectrum (deep copy)
     void setSpectrum(SpectrumVector const& spectrum);
 
-    void setSky(SpectrumVector const& sky );
-    
     /// Return a copy of the variance of this spectrum
     VarianceVector getVariance() const;
     VarianceVector getVariance();
@@ -157,7 +151,6 @@ class Spectrum {
     std::size_t _length;
     std::size_t _nCCDRows;
     SpectrumVector _spectrum;
-    SpectrumVector _sky;
     Mask _mask;
     CovarianceMatrix _covar;
     WavelengthVector _wavelength;
@@ -276,11 +269,6 @@ class SpectrumSet
      * @brief Return all masks in an array [nCCDRows x nFibers]
      */
     ndarray::Array< int, 2, 1> getAllMasks() const;
-    
-    /**
-     * @brief Return all skies in an array [nCCDRows x nFibers]
-     */
-    ndarray::Array<float, 2, 1> getAllSkies() const;
     
     /**
      * @brief Return all variances in an array [nCCDRows x nFibers]

@@ -67,9 +67,6 @@ void declareFiberTraceSet(py::module &mod)
     cls.def("addFiberTrace", &Class::addFiberTrace, "trace"_a, "index"_a=0);
     cls.def("getTraces", [](Class const& self) { return *self.getTraces(); });
     cls.def("sortTracesByXCenter", &Class::sortTracesByXCenter);
-    cls.def("extractTraceNumberFromProfile", &Class::extractTraceNumberFromProfile,
-            "spectrumImage"_a, "index"_a);
-    cls.def("extractAllTracesFromProfile", &Class::extractAllTracesFromProfile, "spectrumImage"_a);
 }
 
 

@@ -21,8 +21,6 @@ Spectrum<ImageT, MaskT, VarianceT, WavelengthT>::Spectrum(size_t length, size_t 
 {
   _spectrum = ndarray::allocate( length );
   _spectrum.deep() = 0.;
-  _sky = ndarray::allocate( length );
-  _sky.deep() = 0.;
   _covar = ndarray::allocate( length, 3 );
   _covar.deep() = 0.;
   _wavelength = ndarray::allocate( length );
@@ -37,18 +35,6 @@ Spectrum<ImageT, MaskT, VarianceT, WavelengthT>::Spectrum(size_t length, size_t 
   _yLow = 0;
   _yHigh = length - 1;
   _nCCDRows = length;
-}
-
-template<typename ImageT, typename MaskT, typename VarianceT, typename WavelengthT>
-void Spectrum<ImageT, MaskT, VarianceT, WavelengthT>::setSky( ndarray::Array<ImageT, 1, 1> const& sky )
-{
-  /// Check length of input spectrum
-  if (static_cast<size_t>(sky.getShape()[0]) != _length){
-    string message("pfsDRPStella::Spectrum::setSky: ERROR: spectrum->size()=");
-    message += to_string(sky.getShape()[0]) + string(" != _length=") + to_string(_length);
-    throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
-  }
-  _sky.deep() = sky;
 }
 
 template<typename ImageT, typename MaskT, typename VarianceT, typename WavelengthT>
@@ -201,33 +187,6 @@ ndarray::Array< int, 2, 1 > SpectrumSet<ImageT, MaskT, VarianceT, WavelengthT>::
 }
 
 template<typename ImageT, typename MaskT, typename VarianceT, typename WavelengthT>
-ndarray::Array< float, 2, 1 > SpectrumSet<ImageT, MaskT, VarianceT, WavelengthT>::getAllSkies() const{
-  int nFibers = int( size() );
-  int nCCDRows = getSpectrum( 0 )->getNCCDRows();
-  /// allocate memory for the array
-  ndarray::Array< float, 2, 1 > sky = ndarray::allocate( nCCDRows, nFibers );
-
-  sky.deep() = 0.;
-
-  for ( int iFiber = 0; iFiber < _spectra->size(); ++iFiber ){
-    PTR( Spectrum< ImageT, MaskT, VarianceT, WavelengthT > ) spectrum = _spectra->at( iFiber );
-
-    int yLow = spectrum->getYLow();
-    int yHigh = spectrum->getYHigh();
-    if ( yHigh - yLow + 1 != spectrum->getSpectrum().getShape()[ 0 ] ){
-      cout << "SpectrumSet::getAllSkies: yHigh=" << yHigh << " - yLow=" << yLow << " + 1 (=" << yHigh - yLow + 1 << ") = " << yHigh-yLow + 1 << " != spectrum->getSpectrum().getShape()[ 0 ] = " << spectrum->getSpectrum().getShape()[ 0 ] << endl;
-      throw LSST_EXCEPT(
-        lsst::pex::exceptions::LogicError,
-        "SpectrumSet::getAllSkies: spectrum does not have expected shape"
-      );
-    }
-
-    sky[ ndarray::view( yLow, yHigh + 1 )( iFiber ) ] = spectrum->getSky()[ ndarray::view() ];
-  }
-  return sky;
-}
-
-template<typename ImageT, typename MaskT, typename VarianceT, typename WavelengthT>
 ndarray::Array< float, 2, 1 > SpectrumSet<ImageT, MaskT, VarianceT, WavelengthT>::getAllVariances() const{
   int nFibers = int( size() );
   int nCCDRows = getSpectrum( 0 )->getNCCDRows();
@@ -292,7 +251,6 @@ Spectrum< ImageT, MaskT, VarianceT, WavelengthT >::Spectrum( Spectrum< ImageT, M
         _length( spectrum.getLength() ),
         _nCCDRows( spectrum.getNCCDRows() ),
         _spectrum( spectrum.getSpectrum() ),
-        _sky( spectrum.getSky() ),
         _mask( spectrum.getMask(), deep ),
         _covar( spectrum.getCovar() ),
         _wavelength( spectrum.getWavelength() ),
@@ -308,7 +266,6 @@ Spectrum< ImageT, MaskT, VarianceT, WavelengthT >::Spectrum( Spectrum< ImageT, M
     if ( deep ){
         /// allocate memory
         _spectrum = ndarray::allocate(spectrum.getSpectrum().getShape()[0]);
-        _sky = ndarray::allocate(spectrum.getSky().getShape()[0]);
         _covar = ndarray::allocate(spectrum.getCovar().getShape());
         _wavelength = ndarray::allocate(spectrum.getWavelength().getShape()[0]);
         _dispersion = ndarray::allocate(spectrum.getDispersion().getShape()[0]);
@@ -316,7 +273,6 @@ Spectrum< ImageT, MaskT, VarianceT, WavelengthT >::Spectrum( Spectrum< ImageT, M
 
         /// copy variables
         _spectrum.deep() = spectrum.getSpectrum();
-        _sky.deep() = spectrum.getSky();
         _covar.deep() = spectrum.getCovar();
         _wavelength.deep() = spectrum.getWavelength();
         _dispersion.deep() = spectrum.getDispersion();
@@ -344,7 +300,6 @@ Spectrum< ImageT, MaskT, VarianceT, WavelengthT >::Spectrum( Spectrum< ImageT, M
 {
     /// allocate memory
     _spectrum = ndarray::allocate(spectrum.getSpectrum().getShape()[0]);
-    _sky = ndarray::allocate(spectrum.getSky().getShape()[0]);
     _covar = ndarray::allocate(spectrum.getCovar().getShape());
     _wavelength = ndarray::allocate(spectrum.getWavelength().getShape()[0]);
     _dispersion = ndarray::allocate(spectrum.getDispersion().getShape()[0]);
@@ -352,7 +307,6 @@ Spectrum< ImageT, MaskT, VarianceT, WavelengthT >::Spectrum( Spectrum< ImageT, M
 
     /// copy variables
     _spectrum.deep() = spectrum.getSpectrum();
-    _sky.deep() = spectrum.getSky();
     _covar.deep() = spectrum.getCovar();
     _wavelength.deep() = spectrum.getWavelength();
     _dispersion.deep() = spectrum.getDispersion();

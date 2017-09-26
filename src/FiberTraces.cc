@@ -234,17 +234,14 @@ namespace pfs { namespace drp { namespace stella {
     LOGLS_TRACE(_log, "_iTrace = " << _iTrace << ": P_D_A2_Sigma_Fit = " << *P_D_A2_Sigma_Fit);
     ndarray::Array< ImageT, 1, 1 > spectrumSpecOut = ndarray::allocate(_trace->getImage()->getHeight());
     ndarray::Array< VarianceT, 1, 1 > spectrumVarOut = ndarray::allocate(_trace->getImage()->getHeight());
-    ndarray::Array< ImageT, 1, 1 > backgroundSpecOut = ndarray::allocate(_trace->getImage()->getHeight());
     ndarray::Array< VarianceT, 1, 1 > backgroundVarOut = ndarray::allocate(_trace->getImage()->getHeight());
     for (int i = 0; i < height; i++) {
       spectrumSpecOut[ i ] = ImageT( D_A1_SP[ i ] );
       spectrumVarOut[ i ] = VarianceT( pow( D_A2_Sigma_Fit[ i ][ 0 ], 2) );
-      backgroundSpecOut[ i ] = ImageT( D_A1_Sky[ i ] );
       backgroundVarOut[ i ] = VarianceT( pow( D_A2_Sigma_Fit[ i ][ 1 ], 2 ) );
     }
     spectrum->setSpectrum(spectrumSpecOut);
     spectrum->setVariance(spectrumVarOut);
-    spectrum->setSky(backgroundSpecOut);
 
     LOGLS_TRACE(_log, "_iTrace = " << _iTrace << ": for loop finished");
     spectrum->setNCCDRows(height);
@@ -1187,33 +1184,6 @@ namespace pfs { namespace drp { namespace stella {
       }
     #endif
     return;
-  }
-
-  template<typename ImageT, typename MaskT, typename VarianceT>
-  PTR( Spectrum<ImageT, MaskT, VarianceT, VarianceT> ) FiberTraceSet<
-    ImageT,
-    MaskT,
-    VarianceT>::extractTraceNumberFromProfile(
-        PTR(const MaskedImageT) const& spectrumImage,
-        const size_t traceNumber)
-  {
-    return (*_traces)[traceNumber]->extractFromProfile(spectrumImage);
-  }
-
-  template<typename ImageT, typename MaskT, typename VarianceT>
-  PTR( SpectrumSet<ImageT, MaskT, VarianceT, VarianceT> ) FiberTraceSet<
-    ImageT,
-    MaskT,
-    VarianceT>::extractAllTracesFromProfile(PTR(const MaskedImageT) const& spectrumImage)
-  {
-    LOG_LOGGER _log = LOG_GET("pfs.drp.stella.FiberTraceSet.extractAllTracesFromProfile");
-    PTR( SpectrumSet<ImageT, MaskT, VarianceT, VarianceT> ) spectrumSet(
-            new SpectrumSet<ImageT, MaskT, VarianceT, VarianceT>( _traces->size()));
-    for (size_t i = 0; i < _traces->size(); ++i){
-      LOGLS_DEBUG(_log, "extracting FiberTrace " << i);
-      spectrumSet->setSpectrum(i, (*_traces)[i]->extractFromProfile(spectrumImage));
-    }
-    return spectrumSet;
   }
 
     template<typename ImageT, typename MaskT, typename VarianceT>
