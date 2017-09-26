@@ -16,8 +16,7 @@ Spectrum<ImageT, MaskT, VarianceT>::Spectrum(size_t length, size_t iTrace )
   : _length(length),
     _mask(length, 1),
     _iTrace(iTrace),
-    _isWavelengthSet(false),
-    _dispCorControl( new DispCorControl )
+    _isWavelengthSet(false)
 {
   _spectrum = ndarray::allocate( length );
   _spectrum.deep() = 0.;
@@ -25,8 +24,7 @@ Spectrum<ImageT, MaskT, VarianceT>::Spectrum(size_t length, size_t iTrace )
   _covar.deep() = 0.;
   _wavelength = ndarray::allocate( length );
   _wavelength.deep() = 0.;
-  _dispCoeffs = ndarray::allocate( _dispCorControl->order + 1 );
-  _dispCoeffs.deep() = 0.;
+  _dispCoeffs = ndarray::allocate( 0 ); // The number of elements comes from DispCorControl
   _dispRms = 0.;
   _dispRmsCheck = 0.;
   _nGoodLines = 0;
@@ -191,8 +189,7 @@ Spectrum< ImageT, MaskT, VarianceT >::Spectrum( Spectrum< ImageT, MaskT, Varianc
         _dispRms( spectrum.getDispRms() ),
         _dispRmsCheck( spectrum.getDispRmsCheck() ),
         _nGoodLines( spectrum.getNGoodLines() ),
-        _isWavelengthSet( spectrum.isWavelengthSet() ),
-        _dispCorControl( spectrum._dispCorControl )
+        _isWavelengthSet( spectrum.isWavelengthSet() )
 {
     if ( deep ){
         /// allocate memory
@@ -223,8 +220,7 @@ Spectrum< ImageT, MaskT, VarianceT >::Spectrum( Spectrum< ImageT, MaskT, Varianc
         _dispRms( spectrum.getDispRms() ),
         _dispRmsCheck( spectrum.getDispRmsCheck() ),
         _nGoodLines( spectrum.getNGoodLines() ),
-        _isWavelengthSet( spectrum.isWavelengthSet() ),
-        _dispCorControl( spectrum._dispCorControl )
+        _isWavelengthSet( spectrum.isWavelengthSet() )
 {
     /// allocate memory
     _spectrum = ndarray::allocate(spectrum.getSpectrum().getShape()[0]);
@@ -350,7 +346,9 @@ Spectrum<ImageT, MaskT, VarianceT>::setNCCDRows(const std::size_t nCCDRows)
 
 template< typename ImageT, typename MaskT, typename VarianceT >
 ndarray::Array<float, 1, 1 >
-Spectrum<ImageT, MaskT, VarianceT>::hIdentify( ndarray::Array< float, 2, 1 > const& lineList )
+Spectrum<ImageT, MaskT, VarianceT>::hIdentify(ndarray::Array< float, 2, 1 > const& lineList,
+                                              DispCorControl const& dispCorControl
+                                             )
 {
   LOG_LOGGER _log = LOG_GET("pfs.drp.stella.Spectra.identify");
   ///for each line in line list, find maximum in spectrum and fit Gaussian
@@ -378,14 +376,14 @@ Spectrum<ImageT, MaskT, VarianceT>::hIdentify( ndarray::Array< float, 2, 1 > con
     CString *P_CS_Num;
   #endif
   for ( int i_line = 0; i_line < lineList.getShape()[ 0 ]; ++i_line ){
-    I_Start = int( lineList[ ndarray::makeVector( i_line, 1 ) ] ) - _dispCorControl->searchRadius;
+    I_Start = int( lineList[ ndarray::makeVector( i_line, 1 ) ] ) - dispCorControl.searchRadius;
     if ( I_Start < 0 )
       I_Start = 0;
     LOGLS_DEBUG(_log, "i_line = " << i_line << ": I_Start = " << I_Start);
-    I_End = int( lineList[ ndarray::makeVector( i_line, 1 ) ] ) + _dispCorControl->searchRadius;
+    I_End = int( lineList[ ndarray::makeVector( i_line, 1 ) ] ) + dispCorControl.searchRadius;
     if ( I_End >= _spectrum.getShape()[ 0 ] )
       I_End = _spectrum.getShape()[ 0 ] - 1;
-    if ( ( I_End - I_Start ) > ( 1.5 * _dispCorControl->searchRadius ) ){
+    if ( ( I_End - I_Start ) > ( 1.5 * dispCorControl.searchRadius ) ){
       LOGLS_DEBUG(_log, "i_line = " << i_line << ": I_End = " << I_End);
       if ( I_Start >= I_End ){
         LOGLS_WARN(_log, "I_Start(=" << I_Start << ") >= I_End(=" << I_End << ")");
@@ -396,11 +394,11 @@ Spectrum<ImageT, MaskT, VarianceT>::hIdentify( ndarray::Array< float, 2, 1 > con
         auto itMaxElement = std::max_element( _spectrum.begin() + I_Start, _spectrum.begin() + I_End + 1 );
         I_MaxPos = std::distance(_spectrum.begin(), itMaxElement);
         LOGLS_DEBUG(_log, "I_MaxPos = " << I_MaxPos);
-        I_Start = std::round( float( I_MaxPos ) - ( 1.5 * _dispCorControl->fwhm ) );
+        I_Start = std::round( float( I_MaxPos ) - ( 1.5 * dispCorControl.fwhm ) );
         if (I_Start < 0)
           I_Start = 0;
         LOGLS_DEBUG(_log, "I_Start = " << I_Start);
-        I_End = std::round( float( I_MaxPos ) + ( 1.5 * _dispCorControl->fwhm ) );
+        I_End = std::round( float( I_MaxPos ) + ( 1.5 * dispCorControl.fwhm ) );
         if ( I_End >= _spectrum.getShape()[ 0 ] )
           I_End = _spectrum.getShape()[ 0 ] - 1;
         LOGLS_DEBUG(_log, "I_End = " << I_End);
@@ -440,7 +438,7 @@ Spectrum<ImageT, MaskT, VarianceT>::hIdentify( ndarray::Array< float, 2, 1 > con
           D_A1_Guess[ 3 ] = *min_element( V_GaussSpec.begin(), V_GaussSpec.end() );
           D_A1_Guess[ 0 ] = *max_element( V_GaussSpec.begin(), V_GaussSpec.end() ) - D_A1_Guess(3);
           D_A1_Guess[ 1 ] = V_X[ 0 ] + ( V_X[ V_X.size() - 1 ] - V_X[ 0 ] ) / 2.;
-          D_A1_Guess[ 2 ] = _dispCorControl->fwhm;
+          D_A1_Guess[ 2 ] = dispCorControl.fwhm;
           LOGLS_DEBUG(_log, "D_A1_Guess = " << D_A1_Guess);
           D_A2_Limits[ ndarray::makeVector( 0, 0 ) ] = 0.;
           D_A2_Limits[ ndarray::makeVector( 0, 1 ) ] = std::fabs( 1.5 * D_A1_Guess[ 0 ] );
@@ -469,7 +467,7 @@ Spectrum<ImageT, MaskT, VarianceT>::hIdentify( ndarray::Array< float, 2, 1 > con
           }
           else{
             LOGLS_DEBUG(_log, "i_line = " << i_line << ": D_A1_GaussCoeffs = " << D_A1_GaussCoeffs);
-            if ( std::fabs( float( I_MaxPos ) - D_A1_GaussCoeffs[ 1 ] ) < _dispCorControl->maxDistance ){
+            if ( std::fabs( float( I_MaxPos ) - D_A1_GaussCoeffs[ 1 ] ) < dispCorControl.maxDistance ){
               D_A1_GaussPos[ i_line ] = D_A1_GaussCoeffs[ 1 ];
               LOGLS_DEBUG(_log, "D_A1_GaussPos[" << i_line << "] = " << D_A1_GaussPos[ i_line ]);
               if ( i_line > 0 ){
@@ -491,7 +489,7 @@ Spectrum<ImageT, MaskT, VarianceT>::hIdentify( ndarray::Array< float, 2, 1 > con
                 string message("WARNING: I_MaxPos=");
                 message += to_string(I_MaxPos) + " - D_A1_GaussCoeffs[ 1 ]=" + to_string(D_A1_GaussCoeffs[ 1 ]);
                 message += "(=" + to_string(std::fabs( float( I_MaxPos ) - D_A1_GaussCoeffs[ 1 ] ));
-                message += ") >= " + to_string(_dispCorControl->maxDistance) + " => Skipping line";
+                message += ") >= " + to_string(dispCorControl.maxDistance) + " => Skipping line";
               LOGLS_WARN(_log, message);
             }
           }
@@ -504,17 +502,14 @@ Spectrum<ImageT, MaskT, VarianceT>::hIdentify( ndarray::Array< float, 2, 1 > con
 
 template< typename ImageT, typename MaskT, typename VarianceT >
 void
-Spectrum<ImageT, MaskT, VarianceT>::identify( ndarray::Array< float, 2, 1 > const& lineList,
-                                                                                     DispCorControl const& dispCorControl,
-                                                                                     std::size_t nLinesCheck ){
+Spectrum<ImageT, MaskT, VarianceT>::identify(ndarray::Array< float, 2, 1 > const& lineList,
+                                             DispCorControl const& dispCorControl,
+                                             std::size_t nLinesCheck )
+{
     LOG_LOGGER _log = LOG_GET("pfs.drp.stella.Spectra.identify");
 
-    DispCorControl tempDispCorControl( dispCorControl );
-    _dispCorControl.reset();
-    _dispCorControl = tempDispCorControl.getPointer();
-
     ///for each line in line list, find maximum in spectrum and fit Gaussian
-    ndarray::Array< float, 1, 1 > D_A1_GaussPos = hIdentify( lineList );
+    ndarray::Array< float, 1, 1 > D_A1_GaussPos = hIdentify( lineList, dispCorControl );
 
     ///remove lines which could not be found from line list
     std::vector< int > V_Index( D_A1_GaussPos.getShape()[ 0 ], 0 );

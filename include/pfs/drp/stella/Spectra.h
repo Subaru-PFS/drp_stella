@@ -116,7 +116,9 @@ class Spectrum {
      * @brief: Returns pixel positions of emission lines in lineList fitted in _spectrum
      * @param[in] lineList :: line list  [ nLines, 2 ]: [ wLen, approx_pixel ]
      */
-    ndarray::Array< float, 1, 1 > hIdentify( ndarray::Array< float, 2, 1 > const& lineList );
+    ndarray::Array< float, 1, 1 > hIdentify(ndarray::Array< float, 2, 1 > const& lineList,
+                                            DispCorControl const& dispCorControl
+                                           );
 
     std::size_t _minY;
     std::size_t _maxY;
@@ -133,7 +135,6 @@ class Spectrum {
     float _dispRmsCheck;
     std::size_t _nGoodLines;
     bool _isWavelengthSet;
-    PTR(DispCorControl) _dispCorControl;
 
   protected:
 };
