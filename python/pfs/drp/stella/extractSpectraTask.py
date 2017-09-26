@@ -56,8 +56,8 @@ class ExtractSpectraTask(Task):
                 self.log.warn("Extraction of fibre %d failed: %s" % (fiberTrace.getITrace(), e))
                 continue
             bbox = fiberTrace.getTrace().getBBox()
-            spectrum.setYLow(bbox.getMinY())
-            spectrum.setYHigh(bbox.getMaxY())
+            spectrum.setMinY(bbox.getMinY())
+            spectrum.setMaxY(bbox.getMaxY())
 
             spectrumSet.addSpectrum(spectrum)
 

@@ -43,46 +43,31 @@ void declareSpectrum(py::module &mod) {
     cls.def_property("wavelength", (typename Class::WavelengthVector (Class::*)()) &Class::getWavelength,
                      &Class::setWavelength);
 
-    cls.def("getDispersion", (typename Class::WavelengthVector (Class::*)()) &Class::getDispersion);
-    cls.def("setDispersion", &Class::setDispersion, "dispersion"_a);
-    cls.def_property("dispersion", (typename Class::WavelengthVector (Class::*)()) &Class::getDispersion,
-                     &Class::setDispersion);
-
     cls.def("getMask", (typename Class::Mask (Class::*)()) &Class::getMask);
     cls.def("setMask", &Class::setMask, "mask"_a);
     cls.def_property("mask", (typename Class::Mask (Class::*)()) &Class::getMask, &Class::setMask);
 
-    cls.def("getLength", &Class::getLength);
-    cls.def("setLength", &Class::setLength, "length"_a);
-    cls.def_property("length", &Class::getLength, &Class::setLength);
-
     cls.def("getITrace", &Class::getITrace);
     cls.def("setITrace", &Class::setITrace, "iTrace"_a);
     cls.def_property("iTrace", &Class::getITrace, &Class::setITrace);
-
-    cls.def("getDispCoeffs", &Class::getDispCoeffs);
-    cls.def("setDispCoeffs", &Class::setDispCoeffs, "coeffs"_a);
-    cls.def_property("dispCoeffs", &Class::getDispCoeffs, &Class::setDispCoeffs);
 
     cls.def("getDispRms", &Class::getDispRms);
     cls.def("getDispRmsCheck", &Class::getDispRmsCheck);
 
     cls.def("getNGoodLines", &Class::getNGoodLines);
 
-    cls.def("getDispCorControl", &Class::getDispCorControl);
-
     cls.def("identify", &Class::template identify<float>, "lineList"_a, "dispCorControl"_a,
             "nLinesCheck"_a=0);
 
     cls.def("isWavelengthSet", &Class::isWavelengthSet);
 
-    cls.def("getYLow", &Class::getYLow);
-    cls.def("setYLow", &Class::setYLow, "yLow"_a);
-    cls.def_property("yLow", &Class::getYLow, &Class::setYLow);
+    cls.def("getMinY", &Class::getMinY);
+    cls.def("setMinY", &Class::setMinY, "minY"_a);
+    cls.def_property("minY", &Class::getMinY, &Class::setMinY);
 
-    cls.def("getYHigh", &Class::getYHigh);
-    cls.def("setYHigh", &Class::setYHigh, "yHigh"_a);
-    cls.def_property("yHigh", &Class::getYHigh, &Class::setYHigh);
+    cls.def("getMaxY", &Class::getMaxY);
+    cls.def("setMaxY", &Class::setMaxY, "maxY"_a);
+    cls.def_property("maxY", &Class::getMaxY, &Class::setMaxY);
 
     cls.def("getNCCDRows", &Class::getNCCDRows);
     cls.def("setNCCDRows", &Class::setNCCDRows, "nCCDRows"_a);
@@ -114,9 +99,7 @@ void declareSpectrumSet(py::module &mod) {
 
     cls.def("getAllFluxes", &Class::getAllFluxes);
     cls.def("getAllWavelengths", &Class::getAllWavelengths);
-    cls.def("getAllDispersions", &Class::getAllDispersions);
     cls.def("getAllMasks", &Class::getAllMasks);
-    cls.def("getAllVariances", &Class::getAllVariances);
     cls.def("getAllCovars", &Class::getAllCovars);
 
     // Pythonic APIs

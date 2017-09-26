@@ -125,8 +125,8 @@ namespace pfs { namespace drp { namespace stella {
     spectrum->setVariance(var);
     spectrum->setMask(mask);
     spectrum->setNCCDRows(traceIm.getImage()->getHeight());
-    spectrum->setYLow(bbox.getMinY());
-    spectrum->setYHigh(bbox.getMaxY());
+    spectrum->setMinY(bbox.getMinY());
+    spectrum->setMaxY(bbox.getMaxY());
     return spectrum;
   }
 
@@ -242,8 +242,8 @@ namespace pfs { namespace drp { namespace stella {
 
     LOGLS_TRACE(_log, "_iTrace = " << _iTrace << ": for loop finished");
     spectrum->setNCCDRows(height);
-    spectrum->setYLow(bbox.getMinY());
-    spectrum->setYHigh(bbox.getMaxY());
+    spectrum->setMinY(bbox.getMinY());
+    spectrum->setMaxY(bbox.getMaxY());
     spectrum->setITrace(_iTrace);
     LOGLS_TRACE(_log, "_iTrace = " << _iTrace << ": spectrum->getSpectrum() = " << spectrum->getSpectrum());
     LOGLS_TRACE(_log, "_iTrace = " << _iTrace << ": spectrum->getVariance() = " << spectrum->getVariance());

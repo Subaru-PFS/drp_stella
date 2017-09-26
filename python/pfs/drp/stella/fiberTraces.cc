@@ -116,16 +116,6 @@ PYBIND11_PLUGIN(fiberTraces) {
     coord.def_readwrite("x", &math::dataXY<float>::x);
     coord.def_readwrite("y", &math::dataXY<float>::y);
 
-    mod.def("calculateXCenters",
-            (ndarray::Array<float, 1, 1>(*)(PTR(FiberTraceFunction const) const&,
-                                            std::size_t const&, std::size_t const&))&math::calculateXCenters,
-            "fiberTraceFunction"_a, "height"_a=0, "width"_a=0);
-    mod.def("calculateXCenters",
-            (ndarray::Array<float, 1, 1>(*)(PTR(FiberTraceFunction const) const&,
-                                            ndarray::Array<float, 1, 1> const&,
-                                            std::size_t const&, std::size_t const&))&math::calculateXCenters,
-            "fiberTraceFunction"_a, "yIn"_a, "height"_a=0, "width"_a=0);
-
     return mod.ptr();
 }
 

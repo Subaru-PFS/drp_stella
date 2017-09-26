@@ -60,15 +60,8 @@ class Spectrum {
     WavelengthVector getWavelength() { return _wavelength; }
     WavelengthVector const getWavelength() const { return _wavelength; }
 
-    /// Return the pointer to the wavelength dispersion vector of this spectrum
-    WavelengthVector getDispersion() { return _dispersion; }
-    WavelengthVector const getDispersion() const { return _dispersion; }
-
     /// Set the wavelength vector of this spectrum (deep copy)
     void setWavelength(WavelengthVector const& wavelength);
-
-    /// Set the dispersion vector of this spectrum (deep copy)
-    void setDispersion(WavelengthVector const& dispersion);
 
     /// Return the pointer to the mask vector of this spectrum
     Mask getMask() { return _mask; }
@@ -76,24 +69,9 @@ class Spectrum {
 
     /// Set the mask vector of this spectrum (deep copy)
     void setMask(Mask const& mask);
-
-    std::size_t getLength() const { return _length; }
-    
-    /// Resize all vectors to size length.
-    /// If length is smaller than the current container size, the contents of all vectors are reduced to
-    /// their first length elements, removing those beyond (and destroying them).
-    /// If length is greater than the current container size, the contents of all vectors are expanded by
-    /// inserting at the end as many elements as needed to reach a size of length. The new elements of all
-    /// vectors except for _wavelength are initialized with 0. The new elements of _wavelength are
-    /// initialized with _wavelength(_length - 1).
-    void setLength(const std::size_t length);
     
     std::size_t getITrace() const { return _iTrace; }
     void setITrace(std::size_t iTrace) { _iTrace = iTrace; }
-    
-    Coefficients const getDispCoeffs() const { return _dispCoeffs; };
-
-    void setDispCoeffs(Coefficients const& dispCoeffs);
 
     /*
      * @brief Return the Root Mean Squared (RMS) of the lines used for the wavelength calibration
@@ -110,9 +88,6 @@ class Spectrum {
      */
     std::size_t getNGoodLines() const { return _nGoodLines; }
 
-    /// Return _dispCorControl
-    PTR(DispCorControl) getDispCorControl() const { return _dispCorControl; }
-  
     /**
       * @brief: Identifies calibration lines, given in <lineList> in the format [wlen, approx_pixel] in
       * wavelength-calibration spectrum
@@ -129,12 +104,12 @@ class Spectrum {
     
     bool isWavelengthSet() const { return _isWavelengthSet; }
     
-    std::size_t getYLow() const { return _yLow; };
-    std::size_t getYHigh() const { return _yHigh; };
+    std::size_t getMinY() const { return _minY; };
+    std::size_t getMaxY() const { return _maxY; };
     std::size_t getNCCDRows() const { return _nCCDRows; };
     
-    void setYLow(std::size_t yLow);
-    void setYHigh(std::size_t yHigh);
+    void setMinY(std::size_t minY);
+    void setMaxY(std::size_t maxY);
     void setNCCDRows(std::size_t nCCDRows);
     
   private:
@@ -145,8 +120,8 @@ class Spectrum {
     template< typename T >
     ndarray::Array< float, 1, 1 > hIdentify( ndarray::Array< T, 2, 1 > const& lineList );
 
-    std::size_t _yLow;
-    std::size_t _yHigh;
+    std::size_t _minY;
+    std::size_t _maxY;
     std::size_t _length;
     std::size_t _nCCDRows;
     SpectrumVector _spectrum;
@@ -257,21 +232,11 @@ class SpectrumSet
      * @brief Return all wavelengths in an array [nCCDRows x nFibers]
      */
     ndarray::Array<float, 2, 1> getAllWavelengths() const;
-    
-    /**
-     * @brief Return all dispersions in an array [nCCDRows x nFibers]
-     */
-    ndarray::Array<float, 2, 1> getAllDispersions() const;
-    
+        
     /**
      * @brief Return all masks in an array [nCCDRows x nFibers]
      */
     ndarray::Array< int, 2, 1> getAllMasks() const;
-    
-    /**
-     * @brief Return all variances in an array [nCCDRows x nFibers]
-     */
-    ndarray::Array<float, 2, 1> getAllVariances() const;
     
     /**
      * @brief Return all covariances in an array [nCCDRows x 3 x nFibers]

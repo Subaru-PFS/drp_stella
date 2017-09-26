@@ -121,8 +121,6 @@ class ReduceArcTask(CmdLineTask):
 
             for i in range(spectrumSetFromProfile.size()):
                 spec = spectrumSetFromProfile.getSpectrum(i)
-                specSpec = spec.getSpectrum()
-                self.log.debug('specSpec.shape = %d' % specSpec.shape)
 
                 traceId = spec.getITrace()
                 wLenTemp = wavelengths[np.where(traceIds == traceId)]
@@ -137,8 +135,6 @@ class ReduceArcTask(CmdLineTask):
                 # Identify emission lines and fit dispersion
                 spec.identify(lineListPix, dispCorControl, 8)
 
-                self.log.trace("FiberTrace %d: spec.getDispCoeffs() = %s"
-                               % (i, np.array_str(spec.getDispCoeffs())))
                 self.log.info("FiberTrace %d: spec.getDispRms() = %f"
                               % (i, spec.getDispRms()))
 
