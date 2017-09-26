@@ -25,15 +25,13 @@ class Spectrum {
     // Class Constructors and Destructor
     explicit Spectrum(std::size_t length=0,
                       std::size_t iTrace=0);
-    
-    /// iTrace is only assigned to _iTrace if != 0, otherwise spectrum._iTrace is copied to this->_iTrace
-    Spectrum(Spectrum & spectrum,
-             std::size_t iTrace=0,
-             bool deep=false);
 
-    Spectrum(Spectrum const& spectrum);
+    Spectrum(Spectrum const& spectrum) = delete;
     
     virtual ~Spectrum() {}
+
+    /// Return the number of pixels in the spectrum
+    std::size_t getNpix() const { return _length; }
 
     /// Return a shared pointer to the spectrum
     SpectrumVector getSpectrum() { return _spectrum; }
@@ -103,14 +101,6 @@ class Spectrum {
     
     bool isWavelengthSet() const { return _isWavelengthSet; }
     
-    std::size_t getMinY() const { return _minY; };
-    std::size_t getMaxY() const { return _maxY; };
-    std::size_t getNCCDRows() const { return _nCCDRows; };
-    
-    void setMinY(std::size_t minY);
-    void setMaxY(std::size_t maxY);
-    void setNCCDRows(std::size_t nCCDRows);
-    
   private:
     /**
      * @brief: Returns pixel positions of emission lines in lineList fitted in _spectrum
@@ -120,10 +110,7 @@ class Spectrum {
                                             DispCorControl const& dispCorControl
                                            );
 
-    std::size_t _minY;
-    std::size_t _maxY;
     std::size_t _length;
-    std::size_t _nCCDRows;
     SpectrumVector _spectrum;
     Mask _mask;
     CovarianceMatrix _covar;
@@ -159,19 +146,12 @@ class SpectrumSet
     explicit SpectrumSet(std::size_t nSpectra=0, std::size_t length=0);
         
     /// Copy constructor
-    /// If spectrumSet is not empty, the object shares ownership of spectrumSet's spectrum vector and increases the use count.
-    /// If spectrumSet is empty, an empty object is constructed (as if default-constructed).
-    SpectrumSet(SpectrumSet const& spectrumSet)
-        : _spectra(spectrumSet.getSpectra())
-        {}
-
-    /// Construct an object with a copy of spectrumVector
-    explicit SpectrumSet(Spectra const& spectrumVector);
+    SpectrumSet(SpectrumSet const& spectrumSet) = delete;
         
     virtual ~SpectrumSet() {}
 
     /// Return the number of spectra/apertures
-    std::size_t size() const { return _spectra->size(); }
+    std::size_t getNtrace() const { return _spectra->size(); }
 
     /** @brief  Return the Spectrum for the ith fiberTrace
      *  @param i :: number of spectrum ( or number of respective FiberTrace ) to return
@@ -181,64 +161,40 @@ class SpectrumSet
     /** @brief  Return the Spectrum for the ith fiberTrace
      *  @param i :: number of spectrum ( or number of respective FiberTrace ) to return
      **/
-    PTR(SpectrumT) getSpectrum( const std::size_t i ) const;
+    PTR(const SpectrumT) getSpectrum( const std::size_t i ) const;
 
     /**
      * @brief Set the ith Spectrum
      * @param i :: Set which spectrum in set?
      * @param spectrum :: spectrum to set to this set at position i
      **/
-    void setSpectrum(std::size_t const i,
-                     PTR(SpectrumT) const& spectrum);
-    
-    /**
-     * @brief Set the ith Spectrum
-     * @param i :: Set which spectrum in set?
-     * @param spectrum :: spectrum to copy to this set at position i
-     **/
-    void setSpectrum(std::size_t const i,
-                     SpectrumT const& spectrum);
-
-    /** 
-     * @brief Add one Spectrum to the set
-     * @param spectrum :: spectrum to add 
-     **/
-    void addSpectrum(SpectrumT const& spectrum) {
-        _spectra->push_back(PTR(SpectrumT)(new SpectrumT(spectrum)));
-    }
+    void setSpectrum(std::size_t const i, PTR(SpectrumT) spectrum);
     
     /** 
      * @brief Add one Spectrum to the set
      * @param spectrum :: spectrum to add 
      **/
-    void addSpectrum(PTR(SpectrumT) const& spectrum){
+    void addSpectrum(PTR(SpectrumT) spectrum) {
         _spectra->push_back(spectrum);
     }
-
-    const PTR(Spectra) getSpectra() const { return _spectra; }
-    PTR(Spectra) getSpectra() { return _spectra; }
-
-    /// Removes from the vector either a single element (position) or a range of elements ([first,last)).
-    /// This effectively reduces the container size by the number of elements removed, which are destroyed.
-    void erase(std::size_t iStart, std::size_t iEnd=0);
     
     /**
-     * @brief Return all fluxes in an array [nCCDRows x nFibers]
+     * @brief Return all fluxes in an array [length x nFibers]
      */
     ndarray::Array<float, 2, 1> getAllFluxes() const;
     
     /**
-     * @brief Return all wavelengths in an array [nCCDRows x nFibers]
+     * @brief Return all wavelengths in an array [length x nFibers]
      */
     ndarray::Array<float, 2, 1> getAllWavelengths() const;
         
     /**
-     * @brief Return all masks in an array [nCCDRows x nFibers]
+     * @brief Return all masks in an array [length x nFibers]
      */
     ndarray::Array< int, 2, 1> getAllMasks() const;
     
     /**
-     * @brief Return all covariances in an array [nCCDRows x 3 x nFibers]
+     * @brief Return all covariances in an array [length x 3 x nFibers]
      */
     ndarray::Array<float, 3, 1> getAllCovars() const;
     
@@ -248,7 +204,7 @@ class SpectrumSet
 
 namespace math{
     /**
-     * @brief: create line list from wavelength array of size nCCDRows and list of wavelengths of emission lines used to calibrate the spectrum
+     * @brief: create line list from wavelength array of size length and list of wavelengths of emission lines used to calibrate the spectrum
      * @param wLen
      * @param lines
      * @return array(lines.shape[0], 2) col 0: wavelength, col 1: pixel

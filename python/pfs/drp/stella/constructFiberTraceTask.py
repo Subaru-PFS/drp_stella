@@ -169,7 +169,7 @@ class ConstructFiberTraceTask(CalibTask):
             disp.mtv(calExp, "Combined")
 
         fts = self.trace.run(calExp)
-        self.log.info('%d FiberTraces found on combined flat' % (fts.size()))
+        self.log.info('%d FiberTraces found on combined flat' % (fts.getNtrace()))
 
         # assign trace IDs
         xCenters, wavelengths, traceIds = readWavelengthFile(self.config.fiberPixelFile)
@@ -191,7 +191,7 @@ class ConstructFiberTraceTask(CalibTask):
             outputId['arm']
         )
 
-        for iFt in range(fts.size()):
+        for iFt in range(fts.getNtrace()):
             ft = fts.getFiberTrace(iFt)
             pfsFT.fiberId.append(ft.getITrace() + 1)
             pfsFT.traces.append(ft.getTrace())

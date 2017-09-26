@@ -82,7 +82,7 @@ class ReduceArcTask(CmdLineTask):
                 raise RuntimeError("Unable to load fiberTrace for %s: %s" % (arcRef.dataId, e))
 
             flatFiberTraceSet = makeFiberTraceSet(fiberTrace)
-            self.log.debug('fiberTrace calibration file contains %d fibers' % flatFiberTraceSet.size())
+            self.log.debug('fiberTrace calibration file contains %d fibers' % flatFiberTraceSet.getNtrace())
 
             arcExp = None
             for dataType in ["calexp", "postISRCCD"]:
@@ -122,25 +122,19 @@ class ReduceArcTask(CmdLineTask):
             else:
                 residuals = None
 
-            for i in range(spectrumSet.size()):
+            for i in range(spectrumSet.getNtrace()):
                 spec = spectrumSet.getSpectrum(i)
 
                 traceId = spec.getITrace()
                 wLenTemp = wavelengths[np.where(traceIds == traceId)]
                 wLenTemp = wLenTemp[self.config.nRowsPrescan:] # this should be fixed in the wavelengths file
-
-                # cut off both ends of wavelengths where is no signal
-                bbox = flatFiberTraceSet.getFiberTrace(i).getTrace().getBBox()
-                wLenArr = np.array(wLenTemp[bbox.getMinY() : bbox.getMaxY() + 1])
+                wLenArr = np.array(wLenTemp)
 
                 lineListPix = drpStella.createLineList(wLenArr, wLenLinesArr)
 
                 # Identify emission lines and fit dispersion
                 spec.identify(lineListPix, dispCorControl, 8)
-
                 self.log.info("FiberTrace %d: spec.getDispRms() = %f" % (i, spec.getDispRms()))
-
-                spectrumSet.setSpectrum(i, spec)
 
                 if residuals is not None:
                     ft = flatFiberTraceSet.getFiberTrace(i)

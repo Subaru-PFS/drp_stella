@@ -188,7 +188,6 @@ class FiberTrace {
     ndarray::Array<float, 1, 1> _xCenters;
     ndarray::Array<size_t, 2, -2> _minCenMax;
     std::size_t _iTrace;
-    std::size_t _nCCDRows;
     PTR(const FiberTraceFunction) _fiberTraceFunction;
     PTR(FiberTraceProfileFittingControl) _fiberTraceProfileFittingControl;
 
@@ -239,7 +238,7 @@ class FiberTraceSet {
     /**
      * @brief Return the number of apertures
      */
-    std::size_t size() const { return _traces->size(); }
+    std::size_t getNtrace() const { return _traces->size(); }
 
     /**
      * @brief Return the FiberTrace for the ith aperture
@@ -252,14 +251,6 @@ class FiberTraceSet {
      * @param i : Position in _traces from which to return a copy of the FiberTrace
      */
     PTR(FiberTraceT) const getFiberTrace(const std::size_t i) const;
-    
-    /**
-     * @brief Removes from the vector either a single element (position) or a range of elements ([first,last)).
-     * This effectively reduces the container size by the number of elements removed, which are destroyed.
-     * @param iStart : FiberTrace number to remove if iEnd == 0, otherwise starting position of range to be removed
-     * @param iEnd : if != 0 end + 1 of range of FiberTraces to be removed from _traces
-     */
-    void erase(const std::size_t iStart, const std::size_t iEnd=0);
 
     /**
      * @brief Set the ith FiberTrace

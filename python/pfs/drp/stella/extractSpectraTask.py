@@ -33,7 +33,7 @@ class ExtractSpectraTask(pipeBase.Task):
         """
 
         if traceNumbers is None:
-            traceNumbers = range(fiberTraceSet.size())
+            traceNumbers = range(fiberTraceSet.getNtrace())
         self.log.debug("traceNumbers = %s" % traceNumbers)
 
         spectrumSet = drpStella.SpectrumSet()
@@ -57,9 +57,6 @@ class ExtractSpectraTask(pipeBase.Task):
             except Exception as e:
                 self.log.warn("Extraction of fibre %d failed: %s" % (fiberTrace.getITrace(), e))
                 continue
-            bbox = fiberTrace.getTrace().getBBox()
-            spectrum.setMinY(bbox.getMinY())
-            spectrum.setMaxY(bbox.getMaxY())
 
             spectrumSet.addSpectrum(spectrum)
 

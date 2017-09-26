@@ -117,7 +117,7 @@ class ConstructFiberFlatTask(CalibTask):
 
             fts = self.trace.run(exposure)
             self.log.info('%d FiberTraces found for arm %d%s, visit %d' %
-                          (fts.size(),
+                          (fts.getNtrace(),
                            expRef.dataId['spectrograph'], expRef.dataId['arm'], expRef.dataId['visit']))
             allFts.append(fts)
 

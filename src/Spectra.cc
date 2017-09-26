@@ -20,7 +20,7 @@ Spectrum<ImageT, MaskT, VarianceT>::Spectrum(size_t length, size_t iTrace )
 {
   _spectrum = ndarray::allocate( length );
   _spectrum.deep() = 0.;
-  _covar = ndarray::allocate( length, 3 );
+  _covar = ndarray::allocate(3, length);
   _covar.deep() = 0.;
   _wavelength = ndarray::allocate( length );
   _wavelength.deep() = 0.;
@@ -28,9 +28,8 @@ Spectrum<ImageT, MaskT, VarianceT>::Spectrum(size_t length, size_t iTrace )
   _dispRms = 0.;
   _dispRmsCheck = 0.;
   _nGoodLines = 0;
-  _minY = 0;
-  _maxY = length - 1;
-  _nCCDRows = length;
+
+  _mask.addMaskPlane("REJECTED_LINES");
 }
 
 template<typename ImageT, typename MaskT, typename VarianceT>
@@ -57,182 +56,62 @@ SpectrumSet<ImageT, MaskT, VarianceT>::SpectrumSet( size_t nSpectra, size_t leng
 }
 
 template<typename ImageT, typename MaskT, typename VarianceT>
-SpectrumSet<ImageT, MaskT, VarianceT>::SpectrumSet( std::vector< PTR( Spectrum< ImageT, MaskT, VarianceT> > ) const& spectrumVector )
-        : _spectra( new std::vector< PTR( Spectrum< ImageT, MaskT, VarianceT> ) >() )
-{
-  for (size_t i = 0; i < spectrumVector.size(); ++i){
-    _spectra->push_back( spectrumVector.at(i) );
-  }
-}
-
-template<typename ImageT, typename MaskT, typename VarianceT>
 ndarray::Array< float, 2, 1 > SpectrumSet<ImageT, MaskT, VarianceT>::getAllFluxes() const{
-  int nFibers = int( size() );
-  int nCCDRows = getSpectrum( 0 )->getNCCDRows();
-  /// allocate memory for the array
-  ndarray::Array< float, 2, 1 > flux = ndarray::allocate( nCCDRows, nFibers );
+  int nFibers = int( getNtrace() );
+  int nCCDRows = getSpectrum(0)->getNpix();
+  ndarray::Array<float, 2, 1> flux = ndarray::allocate(nFibers, nCCDRows);
 
   flux.deep() = 0.;
 
-  for ( int iFiber = 0; iFiber < _spectra->size(); ++iFiber ){
-    PTR( Spectrum< ImageT, MaskT, VarianceT> ) spectrum = _spectra->at( iFiber );
-
-    int minY = spectrum->getMinY();
-    int maxY = spectrum->getMaxY();
-    if ( maxY - minY + 1 != spectrum->getSpectrum().getShape()[ 0 ] ){
-      string message("SpectrumSet::writeFits: spectrum does not have expected shape: maxY=");
-      message += to_string(maxY) + " - minY=" + to_string(minY) + " + 1 (=" + to_string(maxY - minY + 1);
-      message += + ") = " +to_string(maxY-minY + 1) + " != spectrum->getSpectrum().getShape()[ 0 ] = ";
-      message += to_string(spectrum->getSpectrum().getShape()[ 0 ]);
-      throw LSST_EXCEPT(lsst::pex::exceptions::LogicError,message.c_str());
-    }
-
-    flux[ ndarray::view( minY, maxY + 1 )( iFiber ) ] = spectrum->getSpectrum()[ ndarray::view() ];
+  for ( int iFiber = 0; iFiber < getNtrace(); ++iFiber ){
+      flux[iFiber] = (*_spectra)[iFiber]->getSpectrum();
   }
   return flux;
 }
 
 template<typename ImageT, typename MaskT, typename VarianceT>
 ndarray::Array< float, 2, 1 > SpectrumSet<ImageT, MaskT, VarianceT>::getAllWavelengths() const{
-  int nFibers = int( size() );
-  int nCCDRows = getSpectrum( 0 )->getNCCDRows();
+  int nFibers = int( getNtrace() );
+  int nCCDRows = getSpectrum( 0 )->getNpix();
   /// allocate memory for the array
-  ndarray::Array< float, 2, 1 > lambda = ndarray::allocate( nCCDRows, nFibers );
+  ndarray::Array< float, 2, 1 > lambda = ndarray::allocate( nFibers, nCCDRows );
 
   lambda.deep() = 0.;
 
-  for ( int iFiber = 0; iFiber < _spectra->size(); ++iFiber ){
-    PTR( Spectrum< ImageT, MaskT, VarianceT> ) spectrum = _spectra->at( iFiber );
-
-    int minY = spectrum->getMinY();
-    int maxY = spectrum->getMaxY();
-    if ( maxY - minY + 1 != spectrum->getSpectrum().getShape()[ 0 ] ){
-      string message("SpectrumSet::writeFits: spectrum does not have expected shape: maxY=");
-      message += to_string(maxY) + " - minY=" +to_string(minY) + " + 1 (=" + to_string(maxY - minY + 1);
-      message += ") = " + to_string(maxY-minY + 1) + " != spectrum->getSpectrum().getShape()[ 0 ] = ";
-      message += to_string(spectrum->getSpectrum().getShape()[ 0 ]);
-      throw LSST_EXCEPT(lsst::pex::exceptions::LogicError,message.c_str());
-    }
-    lambda[ ndarray::view( minY, maxY + 1 )( iFiber ) ] = spectrum->getWavelength();
+  for ( int iFiber = 0; iFiber < getNtrace(); ++iFiber ){
+      lambda[iFiber] = (*_spectra)[iFiber]->getWavelength();
   }
   return lambda;
 }
 
 template<typename ImageT, typename MaskT, typename VarianceT>
 ndarray::Array< int, 2, 1 > SpectrumSet<ImageT, MaskT, VarianceT>::getAllMasks() const{
-  int nFibers = int( size() );
-  int nCCDRows = getSpectrum( 0 )->getNCCDRows();
+  int nFibers = int( getNtrace() );
+  int nCCDRows = getSpectrum( 0 )->getNpix();
   /// allocate memory for the array
-  ndarray::Array< int, 2, 1 > mask = ndarray::allocate( nCCDRows, nFibers );
+  ndarray::Array< int, 2, 1 > mask = ndarray::allocate( nFibers, nCCDRows );
 
   mask.deep() = 0.;
 
-  for ( int iFiber = 0; iFiber < _spectra->size(); ++iFiber ){
-    PTR( Spectrum< ImageT, MaskT, VarianceT > ) spectrum = _spectra->at( iFiber );
-
-    int minY = spectrum->getMinY();
-    int maxY = spectrum->getMaxY();
-    if ( maxY - minY + 1 != spectrum->getSpectrum().getShape()[ 0 ] ){
-      string message("SpectrumSet::writeFits: spectrum does not have expected shape: maxY=");
-      message += to_string(maxY) + " - minY=" +to_string(minY) + " + 1 (=" + to_string(maxY - minY + 1);
-      message += ") = " + to_string(maxY-minY + 1) + " != spectrum->getSpectrum().getShape()[ 0 ] = ";
-      message += to_string(spectrum->getSpectrum().getShape()[ 0 ]);
-      throw LSST_EXCEPT(lsst::pex::exceptions::LogicError,message.c_str());
-    }
+  for ( int iFiber = 0; iFiber < getNtrace(); ++iFiber) {
+      mask[iFiber] = (*_spectra)[iFiber]->getMask().getArray()[0];
   }
   return mask;
 }
 
 template<typename ImageT, typename MaskT, typename VarianceT>
 ndarray::Array< float, 3, 1 > SpectrumSet<ImageT, MaskT, VarianceT>::getAllCovars() const{
-  int nFibers = int( size() );
-  int nCCDRows = getSpectrum( 0 )->getNCCDRows();
+  int nFibers = int( getNtrace() );
+  int nCCDRows = getSpectrum( 0 )->getNpix();
   /// allocate memory for the array
-  ndarray::Array< float, 3, 1 > covar = ndarray::allocate( nCCDRows, 3, nFibers );
+  ndarray::Array< float, 3, 1 > covar = ndarray::allocate(nFibers, 3, nCCDRows);
 
   covar.deep() = 0.;
 
-  for ( int iFiber = 0; iFiber < _spectra->size(); ++iFiber ){
-    PTR( Spectrum< ImageT, MaskT, VarianceT > ) spectrum = _spectra->at( iFiber );
-
-    int minY = spectrum->getMinY();
-    int maxY = spectrum->getMaxY();
-    if ( maxY - minY + 1 != spectrum->getSpectrum().getShape()[ 0 ] ){
-      string message("SpectrumSet::writeFits: spectrum does not have expected shape: maxY=");
-      message += to_string(maxY) + " - minY=" + to_string(minY) + " + 1 (=" + to_string(maxY - minY + 1);
-      message += ") = " + to_string(maxY-minY + 1) + " != spectrum->getSpectrum().getShape()[ 0 ] = ";
-      message += to_string(spectrum->getSpectrum().getShape()[ 0 ]);
-      throw LSST_EXCEPT(lsst::pex::exceptions::LogicError,message.c_str());
-    }
-    #ifdef __DEBUG_GETALLCOVARS__
-      cout << "covar[ ndarray::view( " << minY << ", " << maxY + 1 << " )( )( " << iFiber << " ) ].getShape() = " << covar[ ndarray::view( minY, maxY + 1 )( )( iFiber ) ].getShape() << ", spectrum->getCovar().getShape() = " << spectrum->getCovar().getShape() << endl;
-    #endif
-    covar[ ndarray::view( minY, maxY + 1 )( )( iFiber ) ] = spectrum->getCovar()[ ndarray::view() ];
+  for ( int iFiber = 0; iFiber < getNtrace(); ++iFiber ){
+      covar[iFiber] = (*_spectra)[iFiber]->getCovar();
   }
   return covar;
-}
-
-template< typename ImageT, typename MaskT, typename VarianceT >
-Spectrum< ImageT, MaskT, VarianceT >::Spectrum( Spectrum< ImageT, MaskT, VarianceT > & spectrum,
-                                                                                  std::size_t iTrace,
-                                                bool deep ) :
-        _minY( spectrum.getMinY() ),
-        _maxY( spectrum.getMaxY() ),
-        _length( spectrum._length ),
-        _nCCDRows( spectrum.getNCCDRows() ),
-        _spectrum( spectrum.getSpectrum() ),
-        _mask( spectrum.getMask(), deep ),
-        _covar( spectrum.getCovar() ),
-        _wavelength( spectrum.getWavelength() ),
-        _iTrace( spectrum.getITrace() ),
-        _dispCoeffs( spectrum._dispCoeffs ),
-        _dispRms( spectrum.getDispRms() ),
-        _dispRmsCheck( spectrum.getDispRmsCheck() ),
-        _nGoodLines( spectrum.getNGoodLines() ),
-        _isWavelengthSet( spectrum.isWavelengthSet() )
-{
-    if ( deep ){
-        /// allocate memory
-        _spectrum = ndarray::allocate(spectrum.getSpectrum().getShape()[0]);
-        _covar = ndarray::allocate(spectrum.getCovar().getShape());
-        _wavelength = ndarray::allocate(spectrum.getWavelength().getShape()[0]);
-        _dispCoeffs = ndarray::allocate(spectrum._dispCoeffs.getShape()[0]);
-
-        /// copy variables
-        _spectrum.deep() = spectrum.getSpectrum();
-        _covar.deep() = spectrum.getCovar();
-        _wavelength.deep() = spectrum.getWavelength();
-        _dispCoeffs.deep() = spectrum._dispCoeffs;
-    }
-    if (iTrace != 0)
-        _iTrace = iTrace;
-    _mask.addMaskPlane("REJECTED_LINES");
-}
-
-template< typename ImageT, typename MaskT, typename VarianceT >
-Spectrum< ImageT, MaskT, VarianceT >::Spectrum( Spectrum< ImageT, MaskT, VarianceT > const& spectrum) :
-        _minY( spectrum.getMinY() ),
-        _maxY( spectrum.getMaxY() ),
-        _length( spectrum._length ),
-        _nCCDRows( spectrum.getNCCDRows() ),
-        _mask(spectrum.getMask()),
-        _iTrace( spectrum.getITrace() ),
-        _dispRms( spectrum.getDispRms() ),
-        _dispRmsCheck( spectrum.getDispRmsCheck() ),
-        _nGoodLines( spectrum.getNGoodLines() ),
-        _isWavelengthSet( spectrum.isWavelengthSet() )
-{
-    /// allocate memory
-    _spectrum = ndarray::allocate(spectrum.getSpectrum().getShape()[0]);
-    _covar = ndarray::allocate(spectrum.getCovar().getShape());
-    _wavelength = ndarray::allocate(spectrum.getWavelength().getShape()[0]);
-    _dispCoeffs = ndarray::allocate(spectrum._dispCoeffs.getShape()[0]);
-
-    /// copy variables
-    _spectrum.deep() = spectrum.getSpectrum();
-    _covar.deep() = spectrum.getCovar();
-    _wavelength.deep() = spectrum.getWavelength();
-    _dispCoeffs.deep() = spectrum._dispCoeffs;
 }
 
 template<typename ImageT, typename MaskT, typename VarianceT>
@@ -252,8 +131,8 @@ template<typename ImageT, typename MaskT, typename VarianceT>
 ndarray::Array<VarianceT, 1, 1>
 Spectrum<ImageT, MaskT, VarianceT>::getVariance() const
 {
-    ndarray::Array< VarianceT, 1, 1 > variance = ndarray::allocate( _covar.getShape()[ 0 ] );
-    variance.deep() = _covar[ ndarray::view( )( 1 ) ];
+    ndarray::Array< VarianceT, 1, 1 > variance = ndarray::allocate(getNpix());
+    variance.deep() = _covar[0];
     return variance;
 }
 
@@ -261,9 +140,7 @@ template<typename ImageT, typename MaskT, typename VarianceT>
 ndarray::Array<VarianceT, 1, 1>
 Spectrum<ImageT, MaskT, VarianceT>::getVariance()
 {
-    ndarray::Array< VarianceT, 1, 1 > variance = ndarray::allocate(_covar.getShape()[0]);
-    variance[ndarray::view()] = _covar[ ndarray::view( )( 1 ) ];
-    return variance;
+    return _covar[0];
 }
 
 template<typename ImageT, typename MaskT, typename VarianceT>
@@ -276,7 +153,7 @@ Spectrum<ImageT, MaskT, VarianceT>::setVariance( ndarray::Array<VarianceT, 1, 1>
     message += to_string( variance.getShape()[ 0 ] ) + string( " != _length=" ) + to_string( _length );
     throw LSST_EXCEPT(pexExcept::Exception, message.c_str());    
   }
-  _covar[ ndarray::view()(1) ] = variance;
+  _covar[0].deep() = variance;
 }
 
 template<typename ImageT, typename MaskT, typename VarianceT>
@@ -310,40 +187,6 @@ Spectrum<ImageT, MaskT, VarianceT>::setMask(const lsst::afw::image::Mask<MaskT> 
   _mask = mask;
 }
 
-template<typename ImageT, typename MaskT, typename VarianceT>
-void
-Spectrum< ImageT, MaskT, VarianceT >::setMinY( const std::size_t minY )
-{
-  if ( minY > _nCCDRows ){
-    string message("pfs::drp::stella::Spectrum::setMinY: ERROR: minY=");
-    message += to_string( minY ) + string(" > _nCCDRows=") + to_string(_nCCDRows);
-    throw LSST_EXCEPT(pexExcept::Exception, message.c_str());    
-  }
-  _minY = minY;
-}
-
-template<typename ImageT, typename MaskT, typename VarianceT>
-void
-Spectrum<ImageT, MaskT, VarianceT>::setMaxY(const std::size_t maxY)
-{
-  if ( maxY > _nCCDRows ){
-    _nCCDRows = _minY + maxY;            // this is strange, but so is the definition of yLow/High (now min/maxY)
-  }
-  _maxY = maxY;
-}
-
-template<typename ImageT, typename MaskT, typename VarianceT>
-void
-Spectrum<ImageT, MaskT, VarianceT>::setNCCDRows(const std::size_t nCCDRows)
-{
-  if ( _minY > nCCDRows ){
-    string message("pfs::drp::stella::Spectrum::setMinY: ERROR: _minY=");
-    message += to_string( _minY ) + string(" > nCCDRows=") + to_string(nCCDRows);
-    throw LSST_EXCEPT(pexExcept::Exception, message.c_str());    
-  }
-  _nCCDRows = nCCDRows;
-}
-
 template< typename ImageT, typename MaskT, typename VarianceT >
 ndarray::Array<float, 1, 1 >
 Spectrum<ImageT, MaskT, VarianceT>::hIdentify(ndarray::Array< float, 2, 1 > const& lineList,
@@ -367,30 +210,26 @@ Spectrum<ImageT, MaskT, VarianceT>::hIdentify(ndarray::Array< float, 2, 1 > cons
   D_A2_Limits.deep() = 0.;
   ndarray::Array< float, 1, 1 > D_A1_Guess = ndarray::allocate( I_NTerms );
   std::vector< float > V_MeasureErrors( 2, 0.);
-  ndarray::Array< float, 1, 1 > D_A1_Ind = math::indGenNdArr( float( _spectrum.getShape()[ 0 ] ) );
+  ndarray::Array< float, 1, 1 > D_A1_Ind = math::indGenNdArr( float( _length ) );
   std::vector< float > V_X( 1, 0. );
   ndarray::Array< float, 1, 1 > D_A1_GaussPos = ndarray::allocate( lineList.getShape()[0] );
   D_A1_GaussPos.deep() = 0.;
-  #ifdef __WITH_PLOTS__
-    CString CS_PlotName("");
-    CString *P_CS_Num;
-  #endif
+
   for ( int i_line = 0; i_line < lineList.getShape()[ 0 ]; ++i_line ){
     I_Start = int( lineList[ ndarray::makeVector( i_line, 1 ) ] ) - dispCorControl.searchRadius;
     if ( I_Start < 0 )
       I_Start = 0;
     LOGLS_DEBUG(_log, "i_line = " << i_line << ": I_Start = " << I_Start);
     I_End = int( lineList[ ndarray::makeVector( i_line, 1 ) ] ) + dispCorControl.searchRadius;
-    if ( I_End >= _spectrum.getShape()[ 0 ] )
-      I_End = _spectrum.getShape()[ 0 ] - 1;
+    if ( I_End >= _length )
+      I_End = _length - 1;
     if ( ( I_End - I_Start ) > ( 1.5 * dispCorControl.searchRadius ) ){
       LOGLS_DEBUG(_log, "i_line = " << i_line << ": I_End = " << I_End);
       if ( I_Start >= I_End ){
         LOGLS_WARN(_log, "I_Start(=" << I_Start << ") >= I_End(=" << I_End << ")");
         LOGLS_DEBUG(_log, "_spectrum = " << _spectrum);
         LOGLS_DEBUG(_log, "lineList = " << lineList);
-      }
-      else{
+      } else {
         auto itMaxElement = std::max_element( _spectrum.begin() + I_Start, _spectrum.begin() + I_End + 1 );
         I_MaxPos = std::distance(_spectrum.begin(), itMaxElement);
         LOGLS_DEBUG(_log, "I_MaxPos = " << I_MaxPos);
@@ -399,13 +238,12 @@ Spectrum<ImageT, MaskT, VarianceT>::hIdentify(ndarray::Array< float, 2, 1 > cons
           I_Start = 0;
         LOGLS_DEBUG(_log, "I_Start = " << I_Start);
         I_End = std::round( float( I_MaxPos ) + ( 1.5 * dispCorControl.fwhm ) );
-        if ( I_End >= _spectrum.getShape()[ 0 ] )
-          I_End = _spectrum.getShape()[ 0 ] - 1;
+        if ( I_End >= _length )
+          I_End = _length - 1;
         LOGLS_DEBUG(_log, "I_End = " << I_End);
         if ( I_End < I_Start + 4 ){
           LOGLS_WARN(_log, "WARNING: Line position outside spectrum");
-        }
-        else{
+        } else {
           V_GaussSpec.resize( I_End - I_Start + 1 );
           V_MeasureErrors.resize( I_End - I_Start + 1 );
           V_X.resize( I_End - I_Start + 1 );
@@ -463,9 +301,8 @@ Spectrum<ImageT, MaskT, VarianceT>::hIdentify(ndarray::Array< float, 2, 1 > cons
                              D_A1_GaussCoeffs,
                              D_A1_EGaussCoeffs,
                              true)){
-            LOGLS_WARN(_log, "WARNING: GaussFit returned FALSE");
-          }
-          else{
+            LOGLS_WARN(_log, "GaussFit returned FALSE");
+          } else {
             LOGLS_DEBUG(_log, "i_line = " << i_line << ": D_A1_GaussCoeffs = " << D_A1_GaussCoeffs);
             if ( std::fabs( float( I_MaxPos ) - D_A1_GaussCoeffs[ 1 ] ) < dispCorControl.maxDistance ){
               D_A1_GaussPos[ i_line ] = D_A1_GaussCoeffs[ 1 ];
@@ -643,8 +480,8 @@ Spectrum<ImageT, MaskT, VarianceT>::identify(ndarray::Array< float, 2, 1 > const
     LOGLS_DEBUG(_log, "dispRmsCheck = " << _dispRmsCheck);
 
     ///calibrate spectrum
-    ndarray::Array< float, 1, 1 > D_A1_Indices = math::indGenNdArr( float( _spectrum.getShape()[ 0 ] ) );
-    _wavelength = ndarray::allocate( _spectrum.getShape()[ 0 ] );
+    ndarray::Array< float, 1, 1 > D_A1_Indices = math::indGenNdArr( float( _length ) );
+    _wavelength = ndarray::allocate( _length );
     _wavelength.deep() = math::Poly( D_A1_Indices, _dispCoeffs, xRange[0], xRange[1] );
     LOGLS_DEBUG(_log, "_wavelength = " << _wavelength);
 
@@ -662,7 +499,7 @@ Spectrum<ImageT, MaskT, VarianceT>::identify(ndarray::Array< float, 2, 1 > const
 }
 
 template<typename ImageT, typename MaskT, typename VarianceT>
-PTR( Spectrum< ImageT, MaskT, VarianceT > )
+PTR( const Spectrum< ImageT, MaskT, VarianceT > )
 SpectrumSet<ImageT, MaskT, VarianceT>::getSpectrum( const std::size_t i ) const
 {
     if (i >= _spectra->size()){
@@ -670,7 +507,7 @@ SpectrumSet<ImageT, MaskT, VarianceT>::getSpectrum( const std::size_t i ) const
         message += to_string(i) + "): ERROR: i >= _spectra->size()=" + to_string(_spectra->size());
         throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
     }
-    return PTR( Spectrum< ImageT, MaskT, VarianceT > )( new Spectrum< ImageT, MaskT, VarianceT >( *( _spectra->at( i ) ) ) );
+    return (*_spectra)[i];
 }
 
 template<typename ImageT, typename MaskT, typename VarianceT>
@@ -682,81 +519,26 @@ SpectrumSet<ImageT, MaskT, VarianceT>::getSpectrum( const std::size_t i )
         message += to_string(i) + "): ERROR: i >= _spectra->size()=" + to_string(_spectra->size());
         throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
     }
-    return PTR( Spectrum< ImageT, MaskT, VarianceT > )( new Spectrum< ImageT, MaskT, VarianceT >( *( _spectra->at( i ) ) ) );
+    return (*_spectra)[i];
 }
 
 template<typename ImageT, typename MaskT, typename VarianceT>
 void
 SpectrumSet<ImageT, MaskT, VarianceT>::setSpectrum(std::size_t const i,
-                                                   Spectrum<ImageT, MaskT, VarianceT> const& spectrum)
+                                                   PTR( Spectrum<ImageT, MaskT, VarianceT>) spectrum )
 {
-  if (i > _spectra->size()){
-    string message("SpectrumSet::setSpectrum(i=");
-    message += to_string(i) + "): ERROR: i > _spectra->size()=" + to_string(_spectra->size());
-    throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
-  }
-  PTR( Spectrum<ImageT, MaskT, VarianceT> ) spectrumPtr( new Spectrum< ImageT, MaskT, VarianceT >( spectrum ) );
-
-  if ( i == _spectra->size() ){
-    _spectra->push_back( spectrumPtr );
-  }
-  else{
-    ( *_spectra )[ i ] = spectrumPtr;
-  }
-}
-
-template<typename ImageT, typename MaskT, typename VarianceT>
-void
-SpectrumSet<ImageT, MaskT, VarianceT>::setSpectrum(std::size_t const i,
-                                                   PTR( Spectrum<ImageT, MaskT, VarianceT>) const& spectrum )
-{
-  if (i > _spectra->size()){
-    string message("SpectrumSet::setSpectrum(i=");
-    message += to_string(i) + "): ERROR: i > _spectra->size()=" + to_string(_spectra->size());
-    throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
-  }
-
-  PTR( Spectrum<ImageT, MaskT, VarianceT> ) spectrumPtr( new Spectrum< ImageT, MaskT, VarianceT >( *spectrum ) );
-  if ( i == _spectra->size() ){
-    _spectra->push_back( spectrumPtr );
-  }
-  else{
-    ( *_spectra )[ i ] = spectrumPtr;
-  }
-}
-
-template<typename ImageT, typename MaskT, typename VarianceT>
-void SpectrumSet<ImageT, MaskT, VarianceT>::erase(const std::size_t iStart, const std::size_t iEnd){
-  if (iStart >= _spectra->size()){
-    string message("SpectrumSet::erase(iStart=");
-    message += to_string(iStart) + ", iEnd=" + to_string(iEnd) + "): ERROR: iStart >= _spectra->size()=" + to_string(_spectra->size());
-    throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
-  }
-
-  if (iEnd >= _spectra->size()){
-    string message("SpectrumSet::erase(iStart=");
-    message += to_string(iStart) + ", iEnd=" + to_string(iEnd) + "): ERROR: iEnd >= _spectra->size()=" + to_string(_spectra->size());
-    throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
-  }
-
-  if (iEnd > 0){
-    if (iStart > iEnd){
-      string message("SpectrumSet::erase(iStart=");
-      message += to_string(iStart) + ", iEnd=" + to_string(iEnd) + "): ERROR: iStart > iEnd";
-      throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
+    if (i > _spectra->size()) {
+        string message("SpectrumSet::setSpectrum(i=");
+        message += to_string(i) + "): ERROR: i > _spectra->size()=" + to_string(_spectra->size());
+        throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
     }
-  }
-  if (iStart == (_spectra->size()-1)){
-    _spectra->pop_back();
-  }
-  else{
-    if (iEnd == 0)
-      _spectra->erase(_spectra->begin() + iStart);
-    else
-      _spectra->erase(_spectra->begin() + iStart, _spectra->begin() + iEnd);
-  }
+    
+    if ( i == _spectra->size() ){
+        _spectra->push_back(spectrum);
+    } else{
+        (*_spectra )[i] = spectrum;
+    }
 }
-
 
 namespace math {
     template< typename T, int I >
