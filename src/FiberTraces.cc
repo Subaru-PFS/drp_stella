@@ -328,6 +328,7 @@ namespace pfs { namespace drp { namespace stella {
     for (auto itProf = _trace->getImage()->getArray().begin(); itProf != _trace->getImage()->getArray().end(); ++itProf, ++itRec, ++itSpec)
       (*itRec) = (*itProf) * (*itSpec);
     PTR( afwImage::Image< ImageT > ) imagePtr( new afwImage::Image< ImageT >( F_A2_Rec ) );
+    imagePtr->setXY0(_trace->getXY0());
     return imagePtr;
   }
 

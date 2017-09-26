@@ -116,6 +116,12 @@ class ReduceArcTask(CmdLineTask):
             dispCorControl.fwhm = self.config.fwhm
             dispCorControl.maxDistance = self.config.maxDistance
 
+            if self.debugInfo.display and self.debugInfo.residuals_frame >= 0:
+                display = afwDisplay.Display(self.debugInfo.residuals_frame)
+                residuals = arcExp.maskedImage.clone()
+            else:
+                residuals = None
+
             for i in range(spectrumSet.size()):
                 spec = spectrumSet.getSpectrum(i)
 
@@ -136,8 +142,16 @@ class ReduceArcTask(CmdLineTask):
 
                 spectrumSet.setSpectrum(i, spec)
 
+                if residuals is not None:
+                    ft = flatFiberTraceSet.getFiberTrace(i)
+                    reconIm = ft.getReconstructed2DSpectrum(spec)
+                    residuals[reconIm.getBBox()] -= reconIm
+
             writePfsArm(butler, arcExp, spectrumSet, arcRef.dataId)
 
+        if residuals is not None:
+            display.mtv(residuals, title='Residuals')
+            
         return spectrumSet
     #
     # Disable writing metadata (doesn't work with lists of dataRefs anyway)
