@@ -246,21 +246,6 @@ class SpectrumSet
 };
 
 namespace math{
-    
-    template <typename T, typename U>
-    struct StretchAndCrossCorrelateSpecResult{
-        ndarray::Array<U, 2, 1> lineList;
-        ndarray::Array<T, 3, 1> specPieces;
-    };
-    
-    template <typename T, typename U>
-    StretchAndCrossCorrelateSpecResult<T, U> stretchAndCrossCorrelateSpec(
-        ndarray::Array< T, 1, 1 > const& spec,
-        ndarray::Array< T, 1, 1 > const& specRef,
-        ndarray::Array< U, 2, 1 > const& lineList_WLenPix,
-        DispCorControl const& dispCorControl
-    );
-    
     /**
      * @brief: create line list from wavelength array of size nCCDRows and list of wavelengths of emission lines used to calibrate the spectrum
      * @param wLen
