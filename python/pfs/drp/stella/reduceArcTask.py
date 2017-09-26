@@ -105,7 +105,9 @@ class ReduceArcTask(CmdLineTask):
             self.log.info('extracting arc spectra from %s', arcRef.dataId)
 
             extractSpectraTask = ExtractSpectraTask()
-            spectrumSetFromProfile = extractSpectraTask.run(arcExp, flatFiberTraceSet)
+            spectrumSet = extractSpectraTask.run(arcExp, flatFiberTraceSet).spectrumSet
+
+            # Fit the wavelength solution
 
             dispCorControl = drpStella.DispCorControl()
             dispCorControl.fittingFunction = self.config.function
@@ -113,14 +115,9 @@ class ReduceArcTask(CmdLineTask):
             dispCorControl.searchRadius = self.config.searchRadius
             dispCorControl.fwhm = self.config.fwhm
             dispCorControl.maxDistance = self.config.maxDistance
-            self.log.debug('dispCorControl.fittingFunction = %s' % dispCorControl.fittingFunction)
-            self.log.debug('dispCorControl.order = %d' % dispCorControl.order)
-            self.log.debug('dispCorControl.searchRadius = %d' % dispCorControl.searchRadius)
-            self.log.debug('dispCorControl.fwhm = %g' % dispCorControl.fwhm)
-            self.log.debug('dispCorControl.maxDistance = %g' % dispCorControl.maxDistance)
 
-            for i in range(spectrumSetFromProfile.size()):
-                spec = spectrumSetFromProfile.getSpectrum(i)
+            for i in range(spectrumSet.size()):
+                spec = spectrumSet.getSpectrum(i)
 
                 traceId = spec.getITrace()
                 wLenTemp = wavelengths[np.where(traceIds == traceId)]
@@ -135,14 +132,13 @@ class ReduceArcTask(CmdLineTask):
                 # Identify emission lines and fit dispersion
                 spec.identify(lineListPix, dispCorControl, 8)
 
-                self.log.info("FiberTrace %d: spec.getDispRms() = %f"
-                              % (i, spec.getDispRms()))
+                self.log.info("FiberTrace %d: spec.getDispRms() = %f" % (i, spec.getDispRms()))
 
-                spectrumSetFromProfile.setSpectrum(i, spec)
+                spectrumSet.setSpectrum(i, spec)
 
-            writePfsArm(butler, arcExp, spectrumSetFromProfile, arcRef.dataId)
+            writePfsArm(butler, arcExp, spectrumSet, arcRef.dataId)
 
-        return spectrumSetFromProfile
+        return spectrumSet
     #
     # Disable writing metadata (doesn't work with lists of dataRefs anyway)
     #
