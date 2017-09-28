@@ -1,3 +1,3 @@
 #!/usr/bin/env python
-from lsst.obs.pfs.constructFiberTraceTask import ConstructFiberTraceTask
+from pfs.drp.stella.constructFiberTraceTask import ConstructFiberTraceTask
 ConstructFiberTraceTask.parseAndSubmit()
