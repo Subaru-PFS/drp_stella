@@ -6,11 +6,16 @@ import pfs.drp.stella as drpStella
 import pfs.drp.stella.utils as dsUtils
 
 class ExtractSpectraConfig(pexConfig.Config):
-    saturationLevel = pexConfig.Field(
-          doc = "CCD saturation level",
-          dtype = float,
-          default = 65000.,
-          check = lambda x : x > 0.)
+    extractionAlgorithm = pexConfig.ChoiceField(
+        dtype=str,
+        doc="Algorithm used to extract spectra",
+        allowed={
+            "OPTIMAL": "classical \"optimal\" extraction",
+            "BOXCAR": "simple sum of pixels within the trace",
+        },
+        default="OPTIMAL",
+        optional=False,
+    )
 
 class ExtractSpectraTask(pipeBase.Task):
     ConfigClass = ExtractSpectraConfig
@@ -21,6 +26,8 @@ class ExtractSpectraTask(pipeBase.Task):
 
         import lsstDebug
         self.debugInfo = lsstDebug.Info(__name__)
+
+        self._useProfile = self.config.extractionAlgorithm == "OPTIMAL"
 
     def run(self, exposure, fiberTraceSet, traceNumbers=None):
         """Create traces from exposure and extract spectra from profiles in fiberTraceSet
@@ -53,7 +60,7 @@ class ExtractSpectraTask(pipeBase.Task):
 
             # Extract spectrum from profile
             try:
-                spectrum = fiberTrace.extractFromProfile(exposure.getMaskedImage())
+                spectrum = fiberTrace.extractSpectrum(exposure.getMaskedImage(), self._useProfile)
             except Exception as e:
                 self.log.warn("Extraction of fibre %d failed: %s" % (fiberTrace.getITrace(), e))
                 continue

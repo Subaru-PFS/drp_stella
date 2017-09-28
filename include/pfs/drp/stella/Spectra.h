@@ -14,7 +14,6 @@ class Spectrum {
   public:
     typedef float ImageT;
     typedef float VarianceT;
-    //typename MaskT=lsst::afw::image::MaskPixel,
 
     typedef ndarray::Array<ImageT, 1, 1> SpectrumVector;
     typedef ndarray::Array<VarianceT, 1, 1> VarianceVector;
@@ -107,7 +106,7 @@ class Spectrum {
      * @brief: Returns pixel positions of emission lines in lineList fitted in _spectrum
      * @param[in] lineList :: line list  [ nLines, 2 ]: [ wLen, approx_pixel ]
      */
-    ndarray::Array< float, 1, 1 > hIdentify(ndarray::Array< float, 2, 1 > const& lineList,
+    ndarray::Array< float, 1, 1 > hIdentify(ndarray::Array<float, 1, 1> const& lineListPixel,
                                             DispCorControl const& dispCorControl
                                            );
 

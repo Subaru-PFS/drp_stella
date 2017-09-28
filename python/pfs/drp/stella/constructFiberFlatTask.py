@@ -146,7 +146,7 @@ class ConstructFiberFlatTask(CalibTask):
             fts = allFts[iFts]
             maskedImage = dataRefList[iFts].get('postISRCCD').getMaskedImage()
             for ft in fts.getTraces():
-                spectrum = ft.extractFromProfile(maskedImage)
+                spectrum = ft.extractSpectrum(maskedImage)
                 recFt = ft.getReconstructed2DSpectrum(spectrum)
                 recFtArr = recFt.getArray()
                 imArr = ft.getTrace().getImage().getArray()

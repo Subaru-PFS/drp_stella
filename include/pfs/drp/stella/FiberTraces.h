@@ -71,12 +71,7 @@ class FiberTrace {
     /**
      * @brief Extract the spectrum of this fiber trace using the _profile
      */
-    PTR(Spectrum) extractFromProfile(PTR(const MaskedImageT) const& spectrumImage);
-    
-    /**
-     * @brief Simple Sum Extraction of this fiber trace
-     */
-    PTR(Spectrum) extractSum(PTR(const MaskedImageT) const& spectrumImage);
+    PTR(Spectrum) extractSpectrum(PTR(const MaskedImageT) const& spectrumImage, bool useProfile=true);
     
     /**
      * @brief Return the fitted x-centers of the fiber trace
