@@ -25,8 +25,6 @@ class FiberTrace {
     typedef lsst::afw::image::Image<ImageT> Image;
     typedef lsst::afw::image::Mask<MaskT> Mask;
     typedef lsst::afw::image::Image<VarianceT> Variance;
-    typedef Spectrum<ImageT, MaskT, VarianceT> SpectrumT;
-
 
     /** @brief Class Constructors and Destructor
      * @param maskedImage : maskedImage to set _trace to
@@ -73,12 +71,12 @@ class FiberTrace {
     /**
      * @brief Extract the spectrum of this fiber trace using the _profile
      */
-    PTR(SpectrumT) extractFromProfile(PTR(const MaskedImageT) const& spectrumImage);
+    PTR(Spectrum) extractFromProfile(PTR(const MaskedImageT) const& spectrumImage);
     
     /**
      * @brief Simple Sum Extraction of this fiber trace
      */
-    PTR(SpectrumT) extractSum(PTR(const MaskedImageT) const& spectrumImage);
+    PTR(Spectrum) extractSum(PTR(const MaskedImageT) const& spectrumImage);
     
     /**
      * @brief Return the fitted x-centers of the fiber trace
@@ -89,7 +87,7 @@ class FiberTrace {
      * @brief Return shared pointer to an image containing the reconstructed 2D spectrum of the FiberTrace
      * @param spectrum : 1D spectrum to reconstruct the 2D image from
      */
-    PTR(Image) getReconstructed2DSpectrum(SpectrumT const& spectrum) const;
+    PTR(Image) getReconstructed2DSpectrum(Spectrum const& spectrum) const;
     
     /**
      * @brief set the ID number of this trace (_iTrace) to this number
@@ -205,7 +203,6 @@ class FiberTraceSet {
   public:
     typedef lsst::afw::image::MaskedImage<ImageT, MaskT, VarianceT> MaskedImageT;
     typedef FiberTrace<ImageT, MaskT, VarianceT> FiberTraceT;
-    typedef Spectrum<ImageT, MaskT, VarianceT> SpectrumT;
     typedef std::vector<PTR(FiberTraceT)> Collection;
 
     /**

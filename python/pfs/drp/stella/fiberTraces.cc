@@ -40,7 +40,7 @@ void declareFiberTrace(py::module &mod)
     cls.def("extractSum", &Class::extractSum, "spectrumImage"_a);
 
     cls.def("getReconstructed2DSpectrum",
-            (PTR(typename Class::Image)(Class::*)(typename Class::SpectrumT const&) const)
+            (PTR(typename Class::Image)(Class::*)(Spectrum const&) const)
                 &Class::getReconstructed2DSpectrum, "spectrum"_a);
 }
 

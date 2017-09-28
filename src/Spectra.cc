@@ -11,8 +11,7 @@ namespace pfs { namespace drp { namespace stella {
 
 /** @brief Construct a Spectrum with empty vectors of specified size (default 0)
  */
-template<typename ImageT, typename MaskT, typename VarianceT>
-Spectrum<ImageT, MaskT, VarianceT>::Spectrum(size_t length, size_t iTrace )
+Spectrum::Spectrum(size_t length, size_t iTrace )
   : _length(length),
     _mask(length, 1),
     _iTrace(iTrace),
@@ -32,8 +31,7 @@ Spectrum<ImageT, MaskT, VarianceT>::Spectrum(size_t length, size_t iTrace )
   _mask.addMaskPlane("REJECTED_LINES");
 }
 
-template<typename ImageT, typename MaskT, typename VarianceT>
-void Spectrum<ImageT, MaskT, VarianceT>::setWavelength( ndarray::Array<float, 1, 1> const& wavelength )
+void Spectrum::setWavelength( ndarray::Array<float, 1, 1> const& wavelength )
 {
   /// Check length of input wavelength
   if (static_cast<size_t>(wavelength.getShape()[0]) != _length){
@@ -45,18 +43,16 @@ void Spectrum<ImageT, MaskT, VarianceT>::setWavelength( ndarray::Array<float, 1,
 }
 
 ///SpectrumSet
-template<typename ImageT, typename MaskT, typename VarianceT>
-SpectrumSet<ImageT, MaskT, VarianceT>::SpectrumSet( size_t nSpectra, size_t length )
-        : _spectra( new std::vector< PTR( Spectrum< ImageT, MaskT, VarianceT> ) >() )
+SpectrumSet::SpectrumSet( size_t nSpectra, size_t length )
+        : _spectra( new std::vector< PTR(Spectrum) >() )
 {
   for (size_t i = 0; i < nSpectra; ++i){
-    PTR(Spectrum<ImageT, MaskT, VarianceT>) spec( new Spectrum<ImageT, MaskT, VarianceT>( length, i ) );
+    PTR(Spectrum) spec( new Spectrum( length, i ) );
     _spectra->push_back(spec);
   }
 }
 
-template<typename ImageT, typename MaskT, typename VarianceT>
-ndarray::Array< float, 2, 1 > SpectrumSet<ImageT, MaskT, VarianceT>::getAllFluxes() const{
+ndarray::Array< float, 2, 1 > SpectrumSet::getAllFluxes() const{
   int nFibers = int( getNtrace() );
   int nCCDRows = getSpectrum(0)->getNpix();
   ndarray::Array<float, 2, 1> flux = ndarray::allocate(nFibers, nCCDRows);
@@ -69,8 +65,7 @@ ndarray::Array< float, 2, 1 > SpectrumSet<ImageT, MaskT, VarianceT>::getAllFluxe
   return flux;
 }
 
-template<typename ImageT, typename MaskT, typename VarianceT>
-ndarray::Array< float, 2, 1 > SpectrumSet<ImageT, MaskT, VarianceT>::getAllWavelengths() const{
+ndarray::Array< float, 2, 1 > SpectrumSet::getAllWavelengths() const{
   int nFibers = int( getNtrace() );
   int nCCDRows = getSpectrum( 0 )->getNpix();
   /// allocate memory for the array
@@ -84,8 +79,7 @@ ndarray::Array< float, 2, 1 > SpectrumSet<ImageT, MaskT, VarianceT>::getAllWavel
   return lambda;
 }
 
-template<typename ImageT, typename MaskT, typename VarianceT>
-ndarray::Array< int, 2, 1 > SpectrumSet<ImageT, MaskT, VarianceT>::getAllMasks() const{
+ndarray::Array< int, 2, 1 > SpectrumSet::getAllMasks() const{
   int nFibers = int( getNtrace() );
   int nCCDRows = getSpectrum( 0 )->getNpix();
   /// allocate memory for the array
@@ -99,8 +93,7 @@ ndarray::Array< int, 2, 1 > SpectrumSet<ImageT, MaskT, VarianceT>::getAllMasks()
   return mask;
 }
 
-template<typename ImageT, typename MaskT, typename VarianceT>
-ndarray::Array< float, 3, 1 > SpectrumSet<ImageT, MaskT, VarianceT>::getAllCovars() const{
+ndarray::Array< float, 3, 1 > SpectrumSet::getAllCovars() const{
   int nFibers = int( getNtrace() );
   int nCCDRows = getSpectrum( 0 )->getNpix();
   /// allocate memory for the array
@@ -114,9 +107,8 @@ ndarray::Array< float, 3, 1 > SpectrumSet<ImageT, MaskT, VarianceT>::getAllCovar
   return covar;
 }
 
-template<typename ImageT, typename MaskT, typename VarianceT>
 void
-Spectrum<ImageT, MaskT, VarianceT>::setSpectrum( ndarray::Array<ImageT, 1, 1> const& spectrum )
+Spectrum::setSpectrum( ndarray::Array<Spectrum::ImageT, 1, 1> const& spectrum )
 {
   /// Check length of input spectrum
   if (static_cast<std::size_t>(spectrum.getShape()[0]) != _length) {
@@ -127,25 +119,22 @@ Spectrum<ImageT, MaskT, VarianceT>::setSpectrum( ndarray::Array<ImageT, 1, 1> co
   _spectrum.deep() = spectrum;
 }
 
-template<typename ImageT, typename MaskT, typename VarianceT>
-ndarray::Array<VarianceT, 1, 1>
-Spectrum<ImageT, MaskT, VarianceT>::getVariance() const
+ndarray::Array<Spectrum::VarianceT, 1, 1>
+Spectrum::getVariance() const
 {
     ndarray::Array< VarianceT, 1, 1 > variance = ndarray::allocate(getNpix());
     variance.deep() = _covar[0];
     return variance;
 }
 
-template<typename ImageT, typename MaskT, typename VarianceT>
-ndarray::Array<VarianceT, 1, 1>
-Spectrum<ImageT, MaskT, VarianceT>::getVariance()
+ndarray::Array<Spectrum::VarianceT, 1, 1>
+Spectrum::getVariance()
 {
     return _covar[0];
 }
 
-template<typename ImageT, typename MaskT, typename VarianceT>
 void
-Spectrum<ImageT, MaskT, VarianceT>::setVariance( ndarray::Array<VarianceT, 1, 1> const& variance )
+Spectrum::setVariance( ndarray::Array<VarianceT, 1, 1> const& variance )
 {
   /// Check length of input variance
   if (static_cast<std::size_t>(variance.getShape()[0]) != _length) {
@@ -156,9 +145,8 @@ Spectrum<ImageT, MaskT, VarianceT>::setVariance( ndarray::Array<VarianceT, 1, 1>
   _covar[0].deep() = variance;
 }
 
-template<typename ImageT, typename MaskT, typename VarianceT>
 void
-Spectrum<ImageT, MaskT, VarianceT>::setCovar(const ndarray::Array<VarianceT, 2, 1> & covar )
+Spectrum::setCovar(const ndarray::Array<VarianceT, 2, 1> & covar )
 {
     /// Check length of input covar
     if (static_cast<std::size_t>(covar.getShape()[0]) != _length) {
@@ -174,9 +162,8 @@ Spectrum<ImageT, MaskT, VarianceT>::setCovar(const ndarray::Array<VarianceT, 2, 
     _covar.deep() = covar;
 }
 
-template<typename ImageT, typename MaskT, typename VarianceT>
 void
-Spectrum<ImageT, MaskT, VarianceT>::setMask(const lsst::afw::image::Mask<MaskT> & mask)
+Spectrum::setMask(const Mask & mask)
 {
   /// Check length of input mask
   if (static_cast<std::size_t>(mask.getWidth()) != _length){
@@ -187,9 +174,8 @@ Spectrum<ImageT, MaskT, VarianceT>::setMask(const lsst::afw::image::Mask<MaskT> 
   _mask = mask;
 }
 
-template< typename ImageT, typename MaskT, typename VarianceT >
 ndarray::Array<float, 1, 1 >
-Spectrum<ImageT, MaskT, VarianceT>::hIdentify(ndarray::Array< float, 2, 1 > const& lineList,
+Spectrum::hIdentify(ndarray::Array< float, 2, 1 > const& lineList,
                                               DispCorControl const& dispCorControl
                                              )
 {
@@ -337,9 +323,8 @@ Spectrum<ImageT, MaskT, VarianceT>::hIdentify(ndarray::Array< float, 2, 1 > cons
   return D_A1_GaussPos;
 }
 
-template< typename ImageT, typename MaskT, typename VarianceT >
 void
-Spectrum<ImageT, MaskT, VarianceT>::identify(ndarray::Array< float, 2, 1 > const& lineList,
+Spectrum::identify(ndarray::Array< float, 2, 1 > const& lineList,
                                              DispCorControl const& dispCorControl,
                                              std::size_t nLinesCheck )
 {
@@ -498,9 +483,8 @@ Spectrum<ImageT, MaskT, VarianceT>::identify(ndarray::Array< float, 2, 1 > const
     _isWavelengthSet = true;
 }
 
-template<typename ImageT, typename MaskT, typename VarianceT>
-PTR( const Spectrum< ImageT, MaskT, VarianceT > )
-SpectrumSet<ImageT, MaskT, VarianceT>::getSpectrum( const std::size_t i ) const
+PTR(const Spectrum)
+SpectrumSet::getSpectrum( const std::size_t i ) const
 {
     if (i >= _spectra->size()){
         string message("SpectrumSet::getSpectrum(i=");
@@ -510,9 +494,8 @@ SpectrumSet<ImageT, MaskT, VarianceT>::getSpectrum( const std::size_t i ) const
     return (*_spectra)[i];
 }
 
-template<typename ImageT, typename MaskT, typename VarianceT>
-PTR( Spectrum< ImageT, MaskT, VarianceT > )
-SpectrumSet<ImageT, MaskT, VarianceT>::getSpectrum( const std::size_t i )
+PTR(Spectrum)
+SpectrumSet::getSpectrum( const std::size_t i )
 {
     if (i >= _spectra->size()){
         string message("SpectrumSet::getSpectrum(i=");
@@ -522,10 +505,9 @@ SpectrumSet<ImageT, MaskT, VarianceT>::getSpectrum( const std::size_t i )
     return (*_spectra)[i];
 }
 
-template<typename ImageT, typename MaskT, typename VarianceT>
 void
-SpectrumSet<ImageT, MaskT, VarianceT>::setSpectrum(std::size_t const i,
-                                                   PTR( Spectrum<ImageT, MaskT, VarianceT>) spectrum )
+SpectrumSet::setSpectrum(std::size_t const i,
+                                                   PTR( Spectrum) spectrum )
 {
     if (i > _spectra->size()) {
         string message("SpectrumSet::setSpectrum(i=");
@@ -582,12 +564,5 @@ namespace math {
     template ndarray::Array< float, 2, 1 > createLineList( ndarray::Array< float, 1, 1 > const&, ndarray::Array< float, 1, 1 > const& );
 
 }
-
-/************************************************************************************************************/
-/*
- * Explicit instantiations
- */
-template class Spectrum<float, lsst::afw::image::MaskPixel, float>;
-template class SpectrumSet<float, lsst::afw::image::MaskPixel, float>;
                 
 }}}

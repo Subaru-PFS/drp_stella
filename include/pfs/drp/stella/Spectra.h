@@ -10,16 +10,17 @@ namespace pfs { namespace drp { namespace stella {
 /**
  * \brief Describe a single fiber trace
  */
-template<typename PixelT,
-         typename MaskT=lsst::afw::image::MaskPixel,
-         typename VarianceT=lsst::afw::image::VariancePixel>
 class Spectrum {
   public:
-    typedef ndarray::Array<PixelT, 1, 1> SpectrumVector;
+    typedef float ImageT;
+    typedef float VarianceT;
+    //typename MaskT=lsst::afw::image::MaskPixel,
+
+    typedef ndarray::Array<ImageT, 1, 1> SpectrumVector;
     typedef ndarray::Array<VarianceT, 1, 1> VarianceVector;
     typedef ndarray::Array<float, 1, 1> WavelengthVector;
     typedef ndarray::Array<VarianceT, 2, 1> CovarianceMatrix;
-    typedef lsst::afw::image::Mask<MaskT> Mask;
+    typedef lsst::afw::image::Mask<lsst::afw::image::MaskPixel> Mask;
     typedef ndarray::Array<float, 1, 1> Coefficients;
 
     // Class Constructors and Destructor
@@ -131,14 +132,10 @@ class Spectrum {
  * \brief Describe a set of spectra
  *
  */
-template <typename ImageT,
-          typename MaskT=lsst::afw::image::MaskPixel,
-          typename VarianceT=lsst::afw::image::VariancePixel>
 class SpectrumSet
 {
   public:
-    typedef Spectrum<ImageT, MaskT, VarianceT> SpectrumT;
-    typedef std::vector<PTR(SpectrumT)> Spectra;
+    typedef std::vector<PTR(Spectrum)> Spectra;
 
     /// Class Constructors and Destructor
       
@@ -156,25 +153,25 @@ class SpectrumSet
     /** @brief  Return the Spectrum for the ith fiberTrace
      *  @param i :: number of spectrum ( or number of respective FiberTrace ) to return
      * **/
-    PTR(SpectrumT) getSpectrum( const std::size_t i );
+    PTR(Spectrum) getSpectrum( const std::size_t i );
 
     /** @brief  Return the Spectrum for the ith fiberTrace
      *  @param i :: number of spectrum ( or number of respective FiberTrace ) to return
      **/
-    PTR(const SpectrumT) getSpectrum( const std::size_t i ) const;
+    PTR(const Spectrum) getSpectrum( const std::size_t i ) const;
 
     /**
      * @brief Set the ith Spectrum
      * @param i :: Set which spectrum in set?
      * @param spectrum :: spectrum to set to this set at position i
      **/
-    void setSpectrum(std::size_t const i, PTR(SpectrumT) spectrum);
+    void setSpectrum(std::size_t const i, PTR(Spectrum) spectrum);
     
     /** 
      * @brief Add one Spectrum to the set
      * @param spectrum :: spectrum to add 
      **/
-    void addSpectrum(PTR(SpectrumT) spectrum) {
+    void addSpectrum(PTR(Spectrum) spectrum) {
         _spectra->push_back(spectrum);
     }
     

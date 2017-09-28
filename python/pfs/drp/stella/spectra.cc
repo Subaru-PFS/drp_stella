@@ -14,9 +14,8 @@ namespace pfs { namespace drp { namespace stella {
 
 namespace {
 
-template <typename T>
 void declareSpectrum(py::module &mod) {
-    using Class = Spectrum<T>;
+    using Class = Spectrum;
     py::class_<Class, std::shared_ptr<Class>> cls(mod, "Spectrum");
 
     cls.def(py::init<std::size_t, std::size_t>(), "length"_a, "iTrace"_a=0);
@@ -59,22 +58,19 @@ void declareSpectrum(py::module &mod) {
     cls.def("isWavelengthSet", &Class::isWavelengthSet);
 }
 
-template <typename T>
 void declareSpectrumSet(py::module &mod) {
-    using Class = SpectrumSet<T>;
+    using Class = SpectrumSet;
     py::class_<Class, PTR(Class)> cls(mod, "SpectrumSet");
 
     cls.def(py::init<std::size_t, std::size_t>(), "nSpectra"_a=0, "length"_a=0);
 
     cls.def("getNtrace", &Class::getNtrace);
 
-    cls.def("getSpectrum", (PTR(typename Class::SpectrumT) (Class::*)(std::size_t)) &Class::getSpectrum,
+    cls.def("getSpectrum", (PTR(Spectrum) (Class::*)(std::size_t)) &Class::getSpectrum,
             "i"_a);
     cls.def("setSpectrum",
-            (void (Class::*)(std::size_t, PTR(typename Class::SpectrumT))) &Class::setSpectrum,
-            "i"_a, "spectrum"_a);
-    cls.def("addSpectrum", (void (Class::*)(PTR(typename Class::SpectrumT))) &Class::addSpectrum,
-            "spectrum"_a);
+            (void (Class::*)(std::size_t, PTR(Spectrum))) &Class::setSpectrum, "i"_a, "spectrum"_a);
+    cls.def("addSpectrum", (void (Class::*)(PTR(Spectrum))) &Class::addSpectrum, "spectrum"_a);
 
     cls.def("getAllFluxes", &Class::getAllFluxes);
     cls.def("getAllWavelengths", &Class::getAllWavelengths);
@@ -95,9 +91,9 @@ PYBIND11_PLUGIN(spectra) {
         return nullptr;
     }
 
-    declareSpectrum<float>(mod);
+    declareSpectrum(mod);
 
-    declareSpectrumSet<float>(mod);
+    declareSpectrumSet(mod);
 
     mod.def("createLineList", math::createLineList<float, 1>, "wLen"_a, "lines"_a);
 
