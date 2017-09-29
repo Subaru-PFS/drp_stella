@@ -4,7 +4,7 @@ import numpy as np
 
 import lsstDebug
 import lsst.log as log
-from lsst.pex.config import Config, Field
+import lsst.pex.config as pexConfig
 from lsst.pipe.base import TaskRunner, ArgumentParser, CmdLineTask
 from lsst.utils import getPackageDir
 import lsst.afw.display as afwDisplay
@@ -13,16 +13,21 @@ from pfs.drp.stella.extractSpectraTask import ExtractSpectraTask
 from pfs.drp.stella.utils import makeFiberTraceSet, readWavelengthFile
 from pfs.drp.stella.utils import readLineListFile, writePfsArm, addFiberTraceSetToMask
 
-class ReduceArcConfig(Config):
+class ReduceArcConfig(pexConfig.Config):
     """Configuration for reducing arc images"""
-    function = Field( doc = "Function for fitting the dispersion", dtype=str, default="POLYNOMIAL" );
-    order = Field( doc = "Fitting function order", dtype=int, default = 5 );
-    searchRadius = Field( doc = "Radius in pixels relative to line list to search for emission line peak", dtype = int, default = 2 );
-    fwhm = Field( doc = "FWHM of emission lines", dtype=float, default = 2.6 );
-    nRowsPrescan = Field( doc = "Number of prescan rows in raw CCD image", dtype=int, default = 49 );
-    wavelengthFile = Field( doc = "reference pixel-wavelength file including path", dtype = str, default=os.path.join(getPackageDir("obs_pfs"), "pfs/RedFiberPixels.fits.gz"));
-    lineList = Field( doc = "reference line list including path", dtype = str, default=os.path.join(getPackageDir("obs_pfs"), "pfs/lineLists/CdHgKrNeXe_red.fits"));
-    maxDistance = Field( doc = "Reject emission lines which center is more than this value away from the predicted position", dtype=float, default = 2.5 );
+    extractSpectra = pexConfig.ConfigurableField(
+        target=ExtractSpectraTask,
+        doc="""Task to extract spectra using the fibre traces""",
+    )
+
+    function = pexConfig.Field( doc = "Function for fitting the dispersion", dtype=str, default="POLYNOMIAL" );
+    order = pexConfig.Field( doc = "Fitting function order", dtype=int, default = 5 );
+    searchRadius = pexConfig.Field( doc = "Radius in pixels relative to line list to search for emission line peak", dtype = int, default = 2 );
+    fwhm = pexConfig.Field( doc = "FWHM of emission lines", dtype=float, default = 2.6 );
+    nRowsPrescan = pexConfig.Field( doc = "Number of prescan rows in raw CCD image", dtype=int, default = 49 );
+    wavelengthFile = pexConfig.Field( doc = "reference pixel-wavelength file including path", dtype = str, default=os.path.join(getPackageDir("obs_pfs"), "pfs/RedFiberPixels.fits.gz"));
+    lineList = pexConfig.Field( doc = "reference line list including path", dtype = str, default=os.path.join(getPackageDir("obs_pfs"), "pfs/lineLists/CdHgKrNeXe_red.fits"));
+    maxDistance = pexConfig.Field( doc = "Reject emission lines which center is more than this value away from the predicted position", dtype=float, default = 2.5 );
 
 class ReduceArcTaskRunner(TaskRunner):
     """Get parsed values into the ReduceArcTask.run"""
@@ -39,6 +44,8 @@ class ReduceArcTask(CmdLineTask):
 
     def __init__(self, *args, **kwargs):
         super(ReduceArcTask, self).__init__(*args, **kwargs)
+
+        self.makeSubtask("extractSpectra")
 
         self.debugInfo = lsstDebug.Info(__name__)
 
@@ -104,8 +111,7 @@ class ReduceArcTask(CmdLineTask):
             # optimally extract arc spectra
             self.log.info('extracting arc spectra from %s', arcRef.dataId)
 
-            extractSpectraTask = ExtractSpectraTask()
-            spectrumSet = extractSpectraTask.run(arcExp, flatFiberTraceSet).spectrumSet
+            spectrumSet = self.extractSpectra.run(arcExp, flatFiberTraceSet).spectrumSet
 
             # Fit the wavelength solution
 
