@@ -176,7 +176,8 @@ Spectrum::setMask(const Mask & mask)
 }
 
 ndarray::Array<float, 1, 1 >
-Spectrum::hIdentify(ndarray::Array< float, 1, 1 > const& lineListPixel,
+Spectrum::hIdentify(ndarray::Array< float, 1, 1 > const& lineListLambda,
+                    ndarray::Array< float, 1, 1 > const& lineListPixel,
                     DispCorControl const& dispCorControl
                    )
 {
@@ -204,114 +205,117 @@ Spectrum::hIdentify(ndarray::Array< float, 1, 1 > const& lineListPixel,
     ndarray::Array< float, 1, 1 > GaussPos = ndarray::allocate(nLine);
     GaussPos.deep() = 0.;
 
+    _referenceLines.reserve(nLine);
+
     for (int i = 0; i < nLine; ++i) {
         int start = int(lineListPixel[i]) - dispCorControl.searchRadius;
+        int end   = start + 2*dispCorControl.searchRadius;
+        if (start < 0 || end >= _length) {
+            continue;
+        }
+
+        auto refLine = std::make_shared<ReferenceLine>(ReferenceLine::NOWT, lineListLambda[i], lineListPixel[i]);
+        _referenceLines.push_back(refLine);
+
+        auto itMaxElement = std::max_element( _spectrum.begin() + start, _spectrum.begin() + end + 1 );
+        const float maxPos = std::distance(_spectrum.begin(), itMaxElement);
+        start = std::round( maxPos - ( 1.5 * dispCorControl.fwhm ) );
         if (start < 0) start = 0;
-        int end = int(lineListPixel[i]) + dispCorControl.searchRadius;
-        if (end >= _length) end = _length - 1;
 
-        if (end - start > 1.5*dispCorControl.searchRadius) {
-            if (start >= end) {
-                LOGLS_WARN(_log, "start(=" << start << ") >= end(=" << end << ")");
+        end = std::round(maxPos + 1.5*dispCorControl.fwhm);
+        if ( end >= _length ) end = _length - 1;
+        if ( end < start + 4) {
+            LOGLS_WARN(_log, "WARNING: Line position outside spectrum");
+        } else {
+            const int n = end - start + 1;
+            auto X             = ndarray::Array<float, 1, 1>(n);
+            auto GaussSpec     = ndarray::Array<float, 1, 1>(n);
+            auto MeasureErrors = ndarray::Array<float, 1, 1>(n);
+
+            auto itSpec = _spectrum.begin() + start;
+            for (auto itGaussSpec = GaussSpec.begin(); itGaussSpec != GaussSpec.end(); ++itGaussSpec, ++itSpec )
+                *itGaussSpec = *itSpec;
+            for(auto itMeasErr = MeasureErrors.begin(), itGaussSpec = GaussSpec.begin();
+                itMeasErr != MeasureErrors.end(); ++itMeasErr, ++itGaussSpec) {
+                *itMeasErr = sqrt(std::fabs(*itGaussSpec));
+                if (*itMeasErr < 0.00001) *itMeasErr = 1.;
+            }
+            auto itInd = Ind.begin() + start;
+            for ( auto itX = X.begin(); itX != X.end(); ++itX, ++itInd ) {
+                *itX = *itInd;
+            }
+
+            Guess[BASELINE] = *min_element(GaussSpec.begin(), GaussSpec.end());
+            Guess[PEAK]     = *max_element(GaussSpec.begin(), GaussSpec.end()) - Guess[BASELINE];
+            Guess[XC]       = 0.5*(X[0] +  X[X.size() - 1]);
+            Guess[WIDTH]    = dispCorControl.fwhm;
+            LOGLS_DEBUG(_log, "Guess = " << Guess);
+
+            Limits[ndarray::makeVector(PEAK,     0 )] = 0.;
+            Limits[ndarray::makeVector(PEAK,     1 )] = std::fabs(1.5*Guess[PEAK]);
+            Limits[ndarray::makeVector(XC,       0 )] = X[1];
+            Limits[ndarray::makeVector(XC,       1 )] = X[X.size() - 2];
+            Limits[ndarray::makeVector(WIDTH,    0 )] = 0.33*Guess[WIDTH];
+            Limits[ndarray::makeVector(WIDTH,    1 )] = 2.0*Guess[WIDTH];
+            Limits[ndarray::makeVector(BASELINE, 0 )] = 0.0;
+            Limits[ndarray::makeVector(BASELINE, 1 )] = std::fabs(1.5*Guess[BASELINE]) + 1;
+            LOGLS_DEBUG(_log, "Limits = " << Limits);
+
+            if (!MPFitGaussLim(X,
+                               GaussSpec,
+                               MeasureErrors,
+                               Guess,
+                               Limited,
+                               Limits,
+                               true,
+                               false,
+                               GaussCoeffs,
+                               EGaussCoeffs,
+                               true)) {
+                if ((_mask((start + end)/2, 0) & nodata) == 0) {
+                    LOGLS_WARN(_log, "GaussFit returned FALSE for fibre " + to_string(getITrace()) +
+                               ": xc = " + to_string(Guess[XC]) + " lambda = " + to_string(lineListLambda[i]));
+                }
+                GaussCoeffs.deep() = 0.0;
+                EGaussCoeffs.deep() = 0.0;
             } else {
-                auto itMaxElement = std::max_element( _spectrum.begin() + start, _spectrum.begin() + end + 1 );
-                const float maxPos = std::distance(_spectrum.begin(), itMaxElement);
-                start = std::round( maxPos - ( 1.5 * dispCorControl.fwhm ) );
-                if (start < 0) start = 0;
+                if (std::fabs(maxPos - GaussCoeffs[1] ) < dispCorControl.maxDistance) {
+                    GaussPos[i] = GaussCoeffs[1];
+                    refLine->status |= ReferenceLine::FIT;
+                    refLine->fitPixelPos = GaussCoeffs[1];
+                    refLine->fitPixelPosErr = EGaussCoeffs[1];
 
-                end = std::round( maxPos + ( 1.5 * dispCorControl.fwhm ) );
-                if ( end >= _length ) end = _length - 1;
-                if ( end < start + 4 ){
-                    LOGLS_WARN(_log, "WARNING: Line position outside spectrum");
-                } else {
-                    const int n = end - start + 1;
-                    auto X             = ndarray::Array<float, 1, 1>(n);
-                    auto GaussSpec     = ndarray::Array<float, 1, 1>(n);
-                    auto MeasureErrors = ndarray::Array<float, 1, 1>(n);
-
-                    auto itSpec = _spectrum.begin() + start;
-                    for (auto itGaussSpec = GaussSpec.begin(); itGaussSpec != GaussSpec.end(); ++itGaussSpec, ++itSpec )
-                        *itGaussSpec = *itSpec;
-                    for(auto itMeasErr = MeasureErrors.begin(), itGaussSpec = GaussSpec.begin();
-                        itMeasErr != MeasureErrors.end(); ++itMeasErr, ++itGaussSpec) {
-                        *itMeasErr = sqrt(std::fabs(*itGaussSpec));
-                        if (*itMeasErr < 0.00001) *itMeasErr = 1.;
-                    }
-                    auto itInd = Ind.begin() + start;
-                    for ( auto itX = X.begin(); itX != X.end(); ++itX, ++itInd ) {
-                        *itX = *itInd;
-                    }
-
-                    Guess[BASELINE] = *min_element(GaussSpec.begin(), GaussSpec.end());
-                    Guess[PEAK]     = *max_element(GaussSpec.begin(), GaussSpec.end()) - Guess[BASELINE];
-                    Guess[XC]       = 0.5*(X[0] +  X[X.size() - 1]);
-                    Guess[WIDTH]    = dispCorControl.fwhm;
-                    LOGLS_DEBUG(_log, "Guess = " << Guess);
-
-                    Limits[ndarray::makeVector(PEAK,     0 )] = 0.;
-                    Limits[ndarray::makeVector(PEAK,     1 )] = std::fabs(1.5*Guess[PEAK]);
-                    Limits[ndarray::makeVector(XC,       0 )] = X[1];
-                    Limits[ndarray::makeVector(XC,       1 )] = X[X.size() - 2];
-                    Limits[ndarray::makeVector(WIDTH,    0 )] = 0.33*Guess[WIDTH];
-                    Limits[ndarray::makeVector(WIDTH,    1 )] = 2.0*Guess[WIDTH];
-                    Limits[ndarray::makeVector(BASELINE, 0 )] = 0.0;
-                    Limits[ndarray::makeVector(BASELINE, 1 )] = std::fabs(1.5*Guess[BASELINE]) + 1;
-                    LOGLS_DEBUG(_log, "Limits = " << Limits);
-
-                    if (!MPFitGaussLim(X,
-                                       GaussSpec,
-                                       MeasureErrors,
-                                       Guess,
-                                       Limited,
-                                       Limits,
-                                       true,
-                                       false,
-                                       GaussCoeffs,
-                                       EGaussCoeffs,
-                                       true)) {
-                        if ((_mask((start + end)/2, 0) & nodata) == 0) {
-                            LOGLS_WARN(_log, "GaussFit returned FALSE for fibre " + to_string(getITrace()) +
-                                       ": xc = " + to_string(Guess[XC]) + "");
-                        }
-                        GaussCoeffs.deep() = 0.0;
-                        EGaussCoeffs.deep() = 0.0;
-                    } else {
-                        if (std::fabs(maxPos - GaussCoeffs[1] ) < dispCorControl.maxDistance ){
-                            GaussPos[i] = GaussCoeffs[1];
-                            if (i > 0) {
-                                if (std::fabs(GaussPos[i] - GaussPos[i - 1]) < 1.5) {// wrong line identified!
-                                    if (nLine > 2) {
-                                        int badIndx, goodIndx;
-                                        if (lineListPixel[i] < lineListPixel[i - 1]) {
-                                            badIndx = i;
-                                            goodIndx = i - 1;
-                                        } else {
-                                            badIndx = i - 1;
-                                            goodIndx = i;
-                                        }
-                                        if ((_mask((start + end)/2, 0) & nodata) == 0) {
-                                            LOGLS_WARN(_log, "Fibre " << to_string(getITrace()) << 
-                                                       " i=" << i << ": line " <<
-                                                       " at  GaussPos[" << badIndx << "] = " <<
-                                                       GaussPos[badIndx] <<
-                                                       " has probably been misidentified " <<
-                                                       "(GaussPos[" << goodIndx << "] =" <<
-                                                       GaussPos[goodIndx] <<
-                                                       ") => removing line from line list");
-                                        }
-
-                                        GaussPos[badIndx] = 0.0;
-                                    }
-                                }
+                    if (i > 0 && std::fabs(GaussPos[i] - GaussPos[i - 1]) < 1.5) { // wrong line identified!
+                        if (nLine > 2) {
+                            int badIndx, goodIndx;
+                            if (lineListPixel[i] < lineListPixel[i - 1]) {
+                                badIndx = i;
+                                goodIndx = i - 1;
+                            } else {
+                                badIndx = i - 1;
+                                goodIndx = i;
                             }
-                        } else {
-                            string message("WARNING: maxPos=");
-                            message += to_string(maxPos) + " - GaussCoeffs[ 1 ]=" + to_string(GaussCoeffs[1]);
-                            message += "(=" + to_string(std::fabs(maxPos - GaussCoeffs[1]));
-                            message += ") >= " + to_string(dispCorControl.maxDistance) + " => Skipping line";
-                            LOGLS_WARN(_log, message);
+                            if ((_mask((start + end)/2, 0) & nodata) == 0) {
+                                LOGLS_WARN(_log, "Fibre " << to_string(getITrace()) << 
+                                           " i=" << i << ": line " <<
+                                           " at  GaussPos[" << badIndx << "] = " <<
+                                           GaussPos[badIndx] <<
+                                           " has probably been misidentified " <<
+                                           "(GaussPos[" << goodIndx << "] =" <<
+                                           GaussPos[goodIndx] <<
+                                           ") => removing line from line list");
+                            }
+                            
+                            GaussPos[badIndx] = 0.0;
+                            _referenceLines[badIndx]->status |= ReferenceLine::MISIDENTIFIED;
                         }
                     }
+                } else {
+                    string message("WARNING: maxPos=");
+                    message += to_string(maxPos) + " - GaussCoeffs[ 1 ]=" + to_string(GaussCoeffs[1]);
+                    message += "(=" + to_string(std::fabs(maxPos - GaussCoeffs[1]));
+                    message += ") >= " + to_string(dispCorControl.maxDistance) + " => Skipping line";
+                    LOGLS_WARN(_log, message);
                 }
             }
         }
@@ -330,7 +334,7 @@ Spectrum::identify(ndarray::Array< float, 2, 1 > const& lineList,
     ///for each line in line list, find maximum in spectrum and fit Gaussian
     auto const lineListLambda = lineList[0];
     auto const lineListPixel = lineList[1];
-    auto GaussPos = hIdentify(lineListPixel, dispCorControl);
+    auto GaussPos = hIdentify(lineListLambda, lineListPixel, dispCorControl);
 
     ///remove lines which could not be found from line list
     std::vector<int> Index(GaussPos.getShape()[0], 0 );

@@ -1,6 +1,7 @@
 import os
 
 import numpy as np
+plt = None
 
 import lsstDebug
 import lsst.log as log
@@ -146,6 +147,25 @@ class ReduceArcTask(CmdLineTask):
                     ft = flatFiberTraceSet.getFiberTrace(i)
                     reconIm = ft.getReconstructed2DSpectrum(spec)
                     residuals[reconIm.getBBox()] -= reconIm
+
+                if self.debugInfo.display and self.debugInfo.showLines:
+                    global plt
+                    if plt is None:
+                        import matplotlib.pyplot as plt
+
+                    fiberId = spec.getITrace()
+
+                    if self.debugInfo.showLineList and fiberId not in self.debugInfo.showLineList:
+                        continue
+
+                    refLines = spec.getReferenceLines()
+                    plt.plot(spec.wavelength, spec.spectrum)
+                    plt.xlabel("Wavelength (vacuum nm)")
+                    plt.title("FiberId %d" % fiberId)
+                    for rl in refLines:
+                        if rl.status & rl.Status.FIT:
+                            plt.axvline(rl.wavelength, ls='-', color='black', alpha=0.5)
+                    plt.show()
 
             writePfsArm(butler, arcExp, spectrumSet, arcRef.dataId)
 

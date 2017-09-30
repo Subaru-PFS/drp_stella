@@ -14,30 +14,54 @@ namespace pfs { namespace drp { namespace stella {
 
 namespace {
 
+/************************************************************************************************************/
+
+void declareReferenceLine(py::module &mod) {
+    using Class = ReferenceLine;
+
+    py::class_<Class, std::shared_ptr<Class>> cls(mod, "ReferenceLine");
+
+    /* Member types and enums */
+    py::enum_<ReferenceLine::Status>(cls, "Status", py::arithmetic())
+        .value("NOWT", ReferenceLine::Status::NOWT)
+        .value("FIT", ReferenceLine::Status::FIT)
+        .value("KEPT_BACK", ReferenceLine::Status::KEPT_BACK)
+        .value("MISIDENTIFIED", ReferenceLine::Status::MISIDENTIFIED)
+        .export_values();
+
+    cls.def(py::init<ReferenceLine::Status, float>(), "status"_a=ReferenceLine::Status::NOWT, "wavelength"_a=0);
+    cls.def_readwrite("status", &ReferenceLine::status);
+    cls.def_readwrite("wavelength", &ReferenceLine::wavelength);
+    cls.def_readwrite("guessedPixelPos", &ReferenceLine::guessedPixelPos);
+    cls.def_readwrite("fitPixelPos", &ReferenceLine::fitPixelPos);
+    cls.def_readwrite("fitPixelPosErr", &ReferenceLine::fitPixelPosErr);
+}
+
+/************************************************************************************************************/
 void declareSpectrum(py::module &mod) {
     using Class = Spectrum;
     py::class_<Class, std::shared_ptr<Class>> cls(mod, "Spectrum");
 
     cls.def(py::init<std::size_t, std::size_t>(), "length"_a, "iTrace"_a=0);
 
-    cls.def("getSpectrum", (typename Class::SpectrumVector (Class::*)()) &Class::getSpectrum);
+    cls.def("getSpectrum", (ndarray::Array<Spectrum::ImageT, 1, 1> (Class::*)()) &Class::getSpectrum);
     cls.def("setSpectrum", &Class::setSpectrum, "spectrum"_a);
-    cls.def_property("spectrum", (typename Class::SpectrumVector (Class::*)()) &Class::getSpectrum,
+    cls.def_property("spectrum", (ndarray::Array<Spectrum::ImageT, 1, 1> (Class::*)()) &Class::getSpectrum,
                              &Class::setSpectrum);
 
-    cls.def("getVariance", (typename Class::VarianceVector (Class::*)()) &Class::getVariance);
+    cls.def("getVariance", (ndarray::Array<Spectrum::VarianceT, 1, 1> (Class::*)()) &Class::getVariance);
     cls.def("setVariance", &Class::setVariance, "variance"_a);
-    cls.def_property("variance", (typename Class::VarianceVector (Class::*)()) &Class::getVariance,
+    cls.def_property("variance", (ndarray::Array<Spectrum::VarianceT, 1, 1> (Class::*)()) &Class::getVariance,
                      &Class::setVariance);
 
-    cls.def("getCovar", (typename Class::CovarianceMatrix (Class::*)()) &Class::getCovar);
+    cls.def("getCovar", (ndarray::Array<Spectrum::VarianceT, 2, 1> (Class::*)()) &Class::getCovar);
     cls.def("setCovar", &Class::setCovar, "covar"_a);
-    cls.def_property("covariance", (typename Class::CovarianceMatrix (Class::*)()) &Class::getCovar,
+    cls.def_property("covariance", (ndarray::Array<Spectrum::VarianceT, 2, 1> (Class::*)()) &Class::getCovar,
                      &Class::setCovar);
 
-    cls.def("getWavelength", (typename Class::WavelengthVector (Class::*)()) &Class::getWavelength);
+    cls.def("getWavelength", (ndarray::Array<Spectrum::ImageT, 1, 1> (Class::*)()) &Class::getWavelength);
     cls.def("setWavelength", &Class::setWavelength, "wavelength"_a);
-    cls.def_property("wavelength", (typename Class::WavelengthVector (Class::*)()) &Class::getWavelength,
+    cls.def_property("wavelength", (ndarray::Array<Spectrum::ImageT, 1, 1> (Class::*)()) &Class::getWavelength,
                      &Class::setWavelength);
 
     cls.def("getMask", (typename Class::Mask (Class::*)()) &Class::getMask);
@@ -54,6 +78,8 @@ void declareSpectrum(py::module &mod) {
     cls.def("getNGoodLines", &Class::getNGoodLines);
 
     cls.def("identify", &Class::identify, "lineList"_a, "dispCorControl"_a, "nLinesCheck"_a=0);
+
+    cls.def("getReferenceLines", &Class::getReferenceLines);    
 
     cls.def("isWavelengthSet", &Class::isWavelengthSet);
 }
@@ -91,8 +117,8 @@ PYBIND11_PLUGIN(spectra) {
         return nullptr;
     }
 
+    declareReferenceLine(mod);
     declareSpectrum(mod);
-
     declareSpectrumSet(mod);
 
     mod.def("createLineList", math::createLineList<float, 1>, "wLen"_a, "lines"_a);

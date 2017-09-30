@@ -8,6 +8,35 @@
 
 namespace pfs { namespace drp { namespace stella {
 /**
+ * \brief Describe a calibration line
+ */
+class ReferenceLine {
+public:
+    enum Status {                       // Line's status
+        NOWT=0,
+        FIT=1,                          // line was found and fit; n.b. powers of 2
+        KEPT_BACK=2,                    // line was not used
+        MISIDENTIFIED=4                 // line was misidentified
+    };
+
+    ReferenceLine(Status _status=NOWT, float _wavelength=0, float _guessedPixelPos=0,
+                  float _fitPixelPos=0, float _fitPixelPosErr=0
+                 )
+        : status(_status),
+          wavelength(_wavelength),
+          guessedPixelPos(_guessedPixelPos),
+          fitPixelPos(_fitPixelPos),
+          fitPixelPosErr(_fitPixelPosErr)
+        { }
+
+    int status;                         // status of line
+    float wavelength;                   // vacuum wavelength, nm
+    int guessedPixelPos;                // input guess on pixel position
+    float fitPixelPos;                  // fit line position
+    float fitPixelPosErr;               // estimated standard deviation of fitPixelPos
+};
+
+/**
  * \brief Describe a single fiber trace
  */
 class Spectrum {
@@ -15,12 +44,7 @@ class Spectrum {
     typedef float ImageT;
     typedef float VarianceT;
 
-    typedef ndarray::Array<ImageT, 1, 1> SpectrumVector;
-    typedef ndarray::Array<VarianceT, 1, 1> VarianceVector;
-    typedef ndarray::Array<float, 1, 1> WavelengthVector;
-    typedef ndarray::Array<VarianceT, 2, 1> CovarianceMatrix;
     typedef lsst::afw::image::Mask<lsst::afw::image::MaskPixel> Mask;
-    typedef ndarray::Array<float, 1, 1> Coefficients;
 
     // Class Constructors and Destructor
     explicit Spectrum(std::size_t length=0,
@@ -34,32 +58,32 @@ class Spectrum {
     std::size_t getNpix() const { return _length; }
 
     /// Return a shared pointer to the spectrum
-    SpectrumVector getSpectrum() { return _spectrum; }
-    SpectrumVector const getSpectrum() const { return _spectrum; }
+    ndarray::Array<ImageT, 1, 1> getSpectrum() { return _spectrum; }
+    ndarray::Array<ImageT, 1, 1> const getSpectrum() const { return _spectrum; }
 
     /// Set the spectrum (deep copy)
-    void setSpectrum(SpectrumVector const& spectrum);
+    void setSpectrum(ndarray::Array<ImageT, 1, 1>  const& spectrum);
 
     /// Return a copy of the variance of this spectrum
-    VarianceVector getVariance() const;
-    VarianceVector getVariance();
+    ndarray::Array<VarianceT, 1, 1> getVariance() const;
+    ndarray::Array<VarianceT, 1, 1> getVariance();
     
     /// Return the pointer to the covariance of this spectrum
-    CovarianceMatrix getCovar() { return _covar; }
-    CovarianceMatrix getCovar() const { return _covar; }
+    ndarray::Array<VarianceT, 2, 1> getCovar() { return _covar; }
+    ndarray::Array<VarianceT, 2, 1> getCovar() const { return _covar; }
 
     /// Set the covariance pointer of this fiber trace to covar (deep copy)
-    void setVariance(VarianceVector const& variance);
+    void setVariance(ndarray::Array<ImageT, 1, 1> const& variance);
 
     /// Set the covariance pointer of this fiber trace to covar (deep copy)
-    void setCovar(CovarianceMatrix const& covar);
+    void setCovar(ndarray::Array<VarianceT, 2, 1> const& covar);
 
     /// Return the pointer to the wavelength vector of this spectrum
-    WavelengthVector getWavelength() { return _wavelength; }
-    WavelengthVector const getWavelength() const { return _wavelength; }
+    ndarray::Array<ImageT, 1, 1> getWavelength() { return _wavelength; }
+    ndarray::Array<ImageT, 1, 1> const getWavelength() const { return _wavelength; }
 
     /// Set the wavelength vector of this spectrum (deep copy)
-    void setWavelength(WavelengthVector const& wavelength);
+    void setWavelength(ndarray::Array<ImageT, 1, 1> const& wavelength);
 
     /// Return the pointer to the mask vector of this spectrum
     Mask getMask() { return _mask; }
@@ -98,6 +122,8 @@ class Spectrum {
     void identify(ndarray::Array<float, 2, 1> const& lineList,
                   DispCorControl const& dispCorControl,
                   std::size_t nLinesCheck=0);
+
+    std::vector<std::shared_ptr<ReferenceLine>>& getReferenceLines() { return _referenceLines; }
     
     bool isWavelengthSet() const { return _isWavelengthSet; }
     
@@ -106,18 +132,20 @@ class Spectrum {
      * @brief: Returns pixel positions of emission lines in lineList fitted in _spectrum
      * @param[in] lineList :: line list  [ nLines, 2 ]: [ wLen, approx_pixel ]
      */
-    ndarray::Array< float, 1, 1 > hIdentify(ndarray::Array<float, 1, 1> const& lineListPixel,
+    ndarray::Array< float, 1, 1 > hIdentify(ndarray::Array<float, 1, 1> const& lineListLambda,
+                                            ndarray::Array<float, 1, 1> const& lineListPixel,
                                             DispCorControl const& dispCorControl
                                            );
 
     std::size_t _length;
-    SpectrumVector _spectrum;
+    ndarray::Array<ImageT, 1, 1> _spectrum;
     Mask _mask;
-    CovarianceMatrix _covar;
-    WavelengthVector _wavelength;
-    WavelengthVector _dispersion;
+    ndarray::Array<VarianceT, 2, 1> _covar;
+    ndarray::Array<ImageT, 1, 1> _wavelength;
+    ndarray::Array<ImageT, 1, 1> _dispersion;
     std::size_t _iTrace;/// for logging / debugging purposes only
-    Coefficients _dispCoeffs;
+    ndarray::Array<float, 1, 1> _dispCoeffs;
+    std::vector<std::shared_ptr<ReferenceLine>> _referenceLines;
     float _dispRms;
     float _dispRmsCheck;
     std::size_t _nGoodLines;
