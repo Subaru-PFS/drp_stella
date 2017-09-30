@@ -5,15 +5,10 @@
 #include <vector>
 
 #include "ndarray.h"
+#include "lsst/afw/image/MaskedImage.h"
 
 namespace pfs { namespace drp { namespace stella {
   namespace math {
-      
-    template< typename T >
-    struct SpectrumBackground { 
-        T spectrum;
-        T background;
-    };
       
     /*
      * @brief calculate y positions for given x positions and a polynomial of given coefficients
@@ -149,47 +144,14 @@ namespace pfs { namespace drp { namespace stella {
 
     /**
      * @brief Scale the spatial profile to the FiberTrace row
-       calculates D_Sky_Out and D_SP_Out for the system of equations D_A1_CCD_In = D_Sky_Out + D_SP_Out * D_A1_SF_In
+       calculates  D_SP_Out for the system of equations D_A1_CCD_In = D_SP_Out*D_A1_SF_In
        CHANGES to original function:
-         * D_Sky_Out must be >= 0. unless stated otherwise by the ALLOW_SKY_LT_ZERO parameter
-         * D_SP_Out must be >= 0. unless stated otherwise by the ALLOW_SPEC_LT_ZERO parameter
-         * added REJECT_IN as optinal parameter to reject cosmic rays from fit (times sigma)
-         * added MASK_INOUT as optional parameter
-     * @param[in]       D_A1_CCD_In    :: FiberTrace row to scale the spatial profile D_A1_SF_In to
-     * @param[in]       D_A1_SF_In     :: Spatial profile to scale to the FiberTrace row
-     * @param[in,out]   D_SP_Out       :: Fitted scaling factor
-     * @param[in,out]   D_Sky_Out      :: Fitted constant under the fitted signal
-     * @param[in]       B_WithSky      :: Scale spatial profile plus constant background (sky)?
-     * @param[in]       S_A1_Args_In   :: Vector of keywords controlling the procedure
-     * @param[in,out]   ArgV_In        :: Vector of keyword values
-     **/
-      template< typename ImageT, typename SlitFuncT >
-      SpectrumBackground< ImageT > LinFitBevingtonNdArray( ndarray::Array<ImageT, 1, 1> const& D_A1_CCD_In,
-                                                           ndarray::Array<SlitFuncT, 1, 1> const& D_A1_SF_In,
-                                                           bool B_WithSky);
-      
-      template< typename ImageT, typename SlitFuncT >
-      int LinFitBevingtonNdArray(ndarray::Array<ImageT, 1, 1> const& D_A1_CCD_In,
-                                 ndarray::Array<SlitFuncT, 1, 1> const& D_A1_SF_In,
-                                 ImageT &D_SP_Out,
-                                 ImageT &D_Sky_Out,
-                                 bool B_WithSky,
-                                 std::vector<std::string> const& S_A1_Args_In,
-                                 std::vector<void *> & ArgV_In);
-    /**
-     * @brief Scale the spatial profile to the FiberTrace row
-       calculates D_Sky_Out and D_SP_Out for the system of equations D_A1_CCD_In = D_Sky_Out + D_SP_Out * D_A1_SF_In
-       CHANGES to original function:
-         * D_Sky_Out must be >= 0.
          * D_SP_Out must be >= 0.
-         * if D_Sky_Out is set to be < -1.e-10 in input it is set to 0. and D_SP_Out is calculated as if there was no sky at all
          * added REJECT_IN as optinal parameter to reject cosmic rays from fit (times sigma)
          * added MASK_INOUT as optional parameter
      * @param[in]       D_A2_CCD_In    :: FiberTrace row to scale the spatial profile D_A1_SF_In to
      * @param[in]       D_A2_SF_In     :: Spatial profile to scale to the FiberTrace row
      * @param[in,out]   D_A1_SP_Out       :: Fitted scaling factor
-     * @param[in,out]   D_A1_Sky_Out      :: Fitted constant under the fitted signal
-     * @param[in]       B_WithSky      :: Scale spatial profile plus constant background (sky)?
      * @param[in]       S_A1_Args_In   :: Vector of keywords controlling the procedure
      *                MEASURE_ERRORS_IN = ndarray::Array<ImageT,2,1>(D_A2_CCD_In.getShape())   : in
      *                REJECT_IN = ImageT                                                       : in
@@ -200,44 +162,15 @@ namespace pfs { namespace drp { namespace stella {
      *                YFIT_OUT = ndarray::Array<ImageT, 2, 1>(D_A2_CCD_In.getShape()[0], D_A2_CCD_In.getShape()[1]) : out
      * @param[in,out]   ArgV_In        :: Vector of keyword values
      * */
-      template< typename ImageT, typename SlitFuncT>
-      bool LinFitBevingtonNdArray(ndarray::Array<ImageT, 2, 1> const& D_A2_CCD_In,
-                                  ndarray::Array<SlitFuncT, 2, 1> const& D_A2_SF_In,
-                                  ndarray::Array<ImageT, 1, 1> & D_A1_SP_Out,
-                                  ndarray::Array<ImageT, 1, 1> & D_A1_Sky_Out,
-                                  bool B_WithSky,
-                                  std::vector<std::string> const& S_A1_Args_In,
-                                  std::vector<void *> &ArgV_In);
-
-    /**
-     *       Helper function to calculate incomplete Gamma Function
-     **/
-    template< typename T >
-    T GammLn(T const D_X_In);
-
-    /**
-     *      Helper function to calculate incomplete Gamma Function
-     **/
-    template< typename T >
-    T GCF(T & D_Gamser_In, T const a, T const x);
-
-    /**
-     *      Function to calculate incomplete Gamma Function P
-     **/
-    template< typename T>
-    T GammP(T const a, T const x);
-
-    /**
-     *      Function to calculate incomplete Gamma Function Q = 1 - P
-     **/
-    template<typename T>
-    T GammQ(T const a, T const x);
-
-    /**
-     *      Helper function to calculate incomplete Gamma Function
-     **/
-    template< typename T >
-    T GSER(T & D_Gamser_In, T const a, T const x);
+  template< typename ImageT>
+  bool LinFitBevingtonNdArray(ndarray::Array<ImageT, 2, 1> const& D_A2_CCD_In, // data
+                              ndarray::Array<ImageT, 2, 1> const& D_A2_Sigma,  // errors in data
+                              ndarray::Array<lsst::afw::image::MaskPixel, 2, 1> const& US_A2_Mask, // set to 1 for points in the fiberTrace
+                              ndarray::Array<ImageT, 2, 1> const& D_A2_SF_In, // profile of fibre trace
+                              const float clipNSigma,                         // clip at this many sigma
+                              ndarray::Array<ImageT, 1, 1> & D_A1_SP_Out,     // returned spectrum
+                              ndarray::Array<ImageT, 1, 1> & D_A1_Sigma_Fit   // errors in spectrum
+                             );
 
     /**
      */

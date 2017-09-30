@@ -104,82 +104,30 @@ namespace pfs { namespace drp { namespace stella {
     const MaskT ftMask = _trace->getMask()->getPlaneBitMask("FIBERTRACE");
 
     if (useProfile) {
-        ndarray::Array<MaskT, 2, 1> US_A2_MaskArray(height, width);
+        ndarray::Array<MaskT, 2, 1> US_A2_Mask(height, width); // set to 1 for points in the fiberTrace
         auto itRowBin = _trace->getMask()->getArray().begin();
-        for (auto itRow = US_A2_MaskArray.begin(); itRow != US_A2_MaskArray.end(); ++itRow, ++itRowBin){
+        for (auto itRow = US_A2_Mask.begin(); itRow != US_A2_Mask.end(); ++itRow, ++itRowBin){
             auto itColBin = itRowBin->begin();
             for (auto itCol = itRow->begin(); itCol != itRow->end(); ++itCol, ++itColBin){
                 *itCol = (*itColBin & ftMask) ? 1 : 0;
             }
         }
-        LOGLS_TRACE(_log, "_iTrace = " << _iTrace << ": _trace->getWidth() = " << width);
-        LOGLS_TRACE(_log, "_iTrace = " << _iTrace << ": _trace->getHeight() = " << height);
-        LOGLS_TRACE(_log, "_iTrace = " << _iTrace << ": US_A2_MaskArray = " << US_A2_MaskArray);
 
-        vector<string> S_A1_Args_Fit(5);
-        vector<void *> P_Args_Fit(5);
-
-        ndarray::Array<ImageT, 2, 1> D_A2_ErrArray = ndarray::allocate(_trace->getImage()->getArray().getShape());
-        ndarray::Array<VarianceT, 2, 1> variance = traceIm.getVariance()->getArray();
-        auto itErrRow = D_A2_ErrArray.begin();
-        for (auto itVarRow = variance.begin(); itVarRow != variance.end(); ++itVarRow, ++itErrRow){
-            auto itErrCol = itErrRow->begin();
-            for (auto itVarCol = itVarRow->begin(); itVarCol != itVarRow->end(); ++itVarCol, ++itErrCol){
-                *itErrCol = *itVarCol < 1.0 ? 1.0 : ImageT(sqrt(*itVarCol));
-            }
-        }
-
-        LOGLS_TRACE(_log, "_iTrace = " << _iTrace << ": D_A2_ErrArray = " << D_A2_ErrArray);
-        S_A1_Args_Fit[0] = string("MEASURE_ERRORS_IN");
-        LOGLS_TRACE(_log, "_iTrace = " << _iTrace << ": S_A1_Args_Fit[0] set to <" << S_A1_Args_Fit[0] << ">");
-        LOGLS_TRACE(_log, "_iTrace = " << _iTrace << ": D_A2_ErrArray.getShape() = " << D_A2_ErrArray.getShape());
-
-        ndarray::Array<ImageT, 1, 1> D_A1_Sky = ndarray::allocate(height);
-        D_A1_Sky.deep() = 0.;
-
-        PTR(ndarray::Array<ImageT, 2, 1>) P_D_A2_ErrArray(new ndarray::Array<ImageT, 2, 1>(D_A2_ErrArray));
-        P_Args_Fit[0] = &P_D_A2_ErrArray;
-
-        S_A1_Args_Fit[1] = "MASK_INOUT";
-        PTR(ndarray::Array<lsst::afw::image::MaskPixel, 2, 1>) P_US_A2_MaskArray(new ndarray::Array<lsst::afw::image::MaskPixel, 2, 1>(US_A2_MaskArray));
-        P_Args_Fit[1] = &P_US_A2_MaskArray;
-
-        S_A1_Args_Fit[2] = "SIGMA_OUT";
-        ndarray::Array<ImageT, 2, 1> D_A2_Sigma_Fit = ndarray::allocate(height, 2);
-        PTR(ndarray::Array<ImageT, 2, 1>) P_D_A2_Sigma_Fit(new ndarray::Array<ImageT, 2, 1>(D_A2_Sigma_Fit));
-        P_Args_Fit[2] = &P_D_A2_Sigma_Fit;
-
-        /// Disallow background and spectrum to go below Zero as it is not physical
-        S_A1_Args_Fit[3] = "ALLOW_SKY_LT_ZERO";
-        int allowSkyLtZero = 0;
-        P_Args_Fit[3] = &allowSkyLtZero;
-
-        S_A1_Args_Fit[4] = "ALLOW_SPEC_LT_ZERO";
-        int allowSpecLtZero = 0;
-        P_Args_Fit[4] = &allowSpecLtZero;
-
-        bool B_WithSky = false;
-        if (_fiberTraceProfileFittingControl->telluric.compare(_fiberTraceProfileFittingControl->TELLURIC_NAMES[0]) != 0){
-            D_A1_Sky.deep() = 1.;
-            B_WithSky = true;
-            LOGLS_TRACE(_log, "_iTrace = " << _iTrace << ": Sky switched ON");
-        }
-        if (!math::LinFitBevingtonNdArray(traceIm.getImage()->getArray(),      ///: in
-                                          _trace->getImage()->getArray(),      ///: in
-                                          spec,                             ///: out
-                                          D_A1_Sky,                            ///: in/out
-                                          B_WithSky,                           ///: with sky: in
-                                          S_A1_Args_Fit,                       ///: in
-                                          P_Args_Fit                           ///: in/out
-                                         )) {
+        const float clipNSigma = 0;               // clip data points at this many sigma (if > 0)        
+        float rchi2 = math::LinFitBevingtonNdArray(traceIm.getImage()->getArray(), ///: input data
+                                                   traceIm.getVariance()->getArray(), // variance in data
+                                                   US_A2_Mask,                     // mask of pixels to use
+                                                   _trace->getImage()->getArray(), // fibre trace profile
+                                                   clipNSigma,                     // number of sigma to clip
+                                                   spec,                           // out: spectrum
+                                                   var                             // out: spectrum's variance
+                                                  );
+        if (rchi2 < 0) {
             std::string message("FiberTrace");
             message += std::to_string(_iTrace);
-            message += std::string("::extractFromProfile: 2. ERROR: LinFitBevington(...) returned FALSE");
+            message += std::string("::extractFromProfile: 2. ERROR: LinFitBevington(...) returned ");
+            message += std::to_string(rchi2);
             throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
-        }
-
-        for (int i = 0; i < height; ++i) {
-            var[i] = pow(D_A2_Sigma_Fit[i][0], 2); // we want the variance not the s.d.
         }
     } else {                            // simple profile fit
         MaskedImageT traceIm(*spectrumImage, bbox); // image box corresponding to trace
@@ -1593,13 +1541,13 @@ namespace pfs { namespace drp { namespace stella {
                         #endif
                         ccdArray[ndarray::view(i_Row)(I_FirstWideSignalStart+1, I_FirstWideSignalEnd)] = 0.;
                       }
-                    }/// end else if ((D_A1_GaussFit_Coeffs(1) > I_FirstWideSignalStart) && (D_A1_GaussFit_Coeffs(1) < I_FirstWideSignalEnd))
-                  }/// else else if (GaussFit returned TRUE)
-                }/// end else if (I_Length >= 4)
-              }/// end else if GaussFit
-            }/// end else if (I_FirstWideSignalStart > 0)
-          }/// end if (I_FirstWideSignal > 0)
-        }/// end while (!B_ApertureFound)
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
 
         if (B_ApertureFound){
           /// Trace Aperture
