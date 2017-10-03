@@ -358,12 +358,21 @@ Spectrum::identify(ndarray::Array< float, 2, 1 > const& lineList,
     }
 
     /// separate lines to fit and lines for RMS test
+    if (indices.size() - nLinesCheck <= 2) {
+        const int o_nLinesCheck = nLinesCheck;
+        nLinesCheck = 0.25*(indices.size() - nLinesCheck) + 3;
+        if (indices.size() - nLinesCheck <= 2) {
+            nLinesCheck = 0;
+        }
+        LOGLS_INFO(_log, "Only found " << indices.size() << " lines; cannot hold back " << o_nLinesCheck <<
+                   " holding back " << nLinesCheck << endl);
+    }
     std::vector< std::size_t > indCheck;
     for ( std::size_t i = 0; i < nLinesCheck; ++i ){
-      srand( 0 ); //seed initialization
-      int randNum = rand() % ( indices.size() - 2 ) + 1; // Generate a random number between 0 and 1
-      indCheck.push_back( std::size_t( randNum ) );
-      indices.erase( indices.begin() + randNum );
+        srand( 0 ); //seed initialization
+        int randNum = rand() % ( indices.size() - 2 ) + 1; // Generate a random number between 0 and 1
+        indCheck.push_back( std::size_t( randNum ) );
+        indices.erase( indices.begin() + randNum );
     }
 
     _nGoodLines = nInd;
@@ -425,9 +434,9 @@ Spectrum::identify(ndarray::Array< float, 2, 1 > const& lineList,
         }
     }
     _nGoodLines = notRejected->size();
-    if ( _nGoodLines < nLinesIdentifiedMin ){
-      string message ("identify: ERROR: less than ");
-      message += to_string(nLinesIdentifiedMin) + " lines identified";
+    if (_nGoodLines < nLinesIdentifiedMin) {
+        string message ("identify: ERROR: found " + to_string(_nGoodLines) + " lines; need ");
+        message += to_string(nLinesIdentifiedMin) + " (linelist has " + to_string(_referenceLines.size()) + ")";
       throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
     }
     ndarray::Array< std::size_t, 1, 1 > notRejectedArr = ndarray::external(notRejected->data(),
