@@ -36,12 +36,12 @@ class PfsConfigIO(object):
 def spectrumSetToPfsArm(pfsConfig, spectrumSet, visit, spectrograph, arm):
     pfsArm = PfsArm(visit, spectrograph, arm, pfsConfigId=pfsConfig.pfsConfigId, pfsConfig=pfsConfig)
 
-    pfsArm.flux = spectrumSet.getAllFluxes().T
-    pfsArm.covar = spectrumSet.getAllCovars().T
-    pfsArm.mask = spectrumSet.getAllMasks().T
-    pfsArm.lam = spectrumSet.getAllWavelengths().T
+    pfsArm.flux = spectrumSet.getAllFluxes()
+    pfsArm.covar = spectrumSet.getAllCovars()
+    pfsArm.mask = spectrumSet.getAllMasks()
+    pfsArm.lam = spectrumSet.getAllWavelengths()
     pfsArm.lam[pfsArm.lam == 0] = np.nan
-    pfsArm.sky = spectrumSet.getAllSkies().T
+    pfsArm.sky = np.zeros_like(pfsArm.flux)
 
     return pfsArm
 

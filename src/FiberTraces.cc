@@ -31,7 +31,6 @@ namespace pfs { namespace drp { namespace stella {
   _trace(new MaskedImageT(*maskedImage)),
   _xCenters(utils::get1DndArray(float(0))),
   _iTrace(fiberTraceId),
-  _nCCDRows(maskedImage->getHeight()),
   _fiberTraceFunction(new FiberTraceFunction()),
   _fiberTraceProfileFittingControl(new FiberTraceProfileFittingControl)
   {}
@@ -53,7 +52,6 @@ namespace pfs { namespace drp { namespace stella {
     int(fiberTraceFunction->fiberTraceFunctionControl->xHigh
         - fiberTraceFunction->fiberTraceFunctionControl->xLow + 1))),
   _iTrace(iTrace),
-  _nCCDRows(maskedImage->getHeight()),
   _fiberTraceFunction(fiberTraceFunction),
   _fiberTraceProfileFittingControl(fiberTraceProfileFittingControl)
   {
@@ -76,7 +74,6 @@ namespace pfs { namespace drp { namespace stella {
   _trace(fiberTrace.getTrace()),
   _xCenters(fiberTrace.getXCenters()),
   _iTrace(fiberTrace.getITrace()),
-  _nCCDRows(fiberTrace._nCCDRows),
   _fiberTraceFunction(new FiberTraceFunction()),
   _fiberTraceProfileFittingControl(new FiberTraceProfileFittingControl)
   {
@@ -88,171 +85,103 @@ namespace pfs { namespace drp { namespace stella {
   }
 
   template<typename ImageT, typename MaskT, typename VarianceT>
-  PTR(Spectrum<ImageT, MaskT, VarianceT, VarianceT>) FiberTrace<ImageT, MaskT, VarianceT>::extractSum(
-    PTR(const MaskedImageT) const& spectrumImage)
-  {
-    PTR( Spectrum<ImageT, MaskT, VarianceT, VarianceT> ) spectrum(
-            new Spectrum< ImageT, MaskT, VarianceT, VarianceT >(
-            _trace->getImage()->getHeight(), _iTrace ) );
-    ndarray::Array<ImageT, 1, 1> spec = ndarray::allocate(_trace->getImage()->getHeight());
-    afwImage::Mask<MaskT> mask(_trace->getImage()->getHeight(), 1);
-    ndarray::Array<VarianceT, 1, 1> var = ndarray::allocate(_trace->getImage()->getHeight());
-
-    auto const& bbox = _trace->getBBox();
-    MaskedImageT traceIm(*spectrumImage, bbox);
-
-    std::string maskPlane = "FIBERTRACE";
-    MaskT ftMask = 1 << _trace->getMask()->getMaskPlane(maskPlane);
-    auto specIt = spec.begin();
-    auto varIt = var.begin();
-    auto itMaskRow = _trace->getMask()->getArray().begin();
-    auto itTraceRow = traceIm.getImage()->getArray().begin();
-    auto itVarRow = traceIm.getVariance()->getArray().begin();
-    for (int i = 0; i < _trace->getImage()->getHeight(); ++i, ++specIt, ++varIt, ++itMaskRow, ++itTraceRow, ++itVarRow){
-        *specIt = 0.0;
-        *varIt = 0.0;
-        auto itTraceCol = itTraceRow->begin();
-        auto itVarCol = itVarRow->begin();
-        int iCol = 0;
-        for (auto itMaskCol = itMaskRow->begin(); itMaskCol != itMaskRow->end(); ++itMaskCol, ++itTraceCol, ++itVarCol, ++iCol){
-            if (*itMaskCol & ftMask){
-                *specIt += *itTraceCol;
-                *varIt += *itVarCol;
-            }
-        }
-    }
-    spectrum->setSpectrum(spec);
-    spectrum->setVariance(var);
-    spectrum->setMask(mask);
-    spectrum->setNCCDRows(traceIm.getImage()->getHeight());
-    spectrum->setYLow(bbox.getMinY());
-    spectrum->setYHigh(bbox.getMaxY());
-    return spectrum;
-  }
-
-  template<typename ImageT, typename MaskT, typename VarianceT>
-  PTR( Spectrum<ImageT, MaskT, VarianceT, VarianceT> ) FiberTrace<ImageT, MaskT, VarianceT>::extractFromProfile(
-    PTR(const MaskedImageT) const& spectrumImage)
+  PTR(Spectrum)
+  FiberTrace<ImageT, MaskT, VarianceT>::extractSpectrum(
+                                                        PTR(const MaskedImageT) const& spectrumImage,
+                                                        bool useProfile
+                                                       )
   {
     LOG_LOGGER _log = LOG_GET("pfs.drp.stella.FiberTrace.extractFromProfile");
-    auto const& bbox = _trace->getBBox();
+    auto const bbox = _trace->getBBox();
     MaskedImageT traceIm(*spectrumImage, bbox);
     const int height = bbox.getHeight();
     const int width = bbox.getWidth();
 
-    std::string maskPlane = "FIBERTRACE";
-    MaskT ftMask = 1 << _trace->getMask()->getMaskPlane(maskPlane);
+    ndarray::Array<ImageT, 1, 1> spec = ndarray::allocate(height);
+    spec.deep() = 0.;
+    ndarray::Array<VarianceT, 1, 1> var = ndarray::allocate(height);
 
-    ndarray::Array<MaskT, 2, 1> US_A2_MaskArray(height, width);
-    auto itRowBin = _trace->getMask()->getArray().begin();
-    for (auto itRow = US_A2_MaskArray.begin(); itRow != US_A2_MaskArray.end(); ++itRow, ++itRowBin){
-        auto itColBin = itRowBin->begin();
-        for (auto itCol = itRow->begin(); itCol != itRow->end(); ++itCol, ++itColBin){
-            if (*itColBin & ftMask)
-                *itCol = 1;
-            else
-                *itCol = 0;
+    const MaskT ftMask = _trace->getMask()->getPlaneBitMask("FIBERTRACE");
+
+    if (useProfile) {
+        ndarray::Array<MaskT, 2, 1> US_A2_Mask(height, width); // set to 1 for points in the fiberTrace
+        auto itRowBin = _trace->getMask()->getArray().begin();
+        for (auto itRow = US_A2_Mask.begin(); itRow != US_A2_Mask.end(); ++itRow, ++itRowBin){
+            auto itColBin = itRowBin->begin();
+            for (auto itCol = itRow->begin(); itCol != itRow->end(); ++itCol, ++itColBin){
+                *itCol = (*itColBin & ftMask) ? 1 : 0;
+            }
+        }
+
+        const float clipNSigma = 0;               // clip data points at this many sigma (if > 0)        
+        float rchi2 = math::LinFitBevingtonNdArray(traceIm.getImage()->getArray(), ///: input data
+                                                   traceIm.getVariance()->getArray(), // variance in data
+                                                   US_A2_Mask,                     // mask of pixels to use
+                                                   _trace->getImage()->getArray(), // fibre trace profile
+                                                   clipNSigma,                     // number of sigma to clip
+                                                   spec,                           // out: spectrum
+                                                   var                             // out: spectrum's variance
+                                                  );
+        if (rchi2 < 0) {
+            std::string message("FiberTrace");
+            message += std::to_string(_iTrace);
+            message += std::string("::extractFromProfile: 2. ERROR: LinFitBevington(...) returned ");
+            message += std::to_string(rchi2);
+            throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
+        }
+    } else {                            // simple profile fit
+        MaskedImageT traceIm(*spectrumImage, bbox); // image box corresponding to trace
+        
+        auto specIt = spec.begin();
+        auto varIt = var.begin();
+        auto itMaskRow = _trace->getMask()->getArray().begin();
+        auto itTraceRow = traceIm.getImage()->getArray().begin();
+        auto itVarRow = traceIm.getVariance()->getArray().begin();
+        for (int i = 0; i < _trace->getImage()->getHeight();
+             ++i, ++specIt, ++varIt, ++itMaskRow, ++itTraceRow, ++itVarRow){
+            *specIt = 0.0;
+            *varIt = 0.0;
+            auto itTraceCol = itTraceRow->begin();
+            auto itVarCol = itVarRow->begin();
+            for (auto itMaskCol = itMaskRow->begin(); itMaskCol != itMaskRow->end();
+                 ++itMaskCol, ++itTraceCol, ++itVarCol) {
+                if (*itMaskCol & ftMask){
+                    *specIt += *itTraceCol;
+                    *varIt += *itVarCol;
+                }
+            }
         }
     }
-    LOGLS_TRACE(_log, "_iTrace = " << _iTrace << ": _trace->getWidth() = " << width);
-    LOGLS_TRACE(_log, "_iTrace = " << _iTrace << ": _trace->getHeight() = " << height);
-    LOGLS_TRACE(_log, "_iTrace = " << _iTrace << ": US_A2_MaskArray = " << US_A2_MaskArray);
 
-    ndarray::Array<ImageT, 1, 1> D_A1_SP = ndarray::allocate(height);
-    D_A1_SP.deep() = 0.;
-    ndarray::Array<ImageT, 1, 1> D_A1_Sky = ndarray::allocate(height);
-    D_A1_Sky.deep() = 0.;
-    vector<string> S_A1_Args_Fit(5);
-    vector<void *> P_Args_Fit(5);
-
-    ndarray::Array<ImageT, 2, 1> D_A2_ErrArray = ndarray::allocate(_trace->getImage()->getArray().getShape());
-    ndarray::Array<VarianceT, 2, 1> variance = traceIm.getVariance()->getArray();
-    auto itErrRow = D_A2_ErrArray.begin();
-    for (auto itVarRow = variance.begin(); itVarRow != variance.end(); ++itVarRow, ++itErrRow){
-        auto itErrCol = itErrRow->begin();
-        for (auto itVarCol = itVarRow->begin(); itVarCol != itVarRow->end(); ++itVarCol, ++itErrCol){
-        *itErrCol = *itVarCol < 1.0 ? 1.0 : ImageT(sqrt(*itVarCol));
-      }
-    }
-
-    LOGLS_TRACE(_log, "_iTrace = " << _iTrace << ": D_A2_ErrArray = " << D_A2_ErrArray);
-    S_A1_Args_Fit[0] = string("MEASURE_ERRORS_IN");
-    LOGLS_TRACE(_log, "_iTrace = " << _iTrace << ": S_A1_Args_Fit[0] set to <" << S_A1_Args_Fit[0] << ">");
-    LOGLS_TRACE(_log, "_iTrace = " << _iTrace << ": D_A2_ErrArray.getShape() = " << D_A2_ErrArray.getShape());
-
-    PTR(ndarray::Array<ImageT, 2, 1>) P_D_A2_ErrArray(new ndarray::Array<ImageT, 2, 1>(D_A2_ErrArray));
-    P_Args_Fit[0] = &P_D_A2_ErrArray;
-
-    S_A1_Args_Fit[1] = "MASK_INOUT";
-    PTR(ndarray::Array<lsst::afw::image::MaskPixel, 2, 1>) P_US_A2_MaskArray(new ndarray::Array<lsst::afw::image::MaskPixel, 2, 1>(US_A2_MaskArray));
-    P_Args_Fit[1] = &P_US_A2_MaskArray;
-
-    S_A1_Args_Fit[2] = "SIGMA_OUT";
-    ndarray::Array<ImageT, 2, 1> D_A2_Sigma_Fit = ndarray::allocate(height, 2);
-    PTR(ndarray::Array<ImageT, 2, 1>) P_D_A2_Sigma_Fit(new ndarray::Array<ImageT, 2, 1>(D_A2_Sigma_Fit));
-    P_Args_Fit[2] = &P_D_A2_Sigma_Fit;
-
-    /// Disallow background and spectrum to go below Zero as it is not physical
-    S_A1_Args_Fit[3] = "ALLOW_SKY_LT_ZERO";
-    int allowSkyLtZero = 0;
-    P_Args_Fit[3] = &allowSkyLtZero;
-
-    S_A1_Args_Fit[4] = "ALLOW_SPEC_LT_ZERO";
-    int allowSpecLtZero = 1;
-    P_Args_Fit[4] = &allowSpecLtZero;
-
-    bool B_WithSky = false;
-    if (_fiberTraceProfileFittingControl->telluric.compare(_fiberTraceProfileFittingControl->TELLURIC_NAMES[0]) != 0){
-      D_A1_Sky.deep() = 1.;
-      B_WithSky = true;
-      LOGLS_TRACE(_log, "_iTrace = " << _iTrace << ": Sky switched ON");
-    }
-    if (!math::LinFitBevingtonNdArray(traceIm.getImage()->getArray(),      ///: in
-                                      _trace->getImage()->getArray(),             ///: in
-                                      D_A1_SP,             ///: out
-                                      D_A1_Sky,          ///: in/out
-                                      B_WithSky,                   ///: with sky: in
-                                      S_A1_Args_Fit,         ///: in
-                                      P_Args_Fit)){          ///: in/out
-      std::string message("FiberTrace");
-      message += std::to_string(_iTrace);
-      message += std::string("::extractFromProfile: 2. ERROR: LinFitBevington(...) returned FALSE");
-      throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
-    }
-    #ifdef __DEBUG_MkSLITFUNC_FILES__
-      string S_MaskFinalOut = "Mask_Final" + S_SF_DebugFilesSuffix + ".fits";
-      ::pfs::drp::stella::utils::WriteFits(&I_A2_MaskArray, S_MaskFinalOut);
-
-      S_MaskFinalOut = "D_A2_CCD_Ap" + CS_SF_DebugFilesSuffix + ".fits";
-      ::pfs::drp::stella::utils::WriteFits(&D_A2_CCDArray, S_MaskFinalOut);
-    #endif
-
-    PTR( Spectrum<ImageT, MaskT, VarianceT, VarianceT> ) spectrum(
-            new Spectrum< ImageT, MaskT, VarianceT, VarianceT >(_trace->getImage()->getHeight()));
-    LOGLS_TRACE(_log, "_iTrace = " << _iTrace << ": D_A1_SP = " << D_A1_SP);
-    LOGLS_TRACE(_log, "_iTrace = " << _iTrace << ": D_A2_Sigma_Fit = " << D_A2_Sigma_Fit);
-    LOGLS_TRACE(_log, "_iTrace = " << _iTrace << ": P_D_A2_Sigma_Fit = " << *P_D_A2_Sigma_Fit);
-    ndarray::Array< ImageT, 1, 1 > spectrumSpecOut = ndarray::allocate(_trace->getImage()->getHeight());
-    ndarray::Array< VarianceT, 1, 1 > spectrumVarOut = ndarray::allocate(_trace->getImage()->getHeight());
-    ndarray::Array< ImageT, 1, 1 > backgroundSpecOut = ndarray::allocate(_trace->getImage()->getHeight());
-    ndarray::Array< VarianceT, 1, 1 > backgroundVarOut = ndarray::allocate(_trace->getImage()->getHeight());
-    for (int i = 0; i < height; i++) {
-      spectrumSpecOut[ i ] = ImageT( D_A1_SP[ i ] );
-      spectrumVarOut[ i ] = VarianceT( pow( D_A2_Sigma_Fit[ i ][ 0 ], 2) );
-      backgroundSpecOut[ i ] = ImageT( D_A1_Sky[ i ] );
-      backgroundVarOut[ i ] = VarianceT( pow( D_A2_Sigma_Fit[ i ][ 1 ], 2 ) );
-    }
-    spectrum->setSpectrum(spectrumSpecOut);
-    spectrum->setVariance(spectrumVarOut);
-    spectrum->setSky(backgroundSpecOut);
-
-    LOGLS_TRACE(_log, "_iTrace = " << _iTrace << ": for loop finished");
-    spectrum->setNCCDRows(height);
-    spectrum->setYLow(bbox.getMinY());
-    spectrum->setYHigh(bbox.getMaxY());
+    auto spectrum = std::make_shared<Spectrum>(spectrumImage->getHeight());
     spectrum->setITrace(_iTrace);
-    LOGLS_TRACE(_log, "_iTrace = " << _iTrace << ": spectrum->getSpectrum() = " << spectrum->getSpectrum());
-    LOGLS_TRACE(_log, "_iTrace = " << _iTrace << ": spectrum->getVariance() = " << spectrum->getVariance());
+
+    ndarray::Array< ImageT, 1, 1 > spectrumSpecOut = spectrum->getSpectrum();
+    ndarray::Array< VarianceT, 1, 1 > spectrumVarOut = spectrum->getVariance();
+    //
+    // Copy the extracted spectra/stdev into the Spectrum (allowing for the ends)
+    //
+    {
+        auto mask = spectrum->getMask();
+        auto nodata = mask.getPlaneBitMask("NO_DATA");
+
+        int i = 0;
+        for (; i < bbox.getMinY(); ++i) {
+            spectrumSpecOut[i] = 0;
+            mask(i, 0) |= nodata;
+            spectrumVarOut[i]  = 0;
+        }
+        for (int j = 0; i < bbox.getMaxY(); ++i, ++j) {
+            spectrumSpecOut[i] = spec[j];
+            spectrumVarOut[i]  = var[j];
+        }
+        for (; i < spectrumSpecOut.size(); ++i) {
+            spectrumSpecOut[i] = 0;
+            mask(i, 0) |= nodata;
+            spectrumVarOut[i]  = 0;
+        }
+    }
+
     return spectrum;
   }
 
@@ -264,8 +193,8 @@ namespace pfs { namespace drp { namespace stella {
         size_t nRows)
     {
       LOG_LOGGER _log = LOG_GET("pfs.drp.stella.FiberTrace.assignTraceID");
-      unsigned int yCenter = _nCCDRows/2;
-      auto const& bbox = _trace->getBBox();
+      auto const bbox = _trace->getBBox();
+      unsigned int yCenter = bbox.getHeight()/2;
       unsigned int row = yCenter - bbox.getMinY();
       const float xCenter = bbox.getMinX() +
           0.5*(_getMinCenMax()[row][0] + _getMinCenMax()[row][2]);
@@ -320,13 +249,13 @@ namespace pfs { namespace drp { namespace stella {
     _minCenMax.deep() -= static_cast<size_t>(xMin);
     std::string maskPlane = "FIBERTRACE";
     _trace->getMask()->addMaskPlane(maskPlane);
-    MaskT ftMask = 1 << _trace->getMask()->getMaskPlane(maskPlane);
+    const auto ftMask = _trace->getMask()->getPlaneBitMask(maskPlane);
     _markFiberTraceInMask(ftMask);
   }
 
   /// Return shared pointer to an image containing the reconstructed 2D spectrum of the FiberTrace
   template<typename ImageT, typename MaskT, typename VarianceT>
-  PTR( afwImage::Image< ImageT > ) FiberTrace<ImageT, MaskT, VarianceT>::getReconstructed2DSpectrum(const Spectrum<ImageT, MaskT, VarianceT, VarianceT> & spectrum) const{
+  PTR( afwImage::Image< ImageT > ) FiberTrace<ImageT, MaskT, VarianceT>::getReconstructed2DSpectrum(const Spectrum & spectrum) const{
     ndarray::Array<ImageT, 2, 1> F_A2_Rec = ndarray::allocate(_trace->getImage()->getHeight(),
                                                               _trace->getImage()->getWidth());
     auto itRec = F_A2_Rec.begin();
@@ -334,6 +263,7 @@ namespace pfs { namespace drp { namespace stella {
     for (auto itProf = _trace->getImage()->getArray().begin(); itProf != _trace->getImage()->getArray().end(); ++itProf, ++itRec, ++itSpec)
       (*itRec) = (*itProf) * (*itSpec);
     PTR( afwImage::Image< ImageT > ) imagePtr( new afwImage::Image< ImageT >( F_A2_Rec ) );
+    imagePtr->setXY0(_trace->getX0(), 0);
     return imagePtr;
   }
 
@@ -1016,17 +946,15 @@ namespace pfs { namespace drp { namespace stella {
         ndarray::Array<size_t, 1, 1> xMin = ndarray::allocate(_minCenMax.getShape()[0]);
         ndarray::Array<size_t, 1, 1> xMax = ndarray::allocate(_minCenMax.getShape()[0]);
         ndarray::Array<size_t, 1, 1> xCen = ndarray::allocate(_minCenMax.getShape()[0]);
-        auto itMaskRow = _trace->getMask()->getArray().begin();
-        std::string maskPlane = "FIBERTRACE";
-        LOGLS_DEBUG(_log, "_iTrace = " << _iTrace << ": _trace->getMask()->getMaskPlane(maskPlane) = "
-                          << _trace->getMask()->getMaskPlane(maskPlane));
-        MaskT ftMask = 1 << _trace->getMask()->getMaskPlane(maskPlane);
+
+        const auto ftMask = _trace->getMask()->getPlaneBitMask("FIBERTRACE");
         bool xMinFound;
         bool xMaxFound;
         int iY = 0;
+        auto itMaskRow = _trace->getMask()->getArray().begin();
         for (auto itXMin=xMin.begin(), itXMax=xMax.begin(), itXCen=xCen.begin();
-                  itXMin!=xMin.end();
-                  ++itXMin, ++itXMax, ++itXCen, ++itMaskRow, ++iY){
+             itXMin != xMin.end();
+             ++itXMin, ++itXMax, ++itXCen, ++itMaskRow, ++iY) {
             LOGLS_TRACE(_log, "_iTrace = " << _iTrace << ": *itMaskRow = " << *itMaskRow);
             xMinFound = false;
             xMaxFound = false;
@@ -1066,10 +994,10 @@ namespace pfs { namespace drp { namespace stella {
       : _traces(fiberTraceSet.getTraces())
   {
     if (deep){
-      PTR(std::vector<PTR(FiberTrace<ImageT, MaskT, VarianceT>)>) ptr(new std::vector<PTR(FiberTrace<ImageT, MaskT, VarianceT>)>(fiberTraceSet.size()));
+      PTR(std::vector<PTR(FiberTrace<ImageT, MaskT, VarianceT>)>) ptr(new std::vector<PTR(FiberTrace<ImageT, MaskT, VarianceT>)>(fiberTraceSet.getNtrace()));
       _traces.reset();
       _traces = ptr;
-      for (size_t i = 0; i < fiberTraceSet.size(); ++i){
+      for (size_t i = 0; i < fiberTraceSet.getNtrace(); ++i){
         PTR(FiberTrace<ImageT, MaskT, VarianceT>) tra(new FiberTrace<ImageT, MaskT, VarianceT>(*(fiberTraceSet.getFiberTrace(i)), true));
         (*_traces)[i] = tra;
       }
@@ -1086,8 +1014,7 @@ namespace pfs { namespace drp { namespace stella {
     }
     if (i == static_cast<int>(_traces->size())){
       _traces->push_back(trace);
-    }
-    else{
+    } else {
       (*_traces)[i] = trace;
     }
   }
@@ -1106,53 +1033,23 @@ namespace pfs { namespace drp { namespace stella {
   PTR(FiberTrace<ImageT, MaskT, VarianceT>) const FiberTraceSet<ImageT, MaskT, VarianceT>::getFiberTrace(const size_t i) const {
     if (i >= _traces->size()){
       string message("FiberTraceSet::getFiberTrace(i=");
-      message += to_string(i) + "): ERROR: i > _traces->size()=" + to_string(_traces->size());
+      message += to_string(i) + "): ERROR: i > nTrace=" + to_string(_traces->size());
       throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
     }
     return _traces->at(i);
   }
 
   template<typename ImageT, typename MaskT, typename VarianceT>
-  void FiberTraceSet<ImageT, MaskT, VarianceT>::erase(const size_t iStart, const size_t iEnd){
-    if (iStart >= _traces->size()){
-      string message("FiberTraceSet::erase(iStart=");
-      message += to_string(iStart) + ", iEnd=" + to_string(iEnd) + "): ERROR: iStart >= _traces->size()=" + to_string(_traces->size());
-      throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
-    }
-    if (iEnd > _traces->size()){
-      string message("FiberTraceSet::erase(iStart=");
-      message += to_string(iStart) + ", iEnd=" + to_string(iEnd) + "): ERROR: iEnd >= _traces->size()=" + to_string(_traces->size());
-      throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
-    }
-    if (iEnd > 0){
-      if (iStart > iEnd){
-        string message("FiberTraceSet::erase(iStart=");
-        message += to_string(iStart) + ", iEnd=" + to_string(iEnd) + "): ERROR: iStart > iEnd";
-        throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
-      }
-    }
-    if (iStart == (_traces->size()-1)){
-      _traces->pop_back();
-    }
-    else{
-      if (iEnd == 0)
-        _traces->erase(_traces->begin() + iStart);
-      else
-        _traces->erase(_traces->begin() + iStart, _traces->begin() + iEnd);
-    }
-  }
-
-  template<typename ImageT, typename MaskT, typename VarianceT>
   void FiberTraceSet<ImageT, MaskT, VarianceT>::addFiberTrace(const PTR(FiberTrace<ImageT, MaskT, VarianceT>) &trace, const size_t iTrace) ///< the FiberTrace for the ith aperture
   {
-    size_t size = _traces->size();
+    size_t nTrace = getNtrace();
     _traces->push_back(trace);
-    if (_traces->size() == size){
+    if (_traces->size() == nTrace) {
       string message("FiberTraceSet::addFiberTrace: ERROR: could not add trace to _traces");
       throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
     }
     if (iTrace > 0){
-      (*_traces)[size]->setITrace(iTrace);
+      (*_traces)[nTrace]->setITrace(iTrace);
     }
   }
 
@@ -1161,7 +1058,7 @@ namespace pfs { namespace drp { namespace stella {
   {
     std::vector<float> xCenters;
     for (int iTrace = 0; iTrace < static_cast<int>(_traces->size()); ++iTrace) {
-        auto const& bbox = (*_traces)[iTrace]->getTrace()->getBBox();
+        auto const bbox = (*_traces)[iTrace]->getTrace()->getBBox();
 
         xCenters.push_back(0.5*(bbox.getMinX() + bbox.getMaxX())); // fixed typo Min -> Max
     }
@@ -1189,33 +1086,6 @@ namespace pfs { namespace drp { namespace stella {
     return;
   }
 
-  template<typename ImageT, typename MaskT, typename VarianceT>
-  PTR( Spectrum<ImageT, MaskT, VarianceT, VarianceT> ) FiberTraceSet<
-    ImageT,
-    MaskT,
-    VarianceT>::extractTraceNumberFromProfile(
-        PTR(const MaskedImageT) const& spectrumImage,
-        const size_t traceNumber)
-  {
-    return (*_traces)[traceNumber]->extractFromProfile(spectrumImage);
-  }
-
-  template<typename ImageT, typename MaskT, typename VarianceT>
-  PTR( SpectrumSet<ImageT, MaskT, VarianceT, VarianceT> ) FiberTraceSet<
-    ImageT,
-    MaskT,
-    VarianceT>::extractAllTracesFromProfile(PTR(const MaskedImageT) const& spectrumImage)
-  {
-    LOG_LOGGER _log = LOG_GET("pfs.drp.stella.FiberTraceSet.extractAllTracesFromProfile");
-    PTR( SpectrumSet<ImageT, MaskT, VarianceT, VarianceT> ) spectrumSet(
-            new SpectrumSet<ImageT, MaskT, VarianceT, VarianceT>( _traces->size()));
-    for (size_t i = 0; i < _traces->size(); ++i){
-      LOGLS_DEBUG(_log, "extracting FiberTrace " << i);
-      spectrumSet->setSpectrum(i, (*_traces)[i]->extractFromProfile(spectrumImage));
-    }
-    return spectrumSet;
-  }
-
     template<typename ImageT, typename MaskT, typename VarianceT>
     void FiberTraceSet<ImageT, MaskT, VarianceT>::assignTraceIDs(
         ndarray::Array< int, 1, 1 > const& fiberIds,
@@ -1231,7 +1101,7 @@ namespace pfs { namespace drp { namespace stella {
       size_t nRows = fiberIds.getShape()[0] / nTraces;
       LOGLS_DEBUG(_log, "nRows = " << nRows);
 
-      for (size_t i = 0; i < size(); ++i) {
+      for (size_t i = 0; i < getNtrace(); ++i) {
         getFiberTrace(i)->assignTraceID(xCenters, fiberIds, nTraces, nRows);
       }
       return;
@@ -1329,7 +1199,7 @@ namespace pfs { namespace drp { namespace stella {
                   maskedImage,
                   fiberTraceFunction,
                   fiberTraceProfileFittingControl));
-          fiberTrace->setITrace( fiberTraceSet->getTraces()->size() );
+          fiberTrace->setITrace( fiberTraceSet->getNtrace() );
           fiberTraceSet->addFiberTrace(fiberTrace);
           ++I_Aperture;
         }/// end if (B_ApertureFound)
@@ -1671,13 +1541,13 @@ namespace pfs { namespace drp { namespace stella {
                         #endif
                         ccdArray[ndarray::view(i_Row)(I_FirstWideSignalStart+1, I_FirstWideSignalEnd)] = 0.;
                       }
-                    }/// end else if ((D_A1_GaussFit_Coeffs(1) > I_FirstWideSignalStart) && (D_A1_GaussFit_Coeffs(1) < I_FirstWideSignalEnd))
-                  }/// else else if (GaussFit returned TRUE)
-                }/// end else if (I_Length >= 4)
-              }/// end else if GaussFit
-            }/// end else if (I_FirstWideSignalStart > 0)
-          }/// end if (I_FirstWideSignal > 0)
-        }/// end while (!B_ApertureFound)
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
 
         if (B_ApertureFound){
           /// Trace Aperture

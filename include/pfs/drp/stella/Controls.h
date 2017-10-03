@@ -253,13 +253,8 @@ struct FiberTraceProfileFittingControl {
     enum {  PISKUNOV=0, SPLINE3, NVALUES_P } PROFILE_INTERPOLATION;/// Profile interpolation method
     std::vector<std::string> PROFILE_INTERPOLATION_NAMES = { stringify( PISKUNOV ),
                                                              stringify( SPLINE3 ) };
-    enum {  NONE=0, BEFORE_EXTRACTION, DURING_EXTRACTION, NVALUES } TELLURIC;/// Determine background/sky not at all or before or during profile determination/extraction
-    std::vector<std::string> TELLURIC_NAMES = { stringify( NONE ),
-                                                stringify( BEFORE_EXTRACTION ),
-                                                stringify( DURING_EXTRACTION ) };
     LSST_CONTROL_FIELD(profileInterpolation, std::string, "Method for determining the spatial profile, [PISKUNOV, SPLINE3], default: SPLINE3");
     LSST_CONTROL_FIELD(swathWidth, size_t, "Size of individual extraction swaths, set to 0 to calculate automatically");
-    LSST_CONTROL_FIELD(telluric, std::string, "profileInterpolation==PISKUNOV: Method for determining the background (+sky in case of slit spectra, default: NONE)");
     LSST_CONTROL_FIELD(overSample, unsigned int, "Oversampling factor for the determination of the spatial profile (default: 10)");
     LSST_CONTROL_FIELD(maxIterSF, unsigned int, "profileInterpolation==PISKUNOV: Maximum number of iterations for the determination of the spatial profile (default: 8)");
     LSST_CONTROL_FIELD(maxIterSky, unsigned int, "profileInterpolation==PISKUNOV: Maximum number of iterations for the determination of the (constant) background/sky (default: 10)");
@@ -273,7 +268,6 @@ struct FiberTraceProfileFittingControl {
     FiberTraceProfileFittingControl() :
         profileInterpolation("SPLINE3"),
         swathWidth(500),
-        telluric("NONE"),
         overSample(10),
         maxIterSF(8),
         maxIterSky(0),
@@ -288,7 +282,6 @@ struct FiberTraceProfileFittingControl {
     FiberTraceProfileFittingControl(const FiberTraceProfileFittingControl &fiberTraceProfileFittingControl) :
         profileInterpolation(fiberTraceProfileFittingControl.profileInterpolation),
         swathWidth(fiberTraceProfileFittingControl.swathWidth),
-        telluric(fiberTraceProfileFittingControl.telluric),
         overSample(fiberTraceProfileFittingControl.overSample),
         maxIterSF(fiberTraceProfileFittingControl.maxIterSF),
         maxIterSky(fiberTraceProfileFittingControl.maxIterSky),
@@ -304,7 +297,6 @@ struct FiberTraceProfileFittingControl {
         const& fiberTraceProfileFittingControl) :
         profileInterpolation(fiberTraceProfileFittingControl->profileInterpolation),
         swathWidth(fiberTraceProfileFittingControl->swathWidth),
-        telluric(fiberTraceProfileFittingControl->telluric),
         overSample(fiberTraceProfileFittingControl->overSample),
         maxIterSF(fiberTraceProfileFittingControl->maxIterSF),
         maxIterSky(fiberTraceProfileFittingControl->maxIterSky),
@@ -320,7 +312,6 @@ struct FiberTraceProfileFittingControl {
   
   bool isClassInvariant() const{
     bool isProfileInterpolationValid = false;
-    bool isTelluricValid = false;
     for ( int fooInt = PISKUNOV; fooInt != NVALUES_P; fooInt++ ){
       #ifdef __DEBUG_FIBERTRACEPROFILEFITTINGCONTROL__
         cout << "FiberTraceProfileFittingControl::isClassInvariant: PROFILE_INTERPOLATION_NAMES[fooInt] = <" << PROFILE_INTERPOLATION_NAMES[fooInt] << ">" << endl;
@@ -338,22 +329,6 @@ struct FiberTraceProfileFittingControl {
       return false;
     }
 
-    for ( int fooInt = NONE; fooInt != NVALUES; fooInt++ ){
-      #ifdef __DEBUG_FIBERTRACEPROFILEFITTINGCONTROL__
-        cout << "FiberTraceProfileFittingControl::isClassInvariant: TELLURIC_NAMES[fooInt] = <" << TELLURIC_NAMES[fooInt] << ">" << endl;
-      #endif
-      if (telluric.compare(TELLURIC_NAMES[fooInt]) == 0){
-        isTelluricValid = true;
-        #ifdef __DEBUG_FIBERTRACEPROFILEFITTINGCONTROL__
-          cout << "FiberTraceProfileFittingControl::isClassInvariant: " << telluric << " is valid" << endl;
-        #endif
-      }
-    }
-    if (!isTelluricValid){
-      cout << "FiberTraceProfileFittingControl::isClassInvariant: ERROR: telluric(=" << telluric << ") is not valid! => Returning FALSE" << endl;
-      return false;
-    }
-
     if (overSample == 0){
       cout << "FiberTraceProfileFittingControl::isClassInvariant: ERROR: overSample(=" << overSample << ") == 0 => Returning FALSE" << endl;
       return false;
@@ -361,11 +336,6 @@ struct FiberTraceProfileFittingControl {
 
     if (maxIterSF == 0){
       cout << "FiberTraceProfileFittingControl::isClassInvariant: ERROR: maxIterSF(=" << maxIterSF << ") == 0 => Returning FALSE" << endl;
-      return false;
-    }
-
-    if ((telluric.compare(TELLURIC_NAMES[0]) != 0) && (maxIterSky == 0)){
-      cout << "FiberTraceProfileFittingControl::isClassInvariant: ERROR: telluric set to not NONE and (maxIterSky(=" << maxIterSky << ") == 0 => Returning FALSE" << endl;
       return false;
     }
 

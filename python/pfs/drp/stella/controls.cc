@@ -72,7 +72,6 @@ void declareFiberTraceProfileFittingControl(py::module &mod)
     cls.def(py::init<FiberTraceProfileFittingControl const&>(), "ftpfc"_a);
     LSST_DECLARE_CONTROL_FIELD(cls, FiberTraceProfileFittingControl, profileInterpolation);
     LSST_DECLARE_CONTROL_FIELD(cls, FiberTraceProfileFittingControl, swathWidth);
-    LSST_DECLARE_CONTROL_FIELD(cls, FiberTraceProfileFittingControl, telluric);
     LSST_DECLARE_CONTROL_FIELD(cls, FiberTraceProfileFittingControl, overSample);
     LSST_DECLARE_CONTROL_FIELD(cls, FiberTraceProfileFittingControl, maxIterSF);
     LSST_DECLARE_CONTROL_FIELD(cls, FiberTraceProfileFittingControl, maxIterSky);

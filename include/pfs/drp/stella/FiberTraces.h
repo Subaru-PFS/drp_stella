@@ -25,8 +25,6 @@ class FiberTrace {
     typedef lsst::afw::image::Image<ImageT> Image;
     typedef lsst::afw::image::Mask<MaskT> Mask;
     typedef lsst::afw::image::Image<VarianceT> Variance;
-    typedef Spectrum<ImageT, MaskT, VarianceT, VarianceT> SpectrumT;
-
 
     /** @brief Class Constructors and Destructor
      * @param maskedImage : maskedImage to set _trace to
@@ -73,12 +71,7 @@ class FiberTrace {
     /**
      * @brief Extract the spectrum of this fiber trace using the _profile
      */
-    PTR(SpectrumT) extractFromProfile(PTR(const MaskedImageT) const& spectrumImage);
-    
-    /**
-     * @brief Simple Sum Extraction of this fiber trace
-     */
-    PTR(SpectrumT) extractSum(PTR(const MaskedImageT) const& spectrumImage);
+    PTR(Spectrum) extractSpectrum(PTR(const MaskedImageT) const& spectrumImage, bool useProfile=true);
     
     /**
      * @brief Return the fitted x-centers of the fiber trace
@@ -89,7 +82,7 @@ class FiberTrace {
      * @brief Return shared pointer to an image containing the reconstructed 2D spectrum of the FiberTrace
      * @param spectrum : 1D spectrum to reconstruct the 2D image from
      */
-    PTR(Image) getReconstructed2DSpectrum(SpectrumT const& spectrum) const;
+    PTR(Image) getReconstructed2DSpectrum(Spectrum const& spectrum) const;
     
     /**
      * @brief set the ID number of this trace (_iTrace) to this number
@@ -188,7 +181,6 @@ class FiberTrace {
     ndarray::Array<float, 1, 1> _xCenters;
     ndarray::Array<size_t, 2, -2> _minCenMax;
     std::size_t _iTrace;
-    std::size_t _nCCDRows;
     PTR(const FiberTraceFunction) _fiberTraceFunction;
     PTR(FiberTraceProfileFittingControl) _fiberTraceProfileFittingControl;
 
@@ -206,7 +198,6 @@ class FiberTraceSet {
   public:
     typedef lsst::afw::image::MaskedImage<ImageT, MaskT, VarianceT> MaskedImageT;
     typedef FiberTrace<ImageT, MaskT, VarianceT> FiberTraceT;
-    typedef Spectrum<ImageT, MaskT, VarianceT, VarianceT> SpectrumT;
     typedef std::vector<PTR(FiberTraceT)> Collection;
 
     /**
@@ -239,7 +230,7 @@ class FiberTraceSet {
     /**
      * @brief Return the number of apertures
      */
-    std::size_t size() const { return _traces->size(); }
+    std::size_t getNtrace() const { return _traces->size(); }
 
     /**
      * @brief Return the FiberTrace for the ith aperture
@@ -252,14 +243,6 @@ class FiberTraceSet {
      * @param i : Position in _traces from which to return a copy of the FiberTrace
      */
     PTR(FiberTraceT) const getFiberTrace(const std::size_t i) const;
-    
-    /**
-     * @brief Removes from the vector either a single element (position) or a range of elements ([first,last)).
-     * This effectively reduces the container size by the number of elements removed, which are destroyed.
-     * @param iStart : FiberTrace number to remove if iEnd == 0, otherwise starting position of range to be removed
-     * @param iEnd : if != 0 end + 1 of range of FiberTraces to be removed from _traces
-     */
-    void erase(const std::size_t iStart, const std::size_t iEnd=0);
 
     /**
      * @brief Set the ith FiberTrace
@@ -286,29 +269,6 @@ class FiberTraceSet {
      * @brief re-order the traces in _traces by the xCenter of each trace
      */
     void sortTracesByXCenter();
-
-    ///TODO:
-    /// Extract spectrum and background for one slit spectrum
-    /// Returns vector of size 2 (0: Spectrum, 1: Background)
-    /// PTR(std::vector<PTR(Spectrum<ImageT, MaskT, VarianceT, ImageT>)>) extractSpectrumAndBackground(const std::size_t traceNumber)
-
-    ///TODO:
-    /// Extract spectrum and background for all slit spectra
-    /// Returns vector of size 2 (0: Spectrum, 1: Background)
-    /// PTR(std::vector<PTR(SpectrumSet<ImageT, MaskT, VarianceT, ImageT>)>) extractSpectrumAndBackground()
-    
-    /**
-     * @brief 'optimally' extract 1D spectrum from previously provided profile
-     * @param traceNumber : 'optimally' extract _traces[traceNumber] from its profile
-     */
-    PTR(SpectrumT) extractTraceNumberFromProfile(PTR(const MaskedImageT) const& spectrumImage,
-                                                 const std::size_t traceNumber);
-
-    /**
-     * @brief 'optimally' extract 1D spectra from their profiles
-     */
-    PTR(SpectrumSet<ImageT, MaskT, VarianceT, VarianceT>) extractAllTracesFromProfile(
-            PTR(const MaskedImageT) const& spectrumImage);
 
     /**
      * @brief: assign trace number to set of FiberTraces from x and y center by comparing

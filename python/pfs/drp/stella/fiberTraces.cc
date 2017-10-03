@@ -36,11 +36,10 @@ void declareFiberTrace(py::module &mod)
     cls.def("getXCenters", &Class::getXCenters);
     cls.def("getITrace", &Class::getITrace);
 
-    cls.def("extractFromProfile", &Class::extractFromProfile, "spectrumImage"_a);
-    cls.def("extractSum", &Class::extractSum, "spectrumImage"_a);
+    cls.def("extractSpectrum", &Class::extractSpectrum, "spectrumImage"_a, "useProfile"_a=true);
 
     cls.def("getReconstructed2DSpectrum",
-            (PTR(typename Class::Image)(Class::*)(typename Class::SpectrumT const&) const)
+            (PTR(typename Class::Image)(Class::*)(Spectrum const&) const)
                 &Class::getReconstructed2DSpectrum, "spectrum"_a);
 }
 
@@ -55,21 +54,17 @@ void declareFiberTraceSet(py::module &mod)
 
     cls.def(py::init<>());
     cls.def(py::init<Class const&, bool>(), "fiberTraceSet"_a, "deep"_a=false);
-    cls.def("size", &Class::size);
-    cls.def("__len__", &Class::size);
+    cls.def("getNtrace", &Class::getNtrace);
+    cls.def("__len__", &Class::getNtrace);
     cls.def("getFiberTrace",
             (PTR(typename Class::FiberTraceT)(Class::*)(std::size_t const))&Class::getFiberTrace,
             "index"_a);
     cls.def("__getitem__", [](Class const& self, std::size_t index) { return self.getFiberTrace(index); });
     cls.def("assignTraceIDs", &Class::assignTraceIDs, "fiberIds"_a, "xCenters"_a);
-    cls.def("erase", &Class::erase, "iStart"_a, "iEnd"_a=0);
     cls.def("setFiberTrace", &Class::setFiberTrace, "index"_a, "trace"_a);
     cls.def("addFiberTrace", &Class::addFiberTrace, "trace"_a, "index"_a=0);
     cls.def("getTraces", [](Class const& self) { return *self.getTraces(); });
     cls.def("sortTracesByXCenter", &Class::sortTracesByXCenter);
-    cls.def("extractTraceNumberFromProfile", &Class::extractTraceNumberFromProfile,
-            "spectrumImage"_a, "index"_a);
-    cls.def("extractAllTracesFromProfile", &Class::extractAllTracesFromProfile, "spectrumImage"_a);
 }
 
 
@@ -118,16 +113,6 @@ PYBIND11_PLUGIN(fiberTraces) {
               });
     coord.def_readwrite("x", &math::dataXY<float>::x);
     coord.def_readwrite("y", &math::dataXY<float>::y);
-
-    mod.def("calculateXCenters",
-            (ndarray::Array<float, 1, 1>(*)(PTR(FiberTraceFunction const) const&,
-                                            std::size_t const&, std::size_t const&))&math::calculateXCenters,
-            "fiberTraceFunction"_a, "height"_a=0, "width"_a=0);
-    mod.def("calculateXCenters",
-            (ndarray::Array<float, 1, 1>(*)(PTR(FiberTraceFunction const) const&,
-                                            ndarray::Array<float, 1, 1> const&,
-                                            std::size_t const&, std::size_t const&))&math::calculateXCenters,
-            "fiberTraceFunction"_a, "yIn"_a, "height"_a=0, "width"_a=0);
 
     return mod.ptr();
 }

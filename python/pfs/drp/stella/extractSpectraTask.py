@@ -1,18 +1,23 @@
 #!/usr/bin/env python
 import lsst.pex.config as pexConfig
-from lsst.pipe.base import Task
+import lsst.pipe.base as pipeBase
 import lsst.afw.display as afwDisplay
 import pfs.drp.stella as drpStella
 import pfs.drp.stella.utils as dsUtils
 
 class ExtractSpectraConfig(pexConfig.Config):
-    saturationLevel = pexConfig.Field(
-          doc = "CCD saturation level",
-          dtype = float,
-          default = 65000.,
-          check = lambda x : x > 0.)
+    extractionAlgorithm = pexConfig.ChoiceField(
+        dtype=str,
+        doc="Algorithm used to extract spectra",
+        allowed={
+            "OPTIMAL": "classical \"optimal\" extraction",
+            "BOXCAR": "simple sum of pixels within the trace",
+        },
+        default="OPTIMAL",
+        optional=False,
+    )
 
-class ExtractSpectraTask(Task):
+class ExtractSpectraTask(pipeBase.Task):
     ConfigClass = ExtractSpectraConfig
     _DefaultName = "ExtractSpectraTask"
 
@@ -22,55 +27,46 @@ class ExtractSpectraTask(Task):
         import lsstDebug
         self.debugInfo = lsstDebug.Info(__name__)
 
-    def extractSpectra(self, inExposure, inFiberTraceSetWithProfiles, inTraceNumbers):
+        self._useProfile = self.config.extractionAlgorithm == "OPTIMAL"
 
-        traceNumbers = inTraceNumbers
-        if inTraceNumbers[0] == -1:
-            traceNumbers = range(inFiberTraceSetWithProfiles.size())
-        self.log.debug("inTraceNumbers = %s" % inTraceNumbers)
-        self.log.debug("traceNumbers = %s" % traceNumbers)
-
-        spectrumSet = drpStella.SpectrumSet()
-
-        if inExposure != None:
-            inMaskedImage = inExposure.getMaskedImage()
-
-            if self.debugInfo.display:
-                  display = afwDisplay.Display(frame=self.debugInfo.input_frame)
-
-                  dsUtils.addFiberTraceSetToMask(inExposure.getMaskedImage().getMask(),
-                                                 inFiberTraceSetWithProfiles.getTraces(), display)
-
-                  display.mtv(inExposure, "input")
-
-        # Store pixel values from inMaskedImage in inFiberTraceSetWithProfile's FiberTraces
-        # and proceed to extract the spectra
-
-        for i in range(len(traceNumbers)):
-            fiberTrace = inFiberTraceSetWithProfiles.getFiberTrace(traceNumbers[i])
-
-            # Extract spectrum from profile
-            try:
-                spectrum = fiberTrace.extractFromProfile(inExposure.getMaskedImage())
-            except Exception as e:
-                self.log.warn("Extraction of fibre %d failed: %s" % (fiberTrace.getITrace(), e))
-                continue
-            bbox = fiberTrace.getTrace().getBBox()
-            spectrum.setYLow(bbox.getMinY())
-            spectrum.setYHigh(bbox.getMaxY())
-
-            spectrumSet.addSpectrum(spectrum)
-
-        return spectrumSet
-
-    def run(self, inExposure, inFiberTraceSetWithProfiles, inTraceNumbers=[-1]):
-        """Create traces from inExposure and extract spectra from profiles in inFiberTraceSetWithProfiles
+    def run(self, exposure, fiberTraceSet, traceNumbers=None):
+        """Create traces from exposure and extract spectra from profiles in fiberTraceSet
 
         This method is the top-level for running the automatic 1D extraction of the fiber traces on the Exposure
         of the object spectra as a stand-alone BatchPoolTask.
 
-        This method returns a SpectrumSet
+        @return pipe_base Struct containing these fields:
+         - spectrumSet: set of extracted spectra
         """
 
-        spectrumSet = self.extractSpectra(inExposure, inFiberTraceSetWithProfiles, inTraceNumbers)
-        return spectrumSet
+        if traceNumbers is None:
+            traceNumbers = range(fiberTraceSet.getNtrace())
+        self.log.debug("traceNumbers = %s" % traceNumbers)
+
+        spectrumSet = drpStella.SpectrumSet()
+
+        if exposure != None:
+            if self.debugInfo.display:
+                  display = afwDisplay.Display(frame=self.debugInfo.input_frame)
+
+                  dsUtils.addFiberTraceSetToMask(exposure.mask, fiberTraceSet)
+
+                  display.mtv(exposure, "input")
+
+        # extract the spectra
+
+        for i in range(len(traceNumbers)):
+            fiberTrace = fiberTraceSet.getFiberTrace(traceNumbers[i])
+
+            # Extract spectrum from profile
+            try:
+                spectrum = fiberTrace.extractSpectrum(exposure.getMaskedImage(), self._useProfile)
+            except Exception as e:
+                self.log.warn("Extraction of fibre %d failed: %s" % (fiberTrace.getITrace(), e))
+                continue
+
+            spectrumSet.addSpectrum(spectrum)
+
+        return pipeBase.Struct(
+            spectrumSet=spectrumSet,
+        )
