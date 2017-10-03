@@ -166,6 +166,8 @@ class ReduceArcTask(CmdLineTask):
                     for rl in refLines:
                         if rl.status & rl.Status.FIT:
                             plt.axvline(rl.wavelength, ls='-', color='black', alpha=0.5)
+                        else:
+                            plt.axvline(rl.wavelength, ls='-', color='red', alpha=0.25)
                     plt.show()
 
             writePfsArm(butler, arcExp, spectrumSet, arcRef.dataId)
