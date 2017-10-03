@@ -22,14 +22,19 @@ class ReduceArcConfig(pexConfig.Config):
         doc="""Task to extract spectra using the fibre traces""",
     )
 
-    fittingFunction = pexConfig.Field( doc = "Function for fitting the dispersion", dtype=str, default="POLYNOMIAL" );
-    order = pexConfig.Field( doc = "Fitting function order", dtype=int, default = 5 );
-    searchRadius = pexConfig.Field( doc = "Radius in pixels relative to line list to search for emission line peak", dtype = int, default = 2 );
-    fwhm = pexConfig.Field( doc = "FWHM of emission lines", dtype=float, default = 2.6 );
-    nRowsPrescan = pexConfig.Field( doc = "Number of prescan rows in raw CCD image", dtype=int, default = 48);
-    wavelengthFile = pexConfig.Field( doc = "reference pixel-wavelength file including path", dtype = str, default=os.path.join(getPackageDir("obs_pfs"), "pfs/RedFiberPixels.fits.gz"));
-    lineList = pexConfig.Field( doc = "reference line list including path", dtype = str, default=os.path.join(getPackageDir("obs_pfs"), "pfs/lineLists/CdHgKrNeXe_red.fits"));
-    maxDistance = pexConfig.Field( doc = "Reject emission lines which center is more than this value away from the predicted position", dtype=float, default = 2.5 );
+    fittingFunction=pexConfig.Field(doc="Function for fitting the dispersion", dtype=str, default="POLYNOMIAL");
+    order=pexConfig.Field(doc="Fitting function order", dtype=int, default=5);
+    searchRadius=pexConfig.Field(doc="Radius in pixels relative to line list to search for emission line peak",
+                                 dtype=int, default=2);
+    fwhm=pexConfig.Field(doc="FWHM of emission lines", dtype=float, default=2.6);
+    wavelengthFile=pexConfig.Field( doc="reference pixel-wavelength file including path",
+                                    dtype=str, default=os.path.join(getPackageDir("obs_pfs"),
+                                                                    "pfs/RedFiberPixels.fits.gz"));
+    lineList=pexConfig.Field(doc="reference line list including path",
+                             dtype=str, default=os.path.join(getPackageDir("obs_pfs"),
+                                                             "pfs/lineLists/CdHgKrNeXe_red.fits"));
+    maxDistance=pexConfig.Field(doc="Reject arc lines with center more than maxDistance from predicted position",
+                                dtype=float, default=2.5);
 
 class ReduceArcTaskRunner(TaskRunner):
     """Get parsed values into the ReduceArcTask.run"""
