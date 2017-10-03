@@ -333,7 +333,7 @@ Spectrum::hIdentify(ndarray::Array< float, 1, 1 > const& lineListLambda,
 void
 Spectrum::identify(ndarray::Array< float, 2, 1 > const& lineList,
                    DispCorControl const& dispCorControl,
-                   std::size_t nLinesCheck )
+                   int nLinesCheck)
 {
     LOG_LOGGER _log = LOG_GET("pfs.drp.stella.Spectra.identify");
 
@@ -358,21 +358,21 @@ Spectrum::identify(ndarray::Array< float, 2, 1 > const& lineList,
     }
 
     /// separate lines to fit and lines for RMS test
-    if (indices.size() - nLinesCheck <= 2) {
+    if (static_cast<long>(indices.size()) - nLinesCheck <= 2) {
         const int o_nLinesCheck = nLinesCheck;
-        nLinesCheck = 0.25*(indices.size() - nLinesCheck) + 3;
-        if (indices.size() - nLinesCheck <= 2) {
+        nLinesCheck = 0.25*(static_cast<long>(indices.size()) - nLinesCheck) + 3;
+        if (static_cast<long>(indices.size()) - nLinesCheck <= 2) {
             nLinesCheck = 0;
         }
         LOGLS_INFO(_log, "Only found " << indices.size() << " lines; cannot hold back " << o_nLinesCheck <<
                    " holding back " << nLinesCheck << endl);
     }
     std::vector< std::size_t > indCheck;
-    for ( std::size_t i = 0; i < nLinesCheck; ++i ){
-        srand( 0 ); //seed initialization
-        int randNum = rand() % ( indices.size() - 2 ) + 1; // Generate a random number between 0 and 1
-        indCheck.push_back( std::size_t( randNum ) );
-        indices.erase( indices.begin() + randNum );
+    for (std::size_t i = 0; i < nLinesCheck; ++i) {
+        srand(0);                                            // seed initialization XXX
+        std::size_t randNum = rand() % (indices.size() - 1); // Generate a random number between 0 and size-1
+        indCheck.push_back(randNum);
+        indices.erase(indices.begin() + randNum);
     }
 
     _nGoodLines = nInd;

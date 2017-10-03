@@ -121,7 +121,7 @@ class Spectrum {
       **/
     void identify(ndarray::Array<float, 2, 1> const& lineList,
                   DispCorControl const& dispCorControl,
-                  std::size_t nLinesCheck=0);
+                  int nLinesCheck=0);
 
     std::vector<std::shared_ptr<ReferenceLine>>& getReferenceLines() { return _referenceLines; }
     
