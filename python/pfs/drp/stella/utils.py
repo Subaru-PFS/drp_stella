@@ -35,13 +35,36 @@ def readWavelengthFile(wLenFile):
 
     return [xCenters, wavelengths, traceIds]
 
-def readLineListFile(lineList):
-    """read line list"""
+def readLineListFile(lineList, lamps=["Ar", "Cd", "Hg", "Ne", "Xe"], minIntensity=0):
+    """read line list
+
+    This file is basically CdHgKrNeXe_use
+    """
     hdulist = pyfits.open(lineList)
     tbdata = hdulist[1].data
-    lineListArr = np.ndarray(shape=(len(tbdata),2), dtype='float32')
-    lineListArr[:,0] = tbdata.field(0)  # wavelength
-    lineListArr[:,1] = tbdata.field(1)  # ??
+
+    element = tbdata.field(2)
+    intensity = tbdata.field(3)         # Comment (intensity + notes)
+    tmp = np.empty(len(intensity))
+    for i in range(len(intensity)):
+        tmp[i] = np.float(intensity[i].split()[0])
+    intensity = tmp; del tmp
+
+    if lamps:
+        keep = np.zeros(len(element), dtype=bool)
+        for lamp in lamps:
+            keep = np.logical_or(keep, element == lamp)
+    else:
+        keep = np.ones(len(element), dtype=bool)
+
+    if minIntensity > 0:
+        keep = np.logical_and(keep, intensity > minIntensity)
+        
+    lineListArr = np.ndarray(shape=(keep.sum(), 3), dtype='float32')
+    lineListArr[:,0] = np.array(tbdata.field(0))[keep]  # wavelength
+    lineListArr[:,1] = np.array(tbdata.field(1))[keep]  # pixel
+    lineListArr[:,2] = np.array(intensity)[keep]        # NIST intensity
+
     return lineListArr
 
 def readReferenceSpectrum(refSpec):
