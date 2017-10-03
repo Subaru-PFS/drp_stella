@@ -96,7 +96,7 @@ class ReduceArcTask(CmdLineTask):
             if self.debugInfo.display and self.debugInfo.arc_frame >= 0:
                 display = afwDisplay.Display(self.debugInfo.arc_frame)
 
-                addFiberTraceSetToMask(arcExp.maskedImage.mask, flatFiberTraceSet, display)
+                addFiberTraceSetToMask(arcExp.maskedImage.mask, flatFiberTraceSet)
                 
                 display.setMaskTransparency(50)
                 display.mtv(arcExp, "Arcs")
@@ -130,7 +130,7 @@ class ReduceArcTask(CmdLineTask):
 
                 # cut off both ends of wavelengths where is no signal
                 bbox = flatFiberTraceSet.getFiberTrace(i).getTrace().getBBox()
-                wLenArr = np.array(wLenTemp[bbox.getMinY() : bbox.getMaxY()])
+                wLenArr = np.array(wLenTemp[bbox.getMinY() : bbox.getMaxY() + 1])
 
                 lineListPix = drpStella.createLineList(wLenArr, wLenLinesArr)
 

@@ -649,7 +649,7 @@ namespace pfs { namespace drp { namespace stella { namespace math {
       throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
     }
     int i, I_ArgPos = 0;
-    int I_KeywordSet_MeasureErrors, I_KeywordSet_Reject, I_KeywordSet_Mask, I_KeywordSet_ChiSq, I_KeywordSet_Q, I_KeywordSet_Sigma, I_KeywordSet_YFit;
+    int I_KeywordSet_MeasureErrors, I_KeywordSet_Reject, I_KeywordSet_Mask, I_KeywordSet_ChiSq, I_KeywordSet_Q, I_KeywordSet_Sigma, I_KeywordSet_YFit, I_KeywordSet_allowSpecLtZero;
     D_A1_SP_Out.deep() = 0;
     D_A1_Sky_Out.deep() = 0;
 
@@ -685,6 +685,12 @@ namespace pfs { namespace drp { namespace stella { namespace math {
       #endif
       S_A1_Args_Fit[I_ArgPos] = "MEASURE_ERRORS_IN";
       I_ArgPos++;
+    }
+
+    I_KeywordSet_allowSpecLtZero = pfs::drp::stella::utils::KeyWord_Set(S_A1_Args_In, "ALLOW_SPEC_LT_ZERO");
+    if (I_KeywordSet_allowSpecLtZero >= 0) {
+        S_A1_Args_Fit[I_ArgPos] = "ALLOW_SPEC_LT_ZERO";
+        I_ArgPos++;
     }
 
     ndarray::Array<ImageT, 1, 1> D_A1_ChiSq = ndarray::allocate(D_A2_CCD_In.getShape()[0]);
@@ -832,6 +838,11 @@ namespace pfs { namespace drp { namespace stella { namespace math {
         I_ArgPos++;
       }
 
+      if (I_KeywordSet_allowSpecLtZero >= 0) {
+        Args_Fit[I_ArgPos] = ArgV_In[I_KeywordSet_allowSpecLtZero];
+        I_ArgPos++;
+      }
+      
       if (I_KeywordSet_ChiSq >= 0){
         Args_Fit[I_ArgPos] = &((*P_D_A1_ChiSq)[i]);
         I_ArgPos++;
@@ -1017,12 +1028,18 @@ namespace pfs { namespace drp { namespace stella { namespace math {
     bool B_AllowSpecLTZero = false;
     I_KeywordSet_AllowSpecLTZero = pfs::drp::stella::utils::KeyWord_Set(S_A1_Args_In, "ALLOW_SPEC_LT_ZERO");
     if (I_KeywordSet_AllowSpecLTZero >= 0){
+#if 1
+        if (*((int*)ArgV_In[I_KeywordSet_AllowSpecLTZero]) > 0){
+            B_AllowSpecLTZero = true;
+        }
+#else
       if (I_KeywordSet_AllowSkyLTZero < 0){
         if (*((int*)ArgV_In[I_KeywordSet_AllowSkyLTZero]) > 0){
           B_AllowSpecLTZero = true;
           std::cout << "CFits::LinFitBevington: KeyWord_Set(ALLOW_SPEC_LT_ZERO)" << std::endl;
         }
       }
+#endif
     }
 
     float D_Reject(-1.);

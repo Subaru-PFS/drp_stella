@@ -198,7 +198,7 @@ namespace pfs { namespace drp { namespace stella {
     P_Args_Fit[3] = &allowSkyLtZero;
 
     S_A1_Args_Fit[4] = "ALLOW_SPEC_LT_ZERO";
-    int allowSpecLtZero = 0;
+    int allowSpecLtZero = 1;
     P_Args_Fit[4] = &allowSpecLtZero;
 
     bool B_WithSky = false;

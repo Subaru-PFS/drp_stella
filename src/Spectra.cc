@@ -604,6 +604,7 @@ Spectrum<ImageT, MaskT, VarianceT, WavelengthT>::hIdentify( ndarray::Array< T, 2
           D_A2_Limits[ ndarray::makeVector( 1, 1 ) ] = V_X[ V_X.size() - 2 ];
           D_A2_Limits[ ndarray::makeVector( 2, 0 ) ] = D_A1_Guess[ 2 ] / 3.;
           D_A2_Limits[ ndarray::makeVector( 2, 1 ) ] = 2. * D_A1_Guess[ 2 ];
+          D_A2_Limits[ ndarray::makeVector( 3, 0 ) ] = (D_A1_Guess[ 3 ] > 0) ? 0 : D_A1_Guess[ 3 ];
           D_A2_Limits[ ndarray::makeVector( 3, 1 ) ] = std::fabs( 1.5 * D_A1_Guess[ 3 ] ) + 1;
           LOGLS_DEBUG(_log, "D_A2_Limits = " << D_A2_Limits);
           ndarray::Array< float, 1, 1 > D_A1_X = ndarray::external( V_X.data(), ndarray::makeVector( int( V_X.size() ) ), ndarray::makeVector( 1 ) );
