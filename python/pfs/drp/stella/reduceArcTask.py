@@ -25,7 +25,7 @@ class ReduceArcConfig(pexConfig.Config):
     order = pexConfig.Field( doc = "Fitting function order", dtype=int, default = 5 );
     searchRadius = pexConfig.Field( doc = "Radius in pixels relative to line list to search for emission line peak", dtype = int, default = 2 );
     fwhm = pexConfig.Field( doc = "FWHM of emission lines", dtype=float, default = 2.6 );
-    nRowsPrescan = pexConfig.Field( doc = "Number of prescan rows in raw CCD image", dtype=int, default = 49 );
+    nRowsPrescan = pexConfig.Field( doc = "Number of prescan rows in raw CCD image", dtype=int, default = 48);
     wavelengthFile = pexConfig.Field( doc = "reference pixel-wavelength file including path", dtype = str, default=os.path.join(getPackageDir("obs_pfs"), "pfs/RedFiberPixels.fits.gz"));
     lineList = pexConfig.Field( doc = "reference line list including path", dtype = str, default=os.path.join(getPackageDir("obs_pfs"), "pfs/lineLists/CdHgKrNeXe_red.fits"));
     maxDistance = pexConfig.Field( doc = "Reject emission lines which center is more than this value away from the predicted position", dtype=float, default = 2.5 );
@@ -137,6 +137,7 @@ class ReduceArcTask(CmdLineTask):
                 wLenTemp = wLenTemp[self.config.nRowsPrescan:] # this should be fixed in the wavelengths file
                 wLenArr = np.array(wLenTemp)
 
+                assert len(wLenArr) == arcExp.getHeight() # this is the fundamental assumption
                 lineListPix = drpStella.createLineList(wLenArr, wLenLinesArr)
 
                 # Identify emission lines and fit dispersion
