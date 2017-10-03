@@ -208,14 +208,14 @@ Spectrum::hIdentify(ndarray::Array< float, 1, 1 > const& lineListLambda,
     _referenceLines.reserve(nLine);
 
     for (int i = 0; i < nLine; ++i) {
+        auto refLine = std::make_shared<ReferenceLine>(ReferenceLine::NOWT, lineListLambda[i], lineListPixel[i]);
+        _referenceLines.push_back(refLine);
+
         int start = int(lineListPixel[i]) - dispCorControl.searchRadius;
         int end   = start + 2*dispCorControl.searchRadius;
         if (start < 0 || end >= _length) {
             continue;
         }
-
-        auto refLine = std::make_shared<ReferenceLine>(ReferenceLine::NOWT, lineListLambda[i], lineListPixel[i]);
-        _referenceLines.push_back(refLine);
 
         auto itMaxElement = std::max_element( _spectrum.begin() + start, _spectrum.begin() + end + 1 );
         const float maxPos = std::distance(_spectrum.begin(), itMaxElement);
@@ -274,7 +274,7 @@ Spectrum::hIdentify(ndarray::Array< float, 1, 1 > const& lineListLambda,
                                true)) {
                 if ((_mask((start + end)/2, 0) & nodata) == 0) {
                     LOGLS_WARN(_log, "GaussFit returned FALSE for fibre " + to_string(getITrace()) +
-                               ": xc = " + to_string(Guess[XC]) + " lambda = " + to_string(lineListLambda[i]));
+                               ": xc = " + to_string(Guess[XC]) + " lambda = " + to_string(lineListLambda[i]) + " i = " + to_string(i));
                 }
                 GaussCoeffs.deep() = 0.0;
                 EGaussCoeffs.deep() = 0.0;
