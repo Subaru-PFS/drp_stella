@@ -251,14 +251,20 @@ Spectrum::hIdentify(ndarray::Array< float, 1, 1 > const& lineListLambda,
             Guess[WIDTH]    = dispCorControl.fwhm;
             LOGLS_DEBUG(_log, "Guess = " << Guess);
 
-            Limits[ndarray::makeVector(PEAK,     0 )] = 0.;
-            Limits[ndarray::makeVector(PEAK,     1 )] = std::fabs(1.5*Guess[PEAK]);
-            Limits[ndarray::makeVector(XC,       0 )] = X[1];
-            Limits[ndarray::makeVector(XC,       1 )] = X[X.size() - 2];
-            Limits[ndarray::makeVector(WIDTH,    0 )] = 0.33*Guess[WIDTH];
-            Limits[ndarray::makeVector(WIDTH,    1 )] = 2.0*Guess[WIDTH];
-            Limits[ndarray::makeVector(BASELINE, 0 )] = 0.0;
-            Limits[ndarray::makeVector(BASELINE, 1 )] = std::fabs(1.5*Guess[BASELINE]) + 1;
+            Limits[PEAK    ][0] = 0.0;
+            Limits[PEAK    ][1] = std::fabs(1.5*Guess[PEAK]);
+            Limits[XC      ][0] = X[1];
+            Limits[XC      ][1] = X[X.size() - 2];
+            Limits[WIDTH   ][0] = 0.33*Guess[WIDTH];
+            Limits[WIDTH   ][1] = 2.0*Guess[WIDTH];
+            Limits[BASELINE][0] = 0.0;
+            Limits[BASELINE][1] = std::fabs(1.5*Guess[BASELINE]) + 1;
+
+            // fitter fails if initial guess not within limits
+            if (Guess[BASELINE] < 0.0) {
+                Limits[BASELINE][0] = Guess[BASELINE];
+            }
+
             LOGLS_DEBUG(_log, "Limits = " << Limits);
 
             if (!MPFitGaussLim(X,
@@ -280,10 +286,10 @@ Spectrum::hIdentify(ndarray::Array< float, 1, 1 > const& lineListLambda,
                 EGaussCoeffs.deep() = 0.0;
             } else {
                 if (std::fabs(maxPos - GaussCoeffs[1] ) < dispCorControl.maxDistance) {
-                    GaussPos[i] = GaussCoeffs[1];
+                    GaussPos[i] = GaussCoeffs[XC];
                     refLine->status |= ReferenceLine::FIT;
-                    refLine->fitPixelPos = GaussCoeffs[1];
-                    refLine->fitPixelPosErr = EGaussCoeffs[1];
+                    refLine->fitPixelPos = GaussCoeffs[XC];
+                    refLine->fitPixelPosErr = EGaussCoeffs[XC];
 
                     if (i > 0 && std::fabs(GaussPos[i] - GaussPos[i - 1]) < 1.5) { // wrong line identified!
                         if (nLine > 2) {
