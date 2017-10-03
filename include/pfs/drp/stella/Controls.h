@@ -254,7 +254,7 @@ struct FiberTraceProfileFittingControl {
     std::vector<std::string> PROFILE_INTERPOLATION_NAMES = { stringify( PISKUNOV ),
                                                              stringify( SPLINE3 ) };
     LSST_CONTROL_FIELD(profileInterpolation, std::string, "Method for determining the spatial profile, [PISKUNOV, SPLINE3], default: SPLINE3");
-    LSST_CONTROL_FIELD(swathWidth, size_t, "Size of individual extraction swaths, set to 0 to calculate automatically");
+    LSST_CONTROL_FIELD(swathWidth, int, "Size of individual extraction swaths, set to 0 to calculate automatically");
     LSST_CONTROL_FIELD(overSample, unsigned int, "Oversampling factor for the determination of the spatial profile (default: 10)");
     LSST_CONTROL_FIELD(maxIterSF, unsigned int, "profileInterpolation==PISKUNOV: Maximum number of iterations for the determination of the spatial profile (default: 8)");
     LSST_CONTROL_FIELD(maxIterSky, unsigned int, "profileInterpolation==PISKUNOV: Maximum number of iterations for the determination of the (constant) background/sky (default: 10)");
@@ -482,7 +482,7 @@ struct DispCorControl {
     LSST_CONTROL_FIELD( nStretches, int, "Number of stretches between <stretchMinLength> and <stretchMaxLength>");
     LSST_CONTROL_FIELD( verticalPrescanHeight, int, "Number of rows in the raw image containing the vertical prescan");
     LSST_CONTROL_FIELD( sigmaReject, float, "Sigma rejection threshold" );
-    LSST_CONTROL_FIELD( nIterReject, size_t, "Number of sigma rejection iterations" );
+    LSST_CONTROL_FIELD( nIterReject, int, "Number of sigma rejection iterations" );
     /// <maxDistance> should be large enough to allow small differences between the
     /// predicted and the measured emission line, but small enough to make sure that
     /// mis-identified lines are identified as such. As a rule of thumb about 1 half

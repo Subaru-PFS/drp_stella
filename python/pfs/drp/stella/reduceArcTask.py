@@ -14,6 +14,7 @@ from pfs.drp.stella.extractSpectraTask import ExtractSpectraTask
 from pfs.drp.stella.utils import makeFiberTraceSet, readWavelengthFile
 from pfs.drp.stella.utils import readLineListFile, writePfsArm, addFiberTraceSetToMask
 
+@pexConfig.wrap(drpStella.DispCorControl) # should wrap IdentifyLinesTaskConfig when it's written
 class ReduceArcConfig(pexConfig.Config):
     """Configuration for reducing arc images"""
     extractSpectra = pexConfig.ConfigurableField(
@@ -21,7 +22,7 @@ class ReduceArcConfig(pexConfig.Config):
         doc="""Task to extract spectra using the fibre traces""",
     )
 
-    function = pexConfig.Field( doc = "Function for fitting the dispersion", dtype=str, default="POLYNOMIAL" );
+    fittingFunction = pexConfig.Field( doc = "Function for fitting the dispersion", dtype=str, default="POLYNOMIAL" );
     order = pexConfig.Field( doc = "Fitting function order", dtype=int, default = 5 );
     searchRadius = pexConfig.Field( doc = "Radius in pixels relative to line list to search for emission line peak", dtype = int, default = 2 );
     fwhm = pexConfig.Field( doc = "FWHM of emission lines", dtype=float, default = 2.6 );
@@ -115,13 +116,7 @@ class ReduceArcTask(CmdLineTask):
             spectrumSet = self.extractSpectra.run(arcExp, flatFiberTraceSet).spectrumSet
 
             # Fit the wavelength solution
-
-            dispCorControl = drpStella.DispCorControl()
-            dispCorControl.fittingFunction = self.config.function
-            dispCorControl.order = self.config.order
-            dispCorControl.searchRadius = self.config.searchRadius
-            dispCorControl.fwhm = self.config.fwhm
-            dispCorControl.maxDistance = self.config.maxDistance
+            dispCorControl = self.config.makeControl()
 
             if self.debugInfo.display and self.debugInfo.residuals_frame >= 0:
                 display = afwDisplay.Display(self.debugInfo.residuals_frame)
