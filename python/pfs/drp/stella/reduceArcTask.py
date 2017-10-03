@@ -11,7 +11,7 @@ from lsst.utils import getPackageDir
 import lsst.afw.display as afwDisplay
 import pfs.drp.stella as drpStella
 from pfs.drp.stella.extractSpectraTask import ExtractSpectraTask
-from pfs.drp.stella.utils import makeFiberTraceSet, readWavelengthFile
+from pfs.drp.stella.utils import makeFiberTraceSet, readWavelengthFile, makeDetectorMap
 from pfs.drp.stella.utils import readLineListFile, writePfsArm, addFiberTraceSetToMask
 
 @pexConfig.wrap(drpStella.DispCorControl) # should wrap IdentifyLinesTaskConfig when it's written
@@ -75,18 +75,12 @@ class ReduceArcTask(CmdLineTask):
         self.log.debug('wLenFile = %s' % wLenFile)
         self.log.debug('lineList = %s' % lineList)
 
-        # read wavelength file
-        xCenters, wavelengths, traceIds = readWavelengthFile(wLenFile)
-        del xCenters
-
-        # read line list
-        lineListArr = readLineListFile(lineList)
-        wLenLinesArr = np.array(lineListArr[:, 0])
-
         for arcRef in expRefList:
             self.log.debug('arcRef.dataId = %s' % arcRef.dataId)
             self.log.debug('arcRef = %s' % arcRef)
             self.log.debug('type(arcRef) = %s' % type(arcRef))
+
+            detMap = makeDetectorMap(butler, arcRef.dataId, wLenFile)
 
             # read pfsFiberTrace and then construct FiberTraceSet
             try:
@@ -107,6 +101,9 @@ class ReduceArcTask(CmdLineTask):
             if arcExp is None:
                 raise RuntimeError("Unable to load postISRCCD or calexp image for %s" % (arcRef.dataId))
 
+            # read line list
+            arcLines = readLineListFile(lineList)
+            arcLineWavelengths = np.array(arcLines[:, 0])
             if self.debugInfo.display and self.debugInfo.arc_frame >= 0:
                 display = afwDisplay.Display(self.debugInfo.arc_frame)
 
@@ -133,16 +130,17 @@ class ReduceArcTask(CmdLineTask):
                 spec = spectrumSet.getSpectrum(i)
 
                 traceId = spec.getITrace()
-                wLenTemp = wavelengths[np.where(traceIds == traceId)]
-                wLenTemp = wLenTemp[self.config.nRowsPrescan:] # this should be fixed in the wavelengths file
-                wLenArr = np.array(wLenTemp)
+                fiberWavelengths = detMap.getWavelength(traceId)
 
-                assert len(wLenArr) == arcExp.getHeight() # this is the fundamental assumption
-                lineListPix = drpStella.createLineList(wLenArr, wLenLinesArr)
+                assert len(fiberWavelengths) == arcExp.getHeight() # this is the fundamental assumption
+                lineListPix = drpStella.createLineList(fiberWavelengths, arcLineWavelengths)
 
                 # Identify emission lines and fit dispersion
-                spec.identify(lineListPix, dispCorControl, 8)
-                self.log.info("FiberTrace %d: spec.getDispRms() = %f" % (i, spec.getDispRms()))
+                try:
+                    spec.identify(lineListPix, dispCorControl, 8)
+                    self.log.info("FiberTrace %d: spec.getDispRms() = %f" % (i, spec.getDispRms()))
+                except Exception as e:
+                    print(e)
 
                 if residuals is not None:
                     ft = flatFiberTraceSet.getFiberTrace(i)

@@ -1,9 +1,11 @@
+import os
 from astropy.io import fits as pyfits
 import lsst.afw.geom as afwGeom
 import lsst.afw.image as afwImage
 import lsst.log as log
 import numpy as np
 import pfs.drp.stella as drpStella
+import pfs.drp.stella.detectorMap as detectorMap
 from pfs.drp.stella.datamodelIO import spectrumSetToPfsArm, PfsArmIO
 
 def makeFiberTraceSet(pfsFiberTrace):
@@ -35,8 +37,44 @@ def readWavelengthFile(wLenFile):
 
     return [xCenters, wavelengths, traceIds]
 
+def makeDetectorMap(butler, dataId, wLenFile, nKnot=25):
+    """Return a DetectorMap from the specified file
+
+    N.b. we need to get this from the butler in the longer run
+    """
+    
+    xCenters, wavelengths, fiberIds = readWavelengthFile(wLenFile)
+    #
+    # N.b. Andreas calls these "traceIds" but I'm assuming that they are actually be 1-indexed fiberIds
+    #
+    nFiber = len(set(fiberIds))
+    fiberIds = fiberIds.reshape(nFiber, len(fiberIds)//nFiber)
+    xCenters = xCenters.reshape(fiberIds.shape)
+    wavelengths = wavelengths.reshape(fiberIds.shape)
+    fiberIds = fiberIds.reshape(fiberIds.shape)[:, 0].copy()
+    #
+    # The RedFiberPixels.fits.gz file has an extra 48 pixels at the bottom of each row
+    # (corresponding to the pixels that taper to the serials and which we trip off in the ISR)
+    #
+    nRowsPrescan = 48
+    xCenters = xCenters[:, nRowsPrescan:]
+    wavelengths = wavelengths[:, nRowsPrescan:]
+
+    missing = (wavelengths == 0)
+    xCenters[missing] = np.nan
+    wavelengths[missing] = np.nan
+
+    detector = butler.get('raw_detector', dataId)
+    bbox = detector.getBBox()
+
+    return detectorMap.DetectorMap(bbox, fiberIds, xCenters, wavelengths, nKnot=nKnot)
+
 def readLineListFile(lineList, lamps=["Ar", "Cd", "Hg", "Ne", "Xe"], minIntensity=0):
-    """read line list
+    """Read line list
+
+    Return:
+       lineListArr[:,0] : wavelength
+       lineListArr[:,2] : NIST intensity
 
     This file is basically CdHgKrNeXe_use
     """
