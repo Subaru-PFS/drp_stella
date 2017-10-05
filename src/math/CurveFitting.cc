@@ -753,10 +753,11 @@ namespace {
                     ndarray::Array<ImageT, 2, 1> const& ccdDataVar,  // data's variance
                     ndarray::Array<lsst::afw::image::MaskPixel, 2, 1> const& traceMask, // set to 1 for points in the fiberTrace
                     ndarray::Array<ImageT, 2, 1> const& profile2d,   // profile of fibre trace
-                    const float clipNSigma,                        // clip at this many sigma
-                    ndarray::Array<ImageT, 1, 1> & specAmp,    // returned spectrum
-                    ndarray::Array<ImageT, 1, 1> & bkgd,  // returned background
-                    ndarray::Array<ImageT, 1, 1> & specAmpVar // spectrum's variance
+                    const bool fitBackground,                        // should I fit the background level?
+                    const float clipNSigma,                          // clip at this many sigma
+                    ndarray::Array<ImageT, 1, 1> & specAmp,          // returned spectrum
+                    ndarray::Array<ImageT, 1, 1> & bkgd,             // returned background
+                    ndarray::Array<ImageT, 1, 1> & specAmpVar        // spectrum's variance
                    )
   {
       const int height = ccdData.getShape()[0];
@@ -795,7 +796,6 @@ namespace {
         throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
     }
 
-    bool fitBackground = true;          // fit the sky level as well as the profile amplitude?
     for (int i = 0; i < height; i++) {
         float rchi2 = fitProfile1d(ccdData[i],
                                    ccdDataVar[i],
@@ -917,12 +917,13 @@ namespace {
   template ndarray::Array<float, 1, 1> PolyFit(ndarray::Array<float, 1, 1> const&, ndarray::Array<float, 1, 1> const&, size_t const, float const, float const, size_t const, float, float);
 
   template bool fitProfile2d(ndarray::Array<float, 2, 1> const&,
-                                       ndarray::Array<float, 2, 1> const&,
-                                       ndarray::Array<lsst::afw::image::MaskPixel, 2, 1> const&,
-                                       ndarray::Array<float, 2, 1> const&,
-                                       const float,
-                                       ndarray::Array<float, 1, 1> &,
-                                       ndarray::Array<float, 1, 1> &,
-                                       ndarray::Array<float, 1, 1> &);
+                             ndarray::Array<float, 2, 1> const&,
+                             ndarray::Array<lsst::afw::image::MaskPixel, 2, 1> const&,
+                             ndarray::Array<float, 2, 1> const&,
+                             const bool,
+                             const float,
+                             ndarray::Array<float, 1, 1> &,
+                             ndarray::Array<float, 1, 1> &,
+                             ndarray::Array<float, 1, 1> &);
                 
 }}}}

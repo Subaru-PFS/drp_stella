@@ -151,6 +151,7 @@ namespace pfs { namespace drp { namespace stella {
                     ndarray::Array<ImageT, 2, 1> const& ccdDataVar,                   ///< data's variance
                     ndarray::Array<lsst::afw::image::MaskPixel, 2, 1> const& traceMask, ///< set to 1 for points in the fiberTrace
                     ndarray::Array<ImageT, 2, 1> const& profile2d, ///< profile of fibre trace
+                    const bool fitBackground,                      ///< should I fit the background level?
                     const float clipNSigma,                        ///< clip at this many sigma
                     ndarray::Array<ImageT, 1, 1> & specAmp,        ///< returned spectrum
                     ndarray::Array<ImageT, 1, 1> & bkgd,           ///< returned background

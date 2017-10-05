@@ -72,7 +72,11 @@ class FiberTrace {
     /**
      * @brief Extract the spectrum of this fiber trace using the _profile
      */
-    PTR(Spectrum) extractSpectrum(PTR(const MaskedImageT) const& spectrumImage, bool useProfile=true);
+    PTR(Spectrum) extractSpectrum(PTR(const MaskedImageT) image, ///< image containing the spectrum
+                                  const bool fitBackground=false, ///< should I fit the background level?
+                                  const float clipNSigma=0, ///< clip data points at this many sigma (if > 0)
+                                  const bool useProfile=true  ///< use profile to perform "optimal" extraction?
+                                 );
     
     /**
      * @brief Return the fitted x-centers of the fiber trace

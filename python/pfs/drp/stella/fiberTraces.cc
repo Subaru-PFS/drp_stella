@@ -36,7 +36,8 @@ void declareFiberTrace(py::module &mod)
     cls.def("getXCenters", &Class::getXCenters);
     cls.def("getITrace", &Class::getITrace);
 
-    cls.def("extractSpectrum", &Class::extractSpectrum, "spectrumImage"_a, "useProfile"_a=true);
+    cls.def("extractSpectrum", &Class::extractSpectrum, "image"_a,
+            "fitBackground"_a=false, "clipNSigma"_a=0.0, "useProfile"_a=true);
 
     cls.def("getReconstructed2DSpectrum",
             (PTR(typename Class::Image)(Class::*)(Spectrum const&) const)

@@ -86,8 +86,11 @@ namespace pfs { namespace drp { namespace stella {
 
   template<typename ImageT, typename MaskT, typename VarianceT>
   PTR(Spectrum)
-  FiberTrace<ImageT, MaskT, VarianceT>::extractSpectrum(PTR(const MaskedImageT) const& spectrumImage,
-                                                        bool useProfile)
+  FiberTrace<ImageT, MaskT, VarianceT>::extractSpectrum(PTR(const MaskedImageT) spectrumImage,
+                                                        const bool fitBackground,
+                                                        const float clipNSigma,
+                                                        const bool useProfile
+                                                       )
   {
     LOG_LOGGER _log = LOG_GET("pfs.drp.stella.FiberTrace.extractFromProfile");
     auto const bbox = _trace->getBBox();
@@ -113,11 +116,11 @@ namespace pfs { namespace drp { namespace stella {
             }
         }
 
-        const float clipNSigma = 0;               // clip data points at this many sigma (if > 0)        
         float rchi2 = math::fitProfile2d(traceIm.getImage()->getArray(), ///: input data
                                          traceIm.getVariance()->getArray(), // variance in data
                                          US_A2_Mask,                     // mask of pixels to use
                                          _trace->getImage()->getArray(), // fibre trace profile
+                                         fitBackground,                  // should I fit the background level?
                                          clipNSigma,                     // number of sigma to clip
                                          spec,                           // out: spectrum
                                          background,                     // out: background level
@@ -176,8 +179,8 @@ namespace pfs { namespace drp { namespace stella {
         }
         for (int j = 0; i < bbox.getMaxY(); ++i, ++j) {
             spectrumSpecOut[i] = spec[j];
-            backgroundOut[i] =  background[j];
-            spectrumVarOut[i]  = var[j];
+            backgroundOut[i] =   background[j];
+            spectrumVarOut[i] =  var[j];
         }
         for (; i < spectrumSpecOut.size(); ++i) {
             spectrumSpecOut[i] = 0;
