@@ -97,13 +97,32 @@ def readLineListFile(lineList, lamps=["Ar", "Cd", "Hg", "Ne", "Xe"], minIntensit
     if minIntensity > 0:
         keep = np.logical_and(keep, intensity > minIntensity)
         
-    lineListArr = np.ndarray(shape=(keep.sum(), 3), dtype='float32')
+    lineListArr = np.ndarray(shape=(keep.sum(), 2), dtype='float32')
     lineListArr[:,0] = np.array(tbdata.field(0))[keep]  # wavelength
-    lineListArr[:,1] = np.array(tbdata.field(1))[keep]  # pixel
-    lineListArr[:,2] = np.array(intensity)[keep]        # NIST intensity
+    lineListArr[:,1] = np.array(intensity)[keep]        # NIST intensity
 
     return lineListArr
 
+def getLampElements(exp):
+    """Return a list of the elements found in the lamps that are on"""
+
+    md = exp.getMetadata().toDict()
+    elements = []
+    for lamp in ['Ne', 'HgAr', 'Xe']:
+        if md.get('W_AIT_SRC_%s' % (lamp,), False):
+            if lamp == 'HgAr':
+                elements.append('Ar')
+                elements.append('Hg')
+            elif lamp == 'HgCd':
+                elements.append('Cd')
+                elements.append('Hg')
+                # the carrier gas is argon
+                elements.append('Ar')
+            else:
+                elements.append(lamp)
+
+    return elements
+    
 def readReferenceSpectrum(refSpec):
     """read reference Spectrum"""
     hdulist = pyfits.open(refSpec)

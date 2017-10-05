@@ -11,7 +11,7 @@ from lsst.utils import getPackageDir
 import lsst.afw.display as afwDisplay
 import pfs.drp.stella as drpStella
 from pfs.drp.stella.extractSpectraTask import ExtractSpectraTask
-from pfs.drp.stella.utils import makeFiberTraceSet, readWavelengthFile, makeDetectorMap
+from pfs.drp.stella.utils import makeFiberTraceSet, makeDetectorMap, getLampElements
 from pfs.drp.stella.utils import readLineListFile, writePfsArm, addFiberTraceSetToMask
 
 @pexConfig.wrap(drpStella.DispCorControl) # should wrap IdentifyLinesTaskConfig when it's written
@@ -35,6 +35,10 @@ class ReduceArcConfig(pexConfig.Config):
                                                              "pfs/lineLists/CdHgKrNeXe_red.fits"));
     maxDistance=pexConfig.Field(doc="Reject arc lines with center more than maxDistance from predicted position",
                                 dtype=float, default=2.5);
+    minArcLineIntensity=pexConfig.Field(doc="Minimum 'NIST' intensity to use emission lines",
+                                        dtype=float, default=0);
+    nLinesKeptBack=pexConfig.Field(doc="Number of lines to withhold from line fitting to estimate errors",
+                                   dtype=int, default=4);
 
 class ReduceArcTaskRunner(TaskRunner):
     """Get parsed values into the ReduceArcTask.run"""
@@ -102,8 +106,10 @@ class ReduceArcTask(CmdLineTask):
                 raise RuntimeError("Unable to load postISRCCD or calexp image for %s" % (arcRef.dataId))
 
             # read line list
-            arcLines = readLineListFile(lineList)
+            lamps = getLampElements(arcExp)
+            arcLines = readLineListFile(lineList, lamps, minIntensity=self.config.minArcLineIntensity)
             arcLineWavelengths = np.array(arcLines[:, 0])
+
             if self.debugInfo.display and self.debugInfo.arc_frame >= 0:
                 display = afwDisplay.Display(self.debugInfo.arc_frame)
 
