@@ -1,42 +1,27 @@
 #!/usr/bin/env python
+import os
+from lsst.utils import getPackageDir
 import lsst.afw.image as afwImage
 import lsst.afw.detection as afwDet
 from lsst.ctrl.pool.pool import NODE
 import lsst.meas.algorithms as measAlg
+import lsst.daf.persistence as dafPersist
 from lsst.pex.config import Field, ConfigurableField
-from lsst.pipe.drivers.constructCalibs import CalibConfig, CalibTask
+from lsst.pipe.drivers.constructCalibs import CalibTask
+from pfs.drp.stella.constructFiberTraceTask import ConstructFiberTraceConfig
 from lsst.pipe.drivers.utils import getDataRef
 from lsst.pipe.tasks.repair import RepairTask
 import math
 import numpy as np
-from pfs.drp.stella.findAndTraceAperturesTask import FindAndTraceAperturesTask
+import pfs.drp.stella.utils as dsUtils
 
-class ConstructFiberFlatConfig(CalibConfig):
+class ConstructFiberFlatConfig(ConstructFiberTraceConfig):
     """Configuration for flat construction"""
-    crGrow = Field(dtype=int,
-        default=2,
-        doc="Grow radius for CR (pixels)")
-    doRepair = Field(dtype=bool,
-        default=True,
-        doc="Repair artifacts?")
     minSNR = Field(
         doc = "Minimum Signal-to-Noise Ratio for normalized Flat pixels",
-         dtype = float,
+        dtype = float,
         default = 100.,
-         check = lambda x : x > 0.)
-    psfFwhm = Field(dtype=float,
-        default=3.0,
-        doc="Repair PSF FWHM (pixels)")
-    psfSize = Field(dtype=int,
-        default=21,
-        doc="Repair PSF size (pixels)")
-    repair = ConfigurableField(target=RepairTask,
-        doc="Task to repair artifacts")
-    trace = ConfigurableField(target=FindAndTraceAperturesTask,
-        doc="Task to trace apertures")
-    xOffsetHdrKeyWord = Field(dtype=str,
-                              default='sim.slit.xoffset',
-                              doc="Header keyword for fiber offset in input files")
+        check = lambda x : x > 0.)
 
 class ConstructFiberFlatTask(CalibTask):
     """Task to construct the normalized Flat"""
@@ -48,6 +33,9 @@ class ConstructFiberFlatTask(CalibTask):
         CalibTask.__init__(self, *args, **kwargs)
         self.makeSubtask("repair")
         self.makeSubtask("trace")
+
+        import lsstDebug
+        self.debugInfo = lsstDebug.Info(__name__)
 
     @classmethod
     def applyOverrides(cls, config):
@@ -104,7 +92,6 @@ class ConstructFiberFlatTask(CalibTask):
 
         detMap = dsUtils.makeDetectorMap(cache.butler, dataRefList[0].dataId, self.config.wavelengthFile)
 
-        allFts = []
         xOffsets = []
         for expRef in dataRefList:
             exposure = expRef.get('postISRCCD')
@@ -121,14 +108,45 @@ class ConstructFiberFlatTask(CalibTask):
             self.log.info('%d FiberTraces found for arm %d%s, visit %d' %
                           (fts.getNtrace(),
                            expRef.dataId['spectrograph'], expRef.dataId['arm'], expRef.dataId['visit']))
-            allFts.append(fts)
 
             if sumFlats is None:
-                sumFlats = exposure.getMaskedImage().getImage().getArray()
-                sumVariances = exposure.getMaskedImage().getVariance().getArray()
+                sumFlats = exposure.image
+                sumVariances = exposure.variance
+
+                sumRecIm = afwImage.ImageF(sumFlats.getDimensions())
+                sumVarIm = afwImage.ImageF(sumFlats.getDimensions())
             else:
-                sumFlats += exposure.getMaskedImage().getImage().getArray()
-                sumVariances += exposure.getMaskedImage().getVariance().getArray()
+                sumFlats += exposure.image
+                sumVariances += exposure.variance
+
+            # Add all reconstructed FiberTraces of all dithered flats to one
+            # reconstructed image 'sumRecIm'
+
+            maskedImage = exposure.maskedImage
+            for ft in fts.getTraces():
+                profile = ft.getTrace()
+
+                spectrum = ft.extractSpectrum(maskedImage, useProfile=True)
+                recFt = ft.getReconstructed2DSpectrum(spectrum)
+                if False:
+                    recFt.array[profile.image.array <= 0] = 0.0
+
+                bbox = profile.getBBox()
+                if ft.getITrace() == -315:
+                    import matplotlib.pyplot as plt
+
+                    cen, hwidth = 2010, 4
+                    plt.plot(maskedImage.image[cen - hwidth: cen + hwidth + 1, :].array.sum(axis=1), label='im')
+                    plt.plot(spectrum.getSpectrum(), label='spec')
+                    plt.plot(np.arange(recFt.getBBox().getMinY(), recFt.getBBox().getMaxY() + 1),
+                             recFt.array.sum(axis=1), label='trace')
+                    plt.legend(loc='best')
+                    plt.show()
+
+                    import pdb; pdb.set_trace() 
+
+                sumRecIm[bbox] += recFt
+                sumVarIm[bbox] += profile.variance
 
         if sumFlats is None:
             self.log.fatal("No flats were found with valid xOffset keyword %s" %
@@ -137,43 +155,19 @@ class ConstructFiberFlatTask(CalibTask):
 
         self.log.info('xOffsets = %s' % (xOffsets))
 
-        sumRec = np.zeros(shape=sumFlats.shape, dtype='float32')
-        sumRecIm = afwImage.ImageF(sumRec)
-        sumVar = np.zeros(shape=sumFlats.shape, dtype='float32')
-        sumVarIm = afwImage.ImageF(sumVar)
-
-        # Add all reconstructed FiberTraces of all dithered flats to one
-        # reconstructed image 'sumRecIm'
-        for iFts in range(len(allFts)):
-            fts = allFts[iFts]
-            maskedImage = dataRefList[iFts].get('postISRCCD').getMaskedImage()
-            for ft in fts.getTraces():
-                spectrum = ft.extractSpectrum(maskedImage)
-                recFt = ft.getReconstructed2DSpectrum(spectrum)
-                recFtArr = recFt.getArray()
-                imArr = ft.getTrace().getImage().getArray()
-                recFtArr[imArr <= 0] = 0.0
-                bbox = ft.getTrace().getBBox()
-                sumRecIm[bbox] += recFt
-                sumVarIm[bbox] += ft.getTrace().getVariance()
-                    
+        sumVariances = sumVariances.array
         sumVariances[sumVariances <= 0.0] = 0.1
-        snrArr = sumFlats / np.sqrt(sumVariances)
+        snrArr = sumFlats.array/np.sqrt(sumVariances)
+        #
+        # Find and mask bad flat field pixels
+        #
+        with np.errstate(divide='ignore'):
+            normalizedFlat = sumFlats.array/sumRecIm.array
 
-        sumRecImArr = sumRecIm.getArray()
-        #to avoid division by zero and remove non-physical negative values,
-        #we set the reconstructed values <= 0.0 to 0.01. We later set the normalized
-        #Flat to unity where sumRecImArr <= 0.01, as well as all other pixels
-        #with a SNR < self.config.minSNR
-        sumRecImArr[sumRecImArr <= 0.0] = 0.01
-        normalizedFlat = sumFlats / sumRecImArr
         msk = np.zeros_like(normalizedFlat, dtype=afwImage.MaskPixel)
 
-        bad = np.logical_or.reduce([sumRecImArr <= 0.01,
-                                    snrArr < self.config.minSNR,
-                                    sumFlats <= 0.0,
-                                    #sumVariances <= 0.0, # explicitly set to 0.1 above
-        ])
+        bad = np.logical_or(np.logical_not(np.isfinite(snrArr)),
+                            snrArr < self.config.minSNR)
 
         normalizedFlat[bad] = 1.0
         msk[bad] |= (1 << afwImage.Mask.addMaskPlane("BAD_FLAT"))
@@ -188,19 +182,29 @@ class ConstructFiberFlatTask(CalibTask):
             if di.frames_flat >= 0:
                 display = afwDisplay.getDisplay(frame=di.frames_flat)
                 display.mtv(normalizedFlat, title='normalized Flat')
+                if di.zoomPan:
+                    display.zoom(*zoomPan)
 
             if di.frames_meanFlats >= 0:
-                display.mtv(afwImage.ImageF(sumFlats/len(dataRefList)), title='mean(Flats)')
                 display = afwDisplay.getDisplay(frame=di.frames_meanFlats)
+                display.mtv(afwImage.ImageF(sumFlats.array/len(dataRefList)), title='mean(Flats)')
+                if di.zoomPan:
+                    display.zoom(*zoomPan)
 
             if di.frames_meanTraces >= 0:
                 display = afwDisplay.getDisplay(frame=di.frames_meanTraces)
                 display.mtv(afwImage.ImageF(sumRecImArr/len(dataRefList)), title='mean(Traces)')
+                if di.zoomPan:
+                    display.zoom(*zoomPan)
 
-            if di.frames_residuals >= 0:
-                display = afwDisplay.getDisplay(frame=di.frames_residuals)
-                display.mtv(afwImage.ImageF((sumFlats - sumRecImArr)/len(dataRefList)),
-                            title='mean(Flats - Traces)')
+            if di.frames_ratio >= 0:
+                display = afwDisplay.getDisplay(frame=di.frames_ratio)
+                rat = sumFlats.array/sumRecIm.array
+                rat[msk != 0] = np.nan
+                display.mtv(afwImage.MaskedImageF(afwImage.ImageF(rat), normalizedFlat.mask),
+                            title='mean(Flats)/mean(Traces)')
+                if di.zoomPan:
+                    display.zoom(*zoomPan)
 
         #Write fiber flat
         normFlatOut = afwImage.makeExposure(normalizedFlat)
