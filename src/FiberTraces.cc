@@ -223,16 +223,20 @@ namespace pfs { namespace drp { namespace stella {
 
   /// Return shared pointer to an image containing the reconstructed 2D spectrum of the FiberTrace
   template<typename ImageT, typename MaskT, typename VarianceT>
-  PTR( afwImage::Image< ImageT > ) FiberTrace<ImageT, MaskT, VarianceT>::getReconstructed2DSpectrum(const Spectrum & spectrum) const{
-    ndarray::Array<ImageT, 2, 1> F_A2_Rec = ndarray::allocate(_trace->getImage()->getHeight(),
-                                                              _trace->getImage()->getWidth());
-    auto itRec = F_A2_Rec.begin();
-    auto itSpec = spectrum.getSpectrum().begin();
-    for (auto itProf = _trace->getImage()->getArray().begin(); itProf != _trace->getImage()->getArray().end(); ++itProf, ++itRec, ++itSpec)
-      (*itRec) = (*itProf) * (*itSpec);
-    PTR( afwImage::Image< ImageT > ) imagePtr( new afwImage::Image< ImageT >( F_A2_Rec ) );
-    imagePtr->setXY0(_trace->getX0(), 0);
-    return imagePtr;
+  PTR(afwImage::Image<ImageT>)
+      FiberTrace<ImageT, MaskT, VarianceT>::getReconstructed2DSpectrum(const Spectrum & spectrum) const
+  {
+    ndarray::Array<ImageT, 2, 1> imageArr = ndarray::allocate(_trace->getHeight(), _trace->getWidth());
+    
+    auto itRec = imageArr.begin();      // n.b. will iterate row by row
+    auto itSpec = spectrum.getSpectrum().begin()   + _trace->getY0();
+    auto itBkgd = spectrum.getBackground().begin() + _trace->getY0();
+    for (auto itProf = _trace->getImage()->getArray().begin(), end = _trace->getImage()->getArray().end();
+         itProf != end; ++itProf, ++itRec, ++itSpec, ++itBkgd) {
+        *itRec = *itBkgd + *itProf*(*itSpec);
+    }
+    
+    return std::make_shared<afwImage::Image<ImageT>>(imageArr, false, _trace->getXY0());
   }
 
   template<typename ImageT, typename MaskT, typename VarianceT>
