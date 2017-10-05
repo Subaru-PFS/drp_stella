@@ -80,14 +80,14 @@ class ReduceArcTask(CmdLineTask):
             self.log.debug('arcRef = %s' % arcRef)
             self.log.debug('type(arcRef) = %s' % type(arcRef))
 
-            detMap = makeDetectorMap(butler, arcRef.dataId, wLenFile)
-
             # read pfsFiberTrace and then construct FiberTraceSet
             try:
                 self.log.debug('fiberTrace file name = %s' % (arcRef.get('fibertrace_filename')))
                 fiberTrace = arcRef.get('fibertrace')
             except Exception, e:
                 raise RuntimeError("Unable to load fiberTrace for %s: %s" % (arcRef.dataId, e))
+
+            detMap = makeDetectorMap(butler, arcRef.dataId, wLenFile)
 
             flatFiberTraceSet = makeFiberTraceSet(fiberTrace)
             self.log.debug('fiberTrace calibration file contains %d fibers' % flatFiberTraceSet.getNtrace())

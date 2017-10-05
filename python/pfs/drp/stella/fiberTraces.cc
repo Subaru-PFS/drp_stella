@@ -60,11 +60,9 @@ void declareFiberTraceSet(py::module &mod)
             (PTR(typename Class::FiberTraceT)(Class::*)(std::size_t const))&Class::getFiberTrace,
             "index"_a);
     cls.def("__getitem__", [](Class const& self, std::size_t index) { return self.getFiberTrace(index); });
-    cls.def("assignTraceIDs", &Class::assignTraceIDs, "fiberIds"_a, "xCenters"_a);
     cls.def("setFiberTrace", &Class::setFiberTrace, "index"_a, "trace"_a);
     cls.def("addFiberTrace", &Class::addFiberTrace, "trace"_a, "index"_a=0);
     cls.def("getTraces", [](Class const& self) { return *self.getTraces(); });
-    cls.def("sortTracesByXCenter", &Class::sortTracesByXCenter);
 }
 
 
@@ -72,7 +70,7 @@ template <typename ImageT>
 void declareFunctions(py::module &mod)
 {
     mod.def("findAndTraceApertures", math::findAndTraceApertures<ImageT>,
-            "maskedImage"_a, "fiberTraceFunctionFindingControl"_a,
+            "maskedImage"_a, "detectorMap"_a, "fiberTraceFunctionFindingControl"_a,
             " fiberTraceProfileFittingControl"_a);
     mod.def("findCenterPositionsOneTrace", math::findCenterPositionsOneTrace<ImageT>,
             "ccdImage"_a, "ccdImageVariance"_a, "control"_a);

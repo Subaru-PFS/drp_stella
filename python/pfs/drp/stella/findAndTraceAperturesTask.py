@@ -92,18 +92,19 @@ class FindAndTraceAperturesTask(Task):
 
         self.ftpfc = drpStella.FiberTraceProfileFittingControl()
 
-    def run(self, inExposure):
+    def run(self, inExposure, detectorMap):
         """
         This method runs the automatic finding and tracing of fiber traces on
         the CCD image.
+
+        @param inExposure:  the input exposure
+        @param detectorMap: the canonical positions of the fibre traces
 
         This method returns a FiberTraceSet
         """
 
         #Create a FiberTraceSet given a flat-field exposure
         inMaskedImage = inExposure.getMaskedImage()
-        fiberTraceSet = drpStella.findAndTraceApertures(inMaskedImage,
-                                                        self.ftffc,
-                                                        self.ftpfc)
-        fiberTraceSet.sortTracesByXCenter()
+        fiberTraceSet = drpStella.findAndTraceApertures(inMaskedImage, detectorMap, self.ftffc, self.ftpfc)
+
         return fiberTraceSet

@@ -11,6 +11,7 @@
 #include "pfs/drp/stella/Controls.h"
 #include "pfs/drp/stella/math/Math.h"
 #include "pfs/drp/stella/Spectra.h"
+#include "pfs/drp/stella/DetectorMap.h"
 
 namespace pfs { namespace drp { namespace stella {
 /**
@@ -94,20 +95,6 @@ class FiberTrace {
      * @brief Return ID of this FiberTrace
      */
     std::size_t getITrace() const {return _iTrace;}
-
-    /**
-     * @brief: compare x and y center of fiberTrace to xCenters and yCenters to identify and set the _traceID
-     * @param xCenters: x centers per fiber per row, shape(nfibers * nRows)
-     * @param fiberIds: fiber ID, shape(nfibers * nRows)
-     * @param nTraces: number of fiber traces on CCD
-     * @param nRows: number of CCD rows
-     * @param startPos: fiber number to start searching
-     * @return void
-     */
-    void assignTraceID(ndarray::Array<float, 1, 1> const& xCenters,
-                       ndarray::Array<int, 1, 1> const& fiberIds,
-                       std::size_t nTraces,
-                       std::size_t nRows);
 
   private:
 
@@ -270,15 +257,6 @@ class FiberTraceSet {
      */
     void sortTracesByXCenter();
 
-    /**
-     * @brief: assign trace number to set of FiberTraces from x and y center by comparing
-     *         the center position to the center positions of the zemax model
-     * @param traceIds: shape(nfibers * nRows) from zemax model
-     * @param xCenters: shape(nfibers * nRows) from zemax model
-     */
-    void assignTraceIDs(ndarray::Array<int, 1, 1> const& fiberIds,
-                        ndarray::Array<float, 1, 1> const& xCenters);
-
   private:
     PTR(Collection) _traces; // traces for each aperture
 };
@@ -302,6 +280,7 @@ namespace math{
            typename VarianceT=lsst::afw::image::VariancePixel>
   PTR(FiberTraceSet<ImageT, MaskT, VarianceT>) findAndTraceApertures(
                     PTR(const lsst::afw::image::MaskedImage<ImageT, MaskT, VarianceT>) const& maskedImage,
+                    DetectorMap const& detectorMap,
                     PTR(const FiberTraceFunctionFindingControl) const& fiberTraceFunctionFindingControl,
                     PTR(FiberTraceProfileFittingControl) const& fiberTraceProfileFittingControl);
     

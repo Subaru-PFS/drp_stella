@@ -15,8 +15,7 @@ def makeFiberTraceSet(pfsFiberTrace):
     fts = drpStella.FiberTraceSet()
 
     for iFt in range(len(pfsFiberTrace.traces)):
-        ft = drpStella.FiberTrace(pfsFiberTrace.traces[iFt],
-                                  pfsFiberTrace.fiberId[iFt] - 1)
+        ft = drpStella.FiberTrace(pfsFiberTrace.traces[iFt], pfsFiberTrace.fiberId[iFt])
 
         fts.addFiberTrace(ft)
     return fts

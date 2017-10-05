@@ -102,6 +102,8 @@ class ConstructFiberFlatTask(CalibTask):
 
         sumFlats, sumVariances = None, None
 
+        detMap = dsUtils.makeDetectorMap(cache.butler, dataRefList[0].dataId, self.config.wavelengthFile)
+
         allFts = []
         xOffsets = []
         for expRef in dataRefList:
@@ -115,7 +117,7 @@ class ConstructFiberFlatTask(CalibTask):
 
             xOffsets.append(md.get(self.config.xOffsetHdrKeyWord))
 
-            fts = self.trace.run(exposure)
+            fts = self.trace.run(exposure, detMap)
             self.log.info('%d FiberTraces found for arm %d%s, visit %d' %
                           (fts.getNtrace(),
                            expRef.dataId['spectrograph'], expRef.dataId['arm'], expRef.dataId['visit']))
@@ -188,11 +190,11 @@ class ConstructFiberFlatTask(CalibTask):
                 display.mtv(normalizedFlat, title='normalized Flat')
 
             if di.frames_meanFlats >= 0:
-                display = afwDisplay.getDisplay(frame=di.frames_sumFlats)
                 display.mtv(afwImage.ImageF(sumFlats/len(dataRefList)), title='mean(Flats)')
+                display = afwDisplay.getDisplay(frame=di.frames_meanFlats)
 
             if di.frames_meanTraces >= 0:
-                display = afwDisplay.getDisplay(frame=di.frames_sumTraces)
+                display = afwDisplay.getDisplay(frame=di.frames_meanTraces)
                 display.mtv(afwImage.ImageF(sumRecImArr/len(dataRefList)), title='mean(Traces)')
 
             if di.frames_residuals >= 0:
