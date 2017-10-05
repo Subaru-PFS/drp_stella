@@ -11,8 +11,9 @@ from lsst.utils import getPackageDir
 import lsst.afw.display as afwDisplay
 import pfs.drp.stella as drpStella
 from pfs.drp.stella.extractSpectraTask import ExtractSpectraTask
-from pfs.drp.stella.utils import makeFiberTraceSet, makeDetectorMap, getLampElements
+from pfs.drp.stella.utils import makeFiberTraceSet, makeDetectorMap
 from pfs.drp.stella.utils import readLineListFile, writePfsArm, addFiberTraceSetToMask
+from lsst.obs.pfs.utils import getLampElements
 
 @pexConfig.wrap(drpStella.DispCorControl) # should wrap IdentifyLinesTaskConfig when it's written
 class ReduceArcConfig(pexConfig.Config):
@@ -106,7 +107,8 @@ class ReduceArcTask(CmdLineTask):
                 raise RuntimeError("Unable to load postISRCCD or calexp image for %s" % (arcRef.dataId))
 
             # read line list
-            lamps = getLampElements(arcExp)
+            lamps = getLampElements(arcExp.getMetadata())
+            self.log.info("Arc lamp elements are: %s" % " ".join(lamps))
             arcLines = readLineListFile(lineList, lamps, minIntensity=self.config.minArcLineIntensity)
             arcLineWavelengths = np.array(arcLines[:, 0])
 
