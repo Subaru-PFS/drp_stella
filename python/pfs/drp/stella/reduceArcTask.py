@@ -1,8 +1,8 @@
 import os
 
 import numpy as np
-plt = None
-
+if False:                               # will be imported if needed (matplotlib import can be slow)
+    import matplotlib.pyplot as plt
 import lsstDebug
 import lsst.log as log
 import lsst.pex.config as pexConfig
@@ -144,7 +144,7 @@ class ReduceArcTask(CmdLineTask):
                 # Identify emission lines and fit dispersion
                 try:
                     spec.identify(lineListPix, dispCorControl, 8)
-                    self.log.info("FiberTrace %d: spec.getDispRms() = %f" % (i, spec.getDispRms()))
+                    self.log.info("FiberTrace %d: spec.getDispRms() = %f" % (traceId, spec.getDispRms()))
                 except Exception as e:
                     print(e)
 
@@ -153,14 +153,12 @@ class ReduceArcTask(CmdLineTask):
                     reconIm = ft.getReconstructed2DSpectrum(spec)
                     residuals[reconIm.getBBox()] -= reconIm
 
-                if self.debugInfo.display and self.debugInfo.showLines:
-                    global plt
-                    if plt is None:
-                        import matplotlib.pyplot as plt
+                if self.debugInfo.display and self.debugInfo.showFibers is not None:
+                    import matplotlib.pyplot as plt
 
                     fiberId = spec.getITrace()
 
-                    if self.debugInfo.showLineList and fiberId not in self.debugInfo.showLineList:
+                    if self.debugInfo.showFibers and fiberId not in self.debugInfo.showFibers:
                         continue
 
                     refLines = spec.getReferenceLines()
