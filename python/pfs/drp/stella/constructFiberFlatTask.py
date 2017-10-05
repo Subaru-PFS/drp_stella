@@ -155,7 +155,7 @@ class ConstructFiberFlatTask(CalibTask):
                 recFtArr[imArr <= 0] = 0.0
                 bbox = ft.getTrace().getBBox()
                 sumRecIm[bbox] += recFt
-                sumVarIm[bbox] = ft.getTrace().getVariance()
+                sumVarIm[bbox] += ft.getTrace().getVariance()
                     
         sumVariances[sumVariances <= 0.0] = 0.1
         snrArr = sumFlats / np.sqrt(sumVariances)
