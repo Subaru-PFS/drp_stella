@@ -29,10 +29,15 @@ void declareReferenceLine(py::module &mod) {
         .value("MISIDENTIFIED", ReferenceLine::Status::MISIDENTIFIED)
         .export_values();
 
-    cls.def(py::init<ReferenceLine::Status, float>(), "status"_a=ReferenceLine::Status::NOWT, "wavelength"_a=0);
+    cls.def(py::init<std::string, ReferenceLine::Status, float, float>(),
+            "description"_a, "status"_a=ReferenceLine::Status::NOWT,
+            "wavelength"_a=0, "guessedIntensity"_a=0);
+    cls.def_readwrite("description", &ReferenceLine::description);
     cls.def_readwrite("status", &ReferenceLine::status);
     cls.def_readwrite("wavelength", &ReferenceLine::wavelength);
+    cls.def_readwrite("guessedIntensity", &ReferenceLine::guessedIntensity);
     cls.def_readwrite("guessedPixelPos", &ReferenceLine::guessedPixelPos);
+    cls.def_readwrite("fitIntensity", &ReferenceLine::fitIntensity);
     cls.def_readwrite("fitPixelPos", &ReferenceLine::fitPixelPos);
     cls.def_readwrite("fitPixelPosErr", &ReferenceLine::fitPixelPosErr);
 }

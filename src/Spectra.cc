@@ -210,7 +210,8 @@ Spectrum::hIdentify(ndarray::Array< float, 1, 1 > const& lineListLambda,
     _referenceLines.reserve(nLine);
 
     for (int i = 0; i < nLine; ++i) {
-        auto refLine = std::make_shared<ReferenceLine>(ReferenceLine::NOWT, lineListLambda[i], lineListPixel[i]);
+        auto refLine = std::make_shared<ReferenceLine>("???", ReferenceLine::NOWT,
+                                                       lineListLambda[i], 666, lineListPixel[i]);
         _referenceLines.push_back(refLine);
 
         int start = int(lineListPixel[i]) - dispCorControl.searchRadius;
@@ -290,6 +291,7 @@ Spectrum::hIdentify(ndarray::Array< float, 1, 1 > const& lineListLambda,
                 if (std::fabs(maxPos - GaussCoeffs[1] ) < dispCorControl.maxDistance) {
                     GaussPos[i] = GaussCoeffs[XC];
                     refLine->status |= ReferenceLine::FIT;
+                    refLine->fitIntensity = GaussCoeffs[PEAK];
                     refLine->fitPixelPos = GaussCoeffs[XC];
                     refLine->fitPixelPosErr = EGaussCoeffs[XC];
 

@@ -19,19 +19,26 @@ public:
         MISIDENTIFIED=4                 // line was misidentified
     };
 
-    ReferenceLine(Status _status=NOWT, float _wavelength=0, float _guessedPixelPos=0,
-                  float _fitPixelPos=0, float _fitPixelPosErr=0
+    ReferenceLine(std::string const& _description, Status _status=NOWT, float _wavelength=0,
+                  float _guessedIntensity=0, float _guessedPixelPos=0,
+                  float _fitIntensity=0, float _fitPixelPos=0, float _fitPixelPosErr=0
                  )
-        : status(_status),
+        : description(_description),
+          status(_status),
           wavelength(_wavelength),
+          guessedIntensity(_guessedIntensity),
           guessedPixelPos(_guessedPixelPos),
+          fitIntensity(_fitIntensity),
           fitPixelPos(_fitPixelPos),
           fitPixelPosErr(_fitPixelPosErr)
         { }
 
+    std::string description;            // description of line (e.g. Hg[II])
     int status;                         // status of line
     float wavelength;                   // vacuum wavelength, nm
-    int guessedPixelPos;                // input guess on pixel position
+    float guessedIntensity;             // input guess for intensity (amplitude of peak)
+    float guessedPixelPos;              // input guess for pixel position
+    float fitIntensity;                 // estimated intensity (amplitude of peak)
     float fitPixelPos;                  // fit line position
     float fitPixelPosErr;               // estimated standard deviation of fitPixelPos
 };
