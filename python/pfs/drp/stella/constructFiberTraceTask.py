@@ -55,8 +55,8 @@ class ConstructFiberTraceConfig(CalibConfig):
     )
     xOffsetHdrKeyWord = Field(
         dtype=str,
-        default='sim.slit.xoffset',
-        doc="Header keyword for fiber offset in input files"
+        default=None,
+        doc="Header keyword for fiber offset in input files (set in obs_pfs)"
     )
 
     def setDefaults(self):
