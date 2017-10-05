@@ -19,6 +19,8 @@ Spectrum::Spectrum(size_t length, size_t iTrace )
 {
   _spectrum = ndarray::allocate( length );
   _spectrum.deep() = 0.;
+  _background = ndarray::allocate( length );
+  _background.deep() = 0.;
   _covar = ndarray::allocate(3, length);
   _covar.deep() = 0.;
   _wavelength = ndarray::allocate( length );

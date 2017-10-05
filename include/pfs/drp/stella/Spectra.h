@@ -64,6 +64,9 @@ class Spectrum {
     /// Set the spectrum (deep copy)
     void setSpectrum(ndarray::Array<ImageT, 1, 1>  const& spectrum);
 
+    ndarray::Array<ImageT, 1, 1> getBackground() { return _background; }
+    ndarray::Array<const ImageT, 1, 1> getBackground() const { return _background; }
+
     /// Return a copy of the variance of this spectrum
     ndarray::Array<VarianceT, 1, 1> getVariance() const;
     ndarray::Array<VarianceT, 1, 1> getVariance();
@@ -140,6 +143,7 @@ class Spectrum {
     std::size_t _length;
     ndarray::Array<ImageT, 1, 1> _spectrum;
     Mask _mask;
+    ndarray::Array<ImageT, 1, 1> _background;
     ndarray::Array<VarianceT, 2, 1> _covar;
     ndarray::Array<ImageT, 1, 1> _wavelength;
     ndarray::Array<ImageT, 1, 1> _dispersion;

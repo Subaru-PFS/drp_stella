@@ -86,10 +86,8 @@ namespace pfs { namespace drp { namespace stella {
 
   template<typename ImageT, typename MaskT, typename VarianceT>
   PTR(Spectrum)
-  FiberTrace<ImageT, MaskT, VarianceT>::extractSpectrum(
-                                                        PTR(const MaskedImageT) const& spectrumImage,
-                                                        bool useProfile
-                                                       )
+  FiberTrace<ImageT, MaskT, VarianceT>::extractSpectrum(PTR(const MaskedImageT) const& spectrumImage,
+                                                        bool useProfile)
   {
     LOG_LOGGER _log = LOG_GET("pfs.drp.stella.FiberTrace.extractFromProfile");
     auto const bbox = _trace->getBBox();
@@ -99,6 +97,8 @@ namespace pfs { namespace drp { namespace stella {
 
     ndarray::Array<ImageT, 1, 1> spec = ndarray::allocate(height);
     spec.deep() = 0.;
+    ndarray::Array<ImageT, 1, 1> background = ndarray::allocate(height);
+    background.deep() = 0.;
     ndarray::Array<VarianceT, 1, 1> var = ndarray::allocate(height);
 
     const MaskT ftMask = _trace->getMask()->getPlaneBitMask("FIBERTRACE");
@@ -114,18 +114,19 @@ namespace pfs { namespace drp { namespace stella {
         }
 
         const float clipNSigma = 0;               // clip data points at this many sigma (if > 0)        
-        float rchi2 = math::LinFitBevingtonNdArray(traceIm.getImage()->getArray(), ///: input data
-                                                   traceIm.getVariance()->getArray(), // variance in data
-                                                   US_A2_Mask,                     // mask of pixels to use
-                                                   _trace->getImage()->getArray(), // fibre trace profile
-                                                   clipNSigma,                     // number of sigma to clip
-                                                   spec,                           // out: spectrum
-                                                   var                             // out: spectrum's variance
-                                                  );
+        float rchi2 = math::fitProfile2d(traceIm.getImage()->getArray(), ///: input data
+                                         traceIm.getVariance()->getArray(), // variance in data
+                                         US_A2_Mask,                     // mask of pixels to use
+                                         _trace->getImage()->getArray(), // fibre trace profile
+                                         clipNSigma,                     // number of sigma to clip
+                                         spec,                           // out: spectrum
+                                         background,                     // out: background level
+                                         var                             // out: spectrum's variance
+                                        );
         if (rchi2 < 0) {
             std::string message("FiberTrace");
             message += std::to_string(_iTrace);
-            message += std::string("::extractFromProfile: 2. ERROR: LinFitBevington(...) returned ");
+            message += std::string("::extractFromProfile: 2. ERROR: fitProfile2d(...) returned ");
             message += std::to_string(rchi2);
             throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
         }
@@ -157,6 +158,7 @@ namespace pfs { namespace drp { namespace stella {
     spectrum->setITrace(_iTrace);
 
     ndarray::Array< ImageT, 1, 1 > spectrumSpecOut = spectrum->getSpectrum();
+    ndarray::Array< ImageT, 1, 1 > backgroundOut = spectrum->getBackground();
     ndarray::Array< VarianceT, 1, 1 > spectrumVarOut = spectrum->getVariance();
     //
     // Copy the extracted spectra/stdev into the Spectrum (allowing for the ends)
@@ -169,15 +171,18 @@ namespace pfs { namespace drp { namespace stella {
         for (; i < bbox.getMinY(); ++i) {
             spectrumSpecOut[i] = 0;
             mask(i, 0) |= nodata;
-            spectrumVarOut[i]  = 0;
+            backgroundOut[i] = 0;
+            spectrumVarOut[i] = 0;
         }
         for (int j = 0; i < bbox.getMaxY(); ++i, ++j) {
             spectrumSpecOut[i] = spec[j];
+            backgroundOut[i] =  background[j];
             spectrumVarOut[i]  = var[j];
         }
         for (; i < spectrumSpecOut.size(); ++i) {
             spectrumSpecOut[i] = 0;
             mask(i, 0) |= nodata;
+            backgroundOut[i] = 0;
             spectrumVarOut[i]  = 0;
         }
     }
