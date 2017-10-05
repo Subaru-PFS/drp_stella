@@ -83,26 +83,6 @@ void declareFiberTraceProfileFittingControl(py::module &mod)
     LSST_DECLARE_CONTROL_FIELD(cls, FiberTraceProfileFittingControl, upperSigma);
 }
 
-void declareTwoDPSFControl(py::module &mod)
-{
-    py::class_<TwoDPSFControl, std::shared_ptr<TwoDPSFControl>> cls(mod, "TwoDPSFControl");
-    cls.def(py::init<>());
-    cls.def(py::init<TwoDPSFControl const&>(), "twoDPSFControl"_a);
-    LSST_DECLARE_CONTROL_FIELD(cls, TwoDPSFControl, signalThreshold);
-    LSST_DECLARE_CONTROL_FIELD(cls, TwoDPSFControl, swathWidth);
-    LSST_DECLARE_CONTROL_FIELD(cls, TwoDPSFControl, xFWHM);
-    LSST_DECLARE_CONTROL_FIELD(cls, TwoDPSFControl, yFWHM);
-    LSST_DECLARE_CONTROL_FIELD(cls, TwoDPSFControl, nTermsGaussFit);
-    LSST_DECLARE_CONTROL_FIELD(cls, TwoDPSFControl, xCorRangeLowLimit);
-    LSST_DECLARE_CONTROL_FIELD(cls, TwoDPSFControl, xCorRangeHighLimit);
-    LSST_DECLARE_CONTROL_FIELD(cls, TwoDPSFControl, xCorStepSize);
-    LSST_DECLARE_CONTROL_FIELD(cls, TwoDPSFControl, saturationLevel);
-    LSST_DECLARE_CONTROL_FIELD(cls, TwoDPSFControl, nKnotsX);
-    LSST_DECLARE_CONTROL_FIELD(cls, TwoDPSFControl, nKnotsY);
-    LSST_DECLARE_CONTROL_FIELD(cls, TwoDPSFControl, regularization);
-    LSST_DECLARE_CONTROL_FIELD(cls, TwoDPSFControl, weightBase);
-}
-
 void declareDispCorControl(py::module &mod)
 {
     py::class_<DispCorControl, std::shared_ptr<DispCorControl>> cls(mod, "DispCorControl");
@@ -119,7 +99,6 @@ void declareDispCorControl(py::module &mod)
     LSST_DECLARE_CONTROL_FIELD(cls, DispCorControl, stretchMinLength);
     LSST_DECLARE_CONTROL_FIELD(cls, DispCorControl, stretchMaxLength);
     LSST_DECLARE_CONTROL_FIELD(cls, DispCorControl, nStretches);
-    LSST_DECLARE_CONTROL_FIELD(cls, DispCorControl, verticalPrescanHeight);
     LSST_DECLARE_CONTROL_FIELD(cls, DispCorControl, sigmaReject);
     LSST_DECLARE_CONTROL_FIELD(cls, DispCorControl, nIterReject);
     LSST_DECLARE_CONTROL_FIELD(cls, DispCorControl, maxDistance);
@@ -139,7 +118,6 @@ PYBIND11_PLUGIN(controls) {
     declareFiberTraceFunctionControl(mod);
     declareFiberTraceFunctionFindingControl(mod);
     declareFiberTraceProfileFittingControl(mod);
-    declareTwoDPSFControl(mod);
     declareDispCorControl(mod);
 
     return mod.ptr();

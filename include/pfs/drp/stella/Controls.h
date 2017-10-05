@@ -372,99 +372,6 @@ struct FiberTraceProfileFittingControl {
   }
 };
 
-
-/**
- * Description of 2D PSF
- */
-struct TwoDPSFControl {
-    LSST_CONTROL_FIELD(signalThreshold, float, "Minimum signal above continuum to count as emission line");
-    LSST_CONTROL_FIELD(swathWidth, unsigned int, "Size of individual extraction swaths");
-    LSST_CONTROL_FIELD(xFWHM, float, "FWHM of an assumed Gaussian PSF perpendicular to the dispersion direction");
-    LSST_CONTROL_FIELD(yFWHM, float, "FWHM of an assumed Gaussian PSF in the dispersion direction");
-    LSST_CONTROL_FIELD(nTermsGaussFit, unsigned int, "3 to fit Gaussian; 4 to fit Gaussian plus constant (sky), profile must be at least 5 pixels wide; 5 to fit Gaussian plus linear term (sloped sky), profile must be at least 6 pixels wide");
-    LSST_CONTROL_FIELD(xCorRangeLowLimit, float, "Lower limit for cross-corellation to given collapsed PSF relative to estimated center position");
-    LSST_CONTROL_FIELD(xCorRangeHighLimit, float, "Upper limit for cross-corellation to given collapsed PSF relative to estimated center position");
-    LSST_CONTROL_FIELD(xCorStepSize, float, "Step size for cross-corellation to given collapsed PSF");
-    LSST_CONTROL_FIELD(saturationLevel, float, "CCD saturation level");
-    LSST_CONTROL_FIELD(nKnotsX, unsigned int, "Number of interpolation knots in X direction");
-    LSST_CONTROL_FIELD(nKnotsY, unsigned int, "Number of interpolation knots in Y direction");
-    LSST_CONTROL_FIELD(regularization, float, "Smoothing factor for thin-plate-spline interpolation");
-    LSST_CONTROL_FIELD(weightBase, float, "Weights of thin-plate-spline interpolation will be calculated as weightBase / pixelValue");
-
-    TwoDPSFControl() :
-    signalThreshold(1000.),
-    swathWidth(500),
-    xFWHM(2.5),
-    yFWHM(2.5),
-    nTermsGaussFit(3),
-    xCorRangeLowLimit(-0.2),
-    xCorRangeHighLimit(0.2),
-    xCorStepSize(0.01),
-    saturationLevel(65000.),
-    nKnotsX(75),
-    nKnotsY(75),
-    regularization(0.00005),
-    weightBase(10000.){}
-
-    TwoDPSFControl(const TwoDPSFControl &twoDPSFControl) :
-    signalThreshold(twoDPSFControl.signalThreshold),
-    swathWidth(twoDPSFControl.swathWidth),
-    xFWHM(twoDPSFControl.xFWHM),
-    yFWHM(twoDPSFControl.yFWHM),
-    nTermsGaussFit(twoDPSFControl.nTermsGaussFit),
-    xCorRangeLowLimit(twoDPSFControl.xCorRangeLowLimit),
-    xCorRangeHighLimit(twoDPSFControl.xCorRangeHighLimit),
-    xCorStepSize(twoDPSFControl.xCorStepSize),
-    saturationLevel(twoDPSFControl.saturationLevel),
-    nKnotsX(twoDPSFControl.nKnotsX),
-    nKnotsY(twoDPSFControl.nKnotsY),
-    regularization(twoDPSFControl.regularization),
-    weightBase(twoDPSFControl.weightBase){}
-
-    ~TwoDPSFControl() {}
-    
-    PTR(TwoDPSFControl) getPointer(){
-      PTR(TwoDPSFControl) ptr(new TwoDPSFControl(*this));
-      return ptr;
-    }
-};
-
-/**
- * Description of Thin-Plate Spline
- */
-struct TPSControl {
-    enum BASE_FUNC {  TPS=0, MULTIQUADRIC, MULTIQUADRIC_A, R, R_CUBE, INVERSE_MULTIQUADRIC, GENERALIZED_INVERSE_MULTIQUADRIC, WENDLAND_CSRBF, GAUSSIAN, MATERN_C0, MATERN_C2, MATERN_C4 };
-    std::vector<std::string> BASE_FUNC_NAMES = { stringify( BASE_FUNC ) };
-    LSST_CONTROL_FIELD( baseFunc, std::string, "Name of base function" );
-    LSST_CONTROL_FIELD( gMQParameter, double, "Exponential parameter for generalized multiquadric RBF" );
-    LSST_CONTROL_FIELD( regularization, double, "Smoothing factor for thin-plate-spline interpolation" );
-    LSST_CONTROL_FIELD( shapeParameter, double, "Additional parameter determining the shape of the Radial Basis Function" );
-    LSST_CONTROL_FIELD( minimumSeparationDistance, double, "Minimum separation between adjacent knots" );
-
-    TPSControl() :
-    baseFunc("TPS"),
-    gMQParameter(-2.),
-    regularization(0.00001),
-    shapeParameter(1.),
-    minimumSeparationDistance(0.001)
-    {}
-
-    TPSControl(const TPSControl &tpsControl) :
-    baseFunc( tpsControl.baseFunc ),
-    gMQParameter( tpsControl.gMQParameter ),
-    regularization( tpsControl.regularization ),
-    shapeParameter( tpsControl.shapeParameter ),
-    minimumSeparationDistance( tpsControl.minimumSeparationDistance )
-    {}
-
-    ~TPSControl() {}
-    
-    PTR(TPSControl) getPointer(){
-      PTR(TPSControl) ptr(new TPSControl(*this));
-      return ptr;
-    }
-};
-
 struct DispCorControl {
     enum {  POLYNOMIAL=0, CHEBYSHEV, NVALUES_P } FITTING_FUNCTION;/// Profile interpolation method
     std::vector<std::string> PROFILE_INTERPOLATION_NAMES = { stringify( POLYNOMIAL ),
@@ -480,7 +387,6 @@ struct DispCorControl {
     LSST_CONTROL_FIELD( stretchMinLength, int, "Minimum length to stretched pieces to (< lengthPieces)" );
     LSST_CONTROL_FIELD( stretchMaxLength, int, "Maximum length to stretched pieces to (> lengthPieces)" );
     LSST_CONTROL_FIELD( nStretches, int, "Number of stretches between <stretchMinLength> and <stretchMaxLength>");
-    LSST_CONTROL_FIELD( verticalPrescanHeight, int, "Number of rows in the raw image containing the vertical prescan");
     LSST_CONTROL_FIELD( sigmaReject, float, "Sigma rejection threshold" );
     LSST_CONTROL_FIELD( nIterReject, int, "Number of sigma rejection iterations" );
     /// <maxDistance> should be large enough to allow small differences between the
@@ -501,7 +407,6 @@ struct DispCorControl {
         stretchMinLength( 450 ),
         stretchMaxLength( 550 ),
         nStretches( 100 ),
-        verticalPrescanHeight( 50 ),
         sigmaReject(3.),
         nIterReject(1),
         maxDistance(1.5)
@@ -519,7 +424,6 @@ struct DispCorControl {
         stretchMinLength( dispCorControl.stretchMinLength ),
         stretchMaxLength( dispCorControl.stretchMaxLength ),
         nStretches( dispCorControl.nStretches ),
-        verticalPrescanHeight( dispCorControl.verticalPrescanHeight ),
         sigmaReject(dispCorControl.sigmaReject),
         nIterReject(dispCorControl.nIterReject),
         maxDistance(dispCorControl.maxDistance)
