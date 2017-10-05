@@ -20,6 +20,11 @@ from pfs.drp.stella.datamodelIO import PfsFiberTraceIO
 
 class ConstructFiberTraceConfig(CalibConfig):
     """Configuration for FiberTrace construction"""
+    rerunISR = Field(
+        dtype=bool,
+        default=True,
+        doc="Rerun ISR even if postISRCCD is available (may be e.g. not flat fielded)"
+    )
     crGrow = Field(
         dtype=int,
         default=2,
@@ -86,6 +91,14 @@ class ConstructFiberTraceTask(CalibTask):
 
         Besides the regular ISR, also masks cosmic-rays.
         """
+
+        if not self.config.rerunISR:
+            try:
+                exposure = sensorRef.get('postISRCCD')
+                self.log.debug("Obtained postISRCCD from butler for %s" % sensorRef.dataId)
+                return exposure
+            except dafPersist.NoResults:
+                pass                    # ah well.  We'll have to run the ISR
 
         exposure = CalibTask.processSingle(self, sensorRef)
 

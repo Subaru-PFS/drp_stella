@@ -48,6 +48,14 @@ class ConstructFiberFlatTask(CalibTask):
 
         Besides the regular ISR, also masks cosmic-rays.
         """
+        if not self.config.rerunISR:
+            try:
+                exposure = sensorRef.get('postISRCCD')
+                self.log.debug("Obtained postISRCCD from butler for %s" % sensorRef.dataId)
+                return exposure
+            except dafPersist.NoResults:
+                pass                    # ah well.  We'll have to run the ISR
+
         exposure = CalibTask.processSingle(self, sensorRef)
 
         if self.config.doRepair:
