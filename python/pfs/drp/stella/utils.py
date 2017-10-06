@@ -68,7 +68,33 @@ def makeDetectorMap(butler, dataId, wLenFile, nKnot=25):
     detector = butler.get('raw_detector', dataId)
     bbox = detector.getBBox()
 
-    return detectorMap.DetectorMap(bbox, fiberIds, xCenters, wavelengths, nKnot=nKnot)
+    detMap = detectorMap.DetectorMap(bbox, fiberIds, xCenters, wavelengths, nKnot=nKnot)
+
+    slitOffsets = np.zeros((3, len(fiberIds)), dtype='float32')
+    DX     = slitOffsets[detMap.FIBER_DX]
+    DY     = slitOffsets[detMap.FIBER_DY]
+    DFOCUS = slitOffsets[detMap.FIBER_DFOCUS]
+
+    # Update the slit offsets
+    for fid, dx, dy in [                # (fiberId, dx, dy)
+            (  5,   8,   6),
+            ( 67,   3,   4),
+            (194,   2,   2),
+            (257,   1,   2),
+            (315,  30,   2),
+            (337, -40,   2),
+            (393,  -3,   4),
+            (455,  -3,   6),
+            (582,  -7,   9),
+            (644,  -7,  10),
+            ]:
+        idx = detMap.getFiberIdx(fid)
+        DX[idx] = dx
+        DY[idx] = dy
+
+    detMap.setSlitOffsets(slitOffsets)
+
+    return detMap
 
 def readLineListFile(lineList, lamps=["Ar", "Cd", "Hg", "Ne", "Xe"], minIntensity=0):
     """Read line list
