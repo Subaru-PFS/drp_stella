@@ -76,6 +76,13 @@ public:
      */
     int findFiberId(lsst::afw::geom::PointD pixelPos ///< position on detector
                    ) const;
+
+    /** \brief
+     * Return the position of the fiber trace on the detector, given a fiberId and wavelength
+     */
+    lsst::afw::geom::PointD findPoint(const int fiberId,               ///< Desired fibreId
+                                      const float wavelength           ///< desired wavelength
+                                     ) const;
     /** \brief
      * Return the index of a fiber, given its fiber ID
      */
@@ -102,9 +109,6 @@ private:
     /*
      * Private helper functions
      */
-    ndarray::Array<float, 1, 1> _getSomething(std::vector<math::spline<float>> const&,
-                                              std::size_t, bool const) const;
-
     void _setSplines(ndarray::Array<float, 2, 1> const&,
                      ndarray::Array<float, 2, 1> const&);
 };

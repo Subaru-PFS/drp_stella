@@ -103,27 +103,6 @@ DetectorMap::setSlitOffsets(ndarray::Array<float, 2, 1> const& slitOffsets)
 
     _slitOffsets = slitOffsets;
 }
-            
-/*
- * Return the wavelength or xCenter values for a fibre
- */
-ndarray::Array<float, 1, 1>
-DetectorMap::_getSomething(std::vector<math::spline<float>> const& something,
-                           std::size_t fiberId,
-                           bool const applySlitOffset
-                          ) const
-{
-    int const fidx = getFiberIdx(fiberId);
-    auto const & spline = something[fidx];
-    float slitOffset = applySlitOffset ? _slitOffsets[FIBER_DY][fidx] : 0.0;
-
-    ndarray::Array<float, 1, 1> res(_bbox.getHeight());
-    for (int i = 0; i != _bbox.getHeight(); ++i) {
-        res[i] = spline(i - slitOffset);
-    }
-
-    return res;
-}
 
 /*
  * Return the wavelength values for a fibre
@@ -131,7 +110,16 @@ DetectorMap::_getSomething(std::vector<math::spline<float>> const& something,
 ndarray::Array<float, 1, 1>
 DetectorMap::getWavelength(std::size_t fiberId) const
 {
-    return _getSomething(_yToWavelength, fiberId, true);
+    int const fidx = getFiberIdx(fiberId);
+    auto const & spline = _yToWavelength[fidx];
+    const float slitOffsetY = _slitOffsets[FIBER_DY][fidx];
+
+    ndarray::Array<float, 1, 1> res(_bbox.getHeight());
+    for (int i = 0; i != _bbox.getHeight(); ++i) {
+        res[i] = spline(i - slitOffsetY);
+    }
+
+    return res;
 }
 
 /*
@@ -140,9 +128,53 @@ DetectorMap::getWavelength(std::size_t fiberId) const
 ndarray::Array<float, 1, 1>
 DetectorMap::getXCenter(std::size_t fiberId) const
 {
-    return _getSomething(_yToXCenter, fiberId, false);
+    int const fidx = getFiberIdx(fiberId);
+    auto const & spline = _yToXCenter[fidx];
+    const float slitOffsetX = _slitOffsets[FIBER_DX][fidx];
+    const float slitOffsetY = _slitOffsets[FIBER_DY][fidx];
+
+    ndarray::Array<float, 1, 1> res(_bbox.getHeight());
+    for (int i = 0; i != _bbox.getHeight(); ++i) {
+        res[i] = spline(i - slitOffsetY) + slitOffsetX;
+    }
+
+    return res;
 }
-            
+
+/*
+ * Return the position of the fiber trace on the detector, given a fiberId and wavelength
+ */
+lsst::afw::geom::PointD
+DetectorMap::findPoint(const int fiberId,               ///< Desired fibreId
+                       const float wavelength           ///< desired wavelength
+                      ) const
+{
+    auto fiberWavelength = getWavelength(fiberId);
+
+    auto begin = fiberWavelength.begin();
+    auto end = fiberWavelength.end();
+    auto onePast = std::lower_bound(begin, end, wavelength); // pointer to element just larger than wavelength
+
+    if (onePast == end) {
+        double const NaN = std::numeric_limits<double>::quiet_NaN();
+        return lsst::afw::geom::PointD(NaN, NaN);
+    }
+
+    auto fiberXCenter = getXCenter(fiberId);
+    const auto iy = onePast - begin;
+
+    double x = fiberXCenter[iy];
+    double y = iy;
+
+    if (iy > 0) {                       // interpolate to get better accuracy
+        const float dy = (wavelength - fiberWavelength[iy - 1])/(fiberWavelength[iy] - fiberWavelength[iy - 1]);
+        x += dy*(x - fiberXCenter[iy - 1]);
+        y += dy;
+    }
+
+    return lsst::afw::geom::PointD(x, y);
+}
+
 /*
  * Return the fiberId given a position on the detector
  */

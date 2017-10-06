@@ -34,6 +34,7 @@ void declareDetectorMap(py::module &mod)
     cls.attr("FIBER_DFOCUS") = &Class::FIBER_DFOCUS;
     
     cls.def("findFiberId", &Class::findFiberId, "pixelPos"_a);
+    cls.def("findPoint", &Class::findPoint, "fiberId"_a, "wavelength"_a);
     cls.def("getFiberIds", &Class::getFiberIds);
     cls.def("getWavelength", &Class::getWavelength, "fiberId"_a);
     cls.def("getXCenter", &Class::getXCenter, "fiberId"_a);
