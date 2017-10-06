@@ -242,15 +242,6 @@ namespace pfs { namespace drp { namespace stella {
         float pixShift;
         float chiSquare;
     };
-    
-    /**
-      CrossCorrelate with Gauss fit to ChiSquare to find subpixel of minimum
-     **/
-    template< typename T >
-    CrossCorrelateResult crossCorrelate( ndarray::Array<T, 1, 1> const& DA1_Static,
-                                         ndarray::Array<T, 1, 1> const& DA1_Moving,
-                                         int const I_NPixMaxLeft,
-                                         int const I_NPixMaxRight );
     template< typename T, typename U, int I >
     ndarray::Array< U, 1, 1 > where( ndarray::Array< T, 1, I > const& arrayToCompareTo,
                                      std::string const& op,
@@ -472,28 +463,6 @@ namespace pfs { namespace drp { namespace stella {
                                         ndarray::Array< T, 1, 1 > const& XVecArr,
                                         ndarray::Array< T, 1, I > const& UVecArr,
                                         std::vector< std::string > const& CS_A1_In );
-
-    template< typename T >
-    struct StretchAndCrossCorrelateResult{
-        float stretch;
-        float shift;
-        ndarray::Array< T, 2, 1 > specStretchedMinChiSq;
-    };
-    
-    template< typename T >
-    StretchAndCrossCorrelateResult< T > stretchAndCrossCorrelate( ndarray::Array< T, 1, 1 > const& spec,
-                                                                  ndarray::Array< T, 1, 1 > const& specRef,
-                                                                  int const radiusXCor,
-                                                                  int const stretchMinLength,
-                                                                  int const stretchMaxLength,
-                                                                  int const nStretches );
-    
-    template< typename T > 
-    float median( ndarray::Array< T, 1, 1 > const& vec );
-    
-    template< typename T >
-    ndarray::Array< T, 1, 1 > stretch( ndarray::Array< T, 1, 1 > const& spec,
-                                       int newLength );
     
     template< typename T > 
     int find( ndarray::Array< T, 1, 1 > const& arrToSearch,
