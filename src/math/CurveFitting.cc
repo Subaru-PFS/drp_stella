@@ -641,7 +641,6 @@ namespace {
               std::cout << "fitProfile1d: i = " << i << ": ERROR: dataVar = " << dataVar << std::endl;
               std::string message("fitProfile1d:");
               message += ": i = " + std::to_string(i) + ": ERROR: dataVar(" + std::to_string(i) + ") == 0.";
-              std::cout << message << std::endl;
               throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
           }
       }
@@ -766,19 +765,16 @@ namespace {
     if (height != profile2d.getShape()[0]){
       std::string message("pfs::drp::stella::math::CurveFitting::fitProfile2d: ERROR: height(=");
       message += std::to_string(height) + ") != profile2d.getShape()[0](=" + std::to_string(profile2d.getShape()[0]) + ")";
-      std::cout << message << std::endl;
       throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
     }
     if (width != profile2d.getShape()[1]){
       std::string message("pfs::drp::stella::math::CurveFitting::fitProfile2d: ERROR: width(=");
       message += std::to_string(width) + ") != profile2d.getShape()[1](=" + std::to_string(profile2d.getShape()[1]) + ")";
-      std::cout << message << std::endl;
       throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
     }
     if (specAmp.getShape()[0] != height){
       std::string message("pfs::drp::stella::math::CurveFitting::fitProfile2d: ERROR: height(=");
       message += std::to_string(height) + ") != specAmp.getShape()[0](=" + std::to_string(specAmp.getShape()[0]) + ")";
-      std::cout << message << std::endl;
       throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
     }
     specAmp.deep() = 0;
@@ -786,13 +782,11 @@ namespace {
     if (ccdDataVar.getShape()[0] != height) {
         std::string message("pfs::drp::stella::math::CurveFitting::fitProfile2d: ERROR: height(=");
         message += std::to_string(height) + ") != ccdDataVar.getShape()[0](=" + std::to_string(ccdDataVar.getShape()[0]) + ")";
-        std::cout << message << std::endl;
         throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
     }
     if (ccdDataVar.getShape()[1] != width) {
         std::string message("pfs::drp::stella::math::CurveFitting::fitProfile2d: ERROR: width(=");
         message += std::to_string(width) + ") != ccdDataVar.getShape()[1](=" + std::to_string(ccdDataVar.getShape()[1]) + ")";
-        std::cout << message << std::endl;
         throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
     }
 
