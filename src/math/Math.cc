@@ -1059,13 +1059,6 @@ ndarray::Array< U, 2, 1 > where( ndarray::Array< T, 2, I > const& arrayToCompare
     auto itOutCol = itOutRow->begin();
     int col = 0;
     for ( auto itCompCol = itCompRow->begin(); itCompCol != itCompRow->end(); ++itCompCol, ++itOutCol, ++col ) {
-#ifdef __DEBUG_WHERE__
-      cout << "where2D: *itCompCol = " << *itCompCol << endl;
-      if ( arrayToCompareTo[ndarray::makeVector(row, col)] != *itCompCol ) {
-        cout << "where2D: ERROR: arrayToCompareTo[ndarray::makeVector(row, col)](=" << arrayToCompareTo[ndarray::makeVector(row, col)] << ") != *itCompCol(=" << *itCompCol << endl;
-        exit(EXIT_FAILURE);
-      }
-#endif
       if ( (op.compare("<") == 0) && (*itCompCol < valueToCompareTo) ) {
 #ifdef __DEBUG_WHERE__
         cout << "where2D: op = < && " << *itCompCol << " < " << valueToCompareTo << endl;
@@ -1236,8 +1229,7 @@ T splInt( ndarray::Array< T, 1, 1 > const& XAVecArr,
   } /// klo and khi now bracket the input value of X
   h = XAVecArr[ khi ] - XAVecArr[ klo ];
   if ( h == 0.0 ) { /// The XAVecArr(i)'s must be distinct
-    cout << "splInt: ERROR: Bad XAVecArr input to routine SplInt" << endl;
-    exit(EXIT_FAILURE);
+      throw std::runtime_error("splInt: ERROR: Bad XAVecArr input to routine SplInt");
   }
   a = (XAVecArr[ khi ] - X) / h;
   b = (X - XAVecArr[ klo ]) / h; /// Cubic Spline polynomial is now evaluated.
@@ -1425,12 +1417,10 @@ ndarray::Array< int, 1, 1 > valueLocate( ndarray::Array< T, 1, 1 > const& VecArr
   cout << "CFits::ValueLocate: ValVecArr = " << ValVecArr << endl;
 #endif
   if ( VecArr.getShape()[ 0 ] < 1 ) {
-    cout << "CFits::ValueLocate: ERROR: VecArr.size() < 1 => Returning FALSE" << endl;
-    exit(EXIT_FAILURE);
+      throw std::runtime_error("CFits::ValueLocate: ERROR: VecArr.size() < 1 => Returning FALSE");
   }
   if ( ValVecArr.getShape()[ 0 ] < 1 ) {
-    cout << "CFits::ValueLocate: ERROR: ValVecArr.size() < 1 => Returning FALSE" << endl;
-    exit(EXIT_FAILURE);
+      throw std::runtime_error("CFits::ValueLocate: ERROR: ValVecArr.size() < 1 => Returning FALSE");
   }
   ndarray::Array< int, 1, 1 > IntVecArr = ndarray::allocate(ValVecArr.getShape()[ 0 ]);
 
