@@ -110,7 +110,7 @@ class ReduceArcTask(CmdLineTask):
             lamps = getLampElements(arcExp.getMetadata())
             self.log.info("Arc lamp elements are: %s" % " ".join(lamps))
             arcLines = readLineListFile(lineList, lamps, minIntensity=self.config.minArcLineIntensity)
-            arcLineWavelengths = np.array(arcLines[:, 0])
+            arcLineWavelengths = np.array([line.wavelength for line in arcLines], dtype='float32')
 
             if self.debugInfo.display and self.debugInfo.arc_frame >= 0:
                 display = afwDisplay.Display(self.debugInfo.arc_frame)
@@ -136,19 +136,24 @@ class ReduceArcTask(CmdLineTask):
 
             for i in range(spectrumSet.getNtrace()):
                 spec = spectrumSet.getSpectrum(i)
+                fiberId = spec.getITrace()
 
-                traceId = spec.getITrace()
-                fiberWavelengths = detMap.getWavelength(traceId)
+                # Lookup the pixel positions of those lines
+                for rl in arcLines:
+                    x, y = detMap.findPoint(fiberId, rl.wavelength)
+                    rl.guessedPixelPos = y
 
-                assert len(fiberWavelengths) == arcExp.getHeight() # this is the fundamental assumption
-                lineListPix = drpStella.createLineList(fiberWavelengths, arcLineWavelengths)
+                    if self.debugInfo.display and self.debugInfo.arc_frame >= 0 and self.debugInfo.showArcLines:
+                        arcDisplay.dot('o', x, y, ctype='blue')
+                        arcDisplay.dot(str(fiberId), x + 10, y, ctype='blue')
 
                 # Identify emission lines and fit dispersion
                 try:
-                    spec.identify(lineListPix, dispCorControl, 8)
-                    self.log.info("FiberTrace %d: spec.getDispRms() = %f" % (traceId, spec.getDispRms()))
+                    spec.identify(arcLines, dispCorControl, 8)
+                    self.log.info("FiberId %d: spec.getDispRms() = %f" % (fiberId, spec.getDispRms()))
                 except Exception as e:
                     print(e)
+                    continue
 
                 if residuals is not None:
                     ft = flatFiberTraceSet.getFiberTrace(i)

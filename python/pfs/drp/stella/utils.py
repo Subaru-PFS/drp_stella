@@ -1,4 +1,6 @@
 import os
+import re
+import matplotlib.pyplot as plt
 from astropy.io import fits as pyfits
 import lsst.afw.geom as afwGeom
 import lsst.afw.image as afwImage
@@ -72,56 +74,74 @@ def readLineListFile(lineList, lamps=["Ar", "Cd", "Hg", "Ne", "Xe"], minIntensit
     """Read line list
 
     Return:
-       lineListArr[:,0] : wavelength
-       lineListArr[:,2] : NIST intensity
+       list of drp::ReferenceLine
 
     This file is basically CdHgKrNeXe_use
     """
-    hdulist = pyfits.open(lineList)
-    tbdata = hdulist[1].data
+    try:
+        hdulist = pyfits.open(lineList)
+    except IOError:
+        hdulist = None
 
-    element = tbdata.field(2)
-    intensity = tbdata.field(3)         # Comment (intensity + notes)
-    tmp = np.empty(len(intensity))
-    for i in range(len(intensity)):
-        tmp[i] = np.float(intensity[i].split()[0])
-    intensity = tmp; del tmp
-
-    if lamps:
-        keep = np.zeros(len(element), dtype=bool)
-        for lamp in lamps:
-            keep = np.logical_or(keep, element == lamp)
-    else:
-        keep = np.ones(len(element), dtype=bool)
-
-    if minIntensity > 0:
-        keep = np.logical_and(keep, intensity > minIntensity)
+    if hdulist:
+        tbdata = hdulist[1].data
         
-    lineListArr = np.ndarray(shape=(keep.sum(), 2), dtype='float32')
-    lineListArr[:,0] = np.array(tbdata.field(0))[keep]  # wavelength
-    lineListArr[:,1] = np.array(intensity)[keep]        # NIST intensity
+        wavelength = tbdata.field(1)
+        element = tbdata.field(2)
+        intensity = tbdata.field(3)         # Comment (intensity + notes)
+        tmp = np.empty(len(intensity))
+        for i in range(len(intensity)):
+            tmp[i] = np.float(intensity[i].split()[0])
+        intensity = tmp; del tmp
+    else:                               # must be a text file;  wavelength intensity element
+        with open(lineList) as fd:
+            element = []
+            wavelength = []
+            intensity = []
+            for line in fd:
+                line = re.sub(r"\s*#.*$", "", line).rstrip() # strip comments
 
-    return lineListArr
+                if not line:
+                    continue
+                fields = line.split()
+                lam, I, elem = fields[:3]
 
-def getLampElements(exp):
-    """Return a list of the elements found in the lamps that are on"""
+                element.append(elem)
+                wavelength.append(float(lam))
+                intensity.append(float(I))
+    #
+    # Pack into a list of ReferenceLines
+    #
+    referenceLines = []
+    for elem, lam, I in zip(element, wavelength, intensity):
+        if lamps:
+            keep = False
+            for lamp in lamps:
+                if elem.startswith(lamp):
+                    keep = True
+                    break
 
-    md = exp.getMetadata().toDict()
-    elements = []
-    for lamp in ['Ne', 'HgAr', 'Xe']:
-        if md.get('W_AIT_SRC_%s' % (lamp,), False):
-            if lamp == 'HgAr':
-                elements.append('Ar')
-                elements.append('Hg')
-            elif lamp == 'HgCd':
-                elements.append('Cd')
-                elements.append('Hg')
-                # the carrier gas is argon
-                elements.append('Ar')
-            else:
-                elements.append(lamp)
+            if not keep:
+                continue
 
-    return elements
+        if minIntensity > 0:
+            if I < minIntensity:
+                continue
+
+        referenceLines.append(drpStella.ReferenceLine(elem, wavelength=lam, guessedIntensity=I))
+
+    return referenceLines
+
+def plotReferenceLines(referenceLines, what, ls=':', alpha=1):
+    """Plot a set of reference lines using axvline"""
+    for rl in referenceLines:
+        color = 'black'
+        if not (rl.status & rl.Status.FIT):
+            color = 'red'
+        elif (rl.status & rl.Status.MISIDENTIFIED):
+            color = 'blue'
+
+        plt.axvline(getattr(rl, what), ls=ls, color=color, alpha=alpha)
     
 def readReferenceSpectrum(refSpec):
     """read reference Spectrum"""

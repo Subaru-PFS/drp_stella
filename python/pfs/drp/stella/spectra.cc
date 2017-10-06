@@ -126,8 +126,6 @@ PYBIND11_PLUGIN(spectra) {
     declareSpectrum(mod);
     declareSpectrumSet(mod);
 
-    mod.def("createLineList", math::createLineList<float, 1>, "wLen"_a, "lines"_a);
-
     return mod.ptr();
 }
 
