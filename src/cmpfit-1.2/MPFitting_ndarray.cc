@@ -196,13 +196,11 @@ bool MPFitGauss(const ndarray::Array< T, 1, 1 >& D_A1_X_In,
   if (D_A1_Coeffs_Out.getShape()[0] != I_NParams){
     string message("MPFitting_ndarray::MPFitGauss: ERROR: D_A1_Coeffs_Out.getShape()[0]=");
     message += to_string(D_A1_Coeffs_Out.getShape()[0]) + " != I_NParams=" + to_string(I_NParams);
-    cout << message << endl;
     throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
   }
   if (D_A1_ECoeffs_Out.getShape()[0] != I_NParams){
     string message("MPFitting_ndarray::MPFitGauss: ERROR: D_A1_ECoeffs_Out.getShape()[0]=");
     message += to_string(D_A1_ECoeffs_Out.getShape()[0]) + " != I_NParams=" + to_string(I_NParams);
-    cout << message << endl;
     throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
   }
   struct vars_struct v;
@@ -307,13 +305,11 @@ bool MPFitGaussLim(const ndarray::Array< T, 1, 1 >& D_A1_X_In,
   if (D_A1_Coeffs_Out.getShape()[0] != I_NParams){
     string message("MPFitting_ndarray::MPFitGaussLim: ERROR: D_A1_Coeffs_Out.getShape()[0]=");
     message += to_string(D_A1_Coeffs_Out.getShape()[0]) + " != I_NParams=" + to_string(I_NParams);
-    cout << message << endl;
     throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
   }
   if (D_A1_ECoeffs_Out.getShape()[0] != I_NParams){
     string message("MPFitting_ndarray::MPFitGaussLim: ERROR: D_A1_ECoeffs_Out.getShape()[0]=");
     message += to_string(D_A1_ECoeffs_Out.getShape()[0]) + " != I_NParams=" + to_string(I_NParams);
-    cout << message << endl;
     throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
   }
   struct vars_struct v;
