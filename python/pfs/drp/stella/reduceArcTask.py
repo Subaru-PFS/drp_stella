@@ -1,8 +1,8 @@
 import os
 
 import numpy as np
-plt = None
-
+if False:                               # will be imported if needed (matplotlib import can be slow)
+    import matplotlib.pyplot as plt
 import lsstDebug
 import lsst.log as log
 import lsst.pex.config as pexConfig
@@ -11,9 +11,11 @@ from lsst.utils import getPackageDir
 import lsst.afw.display as afwDisplay
 import pfs.drp.stella as drpStella
 from pfs.drp.stella.extractSpectraTask import ExtractSpectraTask
-from pfs.drp.stella.utils import makeFiberTraceSet, readWavelengthFile
+from pfs.drp.stella.utils import makeFiberTraceSet, makeDetectorMap, plotReferenceLines
 from pfs.drp.stella.utils import readLineListFile, writePfsArm, addFiberTraceSetToMask
+from lsst.obs.pfs.utils import getLampElements
 
+@pexConfig.wrap(drpStella.DispCorControl) # should wrap IdentifyLinesTaskConfig when it's written
 class ReduceArcConfig(pexConfig.Config):
     """Configuration for reducing arc images"""
     extractSpectra = pexConfig.ConfigurableField(
@@ -21,14 +23,23 @@ class ReduceArcConfig(pexConfig.Config):
         doc="""Task to extract spectra using the fibre traces""",
     )
 
-    function = pexConfig.Field( doc = "Function for fitting the dispersion", dtype=str, default="POLYNOMIAL" );
-    order = pexConfig.Field( doc = "Fitting function order", dtype=int, default = 5 );
-    searchRadius = pexConfig.Field( doc = "Radius in pixels relative to line list to search for emission line peak", dtype = int, default = 2 );
-    fwhm = pexConfig.Field( doc = "FWHM of emission lines", dtype=float, default = 2.6 );
-    nRowsPrescan = pexConfig.Field( doc = "Number of prescan rows in raw CCD image", dtype=int, default = 48);
-    wavelengthFile = pexConfig.Field( doc = "reference pixel-wavelength file including path", dtype = str, default=os.path.join(getPackageDir("obs_pfs"), "pfs/RedFiberPixels.fits.gz"));
-    lineList = pexConfig.Field( doc = "reference line list including path", dtype = str, default=os.path.join(getPackageDir("obs_pfs"), "pfs/lineLists/CdHgKrNeXe_red.fits"));
-    maxDistance = pexConfig.Field( doc = "Reject emission lines which center is more than this value away from the predicted position", dtype=float, default = 2.5 );
+    fittingFunction=pexConfig.Field(doc="Function for fitting the dispersion", dtype=str, default="POLYNOMIAL");
+    order=pexConfig.Field(doc="Fitting function order", dtype=int, default=5);
+    searchRadius=pexConfig.Field(doc="Radius in pixels relative to line list to search for emission line peak",
+                                 dtype=int, default=2);
+    fwhm=pexConfig.Field(doc="FWHM of emission lines", dtype=float, default=2.6);
+    wavelengthFile=pexConfig.Field( doc="reference pixel-wavelength file including path",
+                                    dtype=str, default=os.path.join(getPackageDir("obs_pfs"),
+                                                                    "pfs/RedFiberPixels.fits.gz"));
+    lineList=pexConfig.Field(doc="reference line list including path",
+                             dtype=str, default=os.path.join(getPackageDir("obs_pfs"),
+                                                             "pfs/lineLists/CdHgKrNeXe_red.fits"));
+    maxDistance=pexConfig.Field(doc="Reject arc lines with center more than maxDistance from predicted position",
+                                dtype=float, default=2.5);
+    minArcLineIntensity=pexConfig.Field(doc="Minimum 'NIST' intensity to use emission lines",
+                                        dtype=float, default=0);
+    nLinesKeptBack=pexConfig.Field(doc="Number of lines to withhold from line fitting to estimate errors",
+                                   dtype=int, default=4);
 
 class ReduceArcTaskRunner(TaskRunner):
     """Get parsed values into the ReduceArcTask.run"""
@@ -69,14 +80,6 @@ class ReduceArcTask(CmdLineTask):
         self.log.debug('wLenFile = %s' % wLenFile)
         self.log.debug('lineList = %s' % lineList)
 
-        # read wavelength file
-        xCenters, wavelengths, traceIds = readWavelengthFile(wLenFile)
-        del xCenters
-
-        # read line list
-        lineListArr = readLineListFile(lineList)
-        wLenLinesArr = np.array(lineListArr[:, 0])
-
         for arcRef in expRefList:
             self.log.debug('arcRef.dataId = %s' % arcRef.dataId)
             self.log.debug('arcRef = %s' % arcRef)
@@ -88,6 +91,8 @@ class ReduceArcTask(CmdLineTask):
                 fiberTrace = arcRef.get('fibertrace')
             except Exception, e:
                 raise RuntimeError("Unable to load fiberTrace for %s: %s" % (arcRef.dataId, e))
+
+            detMap = makeDetectorMap(butler, arcRef.dataId, wLenFile)
 
             flatFiberTraceSet = makeFiberTraceSet(fiberTrace)
             self.log.debug('fiberTrace calibration file contains %d fibers' % flatFiberTraceSet.getNtrace())
@@ -101,13 +106,19 @@ class ReduceArcTask(CmdLineTask):
             if arcExp is None:
                 raise RuntimeError("Unable to load postISRCCD or calexp image for %s" % (arcRef.dataId))
 
+            # read line list
+            lamps = getLampElements(arcExp.getMetadata())
+            self.log.info("Arc lamp elements are: %s" % " ".join(lamps))
+            arcLines = readLineListFile(lineList, lamps, minIntensity=self.config.minArcLineIntensity)
+            arcLineWavelengths = np.array([line.wavelength for line in arcLines], dtype='float32')
+
             if self.debugInfo.display and self.debugInfo.arc_frame >= 0:
-                display = afwDisplay.Display(self.debugInfo.arc_frame)
+                arcDisplay = afwDisplay.Display(self.debugInfo.arc_frame)
 
                 addFiberTraceSetToMask(arcExp.maskedImage.mask, flatFiberTraceSet)
                 
-                display.setMaskTransparency(50)
-                display.mtv(arcExp, "Arcs")
+                arcDisplay.setMaskTransparency(50)
+                arcDisplay.mtv(arcExp, "Arcs")
 
             # optimally extract arc spectra
             self.log.info('extracting arc spectra from %s', arcRef.dataId)
@@ -115,13 +126,7 @@ class ReduceArcTask(CmdLineTask):
             spectrumSet = self.extractSpectra.run(arcExp, flatFiberTraceSet).spectrumSet
 
             # Fit the wavelength solution
-
-            dispCorControl = drpStella.DispCorControl()
-            dispCorControl.fittingFunction = self.config.function
-            dispCorControl.order = self.config.order
-            dispCorControl.searchRadius = self.config.searchRadius
-            dispCorControl.fwhm = self.config.fwhm
-            dispCorControl.maxDistance = self.config.maxDistance
+            dispCorControl = self.config.makeControl()
 
             if self.debugInfo.display and self.debugInfo.residuals_frame >= 0:
                 display = afwDisplay.Display(self.debugInfo.residuals_frame)
@@ -131,44 +136,80 @@ class ReduceArcTask(CmdLineTask):
 
             for i in range(spectrumSet.getNtrace()):
                 spec = spectrumSet.getSpectrum(i)
+                fiberId = spec.getITrace()
 
-                traceId = spec.getITrace()
-                wLenTemp = wavelengths[np.where(traceIds == traceId)]
-                wLenTemp = wLenTemp[self.config.nRowsPrescan:] # this should be fixed in the wavelengths file
-                wLenArr = np.array(wLenTemp)
+                # Lookup the pixel positions of those lines
+                for rl in arcLines:
+                    x, y = detMap.findPoint(fiberId, rl.wavelength)
+                    rl.guessedPixelPos = y
 
-                assert len(wLenArr) == arcExp.getHeight() # this is the fundamental assumption
-                lineListPix = drpStella.createLineList(wLenArr, wLenLinesArr)
+                    if self.debugInfo.display and self.debugInfo.arc_frame >= 0 and self.debugInfo.showArcLines:
+                        arcDisplay.dot('o', x, y, ctype='blue')
+                        arcDisplay.dot(str(fiberId), x + 10, y, ctype='blue')
 
                 # Identify emission lines and fit dispersion
-                spec.identify(lineListPix, dispCorControl, 8)
-                self.log.info("FiberTrace %d: spec.getDispRms() = %f" % (i, spec.getDispRms()))
+                try:
+                    spec.identify(arcLines, dispCorControl, 8)
+                    self.log.info("FiberId %d: spec.getDispRms() = %f" % (fiberId, spec.getDispRms()))
+                except Exception as e:
+                    print(e)
+                    continue
 
                 if residuals is not None:
                     ft = flatFiberTraceSet.getFiberTrace(i)
                     reconIm = ft.getReconstructed2DSpectrum(spec)
                     residuals[reconIm.getBBox()] -= reconIm
 
-                if self.debugInfo.display and self.debugInfo.showLines:
-                    global plt
-                    if plt is None:
-                        import matplotlib.pyplot as plt
+                if self.debugInfo.display and self.debugInfo.showFibers is not None:
+                    import matplotlib.pyplot as plt
 
-                    fiberId = spec.getITrace()
-
-                    if self.debugInfo.showLineList and fiberId not in self.debugInfo.showLineList:
+                    if self.debugInfo.showFibers and fiberId not in self.debugInfo.showFibers:
                         continue
 
-                    refLines = spec.getReferenceLines()
-                    plt.plot(spec.wavelength, spec.spectrum)
-                    plt.xlabel("Wavelength (vacuum nm)")
-                    plt.title("FiberId %d" % fiberId)
-                    for rl in refLines:
-                        if rl.status & rl.Status.FIT:
-                            plt.axvline(rl.wavelength, ls='-', color='black', alpha=0.5)
-                        else:
-                            plt.axvline(rl.wavelength, ls='-', color='red', alpha=0.25)
-                    plt.show()
+                    if self.debugInfo.plotArcLinesRow:
+                        plt.plot(spec.getSpectrum())
+                        plotReferenceLines(spec.getReferenceLines(), "guessedPixelPos", alpha=0.1)
+                        plotReferenceLines(spec.getReferenceLines(), "fitPixelPos", ls='-', alpha=0.5)
+                        plt.xlabel('row')
+                        plt.title("FiberId %d" % fiberId);
+                        plt.show()
+
+                    if self.debugInfo.plotArcLinesLambda:
+                        plt.plot(spec.wavelength, spec.spectrum)
+                        plotReferenceLines(spec.getReferenceLines(), "wavelength", ls='-', alpha=0.5)
+                        plt.xlabel("Wavelength (vacuum nm)")
+                        plt.title("FiberId %d" % fiberId)
+                        plt.show()
+
+                    if self.debugInfo.plotPositionResiduals:
+                        fiberId = spec.getITrace()
+                        refLines = spec.getReferenceLines()
+
+                        wavelength = np.empty(len(refLines))
+                        status = np.empty_like(wavelength, dtype=int)
+                        guessedIntensity = np.empty_like(wavelength)
+                        guessedPixelPos = np.empty_like(wavelength)
+                        fitIntensity = np.empty_like(wavelength)
+                        fitPixelPos = np.empty_like(wavelength)
+                        fitPixelPosErr = np.empty_like(wavelength)
+
+                        for i, rl in enumerate(refLines):
+                            wavelength[i] = rl.wavelength
+                            guessedIntensity[i] = rl.guessedIntensity
+                            guessedPixelPos[i] = rl.guessedPixelPos
+
+                            status[i] = rl.status
+                            fitIntensity[i] = rl.fitIntensity
+                            fitPixelPos[i] = rl.fitPixelPos
+                            fitPixelPosErr[i] = rl.fitPixelPosErr
+
+                        fitted = (status & arcLines[0].Status.FIT != 0)
+                        plt.errorbar(fitPixelPos[fitted], (fitPixelPos - guessedPixelPos)[fitted],
+                                     xerr=fitPixelPosErr[fitted], marker='o', ls='none')
+                        plt.xlabel("Wavelength (vacuum nm)")
+                        plt.ylabel("(fitted - input) positions")
+                        plt.title("FiberId %d" % fiberId)
+                        plt.show()
 
             writePfsArm(butler, arcExp, spectrumSet, arcRef.dataId)
 

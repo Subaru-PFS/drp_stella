@@ -603,114 +603,138 @@ namespace pfs { namespace drp { namespace stella { namespace math {
 
 /************************************************************************************************************/
 /*
+ * Fit the model
+ *  data = bkgd + amp*profile + epsilon
+ * where epsilon ~ N(0, dataVar)
+ *
  * Return reduced chi^2 (or -ve in case of problems)
  */
+namespace {
   template<typename ImageT>
   static float
-  LinFitBevingtonNdArray1d(ndarray::ArrayRef<ImageT, 1, 1> const& D_A1_CCD, // data
-                           ndarray::ArrayRef<ImageT, 1, 1> const& D_A1_Var,  // errors in data
-                           ndarray::ArrayRef<lsst::afw::image::MaskPixel, 1, 1> const& US_A1_Mask, // set to 1 for points in the fiberTrace
-                           ndarray::ArrayRef<ImageT, 1, 1> const& D_A1_SF,
+  fitProfile1d(ndarray::ArrayRef<ImageT, 1, 1> const& data, // data
+                           ndarray::ArrayRef<ImageT, 1, 1> const& dataVar,  // errors in data
+                           ndarray::ArrayRef<lsst::afw::image::MaskPixel, 1, 1> const& traceMask, // set to 1 for points in the fiberTrace
+                           ndarray::ArrayRef<ImageT, 1, 1> const& profile,   // profile to fit
                            const float clipNSigma, // clip at this many sigma
-                           ImageT &D_SP_Out,       // amplitude of fit
-                           ImageT &D_SP_Var        // D_SP_Out's variance
+                           const bool fitBackground, // Should I fit the background?
+                           ImageT &amp,              // amplitude of fit
+                           ImageT &bkgd,             // sky level
+                           ImageT &ampVar           // amp's variance
                           )
   {
-      assert(D_A1_CCD.size() == D_A1_SF.size());
+      assert(data.size() == profile.size());
 
-      if ((D_A1_CCD.asEigen().sum() == 0.) || (D_A1_SF.asEigen().sum() == 0.)){
-          D_SP_Out = 0.;
+      if ((data.asEigen().sum() == 0.) || (profile.asEigen().sum() == 0.)){
+          amp = 0.;
           return -1;
       }
       //
       // Check that the pixel variances are not 0
       //
-      for (int i = 0; i < US_A1_Mask.size(); i++) {
-          if (US_A1_Mask[i] == 0) { // bad pixels
+      for (int i = 0; i < traceMask.size(); i++) {
+          if (traceMask[i] == 0) { // bad pixels
               continue;
           }
 
-          if (D_A1_Var[i] < 0.00000000000000001){
-              std::cout << "CFits::LinFitBevington: i = " << i << ": ERROR: D_A1_Var = " << D_A1_Var << std::endl;
-              std::string message("CFits::LinFitBevington:");
-              message += ": i = " + std::to_string(i) + ": ERROR: D_A1_Var(" + std::to_string(i) + ") == 0.";
+          if (dataVar[i] < 0.00000000000000001){
+              std::cout << "fitProfile1d: i = " << i << ": ERROR: dataVar = " << dataVar << std::endl;
+              std::string message("fitProfile1d:");
+              message += ": i = " + std::to_string(i) + ": ERROR: dataVar(" + std::to_string(i) + ") == 0.";
               std::cout << message << std::endl;
               throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
           }
       }
       
-      const int ndata = D_A1_CCD.getShape()[0];
-
-      /// b: D_SP_Out
-      /// x: D_A1_SF
-      /// y: D_A1_CCD
-
+      const int ndata = data.getShape()[0];
       const bool clipData = (clipNSigma > 0.) ? true : false;
 
-      D_SP_Out = 0.0;
-      D_SP_Var = 0.0;
+      amp = 0.0;                        // amplitude of fit
+      ampVar = 0.0;                    // amp's variance
+      bkgd = 0.0;                       // sky level
+#if defined(BKGD_VAR)
+      double bkgdVar = 0.0;            // bkgd's variance
+      double amp_bkgdCovar = 0;        // covariance between amp and bkgd
+#endif
 
-      if (US_A1_Mask.asEigen().sum() == 0) {
-          D_SP_Out = 0.0;
+      if (traceMask.asEigen().sum() == 0) {
           return -2;
       }
 
-      auto D_A1_YFit  = ndarray::Array<ImageT, 1, 1>(ndata); // fit to data
+      auto model  = ndarray::Array<ImageT, 1, 1>(ndata); // fit to data
 
       float rchi2 = -1; // reduced chi^2 (we're only fitting an amplitude)
       for (;;) {
-          D_SP_Out = 0.0;
+          amp = 0.0;
 
           /// remove bad pixels marked by mask
-          const int nGood = US_A1_Mask.asEigen().sum();
+          const int nGood = traceMask.asEigen().sum();
           if (nGood == 0) {
               return -3;                 // BAD
           }
-
-          double D_Sum_Weights = 0.;
-          double D_Sum_XSquareTimesWeight = 0.;
-          double D_Sum_XTimesWeight = 0.;
-          double D_Sum_XYTimesWeight = 0.;
-          double D_Sum_YTimesWeight = 0.;
-          for (int i=0; i < US_A1_Mask.size(); i++) {
-              if (US_A1_Mask[i] == 0) { // bad pixels
+          // Let us call the profile P and the intensity D in naming our sums
+          double sum = 0.;
+          double sum_PP = 0.;
+          double sum_P = 0.;
+          double sum_PD = 0.;
+          double sum_D = 0.;
+          for (int i=0; i < traceMask.size(); i++) {
+              if (traceMask[i] == 0) { // bad pixels
                   continue;
               }
 
-              double weight = 1/D_A1_Var[i];
+              double weight = 1/dataVar[i];
                   
-              D_Sum_Weights += weight;
-              D_Sum_XTimesWeight += weight*D_A1_SF[i];
-              D_Sum_YTimesWeight += weight*D_A1_CCD[i];
-              D_Sum_XYTimesWeight += weight*D_A1_SF[i] * D_A1_CCD[i];
-              D_Sum_XSquareTimesWeight += weight*D_A1_SF[i] * D_A1_SF[i];
+              sum += weight;
+              sum_P += weight*profile[i];
+              sum_D += weight*data[i];
+              sum_PD += weight*profile[i]*data[i];
+              sum_PP += weight*profile[i]*profile[i];
           }
-          const double D_Delta = D_Sum_Weights*D_Sum_XSquareTimesWeight - pow(D_Sum_XTimesWeight, 2);
-          D_SP_Out = D_Sum_XYTimesWeight/D_Sum_XSquareTimesWeight;
-          D_SP_Var = D_Sum_Weights/D_Delta; // error^2 in spectrum
+          const double D_Delta = sum*sum_PP - pow(sum_P, 2);
 
-          D_A1_YFit.deep() = D_SP_Out*D_A1_SF;
+          if (fitBackground) {
+              amp = (sum*sum_PD - sum_P*sum_D)/D_Delta;
+              bkgd = (sum_PP*sum_D - sum_P*sum_PD)/D_Delta;
+
+              ampVar = sum/D_Delta;
+#if defined(BKGD_VAR)
+              bkgdVar = sum_PP/D_Delta;
+              amp_bkgdCovar = -sum_P/D_Delta;
+#endif
+          } else {
+              amp = sum_PD/sum_PP;
+              bkgd = 0;
+
+              ampVar = 1/sum_PP;
+#if defined(BKGD_VAR)
+              bkgdVar = 0;
+              amp_bkgdCovar = 0;
+#endif
+          }
+
+          model.deep() = bkgd + amp*profile;
 
           float ChiSqr = 0.;
           int nPix = 0;                // number of unmasked pixels
           int nClip = 0;               // number of newly clipped pixels
-          for (int i=0; i < US_A1_Mask.size(); i++) {
-              if (US_A1_Mask[i] == 0) { // bad pixels
+          for (int i=0; i < traceMask.size(); i++) {
+              if (traceMask[i] == 0) { // bad pixels
                   continue;
               }
 
-              const float dchi2 = pow(D_A1_CCD[i] - D_A1_YFit[i], 2)/D_A1_Var[i];
+              const float dchi2 = pow(data[i] - model[i], 2)/dataVar[i];
               nPix++;
               ChiSqr += dchi2;
 
               if (clipData && dchi2 > clipNSigma*clipNSigma) {
-                  US_A1_Mask[i] = 0;
+                  traceMask[i] = 0;
                   ++nClip;
               }
           }
           rchi2 = ChiSqr/(nPix - 1);
           
-          if (std::fabs(D_SP_Out) < 0.000001) {
+          if (std::fabs(amp) < 0.000001) {
               break;
           }
           if (nClip == 0) {          // we didn't clip any new pixels
@@ -720,64 +744,69 @@ namespace pfs { namespace drp { namespace stella { namespace math {
 
       return rchi2;
   }
+}
 
 /************************************************************************************************************/
 
   template< typename ImageT>
-  bool LinFitBevingtonNdArray(ndarray::Array<ImageT, 2, 1> const& D_A2_CCD, // data
-                              ndarray::Array<ImageT, 2, 1> const& D_A2_Sigma,  // errors in data
-                              ndarray::Array<lsst::afw::image::MaskPixel, 2, 1> const& US_A2_Mask, // set to 1 for points in the fiberTrace
-                              ndarray::Array<ImageT, 2, 1> const& D_A2_SF, // profile of fibre trace
-                              const float clipNSigma,                            // clip at this many sigma
-                              ndarray::Array<ImageT, 1, 1> & D_A1_SP_Out,        // returned spectrum
-                              ndarray::Array<ImageT, 1, 1> & D_A1_SP_Out_Var      // errors in spectrum
-                             )
+  bool fitProfile2d(ndarray::Array<ImageT, 2, 1> const& ccdData, // data
+                    ndarray::Array<ImageT, 2, 1> const& ccdDataVar,  // data's variance
+                    ndarray::Array<lsst::afw::image::MaskPixel, 2, 1> const& traceMask, // set to 1 for points in the fiberTrace
+                    ndarray::Array<ImageT, 2, 1> const& profile2d,   // profile of fibre trace
+                    const bool fitBackground,                        // should I fit the background level?
+                    const float clipNSigma,                          // clip at this many sigma
+                    ndarray::Array<ImageT, 1, 1> & specAmp,          // returned spectrum
+                    ndarray::Array<ImageT, 1, 1> & bkgd,             // returned background
+                    ndarray::Array<ImageT, 1, 1> & specAmpVar        // spectrum's variance
+                   )
   {
-      const int height = D_A2_CCD.getShape()[0];
-      const int width  = D_A2_CCD.getShape()[1];
+      const int height = ccdData.getShape()[0];
+      const int width  = ccdData.getShape()[1];
 
-    if (height != D_A2_SF.getShape()[0]){
-      std::string message("pfs::drp::stella::math::CurveFitting::LinFitBevingtonNdArray: ERROR: height(=");
-      message += std::to_string(height) + ") != D_A2_SF.getShape()[0](=" + std::to_string(D_A2_SF.getShape()[0]) + ")";
+    if (height != profile2d.getShape()[0]){
+      std::string message("pfs::drp::stella::math::CurveFitting::fitProfile2d: ERROR: height(=");
+      message += std::to_string(height) + ") != profile2d.getShape()[0](=" + std::to_string(profile2d.getShape()[0]) + ")";
       std::cout << message << std::endl;
       throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
     }
-    if (width != D_A2_SF.getShape()[1]){
-      std::string message("pfs::drp::stella::math::CurveFitting::LinFitBevingtonNdArray: ERROR: width(=");
-      message += std::to_string(width) + ") != D_A2_SF.getShape()[1](=" + std::to_string(D_A2_SF.getShape()[1]) + ")";
+    if (width != profile2d.getShape()[1]){
+      std::string message("pfs::drp::stella::math::CurveFitting::fitProfile2d: ERROR: width(=");
+      message += std::to_string(width) + ") != profile2d.getShape()[1](=" + std::to_string(profile2d.getShape()[1]) + ")";
       std::cout << message << std::endl;
       throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
     }
-    if (D_A1_SP_Out.getShape()[0] != height){
-      std::string message("pfs::drp::stella::math::CurveFitting::LinFitBevingtonNdArray: ERROR: height(=");
-      message += std::to_string(height) + ") != D_A1_SP_Out.getShape()[0](=" + std::to_string(D_A1_SP_Out.getShape()[0]) + ")";
+    if (specAmp.getShape()[0] != height){
+      std::string message("pfs::drp::stella::math::CurveFitting::fitProfile2d: ERROR: height(=");
+      message += std::to_string(height) + ") != specAmp.getShape()[0](=" + std::to_string(specAmp.getShape()[0]) + ")";
       std::cout << message << std::endl;
       throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
     }
-    D_A1_SP_Out.deep() = 0;
+    specAmp.deep() = 0;
 
-    if (D_A2_Sigma.getShape()[0] != height) {
-        std::string message("pfs::drp::stella::math::CurveFitting::LinFitBevingtonNdArray: ERROR: height(=");
-        message += std::to_string(height) + ") != D_A2_Sigma.getShape()[0](=" + std::to_string(D_A2_Sigma.getShape()[0]) + ")";
+    if (ccdDataVar.getShape()[0] != height) {
+        std::string message("pfs::drp::stella::math::CurveFitting::fitProfile2d: ERROR: height(=");
+        message += std::to_string(height) + ") != ccdDataVar.getShape()[0](=" + std::to_string(ccdDataVar.getShape()[0]) + ")";
         std::cout << message << std::endl;
         throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
     }
-    if (D_A2_Sigma.getShape()[1] != width) {
-        std::string message("pfs::drp::stella::math::CurveFitting::LinFitBevingtonNdArray: ERROR: width(=");
-        message += std::to_string(width) + ") != D_A2_Sigma.getShape()[1](=" + std::to_string(D_A2_Sigma.getShape()[1]) + ")";
+    if (ccdDataVar.getShape()[1] != width) {
+        std::string message("pfs::drp::stella::math::CurveFitting::fitProfile2d: ERROR: width(=");
+        message += std::to_string(width) + ") != ccdDataVar.getShape()[1](=" + std::to_string(ccdDataVar.getShape()[1]) + ")";
         std::cout << message << std::endl;
         throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
     }
 
     for (int i = 0; i < height; i++) {
-        float rchi2 = math::LinFitBevingtonNdArray1d(D_A2_CCD[i],
-                                                     D_A2_Sigma[i],
-                                                     US_A2_Mask[i],
-                                                     D_A2_SF[i],
-                                                     clipNSigma,
-                                                     D_A1_SP_Out[i], // output spectrum
-                                                     D_A1_SP_Out_Var[i] // output spectrum's variance
-                                                  );
+        float rchi2 = fitProfile1d(ccdData[i],
+                                   ccdDataVar[i],
+                                   traceMask[i],
+                                   profile2d[i],
+                                   clipNSigma,
+                                   fitBackground, // should I fit the background?
+                                   specAmp[i],    // output spectrum
+                                   bkgd[i],       // output background level
+                                   specAmpVar[i]  // output spectrum's variance
+                                  );
       if (rchi2 < 0) {              // failed
           ;                         // need to set a bit in the output mask, but it's still binary (grr)
       }
@@ -887,12 +916,14 @@ namespace pfs { namespace drp { namespace stella { namespace math {
   template ndarray::Array<float, 1, 1> PolyFit(ndarray::Array<float, 1, 1> const&, ndarray::Array<float, 1, 1> const&, size_t const, float, float);
   template ndarray::Array<float, 1, 1> PolyFit(ndarray::Array<float, 1, 1> const&, ndarray::Array<float, 1, 1> const&, size_t const, float const, float const, size_t const, float, float);
 
-  template bool LinFitBevingtonNdArray(ndarray::Array<float, 2, 1> const&,
-                                       ndarray::Array<float, 2, 1> const&,
-                                       ndarray::Array<lsst::afw::image::MaskPixel, 2, 1> const&,
-                                       ndarray::Array<float, 2, 1> const&,
-                                       const float,
-                                       ndarray::Array<float, 1, 1> &,
-                                       ndarray::Array<float, 1, 1> &);
+  template bool fitProfile2d(ndarray::Array<float, 2, 1> const&,
+                             ndarray::Array<float, 2, 1> const&,
+                             ndarray::Array<lsst::afw::image::MaskPixel, 2, 1> const&,
+                             ndarray::Array<float, 2, 1> const&,
+                             const bool,
+                             const float,
+                             ndarray::Array<float, 1, 1> &,
+                             ndarray::Array<float, 1, 1> &,
+                             ndarray::Array<float, 1, 1> &);
                 
 }}}}

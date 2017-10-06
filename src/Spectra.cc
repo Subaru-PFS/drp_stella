@@ -19,6 +19,8 @@ Spectrum::Spectrum(size_t length, size_t iTrace )
 {
   _spectrum = ndarray::allocate( length );
   _spectrum.deep() = 0.;
+  _background = ndarray::allocate( length );
+  _background.deep() = 0.;
   _covar = ndarray::allocate(3, length);
   _covar.deep() = 0.;
   _wavelength = ndarray::allocate( length );
@@ -176,8 +178,7 @@ Spectrum::setMask(const Mask & mask)
 }
 
 ndarray::Array<float, 1, 1 >
-Spectrum::hIdentify(ndarray::Array< float, 1, 1 > const& lineListLambda,
-                    ndarray::Array< float, 1, 1 > const& lineListPixel,
+Spectrum::hIdentify(std::vector<std::shared_ptr<const ReferenceLine>> const& lineList, ///< List of arc lines
                     DispCorControl const& dispCorControl
                    )
 {
@@ -201,17 +202,20 @@ Spectrum::hIdentify(ndarray::Array< float, 1, 1 > const& lineListLambda,
     ndarray::Array< float, 1, 1 > Ind = math::indGenNdArr( float( _length ) );
 
     // Returned line positions
-    const int nLine = lineListPixel.size();
+    const int nLine = lineList.size();
     ndarray::Array< float, 1, 1 > GaussPos = ndarray::allocate(nLine);
     GaussPos.deep() = 0.;
 
     _referenceLines.reserve(nLine);
+    for (int i = 0; i < nLine; ++i) {
+        auto refLine = std::make_shared<ReferenceLine>(*lineList[i]);
+        _referenceLines.push_back(refLine);
+    }
 
     for (int i = 0; i < nLine; ++i) {
-        auto refLine = std::make_shared<ReferenceLine>(ReferenceLine::NOWT, lineListLambda[i], lineListPixel[i]);
-        _referenceLines.push_back(refLine);
+        auto refLine = _referenceLines[i];
 
-        int start = int(lineListPixel[i]) - dispCorControl.searchRadius;
+        int start = int(refLine->guessedPixelPos) - dispCorControl.searchRadius;
         int end   = start + 2*dispCorControl.searchRadius;
         if (start < 0 || end >= _length) {
             continue;
@@ -280,7 +284,8 @@ Spectrum::hIdentify(ndarray::Array< float, 1, 1 > const& lineListLambda,
                                true)) {
                 if ((_mask((start + end)/2, 0) & nodata) == 0) {
                     LOGLS_WARN(_log, "GaussFit returned FALSE for fibre " + to_string(getITrace()) +
-                               ": xc = " + to_string(Guess[XC]) + " lambda = " + to_string(lineListLambda[i]) + " i = " + to_string(i));
+                               ": xc = " + to_string(Guess[XC]) +
+                               " lambda = " + to_string(refLine->wavelength) + " i = " + to_string(i));
                 }
                 GaussCoeffs.deep() = 0.0;
                 EGaussCoeffs.deep() = 0.0;
@@ -288,13 +293,14 @@ Spectrum::hIdentify(ndarray::Array< float, 1, 1 > const& lineListLambda,
                 if (std::fabs(maxPos - GaussCoeffs[1] ) < dispCorControl.maxDistance) {
                     GaussPos[i] = GaussCoeffs[XC];
                     refLine->status |= ReferenceLine::FIT;
+                    refLine->fitIntensity = GaussCoeffs[PEAK];
                     refLine->fitPixelPos = GaussCoeffs[XC];
                     refLine->fitPixelPosErr = EGaussCoeffs[XC];
 
                     if (i > 0 && std::fabs(GaussPos[i] - GaussPos[i - 1]) < 1.5) { // wrong line identified!
                         if (nLine > 2) {
                             int badIndx, goodIndx;
-                            if (lineListPixel[i] < lineListPixel[i - 1]) {
+                            if (_referenceLines[i]->guessedPixelPos < _referenceLines[i - 1]->guessedPixelPos) {
                                 badIndx = i;
                                 goodIndx = i - 1;
                             } else {
@@ -317,7 +323,7 @@ Spectrum::hIdentify(ndarray::Array< float, 1, 1 > const& lineListLambda,
                         }
                     }
                 } else {
-                    string message("WARNING: maxPos=");
+                    string message("maxPos=");
                     message += to_string(maxPos) + " - GaussCoeffs[ 1 ]=" + to_string(GaussCoeffs[1]);
                     message += "(=" + to_string(std::fabs(maxPos - GaussCoeffs[1]));
                     message += ") >= " + to_string(dispCorControl.maxDistance) + " => Skipping line";
@@ -331,16 +337,24 @@ Spectrum::hIdentify(ndarray::Array< float, 1, 1 > const& lineListLambda,
 }
 
 void
-Spectrum::identify(ndarray::Array< float, 2, 1 > const& lineList,
+Spectrum::identify(std::vector<std::shared_ptr<const ReferenceLine>> const& lineList, ///< List of arc lines
                    DispCorControl const& dispCorControl,
-                   std::size_t nLinesCheck )
+                   int nLinesCheck)
 {
     LOG_LOGGER _log = LOG_GET("pfs.drp.stella.Spectra.identify");
 
     ///for each line in line list, find maximum in spectrum and fit Gaussian
-    auto const lineListLambda = lineList[0];
-    auto const lineListPixel = lineList[1];
-    auto GaussPos = hIdentify(lineListLambda, lineListPixel, dispCorControl);
+    auto GaussPos = hIdentify(lineList, dispCorControl);
+
+    ndarray::Array< float, 1, 1 > lineListLambda(lineList.size());
+    ndarray::Array< float, 1, 1 > lineListPixel(lineList.size());
+
+    int i = 0;
+    for (auto line: lineList) {
+        lineListLambda[i] = line->wavelength;
+        lineListPixel[i] = line->guessedPixelPos;
+        ++i;
+    }
 
     ///remove lines which could not be found from line list
     std::vector<int> Index(GaussPos.getShape()[0], 0 );
@@ -358,12 +372,21 @@ Spectrum::identify(ndarray::Array< float, 2, 1 > const& lineList,
     }
 
     /// separate lines to fit and lines for RMS test
+    if (static_cast<long>(indices.size()) - nLinesCheck <= 2) {
+        const int o_nLinesCheck = nLinesCheck;
+        nLinesCheck = 0.25*(static_cast<long>(indices.size()) - nLinesCheck) + 3;
+        if (static_cast<long>(indices.size()) - nLinesCheck <= 2) {
+            nLinesCheck = 0;
+        }
+        LOGLS_INFO(_log, "Only found " << indices.size() << " lines; cannot hold back " << o_nLinesCheck <<
+                   " holding back " << nLinesCheck << endl);
+    }
     std::vector< std::size_t > indCheck;
-    for ( std::size_t i = 0; i < nLinesCheck; ++i ){
-      srand( 0 ); //seed initialization
-      int randNum = rand() % ( indices.size() - 2 ) + 1; // Generate a random number between 0 and 1
-      indCheck.push_back( std::size_t( randNum ) );
-      indices.erase( indices.begin() + randNum );
+    for (std::size_t i = 0; i < nLinesCheck; ++i) {
+        srand(0);                                            // seed initialization XXX
+        std::size_t randNum = rand() % (indices.size() - 1); // Generate a random number between 0 and size-1
+        indCheck.push_back(randNum);
+        indices.erase(indices.begin() + randNum);
     }
 
     _nGoodLines = nInd;
@@ -425,9 +448,9 @@ Spectrum::identify(ndarray::Array< float, 2, 1 > const& lineList,
         }
     }
     _nGoodLines = notRejected->size();
-    if ( _nGoodLines < nLinesIdentifiedMin ){
-      string message ("identify: ERROR: less than ");
-      message += to_string(nLinesIdentifiedMin) + " lines identified";
+    if (_nGoodLines < nLinesIdentifiedMin) {
+        string message ("identify: ERROR: found " + to_string(_nGoodLines) + " lines; need ");
+        message += to_string(nLinesIdentifiedMin) + " (linelist has " + to_string(_referenceLines.size()) + ")";
       throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
     }
     ndarray::Array< std::size_t, 1, 1 > notRejectedArr = ndarray::external(notRejected->data(),
@@ -517,42 +540,6 @@ SpectrumSet::setSpectrum(std::size_t const i,
     } else{
         (*_spectra )[i] = spectrum;
     }
-}
-
-namespace math {
-    /**
-     * Return a 2-d array representing a set of lines
-     *   arr[0]:   line positions in nm
-     *   arr[1]:   line positions in pixels on the detector
-     */
-    template< typename T, int I >
-    ndarray::Array< T, 2, 1 > createLineList(ndarray::Array<T, 1, I> const& wLen,
-                                             ndarray::Array<T, 1, I> const& linesWLen )
-    {
-        const ndarray::Array<size_t, 1, 1> ind = math::getIndicesInValueRange(wLen, T(1), T(15000));
-        if (ind.getShape()[0] <= 0) {
-            string message("ind.getShape()[0](=");
-            message += to_string(ind.getShape()[0]) + ") <= 0";
-            throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
-        }
-        
-        ndarray::Array<T, 1, 1> indT = ndarray::allocate(ind.getShape()[ 0 ]);
-        indT.deep() = ind;
-        ndarray::Array<T, 1, 1> wavelengths =
-            ndarray::copy(wLen[ndarray::view(ind[0], ind[ind.getShape()[0] - 1] + 1)] );
-        std::vector<std::string> args(1);
-        ndarray::Array< T, 1, 1 > linesPix = math::interPol(indT, wavelengths, linesWLen, args);
-
-        ndarray::Array< T, 2, 1 > out = ndarray::allocate(2, linesWLen.size());
-        out[0] = linesWLen;
-        out[1] = linesPix;
-
-        return out;
-    }
-
-    template ndarray::Array< float, 2, 1 > createLineList( ndarray::Array< float, 1, 0 > const&, ndarray::Array< float, 1, 0 > const& );
-    template ndarray::Array< float, 2, 1 > createLineList( ndarray::Array< float, 1, 1 > const&, ndarray::Array< float, 1, 1 > const& );
-
 }
                 
 }}}

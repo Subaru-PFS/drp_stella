@@ -102,8 +102,6 @@ class PfsArmIO(object):
 
 class PfsFiberTraceIO(object):
     """A class to perform butler-based I/O for pfsFiberTrace
-
-    N.b. there's no readFits as we use pfsFiberTrace_bypass() (because it's passed a dataId)
     """
 
     def __init__(self, pfsFiberTrace):

@@ -142,36 +142,22 @@ namespace pfs { namespace drp { namespace stella {
                                          T xRangeMin_In = -1.,
                                          T xRangeMax_In = 1.);
 
-    /**
-     * @brief Scale the spatial profile to the FiberTrace row
-       calculates  D_SP_Out for the system of equations D_A1_CCD_In = D_SP_Out*D_A1_SF_In
-       CHANGES to original function:
-         * D_SP_Out must be >= 0.
-         * added REJECT_IN as optinal parameter to reject cosmic rays from fit (times sigma)
-         * added MASK_INOUT as optional parameter
-     * @param[in]       D_A2_CCD_In    :: FiberTrace row to scale the spatial profile D_A1_SF_In to
-     * @param[in]       D_A2_SF_In     :: Spatial profile to scale to the FiberTrace row
-     * @param[in,out]   D_A1_SP_Out       :: Fitted scaling factor
-     * @param[in]       S_A1_Args_In   :: Vector of keywords controlling the procedure
-     *                MEASURE_ERRORS_IN = ndarray::Array<ImageT,2,1>(D_A2_CCD_In.getShape())   : in
-     *                REJECT_IN = ImageT                                                       : in
-     *                MASK_INOUT = ndarray::Array<unsigned short, 1, 1>(D_A2_CCD_In.getShape()): in/out
-     *                CHISQ_OUT = ndarray::Array<ImageT, 1, 1>(D_A2_CCD_In.getShape()[0])      : out
-     *                Q_OUT = ndarray::Array<ImageT, 1, 1>(D_A2_CCD_In.getShape()[0])          : out
-     *                SIGMA_OUT = ndarray::Array<ImageT, 2, 1>(D_A2_CCD_In.getShape()[0], 2): [*,0]: sigma_sp, [*,1]: sigma_sky : out
-     *                YFIT_OUT = ndarray::Array<ImageT, 2, 1>(D_A2_CCD_In.getShape()[0], D_A2_CCD_In.getShape()[1]) : out
-     * @param[in,out]   ArgV_In        :: Vector of keyword values
-     * */
+    /***
+     * @brief  Fit the spatial profile to a FiberTrace
+     * calculates  D_SP_Out for the system of equations ccdData = D_SP_Out*D_A1_SF_In + D_Bkgd_Out
+     */
   template< typename ImageT>
-  bool LinFitBevingtonNdArray(ndarray::Array<ImageT, 2, 1> const& D_A2_CCD_In, // data
-                              ndarray::Array<ImageT, 2, 1> const& D_A2_Sigma,  // errors in data
-                              ndarray::Array<lsst::afw::image::MaskPixel, 2, 1> const& US_A2_Mask, // set to 1 for points in the fiberTrace
-                              ndarray::Array<ImageT, 2, 1> const& D_A2_SF_In, // profile of fibre trace
-                              const float clipNSigma,                         // clip at this many sigma
-                              ndarray::Array<ImageT, 1, 1> & D_A1_SP_Out,     // returned spectrum
-                              ndarray::Array<ImageT, 1, 1> & D_A1_Sigma_Fit   // errors in spectrum
-                             );
-
+  bool fitProfile2d(ndarray::Array<ImageT, 2, 1> const& ccdData,                      ///< The image
+                    ndarray::Array<ImageT, 2, 1> const& ccdDataVar,                   ///< data's variance
+                    ndarray::Array<lsst::afw::image::MaskPixel, 2, 1> const& traceMask, ///< set to 1 for points in the fiberTrace
+                    ndarray::Array<ImageT, 2, 1> const& profile2d, ///< profile of fibre trace
+                    const bool fitBackground,                      ///< should I fit the background level?
+                    const float clipNSigma,                        ///< clip at this many sigma
+                    ndarray::Array<ImageT, 1, 1> & specAmp,        ///< returned spectrum
+                    ndarray::Array<ImageT, 1, 1> & bkgd,           ///< returned background
+                    ndarray::Array<ImageT, 1, 1> & specAmpVar      ///< the spectrum's variance
+                   );
+      
     /**
      */
     template< typename T, typename U >

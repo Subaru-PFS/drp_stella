@@ -1,9 +1,13 @@
+import os
+import re
+import matplotlib.pyplot as plt
 from astropy.io import fits as pyfits
 import lsst.afw.geom as afwGeom
 import lsst.afw.image as afwImage
 import lsst.log as log
 import numpy as np
 import pfs.drp.stella as drpStella
+import pfs.drp.stella.detectorMap as detectorMap
 from pfs.drp.stella.datamodelIO import spectrumSetToPfsArm, PfsArmIO
 
 def makeFiberTraceSet(pfsFiberTrace):
@@ -13,8 +17,7 @@ def makeFiberTraceSet(pfsFiberTrace):
     fts = drpStella.FiberTraceSet()
 
     for iFt in range(len(pfsFiberTrace.traces)):
-        ft = drpStella.FiberTrace(pfsFiberTrace.traces[iFt],
-                                  pfsFiberTrace.fiberId[iFt] - 1)
+        ft = drpStella.FiberTrace(pfsFiberTrace.traces[iFt], pfsFiberTrace.fiberId[iFt])
 
         fts.addFiberTrace(ft)
     return fts
@@ -35,38 +38,137 @@ def readWavelengthFile(wLenFile):
 
     return [xCenters, wavelengths, traceIds]
 
+def makeDetectorMap(butler, dataId, wLenFile, nKnot=25):
+    """Return a DetectorMap from the specified file
+
+    N.b. we need to get this from the butler in the longer run
+    """
+    
+    xCenters, wavelengths, fiberIds = readWavelengthFile(wLenFile)
+    #
+    # N.b. Andreas calls these "traceIds" but I'm assuming that they are actually be 1-indexed fiberIds
+    #
+    nFiber = len(set(fiberIds))
+    fiberIds = fiberIds.reshape(nFiber, len(fiberIds)//nFiber)
+    xCenters = xCenters.reshape(fiberIds.shape)
+    wavelengths = wavelengths.reshape(fiberIds.shape)
+    fiberIds = fiberIds.reshape(fiberIds.shape)[:, 0].copy()
+    #
+    # The RedFiberPixels.fits.gz file has an extra 48 pixels at the bottom of each row
+    # (corresponding to the pixels that taper to the serials and which we trip off in the ISR)
+    #
+    nRowsPrescan = 48
+    xCenters = xCenters[:, nRowsPrescan:]
+    wavelengths = wavelengths[:, nRowsPrescan:]
+
+    missing = (wavelengths == 0)
+    xCenters[missing] = np.nan
+    wavelengths[missing] = np.nan
+
+    detector = butler.get('raw_detector', dataId)
+    bbox = detector.getBBox()
+
+    detMap = detectorMap.DetectorMap(bbox, fiberIds, xCenters, wavelengths, nKnot=nKnot)
+
+    slitOffsets = np.zeros((3, len(fiberIds)), dtype='float32')
+    DX     = slitOffsets[detMap.FIBER_DX]
+    DY     = slitOffsets[detMap.FIBER_DY]
+    DFOCUS = slitOffsets[detMap.FIBER_DFOCUS]
+
+    # Update the slit offsets
+    for fid, dx, dy in [                # (fiberId, dx, dy)
+            (  5,   8,   6),
+            ( 67,   3,   4),
+            (194,   2,   2),
+            (257,   1,   2),
+            (315,  30,   2),
+            (337, -40,   2),
+            (393,  -3,   4),
+            (455,  -3,   6),
+            (582,  -7,   9),
+            (644,  -7,  10),
+            ]:
+        idx = detMap.getFiberIdx(fid)
+        DX[idx] = dx
+        DY[idx] = dy
+
+    detMap.setSlitOffsets(slitOffsets)
+
+    return detMap
+
 def readLineListFile(lineList, lamps=["Ar", "Cd", "Hg", "Ne", "Xe"], minIntensity=0):
-    """read line list
+    """Read line list
+
+    Return:
+       list of drp::ReferenceLine
 
     This file is basically CdHgKrNeXe_use
     """
-    hdulist = pyfits.open(lineList)
-    tbdata = hdulist[1].data
+    try:
+        hdulist = pyfits.open(lineList)
+    except IOError:
+        hdulist = None
 
-    element = tbdata.field(2)
-    intensity = tbdata.field(3)         # Comment (intensity + notes)
-    tmp = np.empty(len(intensity))
-    for i in range(len(intensity)):
-        tmp[i] = np.float(intensity[i].split()[0])
-    intensity = tmp; del tmp
-
-    if lamps:
-        keep = np.zeros(len(element), dtype=bool)
-        for lamp in lamps:
-            keep = np.logical_or(keep, element == lamp)
-    else:
-        keep = np.ones(len(element), dtype=bool)
-
-    if minIntensity > 0:
-        keep = np.logical_and(keep, intensity > minIntensity)
+    if hdulist:
+        tbdata = hdulist[1].data
         
-    lineListArr = np.ndarray(shape=(keep.sum(), 3), dtype='float32')
-    lineListArr[:,0] = np.array(tbdata.field(0))[keep]  # wavelength
-    lineListArr[:,1] = np.array(tbdata.field(1))[keep]  # pixel
-    lineListArr[:,2] = np.array(intensity)[keep]        # NIST intensity
+        wavelength = tbdata.field(1)
+        element = tbdata.field(2)
+        intensity = tbdata.field(3)         # Comment (intensity + notes)
+        tmp = np.empty(len(intensity))
+        for i in range(len(intensity)):
+            tmp[i] = np.float(intensity[i].split()[0])
+        intensity = tmp; del tmp
+    else:                               # must be a text file;  wavelength intensity element
+        with open(lineList) as fd:
+            element = []
+            wavelength = []
+            intensity = []
+            for line in fd:
+                line = re.sub(r"\s*#.*$", "", line).rstrip() # strip comments
 
-    return lineListArr
+                if not line:
+                    continue
+                fields = line.split()
+                lam, I, elem = fields[:3]
 
+                element.append(elem)
+                wavelength.append(float(lam))
+                intensity.append(float(I))
+    #
+    # Pack into a list of ReferenceLines
+    #
+    referenceLines = []
+    for elem, lam, I in zip(element, wavelength, intensity):
+        if lamps:
+            keep = False
+            for lamp in lamps:
+                if elem.startswith(lamp):
+                    keep = True
+                    break
+
+            if not keep:
+                continue
+
+        if minIntensity > 0:
+            if I < minIntensity:
+                continue
+
+        referenceLines.append(drpStella.ReferenceLine(elem, wavelength=lam, guessedIntensity=I))
+
+    return referenceLines
+
+def plotReferenceLines(referenceLines, what, ls=':', alpha=1):
+    """Plot a set of reference lines using axvline"""
+    for rl in referenceLines:
+        color = 'black'
+        if not (rl.status & rl.Status.FIT):
+            color = 'red'
+        elif (rl.status & rl.Status.MISIDENTIFIED):
+            color = 'blue'
+
+        plt.axvline(getattr(rl, what), ls=ls, color=color, alpha=alpha)
+    
 def readReferenceSpectrum(refSpec):
     """read reference Spectrum"""
     hdulist = pyfits.open(refSpec)

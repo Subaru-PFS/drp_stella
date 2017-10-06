@@ -19,19 +19,26 @@ public:
         MISIDENTIFIED=4                 // line was misidentified
     };
 
-    ReferenceLine(Status _status=NOWT, float _wavelength=0, float _guessedPixelPos=0,
-                  float _fitPixelPos=0, float _fitPixelPosErr=0
+    ReferenceLine(std::string const& _description, Status _status=NOWT, float _wavelength=0,
+                  float _guessedIntensity=0, float _guessedPixelPos=0,
+                  float _fitIntensity=0, float _fitPixelPos=0, float _fitPixelPosErr=0
                  )
-        : status(_status),
+        : description(_description),
+          status(_status),
           wavelength(_wavelength),
+          guessedIntensity(_guessedIntensity),
           guessedPixelPos(_guessedPixelPos),
+          fitIntensity(_fitIntensity),
           fitPixelPos(_fitPixelPos),
           fitPixelPosErr(_fitPixelPosErr)
         { }
 
+    std::string description;            // description of line (e.g. Hg[II])
     int status;                         // status of line
     float wavelength;                   // vacuum wavelength, nm
-    int guessedPixelPos;                // input guess on pixel position
+    float guessedIntensity;             // input guess for intensity (amplitude of peak)
+    float guessedPixelPos;              // input guess for pixel position
+    float fitIntensity;                 // estimated intensity (amplitude of peak)
     float fitPixelPos;                  // fit line position
     float fitPixelPosErr;               // estimated standard deviation of fitPixelPos
 };
@@ -63,6 +70,9 @@ class Spectrum {
 
     /// Set the spectrum (deep copy)
     void setSpectrum(ndarray::Array<ImageT, 1, 1>  const& spectrum);
+
+    ndarray::Array<ImageT, 1, 1> getBackground() { return _background; }
+    ndarray::Array<const ImageT, 1, 1> getBackground() const { return _background; }
 
     /// Return a copy of the variance of this spectrum
     ndarray::Array<VarianceT, 1, 1> getVariance() const;
@@ -111,17 +121,16 @@ class Spectrum {
     std::size_t getNGoodLines() const { return _nGoodLines; }
 
     /**
-      * @brief: Identifies calibration lines, given in <lineList> in the format [wlen, approx_pixel] in
-      * wavelength-calibration spectrum
+      * @brief: Identifies calibration lines, given input linelist for the wavelength-calibration spectrum
       * fits Gaussians to each line, fits Polynomial of order I_PolyFitOrder_In, and
       * writes _wavelength and PolyFit coefficients to _dispCoeffs
-      * @param lineList in: input line list [wLen, approx_pixel]
-      * @param dispCorControl in: DispCorControl to use for wavelength calibration
-      * @param nLinesCheck in: number of lines to hold back from fitting procedure
+      *
+      * Saves copy of lineList with as-observed values in _referenceLines
       **/
-    void identify(ndarray::Array<float, 2, 1> const& lineList,
-                  DispCorControl const& dispCorControl,
-                  std::size_t nLinesCheck=0);
+    void identify(std::vector<std::shared_ptr<const ReferenceLine>> const& lineList, ///< List of arc lines
+                  DispCorControl const& dispCorControl, ///< configuration params for wavelength calibration
+                  int nLinesCheck=0                     ///< number of lines to hold back from fitting procedure
+                 );
 
     std::vector<std::shared_ptr<ReferenceLine>>& getReferenceLines() { return _referenceLines; }
     
@@ -132,14 +141,14 @@ class Spectrum {
      * @brief: Returns pixel positions of emission lines in lineList fitted in _spectrum
      * @param[in] lineList :: line list  [ nLines, 2 ]: [ wLen, approx_pixel ]
      */
-    ndarray::Array< float, 1, 1 > hIdentify(ndarray::Array<float, 1, 1> const& lineListLambda,
-                                            ndarray::Array<float, 1, 1> const& lineListPixel,
+    ndarray::Array< float, 1, 1 > hIdentify(std::vector<std::shared_ptr<const ReferenceLine>> const& lineList,
                                             DispCorControl const& dispCorControl
                                            );
 
     std::size_t _length;
     ndarray::Array<ImageT, 1, 1> _spectrum;
     Mask _mask;
+    ndarray::Array<ImageT, 1, 1> _background;
     ndarray::Array<VarianceT, 2, 1> _covar;
     ndarray::Array<ImageT, 1, 1> _wavelength;
     ndarray::Array<ImageT, 1, 1> _dispersion;
@@ -225,19 +234,6 @@ class SpectrumSet
   private:
     PTR(Spectra) _spectra; // spectra for each aperture
 };
-
-namespace math{
-    /**
-     * @brief: create line list from wavelength array of size length and list of wavelengths of emission lines used to calibrate the spectrum
-     * @param wLen
-     * @param lines
-     * @return array(lines.shape[0], 2) col 0: wavelength, col 1: pixel
-     */
-    template <typename T, int I>
-    ndarray::Array<T, 2, 1> createLineList(ndarray::Array<T, 1, I> const& wLen,
-                                           ndarray::Array<T, 1, I> const& lines);
-
-}
 
 }}}
 
