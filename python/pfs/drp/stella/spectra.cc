@@ -77,11 +77,6 @@ void declareSpectrum(py::module &mod) {
     cls.def("setITrace", &Class::setITrace, "iTrace"_a);
     cls.def_property("iTrace", &Class::getITrace, &Class::setITrace);
 
-    cls.def("getDispRms", &Class::getDispRms);
-    cls.def("getDispRmsCheck", &Class::getDispRmsCheck);
-
-    cls.def("getNGoodLines", &Class::getNGoodLines);
-
     cls.def("identify", &Class::identify, "lineList"_a, "dispCorControl"_a, "nLinesCheck"_a=0);
 
     cls.def("getReferenceLines", &Class::getReferenceLines);    

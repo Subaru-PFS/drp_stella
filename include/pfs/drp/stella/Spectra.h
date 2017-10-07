@@ -105,21 +105,6 @@ class Spectrum {
     std::size_t getITrace() const { return _iTrace; }
     void setITrace(std::size_t iTrace) { _iTrace = iTrace; }
 
-    /*
-     * @brief Return the Root Mean Squared (RMS) of the lines used for the wavelength calibration
-     */
-    float getDispRms() const { return _dispRms; }
-
-    /*
-     * @brief Return the Root Mean Squared (RMS) of the lines held back from the wavelength calibration
-     */
-    float getDispRmsCheck() const { return _dispRmsCheck; }
-
-    /*
-     * @brief Return the number of not rejected lines used for the wavelength calibration
-     */
-    std::size_t getNGoodLines() const { return _nGoodLines; }
-
     /**
       * @brief: Identifies calibration lines, given input linelist for the wavelength-calibration spectrum
       * fits Gaussians to each line, fits Polynomial of order I_PolyFitOrder_In, and
@@ -155,9 +140,6 @@ class Spectrum {
     std::size_t _iTrace;/// for logging / debugging purposes only
     ndarray::Array<float, 1, 1> _dispCoeffs;
     std::vector<std::shared_ptr<ReferenceLine>> _referenceLines;
-    float _dispRms;
-    float _dispRmsCheck;
-    std::size_t _nGoodLines;
     bool _isWavelengthSet;
 
   protected:
