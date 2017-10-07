@@ -32,6 +32,7 @@ class ReduceArcConfig(pexConfig.Config):
                                                              "pfs/lineLists/CdHgKrNeXe_red.fits"));
     minArcLineIntensity=pexConfig.Field(doc="Minimum 'NIST' intensity to use emission lines",
                                         dtype=float, default=0);
+    randomSeed=pexConfig.Field(doc="Seed to pass to np.random.seed()", dtype=int, default=0)
 
 class ReduceArcTaskRunner(TaskRunner):
     """Get parsed values into the ReduceArcTask.run"""
@@ -72,6 +73,9 @@ class ReduceArcTask(CmdLineTask):
         self.log.debug('len(expRefList) = %d' % len(expRefList))
         self.log.debug('wLenFile = %s' % wLenFile)
         self.log.debug('lineList = %s' % lineList)
+
+        if self.config.randomSeed != 0:
+            np.random.seed(self.config.randomSeed)
 
         for arcRef in expRefList:
             self.log.debug('arcRef.dataId = %s' % arcRef.dataId)
