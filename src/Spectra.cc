@@ -295,7 +295,7 @@ Spectrum::hIdentify(std::vector<std::shared_ptr<const ReferenceLine>> const& lin
                     refLine->status |= ReferenceLine::FIT;
                     refLine->fitIntensity = GaussCoeffs[PEAK];
                     refLine->fitPixelPos = GaussCoeffs[XC];
-                    refLine->fitPixelPosErr = EGaussCoeffs[XC];
+                    refLine->fitPixelPosErr = ::sqrt(EGaussCoeffs[XC]);
 
                     if (i > 0 && std::fabs(GaussPos[i] - GaussPos[i - 1]) < 1.5) { // wrong line identified!
                         if (nLine > 2) {
