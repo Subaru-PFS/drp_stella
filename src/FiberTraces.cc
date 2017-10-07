@@ -234,17 +234,30 @@ namespace pfs { namespace drp { namespace stella {
   PTR(afwImage::Image<ImageT>)
       FiberTrace<ImageT, MaskT, VarianceT>::getReconstructed2DSpectrum(const Spectrum & spectrum) const
   {
-    ndarray::Array<ImageT, 2, 1> imageArr = ndarray::allocate(_trace->getHeight(), _trace->getWidth());
-    
-    auto itRec = imageArr.begin();      // n.b. will iterate row by row
-    auto itSpec = spectrum.getSpectrum().begin()   + _trace->getY0();
-    auto itBkgd = spectrum.getBackground().begin() + _trace->getY0();
-    for (auto itProf = _trace->getImage()->getArray().begin(), end = _trace->getImage()->getArray().end();
-         itProf != end; ++itProf, ++itRec, ++itSpec, ++itBkgd) {
-        *itRec = *itBkgd + *itProf*(*itSpec);
-    }
-    
-    return std::make_shared<afwImage::Image<ImageT>>(imageArr, false, _trace->getXY0());
+      auto recon2d = std::make_shared<afwImage::Image<ImageT>>(_trace->getBBox());
+      const auto FIBERTRACE = _trace->getMask()->getPlaneBitMask("FIBERTRACE");
+
+      auto bkgd = spectrum.getBackground();
+      auto spec = spectrum.getSpectrum();
+      const int y0 = _trace->getY0();
+      
+      const int height = _trace->getHeight();
+      for (int i = 0; i != height; ++i) {
+          const float specVal = spec[y0 + i]; // value of spectrum
+          const float bkgdVal = bkgd[y0 + i]; // value of background
+          
+          auto profilePtr = _trace->getImage()->row_begin(i);
+          auto maskPtr  = _trace->getMask()->row_begin(i);
+          auto reconPtr = recon2d->row_begin(i);
+          const int width  = _trace->getImage()->getWidth();
+          for (int j = 0; j != width; ++j) {
+              if (maskPtr[j] & FIBERTRACE) {
+                  reconPtr[j] = bkgdVal + specVal*profilePtr[j];
+              }
+          }
+      }
+      
+      return recon2d;
   }
 
   template<typename ImageT, typename MaskT, typename VarianceT>
