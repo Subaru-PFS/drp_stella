@@ -20,7 +20,6 @@ void declareFiberTraceFunction(py::module &mod)
     py::class_<FiberTraceFunction, std::shared_ptr<FiberTraceFunction>> cls(mod, "FiberTraceFunction");
     cls.def(py::init<>());
     cls.def(py::init<FiberTraceFunction const&>(), "ftf"_a);
-    cls.def(py::init<std::shared_ptr<FiberTraceFunction> const&>(), "ftf"_a);
     cls.def_readwrite("fiberTraceFunctionControl", &FiberTraceFunction::fiberTraceFunctionControl);
     cls.def_readwrite("xCenter", &FiberTraceFunction::xCenter);
     cls.def_readwrite("yCenter", &FiberTraceFunction::yCenter);
@@ -70,15 +69,9 @@ void declareFiberTraceProfileFittingControl(py::module &mod)
         mod, "FiberTraceProfileFittingControl");
     cls.def(py::init<>());
     cls.def(py::init<FiberTraceProfileFittingControl const&>(), "ftpfc"_a);
-    LSST_DECLARE_CONTROL_FIELD(cls, FiberTraceProfileFittingControl, profileInterpolation);
     LSST_DECLARE_CONTROL_FIELD(cls, FiberTraceProfileFittingControl, swathWidth);
     LSST_DECLARE_CONTROL_FIELD(cls, FiberTraceProfileFittingControl, overSample);
-    LSST_DECLARE_CONTROL_FIELD(cls, FiberTraceProfileFittingControl, maxIterSF);
-    LSST_DECLARE_CONTROL_FIELD(cls, FiberTraceProfileFittingControl, maxIterSky);
     LSST_DECLARE_CONTROL_FIELD(cls, FiberTraceProfileFittingControl, maxIterSig);
-    LSST_DECLARE_CONTROL_FIELD(cls, FiberTraceProfileFittingControl, lambdaSF);
-    LSST_DECLARE_CONTROL_FIELD(cls, FiberTraceProfileFittingControl, lambdaSP);
-    LSST_DECLARE_CONTROL_FIELD(cls, FiberTraceProfileFittingControl, wingSmoothFactor);
     LSST_DECLARE_CONTROL_FIELD(cls, FiberTraceProfileFittingControl, lowerSigma);
     LSST_DECLARE_CONTROL_FIELD(cls, FiberTraceProfileFittingControl, upperSigma);
 }
