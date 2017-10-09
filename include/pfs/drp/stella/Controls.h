@@ -109,40 +109,22 @@ struct FiberTraceProfileFittingControl {
 };
 
 struct DispCorControl {
-    enum {  POLYNOMIAL=0, CHEBYSHEV, NVALUES_P } FITTING_FUNCTION;/// Profile interpolation method
-    LSST_CONTROL_FIELD( fittingFunction, std::string, "Function for fitting the dispersion" );
     LSST_CONTROL_FIELD( order, int, "Fitting function order" );
-    LSST_CONTROL_FIELD( searchRadius, int, "Radius in pixels relative to line list to search for emission line peak" );
-    LSST_CONTROL_FIELD( fwhm, float, "FWHM of emission lines" );
-    LSST_CONTROL_FIELD( radiusXCor, int, "Radius in pixels in which to cross correlate a spectrum relative to the reference spectrum" );
-    LSST_CONTROL_FIELD( lengthPieces, int, "Length of pieces of spectrum to match to reference spectrum by stretching and shifting" );
-    LSST_CONTROL_FIELD( minPercentageOfLines, float, "Minimum percentage of lines to be identified for <identify> to pass" );
-    LSST_CONTROL_FIELD( nCalcs, int, "Number of iterations > spectrumLength / lengthPieces, e.g. spectrum length is 3800 pixels, <lengthPieces> = 500, <nCalcs> = 15: run 1: pixels 0-499, run 2: 249-749,...");
-    LSST_CONTROL_FIELD( stretchMinLength, int, "Minimum length to stretched pieces to (< lengthPieces)" );
-    LSST_CONTROL_FIELD( stretchMaxLength, int, "Maximum length to stretched pieces to (> lengthPieces)" );
-    LSST_CONTROL_FIELD( nStretches, int, "Number of stretches between <stretchMinLength> and <stretchMaxLength>");
-    LSST_CONTROL_FIELD( sigmaReject, float, "Sigma rejection threshold" );
-    LSST_CONTROL_FIELD( nIterReject, int, "Number of sigma rejection iterations" );
-    /// <maxDistance> should be large enough to allow small differences between the
-    /// predicted and the measured emission line, but small enough to make sure that
-    /// mis-identified lines are identified as such. As a rule of thumb about 1 half
-    /// of the FWHM should be a good start
-    LSST_CONTROL_FIELD( maxDistance, float, "Reject emission lines which center is more than this value away from the predicted position" );
+    LSST_CONTROL_FIELD(searchRadius, int,
+                       "Radius in pixels relative to line list to search for emission line peak" );
+    LSST_CONTROL_FIELD(fwhm, float, "FWHM of emission lines" );
+    LSST_CONTROL_FIELD(maxDistance, float,
+                       "Reject emission lines with center more than this far from the predicted position\n"
+                       "\n"
+                       "<maxDistance> should be large enough to allow small differences between the\n"
+                       "predicted and the measured emission line, but small enough to make sure that\n"
+                       "mis-identified lines are identified as such. As a rule of thumb about 1 half\n"
+                       "of the FWHM should be a good start");
 
     DispCorControl() :
-        fittingFunction( "POLYNOMIAL" ),
         order( 5 ),
         searchRadius( 2 ),
         fwhm( 2.6 ),
-        radiusXCor( 35 ),
-        lengthPieces( 500 ),
-        minPercentageOfLines ( 66.7 ),
-        nCalcs( 15 ),
-        stretchMinLength( 450 ),
-        stretchMaxLength( 550 ),
-        nStretches( 100 ),
-        sigmaReject(3.),
-        nIterReject(1),
         maxDistance(1.5)
         {}
 };

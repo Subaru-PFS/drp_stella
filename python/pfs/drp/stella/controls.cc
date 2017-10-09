@@ -81,19 +81,9 @@ void declareDispCorControl(py::module &mod)
     py::class_<DispCorControl, std::shared_ptr<DispCorControl>> cls(mod, "DispCorControl");
     cls.def(py::init<>());
     cls.def(py::init<DispCorControl const&>(), "control"_a);
-    LSST_DECLARE_CONTROL_FIELD(cls, DispCorControl, fittingFunction);
     LSST_DECLARE_CONTROL_FIELD(cls, DispCorControl, order);
     LSST_DECLARE_CONTROL_FIELD(cls, DispCorControl, searchRadius);
     LSST_DECLARE_CONTROL_FIELD(cls, DispCorControl, fwhm);
-    LSST_DECLARE_CONTROL_FIELD(cls, DispCorControl, radiusXCor);
-    LSST_DECLARE_CONTROL_FIELD(cls, DispCorControl, lengthPieces);
-    LSST_DECLARE_CONTROL_FIELD(cls, DispCorControl, minPercentageOfLines);
-    LSST_DECLARE_CONTROL_FIELD(cls, DispCorControl, nCalcs);
-    LSST_DECLARE_CONTROL_FIELD(cls, DispCorControl, stretchMinLength);
-    LSST_DECLARE_CONTROL_FIELD(cls, DispCorControl, stretchMaxLength);
-    LSST_DECLARE_CONTROL_FIELD(cls, DispCorControl, nStretches);
-    LSST_DECLARE_CONTROL_FIELD(cls, DispCorControl, sigmaReject);
-    LSST_DECLARE_CONTROL_FIELD(cls, DispCorControl, nIterReject);
     LSST_DECLARE_CONTROL_FIELD(cls, DispCorControl, maxDistance);
 }
 
