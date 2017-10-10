@@ -56,8 +56,19 @@ public:
      * e.g.
      *  ftMap.getSlitOffsets()[FIBER_DX][100]
      * is the offset in the x-direction for the 100th fiber (n.b. not fiberId necessarily; cf. findFiberId())
+     *
+     * The units are pixels for DX and DY; microns at the slit for focus
      */
     ndarray::Array<float, 2, 1> const& getSlitOffsets() const { return _slitOffsets; }
+    /**
+     * Return the slit offsets for the specified fibre; see getSlitOffsets() for details
+     * e.g.
+     *  ftMap.getSlitOffsets(fiberId)[FIBER_DY]
+     * is the offset in the y-direction for the fibre identified by fiberId
+     */
+    ndarray::ArrayRef<float, 1, 0> const getSlitOffsets(std::size_t fiberId ///< fiberId
+                                                        ) const
+        { return _slitOffsets[ndarray::view(FIBER_DX, FIBER_DFOCUS + 1)(getFiberIdx(fiberId))]; }
 
     /**
      * Return the wavelength values for a fibre
@@ -91,9 +102,9 @@ public:
 private:
     int _nFiber;                        // number of fibers
     lsst::afw::geom::Box2I _bbox;       // bounding box of detector
-    std::vector<int> _fiberIds;         // The 1-indexed fiberIds present on this detector
+    std::vector<int> _fiberIds;         // The fiberIds (between 1 and c. 2400) present on this detector
     //
-    // These std::vectors are indexed by fiberID (which start at 1)
+    // These std::vectors are indexed by fiberIdx (not fiberId)
     //
     int _nKnot;                         // number of knots for splines
     std::vector<math::spline<float>> _yToXCenter; // splines to convert a y pixel value to trace position
@@ -103,7 +114,7 @@ private:
     //
     ndarray::Array<int, 1, 1> _xToFiberId;
     //
-    // offset (in pixels) for each trace in x, and y and in focus (microns); all indexed by fiberId
+    // offset (in pixels) for each trace in x, and y and in focus (microns at the slit); all indexed by fiberIdx
     //
     ndarray::Array<float, 2, 1> _slitOffsets; 
     /*
