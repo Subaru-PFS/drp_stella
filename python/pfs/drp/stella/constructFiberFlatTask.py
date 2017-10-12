@@ -201,7 +201,7 @@ class ConstructFiberFlatTask(CalibTask):
 
             if di.frames_meanTraces >= 0:
                 display = afwDisplay.getDisplay(frame=di.frames_meanTraces)
-                display.mtv(afwImage.ImageF(sumRecImArr/len(dataRefList)), title='mean(Traces)')
+                display.mtv(afwImage.ImageF(sumRecIm.array/len(dataRefList)), title='mean(Traces)')
                 if di.zoomPan:
                     display.zoom(*zoomPan)
 
