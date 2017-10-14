@@ -184,10 +184,10 @@ def writePfsArm(butler, arcExposure, spectrumSet, dataId):
 
     This is a bit messy as we need to include the pfsConfig file in the pfsArm file
     """
-    md = arcExposure.getMetadata().toDict()
+    md = arcExposure.getMetadata()
     key = "PFSCONFIGID"
-    if key in md:
-        pfsConfigId = md[key]
+    if md.exists(key):
+        pfsConfigId = md.get(key)
     else:
         log.log("writePfsArm",
                 log.WARN,
