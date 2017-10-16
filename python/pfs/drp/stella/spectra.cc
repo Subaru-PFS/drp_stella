@@ -105,7 +105,11 @@ void declareSpectrumSet(py::module &mod) {
 
     // Pythonic APIs
     cls.def("__len__", &Class::getNtrace);
-    cls.def("__getitem__", [](Class const& self, std::size_t i) { return self.getSpectrum(i); });
+    cls.def("__getitem__", [](Class const& self, std::size_t i) {
+            if (i >= self.getNtrace()) throw py::index_error();
+            
+            return self.getSpectrum(i);
+        });
 }
 
 PYBIND11_PLUGIN(spectra) {

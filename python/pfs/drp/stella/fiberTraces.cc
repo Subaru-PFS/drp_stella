@@ -56,14 +56,19 @@ void declareFiberTraceSet(py::module &mod)
     cls.def(py::init<>());
     cls.def(py::init<Class const&, bool>(), "fiberTraceSet"_a, "deep"_a=false);
     cls.def("getNtrace", &Class::getNtrace);
-    cls.def("__len__", &Class::getNtrace);
     cls.def("getFiberTrace",
             (PTR(typename Class::FiberTraceT)(Class::*)(std::size_t const))&Class::getFiberTrace,
             "index"_a);
-    cls.def("__getitem__", [](Class const& self, std::size_t index) { return self.getFiberTrace(index); });
     cls.def("setFiberTrace", &Class::setFiberTrace, "index"_a, "trace"_a);
     cls.def("addFiberTrace", &Class::addFiberTrace, "trace"_a, "index"_a=0);
     cls.def("getTraces", [](Class const& self) { return *self.getTraces(); });
+    // Pythonic APIs
+    cls.def("__len__", &Class::getNtrace);
+    cls.def("__getitem__", [](Class const& self, std::size_t i) {
+            if (i >= self.getNtrace()) throw py::index_error();
+            
+            return self.getFiberTrace(i);
+        });
 }
 
 
