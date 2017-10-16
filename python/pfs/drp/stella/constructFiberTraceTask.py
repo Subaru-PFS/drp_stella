@@ -2,6 +2,8 @@
 import math
 import os
 
+import lsst.daf.base as dafBase
+import lsst.daf.persistence as dafPersist
 import lsst.afw.detection as afwDet
 import lsst.afw.display as afwDisplay
 import lsst.afw.image as afwImage
@@ -207,5 +209,13 @@ class ConstructFiberTraceTask(CalibTask):
             pfsFT.fiberId.append(ft.getITrace())
             pfsFT.traces.append(ft.getTrace())
 
-        pfsFiberTrace = PfsFiberTraceIO(pfsFT)
+        md = dafBase.PropertyList()
+        for i, dataRef in enumerate(dataRefList):
+            dataId = dataRef.dataId
+            if i == 0:
+                md.set('arm', dataId['arm'])
+                md.set('spectrograph', dataId['spectrograph'])
+            md.set('visit%03d' % i, dataId['visit'])
+
+        pfsFiberTrace = PfsFiberTraceIO(pfsFT, md)
         self.write(cache.butler, pfsFiberTrace, outputId)

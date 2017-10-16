@@ -104,8 +104,9 @@ class PfsFiberTraceIO(object):
     """A class to perform butler-based I/O for pfsFiberTrace
     """
 
-    def __init__(self, pfsFiberTrace):
+    def __init__(self, pfsFiberTrace, metadata=None):
         self._pfsFiberTrace = pfsFiberTrace
+        self._metadata = metadata
 
 #-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
@@ -128,4 +129,4 @@ class PfsFiberTraceIO(object):
 
     def writeFits(self, pathName, flags=None):
         dirName, fileName = os.path.split(pathName)
-        self._pfsFiberTrace.write(dirName=dirName, fileName=fileName)
+        self._pfsFiberTrace.write(dirName=dirName, fileName=fileName, metadata=self._metadata)
