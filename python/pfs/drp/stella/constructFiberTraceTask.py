@@ -204,8 +204,7 @@ class ConstructFiberTraceTask(CalibTask):
             outputId['arm']
         )
 
-        for iFt in range(fts.getNtrace()):
-            ft = fts.getFiberTrace(iFt)
+        for ft in fts:
             pfsFT.fiberId.append(ft.getITrace())
             pfsFT.traces.append(ft.getTrace())
 

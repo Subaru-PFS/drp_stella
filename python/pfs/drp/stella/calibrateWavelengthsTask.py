@@ -43,8 +43,7 @@ class CalibrateWavelengthsTask(pipeBase.Task):
         # Fit the wavelength solution
         dispCorControl = self.config.makeControl()
 
-        for i in range(spectrumSet.getNtrace()):
-            spec = spectrumSet.getSpectrum(i)
+        for spec in spectrumSet:
             fiberId = spec.getITrace()
 
             # Lookup the pixel positions of those lines
@@ -78,8 +77,7 @@ class CalibrateWavelengthsTask(pipeBase.Task):
                 wavelength[i] = rl.wavelength
                 guessedIntensity[i] = rl.guessedIntensity
 
-        for i in range(spectrumSet.getNtrace()):
-            spec = spectrumSet.getSpectrum(i)
+        for spec in spectrumSet:
             fiberId = spec.getITrace()
             refLines = spec.getReferenceLines()
             #
