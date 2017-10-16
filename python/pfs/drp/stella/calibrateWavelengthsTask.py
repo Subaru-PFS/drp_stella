@@ -10,17 +10,16 @@ from pfs.drp.stella.utils import plotReferenceLines
 @pexConfig.wrap(drpStella.DispCorControl) # should wrap IdentifyLinesTaskConfig when it's written
 class CalibrateWavelengthsConfig(pexConfig.Config):
     fittingFunction=pexConfig.Field(doc="Function for fitting the dispersion", dtype=str, default="POLYNOMIAL");
-    order=pexConfig.Field(doc="Fitting function order", dtype=int, default=5);
+    order=pexConfig.Field(doc="Fitting function order", dtype=int, default=4);
     searchRadius=pexConfig.Field(doc="Radius in pixels relative to line list to search for emission line peak",
                                  dtype=int, default=2);
     fwhm=pexConfig.Field(doc="FWHM of emission lines", dtype=float, default=2.6);
-    maxDistance=pexConfig.Field(doc="Reject arc lines with center more than maxDistance from predicted position",
+    maxDistance=pexConfig.Field(doc="Reject lines with center more than maxDistance from predicted position",
                                 dtype=float, default=2.5);
     nLinesKeptBack=pexConfig.Field(doc="Number of lines to withhold from line fitting to estimate errors",
                                    dtype=int, default=4);
-
-    nsigmaClip = pexConfig.Field(doc="Number of sigma to clip points in the initial wavelength fit",
-                                 dtype=float, default=5)
+    nSigmaClip = pexConfig.ListField(doc="Number of sigma to clip points in the initial wavelength fit",
+                                     dtype=float, default=[10, 5, 4])
     errorFloor = pexConfig.Field(doc="Floor on positional errors, added in quadrature to quoted errors",
                                  dtype=float, default=5e-2)
 
@@ -95,44 +94,51 @@ class CalibrateWavelengthsTask(pipeBase.Task):
                 status[i] = rl.status
 
             fitted = (status & arcLines[0].Status.FIT != 0)
-            #
-            # Reserve some lines to estimate the quality of the fit
-            #
-            used = fitted.copy()
-            for i in np.random.choice(len(fitted), self.config.nLinesKeptBack, replace=False):
-                used[i] = False
-            reserved = fitted & ~used
-            #
-            # Fit the residuals
-            #
-            x = guessedPixelPos
-            y = fitPixelPos - guessedPixelPos
-            yerr = np.hypot(fitPixelPosErr, self.config.errorFloor)
 
-            wavelengthFit = np.polynomial.chebyshev.Chebyshev.fit(
-                x[used], y[used], self.config.order, domain=[0, len(spec.wavelength)], w=1/yerr[used])
-            yfit = wavelengthFit(x)
+            nSigma = self.config.nSigmaClip[:]
+            try:
+                nSigma[0]
+            except TypeError:
+                nSigma = [nSigma]
+            nSigma.append(None)         # None => don't clip on the last pass, but do reserve some values
 
-            clipped = (np.fabs(y - yfit) > self.config.nsigmaClip*yerr) & fitted
-
-            if clipped.sum() == len(clipped):
-                self.info.warn("All points were clipped for fiberId %d; disabled clipping" % fiberId)
-                clipped[:] = False
-
-            if clipped.sum() > 0:
-                used = np.logical_and(used, np.logical_not(clipped))
+            used = fitted.copy()        # the lines that we use in the fit
+            clipped = np.zeros_like(fitted, dtype=bool)
+            reserved = np.ones_like(fitted, dtype=bool)
+            for nSigma in nSigma:
+                if nSigma is None:      # i.e. the last pass
+                    #
+                    # Reserve some lines to estimate the quality of the fit
+                    #
+                    good = np.where(used)[0]
+                    for i in np.random.choice(len(good), self.config.nLinesKeptBack, replace=False):
+                        used[good[i]] = False
+                        
+                    reserved = (fitted & ~clipped) & ~used
+                    assert sum(reserved) == self.config.nLinesKeptBack
+                #
+                # Fit the residuals
+                #
+                x = guessedPixelPos
+                y = fitPixelPos - guessedPixelPos
+                yerr = np.hypot(fitPixelPosErr, self.config.errorFloor)
 
                 wavelengthFit = np.polynomial.chebyshev.Chebyshev.fit(
-                    x[used], y[used], self.config.order, domain=[0, len(spec.wavelength)], w=1/yerr[used])
+                    x[used], y[used], self.config.order, domain=[0, len(spec.wavelength) - 1], w=1/yerr[used])
                 yfit = wavelengthFit(x)
 
-                try:
-                    print("RHL", wavelengthFit.convert(kind=np.polynomial, domain=[0, len(spec.wavelength)]))
-                except Exception as e:
-                    #print("XXX", e)
-                    #print("coeffs", wavelengthFit)
-                    pass
-                    
+                if nSigma is not None:
+                    nclipped = fitted & (np.fabs(y - yfit) > nSigma*yerr) # newly clipped
+                    if nclipped.sum() == 0:
+                        break
+
+                    clipped |= nclipped
+
+                    if clipped.sum() == len(clipped):
+                        self.info.warn("All points were clipped for fiberId %d; disabled clipping" % fiberId)
+                        clipped[:] = False
+
+                    used = np.logical_and(used, np.logical_not(clipped))
             #
             # spec.wavelength is the wavelengths at the positions rows, and we now know the correction
             # from the nominal model in the detectorMap based on the lines.
@@ -176,6 +182,12 @@ class CalibrateWavelengthsTask(pipeBase.Task):
                     plt.show()
 
                 if self.debugInfo.plotPositionResiduals:
+                    # things we're going to plot
+                    dataItems = [(used, 'o', 'used'), #                     logical, marker, label
+                                 (reserved, 'o', 'reserved'),
+                                 (clipped, '+', 'clipped'),
+                    ]
+
                     plt.figure().subplots_adjust(hspace=0)
 
                     axes = []
@@ -183,26 +195,19 @@ class CalibrateWavelengthsTask(pipeBase.Task):
                     axes.append(plt.subplot2grid((3, 1), (1, 0), rowspan=2, sharex=axes[-1]))
 
                     ax = axes[0]
-                    ax.errorbar(x[used], (y - yfit)[used], yerr=yerr[used],
-                                 marker='o', ls='none', label='used')
-                    ax.errorbar(x[reserved], (y - yfit)[reserved], yerr=yerr[reserved],
-                                 marker='o', ls='none', label='reserved')
-                    ax.errorbar(x[clipped], (y - yfit)[clipped], yerr=yerr[clipped],
-                                 marker='+', ls='none', label='clipped')
-                    ax.set_ylim(0.5*np.array([-1, 1]))
+                    for l, marker, label in dataItems:
+                        ax.errorbar(x[l], (y - yfit)[l], yerr=yerr[l], marker=marker, ls='none')
 
+                    ax.set_ylim(0.5*np.array([-1, 1]))
                     ax.axhline(0, ls=':', color='black')
                     ax.set_ylabel('residuals')
 
                     ax.set_title("FiberId %d" % fiberId) # applies to the whole plot
                     
                     ax = axes[1]
-                    ax.errorbar(x[used], y[used], yerr=yerr[used],
-                                 marker='o', ls='none', label='used')
-                    ax.errorbar(x[reserved], y[reserved], yerr=yerr[reserved],
-                                 marker='o', ls='none', label='reserved')
-                    ax.errorbar(x[clipped], y[clipped], yerr=yerr[clipped],
-                                 marker='+', ls='none', label='clipped')
+                    for l, marker, label in dataItems:
+                        if l.sum() > 0: # no points confuses plt.legend()
+                            ax.errorbar(x[l], y[l], yerr=yerr[l], marker=marker, ls='none', label=label)
                     ax.plot(rows, wavelengthFit(rows))
 
                     ax.legend(loc='best')
