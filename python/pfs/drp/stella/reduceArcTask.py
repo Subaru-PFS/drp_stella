@@ -130,8 +130,7 @@ class ReduceArcTask(CmdLineTask):
             # Done; time for debugging plots
             #
             if self.debugInfo.display and self.debugInfo.arc_frame >= 0 and self.debugInfo.showArcLines:
-                for i in range(spectrumSet.getNtrace()):
-                    spec = spectrumSet.getSpectrum(i)
+                for spec in spectrumSet:
                     fiberId = spec.getITrace()
 
                     x = detectorMap.findPoint(fiberId, arcLines[0].wavelength)[0]
@@ -146,10 +145,7 @@ class ReduceArcTask(CmdLineTask):
                 display = afwDisplay.Display(self.debugInfo.residuals_frame)
                 residuals = arcExp.maskedImage.clone()
 
-                for i in range(spectrumSet.getNtrace()):
-                    ft = flatFiberTraceSet.getFiberTrace(i)
-                    spec = spectrumSet.getSpectrum(i)
-
+                for ft, spec in zip(flatFiberTraceSet, spectrumSet):
                     reconIm = ft.getReconstructed2DSpectrum(spec)
                     residuals[reconIm.getBBox()] -= reconIm
 
