@@ -41,7 +41,7 @@ void declareDetectorMap(py::module &mod)
     cls.def("getSlitOffsets",
             (ndarray::Array<float, 2, 1> const& (Class::*)() const)&Class::getSlitOffsets);
     cls.def("getSlitOffsets",
-            (ndarray::ArrayRef<float, 1, 0> const (Class::*)(std::size_t) const)&Class::getSlitOffsets,
+            (ndarray::Array<float, 1, 0> const (Class::*)(std::size_t) const)&Class::getSlitOffsets,
             "fiberId"_a);
     cls.def("setSlitOffsets", &Class::setSlitOffsets, "slitOffsets"_a);
     cls.def("getFiberIdx", &Class::getFiberIdx);

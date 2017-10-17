@@ -66,7 +66,7 @@ public:
      *  ftMap.getSlitOffsets(fiberId)[FIBER_DY]
      * is the offset in the y-direction for the fibre identified by fiberId
      */
-    ndarray::ArrayRef<float, 1, 0> const getSlitOffsets(std::size_t fiberId ///< fiberId
+    ndarray::Array<float, 1, 0> const getSlitOffsets(std::size_t fiberId ///< fiberId
                                                         ) const
         { return _slitOffsets[ndarray::view(FIBER_DX, FIBER_DFOCUS + 1)(getFiberIdx(fiberId))]; }
 
