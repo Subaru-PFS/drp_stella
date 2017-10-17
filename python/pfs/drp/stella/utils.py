@@ -8,7 +8,7 @@ import lsst.log as log
 import numpy as np
 import pfs.drp.stella as drpStella
 import pfs.drp.stella.detectorMap as detectorMap
-from pfs.drp.stella.datamodelIO import spectrumSetToPfsArm, PfsArmIO
+from pfs.drp.stella.datamodelIO import spectrumSetToPfsArm, PfsArmIO, PfsConfigIO
 
 def makeFiberTraceSet(pfsFiberTrace):
     if pfsFiberTrace.traces is None or len(pfsFiberTrace.traces) == 0:
@@ -197,9 +197,26 @@ def writePfsArm(butler, arcExposure, spectrumSet, dataId):
 
     pfsConfig = butler.get("pfsConfig", pfsConfigId=pfsConfigId, dateObs=dataId["dateObs"])
 
+    if False:                           # calls bypass_pfsConfig, repeating warnings from the get()
+        createPfsConfig = not butler.datasetExists("pfsConfig",
+                                                   pfsConfigId=pfsConfigId, dateObs=dataId["dateObs"])
+    else:
+        fileName = butler.get("pfsConfig_filename", pfsConfigId=pfsConfigId, dateObs=dataId["dateObs"])[0]
+        createPfsConfig = not os.path.exists(fileName)
+
+    if createPfsConfig:
+        assert pfsConfig.fiberId is None
+        fiberId = []
+        for spec in spectrumSet:
+            fiberId.append(spec.getITrace())
+        pfsConfig.fiberId = np.array(fiberId)
+
     pfsArm = spectrumSetToPfsArm(pfsConfig, spectrumSet,
                                  dataId["visit"], dataId["spectrograph"], dataId["arm"])
     butler.put(PfsArmIO(pfsArm), 'pfsArm', dataId)
+
+    if createPfsConfig:
+        butler.put(PfsConfigIO(pfsConfig), 'pfsConfig', dataId, pfsConfigId=0x0)
 
 def addFiberTraceSetToMask(mask, fiberTraceSet):
     for ft in fiberTraceSet.getTraces():
