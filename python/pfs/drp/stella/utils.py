@@ -208,7 +208,7 @@ def writePfsArm(butler, arcExposure, spectrumSet, dataId):
         assert pfsConfig.fiberId is None
         fiberId = []
         for spec in spectrumSet:
-            fiberId.append(spec.getITrace())
+            fiberId.append(spec.getFiberId())
         pfsConfig.fiberId = np.array(fiberId)
 
     pfsArm = spectrumSetToPfsArm(pfsConfig, spectrumSet,

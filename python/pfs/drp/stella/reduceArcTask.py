@@ -131,7 +131,7 @@ class ReduceArcTask(CmdLineTask):
             #
             if self.debugInfo.display and self.debugInfo.arc_frame >= 0 and self.debugInfo.showArcLines:
                 for spec in spectrumSet:
-                    fiberId = spec.getITrace()
+                    fiberId = spec.getFiberId()
 
                     x = detectorMap.findPoint(fiberId, arcLines[0].wavelength)[0]
                     y = 0.5*arcExp.getHeight()

@@ -55,14 +55,12 @@ class ExtractSpectraTask(pipeBase.Task):
 
         # extract the spectra
 
-        for i in range(len(traceNumbers)):
-            fiberTrace = fiberTraceSet.getFiberTrace(traceNumbers[i])
-
+        for fiberTrace in fiberTraceSet: 
             # Extract spectrum from profile
             try:
                 spectrum = fiberTrace.extractSpectrum(exposure.getMaskedImage(), self._useProfile)
             except Exception as e:
-                self.log.warn("Extraction of fibre %d failed: %s" % (fiberTrace.getITrace(), e))
+                self.log.warn("Extraction of fibre %d failed: %s" % (fiberTrace.getFiberId(), e))
                 continue
 
             spectrumSet.addSpectrum(spectrum)

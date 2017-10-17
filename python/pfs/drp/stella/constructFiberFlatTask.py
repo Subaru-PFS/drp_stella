@@ -140,19 +140,6 @@ class ConstructFiberFlatTask(CalibTask):
                     recFt.array[profile.image.array <= 0] = 0.0
 
                 bbox = profile.getBBox()
-                if ft.getITrace() == -315:
-                    import matplotlib.pyplot as plt
-
-                    cen, hwidth = 2010, 4
-                    plt.plot(maskedImage.image[cen - hwidth: cen + hwidth + 1, :].array.sum(axis=1), label='im')
-                    plt.plot(spectrum.getSpectrum(), label='spec')
-                    plt.plot(np.arange(recFt.getBBox().getMinY(), recFt.getBBox().getMaxY() + 1),
-                             recFt.array.sum(axis=1), label='trace')
-                    plt.legend(loc='best')
-                    plt.show()
-
-                    import pdb; pdb.set_trace() 
-
                 sumRecIm[bbox] += recFt
                 sumVarIm[bbox] += profile.variance
 

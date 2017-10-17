@@ -44,7 +44,7 @@ class CalibrateWavelengthsTask(pipeBase.Task):
         dispCorControl = self.config.makeControl()
 
         for spec in spectrumSet:
-            fiberId = spec.getITrace()
+            fiberId = spec.getFiberId()
 
             # Lookup the pixel positions of those lines
             for rl in arcLines:
@@ -78,7 +78,7 @@ class CalibrateWavelengthsTask(pipeBase.Task):
                 guessedIntensity[i] = rl.guessedIntensity
 
         for spec in spectrumSet:
-            fiberId = spec.getITrace()
+            fiberId = spec.getFiberId()
             refLines = spec.getReferenceLines()
             #
             # Unpack reference lines

@@ -29,12 +29,12 @@ void declareFiberTrace(py::module &mod)
                      PTR(FiberTraceFunction const) const&,
                      PTR(FiberTraceProfileFittingControl) const&,
                      std::size_t>(),
-            "maskedImage"_a, "fiberTraceFunction"_a, "fiberTraceProfileFittingControl"_a, "iTrace"_a=0);
+            "maskedImage"_a, "fiberTraceFunction"_a, "fiberTraceProfileFittingControl"_a, "fiberId"_a=0);
     cls.def(py::init<Class&, bool>(), "fiberTrace"_a, "deep"_a=false);
 
     cls.def("getTrace", (PTR(typename Class::MaskedImageT)(Class::*)())&Class::getTrace);
     cls.def("getXCenters", &Class::getXCenters);
-    cls.def("getITrace", &Class::getITrace);
+    cls.def("getFiberId", &Class::getFiberId);
 
     cls.def("extractSpectrum", &Class::extractSpectrum, "image"_a,
             "fitBackground"_a=false, "clipNSigma"_a=0.0, "useProfile"_a=true);
