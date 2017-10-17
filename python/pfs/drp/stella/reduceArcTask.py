@@ -3,7 +3,6 @@ import numpy as np
 if False:                               # will be imported if needed (matplotlib import can be slow)
     import matplotlib.pyplot as plt
 import lsstDebug
-#import lsst.log as log
 import lsst.pex.config as pexConfig
 from lsst.utils import getPackageDir
 from lsst.pipe.base import TaskRunner, ArgumentParser, CmdLineTask
@@ -38,8 +37,7 @@ class ReduceArcTaskRunner(TaskRunner):
     """Get parsed values into the ReduceArcTask.run"""
     @staticmethod
     def getTargetList(parsedCmd, **kwargs):
-        return [(parsedCmd.id.refList,
-                 dict(butler=parsedCmd.butler, wLenFile=parsedCmd.wLenFile, lineList=parsedCmd.lineList))]
+        return [(parsedCmd.id.refList, dict(butler=parsedCmd.butler))]
 
 class ReduceArcTask(CmdLineTask):
     """Task to reduce Arc images"""
@@ -60,19 +58,11 @@ class ReduceArcTask(CmdLineTask):
         parser = ArgumentParser(name=cls._DefaultName)
         parser.add_id_argument("--id", datasetType="raw",
                                help="input identifiers, e.g., --id visit=123 ccd=4")
-        parser.add_argument("--wLenFile", help='directory and name of pixel vs. wavelength file')
-        parser.add_argument("--lineList", help='directory and name of line list')
         return parser
 
-    def run(self, expRefList, butler, wLenFile=None, lineList=None, immediate=True):
-        if wLenFile == None:
-            wLenFile = self.config.wavelengthFile
-        if lineList == None:
-            lineList = self.config.lineList
+    def run(self, expRefList, butler, immediate=True):
         self.log.debug('expRefList = %s' % expRefList)
         self.log.debug('len(expRefList) = %d' % len(expRefList))
-        self.log.debug('wLenFile = %s' % wLenFile)
-        self.log.debug('lineList = %s' % lineList)
 
         if self.config.randomSeed != 0:
             np.random.seed(self.config.randomSeed)
@@ -89,7 +79,7 @@ class ReduceArcTask(CmdLineTask):
             except Exception, e:
                 raise RuntimeError("Unable to load fiberTrace for %s: %s" % (arcRef.dataId, e))
 
-            detectorMap = makeDetectorMap(butler, arcRef.dataId, wLenFile)
+            detectorMap = makeDetectorMap(butler, arcRef.dataId, self.config.wavelengthFile)
 
             flatFiberTraceSet = makeFiberTraceSet(fiberTrace)
             self.log.debug('fiberTrace calibration file contains %d fibers' % flatFiberTraceSet.getNtrace())
@@ -106,7 +96,8 @@ class ReduceArcTask(CmdLineTask):
             # read line list
             lamps = getLampElements(arcExp.getMetadata())
             self.log.info("Arc lamp elements are: %s" % " ".join(lamps))
-            arcLines = readLineListFile(lineList, lamps, minIntensity=self.config.minArcLineIntensity)
+            arcLines = readLineListFile(self.config.lineList, lamps,
+                                        minIntensity=self.config.minArcLineIntensity)
             arcLineWavelengths = np.array([line.wavelength for line in arcLines], dtype='float32')
 
             if self.debugInfo.display and self.debugInfo.arc_frame >= 0:
