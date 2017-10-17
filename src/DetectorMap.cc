@@ -123,6 +123,18 @@ DetectorMap::getWavelength(std::size_t fiberId) const
 }
 
 /*
+ * Return the wavelength values for a fibre
+ */
+void
+DetectorMap::setWavelength(std::size_t fiberId,
+                           ndarray::Array<float, 1, 1> const& wavelength)
+{
+    int const fidx = getFiberIdx(fiberId);
+    auto const xc = wavelength;         // not really updated, but I need an array
+    _setSplines(fidx, xc, false, wavelength, true);
+}
+            
+/*
  * Return the xCenter values for a fibre
  */
 ndarray::Array<float, 1, 1>
@@ -141,6 +153,19 @@ DetectorMap::getXCenter(std::size_t fiberId) const
     return res;
 }
 
+/*
+ * Update the xcenter values for a fibre
+ */
+void
+DetectorMap::setXCenter(std::size_t fiberId,
+                        ndarray::Array<float, 1, 1> const& xCenter)
+{
+    int const fidx = getFiberIdx(fiberId);
+    auto const wavelength = xCenter;    // not really updated, but I need an array
+
+    _setSplines(fidx, xCenter, true, wavelength, false);
+}
+            
 /*
  * Return the position of the fiber trace on the detector, given a fiberId and wavelength
  */
@@ -237,40 +262,7 @@ DetectorMap::_setSplines(ndarray::Array<float, 2, 1> const& xCenters,     // cen
      * loop over the fibers, setting the splines.  Note the fidx != fiberId (that's _fiberId[idx])
      */
     for (int fidx = 0; fidx != _nFiber; ++fidx) {
-        // look for finite values
-        auto const wl = wavelengths[fidx];
-        auto const xc = xCenters[fidx];
-        int j;
-        for (j = 0; j != xc.size(); ++j) {
-            if (std::isfinite(wl[j] + xc[j])) {
-                break;
-            }
-        }
-        int const j0 = j;
-
-        for (j = xc.size() - 1; j >= 0; j--) {
-            if (std::isfinite(wl[j] + xc[j])) {
-                break;
-            }
-        }
-        int const j1 = j - 1;
-        /*
-         * OK, we know that have finite values from j0..j1, so construct the vectors         * 
-         */
-        float const dy = (j1 - j0 + 1.0)/(_nKnot - 1); // step in y
-        float y = j0;
-        for (int i = 0; i != _nKnot; ++i, y += dy) {
-            int const iy = std::floor(y);
-
-            yIndices[i] = iy;
-            xCenter[i]    = xCenters[fidx][iy];
-            wavelength[i] = wavelengths[fidx][iy];
-        }
-        /*
-         * We have the arrays so we can set up the splines for each fibre
-         */
-        _yToXCenter[fidx] = math::spline<float>(yIndices, xCenter);       // first xCenter
-        _yToWavelength[fidx] = math::spline<float>(yIndices, wavelength); // then wavelength
+        _setSplines(fidx, xCenters[fidx], true, wavelengths[fidx], true);
     }
     /*
      * Now set _xToFiberId, an array giving the fiber ID for each pixel across the centre of the chip
@@ -293,6 +285,60 @@ DetectorMap::_setSplines(ndarray::Array<float, 2, 1> const& xCenters,     // cen
         }
 
         _xToFiberId[x] = _fiberIds[last_fidx];
+    }
+}
+
+void
+DetectorMap::_setSplines(const std::size_t fidx,                // desired fiducial index
+                         ndarray::Array<float, 1, 1> const& xc, // center of trace for each fibre
+                         bool setXCenters,                      // set the xCenter values?
+                         ndarray::Array<float, 1, 1> const& wl, // wavelengths for each fibre
+                         bool setWavelengths                    // set the wavelength values?
+                        )
+{
+    // values of y used as domain for the spline
+    std::vector<float> yIndices(_nKnot);
+    // Two vectors with the values for a single fibre
+    std::vector<float> xCenter(_nKnot);
+    std::vector<float> wavelength(_nKnot);    
+    /*
+     * Setting the splines
+     */
+    // look for finite values
+    int j;
+    for (j = 0; j != xc.size(); ++j) {
+        if (std::isfinite(wl[j] + xc[j])) {
+            break;
+        }
+    }
+    int const j0 = j;
+
+    for (j = xc.size() - 1; j >= 0; j--) {
+        if (std::isfinite(wl[j] + xc[j])) {
+            break;
+        }
+    }
+    int const j1 = j - 1;
+    /*
+     * OK, we know that we have finite values from j0..j1, so construct the vectors         * 
+     */
+    float const dy = (j1 - j0 + 1.0)/(_nKnot - 1); // step in y
+    float y = j0;
+    for (int i = 0; i != _nKnot; ++i, y += dy) {
+        int const iy = std::floor(y);
+        
+        yIndices[i] = iy;
+        xCenter[i]    = xc[iy];
+        wavelength[i] = wl[iy];
+    }
+    /*
+     * We have the arrays so we can set up the splines for the fibre
+     */
+    if (setXCenters) {
+        _yToXCenter[fidx] = math::spline<float>(yIndices, xCenter);       // first xCenter
+    }
+    if (setWavelengths) {
+        _yToWavelength[fidx] = math::spline<float>(yIndices, wavelength); // then wavelength
     }
 }
 }}}

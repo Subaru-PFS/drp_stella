@@ -37,7 +37,9 @@ void declareDetectorMap(py::module &mod)
     cls.def("findPoint", &Class::findPoint, "fiberId"_a, "wavelength"_a);
     cls.def("getFiberIds", &Class::getFiberIds);
     cls.def("getWavelength", &Class::getWavelength, "fiberId"_a);
+    cls.def("setWavelength", &Class::setWavelength, "fiberId"_a, "wavelength"_a);
     cls.def("getXCenter", &Class::getXCenter, "fiberId"_a);
+    cls.def("setXCenter", &Class::setXCenter, "fiberId"_a, "xCenters"_a);
     cls.def("getSlitOffsets",
             (ndarray::Array<float, 2, 1> const& (Class::*)() const)&Class::getSlitOffsets);
     cls.def("getSlitOffsets",

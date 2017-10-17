@@ -77,11 +77,24 @@ public:
                                              ) const;
 
     /**
+     * Set the wavelength values for a fibre
+     */
+    void setWavelength(std::size_t fiberId,                       ///< 1-indexed fiberID 
+                       ndarray::Array<float, 1, 1> const& wavelength ///< wavelengths for fibre
+                      );
+
+    /**
      * Return the xCenter values for a fibre
      */
     ndarray::Array<float, 1, 1> getXCenter(std::size_t fiberId ///< fiberId
                                           ) const;
 
+    /**
+     * Set the xCenter values for a fibre
+     */
+    void setXCenter(std::size_t fiberId,                       ///< 1-indexed fiberID 
+                    ndarray::Array<float, 1, 1> const& xCenter ///< center of trace for fibre
+                   );
     /** \brief
      * Return the fiberId given a position on the detector
      */
@@ -114,12 +127,16 @@ private:
     //
     ndarray::Array<int, 1, 1> _xToFiberId;
     //
-    // offset (in pixels) for each trace in x, and y and in focus (microns at the slit); all indexed by fiberIdx
+    // offset (in pixels) for each trace in x, and y and in focus (microns at the slit); indexed by fiberIdx
     //
     ndarray::Array<float, 2, 1> _slitOffsets; 
     /*
      * Private helper functions
      */
+    void _setSplines(const std::size_t fidx,
+                     ndarray::Array<float, 1, 1> const& xc, bool setXCenters,
+                     ndarray::Array<float, 1, 1> const& wl, bool setWavelengths);
+
     void _setSplines(ndarray::Array<float, 2, 1> const&,
                      ndarray::Array<float, 2, 1> const&);
 };
