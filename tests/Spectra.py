@@ -80,18 +80,18 @@ class SpectraTestCase(tests.TestCase):
         # Test that we can create a Spectrum with the standard constructor
         spec = drpStella.Spectrum()
         self.assertEqual(spec.getLength(), 0)
-        self.assertEqual(spec.getITrace(), 0)
+        self.assertEqual(spec.getFiberId(), 0)
 
         length = 10
-        iTrace = 2
-        spec = drpStella.Spectrum(length, iTrace)
+        fiberId = 2
+        spec = drpStella.Spectrum(length, fiberId)
         self.assertEqual(spec.getLength(), length)
-        self.assertEqual(spec.getITrace(), iTrace)
+        self.assertEqual(spec.getFiberId(), fiberId)
 
         # Test copy constructor
         specCopy = drpStella.Spectrum(spec)
         self.assertEqual(specCopy.getLength(), length)
-        self.assertEqual(specCopy.getITrace(), iTrace)
+        self.assertEqual(specCopy.getFiberId(), fiberId)
 
     def testSpectrumMethods(self):
         # Test getSpectrum
@@ -215,10 +215,10 @@ class SpectraTestCase(tests.TestCase):
         self.assertEqual(spec.getWavelength().shape[0], size-1)
         self.assertEqual(spec.getWavelength()[size-2], vecf[size-2])
 
-        # Test get/setITrace
-        self.assertEqual(spec.getITrace(), 0)
-        spec.setITrace(10)
-        self.assertEqual(spec.getITrace(), 10)
+        # Test get/setFiberId
+        self.assertEqual(spec.getFiberId(), 0)
+        spec.setFiberId(10)
+        self.assertEqual(spec.getFiberId(), 10)
 
         # Test isWaveLengthSet
         self.assertFalse(spec.isWavelengthSet())
@@ -251,7 +251,7 @@ class SpectraTestCase(tests.TestCase):
         specSetV = drpStella.SpectrumSet(specSet.getSpectra())
         self.assertEqual(specSet.size(), specSetV.size())
         for i in range(specSet.size()):
-            self.assertEqual(specSetV.getSpectrum(i).getITrace(), i)
+            self.assertEqual(specSetV.getSpectrum(i).getFiberId(), i)
 
     def testExtractTask(self):
         fiberTraceSet = drpStella.findAndTraceApertures(self.flat.getMaskedImage(),
@@ -275,8 +275,8 @@ class SpectraTestCase(tests.TestCase):
         for i in range(spectrumSetFromProfile.size()):
             self.assertEqual(spectrumSetFromProfile.getSpectrum(i).getLength(),
                              fiberTraceSet.getFiberTrace(i).getTrace().getImage().getHeight())
-            self.assertEqual(spectrumSetFromProfile.getSpectrum(i).getITrace(),
-                             fiberTraceSet.getFiberTrace(i).getITrace())
+            self.assertEqual(spectrumSetFromProfile.getSpectrum(i).getFiberId(),
+                             fiberTraceSet.getFiberTrace(i).getFiberId())
 
         # test that we can extract individual FiberTraces
         for i in range(fiberTraceSet.size()):
@@ -285,8 +285,8 @@ class SpectraTestCase(tests.TestCase):
             self.assertEqual(spectrumSetFromProfile.size(), 1)
             self.assertEqual(spectrumSetFromProfile.getSpectrum(0).getLength(),
                              fiberTraceSet.getFiberTrace(i).getTrace().getImage().getHeight())
-            self.assertEqual(spectrumSetFromProfile.getSpectrum(0).getITrace(),
-                             fiberTraceSet.getFiberTrace(i).getITrace())
+            self.assertEqual(spectrumSetFromProfile.getSpectrum(0).getFiberId(),
+                             fiberTraceSet.getFiberTrace(i).getFiberId())
 
         # test that we can extract 2 individual FiberTraces
         for i in range(fiberTraceSet.size()-1):
@@ -297,10 +297,10 @@ class SpectraTestCase(tests.TestCase):
                              fiberTraceSet.getFiberTrace(i).getTrace().getImage().getHeight())
             self.assertEqual(spectrumSetFromProfile.getSpectrum(1).getLength(),
                              fiberTraceSet.getFiberTrace(i+1).getTrace().getImage().getHeight())
-            self.assertEqual(spectrumSetFromProfile.getSpectrum(0).getITrace(),
-                             fiberTraceSet.getFiberTrace(i).getITrace())
-            self.assertEqual(spectrumSetFromProfile.getSpectrum(1).getITrace(),
-                             fiberTraceSet.getFiberTrace(i+1).getITrace())
+            self.assertEqual(spectrumSetFromProfile.getSpectrum(0).getFiberId(),
+                             fiberTraceSet.getFiberTrace(i).getFiberId())
+            self.assertEqual(spectrumSetFromProfile.getSpectrum(1).getFiberId(),
+                             fiberTraceSet.getFiberTrace(i+1).getFiberId())
 
     def testSpectrumSetAddSetErase(self):
         size = 3
@@ -568,7 +568,7 @@ class SpectraTestCase(tests.TestCase):
 
         for i in range(spectrumSetFromProfile.size()):
             spec = spectrumSetFromProfile.getSpectrum(i)
-            traceId = spec.getITrace()
+            traceId = spec.getFiberId()
 
             wLenTemp = wavelengths[np.where(traceIds == traceId)]
             self.assertEqual(wLenTemp.shape[0], nRows)

@@ -11,10 +11,10 @@ namespace pfs { namespace drp { namespace stella {
 
 /** @brief Construct a Spectrum with empty vectors of specified size (default 0)
  */
-Spectrum::Spectrum(size_t length, size_t iTrace )
+Spectrum::Spectrum(size_t length, size_t fiberId )
   : _length(length),
     _mask(length, 1),
-    _iTrace(iTrace),
+    _fiberId(fiberId),
     _isWavelengthSet(false)
 {
   _spectrum = ndarray::allocate( length );
@@ -280,7 +280,7 @@ Spectrum::hIdentify(std::vector<std::shared_ptr<const ReferenceLine>> const& lin
                                EGaussCoeffs,
                                true)) {
                 if ((_mask((start + end)/2, 0) & nodata) == 0) {
-                    LOGLS_WARN(_log, "GaussFit returned FALSE for fibre " + to_string(getITrace()) +
+                    LOGLS_WARN(_log, "GaussFit returned FALSE for fibre " + to_string(getFiberId()) +
                                ": xc = " + to_string(Guess[XC]) +
                                " lambda = " + to_string(refLine->wavelength) + " i = " + to_string(i));
                 }
@@ -305,7 +305,7 @@ Spectrum::hIdentify(std::vector<std::shared_ptr<const ReferenceLine>> const& lin
                                 goodIndx = i;
                             }
                             if ((_mask((start + end)/2, 0) & nodata) == 0) {
-                                LOGLS_WARN(_log, "Fibre " << to_string(getITrace()) << 
+                                LOGLS_WARN(_log, "Fibre " << to_string(getFiberId()) << 
                                            " i=" << i << ": line " <<
                                            " at  GaussPos[" << badIndx << "] = " <<
                                            GaussPos[badIndx] <<
@@ -439,7 +439,7 @@ Spectrum::identify(std::vector<std::shared_ptr<const ReferenceLine>> const& line
                                EGaussCoeffs,
                                true)) {
                 if ((_mask((start + end)/2, 0) & nodata) == 0) {
-                    LOGLS_WARN(_log, "GaussFit returned FALSE for fibre " + to_string(getITrace()) +
+                    LOGLS_WARN(_log, "GaussFit returned FALSE for fibre " + to_string(getFiberId()) +
                                ": xc = " + to_string(Guess[XC]) +
                                " lambda = " + to_string(refLine->wavelength) + " i = " + to_string(i));
                 }
@@ -464,7 +464,7 @@ Spectrum::identify(std::vector<std::shared_ptr<const ReferenceLine>> const& line
                                 goodIndx = i;
                             }
                             if ((_mask((start + end)/2, 0) & nodata) == 0) {
-                                LOGLS_WARN(_log, "Fibre " << to_string(getITrace()) << 
+                                LOGLS_WARN(_log, "Fibre " << to_string(getFiberId()) << 
                                            " i=" << i << ": line " <<
                                            " at  GaussPos[" << badIndx << "] = " <<
                                            GaussPos[badIndx] <<

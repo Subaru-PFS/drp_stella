@@ -38,12 +38,12 @@ class FiberTrace {
      * @brief Create a FiberTrace from a MaskedImage and a FiberTraceFunction
      * @param maskedImage : Masked CCD Image from which to extract the FiberTrace
      * @param fiberTraceFunction : FiberTraceFunction defining the FiberTrace
-     * @param iTrace : set this number to this._iTrace
+     * @param fiberId : set this number to this._fiberId
      */
     explicit FiberTrace(PTR(const MaskedImageT) const& maskedImage,
                         PTR(const FiberTraceFunction) const& fiberTraceFunction, 
                         PTR(FiberTraceProfileFittingControl) const& fiberTraceProfileFittingControl,
-                        std::size_t iTrace=0);
+                        std::size_t fiberId=0);
 
     /**
      * @brief Copy constructor (deep if required)
@@ -90,15 +90,15 @@ class FiberTrace {
     PTR(Image) getReconstructed2DSpectrum(Spectrum const& spectrum) const;
     
     /**
-     * @brief set the ID number of this trace (_iTrace) to this number
-     * @param iTrace : ID to be assigned to this FiberTrace
+     * @brief set the ID number of this trace (_fiberId) to this number
+     * @param fiberId : ID to be assigned to this FiberTrace
      */
-    void setITrace(const std::size_t iTrace){_iTrace = iTrace;}
+    void setFiberId(const std::size_t fiberId){_fiberId = fiberId;}
 
     /**
      * @brief Return ID of this FiberTrace
      */
-    std::size_t getITrace() const {return _iTrace;}
+    std::size_t getFiberId() const {return _fiberId;}
 
   private:
 
@@ -171,7 +171,7 @@ class FiberTrace {
     PTR(lsst::afw::image::MaskedImage<ImageT, MaskT, VarianceT>) _trace;
     ndarray::Array<float, 1, 1> _xCenters;
     ndarray::Array<size_t, 2, -2> _minCenMax;
-    std::size_t _iTrace;
+    std::size_t _fiberId;
     PTR(const FiberTraceFunction) _fiberTraceFunction;
     PTR(FiberTraceProfileFittingControl) _fiberTraceProfileFittingControl;
 
@@ -247,9 +247,9 @@ class FiberTraceSet {
     /**
      * @brief Add one FiberTrace to the set
      * @param trace : FiberTrace to be added to _traces
-     * @param iTrace : if != 0, set the ID of trace to this number
+     * @param fiberId : if != 0, set the ID of trace to this number
      */
-    void addFiberTrace(const PTR(FiberTraceT) &trace, const std::size_t iTrace = 0);
+    void addFiberTrace(const PTR(FiberTraceT) &trace, const std::size_t fiberId = 0);
 
     /**
      * @brief Return this->_traces

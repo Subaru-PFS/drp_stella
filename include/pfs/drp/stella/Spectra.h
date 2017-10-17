@@ -55,7 +55,7 @@ class Spectrum {
 
     // Class Constructors and Destructor
     explicit Spectrum(std::size_t length=0,
-                      std::size_t iTrace=0);
+                      std::size_t fiberId=0);
 
     Spectrum(Spectrum const& spectrum) = delete;
     
@@ -102,8 +102,8 @@ class Spectrum {
     /// Set the mask vector of this spectrum (deep copy)
     void setMask(Mask const& mask);
     
-    std::size_t getITrace() const { return _iTrace; }
-    void setITrace(std::size_t iTrace) { _iTrace = iTrace; }
+    std::size_t getFiberId() const { return _fiberId; }
+    void setFiberId(std::size_t fiberId) { _fiberId = fiberId; }
 
     /**
       * @brief: Identifies calibration lines, given input linelist for the wavelength-calibration spectrum
@@ -137,7 +137,7 @@ class Spectrum {
     ndarray::Array<VarianceT, 2, 1> _covar;
     ndarray::Array<ImageT, 1, 1> _wavelength;
     ndarray::Array<ImageT, 1, 1> _dispersion;
-    std::size_t _iTrace;/// for logging / debugging purposes only
+    std::size_t _fiberId;               // for logging / debugging purposes only
     ndarray::Array<float, 1, 1> _dispCoeffs;
     std::vector<std::shared_ptr<ReferenceLine>> _referenceLines;
     bool _isWavelengthSet;

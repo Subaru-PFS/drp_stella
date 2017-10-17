@@ -47,7 +47,7 @@ void declareSpectrum(py::module &mod) {
     using Class = Spectrum;
     py::class_<Class, std::shared_ptr<Class>> cls(mod, "Spectrum");
 
-    cls.def(py::init<std::size_t, std::size_t>(), "length"_a, "iTrace"_a=0);
+    cls.def(py::init<std::size_t, std::size_t>(), "length"_a, "fiberId"_a=0);
 
     cls.def("getSpectrum", (ndarray::Array<Spectrum::ImageT, 1, 1> (Class::*)()) &Class::getSpectrum);
     cls.def("setSpectrum", &Class::setSpectrum, "spectrum"_a);
@@ -73,9 +73,9 @@ void declareSpectrum(py::module &mod) {
     cls.def("setMask", &Class::setMask, "mask"_a);
     cls.def_property("mask", (typename Class::Mask (Class::*)()) &Class::getMask, &Class::setMask);
 
-    cls.def("getITrace", &Class::getITrace);
-    cls.def("setITrace", &Class::setITrace, "iTrace"_a);
-    cls.def_property("iTrace", &Class::getITrace, &Class::setITrace);
+    cls.def("getFiberId", &Class::getFiberId);
+    cls.def("setFiberId", &Class::setFiberId, "fiberId"_a);
+    cls.def_property("fiberId", &Class::getFiberId, &Class::setFiberId);
 
     cls.def("identify", &Class::identify, "lineList"_a, "dispCorControl"_a, "nLinesCheck"_a=0);
 

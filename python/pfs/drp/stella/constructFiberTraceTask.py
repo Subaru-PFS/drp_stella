@@ -205,7 +205,7 @@ class ConstructFiberTraceTask(CalibTask):
         )
 
         for ft in fts:
-            pfsFT.fiberId.append(ft.getITrace())
+            pfsFT.fiberId.append(ft.getFiberId())
             pfsFT.traces.append(ft.getTrace())
 
         md = dafBase.PropertyList()
