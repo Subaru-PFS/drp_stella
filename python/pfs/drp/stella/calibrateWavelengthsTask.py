@@ -4,6 +4,7 @@ import scipy.interpolate
 import lsstDebug
 import lsst.pex.config as pexConfig
 import lsst.pipe.base as pipeBase
+import lsst.afw.display as afwDisplay
 import pfs.drp.stella as drpStella
 from pfs.drp.stella.utils import plotReferenceLines
 
@@ -143,14 +144,17 @@ class CalibrateWavelengthsTask(pipeBase.Task):
             #
             # We use a spline to correct the wavelengths in the DetectorMap
             #
-            # N.b. we could/should use this to update the DetectorMap (which I happen to know used
-            # a spline internally...)
-            #
             nominalWavelength = detectorMap.getWavelength(fiberId)
             correctedRows = rows - wavelengthFit(rows)
 
             splineFit = scipy.interpolate.UnivariateSpline(rows, nominalWavelength) # not-a-knot spline
             spec.wavelength = splineFit(correctedRows).astype('float32')
+            #
+            # Update the DetectorMap
+            #
+            dy = detectorMap.getSlitOffsets(fiberId)[detectorMap.FIBER_DY]
+            detectorMap.setWavelength(fiberId,
+                                      splineFit(rows - wavelengthFit(rows) + dy).astype('float32'))
 
             self.log.info("FiberId %4d, rms %.3fpix (%.3fpix for reserved points)" %
                           (fiberId,
@@ -158,6 +162,17 @@ class CalibrateWavelengthsTask(pipeBase.Task):
                            np.sqrt(np.sum(((y - yfit)**2)[reserved]))/reserved.sum(),
                            ))
 
+            if self.debugInfo.display and self.debugInfo.showArcLines:
+                display = afwDisplay.Display(self.debugInfo.arc_frame)
+
+                x = detectorMap.findPoint(fiberId, arcLines[0].wavelength)[0]
+                y = 0.5*len(detectorMap.getXCenter(fiberId))
+                display.dot(str(fiberId), x, y + 10*(fiberId%2), ctype='blue')
+                
+                for rl in arcLines:
+                    x, y = detectorMap.findPoint(fiberId, rl.wavelength)
+                    display.dot('+', x, y, ctype='red')
+            
             if self.debugInfo.display and self.debugInfo.showFibers is not None:
                 import matplotlib.pyplot as plt
 
