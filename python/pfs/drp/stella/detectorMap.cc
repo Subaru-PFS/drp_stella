@@ -6,6 +6,7 @@
 
 #include "lsst/base.h"
 #include "pfs/drp/stella/DetectorMap.h"
+#include "pfs/drp/stella/DetectorMapIO.h"
 
 namespace py = pybind11;
 
@@ -35,18 +36,47 @@ void declareDetectorMap(py::module &mod)
     
     cls.def("findFiberId", &Class::findFiberId, "pixelPos"_a);
     cls.def("findPoint", &Class::findPoint, "fiberId"_a, "wavelength"_a);
+
+    cls.def("getBBox", &Class::getBBox);
     cls.def("getFiberIds", &Class::getFiberIds);
     cls.def("getWavelength", &Class::getWavelength, "fiberId"_a);
     cls.def("setWavelength", &Class::setWavelength, "fiberId"_a, "wavelength"_a);
-    cls.def("getXCenter", &Class::getXCenter, "fiberId"_a);
+    cls.def("getXCenter", (ndarray::Array<float, 1, 1> (Class::*)(std::size_t) const)&Class::getXCenter,
+            "fiberId"_a);
     cls.def("setXCenter", &Class::setXCenter, "fiberId"_a, "xCenters"_a);
     cls.def("getSlitOffsets",
             (ndarray::Array<float, 2, 1> const& (Class::*)() const)&Class::getSlitOffsets);
     cls.def("getSlitOffsets",
             (ndarray::Array<float, 1, 0> const (Class::*)(std::size_t) const)&Class::getSlitOffsets,
             "fiberId"_a);
-    cls.def("setSlitOffsets", &Class::setSlitOffsets, "slitOffsets"_a);
+    cls.def("setSlitOffsets", (void (Class::*)(ndarray::Array<float, 2, 1> const&))&Class::setSlitOffsets,
+            "offsets"_a);
+    cls.def("setSlitOffsets", (void (Class::*)(std::size_t,
+                                               ndarray::Array<float, 1, 0> const&))&Class::setSlitOffsets,
+            "fiberId"_a, "offsets"_a);
     cls.def("getFiberIdx", &Class::getFiberIdx);
+}
+
+void declareDetectorMapIO(py::module &mod)
+{
+    using Class = DetectorMapIO;
+    py::class_<Class, PTR(Class)> cls(mod, "DetectorMapIO");
+
+    cls.def(py::init<lsst::afw::geom::Box2I, ndarray::Array<int, 1, 1> const&, std::size_t>());
+    cls.def(py::init<DetectorMap const&>(), "detectorMap"_a);
+
+    cls.def("getDetectorMap", &Class::getDetectorMap);
+
+    cls.def("getBBox", &Class::getBBox);
+    cls.def("getFiberIds", &Class::getFiberIds);
+    cls.def("getSlitOffsets", &Class::getSlitOffsets);
+    cls.def("setSlitOffsets", &Class::setSlitOffsets, "slitOffsets"_a);
+
+    cls.def("getXCenter", &Class::getXCenter, "fiberId"_a);
+    cls.def("setXCenter", &Class::setXCenter, "fiberId"_a, "xCenterKnots"_a, "xCenterValues"_a);
+
+    cls.def("getWavelength", &Class::getWavelength, "fiberId"_a);
+    cls.def("setWavelength", &Class::setWavelength, "fiberId"_a, "wavelengthKnots"_a, "wavelengthValues"_a);
 }
 
 void declareFunctions(py::module &mod)
@@ -63,6 +93,7 @@ PYBIND11_PLUGIN(detectorMap) {
     }
 
     declareDetectorMap(mod);
+    declareDetectorMapIO(mod);
     declareFunctions(mod);
 
     return mod.ptr();
