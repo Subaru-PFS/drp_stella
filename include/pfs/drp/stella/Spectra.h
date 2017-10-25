@@ -107,8 +107,7 @@ class Spectrum {
 
     /**
       * @brief: Identifies calibration lines, given input linelist for the wavelength-calibration spectrum
-      * fits Gaussians to each line, fits Polynomial of order I_PolyFitOrder_In, and
-      * writes _wavelength and PolyFit coefficients to _dispCoeffs
+      * and fits Gaussians to each line
       *
       * Saves copy of lineList with as-observed values in _referenceLines
       **/
@@ -122,27 +121,15 @@ class Spectrum {
     bool isWavelengthSet() const { return _isWavelengthSet; }
     
   private:
-    /**
-     * @brief: Returns pixel positions of emission lines in lineList fitted in _spectrum
-     * @param[in] lineList :: line list  [ nLines, 2 ]: [ wLen, approx_pixel ]
-     */
-    ndarray::Array< float, 1, 1 > hIdentify(std::vector<std::shared_ptr<const ReferenceLine>> const& lineList,
-                                            DispCorControl const& dispCorControl
-                                           );
-
     std::size_t _length;
     ndarray::Array<ImageT, 1, 1> _spectrum;
     Mask _mask;
     ndarray::Array<ImageT, 1, 1> _background;
     ndarray::Array<VarianceT, 2, 1> _covar;
     ndarray::Array<ImageT, 1, 1> _wavelength;
-    ndarray::Array<ImageT, 1, 1> _dispersion;
     std::size_t _fiberId;               // for logging / debugging purposes only
-    ndarray::Array<float, 1, 1> _dispCoeffs;
     std::vector<std::shared_ptr<ReferenceLine>> _referenceLines;
     bool _isWavelengthSet;
-
-  protected:
 };
 
 /************************************************************************************************************/
