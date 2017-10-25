@@ -23,6 +23,8 @@ class CalibrateWavelengthsConfig(pexConfig.Config):
                                      dtype=float, default=[10, 5, 4])
     errorFloor = pexConfig.Field(doc="Floor on positional errors, added in quadrature to quoted errors",
                                  dtype=float, default=5e-2)
+    resetSlitDy = pexConfig.Field(doc="Reset the slitOffset values in the DetecorMap to 0",
+                                  dtype=bool, default=False);
 
 class CalibrateWavelengthsTask(pipeBase.Task):
     ConfigClass = CalibrateWavelengthsConfig
@@ -84,7 +86,7 @@ class CalibrateWavelengthsTask(pipeBase.Task):
             #
             # Unpack reference lines
             for i, rl in enumerate(refLines):
-                guessedPixelPos[i] = rl.guessedPixelPos
+                guessedPixelPos[i] = rl.guessedPixelPos # came from detectorMap.findPoint()
 
                 fitIntensity[i] = rl.fitIntensity
                 fitPixelPos[i] = rl.fitPixelPos
@@ -147,32 +149,38 @@ class CalibrateWavelengthsTask(pipeBase.Task):
             nominalWavelength = detectorMap.getWavelength(fiberId)
             correctedRows = rows - wavelengthFit(rows)
 
-            splineFit = scipy.interpolate.UnivariateSpline(rows, nominalWavelength) # not-a-knot spline
-            spec.wavelength = splineFit(correctedRows).astype('float32')
-            #
-            # Update the DetectorMap
-            #
-            dy = detectorMap.getSlitOffsets(fiberId)[detectorMap.FIBER_DY]
-            detectorMap.setWavelength(fiberId,
-                                      splineFit(rows - wavelengthFit(rows) + dy).astype('float32'))
+            splineFit = scipy.interpolate.UnivariateSpline(correctedRows, nominalWavelength) # not-a-knot
+            spec.wavelength = splineFit(rows).astype('float32')
 
             self.log.info("FiberId %4d, rms %.3fpix (%.3fpix for reserved points)" %
                           (fiberId,
                            np.sqrt(np.sum(((y - yfit)**2)[used]))/(used.sum() - self.config.order),
                            np.sqrt(np.sum(((y - yfit)**2)[reserved]))/reserved.sum(),
                            ))
+            #
+            # Update the DetectorMap
+            #
+            if self.config.resetSlitDy:
+                offsets = detectorMap.getSlitOffsets(fiberId)
+                offsets[detectorMap.FIBER_DY] = 0
+                detectorMap.setSlitOffsets(fiberId, offsets)
 
+            detectorMap.setWavelength(fiberId, spec.wavelength)
+            #
+            # Debug outputs
+            #
             if self.debugInfo.display and self.debugInfo.showArcLines:
                 display = afwDisplay.Display(self.debugInfo.arc_frame)
 
-                x = detectorMap.findPoint(fiberId, arcLines[0].wavelength)[0]
-                y = 0.5*len(detectorMap.getXCenter(fiberId))
-                display.dot(str(fiberId), x, y + 10*(fiberId%2), ctype='blue')
+                display.dot(str(fiberId),
+                            detectorMap.findPoint(fiberId, arcLines[0].wavelength)[0],
+                            0.5*len(detectorMap.getXCenter(fiberId)) + 10*(fiberId%2), ctype='blue')
                 
-                for rl in arcLines:
-                    x, y = detectorMap.findPoint(fiberId, rl.wavelength)
-                    display.dot('+', x, y, ctype='red')
-            
+                for rl in refLines:
+                    xc, wl = detectorMap.findPoint(fiberId, rl.wavelength)
+                    display.dot('+', xc, wl, ctype='red')
+                    display.dot('x', xc, rl.fitPixelPos, ctype='blue')
+
             if self.debugInfo.display and self.debugInfo.showFibers is not None:
                 import matplotlib.pyplot as plt
 
@@ -180,7 +188,7 @@ class CalibrateWavelengthsTask(pipeBase.Task):
                     continue
 
                 if self.debugInfo.plotArcLinesRow:
-                    plt.plot(spec.getSpectrum())
+                    plt.plot(rows, spec.getSpectrum())
                     plotReferenceLines(spec.getReferenceLines(), "guessedPixelPos", alpha=0.1)
                     plotReferenceLines(spec.getReferenceLines(), "fitPixelPos", ls='-', alpha=0.5)
                     plt.xlabel('row')
