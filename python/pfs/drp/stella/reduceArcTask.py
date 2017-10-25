@@ -3,13 +3,14 @@ import numpy as np
 if False:                               # will be imported if needed (matplotlib import can be slow)
     import matplotlib.pyplot as plt
 import lsstDebug
+import lsst.daf.base as dafBase
 import lsst.pex.config as pexConfig
 from lsst.utils import getPackageDir
 from lsst.pipe.base import TaskRunner, ArgumentParser, CmdLineTask
 import lsst.afw.display as afwDisplay
 from pfs.drp.stella.calibrateWavelengthsTask import CalibrateWavelengthsTask
 from pfs.drp.stella.extractSpectraTask import ExtractSpectraTask
-from pfs.drp.stella.utils import makeFiberTraceSet, makeDetectorMap
+from pfs.drp.stella.utils import makeFiberTraceSet, _makeDetectorMap, DetectorMapIO
 from pfs.drp.stella.utils import readLineListFile, writePfsArm, addFiberTraceSetToMask
 from lsst.obs.pfs.utils import getLampElements
 
@@ -79,7 +80,10 @@ class ReduceArcTask(CmdLineTask):
             except Exception, e:
                 raise RuntimeError("Unable to load fiberTrace for %s: %s" % (arcRef.dataId, e))
 
-            detectorMap = makeDetectorMap(butler, arcRef.dataId, self.config.wavelengthFile)
+            if False:
+                detectorMap = _makeDetectorMap(butler, arcRef.dataId, self.config.wavelengthFile)
+            else:
+                detectorMap = butler.get('detectormap', arcRef.dataId)
 
             flatFiberTraceSet = makeFiberTraceSet(fiberTrace)
             self.log.debug('fiberTrace calibration file contains %d fibers' % flatFiberTraceSet.getNtrace())
@@ -117,6 +121,14 @@ class ReduceArcTask(CmdLineTask):
             self.calibrateWavelengths.run(detectorMap, spectrumSet, arcLines)
 
             writePfsArm(butler, arcExp, spectrumSet, arcRef.dataId)
+            #
+            # Now the updated DetectorMap.  We could derive this task from CalibTask, except
+            # that that depends on BatchPoolTask and that'd be a pain as it assumes multiprocessing
+            #
+            metadata = dafBase.PropertyList()
+            metadata.set("OBSTYPE", "DETECTORMAP")
+            metadata.set("HIERARCH calibDate", "2017-10-20") # avoid warnings on long keywords
+            arcRef.put(DetectorMapIO(detectorMap, metadata), 'detectormap', visit0=arcRef.dataId['visit'])
             #
             # Done; time for debugging plots
             #
