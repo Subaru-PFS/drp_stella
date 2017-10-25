@@ -196,7 +196,6 @@ Spectrum::identify(std::vector<std::shared_ptr<const ReferenceLine>> const& line
     ndarray::Array< float, 1, 1 > EGaussCoeffs = ndarray::allocate(nTerms);
     ndarray::Array< int, 2, 1 > Limited = ndarray::allocate(nTerms, 2);
     Limited.deep() = 1;
-    ndarray::Array< float, 1, 1 > Ind = math::indGenNdArr( float( _length ) );
 
     // fit line positions
     const int nLine = lineList.size();
@@ -229,7 +228,6 @@ Spectrum::identify(std::vector<std::shared_ptr<const ReferenceLine>> const& line
             LOGLS_WARN(_log, "WARNING: Line position outside spectrum");
         } else {
             const int n = end - start + 1;
-            auto X             = ndarray::Array<float, 1, 1>(n);
             auto GaussSpec     = ndarray::Array<float, 1, 1>(n);
             auto MeasureErrors = ndarray::Array<float, 1, 1>(n);
 
@@ -241,14 +239,17 @@ Spectrum::identify(std::vector<std::shared_ptr<const ReferenceLine>> const& line
                 *itMeasErr = sqrt(std::fabs(*itGaussSpec));
                 if (*itMeasErr < 0.00001) *itMeasErr = 1.;
             }
-            auto itInd = Ind.begin() + start;
-            for ( auto itX = X.begin(); itX != X.end(); ++itX, ++itInd ) {
-                *itX = *itInd;
+            auto X = ndarray::Array<float, 1, 1>(n);
+            {
+                float x = start;
+                for (auto itX = X.begin(); itX != X.end(); ++itX ) {
+                    *itX = x++;
+                }
             }
 
             Guess[BASELINE] = *min_element(GaussSpec.begin(), GaussSpec.end());
             Guess[PEAK]     = *max_element(GaussSpec.begin(), GaussSpec.end()) - Guess[BASELINE];
-            Guess[XC]       = 0.5*(X[0] +  X[X.size() - 1]);
+            Guess[XC]       = 0.5*(X[0] + X[X.size() - 1]);
             Guess[WIDTH]    = dispCorControl.fwhm;
             LOGLS_DEBUG(_log, "Guess = " << Guess);
 
@@ -287,7 +288,7 @@ Spectrum::identify(std::vector<std::shared_ptr<const ReferenceLine>> const& line
                 GaussCoeffs.deep() = 0.0;
                 EGaussCoeffs.deep() = 0.0;
             } else {
-                if (std::fabs(maxPos - GaussCoeffs[1] ) < dispCorControl.maxDistance) {
+                if (std::fabs(maxPos - GaussCoeffs[XC] ) < dispCorControl.maxDistance) {
                     GaussPos[i] = GaussCoeffs[XC];
                     refLine->status |= ReferenceLine::FIT;
                     refLine->fitIntensity = GaussCoeffs[PEAK];
@@ -321,8 +322,8 @@ Spectrum::identify(std::vector<std::shared_ptr<const ReferenceLine>> const& line
                     }
                 } else {
                     string message("maxPos=");
-                    message += to_string(maxPos) + " - GaussCoeffs[ 1 ]=" + to_string(GaussCoeffs[1]);
-                    message += "(=" + to_string(std::fabs(maxPos - GaussCoeffs[1]));
+                    message += to_string(maxPos) + " - GaussCoeffs[XC]=" + to_string(GaussCoeffs[XC]);
+                    message += "(=" + to_string(std::fabs(maxPos - GaussCoeffs[XC]));
                     message += ") >= " + to_string(dispCorControl.maxDistance) + " => Skipping line";
                     LOGLS_WARN(_log, message);
                 }
