@@ -15,8 +15,9 @@ public:
     enum Status {                       // Line's status
         NOWT=0,
         FIT=1,                          // line was found and fit; n.b. powers of 2
-        KEPT_BACK=2,                    // line was not used
-        MISIDENTIFIED=4                 // line was misidentified
+        RESERVED=2,                     // line was not used in estimating rms
+        MISIDENTIFIED=4,                // line was misidentified
+        CLIPPED=8                       // line was clipped in fitting distortion
     };
 
     ReferenceLine(std::string const& _description, Status _status=NOWT, float _wavelength=0,
