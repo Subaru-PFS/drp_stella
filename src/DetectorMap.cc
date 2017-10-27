@@ -226,11 +226,11 @@ DetectorMap::findPoint(const int fiberId,               ///< Desired fibreId
     const auto iy = onePast - begin;
 
     double x = fiberXCenter[iy];
-    double y = iy;
+    double y = iy;                      // just past the desired point
 
     if (iy > 0) {                       // interpolate to get better accuracy
-        const float dy = (wavelength - fiberWavelength[iy - 1])/(fiberWavelength[iy] - fiberWavelength[iy - 1]);
-        x += dy*(x - fiberXCenter[iy - 1]);
+        const float dy = -(fiberWavelength[iy] - wavelength)/(fiberWavelength[iy] - fiberWavelength[iy - 1]);
+        x += dy*(fiberXCenter[iy] - fiberXCenter[iy - 1]);
         y += dy;
     }
 
