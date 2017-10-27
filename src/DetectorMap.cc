@@ -237,6 +237,27 @@ DetectorMap::findPoint(const int fiberId,               ///< Desired fibreId
     return lsst::afw::geom::PointD(x, y);
 }
 
+/************************************************************************************************************/
+/*
+ * Return the position of the fiber trace on the detector, given a fiberId and wavelength
+ */
+float
+DetectorMap::findWavelength(const int fiberId,               ///< Desired fibreId
+                            const float row                  ///< desired row
+                           ) const
+{
+    if (row < 0 || row > _bbox.getHeight() - 1) {
+        std::ostringstream os;
+        os << "Row " << row << " is not in range [0, " << _bbox.getHeight() - 1 << "]";
+        throw LSST_EXCEPT(lsst::pex::exceptions::RangeError, os.str());
+    }
+    int const fidx = getFiberIdx(fiberId);
+    auto const & spline = _yToWavelength[fidx];
+
+    return spline(row);
+}
+
+/************************************************************************************************************/
 /*
  * Return the fiberId given a position on the detector
  */

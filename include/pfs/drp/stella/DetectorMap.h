@@ -136,6 +136,12 @@ public:
                                       const float wavelength           ///< desired wavelength
                                      ) const;
     /** \brief
+     * Return the wavelength of a point on the detector, given a fiberId and position
+     */
+    float findWavelength(const int fiberId,               ///< Desired fibreId
+                         const float pixelPos             ///< desired row
+                        ) const;
+    /** \brief
      * Return the index of a fiber, given its fiber ID
      */
     std::size_t getFiberIdx(std::size_t fiberId) const;

@@ -36,6 +36,7 @@ void declareDetectorMap(py::module &mod)
     
     cls.def("findFiberId", &Class::findFiberId, "pixelPos"_a);
     cls.def("findPoint", &Class::findPoint, "fiberId"_a, "wavelength"_a);
+    cls.def("findWavelength", &Class::findWavelength, "fiberId"_a, "row"_a);
 
     cls.def("getBBox", &Class::getBBox);
     cls.def("getFiberIds", &Class::getFiberIds);
