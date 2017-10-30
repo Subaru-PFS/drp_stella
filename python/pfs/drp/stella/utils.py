@@ -252,7 +252,7 @@ def readLineListFile(lineList, lamps=["Ar", "Cd", "Hg", "Ne", "Xe"], minIntensit
 
     return referenceLines
 
-def plotReferenceLines(referenceLines, what, ls=':', alpha=1, color=None, label=None):
+def plotReferenceLines(referenceLines, what, ls=':', alpha=1, color=None, label=None, labelStatus=True):
     """Plot a set of reference lines using axvline
     If label is None use `what` as a label; if label is '' don't label line
     """
@@ -264,8 +264,14 @@ def plotReferenceLines(referenceLines, what, ls=':', alpha=1, color=None, label=
 
     def maybeSetLabel(status):
         if labelLines:
-            lab = None if status in labels else ("%s %s" % (what, status)) # n.b. label is in caller's scope
-            labels[status] = True
+            if labelStatus:
+                lab = "%s %s" % (what, status) # n.b. label is in caller's scope
+            else:
+                lab = what
+
+            lab = None if lab in labels else lab
+            labels[lab] = True
+
             return lab
         else:
             return label
@@ -278,6 +284,12 @@ def plotReferenceLines(referenceLines, what, ls=':', alpha=1, color=None, label=
         elif (rl.status & rl.Status.RESERVED):
             color = 'blue'
             label = maybeSetLabel("Reserved")
+        elif (rl.status & rl.Status.SATURATED):
+            color = 'magenta'
+            label = maybeSetLabel("Saturated")
+        elif (rl.status & rl.Status.CR):
+            color = 'cyan'
+            label = maybeSetLabel("Cosmic ray")
         elif (rl.status & rl.Status.MISIDENTIFIED):
             color = 'brown'
             label = maybeSetLabel("Misidentified")

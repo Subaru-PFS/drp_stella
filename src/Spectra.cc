@@ -1,3 +1,4 @@
+#include <iostream>
 #include "lsst/log/Log.h"
 #include "lsst/pex/exceptions.h"
 #include "lsst/afw/image/MaskedImage.h"
@@ -181,7 +182,10 @@ Spectrum::identify(std::vector<std::shared_ptr<const ReferenceLine>> const& line
 {
     LOG_LOGGER _log = LOG_GET("pfs.drp.stella.Spectra.identify");
 
-    const auto nodata = _mask.getPlaneBitMask("NO_DATA");
+    const auto NO_DATA = _mask.getPlaneBitMask("NO_DATA");
+    const auto CR = _mask.getPlaneBitMask("CR");
+    const auto INTRP = _mask.getPlaneBitMask("INTRP");
+    const auto SAT = _mask.getPlaneBitMask("SAT");
     
     ///for each line in line list, find maximum in spectrum and fit Gaussian
     const int PEAK = 0;           // peak y value
@@ -247,6 +251,19 @@ Spectrum::identify(std::vector<std::shared_ptr<const ReferenceLine>> const& line
                 }
             }
 
+            for (int j = start; j <= end; ++j) {
+                const auto mval = _mask(j, 0);
+                if ((mval & CR) != 0) {
+                    refLine->status |= ReferenceLine::CR;
+                }
+                if ((mval & INTRP) != 0) {
+                    refLine->status |= ReferenceLine::INTERPOLATED;
+                }
+                if ((mval & SAT) != 0) {
+                    refLine->status |= ReferenceLine::SATURATED;
+                }
+            }
+
             Guess[BASELINE] = *min_element(GaussSpec.begin(), GaussSpec.end());
             Guess[PEAK]     = *max_element(GaussSpec.begin(), GaussSpec.end()) - Guess[BASELINE];
             Guess[XC]       = 0.5*(X[0] + X[X.size() - 1]);
@@ -280,7 +297,7 @@ Spectrum::identify(std::vector<std::shared_ptr<const ReferenceLine>> const& line
                                GaussCoeffs,
                                EGaussCoeffs,
                                true)) {
-                if ((_mask((start + end)/2, 0) & nodata) == 0) {
+                if ((_mask((start + end)/2, 0) & NO_DATA) == 0) {
                     LOGLS_WARN(_log, "GaussFit returned FALSE for fibre " + to_string(getFiberId()) +
                                ": xc = " + to_string(Guess[XC]) +
                                " lambda = " + to_string(refLine->wavelength) + " i = " + to_string(i));
@@ -305,7 +322,7 @@ Spectrum::identify(std::vector<std::shared_ptr<const ReferenceLine>> const& line
                                 badIndx = i - 1;
                                 goodIndx = i;
                             }
-                            if ((_mask((start + end)/2, 0) & nodata) == 0) {
+                            if ((_mask((start + end)/2, 0) & (SAT | NO_DATA)) == 0) {
                                 LOGLS_WARN(_log, "Fibre " << getFiberId() << 
                                            " i=" << i << ": line " <<
                                            " at  GaussPos[" << badIndx << "] = " <<
@@ -321,11 +338,18 @@ Spectrum::identify(std::vector<std::shared_ptr<const ReferenceLine>> const& line
                         }
                     }
                 } else {
-                    LOGLS_WARN(_log, 
-                               "fiberId = " << getFiberId() <<
-                               " |(maxPos=" << maxPos << ") - (GaussCoeffs[XC]=" <<
-                               GaussCoeffs[XC] << ")| = " << std::fabs(maxPos - GaussCoeffs[XC]) << " >= " <<
-                               dispCorControl.maxDistance << " => Skipping line");
+                    std::ostringstream msg;
+
+                    msg << "fiberId = " << getFiberId() <<
+                        " |(maxPos=" << maxPos << ") - (GaussCoeffs[XC]=" <<
+                        GaussCoeffs[XC] << ")| = " << std::fabs(maxPos - GaussCoeffs[XC]) << " >= " <<
+                        dispCorControl.maxDistance << " => Skipping line";
+                    
+                    if (refLine->status & ReferenceLine::INTERPOLATED) {
+                        LOGLS_TRACE(_log, msg.str());
+                    } else {
+                        LOGLS_WARN(_log, msg.str());
+                    }
                 }
             }
         }

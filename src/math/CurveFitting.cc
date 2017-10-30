@@ -613,15 +613,15 @@ namespace {
   template<typename ImageT>
   static float
   fitProfile1d(ndarray::ArrayRef<ImageT, 1, 1> const& data, // data
-                           ndarray::ArrayRef<ImageT, 1, 1> const& dataVar,  // errors in data
-                           ndarray::ArrayRef<lsst::afw::image::MaskPixel, 1, 1> const& traceMask, // set to 1 for points in the fiberTrace
-                           ndarray::ArrayRef<ImageT, 1, 1> const& profile,   // profile to fit
-                           const float clipNSigma, // clip at this many sigma
-                           const bool fitBackground, // Should I fit the background?
-                           ImageT &amp,              // amplitude of fit
-                           ImageT &bkgd,             // sky level
-                           ImageT &ampVar           // amp's variance
-                          )
+               ndarray::ArrayRef<ImageT, 1, 1> const& dataVar,  // errors in data
+               ndarray::ArrayRef<int, 1, 1> const& traceMask,   // 1 for points in fiberTrace
+               ndarray::ArrayRef<ImageT, 1, 1> const& profile,   // profile to fit
+               const float clipNSigma, // clip at this many sigma
+               const bool fitBackground, // Should I fit the background?
+               ImageT &amp,              // amplitude of fit
+               ImageT &bkgd,             // sky level
+               ImageT &ampVar           // amp's variance
+              )
   {
       assert(data.size() == profile.size());
 
@@ -748,9 +748,9 @@ namespace {
 /************************************************************************************************************/
 
   template< typename ImageT>
-  bool fitProfile2d(ndarray::Array<ImageT, 2, 1> const& ccdData, // data
-                    ndarray::Array<ImageT, 2, 1> const& ccdDataVar,  // data's variance
-                    ndarray::Array<lsst::afw::image::MaskPixel, 2, 1> const& traceMask, // set to 1 for points in the fiberTrace
+  bool fitProfile2d(lsst::afw::image::MaskedImage<ImageT, lsst::afw::image::MaskPixel, ImageT> &data,
+                    // the input data containing the spectrum
+                    ndarray::Array<int, 2, 1> const& traceMask,      // 1 for points in fiberTrace
                     ndarray::Array<ImageT, 2, 1> const& profile2d,   // profile of fibre trace
                     const bool fitBackground,                        // should I fit the background level?
                     const float clipNSigma,                          // clip at this many sigma
@@ -759,8 +759,12 @@ namespace {
                     ndarray::Array<ImageT, 1, 1> & specAmpVar        // spectrum's variance
                    )
   {
-      const int height = ccdData.getShape()[0];
-      const int width  = ccdData.getShape()[1];
+      const int height = data.getHeight();
+      const int width  = data.getWidth();
+
+      ndarray::Array<ImageT, 2, 1> const& ccdData = data.getImage()->getArray();
+      auto const& ccdMask = data.getMask()->getArray();
+      ndarray::Array<ImageT, 2, 1> const& ccdDataVar = data.getVariance()->getArray();
 
     if (height != profile2d.getShape()[0]){
       std::string message("pfs::drp::stella::math::CurveFitting::fitProfile2d: ERROR: height(=");
@@ -779,18 +783,18 @@ namespace {
     }
     specAmp.deep() = 0;
 
-    if (ccdDataVar.getShape()[0] != height) {
-        std::string message("pfs::drp::stella::math::CurveFitting::fitProfile2d: ERROR: height(=");
-        message += std::to_string(height) + ") != ccdDataVar.getShape()[0](=" + std::to_string(ccdDataVar.getShape()[0]) + ")";
-        throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
-    }
-    if (ccdDataVar.getShape()[1] != width) {
-        std::string message("pfs::drp::stella::math::CurveFitting::fitProfile2d: ERROR: width(=");
-        message += std::to_string(width) + ") != ccdDataVar.getShape()[1](=" + std::to_string(ccdDataVar.getShape()[1]) + ")";
-        throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
-    }
+    const auto badBitmask = data.getMask()->getPlaneBitMask("SAT") | data.getMask()->getPlaneBitMask("BAD");
 
     for (int i = 0; i < height; i++) {
+      /*
+       * Add bad pixels to the traceMask
+       */
+        for (int j = 0; j < width; j++) {
+            if ((ccdMask[i][j] & badBitmask) != 0) {
+                traceMask[i][j] = 0;
+            }
+        }
+
         float rchi2 = fitProfile1d(ccdData[i],
                                    ccdDataVar[i],
                                    traceMask[i],
@@ -910,9 +914,8 @@ namespace {
   template ndarray::Array<float, 1, 1> PolyFit(ndarray::Array<float, 1, 1> const&, ndarray::Array<float, 1, 1> const&, size_t const, float, float);
   template ndarray::Array<float, 1, 1> PolyFit(ndarray::Array<float, 1, 1> const&, ndarray::Array<float, 1, 1> const&, size_t const, float const, float const, size_t const, float, float);
 
-  template bool fitProfile2d(ndarray::Array<float, 2, 1> const&,
-                             ndarray::Array<float, 2, 1> const&,
-                             ndarray::Array<lsst::afw::image::MaskPixel, 2, 1> const&,
+   template bool fitProfile2d(lsst::afw::image::MaskedImage<float, lsst::afw::image::MaskPixel, float> &data,
+                             ndarray::Array<int, 2, 1> const&,
                              ndarray::Array<float, 2, 1> const&,
                              const bool,
                              const float,

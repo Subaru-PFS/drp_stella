@@ -28,6 +28,9 @@ void declareReferenceLine(py::module &mod) {
         .value("RESERVED", ReferenceLine::Status::RESERVED)
         .value("MISIDENTIFIED", ReferenceLine::Status::MISIDENTIFIED)
         .value("CLIPPED", ReferenceLine::Status::CLIPPED)
+        .value("SATURATED", ReferenceLine::Status::SATURATED)
+        .value("INTERPOLATED", ReferenceLine::Status::INTERPOLATED)
+        .value("CR", ReferenceLine::Status::CR)
         .export_values();
 
     cls.def(py::init<std::string, ReferenceLine::Status, float, float>(),
