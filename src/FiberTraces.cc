@@ -107,7 +107,7 @@ namespace pfs { namespace drp { namespace stella {
     const MaskT ftMask = _trace->getMask()->getPlaneBitMask("FIBERTRACE");
 
     if (useProfile) {
-        ndarray::Array<MaskT, 2, 1> US_A2_Mask(height, width); // set to 1 for points in the fiberTrace
+        ndarray::Array<int, 2, 1> US_A2_Mask(height, width); // set to 1 for points in the fiberTrace
         auto itRowBin = _trace->getMask()->getArray().begin();
         for (auto itRow = US_A2_Mask.begin(); itRow != US_A2_Mask.end(); ++itRow, ++itRowBin){
             auto itColBin = itRowBin->begin();
@@ -116,8 +116,7 @@ namespace pfs { namespace drp { namespace stella {
             }
         }
 
-        float rchi2 = math::fitProfile2d(traceIm.getImage()->getArray(), ///: input data
-                                         traceIm.getVariance()->getArray(), // variance in data
+        float rchi2 = math::fitProfile2d(traceIm,                        // input data
                                          US_A2_Mask,                     // mask of pixels to use
                                          _trace->getImage()->getArray(), // fibre trace profile
                                          fitBackground,                  // should I fit the background level?
@@ -167,8 +166,10 @@ namespace pfs { namespace drp { namespace stella {
     // Copy the extracted spectra/stdev into the Spectrum (allowing for the ends)
     //
     {
+        const auto& spectrumMask = *spectrumImage->getMask();
+
         auto mask = spectrum->getMask();
-        auto nodata = mask.getPlaneBitMask("NO_DATA");
+        const auto nodata = mask.getPlaneBitMask("NO_DATA");
 
         int i = 0;
         for (; i < bbox.getMinY(); ++i) {
@@ -181,6 +182,12 @@ namespace pfs { namespace drp { namespace stella {
             spectrumSpecOut[i] = spec[j];
             backgroundOut[i] =   background[j];
             spectrumVarOut[i] =  var[j];
+
+            int maskVal = 0;
+            for (int k = bbox.getMinX(); k <= bbox.getMaxX(); ++k) {
+                maskVal |= spectrumMask(k, i);
+            }
+            mask(i, 0) |= maskVal;
         }
         for (; i < spectrumSpecOut.size(); ++i) {
             spectrumSpecOut[i] = 0;

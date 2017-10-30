@@ -111,7 +111,7 @@ class ReduceArcTask(CmdLineTask):
                 addFiberTraceSetToMask(arcExp.maskedImage.mask, flatFiberTraceSet)
                 
                 display.setMaskTransparency(50)
-                display.mtv(arcExp, "Arcs")
+                display.mtv(arcExp, "Arcs %(visit)d %(arm)s%(spectrograph)d" % (arcRef.dataId))
 
             # optimally extract arc spectra
             self.log.info('extracting arc spectra from %(visit)d %(arm)s%(spectrograph)d' % arcRef.dataId)
@@ -153,7 +153,7 @@ class ReduceArcTask(CmdLineTask):
                     reconIm = ft.getReconstructed2DSpectrum(spec)
                     residuals[reconIm.getBBox()] -= reconIm
 
-                display.mtv(residuals, title='Residuals')
+                display.mtv(residuals, title="Residuals %(visit)d %(arm)s%(spectrograph)d" % (arcRef.dataId))
     #
     # Disable writing metadata (doesn't work with lists of dataRefs anyway)
     #

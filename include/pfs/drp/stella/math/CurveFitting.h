@@ -147,9 +147,9 @@ namespace pfs { namespace drp { namespace stella {
      * calculates  D_SP_Out for the system of equations ccdData = D_SP_Out*D_A1_SF_In + D_Bkgd_Out
      */
   template< typename ImageT>
-  bool fitProfile2d(ndarray::Array<ImageT, 2, 1> const& ccdData,                      ///< The image
-                    ndarray::Array<ImageT, 2, 1> const& ccdDataVar,                   ///< data's variance
-                    ndarray::Array<lsst::afw::image::MaskPixel, 2, 1> const& traceMask, ///< set to 1 for points in the fiberTrace
+  bool fitProfile2d(lsst::afw::image::MaskedImage<ImageT,
+                      lsst::afw::image::MaskPixel, ImageT> &data,   ///< the input data containing the spectrum
+                    ndarray::Array<int, 2, 1> const& traceMask,    ///< 1 for points in the fiberTrace
                     ndarray::Array<ImageT, 2, 1> const& profile2d, ///< profile of fibre trace
                     const bool fitBackground,                      ///< should I fit the background level?
                     const float clipNSigma,                        ///< clip at this many sigma

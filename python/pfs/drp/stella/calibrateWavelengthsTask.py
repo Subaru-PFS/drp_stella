@@ -98,7 +98,8 @@ class CalibrateWavelengthsTask(pipeBase.Task):
                 fitWavelengthErr[i] = rl.fitPixelPosErr*nmPerPix
                 status[i] = rl.status
 
-            fitted = (status & arcLines[0].Status.FIT != 0)
+            fitted = (status & arcLines[0].Status.FIT) != 0
+            fitted = fitted & ((status & arcLines[0].Status.INTERPOLATED) == 0)
 
             nSigma = self.config.nSigmaClip[:]
             try:
@@ -188,6 +189,10 @@ class CalibrateWavelengthsTask(pipeBase.Task):
                         ctype = afwDisplay.BLACK
                     elif (rl.status & rl.Status.RESERVED):
                         ctype = afwDisplay.BLUE
+                    elif (rl.status & rl.Status.SATURATED):
+                        ctype = afwDisplay.MAGENTA
+                    elif (rl.status & rl.Status.CR):
+                        ctype = afwDisplay.CYAN
                     elif (rl.status & rl.Status.MISIDENTIFIED):
                         ctype = "brown"
                     elif (rl.status & rl.Status.CLIPPED):
@@ -249,7 +254,8 @@ class CalibrateWavelengthsTask(pipeBase.Task):
 
                 if self.debugInfo.plotArcLinesRow:
                     plt.plot(rows, spec.spectrum)
-                    plotReferenceLines(spec.getReferenceLines(), "guessedPixelPos", alpha=0.1)
+                    plotReferenceLines(spec.getReferenceLines(), "guessedPixelPos", alpha=0.1,
+                                       labelStatus=False)
                     plotReferenceLines(spec.getReferenceLines(), "fitPixelPos", ls='-', alpha=0.5)
                     label = 'reference'
                     for rl in spec.getReferenceLines():

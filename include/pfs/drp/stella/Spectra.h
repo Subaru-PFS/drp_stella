@@ -17,7 +17,10 @@ public:
         FIT=1,                          // line was found and fit; n.b. powers of 2
         RESERVED=2,                     // line was not used in estimating rms
         MISIDENTIFIED=4,                // line was misidentified
-        CLIPPED=8                       // line was clipped in fitting distortion
+        CLIPPED=8,                      // line was clipped in fitting distortion
+        SATURATED=16,                   // (centre of) line was saturated
+        INTERPOLATED=32,                // (centre of) line was interpolated
+        CR=64,                          // line is contaminated by a cosmic ray
     };
 
     ReferenceLine(std::string const& _description, Status _status=NOWT, float _wavelength=0,
