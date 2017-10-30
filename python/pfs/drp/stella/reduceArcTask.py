@@ -3,14 +3,14 @@ import numpy as np
 if False:                               # will be imported if needed (matplotlib import can be slow)
     import matplotlib.pyplot as plt
 import lsstDebug
-#import lsst.log as log
+import lsst.daf.base as dafBase
 import lsst.pex.config as pexConfig
 from lsst.utils import getPackageDir
 from lsst.pipe.base import TaskRunner, ArgumentParser, CmdLineTask
 import lsst.afw.display as afwDisplay
 from pfs.drp.stella.calibrateWavelengthsTask import CalibrateWavelengthsTask
 from pfs.drp.stella.extractSpectraTask import ExtractSpectraTask
-from pfs.drp.stella.utils import makeFiberTraceSet, makeDetectorMap
+from pfs.drp.stella.utils import makeFiberTraceSet, _makeDetectorMap, DetectorMapIO
 from pfs.drp.stella.utils import readLineListFile, writePfsArm, addFiberTraceSetToMask
 from lsst.obs.pfs.utils import getLampElements
 
@@ -31,15 +31,14 @@ class ReduceArcConfig(pexConfig.Config):
                              dtype=str, default=os.path.join(getPackageDir("obs_pfs"),
                                                              "pfs/lineLists/CdHgKrNeXe_red.fits"));
     minArcLineIntensity=pexConfig.Field(doc="Minimum 'NIST' intensity to use emission lines",
-                                        dtype=float, default=0);
+                                        dtype=float, default=100);
     randomSeed=pexConfig.Field(doc="Seed to pass to np.random.seed()", dtype=int, default=0)
 
 class ReduceArcTaskRunner(TaskRunner):
     """Get parsed values into the ReduceArcTask.run"""
     @staticmethod
     def getTargetList(parsedCmd, **kwargs):
-        return [(parsedCmd.id.refList,
-                 dict(butler=parsedCmd.butler, wLenFile=parsedCmd.wLenFile, lineList=parsedCmd.lineList))]
+        return [(parsedCmd.id.refList, dict(butler=parsedCmd.butler))]
 
 class ReduceArcTask(CmdLineTask):
     """Task to reduce Arc images"""
@@ -60,19 +59,11 @@ class ReduceArcTask(CmdLineTask):
         parser = ArgumentParser(name=cls._DefaultName)
         parser.add_id_argument("--id", datasetType="raw",
                                help="input identifiers, e.g., --id visit=123 ccd=4")
-        parser.add_argument("--wLenFile", help='directory and name of pixel vs. wavelength file')
-        parser.add_argument("--lineList", help='directory and name of line list')
         return parser
 
-    def run(self, expRefList, butler, wLenFile=None, lineList=None, immediate=True):
-        if wLenFile == None:
-            wLenFile = self.config.wavelengthFile
-        if lineList == None:
-            lineList = self.config.lineList
+    def run(self, expRefList, butler, immediate=True):
         self.log.debug('expRefList = %s' % expRefList)
         self.log.debug('len(expRefList) = %d' % len(expRefList))
-        self.log.debug('wLenFile = %s' % wLenFile)
-        self.log.debug('lineList = %s' % lineList)
 
         if self.config.randomSeed != 0:
             np.random.seed(self.config.randomSeed)
@@ -89,7 +80,10 @@ class ReduceArcTask(CmdLineTask):
             except Exception, e:
                 raise RuntimeError("Unable to load fiberTrace for %s: %s" % (arcRef.dataId, e))
 
-            detectorMap = makeDetectorMap(butler, arcRef.dataId, wLenFile)
+            if False:
+                detectorMap = _makeDetectorMap(butler, arcRef.dataId, self.config.wavelengthFile)
+            else:
+                detectorMap = butler.get('detectormap', arcRef.dataId)
 
             flatFiberTraceSet = makeFiberTraceSet(fiberTrace)
             self.log.debug('fiberTrace calibration file contains %d fibers' % flatFiberTraceSet.getNtrace())
@@ -106,12 +100,14 @@ class ReduceArcTask(CmdLineTask):
             # read line list
             lamps = getLampElements(arcExp.getMetadata())
             self.log.info("Arc lamp elements are: %s" % " ".join(lamps))
-            arcLines = readLineListFile(lineList, lamps, minIntensity=self.config.minArcLineIntensity)
+            arcLines = readLineListFile(self.config.lineList, lamps,
+                                        minIntensity=self.config.minArcLineIntensity)
             arcLineWavelengths = np.array([line.wavelength for line in arcLines], dtype='float32')
 
             if self.debugInfo.display and self.debugInfo.arc_frame >= 0:
                 display = afwDisplay.Display(self.debugInfo.arc_frame)
 
+                display.setMaskPlaneColor("FIBERTRACE", afwDisplay.YELLOW)
                 addFiberTraceSetToMask(arcExp.maskedImage.mask, flatFiberTraceSet)
                 
                 display.setMaskTransparency(50)
@@ -126,6 +122,14 @@ class ReduceArcTask(CmdLineTask):
             self.calibrateWavelengths.run(detectorMap, spectrumSet, arcLines)
 
             writePfsArm(butler, arcExp, spectrumSet, arcRef.dataId)
+            #
+            # Now the updated DetectorMap.  We could derive this task from CalibTask, except
+            # that that depends on BatchPoolTask and that'd be a pain as it assumes multiprocessing
+            #
+            metadata = dafBase.PropertyList()
+            metadata.set("OBSTYPE", "DETECTORMAP")
+            metadata.set("HIERARCH calibDate", "2017-10-20") # avoid warnings on long keywords
+            arcRef.put(DetectorMapIO(detectorMap, metadata), 'detectormap', visit0=arcRef.dataId['visit'])
             #
             # Done; time for debugging plots
             #

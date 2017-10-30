@@ -208,6 +208,7 @@ class ConstructFiberTraceTask(CalibTask):
             pfsFT.fiberId.append(ft.getFiberId())
             pfsFT.traces.append(ft.getTrace())
 
+        # Add suitable metadata
         md = dafBase.PropertyList()
         for i, dataRef in enumerate(dataRefList):
             dataId = dataRef.dataId

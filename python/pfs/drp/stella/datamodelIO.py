@@ -108,15 +108,13 @@ class PfsFiberTraceIO(object):
         self._pfsFiberTrace = pfsFiberTrace
         self._metadata = metadata
 
-#-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
-
     @staticmethod
     def readFits(pathName, hdu=None, flags=None):
         dirName, fileName = os.path.split(pathName)
 
         match = re.search(r"^pfsFiberTrace-(\d{4}-\d{2}-\d{2})-0-([brmn])([1-4])\.fits", fileName)
         if not match:
-            raise RuntimeError("Unable to extract pfsConfigId from \"%s\"" % pathName)
+            raise RuntimeError("Unable to extract dateObs/arm/spectrograph from \"%s\"" % pathName)
 
         dateObs, arm, spectrograph = match.groups()
         spectrograph = int(spectrograph)
@@ -124,8 +122,6 @@ class PfsFiberTraceIO(object):
         pfsFiberTrace.read(dirName=dirName)
 
         return pfsFiberTrace
-
-#-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
     def writeFits(self, pathName, flags=None):
         dirName, fileName = os.path.split(pathName)

@@ -22,6 +22,10 @@ public:
     spline& operator=(spline &&) = default;
 
     T operator() (T const x) const;
+
+    std::vector<T> const& getX() const { return _x; }
+    std::vector<T> const& getY() const { return _y; }
+    
 private:
     std::vector<T> _x, _y;              // x,y coordinates of points
     std::vector<T> _k;                  // slope at points, used for interpolation

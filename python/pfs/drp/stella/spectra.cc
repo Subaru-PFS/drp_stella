@@ -25,8 +25,9 @@ void declareReferenceLine(py::module &mod) {
     py::enum_<ReferenceLine::Status>(cls, "Status", py::arithmetic())
         .value("NOWT", ReferenceLine::Status::NOWT)
         .value("FIT", ReferenceLine::Status::FIT)
-        .value("KEPT_BACK", ReferenceLine::Status::KEPT_BACK)
+        .value("RESERVED", ReferenceLine::Status::RESERVED)
         .value("MISIDENTIFIED", ReferenceLine::Status::MISIDENTIFIED)
+        .value("CLIPPED", ReferenceLine::Status::CLIPPED)
         .export_values();
 
     cls.def(py::init<std::string, ReferenceLine::Status, float, float>(),

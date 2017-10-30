@@ -9,6 +9,7 @@ import numpy as np
 import pfs.drp.stella as drpStella
 import pfs.drp.stella.detectorMap as detectorMap
 from pfs.drp.stella.datamodelIO import spectrumSetToPfsArm, PfsArmIO, PfsConfigIO
+import pfs.drp.stella.detectorMap
 
 def makeFiberTraceSet(pfsFiberTrace):
     if pfsFiberTrace.traces is None or len(pfsFiberTrace.traces) == 0:
@@ -38,15 +39,108 @@ def readWavelengthFile(wLenFile):
 
     return [xCenters, wavelengths, traceIds]
 
-def makeDetectorMap(butler, dataId, wLenFile, nKnot=25):
+def writeDetectorMap(detectorMap, outFile, metadata=None):
+    """write a DetectorMap to the specified file
+    @param detectorMap: The DetectorMap
+    @param outFile:  Name of desired FITS file
+    """
+    #
+    # Unpack detectorMap into python objects
+    #
+    detMapIo = pfs.drp.stella.detectorMap.DetectorMapIO(detectorMap)
+    bbox = detMapIo.getBBox()
+    fiberIds = np.array(detMapIo.getFiberIds(), dtype=np.int32)
+    slitOffsets = detectorMap.getSlitOffsets()
+
+    nKnot = len(detMapIo.getXCenter(fiberIds[0])[0])
+    splineDataArr = np.empty((len(fiberIds), 4, nKnot))
+    i = -1
+    for fiberId in fiberIds:
+        i += 1
+        splineDataArr[i][0], splineDataArr[i][1] = detMapIo.getXCenter(fiberId)
+        splineDataArr[i][2], splineDataArr[i][3] = detMapIo.getWavelength(fiberId)
+
+    del detMapIo
+    #
+    # OK, we've unpacked the DetectorMap; time to write the contents to disk
+    #
+    hdus = pyfits.HDUList()
+
+    hdr = pyfits.Header()
+    hdr["MINX"] = bbox.getMinX()
+    hdr["MINY"] = bbox.getMinY()
+    hdr["MAXX"] = bbox.getMaxX()
+    hdr["MAXY"] = bbox.getMaxY()
+    if metadata:
+        for k in metadata.names():
+            hdr[k] = metadata.get(k)
+            
+    hdus.append(pyfits.PrimaryHDU(header=hdr))
+
+    hdu = pyfits.ImageHDU(fiberIds)
+    hdu.name = "FIBERID"
+    hdu.header["INHERIT"] = True
+    hdus.append(hdu)
+
+    hdu = pyfits.ImageHDU(slitOffsets)
+    hdu.name = "SLITOFF"
+    hdu.header["INHERIT"] = True
+    hdus.append(hdu)
+
+    hdu = pyfits.ImageHDU(splineDataArr)
+    hdu.name = "SPLINE"
+    hdu.header["INHERIT"] = True
+    hdus.append(hdu)
+
+    # clobber=True in writeto prints a message, so use open instead
+    with open(outFile, "w") as fd:
+        hdus.writeto(fd)
+    
+def readDetectorMap(inFile):
+    """Return a DetectorMap from the specified file
+    @param inFile:  Name of FITS file to read
+    """
+    with pyfits.open(inFile) as fd:
+        pdu = fd[0]
+        minX = pdu.header['MINX']
+        minY = pdu.header['MINY']
+        maxX = pdu.header['MAXX']
+        maxY = pdu.header['MAXY']
+
+        bbox = afwGeom.BoxI(afwGeom.PointI(minX, minY), afwGeom.PointI(maxX, maxY))
+
+        hdu = fd["FIBERID"]
+        fiberIds = hdu.data
+        fiberIds = fiberIds.astype(np.int32)   # why is this astype needed? BITPIX=32, no BZERO/BSCALE
+
+        hdu = fd["SLITOFF"]
+        slitOffsets = hdu.data.astype(np.float32)
+
+        hdu = fd["SPLINE"]
+        splineDataArr = hdu.data.astype(np.float32)
+
+    nKnot = len(splineDataArr[0][0])
+
+    detMapIo = pfs.drp.stella.detectorMap.DetectorMapIO(bbox, fiberIds, nKnot)
+    detMapIo.setSlitOffsets(slitOffsets)
+
+    for i in range(len(fiberIds)):
+        fiberId = fiberIds[i]
+        xcKnot, xc, wlKnot, wl = splineDataArr[i]
+
+        detMapIo.setXCenter(fiberId,    xcKnot, xc)
+        detMapIo.setWavelength(fiberId, wlKnot, wl)
+
+    return detMapIo.getDetectorMap()
+
+def _makeDetectorMap(butler, dataId, wLenFile, nKnot=25):
     """Return a DetectorMap from the specified file
 
-    N.b. we need to get this from the butler in the longer run
+    OBSELETE:  Use makeDetectorMap.  Keep until we've decided
+    how to manage/curate the pfsDetectorMap file
     """
     
     xCenters, wavelengths, fiberIds = readWavelengthFile(wLenFile)
-    #
-    # N.b. Andreas calls these "traceIds" but I'm assuming that they are actually be 1-indexed fiberIds
     #
     nFiber = len(set(fiberIds))
     fiberIds = fiberIds.reshape(nFiber, len(fiberIds)//nFiber)
@@ -158,16 +252,44 @@ def readLineListFile(lineList, lamps=["Ar", "Cd", "Hg", "Ne", "Xe"], minIntensit
 
     return referenceLines
 
-def plotReferenceLines(referenceLines, what, ls=':', alpha=1):
-    """Plot a set of reference lines using axvline"""
-    for rl in referenceLines:
-        color = 'black'
-        if not (rl.status & rl.Status.FIT):
-            color = 'red'
-        elif (rl.status & rl.Status.MISIDENTIFIED):
-            color = 'blue'
+def plotReferenceLines(referenceLines, what, ls=':', alpha=1, color=None, label=None):
+    """Plot a set of reference lines using axvline
+    If label is None use `what` as a label; if label is '' don't label line
+    """
+    labelLines = False                  # label based on `what` and status
+    if label == None:
+        labelLines = True
+    elif label == '':
+        label = None
 
-        plt.axvline(getattr(rl, what), ls=ls, color=color, alpha=alpha)
+    def maybeSetLabel(status):
+        if labelLines:
+            lab = None if status in labels else ("%s %s" % (what, status)) # n.b. label is in caller's scope
+            labels[status] = True
+            return lab
+        else:
+            return label
+
+    labels = {}                         # labels that we've used if labelLines is True
+    for rl in referenceLines:
+        if not (rl.status & rl.Status.FIT):
+            color = 'black'
+            label = maybeSetLabel("Bad fit")
+        elif (rl.status & rl.Status.RESERVED):
+            color = 'blue'
+            label = maybeSetLabel("Reserved")
+        elif (rl.status & rl.Status.MISIDENTIFIED):
+            color = 'brown'
+            label = maybeSetLabel("Misidentified")
+        elif (rl.status & rl.Status.CLIPPED):
+            color = 'red'
+            label = maybeSetLabel("Clipped")
+        else:
+            color = 'green'
+            label = maybeSetLabel("Fit")
+
+        plt.axvline(getattr(rl, what), ls=ls, color=color, alpha=alpha, label=label)
+        label = None
     
 def readReferenceSpectrum(refSpec):
     """read reference Spectrum"""
@@ -225,3 +347,21 @@ def addFiberTraceSetToMask(mask, fiberTraceSet):
             mask[traceMask.getBBox(), afwImage.PARENT] |= mask
         else:
             mask.Factory(mask, traceMask.getBBox(), afwImage.PARENT)[:] |= traceMask
+
+
+#-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+
+class DetectorMapIO(object):
+    """A class to perform butler-based I/O for DetectorMap
+    """
+
+    def __init__(self, detectorMap, metadata=None):
+        self._detectorMap = detectorMap
+        self._metadata = metadata
+
+    @staticmethod
+    def readFits(pathName, hdu=None, flags=None):
+        return readDetectorMap(pathName)
+
+    def writeFits(self, pathName, flags=None):
+        writeDetectorMap(self._detectorMap, pathName, self._metadata)
