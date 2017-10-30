@@ -31,7 +31,7 @@ class ReduceArcConfig(pexConfig.Config):
                              dtype=str, default=os.path.join(getPackageDir("obs_pfs"),
                                                              "pfs/lineLists/CdHgKrNeXe_red.fits"));
     minArcLineIntensity=pexConfig.Field(doc="Minimum 'NIST' intensity to use emission lines",
-                                        dtype=float, default=0);
+                                        dtype=float, default=100);
     randomSeed=pexConfig.Field(doc="Seed to pass to np.random.seed()", dtype=int, default=0)
 
 class ReduceArcTaskRunner(TaskRunner):

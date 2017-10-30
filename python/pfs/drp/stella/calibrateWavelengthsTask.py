@@ -10,19 +10,19 @@ from pfs.drp.stella.utils import plotReferenceLines
 
 @pexConfig.wrap(drpStella.DispCorControl) # should wrap IdentifyLinesTaskConfig when it's written
 class CalibrateWavelengthsConfig(pexConfig.Config):
-    fittingFunction=pexConfig.Field(doc="Function for fitting the dispersion", dtype=str, default="POLYNOMIAL");
     order=pexConfig.Field(doc="Fitting function order", dtype=int, default=4);
     searchRadius=pexConfig.Field(doc="Radius in pixels relative to line list to search for emission line peak",
-                                 dtype=int, default=2);
+                                 dtype=int, default=5);
     fwhm=pexConfig.Field(doc="FWHM of emission lines", dtype=float, default=2.6);
     maxDistance=pexConfig.Field(doc="Reject lines with center more than maxDistance from predicted position",
                                 dtype=float, default=2.5);
     nLinesKeptBack=pexConfig.Field(doc="Number of lines to withhold from line fitting to estimate errors",
                                    dtype=int, default=4);
     nSigmaClip = pexConfig.ListField(doc="Number of sigma to clip points in the initial wavelength fit",
-                                     dtype=float, default=[10, 5, 4])
-    errorFloor = pexConfig.Field(doc="Floor on positional errors, added in quadrature to quoted errors",
-                                 dtype=float, default=5e-2)
+                                     dtype=float, default=[10, 5, 4, 3])
+    pixelPosErrorFloor = pexConfig.Field(doc="Floor on pixel positional errors, " +
+                                         "added in quadrature to quoted errors",
+                                         dtype=float, default=0.05)
     resetSlitDy = pexConfig.Field(doc="Reset the slitOffset values in the DetecorMap to 0",
                                   dtype=bool, default=False);
 
