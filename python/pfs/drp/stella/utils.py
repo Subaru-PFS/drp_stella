@@ -252,16 +252,44 @@ def readLineListFile(lineList, lamps=["Ar", "Cd", "Hg", "Ne", "Xe"], minIntensit
 
     return referenceLines
 
-def plotReferenceLines(referenceLines, what, ls=':', alpha=1):
-    """Plot a set of reference lines using axvline"""
-    for rl in referenceLines:
-        color = 'black'
-        if not (rl.status & rl.Status.FIT):
-            color = 'red'
-        elif (rl.status & rl.Status.MISIDENTIFIED):
-            color = 'blue'
+def plotReferenceLines(referenceLines, what, ls=':', alpha=1, color=None, label=None):
+    """Plot a set of reference lines using axvline
+    If label is None use `what` as a label; if label is '' don't label line
+    """
+    labelLines = False                  # label based on `what` and status
+    if label == None:
+        labelLines = True
+    elif label == '':
+        label = None
 
-        plt.axvline(getattr(rl, what), ls=ls, color=color, alpha=alpha)
+    def maybeSetLabel(status):
+        if labelLines:
+            lab = None if status in labels else ("%s %s" % (what, status)) # n.b. label is in caller's scope
+            labels[status] = True
+            return lab
+        else:
+            return label
+
+    labels = {}                         # labels that we've used if labelLines is True
+    for rl in referenceLines:
+        if not (rl.status & rl.Status.FIT):
+            color = 'black'
+            label = maybeSetLabel("Bad fit")
+        elif (rl.status & rl.Status.RESERVED):
+            color = 'blue'
+            label = maybeSetLabel("Reserved")
+        elif (rl.status & rl.Status.MISIDENTIFIED):
+            color = 'brown'
+            label = maybeSetLabel("Misidentified")
+        elif (rl.status & rl.Status.CLIPPED):
+            color = 'red'
+            label = maybeSetLabel("Clipped")
+        else:
+            color = 'green'
+            label = maybeSetLabel("Fit")
+
+        plt.axvline(getattr(rl, what), ls=ls, color=color, alpha=alpha, label=label)
+        label = None
     
 def readReferenceSpectrum(refSpec):
     """read reference Spectrum"""

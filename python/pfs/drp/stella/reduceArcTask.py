@@ -107,6 +107,7 @@ class ReduceArcTask(CmdLineTask):
             if self.debugInfo.display and self.debugInfo.arc_frame >= 0:
                 display = afwDisplay.Display(self.debugInfo.arc_frame)
 
+                display.setMaskPlaneColor("FIBERTRACE", afwDisplay.YELLOW)
                 addFiberTraceSetToMask(arcExp.maskedImage.mask, flatFiberTraceSet)
                 
                 display.setMaskTransparency(50)

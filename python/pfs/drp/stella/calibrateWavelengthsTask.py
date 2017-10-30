@@ -43,6 +43,11 @@ class CalibrateWavelengthsTask(pipeBase.Task):
         @return pipe_base Struct containing these fields:
          - spectrumSet: set of extracted spectra
         """
+
+        if self.debugInfo.display and self.debugInfo.showArcLines:
+            display = afwDisplay.Display(self.debugInfo.arc_frame)
+            display.erase()
+            
         # Fit the wavelength solution
         dispCorControl = self.config.makeControl()
 
@@ -65,33 +70,32 @@ class CalibrateWavelengthsTask(pipeBase.Task):
         # N.b. we do this after fitting all the fibres, even though we currently do this fibre by fibre
         #
         rows = np.arange(len(spec.wavelength), dtype='float32')
+
         if spectrumSet.getNtrace() > 0:
             refLines = spectrumSet.getSpectrum(0).getReferenceLines()
 
             wavelength = np.empty(len(refLines))
             status = np.empty_like(wavelength, dtype=int)
-            guessedIntensity = np.empty_like(wavelength)
-            guessedPixelPos = np.empty_like(wavelength)
-            fitIntensity = np.empty_like(wavelength)
-            fitPixelPos = np.empty_like(wavelength)
-            fitPixelPosErr = np.empty_like(wavelength)
+            nominalPixelPos = np.empty_like(wavelength)
+            fitWavelength = np.empty_like(wavelength)
+            fitWavelengthErr = np.empty_like(wavelength)
 
             for i, rl in enumerate(refLines):
                 wavelength[i] = rl.wavelength
-                guessedIntensity[i] = rl.guessedIntensity
 
         for spec in spectrumSet:
             fiberId = spec.getFiberId()
             refLines = spec.getReferenceLines()
+            lam = detectorMap.getWavelength(fiberId)
+            nmPerPix = (lam[-1] - lam[0])/(rows[-1] - rows[0])
+            self.log.trace("FiberId %d, dispersion (nm/pixel) = %.3f" % (fiberId, nmPerPix))
             #
             # Unpack reference lines
+            #
             for i, rl in enumerate(refLines):
-                guessedPixelPos[i] = rl.guessedPixelPos # came from detectorMap.findPoint()
-
-                fitIntensity[i] = rl.fitIntensity
-                fitPixelPos[i] = rl.fitPixelPos
-                fitPixelPosErr[i] = rl.fitPixelPosErr
-
+                nominalPixelPos[i] = (rl.wavelength - lam[0])/nmPerPix
+                fitWavelength[i] = detectorMap.findWavelength(fiberId, rl.fitPixelPos)
+                fitWavelengthErr[i] = rl.fitPixelPosErr*nmPerPix
                 status[i] = rl.status
 
             fitted = (status & arcLines[0].Status.FIT != 0)
@@ -105,57 +109,60 @@ class CalibrateWavelengthsTask(pipeBase.Task):
 
             used = fitted.copy()        # the lines that we use in the fit
             clipped = np.zeros_like(fitted, dtype=bool)
-            reserved = np.ones_like(fitted, dtype=bool)
+            reserved = np.zeros_like(fitted, dtype=bool)
             for nSigma in nSigma:
                 if nSigma is None:      # i.e. the last pass
                     #
                     # Reserve some lines to estimate the quality of the fit
                     #
                     good = np.where(used)[0]
-                    for i in np.random.choice(len(good), self.config.nLinesKeptBack, replace=False):
-                        used[good[i]] = False
+                    oldUsed = used.copy()
+
+                    if self.config.nLinesKeptBack >= len(good):
+                        self.log.warn("No. good points %d <= nLinesKeptBack == %d; not reserving points" %
+                                  (len(good), self.config.nLinesKeptBack))
+                    else:
+                        for i in np.random.choice(len(good), self.config.nLinesKeptBack, replace=False):
+                            used[good[i]] = False
                         
-                    reserved = (fitted & ~clipped) & ~used
-                    assert sum(reserved) == self.config.nLinesKeptBack
+                        reserved = (fitted & ~clipped) & ~used
+                        assert sum(reserved) == self.config.nLinesKeptBack
                 #
                 # Fit the residuals
                 #
-                x = guessedPixelPos
-                y = fitPixelPos - guessedPixelPos
-                yerr = np.hypot(fitPixelPosErr, self.config.errorFloor)
+                x = nominalPixelPos
+                y = wavelength - fitWavelength
+                yerr = np.hypot(fitWavelengthErr, self.config.pixelPosErrorFloor*nmPerPix)
 
-                wavelengthFit = np.polynomial.chebyshev.Chebyshev.fit(
+                wavelengthCorr = np.polynomial.chebyshev.Chebyshev.fit(
                     x[used], y[used], self.config.order, domain=[0, len(spec.wavelength) - 1], w=1/yerr[used])
-                yfit = wavelengthFit(x)
+                yfit = wavelengthCorr(x)
 
                 if nSigma is not None:
-                    nclipped = fitted & (np.fabs(y - yfit) > nSigma*yerr) # newly clipped
-                    if nclipped.sum() == 0:
-                        break
+                    clipped |= fitted & (np.fabs(y - yfit) > nSigma*yerr)
+                    used = used & ~clipped
 
-                    clipped |= nclipped
-
-                    if clipped.sum() == len(clipped):
-                        self.info.warn("All points were clipped for fiberId %d; disabled clipping" % fiberId)
+                    if used.sum() == 0:
+                        self.log.warn("All points were clipped for fiberId %d; disabled clipping" % fiberId)
                         clipped[:] = False
-
-                    used = np.logical_and(used, np.logical_not(clipped))
+                        used = fitted.copy()
             #
-            # spec.wavelength is the wavelengths at the positions rows, and we now know the correction
-            # from the nominal model in the detectorMap based on the lines.
+            # Update the status flags
             #
-            # We use a spline to correct the wavelengths in the DetectorMap
+            for i, rl in enumerate(refLines):
+                if clipped[i]:
+                    rl.status |= rl.Status.CLIPPED
+                if reserved[i]:
+                    rl.status |= rl.Status.RESERVED
             #
-            nominalWavelength = detectorMap.getWavelength(fiberId)
-            correctedRows = rows - wavelengthFit(rows)
-
-            splineFit = scipy.interpolate.UnivariateSpline(correctedRows, nominalWavelength) # not-a-knot
-            spec.wavelength = splineFit(rows).astype('float32')
+            # Correct the initial wavelength solution
+            #
+            spec.wavelength = detectorMap.getWavelength(fiberId) + wavelengthCorr(rows).astype('float32')
 
             self.log.info("FiberId %4d, rms %.3fpix (%.3fpix for reserved points)" %
                           (fiberId,
-                           np.sqrt(np.sum(((y - yfit)**2)[used]))/(used.sum() - self.config.order),
-                           np.sqrt(np.sum(((y - yfit)**2)[reserved]))/reserved.sum(),
+                           np.sqrt(np.sum(((y - yfit)**2)[used]))/(used.sum() - self.config.order)/nmPerPix,
+                           np.sqrt(np.sum(((y - yfit)**2)[reserved]))/reserved.sum()/nmPerPix,
                            ))
             #
             # Update the DetectorMap
@@ -164,22 +171,32 @@ class CalibrateWavelengthsTask(pipeBase.Task):
                 offsets = detectorMap.getSlitOffsets(fiberId)
                 offsets[detectorMap.FIBER_DY] = 0
                 detectorMap.setSlitOffsets(fiberId, offsets)
-
+                
             detectorMap.setWavelength(fiberId, spec.wavelength)
             #
             # Debug outputs
             #
             if self.debugInfo.display and self.debugInfo.showArcLines:
-                display = afwDisplay.Display(self.debugInfo.arc_frame)
-
                 display.dot(str(fiberId),
                             detectorMap.findPoint(fiberId, arcLines[0].wavelength)[0],
                             0.5*len(detectorMap.getXCenter(fiberId)) + 10*(fiberId%2), ctype='blue')
                 
                 for rl in refLines:
                     xc, wl = detectorMap.findPoint(fiberId, rl.wavelength)
-                    display.dot('+', xc, wl, ctype='red')
-                    display.dot('x', xc, rl.fitPixelPos, ctype='blue')
+
+                    if not (rl.status & rl.Status.FIT):
+                        ctype = afwDisplay.BLACK
+                    elif (rl.status & rl.Status.RESERVED):
+                        ctype = afwDisplay.BLUE
+                    elif (rl.status & rl.Status.MISIDENTIFIED):
+                        ctype = "brown"
+                    elif (rl.status & rl.Status.CLIPPED):
+                        ctype = afwDisplay.RED
+                    else:
+                        ctype = afwDisplay.GREEN
+
+                    display.dot('+', xc, wl, ctype=ctype)
+                    display.dot('x', xc, rl.fitPixelPos, ctype=ctype)
 
             if self.debugInfo.display and self.debugInfo.showFibers is not None:
                 import matplotlib.pyplot as plt
@@ -187,27 +204,18 @@ class CalibrateWavelengthsTask(pipeBase.Task):
                 if self.debugInfo.showFibers and fiberId not in self.debugInfo.showFibers:
                     continue
 
-                if self.debugInfo.plotArcLinesRow:
-                    plt.plot(rows, spec.getSpectrum())
-                    plotReferenceLines(spec.getReferenceLines(), "guessedPixelPos", alpha=0.1)
-                    plotReferenceLines(spec.getReferenceLines(), "fitPixelPos", ls='-', alpha=0.5)
-                    plt.xlabel('row')
-                    plt.title("FiberId %d" % fiberId);
-                    plt.show()
-
-                if self.debugInfo.plotArcLinesLambda:
-                    plt.plot(spec.wavelength, spec.spectrum)
-                    plotReferenceLines(spec.getReferenceLines(), "wavelength", ls='-', alpha=0.5)
-                    plt.xlabel("Wavelength (vacuum nm)")
-                    plt.title("FiberId %d" % fiberId)
-                    plt.show()
-
-                if self.debugInfo.plotPositionResiduals:
+                if self.debugInfo.plotWavelengthResiduals:
                     # things we're going to plot
-                    dataItems = [(used, 'o', 'used'), #                     logical, marker, label
-                                 (reserved, 'o', 'reserved'),
-                                 (clipped, '+', 'clipped'),
+                    dataItems = [(used, 'o', 'green', 'used'), #          logical, marker, colour, label
+                                 (reserved, 'o', 'blue', 'reserved'),
+                                 (clipped, '+', 'red', 'clipped'),
                     ]
+                    #
+                    # x is a nominal position which we used as an index for the Chebyshev fit.
+                    # This makes the plot confusing, so update it
+                    #
+                    for i, rl in enumerate(refLines):
+                        x[i] = detectorMap.findPoint(fiberId, rl.wavelength)[1]                    
 
                     plt.figure().subplots_adjust(hspace=0)
 
@@ -216,25 +224,50 @@ class CalibrateWavelengthsTask(pipeBase.Task):
                     axes.append(plt.subplot2grid((3, 1), (1, 0), rowspan=2, sharex=axes[-1]))
 
                     ax = axes[0]
-                    for l, marker, label in dataItems:
-                        ax.errorbar(x[l], (y - yfit)[l], yerr=yerr[l], marker=marker, ls='none')
+                    for l, marker, color, label in dataItems:
+                        ax.errorbar(x[l], (y - yfit)[l], yerr=yerr[l],
+                                    marker=marker, ls='none', color=color)
 
-                    ax.set_ylim(0.5*np.array([-1, 1]))
+                    ax.set_ylim(0.1*np.array([-1, 1]))
                     ax.axhline(0, ls=':', color='black')
-                    ax.set_ylabel('residuals')
+                    ax.set_ylabel('residuals (nm)')
 
                     ax.set_title("FiberId %d" % fiberId) # applies to the whole plot
                     
                     ax = axes[1]
-                    for l, marker, label in dataItems:
+                    for l, marker, color, label in dataItems:
                         if l.sum() > 0: # no points confuses plt.legend()
-                            ax.errorbar(x[l], y[l], yerr=yerr[l], marker=marker, ls='none', label=label)
-                    ax.plot(rows, wavelengthFit(rows))
+                            ax.errorbar(x[l], y[l], yerr=yerr[l],
+                                        marker=marker, ls='none', color=color, label=label)
+                    ax.plot(rows, wavelengthCorr(rows))
 
                     ax.legend(loc='best')
                     ax.set_xlabel('pixel') # applies to the whole plot
-                    ax.set_ylabel('pixel - fit')
+                    ax.set_ylabel('lambda - fit (nm)')
 
+                    plt.show()
+
+                if self.debugInfo.plotArcLinesRow:
+                    plt.plot(rows, spec.spectrum)
+                    plotReferenceLines(spec.getReferenceLines(), "guessedPixelPos", alpha=0.1)
+                    plotReferenceLines(spec.getReferenceLines(), "fitPixelPos", ls='-', alpha=0.5)
+                    label = 'reference'
+                    for rl in spec.getReferenceLines():
+                        plt.axvline(detectorMap.findPoint(fiberId, rl.wavelength)[1],
+                                    ls='-', alpha=0.25, color='black', label=label)
+                        label = None
+
+                    plt.legend(loc='best')
+                    plt.xlabel('row')
+                    plt.title("FiberId %d" % fiberId);
+                    plt.show()
+
+                if self.debugInfo.plotArcLinesLambda:
+                    plt.plot(spec.wavelength, spec.spectrum)
+                    plotReferenceLines(spec.getReferenceLines(), "wavelength", ls='-', alpha=0.5)
+                    plt.legend(loc='best')
+                    plt.xlabel("Wavelength (vacuum nm)")
+                    plt.title("FiberId %d" % fiberId)
                     plt.show()
 
         return pipeBase.Struct(

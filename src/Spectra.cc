@@ -306,7 +306,7 @@ Spectrum::identify(std::vector<std::shared_ptr<const ReferenceLine>> const& line
                                 goodIndx = i;
                             }
                             if ((_mask((start + end)/2, 0) & nodata) == 0) {
-                                LOGLS_WARN(_log, "Fibre " << to_string(getFiberId()) << 
+                                LOGLS_WARN(_log, "Fibre " << getFiberId() << 
                                            " i=" << i << ": line " <<
                                            " at  GaussPos[" << badIndx << "] = " <<
                                            GaussPos[badIndx] <<
@@ -321,11 +321,11 @@ Spectrum::identify(std::vector<std::shared_ptr<const ReferenceLine>> const& line
                         }
                     }
                 } else {
-                    string message("maxPos=");
-                    message += to_string(maxPos) + " - GaussCoeffs[XC]=" + to_string(GaussCoeffs[XC]);
-                    message += "(=" + to_string(std::fabs(maxPos - GaussCoeffs[XC]));
-                    message += ") >= " + to_string(dispCorControl.maxDistance) + " => Skipping line";
-                    LOGLS_WARN(_log, message);
+                    LOGLS_WARN(_log, 
+                               "fiberId = " << getFiberId() <<
+                               " |(maxPos=" << maxPos << ") - (GaussCoeffs[XC]=" <<
+                               GaussCoeffs[XC] << ")| = " << std::fabs(maxPos - GaussCoeffs[XC]) << " >= " <<
+                               dispCorControl.maxDistance << " => Skipping line");
                 }
             }
         }
