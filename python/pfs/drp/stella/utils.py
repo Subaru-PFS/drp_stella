@@ -224,11 +224,20 @@ def readLineListFile(lineList, lamps=["Ar", "Cd", "Hg", "Ne", "Xe"], minIntensit
                 if not line:
                     continue
                 fields = line.split()
-                lam, I, elem = fields[:3]
+                try:
+                    lam, I, elem = fields[:3]
+                except Exception as e:
+                    print "%s: %s" % (e, fields)
+                    raise
+
+                try:
+                    I = float(I)
+                except ValueError:
+                    I = np.nan
 
                 element.append(elem)
                 wavelength.append(float(lam))
-                intensity.append(float(I))
+                intensity.append(I)
     #
     # Pack into a list of ReferenceLines
     #
@@ -245,16 +254,33 @@ def readLineListFile(lineList, lamps=["Ar", "Cd", "Hg", "Ne", "Xe"], minIntensit
                 continue
 
         if minIntensity > 0:
-            if I < minIntensity:
+            if not np.isfinite(I) or I < minIntensity:
                 continue
 
         referenceLines.append(drpStella.ReferenceLine(elem, wavelength=lam, guessedIntensity=I))
 
+    if len(referenceLines) == 0:
+        raise RuntimeError("You have not selected any lines from %s" % lineList)
+
     return referenceLines
 
-def plotReferenceLines(referenceLines, what, ls=':', alpha=1, color=None, label=None, labelStatus=True):
+def plotReferenceLines(referenceLines, what, ls=':', alpha=1, color=None, label=None, labelStatus=True,
+                       labelLines=False, wavelength=None, spectrum=None):
     """Plot a set of reference lines using axvline
-    If label is None use `what` as a label; if label is '' don't label line
+
+    \param referenceLines   List of ReferenceLine
+    \param what   which field in ReferenceLine to plot
+    \param ls Linestyle (default: ':')
+    \param alpha Transparency (default: 1)
+    \param color Colour (default: None => let matplotlib choose)
+    \param label Label for lines (default: None => use "what" or "what status")
+    \param labelStatus Include status in labels (default: True)
+    \param labelLines Label lines with their ion (default: False)
+    \param wavelength Wavelengths array for underlying plot (default: None)
+    \param spectrum   Intensity array for underlying plot (default: None)
+
+    If labelLines is True the lines will be labelled at the top of the plot; if you provide the spectrum
+    the labels will appear near the peaks of the lines
     """
     labelLines = False                  # label based on `what` and status
     if label == None:
@@ -300,8 +326,27 @@ def plotReferenceLines(referenceLines, what, ls=':', alpha=1, color=None, label=
             color = 'green'
             label = maybeSetLabel("Fit")
 
-        plt.axvline(getattr(rl, what), ls=ls, color=color, alpha=alpha, label=label)
+        x = getattr(rl, what)
+        plt.axvline(x, ls=ls, color=color, alpha=alpha, label=label)
         label = None
+
+        if labelLines:
+            if spectrum is None:
+                y = 0.95*plt.ylim()[1]
+            else:
+                if wavelength is None:
+                    ix = x
+                else:
+                    ix = np.searchsorted(wavelength, x)
+
+                    if ix == 0 or ix == len(wavelength):
+                        continue
+
+                i0 = max(0, int(ix) - 2)
+                i1 = min(len(spectrum), int(ix) + 2 + 1)
+                y = 1.05*spectrum[i0:i1].max()
+
+            plt.text(x, y, rl.description, ha='center')
     
 def readReferenceSpectrum(refSpec):
     """read reference Spectrum"""

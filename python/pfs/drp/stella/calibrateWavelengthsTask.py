@@ -254,6 +254,7 @@ class CalibrateWavelengthsTask(pipeBase.Task):
 
                 if self.debugInfo.plotArcLinesRow:
                     plt.plot(rows, spec.spectrum)
+                    xlim = plt.xlim()
                     plotReferenceLines(spec.getReferenceLines(), "guessedPixelPos", alpha=0.1,
                                        labelStatus=False)
                     plotReferenceLines(spec.getReferenceLines(), "fitPixelPos", ls='-', alpha=0.5)
@@ -263,6 +264,7 @@ class CalibrateWavelengthsTask(pipeBase.Task):
                                     ls='-', alpha=0.25, color='black', label=label)
                         label = None
 
+                    plt.xlim(xlim)
                     plt.legend(loc='best')
                     plt.xlabel('row')
                     plt.title("FiberId %d" % fiberId);
@@ -270,7 +272,10 @@ class CalibrateWavelengthsTask(pipeBase.Task):
 
                 if self.debugInfo.plotArcLinesLambda:
                     plt.plot(spec.wavelength, spec.spectrum)
-                    plotReferenceLines(spec.getReferenceLines(), "wavelength", ls='-', alpha=0.5)
+                    xlim = plt.xlim()
+                    plotReferenceLines(spec.getReferenceLines(), "wavelength", ls='-', alpha=0.5,
+                                       labelLines=True, wavelength=spec.wavelength, spectrum=spec.spectrum)
+                    plt.xlim(xlim)
                     plt.legend(loc='best')
                     plt.xlabel("Wavelength (vacuum nm)")
                     plt.title("FiberId %d" % fiberId)
