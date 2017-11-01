@@ -193,71 +193,61 @@ def _makeDetectorMap(butler, dataId, wLenFile, nKnot=25):
 def readLineListFile(lineList, lamps=["Ar", "Cd", "Hg", "Ne", "Xe"], minIntensity=0):
     """Read line list
 
+    File consists of lines of
+       lambda Intensity Species Flag
+    where lambda is the wavelength in vacuum nm
+
+    Flag:  bitwise OR of:
+      0   Good
+      1   Not visible
+      2   Blend; don't use
+      4   Unknown; check
+
     Return:
        list of drp::ReferenceLine
-
-    This file is basically CdHgKrNeXe_use
     """
-    try:
-        hdulist = pyfits.open(lineList)
-    except IOError:
-        hdulist = None
-
-    if hdulist:
-        tbdata = hdulist[1].data
-        
-        wavelength = tbdata.field(1)
-        element = tbdata.field(2)
-        intensity = tbdata.field(3)         # Comment (intensity + notes)
-        tmp = np.empty(len(intensity))
-        for i in range(len(intensity)):
-            tmp[i] = np.float(intensity[i].split()[0])
-        intensity = tmp; del tmp
-    else:                               # must be a text file;  wavelength intensity element
-        with open(lineList) as fd:
-            element = []
-            wavelength = []
-            intensity = []
-            for line in fd:
-                line = re.sub(r"\s*#.*$", "", line).rstrip() # strip comments
-
-                if not line:
-                    continue
-                fields = line.split()
-                try:
-                    lam, I, elem = fields[:3]
-                except Exception as e:
-                    print "%s: %s" % (e, fields)
-                    raise
-
-                try:
-                    I = float(I)
-                except ValueError:
-                    I = np.nan
-
-                element.append(elem)
-                wavelength.append(float(lam))
-                intensity.append(I)
     #
     # Pack into a list of ReferenceLines
     #
     referenceLines = []
-    for elem, lam, I in zip(element, wavelength, intensity):
-        if lamps:
-            keep = False
-            for lamp in lamps:
-                if elem.startswith(lamp):
-                    keep = True
-                    break
 
-            if not keep:
+    with open(lineList) as fd:
+        for line in fd:
+            line = re.sub(r"\s*#.*$", "", line).rstrip() # strip comments
+
+            if not line:
+                continue
+            fields = line.split()
+            try:
+                lam, I, species, flag = fields
+            except Exception as e:
+                print "%s: %s" % (e, fields)
+                raise
+
+            flag = int(flag)
+            if flag != 0:
                 continue
 
-        if minIntensity > 0:
-            if not np.isfinite(I) or I < minIntensity:
-                continue
+            try:
+                I = float(I)
+            except ValueError:
+                I = np.nan
 
-        referenceLines.append(drpStella.ReferenceLine(elem, wavelength=lam, guessedIntensity=I))
+            if lamps:
+                keep = False
+                for lamp in lamps:
+                    if species.startswith(lamp):
+                        keep = True
+                        break
+
+                if not keep:
+                    continue
+
+            if minIntensity > 0:
+                if not np.isfinite(I) or I < minIntensity:
+                    continue
+
+            referenceLines.append(drpStella.ReferenceLine(species, wavelength=float(lam), guessedIntensity=I))
 
     if len(referenceLines) == 0:
         raise RuntimeError("You have not selected any lines from %s" % lineList)

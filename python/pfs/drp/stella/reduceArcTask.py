@@ -24,12 +24,9 @@ class ReduceArcConfig(pexConfig.Config):
         target=CalibrateWavelengthsTask,
         doc="""Calibrate a SpectrumSet's wavelengths""",
     )
-    wavelengthFile=pexConfig.Field( doc="reference pixel-wavelength file including path",
-                                    dtype=str, default=os.path.join(getPackageDir("obs_pfs"),
-                                                                    "pfs/RedFiberPixels.fits.gz"));
     lineList=pexConfig.Field(doc="reference line list including path",
                              dtype=str, default=os.path.join(getPackageDir("obs_pfs"),
-                                                             "pfs/lineLists/CdHgKrNeXe_red.fits"));
+                                                             "pfs/lineLists/ArCdHgKrNeXe.txt"));
     minArcLineIntensity=pexConfig.Field(doc="Minimum 'NIST' intensity to use emission lines",
                                         dtype=float, default=100);
     randomSeed=pexConfig.Field(doc="Seed to pass to np.random.seed()", dtype=int, default=0)
@@ -80,10 +77,7 @@ class ReduceArcTask(CmdLineTask):
             except Exception, e:
                 raise RuntimeError("Unable to load fiberTrace for %s: %s" % (arcRef.dataId, e))
 
-            if False:
-                detectorMap = _makeDetectorMap(butler, arcRef.dataId, self.config.wavelengthFile)
-            else:
-                detectorMap = butler.get('detectormap', arcRef.dataId)
+            detectorMap = butler.get('detectormap', arcRef.dataId)
 
             flatFiberTraceSet = makeFiberTraceSet(fiberTrace)
             self.log.debug('fiberTrace calibration file contains %d fibers' % flatFiberTraceSet.getNtrace())
