@@ -193,68 +193,84 @@ def _makeDetectorMap(butler, dataId, wLenFile, nKnot=25):
 def readLineListFile(lineList, lamps=["Ar", "Cd", "Hg", "Ne", "Xe"], minIntensity=0):
     """Read line list
 
+    File consists of lines of
+       lambda Intensity Species Flag
+    where lambda is the wavelength in vacuum nm
+
+    Flag:  bitwise OR of:
+      0   Good
+      1   Not visible
+      2   Blend; don't use
+      4   Unknown; check
+
     Return:
        list of drp::ReferenceLine
-
-    This file is basically CdHgKrNeXe_use
     """
-    try:
-        hdulist = pyfits.open(lineList)
-    except IOError:
-        hdulist = None
-
-    if hdulist:
-        tbdata = hdulist[1].data
-        
-        wavelength = tbdata.field(1)
-        element = tbdata.field(2)
-        intensity = tbdata.field(3)         # Comment (intensity + notes)
-        tmp = np.empty(len(intensity))
-        for i in range(len(intensity)):
-            tmp[i] = np.float(intensity[i].split()[0])
-        intensity = tmp; del tmp
-    else:                               # must be a text file;  wavelength intensity element
-        with open(lineList) as fd:
-            element = []
-            wavelength = []
-            intensity = []
-            for line in fd:
-                line = re.sub(r"\s*#.*$", "", line).rstrip() # strip comments
-
-                if not line:
-                    continue
-                fields = line.split()
-                lam, I, elem = fields[:3]
-
-                element.append(elem)
-                wavelength.append(float(lam))
-                intensity.append(float(I))
     #
     # Pack into a list of ReferenceLines
     #
     referenceLines = []
-    for elem, lam, I in zip(element, wavelength, intensity):
-        if lamps:
-            keep = False
-            for lamp in lamps:
-                if elem.startswith(lamp):
-                    keep = True
-                    break
 
-            if not keep:
+    with open(lineList) as fd:
+        for line in fd:
+            line = re.sub(r"\s*#.*$", "", line).rstrip() # strip comments
+
+            if not line:
+                continue
+            fields = line.split()
+            try:
+                lam, I, species, flag = fields
+            except Exception as e:
+                print "%s: %s" % (e, fields)
+                raise
+
+            flag = int(flag)
+            if flag != 0:
                 continue
 
-        if minIntensity > 0:
-            if I < minIntensity:
-                continue
+            try:
+                I = float(I)
+            except ValueError:
+                I = np.nan
 
-        referenceLines.append(drpStella.ReferenceLine(elem, wavelength=lam, guessedIntensity=I))
+            if lamps:
+                keep = False
+                for lamp in lamps:
+                    if species.startswith(lamp):
+                        keep = True
+                        break
+
+                if not keep:
+                    continue
+
+            if minIntensity > 0:
+                if not np.isfinite(I) or I < minIntensity:
+                    continue
+
+            referenceLines.append(drpStella.ReferenceLine(species, wavelength=float(lam), guessedIntensity=I))
+
+    if len(referenceLines) == 0:
+        raise RuntimeError("You have not selected any lines from %s" % lineList)
 
     return referenceLines
 
-def plotReferenceLines(referenceLines, what, ls=':', alpha=1, color=None, label=None, labelStatus=True):
+def plotReferenceLines(referenceLines, what, ls=':', alpha=1, color=None, label=None, labelStatus=True,
+                       labelLines=False, wavelength=None, spectrum=None):
     """Plot a set of reference lines using axvline
-    If label is None use `what` as a label; if label is '' don't label line
+
+    \param referenceLines   List of ReferenceLine
+    \param what   which field in ReferenceLine to plot
+    \param ls Linestyle (default: ':')
+    \param alpha Transparency (default: 1)
+    \param color Colour (default: None => let matplotlib choose)
+    \param label Label for lines (default: None => use "what" or "what status")
+    \param labelStatus Include status in labels (default: True)
+    \param labelLines Label lines with their ion (default: False)
+    \param wavelength Wavelengths array for underlying plot (default: None)
+    \param spectrum   Intensity array for underlying plot (default: None)
+
+    If labelLines is True the lines will be labelled at the top of the plot; if you provide the spectrum
+    the labels will appear near the peaks of the lines
     """
     labelLines = False                  # label based on `what` and status
     if label == None:
@@ -300,8 +316,27 @@ def plotReferenceLines(referenceLines, what, ls=':', alpha=1, color=None, label=
             color = 'green'
             label = maybeSetLabel("Fit")
 
-        plt.axvline(getattr(rl, what), ls=ls, color=color, alpha=alpha, label=label)
+        x = getattr(rl, what)
+        plt.axvline(x, ls=ls, color=color, alpha=alpha, label=label)
         label = None
+
+        if labelLines:
+            if spectrum is None:
+                y = 0.95*plt.ylim()[1]
+            else:
+                if wavelength is None:
+                    ix = x
+                else:
+                    ix = np.searchsorted(wavelength, x)
+
+                    if ix == 0 or ix == len(wavelength):
+                        continue
+
+                i0 = max(0, int(ix) - 2)
+                i1 = min(len(spectrum), int(ix) + 2 + 1)
+                y = 1.05*spectrum[i0:i1].max()
+
+            plt.text(x, y, rl.description, ha='center')
     
 def readReferenceSpectrum(refSpec):
     """read reference Spectrum"""
