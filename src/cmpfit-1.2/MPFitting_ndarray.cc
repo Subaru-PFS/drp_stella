@@ -1,3 +1,5 @@
+#include <cstring>
+
 #include "lsst/pex/exceptions.h"
 #include "pfs/drp/stella/cmpfit-1.2/MPFitting_ndarray.h"
 
