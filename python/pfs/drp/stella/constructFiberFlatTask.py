@@ -98,7 +98,7 @@ class ConstructFiberFlatTask(CalibTask):
 
         sumFlats, sumVariances = None, None
 
-        detMap = dsUtils.makeDetectorMap(cache.butler, dataRefList[0].dataId, self.config.wavelengthFile)
+        detMap = dataRefList[0].get('detectormap')
 
         xOffsets = []
         for expRef in dataRefList:

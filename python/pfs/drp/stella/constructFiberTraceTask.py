@@ -16,7 +16,7 @@ from lsst.pipe.drivers.utils import getDataRef
 from lsst.utils import getPackageDir
 from pfs.datamodel.pfsFiberTrace import PfsFiberTrace
 import pfs.drp.stella as drpStella
-from pfs.drp.stella.utils import addFiberTraceSetToMask, makeDetectorMap
+from pfs.drp.stella.utils import addFiberTraceSetToMask
 from pfs.drp.stella.findAndTraceAperturesTask import FindAndTraceAperturesTask
 from pfs.drp.stella.datamodelIO import PfsFiberTraceIO
 
@@ -36,11 +36,6 @@ class ConstructFiberTraceConfig(CalibConfig):
         dtype=bool,
         default=True,
         doc="Repair artifacts?"
-    )
-    wavelengthFile = Field(
-        dtype=str,
-        default=os.path.join(getPackageDir("obs_pfs"), "pfs/RedFiberPixels.fits.gz"),
-        doc="File containing the map for fiber pixels"
     )
     psfFwhm = Field(
         dtype=float,
@@ -183,7 +178,7 @@ class ConstructFiberTraceTask(CalibTask):
 
             disp.mtv(calExp, "Combined")
 
-        detMap = makeDetectorMap(cache.butler, dataRefList[0].dataId, self.config.wavelengthFile)
+        detMap = dataRefList[0].get('detectormap') 
 
         fts = self.trace.run(calExp, detMap)
         self.log.info('%d FiberTraces found on combined flat' % (fts.getNtrace()))
