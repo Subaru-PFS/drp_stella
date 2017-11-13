@@ -338,14 +338,6 @@ def plotReferenceLines(referenceLines, what, ls=':', alpha=1, color=None, label=
 
             plt.text(x, y, rl.description, ha='center')
     
-def readReferenceSpectrum(refSpec):
-    """read reference Spectrum"""
-    hdulist = pyfits.open(refSpec)
-    tbdata = hdulist[1].data
-    refSpecArr = np.ndarray(shape=(len(tbdata)), dtype='float32')
-    refSpecArr[:] = tbdata.field(0)
-    return refSpecArr
-
 def writePfsArm(butler, arcExposure, spectrumSet, dataId):
     """
     Do the I/O using a trampoline object PfsArmIO (to avoid adding butler-related details
