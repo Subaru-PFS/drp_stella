@@ -123,6 +123,20 @@ public:
     void setXCenter(std::size_t fiberId,                       ///< 1-indexed fiberID 
                     ndarray::Array<float, 1, 1> const& xCenter ///< center of trace for fibre
                    );
+
+    /** \brief
+     * Return the (relative) throughput for a fibre
+     */
+    float getThroughput(std::size_t fiberId                       ///< 1-indexed fiberID 
+                       ) const;
+
+    /** \brief
+     * Set a fibre's (relative) throughput
+     */
+    void setThroughput(std::size_t fiberId,                       ///< 1-indexed fiberID 
+                       const float throughput                     ///< the fibre's throughput
+                      );
+
     /** \brief
      * Return the fiberId given a position on the detector
      */
@@ -151,6 +165,8 @@ protected:
     // N.b. DetectorMapIO is a friend, and makes the protected members available for read/write routines
     lsst::afw::geom::Box2I _bbox;       // bounding box of detector
     std::vector<int> _fiberIds;         // The fiberIds (between 1 and c. 2400) present on this detector
+    
+    std::vector<float> _throughput;	// The throughput (in arbitrary units ~ 1) of each fibre
     //
     // These std::vectors are indexed by fiberIdx (not fiberId)
     //
