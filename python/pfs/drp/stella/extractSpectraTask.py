@@ -29,7 +29,7 @@ class ExtractSpectraTask(pipeBase.Task):
 
         self._useProfile = self.config.extractionAlgorithm == "OPTIMAL"
 
-    def run(self, exposure, fiberTraceSet, traceNumbers=None):
+    def run(self, exposure, fiberTraceSet, detectorMap=None):
         """Create traces from exposure and extract spectra from profiles in fiberTraceSet
 
         This method is the top-level for running the automatic 1D extraction of the fiber traces on the Exposure
@@ -38,10 +38,6 @@ class ExtractSpectraTask(pipeBase.Task):
         @return pipe_base Struct containing these fields:
          - spectrumSet: set of extracted spectra
         """
-
-        if traceNumbers is None:
-            traceNumbers = range(fiberTraceSet.getNtrace())
-        self.log.debug("traceNumbers = %s" % traceNumbers)
 
         spectrumSet = drpStella.SpectrumSet()
 
@@ -62,6 +58,9 @@ class ExtractSpectraTask(pipeBase.Task):
             except Exception as e:
                 self.log.warn("Extraction of fibre %d failed: %s" % (fiberTrace.getFiberId(), e))
                 continue
+
+            if detectorMap is not None:
+                spectrum.setWavelength(detectorMap.getWavelength(spectrum.getFiberId()))
 
             spectrumSet.addSpectrum(spectrum)
 
