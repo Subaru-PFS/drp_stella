@@ -167,9 +167,11 @@ namespace pfs { namespace drp { namespace stella {
     //
     {
         const auto& spectrumMask = *spectrumImage->getMask();
+        const auto& traceMask = *_trace->getMask(); // we should be propagating these to spectrumMask
 
         auto mask = spectrum->getMask();
         const auto nodata = mask.getPlaneBitMask("NO_DATA");
+        const auto fibertrace = traceMask.getPlaneBitMask("FIBERTRACE");
 
         int i = 0;
         for (; i < bbox.getMinY(); ++i) {
@@ -185,7 +187,9 @@ namespace pfs { namespace drp { namespace stella {
 
             int maskVal = 0;
             for (int k = bbox.getMinX(); k <= bbox.getMaxX(); ++k) {
-                maskVal |= spectrumMask(k, i);
+                if (traceMask(k - bbox.getMinX(), i - bbox.getMinY()) & fibertrace) { // we used this pixel
+                    maskVal |= spectrumMask(k, i);
+                }
             }
             mask(i, 0) |= maskVal;
         }
