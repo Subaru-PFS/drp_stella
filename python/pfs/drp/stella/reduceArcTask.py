@@ -28,6 +28,8 @@ class ReduceArcConfig(pexConfig.Config):
                                                              "pfs/lineLists/ArCdHgKrNeXe.txt"));
     minArcLineIntensity=pexConfig.Field(doc="Minimum 'NIST' intensity to use emission lines",
                                         dtype=float, default=100);
+    fiberDy=pexConfig.Field(doc="Offset to add to all FIBER_DY values (used when bootstrapping)",
+                            dtype=float, default=0);
     randomSeed=pexConfig.Field(doc="Seed to pass to np.random.seed()", dtype=int, default=0)
 
 class ReduceArcTaskRunner(TaskRunner):
@@ -77,6 +79,11 @@ class ReduceArcTask(CmdLineTask):
                 raise RuntimeError("Unable to load fiberTrace for %s: %s" % (arcRef.dataId, e))
 
             detectorMap = butler.get('detectormap', arcRef.dataId)
+
+            if self.config.fiberDy != 0.0:
+                slitOffsets = detectorMap.getSlitOffsets()
+                slitOffsets[detectorMap.FIBER_DY] += self.config.fiberDy
+                detectorMap.setSlitOffsets(slitOffsets)
 
             flatFiberTraceSet = makeFiberTraceSet(fiberTrace)
             self.log.debug('fiberTrace calibration file contains %d fibers' % flatFiberTraceSet.getNtrace())

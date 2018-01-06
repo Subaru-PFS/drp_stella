@@ -23,7 +23,7 @@ class CalibrateWavelengthsConfig(pexConfig.Config):
     pixelPosErrorFloor = pexConfig.Field(doc="Floor on pixel positional errors, " +
                                          "added in quadrature to quoted errors",
                                          dtype=float, default=0.05)
-    resetSlitDy = pexConfig.Field(doc="Reset the slitOffset values in the DetecorMap to 0",
+    resetSlitDy = pexConfig.Field(doc="Reset the slitOffset values in the DetectorMap to 0",
                                   dtype=bool, default=False);
 
 class CalibrateWavelengthsTask(pipeBase.Task):
@@ -170,9 +170,19 @@ class CalibrateWavelengthsTask(pipeBase.Task):
             #
             if self.config.resetSlitDy:
                 offsets = detectorMap.getSlitOffsets(fiberId)
+                dy = offsets[detectorMap.FIBER_DY]
                 offsets[detectorMap.FIBER_DY] = 0
                 detectorMap.setSlitOffsets(fiberId, offsets)
-                
+
+                if dy > 0:
+                    dy = int(dy)
+                    spec.wavelength[:-dy] = spec.wavelength[dy:]
+                elif dy == 0:
+                    pass
+                else:
+                    dy = -int(-dy)
+                    spec.wavelength[dy:] = spec.wavelength[:-dy]
+                    
             detectorMap.setWavelength(fiberId, spec.wavelength)
             #
             # Debug outputs
@@ -219,8 +229,10 @@ class CalibrateWavelengthsTask(pipeBase.Task):
                     # x is a nominal position which we used as an index for the Chebyshev fit.
                     # This makes the plot confusing, so update it
                     #
-                    for i, rl in enumerate(refLines):
-                        x[i] = detectorMap.findPoint(fiberId, rl.wavelength)[1]                    
+                    if False:
+                        for i, rl in enumerate(refLines):
+                            x[i] = detectorMap.findPoint(fiberId, rl.wavelength)[1]
+                        yfit = wavelengthCorr(x)
 
                     plt.figure().subplots_adjust(hspace=0)
 
@@ -256,13 +268,9 @@ class CalibrateWavelengthsTask(pipeBase.Task):
                     plt.plot(rows, spec.spectrum)
                     xlim = plt.xlim()
                     plotReferenceLines(spec.getReferenceLines(), "guessedPixelPos", alpha=0.1,
-                                       labelStatus=False)
-                    plotReferenceLines(spec.getReferenceLines(), "fitPixelPos", ls='-', alpha=0.5)
-                    label = 'reference'
-                    for rl in spec.getReferenceLines():
-                        plt.axvline(detectorMap.findPoint(fiberId, rl.wavelength)[1],
-                                    ls='-', alpha=0.25, color='black', label=label)
-                        label = None
+                                       labelLines=True, labelStatus=False)
+                    plotReferenceLines(spec.getReferenceLines(), "fitPixelPos", ls='-', alpha=0.5,
+                                       labelLines=True, labelStatus=True)
 
                     plt.xlim(xlim)
                     plt.legend(loc='best')
