@@ -1,3 +1,5 @@
+from builtins import zip
+from builtins import str
 import os
 import numpy as np
 if False:                               # will be imported if needed (matplotlib import can be slow)

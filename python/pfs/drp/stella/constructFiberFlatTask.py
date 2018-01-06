@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+from __future__ import division
 import os
 from lsst.utils import getPackageDir
 import lsst.afw.image as afwImage

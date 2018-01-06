@@ -8,6 +8,8 @@ or
    python
    >>> import FiberTrace; FiberTrace.run()
 """
+from builtins import str
+from builtins import range
 import os
 import sys
 import unittest

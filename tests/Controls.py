@@ -8,6 +8,7 @@ or
    python
    >>> import Controls; Controls.run()
 """
+from builtins import range
 import unittest
 
 import numpy as np
