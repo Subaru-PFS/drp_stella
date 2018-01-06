@@ -8,6 +8,7 @@ or
    python
    >>> import example; example.run()
 """
+from __future__ import print_function
 import unittest
 
 import numpy as np
@@ -30,7 +31,7 @@ class ExampleTestCase(tests.TestCase):
         del self.im2
 
     def checkAddImages(self, result, name):
-        print "starting checkAddImages"
+        print("starting checkAddImages")
         for im, val in [(self.im1, self.val1), (self.im2, self.val2), (result, self.val1 + self.val2)]:
             ima = im.getArray()
             self.assertEqual(np.min(ima), val, name)

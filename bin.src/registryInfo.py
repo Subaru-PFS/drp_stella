@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+from __future__ import print_function
 import argparse
 import os
 import sys
@@ -96,10 +97,10 @@ ORDER BY max(expTime), visit
     cursor = conn.cursor()
 
     if args.summary:
-        print "%-20s %7s %s" % ("field", "expTime", "visit")
+        print("%-20s %7s %s" % ("field", "expTime", "visit"))
     else:
-        print "%-20s %10s %7s %6s %3s %4s" % ("field", "dataObs", "expTime",
-                                                   "visit", "arm", "ccd")
+        print("%-20s %10s %7s %6s %3s %4s" % ("field", "dataObs", "expTime",
+                                                   "visit", "arm", "ccd"))
 
     if not isSqlite:
         query = query.replace("?", "%s")
@@ -124,8 +125,8 @@ ORDER BY max(expTime), visit
             expTimes[k] += expTime
             visits[k].append(visit)
         else:
-            print "%-20s %10s %7.1f %6d %3s %4d" % (field, dateObs, expTime,
-                                                         visit, arm, ccd)
+            print("%-20s %10s %7.1f %6d %3s %4d" % (field, dateObs, expTime,
+                                                         visit, arm, ccd))
 
     conn.close()
 
@@ -133,7 +134,7 @@ ORDER BY max(expTime), visit
         for k in sorted(n.keys()):
             field = k
 
-            print "%-20s %7.1f %s" % (field, expTimes[k], formatVisits(visits[k]))
+            print("%-20s %7.1f %s" % (field, expTimes[k], formatVisits(visits[k])))
 
 def queryCalibRegistry(what, filterName=None, summary=False):
     """Query a calib registry"""
@@ -172,11 +173,11 @@ ORDER BY calibDate
         query = query.replace("?", "%s")
 
     if summary:
-        print >> sys.stderr, "No summary is available for calib data"
+        print("No summary is available for calib data", file=sys.stderr)
         return
     else:
-        print "%-10s--%-10s  %-10s %-24s %3s %4s" % (
-            "validStart", "validEnd", "calibDate", "calibVersion", "arm", "ccd")
+        print("%-10s--%-10s  %-10s %-24s %3s %4s" % (
+            "validStart", "validEnd", "calibDate", "calibVersion", "arm", "ccd"))
 
     if isSqlite:
         ret = cursor.execute(query, vals)
@@ -187,8 +188,8 @@ ORDER BY calibDate
     for line in ret:
         validStart, validEnd, calibDate, calibVersion, arm, ccd = line
 
-        print "%-10s--%-10s  %-10s  %-24s %3s %4d" % (
-            validStart, validEnd, calibDate, calibVersion, arm, ccd)
+        print("%-10s--%-10s  %-10s  %-24s %3s %4d" % (
+            validStart, validEnd, calibDate, calibVersion, arm, ccd))
 
     conn.close()
 
@@ -226,11 +227,11 @@ If no registry is provided, try $SUPRIME_DATA_DIR
             registryFile = os.path.join(args.registryFile,
                                         "calibRegistry.sqlite3" if args.calib else "registry.sqlite3")
         if not os.path.exists(registryFile):
-            print >> sys.stderr, "Unable to open %s" % registryFile
+            print("Unable to open %s" % registryFile, file=sys.stderr)
             sys.exit(1)
 
     if args.verbose:
-        print "Reading %s" % registryFile
+        print("Reading %s" % registryFile)
 
     if args.calib:
         queryCalibRegistry(args.calib, args.filterName, args.summary)

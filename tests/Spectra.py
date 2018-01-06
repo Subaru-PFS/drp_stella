@@ -8,6 +8,7 @@ or
    python
    >>> import Spectra; Spectra.run()
 """
+from __future__ import print_function
 import os
 import sys
 import unittest
@@ -460,7 +461,7 @@ class SpectraTestCase(tests.TestCase):
         import timeit
         start_time=timeit.default_timer()
         spectrumSetFromProfile = myReduceArcTask.run(dataRefList, self.butler, self.wLenFile, self.lineList)
-        print 'time to run reduceArcTask: ',timeit.default_timer()-start_time
+        print('time to run reduceArcTask: ',timeit.default_timer()-start_time)
 
         for i in range(spectrumSetFromProfile.size()):
             spec = spectrumSetFromProfile.getSpectrum(i)
