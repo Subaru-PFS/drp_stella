@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 import math
 import os
+import numpy as np
+from scipy.interpolate import UnivariateSpline
 
 import lsst.daf.base as dafBase
 import lsst.daf.persistence as dafPersist
@@ -15,10 +17,10 @@ from lsst.pipe.tasks.repair import RepairTask
 from lsst.pipe.drivers.utils import getDataRef
 from lsst.utils import getPackageDir
 from pfs.datamodel.pfsFiberTrace import PfsFiberTrace
-import pfs.drp.stella as drpStella
-from pfs.drp.stella.utils import addFiberTraceSetToMask
-from pfs.drp.stella.findAndTraceAperturesTask import FindAndTraceAperturesTask
-from pfs.drp.stella.datamodelIO import PfsFiberTraceIO
+from .utils import addFiberTraceSetToMask, makeDetectorMapIO
+from .findAndTraceAperturesTask import FindAndTraceAperturesTask
+from .datamodelIO import PfsFiberTraceIO
+from .extractSpectraTask import ExtractSpectraTask
 
 class ConstructFiberTraceConfig(CalibConfig):
     """Configuration for FiberTrace construction"""
@@ -55,10 +57,35 @@ class ConstructFiberTraceConfig(CalibConfig):
         target=FindAndTraceAperturesTask,
         doc="Task to trace apertures"
     )
+    extractSpectra = ConfigurableField(
+        target=ExtractSpectraTask,
+        doc="""Task to extract spectra using the fibre traces""",
+    )
     xOffsetHdrKeyWord = Field(
         dtype=str,
         default=None,
         doc="Header keyword for fiber offset in input files (set in obs_pfs)"
+    )
+    wavelengthForThroughputIsPercent = Field(
+        dtype=bool,
+        default=True,
+        doc="""Interpret wavelengthForThroughput[01] as percentages of spectral range"""
+    )
+    wavelengthForThroughput0 = Field(
+        dtype=float,
+        default=20,
+        doc="""Starting wavelength for integral of flux over wavelength used to estimate throughput.
+
+        If wavelengthForThroughputIsPercent is True, interpret value as percentage of spectral range
+        """
+    )
+    wavelengthForThroughput1 = Field(
+        dtype=float,
+        default=80,
+        doc="""Ending wavelength for integral of flux over wavelength used to estimate throughput.
+
+        If wavelengthForThroughputIsPercent is True, interpret value as percentage of spectral range
+        """
     )
 
     def setDefaults(self):
@@ -74,6 +101,7 @@ class ConstructFiberTraceTask(CalibTask):
         CalibTask.__init__(self, *args, **kwargs)
         self.makeSubtask("repair")
         self.makeSubtask("trace")
+        self.makeSubtask("extractSpectra")
 
         import lsstDebug
         self.debugInfo = lsstDebug.Info(__name__)
@@ -111,11 +139,10 @@ class ConstructFiberTraceTask(CalibTask):
                 fpSet = afwDet.FootprintSet(fpSet, self.config.crGrow, True)
                 fpSet.setMask(exposure.getMaskedImage().getMask(), "CR")
 
-        if self.debugInfo.display and self.debugInfo.display_inputs:
+        if self.debugInfo.display and self.debugInfo.inputs_frame >= 0:
             disp = afwDisplay.Display(frame=self.debugInfo.inputs_frame)
 
-            visit = sensorRef.dataId['visit']
-            disp.mtv(exposure, "raw %d" % (visit))
+            disp.mtv(exposure, "raw %(visit)d" % sensorRef.dataId)
 
         return exposure
 
@@ -173,7 +200,7 @@ class ConstructFiberTraceTask(CalibTask):
 
         self.interpolateNans(calExp)
 
-        if self.debugInfo.display:
+        if self.debugInfo.display and self.debugInfo.combined_frame >= 0:
             disp = afwDisplay.Display(frame=self.debugInfo.combined_frame)
 
             disp.mtv(calExp, "Combined")
@@ -183,12 +210,62 @@ class ConstructFiberTraceTask(CalibTask):
         fts = self.trace.run(calExp, detMap)
         self.log.info('%d FiberTraces found on combined flat' % (fts.getNtrace()))
 
-        if self.debugInfo.display:
+        if self.debugInfo.display and self.debugInfo.combined_frame >= 0:
             disp = afwDisplay.Display(frame=self.debugInfo.combined_frame)
 
             addFiberTraceSetToMask(calExp.getMaskedImage().getMask(), fts.getTraces(), disp)
             disp.setMaskTransparency(50)
             disp.mtv(calExp, "Traced")
+        #
+        # Use our new FiberTraceSet to extract the spectra so we can measure relative throughputs
+        #
+        spectrumSet = self.extractSpectra.run(calExp, fts, detMap).spectrumSet
+        #
+        # Integrate each spectrum over a fixed wavelength interval
+        # to estimate the (relative) throughput
+        #
+        wavelengthForThroughput0 = self.config.wavelengthForThroughput0
+        wavelengthForThroughput1 = self.config.wavelengthForThroughput1
+
+        if self.config.wavelengthForThroughputIsPercent:
+            spec = spectrumSet[len(spectrumSet)//2]
+            wavelength = spec.getWavelength()
+            
+            wavelengthForThroughput0 = wavelength[int(0.01*wavelengthForThroughput0*len(wavelength))]
+            wavelengthForThroughput1 = wavelength[int(0.01*wavelengthForThroughput1*len(wavelength))]
+
+        throughput = {}
+        for spec in spectrumSet:
+            spl = UnivariateSpline(spec.wavelength, spec.spectrum)
+            throughput[spec.getFiberId()] = spl.integral(wavelengthForThroughput0, wavelengthForThroughput1)
+
+        med = np.median(throughput.values())
+        for fiberId in throughput:
+            throughput[fiberId] /= med
+        #
+        # Update the DetectorMap
+        #
+        for fiberId in throughput:
+            detMap.setThroughput(fiberId, throughput[fiberId])
+
+        if self.debugInfo.display and self.debugInfo.plotTraces:
+            import matplotlib.pyplot as plt
+            for spec in spectrumSet:
+                fiberId = spec.getFiberId()
+                plt.plot(spec.getWavelength(), spec.getSpectrum()/detMap.getThroughput(fiberId),
+                         label=fiberId)
+            plt.legend(loc='best')
+            plt.show()
+        #
+        # And write it
+        #
+        visitInfo = calExp.getInfo().getVisitInfo()
+        if visitInfo is None:
+            dateObs = dafBase.DateTime('%sT00:00:00Z' % dataRefList[0].dataId['dateObs'], dafBase.DateTime.UTC)
+            visitInfo = afwImage.VisitInfo(date=dateObs)
+        
+        detMapIO = makeDetectorMapIO(detMap, visitInfo)
+        dataRefList[0].put(detMapIO, 'detectormap', visit0=dataRefList[0].dataId['visit'])
         #
         # Package up fts (a FiberTraceSet) into a pfsFiberTrace for I/O;  these two classes
         # should be merged at some point

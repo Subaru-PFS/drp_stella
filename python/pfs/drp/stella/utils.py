@@ -2,6 +2,7 @@ import os
 import re
 import matplotlib.pyplot as plt
 from astropy.io import fits as pyfits
+import lsst.daf.base as dafBase
 import lsst.afw.geom as afwGeom
 import lsst.afw.image as afwImage
 import lsst.log as log
@@ -54,13 +55,15 @@ def writeDetectorMap(detectorMap, outFile, metadata=None):
 
     nKnot = len(detMapIo.getXCenter(fiberIds[0])[0])
     splineDataArr = np.empty((len(fiberIds), 4, nKnot))
-    i = -1
-    for fiberId in fiberIds:
-        i += 1
+    for i, fiberId in enumerate(fiberIds):
         splineDataArr[i][0], splineDataArr[i][1] = detMapIo.getXCenter(fiberId)
         splineDataArr[i][2], splineDataArr[i][3] = detMapIo.getWavelength(fiberId)
 
     del detMapIo
+
+    throughputs = np.empty_like(slitOffsets[0])
+    for i, fiberId in enumerate(fiberIds):
+        throughputs[i] = detectorMap.getThroughput(fiberId)    
     #
     # OK, we've unpacked the DetectorMap; time to write the contents to disk
     #
@@ -92,6 +95,11 @@ def writeDetectorMap(detectorMap, outFile, metadata=None):
     hdu.header["INHERIT"] = True
     hdus.append(hdu)
 
+    hdu = pyfits.ImageHDU(throughputs)
+    hdu.name = "THROUGHPUT"
+    hdu.header["INHERIT"] = True
+    hdus.append(hdu)
+
     # clobber=True in writeto prints a message, so use open instead
     with open(outFile, "w") as fd:
         hdus.writeto(fd)
@@ -119,6 +127,12 @@ def readDetectorMap(inFile):
         hdu = fd["SPLINE"]
         splineDataArr = hdu.data.astype(np.float32)
 
+        try:
+            hdu = fd["THROUGHPUT"]
+            throughputs = hdu.data.astype(np.float32)
+        except KeyError:
+            throughputs = np.ones_like(slitOffsets[0])
+
     nKnot = len(splineDataArr[0][0])
 
     detMapIo = pfs.drp.stella.detectorMap.DetectorMapIO(bbox, fiberIds, nKnot)
@@ -131,7 +145,26 @@ def readDetectorMap(inFile):
         detMapIo.setXCenter(fiberId,    xcKnot, xc)
         detMapIo.setWavelength(fiberId, wlKnot, wl)
 
-    return detMapIo.getDetectorMap()
+    detMap = detMapIo.getDetectorMap()
+
+    for i, fiberId in enumerate(fiberIds):
+        detMap.setThroughput(fiberId, throughputs[i])
+
+    return detMap
+
+def makeDetectorMapIO(detectorMap, visitInfo):
+    """Make a DetectorMapIO with needed metadata
+
+    \param detectorMap: The DetectorMap
+    \param visitInfo:  VisitInfo with e.g. the date
+    """
+    dt = visitInfo.getDate()
+    dateObs = dt.toPython(dt.UTC).strftime("%Y-%m-%d")
+    
+    metadata = dafBase.PropertyList()
+    metadata.set("OBSTYPE", "DETECTORMAP")
+    metadata.set("HIERARCH calibDate", dateObs) # avoid warnings on long keywords
+    return DetectorMapIO(detectorMap, metadata)
 
 def _makeDetectorMap(butler, dataId, wLenFile, nKnot=25):
     """Return a DetectorMap from the specified file
@@ -272,10 +305,7 @@ def plotReferenceLines(referenceLines, what, ls=':', alpha=1, color=None, label=
     If labelLines is True the lines will be labelled at the top of the plot; if you provide the spectrum
     the labels will appear near the peaks of the lines
     """
-    labelLines = False                  # label based on `what` and status
-    if label == None:
-        labelLines = True
-    elif label == '':
+    if label == '':
         label = None
 
     def maybeSetLabel(status):

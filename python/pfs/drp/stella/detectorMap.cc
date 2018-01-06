@@ -45,6 +45,8 @@ void declareDetectorMap(py::module &mod)
     cls.def("getXCenter", (ndarray::Array<float, 1, 1> (Class::*)(std::size_t) const)&Class::getXCenter,
             "fiberId"_a);
     cls.def("setXCenter", &Class::setXCenter, "fiberId"_a, "xCenters"_a);
+    cls.def("getThroughput", &Class::getThroughput, "fiberId"_a);
+    cls.def("setThroughput", &Class::setThroughput, "fiberId"_a, "throughput"_a);
     cls.def("getSlitOffsets",
             (ndarray::Array<float, 2, 1> const& (Class::*)() const)&Class::getSlitOffsets);
     cls.def("getSlitOffsets",

@@ -148,12 +148,7 @@ class ReduceExposureTask(pipeBase.CmdLineTask):
 
         detectorMap = sensorRef.get('detectormap')
 
-        spectrumSet = self.extractSpectra.run(exposure, flatFiberTraceSet).spectrumSet
-        #
-        # Set the wavelength solutions from the detectorMap
-        #
-        for spec in spectrumSet:
-            spec.setWavelength(detectorMap.getWavelength(spec.getFiberId()))
+        spectrumSet = self.extractSpectra.run(exposure, flatFiberTraceSet, detectorMap).spectrumSet
 
         if self.config.doWriteCalexp:
             sensorRef.put(exposure, "calexp")

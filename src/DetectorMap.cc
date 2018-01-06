@@ -26,6 +26,7 @@ DetectorMap::DetectorMap(lsst::afw::geom::Box2I bbox,                    // dete
     _nFiber(fiberIds.getShape()[0]),
     _bbox(bbox),
     _fiberIds(fiberIds.begin(), fiberIds.end()),
+    _throughput(_nFiber, 1.0),
     _yToXCenter(_nFiber),
     _yToWavelength(_nFiber),
     _nKnot(nKnot),
@@ -80,6 +81,7 @@ DetectorMap::DetectorMap(lsst::afw::geom::Box2I bbox,                    // dete
     _nFiber(fiberIds.getShape()[0]),
     _bbox(bbox),
     _fiberIds(fiberIds.begin(), fiberIds.end()),
+    _throughput(_nFiber, 1.0),
     _yToXCenter(_nFiber),
     _yToWavelength(_nFiber),
     _nKnot(nKnot),
@@ -201,6 +203,29 @@ DetectorMap::setXCenter(std::size_t fiberId,
     auto const wavelength = xCenter;    // not really updated, but I need an array
 
     _setSplines(fidx, xCenter, true, wavelength, false);
+}
+
+/*
+ * Return a fibre's throughput
+ */
+float
+DetectorMap::getThroughput(std::size_t fiberId) const
+{
+    int const fidx = getFiberIdx(fiberId);
+
+    return _throughput[fidx];
+}
+
+/*
+ * Return a fibre's throughput
+ */
+void
+DetectorMap::setThroughput(std::size_t fiberId,
+                           const float throughput)
+{
+    int const fidx = getFiberIdx(fiberId);
+
+    _throughput[fidx] = throughput;
 }
 
 /*
