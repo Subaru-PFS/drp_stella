@@ -637,10 +637,13 @@ namespace {
               continue;
           }
 
-          if (dataVar[i] < 0.00000000000000001){
-              std::cout << "fitProfile1d: i = " << i << ": ERROR: dataVar = " << dataVar << std::endl;
+          if (!std::isfinite(dataVar[i])) {
               std::string message("fitProfile1d:");
-              message += ": i = " + std::to_string(i) + ": ERROR: dataVar(" + std::to_string(i) + ") == 0.";
+              message += ": i = " + std::to_string(i) + ": ERROR: dataVar(i) is not finite";
+              throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
+          } else if (dataVar[i] < 0.00000000000000001){
+              std::string message("fitProfile1d:");
+              message += ": i = " + std::to_string(i) + ": ERROR: dataVar(i) == 0.";
               throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
           }
       }
