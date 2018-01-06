@@ -26,7 +26,7 @@ DetectorMap::DetectorMap(lsst::afw::geom::Box2I bbox,                    // dete
     _nFiber(fiberIds.getShape()[0]),
     _bbox(bbox),
     _fiberIds(fiberIds.begin(), fiberIds.end()),
-    _throughput(_nFiber),
+    _throughput(_nFiber, 1.0),
     _yToXCenter(_nFiber),
     _yToWavelength(_nFiber),
     _nKnot(nKnot),
@@ -65,7 +65,6 @@ DetectorMap::DetectorMap(lsst::afw::geom::Box2I bbox,                    // dete
         _slitOffsets.deep() = 0.0;      // Assume that all the fibres are aligned perfectly
     }
 
-    _throughput.assign(_nFiber, 1.0);
     _setSplines(xCenters, wavelengths);
 }
 
@@ -82,6 +81,7 @@ DetectorMap::DetectorMap(lsst::afw::geom::Box2I bbox,                    // dete
     _nFiber(fiberIds.getShape()[0]),
     _bbox(bbox),
     _fiberIds(fiberIds.begin(), fiberIds.end()),
+    _throughput(_nFiber, 1.0),
     _yToXCenter(_nFiber),
     _yToWavelength(_nFiber),
     _nKnot(nKnot),

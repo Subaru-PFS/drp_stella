@@ -3,15 +3,14 @@ import numpy as np
 if False:                               # will be imported if needed (matplotlib import can be slow)
     import matplotlib.pyplot as plt
 import lsstDebug
-import lsst.daf.base as dafBase
 import lsst.pex.config as pexConfig
 from lsst.utils import getPackageDir
 from lsst.pipe.base import TaskRunner, ArgumentParser, CmdLineTask
 import lsst.afw.display as afwDisplay
-from pfs.drp.stella.calibrateWavelengthsTask import CalibrateWavelengthsTask
-from pfs.drp.stella.extractSpectraTask import ExtractSpectraTask
-from pfs.drp.stella.utils import makeFiberTraceSet, _makeDetectorMap, DetectorMapIO
-from pfs.drp.stella.utils import readLineListFile, writePfsArm, addFiberTraceSetToMask
+from .calibrateWavelengthsTask import CalibrateWavelengthsTask
+from .extractSpectraTask import ExtractSpectraTask
+from .utils import makeFiberTraceSet, DetectorMapIO, makeDetectorMapIO
+from .utils import readLineListFile, writePfsArm, addFiberTraceSetToMask
 from lsst.obs.pfs.utils import getLampElements
 
 class ReduceArcConfig(pexConfig.Config):
@@ -110,7 +109,7 @@ class ReduceArcTask(CmdLineTask):
             # optimally extract arc spectra
             self.log.info('extracting arc spectra from %(visit)d %(arm)s%(spectrograph)d' % arcRef.dataId)
 
-            spectrumSet = self.extractSpectra.run(arcExp, flatFiberTraceSet).spectrumSet
+            spectrumSet = self.extractSpectra.run(arcExp, flatFiberTraceSet, detectorMap).spectrumSet
 
             self.log.info('calibrating wavelengths for %(visit)d %(arm)s%(spectrograph)d' % arcRef.dataId)
             self.calibrateWavelengths.run(detectorMap, spectrumSet, arcLines)
@@ -120,10 +119,8 @@ class ReduceArcTask(CmdLineTask):
             # Now the updated DetectorMap.  We could derive this task from CalibTask, except
             # that that depends on BatchPoolTask and that'd be a pain as it assumes multiprocessing
             #
-            metadata = dafBase.PropertyList()
-            metadata.set("OBSTYPE", "DETECTORMAP")
-            metadata.set("HIERARCH calibDate", "2017-10-20") # avoid warnings on long keywords
-            arcRef.put(DetectorMapIO(detectorMap, metadata), 'detectormap', visit0=arcRef.dataId['visit'])
+            detectorMapIO = makeDetectorMapIO(detectorMap, arcExp.getInfo().getVisitInfo())
+            arcRef.put(detectorMapIO, 'detectormap', visit0=arcRef.dataId['visit'])
             #
             # Done; time for debugging plots
             #
@@ -145,6 +142,7 @@ class ReduceArcTask(CmdLineTask):
 
                 for ft, spec in zip(flatFiberTraceSet, spectrumSet):
                     reconIm = ft.getReconstructed2DSpectrum(spec)
+                    reconIm *= detectorMap.getThroughput(spec.getFiberId())
                     residuals[reconIm.getBBox()] -= reconIm
 
                 display.mtv(residuals, title="Residuals %(visit)d %(arm)s%(spectrograph)d" % (arcRef.dataId))

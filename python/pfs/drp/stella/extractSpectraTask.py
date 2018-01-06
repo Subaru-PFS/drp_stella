@@ -52,15 +52,17 @@ class ExtractSpectraTask(pipeBase.Task):
         # extract the spectra
 
         for fiberTrace in fiberTraceSet: 
+            fiberId = fiberTrace.getFiberId()
             # Extract spectrum from profile
             try:
                 spectrum = fiberTrace.extractSpectrum(exposure.getMaskedImage(), self._useProfile)
             except Exception as e:
-                self.log.warn("Extraction of fibre %d failed: %s" % (fiberTrace.getFiberId(), e))
+                self.log.warn("Extraction of fibre %d failed: %s" % (fiberId, e))
                 continue
 
             if detectorMap is not None:
-                spectrum.setWavelength(detectorMap.getWavelength(spectrum.getFiberId()))
+                spectrum.spectrum /= detectorMap.getThroughput(fiberId)
+                spectrum.setWavelength(detectorMap.getWavelength(fiberId))
 
             spectrumSet.addSpectrum(spectrum)
 

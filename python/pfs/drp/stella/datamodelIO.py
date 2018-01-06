@@ -3,6 +3,8 @@ import re
 
 import numpy as np
 
+import lsst.daf.base as dafBase
+
 from pfs.datamodel.pfsArm import PfsArm
 from pfs.datamodel.pfsConfig import PfsConfig
 from pfs.datamodel.pfsFiberTrace import PfsFiberTrace
@@ -42,6 +44,12 @@ def spectrumSetToPfsArm(pfsConfig, spectrumSet, visit, spectrograph, arm):
     pfsArm.lam = spectrumSet.getAllWavelengths()
     pfsArm.lam[pfsArm.lam == 0] = np.nan
     pfsArm.sky = np.zeros_like(pfsArm.flux)
+
+    if len(spectrumSet) > 0:
+        md = dafBase.PropertySet()
+        spectrumSet[0].mask.addMaskPlanesToMetadata(md)
+        for k in md.names():
+            pfsArm._metadata[k] = md.get(k)
 
     return pfsArm
 
