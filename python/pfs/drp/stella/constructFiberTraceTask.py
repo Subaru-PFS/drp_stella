@@ -240,7 +240,7 @@ class ConstructFiberTraceTask(CalibTask):
             spl = UnivariateSpline(spec.wavelength, spec.spectrum)
             throughput[spec.getFiberId()] = spl.integral(wavelengthForThroughput0, wavelengthForThroughput1)
 
-        med = np.median(throughput.values())
+        med = np.median(list(throughput.values()))
         for fiberId in throughput:
             throughput[fiberId] /= med
         #
