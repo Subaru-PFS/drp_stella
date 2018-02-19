@@ -5,6 +5,7 @@ Integration test for reduceArc.py and reduceArcRefSpec.py
 Run with:
    python testDRP.py
 """
+from __future__ import print_function
 import os
 import subprocess
 import unittest
@@ -50,7 +51,7 @@ class testDRPTestCase(tests.TestCase):
                 "--clobber-versions",
                 "--doraise"
         ]
-        print " ".join(args)
+        print(" ".join(args))
         proc = subprocess.Popen(args)
         proc.communicate()
         self.assertEqual(proc.returncode, 0)
@@ -73,7 +74,7 @@ class testDRPTestCase(tests.TestCase):
                 "--clobber-versions",
                 "--doraise"
         ]
-        print " ".join(args)
+        print(" ".join(args))
         proc = subprocess.Popen(args)
         proc.communicate()
         self.assertEqual(proc.returncode, 0)

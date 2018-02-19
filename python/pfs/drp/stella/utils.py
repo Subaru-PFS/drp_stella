@@ -1,3 +1,7 @@
+from __future__ import print_function
+from builtins import str
+from builtins import range
+from builtins import object
 import os
 import re
 import matplotlib.pyplot as plt
@@ -254,7 +258,7 @@ def readLineListFile(lineList, lamps=["Ar", "Cd", "Hg", "Ne", "Xe"], minIntensit
             try:
                 lam, I, species, flag = fields
             except Exception as e:
-                print "%s: %s" % (e, fields)
+                print("%s: %s" % (e, fields))
                 raise
 
             flag = int(flag)

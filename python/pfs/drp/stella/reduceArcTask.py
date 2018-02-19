@@ -1,3 +1,5 @@
+from builtins import zip
+from builtins import str
 import os
 import numpy as np
 if False:                               # will be imported if needed (matplotlib import can be slow)
@@ -75,7 +77,7 @@ class ReduceArcTask(CmdLineTask):
             try:
                 self.log.debug('fiberTrace file name = %s' % (arcRef.get('fibertrace_filename')))
                 fiberTrace = arcRef.get('fibertrace')
-            except Exception, e:
+            except Exception as e:
                 raise RuntimeError("Unable to load fiberTrace for %s: %s" % (arcRef.dataId, e))
 
             detectorMap = butler.get('detectormap', arcRef.dataId)

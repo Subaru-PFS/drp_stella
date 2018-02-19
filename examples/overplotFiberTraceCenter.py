@@ -1,4 +1,5 @@
 #!/Users/azuri/anaconda/envs/lsst-v12_1/bin/python
+from builtins import range
 import os
 import lsst.log as log
 import lsst.utils
