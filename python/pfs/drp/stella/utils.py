@@ -105,7 +105,7 @@ def writeDetectorMap(detectorMap, outFile, metadata=None):
     hdus.append(hdu)
 
     # clobber=True in writeto prints a message, so use open instead
-    with open(outFile, "w") as fd:
+    with open(outFile, "wb") as fd:
         hdus.writeto(fd)
     
 def readDetectorMap(inFile):
