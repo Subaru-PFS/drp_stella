@@ -1046,12 +1046,16 @@ namespace pfs { namespace drp { namespace stella {
   template<typename ImageT, typename MaskT, typename VarianceT>
   void FiberTraceSet<ImageT, MaskT, VarianceT>::addFiberTrace(const PTR(FiberTrace<ImageT, MaskT, VarianceT>) &trace, const size_t fiberId) ///< the FiberTrace for the ith aperture
   {
+    LOG_LOGGER _log = LOG_GET("pfs.drp.stella.FiberTrace._addFiberTrace");
     size_t nTrace = getNtrace();
     _traces->push_back(trace);
     if (_traces->size() == nTrace) {
       string message("FiberTraceSet::addFiberTrace: ERROR: could not add trace to _traces");
       throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
     }
+
+    LOGLS_DEBUG(_log, "added trace " << nTrace << " bbox: " << trace->getTrace()->getBBox());
+
     if (fiberId > 0){
       (*_traces)[nTrace]->setFiberId(fiberId);
     }
@@ -1086,7 +1090,7 @@ namespace pfs { namespace drp { namespace stella {
         const PTR(const FiberTraceFunctionFindingControl) &fiberTraceFunctionFindingControl,
         const PTR(FiberTraceProfileFittingControl) &fiberTraceProfileFittingControl)
     {
-      LOG_LOGGER _log = LOG_GET("pfs.drp.stella.math.findAndTraceApertures");
+      LOG_LOGGER _log = LOG_GET("pfs.drp.stella.FiberTrace.findAndTraceApertures");
       LOGLS_TRACE(_log, "::pfs::drp::stella::math::findAndTraceApertures started");
 
       if (static_cast<int>(fiberTraceFunctionFindingControl->apertureFWHM * 2.) + 1
@@ -1148,6 +1152,7 @@ namespace pfs { namespace drp { namespace stella {
           LOGLS_TRACE(_log, "fiberTraceFunction->yCenter = " << fiberTraceFunction->yCenter);
           LOGLS_TRACE(_log, "fiberTraceFunction->yHigh = " << fiberTraceFunction->yHigh);
           LOGLS_TRACE(_log, "fiberTraceFunction->yLow = " << fiberTraceFunction->yLow);
+          LOGLS_TRACE(_log, "fiberTraceFunction bbox low = " << fiberTraceFunction->yCenter + fiberTraceFunction->yLow);
 
           if (fiberTraceFunction->fiberTraceFunctionControl->interpolation.compare("POLYNOMIAL") == 0)
           {
