@@ -1180,9 +1180,10 @@ namespace pfs { namespace drp { namespace stella {
       // Set the fiberIds
       //
       for (auto fiberTrace: *fiberTraceSet->getTraces()) {
-          const auto bbox = fiberTrace->getTrace()->getBBox();
-          const auto cen = bbox.getMin() + 0.5*bbox.getDimensions();
-          fiberTrace->setFiberId(detectorMap.findFiberId(cen));
+        const auto xCenters = fiberTrace->getXCenters();
+        const int midRow = xCenters.getShape()[0]/2;
+        const lsst::afw::geom::Point<double> cen(xCenters[midRow], midRow);
+        fiberTrace->setFiberId(detectorMap.findFiberId(cen));
       }
 
       fiberTraceSet->sortTracesByXCenter();
