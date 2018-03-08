@@ -7,6 +7,7 @@
 #include "ndarray.h"
 
 #include "lsst/afw/image/MaskedImage.h"
+#include "lsst/afw/geom/Point.h"
 
 #include "pfs/drp/stella/Controls.h"
 #include "pfs/drp/stella/math/Math.h"
@@ -292,6 +293,7 @@ namespace math{
       std::vector<float> apertureCenterIndex;
       std::vector<float> apertureCenterPos;
       std::vector<float> eApertureCenterPos;
+      lsst::afw::geom::Point<int> nextSearchStart;
   };
   
   /**
@@ -304,7 +306,8 @@ namespace math{
   FindCenterPositionsOneTraceResult findCenterPositionsOneTrace(
 	PTR(lsst::afw::image::Image<ImageT>) & ccdImage,
         PTR(lsst::afw::image::Image<VarianceT>) & ccdImageVariance,
-        PTR(const FiberTraceFunctionFindingControl) const& fiberTraceFunctionFindingControl);
+        PTR(const FiberTraceFunctionFindingControl) const& fiberTraceFunctionFindingControl,
+        const lsst::afw::geom::Point<int> nextSearchStart);
   
   /**
    * @brief: returns ndarray containing the xCenters of a FiberTrace from 0 to FiberTrace.getTrace().getHeight()-1
