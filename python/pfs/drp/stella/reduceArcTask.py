@@ -149,7 +149,14 @@ class ReduceArcTask(CmdLineTask):
                 display = afwDisplay.Display(self.debugInfo.residuals_frame)
                 residuals = arcExp.maskedImage.clone()
 
-                for ft, spec in zip(flatFiberTraceSet, spectrumSet):
+                def getFtForSpectrum(fts, spec):
+                    fid = spec.getFiberId()
+                    for ft in fts:
+                        if ft.getFiberId() == fid:
+                            return ft
+
+                for spec in spectrumSet:
+                    ft = getFtForSpectrum(flatFiberTraceSet, spec)
                     reconIm = ft.getReconstructed2DSpectrum(spec)
                     reconIm *= detectorMap.getThroughput(spec.getFiberId())
                     residuals[reconIm.getBBox()] -= reconIm
