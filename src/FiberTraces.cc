@@ -4,6 +4,7 @@
 #include "lsst/log/Log.h"
 #include "lsst/pex/exceptions/Exception.h"
 #include "lsst/afw/image/MaskedImage.h"
+#include "lsst/afw/geom/Point.h"
 
 #include "pfs/drp/stella/FiberTraces.h"
 #include "pfs/drp/stella/cmpfit-1.2/MPFitting_ndarray.h"
@@ -1045,12 +1046,16 @@ namespace pfs { namespace drp { namespace stella {
   template<typename ImageT, typename MaskT, typename VarianceT>
   void FiberTraceSet<ImageT, MaskT, VarianceT>::addFiberTrace(const PTR(FiberTrace<ImageT, MaskT, VarianceT>) &trace, const size_t fiberId) ///< the FiberTrace for the ith aperture
   {
+    LOG_LOGGER _log = LOG_GET("pfs.drp.stella.FiberTrace._addFiberTrace");
     size_t nTrace = getNtrace();
     _traces->push_back(trace);
     if (_traces->size() == nTrace) {
       string message("FiberTraceSet::addFiberTrace: ERROR: could not add trace to _traces");
       throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
     }
+
+    LOGLS_DEBUG(_log, "added trace " << nTrace << " bbox: " << trace->getTrace()->getBBox());
+
     if (fiberId > 0){
       (*_traces)[nTrace]->setFiberId(fiberId);
     }
@@ -1085,7 +1090,7 @@ namespace pfs { namespace drp { namespace stella {
         const PTR(const FiberTraceFunctionFindingControl) &fiberTraceFunctionFindingControl,
         const PTR(FiberTraceProfileFittingControl) &fiberTraceProfileFittingControl)
     {
-      LOG_LOGGER _log = LOG_GET("pfs.drp.stella.math.findAndTraceApertures");
+      LOG_LOGGER _log = LOG_GET("pfs.drp.stella.FiberTrace.findAndTraceApertures");
       LOGLS_TRACE(_log, "::pfs::drp::stella::math::findAndTraceApertures started");
 
       if (static_cast<int>(fiberTraceFunctionFindingControl->apertureFWHM * 2.) + 1
@@ -1102,6 +1107,7 @@ namespace pfs { namespace drp { namespace stella {
       PTR(afwImage::Image<VarianceT>) ccdVarianceImage = maskedImageCopy.getVariance();
       ndarray::Array<ImageT, 2, 1> ccdArray = ndarray::copy(ccdImage->getArray());
       bool B_ApertureFound;
+      lsst::afw::geom::Point<int> nextSearchStart(0,0);
 
       std::vector<std::string> keywords(1);
       keywords[0] = "XRANGE";
@@ -1126,12 +1132,14 @@ namespace pfs { namespace drp { namespace stella {
         LOGLS_TRACE(_log, "fiberTraceFunction.fiberTraceFunctionControl set");
         FindCenterPositionsOneTraceResult result = findCenterPositionsOneTrace( ccdImage,
                                                                                 ccdVarianceImage,
-                                                                                fiberTraceFunctionFindingControl );
+                                                                                fiberTraceFunctionFindingControl,
+                                                                                nextSearchStart);
         if (result.apertureCenterIndex.size() > fiberTraceFunctionFindingControl->minLength){
           B_ApertureFound = true;
           const ndarray::Array<float, 1, 1> D_A1_ApertureCenterIndex = vectorToNdArray(result.apertureCenterIndex);
           const ndarray::Array<float, 1, 1> D_A1_ApertureCenterPos = vectorToNdArray(result.apertureCenterPos);
           const ndarray::Array<float, 1, 1> D_A1_EApertureCenterPos = vectorToNdArray(result.eApertureCenterPos);
+          nextSearchStart = result.nextSearchStart;
 
           LOGLS_TRACE(_log, "D_A1_ApertureCenterIndex = " << D_A1_ApertureCenterIndex);
           LOGLS_TRACE(_log, "D_A1_ApertureCenterPos = " << D_A1_ApertureCenterPos);
@@ -1144,6 +1152,7 @@ namespace pfs { namespace drp { namespace stella {
           LOGLS_TRACE(_log, "fiberTraceFunction->yCenter = " << fiberTraceFunction->yCenter);
           LOGLS_TRACE(_log, "fiberTraceFunction->yHigh = " << fiberTraceFunction->yHigh);
           LOGLS_TRACE(_log, "fiberTraceFunction->yLow = " << fiberTraceFunction->yLow);
+          LOGLS_TRACE(_log, "fiberTraceFunction bbox low = " << fiberTraceFunction->yCenter + fiberTraceFunction->yLow);
 
           if (fiberTraceFunction->fiberTraceFunctionControl->interpolation.compare("POLYNOMIAL") == 0)
           {
@@ -1194,7 +1203,9 @@ namespace pfs { namespace drp { namespace stella {
     template<typename ImageT, typename VarianceT>
     FindCenterPositionsOneTraceResult findCenterPositionsOneTrace( PTR(afwImage::Image<ImageT>) & ccdImage,
                                                                    PTR(afwImage::Image<VarianceT>) & ccdVarianceImage,
-                                                                   PTR(const FiberTraceFunctionFindingControl) const& fiberTraceFunctionFindingControl){
+                                                                   PTR(const FiberTraceFunctionFindingControl) const& fiberTraceFunctionFindingControl,
+                                                                   const lsst::afw::geom::Point<int> nextSearchStart){
+      lsst::afw::geom::Point<int> _nextSearchStart(nextSearchStart);
       ndarray::Array<ImageT, 2, 1> ccdArray = ccdImage->getArray();
       ndarray::Array<VarianceT, 2, 1> ccdVarianceArray = ccdVarianceImage->getArray();
       int I_MinWidth = int(1.5 * fiberTraceFunctionFindingControl->apertureFWHM);
@@ -1254,12 +1265,17 @@ namespace pfs { namespace drp { namespace stella {
       D_A1_EApertureCenter[ndarray::view()] = 0.;
       I_A1_ApertureCenterIndex[ndarray::view()] = 0;
       auto itIm = ccdArray.begin();
-      for (int i_Row = 0; i_Row < ccdArray.getShape()[0]; i_Row++){
+      I_StartIndex = nextSearchStart.getX();
+      for (int i_Row = nextSearchStart.getY(); i_Row < ccdArray.getShape()[0]; i_Row++){
         #if defined(__DEBUG_FINDANDTRACE__) && __DEBUG_FINDANDTRACE__ > 2
           cout << "i_Row = " << i_Row << ": ccdArray[i_Row][*] = " << ccdArray[ndarray::view(i_Row)()] << endl;
+        #elif defined(__DEBUG_FINDANDTRACE__)
+          cout << "i_Row = " << i_Row << " starting" << endl;
         #endif
+
+        _nextSearchStart.setY(i_Row);
+        _nextSearchStart.setX(I_StartIndex);
         I_RowBak = i_Row;
-        I_StartIndex = 0;
         B_ApertureFound = false;
         for (int i_Col = 0; i_Col < ccdArray.getShape()[1]; ++i_Col){
           if (i_Col == 0){
@@ -1294,6 +1310,7 @@ namespace pfs { namespace drp { namespace stella {
             cout << "pfs::drp::stella::math::findCenterPositionsOneTrace: while: i_Row = " << i_Row << ": I_FirstWideSignal found at index " << I_FirstWideSignal << ", I_StartIndex = " << I_StartIndex << endl;
           #endif
           if (I_FirstWideSignal < 0){
+            I_StartIndex = 0;
             #if defined(__DEBUG_FINDANDTRACE__)
               cout << "pfs::drp::stella::math::findCenterPositionsOneTrace: while: i_Row = " << i_Row << ": No Aperture found in row " << i_Row << ", trying next row" << endl;
             #endif
@@ -1865,9 +1882,10 @@ namespace pfs { namespace drp { namespace stella {
           result.apertureCenterIndex.resize(0);
           result.apertureCenterPos.resize(0);
           result.eApertureCenterPos.resize(0);
+          result.nextSearchStart = _nextSearchStart;
           for (int iInd = 0; iInd < ccdArray.getShape()[0]; ++iInd){
             if (*(itCen + iInd) > 0.){
-              (*(itInd + iInd)) = 1;
+              (*(itInd + iInd)) = 0;
               ++I_ApertureLength;
               result.apertureCenterIndex.push_back(iInd);
               result.apertureCenterPos.push_back((*(itCen + iInd)));
@@ -1876,6 +1894,7 @@ namespace pfs { namespace drp { namespace stella {
                 cout << "pfs::drp::stella::math::findCenterPositionsOneTrace: i_Row = " << i_Row << ": result.apertureCenterIndex[" << result.apertureCenterIndex.size()-1 << "] set to " << result.apertureCenterIndex[result.apertureCenterIndex.size()-1] << endl;
                 cout << "pfs::drp::stella::math::findCenterPositionsOneTrace: i_Row = " << i_Row << ": result.apertureCenterPos[" << result.apertureCenterPos.size()-1 << "] set to " << result.apertureCenterPos[result.apertureCenterPos.size()-1] << endl;
                 cout << "pfs::drp::stella::math::findCenterPositionsOneTrace: i_Row = " << i_Row << ": result.eApertureCenterPos[" << result.eApertureCenterPos.size()-1 << "] set to " << result.eApertureCenterPos[result.eApertureCenterPos.size()-1] << endl;
+                cout << "pfs::drp::stella::math::findCenterPositionsOneTrace: i_Row = " << i_Row << ": result.nextSearchStart set to " << result.nextSearchStart << endl;
               #endif
             }
           }
@@ -1970,7 +1989,8 @@ namespace pfs { namespace drp { namespace stella {
     template FindCenterPositionsOneTraceResult
     findCenterPositionsOneTrace( PTR(afwImage::Image<float>) &,
                                  PTR(afwImage::Image<float>) &,
-                                 PTR(const FiberTraceFunctionFindingControl) const&);
+                                 PTR(const FiberTraceFunctionFindingControl) const&,
+                                 const lsst::afw::geom::Point<int>);
 
   }
 

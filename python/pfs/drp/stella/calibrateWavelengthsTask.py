@@ -49,7 +49,7 @@ class CalibrateWavelengthsTask(pipeBase.Task):
         if self.debugInfo.display and self.debugInfo.showArcLines:
             display = afwDisplay.Display(self.debugInfo.arc_frame)
             display.erase()
-            
+
         # Fit the wavelength solution
         dispCorControl = self.config.makeControl()
 

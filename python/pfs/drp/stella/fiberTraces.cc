@@ -79,7 +79,7 @@ void declareFunctions(py::module &mod)
             "maskedImage"_a, "detectorMap"_a, "fiberTraceFunctionFindingControl"_a,
             " fiberTraceProfileFittingControl"_a);
     mod.def("findCenterPositionsOneTrace", math::findCenterPositionsOneTrace<ImageT>,
-            "ccdImage"_a, "ccdImageVariance"_a, "control"_a);
+            "ccdImage"_a, "ccdImageVariance"_a, "control"_a, "nextSearchStart"_a);
 }
 
 
@@ -106,6 +106,8 @@ PYBIND11_PLUGIN(fiberTraces) {
                              &math::FindCenterPositionsOneTraceResult::apertureCenterPos);
     findResult.def_readwrite("eApertureCenterPos",
                              &math::FindCenterPositionsOneTraceResult::eApertureCenterPos);
+    findResult.def_readwrite("nextSearchStart",
+                             &math::FindCenterPositionsOneTraceResult::nextSearchStart);
 
     py::class_<math::dataXY<float>, PTR(math::dataXY<float>)> coord(mod, "Coordinates");
     coord.def(py::init<>());
