@@ -78,6 +78,7 @@ def writeDetectorMap(detectorMap, outFile, metadata=None):
     hdr["MINY"] = bbox.getMinY()
     hdr["MAXX"] = bbox.getMaxX()
     hdr["MAXY"] = bbox.getMaxY()
+    hdr["OBSTYPE"] = 'detectormap'
     if metadata:
         for k in metadata.names():
             hdr[k] = metadata.get(k)
