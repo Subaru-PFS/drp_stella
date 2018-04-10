@@ -91,6 +91,8 @@ class ConstructFiberTraceConfig(CalibConfig):
 
     def setDefaults(self):
         CalibConfig.setDefaults(self)
+        self.doCameraImage = False  # We don't produce 2D images
+
 
 class ConstructFiberTraceTask(CalibTask):
     """Task to construct the normalized Flat"""

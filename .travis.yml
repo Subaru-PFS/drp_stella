@@ -2,37 +2,29 @@
 # as a ".travis.yml" file to enable Travis-CI. This enables CI on the
 # entire pipeline when changing only a single product in the stack.
 
-language: python
-sudo: false
+language: python  # Not really, because we're running Docker, but we need something
+services:
+  - docker
+sudo: true
 python:
-  - 2.7
+  - 3.6
 os:
   - linux
 matrix:
   fast_finish: true
 notifications:
   email: false
+  slack:
+    secure: u4/eCnSJGOx173O8nRwmo0wEiikh9xZFjYVTr3+kzezYDN7mxSLiEZHMKSq3DPZi2gHwTYSIOdOnr/g6B8NT5K7I3ywKpM9cOBIxyqS6WbbWBaa1BeP73aGShRjccES++Ckyr86cOBnuXlMey7rFDQgKLhWFbHl0tGdq0c8mOmLGQO7xR27ATTc5jOSDx0NBF4UHZJIhXbbBl7jvXO3kVAV0QbsrT8fZni9DaEeGNtZyWhRnlvL9NvqTxAH/5PVTsoI517QhT0KGDz/nGXfXkNVeadD+ND3yeSef/ehPrqBtcCm6w+fHKSegRxC4zR1bEBH/oq3E5bolauC6eLB++IUDucfq+Ep5n2ZVdVKXOdPyEuVXMnV5EPiY4DS/8pnr8wkyEPJtC3AJ5xd+BvwcsN+ZpU7qcYB6yJNxmExZPORenSs7/427NoZ06xU8eMp+ez+jeB2/XDgR5x/83o8XMkrv9kgN9gzAPRUhYllwnn7CM5MB/p6A3V0dMyDswo9XBm/mcPW8o+8SWXOKNmGSe5X6IFOTqwVkGalbRVaTaUsKxMb7G2MwjDUQS5uCg+ylAjfWqOtKOBfN4NtSgwQYAH3r8vy2Q+dLDz1GXPVnNu8jBboZhItueHzgmzvYtL7di5RZycFYMCm3IuByDicnGcZKHEwyQthz+WW8+opbhTs=
 branches:
   only:
     - master
 
 # The actual installation is done under the 'script' so as to consolidate the
 # necessary front-end machinery (intercept log, decide which branch to use).
-install: true  # Bypass
-script: /bin/bash travis.sh
-
-# Caching gives us a small improvement in run time (we don't have to extract
-# the conda packages). We cache the LSST stack (conda, LSST conda packages,
-# git-lfs, LSST overrides) and delete everything else because they will change
-# more frequently.
-cache:
-  # Use bleeding-edge casher, which deletes cache after extracting. This seems
-  # to be an undocumented Travis feature; I was told to use it by Travis casher
-  # developer Hiro Asari.
-  edge: true
-  directories:
-    - $HOME/pfs
-  timeout: 1000
-before_cache:
-  - rm -r -f $HOME/pfs/pfs
-  - rm -r -f $HOME/pfs/integration_test
+install:
+  - cd $HOME
+  - ( curl -Lf https://api.github.com/repos/Subaru-PFS/pfs_pipe2d/tarball/${TRAVIS_PULL_REQUEST_BRANCH:-$TRAVIS_BRANCH} || curl -Lf https://api.github.com/repos/Subaru-PFS/pfs_pipe2d/tarball/master ) > pfs_pipe2d.tar.gz
+  - tar xvzf pfs_pipe2d.tar.gz
+  - ln -s $(tar -tzf pfs_pipe2d.tar.gz | head -1 | cut -f1 -d"/") pfs_pipe2d
+script: /bin/bash pfs_pipe2d/bin/pfs_travis.sh
