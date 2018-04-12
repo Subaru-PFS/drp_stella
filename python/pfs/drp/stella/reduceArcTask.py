@@ -1,57 +1,101 @@
-from builtins import zip
-from builtins import str
 import os
 import numpy as np
-if False:                               # will be imported if needed (matplotlib import can be slow)
-    import matplotlib.pyplot as plt
 import lsstDebug
 import lsst.pex.config as pexConfig
 from lsst.utils import getPackageDir
-from lsst.pipe.base import TaskRunner, ArgumentParser, CmdLineTask
+from lsst.pipe.base import TaskRunner, ArgumentParser, CmdLineTask, Struct
 import lsst.afw.display as afwDisplay
 from .calibrateWavelengthsTask import CalibrateWavelengthsTask
-from .extractSpectraTask import ExtractSpectraTask
-from .utils import makeFiberTraceSet, DetectorMapIO, makeDetectorMapIO
-from .utils import readLineListFile, writePfsArm, addFiberTraceSetToMask
+from .reduceExposure import ReduceExposureTask
+from .utils import makeFiberTraceSet, makeDetectorMapIO
+from .utils import readLineListFile, writePfsArm
 from lsst.obs.pfs.utils import getLampElements
+from pfs.drp.stella import Spectrum, SpectrumSet
+
+
+__all__ = ["ReduceArcConfig", "ReduceArcTask"]
+
+# Allow pickling an lsst.afw.image.VisitInfo
+import copyreg
+from lsst.afw.image import VisitInfo
+from lsst.afw.coord import Observatory, Weather
+
+def pickleVisitInfo(info):
+    return (VisitInfo,
+            tuple(getattr(info, "get" + prop)() for
+                  prop in ("ExposureId", "ExposureTime", "DarkTime", "Date", "Ut1", "Era", "BoresightRaDec",
+                           "BoresightAzAlt", "BoresightAirmass", "BoresightRotAngle", "RotType",
+                           "Observatory", "Weather"))
+    )
+
+def pickleObservatory(obs):
+    return (Observatory, (obs.getLongitude(), obs.getLatitude(), obs.getElevation()))
+
+def pickleWeather(weather):
+    return (Weather, (weather.getAirTemperature(), weather.getAirPressure(), weather.getHumidity()))
+
+copyreg.pickle(VisitInfo, pickleVisitInfo)
+copyreg.pickle(Observatory, pickleObservatory)
+copyreg.pickle(Weather, pickleWeather)
+
 
 class ReduceArcConfig(pexConfig.Config):
     """Configuration for reducing arc images"""
-    extractSpectra = pexConfig.ConfigurableField(
-        target=ExtractSpectraTask,
-        doc="""Task to extract spectra using the fibre traces""",
-    )
-    calibrateWavelengths = pexConfig.ConfigurableField(
-        target=CalibrateWavelengthsTask,
-        doc="""Calibrate a SpectrumSet's wavelengths""",
-    )
-    lineList=pexConfig.Field(doc="reference line list including path",
-                             dtype=str, default=os.path.join(getPackageDir("obs_pfs"),
-                                                             "pfs/lineLists/ArCdHgKrNeXe.txt"));
+    reduceExposure = pexConfig.ConfigurableField(target=ReduceExposureTask,
+                                                 doc="Extract spectra from exposure")
+    calibrateWavelengths = pexConfig.ConfigurableField(target=CalibrateWavelengthsTask,
+                                                       doc="Calibrate a SpectrumSet's wavelengths")
     minArcLineIntensity=pexConfig.Field(doc="Minimum 'NIST' intensity to use emission lines",
-                                        dtype=float, default=100);
-    fiberDy=pexConfig.Field(doc="Offset to add to all FIBER_DY values (used when bootstrapping)",
-                            dtype=float, default=0);
-    randomSeed=pexConfig.Field(doc="Seed to pass to np.random.seed()", dtype=int, default=0)
+                                        dtype=float, default=100)
 
-class ReduceArcTaskRunner(TaskRunner):
-    """Get parsed values into the ReduceArcTask.run"""
-    @staticmethod
-    def getTargetList(parsedCmd, **kwargs):
-        return [(parsedCmd.id.refList, dict(butler=parsedCmd.butler))]
+
+class ReduceArcRunner(TaskRunner):
+    """TaskRunner that does scatter/gather for ReduceArcTask"""
+    def __init__(self, *args, **kwargs):
+        kwargs["doReturnResults"] = True
+        super().__init__(*args, **kwargs)
+
+    def run(self, parsedCmd):
+        """Scatter-gather"""
+        if not self.precall(parsedCmd):
+            exit(1)
+        task = self.makeTask(parsedCmd=parsedCmd)
+        task.verify(parsedCmd.id.refList)
+        results = super().run(parsedCmd)
+        final = None
+        exitStatus = max(rr.exitStatus for rr in results if rr is not None) if len(results) > 0 else 0
+        if len(results) == 0:
+            task.log.fatal("No results.")
+        elif exitStatus > 0:
+            task.log.fatal("Failed to process at least one of the components")
+        else:
+            dataRef = task.reduceDataRefs(parsedCmd.id.refList)
+            final = task.gather(dataRef, [rr.result for rr in results], lineList=parsedCmd.lineList)
+        return [Struct(result=final, exitStatus=exitStatus)]
+
+    def __call__(self, args):
+        """Run the Task on a single target.
+
+        This implementation strips out the ``dataRef`` from the
+        original implementation, because that can cause problems
+        from SQLite databases (used by the butler registries)
+        being destroyed from threads other than the one in which
+        they were created.
+        """
+        result = super().__call__(args)
+        return Struct(**{key: value for key, value in result.getDict().items() if key is not "dataRef"})
+
 
 class ReduceArcTask(CmdLineTask):
     """Task to reduce Arc images"""
     ConfigClass = ReduceArcConfig
-    RunnerClass = ReduceArcTaskRunner
-    _DefaultName = "reduceArcTask"
+    _DefaultName = "reduceArc"
+    RunnerClass = ReduceArcRunner
 
     def __init__(self, *args, **kwargs):
-        super(ReduceArcTask, self).__init__(*args, **kwargs)
-
+        super().__init__(*args, **kwargs)
+        self.makeSubtask("reduceExposure")
         self.makeSubtask("calibrateWavelengths")
-        self.makeSubtask("extractSpectra")
-
         self.debugInfo = lsstDebug.Info(__name__)
 
     @classmethod
@@ -59,111 +103,236 @@ class ReduceArcTask(CmdLineTask):
         parser = ArgumentParser(name=cls._DefaultName)
         parser.add_id_argument("--id", datasetType="raw",
                                help="input identifiers, e.g., --id visit=123 ccd=4")
+        parser.add_argument("--lineList", help="Reference line list",
+                            default=os.path.join(getPackageDir("obs_pfs"),
+                                                 "pfs", "lineLists", "ArCdHgKrNeXe.txt"))
         return parser
 
-    def run(self, expRefList, butler, immediate=True):
-        self.log.debug('expRefList = %s' % expRefList)
-        self.log.debug('len(expRefList) = %d' % len(expRefList))
+    def verify(self, dataRefList):
+        """Verify inputs
 
-        if self.config.randomSeed != 0:
-            np.random.seed(self.config.randomSeed)
+        Ensure that all inputs are from the same CCD.
 
-        for arcRef in expRefList:
-            self.log.debug('arcRef.dataId = %s' % arcRef.dataId)
-            self.log.debug('arcRef = %s' % arcRef)
-            self.log.debug('type(arcRef) = %s' % type(arcRef))
+        Parameters
+        ----------
+        dataRefList : `list` of `lsst.daf.persistence.ButlerDataRef`
+            List of data references.
 
-            # read pfsFiberTrace and then construct FiberTraceSet
-            try:
-                self.log.debug('fiberTrace file name = %s' % (arcRef.get('fibertrace_filename')))
-                fiberTrace = arcRef.get('fibertrace')
-            except Exception as e:
-                raise RuntimeError("Unable to load fiberTrace for %s: %s" % (arcRef.dataId, e))
+        Raises
+        ------
+        `RuntimeError`
+            If the inputs are from different CCDs.
+        """
+        for prop in ("arm", "spectrograph"):
+            values = set([ref.dataId["arm"] for ref in dataRefList])
+            if len(values) > 1:
+                raise RuntimeError("%s varies for inputs: %s" % (prop, [ref.dataId for ref in dataRefList]))
 
-            detectorMap = butler.get('detectormap', arcRef.dataId)
+    def run(self, dataRef):
+        """Entry point for scatter stage
 
-            if self.config.fiberDy != 0.0:
-                slitOffsets = detectorMap.getSlitOffsets()
-                slitOffsets[detectorMap.FIBER_DY] += self.config.fiberDy
-                detectorMap.setSlitOffsets(slitOffsets)
+        Extracts spectra from the exposure pointed to by the ``dataRef``.
 
-            flatFiberTraceSet = makeFiberTraceSet(fiberTrace)
-            self.log.debug('fiberTrace calibration file contains %d fibers' % flatFiberTraceSet.getNtrace())
+        Parameters
+        ----------
+        dataRef : `lsst.daf.persistence.ButlerDataRef`
+            Data reference for exposure.
 
-            arcExp = None
-            for dataType in ["calexp", "postISRCCD"]:
-                if arcRef.datasetExists(dataType):
-                    arcExp = arcRef.get(dataType)
-                    break
+        Returns
+        -------
+        spectrumSet : `pfs.drp.stella.SpectrumSet`
+            Set of extracted spectra.
+        detectorMap : `pfs.drp.stella.utils.DetectorMapIO`
+            Mapping of wl,fiber to detector position.
+        visitInfo : `lsst.afw.image.VisitInfo`
+            Visit information for exposure.
+        metadata : `lsst.daf.base.PropertyList`
+            Exposure metadata (FITS header)
+        lamps : `list` of `str`
+            List of arc species.
+        """
 
-            if arcExp is None:
-                raise RuntimeError("Unable to load postISRCCD or calexp image for %s" % (arcRef.dataId))
+        results = self.reduceExposure.run(dataRef)
+        metadata = results.exposure.getMetadata()
+        lamps = getLampElements(metadata)
+        if False:
+            arcLines = self.readLineList(results.exposure.getMetadata(), lineList)
+            self.calibrateWavelengths.identifyArcLines(results.spectrumSet, results.detectorMap, arcLines)
+        return Struct(
+            spectrumSet=results.spectrumSet,
+            detectorMap=results.detectorMap,
+            visitInfo=results.exposure.getInfo().getVisitInfo(),
+            metadata=metadata,
+            lamps=lamps,
+        )
 
-            # read line list
-            lamps = getLampElements(arcExp.getMetadata())
-            self.log.info("Arc lamp elements are: %s" % " ".join(lamps))
-            arcLines = readLineListFile(self.config.lineList, lamps,
-                                        minIntensity=self.config.minArcLineIntensity)
-            arcLineWavelengths = np.array([line.wavelength for line in arcLines], dtype='float32')
+    def gather(self, dataRef, results, lineList):
+        """Entry point for gather stage
 
-            if self.debugInfo.display and self.debugInfo.arc_frame >= 0:
-                display = afwDisplay.Display(self.debugInfo.arc_frame)
+        Combines the input spectra and fits a wavelength calibration.
 
-                display.setMaskPlaneColor("FIBERTRACE", afwDisplay.YELLOW)
-                addFiberTraceSetToMask(arcExp.maskedImage.mask, flatFiberTraceSet)
-                
-                display.setMaskTransparency(50)
-                display.mtv(arcExp, "Arcs %(visit)d %(arm)s%(spectrograph)d" % (arcRef.dataId))
+        Parameters
+        ----------
+        dataRef : `lsst.daf.persistence.ButlerDataRef`
+            Data reference for exposure.
+        results : `list` of `lsst.pipe.base.Struct`
+            List of results from the ``run`` method.
+        lineList : `str`
+            Filename of arc line list.
+        """
+        if len(results) == 0:
+            raise RuntimeError("No input spectra")
+        spectra = [rr.spectrumSet for rr in results if rr is not None]
+        detectorMap = next(rr.detectorMap for rr in results if rr is not None)  # All identical
+        visitInfo = next(rr.visitInfo for rr in results if rr is not None)  # More or less identical
+        metadata = next(rr.metadata for rr in results if rr is not None)  # More or less identical
+        lamps = set(sum((rr.lamps for rr in results if rr is not None), []))
 
-            # optimally extract arc spectra
-            self.log.info('extracting arc spectra from %(visit)d %(arm)s%(spectrograph)d' % arcRef.dataId)
+        spectrumSet = self.coaddSpectra(spectra)
+        arcLines = self.readLineList(lamps, lineList)
+        self.calibrateWavelengths.identifyArcLines(spectrumSet, detectorMap, arcLines)
+        self.calibrateWavelengths.run(spectrumSet, detectorMap, seed=dataRef.get("ccdExposureId"))
+        self.write(dataRef, spectrumSet, detectorMap, metadata, visitInfo)
+        if self.debugInfo.display:
+            self.plot(spectrumSet, detectorMap)
 
-            spectrumSet = self.extractSpectra.run(arcExp, flatFiberTraceSet, detectorMap).spectrumSet
+    def coaddSpectra(self, spectra):
+        """Coadd multiple SpectrumSets
 
-            self.log.info('calibrating wavelengths for %(visit)d %(arm)s%(spectrograph)d' % arcRef.dataId)
-            self.calibrateWavelengths.run(detectorMap, spectrumSet, arcLines)
+        Adds the wavelength, spectrum, background, covar and reference lines
+        of the input `SpectrumSet`s for each aperture.
 
-            writePfsArm(butler, arcExp, spectrumSet, arcRef.dataId)
-            #
-            # Now the updated DetectorMap.  We could derive this task from CalibTask, except
-            # that that depends on BatchPoolTask and that'd be a pain as it assumes multiprocessing
-            #
-            detectorMapIO = makeDetectorMapIO(detectorMap, arcExp.getInfo().getVisitInfo())
-            arcRef.put(detectorMapIO, 'detectormap', visit0=arcRef.dataId['visit'])
-            #
-            # Done; time for debugging plots
-            #
-            if self.debugInfo.display and self.debugInfo.arc_frame >= 0 and self.debugInfo.showArcLines:
-                for spec in spectrumSet:
-                    fiberId = spec.getFiberId()
+        XXX need to make a set of lines, not a list
 
-                    x = detectorMap.findPoint(fiberId, arcLines[0].wavelength)[0]
-                    y = 0.5*arcExp.getHeight()
-                    display.dot(str(fiberId), x, y + 10*(fiberId%2), ctype='blue')
+        Parameters
+        ----------
+        spectra : `list` of `pfs.drp.stella.SpectrumSet`
+            List of extracted spectra for different exposures.
 
-                    for rl in arcLines:
-                        x, y = detectorMap.findPoint(fiberId, rl.wavelength)
-                        display.dot('o', x, y, ctype='blue')
+        Returns
+        -------
+        result : `pfs.drp.stella.SpectrumSet`
+            Coadded spectra.
+        """
+        numApertures = set([len(ss) for ss in spectra])
+        assert len(numApertures) == 1, "Same number of apertures in each SpectrumSet"
+        numApertures = numApertures.pop()
 
-            if self.debugInfo.display and self.debugInfo.residuals_frame >= 0:
-                display = afwDisplay.Display(self.debugInfo.residuals_frame)
-                residuals = arcExp.maskedImage.clone()
+        result = SpectrumSet(numApertures)
+        for ap in range(numApertures):
+            inputs = [ss[ap] for ss in spectra]
+            fiberId = set([ss.getFiberId() for ss in inputs])
+            if len(fiberId) > 1:
+                raise RuntimeError("Multiple fiber IDs (%s) for aperture %d" % (fiberId, ap))
+            coadd = Spectrum(inputs[0].getNumPixels(), fiberId.pop())
+            # Coadd the various elements of the spectrum
+            for elem in ("Wavelength", "Spectrum", "Background", "Covar"):
+                element = getattr(inputs[0], "get" + elem)()
+                for ss in inputs[1:]:
+                    element += getattr(ss, "get" + elem)()
+                getattr(coadd, "set" + elem)(element)
+            result[ap] = coadd
+        return result
 
-                def getFtForSpectrum(fts, spec):
-                    fid = spec.getFiberId()
-                    for ft in fts:
-                        if ft.getFiberId() == fid:
-                            return ft
+    def readLineList(self, lamps, lineList):
+        """Read the arc line list from file
 
-                for spec in spectrumSet:
-                    ft = getFtForSpectrum(flatFiberTraceSet, spec)
-                    reconIm = ft.getReconstructed2DSpectrum(spec)
-                    reconIm *= detectorMap.getThroughput(spec.getFiberId())
-                    residuals[reconIm.getBBox()] -= reconIm
+        Parameters
+        ----------
+        lamps : iterable of `str`
+            Lamp species.
+        lineList : `str`
+            Filename of line list.
 
-                display.mtv(residuals, title="Residuals %(visit)d %(arm)s%(spectrograph)d" % (arcRef.dataId))
-    #
-    # Disable writing metadata (doesn't work with lists of dataRefs anyway)
-    #
+        Returns
+        -------
+        arcLines : `list` of `pfs.drp.stella.ReferenceLine`
+            List of reference lines.
+        """
+        self.log.info("Arc lamp elements are: %s", " ".join(lamps))
+        return readLineListFile(lineList, lamps, minIntensity=self.config.minArcLineIntensity)
+
+    def write(self, dataRef, spectrumSet, detectorMap, metadata, visitInfo):
+        """Write outputs
+
+        Parameters
+        ----------
+        dataRef : `lsst.daf.persistence.ButlerDataRef`
+            Data reference.
+        spectrumSet : `pfs.drp.stella.SpectrumSet`
+            Set of extracted spectra.
+        detectorMap : `pfs.drp.stella.utils.DetectorMapIO`
+            Mapping of wl,fiber to detector position.
+        metadata : `lsst.daf.base.PropertySet`
+            Exposure header.
+        visitInfo : `lsst.afw.image.VisitInfo`
+            Visit information for exposure.
+        """
+        self.log.info("Writing output for %s", dataRef.dataId)
+        writePfsArm(dataRef, metadata, spectrumSet)
+        detectorMapIO = makeDetectorMapIO(detectorMap, visitInfo)
+        dataRef.put(detectorMapIO, 'detectormap')
+
+    def reduceDataRefs(self, dataRefList):
+        """Reduce a list of data references
+
+        Produces a single data reference to use for the 'gather' stage.
+
+        This implementation simply returns the data reference with the
+        lowest ``visit``.
+
+        Parameters
+        ----------
+        dataRefList : `list` of `lsst.daf.peristence.ButlerDatRef`
+            List of data references.
+
+        Returns
+        -------
+        dataRef : `lsst.daf.peristence.ButlerDataRef`
+            Data reference.
+        """
+        return sorted(dataRefList, key=lambda dataRef: dataRef.dataId["visit"])[0]
+
+    def plot(self, spectrumSet, detectorMap):
+        """Plot results
+
+        Parameters
+        ----------
+        spectrumSet : `pfs.drp.stella.SpectrumSet`
+            Set of extracted spectra.
+        detectorMap : `pfs.drp.stella.utils.DetectorMapIO`
+            Mapping of wl,fiber to detector position.
+        """
+        if self.debugInfo.display and self.debugInfo.arc_frame >= 0 and self.debugInfo.showArcLines:
+            for spec in spectrumSet:
+                fiberId = spec.getFiberId()
+
+                x = detectorMap.findPoint(fiberId, arcLines[0].wavelength)[0]
+                y = 0.5*arcExp.getHeight()
+                display.dot(str(fiberId), x, y + 10*(fiberId%2), ctype='blue')
+
+                for rl in arcLines:
+                    x, y = detectorMap.findPoint(fiberId, rl.wavelength)
+                    display.dot('o', x, y, ctype='blue')
+
+        if self.debugInfo.display and self.debugInfo.residuals_frame >= 0:
+            display = afwDisplay.Display(self.debugInfo.residuals_frame)
+            residuals = arcExp.maskedImage.clone()
+
+            def getFtForSpectrum(fts, spec):
+                fid = spec.getFiberId()
+                for ft in fts:
+                    if ft.getFiberId() == fid:
+                        return ft
+
+            for spec in spectrumSet:
+                ft = getFtForSpectrum(flatFiberTraceSet, spec)
+                reconIm = ft.getReconstructed2DSpectrum(spec)
+                reconIm *= detectorMap.getThroughput(spec.getFiberId())
+                residuals[reconIm.getBBox()] -= reconIm
+
+            display.mtv(residuals, title="Residuals %(visit)d %(arm)s%(spectrograph)d" % (arcRef.dataId))
+
     def _getMetadataName(self):
+        """Disable writing metadata (doesn't work with lists of dataRefs anyway)"""
         return None
