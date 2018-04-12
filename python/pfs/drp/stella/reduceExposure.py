@@ -35,10 +35,14 @@ class ReduceExposureConfig(pexConfig.Config):
     doRepair = pexConfig.Field(dtype=bool, default=True, doc="Repair artifacts?")
     repair = pexConfig.ConfigurableField(target=RepairTask, doc="Task to repair artifacts")
     doWriteCalexp = pexConfig.Field(dtype=bool, default=False, doc="Write corrected frame?")
+    doWriteArm = pexConfig.Field(dtype=bool, default=True, doc="Write PFS arm file?")
+    doExtractSpectra = pexConfig.Field(dtype=bool, default=True, doc="Extract spectra from exposure?")
     extractSpectra = pexConfig.ConfigurableField(
         target=ExtractSpectraTask,
         doc="""Task to extract spectra using the fibre traces""",
     )
+    fiberDy=pexConfig.Field(doc="Offset to add to all FIBER_DY values (used when bootstrapping)",
+                            dtype=float, default=0)
 
 ## \addtogroup LSST_task_documentation
 ## \{
@@ -129,40 +133,66 @@ class ReduceExposureTask(pipeBase.CmdLineTask):
         self.log.info("Processing %s" % (sensorRef.dataId))
 
         exposure = self.isr.runDataRef(sensorRef).exposure
-
         if self.config.doRepair:
-            #
-            # We need a PSF, so get one from the config
-            #
-            modelPsfConfig = self.config.repair.interp.modelPsf
-            psf = modelPsfConfig.apply()
-            
-            exposure.setPsf(psf)
-            #
-            # Do the work
-            #
-            self.repair.run(exposure)
+            self.repairExposure(exposure)
 
-        fiberTrace = sensorRef.get('fibertrace')
-        flatFiberTraceSet = makeFiberTraceSet(fiberTrace)
+        results = pipeBase.Struct(exposure=exposure)
 
-        detectorMap = sensorRef.get('detectormap')
-
-        spectrumSet = self.extractSpectra.run(exposure, flatFiberTraceSet, detectorMap).spectrumSet
+        if self.config.doExtractSpectra:
+            extractionResults = self.extractSpectraFromExposure(sensorRef, exposure)
+            results.mergeItems(extractionResults, "spectrumSet", "detectorMap")
 
         if self.config.doWriteCalexp:
             sensorRef.put(exposure, "calexp")
+        if self.config.doWriteArm:
+            writePfsArm(sensorRef, exposure.getMetadata(), results.spectrumSet)
 
-        writePfsArm(sensorRef.getButler(), exposure, spectrumSet, sensorRef.dataId)
+        return results
 
+    def repairExposure(self, exposure):
+        """Repair CCD defects in the exposure
+
+        Uses the PSF specified in the config.
+        """
+        modelPsfConfig = self.config.repair.interp.modelPsf
+        psf = modelPsfConfig.apply()
+        exposure.setPsf(psf)
+        self.repair.run(exposure)
+
+    def extractSpectraFromExposure(self, sensorRef, exposure):
+        """Extract spectra from the exposure
+
+        Parameters
+        ----------
+        sensorRef : `lsst.daf.persistence.ButlerDataRef`
+            Data reference for sensor data.
+        exposure : `lsst.afw.image.Exposure`
+            Exposure image from which to extract spectra.
+
+        Returns
+        -------
+        exposure : `lsst.afw.image.Exposure`
+            Exposure image from which spectra were extracted.
+        spectrumSet : `pfs.drp.stella.SpectrumSet`
+            Set of extracted spectra.
+        detectorMap : `pfs.drp.stella.utils.DetectorMapIO`
+            Mapping of wl,fiber to detector position.
+        """
+        fiberTrace = sensorRef.get('fibertrace')
+        flatFiberTraceSet = makeFiberTraceSet(fiberTrace)
+        detectorMap = sensorRef.get("detectormap")
+        if self.config.fiberDy != 0.0:
+            slitOffsets = detectorMap.getSlitOffsets()
+            slitOffsets[detectorMap.FIBER_DY] += self.config.fiberDy
+            detectorMap.setSlitOffsets(slitOffsets)
+
+        spectrumSet = self.extractSpectra.run(exposure, flatFiberTraceSet, detectorMap).spectrumSet
         return pipeBase.Struct(
-            exposure=exposure,
             spectrumSet=spectrumSet,
+            detectorMap=detectorMap,
         )
 
     def _getConfigName(self):
         return None
     def _getMetadataName(self):
-        return None
-    def _getEupsVersionsName(self):
         return None
