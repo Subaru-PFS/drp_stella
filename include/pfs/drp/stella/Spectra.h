@@ -86,6 +86,9 @@ class Spectrum {
     ndarray::Array<VarianceT, 2, 1> getCovar() { return _covar; }
     ndarray::Array<VarianceT, 2, 1> getCovar() const { return _covar; }
 
+    /// Set the background pointer of this fiber trace to covar (deep copy)
+    void setBackground(ndarray::Array<ImageT, 1, 1> const& background);
+
     /// Set the covariance pointer of this fiber trace to covar (deep copy)
     void setVariance(ndarray::Array<ImageT, 1, 1> const& variance);
 
@@ -120,7 +123,10 @@ class Spectrum {
                   int nLinesCheck=0                     ///< number of lines to hold back from fitting procedure
                  );
 
-    std::vector<std::shared_ptr<ReferenceLine>>& getReferenceLines() { return _referenceLines; }
+    std::vector<std::shared_ptr<ReferenceLine>> getReferenceLines() { return _referenceLines; }
+    void setReferenceLines(std::vector<std::shared_ptr<ReferenceLine>> const& lines) {
+        _referenceLines = lines;
+    }
     
     bool isWavelengthSet() const { return _isWavelengthSet; }
     

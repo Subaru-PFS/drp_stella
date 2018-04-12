@@ -120,6 +120,18 @@ Spectrum::setSpectrum( ndarray::Array<Spectrum::ImageT, 1, 1> const& spectrum )
   _spectrum.deep() = spectrum;
 }
 
+void
+Spectrum::setBackground(ndarray::Array<Spectrum::ImageT, 1, 1> const& background)
+{
+  /// Check length of input variance
+  if (static_cast<std::size_t>(background.getShape()[0]) != _length) {
+    string message("pfs::drp::stella::Spectrum::setBackground: ERROR: background->size()=");
+    message += to_string( background.getShape()[ 0 ] ) + string( " != _length=" ) + to_string( _length );
+    throw LSST_EXCEPT(pexExcept::Exception, message.c_str());    
+  }
+  _background.deep() = background;
+}
+
 ndarray::Array<Spectrum::VarianceT, 1, 1>
 Spectrum::getVariance() const
 {

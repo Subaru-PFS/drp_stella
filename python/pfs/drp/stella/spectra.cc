@@ -58,6 +58,12 @@ void declareSpectrum(py::module &mod) {
     cls.def_property("spectrum", (ndarray::Array<Spectrum::ImageT, 1, 1> (Class::*)()) &Class::getSpectrum,
                              &Class::setSpectrum);
 
+    cls.def("getBackground", (ndarray::Array<Spectrum::ImageT, 1, 1> (Class::*)()) &Class::getBackground);
+    cls.def("setBackground", &Class::setBackground, "background"_a);
+    cls.def_property("background",
+                     (ndarray::Array<Spectrum::ImageT, 1, 1> (Class::*)()) &Class::getBackground,
+                     &Class::setBackground);
+
     cls.def("getVariance", (ndarray::Array<Spectrum::VarianceT, 1, 1> (Class::*)()) &Class::getVariance);
     cls.def("setVariance", &Class::setVariance, "variance"_a);
     cls.def_property("variance", (ndarray::Array<Spectrum::VarianceT, 1, 1> (Class::*)()) &Class::getVariance,
@@ -84,6 +90,9 @@ void declareSpectrum(py::module &mod) {
     cls.def("identify", &Class::identify, "lineList"_a, "dispCorControl"_a, "nLinesCheck"_a=0);
 
     cls.def("getReferenceLines", &Class::getReferenceLines);    
+    cls.def("setReferenceLines", &Class::setReferenceLines);
+
+    cls.def("getNumPixels", &Class::getNpix);
 
     cls.def("isWavelengthSet", &Class::isWavelengthSet);
 }
@@ -114,6 +123,9 @@ void declareSpectrumSet(py::module &mod) {
             
             return self.getSpectrum(i);
         });
+    cls.def("__setitem__",
+            [](Class& self, std::size_t i, PTR(Spectrum) spectrum) { self.setSpectrum(i, spectrum); });
+
 }
 
 PYBIND11_PLUGIN(spectra) {
