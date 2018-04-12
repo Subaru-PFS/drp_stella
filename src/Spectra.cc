@@ -162,14 +162,14 @@ void
 Spectrum::setCovar(const ndarray::Array<VarianceT, 2, 1> & covar )
 {
     /// Check length of input covar
-    if (static_cast<std::size_t>(covar.getShape()[0]) != _length) {
+    if (static_cast<std::size_t>(covar.getShape()[1]) != _length) {
       string message("pfs::drp::stella::Spectrum::setCovar: ERROR: covar->size()=");
-      message += to_string( covar.getShape()[0] ) + string( " != _length=" ) + to_string( _length );
+      message += to_string( covar.getShape()[1] ) + string( " != _length=" ) + to_string( _length );
       throw LSST_EXCEPT(pexExcept::Exception, message.c_str());    
     }
-    if (covar.getShape()[1] != 3) {
+    if (covar.getShape()[0] != 3) {
       string message("pfs::drp::stella::Spectrum::setCovar: ERROR: covar->size()=");
-      message += to_string( covar.getShape()[1] ) + string( " != 3" );
+      message += to_string( covar.getShape()[0] ) + string( " != 3" );
       throw LSST_EXCEPT(pexExcept::Exception, message.c_str());    
     }
     _covar.deep() = covar;
