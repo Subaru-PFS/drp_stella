@@ -372,32 +372,29 @@ def plotReferenceLines(referenceLines, what, ls=':', alpha=1, color=None, label=
                 y = 1.05*spectrum[i0:i1].max()
 
             plt.text(x, y, rl.description, ha='center')
-    
-def writePfsArm(butler, arcExposure, spectrumSet, dataId):
+
+
+def writePfsArm(dataRef, metadata, spectrumSet):
     """
     Do the I/O using a trampoline object PfsArmIO (to avoid adding butler-related details
     to the datamodel product)
 
     This is a bit messy as we need to include the pfsConfig file in the pfsArm file
     """
-    md = arcExposure.getMetadata()
     key = "PFSCONFIGID"
-    if md.exists(key):
-        pfsConfigId = md.get(key)
+    if metadata.exists(key):
+        pfsConfigId = metadata.get(key)
     else:
-        log.log("writePfsArm",
-                log.WARN,
-                'No pfsConfigId is present in postISRCCD file for dataId %s' %
-                str(dataId.items()))
+        log.log("writePfsArm", log.WARN, "No pfsConfigId is present in metadata for dataId %s" %
+                (dataRef.dataId,))
         pfsConfigId = 0x0
 
-    pfsConfig = butler.get("pfsConfig", pfsConfigId=pfsConfigId, dateObs=dataId["dateObs"])
+    pfsConfig = dataRef.get("pfsConfig", pfsConfigId=pfsConfigId)
 
     if False:                           # calls bypass_pfsConfig, repeating warnings from the get()
-        createPfsConfig = not butler.datasetExists("pfsConfig",
-                                                   pfsConfigId=pfsConfigId, dateObs=dataId["dateObs"])
+        createPfsConfig = not dataRef.datasetExists("pfsConfig", pfsConfigId=pfsConfigId)
     else:
-        fileName = butler.get("pfsConfig_filename", pfsConfigId=pfsConfigId, dateObs=dataId["dateObs"])[0]
+        fileName = dataRef.get("pfsConfig_filename", pfsConfigId=pfsConfigId)[0]
         createPfsConfig = not os.path.exists(fileName)
 
     if createPfsConfig:
@@ -407,12 +404,14 @@ def writePfsArm(butler, arcExposure, spectrumSet, dataId):
             fiberId.append(spec.getFiberId())
         pfsConfig.fiberId = np.array(fiberId)
 
+    dataId = dataRef.dataId
     pfsArm = spectrumSetToPfsArm(pfsConfig, spectrumSet,
                                  dataId["visit"], dataId["spectrograph"], dataId["arm"])
-    butler.put(PfsArmIO(pfsArm), 'pfsArm', dataId)
+    dataRef.put(PfsArmIO(pfsArm), 'pfsArm')
 
     if createPfsConfig:
-        butler.put(PfsConfigIO(pfsConfig), 'pfsConfig', dataId, pfsConfigId=0x0)
+        dataRef.put(PfsConfigIO(pfsConfig), 'pfsConfig', pfsConfigId=0x0)
+
 
 def addFiberTraceSetToMask(mask, fiberTraceSet):
     for ft in fiberTraceSet.getTraces():
