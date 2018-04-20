@@ -54,8 +54,13 @@ class Spectrum {
   public:
     typedef float ImageT;
     typedef float VarianceT;
-
     typedef lsst::afw::image::Mask<lsst::afw::image::MaskPixel> Mask;
+    using ImageArray = ndarray::Array<ImageT, 1, 1>;
+    using ConstImageArray = ndarray::Array<const ImageT, 1, 1>;
+    using VarianceArray = ndarray::Array<VarianceT, 1, 1>;
+    using CovarianceMatrix = ndarray::Array<VarianceT, 2, 1>;
+    using ReferenceLineList = std::vector<std::shared_ptr<ReferenceLine>>;
+    using ConstReferenceLineList = std::vector<std::shared_ptr<const ReferenceLine>>;
 
     // Class Constructors and Destructor
     explicit Spectrum(std::size_t length=0,
@@ -69,38 +74,38 @@ class Spectrum {
     std::size_t getNpix() const { return _length; }
 
     /// Return a shared pointer to the spectrum
-    ndarray::Array<ImageT, 1, 1> getSpectrum() { return _spectrum; }
-    ndarray::Array<ImageT, 1, 1> const getSpectrum() const { return _spectrum; }
+    ImageArray getSpectrum() { return _spectrum; }
+    ImageArray const getSpectrum() const { return _spectrum; }
 
     /// Set the spectrum (deep copy)
     void setSpectrum(ndarray::Array<ImageT, 1, 1>  const& spectrum);
 
-    ndarray::Array<ImageT, 1, 1> getBackground() { return _background; }
-    ndarray::Array<const ImageT, 1, 1> getBackground() const { return _background; }
+    ImageArray getBackground() { return _background; }
+    ConstImageArray getBackground() const { return _background; }
 
     /// Return a copy of the variance of this spectrum
-    ndarray::Array<VarianceT, 1, 1> getVariance() const;
-    ndarray::Array<VarianceT, 1, 1> getVariance();
+    VarianceArray getVariance() const;
+    VarianceArray getVariance();
     
     /// Return the pointer to the covariance of this spectrum
-    ndarray::Array<VarianceT, 2, 1> getCovar() { return _covar; }
-    ndarray::Array<VarianceT, 2, 1> getCovar() const { return _covar; }
+    CovarianceMatrix getCovar() { return _covar; }
+    CovarianceMatrix getCovar() const { return _covar; }
 
     /// Set the background pointer of this fiber trace to covar (deep copy)
-    void setBackground(ndarray::Array<ImageT, 1, 1> const& background);
+    void setBackground(ImageArray const& background);
 
     /// Set the covariance pointer of this fiber trace to covar (deep copy)
-    void setVariance(ndarray::Array<ImageT, 1, 1> const& variance);
+    void setVariance(VarianceArray const& variance);
 
     /// Set the covariance pointer of this fiber trace to covar (deep copy)
-    void setCovar(ndarray::Array<VarianceT, 2, 1> const& covar);
+    void setCovar(CovarianceMatrix const& covar);
 
     /// Return the pointer to the wavelength vector of this spectrum
-    ndarray::Array<ImageT, 1, 1> getWavelength() { return _wavelength; }
-    ndarray::Array<ImageT, 1, 1> const getWavelength() const { return _wavelength; }
+    ImageArray getWavelength() { return _wavelength; }
+    ImageArray const getWavelength() const { return _wavelength; }
 
     /// Set the wavelength vector of this spectrum (deep copy)
-    void setWavelength(ndarray::Array<ImageT, 1, 1> const& wavelength);
+    void setWavelength(ImageArray const& wavelength);
 
     /// Return the pointer to the mask vector of this spectrum
     Mask getMask() { return _mask; }
@@ -118,13 +123,13 @@ class Spectrum {
       *
       * Saves copy of lineList with as-observed values in _referenceLines
       **/
-    void identify(std::vector<std::shared_ptr<const ReferenceLine>> const& lineList, ///< List of arc lines
+    void identify(ConstReferenceLineList const& lineList, ///< List of arc lines
                   DispCorControl const& dispCorControl, ///< configuration params for wavelength calibration
                   int nLinesCheck=0                     ///< number of lines to hold back from fitting procedure
                  );
 
     std::vector<std::shared_ptr<ReferenceLine>> getReferenceLines() { return _referenceLines; }
-    void setReferenceLines(std::vector<std::shared_ptr<ReferenceLine>> const& lines) {
+    void setReferenceLines(ReferenceLineList const& lines) {
         _referenceLines = lines;
     }
     
@@ -132,13 +137,13 @@ class Spectrum {
     
   private:
     std::size_t _length;
-    ndarray::Array<ImageT, 1, 1> _spectrum;
+    ImageArray _spectrum;
     Mask _mask;
-    ndarray::Array<ImageT, 1, 1> _background;
-    ndarray::Array<VarianceT, 2, 1> _covar;
-    ndarray::Array<ImageT, 1, 1> _wavelength;
+    ImageArray _background;
+    CovarianceMatrix _covar;
+    ImageArray _wavelength;
     std::size_t _fiberId;               // for logging / debugging purposes only
-    std::vector<std::shared_ptr<ReferenceLine>> _referenceLines;
+    ReferenceLineList _referenceLines;
     bool _isWavelengthSet;
 };
 
