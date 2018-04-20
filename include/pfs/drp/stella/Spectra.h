@@ -108,8 +108,8 @@ class Spectrum {
     void setWavelength(ImageArray const& wavelength);
 
     /// Return the pointer to the mask vector of this spectrum
-    Mask getMask() { return _mask; }
-    Mask const getMask() const { return _mask; }
+    Mask & getMask() { return _mask; }
+    Mask const& getMask() const { return _mask; }
 
     /// Set the mask vector of this spectrum (deep copy)
     void setMask(Mask const& mask);
@@ -128,7 +128,8 @@ class Spectrum {
                   int nLinesCheck=0                     ///< number of lines to hold back from fitting procedure
                  );
 
-    std::vector<std::shared_ptr<ReferenceLine>> getReferenceLines() { return _referenceLines; }
+    ReferenceLineList & getReferenceLines() { return _referenceLines; }
+    ReferenceLineList const& getReferenceLines() const { return _referenceLines; }
     void setReferenceLines(ReferenceLineList const& lines) {
         _referenceLines = lines;
     }

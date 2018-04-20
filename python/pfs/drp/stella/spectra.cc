@@ -79,9 +79,11 @@ void declareSpectrum(py::module &mod) {
     cls.def_property("wavelength", (ndarray::Array<Spectrum::ImageT, 1, 1> (Class::*)()) &Class::getWavelength,
                      &Class::setWavelength);
 
-    cls.def("getMask", (typename Class::Mask (Class::*)()) &Class::getMask);
+    cls.def("getMask", [](Class & self) { return self.getMask(); },
+            py::return_value_policy::reference_internal);
     cls.def("setMask", &Class::setMask, "mask"_a);
-    cls.def_property("mask", (typename Class::Mask (Class::*)()) &Class::getMask, &Class::setMask);
+    cls.def_property("mask", [](Class & self) { return self.getMask(); }, &Class::setMask,
+                     py::return_value_policy::reference_internal);
 
     cls.def("getFiberId", &Class::getFiberId);
     cls.def("setFiberId", &Class::setFiberId, "fiberId"_a);
@@ -89,8 +91,11 @@ void declareSpectrum(py::module &mod) {
 
     cls.def("identify", &Class::identify, "lineList"_a, "dispCorControl"_a, "nLinesCheck"_a=0);
 
-    cls.def("getReferenceLines", &Class::getReferenceLines);    
+    cls.def("getReferenceLines", [](Class & self) { return self.getReferenceLines(); },
+            py::return_value_policy::reference_internal);
     cls.def("setReferenceLines", &Class::setReferenceLines);
+    cls.def_property("referenceLines", [](Class & self) { return self.getReferenceLines(); },
+                     &Class::setReferenceLines, py::return_value_policy::reference_internal);
 
     cls.def("getNumPixels", &Class::getNpix);
 
