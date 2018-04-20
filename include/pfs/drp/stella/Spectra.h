@@ -66,6 +66,16 @@ class Spectrum {
     explicit Spectrum(std::size_t length=0,
                       std::size_t fiberId=0);
 
+    Spectrum(
+        ImageArray const& spectrum,
+        Mask const& mask,
+        ImageArray const& background,
+        CovarianceMatrix const& covariance,
+        ImageArray const& wavelength,
+        ReferenceLineList const& lines=ReferenceLineList(),
+        std::size_t fiberId=0
+    );
+
     Spectrum(Spectrum const& spectrum) = delete;
     
     virtual ~Spectrum() {}
@@ -162,7 +172,9 @@ class SpectrumSet
       
     /// Creates a new SpectrumSet object of size 'nSpectra' of length 'length'
     explicit SpectrumSet(std::size_t nSpectra=0, std::size_t length=0);
-        
+
+    explicit SpectrumSet(std::vector<PTR(Spectrum)> spectra);
+
     /// Copy constructor
     SpectrumSet(SpectrumSet const& spectrumSet) = delete;
         
@@ -216,6 +228,8 @@ class SpectrumSet
      */
     ndarray::Array<float, 3, 1> getAllCovars() const;
     
+    Spectra const& getAllSpectra() const { return _spectra; }
+
   private:
     Spectra _spectra; // spectra for each aperture
 };

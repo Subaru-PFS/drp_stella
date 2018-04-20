@@ -1,4 +1,4 @@
-#include <iostream>
+#include <sstream>
 #include "lsst/log/Log.h"
 #include "lsst/pex/exceptions.h"
 #include "lsst/afw/image/MaskedImage.h"
@@ -50,6 +50,21 @@ SpectrumSet::SpectrumSet( size_t nSpectra, size_t length ) {
         _spectra.push_back(std::make_shared<Spectrum>(length, i));
     }
 }
+
+SpectrumSet::SpectrumSet(std::vector<PTR(Spectrum)> spectra) {
+    if (spectra.size() == 0) {
+        return;
+    }
+    _spectra.reserve(spectra.size());
+    std::size_t numPix = spectra[0]->getNpix();
+    for (auto const& ss : spectra) {
+        if (ss->getNpix() != numPix) {
+            std::ostringstream msg;
+            msg << "Spectrum length mismatch: " << ss->getNpix() << " vs " << numPix;
+            throw LSST_EXCEPT(pexExcept::LengthError, msg.str());
+        }
+        _spectra.push_back(ss);
+    }
 }
 
 ndarray::Array< float, 2, 1 > SpectrumSet::getAllFluxes() const{
@@ -105,6 +120,26 @@ ndarray::Array< float, 3, 1 > SpectrumSet::getAllCovars() const{
       covar[iFiber] = _spectra[iFiber]->getCovar();
   }
   return covar;
+}
+
+
+Spectrum::Spectrum(
+    ImageArray const& spectrum,
+    Mask const& mask,
+    ImageArray const& background,
+    CovarianceMatrix const& covariance,
+    ImageArray const& wavelength,
+    ReferenceLineList const& lines,
+    std::size_t fiberId
+) : _length(spectrum.getNumElements()),
+    _mask(mask),
+    _fiberId(fiberId),
+    _isWavelengthSet(!wavelength.empty())
+{
+    _spectrum = ndarray::copy(spectrum);
+    _background = ndarray::copy(background);
+    _covar = ndarray::copy(covariance);
+    _wavelength = ndarray::copy(wavelength);
 }
 
 void
