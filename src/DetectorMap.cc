@@ -20,13 +20,14 @@ DetectorMap::DetectorMap(lsst::afw::geom::Box2I bbox,                    // dete
                          ndarray::Array<int, 1, 1> const& fiberIds,      // 1-indexed IDs for each fibre
                          ndarray::Array<float, 2, 1> const& xCenters,    // center of trace for each fibre
                          ndarray::Array<float, 2, 1> const& wavelengths, // wavelengths for each fibre
-                         ndarray::Array<float, 2, 1> const* slitOffsets, // per-fibre x, y, focus offsets 
-                         std::size_t nKnot                               // number of knots
+                         std::size_t nKnot,                               // number of knots
+                         ndarray::Array<float, 2, 1> const& slitOffsets, // per-fibre x, y, focus offsets
+                         ndarray::Array<float, 1, 1> const& throughput
                         ) :
     _nFiber(fiberIds.getShape()[0]),
     _bbox(bbox),
-    _fiberIds(fiberIds.begin(), fiberIds.end()),
-    _throughput(_nFiber, 1.0),
+    _fiberIds(ndarray::copy(fiberIds)),
+    _throughput(_nFiber),
     _yToXCenter(_nFiber),
     _yToWavelength(_nFiber),
     _nKnot(nKnot),
@@ -43,7 +44,7 @@ DetectorMap::DetectorMap(lsst::afw::geom::Box2I bbox,                    // dete
         throw LSST_EXCEPT(lsst::pex::exceptions::LengthError, os.str());
     }
 
-    if (_fiberIds.size() != xCenters.getShape()[0]) {
+    if (_fiberIds.getNumElements() != xCenters.getShape()[0]) {
         std::ostringstream os;
         os << "Number of wavelengths/xCenters arrays == " << xCenters.getShape()[0] <<
             " != nFiber == " << _fiberIds.size();
@@ -59,10 +60,16 @@ DetectorMap::DetectorMap(lsst::afw::geom::Box2I bbox,                    // dete
     /*
      * OK; arguments are checked
      */
-    if (slitOffsets) {
-        setSlitOffsets(*slitOffsets);   // actually this is where we check slitOffsets
+    if (!slitOffsets.isEmpty()) {
+        setSlitOffsets(slitOffsets);   // actually this is where we check slitOffsets
     } else {
         _slitOffsets.deep() = 0.0;      // Assume that all the fibres are aligned perfectly
+    }
+
+    if (throughput.isEmpty()) {
+        _throughput.deep() = 1.0;
+    } else {
+        setThroughput(throughput);
     }
 
     _setSplines(xCenters, wavelengths);
@@ -75,12 +82,12 @@ DetectorMap::DetectorMap(lsst::afw::geom::Box2I bbox,                    // dete
  * created by this ctor isn't really ready for use
  */
 DetectorMap::DetectorMap(lsst::afw::geom::Box2I bbox,                    // detector's bounding box
-                         ndarray::Array<int, 1, 1> const& fiberIds,      // 1-indexed IDs for each fibre
+                         FiberMap const& fiberIds,      // 1-indexed IDs for each fibre
                          std::size_t nKnot                               // number of knots
                         ) :
     _nFiber(fiberIds.getShape()[0]),
     _bbox(bbox),
-    _fiberIds(fiberIds.begin(), fiberIds.end()),
+    _fiberIds(ndarray::copy(fiberIds)),
     _throughput(_nFiber, 1.0),
     _yToXCenter(_nFiber),
     _yToWavelength(_nFiber),
@@ -146,6 +153,15 @@ DetectorMap::getWavelength(std::size_t fiberId) const
     return res;
 }
 
+DetectorMap::Array2D DetectorMap::getWavelength() const {
+    std::size_t numFibers = _fiberIds.getNumElements();
+    Array2D result{numFibers, _bbox.getHeight()};
+    for (std::size_t ii = 0; ii < numFibers; ++ii) {
+        result[ii].deep() = getWavelength(_fiberIds[ii]);
+    }
+    return result;
+}
+
 /*
  * Return the wavelength values for a fibre
  */
@@ -176,6 +192,15 @@ DetectorMap::getXCenter(std::size_t fiberId) const
     }
 
     return res;
+}
+
+DetectorMap::Array2D DetectorMap::getXCenter() const {
+    std::size_t numFibers = _fiberIds.getNumElements();
+    Array2D result{numFibers, _bbox.getHeight()};
+    for (std::size_t ii = 0; ii < numFibers; ++ii) {
+        result[ii].deep() = getXCenter(_fiberIds[ii]);
+    }
+    return result;
 }
 
 /*
@@ -226,6 +251,15 @@ DetectorMap::setThroughput(std::size_t fiberId,
     int const fidx = getFiberIdx(fiberId);
 
     _throughput[fidx] = throughput;
+}
+
+void DetectorMap::setThroughput(Array1D const& throughput) {
+    if (throughput.getShape() != _throughput.getShape()) {
+        std::ostringstream os;
+        os << "Length mismatch: " << throughput.getShape() << " vs " << _throughput.getShape();
+        throw LSST_EXCEPT(lsst::pex::exceptions::LengthError, os.str());
+    }
+    _throughput.deep() = throughput;
 }
 
 /*

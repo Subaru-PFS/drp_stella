@@ -10,6 +10,7 @@ or
 """
 import os
 import sys
+import pickle
 import unittest
 
 import numpy as np
@@ -57,11 +58,8 @@ class DetectorMapTestCase(tests.TestCase):
 
     def setUp(self):
         """Set things up.  This ctor should be fine, and is checked again in testCtor"""
-        try:
-            self.ftMap = detectorMap.DetectorMap(self.bbox, self.fiberIds, self.xCenters,
-                                                     self.wavelengths, nKnot=self.nKnot)
-        except:
-            self.ftMap = None
+        self.ftMap = detectorMap.DetectorMap(self.bbox, self.fiberIds, self.xCenters,
+                                             self.wavelengths, nKnot=self.nKnot)
 
     def tearDown(self):
         del self.ftMap
@@ -89,16 +87,10 @@ class DetectorMapTestCase(tests.TestCase):
 
     def testFiberId(self):
         """Test that we set fiberId correctly"""
-        if not self.ftMap:                # ctor failed; see testCtor()
-            return
-
         self.assertTrue((self.ftMap.getFiberIds() == self.fiberIds).all())
 
     def testSlitOffset(self):
         """Test that we read/set fiberOffset correctly"""
-        if not self.ftMap:                # ctor failed; see testCtor()
-            return
-
         nFiber = len(self.ftMap.getFiberIds())
 
         val = 666.0
@@ -129,9 +121,6 @@ class DetectorMapTestCase(tests.TestCase):
 
     def testGetWavelength(self):
         """Test that we recover Wavelength correctly"""
-        if not self.ftMap:                # ctor failed; see testCtor()
-            return
-
         with self.assertRaises(pexExcept.RangeError):
             self.ftMap.getWavelength(0)      # fiberIds start at 0
 
@@ -152,9 +141,6 @@ class DetectorMapTestCase(tests.TestCase):
 
     def testGetXCenter(self):
         """Test that we recover XCenter correctly"""
-        if not self.ftMap:                # ctor failed; see testCtor()
-            return
-
         with self.assertRaises(pexExcept.RangeError):
             self.ftMap.getXCenter(0)      # fiberIds start at 0
 
@@ -170,11 +156,23 @@ class DetectorMapTestCase(tests.TestCase):
 
     def testFindFiberId(self):
         """Test that we can find a fiber ID"""
-        if not self.ftMap:                # ctor failed; see testCtor()
-            return
-
         pos = afwGeom.PointD(10, 100)
         self.ftMap.findFiberId(pos)
+
+    def testPickle(self):
+        """Test that we can successfully round-trip pickle"""
+        other = pickle.loads(pickle.dumps(self.ftMap))
+        self.assertEqual(self.ftMap.getBBox(),other.getBBox())
+        self.assertFloatsEqual(self.ftMap.getFiberIds(), other.getFiberIds())
+        # xCenter and wavelength are inexact because they are not stored in the object but have
+        # to be calculated; the result is that the two objects have slightly different splines
+        # defined.
+        self.assertFloatsAlmostEqual(self.ftMap.getXCenter(), other.getXCenter(), rtol=1.0e-5)
+        self.assertFloatsAlmostEqual(self.ftMap.getWavelength(), other.getWavelength(), rtol=1.0e-6)
+        self.assertEqual(self.ftMap.getNKnot(), other.getNKnot())
+        self.assertFloatsEqual(self.ftMap.getSlitOffsets(), other.getSlitOffsets())
+        self.assertFloatsEqual(self.ftMap.getThroughput(), other.getThroughput())
+
 
 #-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
