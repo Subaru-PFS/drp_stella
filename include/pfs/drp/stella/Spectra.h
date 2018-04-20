@@ -169,7 +169,7 @@ class SpectrumSet
     virtual ~SpectrumSet() {}
 
     /// Return the number of spectra/apertures
-    std::size_t getNtrace() const { return _spectra->size(); }
+    std::size_t getNtrace() const { return _spectra.size(); }
 
     /** @brief  Return the Spectrum for the ith fiberTrace
      *  @param i :: number of spectrum ( or number of respective FiberTrace ) to return
@@ -193,7 +193,7 @@ class SpectrumSet
      * @param spectrum :: spectrum to add 
      **/
     void addSpectrum(PTR(Spectrum) spectrum) {
-        _spectra->push_back(spectrum);
+        _spectra.push_back(spectrum);
     }
     
     /**
@@ -217,7 +217,7 @@ class SpectrumSet
     ndarray::Array<float, 3, 1> getAllCovars() const;
     
   private:
-    PTR(Spectra) _spectra; // spectra for each aperture
+    Spectra _spectra; // spectra for each aperture
 };
 
 }}}
