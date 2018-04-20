@@ -44,8 +44,8 @@ void Spectrum::setWavelength( ndarray::Array<float, 1, 1> const& wavelength )
 }
 
 ///SpectrumSet
-SpectrumSet::SpectrumSet( size_t nSpectra, size_t length )
-  : _spectra(nSpectra) {
+SpectrumSet::SpectrumSet( size_t nSpectra, size_t length ) {
+    _spectra.reserve(nSpectra);
     for (size_t i = 0; i < nSpectra; ++i) {
         _spectra.push_back(std::make_shared<Spectrum>(length, i));
     }
