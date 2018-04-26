@@ -24,7 +24,8 @@ from lsst.pipe.tasks.repair import RepairTask
 import lsst.pex.config as pexConfig
 import lsst.pipe.base as pipeBase
 from .extractSpectraTask import ExtractSpectraTask
-from .utils import makeFiberTraceSet, writePfsArm
+from .fitContinuum import FitContinuumTask
+from .utils import makeFiberTraceSet, writePfsArm, makeImageFromSpectra
 
 __all__ = ["ReduceExposureConfig", "ReduceExposureTask"]
 
@@ -41,6 +42,9 @@ class ReduceExposureConfig(pexConfig.Config):
         target=ExtractSpectraTask,
         doc="Task to extract spectra using the fibre traces",
     )
+    doSubtractContinuum = pexConfig.Field(dtype=bool, default=False,
+                                          doc="Subtract continuum as part of extraction?")
+    fitContinuum = pexConfig.ConfigurableField(target=FitContinuumTask, doc="Fit continuum for subtraction")
     fiberDy = pexConfig.Field(doc="Offset to add to all FIBER_DY values (used when bootstrapping)",
                               dtype=float, default=0)
 
@@ -111,9 +115,10 @@ class ReduceExposureTask(pipeBase.CmdLineTask):
         self.makeSubtask("isr")
         self.makeSubtask("repair")
         self.makeSubtask("extractSpectra")
+        self.makeSubtask("fitContinuum")
 
     @pipeBase.timeMethod
-    def run(self, sensorRef):
+    def run(self, sensorRef, lines=None):
         """Process one CCD
 
         The sequence of operations is:
@@ -125,13 +130,19 @@ class ReduceExposureTask(pipeBase.CmdLineTask):
         ----------
         sensorRef : `lsst.daf.persistence.ButlerDataRef`
             Data reference for sensort to process.
+        lines : `list` of `pfs.drp.stella.ReferenceLine`, optional
+            Reference lines.
 
         Returns
         -------
         exposure : `lsst.afw.image.Exposure`
             Exposure data for sensor.
-        spectrumSet : `pfs.drp.stella.SpectrumSet`
+        spectra : `pfs.drp.stella.SpectrumSet`
             Set of extracted spectra.
+        original : `pfs.drp.stella.SpectrumSet`
+            Set of extracted spectra before continuum subtraction.
+            Will be identical to ``spectra`` if continuum subtraction
+            was not performed.
         detectorMap : `pfs.drp.stella.utils.DetectorMapIO`
             Mapping of wl,fiber to detector position.
         """
@@ -144,13 +155,23 @@ class ReduceExposureTask(pipeBase.CmdLineTask):
         results = pipeBase.Struct(exposure=exposure)
 
         if self.config.doExtractSpectra:
-            extractionResults = self.extractSpectraFromImage(sensorRef, exposure.maskedImage)
-            results.mergeItems(extractionResults, "spectrumSet", "detectorMap")
+            fiberTraces = self.getFiberTraces(sensorRef)
+            detectorMap = self.getDetectorMap(sensorRef)
+            spectra = self.extractSpectra.run(exposure.maskedImage, fiberTraces, detectorMap, lines)
+            results.original = spectra
+            results.detectorMap = detectorMap
+
+            if self.config.doSubtractContinuum:
+                continua = self.fitContinuum.run(spectra)
+                exposure.maskedImage -= makeImageFromSpectra(continua, exposure.getBBox(), fiberTraces)
+                spectra = self.extractSpectra.run(exposure.maskedImage, fiberTraces, detectorMap, lines)
+
+            results.spectra = spectra
 
         if self.config.doWriteCalexp:
             sensorRef.put(exposure, "calexp")
         if self.config.doWriteArm:
-            writePfsArm(sensorRef, exposure.getMetadata(), results.spectrumSet)
+            writePfsArm(sensorRef, exposure.getMetadata(), results.spectra)
 
         return results
 
@@ -164,36 +185,41 @@ class ReduceExposureTask(pipeBase.CmdLineTask):
         exposure.setPsf(psf)
         self.repair.run(exposure)
 
-    def extractSpectraFromImage(self, sensorRef, maskedImage):
-        """Extract spectra from the exposure
+    def getDetectorMap(self, sensorRef):
+        """Get the appropriate detectorMap
 
         Parameters
         ----------
         sensorRef : `lsst.daf.persistence.ButlerDataRef`
             Data reference for sensor data.
-        maskedImage : `lsst.afw.image.MaskedIamge`
-            Exposure image from which to extract spectra.
 
         Returns
         -------
-        spectrumSet : `pfs.drp.stella.SpectrumSet`
-            Set of extracted spectra.
         detectorMap : `pfs.drp.stella.utils.DetectorMapIO`
             Mapping of wl,fiber to detector position.
         """
-        fiberTrace = sensorRef.get('fibertrace')
-        flatFiberTraceSet = makeFiberTraceSet(fiberTrace)
         detectorMap = sensorRef.get("detectormap")
         if self.config.fiberDy != 0.0:
             slitOffsets = detectorMap.getSlitOffsets()
             slitOffsets[detectorMap.FIBER_DY] += self.config.fiberDy
             detectorMap.setSlitOffsets(slitOffsets)
+        return detectorMap
 
-        spectrumSet = self.extractSpectra.run(maskedImage, flatFiberTraceSet, detectorMap).spectrumSet
-        return pipeBase.Struct(
-            spectrumSet=spectrumSet,
-            detectorMap=detectorMap,
-        )
+    def getFiberTraces(self, sensorRef):
+        """Get the appropriate fiber trace set
+
+        Parameters
+        ----------
+        sensorRef : `lsst.daf.persistence.ButlerDataRef`
+            Data reference for sensor data.
+
+        Returns
+        -------
+        fiberTraceSet : `pfs.drp.stella.FiberTraceSet`
+            Set of fiber traces.
+        """
+        fiberTrace = sensorRef.get('fibertrace')
+        return makeFiberTraceSet(fiberTrace)
 
     def _getConfigName(self):
         return None

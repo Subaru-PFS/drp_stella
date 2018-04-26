@@ -4,11 +4,14 @@ import lsst.afw.display as afwDisplay
 import pfs.drp.stella as drpStella
 import pfs.drp.stella.utils as dsUtils
 
+from .identifyLines import IdentifyLinesTask
+
 
 class ExtractSpectraConfig(pexConfig.Config):
     useOptimal = pexConfig.Field(dtype=bool, default=True,
                                  doc="Use optimal extraction? "
                                      "Otherwise, use a simple sum of pixels within the trace.")
+    identifyLines = pexConfig.ConfigurableField(target=IdentifyLinesTask, doc="Identify reference lines")
 
 
 class ExtractSpectraTask(pipeBase.Task):
@@ -17,10 +20,11 @@ class ExtractSpectraTask(pipeBase.Task):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.makeSubtask("identifyLines")
         import lsstDebug
         self.debugInfo = lsstDebug.Info(__name__)
 
-    def run(self, maskedImage, fiberTraceSet, detectorMap=None):
+    def run(self, maskedImage, fiberTraceSet, detectorMap=None, lines=None):
         """Extract spectra from the image
 
         We extract the spectra using the profiles in the provided
@@ -29,7 +33,41 @@ class ExtractSpectraTask(pipeBase.Task):
         Parameters
         ----------
         maskedImage : `lsst.afw.image.MaskedImage`
-            Image from which to extract spectra.
+            Image from which to extract spectra; modified if
+            ``doSubtractContinuum`` is set.
+        fiberTraceSet : `pfs.drp.stella.FiberTraceSet`
+            Fiber traces to extract.
+        detectorMap : `pfs.drp.stella.DetectorMap`, optional
+            Map of expected detector coordinates to fiber, wavelength.
+            If provided, they will be used to normalise the spectrum
+            and provide a rough wavelength calibration.
+        lines : `list` of `pfs.drp.stella.ReferenceLine`, optional
+            Reference lines.
+
+        Returns
+        -------
+        spectra : `pfs.drp.stella.SpectrumSet`
+            Extracted spectra.
+        """
+
+        if self.debugInfo.display:
+            display = afwDisplay.Display(frame=self.debugInfo.input_frame)
+            dsUtils.addFiberTraceSetToMask(maskedImage.mask, fiberTraceSet)
+            display.mtv(maskedImage, "input")
+
+        spectra = self.extractAllSpectra(maskedImage, fiberTraceSet, detectorMap)
+        if lines:
+            self.identifyLines.run(spectra, detectorMap, lines)
+        return spectra
+
+    def extractAllSpectra(self, maskedImage, fiberTraceSet, detectorMap=None):
+        """Extract all spectra in the fiberTraceSet
+
+        Parameters
+        ----------
+        maskedImage : `lsst.afw.image.MaskedImage`
+            Image from which to extract spectra; modified if
+            ``doSubtractContinuum`` is set.
         fiberTraceSet : `pfs.drp.stella.FiberTraceSet`
             Fiber traces to extract.
         detectorMap : `pfs.drp.stella.DetectorMap`, optional
@@ -39,22 +77,15 @@ class ExtractSpectraTask(pipeBase.Task):
 
         Returns
         -------
-        result : `pfs.drp.stella.SpectrumSet`
+        spectra : `pfs.drp.stella.SpectrumSet`
             Extracted spectra.
         """
-        result = drpStella.SpectrumSet()
-
-        if self.debugInfo.display:
-            display = afwDisplay.Display(frame=self.debugInfo.input_frame)
-            dsUtils.addFiberTraceSetToMask(maskedImage.mask, fiberTraceSet)
-            display.mtv(maskedImage, "input")
-
+        spectra = drpStella.SpectrumSet()
         for fiberTrace in fiberTraceSet:
             spectrum = self.extractSpectrum(maskedImage, fiberTrace, detectorMap)
             if spectrum is not None:
-                result.addSpectrum(spectrum)
-
-        return result
+                spectra.addSpectrum(spectrum)
+        return spectra
 
     def extractSpectrum(self, maskedImage, fiberTrace, detectorMap=None):
         """Extract a single spectrum from the image

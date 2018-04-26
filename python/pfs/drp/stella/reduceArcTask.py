@@ -59,6 +59,10 @@ class ReduceArcRunner(TaskRunner):
         kwargs["doReturnResults"] = True
         super().__init__(*args, **kwargs)
 
+    @classmethod
+    def getTargetList(cls, parsedCmd, **kwargs):
+        return super().getTargetList(parsedCmd, lineList=parsedCmd.lineList)
+
     def run(self, parsedCmd):
         """Scatter-gather"""
         if not self.precall(parsedCmd):
@@ -133,7 +137,7 @@ class ReduceArcTask(CmdLineTask):
             if len(values) > 1:
                 raise RuntimeError("%s varies for inputs: %s" % (prop, [ref.dataId for ref in dataRefList]))
 
-    def run(self, dataRef):
+    def run(self, dataRef, lineList):
         """Entry point for scatter stage
 
         Extracts spectra from the exposure pointed to by the ``dataRef``.
@@ -142,6 +146,8 @@ class ReduceArcTask(CmdLineTask):
         ----------
         dataRef : `lsst.daf.persistence.ButlerDataRef`
             Data reference for exposure.
+        lineList : `str`
+            Filename of arc line list.
 
         Returns
         -------
@@ -156,12 +162,12 @@ class ReduceArcTask(CmdLineTask):
         lamps : `list` of `str`
             List of arc species.
         """
-
-        results = self.reduceExposure.run(dataRef)
-        metadata = results.exposure.getMetadata()
+        metadata = dataRef.get("raw_md")
         lamps = getLampElements(metadata)
+        lines = self.readLineList(lamps, lineList)
+        results = self.reduceExposure.run(dataRef, lines)
         return Struct(
-            spectrumSet=results.spectrumSet,
+            spectra=results.spectra,
             detectorMap=results.detectorMap,
             visitInfo=results.exposure.getInfo().getVisitInfo(),
             metadata=metadata,
@@ -184,7 +190,7 @@ class ReduceArcTask(CmdLineTask):
         """
         if len(results) == 0:
             raise RuntimeError("No input spectra")
-        spectra = [rr.spectrumSet for rr in results if rr is not None]
+        spectra = [rr.spectra for rr in results if rr is not None]
         detectorMap = next(rr.detectorMap for rr in results if rr is not None)  # All identical
         visitInfo = next(rr.visitInfo for rr in results if rr is not None)  # More or less identical
         metadata = next(rr.metadata for rr in results if rr is not None)  # More or less identical

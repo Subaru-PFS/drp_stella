@@ -422,6 +422,32 @@ def addFiberTraceSetToMask(mask, fiberTraceSet):
             mask.Factory(mask, traceMask.getBBox(), afwImage.PARENT)[:] |= traceMask
 
 
+def makeImageFromSpectra(spectra, box, fiberTraces):
+    """Make a 2D image of the spectra
+
+    Parameters
+    ----------
+    spectra : `pfs.drp.stella.SpectrumSet`
+        Spectra of which to construct an image.
+    box : `lsst.afw.geom.Box2I`
+        Bounding box for image.
+    fiberTraces : `pfs.drp.stella.FiberTraceSet`
+        Fiber traces indicating where on the image the spectra go.
+
+    Returns
+    -------
+    image : `lsst.afw.image.Image`
+        2D image of the spectra.
+    """
+    image = afwImage.ImageF(box)
+    image.set(0.0)
+    assert len(spectra) == len(fiberTraces), "Number of spectra and fiberTraces don't match"
+    for spec, ft in zip(spectra, fiberTraces):
+        recon = ft.getReconstructed2DSpectrum(spec)
+        image[recon.getBBox(), afwImage.PARENT] += recon
+    return image
+
+
 #-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
 class DetectorMapIO(object):
