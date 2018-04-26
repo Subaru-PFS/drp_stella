@@ -6,6 +6,7 @@ from lsst.pipe.base import TaskRunner, ArgumentParser, CmdLineTask, Struct
 import lsst.afw.display as afwDisplay
 from .calibrateWavelengthsTask import CalibrateWavelengthsTask
 from .reduceExposure import ReduceExposureTask
+from .identifyLines import IdentifyLinesTask
 from .utils import makeDetectorMapIO
 from .utils import readLineListFile, writePfsArm
 from lsst.obs.pfs.utils import getLampElements
@@ -45,6 +46,7 @@ class ReduceArcConfig(pexConfig.Config):
     """Configuration for reducing arc images"""
     reduceExposure = pexConfig.ConfigurableField(target=ReduceExposureTask,
                                                  doc="Extract spectra from exposure")
+    identifyLines = pexConfig.ConfigurableField(target=IdentifyLinesTask, doc="Identify arc lines")
     calibrateWavelengths = pexConfig.ConfigurableField(target=CalibrateWavelengthsTask,
                                                        doc="Calibrate a SpectrumSet's wavelengths")
     minArcLineIntensity = pexConfig.Field(doc="Minimum 'NIST' intensity to use emission lines",
@@ -97,6 +99,7 @@ class ReduceArcTask(CmdLineTask):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.makeSubtask("reduceExposure")
+        self.makeSubtask("identifyLines")
         self.makeSubtask("calibrateWavelengths")
         self.debugInfo = lsstDebug.Info(__name__)
 
@@ -189,7 +192,7 @@ class ReduceArcTask(CmdLineTask):
 
         spectrumSet = self.coaddSpectra(spectra)
         arcLines = self.readLineList(lamps, lineList)
-        self.calibrateWavelengths.identifyArcLines(spectrumSet, detectorMap, arcLines)
+        self.identifyLines.run(spectrumSet, detectorMap, arcLines)
         self.calibrateWavelengths.run(spectrumSet, detectorMap, seed=dataRef.get("ccdExposureId"))
         self.write(dataRef, spectrumSet, detectorMap, metadata, visitInfo)
         if self.debugInfo.display:

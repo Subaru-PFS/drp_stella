@@ -7,13 +7,11 @@ import lsst.afw.display as afwDisplay
 import pfs.drp.stella as drpStella
 from pfs.drp.stella.utils import plotReferenceLines
 
-__all__ = ["IdentifyConfig", "CalibrateWavelengthsConfig", "CalibrateWavelengthsTask"]
+__all__ = ["CalibrateWavelengthsConfig", "CalibrateWavelengthsTask"]
 
-IdentifyConfig = pexConfig.makeConfigClass(drpStella.DispCorControl, "IdentifyConfig")
 
 
 class CalibrateWavelengthsConfig(pexConfig.Config):
-    identify = pexConfig.ConfigField(dtype=IdentifyConfig, doc="Configuration for line identification")
     order = pexConfig.Field(doc="Fitting function order", dtype=int, default=4);
     searchRadius = pexConfig.Field(
         doc="Radius in pixels relative to line list to search for emission line peak",
@@ -44,32 +42,6 @@ class CalibrateWavelengthsTask(pipeBase.Task):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.debugInfo = lsstDebug.Info(__name__)
-
-    def identifyArcLines(self, spectrumSet, detectorMap, arcLines):
-        """Identify arc lines on the extracted spectra
-
-        Parameters
-        ----------
-        spectrumSet : `pfs.drp.stella.SpectrumSet`
-            Set of extracted spectra.
-        detectorMap : `pfs.drp.stella.utils.DetectorMapIO`
-            Mapping of wl,fiber to detector position.
-        arcLines : `list` of `pfs.drp.stella.ReferenceLine`
-            Reference arc lines.
-        """
-        for spec in spectrumSet:
-            fiberId = spec.getFiberId()
-
-            # Lookup the pixel positions of those lines
-            for rl in arcLines:
-                rl.guessedPixelPos = detectorMap.findPoint(fiberId, rl.wavelength)[1]
-
-            # Identify emission lines and fit dispersion
-            try:
-                spec.identify(arcLines, self.config.identify.makeControl())
-            except Exception as exc:
-                self.log.warn("Failed to identify lines for fiberId %d: %s" % (fiberId, exc))
-                continue
 
     def fitWavelengthSolution(self, spec, detectorMap, rng=np.random):
         """Fit wavelength solution for a spectrum
@@ -320,8 +292,7 @@ class CalibrateWavelengthsTask(pipeBase.Task):
     def run(self, spectrumSet, detectorMap, seed=1):
         """Run the wavelength calibration
 
-        Assumes that line identification has been done already
-        (i.e., call ``identifyArcLines`` before this).
+        Assumes that line identification has been done already.
 
         Parameters
         ----------
