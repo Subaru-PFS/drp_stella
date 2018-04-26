@@ -139,7 +139,7 @@ class ReduceExposureTask(pipeBase.CmdLineTask):
         results = pipeBase.Struct(exposure=exposure)
 
         if self.config.doExtractSpectra:
-            extractionResults = self.extractSpectraFromExposure(sensorRef, exposure)
+            extractionResults = self.extractSpectraFromImage(sensorRef, exposure.maskedImage)
             results.mergeItems(extractionResults, "spectrumSet", "detectorMap")
 
         if self.config.doWriteCalexp:
@@ -159,20 +159,18 @@ class ReduceExposureTask(pipeBase.CmdLineTask):
         exposure.setPsf(psf)
         self.repair.run(exposure)
 
-    def extractSpectraFromExposure(self, sensorRef, exposure):
+    def extractSpectraFromImage(self, sensorRef, maskedImage):
         """Extract spectra from the exposure
 
         Parameters
         ----------
         sensorRef : `lsst.daf.persistence.ButlerDataRef`
             Data reference for sensor data.
-        exposure : `lsst.afw.image.Exposure`
+        maskedImage : `lsst.afw.image.MaskedIamge`
             Exposure image from which to extract spectra.
 
         Returns
         -------
-        exposure : `lsst.afw.image.Exposure`
-            Exposure image from which spectra were extracted.
         spectrumSet : `pfs.drp.stella.SpectrumSet`
             Set of extracted spectra.
         detectorMap : `pfs.drp.stella.utils.DetectorMapIO`
@@ -186,7 +184,7 @@ class ReduceExposureTask(pipeBase.CmdLineTask):
             slitOffsets[detectorMap.FIBER_DY] += self.config.fiberDy
             detectorMap.setSlitOffsets(slitOffsets)
 
-        spectrumSet = self.extractSpectra.run(exposure, flatFiberTraceSet, detectorMap).spectrumSet
+        spectrumSet = self.extractSpectra.run(maskedImage, flatFiberTraceSet, detectorMap).spectrumSet
         return pipeBase.Struct(
             spectrumSet=spectrumSet,
             detectorMap=detectorMap,
