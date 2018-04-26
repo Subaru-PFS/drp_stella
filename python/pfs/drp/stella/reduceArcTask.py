@@ -1,5 +1,4 @@
 import os
-import numpy as np
 import lsstDebug
 import lsst.pex.config as pexConfig
 from lsst.utils import getPackageDir
@@ -7,7 +6,7 @@ from lsst.pipe.base import TaskRunner, ArgumentParser, CmdLineTask, Struct
 import lsst.afw.display as afwDisplay
 from .calibrateWavelengthsTask import CalibrateWavelengthsTask
 from .reduceExposure import ReduceExposureTask
-from .utils import makeFiberTraceSet, makeDetectorMapIO
+from .utils import makeDetectorMapIO
 from .utils import readLineListFile, writePfsArm
 from lsst.obs.pfs.utils import getLampElements
 from pfs.drp.stella import Spectrum, SpectrumSet
@@ -20,19 +19,22 @@ import copyreg
 from lsst.afw.image import VisitInfo
 from lsst.afw.coord import Observatory, Weather
 
+
 def pickleVisitInfo(info):
     return (VisitInfo,
             tuple(getattr(info, "get" + prop)() for
                   prop in ("ExposureId", "ExposureTime", "DarkTime", "Date", "Ut1", "Era", "BoresightRaDec",
                            "BoresightAzAlt", "BoresightAirmass", "BoresightRotAngle", "RotType",
-                           "Observatory", "Weather"))
-    )
+                           "Observatory", "Weather")))
+
 
 def pickleObservatory(obs):
     return (Observatory, (obs.getLongitude(), obs.getLatitude(), obs.getElevation()))
 
+
 def pickleWeather(weather):
     return (Weather, (weather.getAirTemperature(), weather.getAirPressure(), weather.getHumidity()))
+
 
 copyreg.pickle(VisitInfo, pickleVisitInfo)
 copyreg.pickle(Observatory, pickleObservatory)
@@ -45,8 +47,8 @@ class ReduceArcConfig(pexConfig.Config):
                                                  doc="Extract spectra from exposure")
     calibrateWavelengths = pexConfig.ConfigurableField(target=CalibrateWavelengthsTask,
                                                        doc="Calibrate a SpectrumSet's wavelengths")
-    minArcLineIntensity=pexConfig.Field(doc="Minimum 'NIST' intensity to use emission lines",
-                                        dtype=float, default=100)
+    minArcLineIntensity = pexConfig.Field(doc="Minimum 'NIST' intensity to use emission lines",
+                                          dtype=float, default=100)
 
 
 class ReduceArcRunner(TaskRunner):
@@ -155,9 +157,6 @@ class ReduceArcTask(CmdLineTask):
         results = self.reduceExposure.run(dataRef)
         metadata = results.exposure.getMetadata()
         lamps = getLampElements(metadata)
-        if False:
-            arcLines = self.readLineList(results.exposure.getMetadata(), lineList)
-            self.calibrateWavelengths.identifyArcLines(results.spectrumSet, results.detectorMap, arcLines)
         return Struct(
             spectrumSet=results.spectrumSet,
             detectorMap=results.detectorMap,
@@ -194,7 +193,7 @@ class ReduceArcTask(CmdLineTask):
         self.calibrateWavelengths.run(spectrumSet, detectorMap, seed=dataRef.get("ccdExposureId"))
         self.write(dataRef, spectrumSet, detectorMap, metadata, visitInfo)
         if self.debugInfo.display:
-            self.plot(spectrumSet, detectorMap)
+            self.plot(spectrumSet, detectorMap, arcLines)
 
     def coaddSpectra(self, spectra):
         """Coadd multiple SpectrumSets
@@ -293,7 +292,7 @@ class ReduceArcTask(CmdLineTask):
         """
         return sorted(dataRefList, key=lambda dataRef: dataRef.dataId["visit"])[0]
 
-    def plot(self, spectrumSet, detectorMap):
+    def plot(self, spectrumSet, detectorMap, arcLines):
         """Plot results
 
         Parameters
@@ -302,36 +301,21 @@ class ReduceArcTask(CmdLineTask):
             Set of extracted spectra.
         detectorMap : `pfs.drp.stella.utils.DetectorMapIO`
             Mapping of wl,fiber to detector position.
+        arcLines : `list` of `pfs.drp.stella.ReferenceLine`
+            List of reference lines.
         """
+        display = afwDisplay.Display(self.debugInfo.arc_frame)
         if self.debugInfo.display and self.debugInfo.arc_frame >= 0 and self.debugInfo.showArcLines:
             for spec in spectrumSet:
                 fiberId = spec.getFiberId()
 
                 x = detectorMap.findPoint(fiberId, arcLines[0].wavelength)[0]
-                y = 0.5*arcExp.getHeight()
+                y = 0.5*len(spec)
                 display.dot(str(fiberId), x, y + 10*(fiberId%2), ctype='blue')
 
                 for rl in arcLines:
                     x, y = detectorMap.findPoint(fiberId, rl.wavelength)
                     display.dot('o', x, y, ctype='blue')
-
-        if self.debugInfo.display and self.debugInfo.residuals_frame >= 0:
-            display = afwDisplay.Display(self.debugInfo.residuals_frame)
-            residuals = arcExp.maskedImage.clone()
-
-            def getFtForSpectrum(fts, spec):
-                fid = spec.getFiberId()
-                for ft in fts:
-                    if ft.getFiberId() == fid:
-                        return ft
-
-            for spec in spectrumSet:
-                ft = getFtForSpectrum(flatFiberTraceSet, spec)
-                reconIm = ft.getReconstructed2DSpectrum(spec)
-                reconIm *= detectorMap.getThroughput(spec.getFiberId())
-                residuals[reconIm.getBBox()] -= reconIm
-
-            display.mtv(residuals, title="Residuals %(visit)d %(arm)s%(spectrograph)d" % (arcRef.dataId))
 
     def _getMetadataName(self):
         """Disable writing metadata (doesn't work with lists of dataRefs anyway)"""
