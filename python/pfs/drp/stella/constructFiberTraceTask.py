@@ -222,7 +222,7 @@ class ConstructFiberTraceTask(CalibTask):
         #
         # Use our new FiberTraceSet to extract the spectra so we can measure relative throughputs
         #
-        spectrumSet = self.extractSpectra.run(calExp, fts, detMap).spectrumSet
+        spectrumSet = self.extractSpectra.run(calExp.maskedImage, fts, detMap)
         #
         # Integrate each spectrum over a fixed wavelength interval
         # to estimate the (relative) throughput

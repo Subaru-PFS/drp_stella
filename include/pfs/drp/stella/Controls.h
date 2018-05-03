@@ -109,10 +109,10 @@ struct FiberTraceProfileFittingControl {
 };
 
 struct DispCorControl {
-    LSST_CONTROL_FIELD( order, int, "Fitting function order" );
+    LSST_CONTROL_FIELD(order, int, "Fitting function order");
     LSST_CONTROL_FIELD(searchRadius, int,
-                       "Radius in pixels relative to line list to search for emission line peak" );
-    LSST_CONTROL_FIELD(fwhm, float, "FWHM of emission lines" );
+                       "Radius in pixels relative to line list to search for emission line peak");
+    LSST_CONTROL_FIELD(fwhm, float, "FWHM of emission lines");
     LSST_CONTROL_FIELD(maxDistance, float,
                        "Reject emission lines with center more than this far from the predicted position\n"
                        "\n"

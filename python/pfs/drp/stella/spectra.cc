@@ -44,6 +44,19 @@ void declareReferenceLine(py::module &mod) {
     cls.def_readwrite("fitIntensity", &ReferenceLine::fitIntensity);
     cls.def_readwrite("fitPixelPos", &ReferenceLine::fitPixelPos);
     cls.def_readwrite("fitPixelPosErr", &ReferenceLine::fitPixelPosErr);
+
+    cls.def("__getstate__",
+        [](ReferenceLine const& self) {
+            return py::make_tuple(self.description, self.status, self.wavelength, self.guessedIntensity,
+                                  self.guessedPixelPos, self.fitIntensity, self.fitPixelPos,
+                                  self.fitPixelPosErr);
+        });
+    cls.def("__setstate__",
+        [](ReferenceLine & self, py::tuple const& t) {
+            new (&self) ReferenceLine(t[0].cast<std::string>(), ReferenceLine::Status(t[1].cast<int>()),
+                                      t[2].cast<float>(), t[3].cast<float>(), t[4].cast<float>(),
+                                      t[5].cast<float>(), t[6].cast<float>(), t[7].cast<float>());
+        });
 }
 
 /************************************************************************************************************/
@@ -57,6 +70,12 @@ void declareSpectrum(py::module &mod) {
     cls.def("setSpectrum", &Class::setSpectrum, "spectrum"_a);
     cls.def_property("spectrum", (ndarray::Array<Spectrum::ImageT, 1, 1> (Class::*)()) &Class::getSpectrum,
                              &Class::setSpectrum);
+
+    cls.def("getBackground", (ndarray::Array<Spectrum::ImageT, 1, 1> (Class::*)()) &Class::getBackground);
+    cls.def("setBackground", &Class::setBackground, "background"_a);
+    cls.def_property("background",
+                     (ndarray::Array<Spectrum::ImageT, 1, 1> (Class::*)()) &Class::getBackground,
+                     &Class::setBackground);
 
     cls.def("getVariance", (ndarray::Array<Spectrum::VarianceT, 1, 1> (Class::*)()) &Class::getVariance);
     cls.def("setVariance", &Class::setVariance, "variance"_a);
@@ -73,9 +92,11 @@ void declareSpectrum(py::module &mod) {
     cls.def_property("wavelength", (ndarray::Array<Spectrum::ImageT, 1, 1> (Class::*)()) &Class::getWavelength,
                      &Class::setWavelength);
 
-    cls.def("getMask", (typename Class::Mask (Class::*)()) &Class::getMask);
+    cls.def("getMask", [](Class & self) { return self.getMask(); },
+            py::return_value_policy::reference_internal);
     cls.def("setMask", &Class::setMask, "mask"_a);
-    cls.def_property("mask", (typename Class::Mask (Class::*)()) &Class::getMask, &Class::setMask);
+    cls.def_property("mask", [](Class & self) { return self.getMask(); }, &Class::setMask,
+                     py::return_value_policy::reference_internal);
 
     cls.def("getFiberId", &Class::getFiberId);
     cls.def("setFiberId", &Class::setFiberId, "fiberId"_a);
@@ -83,9 +104,28 @@ void declareSpectrum(py::module &mod) {
 
     cls.def("identify", &Class::identify, "lineList"_a, "dispCorControl"_a, "nLinesCheck"_a=0);
 
-    cls.def("getReferenceLines", &Class::getReferenceLines);    
+    cls.def("getReferenceLines", [](Class & self) { return self.getReferenceLines(); },
+            py::return_value_policy::reference_internal);
+    cls.def("setReferenceLines", &Class::setReferenceLines);
+    cls.def_property("referenceLines", [](Class & self) { return self.getReferenceLines(); },
+                     &Class::setReferenceLines, py::return_value_policy::reference_internal);
+
+    cls.def("getNumPixels", &Class::getNpix);
 
     cls.def("isWavelengthSet", &Class::isWavelengthSet);
+
+    cls.def("__getstate__",
+        [](Spectrum const& self) {
+            return py::make_tuple(self.getSpectrum(), self.getMask(), self.getBackground(), self.getCovar(),
+                                  self.getWavelength(), self.getReferenceLines(), self.getFiberId());
+        });
+    cls.def("__setstate__",
+        [](Spectrum & self, py::tuple const& t) {
+            new (&self) Spectrum(t[0].cast<Spectrum::ImageArray>(), t[1].cast<Spectrum::Mask>(),
+                                 t[2].cast<Spectrum::ImageArray>(), t[3].cast<Spectrum::CovarianceMatrix>(),
+                                 t[4].cast<Spectrum::ImageArray>(), t[5].cast<Spectrum::ReferenceLineList>(),
+                                 t[6].cast<std::size_t>());
+        });
 }
 
 void declareSpectrumSet(py::module &mod) {
@@ -113,6 +153,14 @@ void declareSpectrumSet(py::module &mod) {
             if (i >= self.getNtrace()) throw py::index_error();
             
             return self.getSpectrum(i);
+        });
+    cls.def("__setitem__",
+            [](Class& self, std::size_t i, PTR(Spectrum) spectrum) { self.setSpectrum(i, spectrum); });
+
+    cls.def("__getstate__", [](SpectrumSet const& self) { return py::make_tuple(self.getAllSpectra()); });
+    cls.def("__setstate__",
+            [](SpectrumSet & self, py::tuple const& t) {
+            new (&self) SpectrumSet(t[0].cast<SpectrumSet::Spectra>());
         });
 }
 

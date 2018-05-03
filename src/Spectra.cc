@@ -1,4 +1,4 @@
-#include <iostream>
+#include <sstream>
 #include "lsst/log/Log.h"
 #include "lsst/pex/exceptions.h"
 #include "lsst/afw/image/MaskedImage.h"
@@ -44,13 +44,27 @@ void Spectrum::setWavelength( ndarray::Array<float, 1, 1> const& wavelength )
 }
 
 ///SpectrumSet
-SpectrumSet::SpectrumSet( size_t nSpectra, size_t length )
-        : _spectra( new std::vector< PTR(Spectrum) >() )
-{
-  for (size_t i = 0; i < nSpectra; ++i){
-    PTR(Spectrum) spec( new Spectrum( length, i ) );
-    _spectra->push_back(spec);
-  }
+SpectrumSet::SpectrumSet( size_t nSpectra, size_t length ) {
+    _spectra.reserve(nSpectra);
+    for (size_t i = 0; i < nSpectra; ++i) {
+        _spectra.push_back(std::make_shared<Spectrum>(length, i));
+    }
+}
+
+SpectrumSet::SpectrumSet(std::vector<PTR(Spectrum)> spectra) {
+    if (spectra.size() == 0) {
+        return;
+    }
+    _spectra.reserve(spectra.size());
+    std::size_t numPix = spectra[0]->getNpix();
+    for (auto const& ss : spectra) {
+        if (ss->getNpix() != numPix) {
+            std::ostringstream msg;
+            msg << "Spectrum length mismatch: " << ss->getNpix() << " vs " << numPix;
+            throw LSST_EXCEPT(pexExcept::LengthError, msg.str());
+        }
+        _spectra.push_back(ss);
+    }
 }
 
 ndarray::Array< float, 2, 1 > SpectrumSet::getAllFluxes() const{
@@ -61,7 +75,7 @@ ndarray::Array< float, 2, 1 > SpectrumSet::getAllFluxes() const{
   flux.deep() = 0.;
 
   for ( int iFiber = 0; iFiber < getNtrace(); ++iFiber ){
-      flux[iFiber] = (*_spectra)[iFiber]->getSpectrum();
+      flux[iFiber] = _spectra[iFiber]->getSpectrum();
   }
   return flux;
 }
@@ -75,7 +89,7 @@ ndarray::Array< float, 2, 1 > SpectrumSet::getAllWavelengths() const{
   lambda.deep() = 0.;
 
   for ( int iFiber = 0; iFiber < getNtrace(); ++iFiber ){
-      lambda[iFiber] = (*_spectra)[iFiber]->getWavelength();
+      lambda[iFiber] = _spectra[iFiber]->getWavelength();
   }
   return lambda;
 }
@@ -89,7 +103,7 @@ ndarray::Array< int, 2, 1 > SpectrumSet::getAllMasks() const{
   mask.deep() = 0.;
 
   for ( int iFiber = 0; iFiber < getNtrace(); ++iFiber) {
-      mask[iFiber] = (*_spectra)[iFiber]->getMask().getArray()[0];
+      mask[iFiber] = _spectra[iFiber]->getMask().getArray()[0];
   }
   return mask;
 }
@@ -103,9 +117,29 @@ ndarray::Array< float, 3, 1 > SpectrumSet::getAllCovars() const{
   covar.deep() = 0.;
 
   for ( int iFiber = 0; iFiber < getNtrace(); ++iFiber ){
-      covar[iFiber] = (*_spectra)[iFiber]->getCovar();
+      covar[iFiber] = _spectra[iFiber]->getCovar();
   }
   return covar;
+}
+
+
+Spectrum::Spectrum(
+    ImageArray const& spectrum,
+    Mask const& mask,
+    ImageArray const& background,
+    CovarianceMatrix const& covariance,
+    ImageArray const& wavelength,
+    ReferenceLineList const& lines,
+    std::size_t fiberId
+) : _length(spectrum.getNumElements()),
+    _mask(mask),
+    _fiberId(fiberId),
+    _isWavelengthSet(!wavelength.empty())
+{
+    _spectrum = ndarray::copy(spectrum);
+    _background = ndarray::copy(background);
+    _covar = ndarray::copy(covariance);
+    _wavelength = ndarray::copy(wavelength);
 }
 
 void
@@ -118,6 +152,18 @@ Spectrum::setSpectrum( ndarray::Array<Spectrum::ImageT, 1, 1> const& spectrum )
     throw LSST_EXCEPT(pexExcept::Exception, message.c_str());    
   }
   _spectrum.deep() = spectrum;
+}
+
+void
+Spectrum::setBackground(ndarray::Array<Spectrum::ImageT, 1, 1> const& background)
+{
+  /// Check length of input variance
+  if (static_cast<std::size_t>(background.getShape()[0]) != _length) {
+    string message("pfs::drp::stella::Spectrum::setBackground: ERROR: background->size()=");
+    message += to_string( background.getShape()[ 0 ] ) + string( " != _length=" ) + to_string( _length );
+    throw LSST_EXCEPT(pexExcept::Exception, message.c_str());    
+  }
+  _background.deep() = background;
 }
 
 ndarray::Array<Spectrum::VarianceT, 1, 1>
@@ -150,14 +196,14 @@ void
 Spectrum::setCovar(const ndarray::Array<VarianceT, 2, 1> & covar )
 {
     /// Check length of input covar
-    if (static_cast<std::size_t>(covar.getShape()[0]) != _length) {
+    if (static_cast<std::size_t>(covar.getShape()[1]) != _length) {
       string message("pfs::drp::stella::Spectrum::setCovar: ERROR: covar->size()=");
-      message += to_string( covar.getShape()[0] ) + string( " != _length=" ) + to_string( _length );
+      message += to_string( covar.getShape()[1] ) + string( " != _length=" ) + to_string( _length );
       throw LSST_EXCEPT(pexExcept::Exception, message.c_str());    
     }
-    if (covar.getShape()[1] != 3) {
+    if (covar.getShape()[0] != 3) {
       string message("pfs::drp::stella::Spectrum::setCovar: ERROR: covar->size()=");
-      message += to_string( covar.getShape()[1] ) + string( " != 3" );
+      message += to_string( covar.getShape()[0] ) + string( " != 3" );
       throw LSST_EXCEPT(pexExcept::Exception, message.c_str());    
     }
     _covar.deep() = covar;
@@ -359,39 +405,39 @@ Spectrum::identify(std::vector<std::shared_ptr<const ReferenceLine>> const& line
 PTR(const Spectrum)
 SpectrumSet::getSpectrum( const std::size_t i ) const
 {
-    if (i >= _spectra->size()){
+    if (i >= _spectra.size()){
         string message("SpectrumSet::getSpectrum(i=");
-        message += to_string(i) + "): ERROR: i >= _spectra->size()=" + to_string(_spectra->size());
+        message += to_string(i) + "): ERROR: i >= _spectra.size()=" + to_string(_spectra.size());
         throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
     }
-    return (*_spectra)[i];
+    return _spectra[i];
 }
 
 PTR(Spectrum)
 SpectrumSet::getSpectrum( const std::size_t i )
 {
-    if (i >= _spectra->size()){
+    if (i >= _spectra.size()){
         string message("SpectrumSet::getSpectrum(i=");
-        message += to_string(i) + "): ERROR: i >= _spectra->size()=" + to_string(_spectra->size());
+        message += to_string(i) + "): ERROR: i >= _spectra.size()=" + to_string(_spectra.size());
         throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
     }
-    return (*_spectra)[i];
+    return _spectra[i];
 }
 
 void
 SpectrumSet::setSpectrum(std::size_t const i,
                                                    PTR( Spectrum) spectrum )
 {
-    if (i > _spectra->size()) {
+    if (i > _spectra.size()) {
         string message("SpectrumSet::setSpectrum(i=");
-        message += to_string(i) + "): ERROR: i > _spectra->size()=" + to_string(_spectra->size());
+        message += to_string(i) + "): ERROR: i > _spectra.size()=" + to_string(_spectra.size());
         throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
     }
     
-    if ( i == _spectra->size() ){
-        _spectra->push_back(spectrum);
+    if ( i == _spectra.size() ){
+        _spectra.push_back(spectrum);
     } else{
-        (*_spectra )[i] = spectrum;
+        _spectra[i] = spectrum;
     }
 }
                 

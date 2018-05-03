@@ -1,71 +1,118 @@
-#!/usr/bin/env python
 import lsst.pex.config as pexConfig
 import lsst.pipe.base as pipeBase
 import lsst.afw.display as afwDisplay
 import pfs.drp.stella as drpStella
 import pfs.drp.stella.utils as dsUtils
 
+from .identifyLines import IdentifyLinesTask
+
+
 class ExtractSpectraConfig(pexConfig.Config):
-    extractionAlgorithm = pexConfig.ChoiceField(
-        dtype=str,
-        doc="Algorithm used to extract spectra",
-        allowed={
-            "OPTIMAL": "classical \"optimal\" extraction",
-            "BOXCAR": "simple sum of pixels within the trace",
-        },
-        default="OPTIMAL",
-        optional=False,
-    )
+    useOptimal = pexConfig.Field(dtype=bool, default=True,
+                                 doc="Use optimal extraction? "
+                                     "Otherwise, use a simple sum of pixels within the trace.")
+    identifyLines = pexConfig.ConfigurableField(target=IdentifyLinesTask, doc="Identify reference lines")
+
 
 class ExtractSpectraTask(pipeBase.Task):
     ConfigClass = ExtractSpectraConfig
     _DefaultName = "ExtractSpectraTask"
 
     def __init__(self, *args, **kwargs):
-        super(ExtractSpectraTask, self).__init__(*args, **kwargs)
-
+        super().__init__(*args, **kwargs)
+        self.makeSubtask("identifyLines")
         import lsstDebug
         self.debugInfo = lsstDebug.Info(__name__)
 
-        self._useProfile = self.config.extractionAlgorithm == "OPTIMAL"
+    def run(self, maskedImage, fiberTraceSet, detectorMap=None, lines=None):
+        """Extract spectra from the image
 
-    def run(self, exposure, fiberTraceSet, detectorMap=None):
-        """Create traces from exposure and extract spectra from profiles in fiberTraceSet
+        We extract the spectra using the profiles in the provided
+        fiber traces.
 
-        This method is the top-level for running the automatic 1D extraction of the fiber traces on the Exposure
-        of the object spectra as a stand-alone BatchPoolTask.
+        Parameters
+        ----------
+        maskedImage : `lsst.afw.image.MaskedImage`
+            Image from which to extract spectra; modified if
+            ``doSubtractContinuum`` is set.
+        fiberTraceSet : `pfs.drp.stella.FiberTraceSet`
+            Fiber traces to extract.
+        detectorMap : `pfs.drp.stella.DetectorMap`, optional
+            Map of expected detector coordinates to fiber, wavelength.
+            If provided, they will be used to normalise the spectrum
+            and provide a rough wavelength calibration.
+        lines : `list` of `pfs.drp.stella.ReferenceLine`, optional
+            Reference lines.
 
-        @return pipe_base Struct containing these fields:
-         - spectrumSet: set of extracted spectra
+        Returns
+        -------
+        spectra : `pfs.drp.stella.SpectrumSet`
+            Extracted spectra.
         """
 
-        spectrumSet = drpStella.SpectrumSet()
+        if self.debugInfo.display:
+            display = afwDisplay.Display(frame=self.debugInfo.input_frame)
+            dsUtils.addFiberTraceSetToMask(maskedImage.mask, fiberTraceSet)
+            display.mtv(maskedImage, "input")
 
-        if exposure != None:
-            if self.debugInfo.display:
-                  display = afwDisplay.Display(frame=self.debugInfo.input_frame)
+        spectra = self.extractAllSpectra(maskedImage, fiberTraceSet, detectorMap)
+        if lines:
+            self.identifyLines.run(spectra, detectorMap, lines)
+        return spectra
 
-                  dsUtils.addFiberTraceSetToMask(exposure.mask, fiberTraceSet)
+    def extractAllSpectra(self, maskedImage, fiberTraceSet, detectorMap=None):
+        """Extract all spectra in the fiberTraceSet
 
-                  display.mtv(exposure, "input")
+        Parameters
+        ----------
+        maskedImage : `lsst.afw.image.MaskedImage`
+            Image from which to extract spectra; modified if
+            ``doSubtractContinuum`` is set.
+        fiberTraceSet : `pfs.drp.stella.FiberTraceSet`
+            Fiber traces to extract.
+        detectorMap : `pfs.drp.stella.DetectorMap`, optional
+            Map of expected detector coordinates to fiber, wavelength.
+            If provided, they will be used to normalise the spectrum
+            and provide a rough wavelength calibration.
 
-        # extract the spectra
+        Returns
+        -------
+        spectra : `pfs.drp.stella.SpectrumSet`
+            Extracted spectra.
+        """
+        spectra = drpStella.SpectrumSet()
+        for fiberTrace in fiberTraceSet:
+            spectrum = self.extractSpectrum(maskedImage, fiberTrace, detectorMap)
+            if spectrum is not None:
+                spectra.addSpectrum(spectrum)
+        return spectra
 
-        for fiberTrace in fiberTraceSet: 
-            fiberId = fiberTrace.getFiberId()
-            # Extract spectrum from profile
-            try:
-                spectrum = fiberTrace.extractSpectrum(exposure.getMaskedImage(), self._useProfile)
-            except Exception as e:
-                self.log.warn("Extraction of fibre %d failed: %s" % (fiberId, e))
-                continue
+    def extractSpectrum(self, maskedImage, fiberTrace, detectorMap=None):
+        """Extract a single spectrum from the image
 
-            if detectorMap is not None:
-                spectrum.spectrum /= detectorMap.getThroughput(fiberId)
-                spectrum.setWavelength(detectorMap.getWavelength(fiberId))
+        Parameters
+        ----------
+        maskedImage : `lsst.afw.image.MaskedImage`
+            Image from which to extract spectra.
+        fiberTraceSet : `pfs.drp.stella.FiberTraceSet`
+            Fiber traces to extract.
+        detectorMap : `pfs.drp.stella.DetectorMap`, optional
+            Map of expected detector coordinates to fiber, wavelength.
+            If provided, they will be used to normalise the spectrum
+            and provide a rough wavelength calibration.
 
-            spectrumSet.addSpectrum(spectrum)
-
-        return pipeBase.Struct(
-            spectrumSet=spectrumSet,
-        )
+        Returns
+        -------
+        spectrum : `pfs.drp.stella.SpectrumSet`
+            Extracted spectra, or `None` if the extraction failed.
+        """
+        fiberId = fiberTrace.getFiberId()
+        try:
+            spectrum = fiberTrace.extractSpectrum(maskedImage, self.config.useOptimal)
+        except Exception as exc:
+            self.log.warn("Extraction of fibre %d failed: %s", fiberId, exc)
+            return None
+        if detectorMap is not None:
+            spectrum.spectrum /= detectorMap.getThroughput(fiberId)
+            spectrum.setWavelength(detectorMap.getWavelength(fiberId))
+        return spectrum

@@ -19,15 +19,16 @@
 # the GNU General Public License along with this program.  If not,
 # see <https://www.lsstcorp.org/LegalNotices/>.
 #
-from __future__ import absolute_import, division, print_function
 from lsst.ip.isr import IsrTask
 from lsst.pipe.tasks.repair import RepairTask
 import lsst.pex.config as pexConfig
 import lsst.pipe.base as pipeBase
 from .extractSpectraTask import ExtractSpectraTask
-from .utils import makeFiberTraceSet, writePfsArm
+from .fitContinuum import FitContinuumTask
+from .utils import makeFiberTraceSet, writePfsArm, makeImageFromSpectra
 
 __all__ = ["ReduceExposureConfig", "ReduceExposureTask"]
+
 
 class ReduceExposureConfig(pexConfig.Config):
     """Config for ReduceExposure"""
@@ -35,10 +36,17 @@ class ReduceExposureConfig(pexConfig.Config):
     doRepair = pexConfig.Field(dtype=bool, default=True, doc="Repair artifacts?")
     repair = pexConfig.ConfigurableField(target=RepairTask, doc="Task to repair artifacts")
     doWriteCalexp = pexConfig.Field(dtype=bool, default=False, doc="Write corrected frame?")
+    doWriteArm = pexConfig.Field(dtype=bool, default=True, doc="Write PFS arm file?")
+    doExtractSpectra = pexConfig.Field(dtype=bool, default=True, doc="Extract spectra from exposure?")
     extractSpectra = pexConfig.ConfigurableField(
         target=ExtractSpectraTask,
-        doc="""Task to extract spectra using the fibre traces""",
+        doc="Task to extract spectra using the fibre traces",
     )
+    doSubtractContinuum = pexConfig.Field(dtype=bool, default=False,
+                                          doc="Subtract continuum as part of extraction?")
+    fitContinuum = pexConfig.ConfigurableField(target=FitContinuumTask, doc="Fit continuum for subtraction")
+    fiberDy = pexConfig.Field(doc="Offset to add to all FIBER_DY values (used when bootstrapping)",
+                              dtype=float, default=0)
 
 ## \addtogroup LSST_task_documentation
 ## \{
@@ -46,6 +54,7 @@ class ReduceExposureConfig(pexConfig.Config):
 ## \ref ReduceExposureTask_ "ReduceExposureTask"
 ## \copybrief ReduceExposureTask
 ## \}
+
 
 class ReduceExposureTask(pipeBase.CmdLineTask):
     """!Reduce a PFS exposures, generating pfsArm files
@@ -94,75 +103,126 @@ class ReduceExposureTask(pipeBase.CmdLineTask):
 
         setup obs_test
         setup pipe_tasks
-        processCcd.py $DRP_STELLA_TEST_DIR --rerun you/tmp -c doWriteCalexp=True --id visit=5699 
+        processCcd.py $DRP_STELLA_TEST_DIR --rerun you/tmp -c doWriteCalexp=True --id visit=5699
 
     The data is read from the small repository in the `drp_stella_test` package and written to `rerun/you/tmp`
     """
     ConfigClass = ReduceExposureConfig
-    RunnerClass = pipeBase.ButlerInitializedTaskRunner
     _DefaultName = "reduceExposure"
 
-    def __init__(self, butler=None, *args, **kwargs):
-        """!
-        @param[in,out] args  other non-keyword arguments for lsst.pipe.base.CmdLineTask
-        @param[in,out] kwargs  other keyword arguments for lsst.pipe.base.CmdLineTask
-        """
+    def __init__(self, *args, **kwargs):
         pipeBase.CmdLineTask.__init__(self, *args, **kwargs)
         self.makeSubtask("isr")
         self.makeSubtask("repair")
         self.makeSubtask("extractSpectra")
+        self.makeSubtask("fitContinuum")
 
     @pipeBase.timeMethod
-    def run(self, sensorRef):
+    def run(self, sensorRef, lines=None):
         """Process one CCD
 
         The sequence of operations is:
         - remove instrument signature
         - extract the spectra from the fiber traces
+        - write the outputs
 
-        @param sensorRef: butler data reference for raw data
+        Parameters
+        ----------
+        sensorRef : `lsst.daf.persistence.ButlerDataRef`
+            Data reference for sensort to process.
+        lines : `list` of `pfs.drp.stella.ReferenceLine`, optional
+            Reference lines.
 
-        @return pipe_base Struct containing these fields:
-            - exposure the flatfielded Exposure
-            - spectrumSet the SpectrumSet
+        Returns
+        -------
+        exposure : `lsst.afw.image.Exposure`
+            Exposure data for sensor.
+        spectra : `pfs.drp.stella.SpectrumSet`
+            Set of extracted spectra.
+        original : `pfs.drp.stella.SpectrumSet`
+            Set of extracted spectra before continuum subtraction.
+            Will be identical to ``spectra`` if continuum subtraction
+            was not performed.
+        detectorMap : `pfs.drp.stella.utils.DetectorMapIO`
+            Mapping of wl,fiber to detector position.
         """
         self.log.info("Processing %s" % (sensorRef.dataId))
 
         exposure = self.isr.runDataRef(sensorRef).exposure
-
         if self.config.doRepair:
-            #
-            # We need a PSF, so get one from the config
-            #
-            modelPsfConfig = self.config.repair.interp.modelPsf
-            psf = modelPsfConfig.apply()
-            
-            exposure.setPsf(psf)
-            #
-            # Do the work
-            #
-            self.repair.run(exposure)
+            self.repairExposure(exposure)
 
-        fiberTrace = sensorRef.get('fibertrace')
-        flatFiberTraceSet = makeFiberTraceSet(fiberTrace)
+        results = pipeBase.Struct(exposure=exposure)
 
-        detectorMap = sensorRef.get('detectormap')
+        if self.config.doExtractSpectra:
+            fiberTraces = self.getFiberTraces(sensorRef)
+            detectorMap = self.getDetectorMap(sensorRef)
+            spectra = self.extractSpectra.run(exposure.maskedImage, fiberTraces, detectorMap, lines)
+            results.original = spectra
+            results.detectorMap = detectorMap
 
-        spectrumSet = self.extractSpectra.run(exposure, flatFiberTraceSet, detectorMap).spectrumSet
+            if self.config.doSubtractContinuum:
+                continua = self.fitContinuum.run(spectra)
+                exposure.maskedImage -= makeImageFromSpectra(continua, exposure.getBBox(), fiberTraces)
+                spectra = self.extractSpectra.run(exposure.maskedImage, fiberTraces, detectorMap, lines)
+
+            results.spectra = spectra
 
         if self.config.doWriteCalexp:
             sensorRef.put(exposure, "calexp")
+        if self.config.doWriteArm:
+            writePfsArm(sensorRef, exposure.getMetadata(), results.spectra)
 
-        writePfsArm(sensorRef.getButler(), exposure, spectrumSet, sensorRef.dataId)
+        return results
 
-        return pipeBase.Struct(
-            exposure=exposure,
-            spectrumSet=spectrumSet,
-        )
+    def repairExposure(self, exposure):
+        """Repair CCD defects in the exposure
+
+        Uses the PSF specified in the config.
+        """
+        modelPsfConfig = self.config.repair.interp.modelPsf
+        psf = modelPsfConfig.apply()
+        exposure.setPsf(psf)
+        self.repair.run(exposure)
+
+    def getDetectorMap(self, sensorRef):
+        """Get the appropriate detectorMap
+
+        Parameters
+        ----------
+        sensorRef : `lsst.daf.persistence.ButlerDataRef`
+            Data reference for sensor data.
+
+        Returns
+        -------
+        detectorMap : `pfs.drp.stella.utils.DetectorMapIO`
+            Mapping of wl,fiber to detector position.
+        """
+        detectorMap = sensorRef.get("detectormap")
+        if self.config.fiberDy != 0.0:
+            slitOffsets = detectorMap.getSlitOffsets()
+            slitOffsets[detectorMap.FIBER_DY] += self.config.fiberDy
+            detectorMap.setSlitOffsets(slitOffsets)
+        return detectorMap
+
+    def getFiberTraces(self, sensorRef):
+        """Get the appropriate fiber trace set
+
+        Parameters
+        ----------
+        sensorRef : `lsst.daf.persistence.ButlerDataRef`
+            Data reference for sensor data.
+
+        Returns
+        -------
+        fiberTraceSet : `pfs.drp.stella.FiberTraceSet`
+            Set of fiber traces.
+        """
+        fiberTrace = sensorRef.get('fibertrace')
+        return makeFiberTraceSet(fiberTrace)
 
     def _getConfigName(self):
         return None
+
     def _getMetadataName(self):
-        return None
-    def _getEupsVersionsName(self):
         return None

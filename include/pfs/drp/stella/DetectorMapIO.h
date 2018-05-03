@@ -30,7 +30,7 @@ public:
     /** \brief return the DetectorMap's bounding box */
     lsst::afw::geom::Box2I getBBox() const { return _detectorMap.getBBox(); }
     /** \brief return the DetectorMap's fiberIds */
-    std::vector<int> const & getFiberIds() const { return _detectorMap._fiberIds; }
+    DetectorMap::FiberMap const & getFiberIds() const { return _detectorMap._fiberIds; }
 
     /**
      * Get the offsets of the wavelengths and x-centres (in floating-point pixels) and focus (in microns)
