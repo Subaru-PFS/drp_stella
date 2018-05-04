@@ -155,7 +155,7 @@ DetectorMap::getWavelength(std::size_t fiberId) const
 
 DetectorMap::Array2D DetectorMap::getWavelength() const {
     std::size_t numFibers = _fiberIds.getNumElements();
-    Array2D result{numFibers, _bbox.getHeight()};
+    Array2D result{numFibers, static_cast<std::size_t>(_bbox.getHeight())};
     for (std::size_t ii = 0; ii < numFibers; ++ii) {
         result[ii].deep() = getWavelength(_fiberIds[ii]);
     }
@@ -196,7 +196,7 @@ DetectorMap::getXCenter(std::size_t fiberId) const
 
 DetectorMap::Array2D DetectorMap::getXCenter() const {
     std::size_t numFibers = _fiberIds.getNumElements();
-    Array2D result{numFibers, _bbox.getHeight()};
+    Array2D result{numFibers, static_cast<std::size_t>(_bbox.getHeight())};
     for (std::size_t ii = 0; ii < numFibers; ++ii) {
         result[ii].deep() = getXCenter(_fiberIds[ii]);
     }
