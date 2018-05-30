@@ -7,168 +7,272 @@
 #include "pfs/drp/stella/math/Math.h"
 #include "pfs/drp/stella/cmpfit-1.2/MPFitting_ndarray.h"
 
-namespace pexExcept = lsst::pex::exceptions;
-
 namespace pfs {
 namespace drp {
 namespace stella {
 namespace math {
 
-template< typename T, typename U >
-ndarray::Array<size_t, 2, -2> calcMinCenMax( ndarray::Array<T, 1, 1> const& xCenters_In,
-                                            U const xHigh_In,
-                                            U const xLow_In,
-                                            int const nPixCutLeft_In,
-                                            int const nPixCutRight_In )
-{
-  ndarray::Array<float, 1, 1> tempCenter = ndarray::allocate(xCenters_In.getShape()[0]);
-  tempCenter.deep() = xCenters_In + 0.5;
-
-  ndarray::Array<size_t, 1, 1> floor = pfs::drp::stella::math::floor(tempCenter,
-                                                                     size_t(0));
-  ndarray::Array<size_t, 2, -2> minCenMax_Out = ndarray::allocate(xCenters_In.getShape()[0], 3);
-  minCenMax_Out[ndarray::view()()] = 0;
-
-  minCenMax_Out[ndarray::view()(1)] = floor;
-
-#ifdef __DEBUG_MINCENMAX__
-  cout << "calcMinCenMax: minCenMax_Out(*,1) = " << minCenMax_Out[ndarray::view()(1)] << endl;
-#endif
-  ndarray::Array<float, 1, 1> D_A1_Temp = ndarray::allocate(xCenters_In.getShape()[0]);
-  D_A1_Temp.deep() = tempCenter + xLow_In;
-
-  minCenMax_Out[ndarray::view()(0)] = pfs::drp::stella::math::floor(ndarray::Array<float const, 1, 1>(D_A1_Temp), size_t(0));
-
-#ifdef __DEBUG_MINCENMAX__
-  cout << "calcMinCenMax: minCenMax_Out(*,0) = " << minCenMax_Out[ndarray::view()(0)] << endl;
-#endif
-  D_A1_Temp.deep() = tempCenter + xHigh_In;
-
-  minCenMax_Out[ndarray::view()(2)] = pfs::drp::stella::math::floor(ndarray::Array<float const, 1, 1>(D_A1_Temp), size_t(0));
-
-#ifdef __DEBUG_MINCENMAX__
-  cout << "calcMinCenMax: minCenMax_Out(*,2) = " << minCenMax_Out[ndarray::view()(2)] << endl;
-#endif
-
-  ndarray::Array<size_t, 1, 1> I_A1_NPixLeft = ndarray::copy(minCenMax_Out[ndarray::view()(1)] - minCenMax_Out[ndarray::view()(0)]);
-  ndarray::Array<size_t, 1, 1> I_A1_NPixRight = ndarray::copy(minCenMax_Out[ndarray::view()(2)] - minCenMax_Out[ndarray::view()(1)]);
-  ndarray::Array<size_t, 1, 1> I_A1_I_NPixX = ndarray::copy(minCenMax_Out[ndarray::view()(2)] - minCenMax_Out[ndarray::view()(0)] + 1);
-
-#ifdef __DEBUG_MINCENMAX__
-  cout << "calcMinCenMax: I_A1_NPixLeft(=" << I_A1_NPixLeft << endl;
-  cout << "calcMinCenMax: I_A1_NPixRight(=" << I_A1_NPixRight << endl;
-  cout << "calcMinCenMax: I_A1_I_NPixX = " << I_A1_I_NPixX << endl;
-#endif
-
-  size_t I_MaxPixLeft = max(I_A1_NPixLeft);
-  size_t I_MaxPixRight = max(I_A1_NPixRight);
-  size_t I_MinPixLeft = min(I_A1_NPixLeft);
-  size_t I_MinPixRight = min(I_A1_NPixRight);
-
-  if ( I_MaxPixLeft > I_MinPixLeft )
-    minCenMax_Out[ndarray::view()(0)] = minCenMax_Out[ndarray::view()(1)] - I_MaxPixLeft + nPixCutLeft_In;
-
-  if ( I_MaxPixRight > I_MinPixRight )
-    minCenMax_Out[ndarray::view()(2)] = minCenMax_Out[ndarray::view()(1)] + I_MaxPixRight - nPixCutRight_In;
-
-#ifdef __DEBUG_MINCENMAX__
-  cout << "calcMinCenMax: minCenMax_Out = " << minCenMax_Out << endl;
-#endif
-
-  return minCenMax_Out;
-}
-
-template<typename T>
-int firstIndexWithValueGEFrom( ndarray::Array<T, 1, 1> const& vec_In, const T minValue_In, const int fromIndex_In )
-{
-  if ( (vec_In.getShape()[0] < 1) || (fromIndex_In >= int(vec_In.getShape()[0])) ) {
-    cout << "pfs::drp::stella::math::firstIndexWithValueGEFrom: WARNING: vec_In.getShape()[0] =" << vec_In.getShape()[0] << " < 1 or fromIndex_In(=" << fromIndex_In << ") >= vec_In.getShape()[0] => Returning -1" << endl;
-    return -1;
-  }
-  int pos = fromIndex_In;
-  for ( auto i = vec_In.begin() + pos; i != vec_In.end(); ++i ) {
-    if ( *i >= minValue_In )
-      return pos;
-    ++pos;
-  }
-#ifdef __DEBUG_INDEX__
-  cout << "pfs::drp::stella::math::firstIndexWithValueGEFrom: not found => Returning -1" << endl;
-#endif
-  return -1;
-}
-
-template<typename T>
-int lastIndexWithZeroValueBefore( ndarray::Array<T, 1, 1> const& vec_In, const int startPos_In )
-{
-  if ( (startPos_In < 0) || (startPos_In >= static_cast < int > (vec_In.size())) )
-    return -1;
-  int pos = startPos_In;
-  for ( auto i = vec_In.begin() + startPos_In; i != vec_In.begin(); --i ) {
-    if ( std::fabs(float(*i)) < 0.00000000000000001 )
-      return pos;
-    --pos;
-  }
-  return -1;
-}
-
-template<typename T>
-int firstIndexWithZeroValueFrom( ndarray::Array<T, 1, 1> const& vec_In, const int startPos_In )
-{
-  if ( startPos_In < 0 || startPos_In >= vec_In.getShape()[0] )
-    return -1;
-  int pos = startPos_In;
-  for ( auto i = vec_In.begin() + pos; i != vec_In.end(); ++i, ++pos ) {
-#ifdef __DEBUG_FINDANDTRACE__
-    cout << "FirstIndexWithZeroValueFrom: pos = " << pos << endl;
-    cout << "FirstIndexWithZeroValueFrom: I_A1_VecIn(pos) = " << *i << endl;
-#endif
-    if ( std::fabs(*i) < 0.00000000000000001 )
-      return pos;
-  }
-  return -1;
-}
-
-template< typename T, typename U >
-U floor1( T const& rhs, U const& outType )
-{
-  U outVal = U(std::llround(std::floor(rhs)));
-  return outVal;
-}
-
-template< typename T, typename U >
-ndarray::Array<U, 1, 1> floor( const ndarray::Array<T, 1, 1> &rhs, const U outType )
-{
-  ndarray::Array<U, 1, 1> outVal = allocate(rhs.getShape());
-  typename ndarray::Array<U, 1, 1>::Iterator iOut = outVal.begin();
-  for ( auto iIn = rhs.begin(); iIn != rhs.end(); ++iIn ) {
-    *iOut = floor1(*iIn, outType);
-    ++iOut;
-  }
-  return outVal;
-}
-
-template<typename T>
-T max( ndarray::Array<T, 1, 1> const& in )
-{
-  T max = in[0];
-  for ( auto it = in.begin(); it != in.end(); ++it ) {
-    if ( *it > max )
-      max = *it;
-  }
-  return max;
-}
-
-template<typename T>
-T min( ndarray::Array<T, 1, 1> const& in )
-{
-  T min = in[0];
-  for ( auto it = in.begin(); it != in.end(); ++it ) {
-    if ( *it < min ) {
-      min = *it;
+template <typename T>
+std::vector<std::size_t> getIndicesInValueRange(
+    ndarray::Array<T const, 1, 1> const& array,
+    T lowRange,
+    T highRange
+) {
+    std::vector<std::size_t> indices;
+    indices.reserve(array.getNumElements());
+    std::size_t pos = 0;
+    for (auto it = array.begin(); it != array.end(); ++it, ++pos) {
+        if ((lowRange <= *it) && (*it < highRange)) {
+            indices.push_back(pos);
+        }
     }
-  }
-  return min;
+    return indices;
 }
+
+
+template <typename T>
+std::vector<lsst::afw::geom::Point2I> getIndicesInValueRange(
+    ndarray::Array<T, 2, 1> const& array,
+    T lowRange,
+    T highRange
+) {
+    std::vector<lsst::afw::geom::Point2I> indices;
+    indices.reserve(array.getNumElements());
+    int const height = array.getShape()[0], width = array.getShape()[1];
+    for (int yy = 0; yy < height; ++yy) {
+        for (int xx = 0; xx < width; ++xx) {
+            T const value = array[yy][xx];
+            if ((lowRange <= value) && (value < highRange)) {
+                indices.emplace_back(xx, yy);
+            }
+        }
+    }
+    return indices;
+}
+
+
+template <typename T>
+ndarray::Array<T, 1, 1> getSubArray(
+    ndarray::Array<T, 1, 1> const& array,
+    std::vector<std::size_t> const& indices
+) {
+    ndarray::Array<T, 1, 1> out = ndarray::allocate(indices.size());
+    std::transform(indices.begin(), indices.end(), out.begin(),
+                   [array](std::size_t ii) { return array[ii]; });
+    return out;
+}
+
+
+template <typename T>
+ndarray::Array<T, 1, 1> getSubArray(
+    ndarray::Array<T, 2, 1> const& array,
+    std::vector<lsst::afw::geom::Point2I> const& indices
+) {
+    ndarray::Array<T, 1, 1> out = ndarray::allocate(indices.size());
+    std::transform(indices.begin(), indices.end(), out.begin(),
+                   [array](lsst::afw::geom::Point2I const& pp) {
+                       return array[pp.getY()][pp.getX()];
+                   });
+    return out;
+}
+
+
+template<typename T>
+ndarray::Array<T, 1, 1> moment(ndarray::Array<T, 1, 1> const& array, int maxMoment)
+{
+    ndarray::Array<T, 1, 1> out = ndarray::allocate(maxMoment);
+    out.deep() = 0.;
+    assert(maxMoment >= 1 && maxMoment <= 4);
+#if 0
+    if ((maxMoment < 1) && (array.getShape()[0] < 2)) {
+      cout << "Moment: ERROR: array must contain 2 OR more elements." << endl;
+      return out;
+    }
+#else
+    assert(array.getShape()[0] >= 2);
+#endif
+
+    std::size_t const num = array.getShape()[0];
+    T mean = array.asEigen().mean();
+    out[0] = mean;
+    if (maxMoment == 1) {
+        return out;
+    }
+
+    // Variance
+    ndarray::Array<T, 1, 1> resid = ndarray::copy(array - mean);
+    Eigen::Array<T, Eigen::Dynamic, 1> eigenResid = resid.asEigen();
+    T var = (eigenResid.pow(2).sum() - std::pow(ndarray::sum(resid), 2)/T(num))/(T(num) - 1.);
+    out[1] = var;
+    if (maxMoment <= 2) {
+        return out;
+    }
+
+    T std = std::sqrt(var);
+    if (std == 0.) {
+        return out;
+    }
+
+    // Skew
+    out[2] = eigenResid.pow(3).sum()/(num*std::pow(std, 3));
+
+    if (maxMoment <= 3) {
+        return out;
+    }
+
+    // Kurtosis
+    out[3] = eigenResid.pow(4).sum()/(num*pow(std, 4)) - 3.;;
+    return out;
+}
+
+
+namespace {
+
+// Functor for comparing vector values by their indices
+template <typename T>
+struct IndicesComparator {
+    std::vector<T> const& data;
+    IndicesComparator(std::vector<T> const& data_) : data(data_) {}
+    bool operator()(std::size_t lhs, std::size_t rhs) const {
+        return data[lhs] < data[rhs];
+    }
+};
+
+} // anonymous namespace
+
+
+template<typename T>
+std::vector<std::size_t> sortIndices(std::vector<T> const& data) {
+    std::size_t const num = data.size();
+    std::vector<std::size_t> indices;
+    indices.reserve(num);
+    std::size_t index = 0;
+    std::generate_n(indices.begin(), num, [&index]() { return index++; });
+    std::sort(indices.begin(), indices.end(), IndicesComparator<T>(data));
+    return indices;
+}
+
+
+template <typename T>
+std::ptrdiff_t firstIndexWithValueGEFrom(
+    ndarray::Array<T, 1, 1> const& array,
+    T minValue,
+    std::size_t fromIndex
+) {
+    assert(array.getNumElements() > 0 && fromIndex < array.getNumElements());
+    auto const iter = std::find_if(array.begin() + fromIndex, array.end(),
+                                   [minValue](T value) { return value >= minValue; });
+    return iter == array.end() ? -1 : iter - array.begin();
+}
+
+template <typename T>
+std::ptrdiff_t lastIndexWithZeroValueBefore(
+    ndarray::Array<T, 1, 1> const& array,
+    std::ptrdiff_t startPos
+) {
+    if (startPos < 0 || std::size_t(startPos) >= array.getNumElements()) {
+        return -1;
+    }
+#if 0
+    auto const end = std::make_reverse_iterator(array.begin())
+    auto const iter = std::find_if(std::make_reverse_iterator(array.begin() + startPos), end,
+                                   [](T value) { return std::fabs(value) < 0.00000000000000001; });
+    return iter == end ? -1 :
+#else
+    std::ptrdiff_t index = startPos;
+    for (auto i = array.begin() + startPos; i != array.begin(); --i, --index) {
+        if (std::fabs(*i) < 0.00000000000000001) {
+            return index;
+        }
+    }
+    return -1;
+#endif
+}
+
+template <typename T>
+std::ptrdiff_t firstIndexWithZeroValueFrom(
+    ndarray::Array<T, 1, 1> const& array,
+    std::ptrdiff_t startPos
+) {
+    if (startPos < 0 || std::size_t(startPos) >= array.getNumElements()) {
+        return -1;
+    }
+    auto const iter = std::find_if(array.begin() + startPos, array.end(),
+                                   [](T value) { return std::fabs(value) < 0.00000000000000001; });
+    return iter == array.end() ? -1 : iter - array.begin();
+}
+
+// Explicit instantiations
+template std::vector<std::size_t> getIndicesInValueRange(
+    ndarray::Array<float const, 1, 1> const&,
+    float,
+    float
+);
+
+template std::vector<lsst::afw::geom::Point2I> getIndicesInValueRange(
+    ndarray::Array<float, 2, 1> const&,
+    float,
+    float
+);
+
+template ndarray::Array<float, 1, 1> getSubArray(
+    ndarray::Array<float, 1, 1> const&,
+    std::vector<std::size_t> const&
+);
+
+template ndarray::Array<float, 1, 1> getSubArray(
+    ndarray::Array<float, 2, 1 > const&,
+    std::vector<lsst::afw::geom::Point2I> const&
+);
+
+template ndarray::Array<float, 1, 1> moment(
+    ndarray::Array<float, 1, 1> const&,
+    int maxMoment
+);
+
+template std::vector<std::size_t> sortIndices(std::vector<float> const&);
+
+template std::ptrdiff_t firstIndexWithValueGEFrom(
+    ndarray::Array<std::size_t, 1, 1> const& array,
+    std::size_t minValue,
+    std::size_t fromIndex
+);
+
+template std::ptrdiff_t lastIndexWithZeroValueBefore(
+    ndarray::Array<std::size_t, 1, 1> const& array,
+    std::ptrdiff_t startPos
+);
+
+template std::ptrdiff_t firstIndexWithZeroValueFrom(
+    ndarray::Array<std::size_t, 1, 1> const&,
+    std::ptrdiff_t startPos
+);
+
+
+}}}} // namespace pfs::drp::stella::math
+
+template <typename T>
+std::ostream& operator<<(std::ostream& os, std::vector<T> const& obj) {
+    for (auto const& ii : obj) {
+        os << ii << " ";
+    }
+    os << endl;
+    return os;
+}
+
+template <typename T>
+std::ostream& operator<<(std::ostream& os, lsst::afw::geom::Point<T, 2> const& point) {
+    os << "(" << point.getX() << "," << point.getY() << ")";
+    return os;
+}
+
+template std::ostream& operator<<(std::ostream&, std::vector<float> const&);
+template std::ostream& operator<<(std::ostream&, std::vector<lsst::afw::geom::Point2I> const&);
+template std::ostream& operator<<(std::ostream&, lsst::afw::geom::Point2I const&);
+template std::ostream& operator<<(std::ostream&, lsst::afw::geom::Point2D const&);
+
+#if 0
+
 
 template<typename T>
 size_t minIndex( ndarray::Array<T, 1, 1> const& in )
@@ -185,91 +289,7 @@ size_t minIndex( ndarray::Array<T, 1, 1> const& in )
   return minIndex;
 }
 
-template<typename T>
-ndarray::Array<T, 1, 1> indGenNdArr( T const size )
-{
-  ndarray::Array<T, 1, 1> outArr = ndarray::allocate(int(size));
-  T ind = 0;
-  for ( auto it = outArr.begin(); it != outArr.end(); ++it ) {
-    *it = ind;
-    ++ind;
-  }
-#ifdef __DEBUG_INDGEN__
-  cout << "indGen: outArr = " << outArr.getShape() << ": " << outArr << endl;
-#endif
-  return outArr;
-}
 
-template<typename T>
-ndarray::Array<T, 1, 1> replicate( T const val, int const size )
-{
-  ndarray::Array<T, 1, 1> out = ndarray::allocate(size);
-  for ( auto it = out.begin(); it != out.end(); ++it )
-    *it = val;
-  return out;
-}
-
-template<typename T, int I>
-ndarray::Array<size_t, 1, 1> getIndicesInValueRange( ndarray::Array<T, 1, I> const& arr_In, T const lowRange_In, T const highRange_In )
-{
-  std::vector<size_t> indices;
-  size_t pos = 0;
-  if ( I == 1 ) {
-    for ( auto it = arr_In.begin(); it != arr_In.end(); ++it ) {
-      if ( (lowRange_In <= *it) && (*it < highRange_In) ) {
-        indices.push_back(pos);
-      }
-      ++pos;
-    }
-  }
-  else {
-    for ( int i = 0; i != arr_In.getShape()[0]; ++i ) {
-      if ( (lowRange_In <= arr_In[ i ]) && (arr_In[ i ] < highRange_In) ) {
-        indices.push_back(pos);
-      }
-      ++pos;
-    }
-  }
-  ndarray::Array<size_t, 1, 1> arr_Out = ndarray::allocate(indices.size());
-  auto itVec = indices.begin();
-  for ( auto itArr = arr_Out.begin(); itArr != arr_Out.end(); ++itArr, ++itVec ) {
-    *itArr = *itVec;
-  }
-#ifdef __DEBUG_GETINDICESINVALUERANGE__
-  cout << "arr_Out = " << arr_Out << endl;
-#endif
-  return arr_Out;
-}
-
-template<typename T>
-ndarray::Array<size_t, 2, 1> getIndicesInValueRange( ndarray::Array<T, 2, 1> const& arr_In, T const lowRange_In, T const highRange_In )
-{
-  std::vector<size_t> indicesRow;
-  std::vector<size_t> indicesCol;
-#ifdef __DEBUG_GETINDICESINVALUERANGE__
-  cout << "getIndicesInValueRange: arr_In.getShape() = " << arr_In.getShape() << endl;
-#endif
-  for ( int iRow = 0; iRow < arr_In.getShape()[ 0 ]; ++iRow ) {
-    for ( int iCol = 0; iCol < arr_In.getShape()[ 1 ]; ++iCol ) {
-      if ( (lowRange_In <= arr_In[ ndarray::makeVector(iRow, iCol) ]) && (arr_In[ ndarray::makeVector(iRow, iCol) ] < highRange_In) ) {
-        indicesRow.push_back(iRow);
-        indicesCol.push_back(iCol);
-#ifdef __DEBUG_GETINDICESINVALUERANGE__
-        cout << "getIndicesInValueRange: lowRange_In = " << lowRange_In << ", highRange_In = " << highRange_In << ": arr_In[" << iRow << ", " << iCol << "] = " << arr_In[ ndarray::makeVector(iRow, iCol) ] << endl;
-#endif
-      }
-    }
-  }
-  ndarray::Array<size_t, 2, 1> arr_Out = ndarray::allocate(indicesRow.size(), 2);
-  for ( size_t iRow = 0; iRow < arr_Out.getShape()[0]; ++iRow ) {
-    arr_Out[ndarray::makeVector(int( iRow), 0) ] = indicesRow[ iRow ];
-    arr_Out[ndarray::makeVector(int( iRow), 1) ] = indicesCol[ iRow ];
-  }
-#ifdef __DEBUG_GETINDICESINVALUERANGE__
-  cout << "getIndicesInValueRange: lowRange_In = " << lowRange_In << ", highRange_In = " << highRange_In << ": arr_Out = [" << arr_Out.getShape() << "] = " << arr_Out << endl;
-#endif
-  return arr_Out;
-}
 
 template<typename T>
 std::vector< size_t > getIndices( std::vector< T > const& vec_In )
@@ -322,72 +342,6 @@ ndarray::Array< size_t, 2, 1 > getIndices( ndarray::Array< T, 2, 1 > const& arr_
   return arrOut;
 }
 
-template<typename T>
-ndarray::Array<T, 1, 1> moment( ndarray::Array<T, 1, 1> const& arr_In, int maxMoment_In )
-{
-  ndarray::Array<T, 1, 1> D_A1_Out = ndarray::allocate(maxMoment_In);
-  D_A1_Out.deep() = 0.;
-  if ( (maxMoment_In < 1) && (arr_In.getShape()[0] < 2) ) {
-    cout << "Moment: ERROR: arr_In must contain 2 OR more elements." << endl;
-    return D_A1_Out;
-  }
-  int I_NElements = arr_In.getShape()[0];
-  T D_Mean = arr_In.asEigen().mean();
-  T D_Kurt = 0.;
-  T D_Var = 0.;
-  T D_Skew = 0.;
-  D_A1_Out[0] = D_Mean;
-  if ( maxMoment_In == 1 )
-    return D_A1_Out;
-
-  ndarray::Array<T, 1, 1> D_A1_Resid = ndarray::allocate(I_NElements);
-  D_A1_Resid.deep() = arr_In;
-  D_A1_Resid.deep() -= D_Mean;
-
-  Eigen::Array<T, Eigen::Dynamic, 1> E_A1_Resid = D_A1_Resid.asEigen();
-  D_Var = (E_A1_Resid.pow(2).sum() - pow(E_A1_Resid.sum(), 2) / T(I_NElements)) / (T(I_NElements) - 1.);
-  D_A1_Out[1] = D_Var;
-  if ( maxMoment_In <= 2 )
-    return D_A1_Out;
-  T D_SDev = 0.;
-  D_SDev = sqrt(D_Var);
-
-  if ( D_SDev != 0. ) {
-    D_Skew = E_A1_Resid.pow(3).sum() / (I_NElements * pow(D_SDev, 3));
-    D_A1_Out[2] = D_Skew;
-
-    if ( maxMoment_In <= 3 )
-      return D_A1_Out;
-    D_Kurt = E_A1_Resid.pow(4).sum() / (I_NElements * pow(D_SDev, 4)) - 3.;
-    D_A1_Out[3] = D_Kurt;
-  }
-  return D_A1_Out;
-}
-
-template<typename T, typename U, int I>
-ndarray::Array<T, 1, 1> getSubArray( ndarray::Array<T, 1, I> const& arr_In,
-                                     ndarray::Array<U, 1, 1> const& indices_In )
-{
-  ndarray::Array<T, 1, 1> arr_Out = ndarray::allocate(indices_In.getShape()[0]);
-  for ( int ind = 0; ind < indices_In.getShape()[0]; ++ind ) {
-    arr_Out[ind] = arr_In[indices_In[ind]];
-  }
-  return arr_Out;
-}
-
-template< typename T, typename U >
-ndarray::Array<T, 1, 1> getSubArray( ndarray::Array<T, 2, 1> const& arr_In,
-                                     ndarray::Array<U, 2, 1> const& indices_In )
-{
-  ndarray::Array<T, 1, 1> arr_Out = ndarray::allocate(indices_In.getShape()[0]);
-  for ( int iRow = 0; iRow < indices_In.getShape()[ 0 ]; ++iRow ) {
-    arr_Out[ iRow ] = arr_In[ ndarray::makeVector(int( indices_In[ ndarray::makeVector(iRow, 0) ]), int( indices_In[ ndarray::makeVector(iRow, 1) ])) ];
-#ifdef __DEBUG_GETSUBARRAY__
-    cout << "getSubArray: arr_Out[" << iRow << "] = " << arr_Out[iRow] << endl;
-#endif
-  }
-  return arr_Out;
-}
 
 template<typename T>
 ndarray::Array<T, 1, 1> getSubArray( ndarray::Array<T, 2, 1> const& arr_In,
@@ -421,29 +375,7 @@ void insertSorted( std::vector< dataXY< T > > & dataXYVec_In,
   return;
 }
 
-template<typename T>
-std::vector<int> sortIndices( const std::vector<T> &vec_In )
-{
-  int I_SizeIn = vec_In.size();
-  std::vector<int> I_A1_Indx(1);
-  I_A1_Indx.reserve(I_SizeIn);
-  I_A1_Indx[0] = 0;
-  bool isInserted = false;
-  for ( int i = 1; i < I_SizeIn; ++i ) {
-    isInserted = false;
-    auto it = I_A1_Indx.begin();
-    while ( (!isInserted) && (it != I_A1_Indx.end()) ) {
-      if ( vec_In[*it] >= vec_In[i] ) {
-        I_A1_Indx.insert(it, i);
-        isInserted = true;
-      }
-      ++it;
-    }
-    if ( !isInserted )
-      I_A1_Indx.push_back(i);
-  }
-  return (I_A1_Indx);
-}
+
 
 template<typename T>
 bool resize( ndarray::Array<T, 1, 1> & arr, size_t const newSize )
@@ -505,38 +437,6 @@ bool resize( ndarray::Array<T, 2, 1> & arr,
   return true;
 }
 
-template< typename T, typename U >
-T convertRangeToUnity( T number,
-                       ndarray::Array<U, 1, 1> const& range )
-{
-  if ( range.getShape()[0] != 2 ) {
-    string message("pfs::drp::stella::math::convertRangeToUnity: ERROR: range.getShape()[0](=");
-    message += to_string(range.getShape()[0]) + ") != 2";
-    throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
-  }
-#ifdef __DEBUG_CONVERTRANGETOUNITY__
-  cout << "pfs::drp::stella::math::convertRangeToUnity: range = " << range << ", number = " << number << endl;
-  cout << "pfs::drp::stella::math::convertRangeToUnity: number - range[0] = " << number - range[0] << endl;
-  cout << "pfs::drp::stella::math::convertRangeToUnity: range[1] - range[0] = " << range[1] - range[0] << endl;
-#endif
-  T out = ((number - range[0]) * 2. / (range[1] - range[0])) - 1.;
-#ifdef __DEBUG_CONVERTRANGETOUNITY__
-  cout << "pfs::drp::stella::math::convertRangeToUnity: out = " << out << endl;
-#endif
-  return out;
-}
-
-template< typename T, typename U >
-ndarray::Array<T, 1, 1> convertRangeToUnity( ndarray::Array<T, 1, 1> const& numbers,
-                                             ndarray::Array<U, 1, 1> const& range )
-{
-  ndarray::Array<T, 1, 1> out = ndarray::allocate(numbers.getShape()[0]);
-  auto itIn = numbers.begin();
-  for ( auto itOut = out.begin(); itOut != out.end(); ++itOut, ++itIn ) {
-    *itOut = convertRangeToUnity(*itIn, range);
-  }
-  return out;
-}
 
 template< typename T, typename U >
 bool checkIfValuesAreInRange( ndarray::Array<T, 1, 1> const& numbers,
@@ -1599,14 +1499,4 @@ template ndarray::Array<size_t, 2, -2> calcMinCenMax( ndarray::Array<float, 1, 1
 }
 }
 
-template< typename T >
-std::ostream& operator<<(std::ostream& os, std::vector<T> const& obj)
-{
-  for ( int i = 0; i < obj.size(); ++i ) {
-    os << obj[i] << " ";
-  }
-  os << endl;
-  return os;
-}
-
-template std::ostream& operator<<(std::ostream&, std::vector<float> const& );
+#endif

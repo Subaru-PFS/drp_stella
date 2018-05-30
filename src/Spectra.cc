@@ -7,119 +7,26 @@
 #include "pfs/drp/stella/math/Math.h"
 #include "pfs/drp/stella/math/CurveFitting.h"
 #include "pfs/drp/stella/cmpfit-1.2/MPFitting_ndarray.h"
+#include "pfs/drp/stella/utils/checkSize.h"
 
 namespace pfs { namespace drp { namespace stella {
 
-/** @brief Construct a Spectrum with empty vectors of specified size (default 0)
- */
-Spectrum::Spectrum(size_t length, size_t fiberId )
+Spectrum::Spectrum(std::size_t length, std::size_t fiberId)
   : _length(length),
+    _spectrum(ndarray::allocate(length)),
     _mask(length, 1),
+    _background(ndarray::allocate(length)),
+    _covariance(ndarray::allocate(3, length)),
+    _wavelength(ndarray::allocate(length)),
     _fiberId(fiberId),
     _isWavelengthSet(false)
 {
-  _spectrum = ndarray::allocate( length );
-  _spectrum.deep() = 0.;
-  _background = ndarray::allocate( length );
-  _background.deep() = 0.;
-  _covar = ndarray::allocate(3, length);
-  _covar.deep() = 0.;
-  _wavelength = ndarray::allocate( length );
-  _wavelength.deep() = 0.;
-
-  _mask.addMaskPlane("REJECTED_LINES");
-  _mask.addMaskPlane("FIBERTRACE");
-}
-
-void Spectrum::setWavelength( ndarray::Array<float, 1, 1> const& wavelength )
-{
-  /// Check length of input wavelength
-  if (static_cast<size_t>(wavelength.getShape()[0]) != _length){
-    string message("pfsDRPStella::Spectrum::setWavelength: ERROR: wavelength->size()=");
-    message += to_string(wavelength.getShape()[0]) + string(" != _length=") + to_string(_length);
-    throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
-  }
-  _wavelength.deep() = wavelength;
-  _isWavelengthSet = true;
-}
-
-///SpectrumSet
-SpectrumSet::SpectrumSet( size_t nSpectra, size_t length ) {
-    _spectra.reserve(nSpectra);
-    for (size_t i = 0; i < nSpectra; ++i) {
-        _spectra.push_back(std::make_shared<Spectrum>(length, i));
-    }
-}
-
-SpectrumSet::SpectrumSet(std::vector<PTR(Spectrum)> spectra) {
-    if (spectra.size() == 0) {
-        return;
-    }
-    _spectra.reserve(spectra.size());
-    std::size_t numPix = spectra[0]->getNpix();
-    for (auto const& ss : spectra) {
-        if (ss->getNpix() != numPix) {
-            std::ostringstream msg;
-            msg << "Spectrum length mismatch: " << ss->getNpix() << " vs " << numPix;
-            throw LSST_EXCEPT(pexExcept::LengthError, msg.str());
-        }
-        _spectra.push_back(ss);
-    }
-}
-
-ndarray::Array< float, 2, 1 > SpectrumSet::getAllFluxes() const{
-  int nFibers = int( getNtrace() );
-  int nCCDRows = getSpectrum(0)->getNpix();
-  ndarray::Array<float, 2, 1> flux = ndarray::allocate(nFibers, nCCDRows);
-
-  flux.deep() = 0.;
-
-  for ( int iFiber = 0; iFiber < getNtrace(); ++iFiber ){
-      flux[iFiber] = _spectra[iFiber]->getSpectrum();
-  }
-  return flux;
-}
-
-ndarray::Array< float, 2, 1 > SpectrumSet::getAllWavelengths() const{
-  int nFibers = int( getNtrace() );
-  int nCCDRows = getSpectrum( 0 )->getNpix();
-  /// allocate memory for the array
-  ndarray::Array< float, 2, 1 > lambda = ndarray::allocate( nFibers, nCCDRows );
-
-  lambda.deep() = 0.;
-
-  for ( int iFiber = 0; iFiber < getNtrace(); ++iFiber ){
-      lambda[iFiber] = _spectra[iFiber]->getWavelength();
-  }
-  return lambda;
-}
-
-ndarray::Array< int, 2, 1 > SpectrumSet::getAllMasks() const{
-  int nFibers = int( getNtrace() );
-  int nCCDRows = getSpectrum( 0 )->getNpix();
-  /// allocate memory for the array
-  ndarray::Array< int, 2, 1 > mask = ndarray::allocate( nFibers, nCCDRows );
-
-  mask.deep() = 0.;
-
-  for ( int iFiber = 0; iFiber < getNtrace(); ++iFiber) {
-      mask[iFiber] = _spectra[iFiber]->getMask().getArray()[0];
-  }
-  return mask;
-}
-
-ndarray::Array< float, 3, 1 > SpectrumSet::getAllCovars() const{
-  int nFibers = int( getNtrace() );
-  int nCCDRows = getSpectrum( 0 )->getNpix();
-  /// allocate memory for the array
-  ndarray::Array< float, 3, 1 > covar = ndarray::allocate(nFibers, 3, nCCDRows);
-
-  covar.deep() = 0.;
-
-  for ( int iFiber = 0; iFiber < getNtrace(); ++iFiber ){
-      covar[iFiber] = _spectra[iFiber]->getCovar();
-  }
-  return covar;
+    _spectrum.deep() = 0.;
+    _background.deep() = 0.;
+    _covariance.deep() = 0.;
+    _wavelength.deep() = 0.;
+    _mask.addMaskPlane("REJECTED_LINES");
+    _mask.addMaskPlane("FIBERTRACE");
 }
 
 
@@ -132,101 +39,148 @@ Spectrum::Spectrum(
     ReferenceLineList const& lines,
     std::size_t fiberId
 ) : _length(spectrum.getNumElements()),
+    _spectrum(spectrum),
     _mask(mask),
+    _background(background),
+    _covariance(covariance),
+    _wavelength(wavelength),
     _fiberId(fiberId),
+    _referenceLines(lines),
     _isWavelengthSet(!wavelength.empty())
-{
-    _spectrum = ndarray::copy(spectrum);
-    _background = ndarray::copy(background);
-    _covar = ndarray::copy(covariance);
-    _wavelength = ndarray::copy(wavelength);
-}
+{}
+
 
 void
-Spectrum::setSpectrum( ndarray::Array<Spectrum::ImageT, 1, 1> const& spectrum )
-{
-  /// Check length of input spectrum
-  if (static_cast<std::size_t>(spectrum.getShape()[0]) != _length) {
-    string message("pfs::drp::stella::Spectrum::setSpectrum: ERROR: spectrum->size()=");
-    message += to_string(spectrum.getShape()[0]) + string(" != _length=") + to_string(_length);
-    throw LSST_EXCEPT(pexExcept::Exception, message.c_str());    
-  }
-  _spectrum.deep() = spectrum;
+Spectrum::setSpectrum(Spectrum::ImageArray const& spectrum) {
+    utils::checkSize(spectrum.getShape()[0], _length, "Spectrum::setSpectrum");
+    _spectrum.deep() = spectrum;
 }
+
 
 void
-Spectrum::setBackground(ndarray::Array<Spectrum::ImageT, 1, 1> const& background)
-{
-  /// Check length of input variance
-  if (static_cast<std::size_t>(background.getShape()[0]) != _length) {
-    string message("pfs::drp::stella::Spectrum::setBackground: ERROR: background->size()=");
-    message += to_string( background.getShape()[ 0 ] ) + string( " != _length=" ) + to_string( _length );
-    throw LSST_EXCEPT(pexExcept::Exception, message.c_str());    
-  }
-  _background.deep() = background;
+Spectrum::setMask(const Mask & mask) {
+    utils::checkSize(mask.getDimensions(), lsst::afw::geom::Extent2I(_length, 1), "Spectrum::setMask");
+    _mask = mask;
 }
 
-ndarray::Array<Spectrum::VarianceT, 1, 1>
-Spectrum::getVariance() const
-{
-    ndarray::Array< VarianceT, 1, 1 > variance = ndarray::allocate(getNpix());
-    variance.deep() = _covar[0];
-    return variance;
-}
-
-ndarray::Array<Spectrum::VarianceT, 1, 1>
-Spectrum::getVariance()
-{
-    return _covar[0];
-}
 
 void
-Spectrum::setVariance( ndarray::Array<VarianceT, 1, 1> const& variance )
-{
-  /// Check length of input variance
-  if (static_cast<std::size_t>(variance.getShape()[0]) != _length) {
-    string message("pfs::drp::stella::Spectrum::setVariance: ERROR: variance->size()=");
-    message += to_string( variance.getShape()[ 0 ] ) + string( " != _length=" ) + to_string( _length );
-    throw LSST_EXCEPT(pexExcept::Exception, message.c_str());    
-  }
-  _covar[0].deep() = variance;
+Spectrum::setBackground(Spectrum::ImageArray const& background) {
+    utils::checkSize(background.getShape()[0], _length, "Spectrum::setBackground");
+    _background.deep() = background;
 }
 
+
 void
-Spectrum::setCovar(const ndarray::Array<VarianceT, 2, 1> & covar )
+Spectrum::setVariance(Spectrum::VarianceArray const& variance) {
+    utils::checkSize(variance.getShape()[0], _length, "Spectrum::setVariance");
+    _covariance[0].deep() = variance;
+}
+
+
+void
+Spectrum::setCovariance(Spectrum::CovarianceMatrix const& covariance) {
+    utils::checkSize(covariance.getShape(), ndarray::makeVector(static_cast<std::size_t>(3), _length),
+              "Spectrum::setCovariance");
+    _covariance.deep() = covariance;
+}
+
+
+void Spectrum::setWavelength(Spectrum::ImageArray const& wavelength) {
+    utils::checkSize(wavelength.getShape()[0], _length, "Spectrum::setWavelength");
+    _wavelength.deep() = wavelength;
+    _isWavelengthSet = true;
+}
+
+
+
+SpectrumSet::SpectrumSet(std::size_t nSpectra, std::size_t length)
+  : _length(length)
 {
-    /// Check length of input covar
-    if (static_cast<std::size_t>(covar.getShape()[1]) != _length) {
-      string message("pfs::drp::stella::Spectrum::setCovar: ERROR: covar->size()=");
-      message += to_string( covar.getShape()[1] ) + string( " != _length=" ) + to_string( _length );
-      throw LSST_EXCEPT(pexExcept::Exception, message.c_str());    
+    _spectra.reserve(nSpectra);
+    for (std::size_t i = 0; i < nSpectra; ++i) {
+        _spectra.push_back(std::make_shared<Spectrum>(length, i));
     }
-    if (covar.getShape()[0] != 3) {
-      string message("pfs::drp::stella::Spectrum::setCovar: ERROR: covar->size()=");
-      message += to_string( covar.getShape()[0] ) + string( " != 3" );
-      throw LSST_EXCEPT(pexExcept::Exception, message.c_str());    
-    }
-    _covar.deep() = covar;
 }
 
-void
-Spectrum::setMask(const Mask & mask)
+
+SpectrumSet::SpectrumSet(SpectrumSet::Collection const& spectra)
+  : _length(spectra.size() > 0 ? spectra[0]->getNumPixels() : 0)
 {
-  /// Check length of input mask
-  if (static_cast<std::size_t>(mask.getWidth()) != _length){
-    string message("pfs::drp::stella::Spectrum::setMask: ERROR: mask.getWidth()=");
-    message += to_string(mask.getWidth()) + string(" != _length=") + to_string(_length);
-    throw LSST_EXCEPT(pexExcept::Exception, message.c_str());    
-  }
-  _mask = mask;
+    if (spectra.size() == 0) {
+        throw LSST_EXCEPT(pexExcept::LengthError, "Empty vector supplied; can't determine length of spectra");
+    }
+    _spectra.reserve(spectra.size());
+    for (auto const& ss : spectra) {
+        utils::checkSize(ss->getNumPixels(), _length, "SpectrumSet constructor");
+        _spectra.push_back(ss);
+    }
 }
+
+
+SpectrumSet::ImageArray SpectrumSet::getAllFluxes() const {
+    ImageArray flux = ndarray::allocate(size(), _length);
+    for (std::size_t ii = 0; ii < size(); ++ii) {
+        flux[ii] = get(ii)->getSpectrum();
+    }
+    return flux;
+}
+
+
+SpectrumSet::ImageArray SpectrumSet::getAllWavelengths() const {
+    ImageArray lambda = ndarray::allocate(size(), _length);
+    for (std::size_t ii = 0; ii < size(); ++ii) {
+        lambda[ii] = get(ii)->getWavelength();
+    }
+    return lambda;
+}
+
+
+SpectrumSet::MaskArray SpectrumSet::getAllMasks() const {
+    MaskArray mask = ndarray::allocate(size(), _length);
+    for (std::size_t ii = 0; ii < size(); ++ii) {
+        mask[ii] = get(ii)->getMask().getArray()[0];
+    }
+    return mask;
+}
+
+
+SpectrumSet::CovarianceArray SpectrumSet::getAllCovariances() const {
+    CovarianceArray covar = ndarray::allocate(size(), 3, _length);
+    for (std::size_t ii = 0; ii < size(); ++ii ){
+        covar[ii] = get(ii)->getCovariance();
+    }
+    return covar;
+}
+
+
+SpectrumSet::ImageArray SpectrumSet::getAllBackgrounds() const {
+    ImageArray backgrounds = ndarray::allocate(size(), _length);
+    for (std::size_t ii = 0; ii < size(); ++ii) {
+        backgrounds[ii] = get(ii)->getBackground();
+    }
+    return backgrounds;
+}
+
+
+void SpectrumSet::set(std::size_t ii, SpectrumSet::SpectrumPtr spectrum) {
+    utils::checkSize(spectrum->getNumPixels(), _length, "SpectrumSet::set");
+    _spectra[ii] = spectrum;
+}
+
+
+void SpectrumSet::add(SpectrumSet::SpectrumPtr spectrum) {
+    utils::checkSize(spectrum->getNumPixels(), _length, "SpectrumSet::add");
+    _spectra.push_back(spectrum);
+}
+
 
 void
 Spectrum::identify(std::vector<std::shared_ptr<const ReferenceLine>> const& lineList, ///< List of arc lines
-                   DispCorControl const& dispCorControl,
+                   DispersionCorrectionControl const& dispCorControl,
                    int nLinesCheck)
 {
-    LOG_LOGGER _log = LOG_GET("pfs.drp.stella.Spectra.identify");
+    LOG_LOGGER _log = LOG_GET("pfs.drp.stella.Spectrum.identify");
 
     const auto NO_DATA = _mask.getPlaneBitMask("NO_DATA");
     const auto CR = _mask.getPlaneBitMask("CR");
@@ -261,8 +215,8 @@ Spectrum::identify(std::vector<std::shared_ptr<const ReferenceLine>> const& line
     for (int i = 0; i < nLine; ++i) {
         auto refLine = _referenceLines[i];
 
-        int start = int(refLine->guessedPixelPos) - dispCorControl.searchRadius;
-        int end   = start + 2*dispCorControl.searchRadius;
+        std::size_t start = std::size_t(refLine->guessedPosition) - dispCorControl.searchRadius;
+        std::size_t end = start + 2*dispCorControl.searchRadius;
         if (start < 0 || end >= _length) {
             continue;
         }
@@ -297,7 +251,7 @@ Spectrum::identify(std::vector<std::shared_ptr<const ReferenceLine>> const& line
                 }
             }
 
-            for (int j = start; j <= end; ++j) {
+            for (std::size_t j = start; j <= end; ++j) {
                 const auto mval = _mask(j, 0);
                 if ((mval & CR) != 0) {
                     refLine->status |= ReferenceLine::CR;
@@ -355,13 +309,14 @@ Spectrum::identify(std::vector<std::shared_ptr<const ReferenceLine>> const& line
                     GaussPos[i] = GaussCoeffs[XC];
                     refLine->status |= ReferenceLine::FIT;
                     refLine->fitIntensity = GaussCoeffs[PEAK];
-                    refLine->fitPixelPos = GaussCoeffs[XC];
-                    refLine->fitPixelPosErr = ::sqrt(EGaussCoeffs[XC]);
+                    refLine->fitPosition = GaussCoeffs[XC];
+                    refLine->fitPositionErr = ::sqrt(EGaussCoeffs[XC]);
 
                     if (i > 0 && std::fabs(GaussPos[i] - GaussPos[i - 1]) < 1.5) { // wrong line identified!
                         if (nLine > 2) {
                             int badIndx, goodIndx;
-                            if (_referenceLines[i]->guessedPixelPos < _referenceLines[i - 1]->guessedPixelPos) {
+                            if (_referenceLines[i]->guessedPosition <
+                                _referenceLines[i - 1]->guessedPosition) {
                                 badIndx = i;
                                 goodIndx = i - 1;
                             } else {
@@ -402,43 +357,5 @@ Spectrum::identify(std::vector<std::shared_ptr<const ReferenceLine>> const& line
     }
 }
 
-PTR(const Spectrum)
-SpectrumSet::getSpectrum( const std::size_t i ) const
-{
-    if (i >= _spectra.size()){
-        string message("SpectrumSet::getSpectrum(i=");
-        message += to_string(i) + "): ERROR: i >= _spectra.size()=" + to_string(_spectra.size());
-        throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
-    }
-    return _spectra[i];
-}
-
-PTR(Spectrum)
-SpectrumSet::getSpectrum( const std::size_t i )
-{
-    if (i >= _spectra.size()){
-        string message("SpectrumSet::getSpectrum(i=");
-        message += to_string(i) + "): ERROR: i >= _spectra.size()=" + to_string(_spectra.size());
-        throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
-    }
-    return _spectra[i];
-}
-
-void
-SpectrumSet::setSpectrum(std::size_t const i,
-                                                   PTR( Spectrum) spectrum )
-{
-    if (i > _spectra.size()) {
-        string message("SpectrumSet::setSpectrum(i=");
-        message += to_string(i) + "): ERROR: i > _spectra.size()=" + to_string(_spectra.size());
-        throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
-    }
-    
-    if ( i == _spectra.size() ){
-        _spectra.push_back(spectrum);
-    } else{
-        _spectra[i] = spectrum;
-    }
-}
                 
 }}}

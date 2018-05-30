@@ -5,19 +5,16 @@
 
 #include "lsst/pex/exceptions/Exception.h"
 
+#include "pfs/drp/stella/utils/checkSize.h"
 #include "pfs/drp/stella/DetectorMap.h"
 
 namespace pfs { namespace drp { namespace stella {
-
-const int DetectorMap::FIBER_DX;
-const int DetectorMap::FIBER_DY;
-const int DetectorMap::FIBER_DFOCUS;
 
 /*
  * ctor
  */
 DetectorMap::DetectorMap(lsst::afw::geom::Box2I bbox,                    // detector's bounding box
-                         ndarray::Array<int, 1, 1> const& fiberIds,      // 1-indexed IDs for each fibre
+                         ndarray::Array<std::size_t, 1, 1> const& fiberIds, // 1-indexed IDs for each fibre
                          ndarray::Array<float, 2, 1> const& xCenters,    // center of trace for each fibre
                          ndarray::Array<float, 2, 1> const& wavelengths, // wavelengths for each fibre
                          std::size_t nKnot,                               // number of knots
@@ -32,34 +29,15 @@ DetectorMap::DetectorMap(lsst::afw::geom::Box2I bbox,                    // dete
     _yToWavelength(_nFiber),
     _nKnot(nKnot),
     _xToFiberId(_bbox.getWidth()),
-    _slitOffsets(ndarray::makeVector(3, _nFiber))
+    _slitOffsets(ndarray::makeVector(std::size_t(3), _nFiber))
 {
     /*
      * Check inputs
      */
-    if (wavelengths.getShape() != xCenters.getShape()) {
-        std::ostringstream os;
-        os << "Shape of wavelengths == " << wavelengths.getShape() <<
-            " != xCenters == " << xCenters.getShape();
-        throw LSST_EXCEPT(lsst::pex::exceptions::LengthError, os.str());
-    }
+    utils::checkSize(wavelengths.getShape(), xCenters.getShape(), "DetectorMap: wavelength vs xCenters");
+    utils::checkSize(_fiberIds.getNumElements(), xCenters.getShape()[0], "DetectorMap: fiberIds vs xCenters");
+    utils::checkSize(std::size_t(_bbox.getHeight()), xCenters.getShape()[1], "DetectorMap: bbox vs xCenters");
 
-    if (_fiberIds.getNumElements() != xCenters.getShape()[0]) {
-        std::ostringstream os;
-        os << "Number of wavelengths/xCenters arrays == " << xCenters.getShape()[0] <<
-            " != nFiber == " << _fiberIds.size();
-        throw LSST_EXCEPT(lsst::pex::exceptions::LengthError, os.str());
-    }
-
-    if (_bbox.getHeight() != xCenters.getShape()[1]) {
-        std::ostringstream os;
-        os << "Length of wavelengths/xCenters arrays == " << xCenters.getShape()[1] <<
-            " != height of bbox == " << _bbox.getHeight();
-        throw LSST_EXCEPT(lsst::pex::exceptions::LengthError, os.str());
-    }
-    /*
-     * OK; arguments are checked
-     */
     if (!slitOffsets.isEmpty()) {
         setSlitOffsets(slitOffsets);   // actually this is where we check slitOffsets
     } else {
@@ -93,7 +71,7 @@ DetectorMap::DetectorMap(lsst::afw::geom::Box2I bbox,                    // dete
     _yToWavelength(_nFiber),
     _nKnot(nKnot),
     _xToFiberId(_bbox.getWidth()),
-    _slitOffsets(ndarray::makeVector(3, _nFiber))
+    _slitOffsets(ndarray::makeVector(std::size_t(3), _nFiber))
 {
     _slitOffsets.deep() = 0.0;      // Assume that all the fibres are aligned perfectly
 }
@@ -102,7 +80,7 @@ DetectorMap::DetectorMap(lsst::afw::geom::Box2I bbox,                    // dete
  * Return a fiberIdx given a fiberId
  */
 std::size_t
-DetectorMap::getFiberIdx(std::size_t fiberId) const
+DetectorMap::getFiberIndex(std::size_t fiberId) const
 {
     auto el = std::lower_bound(_fiberIds.begin(), _fiberIds.end(), fiberId);
     if (el == _fiberIds.end() || *el != fiberId) {
@@ -135,15 +113,47 @@ DetectorMap::setSlitOffsets(ndarray::Array<float, 2, 1> const& slitOffsets)
     _slitOffsets.deep() = slitOffsets;
 }
 
+math::Spline<float> const&
+DetectorMap::getWavelengthSpline(std::size_t index) const {
+    if (index < 0 || index >= _nFiber) {
+        std::ostringstream os;
+        os << "Fiber index " << index << " out of range [" << 0 << "," << _nFiber << ")";
+        throw LSST_EXCEPT(lsst::pex::exceptions::NotFoundError, os.str());
+    }
+    auto spline = _yToWavelength[index];
+    if (!spline) {
+        std::ostringstream os;
+        os << "Wavelength spline for fiber index " << index << " not set";
+        throw LSST_EXCEPT(lsst::pex::exceptions::NotFoundError, os.str());
+    }
+    return *spline;
+}
+
+math::Spline<float> const&
+DetectorMap::getCenterSpline(std::size_t index) const {
+    if (index < 0 || index >= _nFiber) {
+        std::ostringstream os;
+        os << "Fiber index " << index << " out of range [" << 0 << "," << _nFiber << ")";
+        throw LSST_EXCEPT(lsst::pex::exceptions::NotFoundError, os.str());
+    }
+    auto spline = _yToXCenter[index];
+    if (!spline) {
+        std::ostringstream os;
+        os << "Center spline for fiber index " << index << " not set";
+        throw LSST_EXCEPT(lsst::pex::exceptions::NotFoundError, os.str());
+    }
+    return *spline;
+}
+
 /*
  * Return the wavelength values for a fibre
  */
 ndarray::Array<float, 1, 1>
 DetectorMap::getWavelength(std::size_t fiberId) const
 {
-    int const fidx = getFiberIdx(fiberId);
-    auto const & spline = _yToWavelength[fidx];
-    const float slitOffsetY = _slitOffsets[FIBER_DY][fidx];
+    std::size_t const index = getFiberIndex(fiberId);
+    auto const & spline = getWavelengthSpline(index);
+    const float slitOffsetY = _slitOffsets[DY][index];
 
     ndarray::Array<float, 1, 1> res(_bbox.getHeight());
     for (int i = 0; i != _bbox.getHeight(); ++i) {
@@ -155,7 +165,7 @@ DetectorMap::getWavelength(std::size_t fiberId) const
 
 DetectorMap::Array2D DetectorMap::getWavelength() const {
     std::size_t numFibers = _fiberIds.getNumElements();
-    Array2D result{numFibers, static_cast<std::size_t>(_bbox.getHeight())};
+    Array2D result{numFibers, std::size_t(_bbox.getHeight())};
     for (std::size_t ii = 0; ii < numFibers; ++ii) {
         result[ii].deep() = getWavelength(_fiberIds[ii]);
     }
@@ -169,10 +179,10 @@ void
 DetectorMap::setWavelength(std::size_t fiberId,
                            ndarray::Array<float, 1, 1> const& wavelength)
 {
-    int const fidx = getFiberIdx(fiberId);
+    int const index = getFiberIndex(fiberId);
     auto const xc = wavelength;         // not really updated, but I need an array
 
-    _setSplines(fidx, xc, false, wavelength, true);
+    _setSplines(index, xc, false, wavelength, true);
 }
             
 /*
@@ -181,10 +191,10 @@ DetectorMap::setWavelength(std::size_t fiberId,
 ndarray::Array<float, 1, 1>
 DetectorMap::getXCenter(std::size_t fiberId) const
 {
-    int const fidx = getFiberIdx(fiberId);
-    auto const & spline = _yToXCenter[fidx];
-    const float slitOffsetX = _slitOffsets[FIBER_DX][fidx];
-    const float slitOffsetY = _slitOffsets[FIBER_DY][fidx];
+    int const index = getFiberIndex(fiberId);
+    auto const & spline = getCenterSpline(index);
+    const float slitOffsetX = _slitOffsets[DX][index];
+    const float slitOffsetY = _slitOffsets[DY][index];
 
     ndarray::Array<float, 1, 1> res(_bbox.getHeight());
     for (int i = 0; i != _bbox.getHeight(); ++i) {
@@ -196,7 +206,7 @@ DetectorMap::getXCenter(std::size_t fiberId) const
 
 DetectorMap::Array2D DetectorMap::getXCenter() const {
     std::size_t numFibers = _fiberIds.getNumElements();
-    Array2D result{numFibers, static_cast<std::size_t>(_bbox.getHeight())};
+    Array2D result{numFibers, std::size_t(_bbox.getHeight())};
     for (std::size_t ii = 0; ii < numFibers; ++ii) {
         result[ii].deep() = getXCenter(_fiberIds[ii]);
     }
@@ -209,10 +219,10 @@ DetectorMap::Array2D DetectorMap::getXCenter() const {
 float
 DetectorMap::getXCenter(std::size_t fiberId, float y) const
 {
-    int const fidx = getFiberIdx(fiberId);
-    auto const & spline = _yToXCenter[fidx];
-    const float slitOffsetX = _slitOffsets[FIBER_DX][fidx];
-    const float slitOffsetY = _slitOffsets[FIBER_DY][fidx];
+    int const index = getFiberIndex(fiberId);
+    auto const & spline = getCenterSpline(index);
+    const float slitOffsetX = _slitOffsets[DX][index];
+    const float slitOffsetY = _slitOffsets[DY][index];
 
     return spline(y - slitOffsetY) + slitOffsetX;
 }
@@ -224,10 +234,10 @@ void
 DetectorMap::setXCenter(std::size_t fiberId,
                         ndarray::Array<float, 1, 1> const& xCenter)
 {
-    int const fidx = getFiberIdx(fiberId);
+    int const index = getFiberIndex(fiberId);
     auto const wavelength = xCenter;    // not really updated, but I need an array
 
-    _setSplines(fidx, xCenter, true, wavelength, false);
+    _setSplines(index, xCenter, true, wavelength, false);
 }
 
 /*
@@ -236,9 +246,9 @@ DetectorMap::setXCenter(std::size_t fiberId,
 float
 DetectorMap::getThroughput(std::size_t fiberId) const
 {
-    int const fidx = getFiberIdx(fiberId);
+    int const index = getFiberIndex(fiberId);
 
-    return _throughput[fidx];
+    return _throughput[index];
 }
 
 /*
@@ -248,9 +258,9 @@ void
 DetectorMap::setThroughput(std::size_t fiberId,
                            const float throughput)
 {
-    int const fidx = getFiberIdx(fiberId);
+    int const index = getFiberIndex(fiberId);
 
-    _throughput[fidx] = throughput;
+    _throughput[index] = throughput;
 }
 
 void DetectorMap::setThroughput(Array1D const& throughput) {
@@ -310,8 +320,8 @@ DetectorMap::findWavelength(const int fiberId,               ///< Desired fibreI
         os << "Row " << row << " is not in range [0, " << _bbox.getHeight() - 1 << "]";
         throw LSST_EXCEPT(lsst::pex::exceptions::RangeError, os.str());
     }
-    int const fidx = getFiberIdx(fiberId);
-    auto const & spline = _yToWavelength[fidx];
+    int const index = getFiberIndex(fiberId);
+    auto const & spline = getWavelengthSpline(index);
 
     return spline(row);
 }
@@ -333,34 +343,34 @@ DetectorMap::findFiberId(lsst::afw::geom::PointD pixelPos // position on detecto
     }
 
     int fiberId = _xToFiberId[(int)(x)];    // first guess at the fiberId
-    int fidx = getFiberIdx(fiberId);
-    bool updatedFidx = true;
-    while (updatedFidx) {
-        auto const & spline_0 = _yToXCenter[fidx];
+    std::size_t index = getFiberIndex(fiberId);
+    bool updatedIndex = true;
+    while (updatedIndex) {
+        auto const & spline_0 = getCenterSpline(index);
         float xCenter_0 = spline_0(y);
 
-        updatedFidx = false;
-        if (fidx > 0) {
-            auto const & spline_m1 = _yToXCenter[fidx - 1];
+        updatedIndex = false;
+        if (index > 0) {
+            auto const & spline_m1 = getCenterSpline(index - 1);
             float xCenter_m1 = spline_m1(y);
 
             if (std::fabs(x - xCenter_m1) < std::fabs(x - xCenter_0)) {
-                fidx--;
-                updatedFidx = true;
+                index--;
+                updatedIndex = true;
             }
         }
-        if (fidx < _yToXCenter.size() - 1) {
-            auto const & spline_p1 = _yToXCenter[fidx + 1];
+        if (index < _yToXCenter.size() - 1) {
+            auto const & spline_p1 = getCenterSpline(index + 1);
             float xCenter_p1 = spline_p1(y);
 
             if (std::fabs(x - xCenter_p1) < std::fabs(x - xCenter_0)) {
-                fidx++;
-                updatedFidx = true;
+                index++;
+                updatedIndex = true;
             }
         }
     }
 
-    return _fiberIds[fidx];
+    return _fiberIds[index];
 }
 
 /************************************************************************************************************/
@@ -376,10 +386,10 @@ DetectorMap::_setSplines(ndarray::Array<float, 2, 1> const& xCenters,     // cen
     std::vector<float> xCenter(_nKnot);
     std::vector<float> wavelength(_nKnot);
     /*
-     * loop over the fibers, setting the splines.  Note the fidx != fiberId (that's _fiberId[idx])
+     * loop over the fibers, setting the splines.  Note the index != fiberId (that's _fiberId[index])
      */
-    for (int fidx = 0; fidx != _nFiber; ++fidx) {
-        _setSplines(fidx, xCenters[fidx], true, wavelengths[fidx], true);
+    for (std::size_t index = 0; index != _nFiber; ++index) {
+        _setSplines(index, xCenters[index], true, wavelengths[index], true);
     }
 
     _set_xToFiberId();
@@ -393,27 +403,27 @@ DetectorMap::_set_xToFiberId()
 {
     int const iy = _bbox.getHeight()/2;
 
-    float last_xc = -1e30;              // center of the last fibre we passed scanning to the right
-    int last_fidx = -1;                  // fidx of the last fibre we passed.  Special case starting with 0
+    float lastCenter = -1e30;            // center of the last fibre we passed scanning to the right
+    std::size_t lastIndex = -1;          // index of the last fibre we passed.  Special case starting with 0
 
-    float next_xc = getXCenter(_fiberIds[1], iy); // center of the next fiber we're looking at
-    for (int fidx = 0, x = 0; x != _bbox.getWidth(); ++x) {
-        if (x - last_xc > next_xc - x) { // x is nearer to next_xc than last_xc
-            last_xc = next_xc;
-            last_fidx = fidx;
+    float nextCenter = getXCenter(_fiberIds[1], iy); // center of the next fiber we're looking at
+    for (std::size_t index = 0, x = 0; x != std::size_t(_bbox.getWidth()); ++x) {
+        if (x - lastCenter > nextCenter - x) { // x is nearer to next_xc than last_xc
+            lastCenter = nextCenter;
+            lastIndex = index;
 
-            if (fidx < _fiberIds.size() - 1) {
-                ++fidx;
+            if (index < _fiberIds.size() - 1) {
+                ++index;
             }
-            next_xc = getXCenter(_fiberIds[fidx], iy);
+            nextCenter = getXCenter(_fiberIds[index], iy);
         }
 
-        _xToFiberId[x] = _fiberIds[last_fidx];
+        _xToFiberId[x] = _fiberIds[lastIndex];
     }
 }           
 
 void
-DetectorMap::_setSplines(const std::size_t fidx,                // desired fiducial index
+DetectorMap::_setSplines(const std::size_t index,               // desired fiducial index
                          ndarray::Array<float, 1, 1> const& xc, // center of trace for each fibre
                          bool setXCenters,                      // set the xCenter values?
                          ndarray::Array<float, 1, 1> const& wl, // wavelengths for each fibre
@@ -421,34 +431,34 @@ DetectorMap::_setSplines(const std::size_t fidx,                // desired fiduc
                         )
 {
     // values of y used as domain for the spline
-    std::vector<float> yIndices(_nKnot);
+    ndarray::Array<float, 1, 1> yIndices = ndarray::allocate(_nKnot);
     // Two vectors with the values for a single fibre
-    std::vector<float> xCenter(_nKnot);
-    std::vector<float> wavelength(_nKnot);    
+    ndarray::Array<float, 1, 1> xCenter = ndarray::allocate(_nKnot);
+    ndarray::Array<float, 1, 1> wavelength = ndarray::allocate(_nKnot);
     /*
      * Setting the splines
      */
     // look for finite values
-    int j;
+    std::size_t j;
     for (j = 0; j != xc.size(); ++j) {
         if (std::isfinite(wl[j] + xc[j])) {
             break;
         }
     }
-    int const j0 = j;
+    std::size_t const j0 = j;
 
     for (j = xc.size() - 1; j >= 0; j--) {
         if (std::isfinite(wl[j] + xc[j])) {
             break;
         }
     }
-    int const j1 = j - 1;
+    std::size_t const j1 = j - 1;
     /*
      * OK, we know that we have finite values from j0..j1, so construct the vectors
      */
     float const dy = (j1 - j0 + 1.0)/(_nKnot - 1); // step in y
     float y = j0;
-    for (int i = 0; i != _nKnot; ++i, y += dy) {
+    for (std::size_t i = 0; i != _nKnot; ++i, y += dy) {
         int const iy = std::floor(y);
         
         yIndices[i] = iy;
@@ -459,10 +469,10 @@ DetectorMap::_setSplines(const std::size_t fidx,                // desired fiduc
      * We have the arrays so we can set up the splines for the fibre
      */
     if (setXCenters) {
-        _yToXCenter[fidx] = math::spline<float>(yIndices, xCenter);       // first xCenter
+        _yToXCenter[index] = std::make_shared<math::Spline<float>>(yIndices, xCenter);
     }
     if (setWavelengths) {
-        _yToWavelength[fidx] = math::spline<float>(yIndices, wavelength); // then wavelength
+        _yToWavelength[index] = std::make_shared<math::Spline<float>>(yIndices, wavelength);
     }
 }
 }}}

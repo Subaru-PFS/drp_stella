@@ -23,9 +23,9 @@ namespace pfs { namespace drp { namespace stella {
 class DetectorMap {
     friend class DetectorMapIO;
 public:
-    static const int FIBER_DX=0, FIBER_DY=1, FIBER_DFOCUS=2;
+    enum ArrayRow { DX = 0, DY = 1, DFOCUS = 2 };
 
-    using FiberMap = ndarray::Array<int, 1, 1>;
+    using FiberMap = ndarray::Array<std::size_t, 1, 1>;
     using Array2D = ndarray::Array<float, 2, 1>;
     using Array1D = ndarray::Array<float, 1, 1>;
 
@@ -72,20 +72,20 @@ public:
      *
      * See getSlitOffsets()
      */
-    void setSlitOffsets(std::size_t fiberId, ///< desired fibre
-                        ndarray::Array<float, 1, 0> const& offsets ///< slit offsets for chosen fibre
-                       )
-        {
-            _slitOffsets[ndarray::view(FIBER_DX, FIBER_DFOCUS + 1)(getFiberIdx(fiberId))].deep() = offsets;
-        }
+    void setSlitOffsets(
+        std::size_t fiberId, ///< desired fibre
+        ndarray::Array<float, 1, 0> const& offsets ///< slit offsets for chosen fibre
+    ) {
+        _slitOffsets[ndarray::view(DX, DFOCUS + 1)(getFiberIndex(fiberId))].deep() = offsets;
+    }
     
     /**
      * Get the offsets of the wavelengths and x-centres (in floating-point pixels) and focus (in microns)
      * of each fibre
      *
-     * The return value is a (3, nFiber) array, which may be indexed by FIBER_DX, FIBER_DY, and FIBER_DFOCUS,
+     * The return value is a (3, nFiber) array, which may be indexed by DX, DY, and DFOCUS,
      * e.g.
-     *  ftMap.getSlitOffsets()[FIBER_DX][100]
+     *  ftMap.getSlitOffsets()[DX][100]
      * is the offset in the x-direction for the 100th fiber (n.b. not fiberId necessarily; cf. findFiberId())
      *
      * The units are pixels for DX and DY; microns at the slit for focus
@@ -94,12 +94,12 @@ public:
     /**
      * Return the slit offsets for the specified fibre; see getSlitOffsets() for details
      * e.g.
-     *  ftMap.getSlitOffsets(fiberId)[FIBER_DY]
+     *  ftMap.getSlitOffsets(fiberId)[DY]
      * is the offset in the y-direction for the fibre identified by fiberId
      */
-    ndarray::Array<float, 1, 0> const getSlitOffsets(std::size_t fiberId ///< fiberId
-                                                    ) const
-        { return _slitOffsets[ndarray::view(FIBER_DX, FIBER_DFOCUS + 1)(getFiberIdx(fiberId))]; }
+    ndarray::Array<float, 1, 0> const getSlitOffsets(
+        std::size_t fiberId ///< fiberId
+    ) const { return _slitOffsets[ndarray::view(DX, DFOCUS + 1)(getFiberIndex(fiberId))]; }
 
     /**
      * Return the wavelength values for a fibre
@@ -173,9 +173,9 @@ public:
     /** \brief
      * Return the index of a fiber, given its fiber ID
      */
-    std::size_t getFiberIdx(std::size_t fiberId) const;
+    std::size_t getFiberIndex(std::size_t fiberId) const;
 private:                                // initialise before _yTo{XCenter,Wavelength}
-    int _nFiber;                        // number of fibers
+    std::size_t _nFiber;                // number of fibers
 protected:
     // N.b. DetectorMapIO is a friend, and makes the protected members available for read/write routines
     lsst::afw::geom::Box2I _bbox;       // bounding box of detector
@@ -183,14 +183,20 @@ protected:
     
     Array1D _throughput;	// The throughput (in arbitrary units ~ 1) of each fibre
     //
-    // These std::vectors are indexed by fiberIdx (not fiberId)
+    // These std::vectors are indexed by fiberIndex (not fiberId)
     //
-    std::vector<math::spline<float>> _yToXCenter; // splines to convert a y pixel value to trace position
-    std::vector<math::spline<float>> _yToWavelength; // splines to convert a y pixel value to wavelength
+    // Vector of pointers because they can be undefined.
+    //
+    std::vector<std::shared_ptr<math::Spline<float>>> _yToXCenter; // convert y pixel value to trace position
+    std::vector<std::shared_ptr<math::Spline<float>>> _yToWavelength; // convert a y pixel value to wavelength
+
+    math::Spline<float> const& getCenterSpline(std::size_t index) const;
+    math::Spline<float> const& getWavelengthSpline(std::size_t index) const;
+
 
     void _set_xToFiberId();
 private:
-    int _nKnot;                         // number of knots for splines
+    std::size_t _nKnot;                         // number of knots for splines
     //
     // An array that gives the fiberId half way up the chip
     //
@@ -202,7 +208,7 @@ private:
     /*
      * Private helper functions
      */
-    void _setSplines(const std::size_t fidx,
+    void _setSplines(const std::size_t fIndex,
                      Array1D const& xc, bool setXCenters,
                      Array1D const& wl, bool setWavelengths);
 
