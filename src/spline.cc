@@ -96,6 +96,9 @@ Spline<T>::Spline(
     }
     
     /*********************************************************************************************************/
+
+    _x = ndarray::allocate(n);
+    _y = ndarray::allocate(n);
     _x.deep() = x;
     _y.deep() = y;
     _k = ndarray::allocate(n);
@@ -177,7 +180,7 @@ Spline<T>::Spline(
        }
        break;
    }
-        
+
    tridi(dm1, dia, dp1, rhs);           // n.b. rhs is aliased to _k
 }
 

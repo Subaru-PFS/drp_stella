@@ -43,7 +43,7 @@ struct ReferenceLine {
     float guessedPosition;              // input guess for pixel position
     float fitIntensity;                 // estimated intensity (amplitude of peak)
     float fitPosition;                  // fit line position
-    float fitPositionErr;               // estimated standard deviation of fitPixelPos
+    float fitPositionErr;               // estimated standard deviation of fitPosition
 };
 
 /**
@@ -201,8 +201,7 @@ class Spectrum {
  *
  * All spectra must be the same length (otherwise, you'd just use a std::vector).
  */
-class SpectrumSet
-{
+class SpectrumSet {
   public:
     using SpectrumPtr = std::shared_ptr<Spectrum>;
     using ConstSpectrumPtr = std::shared_ptr<Spectrum const>;

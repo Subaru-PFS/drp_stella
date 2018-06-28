@@ -17,6 +17,7 @@
 #include "pfs/drp/stella/utils/checkSize.h"
 
 //#define __DEBUG_FINDANDTRACE__ 1
+
 namespace afwImage = lsst::afw::image;
 
 namespace pfs { namespace drp { namespace stella {
@@ -37,11 +38,7 @@ FiberTrace<ImageT, MaskT, VarianceT>::FiberTrace(
     FiberTraceFunction const& function,
     FiberTraceProfileFittingControl const& fitting,
     size_t fiberId
-) :
-    // XXX _trace is set in _calcProfile
-    //_trace(function.yHigh - function.yLow + 1,
-    //       static_cast<int>(function.ctrl.xHigh - function.ctrl.xLow + 1)),
-    _fiberId(fiberId),
+) : _fiberId(fiberId),
     _function(function),
     _fitting(fitting)
 {
@@ -79,7 +76,6 @@ FiberTrace<ImageT, MaskT, VarianceT>::extractSpectrum(
     std::size_t const width = bbox.getWidth();
 
     auto spectrum = std::make_shared<Spectrum>(spectrumImage.getHeight(), _fiberId);
-    auto slice = ndarray::view(bbox.getMinY(), bbox.getMaxY());  // slice of trace on spectrum
 
     MaskT const ftMask = _trace.getMask()->getPlaneBitMask(maskPlane);
     MaskT const noData = _trace.getMask()->getPlaneBitMask("NO_DATA");
@@ -101,9 +97,9 @@ FiberTrace<ImageT, MaskT, VarianceT>::extractSpectrum(
     if (useProfile) {
         auto const result = math::fitProfile2d(traceIm, select, _trace.getImage()->getArray(), fitBackground,
                                                clipNSigma);
-        spectrum->getSpectrum()[slice] = ndarray::copy(std::get<0>(result));
-        spectrum->getBackground()[slice] = ndarray::copy(std::get<1>(result));
-        spectrum->getVariance()[slice] = ndarray::copy(std::get<2>(result));
+        spectrum->getSpectrum()[ndarray::view(bbox.getMinY(), bbox.getMaxY() + 1)] = std::get<0>(result);
+        spectrum->getBackground()[ndarray::view(bbox.getMinY(), bbox.getMaxY() + 1)] = std::get<1>(result);
+        spectrum->getVariance()[ndarray::view(bbox.getMinY(), bbox.getMaxY() + 1)] = std::get<2>(result);
     } else {                            // simple profile fit
         auto specIt = spectrum->getSpectrum().begin();
         auto varIt = spectrum->getVariance().begin();
@@ -135,16 +131,15 @@ FiberTrace<ImageT, MaskT, VarianceT>::extractSpectrum(
 
     int const yMin = bbox.getMinY();
     int const yMax = bbox.getMaxY();
-    float const inf = std::numeric_limits<float>::infinity();
 
-    std::fill(spec.begin(), spec.begin() + yMin, 0.0);
-    std::fill(bg.begin(), bg.begin() + yMin, 0.0);
-    std::fill(var.begin(), var.begin() + yMin, inf);
+    spec[ndarray::view(0, yMin)] = 0.0;
+    bg[ndarray::view(0, yMin)] = 0.0;
+    var[ndarray::view(0, yMin)] = 0.0;
     std::fill(mask.begin(true), mask.begin(true) + yMin, noData);
 
-    std::fill(spec.begin() + yMax, spec.end(), 0.0);
-    std::fill(bg.begin() + yMax, bg.end(), 0.0);
-    std::fill(var.begin() + yMax, var.end(), inf);
+    spec[ndarray::view(yMax, spectrumImage.getHeight())] = 0.0;
+    bg[ndarray::view(yMax, spectrumImage.getHeight())] = 0.0;
+    var[ndarray::view(yMax, spectrumImage.getHeight())] = 0.0;
     std::fill(mask.begin(true) + yMax, mask.end(true), noData);
 
     // Accumulate the mask
@@ -167,10 +162,8 @@ FiberTrace<ImageT, MaskT, VarianceT>::extractSpectrum(
 template<typename ImageT, typename MaskT, typename VarianceT>
 void FiberTrace<ImageT, MaskT, VarianceT>::_createTrace(MaskedImageT const& maskedImage) {
     _minCenMax = _function.calcMinCenMax(_xCenters);
-
     ndarray::Array<std::size_t, 1, 1> xMinPix(_minCenMax[ndarray::view()(0)]);
     int xMin = *std::min_element(xMinPix.begin(), xMinPix.end());
-
     ndarray::Array<std::size_t, 1, 1> xMaxPix(_minCenMax[ndarray::view()(2)]);
     int xMax = *std::max_element(xMaxPix.begin(), xMaxPix.end());
 
@@ -189,29 +182,28 @@ void FiberTrace<ImageT, MaskT, VarianceT>::_createTrace(MaskedImageT const& mask
 
 template<typename ImageT, typename MaskT, typename VarianceT>
 PTR(afwImage::Image<ImageT>)
-FiberTrace<ImageT, MaskT, VarianceT>::constructImage(const Spectrum & spectrum) const
-{
+FiberTrace<ImageT, MaskT, VarianceT>::constructImage(const Spectrum & spectrum) const {
     auto out = std::make_shared<afwImage::Image<ImageT>>(_trace.getBBox());
     auto const maskVal = _trace.getMask()->getPlaneBitMask(maskPlane);
 
-    int const height = _trace.getHeight();
-    int const width  = _trace.getImage()->getWidth();
+    std::size_t const height = _trace.getHeight();
+    std::size_t const width  = _trace.getImage()->getWidth();
+    std::size_t const y0 = _trace.getBBox().getMinY();
 
-    auto spec = spectrum.getSpectrum().begin();
-    auto bg = spectrum.getBackground().begin();
-    for (int y = 0; y < height; ++y, ++spec, ++bg) {
+    auto spec = spectrum.getSpectrum().begin() + y0;
+    auto bg = spectrum.getBackground().begin() + y0;
+    for (std::size_t y = 0; y < height; ++y, ++spec, ++bg) {
         auto profileIter = _trace.getImage()->row_begin(y);
         auto maskIter = _trace.getMask()->row_begin(y);
         auto outIter = out->row_begin(y);
         float const bgValue = *bg;
         float const specValue = *spec;
-        for (int x = 0; x < width; ++x, ++profileIter, ++maskIter, ++outIter) {
+        for (std::size_t x = 0; x < width; ++x, ++profileIter, ++maskIter, ++outIter) {
             if (*maskIter & maskVal) {
                 *outIter = bgValue + specValue*(*profileIter);
             }
         }
     }
-
     return out;
 }
 
@@ -323,18 +315,19 @@ void FiberTrace<ImageT, MaskT, VarianceT>::_calcProfile() {
         auto varianceSwath = swath.getVariance()->getArray();
         ndarray::Array<float, 1, 1> xCentersSwath = ndarray::copy(_xCenters[ndarray::view(yMin, yMax)]);
         for (unsigned int iRow = 0; iRow < nRows; ++iRow) {
-            auto const fromSlice = ndarray::view(yMin + iRow)(_minCenMax[iRow + yMin][0],
-                                                              _minCenMax[iRow + yMin][2] + 1);
-            auto const toSlice = ndarray::view(iRow)();
-            imageSwath[toSlice] = _trace.getImage()->getArray()[fromSlice];
-            maskSwath[toSlice] = _trace.getMask()->getArray()[fromSlice];
-            varianceSwath[toSlice] = _trace.getVariance()->getArray()[fromSlice];
+            std::size_t const xLow = _minCenMax[iRow + yMin][0];
+            std::size_t const xHigh = _minCenMax[iRow + yMin][2] + 1;
+            imageSwath[ndarray::view(iRow)()] =
+                _trace.getImage()->getArray()[ndarray::view(yMin + iRow)(xLow, xHigh)];
+            maskSwath[ndarray::view(iRow)()] =
+                _trace.getMask()->getArray()[ndarray::view(yMin + iRow)(xLow, xHigh)];
+            varianceSwath[ndarray::view(iRow)()] =
+                _trace.getVariance()->getArray()[ndarray::view(yMin + iRow)(xLow, xHigh)];
         }
         LOGLS_TRACE(_log, "_fiberId = " << _fiberId << ": swath " << iSwath << ": imageSwath = " << imageSwath);
 
         if (iSwath < nSwaths - 1) {
-            auto const slice = ndarray::view()()(iSwath);
-            slitFuncsSwaths[slice] = _calcProfileSwath(swath, xCentersSwath, iSwath);
+            slitFuncsSwaths[ndarray::view()()(iSwath)] = _calcProfileSwath(swath, xCentersSwath, iSwath);
             LOGLS_TRACE(_log, "_fiberId = " << _fiberId << ": slitFuncsSwaths.getShape() = "
                               << slitFuncsSwaths.getShape());
             LOGLS_TRACE(_log, "_fiberId = " << _fiberId << ": imageSwath.getShape() = " << imageSwath.getShape());
@@ -344,7 +337,7 @@ void FiberTrace<ImageT, MaskT, VarianceT>::_calcProfile() {
             LOGLS_TRACE(_log, "_fiberId = " << _fiberId << ": nPixArr = " << nPixArr);
             LOGLS_TRACE(_log, "_fiberId = " << _fiberId << ": swath " << iSwath
                               << ": slitFuncsSwaths[ndarray::view()()(iSwath)] = "
-                              << slitFuncsSwaths[slice]);
+                              << slitFuncsSwaths[ndarray::view()()(iSwath)]);
         } else {
             lastSlitFuncSwath.deep() = _calcProfileSwath(swath, xCentersSwath, iSwath);
         }
@@ -362,28 +355,26 @@ void FiberTrace<ImageT, MaskT, VarianceT>::_calcProfile() {
     auto profileArray = profile.getArray();
     for (std::size_t iSwath = 0; iSwath < nSwaths - 1; ++iSwath) {
         for (std::size_t iRow = 0; iRow < nPixArr[iSwath]; ++iRow) {
-            auto const slice = ndarray::view(iRow)()(iSwath);
-            rowSum = ndarray::sum(slitFuncsSwaths[slice]);
+            rowSum = ndarray::sum(slitFuncsSwaths[ndarray::view(iRow)()(iSwath)]);
             if (std::fabs(rowSum) > 0.00000000000000001) {
                 for (std::size_t iPix = 0; iPix < slitFuncsSwaths.getShape()[1]; iPix++) {
                     slitFuncsSwaths[iRow][iPix][iSwath] = slitFuncsSwaths[iRow][iPix][iSwath]/rowSum;
                 }
                 LOGLS_TRACE(_log, "_fiberId = " << _fiberId << ": slitFuncsSwaths(" << iRow << ", *, "
                                   << iSwath << ") = "
-                                  << slitFuncsSwaths[slice]);
-                  rowSum = ndarray::sum(slitFuncsSwaths[slice]);
+                                  << slitFuncsSwaths[ndarray::view(iRow)()(iSwath)]);
+                  rowSum = ndarray::sum(slitFuncsSwaths[ndarray::view(iRow)()(iSwath)]);
                   LOGLS_TRACE(_log, "_fiberId = " << _fiberId << ": iRow = " << iRow << ": iSwath = "
                                     << iSwath << ": rowSum = " << rowSum);
             }
         }
     }
     for (std::size_t iRow = 0; iRow < nPixArr[nSwaths - 1]; ++iRow) {
-        auto const slice = ndarray::view(iRow)();
-        rowSum = ndarray::sum(lastSlitFuncSwath[slice]);
+        rowSum = ndarray::sum(lastSlitFuncSwath[ndarray::view(iRow)()]);
         if (std::fabs(rowSum) > 0.00000000000000001) {
-            lastSlitFuncSwath[ndarray::view(iRow)()] = lastSlitFuncSwath[slice]/rowSum;
+            lastSlitFuncSwath[ndarray::view(iRow)()] = lastSlitFuncSwath[ndarray::view(iRow)()]/rowSum;
             LOGLS_TRACE(_log, "_fiberId = " << _fiberId << ": lastSlitFuncSwath(" << iRow << ", *) = "
-                              << lastSlitFuncSwath[slice]);
+                              << lastSlitFuncSwath[ndarray::view(iRow)()]);
             LOGLS_TRACE(_log, "_fiberId = " << _fiberId << ": iRow = " << iRow << ": rowSum = " << rowSum);
         }
     }
@@ -392,19 +383,17 @@ void FiberTrace<ImageT, MaskT, VarianceT>::_calcProfile() {
     int iRowSwath = 0;
     for (std::size_t iRow = 0; iRow < height; ++iRow) {
         iRowSwath = iRow - swathBoundsY[bin][0];
-        auto const rowSlice = ndarray::view(iRow)();
-        auto const swathSlice = ndarray::view(iRowSwath)();
         LOGLS_TRACE(_log, "_fiberId = " << _fiberId << ": iRow = " << iRow << ", bin = "
                           << bin << ", iRowSwath = " << iRowSwath);
         if ((bin == 0) && (iRow < swathBoundsY[1][0])) {
             LOGLS_TRACE(_log, "_fiberId = " << _fiberId << ": bin=" << bin << " == 0 && iRow="
                               << iRow << " < swathBoundsY[1][0]=" << swathBoundsY[1][0]);
-            profileArray[rowSlice] = slitFuncsSwaths[swathSlice(0)];
+            profileArray[ndarray::view(iRow)()] = slitFuncsSwaths[ndarray::view(iRowSwath)()(0)];
         } else if ((bin == nSwaths - 1) && (iRow >= swathBoundsY[bin-1][1])) {
             LOGLS_TRACE(_log, "_fiberId = " << _fiberId << ": bin=" << bin << " == nSwaths-1="
                               << nSwaths-1 << " && iRow=" << iRow << " >= swathBoundsY[bin-1="
                               << bin - 1 << "][0]=" << swathBoundsY[bin - 1][0]);
-            profileArray[rowSlice] = lastSlitFuncSwath[swathSlice];
+            profileArray[ndarray::view(iRow)()] = lastSlitFuncSwath[ndarray::view(iRowSwath)()];
         } else {
             weightBin1 = float(iRow - swathBoundsY[bin + 1][0])/
                 (swathBoundsY[bin][1] - swathBoundsY[bin + 1][0]);
@@ -421,7 +410,7 @@ void FiberTrace<ImageT, MaskT, VarianceT>::_calcProfile() {
                               << weightBin1);
             if (bin == nSwaths - 2){
                 LOGLS_TRACE(_log, "_fiberId = " << _fiberId << ": slitFuncsSwaths(iRowSwath, *, bin) = " <<
-                    slitFuncsSwaths[swathSlice(bin)] <<
+                    slitFuncsSwaths[ndarray::view(iRowSwath)()(bin)] <<
                     ", lastSlitFuncSwath[ndarray::view(int(iRow - swathBoundsY[bin+1][0])=" <<
                     int(iRow - swathBoundsY[bin+1][0]) << ")] = " <<
                     lastSlitFuncSwath[ndarray::view(int(iRow - swathBoundsY[bin + 1][0]))()]);
@@ -436,34 +425,36 @@ void FiberTrace<ImageT, MaskT, VarianceT>::_calcProfile() {
                                   << swathBoundsY[bin+1][0] << ", iRow - swathBoundsY[bin+1][0] = "
                                   << iRow - swathBoundsY[bin + 1][0]);
                 LOGLS_TRACE(_log, "_fiberId = " << _fiberId <<
-                    ": profile.getArray()[ndarray::view(iRow)()] = " << profileArray[rowSlice]);
+                    ": profile.getArray()[ndarray::view(iRow)()] = " << profileArray[ndarray::view(iRow)()]);
                 LOGLS_TRACE(_log, "_fiberId = " << _fiberId
                                   << ": slitFuncsSwaths[ndarray::view(iRowSwath)()(bin)] = "
                                   << slitFuncsSwaths[ndarray::view(iRowSwath)()(bin)]);
                 LOGLS_TRACE(_log, "_fiberId = " << _fiberId <<
                     ": ndarray::Array<float, 1, 0>(slitFuncsSwaths[ndarray::view(iRowSwath)()" <<
-                    "(bin)]).getShape() = " << slitFuncsSwaths[swathSlice(bin)].getShape());
+                    "(bin)]).getShape() = " << slitFuncsSwaths[ndarray::view(iRowSwath)()(bin)].getShape());
                 LOGLS_TRACE(_log, "_fiberId = " << _fiberId << ": weightBin0 = " << weightBin0
                                   << ", weightBin1 = " << weightBin1);
                 LOGLS_TRACE(_log, "_fiberId = " << _fiberId <<
                     ": lastSlitFuncSwath[ndarray::view(int(iRow - swathBoundsY[bin+1][0]))()] = " <<
                     lastSlitFuncSwath[ndarray::view(int(iRow - swathBoundsY[bin + 1][0]))()]);
-                profileArray[rowSlice] = (slitFuncsSwaths[swathSlice(bin)]*weightBin0) +
+                profileArray[ndarray::view(iRow)()] =
+                    (slitFuncsSwaths[ndarray::view(iRowSwath)()(bin)]*weightBin0) +
                     (lastSlitFuncSwath[ndarray::view(int(iRow - swathBoundsY[bin + 1][0]))()]*weightBin1);
                 LOGLS_TRACE(_log, "_fiberId = " << _fiberId
                                   << ": profile.getArray()[ndarray::view(iRow)()] set to "
-                                  << profileArray[rowSlice]);
+                                  << profileArray[ndarray::view(iRow)()]);
             } else {
                 LOGLS_TRACE(_log, "_fiberId = " << _fiberId << ": slitFuncsSwaths(iRowSwath, *, bin) = "
-                                  << slitFuncsSwaths[swathSlice(bin)]
+                                  << slitFuncsSwaths[ndarray::view(iRowSwath)()(bin)]
                                   << ", slitFuncsSwaths(int(iRow - swathBoundsY[bin+1][0])="
                                   << int(iRow - swathBoundsY[bin + 1][0]) << ", *, bin+1) = "
                                   << slitFuncsSwaths[ndarray::view(
                                      int(iRow - swathBoundsY[bin + 1][0]))()(bin + 1)]);
-                profileArray[rowSlice] = (slitFuncsSwaths[swathSlice(bin)]*weightBin0) +
+                profileArray[ndarray::view(iRow)()] =
+                    (slitFuncsSwaths[ndarray::view(iRowSwath)()(bin)]*weightBin0) +
                     (slitFuncsSwaths[ndarray::view(int(iRow - swathBoundsY[bin + 1][0]))()(bin + 1)]*weightBin1);
             }
-            double const dSumSFRow = ndarray::sum(profileArray[rowSlice]);
+            double const dSumSFRow = ndarray::sum(profileArray[ndarray::view(iRow)()]);
             LOGLS_TRACE(_log, "_fiberId = " << _fiberId << ": iRow = " << iRow << ": bin = "
                               << bin << ": dSumSFRow = " << dSumSFRow);
             LOGLS_TRACE(_log, "_fiberId = " << _fiberId << ": iRow = " << iRow << ": bin = "
@@ -473,11 +464,11 @@ void FiberTrace<ImageT, MaskT, VarianceT>::_calcProfile() {
                 LOGLS_TRACE(_log, "_fiberId = " << _fiberId << ": iRow = " << iRow << ": bin = "
                                   << bin << ": normalizing profile.getArray()[iRow = "
                                   << iRow << ", *]");
-                profileArray[rowSlice] /= dSumSFRow;
+                profileArray[ndarray::view(iRow)()] /= dSumSFRow;
             }
             LOGLS_TRACE(_log, "_fiberId = " << _fiberId << ": iRow = " << iRow << ": bin = "
                               << bin << ": profile.getArray()(" << iRow << ", *) set to "
-                              << profileArray[rowSlice]);
+                              << profileArray[ndarray::view(iRow)()]);
         }
 
         if (iRow == swathBoundsY[bin][1]){
@@ -503,8 +494,7 @@ void FiberTrace<ImageT, MaskT, VarianceT>::_calcProfile() {
             message += std::to_string(width);
             throw LSST_EXCEPT(pexExcept::Exception, message.c_str());
         }
-        auto const slice = ndarray::view(i);
-        traceArray[slice(xMin, xMax)] = profileArray[slice()];
+        traceArray[ndarray::view(i)(xMin, xMax)] = profileArray[ndarray::view(i)()];
     }
 }
 
@@ -530,8 +520,7 @@ ndarray::Array<float, 2, 1> FiberTrace<ImageT, MaskT, VarianceT>::_calcProfileSw
     ndarray::Array<float, 1, 1> sumArr = ndarray::allocate(width);
     for (int iRow = 0; iRow < height; ++iRow) {
         sumArr.deep() = ndarray::Array<ImageT const, 1, 1>(imageSwath[ndarray::view(iRow)()]);
-        auto const slice = ndarray::view(iRow)();
-        imageSwathNormalized[slice] = imageSwath[slice]/ndarray::sum(sumArr);
+        imageSwathNormalized[ndarray::view(iRow)()] = imageSwath[ndarray::view(iRow)()]/ndarray::sum(sumArr);
     }
     LOGLS_TRACE(_log, "_fiberId = " << _fiberId << ": iSwath = " << iSwath <<
         ": imageSwath = " << imageSwath);
@@ -620,9 +609,9 @@ ndarray::Array<float, 2, 1> FiberTrace<ImageT, MaskT, VarianceT>::_calcProfileSw
         auto indices = math::getIndicesInValueRange<float>(xArray, rangeStart, rangeEnd);
         LOGLS_TRACE(_log, "_fiberId = " << _fiberId << ": iSwath = " << iSwath
                           << ": iStep" << iStep << ": indicesInValueRange = " << indices);
-        for (unsigned int iterSig = 0; iterSig <= std::max(_fitting.maxIterSig, 1U); ++iterSig) {
-            ndarray::Array<float, 1, 1> subArr = math::getSubArray(imageSwathNormalized, indices);
-            ndarray::Array<float, 1, 1> xSubArr = math::getSubArray(xArray, indices);
+        for (int iterSig = 0; iterSig <= std::max(_fitting.maxIterSig, 1); ++iterSig) {
+            ndarray::Array<float const, 1, 1> const subArr = math::getSubArray(imageSwathNormalized, indices);
+            ndarray::Array<float const, 1, 1> const xSubArr = math::getSubArray(xArray, indices);
             std::size_t const nValues = subArr.getShape()[0];
             LOGLS_TRACE(_log, "_fiberId = " << _fiberId << ": iSwath = " << iSwath
                               << ": iStep" << iStep << ": iterSig = " << iterSig << ": nValues = " << nValues);
@@ -634,11 +623,11 @@ ndarray::Array<float, 2, 1> FiberTrace<ImageT, MaskT, VarianceT>::_calcProfileSw
                                   << ": iStep = " << iStep << ": iterSig = " << iterSig << ": subArr = ["
                                   << subArr.getShape()[0] << "]: " << subArr);
                 if (_fitting.maxIterSig > iterSig) {
-                    ndarray::Array<float, 1, 1> moments = math::moment(subArr, 2);
+                    ndarray::Array<float const, 1, 1> const moments = math::moment(subArr, 2);
                     LOGLS_TRACE(_log, "_fiberId = " << _fiberId << ": iSwath = " << iSwath
                                       << ": iStep = " << iStep << ": iterSig = " << iterSig << ": moments = "
                                       << moments);
-                    float mom = std::sqrt(moments[1]);
+                    float const mom = std::sqrt(moments[1]);
                     for (int i = nValues - 1; i >= 0; --i) {
                         LOGLS_TRACE(_log, "_fiberId = " << _fiberId << ": iSwath = " << iSwath <<
                             ": iStep" << iStep << ": iterSig = " << iterSig << ": moments[0](=" <<
@@ -663,7 +652,7 @@ ndarray::Array<float, 2, 1> FiberTrace<ImageT, MaskT, VarianceT>::_calcProfileSw
                         }
                     }
                 }
-                ndarray::Array<float, 1, 1> moments = math::moment(subArr, 1);
+                ndarray::Array<float const, 1, 1> const moments = math::moment(subArr, 1);
                 mean = moments[0];
                 LOGLS_TRACE(_log, "_fiberId = " << _fiberId << ": iSwath = " << iSwath <<
                     ": iStep = " << iStep << ": iterSig = " << iterSig << ": mean = " << mean);
@@ -680,10 +669,10 @@ ndarray::Array<float, 2, 1> FiberTrace<ImageT, MaskT, VarianceT>::_calcProfileSw
         rangeEnd += xOverSampleStep;
     }
 
-    auto xVecMean = std::make_shared<std::vector<float>>();
+    auto xVecMean = std::make_shared<std::vector<float>>(valOverSampled.size());
     std::transform(valOverSampled.begin(), valOverSampled.end(), xVecMean->begin(),
                    [](std::pair<float, float> const& values) { return values.first; });
-    auto yVecMean = std::make_shared<std::vector<float>>();
+    auto yVecMean = std::make_shared<std::vector<float>>(valOverSampled.size());
     std::transform(valOverSampled.begin(), valOverSampled.end(), yVecMean->begin(),
                    [](std::pair<float, float> const& values) { return values.second; });
     _profileFittingInputXMeanPerSwath.push_back(xVecMean);
@@ -699,9 +688,8 @@ ndarray::Array<float, 2, 1> FiberTrace<ImageT, MaskT, VarianceT>::_calcProfileSw
     // calculate profile for each row in imageSwath
     ndarray::Array<float, 2, 1> profArraySwath = ndarray::allocate(height, width);
     for (int yy = 0; yy < height; ++yy) {
-        auto const slice = ndarray::view(yy)();
         LOGLS_TRACE(_log, "_fiberId = " << _fiberId << ": iSwath = " << iSwath <<
-                    ": xArray[" << yy << "][*] = " << xArray[slice]);
+                    ": xArray[" << yy << "][*] = " << xArray[ndarray::view(yy)()]);
         for (int xx = 0; xx < width; ++xx) {
             /// The spline's knots are calculated from bins in x centered at the
             /// oversampled positions in x.
@@ -715,11 +703,12 @@ ndarray::Array<float, 2, 1> FiberTrace<ImageT, MaskT, VarianceT>::_calcProfileSw
             profArraySwath[yy][xx] = std::max(value, 0.0);
         }
         LOGLS_TRACE(_log, "_fiberId = " << _fiberId << ": iSwath = " << iSwath
-                          << ": profArraySwath[" << yy << "][*] = " << profArraySwath[slice]);
-        profArraySwath[slice] = profArraySwath[slice]/ndarray::sum(profArraySwath[slice]);
+                          << ": profArraySwath[" << yy << "][*] = " << profArraySwath[ndarray::view(yy)()]);
+        profArraySwath[ndarray::view(yy)()] =
+            profArraySwath[ndarray::view(yy)()]/ndarray::sum(profArraySwath[ndarray::view(yy)()]);
         LOGLS_TRACE(_log, "_fiberId = " << _fiberId << ": iSwath = " << iSwath
                           << ": normalized profArraySwath[" << yy << "][*] = "
-                          << profArraySwath[slice]);
+                          << profArraySwath[ndarray::view(yy)()]);
     }
     LOGLS_TRACE(_log, "_fiberId = " << _fiberId << ": iSwath = " << iSwath
                       << ": profArraySwath = " << profArraySwath);
@@ -730,7 +719,7 @@ ndarray::Array<float, 2, 1> FiberTrace<ImageT, MaskT, VarianceT>::_calcProfileSw
 template<typename ImageT, typename MaskT, typename VarianceT>
 void FiberTrace<ImageT, MaskT, VarianceT>::_markFiberTraceInMask(MaskT value) {
     /// Call getMinCenMax which will reconstruct _minCenMax in case it is empty
-    ndarray::Array<size_t, 2, -2> minCenMax = _getMinCenMax();
+    ndarray::Array<std::size_t, 2, -2> minCenMax = _getMinCenMax();
 
     for (std::size_t y = 0; y < minCenMax.getShape()[0]; ++y) {
         for (std::size_t x = minCenMax[y][0]; x <= minCenMax[y][2]; ++x) {
@@ -741,7 +730,7 @@ void FiberTrace<ImageT, MaskT, VarianceT>::_markFiberTraceInMask(MaskT value) {
 
 
 template<typename ImageT, typename MaskT, typename VarianceT>
-ndarray::Array<size_t, 2, -2> FiberTrace<ImageT, MaskT, VarianceT>::_getMinCenMax() {
+ndarray::Array<std::size_t, 2, -2> FiberTrace<ImageT, MaskT, VarianceT>::_getMinCenMax() {
     if (_minCenMax.asEigen().maxCoeff() == 0) {
         _reconstructMinCenMax();
     }
@@ -795,7 +784,8 @@ template<typename ImageT, typename MaskT, typename VarianceT>
 FiberTraceSet<ImageT, MaskT, VarianceT>::FiberTraceSet(
     FiberTraceSet<ImageT, MaskT, VarianceT> const &other,
     bool const deep
-) : _traces(other.getInternal()) {
+) : _traces(other.getInternal()),
+    _metadata(deep ? other._metadata : std::make_shared<lsst::daf::base::PropertyList>()) {
     if (deep) {
         // Replace entries in the collection with copies
         for (auto tt : _traces) {
@@ -808,17 +798,15 @@ FiberTraceSet<ImageT, MaskT, VarianceT>::FiberTraceSet(
 template<typename ImageT, typename MaskT, typename VarianceT>
 void FiberTraceSet<ImageT, MaskT, VarianceT >::sortTracesByXCenter()
 {
-    std::size_t num = _traces.size();
-    std::vector<float> xCenters;
-    xCenters.reserve(num);
+    std::size_t const num = _traces.size();
+    std::vector<float> xCenters(num);
     std::transform(_traces.begin(), _traces.end(), xCenters.begin(),
                    [](std::shared_ptr<FiberTraceT> ft) {
                        auto const& box = ft->getTrace().getBBox();
                        return 0.5*(box.getMinX() + box.getMaxX()); });
     std::vector<std::size_t> indices = math::sortIndices(xCenters);
 
-    Collection sorted;
-    sorted.reserve(num);
+    Collection sorted(num);
     std::transform(indices.begin(), indices.end(), sorted.begin(),
                    [this](std::size_t ii) { return _traces[ii]; });
     _traces = std::move(sorted);

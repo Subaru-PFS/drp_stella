@@ -6,6 +6,9 @@
 #include "pfs/drp/stella/cmpfit-1.2/MPFitting_ndarray.h"
 #include "pfs/drp/stella/math/findAndTraceApertures.h"
 
+//#define __DEBUG_FINDANDTRACE__ 1
+//#define __DEBUG_XCENTERS__ 1
+
 namespace afwImage = lsst::afw::image;
 
 namespace pfs {
@@ -17,14 +20,15 @@ template<typename ImageT, typename MaskT, typename VarianceT>
 FiberTraceSet<ImageT, MaskT, VarianceT> findAndTraceApertures(
     afwImage::MaskedImage<ImageT, MaskT, VarianceT> const& maskedImage,
     DetectorMap const& detectorMap,
-    FiberTraceFunctionFindingControl const& finding,
+    FiberTraceFindingControl const& finding,
+    FiberTraceFunctionControl const& function,
     FiberTraceProfileFittingControl const& fitting
 ) {
     LOG_LOGGER _log = LOG_GET("pfs.drp.stella.FiberTrace.findAndTraceApertures");
     LOGLS_TRACE(_log, "::pfs::drp::stella::math::findAndTraceApertures started");
 
-    if (int(finding.apertureFWHM * 2.) + 1 <= int(finding.nTermsGaussFit)) {
-        std::string message("finding.apertureFWHM too small for GaussFit ");
+    if (int(finding.apertureFwhm * 2.) + 1 <= int(finding.nTermsGaussFit)) {
+        std::string message("finding.apertureFwhm too small for GaussFit ");
         message += "-> Try lower finding.nTermsGaussFit!";
         throw LSST_EXCEPT(pexExcept::LogicError, message.c_str());
     }
@@ -32,70 +36,47 @@ FiberTraceSet<ImageT, MaskT, VarianceT> findAndTraceApertures(
     afwImage::MaskedImage<ImageT, MaskT, VarianceT> maskedImageCopy(maskedImage, true);
     afwImage::Image<ImageT> & image = *maskedImageCopy.getImage();
     afwImage::Image<VarianceT> const& variance = *maskedImageCopy.getVariance();
-    ndarray::Array<ImageT, 2, 1> array = ndarray::copy(image.getArray());
 
-    /// Set all pixels below finding.signalThreshold to 0.
-    for (auto i = array.begin(); i != array.end(); ++i) {
-        for (auto j = i->begin(); j != i->end(); ++j) {
-            if (*j < finding.signalThreshold) {
-                *j = 0;
-            }
-        }
-    }
-
-    std::size_t const expectTraces = maskedImage.getWidth()/(finding.function.xLow + finding.function.xHigh);
+    std::size_t const expectTraces = maskedImage.getWidth()/(function.xLow + function.xHigh);
     FiberTraceSet<ImageT, MaskT, VarianceT> traces(expectTraces + 1);
     lsst::afw::geom::Point2I nextSearchStart(0, 0);
     for (;;) {
-        FiberTraceFunction function{finding.function};
+        FiberTraceFunction func{function};
         LOGLS_TRACE(_log, "fiberTraceFunction.fiberTraceFunctionControl set");
         auto result = findCenterPositionsOneTrace(image, variance, finding, nextSearchStart);
         std::size_t const length = result.index.size();
-        if (length < finding.minLength) {
+        if (length < std::size_t(finding.minLength)) {
             break;
         }
 
-        // const ndarray::Array<float, 1, 1> D_A1_ApertureCenterIndex = vectorToNdArray(result.apertureCenterIndex);
-        // const ndarray::Array<float, 1, 1> D_A1_ApertureCenterPos = vectorToNdArray(result.apertureCenterPos);
-        // const ndarray::Array<float, 1, 1> D_A1_EApertureCenterPos = vectorToNdArray(result.eApertureCenterPos);
         nextSearchStart = result.nextSearchStart;
 
         LOGLS_TRACE(_log, "D_A1_ApertureCenterIndex = " << result.index);
         LOGLS_TRACE(_log, "D_A1_ApertureCenterPos = " << result.position);
 
         std::size_t middle = 0.5*length;
-        function.xCenter = result.position[middle];
-        function.yCenter = result.index[middle];
-        function.yHigh = std::size_t(result.index[length - 1]) - function.yCenter;
-        function.yLow = std::size_t(result.index[0]) - function.yCenter;
-        LOGLS_TRACE(_log, "fiberTraceFunction->xCenter = " << function.xCenter);
-        LOGLS_TRACE(_log, "fiberTraceFunction->yCenter = " << function.yCenter);
-        LOGLS_TRACE(_log, "fiberTraceFunction->yHigh = " << function.yHigh);
-        LOGLS_TRACE(_log, "fiberTraceFunction->yLow = " << function.yLow);
-        LOGLS_TRACE(_log, "fiberTraceFunction bbox low = " << function.yCenter + function.yLow);
+        func.xCenter = result.position[middle];
+        func.yCenter = result.index[middle];
+        func.yHigh = std::size_t(result.index[length - 1]) - func.yCenter;
+        func.yLow = std::ptrdiff_t(result.index[0]) - func.yCenter;
+        LOGLS_TRACE(_log, "fiberTraceFunction->xCenter = " << func.xCenter);
+        LOGLS_TRACE(_log, "fiberTraceFunction->yCenter = " << func.yCenter);
+        LOGLS_TRACE(_log, "fiberTraceFunction->yHigh = " << func.yHigh);
+        LOGLS_TRACE(_log, "fiberTraceFunction->yLow = " << func.yLow);
+        LOGLS_TRACE(_log, "fiberTraceFunction bbox low = " << func.yCenter + func.yLow);
 
-        switch (function.ctrl.interpolation) {
-          case FiberTraceFunctionControl::POLYNOMIAL: {
-            /// Fit Polynomial
-            float xRangeMin = result.index[0];
-            float xRangeMax = result.index[length - 1];
-            auto const fit = fitPolynomial(vectorToArray(result.index), vectorToArray(result.position),
-                                           finding.function.order, xRangeMin, xRangeMax);
-            function.coefficients.deep() = fit.coeffs;
-            LOGLS_TRACE(_log, "after PolyFit: fiberTraceFunction->coefficients = " << function.coefficients);
-            }
-          default: {
-            std::ostringstream os;
-            os << "Interpolation " << function.ctrl.interpolation << " not supported. ";
-            os << "Use POLYNOMIAL (" << FiberTraceFunctionControl::POLYNOMIAL << ")";
-            throw LSST_EXCEPT(pexExcept::Exception, os.str());
-          }
-        }
+        /// Fit Polynomial
+        float xRangeMin = result.index[0];
+        float xRangeMax = result.index[length - 1];
+        auto const fit = fitPolynomial(vectorToArray(result.index), vectorToArray(result.position),
+                                       function.order, xRangeMin, xRangeMax);
+        func.coefficients.deep() = fit.coeffs;
+        LOGLS_TRACE(_log, "after PolyFit: fiberTraceFunction->coefficients = " << func.coefficients);
 
         // Find the fiberId
-        lsst::afw::geom::Point2D const center(function.xCenter, function.yCenter);
+        lsst::afw::geom::Point2D const center(func.xCenter, func.yCenter);
         std::size_t const fiberId = detectorMap.findFiberId(center);
-        traces.add(maskedImage, function, fitting, fiberId);
+        traces.add(maskedImage, func, fitting, fiberId);
     }
 
     traces.sortTracesByXCenter();
@@ -114,15 +95,16 @@ struct PointCompare {
 
 } // anonymous namespace
 
+
 template<typename ImageT, typename VarianceT>
 FindCenterPositionsOneTraceResult findCenterPositionsOneTrace(
     afwImage::Image<ImageT> & image,
     afwImage::Image<VarianceT> const& variance,
-    FiberTraceFunctionFindingControl const& finding,
+    FiberTraceFindingControl const& finding,
     lsst::afw::geom::Point<int> const& start
 ) {
     using FloatArray = ndarray::Array<float, 1, 1>;
-    using IntArray = ndarray::Array<int, 1, 1>;
+    using IntArray = ndarray::Array<std::size_t, 1, 1>;
 
     std::size_t const width = image.getWidth();
     std::size_t const height = image.getHeight();
@@ -130,18 +112,18 @@ FindCenterPositionsOneTraceResult findCenterPositionsOneTrace(
     lsst::afw::geom::Point<int> nextSearchStart(start);
     ndarray::Array<ImageT, 2, 1> const imageArray = image.getArray();
     ndarray::Array<VarianceT const, 2, 1> const varianceArray = variance.getArray();
-    std::size_t minWidth = std::max(int(1.5*finding.apertureFWHM), int(finding.nTermsGaussFit));
+    std::size_t minWidth = std::max(int(1.5*finding.apertureFwhm), int(finding.nTermsGaussFit));
     float maxTimesApertureWidth = 4.0; // XXX make configurable
     std::vector<float> gaussFitVariances;
     std::vector<float> gaussFitMean;
     int const nInd = 100; // XXX make configurable
     ndarray::Array<float, 2, 1> indGaussArr = ndarray::allocate(nInd, 2);
 
-    std::size_t maxApertureWidth = maxTimesApertureWidth*finding.apertureFWHM;
+    std::ptrdiff_t maxApertureWidth = maxTimesApertureWidth*finding.apertureFwhm;
 
-    std::size_t firstWideSignal;
-    std::size_t firstWideSignalEnd;
-    std::size_t firstWideSignalStart;
+    std::ptrdiff_t firstWideSignal;
+    std::ptrdiff_t firstWideSignalEnd;
+    std::ptrdiff_t firstWideSignalStart;
     std::size_t rowBak;
     bool apertureFound;
     ndarray::Array<float, 1, 1> indexCol = ndarray::allocate(width);
@@ -229,7 +211,7 @@ FindCenterPositionsOneTraceResult findCenterPositionsOneTrace(
                 ": 1. I_FirstWideSignalStart = " << firstWideSignalStart << endl;
             #endif
 
-            firstWideSignalEnd = math::firstIndexWithZeroValueFrom(signal, firstWideSignal) - 1;
+            firstWideSignalEnd = firstIndexWithZeroValueFrom(signal, firstWideSignal) - 1;
             #if defined(__DEBUG_FINDANDTRACE__)
             cout << "pfs::drp::stella::math::findCenterPositionsOneTrace: while: i_Row = " << row <<
                 ": I_FirstWideSignalEnd = " << firstWideSignalEnd << endl;
@@ -283,11 +265,7 @@ FindCenterPositionsOneTraceResult findCenterPositionsOneTrace(
 
             // Set start index for next run
             startIndex = firstWideSignalEnd + 1;
-
-            std::size_t const fitSize = firstWideSignalEnd - firstWideSignalStart + 1;
-            auto const arraySlice = ndarray::view(firstWideSignalStart, firstWideSignalEnd + 1);
-            auto const imageSlice = ndarray::view(row)(firstWideSignalStart, firstWideSignalEnd + 1);
-            std::size_t length = firstWideSignalEnd - firstWideSignalStart + 1;
+            std::size_t const length = firstWideSignalEnd - firstWideSignalStart + 1;
 
             #if defined(__DEBUG_FINDANDTRACE__)
             cout << "pfs::drp::stella::math::findCenterPositionsOneTrace: while: i_Row = " << row <<
@@ -299,7 +277,7 @@ FindCenterPositionsOneTraceResult findCenterPositionsOneTrace(
                 apertureFound = true;
                 std::size_t maxPos = 0;
                 ImageT tMax = 0.;
-                for (std::size_t i = firstWideSignalStart; i <= firstWideSignalEnd; ++i) {
+                for (std::ptrdiff_t i = firstWideSignalStart; i <= firstWideSignalEnd; ++i) {
                     if (imageArray[row][i] > tMax){
                         tMax = imageArray[row][i];
                         maxPos = i;
@@ -314,27 +292,27 @@ FindCenterPositionsOneTraceResult findCenterPositionsOneTrace(
 
                 // Set signal to zero
                 if (firstWideSignalEnd - 1 >= firstWideSignalStart + 1) {
-                    imageArray[imageSlice] = 0.;
+                    imageArray[ndarray::view(row)(firstWideSignalStart + 1, firstWideSignalEnd)] = 0.;
                 }
                 continue;
             }
             // Fitting multiple Gaussian terms
-            if (length <= finding.nTermsGaussFit) {
+            if (length <= std::size_t(finding.nTermsGaussFit)) {
                 #if defined(__DEBUG_FINDANDTRACE__)
                 cout << "pfs::drp::stella::math::findCenterPositionsOneTrace: while: i_Row = " << row <<
                     ": WARNING: Width of aperture <= " << finding.nTermsGaussFit <<
                     "-> abandoning aperture" << endl;
                 #endif
 
-                /// Set signal to zero
+                // Set signal to zero
                 if (firstWideSignalEnd - 1 >= firstWideSignalStart + 1) {
-                    imageArray[imageSlice] = 0.;
+                  imageArray[ndarray::view(row)(firstWideSignalStart + 1, firstWideSignalEnd)] = 0.;
                 }
                 continue;
             }
             // populate Arrays for GaussFit
-            FloatArray x = copy(indexCol[arraySlice]);
-            FloatArray y = copy(imageArray[imageSlice]);
+            FloatArray x = copy(indexCol[ndarray::view(firstWideSignalStart, firstWideSignalEnd + 1)]);
+            FloatArray y = copy(imageArray[ndarray::view(row)(firstWideSignalStart, firstWideSignalEnd + 1)]);
             for (auto it = y.begin(); it != y.end(); ++it) {
                 if (*it < 0.000001) {
                     *it = 1.;
@@ -344,8 +322,9 @@ FindCenterPositionsOneTraceResult findCenterPositionsOneTrace(
             cout << "pfs::drp::stella::math::findCenterPositionsOneTrace: 1. D_A1_Y set to " <<
                 y << endl;
             #endif
-            ndarray::Array<VarianceT const, 1, 1> const varianceSlice = varianceArray[imageSlice];
-            FloatArray yErr = ndarray::allocate(fitSize);
+            ndarray::Array<VarianceT const, 1, 1> const varianceSlice =
+                varianceArray[ndarray::view(row)(firstWideSignalStart, firstWideSignalEnd + 1)];
+            FloatArray yErr = ndarray::allocate(length);
             std::transform(varianceSlice.begin(), varianceSlice.end(), yErr.begin(),
                            [](ImageT value) { return value > 0 ? std::sqrt(value) : 1.0; });
 
@@ -353,11 +332,11 @@ FindCenterPositionsOneTraceResult findCenterPositionsOneTrace(
             if (finding.nTermsGaussFit == 3) {
                 guess[0] = *std::max_element(y.begin(), y.end());
                 guess[1] = firstWideSignalStart + 0.5*(firstWideSignalEnd - firstWideSignalStart);
-                guess[2] = 0.5*finding.apertureFWHM;
+                guess[2] = 0.5*finding.apertureFwhm;
             } else if (finding.nTermsGaussFit > 3) {
-                guess[3] = std::max(std::min(y[0], y[fitSize - 1]), float(0.1));
+                guess[3] = std::max(std::min(y[0], y[length - 1]), float(0.1));
                 if (finding.nTermsGaussFit > 4) {
-                    guess[4] = (y[fitSize - 1] - y[0])/(fitSize - 1);
+                    guess[4] = (y[length - 1] - y[0])/(length - 1);
                 }
             }
 
@@ -377,8 +356,8 @@ FindCenterPositionsOneTraceResult findCenterPositionsOneTrace(
             limits[0][1] = 2.*guess[0]; // Peak upper limit
             limits[1][0] = firstWideSignalStart; // Centroid lower limit
             limits[1][1] = firstWideSignalEnd; // Centroid upper limit
-            limits[2][0] = 0.25*finding.apertureFWHM; // Sigma lower limit
-            limits[2][1] = finding.apertureFWHM; // Sigma upper limit
+            limits[2][0] = 0.25*finding.apertureFwhm; // Sigma lower limit
+            limits[2][1] = finding.apertureFwhm; // Sigma upper limit
             if (finding.nTermsGaussFit > 3) {
                 limits[3][0] = 0.;
                 limits[3][1] = 2.*guess[3];
@@ -402,12 +381,12 @@ FindCenterPositionsOneTraceResult findCenterPositionsOneTrace(
 
                 // Set start index for next run
                 startIndex = firstWideSignalEnd + 1;
-                imageArray[imageSlice] = 0.;
+                imageArray[ndarray::view(row)(firstWideSignalStart + 1, firstWideSignalEnd)] = 0.;
                 continue;
             }
             #if defined(__DEBUG_FINDANDTRACE__)
             cout << "pfs::drp::stella::math::findCenterPositionsOneTrace: i_Row = " << row <<
-                ": while: D_A1_GaussFit_Coeffs = " << gaussFit_Coeffs << endl;
+                ": while: D_A1_GaussFit_Coeffs = " << gaussFitCoeffs << endl;
             if (gaussFitCoeffs[0] > finding.saturationLevel){
                 cout << "pfs::drp::stella::math::findCenterPositionsOneTrace: i_Row = " << row <<
                     ": while: WARNING: Signal appears to be saturated" << endl;
@@ -426,14 +405,14 @@ FindCenterPositionsOneTraceResult findCenterPositionsOneTrace(
                 #endif
 
                 // Set signal to zero
-                imageArray[imageSlice] = 0.;
+                imageArray[ndarray::view(row)(firstWideSignalStart + 1, firstWideSignalEnd)] = 0.;
 
                 /// Set start index for next run
                 startIndex = firstWideSignalEnd + 1;
                 continue;
             }
-            if (gaussFitCoeffs[2] < finding.apertureFWHM/4. ||
-                gaussFitCoeffs[2] > finding.apertureFWHM) {
+            if (gaussFitCoeffs[2] < finding.apertureFwhm/4. ||
+                gaussFitCoeffs[2] > finding.apertureFwhm) {
                 #if defined(__DEBUG_FINDANDTRACE__)
                 cout << "pfs::drp::stella::math::findCenterPositionsOneTrace: i_Row = " << row <<
                     ": while: WARNING: FWHM = " << gaussFitCoeffs[2] <<
@@ -441,7 +420,7 @@ FindCenterPositionsOneTraceResult findCenterPositionsOneTrace(
                 #endif
 
                 // Set signal to zero
-                imageArray[imageSlice] = 0.;
+                imageArray[ndarray::view(row)(firstWideSignalStart + 1, firstWideSignalEnd)] = 0.;
                 #if defined(__DEBUG_FINDANDTRACE__)
                 cout << "pfs::drp::stella::math::findCenterPositionsOneTrace: i_Row = " << row <<
                     ": while: B_ApertureFound = " << apertureFound <<
@@ -451,7 +430,8 @@ FindCenterPositionsOneTraceResult findCenterPositionsOneTrace(
                 cout << "pfs::drp::stella::math::findCenterPositionsOneTrace: i_Row = " << row <<
                     ": while: 1. ccdArray(i_Row = " << row << ", Range(I_FirstWideSignalStart = " <<
                     firstWideSignalStart << ", I_FirstWideSignalEnd = " << firstWideSignalEnd <<
-                    ")) set to " << imageArray[imageSlice] << endl;
+                    ")) set to " <<
+                    imageArray[ndarray::view(row)(firstWideSignalStart, firstWideSignalEnd)] << endl;
                 #endif
                 // Set start index for next run
                 startIndex = firstWideSignalEnd + 1;
@@ -466,15 +446,15 @@ FindCenterPositionsOneTraceResult findCenterPositionsOneTrace(
             cout << "pfs::drp::stella::math::findCenterPositionsOneTrace: while: i_Row = " << row <<
                 ": Aperture found at " << apertureCenter[row] << endl;
             #endif
-            imageArray[imageSlice] = 0.;
+            imageArray[ndarray::view(row)(firstWideSignalStart + 1, firstWideSignalEnd)] = 0.;
         } // while no aperture found
 
         if (apertureFound) {
             /// Trace Aperture
             std::set<lsst::afw::geom::Point2D, PointCompare> xySorted;
-            std::size_t apertureLength = 1;
-            std::size_t length = 1;
-            std::size_t apertureLost = 0;
+            int apertureLength = 1;
+            int length = 1;
+            int apertureLost = 0;
             #if defined(__DEBUG_FINDANDTRACE__)
             cout << "pfs::drp::stella::math::findCenterPositionsOneTrace: i_Row = " << row <<
                 ": Starting to trace aperture " << endl;
@@ -490,7 +470,7 @@ FindCenterPositionsOneTraceResult findCenterPositionsOneTrace(
                     apertureFound = true;
                     std::size_t maxPos = 0;
                     ImageT tMax = 0.;
-                    for (std::size_t i = firstWideSignalStart; i <= firstWideSignalEnd; ++i) {
+                    for (std::ptrdiff_t i = firstWideSignalStart; i <= firstWideSignalEnd; ++i) {
                         if (imageArray[row][i] > tMax) {
                             tMax = imageArray[row][i];
                             maxPos = i;
@@ -515,9 +495,9 @@ FindCenterPositionsOneTraceResult findCenterPositionsOneTrace(
                         imageArray[ndarray::view(row)(firstWideSignalStart + 1, firstWideSignalEnd)] = 0.;
                     }
                 } else {
-                    firstWideSignalStart = std::size_t(gaussFitCoeffsBak[1] - 1.6*gaussFitCoeffsBak[2]);
-                    firstWideSignalEnd = std::size_t(gaussFitCoeffsBak[1] + 1.6 * gaussFitCoeffsBak[2]) + 1;
-                    if (firstWideSignalStart < 0. || firstWideSignalEnd >= width) {
+                    firstWideSignalStart = gaussFitCoeffsBak[1] - 1.6*gaussFitCoeffsBak[2];
+                    firstWideSignalEnd = gaussFitCoeffsBak[1] + 1.6 * gaussFitCoeffsBak[2] + 1;
+                    if (firstWideSignalStart < 0. || firstWideSignalEnd >= std::ptrdiff_t(width)) {
                         #if defined(__DEBUG_FINDANDTRACE__)
                         cout << "pfs::drp::stella::math::findCenterPositionsOneTrace: i_Row = " << row <<
                             ": start or end of aperture outside CCD -> Aperture lost" << endl;
@@ -526,7 +506,7 @@ FindCenterPositionsOneTraceResult findCenterPositionsOneTrace(
                         if (firstWideSignalStart < 0) {
                             firstWideSignalStart = 0;
                         }
-                        if (firstWideSignalEnd >= width) {
+                        if (firstWideSignalEnd >= std::ptrdiff_t(width)) {
                             firstWideSignalEnd = width - 1;
                         }
                         imageArray[ndarray::view(row)(firstWideSignalStart + 1, firstWideSignalEnd)] = 0.;
@@ -534,8 +514,6 @@ FindCenterPositionsOneTraceResult findCenterPositionsOneTrace(
                     } else {
                         length = firstWideSignalEnd - firstWideSignalStart + 1;
                         std::size_t const fitSize = firstWideSignalEnd - firstWideSignalStart + 1;
-                        auto const arraySlice = ndarray::view(firstWideSignalStart, firstWideSignalEnd + 1);
-                        auto const imageSlice = ndarray::view(row)(firstWideSignalStart, firstWideSignalEnd + 1);
 
                         if (length <= finding.nTermsGaussFit) {
                             #if defined(__DEBUG_FINDANDTRACE__)
@@ -544,13 +522,13 @@ FindCenterPositionsOneTraceResult findCenterPositionsOneTrace(
                                 " -> Lost Aperture" << endl;
                             #endif
                             // Set signal to zero
-                            imageArray[imageSlice] = 0.;
+                            imageArray[ndarray::view(row)(firstWideSignalStart + 1, firstWideSignalEnd)] = 0.;
                             ++apertureLost;
                         } else {
-                            FloatArray x = copy(indexCol[arraySlice]);
-                            FloatArray y = copy(imageArray[imageSlice]);
+                            FloatArray x = copy(indexCol[ndarray::view(firstWideSignalStart, firstWideSignalEnd + 1)]);
+                            FloatArray y = copy(imageArray[ndarray::view(row)(firstWideSignalStart, firstWideSignalEnd + 1)]);
                             FloatArray yErr = ndarray::allocate(fitSize);
-                            auto const var = varianceArray[imageSlice];
+                            auto const var = varianceArray[ndarray::view(row)(firstWideSignalStart, firstWideSignalEnd + 1)];
                             #if 0
                             std::transform(var.begin(), var.end(), yErr.begin(),
                                           [](ImageT value) { value > 0 ? std::sqrt(value) : 1.0; });
@@ -569,7 +547,7 @@ FindCenterPositionsOneTraceResult findCenterPositionsOneTrace(
                             }
                             if (numGood < minWidth) {
                                 // Set signal to zero
-                                imageArray[imageSlice] = 0.;
+                                imageArray[ndarray::view(row)(firstWideSignalStart + 1, firstWideSignalEnd)] = 0.;
                                 ++apertureLost;
                                 #if defined(__DEBUG_FINDANDTRACE__)
                                 cout << "pfs::drp::stella::math::findCenterPositionsOneTrace: i_Row = " << row <<
@@ -597,8 +575,8 @@ FindCenterPositionsOneTraceResult findCenterPositionsOneTrace(
                                 limits[0][1] = 2.*guess[0]; // Peak upper limit
                                 limits[1][0] = firstWideSignalStart; // Centroid lower limit
                                 limits[1][1] = firstWideSignalEnd; // Centroid upper limit
-                                limits[2][0] = 0.25*finding.apertureFWHM; // Sigma lower limit
-                                limits[2][1] = finding.apertureFWHM; // Sigma upper limit
+                                limits[2][0] = 0.25*finding.apertureFwhm; // Sigma lower limit
+                                limits[2][1] = finding.apertureFwhm; // Sigma upper limit
 
                                 // Restrict values from wandering once we're established
                                 // XXX hard-coded values here should be made configurable
@@ -676,7 +654,7 @@ FindCenterPositionsOneTraceResult findCenterPositionsOneTrace(
                                         ": Warning: GaussFit FAILED" << endl;
                                     #endif
                                     // Set signal to zero
-                                    imageArray[imageSlice] = 0.;
+                                    imageArray[ndarray::view(row)(firstWideSignalStart + 1, firstWideSignalEnd)] = 0.;
                                     ++apertureLost;
                                 } else {
                                     gaussFitMean.push_back(gaussFitCoeffs[1]);
@@ -697,10 +675,10 @@ FindCenterPositionsOneTraceResult findCenterPositionsOneTrace(
                                     if (gaussFitCoeffs[0] < finding.signalThreshold){
                                         #if defined(__DEBUG_FINDANDTRACE__)
                                         cout << "pfs::drp::stella::math::findCenterPositionsOneTrace: i_Row = " << row <<
-                                            ": WARNING: peak = " << D_A1_GaussFit_Coeffs[1] << " lower than signalThreshold -> abandoning aperture" << endl;
+                                            ": WARNING: peak = " << gaussFitCoeffs[1] << " lower than signalThreshold -> abandoning aperture" << endl;
                                         #endif
                                         // Set signal to zero
-                                        imageArray[imageSlice] = 0.;
+                                        imageArray[ndarray::view(row)(firstWideSignalStart + 1, firstWideSignalEnd)] = 0.;
                                         #if defined(__DEBUG_FINDANDTRACE__)
                                         cout << "pfs::drp::stella::math::findCenterPositionsOneTrace: i_Row = " << row <<
                                             ": 2. Signal set to zero from I_FirstWideSignalStart = " << firstWideSignalStart <<
@@ -714,16 +692,16 @@ FindCenterPositionsOneTraceResult findCenterPositionsOneTrace(
                                             ": Warning: Center of Gaussian too far away from middle of signal -> abandoning aperture" << endl;
                                         #endif
                                         /// Set signal to zero
-                                        imageArray[imageSlice] = 0.;
+                                        imageArray[ndarray::view(row)(firstWideSignalStart + 1, firstWideSignalEnd)] = 0.;
                                         ++apertureLost;
-                                    } else if ((gaussFitCoeffs[2] < finding.apertureFWHM/4.) ||
-                                        (gaussFitCoeffs[2] > finding.apertureFWHM)) {
+                                    } else if ((gaussFitCoeffs[2] < finding.apertureFwhm/4.) ||
+                                        (gaussFitCoeffs[2] > finding.apertureFwhm)) {
                                         #if defined(__DEBUG_FINDANDTRACE__)
                                         cout << "pfs::drp::stella::math::findCenterPositionsOneTrace: i_Row = " << row <<
                                             ": WARNING: FWHM = " << gaussFitCoeffs[2] << " outside range -> abandoning aperture" << endl;
                                         #endif
                                         /// Set signal to zero
-                                        imageArray[imageSlice] = 0.;
+                                        imageArray[ndarray::view(row)(firstWideSignalStart + 1, firstWideSignalEnd)] = 0.;
                                         #if defined(__DEBUG_FINDANDTRACE__)
                                         cout << "pfs::drp::stella::math::findCenterPositionsOneTrace: i_Row = " << row <<
                                             ": 2. Signal set to zero from I_FirstWideSignalStart = " << firstWideSignalStart <<
@@ -786,7 +764,7 @@ FindCenterPositionsOneTraceResult findCenterPositionsOneTrace(
                                         }
                                     } // end else if (D_A1_GaussFit_Coeffs(0) >= signalThreshold
                                 } // end else if (GaussFit(D_A1_X, D_A1_Y, D_A1_GaussFit_Coeffs, S_A1_KeyWords_GaussFit, PP_Args_GaussFit))
-                                imageArray[imageSlice] = 0.;
+                                imageArray[ndarray::view(row)(firstWideSignalStart + 1, firstWideSignalEnd)] = 0.;
                             } // end else if (sum(I_A1_Signal) >= I_MinWidth){
                         } // end if (I_Length > 3)
                     } // end else if (I_ApertureStart >= 0. && I_ApertureEnd < ccdArray.getShape()[1])
@@ -829,13 +807,13 @@ FindCenterPositionsOneTraceResult findCenterPositionsOneTrace(
                     #if defined(__DEBUG_FINDANDTRACE__)
                     cout << "pfs::drp::stella::math::findCenterPositionsOneTrace: i_Row = " << row <<
                         ": result.apertureCenterIndex[" << result.index.size() - 1 <<
-                        "] set to " << result.apertureCenterIndex[result.index.size() - 1] << endl;
+                        "] set to " << result.index[result.index.size() - 1] << endl;
                     cout << "pfs::drp::stella::math::findCenterPositionsOneTrace: i_Row = " << row <<
                         ": result.apertureCenterPos[" << result.position.size() - 1 <<
-                        "] set to " << result.apertureCenterPos[result.position.size() - 1] << endl;
+                        "] set to " << result.position[result.position.size() - 1] << endl;
                     cout << "pfs::drp::stella::math::findCenterPositionsOneTrace: i_Row = " << row <<
                         ": result.eApertureCenterPos[" << result.error.size() - 1 <<
-                        "] set to " << result.eApertureCenterPos[result.error.size() - 1] << endl;
+                        "] set to " << result.error[result.error.size() - 1] << endl;
                     cout << "pfs::drp::stella::math::findCenterPositionsOneTrace: i_Row = " << row <<
                         ": result.nextSearchStart set to " << result.nextSearchStart << endl;
                     #endif
@@ -868,51 +846,27 @@ calculateXCenters(FiberTraceFunction const& function) {
     return calculateXCenters(function, xRowIndex);
 }
 
+
 ndarray::Array<float, 1, 1>
 calculateXCenters(
     pfs::drp::stella::FiberTraceFunction const& function,
     ndarray::Array<float, 1, 1> const& yIn
 ) {
-
-      ndarray::Array<float, 1, 1> xCenters;
-
-      #ifdef __DEBUG_XCENTERS__
-      cout << "pfs::drp::stella::calculateXCenters: function.ctrl.interpolation = " <<
-          function.ctrl.interpolation << endl;
-      cout << "pfs::drp::stella::calculateXCenters: function.ctrl.order = " << function.ctrl.order << endl;
-      #endif
-      float const rangeMin = function.yCenter + function.yLow;
-      float const rangeMax = function.yCenter + function.yHigh;
-      #ifdef __DEBUG_XCENTERS__
-      cout << "pfs::drp::stella::calculateXCenters: range = " << rangeMin << "," << rangeMax << endl;
-      #endif
-      switch (function.ctrl.interpolation) {
-        case FiberTraceFunctionControl::CHEBYSHEV: {
-          #ifdef __DEBUG_XCENTERS__
-          cout << "pfs::drp::stella::math::calculateXCenters: Calculating Chebyshev Polynomial" << endl;
-          cout << "pfs::drp::stella::calculateXCenters: Function = Chebyshev" << endl;
-          cout << "pfs::drp::stella::calculateXCenters: Coeffs = " << function.coefficients << endl;
-          #endif
-          ndarray::Array<float, 1, 1> yNew = convertRangeToUnity(yIn, rangeMin, rangeMax);
-          #ifdef __DEBUG_XCENTERS__
-          cout << "pfs::drp::stella::calculateXCenters: CHEBYSHEV: yNew = " << yNew << endl;
-          cout << "pfs::drp::stella::calculateXCenters: CHEBYSHEV: function.coefficients = " <<
-              function.coefficients << endl;
-          #endif
-          return calculateChebyshev(yNew, function.coefficients);
-        }
-      case FiberTraceFunctionControl::POLYNOMIAL: {
-        #ifdef __DEBUG_XCENTERS__
-          cout << "pfs::drp::stella::math::calculateXCenters: Calculating Polynomial" << endl;
-          cout << "pfs::drp::stella::calculateXCenters: Function = Polynomial" << endl;
-          cout << "pfs::drp::stella::calculateXCenters: function.coefficients = " <<
-             function.coefficients << endl;
-        #endif
-        return calculatePolynomial(yIn, function.coefficients, rangeMin, rangeMax);
-      }
-      default:
-        throw LSST_EXCEPT(pexExcept::RuntimeError, "Unrecognised interpolation type");
-    }
+    #ifdef __DEBUG_XCENTERS__
+    cout << "pfs::drp::stella::calculateXCenters: function.ctrl.order = " << function.ctrl.order << endl;
+    #endif
+    float const rangeMin = function.yCenter + function.yLow;
+    float const rangeMax = function.yCenter + function.yHigh;
+    #ifdef __DEBUG_XCENTERS__
+    cout << "pfs::drp::stella::calculateXCenters: range = " << rangeMin << "," << rangeMax << endl;
+    #endif
+    #ifdef __DEBUG_XCENTERS__
+      cout << "pfs::drp::stella::math::calculateXCenters: Calculating Polynomial" << endl;
+      cout << "pfs::drp::stella::calculateXCenters: Function = Polynomial" << endl;
+      cout << "pfs::drp::stella::calculateXCenters: function.coefficients = " <<
+         function.coefficients << endl;
+    #endif
+    return calculatePolynomial(yIn, function.coefficients, rangeMin, rangeMax);
 }
 
 
@@ -920,14 +874,15 @@ calculateXCenters(
 template FiberTraceSet<float, lsst::afw::image::MaskPixel, float> findAndTraceApertures(
     afwImage::MaskedImage<float, lsst::afw::image::MaskPixel, float> const&,
     DetectorMap const&,
-    FiberTraceFunctionFindingControl const&,
+    FiberTraceFindingControl const&,
+    FiberTraceFunctionControl const&,
     FiberTraceProfileFittingControl const&
 );
 
 template FindCenterPositionsOneTraceResult findCenterPositionsOneTrace(
     afwImage::Image<float> &,
     afwImage::Image<float> const&,
-    FiberTraceFunctionFindingControl const&,
+    FiberTraceFindingControl const&,
     lsst::afw::geom::Point<int> const&
 );
 

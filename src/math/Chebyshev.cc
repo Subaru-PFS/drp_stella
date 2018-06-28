@@ -284,12 +284,13 @@ t_polynomial_ab(ndarray::Array<float, 1, 1> const& x, int n, float a, float b) {
 //    Chebshev coefficients.
 //
 ndarray::Array<float, 1, 1>
-t_project_coefficients_data(ndarray::Array<float, 1, 1> const& x,
-                            ndarray::Array<float, 1, 1> const& d,
-                            float a,
-                            float b,
-                            int n)
-{
+t_project_coefficients_data(
+    ndarray::Array<float, 1, 1> const& x,
+    ndarray::Array<float, 1, 1> const& d,
+    float a,
+    float b,
+    int n
+) {
     utils::checkSize(x.getShape(), d.getShape(), "t_project_coefficients_data");
 
     if (ndarray::any(ndarray::less(x, a)) || ndarray::any(ndarray::greater(x, b))) {

@@ -18,9 +18,6 @@ public:
     using Array = ndarray::Array<T, 1, 1>;
     using ConstArray = ndarray::Array<T const, 1, 1>;
 
-#if 0
-    Spline() = default;                                        // needed as we have vectors<spline>
-#endif
     Spline(ConstArray const& x,                            ///< positions of knots
            ConstArray const& y,                            ///< values of function at knots
            InterpolationTypes interpolationType=CUBIC_NOTAKNOT ///< spline boundary conditions

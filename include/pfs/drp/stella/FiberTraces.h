@@ -1,4 +1,3 @@
-///TODO: Add deep option to copy constructors
 #if !defined(PFS_DRP_STELLA_FIBERTRACES_H)
 #define PFS_DRP_STELLA_FIBERTRACES_H
 
@@ -7,6 +6,7 @@
 
 #include "ndarray.h"
 
+#include "lsst/daf/base/PropertyList.h"
 #include "lsst/afw/image/MaskedImage.h"
 #include "lsst/afw/geom/Point.h"
 
@@ -30,6 +30,7 @@ class FiberTrace {
     typedef lsst::afw::image::Image<VarianceT> Variance;
 
     /** @brief Class Constructors and Destructor
+     *
      * @param maskedImage : maskedImage to set _trace to
      * @param fiberTraceId : FiberTrace ID
      * */
@@ -38,6 +39,7 @@ class FiberTrace {
 
     /**
      * @brief Create a FiberTrace from a MaskedImage and a FiberTraceFunction
+     *
      * @param maskedImage : Masked CCD Image from which to extract the FiberTrace
      * @param fiberTraceFunction : FiberTraceFunction defining the FiberTrace
      * @param fiberId : set this number to this._fiberId
@@ -49,25 +51,33 @@ class FiberTrace {
 
     /**
      * @brief Copy constructor (deep if required)
+     *
      * @param fiberTrace : FiberTrace to copy
      * @param deep : Deep copy if true, shallow copy if false
      */
     FiberTrace(FiberTrace<ImageT, MaskT, VarianceT> const& fiberTrace,
                bool deep=false);
     
+    FiberTrace(FiberTrace const&) = default;
+    FiberTrace(FiberTrace &&) = default;
+    FiberTrace & operator=(FiberTrace const&) = default;
+    FiberTrace & operator=(FiberTrace &&) = default;
+
     /**
      * @brief Destructor
      */
     virtual ~FiberTrace() {}
 
+    //@{
     /**
-     * @brief Return shared pointer to the 2D MaskedImage of this fiber trace
+     * @brief Return the 2D MaskedImage of this fiber trace
      */
     MaskedImageT & getTrace() { return _trace; }
     MaskedImageT const& getTrace() const { return _trace; }
+    //@}
 
     /**
-     * @brief Extract the spectrum of this fiber trace using the _profile
+     * @brief Extract the spectrum of this fiber trace using the profile
      */
     std::shared_ptr<Spectrum> extractSpectrum(
         MaskedImageT const& image, ///< image containing the spectrum
@@ -82,10 +92,11 @@ class FiberTrace {
     ndarray::Array<float const, 1, 1> getXCenters() const { return _xCenters; }
 
     /**
-     * @brief Return shared pointer to an image containing the reconstructed 2D spectrum of the FiberTrace
+     * @brief Return an image containing the reconstructed 2D spectrum of the FiberTrace
+     *
      * @param spectrum : 1D spectrum to reconstruct the 2D image from
      */
-    PTR(Image) constructImage(Spectrum const& spectrum) const;
+    std::shared_ptr<Image> constructImage(Spectrum const& spectrum) const;
     
     /**
      * @brief set the ID number of this trace (_fiberId) to this number
@@ -106,6 +117,7 @@ class FiberTrace {
 
     /**
      * @brief Calculate the spatial profile for the FiberTrace
+     *
      * Normally this would be a Flat FiberTrace, but in principle, if the spectrum
      * shows some kind of continuum, the spatial profile can still be calculated
      */
@@ -113,6 +125,7 @@ class FiberTrace {
 
     /**
      * @brief Helper function for calcProfile, calculates profile for a swath
+     *
      * A swath is approximately FiberTraceProfileFittingControl.swathWidth long
      * Each swath is overlapping the previous swath for half of the swath width
      * spectrum:
@@ -132,12 +145,14 @@ class FiberTrace {
 
     /**
      * @brief mark FiberTrace pixels in Mask image
+     *
      * @param value : value to Or into the FiberTrace mask
      */
     void _markFiberTraceInMask(MaskT value=1);
 
     /**
      * @brief Create _trace from maskedImage and _fiberTraceFunction
+     *
      * @param maskedImage : MaskedImage from which to extract the FiberTrace from
      * Pre: _xCenters set/calculated
      */
@@ -145,6 +160,7 @@ class FiberTrace {
 
     /**
      * @brief Calculate boundaries for the swaths used for profile calculation
+     *
      * @param swathWidth_In : Approximate width for the swaths, will be adjusted
      * to fill the length of the FiberTrace with equally sized swaths
      * @return 2D array containing the pixel numbers for the start and the end
@@ -191,10 +207,23 @@ class FiberTraceSet {
     typedef typename Collection::iterator iterator;
     typedef typename Collection::const_iterator const_iterator;
 
-    explicit FiberTraceSet(std::size_t reservation) { _traces.reserve(reservation); }
+    explicit FiberTraceSet(
+        std::size_t reservation,
+        std::shared_ptr<lsst::daf::base::PropertySet> metadata=nullptr
+    ) : _metadata(metadata ? metadata : std::make_shared<lsst::daf::base::PropertyList>()) {
+        _traces.reserve(reservation);
+    }
+
+    explicit FiberTraceSet(
+        Collection const& traces,
+        std::shared_ptr<lsst::daf::base::PropertySet> metadata=nullptr
+    ) : _traces(traces),
+        _metadata(metadata ? metadata : std::make_shared<lsst::daf::base::PropertyList>())
+    {}
 
     /**
      * @brief Copy constructor
+     *
      * @param fiberTraceSet : If fiberTraceSet is not empty and deep is false,
      * the object shares ownership of fiberTraceSet's fiber trace vector and
      * increases the use count. If deep is true then a deep copy of each FiberTrace
@@ -233,28 +262,33 @@ class FiberTraceSet {
 
     /**
      * @brief Set the ith FiberTrace
+     *
      * @param i : position in _traces which is to be replaced bye trace
      * @param trace : FiberTrace to replace _traces[i]
      */
-    void set(
-        std::size_t i,     ///< which aperture?
-        std::shared_ptr<FiberTraceT> trace ///< the FiberTrace for the ith aperture
-    ) {
-        _traces.at(i) = trace;
-    }
+    void set(std::size_t i, std::shared_ptr<FiberTraceT> trace) { _traces.at(i) = trace; }
 
     /**
      * @brief Add one FiberTrace to the set
+     *
      * @param trace : FiberTrace to be added to _traces
      */
     void add(std::shared_ptr<FiberTraceT> trace) { _traces.push_back(trace); }
+
+    /// Construct and add a FiberTrace
     template <class... Args>
     void add(Args&&... args) { _traces.push_back(std::make_shared<FiberTraceT>(args...)); }
 
+    //@{
+    /// Iterators
     iterator begin() { return _traces.begin(); }
     const_iterator begin() const { return _traces.begin(); }
     iterator end() { return _traces.end(); }
     const_iterator end() const { return _traces.end(); }
+    //@}
+
+    std::shared_ptr<lsst::daf::base::PropertySet> getMetadata() { return _metadata; }
+    std::shared_ptr<lsst::daf::base::PropertySet const> getMetadata() const { return _metadata; }
 
     /**
      * @brief Return this->_traces
@@ -268,7 +302,9 @@ class FiberTraceSet {
 
   private:
     Collection _traces; // traces for each aperture
+    std::shared_ptr<lsst::daf::base::PropertySet> _metadata;  // FITS header
 };
 
 }}}
+
 #endif

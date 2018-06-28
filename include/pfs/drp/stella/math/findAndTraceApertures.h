@@ -19,6 +19,7 @@ namespace math {
 
 /**
  * @brief identifies and traces the fiberTraces in maskedImage, and extracts them into individual FiberTraces
+ *
  * FiberTraces in returned FiberTraceSet will be sorted by their xCenter positions
  * Set I_NTermsGaussFit to
  *       1 to look for maximum only without GaussFit
@@ -28,8 +29,9 @@ namespace math {
  *       5 to fit Gaussian plus linear term (sloped sky)
  *         Spatial profile must be at least 6 pixels wide
  * NOTE that the WCS starts at [0., 0.], so an xCenter of 1.1 refers to position 0.1 of the second pixel
- * @param maskedImage : MaskedImage in which to find and trace the FiberTraces
- * @param fiberTraceFunctionFindingControl : Control to be used in task
+ *
+ * @param maskedImage  MaskedImage in which to find and trace the FiberTraces
+ * @param fiberTraceFunctionFindingControl  Control to be used in task
  **/
 template<typename ImageT, typename MaskT=lsst::afw::image::MaskPixel,
          typename VarianceT=lsst::afw::image::VariancePixel>
@@ -37,36 +39,40 @@ FiberTraceSet<ImageT, MaskT, VarianceT>
 findAndTraceApertures(
     lsst::afw::image::MaskedImage<ImageT, MaskT, VarianceT> const& maskedImage,
     DetectorMap const& detectorMap,
-    FiberTraceFunctionFindingControl const& finding,
+    FiberTraceFindingControl const& finding,
+    FiberTraceFunctionControl const& function,
     FiberTraceProfileFittingControl const& fitting
 );
 
-
+/// Results from findCenterPositionsOneTrace
 struct FindCenterPositionsOneTraceResult {
-    std::vector<float> index;
-    std::vector<float> position;
-    std::vector<float> error;
-    lsst::afw::geom::Point<int> nextSearchStart;
+    std::vector<float> index;  ///< Pixel indices (row value)
+    std::vector<float> position;  ///< Center positions (centroid of columns)
+    std::vector<float> error;  ///< Errors in center positions
+    lsst::afw::geom::Point<int> nextSearchStart;  ///< Point for starting next search
 };
 
 /**
- * @brief: traces the fiberTrace closest to the bottom of the image and sets it to zero
- * @param ccdImage: image to trace
- * @param ccdImageVariance: variance of image to trace (used for fitting)
- * @param fiberTraceFunctionFindingControl: parameters to find and trace a fiberTrace
+ * @brief traces the fiberTrace closest to the bottom of the image and sets it to zero
+ *
+ * @param ccdImage  image to trace
+ * @param ccdImageVariance  variance of image to trace (used for fitting)
+ * @param fiberTraceFunctionFindingControl  parameters to find and trace a fiberTrace
  * */
 template<typename ImageT, typename VarianceT=lsst::afw::image::VariancePixel>
 FindCenterPositionsOneTraceResult findCenterPositionsOneTrace(
     lsst::afw::image::Image<ImageT> & image,
     lsst::afw::image::Image<VarianceT> const& variance,
-    FiberTraceFunctionFindingControl const& finding,
+    FiberTraceFindingControl const& finding,
     lsst::afw::geom::Point<int> const& nextSearchStart
 );
 
 /**
- * @brief: returns ndarray containing the xCenters of a FiberTrace from 0 to FiberTrace.getTrace().getHeight()-1
- *         NOTE that the WCS starts at [0., 0.], so an xCenter of 1.1 refers to position 0.1 of the second pixel
- * @param function : FiberTraceFunction to use when calculating the xCenters
+ * @brief calculate the xCenters of a FiberTrace from 0 to FiberTrace.getTrace().getHeight()-1
+ *
+ * NOTE that the WCS starts at [0., 0.], so an xCenter of 1.1 refers to position 0.1 of the second pixel
+ *
+ * @param function  FiberTraceFunction to use when calculating the xCenters
  */
 ndarray::Array<float, 1, 1>
 calculateXCenters(
@@ -74,10 +80,12 @@ calculateXCenters(
 );
 
 /**
- * @brief: returns ndarray containing the xCenters of a FiberTrace from 0 to FiberTrace.getTrace().getHeight()-1
- *         NOTE that the WCS starts at [0., 0.], so an xCenter of 1.1 refers to position 0.1 of the second pixel
- * @param function : FiberTraceFunction to use when calculating the xCenters
- * @param yIn : This range in y will be converted to [-1.0,1.0] when calculating the xCenters
+ * @brief calculate the xCenters of a FiberTrace from 0 to FiberTrace.getTrace().getHeight()-1
+ *
+ * NOTE that the WCS starts at [0., 0.], so an xCenter of 1.1 refers to position 0.1 of the second pixel
+ *
+ * @param function  FiberTraceFunction to use when calculating the xCenters
+ * @param yIn  This range in y will be converted to [-1.0,1.0] when calculating the xCenters
  */
 ndarray::Array<float, 1, 1>
 calculateXCenters(

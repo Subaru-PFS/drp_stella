@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 import numpy as np
 import lsstDebug
 import lsst.pex.config as pexConfig
@@ -10,25 +9,24 @@ from pfs.drp.stella.utils import plotReferenceLines
 __all__ = ["CalibrateWavelengthsConfig", "CalibrateWavelengthsTask"]
 
 
-
 class CalibrateWavelengthsConfig(pexConfig.Config):
-    order = pexConfig.Field(doc="Fitting function order", dtype=int, default=4);
+    order = pexConfig.Field(doc="Fitting function order", dtype=int, default=4)
     searchRadius = pexConfig.Field(
         doc="Radius in pixels relative to line list to search for emission line peak",
         dtype=int,
         default=5
     )
-    fwhm = pexConfig.Field(doc="FWHM of emission lines", dtype=float, default=2.6);
+    fwhm = pexConfig.Field(doc="FWHM of emission lines", dtype=float, default=2.6)
     maxDistance = pexConfig.Field(
         doc="Reject lines with center more than maxDistance from predicted position",
         dtype=float,
         default=2.5
     )
     nLinesKeptBack = pexConfig.Field(doc="Number of lines to withhold from line fitting to estimate errors",
-                                     dtype=int, default=4);
+                                     dtype=int, default=4)
     nSigmaClip = pexConfig.ListField(doc="Number of sigma to clip points in the initial wavelength fit",
                                      dtype=float, default=[10, 5, 4, 3])
-    pixelPosErrorFloor = pexConfig.Field(doc="Floor on pixel positional errors, " +
+    pixelPosErrorFloor = pexConfig.Field(doc="Floor on pixel positional errors, "
                                          "added in quadrature to quoted errors",
                                          dtype=float, default=0.05)
     resetSlitDy = pexConfig.Field(doc="Reset the slitOffset values in the DetectorMap to 0",
@@ -37,7 +35,7 @@ class CalibrateWavelengthsConfig(pexConfig.Config):
 
 class CalibrateWavelengthsTask(pipeBase.Task):
     ConfigClass = CalibrateWavelengthsConfig
-    _DefaultName = "CalibrateWavelengthsTask"
+    _DefaultName = "calibrateWavelengths"
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -79,8 +77,8 @@ class CalibrateWavelengthsTask(pipeBase.Task):
         #
         for i, rl in enumerate(refLines):
             nominalPixelPos[i] = (rl.wavelength - lam[0])/nmPerPix
-            fitWavelength[i] = detectorMap.findWavelength(fiberId, rl.fitPixelPos)
-            fitWavelengthErr[i] = rl.fitPixelPosErr*nmPerPix
+            fitWavelength[i] = detectorMap.findWavelength(fiberId, rl.fitPosition)
+            fitWavelengthErr[i] = rl.fitPositionErr*nmPerPix
             status[i] = rl.status
 
         fitted = (status & drpStella.ReferenceLine.Status.FIT) != 0
@@ -102,15 +100,14 @@ class CalibrateWavelengthsTask(pipeBase.Task):
                 # Reserve some lines to estimate the quality of the fit
                 #
                 good = np.where(used)[0]
-                oldUsed = used.copy()
 
                 if self.config.nLinesKeptBack >= len(good):
                     self.log.warn("No. good points %d <= nLinesKeptBack == %d; not reserving points" %
-                              (len(good), self.config.nLinesKeptBack))
+                                  (len(good), self.config.nLinesKeptBack))
                 else:
                     for i in rng.choice(len(good), self.config.nLinesKeptBack, replace=False):
                         used[good[i]] = False
-                    
+
                     reserved = (fitted & ~clipped) & ~used
                     assert sum(reserved) == self.config.nLinesKeptBack
             #
@@ -167,11 +164,10 @@ class CalibrateWavelengthsTask(pipeBase.Task):
             else:
                 dy = -int(-dy)
                 spec.wavelength[dy:] = spec.wavelength[:-dy]
-                
+
         detectorMap.setWavelength(fiberId, spec.wavelength)
 
         return wavelengthCorr
-
 
     def plot(self, spec, detectorMap, wavelengthCorr):
         """Plot fit results
@@ -187,11 +183,13 @@ class CalibrateWavelengthsTask(pipeBase.Task):
         """
         rows = np.arange(len(spec.wavelength), dtype='float32')
         refLines = spec.getReferenceLines()
+        display = afwDisplay.Display()
+        fiberId = spec.getFiberId()
         if self.debugInfo.display and self.debugInfo.showArcLines:
             display.dot(str(fiberId),
-                        detectorMap.findPoint(fiberId, arcLines[0].wavelength)[0],
+                        detectorMap.findPoint(fiberId, refLines[0].wavelength)[0],
                         0.5*len(detectorMap.getXCenter(fiberId)) + 10*(fiberId%2), ctype='blue')
-            
+
             for rl in refLines:
                 xc, wl = detectorMap.findPoint(fiberId, rl.wavelength)
 
@@ -220,19 +218,20 @@ class CalibrateWavelengthsTask(pipeBase.Task):
                 return
 
             if self.debugInfo.plotWavelengthResiduals:
-                # things we're going to plot
-                dataItems = [(used, 'o', 'green', 'used'), #          logical, marker, colour, label
-                             (reserved, 'o', 'blue', 'reserved'),
-                             (clipped, '+', 'red', 'clipped'),
-                ]
                 #
                 # x is a nominal position which we used as an index for the Chebyshev fit.
                 # This makes the plot confusing, so update it
                 #
-                if False:
-                    for i, rl in enumerate(refLines):
-                        x[i] = detectorMap.findPoint(fiberId, rl.wavelength)[1]
-                    yfit = wavelengthCorr(x)
+                x = np.array([detectorMap.findPoint(fiberId, rl.wavelength)[1] for rl in refLines])
+                y = np.array([rl.wavelength for rl in refLines])
+                yfit = wavelengthCorr(x)
+                status = np.array([rl.status for rl in refLines])
+
+                # things we're going to plot: logical, marker, colour, label
+                dataItems = [(status == drpStella.ReferenceLine.FIT, 'o', 'green', 'used'),
+                             (status == drpStella.ReferenceLine.RESERVED, 'o', 'blue', 'reserved'),
+                             (status == drpStella.ReferenceLine.CLIPPED, '+', 'red', 'clipped'),
+                             ]
 
                 plt.figure().subplots_adjust(hspace=0)
 
@@ -242,24 +241,22 @@ class CalibrateWavelengthsTask(pipeBase.Task):
 
                 ax = axes[0]
                 for l, marker, color, label in dataItems:
-                    ax.errorbar(x[l], (y - yfit)[l], yerr=yerr[l],
-                                marker=marker, ls='none', color=color)
+                    ax.errorbar(x[l], (y - yfit)[l], marker=marker, ls='none', color=color)
 
                 ax.set_ylim(0.1*np.array([-1, 1]))
                 ax.axhline(0, ls=':', color='black')
                 ax.set_ylabel('residuals (nm)')
 
-                ax.set_title("FiberId %d" % fiberId) # applies to the whole plot
-                
+                ax.set_title("FiberId %d" % fiberId)  # applies to the whole plot
+
                 ax = axes[1]
                 for l, marker, color, label in dataItems:
-                    if l.sum() > 0: # no points confuses plt.legend()
-                        ax.errorbar(x[l], y[l], yerr=yerr[l],
-                                    marker=marker, ls='none', color=color, label=label)
+                    if l.sum() > 0:  # no points confuses plt.legend()
+                        ax.errorbar(x[l], y[l], marker=marker, ls='none', color=color, label=label)
                 ax.plot(rows, wavelengthCorr(rows))
 
                 ax.legend(loc='best')
-                ax.set_xlabel('pixel') # applies to the whole plot
+                ax.set_xlabel('pixel')  # applies to the whole plot
                 ax.set_ylabel('lambda - fit (nm)')
 
                 plt.show()
@@ -275,7 +272,7 @@ class CalibrateWavelengthsTask(pipeBase.Task):
                 plt.xlim(xlim)
                 plt.legend(loc='best')
                 plt.xlabel('row')
-                plt.title("FiberId %d" % fiberId);
+                plt.title("FiberId %d" % fiberId)
                 plt.show()
 
             if self.debugInfo.plotArcLinesLambda:
@@ -320,4 +317,4 @@ class CalibrateWavelengthsTask(pipeBase.Task):
                 self.plot(spec, detectorMap, wavelengthCorr)
             solutions.append(wavelengthCorr)
 
-        return solutions
+        return pipeBase.Struct(solutions=solutions)

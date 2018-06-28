@@ -165,10 +165,10 @@ bool MPFitGauss(const ndarray::Array< T, 1, 1 >& D_A1_X_In,
                 const bool B_FitArea,
                 ndarray::Array< T, 1, 1 >& D_A1_Coeffs_Out,
                 ndarray::Array< T, 1, 1 >& D_A1_ECoeffs_Out){
-  int I_NParams = 4;
+  std::size_t I_NParams = 4;
   if (!B_WithConstantBackground)
     I_NParams = 3;
-  unsigned int I_NPts = D_A1_X_In.getShape()[0];
+  std::size_t I_NPts = D_A1_X_In.getShape()[0];
   if (D_A1_Y_In.getShape()[0] != I_NPts){
     cout << "MPFitting_ndarray::MPFitGauss: ERROR: D_A1_X_In and D_A1_Y_In must have same size" << endl;
     return false;
@@ -185,12 +185,12 @@ bool MPFitGauss(const ndarray::Array< T, 1, 1 >& D_A1_X_In,
   double y[I_NPts];
   double ey[I_NPts];
   double p[I_NParams];
-  for (int i_pt=0; i_pt<I_NPts; i_pt++){
+  for (std::size_t i_pt = 0; i_pt < I_NPts; ++i_pt) {
     x[i_pt] = D_A1_X_In[i_pt];
     y[i_pt] = D_A1_Y_In[i_pt];
     ey[i_pt] = D_A1_EY_In[i_pt];
   }
-  for (int i_par=0; i_par<I_NParams; i_par++){
+  for (std::size_t i_par = 0; i_par < I_NParams; ++i_par) {
     p[i_par] = D_A1_Guess_In[i_par];       /* Initial conditions */
   }
   double perror[I_NParams];			   /* Returned parameter errors */
@@ -233,7 +233,7 @@ bool MPFitGauss(const ndarray::Array< T, 1, 1 >& D_A1_X_In,
       result.status = mpfit(MPFitGaussFuncNB, I_NPts, I_NParams, p, pars, 0, (void *) &v, &result);
   }
 
-  for (int i_par=0; i_par<I_NParams; i_par++){
+  for (std::size_t i_par = 0; i_par < I_NParams; ++i_par) {
     D_A1_Coeffs_Out[i_par] = p[i_par];
     D_A1_ECoeffs_Out[i_par] = result.xerror[i_par];
   }
@@ -254,14 +254,14 @@ bool MPFitGaussLim(const ndarray::Array< T, 1, 1 >& D_A1_X_In,
                    ndarray::Array< T, 1, 1 >& D_A1_ECoeffs_Out,
                    bool Debug){
 
-  int I_NParams = 3;
+  std::size_t I_NParams = 3;
   if (Background == 1)
     I_NParams = 4;
   else if (Background == 2)
     I_NParams = 5;
 
   ///Check Limits
-  for (int i_par=0; i_par<I_NParams; i_par++){
+  for (std::size_t i_par = 0; i_par < I_NParams; ++i_par) {
     if ((I_A2_Limited(i_par, 0) == 1) && (I_A2_Limited(i_par, 1) == 1)){
       if (D_A2_Limits(i_par, 0) > D_A2_Limits(i_par, 1)){
         cout << "MPFitting_ndarray::MPFitGaussLim: ERROR: D_A2_Limits(" << i_par << ", 0)(=" << D_A2_Limits(i_par, 0) <<") > D_A2_Limits(" << i_par << ", 1)(=" << D_A2_Limits(i_par, 1) << ")" << endl;
@@ -269,7 +269,7 @@ bool MPFitGaussLim(const ndarray::Array< T, 1, 1 >& D_A1_X_In,
       }
     }
   }
-  unsigned int I_NPts = D_A1_X_In.getShape()[0];
+  std::size_t I_NPts = D_A1_X_In.getShape()[0];
   if (D_A1_Y_In.getShape()[0] != I_NPts){
     cout << "MPFitting_ndarray::MPFitGaussLim: ERROR: D_A1_X_In and D_A1_Y_In must have same size" << endl;
     return false;
@@ -286,7 +286,7 @@ bool MPFitGaussLim(const ndarray::Array< T, 1, 1 >& D_A1_X_In,
   double y[I_NPts];
   double ey[I_NPts];
   double p[I_NParams];
-  for (int i_pt=0; i_pt<I_NPts; i_pt++){
+  for (std::size_t i_pt = 0; i_pt < I_NPts; ++i_pt) {
     x[i_pt] = double(D_A1_X_In[i_pt]);
     y[i_pt] = double(D_A1_Y_In[i_pt]);
     ey[i_pt] = double(D_A1_EY_In[i_pt]);
@@ -295,7 +295,7 @@ bool MPFitGaussLim(const ndarray::Array< T, 1, 1 >& D_A1_X_In,
         cout << "MPFitting_ndarray::MPFitGaussLim: x[" << i_pt << "] = " << x[i_pt] << ", y[" << i_pt << "] = " << y[i_pt] << ", ey[" << i_pt << "] = " << ey[i_pt] << endl;
     #endif
   }
-  for (int i_par=0; i_par<I_NParams; i_par++){
+  for (std::size_t i_par = 0; i_par < I_NParams; ++i_par) {
     p[i_par] = double(D_A1_Guess_In[i_par]);       /* Initial conditions */
     #ifdef __DEBUG_GAUSSFITLIM__
       if (Debug)
@@ -321,11 +321,11 @@ bool MPFitGaussLim(const ndarray::Array< T, 1, 1 >& D_A1_X_In,
   result.xerror = perror;
 
   memset(pars,0,sizeof(pars));        /* Initialize constraint structure */
-  for (int i_par=0; i_par<I_NParams; i_par++){
-    pars[i_par].limited[0] = I_A2_Limited[ ndarray::makeVector( i_par, 0 ) ];
-    pars[i_par].limited[1] = I_A2_Limited[ ndarray::makeVector( i_par, 1 ) ];
-    pars[i_par].limits[0] = double(D_A2_Limits[ ndarray::makeVector( i_par, 0 ) ] );              /* lower parameter limit */
-    pars[i_par].limits[1] = double(D_A2_Limits[ ndarray::makeVector(i_par, 1 ) ] );              /* upper parameter limit */
+  for (std::size_t i_par = 0; i_par < I_NParams; ++i_par) {
+    pars[i_par].limited[0] = I_A2_Limited[i_par][0];
+    pars[i_par].limited[1] = I_A2_Limited[i_par][1];
+    pars[i_par].limits[0] = double(D_A2_Limits[i_par][0]);              /* lower parameter limit */
+    pars[i_par].limits[1] = double(D_A2_Limits[i_par][1]);              /* upper parameter limit */
     #ifdef __DEBUG_GAUSSFITLIM__
       if (Debug){
         cout << "MPFitting_ndarray::MPFitGaussLim: pars[" << i_par << "].limited[0] = " << pars[i_par].limited[0] << ", pars[" << i_par << "].limited[1] = " << pars[i_par].limited[1] << endl;
@@ -375,7 +375,7 @@ bool MPFitGaussLim(const ndarray::Array< T, 1, 1 >& D_A1_X_In,
       cout << "MPFitting_ndarray::MPFitGaussLim: mpfit status = " << result.status << endl;
   #endif
 
-  for (int i_par=0; i_par<I_NParams; i_par++){
+  for (std::size_t i_par = 0; i_par < I_NParams; ++i_par) {
     D_A1_Coeffs_Out[i_par] = p[i_par];
     D_A1_ECoeffs_Out[i_par] = result.xerror[i_par];
   }

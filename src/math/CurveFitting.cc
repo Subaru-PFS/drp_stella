@@ -45,27 +45,27 @@ ndarray::Array<T, 1, 1> calculatePolynomial(
     std::cout << "pfs::drp::stella::math::CurveFitting::Poly: xNew = " << xNew << std::endl;
     #endif
 
-    ndarray::Array<T, 1, 1> out = ndarray::allocate(int(num));
+    ndarray::Array<T, 1, 1> out = ndarray::allocate(num);
     #ifdef __DEBUG_POLY__
     std::cout << "Poly: coeffs_In = " << coeffs_In << std::endl;
     #endif
-    std::size_t order = coeffs.size() - 1;
+    std::size_t const order = coeffs.size() - 1;
     #ifdef __DEBUG_POLY__
     std::cout << "Poly: I_PolynomialOrder set to " << order << std::endl;
     #endif
     if (order == 0) {
-      out.deep() = coeffs(0);
-      #ifdef __DEBUG_POLY__
-      std::cout << "Poly: I_PolynomialOrder == 0: arr_Out set to " << out << std::endl;
-      #endif
-      return out;
+        out.deep() = coeffs[0];
+        #ifdef __DEBUG_POLY__
+        std::cout << "Poly: I_PolynomialOrder == 0: arr_Out set to " << out << std::endl;
+        #endif
+        return out;
     }
-    out.deep() = coeffs(order);
+    out.deep() = coeffs[order];
     #ifdef __DEBUG_POLY__
     std::cout << "Poly: I_PolynomialOrder != 0: arr_Out set to " << out << std::endl;
     #endif
 
-    for (std::size_t ii = order - 1; ii >= 0; --ii) {
+    for (std::ptrdiff_t ii = order - 1; ii >= 0; --ii) {
         for (std::size_t jj = 0; jj < num; ++jj) {
             out[jj] = out[jj]*xNew[jj] + coeffs[ii];
         }
@@ -109,13 +109,13 @@ PolynomialFitResults<T> fitPolynomial(
     std::size_t const nData = x.getNumElements();
     std::size_t const nCoeffs = degree + 1;
 
-    bool haveMeasureErrors = yErr.isEmpty();
+    bool haveMeasureErrors = !yErr.isEmpty();
     if (haveMeasureErrors) {
         utils::checkSize(nData, yErr.getNumElements(), "fitPolynomial: yErr");
     }
 
     Array xNew;
-    if ((std::fabs(ctrl.xRangeMin + 1.) > 0.00000001) || (std::fabs(ctrl.xRangeMax - 1.) > 0.00000001)){
+    if ((std::fabs(ctrl.xRangeMin + 1.) > 0.00000001) || (std::fabs(ctrl.xRangeMax - 1.) > 0.00000001)) {
         xNew = ndarray::copy(convertRangeToUnity(x, ctrl.xRangeMin, ctrl.xRangeMax));
     } else {
         xNew = x;
@@ -130,7 +130,7 @@ PolynomialFitResults<T> fitPolynomial(
     ndarray::Array<bool, 1, 1> rejectedOld;
     for (int iter = 0; iter < ctrl.nIter; ++iter) {
         rejectedOld = ndarray::copy(results.rejected);
-        results = fitPolynomial(x, y, degree, yErr, &results);
+        results = fitPolynomial(xNew, y, degree, yErr, &results);
 
         LOGLS_DEBUG(_log, "fitPolynomial vanilla returned coeffs = " << results.coeffs);
         LOGLS_DEBUG(_log, "yFit = " << results.yFit);
@@ -152,6 +152,10 @@ PolynomialFitResults<T> fitPolynomial(
             break;
         }
     }
+    // Final fit after rejection
+    results = fitPolynomial(xNew, y, degree, yErr, &results);
+    ndarray::Array<T, 1, 1> residuals = ndarray::allocate(nData);
+    residuals.deep() = y - results.yFit;
     LOGLS_DEBUG(_log, "PolyFit(x, y, deg, lReject, uReject, nIter, Args, ArgV) finished");
     return results;
 }
@@ -184,7 +188,7 @@ PolynomialFitResults<T> fitPolynomial(
     PolynomialFitResults<T> results = resultsIn ? *resultsIn : PolynomialFitResults<T>(nDataPoints, nCoeffs);
 
     // Measurement errors
-    bool haveMeasureError = yErr.isEmpty();
+    bool haveMeasureError = !yErr.isEmpty();
     ndarray::Array<double, 1, 1> sdevSquare = ndarray::allocate(nDataPoints);
     if (haveMeasureError) {
         sdevSquare.deep() = yErr*yErr;
@@ -196,10 +200,11 @@ PolynomialFitResults<T> fitPolynomial(
     ndarray::Array<double, 1, 1> b = ndarray::allocate(nCoeffs);
     ndarray::Array<double, 1, 1> z = ndarray::allocate(nDataPoints);
     ndarray::Array<double, 1, 1> wy = ndarray::allocate(nDataPoints);
-    z.deep() = x;
+    z.deep() = 1.0;
+    results.covar.deep() = 0;
 
     if (haveMeasureError) {
-        wy.deep() = wy/sdevSquare;
+        wy.deep() = y/sdevSquare;
         results.covar[0][0] = sum(1./sdevSquare);
         LOGLS_DEBUG(_log, "B_HaveMeasureError: (*P_D_A2_Covar)(0,0) set to "
                           << results.covar[ndarray::makeVector(0, 0)]);
@@ -219,6 +224,7 @@ PolynomialFitResults<T> fitPolynomial(
 
     b[0] = sum(wy);
     for (std::size_t p = 1; p <= 2*degree; ++p) {
+        z.deep() = z*x;
         if (p < nCoeffs) {
             b[p] = ndarray::sum(wy*z);
         }
@@ -228,8 +234,9 @@ PolynomialFitResults<T> fitPolynomial(
         } else {
             sum = ndarray::sum(z);
         }
-        for (std::size_t j = (p - degree > 0) ? p - degree : 0; j <= degree; ++j) {
-            results.covar[ndarray::makeVector(j, p - j)] = sum;
+        for (std::size_t j = std::max(std::ptrdiff_t(p) - std::ptrdiff_t(degree), std::ptrdiff_t(0));
+             j <= degree; ++j) {
+            results.covar[j][p - j] = sum;
         }
     }
 
@@ -444,6 +451,7 @@ fitProfile2d(
     ndarray::Array<ImageT const, 2, 1> const& variance = data.getVariance()->getArray();
     MaskPixel const badBitmask = data.getMask()->getPlaneBitMask(badMaskPlanes);
 
+    utils::checkSize(image.getShape(), traceMask.getShape(), "fitProfile2d: data vs traceMask");
     utils::checkSize(image.getShape(), profile2d.getShape(), "fitProfile2d: data vs profile2d");
 
     Array spectrumImage = ndarray::allocate(height);
