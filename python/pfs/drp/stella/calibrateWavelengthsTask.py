@@ -124,7 +124,10 @@ class CalibrateWavelengthsTask(pipeBase.Task):
             yfit = wavelengthCorr(x)
 
             if nSigma is not None:
-                clipped |= fitted & (np.fabs(y - yfit) > nSigma*yerr)
+                resid = y - yfit
+                lq, uq = np.percentile(resid[fitted], (25.0, 75.0))
+                stdev = 0.741*(uq - lq)
+                clipped |= fitted & (np.fabs(resid) > nSigma*np.where(yerr > stdev, yerr, stdev))
                 used = used & ~clipped
 
                 if used.sum() == 0:
