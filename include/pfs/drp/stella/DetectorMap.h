@@ -6,6 +6,7 @@
 
 #include "lsst/afw/geom/Box.h"
 #include "lsst/afw/geom/Point.h"
+#include "lsst/afw/image/VisitInfo.h"
 
 #include "pfs/drp/stella/spline.h"
 
@@ -23,7 +24,7 @@ namespace pfs { namespace drp { namespace stella {
 class DetectorMap {
     friend class DetectorMapIO;
 public:
-    static const int FIBER_DX=0, FIBER_DY=1, FIBER_DFOCUS=2;
+    enum ArrayRow { DX = 0, DY = 1, DFOCUS = 2 };
 
     using FiberMap = ndarray::Array<int, 1, 1>;
     using Array2D = ndarray::Array<float, 2, 1>;
@@ -39,14 +40,21 @@ public:
                          Array1D const& throughput=Array1D() ///< relative throughput per fiber
                         );
 
-protected:
-    explicit DetectorMap(lsst::afw::geom::Box2I bbox,                    // detector's bounding box
-                         FiberMap const& fiberIds,      // 1-indexed IDs for each fibre
-                         std::size_t nKnot                               // number of knots
-                        );
-public:    
-    /** \brief dtor */
+    DetectorMap(lsst::afw::geom::Box2I bbox,  // detector's bounding box
+                FiberMap const& fiberIds,  // 1-indexed IDs for each fibre
+                ndarray::Array<float const, 2, 1> const& centerKnots,
+                ndarray::Array<float const, 2, 1> const& centerValues,
+                ndarray::Array<float const, 2, 1> const& wavelengthKnots,
+                ndarray::Array<float const, 2, 1> const& wavelengthValues,
+                Array2D const& slitOffsets,  // per-fibre offsets
+                Array1D const& throughput  // relative throughput per fiber
+                );
+
     virtual ~DetectorMap() {}
+    DetectorMap(DetectorMap const&) = default;
+    DetectorMap(DetectorMap &&) = default;
+    DetectorMap & operator=(DetectorMap const&) = default;
+    DetectorMap & operator=(DetectorMap &&) = default;
 
     /** \brief return the bbox */
     lsst::afw::geom::Box2I getBBox() const { return _bbox; }
@@ -72,20 +80,20 @@ public:
      *
      * See getSlitOffsets()
      */
-    void setSlitOffsets(std::size_t fiberId, ///< desired fibre
-                        ndarray::Array<float, 1, 0> const& offsets ///< slit offsets for chosen fibre
-                       )
-        {
-            _slitOffsets[ndarray::view(FIBER_DX, FIBER_DFOCUS + 1)(getFiberIdx(fiberId))].deep() = offsets;
-        }
+    void setSlitOffsets(
+        std::size_t fiberId, ///< desired fibre
+        ndarray::Array<float, 1, 0> const& offsets ///< slit offsets for chosen fibre
+    ) {
+        _slitOffsets[ndarray::view(DX, DFOCUS + 1)(getFiberIndex(fiberId))].deep() = offsets;
+    }
     
     /**
      * Get the offsets of the wavelengths and x-centres (in floating-point pixels) and focus (in microns)
      * of each fibre
      *
-     * The return value is a (3, nFiber) array, which may be indexed by FIBER_DX, FIBER_DY, and FIBER_DFOCUS,
+     * The return value is a (3, nFiber) array, which may be indexed by DX, DY, and DFOCUS,
      * e.g.
-     *  ftMap.getSlitOffsets()[FIBER_DX][100]
+     *  ftMap.getSlitOffsets()[DX][100]
      * is the offset in the x-direction for the 100th fiber (n.b. not fiberId necessarily; cf. findFiberId())
      *
      * The units are pixels for DX and DY; microns at the slit for focus
@@ -94,12 +102,12 @@ public:
     /**
      * Return the slit offsets for the specified fibre; see getSlitOffsets() for details
      * e.g.
-     *  ftMap.getSlitOffsets(fiberId)[FIBER_DY]
+     *  ftMap.getSlitOffsets(fiberId)[DY]
      * is the offset in the y-direction for the fibre identified by fiberId
      */
-    ndarray::Array<float, 1, 0> const getSlitOffsets(std::size_t fiberId ///< fiberId
-                                                    ) const
-        { return _slitOffsets[ndarray::view(FIBER_DX, FIBER_DFOCUS + 1)(getFiberIdx(fiberId))]; }
+    ndarray::Array<float const, 1, 0> const getSlitOffsets(
+        std::size_t fiberId ///< fiberId
+    ) const { return _slitOffsets[ndarray::view(DX, DFOCUS + 1)(getFiberIndex(fiberId))]; }
 
     /**
      * Return the wavelength values for a fibre
@@ -115,6 +123,7 @@ public:
                        Array1D const& wavelength ///< wavelengths for fibre
                       );
 
+    //@{
     /**
      * Return the xCenter values for a fibre
      */
@@ -124,7 +133,9 @@ public:
 protected:
     float getXCenter(std::size_t fiberId, ///< fiberId
                      float y              ///< desired y value
-                    ) const;
+                     ) const;
+    //@}
+
 public:
 
     /**
@@ -147,7 +158,7 @@ public:
      * Set a fibre's (relative) throughput
      */
     void setThroughput(std::size_t fiberId,                       ///< 1-indexed fiberID 
-                       const float throughput                     ///< the fibre's throughput
+                       float throughput                     ///< the fibre's throughput
                       );
 
     void setThroughput(Array1D const& throughput);
@@ -161,36 +172,42 @@ public:
     /** \brief
      * Return the position of the fiber trace on the detector, given a fiberId and wavelength
      */
-    lsst::afw::geom::PointD findPoint(const int fiberId,               ///< Desired fibreId
-                                      const float wavelength           ///< desired wavelength
+    lsst::afw::geom::PointD findPoint(int fiberId,               ///< Desired fibreId
+                                      float wavelength           ///< desired wavelength
                                      ) const;
     /** \brief
      * Return the wavelength of a point on the detector, given a fiberId and position
      */
-    float findWavelength(const int fiberId,               ///< Desired fibreId
-                         const float pixelPos             ///< desired row
+    float findWavelength(int fiberId,               ///< Desired fibreId
+                         float pixelPos             ///< desired row
                         ) const;
     /** \brief
      * Return the index of a fiber, given its fiber ID
      */
-    std::size_t getFiberIdx(std::size_t fiberId) const;
+    std::size_t getFiberIndex(int fiberId) const;
+
+    lsst::afw::image::VisitInfo getVisitInfo() { return _visitInfo; }
+    void setVisitInfo(lsst::afw::image::VisitInfo &visitInfo) { _visitInfo = visitInfo; };
+
+    math::Spline<float> const& getCenterSpline(std::size_t index) const;
+    math::Spline<float> const& getWavelengthSpline(std::size_t index) const;
+
 private:                                // initialise before _yTo{XCenter,Wavelength}
-    int _nFiber;                        // number of fibers
-protected:
-    // N.b. DetectorMapIO is a friend, and makes the protected members available for read/write routines
+    std::size_t _nFiber;                // number of fibers
     lsst::afw::geom::Box2I _bbox;       // bounding box of detector
     FiberMap _fiberIds;         // The fiberIds (between 1 and c. 2400) present on this detector
     
     Array1D _throughput;	// The throughput (in arbitrary units ~ 1) of each fibre
     //
-    // These std::vectors are indexed by fiberIdx (not fiberId)
+    // These std::vectors are indexed by fiberIndex (not fiberId)
     //
-    std::vector<math::spline<float>> _yToXCenter; // splines to convert a y pixel value to trace position
-    std::vector<math::spline<float>> _yToWavelength; // splines to convert a y pixel value to wavelength
+    // Vector of pointers because they can be undefined.
+    //
+    std::vector<std::shared_ptr<math::Spline<float>>> _yToXCenter; // convert y pixel value to trace position
+    std::vector<std::shared_ptr<math::Spline<float>>> _yToWavelength; // convert a y pixel value to wavelength
 
     void _set_xToFiberId();
-private:
-    int _nKnot;                         // number of knots for splines
+    std::size_t _nKnot;                         // number of knots for splines
     //
     // An array that gives the fiberId half way up the chip
     //
@@ -199,10 +216,12 @@ private:
     // offset (in pixels) for each trace in x, and y and in focus (microns at the slit); indexed by fiberIdx
     //
     Array2D _slitOffsets;
+
+    lsst::afw::image::VisitInfo _visitInfo;
     /*
      * Private helper functions
      */
-    void _setSplines(const std::size_t fidx,
+    void _setSplines(std::size_t fIndex,
                      Array1D const& xc, bool setXCenters,
                      Array1D const& wl, bool setWavelengths);
 

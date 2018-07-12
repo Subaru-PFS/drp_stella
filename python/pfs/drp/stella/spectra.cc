@@ -1,7 +1,6 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 
-#include "numpy/arrayobject.h"
 #include "ndarray/pybind11.h"
 
 #include "pfs/drp/stella/Spectra.h"
@@ -40,16 +39,16 @@ void declareReferenceLine(py::module &mod) {
     cls.def_readwrite("status", &ReferenceLine::status);
     cls.def_readwrite("wavelength", &ReferenceLine::wavelength);
     cls.def_readwrite("guessedIntensity", &ReferenceLine::guessedIntensity);
-    cls.def_readwrite("guessedPixelPos", &ReferenceLine::guessedPixelPos);
+    cls.def_readwrite("guessedPosition", &ReferenceLine::guessedPosition);
     cls.def_readwrite("fitIntensity", &ReferenceLine::fitIntensity);
-    cls.def_readwrite("fitPixelPos", &ReferenceLine::fitPixelPos);
-    cls.def_readwrite("fitPixelPosErr", &ReferenceLine::fitPixelPosErr);
+    cls.def_readwrite("fitPosition", &ReferenceLine::fitPosition);
+    cls.def_readwrite("fitPositionErr", &ReferenceLine::fitPositionErr);
 
     cls.def("__getstate__",
         [](ReferenceLine const& self) {
             return py::make_tuple(self.description, self.status, self.wavelength, self.guessedIntensity,
-                                  self.guessedPixelPos, self.fitIntensity, self.fitPixelPos,
-                                  self.fitPixelPosErr);
+                                  self.guessedPosition, self.fitIntensity, self.fitPosition,
+                                  self.fitPositionErr);
         });
     cls.def("__setstate__",
         [](ReferenceLine & self, py::tuple const& t) {
@@ -65,6 +64,11 @@ void declareSpectrum(py::module &mod) {
     py::class_<Class, std::shared_ptr<Class>> cls(mod, "Spectrum");
 
     cls.def(py::init<std::size_t, std::size_t>(), "length"_a, "fiberId"_a=0);
+    cls.def(py::init<Spectrum::ImageArray const&, Spectrum::Mask const&, Spectrum::ImageArray const&,
+                     Spectrum::CovarianceMatrix const&, Spectrum::ImageArray const&,
+                     Spectrum::ReferenceLineList const&, std::size_t>(),
+            "spectrum"_a, "mask"_a, "background"_a, "covariance"_a, "wavelength"_a,
+            "lines"_a=Spectrum::ReferenceLineList(), "fiberId"_a=0);
 
     cls.def("getSpectrum", (ndarray::Array<Spectrum::ImageT, 1, 1> (Class::*)()) &Class::getSpectrum);
     cls.def("setSpectrum", &Class::setSpectrum, "spectrum"_a);
@@ -82,10 +86,11 @@ void declareSpectrum(py::module &mod) {
     cls.def_property("variance", (ndarray::Array<Spectrum::VarianceT, 1, 1> (Class::*)()) &Class::getVariance,
                      &Class::setVariance);
 
-    cls.def("getCovar", (ndarray::Array<Spectrum::VarianceT, 2, 1> (Class::*)()) &Class::getCovar);
-    cls.def("setCovar", &Class::setCovar, "covar"_a);
-    cls.def_property("covariance", (ndarray::Array<Spectrum::VarianceT, 2, 1> (Class::*)()) &Class::getCovar,
-                     &Class::setCovar);
+    cls.def("getCovariance", (ndarray::Array<Spectrum::VarianceT, 2, 1> (Class::*)()) &Class::getCovariance);
+    cls.def("setCovariance", &Class::setCovariance, "covariance"_a);
+    cls.def_property("covariance",
+                     (ndarray::Array<Spectrum::VarianceT, 2, 1> (Class::*)()) &Class::getCovariance,
+                     &Class::setCovariance);
 
     cls.def("getWavelength", (ndarray::Array<Spectrum::ImageT, 1, 1> (Class::*)()) &Class::getWavelength);
     cls.def("setWavelength", &Class::setWavelength, "wavelength"_a);
@@ -110,14 +115,16 @@ void declareSpectrum(py::module &mod) {
     cls.def_property("referenceLines", [](Class & self) { return self.getReferenceLines(); },
                      &Class::setReferenceLines, py::return_value_policy::reference_internal);
 
-    cls.def("getNumPixels", &Class::getNpix);
+    cls.def("getNumPixels", &Class::getNumPixels);
+    cls.def("__len__", &Class::getNumPixels);
 
     cls.def("isWavelengthSet", &Class::isWavelengthSet);
 
     cls.def("__getstate__",
         [](Spectrum const& self) {
-            return py::make_tuple(self.getSpectrum(), self.getMask(), self.getBackground(), self.getCovar(),
-                                  self.getWavelength(), self.getReferenceLines(), self.getFiberId());
+            return py::make_tuple(self.getSpectrum(), self.getMask(), self.getBackground(),
+                                  self.getCovariance(), self.getWavelength(), self.getReferenceLines(),
+                                  self.getFiberId());
         });
     cls.def("__setstate__",
         [](Spectrum & self, py::tuple const& t) {
@@ -132,46 +139,38 @@ void declareSpectrumSet(py::module &mod) {
     using Class = SpectrumSet;
     py::class_<Class, PTR(Class)> cls(mod, "SpectrumSet");
 
-    cls.def(py::init<std::size_t, std::size_t>(), "nSpectra"_a=0, "length"_a=0);
+    cls.def(py::init<std::size_t>(), "length"_a);
+    cls.def(py::init<std::size_t, std::size_t>(), "nSpectra"_a, "length"_a);
 
-    cls.def("getNtrace", &Class::getNtrace);
-
-    cls.def("getSpectrum", (PTR(Spectrum) (Class::*)(std::size_t)) &Class::getSpectrum,
-            "i"_a);
-    cls.def("setSpectrum",
-            (void (Class::*)(std::size_t, PTR(Spectrum))) &Class::setSpectrum, "i"_a, "spectrum"_a);
-    cls.def("addSpectrum", (void (Class::*)(PTR(Spectrum))) &Class::addSpectrum, "spectrum"_a);
+    cls.def("size", &Class::size);
+    cls.def("reserve", &Class::reserve);
+    cls.def("add", (void (Class::*)(PTR(Spectrum))) &Class::add, "spectrum"_a);
+    cls.def("getLength", &Class::getLength);
 
     cls.def("getAllFluxes", &Class::getAllFluxes);
     cls.def("getAllWavelengths", &Class::getAllWavelengths);
     cls.def("getAllMasks", &Class::getAllMasks);
-    cls.def("getAllCovars", &Class::getAllCovars);
+    cls.def("getAllCovariances", &Class::getAllCovariances);
+    cls.def("getAllBackgrounds", &Class::getAllBackgrounds);
 
     // Pythonic APIs
-    cls.def("__len__", &Class::getNtrace);
+    cls.def("__len__", &Class::size);
     cls.def("__getitem__", [](Class const& self, std::size_t i) {
-            if (i >= self.getNtrace()) throw py::index_error();
-            
-            return self.getSpectrum(i);
+            if (i >= self.size()) throw py::index_error();
+            return self.get(i);
         });
     cls.def("__setitem__",
-            [](Class& self, std::size_t i, PTR(Spectrum) spectrum) { self.setSpectrum(i, spectrum); });
+            [](Class& self, std::size_t i, PTR(Spectrum) spectrum) { self.set(i, spectrum); });
 
-    cls.def("__getstate__", [](SpectrumSet const& self) { return py::make_tuple(self.getAllSpectra()); });
+    cls.def("__getstate__", [](SpectrumSet const& self) { return py::make_tuple(self.getInternal()); });
     cls.def("__setstate__",
             [](SpectrumSet & self, py::tuple const& t) {
-            new (&self) SpectrumSet(t[0].cast<SpectrumSet::Spectra>());
+            new (&self) SpectrumSet(t[0].cast<SpectrumSet::Collection>());
         });
 }
 
 PYBIND11_PLUGIN(spectra) {
     py::module mod("spectra");
-
-    // Need to import numpy for ndarray and eigen conversions
-    if (_import_array() < 0) {
-        PyErr_SetString(PyExc_ImportError, "numpy.core.multiarray failed to import");
-        return nullptr;
-    }
 
     declareReferenceLine(mod);
     declareSpectrum(mod);

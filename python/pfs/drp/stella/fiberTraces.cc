@@ -1,9 +1,9 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 
-#include "numpy/arrayobject.h"
 #include "ndarray/pybind11.h"
 
+#include "pfs/drp/stella/math/findAndTraceApertures.h"
 #include "pfs/drp/stella/FiberTraces.h"
 
 namespace py = pybind11;
@@ -20,28 +20,37 @@ template <typename ImageT,
 void declareFiberTrace(py::module &mod)
 {
     using Class = FiberTrace<ImageT, MaskT, VarianceT>;
-    py::class_<Class, PTR(Class)> cls(mod, "FiberTrace");
+    py::class_<Class, std::shared_ptr<Class>> cls(mod, "FiberTrace");
 
-    cls.def(py::init<PTR(typename Class::MaskedImageT const) const&,
-                     std::size_t>(),
+    cls.def(py::init<typename Class::MaskedImageT const&, std::size_t>(),
             "maskedImage"_a, "fiberTraceId"_a=0);
-    cls.def(py::init<PTR(typename Class::MaskedImageT const) const&,
-                     PTR(FiberTraceFunction const) const&,
-                     PTR(FiberTraceProfileFittingControl) const&,
+    cls.def(py::init<typename Class::MaskedImageT const&,
+                     FiberTraceFunction const&,
+                     FiberTraceProfileFittingControl const&,
                      std::size_t>(),
-            "maskedImage"_a, "fiberTraceFunction"_a, "fiberTraceProfileFittingControl"_a, "fiberId"_a=0);
+            "maskedImage"_a, "function"_a, "fitting"_a, "fiberId"_a=0);
     cls.def(py::init<Class&, bool>(), "fiberTrace"_a, "deep"_a=false);
 
-    cls.def("getTrace", (PTR(typename Class::MaskedImageT)(Class::*)())&Class::getTrace);
+    cls.def("getTrace", [](Class const& self) { return self.getTrace(); });
     cls.def("getXCenters", &Class::getXCenters);
     cls.def("getFiberId", &Class::getFiberId);
 
     cls.def("extractSpectrum", &Class::extractSpectrum, "image"_a,
             "fitBackground"_a=false, "clipNSigma"_a=0.0, "useProfile"_a=true);
 
-    cls.def("getReconstructed2DSpectrum",
-            (PTR(typename Class::Image)(Class::*)(Spectrum const&) const)
-                &Class::getReconstructed2DSpectrum, "spectrum"_a);
+    cls.def("constructImage",
+            (std::shared_ptr<typename Class::Image>(Class::*)(Spectrum const&) const)
+                &Class::constructImage, "spectrum"_a);
+
+    cls.def("__getstate__",
+            [](Class const& self) { return py::make_tuple(self.getTrace(), self.getFunction(),
+                                                          self.getFitting(), self.getFiberId()); });
+    cls.def("__setstate__",
+            [](Class & self, py::tuple const& t) {
+                new (&self) Class(t[0].cast<typename Class::MaskedImageT>(),
+                                  t[1].cast<FiberTraceFunction>(),
+                                  t[2].cast<FiberTraceProfileFittingControl>(),
+                                  t[3].cast<std::size_t>()); });
 }
 
 
@@ -51,24 +60,28 @@ template <typename ImageT,
 void declareFiberTraceSet(py::module &mod)
 {
     using Class = FiberTraceSet<ImageT, MaskT, VarianceT>;
-    py::class_<Class, PTR(Class)> cls(mod, "FiberTraceSet");
+    py::class_<Class, std::shared_ptr<Class>> cls(mod, "FiberTraceSet");
 
-    cls.def(py::init<>());
+    cls.def(py::init<std::size_t, std::shared_ptr<lsst::daf::base::PropertySet>>(),
+            "reservation"_a, "metadata"_a=nullptr);
     cls.def(py::init<Class const&, bool>(), "fiberTraceSet"_a, "deep"_a=false);
-    cls.def("getNtrace", &Class::getNtrace);
-    cls.def("getFiberTrace",
-            (PTR(typename Class::FiberTraceT)(Class::*)(std::size_t const))&Class::getFiberTrace,
-            "index"_a);
-    cls.def("setFiberTrace", &Class::setFiberTrace, "index"_a, "trace"_a);
-    cls.def("addFiberTrace", &Class::addFiberTrace, "trace"_a, "index"_a=0);
-    cls.def("getTraces", [](Class const& self) { return *self.getTraces(); });
+    cls.def("size", &Class::size);
+    cls.def("get", [](Class const& self, std::size_t index) { return self.get(index); });
+    cls.def("set", &Class::set, "index"_a, "trace"_a);
+    cls.def("add",
+            [](Class & self, std::shared_ptr<typename Class::FiberTraceT> ft) { return self.add(ft); });
+    cls.def("getMetadata", py::overload_cast<>(&Class::getMetadata));
+    cls.def("getInternal", &Class::getInternal);
     // Pythonic APIs
-    cls.def("__len__", &Class::getNtrace);
-    cls.def("__getitem__", [](Class const& self, std::size_t i) {
-            if (i >= self.getNtrace()) throw py::index_error();
-            
-            return self.getFiberTrace(i);
-        });
+    cls.def("__len__", &Class::size);
+    cls.def("__getitem__", [](Class const& self, std::size_t index) { return self.get(index); });
+    cls.def("__setitem__", &Class::set);
+    cls.def("__getstate__",
+            [](Class const& self) { return py::make_tuple(self.getInternal(), self.getMetadata()); });
+    cls.def("__setstate__",
+            [](Class & self, py::tuple const& t) {
+                new (&self) Class(t[0].cast<typename Class::Collection>(),
+                                  t[1].cast<std::shared_ptr<lsst::daf::base::PropertySet>>()); });
 }
 
 
@@ -76,21 +89,14 @@ template <typename ImageT>
 void declareFunctions(py::module &mod)
 {
     mod.def("findAndTraceApertures", math::findAndTraceApertures<ImageT>,
-            "maskedImage"_a, "detectorMap"_a, "fiberTraceFunctionFindingControl"_a,
-            " fiberTraceProfileFittingControl"_a);
+            "maskedImage"_a, "detectorMap"_a, "finding"_a, "function"_a, "fitting"_a);
     mod.def("findCenterPositionsOneTrace", math::findCenterPositionsOneTrace<ImageT>,
-            "ccdImage"_a, "ccdImageVariance"_a, "control"_a, "nextSearchStart"_a);
+            "image"_a, "variance"_a, "control"_a, "nextSearchStart"_a);
 }
 
 
 PYBIND11_PLUGIN(fiberTraces) {
     py::module mod("fiberTraces");
-
-    // Need to import numpy for ndarray and eigen conversions
-    if (_import_array() < 0) {
-        PyErr_SetString(PyExc_ImportError, "numpy.core.multiarray failed to import");
-        return nullptr;
-    }
 
     declareFiberTrace<float>(mod);
 
@@ -100,25 +106,14 @@ PYBIND11_PLUGIN(fiberTraces) {
 
     py::class_<math::FindCenterPositionsOneTraceResult, PTR(math::FindCenterPositionsOneTraceResult)>
         findResult(mod, "FindCenterPositionsOneTraceResult");
-    findResult.def_readwrite("apertureCenterIndex",
-                             &math::FindCenterPositionsOneTraceResult::apertureCenterIndex);
-    findResult.def_readwrite("apertureCenterPos",
-                             &math::FindCenterPositionsOneTraceResult::apertureCenterPos);
-    findResult.def_readwrite("eApertureCenterPos",
-                             &math::FindCenterPositionsOneTraceResult::eApertureCenterPos);
+    findResult.def_readwrite("index",
+                             &math::FindCenterPositionsOneTraceResult::index);
+    findResult.def_readwrite("position",
+                             &math::FindCenterPositionsOneTraceResult::position);
+    findResult.def_readwrite("error",
+                             &math::FindCenterPositionsOneTraceResult::error);
     findResult.def_readwrite("nextSearchStart",
                              &math::FindCenterPositionsOneTraceResult::nextSearchStart);
-
-    py::class_<math::dataXY<float>, PTR(math::dataXY<float>)> coord(mod, "Coordinates");
-    coord.def(py::init<>());
-    coord.def("__init__",
-              [](math::dataXY<float>& self, float x_, float y_) {
-                  new (&self) math::dataXY<float>();
-                  self.x = x_;
-                  self.y = y_;
-              });
-    coord.def_readwrite("x", &math::dataXY<float>::x);
-    coord.def_readwrite("y", &math::dataXY<float>::y);
 
     return mod.ptr();
 }

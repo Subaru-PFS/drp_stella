@@ -1,34 +1,51 @@
 #if !defined(DRP_STELLA_MATH_SPLINE_H)
 #define DRP_STELLA_MATH_SPLINE_H 1
 
-namespace pfs { namespace drp { namespace stella { namespace math { 
+#include "ndarray_fwd.h"
+
+namespace pfs {
+namespace drp {
+namespace stella {
+namespace math {
+
 ///
 // \brief cubic spline interpolation
 //
 template<typename T>
-class spline {
+class Spline {
 public:
     enum InterpolationTypes { CUBIC_NOTAKNOT, CUBIC_NATURAL };
+    using Array = ndarray::Array<T, 1, 1>;
+    using ConstArray = ndarray::Array<T const, 1, 1>;
 
-    spline() = default;                                        // needed as we have vectors<spline>
-    spline(std::vector<T> const& x,                            ///< positions of knots
-           std::vector<T> const& y,                            ///< values of function at knots
+    Spline(ConstArray const& x,                            ///< positions of knots
+           ConstArray const& y,                            ///< values of function at knots
            InterpolationTypes interpolationType=CUBIC_NOTAKNOT ///< spline boundary conditions
           );
+    Spline(
+        std::vector<T> const& x,
+        std::vector<T> const& y,
+        InterpolationTypes interpolationType=CUBIC_NOTAKNOT
+    ) : Spline(
+        ConstArray(ndarray::external(x.data(), ndarray::makeVector(x.size()))),
+        ConstArray(ndarray::external(y.data(), ndarray::makeVector(y.size()))),
+        interpolationType
+    ) {}
+
     // That ctor disables the move ctors
-    spline(const spline &) = default;
-    spline(spline &&) = default;
-    spline& operator=(const spline &) = default;
-    spline& operator=(spline &&) = default;
+    Spline(Spline const&) = default;
+    Spline(Spline &&) = default;
+    Spline& operator=(Spline const &) = default;
+    Spline& operator=(Spline &&) = default;
 
     T operator() (T const x) const;
 
-    std::vector<T> const& getX() const { return _x; }
-    std::vector<T> const& getY() const { return _y; }
+    ConstArray const getX() const { return _x; }
+    ConstArray const getY() const { return _y; }
     
 private:
-    std::vector<T> _x, _y;              // x,y coordinates of points
-    std::vector<T> _k;                  // slope at points, used for interpolation
+    Array _x, _y;              // x,y coordinates of points
+    Array _k;                  // slope at points, used for interpolation
     //
     // These are only used if all the intervals in _x are equal
     //

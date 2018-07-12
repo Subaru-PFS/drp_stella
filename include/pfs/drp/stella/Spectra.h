@@ -10,8 +10,7 @@ namespace pfs { namespace drp { namespace stella {
 /**
  * \brief Describe a calibration line
  */
-class ReferenceLine {
-public:
+struct ReferenceLine {
     enum Status {                       // Line's status
         NOWT=0,
         FIT=1,                          // line was found and fit; n.b. powers of 2
@@ -24,27 +23,27 @@ public:
     };
 
     ReferenceLine(std::string const& _description, Status _status=NOWT, float _wavelength=0,
-                  float _guessedIntensity=0, float _guessedPixelPos=0,
-                  float _fitIntensity=0, float _fitPixelPos=0, float _fitPixelPosErr=0
-                 )
-        : description(_description),
-          status(_status),
-          wavelength(_wavelength),
-          guessedIntensity(_guessedIntensity),
-          guessedPixelPos(_guessedPixelPos),
-          fitIntensity(_fitIntensity),
-          fitPixelPos(_fitPixelPos),
-          fitPixelPosErr(_fitPixelPosErr)
-        { }
+                  float _guessedIntensity=0, float _guessedPosition=0,
+                  float _fitIntensity=0, float _fitPosition=0, float _fitPositionErr=0
+                 ) :
+        description(_description),
+        status(_status),
+        wavelength(_wavelength),
+        guessedIntensity(_guessedIntensity),
+        guessedPosition(_guessedPosition),
+        fitIntensity(_fitIntensity),
+        fitPosition(_fitPosition),
+        fitPositionErr(_fitPositionErr)
+    {}
 
     std::string description;            // description of line (e.g. Hg[II])
     int status;                         // status of line
     float wavelength;                   // vacuum wavelength, nm
     float guessedIntensity;             // input guess for intensity (amplitude of peak)
-    float guessedPixelPos;              // input guess for pixel position
+    float guessedPosition;              // input guess for pixel position
     float fitIntensity;                 // estimated intensity (amplitude of peak)
-    float fitPixelPos;                  // fit line position
-    float fitPixelPosErr;               // estimated standard deviation of fitPixelPos
+    float fitPosition;                  // fit line position
+    float fitPositionErr;               // estimated standard deviation of fitPosition
 };
 
 /**
@@ -52,20 +51,34 @@ public:
  */
 class Spectrum {
   public:
-    typedef float ImageT;
-    typedef float VarianceT;
-    typedef lsst::afw::image::Mask<lsst::afw::image::MaskPixel> Mask;
+    using ImageT = float;
+    using VarianceT = float;
+    using Mask = lsst::afw::image::Mask<lsst::afw::image::MaskPixel>;
     using ImageArray = ndarray::Array<ImageT, 1, 1>;
     using ConstImageArray = ndarray::Array<const ImageT, 1, 1>;
     using VarianceArray = ndarray::Array<VarianceT, 1, 1>;
+    using ConstVarianceArray = ndarray::Array<VarianceT const, 1, 1>;
     using CovarianceMatrix = ndarray::Array<VarianceT, 2, 1>;
+    using ConstCovarianceMatrix = ndarray::Array<VarianceT const, 2, 1>;
     using ReferenceLineList = std::vector<std::shared_ptr<ReferenceLine>>;
     using ConstReferenceLineList = std::vector<std::shared_ptr<const ReferenceLine>>;
 
-    // Class Constructors and Destructor
-    explicit Spectrum(std::size_t length=0,
+    /// Construct an empty Spectrum
+    ///
+    /// @param length  Number of elements in spectrum
+    /// @param fiberId  Fiber identifier
+    explicit Spectrum(std::size_t length,
                       std::size_t fiberId=0);
 
+    /// Construct Spectrum from elements
+    ///
+    /// @param spectrum  Spectrum values
+    /// @param mask  Mask values
+    /// @param background  Background values
+    /// @param covariance  Covariance matrix
+    /// @param wavelength  Wavelength values
+    /// @param lines  Line list
+    /// @param fiberId  Fiber identifier
     Spectrum(
         ImageArray const& spectrum,
         Mask const& mask,
@@ -76,30 +89,63 @@ class Spectrum {
         std::size_t fiberId=0
     );
 
-    Spectrum(Spectrum const& spectrum) = delete;
-    
+    Spectrum(Spectrum const&) = delete;
+    Spectrum(Spectrum &&) = default;
+    Spectrum & operator=(Spectrum const&) = delete;
+    Spectrum & operator=(Spectrum&&) = default;
+
     virtual ~Spectrum() {}
 
     /// Return the number of pixels in the spectrum
-    std::size_t getNpix() const { return _length; }
+    std::size_t getNumPixels() const { return _length; }
 
-    /// Return a shared pointer to the spectrum
+    //@{
+    /// Return the spectrum
     ImageArray getSpectrum() { return _spectrum; }
-    ImageArray const getSpectrum() const { return _spectrum; }
+    ConstImageArray getSpectrum() const { return _spectrum; }
+    //@}
+
+    //@{
+    /// Return the background
+    ImageArray getBackground() { return _background; }
+    ConstImageArray getBackground() const { return _background; }
+    //@}
+
+    //@{
+    /// Return the variance of this spectrum
+    VarianceArray getVariance() { return _covariance[0]; }
+    ConstVarianceArray getVariance() const { return _covariance[0]; }
+    //@}
+    
+    //@{
+    /// Return the pointer to the covariance of this spectrum
+    CovarianceMatrix getCovariance() { return _covariance; }
+    ConstCovarianceMatrix getCovariance() const { return _covariance; }
+    //@}
+
+    //@{
+    /// Return the pointer to the wavelength vector of this spectrum
+    ImageArray getWavelength() { return _wavelength; }
+    ConstImageArray const getWavelength() const { return _wavelength; }
+    //@}
+
+    //@{
+    /// Return the pointer to the mask vector of this spectrum
+    Mask & getMask() { return _mask; }
+    Mask const& getMask() const { return _mask; }
+    //@}
+
+    //@{
+    /// Return the list of reference lines
+    ReferenceLineList & getReferenceLines() { return _referenceLines; }
+    ReferenceLineList const& getReferenceLines() const { return _referenceLines; }
+    //@}
+
+    /// Return the fiber identifier for this spectrum
+    std::size_t getFiberId() const { return _fiberId; }
 
     /// Set the spectrum (deep copy)
     void setSpectrum(ndarray::Array<ImageT, 1, 1>  const& spectrum);
-
-    ImageArray getBackground() { return _background; }
-    ConstImageArray getBackground() const { return _background; }
-
-    /// Return a copy of the variance of this spectrum
-    VarianceArray getVariance() const;
-    VarianceArray getVariance();
-    
-    /// Return the pointer to the covariance of this spectrum
-    CovarianceMatrix getCovar() { return _covar; }
-    CovarianceMatrix getCovar() const { return _covar; }
 
     /// Set the background pointer of this fiber trace to covar (deep copy)
     void setBackground(ImageArray const& background);
@@ -108,24 +154,19 @@ class Spectrum {
     void setVariance(VarianceArray const& variance);
 
     /// Set the covariance pointer of this fiber trace to covar (deep copy)
-    void setCovar(CovarianceMatrix const& covar);
-
-    /// Return the pointer to the wavelength vector of this spectrum
-    ImageArray getWavelength() { return _wavelength; }
-    ImageArray const getWavelength() const { return _wavelength; }
+    void setCovariance(CovarianceMatrix const& covar);
 
     /// Set the wavelength vector of this spectrum (deep copy)
     void setWavelength(ImageArray const& wavelength);
 
-    /// Return the pointer to the mask vector of this spectrum
-    Mask & getMask() { return _mask; }
-    Mask const& getMask() const { return _mask; }
-
     /// Set the mask vector of this spectrum (deep copy)
     void setMask(Mask const& mask);
-    
-    std::size_t getFiberId() const { return _fiberId; }
+
+    /// Set the fiber identifier of this spectrum
     void setFiberId(std::size_t fiberId) { _fiberId = fiberId; }
+
+    /// Set the list of reference lines
+    void setReferenceLines(ReferenceLineList const& lines) { _referenceLines = lines; }
 
     /**
       * @brief: Identifies calibration lines, given input linelist for the wavelength-calibration spectrum
@@ -134,16 +175,10 @@ class Spectrum {
       * Saves copy of lineList with as-observed values in _referenceLines
       **/
     void identify(ConstReferenceLineList const& lineList, ///< List of arc lines
-                  DispCorControl const& dispCorControl, ///< configuration params for wavelength calibration
+                  DispersionCorrectionControl const& dispCorControl, ///< configuration params for wavelength calibration
                   int nLinesCheck=0                     ///< number of lines to hold back from fitting procedure
-                 );
+                  );
 
-    ReferenceLineList & getReferenceLines() { return _referenceLines; }
-    ReferenceLineList const& getReferenceLines() const { return _referenceLines; }
-    void setReferenceLines(ReferenceLineList const& lines) {
-        _referenceLines = lines;
-    }
-    
     bool isWavelengthSet() const { return _isWavelengthSet; }
     
   private:
@@ -151,87 +186,118 @@ class Spectrum {
     ImageArray _spectrum;
     Mask _mask;
     ImageArray _background;
-    CovarianceMatrix _covar;
+    CovarianceMatrix _covariance;
     ImageArray _wavelength;
-    std::size_t _fiberId;               // for logging / debugging purposes only
+    std::size_t _fiberId;
     ReferenceLineList _referenceLines;
     bool _isWavelengthSet;
 };
 
 /************************************************************************************************************/
 /**
- * \brief Describe a set of spectra
+ * @brief A set of spectra with a consistent length
  *
+ * Spectra are stored by index, which is unrelated to the fiber identifier.
+ *
+ * All spectra must be the same length (otherwise, you'd just use a std::vector).
  */
-class SpectrumSet
-{
+class SpectrumSet {
   public:
-    typedef std::vector<PTR(Spectrum)> Spectra;
+    using SpectrumPtr = std::shared_ptr<Spectrum>;
+    using ConstSpectrumPtr = std::shared_ptr<Spectrum const>;
+    using Collection = std::vector<SpectrumPtr>;
+    using ImageArray = ndarray::Array<float, 2, 1>;
+    using CovarianceArray = ndarray::Array<float, 3, 1>;
+    using MaskArray = ndarray::Array<lsst::afw::image::MaskPixel, 2, 1>;
+    using iterator = Collection::iterator;
+    using const_iterator = Collection::const_iterator;
 
-    /// Class Constructors and Destructor
-      
-    /// Creates a new SpectrumSet object of size 'nSpectra' of length 'length'
-    explicit SpectrumSet(std::size_t nSpectra=0, std::size_t length=0);
+    /// Construct an empty set of spectra
+    explicit SpectrumSet(std::size_t length) : _length(length) {}
 
-    explicit SpectrumSet(std::vector<PTR(Spectrum)> spectra);
+    /// Construct a set of spectra
+    ///
+    /// The spectra have fiber identifiers increasing from zero.
+    explicit SpectrumSet(std::size_t numSpectra, std::size_t length);
 
-    /// Copy constructor
-    SpectrumSet(SpectrumSet const& spectrumSet) = delete;
-        
+    /// Construct from internal representation
+    explicit SpectrumSet(Collection const& spectra);
+
+    SpectrumSet(SpectrumSet const&) = delete;
+    SpectrumSet(SpectrumSet &&) = default;
+    SpectrumSet & operator=(SpectrumSet const&) = delete;
+    SpectrumSet & operator=(SpectrumSet &&) = default;
+
     virtual ~SpectrumSet() {}
 
     /// Return the number of spectra/apertures
-    std::size_t getNtrace() const { return _spectra.size(); }
+    std::size_t size() const { return _spectra.size(); }
 
-    /** @brief  Return the Spectrum for the ith fiberTrace
-     *  @param i :: number of spectrum ( or number of respective FiberTrace ) to return
-     * **/
-    PTR(Spectrum) getSpectrum( const std::size_t i );
+    /// Reserve space for spectra
+    void reserve(std::size_t num) { _spectra.reserve(num); }
 
-    /** @brief  Return the Spectrum for the ith fiberTrace
-     *  @param i :: number of spectrum ( or number of respective FiberTrace ) to return
-     **/
-    PTR(const Spectrum) getSpectrum( const std::size_t i ) const;
+    /// Return standard length
+    std::size_t getLength() const { return _length; }
 
-    /**
-     * @brief Set the ith Spectrum
-     * @param i :: Set which spectrum in set?
-     * @param spectrum :: spectrum to set to this set at position i
-     **/
-    void setSpectrum(std::size_t const i, PTR(Spectrum) spectrum);
-    
-    /** 
-     * @brief Add one Spectrum to the set
-     * @param spectrum :: spectrum to add 
-     **/
-    void addSpectrum(PTR(Spectrum) spectrum) {
-        _spectra.push_back(spectrum);
-    }
-    
+    //@{
+    /// Get i-th spectrum
+    ///
+    /// No bounds checking.
+    SpectrumPtr operator[](std::size_t i) { return _spectra[i]; }
+    ConstSpectrumPtr operator[](std::size_t i) const { return _spectra[i]; }
+    //@}
+
+    //@{
+    /// Get i-th spectrum
+    ///
+    /// Includes bounds checking.
+    SpectrumPtr get(std::size_t i) { return _spectra.at(i); }
+    ConstSpectrumPtr get(std::size_t i) const { return _spectra.at(i); }
+    //@}
+
+    //@{
+    /// Iterator
+    iterator begin() { return _spectra.begin(); }
+    const_iterator begin() const { return _spectra.begin(); }
+    iterator end() { return _spectra.end(); }
+    const_iterator end() const { return _spectra.end(); }
+    //@}
+
+    /// Set the i-th spectrum
+    void set(std::size_t i, SpectrumPtr spectrum);
+
+    /// Add a spectrum
+    void add(SpectrumPtr spectrum);
+
     /**
      * @brief Return all fluxes in an array [length x nFibers]
      */
-    ndarray::Array<float, 2, 1> getAllFluxes() const;
+    ImageArray getAllFluxes() const;
     
     /**
      * @brief Return all wavelengths in an array [length x nFibers]
      */
-    ndarray::Array<float, 2, 1> getAllWavelengths() const;
+    ImageArray getAllWavelengths() const;
         
     /**
      * @brief Return all masks in an array [length x nFibers]
      */
-    ndarray::Array< int, 2, 1> getAllMasks() const;
+    MaskArray getAllMasks() const;
     
     /**
      * @brief Return all covariances in an array [length x 3 x nFibers]
      */
-    ndarray::Array<float, 3, 1> getAllCovars() const;
-    
-    Spectra const& getAllSpectra() const { return _spectra; }
+    CovarianceArray getAllCovariances() const;
+
+    /// Return the backgrounds of all spectra in an array [length x nFibers]
+    ImageArray getAllBackgrounds() const;
+
+    /// Return the internal representation
+    Collection const& getInternal() const { return _spectra; }
 
   private:
-    Spectra _spectra; // spectra for each aperture
+    std::size_t const _length;  // length of each spectrum
+    Collection _spectra; // spectra for each aperture
 };
 
 }}}
