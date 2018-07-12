@@ -81,6 +81,8 @@ class CalibrateWavelengthsTask(pipeBase.Task):
             fitWavelengthErr[i] = rl.fitPositionErr*nmPerPix
             status[i] = rl.status
 
+        # NB: "fitted" here refers to the position of the line, not whether the line was used in the
+        # wavelength fit.
         fitted = (status & drpStella.ReferenceLine.Status.FIT) != 0
         fitted = fitted & ((status & drpStella.ReferenceLine.Status.INTERPOLATED) == 0)
 
@@ -102,7 +104,7 @@ class CalibrateWavelengthsTask(pipeBase.Task):
                 good = np.where(used)[0]
 
                 if self.config.nLinesKeptBack >= len(good):
-                    self.log.warn("No. good points %d <= nLinesKeptBack == %d; not reserving points" %
+                    self.log.warn("Number of good points %d <= nLinesKeptBack == %d; not reserving points" %
                                   (len(good), self.config.nLinesKeptBack))
                 else:
                     for i in rng.choice(len(good), self.config.nLinesKeptBack, replace=False):

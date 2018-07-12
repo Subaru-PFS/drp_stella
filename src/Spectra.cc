@@ -216,33 +216,34 @@ void Spectrum::identify(
             continue;
         }
 
-        auto itMaxElement = std::max_element( _spectrum.begin() + start, _spectrum.begin() + end + 1 );
+        auto itMaxElement = std::max_element(_spectrum.begin() + start, _spectrum.begin() + end + 1);
         const float maxPos = std::distance(_spectrum.begin(), itMaxElement);
-        start = std::round( maxPos - ( 1.5 * dispCorControl.fwhm ) );
+        start = std::round(maxPos - (1.5*dispCorControl.fwhm));
         if (start < 0) start = 0;
 
         end = std::round(maxPos + 1.5*dispCorControl.fwhm);
-        if ( end >= _length ) end = _length - 1;
-        if ( end < start + 4) {
-            LOGLS_WARN(_log, "WARNING: Line position outside spectrum");
+        if (end >= _length) end = _length - 1;
+        if (end < start + 4) {
+            LOGLS_DEBUG(_log, "Line position outside spectrum");
             continue;
         }
         const int n = end - start + 1;
-        auto GaussSpec     = ndarray::Array<float, 1, 1>(n);
+        auto GaussSpec = ndarray::Array<float, 1, 1>(n);
         auto MeasureErrors = ndarray::Array<float, 1, 1>(n);
 
         auto itSpec = _spectrum.begin() + start;
-        for (auto itGaussSpec = GaussSpec.begin(); itGaussSpec != GaussSpec.end(); ++itGaussSpec, ++itSpec )
+        for (auto itGaussSpec = GaussSpec.begin(); itGaussSpec != GaussSpec.end(); ++itGaussSpec, ++itSpec) {
             *itGaussSpec = *itSpec;
-        for(auto itMeasErr = MeasureErrors.begin(), itGaussSpec = GaussSpec.begin();
+        }
+        for (auto itMeasErr = MeasureErrors.begin(), itGaussSpec = GaussSpec.begin();
             itMeasErr != MeasureErrors.end(); ++itMeasErr, ++itGaussSpec) {
-            *itMeasErr = sqrt(std::fabs(*itGaussSpec));
+            *itMeasErr = ::sqrt(std::fabs(*itGaussSpec));
             if (*itMeasErr < 0.00001) *itMeasErr = 1.;
         }
-        auto X = ndarray::Array<float, 1, 1>(n);
+        auto array = ndarray::Array<float, 1, 1>(n);
         {
             float x = start;
-            for (auto itX = X.begin(); itX != X.end(); ++itX ) {
+            for (auto itX = array.begin(); itX != array.end(); ++itX ) {
                 *itX = x++;
             }
         }
@@ -261,17 +262,17 @@ void Spectrum::identify(
         }
 
         Guess[BASELINE] = *min_element(GaussSpec.begin(), GaussSpec.end());
-        Guess[PEAK]     = *max_element(GaussSpec.begin(), GaussSpec.end()) - Guess[BASELINE];
-        Guess[XC]       = 0.5*(X[0] + X[X.size() - 1]);
-        Guess[WIDTH]    = dispCorControl.fwhm;
+        Guess[PEAK] = *max_element(GaussSpec.begin(), GaussSpec.end()) - Guess[BASELINE];
+        Guess[XC] = 0.5*(array[0] + array[array.size() - 1]);
+        Guess[WIDTH] = dispCorControl.fwhm;
         LOGLS_DEBUG(_log, "Guess = " << Guess);
 
-        Limits[PEAK    ][0] = 0.0;
-        Limits[PEAK    ][1] = std::fabs(1.5*Guess[PEAK]);
-        Limits[XC      ][0] = X[1];
-        Limits[XC      ][1] = X[X.size() - 2];
-        Limits[WIDTH   ][0] = 0.33*Guess[WIDTH];
-        Limits[WIDTH   ][1] = 2.0*Guess[WIDTH];
+        Limits[PEAK][0] = 0.0;
+        Limits[PEAK][1] = std::fabs(1.5*Guess[PEAK]);
+        Limits[XC][0] = array[1];
+        Limits[XC][1] = array[array.size() - 2];
+        Limits[WIDTH][0] = 0.33*Guess[WIDTH];
+        Limits[WIDTH][1] = 2.0*Guess[WIDTH];
         Limits[BASELINE][0] = 0.0;
         Limits[BASELINE][1] = std::fabs(1.5*Guess[BASELINE]) + 1;
 
@@ -282,7 +283,7 @@ void Spectrum::identify(
 
         LOGLS_DEBUG(_log, "Limits = " << Limits);
 
-        if (!MPFitGaussLim(X,
+        if (!MPFitGaussLim(array,
                            GaussSpec,
                            MeasureErrors,
                            Guess,
@@ -302,7 +303,7 @@ void Spectrum::identify(
             EGaussCoeffs.deep() = 0.0;
             continue;
         }
-        if (std::fabs(maxPos - GaussCoeffs[XC] ) < dispCorControl.maxDistance) {
+        if (std::fabs(maxPos - GaussCoeffs[XC]) < dispCorControl.maxDistance) {
             GaussPos[i] = GaussCoeffs[XC];
             refLine->status |= ReferenceLine::FIT;
             refLine->fitIntensity = GaussCoeffs[PEAK];
@@ -321,7 +322,7 @@ void Spectrum::identify(
                         goodIndx = i;
                     }
                     if ((_mask((start + end)/2, 0) & (SAT | NO_DATA)) == 0) {
-                        LOGLS_WARN(_log, "Fibre " << getFiberId() <<
+                        LOGLS_DEBUG(_log, "Fibre " << getFiberId() <<
                                    " i=" << i << ": line " <<
                                    " at  GaussPos[" << badIndx << "] = " <<
                                    GaussPos[badIndx] <<
