@@ -1,33 +1,34 @@
-#!/usr/bin/env python
-from __future__ import division
-import os
-from lsst.utils import getPackageDir
+import math
+import numpy as np
+
 import lsst.afw.image as afwImage
 import lsst.afw.detection as afwDet
 from lsst.ctrl.pool.pool import NODE
 import lsst.meas.algorithms as measAlg
 import lsst.daf.persistence as dafPersist
-from lsst.pex.config import Field, ConfigurableField
+from lsst.pex.config import Field
 from lsst.pipe.drivers.constructCalibs import CalibTask
-from pfs.drp.stella.constructFiberTraceTask import ConstructFiberTraceConfig
 from lsst.pipe.drivers.utils import getDataRef
-from lsst.pipe.tasks.repair import RepairTask
-import math
-import numpy as np
-import pfs.drp.stella.utils as dsUtils
+
+from pfs.drp.stella.constructFiberTraceTask import ConstructFiberTraceConfig
+
+__all__ = ["ConstructFiberFlatConfig", "ConstructFiberFlatTask"]
+
 
 class ConstructFiberFlatConfig(ConstructFiberTraceConfig):
     """Configuration for flat construction"""
     minSNR = Field(
-        doc = "Minimum Signal-to-Noise Ratio for normalized Flat pixels",
-        dtype = float,
-        default = 100.,
-        check = lambda x : x > 0.)
+        doc="Minimum Signal-to-Noise Ratio for normalized Flat pixels",
+        dtype=float,
+        default=50.,
+        check=lambda x: x > 0.
+    )
+
 
 class ConstructFiberFlatTask(CalibTask):
-    """Task to construct the normalized Flat"""
+    """Task to construct the normalized flat"""
     ConfigClass = ConstructFiberFlatConfig
-    _DefaultName = "constructFiberFlat"
+    _DefaultName = "fiberFlat"
     calibName = "flat"
 
     def __init__(self, *args, **kwargs):
@@ -73,17 +74,25 @@ class ConstructFiberFlatTask(CalibTask):
         return exposure
 
     def combine(self, cache, struct, outputId):
-        """!Combine multiple exposures of a particular CCD and write the output
+        """Combine multiple exposures of a particular CCD and write the output
 
         Only the slave nodes execute this method.
 
-        @param cache  Process pool cache
-        @param struct  Parameters for the combination, which has the following components:
-            * ccdName     Name tuple for CCD
-            * ccdIdList   List of data identifiers for combination
-            * scales      Scales to apply (expScales are scalings for each exposure,
-                               ccdScale is final scale for combined image)
-        @param outputId    Data identifier for combined image (exposure part only)
+        Parameters
+        ----------
+        cache : `lsst.pipe.base.Struct`
+            Process pool cache.
+        struct : `lsst.pipe.base.Struct`
+            Parameters for the combination, which has the following components:
+
+            - ``ccdName`` (`tuple`): Name tuple for CCD.
+            - ``ccdIdList`` (`list`): List of data identifiers for combination.
+            - ``scales``: Unused by this implementation.
+
+        Returns
+        -------
+        outputId : `dict`
+            Data identifier for combined image (exposure part only).
         """
         # Check if we need to look up any keys that aren't in the output dataId
         fullOutputId = {k: struct.ccdName[i] for i, k in enumerate(self.config.ccdKeys)}
@@ -104,24 +113,17 @@ class ConstructFiberFlatTask(CalibTask):
         xOffsets = []
         for expRef in dataRefList:
             exposure = expRef.get('postISRCCD')
-            md = exposure.getMetadata()
 
-            if self.config.xOffsetHdrKeyWord not in md.names():
-                self.log.warn("Keyword %s not found in metadata; ignoring flat for %s" %
-                              (self.config.xOffsetHdrKeyWord, expRef.dataId))
-                continue
+            slitOffset = expRef.getButler().queryMetadata("raw", "slitOffset", expRef.dataId)
+            assert len(slitOffset) == 1, "Expect a single answer for this single dataset"
+            xOffsets.append(slitOffset.pop())
 
-            xOffsets.append(md.get(self.config.xOffsetHdrKeyWord))
-
-            fts = self.trace.run(exposure, detMap)
-            self.log.info('%d FiberTraces found for arm %d%s, visit %d' %
-                          (fts.getNtrace(),
-                           expRef.dataId['spectrograph'], expRef.dataId['arm'], expRef.dataId['visit']))
+            traces = self.trace.run(exposure.maskedImage, detMap)
+            self.log.info('%d FiberTraces found for %s' % (traces.size(), expRef.dataId))
 
             if sumFlats is None:
                 sumFlats = exposure.image
                 sumVariances = exposure.variance
-
                 sumRecIm = afwImage.ImageF(sumFlats.getDimensions())
                 sumVarIm = afwImage.ImageF(sumFlats.getDimensions())
             else:
@@ -130,26 +132,20 @@ class ConstructFiberFlatTask(CalibTask):
 
             # Add all reconstructed FiberTraces of all dithered flats to one
             # reconstructed image 'sumRecIm'
-
             maskedImage = exposure.maskedImage
-            for ft in fts.getTraces():
+            for ft in traces:
                 profile = ft.getTrace()
 
                 spectrum = ft.extractSpectrum(maskedImage, useProfile=True)
-                recFt = ft.getReconstructed2DSpectrum(spectrum)
-                if False:
-                    recFt.array[profile.image.array <= 0] = 0.0
+                recFt = ft.constructImage(spectrum)
 
                 bbox = profile.getBBox()
                 sumRecIm[bbox] += recFt
                 sumVarIm[bbox] += profile.variance
 
-        if sumFlats is None:
-            self.log.fatal("No flats were found with valid xOffset keyword %s" %
-                           self.config.xOffsetHdrKeyWord)
-            raise RuntimeError("Unable to find any valid flats")
-
         self.log.info('xOffsets = %s' % (xOffsets))
+        if sumFlats is None:
+            raise RuntimeError("Unable to find any valid flats")
 
         sumVariances = sumVariances.array
         sumVariances[sumVariances <= 0.0] = 0.1
@@ -179,19 +175,19 @@ class ConstructFiberFlatTask(CalibTask):
                 display = afwDisplay.getDisplay(frame=di.frames_flat)
                 display.mtv(normalizedFlat, title='normalized Flat')
                 if di.zoomPan:
-                    display.zoom(*zoomPan)
+                    display.zoom(*di.zoomPan)
 
             if di.frames_meanFlats >= 0:
                 display = afwDisplay.getDisplay(frame=di.frames_meanFlats)
                 display.mtv(afwImage.ImageF(sumFlats.array/len(dataRefList)), title='mean(Flats)')
                 if di.zoomPan:
-                    display.zoom(*zoomPan)
+                    display.zoom(*di.zoomPan)
 
             if di.frames_meanTraces >= 0:
                 display = afwDisplay.getDisplay(frame=di.frames_meanTraces)
                 display.mtv(afwImage.ImageF(sumRecIm.array/len(dataRefList)), title='mean(Traces)')
                 if di.zoomPan:
-                    display.zoom(*zoomPan)
+                    display.zoom(*di.zoomPan)
 
             if di.frames_ratio >= 0:
                 display = afwDisplay.getDisplay(frame=di.frames_ratio)
@@ -200,9 +196,9 @@ class ConstructFiberFlatTask(CalibTask):
                 display.mtv(afwImage.MaskedImageF(afwImage.ImageF(rat), normalizedFlat.mask),
                             title='mean(Flats)/mean(Traces)')
                 if di.zoomPan:
-                    display.zoom(*zoomPan)
+                    display.zoom(*di.zoomPan)
 
-        #Write fiber flat
+        # Write fiber flat
         normFlatOut = afwImage.makeExposure(normalizedFlat)
         self.recordCalibInputs(cache.butler, normFlatOut, struct.ccdIdList, outputId)
         self.interpolateNans(normFlatOut)

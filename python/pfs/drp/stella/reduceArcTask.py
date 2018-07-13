@@ -7,8 +7,7 @@ import lsst.afw.display as afwDisplay
 from .calibrateWavelengthsTask import CalibrateWavelengthsTask
 from .reduceExposure import ReduceExposureTask
 from .identifyLines import IdentifyLinesTask
-from .utils import makeDetectorMapIO
-from .utils import readLineListFile, writePfsArm
+from .utils import readLineListFile
 from lsst.obs.pfs.utils import getLampElements
 from pfs.drp.stella import Spectrum, SpectrumSet
 
@@ -61,7 +60,7 @@ class ReduceArcRunner(TaskRunner):
 
     @classmethod
     def getTargetList(cls, parsedCmd, **kwargs):
-        return super().getTargetList(parsedCmd, lineList=parsedCmd.lineList)
+        return super().getTargetList(parsedCmd, lineListFilename=parsedCmd.lineList)
 
     def run(self, parsedCmd):
         """Scatter-gather"""
@@ -78,7 +77,7 @@ class ReduceArcRunner(TaskRunner):
             task.log.fatal("Failed to process at least one of the components")
         else:
             dataRef = task.reduceDataRefs(parsedCmd.id.refList)
-            final = task.gather(dataRef, [rr.result for rr in results], lineList=parsedCmd.lineList)
+            final = task.gather(dataRef, [rr.result for rr in results], lineListFilename=parsedCmd.lineList)
         return [Struct(result=final, exitStatus=exitStatus)]
 
     def __call__(self, args):
@@ -137,7 +136,7 @@ class ReduceArcTask(CmdLineTask):
             if len(values) > 1:
                 raise RuntimeError("%s varies for inputs: %s" % (prop, [ref.dataId for ref in dataRefList]))
 
-    def run(self, dataRef, lineList):
+    def run(self, dataRef, lineListFilename):
         """Entry point for scatter stage
 
         Extracts spectra from the exposure pointed to by the ``dataRef``.
@@ -146,7 +145,7 @@ class ReduceArcTask(CmdLineTask):
         ----------
         dataRef : `lsst.daf.persistence.ButlerDataRef`
             Data reference for exposure.
-        lineList : `str`
+        lineListFilename : `str`
             Filename of arc line list.
 
         Returns
@@ -164,7 +163,7 @@ class ReduceArcTask(CmdLineTask):
         """
         metadata = dataRef.get("raw_md")
         lamps = getLampElements(metadata)
-        lines = self.readLineList(lamps, lineList)
+        lines = self.readLineList(lamps, lineListFilename)
         results = self.reduceExposure.run(dataRef, lines)
         return Struct(
             spectra=results.spectra,
@@ -174,7 +173,7 @@ class ReduceArcTask(CmdLineTask):
             lamps=lamps,
         )
 
-    def gather(self, dataRef, results, lineList):
+    def gather(self, dataRef, results, lineListFilename):
         """Entry point for gather stage
 
         Combines the input spectra and fits a wavelength calibration.
@@ -185,7 +184,7 @@ class ReduceArcTask(CmdLineTask):
             Data reference for exposure.
         results : `list` of `lsst.pipe.base.Struct`
             List of results from the ``run`` method.
-        lineList : `str`
+        lineListFilename : `str`
             Filename of arc line list.
         """
         if len(results) == 0:
@@ -197,7 +196,7 @@ class ReduceArcTask(CmdLineTask):
         lamps = set(sum((rr.lamps for rr in results if rr is not None), []))
 
         spectrumSet = self.coaddSpectra(spectra)
-        arcLines = self.readLineList(lamps, lineList)
+        arcLines = self.readLineList(lamps, lineListFilename)
         self.identifyLines.run(spectrumSet, detectorMap, arcLines)
         self.calibrateWavelengths.run(spectrumSet, detectorMap, seed=dataRef.get("ccdExposureId"))
         self.write(dataRef, spectrumSet, detectorMap, metadata, visitInfo)
@@ -222,11 +221,14 @@ class ReduceArcTask(CmdLineTask):
         result : `pfs.drp.stella.SpectrumSet`
             Coadded spectra.
         """
-        numApertures = set([len(ss) for ss in spectra])
+        numApertures = set(len(ss) for ss in spectra)
         assert len(numApertures) == 1, "Same number of apertures in each SpectrumSet"
         numApertures = numApertures.pop()
+        length = set(ss.getLength() for ss in spectra)
+        assert len(length) == 1, "Same length in each SpectrumSet"
+        length = length.pop()
 
-        result = SpectrumSet(numApertures)
+        result = SpectrumSet(numApertures, length)
         for ap in range(numApertures):
             inputs = [ss[ap] for ss in spectra]
             fiberId = set([ss.getFiberId() for ss in inputs])
@@ -234,7 +236,7 @@ class ReduceArcTask(CmdLineTask):
                 raise RuntimeError("Multiple fiber IDs (%s) for aperture %d" % (fiberId, ap))
             coadd = Spectrum(inputs[0].getNumPixels(), fiberId.pop())
             # Coadd the various elements of the spectrum
-            for elem in ("Wavelength", "Spectrum", "Background", "Covar"):
+            for elem in ("Wavelength", "Spectrum", "Background", "Covariance"):
                 element = getattr(inputs[0], "get" + elem)()
                 for ss in inputs[1:]:
                     element += getattr(ss, "get" + elem)()
@@ -242,14 +244,14 @@ class ReduceArcTask(CmdLineTask):
             result[ap] = coadd
         return result
 
-    def readLineList(self, lamps, lineList):
+    def readLineList(self, lamps, lineListFilename):
         """Read the arc line list from file
 
         Parameters
         ----------
         lamps : iterable of `str`
             Lamp species.
-        lineList : `str`
+        lineListFilename : `str`
             Filename of line list.
 
         Returns
@@ -258,7 +260,7 @@ class ReduceArcTask(CmdLineTask):
             List of reference lines.
         """
         self.log.info("Arc lamp elements are: %s", " ".join(lamps))
-        return readLineListFile(lineList, lamps, minIntensity=self.config.minArcLineIntensity)
+        return readLineListFile(lineListFilename, lamps, minIntensity=self.config.minArcLineIntensity)
 
     def write(self, dataRef, spectrumSet, detectorMap, metadata, visitInfo):
         """Write outputs
@@ -277,9 +279,11 @@ class ReduceArcTask(CmdLineTask):
             Visit information for exposure.
         """
         self.log.info("Writing output for %s", dataRef.dataId)
-        writePfsArm(dataRef, metadata, spectrumSet)
-        detectorMapIO = makeDetectorMapIO(detectorMap, visitInfo)
-        dataRef.put(detectorMapIO, 'detectormap')
+        # XXX set metadata in spectrumSet
+        dataRef.put(spectrumSet, "pfsArm")
+
+        detectorMap.setVisitInfo(visitInfo)
+        dataRef.put(detectorMap, 'detectormap')
 
     def reduceDataRefs(self, dataRefList):
         """Reduce a list of data references

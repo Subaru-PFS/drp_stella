@@ -1,20 +1,11 @@
-from __future__ import print_function
-from builtins import str
-from builtins import range
-from builtins import object
-import os
 import re
-import matplotlib.pyplot as plt
-from astropy.io import fits as pyfits
-import lsst.daf.base as dafBase
-import lsst.afw.geom as afwGeom
-import lsst.afw.image as afwImage
-import lsst.log as log
+
 import numpy as np
-import pfs.drp.stella as drpStella
+from astropy.io import fits as pyfits
 
+from pfs.drp.stella import ReferenceLine
 
-
+__all__ = ["readWavelengthFile", "readLineListFile", "plotReferenceLines"]
 
 
 def readWavelengthFile(wLenFile):
@@ -29,12 +20,12 @@ def readWavelengthFile(wLenFile):
     xCenters = tbdata[:]['xc'].astype('float32')
 
     traceIdSet = np.unique(traceIds)
-    assert len(wavelengths) == len(traceIds[traceIds == traceIdSet[0]])*len(traceIdSet) # could check all
+    assert len(wavelengths) == len(traceIds[traceIds == traceIdSet[0]])*len(traceIdSet)  # could check all
 
     return [xCenters, wavelengths, traceIds]
 
 
-def readLineListFile(lineList, lamps=["Ar", "Cd", "Hg", "Ne", "Xe"], minIntensity=0):
+def readLineListFile(lineListFilename, lamps=["Ar", "Cd", "Hg", "Ne", "Xe"], minIntensity=0):
     """Read line list
 
     File consists of lines of
@@ -55,15 +46,15 @@ def readLineListFile(lineList, lamps=["Ar", "Cd", "Hg", "Ne", "Xe"], minIntensit
     #
     referenceLines = []
 
-    with open(lineList) as fd:
+    with open(lineListFilename) as fd:
         for line in fd:
-            line = re.sub(r"\s*#.*$", "", line).rstrip() # strip comments
+            line = re.sub(r"\s*#.*$", "", line).rstrip()  # strip comments
 
             if not line:
                 continue
             fields = line.split()
             try:
-                lam, I, species, flag = fields
+                lam, intensity, species, flag = fields
             except Exception as e:
                 print("%s: %s" % (e, fields))
                 raise
@@ -73,9 +64,9 @@ def readLineListFile(lineList, lamps=["Ar", "Cd", "Hg", "Ne", "Xe"], minIntensit
                 continue
 
             try:
-                I = float(I)
+                intensity = float(intensity)
             except ValueError:
-                I = np.nan
+                intensity = np.nan
 
             if lamps:
                 keep = False
@@ -88,19 +79,20 @@ def readLineListFile(lineList, lamps=["Ar", "Cd", "Hg", "Ne", "Xe"], minIntensit
                     continue
 
             if minIntensity > 0:
-                if not np.isfinite(I) or I < minIntensity:
+                if not np.isfinite(intensity) or intensity < minIntensity:
                     continue
 
-            referenceLines.append(drpStella.ReferenceLine(species, wavelength=float(lam), guessedIntensity=I))
+            referenceLines.append(ReferenceLine(species, wavelength=float(lam), guessedIntensity=intensity))
 
     if len(referenceLines) == 0:
-        raise RuntimeError("You have not selected any lines from %s" % lineList)
+        raise RuntimeError("You have not selected any lines from %s" % lineListFilename)
 
     return referenceLines
 
+
 def plotReferenceLines(referenceLines, what, ls=':', alpha=1, color=None, label=None, labelStatus=True,
                        labelLines=False, wavelength=None, spectrum=None):
-    """Plot a set of reference lines using axvline
+    r"""Plot a set of reference lines using axvline
 
     \param referenceLines   List of ReferenceLine
     \param what   which field in ReferenceLine to plot
@@ -119,10 +111,12 @@ def plotReferenceLines(referenceLines, what, ls=':', alpha=1, color=None, label=
     if label == '':
         label = None
 
+    import matplotlib.pyplot as plt
+
     def maybeSetLabel(status):
         if labelLines:
             if labelStatus:
-                lab = "%s %s" % (what, status) # n.b. label is in caller's scope
+                lab = "%s %s" % (what, status)  # n.b. label is in caller's scope
             else:
                 lab = what
 

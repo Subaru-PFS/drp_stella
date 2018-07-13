@@ -1,5 +1,3 @@
-from __future__ import absolute_import
-
 from .spectra import *
 from .spectraContinued import *
 from .controls import *
