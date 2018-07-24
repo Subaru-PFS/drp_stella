@@ -31,7 +31,8 @@ DetectorMap::DetectorMap(lsst::afw::geom::Box2I bbox,                    // dete
     _nKnot(nKnot),
     _xToFiberId(_bbox.getWidth()),
     _slitOffsets(ndarray::makeVector(std::size_t(3), _nFiber)),
-    _visitInfo(lsst::daf::base::PropertyList())
+    _visitInfo(lsst::daf::base::PropertyList()),
+    _metadata(std::make_shared<lsst::daf::base::PropertyList>())
 {
     /*
      * Check inputs
@@ -74,7 +75,8 @@ DetectorMap::DetectorMap(
     _nKnot(centerKnots.getShape()[1]),
     _xToFiberId(_bbox.getWidth()),
     _slitOffsets(slitOffsets),
-    _visitInfo(lsst::daf::base::PropertyList())
+    _visitInfo(lsst::daf::base::PropertyList()),
+    _metadata(std::make_shared<lsst::daf::base::PropertyList>())
 {
     utils::checkSize(centerKnots.getShape()[0], _nFiber, "DetectorMap: nFiber");
     utils::checkSize(centerKnots.getShape(), centerValues.getShape(),

@@ -74,15 +74,13 @@ class DetectorMap:
         return cls(bbox, fiberIds, centerKnots, centerValues, wavelengthKnots, wavelengthValues,
                    slitOffsets, throughputs)
 
-    def writeFits(self, pathName, metadata=None, flags=None):
+    def writeFits(self, pathName, flags=None):
         """Read DetectorMap from FITS
 
         Parameters
         ----------
         pathName : `str`
             Path to file from which to read.
-        metadata : `lsst.daf.base.PropertyList`, optional
-            Metadata for FITS header.
         flags : `int`, optional
             Flags for reading; unused in this implementation.
 
@@ -93,8 +91,6 @@ class DetectorMap:
         """
         if flags is not None:
             raise NotImplementedError("flags is not used")
-        if metadata is None:
-            metadata = PropertyList()
         #
         # Unpack detectorMap into python objects
         #
@@ -127,6 +123,9 @@ class DetectorMap:
         hdr["OBSTYPE"] = 'detectormap'
         date = self.getVisitInfo().getDate()
         hdr["HIERARCH calibDate"] = date.toPython(date.UTC).strftime("%Y-%m-%d")
+        metadata = self.getMetadata()
+        for key in metadata.names():
+            hdr[key] = metadata.get(key)
 
         phu = pyfits.PrimaryHDU(header=hdr)
         hdus.append(phu)

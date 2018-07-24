@@ -192,6 +192,9 @@ public:
     math::Spline<float> const& getCenterSpline(std::size_t index) const;
     math::Spline<float> const& getWavelengthSpline(std::size_t index) const;
 
+    std::shared_ptr<lsst::daf::base::PropertySet> getMetadata() { return _metadata; }
+    std::shared_ptr<lsst::daf::base::PropertySet const> getMetadata() const { return _metadata; }
+
 private:                                // initialise before _yTo{XCenter,Wavelength}
     std::size_t _nFiber;                // number of fibers
     lsst::afw::geom::Box2I _bbox;       // bounding box of detector
@@ -218,6 +221,8 @@ private:                                // initialise before _yTo{XCenter,Wavele
     Array2D _slitOffsets;
 
     lsst::afw::image::VisitInfo _visitInfo;
+    std::shared_ptr<lsst::daf::base::PropertySet> _metadata;  // FITS header
+
     /*
      * Private helper functions
      */

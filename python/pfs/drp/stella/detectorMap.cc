@@ -89,6 +89,8 @@ void declareDetectorMap(py::module &mod)
     cls.def("getVisitInfo", &Class::getVisitInfo);
     cls.def("setVisitInfo", &Class::setVisitInfo);
 
+    cls.def("getMetadata", py::overload_cast<>(&Class::getMetadata));
+
     cls.def("getCenterSpline", &Class::getCenterSpline);
     cls.def("getWavelengthSpline", &Class::getWavelengthSpline);
 
