@@ -231,14 +231,26 @@ void Spectrum::identify(
         auto GaussSpec = ndarray::Array<float, 1, 1>(n);
         auto MeasureErrors = ndarray::Array<float, 1, 1>(n);
 
+        bool allFinite = true;
         auto itSpec = _spectrum.begin() + start;
         for (auto itGaussSpec = GaussSpec.begin(); itGaussSpec != GaussSpec.end(); ++itGaussSpec, ++itSpec) {
+            if (!::isfinite(*itSpec)) {
+                allFinite = false;
+            }
             *itGaussSpec = *itSpec;
         }
         for (auto itMeasErr = MeasureErrors.begin(), itGaussSpec = GaussSpec.begin();
             itMeasErr != MeasureErrors.end(); ++itMeasErr, ++itGaussSpec) {
             *itMeasErr = ::sqrt(std::fabs(*itGaussSpec));
+            if (!::isfinite(*itMeasErr)) {
+                allFinite = false;
+            }
             if (*itMeasErr < 0.00001) *itMeasErr = 1.;
+        }
+        if (!allFinite) {
+            LOGLS_WARN(_log, "Fibre " << getFiberId() << " line " << i << " (between " << start << " and " <<
+                        end << " has NANs: skipping");
+            continue;
         }
         auto array = ndarray::Array<float, 1, 1>(n);
         {

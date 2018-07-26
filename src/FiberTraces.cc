@@ -98,6 +98,14 @@ FiberTrace<ImageT, MaskT, VarianceT>::extractSpectrum(
         auto const result = math::fitProfile2d(traceIm, select, _trace.getImage()->getArray(), fitBackground,
                                                clipNSigma);
         spectrum->getSpectrum()[ndarray::view(bbox.getMinY(), bbox.getMaxY() + 1)] = std::get<0>(result);
+        // Non-finite values can result from attempting to extract a row which is mostly bad.
+        auto const badSpectrum = spectrum->getMask().getPlaneBitMask("BAD");
+        auto const extracted = spectrum->getSpectrum();
+        for (std::size_t y = bbox.getMinY(); y <= std::size_t(bbox.getMaxY()); ++y) {
+            if (!std::isfinite(extracted[y])) {
+                spectrum->getMask().getArray()[0][y] = badSpectrum;
+            }
+        }
         spectrum->getBackground()[ndarray::view(bbox.getMinY(), bbox.getMaxY() + 1)] = std::get<1>(result);
         spectrum->getVariance()[ndarray::view(bbox.getMinY(), bbox.getMaxY() + 1)] = std::get<2>(result);
     } else {                            // simple profile fit
