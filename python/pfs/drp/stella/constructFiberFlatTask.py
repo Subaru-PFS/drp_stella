@@ -73,6 +73,31 @@ class ConstructFiberFlatTask(CalibTask):
                 fpSet.setMask(exposure.getMaskedImage().getMask(), "CR")
         return exposure
 
+    def getOutputId(self, expRefList, calibId):
+        """Generate the data identifier for the output calib
+
+        The mean date and the common filter are included, using keywords
+        from the configuration.  The CCD-specific part is not included
+        in the data identifier.
+
+        This override implementation adds ``visit0`` to the output identifier.
+
+        Parameters
+        ----------
+        expRefList : `list` of `lsst.daf.persistence.ButlerDataRef`
+            List of data references for input exposures.
+        calibId : `dict`
+            Data identifier elements for the calib, provided by the user.
+
+        Returns
+        -------
+        outputId : `dict`
+            Data identifier for output.
+        """
+        outputId = CalibTask.getOutputId(self, expRefList, calibId)
+        outputId["visit0"] = expRefList[0].dataId['visit']
+        return outputId
+
     def combine(self, cache, struct, outputId):
         """Combine multiple exposures of a particular CCD and write the output
 
@@ -103,6 +128,7 @@ class ConstructFiberFlatTask(CalibTask):
 
         dataRefList = [getDataRef(cache.butler, dataId) if dataId is not None else None for
                        dataId in struct.ccdIdList]
+
         self.log.info("Combining %s on %s" % (outputId, NODE))
         self.log.info('len(dataRefList) = %d' % len(dataRefList))
 
