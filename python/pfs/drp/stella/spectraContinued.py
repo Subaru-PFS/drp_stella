@@ -10,10 +10,58 @@ from lsst.pipe.base import Struct
 import lsst.afw.image as afwImage
 
 from pfs.datamodel.pfsArm import PfsArm
+from pfs.drp.stella import ReferenceLine
 
 from .spectra import SpectrumSet, Spectrum
 
-__all__ = ["SpectrumSet"]
+__all__ = ["Spectrum", "SpectrumSet"]
+
+BAD_REFERENCE = (ReferenceLine.MISIDENTIFIED | ReferenceLine.CLIPPED | ReferenceLine.SATURATED |
+                 ReferenceLine.INTERPOLATED | ReferenceLine.CR)
+
+@continueClass
+class Spectrum:
+    """Flux as a function of wavelength"""
+    def plot(self, numRows=3, plotBackground=False, plotReferenceLines=False, badReference=BAD_REFERENCE,
+             filename=None):
+        import matplotlib.pyplot as plt
+        figure, axes = plt.subplots(numRows)
+
+        wavelength = np.split(self.getWavelength(), numRows)
+        flux = np.split(self.getSpectrum(), numRows)
+        if plotBackground:
+            background = np.split(self.getBackground(), numRows)
+
+        for ii in range(numRows):
+            ax = axes[ii]
+            ax.plot(wavelength[ii], flux[ii], 'k-')
+            if plotBackground:
+                ax.plot(wavelength[ii], background[ii], 'b-')
+            ax.set_ylim(bottom=0.0)
+            if plotReferenceLines:
+                minWavelength = wavelength[ii][0]
+                maxWavelength = wavelength[ii][-1]
+                isGood = np.isfinite(flux[ii])
+                ff = flux[ii][isGood]
+                wl = wavelength[ii][isGood]
+                vertical = np.max(ff)
+                for rl in self.getReferenceLines():
+                    xx = rl.wavelength
+                    if xx < minWavelength or xx > maxWavelength:
+                        continue
+                    style = "dotted" if rl.status & ReferenceLine.RESERVED > 0 else "solid"
+                    color = "red" if rl.status & badReference > 0 else "black"
+
+                    index = int(np.searchsorted(wl, xx))
+                    yy = np.max(ff[max(0, index - 2):min(len(ff) - 1, index + 2 + 1)])
+                    ax.plot((xx, xx), (yy + 0.10*vertical, yy + 0.20*vertical), ls=style, color=color)
+                    ax.text(xx, yy + 0.25*vertical, rl.description, color=color, ha='center')
+
+        if filename is not None:
+            plt.savefig(filename, bbox_inches='tight')
+            plt.close(figure)
+        else:
+            return plt, axes
 
 
 @continueClass
