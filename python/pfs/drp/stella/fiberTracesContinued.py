@@ -41,7 +41,7 @@ class FiberTraceSet:
     hand the values to the PfsFiberTrace's I/O methods to re-determine the path.
     This dance is unfortunate but necessary.
     """
-    fileNameRegex = r"^pfsFiberTrace-(\d{4}-\d{2}-\d{2})-0-([brmn])([1-4])\.fits.*"
+    fileNameRegex = r"^pfsFiberTrace-(\d{4}-\d{2}-\d{2})-(\d{6})-([brmn])([1-4])\.fits.*"
 
     def toPfsFiberTrace(self, dataId):
         """Convert to a `pfs.datamodel.PfsFiberTrace`
@@ -64,11 +64,12 @@ class FiberTraceSet:
         obsDate = dataId['calibDate'] if 'calibDate' in dataId else dataId['dateObs']
         spectrograph = dataId['spectrograph']
         arm = dataId['arm']
+        visit0 = dataId['visit0']
         metadata = self.getMetadata()
         metadata.set("arm", arm)
         metadata.set("spectrograph", spectrograph)
 
-        out = PfsFiberTrace(obsDate, spectrograph, arm, metadata)
+        out = PfsFiberTrace(obsDate, spectrograph, arm, visit0, metadata)
         for ft in self:
             out.fiberId.append(ft.getFiberId())
             out.traces.append(ft.getTrace())
@@ -126,11 +127,12 @@ class FiberTraceSet:
         matches = re.search(cls.fileNameRegex, fileName)
         if not matches:
             raise RuntimeError("Unable to parse filename: %s" % (fileName,))
-        dateObs, arm, spectrograph = matches.groups()
+        dateObs, visit0, arm, spectrograph = matches.groups()
         spectrograph = int(spectrograph)
-        dataId = dict(dateObs=dateObs, arm=arm, spectrograph=spectrograph)
+        visit0 = int(visit0)
+        dataId = dict(dateObs=dateObs, visit0=visit0, arm=arm, spectrograph=spectrograph)
         return Struct(dirName=dirName, fileName=fileName, dateObs=dateObs, arm=arm, spectrograph=spectrograph,
-                      dataId=dataId)
+                      visit0=visit0, dataId=dataId)
 
     def writeFits(self, *args, **kwargs):
         """Write as FITS
@@ -185,7 +187,7 @@ class FiberTraceSet:
             If ``hdu`` or ``flags`` arguments are provided.
         """
         parsed = cls._parsePath(*args, **kwargs)
-        fiberTrace = PfsFiberTrace(parsed.dateObs, parsed.spectrograph, parsed.arm)
+        fiberTrace = PfsFiberTrace(parsed.dateObs, parsed.spectrograph, parsed.arm, parsed.visit0)
         fiberTrace.read(dirName=parsed.dirName)
         return cls.fromPfsFiberTrace(fiberTrace)
 
