@@ -82,8 +82,7 @@ class ExtractSpectraTask(pipeBase.Task):
         spectra = drpStella.SpectrumSet(maskedImage.getHeight())
         for fiberTrace in fiberTraceSet:
             spectrum = self.extractSpectrum(maskedImage, fiberTrace, detectorMap)
-            if spectrum is not None:
-                spectra.add(spectrum)
+            spectra.add(spectrum)
         return spectra
 
     def extractSpectrum(self, maskedImage, fiberTrace, detectorMap=None):
@@ -106,11 +105,7 @@ class ExtractSpectraTask(pipeBase.Task):
             Extracted spectra, or `None` if the extraction failed.
         """
         fiberId = fiberTrace.getFiberId()
-        try:
-            spectrum = fiberTrace.extractSpectrum(maskedImage, self.config.useOptimal)
-        except Exception as exc:
-            self.log.warn("Extraction of fibre %d failed: %s", fiberId, exc)
-            return None
+        spectrum = fiberTrace.extractSpectrum(maskedImage, self.config.useOptimal)
         if detectorMap is not None:
             spectrum.spectrum /= detectorMap.getThroughput(fiberId)
             spectrum.setWavelength(detectorMap.getWavelength(fiberId))
