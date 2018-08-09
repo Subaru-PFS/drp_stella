@@ -132,12 +132,12 @@ class ConstructFiberFlatTask(CalibTask):
         self.log.info("Combining %s on %s" % (outputId, NODE))
         self.log.info('len(dataRefList) = %d' % len(dataRefList))
 
-        sumFlats, sumVariances = None, None
+        sumFlats, sumTrace = None, None
 
         detMap = dataRefList[0].get('detectormap')
 
         xOffsets = []
-        for expRef in dataRefList:
+        for ii, expRef in enumerate(dataRefList):
             exposure = expRef.get('postISRCCD')
 
             slitOffset = expRef.getButler().queryMetadata("raw", "slitOffset", expRef.dataId)
@@ -147,50 +147,52 @@ class ConstructFiberFlatTask(CalibTask):
             traces = self.trace.run(exposure.maskedImage, detMap)
             self.log.info('%d FiberTraces found for %s' % (traces.size(), expRef.dataId))
 
-            if sumFlats is None:
-                sumFlats = exposure.image
-                sumVariances = exposure.variance
-                sumRecIm = afwImage.ImageF(sumFlats.getDimensions())
-                sumVarIm = afwImage.ImageF(sumFlats.getDimensions())
-            else:
-                sumFlats += exposure.image
-                sumVariances += exposure.variance
+            maskVal = exposure.mask.getPlaneBitMask(["BAD", "SAT", "CR"])
 
-            # Add all reconstructed FiberTraces of all dithered flats to one
-            # reconstructed image 'sumRecIm'
-            maskedImage = exposure.maskedImage
+            traceImage = afwImage.ImageF(exposure.getBBox())
+            traceImage.set(0)
+
             for ft in traces:
-                profile = ft.getTrace()
+                spectrum = ft.extractSpectrum(exposure.maskedImage, useProfile=True)
+                reconstructed = ft.constructImage(spectrum)
+                bbox = reconstructed.getBBox()
+                traceImage[bbox] += reconstructed
 
-                spectrum = ft.extractSpectrum(maskedImage, useProfile=True)
-                recFt = ft.constructImage(spectrum)
+                bad = (reconstructed.array <= 0.0) | (exposure.mask[bbox].array & maskVal > 0)
+                sub = exposure.maskedImage[bbox]                
+                sub.image.array[bad] = 0.0
+                sub.variance.array[bad] = 0.0
+                traceImage[bbox].array[bad] = 0.0
 
-                bbox = profile.getBBox()
-                sumRecIm[bbox] += recFt
-                sumVarIm[bbox] += profile.variance
+            unused = traceImage.array == 0.0
+            exposure.image.array[unused] = 0.0
+            exposure.variance.array[unused] = 0.0
+
+            if sumFlats is None:
+                sumFlats = exposure.maskedImage
+                sumTrace = traceImage
+            else:
+                sumFlats += exposure.maskedImage
+                sumTrace += traceImage
 
         self.log.info('xOffsets = %s' % (xOffsets))
         if sumFlats is None:
             raise RuntimeError("Unable to find any valid flats")
 
-        sumVariances = sumVariances.array
-        sumVariances[sumVariances <= 0.0] = 0.1
-        snrArr = sumFlats.array/np.sqrt(sumVariances)
-        #
-        # Find and mask bad flat field pixels
-        #
-        with np.errstate(divide='ignore'):
-            normalizedFlat = sumFlats.array/sumRecIm.array
+        # Divide through by the number of good contributions, but avoid dividing by zero
+        empty = sumTrace.array <= 0
+        sumTrace.array[empty] = 1.0
+        sumTrace.array[empty] = 1.0
+        sumFlats.image.array[empty] = 1.0
+        sumFlats.variance.array[empty] = 1.0
+        sumFlats /= sumTrace
+        normalizedFlat = sumFlats
 
-        msk = np.zeros_like(normalizedFlat, dtype=afwImage.MaskPixel)
-
-        bad = np.logical_or(np.logical_not(np.isfinite(snrArr)),
-                            snrArr < self.config.minSNR)
-
-        normalizedFlat[bad] = 1.0
-        msk[bad] |= (1 << afwImage.Mask.addMaskPlane("BAD_FLAT"))
-
-        normalizedFlat = afwImage.makeMaskedImage(afwImage.ImageF(normalizedFlat), afwImage.Mask(msk))
+        # Mask bad pixels
+        snr = normalizedFlat.image.array/np.sqrt(normalizedFlat.variance.array)
+        bad = (snr < self.config.minSNR) | ~np.isfinite(snr)
+        normalizedFlat.image.array[bad] = 1.0
+        normalizedFlat.mask.array[bad] = (1 << normalizedFlat.mask.addMaskPlane("BAD_FLAT"))
 
         import lsstDebug
         di = lsstDebug.Info(__name__)
@@ -200,27 +202,6 @@ class ConstructFiberFlatTask(CalibTask):
             if di.frames_flat >= 0:
                 display = afwDisplay.getDisplay(frame=di.frames_flat)
                 display.mtv(normalizedFlat, title='normalized Flat')
-                if di.zoomPan:
-                    display.zoom(*di.zoomPan)
-
-            if di.frames_meanFlats >= 0:
-                display = afwDisplay.getDisplay(frame=di.frames_meanFlats)
-                display.mtv(afwImage.ImageF(sumFlats.array/len(dataRefList)), title='mean(Flats)')
-                if di.zoomPan:
-                    display.zoom(*di.zoomPan)
-
-            if di.frames_meanTraces >= 0:
-                display = afwDisplay.getDisplay(frame=di.frames_meanTraces)
-                display.mtv(afwImage.ImageF(sumRecIm.array/len(dataRefList)), title='mean(Traces)')
-                if di.zoomPan:
-                    display.zoom(*di.zoomPan)
-
-            if di.frames_ratio >= 0:
-                display = afwDisplay.getDisplay(frame=di.frames_ratio)
-                rat = sumFlats.array/sumRecIm.array
-                rat[msk != 0] = np.nan
-                display.mtv(afwImage.MaskedImageF(afwImage.ImageF(rat), normalizedFlat.mask),
-                            title='mean(Flats)/mean(Traces)')
                 if di.zoomPan:
                     display.zoom(*di.zoomPan)
 
