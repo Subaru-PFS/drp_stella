@@ -209,10 +209,13 @@ void Spectrum::identify(
 
     for (std::size_t i = 0; i < nLine; ++i) {
         auto refLine = _referenceLines[i];
+        if (!std::isfinite(refLine->guessedPosition)) {
+            continue;
+        }
 
         std::size_t start = std::size_t(refLine->guessedPosition) - dispCorControl.searchRadius;
         std::size_t end = start + 2*dispCorControl.searchRadius;
-        if (start < 0 || end >= _length) {
+        if (start < 0 || start >= _length || end < 0 || end >= _length) {
             continue;
         }
 
