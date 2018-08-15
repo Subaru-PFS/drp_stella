@@ -5,7 +5,7 @@ scripts.BasicSConscript.pybind11(
      'controls',
      'fiberTraces',
      'detectorMap',
-     '_math',
+     'spline',
      ],
     addUnderscore=False
 )

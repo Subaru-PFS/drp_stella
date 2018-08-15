@@ -2,7 +2,6 @@ import lsst.pex.config as pexConfig
 import lsst.pipe.base as pipeBase
 import lsst.afw.display as afwDisplay
 import pfs.drp.stella as drpStella
-import pfs.drp.stella.utils as dsUtils
 
 from .identifyLines import IdentifyLinesTask
 
@@ -16,7 +15,7 @@ class ExtractSpectraConfig(pexConfig.Config):
 
 class ExtractSpectraTask(pipeBase.Task):
     ConfigClass = ExtractSpectraConfig
-    _DefaultName = "ExtractSpectraTask"
+    _DefaultName = "extractSpectra"
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -52,13 +51,13 @@ class ExtractSpectraTask(pipeBase.Task):
 
         if self.debugInfo.display:
             display = afwDisplay.Display(frame=self.debugInfo.input_frame)
-            dsUtils.addFiberTraceSetToMask(maskedImage.mask, fiberTraceSet)
+            fiberTraceSet.applyToMask(maskedImage.mask)
             display.mtv(maskedImage, "input")
 
         spectra = self.extractAllSpectra(maskedImage, fiberTraceSet, detectorMap)
         if lines:
             self.identifyLines.run(spectra, detectorMap, lines)
-        return spectra
+        return pipeBase.Struct(spectra=spectra)
 
     def extractAllSpectra(self, maskedImage, fiberTraceSet, detectorMap=None):
         """Extract all spectra in the fiberTraceSet
@@ -80,11 +79,10 @@ class ExtractSpectraTask(pipeBase.Task):
         spectra : `pfs.drp.stella.SpectrumSet`
             Extracted spectra.
         """
-        spectra = drpStella.SpectrumSet()
+        spectra = drpStella.SpectrumSet(maskedImage.getHeight())
         for fiberTrace in fiberTraceSet:
             spectrum = self.extractSpectrum(maskedImage, fiberTrace, detectorMap)
-            if spectrum is not None:
-                spectra.addSpectrum(spectrum)
+            spectra.add(spectrum)
         return spectra
 
     def extractSpectrum(self, maskedImage, fiberTrace, detectorMap=None):
@@ -107,11 +105,7 @@ class ExtractSpectraTask(pipeBase.Task):
             Extracted spectra, or `None` if the extraction failed.
         """
         fiberId = fiberTrace.getFiberId()
-        try:
-            spectrum = fiberTrace.extractSpectrum(maskedImage, self.config.useOptimal)
-        except Exception as exc:
-            self.log.warn("Extraction of fibre %d failed: %s", fiberId, exc)
-            return None
+        spectrum = fiberTrace.extractSpectrum(maskedImage, self.config.useOptimal)
         if detectorMap is not None:
             spectrum.spectrum /= detectorMap.getThroughput(fiberId)
             spectrum.setWavelength(detectorMap.getWavelength(fiberId))

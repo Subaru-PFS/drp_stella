@@ -25,7 +25,6 @@ import lsst.pex.config as pexConfig
 import lsst.pipe.base as pipeBase
 from .extractSpectraTask import ExtractSpectraTask
 from .fitContinuum import FitContinuumTask
-from .utils import makeFiberTraceSet, writePfsArm, makeImageFromSpectra
 
 __all__ = ["ReduceExposureConfig", "ReduceExposureTask"]
 
@@ -157,21 +156,23 @@ class ReduceExposureTask(pipeBase.CmdLineTask):
         if self.config.doExtractSpectra:
             fiberTraces = self.getFiberTraces(sensorRef)
             detectorMap = self.getDetectorMap(sensorRef)
-            spectra = self.extractSpectra.run(exposure.maskedImage, fiberTraces, detectorMap, lines)
+            spectra = self.extractSpectra.run(exposure.maskedImage, fiberTraces, detectorMap, lines).spectra
             results.original = spectra
             results.detectorMap = detectorMap
 
             if self.config.doSubtractContinuum:
                 continua = self.fitContinuum.run(spectra)
-                exposure.maskedImage -= makeImageFromSpectra(continua, exposure.getBBox(), fiberTraces)
-                spectra = self.extractSpectra.run(exposure.maskedImage, fiberTraces, detectorMap, lines)
+                exposure.maskedImage -= continua.makeImage(exposure.getBBox(), fiberTraces)
+                spectra = self.extractSpectra.run(exposure.maskedImage, fiberTraces,
+                                                  detectorMap, lines).spectra
 
             results.spectra = spectra
 
         if self.config.doWriteCalexp:
             sensorRef.put(exposure, "calexp")
         if self.config.doWriteArm:
-            writePfsArm(sensorRef, exposure.getMetadata(), results.spectra)
+            # XXX set exposure.getMetadata() in spectra
+            sensorRef.put(results.spectra, "pfsArm")
 
         return results
 
@@ -218,8 +219,7 @@ class ReduceExposureTask(pipeBase.CmdLineTask):
         fiberTraceSet : `pfs.drp.stella.FiberTraceSet`
             Set of fiber traces.
         """
-        fiberTrace = sensorRef.get('fibertrace')
-        return makeFiberTraceSet(fiberTrace)
+        return sensorRef.get('fibertrace')
 
     def _getConfigName(self):
         return None

@@ -1,16 +1,16 @@
 from lsst.pex.config import makeConfigClass
 from lsst.pipe.base import Task
-from pfs.drp.stella import DispCorControl
+from pfs.drp.stella import DispersionCorrectionControl
 
 __all__ = ["IdentifyLinesConfig", "IdentifyLinesTask"]
 
 
-IdentifyLinesConfig = makeConfigClass(DispCorControl, "IdentifyConfig")
+IdentifyLinesConfig = makeConfigClass(DispersionCorrectionControl, "IdentifyConfig")
 
 
 class IdentifyLinesTask(Task):
     ConfigClass = IdentifyLinesConfig
-    _DefaultName = "CalibrateWavelengthsTask"
+    _DefaultName = "identifyLines"
 
     def run(self, spectra, detectorMap, lines):
         """Identify arc lines on the extracted spectra
@@ -44,5 +44,5 @@ class IdentifyLinesTask(Task):
             Reference lines.
         """
         for rl in lines:
-            rl.guessedPixelPos = detectorMap.findPoint(spectrum.getFiberId(), rl.wavelength)[1]
+            rl.guessedPosition = detectorMap.findPoint(spectrum.getFiberId(), rl.wavelength)[1]
         spectrum.identify(lines, self.config.makeControl())

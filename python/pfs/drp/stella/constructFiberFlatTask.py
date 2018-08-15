@@ -1,33 +1,34 @@
-#!/usr/bin/env python
-from __future__ import division
-import os
-from lsst.utils import getPackageDir
+import math
+import numpy as np
+
 import lsst.afw.image as afwImage
 import lsst.afw.detection as afwDet
 from lsst.ctrl.pool.pool import NODE
 import lsst.meas.algorithms as measAlg
 import lsst.daf.persistence as dafPersist
-from lsst.pex.config import Field, ConfigurableField
+from lsst.pex.config import Field
 from lsst.pipe.drivers.constructCalibs import CalibTask
-from pfs.drp.stella.constructFiberTraceTask import ConstructFiberTraceConfig
 from lsst.pipe.drivers.utils import getDataRef
-from lsst.pipe.tasks.repair import RepairTask
-import math
-import numpy as np
-import pfs.drp.stella.utils as dsUtils
+
+from pfs.drp.stella.constructFiberTraceTask import ConstructFiberTraceConfig
+
+__all__ = ["ConstructFiberFlatConfig", "ConstructFiberFlatTask"]
+
 
 class ConstructFiberFlatConfig(ConstructFiberTraceConfig):
     """Configuration for flat construction"""
     minSNR = Field(
-        doc = "Minimum Signal-to-Noise Ratio for normalized Flat pixels",
-        dtype = float,
-        default = 100.,
-        check = lambda x : x > 0.)
+        doc="Minimum Signal-to-Noise Ratio for normalized Flat pixels",
+        dtype=float,
+        default=50.,
+        check=lambda x: x > 0.
+    )
+
 
 class ConstructFiberFlatTask(CalibTask):
-    """Task to construct the normalized Flat"""
+    """Task to construct the normalized flat"""
     ConfigClass = ConstructFiberFlatConfig
-    _DefaultName = "constructFiberFlat"
+    _DefaultName = "fiberFlat"
     calibName = "flat"
 
     def __init__(self, *args, **kwargs):
@@ -72,18 +73,51 @@ class ConstructFiberFlatTask(CalibTask):
                 fpSet.setMask(exposure.getMaskedImage().getMask(), "CR")
         return exposure
 
+    def getOutputId(self, expRefList, calibId):
+        """Generate the data identifier for the output calib
+
+        The mean date and the common filter are included, using keywords
+        from the configuration.  The CCD-specific part is not included
+        in the data identifier.
+
+        This override implementation adds ``visit0`` to the output identifier.
+
+        Parameters
+        ----------
+        expRefList : `list` of `lsst.daf.persistence.ButlerDataRef`
+            List of data references for input exposures.
+        calibId : `dict`
+            Data identifier elements for the calib, provided by the user.
+
+        Returns
+        -------
+        outputId : `dict`
+            Data identifier for output.
+        """
+        outputId = CalibTask.getOutputId(self, expRefList, calibId)
+        outputId["visit0"] = expRefList[0].dataId['visit']
+        return outputId
+
     def combine(self, cache, struct, outputId):
-        """!Combine multiple exposures of a particular CCD and write the output
+        """Combine multiple exposures of a particular CCD and write the output
 
         Only the slave nodes execute this method.
 
-        @param cache  Process pool cache
-        @param struct  Parameters for the combination, which has the following components:
-            * ccdName     Name tuple for CCD
-            * ccdIdList   List of data identifiers for combination
-            * scales      Scales to apply (expScales are scalings for each exposure,
-                               ccdScale is final scale for combined image)
-        @param outputId    Data identifier for combined image (exposure part only)
+        Parameters
+        ----------
+        cache : `lsst.pipe.base.Struct`
+            Process pool cache.
+        struct : `lsst.pipe.base.Struct`
+            Parameters for the combination, which has the following components:
+
+            - ``ccdName`` (`tuple`): Name tuple for CCD.
+            - ``ccdIdList`` (`list`): List of data identifiers for combination.
+            - ``scales``: Unused by this implementation.
+
+        Returns
+        -------
+        outputId : `dict`
+            Data identifier for combined image (exposure part only).
         """
         # Check if we need to look up any keys that aren't in the output dataId
         fullOutputId = {k: struct.ccdName[i] for i, k in enumerate(self.config.ccdKeys)}
@@ -94,81 +128,71 @@ class ConstructFiberFlatTask(CalibTask):
 
         dataRefList = [getDataRef(cache.butler, dataId) if dataId is not None else None for
                        dataId in struct.ccdIdList]
+
         self.log.info("Combining %s on %s" % (outputId, NODE))
         self.log.info('len(dataRefList) = %d' % len(dataRefList))
 
-        sumFlats, sumVariances = None, None
+        sumFlats, sumTrace = None, None
 
         detMap = dataRefList[0].get('detectormap')
 
         xOffsets = []
-        for expRef in dataRefList:
+        for ii, expRef in enumerate(dataRefList):
             exposure = expRef.get('postISRCCD')
-            md = exposure.getMetadata()
 
-            if self.config.xOffsetHdrKeyWord not in md.names():
-                self.log.warn("Keyword %s not found in metadata; ignoring flat for %s" %
-                              (self.config.xOffsetHdrKeyWord, expRef.dataId))
-                continue
+            slitOffset = expRef.getButler().queryMetadata("raw", "slitOffset", expRef.dataId)
+            assert len(slitOffset) == 1, "Expect a single answer for this single dataset"
+            xOffsets.append(slitOffset.pop())
 
-            xOffsets.append(md.get(self.config.xOffsetHdrKeyWord))
+            traces = self.trace.run(exposure.maskedImage, detMap)
+            self.log.info('%d FiberTraces found for %s' % (traces.size(), expRef.dataId))
 
-            fts = self.trace.run(exposure, detMap)
-            self.log.info('%d FiberTraces found for arm %d%s, visit %d' %
-                          (fts.getNtrace(),
-                           expRef.dataId['spectrograph'], expRef.dataId['arm'], expRef.dataId['visit']))
+            maskVal = exposure.mask.getPlaneBitMask(["BAD", "SAT", "CR"])
+
+            traceImage = afwImage.ImageF(exposure.getBBox())
+            traceImage.set(0)
+
+            for ft in traces:
+                spectrum = ft.extractSpectrum(exposure.maskedImage, useProfile=True)
+                reconstructed = ft.constructImage(spectrum)
+                bbox = reconstructed.getBBox()
+                traceImage[bbox] += reconstructed
+
+                bad = (reconstructed.array <= 0.0) | (exposure.mask[bbox].array & maskVal > 0)
+                sub = exposure.maskedImage[bbox]                
+                sub.image.array[bad] = 0.0
+                sub.variance.array[bad] = 0.0
+                traceImage[bbox].array[bad] = 0.0
+
+            unused = traceImage.array == 0.0
+            exposure.image.array[unused] = 0.0
+            exposure.variance.array[unused] = 0.0
 
             if sumFlats is None:
-                sumFlats = exposure.image
-                sumVariances = exposure.variance
-
-                sumRecIm = afwImage.ImageF(sumFlats.getDimensions())
-                sumVarIm = afwImage.ImageF(sumFlats.getDimensions())
+                sumFlats = exposure.maskedImage
+                sumTrace = traceImage
             else:
-                sumFlats += exposure.image
-                sumVariances += exposure.variance
-
-            # Add all reconstructed FiberTraces of all dithered flats to one
-            # reconstructed image 'sumRecIm'
-
-            maskedImage = exposure.maskedImage
-            for ft in fts.getTraces():
-                profile = ft.getTrace()
-
-                spectrum = ft.extractSpectrum(maskedImage, useProfile=True)
-                recFt = ft.getReconstructed2DSpectrum(spectrum)
-                if False:
-                    recFt.array[profile.image.array <= 0] = 0.0
-
-                bbox = profile.getBBox()
-                sumRecIm[bbox] += recFt
-                sumVarIm[bbox] += profile.variance
-
-        if sumFlats is None:
-            self.log.fatal("No flats were found with valid xOffset keyword %s" %
-                           self.config.xOffsetHdrKeyWord)
-            raise RuntimeError("Unable to find any valid flats")
+                sumFlats += exposure.maskedImage
+                sumTrace += traceImage
 
         self.log.info('xOffsets = %s' % (xOffsets))
+        if sumFlats is None:
+            raise RuntimeError("Unable to find any valid flats")
 
-        sumVariances = sumVariances.array
-        sumVariances[sumVariances <= 0.0] = 0.1
-        snrArr = sumFlats.array/np.sqrt(sumVariances)
-        #
-        # Find and mask bad flat field pixels
-        #
-        with np.errstate(divide='ignore'):
-            normalizedFlat = sumFlats.array/sumRecIm.array
+        # Divide through by the number of good contributions, but avoid dividing by zero
+        empty = sumTrace.array <= 0
+        sumTrace.array[empty] = 1.0
+        sumTrace.array[empty] = 1.0
+        sumFlats.image.array[empty] = 1.0
+        sumFlats.variance.array[empty] = 1.0
+        sumFlats /= sumTrace
+        normalizedFlat = sumFlats
 
-        msk = np.zeros_like(normalizedFlat, dtype=afwImage.MaskPixel)
-
-        bad = np.logical_or(np.logical_not(np.isfinite(snrArr)),
-                            snrArr < self.config.minSNR)
-
-        normalizedFlat[bad] = 1.0
-        msk[bad] |= (1 << afwImage.Mask.addMaskPlane("BAD_FLAT"))
-
-        normalizedFlat = afwImage.makeMaskedImage(afwImage.ImageF(normalizedFlat), afwImage.Mask(msk))
+        # Mask bad pixels
+        snr = normalizedFlat.image.array/np.sqrt(normalizedFlat.variance.array)
+        bad = (snr < self.config.minSNR) | ~np.isfinite(snr)
+        normalizedFlat.image.array[bad] = 1.0
+        normalizedFlat.mask.array[bad] = (1 << normalizedFlat.mask.addMaskPlane("BAD_FLAT"))
 
         import lsstDebug
         di = lsstDebug.Info(__name__)
@@ -179,30 +203,9 @@ class ConstructFiberFlatTask(CalibTask):
                 display = afwDisplay.getDisplay(frame=di.frames_flat)
                 display.mtv(normalizedFlat, title='normalized Flat')
                 if di.zoomPan:
-                    display.zoom(*zoomPan)
+                    display.zoom(*di.zoomPan)
 
-            if di.frames_meanFlats >= 0:
-                display = afwDisplay.getDisplay(frame=di.frames_meanFlats)
-                display.mtv(afwImage.ImageF(sumFlats.array/len(dataRefList)), title='mean(Flats)')
-                if di.zoomPan:
-                    display.zoom(*zoomPan)
-
-            if di.frames_meanTraces >= 0:
-                display = afwDisplay.getDisplay(frame=di.frames_meanTraces)
-                display.mtv(afwImage.ImageF(sumRecIm.array/len(dataRefList)), title='mean(Traces)')
-                if di.zoomPan:
-                    display.zoom(*zoomPan)
-
-            if di.frames_ratio >= 0:
-                display = afwDisplay.getDisplay(frame=di.frames_ratio)
-                rat = sumFlats.array/sumRecIm.array
-                rat[msk != 0] = np.nan
-                display.mtv(afwImage.MaskedImageF(afwImage.ImageF(rat), normalizedFlat.mask),
-                            title='mean(Flats)/mean(Traces)')
-                if di.zoomPan:
-                    display.zoom(*zoomPan)
-
-        #Write fiber flat
+        # Write fiber flat
         normFlatOut = afwImage.makeExposure(normalizedFlat)
         self.recordCalibInputs(cache.butler, normFlatOut, struct.ccdIdList, outputId)
         self.interpolateNans(normFlatOut)
