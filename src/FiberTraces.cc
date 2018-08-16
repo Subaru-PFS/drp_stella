@@ -81,16 +81,14 @@ FiberTrace<ImageT, MaskT, VarianceT>::extractSpectrum(
         auto varIt = spectrum->getVariance().begin();
         auto itSelectRow = select.begin();
         auto itTraceRow = traceIm.getImage()->getArray().begin();
-        auto itMaskRow = traceIm.getMask()->getArray().begin();
         auto itVarRow = traceIm.getVariance()->getArray().begin();
         for (std::size_t y = 0; y < height; ++y, ++specIt, ++varIt, ++itSelectRow, ++itTraceRow, ++itVarRow) {
             *specIt = 0.0;
             *varIt = 0.0;
             auto itTraceCol = itTraceRow->begin();
-            auto itMaskCol = itMaskRow->begin();
             auto itVarCol = itVarRow->begin();
             for (auto itSelectCol = itSelectRow->begin(); itSelectCol != itSelectRow->end();
-                 ++itMaskCol, ++itTraceCol, ++itVarCol) {
+                 ++itTraceCol, ++itVarCol, ++itSelectCol) {
                 if (*itSelectCol) {
                     *specIt += *itTraceCol;
                     *varIt += *itVarCol;
