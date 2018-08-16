@@ -67,32 +67,6 @@ FindCenterPositionsOneTraceResult findCenterPositionsOneTrace(
     lsst::afw::geom::Point<int> const& nextSearchStart
 );
 
-/**
- * @brief calculate the xCenters of a FiberTrace from 0 to FiberTrace.getTrace().getHeight()-1
- *
- * NOTE that the WCS starts at [0., 0.], so an xCenter of 1.1 refers to position 0.1 of the second pixel
- *
- * @param function  FiberTraceFunction to use when calculating the xCenters
- */
-ndarray::Array<float, 1, 1>
-calculateXCenters(
-    FiberTraceFunction const& function
-);
-
-/**
- * @brief calculate the xCenters of a FiberTrace from 0 to FiberTrace.getTrace().getHeight()-1
- *
- * NOTE that the WCS starts at [0., 0.], so an xCenter of 1.1 refers to position 0.1 of the second pixel
- *
- * @param function  FiberTraceFunction to use when calculating the xCenters
- * @param yIn  This range in y will be converted to [-1.0,1.0] when calculating the xCenters
- */
-ndarray::Array<float, 1, 1>
-calculateXCenters(
-    pfs::drp::stella::FiberTraceFunction const& function,
-    ndarray::Array<float, 1, 1> const& yIn
-);
-
 }}}} // namespace pfs::drp::stella::math
 
 #endif // include guard

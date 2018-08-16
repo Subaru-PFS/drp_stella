@@ -24,16 +24,12 @@ void declareFiberTrace(py::module &mod)
 
     cls.def(py::init<typename Class::MaskedImageT const&, std::size_t>(),
             "maskedImage"_a, "fiberTraceId"_a=0);
-    cls.def(py::init<typename Class::MaskedImageT const&,
-                     FiberTraceFunction const&,
-                     FiberTraceProfileFittingControl const&,
-                     std::size_t>(),
-            "maskedImage"_a, "function"_a, "fitting"_a, "fiberId"_a=0);
     cls.def(py::init<Class&, bool>(), "fiberTrace"_a, "deep"_a=false);
 
     cls.def("getTrace", [](Class const& self) { return self.getTrace(); });
-    cls.def("getXCenters", &Class::getXCenters);
     cls.def("getFiberId", &Class::getFiberId);
+    cls.def_property_readonly("trace", [](Class const& self) { return self.getTrace(); });
+    cls.def_property("fiberId", &Class::getFiberId, &Class::setFiberId);
 
     cls.def("extractSpectrum", &Class::extractSpectrum, "image"_a,
             "fitBackground"_a=false, "clipNSigma"_a=0.0, "useProfile"_a=true);
@@ -43,14 +39,11 @@ void declareFiberTrace(py::module &mod)
                 &Class::constructImage, "spectrum"_a);
 
     cls.def("__getstate__",
-            [](Class const& self) { return py::make_tuple(self.getTrace(), self.getFunction(),
-                                                          self.getFitting(), self.getFiberId()); });
+            [](Class const& self) { return py::make_tuple(self.getTrace(), self.getFiberId()); });
     cls.def("__setstate__",
             [](Class & self, py::tuple const& t) {
                 new (&self) Class(t[0].cast<typename Class::MaskedImageT>(),
-                                  t[1].cast<FiberTraceFunction>(),
-                                  t[2].cast<FiberTraceProfileFittingControl>(),
-                                  t[3].cast<std::size_t>()); });
+                                  t[1].cast<std::size_t>()); });
 }
 
 
@@ -71,6 +64,7 @@ void declareFiberTraceSet(py::module &mod)
     cls.def("add",
             [](Class & self, std::shared_ptr<typename Class::FiberTraceT> ft) { return self.add(ft); });
     cls.def("getMetadata", py::overload_cast<>(&Class::getMetadata));
+    cls.def_property_readonly("metadata", py::overload_cast<>(&Class::getMetadata));
     cls.def("getInternal", &Class::getInternal);
     // Pythonic APIs
     cls.def("__len__", &Class::size);
