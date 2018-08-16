@@ -106,15 +106,19 @@ FiberTrace<ImageT, MaskT, VarianceT>::extractSpectrum(
     int const yMin = bbox.getMinY();
     int const yMax = bbox.getMaxY();
 
-    spec[ndarray::view(0, yMin)] = 0.0;
-    bg[ndarray::view(0, yMin)] = 0.0;
-    var[ndarray::view(0, yMin)] = 0.0;
-    std::fill(mask.begin(true), mask.begin(true) + yMin, noData);
+    if (yMin > 0) {
+        spec[ndarray::view(0, yMin)] = 0.0;
+        bg[ndarray::view(0, yMin)] = 0.0;
+        var[ndarray::view(0, yMin)] = 0.0;
+        std::fill(mask.begin(true), mask.begin(true) + yMin, noData);
+    }
 
-    spec[ndarray::view(yMax, spectrumImage.getHeight())] = 0.0;
-    bg[ndarray::view(yMax, spectrumImage.getHeight())] = 0.0;
-    var[ndarray::view(yMax, spectrumImage.getHeight())] = 0.0;
-    std::fill(mask.begin(true) + yMax, mask.end(true), noData);
+    if (yMax < spectrumImage.getHeight() - 1) {
+        spec[ndarray::view(yMax, spectrumImage.getHeight())] = 0.0;
+        bg[ndarray::view(yMax, spectrumImage.getHeight())] = 0.0;
+        var[ndarray::view(yMax, spectrumImage.getHeight())] = 0.0;
+        std::fill(mask.begin(true) + yMax, mask.end(true), noData);
+    }
 
     // Accumulate the mask
     auto const& traceMask = *_trace.getMask();
