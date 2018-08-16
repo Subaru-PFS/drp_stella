@@ -17,7 +17,7 @@
 
 namespace pfs { namespace drp { namespace stella {
 
-const std::string fiberMaskPlane = "FIBERTRACE";  ///< Mask plane we care about
+std::string const fiberMaskPlane = "FIBERTRACE";  ///< Mask plane we care about
 
 /**
  * @brief Describe a single fiber trace

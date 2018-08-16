@@ -98,6 +98,8 @@ PYBIND11_PLUGIN(fiberTraces) {
 
     declareFunctions<float>(mod);
 
+    mod.attr("fiberMaskPlane") = fiberMaskPlane;
+
     py::class_<math::FindCenterPositionsOneTraceResult, PTR(math::FindCenterPositionsOneTraceResult)>
         findResult(mod, "FindCenterPositionsOneTraceResult");
     findResult.def_readwrite("index",
