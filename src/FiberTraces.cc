@@ -47,18 +47,28 @@ FiberTrace<ImageT, MaskT, VarianceT>::extractSpectrum(
 
     MaskT const ftMask = _trace.getMask()->getPlaneBitMask(fiberMaskPlane);
     MaskT const noData = _trace.getMask()->getPlaneBitMask("NO_DATA");
+    MaskT const badData = traceIm.getMask()->getPlaneBitMask({"BAD", "SAT", "CR"});
     MaskT const badSpectrum = spectrum->getMask().getPlaneBitMask("BAD");
 
     // Select pixels for extraction
     ndarray::Array<bool, 2, 1> select{height, width};  // select this pixel for extraction?
     {
-        auto maskRow = _trace.getMask()->getArray().begin();
-        for (auto selectRow = select.begin(); selectRow != select.end(); ++selectRow, ++maskRow) {
-            auto maskIter = maskRow->begin();
+        auto traceRow = _trace.getMask()->getArray().begin();
+        auto imRow = traceIm.getMask()->getArray().begin();
+        auto specRow = spectrum->getMask().begin(true);
+        for (auto selectRow = select.begin(); selectRow != select.end();
+             ++selectRow, ++traceRow, ++imRow, ++specRow) {
+            auto traceIter = traceRow->begin();
+            auto imIter = imRow->begin();
+            MaskT value = 0;
             for (auto selectIter = selectRow->begin(); selectIter != selectRow->end();
-                 ++selectIter, ++maskIter) {
-                *selectIter = (*maskIter & ftMask) > 0;
+                 ++selectIter, ++traceIter, ++imIter) {
+                *selectIter = ((*traceIter & ftMask) > 0) && ((*imIter & badData) == 0);
+                if (*selectIter) {
+                    value |= *imIter;
+                }
             }
+            *specRow = value;
         }
     }
 
@@ -79,11 +89,13 @@ FiberTrace<ImageT, MaskT, VarianceT>::extractSpectrum(
         spectrum->getBackground()[ndarray::view(bbox.getMinY(), bbox.getMaxY() + 1)] = std::get<3>(result);
     } else {                            // simple profile fit
         auto specIt = spectrum->getSpectrum().begin();
+        auto maskIt = spectrum->getMask().begin();
         auto varIt = spectrum->getVariance().begin();
         auto itSelectRow = select.begin();
         auto itTraceRow = traceIm.getImage()->getArray().begin();
         auto itVarRow = traceIm.getVariance()->getArray().begin();
-        for (std::size_t y = 0; y < height; ++y, ++specIt, ++varIt, ++itSelectRow, ++itTraceRow, ++itVarRow) {
+        for (std::size_t y = 0; y < height;
+             ++y, ++specIt, ++maskIt, ++varIt, ++itSelectRow, ++itTraceRow, ++itVarRow) {
             *specIt = 0.0;
             *varIt = 0.0;
             auto itTraceCol = itTraceRow->begin();
@@ -98,7 +110,7 @@ FiberTrace<ImageT, MaskT, VarianceT>::extractSpectrum(
                 }
             }
             if (num == 0) {
-                spectrum->getMask().getArray()[0][y] = badSpectrum;
+                *maskIt |= badSpectrum;
             }
         }
     }
@@ -124,19 +136,6 @@ FiberTrace<ImageT, MaskT, VarianceT>::extractSpectrum(
         bg[ndarray::view(yMax, spectrumImage.getHeight())] = 0.0;
         var[ndarray::view(yMax, spectrumImage.getHeight())] = 0.0;
         std::fill(mask.begin(true) + yMax, mask.end(true), noData);
-    }
-
-    // Accumulate the mask
-    auto const& traceMask = *_trace.getMask();
-    auto const& spectrumMask = *spectrumImage.getMask();
-    for (int yImage = 0, ySpec = bbox.getMinY(); yImage < bbox.getHeight(); ++yImage, ++ySpec) {
-        MaskT value = 0;
-        for (int xImage = 0, xSpec = bbox.getMinX(); xImage < bbox.getWidth(); ++xImage, ++xSpec) {
-            if (traceMask(xImage, yImage) & ftMask) {
-                value |= spectrumMask(xSpec, ySpec);
-            }
-        }
-        mask(ySpec, 0) |= value;  // not a typo: it's 1D
     }
 
     return spectrum;
