@@ -430,6 +430,7 @@ fitProfile1d(ndarray::ArrayRef<ImageT const, 1, 1> const& data, // data
 
 template <typename ImageT>
 std::tuple<ndarray::Array<ImageT, 1, 1>,
+           ndarray::Array<lsst::afw::image::MaskPixel, 1, 1>,
            ndarray::Array<ImageT, 1, 1>,
            ndarray::Array<ImageT, 1, 1>
            >
@@ -450,6 +451,7 @@ fitProfile2d(
     ndarray::Array<MaskPixel const, 2, 1> const& mask = data.getMask()->getArray();
     ndarray::Array<ImageT const, 2, 1> const& variance = data.getVariance()->getArray();
     MaskPixel const badBitmask = data.getMask()->getPlaneBitMask(badMaskPlanes);
+    MaskPixel const badResult = data.getMask()->getPlaneBitMask("BAD");
 
     utils::checkSize(image.getShape(), traceMask.getShape(), "fitProfile2d: data vs traceMask");
     utils::checkSize(image.getShape(), profile2d.getShape(), "fitProfile2d: data vs profile2d");
@@ -457,6 +459,7 @@ fitProfile2d(
     Array spectrumImage = ndarray::allocate(height);
     Array spectrumBackground = ndarray::allocate(height);
     Array spectrumVariance = ndarray::allocate(height);
+    ndarray::Array<MaskPixel, 1, 1> spectrumMask = ndarray::allocate(height);
 
     for (std::size_t y = 0; y < height; ++y) {
         /*
@@ -466,14 +469,11 @@ fitProfile2d(
 
         auto const result = fitProfile1d(image[y], variance[y], traceMask[y], profile2d[y], clipNSigma,
                                          fitBackground);
-
         float rchi2;
         std::tie(rchi2, spectrumImage[y], spectrumBackground[y], spectrumVariance[y]) = result;
-        if (rchi2 < 0) { // failed
-            ; // XXX need to set a bit in the output mask, but it's still binary (grr)
-        }
+        spectrumMask[y] = (rchi2 < 0) ? badResult : 0;
     }
-    return std::make_tuple(spectrumImage, spectrumBackground, spectrumVariance);
+    return std::make_tuple(spectrumImage, spectrumMask, spectrumVariance, spectrumBackground);
 }
 
 
@@ -656,6 +656,7 @@ template PolynomialFitResults<float> fitPolynomial(
 );
 
 template std::tuple<ndarray::Array<float, 1, 1>,
+                    ndarray::Array<lsst::afw::image::MaskPixel, 1, 1>,
                     ndarray::Array<float, 1, 1>,
                     ndarray::Array<float, 1, 1>> fitProfile2d(
     lsst::afw::image::MaskedImage<float> const&,

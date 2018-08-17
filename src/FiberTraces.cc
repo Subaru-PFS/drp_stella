@@ -47,6 +47,7 @@ FiberTrace<ImageT, MaskT, VarianceT>::extractSpectrum(
 
     MaskT const ftMask = _trace.getMask()->getPlaneBitMask(fiberMaskPlane);
     MaskT const noData = _trace.getMask()->getPlaneBitMask("NO_DATA");
+    MaskT const badSpectrum = spectrum->getMask().getPlaneBitMask("BAD");
 
     // Select pixels for extraction
     ndarray::Array<bool, 2, 1> select{height, width};  // select this pixel for extraction?
@@ -66,16 +67,16 @@ FiberTrace<ImageT, MaskT, VarianceT>::extractSpectrum(
         auto const result = math::fitProfile2d(traceIm, select, _trace.getImage()->getArray(), fitBackground,
                                                clipNSigma);
         spectrum->getSpectrum()[ndarray::view(bbox.getMinY(), bbox.getMaxY() + 1)] = std::get<0>(result);
+        spectrum->getMask().getArray()[ndarray::view(0)] = std::get<1>(result);
         // Non-finite values can result from attempting to extract a row which is mostly bad.
-        auto const badSpectrum = spectrum->getMask().getPlaneBitMask("BAD");
         auto const extracted = spectrum->getSpectrum();
         for (std::size_t y = bbox.getMinY(); y <= std::size_t(bbox.getMaxY()); ++y) {
             if (!std::isfinite(extracted[y])) {
-                spectrum->getMask().getArray()[0][y] = badSpectrum;
+                spectrum->getMask().getArray()[0][y] |= badSpectrum;
             }
         }
-        spectrum->getBackground()[ndarray::view(bbox.getMinY(), bbox.getMaxY() + 1)] = std::get<1>(result);
         spectrum->getVariance()[ndarray::view(bbox.getMinY(), bbox.getMaxY() + 1)] = std::get<2>(result);
+        spectrum->getBackground()[ndarray::view(bbox.getMinY(), bbox.getMaxY() + 1)] = std::get<3>(result);
     } else {                            // simple profile fit
         auto specIt = spectrum->getSpectrum().begin();
         auto varIt = spectrum->getVariance().begin();
@@ -87,12 +88,17 @@ FiberTrace<ImageT, MaskT, VarianceT>::extractSpectrum(
             *varIt = 0.0;
             auto itTraceCol = itTraceRow->begin();
             auto itVarCol = itVarRow->begin();
+            std::size_t num = 0;
             for (auto itSelectCol = itSelectRow->begin(); itSelectCol != itSelectRow->end();
                  ++itTraceCol, ++itVarCol, ++itSelectCol) {
                 if (*itSelectCol) {
                     *specIt += *itTraceCol;
                     *varIt += *itVarCol;
+                    ++num;
                 }
+            }
+            if (num == 0) {
+                spectrum->getMask().getArray()[0][y] = badSpectrum;
             }
         }
     }
