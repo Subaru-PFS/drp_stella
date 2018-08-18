@@ -1,6 +1,7 @@
 #include <algorithm>
 
 #include "lsst/log/Log.h"
+#include "lsst/pex/exceptions.h"
 
 #include "pfs/drp/stella/FiberTraces.h"
 #include "pfs/drp/stella/math/CurveFitting.h"
@@ -77,7 +78,8 @@ FiberTrace<ImageT, MaskT, VarianceT>::extractSpectrum(
         auto const result = math::fitProfile2d(traceIm, select, _trace.getImage()->getArray(), fitBackground,
                                                clipNSigma);
         spectrum->getSpectrum()[ndarray::view(bbox.getMinY(), bbox.getMaxY() + 1)] = std::get<0>(result);
-        spectrum->getMask().getArray()[ndarray::view(0)] = std::get<1>(result);
+        spectrum->getMask().getArray()[0][ndarray::view(bbox.getMinY(),
+                                                        bbox.getMaxY() + 1)] = std::get<1>(result);
         // Non-finite values can result from attempting to extract a row which is mostly bad.
         auto const extracted = spectrum->getSpectrum();
         for (std::size_t y = bbox.getMinY(); y <= std::size_t(bbox.getMaxY()); ++y) {
@@ -88,9 +90,9 @@ FiberTrace<ImageT, MaskT, VarianceT>::extractSpectrum(
         spectrum->getVariance()[ndarray::view(bbox.getMinY(), bbox.getMaxY() + 1)] = std::get<2>(result);
         spectrum->getBackground()[ndarray::view(bbox.getMinY(), bbox.getMaxY() + 1)] = std::get<3>(result);
     } else {                            // simple profile fit
-        auto specIt = spectrum->getSpectrum().begin();
-        auto maskIt = spectrum->getMask().begin();
-        auto varIt = spectrum->getVariance().begin();
+        auto specIt = spectrum->getSpectrum().begin() + bbox.getMinY();
+        auto maskIt = spectrum->getMask().begin() + bbox.getMinY();
+        auto varIt = spectrum->getVariance().begin() + bbox.getMinY();
         auto itSelectRow = select.begin();
         auto itTraceRow = traceIm.getImage()->getArray().begin();
         auto itVarRow = traceIm.getVariance()->getArray().begin();
@@ -131,11 +133,11 @@ FiberTrace<ImageT, MaskT, VarianceT>::extractSpectrum(
         std::fill(mask.begin(true), mask.begin(true) + yMin, noData);
     }
 
-    if (yMax < spectrumImage.getHeight() - 1) {
-        spec[ndarray::view(yMax, spectrumImage.getHeight())] = 0.0;
-        bg[ndarray::view(yMax, spectrumImage.getHeight())] = 0.0;
-        var[ndarray::view(yMax, spectrumImage.getHeight())] = 0.0;
-        std::fill(mask.begin(true) + yMax, mask.end(true), noData);
+    if (yMax < spectrumImage.getHeight()) {
+        spec[ndarray::view(yMax + 1, spectrumImage.getHeight())] = 0.0;
+        bg[ndarray::view(yMax + 1, spectrumImage.getHeight())] = 0.0;
+        var[ndarray::view(yMax + 1, spectrumImage.getHeight())] = 0.0;
+        std::fill(mask.begin(true) + yMax + 1, mask.end(true), noData);
     }
 
     return spectrum;
@@ -144,29 +146,46 @@ FiberTrace<ImageT, MaskT, VarianceT>::extractSpectrum(
 
 template<typename ImageT, typename MaskT, typename VarianceT>
 PTR(afwImage::Image<ImageT>)
-FiberTrace<ImageT, MaskT, VarianceT>::constructImage(const Spectrum & spectrum) const {
-    auto out = std::make_shared<afwImage::Image<ImageT>>(_trace.getBBox());
+FiberTrace<ImageT, MaskT, VarianceT>::constructImage(
+    Spectrum const& spectrum,
+    lsst::afw::geom::Box2I const& bbox
+) const {
+    auto out = std::make_shared<afwImage::Image<ImageT>>(bbox);
+    *out = 0.0;
+    constructImage(*out, spectrum);
+    return out;
+}
+
+
+template<typename ImageT, typename MaskT, typename VarianceT>
+void FiberTrace<ImageT, MaskT, VarianceT>::constructImage(
+    afwImage::Image<ImageT> & image,
+    Spectrum const& spectrum
+) const {
+    auto box = image.getBBox(lsst::afw::image::PARENT);
+    box.clip(_trace.getBBox(lsst::afw::image::PARENT));
+
+    // std::size_t const height = box.getHeight();
+    // std::size_t const width  = box.getWidth();
+    // std::size_t const x0 = max(image.getBBox().getMinX(), _trace.getBBox().getMinX());
+    // std::size_t const y0 = max(image.getBBox().getMinY(), _trace.getBBox().getMinY());
+
     auto const maskVal = _trace.getMask()->getPlaneBitMask(fiberMaskPlane);
-
-    std::size_t const height = _trace.getHeight();
-    std::size_t const width  = _trace.getImage()->getWidth();
-    std::size_t const y0 = _trace.getBBox().getMinY();
-
-    auto spec = spectrum.getSpectrum().begin() + y0;
-    auto bg = spectrum.getBackground().begin() + y0;
-    for (std::size_t y = 0; y < height; ++y, ++spec, ++bg) {
-        auto profileIter = _trace.getImage()->row_begin(y);
-        auto maskIter = _trace.getMask()->row_begin(y);
-        auto outIter = out->row_begin(y);
+    auto spec = spectrum.getSpectrum().begin() + box.getMinY();
+    auto bg = spectrum.getBackground().begin() + box.getMinY();
+    for (std::ptrdiff_t y = box.getMinY(); y <= box.getMaxY(); ++y, ++spec, ++bg) {
+        auto profileIter = _trace.getImage()->row_begin(y - _trace.getY0()) + box.getMinX() - _trace.getX0();
+        auto maskIter = _trace.getMask()->row_begin(y - _trace.getY0()) + box.getMinX() - _trace.getX0();;
+        auto imageIter = image.row_begin(y - image.getY0()) + box.getMinX() - image.getX0();;
         float const bgValue = *bg;
         float const specValue = *spec;
-        for (std::size_t x = 0; x < width; ++x, ++profileIter, ++maskIter, ++outIter) {
+        for (std::ptrdiff_t x = box.getMinX(); x <= box.getMaxX();
+             ++x, ++profileIter, ++maskIter, ++imageIter) {
             if (*maskIter & maskVal) {
-                *outIter = bgValue + specValue*(*profileIter);
+                *imageIter += bgValue + specValue*(*profileIter);
             }
         }
     }
-    return out;
 }
 
 

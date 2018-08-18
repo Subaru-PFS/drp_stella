@@ -37,6 +37,13 @@ void declareFiberTrace(py::module &mod)
     cls.def("constructImage",
             (std::shared_ptr<typename Class::Image>(Class::*)(Spectrum const&) const)
                 &Class::constructImage, "spectrum"_a);
+    cls.def("constructImage",
+            (std::shared_ptr<typename Class::Image>(Class::*)(
+                Spectrum const&, lsst::afw::geom::Box2I const&) const)
+                &Class::constructImage, "spectrum"_a, "bbox"_a);
+    cls.def("constructImage",
+            (void(Class::*)(typename Class::Image &, Spectrum const&) const)
+                &Class::constructImage, "image"_a, "spectrum"_a);
 
     cls.def("__getstate__",
             [](Class const& self) { return py::make_tuple(self.getTrace(), self.getFiberId()); });

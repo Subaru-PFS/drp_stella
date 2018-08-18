@@ -82,9 +82,33 @@ class FiberTrace {
      * @brief Return an image containing the reconstructed 2D spectrum of the FiberTrace
      *
      * @param spectrum : 1D spectrum to reconstruct the 2D image from
+     * @param bbox : bounding box of image
      */
-    std::shared_ptr<Image> constructImage(Spectrum const& spectrum) const;
-    
+    std::shared_ptr<Image> constructImage(
+        Spectrum const& spectrum,
+        lsst::afw::geom::Box2I const & bbox
+    ) const;
+
+    /**
+     * @brief Return an image containing the reconstructed 2D spectrum of the FiberTrace
+     *
+     * @param spectrum : 1D spectrum to reconstruct the 2D image from
+     */
+    std::shared_ptr<Image> constructImage(Spectrum const& spectrum) const {
+        return constructImage(spectrum, getTrace().getBBox());
+    }
+
+    /**
+     * @brief Create an image containing the reconstructed 2D spectrum of the FiberTrace
+     *
+     * @param image : image into which to reconstruct trace
+     * @param spectrum : 1D spectrum to reconstruct the 2D image from
+     */
+    void constructImage(
+        lsst::afw::image::Image<ImageT> & image,
+        Spectrum const& spectrum
+    ) const;
+
     /**
      * @brief set the ID number of this trace (_fiberId) to this number
      * @param fiberId : ID to be assigned to this FiberTrace
