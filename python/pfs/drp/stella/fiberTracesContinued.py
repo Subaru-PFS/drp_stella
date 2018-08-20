@@ -66,8 +66,8 @@ class FiberTraceSet:
         arm = dataId['arm']
         visit0 = dataId['visit0']
         metadata = self.getMetadata()
-        metadata.set("arm", arm)
-        metadata.set("spectrograph", spectrograph)
+        metadata.set("ARM", arm)
+        metadata.set("SPECTROGRAPH", spectrograph)
 
         out = PfsFiberTrace(obsDate, spectrograph, arm, visit0, metadata)
         for ft in self:
