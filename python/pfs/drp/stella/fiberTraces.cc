@@ -66,7 +66,7 @@ void declareFiberTraceSet(py::module &mod)
             "reservation"_a, "metadata"_a=nullptr);
     cls.def(py::init<Class const&, bool>(), "fiberTraceSet"_a, "deep"_a=false);
     cls.def("size", &Class::size);
-    cls.def("get", [](Class const& self, std::size_t index) { return self.get(index); });
+    cls.def("get", [](Class const& self, std::ptrdiff_t index) { return self.get(index); });
     cls.def("set", &Class::set, "index"_a, "trace"_a);
     cls.def("add",
             [](Class & self, std::shared_ptr<typename Class::FiberTraceT> ft) { return self.add(ft); });
@@ -75,7 +75,7 @@ void declareFiberTraceSet(py::module &mod)
     cls.def("getInternal", &Class::getInternal);
     // Pythonic APIs
     cls.def("__len__", &Class::size);
-    cls.def("__getitem__", [](Class const& self, std::size_t index) { return self.get(index); });
+    cls.def("__getitem__", [](Class const& self, std::ptrdiff_t index) { return self.get(index); });
     cls.def("__setitem__", &Class::set);
     cls.def("__getstate__",
             [](Class const& self) { return py::make_tuple(self.getInternal(), self.getMetadata()); });

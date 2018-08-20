@@ -181,16 +181,16 @@ class FiberTraceSet {
     /// Get i-th trace
     ///
     /// No bounds checking.
-    std::shared_ptr<FiberTraceT> operator[](const std::size_t i) { return _traces[i]; }
-    std::shared_ptr<FiberTraceT> const operator[](const std::size_t i) const { return _traces[i]; }
+    std::shared_ptr<FiberTraceT> operator[](std::ptrdiff_t i) { return _traces[i]; }
+    std::shared_ptr<FiberTraceT> const operator[](std::ptrdiff_t i) const { return _traces[i]; }
     //@}
 
     //@{
     /// Get i-th trace
     ///
     /// Includes bounds checking.
-    std::shared_ptr<FiberTraceT> get(const std::size_t i) { return _traces.at(i); }
-    std::shared_ptr<FiberTraceT> const get(const std::size_t i) const { return _traces.at(i); }
+    std::shared_ptr<FiberTraceT> get(std::ptrdiff_t i) { return _traces.at(i); }
+    std::shared_ptr<FiberTraceT> const get(std::ptrdiff_t i) const { return _traces.at(i); }
     //@}
 
     /**
@@ -199,7 +199,7 @@ class FiberTraceSet {
      * @param i : position in _traces which is to be replaced bye trace
      * @param trace : FiberTrace to replace _traces[i]
      */
-    void set(std::size_t i, std::shared_ptr<FiberTraceT> trace) { _traces.at(i) = trace; }
+    void set(std::ptrdiff_t i, std::shared_ptr<FiberTraceT> trace) { _traces.at(i) = trace; }
 
     /**
      * @brief Add one FiberTrace to the set
