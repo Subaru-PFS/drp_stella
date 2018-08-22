@@ -149,7 +149,6 @@ struct FiberTraceProfileFittingControl {
 
 /// Parameters controlling the dispersion correction (wavelength solution)
 struct DispersionCorrectionControl {
-    LSST_CONTROL_FIELD(order, int, "Fitting function order");
     LSST_CONTROL_FIELD(searchRadius, int,
                        "Radius in pixels relative to line list to search for emission line peak");
     LSST_CONTROL_FIELD(fwhm, float, "FWHM of emission lines");
@@ -162,7 +161,6 @@ struct DispersionCorrectionControl {
                        "of the FWHM should be a good start");
 
     DispersionCorrectionControl() :
-        order(5),
         searchRadius(2),
         fwhm(2.6),
         maxDistance(1.5)

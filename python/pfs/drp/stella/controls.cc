@@ -149,7 +149,6 @@ void declareDispCorControl(py::module &mod)
         mod, "DispersionCorrectionControl");
     cls.def(py::init<>());
     cls.def(py::init<DispersionCorrectionControl const&>(), "ctrl"_a);
-    LSST_DECLARE_CONTROL_FIELD(cls, DispersionCorrectionControl, order);
     LSST_DECLARE_CONTROL_FIELD(cls, DispersionCorrectionControl, searchRadius);
     LSST_DECLARE_CONTROL_FIELD(cls, DispersionCorrectionControl, fwhm);
     LSST_DECLARE_CONTROL_FIELD(cls, DispersionCorrectionControl, maxDistance);
