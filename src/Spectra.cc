@@ -58,7 +58,7 @@ void Spectrum::setSpectrum(Spectrum::ImageArray const& spectrum) {
 
 void Spectrum::setMask(const Mask & mask) {
     utils::checkSize(mask.getDimensions(), lsst::afw::geom::Extent2I(_length, 1), "Spectrum::setMask");
-    _mask = mask;
+    _mask = Mask(mask, true);
 }
 
 
