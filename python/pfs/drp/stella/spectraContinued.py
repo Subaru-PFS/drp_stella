@@ -9,7 +9,7 @@ from lsst.pipe.base import Struct
 
 import lsst.afw.image as afwImage
 
-from pfs.datamodel.pfsArm import PfsArm
+from pfs.datamodel.pfsArm import PfsArm, PfsConfig
 from pfs.drp.stella import ReferenceLine
 
 from .spectra import SpectrumSet, Spectrum
@@ -103,7 +103,9 @@ class SpectrumSet:
         spectrograph = dataId["spectrograph"]
         arm = dataId["arm"]
         pfsConfigId = dataId["pfsConfigId"] if "pfsConfigId" in dataId else 0
-        pfsArm = PfsArm(visit, spectrograph, arm, pfsConfigId=pfsConfigId)
+        pfsConfig = PfsConfig(fiberId=np.array([ss.fiberId for ss in self]),
+                              ra=np.zeros(len(self)), dec=np.zeros(len(self)))
+        pfsArm = PfsArm(visit, spectrograph, arm, pfsConfigId=pfsConfigId, pfsConfig=pfsConfig)
         pfsArm.flux = self.getAllFluxes()
         pfsArm.covar = self.getAllCovariances()
         pfsArm.mask = self.getAllMasks()
@@ -139,8 +141,16 @@ class SpectrumSet:
         length = len(pfsArm.flux[0])
         self = cls(length)
         for ii in range(numFibers):
-            self.add(Spectrum(pfsArm.flux[ii], pfsArm.mask[ii], pfsArm.sky[ii], pfsArm.covar[ii],
-                              pfsArm.lam[ii]))
+            spectrum = Spectrum(length)
+            spectrum.spectrum[:] = pfsArm.flux[ii]
+            spectrum.mask.array[:] = pfsArm.mask[ii]
+            spectrum.background[:] = pfsArm.sky[ii]
+            spectrum.covariance[:] = pfsArm.covar[ii]
+            spectrum.wavelength[:] = pfsArm.lam[ii]
+            if pfsArm.pfsConfig is not None and pfsArm.pfsConfig.fiberId is not None:
+                spectrum.fiberId = pfsArm.pfsConfig.fiberId[ii]
+            self.add(spectrum)
+
         return self
 
     @classmethod
@@ -186,6 +196,10 @@ class SpectrumSet:
 
         This is the output API for the ``FitsCatalogStorage`` storage type used
         by the LSST data butler.
+
+        Note that the fiberIds cannot be preserved without also persisting the
+        associated ``pfsConfig``, and the reference lines cannot be persisted
+        at all.
 
         Parameters
         ----------
