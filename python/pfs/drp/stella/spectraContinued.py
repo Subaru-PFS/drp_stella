@@ -19,6 +19,7 @@ __all__ = ["Spectrum", "SpectrumSet"]
 BAD_REFERENCE = (ReferenceLine.MISIDENTIFIED | ReferenceLine.CLIPPED | ReferenceLine.SATURATED |
                  ReferenceLine.INTERPOLATED | ReferenceLine.CR)
 
+
 @continueClass
 class Spectrum:
     """Flux as a function of wavelength"""
@@ -27,10 +28,11 @@ class Spectrum:
         import matplotlib.pyplot as plt
         figure, axes = plt.subplots(numRows)
 
-        wavelength = np.split(self.getWavelength(), numRows)
-        flux = np.split(self.getSpectrum(), numRows)
+        division = np.linspace(0, len(self), numRows + 1, dtype=int)[1:-1]
+        wavelength = np.split(self.getWavelength(), division)
+        flux = np.split(self.getSpectrum(), division)
         if plotBackground:
-            background = np.split(self.getBackground(), numRows)
+            background = np.split(self.getBackground(), division)
 
         for ii in range(numRows):
             ax = axes[ii]
