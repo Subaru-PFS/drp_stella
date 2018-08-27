@@ -22,7 +22,6 @@ namespace pfs { namespace drp { namespace stella {
  * when calculating the wavelength for a pixel -- i.e. we assume that the spots are deflected up by slitOffset
  */
 class DetectorMap {
-    friend class DetectorMapIO;
 public:
     enum ArrayRow { DX = 0, DY = 1, DFOCUS = 2 };
 

@@ -152,7 +152,7 @@ class ReduceArcTask(CmdLineTask):
         -------
         spectrumSet : `pfs.drp.stella.SpectrumSet`
             Set of extracted spectra.
-        detectorMap : `pfs.drp.stella.utils.DetectorMapIO`
+        detectorMap : `pfs.drp.stella.utils.DetectorMap`
             Mapping of wl,fiber to detector position.
         visitInfo : `lsst.afw.image.VisitInfo`
             Visit information for exposure.
@@ -271,7 +271,7 @@ class ReduceArcTask(CmdLineTask):
             Data reference.
         spectrumSet : `pfs.drp.stella.SpectrumSet`
             Set of extracted spectra.
-        detectorMap : `pfs.drp.stella.utils.DetectorMapIO`
+        detectorMap : `pfs.drp.stella.utils.DetectorMap`
             Mapping of wl,fiber to detector position.
         metadata : `lsst.daf.base.PropertySet`
             Exposure header.
@@ -312,7 +312,7 @@ class ReduceArcTask(CmdLineTask):
         ----------
         spectrumSet : `pfs.drp.stella.SpectrumSet`
             Set of extracted spectra.
-        detectorMap : `pfs.drp.stella.utils.DetectorMapIO`
+        detectorMap : `pfs.drp.stella.utils.DetectorMap`
             Mapping of wl,fiber to detector position.
         arcLines : `list` of `pfs.drp.stella.ReferenceLine`
             List of reference lines.

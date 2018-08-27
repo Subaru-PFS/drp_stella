@@ -142,7 +142,7 @@ class ReduceExposureTask(pipeBase.CmdLineTask):
             Set of extracted spectra before continuum subtraction.
             Will be identical to ``spectra`` if continuum subtraction
             was not performed.
-        detectorMap : `pfs.drp.stella.utils.DetectorMapIO`
+        detectorMap : `pfs.drp.stella.utils.DetectorMap`
             Mapping of wl,fiber to detector position.
         """
         self.log.info("Processing %s" % (sensorRef.dataId))
@@ -196,7 +196,7 @@ class ReduceExposureTask(pipeBase.CmdLineTask):
 
         Returns
         -------
-        detectorMap : `pfs.drp.stella.utils.DetectorMapIO`
+        detectorMap : `pfs.drp.stella.utils.DetectorMap`
             Mapping of wl,fiber to detector position.
         """
         detectorMap = sensorRef.get("detectormap")
