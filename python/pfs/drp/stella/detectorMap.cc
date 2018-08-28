@@ -46,24 +46,34 @@ void declareDetectorMap(py::module &mod)
         .value("DY", Class::ArrayRow::DY)
         .value("DFOCUS", Class::ArrayRow::DFOCUS)
         .export_values();
-    
+
     cls.def("findFiberId", &Class::findFiberId, "pixelPos"_a);
     cls.def("findPoint", &Class::findPoint, "fiberId"_a, "wavelength"_a);
     cls.def("findWavelength", &Class::findWavelength, "fiberId"_a, "row"_a);
 
     cls.def("getBBox", &Class::getBBox);
+    cls.def_property_readonly("bbox", &Class::getBBox);
+
     cls.def("getNKnot", &Class::getNKnot);
+    cls.def_property_readonly("nKnot", &Class::getNKnot);
+
     cls.def("getFiberIds", [](Class & self) { return self.getFiberIds(); },
             py::return_value_policy::reference_internal);
+    cls.def_property_readonly("fiberIds", py::overload_cast<>(&Class::getFiberIds));
+
     cls.def("getWavelength",
             [](Class const& self, std::size_t fiberId) { return self.getWavelength(fiberId); },
             "fiberId"_a);
     cls.def("getWavelength", [](Class & self) { return self.getWavelength(); });
     cls.def("setWavelength", &Class::setWavelength, "fiberId"_a, "wavelength"_a);
+    cls.def_property_readonly("wavelength", py::overload_cast<>(&Class::getWavelength, py::const_));
+
     cls.def("getXCenter", (ndarray::Array<float, 1, 1> (Class::*)(std::size_t) const)&Class::getXCenter,
             "fiberId"_a);
     cls.def("getXCenter", [](Class & self) { return self.getXCenter(); });
     cls.def("setXCenter", &Class::setXCenter, "fiberId"_a, "xCenters"_a);
+    cls.def_property_readonly("xCenter", py::overload_cast<>(&Class::getXCenter, py::const_));
+
     cls.def("getThroughput",
             [](Class const& self, std::size_t fiberId) { return self.getThroughput(fiberId); },
             "fiberId"_a);
@@ -74,6 +84,8 @@ void declareDetectorMap(py::module &mod)
                 self.setThroughput(fiberId, throughput);
             },
             "fiberId"_a, "throughput"_a);
+    cls.def_property_readonly("throughput", py::overload_cast<>(&Class::getThroughput));
+
     cls.def("getSlitOffsets", [](Class & self) { return self.getSlitOffsets(); },
             py::return_value_policy::reference_internal);
     cls.def("getSlitOffsets",
@@ -84,12 +96,17 @@ void declareDetectorMap(py::module &mod)
     cls.def("setSlitOffsets", (void (Class::*)(std::size_t,
                                                ndarray::Array<float, 1, 0> const&))&Class::setSlitOffsets,
             "fiberId"_a, "offsets"_a);
+    cls.def_property("slitOffsets", py::overload_cast<>(&Class::getSlitOffsets, py::const_),
+                     py::overload_cast<ndarray::Array<float, 2, 1> const&>(&Class::setSlitOffsets));
+
     cls.def("getFiberIndex", &Class::getFiberIndex);
 
     cls.def("getVisitInfo", &Class::getVisitInfo);
     cls.def("setVisitInfo", &Class::setVisitInfo);
+    cls.def_property("visitInfo", &Class::getVisitInfo, &Class::setVisitInfo);
 
     cls.def("getMetadata", py::overload_cast<>(&Class::getMetadata));
+    cls.def_property_readonly("metadata", py::overload_cast<>(&Class::getMetadata));
 
     cls.def("getCenterSpline", &Class::getCenterSpline);
     cls.def("getWavelengthSpline", &Class::getWavelengthSpline);
@@ -116,21 +133,17 @@ void declareDetectorMap(py::module &mod)
         [](DetectorMap & self, py::tuple const& t) {
             new (&self) DetectorMap(
                 t[0].cast<lsst::afw::geom::Box2I>(), t[1].cast<DetectorMap::FiberMap>(),
-                                    t[2].cast<DetectorMap::Array2D>(), t[3].cast<DetectorMap::Array2D>(),
+                t[2].cast<DetectorMap::Array2D>(), t[3].cast<DetectorMap::Array2D>(),
                 t[4].cast<DetectorMap::Array2D>(), t[5].cast<DetectorMap::Array2D>(),
                 t[6].cast<DetectorMap::Array2D>(), t[7].cast<DetectorMap::Array1D>());
         });
 }
 
-void declareFunctions(py::module &mod)
-{
-}
 
 PYBIND11_PLUGIN(detectorMap) {
     py::module mod("detectorMap");
 
     declareDetectorMap(mod);
-    declareFunctions(mod);
 
     return mod.ptr();
 }
