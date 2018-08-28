@@ -90,7 +90,7 @@ DetectorMap::DetectorMap(
         _yToXCenter[ii] = std::make_shared<math::Spline<float>>(centerKnots[ii], centerValues[ii]);
         _yToWavelength[ii] = std::make_shared<math::Spline<float>>(wavelengthKnots[ii], wavelengthValues[ii]);
     }
-    _setSplines(getXCenter(), getWavelength());
+    _set_xToFiberId();
 }
 
             

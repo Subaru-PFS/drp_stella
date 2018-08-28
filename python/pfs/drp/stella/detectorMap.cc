@@ -96,15 +96,29 @@ void declareDetectorMap(py::module &mod)
 
     cls.def("__getstate__",
         [](DetectorMap const& self) {
-            return py::make_tuple(self.getBBox(), self.getFiberIds(), self.getXCenter(), self.getWavelength(),
-                                  self.getNKnot(), self.getSlitOffsets(), self.getThroughput());
+            std::size_t const numFibers = self.getFiberIds().getNumElements();
+            std::size_t const numKnots = self.getCenterSpline(0).getX().getNumElements();
+            Class::Array2D centerKnots = ndarray::allocate(numFibers, numKnots);
+            Class::Array2D centerValues = ndarray::allocate(numFibers, numKnots);
+            Class::Array2D wavelengthKnots = ndarray::allocate(numFibers, numKnots);
+            Class::Array2D wavelengthValues = ndarray::allocate(numFibers, numKnots);
+            for (std::size_t ii = 0; ii < numFibers; ++ii) {
+                centerKnots[ii] = self.getCenterSpline(ii).getX();
+                centerValues[ii] = self.getCenterSpline(ii).getY();
+                wavelengthKnots[ii] = self.getWavelengthSpline(ii).getX();
+                wavelengthValues[ii] = self.getWavelengthSpline(ii).getY();
+            }
+            return py::make_tuple(self.getBBox(), self.getFiberIds(), centerKnots, centerValues,
+                                  wavelengthKnots, wavelengthValues, self.getSlitOffsets(),
+                                  self.getThroughput());
         });
     cls.def("__setstate__",
         [](DetectorMap & self, py::tuple const& t) {
-            new (&self) DetectorMap(t[0].cast<lsst::afw::geom::Box2I>(), t[1].cast<DetectorMap::FiberMap>(),
+            new (&self) DetectorMap(
+                t[0].cast<lsst::afw::geom::Box2I>(), t[1].cast<DetectorMap::FiberMap>(),
                                     t[2].cast<DetectorMap::Array2D>(), t[3].cast<DetectorMap::Array2D>(),
-                                    t[4].cast<std::size_t>(), t[5].cast<DetectorMap::Array2D>(),
-                                    t[6].cast<DetectorMap::Array1D>());
+                t[4].cast<DetectorMap::Array2D>(), t[5].cast<DetectorMap::Array2D>(),
+                t[6].cast<DetectorMap::Array2D>(), t[7].cast<DetectorMap::Array1D>());
         });
 }
 
