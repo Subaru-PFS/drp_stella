@@ -36,10 +36,13 @@ void declareDetectorMap(py::module &mod)
                      ndarray::Array<float const, 2, 1> const&,
                      ndarray::Array<float const, 2, 1> const&,
                      Class::Array2D const&,
-                     Class::Array1D const&
+                     Class::Array1D const&,
+                     lsst::afw::image::VisitInfo const&,
+                     std::shared_ptr<lsst::daf::base::PropertySet>
                      >(),
             "bbox"_a, "fiberIds"_a, "centerKnots"_a, "centerValues"_a, "wavelengthKnots"_a,
-            "wavelengthValues"_a, "slitOffsets"_a, "throughput"_a);
+            "wavelengthValues"_a, "slitOffsets"_a, "throughput"_a,
+            "visitInfo"_a=Class::VisitInfo(lsst::daf::base::PropertySet()), "metadata"_a=nullptr);
 
     py::enum_<Class::ArrayRow>(cls, "ArrayRow")
         .value("DX", Class::ArrayRow::DX)
@@ -127,7 +130,7 @@ void declareDetectorMap(py::module &mod)
             }
             return py::make_tuple(self.getBBox(), self.getFiberIds(), centerKnots, centerValues,
                                   wavelengthKnots, wavelengthValues, self.getSlitOffsets(),
-                                  self.getThroughput());
+                                  self.getThroughput(), self.getVisitInfo(), self.getMetadata());
         });
     cls.def("__setstate__",
         [](DetectorMap & self, py::tuple const& t) {
@@ -135,7 +138,10 @@ void declareDetectorMap(py::module &mod)
                 t[0].cast<lsst::afw::geom::Box2I>(), t[1].cast<DetectorMap::FiberMap>(),
                 t[2].cast<DetectorMap::Array2D>(), t[3].cast<DetectorMap::Array2D>(),
                 t[4].cast<DetectorMap::Array2D>(), t[5].cast<DetectorMap::Array2D>(),
-                t[6].cast<DetectorMap::Array2D>(), t[7].cast<DetectorMap::Array1D>());
+                t[6].cast<DetectorMap::Array2D>(), t[7].cast<DetectorMap::Array1D>(),
+                t[8].cast<Class::VisitInfo>(),
+                t[9].cast<std::shared_ptr<lsst::daf::base::PropertySet>>()
+                );
         });
 }
 

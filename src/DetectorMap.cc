@@ -65,7 +65,9 @@ DetectorMap::DetectorMap(
     ndarray::Array<float const, 2, 1> const& wavelengthKnots,
     ndarray::Array<float const, 2, 1> const& wavelengthValues,
     Array2D const& slitOffsets,
-    Array1D const& throughput
+    Array1D const& throughput,
+    VisitInfo const& visitInfo,
+    std::shared_ptr<lsst::daf::base::PropertySet> metadata
 ) : _nFiber(fiberIds.getShape()[0]),
     _bbox(bbox),
     _fiberIds(ndarray::copy(fiberIds)),
@@ -75,8 +77,8 @@ DetectorMap::DetectorMap(
     _nKnot(centerKnots.getShape()[1]),
     _xToFiberId(_bbox.getWidth()),
     _slitOffsets(slitOffsets),
-    _visitInfo(lsst::daf::base::PropertyList()),
-    _metadata(std::make_shared<lsst::daf::base::PropertyList>())
+    _visitInfo(visitInfo),
+    _metadata(metadata)
 {
     utils::checkSize(centerKnots.getShape()[0], _nFiber, "DetectorMap: nFiber");
     utils::checkSize(centerKnots.getShape(), centerValues.getShape(),

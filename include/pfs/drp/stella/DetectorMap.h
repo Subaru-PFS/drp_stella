@@ -28,6 +28,7 @@ public:
     using FiberMap = ndarray::Array<int, 1, 1>;
     using Array2D = ndarray::Array<float, 2, 1>;
     using Array1D = ndarray::Array<float, 1, 1>;
+    using VisitInfo = lsst::afw::image::VisitInfo;
 
     /** \brief ctor */
     explicit DetectorMap(lsst::afw::geom::Box2I bbox, ///< detector's bounding box
@@ -46,7 +47,9 @@ public:
                 ndarray::Array<float const, 2, 1> const& wavelengthKnots,
                 ndarray::Array<float const, 2, 1> const& wavelengthValues,
                 Array2D const& slitOffsets,  // per-fibre offsets
-                Array1D const& throughput  // relative throughput per fiber
+                Array1D const& throughput,  // relative throughput per fiber
+                VisitInfo const& visitInfo=VisitInfo(lsst::daf::base::PropertyList()),  // Visit information
+                std::shared_ptr<lsst::daf::base::PropertySet> metadata=nullptr  // FITS header
                 );
 
     virtual ~DetectorMap() {}
@@ -185,8 +188,8 @@ public:
      */
     std::size_t getFiberIndex(int fiberId) const;
 
-    lsst::afw::image::VisitInfo getVisitInfo() { return _visitInfo; }
-    void setVisitInfo(lsst::afw::image::VisitInfo &visitInfo) { _visitInfo = visitInfo; };
+    VisitInfo getVisitInfo() const { return _visitInfo; }
+    void setVisitInfo(VisitInfo &visitInfo) { _visitInfo = visitInfo; };
 
     math::Spline<float> const& getCenterSpline(std::size_t index) const;
     math::Spline<float> const& getWavelengthSpline(std::size_t index) const;
