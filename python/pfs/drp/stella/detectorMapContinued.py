@@ -1,6 +1,7 @@
 import numpy as np
 import pyfits
 
+import lsst.afw.fits
 import lsst.afw.geom as afwGeom
 
 from lsst.utils import continueClass
@@ -71,8 +72,12 @@ class DetectorMap:
         wavelengthKnots = splineDataArr[:, 2, :]
         wavelengthValues = splineDataArr[:, 3, :]
 
+        metadata = lsst.afw.fits.readMetadata(pathName, strip=True)
+        visitInfo = lsst.afw.image.VisitInfo(metadata)
+        lsst.afw.image.stripVisitInfoKeywords(metadata)
+
         return cls(bbox, fiberIds, centerKnots, centerValues, wavelengthKnots, wavelengthValues,
-                   slitOffsets, throughputs)
+                   slitOffsets, throughputs, visitInfo, metadata)
 
     def writeFits(self, pathName, flags=None):
         """Read DetectorMap from FITS
@@ -123,7 +128,9 @@ class DetectorMap:
         hdr["OBSTYPE"] = 'detectormap'
         date = self.getVisitInfo().getDate()
         hdr["HIERARCH calibDate"] = date.toPython(date.UTC).strftime("%Y-%m-%d")
-        metadata = self.getMetadata()
+        metadata = self.metadata.deepCopy()
+        if self.visitInfo is not None:
+            lsst.afw.image.setVisitInfoMetadata(metadata, self.visitInfo)
         for key in metadata.names():
             hdr[key] = metadata.get(key)
 
