@@ -67,6 +67,9 @@ public:
     FiberMap & getFiberIds() { return _fiberIds; }
     FiberMap const& getFiberIds() const { return _fiberIds; }
 
+    /** \brief Return the number of fibers */
+    std::size_t getNumFibers() const { return _fiberIds.size(); }
+
     /**
      * Set the offsets of the wavelengths and x-centres (in floating-point pixels) and focus (in microns)
      * of each fibre.

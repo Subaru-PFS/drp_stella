@@ -60,6 +60,9 @@ void declareDetectorMap(py::module &mod)
     cls.def("getNKnot", &Class::getNKnot);
     cls.def_property_readonly("nKnot", &Class::getNKnot);
 
+    cls.def("getNumFibers", &Class::getNumFibers);
+    cls.def("__len__", &Class::getNumFibers);
+
     cls.def("getFiberIds", [](Class & self) { return self.getFiberIds(); },
             py::return_value_policy::reference_internal);
     cls.def_property_readonly("fiberIds", py::overload_cast<>(&Class::getFiberIds));
