@@ -343,7 +343,7 @@ DetectorMap::findWavelength(int fiberId,               ///< Desired fibreId
     int const index = getFiberIndex(fiberId);
     auto const & spline = getWavelengthSpline(index);
 
-    return spline(row);
+    return spline(row - getSlitOffsets(fiberId)[DY]);
 }
 
 /************************************************************************************************************/
@@ -368,12 +368,13 @@ DetectorMap::findFiberId(lsst::afw::geom::PointD pixelPos // position on detecto
     std::size_t iterations = 0;
     for (bool updatedIndex = true; updatedIndex; ++iterations) {
         auto const & spline0 = getCenterSpline(index);
-        float xCenter0 = spline0(y);
+        float const xCenter0 = spline0(y - getSlitOffsets()[DY][index]) + getSlitOffsets()[DX][index];
 
         updatedIndex = false;
         if (index > 0) {
             auto const & splineMinus = getCenterSpline(index - 1);
-            float const xCenterMinus = splineMinus(y);
+            float const xCenterMinus = splineMinus(y - getSlitOffsets()[DY][index - 1]) +
+                getSlitOffsets()[DX][index - 1];
 
             if (std::fabs(x - xCenterMinus) < std::fabs(x - xCenter0)) {
                 --index;
@@ -383,7 +384,8 @@ DetectorMap::findFiberId(lsst::afw::geom::PointD pixelPos // position on detecto
         }
         if (index < _yToXCenter.size() - 1) {
             auto const & splinePlus = getCenterSpline(index + 1);
-            float const xCenterPlus = splinePlus(y);
+            float const xCenterPlus = splinePlus(y - getSlitOffsets()[DY][index]) +
+                getSlitOffsets()[DX][index + 1];
 
             if (std::fabs(x - xCenterPlus) < std::fabs(x - xCenter0)) {
                 ++index;
