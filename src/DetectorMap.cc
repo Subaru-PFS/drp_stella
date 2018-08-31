@@ -355,6 +355,7 @@ DetectorMap::findFiberId(lsst::afw::geom::PointD pixelPos // position on detecto
                           ) const
 {
     float const x = pixelPos[0], y = pixelPos[1];
+    std::size_t const maxIter = 2*_fiberIds.getNumElements();  // maximum number of iterations
 
     if (!_bbox.contains(lsst::afw::geom::PointI(x, y))) {
         std::ostringstream os;
@@ -362,10 +363,10 @@ DetectorMap::findFiberId(lsst::afw::geom::PointD pixelPos // position on detecto
         throw LSST_EXCEPT(lsst::pex::exceptions::RangeError, os.str());
     }
 
-    int fiberId = _xToFiberId[(int)(x)];    // first guess at the fiberId
+    int fiberId = _xToFiberId[int(x)];    // first guess at the fiberId
     std::size_t index = getFiberIndex(fiberId);
-    bool updatedIndex = true;
-    while (updatedIndex) {
+    std::size_t iterations = 0;
+    for (bool updatedIndex = true; updatedIndex; ++iterations) {
         auto const & spline0 = getCenterSpline(index);
         float xCenter0 = spline0(y);
 
@@ -377,6 +378,7 @@ DetectorMap::findFiberId(lsst::afw::geom::PointD pixelPos // position on detecto
             if (std::fabs(x - xCenterMinus) < std::fabs(x - xCenter0)) {
                 --index;
                 updatedIndex = true;
+                continue;
             }
         }
         if (index < _yToXCenter.size() - 1) {
@@ -386,8 +388,12 @@ DetectorMap::findFiberId(lsst::afw::geom::PointD pixelPos // position on detecto
             if (std::fabs(x - xCenterPlus) < std::fabs(x - xCenter0)) {
                 ++index;
                 updatedIndex = true;
+                continue;
             }
         }
+    }
+    if (iterations > maxIter) {
+        throw LSST_EXCEPT(lsst::pex::exceptions::RuntimeError, "Exceeded maximum number of iterations");
     }
 
     return _fiberIds[index];
