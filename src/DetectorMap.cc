@@ -84,9 +84,12 @@ DetectorMap::DetectorMap(
     utils::checkSize(centerKnots.getShape(), centerValues.getShape(),
                      "DetectorMap: centerKnots vs centerValues");
     utils::checkSize(wavelengthKnots.getShape(), wavelengthValues.getShape(),
-                     "DetectorMap:: wavelengthKnots vs wavelengthValues");
+                     "DetectorMap: wavelengthKnots vs wavelengthValues");
     utils::checkSize(centerKnots.getShape(), wavelengthKnots.getShape(),
-                     "DetectorMap:: centerKnots vs wavelengthKnots");
+                     "DetectorMap: centerKnots vs wavelengthKnots");
+    utils::checkSize(slitOffsets.getShape(), ndarray::makeVector<ndarray::Size>(3, _nFiber),
+                     "DetectorMap: slitOffsets vs fiberIds");
+    utils::checkSize(throughput.getNumElements(), _nFiber, "DetectorMap: throughput");
 
     for (std::size_t ii = 0; ii < _nFiber; ++ii) {
         _yToXCenter[ii] = std::make_shared<math::Spline<float>>(centerKnots[ii], centerValues[ii]);
