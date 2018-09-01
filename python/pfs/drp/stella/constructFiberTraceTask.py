@@ -294,6 +294,10 @@ class ConstructFiberTraceTask(CalibTask):
             dateObs = dafBase.DateTime('%sT00:00:00Z' % dataRefList[0].dataId['dateObs'],
                                        dafBase.DateTime.UTC)
             visitInfo = afwImage.VisitInfo(date=dateObs)
+
+        # Clear out metadata to avoid conflicts with existing keywords when we set the stuff we need
+        for key in detMap.metadata.names():
+            detMap.metadata.remove(key)
         detMap.setVisitInfo(visitInfo)
         self.recordCalibInputs(cache.butler, detMap, struct.ccdIdList, outputId)
         detMap.getMetadata().set("OBSTYPE", "detectormap")  # Overwrite "fibertrace"
