@@ -654,6 +654,8 @@ FiberTraceSet<ImageT, MaskT, VarianceT> findAndTraceApertures(
         LOGLS_TRACE(_log, "fiberTraceFunction.fiberTraceFunctionControl set");
         auto result = findCenterPositionsOneTrace(image, variance, finding, nextSearchStart);
         std::size_t const length = result.index.size();
+        LOGLS_TRACE(_log, "findCenterPositionsOneTrace trace length " <<
+                    length << " vs " << finding.minLength);
         if (length < std::size_t(finding.minLength)) {
             break;
         }
