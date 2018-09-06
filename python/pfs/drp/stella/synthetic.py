@@ -173,7 +173,7 @@ def makeSyntheticArc(config, numLines=50, fwhm=4.321, flux=3.0e5, addNoise=True,
     image : `lsst.afw.image.Image`
         Arc image.
     """
-    lines = np.linspace(0, config.height, numLines)
+    lines = np.linspace(0, config.height, numLines + 2)[1:-1]
     yy = np.arange(config.height, dtype=np.float32)
     spectrum = np.zeros(config.height, dtype=np.float32)
     sigma = fwhm/(2*math.sqrt(2*math.log(2)))
