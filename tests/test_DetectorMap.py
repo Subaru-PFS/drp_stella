@@ -65,7 +65,8 @@ class SplineTestCase(lsst.utils.tests.TestCase):
 class DetectorMapTestCase(lsst.utils.tests.TestCase):
     def setUp(self):
         """Construct a ``DetectorMap`` to play with"""
-        detMap = pfs.drp.stella.synthetic.makeSyntheticDetectorMap()
+        synthConfig = pfs.drp.stella.synthetic.SyntheticConfig()
+        detMap = pfs.drp.stella.synthetic.makeSyntheticDetectorMap(synthConfig)
         self.bbox = detMap.bbox
         self.fiberIds = detMap.fiberIds
         self.numFibers = len(self.fiberIds)
