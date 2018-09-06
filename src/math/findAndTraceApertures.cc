@@ -149,22 +149,6 @@ calcProfileSwath(
         }
         ++itOffset;
     }
-#if 0
-    auto xVec = std::make_shared<std::vector<float>>();
-    xVec->reserve(xArray.getNumElements());
-    auto yVec = std::make_shared<std::vector<float>>();
-    yVec->reserve(xArray.getNumElements());
-    auto itRowIm = imageSwathNormalized.begin();
-    for (auto itRow = xArray.begin(); itRow != xArray.end(); ++itRow, ++itRowIm) {
-        auto itColIm = itRowIm->begin();
-        for (auto itCol = itRow->begin(); itCol != itRow->end(); ++itCol, ++itColIm) {
-            xVec->push_back(*itCol);
-            yVec->push_back(*itColIm);
-        }
-    }
-    profileFittingInputXPerSwath.push_back(xVec);
-    profileFittingInputYPerSwath.push_back(yVec);
-#endif
     LOGLS_TRACE(_log, "_fiberId = " << fiberId << ": iSwath = " << iSwath << ": xArray = " << xArray);
     LOGLS_TRACE(_log, "_fiberId = " << fiberId << ": iSwath = " << iSwath << ": xMin = " << xMin
                       << ", xMax = " << xMax);
@@ -1163,12 +1147,7 @@ FindCenterPositionsOneTraceResult findCenterPositionsOneTrace(
                             FloatArray y = copy(imageArray[ndarray::view(row)(firstWideSignalStart, firstWideSignalEnd + 1)]);
                             FloatArray yErr = ndarray::allocate(fitSize);
                             auto const var = varianceArray[ndarray::view(row)(firstWideSignalStart, firstWideSignalEnd + 1)];
-                            #if 0
-                            std::transform(var.begin(), var.end(), yErr.begin(),
-                                          [](ImageT value) { value > 0 ? std::sqrt(value) : 1.0; });
-                            #else
                             yErr.deep() = 1.0;
-                            #endif
 
                             std::size_t numGood = 0;
                             for (auto it = y.begin(); it != y.end(); ++it) {
