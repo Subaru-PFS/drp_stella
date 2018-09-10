@@ -1,3 +1,4 @@
+import pfs.drp.stella.pickleUtils  # noqa: register pickle functions
 from .spectra import *
 from .spectraContinued import *
 from .controls import *

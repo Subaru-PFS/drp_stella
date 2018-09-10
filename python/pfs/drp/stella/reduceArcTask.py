@@ -14,32 +14,6 @@ from pfs.drp.stella import Spectrum, SpectrumSet
 
 __all__ = ["ReduceArcConfig", "ReduceArcTask"]
 
-# Allow pickling an lsst.afw.image.VisitInfo
-import copyreg
-from lsst.afw.image import VisitInfo
-from lsst.afw.coord import Observatory, Weather
-
-
-def pickleVisitInfo(info):
-    return (VisitInfo,
-            tuple(getattr(info, "get" + prop)() for
-                  prop in ("ExposureId", "ExposureTime", "DarkTime", "Date", "Ut1", "Era", "BoresightRaDec",
-                           "BoresightAzAlt", "BoresightAirmass", "BoresightRotAngle", "RotType",
-                           "Observatory", "Weather")))
-
-
-def pickleObservatory(obs):
-    return (Observatory, (obs.getLongitude(), obs.getLatitude(), obs.getElevation()))
-
-
-def pickleWeather(weather):
-    return (Weather, (weather.getAirTemperature(), weather.getAirPressure(), weather.getHumidity()))
-
-
-copyreg.pickle(VisitInfo, pickleVisitInfo)
-copyreg.pickle(Observatory, pickleObservatory)
-copyreg.pickle(Weather, pickleWeather)
-
 
 class ReduceArcConfig(pexConfig.Config):
     """Configuration for reducing arc images"""
@@ -152,7 +126,7 @@ class ReduceArcTask(CmdLineTask):
         -------
         spectrumSet : `pfs.drp.stella.SpectrumSet`
             Set of extracted spectra.
-        detectorMap : `pfs.drp.stella.utils.DetectorMapIO`
+        detectorMap : `pfs.drp.stella.utils.DetectorMap`
             Mapping of wl,fiber to detector position.
         visitInfo : `lsst.afw.image.VisitInfo`
             Visit information for exposure.
@@ -271,7 +245,7 @@ class ReduceArcTask(CmdLineTask):
             Data reference.
         spectrumSet : `pfs.drp.stella.SpectrumSet`
             Set of extracted spectra.
-        detectorMap : `pfs.drp.stella.utils.DetectorMapIO`
+        detectorMap : `pfs.drp.stella.utils.DetectorMap`
             Mapping of wl,fiber to detector position.
         metadata : `lsst.daf.base.PropertySet`
             Exposure header.
@@ -312,7 +286,7 @@ class ReduceArcTask(CmdLineTask):
         ----------
         spectrumSet : `pfs.drp.stella.SpectrumSet`
             Set of extracted spectra.
-        detectorMap : `pfs.drp.stella.utils.DetectorMapIO`
+        detectorMap : `pfs.drp.stella.utils.DetectorMap`
             Mapping of wl,fiber to detector position.
         arcLines : `list` of `pfs.drp.stella.ReferenceLine`
             List of reference lines.

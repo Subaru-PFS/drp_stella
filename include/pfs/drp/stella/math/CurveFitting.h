@@ -156,6 +156,7 @@ PolynomialFitResults<T> fitPolynomial(
  */
 template<typename ImageT>
 std::tuple<ndarray::Array<ImageT, 1, 1>, // extracted spectrum
+           ndarray::Array<lsst::afw::image::MaskPixel, 1, 1>, // mask
            ndarray::Array<ImageT, 1, 1>, // background
            ndarray::Array<ImageT, 1, 1> // variance
            >

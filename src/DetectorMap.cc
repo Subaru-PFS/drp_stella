@@ -14,7 +14,7 @@ namespace pfs { namespace drp { namespace stella {
 /*
  * ctor
  */
-DetectorMap::DetectorMap(lsst::afw::geom::Box2I bbox,                    // detector's bounding box
+DetectorMap::DetectorMap(lsst::geom::Box2I bbox,                    // detector's bounding box
                          ndarray::Array<int, 1, 1> const& fiberIds, // 1-indexed IDs for each fibre
                          ndarray::Array<float, 2, 1> const& xCenters,    // center of trace for each fibre
                          ndarray::Array<float, 2, 1> const& wavelengths, // wavelengths for each fibre
@@ -58,14 +58,16 @@ DetectorMap::DetectorMap(lsst::afw::geom::Box2I bbox,                    // dete
 
 
 DetectorMap::DetectorMap(
-    lsst::afw::geom::Box2I bbox,
+    lsst::geom::Box2I bbox,
     FiberMap const& fiberIds,
     ndarray::Array<float const, 2, 1> const& centerKnots,
     ndarray::Array<float const, 2, 1> const& centerValues,
     ndarray::Array<float const, 2, 1> const& wavelengthKnots,
     ndarray::Array<float const, 2, 1> const& wavelengthValues,
     Array2D const& slitOffsets,
-    Array1D const& throughput
+    Array1D const& throughput,
+    VisitInfo const& visitInfo,
+    std::shared_ptr<lsst::daf::base::PropertySet> metadata
 ) : _nFiber(fiberIds.getShape()[0]),
     _bbox(bbox),
     _fiberIds(ndarray::copy(fiberIds)),
@@ -75,22 +77,25 @@ DetectorMap::DetectorMap(
     _nKnot(centerKnots.getShape()[1]),
     _xToFiberId(_bbox.getWidth()),
     _slitOffsets(slitOffsets),
-    _visitInfo(lsst::daf::base::PropertyList()),
-    _metadata(std::make_shared<lsst::daf::base::PropertyList>())
+    _visitInfo(visitInfo),
+    _metadata(metadata)
 {
     utils::checkSize(centerKnots.getShape()[0], _nFiber, "DetectorMap: nFiber");
     utils::checkSize(centerKnots.getShape(), centerValues.getShape(),
                      "DetectorMap: centerKnots vs centerValues");
     utils::checkSize(wavelengthKnots.getShape(), wavelengthValues.getShape(),
-                     "DetectorMap:: wavelengthKnots vs wavelengthValues");
+                     "DetectorMap: wavelengthKnots vs wavelengthValues");
     utils::checkSize(centerKnots.getShape(), wavelengthKnots.getShape(),
-                     "DetectorMap:: centerKnots vs wavelengthKnots");
+                     "DetectorMap: centerKnots vs wavelengthKnots");
+    utils::checkSize(slitOffsets.getShape(), ndarray::makeVector<ndarray::Size>(3, _nFiber),
+                     "DetectorMap: slitOffsets vs fiberIds");
+    utils::checkSize(throughput.getNumElements(), _nFiber, "DetectorMap: throughput");
 
     for (std::size_t ii = 0; ii < _nFiber; ++ii) {
         _yToXCenter[ii] = std::make_shared<math::Spline<float>>(centerKnots[ii], centerValues[ii]);
         _yToWavelength[ii] = std::make_shared<math::Spline<float>>(wavelengthKnots[ii], wavelengthValues[ii]);
     }
-    _setSplines(getXCenter(), getWavelength());
+    _set_xToFiberId();
 }
 
             
@@ -293,7 +298,7 @@ void DetectorMap::setThroughput(Array1D const& throughput) {
 /*
  * Return the position of the fiber trace on the detector, given a fiberId and wavelength
  */
-lsst::afw::geom::PointD
+lsst::geom::PointD
 DetectorMap::findPoint(int fiberId,               ///< Desired fibreId
                        float wavelength           ///< desired wavelength
                       ) const
@@ -306,7 +311,7 @@ DetectorMap::findPoint(int fiberId,               ///< Desired fibreId
 
     if (onePast == end) {
         double const NaN = std::numeric_limits<double>::quiet_NaN();
-        return lsst::afw::geom::PointD(NaN, NaN);
+        return lsst::geom::PointD(NaN, NaN);
     }
 
     auto fiberXCenter = getXCenter(fiberId);
@@ -321,7 +326,7 @@ DetectorMap::findPoint(int fiberId,               ///< Desired fibreId
         y += dy;
     }
 
-    return lsst::afw::geom::PointD(x, y);
+    return lsst::geom::PointD(x, y);
 }
 
 /************************************************************************************************************/
@@ -341,7 +346,7 @@ DetectorMap::findWavelength(int fiberId,               ///< Desired fibreId
     int const index = getFiberIndex(fiberId);
     auto const & spline = getWavelengthSpline(index);
 
-    return spline(row);
+    return spline(row - getSlitOffsets(fiberId)[DY]);
 }
 
 /************************************************************************************************************/
@@ -349,43 +354,51 @@ DetectorMap::findWavelength(int fiberId,               ///< Desired fibreId
  * Return the fiberId given a position on the detector
  */
 int
-DetectorMap::findFiberId(lsst::afw::geom::PointD pixelPos // position on detector
+DetectorMap::findFiberId(lsst::geom::PointD pixelPos // position on detector
                           ) const
 {
     float const x = pixelPos[0], y = pixelPos[1];
+    std::size_t const maxIter = 2*_fiberIds.getNumElements();  // maximum number of iterations
 
-    if (!_bbox.contains(lsst::afw::geom::PointI(x, y))) {
+    if (!_bbox.contains(lsst::geom::PointI(x, y))) {
         std::ostringstream os;
         os << "Point " << pixelPos << " does not lie within BBox " << _bbox;
         throw LSST_EXCEPT(lsst::pex::exceptions::RangeError, os.str());
     }
 
-    int fiberId = _xToFiberId[(int)(x)];    // first guess at the fiberId
+    int fiberId = _xToFiberId[int(x)];    // first guess at the fiberId
     std::size_t index = getFiberIndex(fiberId);
-    bool updatedIndex = true;
-    while (updatedIndex) {
+    std::size_t iterations = 0;
+    for (bool updatedIndex = true; updatedIndex; ++iterations) {
         auto const & spline0 = getCenterSpline(index);
-        float xCenter0 = spline0(y);
+        float const xCenter0 = spline0(y - getSlitOffsets()[DY][index]) + getSlitOffsets()[DX][index];
 
         updatedIndex = false;
         if (index > 0) {
             auto const & splineMinus = getCenterSpline(index - 1);
-            float const xCenterMinus = splineMinus(y);
+            float const xCenterMinus = splineMinus(y - getSlitOffsets()[DY][index - 1]) +
+                getSlitOffsets()[DX][index - 1];
 
             if (std::fabs(x - xCenterMinus) < std::fabs(x - xCenter0)) {
                 --index;
                 updatedIndex = true;
+                continue;
             }
         }
         if (index < _yToXCenter.size() - 1) {
             auto const & splinePlus = getCenterSpline(index + 1);
-            float const xCenterPlus = splinePlus(y);
+            float const xCenterPlus = splinePlus(y - getSlitOffsets()[DY][index]) +
+                getSlitOffsets()[DX][index + 1];
 
             if (std::fabs(x - xCenterPlus) < std::fabs(x - xCenter0)) {
                 ++index;
                 updatedIndex = true;
+                continue;
             }
         }
+    }
+    if (iterations > maxIter) {
+        throw LSST_EXCEPT(lsst::pex::exceptions::RuntimeError, "Exceeded maximum number of iterations");
     }
 
     return _fiberIds[index];

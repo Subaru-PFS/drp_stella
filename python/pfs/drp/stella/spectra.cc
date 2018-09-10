@@ -32,7 +32,7 @@ void declareReferenceLine(py::module &mod) {
         .value("CR", ReferenceLine::Status::CR)
         .export_values();
 
-    cls.def(py::init<std::string, ReferenceLine::Status, float, float>(),
+    cls.def(py::init<std::string, ReferenceLine::Status, double, double>(),
             "description"_a, "status"_a=ReferenceLine::Status::NOWT,
             "wavelength"_a=0, "guessedIntensity"_a=0);
     cls.def_readwrite("description", &ReferenceLine::description);
@@ -53,8 +53,8 @@ void declareReferenceLine(py::module &mod) {
     cls.def("__setstate__",
         [](ReferenceLine & self, py::tuple const& t) {
             new (&self) ReferenceLine(t[0].cast<std::string>(), ReferenceLine::Status(t[1].cast<int>()),
-                                      t[2].cast<float>(), t[3].cast<float>(), t[4].cast<float>(),
-                                      t[5].cast<float>(), t[6].cast<float>(), t[7].cast<float>());
+                                      t[2].cast<double>(), t[3].cast<double>(), t[4].cast<double>(),
+                                      t[5].cast<double>(), t[6].cast<double>(), t[7].cast<double>());
         });
 }
 

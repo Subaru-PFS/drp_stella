@@ -2,6 +2,10 @@ import lsst.pex.config as pexConfig
 from lsst.pipe.base import Task
 import pfs.drp.stella as drpStella
 
+__all__ = ["FiberTraceFunctionConfig", "FiberTraceFindingConfig", "FiberTraceProfileFittingConfig",
+           "FindAndTraceAperturesConfig", "FindAndTraceAperturesTask",
+           ]
+
 
 FiberTraceFunctionConfig = pexConfig.makeConfigClass(drpStella.FiberTraceFunctionControl)
 FiberTraceFindingConfig = pexConfig.makeConfigClass(drpStella.FiberTraceFindingControl)

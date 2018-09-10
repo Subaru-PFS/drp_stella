@@ -49,8 +49,8 @@ struct FiberTraceFunction {
         ctrl(ctrl_),
         xCenter(0.),
         yCenter(0),
-        yLow(0),
-        yHigh(0),
+        yLow(-5),
+        yHigh(5),
         coefficients(ndarray::allocate(ctrl.order + 1)) {
         coefficients.deep() = 0;
     }
@@ -72,7 +72,27 @@ struct FiberTraceFunction {
      * @param[in] nPixCutLeft_In    :: number of pixels to cut off left of trace
      * @param[in] nPixCutRight_In   :: number of pixels to cut off right of trace
      **/
-    ndarray::Array<std::size_t, 2, -2> calcMinCenMax(ndarray::Array<float, 1, 1> const& xCenters);
+    ndarray::Array<std::size_t, 2, -2> calcMinCenMax(ndarray::Array<float const, 1, 1> const& xCenters);
+
+    /**
+     * @brief calculate the xCenters of a FiberTrace from 0 to FiberTrace.getTrace().getHeight()-1
+     *
+     * NOTE that the WCS starts at [0., 0.], so an xCenter of 1.1 refers to position 0.1 of the second pixel
+     *
+     * @param function  FiberTraceFunction to use when calculating the xCenters
+     */
+    ndarray::Array<float, 1, 1> calculateXCenters() const;
+
+    /**
+     * @brief calculate the xCenters of a FiberTrace from 0 to FiberTrace.getTrace().getHeight()-1
+     *
+     * NOTE that the WCS starts at [0., 0.], so an xCenter of 1.1 refers to position 0.1 of the second pixel
+     *
+     * @param function  FiberTraceFunction to use when calculating the xCenters
+     * @param yIn  This range in y will be converted to [-1.0,1.0] when calculating the xCenters
+     */
+    ndarray::Array<float, 1, 1> calculateXCenters(ndarray::Array<float, 1, 1> const& yIn) const;
+    
 };
 
 
@@ -129,7 +149,6 @@ struct FiberTraceProfileFittingControl {
 
 /// Parameters controlling the dispersion correction (wavelength solution)
 struct DispersionCorrectionControl {
-    LSST_CONTROL_FIELD(order, int, "Fitting function order");
     LSST_CONTROL_FIELD(searchRadius, int,
                        "Radius in pixels relative to line list to search for emission line peak");
     LSST_CONTROL_FIELD(fwhm, float, "FWHM of emission lines");
@@ -142,7 +161,6 @@ struct DispersionCorrectionControl {
                        "of the FWHM should be a good start");
 
     DispersionCorrectionControl() :
-        order(5),
         searchRadius(2),
         fwhm(2.6),
         maxDistance(1.5)

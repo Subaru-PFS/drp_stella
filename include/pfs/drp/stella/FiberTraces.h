@@ -8,7 +8,7 @@
 
 #include "lsst/daf/base/PropertyList.h"
 #include "lsst/afw/image/MaskedImage.h"
-#include "lsst/afw/geom/Point.h"
+#include "lsst/geom/Point.h"
 
 #include "pfs/drp/stella/Controls.h"
 #include "pfs/drp/stella/math/Math.h"
@@ -16,6 +16,9 @@
 #include "pfs/drp/stella/DetectorMap.h"
 
 namespace pfs { namespace drp { namespace stella {
+
+std::string const fiberMaskPlane = "FIBERTRACE";  ///< Mask plane we care about
+
 /**
  * @brief Describe a single fiber trace
  */
@@ -32,22 +35,11 @@ class FiberTrace {
     /** @brief Class Constructors and Destructor
      *
      * @param maskedImage : maskedImage to set _trace to
+     * @param xCenters : position of center for each row
      * @param fiberTraceId : FiberTrace ID
      * */
-    explicit FiberTrace(MaskedImageT const& maskedImage,
+    explicit FiberTrace(MaskedImageT const& trace,
                         std::size_t fiberTraceId=0);
-
-    /**
-     * @brief Create a FiberTrace from a MaskedImage and a FiberTraceFunction
-     *
-     * @param maskedImage : Masked CCD Image from which to extract the FiberTrace
-     * @param fiberTraceFunction : FiberTraceFunction defining the FiberTrace
-     * @param fiberId : set this number to this._fiberId
-     */
-    explicit FiberTrace(MaskedImageT const& maskedImage,
-                        FiberTraceFunction const& fiberTraceFunction,
-                        FiberTraceProfileFittingControl const& fiberTraceProfileFittingControl,
-                        std::size_t fiberId=0);
 
     /**
      * @brief Copy constructor (deep if required)
@@ -85,19 +77,38 @@ class FiberTrace {
         float clipNSigma=0, ///< clip data points at this many sigma (if > 0)
         bool useProfile=true  ///< use profile to perform "optimal" extraction?
     );
-    
+
     /**
-     * @brief Return the fitted x-centers of the fiber trace
+     * @brief Return an image containing the reconstructed 2D spectrum of the FiberTrace
+     *
+     * @param spectrum : 1D spectrum to reconstruct the 2D image from
+     * @param bbox : bounding box of image
      */
-    ndarray::Array<float const, 1, 1> getXCenters() const { return _xCenters; }
+    std::shared_ptr<Image> constructImage(
+        Spectrum const& spectrum,
+        lsst::geom::Box2I const & bbox
+    ) const;
 
     /**
      * @brief Return an image containing the reconstructed 2D spectrum of the FiberTrace
      *
      * @param spectrum : 1D spectrum to reconstruct the 2D image from
      */
-    std::shared_ptr<Image> constructImage(Spectrum const& spectrum) const;
-    
+    std::shared_ptr<Image> constructImage(Spectrum const& spectrum) const {
+        return constructImage(spectrum, getTrace().getBBox());
+    }
+
+    /**
+     * @brief Create an image containing the reconstructed 2D spectrum of the FiberTrace
+     *
+     * @param image : image into which to reconstruct trace
+     * @param spectrum : 1D spectrum to reconstruct the 2D image from
+     */
+    void constructImage(
+        lsst::afw::image::Image<ImageT> & image,
+        Spectrum const& spectrum
+    ) const;
+
     /**
      * @brief set the ID number of this trace (_fiberId) to this number
      * @param fiberId : ID to be assigned to this FiberTrace
@@ -109,87 +120,9 @@ class FiberTrace {
      */
     std::size_t getFiberId() const { return _fiberId; }
 
-    FiberTraceFunction const& getFunction() const { return _function; }
-    FiberTraceProfileFittingControl const& getFitting() const { return _fitting; }
-
-    std::string const maskPlane = "FIBERTRACE";  ///< Mask plane we care about
   private:
-
-    /**
-     * @brief Calculate the spatial profile for the FiberTrace
-     *
-     * Normally this would be a Flat FiberTrace, but in principle, if the spectrum
-     * shows some kind of continuum, the spatial profile can still be calculated
-     */
-    void _calcProfile();
-
-    /**
-     * @brief Helper function for calcProfile, calculates profile for a swath
-     *
-     * A swath is approximately FiberTraceProfileFittingControl.swathWidth long
-     * Each swath is overlapping the previous swath for half of the swath width
-     * spectrum:
-     * |-----------------------------------------------------------------
-     * swaths:
-     * |---------------|--------------|--------------|--------------|----
-     *         |---------------|--------------|--------------|-----------
-     * @param swath : CCD image of the FiberTrace swath
-     * @param xCentersSwath : 1D array containing the x center positions for the swath
-     * @param iSwath : number of swath
-     */
-    ndarray::Array<float, 2, 1> _calcProfileSwath(
-        lsst::afw::image::MaskedImage<ImageT, MaskT, VarianceT> const& swath,
-        ndarray::Array<float const, 1, 1> const& xCentersSwath,
-        std::size_t iSwath
-    );
-
-    /**
-     * @brief mark FiberTrace pixels in Mask image
-     *
-     * @param value : value to Or into the FiberTrace mask
-     */
-    void _markFiberTraceInMask(MaskT value=1);
-
-    /**
-     * @brief Create _trace from maskedImage and _fiberTraceFunction
-     *
-     * @param maskedImage : MaskedImage from which to extract the FiberTrace from
-     * Pre: _xCenters set/calculated
-     */
-    void _createTrace(MaskedImageT const& maskedImage);
-
-    /**
-     * @brief Calculate boundaries for the swaths used for profile calculation
-     *
-     * @param swathWidth_In : Approximate width for the swaths, will be adjusted
-     * to fill the length of the FiberTrace with equally sized swaths
-     * @return 2D array containing the pixel numbers for the start and the end
-     * of each swath
-     */
-    ndarray::Array<std::size_t, 2, 1> _calcSwathBoundY(std::size_t swathWidth) const;
-
-    /**
-     * @brief : return _minCenMax (after recomputing if necessary)
-     */
-    ndarray::Array<std::size_t, 2, -2> _getMinCenMax();
-    /**
-     * @brief : Reconstruct _minCenMax from mask
-     */
-    void _reconstructMinCenMax();
-
-    std::vector<std::shared_ptr<std::vector<float>>> _overSampledProfileFitXPerSwath;
-    std::vector<std::shared_ptr<std::vector<float>>> _overSampledProfileFitYPerSwath;
-    std::vector<std::shared_ptr<std::vector<float>>> _profileFittingInputXPerSwath;
-    std::vector<std::shared_ptr<std::vector<float>>> _profileFittingInputYPerSwath;
-    std::vector<std::shared_ptr<std::vector<float>>> _profileFittingInputXMeanPerSwath;
-    std::vector<std::shared_ptr<std::vector<float>>> _profileFittingInputYMeanPerSwath;
-    
     lsst::afw::image::MaskedImage<ImageT, MaskT, VarianceT> _trace;
-    ndarray::Array<float, 1, 1> _xCenters;
-    ndarray::Array<std::size_t, 2, -2> _minCenMax;
     std::size_t _fiberId;
-    FiberTraceFunction _function;
-    FiberTraceProfileFittingControl _fitting;
 };
 
 /************************************************************************************************************/
@@ -248,16 +181,16 @@ class FiberTraceSet {
     /// Get i-th trace
     ///
     /// No bounds checking.
-    std::shared_ptr<FiberTraceT> operator[](const std::size_t i) { return _traces[i]; }
-    std::shared_ptr<FiberTraceT> const operator[](const std::size_t i) const { return _traces[i]; }
+    std::shared_ptr<FiberTraceT> operator[](std::ptrdiff_t i) { return _traces[i]; }
+    std::shared_ptr<FiberTraceT> const operator[](std::ptrdiff_t i) const { return _traces[i]; }
     //@}
 
     //@{
     /// Get i-th trace
     ///
     /// Includes bounds checking.
-    std::shared_ptr<FiberTraceT> get(const std::size_t i) { return _traces.at(i); }
-    std::shared_ptr<FiberTraceT> const get(const std::size_t i) const { return _traces.at(i); }
+    std::shared_ptr<FiberTraceT> get(std::ptrdiff_t i) { return _traces.at(i); }
+    std::shared_ptr<FiberTraceT> const get(std::ptrdiff_t i) const { return _traces.at(i); }
     //@}
 
     /**
@@ -266,7 +199,7 @@ class FiberTraceSet {
      * @param i : position in _traces which is to be replaced bye trace
      * @param trace : FiberTrace to replace _traces[i]
      */
-    void set(std::size_t i, std::shared_ptr<FiberTraceT> trace) { _traces.at(i) = trace; }
+    void set(std::ptrdiff_t i, std::shared_ptr<FiberTraceT> trace) { _traces.at(i) = trace; }
 
     /**
      * @brief Add one FiberTrace to the set

@@ -22,9 +22,9 @@ struct ReferenceLine {
         CR=64,                          // line is contaminated by a cosmic ray
     };
 
-    ReferenceLine(std::string const& _description, Status _status=NOWT, float _wavelength=0,
-                  float _guessedIntensity=0, float _guessedPosition=0,
-                  float _fitIntensity=0, float _fitPosition=0, float _fitPositionErr=0
+    ReferenceLine(std::string const& _description, Status _status=NOWT, double _wavelength=0,
+                  double _guessedIntensity=0, double _guessedPosition=0,
+                  double _fitIntensity=0, double _fitPosition=0, double _fitPositionErr=0
                  ) :
         description(_description),
         status(_status),
@@ -38,12 +38,12 @@ struct ReferenceLine {
 
     std::string description;            // description of line (e.g. Hg[II])
     int status;                         // status of line
-    float wavelength;                   // vacuum wavelength, nm
-    float guessedIntensity;             // input guess for intensity (amplitude of peak)
-    float guessedPosition;              // input guess for pixel position
-    float fitIntensity;                 // estimated intensity (amplitude of peak)
-    float fitPosition;                  // fit line position
-    float fitPositionErr;               // estimated standard deviation of fitPosition
+    double wavelength;                   // vacuum wavelength, nm
+    double guessedIntensity;             // input guess for intensity (amplitude of peak)
+    double guessedPosition;              // input guess for pixel position
+    double fitIntensity;                 // estimated intensity (amplitude of peak)
+    double fitPosition;                  // fit line position
+    double fitPositionErr;               // estimated standard deviation of fitPosition
 };
 
 /**

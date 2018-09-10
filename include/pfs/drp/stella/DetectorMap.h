@@ -4,8 +4,8 @@
 #include <vector>
 #include "ndarray.h"
 
-#include "lsst/afw/geom/Box.h"
-#include "lsst/afw/geom/Point.h"
+#include "lsst/geom/Box.h"
+#include "lsst/geom/Point.h"
 #include "lsst/afw/image/VisitInfo.h"
 
 #include "pfs/drp/stella/spline.h"
@@ -22,16 +22,16 @@ namespace pfs { namespace drp { namespace stella {
  * when calculating the wavelength for a pixel -- i.e. we assume that the spots are deflected up by slitOffset
  */
 class DetectorMap {
-    friend class DetectorMapIO;
 public:
     enum ArrayRow { DX = 0, DY = 1, DFOCUS = 2 };
 
     using FiberMap = ndarray::Array<int, 1, 1>;
     using Array2D = ndarray::Array<float, 2, 1>;
     using Array1D = ndarray::Array<float, 1, 1>;
+    using VisitInfo = lsst::afw::image::VisitInfo;
 
     /** \brief ctor */
-    explicit DetectorMap(lsst::afw::geom::Box2I bbox, ///< detector's bounding box
+    explicit DetectorMap(lsst::geom::Box2I bbox, ///< detector's bounding box
                          FiberMap const& fiberIds, ///< 1-indexed IDs for each fibre
                          Array2D const& xCenters,  ///< center of trace for each fibre
                          Array2D const& wavelengths, ///< wavelengths for each fibre
@@ -40,14 +40,16 @@ public:
                          Array1D const& throughput=Array1D() ///< relative throughput per fiber
                         );
 
-    DetectorMap(lsst::afw::geom::Box2I bbox,  // detector's bounding box
+    DetectorMap(lsst::geom::Box2I bbox,  // detector's bounding box
                 FiberMap const& fiberIds,  // 1-indexed IDs for each fibre
                 ndarray::Array<float const, 2, 1> const& centerKnots,
                 ndarray::Array<float const, 2, 1> const& centerValues,
                 ndarray::Array<float const, 2, 1> const& wavelengthKnots,
                 ndarray::Array<float const, 2, 1> const& wavelengthValues,
                 Array2D const& slitOffsets,  // per-fibre offsets
-                Array1D const& throughput  // relative throughput per fiber
+                Array1D const& throughput,  // relative throughput per fiber
+                VisitInfo const& visitInfo=VisitInfo(lsst::daf::base::PropertyList()),  // Visit information
+                std::shared_ptr<lsst::daf::base::PropertySet> metadata=nullptr  // FITS header
                 );
 
     virtual ~DetectorMap() {}
@@ -57,13 +59,16 @@ public:
     DetectorMap & operator=(DetectorMap &&) = default;
 
     /** \brief return the bbox */
-    lsst::afw::geom::Box2I getBBox() const { return _bbox; }
+    lsst::geom::Box2I getBBox() const { return _bbox; }
 
     int getNKnot() const { return _nKnot; }
 
     /** \brief return the fiberIds */
     FiberMap & getFiberIds() { return _fiberIds; }
     FiberMap const& getFiberIds() const { return _fiberIds; }
+
+    /** \brief Return the number of fibers */
+    std::size_t getNumFibers() const { return _fiberIds.size(); }
 
     /**
      * Set the offsets of the wavelengths and x-centres (in floating-point pixels) and focus (in microns)
@@ -166,13 +171,13 @@ public:
     /** \brief
      * Return the fiberId given a position on the detector
      */
-    int findFiberId(lsst::afw::geom::PointD pixelPos ///< position on detector
+    int findFiberId(lsst::geom::PointD pixelPos ///< position on detector
                    ) const;
 
     /** \brief
      * Return the position of the fiber trace on the detector, given a fiberId and wavelength
      */
-    lsst::afw::geom::PointD findPoint(int fiberId,               ///< Desired fibreId
+    lsst::geom::PointD findPoint(int fiberId,               ///< Desired fibreId
                                       float wavelength           ///< desired wavelength
                                      ) const;
     /** \brief
@@ -186,8 +191,8 @@ public:
      */
     std::size_t getFiberIndex(int fiberId) const;
 
-    lsst::afw::image::VisitInfo getVisitInfo() { return _visitInfo; }
-    void setVisitInfo(lsst::afw::image::VisitInfo &visitInfo) { _visitInfo = visitInfo; };
+    VisitInfo getVisitInfo() const { return _visitInfo; }
+    void setVisitInfo(VisitInfo &visitInfo) { _visitInfo = visitInfo; };
 
     math::Spline<float> const& getCenterSpline(std::size_t index) const;
     math::Spline<float> const& getWavelengthSpline(std::size_t index) const;
@@ -197,7 +202,7 @@ public:
 
 private:                                // initialise before _yTo{XCenter,Wavelength}
     std::size_t _nFiber;                // number of fibers
-    lsst::afw::geom::Box2I _bbox;       // bounding box of detector
+    lsst::geom::Box2I _bbox;       // bounding box of detector
     FiberMap _fiberIds;         // The fiberIds (between 1 and c. 2400) present on this detector
     
     Array1D _throughput;	// The throughput (in arbitrary units ~ 1) of each fibre

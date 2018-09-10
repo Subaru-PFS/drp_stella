@@ -24,16 +24,12 @@ void declareFiberTrace(py::module &mod)
 
     cls.def(py::init<typename Class::MaskedImageT const&, std::size_t>(),
             "maskedImage"_a, "fiberTraceId"_a=0);
-    cls.def(py::init<typename Class::MaskedImageT const&,
-                     FiberTraceFunction const&,
-                     FiberTraceProfileFittingControl const&,
-                     std::size_t>(),
-            "maskedImage"_a, "function"_a, "fitting"_a, "fiberId"_a=0);
     cls.def(py::init<Class&, bool>(), "fiberTrace"_a, "deep"_a=false);
 
     cls.def("getTrace", [](Class const& self) { return self.getTrace(); });
-    cls.def("getXCenters", &Class::getXCenters);
     cls.def("getFiberId", &Class::getFiberId);
+    cls.def_property_readonly("trace", [](Class const& self) { return self.getTrace(); });
+    cls.def_property("fiberId", &Class::getFiberId, &Class::setFiberId);
 
     cls.def("extractSpectrum", &Class::extractSpectrum, "image"_a,
             "fitBackground"_a=false, "clipNSigma"_a=0.0, "useProfile"_a=true);
@@ -41,16 +37,20 @@ void declareFiberTrace(py::module &mod)
     cls.def("constructImage",
             (std::shared_ptr<typename Class::Image>(Class::*)(Spectrum const&) const)
                 &Class::constructImage, "spectrum"_a);
+    cls.def("constructImage",
+            (std::shared_ptr<typename Class::Image>(Class::*)(
+                Spectrum const&, lsst::geom::Box2I const&) const)
+                &Class::constructImage, "spectrum"_a, "bbox"_a);
+    cls.def("constructImage",
+            (void(Class::*)(typename Class::Image &, Spectrum const&) const)
+                &Class::constructImage, "image"_a, "spectrum"_a);
 
     cls.def("__getstate__",
-            [](Class const& self) { return py::make_tuple(self.getTrace(), self.getFunction(),
-                                                          self.getFitting(), self.getFiberId()); });
+            [](Class const& self) { return py::make_tuple(self.getTrace(), self.getFiberId()); });
     cls.def("__setstate__",
             [](Class & self, py::tuple const& t) {
                 new (&self) Class(t[0].cast<typename Class::MaskedImageT>(),
-                                  t[1].cast<FiberTraceFunction>(),
-                                  t[2].cast<FiberTraceProfileFittingControl>(),
-                                  t[3].cast<std::size_t>()); });
+                                  t[1].cast<std::size_t>()); });
 }
 
 
@@ -66,15 +66,16 @@ void declareFiberTraceSet(py::module &mod)
             "reservation"_a, "metadata"_a=nullptr);
     cls.def(py::init<Class const&, bool>(), "fiberTraceSet"_a, "deep"_a=false);
     cls.def("size", &Class::size);
-    cls.def("get", [](Class const& self, std::size_t index) { return self.get(index); });
+    cls.def("get", [](Class const& self, std::ptrdiff_t index) { return self.get(index); });
     cls.def("set", &Class::set, "index"_a, "trace"_a);
     cls.def("add",
             [](Class & self, std::shared_ptr<typename Class::FiberTraceT> ft) { return self.add(ft); });
     cls.def("getMetadata", py::overload_cast<>(&Class::getMetadata));
+    cls.def_property_readonly("metadata", py::overload_cast<>(&Class::getMetadata));
     cls.def("getInternal", &Class::getInternal);
     // Pythonic APIs
     cls.def("__len__", &Class::size);
-    cls.def("__getitem__", [](Class const& self, std::size_t index) { return self.get(index); });
+    cls.def("__getitem__", [](Class const& self, std::ptrdiff_t index) { return self.get(index); });
     cls.def("__setitem__", &Class::set);
     cls.def("__getstate__",
             [](Class const& self) { return py::make_tuple(self.getInternal(), self.getMetadata()); });
@@ -103,6 +104,8 @@ PYBIND11_PLUGIN(fiberTraces) {
     declareFiberTraceSet<float>(mod);
 
     declareFunctions<float>(mod);
+
+    mod.attr("fiberMaskPlane") = fiberMaskPlane;
 
     py::class_<math::FindCenterPositionsOneTraceResult, PTR(math::FindCenterPositionsOneTraceResult)>
         findResult(mod, "FindCenterPositionsOneTraceResult");

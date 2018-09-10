@@ -59,10 +59,10 @@ class FitContinuumTask(Task):
         continuum : `pfs.drp.stella.SpectrumSet`
             Continuum fit for each input spectrum.
         """
-        continua = SpectrumSet()
+        continua = SpectrumSet(spectra.getLength())
         for spec in spectra:
             continuum = self.wrapArray(self.fitContinuum(spec), spec.fiberId)
-            continua.addSpectrum(continuum)
+            continua.add(continuum)
         return continua
 
     def fitContinuum(self, spectrum):

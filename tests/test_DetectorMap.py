@@ -1,199 +1,352 @@
-#!/usr/bin/env python
-"""
-Tests for measuring things
-
-Run with:
-   python test_detectorMap.py
-or
-   python
-   >>> import test_detectorMap; test_detectorMap.run()
-"""
-import os
 import sys
-import pickle
 import unittest
+import pickle
 
 import numpy as np
+import scipy.interpolate
 
-import lsst.utils.tests as tests
-import lsst.pex.exceptions as pexExcept
-import lsst.afw.geom as afwGeom
+import lsst.utils.tests
+import lsst.pex.exceptions
+import lsst.daf.base
+import lsst.geom
+import lsst.afw.image
+import lsst.afw.image.testUtils
+import lsst.afw.display
 
-import pfs.drp.stella.utils as drpStellaUtils
-import pfs.drp.stella.detectorMap as detectorMap
+import pfs.drp.stella as drpStella
+import pfs.drp.stella.synthetic
 
-def read_fiberIdsxCentersWavelengths():
-    wLenFile = os.path.join(os.environ["OBS_PFS_DIR"], "pfs/RedFiberPixels.fits.gz")
-    xCenters, wavelengths, fiberIds = drpStellaUtils.readWavelengthFile(wLenFile)
-    #
-    # N.b. Andreas calls these "traceIds" but I'm assuming that they are actually be 1-indexed fiberIds
-    #
-    nFiber = len(set(fiberIds))
-    fiberIds = fiberIds.reshape(nFiber, len(fiberIds)//nFiber)
-    xCenters = xCenters.reshape(fiberIds.shape)
-    wavelengths = wavelengths.reshape(fiberIds.shape)
-    fiberIds = fiberIds.reshape(fiberIds.shape)[:, 0].copy()
+display = None
 
-    missing = (wavelengths == 0)
-    xCenters[missing] = np.nan
-    wavelengths[missing] = np.nan
 
-    return fiberIds, xCenters, wavelengths
-    
-class DetectorMapTestCase(tests.TestCase):
-    """A test case for measuring DetectorMap quantities"""
+def makeSpline(xx, yy):
+    """Construct a spline with an alternate implementation
 
-    @classmethod
-    def setUpClass(cls):
-        cls.fiberIds, cls.xCenters, cls.wavelengths = read_fiberIdsxCentersWavelengths()
-        cls.bbox = afwGeom.BoxI(afwGeom.PointI(0, 0), afwGeom.ExtentI(400, cls.xCenters.shape[1]))
-        cls.nKnot = 25
+    Spline interpolates from ``xx`` to ``yy``.
 
-    @classmethod
-    def tearDownClass(cls):
-        del cls.bbox
-        del cls.fiberIds
-        del cls.xCenters
-        del cls.wavelengths
+    Parameters
+    ----------
+    xx, yy : `numpy.ndarray`
+        Arrays for interpolation.
 
+    Returns
+    -------
+    spline : `scipy.interpolate.CubicSpline`
+        Spline object.
+    """
+    return scipy.interpolate.CubicSpline(xx, yy, bc_type='not-a-knot')
+
+
+class SplineTestCase(lsst.utils.tests.TestCase):
     def setUp(self):
-        """Set things up.  This ctor should be fine, and is checked again in testCtor"""
-        self.ftMap = detectorMap.DetectorMap(self.bbox, self.fiberIds, self.xCenters,
-                                             self.wavelengths, nKnot=self.nKnot)
+        """Create a spline to play with"""
+        self.num = 100
+        self.rng = np.random.RandomState(12345)
+        self.xx = np.arange(0.0, self.num, dtype=np.float32)
+        self.yy = self.rng.uniform(size=self.num).astype(np.float32)
+        self.spline = drpStella.SplineF(self.xx, self.yy)
 
-    def tearDown(self):
-        del self.ftMap
+    def testBasic(self):
+        """Test basic properties"""
+        self.assertFloatsEqual(self.spline.getX(), self.xx)
+        self.assertFloatsEqual(self.spline.getY(), self.yy)
+        values = np.array([self.spline(x) for x in self.xx])
+        self.assertFloatsEqual(values, self.yy)
 
-    def testCtor(self):
-        """Test that we can create a DetectorMap"""
-        # N.b. this must be identical to the call in setUp() (which is wrapped in a try-block)
-        ftMap = detectorMap.DetectorMap(self.bbox, self.fiberIds, self.xCenters, self.wavelengths,
-                                            nKnot=100)
+    def testCompare(self):
+        """Compare with alternate implementation"""
+        alternate = makeSpline(self.xx, self.yy)
+        rand = self.rng.uniform(size=self.num)*(self.num - 1)
+        ours = np.array([self.spline(x) for x in rand])
+        theirs = alternate(rand)
+        self.assertFloatsAlmostEqual(ours, theirs, atol=3.0e-6)
 
-        self.assertTrue((ftMap.getFiberIds() == self.fiberIds).all())
-        self.assertTrue((ftMap.getSlitOffsets() == 0.0).all())
+
+class DetectorMapTestCase(lsst.utils.tests.TestCase):
+    def setUp(self):
+        """Construct a ``DetectorMap`` to play with"""
+        synthConfig = pfs.drp.stella.synthetic.SyntheticConfig()
+        detMap = pfs.drp.stella.synthetic.makeSyntheticDetectorMap(synthConfig)
+        self.bbox = detMap.bbox
+        self.fiberIds = detMap.fiberIds
+        self.numFibers = len(self.fiberIds)
+        self.xCenter = detMap.xCenter
+        self.wavelength = detMap.wavelength
+        self.rng = np.random.RandomState(54321)
+        self.slitOffsets = self.rng.uniform(size=(3, self.numFibers)).astype(np.float32)
+        self.throughput = self.rng.uniform(size=self.numFibers).astype(np.float32)
+        self.calculateExpectations(detMap)
+        self.metadata = 123456
+        self.darkTime = 12345.6
+
+    def calculateExpectations(self, detMap):
+        """Calculate what to expect for the center and wavelength
+
+        Sets ``self.centerExpect`` and ``self.wavelengthExpect``.
+        This accounts for the random slitOffsets.
+        """
+        DX = int(drpStella.DetectorMap.DX)
+        DY = int(drpStella.DetectorMap.DY)
+        self.xCenterExpect = np.zeros((self.numFibers, self.bbox.getHeight()), dtype=np.float32)
+        self.wavelengthExpect = np.zeros((self.numFibers, self.bbox.getHeight()), dtype=np.float32)
+        for ii in range(self.numFibers):
+            yOffset = self.slitOffsets[DY, ii]
+            xOffset = self.slitOffsets[DX, ii]
+            xCenterSpline = makeSpline(detMap.getCenterSpline(ii).getX(), detMap.getCenterSpline(ii).getY())
+            self.xCenterExpect[ii, :] = xCenterSpline(np.arange(self.bbox.getHeight()) - yOffset) + xOffset
+            wlSpline = makeSpline(detMap.getWavelengthSpline(ii).getX(),
+                                  detMap.getWavelengthSpline(ii).getY())
+            self.wavelengthExpect[ii, :] = wlSpline(np.arange(self.bbox.getHeight()) - yOffset)
+        self.xCenterTol = 1.0e-4
+        self.wavelengthTol = 2.0e-4
+
+    def makeDetectorMap(self, numKnots=20):
+        """Construct a ``DetectorMap``
+
+        Parameters
+        ----------
+        numKnots : `int`
+            Number of knots for splines.
+
+        Returns
+        -------
+        detMap : `pfs.drp.stella.DetectorMap`
+            Detector map.
+        """
+        detMap = drpStella.DetectorMap(self.bbox, self.fiberIds, self.xCenter, self.wavelength, numKnots,
+                                       self.slitOffsets, self.throughput)
+        detMap.visitInfo = lsst.afw.image.VisitInfo(darkTime=self.darkTime)
+        detMap.metadata.set("METADATA", self.metadata)
+        self.assertDetectorMap(detMap)
+        return detMap
+
+    def assertDetectorMap(self, detMap):
+        """Assert that a ``DetectorMap`` matches expectations"""
+        self.assertEqual(detMap.bbox, self.bbox)
+        self.assertFloatsEqual(detMap.fiberIds, self.fiberIds)
+        self.assertFloatsAlmostEqual(detMap.xCenter, self.xCenterExpect, atol=self.xCenterTol)
+        self.assertFloatsAlmostEqual(detMap.wavelength, self.wavelengthExpect, atol=self.wavelengthTol)
+        self.assertFloatsEqual(detMap.slitOffsets, self.slitOffsets)
+        self.assertFloatsEqual(detMap.throughput, self.throughput)
+        # Metadata: we only care that what we planted is there;
+        # there may be other stuff that we don't care about.
+        self.assertTrue(detMap.getMetadata() is not None)
+        self.assertTrue(detMap.metadata is not None)
+        self.assertIn("METADATA", detMap.metadata.names())
+        self.assertEqual(detMap.metadata.get("METADATA"), self.metadata)
+        # VisitInfo; only checking one element, assuming the rest are protected by afw unit tests
+        self.assertTrue(detMap.visitInfo is not None)
+        self.assertTrue(detMap.getVisitInfo() is not None)
+        self.assertEqual(detMap.visitInfo.getDarkTime(), self.darkTime)
+
+    def testBasic(self):
+        """Test basic functionality
+
+        Constructor, getters, setters, properties.
+        """
+        numKnots = 20
+        detMap = self.makeDetectorMap(numKnots)
+        self.assertDetectorMap(detMap)
+
+        # Check accessor functions work as well as properties
+        self.assertEqual(detMap.getBBox(), self.bbox)
+        self.assertFloatsEqual(detMap.getFiberIds(), self.fiberIds)
+        self.assertFloatsAlmostEqual(detMap.getXCenter(), self.xCenterExpect, atol=self.xCenterTol)
+        self.assertFloatsAlmostEqual(detMap.getWavelength(), self.wavelengthExpect, atol=self.wavelengthTol)
+        self.assertFloatsEqual(detMap.getSlitOffsets(), self.slitOffsets)
+        self.assertFloatsEqual(detMap.getThroughput(), self.throughput)
+
+        for ii in range(self.numFibers):
+            self.assertEqual(len(detMap.getCenterSpline(ii).getX()), numKnots)
+            self.assertEqual(len(detMap.getWavelengthSpline(ii).getX()), numKnots)
+
+        self.assertEqual(detMap.getNumFibers(), len(self.fiberIds))
+        self.assertEqual(len(detMap), len(self.fiberIds))
+
+        # Check setters
+        self.slitOffsets += 1.2345
+        detMap.setSlitOffsets(self.slitOffsets)
+        self.calculateExpectations(detMap)
+        self.assertDetectorMap(detMap)
+
+        self.throughput[:] = 1.0 - self.throughput
+        self.slitOffsets -= 2.34567
+        for ii, fiber in enumerate(self.fiberIds):
+            detMap.setThroughput(fiber, self.throughput[ii])
+            detMap.setSlitOffsets(fiber, self.slitOffsets[:, ii])
+        self.calculateExpectations(detMap)
+        self.assertDetectorMap(detMap)
+
+        self.xCenter -= 2.3456
+        self.wavelength += 3.4567
+        for ii, fiber in enumerate(self.fiberIds):
+            detMap.setXCenter(fiber, self.xCenter[ii])
+            detMap.setWavelength(fiber, self.wavelength[ii])
+        self.calculateExpectations(detMap)
+        self.assertDetectorMap(detMap)
 
     def testBadCtor(self):
         """Test that we cannot create a DetectorMap with invalid arguments"""
-        with self.assertRaises(pexExcept.LengthError):
-            bbox = afwGeom.BoxI(afwGeom.PointI(0, 0), afwGeom.ExtentI(100, 100))
-            detectorMap.DetectorMap(bbox, self.fiberIds, self.xCenters, self.wavelengths)
+        smallBox = lsst.geom.BoxI(lsst.geom.PointI(0, 0), lsst.geom.ExtentI(100, 100))
+        short = 3  # Number of values for short array
 
-        with self.assertRaises(pexExcept.LengthError):
-            detectorMap.DetectorMap(self.bbox, self.fiberIds[:-10], self.xCenters, self.wavelengths)
+        with self.assertRaises(lsst.pex.exceptions.LengthError):
+            # Mismatch between bbox and center/wavelength
+            drpStella.DetectorMap(smallBox, self.fiberIds, self.xCenter, self.wavelength)
 
-        with self.assertRaises(pexExcept.LengthError):
-            detectorMap.DetectorMap(self.bbox, self.fiberIds, self.xCenters[0:10], self.wavelengths)
+        with self.assertRaises(lsst.pex.exceptions.LengthError):
+            # Mismatch between fiberIds and center/wavelength
+            drpStella.DetectorMap(self.bbox, self.fiberIds[:short], self.xCenter, self.wavelength)
 
-    def testFiberId(self):
-        """Test that we set fiberId correctly"""
-        self.assertTrue((self.ftMap.getFiberIds() == self.fiberIds).all())
+        with self.assertRaises(lsst.pex.exceptions.LengthError):
+            # Mismatch between the center and wavelength
+            drpStella.DetectorMap(self.bbox, self.fiberIds, self.xCenter[:short], self.wavelength)
 
-    def testSlitOffset(self):
-        """Test that we read/set fiberOffset correctly"""
-        nFiber = len(self.ftMap.getFiberIds())
+        with self.assertRaises(lsst.pex.exceptions.LengthError):
+            # Mismatch between the center and wavelength
+            drpStella.DetectorMap(self.bbox, self.fiberIds, self.xCenter, self.wavelength[:short])
 
-        val = 666.0
-        offsets = np.empty((3, nFiber), dtype=np.float32)
-        offsets[:] = val
-        self.ftMap.setSlitOffsets(offsets);
+        # Various mismatches in the second constructor
+        detMap = self.makeDetectorMap()
+        centerKnots = np.array([detMap.getCenterSpline(ii).getX() for ii in range(len(detMap))])
+        centerValues = np.array([detMap.getCenterSpline(ii).getY() for ii in range(len(detMap))])
+        wavelengthKnots = np.array([detMap.getWavelengthSpline(ii).getX() for ii in range(len(detMap))])
+        wavelengthValues = np.array([detMap.getWavelengthSpline(ii).getY() for ii in range(len(detMap))])
+        with self.assertRaises(lsst.pex.exceptions.LengthError):
+            drpStella.DetectorMap(detMap.bbox, detMap.fiberIds[:short],
+                                  centerKnots, centerValues,
+                                  wavelengthKnots, wavelengthValues,
+                                  detMap.slitOffsets, detMap.throughput)
+        with self.assertRaises(lsst.pex.exceptions.LengthError):
+            drpStella.DetectorMap(detMap.bbox, detMap.fiberIds,
+                                  centerKnots[:short], centerValues,
+                                  wavelengthKnots, wavelengthValues,
+                                  detMap.slitOffsets, detMap.throughput)
+        with self.assertRaises(lsst.pex.exceptions.LengthError):
+            drpStella.DetectorMap(detMap.bbox, detMap.fiberIds,
+                                  centerKnots, centerValues[:short],
+                                  wavelengthKnots, wavelengthValues,
+                                  detMap.slitOffsets, detMap.throughput)
+        with self.assertRaises(lsst.pex.exceptions.LengthError):
+            drpStella.DetectorMap(detMap.bbox, detMap.fiberIds,
+                                  centerKnots, centerValues,
+                                  wavelengthKnots[:short], wavelengthValues,
+                                  detMap.slitOffsets, detMap.throughput)
+        with self.assertRaises(lsst.pex.exceptions.LengthError):
+            drpStella.DetectorMap(detMap.bbox, detMap.fiberIds,
+                                  centerKnots, centerValues,
+                                  wavelengthKnots, wavelengthValues[:short],
+                                  detMap.slitOffsets, detMap.throughput)
+        with self.assertRaises(lsst.pex.exceptions.LengthError):
+            drpStella.DetectorMap(detMap.bbox, detMap.fiberIds,
+                                  centerKnots, centerValues,
+                                  wavelengthKnots, wavelengthValues,
+                                  detMap.slitOffsets[:2, :], detMap.throughput)
+        with self.assertRaises(lsst.pex.exceptions.LengthError):
+            drpStella.DetectorMap(detMap.bbox, detMap.fiberIds,
+                                  centerKnots, centerValues,
+                                  wavelengthKnots, wavelengthValues,
+                                  detMap.slitOffsets[:, :short], detMap.throughput)
+        with self.assertRaises(lsst.pex.exceptions.LengthError):
+            drpStella.DetectorMap(detMap.bbox, detMap.fiberIds,
+                                  centerKnots, centerValues,
+                                  wavelengthKnots, wavelengthValues,
+                                  detMap.slitOffsets, detMap.throughput[:short])
+        with self.assertRaises(lsst.pex.exceptions.LengthError):
+            drpStella.DetectorMap(detMap.bbox, detMap.fiberIds,
+                                  centerKnots[:short], centerValues[:short],
+                                  wavelengthKnots, wavelengthValues,
+                                  detMap.slitOffsets, detMap.throughput)
+        with self.assertRaises(lsst.pex.exceptions.LengthError):
+            drpStella.DetectorMap(detMap.bbox, detMap.fiberIds,
+                                  centerKnots, centerValues,
+                                  wavelengthKnots[:short], wavelengthValues[:short],
+                                  detMap.slitOffsets, detMap.throughput)
 
-        slitOffsets = self.ftMap.getSlitOffsets()
-        self.assertTrue(slitOffsets.shape[0] == 3) # dx, dy, dfocus
+    def testHoldByValue(self):
+        """Test that we hold arrays by value
 
-        for i in (self.ftMap.FIBER_DX, self.ftMap.FIBER_DY, self.ftMap.FIBER_DFOCUS):
-            self.assertTrue((self.ftMap.getSlitOffsets()[i] == val).all())
-        
-        with self.assertRaises(pexExcept.LengthError):
-            self.ftMap.setSlitOffsets(np.empty((3, 1), dtype=np.float32))
+        After using an array to construct the ``DetectorMap``, changing the
+        array does NOT change the ``DetectorMap``.
+        """
+        detMap = self.makeDetectorMap()
+        self.bbox.grow(12)
+        self.fiberIds += 123
+        self.slitOffsets += 1.2345
+        self.throughput[:] = 1.0 - self.throughput
 
-        with self.assertRaises(pexExcept.LengthError):
-            self.ftMap.setSlitOffsets(np.empty((2, nFiber), dtype=np.float32))
+        self.assertNotEqual(detMap.getBBox(), self.bbox)
+        self.assertFloatsNotEqual(detMap.getFiberIds(), self.fiberIds)
+        self.assertFloatsNotEqual(detMap.getSlitOffsets(), self.slitOffsets)
+        self.assertFloatsNotEqual(detMap.getThroughput(), self.throughput)
 
-    def testSlitOffset2(self):
-        """Test that we can set slitOffsets in ctor"""
-        slitOffsets = np.ones((3, len(self.fiberIds)), dtype=np.float32)
+    def testFinds(self):
+        """Test the various ``find*`` methods
 
-        ftMap = detectorMap.DetectorMap(self.bbox, self.fiberIds, self.xCenters, self.wavelengths,
-                                            slitOffsets=slitOffsets)
-
-        self.assertTrue((ftMap.getSlitOffsets() == 1.0).all())
-
-    def testGetWavelength(self):
-        """Test that we recover Wavelength correctly"""
-        with self.assertRaises(pexExcept.RangeError):
-            self.ftMap.getWavelength(0)      # fiberIds start at 0
-
-        fid = 10
-        fiberId = self.fiberIds[fid]
-        delta = self.ftMap.getWavelength(fiberId) - self.wavelengths[fid]
-
+        We throw down a random array of points on the image, run the
+        ``find*`` methods and check that the answers are consistent.
+        """
+        detMap = self.makeDetectorMap()
         if display:
-            import matplotlib.pyplot as plt
-            y = np.arange(self.bbox.getHeight())
-            
-            plt.plot(y, delta)
-            plt.show()
+            image = pfs.drp.stella.synthetic.makeSyntheticFlat()
+            dd = lsst.afw.display.Display(1, display)
+            dd.mtv(image)
 
-        delta = delta[np.isfinite(self.wavelengths[fid])]
+        num = 1000
+        indices = np.arange(0, detMap.bbox.getHeight())
+        xCenter = detMap.xCenter
+        numFibers = len(detMap)
+        for ii, (xx, yy) in enumerate(zip(self.rng.uniform(0, self.bbox.getWidth() - 1, size=num),
+                                      self.rng.uniform(0, self.bbox.getHeight() - 1, size=num))):
+            fiberId = detMap.findFiberId(lsst.geom.Point2D(xx, yy))
 
-        self.assertLess(np.max(np.abs(delta)), 2e-3)
+            cols = np.arange(numFibers, dtype=int)
+            rows = (yy + 0.5).astype(int)
+            distances = np.abs(xCenter[cols, rows] - xx)
+            closestIndex = np.argmin(distances)
+            first, second = np.partition(distances, 1)[0:2]  # Two smallest values
+            if np.fabs(first - second) < 1.0e-2:
+                # We're right on the threshold, and the code could be forgiven for choosing a different
+                # index than we did (e.g., spline vs linear interpolation); but that choice has large
+                # consequences on the rest of the tests below, so skip this one.
+                continue
+            self.assertEqual(fiberId, detMap.fiberIds[closestIndex])
 
-    def testGetXCenter(self):
-        """Test that we recover XCenter correctly"""
-        with self.assertRaises(pexExcept.RangeError):
-            self.ftMap.getXCenter(0)      # fiberIds start at 0
+            wavelength = detMap.findWavelength(fiberId, yy)
+            wavelengthExpect = np.interp(yy, indices, detMap.getWavelength(fiberId))
+            self.assertFloatsAlmostEqual(wavelength, wavelengthExpect, atol=1.0e-3)
 
-        y = np.arange(0, self.bbox.getMaxY(), dtype=np.float32)
-        fid = 10
+            point = detMap.findPoint(fiberId, wavelength)
+            self.assertFloatsAlmostEqual(point.getY(), yy, atol=1.0e-3)
 
-        fiberId = self.fiberIds[fid]
-        delta = self.ftMap.getXCenter(fiberId) - self.xCenters[fid]
-
-        delta = delta[np.isfinite(self.xCenters[fid])]
-        
-        self.assertLess(np.max(np.abs(delta)), 2.5e-4)
-
-    def testFindFiberId(self):
-        """Test that we can find a fiber ID"""
-        pos = afwGeom.PointD(10, 100)
-        self.ftMap.findFiberId(pos)
+    def testReadWriteFits(self):
+        """Test reading and writing to/from FITS"""
+        detMap = self.makeDetectorMap()
+        with lsst.utils.tests.getTempFilePath(".fits") as filename:
+            detMap.writeFits(filename)
+            copy = drpStella.DetectorMap.readFits(filename)
+            self.assertDetectorMap(copy)
 
     def testPickle(self):
-        """Test that we can successfully round-trip pickle"""
-        other = pickle.loads(pickle.dumps(self.ftMap))
-        self.assertEqual(self.ftMap.getBBox(),other.getBBox())
-        self.assertFloatsEqual(self.ftMap.getFiberIds(), other.getFiberIds())
-        # xCenter and wavelength are inexact because they are not stored in the object but have
-        # to be calculated; the result is that the two objects have slightly different splines
-        # defined.
-        self.assertFloatsAlmostEqual(self.ftMap.getXCenter(), other.getXCenter(), rtol=1.0e-5)
-        self.assertFloatsAlmostEqual(self.ftMap.getWavelength(), other.getWavelength(), rtol=1.0e-6)
-        self.assertEqual(self.ftMap.getNKnot(), other.getNKnot())
-        self.assertFloatsEqual(self.ftMap.getSlitOffsets(), other.getSlitOffsets())
-        self.assertFloatsEqual(self.ftMap.getThroughput(), other.getThroughput())
+        """Test round-trip pickle"""
+        detMap = self.makeDetectorMap()
+        copy = pickle.loads(pickle.dumps(detMap))
+        self.assertDetectorMap(copy)
 
 
-#-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+class TestMemory(lsst.utils.tests.MemoryTestCase):
+    pass
 
-def suite():
-    """Returns a suite containing all the test cases in this module."""
-    tests.init()
 
-    suites = []
-    suites += unittest.makeSuite(DetectorMapTestCase)
-    return unittest.TestSuite(suites)
+def setup_module(module):
+    lsst.utils.tests.init()
 
-def run(exit=False):
-    #Run the tests
-    tests.run(suite(), exit)
 
 if __name__ == "__main__":
+    setup_module(sys.modules["__main__"])
     from argparse import ArgumentParser
-    parser = ArgumentParser()
-    parser.add_argument("--display", '-d', default=False, action="store_true", help="Activate display?")
-    parser.add_argument("--verbose", '-v', type=int, default=0, help="Verbosity level")
-    args = parser.parse_args()
+    parser = ArgumentParser(__file__)
+    parser.add_argument("--display", help="Display backend")
+    args, argv = parser.parse_known_args()
     display = args.display
-    verbose = args.verbose
-    run(True)
+    unittest.main(failfast=True, argv=[__file__] + argv)

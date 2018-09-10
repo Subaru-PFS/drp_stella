@@ -48,7 +48,7 @@ class CalibrateWavelengthsTask(pipeBase.Task):
         ----------
         spec : `pfs.drp.stella.Spectrum`
             Spectrum to fit; updated with solution.
-        detectorMap : `pfs.drp.stella.utils.DetectorMapIO`
+        detectorMap : `pfs.drp.stella.utils.DetectorMap`
             Mapping of wl,fiber to detector position; updated with solution.
         rng : `numpy.random.RandomState`
             Random number generator, for reserving some lines from the fit.
@@ -181,7 +181,7 @@ class CalibrateWavelengthsTask(pipeBase.Task):
         ----------
         spec : `pfs.drp.stella.Spectrum`
             Spectrum to fit; updated with solution.
-        detectorMap : `pfs.drp.stella.utils.DetectorMapIO`
+        detectorMap : `pfs.drp.stella.utils.DetectorMap`
             Mapping of wl,fiber to detector position; updated with solution.
         wavelengthCorr : `np.polynomial.chebyshev.Chebyshev`
             Wavelength solution.
@@ -274,7 +274,7 @@ class CalibrateWavelengthsTask(pipeBase.Task):
         ----------
         spectrumSet : `pfs.drp.stella.SpectrumSet`
             Set of extracted spectra.
-        detectorMap : `pfs.drp.stella.utils.DetectorMapIO`
+        detectorMap : `pfs.drp.stella.utils.DetectorMap`
             Mapping of wl,fiber to detector position.
         seed : `int`
             Seed for random number generator.

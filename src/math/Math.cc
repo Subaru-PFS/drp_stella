@@ -31,12 +31,12 @@ std::vector<std::size_t> getIndicesInValueRange(
 
 
 template <typename T>
-std::vector<lsst::afw::geom::Point2I> getIndicesInValueRange(
+std::vector<lsst::geom::Point2I> getIndicesInValueRange(
     ndarray::Array<T, 2, 1> const& array,
     T lowRange,
     T highRange
 ) {
-    std::vector<lsst::afw::geom::Point2I> indices;
+    std::vector<lsst::geom::Point2I> indices;
     indices.reserve(array.getNumElements());
     int const height = array.getShape()[0], width = array.getShape()[1];
     for (int yy = 0; yy < height; ++yy) {
@@ -66,11 +66,11 @@ ndarray::Array<T, 1, 1> getSubArray(
 template <typename T>
 ndarray::Array<T, 1, 1> getSubArray(
     ndarray::Array<T, 2, 1> const& array,
-    std::vector<lsst::afw::geom::Point2I> const& indices
+    std::vector<lsst::geom::Point2I> const& indices
 ) {
     ndarray::Array<T, 1, 1> out = ndarray::allocate(indices.size());
     std::transform(indices.begin(), indices.end(), out.begin(),
-                   [array](lsst::afw::geom::Point2I const& pp) {
+                   [array](lsst::geom::Point2I const& pp) {
                        return array[pp.getY()][pp.getX()];
                    });
     return out;
@@ -198,7 +198,7 @@ template std::vector<std::size_t> getIndicesInValueRange(
     float
 );
 
-template std::vector<lsst::afw::geom::Point2I> getIndicesInValueRange(
+template std::vector<lsst::geom::Point2I> getIndicesInValueRange(
     ndarray::Array<float, 2, 1> const&,
     float,
     float
@@ -211,7 +211,7 @@ template ndarray::Array<float, 1, 1> getSubArray(
 
 template ndarray::Array<float, 1, 1> getSubArray(
     ndarray::Array<float, 2, 1 > const&,
-    std::vector<lsst::afw::geom::Point2I> const&
+    std::vector<lsst::geom::Point2I> const&
 );
 
 template ndarray::Array<float, 1, 1> moment(
@@ -250,13 +250,13 @@ std::ostream& operator<<(std::ostream& os, std::vector<T> const& obj) {
 }
 
 template <typename T>
-std::ostream& operator<<(std::ostream& os, lsst::afw::geom::Point<T, 2> const& point) {
+std::ostream& operator<<(std::ostream& os, lsst::geom::Point<T, 2> const& point) {
     os << "(" << point.getX() << "," << point.getY() << ")";
     return os;
 }
 
 // Explicit instantiations
 template std::ostream& operator<<(std::ostream&, std::vector<float> const&);
-template std::ostream& operator<<(std::ostream&, std::vector<lsst::afw::geom::Point2I> const&);
-template std::ostream& operator<<(std::ostream&, lsst::afw::geom::Point2I const&);
-template std::ostream& operator<<(std::ostream&, lsst::afw::geom::Point2D const&);
+template std::ostream& operator<<(std::ostream&, std::vector<lsst::geom::Point2I> const&);
+template std::ostream& operator<<(std::ostream&, lsst::geom::Point2I const&);
+template std::ostream& operator<<(std::ostream&, lsst::geom::Point2D const&);
