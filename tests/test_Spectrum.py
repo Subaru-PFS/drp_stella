@@ -11,7 +11,6 @@ import numpy as np
 import lsst.utils.tests
 import lsst.pex.exceptions
 import lsst.daf.base
-import lsst.afw.geom
 import lsst.afw.image
 import lsst.afw.image.testUtils
 

@@ -4,8 +4,8 @@
 #include <vector>
 #include "ndarray.h"
 
-#include "lsst/afw/geom/Box.h"
-#include "lsst/afw/geom/Point.h"
+#include "lsst/geom/Box.h"
+#include "lsst/geom/Point.h"
 #include "lsst/afw/image/VisitInfo.h"
 
 #include "pfs/drp/stella/spline.h"
@@ -31,7 +31,7 @@ public:
     using VisitInfo = lsst::afw::image::VisitInfo;
 
     /** \brief ctor */
-    explicit DetectorMap(lsst::afw::geom::Box2I bbox, ///< detector's bounding box
+    explicit DetectorMap(lsst::geom::Box2I bbox, ///< detector's bounding box
                          FiberMap const& fiberIds, ///< 1-indexed IDs for each fibre
                          Array2D const& xCenters,  ///< center of trace for each fibre
                          Array2D const& wavelengths, ///< wavelengths for each fibre
@@ -40,7 +40,7 @@ public:
                          Array1D const& throughput=Array1D() ///< relative throughput per fiber
                         );
 
-    DetectorMap(lsst::afw::geom::Box2I bbox,  // detector's bounding box
+    DetectorMap(lsst::geom::Box2I bbox,  // detector's bounding box
                 FiberMap const& fiberIds,  // 1-indexed IDs for each fibre
                 ndarray::Array<float const, 2, 1> const& centerKnots,
                 ndarray::Array<float const, 2, 1> const& centerValues,
@@ -59,7 +59,7 @@ public:
     DetectorMap & operator=(DetectorMap &&) = default;
 
     /** \brief return the bbox */
-    lsst::afw::geom::Box2I getBBox() const { return _bbox; }
+    lsst::geom::Box2I getBBox() const { return _bbox; }
 
     int getNKnot() const { return _nKnot; }
 
@@ -171,13 +171,13 @@ public:
     /** \brief
      * Return the fiberId given a position on the detector
      */
-    int findFiberId(lsst::afw::geom::PointD pixelPos ///< position on detector
+    int findFiberId(lsst::geom::PointD pixelPos ///< position on detector
                    ) const;
 
     /** \brief
      * Return the position of the fiber trace on the detector, given a fiberId and wavelength
      */
-    lsst::afw::geom::PointD findPoint(int fiberId,               ///< Desired fibreId
+    lsst::geom::PointD findPoint(int fiberId,               ///< Desired fibreId
                                       float wavelength           ///< desired wavelength
                                      ) const;
     /** \brief
@@ -202,7 +202,7 @@ public:
 
 private:                                // initialise before _yTo{XCenter,Wavelength}
     std::size_t _nFiber;                // number of fibers
-    lsst::afw::geom::Box2I _bbox;       // bounding box of detector
+    lsst::geom::Box2I _bbox;       // bounding box of detector
     FiberMap _fiberIds;         // The fiberIds (between 1 and c. 2400) present on this detector
     
     Array1D _throughput;	// The throughput (in arbitrary units ~ 1) of each fibre

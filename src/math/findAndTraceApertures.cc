@@ -555,9 +555,9 @@ createTrace(
     ndarray::Array<std::size_t, 1, 1> xMaxPix(minCenMax[ndarray::view()(2)]);
     int const xMax = *std::max_element(xMaxPix.begin(), xMaxPix.end());
 
-    lsst::afw::geom::Point<int> lowerLeft(xMin, function.yCenter + function.yLow);
-    lsst::afw::geom::Extent<int, 2> extent(xMax - xMin + 1, function.yHigh - function.yLow + 1);
-    lsst::afw::geom::Box2I box(lowerLeft, extent);
+    lsst::geom::Point<int> lowerLeft(xMin, function.yCenter + function.yLow);
+    lsst::geom::Extent<int, 2> extent(xMax - xMin + 1, function.yHigh - function.yLow + 1);
+    lsst::geom::Box2I box(lowerLeft, extent);
     lsst::afw::image::MaskedImage<ImageT, MaskT, VarianceT> trace(maskedImage, box, lsst::afw::image::PARENT,
                                                                   true);
     // mark FiberTrace in Mask
@@ -648,7 +648,7 @@ FiberTraceSet<ImageT, MaskT, VarianceT> findAndTraceApertures(
 
     std::size_t const expectTraces = maskedImage.getWidth()/(function.xLow + function.xHigh);
     FiberTraceSet<ImageT, MaskT, VarianceT> traces(expectTraces + 1);
-    lsst::afw::geom::Point2I nextSearchStart(0, 0);
+    lsst::geom::Point2I nextSearchStart(0, 0);
     for (;;) {
         FiberTraceFunction func{function};
         LOGLS_TRACE(_log, "fiberTraceFunction.fiberTraceFunctionControl set");
@@ -685,7 +685,7 @@ FiberTraceSet<ImageT, MaskT, VarianceT> findAndTraceApertures(
         LOGLS_TRACE(_log, "after PolyFit: fiberTraceFunction->coefficients = " << func.coefficients);
 
         // Find the fiberId
-        lsst::afw::geom::Point2D const center(func.xCenter, func.yCenter);
+        lsst::geom::Point2D const center(func.xCenter, func.yCenter);
         std::size_t const fiberId = detectorMap.findFiberId(center);
 
         FiberTraceFunction useFunction{func};
@@ -708,7 +708,7 @@ FiberTraceSet<ImageT, MaskT, VarianceT> findAndTraceApertures(
 namespace {
 
 struct PointCompare {
-    bool operator()(lsst::afw::geom::Point2D const& left, lsst::afw::geom::Point2D const& right) {
+    bool operator()(lsst::geom::Point2D const& left, lsst::geom::Point2D const& right) {
         return std::tie(left.getX(), left.getY()) < std::tie(right.getX(), right.getY());
     }
 };
@@ -721,7 +721,7 @@ FindCenterPositionsOneTraceResult findCenterPositionsOneTrace(
     afwImage::Image<ImageT> & image,
     afwImage::Image<VarianceT> const& variance,
     FiberTraceFindingControl const& finding,
-    lsst::afw::geom::Point<int> const& start
+    lsst::geom::Point<int> const& start
 ) {
     using FloatArray = ndarray::Array<float, 1, 1>;
     using IntArray = ndarray::Array<std::size_t, 1, 1>;
@@ -729,7 +729,7 @@ FindCenterPositionsOneTraceResult findCenterPositionsOneTrace(
     std::size_t const width = image.getWidth();
     std::size_t const height = image.getHeight();
 
-    lsst::afw::geom::Point<int> nextSearchStart(start);
+    lsst::geom::Point<int> nextSearchStart(start);
     ndarray::Array<ImageT, 2, 1> const imageArray = image.getArray();
     ndarray::Array<VarianceT const, 2, 1> const varianceArray = variance.getArray();
     std::size_t minWidth = std::max(int(1.5*finding.apertureFwhm), int(finding.nTermsGaussFit));
@@ -1071,7 +1071,7 @@ FindCenterPositionsOneTraceResult findCenterPositionsOneTrace(
 
         if (apertureFound) {
             /// Trace Aperture
-            std::set<lsst::afw::geom::Point2D, PointCompare> xySorted;
+            std::set<lsst::geom::Point2D, PointCompare> xySorted;
             int apertureLength = 1;
             int length = 1;
             int apertureLost = 0;
@@ -1369,7 +1369,7 @@ FindCenterPositionsOneTraceResult findCenterPositionsOneTrace(
                                         }
                                         if (gaussFitVariances.size() > 10) {
                                             for (auto iter = xyRelativeToCenter.begin(); iter != xyRelativeToCenter.end(); ++iter) {
-                                                xySorted.insert(lsst::afw::geom::Point2D((*iter)[0] + xCorMinPos, (*iter)[1]));
+                                                xySorted.insert(lsst::geom::Point2D((*iter)[0] + xCorMinPos, (*iter)[1]));
                                             }
                                             apertureCenter[row] = apertureCenter[row] + xCorMinPos;
                                             #if defined(__DEBUG_FINDANDTRACE__)
@@ -1463,7 +1463,7 @@ template FindCenterPositionsOneTraceResult findCenterPositionsOneTrace(
     afwImage::Image<float> &,
     afwImage::Image<float> const&,
     FiberTraceFindingControl const&,
-    lsst::afw::geom::Point<int> const&
+    lsst::geom::Point<int> const&
 );
 
 }}}} // namespace pfs::drp::stella::math

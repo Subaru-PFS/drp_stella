@@ -2,7 +2,7 @@ import numpy as np
 import pyfits
 
 import lsst.afw.fits
-import lsst.afw.geom as afwGeom
+import lsst.geom
 
 from lsst.utils import continueClass
 from lsst.daf.base import PropertyList
@@ -49,7 +49,7 @@ class DetectorMap:
             maxX = pdu.header['MAXX']
             maxY = pdu.header['MAXY']
 
-            bbox = afwGeom.BoxI(afwGeom.PointI(minX, minY), afwGeom.PointI(maxX, maxY))
+            bbox = lsst.geom.BoxI(lsst.geom.PointI(minX, minY), lsst.geom.PointI(maxX, maxY))
 
             hdu = fd["FIBERID"]
             fiberIds = hdu.data

@@ -6,7 +6,7 @@
 #include "ndarray_fwd.h"
 
 #include "lsst/afw/image/MaskedImage.h"
-#include "lsst/afw/geom/Point.h"
+#include "lsst/geom/Point.h"
 
 #include "pfs/drp/stella/DetectorMap.h"
 #include "pfs/drp/stella/Controls.h"
@@ -49,7 +49,7 @@ struct FindCenterPositionsOneTraceResult {
     std::vector<float> index;  ///< Pixel indices (row value)
     std::vector<float> position;  ///< Center positions (centroid of columns)
     std::vector<float> error;  ///< Errors in center positions
-    lsst::afw::geom::Point<int> nextSearchStart;  ///< Point for starting next search
+    lsst::geom::Point<int> nextSearchStart;  ///< Point for starting next search
 };
 
 /**
@@ -64,7 +64,7 @@ FindCenterPositionsOneTraceResult findCenterPositionsOneTrace(
     lsst::afw::image::Image<ImageT> & image,
     lsst::afw::image::Image<VarianceT> const& variance,
     FiberTraceFindingControl const& finding,
-    lsst::afw::geom::Point<int> const& nextSearchStart
+    lsst::geom::Point<int> const& nextSearchStart
 );
 
 }}}} // namespace pfs::drp::stella::math

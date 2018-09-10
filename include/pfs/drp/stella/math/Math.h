@@ -6,7 +6,7 @@
 
 #include "ndarray.h"
 
-#include "lsst/afw/geom/Point.h"
+#include "lsst/geom/Point.h"
 
 #include "pfs/drp/stella/utils/Utils.h"
 
@@ -58,7 +58,7 @@ std::vector<std::size_t> getIndicesInValueRange(
  * @param[in] lowRange    upper range
  */
 template <typename T>
-std::vector<lsst::afw::geom::Point2I> getIndicesInValueRange(
+std::vector<lsst::geom::Point2I> getIndicesInValueRange(
     ndarray::Array<T, 2, 1> const& array,
     T lowRange,
     T highRange
@@ -85,7 +85,7 @@ ndarray::Array<T, 1, 1> getSubArray(
 template <typename T>
 ndarray::Array<T, 1, 1> getSubArray(
     ndarray::Array<T, 2, 1 > const& array,
-    std::vector<lsst::afw::geom::Point2I> const& indices
+    std::vector<lsst::geom::Point2I> const& indices
 );
 
 /**

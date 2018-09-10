@@ -14,7 +14,7 @@ namespace pfs { namespace drp { namespace stella {
 /*
  * ctor
  */
-DetectorMap::DetectorMap(lsst::afw::geom::Box2I bbox,                    // detector's bounding box
+DetectorMap::DetectorMap(lsst::geom::Box2I bbox,                    // detector's bounding box
                          ndarray::Array<int, 1, 1> const& fiberIds, // 1-indexed IDs for each fibre
                          ndarray::Array<float, 2, 1> const& xCenters,    // center of trace for each fibre
                          ndarray::Array<float, 2, 1> const& wavelengths, // wavelengths for each fibre
@@ -58,7 +58,7 @@ DetectorMap::DetectorMap(lsst::afw::geom::Box2I bbox,                    // dete
 
 
 DetectorMap::DetectorMap(
-    lsst::afw::geom::Box2I bbox,
+    lsst::geom::Box2I bbox,
     FiberMap const& fiberIds,
     ndarray::Array<float const, 2, 1> const& centerKnots,
     ndarray::Array<float const, 2, 1> const& centerValues,
@@ -298,7 +298,7 @@ void DetectorMap::setThroughput(Array1D const& throughput) {
 /*
  * Return the position of the fiber trace on the detector, given a fiberId and wavelength
  */
-lsst::afw::geom::PointD
+lsst::geom::PointD
 DetectorMap::findPoint(int fiberId,               ///< Desired fibreId
                        float wavelength           ///< desired wavelength
                       ) const
@@ -311,7 +311,7 @@ DetectorMap::findPoint(int fiberId,               ///< Desired fibreId
 
     if (onePast == end) {
         double const NaN = std::numeric_limits<double>::quiet_NaN();
-        return lsst::afw::geom::PointD(NaN, NaN);
+        return lsst::geom::PointD(NaN, NaN);
     }
 
     auto fiberXCenter = getXCenter(fiberId);
@@ -326,7 +326,7 @@ DetectorMap::findPoint(int fiberId,               ///< Desired fibreId
         y += dy;
     }
 
-    return lsst::afw::geom::PointD(x, y);
+    return lsst::geom::PointD(x, y);
 }
 
 /************************************************************************************************************/
@@ -354,13 +354,13 @@ DetectorMap::findWavelength(int fiberId,               ///< Desired fibreId
  * Return the fiberId given a position on the detector
  */
 int
-DetectorMap::findFiberId(lsst::afw::geom::PointD pixelPos // position on detector
+DetectorMap::findFiberId(lsst::geom::PointD pixelPos // position on detector
                           ) const
 {
     float const x = pixelPos[0], y = pixelPos[1];
     std::size_t const maxIter = 2*_fiberIds.getNumElements();  // maximum number of iterations
 
-    if (!_bbox.contains(lsst::afw::geom::PointI(x, y))) {
+    if (!_bbox.contains(lsst::geom::PointI(x, y))) {
         std::ostringstream os;
         os << "Point " << pixelPos << " does not lie within BBox " << _bbox;
         throw LSST_EXCEPT(lsst::pex::exceptions::RangeError, os.str());

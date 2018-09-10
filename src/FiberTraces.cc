@@ -148,7 +148,7 @@ template<typename ImageT, typename MaskT, typename VarianceT>
 PTR(afwImage::Image<ImageT>)
 FiberTrace<ImageT, MaskT, VarianceT>::constructImage(
     Spectrum const& spectrum,
-    lsst::afw::geom::Box2I const& bbox
+    lsst::geom::Box2I const& bbox
 ) const {
     auto out = std::make_shared<afwImage::Image<ImageT>>(bbox);
     *out = 0.0;

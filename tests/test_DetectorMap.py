@@ -8,7 +8,7 @@ import scipy.interpolate
 import lsst.utils.tests
 import lsst.pex.exceptions
 import lsst.daf.base
-import lsst.afw.geom
+import lsst.geom
 import lsst.afw.image
 import lsst.afw.image.testUtils
 import lsst.afw.display
@@ -187,7 +187,7 @@ class DetectorMapTestCase(lsst.utils.tests.TestCase):
 
     def testBadCtor(self):
         """Test that we cannot create a DetectorMap with invalid arguments"""
-        smallBox = lsst.afw.geom.BoxI(lsst.afw.geom.PointI(0, 0), lsst.afw.geom.ExtentI(100, 100))
+        smallBox = lsst.geom.BoxI(lsst.geom.PointI(0, 0), lsst.geom.ExtentI(100, 100))
         short = 3  # Number of values for short array
 
         with self.assertRaises(lsst.pex.exceptions.LengthError):
@@ -298,7 +298,7 @@ class DetectorMapTestCase(lsst.utils.tests.TestCase):
         numFibers = len(detMap)
         for ii, (xx, yy) in enumerate(zip(self.rng.uniform(0, self.bbox.getWidth() - 1, size=num),
                                       self.rng.uniform(0, self.bbox.getHeight() - 1, size=num))):
-            fiberId = detMap.findFiberId(lsst.afw.geom.Point2D(xx, yy))
+            fiberId = detMap.findFiberId(lsst.geom.Point2D(xx, yy))
 
             cols = np.arange(numFibers, dtype=int)
             rows = (yy + 0.5).astype(int)

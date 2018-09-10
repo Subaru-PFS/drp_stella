@@ -25,7 +25,7 @@ def makeSpectrumImage(spectrum, dims, traceCenters, traceOffsets, fwhm):
         Array containing the spectrum to employ. There should be a number of
         values equal to the number of rows in the image. Each value is the
         integrated flux in the spectrum for that row.
-    dims : `lsst.afw.geom.Extent2I`
+    dims : `lsst.geom.Extent2I`
         Dimensions of the image.
     traceCenters : `ndarray.array`
         Column centers of each of traces.
@@ -96,7 +96,7 @@ class SyntheticConfig(Config):
     @property
     def dims(self):
         """Dimensions of the image"""
-        return lsst.afw.geom.Extent2I(self.width, self.height)
+        return lsst.geom.Extent2I(self.width, self.height)
 
     @property
     def traceCenters(self):
@@ -202,7 +202,7 @@ def makeSyntheticDetectorMap(config, numKnots=20):
     detMap : `pfs.drp.stella.DetectorMap`
         Detector map.
     """
-    bbox = lsst.afw.geom.Box2I(lsst.afw.geom.Point2I(0, 0), config.dims)
+    bbox = lsst.geom.Box2I(lsst.geom.Point2I(0, 0), config.dims)
     fiberIds = np.arange(config.numFibers, dtype=np.int32)*10
     xCenter = np.ndarray((config.numFibers, config.height), dtype=np.float32)
     wavelength = np.ndarray((config.numFibers, config.height), dtype=np.float32)

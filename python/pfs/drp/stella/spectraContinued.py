@@ -257,7 +257,7 @@ class SpectrumSet:
 
         Parameters
         ----------
-        box : `lsst.afw.geom.Box2I`
+        box : `lsst.geom.Box2I`
             Bounding box for image.
         fiberTraces : `pfs.drp.stella.FiberTraceSet`
             Fiber traces indicating where on the image the spectra go.

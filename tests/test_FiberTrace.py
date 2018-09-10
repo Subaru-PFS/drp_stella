@@ -6,7 +6,7 @@ import numpy as np
 
 import lsst.utils.tests
 import lsst.pex.exceptions
-import lsst.afw.geom
+import lsst.geom
 import lsst.afw.image
 import lsst.afw.image.testUtils
 
@@ -20,9 +20,9 @@ class FiberTraceTestCase(lsst.utils.tests.TestCase):
         """Create a FiberTrace from a image of random values."""
         self.width = 11  # Width of trace
         self.height = 111  # Height of trace
-        self.xy0 = lsst.afw.geom.Point2I(123, 123)  # Origin for trace
-        self.bbox = lsst.afw.geom.Box2I(
-            self.xy0, lsst.afw.geom.Extent2I(self.width, self.height)
+        self.xy0 = lsst.geom.Point2I(123, 123)  # Origin for trace
+        self.bbox = lsst.geom.Box2I(
+            self.xy0, lsst.geom.Extent2I(self.width, self.height)
         )  # Bounding box for trace
         self.fiberId = 456  # Fiber identifier
         self.variance = 2.0  # Value of variance in image
@@ -40,8 +40,8 @@ class FiberTraceTestCase(lsst.utils.tests.TestCase):
 
         self.fiberTrace = drpStella.FiberTrace(self.trace, self.fiberId)  # The fiber trace
 
-        self.fullDims = lsst.afw.geom.Extent2I(2*self.width + self.bbox.getMinX(),
-                                               2*self.height + self.bbox.getMinY())  # Extent of full image
+        self.fullDims = lsst.geom.Extent2I(2*self.width + self.bbox.getMinX(),
+                                           2*self.height + self.bbox.getMinY())  # Extent of full image
         self.image = lsst.afw.image.MaskedImageF(self.fullDims)  # Image for extraction
         self.image.image.array[:] = np.nan
         self.image.mask.array[:] = 0xFFFF

@@ -8,7 +8,7 @@ import numpy as np
 import lsst.utils.tests
 import lsst.pex.exceptions
 import lsst.daf.base
-import lsst.afw.geom
+import lsst.geom
 import lsst.afw.image
 import lsst.afw.image.testUtils
 
@@ -22,9 +22,9 @@ class FiberTraceSetTestCase(lsst.utils.tests.TestCase):
         """Set parameters for artificial objects"""
         self.width = 11  # Width of trace
         self.height = 111  # Height of trace
-        self.xy0 = lsst.afw.geom.Point2I(123, 123)  # Origin for trace
-        self.bbox = lsst.afw.geom.Box2I(
-            self.xy0, lsst.afw.geom.Extent2I(self.width, self.height)
+        self.xy0 = lsst.geom.Point2I(123, 123)  # Origin for trace
+        self.bbox = lsst.geom.Box2I(
+            self.xy0, lsst.geom.Extent2I(self.width, self.height)
         )  # Bounding box for trace
         self.metadata = lsst.daf.base.PropertyList()
         self.metadata.add("METADATA", 12345)
@@ -172,7 +172,7 @@ class FiberTraceSetTestCase(lsst.utils.tests.TestCase):
             ft = self.makeFiberTrace(ii)
             x0 = ii*(self.width + space)
             y0 = ft.trace.getY0()
-            ft.trace.setXY0(lsst.afw.geom.Point2I(x0, y0))
+            ft.trace.setXY0(lsst.geom.Point2I(x0, y0))
             traces.add(ft)
             subExpect = expect[ft.trace.getBBox(), lsst.afw.image.PARENT]
             subExpect.set(ft.trace.mask.getPlaneBitMask(drpStella.fiberMaskPlane))

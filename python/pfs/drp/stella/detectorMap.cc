@@ -19,7 +19,7 @@ void declareDetectorMap(py::module &mod)
     using Class = DetectorMap;
     py::class_<Class, PTR(Class)> cls(mod, "DetectorMap");
 
-    cls.def(py::init<lsst::afw::geom::Box2I,
+    cls.def(py::init<lsst::geom::Box2I,
                      DetectorMap::FiberMap const&,
                      DetectorMap::Array2D const&,
                      DetectorMap::Array2D const&,
@@ -29,7 +29,7 @@ void declareDetectorMap(py::module &mod)
                      >(),
             "bbox"_a, "fiberIds"_a, "xCenters"_a, "wavelengths"_a, "nKnot"_a=25,
             "slitOffsets"_a=py::none(), "throughput"_a=py::none());
-    cls.def(py::init<lsst::afw::geom::Box2I,
+    cls.def(py::init<lsst::geom::Box2I,
                      DetectorMap::FiberMap const&,
                      ndarray::Array<float const, 2, 1> const&,
                      ndarray::Array<float const, 2, 1> const&,
@@ -138,7 +138,7 @@ void declareDetectorMap(py::module &mod)
     cls.def("__setstate__",
         [](DetectorMap & self, py::tuple const& t) {
             new (&self) DetectorMap(
-                t[0].cast<lsst::afw::geom::Box2I>(), t[1].cast<DetectorMap::FiberMap>(),
+                t[0].cast<lsst::geom::Box2I>(), t[1].cast<DetectorMap::FiberMap>(),
                 t[2].cast<DetectorMap::Array2D>(), t[3].cast<DetectorMap::Array2D>(),
                 t[4].cast<DetectorMap::Array2D>(), t[5].cast<DetectorMap::Array2D>(),
                 t[6].cast<DetectorMap::Array2D>(), t[7].cast<DetectorMap::Array1D>(),

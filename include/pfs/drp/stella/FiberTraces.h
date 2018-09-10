@@ -8,7 +8,7 @@
 
 #include "lsst/daf/base/PropertyList.h"
 #include "lsst/afw/image/MaskedImage.h"
-#include "lsst/afw/geom/Point.h"
+#include "lsst/geom/Point.h"
 
 #include "pfs/drp/stella/Controls.h"
 #include "pfs/drp/stella/math/Math.h"
@@ -86,7 +86,7 @@ class FiberTrace {
      */
     std::shared_ptr<Image> constructImage(
         Spectrum const& spectrum,
-        lsst::afw::geom::Box2I const & bbox
+        lsst::geom::Box2I const & bbox
     ) const;
 
     /**
