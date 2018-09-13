@@ -107,6 +107,5 @@ class ExtractSpectraTask(pipeBase.Task):
         fiberId = fiberTrace.getFiberId()
         spectrum = fiberTrace.extractSpectrum(maskedImage, self.config.useOptimal)
         if detectorMap is not None:
-            spectrum.spectrum /= detectorMap.getThroughput(fiberId)
             spectrum.setWavelength(detectorMap.getWavelength(fiberId))
         return spectrum
