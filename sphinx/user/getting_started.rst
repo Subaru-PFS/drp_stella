@@ -219,17 +219,20 @@ Now for using the pipeline.
   directory :file:`$HOME/PFS/Data`. For the convenience of this
   quick-start guide we define another environment variable::
 
-     export PFS_DATA=$HOME/PFS/Data
-     mkdir -p $PFS_DATA/CALIB
+     export TARGET=/drp/lam
+     mkdir -p $TARGET/CALIB
+
+    export RERUN=pfs
+    export batchArgs="--batch-type=none --doraise"
 
 - We need to tell the LSST stack which mapper to use. The mapper provides a logical view
   of both the raw data and pipeline outputs, and provides facilities for querying for
   particular data sets. It abstracts away the details of the underlying storage, so we
   can avoid worrying about implementation details::
 
-     echo "lsst.obs.pfs.PfsMapper" > $PFS_DATA/_mapper
-     
-- We also need a Pfs State File which can conveniently be found in
+     [ -e $TARGET/_mapper ] || echo "lsst.obs.pfs.PfsMapper" > $TARGET/_mapper
+
+..- We also need a Pfs State File which can conveniently be found in
   `$DRP_STELLA_DATA_DIR/tests/data/PFS/pfsState`. Please copy this directory into your
   `$PFS_DATA` directory:
 
@@ -243,7 +246,8 @@ Now for using the pipeline.
   parameter to set the log level to only print warnings, making the script
   much less verbose::
 
-     ingestImages.py $PFS_DATA $DRP_STELLA_DATA_DIR/tests/data/raw/*.fits --mode link
+.. ingestImages.py $PFS_DATA $DRP_STELLA_DATA_DIR/tests/data/raw/*.fits --mode link
+  ingestImages.py  $TARGET --mode=link /data/pfs/pfs/2018-09-17/*.fits -c clobber=True register.ignore=True
 
 - We also need a file describing the configuration of the cobras. For now we will
   use the one with all ra and dec values equal to 0.0 which has (as a special case)
@@ -273,7 +277,8 @@ Now for using the pipeline.
   lead to problems (in most cases caused by the 3rd-party libraries used), so
   specifying ``--batch-type none`` is a safe choice::
 
-     constructBias.py $PFS_DATA --rerun $whoami/tmp --id field=BIAS dateObs=2015-12-22 arm=r spectrograph=1 --calibId calibVersion=bias calibDate=2015-12-22 arm=r spectrograph=1 --batch-type none
+//     constructBias.py $PFS_DATA --rerun /tmp --id field=BIAS dateObs=2015-12-22 arm=r spectrograph=1 --calibId calibVersion=bias calibDate=2015-12-22 arm=r spectrograph=1 --batch-type none
+     constructBias.py $PFS_DATA --rerun $PFS_DATA/rerun/pfs --id field=BIAS dateObs=2018-09-17 arm=r spectrograph=1 --calibId calibDate=2018-09-17 arm=r spectrograph=1 --batch-type none
 
 - Now that we have a master bias we need to ingest that into our calibration
   database stored in :file:`$PFS_DATA/CALIB/calibRegistry.sqlite3`. The
@@ -281,13 +286,17 @@ Now for using the pipeline.
   for 360 days. We will need to repeat this step every time we create a new
   calibration image so that successive tasks can find them::
 
-     genCalibRegistry.py --root $PFS_DATA/CALIB --validity 360
+..     genCalibRegistry.py --root $PFS_DATA/CALIB --validity 360
+     ingestCalibs.py $TARGET --calib $TARGET/CALIB --validity 1000 $TARGET/rerun/$RERUN/calib/BIAS/*.fits
 
 - Now we can create a trimmed and scaled, Bias-subtracted master Dark and
   ingest that into our calibration registry::
 
-     constructDark.py $PFS_DATA --rerun $whoami/tmp --id field=DARK dateObs=2015-12-22 arm=r spectrograph=1 --calibId calibVersion=dark calibDate=2015-12-22 arm=r spectrograph=1 --batch-type none
-     genCalibRegistry.py --root $PFS_DATA/CALIB --validity 360
+..     constructDark.py $PFS_DATA --rerun $whoami/tmp --id field=DARK dateObs=2015-12-22 arm=r spectrograph=1 --calibId calibVersion=dark calibDate=2015-12-22 arm=r spectrograph=1 --batch-type none
+..     genCalibRegistry.py --root $PFS_DATA/CALIB --validity 360
+
+    constructDark.py $TARGET --calib $TARGET/CALIB --rerun $RERUN/calib --id visit=9530..9532 $batchArgs
+    ingestCalibs.py $TARGET --calib $TARGET/CALIB --validity 1000 $TARGET/rerun/$RERUN/calib/DARK/*.fits
 
 - In order to extract the arc spectra we first need to identify and trace
   the apertures for each fiber. This is what constructFiberTrace.py does.
@@ -322,3 +331,8 @@ Now for using the pipeline.
 
   The output file created by reduceArcRefSpec.py is a pfsArm file as described
   in the data model.
+
+- Detrend only
+
+    detrend.py $TARGET --calib $TARGET/CALIB --rerun $RERUN/detrend --id visit=9519
+
