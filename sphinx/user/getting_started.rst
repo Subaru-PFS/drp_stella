@@ -298,6 +298,8 @@ Now for using the pipeline.
     constructDark.py $TARGET --calib $TARGET/CALIB --rerun $RERUN/calib --id visit=9530..9532 $batchArgs
     ingestCalibs.py $TARGET --calib $TARGET/CALIB --validity 1000 $TARGET/rerun/$RERUN/calib/DARK/*.fits
 
+    Not tested
+
 - In order to extract the arc spectra we first need to identify and trace
   the apertures for each fiber. This is what constructFiberTrace.py does.
   In our data set visit 104 is the only non-dithered flat, so specifying
@@ -332,6 +334,7 @@ Now for using the pipeline.
   The output file created by reduceArcRefSpec.py is a pfsArm file as described
   in the data model.
 
+Tested
 - Detrend only
 
     detrend.py $TARGET --calib $TARGET/CALIB --rerun $RERUN/detrend --id visit=9519
