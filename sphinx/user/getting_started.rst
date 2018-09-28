@@ -196,8 +196,9 @@ Note that next time you will need to set :envvar:`$PFS_DRP` manually before
 executing this command, or simply replace :envvar:`$PFS_DRP` with the appropriate directory.
 
 
-Usage
-=====
+Usage !! only that part was tested at LAM and even not fully !!
+==========================================================
+
 
 Now for using the pipeline.
 
