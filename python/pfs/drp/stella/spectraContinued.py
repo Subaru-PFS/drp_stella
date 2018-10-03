@@ -20,7 +20,7 @@ BAD_REFERENCE = (ReferenceLine.MISIDENTIFIED | ReferenceLine.CLIPPED | Reference
                  ReferenceLine.INTERPOLATED | ReferenceLine.CR)
 
 
-@continueClass
+@continueClass  # noqa: F811 (redefinition)
 class Spectrum:
     """Flux as a function of wavelength"""
     def plot(self, numRows=3, plotBackground=False, plotReferenceLines=False, badReference=BAD_REFERENCE,
@@ -66,7 +66,7 @@ class Spectrum:
             return plt, axes
 
 
-@continueClass
+@continueClass  # noqa: F811 (redefinition)
 class SpectrumSet:
     """Collection of `Spectrum`s
 

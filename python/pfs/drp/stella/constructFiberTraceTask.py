@@ -1,6 +1,4 @@
 import math
-import numpy as np
-from scipy.interpolate import UnivariateSpline
 
 import lsst.daf.base as dafBase
 import lsst.daf.persistence as dafPersist

@@ -5,14 +5,13 @@ import lsst.afw.fits
 import lsst.geom
 
 from lsst.utils import continueClass
-from lsst.daf.base import PropertyList
 
 from .detectorMap import DetectorMap
 
 __all__ = ["DetectorMap"]
 
 
-@continueClass
+@continueClass  # noqa: F811 (redefinition)
 class DetectorMap:
 
     @classmethod
