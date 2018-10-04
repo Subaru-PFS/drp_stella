@@ -3,9 +3,9 @@ setupRequired(pipe_drivers)
 setupRequired(afw)
 setupRequired(obs_pfs)
 setupRequired(datamodel)
-setupRequired(eigen)
 setupRequired(sconsUtils)
 setupRequired(pybind11)
+setupRequired(ip_isr)
 
 envPrepend(PATH, ${PRODUCT_DIR}/bin)
 
