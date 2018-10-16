@@ -29,7 +29,10 @@ class Spectrum:
         figure, axes = plt.subplots(numRows)
 
         division = np.linspace(0, len(self), numRows + 1, dtype=int)[1:-1]
-        wavelength = np.split(self.getWavelength(), division)
+        useWavelength = self.getWavelength()
+        if np.all(useWavelength == 0.0):
+            useWavelength = np.arange(len(self), dtype=np.float32)
+        wavelength = np.split(useWavelength, division)
         flux = np.split(self.getSpectrum(), division)
         if plotBackground:
             background = np.split(self.getBackground(), division)
