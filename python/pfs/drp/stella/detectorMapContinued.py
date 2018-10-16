@@ -5,14 +5,13 @@ import lsst.afw.fits
 import lsst.geom
 
 from lsst.utils import continueClass
-from lsst.daf.base import PropertyList
 
 from .detectorMap import DetectorMap
 
 __all__ = ["DetectorMap"]
 
 
-@continueClass
+@continueClass  # noqa: F811 (redefinition)
 class DetectorMap:
 
     @classmethod
@@ -61,12 +60,6 @@ class DetectorMap:
             hdu = fd["SPLINE"]
             splineDataArr = hdu.data.astype(np.float32)
 
-            try:
-                hdu = fd["THROUGHPUT"]
-                throughputs = hdu.data.astype(np.float32)
-            except KeyError:
-                throughputs = np.ones_like(slitOffsets[0])
-
         centerKnots = splineDataArr[:, 0, :]
         centerValues = splineDataArr[:, 1, :]
         wavelengthKnots = splineDataArr[:, 2, :]
@@ -77,7 +70,7 @@ class DetectorMap:
         lsst.afw.image.stripVisitInfoKeywords(metadata)
 
         return cls(bbox, fiberIds, centerKnots, centerValues, wavelengthKnots, wavelengthValues,
-                   slitOffsets, throughputs, visitInfo, metadata)
+                   slitOffsets, visitInfo, metadata)
 
     def writeFits(self, pathName, flags=None):
         """Read DetectorMap from FITS
@@ -112,9 +105,6 @@ class DetectorMap:
             splineDataArr[ii][2] = self.getWavelengthSpline(ii).getX()
             splineDataArr[ii][3] = self.getWavelengthSpline(ii).getY()
 
-        throughputs = np.empty_like(slitOffsets[0])
-        for i, fiberId in enumerate(fiberIds):
-            throughputs[i] = self.getThroughput(fiberId)
         #
         # OK, we've unpacked the DetectorMap; time to write the contents to disk
         #
@@ -149,11 +139,6 @@ class DetectorMap:
 
         hdu = pyfits.ImageHDU(splineDataArr)
         hdu.name = "SPLINE"
-        hdu.header["INHERIT"] = True
-        hdus.append(hdu)
-
-        hdu = pyfits.ImageHDU(throughputs)
-        hdu.name = "THROUGHPUT"
         hdu.header["INHERIT"] = True
         hdus.append(hdu)
 

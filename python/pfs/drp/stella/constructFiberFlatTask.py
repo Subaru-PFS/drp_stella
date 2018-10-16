@@ -6,11 +6,13 @@ import lsst.afw.detection as afwDet
 from lsst.ctrl.pool.pool import NODE
 import lsst.meas.algorithms as measAlg
 import lsst.daf.persistence as dafPersist
-from lsst.pex.config import Field
+from lsst.pex.config import Field, ConfigurableField
 from lsst.pipe.drivers.constructCalibs import CalibTask
 from lsst.pipe.drivers.utils import getDataRef
 
 from pfs.drp.stella.constructFiberTraceTask import ConstructFiberTraceConfig
+from pfs.drp.stella import Spectrum
+from pfs.drp.stella.fitContinuum import FitContinuumTask
 
 __all__ = ["ConstructFiberFlatConfig", "ConstructFiberFlatTask"]
 
@@ -23,6 +25,7 @@ class ConstructFiberFlatConfig(ConstructFiberTraceConfig):
         default=50.,
         check=lambda x: x > 0.
     )
+    fitContinuum = ConfigurableField(target=FitContinuumTask, doc="Fit continuum")
 
 
 class ConstructFiberFlatTask(CalibTask):
@@ -35,9 +38,7 @@ class ConstructFiberFlatTask(CalibTask):
         CalibTask.__init__(self, *args, **kwargs)
         self.makeSubtask("repair")
         self.makeSubtask("trace")
-
-        import lsstDebug
-        self.debugInfo = lsstDebug.Info(__name__)
+        self.makeSubtask("fitContinuum")
 
     @classmethod
     def applyOverrides(cls, config):
@@ -71,6 +72,7 @@ class ConstructFiberFlatTask(CalibTask):
                 fpSet = afwDet.FootprintSet(mask, afwDet.Threshold(0.5))
                 fpSet = afwDet.FootprintSet(fpSet, self.config.crGrow, True)
                 fpSet.setMask(exposure.getMaskedImage().getMask(), "CR")
+
         return exposure
 
     def getOutputId(self, expRefList, calibId):
@@ -132,10 +134,8 @@ class ConstructFiberFlatTask(CalibTask):
         self.log.info("Combining %s on %s" % (outputId, NODE))
         self.log.info('len(dataRefList) = %d' % len(dataRefList))
 
-        sumFlats, sumTrace = None, None
-
-        detMap = dataRefList[0].get('detectormap')
-
+        sumFlat = None  # Sum of flat-fields
+        sumExpect = None  # Sum of what we expect
         xOffsets = []
         for ii, expRef in enumerate(dataRefList):
             exposure = expRef.get('postISRCCD')
@@ -144,55 +144,63 @@ class ConstructFiberFlatTask(CalibTask):
             assert len(slitOffset) == 1, "Expect a single answer for this single dataset"
             xOffsets.append(slitOffset.pop())
 
+            detMap = expRef.get('detectormap')
             traces = self.trace.run(exposure.maskedImage, detMap)
             self.log.info('%d FiberTraces found for %s' % (traces.size(), expRef.dataId))
+            spectra = traces.extractSpectra(exposure.maskedImage, detMap, True)
+            # Get median spectrum across rows.
+            # This is not the same as averaging over wavelength, and it matters: small features like
+            # absorption lines are a function of wavelength, so can show up on different rows. We'll
+            # work around this by fitting the continuum and using that instead of the average. That
+            # also avoids having sharp features in the average spectrum, which should mean that the
+            # flux calibration shouldn't have to include sharp features either (except for telluric lines).
+            average = Spectrum(spectra.getLength())
+            for ss in spectra:
+                ss.spectrum[:] = np.where(np.isfinite(ss.spectrum), ss.spectrum, 0.0)
+            average.spectrum[:] = np.median([ss.spectrum for ss in spectra], axis=0)
+            average.spectrum = self.fitContinuum.fitContinuum(average)
 
-            maskVal = exposure.mask.getPlaneBitMask(["BAD", "SAT", "CR"])
-
-            traceImage = afwImage.ImageF(exposure.getBBox())
-            traceImage.set(0)
+            expect = afwImage.ImageF(exposure.getBBox())
+            expect.set(0.0)
 
             for ft in traces:
-                spectrum = ft.extractSpectrum(exposure.maskedImage, useProfile=True)
-                reconstructed = ft.constructImage(spectrum)
-                bbox = reconstructed.getBBox()
-                traceImage[bbox] += reconstructed
+                expect[ft.trace.getBBox()] += ft.constructImage(average)
 
-                bad = (reconstructed.array <= 0.0) | (exposure.mask[bbox].array & maskVal > 0)
-                sub = exposure.maskedImage[bbox]                
-                sub.image.array[bad] = 0.0
-                sub.variance.array[bad] = 0.0
-                traceImage[bbox].array[bad] = 0.0
+            maskVal = exposure.mask.getPlaneBitMask(["BAD", "SAT", "CR"])
+            bad = (expect.array <= 0.0) | (exposure.mask.array & maskVal > 0)
+            exposure.image.array[bad] = 0.0
+            exposure.variance.array[bad] = 0.0
+            expect.array[bad] = 0.0
 
-            unused = traceImage.array == 0.0
-            exposure.image.array[unused] = 0.0
-            exposure.variance.array[unused] = 0.0
-
-            if sumFlats is None:
-                sumFlats = exposure.maskedImage
-                sumTrace = traceImage
+            if sumFlat is None:
+                sumFlat = exposure.maskedImage
+                sumExpect = expect
             else:
-                sumFlats += exposure.maskedImage
-                sumTrace += traceImage
+                sumFlat += exposure.maskedImage
+                sumExpect += expect
 
-        self.log.info('xOffsets = %s' % (xOffsets))
-        if sumFlats is None:
+        self.log.info('xOffsets = %s' % (xOffsets,))
+        if sumFlat is None:
             raise RuntimeError("Unable to find any valid flats")
+        if np.all(sumExpect.array == 0.0):
+            raise RuntimeError("No good pixels")
 
-        # Divide through by the number of good contributions, but avoid dividing by zero
-        empty = sumTrace.array <= 0
-        sumTrace.array[empty] = 1.0
-        sumTrace.array[empty] = 1.0
-        sumFlats.image.array[empty] = 1.0
-        sumFlats.variance.array[empty] = 1.0
-        sumFlats /= sumTrace
-        normalizedFlat = sumFlats
+        # Avoid NANs when dividing
+        empty = sumExpect.array == 0
+        sumFlat.image.array[empty] = 1.0
+        sumFlat.variance.array[empty] = 1.0
+        sumExpect.array[empty] = 1.0
+        sumFlat.mask.addMaskPlane("BAD_FLAT")
+        badFlat = sumFlat.mask.getPlaneBitMask("BAD_FLAT")
+
+        sumFlat /= sumExpect
+        sumFlat.mask.array[empty] |= badFlat
 
         # Mask bad pixels
-        snr = normalizedFlat.image.array/np.sqrt(normalizedFlat.variance.array)
+        snr = sumFlat.image.array/np.sqrt(sumFlat.variance.array)
         bad = (snr < self.config.minSNR) | ~np.isfinite(snr)
-        normalizedFlat.image.array[bad] = 1.0
-        normalizedFlat.mask.array[bad] = (1 << normalizedFlat.mask.addMaskPlane("BAD_FLAT"))
+        sumFlat.image.array[bad] = 1.0
+        sumFlat.mask.array[bad] |= badFlat
 
         import lsstDebug
         di = lsstDebug.Info(__name__)
@@ -201,12 +209,12 @@ class ConstructFiberFlatTask(CalibTask):
 
             if di.frames_flat >= 0:
                 display = afwDisplay.getDisplay(frame=di.frames_flat)
-                display.mtv(normalizedFlat, title='normalized Flat')
+                display.mtv(sumFlat, title='normalized Flat')
                 if di.zoomPan:
                     display.zoom(*di.zoomPan)
 
         # Write fiber flat
-        normFlatOut = afwImage.makeExposure(normalizedFlat)
-        self.recordCalibInputs(cache.butler, normFlatOut, struct.ccdIdList, outputId)
-        self.interpolateNans(normFlatOut)
-        self.write(cache.butler, normFlatOut, outputId)
+        flatExposure = afwImage.makeExposure(sumFlat)
+        self.recordCalibInputs(cache.butler, flatExposure, struct.ccdIdList, outputId)
+        self.interpolateNans(flatExposure)
+        self.write(cache.butler, flatExposure, outputId)

@@ -20,7 +20,7 @@ BAD_REFERENCE = (ReferenceLine.MISIDENTIFIED | ReferenceLine.CLIPPED | Reference
                  ReferenceLine.INTERPOLATED | ReferenceLine.CR)
 
 
-@continueClass
+@continueClass  # noqa: F811 (redefinition)
 class Spectrum:
     """Flux as a function of wavelength"""
     def plot(self, numRows=3, plotBackground=False, plotReferenceLines=False, badReference=BAD_REFERENCE,
@@ -29,7 +29,10 @@ class Spectrum:
         figure, axes = plt.subplots(numRows)
 
         division = np.linspace(0, len(self), numRows + 1, dtype=int)[1:-1]
-        wavelength = np.split(self.getWavelength(), division)
+        useWavelength = self.getWavelength()
+        if np.all(useWavelength == 0.0):
+            useWavelength = np.arange(len(self), dtype=np.float32)
+        wavelength = np.split(useWavelength, division)
         flux = np.split(self.getSpectrum(), division)
         if plotBackground:
             background = np.split(self.getBackground(), division)
@@ -66,7 +69,7 @@ class Spectrum:
             return plt, axes
 
 
-@continueClass
+@continueClass  # noqa: F811 (redefinition)
 class SpectrumSet:
     """Collection of `Spectrum`s
 

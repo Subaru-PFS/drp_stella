@@ -24,11 +24,10 @@ void declareDetectorMap(py::module &mod)
                      DetectorMap::Array2D const&,
                      DetectorMap::Array2D const&,
                      std::size_t,
-                     DetectorMap::Array2D const&,
-                     DetectorMap::Array1D const&
+                     DetectorMap::Array2D const&
                      >(),
             "bbox"_a, "fiberIds"_a, "xCenters"_a, "wavelengths"_a, "nKnot"_a=25,
-            "slitOffsets"_a=py::none(), "throughput"_a=py::none());
+            "slitOffsets"_a=py::none());
     cls.def(py::init<lsst::geom::Box2I,
                      DetectorMap::FiberMap const&,
                      ndarray::Array<float const, 2, 1> const&,
@@ -36,12 +35,11 @@ void declareDetectorMap(py::module &mod)
                      ndarray::Array<float const, 2, 1> const&,
                      ndarray::Array<float const, 2, 1> const&,
                      Class::Array2D const&,
-                     Class::Array1D const&,
                      lsst::afw::image::VisitInfo const&,
                      std::shared_ptr<lsst::daf::base::PropertySet>
                      >(),
             "bbox"_a, "fiberIds"_a, "centerKnots"_a, "centerValues"_a, "wavelengthKnots"_a,
-            "wavelengthValues"_a, "slitOffsets"_a, "throughput"_a,
+            "wavelengthValues"_a, "slitOffsets"_a,
             "visitInfo"_a=Class::VisitInfo(lsst::daf::base::PropertySet()), "metadata"_a=nullptr);
 
     py::enum_<Class::ArrayRow>(cls, "ArrayRow")
@@ -79,18 +77,6 @@ void declareDetectorMap(py::module &mod)
     cls.def("getXCenter", [](Class & self) { return self.getXCenter(); });
     cls.def("setXCenter", &Class::setXCenter, "fiberId"_a, "xCenters"_a);
     cls.def_property_readonly("xCenter", py::overload_cast<>(&Class::getXCenter, py::const_));
-
-    cls.def("getThroughput",
-            [](Class const& self, std::size_t fiberId) { return self.getThroughput(fiberId); },
-            "fiberId"_a);
-    cls.def("getThroughput", [](Class & self) { return self.getThroughput(); },
-            py::return_value_policy::reference_internal);
-    cls.def("setThroughput",
-            [](Class & self, std::size_t fiberId, float throughput) {
-                self.setThroughput(fiberId, throughput);
-            },
-            "fiberId"_a, "throughput"_a);
-    cls.def_property_readonly("throughput", py::overload_cast<>(&Class::getThroughput));
 
     cls.def("getSlitOffsets", [](Class & self) { return self.getSlitOffsets(); },
             py::return_value_policy::reference_internal);
@@ -133,7 +119,7 @@ void declareDetectorMap(py::module &mod)
             }
             return py::make_tuple(self.getBBox(), self.getFiberIds(), centerKnots, centerValues,
                                   wavelengthKnots, wavelengthValues, self.getSlitOffsets(),
-                                  self.getThroughput(), self.getVisitInfo(), self.getMetadata());
+                                  self.getVisitInfo(), self.getMetadata());
         });
     cls.def("__setstate__",
         [](DetectorMap & self, py::tuple const& t) {
@@ -141,9 +127,8 @@ void declareDetectorMap(py::module &mod)
                 t[0].cast<lsst::geom::Box2I>(), t[1].cast<DetectorMap::FiberMap>(),
                 t[2].cast<DetectorMap::Array2D>(), t[3].cast<DetectorMap::Array2D>(),
                 t[4].cast<DetectorMap::Array2D>(), t[5].cast<DetectorMap::Array2D>(),
-                t[6].cast<DetectorMap::Array2D>(), t[7].cast<DetectorMap::Array1D>(),
-                t[8].cast<Class::VisitInfo>(),
-                t[9].cast<std::shared_ptr<lsst::daf::base::PropertySet>>()
+                t[6].cast<DetectorMap::Array2D>(), t[7].cast<Class::VisitInfo>(),
+                t[8].cast<std::shared_ptr<lsst::daf::base::PropertySet>>()
                 );
         });
 }

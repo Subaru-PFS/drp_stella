@@ -36,8 +36,7 @@ public:
                          Array2D const& xCenters,  ///< center of trace for each fibre
                          Array2D const& wavelengths, ///< wavelengths for each fibre
                          std::size_t nKnot, ///< number of knots to use
-                         Array2D const& slitOffsets=Array2D(), ///< per-fibre offsets
-                         Array1D const& throughput=Array1D() ///< relative throughput per fiber
+                         Array2D const& slitOffsets=Array2D() ///< per-fibre offsets
                         );
 
     DetectorMap(lsst::geom::Box2I bbox,  // detector's bounding box
@@ -47,7 +46,6 @@ public:
                 ndarray::Array<float const, 2, 1> const& wavelengthKnots,
                 ndarray::Array<float const, 2, 1> const& wavelengthValues,
                 Array2D const& slitOffsets,  // per-fibre offsets
-                Array1D const& throughput,  // relative throughput per fiber
                 VisitInfo const& visitInfo=VisitInfo(lsst::daf::base::PropertyList()),  // Visit information
                 std::shared_ptr<lsst::daf::base::PropertySet> metadata=nullptr  // FITS header
                 );
@@ -151,24 +149,6 @@ public:
                    );
 
     /** \brief
-     * Return the (relative) throughput for a fibre
-     */
-    float getThroughput(std::size_t fiberId                       ///< 1-indexed fiberID 
-                       ) const;
-
-    Array1D & getThroughput() { return _throughput; }
-    Array1D const& getThroughput() const { return _throughput; }
-
-    /** \brief
-     * Set a fibre's (relative) throughput
-     */
-    void setThroughput(std::size_t fiberId,                       ///< 1-indexed fiberID 
-                       float throughput                     ///< the fibre's throughput
-                      );
-
-    void setThroughput(Array1D const& throughput);
-
-    /** \brief
      * Return the fiberId given a position on the detector
      */
     int findFiberId(lsst::geom::PointD pixelPos ///< position on detector
@@ -204,8 +184,7 @@ private:                                // initialise before _yTo{XCenter,Wavele
     std::size_t _nFiber;                // number of fibers
     lsst::geom::Box2I _bbox;       // bounding box of detector
     FiberMap _fiberIds;         // The fiberIds (between 1 and c. 2400) present on this detector
-    
-    Array1D _throughput;	// The throughput (in arbitrary units ~ 1) of each fibre
+
     //
     // These std::vectors are indexed by fiberIndex (not fiberId)
     //

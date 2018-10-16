@@ -19,13 +19,11 @@ DetectorMap::DetectorMap(lsst::geom::Box2I bbox,                    // detector'
                          ndarray::Array<float, 2, 1> const& xCenters,    // center of trace for each fibre
                          ndarray::Array<float, 2, 1> const& wavelengths, // wavelengths for each fibre
                          std::size_t nKnot,                               // number of knots
-                         ndarray::Array<float, 2, 1> const& slitOffsets, // per-fibre x, y, focus offsets
-                         ndarray::Array<float, 1, 1> const& throughput
+                         ndarray::Array<float, 2, 1> const& slitOffsets // per-fibre x, y, focus offsets
                         ) :
     _nFiber(fiberIds.getShape()[0]),
     _bbox(bbox),
     _fiberIds(ndarray::copy(fiberIds)),
-    _throughput(_nFiber),
     _yToXCenter(_nFiber),
     _yToWavelength(_nFiber),
     _nKnot(nKnot),
@@ -47,12 +45,6 @@ DetectorMap::DetectorMap(lsst::geom::Box2I bbox,                    // detector'
         _slitOffsets.deep() = 0.0;      // Assume that all the fibres are aligned perfectly
     }
 
-    if (throughput.isEmpty()) {
-        _throughput.deep() = 1.0;
-    } else {
-        setThroughput(throughput);
-    }
-
     _setSplines(xCenters, wavelengths);
 }
 
@@ -65,13 +57,11 @@ DetectorMap::DetectorMap(
     ndarray::Array<float const, 2, 1> const& wavelengthKnots,
     ndarray::Array<float const, 2, 1> const& wavelengthValues,
     Array2D const& slitOffsets,
-    Array1D const& throughput,
     VisitInfo const& visitInfo,
     std::shared_ptr<lsst::daf::base::PropertySet> metadata
 ) : _nFiber(fiberIds.getShape()[0]),
     _bbox(bbox),
     _fiberIds(ndarray::copy(fiberIds)),
-    _throughput(throughput),
     _yToXCenter(_nFiber),
     _yToWavelength(_nFiber),
     _nKnot(centerKnots.getShape()[1]),
@@ -89,7 +79,6 @@ DetectorMap::DetectorMap(
                      "DetectorMap: centerKnots vs wavelengthKnots");
     utils::checkSize(slitOffsets.getShape(), ndarray::makeVector<ndarray::Size>(3, _nFiber),
                      "DetectorMap: slitOffsets vs fiberIds");
-    utils::checkSize(throughput.getNumElements(), _nFiber, "DetectorMap: throughput");
 
     for (std::size_t ii = 0; ii < _nFiber; ++ii) {
         _yToXCenter[ii] = std::make_shared<math::Spline<float>>(centerKnots[ii], centerValues[ii]);
@@ -261,38 +250,6 @@ DetectorMap::setXCenter(std::size_t fiberId,
     auto const wavelength = xCenter;    // not really updated, but I need an array
 
     _setSplines(index, xCenter, true, wavelength, false);
-}
-
-/*
- * Return a fibre's throughput
- */
-float
-DetectorMap::getThroughput(std::size_t fiberId) const
-{
-    int const index = getFiberIndex(fiberId);
-
-    return _throughput[index];
-}
-
-/*
- * Return a fibre's throughput
- */
-void
-DetectorMap::setThroughput(std::size_t fiberId,
-                           float throughput)
-{
-    int const index = getFiberIndex(fiberId);
-
-    _throughput[index] = throughput;
-}
-
-void DetectorMap::setThroughput(Array1D const& throughput) {
-    if (throughput.getShape() != _throughput.getShape()) {
-        std::ostringstream os;
-        os << "Length mismatch: " << throughput.getShape() << " vs " << _throughput.getShape();
-        throw LSST_EXCEPT(lsst::pex::exceptions::LengthError, os.str());
-    }
-    _throughput.deep() = throughput;
 }
 
 /*

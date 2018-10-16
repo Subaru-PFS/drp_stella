@@ -1,6 +1,4 @@
 import math
-import numpy as np
-from scipy.interpolate import UnivariateSpline
 
 import lsst.daf.base as dafBase
 import lsst.daf.persistence as dafPersist
@@ -55,27 +53,6 @@ class ConstructFiberTraceConfig(CalibConfig):
     extractSpectra = ConfigurableField(
         target=ExtractSpectraTask,
         doc="Task to extract spectra using the fibre traces",
-    )
-    wavelengthForThroughputIsPercent = Field(
-        dtype=bool,
-        default=True,
-        doc="Interpret wavelengthForThroughput[01] as percentages of spectral range"
-    )
-    wavelengthForThroughput0 = Field(
-        dtype=float,
-        default=20,
-        doc="""Starting wavelength for integral of flux over wavelength used to estimate throughput.
-
-        If wavelengthForThroughputIsPercent is True, interpret value as percentage of spectral range
-        """
-    )
-    wavelengthForThroughput1 = Field(
-        dtype=float,
-        default=80,
-        doc="""Ending wavelength for integral of flux over wavelength used to estimate throughput.
-
-        If wavelengthForThroughputIsPercent is True, interpret value as percentage of spectral range
-        """
     )
     requireZeroSlitOffset = Field(
         dtype=bool,
@@ -245,47 +222,6 @@ class ConstructFiberTraceTask(CalibTask):
             traces.applyToMask(calExp.getMaskedImage().getMask())
             disp.setMaskTransparency(50)
             disp.mtv(calExp, "Traces")
-        #
-        # Use our new FiberTraceSet to extract the spectra so we can measure relative throughputs
-        #
-        spectrumSet = self.extractSpectra.run(calExp.maskedImage, traces, detMap).spectra
-        #
-        # Integrate each spectrum over a fixed wavelength interval
-        # to estimate the (relative) throughput
-        #
-        wavelengthForThroughput0 = self.config.wavelengthForThroughput0
-        wavelengthForThroughput1 = self.config.wavelengthForThroughput1
-
-        if self.config.wavelengthForThroughputIsPercent:
-            spec = spectrumSet[len(spectrumSet)//2]
-            wavelength = spec.getWavelength()
-
-            wavelengthForThroughput0 = wavelength[int(0.01*wavelengthForThroughput0*len(wavelength))]
-            wavelengthForThroughput1 = wavelength[int(0.01*wavelengthForThroughput1*len(wavelength))]
-
-        throughput = {}
-        for spec in spectrumSet:
-            spline = UnivariateSpline(spec.wavelength, spec.spectrum)
-            throughput[spec.getFiberId()] = spline.integral(wavelengthForThroughput0,
-                                                            wavelengthForThroughput1)
-
-        med = np.median(list(throughput.values()))
-        for fiberId in throughput:
-            throughput[fiberId] /= med
-        #
-        # Update the DetectorMap
-        #
-        for fiberId in throughput:
-            detMap.setThroughput(fiberId, throughput[fiberId])
-
-        if self.debugInfo.display and self.debugInfo.plotTraces:
-            import matplotlib.pyplot as plt
-            for spec in spectrumSet:
-                fiberId = spec.getFiberId()
-                plt.plot(spec.getWavelength(), spec.getSpectrum()/detMap.getThroughput(fiberId),
-                         label=fiberId)
-            plt.legend(loc='best')
-            plt.show()
         #
         # And write it
         #
