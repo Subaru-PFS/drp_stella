@@ -9,7 +9,7 @@ from lsst.afw.image import PARENT
 from pfs.datamodel.pfsFiberTrace import PfsFiberTrace
 
 from .fiberTraces import FiberTraceSet, FiberTrace
-from .spectraContinued import SpectrumSet
+from pfs.drp.stella import SpectrumSet
 
 __all__ = ["FiberTrace", "FiberTraceSet"]
 

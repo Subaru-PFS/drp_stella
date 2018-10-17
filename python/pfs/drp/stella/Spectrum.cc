@@ -3,7 +3,7 @@
 
 #include "ndarray/pybind11.h"
 
-#include "pfs/drp/stella/Spectra.h"
+#include "pfs/drp/stella/Spectrum.h"
 
 namespace py = pybind11;
 
@@ -13,52 +13,6 @@ namespace pfs { namespace drp { namespace stella {
 
 namespace {
 
-/************************************************************************************************************/
-
-void declareReferenceLine(py::module &mod) {
-    using Class = ReferenceLine;
-
-    py::class_<Class, std::shared_ptr<Class>> cls(mod, "ReferenceLine");
-
-    /* Member types and enums */
-    py::enum_<ReferenceLine::Status>(cls, "Status", py::arithmetic())
-        .value("NOWT", ReferenceLine::Status::NOWT)
-        .value("FIT", ReferenceLine::Status::FIT)
-        .value("RESERVED", ReferenceLine::Status::RESERVED)
-        .value("MISIDENTIFIED", ReferenceLine::Status::MISIDENTIFIED)
-        .value("CLIPPED", ReferenceLine::Status::CLIPPED)
-        .value("SATURATED", ReferenceLine::Status::SATURATED)
-        .value("INTERPOLATED", ReferenceLine::Status::INTERPOLATED)
-        .value("CR", ReferenceLine::Status::CR)
-        .export_values();
-
-    cls.def(py::init<std::string, ReferenceLine::Status, double, double>(),
-            "description"_a, "status"_a=ReferenceLine::Status::NOWT,
-            "wavelength"_a=0, "guessedIntensity"_a=0);
-    cls.def_readwrite("description", &ReferenceLine::description);
-    cls.def_readwrite("status", &ReferenceLine::status);
-    cls.def_readwrite("wavelength", &ReferenceLine::wavelength);
-    cls.def_readwrite("guessedIntensity", &ReferenceLine::guessedIntensity);
-    cls.def_readwrite("guessedPosition", &ReferenceLine::guessedPosition);
-    cls.def_readwrite("fitIntensity", &ReferenceLine::fitIntensity);
-    cls.def_readwrite("fitPosition", &ReferenceLine::fitPosition);
-    cls.def_readwrite("fitPositionErr", &ReferenceLine::fitPositionErr);
-
-    cls.def("__getstate__",
-        [](ReferenceLine const& self) {
-            return py::make_tuple(self.description, self.status, self.wavelength, self.guessedIntensity,
-                                  self.guessedPosition, self.fitIntensity, self.fitPosition,
-                                  self.fitPositionErr);
-        });
-    cls.def("__setstate__",
-        [](ReferenceLine & self, py::tuple const& t) {
-            new (&self) ReferenceLine(t[0].cast<std::string>(), ReferenceLine::Status(t[1].cast<int>()),
-                                      t[2].cast<double>(), t[3].cast<double>(), t[4].cast<double>(),
-                                      t[5].cast<double>(), t[6].cast<double>(), t[7].cast<double>());
-        });
-}
-
-/************************************************************************************************************/
 void declareSpectrum(py::module &mod) {
     using Class = Spectrum;
     py::class_<Class, std::shared_ptr<Class>> cls(mod, "Spectrum");
@@ -135,47 +89,10 @@ void declareSpectrum(py::module &mod) {
         });
 }
 
-void declareSpectrumSet(py::module &mod) {
-    using Class = SpectrumSet;
-    py::class_<Class, PTR(Class)> cls(mod, "SpectrumSet");
 
-    cls.def(py::init<std::size_t>(), "length"_a);
-    cls.def(py::init<std::size_t, std::size_t>(), "nSpectra"_a, "length"_a);
-
-    cls.def("size", &Class::size);
-    cls.def("reserve", &Class::reserve);
-    cls.def("add", (void (Class::*)(PTR(Spectrum))) &Class::add, "spectrum"_a);
-    cls.def("getLength", &Class::getLength);
-
-    cls.def("getAllFluxes", &Class::getAllFluxes);
-    cls.def("getAllWavelengths", &Class::getAllWavelengths);
-    cls.def("getAllMasks", &Class::getAllMasks);
-    cls.def("getAllCovariances", &Class::getAllCovariances);
-    cls.def("getAllBackgrounds", &Class::getAllBackgrounds);
-
-    // Pythonic APIs
-    cls.def("__len__", &Class::size);
-    cls.def("__getitem__", [](Class const& self, std::size_t i) {
-            if (i >= self.size()) throw py::index_error();
-            return self.get(i);
-        });
-    cls.def("__setitem__",
-            [](Class& self, std::size_t i, PTR(Spectrum) spectrum) { self.set(i, spectrum); });
-
-    cls.def("__getstate__", [](SpectrumSet const& self) { return py::make_tuple(self.getInternal()); });
-    cls.def("__setstate__",
-            [](SpectrumSet & self, py::tuple const& t) {
-            new (&self) SpectrumSet(t[0].cast<SpectrumSet::Collection>());
-        });
-}
-
-PYBIND11_PLUGIN(spectra) {
-    py::module mod("spectra");
-
-    declareReferenceLine(mod);
+PYBIND11_PLUGIN(Spectrum) {
+    py::module mod("Spectrum");
     declareSpectrum(mod);
-    declareSpectrumSet(mod);
-
     return mod.ptr();
 }
 

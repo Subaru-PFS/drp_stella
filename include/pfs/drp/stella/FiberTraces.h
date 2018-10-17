@@ -12,7 +12,7 @@
 
 #include "pfs/drp/stella/Controls.h"
 #include "pfs/drp/stella/math/Math.h"
-#include "pfs/drp/stella/Spectra.h"
+#include "pfs/drp/stella/Spectrum.h"
 #include "pfs/drp/stella/DetectorMap.h"
 
 namespace pfs { namespace drp { namespace stella {

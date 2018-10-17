@@ -1,6 +1,7 @@
 import pfs.drp.stella.pickleUtils  # noqa: register pickle functions
-from .spectra import *
-from .spectraContinued import *
+from .ReferenceLine import *
+from .SpectrumContinued import *
+from .SpectrumSetContinued import *
 from .controls import *
 from .fiberTraces import *
 from .fiberTracesContinued import *
