@@ -235,9 +235,26 @@ class SpectrumTestCase(BaseTestCase):
         """
         import matplotlib.pyplot as plt
         plt.switch_backend("agg")  # In case someone has loaded a different backend that will cause trouble
+        ext = ".png"  # Extension to use for plot filenames
         spectrum = self.makeSpectrum()
-        with lsst.utils.tests.getTempFilePath(".png") as filename:
-            spectrum.plot(numRows=4, plotBackground=True, plotReferenceLines=True, filename=filename)
+        # Write directly to file
+        with lsst.utils.tests.getTempFilePath(ext) as filename:
+            spectrum.plot(numRows=4, doBackground=True, doReferenceLines=True, filename=filename)
+        # Check return values
+        with lsst.utils.tests.getTempFilePath(ext) as filename:
+            numRows = 4  # Must be > 1 for len(axes) to work
+            figure, axes = spectrum.plot(numRows=numRows)
+            self.assertEqual(len(axes), numRows)
+            figure.savefig(filename)
+        # Test one row, write directly to file
+        with lsst.utils.tests.getTempFilePath(ext) as filename:
+            figure, axes = spectrum.plot(numRows=1, filename=filename)
+        # Test one row, check return values
+        with lsst.utils.tests.getTempFilePath(ext) as filename:
+            figure, axes = spectrum.plot(numRows=1)
+            with self.assertRaises(TypeError):
+                axes[0]
+            figure.savefig(filename)
 
 
 class SpectrumSetTestCase(BaseTestCase):
@@ -381,6 +398,35 @@ class SpectrumSetTestCase(BaseTestCase):
             raise  # Leave file for manual inspection
         else:
             os.unlink(filename)
+
+    def testPlot(self):
+        """Test plotting of spectra
+
+        Not easy to test the actual result, but we can test that the API hasn't
+        been broken.
+        """
+        import matplotlib.pyplot as plt
+        plt.switch_backend("agg")  # In case someone has loaded a different backend that will cause trouble
+        ext = ".png"  # Extension to use for plot filenames
+        spectra = self.makeSpectrumSet(5)
+        # Write directly to file
+        with lsst.utils.tests.getTempFilePath(ext) as filename:
+            spectra.plot(numRows=4, filename=filename)
+        # Check return values
+        with lsst.utils.tests.getTempFilePath(ext) as filename:
+            numRows = 4  # Must be > 1 for len(axes) to work
+            figure, axes = spectra.plot(numRows=numRows)
+            figure.savefig(filename)
+            self.assertEqual(len(axes), numRows)
+        # Test one row, write directly to file
+        with lsst.utils.tests.getTempFilePath(ext) as filename:
+            spectra.plot(numRows=1, filename=filename)
+        # Test one row, check return values
+        with lsst.utils.tests.getTempFilePath(ext) as filename:
+            figure, axes = spectra.plot(numRows=1)
+            with self.assertRaises(TypeError):
+                axes[0]
+            figure.savefig(filename)
 
 
 class TestMemory(lsst.utils.tests.MemoryTestCase):
