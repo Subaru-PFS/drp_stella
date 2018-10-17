@@ -10,7 +10,7 @@
 
 #include "pfs/drp/stella/DetectorMap.h"
 #include "pfs/drp/stella/Controls.h"
-#include "pfs/drp/stella/FiberTraces.h"
+#include "pfs/drp/stella/FiberTraceSet.h"
 
 namespace pfs {
 namespace drp {

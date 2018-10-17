@@ -1,31 +1,16 @@
 import os
 import re
 
-from lsst.daf.base import PropertyList
 from lsst.utils import continueClass
 from lsst.pipe.base import Struct
-from lsst.afw.image import PARENT
 
 from pfs.datamodel.pfsFiberTrace import PfsFiberTrace
 
-from .fiberTraces import FiberTraceSet, FiberTrace
-from pfs.drp.stella import SpectrumSet
+from .FiberTraceSet import FiberTraceSet
+from .FiberTraceContinued import FiberTrace
+from .SpectrumSetContinued import SpectrumSet
 
-__all__ = ["FiberTrace", "FiberTraceSet"]
-
-
-@continueClass
-class FiberTrace:
-    def applyToMask(self, mask):
-        """Apply the trace mask to the provided mask
-
-        Parameters
-        ----------
-        mask : `lsst.afw.image.Mask`
-            Mask to which to apply the trace mask.
-        """
-        traceMask = self.getTrace().mask
-        mask.Factory(mask, traceMask.getBBox(), PARENT)[:] |= traceMask
+__all__ = ["FiberTraceSet"]
 
 
 @continueClass

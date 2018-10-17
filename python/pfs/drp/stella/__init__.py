@@ -3,8 +3,10 @@ from .ReferenceLine import *
 from .SpectrumContinued import *
 from .SpectrumSetContinued import *
 from .controls import *
-from .fiberTraces import *
-from .fiberTracesContinued import *
+from .FiberTrace import *
+from .FiberTraceContinued import *
+from .FiberTraceSet import *
+from .FiberTraceSetContinued import *
 from .detectorMapContinued import *
 from .utils import *
 from .spline import *
