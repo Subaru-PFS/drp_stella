@@ -1,23 +1,17 @@
-import math
 import numpy as np
 
 import lsst.afw.image as afwImage
-import lsst.afw.detection as afwDet
-from lsst.ctrl.pool.pool import NODE
-import lsst.meas.algorithms as measAlg
-import lsst.daf.persistence as dafPersist
 from lsst.pex.config import Field, ConfigurableField
-from lsst.pipe.drivers.constructCalibs import CalibTask
-from lsst.pipe.drivers.utils import getDataRef
 
-from pfs.drp.stella.constructFiberTraceTask import ConstructFiberTraceConfig
 from pfs.drp.stella import Spectrum
 from pfs.drp.stella.fitContinuum import FitContinuumTask
+from .constructSpectralCalibs import SpectralCalibConfig, SpectralCalibTask
+from .findAndTraceAperturesTask import FindAndTraceAperturesTask
 
 __all__ = ["ConstructFiberFlatConfig", "ConstructFiberFlatTask"]
 
 
-class ConstructFiberFlatConfig(ConstructFiberTraceConfig):
+class ConstructFiberFlatConfig(SpectralCalibConfig):
     """Configuration for flat construction"""
     minSNR = Field(
         doc="Minimum Signal-to-Noise Ratio for normalized Flat pixels",
@@ -25,18 +19,18 @@ class ConstructFiberFlatConfig(ConstructFiberTraceConfig):
         default=50.,
         check=lambda x: x > 0.
     )
+    trace = ConfigurableField(target=FindAndTraceAperturesTask, doc="Task to trace apertures")
     fitContinuum = ConfigurableField(target=FitContinuumTask, doc="Fit continuum")
 
 
-class ConstructFiberFlatTask(CalibTask):
+class ConstructFiberFlatTask(SpectralCalibTask):
     """Task to construct the normalized flat"""
     ConfigClass = ConstructFiberFlatConfig
     _DefaultName = "fiberFlat"
     calibName = "flat"
 
     def __init__(self, *args, **kwargs):
-        CalibTask.__init__(self, *args, **kwargs)
-        self.makeSubtask("repair")
+        super().__init__(*args, **kwargs)
         self.makeSubtask("trace")
         self.makeSubtask("fitContinuum")
 
@@ -45,60 +39,6 @@ class ConstructFiberFlatTask(CalibTask):
         """Overrides to apply for flat construction"""
         config.isr.doFlat = False
         config.isr.doFringe = False
-
-    def processSingle(self, sensorRef):
-        """Process a single CCD
-
-        Besides the regular ISR, also masks cosmic-rays.
-        """
-        if not self.config.rerunISR:
-            try:
-                exposure = sensorRef.get('postISRCCD')
-                self.log.debug("Obtained postISRCCD from butler for %s" % sensorRef.dataId)
-                return exposure
-            except dafPersist.NoResults:
-                pass                    # ah well.  We'll have to run the ISR
-
-        exposure = CalibTask.processSingle(self, sensorRef)
-
-        if self.config.doRepair:
-            psf = measAlg.DoubleGaussianPsf(self.config.psfSize, self.config.psfSize,
-                                            self.config.psfFwhm/(2*math.sqrt(2*math.log(2))))
-            exposure.setPsf(psf)
-            self.repair.run(exposure, keepCRs=False)
-            if self.config.crGrow > 0:
-                mask = exposure.getMaskedImage().getMask().clone()
-                mask &= mask.getPlaneBitMask("CR")
-                fpSet = afwDet.FootprintSet(mask, afwDet.Threshold(0.5))
-                fpSet = afwDet.FootprintSet(fpSet, self.config.crGrow, True)
-                fpSet.setMask(exposure.getMaskedImage().getMask(), "CR")
-
-        return exposure
-
-    def getOutputId(self, expRefList, calibId):
-        """Generate the data identifier for the output calib
-
-        The mean date and the common filter are included, using keywords
-        from the configuration.  The CCD-specific part is not included
-        in the data identifier.
-
-        This override implementation adds ``visit0`` to the output identifier.
-
-        Parameters
-        ----------
-        expRefList : `list` of `lsst.daf.persistence.ButlerDataRef`
-            List of data references for input exposures.
-        calibId : `dict`
-            Data identifier elements for the calib, provided by the user.
-
-        Returns
-        -------
-        outputId : `dict`
-            Data identifier for output.
-        """
-        outputId = CalibTask.getOutputId(self, expRefList, calibId)
-        outputId["visit0"] = expRefList[0].dataId['visit']
-        return outputId
 
     def combine(self, cache, struct, outputId):
         """Combine multiple exposures of a particular CCD and write the output
@@ -121,18 +61,9 @@ class ConstructFiberFlatTask(CalibTask):
         outputId : `dict`
             Data identifier for combined image (exposure part only).
         """
-        # Check if we need to look up any keys that aren't in the output dataId
-        fullOutputId = {k: struct.ccdName[i] for i, k in enumerate(self.config.ccdKeys)}
-        self.addMissingKeys(fullOutputId, cache.butler)
-        fullOutputId.update(outputId)  # must be after the call to queryMetadata
-        outputId = fullOutputId
-        del fullOutputId
-
-        dataRefList = [getDataRef(cache.butler, dataId) if dataId is not None else None for
-                       dataId in struct.ccdIdList]
-
-        self.log.info("Combining %s on %s" % (outputId, NODE))
-        self.log.info('len(dataRefList) = %d' % len(dataRefList))
+        combineResults = super().combine(cache, struct, outputId)
+        dataRefList = combineResults.dataRefList
+        outputId = combineResults.outputId
 
         sumFlat = None  # Sum of flat-fields
         sumExpect = None  # Sum of what we expect
@@ -207,8 +138,8 @@ class ConstructFiberFlatTask(CalibTask):
         if di.display:
             import lsst.afw.display as afwDisplay
 
-            if di.frames_flat >= 0:
-                display = afwDisplay.getDisplay(frame=di.frames_flat)
+            if di.framesFlat >= 0:
+                display = afwDisplay.getDisplay(frame=di.framesFlat)
                 display.mtv(sumFlat, title='normalized Flat')
                 if di.zoomPan:
                     display.zoom(*di.zoomPan)
