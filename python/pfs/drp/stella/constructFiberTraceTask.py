@@ -1,3 +1,5 @@
+import numpy as np
+
 import lsst.daf.base as dafBase
 import lsst.afw.display as afwDisplay
 import lsst.afw.image as afwImage
@@ -99,6 +101,18 @@ class ConstructFiberTraceTask(SpectralCalibTask):
 
         traces = self.trace.run(exposure.maskedImage, detMap)
         self.log.info('%d fiber traces found on combined flat' % (traces.size(),))
+
+        # Set the normalisation of the FiberTraces
+        spectra = traces.extractSpectra(exposure.maskedImage, detMap, True)
+        average = self.calculateAverage(spectra)
+        for ss, tt in zip(spectra, traces):
+            bbox = tt.trace.getBBox()
+            select = slice(bbox.getMinY(), bbox.getMaxY() + 1)
+            scale = (average.spectrum[select]/ss.spectrum[select])[:, np.newaxis]
+            tt.trace.image.array /= scale
+            tt.trace.variance.array /= scale**2
+            self.log.info("Median relative transmission of fiber %d is %f",
+                          tt.fiberId, np.median(np.sum(tt.trace.image.array, axis=1)))
 
         if self.debugInfo.display and self.debugInfo.combinedFrame >= 0:
             display = afwDisplay.Display(frame=self.debugInfo.combinedFrame)
