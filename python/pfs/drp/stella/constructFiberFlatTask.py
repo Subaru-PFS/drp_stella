@@ -3,8 +3,6 @@ import numpy as np
 import lsst.afw.image as afwImage
 from lsst.pex.config import Field, ConfigurableField
 
-from pfs.drp.stella import Spectrum
-from pfs.drp.stella.fitContinuum import FitContinuumTask
 from .constructSpectralCalibs import SpectralCalibConfig, SpectralCalibTask
 from .findAndTraceAperturesTask import FindAndTraceAperturesTask
 
@@ -20,7 +18,6 @@ class ConstructFiberFlatConfig(SpectralCalibConfig):
         check=lambda x: x > 0.
     )
     trace = ConfigurableField(target=FindAndTraceAperturesTask, doc="Task to trace apertures")
-    fitContinuum = ConfigurableField(target=FitContinuumTask, doc="Fit continuum")
 
 
 class ConstructFiberFlatTask(SpectralCalibTask):
@@ -32,7 +29,6 @@ class ConstructFiberFlatTask(SpectralCalibTask):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.makeSubtask("trace")
-        self.makeSubtask("fitContinuum")
 
     @classmethod
     def applyOverrides(cls, config):
@@ -79,17 +75,7 @@ class ConstructFiberFlatTask(SpectralCalibTask):
             traces = self.trace.run(exposure.maskedImage, detMap)
             self.log.info('%d FiberTraces found for %s' % (traces.size(), expRef.dataId))
             spectra = traces.extractSpectra(exposure.maskedImage, detMap, True)
-            # Get median spectrum across rows.
-            # This is not the same as averaging over wavelength, and it matters: small features like
-            # absorption lines are a function of wavelength, so can show up on different rows. We'll
-            # work around this by fitting the continuum and using that instead of the average. That
-            # also avoids having sharp features in the average spectrum, which should mean that the
-            # flux calibration shouldn't have to include sharp features either (except for telluric lines).
-            average = Spectrum(spectra.getLength())
-            for ss in spectra:
-                ss.spectrum[:] = np.where(np.isfinite(ss.spectrum), ss.spectrum, 0.0)
-            average.spectrum[:] = np.median([ss.spectrum for ss in spectra], axis=0)
-            average.spectrum = self.fitContinuum.fitContinuum(average)
+            average = self.calculateAverage(spectra)
 
             expect = afwImage.ImageF(exposure.getBBox())
             expect.set(0.0)
