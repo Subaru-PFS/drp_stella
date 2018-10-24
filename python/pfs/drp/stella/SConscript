@@ -1,9 +1,12 @@
 # -*- python -*-
 from lsst.sconsUtils import scripts
 scripts.BasicSConscript.pybind11(
-    ['spectra',
+    ['ReferenceLine',
+     'Spectrum',
+     'SpectrumSet',
      'controls',
-     'fiberTraces',
+     'FiberTrace',
+     'FiberTraceSet',
      'detectorMap',
      'spline',
      ],

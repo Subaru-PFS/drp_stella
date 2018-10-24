@@ -3,6 +3,7 @@
 
 #include "lsst/log/Log.h"
 
+#include "pfs/drp/stella/math/Math.h"
 #include "pfs/drp/stella/math/CurveFitting.h"
 #include "pfs/drp/stella/cmpfit-1.2/MPFitting_ndarray.h"
 #include "pfs/drp/stella/math/findAndTraceApertures.h"
