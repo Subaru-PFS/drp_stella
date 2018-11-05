@@ -1,58 +1,18 @@
-import math
+import numpy as np
 
 import lsst.daf.base as dafBase
-import lsst.daf.persistence as dafPersist
-import lsst.afw.detection as afwDet
 import lsst.afw.display as afwDisplay
 import lsst.afw.image as afwImage
-from lsst.ctrl.pool.pool import NODE
-import lsst.meas.algorithms as measAlg
 from lsst.pex.config import Field, ConfigurableField
-from lsst.pipe.drivers.constructCalibs import CalibConfig, CalibTask
-from lsst.pipe.tasks.repair import RepairTask
-from lsst.pipe.drivers.utils import getDataRef
+from .constructSpectralCalibs import SpectralCalibConfig, SpectralCalibTask
 from .findAndTraceAperturesTask import FindAndTraceAperturesTask
-from .extractSpectraTask import ExtractSpectraTask
 
 
-class ConstructFiberTraceConfig(CalibConfig):
+class ConstructFiberTraceConfig(SpectralCalibConfig):
     """Configuration for FiberTrace construction"""
-    rerunISR = Field(
-        dtype=bool,
-        default=True,
-        doc="Rerun ISR even if postISRCCD is available (may be e.g. not flat fielded)"
-    )
-    crGrow = Field(
-        dtype=int,
-        default=2,
-        doc="Grow radius for CR (pixels)"
-    )
-    doRepair = Field(
-        dtype=bool,
-        default=True,
-        doc="Repair artifacts?"
-    )
-    psfFwhm = Field(
-        dtype=float,
-        default=3.0,
-        doc="Repair PSF FWHM (pixels)"
-    )
-    psfSize = Field(
-        dtype=int,
-        default=21,
-        doc="Repair PSF size (pixels)"
-    )
-    repair = ConfigurableField(
-        target=RepairTask,
-        doc="Task to repair artifacts"
-    )
     trace = ConfigurableField(
         target=FindAndTraceAperturesTask,
         doc="Task to trace apertures"
-    )
-    extractSpectra = ConfigurableField(
-        target=ExtractSpectraTask,
-        doc="Task to extract spectra using the fibre traces",
     )
     requireZeroSlitOffset = Field(
         dtype=bool,
@@ -64,62 +24,19 @@ class ConstructFiberTraceConfig(CalibConfig):
     )
 
     def setDefaults(self):
-        CalibConfig.setDefaults(self)
+        super().setDefaults()
         self.doCameraImage = False  # We don't produce 2D images
 
 
-class ConstructFiberTraceTask(CalibTask):
-    """Task to construct the normalized Flat"""
+class ConstructFiberTraceTask(SpectralCalibTask):
+    """Task to construct the fiber trace"""
     ConfigClass = ConstructFiberTraceConfig
     _DefaultName = "fiberTrace"
     calibName = "fibertrace"
 
     def __init__(self, *args, **kwargs):
-        CalibTask.__init__(self, *args, **kwargs)
-        self.makeSubtask("repair")
+        super().__init__(*args, **kwargs)
         self.makeSubtask("trace")
-        self.makeSubtask("extractSpectra")
-
-        import lsstDebug
-        self.debugInfo = lsstDebug.Info(__name__)
-
-    @classmethod
-    def applyOverrides(cls, config):
-        """Overrides to apply for FiberTrace construction"""
-        config.isr.doFringe = False
-
-    def processSingle(self, sensorRef):
-        """Process a single CCD
-
-        Besides the regular ISR, also masks cosmic-rays.
-        """
-        if not self.config.rerunISR:
-            try:
-                exposure = sensorRef.get('postISRCCD')
-                self.log.debug("Obtained postISRCCD from butler for %s" % sensorRef.dataId)
-                return exposure
-            except dafPersist.NoResults:
-                pass                    # ah well.  We'll have to run the ISR
-
-        exposure = CalibTask.processSingle(self, sensorRef)
-
-        if self.config.doRepair:
-            psf = measAlg.DoubleGaussianPsf(self.config.psfSize, self.config.psfSize,
-                                            self.config.psfFwhm/(2*math.sqrt(2*math.log(2))))
-            exposure.setPsf(psf)
-            self.repair.run(exposure, keepCRs=False)
-            if self.config.crGrow > 0:
-                mask = exposure.getMaskedImage().getMask().clone()
-                mask &= mask.getPlaneBitMask("CR")
-                fpSet = afwDet.FootprintSet(mask, afwDet.Threshold(0.5))
-                fpSet = afwDet.FootprintSet(fpSet, self.config.crGrow, True)
-                fpSet.setMask(exposure.getMaskedImage().getMask(), "CR")
-
-        if self.debugInfo.display and self.debugInfo.inputs_frame >= 0:
-            disp = afwDisplay.Display(frame=self.debugInfo.inputs_frame)
-            disp.mtv(exposure, "raw %(visit)d" % sensorRef.dataId)
-
-        return exposure
 
     def run(self, expRefList, butler, calibId):
         if self.config.requireZeroSlitOffset:
@@ -133,7 +50,7 @@ class ConstructFiberTraceTask(CalibTask):
                 if slitOffset == 0.0:
                     newExpRefList.append(expRef)
                 else:
-                    rejected.apped(expRef.dataId)
+                    rejected.append(expRef.dataId)
             if rejected:
                 self.log.warn("Rejected the following exposures with non-zero slitOffset: %s", rejected)
                 self.log.warn("To overcome this, either set 'requireZeroSlitOffset=False' or select only "
@@ -143,32 +60,7 @@ class ConstructFiberTraceTask(CalibTask):
         if not expRefList:
             raise RuntimeError("No input exposures")
 
-        return CalibTask.run(self, expRefList, butler, calibId)
-
-    def getOutputId(self, expRefList, calibId):
-        """Generate the data identifier for the output calib
-
-        The mean date and the common filter are included, using keywords
-        from the configuration.  The CCD-specific part is not included
-        in the data identifier.
-
-        This override implementation adds ``visit0`` to the output identifier.
-
-        Parameters
-        ----------
-        expRefList : `list` of `lsst.daf.persistence.ButlerDataRef`
-            List of data references for input exposures.
-        calibId : `dict`
-            Data identifier elements for the calib, provided by the user.
-
-        Returns
-        -------
-        outputId : `dict`
-            Data identifier for output.
-        """
-        outputId = CalibTask.getOutputId(self, expRefList, calibId)
-        outputId["visit0"] = expRefList[0].dataId['visit']
-        return outputId
+        return super().run(expRefList, butler, calibId)
 
     def combine(self, cache, struct, outputId):
         """!Combine multiple exposures of a particular CCD and write the output
@@ -191,41 +83,46 @@ class ConstructFiberTraceTask(CalibTask):
         outputId : `dict`
             Data identifier for combined image (exposure part only).
         """
-        # Check if we need to look up any keys that aren't in the output dataId
-        fullOutputId = {k: struct.ccdName[i] for i, k in enumerate(self.config.ccdKeys)}
-        self.addMissingKeys(fullOutputId, cache.butler)
-        fullOutputId.update(outputId)  # must be after the call to queryMetadata
-        outputId = fullOutputId
-        del fullOutputId
+        combineResults = super().combine(cache, struct, outputId)
+        dataRefList = combineResults.dataRefList
+        outputId = combineResults.outputId
 
-        dataRefList = [getDataRef(cache.butler, dataId) if dataId is not None else None for
-                       dataId in struct.ccdIdList]
-
-        self.log.info("Combining %s on %s" % (outputId, NODE))
         calib = self.combination.run(dataRefList, expScales=struct.scales.expScales,
                                      finalScale=struct.scales.ccdScale)
-        calExp = afwImage.makeExposure(calib)
+        exposure = afwImage.makeExposure(calib)
 
-        self.interpolateNans(calExp)
+        self.interpolateNans(exposure)
 
-        if self.debugInfo.display and self.debugInfo.combined_frame >= 0:
-            disp = afwDisplay.Display(frame=self.debugInfo.combined_frame)
-            disp.mtv(calExp, "Combined")
+        if self.debugInfo.display and self.debugInfo.combinedFrame >= 0:
+            display = afwDisplay.Display(frame=self.debugInfo.combinedFrame)
+            display.mtv(exposure, "Combined")
 
         detMap = dataRefList[0].get('detectormap')
 
-        traces = self.trace.run(calExp.maskedImage, detMap)
+        traces = self.trace.run(exposure.maskedImage, detMap)
         self.log.info('%d fiber traces found on combined flat' % (traces.size(),))
 
-        if self.debugInfo.display and self.debugInfo.combined_frame >= 0:
-            disp = afwDisplay.Display(frame=self.debugInfo.combined_frame)
-            traces.applyToMask(calExp.getMaskedImage().getMask())
-            disp.setMaskTransparency(50)
-            disp.mtv(calExp, "Traces")
+        # Set the normalisation of the FiberTraces
+        spectra = traces.extractSpectra(exposure.maskedImage, detMap, True)
+        average = self.calculateAverage(spectra)
+        for ss, tt in zip(spectra, traces):
+            bbox = tt.trace.getBBox()
+            select = slice(bbox.getMinY(), bbox.getMaxY() + 1)
+            scale = (average.spectrum[select]/ss.spectrum[select])[:, np.newaxis]
+            tt.trace.image.array /= scale
+            tt.trace.variance.array /= scale**2
+            self.log.info("Median relative transmission of fiber %d is %f",
+                          tt.fiberId, np.median(np.sum(tt.trace.image.array, axis=1)))
+
+        if self.debugInfo.display and self.debugInfo.combinedFrame >= 0:
+            display = afwDisplay.Display(frame=self.debugInfo.combinedFrame)
+            traces.applyToMask(exposure.getMaskedImage().getMask())
+            display.setMaskTransparency(50)
+            display.mtv(exposure, "Traces")
         #
         # And write it
         #
-        visitInfo = calExp.getInfo().getVisitInfo()
+        visitInfo = exposure.getInfo().getVisitInfo()
         if visitInfo is None:
             dateObs = dafBase.DateTime('%sT00:00:00Z' % dataRefList[0].dataId['dateObs'],
                                        dafBase.DateTime.UTC)
