@@ -25,7 +25,7 @@ class PlotArmTask(CmdLineTask):
         parser = super()._makeArgumentParser(*args, **kwargs)
         parser.add_argument("--filename", required=True,
                             help=("Format for plot filename, e.g., "
-                                  "spectra-%(visit)d-%(arm)s%(spectrograph)d.png"))
+                                  "spectra-%%(visit)d-%%(arm)s%%(spectrograph)d.png"))
         return parser
 
     def run(self, dataRef, filename):
