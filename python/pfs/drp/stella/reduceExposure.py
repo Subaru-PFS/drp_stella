@@ -46,6 +46,9 @@ class ReduceExposureConfig(pexConfig.Config):
     fitContinuum = pexConfig.ConfigurableField(target=FitContinuumTask, doc="Fit continuum for subtraction")
     fiberDy = pexConfig.Field(doc="Offset to add to all FIBER_DY values (used when bootstrapping)",
                               dtype=float, default=0)
+    doSkySwindle = pexConfig.Field(dtype=bool, default=False,
+                                   doc="Apply sky swindle? We subtract the known sky from the simulator.")
+
 
 ## \addtogroup LSST_task_documentation
 ## \{
@@ -148,6 +151,10 @@ class ReduceExposureTask(pipeBase.CmdLineTask):
         self.log.info("Processing %s" % (sensorRef.dataId))
 
         exposure = self.isr.runDataRef(sensorRef).exposure
+
+        if self.config.doSkySwindle:
+            self.subtractSky(exposure, sensorRef)
+
         if self.config.doRepair:
             self.repairExposure(exposure)
 
@@ -175,6 +182,27 @@ class ReduceExposureTask(pipeBase.CmdLineTask):
             sensorRef.put(results.spectra, "pfsArm")
 
         return results
+
+    def subtractSky(self, exposure, sensorRef):
+        """Subtract the known sky image from the simulator
+
+        This implements the "sky swindle", whereby we get the noise from the
+        sky without the burden of actually measuring and subtracting the
+        sky.
+
+        Parameters
+        ----------
+        exposure : `lsst.afw.image.Exposure`
+            Exposure from which to subtract the sky. Sky will be subtracted
+            in-place.
+        sensorRef : `lsst.daf.persistence.ButlerDataRef`
+            Data reference for sensor.
+        """
+        import astropy.io.fits
+        filename = sensorRef.getUri("raw")
+        with astropy.io.fits.open(filename) as fd:
+            sky = fd["SKY"].data
+        exposure.image.array -= sky
 
     def repairExposure(self, exposure):
         """Repair CCD defects in the exposure
