@@ -29,7 +29,7 @@ class SpectrumSet:
     """
     fileNameRegex = r"^pfsArm-(\d{6})-([brnm])(\d)\.fits.*$"
 
-    def toPfsArm(self, dataId):
+    def toPfsArm(self, dataId, pfsConfig=None):
         """Convert to a `pfs.datamodel.PfsArm`
 
         Parameters
@@ -40,7 +40,9 @@ class SpectrumSet:
             - ``visit`` (`int`): visit number
             - ``spectrograph`` (`int`): spectrograph number
             - ``arm`` (`str`: "b", "r", "m" or "n"): spectrograph arm
-            - ``pfsConfigId`` (`int`, optional): instrument configuration ID
+
+        pfsConfig : `pfs.datamodel.PfsConfig`, optional
+            Configuration of the PFS top-end.
 
         Returns
         -------
@@ -50,10 +52,8 @@ class SpectrumSet:
         visit = dataId["visit"]
         spectrograph = dataId["spectrograph"]
         arm = dataId["arm"]
-        pfsConfigId = dataId["pfsConfigId"] if "pfsConfigId" in dataId else 0
-        pfsConfig = PfsConfig(fiberId=np.array([ss.fiberId for ss in self]),
-                              ra=np.zeros(len(self)), dec=np.zeros(len(self)))
-        pfsArm = PfsArm(visit, spectrograph, arm, pfsConfigId=pfsConfigId, pfsConfig=pfsConfig)
+        pfsConfigId = 0 if pfsConfig is None else pfsConfig.pfiDesignId
+        pfsArm = PfsArm(visit, spectrograph, arm, pfsConfig=pfsConfig, pfsConfigId=pfsConfigId)
         pfsArm.flux = self.getAllFluxes()
         pfsArm.covar = self.getAllCovariances()
         pfsArm.mask = self.getAllMasks()
