@@ -105,6 +105,4 @@ class PfsConfigIO(PfsConfig):
             If ``hdu`` or ``flags`` arguments are provided.
         """
         parsed = cls._parsePath(*args, **kwargs)
-        self = cls(parsed.pfsConfigId, parsed.expId)
-        self.read(dirName=parsed.dirName)
-        return self
+        return cls.read(parsed.pfiDesignId, parsed.expId, dirName=parsed.dirName)
