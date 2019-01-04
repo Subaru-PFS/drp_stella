@@ -120,8 +120,8 @@ class SpectrumSetTestCase(BaseTestCase):
 
         spectrograph = 3
         arm = "r"
-        visit = 12345
-        dataId = dict(spectrograph=spectrograph, arm=arm, visit=visit)
+        expId = 12345
+        dataId = dict(spectrograph=spectrograph, arm=arm, expId=expId)
 
         converted = SpectrumSet.fromPfsArm(spectra.toPfsArm(dataId))
 
