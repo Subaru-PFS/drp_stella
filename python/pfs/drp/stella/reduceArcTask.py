@@ -25,6 +25,10 @@ class ReduceArcConfig(pexConfig.Config):
     minArcLineIntensity = pexConfig.Field(doc="Minimum 'NIST' intensity to use emission lines",
                                           dtype=float, default=100)
 
+    def setDefaults(self):
+        super().setDefaults()
+        self.reduceExposure.doSubtractSky2d = False
+
 
 class ReduceArcRunner(TaskRunner):
     """TaskRunner that does scatter/gather for ReduceArcTask"""
@@ -138,11 +142,12 @@ class ReduceArcTask(CmdLineTask):
         metadata = dataRef.get("raw_md")
         lamps = getLampElements(metadata)
         lines = self.readLineList(lamps, lineListFilename)
-        results = self.reduceExposure.run(dataRef, lines)
+        results = self.reduceExposure.run([dataRef])
+        self.identifyLines.run(results.spectraList[0], results.detectorMapList[0], lines)
         return Struct(
-            spectra=results.spectra,
-            detectorMap=results.detectorMap,
-            visitInfo=results.exposure.getInfo().getVisitInfo(),
+            spectra=results.spectraList[0],
+            detectorMap=results.detectorMapList[0],
+            visitInfo=results.exposureList[0].getInfo().getVisitInfo(),
             metadata=metadata,
             lamps=lamps,
         )

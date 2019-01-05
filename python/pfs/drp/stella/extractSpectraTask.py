@@ -3,14 +3,11 @@ import lsst.pipe.base as pipeBase
 import lsst.afw.display as afwDisplay
 import pfs.drp.stella as drpStella
 
-from .identifyLines import IdentifyLinesTask
-
 
 class ExtractSpectraConfig(pexConfig.Config):
     useOptimal = pexConfig.Field(dtype=bool, default=True,
                                  doc="Use optimal extraction? "
                                      "Otherwise, use a simple sum of pixels within the trace.")
-    identifyLines = pexConfig.ConfigurableField(target=IdentifyLinesTask, doc="Identify reference lines")
 
 
 class ExtractSpectraTask(pipeBase.Task):
@@ -19,11 +16,10 @@ class ExtractSpectraTask(pipeBase.Task):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.makeSubtask("identifyLines")
         import lsstDebug
         self.debugInfo = lsstDebug.Info(__name__)
 
-    def run(self, maskedImage, fiberTraceSet, detectorMap=None, lines=None):
+    def run(self, maskedImage, fiberTraceSet, detectorMap=None):
         """Extract spectra from the image
 
         We extract the spectra using the profiles in the provided
@@ -40,8 +36,6 @@ class ExtractSpectraTask(pipeBase.Task):
             Map of expected detector coordinates to fiber, wavelength.
             If provided, they will be used to normalise the spectrum
             and provide a rough wavelength calibration.
-        lines : `list` of `pfs.drp.stella.ReferenceLine`, optional
-            Reference lines.
 
         Returns
         -------
@@ -55,8 +49,6 @@ class ExtractSpectraTask(pipeBase.Task):
             display.mtv(maskedImage, "input")
 
         spectra = self.extractAllSpectra(maskedImage, fiberTraceSet, detectorMap)
-        if lines:
-            self.identifyLines.run(spectra, detectorMap, lines)
         return pipeBase.Struct(spectra=spectra)
 
     def extractAllSpectra(self, maskedImage, fiberTraceSet, detectorMap=None):
