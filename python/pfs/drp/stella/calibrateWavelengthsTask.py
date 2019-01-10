@@ -11,17 +11,6 @@ __all__ = ["CalibrateWavelengthsConfig", "CalibrateWavelengthsTask"]
 
 class CalibrateWavelengthsConfig(pexConfig.Config):
     order = pexConfig.Field(doc="Fitting function order", dtype=int, default=4)
-    searchRadius = pexConfig.Field(
-        doc="Radius in pixels relative to line list to search for emission line peak",
-        dtype=int,
-        default=5
-    )
-    fwhm = pexConfig.Field(doc="FWHM of emission lines", dtype=float, default=2.6)
-    maxDistance = pexConfig.Field(
-        doc="Reject lines with center more than maxDistance from predicted position",
-        dtype=float,
-        default=2.5
-    )
     nLinesKeptBack = pexConfig.Field(doc="Number of lines to withhold from line fitting to estimate errors",
                                      dtype=int, default=4)
     nSigmaClip = pexConfig.ListField(doc="Number of sigma to clip points in the initial wavelength fit",
