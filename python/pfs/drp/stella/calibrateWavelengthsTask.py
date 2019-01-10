@@ -1,3 +1,4 @@
+from collections import defaultdict
 import numpy as np
 import lsstDebug
 import lsst.pex.config as pexConfig
@@ -136,10 +137,12 @@ class CalibrateWavelengthsTask(pipeBase.Task):
         #
         spec.wavelength = detectorMap.getWavelength(fiberId) + wavelengthCorr(rows).astype('float32')
 
-        self.log.info("FiberId %4d, rms %.3fpix (%.3fpix for reserved points)" %
+        self.log.info("FiberId %4d, rms %.3f nm from %d (%.3f nm for %d reserved points)" %
                       (fiberId,
                        np.sqrt(np.sum(((y - yfit)**2)[used]))/(used.sum() - self.config.order)/nmPerPix,
+                       used.sum(),
                        np.sqrt(np.sum(((y - yfit)**2)[reserved]))/reserved.sum()/nmPerPix,
+                       reserved.sum(),
                        ))
         #
         # Update the DetectorMap
@@ -160,6 +163,8 @@ class CalibrateWavelengthsTask(pipeBase.Task):
                 spec.wavelength[dy:] = spec.wavelength[:-dy]
 
         detectorMap.setWavelength(fiberId, spec.wavelength)
+        diff = detectorMap.getWavelength(fiberId) - spec.wavelength
+        self.log.info("Fiber %d: wavelength correction %f +/- %f nm" % (fiberId, diff.mean(), diff.std()))
 
         return wavelengthCorr
 
@@ -190,9 +195,11 @@ class CalibrateWavelengthsTask(pipeBase.Task):
                 # x is a nominal position which we used as an index for the Chebyshev fit.
                 # This makes the plot confusing, so update it
                 #
-                x = np.array([detectorMap.findPoint(fiberId, rl.wavelength)[1] for rl in refLines])
-                y = np.array([rl.wavelength for rl in refLines])
-                yfit = wavelengthCorr(x)
+                x = np.array([rl.fitPosition for rl in refLines])  # Pixel position
+                yTrue = np.array([rl.wavelength for rl in refLines])  # True position of line
+                yLinearResid = wavelengthCorr(x)
+                yFit = np.array([detectorMap.findWavelength(fiberId, rl.fitPosition) for rl in refLines])
+                yResid = yFit - yTrue
                 status = np.array([rl.status for rl in refLines])
 
                 # things we're going to plot: logical, marker, colour, label
@@ -204,12 +211,13 @@ class CalibrateWavelengthsTask(pipeBase.Task):
                 plt.figure().subplots_adjust(hspace=0)
 
                 axes = []
-                axes.append(plt.subplot2grid((3, 1), (0, 0)))
-                axes.append(plt.subplot2grid((3, 1), (1, 0), rowspan=2, sharex=axes[-1]))
+                axes.append(plt.subplot2grid((4, 1), (0, 0)))
+                axes.append(plt.subplot2grid((4, 1), (1, 0), sharex=axes[-1]))
+                axes.append(plt.subplot2grid((4, 1), (2, 0), rowspan=2, sharex=axes[-1]))
 
                 ax = axes[0]
                 for l, marker, color, label in dataItems:
-                    ax.errorbar(x[l], yfit[l], marker=marker, ls='none', color=color)
+                    ax.errorbar(x[l], yLinearResid[l], marker=marker, ls='none', color=color)
                 ax.plot(rows, wavelengthCorr(rows))
 
                 ax.axhline(0, ls=':', color='black')
@@ -220,7 +228,13 @@ class CalibrateWavelengthsTask(pipeBase.Task):
                 ax = axes[1]
                 for l, marker, color, label in dataItems:
                     if l.sum() > 0:  # no points confuses plt.legend()
-                        ax.errorbar(x[l], y[l], marker=marker, ls='none', color=color, label=label)
+                        ax.errorbar(x[l], yResid[l], marker=marker, ls='none', color=color, label=label)
+                ax.set_ylabel("Fit residuals (nm)")
+
+                ax = axes[2]
+                for l, marker, color, label in dataItems:
+                    if l.sum() > 0:  # no points confuses plt.legend()
+                        ax.errorbar(x[l], yTrue[l], marker=marker, ls='none', color=color, label=label)
                 ax.plot(rows, spec.wavelength + wavelengthCorr(rows))
 
                 ax.legend(loc='best')
@@ -254,6 +268,26 @@ class CalibrateWavelengthsTask(pipeBase.Task):
                 plt.title("FiberId %d" % fiberId)
                 plt.show()
 
+    def measureStatistics(self, spectrumSet, detectorMap):
+        """Measure some statistics about the solution
+
+        Parameters
+        ----------
+        spectrumSet : `pfs.drp.stella.SpectrumSet`
+            Set of extracted spectra, with lines identified.
+        """
+        lines = defaultdict(list)
+        for spec in spectrumSet:
+            fiberId = spec.fiberId
+            for rl in spec.getReferenceLines():
+                if (rl.status & drpStella.ReferenceLine.Status.FIT) == 0:
+                    continue
+                wl = detectorMap.findWavelength(fiberId, rl.fitPosition)
+                lines[rl.wavelength].append(wl)
+        for actualWl in sorted(lines.keys()):
+            fitWl = np.array(lines[actualWl]) - actualWl
+            self.log.debug("Line %f: %f +/- %f from %d" % (actualWl, fitWl.mean(), fitWl.std(), len(fitWl)))
+
     def run(self, spectrumSet, detectorMap, seed=1):
         """Run the wavelength calibration
 
@@ -284,5 +318,7 @@ class CalibrateWavelengthsTask(pipeBase.Task):
             if self.debugInfo.display:
                 self.plot(spec, detectorMap, wavelengthCorr)
             solutions.append(wavelengthCorr)
+
+        self.measureStatistics(spectrumSet, detectorMap)
 
         return pipeBase.Struct(solutions=solutions)
