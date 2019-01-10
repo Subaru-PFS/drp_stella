@@ -141,7 +141,6 @@ class Spectrum:
             ax.plot(wavelength[ii], flux[ii], **fluxStyle)
             if doBackground:
                 ax.plot(wavelength[ii], background[ii], **backgroundStyle)
-            ax.set_ylim(bottom=0.0)
             if doReferenceLines:
                 plotReferenceLines(ax, self.getReferenceLines(), flux[ii], wavelength[ii], badReference)
 
