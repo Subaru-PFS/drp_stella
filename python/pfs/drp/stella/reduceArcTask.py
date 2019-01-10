@@ -1,4 +1,5 @@
 import os
+import re
 import lsstDebug
 import lsst.pex.config as pexConfig
 from lsst.utils import getPackageDir
@@ -262,7 +263,10 @@ class ReduceArcTask(CmdLineTask):
         dataRef.put(spectrumSet, "pfsArm")
 
         detectorMap.setVisitInfo(visitInfo)
-        dataRef.put(detectorMap, 'detectormap')
+        visit0 = dataRef.dataId["expId"]
+        calibId = detectorMap.metadata.get("CALIB_ID")
+        detectorMap.metadata.set("CALIB_ID", re.sub("visit0=\d+", "visit0=%d" % (visit0,), calibId))
+        dataRef.put(detectorMap, 'detectormap', visit0=visit0)
 
     def reduceDataRefs(self, dataRefList):
         """Reduce a list of data references
