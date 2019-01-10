@@ -152,6 +152,8 @@ def plotReferenceLines(referenceLines, what, ls=':', alpha=1, color=None, label=
             label = maybeSetLabel("Fit")
 
         x = getattr(rl, what)
+        if not np.isfinite(x):
+            continue
         plt.axvline(x, ls=ls, color=color, alpha=alpha, label=label)
         label = None
 
