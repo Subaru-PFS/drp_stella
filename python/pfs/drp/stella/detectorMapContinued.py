@@ -65,7 +65,7 @@ class DetectorMap:
         wavelengthKnots = splineDataArr[:, 2, :]
         wavelengthValues = splineDataArr[:, 3, :]
 
-        metadata = lsst.afw.fits.readMetadata(pathName, strip=True)
+        metadata = lsst.afw.fits.readMetadata(pathName, hdu=0, strip=True)
         visitInfo = lsst.afw.image.VisitInfo(metadata)
         lsst.afw.image.stripVisitInfoKeywords(metadata)
 
@@ -127,18 +127,15 @@ class DetectorMap:
         phu = pyfits.PrimaryHDU(header=hdr)
         hdus.append(phu)
 
-        hdu = pyfits.ImageHDU(fiberIds)
-        hdu.name = "FIBERID"
+        hdu = pyfits.ImageHDU(fiberIds, name="FIBERID")
         hdu.header["INHERIT"] = True
         hdus.append(hdu)
 
-        hdu = pyfits.ImageHDU(slitOffsets)
-        hdu.name = "SLITOFF"
+        hdu = pyfits.ImageHDU(slitOffsets, name="SLITOFF")
         hdu.header["INHERIT"] = True
         hdus.append(hdu)
 
-        hdu = pyfits.ImageHDU(splineDataArr)
-        hdu.name = "SPLINE"
+        hdu = pyfits.ImageHDU(splineDataArr, name="SPLINE")
         hdu.header["INHERIT"] = True
         hdus.append(hdu)
 
