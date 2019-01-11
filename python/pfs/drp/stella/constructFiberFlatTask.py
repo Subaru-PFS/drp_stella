@@ -75,13 +75,8 @@ class ConstructFiberFlatTask(SpectralCalibTask):
             traces = self.trace.run(exposure.maskedImage, detMap)
             self.log.info('%d FiberTraces found for %s' % (traces.size(), expRef.dataId))
             spectra = traces.extractSpectra(exposure.maskedImage, detMap, True)
-            average = self.calculateAverage(spectra)
 
-            expect = afwImage.ImageF(exposure.getBBox())
-            expect.set(0.0)
-
-            for ft in traces:
-                expect[ft.trace.getBBox()] += ft.constructImage(average)
+            expect = spectra.makeImage(exposure.getBBox(), traces)
 
             maskVal = exposure.mask.getPlaneBitMask(["BAD", "SAT", "CR"])
             bad = (expect.array <= 0.0) | (exposure.mask.array & maskVal > 0)

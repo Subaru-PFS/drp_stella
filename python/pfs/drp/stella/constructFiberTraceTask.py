@@ -6,6 +6,7 @@ import lsst.afw.image as afwImage
 from lsst.pex.config import Field, ConfigurableField
 from .constructSpectralCalibs import SpectralCalibConfig, SpectralCalibTask
 from .findAndTraceAperturesTask import FindAndTraceAperturesTask
+from pfs.drp.stella import Spectrum
 
 
 class ConstructFiberTraceConfig(SpectralCalibConfig):
@@ -111,8 +112,9 @@ class ConstructFiberTraceTask(SpectralCalibTask):
             scale = (average.spectrum[select]/ss.spectrum[select])[:, np.newaxis]
             tt.trace.image.array /= scale
             tt.trace.variance.array /= scale**2
+            norm = np.sum(tt.trace.image.array, axis=1)
             self.log.info("Median relative transmission of fiber %d is %f",
-                          tt.fiberId, np.median(np.sum(tt.trace.image.array, axis=1)))
+                          tt.fiberId, np.median(norm[np.isfinite(norm)]))
 
         if self.debugInfo.display and self.debugInfo.combinedFrame >= 0:
             display = afwDisplay.Display(frame=self.debugInfo.combinedFrame)
@@ -139,3 +141,32 @@ class ConstructFiberTraceTask(SpectralCalibTask):
 
         self.recordCalibInputs(cache.butler, traces, struct.ccdIdList, outputId)
         self.write(cache.butler, traces, outputId)
+
+    def calculateAverage(self, spectra):
+        """Calculate an average spectrum
+
+        We calculate the median spectrum across rows. This is not the same as
+        averaging over wavelength, and it matters: small features like
+        absorption lines are a function of wavelength, so can show up on
+        different rows. We'll work around this by fitting the continuum and
+        using that instead of the average. That also avoids having sharp
+        features in the average spectrum, which should mean that the flux
+        calibration shouldn't have to include sharp features either (except for
+        telluric lines).
+
+        Parameters
+        ----------
+        spectra : `pfs.drp.stella.SpectrumSet`
+            Spectra to average. Will be modified to remove non-finite values.
+
+        Returns
+        -------
+        average : `pfs.drp.stella.Spectrum`
+            Average spectrum.
+        """
+        for ss in spectra:
+            ss.spectrum[:] = np.where(np.isfinite(ss.spectrum), ss.spectrum, 0.0)
+        average = Spectrum(spectra.getLength())
+        average.spectrum[:] = np.median([ss.spectrum for ss in spectra], axis=0)
+        average.spectrum = self.fitContinuum.fitContinuum(average)
+        return average
