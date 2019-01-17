@@ -21,8 +21,9 @@ void declareSpline(py::module &mod, std::string const& suffix) {
 
     cls.def(py::init<typename Class::ConstArray const&, typename Class::ConstArray const&>(), "x"_a, "y"_a);
     cls.def("__call__", &Class::operator());
-    cls.def("getX", &Class::getX);
-    cls.def("getY", &Class::getY);
+    // Copy arrays so that they are writable, and can be used freely elsewhere
+    cls.def("getX", [](Class const& self) { return ndarray::Array<T, 1, 1>(ndarray::copy(self.getX())); });
+    cls.def("getY", [](Class const& self) { return ndarray::Array<T, 1, 1>(ndarray::copy(self.getY())); });
 }
 
 PYBIND11_PLUGIN(spline) {

@@ -193,13 +193,13 @@ T Spline<T>::operator()(T const z) const
 {
     int const m = _findIndex(z);         // index of the next LARGEST point in _x; clipped in [1, n-1]
 
-    T const h =      _x[m] - _x[m-1];
-    T const delta = (_y[m] - _y[m-1])/h;
+    double const h =      _x[m] - _x[m-1];
+    double const delta = (_y[m] - _y[m-1])/h;
     
-    T const dx = z - _x[m-1];
-    T const t = dx/h;
-    T const a = (_k[m-1] - delta)*(1 - t);
-    T const b = (_k[m]   - delta)*t;
+    double const dx = z - _x[m-1];
+    double const t = dx/h;
+    double const a = (_k[m-1] - delta)*(1 - t);
+    double const b = (_k[m]   - delta)*t;
     
     return t*_y[m] + (1 - t)*_y[m-1] + h*t*(1 - t)*(a - b);
 }

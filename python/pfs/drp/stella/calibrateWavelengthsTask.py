@@ -11,7 +11,7 @@ __all__ = ["CalibrateWavelengthsConfig", "CalibrateWavelengthsTask"]
 
 
 class CalibrateWavelengthsConfig(pexConfig.Config):
-    order = pexConfig.Field(doc="Fitting function order", dtype=int, default=4)
+    order = pexConfig.Field(doc="Fitting function order", dtype=int, default=6)
     nLinesKeptBack = pexConfig.Field(doc="Number of lines to withhold from line fitting to estimate errors",
                                      dtype=int, default=4)
     nSigmaClip = pexConfig.ListField(doc="Number of sigma to clip points in the initial wavelength fit",
@@ -162,7 +162,7 @@ class CalibrateWavelengthsTask(pipeBase.Task):
                 dy = -int(-dy)
                 spec.wavelength[dy:] = spec.wavelength[:-dy]
 
-        detectorMap.setWavelength(fiberId, spec.wavelength)
+        detectorMap.setWavelength(fiberId, rows, spec.wavelength)
         diff = detectorMap.getWavelength(fiberId) - spec.wavelength
         self.log.info("Fiber %d: wavelength correction %f +/- %f nm" % (fiberId, diff.mean(), diff.std()))
 

@@ -212,12 +212,14 @@ def makeSyntheticDetectorMap(config, numKnots=20):
     """
     bbox = lsst.geom.Box2I(lsst.geom.Point2I(0, 0), config.dims)
     fiberIds = config.fiberId
-    xCenter = np.ndarray((config.numFibers, config.height), dtype=np.float32)
-    wavelength = np.ndarray((config.numFibers, config.height), dtype=np.float32)
+    knots = np.arange(config.height, dtype=np.float32)
+    xCenter = []
+    wavelength = []
     for ii in range(config.numFibers):
-        xCenter[ii] = config.traceCenters[ii] + config.traceOffset
-        wavelength[ii] = np.linspace(400.0, 950.0, config.height, dtype=np.float32)
-    return DetectorMap(bbox, fiberIds, xCenter, wavelength, numKnots)
+        xCenter.append((config.traceCenters[ii] + config.traceOffset).astype(np.float32))
+        wavelength.append(np.linspace(400.0, 950.0, config.height, dtype=np.float32))
+    return DetectorMap(bbox, fiberIds, [knots]*config.numFibers, xCenter,
+                       [knots]*config.numFibers, wavelength)
 
 
 def makeSyntheticPfsConfig(config, pfiDesignId, expId, rng=None,

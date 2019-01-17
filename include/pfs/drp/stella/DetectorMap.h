@@ -29,26 +29,27 @@ public:
     using Array2D = ndarray::Array<float, 2, 1>;
     using Array1D = ndarray::Array<float, 1, 1>;
     using VisitInfo = lsst::afw::image::VisitInfo;
-
-    /** \brief ctor */
-    explicit DetectorMap(lsst::geom::Box2I bbox, ///< detector's bounding box
-                         FiberMap const& fiberIds, ///< 1-indexed IDs for each fibre
-                         Array2D const& xCenters,  ///< center of trace for each fibre
-                         Array2D const& wavelengths, ///< wavelengths for each fibre
-                         std::size_t nKnot, ///< number of knots to use
-                         Array2D const& slitOffsets=Array2D() ///< per-fibre offsets
-                        );
+    using Spline = math::Spline<float>;
 
     DetectorMap(lsst::geom::Box2I bbox,  // detector's bounding box
                 FiberMap const& fiberIds,  // 1-indexed IDs for each fibre
-                ndarray::Array<float const, 2, 1> const& centerKnots,
-                ndarray::Array<float const, 2, 1> const& centerValues,
-                ndarray::Array<float const, 2, 1> const& wavelengthKnots,
-                ndarray::Array<float const, 2, 1> const& wavelengthValues,
-                Array2D const& slitOffsets,  // per-fibre offsets
+                std::vector<ndarray::Array<float, 1, 1>> const& centerKnots,
+                std::vector<ndarray::Array<float, 1, 1>> const& centerValues,
+                std::vector<ndarray::Array<float, 1, 1>> const& wavelengthKnots,
+                std::vector<ndarray::Array<float, 1, 1>> const& wavelengthValues,
+                Array2D const& slitOffsets=Array2D(),  // per-fibre offsets
                 VisitInfo const& visitInfo=VisitInfo(lsst::daf::base::PropertyList()),  // Visit information
                 std::shared_ptr<lsst::daf::base::PropertySet> metadata=nullptr  // FITS header
                 );
+
+    DetectorMap(lsst::geom::Box2I bbox,  // detector's bounding box
+                FiberMap const& fiberIds, // 1-indexed IDs for each fibre
+                std::vector<ndarray::Array<float, 1, 1>> const& centerKnots,
+                std::vector<ndarray::Array<float, 1, 1>> const& centerValues,
+                std::vector<ndarray::Array<float, 1, 1>> const& wavelengthKnots,
+                std::vector<ndarray::Array<float, 1, 1>> const& wavelengthValues,
+                int foo
+    ) : DetectorMap(bbox, fiberIds, centerKnots, centerValues, wavelengthKnots, wavelengthValues) {}
 
     virtual ~DetectorMap() {}
     DetectorMap(DetectorMap const&) = default;
@@ -58,8 +59,6 @@ public:
 
     /** \brief return the bbox */
     lsst::geom::Box2I getBBox() const { return _bbox; }
-
-    int getNKnot() const { return _nKnot; }
 
     /** \brief return the fiberIds */
     FiberMap & getFiberIds() { return _fiberIds; }
@@ -117,12 +116,16 @@ public:
      */
     Array1D getWavelength(std::size_t fiberId ///< fiberId
                                              ) const;
-    Array2D getWavelength() const;
+    std::vector<Array1D> getWavelength() const;
 
     /**
      * Set the wavelength values for a fibre
      */
+    void setWavelength(std::size_t fiberId,  ///< Fiber identifier
+                       Array1D const& wavelength  //< wavelength for each row
+                       );
     void setWavelength(std::size_t fiberId,                       ///< 1-indexed fiberID 
+                       Array1D const& knots,  ///< knots for wavelength
                        Array1D const& wavelength ///< wavelengths for fibre
                       );
 
@@ -132,7 +135,7 @@ public:
      */
     Array1D getXCenter(std::size_t fiberId ///< fiberId
                                           ) const;
-    Array2D getXCenter() const;
+    std::vector<Array1D> getXCenter() const;
 protected:
     float getXCenter(std::size_t fiberId, ///< fiberId
                      float y              ///< desired y value
@@ -144,7 +147,11 @@ public:
     /**
      * Set the xCenter values for a fibre
      */
+    void setXCenter(std::size_t fiberId,  ///< fiber identifier
+                    Array1D const& xCenter  ///< center for each row
+                    );
     void setXCenter(std::size_t fiberId,                       ///< 1-indexed fiberID 
+                    Array1D const& knots,  ///< knots for center
                     Array1D const& xCenter ///< center of trace for fibre
                    );
 
@@ -194,7 +201,6 @@ private:                                // initialise before _yTo{XCenter,Wavele
     std::vector<std::shared_ptr<math::Spline<float>>> _yToWavelength; // convert a y pixel value to wavelength
 
     void _set_xToFiberId();
-    std::size_t _nKnot;                         // number of knots for splines
     //
     // An array that gives the fiberId half way up the chip
     //
@@ -206,16 +212,6 @@ private:                                // initialise before _yTo{XCenter,Wavele
 
     lsst::afw::image::VisitInfo _visitInfo;
     std::shared_ptr<lsst::daf::base::PropertySet> _metadata;  // FITS header
-
-    /*
-     * Private helper functions
-     */
-    void _setSplines(std::size_t fIndex,
-                     Array1D const& xc, bool setXCenters,
-                     Array1D const& wl, bool setWavelengths);
-
-    void _setSplines(Array2D const&,
-                     Array2D const&);
 };
 
 }}}

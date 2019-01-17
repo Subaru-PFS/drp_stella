@@ -166,8 +166,8 @@ class TasksTestCase(lsst.utils.tests.TestCase):
         task = CalibrateWavelengthsTask(config=config)
         solutions = task.run(spectra, self.detMap, seed=12345).solutions
         for tt, ss, sol in zip(traces, spectra, solutions):
-            self.assertFloatsAlmostEqual(sol(np.arange(len(ss))), np.zeros(len(ss)), atol=3.0e-5)
-            self.assertFloatsAlmostEqual(ss.wavelength, self.detMap.getWavelength(tt.fiberId), atol=1.0e-4)
+            self.assertFloatsAlmostEqual(sol(np.arange(len(ss))), 0, atol=4.5e-5)
+            self.assertFloatsEqual(ss.wavelength, self.detMap.getWavelength(tt.fiberId))
 
     def testReduceExposure(self):
         """Test ReduceExposureTask"""

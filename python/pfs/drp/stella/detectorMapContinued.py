@@ -57,13 +57,20 @@ class DetectorMap:
             hdu = fd["SLITOFF"]
             slitOffsets = hdu.data.astype(np.float32)
 
-            hdu = fd["SPLINE"]
-            splineDataArr = hdu.data.astype(np.float32)
+            centerData = fd["CENTER"].data
+            wavelengthData = fd["WAVELENGTH"].data
 
-        centerKnots = splineDataArr[:, 0, :]
-        centerValues = splineDataArr[:, 1, :]
-        wavelengthKnots = splineDataArr[:, 2, :]
-        wavelengthValues = splineDataArr[:, 3, :]
+        # array.astype() required to force byte swapping (dtype('>f4') --> np.float32)
+        # otherwise pybind doesn't recognise them as the proper type.
+        numFibers = len(fiberIds)
+        centerKnots = [centerData["knot"][centerData["index"] == ii].astype(np.float32) for
+                       ii in range(numFibers)]
+        centerValues = [centerData["value"][centerData["index"] == ii].astype(np.float32) for
+                        ii in range(numFibers)]
+        wavelengthKnots = [wavelengthData["knot"][wavelengthData["index"] == ii].astype(np.float32)
+                           for ii in range(numFibers)]
+        wavelengthValues = [wavelengthData["value"][wavelengthData["index"] == ii].astype(np.float32)
+                            for ii in range(numFibers)]
 
         metadata = lsst.afw.fits.readMetadata(pathName, hdu=0, strip=True)
         visitInfo = lsst.afw.image.VisitInfo(metadata)
@@ -96,14 +103,18 @@ class DetectorMap:
         fiberIds = np.array(self.getFiberIds(), dtype=np.int32)
         slitOffsets = self.getSlitOffsets()
 
-        nKnot = self.getNKnot()
         numFibers = len(fiberIds)
-        splineDataArr = np.empty((len(fiberIds), 4, nKnot))
-        for ii in range(numFibers):
-            splineDataArr[ii][0] = self.getCenterSpline(ii).getX()
-            splineDataArr[ii][1] = self.getCenterSpline(ii).getY()
-            splineDataArr[ii][2] = self.getWavelengthSpline(ii).getX()
-            splineDataArr[ii][3] = self.getWavelengthSpline(ii).getY()
+        centerKnots = [self.getCenterSpline(ii).getX() for ii in range(numFibers)]
+        centerValues = [self.getCenterSpline(ii).getY() for ii in range(numFibers)]
+        wavelengthKnots = [self.getWavelengthSpline(ii).getX() for ii in range(numFibers)]
+        wavelengthValues = [self.getWavelengthSpline(ii).getY() for ii in range(numFibers)]
+
+        centerIndex = np.array(sum(([ii]*len(vv) for ii, vv in enumerate(centerKnots)), []))
+        centerKnots = np.concatenate(centerKnots)
+        centerValues = np.concatenate(centerValues)
+        wavelengthIndex = np.array(sum(([ii]*len(vv) for ii, vv in enumerate(wavelengthKnots)), []))
+        wavelengthKnots = np.concatenate(wavelengthKnots)
+        wavelengthValues = np.concatenate(wavelengthValues)
 
         #
         # OK, we've unpacked the DetectorMap; time to write the contents to disk
@@ -135,7 +146,19 @@ class DetectorMap:
         hdu.header["INHERIT"] = True
         hdus.append(hdu)
 
-        hdu = pyfits.ImageHDU(splineDataArr, name="SPLINE")
+        hdu = pyfits.BinTableHDU.from_columns([
+            pyfits.Column(name="index", format="K", array=centerIndex),
+            pyfits.Column(name="knot", format="E", array=centerKnots),
+            pyfits.Column(name="value", format="E", array=centerValues),
+        ], name="CENTER")
+        hdu.header["INHERIT"] = True
+        hdus.append(hdu)
+
+        hdu = pyfits.BinTableHDU.from_columns([
+            pyfits.Column(name="index", format="K", array=wavelengthIndex),
+            pyfits.Column(name="knot", format="E", array=wavelengthKnots),
+            pyfits.Column(name="value", format="E", array=wavelengthValues),
+        ], name="WAVELENGTH")
         hdu.header["INHERIT"] = True
         hdus.append(hdu)
 

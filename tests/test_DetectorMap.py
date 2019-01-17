@@ -70,8 +70,10 @@ class DetectorMapTestCase(lsst.utils.tests.TestCase):
         self.bbox = detMap.bbox
         self.fiberIds = detMap.fiberIds
         self.numFibers = len(self.fiberIds)
-        self.xCenter = detMap.xCenter
-        self.wavelength = detMap.wavelength
+        self.centerKnots = [detMap.getCenterSpline(ii).getX() for ii in range(self.numFibers)]
+        self.xCenter = [detMap.getCenterSpline(ii).getY() for ii in range(self.numFibers)]
+        self.wavelengthKnots = [detMap.getWavelengthSpline(ii).getX() for ii in range(self.numFibers)]
+        self.wavelength = [detMap.getWavelengthSpline(ii).getY() for ii in range(self.numFibers)]
         self.rng = np.random.RandomState(54321)
         self.slitOffsets = self.rng.uniform(size=(3, self.numFibers)).astype(np.float32)
         self.calculateExpectations(detMap)
@@ -99,21 +101,16 @@ class DetectorMapTestCase(lsst.utils.tests.TestCase):
         self.xCenterTol = 1.0e-4
         self.wavelengthTol = 2.0e-4
 
-    def makeDetectorMap(self, numKnots=20):
+    def makeDetectorMap(self):
         """Construct a ``DetectorMap``
-
-        Parameters
-        ----------
-        numKnots : `int`
-            Number of knots for splines.
 
         Returns
         -------
         detMap : `pfs.drp.stella.DetectorMap`
             Detector map.
         """
-        detMap = drpStella.DetectorMap(self.bbox, self.fiberIds, self.xCenter, self.wavelength, numKnots,
-                                       self.slitOffsets)
+        detMap = drpStella.DetectorMap(self.bbox, self.fiberIds, self.centerKnots, self.xCenter,
+                                       self.wavelengthKnots, self.wavelength, self.slitOffsets)
         detMap.visitInfo = lsst.afw.image.VisitInfo(darkTime=self.darkTime)
         detMap.metadata.set("METADATA", self.metadata)
         self.assertDetectorMap(detMap)
@@ -142,8 +139,7 @@ class DetectorMapTestCase(lsst.utils.tests.TestCase):
 
         Constructor, getters, setters, properties.
         """
-        numKnots = 20
-        detMap = self.makeDetectorMap(numKnots)
+        detMap = self.makeDetectorMap()
         self.assertDetectorMap(detMap)
 
         # Check accessor functions work as well as properties
@@ -152,11 +148,6 @@ class DetectorMapTestCase(lsst.utils.tests.TestCase):
         self.assertFloatsAlmostEqual(detMap.getXCenter(), self.xCenterExpect, atol=self.xCenterTol)
         self.assertFloatsAlmostEqual(detMap.getWavelength(), self.wavelengthExpect, atol=self.wavelengthTol)
         self.assertFloatsEqual(detMap.getSlitOffsets(), self.slitOffsets)
-
-        for ii in range(self.numFibers):
-            self.assertEqual(len(detMap.getCenterSpline(ii).getX()), numKnots)
-            self.assertEqual(len(detMap.getWavelengthSpline(ii).getX()), numKnots)
-
         self.assertEqual(detMap.getNumFibers(), len(self.fiberIds))
         self.assertEqual(len(detMap), len(self.fiberIds))
 
@@ -172,11 +163,13 @@ class DetectorMapTestCase(lsst.utils.tests.TestCase):
         self.calculateExpectations(detMap)
         self.assertDetectorMap(detMap)
 
-        self.xCenter -= 2.3456
-        self.wavelength += 3.4567
+        for xCenter in self.xCenter:
+            xCenter -= 2.3456
+        for wavelength in self.wavelength:
+            wavelength += 3.4567
         for ii, fiber in enumerate(self.fiberIds):
-            detMap.setXCenter(fiber, self.xCenter[ii])
-            detMap.setWavelength(fiber, self.wavelength[ii])
+            detMap.setXCenter(fiber, self.centerKnots[ii], self.xCenter[ii])
+            detMap.setWavelength(fiber, self.wavelengthKnots[ii], self.wavelength[ii])
         self.calculateExpectations(detMap)
         self.assertDetectorMap(detMap)
 
@@ -187,19 +180,33 @@ class DetectorMapTestCase(lsst.utils.tests.TestCase):
 
         with self.assertRaises(lsst.pex.exceptions.LengthError):
             # Mismatch between bbox and center/wavelength
-            drpStella.DetectorMap(smallBox, self.fiberIds, self.xCenter, self.wavelength)
+            drpStella.DetectorMap(smallBox, self.fiberIds, self.centerKnots, self.xCenter,
+                                  self.wavelengthKnots, self.wavelength)
 
         with self.assertRaises(lsst.pex.exceptions.LengthError):
             # Mismatch between fiberIds and center/wavelength
-            drpStella.DetectorMap(self.bbox, self.fiberIds[:short], self.xCenter, self.wavelength)
+            drpStella.DetectorMap(self.bbox, self.fiberIds[:short], self.centerKnots, self.xCenter,
+                                  self.wavelengthKnots, self.wavelength)
 
         with self.assertRaises(lsst.pex.exceptions.LengthError):
             # Mismatch between the center and wavelength
-            drpStella.DetectorMap(self.bbox, self.fiberIds, self.xCenter[:short], self.wavelength)
+            drpStella.DetectorMap(self.bbox, self.fiberIds, self.centerKnots[:short], self.xCenter,
+                                  self.wavelengthKnots, self.wavelength)
 
         with self.assertRaises(lsst.pex.exceptions.LengthError):
             # Mismatch between the center and wavelength
-            drpStella.DetectorMap(self.bbox, self.fiberIds, self.xCenter, self.wavelength[:short])
+            drpStella.DetectorMap(self.bbox, self.fiberIds, self.centerKnots, self.xCenter[:short],
+                                  self.wavelengthKnots, self.wavelength)
+
+        with self.assertRaises(lsst.pex.exceptions.LengthError):
+            # Mismatch between the center and wavelength
+            drpStella.DetectorMap(self.bbox, self.fiberIds, self.centerKnots, self.xCenter,
+                                  self.wavelengthKnots[:short], self.wavelength)
+
+        with self.assertRaises(lsst.pex.exceptions.LengthError):
+            # Mismatch between the center and wavelength
+            drpStella.DetectorMap(self.bbox, self.fiberIds, self.centerKnots, self.xCenter,
+                                  self.wavelengthKnots, self.wavelength[:short])
 
         # Various mismatches in the second constructor
         detMap = self.makeDetectorMap()
@@ -290,7 +297,7 @@ class DetectorMapTestCase(lsst.utils.tests.TestCase):
 
             cols = np.arange(numFibers, dtype=int)
             rows = (yy + 0.5).astype(int)
-            distances = np.abs(xCenter[cols, rows] - xx)
+            distances = [np.abs(xCenter[cc][rows] - xx) for cc in cols]
             closestIndex = np.argmin(distances)
             first, second = np.partition(distances, 1)[0:2]  # Two smallest values
             if np.fabs(first - second) < 1.0e-2:

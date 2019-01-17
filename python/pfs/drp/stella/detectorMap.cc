@@ -21,25 +21,16 @@ void declareDetectorMap(py::module &mod)
 
     cls.def(py::init<lsst::geom::Box2I,
                      DetectorMap::FiberMap const&,
-                     DetectorMap::Array2D const&,
-                     DetectorMap::Array2D const&,
-                     std::size_t,
-                     DetectorMap::Array2D const&
-                     >(),
-            "bbox"_a, "fiberIds"_a, "xCenters"_a, "wavelengths"_a, "nKnot"_a=25,
-            "slitOffsets"_a=py::none());
-    cls.def(py::init<lsst::geom::Box2I,
-                     DetectorMap::FiberMap const&,
-                     ndarray::Array<float const, 2, 1> const&,
-                     ndarray::Array<float const, 2, 1> const&,
-                     ndarray::Array<float const, 2, 1> const&,
-                     ndarray::Array<float const, 2, 1> const&,
+                     std::vector<ndarray::Array<float, 1, 1>> const&,
+                     std::vector<ndarray::Array<float, 1, 1>> const&,
+                     std::vector<ndarray::Array<float, 1, 1>> const&,
+                     std::vector<ndarray::Array<float, 1, 1>> const&,
                      Class::Array2D const&,
                      lsst::afw::image::VisitInfo const&,
                      std::shared_ptr<lsst::daf::base::PropertySet>
                      >(),
             "bbox"_a, "fiberIds"_a, "centerKnots"_a, "centerValues"_a, "wavelengthKnots"_a,
-            "wavelengthValues"_a, "slitOffsets"_a,
+            "wavelengthValues"_a, "slitOffsets"_a=nullptr,
             "visitInfo"_a=Class::VisitInfo(lsst::daf::base::PropertySet()), "metadata"_a=nullptr);
 
     py::enum_<Class::ArrayRow>(cls, "ArrayRow")
@@ -55,9 +46,6 @@ void declareDetectorMap(py::module &mod)
     cls.def("getBBox", &Class::getBBox);
     cls.def_property_readonly("bbox", &Class::getBBox);
 
-    cls.def("getNKnot", &Class::getNKnot);
-    cls.def_property_readonly("nKnot", &Class::getNKnot);
-
     cls.def("getNumFibers", &Class::getNumFibers);
     cls.def("__len__", &Class::getNumFibers);
 
@@ -69,13 +57,21 @@ void declareDetectorMap(py::module &mod)
             [](Class const& self, std::size_t fiberId) { return self.getWavelength(fiberId); },
             "fiberId"_a);
     cls.def("getWavelength", [](Class & self) { return self.getWavelength(); });
-    cls.def("setWavelength", &Class::setWavelength, "fiberId"_a, "wavelength"_a);
+    cls.def("setWavelength", py::overload_cast<std::size_t, Class::Array1D const&>(&Class::setWavelength),
+            "fiberId"_a, "wavelength"_a);
+    cls.def("setWavelength", py::overload_cast<std::size_t, Class::Array1D const&,
+                                               Class::Array1D const&>(&Class::setWavelength),
+            "fiberId"_a, "knots"_a, "wavelength"_a);
     cls.def_property_readonly("wavelength", py::overload_cast<>(&Class::getWavelength, py::const_));
 
     cls.def("getXCenter", (ndarray::Array<float, 1, 1> (Class::*)(std::size_t) const)&Class::getXCenter,
             "fiberId"_a);
     cls.def("getXCenter", [](Class & self) { return self.getXCenter(); });
-    cls.def("setXCenter", &Class::setXCenter, "fiberId"_a, "xCenters"_a);
+    cls.def("setXCenter", py::overload_cast<std::size_t, Class::Array1D const&>(&Class::setXCenter),
+            "fiberId"_a, "xCenters"_a);
+    cls.def("setXCenter", py::overload_cast<std::size_t, Class::Array1D const&,
+                                            Class::Array1D const&>(&Class::setXCenter),
+            "fiberId"_a, "knots"_a, "xCenters"_a);
     cls.def_property_readonly("xCenter", py::overload_cast<>(&Class::getXCenter, py::const_));
 
     cls.def("getSlitOffsets", [](Class & self) { return self.getSlitOffsets(); },
@@ -106,16 +102,19 @@ void declareDetectorMap(py::module &mod)
     cls.def("__getstate__",
         [](DetectorMap const& self) {
             std::size_t const numFibers = self.getFiberIds().getNumElements();
-            std::size_t const numKnots = self.getCenterSpline(0).getX().getNumElements();
-            Class::Array2D centerKnots = ndarray::allocate(numFibers, numKnots);
-            Class::Array2D centerValues = ndarray::allocate(numFibers, numKnots);
-            Class::Array2D wavelengthKnots = ndarray::allocate(numFibers, numKnots);
-            Class::Array2D wavelengthValues = ndarray::allocate(numFibers, numKnots);
+            std::vector<Class::Array1D> centerKnots;
+            std::vector<Class::Array1D> centerValues;
+            std::vector<Class::Array1D> wavelengthKnots;
+            std::vector<Class::Array1D> wavelengthValues;
+            centerKnots.reserve(numFibers);
+            centerValues.reserve(numFibers);
+            wavelengthKnots.reserve(numFibers);
+            wavelengthValues.reserve(numFibers);
             for (std::size_t ii = 0; ii < numFibers; ++ii) {
-                centerKnots[ii] = self.getCenterSpline(ii).getX();
-                centerValues[ii] = self.getCenterSpline(ii).getY();
-                wavelengthKnots[ii] = self.getWavelengthSpline(ii).getX();
-                wavelengthValues[ii] = self.getWavelengthSpline(ii).getY();
+                centerKnots.emplace_back(ndarray::copy(self.getCenterSpline(ii).getX()));
+                centerValues.emplace_back(ndarray::copy(self.getCenterSpline(ii).getY()));
+                wavelengthKnots.emplace_back(ndarray::copy(self.getWavelengthSpline(ii).getX()));
+                wavelengthValues.emplace_back(ndarray::copy(self.getWavelengthSpline(ii).getY()));
             }
             return py::make_tuple(self.getBBox(), self.getFiberIds(), centerKnots, centerValues,
                                   wavelengthKnots, wavelengthValues, self.getSlitOffsets(),
@@ -124,10 +123,14 @@ void declareDetectorMap(py::module &mod)
     cls.def("__setstate__",
         [](DetectorMap & self, py::tuple const& t) {
             new (&self) DetectorMap(
-                t[0].cast<lsst::geom::Box2I>(), t[1].cast<DetectorMap::FiberMap>(),
-                t[2].cast<DetectorMap::Array2D>(), t[3].cast<DetectorMap::Array2D>(),
-                t[4].cast<DetectorMap::Array2D>(), t[5].cast<DetectorMap::Array2D>(),
-                t[6].cast<DetectorMap::Array2D>(), t[7].cast<Class::VisitInfo>(),
+                t[0].cast<lsst::geom::Box2I>(),
+                t[1].cast<DetectorMap::FiberMap>(),
+                t[2].cast<std::vector<ndarray::Array<float, 1, 1>>>(),
+                t[3].cast<std::vector<ndarray::Array<float, 1, 1>>>(),
+                t[4].cast<std::vector<ndarray::Array<float, 1, 1>>>(),
+                t[5].cast<std::vector<ndarray::Array<float, 1, 1>>>(),
+                t[6].cast<DetectorMap::Array2D>(),
+                t[7].cast<Class::VisitInfo>(),
                 t[8].cast<std::shared_ptr<lsst::daf::base::PropertySet>>()
                 );
         });

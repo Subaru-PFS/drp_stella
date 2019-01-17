@@ -9,7 +9,7 @@ from lsst.afw.geom import Box2I, Point2I, Extent2I
 from pfs.drp.stella import DetectorMap
 
 
-def makeDetectorMap(fiberList, xMax=4096, yMax=4176, nKnots=100):
+def makeDetectorMap(fiberList, xMax=4096, yMax=4176):
     numFibers = len(fiberList)
     xCenter = np.empty((numFibers, yMax), dtype=np.float32)
     wavelength = np.empty((numFibers, yMax), dtype=np.float32)
@@ -20,7 +20,7 @@ def makeDetectorMap(fiberList, xMax=4096, yMax=4176, nKnots=100):
         xCenter[ii] = np.interp(rows, data.row, data.center)
         wavelength[ii] = np.interp(rows, data.row, data.wavelength)
     bbox = Box2I(Point2I(0, 0), Extent2I(xMax, yMax))
-    detMap = DetectorMap(bbox, fiberId, xCenter, wavelength, nKnots)
+    detMap = DetectorMap(bbox, fiberId, [rows]*numFibers, xCenter, [rows]*numFibers, wavelength)
     resid = wavelength - detMap.getWavelength()
     print(resid.mean(), resid.std(), resid.max())
     return detMap
@@ -64,7 +64,7 @@ allFibers = [  2,   3,   4,   5,   6,   7,   8,   9,  10,  11,  12,  13,  14,  1
 
 
 if __name__ == "__main__":
-    detMap = makeDetectorMap(lamFibers)
+    detMap = makeDetectorMap(allFibers)
     metadata = detMap.getMetadata()
-    metadata.add("CALIB_ID", "arm=r spectrograph=1 filter=NONE calibDate=2019-01-09 ccd=1 visit0=0")
+    metadata.add("CALIB_ID", "arm=r spectrograph=1 filter=NONE calibDate=2019-01-11 ccd=1 visit0=0")
     detMap.writeFits("detectorMap.fits")
