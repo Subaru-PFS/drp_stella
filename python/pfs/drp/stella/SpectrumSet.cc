@@ -25,6 +25,7 @@ void declareSpectrumSet(py::module &mod) {
     cls.def("add", (void (Class::*)(PTR(Spectrum))) &Class::add, "spectrum"_a);
     cls.def("getLength", &Class::getLength);
 
+    cls.def("getAllFiberIds", &Class::getAllFiberIds);
     cls.def("getAllFluxes", &Class::getAllFluxes);
     cls.def("getAllWavelengths", &Class::getAllWavelengths);
     cls.def("getAllMasks", &Class::getAllMasks);

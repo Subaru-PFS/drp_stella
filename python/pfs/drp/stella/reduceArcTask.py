@@ -1,4 +1,5 @@
 import os
+import re
 import lsstDebug
 import lsst.pex.config as pexConfig
 from lsst.utils import getPackageDir
@@ -24,6 +25,10 @@ class ReduceArcConfig(pexConfig.Config):
                                                        doc="Calibrate a SpectrumSet's wavelengths")
     minArcLineIntensity = pexConfig.Field(doc="Minimum 'NIST' intensity to use emission lines",
                                           dtype=float, default=100)
+
+    def setDefaults(self):
+        super().setDefaults()
+        self.reduceExposure.doSubtractSky2d = False
 
 
 class ReduceArcRunner(TaskRunner):
@@ -138,11 +143,12 @@ class ReduceArcTask(CmdLineTask):
         metadata = dataRef.get("raw_md")
         lamps = getLampElements(metadata)
         lines = self.readLineList(lamps, lineListFilename)
-        results = self.reduceExposure.run(dataRef, lines)
+        results = self.reduceExposure.run([dataRef])
+        self.identifyLines.run(results.spectraList[0], results.detectorMapList[0], lines)
         return Struct(
-            spectra=results.spectra,
-            detectorMap=results.detectorMap,
-            visitInfo=results.exposure.getInfo().getVisitInfo(),
+            spectra=results.spectraList[0],
+            detectorMap=results.detectorMapList[0],
+            visitInfo=results.exposureList[0].getInfo().getVisitInfo(),
             metadata=metadata,
             lamps=lamps,
         )
@@ -257,7 +263,10 @@ class ReduceArcTask(CmdLineTask):
         dataRef.put(spectrumSet, "pfsArm")
 
         detectorMap.setVisitInfo(visitInfo)
-        dataRef.put(detectorMap, 'detectormap')
+        visit0 = dataRef.dataId["expId"]
+        calibId = detectorMap.metadata.get("CALIB_ID")
+        detectorMap.metadata.set("CALIB_ID", re.sub("visit0=\d+", "visit0=%d" % (visit0,), calibId))
+        dataRef.put(detectorMap, 'detectormap', visit0=visit0)
 
     def reduceDataRefs(self, dataRefList):
         """Reduce a list of data references

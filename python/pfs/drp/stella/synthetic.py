@@ -1,9 +1,11 @@
 import math
 import numpy as np
 
+import lsst.afw.geom
 import lsst.afw.image
 from lsst.pex.config import Config, Field
 from lsst.pipe.base import Struct
+from pfs.datamodel import PfsConfig, TargetType
 from pfs.drp.stella import DetectorMap
 
 __all__ = ["makeSpectrumImage",
@@ -11,6 +13,7 @@ __all__ = ["makeSpectrumImage",
            "makeSyntheticFlat",
            "makeSyntheticArc",
            "makeSyntheticDetectorMap",
+           "makeSyntheticPfsConfig",
            ]
 
 
@@ -109,6 +112,11 @@ class SyntheticConfig(Config):
         return len(self.traceCenters)
 
     @property
+    def fiberId(self):
+        """Array of fiber identifiers"""
+        return np.arange(self.numFibers, dtype=np.int32)*10
+
+    @property
     def traceOffset(self):
         """Offset of trace from center as a function of row"""
         return self.slope*(np.arange(self.height) - 0.5*self.height)
@@ -203,10 +211,91 @@ def makeSyntheticDetectorMap(config, numKnots=20):
         Detector map.
     """
     bbox = lsst.geom.Box2I(lsst.geom.Point2I(0, 0), config.dims)
-    fiberIds = np.arange(config.numFibers, dtype=np.int32)*10
-    xCenter = np.ndarray((config.numFibers, config.height), dtype=np.float32)
-    wavelength = np.ndarray((config.numFibers, config.height), dtype=np.float32)
+    fiberIds = config.fiberId
+    knots = np.arange(config.height, dtype=np.float32)
+    xCenter = []
+    wavelength = []
     for ii in range(config.numFibers):
-        xCenter[ii] = config.traceCenters[ii] + config.traceOffset
-        wavelength[ii] = np.linspace(400.0, 950.0, config.height, dtype=np.float32)
-    return DetectorMap(bbox, fiberIds, xCenter, wavelength, numKnots)
+        xCenter.append((config.traceCenters[ii] + config.traceOffset).astype(np.float32))
+        wavelength.append(np.linspace(400.0, 950.0, config.height, dtype=np.float32))
+    return DetectorMap(bbox, fiberIds, [knots]*config.numFibers, xCenter,
+                       [knots]*config.numFibers, wavelength)
+
+
+def makeSyntheticPfsConfig(config, pfiDesignId, expId, rng=None,
+                           raBoresight=60.0*lsst.afw.geom.degrees,
+                           decBoresight=30.0*lsst.afw.geom.degrees,
+                           fracSky=0.1, fracFluxStd=0.1):
+    """Make a PfsConfig with a specific configuration
+
+    Parameters
+    ----------
+    config : `pfs.drp.stella.synthetic.SyntheticConfig`
+        Configuration for synthetic spectrograph.
+    pfiDesignId : `int`
+        Identifier for top-end design.
+    expId : `int`
+        Exposure identifier.
+    rng : `numpy.random.RandomState`, optional
+        Random number generator.
+    raBoresight : `lsst.afw.geom.Angle`, optional
+        Right Ascension of boresight.
+    decBoresight : `lsst.afw.geom.Angle`, optional
+        Declination of boresight.
+    fracSky : `float`, optional
+        Fraction of fibers to claim are sky.
+    fracFluxStd : `float`, optional
+        Fraction of fibers to claim are flux standards.
+
+    Returns
+    -------
+    pfsConfig : `pfs.datamodel.PfsConfig`
+        Top-end configuration.
+    """
+    if rng is None:
+        rng = np.random
+
+    fiberId = config.fiberId
+    numFibers = config.numFibers
+
+    fov = 1.5*lsst.afw.geom.degrees
+    pfiScale = 800000.0/fov.asDegrees()  # microns/degree
+    pfiErrors = 10  # microns
+
+    rng = np.random.RandomState(12345)
+    tract = rng.uniform(high=30000, size=numFibers).astype(int)
+    patch = ["%d,%d" % tuple(xy.tolist()) for
+             xy in rng.uniform(high=15, size=(numFibers, 2)).astype(int)]
+
+    boresight = lsst.afw.geom.SpherePoint(raBoresight, decBoresight)
+    radius = np.sqrt(rng.uniform(size=numFibers))*0.5*fov.asDegrees()  # degrees
+    theta = rng.uniform(size=numFibers)*2*np.pi  # radians
+    coords = [boresight.offset(tt*lsst.afw.geom.radians, rr*lsst.afw.geom.degrees) for
+              rr, tt in zip(radius, theta)]
+    ra = np.array([cc.getRa().asDegrees() for cc in coords])
+    dec = np.array([cc.getDec().asDegrees() for cc in coords])
+    pfiNominal = (pfiScale*np.array([(rr*np.cos(tt), rr*np.sin(tt)) for
+                                     rr, tt in zip(radius, theta)])).astype(np.float32)
+    pfiCenter = (pfiNominal + rng.normal(scale=pfiErrors, size=(numFibers, 2))).astype(np.float32)
+
+    catId = rng.uniform(high=23, size=numFibers).astype(int)
+    objId = rng.uniform(high=2**63, size=numFibers).astype(int)
+
+    numSky = int(fracSky*numFibers + 0.5)
+    numFluxStd = int(fracFluxStd*numFibers + 0.5)
+    numObject = numFibers - numSky - numFluxStd
+
+    targetType = np.array([int(TargetType.SKY)]*numSky +
+                            [int(TargetType.FLUXSTD)]*numFluxStd +
+                            [int(TargetType.SCIENCE)]*numObject)
+    rng.shuffle(targetType)
+
+    fiberMag = [np.array([22.0, 23.5, 25.0, 26.0] if
+                         tt in (TargetType.SCIENCE, TargetType.FLUXSTD) else [])
+                for tt in targetType]
+    filterNames = [["g", "i", "y", "H"] if tt in (TargetType.SCIENCE, TargetType.FLUXSTD) else []
+                   for tt in targetType]
+
+    return PfsConfig(pfiDesignId, expId, raBoresight.asDegrees(), decBoresight.asDegrees(),
+                     fiberId, tract, patch, ra, dec, catId, objId, targetType,
+                     fiberMag, filterNames, pfiCenter, pfiNominal)

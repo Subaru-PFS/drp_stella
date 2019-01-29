@@ -16,7 +16,7 @@ class PfsConfigIO(PfsConfig):
     PfsConfig's I/O methods to re-determine the path. This dance is unfortunate
     but necessary.
     """
-    fileNameRegex = r"^pfsConfig-(0x[0-9a-f]+)\.fits.*"
+    fileNameRegex = r"^pfsConfig-(0x[0-9a-f]+)-([0-9]+)\.fits.*"
 
     @classmethod
     def _parsePath(cls, path, hdu=None, flags=None):
@@ -49,8 +49,9 @@ class PfsConfigIO(PfsConfig):
         matches = re.search(cls.fileNameRegex, fileName)
         if not matches:
             raise RuntimeError("Unable to parse filename: %s" % (fileName,))
-        pfsConfigId = int(matches.group(1), 16)
-        return Struct(dirName=dirName, fileName=fileName, pfsConfigId=pfsConfigId)
+        pfiDesignId = int(matches.group(1), 16)
+        expId = int(matches.group(2))
+        return Struct(dirName=dirName, fileName=fileName, pfiDesignId=pfiDesignId, expId=expId)
 
     def writeFits(self, *args, **kwargs):
         """Write as FITS
@@ -104,6 +105,4 @@ class PfsConfigIO(PfsConfig):
             If ``hdu`` or ``flags`` arguments are provided.
         """
         parsed = cls._parsePath(*args, **kwargs)
-        self = cls(parsed.pfsConfigId)
-        self.read(dirName=parsed.dirName)
-        return self
+        return cls.read(parsed.pfiDesignId, parsed.expId, dirName=parsed.dirName)

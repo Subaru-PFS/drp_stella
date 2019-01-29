@@ -393,7 +393,7 @@ void calcProfile(
     for (std::size_t iSwath = 0; iSwath < nSwaths - 1; ++iSwath) {
         for (std::size_t iRow = 0; iRow < nPixArr[iSwath]; ++iRow) {
             rowSum = ndarray::sum(slitFuncsSwaths[ndarray::view(iRow)()(iSwath)]);
-            if (std::fabs(rowSum) > 0.00000000000000001) {
+            if (std::fabs(rowSum) > 0.00000000000000001 && std::isfinite(rowSum)) {
                 for (std::size_t iPix = 0; iPix < slitFuncsSwaths.getShape()[1]; iPix++) {
                     slitFuncsSwaths[iRow][iPix][iSwath] = slitFuncsSwaths[iRow][iPix][iSwath]/rowSum;
                 }
@@ -403,16 +403,20 @@ void calcProfile(
                   rowSum = ndarray::sum(slitFuncsSwaths[ndarray::view(iRow)()(iSwath)]);
                   LOGLS_TRACE(_log, "_fiberId = " << fiberId << ": iRow = " << iRow << ": iSwath = "
                                     << iSwath << ": rowSum = " << rowSum);
+            } else {
+                slitFuncsSwaths[iRow][ndarray::view()][iSwath] = 0.0;
             }
         }
     }
     for (std::size_t iRow = 0; iRow < nPixArr[nSwaths - 1]; ++iRow) {
         rowSum = ndarray::sum(lastSlitFuncSwath[ndarray::view(iRow)()]);
-        if (std::fabs(rowSum) > 0.00000000000000001) {
+        if (std::fabs(rowSum) > 0.00000000000000001 && std::isfinite(rowSum)) {
             lastSlitFuncSwath[ndarray::view(iRow)()] = lastSlitFuncSwath[ndarray::view(iRow)()]/rowSum;
             LOGLS_TRACE(_log, "_fiberId = " << fiberId << ": lastSlitFuncSwath(" << iRow << ", *) = "
                               << lastSlitFuncSwath[ndarray::view(iRow)()]);
             LOGLS_TRACE(_log, "_fiberId = " << fiberId << ": iRow = " << iRow << ": rowSum = " << rowSum);
+        } else {
+            lastSlitFuncSwath[ndarray::view(iRow)()] = 0.0;
         }
     }
     LOGLS_TRACE(_log, "_fiberId = " << fiberId << ": swathBoundsY.getShape() = "
@@ -497,11 +501,13 @@ void calcProfile(
             LOGLS_TRACE(_log, "_fiberId = " << fiberId << ": iRow = " << iRow << ": bin = "
                               << bin << ": profile.getArray().getShape() = "
                               << profileArray.getShape());
-            if (std::fabs(dSumSFRow) >= 0.000001){
+            if (std::fabs(dSumSFRow) >= 0.000001 && std::isfinite(dSumSFRow)){
                 LOGLS_TRACE(_log, "_fiberId = " << fiberId << ": iRow = " << iRow << ": bin = "
                                   << bin << ": normalizing profile.getArray()[iRow = "
                                   << iRow << ", *]");
                 profileArray[ndarray::view(iRow)()] /= dSumSFRow;
+            } else {
+                profileArray[ndarray::view(iRow)()] = 0.0;
             }
             LOGLS_TRACE(_log, "_fiberId = " << fiberId << ": iRow = " << iRow << ": bin = "
                               << bin << ": profile.getArray()(" << iRow << ", *) set to "

@@ -16,6 +16,8 @@ from pfs.drp.stella.findAndTraceAperturesTask import FindAndTraceAperturesTask
 from pfs.drp.stella.extractSpectraTask import ExtractSpectraTask
 from pfs.drp.stella.calibrateWavelengthsTask import CalibrateWavelengthsTask
 from pfs.drp.stella.reduceExposure import ReduceExposureTask
+from pfs.drp.stella.identifyLines import IdentifyLinesConfig, IdentifyLinesTask
+from pfs.drp.stella import SpectrumSet
 
 display = None
 
@@ -69,6 +71,8 @@ class TasksTestCase(lsst.utils.tests.TestCase):
         self.flat = lsst.afw.image.makeMaskedImage(flat)
         self.flat.mask.array[:] = 0x0
         self.flat.variance.array[:] = self.synthConfig.readnoise**2
+        self.pfsConfig = pfs.drp.stella.synthetic.makeSyntheticPfsConfig(self.synthConfig, 123, 456,
+                                                                         rng=self.rng)
 
         self.numLines = 50
         self.lineFwhm = 4.321
@@ -102,12 +106,17 @@ class TasksTestCase(lsst.utils.tests.TestCase):
         task = FindAndTraceAperturesTask(config=config)
         return task.run(self.flat, self.detMap)
 
-    def assertSpectra(self, spectra, hasContinuum=True):
+    def assertSpectra(self, spectra, hasContinuum=True, checkReferenceLines=True):
         """Assert that the extracted arc spectra are as expected"""
         self.assertEqual(len(spectra), self.synthConfig.numFibers)
         continuum = self.flux*self.continuumFactor
         expectSpectrum = self.arcData.spectrum + continuum
         for spectrum in spectra:
+            # Add continuum back in, so the rtol can be relative to something non-zero
+            values = spectrum.spectrum if hasContinuum else spectrum.spectrum + continuum
+            self.assertFloatsAlmostEqual(values, expectSpectrum, rtol=3.0e-3)
+            if not checkReferenceLines:
+                continue
             self.assertEqual(len(spectrum.referenceLines), self.numLines)
             self.assertFloatsEqual(np.array([int(ll.status) for ll in spectrum.referenceLines]),
                                    np.ones(self.numLines, dtype=int)*int(pfs.drp.stella.ReferenceLine.FIT))
@@ -118,9 +127,6 @@ class TasksTestCase(lsst.utils.tests.TestCase):
             expectIntensity = norm*self.flux
             self.assertFloatsAlmostEqual(np.array([ll.fitIntensity for ll in spectrum.referenceLines]),
                                          np.ones(self.numLines)*expectIntensity, rtol=3.0e-3)
-            # Add continuum back in, so the rtol can be relative to something non-zero
-            values = spectrum.spectrum if hasContinuum else spectrum.spectrum + continuum
-            self.assertFloatsAlmostEqual(values, expectSpectrum, rtol=3.0e-3)
 
     def testBasic(self):
         """Test tasks
@@ -145,8 +151,14 @@ class TasksTestCase(lsst.utils.tests.TestCase):
         for spectrum in spectra:
             self.assertFloatsAlmostEqual(spectrum.spectrum, self.flux, rtol=3.0e-3)
 
-        # Extract arc and identify lines
-        spectra = task.run(self.arc, traces, self.detMap, self.lines).spectra
+        # Extract arc
+        spectra = task.run(self.arc, traces, self.detMap).spectra
+        self.assertSpectra(spectra, checkReferenceLines=False)
+
+        # Identify lines
+        config = IdentifyLinesConfig()
+        task = IdentifyLinesTask(config=config)
+        task.run(spectra, self.detMap, self.lines)
         self.assertSpectra(spectra)
 
         # Wavelength calibration
@@ -154,8 +166,8 @@ class TasksTestCase(lsst.utils.tests.TestCase):
         task = CalibrateWavelengthsTask(config=config)
         solutions = task.run(spectra, self.detMap, seed=12345).solutions
         for tt, ss, sol in zip(traces, spectra, solutions):
-            self.assertFloatsAlmostEqual(sol(np.arange(len(ss))), np.zeros(len(ss)), atol=3.0e-5)
-            self.assertFloatsAlmostEqual(ss.wavelength, self.detMap.getWavelength(tt.fiberId), atol=1.0e-4)
+            self.assertFloatsAlmostEqual(sol(np.arange(len(ss))), 0, atol=4.5e-5)
+            self.assertFloatsEqual(ss.wavelength, self.detMap.getWavelength(tt.fiberId))
 
     def testReduceExposure(self):
         """Test ReduceExposureTask"""
@@ -165,20 +177,27 @@ class TasksTestCase(lsst.utils.tests.TestCase):
         config.isr.retarget(DummyIsrTask)
         config.doRepair = False
         config.doSubtractContinuum = True
+        config.doSubtractSky2d = False
         config.doWriteCalexp = True
         task = ReduceExposureTask(config=config)
 
         raw = lsst.afw.image.makeExposure(self.arc)
-        dataRef = DummyDataRef(raw=raw, fibertrace=traces, detectormap=self.detMap)
-        results = task.run(dataRef, lines=self.lines)
-        self.assertMaskedImagesEqual(results.exposure.maskedImage, self.arc)
-        self.assertSpectra(results.original)
-        self.assertSpectra(results.spectra, False)
-        self.assertTrue(results.detectorMap is not None)
+        dataRef = DummyDataRef(raw=raw, fibertrace=traces, detectormap=self.detMap, pfsConfig=self.pfsConfig)
+        results = task.run([dataRef])
+        self.assertEqual(len(results.exposureList), 1)
+        self.assertEqual(len(results.originalList), 1)
+        self.assertEqual(len(results.spectraList), 1)
+        self.assertEqual(len(results.fiberTraceList), 1)
+        self.assertEqual(len(results.detectorMapList), 1)
+        self.assertMaskedImagesEqual(results.exposureList[0].maskedImage, self.arc)
+        self.assertSpectra(results.originalList[0], checkReferenceLines=False)
+        self.assertSpectra(results.spectraList[0], False, checkReferenceLines=False)
+        self.assertTrue(results.fiberTraceList[0] is not None)
+        self.assertTrue(results.detectorMapList[0] is not None)
 
         putted = dataRef.getPutObjects()
         self.assertMaskedImagesEqual(putted["calexp"].maskedImage, self.arc)
-        self.assertSpectra(putted["pfsArm"], False)
+        self.assertSpectra(SpectrumSet.fromPfsArm(putted["pfsArm"]), False, checkReferenceLines=False)
 
 
 class TestMemory(lsst.utils.tests.MemoryTestCase):

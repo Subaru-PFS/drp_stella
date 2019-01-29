@@ -11,7 +11,6 @@ from lsst.ctrl.pool.pool import NODE
 from lsst.pipe.drivers.constructCalibs import CalibConfig, CalibTask
 from lsst.pipe.drivers.utils import getDataRef
 from lsst.pipe.tasks.repair import RepairTask
-from pfs.drp.stella import Spectrum
 from pfs.drp.stella.fitContinuum import FitContinuumTask
 
 __all__ = ["SpectralCalibConfig", "SpectralCalibTask"]
@@ -168,32 +167,3 @@ class SpectralCalibTask(CalibTask):
 
         self.log.info("Combining %d inputs %s on %s" % (len(dataRefList), fullOutputId, NODE))
         return Struct(dataRefList=dataRefList, outputId=fullOutputId)
-
-    def calculateAverage(self, spectra):
-        """Calculate an average spectrum
-
-        We calculate the median spectrum across rows. This is not the same as
-        averaging over wavelength, and it matters: small features like
-        absorption lines are a function of wavelength, so can show up on
-        different rows. We'll work around this by fitting the continuum and
-        using that instead of the average. That also avoids having sharp
-        features in the average spectrum, which should mean that the flux
-        calibration shouldn't have to include sharp features either (except for
-        telluric lines).
-
-        Parameters
-        ----------
-        spectra : `pfs.drp.stella.SpectrumSet`
-            Spectra to average. Will be modified to remove non-finite values.
-
-        Returns
-        -------
-        average : `pfs.drp.stella.Spectrum`
-            Average spectrum.
-        """
-        for ss in spectra:
-            ss.spectrum[:] = np.where(np.isfinite(ss.spectrum), ss.spectrum, 0.0)
-        average = Spectrum(spectra.getLength())
-        average.spectrum[:] = np.median([ss.spectrum for ss in spectra], axis=0)
-        average.spectrum = self.fitContinuum.fitContinuum(average)
-        return average

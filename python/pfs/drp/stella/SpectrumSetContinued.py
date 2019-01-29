@@ -3,11 +3,11 @@ import re
 import numpy as np
 
 from lsst.utils import continueClass
-from lsst.daf.base import PropertySet
 from lsst.pipe.base import Struct
 import lsst.afw.image as afwImage
 
-from pfs.datamodel.pfsArm import PfsArm, PfsConfig
+from pfs.datamodel.drp import PfsArm
+from pfs.datamodel.masks import MaskHelper
 from .SpectrumContinued import Spectrum
 from .SpectrumSet import SpectrumSet
 
@@ -37,37 +37,26 @@ class SpectrumSet:
         dataId : `dict`
             Data identifier, which is expected to contain:
 
-            - ``visit`` (`int`): visit number
+            - ``expId`` (`int`): exposure number
             - ``spectrograph`` (`int`): spectrograph number
             - ``arm`` (`str`: "b", "r", "m" or "n"): spectrograph arm
-            - ``pfsConfigId`` (`int`, optional): instrument configuration ID
 
         Returns
         -------
-        pfsArm : `pfs.datamodel.PfsArm`
+        spectra : ``pfs.datamodel.PfsArm``
             Spectra in standard PFS datamodel form.
         """
-        visit = dataId["visit"]
-        spectrograph = dataId["spectrograph"]
-        arm = dataId["arm"]
-        pfsConfigId = dataId["pfsConfigId"] if "pfsConfigId" in dataId else 0
-        pfsConfig = PfsConfig(fiberId=np.array([ss.fiberId for ss in self]),
-                              ra=np.zeros(len(self)), dec=np.zeros(len(self)))
-        pfsArm = PfsArm(visit, spectrograph, arm, pfsConfigId=pfsConfigId, pfsConfig=pfsConfig)
-        pfsArm.flux = self.getAllFluxes()
-        pfsArm.covar = self.getAllCovariances()
-        pfsArm.mask = self.getAllMasks()
-        pfsArm.lam = self.getAllWavelengths()
-        pfsArm.lam[pfsArm.lam == 0] = np.nan
-        pfsArm.sky = self.getAllBackgrounds()
-
-        if len(self) > 0:
-            md = PropertySet()
-            self[0].mask.addMaskPlanesToMetadata(md)
-            for k in md.names():
-                pfsArm._metadata[k] = md.get(k)
-
-        return pfsArm
+        fiberIds = np.array(self.getAllFiberIds())
+        wavelength = self.getAllWavelengths()
+        wavelength[wavelength == 0] = np.nan
+        flags = MaskHelper(**self[0].mask.getMaskPlaneDict())
+        numSpectra = len(self)
+        covar = np.zeros((numSpectra, 3, self.getLength()))
+        for ii, ss in enumerate(self):
+            covar[ii] = ss.getCovariance()
+        metadata = {}
+        return PfsArm(dataId, fiberIds, wavelength, self.getAllFluxes(), self.getAllMasks(),
+                      self.getAllBackgrounds(), covar, flags, metadata)
 
     @classmethod
     def fromPfsArm(cls, pfsArm):
@@ -83,6 +72,7 @@ class SpectrumSet:
         out : `pfs.drp.stella.SpectrumSet`
             Spectra in drp_stella form.
         """
+        pfsArm.validate()
         numFibers = len(pfsArm.flux)
         if numFibers == 0:
             raise RuntimeError("Unable to construct SpectrumSet from empty PfsArm")
@@ -90,13 +80,12 @@ class SpectrumSet:
         self = cls(length)
         for ii in range(numFibers):
             spectrum = Spectrum(length)
+            spectrum.fiberId = pfsArm.fiberId[ii]
             spectrum.spectrum[:] = pfsArm.flux[ii]
             spectrum.mask.array[:] = pfsArm.mask[ii]
             spectrum.background[:] = pfsArm.sky[ii]
             spectrum.covariance[:] = pfsArm.covar[ii]
-            spectrum.wavelength[:] = pfsArm.lam[ii]
-            if pfsArm.pfsConfig is not None and pfsArm.pfsConfig.fiberId is not None:
-                spectrum.fiberId = pfsArm.pfsConfig.fiberId[ii]
+            spectrum.wavelength[:] = pfsArm.wavelength[ii]
             self.add(spectrum)
 
         return self
@@ -105,7 +94,7 @@ class SpectrumSet:
     def _parsePath(cls, path, hdu=None, flags=None):
         """Parse path from the data butler
 
-        We need to determine the ``visit``, ``spectrograph`` and ``arm`` to pass
+        We need to determine the ``expId``, ``spectrograph`` and ``arm`` to pass
         to the `pfs.datamodel.PfsArm` I/O methods.
 
         Parameters
@@ -132,11 +121,11 @@ class SpectrumSet:
         matches = re.search(cls.fileNameRegex, fileName)
         if not matches:
             raise RuntimeError("Unable to parse filename: %s" % (fileName,))
-        visit, arm, spectrograph = matches.groups()
-        visit = int(visit)
+        expId, arm, spectrograph = matches.groups()
+        expId = int(expId)
         spectrograph = int(spectrograph)
-        dataId = dict(visit=visit, spectrograph=spectrograph, arm=arm)
-        return Struct(dirName=dirName, fileName=fileName, visit=visit, arm=arm, spectrograph=spectrograph,
+        dataId = dict(expId=expId, spectrograph=spectrograph, arm=arm)
+        return Struct(dirName=dirName, fileName=fileName, expId=expId, arm=arm, spectrograph=spectrograph,
                       dataId=dataId)
 
     def writeFits(self, *args, **kwargs):
@@ -165,7 +154,7 @@ class SpectrumSet:
         """
         parsed = self._parsePath(*args, **kwargs)
         pfsArm = self.toPfsArm(parsed.dataId)
-        pfsArm.write(parsed.dirName, parsed.fileName)
+        pfsArm.write(parsed.dirName)
 
     @classmethod
     def readFits(cls, *args, **kwargs):
@@ -196,8 +185,7 @@ class SpectrumSet:
             If ``hdu`` or ``flags`` arguments are provided.
         """
         parsed = cls._parsePath(*args, **kwargs)
-        pfsArm = PfsArm(parsed.visit, parsed.spectrograph, parsed.arm)
-        pfsArm.read(dirName=parsed.dirName, setPfsConfig=False)
+        pfsArm = PfsArm.read(parsed.dataId, dirName=parsed.dirName)
         return cls.fromPfsArm(pfsArm)
 
     def makeImage(self, box, fiberTraces):

@@ -84,6 +84,11 @@ class SpectrumSet {
     void add(SpectrumPtr spectrum);
 
     /**
+     * @brief Return all fiberIds
+     */
+    ndarray::Array<std::size_t, 1, 1> getAllFiberIds() const;
+
+    /**
      * @brief Return all fluxes in an array [length x nFibers]
      */
     ImageArray getAllFluxes() const;

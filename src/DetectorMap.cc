@@ -11,51 +11,13 @@
 
 namespace pfs { namespace drp { namespace stella {
 
-/*
- * ctor
- */
-DetectorMap::DetectorMap(lsst::geom::Box2I bbox,                    // detector's bounding box
-                         ndarray::Array<int, 1, 1> const& fiberIds, // 1-indexed IDs for each fibre
-                         ndarray::Array<float, 2, 1> const& xCenters,    // center of trace for each fibre
-                         ndarray::Array<float, 2, 1> const& wavelengths, // wavelengths for each fibre
-                         std::size_t nKnot,                               // number of knots
-                         ndarray::Array<float, 2, 1> const& slitOffsets // per-fibre x, y, focus offsets
-                        ) :
-    _nFiber(fiberIds.getShape()[0]),
-    _bbox(bbox),
-    _fiberIds(ndarray::copy(fiberIds)),
-    _yToXCenter(_nFiber),
-    _yToWavelength(_nFiber),
-    _nKnot(nKnot),
-    _xToFiberId(_bbox.getWidth()),
-    _slitOffsets(ndarray::makeVector(std::size_t(3), _nFiber)),
-    _visitInfo(lsst::daf::base::PropertyList()),
-    _metadata(std::make_shared<lsst::daf::base::PropertyList>())
-{
-    /*
-     * Check inputs
-     */
-    utils::checkSize(wavelengths.getShape(), xCenters.getShape(), "DetectorMap: wavelength vs xCenters");
-    utils::checkSize(_fiberIds.getNumElements(), xCenters.getShape()[0], "DetectorMap: fiberIds vs xCenters");
-    utils::checkSize(std::size_t(_bbox.getHeight()), xCenters.getShape()[1], "DetectorMap: bbox vs xCenters");
-
-    if (!slitOffsets.isEmpty()) {
-        setSlitOffsets(slitOffsets);   // actually this is where we check slitOffsets
-    } else {
-        _slitOffsets.deep() = 0.0;      // Assume that all the fibres are aligned perfectly
-    }
-
-    _setSplines(xCenters, wavelengths);
-}
-
-
 DetectorMap::DetectorMap(
     lsst::geom::Box2I bbox,
     FiberMap const& fiberIds,
-    ndarray::Array<float const, 2, 1> const& centerKnots,
-    ndarray::Array<float const, 2, 1> const& centerValues,
-    ndarray::Array<float const, 2, 1> const& wavelengthKnots,
-    ndarray::Array<float const, 2, 1> const& wavelengthValues,
+    std::vector<ndarray::Array<float, 1, 1>> const& centerKnots,
+    std::vector<ndarray::Array<float, 1, 1>> const& centerValues,
+    std::vector<ndarray::Array<float, 1, 1>> const& wavelengthKnots,
+    std::vector<ndarray::Array<float, 1, 1>> const& wavelengthValues,
     Array2D const& slitOffsets,
     VisitInfo const& visitInfo,
     std::shared_ptr<lsst::daf::base::PropertySet> metadata
@@ -64,23 +26,40 @@ DetectorMap::DetectorMap(
     _fiberIds(ndarray::copy(fiberIds)),
     _yToXCenter(_nFiber),
     _yToWavelength(_nFiber),
-    _nKnot(centerKnots.getShape()[1]),
     _xToFiberId(_bbox.getWidth()),
-    _slitOffsets(slitOffsets),
+    _slitOffsets(ndarray::makeVector(std::size_t(3), _nFiber)),
     _visitInfo(visitInfo),
-    _metadata(metadata)
+    _metadata(metadata ? metadata : std::make_shared<lsst::daf::base::PropertyList>())
 {
-    utils::checkSize(centerKnots.getShape()[0], _nFiber, "DetectorMap: nFiber");
-    utils::checkSize(centerKnots.getShape(), centerValues.getShape(),
-                     "DetectorMap: centerKnots vs centerValues");
-    utils::checkSize(wavelengthKnots.getShape(), wavelengthValues.getShape(),
-                     "DetectorMap: wavelengthKnots vs wavelengthValues");
-    utils::checkSize(centerKnots.getShape(), wavelengthKnots.getShape(),
-                     "DetectorMap: centerKnots vs wavelengthKnots");
-    utils::checkSize(slitOffsets.getShape(), ndarray::makeVector<ndarray::Size>(3, _nFiber),
-                     "DetectorMap: slitOffsets vs fiberIds");
+    utils::checkSize(centerKnots.size(), _nFiber, "DetectorMap: centerKnots");
+    utils::checkSize(centerValues.size(), _nFiber, "DetectorMap: centerValues");
+    utils::checkSize(wavelengthKnots.size(), _nFiber, "DetectorMap: wavelengthKnots");
+    utils::checkSize(wavelengthValues.size(), _nFiber, "DetectorMap: wavelengthValues");
+    if (!slitOffsets.isEmpty()) {
+        setSlitOffsets(slitOffsets);   // actually this is where we check slitOffsets
+    } else {
+        _slitOffsets.deep() = 0.0;      // Assume that all the fibres are aligned perfectly
+    }
 
     for (std::size_t ii = 0; ii < _nFiber; ++ii) {
+        float const minCenterKnot = *std::min_element(centerKnots[ii].begin(), centerKnots[ii].end());
+        float const maxCenterKnot = *std::max_element(centerKnots[ii].begin(), centerKnots[ii].end());
+        float const minWavelengthKnot = *std::min_element(wavelengthKnots[ii].begin(),
+                                                          wavelengthKnots[ii].end());
+        float const maxWavelengthKnot = *std::max_element(wavelengthKnots[ii].begin(),
+                                                          wavelengthKnots[ii].end());
+        if (minCenterKnot < bbox.getMinY() || maxCenterKnot > bbox.getMaxY()) {
+            std::ostringstream os;
+            os << "centerKnots[" << ii << "] out of range of bbox: " <<
+                minCenterKnot << ".." << maxCenterKnot << " vs " << bbox;
+            throw LSST_EXCEPT(lsst::pex::exceptions::LengthError, os.str());
+        }
+        if (minWavelengthKnot < bbox.getMinY() || maxWavelengthKnot > bbox.getMaxY()) {
+            std::ostringstream os;
+            os << "wavelengthKnots[" << ii << "] out of range of bbox: " <<
+                minWavelengthKnot << ".." << maxWavelengthKnot << " vs " << bbox;
+            throw LSST_EXCEPT(lsst::pex::exceptions::LengthError, os.str());
+        }
         _yToXCenter[ii] = std::make_shared<math::Spline<float>>(centerKnots[ii], centerValues[ii]);
         _yToWavelength[ii] = std::make_shared<math::Spline<float>>(wavelengthKnots[ii], wavelengthValues[ii]);
     }
@@ -175,28 +154,41 @@ DetectorMap::getWavelength(std::size_t fiberId) const
     return res;
 }
 
-DetectorMap::Array2D DetectorMap::getWavelength() const {
+std::vector<DetectorMap::Array1D> DetectorMap::getWavelength() const {
     std::size_t numFibers = _fiberIds.getNumElements();
-    Array2D result{numFibers, std::size_t(_bbox.getHeight())};
+    std::vector<Array1D> result{numFibers};
     for (std::size_t ii = 0; ii < numFibers; ++ii) {
-        result[ii].deep() = getWavelength(_fiberIds[ii]);
+        result[ii] = ndarray::copy(getWavelength(_fiberIds[ii]));
     }
     return result;
 }
+
+
+void DetectorMap::setWavelength(
+    std::size_t fiberId,
+    Array1D const& wavelength
+) {
+    Array1D rows = ndarray::allocate(_bbox.getHeight());
+    int ii = _bbox.getMinY();
+    for (auto rr = rows.begin(); rr != rows.end(); ++rr, ++ii) {
+        *rr = ii;
+    }
+    setWavelength(fiberId, rows, wavelength);
+}
+
 
 /*
  * Return the wavelength values for a fibre
  */
 void
 DetectorMap::setWavelength(std::size_t fiberId,
+                           ndarray::Array<float, 1, 1> const& knots,
                            ndarray::Array<float, 1, 1> const& wavelength)
 {
     int const index = getFiberIndex(fiberId);
-    auto const xc = wavelength;         // not really updated, but I need an array
-
-    _setSplines(index, xc, false, wavelength, true);
+    _yToWavelength[index] = std::make_shared<Spline>(knots, wavelength);
 }
-            
+
 /*
  * Return the xCenter values for a fibre
  */
@@ -216,11 +208,11 @@ DetectorMap::getXCenter(std::size_t fiberId) const
     return res;
 }
 
-DetectorMap::Array2D DetectorMap::getXCenter() const {
+std::vector<DetectorMap::Array1D> DetectorMap::getXCenter() const {
     std::size_t numFibers = _fiberIds.getNumElements();
-    Array2D result{numFibers, std::size_t(_bbox.getHeight())};
+    std::vector<Array1D> result{numFibers};
     for (std::size_t ii = 0; ii < numFibers; ++ii) {
-        result[ii].deep() = getXCenter(_fiberIds[ii]);
+        result[ii] = ndarray::copy(getXCenter(_fiberIds[ii]));
     }
     return result;
 }
@@ -239,17 +231,30 @@ DetectorMap::getXCenter(std::size_t fiberId, float y) const
     return spline(y - slitOffsetY) + slitOffsetX;
 }
 
+
+void DetectorMap::setXCenter(
+    std::size_t fiberId,
+    Array1D const& xCenter
+) {
+    Array1D rows = ndarray::allocate(_bbox.getHeight());
+    int ii = _bbox.getMinY();
+    for (auto rr = rows.begin(); rr != rows.end(); ++rr, ++ii) {
+        *rr = ii;
+    }
+    setXCenter(fiberId, rows, xCenter);
+}
+
+
 /*
  * Update the xcenter values for a fibre
  */
 void
 DetectorMap::setXCenter(std::size_t fiberId,
+                        ndarray::Array<float, 1, 1> const& knots,
                         ndarray::Array<float, 1, 1> const& xCenter)
 {
     int const index = getFiberIndex(fiberId);
-    auto const wavelength = xCenter;    // not really updated, but I need an array
-
-    _setSplines(index, xCenter, true, wavelength, false);
+    _yToXCenter[index] = std::make_shared<Spline>(knots, xCenter);
 }
 
 /*
@@ -363,26 +368,6 @@ DetectorMap::findFiberId(lsst::geom::PointD pixelPos // position on detector
 
 /************************************************************************************************************/
 
-void
-DetectorMap::_setSplines(ndarray::Array<float, 2, 1> const& xCenters,     // center of trace for each fibre
-                         ndarray::Array<float, 2, 1> const& wavelengths // wavelengths for each fibre
-                        )
-{
-    // values of y used as domain for the spline
-    std::vector<float> yIndices(_nKnot);
-    // Two vectors with the values for a single fibre
-    std::vector<float> xCenter(_nKnot);
-    std::vector<float> wavelength(_nKnot);
-    /*
-     * loop over the fibers, setting the splines.  Note the index != fiberId (that's _fiberId[index])
-     */
-    for (std::size_t index = 0; index != _nFiber; ++index) {
-        _setSplines(index, xCenters[index], true, wavelengths[index], true);
-    }
-
-    _set_xToFiberId();
-}
-
 /*
  * set _xToFiberId, an array giving the fiber ID for each pixel across the centre of the chip
  */
@@ -410,57 +395,4 @@ DetectorMap::_set_xToFiberId()
     }
 }           
 
-void
-DetectorMap::_setSplines(std::size_t index,               // desired fiducial index
-                         ndarray::Array<float, 1, 1> const& xc, // center of trace for each fibre
-                         bool setXCenters,                      // set the xCenter values?
-                         ndarray::Array<float, 1, 1> const& wl, // wavelengths for each fibre
-                         bool setWavelengths                    // set the wavelength values?
-                        )
-{
-    // values of y used as domain for the spline
-    ndarray::Array<float, 1, 1> yIndices = ndarray::allocate(_nKnot);
-    // Two vectors with the values for a single fibre
-    ndarray::Array<float, 1, 1> xCenter = ndarray::allocate(_nKnot);
-    ndarray::Array<float, 1, 1> wavelength = ndarray::allocate(_nKnot);
-    /*
-     * Setting the splines
-     */
-    // look for finite values
-    std::size_t j;
-    for (j = 0; j != xc.size(); ++j) {
-        if (std::isfinite(wl[j] + xc[j])) {
-            break;
-        }
-    }
-    std::size_t const j0 = j;
-
-    for (j = xc.size() - 1; j >= 0; j--) {
-        if (std::isfinite(wl[j] + xc[j])) {
-            break;
-        }
-    }
-    std::size_t const j1 = j - 1;
-    /*
-     * OK, we know that we have finite values from j0..j1, so construct the vectors
-     */
-    float const dy = (j1 - j0 + 1.0)/(_nKnot - 1); // step in y
-    float y = j0;
-    for (std::size_t i = 0; i != _nKnot; ++i, y += dy) {
-        int const iy = std::floor(y);
-        
-        yIndices[i] = iy;
-        xCenter[i]    = xc[iy];
-        wavelength[i] = wl[iy];
-    }
-    /*
-     * We have the arrays so we can set up the splines for the fibre
-     */
-    if (setXCenters) {
-        _yToXCenter[index] = std::make_shared<math::Spline<float>>(yIndices, xCenter);
-    }
-    if (setWavelengths) {
-        _yToWavelength[index] = std::make_shared<math::Spline<float>>(yIndices, wavelength);
-    }
-}
 }}}
