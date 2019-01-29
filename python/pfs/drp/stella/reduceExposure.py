@@ -38,6 +38,9 @@ class ReduceExposureConfig(Config):
     isr = ConfigurableField(target=IsrTask, doc="Instrumental signature removal")
     doRepair = Field(dtype=bool, default=True, doc="Repair artifacts?")
     repair = ConfigurableField(target=RepairTask, doc="Task to repair artifacts")
+    doSkySwindle = Field(dtype=bool, default=False,
+                         doc="Do the Sky Swindle (subtract the exact sky)? "
+                             "This only works with Simulator files produced with the --allOutput flag")
     doMeasurePsf = Field(dtype=bool, default=False, doc="Measure PSF?")
     measurePsf = ConfigurableField(target=MeasurePsfTask, doc="Measure PSF")
     doSubtractSky2d = Field(dtype=bool, default=True, doc="Subtract sky on 2D image?")
@@ -181,6 +184,8 @@ class ReduceExposureTask(CmdLineTask):
             exposure = self.isr.runDataRef(sensorRef).exposure
             if self.config.doRepair:
                 self.repairExposure(exposure)
+            if self.config.doSkySwindle:
+                self.skySwindle(sensorRef, exposure.image)
             exposureList.append(exposure)
 
         if self.config.doMeasurePsf:
@@ -199,7 +204,6 @@ class ReduceExposureTask(CmdLineTask):
         results.fiberTraceList = fiberTraceList
         results.detectorMapList = detectorMapList
         results.pfsConfig = pfsConfig
-
 
         if self.config.doSubtractSky2d:
             results.sky2d = self.subtractSky2d.run(exposureList, pfsConfig, psfList,
@@ -272,6 +276,29 @@ class ReduceExposureTask(CmdLineTask):
         psf = modelPsfConfig.apply()
         exposure.setPsf(psf)
         self.repair.run(exposure)
+
+    def skySwindle(self, sensorRef, image):
+        """Perform the sky swindle
+
+        The 'sky swindle' is where we subtract the known sky signal from the
+        image. The resultant sky-subtracted image contains the noise from the
+        sky, but no sky and no systematic sky subtraction residuals.
+
+        This is a dirty hack, intended only to allow a direct comparison with
+        the 1D simulator, which uses the same swindle.
+
+        Parameters
+        ----------
+        sensorRef : `lsst.daf.persistence.ButlerDataRef`
+            Data reference for sensor data.
+        image : `lsst.afw.image.Image`
+            Exposure from which to subtract the sky.
+        """
+        self.log.warn("Applying sky swindle")
+        import astropy.io.fits
+        filename = sensorRef.getUri("raw")
+        with astropy.io.fits.open(filename) as fits:
+            image.array -= fits["SKY"].data
 
     def getDetectorMap(self, sensorRef):
         """Get the appropriate detectorMap
