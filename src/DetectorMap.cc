@@ -379,7 +379,7 @@ DetectorMap::_set_xToFiberId()
     float lastCenter = -1e30;            // center of the last fibre we passed scanning to the right
     std::size_t lastIndex = -1;          // index of the last fibre we passed.  Special case starting with 0
 
-    float nextCenter = getXCenter(_fiberIds[1], iy); // center of the next fiber we're looking at
+    float nextCenter = getXCenter(_fiberIds[0], iy); // center of the next fiber we're looking at
     for (std::size_t index = 0, x = 0; x != std::size_t(_bbox.getWidth()); ++x) {
         if (x - lastCenter > nextCenter - x) { // x is nearer to next_xc than last_xc
             lastCenter = nextCenter;
