@@ -48,18 +48,6 @@ DetectorMap::DetectorMap(
                                                           wavelengthKnots[ii].end());
         float const maxWavelengthKnot = *std::max_element(wavelengthKnots[ii].begin(),
                                                           wavelengthKnots[ii].end());
-        if (minCenterKnot < bbox.getMinY() || maxCenterKnot > bbox.getMaxY()) {
-            std::ostringstream os;
-            os << "centerKnots[" << ii << "] out of range of bbox: " <<
-                minCenterKnot << ".." << maxCenterKnot << " vs " << bbox;
-            throw LSST_EXCEPT(lsst::pex::exceptions::LengthError, os.str());
-        }
-        if (minWavelengthKnot < bbox.getMinY() || maxWavelengthKnot > bbox.getMaxY()) {
-            std::ostringstream os;
-            os << "wavelengthKnots[" << ii << "] out of range of bbox: " <<
-                minWavelengthKnot << ".." << maxWavelengthKnot << " vs " << bbox;
-            throw LSST_EXCEPT(lsst::pex::exceptions::LengthError, os.str());
-        }
         _yToXCenter[ii] = std::make_shared<math::Spline<float>>(centerKnots[ii], centerValues[ii]);
         _yToWavelength[ii] = std::make_shared<math::Spline<float>>(wavelengthKnots[ii], wavelengthValues[ii]);
     }
