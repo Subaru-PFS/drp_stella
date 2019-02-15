@@ -15,7 +15,7 @@ class CalibrateWavelengthsConfig(pexConfig.Config):
     nLinesKeptBack = pexConfig.Field(doc="Number of lines to withhold from line fitting to estimate errors",
                                      dtype=int, default=4)
     nSigmaClip = pexConfig.ListField(doc="Number of sigma to clip points in the initial wavelength fit",
-                                     dtype=float, default=[10, 5, 4, 3, 2.5, 2.0, 1.5])
+                                     dtype=float, default=[10, 5, 4, 3])
     pixelPosErrorFloor = pexConfig.Field(doc="Floor on pixel positional errors, "
                                          "added in quadrature to quoted errors",
                                          dtype=float, default=0.05)
