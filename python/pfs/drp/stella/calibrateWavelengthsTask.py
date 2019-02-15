@@ -221,7 +221,7 @@ class CalibrateWavelengthsTask(pipeBase.Task):
 
                 ax = axes[0]
                 for l, marker, color, label in dataItems:
-                    ax.errorbar(x[l], yLinearResid[l], marker=marker, ls='none', color=color)
+                    ax.errorbar(x[l], yLinearResid[l] + yResid[l], marker=marker, ls='none', color=color)
                 ax.plot(rows, wavelengthCorr(rows))
 
                 ax.axhline(0, ls=':', color='black')
@@ -233,13 +233,14 @@ class CalibrateWavelengthsTask(pipeBase.Task):
                 for l, marker, color, label in dataItems:
                     if l.sum() > 0:  # no points confuses plt.legend()
                         ax.errorbar(x[l], yResid[l], marker=marker, ls='none', color=color, label=label)
+                ax.axhline(0, ls=':', color='black')
                 ax.set_ylabel("Fit residuals (nm)")
 
                 ax = axes[2]
                 for l, marker, color, label in dataItems:
                     if l.sum() > 0:  # no points confuses plt.legend()
                         ax.errorbar(x[l], yTrue[l], marker=marker, ls='none', color=color, label=label)
-                ax.plot(rows, spec.wavelength + wavelengthCorr(rows))
+                ax.plot(rows, spec.wavelength)
 
                 ax.legend(loc='best')
                 ax.set_xlabel('pixel')  # applies to the whole plot
