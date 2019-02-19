@@ -42,15 +42,6 @@ public:
                 std::shared_ptr<lsst::daf::base::PropertySet> metadata=nullptr  // FITS header
                 );
 
-    DetectorMap(lsst::geom::Box2I bbox,  // detector's bounding box
-                FiberMap const& fiberIds, // 1-indexed IDs for each fibre
-                std::vector<ndarray::Array<float, 1, 1>> const& centerKnots,
-                std::vector<ndarray::Array<float, 1, 1>> const& centerValues,
-                std::vector<ndarray::Array<float, 1, 1>> const& wavelengthKnots,
-                std::vector<ndarray::Array<float, 1, 1>> const& wavelengthValues,
-                int foo
-    ) : DetectorMap(bbox, fiberIds, centerKnots, centerValues, wavelengthKnots, wavelengthValues) {}
-
     virtual ~DetectorMap() {}
     DetectorMap(DetectorMap const&) = default;
     DetectorMap(DetectorMap &&) = default;
