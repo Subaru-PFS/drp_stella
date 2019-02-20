@@ -3,10 +3,10 @@ import numpy as np
 import lsst.daf.base as dafBase
 import lsst.afw.display as afwDisplay
 import lsst.afw.image as afwImage
-from lsst.pex.config import Field, ConfigurableField
+from lsst.pex.config import Field, ConfigurableField, ConfigField
 from .constructSpectralCalibs import SpectralCalibConfig, SpectralCalibTask
 from .findAndTraceAperturesTask import FindAndTraceAperturesTask
-from pfs.drp.stella import Spectrum
+from pfs.drp.stella import Spectrum, SlitOffsetsConfig
 
 
 class ConstructFiberTraceConfig(SpectralCalibConfig):
@@ -23,6 +23,7 @@ class ConstructFiberTraceConfig(SpectralCalibConfig):
         The fiber trace should have the same slit offset as the data, which is usually zero.
         """,
     )
+    slitOffsets = ConfigField(dtype=SlitOffsetsConfig, doc="Manual slit offsets to apply to detectorMap")
 
     def setDefaults(self):
         super().setDefaults()
@@ -99,6 +100,7 @@ class ConstructFiberTraceTask(SpectralCalibTask):
             display.mtv(exposure, "Combined")
 
         detMap = dataRefList[0].get('detectormap')
+        self.config.slitOffsets.apply(detMap, self.log)
 
         traces = self.trace.run(exposure.maskedImage, detMap)
         self.log.info('%d fiber traces found on combined flat' % (traces.size(),))
