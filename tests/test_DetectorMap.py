@@ -327,6 +327,105 @@ class DetectorMapTestCase(lsst.utils.tests.TestCase):
         self.assertDetectorMap(copy)
 
 
+class DetectorMapSlitOffsetsTestCase(lsst.utils.tests.TestCase):
+    """Test that DetectorMap slit offsets work as expected
+
+    We create a dummy DetectorMap, vary the offsets and verify that the
+    xCenter and wavelength move as expected.
+    """
+    def setUp(self):
+        self.box = lsst.afw.geom.Box2I(lsst.afw.geom.Point2I(0, 0), lsst.afw.geom.Extent2I(2048, 4096))
+        self.fiberId = np.array([123, 456]).astype(np.int32)
+        self.left = np.poly1d((-0.0e-5, 1.0e-2, 0.0))  # xCenter for left trace
+        self.left0 = 750
+        self.right = np.poly1d((0.0e-5, -1.0e-2, 0.0))  # xCenter for right trace
+        self.right0 = 1250
+        self.rows = np.arange(self.box.getMinY(), self.box.getMaxY() + 1, dtype=np.float32)
+        self.middle = 0.5*(self.box.getMinY() + self.box.getMaxY())
+        self.wavelength = np.poly1d((0.0e-5, 0.1, 500.0))
+        self.slitOffsets = np.zeros((3, 2), dtype=np.float32)
+
+        if False:
+            import matplotlib.pyplot as plt
+            fig, axes = plt.subplots()
+            axes.plot(self.calculateXCenter()[0], self.rows, "r-")
+            axes.plot(self.calculateXCenter()[1], self.rows, "b-")
+            axes.set_xlabel("x")
+            axes.set_ylabel("y")
+            plt.show()
+            fig, axes = plt.subplots()
+            axes.plot(self.rows, self.wavelength(self.rows), "k-")
+            axes.set_xlabel("y")
+            axes.set_ylabel("Wavelength")
+            plt.show()
+
+        self.detMap = drpStella.DetectorMap(self.box, self.fiberId,
+                                            [self.rows, self.rows], self.calculateXCenter(),
+                                            [self.rows, self.rows], self.calculateWavelength(),
+                                            self.slitOffsets)
+
+    def calculateXCenter(self):
+        """Calculate the expected xCenter"""
+        xOffset = self.slitOffsets[drpStella.DetectorMap.DX]
+        yOffset = self.slitOffsets[drpStella.DetectorMap.DY]
+        result = [(self.left(self.rows - yOffset[0]) + self.left0 -
+                   self.left(self.middle - yOffset[0]) + xOffset[0]),
+                  (self.right(self.rows - yOffset[1]) + self.right0 -
+                   self.right(self.middle - yOffset[1]) + xOffset[1])]
+        return result
+
+    def calculateWavelength(self):
+        """Calculate the expected wavelength"""
+        offset = self.slitOffsets[drpStella.DetectorMap.DY]
+        return [self.wavelength(self.rows - offset[0]),
+                self.wavelength(self.rows - offset[1])]
+
+    def assertPositions(self, atol=0.07):
+        """Check that the xCenter and wavelength match expected values"""
+        self.assertFloatsEqual(np.array(self.detMap.slitOffsets), np.array(self.slitOffsets))
+        self.assertFloatsAlmostEqual(np.array(self.detMap.xCenter), np.array(self.calculateXCenter()),
+                                     atol=atol)
+        self.assertFloatsAlmostEqual(np.array(self.detMap.wavelength), np.array(self.calculateWavelength()),
+                                     atol=atol)
+
+    def testVanilla(self):
+        """No slit offset"""
+        for ii in range(len(self.fiberId)):
+            self.assertFloatsEqual(self.detMap.xCenter[ii],
+                                   np.array([self.detMap.getCenterSpline(ii)(yy) for yy in self.rows]))
+            self.assertFloatsEqual(self.detMap.wavelength[ii],
+                                   np.array([self.detMap.getWavelengthSpline(ii)(yy) for yy in self.rows]))
+        self.assertPositions(0.0)
+
+    def testX(self):
+        """Slit offset in x"""
+        self.slitOffsets[drpStella.DetectorMap.DX][:] = 5.0
+        self.detMap.setSlitOffsets(self.slitOffsets)
+        self.assertPositions()
+
+    def testY(self):
+        """Slit offset in y"""
+        self.slitOffsets[drpStella.DetectorMap.DY][:] = -5.0
+        self.detMap.setSlitOffsets(self.slitOffsets)
+        self.assertPositions()
+
+    def testFocus(self):
+        """Offset focus
+
+        Doesn't do anything yet.
+        """
+        self.slitOffsets[drpStella.DetectorMap.DFOCUS][:] = 12345.6789
+        self.detMap.setSlitOffsets(self.slitOffsets)
+        self.assertPositions()
+
+    def testXY(self):
+        """Slit offset in x and y"""
+        self.slitOffsets[drpStella.DetectorMap.DX][:] = 5.0
+        self.slitOffsets[drpStella.DetectorMap.DY][:] = -5.0
+        self.detMap.setSlitOffsets(self.slitOffsets)
+        self.assertPositions()
+
+
 class TestMemory(lsst.utils.tests.MemoryTestCase):
     pass
 
