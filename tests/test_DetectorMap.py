@@ -412,7 +412,7 @@ class DetectorMapSlitOffsetsTestCase(lsst.utils.tests.TestCase):
     def testFocus(self):
         """Offset focus
 
-        Doesn't do anything yet.
+        FIXME: Doesn't do anything yet.
         """
         self.slitOffsets[drpStella.DetectorMap.DFOCUS][:] = 12345.6789
         self.detMap.setSlitOffsets(self.slitOffsets)
@@ -424,6 +424,60 @@ class DetectorMapSlitOffsetsTestCase(lsst.utils.tests.TestCase):
         self.slitOffsets[drpStella.DetectorMap.DY][:] = -5.0
         self.detMap.setSlitOffsets(self.slitOffsets)
         self.assertPositions()
+
+    def testConfigX(self):
+        """Slit offset in x via SlitOffsetsConfig"""
+        config = drpStella.SlitOffsetsConfig()
+        offset = -5.0
+        config.x = [offset, offset]
+        config.validate()
+        config.apply(self.detMap)
+        self.slitOffsets[drpStella.DetectorMap.DX][:] = offset
+        self.assertPositions()
+
+    def testConfigY(self):
+        """Slit offset in y via SlitOffsetsConfig"""
+        config = drpStella.SlitOffsetsConfig()
+        offset = -5.0
+        config.y = [offset, offset]
+        config.validate()
+        config.apply(self.detMap)
+        self.slitOffsets[drpStella.DetectorMap.DY][:] = offset
+        self.assertPositions()
+
+    def testConfigFocus(self):
+        """Slit offset in focus via SlitOffsetsConfig"""
+        config = drpStella.SlitOffsetsConfig()
+        offset = -123456789.0
+        config.focus = [offset, offset]
+        config.validate()
+        config.apply(self.detMap)
+        self.slitOffsets[drpStella.DetectorMap.DFOCUS][:] = offset
+        self.assertPositions()
+
+    def testConfigErrors(self):
+        """Test that SlitOffsetsConfig detects error conditions"""
+        # Wrong number of offsets
+        for name in "x", "y", "focus":
+            config = drpStella.SlitOffsetsConfig()
+            setattr(config, name, [5.0])
+            config.validate()
+            self.assertRaises(ValueError, config.apply, self.detMap)
+
+        # Differing number of offsets
+        config = drpStella.SlitOffsetsConfig()
+        config.x = [1]
+        config.y = [2, 2]
+        self.assertRaises(ValueError, config.validate)
+        self.assertRaises(ValueError, config.apply, self.detMap)
+        config.x = config.y
+        config.focus = [3, 3, 3]
+        self.assertRaises(ValueError, config.validate)
+        self.assertRaises(ValueError, config.apply, self.detMap)
+        config.y = config.focus
+        config.x = [4, 4, 4, 4]
+        self.assertRaises(ValueError, config.validate)
+        self.assertRaises(ValueError, config.apply, self.detMap)
 
 
 class TestMemory(lsst.utils.tests.MemoryTestCase):
