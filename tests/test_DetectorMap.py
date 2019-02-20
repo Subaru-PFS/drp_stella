@@ -86,13 +86,11 @@ class DetectorMapTestCase(lsst.utils.tests.TestCase):
         Sets ``self.centerExpect`` and ``self.wavelengthExpect``.
         This accounts for the random slitOffsets.
         """
-        DX = int(drpStella.DetectorMap.DX)
-        DY = int(drpStella.DetectorMap.DY)
         self.xCenterExpect = np.zeros((self.numFibers, self.bbox.getHeight()), dtype=np.float32)
         self.wavelengthExpect = np.zeros((self.numFibers, self.bbox.getHeight()), dtype=np.float32)
         for ii in range(self.numFibers):
-            yOffset = self.slitOffsets[DY, ii]
-            xOffset = self.slitOffsets[DX, ii]
+            yOffset = self.slitOffsets[drpStella.DetectorMap.DY, ii]
+            xOffset = self.slitOffsets[drpStella.DetectorMap.DX, ii]
             xCenterSpline = makeSpline(detMap.getCenterSpline(ii).getX(), detMap.getCenterSpline(ii).getY())
             self.xCenterExpect[ii, :] = xCenterSpline(np.arange(self.bbox.getHeight()) - yOffset) + xOffset
             wlSpline = makeSpline(detMap.getWavelengthSpline(ii).getX(),
