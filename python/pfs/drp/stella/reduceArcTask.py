@@ -1,5 +1,6 @@
 import os
 import re
+from collections import defaultdict
 import lsstDebug
 import lsst.pex.config as pexConfig
 from lsst.utils import getPackageDir
@@ -46,18 +47,33 @@ class ReduceArcRunner(TaskRunner):
         if not self.precall(parsedCmd):
             exit(1)
         task = self.makeTask(parsedCmd=parsedCmd)
-        task.verify(parsedCmd.id.refList)
-        results = super().run(parsedCmd)
-        final = None
-        exitStatus = max(rr.exitStatus for rr in results if rr is not None) if len(results) > 0 else 0
-        if len(results) == 0:
-            task.log.fatal("No results.")
-        elif exitStatus > 0:
-            task.log.fatal("Failed to process at least one of the components")
-        else:
-            dataRef = task.reduceDataRefs(parsedCmd.id.refList)
-            final = task.gather(dataRef, [rr.result for rr in results], lineListFilename=parsedCmd.lineList)
-        return [Struct(result=final, exitStatus=exitStatus)]
+        scatterResults = super().run(parsedCmd)
+
+        # Group inputs by spectrograph+arm
+        groupedResults = defaultdict(list)
+        for rr, dataRef in zip(scatterResults, parsedCmd.id.refList):
+            spectrograph = dataRef.dataId["spectrograph"]
+            arm = dataRef.dataId["arm"]
+            groupedResults[(spectrograph, arm)].append(Struct(dataRef=dataRef, result=rr))
+
+        gatherResults = []
+        for results in groupedResults.values():
+            dataRefList = [rr.dataRef for rr in results]
+            task.verify(dataRefList)
+            dataRef = task.reduceDataRefs(dataRefList)
+            final = None
+            exitStatus = 0
+            if len(results) > 0:
+                exitStatus = max(rr.result.exitStatus for rr in results if rr is not None)
+            if len(results) == 0:
+                task.log.fatal("No results for %s." % (dataRef.dataId,))
+            elif exitStatus > 0:
+                task.log.fatal("Failed to process at least one of the components for %s" % (dataRef.dataId,))
+            else:
+                final = task.gather(dataRef, [rr.result.result for rr in results],
+                                    lineListFilename=parsedCmd.lineList)
+            gatherResults.append(Struct(result=final, exitStatus=exitStatus))
+        return gatherResults
 
     def __call__(self, args):
         """Run the Task on a single target.
