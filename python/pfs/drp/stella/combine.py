@@ -123,22 +123,22 @@ class CombineTask(Task):
         flux = np.zeros(length, dtype=archetype.flux.dtype)
         sky = np.zeros(length, dtype=archetype.sky.dtype)
         covar = np.zeros((3, length), dtype=archetype.covar.dtype)
-        numInputs = np.zeros(length, dtype=int)
+        sumWeights = np.zeros(length, dtype=archetype.flux.dtype)
 
         for ss in resampled:
-            good = (ss.mask[0] & ss.flags.get(*self.config.mask)) == 0
-            flux[good] += ss.flux[0, good]
-            sky[good] += ss.sky[0, good]
-            for ii in range(3):
-                covar[ii][good] += ss.covar[0, ii][good]
+            good = ((ss.mask[0] & ss.flags.get(*self.config.mask)) == 0) & (ss.covar[0][0] > 0)
+            weight = 1.0/ss.covar[0][0][good]
+            flux[good] += ss.flux[0, good]*weight
+            sky[good] += ss.sky[0, good]*weight
             mask[good] |= ss.mask[0, good]
-            numInputs[good] += 1
+            sumWeights[good] += weight
 
-        good = numInputs > 0
-        flux[good] /= numInputs[good]
-        sky[good] /= numInputs[good]
-        for ii in range(3):
-            covar[ii][good] /= numInputs[good]
+        good = sumWeights > 0
+        flux[good] /= sumWeights[good]
+        sky[good] /= sumWeights[good]
+        covar[0][good] = 1.0/sumWeights[good]
+        covar[0][~good] = np.inf
+        covar[1:2] = np.where(good, 0.0, np.inf)
         mask[~good] = flags["NO_DATA"]
 
         return Struct(flux=flux, sky=sky, covar=covar, mask=mask)
