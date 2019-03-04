@@ -106,14 +106,14 @@ class ConstructFiberTraceTask(SpectralCalibTask):
         self.log.info('%d fiber traces found on combined flat' % (traces.size(),))
 
         # Set the normalisation of the FiberTraces
+        # The normalisation is the flat: we want extracted spectra to be relative to the flat.
         spectra = traces.extractSpectra(exposure.maskedImage, detMap, True)
-        average = self.calculateAverage(spectra)
         for ss, tt in zip(spectra, traces):
             bbox = tt.trace.getBBox()
             select = slice(bbox.getMinY(), bbox.getMaxY() + 1)
-            scale = (average.spectrum[select]/ss.spectrum[select])[:, np.newaxis]
-            tt.trace.image.array /= scale
-            tt.trace.variance.array /= scale**2
+            scale = ss.spectrum[select, np.newaxis]
+            tt.trace.image.array *= scale
+            tt.trace.variance.array *= scale**2
             norm = np.sum(tt.trace.image.array, axis=1)
             self.log.info("Median relative transmission of fiber %d is %f",
                           tt.fiberId, np.median(norm[np.isfinite(norm)]))
