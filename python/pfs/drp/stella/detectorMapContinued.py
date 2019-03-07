@@ -5,10 +5,11 @@ import lsst.afw.fits
 import lsst.geom
 
 from lsst.utils import continueClass
+from lsst.pex.config import Config, ListField
 
 from .detectorMap import DetectorMap
 
-__all__ = ["DetectorMap"]
+__all__ = ["DetectorMap", "SlitOffsetsConfig"]
 
 
 @continueClass  # noqa: F811 (redefinition)
@@ -165,3 +166,69 @@ class DetectorMap:
         # clobber=True in writeto prints a message, so use open instead
         with open(pathName, "wb") as fd:
             hdus.writeto(fd)
+
+
+class SlitOffsetsConfig(Config):
+    """Configuration of slit offsets for DetectorMap"""
+    x = ListField(dtype=float, default=[], doc="Slit offsets in x for each fiber; or empty")
+    y = ListField(dtype=float, default=[], doc="Slit offsets in y for each fiber; or empty")
+    focus = ListField(dtype=float, default=[], doc="Slit offsets in focus for each fiber; or empty")
+
+    @property
+    def numOffsets(self):
+        """The number of slit offsets"""
+        if self.x:
+            return len(self.x)
+        if self.y:
+            return len(self.y)
+        if self.focus:
+            return len(self.focus)
+        return 0
+
+    def validate(self):
+        super().validate()
+        numOffsets = self.numOffsets
+        if self.x and len(self.x) != numOffsets:
+            raise ValueError("Inconsistent number of slit offsets in x: %d vs %d" %
+                             (len(self.x), numOffsets))
+        if self.y and len(self.y) != numOffsets:
+            raise ValueError("Inconsistent number of slit offsets in y: %d vs %d" %
+                             (len(self.y), numOffsets))
+        if self.focus and len(self.focus) != numOffsets:
+            raise ValueError("Inconsistent number of slit offsets in focus: %d vs %d" %
+                             (len(self.focus), numOffsets))
+
+    def apply(self, detectorMap, log=None):
+        """Apply slit offsets to detectorMap
+
+        Parameters
+        ----------
+        detectorMap : `pfs.drp.stella.DetectorMap`
+            DetectorMap to which to apply slit offsets.
+        log : `lsst.log.Log`, or ``None``
+            Optional logger for reporting the application of slit offsets.
+        """
+        numOffsets = self.numOffsets
+        if numOffsets == 0:
+            return  # Nothing to do
+        if len(detectorMap) != self.numOffsets:
+            raise ValueError("Number of offsets (%d) doesn't match number of fibers (%d)" %
+                             (numOffsets, len(detectorMap)))
+        slitOffsets = detectorMap.getSlitOffsets()
+        if log is not None:
+            which = []
+            if self.x:
+                which += ["X"]
+            if self.y:
+                which += ["Y"]
+            if self.focus:
+                which += ["FOCUS"]
+            log.info("Applying slit offsets in %s to detectorMap" %
+                     (",".join(which),))
+        if self.x:
+            slitOffsets[DetectorMap.DX][:] += np.array(self.x)
+        if self.y:
+            slitOffsets[DetectorMap.DY][:] += np.array(self.y)
+        if self.focus:
+            slitOffsets[DetectorMap.DFOCUS][:] += np.array(self.focus)
+        detectorMap.setSlitOffsets(slitOffsets)

@@ -33,11 +33,12 @@ void declareDetectorMap(py::module &mod)
             "wavelengthValues"_a, "slitOffsets"_a=nullptr,
             "visitInfo"_a=Class::VisitInfo(lsst::daf::base::PropertySet()), "metadata"_a=nullptr);
 
-    py::enum_<Class::ArrayRow>(cls, "ArrayRow")
-        .value("DX", Class::ArrayRow::DX)
-        .value("DY", Class::ArrayRow::DY)
-        .value("DFOCUS", Class::ArrayRow::DFOCUS)
-        .export_values();
+    // These enums are better represented as attributes in python, so they can
+    // be used as constants, without the need to cast to integers.
+    cls.def_property_readonly_static("DX", [](py::object const&) { return int(Class::ArrayRow::DX); });
+    cls.def_property_readonly_static("DY", [](py::object const&) { return int(Class::ArrayRow::DY); });
+    cls.def_property_readonly_static("DFOCUS",
+                                     [](py::object const&) { return int(Class::ArrayRow::DFOCUS); });
 
     cls.def("findFiberId", &Class::findFiberId, "pixelPos"_a);
     cls.def("findPoint", &Class::findPoint, "fiberId"_a, "wavelength"_a);
