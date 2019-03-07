@@ -1,18 +1,22 @@
 from collections import defaultdict
-from lsst.pex.config import Config, Field, ConfigurableField
-from lsst.pipe.base import CmdLineTask, ArgumentParser, TaskRunner
+import numpy as np
+from lsst.pex.config import Config, Field, ConfigurableField, ListField
+from lsst.pipe.base import CmdLineTask, ArgumentParser, TaskRunner, Struct
 
 from pfs.datamodel.drp import PfsMerged
-from .combine import CombineTask
+from pfs.datamodel.masks import MaskHelper
 from .subtractSky1d import SubtractSky1dTask
 
 
 class MergeArmsConfig(Config):
     """Configuration for MergeArmsTask"""
+    minWavelength = Field(dtype=float, default=350, doc="Minimum wavelength (nm)")
+    maxWavelength = Field(dtype=float, default=1260, doc="Maximum wavelength (nm)")
+    dWavelength = Field(dtype=float, default=0.1, doc="Spacing in wavelength (nm)")
     doSubtractSky1d = Field(dtype=bool, default=True, doc="Do 1D sky subtraction?")
     subtractSky1d = ConfigurableField(target=SubtractSky1dTask, doc="1d sky subtraction")
-    combine = ConfigurableField(target=CombineTask, doc="Combine spectra")
     doBarycentricCorr = Field(dtype=bool, default=True, doc="Do barycentric correction?")
+    mask = ListField(dtype=str, default=["NO_DATA", "CR"], doc="Mask values to reject when combining")
 
 
 class MergeArmsRunner(TaskRunner):
@@ -48,7 +52,10 @@ class MergeArmsTask(CmdLineTask):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.makeSubtask("subtractSky1d")
-        self.makeSubtask("combine")
+        minWl = self.config.minWavelength
+        maxWl = self.config.maxWavelength
+        dWl = self.config.dWavelength
+        self.wavelength = minWl + dWl*np.arange(int((maxWl - minWl)/dWl), dtype=float)
 
     def run(self, expSpecRefList):
         """Merge all extracted spectra from a single exposure
@@ -60,8 +67,10 @@ class MergeArmsTask(CmdLineTask):
 
         Returns
         -------
-        merged : `pfs.datamodel.PfsMerged`
+        spectra : `pfs.datamodel.PfsMerged`
             Merged spectra.
+        pfsConfig : `pfs.datamodel.PfsConfig`
+            Top-end configuration, fiber targets.
         """
         spectra = [[dataRef.get("pfsArm") for dataRef in specRefList] for
                    specRefList in expSpecRefList]
@@ -74,7 +83,7 @@ class MergeArmsTask(CmdLineTask):
         spectrographs = [self.runSpectrograph(ss) for ss in spectra]  # Merge in wavelength
         merged = self.mergeSpectrographs(spectrographs)  # Merge across spectrographs
         expSpecRefList[0][0].put(merged, "pfsMerged")
-        return merged
+        return Struct(spectra=merged, pfsConfig=pfsConfig)
 
     def runSpectrograph(self, spectraList):
         """Merge spectra from arms within the same spectrograph
@@ -89,7 +98,7 @@ class MergeArmsTask(CmdLineTask):
         result : `pfs.datamodel.PfsMerged`
             Merged spectra for spectrograph.
         """
-        return self.combine.run(spectraList, ["expId", "spectrograph"], PfsMerged)
+        return self.mergeSpectra(spectraList, ["expId", "spectrograph"])
 
     def mergeSpectrographs(self, spectraList):
         """Merge spectra from multiple spectrographs
@@ -105,6 +114,90 @@ class MergeArmsTask(CmdLineTask):
             Merged spectra.
         """
         return PfsMerged.fromMerge(["expId"], spectraList)
+
+    def mergeSpectra(self, spectraList, identityKeys):
+        """Combine all spectra from the same exposure
+
+        All spectra should have the same fibers, so we simply iterate over the
+        fibers, combining each spectrum from that fiber.
+
+        Parameters
+        ----------
+        spectraList : iterable of `pfs.datamodel.PfsSpectra`
+            List of spectra to coadd.
+        identityKeys : iterable of `str`
+            Keys to select from the input spectra's ``identity`` for the
+            merged spectra's ``identity``.
+
+        Returns
+        -------
+        result : `pfs.datamodel.PfsMerged`
+            Merged spectra.
+        """
+        archetype = spectraList[0]
+        identity = {key: archetype.identity[key] for key in identityKeys}
+        fiberId = archetype.fiberId
+        if any(np.any(ss.fiberId != fiberId) for ss in spectraList):
+            raise RuntimeError("Selection of fibers differs")
+        resampled = [ss.resample(self.wavelength) for ss in spectraList]
+        flags = MaskHelper.fromMerge([ss.flags for ss in spectraList])
+        combination = self.combine(resampled, flags)
+        if self.config.doBarycentricCorr:
+            self.log.warn("Barycentric correction is not yet implemented.")
+
+        return PfsMerged(identity, fiberId, combination.wavelength, combination.flux, combination.mask,
+                         combination.sky, combination.covar, flags, archetype.metadata)
+
+    def combine(self, spectra, flags):
+        """Combine spectra
+
+        Parameters
+        ----------
+        spectra : iterable of `pfs.datamodel.PfsSpectra`
+            List of spectra to combine. These should already have been
+            resampled to a common wavelength representation.
+        flags : `pfs.datamodel.MaskHelper`
+            Mask interpreter, for identifying bad pixels.
+
+        Returns
+        -------
+        wavelength : `numpy.ndarray` of `float`
+            Wavelengths for combined spectrum.
+        flux : `numpy.ndarray` of `float`
+            Flux measurements for combined spectrum.
+        sky : `numpy.ndarray` of `float`
+            Sky measurements for combined spectrum.
+        covar : `numpy.ndarray` of `float`
+            Covariance matrix for combined spectrum.
+        mask : `numpy.ndarray` of `int`
+            Mask for combined spectrum.
+        """
+        archetype = spectra[0]
+        mask = np.zeros_like(archetype.mask)
+        flux = np.zeros_like(archetype.flux)
+        sky = np.zeros_like(archetype.sky)
+        covar = np.zeros_like(archetype.covar)
+        sumWeights = np.zeros_like(archetype.flux)
+
+        for ss in spectra:
+            good = ((ss.mask & ss.flags.get(*self.config.mask)) == 0) & (ss.covar[:, 0] > 0)
+            weight = np.zeros_like(ss.flux)
+            weight[good] = 1.0/ss.covar[:, 0][good]
+            flux += ss.flux*weight
+            sky += ss.sky*weight
+            mask[good] |= ss.mask[good]
+            sumWeights += weight
+
+        good = sumWeights > 0
+        flux[good] /= sumWeights[good]
+        sky[good] /= sumWeights[good]
+        covar[:, 0][good] = 1.0/sumWeights[good]
+        covar[:, 0][~good] = np.inf
+        covar[:, 1:2] = np.where(good, 0.0, np.inf)[:, np.newaxis]
+        mask[~good] = flags["NO_DATA"]
+        covar2 = np.zeros((1, 1), dtype=archetype.covar.dtype)
+        return Struct(wavelength=archetype.wavelength, flux=flux, sky=sky, covar=covar,
+                      mask=mask, covar2=covar2)
 
     def _getMetadataName(self):
         return None
