@@ -173,13 +173,7 @@ class DetectorMapTestCase(lsst.utils.tests.TestCase):
 
     def testBadCtor(self):
         """Test that we cannot create a DetectorMap with invalid arguments"""
-        smallBox = lsst.geom.BoxI(lsst.geom.PointI(0, 0), lsst.geom.ExtentI(100, 100))
         short = 3  # Number of values for short array
-
-        with self.assertRaises(lsst.pex.exceptions.LengthError):
-            # Mismatch between bbox and center/wavelength
-            drpStella.DetectorMap(smallBox, self.fiberIds, self.centerKnots, self.xCenter,
-                                  self.wavelengthKnots, self.wavelength)
 
         with self.assertRaises(lsst.pex.exceptions.LengthError):
             # Mismatch between fiberIds and center/wavelength

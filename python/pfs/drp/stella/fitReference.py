@@ -43,6 +43,6 @@ class FitReferenceTask(Task):
                                (spectrum.target.fiberMags,))
         mag = mag.pop()
 
-        flux = 3631e9/2.5**mag*np.ones_like(wavelength)  # nJy
+        flux = 3631e9*10**(-0.4*mag)*np.ones_like(wavelength)  # nJy
         mask = np.zeros_like(wavelength, dtype=int)
         return PfsReference(spectrum.target, wavelength, flux, mask, spectrum.flags)

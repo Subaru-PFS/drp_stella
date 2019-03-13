@@ -15,7 +15,7 @@ class CalibrateWavelengthsConfig(pexConfig.Config):
     nLinesKeptBack = pexConfig.Field(doc="Number of lines to withhold from line fitting to estimate errors",
                                      dtype=int, default=4)
     nSigmaClip = pexConfig.ListField(doc="Number of sigma to clip points in the initial wavelength fit",
-                                     dtype=float, default=[10, 5, 4, 3, 2.5, 2.0, 1.5])
+                                     dtype=float, default=[10, 5, 4, 3])
     pixelPosErrorFloor = pexConfig.Field(doc="Floor on pixel positional errors, "
                                          "added in quadrature to quoted errors",
                                          dtype=float, default=0.05)
@@ -137,11 +137,15 @@ class CalibrateWavelengthsTask(pipeBase.Task):
         #
         spec.wavelength = detectorMap.getWavelength(fiberId) + wavelengthCorr(rows).astype('float32')
 
-        self.log.info("FiberId %4d, rms %.3f nm from %d (%.3f nm for %d reserved points)" %
+        rmsUsed = np.sqrt(np.sum(((y - yfit)**2)[used]))/(used.sum() - self.config.order)
+        rmsReserved = np.sqrt(np.sum(((y - yfit)**2)[reserved]))/reserved.sum()
+        self.log.info("FiberId %4d, rms %f nm (%.3f pix) from %d (%f nm = %.3f pix for %d reserved points)" %
                       (fiberId,
-                       np.sqrt(np.sum(((y - yfit)**2)[used]))/(used.sum() - self.config.order)/nmPerPix,
+                       rmsUsed,
+                       rmsUsed/nmPerPix,
                        used.sum(),
-                       np.sqrt(np.sum(((y - yfit)**2)[reserved]))/reserved.sum()/nmPerPix,
+                       rmsReserved,
+                       rmsReserved/nmPerPix,
                        reserved.sum(),
                        ))
         #
@@ -217,7 +221,7 @@ class CalibrateWavelengthsTask(pipeBase.Task):
 
                 ax = axes[0]
                 for l, marker, color, label in dataItems:
-                    ax.errorbar(x[l], yLinearResid[l], marker=marker, ls='none', color=color)
+                    ax.errorbar(x[l], yLinearResid[l] + yResid[l], marker=marker, ls='none', color=color)
                 ax.plot(rows, wavelengthCorr(rows))
 
                 ax.axhline(0, ls=':', color='black')
@@ -229,13 +233,14 @@ class CalibrateWavelengthsTask(pipeBase.Task):
                 for l, marker, color, label in dataItems:
                     if l.sum() > 0:  # no points confuses plt.legend()
                         ax.errorbar(x[l], yResid[l], marker=marker, ls='none', color=color, label=label)
+                ax.axhline(0, ls=':', color='black')
                 ax.set_ylabel("Fit residuals (nm)")
 
                 ax = axes[2]
                 for l, marker, color, label in dataItems:
                     if l.sum() > 0:  # no points confuses plt.legend()
                         ax.errorbar(x[l], yTrue[l], marker=marker, ls='none', color=color, label=label)
-                ax.plot(rows, spec.wavelength + wavelengthCorr(rows))
+                ax.plot(rows, spec.wavelength)
 
                 ax.legend(loc='best')
                 ax.set_xlabel('pixel')  # applies to the whole plot

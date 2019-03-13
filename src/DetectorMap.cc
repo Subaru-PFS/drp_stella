@@ -48,18 +48,6 @@ DetectorMap::DetectorMap(
                                                           wavelengthKnots[ii].end());
         float const maxWavelengthKnot = *std::max_element(wavelengthKnots[ii].begin(),
                                                           wavelengthKnots[ii].end());
-        if (minCenterKnot < bbox.getMinY() || maxCenterKnot > bbox.getMaxY()) {
-            std::ostringstream os;
-            os << "centerKnots[" << ii << "] out of range of bbox: " <<
-                minCenterKnot << ".." << maxCenterKnot << " vs " << bbox;
-            throw LSST_EXCEPT(lsst::pex::exceptions::LengthError, os.str());
-        }
-        if (minWavelengthKnot < bbox.getMinY() || maxWavelengthKnot > bbox.getMaxY()) {
-            std::ostringstream os;
-            os << "wavelengthKnots[" << ii << "] out of range of bbox: " <<
-                minWavelengthKnot << ".." << maxWavelengthKnot << " vs " << bbox;
-            throw LSST_EXCEPT(lsst::pex::exceptions::LengthError, os.str());
-        }
         _yToXCenter[ii] = std::make_shared<math::Spline<float>>(centerKnots[ii], centerValues[ii]);
         _yToWavelength[ii] = std::make_shared<math::Spline<float>>(wavelengthKnots[ii], wavelengthValues[ii]);
     }
@@ -379,7 +367,7 @@ DetectorMap::_set_xToFiberId()
     float lastCenter = -1e30;            // center of the last fibre we passed scanning to the right
     std::size_t lastIndex = -1;          // index of the last fibre we passed.  Special case starting with 0
 
-    float nextCenter = getXCenter(_fiberIds[1], iy); // center of the next fiber we're looking at
+    float nextCenter = getXCenter(_fiberIds[0], iy); // center of the next fiber we're looking at
     for (std::size_t index = 0, x = 0; x != std::size_t(_bbox.getWidth()); ++x) {
         if (x - lastCenter > nextCenter - x) { // x is nearer to next_xc than last_xc
             lastCenter = nextCenter;

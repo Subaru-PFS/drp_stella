@@ -2,18 +2,22 @@ from types import SimpleNamespace
 import numpy as np
 from collections import defaultdict, Counter
 
-from lsst.pex.config import Config, ConfigurableField
-from lsst.pipe.base import CmdLineTask, ArgumentParser, TaskRunner
+from lsst.pex.config import Config, ConfigurableField, ListField
+from lsst.pipe.base import CmdLineTask, ArgumentParser, TaskRunner, Struct
 from lsst.afw.geom import SpherePoint, averageSpherePoint, degrees
 
 from pfs.datamodel.target import TargetData, TargetObservations
 from pfs.datamodel.drp import PfsCoadd
-from .combine import CombineTask
+from pfs.datamodel.masks import MaskHelper
+from .mergeArms import MergeArmsTask
+from .measureFluxCalibration import MeasureFluxCalibrationTask
 
 
 class CoaddSpectraConfig(Config):
     """Configuration for CoaddSpectraTask"""
-    combine = ConfigurableField(target=CombineTask, doc="Combine spectra")
+    mergeArms = ConfigurableField(target=MergeArmsTask, doc="Merge arms")
+    measureFluxCalibration = ConfigurableField(target=MeasureFluxCalibrationTask, doc="Flux calibration")
+    mask = ListField(dtype=str, default=["NO_DATA", "CR"], doc="Mask values to reject when combining")
 
 
 class CoaddSpectraRunner(TaskRunner):
@@ -67,10 +71,15 @@ class CoaddSpectraTask(CmdLineTask):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.makeSubtask("combine")
+        self.makeSubtask("mergeArms")
+        self.makeSubtask("measureFluxCalibration")
 
     def run(self, dataRefList, targetList):
         """Coadd multiple observations
+
+        We base the coaddition on the ``pfsArm`` files because that data hasn't
+        been interpolated. Of course, at the moment we immediately interpolate,
+        but we may choose not to in the future.
 
         Parameters
         ----------
@@ -80,19 +89,59 @@ class CoaddSpectraTask(CmdLineTask):
             List of target identity structs (with ``catId``, ``tract``,
             ``patch`` and ``objId``).
         """
-        armList = [dataRef.get("pfsArm") for dataRef in dataRefList]
+        # Split into visits, spectrographs
+        visits = defaultdict(list)
+        for dataRef in dataRefList:
+            visits[dataRef.dataId["visit"]].append(dataRef)
+
+        data = [self.readVisit(vv) for vv in visits.values()]
+
+        spectra = defaultdict(list)
+        for dd in data:
+            for ss in dd.spectra:
+                target = ss.target
+                spectra[(target.catId, target.tract, target.patch, target.objId)].append(ss)
+
         pfsConfigList = [dataRef.get("pfsConfig") for dataRef in dataRefList]
         butler = dataRefList[0].getButler()
         for target in targetList:
             indices = [pfsConfig.selectTarget(target.catId, target.tract, target.patch, target.objId) for
                        pfsConfig in pfsConfigList]
-            fiberList = [pfsConfig.fiberId[ii] for ii, pfsConfig in zip(indices, pfsConfigList)]
             targetData = self.getTargetData(target, pfsConfigList, indices)
             identityList = [dataRef.dataId for dataRef in dataRefList]
             observations = self.getObservations(identityList, pfsConfigList, indices)
-            # XXX read and apply fluxCal and sky1d
-            combined = self.combine.runSingle(armList, fiberList, PfsCoadd, targetData, observations)
-            butler.put(combined, "pfsCoadd", combined.getIdentity())
+            spectrumList = spectra[(target.catId, target.tract, target.patch, target.objId)]
+            flags = MaskHelper.fromMerge([ss.flags for ss in spectrumList])
+            combination = self.combine(spectrumList, flags)
+            coadd = PfsCoadd(targetData, observations, combination.wavelength, combination.flux,
+                             combination.mask, combination.sky, combination.covar, combination.covar2, flags)
+            butler.put(coadd, "pfsCoadd", coadd.getIdentity())
+
+    def readVisit(self, dataRefList):
+        """Read a single visit
+
+        The input ``pfsArm`` files are read, and the 1D sky subtraction from
+        ``sky1d`` is applied.
+
+        Parameters
+        ----------
+        dataRef : `lsst.daf.persistence.ButlerDataRef`
+            Butler data reference.
+
+        Returns
+        -------
+        spectra : `list` of `pfs.datamodel.PfsObject`
+            Sky-subtracted, flux-calibrated arm spectra.
+        pfsConfig : `pfs.datamodel.PfsConfig`
+            Top-end configuration.
+        """
+        spectrographs = defaultdict(list)
+        for dataRef in dataRefList:
+            spectrographs[dataRef.dataId["spectrograph"]].append(dataRef)
+        merged = self.mergeArms.run(list(spectrographs.values()))
+        fluxCal = dataRefList[0].get("fluxCal")
+        spectra = self.measureFluxCalibration.apply(merged.spectra, merged.pfsConfig, fluxCal)
+        return Struct(spectra=spectra, pfsConfig=merged.pfsConfig)
 
     def getTargetData(self, target, pfsConfigList, indices):
         """Generate a ``TargetData`` for this target
@@ -162,6 +211,57 @@ class CoaddSpectraTask(CmdLineTask):
         pfiNominal = np.array([pfsConfig.pfiNominal[ii] for pfsConfig, ii in zip(pfsConfigList, indices)])
         pfiCenter = np.array([pfsConfig.pfiCenter[ii] for pfsConfig, ii in zip(pfsConfigList, indices)])
         return TargetObservations(identityList, fiberId, pfiNominal, pfiCenter)
+
+    def combine(self, spectra, flags):
+        """Combine spectra
+
+        Parameters
+        ----------
+        spectra : iterable of `pfs.datamodel.PfsSpectrum`
+            List of spectra to combine. These should already have been
+            resampled to a common wavelength representation.
+        flags : `pfs.datamodel.MaskHelper`
+            Mask interpreter, for identifying bad pixels.
+
+        Returns
+        -------
+        flux : `numpy.ndarray` of `float`
+            Flux measurements for combined spectrum.
+        sky : `numpy.ndarray` of `float`
+            Sky measurements for combined spectrum.
+        covar : `numpy.ndarray` of `float`
+            Covariance matrix for combined spectrum.
+        mask : `numpy.ndarray` of `int`
+            Mask for combined spectrum.
+        """
+        archetype = spectra[0]
+        length = archetype.length
+        mask = np.zeros(length, dtype=archetype.mask.dtype)
+        flux = np.zeros(length, dtype=archetype.flux.dtype)
+        sky = np.zeros(length, dtype=archetype.sky.dtype)
+        covar = np.zeros((3, length), dtype=archetype.covar.dtype)
+        sumWeights = np.zeros(length, dtype=archetype.flux.dtype)
+
+        for ss in spectra:
+            good = ((ss.mask & ss.flags.get(*self.config.mask)) == 0) & (ss.covar[0] > 0)
+            weight = np.zeros_like(flux)
+            weight[good] = 1.0/ss.covar[0][good]
+            flux += ss.flux*weight
+            sky += ss.sky*weight
+            mask[good] |= ss.mask[good]
+            sumWeights += weight
+
+        good = sumWeights > 0
+        flux[good] /= sumWeights[good]
+        sky[good] /= sumWeights[good]
+        covar[0][good] = 1.0/sumWeights[good]
+        covar[0][~good] = np.inf
+        covar[1:2] = np.where(good, 0.0, np.inf)
+        mask[~good] = flags["NO_DATA"]
+        covar2 = np.zeros((1, 1), dtype=archetype.covar.dtype)
+
+        return Struct(wavelength=archetype.wavelength, flux=flux, sky=sky, covar=covar,
+                      mask=mask, covar2=covar2)
 
     def _getMetadataName(self):
         return None
