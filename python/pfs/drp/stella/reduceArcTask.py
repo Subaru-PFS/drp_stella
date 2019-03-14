@@ -25,7 +25,7 @@ class ReduceArcConfig(pexConfig.Config):
     calibrateWavelengths = pexConfig.ConfigurableField(target=CalibrateWavelengthsTask,
                                                        doc="Calibrate a SpectrumSet's wavelengths")
     minArcLineIntensity = pexConfig.Field(doc="Minimum 'NIST' intensity to use emission lines",
-                                          dtype=float, default=100)
+                                          dtype=float, default=0)
 
     def setDefaults(self):
         super().setDefaults()
