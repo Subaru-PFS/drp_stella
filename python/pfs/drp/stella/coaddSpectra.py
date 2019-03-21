@@ -9,6 +9,7 @@ from lsst.afw.geom import SpherePoint, averageSpherePoint, degrees
 from pfs.datamodel.target import TargetData, TargetObservations
 from pfs.datamodel.drp import PfsCoadd
 from pfs.datamodel.masks import MaskHelper
+from pfs.datamodel.pfsConfig import TargetType
 from .mergeArms import MergeArmsTask
 from .measureFluxCalibration import MeasureFluxCalibrationTask
 
@@ -54,6 +55,8 @@ class CoaddSpectraRunner(TaskRunner):
             pfsConfig = ref.get("pfsConfig")
             for index in range(len(pfsConfig)):
                 targ = Target(pfsConfig, index)
+                if targ.targetType not in (TargetType.SCIENCE, TargetType.FLUXSTD):
+                    continue
                 targets[targ].append(dataRefToTuple(ref))
         # Have target --> [exposures]; invert to [exposures] --> [targets]
         exposures = defaultdict(list)
