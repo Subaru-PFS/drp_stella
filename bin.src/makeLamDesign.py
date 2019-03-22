@@ -1,12 +1,12 @@
 #!/usr/bin/env python
 
 """
-Executable script to create a PfiDesign for a LAM exposure, given the colors
+Executable script to create a PfsDesign for a LAM exposure, given the colors
 of fibers used.
 """
 
 import numpy as np
-from pfs.datamodel import PfiDesign, TargetType
+from pfs.datamodel import PfsDesign, TargetType
 
 # Mapping of colors to fiberIds
 # Constructed from a snippet by Fabrice Madec, "dummy cable B fibers"
@@ -30,12 +30,12 @@ FIBER_COLORS = {"red1": [2],
 HASH_COLORS = {color: 16**ii for ii, color in enumerate(sorted(FIBER_COLORS.keys()))}
 
 
-def makePfiDesign(pfiDesignId, fiberId):
+def makePfsDesign(pfsDesignId, fiberId):
     """Build a ``PfsConfig``
 
     Parameters
     ----------
-    pfiDesignId : `int`
+    pfsDesignId : `int`
         Identifier for the top-end design. For our purposes, this is just a
         unique integer.
     fiberId : `numpy.ndarray` of `int`
@@ -62,7 +62,7 @@ def makePfiDesign(pfiDesignId, fiberId):
     fiberMags = [[] for _ in fiberId]
     filterNames = [[] for _ in fiberId]
 
-    return PfiDesign(pfiDesignId, raBoresight, decBoresight,
+    return PfsDesign(pfsDesignId, raBoresight, decBoresight,
                      fiberId, tract, patch, ra, dec, catId, objId, targetTypes,
                      fiberMags, filterNames, pfiNominal)
 
@@ -84,7 +84,7 @@ def colorsToFibers(colors):
 
 
 def hashColors(colors):
-    """Convert a list of colors to a hash for the pfiDesignId
+    """Convert a list of colors to a hash for the pfsDesignId
 
     Parameters
     ----------
@@ -94,14 +94,14 @@ def hashColors(colors):
     Returns
     -------
     hash : `int`
-        Hash, for the pfiDesignId.
+        Hash, for the pfsDesignId.
     """
     return sum(HASH_COLORS[col] for col in set(colors))
 
 
 if __name__ == "__main__":
     import argparse
-    parser = argparse.ArgumentParser(description="Create a PfiDesign for a LAM exposure, "
+    parser = argparse.ArgumentParser(description="Create a PfsDesign for a LAM exposure, "
                                                  "given the colors of fibers used.")
     parser.add_argument("--directory", default=".", help="Directory in which to write file")
     parser.add_argument("colors", nargs="+", type=str, choices=FIBER_COLORS.keys(),
@@ -109,7 +109,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     fiberId = colorsToFibers(args.colors)
-    pfiDesignId = hashColors(args.colors)
-    config = makePfiDesign(pfiDesignId, fiberId)
+    pfsDesignId = hashColors(args.colors)
+    config = makePfsDesign(pfsDesignId, fiberId)
     config.write(dirName=args.directory)
     print("Wrote %s" % (config.filename,))
