@@ -5,6 +5,10 @@ from lsst.utils import continueClass
 from .ReferenceLine import ReferenceLine
 from .Spectrum import Spectrum
 
+import math
+from scipy import interpolate
+import astropy.modeling
+
 __all__ = ["Spectrum"]
 
 BAD_REFERENCE = (ReferenceLine.MISIDENTIFIED | ReferenceLine.CLIPPED | ReferenceLine.SATURATED |
@@ -144,3 +148,95 @@ class Spectrum:
             if doReferenceLines:
                 plotReferenceLines(ax, self.getReferenceLines(), flux[ii], wavelength[ii], badReference)
 
+    def findPeaks(self, minPeakFlux=500):
+        """Find positive peaks in the flux
+
+        Peak flux must exceed ``minPeakFlux``.
+
+        Parameters
+        ----------
+        flux : `numpy.ndarray` of `float`
+            Array of fluxes.
+
+        Returns
+        -------
+        indices : `numpy.ndarray` of `int`
+            Indices of peaks.
+        """
+        flux = self.spectrum
+        diff = flux[1:] - flux[:-1]  # flux[i + 1] - flux[i]
+        select = (diff[:-1] > 0) & (diff[1:] < 0) & (flux[1:-1] > minPeakFlux)
+        indices = np.nonzero(select)[0] + 1  # +1 to account for the definition of diff
+
+        return indices
+
+    def getLineIntensities(self, wavelength, fittingRadius=10):
+        """Estimate line intensities at specified wavelength
+
+        Peak flux must exceed ``minPeakFlux``.
+
+        Parameters
+        ----------
+        wavelength : `numpy.ndarray` of `float`
+            Array of wavelength.
+
+        Returns
+        -------
+        intensities : `numpy.ndarray` of `float`
+            Estimated intensities.
+            None is set for outside of spectrum's wavelengh range.
+        """
+        # Find peaks to identify interlopers
+        peaks = self.findPeaks()
+
+        # Interpolation for the conversion from wavelength to pixel number
+        f = interpolate.interp1d(self.wavelength, range(self.getNumPixels()))
+
+        # Initial guess of line width
+        width = 1.0
+
+        # interloper search range
+        interloperWidth = int(3*width+0.5)
+
+        intensities = list()
+
+        for wl in wavelength:
+            if wl < self.wavelength[0] or wl > self.wavelength[-1]:
+                intensities.append(None)
+                continue
+
+            # Pixel position for a specific wavelength in integer
+            estimatedPos = int(f(wl) + 0.5)
+
+            # Initial guess of amplitude
+            amplitude = self.spectrum[estimatedPos]
+
+            # Define fitting pixel range
+            lowIndex = max(estimatedPos-fittingRadius, 0)
+            highIndex = min(estimatedPos+fittingRadius, self.getNumPixels()-1)
+            indices = np.arange(lowIndex, highIndex+1)
+            good = np.ones_like(indices, dtype=bool)
+
+            interlopers = np.nonzero((peaks >= lowIndex - interloperWidth) &
+                                     (peaks < highIndex + interloperWidth) &
+                                     ((peaks < estimatedPos - width) |
+                                      (peaks > estimatedPos + width)))[0]
+            for ii in peaks[interlopers]:
+                lowBound = max(lowIndex, ii - interloperWidth) - lowIndex
+                highBound = min(highIndex, ii + interloperWidth) - lowIndex
+                good[lowBound:highBound+1] = False
+            if good.sum() < 5:
+                intensities.append(None)
+                continue
+
+            lineModel = astropy.modeling.models.Gaussian1D(amplitude,
+                                                           estimatedPos,
+                                                           width,
+                                                           bounds={"mean": (lowIndex, highIndex)},
+                                                           name="line")
+            fitter = astropy.modeling.fitting.LevMarLSQFitter()
+            fit = fitter(lineModel, indices[good], self.spectrum[lowIndex:highIndex+1][good])
+
+            intensities.append(fit.amplitude * math.sqrt(2*math.pi) * fit.stddev)
+
+        return np.array(intensities)
