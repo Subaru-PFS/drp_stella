@@ -227,6 +227,41 @@ class DetectorMap:
                     display.dot("o", xx, yy, size=5)
                 display.line(points)
 
+    @classmethod
+    def fromBytes(cls, string):
+        """Construct from bytes
+
+        Parameters
+        ----------
+        string : `bytes`
+            String of bytes.
+
+        Returns
+        -------
+        self : cls
+            Constructed object.
+        """
+        with astropy.io.fits.open(io.BytesIO(string)) as fd:
+            return cls.fromFits(fd)
+
+    def toBytes(self):
+        """Convert to bytes
+
+        Returns
+        -------
+        string : `bytes`
+            String of bytes.
+        """
+        fits = self.toFits()
+        buffer = io.BytesIO()
+        fits.writeto(buffer)
+        fits.close()
+        return buffer.getvalue()
+
+    def __reduce__(self):
+        """How to pickle"""
+        return self.__class__.fromBytes, (self.toBytes(),)
+
 
 class SlitOffsetsConfig(Config):
     """Configuration of slit offsets for DetectorMap"""
