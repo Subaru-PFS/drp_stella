@@ -1,5 +1,6 @@
+import io
 import numpy as np
-import astropy.io.fits as pyfits
+import astropy.io.fits
 
 import lsst.afw.fits
 import lsst.geom
@@ -14,6 +15,65 @@ __all__ = ["DetectorMap", "SlitOffsetsConfig"]
 
 @continueClass  # noqa: F811 (redefinition)
 class DetectorMap:
+    @classmethod
+    def fromFits(cls, fits):
+        """Read DetectorMap from open FITS file
+
+        Parameters
+        ----------
+        fits : `astropy.io.fits.HDUList`
+            FITS file.
+
+        Returns
+        -------
+        out : `pfs.drp.stella.DetectorMap`
+            DetectorMap read from FITS file.
+        """
+        pdu = fits[0]
+        minX = pdu.header['MINX']
+        minY = pdu.header['MINY']
+        maxX = pdu.header['MAXX']
+        maxY = pdu.header['MAXY']
+
+        bbox = lsst.geom.BoxI(lsst.geom.PointI(minX, minY), lsst.geom.PointI(maxX, maxY))
+
+        hdu = fits["FIBERID"]
+        fiberIds = hdu.data
+        fiberIds = fiberIds.astype(np.int32)   # why is this astype needed? BITPIX=32, no BZERO/BSCALE
+
+        hdu = fits["SLITOFF"]
+        slitOffsets = hdu.data.astype(np.float32)
+
+        centerData = fits["CENTER"].data
+        wavelengthData = fits["WAVELENGTH"].data
+
+        # array.astype() required to force byte swapping (dtype('>f4') --> np.float32)
+        # otherwise pybind doesn't recognise them as the proper type.
+        numFibers = len(fiberIds)
+        centerKnots = [centerData["knot"][centerData["index"] == ii].astype(np.float32) for
+                       ii in range(numFibers)]
+        centerValues = [centerData["value"][centerData["index"] == ii].astype(np.float32) for
+                        ii in range(numFibers)]
+        wavelengthKnots = [wavelengthData["knot"][wavelengthData["index"] == ii].astype(np.float32)
+                           for ii in range(numFibers)]
+        wavelengthValues = [wavelengthData["value"][wavelengthData["index"] == ii].astype(np.float32)
+                            for ii in range(numFibers)]
+
+        # Read the primary header with lsst.afw.fits
+        # This requires writing the FITS file into memory and reading it from there
+        buffer = io.BytesIO()
+        fits.writeto(buffer)
+        ss = buffer.getvalue()
+        size = len(ss)
+        ff = lsst.afw.fits.MemFileManager(size)
+        ff.setData(ss, size)
+        metadata = ff.readMetadata(0)
+
+        visitInfo = lsst.afw.image.VisitInfo(metadata)
+        lsst.afw.image.stripVisitInfoKeywords(metadata)
+
+        return cls(bbox, fiberIds, centerKnots, centerValues, wavelengthKnots, wavelengthValues,
+                   slitOffsets, visitInfo, metadata)
 
     @classmethod
     def readFits(cls, pathName, hdu=None, flags=None):
@@ -42,61 +102,17 @@ class DetectorMap:
             raise NotImplementedError("hdu is not used")
         if flags is not None:
             raise NotImplementedError("flags is not used")
-        with pyfits.open(pathName) as fd:
-            pdu = fd[0]
-            minX = pdu.header['MINX']
-            minY = pdu.header['MINY']
-            maxX = pdu.header['MAXX']
-            maxY = pdu.header['MAXY']
+        with astropy.io.fits.open(pathName) as fits:
+            return cls.fromFits(fits)
 
-            bbox = lsst.geom.BoxI(lsst.geom.PointI(minX, minY), lsst.geom.PointI(maxX, maxY))
+    def toFits(self):
+        """Write DetectorMap to FITS
 
-            hdu = fd["FIBERID"]
-            fiberIds = hdu.data
-            fiberIds = fiberIds.astype(np.int32)   # why is this astype needed? BITPIX=32, no BZERO/BSCALE
-
-            hdu = fd["SLITOFF"]
-            slitOffsets = hdu.data.astype(np.float32)
-
-            centerData = fd["CENTER"].data
-            wavelengthData = fd["WAVELENGTH"].data
-
-        # array.astype() required to force byte swapping (dtype('>f4') --> np.float32)
-        # otherwise pybind doesn't recognise them as the proper type.
-        numFibers = len(fiberIds)
-        centerKnots = [centerData["knot"][centerData["index"] == ii].astype(np.float32) for
-                       ii in range(numFibers)]
-        centerValues = [centerData["value"][centerData["index"] == ii].astype(np.float32) for
-                        ii in range(numFibers)]
-        wavelengthKnots = [wavelengthData["knot"][wavelengthData["index"] == ii].astype(np.float32)
-                           for ii in range(numFibers)]
-        wavelengthValues = [wavelengthData["value"][wavelengthData["index"] == ii].astype(np.float32)
-                            for ii in range(numFibers)]
-
-        metadata = lsst.afw.fits.readMetadata(pathName, hdu=0, strip=True)
-        visitInfo = lsst.afw.image.VisitInfo(metadata)
-        lsst.afw.image.stripVisitInfoKeywords(metadata)
-
-        return cls(bbox, fiberIds, centerKnots, centerValues, wavelengthKnots, wavelengthValues,
-                   slitOffsets, visitInfo, metadata)
-
-    def writeFits(self, pathName, flags=None):
-        """Read DetectorMap from FITS
-
-        Parameters
-        ----------
-        pathName : `str`
-            Path to file from which to read.
-        flags : `int`, optional
-            Flags for reading; unused in this implementation.
-
-        Raises
-        ------
-        NotImplementedError
-            If ``flags`` are requested.
+        Returns
+        -------
+        hdus : `astropy.io.fits.HDUList`
+            FITS file.
         """
-        if flags is not None:
-            raise NotImplementedError("flags is not used")
         #
         # Unpack detectorMap into python objects
         #
@@ -120,9 +136,9 @@ class DetectorMap:
         #
         # OK, we've unpacked the DetectorMap; time to write the contents to disk
         #
-        hdus = pyfits.HDUList()
+        hdus = astropy.io.fits.HDUList()
 
-        hdr = pyfits.Header()
+        hdr = astropy.io.fits.Header()
         hdr["MINX"] = bbox.getMinX()
         hdr["MINY"] = bbox.getMinY()
         hdr["MAXX"] = bbox.getMaxX()
@@ -136,33 +152,52 @@ class DetectorMap:
         for key in metadata.names():
             hdr[key] = metadata.get(key)
 
-        phu = pyfits.PrimaryHDU(header=hdr)
+        phu = astropy.io.fits.PrimaryHDU(header=hdr)
         hdus.append(phu)
 
-        hdu = pyfits.ImageHDU(fiberIds, name="FIBERID")
+        hdu = astropy.io.fits.ImageHDU(fiberIds, name="FIBERID")
         hdu.header["INHERIT"] = True
         hdus.append(hdu)
 
-        hdu = pyfits.ImageHDU(slitOffsets, name="SLITOFF")
+        hdu = astropy.io.fits.ImageHDU(slitOffsets, name="SLITOFF")
         hdu.header["INHERIT"] = True
         hdus.append(hdu)
 
-        hdu = pyfits.BinTableHDU.from_columns([
-            pyfits.Column(name="index", format="K", array=centerIndex),
-            pyfits.Column(name="knot", format="E", array=centerKnots),
-            pyfits.Column(name="value", format="E", array=centerValues),
+        hdu = astropy.io.fits.BinTableHDU.from_columns([
+            astropy.io.fits.Column(name="index", format="K", array=centerIndex),
+            astropy.io.fits.Column(name="knot", format="E", array=centerKnots),
+            astropy.io.fits.Column(name="value", format="E", array=centerValues),
         ], name="CENTER")
         hdu.header["INHERIT"] = True
         hdus.append(hdu)
 
-        hdu = pyfits.BinTableHDU.from_columns([
-            pyfits.Column(name="index", format="K", array=wavelengthIndex),
-            pyfits.Column(name="knot", format="E", array=wavelengthKnots),
-            pyfits.Column(name="value", format="E", array=wavelengthValues),
+        hdu = astropy.io.fits.BinTableHDU.from_columns([
+            astropy.io.fits.Column(name="index", format="K", array=wavelengthIndex),
+            astropy.io.fits.Column(name="knot", format="E", array=wavelengthKnots),
+            astropy.io.fits.Column(name="value", format="E", array=wavelengthValues),
         ], name="WAVELENGTH")
         hdu.header["INHERIT"] = True
         hdus.append(hdu)
+        return hdus
 
+    def writeFits(self, pathName, flags=None):
+        """Write DetectorMap to FITS
+
+        Parameters
+        ----------
+        pathName : `str`
+            Path of file to which to write.
+        flags : `int`, optional
+            Flags for writing; unused in this implementation.
+
+        Raises
+        ------
+        NotImplementedError
+            If ``flags`` are requested.
+        """
+        if flags is not None:
+            raise NotImplementedError("flags is not used")
+        hdus = self.toFits()
         # clobber=True in writeto prints a message, so use open instead
         with open(pathName, "wb") as fd:
             hdus.writeto(fd)
