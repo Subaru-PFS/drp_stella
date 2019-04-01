@@ -262,6 +262,20 @@ class DetectorMap:
         """How to pickle"""
         return self.__class__.fromBytes, (self.toBytes(),)
 
+    def __eq__(self, other):
+        """Test for numerical/functional equality
+
+        We do not test that the ``metadata`` and ``visitInfo`` members match,
+        as they are more difficult to compare, and don't govern the important
+        mappings.
+        """
+        equal = self.bbox == other.bbox
+        equal &= np.all(self.fiberIds == other.fiberIds)
+        equal &= all(np.all(this == that) for this, that in zip(self.xCenter, other.xCenter))
+        equal &= all(np.all(this == that) for this, that in zip(self.wavelength, other.wavelength))
+        equal &= np.all(self.slitOffsets == other.slitOffsets)
+        return equal
+
 
 class SlitOffsetsConfig(Config):
     """Configuration of slit offsets for DetectorMap"""
