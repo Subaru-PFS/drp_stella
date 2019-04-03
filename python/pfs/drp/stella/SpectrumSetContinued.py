@@ -37,7 +37,7 @@ class SpectrumSet:
         dataId : `dict`
             Data identifier, which is expected to contain:
 
-            - ``expId`` (`int`): exposure number
+            - ``visit`` (`int`): exposure number
             - ``spectrograph`` (`int`): spectrograph number
             - ``arm`` (`str`: "b", "r", "m" or "n"): spectrograph arm
 
@@ -94,7 +94,7 @@ class SpectrumSet:
     def _parsePath(cls, path, hdu=None, flags=None):
         """Parse path from the data butler
 
-        We need to determine the ``expId``, ``spectrograph`` and ``arm`` to pass
+        We need to determine the ``visit``, ``spectrograph`` and ``arm`` to pass
         to the `pfs.datamodel.PfsArm` I/O methods.
 
         Parameters
@@ -121,11 +121,11 @@ class SpectrumSet:
         matches = re.search(cls.fileNameRegex, fileName)
         if not matches:
             raise RuntimeError("Unable to parse filename: %s" % (fileName,))
-        expId, arm, spectrograph = matches.groups()
-        expId = int(expId)
+        visit, arm, spectrograph = matches.groups()
+        visit = int(visit)
         spectrograph = int(spectrograph)
-        dataId = dict(expId=expId, spectrograph=spectrograph, arm=arm)
-        return Struct(dirName=dirName, fileName=fileName, expId=expId, arm=arm, spectrograph=spectrograph,
+        dataId = dict(visit=visit, spectrograph=spectrograph, arm=arm)
+        return Struct(dirName=dirName, fileName=fileName, visit=visit, arm=arm, spectrograph=spectrograph,
                       dataId=dataId)
 
     def writeFits(self, *args, **kwargs):
