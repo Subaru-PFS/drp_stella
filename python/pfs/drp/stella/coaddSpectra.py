@@ -9,8 +9,22 @@ from lsst.afw.geom import SpherePoint, averageSpherePoint, degrees
 from pfs.datamodel.target import TargetData, TargetObservations
 from pfs.datamodel.drp import PfsCoadd
 from pfs.datamodel.masks import MaskHelper
+from pfs.datamodel.pfsConfig import TargetType
 from .mergeArms import MergeArmsTask
 from .measureFluxCalibration import MeasureFluxCalibrationTask
+
+
+class Target(SimpleNamespace):
+    def __init__(self, pfsConfig, index):
+        super().__init__()
+        self.catId  = pfsConfig.catId[index]
+        self.objId  = pfsConfig.objId[index]
+        self.tract  = pfsConfig.tract[index]
+        self.patch  = pfsConfig.patch[index]
+        self.targetType = pfsConfig.targetType[index]
+
+    def __hash__(self):
+        return hash((self.catId, self.objId, self.tract, self.patch, self.targetType))
 
 
 class CoaddSpectraConfig(Config):
@@ -39,7 +53,10 @@ class CoaddSpectraRunner(TaskRunner):
         dataRefs = {dataRefToTuple(ref): ref for ref in parsedCmd.id.refList}
         for ref in parsedCmd.id.refList:
             pfsConfig = ref.get("pfsConfig")
-            for targ in zip(pfsConfig.catId, pfsConfig.tract, pfsConfig.patch, pfsConfig.objId):
+            for index in range(len(pfsConfig)):
+                targ = Target(pfsConfig, index)
+                if targ.targetType not in (TargetType.SCIENCE, TargetType.FLUXSTD):
+                    continue
                 targets[targ].append(dataRefToTuple(ref))
         # Have target --> [exposures]; invert to [exposures] --> [targets]
         exposures = defaultdict(list)
@@ -48,10 +65,8 @@ class CoaddSpectraRunner(TaskRunner):
             exposures[exps].append(targ)
 
         result = []
-        for exps, targs in exposures.items():
+        for exps, targetList in exposures.items():
             refList = [dataRefs[ee] for ee in exps]
-            targetList = [SimpleNamespace(**dict(zip(("catId", "tract", "patch", "objId"), tt)))
-                          for tt in targs]
             result.append((refList, dict(targetList=targetList, **kwargs)))
 
         return result
