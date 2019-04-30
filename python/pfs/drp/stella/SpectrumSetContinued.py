@@ -128,7 +128,7 @@ class SpectrumSet:
         return Struct(dirName=dirName, fileName=fileName, expId=expId, arm=arm, spectrograph=spectrograph,
                       dataId=dataId)
 
-    def writeFits(self, *args, **kwargs):
+    def writeFits(self, filename):
         """Write as FITS
 
         This is the output API for the ``FitsCatalogStorage`` storage type used
@@ -152,9 +152,9 @@ class SpectrumSet:
         NotImplementedError
             If ``hdu`` or ``flags`` arguments are provided.
         """
-        parsed = self._parsePath(*args, **kwargs)
+        parsed = self._parsePath(filename)
         pfsArm = self.toPfsArm(parsed.dataId)
-        pfsArm.write(parsed.dirName)
+        pfsArm.writeFits(filename)
 
     @classmethod
     def readFits(cls, *args, **kwargs):
