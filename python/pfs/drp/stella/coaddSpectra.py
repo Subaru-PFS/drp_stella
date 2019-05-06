@@ -7,7 +7,7 @@ from lsst.pipe.base import CmdLineTask, ArgumentParser, TaskRunner, Struct
 from lsst.afw.geom import SpherePoint, averageSpherePoint, degrees
 
 from pfs.datamodel.target import TargetData, TargetObservations
-from pfs.datamodel.drp import PfsCoadd
+from pfs.datamodel.drp import PfsObject
 from pfs.datamodel.masks import MaskHelper
 from pfs.datamodel.pfsConfig import TargetType
 from .mergeArms import MergeArmsTask
@@ -128,9 +128,9 @@ class CoaddSpectraTask(CmdLineTask):
             spectrumList = spectra[(target.catId, target.tract, target.patch, target.objId)]
             flags = MaskHelper.fromMerge([ss.flags for ss in spectrumList])
             combination = self.combine(spectrumList, flags)
-            coadd = PfsCoadd(targetData, observations, combination.wavelength, combination.flux,
+            coadd = PfsObject(targetData, observations, combination.wavelength, combination.flux,
                              combination.mask, combination.sky, combination.covar, combination.covar2, flags)
-            butler.put(coadd, "pfsCoadd", coadd.getIdentity())
+            butler.put(coadd, "pfsObject", coadd.getIdentity())
 
     def readVisit(self, dataRefList):
         """Read a single visit
