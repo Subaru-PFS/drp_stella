@@ -3,7 +3,7 @@ import numpy as np
 from lsst.pex.config import Config, ConfigurableField, ListField
 from lsst.pipe.base import Task
 
-from pfs.datamodel.drp import PfsObject
+from pfs.datamodel.drp import PfsSingle
 from .fitFocalPlane import FitFocalPlaneTask
 
 
@@ -48,7 +48,7 @@ class MeasureFluxCalibrationTask(Task):
         errors = []
         masks = []
         for fiberId, ref in references.items():
-            spectrum = merged.extractFiber(PfsObject, pfsConfig, fiberId)
+            spectrum = merged.extractFiber(PfsSingle, pfsConfig, fiberId)
             vectors.append(spectrum.flux/ref.flux)
             errors.append(np.sqrt(spectrum.covar[0])/ref.flux)
             bad = (ref.mask & ref.flags.get(*self.config.refMask)) > 0
@@ -70,13 +70,13 @@ class MeasureFluxCalibrationTask(Task):
 
         Returns
         -------
-        results : `list` of `pfs.datamodel.PfsObject`
+        results : `list` of `pfs.datamodel.PfsSingle`
             Flux-calibrated object spectra.
         """
         vectors = self.fit.apply(calib, pfsConfig.fiberId, pfsConfig)
         results = []
         for fiberId, vv in zip(pfsConfig.fiberId, vectors):
-            spectrum = merged.extractFiber(PfsObject, pfsConfig, fiberId)
+            spectrum = merged.extractFiber(PfsSingle, pfsConfig, fiberId)
             spectrum /= vv
             results.append(spectrum)
         return results
