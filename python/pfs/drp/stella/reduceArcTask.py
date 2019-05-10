@@ -279,7 +279,7 @@ class ReduceArcTask(CmdLineTask):
         dataRef.put(spectrumSet, "pfsArm")
 
         detectorMap.setVisitInfo(visitInfo)
-        visit0 = dataRef.dataId["expId"]
+        visit0 = dataRef.dataId["visit"]
         calibId = detectorMap.metadata.get("CALIB_ID")
         detectorMap.metadata.set("CALIB_ID", re.sub("visit0=\d+", "visit0=%d" % (visit0,), calibId))
         dataRef.put(detectorMap, 'detectormap', visit0=visit0)

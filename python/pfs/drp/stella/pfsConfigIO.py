@@ -50,8 +50,8 @@ class PfsConfigIO(PfsConfig):
         if not matches:
             raise RuntimeError("Unable to parse filename: %s" % (fileName,))
         pfsDesignId = int(matches.group(1), 16)
-        expId = int(matches.group(2))
-        return Struct(dirName=dirName, fileName=fileName, pfsDesignId=pfsDesignId, expId=expId)
+        visit = int(matches.group(2))
+        return Struct(dirName=dirName, fileName=fileName, pfsDesignId=pfsDesignId, visit=visit)
 
     def writeFits(self, *args, **kwargs):
         """Write as FITS
@@ -105,4 +105,4 @@ class PfsConfigIO(PfsConfig):
             If ``hdu`` or ``flags`` arguments are provided.
         """
         parsed = cls._parsePath(*args, **kwargs)
-        return cls.read(parsed.pfsDesignId, parsed.expId, dirName=parsed.dirName)
+        return cls.read(parsed.pfsDesignId, parsed.visit, dirName=parsed.dirName)
