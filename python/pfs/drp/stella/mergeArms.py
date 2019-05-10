@@ -29,9 +29,9 @@ class MergeArmsRunner(TaskRunner):
         """
         exposures = defaultdict(lambda: defaultdict(list))
         for ref in parsedCmd.id.refList:
-            expId = ref.dataId["expId"]
+            visit = ref.dataId["visit"]
             spectrograph = ref.dataId["spectrograph"]
-            exposures[expId][spectrograph].append(ref)
+            exposures[visit][spectrograph].append(ref)
         return [(list(specs.values()), kwargs) for specs in exposures.values()]
 
 
@@ -98,7 +98,7 @@ class MergeArmsTask(CmdLineTask):
         result : `pfs.datamodel.PfsMerged`
             Merged spectra for spectrograph.
         """
-        return self.mergeSpectra(spectraList, ["expId", "spectrograph"])
+        return self.mergeSpectra(spectraList, ["visit", "spectrograph"])
 
     def mergeSpectrographs(self, spectraList):
         """Merge spectra from multiple spectrographs
@@ -113,7 +113,7 @@ class MergeArmsTask(CmdLineTask):
         merged : `pfs.datamodel.PfsMerged`
             Merged spectra.
         """
-        return PfsMerged.fromMerge(["expId"], spectraList)
+        return PfsMerged.fromMerge(["visit"], spectraList)
 
     def mergeSpectra(self, spectraList, identityKeys):
         """Combine all spectra from the same exposure

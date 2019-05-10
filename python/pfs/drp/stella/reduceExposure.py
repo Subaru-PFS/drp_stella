@@ -63,9 +63,9 @@ class ReduceExposureRunner(TaskRunner):
     def getTargetList(cls, parsedCmd, **kwargs):
         exposures = defaultdict(lambda: defaultdict(list))
         for ref in parsedCmd.id.refList:
-            expId = ref.dataId["expId"]
+            visit = ref.dataId["visit"]
             arm = ref.dataId["arm"]
-            exposures[arm][expId].append(ref)
+            exposures[arm][visit].append(ref)
         return [(exps, kwargs) for arms in exposures.values() for exps in arms.values()]
 
 
