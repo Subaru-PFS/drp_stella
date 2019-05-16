@@ -1041,7 +1041,7 @@ FindCenterPositionsOneTraceResult findCenterPositionsOneTrace(
             if (gaussFitCoeffs[2] < finding.minSigma || gaussFitCoeffs[2] > finding.maxSigma) {
                 #if defined(__DEBUG_FINDANDTRACE__)
                 cout << "pfs::drp::stella::math::findCenterPositionsOneTrace: i_Row = " << row <<
-                    ": while: WARNING: FWHM = " << gaussFitCoeffs[2] <<
+                    ": while: WARNING: sigma = " << gaussFitCoeffs[2] <<
                     " outside range -> abandoning aperture" << endl;
                 #endif
 
@@ -1319,7 +1319,7 @@ FindCenterPositionsOneTraceResult findCenterPositionsOneTrace(
                                         (gaussFitCoeffs[2] > finding.maxSigma)) {
                                         #if defined(__DEBUG_FINDANDTRACE__)
                                         cout << "pfs::drp::stella::math::findCenterPositionsOneTrace: i_Row = " << row <<
-                                            ": WARNING: FWHM = " << gaussFitCoeffs[2] << " outside range -> abandoning aperture" << endl;
+                                            ": WARNING: Sigma = " << gaussFitCoeffs[2] << " outside range -> abandoning aperture" << endl;
                                         #endif
                                         /// Set signal to zero
                                         imageArray[ndarray::view(row)(firstWideSignalStart + 1, firstWideSignalEnd)] = 0.;
