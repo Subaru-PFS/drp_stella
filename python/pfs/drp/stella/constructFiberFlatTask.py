@@ -67,9 +67,9 @@ class ConstructFiberFlatTask(SpectralCalibTask):
         for ii, expRef in enumerate(dataRefList):
             exposure = expRef.get('postISRCCD')
 
-            slitOffset = expRef.getButler().queryMetadata("raw", "slitOffset", expRef.dataId)
-            assert len(slitOffset) == 1, "Expect a single answer for this single dataset"
-            xOffsets.append(slitOffset.pop())
+            dither = expRef.getButler().queryMetadata("raw", "dither", expRef.dataId)
+            assert len(dither) == 1, "Expect a single answer for this single dataset"
+            xOffsets.append(dither.pop())
 
             detMap = expRef.get('detectormap')
             traces = self.trace.run(exposure.maskedImage, detMap)
@@ -91,7 +91,7 @@ class ConstructFiberFlatTask(SpectralCalibTask):
                 sumFlat += exposure.maskedImage
                 sumExpect += expect
 
-        self.log.info('xOffsets = %s' % (xOffsets,))
+        self.log.info('Dither values = %s' % (xOffsets,))
         if sumFlat is None:
             raise RuntimeError("Unable to find any valid flats")
         if np.all(sumExpect.array == 0.0):

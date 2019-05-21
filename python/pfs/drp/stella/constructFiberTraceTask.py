@@ -15,12 +15,12 @@ class ConstructFiberTraceConfig(SpectralCalibConfig):
         target=FindAndTraceAperturesTask,
         doc="Task to trace apertures"
     )
-    requireZeroSlitOffset = Field(
+    requireZeroDither = Field(
         dtype=bool,
         default=True,
-        doc="""Require a zero slit offset value?
+        doc="""Require a zero slit dither value?
 
-        The fiber trace should have the same slit offset as the data, which is usually zero.
+        The fiber trace should have the same dither as the data, which is usually zero.
         """,
     )
     slitOffsets = ConfigField(dtype=SlitOffsetsConfig, doc="Manual slit offsets to apply to detectorMap")
@@ -41,22 +41,22 @@ class ConstructFiberTraceTask(SpectralCalibTask):
         self.makeSubtask("trace")
 
     def run(self, expRefList, butler, calibId):
-        if self.config.requireZeroSlitOffset:
+        if self.config.requireZeroDither:
             # Only run for Flats with slitOffset == 0.0
             rejected = []
             newExpRefList = []
             for expRef in expRefList:
-                slitOffset = expRef.getButler().queryMetadata("raw", "slitOffset", expRef.dataId)
-                assert len(slitOffset) == 1, "Expect a single answer for this single dataset"
-                slitOffset = slitOffset.pop()
-                if slitOffset == 0.0:
+                dither = expRef.getButler().queryMetadata("raw", "dither", expRef.dataId)
+                assert len(dither) == 1, "Expect a single answer for this single dataset"
+                dither = dither.pop()
+                if dither == 0.0:
                     newExpRefList.append(expRef)
                 else:
                     rejected.append(expRef.dataId)
             if rejected:
-                self.log.warn("Rejected the following exposures with non-zero slitOffset: %s", rejected)
-                self.log.warn("To overcome this, either set 'requireZeroSlitOffset=False' or select only "
-                              "input exposures with zero slitOffset")
+                self.log.warn("Rejected the following exposures with non-zero dither: %s", rejected)
+                self.log.warn("To overcome this, either set 'requireZeroDither=False' or select only "
+                              "input exposures with zero dither")
             expRefList = newExpRefList
 
         if not expRefList:
