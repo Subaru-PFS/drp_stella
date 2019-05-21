@@ -959,7 +959,7 @@ FindCenterPositionsOneTraceResult findCenterPositionsOneTrace(
             if (finding.nTermsGaussFit == 3) {
                 guess[0] = *std::max_element(y.begin(), y.end());
                 guess[1] = firstWideSignalStart + 0.5*(firstWideSignalEnd - firstWideSignalStart);
-                guess[2] = 0.5*finding.apertureFwhm;
+                guess[2] = finding.apertureFwhm/2.35;
             } else if (finding.nTermsGaussFit > 3) {
                 guess[3] = std::max(std::min(y[0], y[length - 1]), float(0.1));
                 if (finding.nTermsGaussFit > 4) {
@@ -983,8 +983,8 @@ FindCenterPositionsOneTraceResult findCenterPositionsOneTrace(
             limits[0][1] = 2.*guess[0]; // Peak upper limit
             limits[1][0] = firstWideSignalStart; // Centroid lower limit
             limits[1][1] = firstWideSignalEnd; // Centroid upper limit
-            limits[2][0] = 0.25*finding.apertureFwhm; // Sigma lower limit
-            limits[2][1] = finding.apertureFwhm; // Sigma upper limit
+            limits[2][0] = finding.minSigma; // Sigma lower limit
+            limits[2][1] = finding.maxSigma; // Sigma upper limit
             if (finding.nTermsGaussFit > 3) {
                 limits[3][0] = 0.;
                 limits[3][1] = 2.*guess[3];
@@ -1038,11 +1038,10 @@ FindCenterPositionsOneTraceResult findCenterPositionsOneTrace(
                 startIndex = firstWideSignalEnd + 1;
                 continue;
             }
-            if (gaussFitCoeffs[2] < finding.apertureFwhm/4. ||
-                gaussFitCoeffs[2] > finding.apertureFwhm) {
+            if (gaussFitCoeffs[2] < finding.minSigma || gaussFitCoeffs[2] > finding.maxSigma) {
                 #if defined(__DEBUG_FINDANDTRACE__)
                 cout << "pfs::drp::stella::math::findCenterPositionsOneTrace: i_Row = " << row <<
-                    ": while: WARNING: FWHM = " << gaussFitCoeffs[2] <<
+                    ": while: WARNING: sigma = " << gaussFitCoeffs[2] <<
                     " outside range -> abandoning aperture" << endl;
                 #endif
 
@@ -1197,8 +1196,8 @@ FindCenterPositionsOneTraceResult findCenterPositionsOneTrace(
                                 limits[0][1] = 2.*guess[0]; // Peak upper limit
                                 limits[1][0] = firstWideSignalStart; // Centroid lower limit
                                 limits[1][1] = firstWideSignalEnd; // Centroid upper limit
-                                limits[2][0] = 0.25*finding.apertureFwhm; // Sigma lower limit
-                                limits[2][1] = finding.apertureFwhm; // Sigma upper limit
+                                limits[2][0] = finding.minSigma; // Sigma lower limit
+                                limits[2][1] = finding.maxSigma; // Sigma upper limit
 
                                 // Restrict values from wandering once we're established
                                 // XXX hard-coded values here should be made configurable
@@ -1307,8 +1306,8 @@ FindCenterPositionsOneTraceResult findCenterPositionsOneTrace(
                                             " to I_FirstWideSignalEnd = " << firstWideSignalEnd << endl;
                                         #endif
                                         ++apertureLost;
-                                    } else if ((gaussFitCoeffs[1] < gaussFitCoeffsBak[1] - 1.) ||
-                                        (gaussFitCoeffs[1] > gaussFitCoeffsBak[1] + 1.)) {
+                                    } else if ((gaussFitCoeffs[1] < gaussFitCoeffsBak[1] - finding.maxOffset) ||
+                                        (gaussFitCoeffs[1] > gaussFitCoeffsBak[1] + finding.maxOffset)) {
                                         #if defined(__DEBUG_FINDANDTRACE__)
                                         cout << "pfs::drp::stella::math::findCenterPositionsOneTrace: i_Row = " << row <<
                                             ": Warning: Center of Gaussian too far away from middle of signal -> abandoning aperture" << endl;
@@ -1316,11 +1315,11 @@ FindCenterPositionsOneTraceResult findCenterPositionsOneTrace(
                                         /// Set signal to zero
                                         imageArray[ndarray::view(row)(firstWideSignalStart + 1, firstWideSignalEnd)] = 0.;
                                         ++apertureLost;
-                                    } else if ((gaussFitCoeffs[2] < finding.apertureFwhm/4.) ||
-                                        (gaussFitCoeffs[2] > finding.apertureFwhm)) {
+                                    } else if ((gaussFitCoeffs[2] < finding.minSigma) ||
+                                        (gaussFitCoeffs[2] > finding.maxSigma)) {
                                         #if defined(__DEBUG_FINDANDTRACE__)
                                         cout << "pfs::drp::stella::math::findCenterPositionsOneTrace: i_Row = " << row <<
-                                            ": WARNING: FWHM = " << gaussFitCoeffs[2] << " outside range -> abandoning aperture" << endl;
+                                            ": WARNING: Sigma = " << gaussFitCoeffs[2] << " outside range -> abandoning aperture" << endl;
                                         #endif
                                         /// Set signal to zero
                                         imageArray[ndarray::view(row)(firstWideSignalStart + 1, firstWideSignalEnd)] = 0.;

@@ -90,12 +90,16 @@ void declareFiberTraceFindingControl(py::module &mod)
     LSST_DECLARE_CONTROL_FIELD(cls, FiberTraceFindingControl, minLength);
     LSST_DECLARE_CONTROL_FIELD(cls, FiberTraceFindingControl, maxLength);
     LSST_DECLARE_CONTROL_FIELD(cls, FiberTraceFindingControl, nLost);
+    LSST_DECLARE_CONTROL_FIELD(cls, FiberTraceFindingControl, minSigma);
+    LSST_DECLARE_CONTROL_FIELD(cls, FiberTraceFindingControl, maxSigma);
+    LSST_DECLARE_CONTROL_FIELD(cls, FiberTraceFindingControl, maxOffset);
 
     cls.def("__getstate__",
             [](FiberTraceFindingControl const& self) {
                 return py::make_tuple(self.apertureFwhm, self.signalThreshold,
                                       self.nTermsGaussFit, self.saturationLevel,
-                                      self.minLength, self.maxLength, self.nLost);
+                                      self.minLength, self.maxLength, self.nLost,
+                                      self.minSigma, self.maxSigma, self.maxOffset);
             });
     cls.def("__setstate__",
             [](FiberTraceFindingControl & self, py::tuple const& t) {
@@ -107,6 +111,9 @@ void declareFiberTraceFindingControl(py::module &mod)
                 self.minLength = t[4].cast<int>();
                 self.maxLength = t[5].cast<int>();
                 self.nLost = t[6].cast<int>();
+                self.minSigma = t[7].cast<float>();
+                self.maxSigma = t[8].cast<float>();
+                self.maxOffset = t[9].cast<float>();
             });
 }
 

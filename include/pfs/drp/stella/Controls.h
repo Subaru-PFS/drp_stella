@@ -112,6 +112,9 @@ struct FiberTraceFindingControl {
     LSST_CONTROL_FIELD(maxLength, int, "Maximum aperture length to count as found FiberTrace");
     LSST_CONTROL_FIELD(nLost, int,
                        "Number of consecutive times the trace is lost before aborting the tracing");
+    LSST_CONTROL_FIELD(minSigma, float, "Minimum Gaussian sigma to allow for trace (pixels)");
+    LSST_CONTROL_FIELD(maxSigma, float, "Maximum Gaussian sigma to allow for trace (pixels)");
+    LSST_CONTROL_FIELD(maxOffset, float, "Maximum offset to allow between Gaussian center and peak (pixels)");
 
     FiberTraceFindingControl() :
         apertureFwhm(2.5),
@@ -120,7 +123,10 @@ struct FiberTraceFindingControl {
         saturationLevel(65000.),
         minLength(3000),
         maxLength(4096),
-        nLost(10)
+        nLost(10),
+        minSigma(1.0),
+        maxSigma(3.0),
+        maxOffset(1.0)
         {}
 };
 
