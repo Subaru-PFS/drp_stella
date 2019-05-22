@@ -20,6 +20,7 @@
 # see <https://www.lsstcorp.org/LegalNotices/>.
 #
 from collections import defaultdict
+import numpy as np
 
 from lsst.pex.config import Config, Field, ConfigurableField
 from lsst.pipe.base import CmdLineTask, TaskRunner, Struct
@@ -181,7 +182,7 @@ class ReduceExposureTask(CmdLineTask):
         psfList = []
         lsfList = []
         for sensorRef in sensorRefList:
-            exposure = self.isr.runDataRef(sensorRef).exposure
+            exposure = self.runIsr(sensorRef)
             if self.config.doRepair:
                 self.repairExposure(exposure)
             if self.config.doSkySwindle:
@@ -229,6 +230,29 @@ class ReduceExposureTask(CmdLineTask):
 
         self.write(sensorRefList, results)
         return results
+
+    def runIsr(self, sensorRef):
+        """Run Instrument Signature Removal (ISR)
+
+        This method wraps the ISR call to allow us to post-process the ISR-ed
+        image.
+
+        Parameters
+        ----------
+        sensorRef : `lsst.daf.persistence.ButlerDataRef`
+            Data reference for sensor.
+
+        Returns
+        -------
+        exposure : `lsst.afw.image.Exposure`
+            Sensor image after ISR has been applied.
+        """
+        exposure = self.isr.runDataRef(sensorRef).exposure
+        # Remove negative variance (because we can have very low count levels)
+        bad = np.where(exposure.variance.array < 0)
+        exposure.variance.array[bad] = np.inf
+        exposure.mask.array[bad] |= exposure.mask.getPlaneBitMask("BAD")
+        return exposure
 
     def write(self, sensorRefList, results):
         """Write out results
