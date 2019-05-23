@@ -1,5 +1,8 @@
 from collections import defaultdict
+from types import SimpleNamespace
 import numpy as np
+import astropy.io.fits
+
 import lsstDebug
 import lsst.pex.config as pexConfig
 import lsst.pipe.base as pipeBase
@@ -8,6 +11,174 @@ import pfs.drp.stella as drpStella
 from pfs.drp.stella.utils import plotReferenceLines
 
 __all__ = ["CalibrateWavelengthsConfig", "CalibrateWavelengthsTask"]
+
+
+class LineData(SimpleNamespace):
+    """Data for a single reference line
+
+    Parameters
+    ----------
+    fiberId : `int`
+        Fiber identifier.
+    pixels : `float`
+        Pixel position of line in spectrum.
+    measuredWavelength : `float`
+        Measured wavelength of line in spectrum (nm).
+    actualWavelength : `float`
+        Actual wavelength of line (nm).
+    """
+    def __init__(self, fiberId, pixels, measuredWavelength, actualWavelength):
+        return super().__init__(fiberId=fiberId, pixels=pixels, measuredWavelength=measuredWavelength,
+                                actualWavelength=actualWavelength)
+
+
+class WavelengthFitData:
+    """Data characterising the quality of the wavelength fit for an image
+
+    Parameters
+    ----------
+    lines : `list` of `LineData`
+        List of lines in the spectra.
+    """
+    FitsExtName = "WLFITDATA"
+
+    def __init__(self, lines):
+        self.lines = lines
+
+    @property
+    def fiberId(self):
+        """Array of fiber identifiers (`numpy.ndarray` of `int`)"""
+        return np.array([ll.fiberId for ll in self.lines])
+
+    @property
+    def pixels(self):
+        """Array of pixel positions (`numpy.ndarray` of `float`)"""
+        return np.array([ll.pixels for ll in self.lines])
+
+    @property
+    def measuredWavelength(self):
+        """Array of measured wavelengths in nm (`numpy.ndarray` of `float`)"""
+        return np.array([ll.measuredWavelength for ll in self.lines])
+
+    @property
+    def actualWavelength(self):
+        """Array of actual wavelengths in nm (`numpy.ndarray` of `float`)"""
+        return np.array([ll.actualWavelength for ll in self.lines])
+
+    def __len__(self):
+        """Number of lines"""
+        return len(self.lines)
+
+    def __iter__(self):
+        """Iterator"""
+        return iter(self.lines)
+
+    def residuals(self, fiberId=None):
+        """Return wavelength residuals (nm)
+
+        Parameters
+        ----------
+        fiberId : `int`, optional
+            Fiber identifier to select.
+
+        Returns
+        -------
+        residuals : `numpy.ndarray` of `float`
+            Wavelength residuals (nm): measured - actual.
+        """
+        return np.array([ll.measuredWavelength - ll.actualWavelength for ll in self.lines if
+                         fiberId is None or ll.fiberId == fiberId])
+
+    def mean(self, fiberId=None):
+        """Return the mean of wavelength residuals (nm)
+
+        Parameters
+        ----------
+        fiberId : `int`, optional
+            Fiber identifier to select.
+
+        Returns
+        -------
+        mean : `float`
+            Mean wavelength residual (nm).
+        """
+        return self.residuals(fiberId).mean()
+
+    def stdev(self, fiberId=None):
+        """Return the standard deviation of wavelength residuals (nm).
+
+        Parameters
+        ----------
+        fiberId : `int`, optional
+            Fiber identifier to select.
+
+        Returns
+        -------
+        stdev : `float`
+            Standard deviation of wavelength residuals (nm).
+        """
+        return self.residuals(fiberId).std()
+
+    @classmethod
+    def fromSpectrumSet(cls, spectrumSet, detectorMap):
+        """Measure some statistics about the wavelength solution
+
+        Parameters
+        ----------
+        spectrumSet : `pfs.drp.stella.SpectrumSet`
+            Set of extracted spectra, with lines identified.
+        """
+        lines = []
+        for spec in spectrumSet:
+            fiberId = spec.fiberId
+            for rl in spec.getReferenceLines():
+                if (rl.status & drpStella.ReferenceLine.Status.FIT) == 0:
+                    continue
+                wl = detectorMap.findWavelength(fiberId, rl.fitPosition)
+                lines.append(LineData(fiberId, rl.fitPosition, wl, rl.wavelength))
+        return cls(lines)
+
+    @classmethod
+    def readFits(cls, filename):
+        """Read from file
+
+        Parameters
+        ----------
+        filename : `str`
+            Name of file from which to read.
+
+        Returns
+        -------
+        self : cls
+            Constructed object from reading file.
+        """
+        with astropy.io.fits.open(filename) as fits:
+            hdu = fits[cls.FitsExtName]
+            fiberId = hdu.data["fiberId"]
+            pixels = hdu.data["pixels"]
+            measuredWavelength = hdu.data["measuredWavelength"]
+            actualWavelength = hdu.data["actualWavelength"]
+        return cls([LineData(*args) for args in zip(fiberId, pixels, measuredWavelength, actualWavelength)])
+
+    def writeFits(self, filename):
+        """Write to file
+
+        Parameters
+        ----------
+        filename : `str`
+            Name of file to which to write.
+        """
+        hdu = astropy.io.fits.BinTableHDU.from_columns([
+            astropy.io.fits.Column(name="fiberId", format="J", array=self.fiberId),
+            astropy.io.fits.Column(name="pixels", format="D", array=self.pixels),
+            astropy.io.fits.Column(name="measuredWavelength", format="D", array=self.measuredWavelength),
+            astropy.io.fits.Column(name="actualWavelength", format="D", array=self.actualWavelength),
+        ], name=self.FitsExtName)
+        hdu.header["INHERIT"] = True
+
+        fits = astropy.io.fits.HDUList([astropy.io.fits.PrimaryHDU(), hdu])
+        with open(filename, "wb") as fd:
+            fits.writeto(fd)
 
 
 class CalibrateWavelengthsConfig(pexConfig.Config):
@@ -311,6 +482,8 @@ class CalibrateWavelengthsTask(pipeBase.Task):
         -------
         solutions : `list` of `np.polynomial.chebyshev.Chebyshev`
             Wavelength solutions.
+        wlFitData : `WavelengthFitData`
+            Data on quality of the wavelength fit.
         """
         rng = np.random.RandomState(seed)  # Used for random selection of lines to reserve from the fit
         if self.debugInfo.display and self.debugInfo.showArcLines:
@@ -324,6 +497,34 @@ class CalibrateWavelengthsTask(pipeBase.Task):
                 self.plot(spec, detectorMap, wavelengthCorr)
             solutions.append(wavelengthCorr)
 
+        wlFitData = WavelengthFitData.fromSpectrumSet(spectrumSet, detectorMap)
         self.measureStatistics(spectrumSet, detectorMap)
 
-        return pipeBase.Struct(solutions=solutions)
+        return pipeBase.Struct(solutions=solutions, wlFitData=wlFitData)
+
+    def runDataRef(self, dataRef, spectrumSet, detectorMap, seed=1):
+        """Run the wavelength calibration
+
+        Assumes that line identification has been done already.
+
+        Parameters
+        ----------
+        dataRef : `lsst.daf.persistence.ButlerDataRef`
+            Butler data reference.
+        spectrumSet : `pfs.drp.stella.SpectrumSet`
+            Set of extracted spectra.
+        detectorMap : `pfs.drp.stella.utils.DetectorMap`
+            Mapping of wl,fiber to detector position.
+        seed : `int`
+            Seed for random number generator.
+
+        Returns
+        -------
+        solutions : `list` of `np.polynomial.chebyshev.Chebyshev`
+            Wavelength solutions.
+        wlFitData : `WavelengthFitData`
+            Data on quality of the wavelength fit.
+        """
+        results = self.run(spectrumSet, detectorMap, seed=seed)
+        dataRef.put(results.wlFitData, "wlFitData")
+        return results
