@@ -28,9 +28,9 @@ class WavelengthFitDataTestCase(lsst.utils.tests.TestCase):
         self.measuredWavelengthErr = np.random.uniform(size=self.fiberId.shape)*scale + self.wlMin
         self.refWavelength = np.random.uniform(size=self.fiberId.shape)*scale + self.wlMin
         self.status = np.random.randint(2,size=self.fiberId.shape)
-
+        self.wavelengthCorr = np.random.uniform(size=self.fiberId.shape)
         self.actualWavelength = np.random.uniform(size=self.fiberId.shape)*scale + self.wlMin 
-        self.lines = [LineData(*args) for args in zip(self.fiberId, self.pixels, self.pixelsErr, self.refpixels, self.measuredWavelength, self.measuredWavelengthErr, self.refWavelength, self.status)]
+        self.lines = [LineData(*args) for args in zip(self.fiberId, self.refWavelength, self.refpixels, self.pixels, self.measuredWavelength, self.pixelsErr, self.measuredWavelengthErr, self.wavelengthCorr, self.status)]
 
     def assertWavelengthFitData(self, wlFitData, atol=0.0):
         """Check that the WavelengthFitData is what we expect
@@ -45,22 +45,18 @@ class WavelengthFitDataTestCase(lsst.utils.tests.TestCase):
         """
         self.assertEqual(len(wlFitData), len(self.fiberId))
         self.assertFloatsEqual(wlFitData.fiberId, self.fiberId)
-        self.assertFloatsEqual(wlFitData.pixels, self.pixels)
-        self.assertFloatsAlmostEqual(wlFitData.measuredWavelength, self.measuredWavelength, atol=atol)
+        self.assertFloatsEqual(wlFitData.nominalPixelPos, self.pixels)
+        self.assertFloatsAlmostEqual(wlFitData.fitWavelength, self.measuredWavelength, atol=atol)
 
     def testBasic(self):
         """Test basic functionality"""
         wlFitData = WavelengthFitData(self.lines)
         self.assertWavelengthFitData(wlFitData)
-        residuals = self.measuredWavelength - self.refWavelength
-        pixelresiduals = self.pixels - self.refpixels
 
+        residuals = self.measuredWavelength - self.refWavelength        
         self.assertFloatsEqual(wlFitData.residuals(), residuals)
         self.assertEqual(wlFitData.mean(), residuals.mean())
         self.assertEqual(wlFitData.stdev(), residuals.std())
-
-        self.assertFloatsEqual(wlFitData.pixelresiduals(), pixelresiduals)
-        self.assertEqual(wlFitData.pixelmean(), pixelresiduals.mean())
 
         index = 3
         fiberId = self.fiberId[index]
@@ -76,6 +72,8 @@ class WavelengthFitDataTestCase(lsst.utils.tests.TestCase):
         centerValues = []
         wavelengthKnots = []
         wavelengthValues = []
+        Lines =[]
+
         for ii, ss in enumerate(spectra):
             ss.fiberId = self.fiberId[ii]
             line = ReferenceLine("fake")
@@ -90,11 +88,14 @@ class WavelengthFitDataTestCase(lsst.utils.tests.TestCase):
             wavelengthValues.append(np.array([self.wlMin - 1, self.wlMin, self.measuredWavelength[ii],
                                               self.wlMax, self.wlMax + 1],
                                              dtype=np.float32))
+            linedata=LineData(ss.fiberId,line,line.fitPosition, 0, line.fitPosition, 0, 0, 0,line.status)
+
+            Lines.append(linedata) 
         bbox = lsst.afw.geom.Box2I(lsst.afw.geom.Point2I(0, 0),
                                    lsst.afw.geom.Extent2I(self.length, self.length))
         detMap = DetectorMap(bbox, self.fiberId, centerKnots, centerValues, wavelengthKnots, wavelengthValues)
-
-        wlFitData = WavelengthFitData.fromSpectrumSet()
+ 
+        wlFitData = WavelengthFitData.fromSpectrumSet(Lines)
         self.assertWavelengthFitData(wlFitData, atol=1.0e-4)
 
     def testPersistence(self):
@@ -118,7 +119,9 @@ def setup_module(module):
 
 if __name__ == "__main__":
     setup_module(sys.modules["__main__"])
-    from argparse import ArgumetParser
+
+    from argparse import ArgumentParser
+
     parser = ArgumentParser(__file__)
     parser.add_argument("--display", help="Display backend")
     args, argv = parser.parse_known_args()

@@ -119,25 +119,9 @@ class WavelengthFitData:
         residuals : `numpy.ndarray` of `float`
             Wavelength residuals (nm): measured - actual.
         """
-        return np.array([ll.measuredWavelength - ll.refWavelength for ll in self.lines if
+
+        return np.array([ll.fitWavelength - ll.reflines for ll in self.lines if
                          fiberId is None or ll.fiberId == fiberId])
-
-    def pixelresiduals(self, fiberId=None):
-        """Return wavelength residuals (nm)
-
-        Parameters
-        ----------
-        fiberId : `int`, optional
-            Fiber identifier to select.
-
-        Returns
-        -------
-        residuals : `numpy.ndarray` of `float`
-            Wavelength residuals (nm): measured - actual.
-        """
-        return np.array([ll.pixels - ll.refpixels for ll in self.lines if
-                         fiberId is None or ll.fiberId == fiberId])
-
 
     def mean(self, fiberId=None):
         """Return the mean of wavelength residuals (nm)
@@ -153,21 +137,6 @@ class WavelengthFitData:
             Mean wavelength residual (nm).
         """
         return self.residuals(fiberId).mean()
-
-    def pixelmean(self, fiberId=None):
-        """Return the mean of pixel position 
-
-        Parameters
-        ----------
-        fiberId : `int`, optional
-            Fiber identifier to select.
-
-        Returns
-        -------
-        mean : `float`
-            Mean pixel position.
-        """
-        return self.pixelresiduals(fiberId).mean()
 
     def stdev(self, fiberId=None):
         """Return the standard deviation of wavelength residuals (nm).
@@ -194,7 +163,6 @@ class WavelengthFitData:
             Set of extracted spectra, with lines identified.
         """
         return cls(Datalines)
-      
     @classmethod
     def readFits(cls, filename):
         """Read from file
@@ -216,7 +184,7 @@ class WavelengthFitData:
             nominalPixelPos = hdu.data["nominalPixelPos"]
             fitPixelPos = hdu.data["fitPixelPos"]
             fitWavelength = hdu.data["fitWavelength"]
-            fitPixelErr = hdu.data["fitPixelErr"]
+            fitPixelPosErr = hdu.data["fitPixelPosErr"]
             fitWavelengthErr = hdu.data["fitWavelengthErr"]        
             wavelengthCorr = hdu.data["wavelengthCorr"]
             status =hdu.data["status"] 
@@ -593,7 +561,6 @@ class CalibrateWavelengthsTask(pipeBase.Task):
 
     def runDataRef(self, dataRef, spectrumSet, detectorMap, seed=1):
         """Run the wavelength calibration
-
         Assumes that line identification has been done already.
 
         Parameters
@@ -605,7 +572,7 @@ class CalibrateWavelengthsTask(pipeBase.Task):
         detectorMap : `pfs.drp.stella.utils.DetectorMap`
             Mapping of wl,fiber to detector position.
         seed : `int`
-            Seed for random number 
+            Seed for random number generator.
 
         Returns
         -------
@@ -614,7 +581,7 @@ class CalibrateWavelengthsTask(pipeBase.Task):
         wlFitData : `WavelengthFitData`
             Data on quality of the wavelength fit.
         """
-        pass
+
         results = self.run(spectrumSet, detectorMap, seed=seed)
         dataRef.put(results.wlFitData, "wlFitData")
         return results
