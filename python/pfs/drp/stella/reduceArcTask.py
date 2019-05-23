@@ -194,7 +194,8 @@ class ReduceArcTask(CmdLineTask):
         spectrumSet = self.coaddSpectra(spectra)
         arcLines = self.readLineList(lamps, lineListFilename)
         self.identifyLines.run(spectrumSet, detectorMap, arcLines)
-        self.calibrateWavelengths.run(spectrumSet, detectorMap, seed=dataRef.get("ccdExposureId"))
+        self.calibrateWavelengths.runDataRef(dataRef, spectrumSet, detectorMap,
+                                             seed=dataRef.get("ccdExposureId"))
         self.write(dataRef, spectrumSet, detectorMap, metadata, visitInfo)
         if self.debugInfo.display:
             self.plot(spectrumSet, detectorMap, arcLines)
