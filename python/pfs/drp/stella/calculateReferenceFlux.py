@@ -2,7 +2,7 @@ from lsst.pex.config import Config, ConfigurableField, Field
 from lsst.pipe.base import CmdLineTask, ArgumentParser
 
 from pfs.datamodel.pfsConfig import TargetType
-from pfs.datamodel.drp import PfsObject
+from pfs.datamodel.drp import PfsSingle
 from .fitReference import FitReferenceTask
 
 
@@ -45,7 +45,7 @@ class CalculateReferenceFluxTask(CmdLineTask):
         butler = dataRef.getButler()
         select = pfsConfig.targetType == int(TargetType.FLUXSTD)
         for fiberId in pfsConfig.fiberId[select]:
-            spectrum = merged.extractFiber(PfsObject, pfsConfig, fiberId)
+            spectrum = merged.extractFiber(PfsSingle, pfsConfig, fiberId)
             dataId = spectrum.getIdentity()
             if not self.config.doOverwrite and butler.datasetExists("pfsReference", dataId):
                 self.log.info("Skipping calculation of new reference for %s" % (dataId,))

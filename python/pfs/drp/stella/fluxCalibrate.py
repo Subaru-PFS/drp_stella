@@ -55,7 +55,7 @@ class FluxCalibrateTask(CmdLineTask):
             for spectrum in spectra:
                 dataId = spectrum.getIdentity().copy()
                 dataId.update(dataRef.dataId)
-                butler.put(spectrum, "pfsObject", dataId)
+                butler.put(spectrum, "pfsSingle", dataId)
         return Struct(calib=calib, spectra=spectra)
 
     def readReferences(self, butler, pfsConfig):

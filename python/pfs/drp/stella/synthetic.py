@@ -222,7 +222,7 @@ def makeSyntheticDetectorMap(config, numKnots=20):
                        [knots]*config.numFibers, wavelength)
 
 
-def makeSyntheticPfsConfig(config, pfiDesignId, expId, rng=None,
+def makeSyntheticPfsConfig(config, pfsDesignId, visit, rng=None,
                            raBoresight=60.0*lsst.afw.geom.degrees,
                            decBoresight=30.0*lsst.afw.geom.degrees,
                            fracSky=0.1, fracFluxStd=0.1):
@@ -232,9 +232,9 @@ def makeSyntheticPfsConfig(config, pfiDesignId, expId, rng=None,
     ----------
     config : `pfs.drp.stella.synthetic.SyntheticConfig`
         Configuration for synthetic spectrograph.
-    pfiDesignId : `int`
+    pfsDesignId : `int`
         Identifier for top-end design.
-    expId : `int`
+    visit : `int`
         Exposure identifier.
     rng : `numpy.random.RandomState`, optional
         Random number generator.
@@ -296,6 +296,6 @@ def makeSyntheticPfsConfig(config, pfiDesignId, expId, rng=None,
     filterNames = [["g", "i", "y", "H"] if tt in (TargetType.SCIENCE, TargetType.FLUXSTD) else []
                    for tt in targetType]
 
-    return PfsConfig(pfiDesignId, expId, raBoresight.asDegrees(), decBoresight.asDegrees(),
+    return PfsConfig(pfsDesignId, visit, raBoresight.asDegrees(), decBoresight.asDegrees(),
                      fiberId, tract, patch, ra, dec, catId, objId, targetType,
                      fiberMag, filterNames, pfiCenter, pfiNominal)
