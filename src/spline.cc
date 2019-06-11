@@ -204,6 +204,16 @@ T Spline<T>::operator()(T const z) const
     return t*_y[m] + (1 - t)*_y[m-1] + h*t*(1 - t)*(a - b);
 }
 
+
+template<typename T>
+typename Spline<T>::Array Spline<T>::operator()(Array const array) const
+{
+    Array result = ndarray::allocate(array.getNumElements());
+    std::transform(array.begin(), array.end(), result.begin(), *this);
+    return result;
+}
+
+
 /*
  * Find the index of the element in x which comes after z; return 1 or n-1 if out of range
  */

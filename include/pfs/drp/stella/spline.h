@@ -39,6 +39,7 @@ public:
     Spline& operator=(Spline &&) = default;
 
     T operator() (T const x) const;
+    Array operator() (Array const array) const;
 
     ConstArray const getX() const { return _x; }
     ConstArray const getY() const { return _y; }
