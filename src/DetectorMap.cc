@@ -145,6 +145,12 @@ std::vector<DetectorMap::Array1D> DetectorMap::getWavelength() const {
     return result;
 }
 
+float DetectorMap::getWavelength(std::size_t fiberId, float y) const {
+    std::size_t const index = getFiberIndex(fiberId);
+    auto const & spline = getWavelengthSpline(index);
+    float const slitOffsetY = _slitOffsets[DY][index];
+    return spline(y - slitOffsetY);
+}
 
 void DetectorMap::setWavelength(
     std::size_t fiberId,
