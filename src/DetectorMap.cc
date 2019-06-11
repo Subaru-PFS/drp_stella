@@ -42,12 +42,6 @@ DetectorMap::DetectorMap(
     }
 
     for (std::size_t ii = 0; ii < _nFiber; ++ii) {
-        float const minCenterKnot = *std::min_element(centerKnots[ii].begin(), centerKnots[ii].end());
-        float const maxCenterKnot = *std::max_element(centerKnots[ii].begin(), centerKnots[ii].end());
-        float const minWavelengthKnot = *std::min_element(wavelengthKnots[ii].begin(),
-                                                          wavelengthKnots[ii].end());
-        float const maxWavelengthKnot = *std::max_element(wavelengthKnots[ii].begin(),
-                                                          wavelengthKnots[ii].end());
         _yToXCenter[ii] = std::make_shared<math::Spline<float>>(centerKnots[ii], centerValues[ii]);
         _yToWavelength[ii] = std::make_shared<math::Spline<float>>(wavelengthKnots[ii], wavelengthValues[ii]);
     }
