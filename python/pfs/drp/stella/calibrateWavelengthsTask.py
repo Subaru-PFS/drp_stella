@@ -166,9 +166,9 @@ class CalibrateWavelengthsTask(pipeBase.Task):
                 dy = -int(-dy)
                 spec.wavelength[dy:] = spec.wavelength[:-dy]
 
-        detectorMap.setWavelength(fiberId, rows, spec.wavelength)
         diff = detectorMap.getWavelength(fiberId) - spec.wavelength
         self.log.info("Fiber %d: wavelength correction %f +/- %f nm" % (fiberId, diff.mean(), diff.std()))
+        detectorMap.setWavelength(fiberId, rows, spec.wavelength)
 
         return wavelengthCorr
 
