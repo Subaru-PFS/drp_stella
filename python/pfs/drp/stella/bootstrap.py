@@ -156,6 +156,8 @@ class BootstrapTask(CmdLineTask):
         """
         metadata = arcRef.get("raw_md")
         lamps = getLampElements(metadata)
+        if not lamps:
+            raise RuntimeError("No lamps found from metadata")
         return readLineListFile(lineListFilename, lamps, minIntensity=self.config.minArcLineIntensity)
 
     def findArcLines(self, arcRef, traces):

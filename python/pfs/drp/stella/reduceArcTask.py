@@ -158,6 +158,8 @@ class ReduceArcTask(CmdLineTask):
         """
         metadata = dataRef.get("raw_md")
         lamps = getLampElements(metadata)
+        if not lamps:
+            raise RuntimeError("No lamps found from metadata")
         lines = self.readLineList(lamps, lineListFilename)
         results = self.reduceExposure.run([dataRef])
         self.identifyLines.run(results.spectraList[0], results.detectorMapList[0], lines)
