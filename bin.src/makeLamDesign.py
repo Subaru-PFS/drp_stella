@@ -23,6 +23,7 @@ FIBER_COLORS = {"red1": [2],
                 "blue": [32, 111, 223, 289, 418, 518, 620],
                 "green": [63, 192, 255, 401, 464, 525, 587],
                 "yellow": [347, 400, 449, 545, 593, 641],
+                "xxx": [650, 589, 462, 400, 337, 315, 253, 191, 65, 3],  # Before there were colors
                 }
 
 # Mapping of colors to hash value
