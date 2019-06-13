@@ -281,11 +281,12 @@ class BootstrapTask(CmdLineTask):
             obs = sorted(obs, key=attrgetter("flux"), reverse=True)  # Brightest first
             for line in obs:
                 wl = detectorMap.findWavelength(line.fiberId, line.y)
-                candidates = [ref for ref in refLines if abs(ref.wavelength - wl) < self.config.matchRadius]
+                candidates = [ref for ref in refLines if
+                              ref.wavelength not in used and
+                              abs(ref.wavelength - wl) < self.config.matchRadius]
                 if not candidates:
                     continue
-                ref = max([cc for cc in candidates if cc.wavelength not in used],
-                          key=attrgetter("guessedIntensity"))
+                ref = max(candidates, key=attrgetter("guessedIntensity"))
                 matches.append(SimpleNamespace(obs=line, ref=ref))
                 used.add(ref.wavelength)
         self.log.info("Matched %d lines", len(matches))
