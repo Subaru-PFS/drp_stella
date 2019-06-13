@@ -49,105 +49,83 @@ class CalibrateWavelengthsTask(pipeBase.Task):
             Wavelength solution.
         """
         rows = np.arange(len(spec.wavelength), dtype='float32')
-        refLines = spec.getReferenceLines()
-
-        wavelength = np.array([rl.wavelength for rl in refLines])
-        status = np.empty_like(wavelength, dtype=int)
-        nominalPixelPos = np.empty_like(wavelength)
-        fitWavelength = np.empty_like(wavelength)
-        fitWavelengthErr = np.empty_like(wavelength)
-
         fiberId = spec.getFiberId()
-        refLines = spec.getReferenceLines()
         lam = detectorMap.getWavelength(fiberId)
         nmPerPix = (lam[-1] - lam[0])/(rows[-1] - rows[0])
         self.log.trace("FiberId %d, dispersion (nm/pixel) = %.3f" % (fiberId, nmPerPix))
+
+        refLines = [rl for rl in spec.getReferenceLines() if
+                    (rl.status & drpStella.ReferenceLine.Status.FIT) != 0 and
+                    (rl.status & drpStella.ReferenceLine.Status.INTERPOLATED) == 0]
+
         #
         # Unpack reference lines
         #
-        for i, rl in enumerate(refLines):
-            nominalPixelPos[i] = (rl.wavelength - lam[0])/nmPerPix
-            fitWavelength[i] = detectorMap.findWavelength(fiberId, rl.fitPosition)
-            fitWavelengthErr[i] = rl.fitPositionErr*nmPerPix
-            status[i] = rl.status
+        wavelength = np.array([rl.wavelength for rl in refLines])
+        status = np.array([rl.status for rl in refLines])
+        fitPosition = np.array([rl.fitPosition for rl in refLines])
+        nominalPixelPos = np.array([(rl.wavelength - lam[0])/nmPerPix for rl in refLines])
+        fitWavelength = np.array([detectorMap.findWavelength(fiberId, rl.fitPosition) for rl in refLines])
+        fitWavelengthErr = np.array([rl.fitPositionErr*nmPerPix for rl in refLines])
 
-        # NB: "fitted" here refers to the position of the line, not whether the line was used in the
-        # wavelength fit.
-        fitted = (status & drpStella.ReferenceLine.Status.FIT) != 0
-        fitted = fitted & ((status & drpStella.ReferenceLine.Status.INTERPOLATED) == 0)
+        nSigmaClip = self.config.nSigmaClip[:]
+        nSigmaClip.append(None)         # None => don't clip on the last pass, but do reserve some values
 
-        nSigma = self.config.nSigmaClip[:]
-        try:
-            nSigma[0]
-        except TypeError:
-            nSigma = [nSigma]
-        nSigma.append(None)         # None => don't clip on the last pass, but do reserve some values
-
-        used = fitted.copy()        # the lines that we use in the fit
-        clipped = np.zeros_like(fitted, dtype=bool)
-        reserved = np.zeros_like(fitted, dtype=bool)
-        for nSigma in nSigma:
+        good = np.ones_like(status, dtype=bool)
+        reserved = np.zeros_like(status, dtype=bool)
+        for nSigma in nSigmaClip:
             if nSigma is None:      # i.e. the last pass
                 #
                 # Reserve some lines to estimate the quality of the fit
                 #
-                good = np.where(used)[0]
-
+                goodIndices = np.where(good)[0]
                 if self.config.nLinesKeptBack >= len(good):
                     self.log.warn("Number of good points %d <= nLinesKeptBack == %d; not reserving points" %
-                                  (len(good), self.config.nLinesKeptBack))
+                                  (len(goodIndices), self.config.nLinesKeptBack))
                 else:
-                    for i in rng.choice(len(good), self.config.nLinesKeptBack, replace=False):
-                        used[good[i]] = False
-
-                    reserved = (fitted & ~clipped) & ~used
+                    for i in rng.choice(len(goodIndices), self.config.nLinesKeptBack, replace=False):
+                        reserved[goodIndices[i]] = True
                     assert sum(reserved) == self.config.nLinesKeptBack
             #
             # Fit the residuals
             #
             x = nominalPixelPos
             y = wavelength - fitWavelength
+
             yerr = np.hypot(fitWavelengthErr, self.config.pixelPosErrorFloor*nmPerPix)
+            use = good & ~reserved
 
             wavelengthCorr = np.polynomial.chebyshev.Chebyshev.fit(
-                x[used], y[used], self.config.order, domain=[0, len(spec.wavelength) - 1], w=1/yerr[used])
+                x[use], y[use], self.config.order, domain=[0, len(spec.wavelength) - 1], w=1/yerr[use])
             yfit = wavelengthCorr(x)
 
             if nSigma is not None:
                 resid = y - yfit
-                lq, uq = np.percentile(resid[fitted], (25.0, 75.0))
-                stdev = 0.741*(uq - lq)
-                clipped |= fitted & (np.fabs(resid) > nSigma*np.where(yerr > stdev, yerr, stdev))
-                used = used & ~clipped
+                stdev = robustStdev(resid)
+                good &= (np.fabs(resid) < nSigma*np.where(yerr > stdev, yerr, stdev))
 
-                if used.sum() == 0:
+                if good.sum() == 0:
                     self.log.warn("All points were clipped for fiberId %d; disabled clipping" % fiberId)
-                    clipped[:] = False
-                    used = fitted.copy()
+                    good[:] = True
         #
         # Update the status flags
         #
         for i, rl in enumerate(refLines):
-            if clipped[i]:
+            if not good[i]:
                 rl.status |= rl.Status.CLIPPED
             if reserved[i]:
                 rl.status |= rl.Status.RESERVED
         #
         # Correct the initial wavelength solution
         #
-        spec.wavelength = detectorMap.getWavelength(fiberId) + wavelengthCorr(rows).astype('float32')
+        spec.wavelength = wavelengthCorr(rows).astype('float32') + detectorMap.getWavelength(fiberId)
 
-        rmsUsed = np.sqrt(np.sum(((y - yfit)**2)[used]))/(used.sum() - self.config.order)
-        rmsReserved = np.sqrt(np.sum(((y - yfit)**2)[reserved])/reserved.sum())
-        self.log.info("FiberId %4d, rms %f nm (%.3f pix) from %d (%f nm = %.3f pix for %d reserved points)" %
-                      (fiberId,
-                       rmsUsed,
-                       rmsUsed/nmPerPix,
-                       used.sum(),
-                       rmsReserved,
-                       rmsReserved/nmPerPix,
-                       reserved.sum(),
-                       ))
+        rmsFit = np.sqrt(np.sum(((y - yfit)**2)[use])/(use.sum() - self.config.order))
+        rmsReserved = (y[reserved] - yfit[reserved]).std()
+        self.log.info("FiberId %d, rms %f nm (%.3f pix) from %d/%d "
+                      "(%f nm = %.3f pix for %d reserved points)",
+                      fiberId, rmsFit, rmsFit/nmPerPix, good.sum(), len(refLines),
+                      rmsReserved, rmsReserved/nmPerPix, reserved.sum())
         #
         # Update the DetectorMap
         #
@@ -327,3 +305,22 @@ class CalibrateWavelengthsTask(pipeBase.Task):
         self.measureStatistics(spectrumSet, detectorMap)
 
         return pipeBase.Struct(solutions=solutions)
+
+
+def robustStdev(array):
+    """Calculate a robust standard deviation
+
+    From the inter-quartile range.
+
+    Parameters
+    ----------
+    array : array-like
+        Array of values to use in calculation.
+
+    Returns
+    -------
+    stdev : `float`
+        Robust standard deviation.
+    """
+    lq, uq = np.percentile(array, (25.0, 75.0))
+    return 0.741*(uq - lq)
