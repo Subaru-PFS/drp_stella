@@ -45,6 +45,8 @@ def readLineListFile(lineListFilename, lamps=["Ar", "Cd", "Hg", "Ne", "Xe"], min
     # Pack into a list of ReferenceLines
     #
     referenceLines = []
+    if len(lamps) == 0:
+        raise RuntimeError("No lamps provided")
 
     with open(lineListFilename) as fd:
         for line in fd:
