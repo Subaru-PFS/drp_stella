@@ -19,13 +19,18 @@ class WavelengthFitDataTestCase(lsst.utils.tests.TestCase):
         self.length = 128
         self.fiberId = np.arange(123, 456, 78, dtype=np.int32)
         self.pixels = np.random.uniform(size=self.fiberId.shape)*self.length
+        self.pixelsErr = np.random.uniform(size=self.fiberId.shape)*self.length
+        self.refpixels = np.random.uniform(size=self.fiberId.shape)*self.length
         self.wlMin = 600.0  # nm
         self.wlMax = 900.0  # nm
         scale = self.wlMax - self.wlMin
         self.measuredWavelength = np.random.uniform(size=self.fiberId.shape)*scale + self.wlMin
-        self.actualWavelength = np.random.uniform(size=self.fiberId.shape)*scale + self.wlMin
-        self.lines = [LineData(*args) for args in zip(self.fiberId, self.pixels, self.measuredWavelength,
-                                                      self.actualWavelength)]
+        self.measuredWavelengthErr = np.random.uniform(size=self.fiberId.shape)*scale + self.wlMin
+        self.refWavelength = np.random.uniform(size=self.fiberId.shape)*scale + self.wlMin
+        self.status = np.random.randint(2,size=self.fiberId.shape)
+
+        self.actualWavelength = np.random.uniform(size=self.fiberId.shape)*scale + self.wlMin 
+        self.lines = [LineData(*args) for args in zip(self.fiberId, self.pixels, self.pixelsErr, self.refpixels, self.measuredWavelength, self.measuredWavelengthErr, self.refWavelength, self.status)]
 
     def assertWavelengthFitData(self, wlFitData, atol=0.0):
         """Check that the WavelengthFitData is what we expect
@@ -42,16 +47,20 @@ class WavelengthFitDataTestCase(lsst.utils.tests.TestCase):
         self.assertFloatsEqual(wlFitData.fiberId, self.fiberId)
         self.assertFloatsEqual(wlFitData.pixels, self.pixels)
         self.assertFloatsAlmostEqual(wlFitData.measuredWavelength, self.measuredWavelength, atol=atol)
-        self.assertFloatsEqual(wlFitData.actualWavelength, self.actualWavelength)
 
     def testBasic(self):
         """Test basic functionality"""
         wlFitData = WavelengthFitData(self.lines)
         self.assertWavelengthFitData(wlFitData)
-        residuals = self.measuredWavelength - self.actualWavelength
+        residuals = self.measuredWavelength - self.refWavelength
+        pixelresiduals = self.pixels - self.refpixels
+
         self.assertFloatsEqual(wlFitData.residuals(), residuals)
         self.assertEqual(wlFitData.mean(), residuals.mean())
         self.assertEqual(wlFitData.stdev(), residuals.std())
+
+        self.assertFloatsEqual(wlFitData.pixelresiduals(), pixelresiduals)
+        self.assertEqual(wlFitData.pixelmean(), pixelresiduals.mean())
 
         index = 3
         fiberId = self.fiberId[index]
@@ -109,7 +118,7 @@ def setup_module(module):
 
 if __name__ == "__main__":
     setup_module(sys.modules["__main__"])
-    from argparse import ArgumentParser
+    from argparse import ArgumetParser
     parser = ArgumentParser(__file__)
     parser.add_argument("--display", help="Display backend")
     args, argv = parser.parse_known_args()
