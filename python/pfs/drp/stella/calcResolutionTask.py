@@ -6,7 +6,7 @@ import lsst.pex.config as pexConfig
 from lsst.utils import getPackageDir
 from lsst.pipe.base import TaskRunner, ArgumentParser, CmdLineTask, Struct
 import lsst.afw.display as afwDisplay
-from .wavelengthSolutionTask import WavelengthSolutionTask
+from .wavelengthStatistics import WavelengthSolutionTask
 from .reduceExposure import ReduceExposureTask
 from .identifyLines import IdentifyLinesTask
 from .utils import readLineListFile
@@ -198,10 +198,16 @@ class CalcResolutionTask(CmdLineTask):
         spectrumSet = self.coaddSpectra(spectra)
         arcLines = self.readLineList(lamps, lineListFilename)
         self.identifyLines.run(spectrumSet, detectorMap, arcLines)
-        WLInfo = self.wavelengthSolution.run(spectrumSet, detectorMap)
-        self.write(dataRef, spectrumSet, detectorMap, metadata, visitInfo, WLInfo)
+        
+        self.write(dataRef, spectrumSet, detectorMap, metadata, visitInfo)
+
+        for spec in spectrumSet:
+            WLInfo = self.wavelengthSolution.run(spec, detectorMap)
+            dataRef.put(WLInfo,"WLInfo")
+
         if self.debugInfo.display:
             self.plot(spectrumSet, detectorMap, arcLines)
+
 
     def coaddSpectra(self, spectra):
         """Coadd multiple SpectrumSets
@@ -262,7 +268,7 @@ class CalcResolutionTask(CmdLineTask):
         self.log.info("Arc lamp elements are: %s", " ".join(lamps))
         return readLineListFile(lineListFilename, lamps, minIntensity=self.config.minArcLineIntensity)
 
-    def write(self, dataRef, spectrumSet, detectorMap, metadata, visitInfo, WLInfo):
+    def write(self, dataRef, spectrumSet, detectorMap, metadata, visitInfo):
         """Write outputs
 
         Parameters
@@ -278,6 +284,7 @@ class CalcResolutionTask(CmdLineTask):
         visitInfo : `lsst.afw.image.VisitInfo`
             Visit information for exposure.
         """
+
         self.log.info("Writing output for %s", dataRef.dataId)
         # XXX set metadata in spectrumSet
         dataRef.put(spectrumSet, "pfsArm")
@@ -286,8 +293,7 @@ class CalcResolutionTask(CmdLineTask):
         calibId = detectorMap.metadata.get("CALIB_ID")
         detectorMap.metadata.set("CALIB_ID", re.sub("visit0=\d+", "visit0=%d" % (visit0,), calibId))
         dataRef.put(detectorMap, 'detectormap', visit0=visit0)
-        self.log.info("%s", WLInfo)
-        dataRef.put(WLInfo,"WLInfo")
+        
 
     def reduceDataRefs(self, dataRefList):
         """Reduce a list of data references

@@ -77,7 +77,7 @@ class WavelengthSolutionInfo(types.SimpleNamespace):
             Function read from FITS file.
         """
 
-    def writeFits(self, *args, **kwargs):
+    def writeFits(self, filename):
         """Write to FITS file
 
         Parameters
@@ -85,11 +85,9 @@ class WavelengthSolutionInfo(types.SimpleNamespace):
         filename : `str`
             Name of file to which to write.
         """
-        self.validate()
+        from astropy.table import Table 
         import astropy.io.fits
         fits = astropy.io.fits.HDUList()
-        header = self.metadata.copy()
-        header.update(self.flags.toFitsHeader())
         fits.append(astropy.io.fits.PrimaryHDU(header=astropyHeaderFromDict(header)))
         for attr in ("fiberId", "wavelength", "pos", "pos2", "pos3", "pos4"):
             hduName = attr.upper()
