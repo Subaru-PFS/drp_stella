@@ -118,15 +118,16 @@ class TasksTestCase(lsst.utils.tests.TestCase):
             if not checkReferenceLines:
                 continue
             self.assertEqual(len(spectrum.referenceLines), self.numLines)
-            self.assertFloatsEqual(np.array([int(ll.status) for ll in spectrum.referenceLines]),
+            referenceLines = sorted(spectrum.referenceLines, key=lambda rl: rl.wavelength)
+            self.assertFloatsEqual(np.array([int(ll.status) for ll in referenceLines]),
                                    np.ones(self.numLines, dtype=int)*int(pfs.drp.stella.ReferenceLine.FIT))
-            self.assertFloatsAlmostEqual(np.array([ll.fitPosition for ll in spectrum.referenceLines]),
+            self.assertFloatsAlmostEqual(np.array([ll.fitPosition for ll in referenceLines]),
                                          self.arcData.lines, atol=2.0e-4)
             sigma = self.lineFwhm/(2*np.sqrt(2*np.log(2)))
             norm = 1.0/(sigma*np.sqrt(2*np.pi))
             expectIntensity = norm*self.flux
-            self.assertFloatsAlmostEqual(np.array([ll.fitIntensity for ll in spectrum.referenceLines]),
-                                         np.ones(self.numLines)*expectIntensity, rtol=3.0e-3)
+            self.assertFloatsAlmostEqual(np.array([ll.fitIntensity for ll in referenceLines]),
+                                         np.ones(self.numLines)*expectIntensity, rtol=5.0e-2)
 
     def testBasic(self):
         """Test tasks
@@ -166,7 +167,7 @@ class TasksTestCase(lsst.utils.tests.TestCase):
         task = CalibrateWavelengthsTask(config=config)
         solutions = task.run(spectra, self.detMap, seed=12345).solutions
         for tt, ss, sol in zip(traces, spectra, solutions):
-            self.assertFloatsAlmostEqual(sol(np.arange(len(ss))), 0, atol=4.5e-5)
+            self.assertFloatsAlmostEqual(sol(np.arange(len(ss))), 0, atol=2.0e-4)
             self.assertFloatsEqual(ss.wavelength, self.detMap.getWavelength(tt.fiberId))
 
     def testReduceExposure(self):
