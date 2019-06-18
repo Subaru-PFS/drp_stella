@@ -18,6 +18,8 @@ class IdentifyLinesConfig(Config):
     """Configuration for IdentifyLinesTask"""
     findLines = ConfigurableField(target=FindLinesTask, doc="Find arc lines")
     matchRadius = Field(dtype=float, default=0.3, doc="Line matching radius (nm)")
+    refExclusionRadius = Field(dtype=float, default=0.0,
+                               doc="Minimum allowed wavelength difference between reference lines (nm)")
 
 
 class IdentifyLinesTask(Task):
@@ -62,6 +64,15 @@ class IdentifyLinesTask(Task):
         minWl = spectrum.wavelength.min()
         maxWl = spectrum.wavelength.max()
         lines = [rl for rl in lines if rl.wavelength > minWl and rl.wavelength < maxWl]
+
+        if self.config.refExclusionRadius > 0.0:
+            lines = sorted(lines, key=lambda rl: rl.wavelength)
+            wavelengths = np.array([rl.wavelength for rl in lines])
+            dWl = wavelengths[1:] - wavelengths[:-1]
+            keep = np.ones_like(wavelengths, dtype=bool)
+            keep[:-1] &= dWl > self.config.refExclusionRadius
+            keep[1:] &= dWl > self.config.refExclusionRadius
+            lines = [rl for rl, kk in zip(lines, keep) if kk]
 
         obsLines = self.findLines.run(spectrum).lines
         obsLines = sorted(obsLines, key=lambda xx: spectrum.spectrum[int(xx + 0.5)])
