@@ -63,7 +63,7 @@ class IdentifyLinesTask(Task):
         maxWl = spectrum.wavelength.max()
         lines = [rl for rl in lines if rl.wavelength > minWl and rl.wavelength < maxWl]
 
-        obsLines = self.findLines.run(spectrum)
+        obsLines = self.findLines.run(spectrum).lines
         obsLines = sorted(obsLines, key=lambda xx: spectrum.spectrum[int(xx + 0.5)])
         used = set()
         matches = []
