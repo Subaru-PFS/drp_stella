@@ -2,8 +2,10 @@ import warnings
 import numpy as np
 import astropy.modeling
 
-from lsst.pex.config import Config, Field, ListField
-from lsst.pipe.base import Task
+from lsst.pex.config import Config, Field, ListField, ConfigurableField
+from lsst.pipe.base import Task, Struct
+
+from .fitContinuum import FitContinuumTask
 
 import lsstDebug
 
@@ -18,10 +20,16 @@ class FindLinesConfig(Config):
     exclusionRadius = Field(dtype=float, default=2.0,
                             doc="Fit exclusion radius for pixels around other peaks, "
                                 "as a multiple of 'width'")
+    doSubtractContinuum = Field(dtype=bool, default=True, doc="Subtract continuum before finding peaks?")
+    fitContinuum = ConfigurableField(target=FitContinuumTask, doc="Fit continuum")
 
 
 class FindLinesTask(Task):
     ConfigClass = FindLinesConfig
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.makeSubtask("fitContinuum")
 
     def run(self, spectrum):
         """Find and centroid peaks in a spectrum
@@ -36,10 +44,12 @@ class FindLinesTask(Task):
         centroids : `list` of `float`
             Centroid for each line.
         """
-        peaks = self.findPeaks(spectrum)
-        return self.centroidLines(spectrum, peaks)
+        continuum = self.fitContinuum.fitContinuum(spectrum) if self.config.doSubtractContinuum else None
+        peaks = self.findPeaks(spectrum, continuum=continuum)
+        lines = self.centroidLines(spectrum, peaks)
+        return Struct(lines=lines, continuum=continuum)
 
-    def findPeaks(self, spectrum):
+    def findPeaks(self, spectrum, continuum=None):
         """Find positive peaks in the spectrum
 
         Peak flux must exceed ``threshold`` config parameter.
@@ -48,6 +58,8 @@ class FindLinesTask(Task):
         ----------
         spectrum : `pfs.drp.stella.Spectrum`
             Spectrum on which to find peaks.
+        continuum : `numpy.ndarray` of `float`, optional
+            Continuum to subtract before finding peaks.
 
         Returns
         -------
@@ -55,7 +67,9 @@ class FindLinesTask(Task):
             Indices of peaks.
         """
         flux = spectrum.spectrum
-        with np.errstate(invalid='ignore'):
+        if continuum is not None:
+            flux = flux - continuum
+        with np.errstate(invalid='ignore', divide="ignore"):
             stdev = np.sqrt(spectrum.variance)
             diff = flux[1:] - flux[:-1]  # flux[i + 1] - flux[i]
             select = (diff[:-1] > 0) & (diff[1:] < 0)  # A positive peak
