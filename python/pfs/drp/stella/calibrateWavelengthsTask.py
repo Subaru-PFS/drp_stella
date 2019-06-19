@@ -20,24 +20,26 @@ class LineData(SimpleNamespace):
     ----------
     fiberId : `int`
         Fiber identifier.
-    pixels : `float`
-        Pixel position of line in spectrum.
-    pixelsErr : `float`
-        Pixel position Error of line in spectrum.
-    refpixels : `float`
-        Pixel position of line in spectrum determined by detectormap.
-    measuredWavelength : `float`
-        Measured wavelength of line in spectrum (nm).
-    measuredWavelengthErr : `float`
-        Measured wavelength Error of line in spectrum (nm).
-    refWavelength : `float`
-        reference wavelength of line (nm).
+    reflines : 'float'
+        reference line wavelength (nm).         
+    nominalPixelPos : `float`
+        Pixel position calculated with detectormap.
+    fitPixelPos : `float`
+        Pixel position of reference line determined by the fit
+    fitWavelength : 'float'
+        wavelength determined by the fit position.
+    fitPixelPosErr : `float`
+        Error of fit fitPixelPos 
+    fitWavelengthErr : 
+        Error of fit Wavelength
+    wavelengthCorr : 'float'
+        Chevichev fit result 
     status : int
         Flags whether the lines are fitted, clipped or reserved etc.
     """
 
-    def __init__(self, fiberId, pixels, pixelsErr, refpixels, measuredWavelength, measuredWavelengthErr, refWavelength, status):
-        return super().__init__(fiberId=fiberId, pixels=pixels, pixelsErr=pixelsErr, refpixels=refpixels, measuredWavelength=measuredWavelength, measuredWavelengthErr=measuredWavelengthErr, refWavelength=refWavelength, status=status)
+    def __init__(self, fiberId, reflines, nominalPixelPos, fitPixelPos, fitWavelength, fitPixelPosErr, fitWavelengthErr, wavelengthCorr,status):
+        return super().__init__(fiberId=fiberId, reflines=reflines, nominalPixelPos=nominalPixelPos, fitPixelPos=fitPixelPos, fitWavelength=fitWavelength, fitPixelPosErr=fitPixelPosErr, fitWavelengthErr=fitWavelengthErr, wavelengthCorr=wavelengthCorr,status=status)
 
 class WavelengthFitData:
     """Data characterising the quality of the wavelength fit for an image
@@ -58,37 +60,42 @@ class WavelengthFitData:
         return np.array([ll.fiberId for ll in self.lines])
 
     @property
-    def pixels(self):
-        """Array of pixel positions (`numpy.ndarray` of `float`)"""
-        return np.array([ll.pixels for ll in self.lines])
+    def reflines(self):
+        """Array of reference lines (`numpy.ndarray` of `float`)"""
+        return np.array([ll.reflines for ll in self.lines])
 
     @property
-    def pixelsErr(self):
-        """Array of fitted pixel positions Error (`numpy.ndarray` of `float`)"""
-        return np.array([ll.pixelsErr for ll in self.lines])
+    def nominalPixelPos(self):
+        """Array of nominalPixelPos (`numpy.ndarray` of `float`)"""
+        return np.array([ll.nominalPixelPos for ll in self.lines])
 
     @property
-    def refpixels(self):
+    def fitPixelPos(self):
         """Array of fitted pixel positions (`numpy.ndarray` of `float`)"""
-        return np.array([ll.refpixels for ll in self.lines])
+        return np.array([ll.fitPixelPos for ll in self.lines])
 
     @property
-    def measuredWavelength(self):
-        """Array of measured wavelengths in nm (`numpy.ndarray` of `float`)"""
-        return np.array([ll.measuredWavelength for ll in self.lines])
+    def fitWavelength(self):
+        """Array of fit wavelengths in nm (`numpy.ndarray` of `float`)"""
+        return np.array([ll.fitWavelength for ll in self.lines])
     @property
-    def measuredWavelengthErr(self):
+    def fitPixelPosErr(self):
+        """Array of measured position Error in nm (`numpy.ndarray` of `float`)"""
+        return np.array([ll.fitPixelPosErr for ll in self.lines])
+
+    @property
+    def fitWavelengthErr(self):
         """Array of measured wavelengths Err in nm (`numpy.ndarray` of `float`)"""
-        return np.array([ll.measuredWavelengthErr for ll in self.lines])
+        return np.array([ll.fitWavelengthErr for ll in self.lines])
 
     @property
-    def refWavelength(self):
-        """Array of actual wavelengths in nm (`numpy.ndarray` of `float`)"""
-        return np.array([ll.refWavelength for ll in self.lines])
+    def wavelengthCorr(self):
+        """Array of Chebichev fit(`numpy.ndarray` of `float`)"""
+        return np.array([ll.wavelengthCorr for ll in self.lines])
 
     @property
     def status(self):
-        """flags for 'fitted' """
+        """flags for status """
         return np.array([ll.status for ll in self.lines])
 
     def __len__(self):
@@ -205,15 +212,16 @@ class WavelengthFitData:
         with astropy.io.fits.open(filename) as fits:
             hdu = fits[cls.FitsExtName]
             fiberId = hdu.data["fiberId"]
-            pixels = hdu.data["pixels"]
-            pixelsErr = hdu.data["pixelsErr"]
-            refpixels = hdu.data["refpixels"]
-            measuredWavelength = hdu.data["measuredWavelength"]
-            measuredWavelengthErr = hdu.data["measuredWavelengthErr"]
-            refWavelength = hdu.data["refWavelength"]
+            reflines = hdu.data["reflines"]
+            nominalPixelPos = hdu.data["nominalPixelPos"]
+            fitPixelPos = hdu.data["fitPixelPos"]
+            fitWavelength = hdu.data["fitWavelength"]
+            fitPixelErr = hdu.data["fitPixelErr"]
+            fitWavelengthErr = hdu.data["fitWavelengthErr"]        
+            wavelengthCorr = hdu.data["wavelengthCorr"]
             status =hdu.data["status"] 
         
-        return cls([LineData(*args) for args in zip(fiberId, pixels,pixelsErr, refpixels, measuredWavelength, measuredWavelengthErr, refWavelength, status)])
+        return cls([LineData(*args) for args in zip(fiberId, reflines, nominalPixelPos, fitPixelPos, fitWavelength, fitPixelPosErr, fitWavelengthErr, wavelengthCorr, status)])
 
     def writeFits(self, filename):
         """Write to file
@@ -225,12 +233,13 @@ class WavelengthFitData:
         """
         hdu = astropy.io.fits.BinTableHDU.from_columns([
             astropy.io.fits.Column(name="fiberId", format="J", array=self.fiberId),
-            astropy.io.fits.Column(name="pixels", format="D", array=self.pixels),
-            astropy.io.fits.Column(name="pixelsErr", format="D", array=self.pixelsErr),
-            astropy.io.fits.Column(name="refpixels", format="D", array=self.refpixels),
-            astropy.io.fits.Column(name="measuredWavelength", format="D", array=self.measuredWavelength),
-            astropy.io.fits.Column(name="measuredWavelengthErr", format="D", array=self.measuredWavelengthErr),
-            astropy.io.fits.Column(name="refWavelength", format="D", array=self.refWavelength),
+            astropy.io.fits.Column(name="reflines", format="D", array=self.reflines),
+            astropy.io.fits.Column(name="nominalPixelPos", format="D", array=self.nominalPixelPos),
+            astropy.io.fits.Column(name="fitPixelPos", format="D", array=self.fitPixelPos),
+            astropy.io.fits.Column(name="fitWavelength", format="D", array=self.fitWavelength),
+            astropy.io.fits.Column(name="fitPixelPosErr", format="D", array=self.fitPixelPosErr),
+            astropy.io.fits.Column(name="fitWavelengthErr", format="D", array=self.fitWavelengthErr),
+            astropy.io.fits.Column(name="wavelengthCorr", format="D", array=self.wavelengthCorr),
             astropy.io.fits.Column(name="status", format="J", array=self.status),
 
         ], name=self.FitsExtName)
@@ -286,6 +295,7 @@ class CalibrateWavelengthsTask(pipeBase.Task):
 
         wavelength = np.array([rl.wavelength for rl in refLines])
         status = np.empty_like(wavelength, dtype=int)
+        flag = np.empty_like(wavelength, dtype=int)
         nominalPixelPos = np.empty_like(wavelength)
         fitWavelength = np.empty_like(wavelength)
         fitWavelengthErr = np.empty_like(wavelength)
@@ -362,18 +372,13 @@ class CalibrateWavelengthsTask(pipeBase.Task):
         #
 
         for i, rl in enumerate(refLines):
+            flag[i] = used[i]
             if clipped[i]:
-                rl.status |= rl.Status.CLIPPED                            
+                rl.status |= rl.Status.CLIPPED                           
+                flag[i]=3
             if reserved[i]:
                 rl.status |= rl.Status.RESERVED
-            
-        Lines=[]
-        for i, rl in enumerate(refLines):
-            if (rl.status & drpStella.ReferenceLine.Status.FIT) == 0:
-                continue    
-            line=LineData(fiberId, nominalPixelPos[i], rl.fitPositionErr, rl.fitPosition, fitWavelength[i], fitWavelengthErr[i], rl.wavelength, rl.status)
-            Lines.append(line)
-        
+                flag[i]=5
         #
         # Correct the initial wavelength solution
         #
@@ -390,6 +395,7 @@ class CalibrateWavelengthsTask(pipeBase.Task):
                        rmsReserved/nmPerPix,
                        reserved.sum(),
                    ))
+        
         #
         # Update the DetectorMap
         #
@@ -412,6 +418,13 @@ class CalibrateWavelengthsTask(pipeBase.Task):
         diff = detectorMap.getWavelength(fiberId) - spec.wavelength
         self.log.info("Fiber %d: wavelength correction %f +/- %f nm" % (fiberId, diff.mean(), diff.std()))
         
+        Lines=[]
+        for i, rl in enumerate(refLines):
+            if (rl.status & drpStella.ReferenceLine.Status.FIT) == 0:
+                continue    
+            line=LineData(fiberId, wavelength[i], nominalPixelPos[i], rl.fitPosition, fitWavelength[i], rl.fitPositionErr, fitWavelengthErr[i], wavelengthCorr(nominalPixelPos[i]),flag[i])
+            Lines.append(line)
+
         return [Lines, wavelengthCorr]
 
     def plot(self, spec, detectorMap, wavelengthCorr):
@@ -592,7 +605,7 @@ class CalibrateWavelengthsTask(pipeBase.Task):
         detectorMap : `pfs.drp.stella.utils.DetectorMap`
             Mapping of wl,fiber to detector position.
         seed : `int`
-            Seed for random number generator.
+            Seed for random number 
 
         Returns
         -------
