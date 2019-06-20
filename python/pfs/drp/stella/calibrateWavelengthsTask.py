@@ -594,9 +594,7 @@ class CalibrateWavelengthsTask(pipeBase.Task):
 
     def runDataRef(self, dataRef, spectrumSet, detectorMap, seed=1):
         """Run the wavelength calibration
-
         Assumes that line identification has been done already.
-
         Parameters
         ----------
         dataRef : `lsst.daf.persistence.ButlerDataRef`
