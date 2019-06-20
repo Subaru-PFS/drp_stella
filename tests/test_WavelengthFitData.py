@@ -85,7 +85,7 @@ class WavelengthFitDataTestCase(lsst.utils.tests.TestCase):
                                    lsst.afw.geom.Extent2I(self.length, self.length))
         detMap = DetectorMap(bbox, self.fiberId, centerKnots, centerValues, wavelengthKnots, wavelengthValues)
 
-        wlFitData = WavelengthFitData.fromSpectrumSet(spectra, detMap)
+        wlFitData = WavelengthFitData.fromSpectrumSet()
         self.assertWavelengthFitData(wlFitData, atol=1.0e-4)
 
     def testPersistence(self):
