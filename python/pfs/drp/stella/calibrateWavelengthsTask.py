@@ -154,6 +154,7 @@ class WavelengthFitData:
         """
         return self.residuals(fiberId).mean()
 
+
     def pixelmean(self, fiberId=None):
         """Return the mean of pixel position 
 
@@ -168,6 +169,7 @@ class WavelengthFitData:
             Mean pixel position.
         """
         return self.pixelresiduals(fiberId).mean()
+
 
     def stdev(self, fiberId=None):
         """Return the standard deviation of wavelength residuals (nm).
@@ -186,6 +188,7 @@ class WavelengthFitData:
 
     @classmethod
     def fromSpectrumSet(cls,Datalines):
+
         """Measure some statistics about the wavelength solution
 
         Parameters
@@ -615,7 +618,7 @@ class CalibrateWavelengthsTask(pipeBase.Task):
         wlFitData : `WavelengthFitData`
             Data on quality of the wavelength fit.
         """
-        pass
+
         results = self.run(spectrumSet, detectorMap, seed=seed)
         dataRef.put(results.wlFitData, "wlFitData")
         return results
