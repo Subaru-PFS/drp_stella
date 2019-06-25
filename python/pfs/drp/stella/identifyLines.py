@@ -3,7 +3,7 @@ from types import SimpleNamespace
 import pickle
 import numpy as np
 
-from lsst.pex.config import Config, Field, ConfigField, makeConfigClass, ConfigurableField
+from lsst.pex.config import Config, Field, ConfigField, makeConfigClass, ConfigurableField, DictField
 from lsst.pipe.base import Task
 from pfs.drp.stella import DispersionCorrectionControl, ReferenceLine
 from .findLines import FindLinesTask
@@ -20,6 +20,9 @@ class IdentifyLinesConfig(Config):
     matchRadius = Field(dtype=float, default=0.3, doc="Line matching radius (nm)")
     refExclusionRadius = Field(dtype=float, default=0.0,
                                doc="Minimum allowed wavelength difference between reference lines (nm)")
+    refThreshold = DictField(keytype=str, itemtype=float,
+                             doc="Lower limit to guessedIntensity for reference lines, by their description",
+                             default={"HgI": 5.0})
 
 
 class IdentifyLinesTask(Task):
@@ -74,6 +77,10 @@ class IdentifyLinesTask(Task):
             keep[1:] &= dWl > self.config.refExclusionRadius
             lines = [rl for rl, kk in zip(lines, keep) if kk]
 
+        for descr, threshold in self.config.refThreshold.items():
+            lines = [rl for rl in lines if
+                     not rl.description.startswith(descr) or rl.guessedIntensity > threshold]
+
         obsLines = self.findLines.run(spectrum).lines
         obsLines = sorted(obsLines, key=lambda xx: spectrum.spectrum[int(xx + 0.5)])
         used = set()
@@ -95,7 +102,7 @@ class IdentifyLinesTask(Task):
             matches.append(new)
         self.log.info("Matched %d from %d observed and %d reference lines",
                       len(matches), len(obsLines), len(lines))
-        spectrum.setReferenceLines(matches)
+        spectrum.setReferenceLines(matches + [rl for rl in lines if rl.wavelength not in used])
 
 
 class OldIdentifyLinesConfig(Config):
