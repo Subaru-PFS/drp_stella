@@ -82,7 +82,7 @@ class IdentifyLinesTask(Task):
                      not rl.description.startswith(descr) or rl.guessedIntensity > threshold]
 
         obsLines = self.findLines.run(spectrum).lines
-        obsLines = sorted(obsLines, key=lambda xx: spectrum.spectrum[int(xx + 0.5)])
+        obsLines = sorted(obsLines, key=lambda xx: spectrum.spectrum[int(xx + 0.5)], reverse=True)
         used = set()
         matches = []
         for obs in obsLines:
