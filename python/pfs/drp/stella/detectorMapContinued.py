@@ -167,6 +167,31 @@ class DetectorMap:
         with open(pathName, "wb") as fd:
             hdus.writeto(fd)
 
+    def display(self, display, fiberId, wavelengths):
+        """Plot wavelengths on an image
+
+        Useful for visually inspecting the detectorMap on an arc image.
+
+        Parameters
+        ----------
+        display : `lsst.afw.display.Display`
+            Display on which to plot.
+        fiberId : iterable of `int`
+            Fiber identifiers to plot.
+        wavelengths : iterable of `float`
+            Wavelengths to plot.
+        """
+        minWl = min(array.min() for array in self.getWavelength())
+        maxWl = max(array.max() for array in self.getWavelength())
+        wavelengths = sorted([wl for wl in wavelengths if wl > minWl and wl < maxWl])
+
+        with display.Buffering():
+            for fiberId in fiberId:
+                points = [self.findPoint(fiberId, wl) for wl in wavelengths]
+                for xx, yy in points:
+                    display.dot("o", xx, yy, size=5)
+                display.line(points)
+
 
 class SlitOffsetsConfig(Config):
     """Configuration of slit offsets for DetectorMap"""
