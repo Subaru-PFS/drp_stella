@@ -17,7 +17,7 @@ IdentifyConfig = makeConfigClass(DispersionCorrectionControl, "IdentifyConfig")
 class IdentifyLinesConfig(Config):
     """Configuration for IdentifyLinesTask"""
     findLines = ConfigurableField(target=FindLinesTask, doc="Find arc lines")
-    matchRadius = Field(dtype=float, default=0.3, doc="Line matching radius (nm)")
+    matchRadius = Field(dtype=float, default=0.5, doc="Line matching radius (nm)")
     refExclusionRadius = Field(dtype=float, default=0.0,
                                doc="Minimum allowed wavelength difference between reference lines (nm)")
     refThreshold = DictField(keytype=str, itemtype=float,
