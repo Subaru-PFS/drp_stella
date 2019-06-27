@@ -123,9 +123,10 @@ class CalibrateWavelengthsTask(pipeBase.Task):
         rmsFit = np.sqrt(np.sum(((y - yfit)**2)[use])/(use.sum() - self.config.order))
         rmsReserved = (y[reserved] - yfit[reserved]).std()
         self.log.info("FiberId %d, rms %f nm (%.3f pix) from %d/%d "
-                      "(%f nm = %.3f pix for %d reserved points)",
+                      "(%f nm = %.3f pix for %d reserved points), %.2f-%.2f nm",
                       fiberId, rmsFit, rmsFit/nmPerPix, good.sum(), len(refLines),
-                      rmsReserved, rmsReserved/nmPerPix, reserved.sum())
+                      rmsReserved, rmsReserved/nmPerPix, reserved.sum(),
+                      wavelength[good].min(), wavelength[good].max())
         #
         # Update the DetectorMap
         #
