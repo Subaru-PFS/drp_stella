@@ -4,8 +4,10 @@ import astropy.modeling
 
 from lsst.pex.config import Config, Field, ListField, ConfigurableField
 from lsst.pipe.base import Task, Struct
+from lsst.afw.geom import SpanSet
 
 from .fitContinuum import FitContinuumTask
+from . import Spectrum
 
 import lsstDebug
 
@@ -13,8 +15,9 @@ import lsstDebug
 class FindLinesConfig(Config):
     """Configuration for FindLinesTask"""
     threshold = Field(dtype=float, default=5.0, doc="Threshold for line detection (sigma)")
-    mask = ListField(dtype=str, default=[], doc="Mask planes to ignore")
+    mask = ListField(dtype=str, default=["NO_DATA"], doc="Mask planes to ignore")
     width = Field(dtype=float, default=1.0, doc="Guess width of line (stdev, pixels)")
+    kernelHalfSize = Field(dtype=float, default=4.0, doc="Half-size of kernel, in units of the width")
     fittingRadius = Field(dtype=float, default=10.0,
                           doc="Radius of fitting region for centroid as a multiple of 'width'")
     exclusionRadius = Field(dtype=float, default=2.0,
@@ -45,14 +48,16 @@ class FindLinesTask(Task):
             Centroid for each line.
         """
         continuum = self.fitContinuum.fitContinuum(spectrum) if self.config.doSubtractContinuum else None
-        peaks = self.findPeaks(spectrum, continuum=continuum)
+        convolved = self.convolve(spectrum, continuum=continuum)
+        peaks = self.findPeaks(convolved)
         lines = self.centroidLines(spectrum, peaks)
         return Struct(lines=lines, continuum=continuum)
 
-    def findPeaks(self, spectrum, continuum=None):
-        """Find positive peaks in the spectrum
+    def convolve(self, spectrum, continuum=None):
+        """Convolve a spectrum by the estimated LSF
 
-        Peak flux must exceed ``threshold`` config parameter.
+        We use a Gaussian approximation to the LSF for speed and convenience.
+        The variance is convolved, but the co-variance is not.
 
         Parameters
         ----------
@@ -63,12 +68,49 @@ class FindLinesTask(Task):
 
         Returns
         -------
+        convolved : `pfs.drp.stella.Spectrum`
+            Convolved spectrum.
+        """
+        halfSize = int(self.config.kernelHalfSize*self.config.width + 0.5)
+        size = 2*halfSize + 1
+        xx = np.arange(size, dtype=np.float32) - halfSize
+        sigma = self.config.width
+        kernel = np.exp(-0.5*xx**2/sigma**2)/sigma/np.sqrt(2.0*np.pi)
+
+        flux = np.convolve(spectrum.spectrum if continuum is None else spectrum.spectrum - continuum,
+                           kernel, mode="same")
+        covariance = np.zeros_like(spectrum.covariance)
+        covariance[0, :] = np.convolve(spectrum.variance, kernel**2, mode="same")
+        background = np.convolve(spectrum.background, kernel, mode="same")
+
+        # Expand each mask plane
+        grow = int(self.config.width + 0.5)
+        mask = spectrum.mask.clone()
+        for plane in mask.getMaskPlaneDict():
+            value = mask.getPlaneBitMask(plane)
+            SpanSet.fromMask(mask, value).dilated(grow).clippedTo(mask.getBBox()).setMask(mask, value)
+        mask.array[0, :halfSize] |= mask.getPlaneBitMask("NO_DATA")
+        mask.array[0, len(spectrum) - halfSize:] |= mask.getPlaneBitMask("NO_DATA")
+
+        return Spectrum(flux, mask, background, covariance, spectrum.wavelength,
+                        spectrum.referenceLines, spectrum.fiberId)
+
+    def findPeaks(self, spectrum):
+        """Find positive peaks in the spectrum
+
+        Peak flux must exceed ``threshold`` config parameter.
+
+        Parameters
+        ----------
+        spectrum : `pfs.drp.stella.Spectrum`
+            Spectrum on which to find peaks.
+
+        Returns
+        -------
         indices : `numpy.ndarray` of `int`
             Indices of peaks.
         """
         flux = spectrum.spectrum
-        if continuum is not None:
-            flux = flux - continuum
         with np.errstate(invalid='ignore', divide="ignore"):
             stdev = np.sqrt(spectrum.variance)
             diff = flux[1:] - flux[:-1]  # flux[i + 1] - flux[i]
@@ -85,7 +127,7 @@ class FindLinesTask(Task):
         if lsstDebug.Info(__name__).plotPeaks:
             import matplotlib.pyplot as plt
             figure, axes = plt.subplots()
-            axes.plot(np.arange(len(flux)), flux, 'k-')
+            axes.plot(np.arange(len(flux)), flux/stdev, 'k-')
             for xx in indices:
                 axes.axvline(xx, color="r", linestyle=":")
             plt.show()
