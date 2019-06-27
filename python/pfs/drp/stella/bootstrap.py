@@ -103,8 +103,16 @@ class BootstrapTask(CmdLineTask):
         traces = self.traceFibers(flatRef, flatConfig)
         refLines = self.readLines(arcRef, lineListFilename)
         lineResults = self.findArcLines(arcRef, traces)
+
+        self.visualize(lineResults.exposure, [ss.fiberId for ss in lineResults.spectra],
+                       lineResults.detectorMap, refLines, frame=1)
+
         matches = self.matchArcLines(lineResults.lines, refLines, lineResults.detectorMap)
         self.fitDetectorMap(matches, lineResults.detectorMap)
+
+        self.visualize(lineResults.exposure, [ss.fiberId for ss in lineResults.spectra],
+                       lineResults.detectorMap, refLines, frame=2)
+
         arcRef.put(lineResults.detectorMap, "detectormap")
 
     def traceFibers(self, flatRef, pfsConfig):
@@ -202,7 +210,7 @@ class BootstrapTask(CmdLineTask):
                   for xx, yy in zip(xList, yList)]
                  for xList, yList, spectrum in zip(xCenters, yCenters, spectra)]
         self.log.info("Found %d lines in %d traces", sum(len(ll) for ll in lines), len(lines))
-        return Struct(spectra=spectra, lines=lines, detectorMap=detMap)
+        return Struct(spectra=spectra, lines=lines, detectorMap=detMap, exposure=exposure)
 
     def centroidTrace(self, trace, rows):
         """Centroid the trace
@@ -389,6 +397,42 @@ class BootstrapTask(CmdLineTask):
                 spectral = fitSpectral(center, rows)
                 detectorMap.setXCenter(fiberId, rows, spatial.astype(np.float32))
                 detectorMap.setWavelength(fiberId, spectral.astype(np.float32), wavelength.astype(np.float32))
+
+    def visualize(self, image, fiberId, detectorMap, refLines, frame=1):
+        """Visualize arc lines on an image
+
+        Requires that ``lsstDebug`` has been set up, and the ``visualize``
+        parameter set to a true value.
+
+        Displays the image, and the position of arc lines.
+
+        Parameters
+        ----------
+        image : `lsst.afw.image.Image` or `lsst.afw.image.Exposure`
+            Image to display.
+        fiberId : iterable of `int`
+            Fiber identifiers.
+        detectorMap : `pfs.drp.stella.DetectorMap`
+            Map of fiberId,wavelength to x,y.
+        refLines : iterable of `pfs.drp.stella.ReferenceLine`
+            Reference lines.
+        frame : `int`, optional
+            Display frame to use.
+        """
+        if not lsstDebug.Info(__name__).visualize:
+            return
+        from lsst.afw.display import Display
+        backend = "ds9"
+        top = 50
+        disp = Display(frame, backend)
+        disp.mtv(image)
+
+        minWl = min(array.min() for array in detectorMap.getWavelength())
+        maxWl = max(array.max() for array in detectorMap.getWavelength())
+        refLines = [rl for rl in refLines if rl.wavelength > minWl and rl.wavelength < maxWl]
+        refLines = sorted(refLines, key=attrgetter("guessedIntensity"), reverse=True)[:top]  # Brightest
+        wavelengths = [rl.wavelength for rl in refLines]
+        detectorMap.display(disp, fiberId, wavelengths)
 
     def _getMetadataName(self):
         return None
