@@ -58,6 +58,7 @@ void declareDetectorMap(py::module &mod)
             [](Class const& self, std::size_t fiberId) { return self.getWavelength(fiberId); },
             "fiberId"_a);
     cls.def("getWavelength", [](Class & self) { return self.getWavelength(); });
+    cls.def("getWavelength", py::overload_cast<std::size_t, float>(&Class::getWavelength, py::const_));
     cls.def("setWavelength", py::overload_cast<std::size_t, Class::Array1D const&>(&Class::setWavelength),
             "fiberId"_a, "wavelength"_a);
     cls.def("setWavelength", py::overload_cast<std::size_t, Class::Array1D const&,
@@ -68,6 +69,7 @@ void declareDetectorMap(py::module &mod)
     cls.def("getXCenter", (ndarray::Array<float, 1, 1> (Class::*)(std::size_t) const)&Class::getXCenter,
             "fiberId"_a);
     cls.def("getXCenter", [](Class & self) { return self.getXCenter(); });
+    cls.def("getXCenter", py::overload_cast<std::size_t, float>(&Class::getXCenter, py::const_));
     cls.def("setXCenter", py::overload_cast<std::size_t, Class::Array1D const&>(&Class::setXCenter),
             "fiberId"_a, "xCenters"_a);
     cls.def("setXCenter", py::overload_cast<std::size_t, Class::Array1D const&,

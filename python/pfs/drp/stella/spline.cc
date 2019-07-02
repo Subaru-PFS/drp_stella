@@ -20,7 +20,8 @@ void declareSpline(py::module &mod, std::string const& suffix) {
     py::class_<Class, PTR(Class)> cls(mod, ("Spline" + suffix).c_str());
 
     cls.def(py::init<typename Class::ConstArray const&, typename Class::ConstArray const&>(), "x"_a, "y"_a);
-    cls.def("__call__", &Class::operator());
+    cls.def("__call__", py::overload_cast<T const>(&Class::operator(), py::const_));
+    cls.def("__call__", py::overload_cast<typename Class::Array const>(&Class::operator(), py::const_));
     // Copy arrays so that they are writable, and can be used freely elsewhere
     cls.def("getX", [](Class const& self) { return ndarray::Array<T, 1, 1>(ndarray::copy(self.getX())); });
     cls.def("getY", [](Class const& self) { return ndarray::Array<T, 1, 1>(ndarray::copy(self.getY())); });

@@ -108,6 +108,9 @@ public:
     Array1D getWavelength(std::size_t fiberId ///< fiberId
                                              ) const;
     std::vector<Array1D> getWavelength() const;
+    float getWavelength(std::size_t fiberId, ///< fiberId
+                        float y              ///< desired y value
+                        ) const;
 
     /**
      * Set the wavelength values for a fibre
@@ -127,13 +130,10 @@ public:
     Array1D getXCenter(std::size_t fiberId ///< fiberId
                                           ) const;
     std::vector<Array1D> getXCenter() const;
-protected:
     float getXCenter(std::size_t fiberId, ///< fiberId
                      float y              ///< desired y value
                      ) const;
     //@}
-
-public:
 
     /**
      * Set the xCenter values for a fibre

@@ -138,7 +138,7 @@ class CalibrateWavelengthsTask(pipeBase.Task):
         spec.wavelength = detectorMap.getWavelength(fiberId) + wavelengthCorr(rows).astype('float32')
 
         rmsUsed = np.sqrt(np.sum(((y - yfit)**2)[used]))/(used.sum() - self.config.order)
-        rmsReserved = np.sqrt(np.sum(((y - yfit)**2)[reserved]))/reserved.sum()
+        rmsReserved = np.sqrt(np.sum(((y - yfit)**2)[reserved])/reserved.sum())
         self.log.info("FiberId %4d, rms %f nm (%.3f pix) from %d (%f nm = %.3f pix for %d reserved points)" %
                       (fiberId,
                        rmsUsed,
@@ -166,9 +166,9 @@ class CalibrateWavelengthsTask(pipeBase.Task):
                 dy = -int(-dy)
                 spec.wavelength[dy:] = spec.wavelength[:-dy]
 
-        detectorMap.setWavelength(fiberId, rows, spec.wavelength)
         diff = detectorMap.getWavelength(fiberId) - spec.wavelength
         self.log.info("Fiber %d: wavelength correction %f +/- %f nm" % (fiberId, diff.mean(), diff.std()))
+        detectorMap.setWavelength(fiberId, rows, spec.wavelength)
 
         return wavelengthCorr
 
