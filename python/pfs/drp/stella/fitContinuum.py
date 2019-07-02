@@ -91,7 +91,8 @@ class FitContinuumTask(Task):
             diff = spectrum.spectrum - fit
             lq, uq = np.percentile(diff[good], [25.0, 75.0])
             stdev = 0.741*(uq - lq)
-            good = np.isfinite(diff) & (np.abs(diff) <= self.config.rejection*stdev)
+            with np.errstate(invalid='ignore'):
+                good = np.isfinite(diff) & (np.abs(diff) <= self.config.rejection*stdev)
             if np.all(good == oldGood):
                 break
             oldGood = good
