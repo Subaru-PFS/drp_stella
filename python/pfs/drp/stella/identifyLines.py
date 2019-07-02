@@ -83,15 +83,16 @@ class IdentifyLinesTask(Task):
 
         obsLines = self.findLines.run(spectrum).lines
         obsLines = sorted(obsLines, key=lambda xx: spectrum.spectrum[int(xx + 0.5)], reverse=True)
-        used = set()
+        candidates = [rl for rl in lines]
         matches = []
         for obs in obsLines:
+            if not candidates:
+                break
             wl = detectorMap.findWavelength(spectrum.fiberId, obs)
-            ref = min([rl for rl in lines if rl.wavelength not in used],
-                      key=lambda rl: np.abs(rl.wavelength - wl))
+            ref = min(candidates, key=lambda rl: np.abs(rl.wavelength - wl))
             if np.abs(ref.wavelength - wl) > self.config.matchRadius:
                 continue
-            used.add(ref.wavelength)
+            candidates.remove(ref)
             new = ReferenceLine(ref.description)
             new.wavelength = ref.wavelength
             new.guessedIntensity = ref.guessedIntensity
@@ -102,7 +103,7 @@ class IdentifyLinesTask(Task):
             matches.append(new)
         self.log.info("Matched %d from %d observed and %d reference lines",
                       len(matches), len(obsLines), len(lines))
-        spectrum.setReferenceLines(matches + [rl for rl in lines if rl.wavelength not in used])
+        spectrum.setReferenceLines(matches + candidates)
 
 
 class OldIdentifyLinesConfig(Config):
