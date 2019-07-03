@@ -164,6 +164,7 @@ class WavelengthFitData:
             Set of extracted spectra, with lines identified.
         """
         return cls(Datalines)
+
     @classmethod
     def readFits(cls, filename):
         """Read from file
@@ -395,6 +396,8 @@ class CalibrateWavelengthsTask(pipeBase.Task):
             Lines.append(line)
 
         return [Lines, wavelengthCorr]
+
+
 
     def plot(self, spec, detectorMap, wavelengthCorr):
         """Plot fit results
