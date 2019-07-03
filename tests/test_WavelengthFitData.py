@@ -79,7 +79,7 @@ class WavelengthFitDataTestCase(lsst.utils.tests.TestCase):
             ss.fiberId = self.fiberId[ii]
             line = ReferenceLine("fake")
             line.status = ReferenceLine.Status.FIT
-            line.wavelength = self.actualWavelength[ii]
+            line.wavelength = self.fitWavelength[ii]
             line.fitPosition = self.nominalPixelPos[ii]
             ss.setReferenceLines([line])
             knots = np.array([-1, 0, self.nominalPixelPos[ii], self.length, self.length + 1], dtype=np.float32)
@@ -89,7 +89,7 @@ class WavelengthFitDataTestCase(lsst.utils.tests.TestCase):
             wavelengthValues.append(np.array([self.wlMin - 1, self.wlMin, self.fitWavelength[ii],
                                               self.wlMax, self.wlMax + 1],
                                              dtype=np.float32))
-            linedata=LineData(ss.fiberId,line,line.fitPosition, 0, line.fitPosition, 0, 0, 0,line.status)
+            linedata=LineData(ss.fiberId,line,line.fitPosition, 0, line.wavelength,0, 0, 0,line.status)
 
             Lines.append(linedata) 
         bbox = lsst.afw.geom.Box2I(lsst.afw.geom.Point2I(0, 0),
