@@ -164,6 +164,7 @@ class WavelengthFitData:
             Set of extracted spectra, with lines identified.
         """
         return cls(Datalines)
+
     @classmethod
     def readFits(cls, filename):
         """Read from file

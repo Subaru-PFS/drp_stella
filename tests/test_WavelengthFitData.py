@@ -32,7 +32,6 @@ class WavelengthFitDataTestCase(lsst.utils.tests.TestCase):
         self.status = np.random.uniform(size=self.fiberId.shape)
         self.lines = [LineData(*args) for args in zip(self.fiberId, self.reflines,self.nominalPixelPos, self.fitPixelPos, self.fitWavelength, self.fitPixelPosErr, self.fitWavelengthErr,self.wavelengthCorr, self.status)]
 
-
     def assertWavelengthFitData(self, wlFitData, atol=0.0):
         """Check that the WavelengthFitData is what we expect
 
@@ -41,14 +40,12 @@ class WavelengthFitDataTestCase(lsst.utils.tests.TestCase):
         wlFitData : `pfs.drp.stella.calibrateWavelengthsTask.WavelengthFitData`
             Object to check.
         atol : `float`
-            Absolute tolerance for ``measuredWavelength`` (might not be exact
-            if calculated).
+            Absolute tolerance for ``fitWavelength`` (might not be exact
         """
         self.assertEqual(len(wlFitData), len(self.fiberId))
         self.assertFloatsEqual(wlFitData.fiberId, self.fiberId)
-        self.assertFloatsEqual(wlFitData.nominalPixelPos, self.nominalPixelPos)
         self.assertFloatsAlmostEqual(wlFitData.fitWavelength, self.fitWavelength, atol=atol)
-
+        
     def testBasic(self):
         """Test basic functionality"""
         wlFitData = WavelengthFitData(self.lines)
@@ -95,7 +92,6 @@ class WavelengthFitDataTestCase(lsst.utils.tests.TestCase):
         bbox = lsst.afw.geom.Box2I(lsst.afw.geom.Point2I(0, 0),
                                    lsst.afw.geom.Extent2I(self.length, self.length))
         detMap = DetectorMap(bbox, self.fiberId, centerKnots, centerValues, wavelengthKnots, wavelengthValues)
-
  
         wlFitData = WavelengthFitData.fromSpectrumSet(Lines)
         self.assertWavelengthFitData(wlFitData, atol=1.0e-4)
