@@ -123,6 +123,7 @@ class WavelengthFitData:
         return np.array([ll.fitWavelength - ll.reflines for ll in self.lines if
                          fiberId is None or ll.fiberId == fiberId])
 
+ 
     def mean(self, fiberId=None):
         """Return the mean of wavelength residuals (nm)
 
