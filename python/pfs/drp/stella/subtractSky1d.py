@@ -79,7 +79,7 @@ class SubtractSky1DSolution(types.SimpleNamespace):
         fits = astropy.io.fits.HDUList()
         fits.append(astropy.io.fits.ImageHDU(self.wavelength))
         fits.append(astropy.io.fits.ImageHDU(self.flux))
-        with open(filename, "w") as fd:
+        with open(filename, "wb") as fd:
             fits.writeto(fd)
 
 
