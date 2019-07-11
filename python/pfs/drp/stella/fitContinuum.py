@@ -81,18 +81,18 @@ class FitContinuumTask(Task):
         continuum : `numpy.ndarray`
             Array of continuum fit.
         """
-        num = spectrum.getNumPixels()
         if self.config.doMaskLines:
             good = self.maskLines(spectrum)
         else:
-            good = np.ones(num, dtype=bool)
+            good = np.isfinite(spectrum.spectrum)
         oldGood = good
         for ii in range(self.config.iterations):
             fit = self._fitContinuumImpl(spectrum.spectrum, good)
             diff = spectrum.spectrum - fit
             lq, uq = np.percentile(diff[good], [25.0, 75.0])
             stdev = 0.741*(uq - lq)
-            good = np.isfinite(diff) & (np.abs(diff) <= self.config.rejection*stdev)
+            with np.errstate(invalid='ignore'):
+                good = np.isfinite(diff) & (np.abs(diff) <= self.config.rejection*stdev)
             if np.all(good == oldGood):
                 break
             oldGood = good
@@ -186,7 +186,7 @@ class FitContinuumTask(Task):
         assert np.all(delta >= 0) or np.all(delta <= 0), "Monotonic"
         del delta
         num = len(wavelength)
-        good = np.ones_like(wavelength, dtype=bool)
+        good = np.isfinite(spectrum.spectrum, dtype=bool)
         lines = [ref.wavelength for ref in spectrum.referenceLines]
         indices = np.interp(lines, wavelength, np.arange(num, dtype=int), left=np.nan, right=np.nan)
         for ii in indices:

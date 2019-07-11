@@ -3,24 +3,35 @@ from types import SimpleNamespace
 import pickle
 import numpy as np
 
-from lsst.pex.config import Config, Field, ConfigField, makeConfigClass
+from lsst.pex.config import Config, Field, ConfigField, makeConfigClass, ConfigurableField, DictField
 from lsst.pipe.base import Task
-from pfs.drp.stella import DispersionCorrectionControl
+from pfs.drp.stella import DispersionCorrectionControl, ReferenceLine
+from .findLines import FindLinesTask
 
-__all__ = ["IdentifyConfig", "IdentifyLinesConfig", "IdentifyLinesTask"]
+__all__ = ["IdentifyConfig", "IdentifyLinesConfig", "IdentifyLinesTask",
+           "OldIdentifyLinesConfig", "OldIdentifyLinesTask"]
 
 IdentifyConfig = makeConfigClass(DispersionCorrectionControl, "IdentifyConfig")
 
 
 class IdentifyLinesConfig(Config):
     """Configuration for IdentifyLinesTask"""
-    doInteractive = Field(dtype=bool, default=False, doc="Identify lines interactively?")
-    identify = ConfigField(dtype=IdentifyConfig, doc="Automated line identification")
+    findLines = ConfigurableField(target=FindLinesTask, doc="Find arc lines")
+    matchRadius = Field(dtype=float, default=0.5, doc="Line matching radius (nm)")
+    refExclusionRadius = Field(dtype=float, default=0.0,
+                               doc="Minimum allowed wavelength difference between reference lines (nm)")
+    refThreshold = DictField(keytype=str, itemtype=float,
+                             doc="Lower limit to guessedIntensity for reference lines, by their description",
+                             default={"HgI": 5.0})
 
 
 class IdentifyLinesTask(Task):
     ConfigClass = IdentifyLinesConfig
     _DefaultName = "identifyLines"
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.makeSubtask("findLines")
 
     def run(self, spectra, detectorMap, lines):
         """Identify arc lines on the extracted spectra
@@ -39,6 +50,87 @@ class IdentifyLinesTask(Task):
 
     def identifyLines(self, spectrum, detectorMap, lines):
         """Identify lines on the spectrum
+
+        This is done by first finding lines on the spectrum and then matching
+        them against the reference lines (using the detectorMap's
+        pixel->wavelength solution).
+
+        Parameters
+        ----------
+        spectrum : `pfs.drp.stella.Spectrum`
+            Spectrum on which to identify lines.
+        detectorMap : `pfs.drp.stella.utils.DetectorMap`
+            Mapping of wl,fiber to detector position.
+        lines : `list` of `pfs.drp.stella.ReferenceLine`
+            Reference lines.
+        """
+        minWl = spectrum.wavelength.min()
+        maxWl = spectrum.wavelength.max()
+        lines = [rl for rl in lines if rl.wavelength > minWl and rl.wavelength < maxWl]
+
+        if self.config.refExclusionRadius > 0.0:
+            lines = sorted(lines, key=lambda rl: rl.wavelength)
+            wavelengths = np.array([rl.wavelength for rl in lines])
+            dWl = wavelengths[1:] - wavelengths[:-1]
+            keep = np.ones_like(wavelengths, dtype=bool)
+            keep[:-1] &= dWl > self.config.refExclusionRadius
+            keep[1:] &= dWl > self.config.refExclusionRadius
+            lines = [rl for rl, kk in zip(lines, keep) if kk]
+
+        for descr, threshold in self.config.refThreshold.items():
+            lines = [rl for rl in lines if
+                     not rl.description.startswith(descr) or rl.guessedIntensity > threshold]
+
+        obsLines = self.findLines.run(spectrum).lines
+        obsLines = sorted(obsLines, key=lambda xx: spectrum.spectrum[int(xx + 0.5)], reverse=True)
+        candidates = [rl for rl in lines]
+        matches = []
+        for obs in obsLines:
+            if not candidates:
+                break
+            wl = detectorMap.findWavelength(spectrum.fiberId, obs)
+            ref = min(candidates, key=lambda rl: np.abs(rl.wavelength - wl))
+            if np.abs(ref.wavelength - wl) > self.config.matchRadius:
+                continue
+            candidates.remove(ref)
+            new = ReferenceLine(ref.description)
+            new.wavelength = ref.wavelength
+            new.guessedIntensity = ref.guessedIntensity
+            new.guessedPosition = detectorMap.findPoint(spectrum.fiberId, ref.wavelength)[1]
+            new.fitPosition = obs
+            new.fitIntensity = spectrum.spectrum[int(obs + 0.5)]
+            new.status = ReferenceLine.Status.FIT
+            matches.append(new)
+        self.log.info("Matched %d from %d observed and %d reference lines",
+                      len(matches), len(obsLines), len(lines))
+        spectrum.setReferenceLines(matches + candidates)
+
+
+class OldIdentifyLinesConfig(Config):
+    doInteractive = Field(dtype=bool, default=False, doc="Identify lines interactively?")
+    identify = ConfigField(dtype=IdentifyConfig, doc="Automated line identification")
+
+
+class OldIdentifyLinesTask(IdentifyLinesTask):
+    """Version of IdentifyLinesTask that preserves the pre-June 2019 behavior"""
+    ConfigClass = OldIdentifyLinesConfig
+    _DefaultName = "identifyLines"
+
+    def __init__(self, *args, **kwargs):
+        Task.__init__(self, *args, **kwargs)
+
+    def identifyLines(self, spectrum, detectorMap, lines):
+        """Identify lines on the spectrum
+
+        This uses ``Spectrum.identify`` to fit lines on the spectrum at the
+        expected positions of reference lines (using the detectorMap). However,
+        if there is no actual line in the spectrum at the position of the
+        reference line (e.g., the line is fainter than the detection limit),
+        this will centroid on noise peaks, compromising the wavelength solution.
+        It is possible to specify a non-zero ``minIntensity`` when reading the
+        line list with ``pfs.drp.stella.utils.readLineListFile``, but this
+        requires changing the configuration according to the data (exposure
+        time, lamp setup, etc.).
 
         Parameters
         ----------

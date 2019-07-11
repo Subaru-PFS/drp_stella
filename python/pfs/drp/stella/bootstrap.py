@@ -26,8 +26,8 @@ class BootstrapConfig(Config):
     minArcLineIntensity = Field(dtype=float, default=0, doc="Minimum 'NIST' intensity to use emission lines")
     findLines = ConfigurableField(target=FindLinesTask, doc="Find arc lines")
     matchRadius = Field(dtype=float, default=5.0, doc="Line matching radius (nm)")
-    spatialOrder = Field(dtype=int, default=2, doc="Polynomial order in the spatial dimension")
-    spectralOrder = Field(dtype=int, default=2, doc="Polynomial order in the spectral dimension")
+    spatialOrder = Field(dtype=int, default=1, doc="Polynomial order in the spatial dimension")
+    spectralOrder = Field(dtype=int, default=1, doc="Polynomial order in the spectral dimension")
     rejIterations = Field(dtype=int, default=3, doc="Number of fitting iterations")
     rejThreshold = Field(dtype=float, default=3.0, doc="Rejection threshold (stdev)")
 
@@ -103,8 +103,16 @@ class BootstrapTask(CmdLineTask):
         traces = self.traceFibers(flatRef, flatConfig)
         refLines = self.readLines(arcRef, lineListFilename)
         lineResults = self.findArcLines(arcRef, traces)
+
+        self.visualize(lineResults.exposure, [ss.fiberId for ss in lineResults.spectra],
+                       lineResults.detectorMap, refLines, frame=1)
+
         matches = self.matchArcLines(lineResults.lines, refLines, lineResults.detectorMap)
         self.fitDetectorMap(matches, lineResults.detectorMap)
+
+        self.visualize(lineResults.exposure, [ss.fiberId for ss in lineResults.spectra],
+                       lineResults.detectorMap, refLines, frame=2)
+
         arcRef.put(lineResults.detectorMap, "detectormap")
 
     def traceFibers(self, flatRef, pfsConfig):
@@ -156,6 +164,8 @@ class BootstrapTask(CmdLineTask):
         """
         metadata = arcRef.get("raw_md")
         lamps = getLampElements(metadata)
+        if not lamps:
+            raise RuntimeError("No lamps found from metadata")
         return readLineListFile(lineListFilename, lamps, minIntensity=self.config.minArcLineIntensity)
 
     def findArcLines(self, arcRef, traces):
@@ -194,13 +204,13 @@ class BootstrapTask(CmdLineTask):
         exposure = self.isr.runDataRef(arcRef).exposure
         detMap = arcRef.get("detectormap")
         spectra = traces.extractSpectra(exposure.maskedImage, detMap, True)
-        yCenters = [self.findLines.run(ss) for ss in spectra]
+        yCenters = [self.findLines.run(ss).lines for ss in spectra]
         xCenters = [self.centroidTrace(tt, yList) for tt, yList in zip(traces, yCenters)]
         lines = [[SimpleNamespace(fiberId=spectrum.fiberId, x=xx, y=yy, flux=spectrum.spectrum[int(yy + 0.5)])
                   for xx, yy in zip(xList, yList)]
                  for xList, yList, spectrum in zip(xCenters, yCenters, spectra)]
         self.log.info("Found %d lines in %d traces", sum(len(ll) for ll in lines), len(lines))
-        return Struct(spectra=spectra, lines=lines, detectorMap=detMap)
+        return Struct(spectra=spectra, lines=lines, detectorMap=detMap, exposure=exposure)
 
     def centroidTrace(self, trace, rows):
         """Centroid the trace
@@ -279,11 +289,12 @@ class BootstrapTask(CmdLineTask):
             obs = sorted(obs, key=attrgetter("flux"), reverse=True)  # Brightest first
             for line in obs:
                 wl = detectorMap.findWavelength(line.fiberId, line.y)
-                candidates = [ref for ref in refLines if abs(ref.wavelength - wl) < self.config.matchRadius]
+                candidates = [ref for ref in refLines if
+                              ref.wavelength not in used and
+                              abs(ref.wavelength - wl) < self.config.matchRadius]
                 if not candidates:
                     continue
-                ref = max([cc for cc in candidates if cc.wavelength not in used],
-                          key=attrgetter("guessedIntensity"))
+                ref = max(candidates, key=attrgetter("guessedIntensity"))
                 matches.append(SimpleNamespace(obs=line, ref=ref))
                 used.add(ref.wavelength)
         self.log.info("Matched %d lines", len(matches))
@@ -386,6 +397,42 @@ class BootstrapTask(CmdLineTask):
                 spectral = fitSpectral(center, rows)
                 detectorMap.setXCenter(fiberId, rows, spatial.astype(np.float32))
                 detectorMap.setWavelength(fiberId, spectral.astype(np.float32), wavelength.astype(np.float32))
+
+    def visualize(self, image, fiberId, detectorMap, refLines, frame=1):
+        """Visualize arc lines on an image
+
+        Requires that ``lsstDebug`` has been set up, and the ``visualize``
+        parameter set to a true value.
+
+        Displays the image, and the position of arc lines.
+
+        Parameters
+        ----------
+        image : `lsst.afw.image.Image` or `lsst.afw.image.Exposure`
+            Image to display.
+        fiberId : iterable of `int`
+            Fiber identifiers.
+        detectorMap : `pfs.drp.stella.DetectorMap`
+            Map of fiberId,wavelength to x,y.
+        refLines : iterable of `pfs.drp.stella.ReferenceLine`
+            Reference lines.
+        frame : `int`, optional
+            Display frame to use.
+        """
+        if not lsstDebug.Info(__name__).visualize:
+            return
+        from lsst.afw.display import Display
+        backend = "ds9"
+        top = 50
+        disp = Display(frame, backend)
+        disp.mtv(image)
+
+        minWl = min(array.min() for array in detectorMap.getWavelength())
+        maxWl = max(array.max() for array in detectorMap.getWavelength())
+        refLines = [rl for rl in refLines if rl.wavelength > minWl and rl.wavelength < maxWl]
+        refLines = sorted(refLines, key=attrgetter("guessedIntensity"), reverse=True)[:top]  # Brightest
+        wavelengths = [rl.wavelength for rl in refLines]
+        detectorMap.display(disp, fiberId, wavelengths)
 
     def _getMetadataName(self):
         return None
