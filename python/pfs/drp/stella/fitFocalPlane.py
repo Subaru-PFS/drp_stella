@@ -1,6 +1,7 @@
 import types
 
 import numpy as np
+import scipy.interpolate
 import astropy.io.fits
 
 from lsst.pex.config import Config
@@ -11,34 +12,38 @@ class FocalPlaneFunction(types.SimpleNamespace):
     """Vector function on the focal plane
 
     This implementation is a placeholder, as it simply returns a constant
-    vector.
+    vector as a function of wavelength.
 
     Parameters
     ----------
-    vector : `numpy.ndarray`
+    array : `numpy.ndarray`
         Constant vector to use.
     """
-    def __init__(self, vector):
-        super().__init__(vector=vector)
+    def __init__(self, wavelength, vector):
+        interpolator = scipy.interpolate.interp1d(wavelength, vector, kind='linear', bounds_error=False,
+                                                  fill_value=0, copy=True, assume_sorted=True)
+        super().__init__(wavelength=wavelength, vector=vector, interpolator=interpolator)
 
-    def __call__(self, positions):
+    def __call__(self, wavelengths, positions):
         """Evaluate the function at the provided positions
 
         Parameters
         ----------
+        wavelengths : iterable (length ``N``) of `numpy.ndarray` of shape ``(M)``
+            Wavelength arrays
         positions : `numpy.ndarray` of shape ``(N, 2)``
             Positions at which to evaluate.
 
         Returns
         -------
-        result : `numpy.ndarray` of shape ``(N, M)``
+        result : list (length ``N``) of `numpy.ndarray` of shape ``(M)``
             Vector function evaluated at each position.
         """
-        numPositions = len(positions)
-        result = np.empty((numPositions, len(self.vector)), dtype=self.vector.dtype)
-        for ii in range(numPositions):
-            result[ii] = self.vector
-        return result
+        assert len(wavelengths) == len(positions)
+        doResample = (wl.shape != self.wavelength.shape or not np.all(wl == self.wavelength) for
+                      wl in wavelengths)
+        return [self.interpolator(wl) if resamp else self.vector for
+                wl, resamp in zip(wavelengths, doResample)]
 
     @classmethod
     def readFits(cls, filename):
@@ -55,8 +60,9 @@ class FocalPlaneFunction(types.SimpleNamespace):
             Function read from FITS file.
         """
         with astropy.io.fits.open(filename) as fits:
-            vector = fits[0].data
-        return cls(vector)
+            wavelength = fits["WAVELENGTH"].data
+            vector = fits["VECTOR"].data
+        return cls(wavelength, vector)
 
     def writeFits(self, filename):
         """Write to FITS file
@@ -67,7 +73,8 @@ class FocalPlaneFunction(types.SimpleNamespace):
             Name of file to which to write.
         """
         fits = astropy.io.fits.HDUList()
-        fits.append(astropy.io.fits.ImageHDU(self.vector))
+        fits.append(astropy.io.fits.ImageHDU(self.wavelength, name="WAVELENGTH"))
+        fits.append(astropy.io.fits.ImageHDU(self.vector, name="VECTOR"))
         with open(filename, "wb") as fd:
             fits.writeto(fd)
 
@@ -86,11 +93,16 @@ class FitFocalPlaneTask(Task):
     """
     ConfigClass = FitFocalPlaneConfig
 
-    def run(self, vectors, errors, masks, fiberIdList, pfsConfig):
-        """Fit a vector function over the focal plane
+    def run(self, wavelength, vectors, errors, masks, fiberIdList, pfsConfig):
+        """Fit a vector function as a function of wavelength over the focal plane
+
+        Note that this requires that all the input vectors have the same
+        wavelength array.
 
         Parameters
         ----------
+        wavelength : `numpy.ndarray` of length ``N``
+            Wavelength values, of length ``N``.
         vectors : `numpy.ndarray` of shape ``(M, N)``
             Measured vectors of length ``N`` for ``M`` positions.
         errors : `numpy.ndarray` of shape ``(M, N)``
@@ -109,17 +121,22 @@ class FitFocalPlaneTask(Task):
             Function fit to the data.
         """
         centers = pfsConfig.extractCenters(fiberIdList)
-        return self.fit(vectors, errors, masks, centers)
+        return self.fit(wavelength, vectors, errors, masks, centers)
 
-    def fit(self, vectors, errors, masks, centers):
+    def fit(self, wavelength, vectors, errors, masks, centers):
         """Fit a vector function over the focal plane
 
         This implementation is a placeholder, as it simply averages the input
         vectors instead of doing any real fitting or rejection of outliers, and
         no attention is paid to the position of the fibers on the focal plane.
 
+        We assume that all interpolation and resampling has already been done,
+        so all the inputs have a common wavelength scale.
+
         Parameters
         ----------
+        wavelength : `numpy.ndarray` of length ``N``
+            Wavelength values, of length ``N``.
         vectors : `numpy.ndarray` of shape ``(M, N)``
             Measured vectors of length ``N`` for ``M`` positions.
         errors : `numpy.ndarray` of shape ``(M, N)``
@@ -135,6 +152,7 @@ class FitFocalPlaneTask(Task):
         fit : `FocalPlaneFunction`
             Function fit to the data.
         """
+        wavelength = np.array(wavelength)
         vectors = np.array(vectors)
         masks = np.array(masks)
         assert vectors.shape == masks.shape
@@ -147,15 +165,18 @@ class FitFocalPlaneTask(Task):
             vv = vectors[:, ii]
             gg = good[:, ii]
             average[ii] = np.average(vv[gg]) if np.any(gg) else 0.0
-        return FocalPlaneFunction(average)
+        return FocalPlaneFunction(wavelength, average)
 
-    def apply(self, func, fiberIdList, pfsConfig):
+    def apply(self, func, wavelength, fiberIdList, pfsConfig):
         """Apply the fit to fibers
 
         Parameters
         ----------
         func : `FocalPlaneFunction`
             Function fit to the data.
+        wavelength : `numpy.ndarray` of length ``N`` or an iterable of the same
+            Wavelength values. This may be a single array (same for all fibers)
+            or an iterable of arrays (of length ``M``).
         fiberIdList : iterable of `int` of length ``M``
             Fibers being fit.
         pfsConfig : `pfs.datamodel.PfsConfig`
@@ -166,5 +187,7 @@ class FitFocalPlaneTask(Task):
         result : `numpy.ndarray` of shape ``(M, N)``
             Function fit to the data.
         """
+        if len(wavelength.shape) == 1:
+            wavelength = np.array([wavelength]*len(fiberIdList))
         centers = pfsConfig.extractCenters(fiberIdList)
-        return func(centers)
+        return func(wavelength, centers)

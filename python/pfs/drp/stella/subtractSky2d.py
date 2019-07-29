@@ -1,3 +1,4 @@
+import numpy as np
 from lsst.pex.config import Config, ConfigurableField
 from lsst.pipe.base import Task
 
@@ -106,7 +107,7 @@ class SubtractSky2dTask(Task):
             spectrum.setWavelength(detectorMap.getWavelength(ft.fiberId))
         fluxes = sky2d(spectra.getAllWavelengths(), centers)
         for ss, flux in zip(spectra, fluxes):
-            ss.spectrum = flux
+            ss.spectrum = flux.astype(np.float32)
 
         skyImage = spectra.makeImage(exposure.getBBox(), fiberTrace)
         exposure.maskedImage -= skyImage

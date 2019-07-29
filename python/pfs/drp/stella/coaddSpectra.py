@@ -2,16 +2,19 @@ from types import SimpleNamespace
 import numpy as np
 from collections import defaultdict, Counter
 
-from lsst.pex.config import Config, ConfigurableField, ListField
+from lsst.pex.config import Config, Field, ConfigurableField, ListField, ConfigField
 from lsst.pipe.base import CmdLineTask, ArgumentParser, TaskRunner, Struct
 from lsst.afw.geom import SpherePoint, averageSpherePoint, degrees
 
-from pfs.datamodel.target import TargetData, TargetObservations
-from pfs.datamodel.drp import PfsObject
+from pfs.datamodel import TargetData, TargetObservations, FluxTable
+from pfs.datamodel.drp import PfsObject, PfsSpectrum
 from pfs.datamodel.masks import MaskHelper
 from pfs.datamodel.pfsConfig import TargetType
-from .mergeArms import MergeArmsTask
+
+from .subtractSky1d import SubtractSky1dTask
 from .measureFluxCalibration import MeasureFluxCalibrationTask
+from .mergeArms import WavelengthSamplingConfig
+from .FluxTableTask import FluxTableTask
 
 
 class Target(SimpleNamespace):
@@ -29,9 +32,11 @@ class Target(SimpleNamespace):
 
 class CoaddSpectraConfig(Config):
     """Configuration for CoaddSpectraTask"""
-    mergeArms = ConfigurableField(target=MergeArmsTask, doc="Merge arms")
+    wavelength = ConfigField(dtype=WavelengthSamplingConfig, doc="Wavelength configuration")
+    subtractSky1d = ConfigurableField(target=SubtractSky1dTask, doc="1d sky subtraction")
     measureFluxCalibration = ConfigurableField(target=MeasureFluxCalibrationTask, doc="Flux calibration")
     mask = ListField(dtype=str, default=["NO_DATA", "CR"], doc="Mask values to reject when combining")
+    fluxTable = ConfigurableField(target=FluxTableTask, doc="Flux table")
 
 
 class CoaddSpectraRunner(TaskRunner):
@@ -86,8 +91,9 @@ class CoaddSpectraTask(CmdLineTask):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.makeSubtask("mergeArms")
+        self.makeSubtask("subtractSky1d")
         self.makeSubtask("measureFluxCalibration")
+        self.makeSubtask("fluxTable")
 
     def runDataRef(self, dataRefList, targetList):
         """Coadd multiple observations
@@ -128,8 +134,10 @@ class CoaddSpectraTask(CmdLineTask):
             spectrumList = spectra[(target.catId, target.tract, target.patch, target.objId)]
             flags = MaskHelper.fromMerge([ss.flags for ss in spectrumList])
             combination = self.combine(spectrumList, flags)
+            fluxTable = self.fluxTable.run(identityList, spectrumList, flags)
             coadd = PfsObject(targetData, observations, combination.wavelength, combination.flux,
-                             combination.mask, combination.sky, combination.covar, combination.covar2, flags)
+                              combination.mask, combination.sky, combination.covar, combination.covar2, flags,
+                              fluxTable)
             butler.put(coadd, "pfsObject", coadd.getIdentity())
 
     def readVisit(self, dataRefList):
@@ -140,23 +148,27 @@ class CoaddSpectraTask(CmdLineTask):
 
         Parameters
         ----------
-        dataRef : `lsst.daf.persistence.ButlerDataRef`
-            Butler data reference.
+        dataRefList : iterable of `lsst.daf.persistence.ButlerDataRef`
+            Butler data references.
 
         Returns
         -------
-        spectra : `list` of `pfs.datamodel.PfsObject`
+        spectra : `list` of `pfs.datamodel.PfsSingle`
             Sky-subtracted, flux-calibrated arm spectra.
         pfsConfig : `pfs.datamodel.PfsConfig`
             Top-end configuration.
         """
-        spectrographs = defaultdict(list)
-        for dataRef in dataRefList:
-            spectrographs[dataRef.dataId["spectrograph"]].append(dataRef)
-        merged = self.mergeArms.runDataRef(list(spectrographs.values()))
+        pfsConfig = dataRefList[0].get("pfsConfig")
+        sky1d = dataRefList[0].get("sky1d")
         fluxCal = dataRefList[0].get("fluxCal")
-        spectra = self.measureFluxCalibration.apply(merged.spectra, merged.pfsConfig, fluxCal)
-        return Struct(spectra=spectra, pfsConfig=merged.pfsConfig)
+        lsf = None
+        result = []
+        for dataRef in dataRefList:
+            spectra = dataRef.get("pfsArm")
+            self.subtractSky1d.subtractSkySpectra(spectra, lsf, pfsConfig, sky1d)
+            self.measureFluxCalibration.applySpectra(spectra, pfsConfig, fluxCal)
+            result += [spectra.extractFiber(PfsSpectrum, pfsConfig, fiberId) for fiberId in spectra.fiberId]
+        return Struct(spectra=result, pfsConfig=pfsConfig)
 
     def getTargetData(self, target, pfsConfigList, indices):
         """Generate a ``TargetData`` for this target
@@ -233,8 +245,7 @@ class CoaddSpectraTask(CmdLineTask):
         Parameters
         ----------
         spectra : iterable of `pfs.datamodel.PfsSpectrum`
-            List of spectra to combine. These should already have been
-            resampled to a common wavelength representation.
+            List of spectra to combine.
         flags : `pfs.datamodel.MaskHelper`
             Mask interpreter, for identifying bad pixels.
 
@@ -249,6 +260,11 @@ class CoaddSpectraTask(CmdLineTask):
         mask : `numpy.ndarray` of `int`
             Mask for combined spectrum.
         """
+        # First, resample to a common wavelength sampling
+        wavelength = self.config.wavelength.wavelength
+        spectra = [ss.resample(wavelength) for ss in spectra]
+
+        # Now do a weighted coaddition
         archetype = spectra[0]
         length = archetype.length
         mask = np.zeros(length, dtype=archetype.mask.dtype)
@@ -258,13 +274,14 @@ class CoaddSpectraTask(CmdLineTask):
         sumWeights = np.zeros(length, dtype=archetype.flux.dtype)
 
         for ss in spectra:
-            good = ((ss.mask & ss.flags.get(*self.config.mask)) == 0) & (ss.covar[0] > 0)
             weight = np.zeros_like(flux)
-            weight[good] = 1.0/ss.covar[0][good]
-            flux += ss.flux*weight
-            sky += ss.sky*weight
-            mask[good] |= ss.mask[good]
-            sumWeights += weight
+            with np.errstate(invalid="ignore", divide="ignore"):
+                good = ((ss.mask & ss.flags.get(*self.config.mask)) == 0) & (ss.covar[0] > 0)
+                weight[good] = 1.0/ss.covar[0][good]
+                flux += ss.flux*weight
+                sky += ss.sky*weight
+                mask[good] |= ss.mask[good]
+                sumWeights += weight
 
         good = sumWeights > 0
         flux[good] /= sumWeights[good]

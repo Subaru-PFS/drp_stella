@@ -87,7 +87,8 @@ class MergeArmsTask(CmdLineTask):
         lsf = [[None for dataRef in specRefList] for specRefList in expSpecRefList]
         pfsConfig = expSpecRefList[0][0].get("pfsConfig")
         if self.config.doSubtractSky1d:
-            self.subtractSky1d.run(sum(spectra, []), pfsConfig, sum(lsf, []))
+            sky1d = self.subtractSky1d.run(sum(spectra, []), pfsConfig, sum(lsf, []))
+            expSpecRefList[0][0].put(sky1d, "sky1d")
 
         spectrographs = [self.runSpectrograph(ss) for ss in spectra]  # Merge in wavelength
         merged = self.mergeSpectrographs(spectrographs)  # Merge across spectrographs
