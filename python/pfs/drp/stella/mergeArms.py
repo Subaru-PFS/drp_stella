@@ -5,6 +5,7 @@ from lsst.pipe.base import CmdLineTask, ArgumentParser, TaskRunner, Struct
 
 from pfs.datamodel.drp import PfsMerged
 from pfs.datamodel.masks import MaskHelper
+from pfs.datamodel.wavelengthArray import WavelengthArray
 from .subtractSky1d import SubtractSky1dTask
 
 
@@ -12,15 +13,17 @@ class WavelengthSamplingConfig(Config):
     """Configuration for wavelength sampling"""
     minWavelength = Field(dtype=float, default=350, doc="Minimum wavelength (nm)")
     maxWavelength = Field(dtype=float, default=1260, doc="Maximum wavelength (nm)")
-    dWavelength = Field(dtype=float, default=0.1, doc="Spacing in wavelength (nm)")
+    length = Field(dtype=int, default=11376, doc="Length of wavelength array (sets the resolution)")
+
+    @property
+    def dWavelength(self):
+        """Return the wavelength spacing (nm)"""
+        return (self.maxWavelength - self.minWavelength)/(self.length - 1)
 
     @property
     def wavelength(self):
         """Return the appropriate wavelength vector"""
-        minWl = self.minWavelength
-        maxWl = self.maxWavelength
-        dWl = self.dWavelength
-        return minWl + dWl*np.arange(int((maxWl - minWl)/dWl), dtype=float)
+        return WavelengthArray(self.minWavelength, self.maxWavelength, self.length)
 
 
 class MergeArmsConfig(Config):
