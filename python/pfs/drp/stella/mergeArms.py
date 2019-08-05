@@ -1,6 +1,6 @@
 from collections import defaultdict
 import numpy as np
-from lsst.pex.config import Config, Field, ConfigurableField, ListField
+from lsst.pex.config import Config, Field, ConfigurableField, ListField, ConfigField
 from lsst.pipe.base import CmdLineTask, ArgumentParser, TaskRunner, Struct
 
 from pfs.datamodel.drp import PfsMerged
@@ -8,11 +8,24 @@ from pfs.datamodel.masks import MaskHelper
 from .subtractSky1d import SubtractSky1dTask
 
 
-class MergeArmsConfig(Config):
-    """Configuration for MergeArmsTask"""
+class WavelengthSamplingConfig(Config):
+    """Configuration for wavelength sampling"""
     minWavelength = Field(dtype=float, default=350, doc="Minimum wavelength (nm)")
     maxWavelength = Field(dtype=float, default=1260, doc="Maximum wavelength (nm)")
     dWavelength = Field(dtype=float, default=0.1, doc="Spacing in wavelength (nm)")
+
+    @property
+    def wavelength(self):
+        """Return the appropriate wavelength vector"""
+        minWl = self.minWavelength
+        maxWl = self.maxWavelength
+        dWl = self.dWavelength
+        return minWl + dWl*np.arange(int((maxWl - minWl)/dWl), dtype=float)
+
+
+class MergeArmsConfig(Config):
+    """Configuration for MergeArmsTask"""
+    wavelength = ConfigField(dtype=WavelengthSamplingConfig, doc="Wavelength configuration")
     doSubtractSky1d = Field(dtype=bool, default=True, doc="Do 1D sky subtraction?")
     subtractSky1d = ConfigurableField(target=SubtractSky1dTask, doc="1d sky subtraction")
     doBarycentricCorr = Field(dtype=bool, default=True, doc="Do barycentric correction?")
@@ -52,10 +65,6 @@ class MergeArmsTask(CmdLineTask):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.makeSubtask("subtractSky1d")
-        minWl = self.config.minWavelength
-        maxWl = self.config.maxWavelength
-        dWl = self.config.dWavelength
-        self.wavelength = minWl + dWl*np.arange(int((maxWl - minWl)/dWl), dtype=float)
 
     def runDataRef(self, expSpecRefList):
         """Merge all extracted spectra from a single exposure
@@ -139,7 +148,8 @@ class MergeArmsTask(CmdLineTask):
         fiberId = archetype.fiberId
         if any(np.any(ss.fiberId != fiberId) for ss in spectraList):
             raise RuntimeError("Selection of fibers differs")
-        resampled = [ss.resample(self.wavelength) for ss in spectraList]
+        wavelength = self.config.wavelength.wavelength
+        resampled = [ss.resample(wavelength) for ss in spectraList]
         flags = MaskHelper.fromMerge([ss.flags for ss in spectraList])
         combination = self.combine(resampled, flags)
         if self.config.doBarycentricCorr:
