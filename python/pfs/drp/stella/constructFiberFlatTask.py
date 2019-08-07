@@ -84,6 +84,7 @@ class ConstructFiberFlatTask(SpectralCalibTask):
             exposure.image.array[bad] = 0.0
             exposure.variance.array[bad] = 0.0
             expect.array[bad] = 0.0
+            exposure.mask.array &= ~maskVal  # Remove planes we are masking so they don't leak through
 
             if sumFlat is None:
                 sumFlat = exposure.maskedImage
