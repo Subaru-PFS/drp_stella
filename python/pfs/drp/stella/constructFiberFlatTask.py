@@ -78,7 +78,7 @@ class ConstructFiberFlatTask(SpectralCalibTask):
 
             expect = spectra.makeImage(exposure.getBBox(), traces)
 
-            maskVal = exposure.mask.getPlaneBitMask(["BAD", "SAT", "CR"])
+            maskVal = exposure.mask.getPlaneBitMask(["BAD", "SAT", "CR", "INTRP"])
             with np.errstate(invalid="ignore"):
                 bad = (expect.array <= 0.0) | ((exposure.mask.array & maskVal) > 0)
             exposure.image.array[bad] = 0.0
