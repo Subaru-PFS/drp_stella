@@ -1,3 +1,4 @@
+#include <set>
 #include "ndarray.h"
 #include "ndarray/eigen.h"
 
