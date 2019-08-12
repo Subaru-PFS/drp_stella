@@ -304,10 +304,10 @@ t_project_coefficients_data(
     //
     //  Compute the least-squares solution C.
     //
-    Eigen::JacobiSVD<Eigen::MatrixXf> svd(v.asEigen(), Eigen::ComputeThinU | Eigen::ComputeThinV);
-    auto cEigen = svd.solve(d.asEigen());
+    Eigen::JacobiSVD<Eigen::MatrixXf> svd(asEigenArray(v), Eigen::ComputeThinU | Eigen::ComputeThinV);
+    auto cEigen = svd.solve(asEigenMatrix(d));
     ndarray::Array<float, 1, 1> c = ndarray::allocate(n);
-    c.asEigen() = cEigen;
+    asEigenArray(c) = cEigen;
 
     return c;
 }
