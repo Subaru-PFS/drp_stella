@@ -198,8 +198,8 @@ class ReduceExposureTask(CmdLineTask):
 
         results = Struct(exposureList=exposureList, psfList=psfList, lsfList=lsfList)
 
-        fiberTraceList = [sensorRef.get("fibertrace") for sensorRef in sensorRefList]
-        detectorMapList = [sensorRef.get("detectormap") for sensorRef in sensorRefList]
+        fiberTraceList = [self.getFiberTraces(sensorRef) for sensorRef in sensorRefList]
+        detectorMapList = [self.getDetectorMap(sensorRef) for sensorRef in sensorRefList]
         pfsConfig = sensorRefList[0].get("pfsConfig")
 
         results.fiberTraceList = fiberTraceList
