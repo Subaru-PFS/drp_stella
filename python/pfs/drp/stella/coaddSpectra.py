@@ -89,7 +89,7 @@ class CoaddSpectraTask(CmdLineTask):
         self.makeSubtask("mergeArms")
         self.makeSubtask("measureFluxCalibration")
 
-    def run(self, dataRefList, targetList):
+    def runDataRef(self, dataRefList, targetList):
         """Coadd multiple observations
 
         We base the coaddition on the ``pfsArm`` files because that data hasn't
@@ -153,7 +153,7 @@ class CoaddSpectraTask(CmdLineTask):
         spectrographs = defaultdict(list)
         for dataRef in dataRefList:
             spectrographs[dataRef.dataId["spectrograph"]].append(dataRef)
-        merged = self.mergeArms.run(list(spectrographs.values()))
+        merged = self.mergeArms.runDataRef(list(spectrographs.values()))
         fluxCal = dataRefList[0].get("fluxCal")
         spectra = self.measureFluxCalibration.apply(merged.spectra, merged.pfsConfig, fluxCal)
         return Struct(spectra=spectra, pfsConfig=merged.pfsConfig)

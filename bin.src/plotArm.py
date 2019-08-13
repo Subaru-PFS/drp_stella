@@ -28,7 +28,7 @@ class PlotArmTask(CmdLineTask):
                                   "spectra-%%(visit)d-%%(arm)s%%(spectrograph)d.png"))
         return parser
 
-    def run(self, dataRef, filename):
+    def runDataRef(self, dataRef, filename):
         spectra = SpectrumSet.fromPfsArm(dataRef.get("pfsArm"))
         fnUse = filename % dataRef.dataId
         self.log.info("Plotting arm %s as %s", dataRef.dataId, fnUse)

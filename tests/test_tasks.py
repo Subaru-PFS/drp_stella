@@ -183,7 +183,7 @@ class TasksTestCase(lsst.utils.tests.TestCase):
 
         raw = lsst.afw.image.makeExposure(self.arc)
         dataRef = DummyDataRef(raw=raw, fibertrace=traces, detectormap=self.detMap, pfsConfig=self.pfsConfig)
-        results = task.run([dataRef])
+        results = task.runDataRef([dataRef])
         self.assertEqual(len(results.exposureList), 1)
         self.assertEqual(len(results.originalList), 1)
         self.assertEqual(len(results.spectraList), 1)
