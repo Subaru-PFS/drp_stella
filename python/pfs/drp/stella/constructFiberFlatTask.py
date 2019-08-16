@@ -1,3 +1,4 @@
+from collections import defaultdict
 import numpy as np
 
 import lsst.afw.image as afwImage
@@ -61,39 +62,44 @@ class ConstructFiberFlatTask(SpectralCalibTask):
         dataRefList = combineResults.dataRefList
         outputId = combineResults.outputId
 
+        # Coadd exposures taken with the same slit dither position to remove CRs
+        dithers = defaultdict(list)
+        for dataRef in dataRefList:
+            value = dataRef.getButler().queryMetadata("raw", "dither", dataRef.dataId)
+            assert len(value) == 1, "Expect a single answer for this single dataset"
+            dithers[value.pop()].append(dataRef)
+        self.log.info("Dither values: %s" % (sorted(dithers.keys()),))
+        coadds = {dd: self.combination.run(dithers[dd]) for dd in dithers}
+
+        # Sum coadded dithers to fill in the gaps
         sumFlat = None  # Sum of flat-fields
         sumExpect = None  # Sum of what we expect
-        xOffsets = []
-        for ii, expRef in enumerate(dataRefList):
-            exposure = expRef.get('postISRCCD')
+        for dd in dithers:
+            image = coadds[dd]
+            dataRef = dithers[dd][0]  # Representative dataRef
 
-            dither = expRef.getButler().queryMetadata("raw", "dither", expRef.dataId)
-            assert len(dither) == 1, "Expect a single answer for this single dataset"
-            xOffsets.append(dither.pop())
+            detMap = dataRef.get('detectormap')
+            traces = self.trace.run(image, detMap)
+            self.log.info('%d FiberTraces found for %s' % (traces.size(), dataRef.dataId))
+            spectra = traces.extractSpectra(image, detMap, True)
 
-            detMap = expRef.get('detectormap')
-            traces = self.trace.run(exposure.maskedImage, detMap)
-            self.log.info('%d FiberTraces found for %s' % (traces.size(), expRef.dataId))
-            spectra = traces.extractSpectra(exposure.maskedImage, detMap, True)
+            expect = spectra.makeImage(image.getBBox(), traces)
 
-            expect = spectra.makeImage(exposure.getBBox(), traces)
-
-            maskVal = exposure.mask.getPlaneBitMask(["BAD", "SAT", "CR", "INTRP"])
+            maskVal = image.mask.getPlaneBitMask(["BAD", "SAT", "CR", "INTRP"])
             with np.errstate(invalid="ignore"):
-                bad = (expect.array <= 0.0) | ((exposure.mask.array & maskVal) > 0)
-            exposure.image.array[bad] = 0.0
-            exposure.variance.array[bad] = 0.0
+                bad = (expect.array <= 0.0) | ((image.mask.array & maskVal) > 0)
+            image.image.array[bad] = 0.0
+            image.variance.array[bad] = 0.0
             expect.array[bad] = 0.0
-            exposure.mask.array &= ~maskVal  # Remove planes we are masking so they don't leak through
+            image.mask.array &= ~maskVal  # Remove planes we are masking so they don't leak through
 
             if sumFlat is None:
-                sumFlat = exposure.maskedImage
+                sumFlat = image
                 sumExpect = expect
             else:
-                sumFlat += exposure.maskedImage
+                sumFlat += image
                 sumExpect += expect
 
-        self.log.info('Dither values = %s' % (xOffsets,))
         if sumFlat is None:
             raise RuntimeError("Unable to find any valid flats")
         if np.all(sumExpect.array == 0.0):
