@@ -78,11 +78,13 @@ class ConstructFiberFlatTask(SpectralCalibTask):
 
             expect = spectra.makeImage(exposure.getBBox(), traces)
 
-            maskVal = exposure.mask.getPlaneBitMask(["BAD", "SAT", "CR"])
-            bad = (expect.array <= 0.0) | (exposure.mask.array & maskVal > 0)
+            maskVal = exposure.mask.getPlaneBitMask(["BAD", "SAT", "CR", "INTRP"])
+            with np.errstate(invalid="ignore"):
+                bad = (expect.array <= 0.0) | ((exposure.mask.array & maskVal) > 0)
             exposure.image.array[bad] = 0.0
             exposure.variance.array[bad] = 0.0
             expect.array[bad] = 0.0
+            exposure.mask.array &= ~maskVal  # Remove planes we are masking so they don't leak through
 
             if sumFlat is None:
                 sumFlat = exposure.maskedImage
@@ -110,7 +112,8 @@ class ConstructFiberFlatTask(SpectralCalibTask):
 
         # Mask bad pixels
         snr = sumFlat.image.array/np.sqrt(sumFlat.variance.array)
-        bad = (snr < self.config.minSNR) | ~np.isfinite(snr)
+        with np.errstate(invalid="ignore"):
+            bad = (snr < self.config.minSNR) | ~np.isfinite(snr)
         sumFlat.image.array[bad] = 1.0
         sumFlat.mask.array[bad] |= badFlat
 
