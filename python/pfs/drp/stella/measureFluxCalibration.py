@@ -77,6 +77,7 @@ class MeasureFluxCalibrationTask(Task):
         results = []
         for fiberId, vv in zip(pfsConfig.fiberId, vectors):
             spectrum = merged.extractFiber(PfsSingle, pfsConfig, fiberId)
-            spectrum /= vv
+            with np.errstate(divide="ignore", invalid="ignore"):
+                spectrum /= vv
             results.append(spectrum)
         return results
