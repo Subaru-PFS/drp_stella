@@ -1077,7 +1077,6 @@ FindCenterPositionsOneTraceResult findCenterPositionsOneTrace(
 
         if (apertureFound) {
             /// Trace Aperture
-            std::set<lsst::geom::Point2D, PointCompare> xySorted;
             int apertureLength = 1;
             int length = 1;
             int apertureLost = 0;
@@ -1360,23 +1359,7 @@ FindCenterPositionsOneTraceResult findCenterPositionsOneTrace(
                                             (*iter)[0] = value;
                                             (*iter)[1] = gaussFitCoeffs[0] * exp(-(value*value)/(2.*guess[2]*guess[2]));
                                         }
-                                        if (gaussFitVariances.size() > 20) {
-                                            ndarray::Array<float, 2, 1> xysRelativeToCenter = ndarray::allocate(xySorted.size(), 2);
-                                            auto itSorted = xySorted.begin();
-                                            for (auto iter = xysRelativeToCenter.begin(); iter != xysRelativeToCenter.end();
-                                                ++iter, ++itSorted) {
-                                                (*iter)[0] = itSorted->getX();
-                                                (*iter)[1] = itSorted->getY();
-                                            }
-                                            #if defined(__DEBUG_FINDANDTRACE__)
-                                            cout << "pfs::drp::stella::math::findCenterPositionsOneTrace: i_Row = " << row <<
-                                                ": xCorMinPos = " << xCorMinPos << endl;
-                                            #endif
-                                        }
                                         if (gaussFitVariances.size() > 10) {
-                                            for (auto iter = xyRelativeToCenter.begin(); iter != xyRelativeToCenter.end(); ++iter) {
-                                                xySorted.insert(lsst::geom::Point2D((*iter)[0] + xCorMinPos, (*iter)[1]));
-                                            }
                                             apertureCenter[row] = apertureCenter[row] + xCorMinPos;
                                             #if defined(__DEBUG_FINDANDTRACE__)
                                             cout << "pfs::drp::stella::math::findCenterPositionsOneTrace: i_Row = " << row <<
