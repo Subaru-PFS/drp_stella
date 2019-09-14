@@ -82,6 +82,11 @@ class FiberTraceSet:
             out.add(FiberTrace(fiberTrace.traces[ii], fiberTrace.fiberId[ii]))
         return out
 
+    @property
+    def fiberId(self):
+        """Return the fiberIds of the component fiberTraces"""
+        return [ft.fiberId for ft in self]
+
     @classmethod
     def _parsePath(cls, path, hdu=None, flags=None):
         """Parse path from the data butler
