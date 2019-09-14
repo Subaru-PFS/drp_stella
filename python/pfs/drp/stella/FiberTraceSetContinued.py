@@ -82,6 +82,35 @@ class FiberTraceSet:
             out.add(FiberTrace(fiberTrace.traces[ii], fiberTrace.fiberId[ii]))
         return out
 
+    @classmethod
+    def fromCombination(cls, *fiberTraceSets):
+        """Generate from multiple FiberTraceSets
+
+        Parameters
+        ----------
+        *fiberTraceSets : iterable of `pfs.drp.stella.FiberTraceSet`
+            Sets of fiber traces to combine.
+
+        Returns
+        -------
+        combined : `pfs.drp.stella.FiberTraceSet`
+            Combined set of fiber traces.
+        """
+        combined = cls(fiberTraceSets[0], True)
+        fiberId = set(combined.fiberId)
+        ignored = set()
+        for traces in fiberTraceSets[1:]:
+            for ft in traces:
+                if ft.fiberId in fiberId:
+                    ignored.add(ft.fiberId)
+                    continue
+                combined.add(ft)
+        if ignored:
+            import warnings
+            warnings.warn(f"Ignored duplicate fibers: {','.join(sorted(ignored))}")
+        combined.sortTracesByXCenter()
+        return combined
+
     @property
     def fiberId(self):
         """Return the fiberIds of the component fiberTraces"""
