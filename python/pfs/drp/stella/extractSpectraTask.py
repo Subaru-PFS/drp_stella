@@ -28,8 +28,7 @@ class ExtractSpectraTask(pipeBase.Task):
         Parameters
         ----------
         maskedImage : `lsst.afw.image.MaskedImage`
-            Image from which to extract spectra; modified if
-            ``doSubtractContinuum`` is set.
+            Image from which to extract spectra.
         fiberTraceSet : `pfs.drp.stella.FiberTraceSet`
             Fiber traces to extract.
         detectorMap : `pfs.drp.stella.DetectorMap`, optional
@@ -57,8 +56,7 @@ class ExtractSpectraTask(pipeBase.Task):
         Parameters
         ----------
         maskedImage : `lsst.afw.image.MaskedImage`
-            Image from which to extract spectra; modified if
-            ``doSubtractContinuum`` is set.
+            Image from which to extract spectra.
         fiberTraceSet : `pfs.drp.stella.FiberTraceSet`
             Fiber traces to extract.
         detectorMap : `pfs.drp.stella.DetectorMap`, optional
@@ -83,7 +81,7 @@ class ExtractSpectraTask(pipeBase.Task):
         ----------
         maskedImage : `lsst.afw.image.MaskedImage`
             Image from which to extract spectra.
-        fiberTraceSet : `pfs.drp.stella.FiberTraceSet`
+        fiberTrace : `pfs.drp.stella.FiberTrace`
             Fiber traces to extract.
         detectorMap : `pfs.drp.stella.DetectorMap`, optional
             Map of expected detector coordinates to fiber, wavelength.
@@ -93,7 +91,7 @@ class ExtractSpectraTask(pipeBase.Task):
         Returns
         -------
         spectrum : `pfs.drp.stella.SpectrumSet`
-            Extracted spectra, or `None` if the extraction failed.
+            Extracted spectra.
         """
         fiberId = fiberTrace.getFiberId()
         spectrum = fiberTrace.extractSpectrum(maskedImage, self.config.useOptimal)
