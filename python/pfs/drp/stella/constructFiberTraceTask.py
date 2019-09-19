@@ -107,7 +107,7 @@ class ConstructFiberTraceTask(SpectralCalibTask):
 
         # Set the normalisation of the FiberTraces
         # The normalisation is the flat: we want extracted spectra to be relative to the flat.
-        spectra = traces.extractSpectra(exposure.maskedImage, detMap, True)
+        spectra = traces.extractSpectra(exposure.maskedImage)
         for ss, tt in zip(spectra, traces):
             bbox = tt.trace.getBBox()
             select = slice(bbox.getMinY(), bbox.getMaxY() + 1)

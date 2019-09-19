@@ -110,14 +110,14 @@ class ConstructFiberFlatTask(SpectralCalibTask):
             detMap = dataRef.get('detectormap')
             traces = self.trace.run(image, detMap)
             self.log.info('%d FiberTraces found for %s' % (traces.size(), dataRef.dataId))
-            spectra = traces.extractSpectra(image, detMap, True)
+            maskVal = image.mask.getPlaneBitMask(["BAD", "SAT", "CR", "INTRP"])
+            spectra = traces.extractSpectra(image, maskVal)
 
             expect = spectra.makeImage(image.getBBox(), traces)
             # Occasionally NaNs are present in these images,
             # despite the original coadded image containing zero NaNs
             self.interpolateNans(expect)
 
-            maskVal = image.mask.getPlaneBitMask(["BAD", "SAT", "CR", "INTRP"])
             with np.errstate(invalid="ignore"):
                 bad = (expect.array <= 0.0) | ((image.mask.array & maskVal) > 0)
             image.image.array[bad] = 0.0

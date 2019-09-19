@@ -71,10 +71,9 @@ class ExtractSpectraTask(pipeBase.Task):
         spectra : `pfs.drp.stella.SpectrumSet`
             Extracted spectra.
         """
-        spectra = drpStella.SpectrumSet(maskedImage.getHeight())
-        for fiberTrace in fiberTraceSet:
-            spectrum = self.extractSpectrum(maskedImage, fiberTrace, detectorMap)
-            spectra.add(spectrum)
+        spectra = fiberTraceSet.extractSpectra(maskedImage)
+        for spectrum in spectra:
+            spectrum.setWavelength(detectorMap.getWavelength(spectrum.fiberId))
         return spectra
 
     def extractSpectrum(self, maskedImage, fiberTrace, detectorMap=None):

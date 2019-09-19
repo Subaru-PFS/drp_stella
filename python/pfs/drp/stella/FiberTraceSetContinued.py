@@ -211,34 +211,6 @@ class FiberTraceSet:
         fiberTrace.read(dirName=parsed.dirName)
         return cls.fromPfsFiberTrace(fiberTrace)
 
-    def extractSpectra(self, maskedImage, detectorMap=None, optimal=True):
-        """Extract spectra from an image
-
-        Parameters
-        ----------
-        maskedImage : `lsst.afw.image.MaskedImage`
-            Image from which to extract spectra.
-        detectorMap : `pfs.drp.stella.DetectorMap`, optional
-            Map of expected detector coordinates to fiber, wavelength.
-            If provided, they will be used to provide a rough wavelength
-            calibration.
-        optimal : `bool`, optional
-            Use optimal extraction? Otherwise, use a simple sum of pixels
-            within the trace.
-
-        Returns
-        -------
-        spectra : `pfs.drp.stella.SpectrumSet`
-            Extracted spectra.
-        """
-        spectra = SpectrumSet(maskedImage.getHeight())
-        for ft in self:
-            spectrum = ft.extractSpectrum(maskedImage, optimal)
-            if detectorMap is not None:
-                spectrum.setWavelength(detectorMap.getWavelength(ft.getFiberId()))
-            spectra.add(spectrum)
-        return spectra
-
     def applyToMask(self, mask):
         """Apply the trace masks to the provided mask
 
