@@ -57,7 +57,7 @@ class MergeArmsTask(CmdLineTask):
         dWl = self.config.dWavelength
         self.wavelength = minWl + dWl*np.arange(int((maxWl - minWl)/dWl), dtype=float)
 
-    def run(self, expSpecRefList):
+    def runDataRef(self, expSpecRefList):
         """Merge all extracted spectra from a single exposure
 
         Parameters

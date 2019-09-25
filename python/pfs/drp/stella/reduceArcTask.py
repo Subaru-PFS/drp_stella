@@ -131,7 +131,7 @@ class ReduceArcTask(CmdLineTask):
             if len(values) > 1:
                 raise RuntimeError("%s varies for inputs: %s" % (prop, [ref.dataId for ref in dataRefList]))
 
-    def run(self, dataRef, lineListFilename):
+    def runDataRef(self, dataRef, lineListFilename):
         """Entry point for scatter stage
 
         Extracts spectra from the exposure pointed to by the ``dataRef``.
@@ -161,7 +161,7 @@ class ReduceArcTask(CmdLineTask):
         if not lamps:
             raise RuntimeError("No lamps found from metadata")
         lines = self.readLineList(lamps, lineListFilename)
-        results = self.reduceExposure.run([dataRef])
+        results = self.reduceExposure.runDataRef([dataRef])
         self.identifyLines.run(results.spectraList[0], results.detectorMapList[0], lines)
         return Struct(
             spectra=results.spectraList[0],

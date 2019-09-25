@@ -1,3 +1,4 @@
+#include <set>
 #include "ndarray.h"
 #include "ndarray/eigen.h"
 
@@ -138,7 +139,7 @@ calcProfileSwath(
     ndarray::Array<float, 1, 1> const xCenterArrayIndexY = ndarray::allocate(height);
     xCenterArrayIndexY.deep() = 1.0;
     ndarray::Array<float, 2, 1> xArray = ndarray::allocate(height, width);
-    xArray.asEigen() = xCenterArrayIndexY.asEigen()*xCenterArrayIndexX.asEigen().transpose();
+    asEigenMatrix(xArray) = asEigenMatrix(xCenterArrayIndexY)*asEigenMatrix(xCenterArrayIndexX).transpose();
     double xMin = 1.;
     double xMax = -1.;
     auto itOffset = pixelOffset.begin();

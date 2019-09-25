@@ -28,7 +28,7 @@ class FluxCalibrateTask(CmdLineTask):
                                help="data IDs, e.g. --id exp=12345")
         return parser
 
-    def run(self, dataRef):
+    def runDataRef(self, dataRef):
         """Measure and apply the flux calibration
 
         Parameters

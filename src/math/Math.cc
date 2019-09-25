@@ -87,7 +87,7 @@ ndarray::Array<T, 1, 1> moment(ndarray::Array<T const, 1, 1> const& array, int m
     assert(array.getShape()[0] >= 2);
 
     std::size_t const num = array.getShape()[0];
-    T mean = array.asEigen().mean();
+    T mean = asEigenArray(array).mean();
     out[0] = mean;
     if (maxMoment == 1) {
         return out;
@@ -95,7 +95,7 @@ ndarray::Array<T, 1, 1> moment(ndarray::Array<T const, 1, 1> const& array, int m
 
     // Variance
     ndarray::Array<T, 1, 1> resid = ndarray::copy(array - mean);
-    Eigen::Array<T, Eigen::Dynamic, 1> eigenResid = resid.asEigen();
+    Eigen::Array<T, Eigen::Dynamic, 1> eigenResid = asEigenArray(resid);
     T var = (eigenResid.pow(2).sum() - std::pow(ndarray::sum(resid), 2)/T(num))/(T(num) - 1.);
     out[1] = var;
     if (maxMoment <= 2) {

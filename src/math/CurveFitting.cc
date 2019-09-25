@@ -241,9 +241,9 @@ PolynomialFitResults<T> fitPolynomial(
     }
 
     LOGLS_DEBUG(_log, "before InvertGaussJ: (*P_D_A2_Covar) = " << results.covar);
-    results.covar.asEigen() = results.covar.asEigen().inverse();
+    asEigenMatrix(results.covar) = asEigenMatrix(results.covar).inverse();
     LOGLS_DEBUG(_log, "(*P_D_A2_Covar) set to " << results.covar);
-    results.coeffs.asEigen() = results.covar.asEigen()*b.asEigen();
+    asEigenMatrix(results.coeffs) = asEigenMatrix(results.covar)*asEigenMatrix(b);
 
     results.yFit.deep() = calculatePolynomial(x, results.coeffs);
 
@@ -254,10 +254,10 @@ PolynomialFitResults<T> fitPolynomial(
     LOGLS_DEBUG(_log, "(*P_D_A1_Sigma) set to " << results.sigma);
     LOGLS_DEBUG(_log, "*P_D_A1_YFit = " << results.yFit);
 
-    Eigen::Array<T, Eigen::Dynamic, 1> diff = y.asEigen() - results.yFit.asEigen();
+    Eigen::Array<T, Eigen::Dynamic, 1> diff = asEigenArray(y) - asEigenArray(results.yFit);
     LOGLS_DEBUG(_log, "Diff set to " << diff);
     ndarray::Array<T, 1, 1> errTemp = ndarray::allocate(nDataPoints);
-    errTemp.asEigen() = diff.pow(2);
+    asEigenArray(errTemp) = diff.pow(2);
     errTemp.deep() *= ndarray::logical_not(resultsIn->rejected);
     LOGLS_DEBUG(_log, "Err_Temp set to " << errTemp);
     if (haveMeasureError){
@@ -309,7 +309,7 @@ fitProfile1d(ndarray::ArrayRef<ImageT const, 1, 1> const& data, // data
     ImageT bkgd = 0.0;                       // sky level
     ImageT ampVar = 0.0;                    // amp's variance
 
-    if ((data.asEigen().sum() == 0.) || (profile.asEigen().sum() == 0.)) {
+    if ((asEigenArray(data).sum() == 0.) || (asEigenArray(profile).sum() == 0.)) {
         return Tuple(-1.0, amp, bkgd, ampVar);
     }
     //
@@ -336,7 +336,7 @@ fitProfile1d(ndarray::ArrayRef<ImageT const, 1, 1> const& data, // data
     double ampBkgdCovar = 0;        // covariance between amp and bkgd
 #endif
 
-    if (traceMask.asEigen().sum() == 0) {
+    if (asEigenArray(traceMask).sum() == 0) {
         return Tuple(-2, amp, bkgd, ampVar);
     }
 
@@ -347,7 +347,7 @@ fitProfile1d(ndarray::ArrayRef<ImageT const, 1, 1> const& data, // data
         amp = 0.0;
 
         /// remove bad pixels marked by mask
-        const int nGood = traceMask.asEigen().sum();
+        const int nGood = asEigenArray(traceMask).sum();
         if (nGood == 0) {
             return Tuple(-3.0, amp, bkgd, ampVar);
         }
@@ -601,13 +601,13 @@ ndarray::Array<float, 1, 1> fitGaussian(
     std::cout << "CurveFitting::gaussFit(xy, guess) started" << std::endl;
     #endif
     utils::checkSize(guess.getNumElements(), std::size_t(3), "fitGaussian guess");
-    gaussianFunctor func{xy.asEigen()};
+    gaussianFunctor func{asEigenArray(xy)};
     Eigen::LevenbergMarquardt<gaussianFunctor> solver(func);
     solver.setXtol(1.0e-6);
     solver.setFtol(1.0e-6);
 
     Eigen::VectorXf eigen(3);
-    eigen = guess.asEigen();
+    eigen = asEigenArray(guess);
 
     solver.minimize(eigen);
     #ifdef __DEBUG_CURVEFIT__
@@ -615,7 +615,7 @@ ndarray::Array<float, 1, 1> fitGaussian(
     #endif
 
     ndarray::Array<float, 1, 1> result = ndarray::allocate(3);
-    result.asEigen() = eigen;
+    asEigenArray(result) = eigen;
     return result;
 }
 

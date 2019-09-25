@@ -32,7 +32,7 @@ class CalculateReferenceFluxTask(CmdLineTask):
                                help="data IDs, e.g. --id exp=12345")
         return parser
 
-    def run(self, dataRef):
+    def runDataRef(self, dataRef):
         """Run on an exposure
 
         Parameters

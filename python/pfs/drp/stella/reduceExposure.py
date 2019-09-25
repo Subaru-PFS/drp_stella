@@ -140,7 +140,7 @@ class ReduceExposureTask(CmdLineTask):
         self.makeSubtask("extractSpectra")
         self.makeSubtask("fitContinuum")
 
-    def run(self, sensorRefList):
+    def runDataRef(self, sensorRefList):
         """Process all arms of the same kind within an exposure
 
         The sequence of operations is:

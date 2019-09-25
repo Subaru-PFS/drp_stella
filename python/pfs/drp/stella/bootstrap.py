@@ -78,7 +78,7 @@ class BootstrapTask(CmdLineTask):
                                                  "pfs", "lineLists", "ArCdHgKrNeXe.txt"))
         return parser
 
-    def run(self, flatRef, arcRef, lineListFilename):
+    def runDataRef(self, flatRef, arcRef, lineListFilename):
         """Fit out differences between the expected and actual detectorMap
 
         We use a quartz flat to find and trace fibers. The resulting fiberTrace

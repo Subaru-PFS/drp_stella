@@ -1,5 +1,5 @@
 import numpy as np
-import pyfits
+import astropy.io.fits as pyfits
 
 import lsst.afw.fits
 import lsst.geom
