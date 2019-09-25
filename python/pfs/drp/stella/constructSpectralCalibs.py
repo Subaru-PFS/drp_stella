@@ -8,7 +8,7 @@ from lsst.afw.display import Display
 from lsst.meas.algorithms import DoubleGaussianPsf
 from lsst.pipe.base import Struct
 from lsst.ctrl.pool.pool import NODE
-from lsst.pipe.drivers.constructCalibs import CalibConfig, CalibTask
+import lsst.pipe.drivers.constructCalibs
 from lsst.pipe.drivers.utils import getDataRef
 from lsst.pipe.tasks.repair import RepairTask
 from pfs.drp.stella.fitContinuum import FitContinuumTask
@@ -16,7 +16,82 @@ from pfs.drp.stella.fitContinuum import FitContinuumTask
 __all__ = ["SpectralCalibConfig", "SpectralCalibTask"]
 
 
-class SpectralCalibConfig(CalibConfig):
+# Monkey-patching:
+# * CalibTask.getOutputId to include visit0
+# * CalibTask.recordCalibOutputs to include SPECTROGRAPH, ARM header keywords
+_originalGetOutputId = lsst.pipe.drivers.constructCalibs.CalibTask.getOutputId
+_originalRecordCalibInputs = lsst.pipe.drivers.constructCalibs.CalibTask.recordCalibInputs
+
+
+def getOutputId(self, expRefList, calibId):
+    """Generate the data identifier for the output calib
+
+    This override implementation adds ``visit0`` to the output identifier.
+
+    Parameters
+    ----------
+    expRefList : `list` of `lsst.daf.persistence.ButlerDataRef`
+        List of data references for input exposures.
+    calibId : `dict`
+        Data identifier elements for the calib, provided by the user.
+
+    Returns
+    -------
+    outputId : `dict`
+        Data identifier for output.
+    """
+    outputId = _originalGetOutputId(self, expRefList, calibId)
+    outputId["visit0"] = min(ref.dataId["visit"] for ref in expRefList)
+    return outputId
+
+
+def recordCalibInputs(self, butler, calib, dataIdList, outputId):
+    """Record metadata including the inputs and creation details
+
+    This metadata will go into the FITS header.
+
+    Parameters
+    ----------
+    butler : `lsst.daf.persistence.Butler`
+        Data butler.
+    calib : `lsst.afw.image.Exposure`
+        Combined calib exposure.
+    dataIdList : iterable of `dict`
+        List of data identifiers for calibration inputs.
+    outputId : `dict`
+        Data identifier for output.
+    """
+    _originalRecordCalibInputs(self, butler, calib, dataIdList, outputId)
+    header = calib.getMetadata()
+    header.set("SPECTROGRAPH", outputId["spectrograph"])
+    header.set("ARM", outputId["arm"])
+
+
+lsst.pipe.drivers.constructCalibs.CalibTask.getOutputId = getOutputId
+lsst.pipe.drivers.constructCalibs.CalibTask.recordCalibInputs = recordCalibInputs
+
+
+class PfsBiasTask(lsst.pipe.drivers.constructCalibs.BiasTask):
+    """PFS-specialised bias construction
+
+    Includes the above monkey-patched fixes. This is defined here to ensure
+    the monkey-patching gets done (otherwise the ctrl_pool pickling will
+    re-instantiate a BiasTask without the monkey-patching).
+    """
+    pass
+
+
+class PfsDarkTask(lsst.pipe.drivers.constructCalibs.DarkTask):
+    """PFS-specialised dark construction
+
+    Includes the above monkey-patched fixes. This is defined here to ensure
+    the monkey-patching gets done (otherwise the ctrl_pool pickling will
+    re-instantiate a BiasTask without the monkey-patching).
+    """
+    pass
+
+
+class SpectralCalibConfig(lsst.pipe.drivers.constructCalibs.CalibConfig):
     """Base configuration for constructing spectral calibs"""
     rerunISR = Field(
         dtype=bool,
@@ -50,7 +125,7 @@ class SpectralCalibConfig(CalibConfig):
     fitContinuum = ConfigurableField(target=FitContinuumTask, doc="Fit continuum")
 
 
-class SpectralCalibTask(CalibTask):
+class SpectralCalibTask(lsst.pipe.drivers.constructCalibs.CalibTask):
     """Base Task to construct a spectral calib
 
     The user still needs to set at least the following class variables:
@@ -103,31 +178,6 @@ class SpectralCalibTask(CalibTask):
             display.mtv(exposure, "raw %(visit)d" % sensorRef.dataId)
 
         return exposure
-
-    def getOutputId(self, expRefList, calibId):
-        """Generate the data identifier for the output calib
-
-        The mean date and the common filter are included, using keywords
-        from the configuration.  The CCD-specific part is not included
-        in the data identifier.
-
-        This override implementation adds ``visit0`` to the output identifier.
-
-        Parameters
-        ----------
-        expRefList : `list` of `lsst.daf.persistence.ButlerDataRef`
-            List of data references for input exposures.
-        calibId : `dict`
-            Data identifier elements for the calib, provided by the user.
-
-        Returns
-        -------
-        outputId : `dict`
-            Data identifier for output.
-        """
-        outputId = super().getOutputId(expRefList, calibId)
-        outputId["visit0"] = expRefList[0].dataId['visit']
-        return outputId
 
     def combine(self, cache, struct, outputId):
         """!Combine multiple exposures of a particular CCD and write the output
