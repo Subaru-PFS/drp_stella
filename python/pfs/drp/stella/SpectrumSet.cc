@@ -41,11 +41,10 @@ void declareSpectrumSet(py::module &mod) {
     cls.def("__setitem__",
             [](Class& self, std::size_t i, PTR(Spectrum) spectrum) { self.set(i, spectrum); });
 
-    cls.def("__getstate__", [](SpectrumSet const& self) { return py::make_tuple(self.getInternal()); });
-    cls.def("__setstate__",
-            [](SpectrumSet & self, py::tuple const& t) {
-            new (&self) SpectrumSet(t[0].cast<SpectrumSet::Collection>());
-        });
+    cls.def(py::pickle(
+        [](Class const& self) { return py::make_tuple(self.getInternal()); },
+        [](py::tuple const& t) { return Class(t[0].cast<SpectrumSet::Collection>()); }
+    ));
 }
 
 
