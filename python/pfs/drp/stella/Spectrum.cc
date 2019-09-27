@@ -74,19 +74,19 @@ void declareSpectrum(py::module &mod) {
 
     cls.def("isWavelengthSet", &Class::isWavelengthSet);
 
-    cls.def("__getstate__",
-        [](Spectrum const& self) {
+    cls.def(py::pickle(
+        [](Class const& self) {
             return py::make_tuple(self.getSpectrum(), self.getMask(), self.getBackground(),
                                   self.getCovariance(), self.getWavelength(), self.getReferenceLines(),
                                   self.getFiberId());
-        });
-    cls.def("__setstate__",
-        [](Spectrum & self, py::tuple const& t) {
-            new (&self) Spectrum(t[0].cast<Spectrum::ImageArray>(), t[1].cast<Spectrum::Mask>(),
-                                 t[2].cast<Spectrum::ImageArray>(), t[3].cast<Spectrum::CovarianceMatrix>(),
-                                 t[4].cast<Spectrum::ImageArray>(), t[5].cast<Spectrum::ReferenceLineList>(),
-                                 t[6].cast<std::size_t>());
-        });
+        },
+        [](py::tuple const& t) {
+            return Spectrum(t[0].cast<Spectrum::ImageArray>(), t[1].cast<Spectrum::Mask>(),
+                            t[2].cast<Spectrum::ImageArray>(), t[3].cast<Spectrum::CovarianceMatrix>(),
+                            t[4].cast<Spectrum::ImageArray>(), t[5].cast<Spectrum::ReferenceLineList>(),
+                            t[6].cast<std::size_t>());
+        }
+    ));
 }
 
 

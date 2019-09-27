@@ -37,12 +37,13 @@ void declareFiberTraceSet(py::module &mod)
     cls.def("__len__", &Class::size);
     cls.def("__getitem__", [](Class const& self, std::ptrdiff_t index) { return self.get(index); });
     cls.def("__setitem__", &Class::set);
-    cls.def("__getstate__",
-            [](Class const& self) { return py::make_tuple(self.getInternal(), self.getMetadata()); });
-    cls.def("__setstate__",
-            [](Class & self, py::tuple const& t) {
-                new (&self) Class(t[0].cast<typename Class::Collection>(),
-                                  t[1].cast<std::shared_ptr<lsst::daf::base::PropertySet>>()); });
+    cls.def(py::pickle(
+        [](Class const& self) { return py::make_tuple(self.getInternal(), self.getMetadata()); },
+        [](py::tuple const& t) {
+            return Class(t[0].cast<typename Class::Collection>(),
+                         t[1].cast<std::shared_ptr<lsst::daf::base::PropertySet>>());
+        }
+    ));
 }
 
 

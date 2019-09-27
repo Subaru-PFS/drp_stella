@@ -40,18 +40,18 @@ void declareReferenceLine(py::module &mod) {
     cls.def_readwrite("fitPosition", &ReferenceLine::fitPosition);
     cls.def_readwrite("fitPositionErr", &ReferenceLine::fitPositionErr);
 
-    cls.def("__getstate__",
-        [](ReferenceLine const& self) {
+    cls.def(py::pickle(
+        [](Class const& self) {
             return py::make_tuple(self.description, self.status, self.wavelength, self.guessedIntensity,
                                   self.guessedPosition, self.fitIntensity, self.fitPosition,
                                   self.fitPositionErr);
-        });
-    cls.def("__setstate__",
-        [](ReferenceLine & self, py::tuple const& t) {
-            new (&self) ReferenceLine(t[0].cast<std::string>(), ReferenceLine::Status(t[1].cast<int>()),
-                                      t[2].cast<double>(), t[3].cast<double>(), t[4].cast<double>(),
-                                      t[5].cast<double>(), t[6].cast<double>(), t[7].cast<double>());
-        });
+        },
+        [](py::tuple const& t) {
+            return ReferenceLine(t[0].cast<std::string>(), ReferenceLine::Status(t[1].cast<int>()),
+                                 t[2].cast<double>(), t[3].cast<double>(), t[4].cast<double>(),
+                                 t[5].cast<double>(), t[6].cast<double>(), t[7].cast<double>());
+        }
+    ));
 }
 
 

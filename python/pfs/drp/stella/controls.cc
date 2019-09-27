@@ -28,21 +28,22 @@ void declareFiberTraceFunction(py::module &mod)
     cls.def("setCoefficients", &FiberTraceFunction::setCoefficients, "coeffs"_a);
     cls.def("calcMinCenMax", &FiberTraceFunction::calcMinCenMax);
 
-    cls.def("__getstate__",
-            [](FiberTraceFunction const& self) {
-                return py::make_tuple(self.ctrl, self.xCenter, self.yCenter,
-                                      self.yLow, self.yHigh, self.coefficients);
-            });
-    cls.def("__setstate__",
-            [](FiberTraceFunction & self, py::tuple const& t) {
-                new (&self) FiberTraceFunction();
-                self.ctrl = t[0].cast<FiberTraceFunctionControl>();
-                self.xCenter = t[1].cast<float>();
-                self.yCenter = t[2].cast<std::size_t>();
-                self.yLow = t[3].cast<std::ptrdiff_t>();
-                self.yHigh = t[4].cast<std::ptrdiff_t>();
-                self.coefficients = t[5].cast<ndarray::Array<float, 1, 1>>();
-            });
+    cls.def(py::pickle(
+        [](FiberTraceFunction const& self) {
+            return py::make_tuple(self.ctrl, self.xCenter, self.yCenter,
+                                  self.yLow, self.yHigh, self.coefficients);
+        },
+        [](py::tuple const& t) {
+            FiberTraceFunction self;
+            self.ctrl = t[0].cast<FiberTraceFunctionControl>();
+            self.xCenter = t[1].cast<float>();
+            self.yCenter = t[2].cast<std::size_t>();
+            self.yLow = t[3].cast<std::ptrdiff_t>();
+            self.yHigh = t[4].cast<std::ptrdiff_t>();
+            self.coefficients = t[5].cast<ndarray::Array<float, 1, 1>>();
+            return self;
+        }
+    ));
 }
 
 
@@ -59,21 +60,22 @@ void declareFiberTraceFunctionControl(py::module &mod)
     LSST_DECLARE_CONTROL_FIELD(cls, FiberTraceFunctionControl, nPixCutRight);
     LSST_DECLARE_CONTROL_FIELD(cls, FiberTraceFunctionControl, nRows);
 
-    cls.def("__getstate__",
-            [](FiberTraceFunctionControl const& self) {
-                return py::make_tuple(self.order, self.xLow, self.xHigh, self.nPixCutLeft,
-                                      self.nPixCutRight, self.nRows);
-            });
-    cls.def("__setstate__",
-            [](FiberTraceFunctionControl & self, py::tuple const& t) {
-                new (&self) FiberTraceFunctionControl();
-                self.order = t[0].cast<int>();
-                self.xLow = t[1].cast<float>();
-                self.xHigh = t[2].cast<float>();
-                self.nPixCutLeft = t[3].cast<int>();
-                self.nPixCutRight = t[4].cast<int>();
-                self.nRows = t[5].cast<int>();
-            });
+    cls.def(py::pickle(
+        [](FiberTraceFunctionControl const& self) {
+            return py::make_tuple(self.order, self.xLow, self.xHigh, self.nPixCutLeft,
+                                  self.nPixCutRight, self.nRows);
+        },
+        [](py::tuple const& t) {
+            FiberTraceFunctionControl self;
+            self.order = t[0].cast<int>();
+            self.xLow = t[1].cast<float>();
+            self.xHigh = t[2].cast<float>();
+            self.nPixCutLeft = t[3].cast<int>();
+            self.nPixCutRight = t[4].cast<int>();
+            self.nRows = t[5].cast<int>();
+            return self;
+        }
+    ));
 }
 
 
@@ -94,27 +96,28 @@ void declareFiberTraceFindingControl(py::module &mod)
     LSST_DECLARE_CONTROL_FIELD(cls, FiberTraceFindingControl, maxSigma);
     LSST_DECLARE_CONTROL_FIELD(cls, FiberTraceFindingControl, maxOffset);
 
-    cls.def("__getstate__",
-            [](FiberTraceFindingControl const& self) {
-                return py::make_tuple(self.apertureFwhm, self.signalThreshold,
-                                      self.nTermsGaussFit, self.saturationLevel,
-                                      self.minLength, self.maxLength, self.nLost,
-                                      self.minSigma, self.maxSigma, self.maxOffset);
-            });
-    cls.def("__setstate__",
-            [](FiberTraceFindingControl & self, py::tuple const& t) {
-                new (&self) FiberTraceFindingControl();
-                self.apertureFwhm = t[0].cast<float>();
-                self.signalThreshold = t[1].cast<float>();
-                self.nTermsGaussFit = t[2].cast<int>();
-                self.saturationLevel = t[3].cast<float>();
-                self.minLength = t[4].cast<int>();
-                self.maxLength = t[5].cast<int>();
-                self.nLost = t[6].cast<int>();
-                self.minSigma = t[7].cast<float>();
-                self.maxSigma = t[8].cast<float>();
-                self.maxOffset = t[9].cast<float>();
-            });
+    cls.def(py::pickle(
+        [](FiberTraceFindingControl const& self) {
+            return py::make_tuple(self.apertureFwhm, self.signalThreshold,
+                                  self.nTermsGaussFit, self.saturationLevel,
+                                  self.minLength, self.maxLength, self.nLost,
+                                  self.minSigma, self.maxSigma, self.maxOffset);
+        },
+        [](py::tuple const& t) {
+            FiberTraceFindingControl self;
+            self.apertureFwhm = t[0].cast<float>();
+            self.signalThreshold = t[1].cast<float>();
+            self.nTermsGaussFit = t[2].cast<int>();
+            self.saturationLevel = t[3].cast<float>();
+            self.minLength = t[4].cast<int>();
+            self.maxLength = t[5].cast<int>();
+            self.nLost = t[6].cast<int>();
+            self.minSigma = t[7].cast<float>();
+            self.maxSigma = t[8].cast<float>();
+            self.maxOffset = t[9].cast<float>();
+            return self;
+        }
+    ));
 }
 
 
@@ -131,20 +134,21 @@ void declareFiberTraceProfileFittingControl(py::module &mod)
     LSST_DECLARE_CONTROL_FIELD(cls, FiberTraceProfileFittingControl, lowerSigma);
     LSST_DECLARE_CONTROL_FIELD(cls, FiberTraceProfileFittingControl, upperSigma);
 
-    cls.def("__getstate__",
-            [](FiberTraceProfileFittingControl const& self) {
-                return py::make_tuple(self.swathWidth, self.overSample, self.maxIterSig,
-                                      self.lowerSigma, self.upperSigma);
-            });
-    cls.def("__setstate__",
-            [](FiberTraceProfileFittingControl & self, py::tuple const& t) {
-                new (&self) FiberTraceProfileFittingControl();
-                self.swathWidth = t[0].cast<int>();
-                self.overSample = t[1].cast<int>();
-                self.maxIterSig = t[2].cast<int>();
-                self.lowerSigma = t[3].cast<float>();
-                self.upperSigma = t[4].cast<float>();
-            });
+    cls.def(py::pickle(
+        [](FiberTraceProfileFittingControl const& self) {
+            return py::make_tuple(self.swathWidth, self.overSample, self.maxIterSig,
+                                  self.lowerSigma, self.upperSigma);
+        },
+        [](py::tuple const& t) {
+            FiberTraceProfileFittingControl self;
+            self.swathWidth = t[0].cast<int>();
+            self.overSample = t[1].cast<int>();
+            self.maxIterSig = t[2].cast<int>();
+            self.lowerSigma = t[3].cast<float>();
+            self.upperSigma = t[4].cast<float>();
+            return self;
+        }
+    ));
 }
 
 

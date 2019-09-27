@@ -102,8 +102,8 @@ void declareDetectorMap(py::module &mod)
     cls.def("getCenterSpline", &Class::getCenterSpline);
     cls.def("getWavelengthSpline", &Class::getWavelengthSpline);
 
-    cls.def("__getstate__",
-        [](DetectorMap const& self) {
+    cls.def(py::pickle(
+        [](Class const& self) {
             std::size_t const numFibers = self.getFiberIds().getNumElements();
             std::vector<Class::Array1D> centerKnots;
             std::vector<Class::Array1D> centerValues;
@@ -122,10 +122,9 @@ void declareDetectorMap(py::module &mod)
             return py::make_tuple(self.getBBox(), self.getFiberIds(), centerKnots, centerValues,
                                   wavelengthKnots, wavelengthValues, self.getSlitOffsets(),
                                   self.getVisitInfo(), self.getMetadata());
-        });
-    cls.def("__setstate__",
-        [](DetectorMap & self, py::tuple const& t) {
-            new (&self) DetectorMap(
+        },
+        [](py::tuple const& t){
+            return DetectorMap(
                 t[0].cast<lsst::geom::Box2I>(),
                 t[1].cast<DetectorMap::FiberMap>(),
                 t[2].cast<std::vector<ndarray::Array<float, 1, 1>>>(),
@@ -135,8 +134,9 @@ void declareDetectorMap(py::module &mod)
                 t[6].cast<DetectorMap::Array2D>(),
                 t[7].cast<Class::VisitInfo>(),
                 t[8].cast<std::shared_ptr<lsst::daf::base::PropertySet>>()
-                );
-        });
+            );
+        }
+    ));
 }
 
 

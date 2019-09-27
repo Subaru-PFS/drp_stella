@@ -45,12 +45,12 @@ void declareFiberTrace(py::module &mod)
             (void(Class::*)(typename Class::Image &, Spectrum const&) const)
                 &Class::constructImage, "image"_a, "spectrum"_a);
 
-    cls.def("__getstate__",
-            [](Class const& self) { return py::make_tuple(self.getTrace(), self.getFiberId()); });
-    cls.def("__setstate__",
-            [](Class & self, py::tuple const& t) {
-                new (&self) Class(t[0].cast<typename Class::MaskedImageT>(),
-                                  t[1].cast<std::size_t>()); });
+    cls.def(py::pickle(
+        [](Class const& self) { return py::make_tuple(self.getTrace(), self.getFiberId()); },
+        [](py::tuple const& t) {
+            return Class(t[0].cast<typename Class::MaskedImageT>(), t[1].cast<std::size_t>());
+        }
+    ));
 }
 
 
