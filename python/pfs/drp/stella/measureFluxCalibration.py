@@ -10,7 +10,7 @@ from .fitFocalPlane import FitFocalPlaneTask
 class MeasureFluxCalibrationConfig(Config):
     """Configuration for MeasureFluxCalibrationTask"""
     fit = ConfigurableField(target=FitFocalPlaneTask, doc="Fit over the focal plane")
-    refMask = ListField(dtype=str, default=["NO_DATA"], doc="Mask flags for rejection of reference")
+    refMask = ListField(dtype=str, default=[], doc="Mask flags for rejection of reference")
     obsMask = ListField(dtype=str, default=["NO_DATA", "SAT"], doc="Mask flags for rejection of observed")
 
 
