@@ -194,11 +194,13 @@ class MergeArmsTask(CmdLineTask):
         sumWeights = np.zeros_like(archetype.flux)
 
         for ss in spectra:
-            good = ((ss.mask & ss.flags.get(*self.config.mask)) == 0) & (ss.covar[:, 0] > 0)
+            with np.errstate(invalid="ignore"):
+                good = ((ss.mask & ss.flags.get(*self.config.mask)) == 0) & (ss.covar[:, 0] > 0)
             weight = np.zeros_like(ss.flux)
             weight[good] = 1.0/ss.covar[:, 0][good]
-            flux += ss.flux*weight
-            sky += ss.sky*weight
+            with np.errstate(invalid="ignore"):
+                flux += ss.flux*weight
+                sky += ss.sky*weight
             mask[good] |= ss.mask[good]
             sumWeights += weight
 
