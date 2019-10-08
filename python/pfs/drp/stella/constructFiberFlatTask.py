@@ -84,7 +84,7 @@ class ConstructFiberFlatTask(SpectralCalibTask):
         sumExpect = None  # Sum of what we expect
         for dd in dithers:
             image = self.combination.run(dithers[dd])
-            self.log.info("Dither: %s", dd)
+            self.log.info("Combined %d images for dither %s", len(dithers[dd]), dd)
 
             # NaNs can appear in the image and variance planes from masked areas
             # on the CCD. NaNs can cause problems further downstream, so
@@ -107,9 +107,10 @@ class ConstructFiberFlatTask(SpectralCalibTask):
             dataRef = dithers[dd][0]  # Representative dataRef
             detMap = dataRef.get('detectormap')
             traces = self.trace.run(image, detMap)
-            self.log.info('%d FiberTraces found for %s' % (traces.size(), dataRef.dataId))
+            self.log.info(f"{len(traces)} FiberTraces found for dither {dd}")
             maskVal = image.mask.getPlaneBitMask(["BAD", "SAT", "CR", "INTRP"])
             spectra = traces.extractSpectra(image, maskVal)
+            self.log.info(f"Extracted {len(spectra)} for dither {dd}")
 
             expect = spectra.makeImage(image.getBBox(), traces)
             # Occasionally NaNs are present in these images,
