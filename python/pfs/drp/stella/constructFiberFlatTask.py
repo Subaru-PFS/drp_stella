@@ -78,13 +78,12 @@ class ConstructFiberFlatTask(SpectralCalibTask):
             assert len(value) == 1, "Expect a single answer for this single dataset"
             dithers[value.pop()].append(dataRef)
         self.log.info("Dither values: %s" % (sorted(dithers.keys()),))
-        coadds = {dd: self.combination.run(dithers[dd]) for dd in dithers}
 
         # Sum coadded dithers to fill in the gaps
         sumFlat = None  # Sum of flat-fields
         sumExpect = None  # Sum of what we expect
         for dd in dithers:
-            image = coadds[dd]
+            image = self.combination.run(dithers[dd])
             self.log.info("Dither: %s", dd)
 
             # NaNs can appear in the image and variance planes from masked areas
@@ -106,7 +105,6 @@ class ConstructFiberFlatTask(SpectralCalibTask):
                 self.correctLowVarianceImage(ampMIview, minVar)
 
             dataRef = dithers[dd][0]  # Representative dataRef
-
             detMap = dataRef.get('detectormap')
             traces = self.trace.run(image, detMap)
             self.log.info('%d FiberTraces found for %s' % (traces.size(), dataRef.dataId))
