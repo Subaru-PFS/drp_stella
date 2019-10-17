@@ -11,6 +11,13 @@ from . import Spectrum
 
 import lsstDebug
 
+__all__ = ["FittingError", "FindLinesConfig", "FindLinesTask"]
+
+
+class FittingError(RuntimeError):
+    """Exception indicating that line fitting failed"""
+    pass
+
 
 class FindLinesConfig(Config):
     """Configuration for FindLinesTask"""
@@ -20,7 +27,7 @@ class FindLinesConfig(Config):
     kernelHalfSize = Field(dtype=float, default=4.0, doc="Half-size of kernel, in units of the width")
     fittingRadius = Field(dtype=float, default=10.0,
                           doc="Radius of fitting region for centroid as a multiple of 'width'")
-    exclusionRadius = Field(dtype=float, default=2.0,
+    exclusionRadius = Field(dtype=float, default=3.0,
                             doc="Fit exclusion radius for pixels around other peaks, "
                                 "as a multiple of 'width'")
     doSubtractContinuum = Field(dtype=bool, default=True, doc="Subtract continuum before finding peaks?")
@@ -29,13 +36,42 @@ class FindLinesConfig(Config):
 
 class FindLinesTask(Task):
     ConfigClass = FindLinesConfig
+    _DefaultName = "findLines"
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.makeSubtask("fitContinuum")
 
     def run(self, spectrum):
-        """Find and centroid peaks in a spectrum
+        """Find and fit emission lines in a spectrum
+
+        Parameters
+        ----------
+        spectrum : `pfs.drp.stella.Spectrum`
+            Spectrum on which to find peaks.
+
+        Returns
+        -------
+        lines : `list` of `lsst.pipe.base.Struct`
+            List of fit parameters for each line, including ``center``,
+            ``amplitude``, ``width``, ``fwhm``, ``flux``, ``backgroundSlope``,
+            ``backgroundIntercept`` (see ``fitSingleLine`` method outputs).
+        continuum : `numpy.ndarray`
+            Array continuum fit.
+        """
+        continuum = self.fitContinuum.fitContinuum(spectrum) if self.config.doSubtractContinuum else None
+        convolved = self.convolve(spectrum, continuum=continuum)
+        peaks = self.findPeaks(convolved)
+        lines = self.fitLines(spectrum, peaks)
+        return Struct(lines=lines, continuum=continuum)
+
+    def runCentroids(self, spectrum):
+        """Find and fit centroids to lines in a spectrum
+
+        This method is a convenience for obtaining just the centroids. It
+        implements the interface for the ``run`` method from before the
+        `FindLinesTask` was expanded to provide the full fit results for each
+        line. It also includes a debug plot of the centroids on the spectrum.
 
         Parameters
         ----------
@@ -46,12 +82,22 @@ class FindLinesTask(Task):
         -------
         centroids : `list` of `float`
             Centroid for each line.
+        continuum : `numpy.ndarray`
+            Array continuum fit.
         """
-        continuum = self.fitContinuum.fitContinuum(spectrum) if self.config.doSubtractContinuum else None
-        convolved = self.convolve(spectrum, continuum=continuum)
-        peaks = self.findPeaks(convolved)
-        lines = self.centroidLines(spectrum, peaks)
-        return Struct(lines=lines, continuum=continuum)
+        result = self.run(spectrum)
+        centroids = [ll.center for ll in result.lines]
+
+        if lsstDebug.Info(__name__).plotCentroids:
+            import matplotlib.pyplot as plt
+            figure, axes = plt.subplots()
+            indices = np.arange(len(spectrum))
+            axes.plot(indices, spectrum.spectrum, 'k-')
+            for cc in centroids:
+                axes.axvline(cc, color="r", linestyle=":")
+            plt.show()
+
+        return Struct(centroids=centroids, continuum=result.continuum)
 
     def convolve(self, spectrum, continuum=None):
         """Convolve a spectrum by the estimated LSF
@@ -134,83 +180,163 @@ class FindLinesTask(Task):
 
         return indices
 
-    def centroidLines(self, spectrum, peaks):
-        """Centroid lines in a spectrum
-
-        We fit a Gaussian plus a linear background to the ``centroidRadius``
-        pixels either side of the peak.
+    def fitLines(self, spectrum, peaks, ignoreFittingError=True):
+        """Fit all lines in the spectrum
 
         Parameters
         ----------
         spectrum : `pfs.drp.stella.Spectrum`
-            Spectrum on which to fit the peak.
-        peaks : `numpy.ndarray` of `int`
-            Indices of peaks.
+            Spectrum on which to fit the line.
+        peaks : iterable of `int`, optional
+            List of the pixel indices of all peaks.
+        ignoreFittingErrors : `bool`, optional
+            Ignore fitting errors? If ``True``, lines that generate a
+            `FittingError` are dropped; otherwise, the exception will propagate.
+
+        Raises
+        ------
+        FittingError
+            If ``ignoreFittingErrors=False`` and a line fit fails.
 
         Returns
         -------
-        centroids : `list` of `float`
-            Centroid for each line.
+        lines : `list` of `lsst.pipe.base.Struct`
+            List of fit parameters for each line, including ``center``,
+            ``amplitude``, ``width``, ``fwhm``, ``flux``, ``backgroundSlope``,
+            ``backgroundIntercept`` (see ``fitSingleLine`` method outputs).
+        """
+        lines = []
+        for pp in peaks:
+            try:
+                fit = self.fitSingleLine(spectrum, pp, peaks)
+            except FittingError as exc:
+                if not ignoreFittingError:
+                    raise
+                self.log.debug(f"Ignoring line {pp}: {exc}")
+                continue
+            lines.append(fit)
+        return lines
+
+    def interloperPixels(self, peak, allPeaks, lowIndex, highIndex):
+        """Identify pixels belonging to an interloping peak
+
+        Since we fit only one line at a time, we need to mask pixels that belong
+        to a peak other than the peak that we're fitting ("interlopers").
+        Pixels within ``exclusionRadius`` (specified as multiples of the guess
+        line ``width``) are flagged.
+
+        Parameters
+        ----------
+        peak : `int`
+            Pixel index of the peak of interest.
+        allPeaks : iterable of `int`
+            List of the pixel indices of all peaks.
+        lowIndex : `int`
+            Pixel index of lower bound of fit.
+        highIndex : `int`
+            Pixel index of upper bound of fit.
+
+        Returns
+        -------
+        isInterloper : `numpy.ndarray` of `bool`
+            Array indicating whether the pixel is affected by an interloper.
         """
         exclusionRadius = int(self.config.exclusionRadius*self.config.width + 0.5)
+        interlopers = np.nonzero((allPeaks >= lowIndex - exclusionRadius) &
+                                 (allPeaks < highIndex + exclusionRadius) &
+                                 (allPeaks != peak))[0]
+        isInterloper = np.zeros(highIndex - lowIndex, dtype=bool)
+        for ii in allPeaks[interlopers]:
+            lowBound = max(lowIndex, int(ii) - exclusionRadius) - lowIndex
+            highBound = min(highIndex, int(ii) + exclusionRadius) - lowIndex
+            isInterloper[lowBound:highBound] = True
+        return isInterloper
+
+    def fitSingleLine(self, spectrum, peak, allPeaks=None):
+        """Fit a single line in the spectrum
+
+        We fit a Gaussian plus a linear background to the ``centroidRadius``
+        (specified as a mutliple of the guess line ``width``) pixels either side
+        of the peak. If ``allPeaks`` are provided, the pixels belonging to other
+        peaks are masked out of the fit.
+
+        Parameters
+        ----------
+        spectrum : `pfs.drp.stella.Spectrum`
+            Spectrum on which to fit the line.
+        peak : `int`
+            Pixel index of the peak of the line of interest.
+        allPeaks : iterable of `int`, optional
+            List of the pixel indices of all peaks.
+
+        Raises
+        ------
+        FittingError
+            If the fit fails.
+
+        Returns
+        -------
+        center : `float`
+            Fit center of the line.
+        amplitude : `float`
+            Fit amplitude of the line.
+        width : `float`
+            Fit width (as a standard deviation) of the line.
+        fwhm : `float`
+            Derived FWHM of the line.
+        flux : `float`
+            Derived integrated flux of the line.
+        backgroundSlope : `float`
+            Fit slope of the background.
+        backgroundIntercept : `float`
+            Fit intercept of the background.
+        """
+        amplitude = spectrum.spectrum[int(peak) ]
         fittingRadius = int(self.config.fittingRadius*self.config.width + 0.5)
-        flux = spectrum.spectrum
-        mask = spectrum.mask.array[0]
+        lowIndex = max(int(peak) - fittingRadius, 0)
+        highIndex = min(int(peak) + fittingRadius, len(spectrum))
+        indices = np.arange(lowIndex, highIndex)
+
         maskVal = spectrum.mask.getPlaneBitMask(self.config.mask)
-        centroids = []
-        for pp in peaks:
-            amplitude = flux[pp]
-            lowIndex = max(pp - fittingRadius, 0)
-            highIndex = min(pp + fittingRadius, len(spectrum))
-            indices = np.arange(lowIndex, highIndex)
-            interlopers = np.nonzero((peaks >= lowIndex - exclusionRadius) &
-                                     (peaks < highIndex + exclusionRadius) &
-                                     (peaks != pp))[0]
-            good = np.ones_like(indices, dtype=bool)
-            for ii in peaks[interlopers]:
-                lowBound = max(lowIndex, ii - exclusionRadius) - lowIndex
-                highBound = min(highIndex, ii + exclusionRadius) - lowIndex
-                good[lowBound:highBound] = False
-            good &= (mask[lowIndex:highIndex] & maskVal) == 0
-            if good.sum() < 5:
-                continue
+        good = (spectrum.mask.array[0, lowIndex:highIndex] & maskVal) == 0
+        if allPeaks is not None:
+            good &= ~self.interloperPixels(peak, allPeaks, lowIndex, highIndex)
 
-            lineModel = astropy.modeling.models.Gaussian1D(amplitude, pp, self.config.width,
-                                                           bounds={"mean": (lowIndex, highIndex)},
-                                                           name="line")
-            bgModel = astropy.modeling.models.Linear1D(0.0, 0.0, name="bg")
-            fitter = astropy.modeling.fitting.LevMarLSQFitter()
-            with warnings.catch_warnings():
-                warnings.simplefilter("ignore")
-                fit = fitter(lineModel + bgModel, indices[good], flux[lowIndex:highIndex][good])
-            center = fit["line"].mean.value
+        lineModel = astropy.modeling.models.Gaussian1D(amplitude, peak, self.config.width,
+                                                       bounds={"mean": (lowIndex, highIndex)},
+                                                       name="line")
+        bgModel = astropy.modeling.models.Linear1D(0.0, 0.0, name="bg")
+        fitter = astropy.modeling.fitting.LevMarLSQFitter()
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            try:
+                fit = fitter(lineModel + bgModel, indices[good], spectrum.spectrum[lowIndex:highIndex][good])
+            except Exception as exc:
+                raise FittingError(f"Fit error") from exc
+        if fitter.fit_info["ierr"] not in (1, 2, 3, 4):  # Bad fit
+            raise FittingError(f"Fit failed: {fitter.fit_info['message']}")
 
-            if lsstDebug.Info(__name__).plotCentroidLines:
-                import matplotlib.pyplot as plt
-                fig = plt.figure()
-                axes = fig.add_subplot(1, 1, 1)
-                axes.plot(indices, flux[lowIndex:highIndex], "k-")
-                if good.sum() != len(good):
-                    axes.plot(indices[~good], flux[lowIndex:highIndex][~good], "rx")
-                xx = np.arange(lowIndex, highIndex, 0.01)
-                axes.plot(xx, fit(xx), "b--")
-                axes.axvline(center, color="b", linestyle=":")
-                axes.set_xlabel("Index")
-                axes.set_ylabel("Flux")
-                plt.show()
+        center = fit["line"].mean.value
+        amplitude = fit["line"].amplitude.value
+        width = fit["line"].stddev.value
+        fwhm = fit["line"].fwhm
+        flux = amplitude*width*np.sqrt(2*np.pi)
+        backgroundSlope = fit["bg"].slope.value
+        backgroundIntercept = fit["bg"].intercept.value
 
-            if fitter.fit_info["ierr"] not in (1, 2, 3, 4):
-                # Bad fit
-                continue
-            centroids.append(center)
-
-        if lsstDebug.Info(__name__).plotCentroids:
+        if lsstDebug.Info(__name__).plotFit:
             import matplotlib.pyplot as plt
-            figure, axes = plt.subplots()
-            indices = np.arange(len(flux))
-            axes.plot(indices, flux, 'k-')
-            for cc in centroids:
-                axes.axvline(cc, color="r", linestyle=":")
+            fig = plt.figure()
+            axes = fig.add_subplot(1, 1, 1)
+            axes.plot(indices, spectrum.spectrum[lowIndex:highIndex], "k-")
+            if good.sum() != len(good):
+                axes.plot(indices[~good], spectrum.spectrum[lowIndex:highIndex][~good], "rx")
+            xx = np.arange(lowIndex, highIndex, 0.01)
+            axes.plot(xx, fit(xx), "b--")
+            axes.axvline(center, color="b", linestyle=":")
+            axes.set_xlabel("Index")
+            axes.set_ylabel("Flux")
             plt.show()
 
-        return centroids
+        return Struct(center=center, amplitude=amplitude, width=width, fwhm=fwhm, flux=flux,
+                      backgroundSlope=backgroundSlope, backgroundIntercept=backgroundIntercept)
