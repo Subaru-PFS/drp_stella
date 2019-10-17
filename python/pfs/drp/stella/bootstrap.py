@@ -204,7 +204,7 @@ class BootstrapTask(CmdLineTask):
         exposure = self.isr.runDataRef(arcRef).exposure
         detMap = arcRef.get("detectormap")
         spectra = traces.extractSpectra(exposure.maskedImage, detMap, True)
-        yCenters = [self.findLines.run(ss).lines for ss in spectra]
+        yCenters = [self.findLines.runCentroids(ss).centroids for ss in spectra]
         xCenters = [self.centroidTrace(tt, yList) for tt, yList in zip(traces, yCenters)]
         lines = [[SimpleNamespace(fiberId=spectrum.fiberId, x=xx, y=yy, flux=spectrum.spectrum[int(yy + 0.5)])
                   for xx, yy in zip(xList, yList)]
