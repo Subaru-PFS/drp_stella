@@ -47,7 +47,7 @@ FiberTrace<ImageT, MaskT, VarianceT>::extractSpectrum(
 
     MaskT const ftMask = _trace.getMask()->getPlaneBitMask(fiberMaskPlane);
     MaskT const noData = _trace.getMask()->getPlaneBitMask("NO_DATA");
-    MaskT const badData = traceIm.getMask()->getPlaneBitMask({"BAD", "SAT", "CR"});
+    MaskT const badData = traceIm.getMask()->getPlaneBitMask({"BAD", "SAT", "CR", "NO_DATA"});
     MaskT const badSpectrum = spectrum->getMask().getPlaneBitMask("BAD");
 
     // Select pixels for extraction
