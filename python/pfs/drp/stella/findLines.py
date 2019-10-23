@@ -1,12 +1,11 @@
-import warnings
 import numpy as np
-import astropy.modeling
 
 from lsst.pex.config import Config, Field, ListField, ConfigurableField
 from lsst.pipe.base import Task, Struct
 from lsst.afw.geom import SpanSet
 
 from .fitContinuum import FitContinuumTask
+from .fitLine import fitLine
 from . import Spectrum
 
 import lsstDebug
@@ -291,53 +290,65 @@ class FindLinesTask(Task):
             Fit slope of the background.
         backgroundIntercept : `float`
             Fit intercept of the background.
+        rms : `float`
+            RMS residual.
+        num : `int`
+            Number of values in fit.
         """
-        amplitude = spectrum.spectrum[int(peak) ]
         fittingRadius = int(self.config.fittingRadius*self.config.width + 0.5)
         lowIndex = max(int(peak) - fittingRadius, 0)
         highIndex = min(int(peak) + fittingRadius, len(spectrum))
-        indices = np.arange(lowIndex, highIndex)
 
+        mask = spectrum.mask.array[0]
         maskVal = spectrum.mask.getPlaneBitMask(self.config.mask)
-        good = (spectrum.mask.array[0, lowIndex:highIndex] & maskVal) == 0
+        interloper = 1 << spectrum.mask.addMaskPlane("INTERLOPER")
         if allPeaks is not None:
-            good &= ~self.interloperPixels(peak, allPeaks, lowIndex, highIndex)
+            isInterloper = self.interloperPixels(peak, allPeaks, lowIndex, highIndex)
+            if np.any(isInterloper):
+                mask[lowIndex:highIndex][isInterloper] |= interloper
 
-        lineModel = astropy.modeling.models.Gaussian1D(amplitude, peak, self.config.width,
-                                                       bounds={"mean": (lowIndex, highIndex)},
-                                                       name="line")
-        bgModel = astropy.modeling.models.Linear1D(0.0, 0.0, name="bg")
-        fitter = astropy.modeling.fitting.LevMarLSQFitter()
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore")
-            try:
-                fit = fitter(lineModel + bgModel, indices[good], spectrum.spectrum[lowIndex:highIndex][good])
-            except Exception as exc:
-                raise FittingError(f"Fit error") from exc
-        if fitter.fit_info["ierr"] not in (1, 2, 3, 4):  # Bad fit
-            raise FittingError(f"Fit failed: {fitter.fit_info['message']}")
+        try:
+            result = fitLine(spectrum, peak, self.config.width, maskVal | interloper, fittingRadius)
+        except Exception as exc:
+            raise FittingError(f"Failure to fit line for peak at {peak}") from exc
+        finally:
+            mask[lowIndex:highIndex] &= ~interloper
+            spectrum.mask.removeAndClearMaskPlane("INTERLOPER", True)
+        if not result.isValid:
+            raise FittingError(f"Invalid fit result for peak at {peak}")
 
-        center = fit["line"].mean.value
-        amplitude = fit["line"].amplitude.value
-        width = fit["line"].stddev.value
-        fwhm = fit["line"].fwhm
-        flux = amplitude*width*np.sqrt(2*np.pi)
-        backgroundSlope = fit["bg"].slope.value
-        backgroundIntercept = fit["bg"].intercept.value
+        if lsstDebug.Info(__name__).plotCentroidLines:
+            def fit(xx):
+                """Calculate the fit values as a function of pixel index"""
+                gaussian = result.amplitude*np.exp(-0.5*(xx/result.width)**2)
+                background = result.bg0 + result.bg1*(xx - result.center)
+                return gaussian + background
 
-        if lsstDebug.Info(__name__).plotFit:
             import matplotlib.pyplot as plt
             fig = plt.figure()
             axes = fig.add_subplot(1, 1, 1)
+            indices = np.arange(lowIndex, highIndex)
             axes.plot(indices, spectrum.spectrum[lowIndex:highIndex], "k-")
+            good = (mask & maskVal) == 0
             if good.sum() != len(good):
                 axes.plot(indices[~good], spectrum.spectrum[lowIndex:highIndex][~good], "rx")
+            if allPeaks is not None and np.any(isInterloper):
+                axes.plot(indices[isInterloper], spectrum.spectrum[lowIndex:highIndex][isInterloper], "bx")
             xx = np.arange(lowIndex, highIndex, 0.01)
             axes.plot(xx, fit(xx), "b--")
-            axes.axvline(center, color="b", linestyle=":")
+            axes.axvline(result.center, color="b", linestyle=":")
             axes.set_xlabel("Index")
             axes.set_ylabel("Flux")
             plt.show()
 
-        return Struct(center=center, amplitude=amplitude, width=width, fwhm=fwhm, flux=flux,
-                      backgroundSlope=backgroundSlope, backgroundIntercept=backgroundIntercept)
+        return Struct(
+            center=result.center,
+            amplitude=result.amplitude,
+            width=result.rmsSize,
+            fwhm=2.0*np.sqrt(2.0*np.log(2))*result.rmsSize,
+            flux=result.amplitude*result.rmsSize*np.sqrt(2*np.pi),
+            backgroundIntercept=result.bg0,
+            backgroundSlope=result.bg1,
+            rms=result.rms,
+            num=result.num,
+        )
