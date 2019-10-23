@@ -13,6 +13,7 @@ scripts.BasicSConscript.pybind11(
      'NevenPsf',
      'tests/oversampledPsf',
      'symmetricTridiagonal',
+     'fitLine',
      ],
     addUnderscore=False
 )
