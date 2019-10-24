@@ -1,86 +1,10 @@
-import types
 import numpy as np
-import astropy.io.fits
-import scipy.interpolate
 
 from lsst.pex.config import Config, Field, ConfigurableField, ListField
 from lsst.pipe.base import Task
 
 from pfs.datamodel.pfsConfig import TargetType
 from .fitFocalPlane import FitFocalPlaneTask
-
-
-class SubtractSky1DSolution(types.SimpleNamespace):
-    """Spectral function on the focal plane
-
-    This implementation is a placeholder, as it simply returns a constant
-    spectrum.
-
-    Parameters
-    ----------
-    wavelength : `numpy.ndarray`
-        Wavelength for spectrum, nm.
-    flux : `numpy.ndarray`
-        Flux for spectrum, nJy.
-    """
-    def __init__(self, wavelength, flux):
-        interpolator = scipy.interpolate.interp1d(wavelength, flux, kind='linear', bounds_error=False,
-                                                  fill_value=0, copy=True, assume_sorted=True)
-        super().__init__(wavelength=wavelength, flux=flux, interpolate=interpolator)
-
-    def __call__(self, wavelengths, positions):
-        """Evaluate the spectrum at the provided wavelengths+positions
-
-        Parameters
-        ----------
-        wavelengths : `numpy.ndarray` of shape ``(N, M)``
-            Wavelengths at which to evaluate.
-        positions : `numpy.ndarray` of shape ``(N, 2)``
-            Positions at which to evaluate.
-
-        Returns
-        -------
-        result : `numpy.ndarray` of shape ``(N, M)``
-            Vector function evaluated at each position.
-        """
-        result = np.empty(wavelengths.shape, dtype=self.flux.dtype)
-        for ii, (wl, pos) in enumerate(zip(wavelengths, positions)):
-            # Ignoring pos
-            result[ii] = self.interpolate(wl)
-        return result
-
-    @classmethod
-    def readFits(cls, filename):
-        """Read from FITS file
-
-        Parameters
-        ----------
-        filename : `str`
-            Filename to read.
-
-        Returns
-        -------
-        self : `FocalPlaneFunction`
-            Function read from FITS file.
-        """
-        with astropy.io.fits.open(filename) as fits:
-            wavelength = fits[0].data
-            flux = fits[1].data
-        return cls(wavelength, flux)
-
-    def writeFits(self, filename):
-        """Write to FITS file
-
-        Parameters
-        ----------
-        filename : `str`
-            Name of file to which to write.
-        """
-        fits = astropy.io.fits.HDUList()
-        fits.append(astropy.io.fits.ImageHDU(self.wavelength))
-        fits.append(astropy.io.fits.ImageHDU(self.flux))
-        with open(filename, "wb") as fd:
-            fits.writeto(fd)
 
 
 class SubtractSky1dConfig(Config):
@@ -126,7 +50,7 @@ class SubtractSky1dTask(Task):
         resampledList = self.resampleSpectra(spectraList)
         sky1d = self.measureSky(resampledList, pfsConfig, lsfList)
         for spectra, lsf in zip(spectraList, lsfList):
-            self.subtractSky(spectra, lsf, pfsConfig, sky1d)
+            self.subtractSkySpectra(spectra, lsf, pfsConfig, sky1d)
         return sky1d
 
     def resampleSpectra(self, spectraList):
@@ -167,6 +91,7 @@ class SubtractSky1dTask(Task):
             1D sky model.
         """
         select = pfsConfig.targetType == int(TargetType.SKY)
+        wavelength = spectraList[0].wavelength[0]
         vectors = []
         errors = []
         masks = []
@@ -181,11 +106,10 @@ class SubtractSky1dTask(Task):
                 errors.append(np.sqrt(spectra.covar[ii][0]))
                 masks.append((spectra.mask[ii] & maskVal) > 0)
                 fiberId.append(ff)
-        fit = self.fit.run(vectors, errors, masks, fiberId, pfsConfig)
-        return SubtractSky1DSolution(spectraList[0].wavelength[0], fit.vector)
+        return self.fit.run(wavelength, vectors, errors, masks, fiberId, pfsConfig)
 
-    def subtractSky(self, spectra, lsf, pfsConfig, sky1d):
-        """Subtract the 1D sky model from the spectra
+    def subtractSkySpectra(self, spectra, lsf, pfsConfig, sky1d):
+        """Subtract the 1D sky model from the spectra, in-place
 
         Parameters
         ----------
@@ -198,6 +122,22 @@ class SubtractSky1dTask(Task):
         sky1d : `pfs.drp.stella.FocalPlaneFunction`
             1D sky model.
         """
-        centers = pfsConfig.extractCenters(pfsConfig.fiberId)
-        fluxes = sky1d(spectra.wavelength, centers)
-        spectra.flux -= fluxes
+        spectra.flux -= self.fit.apply(sky1d, spectra.wavelength, pfsConfig.fiberId, pfsConfig)
+
+    def subtractSkySpectrum(self, spectrum, lsf, fiberId, pfsConfig, sky1d):
+        """Subtract the 1D sky model from the spectrum, in-place
+
+        Parameters
+        ----------
+        spectrum : `pfs.datamodel.PfsSpectrum`
+            Spectrum to have sky subtracted.
+        lsf : LSF (type TBD)
+            Line-spread function.
+        fiberId : `int`
+            Fiber identifier.
+        pfsConfig : `pfs.datamodel.PfsConfig`
+            Top-end configuration, for getting location of fibers.
+        sky1d : `pfs.drp.stella.FocalPlaneFunction`
+            1D sky model.
+        """
+        spectrum.flux -= self.fit.apply(sky1d, spectrum.wavelength, [fiberId], pfsConfig)

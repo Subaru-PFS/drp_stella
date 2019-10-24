@@ -1,18 +1,34 @@
 from collections import defaultdict
 import numpy as np
-from lsst.pex.config import Config, Field, ConfigurableField, ListField
+from lsst.pex.config import Config, Field, ConfigurableField, ListField, ConfigField
 from lsst.pipe.base import CmdLineTask, ArgumentParser, TaskRunner, Struct
 
 from pfs.datamodel.drp import PfsMerged
 from pfs.datamodel.masks import MaskHelper
+from pfs.datamodel.wavelengthArray import WavelengthArray
 from .subtractSky1d import SubtractSky1dTask
+
+
+class WavelengthSamplingConfig(Config):
+    """Configuration for wavelength sampling"""
+    minWavelength = Field(dtype=float, default=350, doc="Minimum wavelength (nm)")
+    maxWavelength = Field(dtype=float, default=1260, doc="Maximum wavelength (nm)")
+    length = Field(dtype=int, default=11376, doc="Length of wavelength array (sets the resolution)")
+
+    @property
+    def dWavelength(self):
+        """Return the wavelength spacing (nm)"""
+        return (self.maxWavelength - self.minWavelength)/(self.length - 1)
+
+    @property
+    def wavelength(self):
+        """Return the appropriate wavelength vector"""
+        return WavelengthArray(self.minWavelength, self.maxWavelength, self.length)
 
 
 class MergeArmsConfig(Config):
     """Configuration for MergeArmsTask"""
-    minWavelength = Field(dtype=float, default=350, doc="Minimum wavelength (nm)")
-    maxWavelength = Field(dtype=float, default=1260, doc="Maximum wavelength (nm)")
-    dWavelength = Field(dtype=float, default=0.1, doc="Spacing in wavelength (nm)")
+    wavelength = ConfigField(dtype=WavelengthSamplingConfig, doc="Wavelength configuration")
     doSubtractSky1d = Field(dtype=bool, default=True, doc="Do 1D sky subtraction?")
     subtractSky1d = ConfigurableField(target=SubtractSky1dTask, doc="1d sky subtraction")
     doBarycentricCorr = Field(dtype=bool, default=True, doc="Do barycentric correction?")
@@ -52,10 +68,6 @@ class MergeArmsTask(CmdLineTask):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.makeSubtask("subtractSky1d")
-        minWl = self.config.minWavelength
-        maxWl = self.config.maxWavelength
-        dWl = self.config.dWavelength
-        self.wavelength = minWl + dWl*np.arange(int((maxWl - minWl)/dWl), dtype=float)
 
     def runDataRef(self, expSpecRefList):
         """Merge all extracted spectra from a single exposure
@@ -78,7 +90,8 @@ class MergeArmsTask(CmdLineTask):
         lsf = [[None for dataRef in specRefList] for specRefList in expSpecRefList]
         pfsConfig = expSpecRefList[0][0].get("pfsConfig")
         if self.config.doSubtractSky1d:
-            self.subtractSky1d.run(sum(spectra, []), pfsConfig, sum(lsf, []))
+            sky1d = self.subtractSky1d.run(sum(spectra, []), pfsConfig, sum(lsf, []))
+            expSpecRefList[0][0].put(sky1d, "sky1d")
 
         spectrographs = [self.runSpectrograph(ss) for ss in spectra]  # Merge in wavelength
         merged = self.mergeSpectrographs(spectrographs)  # Merge across spectrographs
@@ -139,7 +152,8 @@ class MergeArmsTask(CmdLineTask):
         fiberId = archetype.fiberId
         if any(np.any(ss.fiberId != fiberId) for ss in spectraList):
             raise RuntimeError("Selection of fibers differs")
-        resampled = [ss.resample(self.wavelength) for ss in spectraList]
+        wavelength = self.config.wavelength.wavelength
+        resampled = [ss.resample(wavelength) for ss in spectraList]
         flags = MaskHelper.fromMerge([ss.flags for ss in spectraList])
         combination = self.combine(resampled, flags)
         if self.config.doBarycentricCorr:
@@ -180,11 +194,13 @@ class MergeArmsTask(CmdLineTask):
         sumWeights = np.zeros_like(archetype.flux)
 
         for ss in spectra:
-            good = ((ss.mask & ss.flags.get(*self.config.mask)) == 0) & (ss.covar[:, 0] > 0)
+            with np.errstate(invalid="ignore"):
+                good = ((ss.mask & ss.flags.get(*self.config.mask)) == 0) & (ss.covar[:, 0] > 0)
             weight = np.zeros_like(ss.flux)
             weight[good] = 1.0/ss.covar[:, 0][good]
-            flux += ss.flux*weight
-            sky += ss.sky*weight
+            with np.errstate(invalid="ignore"):
+                flux += ss.flux*weight
+                sky += ss.sky*weight
             mask[good] |= ss.mask[good]
             sumWeights += weight
 

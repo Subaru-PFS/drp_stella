@@ -10,7 +10,7 @@ from .fitFocalPlane import FitFocalPlaneTask
 class MeasureFluxCalibrationConfig(Config):
     """Configuration for MeasureFluxCalibrationTask"""
     fit = ConfigurableField(target=FitFocalPlaneTask, doc="Fit over the focal plane")
-    refMask = ListField(dtype=str, default=["NO_DATA"], doc="Mask flags for rejection of reference")
+    refMask = ListField(dtype=str, default=[], doc="Mask flags for rejection of reference")
     obsMask = ListField(dtype=str, default=["NO_DATA", "SAT"], doc="Mask flags for rejection of observed")
 
 
@@ -54,15 +54,18 @@ class MeasureFluxCalibrationTask(Task):
             bad = (ref.mask & ref.flags.get(*self.config.refMask)) > 0
             bad |= (spectrum.mask & spectrum.flags.get(*self.config.obsMask)) > 0
             masks.append(bad)
-        return self.fit.run(vectors, errors, masks, list(references.keys()), pfsConfig)
+        wavelength = merged.wavelength[0]
+        for wl in merged.wavelength[1:, :]:
+            assert np.all(wl == wavelength)
+        return self.fit.run(wavelength, vectors, errors, masks, list(references.keys()), pfsConfig)
 
-    def apply(self, merged, pfsConfig, calib):
-        """Apply the flux calibration
+    def applySpectra(self, spectra, pfsConfig, calib):
+        """Apply the flux calibration to spectra, in-place
 
         Parameters
         ----------
-        merged : `pfs.datamodel.drp.PfsMerged`
-            Arm-merged spectra.
+        spectra : `pfs.datamodel.PfsSpectra`
+            Spectra to correct.
         pfsConfig : `pfs.datamodel.PfsConfig`
             Top-end configuration, for getting fiber positions.
         calib : `pfs.drp.stella.FocalPlaneFunction`
@@ -73,11 +76,20 @@ class MeasureFluxCalibrationTask(Task):
         results : `list` of `pfs.datamodel.PfsSingle`
             Flux-calibrated object spectra.
         """
-        vectors = self.fit.apply(calib, pfsConfig.fiberId, pfsConfig)
-        results = []
-        for fiberId, vv in zip(pfsConfig.fiberId, vectors):
-            spectrum = merged.extractFiber(PfsSingle, pfsConfig, fiberId)
-            with np.errstate(divide="ignore", invalid="ignore"):
-                spectrum /= vv
-            results.append(spectrum)
-        return results
+        spectra /= self.fit.apply(calib, spectra.wavelength, pfsConfig.fiberId, pfsConfig)
+
+    def applySpectrum(self, spectrum, fiberId, pfsConfig, calib):
+        """Apply the flux calibration to a single spectrum, in-place
+
+        Parameters
+        ----------
+        spectrum : `pfs.datamodel.PfsSpectrum`
+            Spectrum to correct.
+        fiberId : `int`
+            Fiber identifier.
+        pfsConfig : `pfs.datamodel.PfsConfig`
+            Top-end configuration, for getting fiber positions.
+        calib : `pfs.drp.stella.FocalPlaneFunction`
+            Flux calibration.
+        """
+        spectrum /= self.fit.apply(calib, spectrum.wavelength, [fiberId], pfsConfig)

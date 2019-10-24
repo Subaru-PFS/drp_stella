@@ -1,14 +1,21 @@
+from collections import defaultdict
 from lsst.pex.config import Config, Field, ConfigurableField
 from lsst.pipe.base import CmdLineTask, ArgumentParser, Struct
 
 from pfs.datamodel.pfsConfig import TargetType
+from pfs.datamodel.drp import PfsSingle
+from pfs.datamodel import MaskHelper
 
 from .measureFluxCalibration import MeasureFluxCalibrationTask
+from .subtractSky1d import SubtractSky1dTask
+from .FluxTableTask import FluxTableTask
 
 
 class FluxCalibrateConfig(Config):
     """Configuration for FluxCalibrateTask"""
     measureFluxCalibration = ConfigurableField(target=MeasureFluxCalibrationTask, doc="Measure flux calibn")
+    subtractSky1d = ConfigurableField(target=SubtractSky1dTask, doc="1D sky subtraction")
+    fluxTable = ConfigurableField(target=FluxTableTask, doc="Flux table")
     doWrite = Field(dtype=bool, default=True, doc="Write outputs?")
 
 
@@ -20,11 +27,13 @@ class FluxCalibrateTask(CmdLineTask):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.makeSubtask("measureFluxCalibration")
+        self.makeSubtask("subtractSky1d")
+        self.makeSubtask("fluxTable")
 
     @classmethod
     def _makeArgumentParser(cls):
         parser = ArgumentParser(name=cls._DefaultName)
-        parser.add_id_argument(name="--id", datasetType="pfsMerged",
+        parser.add_id_argument(name="--id", datasetType="pfsMerged", level="Visit",
                                help="data IDs, e.g. --id exp=12345")
         return parser
 
@@ -40,15 +49,35 @@ class FluxCalibrateTask(CmdLineTask):
         -------
         calib : `pfs.drp.stella.FocalPlaneFunction`
             Flux calibration.
-        spectra : `list` of `pfs.datamodel.PfsSpectrum`
+        spectra : `list` of `pfs.datamodel.PfsSingle`
             Calibrated spectra for each fiber.
         """
         merged = dataRef.get("pfsMerged")
         pfsConfig = dataRef.get("pfsConfig")
         butler = dataRef.getButler()
+
         references = self.readReferences(butler, pfsConfig)
         calib = self.measureFluxCalibration.run(merged, references, pfsConfig)
-        spectra = self.measureFluxCalibration.apply(merged, pfsConfig, calib)
+        self.measureFluxCalibration.applySpectra(merged, pfsConfig, calib)
+        spectra = [merged.extractFiber(PfsSingle, pfsConfig, fiberId) for fiberId in merged.fiberId]
+
+        armRefList = list(butler.subset("raw", dataId=dataRef.dataId))
+        armList = [ref.get("pfsArm") for ref in armRefList]
+        sky1d = dataRef.get("sky1d")
+        fiberToArm = defaultdict(list)
+        for ii, arm in enumerate(armList):
+            lsf = None
+            self.subtractSky1d.subtractSkySpectra(arm, lsf, pfsConfig, sky1d)
+            self.measureFluxCalibration.applySpectra(arm, pfsConfig, calib)
+            for ff in arm.fiberId:
+                fiberToArm[ff].append(ii)
+
+        # Add the fluxTable
+        for ss, ff in zip(spectra, merged.fiberId):
+            ss.fluxTable = self.fluxTable.run([ref.dataId for ref in armRefList],
+                                              [armList[ii].extractFiber(PfsSingle, pfsConfig, ff) for
+                                               ii in fiberToArm[ff]],
+                                              MaskHelper.fromMerge([armList[ii].flags]))
 
         if self.config.doWrite:
             dataRef.put(calib, "fluxCal")

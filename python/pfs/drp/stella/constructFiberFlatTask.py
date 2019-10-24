@@ -2,6 +2,7 @@ from collections import defaultdict
 import numpy as np
 
 import lsst.afw.image as afwImage
+import lsst.afw.math as afwMath
 from lsst.pex.config import Field, ConfigurableField
 
 from .constructSpectralCalibs import SpectralCalibConfig, SpectralCalibTask
@@ -139,3 +140,5 @@ class ConstructFiberFlatTask(SpectralCalibTask):
         self.recordCalibInputs(cache.butler, flatExposure, struct.ccdIdList, outputId)
         self.interpolateNans(flatExposure)
         self.write(cache.butler, flatExposure, outputId)
+
+        return afwMath.binImage(flatExposure.image, self.config.binning)
