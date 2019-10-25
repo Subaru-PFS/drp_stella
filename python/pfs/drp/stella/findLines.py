@@ -30,6 +30,7 @@ class FindLinesConfig(Config):
     exclusionRadius = Field(dtype=float, default=3.0,
                             doc="Fit exclusion radius for pixels around other peaks, "
                                 "as a multiple of 'width'")
+    maskRadius = Field(dtype=float, default=1.0, doc="Mask grow radius, as a multiple of 'width'")
     doSubtractContinuum = Field(dtype=bool, default=True, doc="Subtract continuum before finding peaks?")
     fitContinuum = ConfigurableField(target=FitContinuumTask, doc="Fit continuum")
 
@@ -130,7 +131,7 @@ class FindLinesTask(Task):
         background = np.convolve(spectrum.background, kernel, mode="same")
 
         # Expand each mask plane
-        grow = int(self.config.width + 0.5)
+        grow = int(self.config.maskRadius*self.config.width + 0.5)
         mask = spectrum.mask.clone()
         for plane in mask.getMaskPlaneDict():
             value = mask.getPlaneBitMask(plane)
