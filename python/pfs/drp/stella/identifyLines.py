@@ -81,7 +81,7 @@ class IdentifyLinesTask(Task):
             lines = [rl for rl in lines if
                      not rl.description.startswith(descr) or rl.guessedIntensity > threshold]
 
-        obsLines = self.findLines.run(spectrum).lines
+        obsLines = self.findLines.runCentroids(spectrum).centroids
         obsLines = sorted(obsLines, key=lambda xx: spectrum.spectrum[int(xx + 0.5)], reverse=True)
         candidates = [rl for rl in lines]
         matches = []

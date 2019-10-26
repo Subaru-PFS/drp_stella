@@ -1,4 +1,5 @@
 import numpy as np
+from scipy import interpolate
 
 from lsst.utils import continueClass
 
@@ -144,3 +145,32 @@ class Spectrum:
             if doReferenceLines:
                 plotReferenceLines(ax, self.getReferenceLines(), flux[ii], wavelength[ii], badReference)
 
+    def wavelengthToPixels(self, wavelength):
+        """Convert wavelength to pixels
+
+        Parameters
+        ----------
+        wavelength : array_like of `float`
+            Wavelength value(s) to convert to pixels.
+
+        Returns
+        -------
+        pixels : array_like of `float`
+            Corresponding pixel value(s).
+        """
+        return interpolate.interp1d(self.wavelength, np.arange(len(self)))(wavelength)
+
+    def pixelsToWavelength(self, pixels):
+        """Convert pixels to wavelength
+
+        Parameters
+        ----------
+        pixels : array_like of `float`
+            Pixel value(s) to convert to wavelength.
+
+        Returns
+        -------
+        wavelength : array_like of `float`
+            Corresponding wavelength value(s).
+        """
+        return interpolate.interp1d(np.arange(len(self)), self.wavelength, assume_sorted=True)(pixels)

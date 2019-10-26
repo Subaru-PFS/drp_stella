@@ -173,6 +173,21 @@ class SpectrumTestCase(BaseTestCase):
                 axes[0]
             figure.savefig(filename)
 
+    def testWavelength(self):
+        """Test conversion pixels <--> wavelength"""
+        spectrum = drpStella.Spectrum(self.length, 0)
+        indices = np.arange(self.length, dtype=float)
+        wl0 = 500.0
+        wlSlope = 3.21
+        spectrum.setWavelength((indices*wlSlope + wl0).astype(np.float32))
+
+        num = 50
+        rng = np.random.RandomState(12345)
+        pixels = rng.uniform(size=num)*(self.length - 1)
+        wavelength = wlSlope*pixels + wl0
+        self.assertFloatsAlmostEqual(spectrum.wavelengthToPixels(wavelength), pixels, atol=1.0e-5)
+        self.assertFloatsAlmostEqual(spectrum.pixelsToWavelength(pixels), wavelength, atol=1.0e-4)
+
 
 class TestMemory(lsst.utils.tests.MemoryTestCase):
     pass
