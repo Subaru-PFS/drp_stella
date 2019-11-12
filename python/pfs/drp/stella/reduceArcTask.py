@@ -240,6 +240,7 @@ class ReduceArcTask(CmdLineTask):
                 for ss in inputs[1:]:
                     element += getattr(ss, "get" + elem)()
                 getattr(coadd, "set" + elem)(element)
+            coadd.wavelength /= len(inputs)  # the only element that needs to be averaged instead of summed
             result[ii] = coadd
         return result
 
