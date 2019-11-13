@@ -10,6 +10,7 @@ scripts.BasicSConscript.pybind11(
      'detectorMap',
      'spline',
      'SpectralPsf',
+     'NevenPsf',
      'tests/oversampledPsf',
      ],
     addUnderscore=False
