@@ -206,7 +206,7 @@ class ReduceArcTask(CmdLineTask):
         """Coadd multiple SpectrumSets
 
         Adds the wavelength, spectrum, background, covar and reference lines
-        of the input `SpectrumSet`s for each aperture.
+        of the input `SpectrumSet`s for each fiber.
 
         XXX need to make a set of lines, not a list
 
@@ -220,19 +220,19 @@ class ReduceArcTask(CmdLineTask):
         result : `pfs.drp.stella.SpectrumSet`
             Coadded spectra.
         """
-        numApertures = set(len(ss) for ss in spectra)
-        assert len(numApertures) == 1, "Same number of apertures in each SpectrumSet"
-        numApertures = numApertures.pop()
+        numFibers = set(len(ss) for ss in spectra)
+        assert len(numFibers) == 1, "Same number of numFibers in each SpectrumSet"
+        numFibers = numFibers.pop()
         length = set(ss.getLength() for ss in spectra)
         assert len(length) == 1, "Same length in each SpectrumSet"
         length = length.pop()
 
-        result = SpectrumSet(numApertures, length)
-        for ap in range(numApertures):
-            inputs = [ss[ap] for ss in spectra]
+        result = SpectrumSet(numFibers, length)
+        for ii in range(numFibers):
+            inputs = [ss[ii] for ss in spectra]
             fiberId = set([ss.getFiberId() for ss in inputs])
             if len(fiberId) > 1:
-                raise RuntimeError("Multiple fiber IDs (%s) for aperture %d" % (fiberId, ap))
+                raise RuntimeError("Multiple fiber IDs (%s) for spectrum %d" % (fiberId, ii))
             coadd = Spectrum(inputs[0].getNumPixels(), fiberId.pop())
             # Coadd the various elements of the spectrum
             for elem in ("Wavelength", "Spectrum", "Background", "Covariance"):
@@ -240,7 +240,8 @@ class ReduceArcTask(CmdLineTask):
                 for ss in inputs[1:]:
                     element += getattr(ss, "get" + elem)()
                 getattr(coadd, "set" + elem)(element)
-            result[ap] = coadd
+            coadd.wavelength /= len(inputs)  # the only element that needs to be averaged instead of summed
+            result[ii] = coadd
         return result
 
     def readLineList(self, lamps, lineListFilename):
