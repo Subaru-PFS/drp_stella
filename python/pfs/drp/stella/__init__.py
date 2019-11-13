@@ -11,6 +11,5 @@ from .detectorMapContinued import *
 from .utils import *
 from .spline import *
 from .pfsConfigIO import *
-from .psf import *
 from .SpectralPsfContinued import *
 from .NevenPsfContinued import *
