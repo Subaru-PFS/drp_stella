@@ -1,0 +1,216 @@
+#include <algorithm>
+#include <numeric>
+
+#include "lsst/pex/exceptions.h"
+#include "lsst/afw/math/offsetImage.h"
+#include "lsst/afw/image/ImageUtils.h"
+#include "lsst/afw/geom/ellipses.h"
+#include "lsst/afw/geom/SpanSet.h"
+
+#include "pfs/drp/stella/SpectralPsf.h"
+
+namespace pfs {
+namespace drp {
+namespace stella {
+
+
+std::shared_ptr<OversampledPsf::Image>
+OversampledPsf::resampleKernelImage(
+    OversampledPsf::Image const& image,
+    lsst::geom::Point2D const& center
+) const {
+    auto const xPosition = lsst::afw::image::positionToIndex(center.getX(), true);
+    auto const yPosition = lsst::afw::image::positionToIndex(center.getY(), true);
+    lsst::geom::Box2I targetBox = computeBBox();
+    targetBox.shift(lsst::geom::Extent2I(xPosition.first, yPosition.first));
+    std::shared_ptr<Image> resampled = std::make_shared<Image>(targetBox);
+    auto array = resampled->getArray();
+    array.deep() = 0.0;
+
+    std::ptrdiff_t const x0 = image.getX0();
+    std::ptrdiff_t const y0 = image.getY0();
+    std::ptrdiff_t const width = image.getWidth();
+    std::ptrdiff_t const height = image.getHeight();
+
+    double sum = 0.0;
+    for (std::ptrdiff_t yy = 0; yy < targetBox.getHeight(); ++yy) {
+        std::ptrdiff_t jLow = (yy - 0.5 + targetBox.getMinY())*_oversampleFactor - y0 + 1;
+        std::ptrdiff_t jHigh = (yy + 0.5 + targetBox.getMinY())*_oversampleFactor - y0 + 1;
+        for (std::ptrdiff_t jj = std::max(0L, jLow); jj < std::min(jHigh, height); ++jj) {
+            for (std::ptrdiff_t xx = 0; xx < targetBox.getWidth(); ++xx) {
+                std::ptrdiff_t iLow = (xx - 0.5 + targetBox.getMinX())*_oversampleFactor - x0 + 1;
+                std::ptrdiff_t iHigh = (xx + 0.5 + targetBox.getMinX())*_oversampleFactor - x0 + 1;
+                for (std::ptrdiff_t ii = std::max(0L, iLow); ii < std::min(iHigh, width); ++ii) {
+                    auto const value = image.get(lsst::geom::Point2I(ii, jj), lsst::afw::image::LOCAL);
+                    array[yy][xx] += value;
+                    sum += value;
+                }
+            }
+        }
+    }
+
+    // Divide through by kernel sum
+    for (int yy = 0; yy < targetBox.getHeight(); ++yy) {
+        std::transform(array[yy].begin(), array[yy].end(), array[yy].begin(),
+                       [sum](Image::Pixel const& value) { return value/sum; });
+    }
+
+    return resampled;
+}
+
+
+std::shared_ptr<OversampledPsf::Image>
+OversampledPsf::recenterKernelImage(
+    OversampledPsf::Image const& image,
+    lsst::geom::Point2D const& center
+) const {
+    std::size_t const width = image.getWidth();
+    std::size_t const height = image.getHeight();
+    auto const& array = image.getArray();
+    double xSum = 0;
+    double ySum = 0;
+    double sum = 0;
+    for (std::size_t y = 0; y < height; ++y) {
+        for (std::size_t x = 0; x < width; ++x) {
+            double const value = array[y][x];
+            xSum += value*x;
+            ySum += value*y;
+            sum += value;
+        }
+    }
+    xSum /= sum;
+    ySum /= sum;
+    xSum += image.getX0();
+    ySum += image.getY0();
+
+    // Binning by an odd factor requires the centroid at the center of a pixel.
+    // Binning by an even factor requires the centroid on the edge of a pixel.
+    if (_oversampleFactor % 2 == 0) {
+        xSum -= 0.5;
+        ySum -= 0.5;
+    }
+
+    auto const xPosition = lsst::afw::image::positionToIndex(center.getX(), true);
+    auto const yPosition = lsst::afw::image::positionToIndex(center.getY(), true);
+    double const xOffset = xPosition.second*_oversampleFactor - xSum;
+    double const yOffset = yPosition.second*_oversampleFactor - ySum;
+
+    std::string const warpAlgorithm = "lanczos5";
+    unsigned int const warpBuffer = 5;
+    auto recentered = lsst::afw::math::offsetImage(image, xOffset, yOffset, warpAlgorithm, warpBuffer);
+    recentered->setXY0(recentered->getX0() + xPosition.first*_oversampleFactor,
+                       recentered->getY0() + yPosition.first*_oversampleFactor);
+
+    return recentered;
+}
+
+
+std::shared_ptr<OversampledPsf::Image>
+OversampledPsf::doComputeKernelImage(
+    lsst::geom::Point2D const& position,
+    lsst::afw::image::Color const& color
+) const {
+    return resampleKernelImage(*recenterKernelImage(*doComputeOversampledKernelImage(position)));
+}
+
+
+std::shared_ptr<OversampledPsf::Image>
+OversampledPsf::doComputeImage(
+    lsst::geom::Point2D const& position,
+    lsst::afw::image::Color const& color
+) const {
+    return resampleKernelImage(*recenterKernelImage(*doComputeOversampledKernelImage(position), position),
+                               position);
+}
+
+
+// This does a brute force calculation with no clever sinc apertures. Need to
+// think about whether and how to pull over the sinc apertures code from LSST.
+double OversampledPsf::doComputeApertureFlux(
+    double radius,
+    lsst::geom::Point2D const& position,
+    lsst::afw::image::Color const& color
+) const {
+    Image const& kernel = *doComputeOversampledKernelImage(position);
+    double const r2 = std::pow(radius*_oversampleFactor, 2);
+    double sumAperture = 0.0;
+    double sumAll = 0.0;
+    std::size_t num = 0;
+    std::ptrdiff_t yy = kernel.getBBox().getMinY();
+    for (std::ptrdiff_t jj = 0; jj < kernel.getHeight(); ++jj, ++yy) {
+        std::ptrdiff_t xx = kernel.getBBox().getMinX();
+        for (std::ptrdiff_t ii = 0; ii < kernel.getWidth(); ++ii, ++xx) {
+            double const value = kernel.get(lsst::geom::Point2I(ii, jj), lsst::afw::image::LOCAL);
+            sumAll += value;
+            if (std::pow(double(xx), 2) + std::pow(double(yy), 2) < r2) {
+                sumAperture += value;
+                ++num;
+            }
+        }
+    }
+    return sumAperture/sumAll*M_PI*std::pow(radius*_oversampleFactor, 2)/num;
+}
+
+
+// This does a brute force calculation, rather than the usual adaptive moments,
+// so it is subject to noise. Need to think about whether and how to pull over
+// the adaptive moments code from LSST or GalSim.
+lsst::afw::geom::ellipses::Quadrupole
+OversampledPsf::doComputeShape(
+    lsst::geom::Point2D const& position,
+    lsst::afw::image::Color const& color
+) const {
+    Image const& kernel = *doComputeOversampledKernelImage(position);
+
+    // First moments
+    double xSum = 0;
+    double ySum = 0;
+    double sum0 = 0;
+    {
+        std::ptrdiff_t yy = kernel.getY0();
+        for (int jj = 0; jj < kernel.getHeight(); ++jj, ++yy) {
+            std::ptrdiff_t xx = kernel.getX0();
+            for (int ii = 0; ii < kernel.getWidth(); ++ii, ++xx) {
+                double const value = kernel.get(lsst::geom::Point2I(ii, jj), lsst::afw::image::LOCAL);
+                xSum += value*xx;
+                ySum += value*yy;
+                sum0 += value;
+            }
+        }
+    }
+    xSum /= sum0;
+    ySum /= sum0;
+    double const norm = 1.0/sum0;
+
+    // Second moments
+    double xxSum = 0;
+    double xySum = 0;
+    double yySum = 0;
+    {
+        std::ptrdiff_t yy = kernel.getY0();
+        for (int jj = 0; jj < kernel.getHeight(); ++jj, ++yy) {
+            double xx = kernel.getX0();
+            for (int ii = 0; ii < kernel.getWidth(); ++ii, ++xx) {
+                double const value = kernel.get(lsst::geom::Point2I(ii, jj), lsst::afw::image::LOCAL)*norm;
+                double const dx = xx - xSum;
+                double const dy = yy - ySum;
+                xxSum += dx*dx*value;
+                xySum += dx*dy*value;
+                yySum += dy*dy*value;
+            }
+        }
+    }
+    double const factor = 1.0/std::pow(double(_oversampleFactor), 2);
+
+    return lsst::afw::geom::ellipses::Quadrupole(xxSum*factor, yySum*factor, xySum*factor);
+}
+
+
+lsst::geom::Box2I OversampledPsf::doComputeBBox(
+    lsst::geom::Point2D const& position,
+    lsst::afw::image::Color const& color
+) const {
+    return lsst::geom::Box2I(lsst::geom::Point2I(-_targetSize.getX()/2, -_targetSize.getY()/2), _targetSize);
+}
+
+}}}  // namespace pfs::drp::stella
