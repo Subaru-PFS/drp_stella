@@ -260,12 +260,13 @@ class DetectorMapTestCase(lsst.utils.tests.TestCase):
         """
         detMap = self.makeDetectorMap()
         self.bbox.grow(12)
-        self.fiberIds += 123
         self.slitOffsets += 1.2345
 
         self.assertNotEqual(detMap.getBBox(), self.bbox)
-        self.assertFloatsNotEqual(detMap.getFiberIds(), self.fiberIds)
         self.assertFloatsNotEqual(detMap.getSlitOffsets(), self.slitOffsets)
+
+        with self.assertRaises(ValueError):  # "ValueError: output array is read-only"
+            self.fiberIds += 123
 
     def testFinds(self):
         """Test the various ``find*`` methods
