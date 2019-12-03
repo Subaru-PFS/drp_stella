@@ -136,6 +136,7 @@ class ReduceExposureTask(CmdLineTask):
         super().__init__(*args, **kwargs)
         self.makeSubtask("isr")
         self.makeSubtask("repair")
+        self.makeSubtask("measurePsf")
         self.makeSubtask("subtractSky2d")
         self.makeSubtask("extractSpectra")
         self.makeSubtask("fitContinuum")
@@ -159,7 +160,7 @@ class ReduceExposureTask(CmdLineTask):
         -------
         exposureList : `list` of `lsst.afw.image.Exposure`
             Exposure data for sensors.
-        pfsList : `list` of PSFs
+        psfList : `list` of PSFs
             Point-spread functions; if ``doMeasurePsf`` is set.
         lsfList : `list` of LSFs
             Line-spread functions; if ``doMeasurePsf`` is set.
@@ -189,22 +190,25 @@ class ReduceExposureTask(CmdLineTask):
                 self.skySwindle(sensorRef, exposure.image)
             exposureList.append(exposure)
 
+        fiberTraceList = [self.getFiberTraces(sensorRef) for sensorRef in sensorRefList]
+        detectorMapList = [self.getDetectorMap(sensorRef) for sensorRef in sensorRefList]
+        pfsConfig = sensorRefList[0].get("pfsConfig")
+
         if self.config.doMeasurePsf:
-            psfList = self.measurePsf.run(sensorRefList, exposureList)
+            psfList = self.measurePsf.run(sensorRefList, exposureList, detectorMapList)
             lsfList = [self.calculateLsf(psf) for psf in psfList]
         else:
             psfList = [None]*len(sensorRefList)
             lsfList = [None]*len(sensorRefList)
 
-        results = Struct(exposureList=exposureList, psfList=psfList, lsfList=lsfList)
-
-        fiberTraceList = [self.getFiberTraces(sensorRef) for sensorRef in sensorRefList]
-        detectorMapList = [self.getDetectorMap(sensorRef) for sensorRef in sensorRefList]
-        pfsConfig = sensorRefList[0].get("pfsConfig")
-
-        results.fiberTraceList = fiberTraceList
-        results.detectorMapList = detectorMapList
-        results.pfsConfig = pfsConfig
+        results = Struct(
+            exposureList=exposureList,
+            fiberTraceList=fiberTraceList,
+            detectorMapList=detectorMapList,
+            psfList=psfList,
+            lsfList=lsfList,
+            pfsConfig=pfsConfig,
+        )
 
         if self.config.doSubtractSky2d:
             results.sky2d = self.subtractSky2d.run(exposureList, pfsConfig, psfList,
@@ -361,7 +365,7 @@ class ReduceExposureTask(CmdLineTask):
         return sensorRef.get('fibertrace')
 
     def calculateLsf(self, psf):
-        raise NotImplementedError("Sorry, haven't coded this yet.")
+        return None
 
     def _getMetadataName(self):
         return None
