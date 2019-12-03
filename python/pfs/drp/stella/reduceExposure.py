@@ -50,8 +50,8 @@ class ReduceExposureConfig(Config):
     extractSpectra = ConfigurableField(target=ExtractSpectraTask, doc="Extract spectra from exposure")
     doSubtractContinuum = Field(dtype=bool, default=False, doc="Subtract continuum as part of extraction?")
     fitContinuum = ConfigurableField(target=FitContinuumTask, doc="Fit continuum for subtraction")
-    fiberDy = Field(doc="Offset to add to all FIBER_DY values (used when bootstrapping)",
-                    dtype=float, default=0)
+    fiberDx = Field(doc="DetectorMap slit offset in x", dtype=float, default=0)
+    fiberDy = Field(doc="DetectorMap slit offset in y", dtype=float, default=0)
     doWriteCalexp = Field(dtype=bool, default=False, doc="Write corrected frame?")
     doWritePsf = Field(dtype=bool, default=False, doc="Write point-spread function?")
     doWriteLsf = Field(dtype=bool, default=False, doc="Write line-spread function?")
@@ -338,9 +338,10 @@ class ReduceExposureTask(CmdLineTask):
             Mapping of wl,fiber to detector position.
         """
         detectorMap = sensorRef.get("detectormap")
-        if self.config.fiberDy != 0.0:
+        if self.config.fiberDx != 0.0 or self.config.fiberDy != 0.0:
             slitOffsets = detectorMap.getSlitOffsets()
-            slitOffsets[detectorMap.FIBER_DY] += self.config.fiberDy
+            slitOffsets[detectorMap.DX] += self.config.fiberDx
+            slitOffsets[detectorMap.DY] += self.config.fiberDy
             detectorMap.setSlitOffsets(slitOffsets)
         return detectorMap
 
