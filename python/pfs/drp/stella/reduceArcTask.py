@@ -1,6 +1,7 @@
 import os
 import re
 from collections import defaultdict
+import numpy as np
 import lsstDebug
 import lsst.pex.config as pexConfig
 from lsst.utils import getPackageDir
@@ -10,6 +11,7 @@ from .calibrateWavelengthsTask import CalibrateWavelengthsTask
 from .reduceExposure import ReduceExposureTask
 from .identifyLines import IdentifyLinesTask
 from .utils import readLineListFile
+from .images import getIndices
 from lsst.obs.pfs.utils import getLampElements
 from pfs.drp.stella import Spectrum, SpectrumSet
 
@@ -26,6 +28,7 @@ class ReduceArcConfig(pexConfig.Config):
                                                        doc="Calibrate a SpectrumSet's wavelengths")
     minArcLineIntensity = pexConfig.Field(doc="Minimum 'NIST' intensity to use emission lines",
                                           dtype=float, default=0)
+    doUpdateCenters = pexConfig.Field(dtype=bool, default=True, doc="Update centers from the fiberTrace?")
 
     def setDefaults(self):
         super().setDefaults()
@@ -162,6 +165,11 @@ class ReduceArcTask(CmdLineTask):
             raise RuntimeError("No lamps found from metadata")
         lines = self.readLineList(lamps, lineListFilename)
         results = self.reduceExposure.runDataRef([dataRef])
+
+        if self.config.doUpdateCenters:
+            for fiberTraces, detectorMap in zip(results.fiberTraceList, results.detectorMapList):
+                self.updateCenters(fiberTraces, detectorMap)
+
         self.identifyLines.run(results.spectraList[0], results.detectorMapList[0], lines)
         return Struct(
             spectra=results.spectraList[0],
@@ -332,6 +340,25 @@ class ReduceArcTask(CmdLineTask):
                 for rl in arcLines:
                     x, y = detectorMap.findPoint(fiberId, rl.wavelength)
                     display.dot('o', x, y, ctype='blue')
+
+    def updateCenters(self, fiberTraces, detectorMap):
+        """Update the xCenter values in the detectorMap from the fiberTrace
+
+        We centroid the fiber traces row by row.
+
+        Parameters
+        ----------
+        fiberTraces : `pfs.drp.stella.FiberTraceSet`
+            Profiles of each fiber on the detector.
+        detectorMap : `pfs.drp.stella.DetectorMap`
+            Mapping of wl,fiber to detector position.
+        """
+        for ft in fiberTraces:
+            trace = ft.trace
+            xx, yy = getIndices(trace.getBBox())
+            centroids = np.array([np.sum(values*xx)/np.sum(values) for values in trace.image.array])
+            detectorMap.setXCenter(ft.fiberId, yy.flatten().astype(np.float32),
+                                   centroids.astype(np.float32))
 
     def _getMetadataName(self):
         """Disable writing metadata (doesn't work with lists of dataRefs anyway)"""
