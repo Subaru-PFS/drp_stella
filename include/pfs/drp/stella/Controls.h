@@ -121,7 +121,7 @@ struct FiberTraceFindingControl {
         signalThreshold(120.),
         nTermsGaussFit(3),
         saturationLevel(65000.),
-        minLength(3000),
+        minLength(1000),
         maxLength(4096),
         nLost(10),
         minSigma(1.0),
