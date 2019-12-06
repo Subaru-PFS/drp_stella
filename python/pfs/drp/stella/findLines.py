@@ -320,7 +320,7 @@ class FindLinesTask(Task):
         if lsstDebug.Info(__name__).plotCentroidLines:
             def fit(xx):
                 """Calculate the fit values as a function of pixel index"""
-                gaussian = result.amplitude*np.exp(-0.5*(xx/result.width)**2)
+                gaussian = result.amplitude*np.exp(-0.5*((xx - result.center)/result.width)**2)
                 background = result.bg0 + result.bg1*(xx - result.center)
                 return gaussian + background
 
@@ -329,7 +329,7 @@ class FindLinesTask(Task):
             axes = fig.add_subplot(1, 1, 1)
             indices = np.arange(lowIndex, highIndex)
             axes.plot(indices, spectrum.spectrum[lowIndex:highIndex], "k-")
-            good = (mask & maskVal) == 0
+            good = (mask[lowIndex:highIndex] & maskVal) == 0
             if good.sum() != len(good):
                 axes.plot(indices[~good], spectrum.spectrum[lowIndex:highIndex][~good], "rx")
             if allPeaks is not None and np.any(isInterloper):
