@@ -2,7 +2,7 @@ import numpy as np
 
 import lsstDebug
 
-from lsst.pex.config import Config, Field, ChoiceField
+from lsst.pex.config import Config, Field, ChoiceField, ListField
 from lsst.pipe.base import Task, Struct
 from lsst.afw.math import stringToInterpStyle, makeInterpolate
 from pfs.drp.stella import Spectrum, SpectrumSet
@@ -27,6 +27,7 @@ class FitContinuumConfig(Config):
     rejection = Field(dtype=float, default=3.0, doc="Rejection threshold (standard deviations)")
     doMaskLines = Field(dtype=bool, default=True, doc="Mask reference lines before fitting?")
     maskLineRadius = Field(dtype=int, default=5, doc="Number of pixels either side of reference line to mask")
+    mask = ListField(dtype=str, default=["BAD", "CR", "NO_DATA"], doc="Mask planes to ignore")
 
 
 class FitContinuumTask(Task):
@@ -85,6 +86,7 @@ class FitContinuumTask(Task):
             good = self.maskLines(spectrum)
         else:
             good = np.isfinite(spectrum.spectrum)
+        good &= (spectrum.mask.array[0] & spectrum.mask.getPlaneBitMask(self.config.mask)) == 0
         oldGood = good
         for ii in range(self.config.iterations):
             fit = self._fitContinuumImpl(spectrum.spectrum, good)
@@ -115,7 +117,8 @@ class FitContinuumTask(Task):
         """
         indices = np.arange(len(values), dtype=np.float)
         knots, binned = binData(indices, values, good, self.config.numKnots)
-        interp = makeInterpolate(knots, binned, self.fitType)
+        use = np.isfinite(knots) & np.isfinite(binned)
+        interp = makeInterpolate(knots[use], binned[use], self.fitType)
         fit = np.array(interp.interpolate(indices))
 
         if lsstDebug.Info(__name__).plot:
