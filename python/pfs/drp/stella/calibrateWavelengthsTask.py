@@ -338,6 +338,8 @@ class CalibrateWavelengthsTask(pipeBase.Task):
         refLines = [rl for rl in spec.getReferenceLines() if
                     (rl.status & drpStella.ReferenceLine.Status.FIT) != 0 and
                     (rl.status & drpStella.ReferenceLine.Status.INTERPOLATED) == 0]
+        if len(refLines) == 0:
+            raise RuntimeError(f"No reference lines found for fiber {fiberId}")
 
         #
         # Unpack reference lines
