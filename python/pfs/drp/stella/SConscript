@@ -9,6 +9,9 @@ scripts.BasicSConscript.pybind11(
      'FiberTraceSet',
      'detectorMap',
      'spline',
+     'SpectralPsf',
+     'NevenPsf',
+     'tests/oversampledPsf',
      ],
     addUnderscore=False
 )

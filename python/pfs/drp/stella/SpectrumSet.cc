@@ -22,7 +22,7 @@ void declareSpectrumSet(py::module &mod) {
 
     cls.def("size", &Class::size);
     cls.def("reserve", &Class::reserve);
-    cls.def("add", (void (Class::*)(PTR(Spectrum))) &Class::add, "spectrum"_a);
+    cls.def("add", py::overload_cast<PTR(Spectrum)>(&Class::add), "spectrum"_a);
     cls.def("getLength", &Class::getLength);
 
     cls.def("getAllFiberIds", &Class::getAllFiberIds);

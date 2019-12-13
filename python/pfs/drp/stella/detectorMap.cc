@@ -66,8 +66,7 @@ void declareDetectorMap(py::module &mod)
             "fiberId"_a, "knots"_a, "wavelength"_a);
     cls.def_property_readonly("wavelength", py::overload_cast<>(&Class::getWavelength, py::const_));
 
-    cls.def("getXCenter", (ndarray::Array<float, 1, 1> (Class::*)(std::size_t) const)&Class::getXCenter,
-            "fiberId"_a);
+    cls.def("getXCenter", py::overload_cast<std::size_t>(&Class::getXCenter, py::const_), "fiberId"_a);
     cls.def("getXCenter", [](Class & self) { return self.getXCenter(); });
     cls.def("getXCenter", py::overload_cast<std::size_t, float>(&Class::getXCenter, py::const_));
     cls.def("setXCenter", py::overload_cast<std::size_t, Class::Array1D const&>(&Class::setXCenter),
@@ -79,13 +78,12 @@ void declareDetectorMap(py::module &mod)
 
     cls.def("getSlitOffsets", [](Class & self) { return self.getSlitOffsets(); },
             py::return_value_policy::reference_internal);
-    cls.def("getSlitOffsets",
-            (ndarray::Array<float const, 1, 0> const (Class::*)(std::size_t) const)&Class::getSlitOffsets,
+    cls.def("getSlitOffsets", py::overload_cast<std::size_t>(&Class::getSlitOffsets, py::const_),
             "fiberId"_a);
-    cls.def("setSlitOffsets", (void (Class::*)(ndarray::Array<float, 2, 1> const&))&Class::setSlitOffsets,
+    cls.def("setSlitOffsets", py::overload_cast<ndarray::Array<float, 2, 1> const&>(&Class::setSlitOffsets),
             "offsets"_a);
-    cls.def("setSlitOffsets", (void (Class::*)(std::size_t,
-                                               ndarray::Array<float, 1, 0> const&))&Class::setSlitOffsets,
+    cls.def("setSlitOffsets",
+            py::overload_cast<std::size_t, ndarray::Array<float, 1, 0> const&>(&Class::setSlitOffsets),
             "fiberId"_a, "offsets"_a);
     cls.def_property("slitOffsets", py::overload_cast<>(&Class::getSlitOffsets, py::const_),
                      py::overload_cast<ndarray::Array<float, 2, 1> const&>(&Class::setSlitOffsets));

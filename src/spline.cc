@@ -3,6 +3,11 @@
 
 #include "ndarray.h"
 #include "lsst/pex/exceptions.h"
+#include "lsst/afw/table.h"
+#include "lsst/afw/table/io/OutputArchive.h"
+#include "lsst/afw/table/io/InputArchive.h"
+#include "lsst/afw/table/io/CatalogVector.h"
+#include "lsst/afw/table/io/Persistable.cc"
 
 #include "pfs/drp/stella/spline.h"
 
@@ -61,7 +66,7 @@ Spline<T>::Spline(
     ndarray::Array<T const, 1, 1> const& x,
     ndarray::Array<T const, 1, 1> const& y,
     InterpolationTypes interpolationType
-) {
+) : _interpolationType(interpolationType) {
     std::size_t const n = x.size();
     if (n < 3) {
         throw LSST_EXCEPT(lsst::pex::exceptions::LengthError, "At least 3 points are needed to fit a spline");
@@ -245,9 +250,75 @@ int Spline<T>::_findIndex(T z) const    // point whose index we want
 
     return hi;
 }
-    
+
+
+namespace {
+
+// Singleton class that manages the persistence catalog's schema and keys
+template <typename T>
+class SplinePersistenceHelper {
+    using Array = lsst::afw::table::Array<T>;
+  public:
+    lsst::afw::table::Schema schema;
+    lsst::afw::table::Key<Array> x;
+    lsst::afw::table::Key<Array> y;
+    lsst::afw::table::Key<int> interpolationType;
+
+    static SplinePersistenceHelper const &get() {
+        static SplinePersistenceHelper const instance;
+        return instance;
+    }
+
+  private:
+    SplinePersistenceHelper()
+      : schema(),
+        x(schema.addField<Array>("x", "positions of knots", "pixel", 0)),
+        y(schema.addField<Array>("y", "values at knots", "count", 0)),
+        interpolationType(schema.addField<int>("interpolationType", "type of spline interpolation", "")) {
+            schema.getCitizen().markPersistent();
+    }
+};
+
+}  // anonymous namespace
+
+
+template <typename T>
+void Spline<T>::write(lsst::afw::table::io::OutputArchiveHandle & handle) const {
+    SplinePersistenceHelper<T> const &schema = SplinePersistenceHelper<T>::get();
+    lsst::afw::table::BaseCatalog cat = handle.makeCatalog(schema.schema);
+    PTR(lsst::afw::table::BaseRecord) record = cat.addNew();
+    ndarray::Array<T, 1, 1> const xx = ndarray::copy(_x);
+    ndarray::Array<T, 1, 1> const yy = ndarray::copy(_y);
+    record->set(schema.x, xx);
+    record->set(schema.y, yy);
+    record->set(schema.interpolationType, _interpolationType);
+    handle.saveCatalog(cat);
+}
+
+
+template <typename T>
+class Spline<T>::Factory : public lsst::afw::table::io::PersistableFactory {
+  public:
+    std::shared_ptr<lsst::afw::table::io::Persistable> read(
+        lsst::afw::table::io::InputArchive const& archive,
+        lsst::afw::table::io::CatalogVector const& catalogs
+    ) const override {
+        static auto const& schema = SplinePersistenceHelper<T>::get();
+        LSST_ARCHIVE_ASSERT(catalogs.size() == 1u);
+        LSST_ARCHIVE_ASSERT(catalogs.front().size() == 1u);
+        lsst::afw::table::BaseRecord const& record = catalogs.front().front();
+        LSST_ARCHIVE_ASSERT(record.getSchema() == schema.schema);
+        return std::make_shared<Spline<T>>(record.get(schema.x), record.get(schema.y),
+                                           InterpolationTypes(record.get(schema.interpolationType)));
+    }
+
+    Factory(std::string const& name) : lsst::afw::table::io::PersistableFactory(name) {}
+};
+
+
 /************************************************************************************************************/
 
 template class Spline<float>;
+typename Spline<float>::Factory registration("Spline");
 
 }}}}

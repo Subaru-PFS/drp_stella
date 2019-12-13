@@ -5,6 +5,11 @@
 
 #include "lsst/pex/exceptions/Exception.h"
 #include "lsst/daf/base.h"
+#include "lsst/afw/table.h"
+#include "lsst/afw/table/io/OutputArchive.h"
+#include "lsst/afw/table/io/InputArchive.h"
+#include "lsst/afw/table/io/CatalogVector.h"
+#include "lsst/afw/table/io/Persistable.cc"
 
 #include "pfs/drp/stella/utils/checkSize.h"
 #include "pfs/drp/stella/DetectorMap.h"
@@ -48,7 +53,36 @@ DetectorMap::DetectorMap(
     _set_xToFiberId();
 }
 
-            
+
+DetectorMap::DetectorMap(
+    lsst::geom::Box2I bbox,
+    FiberMap const& fiberIds,
+    std::vector<std::shared_ptr<DetectorMap::Spline const>> const& center,
+    std::vector<std::shared_ptr<DetectorMap::Spline const>> const& wavelength,
+    Array2D const& slitOffsets,
+    VisitInfo const& visitInfo,
+    std::shared_ptr<lsst::daf::base::PropertySet> metadata
+) : _nFiber(fiberIds.getShape()[0]),
+    _bbox(bbox),
+    _fiberIds(ndarray::copy(fiberIds)),
+    _yToXCenter(center),
+    _yToWavelength(wavelength),
+    _xToFiberId(_bbox.getWidth()),
+    _slitOffsets(ndarray::makeVector(std::size_t(3), _nFiber)),
+    _visitInfo(visitInfo),
+    _metadata(metadata ? metadata : std::make_shared<lsst::daf::base::PropertyList>())
+{
+    utils::checkSize(center.size(), _nFiber, "DetectorMap: center");
+    utils::checkSize(wavelength.size(), _nFiber, "DetectorMap: wavelength");
+    if (!slitOffsets.isEmpty()) {
+        setSlitOffsets(slitOffsets);   // actually this is where we check slitOffsets
+    } else {
+        _slitOffsets.deep() = 0.0;      // Assume that all the fibres are aligned perfectly
+    }
+    _set_xToFiberId();
+}
+
+
 /*
  * Return a fiberIdx given a fiberId
  */
@@ -381,6 +415,123 @@ DetectorMap::_set_xToFiberId()
 
         _xToFiberId[x] = _fiberIds[lastIndex];
     }
-}           
+}
+
+
+namespace {
+
+// Singleton class that manages the persistence catalog's schema and keys
+class DetectorMapSchema {
+    using IntArray = lsst::afw::table::Array<int>;
+    using FloatArray = lsst::afw::table::Array<float>;
+  public:
+    lsst::afw::table::Schema schema;
+    lsst::afw::table::Box2IKey bbox;
+    lsst::afw::table::Key<IntArray> fiberIds;
+    lsst::afw::table::Key<IntArray> center;
+    lsst::afw::table::Key<IntArray> wavelength;
+    lsst::afw::table::Key<FloatArray> slitOffset1;
+    lsst::afw::table::Key<FloatArray> slitOffset2;
+    lsst::afw::table::Key<FloatArray> slitOffset3;
+    lsst::afw::table::Key<int> visitInfo;
+
+    static DetectorMapSchema const &get() {
+        static DetectorMapSchema const instance;
+        return instance;
+    }
+
+  private:
+    DetectorMapSchema()
+      : schema(),
+        bbox(lsst::afw::table::Box2IKey::addFields(schema, "bbox", "bounding box", "pixel")),
+        fiberIds(schema.addField<IntArray>("fiberIds", "fiber identifiers", "", 0)),
+        center(schema.addField<IntArray>("center", "center spline references", "", 0)),
+        wavelength(schema.addField<IntArray>("wavelength", "wavelength spline references", "", 0)),
+        slitOffset1(schema.addField<FloatArray>("slitOffset1", "slit offsets in x", "micron", 0)),
+        slitOffset2(schema.addField<FloatArray>("slitOffset2", "slit offsets in y", "micron", 0)),
+        slitOffset3(schema.addField<FloatArray>("slitOffset3", "slit offsets in focus", "micron", 0)),
+        visitInfo(schema.addField<int>("visitInfo", "visitInfo reference", "")) {
+            schema.getCitizen().markPersistent();
+    }
+};
+
+}  // anonymous namespace
+
+
+void DetectorMap::write(lsst::afw::table::io::OutputArchiveHandle & handle) const {
+    DetectorMapSchema const &schema = DetectorMapSchema::get();
+    lsst::afw::table::BaseCatalog cat = handle.makeCatalog(schema.schema);
+    PTR(lsst::afw::table::BaseRecord) record = cat.addNew();
+    record->set(schema.bbox, _bbox);
+    ndarray::Array<int, 1, 1> const fiberIds = ndarray::copy(_fiberIds);
+    record->set(schema.fiberIds, fiberIds);
+
+    ndarray::Array<int, 1, 1> center = ndarray::allocate(_nFiber);
+    ndarray::Array<int, 1, 1> wavelength = ndarray::allocate(_nFiber);
+    for (std::size_t ii = 0; ii < _nFiber; ++ii) {
+        center[ii] = handle.put(_yToXCenter[ii]);
+        wavelength[ii] = handle.put(_yToWavelength[ii]);
+    }
+
+    record->set(schema.center, center);
+    record->set(schema.wavelength, wavelength);
+    ndarray::Array<float, 1, 1> dx = ndarray::copy(_slitOffsets[DX]);
+    ndarray::Array<float, 1, 1> dy = ndarray::copy(_slitOffsets[DY]);
+    ndarray::Array<float, 1, 1> dFocus = ndarray::copy(_slitOffsets[DFOCUS]);
+    record->set(schema.slitOffset1, dx);
+    record->set(schema.slitOffset2, dy);
+    record->set(schema.slitOffset3, dFocus);
+    record->set(schema.visitInfo, handle.put(_visitInfo));
+    /// XXX dropping metadata on the floor, since we can't write a header
+    handle.saveCatalog(cat);
+}
+
+
+class DetectorMap::Factory : public lsst::afw::table::io::PersistableFactory {
+  public:
+    std::shared_ptr<lsst::afw::table::io::Persistable> read(
+        lsst::afw::table::io::InputArchive const& archive,
+        lsst::afw::table::io::CatalogVector const& catalogs
+    ) const override {
+        static auto const& schema = DetectorMapSchema::get();
+        LSST_ARCHIVE_ASSERT(catalogs.front().size() == 1u);
+        lsst::afw::table::BaseRecord const& record = catalogs.front().front();
+        LSST_ARCHIVE_ASSERT(record.getSchema() == schema.schema);
+
+        lsst::geom::Box2I bbox = record.get(schema.bbox);
+        FiberMap fiberIds = record.get(schema.fiberIds);
+        std::size_t const numFibers = fiberIds.size();
+
+        std::vector<std::shared_ptr<Spline const>> center;
+        std::vector<std::shared_ptr<Spline const>> wavelength;
+        center.reserve(numFibers);
+        wavelength.reserve(numFibers);
+        for (std::size_t ii = 0; ii < numFibers; ++ii) {
+            center.emplace_back(archive.get<Spline>(record.get(schema.center)[ii]));
+            wavelength.emplace_back(archive.get<Spline>(record.get(schema.wavelength)[ii]));
+        }
+
+        ndarray::Array<float const, 1, 1> dx = record.get(schema.slitOffset1);
+        ndarray::Array<float const, 1, 1> dy = record.get(schema.slitOffset1);
+        ndarray::Array<float const, 1, 1> dFocus = record.get(schema.slitOffset1);
+        assert (wavelength.size() == numFibers);
+        assert(dx.getNumElements() == numFibers);
+        assert(dy.getNumElements() == numFibers);
+        assert(dFocus.getNumElements() == numFibers);
+        Array2D slitOffsets = ndarray::allocate(3u, numFibers);
+        slitOffsets[DX].deep() = dx;
+        slitOffsets[DY].deep() = dy;
+        slitOffsets[DFOCUS].deep() = dFocus;
+        auto visitInfo = archive.get<lsst::afw::image::VisitInfo>(record.get(schema.visitInfo));
+
+        return std::make_shared<DetectorMap>(bbox, fiberIds, center, wavelength, slitOffsets, *visitInfo);
+    }
+
+    Factory(std::string const& name) : lsst::afw::table::io::PersistableFactory(name) {}
+};
+
+
+DetectorMap::Factory registration("DetectorMap");
+
 
 }}}

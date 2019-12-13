@@ -24,32 +24,25 @@ void declareSpectrum(py::module &mod) {
             "spectrum"_a, "mask"_a, "background"_a, "covariance"_a, "wavelength"_a,
             "lines"_a=Spectrum::ReferenceLineList(), "fiberId"_a=0);
 
-    cls.def("getSpectrum", (ndarray::Array<Spectrum::ImageT, 1, 1> (Class::*)()) &Class::getSpectrum);
+    cls.def("getSpectrum", py::overload_cast<>(&Class::getSpectrum));
     cls.def("setSpectrum", &Class::setSpectrum, "spectrum"_a);
-    cls.def_property("spectrum", (ndarray::Array<Spectrum::ImageT, 1, 1> (Class::*)()) &Class::getSpectrum,
-                             &Class::setSpectrum);
+    cls.def_property("spectrum", py::overload_cast<>(&Class::getSpectrum), &Class::setSpectrum);
 
-    cls.def("getBackground", (ndarray::Array<Spectrum::ImageT, 1, 1> (Class::*)()) &Class::getBackground);
+    cls.def("getBackground", py::overload_cast<>(&Class::getBackground));
     cls.def("setBackground", &Class::setBackground, "background"_a);
-    cls.def_property("background",
-                     (ndarray::Array<Spectrum::ImageT, 1, 1> (Class::*)()) &Class::getBackground,
-                     &Class::setBackground);
+    cls.def_property("background", py::overload_cast<>(&Class::getBackground), &Class::setBackground);
 
-    cls.def("getVariance", (ndarray::Array<Spectrum::VarianceT, 1, 1> (Class::*)()) &Class::getVariance);
+    cls.def("getVariance", py::overload_cast<>(&Class::getVariance));
     cls.def("setVariance", &Class::setVariance, "variance"_a);
-    cls.def_property("variance", (ndarray::Array<Spectrum::VarianceT, 1, 1> (Class::*)()) &Class::getVariance,
-                     &Class::setVariance);
+    cls.def_property("variance", py::overload_cast<>(&Class::getVariance), &Class::setVariance);
 
-    cls.def("getCovariance", (ndarray::Array<Spectrum::VarianceT, 2, 1> (Class::*)()) &Class::getCovariance);
+    cls.def("getCovariance", py::overload_cast<>(&Class::getCovariance));
     cls.def("setCovariance", &Class::setCovariance, "covariance"_a);
-    cls.def_property("covariance",
-                     (ndarray::Array<Spectrum::VarianceT, 2, 1> (Class::*)()) &Class::getCovariance,
-                     &Class::setCovariance);
+    cls.def_property("covariance", py::overload_cast<>(&Class::getCovariance), &Class::setCovariance);
 
-    cls.def("getWavelength", (ndarray::Array<Spectrum::ImageT, 1, 1> (Class::*)()) &Class::getWavelength);
+    cls.def("getWavelength", py::overload_cast<>(&Class::getWavelength));
     cls.def("setWavelength", &Class::setWavelength, "wavelength"_a);
-    cls.def_property("wavelength", (ndarray::Array<Spectrum::ImageT, 1, 1> (Class::*)()) &Class::getWavelength,
-                     &Class::setWavelength);
+    cls.def_property("wavelength", py::overload_cast<>(&Class::getWavelength), &Class::setWavelength);
 
     cls.def("getMask", [](Class & self) { return self.getMask(); },
             py::return_value_policy::reference_internal);

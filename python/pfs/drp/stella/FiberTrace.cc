@@ -34,16 +34,14 @@ void declareFiberTrace(py::module &mod)
     cls.def("extractSpectrum", &Class::extractSpectrum, "image"_a,
             "fitBackground"_a=false, "clipNSigma"_a=0.0, "useProfile"_a=true);
 
+    cls.def("constructImage", py::overload_cast<Spectrum const&>(&Class::constructImage, py::const_),
+            "spectrum"_a);
     cls.def("constructImage",
-            (std::shared_ptr<typename Class::Image>(Class::*)(Spectrum const&) const)
-                &Class::constructImage, "spectrum"_a);
+            py::overload_cast<Spectrum const&, lsst::geom::Box2I const&>(&Class::constructImage, py::const_),
+            "spectrum"_a, "bbox"_a);
     cls.def("constructImage",
-            (std::shared_ptr<typename Class::Image>(Class::*)(
-                Spectrum const&, lsst::geom::Box2I const&) const)
-                &Class::constructImage, "spectrum"_a, "bbox"_a);
-    cls.def("constructImage",
-            (void(Class::*)(typename Class::Image &, Spectrum const&) const)
-                &Class::constructImage, "image"_a, "spectrum"_a);
+            py::overload_cast<typename Class::Image &, Spectrum const&>(&Class::constructImage, py::const_),
+            "image"_a, "spectrum"_a);
 
     cls.def(py::pickle(
         [](Class const& self) { return py::make_tuple(self.getTrace(), self.getFiberId()); },
