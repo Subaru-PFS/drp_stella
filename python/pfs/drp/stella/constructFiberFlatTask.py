@@ -77,6 +77,27 @@ class ConstructFiberFlatTask(SpectralCalibTask):
         sumExpect = None  # Sum of what we expect
         for dd in dithers:
             image = coadds[dd]
+            self.log.info(f'Dither: {dd}')
+
+	    # NaNs can appear in the image and variance planes from masked areas
+	    # on the CCD. NaNs can cause problems further downstream, so 
+            # we will interpolate over them.
+            self.interpolateNans(image.image)
+            self.interpolateNans(image.variance)
+	    # Replace mask value with INTRP
+            image.mask.array[np.isnan(image.image.array)] = image.mask.getPlaneBitMask(['INTRP'])            
+
+	    # Check for low values in variance
+            lowVariance = image.variance.array < 0.001 # Note: does not work with NaNs present
+            if np.any(lowVariance):
+                self.log.warn(f"There are low values in variance array in dither {dd}")
+                imValAtLowVar=image.image.array[np.nonzero(lowVariance)]
+                self.log.info(f"Image plane values where variance is low: {imValAtLowVar}")            
+                image.variance.array[lowVariance] = np.nan
+                # Interpolate variance (possibly a second time)
+                self.interpolateNans(image.variance)
+                image.mask.array[lowVariance] = image.mask.getPlaneBitMask(['INTRP']) 
+
             dataRef = dithers[dd][0]  # Representative dataRef
 
             detMap = dataRef.get('detectormap')
