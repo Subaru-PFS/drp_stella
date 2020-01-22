@@ -4,6 +4,7 @@ import numpy as np
 import lsst.afw.image as afwImage
 import lsst.afw.math as afwMath
 from lsst.pex.config import Field, ConfigurableField
+import lsst.ip.isr.isrFunctions as isrFunctions
 
 from .constructSpectralCalibs import SpectralCalibConfig, SpectralCalibTask
 from .findAndTraceAperturesTask import FindAndTraceAperturesTask
@@ -20,7 +21,7 @@ class ConstructFiberFlatConfig(SpectralCalibConfig):
         check=lambda x: x > 0.
     )
     trace = ConfigurableField(target=FindAndTraceAperturesTask, doc="Task to trace apertures")
-
+    psfFwhm = Field(dtype=float, default=3.0, doc="Interpolate FWHM (pixels)")
 
 class ConstructFiberFlatTask(SpectralCalibTask):
     """Task to construct the normalized flat"""
@@ -82,21 +83,20 @@ class ConstructFiberFlatTask(SpectralCalibTask):
 	    # NaNs can appear in the image and variance planes from masked areas
 	    # on the CCD. NaNs can cause problems further downstream, so 
             # we will interpolate over them.
-            self.interpolateNans(image.image)
-            self.interpolateNans(image.variance)
-	    # Replace mask value with INTRP
-            image.mask.array[np.isnan(image.image.array)] = image.mask.getPlaneBitMask(['INTRP'])            
+            import pdb; pdb.set_trace()
+            isrFunctions.interpolateFromMask(image, self.config.psfFwhm,
+                                             maskNameList=['SAT', 'BAD', 'INTRP', 'NO_DATA'])
 
-	    # Check for low values in variance
-            lowVariance = image.variance.array < 0.001 # Note: does not work with NaNs present
+	    # Correct for low values in variance
+            lowVariance = image.variance.array < 0.001 
             if np.any(lowVariance):
-                self.log.warn(f"There are low values in variance array in dither {dd}")
-                imValAtLowVar=image.image.array[np.nonzero(lowVariance)]
-                self.log.info(f"Image plane values where variance is low: {imValAtLowVar}")            
+                self.log.debug(f"There are low values in variance array in dither {dd}."
+                               "Interpolating.")
                 image.variance.array[lowVariance] = np.nan
-                # Interpolate variance (possibly a second time)
-                self.interpolateNans(image.variance)
-                image.mask.array[lowVariance] = image.mask.getPlaneBitMask(['INTRP']) 
+                image.mask.addMaskPlane("BAD_VAR")
+                image.mask.array[lowVariance] = image.mask.getPlaneBitMask(['BAD_VAR'])
+                isrFunctions.interpolateFromMask(image, self.config.psfFwhm,
+                                                 maskNameList=['BAD_VAR'])
 
             dataRef = dithers[dd][0]  # Representative dataRef
 
