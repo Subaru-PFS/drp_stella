@@ -4,6 +4,7 @@ import numpy as np
 import lsst.afw.image as afwImage
 import lsst.afw.math as afwMath
 from lsst.pex.config import Field, ConfigurableField
+import lsst.afw.detection as afwDetection
 
 from .constructSpectralCalibs import SpectralCalibConfig, SpectralCalibTask
 from .findAndTraceAperturesTask import FindAndTraceAperturesTask
@@ -20,6 +21,10 @@ class ConstructFiberFlatConfig(SpectralCalibConfig):
         check=lambda x: x > 0.
     )
     trace = ConfigurableField(target=FindAndTraceAperturesTask, doc="Task to trace apertures")
+    stdDevFactor = Field(dtype=float, default=1,
+                         doc="Multiplicative factor to apply to the standard deviation. "
+                         "So (stdDevFactor * readNoise/gain)**2 "
+                         "determines the minimum variance.")
 
 
 class ConstructFiberFlatTask(SpectralCalibTask):
@@ -63,6 +68,9 @@ class ConstructFiberFlatTask(SpectralCalibTask):
         dataRefList = combineResults.dataRefList
         outputId = combineResults.outputId
 
+        # Get detector. Assume detector is the same for all input visits
+        detector = dataRefList[0].get('raw_detector')
+
         # Coadd exposures taken with the same slit dither position to remove CRs
         dithers = defaultdict(list)
         for dataRef in dataRefList:
@@ -77,6 +85,26 @@ class ConstructFiberFlatTask(SpectralCalibTask):
         sumExpect = None  # Sum of what we expect
         for dd in dithers:
             image = coadds[dd]
+            self.log.info("Dither: %s", dd)
+
+            # NaNs can appear in the image and variance planes from masked areas
+            # on the CCD. NaNs can cause problems further downstream, so
+            # we will interpolate over them.
+            imgIsNan = np.isnan(image.image.array)
+            self.interpolateNans(image.image)
+            self.interpolateNans(image.variance)
+            # Assign mask plane of INTRP.
+            mask = image.mask
+            mask.array[imgIsNan] |= mask.getPlaneBitMask(['INTRP'])
+
+            # Check and correct for low values in variance
+            for amp in detector.getAmpInfoCatalog():
+                ampMIview = image[amp.getBBox()]
+
+                standardDev = amp.getReadNoise() / amp.getGain()
+                minVar = (self.config.stdDevFactor * standardDev)**2
+                self.correctLowVarianceImage(ampMIview, minVar)
+
             dataRef = dithers[dd][0]  # Representative dataRef
 
             detMap = dataRef.get('detectormap')
@@ -85,6 +113,9 @@ class ConstructFiberFlatTask(SpectralCalibTask):
             spectra = traces.extractSpectra(image, detMap, True)
 
             expect = spectra.makeImage(image.getBBox(), traces)
+            # Occasionally NaNs are present in these images,
+            # despite the original coadded image containing zero NaNs
+            self.interpolateNans(expect)
 
             maskVal = image.mask.getPlaneBitMask(["BAD", "SAT", "CR", "INTRP"])
             with np.errstate(invalid="ignore"):
@@ -138,7 +169,27 @@ class ConstructFiberFlatTask(SpectralCalibTask):
         # Write fiber flat
         flatExposure = afwImage.makeExposure(sumFlat)
         self.recordCalibInputs(cache.butler, flatExposure, struct.ccdIdList, outputId)
-        self.interpolateNans(flatExposure)
+        self.interpolateNans(flatExposure.image)
+        self.interpolateNans(flatExposure.variance)
         self.write(cache.butler, flatExposure, outputId)
 
         return afwMath.binImage(flatExposure.image, self.config.binning)
+
+    def correctLowVarianceImage(self, maskedImage, minVar):
+        """Check the variance plane in the input image
+        for low variance values
+        and interpolate the variance if necessary.
+        A corrsponding mask plane of 'NO_DATA' is assigned.
+
+        Parameters
+        ----------
+        maskedImage : `lsst.afw.image.MaskedImageF`
+            the input maskedImage, whose variance plane is corrected.
+        minVar : `float`
+            the minimum variance 
+        """
+        varArr = maskedImage.getVariance().getArray()
+        isLowVar = varArr < minVar
+        varArr[isLowVar] = np.median(varArr[np.logical_not(isLowVar)])
+        mask = maskedImage.getMask()
+        mask.getArray()[isLowVar] |= mask.getPlaneBitMask(['NO_DATA'])
