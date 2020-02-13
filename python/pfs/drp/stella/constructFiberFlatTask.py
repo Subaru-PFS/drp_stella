@@ -21,10 +21,9 @@ class ConstructFiberFlatConfig(SpectralCalibConfig):
         check=lambda x: x > 0.
     )
     trace = ConfigurableField(target=FindAndTraceAperturesTask, doc="Task to trace apertures")
-    stdDevFactor = Field(dtype=float, default=1,
-                         doc="Multiplicative factor to apply to the standard deviation. "
-                         "So (stdDevFactor * readNoise/gain)**2 "
-                         "determines the minimum variance.")
+
+    def setDefaults(self):
+        self.combination.stats.maxVisitsToCalcErrorFromInputVariance = 5
 
 
 class ConstructFiberFlatTask(SpectralCalibTask):
@@ -97,12 +96,7 @@ class ConstructFiberFlatTask(SpectralCalibTask):
             mask.array[imgIsNan] |= mask.getPlaneBitMask(['INTRP'])
 
             # Check and correct for low values in variance
-            for amp in detector.getAmpInfoCatalog():
-                ampMIview = image[amp.getBBox()]
-
-                standardDev = amp.getReadNoise() / amp.getGain()
-                minVar = (self.config.stdDevFactor * standardDev)**2
-                self.correctLowVarianceImage(ampMIview, minVar)
+            self.correctLowVarianceImage(image)
 
             dataRef = dithers[dd][0]  # Representative dataRef
             detMap = dataRef.get('detectormap')
@@ -174,7 +168,7 @@ class ConstructFiberFlatTask(SpectralCalibTask):
 
         return afwMath.binImage(flatExposure.image, self.config.binning)
 
-    def correctLowVarianceImage(self, maskedImage, minVar):
+    def correctLowVarianceImage(self, maskedImage, minVar=0.0):
         """Check the variance plane in the input image
         for low variance values
         and interpolate the variance if necessary.
