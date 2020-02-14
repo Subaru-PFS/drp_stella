@@ -113,7 +113,8 @@ class BootstrapTask(CmdLineTask):
         self.visualize(lineResults.exposure, [ss.fiberId for ss in lineResults.spectra],
                        lineResults.detectorMap, refLines, frame=2)
 
-        arcRef.put(lineResults.detectorMap, "detectormap")
+        self.setCalibId(lineResults.detectorMap.metadata, arcRef.dataId)
+        arcRef.put(lineResults.detectorMap, "detectormap", visit0=arcRef.dataId["visit"])
 
     def traceFibers(self, flatRef, pfsConfig):
         """Trace fibers on the quartz flat
@@ -433,6 +434,23 @@ class BootstrapTask(CmdLineTask):
         refLines = sorted(refLines, key=attrgetter("guessedIntensity"), reverse=True)[:top]  # Brightest
         wavelengths = [rl.wavelength for rl in refLines]
         detectorMap.display(disp, fiberId, wavelengths)
+
+    def setCalibId(self, metadata, dataId):
+        """Set the ``CALIB_ID`` header
+
+        The ``CALIB_ID`` is used by the ``ingestCalibs.py`` script to identify
+        the calib.
+
+        Parameters
+        ----------
+        metadata : `lsst.daf.base.PropertyList`
+            FITS header to update with ``CALIB_ID``.
+        dataId : `dict` (`str`: POD)
+            Data identifier.
+        """
+        keywords = ("arm", "spectrograph", "ccd", "filter", "calibDate", "visit0")
+        mapping = dict(visit0="visit", calibDate="dateObs")
+        metadata.set("CALIB_ID", " ".join("%s=%s" % (key, dataId[mapping.get(key, key)]) for key in keywords))
 
     def _getMetadataName(self):
         return None
