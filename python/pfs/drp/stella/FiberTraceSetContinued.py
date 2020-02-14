@@ -83,6 +83,40 @@ class FiberTraceSet:
         return out
 
     @classmethod
+    def fromCombination(cls, *fiberTraceSets):
+        """Generate from multiple FiberTraceSets
+
+        Parameters
+        ----------
+        *fiberTraceSets : iterable of `pfs.drp.stella.FiberTraceSet`
+            Sets of fiber traces to combine.
+
+        Returns
+        -------
+        combined : `pfs.drp.stella.FiberTraceSet`
+            Combined set of fiber traces.
+        """
+        combined = cls(fiberTraceSets[0], True)
+        fiberId = set(combined.fiberId)
+        ignored = set()
+        for traces in fiberTraceSets[1:]:
+            for ft in traces:
+                if ft.fiberId in fiberId:
+                    ignored.add(ft.fiberId)
+                    continue
+                combined.add(ft)
+        if ignored:
+            import warnings
+            warnings.warn(f"Ignored duplicate fibers: {','.join(sorted(ignored))}")
+        combined.sortTracesByXCenter()
+        return combined
+
+    @property
+    def fiberId(self):
+        """Return the fiberIds of the component fiberTraces"""
+        return [ft.fiberId for ft in self]
+
+    @classmethod
     def _parsePath(cls, path, hdu=None, flags=None):
         """Parse path from the data butler
 
@@ -176,34 +210,6 @@ class FiberTraceSet:
         fiberTrace = PfsFiberTrace(parsed.dateObs, parsed.spectrograph, parsed.arm, parsed.visit0)
         fiberTrace.read(dirName=parsed.dirName)
         return cls.fromPfsFiberTrace(fiberTrace)
-
-    def extractSpectra(self, maskedImage, detectorMap=None, optimal=True):
-        """Extract spectra from an image
-
-        Parameters
-        ----------
-        maskedImage : `lsst.afw.image.MaskedImage`
-            Image from which to extract spectra.
-        detectorMap : `pfs.drp.stella.DetectorMap`, optional
-            Map of expected detector coordinates to fiber, wavelength.
-            If provided, they will be used to provide a rough wavelength
-            calibration.
-        optimal : `bool`, optional
-            Use optimal extraction? Otherwise, use a simple sum of pixels
-            within the trace.
-
-        Returns
-        -------
-        spectra : `pfs.drp.stella.SpectrumSet`
-            Extracted spectra.
-        """
-        spectra = SpectrumSet(maskedImage.getHeight())
-        for ft in self:
-            spectrum = ft.extractSpectrum(maskedImage, optimal)
-            if detectorMap is not None:
-                spectrum.setWavelength(detectorMap.getWavelength(ft.getFiberId()))
-            spectra.add(spectrum)
-        return spectra
 
     def applyToMask(self, mask):
         """Apply the trace masks to the provided mask

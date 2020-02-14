@@ -21,10 +21,9 @@ class ConstructFiberFlatConfig(SpectralCalibConfig):
         check=lambda x: x > 0.
     )
     trace = ConfigurableField(target=FindAndTraceAperturesTask, doc="Task to trace apertures")
-    stdDevFactor = Field(dtype=float, default=1,
-                         doc="Multiplicative factor to apply to the standard deviation. "
-                         "So (stdDevFactor * readNoise/gain)**2 "
-                         "determines the minimum variance.")
+
+    def setDefaults(self):
+        self.combination.stats.maxVisitsToCalcErrorFromInputVariance = 5
 
 
 class ConstructFiberFlatTask(SpectralCalibTask):
@@ -78,14 +77,13 @@ class ConstructFiberFlatTask(SpectralCalibTask):
             assert len(value) == 1, "Expect a single answer for this single dataset"
             dithers[value.pop()].append(dataRef)
         self.log.info("Dither values: %s" % (sorted(dithers.keys()),))
-        coadds = {dd: self.combination.run(dithers[dd]) for dd in dithers}
 
         # Sum coadded dithers to fill in the gaps
         sumFlat = None  # Sum of flat-fields
         sumExpect = None  # Sum of what we expect
         for dd in dithers:
-            image = coadds[dd]
-            self.log.info("Dither: %s", dd)
+            image = self.combination.run(dithers[dd])
+            self.log.info("Combined %d images for dither %s", len(dithers[dd]), dd)
 
             # NaNs can appear in the image and variance planes from masked areas
             # on the CCD. NaNs can cause problems further downstream, so
@@ -98,26 +96,21 @@ class ConstructFiberFlatTask(SpectralCalibTask):
             mask.array[imgIsNan] |= mask.getPlaneBitMask(['INTRP'])
 
             # Check and correct for low values in variance
-            for amp in detector.getAmpInfoCatalog():
-                ampMIview = image[amp.getBBox()]
-
-                standardDev = amp.getReadNoise() / amp.getGain()
-                minVar = (self.config.stdDevFactor * standardDev)**2
-                self.correctLowVarianceImage(ampMIview, minVar)
+            self.correctLowVarianceImage(image)
 
             dataRef = dithers[dd][0]  # Representative dataRef
-
             detMap = dataRef.get('detectormap')
             traces = self.trace.run(image, detMap)
-            self.log.info('%d FiberTraces found for %s' % (traces.size(), dataRef.dataId))
-            spectra = traces.extractSpectra(image, detMap, True)
+            self.log.info(f"{len(traces)} FiberTraces found for dither {dd}")
+            maskVal = image.mask.getPlaneBitMask(["BAD", "SAT", "CR", "INTRP"])
+            spectra = traces.extractSpectra(image, maskVal)
+            self.log.info(f"Extracted {len(spectra)} for dither {dd}")
 
             expect = spectra.makeImage(image.getBBox(), traces)
             # Occasionally NaNs are present in these images,
             # despite the original coadded image containing zero NaNs
             self.interpolateNans(expect)
 
-            maskVal = image.mask.getPlaneBitMask(["BAD", "SAT", "CR", "INTRP"])
             with np.errstate(invalid="ignore"):
                 bad = (expect.array <= 0.0) | ((image.mask.array & maskVal) > 0)
             image.image.array[bad] = 0.0
@@ -175,7 +168,7 @@ class ConstructFiberFlatTask(SpectralCalibTask):
 
         return afwMath.binImage(flatExposure.image, self.config.binning)
 
-    def correctLowVarianceImage(self, maskedImage, minVar):
+    def correctLowVarianceImage(self, maskedImage, minVar=0.0):
         """Check the variance plane in the input image
         for low variance values
         and interpolate the variance if necessary.

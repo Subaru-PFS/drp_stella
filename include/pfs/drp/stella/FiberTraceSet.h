@@ -8,6 +8,7 @@
 #include "lsst/afw/image/MaskedImage.h"
 
 #include "pfs/drp/stella/FiberTrace.h"
+#include "pfs/drp/stella/SpectrumSet.h"
 
 namespace pfs { namespace drp { namespace stella {
 
@@ -117,6 +118,18 @@ class FiberTraceSet {
      * @brief re-order the traces in _traces by the xCenter of each trace
      */
     void sortTracesByXCenter();
+
+    /**
+     * @brief Extract spectra from an image
+     *
+     * We perform a simultaneous optimal extraction for all the traces using
+     * least-squares on each row.
+     *
+     * @param image : Image containing the spectra
+     * @param badBitMask : ignore pixels where (value & badBitMask) != 0
+     * @return extracted spectra.
+     */
+    SpectrumSet extractSpectra(MaskedImageT const& image, MaskT badBitMask=0);
 
   private:
     Collection _traces; // traces for each aperture

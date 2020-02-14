@@ -12,6 +12,8 @@ scripts.BasicSConscript.pybind11(
      'SpectralPsf',
      'NevenPsf',
      'tests/oversampledPsf',
+     'symmetricTridiagonal',
+     'fitLine',
      ],
     addUnderscore=False
 )

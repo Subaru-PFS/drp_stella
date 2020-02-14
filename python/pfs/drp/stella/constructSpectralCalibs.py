@@ -110,7 +110,7 @@ class SpectralCalibConfig(lsst.pipe.drivers.constructCalibs.CalibConfig):
     )
     psfFwhm = Field(
         dtype=float,
-        default=3.0,
+        default=1.5,
         doc="Repair PSF FWHM (pixels)"
     )
     psfSize = Field(

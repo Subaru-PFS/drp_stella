@@ -8,6 +8,7 @@ class ExtractSpectraConfig(pexConfig.Config):
     useOptimal = pexConfig.Field(dtype=bool, default=True,
                                  doc="Use optimal extraction? "
                                      "Otherwise, use a simple sum of pixels within the trace.")
+    fiberIds = pexConfig.ListField(dtype=int, default=[], doc="If non-empty, only extract these fiberIds")
 
 
 class ExtractSpectraTask(pipeBase.Task):
@@ -28,8 +29,7 @@ class ExtractSpectraTask(pipeBase.Task):
         Parameters
         ----------
         maskedImage : `lsst.afw.image.MaskedImage`
-            Image from which to extract spectra; modified if
-            ``doSubtractContinuum`` is set.
+            Image from which to extract spectra.
         fiberTraceSet : `pfs.drp.stella.FiberTraceSet`
             Fiber traces to extract.
         detectorMap : `pfs.drp.stella.DetectorMap`, optional
@@ -42,43 +42,23 @@ class ExtractSpectraTask(pipeBase.Task):
         spectra : `pfs.drp.stella.SpectrumSet`
             Extracted spectra.
         """
-
         if self.debugInfo.display:
             display = afwDisplay.Display(frame=self.debugInfo.input_frame)
             fiberTraceSet.applyToMask(maskedImage.mask)
             display.mtv(maskedImage, "input")
-
+        if self.config.fiberIds:
+            # Extract only the fiberTraces we care about
+            num = sum(1 for ft in fiberTraceSet if ft.fiberId in self.config.fiberIds)
+            newTraces = drpStella.FiberTraceSet(num)
+            for ft in fiberTraceSet:
+                if ft.fiberId in self.config.fiberIds:
+                    newTraces.add(ft)
+            fiberTraceSet = newTraces
         spectra = self.extractAllSpectra(maskedImage, fiberTraceSet, detectorMap)
         return pipeBase.Struct(spectra=spectra)
 
     def extractAllSpectra(self, maskedImage, fiberTraceSet, detectorMap=None):
         """Extract all spectra in the fiberTraceSet
-
-        Parameters
-        ----------
-        maskedImage : `lsst.afw.image.MaskedImage`
-            Image from which to extract spectra; modified if
-            ``doSubtractContinuum`` is set.
-        fiberTraceSet : `pfs.drp.stella.FiberTraceSet`
-            Fiber traces to extract.
-        detectorMap : `pfs.drp.stella.DetectorMap`, optional
-            Map of expected detector coordinates to fiber, wavelength.
-            If provided, they will be used to normalise the spectrum
-            and provide a rough wavelength calibration.
-
-        Returns
-        -------
-        spectra : `pfs.drp.stella.SpectrumSet`
-            Extracted spectra.
-        """
-        spectra = drpStella.SpectrumSet(maskedImage.getHeight())
-        for fiberTrace in fiberTraceSet:
-            spectrum = self.extractSpectrum(maskedImage, fiberTrace, detectorMap)
-            spectra.add(spectrum)
-        return spectra
-
-    def extractSpectrum(self, maskedImage, fiberTrace, detectorMap=None):
-        """Extract a single spectrum from the image
 
         Parameters
         ----------
@@ -93,8 +73,32 @@ class ExtractSpectraTask(pipeBase.Task):
 
         Returns
         -------
+        spectra : `pfs.drp.stella.SpectrumSet`
+            Extracted spectra.
+        """
+        spectra = fiberTraceSet.extractSpectra(maskedImage)
+        for spectrum in spectra:
+            spectrum.setWavelength(detectorMap.getWavelength(spectrum.fiberId))
+        return spectra
+
+    def extractSpectrum(self, maskedImage, fiberTrace, detectorMap=None):
+        """Extract a single spectrum from the image
+
+        Parameters
+        ----------
+        maskedImage : `lsst.afw.image.MaskedImage`
+            Image from which to extract spectra.
+        fiberTrace : `pfs.drp.stella.FiberTrace`
+            Fiber traces to extract.
+        detectorMap : `pfs.drp.stella.DetectorMap`, optional
+            Map of expected detector coordinates to fiber, wavelength.
+            If provided, they will be used to normalise the spectrum
+            and provide a rough wavelength calibration.
+
+        Returns
+        -------
         spectrum : `pfs.drp.stella.SpectrumSet`
-            Extracted spectra, or `None` if the extraction failed.
+            Extracted spectra.
         """
         fiberId = fiberTrace.getFiberId()
         spectrum = fiberTrace.extractSpectrum(maskedImage, self.config.useOptimal)

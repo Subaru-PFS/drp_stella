@@ -119,7 +119,7 @@ class FindLinesTestCase(lsst.utils.tests.TestCase):
         self.assertFloatsAlmostEqual(np.array([ll.amplitude for ll in lines]), amplitudes, rtol=1.0e-4)
         self.assertFloatsAlmostEqual(np.array([ll.width for ll in lines]), widths, atol=1.0e-5)
         self.assertFloatsAlmostEqual(np.array([ll.flux for ll in lines]), widths*amplitudes*np.sqrt(2*np.pi),
-                                     rtol=2.0e-8)
+                                     rtol=1.0e-5)
         self.assertFloatsAlmostEqual(np.array([ll.fwhm for ll in lines]), 2*np.sqrt(2*np.log(2))*widths,
                                      atol=1.0e-4)
         self.assertFloatsAlmostEqual(np.array([ll.backgroundSlope for ll in lines]), 0.0, atol=1.0e-4)
@@ -188,14 +188,13 @@ class FindLinesTestCase(lsst.utils.tests.TestCase):
         """Test that bad fits are ignored"""
         length = 512
         centers = np.array([345.67])
-        noise = 43.21
-        spectrum = makeSpectrum(length, [], 0.0, 0.0, noise)  # No lines!
-
-        # Fitting noise makes the fitter spin its wheels and exceed the limit on the number of iterations
-        rng = np.random.RandomState(12345)
-        spectrum.spectrum += rng.normal(scale=noise, size=length)
+        spectrum = makeSpectrum(length, [], 0.0, 0.0, 0.0)  # No lines!
+        bad = "BAD"
+        maskVal = spectrum.mask.getPlaneBitMask(bad)
+        spectrum.mask.array[0] |= maskVal
 
         task = FindLinesTask()
+        task.config.mask = [bad]
         lines = task.fitLines(spectrum, centers)
 
         self.assertEqual(len(lines), 0)  # All failed

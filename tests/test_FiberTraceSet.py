@@ -13,6 +13,8 @@ import lsst.afw.image
 import lsst.afw.image.testUtils
 
 import pfs.drp.stella as drpStella
+from pfs.drp.stella.synthetic import makeSpectrumImage, SyntheticConfig, makeSyntheticDetectorMap
+from pfs.drp.stella.findAndTraceAperturesTask import FindAndTraceAperturesTask
 
 display = None
 
@@ -220,6 +222,116 @@ class FiberTraceSetTestCase(lsst.utils.tests.TestCase):
             raise  # Leave file for manual inspection
         else:
             os.unlink(filename)
+
+    def testExtractSpectra(self):
+        """Test that simultaneous extraction of many spectra works"""
+        config = SyntheticConfig()
+        config.height = 256
+        config.width = 128
+        config.separation = 6.54321
+        config.fwhm = 3.21
+        config.slope = 0.0
+
+        flux = 1.0e5
+        rtol = 2.0e-3
+
+        evenFlat = makeSpectrumImage(flux, config.dims, config.traceCenters[0::2],
+                                     config.traceOffset, config.fwhm)
+        oddFlat = makeSpectrumImage(flux, config.dims, config.traceCenters[1::2],
+                                    config.traceOffset, config.fwhm)
+        allFlat = makeSpectrumImage(flux, config.dims, config.traceCenters, config.traceOffset, config.fwhm)
+        detMap = makeSyntheticDetectorMap(config)
+
+        mask = lsst.afw.image.Mask(allFlat.getBBox())
+        mask.set(0)
+        variance = lsst.afw.image.ImageF(allFlat.getBBox())
+        variance.set(10000.0)
+
+        task = FindAndTraceAperturesTask()
+        task.config.finding.minLength = 200
+        task.config.finding.signalThreshold = 10
+        evenTraces = task.run(lsst.afw.image.makeMaskedImage(evenFlat, mask, variance), detMap)
+        oddTraces = task.run(lsst.afw.image.makeMaskedImage(oddFlat, mask, variance), detMap)
+
+        self.assertEqual(len(evenTraces), len(config.traceCenters[0::2]))
+        self.assertEqual(len(oddTraces), len(config.traceCenters[1::2]))
+
+        allTraces = drpStella.FiberTraceSet.fromCombination(evenTraces, oddTraces)
+        self.assertEqual(len(allTraces), config.numFibers)
+        for ft in allTraces:
+            ft.trace.image.array /= ft.trace.image.array.sum(axis=1)[:, np.newaxis]
+
+        # Vanilla extraction
+        spectra = allTraces.extractSpectra(lsst.afw.image.makeMaskedImage(allFlat, mask, variance))
+        self.assertEqual(len(spectra), config.numFibers)
+        for ii, ss in enumerate(spectra):
+            self.assertFloatsAlmostEqual(ss.spectrum, flux, rtol=rtol)
+            self.assertFloatsEqual(ss.mask.array, 0)
+            self.assertTrue(np.all(ss.variance > 0))
+            self.assertTrue(np.all(np.isfinite(ss.variance)))
+            self.assertTrue(np.all(np.isfinite(ss.covariance)))
+            if ii == 0:
+                self.assertTrue(np.all(ss.covariance[-1] == 0))
+                self.assertTrue(np.all(ss.covariance[0] != 0))
+                self.assertTrue(np.all(ss.covariance[1] != 0))
+            elif ii == config.numFibers - 1:
+                self.assertTrue(np.all(ss.covariance[-1] != 0))
+                self.assertTrue(np.all(ss.covariance[0] != 0))
+                self.assertTrue(np.all(ss.covariance[1] == 0))
+            else:
+                self.assertTrue(np.all(ss.covariance != 0))
+
+        # Ditto, with a row entirely bad
+        # Flux should be zero in the bad row, and it should be masked
+        bad = mask.getPlaneBitMask("BAD")
+        noData = mask.getPlaneBitMask("NO_DATA")
+        badRow = 123
+        isGood = np.arange(config.height) != badRow
+        mask.array[badRow, :] |= bad
+        spectra = allTraces.extractSpectra(lsst.afw.image.makeMaskedImage(allFlat, mask, variance), bad)
+        self.assertEqual(len(spectra), config.numFibers)
+        for ii, ss in enumerate(spectra):
+            self.assertFloatsAlmostEqual(ss.spectrum, np.where(np.arange(config.height) == badRow, 0.0, flux),
+                                         rtol=rtol)
+            self.assertFloatsEqual(ss.mask.array[0],
+                                   np.where(np.arange(config.height) == badRow, bad | noData, 0))
+            self.assertTrue(np.all(ss.variance[isGood] > 0))
+            if ii == 0:
+                self.assertTrue(np.all(ss.covariance[-1][isGood] == 0))
+                self.assertTrue(np.all(ss.covariance[0][isGood] != 0))
+                self.assertTrue(np.all(ss.covariance[1][isGood] != 0))
+            elif ii == config.numFibers - 1:
+                self.assertTrue(np.all(ss.covariance[-1][isGood] != 0))
+                self.assertTrue(np.all(ss.covariance[0][isGood] != 0))
+                self.assertTrue(np.all(ss.covariance[1][isGood] == 0))
+            else:
+                self.assertTrue(np.all(ss.covariance[:, isGood] != 0))
+
+        # Bad column on every trace
+        # Flux should still be reasonable, but everything should be masked
+        mask.array[:] = 0
+        for col in config.traceCenters:
+            mask.array[:, int(col)] = bad
+            allFlat.array[:, int(col)] = np.nan
+
+        spectra = allTraces.extractSpectra(lsst.afw.image.makeMaskedImage(allFlat, mask, variance), bad)
+        self.assertEqual(len(spectra), config.numFibers)
+        for ii, ss in enumerate(spectra):
+            self.assertFloatsAlmostEqual(ss.spectrum, flux, rtol=2*rtol)
+            self.assertFloatsEqual(ss.mask.array, bad)
+            self.assertTrue(np.all(ss.variance > 0))
+            self.assertTrue(np.all(np.isfinite(ss.variance)))
+            self.assertTrue(np.all(np.isfinite(ss.covariance)))
+            if ii == 0:
+                self.assertTrue(np.all(ss.covariance[-1] == 0))
+                self.assertTrue(np.all(ss.covariance[0] != 0))
+                self.assertTrue(np.all(ss.covariance[1] != 0))
+            elif ii == config.numFibers - 1:
+                self.assertTrue(np.all(ss.covariance[-1] != 0))
+                self.assertTrue(np.all(ss.covariance[0] != 0))
+                self.assertTrue(np.all(ss.covariance[1] == 0))
+            else:
+                self.assertTrue(np.all(ss.covariance != 0))
 
 
 class TestMemory(lsst.utils.tests.MemoryTestCase):
