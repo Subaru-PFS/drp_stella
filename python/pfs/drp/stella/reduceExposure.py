@@ -44,7 +44,7 @@ class ReduceExposureConfig(Config):
                              "This only works with Simulator files produced with the --allOutput flag")
     doMeasurePsf = Field(dtype=bool, default=False, doc="Measure PSF?")
     measurePsf = ConfigurableField(target=MeasurePsfTask, doc="Measure PSF")
-    doSubtractSky2d = Field(dtype=bool, default=True, doc="Subtract sky on 2D image?")
+    doSubtractSky2d = Field(dtype=bool, default=False, doc="Subtract sky on 2D image?")
     subtractSky2d = ConfigurableField(target=SubtractSky2dTask, doc="2D sky subtraction")
     doExtractSpectra = Field(dtype=bool, default=True, doc="Extract spectra from exposure?")
     extractSpectra = ConfigurableField(target=ExtractSpectraTask, doc="Extract spectra from exposure")
