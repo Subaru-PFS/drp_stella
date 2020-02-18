@@ -292,9 +292,9 @@ class WavelengthFitData:
 
 
 class CalibrateWavelengthsConfig(pexConfig.Config):
-    order = pexConfig.Field(doc="Fitting function order", dtype=int, default=6)
+    order = pexConfig.Field(doc="Fitting function order", dtype=int, default=3)
     nLinesKeptBack = pexConfig.Field(doc="Number of lines to withhold from line fitting to estimate errors",
-                                     dtype=int, default=4)
+                                     dtype=int, default=10)
     nSigmaClip = pexConfig.ListField(doc="Number of sigma to clip points in the initial wavelength fit",
                                      dtype=float, default=[10, 5, 4, 3])
     pixelPosErrorFloor = pexConfig.Field(doc="Floor on pixel positional errors, "
@@ -338,6 +338,8 @@ class CalibrateWavelengthsTask(pipeBase.Task):
         refLines = [rl for rl in spec.getReferenceLines() if
                     (rl.status & drpStella.ReferenceLine.Status.FIT) != 0 and
                     (rl.status & drpStella.ReferenceLine.Status.INTERPOLATED) == 0]
+        if len(refLines) == 0:
+            raise RuntimeError(f"No reference lines found for fiber {fiberId}")
 
         #
         # Unpack reference lines

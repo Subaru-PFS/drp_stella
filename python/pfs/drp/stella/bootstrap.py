@@ -25,8 +25,8 @@ class BootstrapConfig(Config):
     trace = ConfigurableField(target=FindAndTraceAperturesTask, doc="Task to trace apertures")
     minArcLineIntensity = Field(dtype=float, default=0, doc="Minimum 'NIST' intensity to use emission lines")
     findLines = ConfigurableField(target=FindLinesTask, doc="Find arc lines")
-    matchRadius = Field(dtype=float, default=5.0, doc="Line matching radius (nm)")
-    spatialOrder = Field(dtype=int, default=1, doc="Polynomial order in the spatial dimension")
+    matchRadius = Field(dtype=float, default=1.0, doc="Line matching radius (nm)")
+    spatialOrder = Field(dtype=int, default=2, doc="Polynomial order in the spatial dimension")
     spectralOrder = Field(dtype=int, default=1, doc="Polynomial order in the spectral dimension")
     rejIterations = Field(dtype=int, default=3, doc="Number of fitting iterations")
     rejThreshold = Field(dtype=float, default=3.0, doc="Rejection threshold (stdev)")
@@ -204,7 +204,7 @@ class BootstrapTask(CmdLineTask):
         """
         exposure = self.isr.runDataRef(arcRef).exposure
         detMap = arcRef.get("detectormap")
-        spectra = traces.extractSpectra(exposure.maskedImage, detMap, True)
+        spectra = traces.extractSpectra(exposure.maskedImage)
         yCenters = [self.findLines.runCentroids(ss).centroids for ss in spectra]
         xCenters = [self.centroidTrace(tt, yList) for tt, yList in zip(traces, yCenters)]
         lines = [[SimpleNamespace(fiberId=spectrum.fiberId, x=xx, y=yy, flux=spectrum.spectrum[int(yy + 0.5)])
@@ -322,17 +322,31 @@ class BootstrapTask(CmdLineTask):
         xx = np.array([detectorMap.findPoint(mm.obs.fiberId, mm.ref.wavelength)
                        for mm in matches]).T  # Where it should be
         yy = np.array([[mm.obs.x, mm.obs.y] for mm in matches]).T  # Where it is
+        diff = yy - xx
 
         if lsstDebug.Info(__name__).plotShifts:
             import matplotlib.pyplot as plt
+            import matplotlib.cm
+            from matplotlib.colors import Normalize
+            from mpl_toolkits.axes_grid1 import make_axes_locatable
+            cmap = matplotlib.cm.rainbow
+            mean = diff.mean(axis=1)
             fig = plt.figure()
             axes = fig.add_subplot(1, 1, 1)
-            axes.quiver(xx[0], xx[1], yy[0] - xx[0], yy[1] - yy[1])
+            divider = make_axes_locatable(axes)
+            cax = divider.append_axes('right', size='5%', pad=0.05)
+            magnitude = np.hypot(diff[0] - mean[0], diff[1] - mean[1])
+            norm = Normalize()
+            norm.autoscale(magnitude)
+            axes.quiver(xx[0], xx[1], diff[1] - mean[1], diff[0] - mean[0], color=cmap(norm(magnitude)))
             axes.set_xlabel("Spatial")
             axes.set_ylabel("Spectral")
+            axes.set_title("Vector dimensions swapped")
+            colors = matplotlib.cm.ScalarMappable(norm=norm, cmap=cmap)
+            colors.set_array([])
+            fig.colorbar(colors, cax=cax, orientation='vertical')
             plt.show()
 
-        diff = yy - xx
         self.log.info("Median difference from detectorMap: %f,%f pixels",
                       np.median(diff[0]), np.median(diff[1]))
 
@@ -347,6 +361,10 @@ class BootstrapTask(CmdLineTask):
 
         if lsstDebug.Info(__name__).plotResiduals:
             import matplotlib.pyplot as plt
+            import matplotlib.cm
+            from matplotlib.colors import Normalize
+            from mpl_toolkits.axes_grid1 import make_axes_locatable
+
             fig, axes = plt.subplots(2, 2)
 
             dSpatial = yy[0] - fitSpatial(xx[0], xx[1])
@@ -375,14 +393,23 @@ class BootstrapTask(CmdLineTask):
             plt.subplots_adjust()
             plt.show()
 
+            cmap = matplotlib.cm.rainbow
+            mean = diff.mean(axis=1)
             fig = plt.figure()
             axes = fig.add_subplot(1, 1, 1)
-            axes.quiver(xx[0][good], xx[1][good], yy[0][good] - xx[0][good], yy[1][good] - yy[1][good],
-                        color="k")
-            axes.quiver(xx[0][~good], xx[1][~good], yy[0][~good] - xx[0][~good], yy[1][~good] - yy[1][~good],
-                        color="r")
+            divider = make_axes_locatable(axes)
+            cax = divider.append_axes('right', size='5%', pad=0.05)
+            magnitude = np.hypot(diff[0] - mean[0], diff[1] - mean[1])
+            norm = Normalize()
+            norm.autoscale(magnitude[good])
+            axes.quiver(xx[0][good], xx[1][good], (diff[1] - mean[1])[good], (diff[0] - mean[0])[good],
+                        color=cmap(norm(magnitude[good])))
             axes.set_xlabel("Spatial")
             axes.set_ylabel("Spectral")
+            axes.set_title("Vector dimensions swapped")
+            colors = matplotlib.cm.ScalarMappable(norm=norm, cmap=cmap)
+            colors.set_array([])
+            fig.colorbar(colors, cax=cax, orientation='vertical')
             plt.show()
 
         # Update the detectorMap
