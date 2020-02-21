@@ -502,16 +502,24 @@ class CalibrateWavelengthsTask(pipeBase.Task):
         description = wlFitData.description
 
         lines = defaultdict(list)
+        species = defaultdict(list)
         for ff in sorted(set(wlFitData.fiberId)):
             select = fiberId == ff
             for ref, meas, descr in zip(refWavelength[select], fitWavelength[select], description[select]):
-                key = (ref, descr)
-                lines[key].append(meas)
+                diff = meas - ref
+                lines[(ref, descr)].append(diff)
+                species[descr].append(diff)
+
         for key in sorted(lines.keys()):
             actualWl, descr = key
-            fitWl = np.array(lines[key]) - actualWl
+            diff = np.array(lines[key])
             self.log.debug("Line %f (%s): %f +/- %f nm from %d",
-                           actualWl, descr, fitWl.mean(), fitWl.std(), len(fitWl))
+                           actualWl, descr, diff.mean(), diff.std(), len(diff))
+
+        for ss in species:
+            diff = np.array(species[ss])
+            self.log.debug("Species %s: %f +/- %f nm from %d",
+                           ss, diff.mean(), diff.std(), len(diff))
 
     def run(self, refLines, detectorMap, seed=1):
         """Run the wavelength calibration
