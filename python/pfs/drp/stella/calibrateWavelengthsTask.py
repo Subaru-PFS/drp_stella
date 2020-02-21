@@ -8,7 +8,6 @@ import lsst.pex.config as pexConfig
 import lsst.pipe.base as pipeBase
 import lsst.afw.display as afwDisplay
 import pfs.drp.stella as drpStella
-from pfs.drp.stella.utils import plotReferenceLines
 
 __all__ = ["CalibrateWavelengthsConfig", "CalibrateWavelengthsTask"]
 
@@ -34,25 +33,29 @@ class LineData(SimpleNamespace):
         Correction applied in wavelength fit.
     status : `pfs.drp.stella.ReferenceLine.Status`
         Flags whether the lines are fitted, clipped or reserved etc.
+    description : `str`
+        Line description (e.g., ionic species)
     """
     def __init__(self, fiberId, measuredPosition, measuredPositionErr, xCenter, refWavelength,
-                 fitWavelength, correction, status):
+                 fitWavelength, correction, status, description):
         return super().__init__(fiberId=fiberId, measuredPosition=measuredPosition,
                                 measuredPositionErr=measuredPositionErr, xCenter=xCenter,
                                 refWavelength=refWavelength, fitWavelength=fitWavelength,
-                                correction=correction, status=status)
+                                correction=correction, status=status, description=description)
 
     @classmethod
-    def fromSpectrum(cls, spectrum, detectorMap, correction):
-        """Construct a list of `LineData` from a spectrum and fit solution
+    def fromReferenceLines(cls, fiberId, refLines, detectorMap, correction):
+        """Construct a list of `LineData` from reference lines and fit solution
 
         Parameters
         ----------
-        spectrum : `pfs.drp.stella.Spectrum`
-            Extracted spectra, with lines identified.
+        fiberId : `int`
+            Fiber identifier for reference lines.
+        refLines : iterable of `pfs.drp.stella.ReferenceLine`
+            List of reference lines.
         detectorMap : `pfs.drp.stella.utils.DetectorMap`
             Mapping of wl,fiber to detector position.
-        correction : function taking `float` returning `float`
+        correction : function taking `float` returning `float`, optional
             Non-linear correction applied in wavelength fit.
 
         Returns
@@ -60,14 +63,10 @@ class LineData(SimpleNamespace):
         data : `list` of `LineData`
             List of line data.
         """
-        fiberId = spectrum.getFiberId()
-        refLines = (rl for rl in spectrum.getReferenceLines() if
-                    (rl.status & drpStella.ReferenceLine.Status.FIT) != 0 and
-                    (rl.status & drpStella.ReferenceLine.Status.INTERPOLATED) == 0)
         return [cls(fiberId, rl.fitPosition, rl.fitPositionErr,
                     detectorMap.findPoint(fiberId, rl.wavelength)[0], rl.wavelength,
                     detectorMap.findWavelength(fiberId, rl.fitPosition), correction(rl.fitPosition),
-                    rl.status) for rl in refLines]
+                    rl.status, rl.description) for rl in refLines]
 
 
 class WavelengthFitData:
@@ -123,6 +122,11 @@ class WavelengthFitData:
         """Array of status flags (`numpy.ndarray` of `int`)"""
         return np.array([ll.status for ll in self.lines])
 
+    @property
+    def description(self):
+        """Array of description (`numpy.ndarray` of `str`)"""
+        return np.array([ll.description for ll in self.lines])
+
     def __len__(self):
         """Number of lines"""
         return len(self.lines)
@@ -131,65 +135,44 @@ class WavelengthFitData:
         """Iterator"""
         return iter(self.lines)
 
-    @classmethod
-    def fromSpectrum(cls, spectrum, detectorMap, correction):
-        """Construct from a spectrum and fitting solution
+    def extend(self, lines):
+        """Extend the list of lines
 
         Parameters
         ----------
-        spectrum : `pfs.drp.stella.Spectrum`
-            Extracted spectra, with lines identified.
-        detectorMap : `pfs.drp.stella.utils.DetectorMap`
+        lines : iterable of `LineData`
+            List of lines to add.
+        """
+        self.lines.extend(lines)
+
+    @classmethod
+    def empty(cls):
+        """Construct an empty WavelengthFitData"""
+        return cls([])
+
+    @classmethod
+    def fromReferenceLines(cls, refLines, detectorMap, corrections):
+        """Construct from a list of reference lines and fitting solutions
+
+        Parameters
+        ----------
+        refLines : `dict` (`int`: iterable of `pfs.drp.stella.ReferenceLine`)
+            List of reference lines for each fiber.
+        detectorMap : `pfs.drp.stella.DetectorMap`
             Mapping of wl,fiber to detector position.
-        correction : function taking `float` returning `float`
-            Non-linear correction applied in wavelength fit.
+        corrections : `dict` (`int`: function taking `float` returning `float`)
+            Non-linear corrections applied in wavelength fit for each fiber.
 
         Returns
         -------
         self : cls
             Wavelength fit data.
         """
-        return cls(LineData.fromSpectrum(spectrum, detectorMap, correction))
-
-    @classmethod
-    def fromSpectrumSet(cls, spectra, detectorMap, corrections):
-        """Construct from spectra and fitting solutions
-
-        Parameters
-        ----------
-        spectra : `pfs.drp.stella.SpectrumSet`
-            Extracted spectra, with lines identified.
-        detectorMap : `pfs.drp.stella.utils.DetectorMap`
-            Mapping of wl,fiber to detector position.
-        correction : iterable of function taking `float` returning `float`
-            Non-linear correction applied in wavelength fit.
-
-        Returns
-        -------
-        self : cls
-            Wavelength fit data.
-        """
-        self = None
-        for ss, corr in zip(spectra, corrections):
-            if self is None:
-                self = cls.fromSpectrum(ss, detectorMap, corr)
-            else:
-                self.extendFromSpectrum(ss, detectorMap, corr)
+        self = cls.empty()
+        for fiberId in refLines:
+            self.extend(LineData.fromReferenceLines(fiberId, refLines[fiberId], detectorMap,
+                                                    corrections[fiberId]))
         return self
-
-    def extendFromSpectrum(self, spectrum, detectorMap, correction):
-        """Extend from a spectrum and fitting solution
-
-        Parameters
-        ----------
-        spectrum : `pfs.drp.stella.Spectrum`
-            Extracted spectra, with lines identified.
-        detectorMap : `pfs.drp.stella.utils.DetectorMap`
-            Mapping of wl,fiber to detector position.
-        correction : function taking `float` returning `float`
-            Non-linear correction applied in wavelength fit.
-        """
-        self.lines.extend(LineData.fromSpectrum(spectrum, detectorMap, correction))
 
     def residuals(self, fiberId=None):
         """Return wavelength residuals (nm)
@@ -262,9 +245,11 @@ class WavelengthFitData:
             fitWavelength = hdu.data["fitWavelength"]
             correction = hdu.data["correction"]
             status = hdu.data["status"]
+            description = hdu.data["description"]
 
         return cls([LineData(*args) for args in zip(fiberId, measuredPosition, measuredPositionErr, xCenter,
-                                                    refWavelength, fitWavelength, correction, status)])
+                                                    refWavelength, fitWavelength, correction, status,
+                                                    description)])
 
     def writeFits(self, filename):
         """Write to file
@@ -283,6 +268,7 @@ class WavelengthFitData:
             astropy.io.fits.Column(name="fitWavelength", format="E", array=self.fitWavelength),
             astropy.io.fits.Column(name="correction", format="E", array=self.correction),
             astropy.io.fits.Column(name="status", format="J", array=self.status),
+            astropy.io.fits.Column(name="description", format="A", array=self.description),
         ], name=self.fitsExtName)
         hdu.header["INHERIT"] = True
 
@@ -312,7 +298,7 @@ class CalibrateWavelengthsTask(pipeBase.Task):
         super().__init__(*args, **kwargs)
         self.debugInfo = lsstDebug.Info(__name__)
 
-    def fitWavelengthSolution(self, spec, detectorMap, rng=np.random):
+    def fitWavelengthSolution(self, fiberId, refLines, detectorMap, rng=np.random):
         """Fit wavelength solution for a spectrum
 
         Parameters
@@ -329,17 +315,14 @@ class CalibrateWavelengthsTask(pipeBase.Task):
         wavelengthCorr : `numpy.polynomial.chebyshev.Chebyshev`
             Non-linear fit solution.
         """
-        rows = np.arange(len(spec.wavelength), dtype='float32')
-        fiberId = spec.getFiberId()
+        numRows = detectorMap.bbox.getHeight()
+        rows = np.arange(numRows, dtype='float32')
         lam = detectorMap.getWavelength(fiberId)
         nmPerPix = (lam[-1] - lam[0])/(rows[-1] - rows[0])
         self.log.trace("FiberId %d, dispersion (nm/pixel) = %.3f" % (fiberId, nmPerPix))
 
-        refLines = [rl for rl in spec.getReferenceLines() if
-                    (rl.status & drpStella.ReferenceLine.Status.FIT) != 0 and
-                    (rl.status & drpStella.ReferenceLine.Status.INTERPOLATED) == 0]
         if len(refLines) == 0:
-            raise RuntimeError(f"No reference lines found for fiber {fiberId}")
+            raise RuntimeError(f"No reference lines provided for fiber {fiberId}")
 
         #
         # Unpack reference lines
@@ -377,7 +360,7 @@ class CalibrateWavelengthsTask(pipeBase.Task):
             use = good & ~reserved
 
             wavelengthCorr = np.polynomial.chebyshev.Chebyshev.fit(
-                x[use], y[use], self.config.order, domain=[0, len(spec.wavelength) - 1], w=1/yerr[use])
+                x[use], y[use], self.config.order, domain=[0, numRows - 1], w=1/yerr[use])
             yfit = wavelengthCorr(x)
 
             if nSigma is not None:
@@ -399,7 +382,7 @@ class CalibrateWavelengthsTask(pipeBase.Task):
         #
         # Correct the initial wavelength solution
         #
-        spec.wavelength = wavelengthCorr(rows).astype('float32') + detectorMap.getWavelength(fiberId)
+        solution = wavelengthCorr(rows).astype('float32') + detectorMap.getWavelength(fiberId)
 
         rmsFit = np.sqrt(np.sum(((y - yfit)**2)[use])/(use.sum() - self.config.order))
         rmsReserved = (y[reserved] - yfit[reserved]).std()
@@ -419,20 +402,20 @@ class CalibrateWavelengthsTask(pipeBase.Task):
 
             if dy > 0:
                 dy = int(dy)
-                spec.wavelength[:-dy] = spec.wavelength[dy:]
+                solution[:-dy] = solution[dy:]
             elif dy == 0:
                 pass
             else:
                 dy = -int(-dy)
-                spec.wavelength[dy:] = spec.wavelength[:-dy]
+                solution[dy:] = solution[:-dy]
 
-        diff = detectorMap.getWavelength(fiberId) - spec.wavelength
+        diff = detectorMap.getWavelength(fiberId) - solution
         self.log.info("Fiber %d: wavelength correction %f +/- %f nm" % (fiberId, diff.mean(), diff.std()))
-        detectorMap.setWavelength(fiberId, rows, spec.wavelength)
+        detectorMap.setWavelength(fiberId, rows, solution)
 
         return wavelengthCorr
 
-    def plot(self, spec, detectorMap, wavelengthCorr):
+    def plot(self, fiberId, refLines, detectorMap, wavelengthCorr):
         """Plot fit results
 
         Parameters
@@ -444,94 +427,66 @@ class CalibrateWavelengthsTask(pipeBase.Task):
         wavelengthCorr : `np.polynomial.chebyshev.Chebyshev`
             Wavelength solution.
         """
-        rows = np.arange(len(spec.wavelength), dtype='float32')
-        refLines = spec.getReferenceLines()
-        fiberId = spec.getFiberId()
+        rows = np.arange(detectorMap.bbox.getHeight(), dtype='float32')
 
-        if self.debugInfo.display and self.debugInfo.showFibers is not None:
+        if self.debugInfo.display:
             import matplotlib.pyplot as plt
 
             if self.debugInfo.showFibers and fiberId not in self.debugInfo.showFibers:
                 return
 
-            if self.debugInfo.plotWavelengthResiduals:
-                #
-                # x is a nominal position which we used as an index for the Chebyshev fit.
-                # This makes the plot confusing, so update it
-                #
-                x = np.array([rl.fitPosition for rl in refLines])  # Pixel position
-                yTrue = np.array([rl.wavelength for rl in refLines])  # True position of line
-                yLinearResid = wavelengthCorr(x)
-                yFit = np.array([detectorMap.findWavelength(fiberId, rl.fitPosition) for rl in refLines])
-                yResid = yFit - yTrue
-                status = np.array([rl.status for rl in refLines])
+            #
+            # x is a nominal position which we used as an index for the Chebyshev fit.
+            # This makes the plot confusing, so update it
+            #
+            x = np.array([rl.fitPosition for rl in refLines])  # Pixel position
+            yTrue = np.array([rl.wavelength for rl in refLines])  # True position of line
+            yLinearResid = wavelengthCorr(x)
+            yFit = np.array([detectorMap.findWavelength(fiberId, rl.fitPosition) for rl in refLines])
+            yResid = yFit - yTrue
+            status = np.array([rl.status for rl in refLines])
 
-                # things we're going to plot: logical, marker, colour, label
-                dataItems = [((status & drpStella.ReferenceLine.FIT) > 0, 'o', 'green', 'used'),
-                             ((status & drpStella.ReferenceLine.RESERVED) > 0, 'o', 'blue', 'reserved'),
-                             ((status & drpStella.ReferenceLine.CLIPPED) > 0, '+', 'red', 'clipped'),
-                             ]
+            # things we're going to plot: logical, marker, colour, label
+            dataItems = [((status & drpStella.ReferenceLine.FIT) > 0, 'o', 'green', 'used'),
+                         ((status & drpStella.ReferenceLine.RESERVED) > 0, 'o', 'blue', 'reserved'),
+                         ((status & drpStella.ReferenceLine.CLIPPED) > 0, '+', 'red', 'clipped'),
+                         ]
 
-                plt.figure().subplots_adjust(hspace=0)
+            plt.figure().subplots_adjust(hspace=0)
 
-                axes = []
-                axes.append(plt.subplot2grid((4, 1), (0, 0)))
-                axes.append(plt.subplot2grid((4, 1), (1, 0), sharex=axes[-1]))
-                axes.append(plt.subplot2grid((4, 1), (2, 0), rowspan=2, sharex=axes[-1]))
+            axes = []
+            axes.append(plt.subplot2grid((4, 1), (0, 0)))
+            axes.append(plt.subplot2grid((4, 1), (1, 0), sharex=axes[-1]))
+            axes.append(plt.subplot2grid((4, 1), (2, 0), rowspan=2, sharex=axes[-1]))
 
-                ax = axes[0]
-                for l, marker, color, label in dataItems:
-                    ax.errorbar(x[l], yLinearResid[l] + yResid[l], marker=marker, ls='none', color=color)
-                ax.plot(rows, wavelengthCorr(rows))
+            ax = axes[0]
+            for l, marker, color, label in dataItems:
+                ax.errorbar(x[l], yLinearResid[l] + yResid[l], marker=marker, ls='none', color=color)
+            ax.plot(rows, wavelengthCorr(rows))
 
-                ax.axhline(0, ls=':', color='black')
-                ax.set_ylabel('Linear fit residuals (nm)')
+            ax.axhline(0, ls=':', color='black')
+            ax.set_ylabel('Linear fit residuals (nm)')
 
-                ax.set_title("FiberId %d" % fiberId)  # applies to the whole plot
+            ax.set_title("FiberId %d" % fiberId)  # applies to the whole plot
 
-                ax = axes[1]
-                for l, marker, color, label in dataItems:
-                    if l.sum() > 0:  # no points confuses plt.legend()
-                        ax.errorbar(x[l], yResid[l], marker=marker, ls='none', color=color, label=label)
-                ax.axhline(0, ls=':', color='black')
-                ax.set_ylabel("Fit residuals (nm)")
+            ax = axes[1]
+            for l, marker, color, label in dataItems:
+                if l.sum() > 0:  # no points confuses plt.legend()
+                    ax.errorbar(x[l], yResid[l], marker=marker, ls='none', color=color, label=label)
+            ax.axhline(0, ls=':', color='black')
+            ax.set_ylabel("Fit residuals (nm)")
 
-                ax = axes[2]
-                for l, marker, color, label in dataItems:
-                    if l.sum() > 0:  # no points confuses plt.legend()
-                        ax.errorbar(x[l], yTrue[l], marker=marker, ls='none', color=color, label=label)
-                ax.plot(rows, spec.wavelength)
+            ax = axes[2]
+            for l, marker, color, label in dataItems:
+                if l.sum() > 0:  # no points confuses plt.legend()
+                    ax.errorbar(x[l], yTrue[l], marker=marker, ls='none', color=color, label=label)
+            ax.plot(rows, detectorMap.getWavelength(fiberId))
 
-                ax.legend(loc='best')
-                ax.set_xlabel('pixel')  # applies to the whole plot
-                ax.set_ylabel('wavelength (nm)')
+            ax.legend(loc='best')
+            ax.set_xlabel('pixel')  # applies to the whole plot
+            ax.set_ylabel('wavelength (nm)')
 
-                plt.show()
-
-            if self.debugInfo.plotArcLinesRow:
-                plt.plot(rows, spec.spectrum)
-                xlim = plt.xlim()
-                plotReferenceLines(spec.getReferenceLines(), "guessedPosition", alpha=0.1,
-                                   labelLines=True, labelStatus=False)
-                plotReferenceLines(spec.getReferenceLines(), "fitPosition", ls='-', alpha=0.5,
-                                   labelLines=True, labelStatus=True)
-
-                plt.xlim(xlim)
-                plt.legend(loc='best')
-                plt.xlabel('row')
-                plt.title("FiberId %d" % fiberId)
-                plt.show()
-
-            if self.debugInfo.plotArcLinesLambda:
-                plt.plot(spec.wavelength, spec.spectrum)
-                xlim = plt.xlim()
-                plotReferenceLines(spec.getReferenceLines(), "wavelength", ls='-', alpha=0.5,
-                                   labelLines=True, wavelength=spec.wavelength, spectrum=spec.spectrum)
-                plt.xlim(xlim)
-                plt.legend(loc='best')
-                plt.xlabel("Wavelength (vacuum nm)")
-                plt.title("FiberId %d" % fiberId)
-                plt.show()
+            plt.show()
 
     def measureStatistics(self, wlFitData):
         """Measure some statistics about the solution
@@ -544,25 +499,29 @@ class CalibrateWavelengthsTask(pipeBase.Task):
         fiberId = wlFitData.fiberId
         refWavelength = wlFitData.refWavelength
         fitWavelength = wlFitData.fitWavelength
+        description = wlFitData.description
 
         lines = defaultdict(list)
         for ff in sorted(set(wlFitData.fiberId)):
             select = fiberId == ff
-            for ref, meas in zip(refWavelength[select], fitWavelength[select]):
-                lines[ref].append(meas)
-        for actualWl in sorted(lines.keys()):
-            fitWl = np.array(lines[actualWl]) - actualWl
-            self.log.debug("Line %f: %f +/- %f from %d" % (actualWl, fitWl.mean(), fitWl.std(), len(fitWl)))
+            for ref, meas, descr in zip(refWavelength[select], fitWavelength[select], description[select]):
+                key = (ref, descr)
+                lines[key].append(meas)
+        for key in sorted(lines.keys()):
+            actualWl, descr = key
+            fitWl = np.array(lines[key]) - actualWl
+            self.log.debug("Line %f (%s): %f +/- %f nm from %d",
+                           actualWl, descr, fitWl.mean(), fitWl.std(), len(fitWl))
 
-    def run(self, spectrumSet, detectorMap, seed=1):
+    def run(self, refLines, detectorMap, seed=1):
         """Run the wavelength calibration
 
         Assumes that line identification has been done already.
 
         Parameters
         ----------
-        spectrumSet : `pfs.drp.stella.SpectrumSet`
-            Set of extracted spectra.
+        refLines : `dict` (`int`: iterable of `pfs.drp.stella.ReferenceLine`)
+            Mapping of fiber identifier to a list of measured lines.
         detectorMap : `pfs.drp.stella.utils.DetectorMap`
             Mapping of wl,fiber to detector position.
         seed : `int`
@@ -575,22 +534,21 @@ class CalibrateWavelengthsTask(pipeBase.Task):
         """
         rng = np.random.RandomState(seed)  # Used for random selection of lines to reserve from the fit
         if self.debugInfo.display and self.debugInfo.showArcLines:
-            display = afwDisplay.Display(self.debugInfo.arc_frame)
+            display = afwDisplay.Display(self.debugInfo.frame)
             display.erase()
 
-        corrections = []
-        for spec in spectrumSet:
-            wavelengthCorr = self.fitWavelengthSolution(spec, detectorMap, rng)
-            corrections.append(wavelengthCorr)
+        corrections = {}
+        for fiberId in sorted(refLines.keys()):
+            corrections[fiberId] = self.fitWavelengthSolution(fiberId, refLines[fiberId], detectorMap, rng)
             if self.debugInfo.display:
-                self.plot(spec, detectorMap, wavelengthCorr)
+                self.plot(fiberId, refLines[fiberId], detectorMap, corrections[fiberId])
 
-        wlFitData = WavelengthFitData.fromSpectrumSet(spectrumSet, detectorMap, corrections)
+        wlFitData = WavelengthFitData.fromReferenceLines(refLines, detectorMap, corrections)
         self.measureStatistics(wlFitData)
 
         return wlFitData
 
-    def runDataRef(self, dataRef, spectrumSet, detectorMap, seed=1):
+    def runDataRef(self, dataRef, refLines, detectorMap, seed=1):
         """Run the wavelength calibration
 
         Assumes that line identification has been done already.
@@ -599,8 +557,8 @@ class CalibrateWavelengthsTask(pipeBase.Task):
         ----------
         dataRef : `lsst.daf.persistence.ButlerDataRef`
             Butler data reference.
-        spectrumSet : `pfs.drp.stella.SpectrumSet`
-            Set of extracted spectra.
+        refLines : `dict` (`int`: iterable of `pfs.drp.stella.ReferenceLine`)
+            Mapping of fiber identifier to a list of measured lines.
         detectorMap : `pfs.drp.stella.utils.DetectorMap`
             Mapping of wl,fiber to detector position.
         seed : `int`
@@ -611,7 +569,7 @@ class CalibrateWavelengthsTask(pipeBase.Task):
         wlFitData : `WavelengthFitData`
             Data on quality of the wavelength fit.
         """
-        wlFitData = self.run(spectrumSet, detectorMap, seed=seed)
+        wlFitData = self.run(refLines, detectorMap, seed=seed)
         dataRef.put(wlFitData, "wlFitData")
         return wlFitData
 

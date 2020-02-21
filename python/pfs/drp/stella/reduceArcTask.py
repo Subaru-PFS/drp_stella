@@ -13,7 +13,7 @@ from .identifyLines import IdentifyLinesTask
 from .utils import readLineListFile
 from .images import getIndices
 from lsst.obs.pfs.utils import getLampElements
-from pfs.drp.stella import Spectrum, SpectrumSet
+from pfs.drp.stella.utils import plotReferenceLines
 
 
 __all__ = ["ReduceArcConfig", "ReduceArcTask"]
@@ -137,7 +137,20 @@ class ReduceArcTask(CmdLineTask):
     def runDataRef(self, dataRef, lineListFilename):
         """Entry point for scatter stage
 
-        Extracts spectra from the exposure pointed to by the ``dataRef``.
+        Extracts spectra from the exposure pointed to by the ``dataRef``,
+        centroids and identifies lines.
+
+        Debug parameters include:
+
+        - ``display`` (`bool`): Activate displays and plotting (master switch)?
+        - ``frame`` (`dict` mapping `int` to `int`): Display frame to use as a
+            function of visit.
+        - ``backend`` (`str`): Display backend name.
+        - ``displayIdentifications`` (`bool`): Display image with lines
+            identified?
+        - ``displayCalibrations`` (`bool`): Plot calibration results? See the
+            ``plotCalibrations`` method for additional debug parameters
+            controlling these plots.
 
         Parameters
         ----------
@@ -165,18 +178,25 @@ class ReduceArcTask(CmdLineTask):
             raise RuntimeError("No lamps found from metadata")
         lines = self.readLineList(lamps, lineListFilename)
         results = self.reduceExposure.runDataRef([dataRef])
+        assert len(results.spectraList) == 1, "Single in, single out"
+        spectra = results.spectraList[0]
+        exposure = results.exposureList[0]
+        detectorMap = results.detectorMapList[0]
 
         if self.config.doUpdateCenters:
             for fiberTraces, detectorMap in zip(results.fiberTraceList, results.detectorMapList):
                 self.updateCenters(fiberTraces, detectorMap)
 
-        self.identifyLines.run(results.spectraList[0], results.detectorMapList[0], lines)
+        self.identifyLines.run(spectra, detectorMap, lines)
+        if self.debugInfo.display and self.debugInfo.displayIdentifications:
+            frame = self.debugInfo.frame[dataRef.dataId["visit"]] if self.debugInfo.frame is not None else 1
+            self.plotIdentifications(self.debugInfo.backend or "ds9", exposure, spectra, detectorMap, frame)
+
         return Struct(
-            spectra=results.spectraList[0],
-            detectorMap=results.detectorMapList[0],
-            visitInfo=results.exposureList[0].getInfo().getVisitInfo(),
+            spectra=spectra,
+            detectorMap=detectorMap,
+            visitInfo=exposure.getInfo().getVisitInfo(),
             metadata=metadata,
-            lamps=lamps,
         )
 
     def gather(self, dataRef, results, lineListFilename):
@@ -195,62 +215,21 @@ class ReduceArcTask(CmdLineTask):
         """
         if len(results) == 0:
             raise RuntimeError("No input spectra")
-        spectra = [rr.spectra for rr in results if rr is not None]
         detectorMap = next(rr.detectorMap for rr in results if rr is not None)  # All identical
         visitInfo = next(rr.visitInfo for rr in results if rr is not None)  # More or less identical
         metadata = next(rr.metadata for rr in results if rr is not None)  # More or less identical
-        lamps = set(sum((rr.lamps for rr in results if rr is not None), []))
 
-        spectrumSet = self.coaddSpectra(spectra)
-        arcLines = self.readLineList(lamps, lineListFilename)
-        self.identifyLines.run(spectrumSet, detectorMap, arcLines)
-        self.calibrateWavelengths.runDataRef(dataRef, spectrumSet, detectorMap,
+        refLines = defaultdict(list)  # Maps fiberId --> list of lines
+        for rr in results:
+            for ss in rr.spectra:
+                refLines[ss.fiberId].extend(ss.getGoodReferenceLines())
+
+        self.calibrateWavelengths.runDataRef(dataRef, refLines, detectorMap,
                                              seed=dataRef.get("ccdExposureId"))
-        self.write(dataRef, spectrumSet, detectorMap, metadata, visitInfo)
-        if self.debugInfo.display:
-            self.plot(spectrumSet, detectorMap, arcLines)
-
-    def coaddSpectra(self, spectra):
-        """Coadd multiple SpectrumSets
-
-        Adds the wavelength, spectrum, background, covar and reference lines
-        of the input `SpectrumSet`s for each fiber.
-
-        XXX need to make a set of lines, not a list
-
-        Parameters
-        ----------
-        spectra : `list` of `pfs.drp.stella.SpectrumSet`
-            List of extracted spectra for different exposures.
-
-        Returns
-        -------
-        result : `pfs.drp.stella.SpectrumSet`
-            Coadded spectra.
-        """
-        numFibers = set(len(ss) for ss in spectra)
-        assert len(numFibers) == 1, "Same number of numFibers in each SpectrumSet"
-        numFibers = numFibers.pop()
-        length = set(ss.getLength() for ss in spectra)
-        assert len(length) == 1, "Same length in each SpectrumSet"
-        length = length.pop()
-
-        result = SpectrumSet(numFibers, length)
-        for ii in range(numFibers):
-            inputs = [ss[ii] for ss in spectra]
-            fiberId = set([ss.getFiberId() for ss in inputs])
-            if len(fiberId) > 1:
-                raise RuntimeError("Multiple fiber IDs (%s) for spectrum %d" % (fiberId, ii))
-            coadd = Spectrum(inputs[0].getNumPixels(), fiberId.pop())
-            # Coadd the various elements of the spectrum
-            for elem in ("Wavelength", "Spectrum", "Background", "Covariance"):
-                element = getattr(inputs[0], "get" + elem)()
-                for ss in inputs[1:]:
-                    element += getattr(ss, "get" + elem)()
-                getattr(coadd, "set" + elem)(element)
-            coadd.wavelength /= len(inputs)  # the only element that needs to be averaged instead of summed
-            result[ii] = coadd
-        return result
+        self.write(dataRef, detectorMap, metadata, visitInfo)
+        if self.debugInfo.display and self.debugInfo.displayCalibrations:
+            for rr in results:
+                self.plotCalibrations(rr.spectra, detectorMap)
 
     def readLineList(self, lamps, lineListFilename):
         """Read the arc line list from file
@@ -270,15 +249,13 @@ class ReduceArcTask(CmdLineTask):
         self.log.info("Arc lamp elements are: %s", " ".join(lamps))
         return readLineListFile(lineListFilename, lamps, minIntensity=self.config.minArcLineIntensity)
 
-    def write(self, dataRef, spectrumSet, detectorMap, metadata, visitInfo):
+    def write(self, dataRef, detectorMap, metadata, visitInfo):
         """Write outputs
 
         Parameters
         ----------
         dataRef : `lsst.daf.persistence.ButlerDataRef`
             Data reference.
-        spectrumSet : `pfs.drp.stella.SpectrumSet`
-            Set of extracted spectra.
         detectorMap : `pfs.drp.stella.utils.DetectorMap`
             Mapping of wl,fiber to detector position.
         metadata : `lsst.daf.base.PropertySet`
@@ -287,9 +264,6 @@ class ReduceArcTask(CmdLineTask):
             Visit information for exposure.
         """
         self.log.info("Writing output for %s", dataRef.dataId)
-        # XXX set metadata in spectrumSet
-        dataRef.put(spectrumSet, "pfsArm")
-
         detectorMap.setVisitInfo(visitInfo)
         visit0 = dataRef.dataId["visit"]
         calibId = detectorMap.metadata.get("CALIB_ID")
@@ -316,30 +290,84 @@ class ReduceArcTask(CmdLineTask):
         """
         return sorted(dataRefList, key=lambda dataRef: dataRef.dataId["visit"])[0]
 
-    def plot(self, spectrumSet, detectorMap, arcLines):
-        """Plot results
+    def plotIdentifications(self, backend, exposure, spectrumSet, detectorMap, frame=1):
+        """Plot line identifications
+
+        Parameters
+        ----------
+        exposure : `lsst.afw.image.Exposure`
+            Arc image.
+        spectrum : `pfs.drp.stella.SpectrumSet`
+            Set of extracted spectra.
+        detectorMap : `pfs.drp.stella.utils.DetectorMap`
+            Mapping of wl,fiber to detector position.
+        """
+        display = afwDisplay.Display(frame, backend=backend)
+        display.mtv(exposure)
+        for spec in spectrumSet:
+            fiberId = spec.getFiberId()
+            refLines = spec.getGoodReferenceLines()
+            with display.Buffering():
+                # Label fibers
+                y = 0.5*len(spec)
+                x = detectorMap.getXCenter(fiberId, y)
+                display.dot(str(fiberId), x, y, ctype='green')
+
+                # Plot arc lines
+                for rl in refLines:
+                    yActual = rl.fitPosition
+                    xActual = detectorMap.getXCenter(fiberId, yActual)
+                    display.dot('o', xActual, yActual, ctype='blue')
+                    xExpect, yExpect = detectorMap.findPoint(fiberId, rl.wavelength)
+                    display.dot('x', xExpect, yExpect, ctype='red')
+
+    def plotCalibrations(self, spectrumSet, detectorMap):
+        """Plot wavelength calibration results
+
+        Important debug parameters:
+
+        - ``fiberId`` (iterable of `int`): fibers to plot, if set.
+        - ``plotCalibrationsRows`` (`bool`): plot spectrum as a function of
+          rows?
+        - ``plotCalibrationsWavelength`` (`bool`): plot spectrum as a function
+          of wavelength?
 
         Parameters
         ----------
         spectrumSet : `pfs.drp.stella.SpectrumSet`
-            Set of extracted spectra.
-        detectorMap : `pfs.drp.stella.utils.DetectorMap`
+            Spectra that have been wavelength-calibrated.
+        detectorMap : `pfs.drp.stella.DetectorMap`
             Mapping of wl,fiber to detector position.
-        arcLines : `list` of `pfs.drp.stella.ReferenceLine`
-            List of reference lines.
         """
-        display = afwDisplay.Display(self.debugInfo.arc_frame)
-        if self.debugInfo.display and self.debugInfo.arc_frame >= 0 and self.debugInfo.showArcLines:
-            for spec in spectrumSet:
-                fiberId = spec.getFiberId()
+        import matplotlib.pyplot as plt
+        for spectrum in spectrumSet:
+            if self.debugInfo.fiberId and spectrum.fiberId not in self.debugInfo.fiberId:
+                continue
+            if self.debugInfo.plotCalibrationsRows:
+                rows = np.arange(detectorMap.bbox.getHeight(), dtype=float)
+                plt.plot(rows, spectrum.spectrum)
+                xlim = plt.xlim()
+                plotReferenceLines(spectrum.referenceLines, "guessedPosition", alpha=0.1,
+                                   labelLines=True, labelStatus=False)
+                plotReferenceLines(spectrum.referenceLines, "fitPosition", ls='-', alpha=0.5,
+                                   labelLines=True, labelStatus=True)
+                plt.xlim(xlim)
+                plt.legend(loc='best')
+                plt.xlabel('row')
+                plt.title(f"FiberId {spectrum.fiberId}")
+                plt.show()
 
-                x = detectorMap.findPoint(fiberId, arcLines[0].wavelength)[0]
-                y = 0.5*len(spec)
-                display.dot(str(fiberId), x, y + 10*(fiberId % 2), ctype='blue')
-
-                for rl in arcLines:
-                    x, y = detectorMap.findPoint(fiberId, rl.wavelength)
-                    display.dot('o', x, y, ctype='blue')
+            if self.debugInfo.plotCalibrationsWavelength:
+                plt.plot(spectrum.wavelength, spectrum.spectrum)
+                xlim = plt.xlim()
+                plotReferenceLines(spectrum.referenceLines, "wavelength", ls='-', alpha=0.5,
+                                   labelLines=True, wavelength=spectrum.wavelength,
+                                   spectrum=spectrum.spectrum)
+                plt.xlim(xlim)
+                plt.legend(loc='best')
+                plt.xlabel("Wavelength (vacuum nm)")
+                plt.title(f"FiberId {spectrum.fiberId}")
+                plt.show()
 
     def updateCenters(self, fiberTraces, detectorMap):
         """Update the xCenter values in the detectorMap from the fiberTrace
