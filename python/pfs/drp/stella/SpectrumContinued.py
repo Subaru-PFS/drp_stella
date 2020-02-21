@@ -174,3 +174,15 @@ class Spectrum:
             Corresponding wavelength value(s).
         """
         return interpolate.interp1d(np.arange(len(self)), self.wavelength, assume_sorted=True)(pixels)
+
+    def getGoodReferenceLines(self):
+        """Return reference lines with good measurements
+
+        Returns
+        -------
+        refLines : `list` of `pfs.drp.stella.ReferenceLine`
+            Reference lines with good measurements.
+        """
+        return [rl for rl in self.referenceLines if
+                (rl.status & ReferenceLine.Status.FIT) != 0 and
+                (rl.status & ReferenceLine.Status.INTERPOLATED) == 0]
