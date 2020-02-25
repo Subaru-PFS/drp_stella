@@ -1,8 +1,5 @@
-import os
 
-import numpy as np
-
-from lsst.utils import continueClass, getPackageDir
+from lsst.utils import continueClass
 from lsst.afw.fits import MemFileManager
 from lsst.afw.detection import Psf
 

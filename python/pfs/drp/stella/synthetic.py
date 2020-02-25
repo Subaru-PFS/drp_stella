@@ -286,8 +286,8 @@ def makeSyntheticPfsConfig(config, pfsDesignId, visit, rng=None,
     numObject = numFibers - numSky - numFluxStd
 
     targetType = np.array([int(TargetType.SKY)]*numSky +
-                            [int(TargetType.FLUXSTD)]*numFluxStd +
-                            [int(TargetType.SCIENCE)]*numObject)
+                          [int(TargetType.FLUXSTD)]*numFluxStd +
+                          [int(TargetType.SCIENCE)]*numObject)
     rng.shuffle(targetType)
 
     fiberMag = [np.array([22.0, 23.5, 25.0, 26.0] if

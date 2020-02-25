@@ -1,5 +1,4 @@
 import math
-import numpy as np
 
 from lsst.pex.config import Field, ConfigurableField
 from lsst.daf.persistence import NoResults
