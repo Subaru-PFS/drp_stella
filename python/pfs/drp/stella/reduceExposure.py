@@ -53,9 +53,10 @@ class ReduceExposureConfig(Config):
     fiberDx = Field(doc="DetectorMap slit offset in x", dtype=float, default=0)
     fiberDy = Field(doc="DetectorMap slit offset in y", dtype=float, default=0)
     doWriteCalexp = Field(dtype=bool, default=False, doc="Write corrected frame?")
-    doWritePsf = Field(dtype=bool, default=False, doc="Write point-spread function?")
     doWriteLsf = Field(dtype=bool, default=False, doc="Write line-spread function?")
     doWriteArm = Field(dtype=bool, default=True, doc="Write PFS arm file?")
+    usePostIsrCcd = Field(dtype=bool, default=False, doc="Use existing postISRCCD, if available?")
+    useCalexp = Field(dtype=bool, default=False, doc="Use existing calexp, if available?")
 
 
 class ReduceExposureRunner(TaskRunner):
@@ -178,28 +179,41 @@ class ReduceExposureTask(CmdLineTask):
             Mappings of wl,fiber to detector position.
         """
         self.log.info("Processing %s" % ([sensorRef.dataId for sensorRef in sensorRefList]))
-
-        exposureList = []
-        psfList = []
-        lsfList = []
-        for sensorRef in sensorRefList:
-            exposure = self.runIsr(sensorRef)
-            if self.config.doRepair:
-                self.repairExposure(exposure)
-            if self.config.doSkySwindle:
-                self.skySwindle(sensorRef, exposure.image)
-            exposureList.append(exposure)
-
         fiberTraceList = [self.getFiberTraces(sensorRef) for sensorRef in sensorRefList]
         detectorMapList = [self.getDetectorMap(sensorRef) for sensorRef in sensorRefList]
         pfsConfig = sensorRefList[0].get("pfsConfig")
 
-        if self.config.doMeasurePsf:
-            psfList = self.measurePsf.run(sensorRefList, exposureList, detectorMapList)
-            lsfList = [self.calculateLsf(psf) for psf in psfList]
-        else:
-            psfList = [None]*len(sensorRefList)
-            lsfList = [None]*len(sensorRefList)
+        exposureList = []
+        psfList = []
+        lsfList = []
+        sky2d = None
+        if self.config.useCalexp:
+            if all(sensorRef.datasetExists("calexp") for sensorRef in sensorRefList):
+                self.log.info("Reading existing calexps")
+                exposureList = [sensorRef.get("calexp") for sensorRef in sensorRefList]
+                psfList = [exp.getPsf() for exp in exposureList]
+            else:
+                self.log.warn("Not retrieving calexps, despite 'useCalexp' config, since some are missing")
+
+        if not exposureList:
+            for sensorRef in sensorRefList:
+                exposure = self.runIsr(sensorRef)
+                if self.config.doRepair:
+                    self.repairExposure(exposure)
+                if self.config.doSkySwindle:
+                    self.skySwindle(sensorRef, exposure.image)
+                exposureList.append(exposure)
+
+            if self.config.doMeasurePsf:
+                psfList = self.measurePsf.run(sensorRefList, exposureList, detectorMapList)
+                lsfList = [self.calculateLsf(psf) for psf in psfList]
+            else:
+                psfList = [None]*len(sensorRefList)
+                lsfList = [None]*len(sensorRefList)
+
+            if self.config.doSubtractSky2d:
+                sky2d = self.subtractSky2d.run(exposureList, pfsConfig, psfList,
+                                               fiberTraceList, detectorMapList)
 
         results = Struct(
             exposureList=exposureList,
@@ -208,11 +222,8 @@ class ReduceExposureTask(CmdLineTask):
             psfList=psfList,
             lsfList=lsfList,
             pfsConfig=pfsConfig,
+            sky2d=sky2d,
         )
-
-        if self.config.doSubtractSky2d:
-            results.sky2d = self.subtractSky2d.run(exposureList, pfsConfig, psfList,
-                                                   fiberTraceList, detectorMapList)
 
         if self.config.doExtractSpectra:
             originalList = []
@@ -251,6 +262,12 @@ class ReduceExposureTask(CmdLineTask):
         exposure : `lsst.afw.image.Exposure`
             Sensor image after ISR has been applied.
         """
+        if self.config.usePostIsrCcd:
+            if sensorRef.datasetExists("postISRCCD"):
+                self.log.info("Reusing existing postISRCCD for %s", sensorRef.dataId)
+                return sensorRef.get("postISRCCD")
+            self.log.warn("Not retrieving postISRCCD for %s, despite 'usePostIsrCcd' config, "
+                          "since it is missing", sensorRef.dataId)
         exposure = self.isr.runDataRef(sensorRef).exposure
         # Remove negative variance (because we can have very low count levels)
         bad = np.where(exposure.variance.array < 0)
@@ -274,12 +291,6 @@ class ReduceExposureTask(CmdLineTask):
         if self.config.doWriteCalexp:
             for sensorRef, exposure in zip(sensorRefList, results.exposureList):
                 sensorRef.put(exposure, "calexp")
-        if self.config.doWritePsf:
-            for sensorRef, psf in zip(sensorRefList, results.psfList):
-                if psf is None:
-                    self.log.warn("Can't write PSF for %s" % (sensorRef.dataId,))
-                    continue
-                sensorRef.put(psf, "psf")
         if self.config.doWriteLsf:
             for sensorRef, lsf in zip(sensorRefList, results.lsfList):
                 if lsf is None:
