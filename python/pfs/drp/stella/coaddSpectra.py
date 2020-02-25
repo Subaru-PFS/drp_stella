@@ -4,7 +4,7 @@ from collections import defaultdict, Counter
 
 from lsst.pex.config import Config, Field, ConfigurableField, ListField, ConfigField
 from lsst.pipe.base import CmdLineTask, ArgumentParser, TaskRunner, Struct
-from lsst.afw.geom import SpherePoint, averageSpherePoint, degrees
+from lsst.geom import SpherePoint, averageSpherePoint, degrees
 
 from pfs.datamodel import TargetData, TargetObservations, FluxTable
 from pfs.datamodel.drp import PfsObject, PfsSpectrum

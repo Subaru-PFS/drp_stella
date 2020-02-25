@@ -329,7 +329,7 @@ class DetectorMapSlitOffsetsTestCase(lsst.utils.tests.TestCase):
     xCenter and wavelength move as expected.
     """
     def setUp(self):
-        self.box = lsst.afw.geom.Box2I(lsst.afw.geom.Point2I(0, 0), lsst.afw.geom.Extent2I(2048, 4096))
+        self.box = lsst.geom.Box2I(lsst.geom.Point2I(0, 0), lsst.geom.Extent2I(2048, 4096))
         self.fiberId = np.array([123, 456]).astype(np.int32)
         self.left = np.poly1d((-0.0e-5, 1.0e-2, 0.0))  # xCenter for left trace
         self.left0 = 750
