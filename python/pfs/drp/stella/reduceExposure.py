@@ -53,7 +53,6 @@ class ReduceExposureConfig(Config):
     fiberDx = Field(doc="DetectorMap slit offset in x", dtype=float, default=0)
     fiberDy = Field(doc="DetectorMap slit offset in y", dtype=float, default=0)
     doWriteCalexp = Field(dtype=bool, default=False, doc="Write corrected frame?")
-    doWritePsf = Field(dtype=bool, default=False, doc="Write point-spread function?")
     doWriteLsf = Field(dtype=bool, default=False, doc="Write line-spread function?")
     doWriteArm = Field(dtype=bool, default=True, doc="Write PFS arm file?")
     usePostIsrCcd = Field(dtype=bool, default=False, doc="Use existing postISRCCD, if available?")
@@ -281,12 +280,6 @@ class ReduceExposureTask(CmdLineTask):
         if self.config.doWriteCalexp:
             for sensorRef, exposure in zip(sensorRefList, results.exposureList):
                 sensorRef.put(exposure, "calexp")
-        if self.config.doWritePsf:
-            for sensorRef, psf in zip(sensorRefList, results.psfList):
-                if psf is None:
-                    self.log.warn("Can't write PSF for %s" % (sensorRef.dataId,))
-                    continue
-                sensorRef.put(psf, "psf")
         if self.config.doWriteLsf:
             for sensorRef, lsf in zip(sensorRefList, results.lsfList):
                 if lsf is None:
