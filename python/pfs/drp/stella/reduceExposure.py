@@ -56,6 +56,7 @@ class ReduceExposureConfig(Config):
     doWritePsf = Field(dtype=bool, default=False, doc="Write point-spread function?")
     doWriteLsf = Field(dtype=bool, default=False, doc="Write line-spread function?")
     doWriteArm = Field(dtype=bool, default=True, doc="Write PFS arm file?")
+    usePostIsrCcd = Field(dtype=bool, default=False, doc="Use existing postISRCCD, if available?")
 
 
 class ReduceExposureRunner(TaskRunner):
@@ -251,6 +252,12 @@ class ReduceExposureTask(CmdLineTask):
         exposure : `lsst.afw.image.Exposure`
             Sensor image after ISR has been applied.
         """
+        if self.config.usePostIsrCcd:
+            if sensorRef.datasetExists("postISRCCD"):
+                self.log.info("Reusing existing postISRCCD for %s", sensorRef.dataId)
+                return sensorRef.get("postISRCCD")
+            self.log.warn("Not retrieving postISRCCD for %s, despite 'usePostIsrCcd' config, "
+                          "since it is missing", sensorRef.dataId)
         exposure = self.isr.runDataRef(sensorRef).exposure
         # Remove negative variance (because we can have very low count levels)
         bad = np.where(exposure.variance.array < 0)
