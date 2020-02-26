@@ -229,6 +229,9 @@ class ReduceExposureTask(CmdLineTask):
                     exposure.maskedImage -= continua.makeImage(exposure.getBBox(), fiberTraces)
                     spectra = self.extractSpectra.run(exposure.maskedImage, fiberTraces,
                                                       detectorMap).spectra
+                    # Set sky flux from continuum
+                    for ss, cc in zip(spectra, continua):
+                        ss.background += cc.spectrum
 
                 spectraList.append(spectra)
 
