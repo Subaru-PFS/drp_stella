@@ -47,5 +47,7 @@ def setup_module(module):
 
 
 if __name__ == "__main__":
+    import sys
+    import unittest
     setup_module(sys.modules["__main__"])
-    unittest.main(failfast=True, argv=[__file__] + argv)
+    unittest.main(failfast=True, argv=[__file__] + sys.argv)

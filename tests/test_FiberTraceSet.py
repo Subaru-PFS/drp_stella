@@ -132,7 +132,7 @@ class FiberTraceSetTestCase(lsst.utils.tests.TestCase):
         with self.assertRaises(IndexError):
             traces.get(-1)
         with self.assertRaises(IndexError):
-            traces[-1]        
+            traces[-1]
 
         # Set different values
         for ii, jj in zip(range(num), reversed(range(num))):
@@ -195,7 +195,7 @@ class FiberTraceSetTestCase(lsst.utils.tests.TestCase):
         visit0 = 12345
         dataId = dict(calibDate=calibDate, spectrograph=spectrograph, arm=arm, visit0=visit0)
 
-        converted = drpStella.FiberTraceSet.fromPfsFiberTrace(traces.toPfsFiberTrace(dataId))        
+        converted = drpStella.FiberTraceSet.fromPfsFiberTrace(traces.toPfsFiberTrace(dataId))
 
         self.metadata.add("ARM", arm)
         self.metadata.add("SPECTROGRAPH", spectrograph)

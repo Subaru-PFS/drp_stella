@@ -21,12 +21,12 @@ for logger in ["afw.ExposureFormatter",
                "pfs.drp.stella.math.CurveFitting.LinFitBevingtonNdArray1D",
                "pfs.drp.stella.math.CurveFitting.LinFitBevingtonNdArray2D",
                "pfs.drp.stella.math.CurveFittingPolyFit",
-              ]:
+               ]:
     log.Log.getLogger(logger).setLevel(log.WARN)
 
 display = afwDisplay.Display(1)
 
-dataDir = os.path.join(lsst.utils.getPackageDir("drp_stella_data"),'tests/data/PFS')
+dataDir = os.path.join(lsst.utils.getPackageDir("drp_stella_data"), 'tests/data/PFS')
 butler = dafPersist.Butler(dataDir)
 
 # dataId for Flat
@@ -61,7 +61,7 @@ with display.Buffering():
         yHigh = ftFunction.yCenter + ftFunction.yHigh
 
         for y in range(yLow, yHigh):
-            pointA = [xCenters[y-yLow],y]
-            pointB = [xCenters[y-yLow+1],y+1]
+            pointA = [xCenters[y-yLow], y]
+            pointB = [xCenters[y-yLow+1], y+1]
             points = [pointA, pointB]
             display.line(points, ctype='red')

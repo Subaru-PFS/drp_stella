@@ -176,7 +176,7 @@ class FiberTraceTestCase(lsst.utils.tests.TestCase):
 
     def testExtractNonOptimalMissing(self):
         """Non-optimal extraction with some pixels removed from the trace
-        
+
         Checks that the ``FIBERTRACE`` mask is being respected.
         """
         badCol = 5

@@ -13,7 +13,7 @@ import lsst.afw.image.testUtils
 
 from pfs.drp.stella import ReferenceLine, Spectrum
 
-__all__  = ["BaseTestCase"]
+__all__ = ["BaseTestCase"]
 
 
 class BaseTestCase(lsst.utils.tests.TestCase):
