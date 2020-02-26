@@ -3,7 +3,7 @@ import numpy as np
 import lsstDebug
 
 from lsst.pex.config import Config, Field, ChoiceField, ListField
-from lsst.pipe.base import Task, Struct
+from lsst.pipe.base import Task
 from lsst.afw.math import stringToInterpStyle, makeInterpolate
 from pfs.drp.stella import Spectrum, SpectrumSet
 

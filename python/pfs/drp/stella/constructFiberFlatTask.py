@@ -4,7 +4,6 @@ import numpy as np
 import lsst.afw.image as afwImage
 import lsst.afw.math as afwMath
 from lsst.pex.config import Field, ConfigurableField
-import lsst.afw.detection as afwDetection
 
 from .constructSpectralCalibs import SpectralCalibConfig, SpectralCalibTask
 from .findAndTraceAperturesTask import FindAndTraceAperturesTask
@@ -66,9 +65,6 @@ class ConstructFiberFlatTask(SpectralCalibTask):
         combineResults = super().combine(cache, struct, outputId)
         dataRefList = combineResults.dataRefList
         outputId = combineResults.outputId
-
-        # Get detector. Assume detector is the same for all input visits
-        detector = dataRefList[0].get('raw_detector')
 
         # Coadd exposures taken with the same slit dither position to remove CRs
         dithers = defaultdict(list)
@@ -179,7 +175,7 @@ class ConstructFiberFlatTask(SpectralCalibTask):
         maskedImage : `lsst.afw.image.MaskedImageF`
             the input maskedImage, whose variance plane is corrected.
         minVar : `float`
-            the minimum variance 
+            the minimum variance
         """
         varArr = maskedImage.getVariance().getArray()
         isLowVar = varArr < minVar

@@ -2,11 +2,11 @@ from types import SimpleNamespace
 import numpy as np
 from collections import defaultdict, Counter
 
-from lsst.pex.config import Config, Field, ConfigurableField, ListField, ConfigField
+from lsst.pex.config import Config, ConfigurableField, ListField, ConfigField
 from lsst.pipe.base import CmdLineTask, ArgumentParser, TaskRunner, Struct
-from lsst.afw.geom import SpherePoint, averageSpherePoint, degrees
+from lsst.geom import SpherePoint, averageSpherePoint, degrees
 
-from pfs.datamodel import TargetData, TargetObservations, FluxTable
+from pfs.datamodel import TargetData, TargetObservations
 from pfs.datamodel.drp import PfsObject, PfsSpectrum
 from pfs.datamodel.masks import MaskHelper
 from pfs.datamodel.pfsConfig import TargetType
@@ -20,10 +20,10 @@ from .FluxTableTask import FluxTableTask
 class Target(SimpleNamespace):
     def __init__(self, pfsConfig, index):
         super().__init__()
-        self.catId  = pfsConfig.catId[index]
-        self.objId  = pfsConfig.objId[index]
-        self.tract  = pfsConfig.tract[index]
-        self.patch  = pfsConfig.patch[index]
+        self.catId = pfsConfig.catId[index]
+        self.objId = pfsConfig.objId[index]
+        self.tract = pfsConfig.tract[index]
+        self.patch = pfsConfig.patch[index]
         self.targetType = pfsConfig.targetType[index]
 
     def __hash__(self):

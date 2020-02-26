@@ -70,16 +70,8 @@ class ReduceExposureRunner(TaskRunner):
         return [(exps, kwargs) for arms in exposures.values() for exps in arms.values()]
 
 
-## \addtogroup LSST_task_documentation
-## \{
-## \page ReduceExposureTask
-## \ref ReduceExposureTask_ "ReduceExposureTask"
-## \copybrief ReduceExposureTask
-## \}
-
-
 class ReduceExposureTask(CmdLineTask):
-    """!Reduce a PFS exposures, generating pfsArm files
+    r"""!Reduce a PFS exposures, generating pfsArm files
 
     @anchor ReduceExposureTask_
 

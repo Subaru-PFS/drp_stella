@@ -96,8 +96,8 @@ class WavelengthFitDataTestCase(lsst.utils.tests.TestCase):
                                               self.wlMax, self.wlMax + 1],
                                              dtype=np.float32))
 
-        bbox = lsst.afw.geom.Box2I(lsst.afw.geom.Point2I(0, 0),
-                                   lsst.afw.geom.Extent2I(self.length, self.length))
+        bbox = lsst.geom.Box2I(lsst.geom.Point2I(0, 0),
+                               lsst.geom.Extent2I(self.length, self.length))
         detMap = DetectorMap(bbox, self.fiberId,
                              centerKnots, centerValues, wavelengthKnots, wavelengthValues)
 

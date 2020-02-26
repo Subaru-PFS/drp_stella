@@ -88,7 +88,7 @@ class ReduceArcRunner(TaskRunner):
         they were created.
         """
         result = super().__call__(args)
-        return Struct(**{key: value for key, value in result.getDict().items() if key is not "dataRef"})
+        return Struct(**{key: value for key, value in result.getDict().items() if key != "dataRef"})
 
 
 class ReduceArcTask(CmdLineTask):
@@ -293,7 +293,7 @@ class ReduceArcTask(CmdLineTask):
         detectorMap.setVisitInfo(visitInfo)
         visit0 = dataRef.dataId["visit"]
         calibId = detectorMap.metadata.get("CALIB_ID")
-        detectorMap.metadata.set("CALIB_ID", re.sub("visit0=\d+", "visit0=%d" % (visit0,), calibId))
+        detectorMap.metadata.set("CALIB_ID", re.sub(r"visit0=\d+", "visit0=%d" % (visit0,), calibId))
         dataRef.put(detectorMap, 'detectormap', visit0=visit0)
 
     def reduceDataRefs(self, dataRefList):
@@ -335,7 +335,7 @@ class ReduceArcTask(CmdLineTask):
 
                 x = detectorMap.findPoint(fiberId, arcLines[0].wavelength)[0]
                 y = 0.5*len(spec)
-                display.dot(str(fiberId), x, y + 10*(fiberId%2), ctype='blue')
+                display.dot(str(fiberId), x, y + 10*(fiberId % 2), ctype='blue')
 
                 for rl in arcLines:
                     x, y = detectorMap.findPoint(fiberId, rl.wavelength)

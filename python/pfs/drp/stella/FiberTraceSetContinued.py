@@ -8,12 +8,11 @@ from pfs.datamodel.pfsFiberTrace import PfsFiberTrace
 
 from .FiberTraceSet import FiberTraceSet
 from .FiberTraceContinued import FiberTrace
-from .SpectrumSetContinued import SpectrumSet
 
 __all__ = ["FiberTraceSet"]
 
 
-@continueClass
+@continueClass  # noqa: F811 redefinition
 class FiberTraceSet:
     """Collection of FiberTrace
 

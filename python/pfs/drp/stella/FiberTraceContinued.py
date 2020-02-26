@@ -1,14 +1,12 @@
 from lsst.utils import continueClass
 from lsst.afw.image import PARENT
 
-from pfs.datamodel.pfsFiberTrace import PfsFiberTrace
-
 from .FiberTrace import FiberTrace
 
 __all__ = ["FiberTrace"]
 
 
-@continueClass
+@continueClass  # noqa: F811 redefinition
 class FiberTrace:
     def applyToMask(self, mask):
         """Apply the trace mask to the provided mask
@@ -20,4 +18,3 @@ class FiberTrace:
         """
         traceMask = self.getTrace().mask
         mask.Factory(mask, traceMask.getBBox(), PARENT)[:] |= traceMask
-

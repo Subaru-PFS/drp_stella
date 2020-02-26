@@ -100,7 +100,7 @@ class OversampledPsfTestCase(lsst.utils.tests.TestCase):
         self.size = 21
         self.psf = GaussianOversampledPsf(self.sigma, self.oversampleFactor,
                                           lsst.geom.Extent2I(self.size, self.size))
-        self.position = lsst.afw.geom.Point2D(123.45, 67.89)
+        self.position = lsst.geom.Point2D(123.45, 67.89)
 
     def tearDown(self):
         del self.psf

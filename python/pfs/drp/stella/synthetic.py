@@ -1,7 +1,7 @@
 import math
 import numpy as np
 
-import lsst.afw.geom
+import lsst.geom
 import lsst.afw.image
 from lsst.pex.config import Config, Field
 from lsst.pipe.base import Struct
@@ -223,8 +223,8 @@ def makeSyntheticDetectorMap(config, numKnots=20):
 
 
 def makeSyntheticPfsConfig(config, pfsDesignId, visit, rng=None,
-                           raBoresight=60.0*lsst.afw.geom.degrees,
-                           decBoresight=30.0*lsst.afw.geom.degrees,
+                           raBoresight=60.0*lsst.geom.degrees,
+                           decBoresight=30.0*lsst.geom.degrees,
                            fracSky=0.1, fracFluxStd=0.1):
     """Make a PfsConfig with a specific configuration
 
@@ -238,9 +238,9 @@ def makeSyntheticPfsConfig(config, pfsDesignId, visit, rng=None,
         Exposure identifier.
     rng : `numpy.random.RandomState`, optional
         Random number generator.
-    raBoresight : `lsst.afw.geom.Angle`, optional
+    raBoresight : `lsst.geom.Angle`, optional
         Right Ascension of boresight.
-    decBoresight : `lsst.afw.geom.Angle`, optional
+    decBoresight : `lsst.geom.Angle`, optional
         Declination of boresight.
     fracSky : `float`, optional
         Fraction of fibers to claim are sky.
@@ -258,7 +258,7 @@ def makeSyntheticPfsConfig(config, pfsDesignId, visit, rng=None,
     fiberId = config.fiberId
     numFibers = config.numFibers
 
-    fov = 1.5*lsst.afw.geom.degrees
+    fov = 1.5*lsst.geom.degrees
     pfiScale = 800000.0/fov.asDegrees()  # microns/degree
     pfiErrors = 10  # microns
 
@@ -267,10 +267,10 @@ def makeSyntheticPfsConfig(config, pfsDesignId, visit, rng=None,
     patch = ["%d,%d" % tuple(xy.tolist()) for
              xy in rng.uniform(high=15, size=(numFibers, 2)).astype(int)]
 
-    boresight = lsst.afw.geom.SpherePoint(raBoresight, decBoresight)
+    boresight = lsst.geom.SpherePoint(raBoresight, decBoresight)
     radius = np.sqrt(rng.uniform(size=numFibers))*0.5*fov.asDegrees()  # degrees
     theta = rng.uniform(size=numFibers)*2*np.pi  # radians
-    coords = [boresight.offset(tt*lsst.afw.geom.radians, rr*lsst.afw.geom.degrees) for
+    coords = [boresight.offset(tt*lsst.geom.radians, rr*lsst.geom.degrees) for
               rr, tt in zip(radius, theta)]
     ra = np.array([cc.getRa().asDegrees() for cc in coords])
     dec = np.array([cc.getDec().asDegrees() for cc in coords])
@@ -286,8 +286,8 @@ def makeSyntheticPfsConfig(config, pfsDesignId, visit, rng=None,
     numObject = numFibers - numSky - numFluxStd
 
     targetType = np.array([int(TargetType.SKY)]*numSky +
-                            [int(TargetType.FLUXSTD)]*numFluxStd +
-                            [int(TargetType.SCIENCE)]*numObject)
+                          [int(TargetType.FLUXSTD)]*numFluxStd +
+                          [int(TargetType.SCIENCE)]*numObject)
     rng.shuffle(targetType)
 
     fiberMag = [np.array([22.0, 23.5, 25.0, 26.0] if
