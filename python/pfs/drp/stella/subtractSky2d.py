@@ -8,6 +8,7 @@ import astropy.io.fits
 from lsst.pex.config import Config, Field, ListField
 from lsst.pipe.base import Task, Struct
 from lsst.utils import getPackageDir
+from lsst.afw.image import MaskedImageF
 
 from pfs.datamodel.pfsConfig import TargetType
 
@@ -142,14 +143,18 @@ class SubtractSky2dTask(Task):
 
         Returns
         -------
-        sky2d : pfs.drp.stella.fitFocalPlane.FocalPlaneFunction`
+        sky2d : `pfs.drp.stella.fitFocalPlane.FocalPlaneFunction`
             2D sky subtraction solution.
+        imageList : `list` of `lsst.afw.image.MaskedImage`
+            List of images of the sky model.
         """
         sky2d = self.measureSky(exposureList, pfsConfig, psfList, fiberTraceList, detectorMapList)
+        imageList = []
         for exposure, psf, fiberTrace, detectorMap in zip(exposureList, psfList,
                                                           fiberTraceList, detectorMapList):
-            self.subtractSky(exposure, psf, fiberTrace, detectorMap, pfsConfig, sky2d)
-        return sky2d
+            image = self.subtractSky(exposure, psf, fiberTrace, detectorMap, pfsConfig, sky2d)
+            imageList.append(image)
+        return Struct(sky2d=sky2d, imageList=imageList)
 
     def measureSky(self, exposureList, pfsConfig, psfList, fiberTraceList, detectorMapList):
         """Measure the 2D sky model
@@ -178,6 +183,8 @@ class SubtractSky2dTask(Task):
         # Fit lines one by one for now
         # Might do a simultaneous fit later
         for exp, psf, fiberTraces, detMap in zip(exposureList, psfList, fiberTraceList, detectorMapList):
+            if psf is None:
+                raise RuntimeError("Unable to measure 2D sky model: PSF is None")
             for ft in fiberTraces:
                 fiberId = ft.fiberId
                 if not self.config.useAllFibers and fiberId not in skyFibers:
@@ -262,6 +269,45 @@ class SubtractSky2dTask(Task):
 
         return Struct(flux=flux, fluxErr=fluxErr)
 
+    def makeSkyImage(self, bbox, psf, fiberTraces, pfsConfig, sky2d):
+        """Construct a 2D image of the sky model
+
+        Parameters
+        ----------
+        bbox : `lsst.geom.Box2I`
+            Bounding box of image.
+        psf : PSF (type TBD)
+            Point-spread function.
+        fiberTraces : `pfs.drp.stella.FiberTraceSet`
+            Fiber traces.
+        pfsConfig : `pfs.datamodel.PfsConfig`
+            Top-end configuration, for getting location of fibers.
+        sky2d : `pfs.drp.stella.subtractSky2d.SkyModel`
+            2D sky subtraction solution.
+
+        Returns
+        -------
+        result : `lsst.afw.image.MaskedImage`
+            Image of the sky model.
+        """
+        if psf is None:
+            raise RuntimeError("Unable to construct sky image: PSF is None")
+        result = MaskedImageF(bbox)
+        fiberId = np.array([ft.fiberId for ft in fiberTraces])
+        centers = pfsConfig.extractCenters(fiberId)
+        model = sky2d(centers)
+        for ii, ft in enumerate(fiberTraces):
+            for wl, flux in zip(model.wavelength, model.flux[ii]):
+                try:
+                    psfImage = computePsfImage(psf, ft, wl, bbox)
+                except Exception as exc:
+                    self.log.warn("Unable to subtract line %f on fiber %d: %s", wl, ft.fiberId, exc)
+                    continue
+
+                psfImage *= flux
+                result[psfImage.getBBox()] += psfImage
+        return result
+
     def subtractSky(self, exposure, psf, fiberTraces, detectorMap, pfsConfig, sky2d):
         """Subtract the 2D sky model from the images
 
@@ -279,17 +325,12 @@ class SubtractSky2dTask(Task):
             Top-end configuration, for getting location of fibers.
         sky2d : `pfs.drp.stella.subtractSky2d.SkyModel`
             2D sky subtraction solution.
-        """
-        fiberId = np.array([ft.fiberId for ft in fiberTraces])
-        centers = pfsConfig.extractCenters(fiberId)
-        model = sky2d(centers)
-        for ii, ft in enumerate(fiberTraces):
-            for wl, flux in zip(model.wavelength, model.flux[ii]):
-                try:
-                    psfImage = computePsfImage(psf, ft, wl, exposure.getBBox())
-                except Exception as exc:
-                    self.log.warn("Unable to subtract line %f on fiber %d: %s", wl, ft.fiberId, exc)
-                    continue
 
-                psfImage *= flux
-                exposure.maskedImage[psfImage.getBBox()] -= psfImage
+        Returns
+        -------
+        image : `lsst.afw.image.MaskedImage`
+            Image of the sky model.
+        """
+        image = self.makeSkyImage(exposure.getBBox(), psf, fiberTraces, pfsConfig, sky2d)
+        exposure.maskedImage -= image
+        return image
