@@ -13,12 +13,13 @@ try:
     havePgSql = True
 except ImportError:
     try:
-        from pg8000 import DBAPI as pgsql
+        from pg8000 import DBAPI as pgsql  # noqa: N811 (constant imported as non-constant)
         havePgSql = True
     except ImportError:
         havePgSql = False
 if havePgSql:
     from lsst.daf.butlerUtils import PgSqlConfig
+
 
 def formatVisits(visits):
     """Format a set of visits into the format used for an --id argument"""
@@ -30,7 +31,8 @@ def formatVisits(visits):
         v0 = -1
 
         while i < len(visits):
-            v = visits[i]; i += 1
+            v = visits[i]
+            i += 1
             if v0 < 0:
                 v0 = v
                 dv = -1                 # visit stride
@@ -61,7 +63,8 @@ def formatVisits(visits):
 
 def queryRegistry(field=None, visit=None, filterName=None, summary=False):
     """Query an input registry"""
-    where = []; vals = []
+    where = []
+    vals = []
     if field:
         where.append('field like ?')
         vals.append(field.replace("*", "%"))
@@ -81,7 +84,9 @@ GROUP BY visit
 ORDER BY max(expTime), visit
 """ % (where)
 
-    n = {}; expTimes = {}; visits = {}
+    n = {}
+    expTimes = {}
+    visits = {}
 
     if registryFile.endswith('sqlite3'):
         conn = sqlite.connect(registryFile)
@@ -100,7 +105,7 @@ ORDER BY max(expTime), visit
         print("%-20s %7s %s" % ("field", "expTime", "visit"))
     else:
         print("%-20s %10s %7s %6s %3s %4s" % ("field", "dataObs", "expTime",
-                                                   "visit", "arm", "ccd"))
+                                              "visit", "arm", "ccd"))
 
     if not isSqlite:
         query = query.replace("?", "%s")
@@ -126,7 +131,7 @@ ORDER BY max(expTime), visit
             visits[k].append(visit)
         else:
             print("%-20s %10s %7.1f %6d %3s %4d" % (field, dateObs, expTime,
-                                                         visit, arm, ccd))
+                                                    visit, arm, ccd))
 
     conn.close()
 
@@ -136,9 +141,11 @@ ORDER BY max(expTime), visit
 
             print("%-20s %7.1f %s" % (field, expTimes[k], formatVisits(visits[k])))
 
+
 def queryCalibRegistry(what, filterName=None, summary=False):
     """Query a calib registry"""
-    where = []; vals = []
+    where = []
+    vals = []
 
     if filterName:
         where.append('filter like ?')
@@ -154,8 +161,6 @@ GROUP BY calibDate
 ORDER BY calibDate
 """ % (what, where)
 
-    n = {}; expTimes = {}; visits = {}
-
     if registryFile.endswith('sqlite3'):
         conn = sqlite.connect(registryFile)
         isSqlite = True
@@ -163,8 +168,8 @@ ORDER BY calibDate
         pgsqlConf = PgSqlConfig()
         pgsqlConf.load(registryFile)
         conn = pgsql.connect(host=pgsqlConf.host, port=pgsqlConf.port,
-                           user=pgsqlConf.user, password=pgsqlConf.password,
-                           database=pgsqlConf.db)
+                             user=pgsqlConf.user, password=pgsqlConf.password,
+                             database=pgsqlConf.db)
         isSqlite = False
 
     cursor = conn.cursor()
@@ -193,7 +198,6 @@ ORDER BY calibDate
 
     conn.close()
 
-#-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="""
