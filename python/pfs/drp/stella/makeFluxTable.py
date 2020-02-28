@@ -4,8 +4,8 @@ from collections import defaultdict
 
 import numpy as np
 
-from pfs.datamodel import FluxTable, MaskHelper
-from pfs.datamodel.interpolate import interpolateFlux
+from pfs.datamodel import MaskHelper
+from .datamodel import FluxTable, interpolateFlux
 
 __all__ = ["makeFluxTable"]
 

@@ -3,7 +3,7 @@ import numpy as np
 from lsst.pex.config import Config, ConfigurableField, ListField
 from lsst.pipe.base import Task
 
-from pfs.datamodel.drp import PfsSingle
+from .datamodel import PfsSingle
 from .fitFocalPlane import FitFocalPlaneTask
 
 

@@ -7,8 +7,8 @@ import astropy.io.fits
 from lsst.pex.config import Config
 from lsst.pipe.base import Task
 
-from pfs.datamodel.drp import PfsReference
 from pfs.datamodel import MaskHelper
+from .datamodel import PfsReference
 from .utils import getPfsVersions
 
 
