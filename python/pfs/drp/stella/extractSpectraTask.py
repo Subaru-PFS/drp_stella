@@ -8,7 +8,7 @@ class ExtractSpectraConfig(pexConfig.Config):
     useOptimal = pexConfig.Field(dtype=bool, default=True,
                                  doc="Use optimal extraction? "
                                      "Otherwise, use a simple sum of pixels within the trace.")
-    fiberIds = pexConfig.ListField(dtype=int, default=[], doc="If non-empty, only extract these fiberIds")
+    fiberId = pexConfig.ListField(dtype=int, default=[], doc="If non-empty, only extract these fiberIds")
 
 
 class ExtractSpectraTask(pipeBase.Task):
@@ -46,12 +46,12 @@ class ExtractSpectraTask(pipeBase.Task):
             display = afwDisplay.Display(frame=self.debugInfo.input_frame)
             fiberTraceSet.applyToMask(maskedImage.mask)
             display.mtv(maskedImage, "input")
-        if self.config.fiberIds:
+        if self.config.fiberId:
             # Extract only the fiberTraces we care about
-            num = sum(1 for ft in fiberTraceSet if ft.fiberId in self.config.fiberIds)
+            num = sum(1 for ft in fiberTraceSet if ft.fiberId in self.config.fiberId)
             newTraces = drpStella.FiberTraceSet(num)
             for ft in fiberTraceSet:
-                if ft.fiberId in self.config.fiberIds:
+                if ft.fiberId in self.config.fiberId:
                     newTraces.add(ft)
             fiberTraceSet = newTraces
         spectra = self.extractAllSpectra(maskedImage, fiberTraceSet, detectorMap)

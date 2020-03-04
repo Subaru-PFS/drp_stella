@@ -86,7 +86,7 @@ class TasksTestCase(lsst.utils.tests.TestCase):
         self.arc.variance.array[:] = self.synthConfig.readnoise**2
 
         self.lines = []
-        middle = self.detMap.fiberIds[self.synthConfig.numFibers//2]
+        middle = self.detMap.fiberId[self.synthConfig.numFibers//2]
         for center in self.arcData.lines:
             wavelength = self.detMap.findWavelength(middle, center)
             ll = pfs.drp.stella.ReferenceLine("arc", wavelength=wavelength, guessedIntensity=self.flux)
@@ -143,7 +143,7 @@ class TasksTestCase(lsst.utils.tests.TestCase):
 
         traces = self.makeFiberTraces()
         self.assertEqual(len(traces), self.synthConfig.numFibers)
-        self.assertFloatsEqual([tt.fiberId for tt in traces], self.detMap.fiberIds)
+        self.assertFloatsEqual([tt.fiberId for tt in traces], self.detMap.fiberId)
 
         # Extract traces on flat
         config = ExtractSpectraTask.ConfigClass()
