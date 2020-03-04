@@ -1,4 +1,6 @@
 import re
+import sys
+import importlib
 
 import numpy as np
 from astropy.io import fits as pyfits
@@ -176,3 +178,32 @@ def plotReferenceLines(referenceLines, what, ls=':', alpha=1, color=None, label=
                 y = 1.05*spectrum[i0:i1].max()
 
             plt.text(x, y, rl.description, ha='center')
+
+
+def getPfsVersions(prefix="VERSION_"):
+    """Retrieve the software versions of PFS DRP-2D software
+
+    The version values come from the ``<module>.version.__version__``
+    attribute, which gets set at build time.
+
+    The versions are in a format suitable for inclusion in a FITS header.
+
+    Parameters
+    ----------
+    prefix : `str`, optional
+        Prefix to add to software product name, to distinguish in the FITS
+        header.
+
+    Returns
+    -------
+    versions : `dict` (`str`: `str`)
+        Versions of software products.
+    """
+    versions = {}
+    for name, module in (("datamodel", "pfs.datamodel"),
+                         ("obs_pfs", "lsst.obs.pfs"),
+                         ("drp_stella", "pfs.drp.stella"),
+                         ):
+        importlib.import_module(module + ".version")
+        versions[prefix + name] = sys.modules[module + ".version"].__version__
+    return versions
