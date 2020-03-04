@@ -9,6 +9,7 @@ from lsst.pipe.base import Task
 
 from pfs.datamodel.drp import PfsReference
 from pfs.datamodel import MaskHelper
+from .utils import getPfsVersions
 
 
 class TransmissionCurve:
@@ -151,7 +152,7 @@ def readAmbre(target, wavelength):
     flags = MaskHelper(NO_DATA=1)
     mask = np.where(np.isfinite(flux), 0, flags.get("NO_DATA"))
 
-    return PfsReference(target, wavelength, flux, mask, flags)
+    return PfsReference(target, wavelength, flux, mask, flags, metadata=getPfsVersions())
 
 
 class FitReferenceConfig(Config):

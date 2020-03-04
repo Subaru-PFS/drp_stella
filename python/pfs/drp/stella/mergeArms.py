@@ -7,6 +7,7 @@ from pfs.datamodel.drp import PfsMerged
 from pfs.datamodel.masks import MaskHelper
 from pfs.datamodel.wavelengthArray import WavelengthArray
 from .subtractSky1d import SubtractSky1dTask
+from .utils import getPfsVersions
 
 
 class WavelengthSamplingConfig(Config):
@@ -126,7 +127,7 @@ class MergeArmsTask(CmdLineTask):
         merged : `pfs.datamodel.PfsMerged`
             Merged spectra.
         """
-        return PfsMerged.fromMerge(["visit"], spectraList)
+        return PfsMerged.fromMerge(["visit"], spectraList, metadata=getPfsVersions())
 
     def mergeSpectra(self, spectraList, identityKeys):
         """Combine all spectra from the same exposure

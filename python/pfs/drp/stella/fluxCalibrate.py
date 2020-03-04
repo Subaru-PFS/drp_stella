@@ -9,6 +9,7 @@ from pfs.datamodel import MaskHelper
 from .measureFluxCalibration import MeasureFluxCalibrationTask
 from .subtractSky1d import SubtractSky1dTask
 from .FluxTableTask import FluxTableTask
+from .utils import getPfsVersions
 
 
 class FluxCalibrateConfig(Config):
@@ -78,6 +79,7 @@ class FluxCalibrateTask(CmdLineTask):
                                               [armList[ii].extractFiber(PfsSingle, pfsConfig, ff) for
                                                ii in fiberToArm[ff]],
                                               MaskHelper.fromMerge([armList[ii].flags]))
+            ss.metadata = getPfsVersions()
 
         if self.config.doWrite:
             dataRef.put(calib, "fluxCal")
