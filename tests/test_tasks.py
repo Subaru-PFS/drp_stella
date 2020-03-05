@@ -165,9 +165,7 @@ class TasksTestCase(lsst.utils.tests.TestCase):
         # Wavelength calibration
         config = CalibrateWavelengthsTask.ConfigClass()
         task = CalibrateWavelengthsTask(config=config)
-        task.run(spectra, self.detMap, seed=12345)
-        for tt, ss in zip(traces, spectra):
-            self.assertFloatsEqual(ss.wavelength, self.detMap.getWavelength(tt.fiberId))
+        task.run({ss.fiberId: ss.getGoodReferenceLines() for ss in spectra}, self.detMap, seed=12345)
 
     def testReduceExposure(self):
         """Test ReduceExposureTask"""

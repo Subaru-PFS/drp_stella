@@ -29,11 +29,12 @@ class WavelengthFitDataTestCase(lsst.utils.tests.TestCase):
         self.fitWavelength = np.random.uniform(size=self.fiberId.shape).astype(float32)*scale + self.wlMin
         self.correction = 0.1*np.random.uniform(size=self.fiberId.shape).astype(float32)
         self.status = int(ReferenceLine.Status.FIT)*np.ones_like(self.fiberId, dtype=int)
+        self.description = np.array([chr(ord("A") + ii) for ii in range(len(self.fiberId))])
 
         self.lines = [LineData(*args) for args in zip(self.fiberId, self.measuredPosition,
                                                       self.measuredPositionErr, self.xCenter,
                                                       self.refWavelength, self.fitWavelength,
-                                                      self.correction, self.status)]
+                                                      self.correction, self.status, self.description)]
 
     def assertWavelengthFitData(self, wlFitData, atol=0.0):
         """Check that the WavelengthFitData is what we expect
@@ -54,6 +55,7 @@ class WavelengthFitDataTestCase(lsst.utils.tests.TestCase):
         self.assertFloatsAlmostEqual(wlFitData.fitWavelength, self.fitWavelength, atol=atol)
         self.assertFloatsAlmostEqual(wlFitData.correction, self.correction, atol=atol)
         self.assertFloatsEqual(wlFitData.status, self.status)
+        self.assertListEqual(wlFitData.description.tolist(), self.description.tolist())
 
     def testBasic(self):
         """Test basic functionality"""
@@ -71,22 +73,22 @@ class WavelengthFitDataTestCase(lsst.utils.tests.TestCase):
         self.assertEqual(wlFitData.mean(fiberId), residuals[index].mean())
         self.assertEqual(wlFitData.stdev(fiberId), residuals[index].std())
 
-    def testFromSpectrumSet(self):
-        """Test creation from SpectrumSet"""
+    def testFromReferenceLines(self):
+        """Test creation from ReferenceLines"""
         num = len(self.fiberId)
-        spectra = SpectrumSet(num, self.length)
+        refLines = {}
         centerKnots = []
         centerValues = []
         wavelengthKnots = []
         wavelengthValues = []
-        for ii, ss in enumerate(spectra):
-            ss.fiberId = self.fiberId[ii]
-            line = ReferenceLine("fake")
+        for ii in range(num):
+            line = ReferenceLine(self.description[ii])
             line.status = self.status[ii]
             line.wavelength = self.refWavelength[ii]
             line.fitPosition = self.measuredPosition[ii]
             line.fitPositionErr = self.measuredPositionErr[ii]
-            ss.setReferenceLines([line])
+            refLines[self.fiberId[ii]] = [line]
+
             knots = np.array([-1, 0, self.measuredPosition[ii], self.length, self.length + 1],
                              dtype=np.float32)
             centerKnots.append(knots)
@@ -101,8 +103,9 @@ class WavelengthFitDataTestCase(lsst.utils.tests.TestCase):
         detMap = DetectorMap(bbox, self.fiberId,
                              centerKnots, centerValues, wavelengthKnots, wavelengthValues)
 
-        corrections = [lambda xx: self.correction[self.measuredPosition == xx][0] for _ in spectra]
-        wlFitData = WavelengthFitData.fromSpectrumSet(spectra, detMap, corrections)
+        corrections = {fiberId: lambda xx: self.correction[self.measuredPosition == xx][0] for
+                       fiberId in self.fiberId}
+        wlFitData = WavelengthFitData.fromReferenceLines(refLines, detMap, corrections)
         self.assertWavelengthFitData(wlFitData)
 
     def testPersistence(self):
