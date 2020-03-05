@@ -416,7 +416,7 @@ class BootstrapTask(CmdLineTask):
         if doUpdate:
             self.log.info("Updating detectorMap...")
             rows = np.arange(detectorMap.bbox.getMaxY() + 1, dtype=np.float32)
-            for fiberId in detectorMap.fiberIds:
+            for fiberId in detectorMap.fiberId:
                 wavelength = detectorMap.getWavelength(fiberId)
                 assert len(wavelength) == len(rows)
                 center = detectorMap.getXCenter(fiberId)

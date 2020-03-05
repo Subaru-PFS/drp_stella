@@ -48,7 +48,7 @@ class ImagingPsfTestCase(lsst.utils.tests.TestCase):
 
     def testComputeShape(self):
         """Test computeShape method"""
-        for fiberId in self.detMap.fiberIds:
+        for fiberId in self.detMap.fiberId:
             for fraction in (0.1, 0.5, 0.9):
                 wavelength = self.detMap.findWavelength(fiberId, self.synthConfig.height*fraction)
                 shape = self.psf.computeShape(fiberId, wavelength)
@@ -56,7 +56,7 @@ class ImagingPsfTestCase(lsst.utils.tests.TestCase):
 
     def testComputeImage(self):
         """Test computeImage and computeKernelImage methods"""
-        for fiberId in self.detMap.fiberIds:
+        for fiberId in self.detMap.fiberId:
             for fraction in (0.1, 0.5, 0.9):
                 yy = self.synthConfig.height*fraction
                 if yy == int(yy):

@@ -68,8 +68,8 @@ class DetectorMapTestCase(lsst.utils.tests.TestCase):
         synthConfig = pfs.drp.stella.synthetic.SyntheticConfig()
         detMap = pfs.drp.stella.synthetic.makeSyntheticDetectorMap(synthConfig)
         self.bbox = detMap.bbox
-        self.fiberIds = detMap.fiberIds
-        self.numFibers = len(self.fiberIds)
+        self.fiberId = detMap.fiberId
+        self.numFibers = len(self.fiberId)
         self.centerKnots = [detMap.getCenterSpline(ii).getX() for ii in range(self.numFibers)]
         self.xCenter = [detMap.getCenterSpline(ii).getY() for ii in range(self.numFibers)]
         self.wavelengthKnots = [detMap.getWavelengthSpline(ii).getX() for ii in range(self.numFibers)]
@@ -107,7 +107,7 @@ class DetectorMapTestCase(lsst.utils.tests.TestCase):
         detMap : `pfs.drp.stella.DetectorMap`
             Detector map.
         """
-        detMap = drpStella.DetectorMap(self.bbox, self.fiberIds, self.centerKnots, self.xCenter,
+        detMap = drpStella.DetectorMap(self.bbox, self.fiberId, self.centerKnots, self.xCenter,
                                        self.wavelengthKnots, self.wavelength, self.slitOffsets)
         detMap.visitInfo = lsst.afw.image.VisitInfo(darkTime=self.darkTime)
         detMap.metadata.set("METADATA", self.metadata)
@@ -117,7 +117,7 @@ class DetectorMapTestCase(lsst.utils.tests.TestCase):
     def assertDetectorMap(self, detMap):
         """Assert that a ``DetectorMap`` matches expectations"""
         self.assertEqual(detMap.bbox, self.bbox)
-        self.assertFloatsEqual(detMap.fiberIds, self.fiberIds)
+        self.assertFloatsEqual(detMap.fiberId, self.fiberId)
         self.assertFloatsAlmostEqual(detMap.xCenter, self.xCenterExpect, atol=self.xCenterTol)
         self.assertFloatsAlmostEqual(detMap.wavelength, self.wavelengthExpect, atol=self.wavelengthTol)
         self.assertFloatsEqual(detMap.slitOffsets, self.slitOffsets)
@@ -142,12 +142,12 @@ class DetectorMapTestCase(lsst.utils.tests.TestCase):
 
         # Check accessor functions work as well as properties
         self.assertEqual(detMap.getBBox(), self.bbox)
-        self.assertFloatsEqual(detMap.getFiberIds(), self.fiberIds)
+        self.assertFloatsEqual(detMap.getFiberId(), self.fiberId)
         self.assertFloatsAlmostEqual(detMap.getXCenter(), self.xCenterExpect, atol=self.xCenterTol)
         self.assertFloatsAlmostEqual(detMap.getWavelength(), self.wavelengthExpect, atol=self.wavelengthTol)
         self.assertFloatsEqual(detMap.getSlitOffsets(), self.slitOffsets)
-        self.assertEqual(detMap.getNumFibers(), len(self.fiberIds))
-        self.assertEqual(len(detMap), len(self.fiberIds))
+        self.assertEqual(detMap.getNumFibers(), len(self.fiberId))
+        self.assertEqual(len(detMap), len(self.fiberId))
 
         # Check setters
         self.slitOffsets += 1.2345
@@ -156,7 +156,7 @@ class DetectorMapTestCase(lsst.utils.tests.TestCase):
         self.assertDetectorMap(detMap)
 
         self.slitOffsets -= 2.34567
-        for ii, fiber in enumerate(self.fiberIds):
+        for ii, fiber in enumerate(self.fiberId):
             detMap.setSlitOffsets(fiber, self.slitOffsets[:, ii])
         self.calculateExpectations(detMap)
         self.assertDetectorMap(detMap)
@@ -165,7 +165,7 @@ class DetectorMapTestCase(lsst.utils.tests.TestCase):
             xCenter -= 2.3456
         for wavelength in self.wavelength:
             wavelength += 3.4567
-        for ii, fiber in enumerate(self.fiberIds):
+        for ii, fiber in enumerate(self.fiberId):
             detMap.setXCenter(fiber, self.centerKnots[ii], self.xCenter[ii])
             detMap.setWavelength(fiber, self.wavelengthKnots[ii], self.wavelength[ii])
         self.calculateExpectations(detMap)
@@ -176,28 +176,28 @@ class DetectorMapTestCase(lsst.utils.tests.TestCase):
         short = 3  # Number of values for short array
 
         with self.assertRaises(lsst.pex.exceptions.LengthError):
-            # Mismatch between fiberIds and center/wavelength
-            drpStella.DetectorMap(self.bbox, self.fiberIds[:short], self.centerKnots, self.xCenter,
+            # Mismatch between fiberId and center/wavelength
+            drpStella.DetectorMap(self.bbox, self.fiberId[:short], self.centerKnots, self.xCenter,
                                   self.wavelengthKnots, self.wavelength)
 
         with self.assertRaises(lsst.pex.exceptions.LengthError):
             # Mismatch between the center and wavelength
-            drpStella.DetectorMap(self.bbox, self.fiberIds, self.centerKnots[:short], self.xCenter,
+            drpStella.DetectorMap(self.bbox, self.fiberId, self.centerKnots[:short], self.xCenter,
                                   self.wavelengthKnots, self.wavelength)
 
         with self.assertRaises(lsst.pex.exceptions.LengthError):
             # Mismatch between the center and wavelength
-            drpStella.DetectorMap(self.bbox, self.fiberIds, self.centerKnots, self.xCenter[:short],
+            drpStella.DetectorMap(self.bbox, self.fiberId, self.centerKnots, self.xCenter[:short],
                                   self.wavelengthKnots, self.wavelength)
 
         with self.assertRaises(lsst.pex.exceptions.LengthError):
             # Mismatch between the center and wavelength
-            drpStella.DetectorMap(self.bbox, self.fiberIds, self.centerKnots, self.xCenter,
+            drpStella.DetectorMap(self.bbox, self.fiberId, self.centerKnots, self.xCenter,
                                   self.wavelengthKnots[:short], self.wavelength)
 
         with self.assertRaises(lsst.pex.exceptions.LengthError):
             # Mismatch between the center and wavelength
-            drpStella.DetectorMap(self.bbox, self.fiberIds, self.centerKnots, self.xCenter,
+            drpStella.DetectorMap(self.bbox, self.fiberId, self.centerKnots, self.xCenter,
                                   self.wavelengthKnots, self.wavelength[:short])
 
         # Various mismatches in the second constructor
@@ -207,47 +207,47 @@ class DetectorMapTestCase(lsst.utils.tests.TestCase):
         wavelengthKnots = np.array([detMap.getWavelengthSpline(ii).getX() for ii in range(len(detMap))])
         wavelengthValues = np.array([detMap.getWavelengthSpline(ii).getY() for ii in range(len(detMap))])
         with self.assertRaises(lsst.pex.exceptions.LengthError):
-            drpStella.DetectorMap(detMap.bbox, detMap.fiberIds[:short],
+            drpStella.DetectorMap(detMap.bbox, detMap.fiberId[:short],
                                   centerKnots, centerValues,
                                   wavelengthKnots, wavelengthValues,
                                   detMap.slitOffsets)
         with self.assertRaises(lsst.pex.exceptions.LengthError):
-            drpStella.DetectorMap(detMap.bbox, detMap.fiberIds,
+            drpStella.DetectorMap(detMap.bbox, detMap.fiberId,
                                   centerKnots[:short], centerValues,
                                   wavelengthKnots, wavelengthValues,
                                   detMap.slitOffsets)
         with self.assertRaises(lsst.pex.exceptions.LengthError):
-            drpStella.DetectorMap(detMap.bbox, detMap.fiberIds,
+            drpStella.DetectorMap(detMap.bbox, detMap.fiberId,
                                   centerKnots, centerValues[:short],
                                   wavelengthKnots, wavelengthValues,
                                   detMap.slitOffsets)
         with self.assertRaises(lsst.pex.exceptions.LengthError):
-            drpStella.DetectorMap(detMap.bbox, detMap.fiberIds,
+            drpStella.DetectorMap(detMap.bbox, detMap.fiberId,
                                   centerKnots, centerValues,
                                   wavelengthKnots[:short], wavelengthValues,
                                   detMap.slitOffsets)
         with self.assertRaises(lsst.pex.exceptions.LengthError):
-            drpStella.DetectorMap(detMap.bbox, detMap.fiberIds,
+            drpStella.DetectorMap(detMap.bbox, detMap.fiberId,
                                   centerKnots, centerValues,
                                   wavelengthKnots, wavelengthValues[:short],
                                   detMap.slitOffsets)
         with self.assertRaises(lsst.pex.exceptions.LengthError):
-            drpStella.DetectorMap(detMap.bbox, detMap.fiberIds,
+            drpStella.DetectorMap(detMap.bbox, detMap.fiberId,
                                   centerKnots, centerValues,
                                   wavelengthKnots, wavelengthValues,
                                   detMap.slitOffsets[:2, :])
         with self.assertRaises(lsst.pex.exceptions.LengthError):
-            drpStella.DetectorMap(detMap.bbox, detMap.fiberIds,
+            drpStella.DetectorMap(detMap.bbox, detMap.fiberId,
                                   centerKnots, centerValues,
                                   wavelengthKnots, wavelengthValues,
                                   detMap.slitOffsets[:, :short])
         with self.assertRaises(lsst.pex.exceptions.LengthError):
-            drpStella.DetectorMap(detMap.bbox, detMap.fiberIds,
+            drpStella.DetectorMap(detMap.bbox, detMap.fiberId,
                                   centerKnots[:short], centerValues[:short],
                                   wavelengthKnots, wavelengthValues,
                                   detMap.slitOffsets)
         with self.assertRaises(lsst.pex.exceptions.LengthError):
-            drpStella.DetectorMap(detMap.bbox, detMap.fiberIds,
+            drpStella.DetectorMap(detMap.bbox, detMap.fiberId,
                                   centerKnots, centerValues,
                                   wavelengthKnots[:short], wavelengthValues[:short],
                                   detMap.slitOffsets)
@@ -266,7 +266,7 @@ class DetectorMapTestCase(lsst.utils.tests.TestCase):
         self.assertFloatsNotEqual(detMap.getSlitOffsets(), self.slitOffsets)
 
         with self.assertRaises(ValueError):  # "ValueError: output array is read-only"
-            self.fiberIds += 123
+            self.fiberId += 123
 
     def testFinds(self):
         """Test the various ``find*`` methods
@@ -298,7 +298,7 @@ class DetectorMapTestCase(lsst.utils.tests.TestCase):
                 # index than we did (e.g., spline vs linear interpolation); but that choice has large
                 # consequences on the rest of the tests below, so skip this one.
                 continue
-            self.assertEqual(fiberId, detMap.fiberIds[closestIndex])
+            self.assertEqual(fiberId, detMap.fiberId[closestIndex])
 
             wavelength = detMap.findWavelength(fiberId, yy)
             wavelengthExpect = np.interp(yy, indices, detMap.getWavelength(fiberId))

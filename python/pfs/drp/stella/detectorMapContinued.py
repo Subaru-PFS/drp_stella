@@ -38,8 +38,8 @@ class DetectorMap:
         bbox = lsst.geom.BoxI(lsst.geom.PointI(minX, minY), lsst.geom.PointI(maxX, maxY))
 
         hdu = fits["FIBERID"]
-        fiberIds = hdu.data
-        fiberIds = fiberIds.astype(np.int32)   # why is this astype needed? BITPIX=32, no BZERO/BSCALE
+        fiberId = hdu.data
+        fiberId = fiberId.astype(np.int32)   # astype() forces machine-native byte order
 
         hdu = fits["SLITOFF"]
         slitOffsets = hdu.data.astype(np.float32)
@@ -49,7 +49,7 @@ class DetectorMap:
 
         # array.astype() required to force byte swapping (dtype('>f4') --> np.float32)
         # otherwise pybind doesn't recognise them as the proper type.
-        numFibers = len(fiberIds)
+        numFibers = len(fiberId)
         centerKnots = [centerData["knot"][centerData["index"] == ii].astype(np.float32) for
                        ii in range(numFibers)]
         centerValues = [centerData["value"][centerData["index"] == ii].astype(np.float32) for
@@ -72,7 +72,7 @@ class DetectorMap:
         visitInfo = lsst.afw.image.VisitInfo(metadata)
         lsst.afw.image.stripVisitInfoKeywords(metadata)
 
-        return cls(bbox, fiberIds, centerKnots, centerValues, wavelengthKnots, wavelengthValues,
+        return cls(bbox, fiberId, centerKnots, centerValues, wavelengthKnots, wavelengthValues,
                    slitOffsets, visitInfo, metadata)
 
     @classmethod
@@ -117,10 +117,10 @@ class DetectorMap:
         # Unpack detectorMap into python objects
         #
         bbox = self.getBBox()
-        fiberIds = np.array(self.getFiberIds(), dtype=np.int32)
+        fiberId = np.array(self.getFiberId(), dtype=np.int32)
         slitOffsets = self.getSlitOffsets()
 
-        numFibers = len(fiberIds)
+        numFibers = len(fiberId)
         centerKnots = [self.getCenterSpline(ii).getX() for ii in range(numFibers)]
         centerValues = [self.getCenterSpline(ii).getY() for ii in range(numFibers)]
         wavelengthKnots = [self.getWavelengthSpline(ii).getX() for ii in range(numFibers)]
@@ -155,7 +155,7 @@ class DetectorMap:
         phu = astropy.io.fits.PrimaryHDU(header=hdr)
         hdus.append(phu)
 
-        hdu = astropy.io.fits.ImageHDU(fiberIds, name="FIBERID")
+        hdu = astropy.io.fits.ImageHDU(fiberId, name="FIBERID")
         hdu.header["INHERIT"] = True
         hdus.append(hdu)
 
@@ -270,7 +270,7 @@ class DetectorMap:
         mappings.
         """
         equal = self.bbox == other.bbox
-        equal &= np.all(self.fiberIds == other.fiberIds)
+        equal &= np.all(self.fiberId == other.fiberId)
         equal &= all(np.all(this == that) for this, that in zip(self.xCenter, other.xCenter))
         equal &= all(np.all(this == that) for this, that in zip(self.wavelength, other.wavelength))
         equal &= np.all(self.slitOffsets == other.slitOffsets)

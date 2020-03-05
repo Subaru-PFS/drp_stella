@@ -29,7 +29,7 @@ void declareDetectorMap(py::module &mod)
                      lsst::afw::image::VisitInfo const&,
                      std::shared_ptr<lsst::daf::base::PropertySet>
                      >(),
-            "bbox"_a, "fiberIds"_a, "centerKnots"_a, "centerValues"_a, "wavelengthKnots"_a,
+            "bbox"_a, "fiberId"_a, "centerKnots"_a, "centerValues"_a, "wavelengthKnots"_a,
             "wavelengthValues"_a, "slitOffsets"_a=nullptr,
             "visitInfo"_a=Class::VisitInfo(lsst::daf::base::PropertySet()), "metadata"_a=nullptr);
 
@@ -50,9 +50,9 @@ void declareDetectorMap(py::module &mod)
     cls.def("getNumFibers", &Class::getNumFibers);
     cls.def("__len__", &Class::getNumFibers);
 
-    cls.def("getFiberIds", [](Class & self) { return self.getFiberIds(); },
+    cls.def("getFiberId", [](Class & self) { return self.getFiberId(); },
             py::return_value_policy::reference_internal);
-    cls.def_property_readonly("fiberIds", py::overload_cast<>(&Class::getFiberIds));
+    cls.def_property_readonly("fiberId", py::overload_cast<>(&Class::getFiberId));
 
     cls.def("getWavelength",
             [](Class const& self, std::size_t fiberId) { return self.getWavelength(fiberId); },
@@ -102,7 +102,7 @@ void declareDetectorMap(py::module &mod)
 
     cls.def(py::pickle(
         [](Class const& self) {
-            std::size_t const numFibers = self.getFiberIds().getNumElements();
+            std::size_t const numFibers = self.getFiberId().getNumElements();
             std::vector<Class::Array1D> centerKnots;
             std::vector<Class::Array1D> centerValues;
             std::vector<Class::Array1D> wavelengthKnots;
@@ -117,7 +117,7 @@ void declareDetectorMap(py::module &mod)
                 wavelengthKnots.emplace_back(ndarray::copy(self.getWavelengthSpline(ii).getX()));
                 wavelengthValues.emplace_back(ndarray::copy(self.getWavelengthSpline(ii).getY()));
             }
-            return py::make_tuple(self.getBBox(), self.getFiberIds(), centerKnots, centerValues,
+            return py::make_tuple(self.getBBox(), self.getFiberId(), centerKnots, centerValues,
                                   wavelengthKnots, wavelengthValues, self.getSlitOffsets(),
                                   self.getVisitInfo(), self.getMetadata());
         },

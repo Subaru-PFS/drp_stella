@@ -33,7 +33,7 @@ class DetectorMap : public lsst::afw::table::io::Persistable {
     using Spline = math::Spline<float>;
 
     DetectorMap(lsst::geom::Box2I bbox,  // detector's bounding box
-                FiberMap const& fiberIds,  // 1-indexed IDs for each fibre
+                FiberMap const& fiberId,  // 1-indexed IDs for each fibre
                 std::vector<ndarray::Array<float, 1, 1>> const& centerKnots,
                 std::vector<ndarray::Array<float, 1, 1>> const& centerValues,
                 std::vector<ndarray::Array<float, 1, 1>> const& wavelengthKnots,
@@ -44,7 +44,7 @@ class DetectorMap : public lsst::afw::table::io::Persistable {
                 );
 
     DetectorMap(lsst::geom::Box2I bbox,  // detector's bounding box
-                FiberMap const& fiberIds,  // 1-indexed IDs for each fibre
+                FiberMap const& fiberId,  // 1-indexed IDs for each fibre
                 std::vector<std::shared_ptr<DetectorMap::Spline const>> const& center,
                 std::vector<std::shared_ptr<DetectorMap::Spline const>> const& wavelength,
                 Array2D const& slitOffsets=Array2D(),  // per-fibre offsets
@@ -62,11 +62,11 @@ class DetectorMap : public lsst::afw::table::io::Persistable {
     lsst::geom::Box2I getBBox() const { return _bbox; }
 
     /** \brief return the fiberIds */
-    FiberMap & getFiberIds() { return _fiberIds; }
-    FiberMap const& getFiberIds() const { return _fiberIds; }
+    FiberMap & getFiberId() { return _fiberId; }
+    FiberMap const& getFiberId() const { return _fiberId; }
 
     /** \brief Return the number of fibers */
-    std::size_t getNumFibers() const { return _fiberIds.size(); }
+    std::size_t getNumFibers() const { return _fiberId.size(); }
 
     /**
      * Set the offsets of the wavelengths and x-centres (in floating-point pixels) and focus (in microns)
@@ -200,7 +200,7 @@ class DetectorMap : public lsst::afw::table::io::Persistable {
   private:                              // initialise before _yTo{XCenter,Wavelength}
     std::size_t _nFiber;                // number of fibers
     lsst::geom::Box2I _bbox;       // bounding box of detector
-    FiberMap _fiberIds;         // The fiberIds (between 1 and c. 2400) present on this detector
+    FiberMap _fiberId;         // The fiberIds (between 1 and c. 2400) present on this detector
 
     //
     // These std::vectors are indexed by fiberIndex (not fiberId)

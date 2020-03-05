@@ -18,7 +18,7 @@ namespace pfs { namespace drp { namespace stella {
 
 DetectorMap::DetectorMap(
     lsst::geom::Box2I bbox,
-    FiberMap const& fiberIds,
+    FiberMap const& fiberId,
     std::vector<ndarray::Array<float, 1, 1>> const& centerKnots,
     std::vector<ndarray::Array<float, 1, 1>> const& centerValues,
     std::vector<ndarray::Array<float, 1, 1>> const& wavelengthKnots,
@@ -26,9 +26,9 @@ DetectorMap::DetectorMap(
     Array2D const& slitOffsets,
     VisitInfo const& visitInfo,
     std::shared_ptr<lsst::daf::base::PropertySet> metadata
-) : _nFiber(fiberIds.getShape()[0]),
+) : _nFiber(fiberId.getShape()[0]),
     _bbox(bbox),
-    _fiberIds(ndarray::copy(fiberIds)),
+    _fiberId(ndarray::copy(fiberId)),
     _yToXCenter(_nFiber),
     _yToWavelength(_nFiber),
     _xToFiberId(_bbox.getWidth()),
@@ -56,15 +56,15 @@ DetectorMap::DetectorMap(
 
 DetectorMap::DetectorMap(
     lsst::geom::Box2I bbox,
-    FiberMap const& fiberIds,
+    FiberMap const& fiberId,
     std::vector<std::shared_ptr<DetectorMap::Spline const>> const& center,
     std::vector<std::shared_ptr<DetectorMap::Spline const>> const& wavelength,
     Array2D const& slitOffsets,
     VisitInfo const& visitInfo,
     std::shared_ptr<lsst::daf::base::PropertySet> metadata
-) : _nFiber(fiberIds.getShape()[0]),
+) : _nFiber(fiberId.getShape()[0]),
     _bbox(bbox),
-    _fiberIds(ndarray::copy(fiberIds)),
+    _fiberId(ndarray::copy(fiberId)),
     _yToXCenter(center),
     _yToWavelength(wavelength),
     _xToFiberId(_bbox.getWidth()),
@@ -89,13 +89,13 @@ DetectorMap::DetectorMap(
 std::size_t
 DetectorMap::getFiberIndex(int fiberId) const
 {
-    auto el = std::lower_bound(_fiberIds.begin(), _fiberIds.end(), fiberId);
-    if (el == _fiberIds.end() || *el != fiberId) {
+    auto el = std::lower_bound(_fiberId.begin(), _fiberId.end(), fiberId);
+    if (el == _fiberId.end() || *el != fiberId) {
         std::ostringstream os;
         os << "Unknown fiberId " << fiberId;
         throw LSST_EXCEPT(lsst::pex::exceptions::RangeError, os.str());
     }
-    return el - _fiberIds.begin();      // index into _fiberId
+    return el - _fiberId.begin();      // index into _fiberId
 }
 
 /*
@@ -171,10 +171,10 @@ DetectorMap::getWavelength(std::size_t fiberId) const
 }
 
 std::vector<DetectorMap::Array1D> DetectorMap::getWavelength() const {
-    std::size_t numFibers = _fiberIds.getNumElements();
+    std::size_t numFibers = _fiberId.getNumElements();
     std::vector<Array1D> result{numFibers};
     for (std::size_t ii = 0; ii < numFibers; ++ii) {
-        result[ii] = ndarray::copy(getWavelength(_fiberIds[ii]));
+        result[ii] = ndarray::copy(getWavelength(_fiberId[ii]));
     }
     return result;
 }
@@ -231,10 +231,10 @@ DetectorMap::getXCenter(std::size_t fiberId) const
 }
 
 std::vector<DetectorMap::Array1D> DetectorMap::getXCenter() const {
-    std::size_t numFibers = _fiberIds.getNumElements();
+    std::size_t numFibers = _fiberId.getNumElements();
     std::vector<Array1D> result{numFibers};
     for (std::size_t ii = 0; ii < numFibers; ++ii) {
-        result[ii] = ndarray::copy(getXCenter(_fiberIds[ii]));
+        result[ii] = ndarray::copy(getXCenter(_fiberId[ii]));
     }
     return result;
 }
@@ -342,7 +342,7 @@ DetectorMap::findFiberId(lsst::geom::PointD pixelPos // position on detector
                           ) const
 {
     float const x = pixelPos[0], y = pixelPos[1];
-    std::size_t const maxIter = 2*_fiberIds.getNumElements();  // maximum number of iterations
+    std::size_t const maxIter = 2*_fiberId.getNumElements();  // maximum number of iterations
 
     if (!_bbox.contains(lsst::geom::PointI(x, y))) {
         std::ostringstream os;
@@ -385,7 +385,7 @@ DetectorMap::findFiberId(lsst::geom::PointD pixelPos // position on detector
         throw LSST_EXCEPT(lsst::pex::exceptions::RuntimeError, "Exceeded maximum number of iterations");
     }
 
-    return _fiberIds[index];
+    return _fiberId[index];
 }
 
 /************************************************************************************************************/
@@ -401,19 +401,19 @@ DetectorMap::_set_xToFiberId()
     float lastCenter = -1e30;            // center of the last fibre we passed scanning to the right
     std::size_t lastIndex = -1;          // index of the last fibre we passed.  Special case starting with 0
 
-    float nextCenter = getXCenter(_fiberIds[0], iy); // center of the next fiber we're looking at
+    float nextCenter = getXCenter(_fiberId[0], iy); // center of the next fiber we're looking at
     for (std::size_t index = 0, x = 0; x != std::size_t(_bbox.getWidth()); ++x) {
         if (x - lastCenter > nextCenter - x) { // x is nearer to next_xc than last_xc
             lastCenter = nextCenter;
             lastIndex = index;
 
-            if (index < _fiberIds.size() - 1) {
+            if (index < _fiberId.size() - 1) {
                 ++index;
             }
-            nextCenter = getXCenter(_fiberIds[index], iy);
+            nextCenter = getXCenter(_fiberId[index], iy);
         }
 
-        _xToFiberId[x] = _fiberIds[lastIndex];
+        _xToFiberId[x] = _fiberId[lastIndex];
     }
 }
 
@@ -427,7 +427,7 @@ class DetectorMapSchema {
   public:
     lsst::afw::table::Schema schema;
     lsst::afw::table::Box2IKey bbox;
-    lsst::afw::table::Key<IntArray> fiberIds;
+    lsst::afw::table::Key<IntArray> fiberId;
     lsst::afw::table::Key<IntArray> center;
     lsst::afw::table::Key<IntArray> wavelength;
     lsst::afw::table::Key<FloatArray> slitOffset1;
@@ -444,7 +444,7 @@ class DetectorMapSchema {
     DetectorMapSchema()
       : schema(),
         bbox(lsst::afw::table::Box2IKey::addFields(schema, "bbox", "bounding box", "pixel")),
-        fiberIds(schema.addField<IntArray>("fiberIds", "fiber identifiers", "", 0)),
+        fiberId(schema.addField<IntArray>("fiberId", "fiber identifiers", "", 0)),
         center(schema.addField<IntArray>("center", "center spline references", "", 0)),
         wavelength(schema.addField<IntArray>("wavelength", "wavelength spline references", "", 0)),
         slitOffset1(schema.addField<FloatArray>("slitOffset1", "slit offsets in x", "micron", 0)),
@@ -463,8 +463,8 @@ void DetectorMap::write(lsst::afw::table::io::OutputArchiveHandle & handle) cons
     lsst::afw::table::BaseCatalog cat = handle.makeCatalog(schema.schema);
     PTR(lsst::afw::table::BaseRecord) record = cat.addNew();
     record->set(schema.bbox, _bbox);
-    ndarray::Array<int, 1, 1> const fiberIds = ndarray::copy(_fiberIds);
-    record->set(schema.fiberIds, fiberIds);
+    ndarray::Array<int, 1, 1> const fiberId = ndarray::copy(_fiberId);
+    record->set(schema.fiberId, fiberId);
 
     ndarray::Array<int, 1, 1> center = ndarray::allocate(_nFiber);
     ndarray::Array<int, 1, 1> wavelength = ndarray::allocate(_nFiber);
@@ -499,8 +499,8 @@ class DetectorMap::Factory : public lsst::afw::table::io::PersistableFactory {
         LSST_ARCHIVE_ASSERT(record.getSchema() == schema.schema);
 
         lsst::geom::Box2I bbox = record.get(schema.bbox);
-        FiberMap fiberIds = record.get(schema.fiberIds);
-        std::size_t const numFibers = fiberIds.size();
+        FiberMap fiberId = record.get(schema.fiberId);
+        std::size_t const numFibers = fiberId.size();
 
         std::vector<std::shared_ptr<Spline const>> center;
         std::vector<std::shared_ptr<Spline const>> wavelength;
@@ -524,7 +524,7 @@ class DetectorMap::Factory : public lsst::afw::table::io::PersistableFactory {
         slitOffsets[DFOCUS].deep() = dFocus;
         auto visitInfo = archive.get<lsst::afw::image::VisitInfo>(record.get(schema.visitInfo));
 
-        return std::make_shared<DetectorMap>(bbox, fiberIds, center, wavelength, slitOffsets, *visitInfo);
+        return std::make_shared<DetectorMap>(bbox, fiberId, center, wavelength, slitOffsets, *visitInfo);
     }
 
     Factory(std::string const& name) : lsst::afw::table::io::PersistableFactory(name) {}
