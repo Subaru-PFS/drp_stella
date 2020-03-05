@@ -178,7 +178,7 @@ class ReduceExposureTask(CmdLineTask):
         exposureList = []
         psfList = []
         lsfList = []
-        sky2d = None
+        skyResults = None
         if self.config.useCalexp:
             if all(sensorRef.datasetExists("calexp") for sensorRef in sensorRefList):
                 self.log.info("Reading existing calexps")
@@ -204,9 +204,10 @@ class ReduceExposureTask(CmdLineTask):
                 lsfList = [None]*len(sensorRefList)
 
             if self.config.doSubtractSky2d:
-                sky2d = self.subtractSky2d.run(exposureList, pfsConfig, psfList,
-                                               fiberTraceList, detectorMapList)
+                skyResults = self.subtractSky2d.run(exposureList, pfsConfig, psfList,
+                                                    fiberTraceList, detectorMapList)
 
+        skyImageList = skyResults.imageList if skyResults is not None else [None]*len(exposureList)
         results = Struct(
             exposureList=exposureList,
             fiberTraceList=fiberTraceList,
@@ -214,13 +215,15 @@ class ReduceExposureTask(CmdLineTask):
             psfList=psfList,
             lsfList=lsfList,
             pfsConfig=pfsConfig,
-            sky2d=sky2d,
+            sky2d=skyResults.sky2d if skyResults is not None else None,
+            skyImageList=skyImageList,
         )
 
         if self.config.doExtractSpectra:
             originalList = []
             spectraList = []
-            for exposure, fiberTraces, detectorMap in zip(exposureList, fiberTraceList, detectorMapList):
+            for exposure, fiberTraces, detectorMap, skyImage in zip(exposureList, fiberTraceList,
+                                                                    detectorMapList, skyImageList):
                 spectra = self.extractSpectra.run(exposure.maskedImage, fiberTraces, detectorMap).spectra
                 originalList.append(spectra)
 
@@ -229,6 +232,14 @@ class ReduceExposureTask(CmdLineTask):
                     exposure.maskedImage -= continua.makeImage(exposure.getBBox(), fiberTraces)
                     spectra = self.extractSpectra.run(exposure.maskedImage, fiberTraces,
                                                       detectorMap).spectra
+                    # Set sky flux from continuum
+                    for ss, cc in zip(spectra, continua):
+                        ss.background += cc.spectrum
+
+                if skyImage is not None:
+                    skySpectra = self.extractSpectra.run(skyImage, fiberTraces, detectorMap).spectra
+                    for spec, skySpec in zip(spectra, skySpectra):
+                        spec.background += skySpec.spectrum
 
                 spectraList.append(spectra)
 
