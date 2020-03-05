@@ -6,7 +6,7 @@ import lsst.utils.tests
 import lsst.afw.geom
 
 from pfs.drp.stella.calibrateWavelengthsTask import WavelengthFitData, LineData
-from pfs.drp.stella import SpectrumSet, ReferenceLine, DetectorMap
+from pfs.drp.stella import ReferenceLine, DetectorMap
 
 display = None
 
