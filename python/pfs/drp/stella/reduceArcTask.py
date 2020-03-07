@@ -384,7 +384,7 @@ class ReduceArcTask(CmdLineTask):
         for ft in fiberTraces:
             trace = ft.trace
             xx, yy = getIndices(trace.getBBox())
-            centroids = np.array([np.sum(values*xx)/np.sum(values) for values in trace.image.array])
+            centroids = np.sum(trace.image.array*xx, axis=1)/np.sum(trace.image.array, axis=1)
             detectorMap.setXCenter(ft.fiberId, yy.flatten().astype(np.float32),
                                    centroids.astype(np.float32))
 
