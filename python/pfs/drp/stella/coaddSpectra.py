@@ -18,16 +18,53 @@ from .FluxTableTask import FluxTableTask
 
 
 class Target(SimpleNamespace):
-    def __init__(self, pfsConfig, index):
-        super().__init__()
-        self.catId = pfsConfig.catId[index]
-        self.objId = pfsConfig.objId[index]
-        self.tract = pfsConfig.tract[index]
-        self.patch = pfsConfig.patch[index]
-        self.targetType = pfsConfig.targetType[index]
+    """Struct with target details
+
+    Parameters
+    ----------
+    catId : `int`
+        Catalog identifier.
+    objId : `int`
+        Object identifier.
+    tract : `int`
+        Tract identifier.
+    patch : `str` (typically "<int>,<int>")
+        Patch identifier.
+    targetType : `pfs.datamodel.TargetType`
+        Type of target.
+    """
+    def __init__(self, catId, objId, tract, patch, targetType):
+        super().__init__(catId=catId, objId=objId, tract=tract, patch=patch, targetType=targetType)
 
     def __hash__(self):
         return hash((self.catId, self.objId, self.tract, self.patch, self.targetType))
+
+    @classmethod
+    def fromPfsConfig(cls, pfsConfig, index):
+        """Construct from a PfsConfig
+
+        Parameters
+        ----------
+        pfsConfig : `pfs.datamodel.PfsConfig`
+            Top-end configuration.
+        index : `int`
+            Index into the ``pfsConfig`` arrays for the target of interest.
+
+        Returns
+        -------
+        self : cls
+            Constructed `Target`.
+        """
+        catId = pfsConfig.catId[index]
+        objId = pfsConfig.objId[index]
+        tract = pfsConfig.tract[index]
+        patch = pfsConfig.patch[index]
+        targetType = pfsConfig.targetType[index]
+        return cls(catId, objId, tract, patch, targetType)
+
+    def __reduce__(self):
+        """How to pickle"""
+        return type(self), (self.catId, self.objId, self.tract, self.patch, self.targetType)
 
 
 class CoaddSpectraConfig(Config):
@@ -59,7 +96,7 @@ class CoaddSpectraRunner(TaskRunner):
         for ref in parsedCmd.id.refList:
             pfsConfig = ref.get("pfsConfig")
             for index in range(len(pfsConfig)):
-                targ = Target(pfsConfig, index)
+                targ = Target.fromPfsConfig(pfsConfig, index)
                 if targ.targetType not in (TargetType.SCIENCE, TargetType.FLUXSTD):
                     continue
                 targets[targ].append(dataRefToTuple(ref))
