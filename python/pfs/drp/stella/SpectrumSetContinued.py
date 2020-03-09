@@ -10,6 +10,7 @@ from pfs.datamodel.drp import PfsArm
 from pfs.datamodel.masks import MaskHelper
 from .SpectrumContinued import Spectrum
 from .SpectrumSet import SpectrumSet
+from .utils import getPfsVersions
 
 __all__ = ["SpectrumSet"]
 
@@ -54,7 +55,7 @@ class SpectrumSet:
         covar = np.zeros((numSpectra, 3, self.getLength()))
         for ii, ss in enumerate(self):
             covar[ii] = ss.getCovariance()
-        metadata = {}
+        metadata = getPfsVersions()
         return PfsArm(dataId, fiberIds, wavelength, self.getAllFluxes(), self.getAllMasks(),
                       self.getAllBackgrounds(), covar, flags, metadata)
 

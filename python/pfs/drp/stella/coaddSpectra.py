@@ -15,6 +15,7 @@ from .subtractSky1d import SubtractSky1dTask
 from .measureFluxCalibration import MeasureFluxCalibrationTask
 from .mergeArms import WavelengthSamplingConfig
 from .FluxTableTask import FluxTableTask
+from .utils import getPfsVersions
 
 
 class Target(SimpleNamespace):
@@ -174,7 +175,7 @@ class CoaddSpectraTask(CmdLineTask):
             fluxTable = self.fluxTable.run(identityList, spectrumList, flags)
             coadd = PfsObject(targetData, observations, combination.wavelength, combination.flux,
                               combination.mask, combination.sky, combination.covar, combination.covar2, flags,
-                              fluxTable)
+                              getPfsVersions(), fluxTable)
             butler.put(coadd, "pfsObject", coadd.getIdentity())
 
     def readVisit(self, dataRefList):
