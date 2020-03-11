@@ -8,6 +8,7 @@ import lsst.afw.image as afwImage
 
 from .datamodel import PfsArm
 from pfs.datamodel.masks import MaskHelper
+from pfs.datamodel import Identity
 from .SpectrumContinued import Spectrum
 from .SpectrumSet import SpectrumSet
 from .utils import getPfsVersions
@@ -56,7 +57,8 @@ class SpectrumSet:
         for ii, ss in enumerate(self):
             covar[ii] = ss.getCovariance()
         metadata = getPfsVersions()
-        return PfsArm(dataId, fiberIds, wavelength, self.getAllFluxes(), self.getAllMasks(),
+        identity = Identity.fromDict(dataId)
+        return PfsArm(identity, fiberIds, wavelength, self.getAllFluxes(), self.getAllMasks(),
                       self.getAllBackgrounds(), covar, flags, metadata)
 
     @classmethod
@@ -186,7 +188,8 @@ class SpectrumSet:
             If ``hdu`` or ``flags`` arguments are provided.
         """
         parsed = cls._parsePath(*args, **kwargs)
-        pfsArm = PfsArm.read(parsed.dataId, dirName=parsed.dirName)
+        identity = Identity.fromDict(parsed.dataId)
+        pfsArm = PfsArm.read(identity, dirName=parsed.dirName)
         return cls.fromPfsArm(pfsArm)
 
     def makeImage(self, box, fiberTraces):
