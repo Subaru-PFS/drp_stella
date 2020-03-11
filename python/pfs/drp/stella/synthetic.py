@@ -5,7 +5,7 @@ import lsst.geom
 import lsst.afw.image
 from lsst.pex.config import Config, Field
 from lsst.pipe.base import Struct
-from pfs.datamodel import PfsConfig, TargetType
+from pfs.datamodel import PfsConfig, TargetType, FiberStatus
 from pfs.drp.stella import DetectorMap
 
 __all__ = ["makeSpectrumImage",
@@ -290,6 +290,8 @@ def makeSyntheticPfsConfig(config, pfsDesignId, visit, rng=None,
                           [int(TargetType.SCIENCE)]*numObject)
     rng.shuffle(targetType)
 
+    fiberStatus = np.full_like(targetType, FiberStatus.GOOD)
+
     fiberMag = [np.array([22.0, 23.5, 25.0, 26.0] if
                          tt in (TargetType.SCIENCE, TargetType.FLUXSTD) else [])
                 for tt in targetType]
@@ -297,5 +299,5 @@ def makeSyntheticPfsConfig(config, pfsDesignId, visit, rng=None,
                    for tt in targetType]
 
     return PfsConfig(pfsDesignId, visit, raBoresight.asDegrees(), decBoresight.asDegrees(),
-                     fiberId, tract, patch, ra, dec, catId, objId, targetType,
+                     fiberId, tract, patch, ra, dec, catId, objId, targetType, fiberStatus,
                      fiberMag, filterNames, pfiCenter, pfiNominal)
