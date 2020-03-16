@@ -42,6 +42,8 @@ class ExtractSpectraTask(pipeBase.Task):
         spectra : `pfs.drp.stella.SpectrumSet`
             Extracted spectra.
         """
+        if len(fiberTraceSet) == 0:
+            raise RuntimeError("No fiber traces to extract")
         if self.debugInfo.display:
             display = afwDisplay.Display(frame=self.debugInfo.input_frame)
             fiberTraceSet.applyToMask(maskedImage.mask)
