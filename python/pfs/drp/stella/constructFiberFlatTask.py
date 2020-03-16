@@ -97,6 +97,9 @@ class ConstructFiberFlatTask(SpectralCalibTask):
             dataRef = dithers[dd][0]  # Representative dataRef
             detMap = dataRef.get('detectormap')
             traces = self.trace.run(image, detMap)
+            if len(traces) == 0:
+                self.log.warn("No traces found for dither %s: skipping", dd)
+                continue
             self.log.info(f"{len(traces)} FiberTraces found for dither {dd}")
             maskVal = image.mask.getPlaneBitMask(["BAD", "SAT", "CR", "INTRP"])
             spectra = traces.extractSpectra(image, maskVal)

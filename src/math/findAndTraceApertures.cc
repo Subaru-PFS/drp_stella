@@ -763,7 +763,6 @@ FindCenterPositionsOneTraceResult findCenterPositionsOneTrace(
     FloatArray gaussFitCoeffs = ndarray::allocate(finding.nTermsGaussFit);
     FloatArray gaussFitCoeffsBak = ndarray::allocate(finding.nTermsGaussFit);
     ndarray::Array<std::size_t, 1, 1> signal = ndarray::allocate(width);
-    signal.deep() = 0;
 
     FloatArray apertureCenter = ndarray::allocate(height);
     FloatArray apertureCenterErr = ndarray::allocate(height);
@@ -801,6 +800,7 @@ FindCenterPositionsOneTraceResult findCenterPositionsOneTrace(
         nextSearchStart.setY(row);
         nextSearchStart.setX(startIndex);
         rowBak = row;
+        signal.deep() = 0;
         for (std::size_t col = 0; col < width; ++col) {
             if (col == 0) {
                 signal[col] = (imageArray[row][col] > finding.signalThreshold) ? 1 : 0;
