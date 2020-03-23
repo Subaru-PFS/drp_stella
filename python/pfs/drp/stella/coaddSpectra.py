@@ -7,10 +7,10 @@ from lsst.pipe.base import CmdLineTask, ArgumentParser, TaskRunner, Struct
 from lsst.geom import SpherePoint, averageSpherePoint, degrees
 
 from pfs.datamodel import TargetData, TargetObservations
-from pfs.datamodel.drp import PfsObject, PfsSpectrum
 from pfs.datamodel.masks import MaskHelper
 from pfs.datamodel.pfsConfig import TargetType, FiberStatus
 
+from .datamodel import PfsObject, PfsSpectrum
 from .subtractSky1d import SubtractSky1dTask
 from .measureFluxCalibration import MeasureFluxCalibrationTask
 from .mergeArms import WavelengthSamplingConfig

@@ -3,9 +3,9 @@ from lsst.pex.config import Config, Field, ConfigurableField
 from lsst.pipe.base import CmdLineTask, ArgumentParser, Struct
 
 from pfs.datamodel.pfsConfig import TargetType
-from pfs.datamodel.drp import PfsSingle
 from pfs.datamodel import MaskHelper
 
+from .datamodel import PfsSingle
 from .measureFluxCalibration import MeasureFluxCalibrationTask
 from .subtractSky1d import SubtractSky1dTask
 from .FluxTableTask import FluxTableTask

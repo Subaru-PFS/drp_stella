@@ -6,7 +6,7 @@ from lsst.utils import continueClass
 from lsst.pipe.base import Struct
 import lsst.afw.image as afwImage
 
-from pfs.datamodel.drp import PfsArm
+from .datamodel import PfsArm
 from pfs.datamodel.masks import MaskHelper
 from .SpectrumContinued import Spectrum
 from .SpectrumSet import SpectrumSet

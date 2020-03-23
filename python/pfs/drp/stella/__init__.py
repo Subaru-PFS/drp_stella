@@ -1,4 +1,5 @@
 import pfs.drp.stella.pickleUtils  # noqa: register pickle functions
+from .datamodel import *
 from .ReferenceLine import *
 from .SpectrumContinued import *
 from .SpectrumSetContinued import *

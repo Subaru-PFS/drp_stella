@@ -3,9 +3,9 @@ import numpy as np
 from lsst.pex.config import Config, Field, ConfigurableField, ListField, ConfigField
 from lsst.pipe.base import CmdLineTask, ArgumentParser, TaskRunner, Struct
 
-from pfs.datamodel.drp import PfsMerged
 from pfs.datamodel.masks import MaskHelper
 from pfs.datamodel.wavelengthArray import WavelengthArray
+from .datamodel import PfsMerged
 from .subtractSky1d import SubtractSky1dTask
 from .utils import getPfsVersions
 

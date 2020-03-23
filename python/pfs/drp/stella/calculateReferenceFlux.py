@@ -2,7 +2,7 @@ from lsst.pex.config import Config, ConfigurableField, Field
 from lsst.pipe.base import CmdLineTask, ArgumentParser
 
 from pfs.datamodel.pfsConfig import TargetType
-from pfs.datamodel.drp import PfsSingle
+from .datamodel import PfsSingle
 from .fitReference import FitReferenceTask
 
 
