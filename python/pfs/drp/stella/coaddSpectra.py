@@ -9,7 +9,7 @@ from lsst.geom import SpherePoint, averageSpherePoint, degrees
 from pfs.datamodel import TargetData, TargetObservations
 from pfs.datamodel.drp import PfsObject, PfsSpectrum
 from pfs.datamodel.masks import MaskHelper
-from pfs.datamodel.pfsConfig import TargetType
+from pfs.datamodel.pfsConfig import TargetType, FiberStatus
 
 from .subtractSky1d import SubtractSky1dTask
 from .measureFluxCalibration import MeasureFluxCalibrationTask
@@ -33,12 +33,15 @@ class Target(SimpleNamespace):
         Patch identifier.
     targetType : `pfs.datamodel.TargetType`
         Type of target.
+    fiberStatus : `pfs.datamodel.FiberStatus`
+        Status of fiber.
     """
-    def __init__(self, catId, objId, tract, patch, targetType):
-        super().__init__(catId=catId, objId=objId, tract=tract, patch=patch, targetType=targetType)
+    def __init__(self, catId, objId, tract, patch, targetType, fiberStatus):
+        super().__init__(catId=catId, objId=objId, tract=tract, patch=patch, targetType=targetType,
+                         fiberStatus=fiberStatus)
 
     def __hash__(self):
-        return hash((self.catId, self.objId, self.tract, self.patch, self.targetType))
+        return hash((self.catId, self.objId, self.tract, self.patch, self.targetType, self.fiberStatus))
 
     @classmethod
     def fromPfsConfig(cls, pfsConfig, index):
@@ -61,11 +64,12 @@ class Target(SimpleNamespace):
         tract = pfsConfig.tract[index]
         patch = pfsConfig.patch[index]
         targetType = pfsConfig.targetType[index]
-        return cls(catId, objId, tract, patch, targetType)
+        fiberStatus = pfsConfig.fiberStatus[index]
+        return cls(catId, objId, tract, patch, targetType, fiberStatus)
 
     def __reduce__(self):
         """How to pickle"""
-        return type(self), (self.catId, self.objId, self.tract, self.patch, self.targetType)
+        return type(self), (self.catId, self.objId, self.tract, self.patch, self.targetType, self.fiberStatus)
 
 
 class CoaddSpectraConfig(Config):
@@ -99,6 +103,8 @@ class CoaddSpectraRunner(TaskRunner):
             for index in range(len(pfsConfig)):
                 targ = Target.fromPfsConfig(pfsConfig, index)
                 if targ.targetType not in (TargetType.SCIENCE, TargetType.FLUXSTD):
+                    continue
+                if targ.fiberStatus != FiberStatus.GOOD:
                     continue
                 targets[targ].append(dataRefToTuple(ref))
         # Have target --> [exposures]; invert to [exposures] --> [targets]
