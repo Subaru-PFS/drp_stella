@@ -16,3 +16,5 @@ tests/.tests/
 ups/drp_stella.cfgc
 sphinx/_build/
 .cache
+.coverage
+.pytest_cache
