@@ -224,6 +224,6 @@ def binData(xx, yy, good, numBins):
     yBinned = np.empty(numBins)
     for ii, (low, high) in enumerate(zip(edges[:-1], edges[1:])):
         select = good[low:high]
-        xBinned[ii] = np.median(xx[low:high][select])
-        yBinned[ii] = np.median(yy[low:high][select])
+        xBinned[ii] = np.median(xx[low:high][select]) if np.any(select) else np.nan
+        yBinned[ii] = np.median(yy[low:high][select]) if np.any(select) else np.nan
     return xBinned, yBinned
