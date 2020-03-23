@@ -268,7 +268,7 @@ class ReduceArcTask(CmdLineTask):
         visit0 = dataRef.dataId["visit"]
         calibId = detectorMap.metadata.get("CALIB_ID")
         detectorMap.metadata.set("CALIB_ID", re.sub(r"visit0=\d+", "visit0=%d" % (visit0,), calibId))
-        dataRef.put(detectorMap, 'detectormap', visit0=visit0)
+        dataRef.put(detectorMap, 'detectorMap', visit0=visit0)
 
     def reduceDataRefs(self, dataRefList):
         """Reduce a list of data references

@@ -180,7 +180,7 @@ class TasksTestCase(lsst.utils.tests.TestCase):
         task = ReduceExposureTask(config=config)
 
         raw = lsst.afw.image.makeExposure(self.arc)
-        dataRef = DummyDataRef(raw=raw, fibertrace=traces, detectormap=self.detMap, pfsConfig=self.pfsConfig)
+        dataRef = DummyDataRef(raw=raw, fiberTrace=traces, detectorMap=self.detMap, pfsConfig=self.pfsConfig)
         results = task.runDataRef([dataRef])
         self.assertEqual(len(results.exposureList), 1)
         self.assertEqual(len(results.originalList), 1)

@@ -34,7 +34,7 @@ class ConstructFiberTraceTask(SpectralCalibTask):
     """Task to construct the fiber trace"""
     ConfigClass = ConstructFiberTraceConfig
     _DefaultName = "fiberTrace"
-    calibName = "fibertrace"
+    calibName = "fiberTrace"
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -99,7 +99,7 @@ class ConstructFiberTraceTask(SpectralCalibTask):
             display = afwDisplay.Display(frame=self.debugInfo.combinedFrame)
             display.mtv(exposure, "Combined")
 
-        detMap = dataRefList[0].get('detectormap')
+        detMap = dataRefList[0].get('detectorMap')
         self.config.slitOffsets.apply(detMap, self.log)
 
         traces = self.trace.run(exposure.maskedImage, detMap)
@@ -137,9 +137,9 @@ class ConstructFiberTraceTask(SpectralCalibTask):
             detMap.metadata.remove(key)
         detMap.setVisitInfo(visitInfo)
         self.recordCalibInputs(cache.butler, detMap, struct.ccdIdList, outputId)
-        detMap.getMetadata().set("OBSTYPE", "detectormap")  # Overwrite "fibertrace"
+        detMap.getMetadata().set("OBSTYPE", "detectorMap")  # Overwrite "fiberTrace"
 
-        dataRefList[0].put(detMap, 'detectormap', visit0=dataRefList[0].dataId['visit'])
+        dataRefList[0].put(detMap, 'detectorMap', visit0=dataRefList[0].dataId['visit'])
 
         self.recordCalibInputs(cache.butler, traces, struct.ccdIdList, outputId)
         self.write(cache.butler, traces, outputId)
