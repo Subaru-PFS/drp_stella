@@ -1,5 +1,5 @@
 from .fluxTable import *
-from .pfsSpectra import *
-from .pfsSpectrum import *
+from .pfsFiberArray import *
+from .pfsFiberArraySet import *
 from .interpolate import *
 from .drp import *

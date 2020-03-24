@@ -1,15 +1,15 @@
 import pfs.datamodel.drp
-from .pfsSpectra import PfsSpectra
-from .pfsSpectrum import PfsSpectrum, PfsSimpleSpectrum
+from .pfsFiberArraySet import PfsFiberArraySet
+from .pfsFiberArray import PfsFiberArray, PfsSimpleSpectrum
 
 __all__ = ("PfsArm", "PfsMerged", "PfsReference", "PfsSingle", "PfsObject")
 
 
-class PfsArm(pfs.datamodel.drp.PfsArm, PfsSpectra):
+class PfsArm(pfs.datamodel.drp.PfsArm, PfsFiberArraySet):
     pass
 
 
-class PfsMerged(pfs.datamodel.drp.PfsMerged, PfsSpectra):
+class PfsMerged(pfs.datamodel.drp.PfsMerged, PfsFiberArraySet):
     pass
 
 
@@ -17,9 +17,9 @@ class PfsReference(pfs.datamodel.drp.PfsReference, PfsSimpleSpectrum):
     pass
 
 
-class PfsSingle(pfs.datamodel.drp.PfsSingle, PfsSpectrum):
+class PfsSingle(pfs.datamodel.drp.PfsSingle, PfsFiberArray):
     pass
 
 
-class PfsObject(pfs.datamodel.drp.PfsObject, PfsSpectrum):
+class PfsObject(pfs.datamodel.drp.PfsObject, PfsFiberArray):
     pass

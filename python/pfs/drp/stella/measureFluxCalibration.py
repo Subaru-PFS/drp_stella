@@ -64,7 +64,7 @@ class MeasureFluxCalibrationTask(Task):
 
         Parameters
         ----------
-        spectra : `pfs.datamodel.PfsSpectra`
+        spectra : `pfs.datamodel.PfsFiberArraySet`
             Spectra to correct.
         pfsConfig : `pfs.datamodel.PfsConfig`
             Top-end configuration, for getting fiber positions.
@@ -83,7 +83,7 @@ class MeasureFluxCalibrationTask(Task):
 
         Parameters
         ----------
-        spectrum : `pfs.datamodel.PfsSpectrum`
+        spectrum : `pfs.datamodel.PfsFiberArray`
             Spectrum to correct.
         fiberId : `int`
             Fiber identifier.

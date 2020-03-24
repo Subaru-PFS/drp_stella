@@ -62,7 +62,7 @@ class TransmissionCurve:
 
         Parameters
         ----------
-        spectrum : `pfs.datamodel.PfsSpectrum`, optional
+        spectrum : `pfs.datamodel.PfsFiberArray`, optional
             Spectrum to integrate. If not provided, use unity.
         """
 
@@ -177,7 +177,7 @@ class FitReferenceTask(Task):
 
         Parameters
         ----------
-        spectrum : `pfs.datamodel.PfsSpectrum`
+        spectrum : `pfs.datamodel.PfsFiberArray`
             Spectrum to fit.
 
         Returns

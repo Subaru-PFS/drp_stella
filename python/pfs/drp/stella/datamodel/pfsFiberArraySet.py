@@ -3,10 +3,10 @@ import pfs.datamodel
 
 from .interpolate import interpolateFlux, interpolateMask
 
-__all__ = ("PfsSpectra",)
+__all__ = ("PfsFiberArraySet",)
 
 
-class PfsSpectra(pfs.datamodel.PfsSpectra):
+class PfsFiberArraySet(pfs.datamodel.PfsFiberArraySet):
     def __imul__(self, rhs):
         """In-place multiplication"""
         with np.errstate(invalid="ignore"):
@@ -74,7 +74,7 @@ class PfsSpectra(pfs.datamodel.PfsSpectra):
         return figure, axes
 
     def resample(self, wavelength, fiberId=None):
-        """Construct a new PfsSpectra resampled to a common wavelength vector
+        """Construct a new PfsFiberArraySet resampled to a common wavelength vector
 
         Parameters
         ----------
@@ -85,7 +85,7 @@ class PfsSpectra(pfs.datamodel.PfsSpectra):
 
         Returns
         -------
-        result : `PfsSpectra`
+        result : `PfsFiberArraySet`
             Resampled spectra.
         """
         if fiberId is None:

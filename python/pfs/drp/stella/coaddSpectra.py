@@ -10,7 +10,7 @@ from pfs.datamodel import TargetData, TargetObservations
 from pfs.datamodel.masks import MaskHelper
 from pfs.datamodel.pfsConfig import TargetType, FiberStatus
 
-from .datamodel import PfsObject, PfsSpectrum
+from .datamodel import PfsObject, PfsFiberArray
 from .subtractSky1d import SubtractSky1dTask
 from .measureFluxCalibration import MeasureFluxCalibrationTask
 from .mergeArms import WavelengthSamplingConfig
@@ -211,7 +211,7 @@ class CoaddSpectraTask(CmdLineTask):
             spectra = dataRef.get("pfsArm")
             self.subtractSky1d.subtractSkySpectra(spectra, lsf, pfsConfig, sky1d)
             self.measureFluxCalibration.applySpectra(spectra, pfsConfig, fluxCal)
-            result += [spectra.extractFiber(PfsSpectrum, pfsConfig, fiberId) for fiberId in spectra.fiberId]
+            result += [spectra.extractFiber(PfsFiberArray, pfsConfig, fiberId) for fiberId in spectra.fiberId]
         return Struct(spectra=result, pfsConfig=pfsConfig)
 
     def getTargetData(self, target, pfsConfigList, indices):
@@ -288,7 +288,7 @@ class CoaddSpectraTask(CmdLineTask):
 
         Parameters
         ----------
-        spectra : iterable of `pfs.datamodel.PfsSpectrum`
+        spectra : iterable of `pfs.datamodel.PfsFiberArray`
             List of spectra to combine.
         flags : `pfs.datamodel.MaskHelper`
             Mask interpreter, for identifying bad pixels.
