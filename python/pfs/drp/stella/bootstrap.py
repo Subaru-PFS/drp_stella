@@ -114,7 +114,7 @@ class BootstrapTask(CmdLineTask):
                        lineResults.detectorMap, refLines, frame=2)
 
         self.setCalibId(lineResults.detectorMap.metadata, arcRef.dataId)
-        arcRef.put(lineResults.detectorMap, "detectormap", visit0=arcRef.dataId["visit"])
+        arcRef.put(lineResults.detectorMap, "detectorMap", visit0=arcRef.dataId["visit"])
 
     def traceFibers(self, flatRef, pfsConfig):
         """Trace fibers on the quartz flat
@@ -133,7 +133,7 @@ class BootstrapTask(CmdLineTask):
             Set of fiber traces.
         """
         exposure = self.isr.runDataRef(flatRef).exposure
-        detMap = flatRef.get("detectormap")
+        detMap = flatRef.get("detectorMap")
         traces = self.trace.run(exposure.maskedImage, detMap)
         if len(traces) != len(pfsConfig.fiberId):
             raise RuntimeError("Mismatch between number of traces (%d) and number of fibers (%d)" %
@@ -203,7 +203,7 @@ class BootstrapTask(CmdLineTask):
             Map of fiberId,wavelength to x,y.
         """
         exposure = self.isr.runDataRef(arcRef).exposure
-        detMap = arcRef.get("detectormap")
+        detMap = arcRef.get("detectorMap")
         spectra = traces.extractSpectra(exposure.maskedImage)
         yCenters = [self.findLines.runCentroids(ss).centroids for ss in spectra]
         xCenters = [self.centroidTrace(tt, yList) for tt, yList in zip(traces, yCenters)]

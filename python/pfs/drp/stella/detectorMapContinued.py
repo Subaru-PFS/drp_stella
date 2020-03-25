@@ -143,7 +143,7 @@ class DetectorMap:
         hdr["MINY"] = bbox.getMinY()
         hdr["MAXX"] = bbox.getMaxX()
         hdr["MAXY"] = bbox.getMaxY()
-        hdr["OBSTYPE"] = 'detectormap'
+        hdr["OBSTYPE"] = 'detectorMap'
         date = self.getVisitInfo().getDate()
         hdr["HIERARCH calibDate"] = date.toPython(date.UTC).strftime("%Y-%m-%d")
         metadata = self.metadata.deepCopy()

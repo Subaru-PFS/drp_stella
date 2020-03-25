@@ -355,7 +355,7 @@ class ReduceExposureTask(CmdLineTask):
         detectorMap : `pfs.drp.stella.utils.DetectorMap`
             Mapping of wl,fiber to detector position.
         """
-        detectorMap = sensorRef.get("detectormap")
+        detectorMap = sensorRef.get("detectorMap")
         if self.config.fiberDx != 0.0 or self.config.fiberDy != 0.0:
             slitOffsets = detectorMap.getSlitOffsets()
             slitOffsets[detectorMap.DX] += self.config.fiberDx
@@ -376,7 +376,7 @@ class ReduceExposureTask(CmdLineTask):
         fiberTraceSet : `pfs.drp.stella.FiberTraceSet`
             Set of fiber traces.
         """
-        return sensorRef.get('fibertrace')
+        return sensorRef.get('fiberTrace')
 
     def calculateLsf(self, psf):
         return None

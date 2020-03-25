@@ -95,7 +95,7 @@ class ConstructFiberFlatTask(SpectralCalibTask):
             self.correctLowVarianceImage(image)
 
             dataRef = dithers[dd][0]  # Representative dataRef
-            detMap = dataRef.get('detectormap')
+            detMap = dataRef.get('detectorMap')
             traces = self.trace.run(image, detMap)
             if len(traces) == 0:
                 self.log.warn("No traces found for dither %s: skipping", dd)
