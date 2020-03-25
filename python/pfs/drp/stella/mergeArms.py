@@ -137,7 +137,7 @@ class MergeArmsTask(CmdLineTask):
 
         Parameters
         ----------
-        spectraList : iterable of `pfs.datamodel.PfsSpectra`
+        spectraList : iterable of `pfs.datamodel.PfsFiberArraySet`
             List of spectra to coadd.
         identityKeys : iterable of `str`
             Keys to select from the input spectra's ``identity`` for the
@@ -168,7 +168,7 @@ class MergeArmsTask(CmdLineTask):
 
         Parameters
         ----------
-        spectra : iterable of `pfs.datamodel.PfsSpectra`
+        spectra : iterable of `pfs.datamodel.PfsFiberArraySet`
             List of spectra to combine. These should already have been
             resampled to a common wavelength representation.
         flags : `pfs.datamodel.MaskHelper`

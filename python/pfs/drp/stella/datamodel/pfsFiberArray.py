@@ -3,7 +3,7 @@ import pfs.datamodel
 
 from .interpolate import interpolateFlux, interpolateMask
 
-__all__ = ("PfsSimpleSpectrum", "PfsSpectrum",)
+__all__ = ("PfsSimpleSpectrum", "PfsFiberArray",)
 
 
 class PfsSimpleSpectrum(pfs.datamodel.PfsSimpleSpectrum):
@@ -63,7 +63,7 @@ class PfsSimpleSpectrum(pfs.datamodel.PfsSimpleSpectrum):
         return type(self)(self.target, wavelength, flux, mask, self.flags)
 
 
-class PfsSpectrum(pfs.datamodel.PfsSpectrum, PfsSimpleSpectrum):
+class PfsFiberArray(pfs.datamodel.PfsFiberArray, PfsSimpleSpectrum):
     def __imul__(self, rhs):
         """Flux multiplication, in-place"""
         super().__imul__(rhs)
@@ -119,7 +119,7 @@ class PfsSpectrum(pfs.datamodel.PfsSpectrum, PfsSimpleSpectrum):
 
         Returns
         -------
-        resampled : `PfsSpectrum`
+        resampled : `PfsFiberArray`
             Resampled spectrum.
         """
         flux = interpolateFlux(self.wavelength, self.flux, wavelength)

@@ -35,7 +35,7 @@ class SubtractSky1dTask(Task):
 
         Parameters
         ----------
-        spectraList : iterable of `pfs.datamodel.PfsSpectra`
+        spectraList : iterable of `pfs.datamodel.PfsFiberArraySet`
             List of spectra from which to subtract the sky.
         pfsConfig : `pfs.datamodel.PfsConfig`
             Configuration of the top-end, for identifying sky fibers.
@@ -58,12 +58,12 @@ class SubtractSky1dTask(Task):
 
         Parameters
         ----------
-        spectraList : iterable of `pfs.datamodel.PfsSpectra`
+        spectraList : iterable of `pfs.datamodel.PfsFiberArraySet`
             Spectra to resample
 
         Returns
         -------
-        resampled : `list` of `pfs.datamodel.PfsSpectra`
+        resampled : `list` of `pfs.datamodel.PfsFiberArraySet`
             Resampled spectra.
         """
         minWl = self.config.minWavelength
@@ -77,7 +77,7 @@ class SubtractSky1dTask(Task):
 
         Parameters
         ----------
-        resampledList : iterable of `pfs.datamodel.PfsSpectra`
+        resampledList : iterable of `pfs.datamodel.PfsFiberArraySet`
             List of spectra (with common wavelengths) from which to measure
             the sky.
         pfsConfig : `pfs.datamodel.PfsConfig`
@@ -113,7 +113,7 @@ class SubtractSky1dTask(Task):
 
         Parameters
         ----------
-        spectra : `pfs.datamodel.PfsSpectra`
+        spectra : `pfs.datamodel.PfsFiberArraySet`
             Spectra to have sky subtracted.
         lsf : LSF (type TBD)
             Line-spread function.
@@ -129,7 +129,7 @@ class SubtractSky1dTask(Task):
 
         Parameters
         ----------
-        spectrum : `pfs.datamodel.PfsSpectrum`
+        spectrum : `pfs.datamodel.PfsFiberArray`
             Spectrum to have sky subtracted.
         lsf : LSF (type TBD)
             Line-spread function.

@@ -130,7 +130,7 @@ def makeFluxTable(identities, spectra, flags, ignoreFlags=None, iterations=3, si
     identities : iterable of `dict`
         Key-value pairs describing the identity of each spectrum. Requires at
         least the ``visit`` and ``arm`` keywords.
-    spectra : iterable of `pfs.datamodel.PfsSpectrum`
+    spectra : iterable of `pfs.datamodel.PfsFiberArray`
         Spectra to coadd.
     flags : `pfs.datamodel.MaskHelper`
         Helper for dealing with symbolic names for mask values.
