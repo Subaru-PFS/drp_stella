@@ -1,4 +1,3 @@
-from types import SimpleNamespace
 import numpy as np
 from collections import defaultdict, Counter
 
@@ -6,7 +5,7 @@ from lsst.pex.config import Config, ConfigurableField, ListField, ConfigField
 from lsst.pipe.base import CmdLineTask, ArgumentParser, TaskRunner, Struct
 from lsst.geom import SpherePoint, averageSpherePoint, degrees
 
-from pfs.datamodel import TargetData, TargetObservations
+from pfs.datamodel import Target, Observations
 from pfs.datamodel.masks import MaskHelper
 from pfs.datamodel.pfsConfig import TargetType, FiberStatus
 
@@ -16,60 +15,6 @@ from .measureFluxCalibration import MeasureFluxCalibrationTask
 from .mergeArms import WavelengthSamplingConfig
 from .FluxTableTask import FluxTableTask
 from .utils import getPfsVersions
-
-
-class Target(SimpleNamespace):
-    """Struct with target details
-
-    Parameters
-    ----------
-    catId : `int`
-        Catalog identifier.
-    objId : `int`
-        Object identifier.
-    tract : `int`
-        Tract identifier.
-    patch : `str` (typically "<int>,<int>")
-        Patch identifier.
-    targetType : `pfs.datamodel.TargetType`
-        Type of target.
-    fiberStatus : `pfs.datamodel.FiberStatus`
-        Status of fiber.
-    """
-    def __init__(self, catId, objId, tract, patch, targetType, fiberStatus):
-        super().__init__(catId=catId, objId=objId, tract=tract, patch=patch, targetType=targetType,
-                         fiberStatus=fiberStatus)
-
-    def __hash__(self):
-        return hash((self.catId, self.objId, self.tract, self.patch, self.targetType, self.fiberStatus))
-
-    @classmethod
-    def fromPfsConfig(cls, pfsConfig, index):
-        """Construct from a PfsConfig
-
-        Parameters
-        ----------
-        pfsConfig : `pfs.datamodel.PfsConfig`
-            Top-end configuration.
-        index : `int`
-            Index into the ``pfsConfig`` arrays for the target of interest.
-
-        Returns
-        -------
-        self : cls
-            Constructed `Target`.
-        """
-        catId = pfsConfig.catId[index]
-        objId = pfsConfig.objId[index]
-        tract = pfsConfig.tract[index]
-        patch = pfsConfig.patch[index]
-        targetType = pfsConfig.targetType[index]
-        fiberStatus = pfsConfig.fiberStatus[index]
-        return cls(catId, objId, tract, patch, targetType, fiberStatus)
-
-    def __reduce__(self):
-        """How to pickle"""
-        return type(self), (self.catId, self.objId, self.tract, self.patch, self.targetType, self.fiberStatus)
 
 
 class CoaddSpectraConfig(Config):
@@ -100,11 +45,11 @@ class CoaddSpectraRunner(TaskRunner):
         dataRefs = {dataRefToTuple(ref): ref for ref in parsedCmd.id.refList}
         for ref in parsedCmd.id.refList:
             pfsConfig = ref.get("pfsConfig")
-            for index in range(len(pfsConfig)):
+            for index, fiberStatus in enumerate(pfsConfig.fiberStatus):
+                if fiberStatus != FiberStatus.GOOD:
+                    continue
                 targ = Target.fromPfsConfig(pfsConfig, index)
                 if targ.targetType not in (TargetType.SCIENCE, TargetType.FLUXSTD):
-                    continue
-                if targ.fiberStatus != FiberStatus.GOOD:
                     continue
                 targets[targ].append(dataRefToTuple(ref))
         # Have target --> [exposures]; invert to [exposures] --> [targets]
@@ -257,9 +202,9 @@ class CoaddSpectraTask(CmdLineTask):
                 mag = mag.pop()
             fiberMags[ff] = mag
 
-        return TargetData(target.catId, target.tract, target.patch, target.objId,
-                          radec.getRa().asDegrees(), radec.getDec().asDegrees(),
-                          targetType, dict(**fiberMags))
+        return Target(target.catId, target.tract, target.patch, target.objId,
+                      radec.getRa().asDegrees(), radec.getDec().asDegrees(),
+                      targetType, dict(**fiberMags))
 
     def getObservations(self, identityList, pfsConfigList, indices):
         """Construct a list of observations of the target
@@ -278,10 +223,14 @@ class CoaddSpectraTask(CmdLineTask):
         observations : `pfs.datamodel.TargetObservations`
             Observations of the target.
         """
+        visit = np.array([ident["visit"] for ident in identityList])
+        arm = [ident["arm"] for ident in identityList]
+        spectrograph = np.array([ident["spectrograph"] for ident in identityList])
+        pfsDesignId = np.array([pfsConfig.pfsDesignId for pfsConfig in pfsConfigList])
         fiberId = np.array([pfsConfig.fiberId[ii] for pfsConfig, ii in zip(pfsConfigList, indices)])
         pfiNominal = np.array([pfsConfig.pfiNominal[ii] for pfsConfig, ii in zip(pfsConfigList, indices)])
         pfiCenter = np.array([pfsConfig.pfiCenter[ii] for pfsConfig, ii in zip(pfsConfigList, indices)])
-        return TargetObservations(identityList, fiberId, pfiNominal, pfiCenter)
+        return Observations(visit, arm, spectrograph, pfsDesignId, fiberId, pfiNominal, pfiCenter)
 
     def combine(self, spectra, flags):
         """Combine spectra

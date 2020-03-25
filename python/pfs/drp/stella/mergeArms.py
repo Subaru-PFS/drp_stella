@@ -6,6 +6,7 @@ from lsst.pipe.base import CmdLineTask, ArgumentParser, TaskRunner, Struct
 from pfs.datamodel.masks import MaskHelper
 from pfs.datamodel.wavelengthArray import WavelengthArray
 from .datamodel import PfsMerged
+from pfs.datamodel import Identity
 from .subtractSky1d import SubtractSky1dTask
 from .utils import getPfsVersions
 
@@ -94,42 +95,12 @@ class MergeArmsTask(CmdLineTask):
             sky1d = self.subtractSky1d.run(sum(spectra, []), pfsConfig, sum(lsf, []))
             expSpecRefList[0][0].put(sky1d, "sky1d")
 
-        spectrographs = [self.runSpectrograph(ss) for ss in spectra]  # Merge in wavelength
-        merged = self.mergeSpectrographs(spectrographs)  # Merge across spectrographs
+        spectrographs = [self.mergeSpectra(ss) for ss in spectra]  # Merge in wavelength
+        merged = PfsMerged.fromMerge(spectrographs, metadata=getPfsVersions())  # Merge across spectrographs
         expSpecRefList[0][0].put(merged, "pfsMerged")
         return Struct(spectra=merged, pfsConfig=pfsConfig)
 
-    def runSpectrograph(self, spectraList):
-        """Merge spectra from arms within the same spectrograph
-
-        Parameters
-        ----------
-        spectraList : iterable of `pfs.datamodel.PfsArm`
-            Spectra from the multiple arms of a single spectrograph.
-
-        Returns
-        -------
-        result : `pfs.datamodel.PfsMerged`
-            Merged spectra for spectrograph.
-        """
-        return self.mergeSpectra(spectraList, ["visit", "spectrograph"])
-
-    def mergeSpectrographs(self, spectraList):
-        """Merge spectra from multiple spectrographs
-
-        Parameters
-        ----------
-        spectraList : iterable of `pfs.datamodel.PfsMerged`
-            Spectra to merge.
-
-        Returns
-        -------
-        merged : `pfs.datamodel.PfsMerged`
-            Merged spectra.
-        """
-        return PfsMerged.fromMerge(["visit"], spectraList, metadata=getPfsVersions())
-
-    def mergeSpectra(self, spectraList, identityKeys):
+    def mergeSpectra(self, spectraList):
         """Combine all spectra from the same exposure
 
         All spectra should have the same fibers, so we simply iterate over the
@@ -139,9 +110,6 @@ class MergeArmsTask(CmdLineTask):
         ----------
         spectraList : iterable of `pfs.datamodel.PfsFiberArraySet`
             List of spectra to coadd.
-        identityKeys : iterable of `str`
-            Keys to select from the input spectra's ``identity`` for the
-            merged spectra's ``identity``.
 
         Returns
         -------
@@ -149,7 +117,7 @@ class MergeArmsTask(CmdLineTask):
             Merged spectra.
         """
         archetype = spectraList[0]
-        identity = {key: archetype.identity[key] for key in identityKeys}
+        identity = Identity.fromMerge([ss.identity for ss in spectraList])
         fiberId = archetype.fiberId
         if any(np.any(ss.fiberId != fiberId) for ss in spectraList):
             raise RuntimeError("Selection of fibers differs")
