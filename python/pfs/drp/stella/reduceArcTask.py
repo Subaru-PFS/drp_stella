@@ -33,6 +33,7 @@ class ReduceArcConfig(pexConfig.Config):
     def setDefaults(self):
         super().setDefaults()
         self.reduceExposure.doSubtractSky2d = False
+        self.reduceExposure.doWriteArm = False  # We'll do this ourselves, after wavelength calibration
 
 
 class ReduceArcRunner(TaskRunner):
@@ -73,7 +74,7 @@ class ReduceArcRunner(TaskRunner):
             elif exitStatus > 0:
                 task.log.fatal("Failed to process at least one of the components for %s" % (dataRef.dataId,))
             else:
-                final = task.gather(dataRef, [rr.result.result for rr in results],
+                final = task.gather(dataRefList, [rr.result.result for rr in results],
                                     lineListFilename=parsedCmd.lineList)
             gatherResults.append(Struct(result=final, exitStatus=exitStatus))
         return gatherResults
@@ -199,15 +200,15 @@ class ReduceArcTask(CmdLineTask):
             metadata=metadata,
         )
 
-    def gather(self, dataRef, results, lineListFilename):
+    def gather(self, dataRefList, results, lineListFilename):
         """Entry point for gather stage
 
         Combines the input spectra and fits a wavelength calibration.
 
         Parameters
         ----------
-        dataRef : `lsst.daf.persistence.ButlerDataRef`
-            Data reference for exposure.
+        dataRefList : iterable of `lsst.daf.persistence.ButlerDataRef`
+            Data references for arms.
         results : `list` of `lsst.pipe.base.Struct`
             List of results from the ``run`` method.
         lineListFilename : `str`
@@ -215,6 +216,8 @@ class ReduceArcTask(CmdLineTask):
         """
         if len(results) == 0:
             raise RuntimeError("No input spectra")
+
+        dataRef = self.reduceDataRefs(dataRefList)
         detectorMap = next(rr.detectorMap for rr in results if rr is not None)  # All identical
         visitInfo = next(rr.visitInfo for rr in results if rr is not None)  # More or less identical
         metadata = next(rr.metadata for rr in results if rr is not None)  # More or less identical
@@ -227,6 +230,10 @@ class ReduceArcTask(CmdLineTask):
         self.calibrateWavelengths.runDataRef(dataRef, refLines, detectorMap,
                                              seed=dataRef.get("ccdExposureId"))
         self.write(dataRef, detectorMap, metadata, visitInfo)
+        for dataRef, rr in zip(dataRefList, results):
+            for ss in rr.spectra:
+                ss.wavelength = detectorMap.getWavelength(ss.fiberId)
+            dataRef.put(rr.spectra, "pfsArm")
         if self.debugInfo.display and self.debugInfo.displayCalibrations:
             for rr in results:
                 self.plotCalibrations(rr.spectra, detectorMap)
