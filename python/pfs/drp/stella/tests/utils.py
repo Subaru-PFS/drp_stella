@@ -1,5 +1,7 @@
 import sys
+import unittest
 import functools
+from contextlib import contextmanager
 
 """Decorators for tests
 
@@ -94,3 +96,47 @@ def methodParameters(**settings):
                     func(self, *args, **kwargs)
         return wrapper
     return decorator
+
+
+@contextmanager
+def runTests(_globals={}, profileTop=30):
+    """Run tests
+
+    This is intended for use within individual test files:
+
+        if __name__ == "__main__":
+            runTests(globals())
+
+    This runs the ``setup_module`` function, if it exists.
+
+    If the ``--display`` command-line argument is provided, the value is put in
+    the global ``display`` variable.
+
+    If the ``--profile`` command-line argument is provided, the tests will be
+    profiled, and the profile of the top ``profileTop`` function calls will be
+    printed at completion.
+    """
+    from argparse import ArgumentParser
+    parser = ArgumentParser(__file__)
+    parser.add_argument("--display", help="Display backend")
+    parser.add_argument("--profile", action="store_true", help="Profile tests?")
+    args, argv = parser.parse_known_args()
+    if _globals and args.display:
+        _globals["display"] = args.display
+
+    if "setup_module" in _globals:
+        _globals["setup_module"](sys.modules["__main__"])
+
+    if args.profile:
+        import cProfile
+        import pstats
+        profile = cProfile.Profile()
+        profile.enable()
+
+    unittest.main(failfast=True, argv=[__file__] + argv, exit=not args.profile)
+
+    if args.profile:
+        profile.disable()
+        stats = pstats.Stats(profile)
+        stats.sort_stats("cumulative")
+        stats.print_stats(profileTop)

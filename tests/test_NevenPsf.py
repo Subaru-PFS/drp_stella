@@ -1,7 +1,5 @@
 import os
-import sys
 import pickle
-import unittest
 
 import numpy as np
 
@@ -13,7 +11,7 @@ import lsst.afw.image.testUtils
 
 import pfs.drp.stella
 from pfs.drp.stella.images import calculateCentroid
-from pfs.drp.stella.tests.utils import methodParameters
+from pfs.drp.stella.tests.utils import methodParameters, runTests
 
 display = None
 
@@ -97,10 +95,4 @@ def setup_module(module):
 
 
 if __name__ == "__main__":
-    setup_module(sys.modules["__main__"])
-    from argparse import ArgumentParser
-    parser = ArgumentParser(__file__)
-    parser.add_argument("--display", help="Display backend")
-    args, argv = parser.parse_known_args()
-    display = args.display
-    unittest.main(failfast=True, argv=[__file__] + argv)
+    runTests(globals())

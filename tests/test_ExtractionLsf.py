@@ -1,5 +1,3 @@
-import sys
-import unittest
 import pickle
 
 import numpy as np
@@ -12,6 +10,7 @@ import lsst.afw.display
 from pfs.drp.stella.lsf import ExtractionLsf
 from pfs.drp.stella.findAndTraceAperturesTask import FindAndTraceAperturesTask
 from pfs.drp.stella.SpectralPsfContinued import ImagingSpectralPsf
+from pfs.drp.stella.tests.utils import runTests
 
 from pfs.drp.stella.synthetic import makeSpectrumImage, SyntheticConfig, makeSyntheticDetectorMap
 
@@ -112,10 +111,4 @@ def setup_module(module):
 
 
 if __name__ == "__main__":
-    setup_module(sys.modules["__main__"])
-    from argparse import ArgumentParser
-    parser = ArgumentParser(__file__)
-    parser.add_argument("--display", help="Display backend")
-    args, argv = parser.parse_known_args()
-    display = args.display
-    unittest.main(failfast=True, argv=[__file__] + argv)
+    runTests(globals())
