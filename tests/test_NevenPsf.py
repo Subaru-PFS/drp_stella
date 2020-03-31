@@ -1,5 +1,6 @@
 import os
 import sys
+import pickle
 import unittest
 
 import numpy as np
@@ -58,6 +59,19 @@ class NevenPsfTestCase(lsst.utils.tests.TestCase):
         self.assertFloatsAlmostEqual(imageCentroid.x, xPosition + kernelCentroid.x, atol=1.0e-2)
         self.assertFloatsAlmostEqual(imageCentroid.y, yPosition + kernelCentroid.y, atol=1.0e-2)
 
+    def assertNevenPsf(self, psf):
+        """Test that the provided PSF is what is expected"""
+        self.assertIsNotNone(psf)
+        self.assertIsInstance(psf, pfs.drp.stella.NevenPsf)
+        self.assertFloatsEqual(psf.x, self.psf.x)
+        self.assertFloatsEqual(psf.y, self.psf.y)
+        self.assertEqual(len(psf.images), len(self.psf.images))
+        for image1, image2 in zip(psf.images, self.psf.images):
+            self.assertFloatsEqual(image1, image2)
+        self.assertEqual(psf.oversampleFactor, self.psf.oversampleFactor)
+        self.assertEqual(psf.targetSize, self.psf.targetSize)
+        self.assertEqual(psf.xMaxDistance, self.psf.xMaxDistance)
+
     def testPersistence(self):
         """Test persistence of the PSF"""
         exposure = lsst.afw.image.ExposureF(1, 1)
@@ -66,16 +80,12 @@ class NevenPsfTestCase(lsst.utils.tests.TestCase):
         with lsst.utils.tests.getTempFilePath(".fits") as filename:
             exposure.writeFits(filename)
             copy = lsst.afw.image.ExposureF(filename).getPsf()
-        self.assertIsNotNone(copy)
-        self.assertIsInstance(copy, pfs.drp.stella.NevenPsf)
-        self.assertFloatsEqual(copy.x, self.psf.x)
-        self.assertFloatsEqual(copy.y, self.psf.y)
-        self.assertEqual(len(copy.images), len(self.psf.images))
-        for image1, image2 in zip(copy.images, self.psf.images):
-            self.assertFloatsEqual(image1, image2)
-        self.assertEqual(copy.oversampleFactor, self.psf.oversampleFactor)
-        self.assertEqual(copy.targetSize, self.psf.targetSize)
-        self.assertEqual(copy.xMaxDistance, self.psf.xMaxDistance)
+            self.assertNevenPsf(copy)
+
+    def testPickle(self):
+        """Test pickling of NevenPsf"""
+        psf = pickle.loads(pickle.dumps(self.psf))
+        self.assertNevenPsf(psf)
 
 
 class TestMemory(lsst.utils.tests.MemoryTestCase):
