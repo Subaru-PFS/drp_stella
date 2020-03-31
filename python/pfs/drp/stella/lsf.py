@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 from functools import partial
+import numbers
 import pickle
 import numpy as np
 import scipy
@@ -75,12 +76,10 @@ class Kernel1D:
 
         Values off the end are zero.
         """
-        if isinstance(index, int):
+        if isinstance(index, numbers.Integral):
             return self.values[index + self.center]
-        result = np.empty_like(index)
-        rr, ii, vv = np.broadcast_arrays(result, index, self.values)
-        rr[:] = vv[ii + self.center]
-        return result
+        ii, vv = np.broadcast_arrays(index, self.values)
+        return vv[ii + self.center]
 
     def __setitem__(self, index, value):
         """Set value(s) in the kernel.
