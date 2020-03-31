@@ -53,8 +53,12 @@ SpectrumSet FiberTraceSet<ImageT, MaskT, VarianceT>::extractSpectra(
 ) {
     std::size_t const num = size();
     std::size_t const height = image.getHeight();
+    std::size_t const width = image.getWidth();
     SpectrumSet result{num, height};
+    result[0]->getSpectrum().deep() = 0.0/0.0;
     MaskT const require = image.getMask()->getPlaneBitMask(fiberMaskPlane);
+    std::size_t const x0 = image.getX0();
+    std::size_t const y0 = image.getY0();
 
     ndarray::Array<bool, 1, 1> useTrace = ndarray::allocate(num);  // trace overlaps this row?
     ndarray::Array<MaskT, 1, 1> maskResult = ndarray::allocate(num);  // mask value for each trace
@@ -81,11 +85,12 @@ SpectrumSet FiberTraceSet<ImageT, MaskT, VarianceT>::extractSpectra(
     auto const& dataMask = *image.getMask();
     auto const& dataVariance = *image.getVariance();
 
-    for (std::size_t yData = 0; yData < height; ++yData) {
+    std::size_t yStart = std::max(y0, 0UL);
+    for (std::size_t yData = yStart - y0, yActual = yStart; yData < height; ++yData, ++yActual) {
          // Determine which traces are relevant for this row
         for (std::size_t ii = 0; ii < num; ++ii) {
             auto const& box = _traces[ii]->getTrace().getBBox();
-            useTrace[ii] = (yData >= std::size_t(box.getMinY()) && yData <= std::size_t(box.getMaxY()));
+            useTrace[ii] = (yActual >= std::size_t(box.getMinY()) && yActual <= std::size_t(box.getMaxY()));
         }
 
         // Construct least-squares matrix and vector
@@ -105,13 +110,15 @@ SpectrumSet FiberTraceSet<ImageT, MaskT, VarianceT>::extractSpectra(
             double model2Weighted = 0.0;  // model^2/sigma^2
             double modelData = 0.0;  // model dot data
             auto const& iTrace = _traces[ii]->getTrace();
-            auto const iyModel = yData - iTrace.getBBox().getMinY();
+            auto const iyModel = yActual - iTrace.getBBox().getMinY();
             std::size_t const ixMin = iTrace.getBBox().getMinX();
             std::size_t const ixMax = iTrace.getBBox().getMaxX();
             auto const& iModelImage = *iTrace.getImage();
             auto const& iModelMask = *iTrace.getMask();
             maskResult[ii] = 0;
-            for (std::size_t xModel = 0, xData = ixMin; xModel < std::size_t(iTrace.getWidth());
+            std::size_t const xStart = std::max(ixMin, x0);
+            for (std::size_t xModel = xStart - ixMin, xData = xStart - x0;
+                 xModel < std::size_t(iTrace.getWidth()) && xData < width;
                  ++xModel, ++xData) {
                 maskResult[ii] |= dataMask(xData, yData);
                 if (dataMask(xData, yData) & badBitMask) continue;
@@ -151,12 +158,13 @@ SpectrumSet FiberTraceSet<ImageT, MaskT, VarianceT>::extractSpectra(
             //          jxMin            jxMax
             std::size_t const overlapMin = std::max(ixMin, jxMin);
             std::size_t const overlapMax = std::min(ixMax, jxMax);
+            std::size_t const overlapStart = std::max(overlapMin, x0);
 
             // Accumulate in overlap
             double modelModel = 0.0;  // model_i dot model_j
             double modelModelWeighted = 0.0;  // model_i dot model_j/sigma^2
-            for (std::size_t xData = overlapMin, xi = overlapMin - ixMin, xj = overlapMin - jxMin;
-                    xData <= overlapMax; ++xData, ++xi, ++xj) {
+            for (std::size_t xData = overlapStart - x0, xi = overlapStart - ixMin, xj = overlapStart - jxMin;
+                    xData <= overlapMax - x0; ++xData, ++xi, ++xj) {
                 if (!(iModelMask(xi, iyModel) & require)) continue;
                 if (!(jModelMask(xj, jyModel) & require)) continue;
                 if (dataMask(xData, yData) & badBitMask) continue;
@@ -167,6 +175,14 @@ SpectrumSet FiberTraceSet<ImageT, MaskT, VarianceT>::extractSpectra(
             offDiag[ii] = modelModel;
             offDiagWeighted[ii] = modelModelWeighted;
         }
+
+#if 0
+        if (yData == 0 || yData == 1) {
+            std::cerr << "Diagonal: " << diagonal << std::endl;
+            std::cerr << "OffDiag: " << offDiag << std::endl;
+            std::cerr << "Vector: " << vector << std::endl;
+        }
+#endif
 
         // Solve least-squares and set results
         ndarray::Array<double, 1, 1> solution = math::solveSymmetricTridiagonal(diagonal, offDiag, vector,
@@ -189,6 +205,15 @@ SpectrumSet FiberTraceSet<ImageT, MaskT, VarianceT>::extractSpectra(
             result[ii]->getCovariance()[2][yData] = (ii > 0) ? covariance[ii - 1] : 0.0;
         }
     }
+#if 0
+    std::cerr << "xy0: " << _traces[0]->getTrace().getBBox() << " " << image.getBBox() << std::endl;
+    std::cerr << "Trace: " << _traces[0]->getTrace().getImage()->getArray()[0] << std::endl;
+    std::cerr << "Trace: " << _traces[0]->getTrace().getImage()->getArray()[1] << std::endl;
+    std::cerr << "Image: " << image.getImage()->getArray()[0] << std::endl;
+    std::cerr << "Image: " << image.getImage()->getArray()[1] << std::endl;
+    std::cerr << "Spectrum: " << result[0]->getSpectrum()[0] << std::endl;
+    std::cerr << "Spectrum: " << result[0]->getSpectrum()[1] << std::endl;
+#endif
 
     for (std::size_t ii = 0; ii < num; ++ii) {
         result[ii]->setFiberId(_traces[ii]->getFiberId());
