@@ -30,6 +30,7 @@ from .measurePsf import MeasurePsfTask
 from .extractSpectraTask import ExtractSpectraTask
 from .subtractSky2d import SubtractSky2dTask
 from .fitContinuum import FitContinuumTask
+from .lsf import ExtractionLsf
 
 __all__ = ["ReduceExposureConfig", "ReduceExposureTask"]
 
@@ -198,7 +199,8 @@ class ReduceExposureTask(CmdLineTask):
 
             if self.config.doMeasurePsf:
                 psfList = self.measurePsf.run(sensorRefList, exposureList, detectorMapList)
-                lsfList = [self.calculateLsf(psf) for psf in psfList]
+                lsfList = [self.calculateLsf(psf, ft, exp.getHeight()) for
+                           psf, ft, exp in zip(psfList, fiberTraceList, exposureList)]
             else:
                 psfList = [None]*len(sensorRefList)
                 lsfList = [None]*len(sensorRefList)
@@ -378,8 +380,22 @@ class ReduceExposureTask(CmdLineTask):
         """
         return sensorRef.get('fiberTrace')
 
-    def calculateLsf(self, psf):
-        return None
+    def calculateLsf(self, psf, fiberTraceSet, length):
+        """Calculate the LSF for this exposure
+
+        psf : `pfs.drp.stella.SpectralPsf`
+            Point-spread function for spectral data.
+        fiberTrace : `pfs.drp.stella.FiberTrace`
+            Fiber profile.
+        length : `int`
+            Array length.
+
+        Returns
+        -------
+        lsf : `dict` (`int`: `pfs.drp.stella.ExtractionLsf`)
+            Line-spread functions, indexed by fiber identifier.
+        """
+        return {ft.fiberId: ExtractionLsf(psf, ft, length) for ft in fiberTraceSet}
 
     def _getMetadataName(self):
         return None
