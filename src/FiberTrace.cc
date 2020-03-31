@@ -38,23 +38,25 @@ FiberTrace<ImageT, MaskT, VarianceT>::extractSpectrum(
     bool useProfile
 ) {
     LOG_LOGGER _log = LOG_GET("pfs.drp.stella.FiberTrace.extractFromProfile");
-    auto const bbox = _trace.getBBox();
-    MaskedImageT traceIm(spectrumImage, bbox);
+    lsst::geom::Box2I bbox = _trace.getBBox();
+    bbox.clip(spectrumImage.getBBox());
+    MaskedImageT const specImage(spectrumImage, bbox);
+    MaskedImageT const traceImage(_trace, bbox);
     std::size_t const height = bbox.getHeight();
     std::size_t const width = bbox.getWidth();
 
     auto spectrum = std::make_shared<Spectrum>(spectrumImage.getHeight(), _fiberId);
 
-    MaskT const ftMask = _trace.getMask()->getPlaneBitMask(fiberMaskPlane);
-    MaskT const noData = _trace.getMask()->getPlaneBitMask("NO_DATA");
-    MaskT const badData = traceIm.getMask()->getPlaneBitMask({"BAD", "SAT", "CR", "NO_DATA"});
+    MaskT const ftMask = traceImage.getMask()->getPlaneBitMask(fiberMaskPlane);
+    MaskT const noData = traceImage.getMask()->getPlaneBitMask("NO_DATA");
+    MaskT const badData = specImage.getMask()->getPlaneBitMask({"BAD", "SAT", "CR", "NO_DATA"});
     MaskT const badSpectrum = spectrum->getMask().getPlaneBitMask("BAD");
 
     // Select pixels for extraction
     ndarray::Array<bool, 2, 1> select{height, width};  // select this pixel for extraction?
     {
-        auto traceRow = _trace.getMask()->getArray().begin();
-        auto imRow = traceIm.getMask()->getArray().begin();
+        auto traceRow = traceImage.getMask()->getArray().begin();
+        auto imRow = specImage.getMask()->getArray().begin();
         auto specRow = spectrum->getMask().begin(true);
         for (auto selectRow = select.begin(); selectRow != select.end();
              ++selectRow, ++traceRow, ++imRow, ++specRow) {
@@ -74,7 +76,7 @@ FiberTrace<ImageT, MaskT, VarianceT>::extractSpectrum(
 
     // Extract
     if (useProfile) {
-        auto const result = math::fitProfile2d(traceIm, select, _trace.getImage()->getArray(), fitBackground,
+        auto const result = math::fitProfile2d(specImage, select, traceImage.getImage()->getArray(), fitBackground,
                                                clipNSigma);
         spectrum->getSpectrum()[ndarray::view(bbox.getMinY(), bbox.getMaxY() + 1)] = std::get<0>(result);
         spectrum->getMask().getArray()[0][ndarray::view(bbox.getMinY(),
@@ -93,8 +95,8 @@ FiberTrace<ImageT, MaskT, VarianceT>::extractSpectrum(
         auto maskIt = spectrum->getMask().begin() + bbox.getMinY();
         auto varIt = spectrum->getVariance().begin() + bbox.getMinY();
         auto itSelectRow = select.begin();
-        auto itTraceRow = traceIm.getImage()->getArray().begin();
-        auto itVarRow = traceIm.getVariance()->getArray().begin();
+        auto itTraceRow = specImage.getImage()->getArray().begin();
+        auto itVarRow = specImage.getVariance()->getArray().begin();
         for (std::size_t y = 0; y < height;
              ++y, ++specIt, ++maskIt, ++varIt, ++itSelectRow, ++itTraceRow, ++itVarRow) {
             *specIt = 0.0;
