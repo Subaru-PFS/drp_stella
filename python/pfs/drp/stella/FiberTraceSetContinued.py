@@ -1,6 +1,8 @@
 import os
 import re
 
+import numpy as np
+
 from lsst.utils import continueClass
 from lsst.pipe.base import Struct
 
@@ -220,3 +222,22 @@ class FiberTraceSet:
         """
         for trace in self:
             trace.applyToMask(mask)
+
+    def getByFiberId(self, fiberId):
+        """Retrieve fiberTrace(s) by fiberId
+
+        Parameters
+        ----------
+        fiberId : array_like
+            Fiber identifier(s).
+
+        Returns
+        -------
+        fiberTrace : `pfs.drp.stella.FiberTrace` or `list`
+            Individual fiberTrace, or list of fiberTraces.
+        """
+        if isinstance(fiberId, (int, np.int32)):
+            fiberTraces = [self[ii] for ii, ff in enumerate(self.fiberId) if ff == fiberId]
+            assert len(fiberTraces) == 1, f"Multiple fiberTraces with fiberId={fiberId}"
+            return fiberTraces.pop()
+        return [self.getByFiberId(ii) for ii in fiberId]

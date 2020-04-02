@@ -44,20 +44,28 @@ class DetectorMap:
         hdu = fits["SLITOFF"]
         slitOffsets = hdu.data.astype(np.float32)
 
-        centerData = fits["CENTER"].data
-        wavelengthData = fits["WAVELENGTH"].data
-
         # array.astype() required to force byte swapping (dtype('>f4') --> np.float32)
         # otherwise pybind doesn't recognise them as the proper type.
         numFibers = len(fiberId)
-        centerKnots = [centerData["knot"][centerData["index"] == ii].astype(np.float32) for
-                       ii in range(numFibers)]
-        centerValues = [centerData["value"][centerData["index"] == ii].astype(np.float32) for
-                        ii in range(numFibers)]
-        wavelengthKnots = [wavelengthData["knot"][wavelengthData["index"] == ii].astype(np.float32)
-                           for ii in range(numFibers)]
-        wavelengthValues = [wavelengthData["value"][wavelengthData["index"] == ii].astype(np.float32)
-                            for ii in range(numFibers)]
+        centerIndexData = fits["CENTER"].data["index"]
+        centerKnotsData = fits["CENTER"].data["knot"].astype(np.float32)
+        centerValuesData = fits["CENTER"].data["value"].astype(np.float32)
+        centerKnots = []
+        centerValues = []
+        for ii in range(numFibers):
+            select = centerIndexData == ii
+            centerKnots.append(centerKnotsData[select])
+            centerValues.append(centerValuesData[select])
+
+        wavelengthIndexData = fits["WAVELENGTH"].data["index"]
+        wavelengthKnotsData = fits["WAVELENGTH"].data["knot"].astype(np.float32)
+        wavelengthValuesData = fits["WAVELENGTH"].data["value"].astype(np.float32)
+        wavelengthKnots = []
+        wavelengthValues = []
+        for ii in range(numFibers):
+            select = wavelengthIndexData == ii
+            wavelengthKnots.append(wavelengthKnotsData[select])
+            wavelengthValues.append(wavelengthValuesData[select])
 
         # Read the primary header with lsst.afw.fits
         # This requires writing the FITS file into memory and reading it from there

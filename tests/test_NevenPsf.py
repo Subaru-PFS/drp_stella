@@ -1,6 +1,5 @@
 import os
-import sys
-import unittest
+import pickle
 
 import numpy as np
 
@@ -12,7 +11,7 @@ import lsst.afw.image.testUtils
 
 import pfs.drp.stella
 from pfs.drp.stella.images import calculateCentroid
-from pfs.drp.stella.tests.utils import methodParameters
+from pfs.drp.stella.tests.utils import methodParameters, runTests
 
 display = None
 
@@ -58,6 +57,19 @@ class NevenPsfTestCase(lsst.utils.tests.TestCase):
         self.assertFloatsAlmostEqual(imageCentroid.x, xPosition + kernelCentroid.x, atol=1.0e-2)
         self.assertFloatsAlmostEqual(imageCentroid.y, yPosition + kernelCentroid.y, atol=1.0e-2)
 
+    def assertNevenPsf(self, psf):
+        """Test that the provided PSF is what is expected"""
+        self.assertIsNotNone(psf)
+        self.assertIsInstance(psf, pfs.drp.stella.NevenPsf)
+        self.assertFloatsEqual(psf.x, self.psf.x)
+        self.assertFloatsEqual(psf.y, self.psf.y)
+        self.assertEqual(len(psf.images), len(self.psf.images))
+        for image1, image2 in zip(psf.images, self.psf.images):
+            self.assertFloatsEqual(image1, image2)
+        self.assertEqual(psf.oversampleFactor, self.psf.oversampleFactor)
+        self.assertEqual(psf.targetSize, self.psf.targetSize)
+        self.assertEqual(psf.xMaxDistance, self.psf.xMaxDistance)
+
     def testPersistence(self):
         """Test persistence of the PSF"""
         exposure = lsst.afw.image.ExposureF(1, 1)
@@ -66,16 +78,12 @@ class NevenPsfTestCase(lsst.utils.tests.TestCase):
         with lsst.utils.tests.getTempFilePath(".fits") as filename:
             exposure.writeFits(filename)
             copy = lsst.afw.image.ExposureF(filename).getPsf()
-        self.assertIsNotNone(copy)
-        self.assertIsInstance(copy, pfs.drp.stella.NevenPsf)
-        self.assertFloatsEqual(copy.x, self.psf.x)
-        self.assertFloatsEqual(copy.y, self.psf.y)
-        self.assertEqual(len(copy.images), len(self.psf.images))
-        for image1, image2 in zip(copy.images, self.psf.images):
-            self.assertFloatsEqual(image1, image2)
-        self.assertEqual(copy.oversampleFactor, self.psf.oversampleFactor)
-        self.assertEqual(copy.targetSize, self.psf.targetSize)
-        self.assertEqual(copy.xMaxDistance, self.psf.xMaxDistance)
+            self.assertNevenPsf(copy)
+
+    def testPickle(self):
+        """Test pickling of NevenPsf"""
+        psf = pickle.loads(pickle.dumps(self.psf))
+        self.assertNevenPsf(psf)
 
 
 class TestMemory(lsst.utils.tests.MemoryTestCase):
@@ -87,10 +95,4 @@ def setup_module(module):
 
 
 if __name__ == "__main__":
-    setup_module(sys.modules["__main__"])
-    from argparse import ArgumentParser
-    parser = ArgumentParser(__file__)
-    parser.add_argument("--display", help="Display backend")
-    args, argv = parser.parse_known_args()
-    display = args.display
-    unittest.main(failfast=True, argv=[__file__] + argv)
+    runTests(globals())

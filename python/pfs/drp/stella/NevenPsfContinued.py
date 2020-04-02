@@ -42,3 +42,8 @@ class NevenPsf:
 
         return cls(detMap, xy[:, 1].astype(np.float32), xy[:, 2].astype(np.float32), images,
                    oversampleFactor, Extent2I(targetSize, targetSize), xMaxDistance)
+
+    def __reduce__(self):
+        """Pickling"""
+        return self.__class__, (self.detectorMap, self.x, self.y, self.images, self.oversampleFactor,
+                                self.targetSize, self.xMaxDistance)
