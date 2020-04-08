@@ -10,7 +10,6 @@ from lsst.ctrl.pool.pool import NODE
 import lsst.pipe.drivers.constructCalibs
 from lsst.pipe.drivers.utils import getDataRef
 from lsst.pipe.tasks.repair import RepairTask
-from pfs.drp.stella.fitContinuum import FitContinuumTask
 
 __all__ = ["SpectralCalibConfig", "SpectralCalibTask"]
 
@@ -121,7 +120,6 @@ class SpectralCalibConfig(lsst.pipe.drivers.constructCalibs.CalibConfig):
         target=RepairTask,
         doc="Task to repair artifacts"
     )
-    fitContinuum = ConfigurableField(target=FitContinuumTask, doc="Fit continuum")
 
 
 class SpectralCalibTask(lsst.pipe.drivers.constructCalibs.CalibTask):
@@ -136,7 +134,6 @@ class SpectralCalibTask(lsst.pipe.drivers.constructCalibs.CalibTask):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.makeSubtask("repair")
-        self.makeSubtask("fitContinuum")
         import lsstDebug
         self.debugInfo = lsstDebug.Info(__name__)
 

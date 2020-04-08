@@ -7,6 +7,7 @@ from lsst.pex.config import Field, ConfigurableField, ConfigField
 from .constructSpectralCalibs import SpectralCalibConfig, SpectralCalibTask
 from .findAndTraceAperturesTask import FindAndTraceAperturesTask
 from pfs.drp.stella import Spectrum, SlitOffsetsConfig
+from pfs.drp.stella.fitContinuum import FitContinuumTask
 
 
 class ConstructFiberTraceConfig(SpectralCalibConfig):
@@ -24,6 +25,7 @@ class ConstructFiberTraceConfig(SpectralCalibConfig):
         """,
     )
     slitOffsets = ConfigField(dtype=SlitOffsetsConfig, doc="Manual slit offsets to apply to detectorMap")
+    fitContinuum = ConfigurableField(target=FitContinuumTask, doc="Fit continuum")
 
     def setDefaults(self):
         super().setDefaults()
@@ -39,6 +41,7 @@ class ConstructFiberTraceTask(SpectralCalibTask):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.makeSubtask("trace")
+        self.makeSubtask("fitContinuum")
 
     def run(self, expRefList, butler, calibId):
         if self.config.requireZeroDither:
