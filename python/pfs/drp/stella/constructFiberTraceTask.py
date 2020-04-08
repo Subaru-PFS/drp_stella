@@ -1,13 +1,26 @@
 import numpy as np
+from collections import defaultdict
 
 import lsst.daf.base as dafBase
 import lsst.afw.display as afwDisplay
 import lsst.afw.image as afwImage
 from lsst.pex.config import Field, ConfigurableField, ConfigField
+from lsst.pipe.drivers.constructCalibs import CalibTaskRunner
 from .constructSpectralCalibs import SpectralCalibConfig, SpectralCalibTask
 from .findAndTraceAperturesTask import FindAndTraceAperturesTask
 from pfs.drp.stella import Spectrum, SlitOffsetsConfig
 from pfs.drp.stella.fitContinuum import FitContinuumTask
+
+
+class ConstructFiberTraceTaskRunner(CalibTaskRunner):
+    """Split values with different pfsDesignId"""
+    @staticmethod
+    def getTargetList(parsedCmd, **kwargs):
+        pfsDesignId = defaultdict(list)
+        for dataRef in parsedCmd.id.refList:
+            pfsDesignId[dataRef.dataId["pfsDesignId"]].append(dataRef)
+        return [dict(expRefList=expRefList, butler=parsedCmd.butler, calibId=parsedCmd.calibId) for
+                expRefList in pfsDesignId.values()]
 
 
 class ConstructFiberTraceConfig(SpectralCalibConfig):
@@ -37,6 +50,7 @@ class ConstructFiberTraceTask(SpectralCalibTask):
     ConfigClass = ConstructFiberTraceConfig
     _DefaultName = "fiberTrace"
     calibName = "fiberTrace"
+    RunnerClass = ConstructFiberTraceTaskRunner
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
