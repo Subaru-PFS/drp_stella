@@ -69,9 +69,12 @@ class FluxTableTestCase(lsst.utils.tests.TestCase):
         """Test resample method"""
         wavelength = np.linspace(self.minWavelength, self.maxWavelength, self.length)
         resampled = self.fluxTable.resample(wavelength)
+        missing = resampled.flags.get("missing")
         nodata = resampled.flags.get("NO_DATA")
         self.assertFloatsEqual(resampled.wavelength, wavelength)
-        self.assertGreater(((resampled.mask & nodata) != 0).sum(), 0)
+        self.assertGreater(((resampled.mask & missing) != 0).sum(),
+                           ((self.fluxTable.mask & self.fluxTable.flags.get("missing") != 0).sum()))
+        self.assertFalse(np.any((resampled.mask & nodata) != 0))
         self.assertGreater((resampled.flux > 0).sum(), 0)
 
 
