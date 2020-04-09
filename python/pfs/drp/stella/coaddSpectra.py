@@ -271,8 +271,8 @@ class CoaddSpectraTask(CmdLineTask):
             with np.errstate(invalid="ignore", divide="ignore"):
                 good = ((ss.mask & ss.flags.get(*self.config.mask)) == 0) & (ss.covar[0] > 0)
                 weight[good] = 1.0/ss.covar[0][good]
-                flux += ss.flux*weight
-                sky += ss.sky*weight
+                flux[good] += ss.flux[good]*weight[good]
+                sky[good] += ss.sky[good]*weight[good]
                 mask[good] |= ss.mask[good]
                 sumWeights += weight
 

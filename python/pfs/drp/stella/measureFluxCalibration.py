@@ -76,7 +76,14 @@ class MeasureFluxCalibrationTask(Task):
         results : `list` of `pfs.datamodel.PfsSingle`
             Flux-calibrated object spectra.
         """
-        spectra /= self.fit.apply(calib, spectra.wavelength, pfsConfig.fiberId, pfsConfig)
+        cal = self.fit.apply(calib, spectra.wavelength, pfsConfig.fiberId, pfsConfig)
+        with np.errstate(divide="ignore", invalid="ignore"):
+            spectra /= cal
+        badMask = spectra.flags.add("BAD_FLUXCAL")
+        for ii in range(len(spectra)):
+            bad = (~np.isfinite(cal[ii])) | (cal[ii] == 0.0)
+            if np.any(bad):
+                spectra.mask[ii][bad] |= badMask
 
     def applySpectrum(self, spectrum, fiberId, pfsConfig, calib):
         """Apply the flux calibration to a single spectrum, in-place
@@ -92,4 +99,10 @@ class MeasureFluxCalibrationTask(Task):
         calib : `pfs.drp.stella.FocalPlaneFunction`
             Flux calibration.
         """
-        spectrum /= self.fit.apply(calib, spectrum.wavelength, [fiberId], pfsConfig)
+        cal = self.fit.apply(calib, spectrum.wavelength, [fiberId], pfsConfig)
+        with np.errstate(divide="ignore", invalid="ignore"):
+            spectrum /= cal
+        badMask = spectrum.flags.add("BAD_FLUXCAL")
+        bad = (~np.isfinite(cal)) | (cal == 0.0)
+        if np.any(bad):
+            spectrum.mask[bad] |= badMask
