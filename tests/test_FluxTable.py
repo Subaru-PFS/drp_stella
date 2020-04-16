@@ -74,7 +74,8 @@ class FluxTableTestCase(lsst.utils.tests.TestCase):
         self.assertFloatsEqual(resampled.wavelength, wavelength)
         self.assertGreater(((resampled.mask & missing) != 0).sum(),
                            ((self.fluxTable.mask & self.fluxTable.flags.get("missing") != 0).sum()))
-        self.assertFalse(np.any((resampled.mask & nodata) != 0))
+        expectNoData = (wavelength < self.wavelength.min()) | (wavelength > self.wavelength.max())
+        self.assertTrue(np.all(((resampled.mask & nodata) != 0) == expectNoData))
         self.assertGreater((resampled.flux > 0).sum(), 0)
 
 
