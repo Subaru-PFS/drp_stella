@@ -2,10 +2,12 @@ import os
 import re
 
 from lsst.pipe.base import Struct
-from pfs.datamodel.pfsConfig import PfsConfig
+import pfs.datamodel.pfsConfig
+
+__all__ = ("PfsConfig",)
 
 
-class PfsConfigIO(PfsConfig):
+class PfsConfig(pfs.datamodel.PfsConfig):
     """A class to perform butler-based I/O for pfsConfig
 
     Provides the necessary ``readFits`` and ``writeFits`` methods for I/O
@@ -96,7 +98,7 @@ class PfsConfigIO(PfsConfig):
 
         Returns
         -------
-        self : `pfs.drp.stella.PfsConfigIO`
+        self : `pfs.drp.stella.PfsConfig`
             Configuration read from FITS.
 
         Raises
