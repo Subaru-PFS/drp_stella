@@ -22,7 +22,8 @@ class CoaddSpectraConfig(Config):
     wavelength = ConfigField(dtype=WavelengthSamplingConfig, doc="Wavelength configuration")
     subtractSky1d = ConfigurableField(target=SubtractSky1dTask, doc="1d sky subtraction")
     measureFluxCalibration = ConfigurableField(target=MeasureFluxCalibrationTask, doc="Flux calibration")
-    mask = ListField(dtype=str, default=["NO_DATA", "CR"], doc="Mask values to reject when combining")
+    mask = ListField(dtype=str, default=["NO_DATA", "CR", "BAD_FLUXCAL"],
+                     doc="Mask values to reject when combining")
     fluxTable = ConfigurableField(target=FluxTableTask, doc="Flux table")
 
 
@@ -271,8 +272,8 @@ class CoaddSpectraTask(CmdLineTask):
             with np.errstate(invalid="ignore", divide="ignore"):
                 good = ((ss.mask & ss.flags.get(*self.config.mask)) == 0) & (ss.covar[0] > 0)
                 weight[good] = 1.0/ss.covar[0][good]
-                flux += ss.flux*weight
-                sky += ss.sky*weight
+                flux[good] += ss.flux[good]*weight[good]
+                sky[good] += ss.sky[good]*weight[good]
                 mask[good] |= ss.mask[good]
                 sumWeights += weight
 

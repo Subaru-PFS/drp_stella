@@ -34,7 +34,7 @@ def interpolateFlux(fromWavelength, fromFlux, toWavelength, fill=0.0):
 def interpolateMask(fromWavelength, fromMask, toWavelength, fill=0):
     """Interpolate a mask spectrum
 
-    Nearest-neighbour interpolation, suitable for masks.
+    Linear interpolation for masks.
 
     Parameters
     ----------
@@ -52,19 +52,13 @@ def interpolateMask(fromWavelength, fromMask, toWavelength, fill=0):
     toMask : `numpy.ndarray` of `float`
         Target mask array.
     """
-    def impl(kind):
-        with np.errstate(invalid="ignore"):
-            return interp1d(fromWavelength, fromMask, kind=kind, bounds_error=False,
-                            fill_value=fill, copy=True, assume_sorted=True
-                            )(toWavelength).astype(fromMask.dtype)
-
-    try:
-        # kind="previous" and kind="next" requires scipy v1.1.0 or later
-        return np.bitwise_or(impl("previous"), impl("next"))
-    except NotImplementedError:
-        # Grow the bad pixels by 1
-        array = impl("nearest")
-        result = array.copy()
-        result[1:] |= array[:-1]
-        result[:-1] |= array[1:]
-        return result
+    length = len(fromWavelength)
+    with np.errstate(invalid="ignore"):
+        index = interp1d(fromWavelength, np.arange(length), kind="linear", bounds_error=False,
+                         fill_value=fill, copy=True, assume_sorted=True)(toWavelength)
+    intIndex = index.astype(int)
+    result = np.full(toWavelength.shape, fill, dtype=fromMask.dtype)
+    intIndex[(intIndex == index) & (index > 0)] -= 1  # Linear interpolation takes the index before
+    select = (intIndex >= 0) & (intIndex < length - 1)
+    result[select] = fromMask[intIndex[select]] | fromMask[intIndex[select] + 1]
+    return result

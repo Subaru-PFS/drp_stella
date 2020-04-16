@@ -123,7 +123,7 @@ class PfsFiberArray(pfs.datamodel.PfsFiberArray, PfsSimpleSpectrum):
             Resampled spectrum.
         """
         flux = interpolateFlux(self.wavelength, self.flux, wavelength)
-        mask = interpolateMask(self.wavelength, self.mask, wavelength)
+        mask = interpolateMask(self.wavelength, self.mask, wavelength, fill=self.flags.get("NO_DATA"))
         sky = interpolateFlux(self.wavelength, self.sky, wavelength)
         covar = np.array([interpolateFlux(self.wavelength, cc, wavelength) for cc in self.covar])
         covar2 = np.array([[0]])  # Not sure what to put here
