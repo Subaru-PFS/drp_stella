@@ -48,37 +48,40 @@ class SubtractSky1dTask(Task):
         sky1d : `pfs.drp.stella.FocalPlaneFunction`
             1D sky model.
         """
-        resampledList = self.resampleSpectra(spectraList)
+        resampledList = self.resampleSpectra(spectraList, pfsConfig)
         sky1d = self.measureSky(resampledList, pfsConfig, lsfList)
         for spectra, lsf in zip(spectraList, lsfList):
             self.subtractSkySpectra(spectra, lsf, pfsConfig, sky1d)
         return sky1d
 
-    def resampleSpectra(self, spectraList):
-        """Resample the spectra to a common wavelength scale
+    def resampleSpectra(self, spectraList, pfsConfig):
+        """Resample the sky spectra to a common wavelength scale
 
         Parameters
         ----------
         spectraList : iterable of `pfs.datamodel.PfsFiberArraySet`
             Spectra to resample
+        pfsConfig : `pfs.datamodel.PfsConfig`
+            Configuration of the top-end, for identifying sky fibers.
 
         Returns
         -------
         resampled : `list` of `pfs.datamodel.PfsFiberArraySet`
-            Resampled spectra.
+            Resampled sky fiber spectra.
         """
         minWl = self.config.minWavelength
         maxWl = self.config.maxWavelength
         dWl = self.config.deltaWavelength
         wavelength = minWl + dWl*np.arange(int((maxWl - minWl)/dWl), dtype=float)
-        return [spectra.resample(wavelength) for spectra in spectraList]
+        index = pfsConfig.selectByTargetType(TargetType.SKY)
+        return [spectra.resample(wavelength, pfsConfig.fiberId[index]) for spectra in spectraList]
 
     def measureSky(self, spectraList, pfsConfig, lsfList):
         """Measure the 1D sky model
 
         Parameters
         ----------
-        resampledList : iterable of `pfs.datamodel.PfsFiberArraySet`
+        spectraList : iterable of `pfs.datamodel.PfsFiberArraySet`
             List of spectra (with common wavelengths) from which to measure
             the sky.
         pfsConfig : `pfs.datamodel.PfsConfig`
@@ -91,18 +94,14 @@ class SubtractSky1dTask(Task):
         sky1d : `pfs.drp.stella.FocalPlaneFunction`
             1D sky model.
         """
-        select = pfsConfig.targetType == int(TargetType.SKY)
-        wavelength = spectraList[0].wavelength[0]
+        wavelength = spectraList[0].wavelength[0]  # They're all resampled to a common wavelength scale
         vectors = []
         errors = []
         masks = []
         fiberId = []
-        skyFibers = set(pfsConfig.fiberId[select])
         for spectra, lsf in zip(spectraList, lsfList):
             maskVal = spectra.flags.get(*self.config.mask)
             for ii, ff in enumerate(spectra.fiberId):
-                if ff not in skyFibers:
-                    continue
                 vectors.append(spectra.flux[ii])
                 errors.append(np.sqrt(spectra.covar[ii][0]))
                 masks.append((spectra.mask[ii] & maskVal) > 0)
