@@ -10,7 +10,8 @@ from .fitFocalPlane import FitFocalPlaneTask
 class SubtractSky1dConfig(Config):
     """Configuration for SubtractSky1dTask"""
     fit = ConfigurableField(target=FitFocalPlaneTask, doc="Fit over the focal plane")
-    mask = ListField(dtype=str, default=["NO_DATA", "SAT"], doc="Mask flags for rejection of observed")
+    mask = ListField(dtype=str, default=["NO_DATA", "SAT", "BAD_FLAT"],
+                     doc="Mask flags for rejection of observed")
     minWavelength = Field(dtype=float, default=300, doc="Minimum wavelength for resampled spectra (nm)")
     maxWavelength = Field(dtype=float, default=1300, doc="Maximum wavelength for resampled spectra (nm)")
     deltaWavelength = Field(dtype=float, default=0.03, doc="Wavelength spacing for resampled spectra (nm)")
