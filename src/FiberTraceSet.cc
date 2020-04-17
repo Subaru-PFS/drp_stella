@@ -55,7 +55,6 @@ SpectrumSet FiberTraceSet<ImageT, MaskT, VarianceT>::extractSpectra(
     std::size_t const height = image.getHeight();
     std::size_t const width = image.getWidth();
     SpectrumSet result{num, height};
-    result[0]->getSpectrum().deep() = 0.0/0.0;
     MaskT const require = image.getMask()->getPlaneBitMask(fiberMaskPlane);
     std::size_t const x0 = image.getX0();
     std::size_t const y0 = image.getY0();
@@ -85,12 +84,22 @@ SpectrumSet FiberTraceSet<ImageT, MaskT, VarianceT>::extractSpectra(
     auto const& dataMask = *image.getMask();
     auto const& dataVariance = *image.getVariance();
 
+    MaskT const noData = 1 << dataMask.addMaskPlane("NO_DATA");
+
+    // Initialize results, in case we miss anything
+    for (auto & spectrum : result) {
+        spectrum->getSpectrum().deep() = 0.0;
+        spectrum->getMask().getArray().deep() = spectrum->getMask().getPlaneBitMask("NO_DATA");
+        spectrum->getCovariance().deep() = 0.0;
+    }
+
     std::size_t yStart = std::max(y0, 0UL);
     for (std::size_t yData = yStart - y0, yActual = yStart; yData < height; ++yData, ++yActual) {
          // Determine which traces are relevant for this row
         for (std::size_t ii = 0; ii < num; ++ii) {
             auto const& box = _traces[ii]->getTrace().getBBox();
             useTrace[ii] = (yActual >= std::size_t(box.getMinY()) && yActual <= std::size_t(box.getMaxY()));
+            maskResult[ii] = noData;
         }
 
         // Construct least-squares matrix and vector
@@ -120,9 +129,9 @@ SpectrumSet FiberTraceSet<ImageT, MaskT, VarianceT>::extractSpectra(
             for (std::size_t xModel = xStart - ixMin, xData = xStart - x0;
                  xModel < std::size_t(iTrace.getWidth()) && xData < width;
                  ++xModel, ++xData) {
-                maskResult[ii] |= dataMask(xData, yData);
                 if (dataMask(xData, yData) & badBitMask) continue;
                 if (!(iModelMask(xModel, iyModel) & require)) continue;
+                maskResult[ii] |= dataMask(xData, yData);
                 double const modelValue = iModelImage(xModel, iyModel);
                 double const m2 = std::pow(modelValue, 2);
                 model2 += m2;
@@ -191,7 +200,6 @@ SpectrumSet FiberTraceSet<ImageT, MaskT, VarianceT>::extractSpectra(
         ndarray::Array<double, 1, 1> covariance;
         std::tie(variance, covariance) = math::invertSymmetricTridiagonal(diagonalWeighted, offDiagWeighted,
                                                                           inversionWorkspace);
-        MaskT const noData = 1 << image.getMask()->addMaskPlane("NO_DATA");
         for (std::size_t ii = 0; ii < num; ++ii) {
             auto value = solution[ii];
             if (!std::isfinite(value)) {
