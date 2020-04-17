@@ -6,6 +6,8 @@ from lsst.pipe.base import Task
 from pfs.datamodel.pfsConfig import TargetType
 from .fitFocalPlane import FitFocalPlaneTask
 
+import lsstDebug
+
 
 class SubtractSky1dConfig(Config):
     """Configuration for SubtractSky1dTask"""
@@ -30,6 +32,7 @@ class SubtractSky1dTask(Task):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.makeSubtask("fit")
+        self.debugInfo = lsstDebug.Info(__name__)
 
     def run(self, spectraList, pfsConfig, lsfList):
         """Measure and subtract the sky from the 1D spectra
@@ -48,10 +51,14 @@ class SubtractSky1dTask(Task):
         sky1d : `pfs.drp.stella.FocalPlaneFunction`
             1D sky model.
         """
+        if self.debugInfo.plotSkyFluxes:
+            self.plotSkyFibers(spectraList, pfsConfig, "Sky flux")
         resampledList = self.resampleSpectra(spectraList, pfsConfig)
         sky1d = self.measureSky(resampledList, pfsConfig, lsfList)
         for spectra, lsf in zip(spectraList, lsfList):
             self.subtractSkySpectra(spectra, lsf, pfsConfig, sky1d)
+        if self.debugInfo.plotSkyResiduals:
+            self.plotSkyFibers(spectraList, pfsConfig, "Sky residuals")
         return sky1d
 
     def resampleSpectra(self, spectraList, pfsConfig):
@@ -141,3 +148,41 @@ class SubtractSky1dTask(Task):
             1D sky model.
         """
         spectrum.flux -= self.fit.apply(sky1d, spectrum.wavelength, [fiberId], pfsConfig)
+
+    def plotSkyFibers(self, spectraList, pfsConfig, title):
+        """Plot spectra from sky fibers
+
+        The spectra from different fibers are shown as different colors.
+        Masked points are drawn as dots.
+
+        Parameters
+        ----------
+        spectraList : iterable of `PfsArm`
+            Extracted spectra from spectrograph arms for a single exposure.
+        pfsConfig : `pfs.datamodel.PfsConfig`
+            Top-end configuration, for identifying sky fibers.
+        title : `str`
+            Title for plot.
+        """
+        import matplotlib.pyplot as plt
+        import matplotlib.cm
+
+        indices = pfsConfig.selectByTargetType(TargetType.SKY)
+        fiberId = dict(zip(pfsConfig.fiberId[indices],
+                           matplotlib.cm.rainbow(np.linspace(0, 1, len(indices)))))
+
+        figure, axes = plt.subplots()
+        for spectra in spectraList:
+            for ii, ff in enumerate(spectra.fiberId):
+                if ff not in fiberId:
+                    continue
+                axes.plot(spectra.wavelength[ii], spectra.flux[ii], ls="solid", color=fiberId[ff])
+                bad = (spectra.mask[ii] & spectra.flags.get(*self.config.mask)) != 0
+                if np.any(bad):
+                    axes.plot(spectra.wavelength[ii][bad], spectra.flux[ii][bad], ".", color=fiberId[ff])
+
+        axes.set_xlabel("Wavelength (nm)")
+        axes.set_ylabel("Flux")
+        axes.set_title(title)
+        figure.show()
+        input("Hit ENTER to continue... ")
