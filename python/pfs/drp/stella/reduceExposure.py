@@ -21,6 +21,7 @@
 #
 from collections import defaultdict
 import numpy as np
+import lsstDebug
 
 from lsst.pex.config import Config, Field, ConfigurableField
 from lsst.pipe.base import CmdLineTask, TaskRunner, Struct
@@ -134,6 +135,7 @@ class ReduceExposureTask(CmdLineTask):
         self.makeSubtask("subtractSky2d")
         self.makeSubtask("extractSpectra")
         self.makeSubtask("fitContinuum")
+        self.debugInfo = lsstDebug.Info(__name__)
 
     def runDataRef(self, sensorRefList):
         """Process all arms of the same kind within an exposure
@@ -247,6 +249,9 @@ class ReduceExposureTask(CmdLineTask):
 
             results.originalList = originalList
             results.spectraList = spectraList
+
+        if self.debugInfo.plotSpectra:
+            self.plotSpectra(results.spectraList)
 
         self.write(sensorRefList, results)
         return results
@@ -396,6 +401,40 @@ class ReduceExposureTask(CmdLineTask):
             Line-spread functions, indexed by fiber identifier.
         """
         return {ft.fiberId: ExtractionLsf(psf, ft, length) for ft in fiberTraceSet}
+
+    def plotSpectra(self, spectraList):
+        """Plot spectra
+
+        The spectra from different fibers are shown as different colors.
+        Points with non-zero mask are drawn as dotted lines, while good points
+        are solid.
+
+        Parameters
+        ----------
+        spectraList : iterable of `pfs.drp.stella.SpectrumSet`
+            Extracted spectra from spectrograph arms for a single exposure.
+        """
+        import matplotlib.pyplot as plt
+        import matplotlib.cm
+
+        fiberId = set()
+        for spectra in spectraList:
+            fiberId.update(set(ss.fiberId for ss in spectra))
+        fiberId = dict(zip(fiberId, matplotlib.cm.rainbow(np.linspace(0, 1, len(fiberId)))))
+
+        figure, axes = plt.subplots()
+        for spectra in spectraList:
+            for ii, ss in enumerate(spectra):
+                color = fiberId[ss.fiberId]
+                axes.plot(ss.wavelength, ss.spectrum, ls="solid", color=color)
+                bad = (ss.mask.array[0] & ss.mask.getPlaneBitMask(["BAD_FLAT", "CR", "NO_DATA", "SAT"])) != 0
+                if np.any(bad):
+                    axes.plot(ss.wavelength[bad], ss.spectrum[bad], ".", color=color)
+
+        axes.set_xlabel("Wavelength (nm)")
+        axes.set_ylabel("Flux")
+        figure.show()
+        input("Hit ENTER to continue... ")
 
     def _getMetadataName(self):
         return None
