@@ -4,7 +4,7 @@ from collections import defaultdict
 import lsst.daf.base as dafBase
 import lsst.afw.display as afwDisplay
 import lsst.afw.image as afwImage
-from lsst.pex.config import Field, ConfigurableField, ConfigField
+from lsst.pex.config import Field, ConfigurableField, ConfigField, ListField
 from lsst.pipe.drivers.constructCalibs import CalibTaskRunner
 from .constructSpectralCalibs import SpectralCalibConfig, SpectralCalibTask
 from .findAndTraceAperturesTask import FindAndTraceAperturesTask
@@ -39,6 +39,8 @@ class ConstructFiberTraceConfig(SpectralCalibConfig):
     )
     slitOffsets = ConfigField(dtype=SlitOffsetsConfig, doc="Manual slit offsets to apply to detectorMap")
     fitContinuum = ConfigurableField(target=FitContinuumTask, doc="Fit continuum")
+    mask = ListField(dtype=str, default=["BAD_FLAT", "CR", "SAT", "NO_DATA"],
+                     doc="Mask planes to exclude from fiberTrace")
 
     def setDefaults(self):
         super().setDefaults()
@@ -134,6 +136,11 @@ class ConstructFiberTraceTask(SpectralCalibTask):
             norm = np.sum(tt.trace.image.array, axis=1)
             self.log.info("Median relative transmission of fiber %d is %f",
                           tt.fiberId, np.median(norm[np.isfinite(norm)]))
+
+            # Unset FIBERTRACE for any pixels that are bad
+            mask = tt.trace.mask
+            bad = (mask.array & mask.getPlaneBitMask(self.config.mask)) != 0
+            mask.array[bad] &= ~mask.getPlaneBitMask("FIBERTRACE")
 
         if self.debugInfo.display and self.debugInfo.combinedFrame >= 0:
             display = afwDisplay.Display(frame=self.debugInfo.combinedFrame)
