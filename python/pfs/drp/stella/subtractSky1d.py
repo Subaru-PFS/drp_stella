@@ -129,7 +129,9 @@ class SubtractSky1dTask(Task):
         sky1d : `pfs.drp.stella.FocalPlaneFunction`
             1D sky model.
         """
-        spectra.flux -= self.fit.apply(sky1d, spectra.wavelength, pfsConfig.fiberId, pfsConfig)
+        skyFlux = self.fit.apply(sky1d, spectra.wavelength, pfsConfig.fiberId, pfsConfig)
+        spectra.flux -= skyFlux
+        spectra.sky += skyFlux
 
     def subtractSkySpectrum(self, spectrum, lsf, fiberId, pfsConfig, sky1d):
         """Subtract the 1D sky model from the spectrum, in-place
@@ -147,7 +149,9 @@ class SubtractSky1dTask(Task):
         sky1d : `pfs.drp.stella.FocalPlaneFunction`
             1D sky model.
         """
-        spectrum.flux -= self.fit.apply(sky1d, spectrum.wavelength, [fiberId], pfsConfig)
+        skyFlux = self.fit.apply(sky1d, spectrum.wavelength, [fiberId], pfsConfig)
+        spectrum.flux -= skyFlux
+        spectrum.sky += skyFlux
 
     def plotSkyFibers(self, spectraList, pfsConfig, title):
         """Plot spectra from sky fibers
