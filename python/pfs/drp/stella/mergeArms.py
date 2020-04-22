@@ -34,7 +34,8 @@ class MergeArmsConfig(Config):
     doSubtractSky1d = Field(dtype=bool, default=True, doc="Do 1D sky subtraction?")
     subtractSky1d = ConfigurableField(target=SubtractSky1dTask, doc="1d sky subtraction")
     doBarycentricCorr = Field(dtype=bool, default=True, doc="Do barycentric correction?")
-    mask = ListField(dtype=str, default=["NO_DATA", "CR"], doc="Mask values to reject when combining")
+    mask = ListField(dtype=str, default=["NO_DATA", "CR", "INTRP", "SAT"],
+                     doc="Mask values to reject when combining")
 
 
 class MergeArmsRunner(TaskRunner):

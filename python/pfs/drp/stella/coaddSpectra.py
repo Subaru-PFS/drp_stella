@@ -22,7 +22,7 @@ class CoaddSpectraConfig(Config):
     wavelength = ConfigField(dtype=WavelengthSamplingConfig, doc="Wavelength configuration")
     subtractSky1d = ConfigurableField(target=SubtractSky1dTask, doc="1d sky subtraction")
     measureFluxCalibration = ConfigurableField(target=MeasureFluxCalibrationTask, doc="Flux calibration")
-    mask = ListField(dtype=str, default=["NO_DATA", "CR", "BAD_FLUXCAL"],
+    mask = ListField(dtype=str, default=["NO_DATA", "CR", "BAD_FLUXCAL", "INTRP", "SAT"],
                      doc="Mask values to reject when combining")
     fluxTable = ConfigurableField(target=FluxTableTask, doc="Flux table")
 
