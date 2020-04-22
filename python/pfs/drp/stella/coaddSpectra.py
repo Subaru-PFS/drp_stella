@@ -50,7 +50,7 @@ class CoaddSpectraRunner(TaskRunner):
                 if fiberStatus != FiberStatus.GOOD:
                     continue
                 targ = Target.fromPfsConfig(pfsConfig, index)
-                if targ.targetType not in (TargetType.SCIENCE, TargetType.FLUXSTD):
+                if targ.targetType not in (TargetType.SCIENCE, TargetType.FLUXSTD, TargetType.SKY):
                     continue
                 targets[targ].append(dataRefToTuple(ref))
         # Have target --> [exposures]; invert to [exposures] --> [targets]
