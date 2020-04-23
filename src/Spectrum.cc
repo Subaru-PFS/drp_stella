@@ -14,7 +14,7 @@ namespace pfs { namespace drp { namespace stella {
 
 Spectrum::Spectrum(std::size_t length, std::size_t fiberId)
   : _length(length),
-    _spectrum(ndarray::allocate(length)),
+    _flux(ndarray::allocate(length)),
     _mask(length, 1),
     _background(ndarray::allocate(length)),
     _covariance(ndarray::allocate(3, length)),
@@ -22,7 +22,7 @@ Spectrum::Spectrum(std::size_t length, std::size_t fiberId)
     _fiberId(fiberId),
     _isWavelengthSet(false)
 {
-    _spectrum.deep() = 0.;
+    _flux.deep() = 0.;
     _background.deep() = 0.;
     _covariance.deep() = 0.;
     _wavelength.deep() = 0.;
@@ -32,15 +32,15 @@ Spectrum::Spectrum(std::size_t length, std::size_t fiberId)
 
 
 Spectrum::Spectrum(
-    ImageArray const& spectrum,
+    ImageArray const& flux,
     Mask const& mask,
     ImageArray const& background,
     CovarianceMatrix const& covariance,
     ImageArray const& wavelength,
     ReferenceLineList const& lines,
     std::size_t fiberId
-) : _length(spectrum.getNumElements()),
-    _spectrum(spectrum),
+) : _length(flux.getNumElements()),
+    _flux(flux),
     _mask(mask),
     _background(background),
     _covariance(covariance),
@@ -51,9 +51,9 @@ Spectrum::Spectrum(
 {}
 
 
-void Spectrum::setSpectrum(Spectrum::ImageArray const& spectrum) {
-    utils::checkSize(spectrum.getShape()[0], _length, "Spectrum::setSpectrum");
-    _spectrum.deep() = spectrum;
+void Spectrum::setFlux(Spectrum::ImageArray const& flux) {
+    utils::checkSize(flux.getShape()[0], _length, "Spectrum::setFlux");
+    _flux.deep() = flux;
 }
 
 
@@ -139,8 +139,8 @@ void Spectrum::identify(
             continue;
         }
 
-        auto itMaxElement = std::max_element(_spectrum.begin() + start, _spectrum.begin() + end + 1);
-        const float maxPos = std::distance(_spectrum.begin(), itMaxElement);
+        auto itMaxElement = std::max_element(_flux.begin() + start, _flux.begin() + end + 1);
+        const float maxPos = std::distance(_flux.begin(), itMaxElement);
         start = std::round(maxPos - (1.5*dispCorControl.fwhm));
         if (start < 0) start = 0;
 
@@ -155,12 +155,12 @@ void Spectrum::identify(
         auto measureErrors = ndarray::Array<float, 1, 1>(n);
 
         bool allFinite = true;
-        auto itSpec = _spectrum.begin() + start;
-        for (auto itGaussSpec = gaussSpec.begin(); itGaussSpec != gaussSpec.end(); ++itGaussSpec, ++itSpec) {
-            if (!::isfinite(*itSpec)) {
+        auto itFlux = _flux.begin() + start;
+        for (auto itGaussSpec = gaussSpec.begin(); itGaussSpec != gaussSpec.end(); ++itGaussSpec, ++itFlux) {
+            if (!::isfinite(*itFlux)) {
                 allFinite = false;
             }
-            *itGaussSpec = *itSpec;
+            *itGaussSpec = *itFlux;
         }
         for (auto itMeasErr = measureErrors.begin(), itGaussSpec = gaussSpec.begin();
             itMeasErr != measureErrors.end(); ++itMeasErr, ++itGaussSpec) {
