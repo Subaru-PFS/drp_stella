@@ -55,11 +55,14 @@ std::shared_ptr<OversampledPsf::Image> NevenPsf::doComputeOversampledKernelImage
     float const yPosition = position.getY();
     std::size_t const num = _images.size();
 
+    // Ideally, we'd select by fiberId and then y or wavelength would already
+    // be sorted so we wouldn't have to sort. But this is how the algorithm was
+    // specified, and at the moment performance isn't critical.
     std::vector<std::pair<std::size_t, float>> candidates;
     candidates.reserve(num);
     for (std::size_t ii = 0; ii < num; ++ii) {
         if (std::abs(_xx[ii] - xPosition) < _xMaxDistance) {
-            candidates.emplace_back(ii, std::abs(_yy[ii] - yPosition));
+            candidates.emplace_back(ii, _yy[ii] - yPosition);
         }
     }
     if (candidates.size() < 2) {
@@ -68,32 +71,43 @@ std::shared_ptr<OversampledPsf::Image> NevenPsf::doComputeOversampledKernelImage
                            _xMaxDistance % xPosition).str());
     }
 
-    std::partial_sort(candidates.begin(), candidates.begin() + 2, candidates.end(),
-                      [](auto const& a, auto const& b) { return a.second < b.second; });
-    std::size_t const index1 = candidates[0].first;
-    std::size_t const index2 = candidates[1].first;
-    float const distance1 = candidates[0].second;
-    float const distance2 = candidates[1].second;
-    auto const& image1 = _images[index1];
-    auto const& image2 = _images[index2];
-    auto const shape = _images[index1].getShape();
-    assert(_images[index2].getShape() == shape);
+    std::sort(candidates.begin(), candidates.end(),
+              [](auto const& a, auto const& b) { return a.second < b.second; });
+    auto const& above = std::lower_bound(
+        candidates.begin(), candidates.end(), 0.0,
+        [](auto const& elem, float const value) { return elem.second < value; });
 
-    auto out = std::make_shared<OversampledPsf::Image>(shape[0], shape[1]);
-    auto array = out->getArray();
-    assert(array.getShape() == shape);
-    out->setXY0(-shape[0]/2, -shape[1]/2);
-
-    if (distance1 == 0) {
-        array.deep() = _images[index1];
+    std::shared_ptr<OversampledPsf::Image> out;
+    if (above->second == 0.0 || above == candidates.begin()) {
+        // Found an exact y value match, or there is no y value below the desired position
+        out = std::make_shared<OversampledPsf::Image>(ndarray::copy(_images[above->first]));
+    } else if (above == candidates.end()) {
+        // There is no y value above the desired position
+        out = std::make_shared<OversampledPsf::Image>(ndarray::copy(_images[candidates.back().first]));
     } else {
+        auto const& below = std::prev(above);
+        std::size_t const index1 = below->first;
+        std::size_t const index2 = above->first;
+        float const distance1 = below->second;
+        float const distance2 = above->second;
+        auto const& image1 = _images[index1];
+        auto const& image2 = _images[index2];
+        auto const shape = _images[index1].getShape();
+        assert(_images[index2].getShape() == shape);
+
+        out = std::make_shared<OversampledPsf::Image>(shape[0], shape[1]);
+        auto array = out->getArray();
+        assert(array.getShape() == shape);
+
         double const ratio = distance2/distance1;
         for (std::size_t y = 0; y < shape[1]; ++y) {
             for (std::size_t x = 0; x < shape[0]; ++x) {
                 array[y][x] = (image2[y][x] - image1[y][x]*ratio)/(1.0 - ratio);
             }
         }
+
     }
+    out->setXY0(-out->getWidth()/2, -out->getHeight()/2);
 
     return out;
 }
