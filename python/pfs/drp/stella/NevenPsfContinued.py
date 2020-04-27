@@ -11,7 +11,7 @@ from .NevenPsf import NevenPsf
 @continueClass  # noqa: F811 (redefinition)
 class NevenPsf:
     @classmethod
-    def build(cls, detMap, version="Apr1520_v2", oversampleFactor=9, targetSize=23, xMaxDistance=20):
+    def build(cls, detMap, version="Apr1520_v3", oversampleFactor=9, targetSize=23, xMaxDistance=20):
         """Generate a `NevenPsf` using the standard data
 
         Parameters
