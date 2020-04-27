@@ -1,12 +1,20 @@
-from lsst.pex.config import Config
+from lsst.pex.config import Config, Field
 from lsst.pipe.base import Task
 
 from .NevenPsfContinued import NevenPsf
 
 
 class MeasurePsfConfig(Config):
-    """Configuration for MeasurePsfTask"""
-    pass
+    """Configuration for MeasurePsfTask
+
+    No defaults are set for the ``NevenPsf`` parameters, so that the defaults
+    can be specified by ``NevenPsf``.
+    """
+    directory = Field(dtype=str, optional=True, doc="Directory containing NevenPsf realisations")
+    version = Field(dtype=str, optional=True, doc="Version of NevenPsf realisation to use")
+    oversampleFactor = Field(dtype=int, optional=True,
+                             doc="Factor by which the NevenPsf realisations have been oversampled")
+    targetSize = Field(dtype=int, optional=True, doc="Desired size of the realised PSF images")
 
 
 class MeasurePsfTask(Task):
@@ -60,4 +68,7 @@ class MeasurePsfTask(Task):
         psf : `pfs.drp.stella.SpectralPsf`
             Point-spread function.
         """
-        return NevenPsf.build(detectorMap)
+        return NevenPsf.build(detectorMap, version=self.config.version,
+                              oversampleFactor=self.config.oversampleFactor,
+                              targetSize=self.config.targetSize,
+                              directory=self.config.directory)

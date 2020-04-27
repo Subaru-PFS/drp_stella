@@ -11,7 +11,8 @@ from .NevenPsf import NevenPsf
 @continueClass  # noqa: F811 (redefinition)
 class NevenPsf:
     @classmethod
-    def build(cls, detMap, version="Apr1520_v3", oversampleFactor=9, targetSize=23, xMaxDistance=20):
+    def build(cls, detMap, version=None, oversampleFactor=None, targetSize=23, xMaxDistance=20,
+              directory=None):
         """Generate a `NevenPsf` using the standard data
 
         Parameters
@@ -24,21 +25,27 @@ class NevenPsf:
             Factor by which the data has been oversampled.
         targetSize : `int`, optional
             Desired size of the realised PSF images.
-        xMaxDistance : `float`
+        xMaxDistance : `float`, optional
             Maximum distance in x for selecting images for interpolation.
+        directory : `str`, optional
+            Directory containing the realisations from Neven. If not provided,
+            defaults to ``/path/to/drp_pfs_data/nevenPsf``.
 
         Returns
         -------
         psf : `pfs.drp.stella.NevenPsf`
             Point-spread function model.
         """
-        obsPfsData = getPackageDir("drp_pfs_data")
+        if directory is None:
+            directory = os.path.join(getPackageDir("drp_pfs_data"), "nevenPsf")
+        if version is None:
+            version = "Apr1520_v3"
+        if oversampleFactor is None:
+            oversampleFactor = 9
 
         # positions_of_simulation_00_from_<version>.npy contains: fiberId,x, y, wavelength
-        xy = np.load(os.path.join(obsPfsData, "nevenPsf",
-                                  "positions_of_simulation_00_from_" + version + ".npy"))
-        images = np.load(os.path.join(obsPfsData, "nevenPsf",
-                                      "array_of_simulation_00_from_" + version + ".npy"))
+        xy = np.load(os.path.join(directory, f"positions_of_simulation_00_from_{version}.npy"))
+        images = np.load(os.path.join(directory, f"array_of_simulation_00_from_{version}.npy"))
 
         return cls(detMap, xy[:, 1].astype(np.float32), xy[:, 2].astype(np.float32), images,
                    oversampleFactor, Extent2I(targetSize, targetSize), xMaxDistance)
