@@ -65,7 +65,6 @@ class NevenPsf
 
     void write(lsst::afw::table::io::OutputArchiveHandle & handle) const override;
 
-  private:
     /** Provide an oversampled representation of the PSF
      *
      * This method chooses the appropriate PSF images and interpolates between
@@ -79,6 +78,7 @@ class NevenPsf
         lsst::geom::Point2D const& position
     ) const override;
 
+  private:
     ndarray::Array<float const, 1, 1> const _xx;  ///< x positions of the oversampled images
     ndarray::Array<float const, 1, 1> const _yy;  ///< y positions of the oversampled images
     std::vector<ndarray::Array<double const, 2, 1>> const _images;  ///< oversampled images
