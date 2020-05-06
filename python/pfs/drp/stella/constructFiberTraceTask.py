@@ -6,6 +6,7 @@ import lsst.afw.display as afwDisplay
 import lsst.afw.image as afwImage
 from lsst.pex.config import Field, ConfigurableField, ConfigField, ListField
 from lsst.pipe.drivers.constructCalibs import CalibTaskRunner
+from pfs.datamodel import FiberStatus
 from .constructSpectralCalibs import SpectralCalibConfig, SpectralCalibTask
 from .findAndTraceAperturesTask import FindAndTraceAperturesTask
 from pfs.drp.stella import Spectrum, SlitOffsetsConfig
@@ -41,6 +42,7 @@ class ConstructFiberTraceConfig(SpectralCalibConfig):
     fitContinuum = ConfigurableField(target=FitContinuumTask, doc="Fit continuum")
     mask = ListField(dtype=str, default=["BAD_FLAT", "CR", "SAT", "NO_DATA"],
                      doc="Mask planes to exclude from fiberTrace")
+    forceFiberIds = Field(dtype=bool, default=False, doc="Force identified fiberIds to match pfsConfig?")
 
     def setDefaults(self):
         super().setDefaults()
@@ -123,6 +125,7 @@ class ConstructFiberTraceTask(SpectralCalibTask):
 
         traces = self.trace.run(exposure.maskedImage, detMap)
         self.log.info('%d fiber traces found on combined flat' % (traces.size(),))
+        self.checkFiberId(traces, dataRefList[0].get("pfsConfig"))
 
         # Set the normalisation of the FiberTraces
         # The normalisation is the flat: we want extracted spectra to be relative to the flat.
@@ -196,3 +199,33 @@ class ConstructFiberTraceTask(SpectralCalibTask):
         average.spectrum[:] = np.median([ss.spectrum for ss in spectra], axis=0)
         average.spectrum = self.fitContinuum.fitContinuum(average)
         return average
+
+    def checkFiberId(self, traces, pfsConfig):
+        """Check that the fiberId in the FiberTraces match those in the
+        pfsConfig
+
+        If they do not match, we will fix them if the ``forceFiberIds`` config
+        parameter is set; otherwise, we raise a `RuntimeError`.
+
+        Parameters
+        ----------
+        traces : `pfs.drp.stella.FiberTraceSet`
+            List of fiber traces.
+        pfsConfig : `pfs.datamodel.PfsConfig`
+            Top-end fiber configuration.
+
+        Raises
+        ------
+        RuntimeError
+            If the fiberIds don't match, and ``forceFiberIds`` is not set.
+        """
+        fiberId = np.array([tt.fiberId for tt in traces])
+        select = pfsConfig.fiberStatus == FiberStatus.GOOD
+        if set(fiberId) == set(pfsConfig.fiberId[select]):
+            return
+        if not self.config.forceFiberIds:
+            raise RuntimeError(f"Fiber IDs ({sorted(fiberId)}) don't match pfsConfig "
+                               f"({sorted(pfsConfig.fiberId[select])})")
+        indices = np.arange(len(traces), dtype=int)
+        for ii, ff in zip(sorted(indices, key=lambda ii: fiberId[ii]), sorted(pfsConfig.fiberId[select])):
+            traces[ii].fiberId = ff
