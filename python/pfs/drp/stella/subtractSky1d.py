@@ -51,6 +51,8 @@ class SubtractSky1dTask(Task):
         sky1d : `pfs.drp.stella.FocalPlaneFunction`
             1D sky model.
         """
+        if not np.any(pfsConfig.targetType == TargetType.SKY):
+            raise RuntimeError("No sky fibers found")
         if self.debugInfo.plotSkyFluxes:
             self.plotSkyFibers(spectraList, pfsConfig, "Sky flux")
         resampledList = self.resampleSpectra(spectraList, pfsConfig)
