@@ -1,0 +1,147 @@
+import collections
+import numpy as np
+
+import lsst.utils.tests
+import lsst.afw.image.testUtils
+from lsst.geom import Box2I, Point2I, Extent2I
+
+from pfs.drp.stella.synthetic import makeSyntheticFlat, SyntheticConfig, makeSyntheticDetectorMap
+from pfs.drp.stella.findAndTraceAperturesTask import FindAndTraceAperturesTask
+from pfs.drp.stella.tests import runTests
+
+display = None
+
+
+class ExtractSpectraTestCase(lsst.utils.tests.TestCase):
+    def setUp(self):
+        self.rng = np.random.RandomState(12345)  # I have the same combination on my luggage
+        self.synthConfig = SyntheticConfig()
+
+        self.synthConfig.height = 256
+        self.synthConfig.width = 128
+        self.synthConfig.fwhm = 3.21
+        self.synthConfig.separation = 12.3
+        self.synthConfig.slope = 0.01
+
+        self.detMap = makeSyntheticDetectorMap(self.synthConfig)
+        self.flux = 1.0e5
+        image = makeSyntheticFlat(self.synthConfig, flux=self.flux, addNoise=False, rng=self.rng)
+        self.image = lsst.afw.image.makeMaskedImage(image)
+        self.image.mask.array[:] = 0x0
+        self.image.variance.array[:] = self.synthConfig.readnoise**2
+
+        config = FindAndTraceAperturesTask.ConfigClass()
+        config.finding.minLength = self.synthConfig.height//2
+        task = FindAndTraceAperturesTask(config=config)
+        self.fiberTraces = task.run(self.image, self.detMap)
+        for ft in self.fiberTraces:
+            ft.trace.image.array /= ft.trace.image.array.sum(axis=1)[:, np.newaxis]
+        self.assertEqual(len(self.fiberTraces), self.synthConfig.numFibers)
+
+        if display:
+            from lsst.afw.display import Display
+            Display(backend=display, frame=1).mtv(self.image, title="Synthetic image")
+            Display(backend=display, frame=2).mtv(self.fiberTraces[4].trace, title="FiberTrace #4")
+
+    def assertSpectra(self, spectra, flux=None, mask=None):
+        """Assert that the extracted spectra are as expected
+
+        Parameters
+        ----------
+        spectra : `pfs.drp.stella.SpectrumSet`
+            Extracted spectra.
+        flux : `dict` (`int`: array_like) or array_like, optional
+            Expected flux values. If a `dict`, provides the expected flux value
+            indexed by the fiberId.
+        mask : `dict` (`int`: array_like) or array_like, optional
+            Expected mask values. If a `dict`, provides the expected mask value
+            indexed by the fiberId.
+        """
+        self.assertEqual(len(spectra), self.synthConfig.numFibers)
+        self.assertEqual(spectra.getLength(), self.synthConfig.height)
+        for ss in spectra:
+            if isinstance(flux, collections.Mapping):
+                expectFlux = flux.get(ss.fiberId, None)
+            else:
+                expectFlux = flux
+            if expectFlux is None:
+                expectFlux = self.flux
+
+            if isinstance(mask, collections.Mapping):
+                expectMask = mask.get(ss.fiberId, None)
+            else:
+                expectMask = mask
+            if expectMask is None:
+                expectMask = 0
+
+            self.assertEqual(len(ss), self.synthConfig.height)
+            self.assertFloatsAlmostEqual(ss.flux, expectFlux, rtol=2.0e-3)
+            self.assertFloatsEqual(ss.mask.array[0], expectMask)
+            self.assertFloatsEqual(ss.background, 0.0)
+            self.assertTrue(np.all(ss.variance > 0))
+            self.assertTrue(np.all(np.isfinite(ss.variance)))
+            self.assertTrue(np.all(np.isfinite(ss.covariance)))
+
+    def testBasic(self):
+        """Test basic extraction"""
+        spectra = self.fiberTraces.extractSpectra(self.image)
+        self.assertSpectra(spectra)
+
+    def testMasked(self):
+        """Test extraction in the presence of masked pixels"""
+        self.badRow = 123
+        bitMask = self.image.mask.getPlaneBitMask("BAD")
+        everyOther = np.arange(0, self.synthConfig.width, 2, dtype=int)
+        self.image.mask.array[self.badRow][everyOther] |= bitMask
+
+        # With mask supplied to extractSpectra
+        spectra = self.fiberTraces.extractSpectra(self.image, bitMask)
+        expectMask = np.zeros(self.synthConfig.height, dtype=np.int32)
+        self.assertSpectra(spectra, mask=expectMask)
+
+        # No mask supplied to extractSpectra
+        spectra = self.fiberTraces.extractSpectra(self.image)
+        expectMask[self.badRow] = bitMask
+        self.assertSpectra(spectra, mask=expectMask)
+
+    def testUndersizedFiberTrace(self):
+        """Test extraction with undersized fiberTraces"""
+        index = 3
+        middle = self.synthConfig.height//2
+        fiberId = self.fiberTraces[index].fiberId
+        trace = self.fiberTraces[index]
+        box = trace.trace.getBBox()
+
+        # Start is missing
+        newBox = Box2I(Point2I(box.getMinX(), middle), box.getMax())
+        newTrace = type(trace)(trace.trace.Factory(trace.trace, newBox), trace.fiberId)
+        self.fiberTraces[index] = newTrace
+        spectra = self.fiberTraces.extractSpectra(self.image)
+        expectFlux = np.zeros(self.synthConfig.height, dtype=float)
+        expectFlux[middle:] = self.flux
+        expectMask = np.zeros(self.synthConfig.height, dtype=np.int32)
+        expectMask[:middle] = trace.trace.mask.getPlaneBitMask("NO_DATA")
+        self.assertSpectra(spectra, flux={fiberId: expectFlux}, mask={fiberId: expectMask})
+
+        # End is missing
+        newBox = Box2I(box.getMin(), Extent2I(box.getWidth(), middle))
+        newTrace = type(trace)(trace.trace.Factory(trace.trace, newBox), trace.fiberId)
+        self.fiberTraces[index] = newTrace
+        spectra = self.fiberTraces.extractSpectra(self.image)
+        expectFlux = np.zeros(self.synthConfig.height, dtype=float)
+        expectFlux[:middle] = self.flux
+        expectMask = np.zeros(self.synthConfig.height, dtype=np.int32)
+        expectMask[middle:] = trace.trace.mask.getPlaneBitMask("NO_DATA")
+        self.assertSpectra(spectra, flux={fiberId: expectFlux}, mask={fiberId: expectMask})
+
+
+class TestMemory(lsst.utils.tests.MemoryTestCase):
+    pass
+
+
+def setup_module(module):
+    lsst.utils.tests.init()
+
+
+if __name__ == "__main__":
+    runTests(globals())

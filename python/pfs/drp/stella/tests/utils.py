@@ -8,7 +8,7 @@ from contextlib import contextmanager
 These have been added to LSST, but haven't been included in a release yet.
 """
 
-__all__ = ["classParameters", "methodParameters"]
+__all__ = ["classParameters", "methodParameters", "runTests"]
 
 
 def classParameters(**settings):

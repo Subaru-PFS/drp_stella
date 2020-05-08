@@ -36,7 +36,7 @@ class Spectrum {
 
     /// Construct Spectrum from elements
     ///
-    /// @param spectrum  Spectrum values
+    /// @param flux  Spectrum values
     /// @param mask  Mask values
     /// @param background  Background values
     /// @param covariance  Covariance matrix
@@ -44,7 +44,7 @@ class Spectrum {
     /// @param lines  Line list
     /// @param fiberId  Fiber identifier
     Spectrum(
-        ImageArray const& spectrum,
+        ImageArray const& flux,
         Mask const& mask,
         ImageArray const& background,
         CovarianceMatrix const& covariance,
@@ -64,9 +64,17 @@ class Spectrum {
     std::size_t getNumPixels() const { return _length; }
 
     //@{
+    /// Return the flux array
+    ImageArray getFlux() { return _flux; }
+    ConstImageArray getFlux() const { return _flux; }
+    //@}
+
+    //@{
     /// Return the spectrum
-    ImageArray getSpectrum() { return _spectrum; }
-    ConstImageArray getSpectrum() const { return _spectrum; }
+    ///
+    /// Synonym for getFlux.
+    ImageArray getSpectrum() { return _flux; }
+    ConstImageArray getSpectrum() const { return _flux; }
     //@}
 
     //@{
@@ -108,8 +116,15 @@ class Spectrum {
     /// Return the fiber identifier for this spectrum
     std::size_t getFiberId() const { return _fiberId; }
 
+    /// Set the flux (deep copy)
+    void setFlux(ndarray::Array<ImageT, 1, 1>  const& flux);
+
     /// Set the spectrum (deep copy)
-    void setSpectrum(ndarray::Array<ImageT, 1, 1>  const& spectrum);
+    ///
+    /// A synonym for setFlux.
+    void setSpectrum(ndarray::Array<ImageT, 1, 1>  const& spectrum) {
+        return setFlux(spectrum);
+    }
 
     /// Set the background pointer of this fiber trace to covar (deep copy)
     void setBackground(ImageArray const& background);
@@ -148,7 +163,7 @@ class Spectrum {
 
   private:
     std::size_t _length;
-    ImageArray _spectrum;
+    ImageArray _flux;
     Mask _mask;
     ImageArray _background;
     CovarianceMatrix _covariance;

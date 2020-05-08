@@ -21,9 +21,14 @@ void declareSpectrum(py::module &mod) {
     cls.def(py::init<Spectrum::ImageArray const&, Spectrum::Mask const&, Spectrum::ImageArray const&,
                      Spectrum::CovarianceMatrix const&, Spectrum::ImageArray const&,
                      Spectrum::ReferenceLineList const&, std::size_t>(),
-            "spectrum"_a, "mask"_a, "background"_a, "covariance"_a, "wavelength"_a,
+            "flux"_a, "mask"_a, "background"_a, "covariance"_a, "wavelength"_a,
             "lines"_a=Spectrum::ReferenceLineList(), "fiberId"_a=0);
 
+    cls.def("getFlux", py::overload_cast<>(&Class::getFlux));
+    cls.def("setFlux", &Class::setFlux, "flux"_a);
+    cls.def_property("flux", py::overload_cast<>(&Class::getFlux), &Class::setFlux);
+
+    // "spectrum" is a synonym for "flux"
     cls.def("getSpectrum", py::overload_cast<>(&Class::getSpectrum));
     cls.def("setSpectrum", &Class::setSpectrum, "spectrum"_a);
     cls.def_property("spectrum", py::overload_cast<>(&Class::getSpectrum), &Class::setSpectrum);

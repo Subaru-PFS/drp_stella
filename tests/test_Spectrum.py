@@ -26,6 +26,7 @@ class SpectrumTestCase(BaseTestCase):
         spectrum = drpStella.Spectrum(self.length, 0)
         self.assertEqual(len(spectrum), self.length)
         self.assertEqual(spectrum.fiberId, 0)
+        self.assertEqual(spectrum.flux.shape, (self.length,))
         self.assertEqual(spectrum.spectrum.shape, (self.length,))
         self.assertEqual(spectrum.mask.getHeight(), 1)
         self.assertEqual(spectrum.mask.getWidth(), self.length)
@@ -48,7 +49,7 @@ class SpectrumTestCase(BaseTestCase):
         # Reset, and set elements via properties
         spectrum = drpStella.Spectrum(self.length, 0)
         spectrum.fiberId = self.fiberId
-        spectrum.spectrum = self.image
+        spectrum.flux = self.image
         spectrum.mask = self.mask
         spectrum.background = self.background
         spectrum.covariance = self.covariance
@@ -63,6 +64,7 @@ class SpectrumTestCase(BaseTestCase):
         self.background[:] = self.rng.uniform(size=self.length).astype(np.float32)
         self.covariance[:] = self.rng.uniform(size=(3, self.length)).astype(np.float32)
         self.wavelengthArray[:] = self.rng.uniform(size=self.length).astype(np.float32)
+        self.assertFloatsNotEqual(spectrum.flux, self.image)
         self.assertFloatsNotEqual(spectrum.spectrum, self.image)
         self.assertFloatsNotEqual(spectrum.mask.array, self.mask.array)
         self.assertFloatsNotEqual(spectrum.variance, self.covariance[0])
@@ -81,6 +83,7 @@ class SpectrumTestCase(BaseTestCase):
 
         # Getters instead of properties
         self.assertEqual(spectrum.getFiberId(), self.fiberId)
+        self.assertFloatsEqual(spectrum.getFlux(), self.image)
         self.assertFloatsEqual(spectrum.getSpectrum(), self.image)
         self.assertImagesEqual(spectrum.getMask(), self.mask)
         self.assertFloatsEqual(spectrum.getVariance(), self.covariance[0])
@@ -97,6 +100,7 @@ class SpectrumTestCase(BaseTestCase):
         self.background[:] = self.rng.uniform(size=self.length).astype(np.float32)
         self.covariance[:] = self.rng.uniform(size=(3, self.length)).astype(np.float32)
         self.wavelengthArray[:] = self.rng.uniform(size=self.length).astype(np.float32)
+        self.assertFloatsEqual(spectrum.flux, self.image)
         self.assertFloatsEqual(spectrum.spectrum, self.image)
         self.assertFloatsEqual(spectrum.mask.array, self.mask.array)
         self.assertFloatsEqual(spectrum.variance, self.covariance[0])
@@ -126,7 +130,7 @@ class SpectrumTestCase(BaseTestCase):
         peak = 1000.0
         spectrum = drpStella.Spectrum(self.length, self.fiberId)
         spectrum.wavelength = np.arange(self.length, dtype=np.float32)
-        spectrum.spectrum[:] = peak*np.exp(-0.5*((spectrum.wavelength - center)/sigma)**2)
+        spectrum.flux[:] = peak*np.exp(-0.5*((spectrum.wavelength - center)/sigma)**2)
         spectrum.mask[:] = 0
         spectrum.variance[:] = 0.1
         spectrum.referenceLines = []
