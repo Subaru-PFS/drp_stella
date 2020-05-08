@@ -55,10 +55,11 @@ def interpolateMask(fromWavelength, fromMask, toWavelength, fill=0):
     length = len(fromWavelength)
     with np.errstate(invalid="ignore"):
         index = interp1d(fromWavelength, np.arange(length), kind="linear", bounds_error=False,
-                         fill_value=fill, copy=True, assume_sorted=True)(toWavelength)
+                         fill_value=-1, copy=True, assume_sorted=True)(toWavelength)
     intIndex = index.astype(int)
-    result = np.full(toWavelength.shape, fill, dtype=fromMask.dtype)
+    result = np.empty(toWavelength.shape, dtype=fromMask.dtype)
     intIndex[(intIndex == index) & (index > 0)] -= 1  # Linear interpolation takes the index before
     select = (intIndex >= 0) & (intIndex < length - 1)
     result[select] = fromMask[intIndex[select]] | fromMask[intIndex[select] + 1]
+    result[~select] = fill
     return result
