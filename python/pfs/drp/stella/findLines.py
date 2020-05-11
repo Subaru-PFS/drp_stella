@@ -341,6 +341,9 @@ class FindLinesTask(Task):
             axes.set_ylabel("Flux")
             plt.show()
 
+        if result.center < lowIndex or result.center > highIndex:
+            raise FittingError(f"Fit center ({result.center}) is out of range ({lowIndex}, {highIndex})")
+
         return Struct(
             center=result.center,
             amplitude=result.amplitude,
