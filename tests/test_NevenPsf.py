@@ -8,10 +8,12 @@ import lsst.utils.tests
 import lsst.geom
 import lsst.afw.detection
 import lsst.afw.image.testUtils
+from lsst.afw.display import Display
 
 import pfs.drp.stella
 from pfs.drp.stella.images import calculateCentroid
 from pfs.drp.stella.tests.utils import methodParameters, runTests
+import pfs.drp.stella.tests.nevenPsf
 
 display = None
 
@@ -84,6 +86,29 @@ class NevenPsfTestCase(lsst.utils.tests.TestCase):
         """Test pickling of NevenPsf"""
         psf = pickle.loads(pickle.dumps(self.psf))
         self.assertNevenPsf(psf)
+
+    def testInterpolationAlgorithm(self):
+        """Test that our interpolation matches what Neven expects
+
+        We check our results from C++ directly against what Neven produces with
+        his python script. We use the `pfs.drp.stella.nevenPsf.NevenPsf`, which
+        is a subclass of `pfs.drp.stella.NevenPsf` that exposes the protected
+        ``doComputeOversampledKernelImage`` method.
+        """
+        directory = os.path.join(getPackageDir("drp_pfs_data"), "nevenPsf")
+        positions = np.load(os.path.join(directory, "test_arrays_from_Neven_from_Python_positions.npy"))
+        images = np.load(os.path.join(directory, "test_arrays_from_Neven_from_Python.npy"))
+        psf = pfs.drp.stella.tests.nevenPsf.NevenPsf(self.psf)  # Expose the interpolation
+        for pos, img in zip(positions, images):
+            ours = psf.computeOversampledKernelImage(lsst.geom.Point2D(pos))
+            self.assertFloatsAlmostEqual(ours.array/ours.array.max(), img/img.max(), atol=1.0e-8)
+
+            if display is not None:
+                diff = ours.array - img
+                Display(backend=display, frame=1).mtv(ours)
+                Display(backend=display, frame=2).mtv(lsst.afw.image.ImageD(img))
+                Display(backend=display, frame=3).mtv(lsst.afw.image.ImageD(diff))
+                input("Press ENTER to continue")
 
 
 class TestMemory(lsst.utils.tests.MemoryTestCase):
