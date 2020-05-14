@@ -30,6 +30,10 @@ class BootstrapConfig(Config):
     spectralOrder = Field(dtype=int, default=1, doc="Polynomial order in the spectral dimension")
     rejIterations = Field(dtype=int, default=3, doc="Number of fitting iterations")
     rejThreshold = Field(dtype=float, default=3.0, doc="Rejection threshold (stdev)")
+    allowSplit = Field(dtype=bool, default=True, doc="Allow split detectors for brm arms (not n)?")
+    rowForCenter = Field(dtype=float, default=2048, doc="Row for xCenter calculation; used if allowSplit")
+    midLine = Field(dtype=float, default=2048,
+                    doc="Column defining the division between left and right amps; used if allowSplit")
 
 
 class BootstrapRunner(TaskRunner):
@@ -108,7 +112,9 @@ class BootstrapTask(CmdLineTask):
                        lineResults.detectorMap, refLines, frame=1)
 
         matches = self.matchArcLines(lineResults.lines, refLines, lineResults.detectorMap)
-        self.fitDetectorMap(matches, lineResults.detectorMap)
+        fiberIdLists = self.selectFiberIds(lineResults.detectorMap, arcRef.dataId["arm"])
+        for fiberId in fiberIdLists:
+            self.fitDetectorMap(matches, lineResults.detectorMap, fiberId)
 
         self.visualize(lineResults.exposure, [ss.fiberId for ss in lineResults.spectra],
                        lineResults.detectorMap, refLines, frame=2)
@@ -302,7 +308,36 @@ class BootstrapTask(CmdLineTask):
         self.log.info("Matched %d lines", len(matches))
         return matches
 
-    def fitDetectorMap(self, matches, detectorMap, doUpdate=True):
+    def selectFiberIds(self, detectorMap, arm):
+        """Select lists of fiberIds to fit/update
+
+        For the b, r and m arms, we want to fit/update the left and right
+        halves separately, because there are two detectors. For the n arm,
+        there's a single detector.
+
+        Parameters
+        ----------
+        detectorMap : `pfs.drp.stella.DetectorMap`
+            Map of fiberId,wavelength to x,y.
+        arm : `str`
+            Spectrograph arm (one of b, r, m, n).
+
+        Returns
+        -------
+        fiberIdLists : `list` of `set` of `int`
+            Lists of fiberIds to fit/update.
+        """
+        if not self.config.allowSplit or arm == "n":
+            return [None]
+        xCenter = [detectorMap.getXCenter(fiberId, self.config.rowForCenter) for
+                   fiberId in detectorMap.fiberId]
+        return [set([fiberId for fiberId, xCenter in zip(detectorMap.fiberId, xCenter) if
+                     xCenter < self.config.midLine]),
+                set([fiberId for fiberId, xCenter in zip(detectorMap.fiberId, xCenter) if
+                     xCenter >= self.config.midLine]),
+                ]
+
+    def fitDetectorMap(self, matches, detectorMap, fiberId=None, doUpdate=True):
         """Fit the observed line locations and update the detectorMap
 
         We fit a model of where the lines are, based on where the lines were
@@ -315,14 +350,19 @@ class BootstrapTask(CmdLineTask):
             ``matchArcLines``.
         detectorMap : `pfs.drp.stella.DetectorMap`
             Map of fiberId,wavelength to x,y.
+        fiberId : iterable of `int`
+            List of fiberIds to fit/update. If ``None``, will fit/update all.
         doUpdate : `bool`
             Update the ``detectorMap``?
         """
         xDomain = [detectorMap.bbox.getMinX(), detectorMap.bbox.getMaxX()]
         yDomain = [detectorMap.bbox.getMinY(), detectorMap.bbox.getMaxY()]
+        if fiberId:
+            fiberId = set(fiberId)
         xx = np.array([detectorMap.findPoint(mm.obs.fiberId, mm.ref.wavelength)
-                       for mm in matches]).T  # Where it should be
-        yy = np.array([[mm.obs.x, mm.obs.y] for mm in matches]).T  # Where it is
+                       for mm in matches if not fiberId or mm.obs.fiberId in fiberId]).T  # Where it should be
+        yy = np.array([[mm.obs.x, mm.obs.y] for mm in matches if
+                       not fiberId or mm.obs.fiberId in fiberId]).T  # Where it is
         diff = yy - xx
 
         if lsstDebug.Info(__name__).plotShifts:
@@ -417,15 +457,17 @@ class BootstrapTask(CmdLineTask):
         if doUpdate:
             self.log.info("Updating detectorMap...")
             rows = np.arange(detectorMap.bbox.getMaxY() + 1, dtype=np.float32)
-            for fiberId in detectorMap.fiberId:
-                wavelength = detectorMap.getWavelength(fiberId)
+            for ff in detectorMap.fiberId:
+                if fiberId and ff not in fiberId:
+                    continue
+                wavelength = detectorMap.getWavelength(ff)
                 assert len(wavelength) == len(rows)
-                center = detectorMap.getXCenter(fiberId)
+                center = detectorMap.getXCenter(ff)
                 assert len(center) == len(rows)
                 spatial = fitSpatial(center, rows)
                 spectral = fitSpectral(center, rows)
-                detectorMap.setXCenter(fiberId, rows, spatial.astype(np.float32))
-                detectorMap.setWavelength(fiberId, spectral.astype(np.float32), wavelength.astype(np.float32))
+                detectorMap.setXCenter(ff, rows, spatial.astype(np.float32))
+                detectorMap.setWavelength(ff, spectral.astype(np.float32), wavelength.astype(np.float32))
 
     def visualize(self, image, fiberId, detectorMap, refLines, frame=1):
         """Visualize arc lines on an image
