@@ -14,3 +14,4 @@ from .spline import *
 from .SpectralPsfContinued import *
 from .NevenPsfContinued import *
 from .lsf import *
+from .fitPolynomial import *
