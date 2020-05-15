@@ -1,0 +1,68 @@
+#ifndef PFS_DRP_STELLA_TRACES_H
+#define PFS_DRP_STELLA_TRACES_H
+
+#include <vector>
+#include "lsst/afw/geom/SpanSet.h"
+
+namespace pfs {
+namespace drp {
+namespace stella {
+
+
+/// A peak found in the trace
+struct TracePeak {
+    lsst::afw::geom::Span const span;  ///< Span containing the peak
+    float peak;  ///< Peak position in the spatial dimension
+
+    /// Constructor
+    ///
+    /// @param row : Row containing the peak
+    /// @param low : Column at the low-end of the span containing the peak
+    /// @param peak_ : Peak position in the spatial dimension
+    /// @param high : Column at the high-end of the span containing the peak
+    TracePeak(int row, int low, float peak_, int high) :
+      span(row, low, high),
+      peak(peak_)
+      {}
+
+    TracePeak(TracePeak const&) = delete;
+    TracePeak(TracePeak &&) = default;
+    TracePeak & operator=(TracePeak const&) = delete;
+    TracePeak & operator=(TracePeak &&) = default;
+};
+
+
+/// Find peaks on an image
+///
+/// We find all peaks above threshold in each row, for later association.
+///
+/// @param image : Image to search for peaks
+/// @param threshold : Threshold for peaks (multiple of the square root of the variance plane)
+/// @param badBitMask : Bitmask to apply to identify bad pixels. Bad pixels count as a pixel below threshold.
+/// @return a list of peaks for each row of the image
+std::vector<std::vector<std::shared_ptr<TracePeak>>> findTracePeaks(
+    lsst::afw::image::MaskedImage<float> const& image,
+    float threshold=5.0,
+    lsst::afw::image::MaskPixel badBitMask=0
+);
+
+
+/// Centroid peaks within a trace
+///
+/// We measure the centroid for all peaks, modifying the input
+///
+/// @param peaks : List of peaks to centroid. Peaks are modified.
+/// @param image : Image on which to measure centroids
+/// @param radius : Number of pixels on either side of the peak to use in the centroid measurement
+/// @param badBitMask : Bitmask to apply to identify bad pixels. Bad pixels are ignored in the measurement
+void centroidTrace(
+    std::vector<std::shared_ptr<TracePeak>> & peaks,  // modified
+    lsst::afw::image::MaskedImage<float> const& image,
+    int radius,
+    lsst::afw::image::MaskPixel badBitMask=0
+);
+
+
+}}} // namespace pfs::drp::stella
+
+#endif

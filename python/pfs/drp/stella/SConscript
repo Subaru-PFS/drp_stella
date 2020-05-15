@@ -15,6 +15,7 @@ scripts.BasicSConscript.pybind11(
      'tests/nevenPsf',
      'symmetricTridiagonal',
      'fitLine',
+     'traces',
      ],
     addUnderscore=False
 )
