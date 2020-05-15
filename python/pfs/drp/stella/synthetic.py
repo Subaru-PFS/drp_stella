@@ -195,15 +195,13 @@ def makeSyntheticArc(config, numLines=50, fwhm=4.321, flux=3.0e5, addNoise=True,
     return Struct(lines=lines, spectrum=spectrum, image=image)
 
 
-def makeSyntheticDetectorMap(config, numKnots=20):
+def makeSyntheticDetectorMap(config):
     """Make a DetectorMap with a specific configuration
 
     Parameters
     ----------
     config : `pfs.drp.stella.synthetic.SyntheticConfig`
         Configuration for synthetic spectrograph.
-    numKnots : `int`
-        Number of spline knots for ``DetectorMap``.
 
     Returns
     -------
