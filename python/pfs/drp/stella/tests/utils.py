@@ -120,12 +120,16 @@ def runTests(_globals={}, profileTop=30):
     parser = ArgumentParser(__file__)
     parser.add_argument("--display", help="Display backend")
     parser.add_argument("--profile", action="store_true", help="Profile tests?")
+    parser.add_argument("--debug", action="store_true", help="Activate LSST debug mechanism?")
     args, argv = parser.parse_known_args()
     if _globals and args.display:
         _globals["display"] = args.display
 
     if "setup_module" in _globals:
         _globals["setup_module"](sys.modules["__main__"])
+
+    if args.debug:
+        import debug  # noqa F401: activate LSST debug mechanism
 
     if args.profile:
         import cProfile
