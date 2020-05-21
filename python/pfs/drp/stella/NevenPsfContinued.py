@@ -11,7 +11,7 @@ from .NevenPsf import NevenPsf
 @continueClass  # noqa: F811 (redefinition)
 class NevenPsf:
     @classmethod
-    def build(cls, detMap, version=None, oversampleFactor=None, targetSize=23, xMaxDistance=20,
+    def build(cls, detMap, version=None, oversampleFactor=None, targetSize=None, xMaxDistance=20,
               directory=None):
         """Generate a `NevenPsf` using the standard data
 
@@ -42,6 +42,8 @@ class NevenPsf:
             version = "Apr1520_v3"
         if oversampleFactor is None:
             oversampleFactor = 9
+        if targetSize is None:
+            targetSize = 23
 
         # positions_of_simulation_00_from_<version>.npy contains: fiberId,x, y, wavelength
         xy = np.load(os.path.join(directory, f"positions_of_simulation_00_from_{version}.npy"))
