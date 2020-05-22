@@ -65,8 +65,33 @@ def recordCalibInputs(self, butler, calib, dataIdList, outputId):
     header.set("ARM", outputId["arm"])
 
 
+def getFilter(self, butler, dataId):
+    """Determine the filter from a data identifier
+
+    Querying the butler based on the visit doesn't yield the filter, because it
+    can return multiple arms, and then we choose one essentially at random
+    (whichever one happened to be ingested first), which results in filter
+    mismatches. This is because we're working on a spectrograph rather than an
+    imager with one filter per visit.
+
+    Parameters
+    ----------
+    butler : `lsst.daf.persistence.Butler`
+        Data butler.
+    dataId: `dict`
+        Data identifier for calibration input.
+
+    Returns
+    -------
+    filterName : `NoneType`
+        Name of filter, for which we use ``None``.
+    """
+    return None
+
+
 lsst.pipe.drivers.constructCalibs.CalibTask.getOutputId = getOutputId
 lsst.pipe.drivers.constructCalibs.CalibTask.recordCalibInputs = recordCalibInputs
+lsst.pipe.drivers.constructCalibs.CalibTask.getFilter = getFilter
 
 
 class PfsBiasTask(lsst.pipe.drivers.constructCalibs.BiasTask):
