@@ -78,12 +78,12 @@ std::shared_ptr<OversampledPsf::Image> NevenPsf::doComputeOversampledKernelImage
         [](auto const& elem, float const value) { return elem.second < value; });
 
     std::shared_ptr<OversampledPsf::Image> out;
-    if (above->second == 0.0 || above == candidates.begin()) {
-        // Found an exact y value match, or there is no y value below the desired position
-        out = std::make_shared<OversampledPsf::Image>(ndarray::copy(_images[above->first]));
-    } else if (above == candidates.end()) {
+    if (above == candidates.end()) {
         // There is no y value above the desired position
         out = std::make_shared<OversampledPsf::Image>(ndarray::copy(_images[candidates.back().first]));
+    } else if (above->second == 0.0 || above == candidates.begin()) {
+        // Found an exact y value match, or there is no y value below the desired position
+        out = std::make_shared<OversampledPsf::Image>(ndarray::copy(_images[above->first]));
     } else {
         auto const& below = std::prev(above);
         std::size_t const index1 = below->first;

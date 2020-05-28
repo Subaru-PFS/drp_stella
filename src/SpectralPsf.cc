@@ -131,7 +131,8 @@ double OversampledPsf::doComputeApertureFlux(
     lsst::geom::Point2D const& position,
     lsst::afw::image::Color const& color
 ) const {
-    Image const& kernel = *doComputeOversampledKernelImage(position);
+    std::shared_ptr<Image> const kernelPtr = doComputeOversampledKernelImage(position);
+    Image const& kernel = *kernelPtr;
     double const r2 = std::pow(radius*_oversampleFactor, 2);
     double sumAperture = 0.0;
     double sumAll = 0.0;
@@ -160,7 +161,8 @@ OversampledPsf::doComputeShape(
     lsst::geom::Point2D const& position,
     lsst::afw::image::Color const& color
 ) const {
-    Image const& kernel = *doComputeOversampledKernelImage(position);
+    std::shared_ptr<Image> const kernelPtr = doComputeOversampledKernelImage(position);
+    Image const& kernel = *kernelPtr;
 
     // First moments
     double xSum = 0;
