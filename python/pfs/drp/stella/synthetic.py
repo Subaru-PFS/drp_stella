@@ -56,7 +56,7 @@ def makeSpectrumImage(spectrum, dims, traceCenters, traceOffsets, fwhm):
     for row, (spec, offset) in enumerate(zip(spectrum, traceOffsets)):
         profile = np.zeros_like(xx)
         for center in traceCenters:
-            profile += np.exp(-0.5*((xx - center + offset)/sigma)**2)
+            profile += np.exp(-0.5*((xx - center - offset)/sigma)**2)
         image.array[row] = spec*norm*profile
 
     return image
@@ -195,15 +195,13 @@ def makeSyntheticArc(config, numLines=50, fwhm=4.321, flux=3.0e5, addNoise=True,
     return Struct(lines=lines, spectrum=spectrum, image=image)
 
 
-def makeSyntheticDetectorMap(config, numKnots=20):
+def makeSyntheticDetectorMap(config):
     """Make a DetectorMap with a specific configuration
 
     Parameters
     ----------
     config : `pfs.drp.stella.synthetic.SyntheticConfig`
         Configuration for synthetic spectrograph.
-    numKnots : `int`
-        Number of spline knots for ``DetectorMap``.
 
     Returns
     -------

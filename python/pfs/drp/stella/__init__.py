@@ -14,3 +14,6 @@ from .spline import *
 from .SpectralPsfContinued import *
 from .NevenPsfContinued import *
 from .lsf import *
+from .buildFiberTraces import *
+from .fiberProfile import *
+from .fitPolynomial import *

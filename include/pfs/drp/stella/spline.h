@@ -44,6 +44,7 @@ public:
 
     ConstArray const getX() const { return _x; }
     ConstArray const getY() const { return _y; }
+    InterpolationTypes getInterpolationType() const { return _interpolationType; }
 
     bool isPersistable() const noexcept { return true; }
 

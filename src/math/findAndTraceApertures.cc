@@ -245,8 +245,9 @@ calcProfileSwath(
         if (stepHasValues) {
             valOverSampled.push_back(std::pair<float, float>(*it, mean));
             LOGLS_TRACE(_log, "_fiberId = " << fiberId << ": iSwath = " << iSwath
-                              << ": valOverSampledVec[" << iStep << "] = (" << valOverSampled[iStep].first
-                              << ", " << valOverSampled[iStep].second << ")");
+                              << ": valOverSampledVec[" << valOverSampled.size() - 1 << "] = (" <<
+                              valOverSampled.back().first
+                              << ", " << valOverSampled.back().second << ")");
         }
         rangeStart = rangeEnd;
         rangeEnd += xOverSampleStep;
@@ -259,6 +260,10 @@ calcProfileSwath(
     std::transform(valOverSampled.begin(), valOverSampled.end(), yVecMean->begin(),
                    [](std::pair<float, float> const& values) { return values.second; });
     math::Spline<float> spline(*xVecMean, *yVecMean, math::Spline<float>::CUBIC_NATURAL); // X must be sorted
+    LOGLS_TRACE(_log, "_fiberId = " << fiberId << ": iSwath = " << iSwath <<
+                ": spline.x = " << spline.getX());
+    LOGLS_TRACE(_log, "_fiberId = " << fiberId << ": iSwath = " << iSwath <<
+                ": spline.y = " << spline.getY());
 
     // calculate profile for each row in imageSwath
     ndarray::Array<float, 2, 1> profArraySwath = ndarray::allocate(height, width);
