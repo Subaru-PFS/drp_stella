@@ -195,16 +195,17 @@ class SubtractSky2dTask(Task):
                 wlMax = wavelength.max()
                 for wl in lines:
                     if wl < wlMin or wl > wlMax:
-                        self.log.warn("Skipping line %f for fiber %d (%f, %f)", wl, fiberId, wlMin, wlMax)
+                        self.log.debug("Skipping line %f for fiber %d (min=%f, max=%f)",
+                                       wl, fiberId, wlMin, wlMax)
                         continue
                     try:
                         meas = self.measureLineFlux(exp, psf, ft, wl)
                     except Exception as exc:
-                        self.log.warn("Failed to measure fiber %d at %f: %s", fiberId, wl, exc)
+                        self.log.debug("Failed to measure fiber %d at %f: %s", fiberId, wl, exc)
                         continue
                     measurements[wl].append(meas)
 
-        self.log.info("Line flux measurements: %s", measurements)
+        self.log.debug("Line flux measurements: %s", measurements)
 
         # Combine the line measurements into a model
         model = {}
@@ -215,7 +216,7 @@ class SubtractSky2dTask(Task):
                 continue
             model[wl] = flux[select].mean()  # Ignore flux errors to avoid bias
 
-        self.log.info("Line flux model: %s", model)
+        self.log.debug("Line flux model: %s", model)
 
         return SkyModel(np.array(list(model.keys())), np.array(list(model.values())))
 
@@ -301,7 +302,7 @@ class SubtractSky2dTask(Task):
                 try:
                     psfImage = computePsfImage(psf, ft, wl, bbox)
                 except Exception as exc:
-                    self.log.warn("Unable to subtract line %f on fiber %d: %s", wl, ft.fiberId, exc)
+                    self.log.debug("Unable to subtract line %f on fiber %d: %s", wl, ft.fiberId, exc)
                     continue
 
                 psfImage *= flux
