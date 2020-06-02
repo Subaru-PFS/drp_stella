@@ -25,7 +25,6 @@ std::vector<std::vector<std::shared_ptr<TracePeak>>> findTracePeaks(
 ) {
     std::size_t const height = image.getHeight();
     std::size_t const width = image.getWidth();
-    float const threshold2 = std::pow(threshold, 2);
     std::vector<std::vector<std::shared_ptr<TracePeak>>> peaks{height};
     for (int yy = 0; yy < int(height); ++yy) {
         auto iter = image.row_begin(yy);
@@ -34,14 +33,14 @@ std::vector<std::vector<std::shared_ptr<TracePeak>>> findTracePeaks(
         PeakState state = NONE;
         int low = -1;
         int peak = -1;
-        float lastSigNoise2 = 0;
+        float lastValue = 0;
         for (int xx = 0; xx < int(width); ++xx, ++iter) {
             if (iter.mask() & badBitMask) {
                 // Masked pixel means we don't change state
                 continue;
             }
-            float const sigNoise2 = std::pow(iter.image(), 2)/iter.variance();
-            if (sigNoise2 > threshold2) {
+            float const value = iter.image();
+            if (value > threshold) {
                 switch (state) {
                   case NONE:
                     // We've found a trace
@@ -49,14 +48,14 @@ std::vector<std::vector<std::shared_ptr<TracePeak>>> findTracePeaks(
                     low = xx;
                     break;
                   case BEFORE:
-                    if (sigNoise2 < lastSigNoise2) {
+                    if (value < lastValue) {
                         // We found the peak
                         state = AFTER;
                         peak = xx - 1;
                     }
                     break;
                   case AFTER:
-                    if (sigNoise2 > lastSigNoise2) {
+                    if (value > lastValue) {
                         // We found the end of this trace and the start of the next
                         rowPeaks.push_back(std::make_shared<TracePeak>(yy, low, peak, xx - 1));
                         state = BEFORE;
@@ -86,7 +85,7 @@ std::vector<std::vector<std::shared_ptr<TracePeak>>> findTracePeaks(
                     break;
                 }
             }
-            lastSigNoise2 = sigNoise2;
+            lastValue = value;
         }
         // Forcibly end the search
         switch (state) {

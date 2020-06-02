@@ -30,7 +30,7 @@ class BuildFiberTracesConfig(Config):
     rowFwhm = Field(dtype=float, default=3.0, doc="Typical FWHM across rows (spectral dimension)")
     convolveGrowMask = Field(dtype=int, default=1, doc="Number of pixels to grow mask for convolution")
     kernelSize = Field(dtype=float, default=4.0, doc="Size of convolution kernel, relative to sigma")
-    findThreshold = Field(dtype=float, default=5.0, doc="Signal-to-noise threshold for finding traces")
+    findThreshold = Field(dtype=float, default=150.0, doc="Threshold value for finding traces")
     pruneMaxWidth = Field(dtype=int, default=25, doc="Maximum width of peak span to avoid pruning")
     associationDepth = Field(dtype=int, default=10, doc="Depth of trace association (rows)")
     pruneMinLength = Field(dtype=int, default=1000, doc="Minimum length of trace to avoid pruning")

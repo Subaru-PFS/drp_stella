@@ -37,12 +37,12 @@ struct TracePeak {
 /// We find all peaks above threshold in each row, for later association.
 ///
 /// @param image : Image to search for peaks
-/// @param threshold : Threshold for peaks (multiple of the square root of the variance plane)
+/// @param threshold : Threshold value for peaks
 /// @param badBitMask : Bitmask to apply to identify bad pixels. Bad pixels count as a pixel below threshold.
 /// @return a list of peaks for each row of the image
 std::vector<std::vector<std::shared_ptr<TracePeak>>> findTracePeaks(
     lsst::afw::image::MaskedImage<float> const& image,
-    float threshold=5.0,
+    float threshold,
     lsst::afw::image::MaskPixel badBitMask=0
 );
 

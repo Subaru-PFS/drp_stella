@@ -26,7 +26,7 @@ void declareTracePeak(py::module &mod) {
 PYBIND11_PLUGIN(traces) {
     py::module mod("traces");
     declareTracePeak(mod);
-    mod.def("findTracePeaks", &findTracePeaks, "image"_a, "threshold"_a=5.0, "badBitMask"_a=0);
+    mod.def("findTracePeaks", &findTracePeaks, "image"_a, "threshold"_a, "badBitMask"_a=0);
     mod.def("centroidTrace", &centroidTrace, "peaks"_a, "image"_a, "radius"_a, "badBitMask"_a=0);
     return mod.ptr();
 }
