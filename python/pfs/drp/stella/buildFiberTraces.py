@@ -262,6 +262,10 @@ class BuildFiberTracesTask(Task):
         previously been assigned to a trace in the last ``associationDepth``
         rows.
 
+        If there are multiple peaks in a row that want to be assigned to the
+        same trace, we take the one with the peak closest to most recent peak
+        from the trace, allowing only one-to-one matches.
+
         Parameters
         ----------
         peaks : `list` of `list` of `pfs.drp.stella.TracePeak`
@@ -274,10 +278,12 @@ class BuildFiberTracesTask(Task):
         traces : `list` of `list` of `pfs.drp.stella.TracePeak`
             List of peaks for each trace candidate.
         """
-        association = np.full((width, self.config.associationDepth), -1, dtype=int)
+        association = np.full((width, self.config.associationDepth), -1, dtype=int)  # -1 means no trace
         traces = []
         for yy, rowPeaks in enumerate(peaks):
             layer = yy % self.config.associationDepth
+            candidates = defaultdict(list)
+            unassociated = {}
             for pp in rowPeaks:
                 indices = Counter(association[int(pp.peak)])
                 if len(indices) == 1 and indices[-1] > 0:
@@ -287,10 +293,31 @@ class BuildFiberTracesTask(Task):
                     association[pp.low:pp.high + 1, layer] = index
                     continue
                 del indices[-1]
+                unassociated[pp.peak] = pp
                 for index in indices:
-                    # Previously identified trace
-                    traces[index].append(pp)
-                association[pp.low:pp.high + 1, layer] = indices.most_common(1)[0][0]
+                    # Score is distance to most recent trace peak
+                    score = np.abs(pp.peak - traces[index][-1].peak)
+                    candidates[index].append((pp, score))
+
+            # Assign peaks to existing traces
+            # Work through the traces, first with those with clear associations, and then those with multiple
+            # associations. For each trace, take the unassociated peak that has the highest score.
+            for index in sorted(candidates, key=lambda ii: len(candidates[ii])):
+                remaining = [cc for cc in candidates[index] if cc[0].peak in unassociated]
+                if len(remaining) == 0:
+                    continue
+                best = min(remaining, key=lambda cc: cc[1])  # Lowest score
+                pp = best[0]
+                traces[index].append(pp)
+                association[pp.low:pp.high + 1, layer] = index
+                del unassociated[pp.peak]
+
+            # Create new traces for peaks which don't have an association (because other peaks took away
+            # all of this peak's associations).
+            for pp in unassociated.values():
+                index = len(traces)
+                traces.append([pp])
+                association[pp.low:pp.high + 1, layer] = index
 
         if self.debugInfo.associatePeaks:
             display = Display(backend=backend, frame=1)
@@ -333,6 +360,8 @@ class BuildFiberTracesTask(Task):
             length = highRow - lowRow + 1
             numRows = len(set([pp.row for pp in peakList]))  # Weed out peaks in the same row
             if length < self.config.pruneMinLength or numRows/length < self.config.pruneMinFrac:
+                self.log.trace("Pruning trace %d: %d vs %d, %f vs %f", ii, length, self.config.pruneMinLength,
+                               numRows/length, self.config.pruneMinFrac)
                 continue
             accepted.append(peakList)
         return accepted

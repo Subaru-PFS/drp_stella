@@ -273,6 +273,37 @@ class FiberTraceSetTestCase(lsst.utils.tests.TestCase):
         # We're not going to have good profiles out of this, so not using self.assertFiberTraces
         self.assertNumTraces(result)
 
+    def testEarlyLongCosmic(self):
+        """Test that we can deal with an early cosmic
+
+        A cosmic ray could link all rows to a single trace before the proper
+        fiber traces arise.
+        """
+        cosmicValue = 10000.0
+        angle = 15
+        xx = np.arange(self.image.getWidth(), dtype=int)
+        yy = np.rint(np.tan(np.radians(angle))*(xx - 0.5*self.image.getWidth()) +
+                     0.1*self.image.getHeight()).astype(int)
+        crMaxRow = int(np.ceil(np.max(yy)))
+
+        cosmics = np.zeros_like(self.image.image.array, dtype=bool)
+
+        def setCosmics(xx, yy):
+            select = (xx >= 0) & (xx < self.image.getWidth()) & (yy >= 0) & (yy < self.image.getHeight())
+            cosmics[yy[select], xx[select]] = True
+
+        setCosmics(xx, yy)
+
+        image = self.image.clone()
+        image.image.array[:crMaxRow + 1, :] = 0.0
+        image.image.array[cosmics] += cosmicValue
+
+        self.config.pruneMaxWidth = 1000  # Make sure the CR peaks are included
+        self.config.pruneMinLength = self.synth.height - crMaxRow - 5  # Because we've stolen some image
+        result = self.task.buildFiberTraces(image, self.detMap)
+        # The CR damages the profile in this small image; so just care about the number of traces
+        self.assertNumTraces(result)
+
 
 class TestMemory(lsst.utils.tests.MemoryTestCase):
     pass
