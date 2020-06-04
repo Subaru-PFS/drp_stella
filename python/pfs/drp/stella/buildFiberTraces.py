@@ -136,7 +136,7 @@ class BuildFiberTracesTask(Task):
         centers = [centers[ft.fiberId] for ft in fiberTraces]
 
         if detectorMap is not None:
-            self.identifyFibers(fiberTraces, centers, detectorMap)
+            self.identifyFibers(fiberTraces, centers, detectorMap, pfsConfig)
 
         self.log.info("Traced %d fibers", len(fiberTraces))
         return Struct(fiberTraces=fiberTraces, profiles=profiles, centers=centers)
@@ -430,7 +430,7 @@ class BuildFiberTracesTask(Task):
             profile.plot()
         return profile
 
-    def identifyFibers(self, fiberTraces, centers, detectorMap):
+    def identifyFibers(self, fiberTraces, centers, detectorMap, pfsConfig=None):
         """Identify fibers that have been found and traced
 
         We compare the measured center positions in the middle of the detector
@@ -445,15 +445,35 @@ class BuildFiberTracesTask(Task):
             row. The order should match that of the ``fiberTraces``.
         detectorMap : `pfs.drp.stella.DetectorMap`, optional
             Mapping from x,y to fiberId,row.
+        pfsConfig : `pfs.datamodel.PfsConfig`, optional
+            Top-end fiber configuration. Used to check that we've identified all
+            the lit fibers.
         """
+        if len(fiberTraces) == 0:
+            self.log.warn("Unable to identify fibers: no fiberTraces")
+            return
+        middle = 0.5*(min(ft.trace.getBBox().getMinY() for ft in fiberTraces) +
+                      max(ft.trace.getBBox().getMaxY() for ft in fiberTraces))
+        expectCenters = np.array([detectorMap.getXCenter(ff, middle) for ff in detectorMap.fiberId])
         used = set()
         for ft, cen in zip(fiberTraces, centers):
-            bbox = ft.trace.getBBox()
-            middle = 0.5*(bbox.getMaxY() + bbox.getMinY())
-            ftCen = cen(middle)
-            best = min(detectorMap.fiberId, key=lambda ff: abs(detectorMap.getXCenter(ff, middle) - ftCen))
+            best = detectorMap.fiberId[np.argmin(np.abs(expectCenters - cen(middle)))]
             if best in used:
                 raise RuntimeError("Matched fiber to a used fiberId")
             ft.fiberId = best
             used.add(best)
-        self.log.debug("Identified fiberIds: %s", [ft.fiberId for ft in fiberTraces])
+        self.log.debug("Identified %d fiberIds: %s", len(used), [ft.fiberId for ft in fiberTraces])
+
+        if pfsConfig is not None:
+            indices = pfsConfig.selectByFiberStatus(FiberStatus.GOOD, detectorMap.fiberId)
+            notFound = set(detectorMap.fiberId[indices]) - used
+            if notFound:
+                self.log.warn("Failed to identify %d fiberIds: %s", len(notFound), sorted(notFound))
+
+        if self.debugInfo.identifyFibers:
+            display = Display(backend=backend, frame=1)
+            for ft, cen in zip(fiberTraces, centers):
+                display.dot(str(ft.fiberId), cen(middle), middle, ctype="green")
+            for fiberId in detectorMap.fiberId:
+                if fiberId not in used:
+                    display.dot(str(fiberId), detectorMap.getXCenter(fiberId, middle), middle, ctype="red")
