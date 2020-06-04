@@ -183,7 +183,7 @@ class FiberProfile:
 
             text = r"$\bar{y} = %d$" % yProf
             if annotate:
-                text += "\n".join((
+                text += "\n" + "\n".join((
                     r"$\mu = %.2f$" % mean,
                     r"$\sigma = %.1f$" % rms,
                 ))
