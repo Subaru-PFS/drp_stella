@@ -121,8 +121,7 @@ class FiberProfile:
                 with warnings.catch_warnings():
                     # Suppress "RuntimeWarning: All-NaN slice encountered" from nanmedian/nanpercentile
                     warnings.filterwarnings("ignore", category=RuntimeWarning)
-                    median = np.nanmedian(swath.filled(np.nan), axis=0)
-                    lq, uq = np.nanpercentile(swath.filled(np.nan), (25.0, 75.0), axis=0)
+                    lq, median, uq = np.nanpercentile(swath.filled(np.nan), (25.0, 50.0, 75.0), axis=0)
                 rms = 0.741*(uq - lq)
                 residual = swath - median[np.newaxis]
                 with np.errstate(invalid="ignore"):  # Ignore NANs
@@ -245,6 +244,10 @@ class FiberProfile:
         # Interpolate in x: spline the profile for each swath, and combine with the appropriate weighting
         xProf = self.index.astype(np.float32)
         profiles = self.profiles.astype(np.float32)
+        good = [~prof.mask for prof in profiles]
+        splines = [SplineF(xProf[gg], prof[gg], SplineF.NATURAL) for prof, gg in zip(profiles, good)]
+        xLow = np.array([xProf[gg][0] for gg in good])
+        xHigh = np.array([xProf[gg][-1] for gg in good])
 
         def getProfile(xx, index):
             """Generate a profile, interpolating in the spatial dimension
@@ -263,10 +266,8 @@ class FiberProfile:
                 Interpolated values of ``profile[index]`` at positions ``xx``.
             """
             result = np.zeros_like(xx)
-            good = ~profiles.mask[index]
-            inBounds = (xx >= xProf[good][0]) & (xx <= xProf[good][-1])
-            spline = SplineF(xProf[good], profiles[index].compressed(), SplineF.NATURAL)
-            result[inBounds] = spline(xx[inBounds])
+            inBounds = (xx >= xLow[index]) & (xx <= xHigh[index])
+            result[inBounds] = splines[index](xx[inBounds])
             return result
 
         for yy in rows:
