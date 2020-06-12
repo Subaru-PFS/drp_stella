@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+from pfs.datamodel.identity import Identity
 from pfs.datamodel.pfsConfig import PfsConfig
 from pfs.drp.stella import PfsArm
 
@@ -27,7 +28,7 @@ def plotPfsArm(dirName, visit, arm, spectrograph, fiberId=None):
     axes : `matplotlib.Axes`
         Axes containing the plot.
     """
-    identity = dict(visit=visit, arm=arm, spectrograph=spectrograph)
+    identity = Identity(visit=visit, arm=arm, spectrograph=spectrograph)
     arm = PfsArm.read(identity, dirName=dirName)
     return arm.plot(fiberId=fiberId, show=False)
 
