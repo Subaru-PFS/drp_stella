@@ -16,6 +16,8 @@ scripts.BasicSConscript.pybind11(
      'symmetricTridiagonal',
      'fitLine',
      'traces',
+     'profile',
+     'math',
      ],
     addUnderscore=False
 )
