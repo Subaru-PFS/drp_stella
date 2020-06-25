@@ -81,9 +81,16 @@ FitLineResult fitLine(
     lsst::afw::image::MaskPixel badBitMask,
     std::size_t fittingHalfSize
 ) {
-    std::size_t const low = std::max(std::size_t(0), std::size_t(peakPosition - fittingHalfSize));
-    std::size_t const high = std::min(std::size_t(spectrum.getNumPixels() - 1),
-                                      std::size_t(peakPosition + fittingHalfSize + 0.5));
+    utils::checkSize(mask.getNumElements(), flux.getNumElements(), "mask vs flux");
+    std::size_t const length = flux.getNumElements();
+    std::size_t const low = std::max(
+        std::size_t(0),
+        fittingHalfSize == 0 ? std::size_t(0) : std::size_t(peakPosition - fittingHalfSize)
+    );
+    std::size_t const high = std::min(
+        std::size_t(length - 1),
+        fittingHalfSize == 0 ? std::size_t(length - 1) : std::size_t(peakPosition + fittingHalfSize + 0.5)
+    );
     std::size_t const size = high - low + 1;
     ndarray::Array<Spectrum::ImageT, 1, 1> indices = ndarray::allocate(size);
     ndarray::Array<Spectrum::ImageT, 1, 1> values = ndarray::allocate(size);

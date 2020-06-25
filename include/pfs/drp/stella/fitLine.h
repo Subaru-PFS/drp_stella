@@ -31,7 +31,7 @@ struct FitLineResult {
  * @param peakPosition : estimated position of line to fit (pixels).
  * @param rmsSize : estimated Gaussian RMS (sigma) of line to fit (pixels).
  * @param badBitMask : ignore pixels where (value & badBitmask) != 0
- * @param fittingHalfSize : Half-size of the fitting domain (pixels).
+ * @param fittingHalfSize : Half-size of the fitting domain (pixels; defaults to entire range).
  * @return Fit result.
  */
 FitLineResult fitLine(
@@ -39,7 +39,7 @@ FitLineResult fitLine(
     float peakPosition,
     float rmsSize,
     lsst::afw::image::MaskPixel badBitMask,
-    std::size_t fittingHalfSize
+    std::size_t fittingHalfSize=0
 );
 
 
