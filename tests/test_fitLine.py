@@ -93,6 +93,13 @@ class FindLinesTestCase(lsst.utils.tests.TestCase):
         result = fitLine(self.spectrum, int(self.center), int(self.rmsSize), 0, self.fittingRadius)
         self.assertFitLineResult(result)
 
+    def testArray(self):
+        """Test array-based API"""
+        flux = self.spectrum.flux
+        mask = self.spectrum.mask.array[0]
+        result = fitLine(flux, mask, int(self.center), int(self.rmsSize), 0, self.fittingRadius)
+        self.assertFitLineResult(result)
+
     def testMasking(self):
         """Test that masked pixels are ignored"""
         pixel = int(self.center) + 1  # +1 so the guess amplitude isn't NAN
