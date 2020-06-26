@@ -1,4 +1,3 @@
-import warnings
 import numpy as np
 import scipy
 
@@ -6,6 +5,7 @@ from lsst.geom import Box2I, Point2I
 from lsst.afw.image import MaskedImageF
 from pfs.drp.stella.spline import SplineF
 from pfs.drp.stella.FiberTraceContinued import FiberTrace
+from pfs.drp.stella.profile import calculateSwathProfile
 
 import lsstDebug
 
@@ -84,6 +84,7 @@ class FiberProfile:
             Measured fiber profile.
         """
         height = maskedImage.getHeight()
+        width = maskedImage.getWidth()
         badBitmask = maskedImage.mask.getPlaneBitMask(masks) if masks is not None else 0
 
         profileSize = 2*(radius + 1)*oversample + 1  # radius+1 gives us a buffer on either side
@@ -107,26 +108,19 @@ class FiberProfile:
 
             xx, yy = np.meshgrid(columns, rows)
             xFrom = xx + np.floor(xCenter + 0.5).astype(np.int)[:, np.newaxis]
-            values = maskedImage.image.array[yy, xFrom]
-            bad = (maskedImage.mask.array[yy, xFrom] & badBitmask) != 0
+            select = (xFrom >= 0) & (xFrom < width)
+            values = maskedImage.image.array[yy[select], xFrom[select]]
+            bad = (maskedImage.mask.array[yy[select], xFrom[select]] & badBitmask) != 0
             xTo = np.rint((xFrom - xCenter[:, np.newaxis])*oversample).astype(int) + profileCenter
 
             yTo = yy - yMin
-            swathImage[yTo, xTo] = values
-            swathMask[yTo, xTo] = bad
+            swathImage[yTo[select], xTo[select]] = values
+            swathMask[yTo[select], xTo[select]] = bad
             swath = np.ma.array(swathImage, mask=swathMask)
             swath /= swath.sum(axis=1)[:, np.newaxis]
 
-            for ii in range(rejIter):
-                with warnings.catch_warnings():
-                    # Suppress "RuntimeWarning: All-NaN slice encountered" from nanmedian/nanpercentile
-                    warnings.filterwarnings("ignore", category=RuntimeWarning)
-                    median = np.nanmedian(swath.filled(np.nan), axis=0)
-                    lq, uq = np.nanpercentile(swath.filled(np.nan), (25.0, 75.0), axis=0)
-                rms = 0.741*(uq - lq)
-                residual = swath - median[np.newaxis]
-                with np.errstate(invalid="ignore"):  # Ignore NANs
-                    swath.mask |= np.abs(residual) > rejThresh*rms[np.newaxis]
+            profileData, profileMask = calculateSwathProfile(swath.data, swath.mask, rejIter, rejThresh)
+            profile = np.ma.masked_array(profileData, mask=profileMask)
 
             if lsstDebug.Info(__name__).plotSamples:
                 import matplotlib.pyplot as plt
@@ -135,9 +129,9 @@ class FiberProfile:
                     plt.plot(xProf[~array.mask], array.compressed(), 'k.')
                     if np.any(array.mask):
                         plt.plot(xProf[array.mask], array.data[array.mask], 'r.')
+                plt.plot(xProf[~profile.mask], profile.compressed(), 'b.')
                 plt.show()
 
-            profile = np.clip(np.mean(swath, axis=0), 0.0, None)
             allBad = np.logical_and.reduce(swath.mask, axis=1)
             yAverage = np.mean(np.arange(yMin, yMax + 1, dtype=int)[~allBad])
 
@@ -148,7 +142,7 @@ class FiberProfile:
         if len(profileList) == 0:
             raise RuntimeError("No profiles found")
 
-        return cls(radius, oversample, np.array(yProfile), np.ma.array(profileList))
+        return cls(radius, oversample, np.array(yProfile), np.ma.masked_array(profileList))
 
     def plot(self, show=True, annotate=True):
         """Plot a fiber profile
@@ -183,7 +177,7 @@ class FiberProfile:
 
             text = r"$\bar{y} = %d$" % yProf
             if annotate:
-                text += "\n".join((
+                text += "\n" + "\n".join((
                     r"$\mu = %.2f$" % mean,
                     r"$\sigma = %.1f$" % rms,
                 ))
@@ -245,6 +239,11 @@ class FiberProfile:
         # Interpolate in x: spline the profile for each swath, and combine with the appropriate weighting
         xProf = self.index.astype(np.float32)
         profiles = self.profiles.astype(np.float32)
+        good = ~self.profiles.mask
+        splines = [SplineF(xProf[gg], prof.data[gg], SplineF.NATURAL) for
+                   prof, gg in zip(profiles, good)]
+        xLow = np.array([xProf[gg][0] for gg in good])
+        xHigh = np.array([xProf[gg][-1] for gg in good])
 
         def getProfile(xx, index):
             """Generate a profile, interpolating in the spatial dimension
@@ -263,10 +262,8 @@ class FiberProfile:
                 Interpolated values of ``profile[index]`` at positions ``xx``.
             """
             result = np.zeros_like(xx)
-            good = ~profiles.mask[index]
-            inBounds = (xx >= xProf[good][0]) & (xx <= xProf[good][-1])
-            spline = SplineF(xProf[good], profiles[index].compressed(), SplineF.NATURAL)
-            result[inBounds] = spline(xx[inBounds])
+            inBounds = (xx >= xLow[index]) & (xx <= xHigh[index])
+            result[inBounds] = splines[index](xx[inBounds])
             return result
 
         for yy in rows:

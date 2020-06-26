@@ -30,7 +30,7 @@ class BuildFiberTracesConfig(Config):
     rowFwhm = Field(dtype=float, default=3.0, doc="Typical FWHM across rows (spectral dimension)")
     convolveGrowMask = Field(dtype=int, default=1, doc="Number of pixels to grow mask for convolution")
     kernelSize = Field(dtype=float, default=4.0, doc="Size of convolution kernel, relative to sigma")
-    findThreshold = Field(dtype=float, default=5.0, doc="Signal-to-noise threshold for finding traces")
+    findThreshold = Field(dtype=float, default=150.0, doc="Threshold value for finding traces")
     pruneMaxWidth = Field(dtype=int, default=25, doc="Maximum width of peak span to avoid pruning")
     associationDepth = Field(dtype=int, default=10, doc="Depth of trace association (rows)")
     pruneMinLength = Field(dtype=int, default=1000, doc="Minimum length of trace to avoid pruning")
@@ -136,7 +136,7 @@ class BuildFiberTracesTask(Task):
         centers = [centers[ft.fiberId] for ft in fiberTraces]
 
         if detectorMap is not None:
-            self.identifyFibers(fiberTraces, centers, detectorMap)
+            self.identifyFibers(fiberTraces, centers, detectorMap, pfsConfig)
 
         self.log.info("Traced %d fibers", len(fiberTraces))
         return Struct(fiberTraces=fiberTraces, profiles=profiles, centers=centers)
@@ -262,6 +262,10 @@ class BuildFiberTracesTask(Task):
         previously been assigned to a trace in the last ``associationDepth``
         rows.
 
+        If there are multiple peaks in a row that want to be assigned to the
+        same trace, we take the one with the peak closest to most recent peak
+        from the trace, allowing only one-to-one matches.
+
         Parameters
         ----------
         peaks : `list` of `list` of `pfs.drp.stella.TracePeak`
@@ -274,10 +278,12 @@ class BuildFiberTracesTask(Task):
         traces : `list` of `list` of `pfs.drp.stella.TracePeak`
             List of peaks for each trace candidate.
         """
-        association = np.full((width, self.config.associationDepth), -1, dtype=int)
+        association = np.full((width, self.config.associationDepth), -1, dtype=int)  # -1 means no trace
         traces = []
         for yy, rowPeaks in enumerate(peaks):
             layer = yy % self.config.associationDepth
+            candidates = defaultdict(list)
+            unassociated = {}
             for pp in rowPeaks:
                 indices = Counter(association[int(pp.peak)])
                 if len(indices) == 1 and indices[-1] > 0:
@@ -287,10 +293,31 @@ class BuildFiberTracesTask(Task):
                     association[pp.low:pp.high + 1, layer] = index
                     continue
                 del indices[-1]
+                unassociated[pp.peak] = pp
                 for index in indices:
-                    # Previously identified trace
-                    traces[index].append(pp)
-                association[pp.low:pp.high + 1, layer] = indices.most_common(1)[0][0]
+                    # Score is distance to most recent trace peak
+                    score = np.abs(pp.peak - traces[index][-1].peak)
+                    candidates[index].append((pp, score))
+
+            # Assign peaks to existing traces
+            # Work through the traces, first with those with clear associations, and then those with multiple
+            # associations. For each trace, take the unassociated peak that has the highest score.
+            for index in sorted(candidates, key=lambda ii: len(candidates[ii])):
+                remaining = [cc for cc in candidates[index] if cc[0].peak in unassociated]
+                if len(remaining) == 0:
+                    continue
+                best = min(remaining, key=lambda cc: cc[1])  # Lowest score
+                pp = best[0]
+                traces[index].append(pp)
+                association[pp.low:pp.high + 1, layer] = index
+                del unassociated[pp.peak]
+
+            # Create new traces for peaks which don't have an association (because other peaks took away
+            # all of this peak's associations).
+            for pp in unassociated.values():
+                index = len(traces)
+                traces.append([pp])
+                association[pp.low:pp.high + 1, layer] = index
 
         if self.debugInfo.associatePeaks:
             display = Display(backend=backend, frame=1)
@@ -333,6 +360,8 @@ class BuildFiberTracesTask(Task):
             length = highRow - lowRow + 1
             numRows = len(set([pp.row for pp in peakList]))  # Weed out peaks in the same row
             if length < self.config.pruneMinLength or numRows/length < self.config.pruneMinFrac:
+                self.log.trace("Pruning trace %d: %d vs %d, %f vs %f", ii, length, self.config.pruneMinLength,
+                               numRows/length, self.config.pruneMinFrac)
                 continue
             accepted.append(peakList)
         return accepted
@@ -430,7 +459,7 @@ class BuildFiberTracesTask(Task):
             profile.plot()
         return profile
 
-    def identifyFibers(self, fiberTraces, centers, detectorMap):
+    def identifyFibers(self, fiberTraces, centers, detectorMap, pfsConfig=None):
         """Identify fibers that have been found and traced
 
         We compare the measured center positions in the middle of the detector
@@ -445,15 +474,35 @@ class BuildFiberTracesTask(Task):
             row. The order should match that of the ``fiberTraces``.
         detectorMap : `pfs.drp.stella.DetectorMap`, optional
             Mapping from x,y to fiberId,row.
+        pfsConfig : `pfs.datamodel.PfsConfig`, optional
+            Top-end fiber configuration. Used to check that we've identified all
+            the lit fibers.
         """
+        if len(fiberTraces) == 0:
+            self.log.warn("Unable to identify fibers: no fiberTraces")
+            return
+        middle = 0.5*(min(ft.trace.getBBox().getMinY() for ft in fiberTraces) +
+                      max(ft.trace.getBBox().getMaxY() for ft in fiberTraces))
+        expectCenters = np.array([detectorMap.getXCenter(ff, middle) for ff in detectorMap.fiberId])
         used = set()
         for ft, cen in zip(fiberTraces, centers):
-            bbox = ft.trace.getBBox()
-            middle = 0.5*(bbox.getMaxY() + bbox.getMinY())
-            ftCen = cen(middle)
-            best = min(detectorMap.fiberId, key=lambda ff: abs(detectorMap.getXCenter(ff, middle) - ftCen))
+            best = detectorMap.fiberId[np.argmin(np.abs(expectCenters - cen(middle)))]
             if best in used:
                 raise RuntimeError("Matched fiber to a used fiberId")
             ft.fiberId = best
             used.add(best)
-        self.log.debug("Identified fiberIds: %s", [ft.fiberId for ft in fiberTraces])
+        self.log.debug("Identified %d fiberIds: %s", len(used), [ft.fiberId for ft in fiberTraces])
+
+        if pfsConfig is not None:
+            indices = pfsConfig.selectByFiberStatus(FiberStatus.GOOD, detectorMap.fiberId)
+            notFound = set(detectorMap.fiberId[indices]) - used
+            if notFound:
+                self.log.warn("Failed to identify %d fiberIds: %s", len(notFound), sorted(notFound))
+
+        if self.debugInfo.identifyFibers:
+            display = Display(backend=backend, frame=1)
+            for ft, cen in zip(fiberTraces, centers):
+                display.dot(str(ft.fiberId), cen(middle), middle, ctype="green")
+            for fiberId in detectorMap.fiberId:
+                if fiberId not in used:
+                    display.dot(str(fiberId), detectorMap.getXCenter(fiberId, middle), middle, ctype="red")

@@ -60,15 +60,17 @@ class FitPolynomialTask(Task):
         """
         if good is None:
             good = np.ones_like(xx, dtype=bool)
+        good &= np.isfinite(xx) & np.isfinite(yy)
         numGood = good.sum()
         for ii in range(self.config.rejIter):
             func = self.fit(xx, yy, good)
             fit = self.characterize(xx, yy, good, func)
             if self.debugInfo.plot:
                 self.plot(xx, yy, good, fit)
-            median = np.median(fit.residuals)
+            median = np.nanmedian(fit.residuals)
             for easeOff in range(self.config.easeOff + 1):  # Ease off rejection
-                newGood = np.abs(fit.residuals - median) < fit.rms*self.config.rejThresh*2**easeOff
+                with np.errstate(invalid="ignore"):
+                    newGood = np.abs(fit.residuals - median) < fit.rms*self.config.rejThresh*2**easeOff
                 newNumGood = newGood.sum()
                 if newNumGood > self.config.order:
                     break
