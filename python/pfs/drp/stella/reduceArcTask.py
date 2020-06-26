@@ -14,6 +14,7 @@ from .utils import readLineListFile
 from .images import getIndices
 from lsst.obs.pfs.utils import getLampElements
 from pfs.drp.stella.utils import plotReferenceLines
+from pfs.drp.stella.fitLine import fitLine
 
 
 __all__ = ["ReduceArcConfig", "ReduceArcTask"]
@@ -28,7 +29,20 @@ class ReduceArcConfig(pexConfig.Config):
                                                        doc="Calibrate a SpectrumSet's wavelengths")
     minArcLineIntensity = pexConfig.Field(doc="Minimum 'NIST' intensity to use emission lines",
                                           dtype=float, default=0)
-    doUpdateCenters = pexConfig.Field(dtype=bool, default=True, doc="Update centers from the fiberTrace?")
+    adjustCenters = pexConfig.ChoiceField(
+        dtype=str,
+        doc="Whether to adjust the detectorMap xCenters, and the source for the adjustments",
+        default="ARC",
+        allowed={"NONE": "No adjustments",
+                 "ARC": "Adjust based on the arc lines",
+                 "FIBERTRACE": "Adjust based on the fiberTrace",
+                 },
+    )
+    arcAdjustWidth = pexConfig.Field(dtype=int, default=5, doc="Half-width for centroiding in x")
+    arcAdjustHeight = pexConfig.Field(dtype=int, default=2, doc="Half-height for stacking when centroiding")
+    arcAdjustMask = pexConfig.ListField(dtype=str, default=["BAD", "SAT", "NO_DATA"],
+                                        doc="Mask planes to reject when centroiding arc lines")
+    arcAdjustRms = pexConfig.Field(dtype=float, default=2.0, doc="Guess line RMS when centroiding arc lines")
 
     def setDefaults(self):
         super().setDefaults()
@@ -170,8 +184,6 @@ class ReduceArcTask(CmdLineTask):
             Visit information for exposure.
         metadata : `lsst.daf.base.PropertyList`
             Exposure metadata (FITS header)
-        lamps : `list` of `str`
-            List of arc species.
         """
         metadata = dataRef.get("raw_md")
         lamps = getLampElements(metadata)
@@ -184,14 +196,15 @@ class ReduceArcTask(CmdLineTask):
         exposure = results.exposureList[0]
         detectorMap = results.detectorMapList[0]
 
-        if self.config.doUpdateCenters:
-            for fiberTraces, detectorMap in zip(results.fiberTraceList, results.detectorMapList):
-                self.updateCenters(fiberTraces, detectorMap)
-
         self.identifyLines.run(spectra, detectorMap, lines)
         if self.debugInfo.display and self.debugInfo.displayIdentifications:
             frame = self.debugInfo.frame[dataRef.dataId["visit"]] if self.debugInfo.frame is not None else 1
             self.plotIdentifications(self.debugInfo.backend or "ds9", exposure, spectra, detectorMap, frame)
+
+        if self.config.adjustCenters == "FIBERTRACE":
+            self.adjustCentersFromFiberTrace(results.fiberTraceList[0], detectorMap)
+        elif self.config.adjustCenters == "ARC":
+            self.adjustCentersFromArc(exposure, spectra, detectorMap)
 
         return Struct(
             spectra=spectra,
@@ -229,6 +242,7 @@ class ReduceArcTask(CmdLineTask):
 
         self.calibrateWavelengths.runDataRef(dataRef, refLines, detectorMap,
                                              seed=dataRef.get("ccdExposureId"))
+        self.mergeDetectorMapCenters(detectorMap, [rr.detectorMap for rr in results if rr is not None])
         self.write(dataRef, detectorMap, metadata, visitInfo)
         for dataRef, rr in zip(dataRefList, results):
             for ss in rr.spectra:
@@ -376,7 +390,7 @@ class ReduceArcTask(CmdLineTask):
                 plt.title(f"FiberId {spectrum.fiberId}")
                 plt.show()
 
-    def updateCenters(self, fiberTraces, detectorMap):
+    def adjustCentersFromFiberTrace(self, fiberTraces, detectorMap):
         """Update the xCenter values in the detectorMap from the fiberTrace
 
         We centroid the fiber traces row by row.
@@ -394,6 +408,75 @@ class ReduceArcTask(CmdLineTask):
             centroids = np.sum(trace.image.array*xx, axis=1)/np.sum(trace.image.array, axis=1)
             detectorMap.setXCenter(ft.fiberId, yy.flatten().astype(np.float32),
                                    centroids.astype(np.float32))
+
+    def adjustCentersFromArc(self, exposure, spectra, detectorMap):
+        """Update the xCenter values in the detectorMap from the arc image
+
+        We shift each xCenter spline by the average shift for that fiber.
+
+        Parameters
+        ----------
+        exposure : `lsst.afw.image.Exposure`
+            Arc image.
+        spectra : `pfs.drp.stella.SpectrumSet`
+            Extracted spectra. We don't use the actual spectra, but this has
+            both the ``fiberId`` and reference line lists.
+        detectorMap : `pfs.drp.stella.DetectorMap`
+            Mapping of wl,fiber to detector position.
+        """
+        width, height = exposure.getDimensions()
+        badBitMask = exposure.mask.getPlaneBitMask(self.config.arcAdjustMask)
+        for ss in spectra:
+            diff = []
+            for rl in ss.referenceLines:
+                if (rl.status & rl.Status.FIT) == 0:
+                    continue
+
+                # Extract values
+                yy = rl.fitPosition
+                xx = detectorMap.getXCenter(ss.fiberId, yy)
+                xLow = max(0, int(np.floor(xx - self.config.arcAdjustWidth)))
+                xHigh = min(width, int(np.ceil(xx + self.config.arcAdjustWidth)))
+                yLow = max(0, int(np.floor(yy - self.config.arcAdjustHeight)))
+                yHigh = min(height, int(np.ceil(yy + self.config.arcAdjustHeight)))
+                flux = np.sum(exposure.image.array[yLow:yHigh, xLow:xHigh], axis=0)
+                mask = np.bitwise_or.reduce(exposure.mask.array[yLow:yHigh, xLow:xHigh], axis=0)
+
+                # Centroid on line
+                try:
+                    result = fitLine(flux, mask, xx - xLow, self.config.arcAdjustRms, badBitMask)
+                except Exception as exc:
+                    self.log.debug("Ignoring fiber %d line %f: %s", ss.fiberId, ss.wavelength, exc)
+                    continue
+                diff.append(result.center + xLow - xx)
+
+            if not diff:
+                self.log.warn("Unable to adjust xCenter for fiber %d: no good lines", ss.fiberId)
+                continue
+
+            lq, med, uq = np.percentile(diff, (25.0, 50.0, 75.0))
+            rms = 0.741*(uq - lq)
+            self.log.info("Adjusting fiber %d xCenter by %f (+/- %f)", ss.fiberId, med, rms)
+            xCenter = detectorMap.getXCenter(ss.fiberId)
+            detectorMap.setXCenter(ss.fiberId, xCenter + med)
+
+    def mergeDetectorMapCenters(self, outDetectorMap, inDetectorMapList):
+        """Merge the xCenter values for the input detectorMaps
+
+        Parameters
+        ----------
+        outDetectorMap : `pfs.drp.stella.DetectorMap`
+            Output detectorMap; modified.
+        inDetectorMapList : iterable of `pfs.drp.stella.DetectorMap`
+            List of input detectorMaps.
+        """
+        num = len(inDetectorMapList)
+        for fiberId in outDetectorMap.fiberId:
+            xCenter = inDetectorMapList[0].getXCenter(fiberId)
+            for detMap in inDetectorMapList[1:]:
+                xCenter += detMap.getXCenter(fiberId)
+            xCenter /= num
+            outDetectorMap.setXCenter(fiberId, xCenter)
 
     def _getMetadataName(self):
         """Disable writing metadata (doesn't work with lists of dataRefs anyway)"""
