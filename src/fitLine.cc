@@ -17,19 +17,20 @@ namespace {
 template <typename T>
 class MinimizationFunction : public ROOT::Minuit2::FCNBase {
   public:
-    using Array = ndarray::Array<T, 1, 1>;
-    using Mask = ndarray::Array<bool, 1, 1>;
+    using IndexArray = ndarray::Array<std::ptrdiff_t, 1, 1>;
+    using Array = ndarray::Array<T const, 1, 1>;
+    using BoolArray = ndarray::Array<bool, 1, 1>;
 
     explicit MinimizationFunction(
-        Array const& indices,
+        IndexArray const& indices,
         Array const& values,
-        Mask const& mask
+        BoolArray const& ignore
     ) : _num(indices.getNumElements()),
         _indices(indices),
         _values(values),
-        _mask(mask) {
+        _ignore(ignore) {
             assert(values.getNumElements() == _num);
-            assert(mask.getNumElements() == _num);
+            assert(ignore.getNumElements() == _num);
     }
 
     MinimizationFunction(MinimizationFunction const &) = default;
@@ -43,9 +44,9 @@ class MinimizationFunction : public ROOT::Minuit2::FCNBase {
 
   private:
     std::size_t const _num;
-    Array const& _indices;
-    Array const& _values;
-    Mask const& _mask;
+    IndexArray const _indices;
+    Array const _values;
+    BoolArray const _ignore;
 };
 
 
@@ -60,10 +61,10 @@ double MinimizationFunction<T>::operator()(std::vector<double> const& parameters
 
     double chi2 = 0.0;
     for (std::size_t ii = 0; ii < _num; ++ii) {
-        if (_mask[ii]) {
+        if (_ignore[ii]) {
             continue;
         }
-        double const xx = _indices[ii];
+        std::ptrdiff_t const xx = _indices[ii];
         double const background = bg0 + bg1*(xx - center);
         double const value = amplitude*std::exp(-0.5*std::pow((xx - center)/rmsSize, 2)) + background;
         chi2 += std::pow(value - _values[ii], 2);
@@ -73,27 +74,33 @@ double MinimizationFunction<T>::operator()(std::vector<double> const& parameters
 
 }  // anonymous namespace
 
-
+template <typename T>
 FitLineResult fitLine(
-    Spectrum const& spectrum,
+    ndarray::Array<T const, 1, 1> const& flux,
+    ndarray::Array<lsst::afw::image::MaskPixel const, 1, 1> const& mask,
     float peakPosition,
     float rmsSize,
     lsst::afw::image::MaskPixel badBitMask,
     std::size_t fittingHalfSize
 ) {
-    std::size_t const low = std::max(std::size_t(0), std::size_t(peakPosition - fittingHalfSize));
-    std::size_t const high = std::min(std::size_t(spectrum.getNumPixels() - 1),
-                                      std::size_t(peakPosition + fittingHalfSize + 0.5));
+    utils::checkSize(mask.getNumElements(), flux.getNumElements(), "mask vs flux");
+    std::size_t const length = flux.getNumElements();
+    std::size_t const low = std::max(
+        std::size_t(0),
+        fittingHalfSize == 0 ? std::size_t(0) : std::size_t(peakPosition - fittingHalfSize)
+    );
+    std::size_t const high = std::min(
+        std::size_t(length - 1),
+        fittingHalfSize == 0 ? std::size_t(length - 1) : std::size_t(peakPosition + fittingHalfSize + 0.5)
+    );
     std::size_t const size = high - low + 1;
-    ndarray::Array<Spectrum::ImageT, 1, 1> indices = ndarray::allocate(size);
-    ndarray::Array<Spectrum::ImageT, 1, 1> values = ndarray::allocate(size);
-    ndarray::Array<bool, 1, 1> mask = ndarray::allocate(size);
+    ndarray::Array<std::ptrdiff_t, 1, 1> indices = ndarray::allocate(size);
+    ndarray::Array<bool, 1, 1> ignore = ndarray::allocate(size);
     std::size_t count = 0;
     for (std::size_t ii = low, jj = 0; ii <= high; ++ii, ++jj) {
         indices[jj] = ii;
-        values[jj] = spectrum.getSpectrum()[ii];
-        mask[jj] = spectrum.getMask()(ii, 0) & badBitMask;
-        if (!mask[jj]) {
+        ignore[jj] = mask[ii] & badBitMask;
+        if (!ignore[jj]) {
             ++count;
         }
     }
@@ -102,9 +109,10 @@ FitLineResult fitLine(
                           (boost::format("Insufficient good points (%d) fitting line at %f") %
                            count % peakPosition).str());
     }
-    MinimizationFunction<Spectrum::ImageT> func(indices, values, mask);
 
-    double const amplitude = spectrum.getSpectrum()[int(peakPosition + 0.5)];
+    MinimizationFunction<T> func(indices, flux[ndarray::view(low, high + 1)].shallow(), ignore);
+
+    double const amplitude = flux[int(peakPosition + 0.5)];
     if (!std::isfinite(amplitude) || !std::isfinite(peakPosition) || !std::isfinite(rmsSize)) {
         throw LSST_EXCEPT(lsst::pex::exceptions::RuntimeError,
                           (boost::format("Non-finite initial guess: %f,%f,%f") %
@@ -126,6 +134,21 @@ FitLineResult fitLine(
         count
     );
 }
+
+
+// Explicit instantiation
+#define INSTANTIATE(TYPE) \
+template FitLineResult fitLine<TYPE>( \
+    ndarray::Array<TYPE const, 1, 1> const&, \
+    ndarray::Array<lsst::afw::image::MaskPixel const, 1, 1> const&, \
+    float, \
+    float, \
+    lsst::afw::image::MaskPixel, \
+    std::size_t \
+);
+
+
+INSTANTIATE(float);
 
 
 }}}  // namespace pfs::drp::stella
