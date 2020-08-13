@@ -15,7 +15,7 @@ namespace stella {
 
 
 NevenPsf::NevenPsf(
-    DetectorMap const& detMap,
+    std::shared_ptr<BaseDetectorMap> detMap,
     ndarray::Array<float const, 1, 1> const& xx,
     ndarray::Array<float const, 1, 1> const& yy,
     std::vector<ndarray::Array<double const, 2, 1>> const& images,
@@ -281,14 +281,14 @@ class NevenPsf::Factory : public lsst::afw::table::io::PersistableFactory {
         LSST_ARCHIVE_ASSERT(catalogs.front().size() == 1u);
         lsst::afw::table::BaseRecord const& record = catalogs.front().front();
         LSST_ARCHIVE_ASSERT(record.getSchema() == schema.schema);
-        std::shared_ptr<DetectorMap> const detMap = archive.get<DetectorMap>(record.get(schema.detMap));
+        std::shared_ptr<BaseDetectorMap> detMap = archive.get<BaseDetectorMap>(record.get(schema.detMap));
         ndarray::Array<float const, 1, 1> const xx = record.get(schema.xx);
         ndarray::Array<float const, 1, 1> const yy = record.get(schema.yy);
         std::shared_ptr<PsfImages> images = archive.get<PsfImages>(record.get(schema.imagesRef));
         int const oversampleFactor = record.get(schema.oversampleFactor);
         lsst::geom::Extent2I const targetSize{record.get(schema.targetSize)};
         float const xMaxDistance = record.get(schema.xMaxDistance);
-        return std::make_shared<NevenPsf>(*detMap, xx, yy, images->getImages(), oversampleFactor, targetSize,
+        return std::make_shared<NevenPsf>(detMap, xx, yy, images->getImages(), oversampleFactor, targetSize,
                                           xMaxDistance);
     }
 

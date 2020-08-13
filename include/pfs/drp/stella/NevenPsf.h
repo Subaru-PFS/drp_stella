@@ -31,7 +31,7 @@ class NevenPsf
      *            interpolation
      */
     NevenPsf(
-        DetectorMap const& detMap,
+        std::shared_ptr<BaseDetectorMap> detMap,
         ndarray::Array<float const, 1, 1> const& xx,
         ndarray::Array<float const, 1, 1> const& yy,
         std::vector<ndarray::Array<double const, 2, 1>> const& images,

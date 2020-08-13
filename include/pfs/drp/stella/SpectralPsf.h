@@ -1,6 +1,7 @@
+#include "lsst/pex/exceptions.h"
 #include "lsst/afw/detection/Psf.h"
 
-#include "pfs/drp/stella/DetectorMap.h"
+#include "pfs/drp/stella/BaseDetectorMap.h"
 
 namespace pfs {
 namespace drp {
@@ -143,7 +144,7 @@ class SpectralPsf : public virtual lsst::afw::detection::Psf {
 
   public:
     /// Return the detectorMap
-    DetectorMap const getDetectorMap() const { return _detMap; }
+    std::shared_ptr<BaseDetectorMap> getDetectorMap() const { return _detMap; }
 
     /** Compute an image of the PSF that can be compared with a spectral line on the image
      *
@@ -154,7 +155,7 @@ class SpectralPsf : public virtual lsst::afw::detection::Psf {
      * @return image of the PSF
      */
     std::shared_ptr<Image> computeImage(int fiberId, float wavelength) const {
-        return Super::computeImage(_detMap.findPoint(fiberId, wavelength));
+        return Super::computeImage(_detMap->findPoint(fiberId, wavelength));
     }
     std::shared_ptr<Image> computeImage(lsst::geom::Point2D const& position) const {
         return Super::computeImage(position);
@@ -169,7 +170,7 @@ class SpectralPsf : public virtual lsst::afw::detection::Psf {
      * @return image of the PSF
      */
     std::shared_ptr<Image> computeKernelImage(int fiberId, float wavelength) const {
-        return Super::computeKernelImage(_detMap.findPoint(fiberId, wavelength));
+        return Super::computeKernelImage(_detMap->findPoint(fiberId, wavelength));
     }
     std::shared_ptr<Image> computeKernelImage(lsst::geom::Point2D const& position) const {
         return Super::computeKernelImage(position);
@@ -184,7 +185,7 @@ class SpectralPsf : public virtual lsst::afw::detection::Psf {
      * @return peak value of the PSF
      */
     double computePeak(int fiberId, float wavelength) const {
-        return Super::computePeak(_detMap.findPoint(fiberId, wavelength));
+        return Super::computePeak(_detMap->findPoint(fiberId, wavelength));
     }
     double computePeak(lsst::geom::Point2D const& position) const {
         return Super::computePeak(position);
@@ -200,7 +201,7 @@ class SpectralPsf : public virtual lsst::afw::detection::Psf {
      * @return flux within aperture
      */
     double computeApertureFlux(double radius, int fiberId, float wavelength) const {
-        return Super::computeApertureFlux(radius, _detMap.findPoint(fiberId, wavelength));
+        return Super::computeApertureFlux(radius, _detMap->findPoint(fiberId, wavelength));
     }
     double computeApertureFlux(double radius, lsst::geom::Point2D const& position) const {
         return Super::computeApertureFlux(radius, position);
@@ -215,7 +216,7 @@ class SpectralPsf : public virtual lsst::afw::detection::Psf {
      * @return shape of the PSF
      */
     lsst::afw::geom::ellipses::Quadrupole computeShape(int fiberId, float wavelength) const {
-        return Super::computeShape(_detMap.findPoint(fiberId, wavelength));
+        return Super::computeShape(_detMap->findPoint(fiberId, wavelength));
     }
     lsst::afw::geom::ellipses::Quadrupole computeShape(lsst::geom::Point2D const& position) const {
         return Super::computeShape(position);
@@ -230,7 +231,7 @@ class SpectralPsf : public virtual lsst::afw::detection::Psf {
      * @return kernel for the PSF
      */
     std::shared_ptr<lsst::afw::math::Kernel const> getLocalKernel(int fiberId, float wavelength) const {
-        return Super::getLocalKernel(_detMap.findPoint(fiberId, wavelength));
+        return Super::getLocalKernel(_detMap->findPoint(fiberId, wavelength));
     }
     std::shared_ptr<lsst::afw::math::Kernel const> getLocalKernel(lsst::geom::Point2D const& position) const {
         return Super::getLocalKernel(position);
@@ -245,7 +246,7 @@ class SpectralPsf : public virtual lsst::afw::detection::Psf {
      * @return bounding box of the PSF image
      */
     lsst::geom::Box2I computeBBox(int fiberId, float wavelength) const {
-        return Super::computeBBox(_detMap.findPoint(fiberId, wavelength));
+        return Super::computeBBox(_detMap->findPoint(fiberId, wavelength));
     }
     lsst::geom::Box2I computeBBox(lsst::geom::Point2D const& position) const {
         return Super::computeBBox(position);
@@ -259,14 +260,18 @@ class SpectralPsf : public virtual lsst::afw::detection::Psf {
      * @param capacity : size of the cache.
      */
     SpectralPsf(
-        DetectorMap const& detMap,
+        std::shared_ptr<BaseDetectorMap> detMap,
         bool isFixed=false,
         std::size_t capacity=100
     ) : Psf(isFixed, capacity),
         _detMap(detMap)
-        {}
+    {
+        if (!detMap) {
+            throw LSST_EXCEPT(lsst::pex::exceptions::RuntimeError, "detectorMap not set");
+        }
+    }
 
-    DetectorMap const _detMap;  ///< mapping between x,y and fiberId,wavelength
+    std::shared_ptr<BaseDetectorMap> _detMap;  ///< mapping between x,y and fiberId,wavelength
 };
 
 
@@ -284,7 +289,7 @@ class ImagingSpectralPsf : public SpectralPsf {
      */
     ImagingSpectralPsf(
         std::shared_ptr<Psf> const base,
-        DetectorMap const& detMap
+        std::shared_ptr<BaseDetectorMap> detMap
     ) : SpectralPsf(detMap),
         _base(base)
         {}

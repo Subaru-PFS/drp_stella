@@ -39,7 +39,18 @@ class ImagingPsfTestCase(lsst.utils.tests.TestCase):
         """
         self.assertEqual(psf.imagePsf.getSigma(), self.sigma)
         self.assertEqual(psf.imagePsf.getDimensions(), lsst.geom.Extent2I(self.size, self.size))
-        self.assertEqual(psf.detectorMap, self.detMap)
+
+        self.assertEqual(type(psf.detectorMap), type(self.detMap))
+        self.assertFloatsEqual(psf.detectorMap.fiberId, self.detMap.fiberId)
+        for fiberId in self.detMap.fiberId:
+            self.assertFloatsEqual(psf.detectorMap.getXCenterSpline(fiberId).getX(),
+                                   self.detMap.getXCenterSpline(fiberId).getX())
+            self.assertFloatsEqual(psf.detectorMap.getXCenterSpline(fiberId).getY(),
+                                   self.detMap.getXCenterSpline(fiberId).getY())
+            self.assertFloatsEqual(psf.detectorMap.getWavelengthSpline(fiberId).getX(),
+                                   self.detMap.getWavelengthSpline(fiberId).getX())
+            self.assertFloatsEqual(psf.detectorMap.getWavelengthSpline(fiberId).getY(),
+                                   self.detMap.getWavelengthSpline(fiberId).getY())
 
     def testBasic(self):
         """Test basic functionality"""

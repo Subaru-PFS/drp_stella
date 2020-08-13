@@ -4,6 +4,7 @@
 
 #include "lsst/log/Log.h"
 
+#include "pfs/drp/stella/spline.h"
 #include "pfs/drp/stella/math/Math.h"
 #include "pfs/drp/stella/math/CurveFitting.h"
 #include "pfs/drp/stella/cmpfit-1.2/MPFitting_ndarray.h"
@@ -641,7 +642,7 @@ calculateMinCenMax(
 template<typename ImageT, typename MaskT, typename VarianceT>
 FiberTraceSet<ImageT, MaskT, VarianceT> findAndTraceApertures(
     afwImage::MaskedImage<ImageT, MaskT, VarianceT> const& maskedImage,
-    DetectorMap const& detectorMap,
+    std::shared_ptr<BaseDetectorMap const> detectorMap,
     FiberTraceFindingControl const& finding,
     FiberTraceFunctionControl const& function,
     FiberTraceProfileFittingControl const& fitting
@@ -699,7 +700,7 @@ FiberTraceSet<ImageT, MaskT, VarianceT> findAndTraceApertures(
 
         // Find the fiberId
         lsst::geom::Point2D const center(func.xCenter, func.yCenter);
-        std::size_t const fiberId = detectorMap.findFiberId(center);
+        std::size_t const fiberId = detectorMap->findFiberId(center);
 
         FiberTraceFunction useFunction{func};
         useFunction.ctrl.nRows = maskedImage.getHeight();
@@ -1448,7 +1449,7 @@ FindCenterPositionsOneTraceResult findCenterPositionsOneTrace(
 // Explicit instantiations
 template FiberTraceSet<float, lsst::afw::image::MaskPixel, float> findAndTraceApertures(
     afwImage::MaskedImage<float, lsst::afw::image::MaskPixel, float> const&,
-    DetectorMap const&,
+    std::shared_ptr<BaseDetectorMap const>,
     FiberTraceFindingControl const&,
     FiberTraceFunctionControl const&,
     FiberTraceProfileFittingControl const&

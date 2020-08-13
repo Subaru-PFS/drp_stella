@@ -8,7 +8,7 @@
 #include "lsst/afw/image/MaskedImage.h"
 #include "lsst/geom/Point.h"
 
-#include "pfs/drp/stella/DetectorMap.h"
+#include "pfs/drp/stella/BaseDetectorMap.h"
 #include "pfs/drp/stella/Controls.h"
 #include "pfs/drp/stella/FiberTraceSet.h"
 
@@ -38,7 +38,7 @@ template<typename ImageT, typename MaskT=lsst::afw::image::MaskPixel,
 FiberTraceSet<ImageT, MaskT, VarianceT>
 findAndTraceApertures(
     lsst::afw::image::MaskedImage<ImageT, MaskT, VarianceT> const& maskedImage,
-    DetectorMap const& detectorMap,
+    std::shared_ptr<BaseDetectorMap const> detectorMap,
     FiberTraceFindingControl const& finding,
     FiberTraceFunctionControl const& function,
     FiberTraceProfileFittingControl const& fitting

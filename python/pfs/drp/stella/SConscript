@@ -7,7 +7,6 @@ scripts.BasicSConscript.pybind11(
      'controls',
      'FiberTrace',
      'FiberTraceSet',
-     'detectorMap',
      'spline',
      'SpectralPsf',
      'NevenPsf',

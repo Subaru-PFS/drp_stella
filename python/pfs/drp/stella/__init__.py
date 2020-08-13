@@ -11,7 +11,6 @@ from .FiberTraceSetContinued import *
 from .BaseDetectorMapContinued import *
 from .GlobalDetectorMapContinued import *
 from .SplinedDetectorMapContinued import *
-from .detectorMapContinued import *
 from .utils import *
 from .spline import *
 from .SpectralPsfContinued import *
@@ -20,3 +19,4 @@ from .lsf import *
 from .buildFiberTraces import *
 from .fiberProfile import *
 from .fitPolynomial import *
+from .slitOffsets import *
