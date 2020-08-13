@@ -81,13 +81,16 @@ class IdentifyLinesTask(Task):
             lines = [rl for rl in lines if
                      not rl.description.startswith(descr) or rl.guessedIntensity > threshold]
 
-        obsLines = self.findLines.runCentroids(spectrum).centroids
-        obsLines = sorted(obsLines, key=lambda xx: spectrum.spectrum[int(xx + 0.5)], reverse=True)
+        obsLines = self.findLines.runCentroids(spectrum)
+        indices = sorted(list(range(len(obsLines.centroids))),
+                         key=lambda ii: spectrum.spectrum[int(obsLines.centroids[ii] + 0.5)], reverse=True)
         candidates = [rl for rl in lines]
         matches = []
-        for obs in obsLines:
+        for ii in indices:
             if not candidates:
                 break
+            obs = obsLines.centroids[ii]
+            obsErr = obsLines.errors[ii]
             wl = detectorMap.findWavelength(spectrum.fiberId, obs)
             ref = min(candidates, key=lambda rl: np.abs(rl.wavelength - wl))
             if np.abs(ref.wavelength - wl) > self.config.matchRadius:
@@ -98,11 +101,12 @@ class IdentifyLinesTask(Task):
             new.guessedIntensity = ref.guessedIntensity
             new.guessedPosition = detectorMap.findPoint(spectrum.fiberId, ref.wavelength)[1]
             new.fitPosition = obs
+            new.fitPositionErr = obsErr
             new.fitIntensity = spectrum.spectrum[int(obs + 0.5)]
             new.status = ReferenceLine.Status.FIT
             matches.append(new)
         self.log.info("Matched %d from %d observed and %d reference lines",
-                      len(matches), len(obsLines), len(lines))
+                      len(matches), len(obsLines.centroids), len(lines))
         spectrum.setReferenceLines(matches + candidates)
 
 
