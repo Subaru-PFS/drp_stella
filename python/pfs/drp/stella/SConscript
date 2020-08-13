@@ -18,6 +18,9 @@ scripts.BasicSConscript.pybind11(
      'traces',
      'profile',
      'math',
+     'BaseDetectorMap',
+     'SplinedDetectorMap',
+     'GlobalDetectorMap',
      ],
     addUnderscore=False
 )

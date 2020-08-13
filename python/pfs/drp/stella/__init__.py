@@ -8,6 +8,9 @@ from .FiberTrace import *
 from .FiberTraceContinued import *
 from .FiberTraceSet import *
 from .FiberTraceSetContinued import *
+from .BaseDetectorMapContinued import *
+from .GlobalDetectorMapContinued import *
+from .SplinedDetectorMapContinued import *
 from .detectorMapContinued import *
 from .utils import *
 from .spline import *
