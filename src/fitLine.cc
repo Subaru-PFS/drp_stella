@@ -126,12 +126,17 @@ FitLineResult fitLine(
     return FitLineResult(
         std::sqrt(min.Fval()/count),
         min.IsValid() && std::isfinite(min.Fval()),
+        count,
         min.UserParameters().Params()[0],
         min.UserParameters().Params()[1],
         min.UserParameters().Params()[2],
         min.UserParameters().Params()[3],
         min.UserParameters().Params()[4],
-        count
+        min.UserParameters().Errors()[0],
+        min.UserParameters().Errors()[1],
+        min.UserParameters().Errors()[2],
+        min.UserParameters().Errors()[3],
+        min.UserParameters().Errors()[4]
     );
 }
 

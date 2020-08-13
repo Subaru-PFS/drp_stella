@@ -81,12 +81,17 @@ class FindLinesTestCase(lsst.utils.tests.TestCase):
         self.assertTrue(np.isfinite(result.rms))
         self.assertGreater(result.rms, 0)
         self.assertTrue(result.isValid)
+        self.assertEqual(result.num, 2*self.fittingRadius + 1 - numMasked)
         self.assertFloatsAlmostEqual(result.amplitude, self.amplitude, rtol=1.0e-5)
         self.assertFloatsAlmostEqual(result.center, self.center, atol=1.0e-4)
         self.assertFloatsAlmostEqual(result.rmsSize, self.rmsSize, atol=1.0e-4)
         self.assertFloatsAlmostEqual(result.bg0, self.bgConst, atol=2.0e-4)
         self.assertFloatsAlmostEqual(result.bg1, self.bgSlope, atol=1.0e-5)
-        self.assertEqual(result.num, 2*self.fittingRadius + 1 - numMasked)
+        self.assertGreater(result.amplitudeErr, 0.0)
+        self.assertGreater(result.centerErr, 0.0)
+        self.assertGreater(result.rmsSizeErr, 0.0)
+        self.assertGreater(result.bg0Err, 0.0)
+        self.assertGreater(result.bg1Err, 0.0)
 
     def testBasic(self):
         """Test basic functionality of fitLine"""
@@ -121,6 +126,25 @@ class FindLinesTestCase(lsst.utils.tests.TestCase):
         # Respecting the bad pixel causes no problems
         result = fitLine(self.spectrum, int(self.center), int(self.rmsSize), maskVal, 50)
         self.assertFitLineResult(result, 1)
+
+    def testErrors(self):
+        """Test that the errors are set, and they scale as expected"""
+        factor = 100
+        before = fitLine(self.spectrum, int(self.center), int(self.rmsSize), 0, self.fittingRadius)
+
+        spectrum = makeSpectrum(self.length, self.center, factor*self.amplitude, self.rmsSize,
+                                self.bgConst, self.bgSlope)
+        after = fitLine(spectrum, int(self.center), int(self.rmsSize), 0, self.fittingRadius)
+
+        # The amplitude and background errors doesn't change, because they are related to the variance,
+        # which we aren't using.
+        self.assertFloatsAlmostEqual(after.amplitudeErr, before.amplitudeErr, atol=1.0e-5)
+        self.assertFloatsAlmostEqual(after.bg0Err, before.bg0Err, atol=1.0e-2)
+        self.assertFloatsAlmostEqual(after.bg1Err, before.bg1Err, atol=1.0e-5)
+        # The center and rmsSize errors decrease proportionally with the line flux
+        # (they scale inversely with the S/N, and the noise is constant)
+        self.assertFloatsAlmostEqual(after.centerErr, before.centerErr/factor, atol=1.0e-5)
+        self.assertFloatsAlmostEqual(after.rmsSizeErr, before.rmsSizeErr/factor, atol=1.0e-5)
 
 
 class TestMemory(lsst.utils.tests.MemoryTestCase):
