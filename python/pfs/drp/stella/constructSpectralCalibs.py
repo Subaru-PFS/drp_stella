@@ -1,6 +1,8 @@
 import math
+import collections
 
 from lsst.pex.config import Field, ConfigurableField
+import lsst.daf.base as dafBase
 from lsst.daf.persistence import NoResults
 from lsst.afw.detection import FootprintSet, Threshold
 from lsst.afw.display import Display
@@ -24,7 +26,9 @@ _originalRecordCalibInputs = lsst.pipe.drivers.constructCalibs.CalibTask.recordC
 def getOutputId(self, expRefList, calibId):
     """Generate the data identifier for the output calib
 
-    This override implementation adds ``visit0`` to the output identifier.
+    This override implementation uses sub-day resolution for calibDate,
+    downgrades multiple filters to a warning instead of an error, and
+    adds ``visit0`` to the output identifier.
 
     Parameters
     ----------
@@ -38,8 +42,28 @@ def getOutputId(self, expRefList, calibId):
     outputId : `dict`
         Data identifier for output.
     """
-    outputId = _originalGetOutputId(self, expRefList, calibId)
+    midTime = 0
+    filterNames = collections.Counter()
+    for expRef in expRefList:
+        butler = expRef.getButler()
+        dataId = expRef.dataId
+
+        midTime += self.getMjd(butler, dataId)
+        thisFilter = self.getFilter(butler, dataId) if self.filterName is None else self.filterName
+        filterNames[thisFilter] += 1
+
+    if len(filterNames) != 1:
+        self.log.warn("Multiple filters specified for %s: %s" % (dataId, filterNames))
+
+    midTime /= len(expRefList)
+    date = dafBase.DateTime(midTime, dafBase.DateTime.MJD).toString(dafBase.DateTime.TAI)
+
+    outputId = {self.config.filter: filterNames.most_common()[0][0],
+                self.config.dateCalib: date}
+    outputId.update(calibId)
+
     outputId["visit0"] = min(ref.dataId["visit"] for ref in expRefList)
+    outputId["calibDate"] = date[:date.find("T")]  # Date only
     return outputId
 
 
