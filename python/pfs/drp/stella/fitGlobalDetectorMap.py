@@ -51,11 +51,52 @@ def rmsPixelsToVelocity(rms, model):
     return 3.0e5*rms*model.getDispersion()/model.getWavelengthCenter()
 
 
+def calculateFitStatistics(model, lines, selection, soften=0.0):
+    """Calculate statistics of the model fit
+
+    Parameters
+    ----------
+    model : `pfs.drp.stella.GlobalDetectorModel`
+        Model that was fit to the data.
+    lines : `pfs.drp.stella.ArcLineSet`
+        Arc line measurements.
+    selection : `numpy.ndarray` of `bool`
+        Flags indicating which of the ``lines`` are to be used in the
+        calculation.
+    soften : `float`, optional
+        Systematic error to add in quadrature to measured errors (pixels).
+
+    Returns
+    -------
+    model : `pfs.drp.stella.GlobalDetectorModel`
+        Model that was fit to the data.
+    xResid, yResid : `numpy.ndarray` of `float`
+        Fit residual in x,y for each of the ``lines`` (pixels).
+    xRms, yRms : `float`
+        Residual RMS in x,y (pixels)
+    chi2 : `float`
+        Fit chi^2.
+    soften : `float`
+        Systematic error that was applied to measured errors (pixels).
+    """
+    fit = model(lines.fiberId.astype(np.int32), lines.wavelength)
+    xResid = lines.x - fit[0]
+    yResid = lines.y - fit[1]
+
+    xRms = robustRms(xResid[selection])
+    yRms = robustRms(yResid[selection])
+    chi2 = np.sum((xResid[selection]**2/(lines.xErr[selection]**2 + soften**2)) +
+                  (yResid[selection]**2/(lines.yErr[selection]**2 + soften**2)))
+    return Struct(model=model, xResid=xResid, yResid=yResid, xRms=xRms, yRms=yRms,
+                  chi2=chi2, soften=soften)
+
+
 class FitGlobalDetectorMapConfig(Config):
     """Configuration for FitGlobablDetectorMapTask"""
     iterations = Field(dtype=int, default=3, doc="Number of rejection iterations")
     rejection = Field(dtype=float, default=3.0, doc="Rejection threshold (stdev)")
     order = Field(dtype=int, default=7, doc="Distortion order")
+    reserveFraction = Field(dtype=float, default=0.1, doc="Fraction of lines to reserve in the final fit")
 
 
 class FitGlobalDetectorMapTask(Task):
@@ -106,15 +147,30 @@ class FitGlobalDetectorMapTask(Task):
                 # Converged
                 break
             good = newGood
-        else:
-            result = self.fitModel(arm, bbox, lines, good, result.model if result is not None else None)
 
+        # One more fit, this time with reserved lines
+        rng = np.random.RandomState(visitInfo.getExposureId())
+        numReserved = int(self.config.reserveFraction*good.sum() + 0.5)
+        goodIndices = np.where(good)[0]
+        reservedIndices = rng.choice(goodIndices, size=numReserved)
+        reserved = np.zeros_like(good)
+        reserved[reservedIndices] = True
+
+        select = good & ~reserved
+        result = self.fitModel(arm, bbox, lines, select, result.model if result is not None else None)
         self.log.info("Final fit: chi2=%f xRMS=%f yRMS=%f (%f nm, %f km/s) from %d/%d lines",
                       result.chi2, result.xRms, result.yRms, result.yRms*result.model.getDispersion(),
-                      rmsPixelsToVelocity(result.yRms, result.model), good.sum(), len(good))
+                      rmsPixelsToVelocity(result.yRms, result.model), select.sum(), len(good))
+        reservedStats = calculateFitStatistics(result.model, lines, reserved)
+        self.log.info("Fit quality from reserved lines: "
+                      "chi2=%f xRMS=%f yRMS=%f (%f nm, %f km/s) from %d lines (%.1f%%)",
+                      reservedStats.chi2, reservedStats.xRms, reservedStats.yRms,
+                      reservedStats.yRms*result.model.getDispersion(),
+                      rmsPixelsToVelocity(reservedStats.yRms, result.model), reserved.sum(),
+                      reserved.sum()/select.sum()*100)
         self.log.debug("    Final fit model: %s", result.model)
 
-        result = self.fitSoftenedModel(arm, bbox, lines, good, result)
+        result = self.fitSoftenedModel(arm, bbox, lines, select, reserved, result)
         if self.debugInfo.plot:
             self.plotModel(lines, good, result)
 
@@ -125,7 +181,7 @@ class FitGlobalDetectorMapTask(Task):
 
         return detMap
 
-    def fitModel(self, arm, bbox, lines, good, model=None, soften=0.0):
+    def fitModel(self, arm, bbox, lines, select, model=None, soften=0.0):
         """Fit a model to the arc lines
 
         Parameters
@@ -136,7 +192,7 @@ class FitGlobalDetectorMapTask(Task):
             Bounding box for detector.
         lines : `pfs.drp.stella.ArcLineSet`
             Arc line measurements.
-        good : `numpy.ndarray` of `bool`
+        select : `numpy.ndarray` of `bool`
             Flags indicating which of the ``lines`` are to be fit.
         model : `pfs.drp.stella.GlobalDetectorModel`, optional
             Model from previous fit iteration (provides a starting point for
@@ -172,26 +228,18 @@ class FitGlobalDetectorMapTask(Task):
         try:
             model = GlobalDetectorModel.fit(
                 bbox, self.config.order, dualDetector, fiberId, lines.wavelength,
-                lines.x, lines.y, xErr, yErr, good, parameters
+                lines.x, lines.y, xErr, yErr, select, parameters
             )
         except RuntimeError:
             # Parameters from previous iteration may be corrupting this fit; start from scratch
             model = GlobalDetectorModel.fit(
                 bbox, self.config.order, dualDetector, fiberId, lines.wavelength,
-                lines.x, lines.y, xErr, yErr, good
+                lines.x, lines.y, xErr, yErr, select
             )
 
-        fit = model(fiberId, lines.wavelength)
-        xResid = lines.x - fit[0]
-        yResid = lines.y - fit[1]
+        return calculateFitStatistics(model, lines, select, soften)
 
-        xRms = robustRms(xResid[good])
-        yRms = robustRms(yResid[good])
-        chi2 = np.sum((xResid[good]/lines.xErr[good])**2 + (yResid[good]/lines.yErr[good])**2)
-        return Struct(model=model, xResid=xResid, yResid=yResid, xRms=xRms, yRms=yRms,
-                      chi2=chi2, soften=soften)
-
-    def fitSoftenedModel(self, arm, bbox, lines, good, result):
+    def fitSoftenedModel(self, arm, bbox, lines, select, reserved, result):
         """Fit with errors adjusted so that chi^2/dof <= 1
 
         This provides a measure of the systematic error.
@@ -204,8 +252,10 @@ class FitGlobalDetectorMapTask(Task):
             Bounding box for detector.
         lines : `pfs.drp.stella.ArcLineSet`
             Arc line measurements.
-        good : `numpy.ndarray` of `bool`
+        select : `numpy.ndarray` of `bool`
             Flags indicating which of the ``lines`` are to be fit.
+        reserved : `numpy.ndarray` of `bool`
+            Flags indicating which of the ``lines`` have been reserved for QA.
         result : `lsst.pipe.base.Struct`
             Results from ``fitModel``.
 
@@ -222,7 +272,7 @@ class FitGlobalDetectorMapTask(Task):
         soften : `float`
             Systematic error that was applied to measured errors (pixels).
         """
-        dof = 2*good.sum()  # column and row for each point; ignoring the relatively small number of params
+        dof = 2*select.sum()  # column and row for each point; ignoring the relatively small number of params
         if result.chi2/dof <= 1:
             self.log.info("No softening necessary")
             return result
@@ -244,19 +294,27 @@ class FitGlobalDetectorMapTask(Task):
             chi2 : `float`
                 chi^2/dof - 1
             """
-            colChi2 = np.sum(result.xResid[good]**2/(soften**2 + lines.xErr[good]**2))
-            rowChi2 = np.sum(result.yResid[good]**2/(soften**2 + lines.yErr[good]**2))
+            colChi2 = np.sum(result.xResid[select]**2/(soften**2 + lines.xErr[select]**2))
+            rowChi2 = np.sum(result.yResid[select]**2/(soften**2 + lines.yErr[select]**2))
             return (colChi2 + rowChi2)/dof - 1
 
         soften = scipy.optimize.bisect(softenChi2, 0.0, 1.0)
-        self.log.info("Softening errors by %f pixels (%f nm, %f km/s)", soften,
+        self.log.info("Softening errors by %f pixels (%f nm, %f km/s) to yield chi^2/dof=1", soften,
                       soften*result.model.getDispersion(),
                       rmsPixelsToVelocity(soften, result.model))
 
-        result = self.fitModel(arm, bbox, lines, good, result.model, soften)
+        result = self.fitModel(arm, bbox, lines, select, result.model, soften)
         self.log.info("Softened fit: chi2=%f xRMS=%f yRMS=%f (%f nm, %f km/s) from %d/%d lines",
                       result.chi2, result.xRms, result.yRms, result.yRms*result.model.getDispersion(),
-                      rmsPixelsToVelocity(result.yRms, result.model), good.sum(), len(good))
+                      rmsPixelsToVelocity(result.yRms, result.model), select.sum(), len(select))
+
+        reservedStats = calculateFitStatistics(result.model, lines, reserved, soften)
+        self.log.info("Softened fit quality from reserved lines: "
+                      "chi2=%f xRMS=%f yRMS=%f (%f nm, %f km/s) from %d lines (%.1f%%)",
+                      reservedStats.chi2, reservedStats.xRms, reservedStats.yRms,
+                      reservedStats.yRms*result.model.getDispersion(),
+                      rmsPixelsToVelocity(reservedStats.yRms, result.model), reserved.sum(),
+                      reserved.sum()/select.sum()*100)
         self.log.debug("    Softened fit model: %s", result.model)
         return result
 
