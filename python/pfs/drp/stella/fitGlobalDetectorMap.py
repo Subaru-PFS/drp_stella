@@ -94,7 +94,7 @@ def calculateFitStatistics(model, lines, selection, soften=0.0):
 class FitGlobalDetectorMapConfig(Config):
     """Configuration for FitGlobablDetectorMapTask"""
     iterations = Field(dtype=int, default=3, doc="Number of rejection iterations")
-    rejection = Field(dtype=float, default=3.0, doc="Rejection threshold (stdev)")
+    rejection = Field(dtype=float, default=4.0, doc="Rejection threshold (stdev)")
     order = Field(dtype=int, default=7, doc="Distortion order")
     reserveFraction = Field(dtype=float, default=0.1, doc="Fraction of lines to reserve in the final fit")
 
@@ -129,15 +129,24 @@ class FitGlobalDetectorMapTask(Task):
             Mapping of fiberId,wavelength to x,y.
         """
         lines = ArcLineSet([ll for ll in lines if not ll.flag])  # Only good measurements
+        numLines = len(lines)
 
-        good = np.ones(len(lines), dtype=bool)
+        good = np.ones(numLines, dtype=bool)
+        rng = np.random.RandomState(visitInfo.getExposureId())
+        numReserved = int(self.config.reserveFraction*numLines + 0.5)
+        reservedIndices = rng.choice(np.arange(numLines, dtype=int), replace=False, size=numReserved)
+        reserved = np.zeros_like(good)
+        reserved[reservedIndices] = True
+
         result = None
         for ii in range(self.config.iterations):
-            result = self.fitModel(arm, bbox, lines, good, result.model if result is not None else None)
+            select = good & ~reserved
+            result = self.fitModel(arm, bbox, lines, select, result.model if result is not None else None)
             self.log.debug("Fit iteration %d: chi2=%f xRMS=%f yRMS=%f (%f nm, %f km/s) from %d/%d lines",
                            ii, result.chi2, result.xRms, result.yRms,
                            result.yRms*result.model.getDispersion(),
-                           rmsPixelsToVelocity(result.yRms, result.model), good.sum(), len(good))
+                           rmsPixelsToVelocity(result.yRms, result.model), select.sum(),
+                           numLines - numReserved)
             self.log.debug("Fit iteration %d: %s", ii, result.model)
             if self.debugInfo.plot:
                 self.plotModel(lines, good, result)
@@ -148,26 +157,18 @@ class FitGlobalDetectorMapTask(Task):
                 break
             good = newGood
 
-        # One more fit, this time with reserved lines
-        rng = np.random.RandomState(visitInfo.getExposureId())
-        numReserved = int(self.config.reserveFraction*good.sum() + 0.5)
-        goodIndices = np.where(good)[0]
-        reservedIndices = rng.choice(goodIndices, size=numReserved)
-        reserved = np.zeros_like(good)
-        reserved[reservedIndices] = True
-
         select = good & ~reserved
         result = self.fitModel(arm, bbox, lines, select, result.model if result is not None else None)
         self.log.info("Final fit: chi2=%f xRMS=%f yRMS=%f (%f nm, %f km/s) from %d/%d lines",
                       result.chi2, result.xRms, result.yRms, result.yRms*result.model.getDispersion(),
-                      rmsPixelsToVelocity(result.yRms, result.model), select.sum(), len(good))
+                      rmsPixelsToVelocity(result.yRms, result.model), select.sum(), numLines - numReserved)
         reservedStats = calculateFitStatistics(result.model, lines, reserved)
         self.log.info("Fit quality from reserved lines: "
                       "chi2=%f xRMS=%f yRMS=%f (%f nm, %f km/s) from %d lines (%.1f%%)",
                       reservedStats.chi2, reservedStats.xRms, reservedStats.yRms,
                       reservedStats.yRms*result.model.getDispersion(),
                       rmsPixelsToVelocity(reservedStats.yRms, result.model), reserved.sum(),
-                      reserved.sum()/select.sum()*100)
+                      reserved.sum()/numLines*100)
         self.log.debug("    Final fit model: %s", result.model)
 
         result = self.fitSoftenedModel(arm, bbox, lines, select, reserved, result)
@@ -314,7 +315,7 @@ class FitGlobalDetectorMapTask(Task):
                       reservedStats.chi2, reservedStats.xRms, reservedStats.yRms,
                       reservedStats.yRms*result.model.getDispersion(),
                       rmsPixelsToVelocity(reservedStats.yRms, result.model), reserved.sum(),
-                      reserved.sum()/select.sum()*100)
+                      reserved.sum()/len(reserved)*100)
         self.log.debug("    Softened fit model: %s", result.model)
         return result
 
