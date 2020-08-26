@@ -287,8 +287,13 @@ class ReduceArcTask(CmdLineTask):
         self.log.info("Writing output for %s", dataRef.dataId)
         detectorMap.setVisitInfo(visitInfo)
         visit0 = dataRef.dataId["visit"]
+        dateObs = dataRef.dataId["dateObs"]
+        taiObs = dataRef.dataId["taiObs"]
         calibId = detectorMap.metadata.get("CALIB_ID")
-        detectorMap.metadata.set("CALIB_ID", re.sub(r"visit0=\d+", "visit0=%d" % (visit0,), calibId))
+        calibId = re.sub(r"visit0=\d+", "visit0=%d" % (visit0,), calibId)
+        calibId = re.sub(r"calibDate=\d\d\d\d-\d\d-\d\d", "calibDate=%s" % (dateObs,), calibId)
+        calibId = re.sub(r"calibTime=\S+", "calibDate=%s" % (taiObs,), calibId)
+        detectorMap.metadata.set("CALIB_ID", calibId)
         dataRef.put(detectorMap, 'detectorMap', visit0=visit0)
 
     def reduceDataRefs(self, dataRefList):
