@@ -18,5 +18,6 @@ from .NevenPsfContinued import *
 from .lsf import *
 from .buildFiberTraces import *
 from .fiberProfile import *
+from .fiberProfileSet import *
 from .fitPolynomial import *
 from .slitOffsets import *
