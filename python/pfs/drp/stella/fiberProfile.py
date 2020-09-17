@@ -244,11 +244,11 @@ class FiberProfile:
         """
         width, height = dimensions
         rows = np.arange(height, dtype=int)
-        xCen = centerFunc(rows)
+        xCen = centerFunc(rows.astype(np.float32)).astype(np.float32)
         xMin = max(0, int(np.min(xCen)) - self.radius)
         xMax = min(width, int(np.ceil(np.max(xCen))) + self.radius)
-        xx = np.arange(xMin, xMax + 1, dtype=int)
-        xImg = xx - xMin
+        xx = np.arange(xMin, xMax + 1, dtype=np.float32)
+        xImg = (xx - xMin).astype(int)
         box = Box2I(Point2I(xMin, 0), Point2I(xMax, height - 1))
         image = MaskedImageF(box)
 
@@ -273,7 +273,7 @@ class FiberProfile:
         xLow = np.array([xProf[gg][0] for gg in good])
         xHigh = np.array([xProf[gg][-1] for gg in good])
 
-        def getProfile(xx, index):
+        def getProfile(xx, index, result=None):
             """Generate a profile, interpolating in the spatial dimension
 
             Parameters
@@ -283,21 +283,28 @@ class FiberProfile:
             index : `int`
                 Index of the profile to use (depends on position in the spectral
                 dimension).
+            result : `numpy.ndarray`, shape ``(N,)``, optional
+                Output array to re-use.
 
             Returns
             -------
             values : `numpy.ndarray`, shape ``(N,)``
                 Interpolated values of ``profile[index]`` at positions ``xx``.
             """
-            result = np.zeros_like(xx)
             inBounds = (xx >= xLow[index]) & (xx <= xHigh[index])
+            if result is None:
+                result = np.zeros_like(xx)
+            else:
+                result[~inBounds] = 0.0
             result[inBounds] = splines[index](xx[inBounds])
             return result
 
+        nextProfile = np.zeros_like(xx)
+        prevProfile = np.zeros_like(xx)
         for yy in rows:
-            xRel = (xx - xCen[yy]).astype(np.float32)  # x position on image relative to center of trace
-            nextProfile = getProfile(xRel, nextIndex[yy])
-            prevProfile = getProfile(xRel, prevIndex[yy])
+            xRel = (xx - xCen[yy])  # x position on image relative to center of trace
+            nextProfile = getProfile(xRel, nextIndex[yy], nextProfile)
+            prevProfile = getProfile(xRel, prevIndex[yy], prevProfile)
             image.image.array[yy, xImg] = nextProfile*nextWeight[yy] + prevProfile*prevWeight[yy]
 
         # Set normalisation to what is desired
