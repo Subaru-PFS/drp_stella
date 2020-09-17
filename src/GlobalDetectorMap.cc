@@ -52,6 +52,11 @@ GlobalDetectorMap::GlobalDetectorMap(
 }
 
 
+std::shared_ptr<DetectorMap> GlobalDetectorMap::clone() const {
+    return std::make_shared<GlobalDetectorMap>(getModel(), getVisitInfo(), getMetadata()->deepCopy());
+}
+
+
 void GlobalDetectorMap::_setSplines() {
     _rowToWavelength.clear();
     _rowToXCenter.clear();

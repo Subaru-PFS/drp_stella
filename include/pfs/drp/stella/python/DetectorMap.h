@@ -23,6 +23,7 @@ template <typename Class>
 auto wrapDetectorMap(py::module & mod, char const* name) {
     pybind11::module::import("pfs.drp.stella.DetectorMap");
     py::class_<Class, std::shared_ptr<Class>, DetectorMap> cls(mod, name);
+    cls.def("clone", py::overload_cast<>(&Class::clone, py::const_));
     cls.def("getXCenter", py::overload_cast<int>(&Class::getXCenter, py::const_), "fiberId"_a);
     cls.def("getXCenter", py::overload_cast<int, float>(&Class::getXCenter, py::const_),
             "fiberId"_a, "row"_a);

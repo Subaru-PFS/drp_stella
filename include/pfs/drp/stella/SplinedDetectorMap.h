@@ -73,6 +73,8 @@ class SplinedDetectorMap : public DetectorMap {
     SplinedDetectorMap & operator=(SplinedDetectorMap const&) = default;
     SplinedDetectorMap & operator=(SplinedDetectorMap &&) = default;
 
+    virtual std::shared_ptr<DetectorMap> clone() const override;
+
     //@{
     /// Return the fiber centers
     virtual Array1D getXCenter(int fiberId) const override;

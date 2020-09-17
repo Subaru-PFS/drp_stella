@@ -82,6 +82,17 @@ SplinedDetectorMap::SplinedDetectorMap(
 }
 
 
+std::shared_ptr<DetectorMap> SplinedDetectorMap::clone() const {
+    std::vector<Spline> xCenter(_xCenter.begin(), _xCenter.end());
+    std::vector<Spline> wavelength(_wavelength.begin(), _wavelength.end());
+    return std::make_shared<SplinedDetectorMap>(
+        getBBox(), getFiberId(), xCenter, wavelength,
+        ndarray::copy(getSpatialOffsets()), ndarray::copy(getSpectralOffsets()),
+        getVisitInfo(), getMetadata()->deepCopy()
+    );
+}
+
+
 DetectorMap::Array1D SplinedDetectorMap::getXCenter(
     int fiberId
 ) const {

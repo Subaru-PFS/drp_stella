@@ -56,12 +56,13 @@ class GlobalDetectorMap : public DetectorMap {
         std::shared_ptr<lsst::daf::base::PropertySet> metadata=nullptr
     );
 
-
     virtual ~GlobalDetectorMap() {}
     GlobalDetectorMap(GlobalDetectorMap const&) = default;
     GlobalDetectorMap(GlobalDetectorMap &&) = default;
     GlobalDetectorMap & operator=(GlobalDetectorMap const&) = default;
     GlobalDetectorMap & operator=(GlobalDetectorMap &&) = default;
+
+    virtual std::shared_ptr<DetectorMap> clone() const override;
 
     //@{
     /// Return the fiber centers
