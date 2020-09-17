@@ -12,7 +12,7 @@ from lsst.pipe.base import Struct
 
 import pfs.drp.stella.synthetic
 
-from pfs.drp.stella.findAndTraceAperturesTask import FindAndTraceAperturesTask
+from pfs.drp.stella.buildFiberProfiles import BuildFiberProfilesTask
 from pfs.drp.stella.extractSpectraTask import ExtractSpectraTask
 from pfs.drp.stella.calibrateWavelengthsTask import CalibrateWavelengthsTask
 from pfs.drp.stella.reduceExposure import ReduceExposureTask
@@ -96,15 +96,15 @@ class TasksTestCase(lsst.utils.tests.TestCase):
     def tearDown(self):
         del self.flat
 
-    def makeFiberTraces(self):
-        """Construct fiber traces
+    def makeFiberProfiles(self):
+        """Construct fiber profiles
 
-        We do this using ``FindAndTraceAperturesTask`` on the flat.
+        We do this using ``BuildFiberProfilesTask`` on the flat.
         """
-        config = FindAndTraceAperturesTask.ConfigClass()
-        config.finding.minLength = self.synthConfig.height//2
-        task = FindAndTraceAperturesTask(config=config)
-        return task.run(self.flat, self.detMap)
+        config = BuildFiberProfilesTask.ConfigClass()
+        config.pruneMinLength = self.synthConfig.height//2
+        task = BuildFiberProfilesTask(config=config)
+        return task.run(lsst.afw.image.makeExposure(self.flat), self.detMap).profiles
 
     def assertSpectra(self, spectra, hasContinuum=True, checkReferenceLines=True):
         """Assert that the extracted arc spectra are as expected"""
@@ -141,9 +141,12 @@ class TasksTestCase(lsst.utils.tests.TestCase):
             lsst.afw.display.Display(1, display).mtv(self.flat)
             lsst.afw.display.Display(2, display).mtv(self.arc)
 
-        traces = self.makeFiberTraces()
+        profiles = self.makeFiberProfiles()
+        self.assertEqual(len(profiles), self.synthConfig.numFibers)
+        self.assertFloatsEqual(profiles.fiberId, sorted(self.detMap.fiberId))
+        traces = profiles.makeFiberTracesFromDetectorMap(self.detMap)
         self.assertEqual(len(traces), self.synthConfig.numFibers)
-        self.assertFloatsEqual([tt.fiberId for tt in traces], self.detMap.fiberId)
+        self.assertFloatsEqual(np.array(sorted([tt.fiberId for tt in traces])), sorted(self.detMap.fiberId))
 
         # Extract traces on flat
         config = ExtractSpectraTask.ConfigClass()
@@ -169,7 +172,7 @@ class TasksTestCase(lsst.utils.tests.TestCase):
 
     def testReduceExposure(self):
         """Test ReduceExposureTask"""
-        traces = self.makeFiberTraces()
+        profiles = self.makeFiberProfiles()
 
         config = ReduceExposureTask.ConfigClass()
         config.isr.retarget(DummyIsrTask)
@@ -180,7 +183,8 @@ class TasksTestCase(lsst.utils.tests.TestCase):
         task = ReduceExposureTask(config=config)
 
         raw = lsst.afw.image.makeExposure(self.arc)
-        dataRef = DummyDataRef(raw=raw, fiberTrace=traces, detectorMap=self.detMap, pfsConfig=self.pfsConfig)
+        dataRef = DummyDataRef(raw=raw, fiberProfiles=profiles, detectorMap=self.detMap,
+                               pfsConfig=self.pfsConfig)
         results = task.runDataRef([dataRef])
         self.assertEqual(len(results.exposureList), 1)
         self.assertEqual(len(results.originalList), 1)

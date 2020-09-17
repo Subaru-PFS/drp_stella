@@ -86,7 +86,8 @@ class CentroidLinesTask(Task):
         lines : `pfs.drp.stella.ArcLineSet`
             Centroided lines.
         """
-        exposure.setPsf(createPsf(self.config.fwhm))
+        if not exposure.getPsf():
+            exposure.setPsf(createPsf(self.config.fwhm))
         catalog = self.makeCatalog(referenceLines, detectorMap)
         self.measure(exposure, catalog)
         return self.translate(catalog)
@@ -117,8 +118,7 @@ class CentroidLinesTask(Task):
         for fiberId in referenceLines:
             for rl in referenceLines[fiberId]:
                 source = catalog.addNew()
-                yy = rl.fitPosition
-                xx = detectorMap.getXCenter(fiberId, yy)
+                xx, yy = detectorMap.findPoint(fiberId, rl.wavelength)
                 source.set(self.fiberId, fiberId)
                 source.set(self.wavelength, rl.wavelength)
                 source.set(self.description, rl.description)

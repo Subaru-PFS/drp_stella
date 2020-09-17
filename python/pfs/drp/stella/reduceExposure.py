@@ -32,6 +32,7 @@ from .extractSpectraTask import ExtractSpectraTask
 from .subtractSky2d import SubtractSky2dTask
 from .fitContinuum import FitContinuumTask
 from .lsf import ExtractionLsf
+from .measureSlitOffsets import MeasureSlitOffsetsTask
 
 __all__ = ["ReduceExposureConfig", "ReduceExposureTask"]
 
@@ -41,6 +42,9 @@ class ReduceExposureConfig(Config):
     isr = ConfigurableField(target=IsrTask, doc="Instrumental signature removal")
     doRepair = Field(dtype=bool, default=True, doc="Repair artifacts?")
     repair = ConfigurableField(target=RepairTask, doc="Task to repair artifacts")
+    doOffsetDetectorMap = Field(dtype=bool, default=False,
+                                doc="Measure and apply an offset to the detectorMap?")
+    measureSlitOffsets = ConfigurableField(target=MeasureSlitOffsetsTask, doc="Measure slit offsets")
     doSkySwindle = Field(dtype=bool, default=False,
                          doc="Do the Sky Swindle (subtract the exact sky)? "
                              "This only works with Simulator files produced with the --allOutput flag")
@@ -52,8 +56,6 @@ class ReduceExposureConfig(Config):
     extractSpectra = ConfigurableField(target=ExtractSpectraTask, doc="Extract spectra from exposure")
     doSubtractContinuum = Field(dtype=bool, default=False, doc="Subtract continuum as part of extraction?")
     fitContinuum = ConfigurableField(target=FitContinuumTask, doc="Fit continuum for subtraction")
-    fiberDx = Field(doc="DetectorMap slit offset in x", dtype=float, default=0)
-    fiberDy = Field(doc="DetectorMap slit offset in y", dtype=float, default=0)
     doWriteCalexp = Field(dtype=bool, default=False, doc="Write corrected frame?")
     doWriteLsf = Field(dtype=bool, default=False, doc="Write line-spread function?")
     doWriteArm = Field(dtype=bool, default=True, doc="Write PFS arm file?")
@@ -131,6 +133,7 @@ class ReduceExposureTask(CmdLineTask):
         super().__init__(*args, **kwargs)
         self.makeSubtask("isr")
         self.makeSubtask("repair")
+        self.makeSubtask("measureSlitOffsets")
         self.makeSubtask("measurePsf")
         self.makeSubtask("subtractSky2d")
         self.makeSubtask("extractSpectra")
@@ -174,11 +177,11 @@ class ReduceExposureTask(CmdLineTask):
             Mappings of wl,fiber to detector position.
         """
         self.log.info("Processing %s" % ([sensorRef.dataId for sensorRef in sensorRefList]))
-        fiberTraceList = [self.getFiberTraces(sensorRef) for sensorRef in sensorRefList]
-        detectorMapList = [self.getDetectorMap(sensorRef) for sensorRef in sensorRefList]
-        pfsConfig = sensorRefList[0].get("pfsConfig")
 
+        pfsConfig = sensorRefList[0].get("pfsConfig")
         exposureList = []
+        fiberTraceList = []
+        detectorMapList = []
         psfList = []
         lsfList = []
         skyResults = None
@@ -186,6 +189,10 @@ class ReduceExposureTask(CmdLineTask):
             if all(sensorRef.datasetExists("calexp") for sensorRef in sensorRefList):
                 self.log.info("Reading existing calexps")
                 exposureList = [sensorRef.get("calexp") for sensorRef in sensorRefList]
+                calibs = [self.getSpectralCalibs(ref, exp, pfsConfig) for
+                          ref, exp in zip(sensorRefList, exposureList)]
+                detectorMapList = [cal.detectorMap for cal in calibs]
+                fiberTraceList = [cal.fiberTraces for cal in calibs]
                 psfList = [exp.getPsf() for exp in exposureList]
             else:
                 self.log.warn("Not retrieving calexps, despite 'useCalexp' config, since some are missing")
@@ -197,7 +204,10 @@ class ReduceExposureTask(CmdLineTask):
                     self.repairExposure(exposure)
                 if self.config.doSkySwindle:
                     self.skySwindle(sensorRef, exposure.image)
+                calibs = self.getSpectralCalibs(sensorRef, exposure, pfsConfig)
                 exposureList.append(exposure)
+                detectorMapList.append(calibs.detectorMap)
+                fiberTraceList.append(calibs.fiberTraces)
 
             if self.config.doMeasurePsf:
                 psfList = self.measurePsf.run(sensorRefList, exposureList, detectorMapList)
@@ -349,41 +359,33 @@ class ReduceExposureTask(CmdLineTask):
         with astropy.io.fits.open(filename) as fits:
             image.array -= fits["SKY"].data
 
-    def getDetectorMap(self, sensorRef):
-        """Get the appropriate detectorMap
+    def getSpectralCalibs(self, sensorRef, exposure, pfsConfig):
+        """Provide suitable spectral calibrations
 
         Parameters
         ----------
         sensorRef : `lsst.daf.persistence.ButlerDataRef`
             Data reference for sensor data.
+        exposure : `lsst.afw.image.Exposure`
+            Image of spectra. Required for measuring a slit offset.
+        pfsConfig : `pfs.datamodel.PfsConfig`
+            Top-end configuration. Required for measuring a slit offset.
 
         Returns
         -------
-        detectorMap : `pfs.drp.stella.utils.DetectorMap`
-            Mapping of wl,fiber to detector position.
+        detectorMap : `pfs.drp.stella.DetectorMap`
+            Mapping from fiberId,wavelength to x,y.
+        fiberProfiles : `pfs.drp.stella.FiberProfileSet`
+            Profile for each fiber.
+        fiberTraces : `pfs.drp.stella.FiberTraceSet`
+            Trace for each fiber.
         """
         detectorMap = sensorRef.get("detectorMap")
-        if self.config.fiberDx != 0.0 or self.config.fiberDy != 0.0:
-            slitOffsets = detectorMap.getSlitOffsets()
-            slitOffsets[detectorMap.DX] += self.config.fiberDx
-            slitOffsets[detectorMap.DY] += self.config.fiberDy
-            detectorMap.setSlitOffsets(slitOffsets)
-        return detectorMap
-
-    def getFiberTraces(self, sensorRef):
-        """Get the appropriate fiber trace set
-
-        Parameters
-        ----------
-        sensorRef : `lsst.daf.persistence.ButlerDataRef`
-            Data reference for sensor data.
-
-        Returns
-        -------
-        fiberTraceSet : `pfs.drp.stella.FiberTraceSet`
-            Set of fiber traces.
-        """
-        return sensorRef.get('fiberTrace')
+        if self.config.doOffsetDetectorMap:
+            self.measureSlitOffsets.run(exposure, detectorMap, pfsConfig, apply=True)
+        fiberProfiles = sensorRef.get("fiberProfiles")
+        fiberTraces = fiberProfiles.makeFiberTracesFromDetectorMap(detectorMap)
+        return Struct(detectorMap=detectorMap, fiberProfiles=fiberProfiles, fiberTraces=fiberTraces)
 
     def calculateLsf(self, psf, fiberTraceSet, length):
         """Calculate the LSF for this exposure

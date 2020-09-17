@@ -10,13 +10,13 @@ import lsst.afw.image.testUtils
 
 from pfs.drp.stella.synthetic import (makeSpectrumImage, SyntheticConfig, makeSyntheticDetectorMap,
                                       makeSyntheticPfsConfig)
-from pfs.drp.stella.buildFiberTraces import BuildFiberTracesTask
+from pfs.drp.stella.buildFiberProfiles import BuildFiberProfilesTask
 from pfs.drp.stella.tests.utils import runTests, methodParameters
 
 display = None
 
 
-class FiberTraceSetTestCase(lsst.utils.tests.TestCase):
+class FiberProfileSetTestCase(lsst.utils.tests.TestCase):
     def setUp(self):
         """Construct the basis for testing
 
@@ -39,13 +39,18 @@ class FiberTraceSetTestCase(lsst.utils.tests.TestCase):
         variance.array[:] = image.array/self.synth.gain + self.synth.readnoise**2
         self.image = lsst.afw.image.makeMaskedImage(image, mask, variance)
 
+        self.darkTime = 123.456
+        self.metadata = ("FOO", "BAR")
+        self.visitInfo = lsst.afw.image.VisitInfo(darkTime=self.darkTime)
+        self.exposure = self.makeExposure()
+
         self.detMap = makeSyntheticDetectorMap(self.synth)
 
-        self.config = BuildFiberTracesTask.ConfigClass()
+        self.config = BuildFiberProfilesTask.ConfigClass()
         self.config.pruneMinLength = int(0.9*self.synth.height)
         self.config.profileSwath = 80  # Produces 5 swaths
         self.config.centerFit.order = 2
-        self.task = BuildFiberTracesTask(config=self.config)
+        self.task = BuildFiberProfilesTask(config=self.config)
         self.task.log.setLevel(self.task.log.DEBUG)
 
     def tearDown(self):
@@ -53,17 +58,38 @@ class FiberTraceSetTestCase(lsst.utils.tests.TestCase):
         del self.detMap
         del self.task
 
-    def assertFiberTraces(self, fiberTraces, image=None, badBitMask=0, doCheckSpectra=True):
-        """Assert that fiberTraces are as expected
+    def makeExposure(self, image=None):
+        """Create an Exposure suitable as input to BuildFiberProfilesTask
 
-        We use the fiberTrace to extract the spectra, check that the spectra
+        Parameters
+        ----------
+        image : `lsst.afw.image.MaskedImage`, optional
+            Image to use as the basis of the exposure. If not provided, will
+            use ``self.image``.
+
+        Returns
+        -------
+        exposure : `lsst.afw.image.Exposure`
+            Exposure with image, visitInfo and metadata set.
+        """
+        if image is None:
+            image = self.image
+        exposure = lsst.afw.image.makeExposure(image)
+        exposure.getMetadata().set(*self.metadata)
+        exposure.getInfo().setVisitInfo(self.visitInfo)
+        return exposure
+
+    def assertFiberProfiles(self, fiberProfiles, image=None, badBitMask=0, doCheckSpectra=True):
+        """Assert that fiberProfiles are as expected
+
+        We use the fiberProfile to extract the spectra, check that the spectra
         have the correct values, and then subtract the spectra from the 2D
         image; the resulting image should be close to zero.
 
         Parameters
         ----------
-        fiberTraces : `pfs.drp.stella.FiberTraceSet`
-            Fiber traces to check.
+        fiberProfiles : `pfs.drp.stella.FiberProfileSet`
+            Fiber profiles to check.
         image : `lsst.afw.image.Image`, optional
             Image containing the traces. If not provided, we'll use
             ``self.image``.
@@ -72,13 +98,23 @@ class FiberTraceSetTestCase(lsst.utils.tests.TestCase):
         doCheckSpectra : `bool`, optional
             Check the spectra?
         """
+        self.assertEqual(fiberProfiles.getVisitInfo().getDarkTime(), self.darkTime)
+        self.assertEqual(fiberProfiles.visitInfo.getDarkTime(), self.darkTime)
+        self.assertEqual(fiberProfiles.getMetadata().get(self.metadata[0]), self.metadata[1])
+        self.assertEqual(fiberProfiles.metadata.get(self.metadata[0]), self.metadata[1])
         if image is None:
             image = self.image
         image = image.clone()  # We're going to modify it
-        self.assertEqual(len(fiberTraces), self.synth.numFibers)
-        self.assertFloatsEqual([tt.fiberId for tt in fiberTraces], self.synth.fiberId)
-        spectra = fiberTraces.extractSpectra(image, badBitMask)
-        model = spectra.makeImage(image.getBBox(), fiberTraces)
+        self.assertEqual(len(fiberProfiles), self.synth.numFibers)
+        self.assertFloatsEqual(fiberProfiles.fiberId, sorted(self.synth.fiberId))
+
+        for fiberId in fiberProfiles:
+            fiberProfiles[fiberId].plot()
+        plt.close("all")
+
+        traces = fiberProfiles.makeFiberTracesFromDetectorMap(self.detMap)
+        spectra = traces.extractSpectra(image, badBitMask)
+        model = spectra.makeImage(image.getBBox(), traces)
         image -= model
         select = (image.mask.array & badBitMask) == 0
         chi2 = np.sum(image.image.array[select]**2/image.variance.array[select])
@@ -87,7 +123,7 @@ class FiberTraceSetTestCase(lsst.utils.tests.TestCase):
         if not doCheckSpectra:
             return
         for ss in spectra:
-            self.assertFloatsAlmostEqual(ss.flux, self.flux, rtol=1.5e-2)  # With bad pix, can get 1.1% diff
+            self.assertFloatsAlmostEqual(ss.flux, self.flux, rtol=3.0e-2)  # With bad pix, can get 2.7% diff
 
     def assertCenters(self, centers):
         """Assert that the centers are as expected
@@ -100,26 +136,10 @@ class FiberTraceSetTestCase(lsst.utils.tests.TestCase):
         centers : iterable of callables
             Functions that will produce the center of the trace for each row.
         """
-        self.assertEqual(len(centers), self.synth.numFibers)
+        self.assertListEqual(sorted(centers.keys()), sorted(self.synth.fiberId))
         rows = np.arange(self.synth.height, dtype=float)
-        for cen, fiberId in zip(centers, self.synth.fiberId):
-            self.assertFloatsAlmostEqual(cen(rows), self.detMap.getXCenter(fiberId), atol=5.0e-2)
-
-    def assertProfiles(self, profiles):
-        """Assert that the profiles are as expected
-
-        We check the number, and that the plotting function works. We leave
-        checking the correctness of the values to ``assertFiberTraces``.
-
-        Parameters
-        ----------
-        profiles : iterable of `pfs.drp.stella.FiberProfile`
-            Profiles of each fiber.
-        """
-        self.assertEqual(len(profiles), self.synth.numFibers)
-        for prof in profiles:
-            prof.plot()
-        plt.close("all")
+        for fiberId in centers:
+            self.assertFloatsAlmostEqual(centers[fiberId](rows), self.detMap.getXCenter(fiberId), atol=5.0e-2)
 
     def assertNumTraces(self, result, numTraces=None):
         """Assert that the results have the correct number of traces
@@ -127,14 +147,13 @@ class FiberTraceSetTestCase(lsst.utils.tests.TestCase):
         Parameters
         ----------
         result : `lsst.pipe.base.Struct`
-            Result from calling ``BuildFiberTracesTask.buildFiberTraces``.
+            Result from calling ``BuildFiberProfilesTask.run``.
         numTraces : `int`, optional
             Number of traces expected. Defaults to the number used to build the
             image.
         """
         if numTraces is None:
             numTraces = self.synth.numFibers
-        self.assertEqual(len(result.fiberTraces), numTraces)
         self.assertEqual(len(result.centers), numTraces)
         self.assertEqual(len(result.profiles), numTraces)
 
@@ -148,10 +167,9 @@ class FiberTraceSetTestCase(lsst.utils.tests.TestCase):
         * Subtraction residuals are reasonable
         * Extracted spectra are as expected
         """
-        results = self.task.buildFiberTraces(self.image, self.detMap)
-        self.assertFiberTraces(results.fiberTraces)
+        results = self.task.run(self.exposure, self.detMap)
+        self.assertFiberProfiles(results.profiles)
         self.assertCenters(results.centers)
-        self.assertProfiles(results.profiles)
 
     @methodParameters(oversample=(5, 7, 10, 15, 20))
     def testOversample(self, oversample):
@@ -160,30 +178,18 @@ class FiberTraceSetTestCase(lsst.utils.tests.TestCase):
         Making it too small results in bad subtractions.
         """
         self.config.profileOversample = oversample
-        results = self.task.buildFiberTraces(self.image, self.detMap)
-        self.assertFiberTraces(results.fiberTraces)
+        results = self.task.run(self.makeExposure(self.image), self.detMap)
+        self.assertFiberProfiles(results.profiles)
         self.assertCenters(results.centers)
-        self.assertProfiles(results.profiles)
-
-    def testRunMethod(self):
-        """Test that the 'run' method works
-
-        That allows us to use this to retarget FindAndTraceAperturesTask.
-
-        We only get the fiberTraces: no profiles or centers.
-        """
-        fiberTraces = self.task.run(self.image, self.detMap)
-        self.assertFiberTraces(fiberTraces)
 
     def testNonBlind(self):
         """Test that the non-blind method of finding traces works"""
         rng = np.random.RandomState(12345)
         pfsConfig = makeSyntheticPfsConfig(self.synth, 123456789, 54321, rng, fracSky=0.0, fracFluxStd=0.0)
         self.config.doBlindFind = False
-        result = self.task.buildFiberTraces(self.image, self.detMap, pfsConfig)
-        self.assertFiberTraces(result.fiberTraces)
+        result = self.task.run(self.makeExposure(self.image), self.detMap, pfsConfig)
+        self.assertFiberProfiles(result.profiles)
         self.assertCenters(result.centers)
-        self.assertProfiles(result.profiles)
 
     def testShortCosmics(self):
         """Test that we're robust to short cosmics
@@ -199,14 +205,14 @@ class FiberTraceSetTestCase(lsst.utils.tests.TestCase):
         image = self.image.clone()
         image.image.array[yy, xx] += cosmicValue
         image.mask.array[yy, xx] |= image.mask.getPlaneBitMask("CR")
-        result = self.task.buildFiberTraces(image, self.detMap)
-        self.assertFiberTraces(result.fiberTraces, image, image.mask.getPlaneBitMask("CR"))
+        result = self.task.run(self.makeExposure(image), self.detMap)
+        self.assertFiberProfiles(result.profiles, image, image.mask.getPlaneBitMask("CR"))
 
         # Repeat without masking the CR pixels
         image.mask.array[yy, xx] &= ~image.mask.getPlaneBitMask("CR")
-        result = self.task.buildFiberTraces(image, self.detMap)
+        result = self.task.run(self.makeExposure(image), self.detMap)
         image.mask.array[yy, xx] |= image.mask.getPlaneBitMask("CR")  # Reinstate mask for performance measure
-        self.assertFiberTraces(result.fiberTraces, image, image.mask.getPlaneBitMask("CR"))
+        self.assertFiberProfiles(result.profiles, image, image.mask.getPlaneBitMask("CR"))
 
     @methodParameters(angle=(15, 30, 45, 60, 120, 135, 150, 165))
     def testLongCosmics(self, angle):
@@ -233,7 +239,7 @@ class FiberTraceSetTestCase(lsst.utils.tests.TestCase):
         image = self.image.clone()
         image.image.array[cosmics] += cosmicValue
 
-        result = self.task.buildFiberTraces(image, self.detMap)
+        result = self.task.run(self.makeExposure(image), self.detMap)
         # The CR damages the profile in this small image; so just care about the number of traces
         self.assertNumTraces(result)
 
@@ -246,12 +252,12 @@ class FiberTraceSetTestCase(lsst.utils.tests.TestCase):
         self.image.image.array[stop:, :] = rng.normal(0.0, self.synth.readnoise,
                                                       (self.synth.height - stop, self.synth.width))
         # Expect that all traces are too short, hence pruned
-        result = self.task.buildFiberTraces(self.image, self.detMap)
+        result = self.task.run(self.makeExposure(self.image), self.detMap)
         self.assertNumTraces(result, 0)
 
         # Set pruneMinLength to something smaller than the trace length, and they should all be there again
         self.config.pruneMinLength = int(0.9*(stop - start))
-        result = self.task.buildFiberTraces(self.image, self.detMap)
+        result = self.task.run(self.makeExposure(self.image), self.detMap)
         self.assertNumTraces(result)
 
     def testBadRows(self):
@@ -260,17 +266,17 @@ class FiberTraceSetTestCase(lsst.utils.tests.TestCase):
         stop = 123
         self.image.image.array[start:stop] = np.nan
         self.image.mask.array[start:stop] = self.image.mask.getPlaneBitMask("BAD")
-        result = self.task.buildFiberTraces(self.image, self.detMap)
-        self.assertFiberTraces(result.fiberTraces, self.image, self.image.mask.getPlaneBitMask("BAD"),
-                               doCheckSpectra=False)
+        result = self.task.run(self.exposure, self.detMap)
+        self.assertFiberProfiles(result.profiles, self.image, self.image.mask.getPlaneBitMask("BAD"),
+                                 doCheckSpectra=False)
 
     def testBadColumn(self):
         """Test that we can deal with a bad column"""
         for xx in self.synth.traceCenters.astype(np.int) - 2:
             self.image.image.array[:, xx] = -123.45
             self.image.mask.array[:, xx] = self.image.mask.getPlaneBitMask("BAD")
-        result = self.task.buildFiberTraces(self.image, self.detMap)
-        # We're not going to have good profiles out of this, so not using self.assertFiberTraces
+        result = self.task.run(self.exposure, self.detMap)
+        # We're not going to have good profiles out of this, so not using self.assertFiberProfiles
         self.assertNumTraces(result)
 
     def testEarlyLongCosmic(self):
@@ -300,7 +306,7 @@ class FiberTraceSetTestCase(lsst.utils.tests.TestCase):
 
         self.config.pruneMaxWidth = 1000  # Make sure the CR peaks are included
         self.config.pruneMinLength = self.synth.height - crMaxRow - 5  # Because we've stolen some image
-        result = self.task.buildFiberTraces(image, self.detMap)
+        result = self.task.run(self.makeExposure(image), self.detMap)
         # The CR damages the profile in this small image; so just care about the number of traces
         self.assertNumTraces(result)
 
