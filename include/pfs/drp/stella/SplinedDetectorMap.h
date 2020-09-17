@@ -6,7 +6,7 @@
 #include "lsst/afw/table/io/Persistable.h"
 
 #include "pfs/drp/stella/spline.h"
-#include "pfs/drp/stella/BaseDetectorMap.h"
+#include "pfs/drp/stella/DetectorMap.h"
 
 
 namespace pfs { namespace drp { namespace stella {
@@ -17,7 +17,7 @@ namespace pfs { namespace drp { namespace stella {
 /// slithead. The values are *subtracted* from the CCD coordinates when
 /// calculating the wavelength for a pixel -- i.e. we assume that the spots are
 /// deflected up by slitOffset
-class SplinedDetectorMap : public BaseDetectorMap {
+class SplinedDetectorMap : public DetectorMap {
   public:
     using Spline = math::Spline<float>;
 

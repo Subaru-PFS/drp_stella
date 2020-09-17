@@ -2,7 +2,7 @@
 #include <pybind11/stl.h>
 
 #include "ndarray/pybind11.h"
-#include "pfs/drp/stella/BaseDetectorMap.h"
+#include "pfs/drp/stella/DetectorMap.h"
 
 namespace py = pybind11;
 using namespace pybind11::literals;
@@ -11,9 +11,9 @@ namespace pfs { namespace drp { namespace stella {
 
 namespace {
 
-void declareBaseDetectorMap(py::module & mod) {
-    using Class = BaseDetectorMap;
-    py::class_<Class, std::shared_ptr<Class>> cls(mod, "BaseDetectorMap");
+void declareDetectorMap(py::module & mod) {
+    using Class = DetectorMap;
+    py::class_<Class, std::shared_ptr<Class>> cls(mod, "DetectorMap");
     // getXCenter(int), getWavelength(int), findFiberId, findPoint, and findWavelength are pure virtual.
     // Sub-classes should call pfs::drp::stella::python::wrapDetectorMap to get these methods.
     cls.def("getBBox", &Class::getBBox);
@@ -54,9 +54,9 @@ void declareBaseDetectorMap(py::module & mod) {
 }
 
 
-PYBIND11_PLUGIN(BaseDetectorMap) {
-    py::module mod("BaseDetectorMap");
-    declareBaseDetectorMap(mod);
+PYBIND11_PLUGIN(DetectorMap) {
+    py::module mod("DetectorMap");
+    declareDetectorMap(mod);
     return mod.ptr();
 }
 

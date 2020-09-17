@@ -11,7 +11,7 @@ import lsst.afw.image.testUtils
 import lsst.afw.display
 
 import pfs.drp.stella.synthetic
-from pfs.drp.stella import GlobalDetectorMap, GlobalDetectorModel, BaseDetectorMap
+from pfs.drp.stella import GlobalDetectorMap, GlobalDetectorModel, DetectorMap
 from pfs.drp.stella.tests.utils import runTests, methodParameters
 
 display = None
@@ -203,7 +203,7 @@ class GlobalDetectorMapTestCase(lsst.utils.tests.TestCase):
         # Read with parent class
         with lsst.utils.tests.getTempFilePath(".fits") as filename:
             detMap.writeFits(filename)
-            copy = BaseDetectorMap.readFits(filename)
+            copy = DetectorMap.readFits(filename)
             self.assertGlobalDetectorMap(copy)
 
     def testPickle(self):

@@ -642,7 +642,7 @@ calculateMinCenMax(
 template<typename ImageT, typename MaskT, typename VarianceT>
 FiberTraceSet<ImageT, MaskT, VarianceT> findAndTraceApertures(
     afwImage::MaskedImage<ImageT, MaskT, VarianceT> const& maskedImage,
-    std::shared_ptr<BaseDetectorMap const> detectorMap,
+    std::shared_ptr<DetectorMap const> detectorMap,
     FiberTraceFindingControl const& finding,
     FiberTraceFunctionControl const& function,
     FiberTraceProfileFittingControl const& fitting
@@ -1449,7 +1449,7 @@ FindCenterPositionsOneTraceResult findCenterPositionsOneTrace(
 // Explicit instantiations
 template FiberTraceSet<float, lsst::afw::image::MaskPixel, float> findAndTraceApertures(
     afwImage::MaskedImage<float, lsst::afw::image::MaskPixel, float> const&,
-    std::shared_ptr<BaseDetectorMap const>,
+    std::shared_ptr<DetectorMap const>,
     FiberTraceFindingControl const&,
     FiberTraceFunctionControl const&,
     FiberTraceProfileFittingControl const&

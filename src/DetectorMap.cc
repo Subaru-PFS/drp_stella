@@ -4,17 +4,17 @@
 
 #include "pfs/drp/stella/utils/checkSize.h"
 
-#include "pfs/drp/stella/BaseDetectorMap.h"
+#include "pfs/drp/stella/DetectorMap.h"
 
 namespace pfs { namespace drp { namespace stella {
 
 
-BaseDetectorMap::BaseDetectorMap(
+DetectorMap::DetectorMap(
     lsst::geom::Box2I bbox,
-    BaseDetectorMap::FiberIds const& fiberId,
-    BaseDetectorMap::Array1D const& spatialOffsets,
-    BaseDetectorMap::Array1D const& spectralOffsets,
-    BaseDetectorMap::VisitInfo const& visitInfo,
+    DetectorMap::FiberIds const& fiberId,
+    DetectorMap::Array1D const& spatialOffsets,
+    DetectorMap::Array1D const& spectralOffsets,
+    DetectorMap::VisitInfo const& visitInfo,
     std::shared_ptr<lsst::daf::base::PropertySet> metadata
 ) : _bbox(bbox),
     _fiberId(ndarray::allocate(fiberId.size())),
@@ -53,7 +53,7 @@ BaseDetectorMap::BaseDetectorMap(
 }
 
 
-void BaseDetectorMap::applySlitOffset(
+void DetectorMap::applySlitOffset(
     float spatial,
     float spectral
 ) {
@@ -69,9 +69,9 @@ void BaseDetectorMap::applySlitOffset(
 }
 
 
-void BaseDetectorMap::setSlitOffsets(
-    BaseDetectorMap::Array1D const& spatial,
-    BaseDetectorMap::Array1D const& spectral
+void DetectorMap::setSlitOffsets(
+    DetectorMap::Array1D const& spatial,
+    DetectorMap::Array1D const& spectral
 ) {
     _spatialOffsets.deep() = spatial;
     _spectralOffsets.deep() = spectral;
@@ -79,7 +79,7 @@ void BaseDetectorMap::setSlitOffsets(
 }
 
 
-void BaseDetectorMap::setSlitOffsets(
+void DetectorMap::setSlitOffsets(
     int fiberId,
     float spatial,
     float spectral
@@ -91,7 +91,7 @@ void BaseDetectorMap::setSlitOffsets(
 }
 
 
-BaseDetectorMap::Array2D BaseDetectorMap::getWavelength() const {
+DetectorMap::Array2D DetectorMap::getWavelength() const {
     Array2D wavelength = ndarray::allocate(getNumFibers(), _bbox.getHeight());
     for (std::size_t ii = 0; ii < getNumFibers(); ++ii) {
         wavelength[ii].deep() = getWavelength(_fiberId[ii]);
@@ -100,7 +100,7 @@ BaseDetectorMap::Array2D BaseDetectorMap::getWavelength() const {
 }
 
 
-BaseDetectorMap::Array2D BaseDetectorMap::getXCenter() const {
+DetectorMap::Array2D DetectorMap::getXCenter() const {
     Array2D xCenter = ndarray::allocate(getNumFibers(), _bbox.getHeight());
     for (std::size_t ii = 0; ii < getNumFibers(); ++ii) {
         xCenter[ii].deep() = getXCenter(_fiberId[ii]);

@@ -22,7 +22,7 @@ SplinedDetectorMap::SplinedDetectorMap(
     Array1D const& spectralOffsets,
     VisitInfo const& visitInfo,
     std::shared_ptr<lsst::daf::base::PropertySet> metadata
-) : BaseDetectorMap(bbox, fiberId, spatialOffsets, spectralOffsets, visitInfo, metadata),
+) : DetectorMap(bbox, fiberId, spatialOffsets, spectralOffsets, visitInfo, metadata),
     _xToFiberId(bbox.getWidth())
 {
     utils::checkSize(xCenterKnots.size(), fiberId.size(), "DetectorMap: xCenterKnots");
@@ -60,7 +60,7 @@ SplinedDetectorMap::SplinedDetectorMap(
     Array1D const& spectralOffsets,
     VisitInfo const& visitInfo,
     std::shared_ptr<lsst::daf::base::PropertySet> metadata
-)  : BaseDetectorMap(bbox, fiberId, spatialOffsets, spectralOffsets, visitInfo, metadata),
+)  : DetectorMap(bbox, fiberId, spatialOffsets, spectralOffsets, visitInfo, metadata),
     _xCenter(xCenter),
     _wavelength(wavelength),
     _xToFiberId(bbox.getWidth())
@@ -82,7 +82,7 @@ SplinedDetectorMap::SplinedDetectorMap(
 }
 
 
-BaseDetectorMap::Array1D SplinedDetectorMap::getXCenter(
+DetectorMap::Array1D SplinedDetectorMap::getXCenter(
     int fiberId
 ) const {
     auto const& spline = getXCenterSpline(fiberId);
@@ -110,7 +110,7 @@ float SplinedDetectorMap::getXCenter(
 
 
 
-BaseDetectorMap::Array1D SplinedDetectorMap::getWavelength(
+DetectorMap::Array1D SplinedDetectorMap::getWavelength(
     int fiberId
 ) const {
     auto const& spline = getWavelengthSpline(fiberId);

@@ -1,5 +1,5 @@
-#if !defined(PFS_DRP_STELLA_BASEDETECTORMAP_H)
-#define PFS_DRP_STELLA_BASEDETECTORMAP_H
+#if !defined(PFS_DRP_STELLA_DETECTORMAP_H)
+#define PFS_DRP_STELLA_DETECTORMAP_H
 
 #include <utility>
 #include "ndarray_fwd.h"
@@ -16,7 +16,7 @@ namespace pfs { namespace drp { namespace stella {
 ///
 /// This pure-virtual base class provides a mapping between fiberId,wavelength
 /// and x,y on the detector.
-class BaseDetectorMap : public lsst::afw::table::io::Persistable {
+class DetectorMap : public lsst::afw::table::io::Persistable {
   public:
     using FiberIds = ndarray::Array<int, 1, 1>;
     using Array2D = ndarray::Array<float, 2, 1>;
@@ -80,11 +80,11 @@ class BaseDetectorMap : public lsst::afw::table::io::Persistable {
     std::shared_ptr<lsst::daf::base::PropertySet> getMetadata() { return _metadata; }
     std::shared_ptr<lsst::daf::base::PropertySet const> getMetadata() const { return _metadata; }
 
-    virtual ~BaseDetectorMap() {}
-    BaseDetectorMap(BaseDetectorMap const&) = default;
-    BaseDetectorMap(BaseDetectorMap &&) = default;
-    BaseDetectorMap & operator=(BaseDetectorMap const&) = default;
-    BaseDetectorMap & operator=(BaseDetectorMap &&) = default;
+    virtual ~DetectorMap() {}
+    DetectorMap(DetectorMap const&) = default;
+    DetectorMap(DetectorMap &&) = default;
+    DetectorMap & operator=(DetectorMap const&) = default;
+    DetectorMap & operator=(DetectorMap &&) = default;
 
   protected:
     /// Ctor
@@ -95,7 +95,7 @@ class BaseDetectorMap : public lsst::afw::table::io::Persistable {
     /// @param spectralOffsets : per-fiber offsets in the spectral dimension
     /// @param visitInfo : visit information
     /// @param metadata : FITS header
-    BaseDetectorMap(
+    DetectorMap(
         lsst::geom::Box2I bbox,
         FiberIds const& fiberId,
         Array1D const& spatialOffsets=Array1D(),

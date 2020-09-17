@@ -8,7 +8,7 @@ import lsst.geom
 from lsst.utils import continueClass
 
 from .SplinedDetectorMap import SplinedDetectorMap
-from .BaseDetectorMapContinued import BaseDetectorMap
+from .DetectorMapContinued import DetectorMap
 
 
 __all__ = ["SplinedDetectorMap"]
@@ -185,4 +185,4 @@ class SplinedDetectorMap:
         return fits
 
 
-BaseDetectorMap.register(SplinedDetectorMap)
+DetectorMap.register(SplinedDetectorMap)

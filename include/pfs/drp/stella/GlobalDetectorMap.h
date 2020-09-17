@@ -8,7 +8,7 @@
 
 #include "pfs/drp/stella/spline.h"
 #include "pfs/drp/stella/GlobalDetectorModel.h"
-#include "pfs/drp/stella/BaseDetectorMap.h"
+#include "pfs/drp/stella/DetectorMap.h"
 
 
 namespace pfs {
@@ -17,7 +17,7 @@ namespace stella {
 
 
 /// DetectorMap implemented with a global detector model
-class GlobalDetectorMap : public BaseDetectorMap {
+class GlobalDetectorMap : public DetectorMap {
   public:
     using ParamType = float;
 

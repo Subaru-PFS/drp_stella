@@ -30,7 +30,7 @@ GlobalDetectorMap::GlobalDetectorMap(
     Array1D const& spectralOffsets,
     VisitInfo const& visitInfo,
     std::shared_ptr<lsst::daf::base::PropertySet> metadata
-) : BaseDetectorMap(bbox, fiberId, spatialOffsets, spectralOffsets, visitInfo, metadata),
+) : DetectorMap(bbox, fiberId, spatialOffsets, spectralOffsets, visitInfo, metadata),
     _model(bbox, distortionOrder, fiberId, dualDetector, parameters.deep(),
            spatialOffsets.deep(), spectralOffsets.deep())
 {
@@ -42,7 +42,7 @@ GlobalDetectorMap::GlobalDetectorMap(
     GlobalDetectorModel const& model,
     VisitInfo const& visitInfo,
     std::shared_ptr<lsst::daf::base::PropertySet> metadata
-) : BaseDetectorMap(model.getBBox(), model.getFiberId(),
+) : DetectorMap(model.getBBox(), model.getFiberId(),
                     utils::convertArray<float>(model.getSpatialOffsets()),
                     utils::convertArray<float>(model.getSpectralOffsets()),
                     visitInfo, metadata),
@@ -119,7 +119,7 @@ void GlobalDetectorMap::_setSplines() {
 }
 
 
-BaseDetectorMap::Array1D GlobalDetectorMap::getXCenter(
+DetectorMap::Array1D GlobalDetectorMap::getXCenter(
     int fiberId
 ) const {
     Spline const& spline = _rowToXCenter[getFiberIndex(fiberId)];
@@ -141,7 +141,7 @@ float GlobalDetectorMap::getXCenter(
 }
 
 
-BaseDetectorMap::Array1D GlobalDetectorMap::getWavelength(
+DetectorMap::Array1D GlobalDetectorMap::getWavelength(
     int fiberId
 ) const {
     Spline const& spline = _rowToWavelength[getFiberIndex(fiberId)];

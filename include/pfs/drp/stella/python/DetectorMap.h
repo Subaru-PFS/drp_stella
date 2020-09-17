@@ -1,11 +1,11 @@
-#ifndef PFS_DRP_STELLA_PYTHON_BASEDETECTORMAP_H
-#define PFS_DRP_STELLA_PYTHON_BASEDETECTORMAP_H
+#ifndef PFS_DRP_STELLA_PYTHON_DETECTORMAP_H
+#define PFS_DRP_STELLA_PYTHON_DETECTORMAP_H
 
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 
 #include "ndarray/pybind11.h"
-#include "pfs/drp/stella/BaseDetectorMap.h"
+#include "pfs/drp/stella/DetectorMap.h"
 
 namespace py = pybind11;
 using namespace pybind11::literals;
@@ -15,13 +15,13 @@ namespace drp {
 namespace stella {
 namespace python {
 
-/// Use pybind11 to wrap a subclass of BaseDetectorMap
+/// Use pybind11 to wrap a subclass of DetectorMap
 ///
-/// Sub-classes of BaseDetectorMap can use this to define the virtual overrides.
+/// Sub-classes of DetectorMap can use this to define the virtual overrides.
 template <typename Class>
 auto wrapDetectorMap(py::module & mod, char const* name) {
-    pybind11::module::import("pfs.drp.stella.BaseDetectorMap");
-    py::class_<Class, std::shared_ptr<Class>, BaseDetectorMap> cls(mod, name);
+    pybind11::module::import("pfs.drp.stella.DetectorMap");
+    py::class_<Class, std::shared_ptr<Class>, DetectorMap> cls(mod, name);
     cls.def("getXCenter", py::overload_cast<int>(&Class::getXCenter, py::const_), "fiberId"_a);
     cls.def("getXCenter", py::overload_cast<int, float>(&Class::getXCenter, py::const_),
             "fiberId"_a, "row"_a);

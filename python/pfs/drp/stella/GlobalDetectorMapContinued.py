@@ -8,7 +8,7 @@ import lsst.geom
 from lsst.utils import continueClass
 
 from .GlobalDetectorMap import GlobalDetectorMap, GlobalDetectorModel
-from .BaseDetectorMapContinued import BaseDetectorMap
+from .DetectorMapContinued import DetectorMap
 
 
 __all__ = ["GlobalDetectorMap", "GlobalDetectorModel"]
@@ -129,4 +129,4 @@ class GlobalDetectorMap:
         return fits
 
 
-BaseDetectorMap.register(GlobalDetectorMap)
+DetectorMap.register(GlobalDetectorMap)

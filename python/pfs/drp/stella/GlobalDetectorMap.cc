@@ -4,7 +4,7 @@
 #include "ndarray/pybind11.h"
 #include "lsst/utils/python.h"
 #include "pfs/drp/stella/GlobalDetectorMap.h"
-#include "pfs/drp/stella/python/BaseDetectorMap.h"
+#include "pfs/drp/stella/python/DetectorMap.h"
 
 namespace py = pybind11;
 using namespace pybind11::literals;
@@ -47,13 +47,13 @@ void declareGlobalDetectorModel(py::module & mod) {
 void declareGlobalDetectorMap(py::module & mod) {
     using Class = GlobalDetectorMap;
     auto cls = python::wrapDetectorMap<Class>(mod, "GlobalDetectorMap");
-    cls.def(py::init<lsst::geom::Box2I, BaseDetectorMap::FiberIds const&, int,
-                     bool, ndarray::Array<double, 1, 1> const&, BaseDetectorMap::Array1D const&,
-                     BaseDetectorMap::Array1D const&, BaseDetectorMap::VisitInfo const&,
+    cls.def(py::init<lsst::geom::Box2I, DetectorMap::FiberIds const&, int,
+                     bool, ndarray::Array<double, 1, 1> const&, DetectorMap::Array1D const&,
+                     DetectorMap::Array1D const&, DetectorMap::VisitInfo const&,
                      std::shared_ptr<lsst::daf::base::PropertySet>>(),
                      "bbox"_a, "fiberId"_a, "distortionOrder"_a, "dualDetector"_a, "parameters"_a,
                      "spatialOffsets"_a=nullptr, "spectralOffsets"_a=nullptr,
-                     "visitInfo"_a=BaseDetectorMap::VisitInfo(lsst::daf::base::PropertyList()),
+                     "visitInfo"_a=DetectorMap::VisitInfo(lsst::daf::base::PropertyList()),
                      "metadata"_a=nullptr);
     cls.def(py::init<GlobalDetectorModel const&,
                      lsst::afw::image::VisitInfo const&,
@@ -77,12 +77,12 @@ void declareGlobalDetectorMap(py::module & mod) {
         [](py::tuple const& t){
             return GlobalDetectorMap(
                 t[0].cast<lsst::geom::Box2I>(),
-                t[1].cast<BaseDetectorMap::FiberIds>(),
+                t[1].cast<DetectorMap::FiberIds>(),
                 t[2].cast<int>(),
                 t[3].cast<bool>(),
                 t[4].cast<ndarray::Array<double, 1, 1>>(),
-                t[5].cast<BaseDetectorMap::Array1D>(),
-                t[6].cast<BaseDetectorMap::Array1D>(),
+                t[5].cast<DetectorMap::Array1D>(),
+                t[6].cast<DetectorMap::Array1D>(),
                 t[7].cast<Class::VisitInfo>(),
                 t[8].cast<std::shared_ptr<lsst::daf::base::PropertySet>>()
             );
@@ -93,7 +93,7 @@ void declareGlobalDetectorMap(py::module & mod) {
 
 PYBIND11_PLUGIN(GlobalDetectorMap) {
     py::module mod("GlobalDetectorMap");
-    pybind11::module::import("pfs.drp.stella.BaseDetectorMap");
+    pybind11::module::import("pfs.drp.stella.DetectorMap");
     declareGlobalDetectorModel(mod);
     declareGlobalDetectorMap(mod);
     return mod.ptr();

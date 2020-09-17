@@ -66,7 +66,7 @@ void declareOversampledPsf(py::module & mod) {
 void declareImagingSpectralPsf(py::module & mod) {
     using Class = ImagingSpectralPsf;
     py::class_<Class, std::shared_ptr<Class>, SpectralPsf> cls(mod, "ImagingSpectralPsf");
-    cls.def(py::init<std::shared_ptr<lsst::afw::detection::Psf> const, std::shared_ptr<BaseDetectorMap>>(),
+    cls.def(py::init<std::shared_ptr<lsst::afw::detection::Psf> const, std::shared_ptr<DetectorMap>>(),
             "psf"_a, "detectorMap"_a);
     cls.def("getBase", &Class::getBase);
     cls.def_property_readonly("imagePsf", &Class::getBase);

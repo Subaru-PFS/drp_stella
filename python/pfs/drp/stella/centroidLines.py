@@ -78,7 +78,7 @@ class CentroidLinesTask(Task):
             Arc exposure on which to centroid lines.
         referenceLines : `dict` (`int`: `list` of `pfs.drp.stella.ReferenceLine`)
             List of reference lines for each fiberId.
-        detectorMap : `pfs.drp.stella.BaseDetectorMap`
+        detectorMap : `pfs.drp.stella.DetectorMap`
             Approximate mapping between fiberId,wavelength and x,y.
 
         Returns
@@ -102,7 +102,7 @@ class CentroidLinesTask(Task):
         ----------
         referenceLines : `dict` (`int`: `list` of `pfs.drp.stella.ReferenceLine`)
             List of reference lines for each fiberId.
-        detectorMap : `pfs.drp.stella.BaseDetectorMap`
+        detectorMap : `pfs.drp.stella.DetectorMap`
             Approximate mapping between fiberId,wavelength and x,y.
 
         Returns

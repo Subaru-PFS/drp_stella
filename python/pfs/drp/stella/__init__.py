@@ -8,7 +8,7 @@ from .FiberTrace import *
 from .FiberTraceContinued import *
 from .FiberTraceSet import *
 from .FiberTraceSetContinued import *
-from .BaseDetectorMapContinued import *
+from .DetectorMapContinued import *
 from .GlobalDetectorMapContinued import *
 from .SplinedDetectorMapContinued import *
 from .utils import *

@@ -11,24 +11,25 @@ from lsst.pipe.base import CmdLineTask, ArgumentParser
 from pfs.datamodel import FiberStatus
 from lsst.obs.pfs.utils import getLampElements
 from .utils import readLineListFile
-from pfs.drp.stella.BaseDetectorMap import BaseDetectorMap
+from pfs.drp.stella.DetectorMap import DetectorMap
 
 
-__all__ = ["BaseDetectorMap", "DisplayDetectorMapTask", "DisplayDetectorMapConfig"]
+__all__ = ["DetectorMap", "DisplayDetectorMapTask", "DisplayDetectorMapConfig"]
 
 
 @continueClass  # noqa F811: redefinition
-class BaseDetectorMap:
+class DetectorMap:
     """A pseudo-class, containing factory methods and derived methods
 
-    This class cannot be instantiated. It exists to provide factory classes to
-    construct a ``DetectorMap`` based on the content of the source data. It also
-    provides some "inherited" methods for the "derived" classes. We take this
-    approach to avoid stepping on the inheritance hierarchy of a pybind11 class.
+    This class cannot be instantiated. It exists to provide factory classes the
+    ability to construct a ``DetectorMap`` based on the content of the source
+    data. It also provides some "inherited" methods for the "derived" classes.
+    We take this approach to avoid stepping on the inheritance hierarchy of a
+    pybind11 class.
 
     To support this interface, classes should implement the ``canReadFits``
     and ``fromFits`` methods, and be registered via
-    ``BaseDetectorMap.register``.
+    ``DetectorMap.register``.
     """
     _subclasses = []  # List of registered subclasses
 
@@ -42,7 +43,7 @@ class BaseDetectorMap:
         Parameters
         ----------
         SubClass : `type`
-            Subclass of ``pfs::drp::stella::BaseDetectorMap``.
+            Subclass of ``pfs::drp::stella::DetectorMap``.
         """
         assert SubClass not in cls._subclasses
         cls._subclasses.append(SubClass)
@@ -60,7 +61,7 @@ class BaseDetectorMap:
 
         Returns
         -------
-        self : subclass of ``pfs::drp::stella::BaseDetectorMap``
+        self : subclass of ``pfs::drp::stella::DetectorMap``
             Instantiated subclass, read from the file.
         """
         for SubClass in cls._subclasses:
@@ -138,7 +139,7 @@ class BaseDetectorMap:
         with open(pathName, "wb") as fd:
             hdus.writeto(fd)
 
-    def display(self, display, fiberId=None, wavelengths=None):
+    def display(self, display, fiberId=None, wavelengths=None, ctype="green"):
         """Plot wavelengths on an image
 
         Useful for visually inspecting the detectorMap on an arc image.
@@ -151,13 +152,15 @@ class BaseDetectorMap:
             Fiber identifiers to plot.
         wavelengths : iterable of `float`, optional
             Wavelengths to plot.
+        ctype : `str`
+            Color for `lsst.afw.display.Display` commands.
         """
-        if wavelengths:
-            minWl = min(array.min() for array in self.getWavelength())
-            maxWl = max(array.max() for array in self.getWavelength())
-            wavelengths = sorted([wl for wl in wavelengths if wl > minWl and wl < maxWl])
         if fiberId is None:
             fiberId = self.fiberId
+        if wavelengths:
+            minWl = min(self.getWavelength(ff).min() for ff in fiberId)
+            maxWl = max(self.getWavelength(ff).max() for ff in fiberId)
+            wavelengths = sorted([wl for wl in wavelengths if wl > minWl and wl < maxWl])
 
         with display.Buffering():
             for fiberId in fiberId:
@@ -166,12 +169,12 @@ class BaseDetectorMap:
 
                 # Work around extremely long ds9 commands from display.line getting truncated
                 for p1, p2 in zip(points[:-1], points[1:]):
-                    display.line((p1, p2), ctype="green")
+                    display.line((p1, p2), ctype=ctype)
 
                 if wavelengths:
                     points = [self.findPoint(fiberId, wl) for wl in wavelengths]
                     for xx, yy in points:
-                        display.dot("x", xx, yy, size=5)
+                        display.dot("x", xx, yy, size=5, ctype=ctype)
 
     def toBytes(self):
         """Convert to bytes

@@ -3,7 +3,7 @@
 
 #include "ndarray/pybind11.h"
 #include "pfs/drp/stella/SplinedDetectorMap.h"
-#include "pfs/drp/stella/python/BaseDetectorMap.h"
+#include "pfs/drp/stella/python/DetectorMap.h"
 
 namespace py = pybind11;
 using namespace pybind11::literals;
@@ -16,13 +16,13 @@ void declareSplinedDetectorMap(py::module & mod) {
     using Class = SplinedDetectorMap;
     auto cls = python::wrapDetectorMap<Class>(mod, "SplinedDetectorMap");
     cls.def(py::init<lsst::geom::Box2I,
-                     BaseDetectorMap::FiberIds const&,
+                     DetectorMap::FiberIds const&,
                      std::vector<ndarray::Array<float, 1, 1>> const&,
                      std::vector<ndarray::Array<float, 1, 1>> const&,
                      std::vector<ndarray::Array<float, 1, 1>> const&,
                      std::vector<ndarray::Array<float, 1, 1>> const&,
-                     BaseDetectorMap::Array1D const&,
-                     BaseDetectorMap::Array1D const&,
+                     DetectorMap::Array1D const&,
+                     DetectorMap::Array1D const&,
                      lsst::afw::image::VisitInfo const&,
                      std::shared_ptr<lsst::daf::base::PropertySet>
                      >(),
@@ -35,10 +35,9 @@ void declareSplinedDetectorMap(py::module & mod) {
     cls.def("setXCenter", &Class::setXCenter, "fiberId"_a, "knots"_a, "xCenter"_a);
     cls.def("setWavelength", &Class::setWavelength, "fiberId"_a, "knots"_a, "wavelength"_a);
 
-
     cls.def(py::pickle(
         [](Class const& self) {
-            BaseDetectorMap::FiberIds const& fiberId = self.getFiberId();
+            DetectorMap::FiberIds const& fiberId = self.getFiberId();
             std::size_t const numFibers = fiberId.getNumElements();
             std::vector<Class::Array1D> xCenterKnots;
             std::vector<Class::Array1D> xCenterValues;
@@ -61,7 +60,7 @@ void declareSplinedDetectorMap(py::module & mod) {
         [](py::tuple const& t){
             return SplinedDetectorMap(
                 t[0].cast<lsst::geom::Box2I>(),
-                t[1].cast<BaseDetectorMap::FiberIds>(),
+                t[1].cast<DetectorMap::FiberIds>(),
                 t[2].cast<std::vector<ndarray::Array<float, 1, 1>>>(),
                 t[3].cast<std::vector<ndarray::Array<float, 1, 1>>>(),
                 t[4].cast<std::vector<ndarray::Array<float, 1, 1>>>(),

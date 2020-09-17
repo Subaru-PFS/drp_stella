@@ -17,7 +17,7 @@ PYBIND11_PLUGIN(NevenPsf) {
     pybind11::module::import("pfs.drp.stella.SpectralPsf");
 
     py::class_<NevenPsf, std::shared_ptr<NevenPsf>, SpectralPsf, OversampledPsf> cls(mod, "NevenPsf");
-    cls.def(py::init<std::shared_ptr<BaseDetectorMap>,
+    cls.def(py::init<std::shared_ptr<DetectorMap>,
                      ndarray::Array<float const, 1, 1> const&,
                      ndarray::Array<float const, 1, 1> const&,
                      std::vector<ndarray::Array<double const, 2, 1>> const&,

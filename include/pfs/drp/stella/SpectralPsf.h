@@ -1,7 +1,7 @@
 #include "lsst/pex/exceptions.h"
 #include "lsst/afw/detection/Psf.h"
 
-#include "pfs/drp/stella/BaseDetectorMap.h"
+#include "pfs/drp/stella/DetectorMap.h"
 
 namespace pfs {
 namespace drp {
@@ -144,7 +144,7 @@ class SpectralPsf : public virtual lsst::afw::detection::Psf {
 
   public:
     /// Return the detectorMap
-    std::shared_ptr<BaseDetectorMap> getDetectorMap() const { return _detMap; }
+    std::shared_ptr<DetectorMap> getDetectorMap() const { return _detMap; }
 
     /** Compute an image of the PSF that can be compared with a spectral line on the image
      *
@@ -260,7 +260,7 @@ class SpectralPsf : public virtual lsst::afw::detection::Psf {
      * @param capacity : size of the cache.
      */
     SpectralPsf(
-        std::shared_ptr<BaseDetectorMap> detMap,
+        std::shared_ptr<DetectorMap> detMap,
         bool isFixed=false,
         std::size_t capacity=100
     ) : Psf(isFixed, capacity),
@@ -271,7 +271,7 @@ class SpectralPsf : public virtual lsst::afw::detection::Psf {
         }
     }
 
-    std::shared_ptr<BaseDetectorMap> _detMap;  ///< mapping between x,y and fiberId,wavelength
+    std::shared_ptr<DetectorMap> _detMap;  ///< mapping between x,y and fiberId,wavelength
 };
 
 
@@ -289,7 +289,7 @@ class ImagingSpectralPsf : public SpectralPsf {
      */
     ImagingSpectralPsf(
         std::shared_ptr<Psf> const base,
-        std::shared_ptr<BaseDetectorMap> detMap
+        std::shared_ptr<DetectorMap> detMap
     ) : SpectralPsf(detMap),
         _base(base)
         {}

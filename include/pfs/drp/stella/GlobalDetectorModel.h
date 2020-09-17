@@ -8,7 +8,7 @@
 #include "lsst/afw/math/FunctionLibrary.h"
 
 #include "pfs/drp/stella/spline.h"
-#include "pfs/drp/stella/BaseDetectorMap.h"
+#include "pfs/drp/stella/DetectorMap.h"
 
 
 namespace pfs {

@@ -22,7 +22,7 @@ class NevenPsfTestCase(lsst.utils.tests.TestCase):
     def setUp(self):
         drpPfsData = getPackageDir("drp_pfs_data")
         detMapFilename = os.path.join(drpPfsData, "detectorMap", "detectorMap-2019Apr-r1.fits")
-        self.detMap = pfs.drp.stella.BaseDetectorMap.readFits(detMapFilename)
+        self.detMap = pfs.drp.stella.DetectorMap.readFits(detMapFilename)
         self.psf = pfs.drp.stella.NevenPsf.build(self.detMap)
         self.fiberId = 339  # Needs to be a fiber for which we have a PSF
 

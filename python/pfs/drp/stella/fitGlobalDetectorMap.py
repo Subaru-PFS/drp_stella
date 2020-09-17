@@ -329,7 +329,7 @@ class FitGlobalDetectorMapTask(Task):
         ----------
         lines : `pfs.drp.stella.ArcLineSet`
             Arc line measurements.
-        detectorMap : `pfs.drp.stella.BaseDetectorMap`
+        detectorMap : `pfs.drp.stella.DetectorMap`
             Mapping of fiberId,wavelength to x,y.
         """
         matches = defaultdict(list)
