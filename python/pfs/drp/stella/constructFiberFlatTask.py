@@ -20,6 +20,7 @@ class ConstructFiberFlatConfig(SpectralCalibConfig):
         check=lambda x: x > 0.
     )
     profiles = ConfigurableField(target=BuildFiberProfilesTask, doc="Build fiber profiles")
+    ditherRounding = Field(dtype=int, default=4, doc="Number of decimals for rounding the dither value")
 
     def setDefaults(self):
         self.combination.stats.maxVisitsToCalcErrorFromInputVariance = 5
@@ -72,7 +73,9 @@ class ConstructFiberFlatTask(SpectralCalibTask):
         for dataRef in dataRefList:
             value = dataRef.getButler().queryMetadata("raw", "dither", dataRef.dataId)
             assert len(value) == 1, "Expect a single answer for this single dataset"
-            dithers[value.pop()].append(dataRef)
+            value = value.pop()
+            value = np.round(value, self.config.ditherRounding)
+            dithers[value].append(dataRef)
         self.log.info("Dither values: %s" % (sorted(dithers.keys()),))
 
         # Sum coadded dithers to fill in the gaps
