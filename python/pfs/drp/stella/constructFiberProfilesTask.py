@@ -1,7 +1,6 @@
 import numpy as np
 from collections import defaultdict
 
-import lsst.daf.base as dafBase
 import lsst.afw.display as afwDisplay
 import lsst.afw.image as afwImage
 from lsst.pex.config import Field, ConfigurableField, ConfigField, ListField
@@ -161,21 +160,5 @@ class ConstructFiberProfilesTask(SpectralCalibTask):
         #
         # And write it
         #
-        visitInfo = exposure.getInfo().getVisitInfo()
-        if visitInfo is None:
-            dateObs = dataRefList[0].dataId['taiObs']
-            if not dateObs.endswith("Z"):
-                dateObs += "Z"
-            visitInfo = afwImage.VisitInfo(date=dafBase.DateTime(dateObs, dafBase.DateTime.UTC))
-
-        # Clear out metadata to avoid conflicts with existing keywords when we set the stuff we need
-        for key in detMap.metadata.names():
-            detMap.metadata.remove(key)
-        detMap.setVisitInfo(visitInfo)
-        self.recordCalibInputs(cache.butler, detMap, struct.ccdIdList, outputId)
-        detMap.getMetadata().set("OBSTYPE", "detectorMap")  # Overwrite "fiberTrace"
-
-        dataRefList[0].put(detMap, 'detectorMap', visit0=dataRefList[0].dataId['visit'])
-
         self.recordCalibInputs(cache.butler, results.profiles, struct.ccdIdList, outputId)
         self.write(cache.butler, results.profiles, outputId)
