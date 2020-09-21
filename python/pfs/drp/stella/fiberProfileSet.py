@@ -1,9 +1,9 @@
-import io
 import numpy as np
-import astropy.io.fits
 
-import lsst.afw.fits
+from lsst.afw.image import stripVisitInfoKeywords, setVisitInfoMetadata, VisitInfo
+from lsst.daf.base import PropertyList
 
+from pfs.datamodel import PfsFiberProfiles
 from .fiberProfile import FiberProfile
 from .FiberTraceSetContinued import FiberTraceSet
 from .spline import SplineF
@@ -176,6 +176,70 @@ class FiberProfileSet:
         return traces.extractSpectra(maskedImage, badBitMask)
 
     @classmethod
+    def fromPfsFiberProfiles(cls, pfsFiberProfiles):
+        """Convert from a `pfs.datamodel.PfsFiberProfiles`
+
+        Essentially, this involves reformatting the list of profile arrays to
+        a `dict` of `pfs.drp.stella.FiberProfile` objects indexed by
+        ``fiberId``.
+
+        Parameters
+        ----------
+        pfsFiberProfiles : `pfs.datamodel.PfsFiberProfiles`
+            Datamodel version of fiber profiles to convert.
+
+        Returns
+        -------
+        self : cls
+            Fiber profiles in ``drp_stella`` format.
+        """
+        numFibers = len(pfsFiberProfiles)
+        profiles = {}
+        for ii in range(numFibers):
+            fiberId = pfsFiberProfiles.fiberId[ii]
+            profiles[fiberId] = FiberProfile(
+                pfsFiberProfiles.radius[ii], pfsFiberProfiles.oversample[ii],
+                pfsFiberProfiles.rows[ii], pfsFiberProfiles.profiles[ii],
+                pfsFiberProfiles.norm[ii] if pfsFiberProfiles.norm[ii].size > 0 else None)
+
+        metadata = PropertyList()
+        for key, value in pfsFiberProfiles.metadata.items():
+            metadata.set(key, value)
+
+        visitInfo = VisitInfo(metadata)
+        stripVisitInfoKeywords(metadata)
+
+        return cls(profiles, visitInfo, metadata)
+
+    def toPfsFiberProfiles(self, identity):
+        """Convert to a `pfs.datamodel.PfsFiberProfiles`
+
+        Essentially, this involves reformatting the `dict` of
+        `pfs.drp.stella.FiberProfile` objects to a list of profile arrays.
+
+        Parameters
+        ----------
+        identity : `pfs.datamodel.CalibIdentity`
+            Identity of the calib data.
+
+        Returns
+        -------
+        pfsFiberProfiles : `pfs.datamodel.PfsFiberProfiles`
+            Fiber profiles in ``datamodel`` format.
+        """
+        radius = [self[fiberId].radius for fiberId in self]
+        oversample = [self[fiberId].oversample for fiberId in self]
+        rows = [self[fiberId].rows for fiberId in self]
+        profiles = [self[fiberId].profiles for fiberId in self]
+        norm = [self[fiberId].norm if self[fiberId].norm is not None else [] for fiberId in self]
+
+        metadata = self.metadata.deepCopy()
+        setVisitInfoMetadata(metadata, self.visitInfo)
+
+        return PfsFiberProfiles(identity, self.fiberId, radius, oversample, rows, profiles, norm,
+                                metadata.toDict())
+
+    @classmethod
     def readFits(cls, filename):
         """Read from a FITS file
 
@@ -189,45 +253,8 @@ class FiberProfileSet:
         self : `FiberProfileSet`
             Fiber profiles read from FITS file.
         """
-        fits = astropy.io.fits.open(filename)
-
-        hdu = fits["FIBERS"]
-        fiberId1 = hdu.data["fiberId"]
-        radius = hdu.data["radius"]
-        oversample = hdu.data["oversample"]
-        norm = hdu.data["norm"]
-
-        hdu = fits["PROFILES"]
-        fiberId2 = hdu.data["fiberId"]
-        rows = hdu.data["rows"]
-        profiles = hdu.data["profiles"]
-        masks = hdu.data["masks"]
-
-        numFibers = len(fiberId1)
-        fiberProfiles = {}
-        for ii in range(numFibers):
-            fiberId = fiberId1[ii]
-            select = fiberId2 == fiberId
-            prof = np.ma.masked_array(np.array(profiles[select].tolist()),
-                                      mask=(np.array(masks[select].tolist(), dtype=bool) if
-                                            masks[select].size > 0 else None))
-            fiberProfiles[fiberId] = FiberProfile(radius[ii], oversample[ii], rows[select], prof,
-                                                  norm[ii] if norm[ii].size > 0 else None)
-
-        # Read the primary header with lsst.afw.fits
-        # This requires writing the FITS file into memory and reading it from there
-        buffer = io.BytesIO()
-        fits.writeto(buffer)
-        ss = buffer.getvalue()
-        size = len(ss)
-        ff = lsst.afw.fits.MemFileManager(size)
-        ff.setData(ss, size)
-        metadata = ff.readMetadata(0)
-
-        visitInfo = lsst.afw.image.VisitInfo(metadata)
-        lsst.afw.image.stripVisitInfoKeywords(metadata)
-
-        return cls(fiberProfiles, visitInfo, metadata)
+        profiles = PfsFiberProfiles.readFits(filename)
+        return cls.fromPfsFiberProfiles(profiles)
 
     def writeFits(self, filename):
         """Write to a FITS file
@@ -237,57 +264,6 @@ class FiberProfileSet:
         filename : `str`
             Name of FITS file.
         """
-        radius = [self[fiberId].radius for fiberId in self]
-        oversample = [self[fiberId].oversample for fiberId in self]
-        rows = [self[fiberId].rows for fiberId in self]
-        norm = [self[fiberId].norm if self[fiberId].norm is not None else [] for fiberId in self]
-
-        date = self.getVisitInfo().getDate()
-        metadata = self.metadata.deepCopy()
-        if self.visitInfo is not None:
-            lsst.afw.image.setVisitInfoMetadata(metadata, self.visitInfo)
-        header = astropy.io.fits.Header()
-        for key in metadata.names():
-            header[key] = metadata.get(key)
-
-        header["INHERIT"] = True
-        header["OBSTYPE"] = "fiberProfiles"
-        header["HIERARCH calibDate"] = date.toPython(date.UTC).strftime("%Y-%m-%d")
-
-        fibersHdu = astropy.io.fits.BinTableHDU.from_columns([
-            astropy.io.fits.Column("fiberId", format="J", array=self.fiberId),
-            astropy.io.fits.Column("radius", format="J", array=radius),
-            astropy.io.fits.Column("oversample", format="E", array=oversample),
-            astropy.io.fits.Column("norm", format="PE()", array=norm),
-        ], header=header.copy(), name="FIBERS")
-
-        numProfiles = sum(len(self[fiberId].rows) for fiberId in self)
-        fiberId = np.zeros(numProfiles, dtype=int)
-        rows = np.zeros(numProfiles, dtype=float)
-        profiles = []
-        masks = []
-        start = 0
-        for ff in self:
-            prof = self[ff]
-            num = len(prof.rows)
-            fiberId[start:start + num] = ff
-            rows[start:start + num] = prof.rows
-            for ii in range(num):
-                profiles.append(prof.profiles[ii])
-                if isinstance(prof.profiles, np.ma.MaskedArray):
-                    masks.append(prof.profiles.mask[ii])
-                else:
-                    masks.append([])
-            start += num
-
-        profilesHdu = astropy.io.fits.BinTableHDU.from_columns([
-            astropy.io.fits.Column("fiberId", format="J", array=fiberId),
-            astropy.io.fits.Column("rows", format="E", array=rows),
-            astropy.io.fits.Column("profiles", format="PE()", array=profiles),
-            astropy.io.fits.Column("masks", format="PL()", array=masks),
-        ], header=header.copy(), name="PROFILES")
-
-        fits = astropy.io.fits.HDUList([astropy.io.fits.PrimaryHDU(header=header.copy()),
-                                        fibersHdu, profilesHdu])
-        with open(filename, "wb") as fd:
-            fits.writeto(fd)
+        identity = PfsFiberProfiles.parseFilename(filename)
+        profiles = self.toPfsFiberProfiles(identity)
+        profiles.writeFits(filename)

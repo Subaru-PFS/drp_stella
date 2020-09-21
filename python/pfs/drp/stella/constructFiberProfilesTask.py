@@ -148,6 +148,10 @@ class ConstructFiberProfilesTask(SpectralCalibTask):
             self.log.info("Median relative transmission of fiber %d is %f",
                           ss.fiberId, np.median(ss.flux[np.isfinite(ss.flux)]))
 
+        results.profiles.metadata.set("OBSTYPE", "fiberProfiles")
+        date = results.profiles.getVisitInfo().getDate()
+        results.profiles.metadata.set("calibDate", date.toPython(date.UTC).strftime("%Y-%m-%d"))
+
         if self.debugInfo.display and self.debugInfo.combinedFrame >= 0:
             display = afwDisplay.Display(frame=self.debugInfo.combinedFrame)
             traces = results.profiles.makeFiberTraces(detMap)
