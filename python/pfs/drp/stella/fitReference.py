@@ -185,14 +185,14 @@ class FitReferenceTask(Task):
         spectrum : `pfs.datamodel.PfsReference`
             Reference spectrum.
         """
-        mag = set(spectrum.target.fiberMags.values())
-        if len(mag) != 1:
+        fiberFlux = set(spectrum.target.fiberFlux.values())
+        if len(fiberFlux) != 1:
             raise RuntimeError("This implementation requires a single ABmag, but was provided: %s" %
-                               (spectrum.target.fiberMags,))
-        mag = mag.pop()
+                               (spectrum.target.fiberFlux,))
+        fiberFlux = fiberFlux.pop()
 
         bandpass = None
-        for ff in spectrum.target.fiberMags.keys():
+        for ff in spectrum.target.fiberFlux.keys():
             try:
                 bandpass = FilterCurve(ff)
             except RuntimeError:
@@ -200,11 +200,11 @@ class FitReferenceTask(Task):
             else:
                 break
         else:
-            raise RuntimeError(f"Unable to find bandpass for any of {spectrum.target.fiberMags.keys()}")
+            raise RuntimeError(f"Unable to find bandpass for any of {spectrum.target.fiberFlux.keys()}")
 
         ref = readAmbre(spectrum.target, spectrum.wavelength)
         # For now, only use the filter curve in calculating the expected flux.
         # More precise work in the future may fold in the CCD QE, the mirror and the lens barrel.
-        ref *= 10**(-0.4*(mag + 48.6))*bandpass.integrate()/bandpass.integrate(ref)  # erg/cm^2/s/Hz
+        ref *= 10**(-0.4*(fiberFlux + 48.6))*bandpass.integrate()/bandpass.integrate(ref)  # erg/cm^2/s/Hz
         ref *= 1.0e23*1.0e9  # Convert to nJy
         return ref

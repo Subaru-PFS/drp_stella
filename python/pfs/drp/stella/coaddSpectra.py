@@ -190,22 +190,22 @@ class CoaddSpectraTask(CmdLineTask):
             self.log.warn("Multiple targetType for target %s (%s); using most common" % (target, targetType))
         targetType = targetType.most_common(1)[0][0]
 
-        fiberMags = defaultdict(list)
+        fiberFlux = defaultdict(list)
         for pfsConfig, ii in zip(pfsConfigList, indices):
-            for ff, mag in zip(pfsConfig.filterNames[ii], pfsConfig.fiberMag[ii]):
-                fiberMags[ff].append(mag)
-        for ff in fiberMags:
-            mag = set(fiberMags[ff])
-            if len(mag) > 1:
-                self.log.warn("Multiple %s mag for target %s (%s); using average" % (ff, target, mag))
-                mag = np.average(np.array(fiberMags[ff]))
+            for ff, flux in zip(pfsConfig.filterNames[ii], pfsConfig.fiberFlux[ii]):
+                fiberFlux[ff].append(flux)
+        for ff in fiberFlux:
+            flux = set(fiberFlux[ff])
+            if len(flux) > 1:
+                self.log.warn("Multiple %s flux for target %s (%s); using average" % (ff, target, flux))
+                flux = np.average(np.array(fiberFlux[ff]))
             else:
-                mag = mag.pop()
-            fiberMags[ff] = mag
+                flux = flux.pop()
+            fiberFlux[ff] = flux
 
         return Target(target.catId, target.tract, target.patch, target.objId,
                       radec.getRa().asDegrees(), radec.getDec().asDegrees(),
-                      targetType, dict(**fiberMags))
+                      targetType, dict(**fiberFlux))
 
     def getObservations(self, identityList, pfsConfigList, indices):
         """Construct a list of observations of the target
