@@ -6,7 +6,7 @@ import lsst.afw.image
 from lsst.pex.config import Config, Field
 from lsst.pipe.base import Struct
 from pfs.datamodel import PfsConfig, TargetType, FiberStatus
-from pfs.drp.stella import DetectorMap
+from pfs.drp.stella import SplinedDetectorMap
 
 __all__ = ["makeSpectrumImage",
            "addNoiseToImage",
@@ -205,7 +205,7 @@ def makeSyntheticDetectorMap(config):
 
     Returns
     -------
-    detMap : `pfs.drp.stella.DetectorMap`
+    detMap : `pfs.drp.stella.SplinedDetectorMap`
         Detector map.
     """
     bbox = lsst.geom.Box2I(lsst.geom.Point2I(0, 0), config.dims)
@@ -216,8 +216,8 @@ def makeSyntheticDetectorMap(config):
     for ii in range(config.numFibers):
         xCenter.append((config.traceCenters[ii] + config.traceOffset).astype(np.float32))
         wavelength.append(np.linspace(400.0, 950.0, config.height, dtype=np.float32))
-    return DetectorMap(bbox, fiberId, [knots]*config.numFibers, xCenter,
-                       [knots]*config.numFibers, wavelength)
+    return SplinedDetectorMap(bbox, fiberId, [knots]*config.numFibers, xCenter,
+                              [knots]*config.numFibers, wavelength)
 
 
 def makeSyntheticPfsConfig(config, pfsDesignId, visit, rng=None,

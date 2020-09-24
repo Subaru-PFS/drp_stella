@@ -8,7 +8,9 @@ from .FiberTrace import *
 from .FiberTraceContinued import *
 from .FiberTraceSet import *
 from .FiberTraceSetContinued import *
-from .detectorMapContinued import *
+from .DetectorMapContinued import *
+from .GlobalDetectorMapContinued import *
+from .SplinedDetectorMapContinued import *
 from .utils import *
 from .spline import *
 from .SpectralPsfContinued import *
@@ -17,3 +19,4 @@ from .lsf import *
 from .buildFiberTraces import *
 from .fiberProfile import *
 from .fitPolynomial import *
+from .slitOffsets import *

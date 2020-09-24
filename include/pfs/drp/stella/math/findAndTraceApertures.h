@@ -38,7 +38,7 @@ template<typename ImageT, typename MaskT=lsst::afw::image::MaskPixel,
 FiberTraceSet<ImageT, MaskT, VarianceT>
 findAndTraceApertures(
     lsst::afw::image::MaskedImage<ImageT, MaskT, VarianceT> const& maskedImage,
-    DetectorMap const& detectorMap,
+    std::shared_ptr<DetectorMap const> detectorMap,
     FiberTraceFindingControl const& finding,
     FiberTraceFunctionControl const& function,
     FiberTraceProfileFittingControl const& fitting

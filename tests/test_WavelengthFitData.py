@@ -6,7 +6,7 @@ import lsst.utils.tests
 import lsst.afw.geom
 
 from pfs.drp.stella.calibrateWavelengthsTask import WavelengthFitData, LineData
-from pfs.drp.stella import ReferenceLine, DetectorMap
+from pfs.drp.stella import ReferenceLine, SplinedDetectorMap
 
 display = None
 
@@ -100,8 +100,8 @@ class WavelengthFitDataTestCase(lsst.utils.tests.TestCase):
 
         bbox = lsst.geom.Box2I(lsst.geom.Point2I(0, 0),
                                lsst.geom.Extent2I(self.length, self.length))
-        detMap = DetectorMap(bbox, self.fiberId,
-                             centerKnots, centerValues, wavelengthKnots, wavelengthValues)
+        detMap = SplinedDetectorMap(bbox, self.fiberId, centerKnots, centerValues,
+                                    wavelengthKnots, wavelengthValues)
 
         corrections = {fiberId: lambda xx: self.correction[self.measuredPosition == xx][0] for
                        fiberId in self.fiberId}

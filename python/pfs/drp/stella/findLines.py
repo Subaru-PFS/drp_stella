@@ -82,11 +82,14 @@ class FindLinesTask(Task):
         -------
         centroids : `list` of `float`
             Centroid for each line.
+        errors : `list` of `float`
+            Centroid error for each line.
         continuum : `numpy.ndarray`
             Array continuum fit.
         """
         result = self.run(spectrum)
         centroids = [ll.center for ll in result.lines]
+        errors = [ll.centerErr for ll in result.lines]
 
         if lsstDebug.Info(__name__).plotCentroids:
             import matplotlib.pyplot as plt
@@ -97,7 +100,7 @@ class FindLinesTask(Task):
                 axes.axvline(cc, color="r", linestyle=":")
             plt.show()
 
-        return Struct(centroids=centroids, continuum=result.continuum)
+        return Struct(centroids=centroids, errors=errors, continuum=result.continuum)
 
     def convolve(self, spectrum, continuum=None):
         """Convolve a spectrum by the estimated LSF
@@ -346,7 +349,9 @@ class FindLinesTask(Task):
 
         return Struct(
             center=result.center,
+            centerErr=result.centerErr,
             amplitude=result.amplitude,
+            amplitudeErr=result.amplitudeErr,
             width=result.rmsSize,
             fwhm=2.0*np.sqrt(2.0*np.log(2))*result.rmsSize,
             flux=result.amplitude*result.rmsSize*np.sqrt(2*np.pi),
