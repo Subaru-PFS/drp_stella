@@ -157,13 +157,14 @@ class DetectorMap:
         """
         if fiberId is None:
             fiberId = self.fiberId
-        if wavelengths:
+        if wavelengths is not None:
             minWl = min(self.getWavelength(ff).min() for ff in fiberId)
             maxWl = max(self.getWavelength(ff).max() for ff in fiberId)
-            wavelengths = sorted([wl for wl in wavelengths if wl > minWl and wl < maxWl])
+            wavelengths = np.array([wl for wl in set(wavelengths) if wl > minWl and wl < maxWl],
+                                   dtype=np.float32)
 
         with display.Buffering():
-            for fiberId in fiberId:
+            for fiberId in set(fiberId):
                 xCenter = self.getXCenter(fiberId)
                 points = list(zip(xCenter, np.arange(len(xCenter))))
 
@@ -171,8 +172,8 @@ class DetectorMap:
                 for p1, p2 in zip(points[:-1], points[1:]):
                     display.line((p1, p2), ctype=ctype)
 
-                if wavelengths:
-                    points = [self.findPoint(fiberId, wl) for wl in wavelengths]
+                if wavelengths is not None:
+                    points = self.findPoint(np.full_like(wavelengths, fiberId, dtype=np.int32), wavelengths)
                     for xx, yy in points:
                         display.dot("x", xx, yy, size=5, ctype=ctype)
 
