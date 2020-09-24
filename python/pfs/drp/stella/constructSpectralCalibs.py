@@ -1,6 +1,8 @@
 import math
+import collections
 
 from lsst.pex.config import Field, ConfigurableField
+import lsst.daf.base as dafBase
 from lsst.daf.persistence import NoResults
 from lsst.afw.detection import FootprintSet, Threshold
 from lsst.afw.display import Display
@@ -19,12 +21,15 @@ __all__ = ["SpectralCalibConfig", "SpectralCalibTask"]
 # * CalibTask.recordCalibOutputs to include SPECTROGRAPH, ARM header keywords
 _originalGetOutputId = lsst.pipe.drivers.constructCalibs.CalibTask.getOutputId
 _originalRecordCalibInputs = lsst.pipe.drivers.constructCalibs.CalibTask.recordCalibInputs
+_originalHeaderFromRaws = lsst.pipe.drivers.constructCalibs.CalibTask.calculateOutputHeaderFromRaws
 
 
 def getOutputId(self, expRefList, calibId):
     """Generate the data identifier for the output calib
 
-    This override implementation adds ``visit0`` to the output identifier.
+    This override implementation uses sub-day resolution for calibDate,
+    downgrades multiple filters to a warning instead of an error, and
+    adds ``visit0`` to the output identifier.
 
     Parameters
     ----------
@@ -38,8 +43,28 @@ def getOutputId(self, expRefList, calibId):
     outputId : `dict`
         Data identifier for output.
     """
-    outputId = _originalGetOutputId(self, expRefList, calibId)
+    midTime = 0
+    filterNames = collections.Counter()
+    for expRef in expRefList:
+        butler = expRef.getButler()
+        dataId = expRef.dataId
+
+        midTime += self.getMjd(butler, dataId)
+        thisFilter = self.getFilter(butler, dataId) if self.filterName is None else self.filterName
+        filterNames[thisFilter] += 1
+
+    if len(filterNames) != 1:
+        self.log.warn("Multiple filters specified for %s: %s" % (dataId, filterNames))
+
+    midTime /= len(expRefList)
+    date = dafBase.DateTime(midTime, dafBase.DateTime.MJD).toString(dafBase.DateTime.TAI)
+
+    outputId = {self.config.filter: filterNames.most_common()[0][0],
+                self.config.dateCalib: date}
+    outputId.update(calibId)
+
     outputId["visit0"] = min(ref.dataId["visit"] for ref in expRefList)
+    outputId["calibDate"] = date[:date.find("T")]  # Date only
     return outputId
 
 
@@ -89,9 +114,39 @@ def getFilter(self, butler, dataId):
     return None
 
 
+def calculateOutputHeaderFromRaws(self, butler, calib, dataIdList, outputId):
+    """Calculate the output header from the raw headers.
+
+    This metadata will go into the output FITS header. It will include all
+    headers that are identical in all inputs.
+
+    This version removes the extraneous T00:00:00 from the end of DATE-OBS
+    (there should already be a time).
+
+    Parameters
+    ----------
+    butler : `lsst.daf.persistence.Butler`
+        Data butler.
+    calib : `lsst.afw.image.Exposure`
+        Combined calib exposure.
+    dataIdList : iterable of `dict` (`str`: POD)
+        List of data identifiers for calibration inputs.
+    outputId : `dict`
+        Data identifier for output.
+    """
+    _originalHeaderFromRaws(self, butler, calib, dataIdList, outputId)
+    header = calib.getMetadata()
+    dateObs = header.get("DATE-OBS")
+    if dateObs.endswith("T00:00:00.00"):
+        fixed = dateObs[:dateObs.rfind("T")]
+        if "T" in fixed:  # Make sure we haven't broken a good DATE-OBS
+            header.set("DATE-OBS", fixed, comment="Start date of earliest input observation")
+
+
 lsst.pipe.drivers.constructCalibs.CalibTask.getOutputId = getOutputId
 lsst.pipe.drivers.constructCalibs.CalibTask.recordCalibInputs = recordCalibInputs
 lsst.pipe.drivers.constructCalibs.CalibTask.getFilter = getFilter
+lsst.pipe.drivers.constructCalibs.CalibTask.calculateOutputHeaderFromRaws = calculateOutputHeaderFromRaws
 
 
 class PfsBiasTask(lsst.pipe.drivers.constructCalibs.BiasTask):

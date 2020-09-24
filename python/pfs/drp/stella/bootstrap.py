@@ -518,8 +518,8 @@ class BootstrapTask(CmdLineTask):
         dataId : `dict` (`str`: POD)
             Data identifier.
         """
-        keywords = ("arm", "spectrograph", "ccd", "filter", "calibDate", "visit0")
-        mapping = dict(visit0="visit", calibDate="dateObs")
+        keywords = ("arm", "spectrograph", "ccd", "filter", "calibDate", "calibTime", "visit0")
+        mapping = dict(visit0="visit", calibDate="dateObs", calibTime="taiObs")
         metadata.set("CALIB_ID", " ".join("%s=%s" % (key, dataId[mapping.get(key, key)]) for key in keywords))
 
     def _getMetadataName(self):
