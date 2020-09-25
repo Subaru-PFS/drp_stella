@@ -1,16 +1,14 @@
-import os
 import io
 import numpy as np
 import astropy.io.fits
 
-from lsst.utils import continueClass, getPackageDir
+from lsst.utils import continueClass
 from lsst.afw.display import Display
-from lsst.pex.config import Config, Field
-from lsst.pipe.base import CmdLineTask, ArgumentParser
+from lsst.pex.config import Config, Field, ConfigurableField
+from lsst.pipe.base import CmdLineTask, InputOnlyArgumentParser
 
-from pfs.datamodel import FiberStatus
-from lsst.obs.pfs.utils import getLampElements
-from .utils import readLineListFile
+from pfs.datamodel import FiberStatus, TargetType
+from .readLineList import ReadLineListTask
 from pfs.drp.stella.DetectorMap import DetectorMap
 
 
@@ -200,10 +198,8 @@ class DisplayDetectorMapConfig(Config):
     """Configuration for DisplayDetectorMapTask"""
     backend = Field(dtype=str, default="ds9", doc="Display backend to use")
     frame = Field(dtype=int, default=1, doc="Frame to use for display")
-    lineList = Field(dtype=str, doc="Line list to use for marking wavelengths",
-                     default=os.path.join(getPackageDir("obs_pfs"), "pfs", "lineLists", "ArCdHgKrNeXe.txt"))
-    minArcLineIntensity = Field(doc="Minimum 'NIST' intensity to use for arc lines",
-                                dtype=float, default=0)
+    doPlotLines = Field(dtype=bool, default=True, doc="Plot the location of lines from line list?")
+    readLineList = ConfigurableField(target=ReadLineListTask, doc="Read line list")
 
 
 class DisplayDetectorMapTask(CmdLineTask):
@@ -211,9 +207,13 @@ class DisplayDetectorMapTask(CmdLineTask):
     ConfigClass = DisplayDetectorMapConfig
     _DefaultName = "displayDetectorMap"
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.makeSubtask("readLineList")
+
     @classmethod
     def _makeArgumentParser(cls, *args, **kwargs):
-        parser = ArgumentParser(name=cls._DefaultName)
+        parser = InputOnlyArgumentParser(name=cls._DefaultName)
         parser.add_id_argument("--id", datasetType="calexp",
                                help="input identifiers, e.g., --id visit=123 ccd=4")
         return parser
@@ -229,6 +229,7 @@ class DisplayDetectorMapTask(CmdLineTask):
         exposure = dataRef.get("calexp")
         detectorMap = dataRef.get("detectorMap")
         pfsConfig = dataRef.get("pfsConfig")
+        self.log.info("Displaying %s", dataRef.dataId)
         self.run(exposure, detectorMap, pfsConfig)
 
     def run(self, exposure, detectorMap, pfsConfig):
@@ -243,15 +244,40 @@ class DisplayDetectorMapTask(CmdLineTask):
         pfsConfig : `pfs.datamodel.PfsConfig`
             Fiber configuration.
         """
-        lamps = getLampElements(exposure.getMetadata())
-        if not lamps:
-            raise RuntimeError("No lamps found from header")
-        lines = readLineListFile(self.config.lineList, lamps, minIntensity=self.config.minArcLineIntensity)
+        wavelengths = None
+        if self.config.doPlotLines:
+            lines = self.readLineList.run(metadata=exposure.getMetadata())
+            wavelengths = [rl.wavelength for rl in lines]
 
         display = Display(backend=self.config.backend, frame=self.config.frame)
         display.mtv(exposure)
-        indices = pfsConfig.selectByFiberStatus(FiberStatus.GOOD)
-        detectorMap.display(display, pfsConfig.fiberId[indices], [rl.wavelength for rl in lines])
+
+        goodFibers = detectorMap.fiberId[pfsConfig.selectByFiberStatus(FiberStatus.GOOD, detectorMap.fiberId)]
+        for targetType, color in ((TargetType.SCIENCE, "GREEN"),
+                                  (TargetType.SKY, "BLUE"),
+                                  (TargetType.FLUXSTD, "YELLOW"),
+                                  (TargetType.UNASSIGNED, "MAGENTA"),
+                                  (TargetType.ENGINEERING, "CYAN"),
+                                  ):
+            indices = pfsConfig.selectByTargetType(targetType, goodFibers)
+            if indices.size == 0:
+                self.log.info("No %s fibers found", targetType)
+                continue
+            fiberId = goodFibers[indices]
+            detectorMap.display(display, fiberId, wavelengths, color)
+            self.log.info("%s fibers (%d) are shown in %s", targetType, indices.size, color)
+
+        for fiberStatus, color in ((FiberStatus.BROKENFIBER, "BLACK"),
+                                   (FiberStatus.BLOCKED, "BLACK"),
+                                   (FiberStatus.BLACKSPOT, "RED"),
+                                   (FiberStatus.UNILLUMINATED, "BLACK")
+                                   ):
+            indices = pfsConfig.selectByFiberStatus(fiberStatus, detectorMap.fiberId)
+            if indices.size == 0:
+                self.log.info("No %s fibers found", fiberStatus)
+                continue
+            self.log.info("%s fibers (%d) are shown in %s", fiberStatus, indices.size, color)
+            detectorMap.display(display, detectorMap.fiberId[indices], wavelengths, color)
 
     def _getConfigName(self):
         return None
@@ -259,5 +285,5 @@ class DisplayDetectorMapTask(CmdLineTask):
     def _getMetadataName(self):
         return None
 
-    def _getEupsVersionsName(self):
-        return None
+    def writePackageVersions(self, *args, **kwargs):
+        return
