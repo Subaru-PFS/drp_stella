@@ -202,15 +202,21 @@ SpectrumSet FiberTraceSet<ImageT, MaskT, VarianceT>::extractSpectra(
                                                                           inversionWorkspace);
         for (std::size_t ii = 0; ii < num; ++ii) {
             auto value = solution[ii];
-            if (!std::isfinite(value)) {
+            auto varResult = variance[ii];
+            auto covarResult1 = (ii < num - 1 && useTrace[ii + 1]) ? covariance[ii] : 0.0;
+            auto covarResult2 = (ii > 0 && useTrace[ii - 1]) ? covariance[ii - 1] : 0.0;
+            if (!useTrace[ii] || !std::isfinite(value)) {
                 value = 0.0;
                 maskResult[ii] |= noData;
+                varResult = 0.0;
+                covarResult1 = 0.0;
+                covarResult2 = 0.0;
             }
             result[ii]->getSpectrum()[yData] = value;
             result[ii]->getMask()(yData, 0) = maskResult[ii];
-            result[ii]->getCovariance()[0][yData] = variance[ii];
-            result[ii]->getCovariance()[1][yData] = (ii < num - 1) ? covariance[ii] : 0.0;
-            result[ii]->getCovariance()[2][yData] = (ii > 0) ? covariance[ii - 1] : 0.0;
+            result[ii]->getCovariance()[0][yData] = varResult;
+            result[ii]->getCovariance()[1][yData] = covarResult1;
+            result[ii]->getCovariance()[2][yData] = covarResult2;
         }
     }
 #if 0

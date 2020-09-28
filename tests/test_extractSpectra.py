@@ -78,7 +78,7 @@ class ExtractSpectraTestCase(lsst.utils.tests.TestCase):
             self.assertFloatsAlmostEqual(ss.flux, expectFlux, rtol=2.0e-3)
             self.assertFloatsEqual(ss.mask.array[0], expectMask)
             self.assertFloatsEqual(ss.background, 0.0)
-            self.assertTrue(np.all(ss.variance > 0))
+            self.assertTrue(np.all(ss.mask.array[0] | (ss.variance > 0)))
             self.assertTrue(np.all(np.isfinite(ss.variance)))
             self.assertTrue(np.all(np.isfinite(ss.covariance)))
 
