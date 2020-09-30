@@ -45,20 +45,20 @@ class MeasureFluxCalibrationTask(Task):
         calib : `pfs.drp.stella.FocalPlaneFunction`
             Flux calibration.
         """
-        vectors = []
-        errors = []
+        values = []
+        variances = []
         masks = []
         for fiberId, ref in references.items():
             spectrum = merged.extractFiber(PfsSingle, pfsConfig, fiberId)
-            vectors.append(spectrum.flux/ref.flux)
-            errors.append(np.sqrt(spectrum.covar[0])/ref.flux)
+            values.append(spectrum.flux/ref.flux)
+            variances.append(spectrum.covar[0]/ref.flux**2)
             bad = (ref.mask & ref.flags.get(*self.config.refMask)) > 0
             bad |= (spectrum.mask & spectrum.flags.get(*self.config.obsMask)) > 0
             masks.append(bad)
         wavelength = merged.wavelength[0]
         for wl in merged.wavelength[1:, :]:
             assert np.all(wl == wavelength)
-        return self.fit.run(wavelength, vectors, errors, masks, list(references.keys()), pfsConfig)
+        return self.fit.run(wavelength, values, masks, variances, list(references.keys()), pfsConfig)
 
     def applySpectra(self, spectra, pfsConfig, calib):
         """Apply the flux calibration to spectra, in-place
@@ -79,12 +79,10 @@ class MeasureFluxCalibrationTask(Task):
         """
         cal = self.fit.apply(calib, spectra.wavelength, pfsConfig.fiberId, pfsConfig)
         with np.errstate(divide="ignore", invalid="ignore"):
-            spectra /= cal
-        badMask = spectra.flags.add("BAD_FLUXCAL")
-        for ii in range(len(spectra)):
-            bad = (~np.isfinite(cal[ii])) | (cal[ii] == 0.0)
-            if np.any(bad):
-                spectra.mask[ii][bad] |= badMask
+            spectra /= cal.values  # includes spectra.variance /= cal.values**2
+            spectra.covar[:, 0, :] += cal.variances*spectra.flux**2/np.array(cal.values)**2
+        bad = np.array(cal.masks) | ~np.isfinite(cal.values) | (np.array(cal.values) == 0.0)
+        spectra.mask[bad] |= spectra.flags.add("BAD_FLUXCAL")
 
     def applySpectrum(self, spectrum, fiberId, pfsConfig, calib):
         """Apply the flux calibration to a single spectrum, in-place
@@ -102,8 +100,7 @@ class MeasureFluxCalibrationTask(Task):
         """
         cal = self.fit.apply(calib, spectrum.wavelength, [fiberId], pfsConfig)
         with np.errstate(divide="ignore", invalid="ignore"):
-            spectrum /= cal
-        badMask = spectrum.flags.add("BAD_FLUXCAL")
-        bad = (~np.isfinite(cal)) | (cal == 0.0)
-        if np.any(bad):
-            spectrum.mask[bad] |= badMask
+            spectrum /= cal.values  # includes spectrum.variance /= cal.values**2
+            spectrum.covar[0] += cal.variances*spectrum.flux**2/cal.values**2
+        bad = np.array(cal.masks) | ~np.isfinite(cal.values) | (np.array(cal.values) == 0.0)
+        spectrum.mask[bad] |= spectrum.flags.add("BAD_FLUXCAL")
