@@ -1,6 +1,6 @@
 import numpy as np
 
-from lsst.pex.config import Config, ConfigurableField, ListField
+from lsst.pex.config import Config, Field, ConfigurableField, ListField
 from lsst.pipe.base import Task
 
 from .datamodel import PfsSingle
@@ -13,6 +13,10 @@ class MeasureFluxCalibrationConfig(Config):
     refMask = ListField(dtype=str, default=[], doc="Mask flags for rejection of reference")
     obsMask = ListField(dtype=str, default=["NO_DATA", "SAT", "BAD_FLAT"],
                         doc="Mask flags for rejection of observed")
+    sysErr = Field(dtype=float, default=1.0e-4,
+                   doc=("Fraction of value to add to variance before fitting. This attempts to offset the "
+                        "loss of variance as covariance when we resample, the result of which is "
+                        "underestimated errors and excess rejection."))
 
 
 class MeasureFluxCalibrationTask(Task):
@@ -51,7 +55,7 @@ class MeasureFluxCalibrationTask(Task):
         for fiberId, ref in references.items():
             spectrum = merged.extractFiber(PfsSingle, pfsConfig, fiberId)
             values.append(spectrum.flux/ref.flux)
-            variances.append(spectrum.covar[0]/ref.flux**2)
+            variances.append((spectrum.covar[0] + self.config.sysErr*spectrum.flux)/ref.flux**2)
             bad = (ref.mask & ref.flags.get(*self.config.refMask)) > 0
             bad |= (spectrum.mask & spectrum.flags.get(*self.config.obsMask)) > 0
             masks.append(bad)

@@ -17,6 +17,10 @@ class SubtractSky1dConfig(Config):
     minWavelength = Field(dtype=float, default=300, doc="Minimum wavelength for resampled spectra (nm)")
     maxWavelength = Field(dtype=float, default=1300, doc="Maximum wavelength for resampled spectra (nm)")
     deltaWavelength = Field(dtype=float, default=0.03, doc="Wavelength spacing for resampled spectra (nm)")
+    sysErr = Field(dtype=float, default=1.0e-4,
+                   doc=("Fraction of value to add to variance before fitting. This attempts to offset the "
+                        "loss of variance as covariance when we resample, the result of which is "
+                        "underestimated errors and excess rejection."))
 
 
 class SubtractSky1dTask(Task):
@@ -112,7 +116,7 @@ class SubtractSky1dTask(Task):
             maskVal = spectra.flags.get(*self.config.mask)
             for ii, ff in enumerate(spectra.fiberId):
                 values.append(spectra.flux[ii])
-                variances.append(spectra.covar[ii][0])
+                variances.append(spectra.covar[ii][0] + self.config.sysErr*spectra.flux[ii])
                 masks.append((spectra.mask[ii] & maskVal) > 0)
                 fiberId.append(ff)
         return self.fit.run(wavelength, values, masks, variances, fiberId, pfsConfig)
