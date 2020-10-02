@@ -40,7 +40,7 @@ def interpolateMask(fromWavelength, fromMask, toWavelength, fill=0):
     ----------
     fromWavelength : array-like of `float`
         Source wavelength array.
-    fromMask : array-like of `float`
+    fromMask : array-like of `int`
         Source mask array.
     toWavelength : array-like of `float`
         Target wavelength array.
@@ -49,7 +49,7 @@ def interpolateMask(fromWavelength, fromMask, toWavelength, fill=0):
 
     Returns
     -------
-    toMask : `numpy.ndarray` of `float`
+    toMask : `numpy.ndarray` of `int`
         Target mask array.
     """
     length = len(fromWavelength)
