@@ -131,8 +131,9 @@ SpectrumSet FiberTraceSet<ImageT, MaskT, VarianceT>::extractSpectra(
                  ++xModel, ++xData) {
                 if (dataMask(xData, yData) & badBitMask) continue;
                 if (!(iModelMask(xModel, iyModel) & require)) continue;
-                maskResult[ii] |= dataMask(xData, yData);
                 double const modelValue = iModelImage(xModel, iyModel);
+                if (modelValue == 0.0) continue;  // don't accumulate the mask
+                maskResult[ii] |= dataMask(xData, yData);
                 double const m2 = std::pow(modelValue, 2);
                 model2 += m2;
                 model2Weighted += m2/dataVariance(xData, yData);
