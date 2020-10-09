@@ -205,6 +205,5 @@ class FitReferenceTask(Task):
         ref = readAmbre(spectrum.target, spectrum.wavelength)
         # For now, only use the filter curve in calculating the expected flux.
         # More precise work in the future may fold in the CCD QE, the mirror and the lens barrel.
-        ref *= 10**(-0.4*(fiberFlux + 48.6))*bandpass.integrate()/bandpass.integrate(ref)  # erg/cm^2/s/Hz
-        ref *= 1.0e23*1.0e9  # Convert to nJy
+        ref *= fiberFlux*bandpass.integrate()/bandpass.integrate(ref)  # nJy
         return ref
