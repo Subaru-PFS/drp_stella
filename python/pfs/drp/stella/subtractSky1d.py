@@ -17,6 +17,10 @@ class SubtractSky1dConfig(Config):
     minWavelength = Field(dtype=float, default=300, doc="Minimum wavelength for resampled spectra (nm)")
     maxWavelength = Field(dtype=float, default=1300, doc="Maximum wavelength for resampled spectra (nm)")
     deltaWavelength = Field(dtype=float, default=0.03, doc="Wavelength spacing for resampled spectra (nm)")
+    sysErr = Field(dtype=float, default=1.0e-4,
+                   doc=("Fraction of value to add to variance before fitting. This attempts to offset the "
+                        "loss of variance as covariance when we resample, the result of which is "
+                        "underestimated errors and excess rejection."))
 
 
 class SubtractSky1dTask(Task):
@@ -104,18 +108,18 @@ class SubtractSky1dTask(Task):
             1D sky model.
         """
         wavelength = spectraList[0].wavelength[0]  # They're all resampled to a common wavelength scale
-        vectors = []
-        errors = []
+        values = []
+        variances = []
         masks = []
         fiberId = []
         for spectra, lsf in zip(spectraList, lsfList):
             maskVal = spectra.flags.get(*self.config.mask)
             for ii, ff in enumerate(spectra.fiberId):
-                vectors.append(spectra.flux[ii])
-                errors.append(np.sqrt(spectra.covar[ii][0]))
+                values.append(spectra.flux[ii])
+                variances.append(spectra.covar[ii][0] + self.config.sysErr*spectra.flux[ii])
                 masks.append((spectra.mask[ii] & maskVal) > 0)
                 fiberId.append(ff)
-        return self.fit.run(wavelength, vectors, errors, masks, fiberId, pfsConfig)
+        return self.fit.run(wavelength, values, masks, variances, fiberId, pfsConfig)
 
     def subtractSkySpectra(self, spectra, lsf, pfsConfig, sky1d):
         """Subtract the 1D sky model from the spectra, in-place
@@ -131,9 +135,12 @@ class SubtractSky1dTask(Task):
         sky1d : `pfs.drp.stella.FocalPlaneFunction`
             1D sky model.
         """
-        skyFlux = self.fit.apply(sky1d, spectra.wavelength, pfsConfig.fiberId, pfsConfig)
-        spectra.flux -= skyFlux
-        spectra.sky += skyFlux
+        sky = self.fit.apply(sky1d, spectra.wavelength, pfsConfig.fiberId, pfsConfig)
+        spectra.flux -= sky.values
+        spectra.sky += sky.values
+        bitmask = spectra.flags.add("BAD_SKY")
+        spectra.mask[np.array(sky.masks)] |= bitmask
+        spectra.covar[:, 0, :] += sky.variances
 
     def subtractSkySpectrum(self, spectrum, lsf, fiberId, pfsConfig, sky1d):
         """Subtract the 1D sky model from the spectrum, in-place
@@ -151,9 +158,12 @@ class SubtractSky1dTask(Task):
         sky1d : `pfs.drp.stella.FocalPlaneFunction`
             1D sky model.
         """
-        skyFlux = self.fit.apply(sky1d, spectrum.wavelength, [fiberId], pfsConfig)
-        spectrum.flux -= skyFlux
-        spectrum.sky += skyFlux
+        sky = self.fit.apply(sky1d, spectrum.wavelength, [fiberId], pfsConfig)
+        spectrum.flux -= sky.values
+        spectrum.sky += sky.values
+        bitmask = spectrum.flags.add("BAD_SKY")
+        spectrum.mask[np.array(sky.masks)] |= bitmask
+        spectrum.covariance[0] += sky.variance
 
     def plotSkyFibers(self, spectraList, pfsConfig, title):
         """Plot spectra from sky fibers
