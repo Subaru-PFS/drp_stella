@@ -1,5 +1,6 @@
 import math
 import numpy as np
+import astropy.units as u
 
 import lsst.geom
 import lsst.afw.image
@@ -292,12 +293,13 @@ def makeSyntheticPfsConfig(config, pfsDesignId, visit, rng=None,
 
     fiberStatus = np.full_like(targetType, FiberStatus.GOOD)
 
-    fiberMag = [np.array([22.0, 23.5, 25.0, 26.0] if
-                         tt in (TargetType.SCIENCE, TargetType.FLUXSTD) else [])
-                for tt in targetType]
+    fbr_flx = [(m*u.ABmag).to_value(u.nJy) for m in [22.0, 23.5, 25.0, 26.0]]
+    fiberFlux = [np.array(fbr_flx if
+                          tt in (TargetType.SCIENCE, TargetType.FLUXSTD) else [])
+                 for tt in targetType]
     filterNames = [["g", "i", "y", "H"] if tt in (TargetType.SCIENCE, TargetType.FLUXSTD) else []
                    for tt in targetType]
 
     return PfsConfig(pfsDesignId, visit, raBoresight.asDegrees(), decBoresight.asDegrees(),
                      fiberId, tract, patch, ra, dec, catId, objId, targetType, fiberStatus,
-                     fiberMag, filterNames, pfiCenter, pfiNominal)
+                     fiberFlux, filterNames, pfiCenter, pfiNominal)
