@@ -6,6 +6,7 @@
 
 #include "pfs/drp/stella/spline.h"
 #include "pfs/drp/stella/math/Math.h"
+#include "pfs/drp/stella/utils/math.h"
 #include "pfs/drp/stella/math/CurveFitting.h"
 #include "pfs/drp/stella/cmpfit-1.2/MPFitting_ndarray.h"
 #include "pfs/drp/stella/math/findAndTraceApertures.h"
@@ -693,7 +694,8 @@ FiberTraceSet<ImageT, MaskT, VarianceT> findAndTraceApertures(
         /// Fit Polynomial
         float xRangeMin = result.index[0];
         float xRangeMax = result.index[length - 1];
-        auto const fit = fitPolynomial(vectorToArray(result.index), vectorToArray(result.position),
+        auto const fit = fitPolynomial(utils::vectorToArray(result.index),
+                                       utils::vectorToArray(result.position),
                                        function.order, xRangeMin, xRangeMax);
         func.coefficients.deep() = fit.coeffs;
         LOGLS_TRACE(_log, "after PolyFit: fiberTraceFunction->coefficients = " << func.coefficients);

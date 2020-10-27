@@ -19,6 +19,17 @@ ndarray::Array<T, N, C> convertArray(ndarray::Array<U, N, C> const& array) {
 }
 
 
+/// Convert a std::vector to an ndarray::Array
+///
+/// This is useful for conversions in APIs, as the data is reused, with no
+/// copying. The Array's data will disappear when the vector goes out of scope,
+/// so be sure to use ndarray::copy as needed.
+template <typename T>
+ndarray::Array<T, 1, 1> vectorToArray(std::vector<T> vector) {
+    return ndarray::Array<T, 1, 1>(ndarray::external(vector.data(), ndarray::makeVector(vector.size())));
+}
+
+
 }}}}  // namespace pfs::drp::stella::utils
 
 #endif
