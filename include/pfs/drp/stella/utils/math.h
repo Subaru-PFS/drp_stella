@@ -30,6 +30,18 @@ ndarray::Array<T, 1, 1> vectorToArray(std::vector<T> vector) {
 }
 
 
+/// Convert an ndarray::Array to a std::vector
+///
+/// Some things in LSST still use std::vector, and there's no simple way to
+/// construct a std::vector from an ndarray::Array.
+template <typename T>
+std::vector<T> arrayToVector(ndarray::Array<T, 1, 1> const& array) {
+    std::vector<T> vector(array.size());
+    std::copy(array.begin(), array.end(), vector.begin());
+    return vector;
+}
+
+
 }}}}  // namespace pfs::drp::stella::utils
 
 #endif
