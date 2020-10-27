@@ -106,22 +106,34 @@ def calculateFitStatistics(model, lines, selection, soften=0.0):
     xResid, yResid : `numpy.ndarray` of `float`
         Fit residual in x,y for each of the ``lines`` (pixels).
     xRms, yRms : `float`
-        Residual RMS in x,y (pixels)
+        Weighted RMS residual in x,y (pixels).
+    xRobustRms, yRobustRms : `float`
+        Robust RMS (from IQR) residual in x,y (pixels).
     chi2 : `float`
         Fit chi^2.
     soften : `float`
         Systematic error that was applied to measured errors (pixels).
     """
     fit = model(lines.fiberId.astype(np.int32), lines.wavelength)
-    xResid = lines.x - fit[0]
-    yResid = lines.y - fit[1]
+    xResid = (lines.x - fit[:, 0])
+    yResid = (lines.y - fit[:, 1])
 
-    xRms = robustRms(xResid[selection])
-    yRms = robustRms(yResid[selection])
-    chi2 = np.sum((xResid[selection]**2/(lines.xErr[selection]**2 + soften**2)) +
-                  (yResid[selection]**2/(lines.yErr[selection]**2 + soften**2)))
-    return Struct(model=model, xResid=xResid, yResid=yResid, xRms=xRms, yRms=yRms,
-                  chi2=chi2, soften=soften)
+    xRobustRms = robustRms(xResid[selection])
+    yRobustRms = robustRms(yResid[selection])
+
+    xResid2 = xResid[selection]**2
+    yResid2 = yResid[selection]**2
+    xErr2 = lines.xErr[selection]**2 + soften**2
+    yErr2 = lines.yErr[selection]**2 + soften**2
+
+    xWeight = 1.0/xErr2
+    yWeight = 1.0/yErr2
+    xWeightedRms = np.sqrt(np.sum(xWeight*xResid2)/np.sum(xWeight))
+    yWeightedRms = np.sqrt(np.sum(yWeight*yResid2)/np.sum(yWeight))
+
+    chi2 = np.sum(xResid2/xErr2 + yResid2/yErr2)
+    return Struct(model=model, xResid=xResid, yResid=yResid, xRms=xWeightedRms, yRms=yWeightedRms,
+                  xRobustRms=xRobustRms, yRobustRms=yRobustRms, chi2=chi2, soften=soften)
 
 
 class FitGlobalDetectorMapConfig(Config):
@@ -201,9 +213,9 @@ class FitGlobalDetectorMapTask(Task):
         reservedStats = calculateFitStatistics(result.model, lines, reserved)
         self.log.info("Fit quality from reserved lines: "
                       "chi2=%f xRMS=%f yRMS=%f (%f nm, %f km/s) from %d lines (%.1f%%)",
-                      reservedStats.chi2, reservedStats.xRms, reservedStats.yRms,
-                      rmsPixelsToVelocity(reservedStats.yRms, result.model), reserved.sum(),
-                      reservedStats.yRms*result.model.getScaling().dispersion,
+                      reservedStats.chi2, reservedStats.xRobustRms, reservedStats.yRobustRms,
+                      reservedStats.yRobustRms*result.model.getScaling().dispersion,
+                      rmsPixelsToVelocity(reservedStats.yRobustRms, result.model), reserved.sum(),
                       reserved.sum()/numLines*100)
         self.log.debug("    Final fit model: %s", result.model)
 
@@ -393,9 +405,9 @@ class FitGlobalDetectorMapTask(Task):
         reservedStats = calculateFitStatistics(result.model, lines, reserved, soften)
         self.log.info("Softened fit quality from reserved lines: "
                       "chi2=%f xRMS=%f yRMS=%f (%f nm, %f km/s) from %d lines (%.1f%%)",
-                      reservedStats.chi2, reservedStats.xRms, reservedStats.yRms,
-                      rmsPixelsToVelocity(reservedStats.yRms, result.model), reserved.sum(),
-                      reservedStats.yRms*result.model.getScaling().dispersion,
+                      reservedStats.chi2, reservedStats.xRobustRms, reservedStats.yRobustRms,
+                      reservedStats.yRobustRms*result.model.getScaling().dispersion,
+                      rmsPixelsToVelocity(reservedStats.yRobustRms, result.model), reserved.sum(),
                       reserved.sum()/len(reserved)*100)
         self.log.debug("    Softened fit model: %s", result.model)
         return result
