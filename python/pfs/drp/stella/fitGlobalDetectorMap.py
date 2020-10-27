@@ -5,13 +5,46 @@ import scipy.optimize
 
 import lsstDebug
 from lsst.pex.config import Config, Field
+from lsst.afw.math import LeastSquares
 from lsst.pipe.base import Task, Struct
 
 from .GlobalDetectorMapContinued import GlobalDetectorMap
-from .GlobalDetectorMap import GlobalDetectorModel
+from .GlobalDetectorMap import GlobalDetectorModel, GlobalDetectorModelScaling, FiberMap
 from .arcLine import ArcLineSet
 
 __all__ = ("FitGlobalDetectorMapConfig", "FitGlobalDetectorMapTask")
+
+
+def fitStraightLine(xx, yy):
+    """Fit a straight line, y = slope*x + intercept
+
+    Parameters
+    ----------
+    xx : `numpy.ndarray` of `float`, size ``N``
+        Ordinate.
+    yy : `numpy.ndarray` of `float`, size ``N``
+        Co-ordinate.
+
+    Returns
+    -------
+    slope : `float`
+        Slope of line.
+    intercept : `float`
+        Intercept of line.
+    xMean : `float`
+        Mean of x values.
+    yMean : `float`
+        Mean of y values.
+    """
+    xMean = xx.mean()
+    yMean = yy.mean()
+    dx = xx - xMean
+    dy = yy - yMean
+    xySum = np.sum(dx*dy)
+    xxSum = np.sum(dx**2)
+    slope = xySum/xxSum
+    intercept = yMean - slope*xMean
+    return Struct(slope=slope, intercept=intercept, xMean=xMean, yMean=yMean)
 
 
 def robustRms(array):
@@ -48,7 +81,7 @@ def rmsPixelsToVelocity(rms, model):
     rms : `float`
         Velocity RMS (km/s).
     """
-    return 3.0e5*rms*model.getDispersion()/model.getWavelengthCenter()
+    return 3.0e5*rms*model.getScaling().dispersion/model.getScaling().wavelengthCenter
 
 
 def calculateFitStatistics(model, lines, selection, soften=0.0):
@@ -97,6 +130,9 @@ class FitGlobalDetectorMapConfig(Config):
     rejection = Field(dtype=float, default=4.0, doc="Rejection threshold (stdev)")
     order = Field(dtype=int, default=7, doc="Distortion order")
     reserveFraction = Field(dtype=float, default=0.1, doc="Fraction of lines to reserve in the final fit")
+    buffer = Field(dtype=float, default=0.05, doc="Buffer for xi,eta range")
+    forceSingleCcd = Field(dtype=bool, default=False,
+                           doc="Force a single CCD? This might be useful for a sparse fiber density")
 
 
 class FitGlobalDetectorMapTask(Task):
@@ -141,10 +177,10 @@ class FitGlobalDetectorMapTask(Task):
         result = None
         for ii in range(self.config.iterations):
             select = good & ~reserved
-            result = self.fitModel(arm, bbox, lines, select, result.model if result is not None else None)
+            result = self.fitModel(arm, bbox, lines, select)
             self.log.debug("Fit iteration %d: chi2=%f xRMS=%f yRMS=%f (%f nm, %f km/s) from %d/%d lines",
                            ii, result.chi2, result.xRms, result.yRms,
-                           result.yRms*result.model.getDispersion(),
+                           result.yRms*result.model.getScaling().dispersion,
                            rmsPixelsToVelocity(result.yRms, result.model), select.sum(),
                            numLines - numReserved)
             self.log.debug("Fit iteration %d: %s", ii, result.model)
@@ -158,16 +194,16 @@ class FitGlobalDetectorMapTask(Task):
             good = newGood
 
         select = good & ~reserved
-        result = self.fitModel(arm, bbox, lines, select, result.model if result is not None else None)
+        result = self.fitModel(arm, bbox, lines, select)
         self.log.info("Final fit: chi2=%f xRMS=%f yRMS=%f (%f nm, %f km/s) from %d/%d lines",
-                      result.chi2, result.xRms, result.yRms, result.yRms*result.model.getDispersion(),
+                      result.chi2, result.xRms, result.yRms, result.yRms*result.model.getScaling().dispersion,
                       rmsPixelsToVelocity(result.yRms, result.model), select.sum(), numLines - numReserved)
         reservedStats = calculateFitStatistics(result.model, lines, reserved)
         self.log.info("Fit quality from reserved lines: "
                       "chi2=%f xRMS=%f yRMS=%f (%f nm, %f km/s) from %d lines (%.1f%%)",
                       reservedStats.chi2, reservedStats.xRms, reservedStats.yRms,
-                      reservedStats.yRms*result.model.getDispersion(),
                       rmsPixelsToVelocity(reservedStats.yRms, result.model), reserved.sum(),
+                      reservedStats.yRms*result.model.getScaling().dispersion,
                       reserved.sum()/numLines*100)
         self.log.debug("    Final fit model: %s", result.model)
 
@@ -175,14 +211,14 @@ class FitGlobalDetectorMapTask(Task):
         if self.debugInfo.plot:
             self.plotModel(lines, good, result)
 
-        detMap = GlobalDetectorMap(result.model, visitInfo, metadata)
+        detMap = GlobalDetectorMap(bbox, result.model, visitInfo, metadata)
 
         if self.debugInfo.lineQa:
             self.lineQa(lines, detMap)
 
         return detMap
 
-    def fitModel(self, arm, bbox, lines, select, model=None, soften=0.0):
+    def fitModel(self, arm, bbox, lines, select, soften=0.0):
         """Fit a model to the arc lines
 
         Parameters
@@ -195,9 +231,6 @@ class FitGlobalDetectorMapTask(Task):
             Arc line measurements.
         select : `numpy.ndarray` of `bool`
             Flags indicating which of the ``lines`` are to be fit.
-        model : `pfs.drp.stella.GlobalDetectorModel`, optional
-            Model from previous fit iteration (provides a starting point for
-            this iteration).
         soften : `float`
             Systematic error to add in quadrature to measured errors (pixels).
 
@@ -214,29 +247,77 @@ class FitGlobalDetectorMapTask(Task):
         soften : `float`
             Systematic error that was applied to measured errors (pixels).
         """
-        dualDetector = (arm != "n")
-        parameters = None
-        if model is not None:
-            parameters = model.getParameters().copy()
+        doFitRightCcd = (arm != "n") and not self.config.forceSingleCcd
+        height = bbox.getHeight()
+        numDistortion = GlobalDetectorModel.getNumDistortion(self.config.order)
 
-        fiberId = lines.fiberId.astype(np.int32)
-        xErr = lines.xErr
-        yErr = lines.yErr
-        if soften > 0:
-            xErr = np.hypot(soften, xErr)
-            yErr = np.hypot(soften, yErr)
+        fiberMap = FiberMap(lines.fiberId.astype(np.int32))  # use all fibers, not just unrejected fibers
+        fiberId = lines.fiberId[select].astype(np.int32)
+        wavelength = lines.wavelength[select].astype(float)
+        xx = lines.x[select].astype(float)
+        yy = lines.y[select].astype(float)
+        xErr = np.hypot(lines.xErr[select], soften)
+        yErr = np.hypot(lines.yErr[select], soften)
 
-        try:
-            model = GlobalDetectorModel.fit(
-                bbox, self.config.order, dualDetector, fiberId, lines.wavelength,
-                lines.x, lines.y, xErr, yErr, select, parameters
+        # Determine scaling.
+        #
+        # These are not fit parameters, but merely provides convenient scaling factors so that
+        # the fit parameters, and especially the slit offsets, are in units roughly approximating pixels.
+        fiberFit = fitStraightLine(fiberId, xx)
+        wlFit = fitStraightLine(yy, wavelength)
+        scaling = GlobalDetectorModelScaling(
+            fiberPitch=np.abs(fiberFit.slope),  # pixels per fiber
+            dispersion=wlFit.slope,  # nm per pixel,
+            wavelengthCenter=wlFit.slope*height/2 + wlFit.intercept,
+            minFiberId=lines.fiberId.min(),
+            maxFiberId=lines.fiberId.max(),
+            height=height,
+            buffer=self.config.buffer,
+        )
+
+        # Set up the least-squares equations
+        xiEta = scaling(fiberId, wavelength)
+        xi = xiEta[:, 0]
+        eta = xiEta[:, 1]
+        fiberIndex = fiberMap(fiberId)
+        design = GlobalDetectorModel.calculateDesignMatrix(self.config.order, scaling.getRange(),
+                                                           xiEta, fiberIndex)
+
+        def fitDimension(values, errors):
+            numExtra = 3 if doFitRightCcd else 1
+            dm = np.zeros((len(values), numDistortion + numExtra), dtype=float)  # design matrix
+            dm[:, :-numExtra] = design/errors[:, np.newaxis]  # Weighting
+            # Insert additional terms for CCD offset and rotation
+            # We always fit the offset: there's a discontinuity in fiberIds at the center
+            dm[:, -1] = np.where(xx < 2048, 0.0, 1.0/errors)  # CCD offset
+            if doFitRightCcd:
+                dm[:, -3] = np.where(xx < 2048, 0.0, xi/errors)  # CCD rotation
+                dm[:, -2] = np.where(xx < 2048, 0.0, eta/errors)  # CCD rotation
+
+            fisher = np.matmul(dm.T, dm)
+            rhs = np.matmul(dm.T, values/errors)
+            equation = LeastSquares.fromNormalEquations(fisher, rhs)
+            solution = equation.getSolution()
+            return Struct(
+                distortion=solution[:-numExtra].copy(),
+                offset=solution[-1],
+                xiRot=solution[-3] if doFitRightCcd else 0.0,
+                etaRot=solution[-2] if doFitRightCcd else 0.0,
             )
-        except RuntimeError:
-            # Parameters from previous iteration may be corrupting this fit; start from scratch
-            model = GlobalDetectorModel.fit(
-                bbox, self.config.order, dualDetector, fiberId, lines.wavelength,
-                lines.x, lines.y, xErr, yErr, select
-            )
+
+        xParams = fitDimension(xx, xErr)
+        yParams = fitDimension(yy, yErr)
+
+        rightCcd = GlobalDetectorModel.makeRightCcdCoefficients(
+            xParams.offset, yParams.offset,
+            xParams.xiRot, xParams.etaRot,
+            yParams.xiRot, yParams.etaRot
+        )
+
+        model = GlobalDetectorModel(bbox, self.config.order, fiberId, scaling,
+                                    xParams.distortion, yParams.distortion, rightCcd)
+
+        model.measureSlitOffsets(xiEta, fiberIndex, xx, yy, xErr, yErr)
 
         return calculateFitStatistics(model, lines, select, soften)
 
@@ -301,20 +382,20 @@ class FitGlobalDetectorMapTask(Task):
 
         soften = scipy.optimize.bisect(softenChi2, 0.0, 1.0)
         self.log.info("Softening errors by %f pixels (%f nm, %f km/s) to yield chi^2/dof=1", soften,
-                      soften*result.model.getDispersion(),
+                      soften*result.model.getScaling().dispersion,
                       rmsPixelsToVelocity(soften, result.model))
 
-        result = self.fitModel(arm, bbox, lines, select, result.model, soften)
+        result = self.fitModel(arm, bbox, lines, select, soften)
         self.log.info("Softened fit: chi2=%f xRMS=%f yRMS=%f (%f nm, %f km/s) from %d/%d lines",
-                      result.chi2, result.xRms, result.yRms, result.yRms*result.model.getDispersion(),
+                      result.chi2, result.xRms, result.yRms, result.yRms*result.model.getScaling().dispersion,
                       rmsPixelsToVelocity(result.yRms, result.model), select.sum(), len(select))
 
         reservedStats = calculateFitStatistics(result.model, lines, reserved, soften)
         self.log.info("Softened fit quality from reserved lines: "
                       "chi2=%f xRMS=%f yRMS=%f (%f nm, %f km/s) from %d lines (%.1f%%)",
                       reservedStats.chi2, reservedStats.xRms, reservedStats.yRms,
-                      reservedStats.yRms*result.model.getDispersion(),
                       rmsPixelsToVelocity(reservedStats.yRms, result.model), reserved.sum(),
+                      reservedStats.yRms*result.model.getScaling().dispersion,
                       reserved.sum()/len(reserved)*100)
         self.log.debug("    Softened fit model: %s", result.model)
         return result
@@ -344,7 +425,7 @@ class FitGlobalDetectorMapTask(Task):
                 continue
             indices = np.array(matches[wl])
             fit = np.array([detectorMap.findWavelength(lines.fiberId[ii], lines.y[ii]) for ii in indices])
-            resid = (fit - wl)/model.getDispersion()
+            resid = (fit - wl)/model.getScaling().dispersion
             self.log.info("Line %f: rms residual=%f, mean error=%f num=%d",
                           wl, robustRms(resid), np.median(lines.yErr[indices]), len(indices))
             stdev.append(robustRms(resid))
@@ -402,7 +483,9 @@ class FitGlobalDetectorMapTask(Task):
         ff, wl = np.meshgrid(fiberId, wavelength)
         ff = ff.flatten()
         wl = wl.flatten()
-        xx, yy = result.model(ff, wl)
+        xy = result.model(ff, wl)
+        xx = xy[:, 0]
+        yy = xy[:, 1]
 
         for ii in range(numLines):
             select = ff == fiberId[ii]

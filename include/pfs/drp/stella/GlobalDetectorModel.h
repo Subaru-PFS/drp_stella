@@ -4,6 +4,9 @@
 #include <map>
 #include "ndarray_fwd.h"
 
+#include "lsst/geom/Box.h"
+#include "lsst/geom/Point.h"
+#include "lsst/geom/AffineTransform.h"
 #include "lsst/afw/table/io/Persistable.h"
 #include "lsst/afw/math/FunctionLibrary.h"
 
@@ -16,6 +19,133 @@ namespace drp {
 namespace stella {
 
 
+/// Scaling of fiberId,wavelength to nominal pixels
+///
+/// This is a container for parameters that convert fiberId and wavelength to
+/// nominal pixels. This is used to set the scaling for the distortion
+/// polynomials and the spatial and spectral offsets in the GlobalDetectorModel.
+/// As such, getting these values absolutely correct is not necessary, but it is
+/// convenient for interpreting the model parameters if they are close.
+///
+/// The coordinate system in which fiberId,wavelength have been scaled is
+/// referred to as 'xi,eta'.
+struct GlobalDetectorModelScaling {
+    double fiberPitch;  ///< distance between fibers (pixels)
+    double dispersion;  ///< linear wavelength dispersion (nm per pixel)
+    double wavelengthCenter;  ///< central wavelength (nm)
+    int minFiberId;  ///< minimum fiberId value
+    int maxFiberId;  ///< maximum fiberId value
+    std::size_t height;  ///< height of detector (wavelength dimension; pixel)
+    float buffer;  ///< fraction of expected wavelength range by which to expand the wavelength range in the
+                   ///< polynomials; this accounts for distortion or small inaccuracies in the dispersion.
+
+    /// Ctor
+    ///
+    /// @param fiberPitch_ : distance between fibers (pixels)
+    /// @param dispersion_ : linear wavelength dispersion (nm per pixel)
+    /// @param wavelengthCenter_ : central wavelength (nm)
+    /// @param minFiberId : minimum fiberId value
+    /// @param maxFiberId : maximum fiberId value
+    /// @param height : height of detector (wavelength dimension; pixel)
+    /// @param buffer : fraction of expected wavelength range by which to expand
+    ///                 the wavelength range in the polynomials; this accounts
+    ///                 for distortion or small inaccuracies in the dispersion.
+    GlobalDetectorModelScaling(
+        double fiberPitch_,
+        double dispersion_,
+        double wavelengthCenter_,
+        int minFiberId_,
+        int maxFiberId_,
+        std::size_t height_,
+        float buffer_=0.05
+    ) : fiberPitch(std::abs(fiberPitch_)), dispersion(dispersion_), wavelengthCenter(wavelengthCenter_),
+        minFiberId(minFiberId_), maxFiberId(maxFiberId_), height(height_), buffer(buffer_) {}
+
+    virtual ~GlobalDetectorModelScaling() {}
+    GlobalDetectorModelScaling(GlobalDetectorModelScaling const&) = default;
+    GlobalDetectorModelScaling(GlobalDetectorModelScaling &&) = default;
+    GlobalDetectorModelScaling & operator=(GlobalDetectorModelScaling const&) = default;
+    GlobalDetectorModelScaling & operator=(GlobalDetectorModelScaling &&) = default;
+
+    //@{
+    /// Convert fiberId,wavelength to xi,eta in pixels
+    ///
+    /// The scaling is applied; there may be an offset to the appropriate
+    /// position on the detector.
+    ///
+    /// @param fiberId : fiber identifier
+    /// @param wavelength : wavelength (nm)
+    /// @returns xi,eta position
+    lsst::geom::Point2D operator()(int fiberId, double wavelength) const;
+    ndarray::Array<double, 2, 1> operator()(
+        ndarray::Array<int, 1, 1> const& fiberId,
+        ndarray::Array<double, 1, 1> const& wavelength
+    ) const;
+    //@}
+
+    /// Convert xi,eta to approximate fiberId,wavelength
+    ///
+    /// This is useful for identifying troublesome xi,eta points.
+    /// @param xiEta : xi,eta position
+    /// @returns fiberId,wavelength values
+    lsst::geom::Point2D inverse(lsst::geom::Point2D const& xiEta) const;
+
+    /// Get range of xi,eta values
+    ///
+    /// All fiberId,wavelength values for a detector should fall in this range;
+    /// it may be used for scaling polynomial inputs.
+    lsst::geom::Box2D getRange() const;
+
+    friend std::ostream& operator<<(std::ostream& os, GlobalDetectorModelScaling const& model);
+};
+
+
+/// Mapping from fiberId to fiberIndex
+///
+/// fiberId (int) are identifiers assigned to fibers. fiberIndex (std::size_t)
+/// is the position in an array of that fiber. This class therefore provides an
+/// array index for a particular fiberId.
+///
+/// Given the same input fiberIds, the same mapping should result.
+class FiberMap {
+    using Map = std::unordered_map<int, std::size_t>;
+  public:
+
+    /// Ctor
+    ///
+    /// @param fiberId : fiber identifiers
+    FiberMap(ndarray::Array<int, 1, 1> const& fiberId);
+
+    virtual ~FiberMap() {}
+    FiberMap(FiberMap const&) = default;
+    FiberMap(FiberMap &&) = default;
+    FiberMap & operator=(FiberMap const&) = default;
+    FiberMap & operator=(FiberMap &&) = default;
+
+    /// Number of fibers in mapping
+    std::size_t size() const { return _map.size(); }
+
+    //@{
+    /// Map fiberId to fiberIndex
+    std::size_t operator()(int fiberId) const { return _map.at(fiberId); }
+    ndarray::Array<std::size_t, 1, 1> operator()(ndarray::Array<int, 1, 1> const& fiberId) const;
+    //@}
+
+    //@{
+    /// Iteration
+    Map::iterator begin() { return _map.begin(); }
+    Map::const_iterator begin() const { return _map.begin(); }
+    Map::iterator end() { return _map.end(); }
+    Map::const_iterator end() const { return _map.end(); }
+    //@}
+
+    friend std::ostream& operator<<(std::ostream& os, FiberMap const& fiberMap);
+
+  private:
+    std::unordered_map<int, std::size_t> _map;
+};
+
+
 /// Model for transforming fiberId,wavelength to x,y on the detector
 ///
 /// The model assumes that fibers are inserted in the slit in numeric order,
@@ -24,105 +154,51 @@ namespace stella {
 /// is linear with distance from the slit.
 ///
 /// A two-dimensional polynomial distortion field is applied to this simple
-/// setup to account for the camera optics, whereupon the positions are mapped
-/// onto the detector. We allow for the detector to be comprised of two
-/// discrete elements with a relative offset and rotation.
+/// setup to account for the camera optics. We allow for the detector to be
+/// comprised of two discrete elements with a relative offset and rotation.
 ///
 /// The model parameters are:
-/// * fiberCenter: the fiberId which is the optical center of the slit.
-/// * fiberPitch: distance between fibers (undistorted pixels).
-/// * wavelengthCenter: the central wavelength (nm).
-/// * dispersion: the linear dispersion (nm per undistorted pixel).
-/// * ccdRotation: the rotation of the right-hand detector relative to the
-///       left-hand detector (radians).
-/// * x0, y0: optical center in the distorted frame.
-/// * xGap, yGap: distance between the left-hand and right-hand detectors.
+/// * scaling: these parameters convert fiberId and wavelength to nominal
+///   pixels. It is not necessary to get these values exactly correct, but they
+///   set the scaling for the distortion polynomials and the spatial and
+///   spectral offsets.
 /// * xDistortion, yDistortion: 2D polynomial distortion field coefficients.
+/// * rightCcd: 2D affine transformation coefficients for the right-hand (high
+///   x value) CCD.
 /// * spatialOffset, spectralOffset: per-fiber offsets in the spatial and
 ///       spectral dimensions.
-///
-/// There is a strong degeneracy between some parameters, especially
-/// fiberCenter, fiberPitch, wavelengthCenter, dispersion, x0, y0 and the
-/// linear part of the distortion polynomials; the distortion can also couple
-/// into the per-fiber offsets. This requires care when fitting.
-///
-/// We want to be able to construct the model quickly, since it will be used in
-/// tight loops (e.g., a non-linear fitter), where the model evaluation time is
-/// a major limitation on the runtime; and the user shouldn't have to supply all
-/// the model parameters independently. For this reason, we have constructors
-/// that take an array of parameters (either as a std::vector or ndarray::Array)
-/// and store that array as an ndarray::Array (because std::vector can be
-/// converted to an ndarray::Array without copying, but not vice versa). But in
-/// order to support the DetectorMap class, where the slit offsets are stored
-/// separately, we also store the slit offsets separately from the rest of the
-/// parameters (using ndarray::Array, this can be done without any copying).
 class GlobalDetectorModel {
   public:
-    using ParamArray = ndarray::Array<double, 1, 1>;
     using Polynomial = lsst::afw::math::Chebyshev1Function2<double>;
-    using FiberMap = std::unordered_map<int, std::size_t>;
 
     /// Ctor
     ///
     /// @param bbox : detector bounding box
     /// @param distortionOrder : polynomial order for distortion
     /// @param fiberId : fiberId values for fibers
-    /// @param dualDetector : detector is two individual CCDs?
-    /// @param parameters : model parameters
-    /// @param copyParameters : copy parameter array (e.g., to avoid parameters going out of scope)?
-    GlobalDetectorModel(
-        lsst::geom::Box2I const& bbox,
-        int distortionOrder,
-        ndarray::Array<int, 1, 1> const& fiberId,
-        bool dualDetector,
-        std::vector<double> const& parameters,
-        bool copyParameters=true
-    );
-
-    /// Ctor
-    ///
-    /// @param bbox : detector bounding box
-    /// @param distortionOrder : polynomial order for distortion
-    /// @param fiberId : fiberId values for fibers
-    /// @param dualDetector : detector is two individual CCDs?
-    /// @param parameters : model parameters
-    GlobalDetectorModel(
-        lsst::geom::Box2I const& bbox,
-        int distortionOrder,
-        ndarray::Array<int, 1, 1> const& fiberId,
-        bool dualDetector,
-        ndarray::Array<double const, 1, 1> const& parameters
-    );
-
-    //@{
-    /// Ctor
-    ///
-    /// @param bbox : detector bounding box
-    /// @param distortionOrder : polynomial order for distortion
-    /// @param fiberId : fiberId values for fibers
-    /// @param dualDetector : detector is two individual CCDs?
-    /// @param parameters : distortion parameters
+    /// @param scaling : scaling of fiberId,wavelength to xi,eta
+    /// @param xDistortion : distortion field parameters for x
+    /// @param yDistortion : distortion field parameters for y
+    /// @param rightCcd : affine transformation parameters for the right CCD
     /// @param spatialOffsets : slit offsets in the spatial dimension
     /// @param spectralOffsets : slit offsets in the spectral dimension
     GlobalDetectorModel(
         lsst::geom::Box2I const& bbox,
         int distortionOrder,
         ndarray::Array<int, 1, 1> const& fiberId,
-        bool dualDetector,
-        ndarray::Array<double const, 1, 1> const& parameters,
-        ndarray::Array<double const, 1, 1> const& spatialOffsets,
-        ndarray::Array<double const, 1, 1> const& spectralOffsets
+        GlobalDetectorModelScaling const& scaling,
+        ndarray::Array<double, 1, 1> const& xDistortion,
+        ndarray::Array<double, 1, 1> const& yDistortion,
+        ndarray::Array<double, 1, 1> const& rightCcd,
+        ndarray::Array<float, 1, 1> const& spatialOffsets=ndarray::Array<float, 1, 1>(),
+        ndarray::Array<float, 1, 1> const& spectralOffsets=ndarray::Array<float, 1, 1>()
     );
-    GlobalDetectorModel(
-        lsst::geom::Box2I const& bbox,
-        int distortionOrder,
-        ndarray::Array<int, 1, 1> const& fiberId,
-        bool dualDetector,
-        ndarray::Array<double const, 1, 1> const& parameters,
-        ndarray::Array<float, 1, 1> const& spatialOffsets,
-        ndarray::Array<float, 1, 1> const& spectralOffsets
-    );
-    //@}
+
+    virtual ~GlobalDetectorModel() {}
+    GlobalDetectorModel(GlobalDetectorModel const&) = default;
+    GlobalDetectorModel(GlobalDetectorModel &&) = default;
+    GlobalDetectorModel & operator=(GlobalDetectorModel const&) = default;
+    GlobalDetectorModel & operator=(GlobalDetectorModel &&) = default;
 
     //@{
     /// Evaluate the model
@@ -132,25 +208,59 @@ class GlobalDetectorModel {
     /// @param fiberIndex : index for fiber
     /// @return x,y position on detector
     lsst::geom::Point2D operator()(int fiberId, double wavelength) const {
-        return operator()(fiberId, wavelength, _fiberMap.at(fiberId));
+        return operator()(fiberId, wavelength, getFiberIndex(fiberId));
     }
     ndarray::Array<double, 2, 1> operator()(
         ndarray::Array<int, 1, 1> const& fiberId,
         ndarray::Array<double, 1, 1> const& wavelength
-    ) const;
-    lsst::geom::Point2D operator()(int fiberId, double wavelength, std::size_t fiberIndex) const;
+    ) const {
+        return operator()(getScaling()(fiberId, wavelength), getFiberIndex(fiberId));
+    }
+    lsst::geom::Point2D operator()(int fiberId, double wavelength, std::size_t fiberIndex) const {
+        return operator()(getScaling()(fiberId, wavelength), fiberIndex);
+    }
     ndarray::Array<double, 2, 1> operator()(
         ndarray::Array<int, 1, 1> const& fiberId,
         ndarray::Array<double, 1, 1> const& wavelength,
         ndarray::Array<std::size_t, 1, 1> const& fiberIndex
+    ) const {
+        return operator()(getScaling()(fiberId, wavelength), fiberIndex);
+    }
+    lsst::geom::Point2D operator()(lsst::geom::Point2D const& xiEta, std::size_t fiberIndex) const;
+    ndarray::Array<double, 2, 1> operator()(
+        ndarray::Array<double, 2, 1> const& xiEta,
+        ndarray::Array<std::size_t, 1, 1> const& fiberIndex
     ) const;
     //@}
 
-    /// Fit a model to measured arc line positions
+    /// Calculate the design matrix for the distortion polynomials
     ///
-    /// @param bbox : detector bounding box
+    /// The design matrix is the "X" matrix in the classic linear least-squares
+    /// equation: X^T*X*beta = X^T*y (where beta are the parameters, y are the
+    /// measurements, and "*" denotes matrix multiplication). Rows correspond to
+    /// the input data points, and columns correspond to the individual
+    /// polynomial terms.
+    ///
     /// @param distortionOrder : polynomial order for distortion
-    /// @param dualDetector : detector is two individual CCDs?
+    /// @param xiEtaRange : range for xi,eta values
+    /// @param xiEta : xi,eta values for data points
+    /// @param fiberIndex : fiber index (mapped fiberId) for each data point
+    /// @param spatialOffsets : offsets in spatial dimension to apply
+    /// @param spectralOffsets : offsets in spectral dimension to apply
+    /// @returns design matrix
+    static ndarray::Array<double, 2, 1> calculateDesignMatrix(
+        int distortionOrder,
+        lsst::geom::Box2D const& xiEtaRange,
+        ndarray::Array<double, 2, 1> const& xiEta,
+        ndarray::Array<std::size_t, 1, 1> const& fiberIndex,
+        ndarray::Array<float, 1, 1> const& spatialOffsets=ndarray::Array<float, 1, 1>(),
+        ndarray::Array<float, 1, 1> const& spectralOffsets=ndarray::Array<float, 1, 1>()
+    );
+
+    //@{
+    /// Calculate chi^2 for a particular dataset
+    ///
+    /// @param xiEta : xi,eta (scaled fiberId,wavelength) values for arc lines
     /// @param fiberId : fiberId values for arc lines
     /// @param wavelength : wavelength values for arc lines
     /// @param xx : x values for arc lines
@@ -158,11 +268,19 @@ class GlobalDetectorModel {
     /// @param xErr : error in x values for arc lines
     /// @param yErr : error in y values for arc lines
     /// @param good : whether value should be used in the fit
-    /// @param parameters : guess for parameters
-    static GlobalDetectorModel fit(
-        lsst::geom::Box2I const& bbox,
-        int distortionOrder,
-        bool dualDetector,
+    /// @param sysErr : systematic error to add in quadrature
+    /// @return chi2 and number of degrees of freedom
+    std::pair<float, std::size_t> calculateChi2(
+        ndarray::Array<double, 2, 1> const& xiEta,
+        ndarray::Array<std::size_t, 1, 1> const& fiberIndex,
+        ndarray::Array<double, 1, 1> const& xx,
+        ndarray::Array<double, 1, 1> const& yy,
+        ndarray::Array<double, 1, 1> const& xErr,
+        ndarray::Array<double, 1, 1> const& yErr,
+        ndarray::Array<bool, 1, 1> const& good=ndarray::Array<bool, 1, 1>(),
+        float sysErr=0.0
+    ) const;
+    std::pair<float, std::size_t> calculateChi2(
         ndarray::Array<int, 1, 1> const& fiberId,
         ndarray::Array<double, 1, 1> const& wavelength,
         ndarray::Array<double, 1, 1> const& xx,
@@ -170,13 +288,55 @@ class GlobalDetectorModel {
         ndarray::Array<double, 1, 1> const& xErr,
         ndarray::Array<double, 1, 1> const& yErr,
         ndarray::Array<bool, 1, 1> const& good=ndarray::Array<bool, 1, 1>(),
-        ndarray::Array<double, 1, 1> const& parameters=ndarray::Array<double, 1, 1>()
+        float sysErr=0.0
+    ) const {
+        return calculateChi2(getScaling()(fiberId, wavelength), getFiberIndex(fiberId),
+                             xx, yy, xErr, yErr, good, sysErr);
+    }
+    //@}
+
+    //@{
+    /// Measure slit offsets for data
+    ///
+    /// After applying a distortion, individual fibers may be offset in x or y.
+    /// This method measures the mean offset for each fiber, and sets it in the
+    /// model.
+    ///
+    /// @param xiEta : xi,eta values for data points
+    /// @param fiberIndex : fiber index (mapped fiberId) for each data point
+    /// @param xx : x coordinate values for data points
+    /// @param yy : y coordinate values for data points
+    /// @param xErr : x coordinate error values for data points
+    /// @param yErr : y coordinate error values for data points
+    /// @param good : boolean array indicating which values should be used
+    /// @returns spatial and spectral offsets for each fiber
+    ndarray::Array<double, 2, 1> measureSlitOffsets(
+        ndarray::Array<double, 2, 1> const& xiEta,
+        ndarray::Array<std::size_t, 1, 1> const& fiberIndex,
+        ndarray::Array<double, 1, 1> const& xx,
+        ndarray::Array<double, 1, 1> const& yy,
+        ndarray::Array<double, 1, 1> const& xErr,
+        ndarray::Array<double, 1, 1> const& yErr,
+        ndarray::Array<bool, 1, 1> const& good=ndarray::Array<bool, 1, 1>()
     );
+    ndarray::Array<double, 2, 1> measureSlitOffsets(
+        ndarray::Array<int, 1, 1> const& fiberId,
+        ndarray::Array<double, 1, 1> const& wavelength,
+        ndarray::Array<double, 1, 1> const& xx,
+        ndarray::Array<double, 1, 1> const& yy,
+        ndarray::Array<double, 1, 1> const& xErr,
+        ndarray::Array<double, 1, 1> const& yErr,
+        ndarray::Array<bool, 1, 1> const& good=ndarray::Array<bool, 1, 1>()
+    ) {
+        return measureSlitOffsets(getScaling()(fiberId, wavelength), getFiberIndex(fiberId),
+                                  xx, yy, xErr, yErr, good);
+    }
+    //@}
 
     //@{
     /// Return the total number of parameters for the model
     static std::size_t getNumParameters(int distortionOrder, std::size_t numFibers) {
-        return BULK + GlobalDetectorModel::getNumDistortion(distortionOrder) + 2*numFibers;
+        return 6 + 2*GlobalDetectorModel::getNumDistortion(distortionOrder) + 2*numFibers;
     }
     std::size_t getNumParameters() const {
         return getNumParameters(getDistortionOrder(), getNumFibers());
@@ -188,188 +348,113 @@ class GlobalDetectorModel {
 
     //@{
     /// Accessors
-    lsst::geom::Box2I getBBox() const { return _bbox; }
     int getDistortionOrder() const { return _distortionOrder; }
     ndarray::Array<int, 1, 1> getFiberId() const;
-    bool getDualDetector() const { return _dualDetector; }
-    ndarray::Array<double const, 1, 1> const& getParameters() const { return _parameters; }
+    GlobalDetectorModelScaling getScaling() const { return _scaling; }
+    double getFiberPitch() const { return _scaling.fiberPitch; }
+    double getDispersion() const { return _scaling.dispersion; }
+    double getWavelengthCenter() const { return _scaling.wavelengthCenter; }
+    float getBuffer() const { return _scaling.buffer; }
+    int getXCenter() const { return _xCenter; }
     Polynomial const& getXDistortion() const { return _xDistortion; }
     Polynomial const& getYDistortion() const { return _yDistortion; }
+    lsst::geom::AffineTransform getRightCcd() const { return _rightCcd; }
     double getSpatialOffset(std::size_t index) const { return _spatialOffsets[index]; }
     double getSpectralOffset(std::size_t index) const { return _spectralOffsets[index]; }
-    ndarray::Array<double const, 1, 1> const getSpatialOffsets() const { return _spatialOffsets; }
-    ndarray::Array<double const, 1, 1> const getSpectralOffsets() const { return _spectralOffsets; }
-    double getFiberCenter() const { return _parameters[FIBER_CENTER]; }
-    double getFiberPitch() const { return _parameters[FIBER_PITCH]; }
-    double getWavelengthCenter() const { return _parameters[WAVELENGTH_CENTER]; }
-    double getDispersion() const { return _parameters[DISPERSION]; }
-    double getCcdRotation() const { return _parameters[CCD_ROTATION]; }
-    double getX0() const { return _parameters[X0]; }
-    double getY0() const { return _parameters[Y0]; }
-    double getXGap() const { return _parameters[X_GAP]; }
-    double getYGap() const { return _parameters[Y_GAP]; }
-    double getCosCcdRotation() const { return _cosCcdRotation; }
-    double getSinCcdRotation() const { return _sinCcdRotation; }
+    ndarray::Array<float, 1, 1> const& getSpatialOffsets() const { return _spatialOffsets; }
+    ndarray::Array<float, 1, 1> const& getSpectralOffsets() const { return _spectralOffsets; }
     //@}
-
-    /// Return the detector x center
-    ///
-    /// This is the dividing line between the left and right CCDs if dualDetector
-    float getXCenter() const { return 0.5*(_bbox.getMinX() + _bbox.getMaxX()); }
 
     //@{
     /// Return the distortion polynomial coefficients
-    ndarray::Array<double const, 1, 1> const getXCoefficients() const;
-    ndarray::Array<double const, 1, 1> const getYCoefficients() const;
+    ndarray::Array<double, 1, 1> getXCoefficients() const;
+    ndarray::Array<double, 1, 1> getYCoefficients() const;
     //@}
 
-    /// Generate a vector of parameters suitable for fitting
+    /// Return the right ccd affine transform coefficients
+    ndarray::Array<double, 1, 1> getRightCcdCoefficients() const;
+
+    /// Generate coefficients for the right CCD affine transform
     ///
-    /// Puts named parameters in the right order and position in the vector.
-    ///
-    /// @param distortionOrder : polynomial order for distortion
-    /// @param numFibers : number of fibers
-    /// @param fiberCenter : center of the slit, in fiberId
-    /// @param fiberPitch : distance between the fibers (pixels/fiber)
-    /// @param wavelengthCenter : center of the slit, in wavelength (nm)
-    /// @param dispersion : linear dispersion (nm/pixel)
-    /// @param ccdRotation : rotation of right-hand CCD relative to left-hand (radians)
-    /// @param x0,y0 : optical center
-    /// @param xGap, yGap : offset between CCDs (pixels)
-    /// @param distortionCoeff : distortion coefficients
-    /// @param spatialOffsets : slit offsets in the spatial dimension
-    /// @param spectralOffsets : slit offsets in the spectral dimension
-    /// @returns parameter vector
-    static std::vector<double> makeParameters(
-        int distortionOrder,
-        std::size_t numFibers,
-        double fiberCenter,
-        double fiberPitch,
-        double wavelengthCenter,
-        double dispersion,
-        double ccdRotation,
-        double x0,
-        double y0,
-        double xGap=0,
-        double yGap=0,
-        ndarray::Array<double, 1, 1> const& distortionCoeff=ndarray::Array<double, 1, 1>(),
-        ndarray::Array<double, 1, 1> const& spatialOffsets=ndarray::Array<double, 1, 1>(),
-        ndarray::Array<double, 1, 1> const& spectralOffsets=ndarray::Array<double, 1, 1>()
+    /// @param x : Offset in x
+    /// @param y : Offset in y
+    /// @param xx : Term in x for the x coordinate
+    /// @param xy : Term in y for the x coordinate
+    /// @param yx : Term in x for the y coordinate
+    /// @param yy : Term in y for the y coordinate
+    /// @return coefficient array
+    static ndarray::Array<double, 1, 1> makeRightCcdCoefficients(
+        double x, double y,
+        double xx, double xy,
+        double yx, double yy
     );
 
     //@{
-    /// Return number of distortion parameters
+    /// Return number of distortion parameters per axis
     static std::size_t getNumDistortion(int distortionOrder) {
-        return 2*Polynomial::nParametersFromOrder(distortionOrder);
+        return Polynomial::nParametersFromOrder(distortionOrder);
     }
     std::size_t getNumDistortion() const {
         return getNumDistortion(getDistortionOrder());
     }
     //@}
 
+    //@{
+    /// Map fiberId to fiberIndex
+    ///
+    /// @param fiberId : fiber index
+    /// @returns fiber index
+    std::size_t getFiberIndex(int fiberId) const {
+        return _fiberMap(fiberId);
+    }
+    ndarray::Array<std::size_t, 1, 1> getFiberIndex(ndarray::Array<int, 1, 1> const& fiberId) const {
+        return _fiberMap(fiberId);
+    }
+    //@}
+
   protected:
     friend class GlobalDetectorMap;
 
-    /// Parameter indices
-    enum ParameterIndex {
-        FIBER_CENTER = 0,  // Slit center in fiberId
-        FIBER_PITCH = 1,  // Distance between fibers
-        WAVELENGTH_CENTER = 2,  // Slit center in wavelength
-        DISPERSION = 3,  // linear dispersion
-        CCD_ROTATION = 4,  // rotation of right-hand CCD relative to left-hand
-        X0 = 5,  // optical center in x
-        Y0 = 6,  // optical center in y
-        X_GAP = 7,  // offset between CCDs in x
-        Y_GAP = 8,  // offset between CCDs in y
-        // After this point, these cease to refer to individual parameters!
-        // You can use BULK to refer to the start index of these individual parameters.
-        BULK = 9,
-        LINEAR = 10,  // Linear distortion parameters
-        DISTORTION = 11,  // Non-linear distortion parameters
-        OFFSETS = 12,  // ALL slit offset parameters
-    };
-
-    /// Return coefficients for polynomial
-    ///
-    /// Used to construct the Polynomial objects
-    ///
-    /// @param start : parameter index at which to start
-    /// @param num : number of parameters to copy
-    std::vector<double> getPolynomialCoefficients(std::size_t start, std::size_t num);
-
     /// Ctor
     ///
-    /// @param bbox : detector bounding box
     /// @param distortionOrder : polynomial order for distortion
-    /// @param fiberMap : mapping of fiberId to fiber index
-    /// @param dualDetector : detector is two individual CCDs?
-    /// @param parameters : distortion parameters
-    /// @param copyParameters : copy parameter array (e.g., to avoid parameters going out of scope)?
-    GlobalDetectorModel(
-        lsst::geom::Box2I const& bbox,
-        int distortionOrder,
-        FiberMap const& fiberMap,
-        bool dualDetector,
-        std::vector<double> const& parameters,
-        bool copyParameters=true
-    );
-
-    /// Ctor
-    ///
-    /// @param bbox : detector bounding box
-    /// @param distortionOrder : polynomial order for distortion
-    /// @param fiberMap : mapping of fiberId to fiber index
-    /// @param dualDetector : detector is two individual CCDs?
-    /// @param parameters : distortion parameters
-    GlobalDetectorModel(
-        lsst::geom::Box2I const& bbox,
-        int distortionOrder,
-        FiberMap const& fiberMap,
-        bool dualDetector,
-        ndarray::Array<double const, 1, 1> const& parameters
-    );
-
-    /// Ctor
-    ///
-    /// This is the master constructor, to which all others delegate.
-    ///
-    /// @param bbox : detector bounding box
-    /// @param distortionOrder : polynomial order for distortion
-    /// @param fiberMap : mapping of fiberId to fiber index
-    /// @param dualDetector : detector is two individual CCDs?
-    /// @param parameters : distortion parameters
+    /// @param fiberMap : mapping for fiberId to fiberIndex
+    /// @param scaling : scaling of fiberId,wavelength to xi,eta
+    /// @param xCenter : central x value; for separating left and right CCDs
+    /// @param height : height of detector (spatial dimension; pixels)
+    /// @param xDistortion : distortion field parameters for x
+    /// @param yDistortion : distortion field parameters for y
+    /// @param rightCcd : affine transformation parameters for the right CCD
     /// @param spatialOffsets : slit offsets in the spatial dimension
     /// @param spectralOffsets : slit offsets in the spectral dimension
     GlobalDetectorModel(
-        lsst::geom::Box2I const& bbox,
         int distortionOrder,
         FiberMap const& fiberMap,
-        bool dualDetector,
-        ndarray::Array<double const, 1, 1> const& parameters,
-        ndarray::Array<double const, 1, 1> const& spatialOffsets,
-        ndarray::Array<double const, 1, 1> const& spectralOffsets
+        GlobalDetectorModelScaling const& scaling,
+        float xCenter,
+        std::size_t height,
+        ndarray::Array<double, 1, 1> const& xDistortion,
+        ndarray::Array<double, 1, 1> const& yDistortion,
+        ndarray::Array<double, 1, 1> const& rightCcd,
+        ndarray::Array<float, 1, 1> const& spatialOffsets,
+        ndarray::Array<float, 1, 1> const& spectralOffsets
     );
 
     friend std::ostream& operator<<(std::ostream& os, GlobalDetectorModel const& model);
 
   private:
     // Configuration
-    lsst::geom::Box2I _bbox;
-    int _distortionOrder;
-    FiberMap _fiberMap;
-    std::size_t _numFibers;
-    bool _dualDetector;
+    int _distortionOrder;  // Order for distortion polynomials
+    FiberMap _fiberMap;  // Mapping from fiberId to fiberIndex
 
     // Calculation parameters
-    ndarray::Array<double const, 1, 1> _parameters;
-    Polynomial _xDistortion;
-    Polynomial _yDistortion;
-    ndarray::Array<double const, 1, 1> _spatialOffsets;
-    ndarray::Array<double const, 1, 1> _spectralOffsets;
-
-    // Derived calculation parameters
-    double _cosCcdRotation;
-    double _sinCcdRotation;
+    GlobalDetectorModelScaling _scaling;  // Scaling of fiberId,wavelength to xi,eta
+    float _xCenter;  // central x value; for separating left and right CCDs
+    Polynomial _xDistortion;  // distortion polynomial in x
+    Polynomial _yDistortion;  // distortion polynomial in y
+    lsst::geom::AffineTransform _rightCcd;  // transformation for right CCD
+    ndarray::Array<float, 1, 1> _spatialOffsets;  // fiber offsets in the spatial dimension
+    ndarray::Array<float, 1, 1> _spectralOffsets;  // fiber offsets in the spectral dimension
 };
 
 

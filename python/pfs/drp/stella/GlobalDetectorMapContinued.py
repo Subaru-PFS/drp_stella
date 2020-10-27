@@ -7,11 +7,11 @@ import lsst.geom
 
 from lsst.utils import continueClass
 
-from .GlobalDetectorMap import GlobalDetectorMap, GlobalDetectorModel
+from .GlobalDetectorMap import GlobalDetectorMap, GlobalDetectorModel, GlobalDetectorModelScaling, FiberMap
 from .DetectorMapContinued import DetectorMap
 
 
-__all__ = ["GlobalDetectorMap", "GlobalDetectorModel"]
+__all__ = ["GlobalDetectorMap", "GlobalDetectorModel", "GlobalDetectorModelScaling", "FiberMap"]
 
 
 @continueClass  # noqa: F811 (redefinition)
@@ -57,10 +57,25 @@ class GlobalDetectorMap:
         # otherwise pybind doesn't recognise them as the proper type.
         fiberId = table["fiberId"].astype(np.int32)
         distortionOrder = header["ORDER"]
-        dualDetector = header["DUALDET"]
+
+        scaling = GlobalDetectorModelScaling(
+            fiberPitch=header["scaling.fiberPitch"],
+            dispersion=header["scaling.dispersion"],
+            wavelengthCenter=header["scaling.wavelengthCenter"],
+            minFiberId=header["scaling.minFiberId"],
+            maxFiberId=header["scaling.maxFiberId"],
+            height=header["scaling.height"],
+            buffer=header["scaling.buffer"],
+        )
+
         spatialOffsets = table["spatialOffsets"].astype(np.float32)
         spectralOffsets = table["spectralOffsets"].astype(np.float32)
-        parameters = fits["PARAMETERS"].data["parameters"].astype(float)
+        xCoeff = fits["COEFFICIENTS"].data["x"].astype(float)
+        yCoeff = fits["COEFFICIENTS"].data["y"].astype(float)
+        rightCcd = fits["RIGHTCCD"].data["coeff"].astype(float)
+
+        model = GlobalDetectorModel(bbox, distortionOrder, fiberId, scaling, xCoeff, yCoeff, rightCcd,
+                                    spatialOffsets, spectralOffsets)
 
         # Read the primary header with lsst.afw.fits
         # This requires writing the FITS file into memory and reading it from there
@@ -75,8 +90,7 @@ class GlobalDetectorMap:
         visitInfo = lsst.afw.image.VisitInfo(metadata)
         lsst.afw.image.stripVisitInfoKeywords(metadata)
 
-        return cls(bbox, fiberId, distortionOrder, dualDetector, parameters,
-                   spatialOffsets, spectralOffsets, visitInfo, metadata)
+        return cls(bbox, model, visitInfo, metadata)
 
     def toFits(self):
         """Write DetectorMap to FITS
@@ -111,8 +125,17 @@ class GlobalDetectorMap:
         header["MAXX"] = bbox.getMaxX()
         header["MAXY"] = bbox.getMaxY()
         header["ORDER"] = self.getDistortionOrder()
-        header["DUALDET"] = self.getDualDetector()
         header["INHERIT"] = True
+
+        model = self.getModel()
+        scaling = model.getScaling()
+        header["HIERARCH scaling.fiberPitch"] = scaling.fiberPitch
+        header["HIERARCH scaling.dispersion"] = scaling.dispersion
+        header["HIERARCH scaling.wavelengthCenter"] = scaling.wavelengthCenter
+        header["HIERARCH scaling.minFiberId"] = scaling.minFiberId
+        header["HIERARCH scaling.maxFiberId"] = scaling.maxFiberId
+        header["HIERARCH scaling.height"] = scaling.height
+        header["HIERARCH scaling.buffer"] = scaling.buffer
 
         table = astropy.io.fits.BinTableHDU.from_columns([
             astropy.io.fits.Column(name="fiberId", format="J", array=fiberId),
@@ -122,8 +145,14 @@ class GlobalDetectorMap:
         fits.append(table)
 
         table = astropy.io.fits.BinTableHDU.from_columns([
-            astropy.io.fits.Column(name="parameters", format="E", array=self.getParameters()),
-        ], header=header, name="PARAMETERS")
+            astropy.io.fits.Column(name="x", format="E", array=model.getXCoefficients()),
+            astropy.io.fits.Column(name="y", format="E", array=model.getYCoefficients()),
+        ], header=header, name="COEFFICIENTS")
+        fits.append(table)
+
+        table = astropy.io.fits.BinTableHDU.from_columns([
+            astropy.io.fits.Column(name="coeff", format="E", array=model.getRightCcdCoefficients()),
+        ], header=header, name="RIGHTCCD")
         fits.append(table)
 
         return fits

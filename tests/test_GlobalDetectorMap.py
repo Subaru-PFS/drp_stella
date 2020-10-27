@@ -11,7 +11,9 @@ import lsst.afw.image.testUtils
 import lsst.afw.display
 
 import pfs.drp.stella.synthetic
-from pfs.drp.stella import GlobalDetectorMap, GlobalDetectorModel, DetectorMap
+from pfs.drp.stella import GlobalDetectorMap, DetectorMap, ReferenceLine
+from pfs.drp.stella.arcLine import ArcLineSet
+from pfs.drp.stella.fitGlobalDetectorMap import FitGlobalDetectorMapTask
 from pfs.drp.stella.tests.utils import runTests, methodParameters
 
 display = None
@@ -34,21 +36,18 @@ class GlobalDetectorMapTestCase(lsst.utils.tests.TestCase):
     def makeGlobalDetectorMap(self, original=None, order=1, dualDetector=True):
         if original is None:
             original = self.makeSyntheticDetectorMap()
-        fiberId, yy = np.meshgrid(original.getFiberId(),
-                                  np.arange(original.bbox.getMinY(), original.bbox.getMaxY()).astype(float))
-        fiberId = fiberId.flatten()
-        yy = yy.flatten()
-        wavelength = np.array([original.getWavelength(ff, row) for ff, row in zip(fiberId, yy)])
-        xx = np.array([original.getXCenter(ff, row) for ff, row in zip(fiberId, yy)])
-        xErr = np.full_like(xx, 0.01)
-        yErr = np.full_like(yy, 0.01)
-        model = GlobalDetectorModel.fit(original.bbox, order, dualDetector,
-                                        fiberId.astype(np.int32), wavelength,
-                                        xx, yy, xErr, yErr)
+        lines = ArcLineSet.empty()
+        for ff in original.fiberId:
+            for yy in range(original.bbox.getMinY(), original.bbox.getMaxY()):
+                lines.append(ff, original.getWavelength(ff, yy), original.getXCenter(ff, yy), yy,
+                             0.01, 0.01, 0, ReferenceLine.Status.FIT, "Fake")
+        task = FitGlobalDetectorMapTask(name="fitGlobalDetectorMap")
+        model = task.fitModel("r", original.bbox, lines, np.ones(len(lines), dtype=bool)).model
+
         visitInfo = lsst.afw.image.VisitInfo(darkTime=self.darkTime)
         metadata = lsst.daf.base.PropertyList()
         metadata.set("METADATA", self.metadata)
-        return GlobalDetectorMap(model, visitInfo, metadata)
+        return GlobalDetectorMap(original.bbox, model, visitInfo, metadata)
 
     def assertGlobalDetectorMap(self, detMap):
         """Assert that a ``GlobalDetectorMap`` matches expectations"""
