@@ -222,7 +222,7 @@ int GlobalDetectorMap::findFiberId(lsst::geom::PointD const& point) const {
 }
 
 
-lsst::geom::PointD GlobalDetectorMap::findPoint(
+lsst::geom::PointD GlobalDetectorMap::findPointImpl(
     int fiberId,
     float wavelength
 ) const {
@@ -230,23 +230,7 @@ lsst::geom::PointD GlobalDetectorMap::findPoint(
 }
 
 
-GlobalDetectorMap::Array2D GlobalDetectorMap::findPoint(
-    GlobalDetectorMap::FiberIds const& fiberId,
-    GlobalDetectorMap::Array1D const& wavelength
-) const {
-    std::size_t const length = fiberId.size();
-    utils::checkSize(wavelength.size(), length, "wavelength");
-    Array2D out = ndarray::allocate(2, length);
-    for (std::size_t ii = 0; ii < length; ++ii) {
-        auto const point = _model(fiberId[ii], wavelength[ii]);
-        out[0][ii] = point.getX();
-        out[1][ii] = point.getY();
-    }
-    return out;
-}
-
-
-float GlobalDetectorMap::findWavelength(int fiberId, float row) const {
+float GlobalDetectorMap::findWavelengthImpl(int fiberId, float row) const {
     Spline const& spline = _rowToWavelength[getFiberIndex(fiberId)];
     return spline(row);
 }
