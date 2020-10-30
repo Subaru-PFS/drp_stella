@@ -142,6 +142,7 @@ class FitGlobalDetectorMapConfig(Config):
     rejection = Field(dtype=float, default=4.0, doc="Rejection threshold (stdev)")
     order = Field(dtype=int, default=7, doc="Distortion order")
     reserveFraction = Field(dtype=float, default=0.1, doc="Fraction of lines to reserve in the final fit")
+    soften = Field(dtype=float, default=0.01, doc="Systematic error to apply")
     buffer = Field(dtype=float, default=0.05, doc="Buffer for xi,eta range")
     forceSingleCcd = Field(dtype=bool, default=False,
                            doc="Force a single CCD? This might be useful for a sparse fiber density")
@@ -200,6 +201,8 @@ class FitGlobalDetectorMapTask(Task):
                 self.plotModel(lines, good, result)
             newGood = ((np.abs(result.xResid/lines.xErr) < self.config.rejection) &
                        (np.abs(result.yResid/lines.yErr) < self.config.rejection))
+            self.log.debug("Rejecting %d/%d lines in iteration %d", good.sum() - newGood.sum(),
+                           good.sum(), ii)
             if np.all(newGood == good):
                 # Converged
                 break
@@ -210,7 +213,7 @@ class FitGlobalDetectorMapTask(Task):
         self.log.info("Final fit: chi2=%f xRMS=%f yRMS=%f (%f nm, %f km/s) from %d/%d lines",
                       result.chi2, result.xRms, result.yRms, result.yRms*result.model.getScaling().dispersion,
                       rmsPixelsToVelocity(result.yRms, result.model), select.sum(), numLines - numReserved)
-        reservedStats = calculateFitStatistics(result.model, lines, reserved)
+        reservedStats = calculateFitStatistics(result.model, lines, reserved, self.config.soften)
         self.log.info("Fit quality from reserved lines: "
                       "chi2=%f xRMS=%f yRMS=%f (%f nm, %f km/s) from %d lines (%.1f%%)",
                       reservedStats.chi2, reservedStats.xRobustRms, reservedStats.yRobustRms,
@@ -230,7 +233,7 @@ class FitGlobalDetectorMapTask(Task):
 
         return detMap
 
-    def fitModel(self, arm, bbox, lines, select, soften=0.0):
+    def fitModel(self, arm, bbox, lines, select, soften=None):
         """Fit a model to the arc lines
 
         Parameters
@@ -243,7 +246,7 @@ class FitGlobalDetectorMapTask(Task):
             Arc line measurements.
         select : `numpy.ndarray` of `bool`
             Flags indicating which of the ``lines`` are to be fit.
-        soften : `float`
+        soften : `float`, optional
             Systematic error to add in quadrature to measured errors (pixels).
 
         Returns
@@ -262,6 +265,9 @@ class FitGlobalDetectorMapTask(Task):
         doFitRightCcd = (arm != "n") and not self.config.forceSingleCcd
         height = bbox.getHeight()
         numDistortion = GlobalDetectorModel.getNumDistortion(self.config.order)
+
+        if soften is None:
+            soften = self.config.soften
 
         fiberMap = FiberMap(lines.fiberId.astype(np.int32))  # use all fibers, not just unrejected fibers
         fiberId = lines.fiberId[select].astype(np.int32)
@@ -367,9 +373,6 @@ class FitGlobalDetectorMapTask(Task):
             Systematic error that was applied to measured errors (pixels).
         """
         dof = 2*select.sum()  # column and row for each point; ignoring the relatively small number of params
-        if result.chi2/dof <= 1:
-            self.log.info("No softening necessary")
-            return result
 
         def softenChi2(soften):
             """Return chi^2/dof (minus 1) with the softening applied
@@ -391,6 +394,10 @@ class FitGlobalDetectorMapTask(Task):
             colChi2 = np.sum(result.xResid[select]**2/(soften**2 + lines.xErr[select]**2))
             rowChi2 = np.sum(result.yResid[select]**2/(soften**2 + lines.yErr[select]**2))
             return (colChi2 + rowChi2)/dof - 1
+
+        if softenChi2(0.0) <= 0:
+            self.log.info("No softening necessary")
+            return result
 
         soften = scipy.optimize.bisect(softenChi2, 0.0, 1.0)
         self.log.info("Softening errors by %f pixels (%f nm, %f km/s) to yield chi^2/dof=1", soften,
