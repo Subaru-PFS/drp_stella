@@ -126,7 +126,10 @@ class GlobalDetectorMapTestCase(lsst.utils.tests.TestCase):
         fiberId = self.original.fiberId[middle]
 
         wavelength = detMap.getWavelength(fiberId)[5:-5:5]  # Don't go to the very ends, due to the shift
-        before = np.array([detMap.findPoint(fiberId, wl) for wl in wavelength])
+        wavelength = wavelength.copy()  # For continguity, so it will be recognised by C++
+        num = len(wavelength)
+        fiberIdArray = np.full(num, fiberId, dtype=np.int32)
+        before = detMap.findPoint(fiberIdArray, wavelength)
         spatial = detMap.getSpatialOffsets()
         spectral = detMap.getSpectralOffsets()
 
@@ -134,16 +137,16 @@ class GlobalDetectorMapTestCase(lsst.utils.tests.TestCase):
         detMap.setSlitOffsets(spatial, spectral)
         self.assertFloatsEqual(detMap.getSpatialOffsets(), spatial)
         self.assertFloatsEqual(detMap.getSpectralOffsets(), spectral)
-        after = np.array([detMap.findPoint(fiberId, wl) for wl in wavelength])
-        self.assertFloatsAlmostEqual(after[:, 0], before[:, 0] + spatialOffset, atol=1.0e-7)
+        after = detMap.findPoint(fiberIdArray, wavelength)
+        self.assertFloatsAlmostEqual(after[:, 0], before[:, 0] + spatialOffset, atol=1.0e-3)
 
         spatial[middle] -= spatialOffset  # Restore
         spectral[middle] += spectralOffset
         detMap.setSlitOffsets(spatial, spectral)
         self.assertFloatsEqual(detMap.getSpatialOffsets(), spatial)
         self.assertFloatsEqual(detMap.getSpectralOffsets(), spectral)
-        after = np.array([detMap.findPoint(fiberId, wl) for wl in wavelength])
-        self.assertFloatsAlmostEqual(after[:, 1], before[:, 1] + spectralOffset, atol=1.0e-7)
+        after = detMap.findPoint(fiberIdArray, wavelength)
+        self.assertFloatsAlmostEqual(after[:, 1], before[:, 1] + spectralOffset, atol=1.0e-3)
 
     def testHoldByValue(self):
         """Test that we hold arrays by value

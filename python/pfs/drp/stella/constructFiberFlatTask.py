@@ -6,7 +6,7 @@ import lsst.afw.math as afwMath
 from lsst.pex.config import Field, ConfigurableField
 
 from .constructSpectralCalibs import SpectralCalibConfig, SpectralCalibTask
-from .findAndTraceAperturesTask import FindAndTraceAperturesTask
+from .buildFiberProfiles import BuildFiberProfilesTask
 
 __all__ = ["ConstructFiberFlatConfig", "ConstructFiberFlatTask"]
 
@@ -19,7 +19,8 @@ class ConstructFiberFlatConfig(SpectralCalibConfig):
         default=50.,
         check=lambda x: x > 0.
     )
-    trace = ConfigurableField(target=FindAndTraceAperturesTask, doc="Task to trace apertures")
+    profiles = ConfigurableField(target=BuildFiberProfilesTask, doc="Build fiber profiles")
+    ditherRounding = Field(dtype=int, default=4, doc="Number of decimals for rounding the dither value")
 
     def setDefaults(self):
         self.combination.stats.maxVisitsToCalcErrorFromInputVariance = 5
@@ -33,13 +34,14 @@ class ConstructFiberFlatTask(SpectralCalibTask):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.makeSubtask("trace")
+        self.makeSubtask("profiles")
 
     @classmethod
     def applyOverrides(cls, config):
         """Overrides to apply for flat construction"""
         config.isr.doFlat = False
         config.isr.doFringe = False
+        config.profiles.doBlindFind = True  # Because we've dithered the fiber positions
 
     def combine(self, cache, struct, outputId):
         """Combine multiple exposures of a particular CCD and write the output
@@ -71,7 +73,9 @@ class ConstructFiberFlatTask(SpectralCalibTask):
         for dataRef in dataRefList:
             value = dataRef.getButler().queryMetadata("raw", "dither", dataRef.dataId)
             assert len(value) == 1, "Expect a single answer for this single dataset"
-            dithers[value.pop()].append(dataRef)
+            value = value.pop()
+            value = np.round(value, self.config.ditherRounding)
+            dithers[value].append(dataRef)
         self.log.info("Dither values: %s" % (sorted(dithers.keys()),))
 
         # Sum coadded dithers to fill in the gaps
@@ -96,14 +100,15 @@ class ConstructFiberFlatTask(SpectralCalibTask):
 
             dataRef = dithers[dd][0]  # Representative dataRef
             detMap = dataRef.get('detectorMap')
-            traces = self.trace.run(image, detMap)
-            if len(traces) == 0:
-                self.log.warn("No traces found for dither %s: skipping", dd)
+            profileData = self.profiles.run(afwImage.makeExposure(image), detMap)
+            if len(profileData.profiles) == 0:
+                self.log.warn("No profiles found for dither %s: skipping", dd)
                 continue
-            self.log.info(f"{len(traces)} FiberTraces found for dither {dd}")
+            self.log.info("%d fiber profiles found for dither %s", len(profileData.profiles), dd)
             maskVal = image.mask.getPlaneBitMask(["BAD", "SAT", "CR", "INTRP"])
+            traces = profileData.profiles.makeFiberTraces(detMap.bbox.getDimensions(), profileData.centers)
             spectra = traces.extractSpectra(image, maskVal)
-            self.log.info(f"Extracted {len(spectra)} for dither {dd}")
+            self.log.info("Extracted %d for dither %s", len(spectra), dd)
 
             expect = spectra.makeImage(image.getBBox(), traces)
             # Occasionally NaNs are present in these images,

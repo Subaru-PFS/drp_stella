@@ -195,13 +195,15 @@ def makeSyntheticArc(config, numLines=50, fwhm=4.321, flux=3.0e5, addNoise=True,
     return Struct(lines=lines, spectrum=spectrum, image=image)
 
 
-def makeSyntheticDetectorMap(config):
+def makeSyntheticDetectorMap(config, minWl=400.0, maxWl=950.0):
     """Make a DetectorMap with a specific configuration
 
     Parameters
     ----------
     config : `pfs.drp.stella.synthetic.SyntheticConfig`
         Configuration for synthetic spectrograph.
+    minWl, maxWl : `float`, optional
+        Minimum and maximum wavelengths.
 
     Returns
     -------
@@ -215,7 +217,7 @@ def makeSyntheticDetectorMap(config):
     wavelength = []
     for ii in range(config.numFibers):
         xCenter.append((config.traceCenters[ii] + config.traceOffset).astype(np.float32))
-        wavelength.append(np.linspace(400.0, 950.0, config.height, dtype=np.float32))
+        wavelength.append(np.linspace(minWl, maxWl, config.height, dtype=np.float32))
     return SplinedDetectorMap(bbox, fiberId, [knots]*config.numFibers, xCenter,
                               [knots]*config.numFibers, wavelength)
 

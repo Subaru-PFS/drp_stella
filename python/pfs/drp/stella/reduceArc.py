@@ -1,20 +1,17 @@
-import os
 import re
 from collections import defaultdict
 import numpy as np
 import lsstDebug
 import lsst.pex.config as pexConfig
-from lsst.utils import getPackageDir
 from lsst.pipe.base import TaskRunner, ArgumentParser, CmdLineTask, Struct
 import lsst.afw.display as afwDisplay
 from .reduceExposure import ReduceExposureTask
 from .identifyLines import IdentifyLinesTask
-from .utils import readLineListFile
-from lsst.obs.pfs.utils import getLampElements
 from pfs.drp.stella.utils import plotReferenceLines
 from pfs.drp.stella.fitGlobalDetectorMap import FitGlobalDetectorMapTask
 from .centroidLines import CentroidLinesTask
 from .arcLine import ArcLineSet
+from .readLineList import ReadLineListTask
 
 __all__ = ["ReduceArcConfig", "ReduceArcTask"]
 
@@ -23,9 +20,8 @@ class ReduceArcConfig(pexConfig.Config):
     """Configuration for reducing arc images"""
     reduceExposure = pexConfig.ConfigurableField(target=ReduceExposureTask,
                                                  doc="Extract spectra from exposure")
+    readLineList = pexConfig.ConfigurableField(target=ReadLineListTask, doc="Read linelist")
     identifyLines = pexConfig.ConfigurableField(target=IdentifyLinesTask, doc="Identify arc lines")
-    minArcLineIntensity = pexConfig.Field(doc="Minimum 'NIST' intensity to use emission lines",
-                                          dtype=float, default=0)
     centroidLines = pexConfig.ConfigurableField(target=CentroidLinesTask, doc="Centroid lines")
     fitDetectorMap = pexConfig.ConfigurableField(target=FitGlobalDetectorMapTask, doc="Fit detectorMap")
 
@@ -33,6 +29,7 @@ class ReduceArcConfig(pexConfig.Config):
         super().setDefaults()
         self.reduceExposure.doSubtractSky2d = False
         self.reduceExposure.doWriteArm = False  # We'll do this ourselves, after wavelength calibration
+        self.readLineList.restrictByLamps = True
 
 
 class ReduceArcRunner(TaskRunner):
@@ -40,10 +37,6 @@ class ReduceArcRunner(TaskRunner):
     def __init__(self, *args, **kwargs):
         kwargs["doReturnResults"] = True
         super().__init__(*args, **kwargs)
-
-    @classmethod
-    def getTargetList(cls, parsedCmd, **kwargs):
-        return super().getTargetList(parsedCmd, lineListFilename=parsedCmd.lineList)
 
     def run(self, parsedCmd):
         """Scatter-gather"""
@@ -73,8 +66,7 @@ class ReduceArcRunner(TaskRunner):
             elif exitStatus > 0:
                 task.log.fatal("Failed to process at least one of the components for %s" % (dataRef.dataId,))
             else:
-                final = task.gather(dataRefList, [rr.result.result for rr in results],
-                                    lineListFilename=parsedCmd.lineList)
+                final = task.gather(dataRefList, [rr.result.result for rr in results])
             gatherResults.append(Struct(result=final, exitStatus=exitStatus))
         return gatherResults
 
@@ -100,6 +92,7 @@ class ReduceArcTask(CmdLineTask):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.makeSubtask("reduceExposure")
+        self.makeSubtask("readLineList")
         self.makeSubtask("identifyLines")
         self.makeSubtask("fitDetectorMap")
         self.makeSubtask("centroidLines")
@@ -110,9 +103,6 @@ class ReduceArcTask(CmdLineTask):
         parser = ArgumentParser(name=cls._DefaultName)
         parser.add_id_argument("--id", datasetType="raw",
                                help="input identifiers, e.g., --id visit=123 ccd=4")
-        parser.add_argument("--lineList", help="Reference line list",
-                            default=os.path.join(getPackageDir("obs_pfs"),
-                                                 "pfs", "lineLists", "ArCdHgKrNeXe.txt"))
         return parser
 
     def verify(self, dataRefList):
@@ -135,7 +125,7 @@ class ReduceArcTask(CmdLineTask):
             if len(values) > 1:
                 raise RuntimeError("%s varies for inputs: %s" % (prop, [ref.dataId for ref in dataRefList]))
 
-    def runDataRef(self, dataRef, lineListFilename):
+    def runDataRef(self, dataRef):
         """Entry point for scatter stage
 
         Extracts spectra from the exposure pointed to by the ``dataRef``,
@@ -157,8 +147,6 @@ class ReduceArcTask(CmdLineTask):
         ----------
         dataRef : `lsst.daf.persistence.ButlerDataRef`
             Data reference for exposure.
-        lineListFilename : `str`
-            Filename of arc line list.
 
         Returns
         -------
@@ -172,10 +160,7 @@ class ReduceArcTask(CmdLineTask):
             Exposure metadata (FITS header)
         """
         metadata = dataRef.get("raw_md")
-        lamps = getLampElements(metadata)
-        if not lamps:
-            raise RuntimeError("No lamps found from metadata")
-        lines = self.readLineList(lamps, lineListFilename)
+        lines = self.readLineList.run(metadata=metadata)
         results = self.reduceExposure.runDataRef([dataRef])
         assert len(results.spectraList) == 1, "Single in, single out"
         spectra = results.spectraList[0]
@@ -198,7 +183,7 @@ class ReduceArcTask(CmdLineTask):
             metadata=metadata,
         )
 
-    def gather(self, dataRefList, results, lineListFilename):
+    def gather(self, dataRefList, results):
         """Entry point for gather stage
 
         Combines the input spectra and fits a wavelength calibration.
@@ -209,8 +194,6 @@ class ReduceArcTask(CmdLineTask):
             Data references for arms.
         results : `list` of `lsst.pipe.base.Struct`
             List of results from the ``run`` method.
-        lineListFilename : `str`
-            Filename of arc line list.
         """
         if len(results) == 0:
             raise RuntimeError("No input spectra")
@@ -229,24 +212,6 @@ class ReduceArcTask(CmdLineTask):
         if self.debugInfo.display and self.debugInfo.displayCalibrations:
             for rr in results:
                 self.plotCalibrations(rr.spectra, detectorMap)
-
-    def readLineList(self, lamps, lineListFilename):
-        """Read the arc line list from file
-
-        Parameters
-        ----------
-        lamps : iterable of `str`
-            Lamp species.
-        lineListFilename : `str`
-            Filename of line list.
-
-        Returns
-        -------
-        arcLines : `list` of `pfs.drp.stella.ReferenceLine`
-            List of reference lines.
-        """
-        self.log.info("Arc lamp elements are: %s", " ".join(lamps))
-        return readLineListFile(lineListFilename, lamps, minIntensity=self.config.minArcLineIntensity)
 
     def write(self, dataRef, detectorMap, metadata, visitInfo):
         """Write outputs

@@ -9,21 +9,21 @@ from lsst.afw.display import Display
 from lsst.afw.math import GaussianFunction1D, SeparableKernel, convolve, ConvolutionControl
 
 from pfs.datamodel import FiberStatus
-from pfs.drp.stella.FiberTraceSetContinued import FiberTraceSet
 from pfs.drp.stella.traces import findTracePeaks, centroidTrace, TracePeak
 from pfs.drp.stella.fitPolynomial import FitPolynomialTask
 from pfs.drp.stella.fiberProfile import FiberProfile
+from pfs.drp.stella.fiberProfileSet import FiberProfileSet
 
 import lsstDebug
 
-__all__ = ("BuildFiberTracesConfig", "BuildFiberTracesTask")
+__all__ = ("BuildFiberProfilesConfig", "BuildFiberProfilesTask")
 
 backend = "ds9"
 colors = ["red", "green", "blue", "cyan", "magenta", "yellow", "orange"]
 
 
-class BuildFiberTracesConfig(Config):
-    """Configuration for BuildFiberTracesTask"""
+class BuildFiberProfilesConfig(Config):
+    """Configuration for BuildFiberProfilesTask"""
     mask = ListField(dtype=str, default=["CR", "BAD", "NO_DATA"], doc="Mask planes to ignore")
     doBlindFind = Field(dtype=bool, default=True, doc="Find traces without using DetectorMap?")
     columnFwhm = Field(dtype=float, default=2.0, doc="Typical FWHM across columns (spatial dimension)")
@@ -44,52 +44,26 @@ class BuildFiberTracesConfig(Config):
     profileRejThresh = Field(dtype=float, default=3.0, doc="Rejection threshold (sigma) for profile")
 
 
-class BuildFiberTracesTask(Task):
+class BuildFiberProfilesTask(Task):
     """Build a FiberTraceSet from an image"""
-    ConfigClass = BuildFiberTracesConfig
-    _DefaultName = "buildFiberTraces"
+    ConfigClass = BuildFiberProfilesConfig
+    _DefaultName = "BuildFiberProfiles"
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.makeSubtask("centerFit")
         self.debugInfo = lsstDebug.Info(__name__)
 
-    def run(self, maskedImage, detectorMap):
-        """Build a FiberTraceSet from an image
+    def run(self, exposure, detectorMap=None, pfsConfig=None):
+        """Build a FiberProfileSet from an image
 
         We find traces on the image, centroid those traces, measure the fiber
         profile, and construct the FiberTraces.
 
-        This method allows the use of this `BuildFiberTracesTask` as a drop-in
-        replacement for the `FindAndTraceAperturesTask`.
-
         Parameters
         ----------
-        maskedImage : `lsst.afw.image.MaskedImage`
-            Image from which to build FiberTraces.
-        detectorMap : `pfs.drp.stella.DetectorMap`, optional
-            Mapping from x,y to fiberId,row.
-
-        Returns
-        -------
-        fiberTraces : `pfs.drp.stella.FiberTraceSet`
-            The fiber traces.
-        """
-        results = self.buildFiberTraces(maskedImage, detectorMap=detectorMap)
-        return results.fiberTraces
-
-    def buildFiberTraces(self, maskedImage, detectorMap=None, pfsConfig=None):
-        """Build a FiberTraceSet from an image
-
-        We find traces on the image, centroid those traces, measure the fiber
-        profile, and construct the FiberTraces.
-
-        This method provides more ouputs than the ``run`` method.
-
-        Parameters
-        ----------
-        maskedImage : `lsst.afw.image.MaskedImage`
-            Image from which to build FiberTraces.
+        exposure : `lsst.afw.image.Exposure`
+            Exposure from which to build FiberTraces.
         detectorMap : `pfs.drp.stella.DetectorMap`, optional
             Mapping from x,y to fiberId,row.
         pfsConfig : `pfs.datamodel.PfsConfig`, optional
@@ -97,49 +71,40 @@ class BuildFiberTracesTask(Task):
 
         Returns
         -------
-        fiberTraces : `pfs.drp.stella.FiberTraceSet`
-            The fiber traces.
-        profiles : `list` of `pfs.drp.stella.fiberProfile.FiberProfile`
-            Profiles of each fiber, in the same order as the fiber traces.
-        centers : `list` of callable
-            Callable for each fiber that provides the center of the trace as a
-            function of row.
+        profiles : `pfs.drp.stella.FiberProfileSet`
+            Profiles of each fiber.
+        centers : `dict` mapping `int` to callable
+            Callable for each fiber (indexed by fiberId) that provides the
+            center of the trace as a function of row.
         """
         if self.config.doBlindFind or detectorMap is None or pfsConfig is None:
-            convolved = self.convolveImage(maskedImage)
+            convolved = self.convolveImage(exposure.maskedImage)
             traces = self.findPeaks(convolved)
             self.log.debug("Found %d peaks", sum([len(pp) for pp in traces]))
             traces = self.prunePeaks(traces)
             self.log.debug("Pruned to %d peaks", sum([len(pp) for pp in traces]))
             traces = self.associatePeaks(traces, convolved.getWidth())
             self.log.debug("Associated into %d traces", len(traces))
-            traces = self.pruneTraces(traces, maskedImage.getHeight())
+            traces = self.pruneTraces(traces, exposure.getHeight())
             self.log.debug("Pruned to %d traces", len(traces))
         else:
             traces = self.generateTraces(detectorMap, pfsConfig)
-        fiberTraces = FiberTraceSet(len(traces))
-        profiles = []
-        centers = []
+        profiles = FiberProfileSet.makeEmpty(exposure.getInfo().getVisitInfo(), exposure.getMetadata())
+        centers = {}
         for ii, tt in enumerate(traces):
-            self.centroidTrace(maskedImage, tt)
-            fit = self.fitTraceCenters(tt, maskedImage.getHeight())
-            profile = self.calculateProfile(maskedImage, fit.func)
-            profiles.append(profile)
-            centers.append(fit.func)
-            ft = profile.makeFiberTrace(maskedImage.getWidth(), maskedImage.getHeight(), fit.func)
-            ft.fiberId = ii
-            fiberTraces.add(ft)
-
-        fiberTraces.sortTracesByXCenter()
-        # Sort the profiles and centers in the same way, using the fiberIds we inserted in the fiberTraces
-        profiles = [profiles[ft.fiberId] for ft in fiberTraces]
-        centers = [centers[ft.fiberId] for ft in fiberTraces]
+            self.centroidTrace(exposure.maskedImage, tt)
+            fit = self.fitTraceCenters(tt, exposure.getHeight())
+            # Not using the real fiberId here; we'll sort that out in the identifyFibers method
+            profiles[ii] = self.calculateProfile(exposure.maskedImage, fit.func)
+            centers[ii] = fit.func
 
         if detectorMap is not None:
-            self.identifyFibers(fiberTraces, centers, detectorMap, pfsConfig)
+            identifications = self.identifyFibers(profiles, centers, detectorMap, pfsConfig)
+            profiles = identifications.profiles
+            centers = identifications.centers
 
-        self.log.info("Traced %d fibers", len(fiberTraces))
-        return Struct(fiberTraces=fiberTraces, profiles=profiles, centers=centers)
+        self.log.info("Profiled %d fibers", len(profiles))
+        return Struct(profiles=profiles, centers=centers)
 
     def convolveImage(self, maskedImage):
         """Convolve image by Gaussian kernels in x and y
@@ -459,7 +424,7 @@ class BuildFiberTracesTask(Task):
             profile.plot()
         return profile
 
-    def identifyFibers(self, fiberTraces, centers, detectorMap, pfsConfig=None):
+    def identifyFibers(self, profiles, centers, detectorMap, pfsConfig=None):
         """Identify fibers that have been found and traced
 
         We compare the measured center positions in the middle of the detector
@@ -467,31 +432,50 @@ class BuildFiberTracesTask(Task):
 
         Parameters
         ----------
-        fiberTraces : `pfs.drp.stella.FiberTraceSet`
-            Fiber traces.
-        centers : iterable of callables
-            Callables that provide the center of the trace as a function of
-            row. The order should match that of the ``fiberTraces``.
+        profiles : `pfs.drp.stella.FiberProfileSet`
+            Fiber profiles, with temporary fiberId values.
+        centers : `dict` mapping `int` to callable
+            Callable for each fiber (indexed by temporary fiberId; same as for
+            the ``profiles``) that provides the center of the trace as a
+            function of row.
         detectorMap : `pfs.drp.stella.DetectorMap`, optional
             Mapping from x,y to fiberId,row.
         pfsConfig : `pfs.datamodel.PfsConfig`, optional
             Top-end fiber configuration. Used to check that we've identified all
             the lit fibers.
+
+        Returns
+        -------
+        profiles : `pfs.drp.stella.FiberProfileSet`
+            Fiber profiles with correct fiberId values.
+        centers : `dict` mapping `int` to callable
+            Callable for each fiber (indexed by fiberId; same as for
+            the ``profiles``) that provides the center of the trace as a
+            function of row.s
         """
-        if len(fiberTraces) == 0:
+        if len(profiles) == 0:
             self.log.warn("Unable to identify fibers: no fiberTraces")
-            return
-        middle = 0.5*(min(ft.trace.getBBox().getMinY() for ft in fiberTraces) +
-                      max(ft.trace.getBBox().getMaxY() for ft in fiberTraces))
+            return Struct(profiles=FiberProfileSet.makeEmpty(), centers={})
+        middle = 0.5*(detectorMap.bbox.getMinY() + detectorMap.bbox.getMaxY())
         expectCenters = np.array([detectorMap.getXCenter(ff, middle) for ff in detectorMap.fiberId])
+        assignments = {}
         used = set()
-        for ft, cen in zip(fiberTraces, centers):
-            best = detectorMap.fiberId[np.argmin(np.abs(expectCenters - cen(middle)))]
+        for index in centers:
+            best = detectorMap.fiberId[np.argmin(np.abs(expectCenters - centers[index](middle)))]
             if best in used:
                 raise RuntimeError("Matched fiber to a used fiberId")
-            ft.fiberId = best
+            assignments[index] = best
             used.add(best)
-        self.log.debug("Identified %d fiberIds: %s", len(used), [ft.fiberId for ft in fiberTraces])
+        self.log.debug("Identified %d fiberIds: %s", len(used), assignments)
+
+        # Apply new fiberIds
+        newProfiles = FiberProfileSet.makeEmpty(profiles.visitInfo, profiles.metadata)
+        newCenters = {}
+        for index, fiberId in assignments.items():
+            newProfiles[fiberId] = profiles[index]
+            newCenters[fiberId] = centers[index]
+        profiles = newProfiles
+        centers = newCenters
 
         if pfsConfig is not None:
             indices = pfsConfig.selectByFiberStatus(FiberStatus.GOOD, detectorMap.fiberId)
@@ -501,8 +485,10 @@ class BuildFiberTracesTask(Task):
 
         if self.debugInfo.identifyFibers:
             display = Display(backend=backend, frame=1)
-            for ft, cen in zip(fiberTraces, centers):
-                display.dot(str(ft.fiberId), cen(middle), middle, ctype="green")
+            for fiberId in profiles:
+                display.dot(str(fiberId), centers[fiberId](middle), middle, ctype="green")
             for fiberId in detectorMap.fiberId:
                 if fiberId not in used:
                     display.dot(str(fiberId), detectorMap.getXCenter(fiberId, middle), middle, ctype="red")
+
+        return Struct(profiles=profiles, centers=centers)

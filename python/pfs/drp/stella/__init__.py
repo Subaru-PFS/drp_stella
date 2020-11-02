@@ -16,7 +16,8 @@ from .spline import *
 from .SpectralPsfContinued import *
 from .NevenPsfContinued import *
 from .lsf import *
-from .buildFiberTraces import *
+from .buildFiberProfiles import *
 from .fiberProfile import *
+from .fiberProfileSet import *
 from .fitPolynomial import *
 from .slitOffsets import *

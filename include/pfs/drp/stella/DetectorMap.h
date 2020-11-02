@@ -23,6 +23,9 @@ class DetectorMap : public lsst::afw::table::io::Persistable {
     using Array1D = ndarray::Array<float, 1, 1>;
     using VisitInfo = lsst::afw::image::VisitInfo;
 
+    /// Polymorphic copy
+    virtual std::shared_ptr<DetectorMap> clone() const = 0;
+
     /// Return the detector bounding box
     lsst::geom::Box2I getBBox() const { return _bbox; }
 

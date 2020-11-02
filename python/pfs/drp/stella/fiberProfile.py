@@ -31,8 +31,10 @@ class FiberProfile:
     profiles : array_like of `float`, shape ``(N, M)``
         Profiles for each swath, each of width
         ``M = 2*(radius + 1)*oversample + 1``.
+    norm : array_like of `float`, optional
+        Normalisation for each spectral pixel.
     """
-    def __init__(self, radius, oversample, rows, profiles):
+    def __init__(self, radius, oversample, rows, profiles, norm=None):
         self.radius = radius
         self.oversample = oversample
         self.rows = rows
@@ -40,10 +42,11 @@ class FiberProfile:
         profileSize = 2*(radius + 1)*oversample + 1
         profileCenter = (radius + 1)*oversample
         self.index = (np.arange(profileSize, dtype=int) - profileCenter)/self.oversample
+        self.norm = norm
 
     def __reduce__(self):
         """Pickling"""
-        return self.__class__, (self.radius, self.oversample, self.rows, self.profiles)
+        return self.__class__, (self.radius, self.oversample, self.rows, self.profiles, self.norm)
 
     @classmethod
     def fromImage(cls, maskedImage, centerFunc, radius, oversample, swathSize,
@@ -194,33 +197,58 @@ class FiberProfile:
             plt.show()
         return fig, axes
 
-    def makeFiberTrace(self, width, height, centerFunc):
+    def makeFiberTraceFromDetectorMap(self, detectorMap, fiberId):
         """Make a FiberTrace object
 
         We put the profile into an image, which is used for the FiberTrace.
+        The position of the trace as a function of row comes from the
+        detectorMap's xCenter.
 
         Parameters
         ----------
-        width : `int`
-            Width of the parent image. Used to make sure we don't run off the
-            side.
-        height : `int`
-            Height of the parent image.
-        centerFunc : callable
-            A callable that provides the center of the trace as a function of
-            row.
+        detectorMap : `pfs.drp.stella.DetectorMap`
+            Mapping of fiberId,wavelength to/from detector x,y.
+        fiberId : `int`
+            Fiber identifier.
 
         Returns
         -------
         fiberTrace : `pfs.drp.stella.FiberTrace`
             A pixellated version of the profile, at a fixed trace position.
         """
+        dimensions = detectorMap.bbox.getDimensions()
+        rows = np.arange(dimensions.getHeight(), dtype=np.float32)
+        xCenter = detectorMap.getXCenter(fiberId)
+        centerFunc = SplineF(rows, xCenter)
+        return self.makeFiberTrace(dimensions, centerFunc)
+
+    def makeFiberTrace(self, dimensions, centerFunc, fiberId):
+        """Make a FiberTrace object
+
+        We put the profile into an image, which is used for the FiberTrace.
+
+        Parameters
+        ----------
+        dimensions : `lsst.geom.Extent2I`
+            Dimensions of the image.
+        centerFunc : callable
+            A callable that provides the center of the trace as a function of
+            row.
+        fiberId : `int`
+            Fiber identifier.
+
+        Returns
+        -------
+        fiberTrace : `pfs.drp.stella.FiberTrace`
+            A pixellated version of the profile, at a fixed trace position.
+        """
+        width, height = dimensions
         rows = np.arange(height, dtype=int)
-        xCen = centerFunc(rows)
+        xCen = centerFunc(rows.astype(np.float32)).astype(np.float32)
         xMin = max(0, int(np.min(xCen)) - self.radius)
         xMax = min(width, int(np.ceil(np.max(xCen))) + self.radius)
-        xx = np.arange(xMin, xMax + 1, dtype=int)
-        xImg = xx - xMin
+        xx = np.arange(xMin, xMax + 1, dtype=np.float32)
+        xImg = (xx - xMin).astype(int)
         box = Box2I(Point2I(xMin, 0), Point2I(xMax, height - 1))
         image = MaskedImageF(box)
 
@@ -245,7 +273,7 @@ class FiberProfile:
         xLow = np.array([xProf[gg][0] for gg in good])
         xHigh = np.array([xProf[gg][-1] for gg in good])
 
-        def getProfile(xx, index):
+        def getProfile(xx, index, result=None):
             """Generate a profile, interpolating in the spatial dimension
 
             Parameters
@@ -255,29 +283,63 @@ class FiberProfile:
             index : `int`
                 Index of the profile to use (depends on position in the spectral
                 dimension).
+            result : `numpy.ndarray`, shape ``(N,)``, optional
+                Output array to re-use.
 
             Returns
             -------
             values : `numpy.ndarray`, shape ``(N,)``
                 Interpolated values of ``profile[index]`` at positions ``xx``.
             """
-            result = np.zeros_like(xx)
             inBounds = (xx >= xLow[index]) & (xx <= xHigh[index])
+            if result is None:
+                result = np.zeros_like(xx)
+            else:
+                result[~inBounds] = 0.0
             result[inBounds] = splines[index](xx[inBounds])
             return result
 
+        nextProfile = np.zeros_like(xx)
+        prevProfile = np.zeros_like(xx)
         for yy in rows:
-            xRel = (xx - xCen[yy]).astype(np.float32)  # x position on image relative to center of trace
-            nextProfile = getProfile(xRel, nextIndex[yy])
-            prevProfile = getProfile(xRel, prevIndex[yy])
+            xRel = (xx - xCen[yy])  # x position on image relative to center of trace
+            nextProfile = getProfile(xRel, nextIndex[yy], nextProfile)
+            prevProfile = getProfile(xRel, prevIndex[yy], prevProfile)
             image.image.array[yy, xImg] = nextProfile*nextWeight[yy] + prevProfile*prevWeight[yy]
 
+        # Set normalisation to what is desired
+        if self.norm is not None:
+            scale = (self.norm/image.image.array.sum(axis=1))[:, np.newaxis]
+            image.image.array *= scale
+            image.variance.array *= scale**2
+
+        # Deselect bad pixels and bad rows
         ftBitMask = 2**image.mask.addMaskPlane("FIBERTRACE")
-        image.mask.array[:] = np.where(image.image.array > 0, ftBitMask, 0)
-
         norm = image.image.array.sum(axis=1)
-        good = norm != 0
-        image.image.array[good] /= norm[:, np.newaxis][good]
-        image.mask.array[~good] &= ~ftBitMask
+        good = (image.image.array > 0) | (norm[:, np.newaxis] > 0)
+        image.mask.array[:] = np.where(good, ftBitMask, 0)
 
-        return FiberTrace(image)
+        trace = FiberTrace(image)
+        trace.fiberId = fiberId
+
+        return trace
+
+    def extractSpectrum(self, maskedImage, detectorMap, fiberId):
+        """Extract a single spectrum from an image
+
+        Parameters
+        ----------
+        maskedImage : `lsst.afw.image.MaskedImage`
+            Image containing the spectrum.
+        detectorMap : `pfs.drp.stella.DetectorMap`
+            Mapping of fiberId,wavelength to/from detector x,y.
+        fiberId : `int`
+            Fiber identifier.
+
+        Returns
+        -------
+        spectrum : `pfs.drp.stella.Spectrum`
+            Extracted spectrum.
+        """
+        trace = self.makeFiberTrace(detectorMap, fiberId)
+        return trace.extractSpectrum(maskedImage)

@@ -6,6 +6,7 @@
 
 #include "ndarray/pybind11.h"
 #include "pfs/drp/stella/DetectorMap.h"
+#include "pfs/drp/stella/utils/checkSize.h"
 
 namespace py = pybind11;
 using namespace pybind11::literals;
@@ -22,6 +23,7 @@ template <typename Class>
 auto wrapDetectorMap(py::module & mod, char const* name) {
     pybind11::module::import("pfs.drp.stella.DetectorMap");
     py::class_<Class, std::shared_ptr<Class>, DetectorMap> cls(mod, name);
+    cls.def("clone", py::overload_cast<>(&Class::clone, py::const_));
     cls.def("getXCenter", py::overload_cast<int>(&Class::getXCenter, py::const_), "fiberId"_a);
     cls.def("getXCenter", py::overload_cast<int, float>(&Class::getXCenter, py::const_),
             "fiberId"_a, "row"_a);
@@ -32,6 +34,19 @@ auto wrapDetectorMap(py::module & mod, char const* name) {
             "point"_a);
     cls.def("findPoint", py::overload_cast<int, float>(&Class::findPoint, py::const_),
             "fiberId"_a, "wavelength"_a);
+    cls.def("findPoint",
+            [](Class const& self, ndarray::Array<int, 1, 1> const& fiberId,
+               ndarray::Array<float, 1, 1> const& wavelength) {
+                   std::size_t const num = fiberId.size();
+                   utils::checkSize(wavelength.size(), num, "fiberId/wavelength");
+                   ndarray::Array<float, 2, 1> out = ndarray::allocate(num, 2);
+                   for (std::size_t ii = 0; ii < num; ++ii) {
+                       auto const point = self.findPoint(fiberId[ii], wavelength[ii]);
+                       out[ii][0] = point.getX();
+                       out[ii][1] = point.getY();
+                   }
+                   return out;
+               }, "fiberId"_a, "wavelength"_a);
     cls.def("findWavelength", py::overload_cast<int, float>(&Class::findWavelength, py::const_),
             "fiberId"_a, "row"_a);
     return cls;
