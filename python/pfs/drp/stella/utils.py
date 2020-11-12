@@ -1,13 +1,17 @@
+import io
 import re
 import sys
 import importlib
 
 import numpy as np
+import astropy.io.fits
 
+import lsst.afw.fits
+
+from pfs.datamodel.utils import astropyHeaderFromDict
 from pfs.drp.stella import ReferenceLine
 
-
-__all__ = ["readLineListFile", "plotReferenceLines"]
+__all__ = ["readLineListFile", "plotReferenceLines", "headerToMetadata"]
 
 
 def readLineListFile(lineListFilename, lamps=["Ar", "Cd", "Hg", "Ne", "Xe"], minIntensity=0):
@@ -188,3 +192,30 @@ def getPfsVersions(prefix="VERSION_"):
         importlib.import_module(module + ".version")
         versions[prefix + name] = sys.modules[module + ".version"].__version__
     return versions
+
+
+def headerToMetadata(header):
+    """Convert FITS header to LSST metadata
+
+    Parameters
+    ----------
+    header : `dict` or `astropy.io.fits.Header`
+        FITS header.
+
+    Returns
+    -------
+    metadata : `lsst.daf.base.PropertyList`
+        LSST metadata object.
+    """
+    if isinstance(header, dict):
+        header = astropyHeaderFromDict(header)
+    # Read the primary header with lsst.afw.fits
+    # This requires writing the FITS file into memory and reading it from there
+    fits = astropy.io.fits.HDUList([astropy.io.fits.PrimaryHDU(header=header)])
+    buffer = io.BytesIO()
+    fits.writeto(buffer)
+    ss = buffer.getvalue()
+    size = len(ss)
+    ff = lsst.afw.fits.MemFileManager(size)
+    ff.setData(ss, size)
+    return ff.readMetadata(0)
