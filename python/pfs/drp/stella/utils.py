@@ -3,28 +3,11 @@ import sys
 import importlib
 
 import numpy as np
-from astropy.io import fits as pyfits
 
 from pfs.drp.stella import ReferenceLine
 
-__all__ = ["readWavelengthFile", "readLineListFile", "plotReferenceLines"]
 
-
-def readWavelengthFile(wLenFile):
-    """read wavelength file and return 1-D arrays of length nFibre*nwavelength
-
-    These arrays are used by evaluating e.g. wavelengths[np.where(traceId == fid)]
-    """
-    hdulist = pyfits.open(wLenFile)
-    tbdata = hdulist[1].data
-    traceIds = tbdata[:]['fiberNum'].astype('int32')
-    wavelengths = tbdata[:]['pixelWave'].astype('float32')
-    xCenters = tbdata[:]['xc'].astype('float32')
-
-    traceIdSet = np.unique(traceIds)
-    assert len(wavelengths) == len(traceIds[traceIds == traceIdSet[0]])*len(traceIdSet)  # could check all
-
-    return [xCenters, wavelengths, traceIds]
+__all__ = ["readLineListFile", "plotReferenceLines"]
 
 
 def readLineListFile(lineListFilename, lamps=["Ar", "Cd", "Hg", "Ne", "Xe"], minIntensity=0):
