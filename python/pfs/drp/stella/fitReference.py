@@ -187,7 +187,7 @@ class FitReferenceTask(Task):
         """
         fiberFlux = set(spectrum.target.fiberFlux.values())
         if len(fiberFlux) != 1:
-            raise RuntimeError("This implementation requires a single ABmag, but was provided: %s" %
+            raise RuntimeError("This implementation requires a single fiber flux, but was provided: %s" %
                                (spectrum.target.fiberFlux,))
         fiberFlux = fiberFlux.pop()
 
