@@ -42,6 +42,7 @@ class BuildFiberProfilesConfig(Config):
     profileOversample = Field(dtype=int, default=10, doc="Oversample factor for profile")
     profileRejIter = Field(dtype=int, default=1, doc="Rejection iterations for profile")
     profileRejThresh = Field(dtype=float, default=3.0, doc="Rejection threshold (sigma) for profile")
+    doIdentifyFibers = Field(dtype=bool, default=True, doc="Identify fibers using detectorMap?")
 
 
 class BuildFiberProfilesTask(Task):
@@ -98,7 +99,7 @@ class BuildFiberProfilesTask(Task):
             profiles[ii] = self.calculateProfile(exposure.maskedImage, fit.func)
             centers[ii] = fit.func
 
-        if detectorMap is not None:
+        if self.config.doIdentifyFibers and detectorMap is not None:
             identifications = self.identifyFibers(profiles, centers, detectorMap, pfsConfig)
             profiles = identifications.profiles
             centers = identifications.centers
