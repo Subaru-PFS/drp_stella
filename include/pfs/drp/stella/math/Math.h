@@ -180,21 +180,6 @@ std::ptrdiff_t firstIndexWithZeroValueFrom(
 );
 
 
-/**
- * Convert a std::vector to an ndarray::Array
- *
- * This is useful for conversions in APIs, as the data is reused, with no
- * copying. It is less useful for other purposes, as the Array's data will
- * disappear when the vector goes out of scope.
- *
- * @param[in] vector  Vector of numeric values
- * @returns Array of values
- */
-template <typename T>
-ndarray::Array<T, 1, 1> vectorToArray(std::vector<T> vector) {
-    return ndarray::Array<T, 1, 1>(ndarray::external(vector.data(), ndarray::makeVector(vector.size())));
-}
-
 }}}} // namespace pfs::drp::stella::math
 
 template <typename T>

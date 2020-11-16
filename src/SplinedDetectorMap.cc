@@ -199,7 +199,7 @@ int SplinedDetectorMap::findFiberId(
 }
 
 
-lsst::geom::PointD SplinedDetectorMap::findPoint(
+lsst::geom::PointD SplinedDetectorMap::findPointImpl(
     int fiberId,
     float wavelength
 ) const {
@@ -231,7 +231,7 @@ lsst::geom::PointD SplinedDetectorMap::findPoint(
 }
 
 
-float SplinedDetectorMap::findWavelength(
+float SplinedDetectorMap::findWavelengthImpl(
     int fiberId,
     float row
 ) const {

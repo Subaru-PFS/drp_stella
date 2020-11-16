@@ -90,12 +90,6 @@ class SplinedDetectorMap : public DetectorMap {
     /// Return the fiberId given a position on the detector
     virtual int findFiberId(lsst::geom::PointD const& point) const override;
 
-    /// Return the position of the fiber trace on the detector, given a fiberId and wavelength
-    virtual lsst::geom::PointD findPoint(int fiberId, float wavelength) const override;
-
-    /// Return the wavelength of a point on the detector, given a fiberId and row
-    virtual float findWavelength(int fiberId, float row) const override;
-
     math::Spline<float> const& getXCenterSpline(int fiberId) const;
     math::Spline<float> const& getWavelengthSpline(int fiberId) const;
 
@@ -110,6 +104,12 @@ class SplinedDetectorMap : public DetectorMap {
     class Factory;
 
   protected:
+    /// Return the position of the fiber trace on the detector, given a fiberId and wavelength
+    virtual lsst::geom::PointD findPointImpl(int fiberId, float wavelength) const override;
+
+    /// Return the wavelength of a point on the detector, given a fiberId and row
+    virtual float findWavelengthImpl(int fiberId, float row) const override;
+
     std::string getPersistenceName() const { return "SplinedDetectorMap"; }
     std::string getPythonModule() const { return "pfs.drp.stella"; }
     void write(lsst::afw::table::io::OutputArchiveHandle & handle) const;

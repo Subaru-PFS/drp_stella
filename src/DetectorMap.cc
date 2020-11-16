@@ -109,4 +109,62 @@ DetectorMap::Array2D DetectorMap::getXCenter() const {
 }
 
 
+ndarray::Array<float, 2, 1> DetectorMap::findPoint(
+    int fiberId,
+    ndarray::Array<float, 1, 1> const& wavelength
+) const {
+    std::size_t const length = wavelength.size();
+    ndarray::Array<float, 2, 1> out = ndarray::allocate(length, 2);
+    for (std::size_t ii = 0; ii < length; ++ii) {
+        auto const point = findPointImpl(fiberId, wavelength[ii]);
+        out[ii][0] = point.getX();
+        out[ii][1] = point.getY();
+    }
+    return out;
+}
+
+
+ndarray::Array<float, 2, 1> DetectorMap::findPoint(
+    ndarray::Array<int, 1, 1> const& fiberId,
+    ndarray::Array<float, 1, 1> const& wavelength
+) const {
+    std::size_t const length = fiberId.size();
+    utils::checkSize(length, wavelength.size(), "fiberId vs wavelength");
+    ndarray::Array<float, 2, 1> out = ndarray::allocate(length, 2);
+    for (std::size_t ii = 0; ii < length; ++ii) {
+        auto const point = findPointImpl(fiberId[ii], wavelength[ii]);
+        out[ii][0] = point.getX();
+        out[ii][1] = point.getY();
+    }
+    return out;
+}
+
+
+ndarray::Array<float, 1, 1> DetectorMap::findWavelength(
+    int fiberId,
+    ndarray::Array<float, 1, 1> const& row
+) const {
+    std::size_t const length = row.size();
+    ndarray::Array<float, 1, 1> out = ndarray::allocate(length);
+    for (std::size_t ii = 0; ii < length; ++ii) {
+        out[ii] = findWavelengthImpl(fiberId, row[ii]);
+    }
+    return out;
+}
+
+
+ndarray::Array<float, 1, 1> DetectorMap::findWavelength(
+    ndarray::Array<int, 1, 1> const& fiberId,
+    ndarray::Array<float, 1, 1> const& row
+) const {
+    std::size_t const length = fiberId.size();
+    utils::checkSize(length, row.size(), "fiberId vs row");
+    ndarray::Array<float, 1, 1> out = ndarray::allocate(length);
+    for (std::size_t ii = 0; ii < length; ++ii) {
+        out[ii] = findWavelengthImpl(fiberId[ii], row[ii]);
+    }
+    return out;
+}
+
+
 }}}  // namespace pfs::drp::stella

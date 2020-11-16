@@ -36,16 +36,23 @@ void declareDetectorMap(py::module & mod) {
             "fiberId"_a, "spatial"_a, "spectral"_a);
     cls.def("getXCenter", py::overload_cast<>(&Class::getXCenter, py::const_));
     cls.def("getWavelength", py::overload_cast<>(&Class::getWavelength, py::const_));
-#if 0
+    cls.def("findPoint", py::overload_cast<int, float>(&Class::findPoint, py::const_),
+            "fiberId"_a, "wavelength"_a);
+    cls.def("findPoint", py::overload_cast<int, Class::Array1D const&>(&Class::findPoint, py::const_),
+            "fiberId"_a, "wavelength"_a);
     cls.def("findPoint",
             py::overload_cast<Class::FiberIds const&,
                               Class::Array1D const&>(&Class::findPoint, py::const_),
             "fiberId"_a, "wavelength"_a);
+    cls.def("findWavelength", py::overload_cast<int, float>(&Class::findWavelength, py::const_),
+            "fiberId"_a, "row"_a);
+    cls.def("findWavelength",
+            py::overload_cast<int, Class::Array1D const&>(&Class::findWavelength, py::const_),
+            "fiberId"_a, "row"_a);
     cls.def("findWavelength",
             py::overload_cast<Class::FiberIds const&,
                               Class::Array1D const&>(&Class::findWavelength, py::const_),
             "fiberId"_a, "row"_a);
-#endif
     cls.def("getVisitInfo", &Class::getVisitInfo);
     cls.def("setVisitInfo", &Class::setVisitInfo, "visitInfo"_a);
     cls.def_property("visitInfo", &Class::getVisitInfo, &Class::setVisitInfo);

@@ -71,11 +71,35 @@ class DetectorMap : public lsst::afw::table::io::Persistable {
     /// Return the fiberId given a position on the detector
     virtual int findFiberId(lsst::geom::PointD const& point) const = 0;
 
+    //@{
     /// Return the position of the fiber trace on the detector, given a fiberId and wavelength
-    virtual lsst::geom::PointD findPoint(int fiberId, float wavelength) const = 0;
+    lsst::geom::PointD findPoint(int fiberId, float wavelength) const {
+        return findPointImpl(fiberId, wavelength);
+    }
+    ndarray::Array<float, 2, 1> findPoint(
+        int fiberId,
+        ndarray::Array<float, 1, 1> const& wavelength
+    ) const;
+    ndarray::Array<float, 2, 1> findPoint(
+        ndarray::Array<int, 1, 1> const& fiberId,
+        ndarray::Array<float, 1, 1> const& wavelength
+    ) const;
+    //@}
 
+    //@{
     /// Return the wavelength of a point on the detector, given a fiberId and row
-    virtual float findWavelength(int fiberId, float row) const = 0;
+    float findWavelength(int fiberId, float row) const {
+        return findWavelengthImpl(fiberId, row);
+    }
+    ndarray::Array<float, 1, 1> findWavelength(
+        int fiberId,
+        ndarray::Array<float, 1, 1> const& row
+    ) const;
+    ndarray::Array<float, 1, 1> findWavelength(
+        ndarray::Array<int, 1, 1> const& fiberId,
+        ndarray::Array<float, 1, 1> const& row
+    ) const;
+    //@}
 
     VisitInfo getVisitInfo() const { return _visitInfo; }
     void setVisitInfo(VisitInfo &visitInfo) { _visitInfo = visitInfo; };
@@ -109,6 +133,16 @@ class DetectorMap : public lsst::afw::table::io::Persistable {
 
     /// Return the index of a fiber, given its fiber ID
     std::size_t getFiberIndex(int fiberId) const { return _fiberMap.at(fiberId); }
+
+    /// Return the position of the fiber trace on the detector, given a fiberId and wavelength
+    ///
+    /// Implementation of findPoint, for subclasses to define.
+    virtual lsst::geom::PointD findPointImpl(int fiberId, float wavelength) const = 0;
+
+    /// Return the wavelength of a point on the detector, given a fiberId and row
+    ///
+    /// Implementation of findWavelength, for subclasses to define.
+    virtual float findWavelengthImpl(int fiberId, float row) const = 0;
 
     /// Reset cached elements after setting slit offsets
     virtual void _resetSlitOffsets() {}

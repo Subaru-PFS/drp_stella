@@ -32,23 +32,6 @@ auto wrapDetectorMap(py::module & mod, char const* name) {
             "fiberId"_a, "row"_a);
     cls.def("findFiberId", py::overload_cast<lsst::geom::PointD const&>(&Class::findFiberId, py::const_),
             "point"_a);
-    cls.def("findPoint", py::overload_cast<int, float>(&Class::findPoint, py::const_),
-            "fiberId"_a, "wavelength"_a);
-    cls.def("findPoint",
-            [](Class const& self, ndarray::Array<int, 1, 1> const& fiberId,
-               ndarray::Array<float, 1, 1> const& wavelength) {
-                   std::size_t const num = fiberId.size();
-                   utils::checkSize(wavelength.size(), num, "fiberId/wavelength");
-                   ndarray::Array<float, 2, 1> out = ndarray::allocate(num, 2);
-                   for (std::size_t ii = 0; ii < num; ++ii) {
-                       auto const point = self.findPoint(fiberId[ii], wavelength[ii]);
-                       out[ii][0] = point.getX();
-                       out[ii][1] = point.getY();
-                   }
-                   return out;
-               }, "fiberId"_a, "wavelength"_a);
-    cls.def("findWavelength", py::overload_cast<int, float>(&Class::findWavelength, py::const_),
-            "fiberId"_a, "row"_a);
     return cls;
 }
 
