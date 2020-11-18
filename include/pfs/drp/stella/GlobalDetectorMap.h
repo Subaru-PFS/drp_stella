@@ -95,6 +95,28 @@ class GlobalDetectorMap : public DetectorMap {
     GlobalDetectorModel getModel() const { return _model; }
     int getDistortionOrder() const { return _model.getDistortionOrder(); }
 
+    /// Measure and apply slit offsets
+    ///
+    /// This implementation fits for a single pair of spatial,spectral offsets
+    /// that minimises chi^2. Simply measuring the mean x and y offsets is not
+    /// sufficient here, because the detectorMap includes distortion (so the
+    /// effects of a shift at the edge can be different from the effects of the
+    /// same shift at the center). Instead, we fit for x,y slit offsets using
+    /// the detectorMap.
+    ///
+    /// @param fiberId : Fiber identifiers for reference lines
+    /// @param wavelength : Wavelength of reference lines (nm)
+    /// @param x, y : Position of reference lines (pixels)
+    /// @param xErr, yErr : Error in position of reference lines (pixels)
+    virtual void measureSlitOffsets(
+        ndarray::Array<int, 1, 1> const& fiberId,
+        ndarray::Array<float, 1, 1> const& wavelength,
+        ndarray::Array<float, 1, 1> const& x,
+        ndarray::Array<float, 1, 1> const& y,
+        ndarray::Array<float, 1, 1> const& xErr,
+        ndarray::Array<float, 1, 1> const& yErr
+    ) override;
+
     bool isPersistable() const noexcept { return true; }
 
     class Factory;

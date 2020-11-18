@@ -279,6 +279,18 @@ void SplinedDetectorMap::setWavelength(
 }
 
 
+void SplinedDetectorMap::measureSlitOffsets(
+    ndarray::Array<int, 1, 1> const& fiberId,
+    ndarray::Array<float, 1, 1> const& wavelength,
+    ndarray::Array<float, 1, 1> const& x,
+    ndarray::Array<float, 1, 1> const& y,
+    ndarray::Array<float, 1, 1> const& xErr,
+    ndarray::Array<float, 1, 1> const& yErr
+) {
+    throw LSST_EXCEPT(lsst::pex::exceptions::RuntimeError, "Not implemented.");
+}
+
+
 void SplinedDetectorMap::_set_xToFiberId() {
     int const iy = getBBox().getHeight()/2;
 

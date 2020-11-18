@@ -1,3 +1,5 @@
+import numpy as np
+
 import lsst.afw.fits
 import lsst.geom
 
@@ -73,6 +75,36 @@ class SplinedDetectorMap:
             identity, pfs.datamodel.Box.fromLsst(self.bbox), self.fiberId, xSplines, wavelengthSplines,
             self.getSpatialOffsets(), self.getSpectralOffsets(), metadata.toDict()
         )
+
+    def measureSlitOffsets(self, fiberId, wavelength, x, y, xErr, yErr):
+        """Measure and apply slit offsets
+
+        This implementation shadows a fake implementation in C++.
+
+        We measure the weighted mean of the offset for each fiber.
+
+        Parameters
+        ----------
+        fiberId : `numpy.ndarray` of `int`, shape ``(N,)``
+            Fiber identifiers for reference lines.
+        wavelength : `numpy.ndarray` of `float`, shape ``(N,)``
+            Wavelengths of reference lines.
+        x, y : `numpy.ndarray` of `float`, shape ``(N,)``
+            Positions of reference lines (pixels).
+        xErr, yErr : `numpy.ndarray` of `float`, shape ``(N,)``
+            Errors in positions of reference lines (pixels).
+        """
+        for ff in set(fiberId):
+            select = (fiberId == ff)
+            points = self.findPoint(ff, wavelength.astype(np.float32)[select])
+            dx = x[select] - points[:, 0]
+            dy = y[select] - points[:, 1]
+            xWeight = 1.0/xErr[select]**2
+            yWeight = 1.0/yErr[select]**2
+            spatial = np.sum(dx*xWeight)/np.sum(xWeight)
+            spectral = np.sum(dy*yWeight)/np.sum(yWeight)
+            self.setSlitOffsets(ff, self.getSpatialOffset(ff) + spatial,
+                                self.getSpectralOffset(ff) + spectral)
 
 
 DetectorMap.register(SplinedDetectorMap)
