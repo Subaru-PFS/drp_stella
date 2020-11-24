@@ -98,15 +98,13 @@ class ConstructFiberFlatTask(SpectralCalibTask):
             # Check and correct for low values in variance
             self.correctLowVarianceImage(image)
 
-            dataRef = dithers[dd][0]  # Representative dataRef
-            detMap = dataRef.get('detectorMap')
-            profileData = self.profiles.run(afwImage.makeExposure(image), detMap)
+            profileData = self.profiles.run(afwImage.makeExposure(image))
             if len(profileData.profiles) == 0:
                 self.log.warn("No profiles found for dither %s: skipping", dd)
                 continue
             self.log.info("%d fiber profiles found for dither %s", len(profileData.profiles), dd)
             maskVal = image.mask.getPlaneBitMask(["BAD", "SAT", "CR", "INTRP"])
-            traces = profileData.profiles.makeFiberTraces(detMap.bbox.getDimensions(), profileData.centers)
+            traces = profileData.profiles.makeFiberTraces(image.getDimensions(), profileData.centers)
             spectra = traces.extractSpectra(image, maskVal)
             self.log.info("Extracted %d for dither %s", len(spectra), dd)
 
