@@ -1,5 +1,7 @@
 import sys
+import shutil
 import unittest
+import tempfile
 import functools
 from contextlib import contextmanager
 
@@ -8,7 +10,7 @@ from contextlib import contextmanager
 These have been added to LSST, but haven't been included in a release yet.
 """
 
-__all__ = ["classParameters", "methodParameters", "runTests"]
+__all__ = ["classParameters", "methodParameters", "runTests", "temporaryDirectory"]
 
 
 def classParameters(**settings):
@@ -144,3 +146,15 @@ def runTests(_globals={}, profileTop=30):
         stats = pstats.Stats(profile)
         stats.sort_stats("cumulative")
         stats.print_stats(profileTop)
+
+
+@contextmanager
+def temporaryDirectory():
+    """Context manager that creates and destroys a temporary directory.
+
+    The difference from `tempfile.TemporaryDirectory` is that this ignores
+    errors when deleting a directory, which may happen with some filesystems.
+    """
+    tmpdir = tempfile.mkdtemp()
+    yield tmpdir
+    shutil.rmtree(tmpdir, ignore_errors=True)
