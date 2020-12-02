@@ -158,6 +158,8 @@ class CentroidLinesTask(Task):
         for fiberId in referenceLines:
             for rl in referenceLines[fiberId]:
                 xx, yy = detectorMap.findPoint(fiberId, rl.wavelength)
+                if not np.isfinite(xx) or not np.isfinite(yy):
+                    continue
                 point = Point2D(xx, yy)
                 spans = SpanSet.fromShape(Ellipse(Axes(self.config.footprintSize, self.config.footprintSize),
                                                   point))
