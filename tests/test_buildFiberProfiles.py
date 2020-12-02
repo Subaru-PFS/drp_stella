@@ -11,6 +11,7 @@ import lsst.afw.image.testUtils
 from pfs.drp.stella.synthetic import (makeSpectrumImage, SyntheticConfig, makeSyntheticDetectorMap,
                                       makeSyntheticPfsConfig)
 from pfs.drp.stella.buildFiberProfiles import BuildFiberProfilesTask
+from pfs.drp.stella.images import getIndices
 from pfs.drp.stella.tests.utils import runTests, methodParameters
 
 display = None
@@ -307,6 +308,31 @@ class FiberProfileSetTestCase(lsst.utils.tests.TestCase):
         self.config.pruneMaxWidth = 1000  # Make sure the CR peaks are included
         self.config.pruneMinLength = self.synth.height - crMaxRow - 5  # Because we've stolen some image
         result = self.task.run(self.makeExposure(image), self.detMap)
+        # The CR damages the profile in this small image; so just care about the number of traces
+        self.assertNumTraces(result)
+
+    def testSortaMaskedCosmic(self):
+        """Test that a sorta-masked cosmic doesn't split a trace
+
+        This is based on a failure mode discovered in a full fiber density sim.
+        A cosmic cuts across multiple traces, but only one end is masked. That
+        mask interrupts one of the traces, and the effect was that the trace
+        was cut short and a new trace started, rather than continuing a single
+        trace.
+        """
+        crValue = 1000
+        colShift = 3
+        maskRadius = 3
+        middleRow = self.synth.height//2
+        middleCol = self.synth.traceCenters[self.synth.numFibers//2]
+        self.image.image.array[middleRow, :] += crValue
+        xx, yy = getIndices(self.image.getBBox(), int)
+        select = ((xx - middleCol - colShift)**2 + (yy - middleRow)**2) < maskRadius**2
+        self.image.mask.array[select] |= self.image.mask.getPlaneBitMask("CR")
+
+        self.config.pruneMinLength = self.synth.height//3  # So a half a trace counts as a trace
+        self.config.doIdentifyFibers = True  # Fiber identification was how this was originally found
+        result = self.task.run(self.makeExposure(self.image), self.detMap)
         # The CR damages the profile in this small image; so just care about the number of traces
         self.assertNumTraces(result)
 

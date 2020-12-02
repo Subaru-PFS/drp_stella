@@ -261,14 +261,15 @@ class BuildFiberProfilesTask(Task):
                 del indices[-1]
                 unassociated[pp.peak] = pp
                 for index in indices:
-                    # Score is distance to most recent trace peak
+                    # Score is distance to most recent trace peak + negative number of past associations
                     score = np.abs(pp.peak - traces[index][-1].peak)
-                    candidates[index].append((pp, score))
+                    candidates[index].append((pp, (score, -indices[index])))
 
             # Assign peaks to existing traces
             # Work through the traces, first with those with clear associations, and then those with multiple
-            # associations. For each trace, take the unassociated peak that has the highest score.
-            for index in sorted(candidates, key=lambda ii: len(candidates[ii])):
+            # associations. For each trace, take the unassociated peak that has the lowest score.
+            for index in sorted(candidates,
+                                key=lambda ii: (len(candidates[ii]), min(cc[1] for cc in candidates[ii]))):
                 remaining = [cc for cc in candidates[index] if cc[0].peak in unassociated]
                 if len(remaining) == 0:
                     continue
