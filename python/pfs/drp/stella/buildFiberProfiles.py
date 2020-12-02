@@ -461,13 +461,13 @@ class BuildFiberProfilesTask(Task):
         middle = 0.5*(detectorMap.bbox.getMinY() + detectorMap.bbox.getMaxY())
         expectCenters = np.array([detectorMap.getXCenter(ff, middle) for ff in detectorMap.fiberId])
         assignments = {}
-        used = set()
+        used = {}
         for index in centers:
             best = detectorMap.fiberId[np.argmin(np.abs(expectCenters - centers[index](middle)))]
             if best in used:
                 raise RuntimeError("Matched fiber to a used fiberId")
             assignments[index] = best
-            used.add(best)
+            used[best] = index
         self.log.debug("Identified %d fiberIds: %s", len(used), assignments)
 
         # Apply new fiberIds
@@ -481,7 +481,7 @@ class BuildFiberProfilesTask(Task):
 
         if pfsConfig is not None:
             indices = pfsConfig.selectByFiberStatus(FiberStatus.GOOD, detectorMap.fiberId)
-            notFound = set(detectorMap.fiberId[indices]) - used
+            notFound = set(detectorMap.fiberId[indices]) - set(used.keys())
             if notFound:
                 self.log.warn("Failed to identify %d fiberIds: %s", len(notFound), sorted(notFound))
 
