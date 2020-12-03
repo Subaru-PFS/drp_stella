@@ -33,6 +33,7 @@ class CentroidLinesConfig(Config):
     footprintSize = Field(dtype=float, default=3, doc="Radius of footprint (pixels)")
     fwhm = Field(dtype=float, default=1.5, doc="FWHM of PSF (pixels)")
     kernelSize = Field(dtype=float, default=4.0, doc="Size of convolution kernel (sigma)")
+    threshold = Field(dtype=float, default=5.0, doc="Signal-to-noise threshold for lines")
 
 
 class CentroidLinesTask(Task):
@@ -104,9 +105,6 @@ class CentroidLinesTask(Task):
 
         The boundary is unconvolved, and is set to ``NaN``.
 
-        We don't convolve the mask or variance plane, since we don't use those
-        for finding the peak.
-
         Parameters
         ----------
         exposure : `lsst.afw.image.Exposure`
@@ -114,15 +112,16 @@ class CentroidLinesTask(Task):
 
         Returns
         -------
-        convolved : `lsst.afw.image.Image`
+        convolved : `lsst.afw.image.MaskedImage`
             Convolved image.
         """
         psfSigma = exposure.getPsf().computeShape().getTraceRadius()
         psfSize = 2*int(self.config.kernelSize*psfSigma) + 1
         kernel = SeparableKernel(psfSize, psfSize, GaussianFunction1D(psfSigma), GaussianFunction1D(psfSigma))
+        maskedImage = exposure.maskedImage
 
-        convolvedImage = exposure.image.Factory(exposure.image.getBBox())
-        convolve(convolvedImage, exposure.image, kernel, ConvolutionControl())
+        convolvedImage = maskedImage.Factory(maskedImage.getBBox())
+        convolve(convolvedImage, maskedImage, kernel, ConvolutionControl())
 
         if self.debugInfo.displayConvolved:
             from lsst.afw.display import Display
@@ -143,7 +142,7 @@ class CentroidLinesTask(Task):
             List of reference lines for each fiberId.
         detectorMap : `pfs.drp.stella.DetectorMap`
             Approximate mapping between fiberId,wavelength and x,y.
-        convolved : `lsst.afw.image.Image`
+        convolved : `lsst.afw.image.MaskedImage`
             PSF-convolved image.
 
         Returns
@@ -154,24 +153,31 @@ class CentroidLinesTask(Task):
         num = sum(len(rl) for rl in referenceLines.values())
         catalog = SourceCatalog(self.schema)
         catalog.reserve(num)
+        bbox = convolved.getBBox()
 
         for fiberId in referenceLines:
             for rl in referenceLines[fiberId]:
-                source = catalog.addNew()
                 xx, yy = detectorMap.findPoint(fiberId, rl.wavelength)
                 point = Point2D(xx, yy)
+                spans = SpanSet.fromShape(Ellipse(Axes(self.config.footprintSize, self.config.footprintSize),
+                                                  point))
+                peak = self.findPeak(convolved.image, point)
+                if not bbox.contains(peak):
+                    continue
+                sn = convolved.image[peak]/np.sqrt(convolved.variance[peak])
+                if sn < self.config.threshold:
+                    continue
+
+                source = catalog.addNew()
                 source.set(self.fiberId, fiberId)
                 source.set(self.wavelength, rl.wavelength)
                 source.set(self.description, rl.description)
                 source.set(self.status, rl.status)
 
-                spans = SpanSet.fromShape(Ellipse(Axes(self.config.footprintSize, self.config.footprintSize),
-                                                  point))
-                rough = self.findPeak(convolved, point)
                 footprint = Footprint(spans, detectorMap.bbox)
-                peak = footprint.getPeaks().addNew()
-                peak.setFx(rough.getX())
-                peak.setFy(rough.getY())
+                fpPeak = footprint.getPeaks().addNew()
+                fpPeak.setFx(peak.getX())
+                fpPeak.setFy(peak.getY())
                 source.setFootprint(footprint)
         return catalog
 
