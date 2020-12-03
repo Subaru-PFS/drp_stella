@@ -382,7 +382,7 @@ class ReduceExposureTask(CmdLineTask):
         """
         detectorMap = sensorRef.get("detectorMap")
         if self.config.doOffsetDetectorMap:
-            self.measureSlitOffsets.run(exposure, detectorMap, pfsConfig, apply=True)
+            self.measureSlitOffsets.run(exposure, detectorMap, pfsConfig)
         fiberProfiles = sensorRef.get("fiberProfiles")
         fiberTraces = fiberProfiles.makeFiberTracesFromDetectorMap(detectorMap)
         return Struct(detectorMap=detectorMap, fiberProfiles=fiberProfiles, fiberTraces=fiberTraces)
