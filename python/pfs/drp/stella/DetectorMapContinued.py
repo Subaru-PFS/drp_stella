@@ -7,7 +7,7 @@ from lsst.afw.display import Display
 from lsst.pex.config import Config, Field, ConfigurableField
 from lsst.pipe.base import CmdLineTask, InputOnlyArgumentParser
 
-from pfs.datamodel import FiberStatus, TargetType
+import pfs.datamodel
 from .readLineList import ReadLineListTask
 from pfs.drp.stella.DetectorMap import DetectorMap
 
@@ -25,11 +25,11 @@ class DetectorMap:
     We take this approach to avoid stepping on the inheritance hierarchy of a
     pybind11 class.
 
-    To support this interface, classes should implement the ``canReadFits``
-    and ``fromFits`` methods, and be registered via
-    ``DetectorMap.register``.
+    To support this interface, classes should implement the ``fromDatamodel``
+    and ``toDatamodel`` methods to convert to/from the representation in
+    pfs.datamodel, and be registered via ``DetectorMap.register``.
     """
-    _subclasses = []  # List of registered subclasses
+    _subclasses = {}  # Registered subclasses (mapping name to class)
 
     def __init__(self, *args, **kwargs):
         raise NotImplementedError("This is a pure-virtual base class")
@@ -44,9 +44,30 @@ class DetectorMap:
             Subclass of ``pfs::drp::stella::DetectorMap``.
         """
         assert SubClass not in cls._subclasses
-        cls._subclasses.append(SubClass)
-        for method in ("readFits", "fromBytes", "writeFits", "display", "toBytes", "__reduce__"):
+        cls._subclasses[SubClass.__name__] = SubClass
+        for method in ("readFits", "fromBytes", "fromFits", "writeFits", "toBytes", "toFits",
+                       "display", "__reduce__"):
             setattr(SubClass, "method", getattr(cls, method))
+
+    @classmethod
+    def fromDatamodel(cls, detectorMap):
+        """Construct from subclass of pfs.datamodel.DetectorMap
+
+        Converts from the datamodel representation to the drp_stella
+        representation.
+
+        Parameters
+        ----------
+        detectorMap : subclass of `pfs.datamodel.DetectorMap`
+            DetectorMap to convert.
+
+        Returns
+        -------
+        self : subclass of `pfs.drp.stella.DetectorMap`
+            Converted detectorMap.
+        """
+        subclass = type(detectorMap).__name__
+        return cls._subclasses[subclass].fromDatamodel(detectorMap)
 
     @classmethod
     def fromFits(cls, fits):
@@ -62,11 +83,18 @@ class DetectorMap:
         self : subclass of ``pfs::drp::stella::DetectorMap``
             Instantiated subclass, read from the file.
         """
-        for SubClass in cls._subclasses:
-            if SubClass.canReadFits(fits):
-                return SubClass.fromFits(fits)
-        else:
-            raise RuntimeError("Unrecognised file format")
+        detMap = pfs.datamodel.PfsDetectorMap._readImpl(fits, None)
+        return cls.fromDatamodel(detMap)
+
+    def toFits(self):
+        """Generate a FITS file
+
+        Returns
+        -------
+        fits : `astropy.io.fits.HDUList`
+            FITS file.
+        """
+        return self.toDatamodel()._writeImpl()
 
     @classmethod
     def readFits(cls, pathName, hdu=None, flags=None):
@@ -252,12 +280,13 @@ class DisplayDetectorMapTask(CmdLineTask):
         display = Display(backend=self.config.backend, frame=self.config.frame)
         display.mtv(exposure)
 
-        goodFibers = detectorMap.fiberId[pfsConfig.selectByFiberStatus(FiberStatus.GOOD, detectorMap.fiberId)]
-        for targetType, color in ((TargetType.SCIENCE, "GREEN"),
-                                  (TargetType.SKY, "BLUE"),
-                                  (TargetType.FLUXSTD, "YELLOW"),
-                                  (TargetType.UNASSIGNED, "MAGENTA"),
-                                  (TargetType.ENGINEERING, "CYAN"),
+        goodFibers = detectorMap.fiberId[pfsConfig.selectByFiberStatus(pfs.datamodel.FiberStatus.GOOD,
+                                         detectorMap.fiberId)]
+        for targetType, color in ((pfs.datamodel.TargetType.SCIENCE, "GREEN"),
+                                  (pfs.datamodel.TargetType.SKY, "BLUE"),
+                                  (pfs.datamodel.TargetType.FLUXSTD, "YELLOW"),
+                                  (pfs.datamodel.TargetType.UNASSIGNED, "MAGENTA"),
+                                  (pfs.datamodel.TargetType.ENGINEERING, "CYAN"),
                                   ):
             indices = pfsConfig.selectByTargetType(targetType, goodFibers)
             if indices.size == 0:
@@ -267,10 +296,10 @@ class DisplayDetectorMapTask(CmdLineTask):
             detectorMap.display(display, fiberId, wavelengths, color)
             self.log.info("%s fibers (%d) are shown in %s", targetType, indices.size, color)
 
-        for fiberStatus, color in ((FiberStatus.BROKENFIBER, "BLACK"),
-                                   (FiberStatus.BLOCKED, "BLACK"),
-                                   (FiberStatus.BLACKSPOT, "RED"),
-                                   (FiberStatus.UNILLUMINATED, "BLACK")
+        for fiberStatus, color in ((pfs.datamodel.FiberStatus.BROKENFIBER, "BLACK"),
+                                   (pfs.datamodel.FiberStatus.BLOCKED, "BLACK"),
+                                   (pfs.datamodel.FiberStatus.BLACKSPOT, "RED"),
+                                   (pfs.datamodel.FiberStatus.UNILLUMINATED, "BLACK")
                                    ):
             indices = pfsConfig.selectByFiberStatus(fiberStatus, detectorMap.fiberId)
             if indices.size == 0:

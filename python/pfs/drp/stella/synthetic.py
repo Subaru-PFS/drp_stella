@@ -1,5 +1,6 @@
 import math
 import numpy as np
+import astropy.units as u
 
 import lsst.geom
 import lsst.afw.image
@@ -292,12 +293,30 @@ def makeSyntheticPfsConfig(config, pfsDesignId, visit, rng=None,
 
     fiberStatus = np.full_like(targetType, FiberStatus.GOOD)
 
-    fiberMag = [np.array([22.0, 23.5, 25.0, 26.0] if
-                         tt in (TargetType.SCIENCE, TargetType.FLUXSTD) else [])
-                for tt in targetType]
+    fiberMagnitude = [22.0, 23.5, 25.0, 26.0]
+    fluxes = [(f * u.ABmag).to_value(u.nJy) for f in fiberMagnitude]
+
+    fiberFlux = [np.array(fluxes if
+                          tt in (TargetType.SCIENCE, TargetType.FLUXSTD) else [])
+                 for tt in targetType]
+
+    # Assigning psfFlux and totalFlux the same values
+    psfFlux = fiberFlux.copy()
+    totalFlux = fiberFlux.copy()
+
+    # All errors are 1% of the original fluxes.
+    # Again, assigning the same values to
+    # psfFluxErr and totalFluxErr
+    # as to fiberFluxErr.
+    fiberFluxErr = [0.01 * fFlux for fFlux in fiberFlux]
+    psfFluxErr = fiberFluxErr.copy()
+    totalFluxErr = fiberFluxErr.copy()
+
     filterNames = [["g", "i", "y", "H"] if tt in (TargetType.SCIENCE, TargetType.FLUXSTD) else []
                    for tt in targetType]
 
     return PfsConfig(pfsDesignId, visit, raBoresight.asDegrees(), decBoresight.asDegrees(),
                      fiberId, tract, patch, ra, dec, catId, objId, targetType, fiberStatus,
-                     fiberMag, filterNames, pfiCenter, pfiNominal)
+                     fiberFlux, psfFlux, totalFlux,
+                     fiberFluxErr, psfFluxErr, totalFluxErr,
+                     filterNames, pfiCenter, pfiNominal)

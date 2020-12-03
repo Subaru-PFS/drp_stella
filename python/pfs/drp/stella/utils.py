@@ -1,30 +1,17 @@
+import io
 import re
 import sys
 import importlib
 
 import numpy as np
-from astropy.io import fits as pyfits
+import astropy.io.fits
 
+import lsst.afw.fits
+
+from pfs.datamodel.utils import astropyHeaderFromDict
 from pfs.drp.stella import ReferenceLine
 
-__all__ = ["readWavelengthFile", "readLineListFile", "plotReferenceLines"]
-
-
-def readWavelengthFile(wLenFile):
-    """read wavelength file and return 1-D arrays of length nFibre*nwavelength
-
-    These arrays are used by evaluating e.g. wavelengths[np.where(traceId == fid)]
-    """
-    hdulist = pyfits.open(wLenFile)
-    tbdata = hdulist[1].data
-    traceIds = tbdata[:]['fiberNum'].astype('int32')
-    wavelengths = tbdata[:]['pixelWave'].astype('float32')
-    xCenters = tbdata[:]['xc'].astype('float32')
-
-    traceIdSet = np.unique(traceIds)
-    assert len(wavelengths) == len(traceIds[traceIds == traceIdSet[0]])*len(traceIdSet)  # could check all
-
-    return [xCenters, wavelengths, traceIds]
+__all__ = ["readLineListFile", "plotReferenceLines", "headerToMetadata"]
 
 
 def readLineListFile(lineListFilename, lamps=["Ar", "Cd", "Hg", "Ne", "Xe"], minIntensity=0):
@@ -205,3 +192,30 @@ def getPfsVersions(prefix="VERSION_"):
         importlib.import_module(module + ".version")
         versions[prefix + name] = sys.modules[module + ".version"].__version__
     return versions
+
+
+def headerToMetadata(header):
+    """Convert FITS header to LSST metadata
+
+    Parameters
+    ----------
+    header : `dict` or `astropy.io.fits.Header`
+        FITS header.
+
+    Returns
+    -------
+    metadata : `lsst.daf.base.PropertyList`
+        LSST metadata object.
+    """
+    if isinstance(header, dict):
+        header = astropyHeaderFromDict(header)
+    # Read the primary header with lsst.afw.fits
+    # This requires writing the FITS file into memory and reading it from there
+    fits = astropy.io.fits.HDUList([astropy.io.fits.PrimaryHDU(header=header)])
+    buffer = io.BytesIO()
+    fits.writeto(buffer)
+    ss = buffer.getvalue()
+    size = len(ss)
+    ff = lsst.afw.fits.MemFileManager(size)
+    ff.setData(ss, size)
+    return ff.readMetadata(0)
