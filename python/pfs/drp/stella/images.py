@@ -4,21 +4,23 @@ import numpy as np
 __all__ = ["getIndices", "calculateCentroid", "calculateSecondMoments"]
 
 
-def getIndices(bbox):
+def getIndices(bbox, dtype=float):
     """Return x and y indices for an image, given the bounding box
 
     Parameters
     ----------
     bbox : `lsst.geom.Box2I`
         Bounding box for image.
+    dtype : numerical type
+        Data type for indices.
 
     Returns
     -------
-    xx, yy : `numpy.ndarray` of `int`
+    xx, yy : `numpy.ndarray` of ``dtype``
         Indices for the pixels in the image in x and y.
     """
-    return (np.arange(bbox.getMinX(), bbox.getMaxX() + 1, dtype=float)[np.newaxis, :],
-            np.arange(bbox.getMinY(), bbox.getMaxY() + 1, dtype=float)[:, np.newaxis])
+    return (np.arange(bbox.getMinX(), bbox.getMaxX() + 1, dtype=dtype)[np.newaxis, :],
+            np.arange(bbox.getMinY(), bbox.getMaxY() + 1, dtype=dtype)[:, np.newaxis])
 
 
 def calculateCentroid(image):

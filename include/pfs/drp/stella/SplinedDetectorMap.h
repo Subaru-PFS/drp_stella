@@ -99,6 +99,25 @@ class SplinedDetectorMap : public DetectorMap {
     /// Set the wavelength spline
     void setWavelength(int fiberId, Array1D const& knots, Array1D const& wavelength);
 
+    /// Measure and apply slit offsets
+    ///
+    /// This implementation throws an exception, because the implementation to
+    /// use is written in python. This only exists so as to keep the class from
+    /// containing an undefined virtual.
+    ///
+    /// @param fiberId : Fiber identifiers for reference lines
+    /// @param wavelength : Wavelength of reference lines (nm)
+    /// @param x, y : Position of reference lines (pixels)
+    /// @param xErr, yErr : Error in position of reference lines (pixels)
+    virtual void measureSlitOffsets(
+        ndarray::Array<int, 1, 1> const& fiberId,
+        ndarray::Array<float, 1, 1> const& wavelength,
+        ndarray::Array<float, 1, 1> const& x,
+        ndarray::Array<float, 1, 1> const& y,
+        ndarray::Array<float, 1, 1> const& xErr,
+        ndarray::Array<float, 1, 1> const& yErr
+    ) override;
+
     bool isPersistable() const noexcept { return true; }
 
     class Factory;

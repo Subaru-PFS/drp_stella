@@ -7,6 +7,7 @@ import lsst.afw.image
 import lsst.afw.image.testUtils
 
 import pfs.drp.stella.synthetic as synthetic
+from pfs.drp.stella import GlobalDetectorMap
 from pfs.drp.stella.measureSlitOffsets import MeasureSlitOffsetsTask
 from pfs.drp.stella.tests.utils import runTests, methodParameters
 
@@ -30,7 +31,8 @@ class MeasureSlitOffsetsTestCase(lsst.utils.tests.TestCase):
         psfSize = 2*int(psfSigma + 0.5) + 1
         self.exposure.setPsf(lsst.afw.detection.GaussianPsf(psfSize, psfSize, psfSigma))
 
-        self.detectorMap = synthetic.makeSyntheticDetectorMap(self.synth)
+        self.splinedDetectorMap = synthetic.makeSyntheticDetectorMap(self.synth)
+        self.globalDetectorMap = synthetic.makeSyntheticGlobalDetectorMap(self.synth)
         self.pfsConfig = synthetic.makeSyntheticPfsConfig(self.synth, 12345, 6789, rng=self.rng)
 
         self.config = MeasureSlitOffsetsTask.ConfigClass()
@@ -53,12 +55,12 @@ class MeasureSlitOffsetsTestCase(lsst.utils.tests.TestCase):
                 fd.write("# This is a fake line list\n")
                 fiberId = self.synth.fiberId[self.synth.numFibers//2]  # We need any fiber; choose the middle
                 for yy in self.arc.lines:
-                    wl = self.detectorMap.findWavelength(fiberId, yy)
+                    wl = self.splinedDetectorMap.findWavelength(fiberId, yy)
                     fd.write(f"{wl} 1000.0 ArI 0\n")
             self.config.readLineList.lineList = filename
             yield filename
 
-    def assertOffsets(self, offsets, dx=0.0, dy=0.0, numRejected=0):
+    def assertOffsets(self, offsets, dx=0.0, dy=0.0, numRejected=0, numParams=2):
         """Check that the results from MeasureSlitOffsetsTask are as expected
 
         Parameters
@@ -70,20 +72,16 @@ class MeasureSlitOffsetsTestCase(lsst.utils.tests.TestCase):
         numRejected : `int`
             Expected number of points to be rejected.
         """
-        self.assertFloatsAlmostEqual(offsets.x, dx, atol=5.0e-2)
-        self.assertFloatsAlmostEqual(offsets.y, dy, atol=5.0e-2)
+        self.assertFloatsAlmostEqual(offsets.spatial, dx, atol=5.0e-2)
+        self.assertFloatsAlmostEqual(offsets.spectral, dy, atol=5.0e-2)
         numLines = len(self.arc.lines)*self.synth.numFibers
         numGood = numLines - numRejected
         self.assertEqual(offsets.num, numGood)
-        self.assertEqual(offsets.dof, 2*numGood - 2)
+        self.assertEqual(offsets.dof, 2*numGood - numParams)
         self.assertGreater(offsets.chi2, 0.0)
         self.assertLess(offsets.soften, 3.0e-2)
-        self.assertEqual(len(offsets.dx), numGood)
-        self.assertEqual(len(offsets.dy), numGood)
-        self.assertFloatsAlmostEqual(offsets.dx, dx, atol=1.0e-1)
-        self.assertFloatsAlmostEqual(offsets.dy, dy, atol=1.0e-1)
-        self.assertEqual(len(offsets.good), numLines)
-        self.assertEqual(offsets.good.sum(), numGood)
+        self.assertEqual(len(offsets.select), numLines)
+        self.assertEqual(offsets.select.sum(), numGood)
 
     @methodParameters(dx=(0.0, -0.3456, 1.2432, 0.0, 0.0),
                       dy=(0.0, 0.0, 0.0, 0.3210, -0.4321))
@@ -99,11 +97,13 @@ class MeasureSlitOffsetsTestCase(lsst.utils.tests.TestCase):
         dx, dy : `float`
             Offset to apply and retrieve.
         """
-        with self.makeLineList():
-            self.detectorMap.applySlitOffset(-dx, -dy)
-            task = MeasureSlitOffsetsTask(name="measureSlitOffsets", config=self.config)
-            offsets = task.run(self.exposure, self.detectorMap, self.pfsConfig)
-            self.assertOffsets(offsets, dx=dx, dy=dy)
+        for detMap in (self.splinedDetectorMap, self.globalDetectorMap):
+            with self.makeLineList():
+                detMap.applySlitOffset(-dx, -dy)
+                task = MeasureSlitOffsetsTask(name="measureSlitOffsets", config=self.config)
+                offsets = task.run(self.exposure, detMap, self.pfsConfig)
+                numParams = 2 if isinstance(detMap, GlobalDetectorMap) else 2*detMap.getNumFibers()
+                self.assertOffsets(offsets, dx=dx, dy=dy, numParams=numParams)
 
     def testRejection(self):
         """Test that we can reject bad points
@@ -114,16 +114,18 @@ class MeasureSlitOffsetsTestCase(lsst.utils.tests.TestCase):
         """
         for fiberId in self.synth.fiberId:
             yy = int(self.rng.choice(self.arc.lines, 1) + 0.5)
-            xx = int(self.detectorMap.getXCenter(fiberId, yy) + 0.5)
+            xx = int(self.splinedDetectorMap.getXCenter(fiberId, yy) + 0.5)
             value = self.exposure.image.array[yy, xx]
             self.exposure.image.array[yy:yy + 2, xx:xx + 2] += value
 
         self.config.rejIterations = 3
-        with self.makeLineList():
-            task = MeasureSlitOffsetsTask(name="measureSlitOffsets", config=self.config)
-            task.log.setLevel(task.log.DEBUG)
-            offsets = task.run(self.exposure, self.detectorMap, self.pfsConfig)
-            self.assertOffsets(offsets, numRejected=self.synth.numFibers)
+        for detMap in (self.splinedDetectorMap, self.globalDetectorMap):
+            with self.makeLineList():
+                task = MeasureSlitOffsetsTask(name="measureSlitOffsets", config=self.config)
+                task.log.setLevel(task.log.DEBUG)
+                offsets = task.run(self.exposure, detMap, self.pfsConfig)
+                numParams = 2 if isinstance(detMap, GlobalDetectorMap) else 2*detMap.getNumFibers()
+                self.assertOffsets(offsets, numRejected=self.synth.numFibers, numParams=numParams)
 
 
 class TestMemory(lsst.utils.tests.MemoryTestCase):

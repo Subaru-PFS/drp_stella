@@ -1,3 +1,4 @@
+import itertools
 import numpy as np
 import scipy.optimize
 
@@ -7,6 +8,7 @@ from lsst.pipe.base import Task, Struct
 from pfs.datamodel.pfsConfig import FiberStatus
 from .readLineList import ReadLineListTask
 from .centroidLines import CentroidLinesTask
+from .GlobalDetectorMapContinued import GlobalDetectorMap
 
 import lsstDebug
 
@@ -19,6 +21,7 @@ class MeasureSlitOffsetsConfig(Config):
     centroidLines = ConfigurableField(target=CentroidLinesTask, doc="Centroid lines")
     rejIterations = Field(dtype=int, default=3, doc="Number of rejection iterations")
     rejThreshold = Field(dtype=float, default=3.0, doc="Rejection threshold (sigma)")
+    soften = Field(dtype=float, default=0.01, doc="Softening to apply to centroid errors (pixels)")
 
 
 class MeasureSlitOffsetsTask(Task):
@@ -31,7 +34,7 @@ class MeasureSlitOffsetsTask(Task):
         self.makeSubtask("centroidLines")
         self.debugInfo = lsstDebug.Info(__name__)
 
-    def run(self, exposure, detectorMap, pfsConfig, apply=True):
+    def run(self, exposure, detectorMap, pfsConfig):
         """Measure consistent x,y offsets applicable to all fibers
 
         Parameters
@@ -42,56 +45,46 @@ class MeasureSlitOffsetsTask(Task):
             Mapping between fiberId,wavelength and x,y.
         pfsConfig : `pfs.datamodel.PfsConfig`
             Top-end configuration.
-        apply : `bool`
-            Apply the measured offsets to the ``detectorMap``?
 
         Returns
         -------
-        x, y : `float`
-            Mean x and y shifts.
+        spatial, spectral : `ndarray.Array` of `float`
+            Spatial and spectral shifts for each fiber.
         chi2 : `float`
             chi^2 for the fit.
         dof : `int`
             Number of degrees of freedom.
         num : `int`
-            Number of centroid measurements.
+            Number of centroid measurements used.
+        select : `numpy.ndarray` of `bool`
+            Boolean array indicating which centroids were used.
+        soften : `float`
+            Systematic error in centroid (pixels) required to produce
+            chi^2/dof = 1.
         """
+        before = detectorMap.clone()
         indices = pfsConfig.selectByFiberStatus(FiberStatus.GOOD)
         fiberId = pfsConfig.fiberId[indices]
         lines = self.readLineList.run(detectorMap=detectorMap, fiberId=fiberId,
                                       metadata=exposure.getMetadata())
         centroids = self.centroidLines.run(exposure, lines, detectorMap)
 
-        good = ~centroids.flag
-        offsets = None
-        for ii in range(self.config.rejIterations):
-            offsets = self.measureSlitOffsets(detectorMap, centroids, good, offsets)
-            self.log.debug("Iteration %d slit offsets: spatial=%f spectral=%f chi2=%f soften=%f num=%d",
-                           ii, offsets.x, offsets.y, offsets.chi2, offsets.soften, offsets.num)
-            dx = np.abs((offsets.dx - offsets.x)/np.hypot(centroids.xErr[good], offsets.soften))
-            dy = np.abs((offsets.dy - offsets.y)/np.hypot(centroids.yErr[good], offsets.soften))
-            keep = (dx < self.config.rejThreshold) & (dy < self.config.rejThreshold)
-            good[good] &= keep
-            if np.all(keep):
-                break
-        else:
-            # Final iteration with no rejection
-            offsets = self.measureSlitOffsets(detectorMap, centroids, good, offsets)
+        result = self.measureSlitOffsets(detectorMap, centroids)
+        self.log.info("Mean spatial=%f spectral=%f; chi2/dof=%.1f/%d soften=%.3f num=%d",
+                      result.spatial.mean(), result.spectral.mean(),
+                      result.chi2, result.dof, result.soften, result.num)
 
-        self.log.info("Measured slit offsets: spatial=%f spectral=%f chi2=%f soften=%f num=%d",
-                      offsets.x, offsets.y, offsets.chi2, offsets.soften, offsets.num)
-        self.displaySlitOffsets(exposure, centroids, detectorMap, fiberId, set(centroids.wavelength), offsets)
-        if apply:
-            self.applySlitOffsets(detectorMap, offsets)
-        return offsets
+        if self.debugInfo.plot:
+            self.plotSlitOffsets(detectorMap, centroids, result)
+        if self.debugInfo.display:
+            self.displaySlitOffsets(exposure, centroids, before, detectorMap, fiberId,
+                                    set(centroids.wavelength))
+        return result
 
-    def measureSlitOffsets(self, detectorMap, centroids, good, offsets=None):
-        """Measure slit offsets
+    def measureSlitOffsets(self, detectorMap, centroids):
+        """Measure the slit offsets
 
-        Simply measuring the mean x and y offsets is not sufficient because the
-        detectorMap may include distortion (so the effects of a shift at the
-        edge can be different from the effects of the same shift at the center).
-        Instead, we fit for x,y slit offsets using the detectorMap.
+        We iteratively measure the slit offsets and reject outliers.
 
         Parameters
         ----------
@@ -99,87 +92,64 @@ class MeasureSlitOffsetsTask(Task):
             Mapping from fiberId,wavelength to x,y.
         centroids : `pfs.drp.stella.ArcLineSet`
             Line centroids.
-        good : `numpy.ndarray` of `float`
-            Boolean array indicating which centroids are good.
-        offsets : `lsst.pipe.base.Struct`
-            Results from previous ``measureSlitOffsets`` invocations. Includes
-            ``x`` and ``y`` members (`float`), that serve as the starting point
-            for minimisation.
 
         Returns
         -------
-        x, y : `float`
-            Mean x and y shifts.
+        spatial, spectral : `ndarray.Array` of `float`
+            Spatial and spectral shifts for each fiber.
         chi2 : `float`
             chi^2 for the fit.
         dof : `int`
             Number of degrees of freedom.
         num : `int`
-            Number of centroid measurements.
-        dx, dy : `numpy.ndarray` of `float`
-            Offsets in x and y for the good points.
-        good : `numpy.ndarray` of `bool`
-            Boolean array indicating which centroids are good.
+            Number of centroid measurements used.
+        select : `numpy.ndarray` of `bool`
+            Boolean array indicating which centroids were used.
+        soften : `float`
+            Systematic error in centroid (pixels) required to produce
+            chi^2/dof = 1.
         """
-        fiberId = centroids.fiberId[good].astype(np.int32)
-        wavelength = centroids.wavelength[good].astype(np.float32)
-        xx = centroids.x[good]
-        yy = centroids.y[good]
-        xErr = centroids.xErr[good]
-        yErr = centroids.yErr[good]
+        origSpatial = detectorMap.getSpatialOffsets().copy()
+        origSpectral = detectorMap.getSpectralOffsets().copy()
+        select = ~centroids.flag
+        select &= np.isfinite(centroids.x) & np.isfinite(centroids.y)
+        select &= np.isfinite(centroids.xErr) & np.isfinite(centroids.yErr)
 
-        def calculateOffsets(detMap):
-            """Calculate the x,y offsets
+        fiberId = centroids.fiberId.astype(np.int32)
+        wavelength = centroids.wavelength.astype(np.float32)
+        xx = centroids.x.astype(np.float32)
+        yy = centroids.y.astype(np.float32)
+        xErr = np.hypot(centroids.xErr.astype(np.float32), self.config.soften)
+        yErr = np.hypot(centroids.yErr.astype(np.float32), self.config.soften)
 
-            Offsets are in the sense of measured minus expected positions.
+        for ii in range(self.config.rejIterations):
+            detectorMap.measureSlitOffsets(fiberId[select], wavelength[select], xx[select], yy[select],
+                                           xErr[select], yErr[select])
 
-            Parameters
-            ----------
-            detMap : `pfs.drp.stella.DetectorMap`
-                Mapping from fiberId,wavelength to x,y.
+            points = detectorMap.findPoint(fiberId[select], wavelength[select])
+            dx = (centroids.x[select] - points[:, 0])/xErr[select]
+            dy = (centroids.y[select] - points[:, 1])/yErr[select]
+            chi2 = np.sum(dx**2 + dy**2)
+            self.log.debug("Iteration %d: chi2=%f num=%d", ii, chi2, select.sum())
 
-            Returns
-            -------
-            dx, dy : `numpy.ndarray` of `float`
-                Offsets in x,y for each selected point.
-            """
-            points = detMap.findPoint(fiberId, wavelength)
-            dx = xx - points[:, 0]
-            dy = yy - points[:, 1]
-            return dx, dy
-
-        def offsetChi2(params):
-            """Calculate chi^2 given dx,dy
-
-            Parameters
-            ----------
-            params : `tuple` of 2 `float`s
-                x and y offsets.
-
-            Returns
-            -------
-            chi2 : `float`
-                chi^2 for the offsets provided.
-            """
-            detMap = detectorMap.clone()
-            detMap.applySlitOffset(*params)
-            dx, dy = calculateOffsets(detMap)
-            return ((dx/xErr)**2).sum() + ((dy/yErr)**2).sum()
-
-        dx, dy = calculateOffsets(detectorMap)
-        if offsets is not None:
-            start = (offsets.x, offsets.y)
+            keep = (np.abs(dx) < self.config.rejThreshold) & (np.abs(dy) < self.config.rejThreshold)
+            if np.all(keep):
+                break
+            select[select] &= keep
         else:
-            start = (np.median(dx), np.median(dy))
+            # Final iteration with no rejection
+            detectorMap.measureSlitOffsets(fiberId[select], wavelength[select], xx[select], yy[select],
+                                           xErr[select], yErr[select])
 
-        result = scipy.optimize.minimize(offsetChi2, start, method='Nelder-Mead')
-        if not result.success:
-            raise RuntimeError("Failed to fit slit offsets")
-
-        dx2 = (dx - result.x[0])**2
-        dy2 = (dy - result.x[1])**2
-        xErr2 = xErr**2
-        yErr2 = yErr**2
+        points = detectorMap.findPoint(fiberId[select], wavelength[select])
+        dx2 = (centroids.x[select] - points[:, 0])**2
+        dy2 = (centroids.y[select] - points[:, 1])**2
+        xErr2 = centroids.xErr[select]**2
+        yErr2 = centroids.yErr[select]**2
+        numGood = select.sum()
+        chi2 = np.sum(dx2/xErr2 + dy2/yErr2)
+        dof = 2*numGood - (2 if isinstance(detectorMap, GlobalDetectorMap) else 2*len(set(fiberId[select])))
+        self.log.debug("Final iteration: chi2/dof=%f/%d num=%d", chi2, dof, numGood)
 
         def softenChi2(soften):
             """Return chi^2/dof (minus 1) with the softening applied
@@ -202,42 +172,67 @@ class MeasureSlitOffsetsTask(Task):
             yChi2 = np.sum(dy2/(soften**2 + yErr2))
             return (xChi2 + yChi2)/dof - 1
 
-        num = good.sum()
-        dof = 2*num - 2
-        if result.fun > dof:
-            soften = scipy.optimize.bisect(softenChi2, 0.0, 1.0)
+        if chi2 > dof:
+            try:
+                soften = scipy.optimize.bisect(softenChi2, 0.0, 1.0)
+            except Exception:
+                soften = 1.0
         else:
             soften = 0.0
 
-        if self.debugInfo.plot:
-            import itertools
-            import matplotlib.pyplot as plt
-            fig, axes = plt.subplots(2, 2, )
-            for ax, ((x, xErr, xText), (y, yText)) in zip(
-                sum(axes.tolist(), []),
-                itertools.product([(centroids.x, centroids.xErr, "x"), (centroids.y, centroids.yErr, "y")],
-                                  [(dx - result.x[0], "dx"), (dy - result.x[1], "dy")])
-            ):
-                ax.scatter(x[good], y/xErr[good], marker=".", color="k")
-                ax.axhline(0.0, linestyle=":", color="k")
-                ax.set_xlabel(xText)
-                ax.set_ylabel(yText)
-            fig.suptitle(f"Offset: x={result.x[0]:.3f} y={result.x[1]:.3f} chi2={result.fun:.1f} "
-                         f"soften={soften:.3f} num={num}")
-            fig.tight_layout()
-            plt.show()
+        newSpatial = detectorMap.getSpatialOffsets()
+        newSpectral = detectorMap.getSpectralOffsets()
 
-        return Struct(x=result.x[0], y=result.x[1], chi2=result.fun, dof=2*num - 2, num=num,
-                      dx=dx, dy=dy, good=good, soften=soften)
+        return Struct(spatial=newSpatial - origSpatial, spectral=newSpectral - origSpectral,
+                      chi2=chi2, dof=dof, num=numGood, select=select, soften=soften)
 
-    def displaySlitOffsets(self, exposure, centroids, detectorMap, fiberId, wavelength, offsets):
+    def plotSlitOffsets(self, detectorMap, centroids, result):
+        """Plot the slit offset measurements
+
+        The good points are plotted in black, and the bad points in red.
+
+        Parameters
+        ----------
+        detectorMap : `pfs.drp.stella.DetectorMap`
+            Mapping between fiberId,wavelength and x,y after slit offsets were
+            applied.
+        centroids : `pfs.drp.stella.ArcLineSet`
+            List of line centroids.
+        """
+        good = result.select
+        bad = ~good
+        points = detectorMap.findPoint(centroids.fiberId.astype(np.int32),
+                                       centroids.wavelength.astype(np.float32))
+        dx = centroids.x - points[:, 0]
+        dy = centroids.y - points[:, 1]
+
+        import matplotlib.pyplot as plt
+        fig, axes = plt.subplots(2, 2, )
+        for ax, ((x, xText), (y, yText)) in zip(
+            sum(axes.tolist(), []),
+            itertools.product(
+                [(centroids.x, "x"), (centroids.y, "y")],
+                [(dx/centroids.xErr, "dx"), (dy/centroids.yErr, "dy")]
+            )
+        ):
+            ax.scatter(x[good], y[good], marker=".", color="k")
+            ax.scatter(x[bad], y[bad], marker=".", color="r")
+            ax.axhline(0.0, linestyle=":", color="k")
+            ax.set_xlabel(xText)
+            ax.set_ylabel(yText + " (sigma)")
+        fig.suptitle(f"Offset: chi2={result.chi2:.1f} soften={result.soften:.3f} "
+                     f"num={result.num}/{len(centroids)}")
+        fig.tight_layout()
+        plt.show()
+
+    def displaySlitOffsets(self, exposure, centroids, beforeDetectorMap, afterDetectorMap,
+                           fiberId, wavelength):
         """Display the exposure with the before and after detectorMaps
 
         The measured line positions are shown in red, the 'before' detectorMap
         is shown in yellow, and the 'after' detectorMap is shown in green.
 
         The following debug parameters are used:
-        - ``display`` (`bool`): display anything (defaults to ``False``)?
         - ``frame`` (`int`): display frame to use (defaults to ``1``).
         - ``backend`` (`str`): display backend to use (defaults to ``"ds9"``).
 
@@ -247,37 +242,22 @@ class MeasureSlitOffsetsTask(Task):
             Image to display.
         centroids : `pfs.drp.stella.ArcLineSet`
             List of line centroids.
-        detectorMap : `pfs.drp.stella.DetectorMap`
-            Mapping between fiberId,wavelength and x,y.
+        beforeDetectorMap : `pfs.drp.stella.DetectorMap`
+            Mapping between fiberId,wavelength and x,y before slit offsets were
+            applied.
+        afterDetectorMap : `pfs.drp.stella.DetectorMap`
+            Mapping between fiberId,wavelength and x,y after slit offsets were
+            applied.
         fiberId : iterable of `int`
             Fiber identifiers to plot.
         wavelength : iterable of `float`
             Wavelengths to mark.
-        offsets : `lsst.pipe.base.Struct`
-            Structure containing ``x`` and ``y`` (`float`) offsets.
         """
-        if not self.debugInfo.display:
-            return
         from lsst.afw.display import Display
         disp = Display(frame=self.debugInfo.frame or 1, backend=self.debugInfo.backend or "ds9")
         disp.mtv(exposure)
         with disp.Buffering():
             for line in centroids:
                 disp.dot("x", line.x, line.y, size=5, ctype="red")
-        detectorMap.display(disp, fiberId, wavelength, "yellow")
-        fixed = detectorMap.clone()
-        fixed.applySlitOffset(offsets.x, offsets.y)
-        fixed.display(disp, fiberId, wavelength, "green")
-
-    def applySlitOffsets(self, detectorMap, offsets):
-        """Apply measured offsets to the detectorMap
-
-        Parameters
-        ----------
-        detectorMap : `pfs.drp.stella.DetectorMap`
-            Mapping between fiberId,wavelength and x,y. Will be modified.
-        offsets : `lsst.pipe.base.Struct`
-            Structure containing ``x`` and ``y`` (`float`) offsets.
-        """
-        self.log.info("Applying slit offsets: %f %f", offsets.x, offsets.y)
-        detectorMap.applySlitOffset(offsets.x, offsets.y)
+        beforeDetectorMap.display(disp, fiberId, wavelength, "yellow")
+        afterDetectorMap.display(disp, fiberId, wavelength, "green")

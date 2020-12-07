@@ -42,6 +42,7 @@ class BuildFiberProfilesConfig(Config):
     profileOversample = Field(dtype=int, default=10, doc="Oversample factor for profile")
     profileRejIter = Field(dtype=int, default=1, doc="Rejection iterations for profile")
     profileRejThresh = Field(dtype=float, default=3.0, doc="Rejection threshold (sigma) for profile")
+    doIdentifyFibers = Field(dtype=bool, default=True, doc="Identify fibers using detectorMap?")
 
 
 class BuildFiberProfilesTask(Task):
@@ -98,7 +99,7 @@ class BuildFiberProfilesTask(Task):
             profiles[ii] = self.calculateProfile(exposure.maskedImage, fit.func)
             centers[ii] = fit.func
 
-        if detectorMap is not None:
+        if self.config.doIdentifyFibers and detectorMap is not None:
             identifications = self.identifyFibers(profiles, centers, detectorMap, pfsConfig)
             profiles = identifications.profiles
             centers = identifications.centers
@@ -260,14 +261,15 @@ class BuildFiberProfilesTask(Task):
                 del indices[-1]
                 unassociated[pp.peak] = pp
                 for index in indices:
-                    # Score is distance to most recent trace peak
+                    # Score is distance to most recent trace peak + negative number of past associations
                     score = np.abs(pp.peak - traces[index][-1].peak)
-                    candidates[index].append((pp, score))
+                    candidates[index].append((pp, (score, -indices[index])))
 
             # Assign peaks to existing traces
             # Work through the traces, first with those with clear associations, and then those with multiple
-            # associations. For each trace, take the unassociated peak that has the highest score.
-            for index in sorted(candidates, key=lambda ii: len(candidates[ii])):
+            # associations. For each trace, take the unassociated peak that has the lowest score.
+            for index in sorted(candidates,
+                                key=lambda ii: (len(candidates[ii]), min(cc[1] for cc in candidates[ii]))):
                 remaining = [cc for cc in candidates[index] if cc[0].peak in unassociated]
                 if len(remaining) == 0:
                     continue
@@ -459,13 +461,13 @@ class BuildFiberProfilesTask(Task):
         middle = 0.5*(detectorMap.bbox.getMinY() + detectorMap.bbox.getMaxY())
         expectCenters = np.array([detectorMap.getXCenter(ff, middle) for ff in detectorMap.fiberId])
         assignments = {}
-        used = set()
+        used = {}
         for index in centers:
             best = detectorMap.fiberId[np.argmin(np.abs(expectCenters - centers[index](middle)))]
             if best in used:
                 raise RuntimeError("Matched fiber to a used fiberId")
             assignments[index] = best
-            used.add(best)
+            used[best] = index
         self.log.debug("Identified %d fiberIds: %s", len(used), assignments)
 
         # Apply new fiberIds
@@ -479,7 +481,7 @@ class BuildFiberProfilesTask(Task):
 
         if pfsConfig is not None:
             indices = pfsConfig.selectByFiberStatus(FiberStatus.GOOD, detectorMap.fiberId)
-            notFound = set(detectorMap.fiberId[indices]) - used
+            notFound = set(detectorMap.fiberId[indices]) - set(used.keys())
             if notFound:
                 self.log.warn("Failed to identify %d fiberIds: %s", len(notFound), sorted(notFound))
 

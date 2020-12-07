@@ -1,7 +1,5 @@
 #include <algorithm>
 
-#include "lsst/pex/exceptions/Exception.h"
-
 #include "pfs/drp/stella/utils/checkSize.h"
 
 #include "pfs/drp/stella/DetectorMap.h"
