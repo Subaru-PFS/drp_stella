@@ -9,7 +9,7 @@ from pfs.drp.stella import ReferenceLine
 __all__ = ["readLineListFile", "plotReferenceLines"]
 
 
-def readLineListFile(lineListFilename, lamps=None, minIntensity=0, flagsToIgnoreMask=~0):
+def readLineListFile(lineListFilename, lamps=None, minIntensity=0, flagsToIgnore=0x0):
     """Read line list
 
     File consists of lines of
@@ -44,13 +44,13 @@ def readLineListFile(lineListFilename, lamps=None, minIntensity=0, flagsToIgnore
                 continue
             fields = line.split()
             try:
-                lam, intensity, species, status = fields
+                lam, intensity, species, flag = fields
             except Exception as e:
                 print("%s: %s" % (e, fields))
                 raise
 
-            status = int(status)
-            if (status & flagsToIgnoreMask) != 0:
+            flag = int(flag)
+            if (flag & ~flagsToIgnore) != 0:
                 continue
 
             try:
@@ -74,7 +74,7 @@ def readLineListFile(lineListFilename, lamps=None, minIntensity=0, flagsToIgnore
 
             referenceLines.append(ReferenceLine(species, wavelength=float(lam),
                                                 guessedIntensity=intensity,
-                                                status=ReferenceLine.Status(status)))
+                                                status=ReferenceLine.Status(flag)))
 
     if len(referenceLines) == 0:
         raise RuntimeError("You have not selected any lines from %s" % lineListFilename)
