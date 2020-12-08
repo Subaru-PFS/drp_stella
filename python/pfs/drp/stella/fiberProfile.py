@@ -217,10 +217,10 @@ class FiberProfile:
             A pixellated version of the profile, at a fixed trace position.
         """
         dimensions = detectorMap.bbox.getDimensions()
-        rows = np.arange(dimensions.getHeight(), dtype=np.float32)
+        rows = np.arange(dimensions.getY(), dtype=np.float32)
         xCenter = detectorMap.getXCenter(fiberId)
         centerFunc = SplineF(rows, xCenter)
-        return self.makeFiberTrace(dimensions, centerFunc)
+        return self.makeFiberTrace(dimensions, centerFunc, fiberId)
 
     def makeFiberTrace(self, dimensions, centerFunc, fiberId):
         """Make a FiberTrace object
