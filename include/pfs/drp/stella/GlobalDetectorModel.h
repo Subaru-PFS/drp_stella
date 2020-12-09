@@ -167,7 +167,7 @@ class FiberMap {
 ///   x value) CCD.
 /// * spatialOffset, spectralOffset: per-fiber offsets in the spatial and
 ///       spectral dimensions.
-class GlobalDetectorModel {
+class GlobalDetectorModel : public lsst::afw::table::io::Persistable {
   public:
     using Polynomial = lsst::afw::math::Chebyshev1Function2<double>;
 
@@ -192,6 +192,31 @@ class GlobalDetectorModel {
         ndarray::Array<double, 1, 1> const& rightCcd,
         ndarray::Array<double, 1, 1> const& spatialOffsets=ndarray::Array<double, 1, 1>(),
         ndarray::Array<double, 1, 1> const& spectralOffsets=ndarray::Array<double, 1, 1>()
+    );
+
+    /// Ctor
+    ///
+    /// @param distortionOrder : polynomial order for distortion
+    /// @param fiberMap : mapping for fiberId to fiberIndex
+    /// @param scaling : scaling of fiberId,wavelength to xi,eta
+    /// @param xCenter : central x value; for separating left and right CCDs
+    /// @param height : height of detector (spatial dimension; pixels)
+    /// @param xDistortion : distortion field parameters for x
+    /// @param yDistortion : distortion field parameters for y
+    /// @param rightCcd : affine transformation parameters for the right CCD
+    /// @param spatialOffsets : slit offsets in the spatial dimension
+    /// @param spectralOffsets : slit offsets in the spectral dimension
+    GlobalDetectorModel(
+        int distortionOrder,
+        FiberMap const& fiberMap,
+        GlobalDetectorModelScaling const& scaling,
+        float xCenter,
+        std::size_t height,
+        ndarray::Array<double, 1, 1> const& xDistortion,
+        ndarray::Array<double, 1, 1> const& yDistortion,
+        ndarray::Array<double, 1, 1> const& rightCcd,
+        ndarray::Array<double, 1, 1> const& spatialOffsets,
+        ndarray::Array<double, 1, 1> const& spectralOffsets
     );
 
     virtual ~GlobalDetectorModel() {}
@@ -354,6 +379,7 @@ class GlobalDetectorModel {
     double getFiberPitch() const { return _scaling.fiberPitch; }
     double getDispersion() const { return _scaling.dispersion; }
     double getWavelengthCenter() const { return _scaling.wavelengthCenter; }
+    int getHeight() const { return _scaling.height; }
     float getBuffer() const { return _scaling.buffer; }
     int getXCenter() const { return _xCenter; }
     Polynomial const& getXDistortion() const { return _xDistortion; }
@@ -412,35 +438,16 @@ class GlobalDetectorModel {
     }
     //@}
 
+    bool isPersistable() const noexcept { return true; }
+
+    class Factory;
+
   protected:
-    friend class GlobalDetectorMap;
-
-    /// Ctor
-    ///
-    /// @param distortionOrder : polynomial order for distortion
-    /// @param fiberMap : mapping for fiberId to fiberIndex
-    /// @param scaling : scaling of fiberId,wavelength to xi,eta
-    /// @param xCenter : central x value; for separating left and right CCDs
-    /// @param height : height of detector (spatial dimension; pixels)
-    /// @param xDistortion : distortion field parameters for x
-    /// @param yDistortion : distortion field parameters for y
-    /// @param rightCcd : affine transformation parameters for the right CCD
-    /// @param spatialOffsets : slit offsets in the spatial dimension
-    /// @param spectralOffsets : slit offsets in the spectral dimension
-    GlobalDetectorModel(
-        int distortionOrder,
-        FiberMap const& fiberMap,
-        GlobalDetectorModelScaling const& scaling,
-        float xCenter,
-        std::size_t height,
-        ndarray::Array<double, 1, 1> const& xDistortion,
-        ndarray::Array<double, 1, 1> const& yDistortion,
-        ndarray::Array<double, 1, 1> const& rightCcd,
-        ndarray::Array<double, 1, 1> const& spatialOffsets,
-        ndarray::Array<double, 1, 1> const& spectralOffsets
-    );
-
     friend std::ostream& operator<<(std::ostream& os, GlobalDetectorModel const& model);
+
+    std::string getPersistenceName() const { return "GlobalDetectorModel"; }
+    std::string getPythonModule() const { return "pfs.drp.stella"; }
+    void write(lsst::afw::table::io::OutputArchiveHandle & handle) const;
 
   private:
     // Configuration

@@ -405,22 +405,10 @@ namespace {
 
 // Singleton class that manages the persistence catalog's schema and keys
 class GlobalDetectorMapSchema {
-    using IntArray = lsst::afw::table::Array<int>;
-    using DoubleArray = lsst::afw::table::Array<double>;
   public:
     lsst::afw::table::Schema schema;
     lsst::afw::table::Box2IKey bbox;
-    lsst::afw::table::Key<int> distortionOrder;
-    lsst::afw::table::Key<double> fiberPitch;
-    lsst::afw::table::Key<double> dispersion;
-    lsst::afw::table::Key<double> wavelengthCenter;
-    lsst::afw::table::Key<float> buffer;
-    lsst::afw::table::Key<IntArray> fiberId;
-    lsst::afw::table::Key<DoubleArray> xCoefficients;
-    lsst::afw::table::Key<DoubleArray> yCoefficients;
-    lsst::afw::table::Key<DoubleArray> rightCcd;
-    lsst::afw::table::Key<DoubleArray> spatialOffset;
-    lsst::afw::table::Key<DoubleArray> spectralOffset;
+    lsst::afw::table::Key<int> model;
     lsst::afw::table::Key<int> visitInfo;
 
     static GlobalDetectorMapSchema const &get() {
@@ -432,17 +420,7 @@ class GlobalDetectorMapSchema {
     GlobalDetectorMapSchema()
       : schema(),
         bbox(lsst::afw::table::Box2IKey::addFields(schema, "bbox", "bounding box", "pixel")),
-        distortionOrder(schema.addField<int>("distortionOrder", "polynomial order for distortion", "")),
-        fiberPitch(schema.addField<double>("fiberPitch", "distance between fibers", "pixel")),
-        dispersion(schema.addField<double>("dispersion", "wavelength dispersion", "nm/pixel")),
-        wavelengthCenter(schema.addField<double>("wavelengthCenter", "central wavelength", "nm")),
-        buffer(schema.addField<float>("buffer", "fraction by which to expand wavelength range", "")),
-        fiberId(schema.addField<IntArray>("fiberId", "fiber identifiers", "", 0)),
-        xCoefficients(schema.addField<DoubleArray>("xCoefficients", "x distortion coefficients", "", 0)),
-        yCoefficients(schema.addField<DoubleArray>("yCoefficients", "y distortion coefficients", "", 0)),
-        rightCcd(schema.addField<DoubleArray>("rightCcd", "affine transform coefficients for RHS", "", 0)),
-        spatialOffset(schema.addField<DoubleArray>("spatialOffset", "slit offsets in x", "micron", 0)),
-        spectralOffset(schema.addField<DoubleArray>("spectralOffset", "slit offsets in y", "micron", 0)),
+        model(schema.addField<int>("model", "model reference", "")),
         visitInfo(schema.addField<int>("visitInfo", "visitInfo reference", "")) {
             schema.getCitizen().markPersistent();
     }
@@ -456,23 +434,7 @@ void GlobalDetectorMap::write(lsst::afw::table::io::OutputArchiveHandle & handle
     lsst::afw::table::BaseCatalog cat = handle.makeCatalog(schema.schema);
     PTR(lsst::afw::table::BaseRecord) record = cat.addNew();
     record->set(schema.bbox, getBBox());
-    record->set(schema.distortionOrder, getDistortionOrder());
-    record->set(schema.fiberPitch, getModel().getFiberPitch());
-    record->set(schema.dispersion, getModel().getDispersion());
-    record->set(schema.wavelengthCenter, getModel().getWavelengthCenter());
-    record->set(schema.buffer, getModel().getBuffer());
-    ndarray::Array<int, 1, 1> const fiberId = ndarray::copy(getFiberId());
-    record->set(schema.fiberId, fiberId);
-    ndarray::Array<double, 1, 1> xCoeff = ndarray::copy(getModel().getXCoefficients());
-    record->set(schema.xCoefficients, xCoeff);
-    ndarray::Array<double, 1, 1> yCoeff = ndarray::copy(getModel().getYCoefficients());
-    record->set(schema.yCoefficients, yCoeff);
-    ndarray::Array<double, 1, 1> rightCcd = ndarray::copy(getModel().getRightCcdCoefficients());
-    record->set(schema.rightCcd, rightCcd);
-    ndarray::Array<double, 1, 1> spatialOffset = ndarray::copy(getSpatialOffsets());
-    record->set(schema.spatialOffset, spatialOffset);
-    ndarray::Array<double, 1, 1> spectralOffset = ndarray::copy(getSpectralOffsets());
-    record->set(schema.spectralOffset, spectralOffset);
+    record->set(schema.model, handle.put(getModel()));
     record->set(schema.visitInfo, handle.put(getVisitInfo()));
     // XXX dropping metadata on the floor, since we can't write a header
     handle.saveCatalog(cat);
@@ -491,24 +453,10 @@ class GlobalDetectorMap::Factory : public lsst::afw::table::io::PersistableFacto
         LSST_ARCHIVE_ASSERT(record.getSchema() == schema.schema);
 
         lsst::geom::Box2I const bbox = record.get(schema.bbox);
-        int const distortionOrder = record.get(schema.distortionOrder);
-        double const fiberPitch = record.get(schema.fiberPitch);
-        double const dispersion = record.get(schema.dispersion);
-        double const wavelengthCenter = record.get(schema.wavelengthCenter);
-        float const buffer = record.get(schema.buffer);
-        ndarray::Array<int, 1, 1> fiberId = ndarray::copy(record.get(schema.fiberId));
-        ndarray::Array<double, 1, 1> xCoeff = ndarray::copy(record.get(schema.xCoefficients));
-        ndarray::Array<double, 1, 1> yCoeff = ndarray::copy(record.get(schema.yCoefficients));
-        ndarray::Array<double, 1, 1> rightCcd = ndarray::copy(record.get(schema.rightCcd));
-        ndarray::Array<double, 1, 1> spatialOffset = ndarray::copy(record.get(schema.spatialOffset));
-        ndarray::Array<double, 1, 1> spectralOffset = ndarray::copy(record.get(schema.spectralOffset));        assert(spatialOffset.getNumElements() == fiberId.size());
-        assert(spectralOffset.getNumElements() == fiberId.size());
+        auto model = archive.get<GlobalDetectorModel>(record.get(schema.model));
         auto visitInfo = archive.get<lsst::afw::image::VisitInfo>(record.get(schema.visitInfo));
 
-        return std::make_shared<GlobalDetectorMap>(
-            bbox, distortionOrder, fiberId, fiberPitch, dispersion, wavelengthCenter, buffer,
-            xCoeff, yCoeff, rightCcd, spatialOffset, spectralOffset, *visitInfo
-        );
+        return std::make_shared<GlobalDetectorMap>(bbox, *model, *visitInfo);
     }
 
     Factory(std::string const& name) : lsst::afw::table::io::PersistableFactory(name) {}
