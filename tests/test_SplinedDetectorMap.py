@@ -306,6 +306,18 @@ class SplinedDetectorMapTestCase(lsst.utils.tests.TestCase):
         copy = pickle.loads(pickle.dumps(detMap))
         self.assertSplinedDetectorMap(copy)
 
+    def testOffDetector(self):
+        """Test that a wavelength off the detector
+
+        It should produce a x,y position off the detector: PIPE2D-675.
+        """
+        detMap = self.makeSplinedDetectorMap()
+        fiberId = detMap.getFiberId()[len(detMap)//2]
+        wavelength = detMap.getWavelength(fiberId)
+        for wl in (wavelength.min() - 10, wavelength.max() + 10):
+            point = detMap.findPoint(fiberId, wl)
+            self.assertFalse(detMap.bbox.contains(lsst.geom.Point2I(point)))
+
 
 class SplinedDetectorMapSlitOffsetsTestCase(lsst.utils.tests.TestCase):
     """Test that SplinedDetectorMap slit offsets work as expected

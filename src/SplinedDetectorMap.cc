@@ -209,7 +209,7 @@ lsst::geom::PointD SplinedDetectorMap::findPointImpl(
     auto const end = fiberWavelength.end();
     auto const onePast = std::lower_bound(begin, end, wavelength);  // element just larger than wavelength
 
-    if (onePast == end) {
+    if (onePast == begin || onePast == end) {
         double const NaN = std::numeric_limits<double>::quiet_NaN();
         return lsst::geom::PointD(NaN, NaN);
     }
