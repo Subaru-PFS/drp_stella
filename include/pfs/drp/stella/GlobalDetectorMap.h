@@ -1,14 +1,12 @@
 #ifndef PFS_DRP_STELLA_GLOBALDETECTORMAP_H
 #define PFS_DRP_STELLA_GLOBALDETECTORMAP_H
 
-#include <map>
 #include "ndarray_fwd.h"
 
 #include "lsst/afw/table/io/Persistable.h"
 
-#include "pfs/drp/stella/spline.h"
 #include "pfs/drp/stella/GlobalDetectorModel.h"
-#include "pfs/drp/stella/DetectorMap.h"
+#include "pfs/drp/stella/ModelBasedDetectorMap.h"
 
 
 namespace pfs {
@@ -17,10 +15,8 @@ namespace stella {
 
 
 /// DetectorMap implemented with a global detector model
-class GlobalDetectorMap : public DetectorMap {
+class GlobalDetectorMap : public ModelBasedDetectorMap {
   public:
-    using ParamType = double;
-
     /// Ctor
     ///
     /// @param bbox : detector bounding box
@@ -77,21 +73,6 @@ class GlobalDetectorMap : public DetectorMap {
 
     virtual std::shared_ptr<DetectorMap> clone() const override;
 
-    //@{
-    /// Return the fiber centers
-    virtual Array1D getXCenter(int fiberId) const override;
-    virtual double getXCenter(int fiberId, double row) const override;
-    //@}
-
-    //@{
-    /// Return the wavelength values
-    virtual Array1D getWavelength(int fiberId) const override;
-    virtual double getWavelength(int fiberId, double row) const override;
-    //@}
-
-    /// Return the fiberId given a position on the detector
-    virtual int findFiberId(lsst::geom::PointD const& point) const override;
-
     GlobalDetectorModel getModel() const { return _model; }
     int getDistortionOrder() const { return _model.getDistortionOrder(); }
 
@@ -125,23 +106,15 @@ class GlobalDetectorMap : public DetectorMap {
     /// Return the position of the fiber trace on the detector, given a fiberId and wavelength
     virtual lsst::geom::PointD findPointImpl(int fiberId, double wavelength) const override;
 
-    /// Return the wavelength of a point on the detector, given a fiberId and row
-    virtual double findWavelengthImpl(int fiberId, double row) const override;
+    /// Reset cached elements after setting slit offsets
+    virtual void _resetSlitOffsets() override;
 
     std::string getPersistenceName() const { return "GlobalDetectorMap"; }
     std::string getPythonModule() const { return "pfs.drp.stella"; }
     void write(lsst::afw::table::io::OutputArchiveHandle & handle) const;
 
   private:
-    /// Reset cached elements after setting slit offsets
-    virtual void _resetSlitOffsets() override;
-
-    using Spline = math::Spline<ParamType>;
-    void _setSplines();
-
     GlobalDetectorModel _model;
-    std::vector<Spline> _rowToWavelength;
-    std::vector<Spline> _rowToXCenter;
 };
 
 

@@ -22,8 +22,8 @@ public:
     using Array = ndarray::Array<InternalT, 1, 1>;
     using ConstArray = ndarray::Array<InternalT const, 1, 1>;
 
-    Spline(Array const& x,                            ///< positions of knots
-           Array const& y,                            ///< values of function at knots
+    Spline(ConstArray const& x,                            ///< positions of knots
+           ConstArray const& y,                            ///< values of function at knots
            InterpolationTypes interpolationType=CUBIC_NOTAKNOT ///< spline boundary conditions
           );
 

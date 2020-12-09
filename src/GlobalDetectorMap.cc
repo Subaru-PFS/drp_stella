@@ -14,7 +14,6 @@
 #include "ndarray.h"
 
 #include "lsst/utils/Cache.h"
-#include "lsst/afw/image.h"
 #include "lsst/afw/table.h"
 #include "lsst/afw/table/io/OutputArchive.h"
 #include "lsst/afw/table/io/InputArchive.h"
@@ -22,8 +21,6 @@
 #include "lsst/afw/table/io/Persistable.cc"
 #include "lsst/afw/math/Statistics.h"
 
-#include "pfs/drp/stella/utils/checkSize.h"
-#include "pfs/drp/stella/utils/math.h"
 #include "pfs/drp/stella/GlobalDetectorMap.h"
 
 
@@ -37,14 +34,11 @@ GlobalDetectorMap::GlobalDetectorMap(
     GlobalDetectorModel const& model,
     VisitInfo const& visitInfo,
     std::shared_ptr<lsst::daf::base::PropertySet> metadata
-) : DetectorMap(bbox, model.getFiberId(),
-                model.getSpatialOffsets(),
-                model.getSpectralOffsets(),
-                visitInfo, metadata),
+) : ModelBasedDetectorMap(bbox, model.getWavelengthCenter(), model.getDispersion(),
+                          model.getFiberId(), model.getSpatialOffsets(), model.getSpectralOffsets(),
+                          visitInfo, metadata),
     _model(model)
-{
-    _setSplines();
-}
+    {}
 
 
 GlobalDetectorMap::GlobalDetectorMap(
@@ -81,170 +75,11 @@ std::shared_ptr<DetectorMap> GlobalDetectorMap::clone() const {
 }
 
 
-void GlobalDetectorMap::_setSplines() {
-    _rowToWavelength.clear();
-    _rowToXCenter.clear();
-    _rowToWavelength.reserve(getNumFibers());
-    _rowToXCenter.reserve(getNumFibers());
-
-    ParamType const wavelengthCenter = _model.getWavelengthCenter();
-    ParamType const dispersion = _model.getDispersion();
-    assert(dispersion > 0);  // to prevent infinite loops
-    std::size_t const height = getBBox().getHeight();
-    for (std::size_t ii = 0; ii < getNumFibers(); ++ii) {
-        std::vector<ParamType> wavelength;
-        std::vector<ParamType> xx;
-        std::vector<ParamType> yy;
-
-        wavelength.reserve(height);
-        xx.reserve(height);
-        yy.reserve(height);
-        int fiberId = getFiberId()[ii];
-
-        // Iterate up in wavelength until we drop off the edge of the detector
-        for (ParamType wl = wavelengthCenter; true; wl += dispersion) {
-            auto const point = _model(fiberId, wl, ii);
-            wavelength.push_back(wl);
-            xx.push_back(point.getX());
-            yy.push_back(point.getY());
-            if (point.getY() > height || point.getY() < 0) {
-                break;
-            }
-        }
-        // Iterate down in wavelength until we drop off the edge of the detector
-        for (ParamType wl = wavelengthCenter - dispersion; true; wl -= dispersion) {
-            auto const point = _model(fiberId, wl, ii);
-            wavelength.push_back(wl);
-            xx.push_back(point.getX());
-            yy.push_back(point.getY());
-            if (point.getY() < 0 || point.getY() > height) {
-                break;
-            }
-        }
-        std::size_t const length = wavelength.size();
-
-        // Sort into monotonic ndarrays
-        // With some care we could simply rearrange, but easier to code the sort
-        // and performance isn't critical.
-        ndarray::Array<std::size_t, 1, 1> indices = ndarray::allocate(length);
-        for (std::size_t ii = 0; ii < length; ++ii) {
-            indices[ii] = ii;
-        }
-        std::sort(indices.begin(), indices.end(),
-                  [&yy](std::size_t left, std::size_t right) { return yy[left] < yy[right]; });
-
-        ndarray::Array<ParamType, 1, 1> wlArray = ndarray::allocate(length);
-        ndarray::Array<ParamType, 1, 1> xArray = ndarray::allocate(length);
-        ndarray::Array<ParamType, 1, 1> yArray = ndarray::allocate(length);
-        for (std::size_t ii = 0; ii < length; ++ii) {
-            std::size_t const index = indices[ii];
-            wlArray[ii] = wavelength[index];
-            xArray[ii] = xx[index];
-            yArray[ii] = yy[index];
-        }
-        _rowToWavelength.emplace_back(yArray, wlArray);
-        _rowToXCenter.emplace_back(yArray, xArray);
-    }
-}
-
-
-DetectorMap::Array1D GlobalDetectorMap::getXCenter(
-    int fiberId
-) const {
-    Spline const& spline = _rowToXCenter[getFiberIndex(fiberId)];
-    std::size_t const height = getBBox().getHeight();
-    Array1D out = ndarray::allocate(height);
-    for (std::size_t yy = 0; yy < height; ++yy) {
-        out[yy] = spline(yy);
-    }
-    return out;
-}
-
-
-double GlobalDetectorMap::getXCenter(
-    int fiberId,
-    double row
-) const {
-    Spline const& spline = _rowToXCenter[getFiberIndex(fiberId)];
-    return spline(row);
-}
-
-
-DetectorMap::Array1D GlobalDetectorMap::getWavelength(
-    int fiberId
-) const {
-    Spline const& spline = _rowToWavelength[getFiberIndex(fiberId)];
-    std::size_t const height = getBBox().getHeight();
-    Array1D out = ndarray::allocate(height);
-    for (std::size_t yy = 0; yy < height; ++yy) {
-        out[yy] = spline(yy);
-    }
-    return out;
-}
-
-
-double GlobalDetectorMap::getWavelength(
-    int fiberId,
-    double row
-) const {
-    Spline const& spline = _rowToWavelength[getFiberIndex(fiberId)];
-    return spline(row);
-}
-
-
-int GlobalDetectorMap::findFiberId(lsst::geom::PointD const& point) const {
-    if (getNumFibers() == 1) {
-        return getFiberId()[0];
-    }
-    ParamType const xx = point.getX();
-    ParamType const yy = point.getY();
-
-    // We know x as a function of fiberId (given y),
-    // and x is monotonic with fiberId (for fixed y),
-    // so we can find fiberId by bisection.
-    std::size_t lowIndex = 0;
-    std::size_t highIndex = getNumFibers() - 1;
-    ParamType xLow = _rowToXCenter[lowIndex](yy);
-    ParamType xHigh = _rowToXCenter[highIndex](yy);
-    bool const increasing = xHigh > xLow;  // Does x increase with increasing fiber index?
-    while (highIndex - lowIndex > 1) {
-        std::size_t newIndex = lowIndex + (highIndex - lowIndex)/2;
-        ParamType xNew = _rowToXCenter[newIndex](yy);
-        if (increasing) {
-            assert(xNew > xLow && xNew < xHigh);
-            if (xx > xNew) {
-                lowIndex = newIndex;
-                xLow = xNew;
-            } else {
-                highIndex = newIndex;
-                xHigh = xNew;
-            }
-        } else {
-            assert(xNew < xLow && xNew > xHigh);
-            if (xx < xNew) {
-                lowIndex = newIndex;
-                xLow = xNew;
-            } else {
-                highIndex = newIndex;
-                xHigh = xNew;
-            }
-        }
-    }
-    return std::abs(xx - xLow) < std::abs(xx - xHigh) ? getFiberId()[lowIndex] : getFiberId()[highIndex];
-}
-
-
 lsst::geom::PointD GlobalDetectorMap::findPointImpl(
     int fiberId,
     double wavelength
 ) const {
     return _model(fiberId, wavelength);
-}
-
-
-double GlobalDetectorMap::findWavelengthImpl(int fiberId, double row) const {
-    Spline const& spline = _rowToWavelength[getFiberIndex(fiberId)];
-    return spline(row);
 }
 
 
@@ -254,7 +89,7 @@ void GlobalDetectorMap::_resetSlitOffsets() {
         _model.getXCoefficients(), _model.getYCoefficients(), _model.getRightCcdCoefficients(),
         getSpatialOffsets(), getSpectralOffsets()
     );
-    _setSplines();
+    ModelBasedDetectorMap::_resetSlitOffsets();
 }
 
 
