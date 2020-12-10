@@ -165,6 +165,39 @@ class SubtractSky1dTask(Task):
         spectrum.mask[np.array(sky.masks)] |= bitmask
         spectrum.covariance[0] += sky.variance
 
+    def estimateSkyFromMerged(self, merged, pfsConfig, lsfList):
+        """Measure and subtract the sky from the merged 1D spectra
+
+        Parameters
+        ----------
+        merged : `pfs.datamodel.PfsMerged`
+            List of merged spectra from which to subtract the sky,
+            including sky spectra
+        pfsConfig : `pfs.datamodel.PfsConfig`
+            Configuration of the top-end, for identifying sky fibers.
+        lsfList : iterable of LSF (type TBD)
+            List of line-spread functions.
+
+        Returns
+        -------
+        sky1d : `pfs.drp.stella.FocalPlaneFunction`
+            1D sky model.
+        """
+        if not np.any(pfsConfig.targetType == TargetType.SKY):
+            raise RuntimeError("No sky fibers found")
+
+        if self.debugInfo.plotSkyFluxes:
+            self.plotSkyFibers([merged], pfsConfig, "Sky flux")
+
+        sky1d = self.measureSky([merged], pfsConfig, [lsfList])
+
+        self.subtractSkySpectra(merged, lsfList, pfsConfig, sky1d)
+
+        if self.debugInfo.plotSkyResiduals:
+            self.plotSkyFibers([merged], pfsConfig, "Sky residuals")
+
+        return sky1d
+
     def plotSkyFibers(self, spectraList, pfsConfig, title):
         """Plot spectra from sky fibers
 
