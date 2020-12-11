@@ -45,20 +45,22 @@ class PfsSimpleSpectrum(pfs.datamodel.PfsSimpleSpectrum):
             figure.show()
         return figure, axes
 
-    def resample(self, wavelength):
+    def resample(self, wavelength, interpKind=None):
         """Resampled the spectrum in wavelength
 
         Parameters
         ----------
         wavelength : `numpy.ndarray` of `float`
             Desired wavelength sampling.
+        interpKind : `str`, optional
+            The kind of interpolation to request from scipy.interp1d
 
         Returns
         -------
         resampled : `PfsSimpleSpectrum`
             Resampled spectrum.
         """
-        flux = interpolateFlux(self.wavelength, self.flux, wavelength)
+        flux = interpolateFlux(self.wavelength, self.flux, wavelength, interpKind=interpKind)
         mask = interpolateMask(self.wavelength, self.mask, wavelength)
         return type(self)(self.target, wavelength, flux, mask, self.flags)
 

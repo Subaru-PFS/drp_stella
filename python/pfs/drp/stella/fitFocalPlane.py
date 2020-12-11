@@ -28,8 +28,9 @@ class FocalPlaneFunction(types.SimpleNamespace):
     variance : `numpy.ndarray` of `float`, shape ``(N,)``
         Variance in value at each wavelength.
     """
-    def __init__(self, wavelength, value, mask, variance):
+    def __init__(self, wavelength, value, mask, variance, interpKind=None):
         super().__init__(wavelength=wavelength, value=value, mask=mask, variance=variance)
+        self.interpKind = interpKind
 
     def __call__(self, wavelengths, positions):
         """Evaluate the function at the provided positions
@@ -61,12 +62,12 @@ class FocalPlaneFunction(types.SimpleNamespace):
         doResample = [wl.shape != self.wavelength.shape or not np.all(wl == self.wavelength) for
                       wl in wavelengths]
 
-        values = [interpolateFlux(self.wavelength, self.value, wl) if resamp else self.value for
-                  wl, resamp in zip(wavelengths, doResample)]
-        masks = [interpolateMask(self.wavelength, self.mask, wl).astype(bool) if resamp else self.mask for
-                 wl, resamp in zip(wavelengths, doResample)]
-        variances = [interpolateFlux(self.wavelength, self.variance, wl) if resamp else self.variance for
-                     wl, resamp in zip(wavelengths, doResample)]
+        values = [interpolateFlux(self.wavelength, self.value, wl, interpKind=self.interpKind) if resamp else
+                  self.value for wl, resamp in zip(wavelengths, doResample)]
+        masks = [interpolateMask(self.wavelength, self.mask, wl).astype(bool) if resamp else
+                 self.mask for wl, resamp in zip(wavelengths, doResample)]
+        variances = [interpolateFlux(self.wavelength, self.variance, wl, interpKind="linear") if resamp else
+                     self.variance for wl, resamp in zip(wavelengths, doResample)]
         return Struct(values=values, masks=masks, variances=variances)
 
     @classmethod
@@ -124,8 +125,9 @@ class FitFocalPlaneTask(Task):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.debugInfo = lsstDebug.Info(__name__)
+        self.interpKind = None
 
-    def run(self, wavelength, vectors, variances, masks, fiberIdList, pfsConfig):
+    def run(self, wavelength, vectors, variances, masks, fiberIdList, pfsConfig, interpKind=None):
         """Fit a vector function as a function of wavelength over the focal plane
 
         Note that this requires that all the input vectors have the same
@@ -146,12 +148,15 @@ class FitFocalPlaneTask(Task):
             Fibers being fit.
         pfsConfig : `pfs.datamodel.PfsConfig`
             Top-end configuration, for getting the fiber centers.
+        interpKind : `str`, optional
+            The kind of interpolation to request from scipy.interp1d
 
         Returns
         -------
         fit : `FocalPlaneFunction`
             Function fit to the data.
         """
+        self.interpKind = interpKind
         centers = pfsConfig.extractCenters(fiberIdList)
         return self.fit(wavelength, vectors, variances, masks, centers)
 
@@ -203,7 +208,7 @@ class FitFocalPlaneTask(Task):
         coaddVariance[~good] = np.inf
         coaddMask = ~good
 
-        return FocalPlaneFunction(wavelength, coaddValues, coaddMask, coaddVariance)
+        return FocalPlaneFunction(wavelength, coaddValues, coaddMask, coaddVariance, self.interpKind)
 
     def fit(self, wavelength, values, masks, variances, centers):
         """Fit a vector function over the focal plane

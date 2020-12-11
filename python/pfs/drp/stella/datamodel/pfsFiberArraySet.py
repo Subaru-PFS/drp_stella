@@ -74,7 +74,7 @@ class PfsFiberArraySet(pfs.datamodel.PfsFiberArraySet):
             figure.show()
         return figure, axes
 
-    def resample(self, wavelength, fiberId=None):
+    def resample(self, wavelength, fiberId=None, interpKind=None):
         """Construct a new PfsFiberArraySet resampled to a common wavelength vector
 
         Parameters
@@ -83,6 +83,8 @@ class PfsFiberArraySet(pfs.datamodel.PfsFiberArraySet):
             New wavelength values (nm).
         fiberId : `numpy.ndarray` of int, optional
             Fibers to resample. If ``None``, resample all fibers.
+        interpKind : `str`, optional
+            The kind of interpolation to request from scipy.interp1d
 
         Returns
         -------
@@ -101,10 +103,13 @@ class PfsFiberArraySet(pfs.datamodel.PfsFiberArraySet):
 
         for ii, ff in enumerate(fiberId):
             jj = np.argwhere(self.fiberId == ff)[0][0]
-            flux[ii] = interpolateFlux(self.wavelength[jj], self.flux[jj], wavelength)
-            sky[ii] = interpolateFlux(self.wavelength[jj], self.sky[jj], wavelength)
+            flux[ii] = interpolateFlux(self.wavelength[jj], self.flux[jj], wavelength, interpKind=interpKind)
+            sky[ii] = interpolateFlux(self.wavelength[jj], self.sky[jj], wavelength, interpKind=interpKind)
             # XXX dropping covariance on the floor: just doing the variance for now
-            covar[ii][0] = interpolateFlux(self.wavelength[jj], self.covar[jj][0], wavelength, fill=np.inf)
+            # Use linear interpolation to make sure that we can't become negative, and only zero if
+            # an input covariance is 0
+            covar[ii][0] = interpolateFlux(self.wavelength[jj], self.covar[jj][0], wavelength,
+                                           interpKind="linear", fill=np.inf)
             mask[ii] = interpolateMask(self.wavelength[jj], self.mask[jj], wavelength,
                                        fill=self.flags["NO_DATA"]).astype(self.mask.dtype)
 

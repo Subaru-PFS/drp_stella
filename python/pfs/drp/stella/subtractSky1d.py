@@ -38,7 +38,7 @@ class SubtractSky1dTask(Task):
         self.makeSubtask("fit")
         self.debugInfo = lsstDebug.Info(__name__)
 
-    def run(self, spectraList, pfsConfig, lsfList):
+    def run(self, spectraList, pfsConfig, lsfList, interpKind=None):
         """Measure and subtract the sky from the 1D spectra
 
         Parameters
@@ -49,6 +49,8 @@ class SubtractSky1dTask(Task):
             Configuration of the top-end, for identifying sky fibers.
         lsfList : iterable of LSF (type TBD)
             List of line-spread functions.
+        interpKind : `str`, optional
+            The kind of interpolation to request from scipy.interp1d
 
         Returns
         -------
@@ -59,15 +61,15 @@ class SubtractSky1dTask(Task):
             raise RuntimeError("No sky fibers found")
         if self.debugInfo.plotSkyFluxes:
             self.plotSkyFibers(spectraList, pfsConfig, "Sky flux")
-        resampledList = self.resampleSpectra(spectraList, pfsConfig)  # resampled SKY spectra
-        sky1d = self.measureSky(resampledList, pfsConfig, lsfList)
+        resampledList = self.resampleSpectra(spectraList, pfsConfig, interpKind)  # resampled SKY spectra
+        sky1d = self.measureSky(resampledList, pfsConfig, lsfList, interpKind)
         for spectra, lsf in zip(spectraList, lsfList):
             self.subtractSkySpectra(spectra, lsf, pfsConfig, sky1d)
         if self.debugInfo.plotSkyResiduals:
             self.plotSkyFibers(spectraList, pfsConfig, "Sky residuals")
         return sky1d
 
-    def resampleSpectra(self, spectraList, pfsConfig):
+    def resampleSpectra(self, spectraList, pfsConfig, interpKind=None):
         """Resample the sky spectra to a common wavelength scale
 
         Parameters
@@ -76,6 +78,8 @@ class SubtractSky1dTask(Task):
             Spectra to resample
         pfsConfig : `pfs.datamodel.PfsConfig`
             Configuration of the top-end, for identifying sky fibers.
+        interpKind : `str`, optional
+            The kind of interpolation to request from scipy.interp1d
 
         Returns
         -------
@@ -87,9 +91,9 @@ class SubtractSky1dTask(Task):
         dWl = self.config.deltaWavelength
         wavelength = minWl + dWl*np.arange(int((maxWl - minWl)/dWl), dtype=float)
         index = pfsConfig.selectByTargetType(TargetType.SKY)
-        return [spectra.resample(wavelength, pfsConfig.fiberId[index]) for spectra in spectraList]
+        return [spectra.resample(wavelength, pfsConfig.fiberId[index], interpKind) for spectra in spectraList]
 
-    def measureSky(self, spectraList, pfsConfig, lsfList, skyFiberIndexes=None):
+    def measureSky(self, spectraList, pfsConfig, lsfList, skyFiberIndexes=None, interpKind=None):
         """Measure the 1D sky model
 
         Parameters
@@ -103,6 +107,8 @@ class SubtractSky1dTask(Task):
             List of line-spread functions.
         skyFiberIndexes : iterable of `int` or None
             Indexes of sky fibres in spectraList[]
+        interpKind : `str`, optional
+            The kind of interpolation to request from scipy.interp1d
 
         Returns
         -------
@@ -124,7 +130,7 @@ class SubtractSky1dTask(Task):
                 masks.append((spectra.mask[ii] & maskVal) > 0)
                 fiberId.append(spectra.fiberId[ii])
 
-        return self.fit.run(wavelength, values, masks, variances, fiberId, pfsConfig)
+        return self.fit.run(wavelength, values, masks, variances, fiberId, pfsConfig, interpKind)
 
     def subtractSkySpectra(self, spectra, lsf, pfsConfig, sky1d):
         """Subtract the 1D sky model from the spectra, in-place
@@ -170,7 +176,7 @@ class SubtractSky1dTask(Task):
         spectrum.mask[np.array(sky.masks)] |= bitmask
         spectrum.covariance[0] += sky.variance
 
-    def estimateSkyFromMerged(self, merged, pfsConfig, lsfList):
+    def estimateSkyFromMerged(self, merged, pfsConfig, lsfList, interpKind):
         """Measure and subtract the sky from the merged 1D spectra
 
         Parameters
@@ -195,7 +201,7 @@ class SubtractSky1dTask(Task):
             self.plotSkyFibers([merged], pfsConfig, "Sky flux")
 
         sky1d = self.measureSky([merged], pfsConfig, [lsfList],
-                                pfsConfig.selectByTargetType(TargetType.SKY))
+                                pfsConfig.selectByTargetType(TargetType.SKY), interpKind=interpKind)
 
         self.subtractSkySpectra(merged, lsfList, pfsConfig, sky1d)
 

@@ -1,6 +1,6 @@
 from collections import defaultdict
 import numpy as np
-from lsst.pex.config import Config, Field, ConfigurableField, ListField, ConfigField
+from lsst.pex.config import Config, ChoiceField, Field, ConfigurableField, ListField, ConfigField
 from lsst.pipe.base import CmdLineTask, ArgumentParser, TaskRunner, Struct
 
 from pfs.datamodel.masks import MaskHelper
@@ -38,6 +38,12 @@ class MergeArmsConfig(Config):
     doBarycentricCorr = Field(dtype=bool, default=True, doc="Do barycentric correction?")
     mask = ListField(dtype=str, default=["NO_DATA", "CR", "INTRP", "SAT"],
                      doc="Mask values to reject when combining")
+    interpKind = ChoiceField(dtype=str,
+                             allowed={
+                                 "linear": "linear interpolation",
+                                 "cubic": "cubic spline",
+                             },
+                             default="cubic", doc="scipy.interpolate algorithm")
 
 
 class MergeArmsRunner(TaskRunner):
@@ -96,7 +102,8 @@ class MergeArmsTask(CmdLineTask):
         pfsConfig = expSpecRefList[0][0].get("pfsConfig")
         if self.config.doSubtractSky1d:
             if self.config.doSubtractSky1dBeforeMerge:
-                sky1d = self.subtractSky1d.run(sum(spectra, []), pfsConfig, sum(lsf, []))
+                sky1d = self.subtractSky1d.run(sum(spectra, []), pfsConfig, sum(lsf, []),
+                                               self.config.interpKind)
                 expSpecRefList[0][0].put(sky1d, "sky1d")
             else:
                 sky1d = None
@@ -108,8 +115,9 @@ class MergeArmsTask(CmdLineTask):
             if sky1d is None:
                 assert not self.config.doSubtractSky1dBeforeMerge
 
-                lsf = [None for m in range(len(merged))] # total hack!
-                sky1d = self.subtractSky1d.estimateSkyFromMerged(merged, pfsConfig, lsf)
+                lsf = [None for m in range(len(merged))]  # total hack!
+                sky1d = self.subtractSky1d.estimateSkyFromMerged(merged, pfsConfig, lsf,
+                                                                 self.config.interpKind)
                 expSpecRefList[0][0].put(sky1d, "sky1d")
 
         expSpecRefList[0][0].put(merged, "pfsMerged")
@@ -138,7 +146,7 @@ class MergeArmsTask(CmdLineTask):
         if any(np.any(ss.fiberId != fiberId) for ss in spectraList):
             raise RuntimeError("Selection of fibers differs")
         wavelength = self.config.wavelength.wavelength
-        resampled = [ss.resample(wavelength) for ss in spectraList]
+        resampled = [ss.resample(wavelength, interpKind=self.config.interpKind) for ss in spectraList]
         flags = MaskHelper.fromMerge([ss.flags for ss in spectraList])
         combination = self.combine(resampled, flags)
         if self.config.doBarycentricCorr:
