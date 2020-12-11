@@ -59,7 +59,7 @@ class SubtractSky1dTask(Task):
             raise RuntimeError("No sky fibers found")
         if self.debugInfo.plotSkyFluxes:
             self.plotSkyFibers(spectraList, pfsConfig, "Sky flux")
-        resampledList = self.resampleSpectra(spectraList, pfsConfig)
+        resampledList = self.resampleSpectra(spectraList, pfsConfig)  # resampled SKY spectra
         sky1d = self.measureSky(resampledList, pfsConfig, lsfList)
         for spectra, lsf in zip(spectraList, lsfList):
             self.subtractSkySpectra(spectra, lsf, pfsConfig, sky1d)
@@ -89,7 +89,7 @@ class SubtractSky1dTask(Task):
         index = pfsConfig.selectByTargetType(TargetType.SKY)
         return [spectra.resample(wavelength, pfsConfig.fiberId[index]) for spectra in spectraList]
 
-    def measureSky(self, spectraList, pfsConfig, lsfList):
+    def measureSky(self, spectraList, pfsConfig, lsfList, skyFiberIndexes=None):
         """Measure the 1D sky model
 
         Parameters
@@ -101,12 +101,16 @@ class SubtractSky1dTask(Task):
             Configuration of the top-end, for identifying sky fibers.
         lsfList : iterable of LSF (type TBD)
             List of line-spread functions.
+        skyFiberIndexes : iterable of `int` or None
+            Indexes of sky fibres in spectraList[]
 
         Returns
         -------
         sky1d : `pfs.drp.stella.FocalPlaneFunction`
             1D sky model.
         """
+        if skyFiberIndexes is None:                      # only sky fibres are provided
+            skyFiberIndexes = range(len(spectraList[0]))  # all of spectraList are the same length
         wavelength = spectraList[0].wavelength[0]  # They're all resampled to a common wavelength scale
         values = []
         variances = []
@@ -114,11 +118,12 @@ class SubtractSky1dTask(Task):
         fiberId = []
         for spectra, lsf in zip(spectraList, lsfList):
             maskVal = spectra.flags.get(*self.config.mask)
-            for ii, ff in enumerate(spectra.fiberId):
+            for ii in skyFiberIndexes:
                 values.append(spectra.flux[ii])
                 variances.append(spectra.covar[ii][0] + self.config.sysErr*spectra.flux[ii])
                 masks.append((spectra.mask[ii] & maskVal) > 0)
-                fiberId.append(ff)
+                fiberId.append(spectra.fiberId[ii])
+
         return self.fit.run(wavelength, values, masks, variances, fiberId, pfsConfig)
 
     def subtractSkySpectra(self, spectra, lsf, pfsConfig, sky1d):
@@ -189,7 +194,8 @@ class SubtractSky1dTask(Task):
         if self.debugInfo.plotSkyFluxes:
             self.plotSkyFibers([merged], pfsConfig, "Sky flux")
 
-        sky1d = self.measureSky([merged], pfsConfig, [lsfList])
+        sky1d = self.measureSky([merged], pfsConfig, [lsfList],
+                                pfsConfig.selectByTargetType(TargetType.SKY))
 
         self.subtractSkySpectra(merged, lsfList, pfsConfig, sky1d)
 
