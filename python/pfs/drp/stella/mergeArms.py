@@ -108,7 +108,7 @@ class MergeArmsTask(CmdLineTask):
             if sky1d is None:
                 assert not self.config.doSubtractSky1dBeforeMerge
 
-                lsf = [None for m in range(len(merged))] # total hack!
+                lsf = [None for _ in range(len(merged))]  # total hack!
                 sky1d = self.subtractSky1d.estimateSkyFromMerged(merged, pfsConfig, lsf)
                 expSpecRefList[0][0].put(sky1d, "sky1d")
 
