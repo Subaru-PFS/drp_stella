@@ -4,7 +4,7 @@ from scipy.interpolate import interp1d
 __all__ = ["interpolateFlux", "interpolateMask"]
 
 
-def interpolateFlux(fromWavelength, fromFlux, toWavelength, interpKind="cubic", fill=0.0):
+def interpolateFlux(fromWavelength, fromFlux, toWavelength, interpKind="linear", fill=0.0):
     """Interpolate a flux-like spectrum
 
     Basic linear interpolation, suitable for fluxes and flux-like (e.g., maybe
@@ -18,7 +18,7 @@ def interpolateFlux(fromWavelength, fromFlux, toWavelength, interpKind="cubic", 
         Source flux(-like) array.
     toWavelength : array-like of `float`
         Target wavelength array.
-    interpKind : `str`, optional [default: cubic]
+    interpKind : `str`, optional [default: linear]
         The kind of interpolation to request from scipy.interp1d
     fill : `float`, optional
         Fill value.

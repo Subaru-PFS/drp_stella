@@ -43,7 +43,7 @@ class MergeArmsConfig(Config):
                                  "linear": "linear interpolation",
                                  "cubic": "cubic spline",
                              },
-                             default="cubic", doc="scipy.interpolate algorithm")
+                             default="linear", doc="Value of kind for scipy.interpolate algorithm")
 
 
 class MergeArmsRunner(TaskRunner):
