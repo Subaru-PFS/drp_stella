@@ -110,10 +110,12 @@ def calculateFitStatistics(model, lines, selection, soften=0.0):
         Robust RMS (from IQR) residual in x,y (pixels).
     chi2 : `float`
         Fit chi^2.
+    dof : `float`
+        Degrees of freedom.
     soften : `float`
         Systematic error that was applied to measured errors (pixels).
     """
-    fit = model(lines.fiberId.astype(np.int32), lines.wavelength)
+    fit = model(lines.fiberId.astype(np.int32), lines.wavelength.astype(float))
     xResid = (lines.x - fit[:, 0])
     yResid = (lines.y - fit[:, 1])
 
@@ -131,8 +133,9 @@ def calculateFitStatistics(model, lines, selection, soften=0.0):
     yWeightedRms = np.sqrt(np.sum(yWeight*yResid2)/np.sum(yWeight))
 
     chi2 = np.sum(xResid2/xErr2 + yResid2/yErr2)
+    dof = 2*selection.sum() - model.getNumParameters(model.getDistortionOrder(), model.getNumFibers())
     return Struct(model=model, xResid=xResid, yResid=yResid, xRms=xWeightedRms, yRms=yWeightedRms,
-                  xRobustRms=xRobustRms, yRobustRms=yRobustRms, chi2=chi2, soften=soften)
+                  xRobustRms=xRobustRms, yRobustRms=yRobustRms, chi2=chi2, dof=dof, soften=soften)
 
 
 class FitGlobalDetectorMapConfig(Config):
@@ -226,11 +229,13 @@ class FitGlobalDetectorMapTask(Task):
         for ii in range(self.config.iterations):
             select = good & ~reserved
             result = self.fitModel(bbox, lines, select, doFitHighCcd, fiberCenter)
-            self.log.debug("Fit iteration %d: chi2=%f xRMS=%f yRMS=%f (%f nm, %f km/s) from %d/%d lines",
-                           ii, result.chi2, result.xRms, result.yRms,
-                           result.yRms*result.model.getScaling().dispersion,
-                           rmsPixelsToVelocity(result.yRms, result.model), select.sum(),
-                           numLines - numReserved)
+            self.log.debug(
+                "Fit iteration %d: chi2=%f dof=%d xRMS=%f yRMS=%f (%f nm, %f km/s) from %d/%d lines",
+                ii, result.chi2, result.dof, result.xRms, result.yRms,
+                result.yRms*result.model.getScaling().dispersion,
+                rmsPixelsToVelocity(result.yRms, result.model), select.sum(),
+                numLines - numReserved
+            )
             self.log.debug("Fit iteration %d: %s", ii, result.model)
             if self.debugInfo.plot:
                 self.plotModel(lines, good, result)
@@ -245,8 +250,9 @@ class FitGlobalDetectorMapTask(Task):
 
         select = good & ~reserved
         result = self.fitModel(bbox, lines, select, doFitHighCcd, fiberCenter)
-        self.log.info("Final fit: chi2=%f xRMS=%f yRMS=%f (%f nm, %f km/s) from %d/%d lines",
-                      result.chi2, result.xRms, result.yRms, result.yRms*result.model.getScaling().dispersion,
+        self.log.info("Final fit: chi2=%f dof=%d xRMS=%f yRMS=%f (%f nm, %f km/s) from %d/%d lines",
+                      result.chi2, result.dof, result.xRms, result.yRms,
+                      result.yRms*result.model.getScaling().dispersion,
                       rmsPixelsToVelocity(result.yRms, result.model), select.sum(), numLines - numReserved)
         reservedStats = calculateFitStatistics(result.model, lines, reserved, self.config.soften)
         self.log.info("Fit quality from reserved lines: "
@@ -442,8 +448,6 @@ class FitGlobalDetectorMapTask(Task):
         soften : `float`
             Systematic error that was applied to measured errors (pixels).
         """
-        dof = 2*select.sum()  # column and row for each point; ignoring the relatively small number of params
-
         def softenChi2(soften):
             """Return chi^2/dof (minus 1) with the softening applied
 
@@ -463,7 +467,7 @@ class FitGlobalDetectorMapTask(Task):
             """
             colChi2 = np.sum(result.xResid[select]**2/(soften**2 + lines.xErr[select]**2))
             rowChi2 = np.sum(result.yResid[select]**2/(soften**2 + lines.yErr[select]**2))
-            return (colChi2 + rowChi2)/dof - 1
+            return (colChi2 + rowChi2)/result.dof - 1
 
         if softenChi2(0.0) <= 0:
             self.log.info("No softening necessary")
@@ -475,8 +479,9 @@ class FitGlobalDetectorMapTask(Task):
                       rmsPixelsToVelocity(soften, result.model))
 
         result = self.fitModel(bbox, lines, select, doFitHighCcd, fiberCenter, soften)
-        self.log.info("Softened fit: chi2=%f xRMS=%f yRMS=%f (%f nm, %f km/s) from %d/%d lines",
-                      result.chi2, result.xRms, result.yRms, result.yRms*result.model.getScaling().dispersion,
+        self.log.info("Softened fit: chi2=%f dof=%d xRMS=%f yRMS=%f (%f nm, %f km/s) from %d/%d lines",
+                      result.chi2, result.dof, result.xRms, result.yRms,
+                      result.yRms*result.model.getScaling().dispersion,
                       rmsPixelsToVelocity(result.yRms, result.model), select.sum(), len(select))
 
         reservedStats = calculateFitStatistics(result.model, lines, reserved, soften)
