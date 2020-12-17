@@ -42,6 +42,40 @@ std::vector<T> arrayToVector(ndarray::Array<T, 1, 1> const& array) {
 }
 
 
+/// Return whether two arrays compare according to a user-provided function
+///
+/// The default ndarray compare operators check that the arrays share data. This
+/// checks that the individual values compare equal.
+template <typename T, int N1, int N2, int C1, int C2, typename BinaryFunction>
+bool arraysCompare(
+    ndarray::Array<T, N1, C1> const& left,
+    ndarray::Array<T, N2, C2> const& right,
+    BinaryFunction compare
+) {
+    if (left.getShape() != right.getShape()) {
+        return false;
+    }
+    auto ll = left.begin();
+    auto rr = right.begin();
+    for (; ll != left.end() && rr != right.end(); ++ll, ++rr) {
+        if (!compare(*ll, *rr)) {
+            return false;
+        }
+    }
+    return true;
+}
+
+
+/// Return whether two arrays compare equal
+///
+/// The default ndarray compare operators check that the arrays share data. This
+/// checks that the individual values compare equal.
+template <typename T, int N1, int N2, int C1, int C2>
+bool arraysEqual(ndarray::Array<T, N1, C1> const& left, ndarray::Array<T, N2, C2> const& right) {
+    return arraysCompare(left, right, [](T ll, T rr) { return ll == rr; });
+}
+
+
 }}}}  // namespace pfs::drp::stella::utils
 
 #endif
