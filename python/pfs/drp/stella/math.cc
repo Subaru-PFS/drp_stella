@@ -3,6 +3,9 @@
 
 #include "ndarray/pybind11.h"
 
+#include "lsst/afw/math/FunctionLibrary.h"
+
+#include "pfs/drp/stella/utils/checkSize.h"
 #include "pfs/drp/stella/math/quartiles.h"
 
 namespace py = pybind11;
@@ -12,9 +15,30 @@ namespace pfs { namespace drp { namespace stella { namespace math {
 
 namespace {
 
+// Evaluate a 2D function
+template <typename FuncT, typename T, int N, int C>
+ndarray::Array<T, N, C> evaluateFunction2(
+    FuncT const& func,  // functor
+    ndarray::Array<T, N, C> const& xx,  // x coordinate
+    ndarray::Array<T, N, C> const& yy  // y coordinate
+) {
+    utils::checkSize(xx.getShape(), yy.getShape(), "x vs y");
+    ndarray::Array<T, N, C> out = ndarray::allocate(xx.getShape());
+    auto xIter = xx.begin();
+    auto yIter = yy.begin();
+    for (auto outIter = out.begin(); outIter != out.end(); ++outIter, ++xIter, ++yIter) {
+        *outIter = func(*xIter, *yIter);
+    }
+    return out;
+}
+
+
 PYBIND11_PLUGIN(math) {
     py::module mod("math");
     mod.def("calculateQuartiles", &calculateQuartiles<double, 1>, "values"_a, "mask"_a);
+    mod.def("evaluatePolynomial",
+            &evaluateFunction2<lsst::afw::math::Chebyshev1Function2<double>, double, 1, 1>,
+            "poly"_a, "x"_a, "y"_a);
     return mod.ptr();
 }
 
