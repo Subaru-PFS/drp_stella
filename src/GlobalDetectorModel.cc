@@ -122,15 +122,15 @@ GlobalDetectorModel::GlobalDetectorModel(
     int distortionOrder,
     ndarray::Array<int, 1, 1> const& fiberId,
     GlobalDetectorModelScaling const& scaling,
+    float fiberCenter,
     ndarray::Array<double, 1, 1> const& xDistortion,
     ndarray::Array<double, 1, 1> const& yDistortion,
-    ndarray::Array<double, 1, 1> const& rightCcd,
+    ndarray::Array<double, 1, 1> const& highCcd,
     ndarray::Array<double, 1, 1> const& spatialOffsets,
     ndarray::Array<double, 1, 1> const& spectralOffsets
 ) : GlobalDetectorModel(
-        distortionOrder, FiberMap(fiberId), scaling,
-        0.5*(bbox.getMinX() + bbox.getMaxX()), bbox.getHeight(),
-        xDistortion, yDistortion, rightCcd, spatialOffsets, spectralOffsets)
+        distortionOrder, FiberMap(fiberId), scaling, fiberCenter, bbox.getHeight(),
+        xDistortion, yDistortion, highCcd, spatialOffsets, spectralOffsets)
 {}
 
 
@@ -138,20 +138,20 @@ GlobalDetectorModel::GlobalDetectorModel(
     int distortionOrder,
     FiberMap const& fiberMap,
     GlobalDetectorModelScaling const& scaling,
-    float xCenter,
+    float fiberCenter,
     std::size_t height,
     ndarray::Array<double, 1, 1> const& xDistortion,
     ndarray::Array<double, 1, 1> const& yDistortion,
-    ndarray::Array<double, 1, 1> const& rightCcd,
+    ndarray::Array<double, 1, 1> const& highCcd,
     ndarray::Array<double, 1, 1> const& spatialOffsets,
     ndarray::Array<double, 1, 1> const& spectralOffsets
 ) : _distortionOrder(distortionOrder),
     _fiberMap(fiberMap),
     _scaling(scaling),
-    _xCenter(xCenter),
+    _fiberCenter(fiberCenter),
     _xDistortion(utils::arrayToVector(xDistortion), scaling.getRange()),
     _yDistortion(utils::arrayToVector(yDistortion), scaling.getRange()),
-    _rightCcd(),
+    _highCcd(),
     _spatialOffsets(spatialOffsets),
     _spectralOffsets(spectralOffsets)
 {
@@ -159,7 +159,7 @@ GlobalDetectorModel::GlobalDetectorModel(
     utils::checkSize(xDistortion.size(), numDistortion, "xDistortion");
     utils::checkSize(yDistortion.size(), numDistortion, "yDistortion");
 
-    _rightCcd.setParameterVector(ndarray::asEigenArray(rightCcd));
+    _highCcd.setParameterVector(ndarray::asEigenArray(highCcd));
 
     std::size_t const numFibers = fiberMap.size();
     if (spatialOffsets.isEmpty()) {
@@ -188,7 +188,8 @@ ndarray::Array<int, 1, 1> GlobalDetectorModel::getFiberId() const {
 
 lsst::geom::Point2D GlobalDetectorModel::operator()(
     lsst::geom::Point2D const& xiEta,
-    std::size_t fiberIndex
+    std::size_t fiberIndex,
+    bool onHighCcd
 ) const {
     double const xi = xiEta[0] + getSpatialOffset(fiberIndex);
     double const eta = xiEta[1] + getSpectralOffset(fiberIndex);
@@ -200,8 +201,8 @@ lsst::geom::Point2D GlobalDetectorModel::operator()(
     // x,y: distorted position
     lsst::geom::Point2D xy(getXDistortion()(xi, eta), getYDistortion()(xi, eta));
     // x,y: detector coordinates
-    if (xy.getX() >= getXCenter()) {
-        xy += lsst::geom::Extent2D(getRightCcd()(xiEta));
+    if (onHighCcd) {
+        xy += lsst::geom::Extent2D(getHighCcd()(xiEta));
     }
     return xy;
 }
@@ -209,14 +210,17 @@ lsst::geom::Point2D GlobalDetectorModel::operator()(
 
 ndarray::Array<double, 2, 1> GlobalDetectorModel::operator()(
     ndarray::Array<double, 2, 1> const& xiEta,
-    ndarray::Array<std::size_t, 1, 1> const& fiberIndex
+    ndarray::Array<std::size_t, 1, 1> const& fiberIndex,
+    ndarray::Array<bool, 1, 1> const& onHighCcd
 ) const {
     std::size_t const length = xiEta.getShape()[0];
     utils::checkSize(xiEta.getShape()[1], 2UL, "xiEta");
     utils::checkSize(fiberIndex.getNumElements(), length, "fiberIndex");
+    utils::checkSize(onHighCcd.getNumElements(), length, "onHighCcd");
     ndarray::Array<double, 2, 1> out = ndarray::allocate(length, 2);
     for (std::size_t ii = 0; ii < length; ++ii) {
-        auto const point = operator()(lsst::geom::Point2D(xiEta[ii][0], xiEta[ii][1]), fiberIndex[ii]);
+        auto const point = operator()(lsst::geom::Point2D(xiEta[ii][0], xiEta[ii][1]),
+                                      fiberIndex[ii], onHighCcd[ii]);
         out[ii][0] = point.getX();
         out[ii][1] = point.getY();
     }
@@ -234,8 +238,8 @@ ndarray::Array<double, 1, 1> GlobalDetectorModel::getYCoefficients() const {
 }
 
 
-ndarray::Array<double, 1, 1> GlobalDetectorModel::getRightCcdCoefficients() const {
-    auto const parameters = _rightCcd.getParameterVector();  // An Eigen matrix
+ndarray::Array<double, 1, 1> GlobalDetectorModel::getHighCcdCoefficients() const {
+    auto const parameters = _highCcd.getParameterVector();  // An Eigen matrix
     assert(parameters.size() == 6);
     ndarray::Array<double, 1, 1> out = ndarray::allocate(parameters.size());
     ndarray::asEigenMatrix(out) = parameters;
@@ -243,7 +247,7 @@ ndarray::Array<double, 1, 1> GlobalDetectorModel::getRightCcdCoefficients() cons
 }
 
 
-ndarray::Array<double, 1, 1> GlobalDetectorModel::makeRightCcdCoefficients(
+ndarray::Array<double, 1, 1> GlobalDetectorModel::makeHighCcdCoefficients(
     double x, double y,
     double xx, double xy,
     double yx, double yy
@@ -267,7 +271,7 @@ std::ostream& operator<<(std::ostream& os, GlobalDetectorModel const& model) {
     os << "wavelengthCenter=" << model.getScaling().wavelengthCenter << ", ";
     os << "xDistortion=" << model.getXCoefficients() << ", ";
     os << "yDistortion=" << model.getYCoefficients() << ", ";
-    os << "rightCcd=" << model.getRightCcdCoefficients() << ", ";
+    os << "highCcd=" << model.getHighCcdCoefficients() << ", ";
     os << "spatialOffsets=" << model.getSpatialOffsets() << ", ";
     os << "spectralOffsets=" << model.getSpectralOffsets() << ")";
     return os;
@@ -317,6 +321,7 @@ ndarray::Array<double, 2, 1> GlobalDetectorModel::calculateDesignMatrix(
 std::pair<double, std::size_t> GlobalDetectorModel::calculateChi2(
     ndarray::Array<double, 2, 1> const& xiEta,
     ndarray::Array<std::size_t, 1, 1> const& fiberIndex,
+    ndarray::Array<bool, 1, 1> const& onHighCcd,
     ndarray::Array<double, 1, 1> const& xx,
     ndarray::Array<double, 1, 1> const& yy,
     ndarray::Array<double, 1, 1> const& xErr,
@@ -349,7 +354,8 @@ std::pair<double, std::size_t> GlobalDetectorModel::calculateChi2(
         double const xErr2 = std::pow(xErr[ii], 2) + sysErr2;
         double const yErr2 = std::pow(yErr[ii], 2) + sysErr2;
         std::size_t const index = fiberIndex[ii];
-        lsst::geom::Point2D const fit = operator()(xiEta[ii][0], xiEta[ii][1], index);
+        lsst::geom::Point2D const fit = operator()(lsst::geom::Point2D(xiEta[ii][0], xiEta[ii][1]),
+                                                   index, onHighCcd[ii]);
         chi2 += std::pow(xMeas - fit.getX(), 2)/xErr2 + std::pow(yMeas - fit.getY(), 2)/yErr2;
         num += 2;  // one for x, one for y
     }
@@ -362,6 +368,7 @@ std::pair<double, std::size_t> GlobalDetectorModel::calculateChi2(
 ndarray::Array<double, 2, 1> GlobalDetectorModel::measureSlitOffsets(
     ndarray::Array<double, 2, 1> const& xiEta,
     ndarray::Array<std::size_t, 1, 1> const& fiberIndex,
+    ndarray::Array<bool, 1, 1> const& onHighCcd,
     ndarray::Array<double, 1, 1> const& xx,
     ndarray::Array<double, 1, 1> const& yy,
     ndarray::Array<double, 1, 1> const& xErr,
@@ -397,7 +404,7 @@ ndarray::Array<double, 2, 1> GlobalDetectorModel::measureSlitOffsets(
                               (boost::format("fiberIndex[%d]=%d is out of range for %d fibers") %
                                ii % index % numFibers).str());
         }
-        auto const fit = operator()(lsst::geom::Point2D(xiEta[ii][0], xiEta[ii][1]), index);
+        auto const fit = operator()(lsst::geom::Point2D(xiEta[ii][0], xiEta[ii][1]), index, onHighCcd[ii]);
         double const dx = fit.getX() - xx[ii];
         double const dy = fit.getY() - yy[ii];
         double const xWeight = 1.0/std::pow(xErr[ii], 2);
@@ -419,6 +426,16 @@ ndarray::Array<double, 2, 1> GlobalDetectorModel::measureSlitOffsets(
 }
 
 
+ndarray::Array<bool, 1, 1> GlobalDetectorModel::getOnHighCcd(
+    ndarray::Array<int, 1, 1> const& fiberId
+) const {
+    ndarray::Array<bool, 1, 1> out = ndarray::allocate(fiberId.size());
+    std::transform(fiberId.begin(), fiberId.end(), out.begin(),
+                   [this](int ff) { return getOnHighCcd(ff); });
+    return out;
+}
+
+
 namespace {
 
 // Singleton class that manages the persistence catalog's schema and keys
@@ -433,11 +450,11 @@ class GlobalDetectorModelSchema {
     lsst::afw::table::Key<double> wavelengthCenter;
     lsst::afw::table::Key<int> height;
     lsst::afw::table::Key<float> buffer;
-    lsst::afw::table::Key<float> xCenter;
+    lsst::afw::table::Key<float> fiberCenter;
     lsst::afw::table::Key<IntArray> fiberId;
     lsst::afw::table::Key<DoubleArray> xCoefficients;
     lsst::afw::table::Key<DoubleArray> yCoefficients;
-    lsst::afw::table::Key<DoubleArray> rightCcd;
+    lsst::afw::table::Key<DoubleArray> highCcd;
     lsst::afw::table::Key<DoubleArray> spatialOffset;
     lsst::afw::table::Key<DoubleArray> spectralOffset;
     lsst::afw::table::Key<int> visitInfo;
@@ -456,11 +473,11 @@ class GlobalDetectorModelSchema {
         wavelengthCenter(schema.addField<double>("wavelengthCenter", "central wavelength", "nm")),
         height(schema.addField<int>("height", "height of detector", "pixel")),
         buffer(schema.addField<float>("buffer", "fraction by which to expand wavelength range", "")),
-        xCenter(schema.addField<float>("xCenter", "central x value", "pixel")),
+        fiberCenter(schema.addField<float>("fiberCenter", "central x value", "pixel")),
         fiberId(schema.addField<IntArray>("fiberId", "fiber identifiers", "", 0)),
         xCoefficients(schema.addField<DoubleArray>("xCoefficients", "x distortion coefficients", "", 0)),
         yCoefficients(schema.addField<DoubleArray>("yCoefficients", "y distortion coefficients", "", 0)),
-        rightCcd(schema.addField<DoubleArray>("rightCcd", "affine transform coefficients for RHS", "", 0)),
+        highCcd(schema.addField<DoubleArray>("highCcd", "affine transform for high-fiberId Ccd", "", 0)),
         spatialOffset(schema.addField<DoubleArray>("spatialOffset", "slit offsets in x", "micron", 0)),
         spectralOffset(schema.addField<DoubleArray>("spectralOffset", "slit offsets in y", "micron", 0)) {
             schema.getCitizen().markPersistent();
@@ -480,15 +497,15 @@ void GlobalDetectorModel::write(lsst::afw::table::io::OutputArchiveHandle & hand
     record->set(schema.wavelengthCenter, getWavelengthCenter());
     record->set(schema.height, getHeight());
     record->set(schema.buffer, getBuffer());
-    record->set(schema.buffer, _xCenter);
+    record->set(schema.buffer, _fiberCenter);
     ndarray::Array<int, 1, 1> const fiberId = ndarray::copy(getFiberId());
     record->set(schema.fiberId, fiberId);
     ndarray::Array<double, 1, 1> xCoeff = ndarray::copy(getXCoefficients());
     record->set(schema.xCoefficients, xCoeff);
     ndarray::Array<double, 1, 1> yCoeff = ndarray::copy(getYCoefficients());
     record->set(schema.yCoefficients, yCoeff);
-    ndarray::Array<double, 1, 1> rightCcd = ndarray::copy(getRightCcdCoefficients());
-    record->set(schema.rightCcd, rightCcd);
+    ndarray::Array<double, 1, 1> highCcd = ndarray::copy(getHighCcdCoefficients());
+    record->set(schema.highCcd, highCcd);
     ndarray::Array<double, 1, 1> spatialOffset = ndarray::copy(getSpatialOffsets());
     record->set(schema.spatialOffset, spatialOffset);
     ndarray::Array<double, 1, 1> spectralOffset = ndarray::copy(getSpectralOffsets());
@@ -514,11 +531,11 @@ class GlobalDetectorModel::Factory : public lsst::afw::table::io::PersistableFac
         double const wavelengthCenter = record.get(schema.wavelengthCenter);
         int const height = record.get(schema.height);
         float const buffer = record.get(schema.buffer);
-        float const xCenter = record.get(schema.xCenter);
+        float const fiberCenter = record.get(schema.fiberCenter);
         ndarray::Array<int, 1, 1> fiberId = ndarray::copy(record.get(schema.fiberId));
         ndarray::Array<double, 1, 1> xCoeff = ndarray::copy(record.get(schema.xCoefficients));
         ndarray::Array<double, 1, 1> yCoeff = ndarray::copy(record.get(schema.yCoefficients));
-        ndarray::Array<double, 1, 1> rightCcd = ndarray::copy(record.get(schema.rightCcd));
+        ndarray::Array<double, 1, 1> highCcd = ndarray::copy(record.get(schema.highCcd));
         ndarray::Array<double, 1, 1> spatialOffset = ndarray::copy(record.get(schema.spatialOffset));
         ndarray::Array<double, 1, 1> spectralOffset = ndarray::copy(record.get(schema.spectralOffset));
         assert(spatialOffset.getNumElements() == fiberId.size());
@@ -531,7 +548,7 @@ class GlobalDetectorModel::Factory : public lsst::afw::table::io::PersistableFac
                 *std::min_element(fiberId.begin(), fiberId.end()),
                 *std::max_element(fiberId.begin(), fiberId.end()),
                 height, buffer),
-            xCenter, height, xCoeff, yCoeff, rightCcd, spatialOffset, spectralOffset
+            fiberCenter, height, xCoeff, yCoeff, highCcd, spatialOffset, spectralOffset
         );
     }
 

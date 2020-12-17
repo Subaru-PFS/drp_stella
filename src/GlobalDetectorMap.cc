@@ -49,9 +49,10 @@ GlobalDetectorMap::GlobalDetectorMap(
     double dispersion,
     double wavelengthCenter,
     float buffer,
+    float fiberCenter,
     ndarray::Array<double, 1, 1> const& xCoefficients,
     ndarray::Array<double, 1, 1> const& yCoefficients,
-    ndarray::Array<double, 1, 1> const& rightCcd,
+    ndarray::Array<double, 1, 1> const& highCcd,
     ndarray::Array<double, 1, 1> const& spatialOffsets,
     ndarray::Array<double, 1, 1> const& spectralOffsets,
     VisitInfo const& visitInfo,
@@ -63,7 +64,7 @@ GlobalDetectorMap::GlobalDetectorMap(
             GlobalDetectorModelScaling(
                 fiberPitch, dispersion, wavelengthCenter, *std::min_element(fiberId.begin(), fiberId.end()),
                 *std::max_element(fiberId.begin(), fiberId.end()), buffer),
-            xCoefficients, yCoefficients, rightCcd, spatialOffsets, spectralOffsets),
+            fiberCenter, xCoefficients, yCoefficients, highCcd, spatialOffsets, spectralOffsets),
         visitInfo,
         metadata)
 {}
@@ -85,8 +86,9 @@ lsst::geom::PointD GlobalDetectorMap::findPointImpl(
 
 void GlobalDetectorMap::_resetSlitOffsets() {
     _model = GlobalDetectorModel(
-        getBBox(), _model.getDistortionOrder(), _model.getFiberId(), _model.getScaling(),
-        _model.getXCoefficients(), _model.getYCoefficients(), _model.getRightCcdCoefficients(),
+        getBBox(), _model.getDistortionOrder(), _model.getFiberId(),
+        _model.getScaling(), _model.getFiberCenter(),
+        _model.getXCoefficients(), _model.getYCoefficients(), _model.getHighCcdCoefficients(),
         getSpatialOffsets(), getSpectralOffsets()
     );
     ModelBasedDetectorMap::_resetSlitOffsets();

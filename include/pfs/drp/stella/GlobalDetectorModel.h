@@ -163,8 +163,8 @@ class FiberMap {
 ///   set the scaling for the distortion polynomials and the spatial and
 ///   spectral offsets.
 /// * xDistortion, yDistortion: 2D polynomial distortion field coefficients.
-/// * rightCcd: 2D affine transformation coefficients for the right-hand (high
-///   x value) CCD.
+/// * highCcd: 2D affine transformation coefficients for the high-fiberId
+///   CCD.
 /// * spatialOffset, spectralOffset: per-fiber offsets in the spatial and
 ///       spectral dimensions.
 class GlobalDetectorModel : public lsst::afw::table::io::Persistable {
@@ -177,9 +177,10 @@ class GlobalDetectorModel : public lsst::afw::table::io::Persistable {
     /// @param distortionOrder : polynomial order for distortion
     /// @param fiberId : fiberId values for fibers
     /// @param scaling : scaling of fiberId,wavelength to xi,eta
+    /// @param fiberCenter : central fiberId value; for separating left and right CCDs
     /// @param xDistortion : distortion field parameters for x
     /// @param yDistortion : distortion field parameters for y
-    /// @param rightCcd : affine transformation parameters for the right CCD
+    /// @param highCcd : affine transformation parameters for the high-fiberId CCD
     /// @param spatialOffsets : slit offsets in the spatial dimension
     /// @param spectralOffsets : slit offsets in the spectral dimension
     GlobalDetectorModel(
@@ -187,9 +188,10 @@ class GlobalDetectorModel : public lsst::afw::table::io::Persistable {
         int distortionOrder,
         ndarray::Array<int, 1, 1> const& fiberId,
         GlobalDetectorModelScaling const& scaling,
+        float fiberCenter,
         ndarray::Array<double, 1, 1> const& xDistortion,
         ndarray::Array<double, 1, 1> const& yDistortion,
-        ndarray::Array<double, 1, 1> const& rightCcd,
+        ndarray::Array<double, 1, 1> const& highCcd,
         ndarray::Array<double, 1, 1> const& spatialOffsets=ndarray::Array<double, 1, 1>(),
         ndarray::Array<double, 1, 1> const& spectralOffsets=ndarray::Array<double, 1, 1>()
     );
@@ -199,22 +201,22 @@ class GlobalDetectorModel : public lsst::afw::table::io::Persistable {
     /// @param distortionOrder : polynomial order for distortion
     /// @param fiberMap : mapping for fiberId to fiberIndex
     /// @param scaling : scaling of fiberId,wavelength to xi,eta
-    /// @param xCenter : central x value; for separating left and right CCDs
+    /// @param fiberCenter : central fiberId value; for separating left and right CCDs
     /// @param height : height of detector (spatial dimension; pixels)
     /// @param xDistortion : distortion field parameters for x
     /// @param yDistortion : distortion field parameters for y
-    /// @param rightCcd : affine transformation parameters for the right CCD
+    /// @param highCcd : affine transformation parameters for the high-fiberId CCD
     /// @param spatialOffsets : slit offsets in the spatial dimension
     /// @param spectralOffsets : slit offsets in the spectral dimension
     GlobalDetectorModel(
         int distortionOrder,
         FiberMap const& fiberMap,
         GlobalDetectorModelScaling const& scaling,
-        float xCenter,
+        float fiberCenter,
         std::size_t height,
         ndarray::Array<double, 1, 1> const& xDistortion,
         ndarray::Array<double, 1, 1> const& yDistortion,
-        ndarray::Array<double, 1, 1> const& rightCcd,
+        ndarray::Array<double, 1, 1> const& highCcd,
         ndarray::Array<double, 1, 1> const& spatialOffsets,
         ndarray::Array<double, 1, 1> const& spectralOffsets
     );
@@ -231,30 +233,33 @@ class GlobalDetectorModel : public lsst::afw::table::io::Persistable {
     /// @param fiberId : fiber identifier
     /// @param wavelength : wavelength (nm)
     /// @param fiberIndex : index for fiber
+    /// @param onHighCcd : whether fiber is on high-fiberId CCD
     /// @return x,y position on detector
     lsst::geom::Point2D operator()(int fiberId, double wavelength) const {
-        return operator()(fiberId, wavelength, getFiberIndex(fiberId));
+        return operator()(getScaling()(fiberId, wavelength), getFiberIndex(fiberId), getOnHighCcd(fiberId));
     }
     ndarray::Array<double, 2, 1> operator()(
         ndarray::Array<int, 1, 1> const& fiberId,
         ndarray::Array<double, 1, 1> const& wavelength
     ) const {
-        return operator()(getScaling()(fiberId, wavelength), getFiberIndex(fiberId));
+        return operator()(getScaling()(fiberId, wavelength), getFiberIndex(fiberId), getOnHighCcd(fiberId));
     }
     lsst::geom::Point2D operator()(int fiberId, double wavelength, std::size_t fiberIndex) const {
-        return operator()(getScaling()(fiberId, wavelength), fiberIndex);
+        return operator()(getScaling()(fiberId, wavelength), fiberIndex, getOnHighCcd(fiberId));
     }
     ndarray::Array<double, 2, 1> operator()(
         ndarray::Array<int, 1, 1> const& fiberId,
         ndarray::Array<double, 1, 1> const& wavelength,
         ndarray::Array<std::size_t, 1, 1> const& fiberIndex
     ) const {
-        return operator()(getScaling()(fiberId, wavelength), fiberIndex);
+        return operator()(getScaling()(fiberId, wavelength), fiberIndex, getOnHighCcd(fiberId));
     }
-    lsst::geom::Point2D operator()(lsst::geom::Point2D const& xiEta, std::size_t fiberIndex) const;
+    lsst::geom::Point2D operator()(lsst::geom::Point2D const& xiEta, std::size_t fiberIndex,
+                                   bool onHighCcd) const;
     ndarray::Array<double, 2, 1> operator()(
         ndarray::Array<double, 2, 1> const& xiEta,
-        ndarray::Array<std::size_t, 1, 1> const& fiberIndex
+        ndarray::Array<std::size_t, 1, 1> const& fiberIndex,
+        ndarray::Array<bool, 1, 1> const& onHighCcd
     ) const;
     //@}
 
@@ -298,6 +303,7 @@ class GlobalDetectorModel : public lsst::afw::table::io::Persistable {
     std::pair<double, std::size_t> calculateChi2(
         ndarray::Array<double, 2, 1> const& xiEta,
         ndarray::Array<std::size_t, 1, 1> const& fiberIndex,
+        ndarray::Array<bool, 1, 1> const& onHighCcd,
         ndarray::Array<double, 1, 1> const& xx,
         ndarray::Array<double, 1, 1> const& yy,
         ndarray::Array<double, 1, 1> const& xErr,
@@ -315,7 +321,7 @@ class GlobalDetectorModel : public lsst::afw::table::io::Persistable {
         ndarray::Array<bool, 1, 1> const& good=ndarray::Array<bool, 1, 1>(),
         float sysErr=0.0
     ) const {
-        return calculateChi2(getScaling()(fiberId, wavelength), getFiberIndex(fiberId),
+        return calculateChi2(getScaling()(fiberId, wavelength), getFiberIndex(fiberId), getOnHighCcd(fiberId),
                              xx, yy, xErr, yErr, good, sysErr);
     }
     //@}
@@ -338,6 +344,7 @@ class GlobalDetectorModel : public lsst::afw::table::io::Persistable {
     ndarray::Array<double, 2, 1> measureSlitOffsets(
         ndarray::Array<double, 2, 1> const& xiEta,
         ndarray::Array<std::size_t, 1, 1> const& fiberIndex,
+        ndarray::Array<bool, 1, 1> const& onHighCcd,
         ndarray::Array<double, 1, 1> const& xx,
         ndarray::Array<double, 1, 1> const& yy,
         ndarray::Array<double, 1, 1> const& xErr,
@@ -354,7 +361,7 @@ class GlobalDetectorModel : public lsst::afw::table::io::Persistable {
         ndarray::Array<bool, 1, 1> const& good=ndarray::Array<bool, 1, 1>()
     ) {
         return measureSlitOffsets(getScaling()(fiberId, wavelength), getFiberIndex(fiberId),
-                                  xx, yy, xErr, yErr, good);
+                                  getOnHighCcd(fiberId), xx, yy, xErr, yErr, good);
     }
     //@}
 
@@ -381,10 +388,10 @@ class GlobalDetectorModel : public lsst::afw::table::io::Persistable {
     double getWavelengthCenter() const { return _scaling.wavelengthCenter; }
     int getHeight() const { return _scaling.height; }
     float getBuffer() const { return _scaling.buffer; }
-    int getXCenter() const { return _xCenter; }
+    float getFiberCenter() const { return _fiberCenter; }
     Polynomial const& getXDistortion() const { return _xDistortion; }
     Polynomial const& getYDistortion() const { return _yDistortion; }
-    lsst::geom::AffineTransform getRightCcd() const { return _rightCcd; }
+    lsst::geom::AffineTransform getHighCcd() const { return _highCcd; }
     double getSpatialOffset(std::size_t index) const { return _spatialOffsets[index]; }
     double getSpectralOffset(std::size_t index) const { return _spectralOffsets[index]; }
     ndarray::Array<double, 1, 1> const& getSpatialOffsets() const { return _spatialOffsets; }
@@ -398,7 +405,7 @@ class GlobalDetectorModel : public lsst::afw::table::io::Persistable {
     //@}
 
     /// Return the right ccd affine transform coefficients
-    ndarray::Array<double, 1, 1> getRightCcdCoefficients() const;
+    ndarray::Array<double, 1, 1> getHighCcdCoefficients() const;
 
     /// Generate coefficients for the right CCD affine transform
     ///
@@ -409,7 +416,7 @@ class GlobalDetectorModel : public lsst::afw::table::io::Persistable {
     /// @param yx : Term in x for the y coordinate
     /// @param yy : Term in y for the y coordinate
     /// @return coefficient array
-    static ndarray::Array<double, 1, 1> makeRightCcdCoefficients(
+    static ndarray::Array<double, 1, 1> makeHighCcdCoefficients(
         double x, double y,
         double xx, double xy,
         double yx, double yy
@@ -438,6 +445,15 @@ class GlobalDetectorModel : public lsst::afw::table::io::Persistable {
     }
     //@}
 
+    //@{
+    /// Return whether the fibers are on the high-fiberId CCD
+    bool getOnHighCcd(int fiberId) const {
+        return fiberId > _fiberCenter;
+    }
+    ndarray::Array<bool, 1, 1> getOnHighCcd(ndarray::Array<int, 1, 1> const& fiberId) const;
+    //@}
+
+
     bool isPersistable() const noexcept { return true; }
 
     class Factory;
@@ -456,12 +472,22 @@ class GlobalDetectorModel : public lsst::afw::table::io::Persistable {
 
     // Calculation parameters
     GlobalDetectorModelScaling _scaling;  // Scaling of fiberId,wavelength to xi,eta
-    float _xCenter;  // central x value; for separating left and right CCDs
+    float _fiberCenter;  // central fiberId value; for separating low- and high-fiberId CCDs
     Polynomial _xDistortion;  // distortion polynomial in x
     Polynomial _yDistortion;  // distortion polynomial in y
+<<<<<<< HEAD
     lsst::geom::AffineTransform _rightCcd;  // transformation for right CCD
     ndarray::Array<double, 1, 1> _spatialOffsets;  // fiber offsets in the spatial dimension
     ndarray::Array<double, 1, 1> _spectralOffsets;  // fiber offsets in the spectral dimension
+||||||| parent of edd9961 (refactor GlobalDetectorModel for use in fitting differential distortion)
+    lsst::geom::AffineTransform _rightCcd;  // transformation for right CCD
+    ndarray::Array<float, 1, 1> _spatialOffsets;  // fiber offsets in the spatial dimension
+    ndarray::Array<float, 1, 1> _spectralOffsets;  // fiber offsets in the spectral dimension
+=======
+    lsst::geom::AffineTransform _highCcd;  // transformation for high-fiberId CCD
+    ndarray::Array<float, 1, 1> _spatialOffsets;  // fiber offsets in the spatial dimension
+    ndarray::Array<float, 1, 1> _spectralOffsets;  // fiber offsets in the spectral dimension
+>>>>>>> edd9961 (refactor GlobalDetectorModel for use in fitting differential distortion)
 };
 
 

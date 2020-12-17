@@ -205,8 +205,8 @@ class ReduceArcTask(CmdLineTask):
         metadata = archetype.metadata  # All more or less identical
         oldDetMap = archetype.detectorMap  # All more or less identical
 
-        detectorMap = self.fitDetectorMap.run(dataRef.dataId["arm"], oldDetMap.bbox, lines,
-                                              visitInfo, oldDetMap.metadata)
+        detectorMap = self.fitDetectorMap.run(dataRef.dataId, oldDetMap.bbox, lines, visitInfo,
+                                              oldDetMap.metadata)
 
         self.write(dataRef, detectorMap, metadata, visitInfo)
         if self.debugInfo.display and self.debugInfo.displayCalibrations:

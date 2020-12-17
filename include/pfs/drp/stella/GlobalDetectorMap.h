@@ -41,9 +41,10 @@ class GlobalDetectorMap : public ModelBasedDetectorMap {
     /// @param buffer : fraction of expected wavelength range by which to expand
     ///                 the wavelength range in the polynomials; this accounts
     ///                 for distortion or small inaccuracies in the dispersion.
+    /// @param fiberCenter : fiberId separating low- and high-fiberId CCDs
     /// @param xCoefficients : x distortion polynomial coefficients
     /// @param yCoefficients : y distortion polynomial coefficients
-    /// @param rightCcd : affine transformation parameters for the right CCD
+    /// @param highCcd : affine transformation parameters for the high-fiberId CCD
     /// @param spatialOffsets : slit offsets in the spatial dimension
     /// @param spectralOffsets : slit offsets in the spectral dimension
     /// @param visitInfo : visit information
@@ -56,9 +57,10 @@ class GlobalDetectorMap : public ModelBasedDetectorMap {
         double dispersion,
         double wavelengthCenter,
         float buffer,
+        float fiberCenter,
         ndarray::Array<double, 1, 1> const& xCoefficients,
         ndarray::Array<double, 1, 1> const& yCoefficients,
-        ndarray::Array<double, 1, 1> const& rightCcd,
+        ndarray::Array<double, 1, 1> const& highCcd,
         ndarray::Array<double, 1, 1> const& spatialOffsets,
         ndarray::Array<double, 1, 1> const& spectralOffsets,
         VisitInfo const& visitInfo=VisitInfo(lsst::daf::base::PropertyList()),

@@ -34,8 +34,8 @@ class GlobalDetectorMap:
                          ("fiberPitch", "dispersion", "wavelengthCenter", "minFiberId", "maxFiberId",
                           "height", "buffer")}
         scaling = GlobalDetectorModelScaling(**scalingKwargs)
-        model = GlobalDetectorModel(bbox, detMap.order, detMap.fiberId, scaling,
-                                    detMap.xCoeff, detMap.yCoeff, detMap.rightCcdCoeff,
+        model = GlobalDetectorModel(bbox, detMap.order, detMap.fiberId, scaling, detMap.fiberCenter,
+                                    detMap.xCoeff, detMap.yCoeff, detMap.highCcdCoeff,
                                     detMap.spatialOffsets, detMap.spectralOffsets)
         metadata = headerToMetadata(detMap.metadata)
         visitInfo = lsst.afw.image.VisitInfo(metadata)
@@ -71,8 +71,8 @@ class GlobalDetectorMap:
 
         return pfs.datamodel.GlobalDetectorMap(
             identity, pfs.datamodel.Box.fromLsst(self.bbox), self.getDistortionOrder(), self.fiberId,
-            pfs.datamodel.GlobalDetectorMapScaling(**scalingKwargs),
-            model.getXCoefficients(), model.getYCoefficients(), model.getRightCcdCoefficients(),
+            pfs.datamodel.GlobalDetectorMapScaling(**scalingKwargs), model.getFiberCenter(),
+            model.getXCoefficients(), model.getYCoefficients(), model.getHighCcdCoefficients(),
             self.getSpatialOffsets(), self.getSpectralOffsets(), metadata.toDict()
         )
 

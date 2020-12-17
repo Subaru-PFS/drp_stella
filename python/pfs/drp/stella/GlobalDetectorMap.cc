@@ -57,12 +57,13 @@ void declareGlobalDetectorModel(py::module & mod) {
     using Class = GlobalDetectorModel;
     py::class_<Class> cls(mod, "GlobalDetectorModel");
     cls.def(py::init<lsst::geom::Box2I const&, int, ndarray::Array<int, 1, 1> const&,
-                     GlobalDetectorModelScaling const&,
+                     GlobalDetectorModelScaling const&, float,
                      ndarray::Array<double, 1, 1> const&, ndarray::Array<double, 1, 1> const&,
                      ndarray::Array<double, 1, 1> const&, ndarray::Array<double, 1, 1> const&,
                      ndarray::Array<double, 1, 1> const&>(),
-            "bbox"_a, "distortionOrder"_a, "fiberId"_a, "scaling"_a, "xDistortion"_a, "yDistortion"_a,
-            "rightCcd"_a, "spatialOffsets"_a=nullptr, "spectralOffsets"_a=nullptr);
+            "bbox"_a, "distortionOrder"_a, "fiberId"_a, "scaling"_a, "fiberCenter"_a,
+            "xDistortion"_a, "yDistortion"_a, "highCcd"_a,
+            "spatialOffsets"_a=nullptr, "spectralOffsets"_a=nullptr);
     cls.def("__call__", py::overload_cast<int, double>(&Class::operator(), py::const_),
             "fiberId"_a, "wavelength"_a);
     cls.def("__call__", py::overload_cast<int, double, std::size_t>(&Class::operator(), py::const_),
@@ -77,25 +78,28 @@ void declareGlobalDetectorModel(py::module & mod) {
                               ndarray::Array<std::size_t, 1, 1> const&>(&Class::operator(), py::const_),
             "fiberId"_a, "wavelength"_a, "fiberIndex"_a);
     cls.def("__call__",
-            py::overload_cast<lsst::geom::Point2D const&, std::size_t>(&Class::operator(), py::const_),
-            "xiEta"_a, "fiberIndex"_a);
+            py::overload_cast<lsst::geom::Point2D const&, std::size_t, bool>(&Class::operator(), py::const_),
+            "xiEta"_a, "fiberIndex"_a, "onHighCcd"_a);
     cls.def("__call__",
             py::overload_cast<ndarray::Array<double, 2, 1> const&,
-                              ndarray::Array<std::size_t, 1, 1> const&>(&Class::operator(), py::const_),
-            "xiEta"_a, "fiberIndex"_a);
+                              ndarray::Array<std::size_t, 1, 1> const&,
+                              ndarray::Array<bool, 1, 1> const&>(&Class::operator(), py::const_),
+            "xiEta"_a, "fiberIndex"_a, "onHighCcd"_a);
     cls.def_static("calculateDesignMatrix", &Class::calculateDesignMatrix,
                    "distortionOrder"_a, "xiEtaRange"_a, "xiEta"_a, "fiberIndex"_a,
                    "spatialOffsets"_a=nullptr, "spectralOffsets"_a=nullptr);
     cls.def("calculateChi2",
             py::overload_cast<ndarray::Array<double, 2, 1> const&,
                               ndarray::Array<std::size_t, 1, 1> const&,
+                              ndarray::Array<bool, 1, 1> const&,
                               ndarray::Array<double, 1, 1> const&,
                               ndarray::Array<double, 1, 1> const&,
                               ndarray::Array<double, 1, 1> const&,
                               ndarray::Array<double, 1, 1> const&,
                               ndarray::Array<bool, 1, 1> const&,
                               float>(&Class::calculateChi2, py::const_),
-            "xiEta"_a, "fiberIndex"_a, "xx"_a, "yy"_a, "xErr"_a, "yErr"_a, "good"_a=nullptr, "sysErr"_a=0.0);
+            "xiEta"_a, "fiberIndex"_a, "onHighCcd"_a,
+            "xx"_a, "yy"_a, "xErr"_a, "yErr"_a, "good"_a=nullptr, "sysErr"_a=0.0);
     cls.def("calculateChi2",
             py::overload_cast<ndarray::Array<int, 1, 1> const&,
                               ndarray::Array<double, 1, 1> const&,
@@ -110,12 +114,13 @@ void declareGlobalDetectorModel(py::module & mod) {
     cls.def("measureSlitOffsets",
             py::overload_cast<ndarray::Array<double, 2, 1> const&,
                               ndarray::Array<std::size_t, 1, 1> const&,
+                              ndarray::Array<bool, 1, 1> const&,
                               ndarray::Array<double, 1, 1> const&,
                               ndarray::Array<double, 1, 1> const&,
                               ndarray::Array<double, 1, 1> const&,
                               ndarray::Array<double, 1, 1> const&,
                               ndarray::Array<bool, 1, 1> const&>(&Class::measureSlitOffsets),
-            "xiEta"_a, "fiberIndex"_a, "xx"_a, "yy"_a, "xErr"_a, "yErr"_a, "good"_a=nullptr);
+            "xiEta"_a, "fiberIndex"_a, "onHighCcd"_a, "xx"_a, "yy"_a, "xErr"_a, "yErr"_a, "good"_a=nullptr);
     cls.def("measureSlitOffsets",
             py::overload_cast<ndarray::Array<int, 1, 1> const&,
                               ndarray::Array<double, 1, 1> const&,
@@ -129,18 +134,24 @@ void declareGlobalDetectorModel(py::module & mod) {
     cls.def("getScaling", &Class::getScaling);
     cls.def_static("getNumParameters", py::overload_cast<int, std::size_t>(&Class::getNumParameters),
                    "distortionOrder"_a, "numFibers"_a);
-    cls.def_static("makeRightCcdCoefficients", &Class::makeRightCcdCoefficients);
+    cls.def_static("makeHighCcdCoefficients", &Class::makeHighCcdCoefficients);
     cls.def("getDistortionOrder", &Class::getDistortionOrder);
+    cls.def("getFiberCenter", &Class::getFiberCenter);
     cls.def("getNumFibers", &Class::getNumFibers);
     cls.def_static("getNumDistortion", py::overload_cast<int>(&Class::getNumDistortion), "order"_a);
     cls.def("getFiberIndex", py::overload_cast<int>(&Class::getFiberIndex, py::const_), "fiberId"_a);
     cls.def("getFiberIndex",
             py::overload_cast<ndarray::Array<int, 1, 1> const&>(&Class::getFiberIndex, py::const_),
             "fiberId"_a);
-    cls.def("getRightCcd", &Class::getRightCcd);
+    cls.def("getOnHighCcd", py::overload_cast<int>(&Class::getOnHighCcd, py::const_));
+    cls.def("getOnHighCcd",
+            py::overload_cast<ndarray::Array<int, 1, 1> const&>(&Class::getOnHighCcd, py::const_));
+    cls.def("getHighCcd", &Class::getHighCcd);
     cls.def("getXCoefficients", &Class::getXCoefficients);
     cls.def("getYCoefficients", &Class::getYCoefficients);
-    cls.def("getRightCcdCoefficients", &Class::getRightCcdCoefficients);
+    cls.def("getXDistortion", &Class::getXDistortion);
+    cls.def("getYDistortion", &Class::getYDistortion);
+    cls.def("getHighCcdCoefficients", &Class::getHighCcdCoefficients);
     lsst::utils::python::addOutputOp(cls, "__str__");
     lsst::utils::python::addOutputOp(cls, "__repr__");
 }
@@ -166,8 +177,9 @@ void declareGlobalDetectorMap(py::module & mod) {
             return py::make_tuple(
                 self.getBBox(), self.getDistortionOrder(), self.getFiberId(), self.getModel().getFiberPitch(),
                 self.getModel().getDispersion(), self.getModel().getWavelengthCenter(),
-                self.getModel().getBuffer(), self.getModel().getXCoefficients(),
-                self.getModel().getYCoefficients(), self.getModel().getRightCcdCoefficients(),
+                self.getModel().getBuffer(), self.getModel().getFiberCenter(),
+                self.getModel().getXCoefficients(), self.getModel().getYCoefficients(),
+                self.getModel().getHighCcdCoefficients(),
                 self.getModel().getSpatialOffsets(), self.getModel().getSpectralOffsets(),
                 self.getVisitInfo(), self.getMetadata());
         },
@@ -180,13 +192,14 @@ void declareGlobalDetectorMap(py::module & mod) {
                 t[4].cast<double>(),  // dispersion
                 t[5].cast<double>(),  // wavelengthCenter
                 t[6].cast<float>(),  // buffer
-                t[7].cast<ndarray::Array<double, 1, 1>>(),  // xCoeff
-                t[8].cast<ndarray::Array<double, 1, 1>>(),  // yCoeff
-                t[9].cast<ndarray::Array<double, 1, 1>>(),  // rightCcd
-                t[10].cast<ndarray::Array<double, 1, 1>>(),  // spatialOffsets
-                t[11].cast<ndarray::Array<double, 1, 1>>(),  // spectralOffsets
-                t[12].cast<lsst::afw::image::VisitInfo>(),  // visitInfo
-                t[13].cast<std::shared_ptr<lsst::daf::base::PropertySet>>()  // metadata
+                t[7].cast<float>(),  // fiberCenter
+                t[8].cast<ndarray::Array<double, 1, 1>>(),  // xCoeff
+                t[9].cast<ndarray::Array<double, 1, 1>>(),  // yCoeff
+                t[10].cast<ndarray::Array<double, 1, 1>>(),  // highCcd
+                t[11].cast<ndarray::Array<double, 1, 1>>(),  // spatialOffsets
+                t[12].cast<ndarray::Array<double, 1, 1>>(),  // spectralOffsets
+                t[13].cast<lsst::afw::image::VisitInfo>(),  // visitInfo
+                t[14].cast<std::shared_ptr<lsst::daf::base::PropertySet>>()  // metadata
             );
         }
     ));
