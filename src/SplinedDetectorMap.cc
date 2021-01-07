@@ -1,3 +1,5 @@
+#include <unordered_set>
+
 #include "lsst/afw/table.h"
 #include "lsst/afw/table/io/OutputArchive.h"
 #include "lsst/afw/table/io/InputArchive.h"
@@ -287,7 +289,34 @@ void SplinedDetectorMap::measureSlitOffsets(
     ndarray::Array<double, 1, 1> const& xErr,
     ndarray::Array<double, 1, 1> const& yErr
 ) {
-    throw LSST_EXCEPT(lsst::pex::exceptions::RuntimeError, "Not implemented.");
+    std::size_t const num = fiberId.size();
+    utils::checkSize(fiberId.size(), num, "fiberId");
+    utils::checkSize(wavelength.size(), num, "wavelength");
+    utils::checkSize(x.size(), num, "x");
+    utils::checkSize(y.size(), num, "y");
+    utils::checkSize(xErr.size(), num, "xErr");
+    utils::checkSize(yErr.size(), num, "yErr");
+
+    for (auto const ff : std::unordered_set<int>(fiberId.begin(), fiberId.end())) {
+        double xSum = 0.0;
+        double ySum = 0.0;
+        double xWeight = 0.0;
+        double yWeight = 0.0;
+        for (std::size_t ii = 0; ii < num; ++ii) {
+            if (fiberId[ii] != ff) continue;
+            auto const point = findPoint(ff, wavelength[ii]);
+            if (!std::isfinite(point.getX()) || !std::isfinite(point.getY())) continue;
+            double const xWt = 1.0/std::pow(xErr[ii], 2);
+            double const yWt = 1.0/std::pow(yErr[ii], 2);
+            xSum += (x[ii] - point.getX())*xWt;
+            ySum += (y[ii] - point.getY())*yWt;
+            xWeight += xWt;
+            yWeight += yWt;
+        }
+        double const spatial = xSum/xWeight;
+        double const spectral = ySum/yWeight;
+        setSlitOffsets(ff, getSpatialOffset(ff) + spatial, getSpectralOffset(ff) + spectral);
+    }
 }
 
 

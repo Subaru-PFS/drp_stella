@@ -166,8 +166,6 @@ void declareGlobalDetectorMap(py::module & mod) {
     cls.def_property_readonly("model", &Class::getModel);
     cls.def("getFiberId", &Class::getFiberId);
     cls.def("getDistortionOrder", &Class::getDistortionOrder);
-    cls.def("measureSlitOffsets", &Class::measureSlitOffsets,
-            "fiberId"_a, "wavelength"_a, "x"_a, "y"_a, "xErr"_a, "yErr"_a);
 
     cls.def(py::pickle(
         [](Class const& self) {
