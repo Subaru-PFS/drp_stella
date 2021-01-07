@@ -281,36 +281,17 @@ std::ostream& operator<<(std::ostream& os, GlobalDetectorModel const& model) {
 ndarray::Array<double, 2, 1> GlobalDetectorModel::calculateDesignMatrix(
     int distortionOrder,
     lsst::geom::Box2D const& xiEtaRange,
-    ndarray::Array<double, 2, 1> const& xiEta,
-    ndarray::Array<std::size_t, 1, 1> const& fiberIndex,
-    ndarray::Array<double, 1, 1> const& spatialOffsets,
-    ndarray::Array<double, 1, 1> const& spectralOffsets
+    ndarray::Array<double, 2, 1> const& xiEta
 ) {
     std::size_t const length = xiEta.getShape()[0];
     utils::checkSize(xiEta.getShape()[1], 2UL, "xiEta");
-    utils::checkSize(fiberIndex.size(), length, "fiberIndex");
-    std::size_t const numFibers = (spatialOffsets.isEmpty() ?
-                                   (spectralOffsets.isEmpty() ? 0 : spectralOffsets.size()) :
-                                    spatialOffsets.size());
-    if (!spatialOffsets.isEmpty()) {
-        utils::checkSize(spatialOffsets.size(), numFibers, "spatialOffsets");
-    }
-    if (!spectralOffsets.isEmpty()) {
-        utils::checkSize(spectralOffsets.size(), numFibers, "spectralOffsets");
-    }
 
     std::size_t const numTerms = GlobalDetectorModel::getNumDistortion(distortionOrder);
     ndarray::Array<double, 2, 1> matrix = ndarray::allocate(length, numTerms);
     Polynomial const poly(distortionOrder, xiEtaRange);
     for (std::size_t ii = 0; ii < length; ++ii) {
-        std::size_t const index = fiberIndex[ii];
-        if (numFibers > 0 && index >= numFibers) {
-            throw LSST_EXCEPT(lsst::pex::exceptions::OutOfRangeError,
-                              (boost::format("fiberIndex[%d]=%d is out of range for %d fibers") %
-                               ii % index % numFibers).str());
-        }
-        double const xi = xiEta[ii][0] + (spatialOffsets.isEmpty() ? 0.0 : spatialOffsets[index]);
-        double const eta = xiEta[ii][1] + (spectralOffsets.isEmpty() ? 0.0 : spectralOffsets[index]);
+        double const xi = xiEta[ii][0];
+        double const eta = xiEta[ii][1];
         auto const terms = poly.getDFuncDParameters(xi, eta);
         std::copy(terms.begin(), terms.end(), matrix[ii].begin());
     }

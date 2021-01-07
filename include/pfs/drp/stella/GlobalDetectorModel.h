@@ -269,22 +269,18 @@ class GlobalDetectorModel : public lsst::afw::table::io::Persistable {
     /// equation: X^T*X*beta = X^T*y (where beta are the parameters, y are the
     /// measurements, and "*" denotes matrix multiplication). Rows correspond to
     /// the input data points, and columns correspond to the individual
-    /// polynomial terms.
+    /// polynomial terms. The dimensions of the matrix are (Ndata, Ndistortion),
+    /// where Ndata is the number of data points provided, and Ndistortion is
+    /// the number of distortion polynomial terms.
     ///
     /// @param distortionOrder : polynomial order for distortion
     /// @param xiEtaRange : range for xi,eta values
     /// @param xiEta : xi,eta values for data points
-    /// @param fiberIndex : fiber index (mapped fiberId) for each data point
-    /// @param spatialOffsets : offsets in spatial dimension to apply
-    /// @param spectralOffsets : offsets in spectral dimension to apply
     /// @returns design matrix
     static ndarray::Array<double, 2, 1> calculateDesignMatrix(
         int distortionOrder,
         lsst::geom::Box2D const& xiEtaRange,
-        ndarray::Array<double, 2, 1> const& xiEta,
-        ndarray::Array<std::size_t, 1, 1> const& fiberIndex,
-        ndarray::Array<double, 1, 1> const& spatialOffsets=ndarray::Array<double, 1, 1>(),
-        ndarray::Array<double, 1, 1> const& spectralOffsets=ndarray::Array<double, 1, 1>()
+        ndarray::Array<double, 2, 1> const& xiEta
     );
 
     //@{
@@ -475,19 +471,9 @@ class GlobalDetectorModel : public lsst::afw::table::io::Persistable {
     float _fiberCenter;  // central fiberId value; for separating low- and high-fiberId CCDs
     Polynomial _xDistortion;  // distortion polynomial in x
     Polynomial _yDistortion;  // distortion polynomial in y
-<<<<<<< HEAD
-    lsst::geom::AffineTransform _rightCcd;  // transformation for right CCD
+    lsst::geom::AffineTransform _highCcd;  // transformation for high-fiberId CCD
     ndarray::Array<double, 1, 1> _spatialOffsets;  // fiber offsets in the spatial dimension
     ndarray::Array<double, 1, 1> _spectralOffsets;  // fiber offsets in the spectral dimension
-||||||| parent of edd9961 (refactor GlobalDetectorModel for use in fitting differential distortion)
-    lsst::geom::AffineTransform _rightCcd;  // transformation for right CCD
-    ndarray::Array<float, 1, 1> _spatialOffsets;  // fiber offsets in the spatial dimension
-    ndarray::Array<float, 1, 1> _spectralOffsets;  // fiber offsets in the spectral dimension
-=======
-    lsst::geom::AffineTransform _highCcd;  // transformation for high-fiberId CCD
-    ndarray::Array<float, 1, 1> _spatialOffsets;  // fiber offsets in the spatial dimension
-    ndarray::Array<float, 1, 1> _spectralOffsets;  // fiber offsets in the spectral dimension
->>>>>>> edd9961 (refactor GlobalDetectorModel for use in fitting differential distortion)
 };
 
 

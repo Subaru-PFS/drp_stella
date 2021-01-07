@@ -320,8 +320,7 @@ class FitGlobalDetectorMapTask(Task):
         xi = xiEta[:, 0]
         eta = xiEta[:, 1]
         fiberIndex = fiberMap(fiberId)
-        design = GlobalDetectorModel.calculateDesignMatrix(self.config.order, scaling.getRange(),
-                                                           xiEta, fiberIndex)
+        design = GlobalDetectorModel.calculateDesignMatrix(self.config.order, scaling.getRange(), xiEta)
 
         def fitDimension(values, errors):
             """Fit a distortion polynomial in a single dimension

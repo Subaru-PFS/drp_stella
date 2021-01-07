@@ -86,8 +86,7 @@ void declareGlobalDetectorModel(py::module & mod) {
                               ndarray::Array<bool, 1, 1> const&>(&Class::operator(), py::const_),
             "xiEta"_a, "fiberIndex"_a, "onHighCcd"_a);
     cls.def_static("calculateDesignMatrix", &Class::calculateDesignMatrix,
-                   "distortionOrder"_a, "xiEtaRange"_a, "xiEta"_a, "fiberIndex"_a,
-                   "spatialOffsets"_a=nullptr, "spectralOffsets"_a=nullptr);
+                   "distortionOrder"_a, "xiEtaRange"_a, "xiEta"_a);
     cls.def("calculateChi2",
             py::overload_cast<ndarray::Array<double, 2, 1> const&,
                               ndarray::Array<std::size_t, 1, 1> const&,
