@@ -71,6 +71,8 @@ void DetectorMap::setSlitOffsets(
     DetectorMap::Array1D const& spatial,
     DetectorMap::Array1D const& spectral
 ) {
+    utils::checkSize(spatial.size(), getNumFibers(), "spatial");
+    utils::checkSize(spectral.size(), getNumFibers(), "spectral");
     _spatialOffsets.deep() = spatial;
     _spectralOffsets.deep() = spectral;
     _resetSlitOffsets();
