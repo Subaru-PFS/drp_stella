@@ -180,6 +180,7 @@ class FitGlobalDetectorMapConfig(Config):
                            doc="Force a single CCD? This might be useful for a sparse fiber density")
     fiberCenter = DictField(keytype=int, itemtype=float, doc="Central fiberId, separating CCDs",
                             default={1: 326, 2: 326, 3: 326, 4: 326})
+    doSlitOffsets = Field(dtype=bool, default=True, doc="Fit for slit offsets?")
 
 
 class FitGlobalDetectorMapTask(Task):
@@ -407,7 +408,8 @@ class FitGlobalDetectorMapTask(Task):
 
         model = GlobalDetectorModel(bbox, self.config.order, fiberId, scaling, fiberCenter,
                                     xParams.distortion, yParams.distortion, highCcd)
-        model.measureSlitOffsets(xiEta, fiberIndex, onHighCcd, xx, yy, xErr, yErr)
+        if self.config.doSlitOffsets:
+            model.measureSlitOffsets(xiEta, fiberIndex, onHighCcd, xx, yy, xErr, yErr)
 
         return calculateFitStatistics(model, lines, select, soften)
 
