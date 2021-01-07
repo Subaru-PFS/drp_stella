@@ -53,6 +53,26 @@ ndarray::Array<T, N, C> evaluateFunction2(
 }
 
 
+template <typename T, int N, int C>
+std::pair<ndarray::Array<T, N, C>, ndarray::Array<T, N, N>> evaluateAffineTransform(
+    lsst::geom::AffineTransform const& transform,
+    ndarray::Array<T, N, C> const& xIn,
+    ndarray::Array<T, N, C> const& yIn
+) {
+    utils::checkSize(xIn.getShape(), yIn.getShape(), "x vs y");
+    ndarray::Array<T, N, C> xOut = ndarray::allocate(xIn.getShape());
+    ndarray::Array<T, N, C> yOut = ndarray::allocate(yIn.getShape());
+    auto xIter = xIn.begin();
+    auto yIter = yIn.begin();
+    for (auto xx = xOut.begin(), yy = yOut.begin(); xx != xOut.end(); ++xx, ++yy, ++xIter, ++yIter) {
+        auto const result = transform(lsst::geom::Point2D(*xIter, *yIter));
+        *xx = result.getX();
+        *yy = result.getY();
+    }
+    return std::make_pair(xOut, yOut);
+}
+
+
 PYBIND11_PLUGIN(math) {
     py::module mod("math");
     declareNormalizedPolynomial<double>(mod, "D");
@@ -66,6 +86,7 @@ PYBIND11_PLUGIN(math) {
     mod.def("evaluatePolynomial",
             &evaluateFunction2<NormalizedPolynomial2<double>, double, 1, 1>,
             "poly"_a, "x"_a, "y"_a);
+    mod.def("evaluateAffineTransform", &evaluateAffineTransform<double, 1, 1>, "transform"_a, "x"_a, "y"_a);
     return mod.ptr();
 }
 
