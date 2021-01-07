@@ -21,3 +21,4 @@ from .fiberProfile import *
 from .fiberProfileSet import *
 from .fitPolynomial import *
 from .slitOffsets import *
+from .DifferentialDetectorMapContinued import *
