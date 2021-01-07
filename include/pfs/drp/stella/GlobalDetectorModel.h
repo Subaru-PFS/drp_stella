@@ -8,9 +8,9 @@
 #include "lsst/geom/Point.h"
 #include "lsst/geom/AffineTransform.h"
 #include "lsst/afw/table/io/Persistable.h"
-#include "lsst/afw/math/FunctionLibrary.h"
 
 #include "pfs/drp/stella/spline.h"
+#include "pfs/drp/stella/math/NormalizedPolynomial.h"
 #include "pfs/drp/stella/DetectorMap.h"
 
 
@@ -169,7 +169,7 @@ class FiberMap {
 ///       spectral dimensions.
 class GlobalDetectorModel : public lsst::afw::table::io::Persistable {
   public:
-    using Polynomial = lsst::afw::math::Chebyshev1Function2<double>;
+    using Polynomial = math::NormalizedPolynomial2<double>;
 
     /// Ctor
     ///
@@ -388,7 +388,9 @@ class GlobalDetectorModel : public lsst::afw::table::io::Persistable {
     double getSpatialOffset(std::size_t index) const { return _spatialOffsets[index]; }
     double getSpectralOffset(std::size_t index) const { return _spectralOffsets[index]; }
     ndarray::Array<double, 1, 1> const& getSpatialOffsets() const { return _spatialOffsets; }
+    ndarray::Array<double, 1, 1> & getSpatialOffsets() { return _spatialOffsets; }
     ndarray::Array<double, 1, 1> const& getSpectralOffsets() const { return _spectralOffsets; }
+    ndarray::Array<double, 1, 1> & getSpectralOffsets() { return _spectralOffsets; }
     //@}
 
     //@{
