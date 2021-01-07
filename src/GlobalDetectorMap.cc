@@ -21,6 +21,7 @@
 #include "lsst/afw/table/io/Persistable.cc"
 #include "lsst/afw/math/Statistics.h"
 
+#include "pfs/drp/stella/utils/checkSize.h"
 #include "pfs/drp/stella/GlobalDetectorMap.h"
 
 

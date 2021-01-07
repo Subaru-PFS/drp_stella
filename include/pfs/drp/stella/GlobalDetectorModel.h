@@ -335,7 +335,6 @@ class GlobalDetectorModel : public lsst::afw::table::io::Persistable {
     /// @param yy : y coordinate values for data points
     /// @param xErr : x coordinate error values for data points
     /// @param yErr : y coordinate error values for data points
-    /// @param good : boolean array indicating which values should be used
     /// @returns spatial and spectral offsets for each fiber
     ndarray::Array<double, 2, 1> measureSlitOffsets(
         ndarray::Array<double, 2, 1> const& xiEta,
@@ -344,8 +343,7 @@ class GlobalDetectorModel : public lsst::afw::table::io::Persistable {
         ndarray::Array<double, 1, 1> const& xx,
         ndarray::Array<double, 1, 1> const& yy,
         ndarray::Array<double, 1, 1> const& xErr,
-        ndarray::Array<double, 1, 1> const& yErr,
-        ndarray::Array<bool, 1, 1> const& good=ndarray::Array<bool, 1, 1>()
+        ndarray::Array<double, 1, 1> const& yErr
     );
     ndarray::Array<double, 2, 1> measureSlitOffsets(
         ndarray::Array<int, 1, 1> const& fiberId,
@@ -353,11 +351,10 @@ class GlobalDetectorModel : public lsst::afw::table::io::Persistable {
         ndarray::Array<double, 1, 1> const& xx,
         ndarray::Array<double, 1, 1> const& yy,
         ndarray::Array<double, 1, 1> const& xErr,
-        ndarray::Array<double, 1, 1> const& yErr,
-        ndarray::Array<bool, 1, 1> const& good=ndarray::Array<bool, 1, 1>()
+        ndarray::Array<double, 1, 1> const& yErr
     ) {
         return measureSlitOffsets(getScaling()(fiberId, wavelength), getFiberIndex(fiberId),
-                                  getOnHighCcd(fiberId), xx, yy, xErr, yErr, good);
+                                  getOnHighCcd(fiberId), xx, yy, xErr, yErr);
     }
     //@}
 

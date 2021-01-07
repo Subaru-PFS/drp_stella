@@ -117,18 +117,16 @@ void declareGlobalDetectorModel(py::module & mod) {
                               ndarray::Array<double, 1, 1> const&,
                               ndarray::Array<double, 1, 1> const&,
                               ndarray::Array<double, 1, 1> const&,
-                              ndarray::Array<double, 1, 1> const&,
-                              ndarray::Array<bool, 1, 1> const&>(&Class::measureSlitOffsets),
-            "xiEta"_a, "fiberIndex"_a, "onHighCcd"_a, "xx"_a, "yy"_a, "xErr"_a, "yErr"_a, "good"_a=nullptr);
+                              ndarray::Array<double, 1, 1> const&>(&Class::measureSlitOffsets),
+            "xiEta"_a, "fiberIndex"_a, "onHighCcd"_a, "xx"_a, "yy"_a, "xErr"_a, "yErr"_a);
     cls.def("measureSlitOffsets",
             py::overload_cast<ndarray::Array<int, 1, 1> const&,
                               ndarray::Array<double, 1, 1> const&,
                               ndarray::Array<double, 1, 1> const&,
                               ndarray::Array<double, 1, 1> const&,
                               ndarray::Array<double, 1, 1> const&,
-                              ndarray::Array<double, 1, 1> const&,
-                              ndarray::Array<bool, 1, 1> const&>(&Class::measureSlitOffsets),
-            "fiberId"_a, "wavelength"_a, "xx"_a, "yy"_a, "xErr"_a, "yErr"_a, "good"_a=nullptr);
+                              ndarray::Array<double, 1, 1> const&>(&Class::measureSlitOffsets),
+            "fiberId"_a, "wavelength"_a, "xx"_a, "yy"_a, "xErr"_a, "yErr"_a);
     cls.def("getFiberId", &Class::getFiberId);
     cls.def("getScaling", &Class::getScaling);
     cls.def_static("getNumParameters", py::overload_cast<int, std::size_t>(&Class::getNumParameters),

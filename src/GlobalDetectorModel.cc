@@ -2,6 +2,16 @@
 #include <numeric>
 #include <algorithm>
 
+#include "Minuit2/FunctionMinimum.h"
+#include "Minuit2/MnMigrad.h"
+#include "Minuit2/FCNBase.h"
+
+//#define DEBUG
+
+#ifdef DEBUG
+#include "Minuit2/MnPrint.h"
+#endif
+
 #include "ndarray.h"
 #include "ndarray/eigen.h"
 
@@ -346,6 +356,111 @@ std::pair<double, std::size_t> GlobalDetectorModel::calculateChi2(
 }
 
 
+namespace {
+
+class SlitOffsetMinimization : public ROOT::Minuit2::FCNBase {
+  public:
+    SlitOffsetMinimization(
+        GlobalDetectorModel const& model,
+        std::size_t selectFiberIndex,
+        ndarray::Array<double, 2, 1> const& xiEta,
+        ndarray::Array<std::size_t, 1, 1> const& fiberIndex,
+        ndarray::Array<bool, 1, 1> const& onHighCcd,
+        ndarray::Array<double, 1, 1> const& x,
+        ndarray::Array<double, 1, 1> const& y,
+        ndarray::Array<double, 1, 1> const& xErr,
+        ndarray::Array<double, 1, 1> const& yErr
+    ) : _model(model),
+        _selectFiberIndex(selectFiberIndex),
+        _num(fiberIndex.size()),
+        _xiEta(xiEta),
+        _fiberIndex(fiberIndex),
+        _onHighCcd(onHighCcd),
+        _x(x),
+        _y(y),
+        _xErr(xErr),
+        _yErr(yErr),
+        _select(ndarray::allocate(fiberIndex.size())) {
+            assert(selectFiberIndex < model.getNumFibers());
+            assert(xiEta.getShape()[0] == _num);
+            assert(xiEta.getShape()[1] == 2);
+            assert(fiberIndex.size() == _num);
+            assert(onHighCcd.size() == _num);
+            assert(_x.size() == _num);
+            assert(_y.size() == _num);
+            assert(_xErr.size() == _num);
+            assert(_yErr.size() == _num);
+            for (std::size_t ii = 0; ii < _num; ++ii) {
+                _select[ii] = fiberIndex[ii] == selectFiberIndex;
+            }
+        }
+
+    SlitOffsetMinimization(SlitOffsetMinimization const &) = default;
+    SlitOffsetMinimization(SlitOffsetMinimization &&) = default;
+    SlitOffsetMinimization &operator=(SlitOffsetMinimization const &) = default;
+    SlitOffsetMinimization &operator=(SlitOffsetMinimization &&) = default;
+    virtual ~SlitOffsetMinimization() override = default;
+
+    double calculateChi2(lsst::geom::Point2D offset) const;
+
+    lsst::geom::Point2D minimize() const;
+
+    double operator()(std::vector<double> const& parameters) const override;
+    double Up() const override { return 1.0; }  // 1.0 --> fitting chi^2/dof
+
+  protected:
+    mutable GlobalDetectorModel _model;
+    std::size_t _selectFiberIndex;
+    std::size_t _num;
+    ndarray::Array<double, 2, 1> const _xiEta;
+    ndarray::Array<std::size_t, 1, 1> const& _fiberIndex;
+    ndarray::Array<bool, 1, 1> const& _onHighCcd;
+    ndarray::Array<double, 1, 1> const _x;
+    ndarray::Array<double, 1, 1> const _y;
+    ndarray::Array<double, 1, 1> const _xErr;
+    ndarray::Array<double, 1, 1> const _yErr;
+    ndarray::Array<bool, 1, 1> const _select;
+};
+
+
+double SlitOffsetMinimization::operator()(std::vector<double> const& parameters) const {
+    // Modify model's slit offsets
+    _model.getSpatialOffsets()[_selectFiberIndex] = parameters[0];
+    _model.getSpectralOffsets()[_selectFiberIndex] = parameters[1];
+
+    double chi2;
+    std::size_t const dof = _num - 2;
+    try {
+        chi2 = _model.calculateChi2(_xiEta, _fiberIndex, _onHighCcd, _x, _y, _xErr, _yErr, _select).first;
+    } catch (...) {
+        chi2 = std::numeric_limits<double>::infinity();
+    }
+    if (std::isnan(chi2)) {
+        chi2 = std::numeric_limits<double>::infinity();
+    }
+    return chi2/dof;
+}
+
+
+lsst::geom::Point2D SlitOffsetMinimization::minimize() const {
+    std::vector<double> parameters = {0.0, 0.0};
+    std::vector<double> steps = {0.1, 0.1};
+
+#ifdef DEBUG
+    ROOT::Minuit2::MnPrint::SetLevel(3);
+#endif
+    auto const min = ROOT::Minuit2::MnMigrad(*this, parameters, steps)();
+    assert(min.UserParameters().Params().size() == 2);
+
+    if (!min.IsValid() || !std::isfinite(min.Fval())) {
+        return lsst::geom::Point2D(0.0, 0.0);
+    }
+    return lsst::geom::Point2D(min.UserParameters().Params()[0], min.UserParameters().Params()[1]);
+}
+
+}  // anonymous namespace
+
+
 ndarray::Array<double, 2, 1> GlobalDetectorModel::measureSlitOffsets(
     ndarray::Array<double, 2, 1> const& xiEta,
     ndarray::Array<std::size_t, 1, 1> const& fiberIndex,
@@ -353,8 +468,7 @@ ndarray::Array<double, 2, 1> GlobalDetectorModel::measureSlitOffsets(
     ndarray::Array<double, 1, 1> const& xx,
     ndarray::Array<double, 1, 1> const& yy,
     ndarray::Array<double, 1, 1> const& xErr,
-    ndarray::Array<double, 1, 1> const& yErr,
-    ndarray::Array<bool, 1, 1> const& goodOrig
+    ndarray::Array<double, 1, 1> const& yErr
 ) {
     std::size_t const length = xiEta.getShape()[0];
     utils::checkSize(xiEta.getShape()[1], 2UL, "xiEta");
@@ -363,44 +477,20 @@ ndarray::Array<double, 2, 1> GlobalDetectorModel::measureSlitOffsets(
     utils::checkSize(yy.size(), length, "y");
     utils::checkSize(xErr.size(), length, "xErr");
     utils::checkSize(yErr.size(), length, "yErr");
-    ndarray::Array<bool, 1, 1> good;
-    if (goodOrig.isEmpty()) {
-        good = ndarray::allocate(length);
-        good.deep() = true;
-    } else {
-        good = goodOrig;
-        utils::checkSize(good.size(), length, "good");
-    }
     std::size_t const numFibers = getNumFibers();
 
     ndarray::Array<double, 2, 1> offsets = ndarray::allocate(numFibers, 2);
-    ndarray::Array<double, 2, 1> weights = ndarray::allocate(numFibers, 2);
-    offsets.deep() = 0;
-    weights.deep() = 0;
-    for (std::size_t ii = 0; ii < length; ++ii) {
-        if (!good[ii]) continue;
-        std::size_t const index = fiberIndex[ii];
-        if (index >= numFibers) {
-            throw LSST_EXCEPT(lsst::pex::exceptions::OutOfRangeError,
-                              (boost::format("fiberIndex[%d]=%d is out of range for %d fibers") %
-                               ii % index % numFibers).str());
-        }
-        auto const fit = operator()(lsst::geom::Point2D(xiEta[ii][0], xiEta[ii][1]), index, onHighCcd[ii]);
-        double const dx = fit.getX() - xx[ii];
-        double const dy = fit.getY() - yy[ii];
-        double const xWeight = 1.0/std::pow(xErr[ii], 2);
-        double const yWeight = 1.0/std::pow(yErr[ii], 2);
-        offsets[index][0] += dx*xWeight;
-        weights[index][0] += xWeight;
-        offsets[index][1] += dy*yWeight;
-        weights[index][1] += yWeight;
+    for (std::size_t ii = 0; ii < numFibers; ++ii) {
+        lsst::geom::Point2D const result = SlitOffsetMinimization(*this, ii, xiEta, fiberIndex, onHighCcd,
+                                                                  xx, yy, xErr, yErr).minimize();
+        offsets[ii][0] = result.getX();
+        offsets[ii][1] = result.getY();
     }
 
+    // Modify model's slit offsets
     for (std::size_t ii = 0; ii < numFibers; ++ii) {
-        offsets[ii][0] /= weights[ii][0];
-        offsets[ii][1] /= weights[ii][1];
-        _spatialOffsets[ii] += offsets[ii][0];
-        _spectralOffsets[ii] += offsets[ii][1];
+        _spatialOffsets[ii] = offsets[ii][0];
+        _spectralOffsets[ii] = offsets[ii][1];
     }
 
     return offsets;
