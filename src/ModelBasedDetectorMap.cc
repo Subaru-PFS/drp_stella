@@ -42,9 +42,18 @@ void ModelBasedDetectorMap::_setSplines() const {
         yy.reserve(height);
         int fiberId = getFiberId()[ii];
 
+        lsst::geom::Point2D point;  // Position on detector
+
         // Iterate up in wavelength until we drop off the edge of the detector
         for (SplineCoeffT wl = _wavelengthCenter; true; wl += _wavelengthSampling) {
-            auto const point = findPointImpl(fiberId, wl);
+            try {
+                point = findPointImpl(fiberId, wl);
+            } catch (...) {
+                break;
+            }
+            if (!std::isfinite(point.getX()) || !std::isfinite(point.getY())) {
+                break;
+            }
             wavelength.push_back(wl);
             xx.push_back(point.getX());
             yy.push_back(point.getY());
@@ -54,7 +63,14 @@ void ModelBasedDetectorMap::_setSplines() const {
         }
         // Iterate down in wavelength until we drop off the edge of the detector
         for (SplineCoeffT wl = _wavelengthCenter - _wavelengthSampling; true; wl -= _wavelengthSampling) {
-            auto const point = findPointImpl(fiberId, wl);
+            try {
+                point = findPointImpl(fiberId, wl);
+            } catch (...) {
+                break;
+            }
+            if (!std::isfinite(point.getX()) || !std::isfinite(point.getY())) {
+                break;
+            }
             wavelength.push_back(wl);
             xx.push_back(point.getX());
             yy.push_back(point.getY());
