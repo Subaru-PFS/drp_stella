@@ -138,6 +138,36 @@ def calculateFitStatistics(model, lines, selection, soften=0.0):
                   xRobustRms=xRobustRms, yRobustRms=yRobustRms, chi2=chi2, dof=dof, soften=soften)
 
 
+def addColorbar(figure, axes, cmap, norm, label=None):
+    """Add colorbar to a plot
+
+    Parameters
+    ----------
+    figure : `matplotlib.pyplot.Figure`
+        Figure containing the axes.
+    axes : `matplotlib.pyplot.Axes`
+        Axes with the plot.
+    cmap : `matplotlib.colors.Colormap`
+        Color map.
+    norm : `matplot.colors.Normalize`
+        Normalization for color map.
+    label : `str`
+        Label to apply to colorbar.
+
+    Returns
+    -------
+    colorbar : `matplotlib.colorbar.Colorbar`
+        The colorbar.
+    """
+    import matplotlib.cm
+    from mpl_toolkits.axes_grid1 import make_axes_locatable
+    divider = make_axes_locatable(axes)
+    cax = divider.append_axes("right", size='5%', pad=0.05)
+    colors = matplotlib.cm.ScalarMappable(cmap=cmap, norm=norm)
+    colors.set_array([])
+    figure.colorbar(colors, cax=cax, orientation="vertical", label=label)
+
+
 class FitGlobalDetectorMapConfig(Config):
     """Configuration for FitGlobablDetectorMapTask"""
     iterations = Field(dtype=int, default=3, doc="Number of rejection iterations")
@@ -266,6 +296,10 @@ class FitGlobalDetectorMapTask(Task):
         result = self.fitSoftenedModel(bbox, lines, select, reserved, result, doFitHighCcd, fiberCenter)
         if self.debugInfo.plot:
             self.plotModel(lines, good, result)
+        if self.debugInfo.distortion:
+            self.plotDistortion(result.model, lines, good)
+        if self.debugInfo.residuals:
+            self.plotResiduals(result.model, lines, good, reserved)
         return result.model
 
     def fitModel(self, bbox, lines, select, doFitHighCcd, fiberCenter=0, soften=None):
@@ -625,4 +659,186 @@ class FitGlobalDetectorMapTask(Task):
         ax.set_ylabel("Spectral")
 
         fig.tight_layout()
+        plt.show()
+
+    def plotDistortion(self, model, lines, select):
+        """Plot distortion field
+
+        We plot the x and y distortions as a function of xi,eta.
+
+        Parameters
+        ----------
+        model : `pfs.drp.stella.GlobalDetectorModel`
+            Model containing distortion.
+        lines : `pfs.drp.stella.ArcLineSet`
+            Arc line measurements.
+        select : `numpy.ndarray` of `bool`
+            Flags indicating which of the ``lines`` are to be fit.
+        """
+        import matplotlib.pyplot as plt
+        import matplotlib.cm
+        from matplotlib.colors import Normalize
+        from pfs.drp.stella.math import evaluatePolynomial, evaluateAffineTransform
+
+        numSamples = 1000
+        cmap = matplotlib.cm.rainbow
+
+        xiEtaRange = model.getScaling().getRange()
+        xiEtaModel = np.meshgrid(np.linspace(xiEtaRange.getMinX(), xiEtaRange.getMaxX(), numSamples),
+                                 np.linspace(xiEtaRange.getMinY(), xiEtaRange.getMaxY(), numSamples),
+                                 sparse=False)
+        xiModel = xiEtaModel[0].flatten()
+        etaModel = xiEtaModel[1].flatten()
+
+        def calculateXiEta(fiberId, wavelength):
+            # Coordinates for input to polynomial
+            xiEta = model.getScaling()(fiberId.astype(np.int32), wavelength.astype(float))
+            return xiEta[:, 0].copy(), xiEta[:, 1].copy()  # Copy to force C-contiguous
+
+        def calculateXiEtaNorm(xi, eta):
+            # Coordinates for plotting
+            xiNorm = (xi - xiEtaRange.getMinX())/(xiEtaRange.getMaxX() - xiEtaRange.getMinX())
+            etaNorm = (eta - xiEtaRange.getMinY())/(xiEtaRange.getMaxY() - xiEtaRange.getMinY())
+            return xiNorm, etaNorm
+
+        def getDistortion(poly):
+            """Evaluate the polynomial without the linear terms
+
+            Parameters
+            ----------
+            poly : `lsst.afw.math.Chebyshev1Function2D`
+                Polynomial with distortion.
+
+            Returns
+            -------
+            distortion : `numpy.ndarray` of `float`, shape ``(numSamples,numSamples)``
+                Image of the distortion.
+            """
+            params = np.array(poly.getParameters())
+            params[:3] = 0.0
+            distortion = type(poly)(params, poly.getXYRange())
+            return evaluatePolynomial(distortion, xiModel, etaModel).reshape(numSamples, numSamples)
+
+        xDistortion = getDistortion(model.getXDistortion())
+        yDistortion = getDistortion(model.getYDistortion())
+
+        fiberId = model.getFiberId()
+        wavelength = np.full_like(fiberId, model.getScaling().wavelengthCenter, dtype=float)
+        fiberNorm = calculateXiEtaNorm(*calculateXiEta(fiberId, wavelength))[0]
+
+        xiObs, etaObs = calculateXiEta(lines.fiberId[select], lines.wavelength[select])
+        xiObsNorm, etaObsNorm = calculateXiEtaNorm(xiObs, etaObs)
+
+        def removeLinear(values, poly):
+            params = np.array(poly.getParameters())
+            params[3:] = 0.0
+            linear = type(poly)(params, poly.getXYRange())
+            return values - evaluatePolynomial(linear, xiObs, etaObs)
+
+        # For the observed positions, we need to remove the linear part of the distortion and the
+        # affine transformation for the high-fiberId CCD.
+        xObs = removeLinear(lines.x[select], model.getXDistortion())
+        yObs = removeLinear(lines.y[select], model.getYDistortion())
+
+        onHighCcd = model.getOnHighCcd(lines.fiberId[select])
+        highCcd = evaluateAffineTransform(model.getHighCcd(), xiObs[onHighCcd], etaObs[onHighCcd])
+        xObs[onHighCcd] -= highCcd[0]
+        yObs[onHighCcd] -= highCcd[1]
+
+        fig, axes = plt.subplots(ncols=2, nrows=2, sharex=True, sharey=True)
+        for ax, image, values, dim in zip(axes, (xDistortion, yDistortion), (xObs, yObs), ("x", "y")):
+            norm = Normalize()
+            norm.autoscale(image)
+            ax[0].imshow(image, cmap=cmap, norm=norm, origin="lower", extent=(0, 1, 0, 1))
+            for ff in fiberNorm:
+                ax[0].axvline(ff, color="k", alpha=0.25)
+            ax[0].set_xticks((0, 1))
+            ax[0].set_yticks((0, 1))
+            ax[0].set_title(f"Model {dim}")
+            ax[1].scatter(xiObsNorm, etaObsNorm, marker=".", alpha=0.2, color=cmap(norm(values)))
+            ax[1].set_title(f"Observed {dim}")
+            ax[1].set_aspect("equal")
+            addColorbar(fig, ax[0], cmap, norm, f"{dim} distortion (pixels)")
+            addColorbar(fig, ax[1], cmap, norm, f"{dim} distortion (pixels)")
+
+        axes[0][0].set_ylabel("Normalized eta (wavelength)")
+        axes[1][0].set_ylabel("Normalized eta (wavelength)")
+        axes[1][0].set_xlabel("Normalized xi (fiberId)")
+        axes[1][1].set_xlabel("Normalized xi (fiberId)")
+
+        fig.tight_layout()
+        fig.suptitle("Distortion field")
+        plt.show()
+
+    def plotResiduals(self, model, lines, good, reserved):
+        """Plot fit residuals
+
+        We plot the x and y residuals as a function of fiberId,wavelength
+
+        Parameters
+        ----------
+        model : `pfs.drp.stella.GlobalDetectorModel`
+            Model containing distortion.
+        lines : `pfs.drp.stella.ArcLineSet`
+            Arc line measurements.
+        good : `numpy.ndarray` of `bool`
+            Flags indicating which of the ``lines`` were used in the fit.
+        reserved : `numpy.ndarray` of `bool`
+            Flags indicating which of the ``lines`` were reserved from the fit.
+        """
+        import matplotlib.pyplot as plt
+        import matplotlib.cm
+        from matplotlib.colors import Normalize
+
+        xy = model(lines.fiberId.astype(np.int32), lines.wavelength.astype(float))
+        dx = lines.x - xy[:, 0]
+        dy = lines.y - xy[:, 1]
+
+        def calculateNormalization(values, nSigma=4.0):
+            """Calculate normalization to apply to values
+
+            We generate a normalisation from median +/- nSigma*sigma, where
+            sigma is estimated from the IQR.
+
+            Parameters
+            ----------
+            values : array_like
+                Values from which to calculate normalization.
+            nSigma : `float`, optional
+                Number of sigma either side of the median for range.
+
+            Returns
+            -------
+            norm : `matplotlib.colors.Normalize`
+                Normalization to apply to values.
+            """
+            lq, median, uq = np.percentile(values, (25.0, 50.0, 75.0))
+            sigma = 0.741*(uq - lq)
+            return Normalize(median - nSigma*sigma, median + nSigma*sigma)
+
+        cmap = matplotlib.cm.rainbow
+        fig, axes = plt.subplots(nrows=2, ncols=2)
+
+        for ax, select, label in zip(
+            axes.T,
+            [(good & ~reserved), reserved],
+            ["Used", "Reserved"],
+        ):
+            xNorm = calculateNormalization(dx[select])
+            yNorm = calculateNormalization(dy[select])
+            ax[0].scatter(lines.fiberId[select], lines.wavelength[select], marker=".", alpha=0.2,
+                          color=cmap(xNorm(dx[select])))
+            ax[1].scatter(lines.fiberId[select], lines.wavelength[select], marker=".", alpha=0.2,
+                          color=cmap(yNorm(dx[select])))
+            ax[0].set_title(label)
+            addColorbar(fig, ax[0], cmap, xNorm, "x residual (pixels)")
+            addColorbar(fig, ax[1], cmap, yNorm, "y residual (pixels)")
+
+        for ax in axes[1, :]:
+            ax.set_xlabel("fiberId")
+        for ax in axes[:, 0]:
+            ax.set_ylabel("Wavelength (nm)")
+
+        fig.tight_layout()
+        fig.suptitle("Residuals")
         plt.show()
