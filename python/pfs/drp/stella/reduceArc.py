@@ -8,7 +8,7 @@ import lsst.afw.display as afwDisplay
 from .reduceExposure import ReduceExposureTask
 from .identifyLines import IdentifyLinesTask
 from pfs.drp.stella.utils import plotReferenceLines
-from pfs.drp.stella.fitGlobalDetectorMap import FitGlobalDetectorMapTask
+from pfs.drp.stella.fitDifferentialDetectorMap import FitDifferentialDetectorMapTask
 from .centroidLines import CentroidLinesTask
 from .arcLine import ArcLineSet
 from .readLineList import ReadLineListTask
@@ -23,7 +23,7 @@ class ReduceArcConfig(pexConfig.Config):
     readLineList = pexConfig.ConfigurableField(target=ReadLineListTask, doc="Read linelist")
     identifyLines = pexConfig.ConfigurableField(target=IdentifyLinesTask, doc="Identify arc lines")
     centroidLines = pexConfig.ConfigurableField(target=CentroidLinesTask, doc="Centroid lines")
-    fitDetectorMap = pexConfig.ConfigurableField(target=FitGlobalDetectorMapTask, doc="Fit detectorMap")
+    fitDetectorMap = pexConfig.ConfigurableField(target=FitDifferentialDetectorMapTask, doc="Fit detectorMap")
 
     def setDefaults(self):
         super().setDefaults()
