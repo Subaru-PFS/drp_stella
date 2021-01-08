@@ -66,27 +66,27 @@ class ArcLineSet:
 
     @property
     def y(self):
-        """Array of error in measured position (`numpy.ndarray` of `float`)"""
+        """Array of y position (`numpy.ndarray` of `float`)"""
         return np.array([ll.y for ll in self.lines])
 
     @property
     def xErr(self):
-        """Array of x position (`numpy.ndarray` of `float`)"""
+        """Array of error in x position (`numpy.ndarray` of `float`)"""
         return np.array([ll.xErr for ll in self.lines])
 
     @property
     def yErr(self):
-        """Array of error in measured position (`numpy.ndarray` of `float`)"""
+        """Array of error in y position (`numpy.ndarray` of `float`)"""
         return np.array([ll.yErr for ll in self.lines])
 
     @property
     def flag(self):
-        """Array of status flags (`numpy.ndarray` of `int`)"""
+        """Array of measurement status flags (`numpy.ndarray` of `int`)"""
         return np.array([ll.flag for ll in self.lines])
 
     @property
     def status(self):
-        """Array of status flags (`numpy.ndarray` of `int`)"""
+        """Array of `ReferenceLine` status flags (`numpy.ndarray` of `int`)"""
         return np.array([ll.status for ll in self.lines])
 
     @property
