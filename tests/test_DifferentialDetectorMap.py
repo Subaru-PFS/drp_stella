@@ -172,6 +172,33 @@ class DifferentialDetectorMapTestCase(lsst.utils.tests.TestCase):
         copy = pickle.loads(pickle.dumps(detMap))
         self.assertDifferentialDetectorMap(copy)
 
+    @methodParameters(arm=("r", "m"))
+    def testFit(self, arm):
+        """Test FitDifferentialDetectorMapTask
+
+        Parameters
+        ----------
+        arm : `str`
+            Spectrograph arm; affects behaviour of
+            `FitDifferentialDetectorMapTask`.
+        """
+        bbox = self.base.bbox
+        lines = ArcLineSet.empty()
+        for ff in self.synthConfig.fiberId:
+            for yy in range(bbox.getMinY(), bbox.getMaxY()):
+                lines.append(ff, self.base.getWavelength(ff, yy), self.base.getXCenter(ff, yy), float(yy),
+                             0.01, 0.01, 0, ReferenceLine.Status.FIT, "Fake")
+        config = FitDifferentialDetectorMapTask.ConfigClass()
+        config.order = 1
+        task = FitDifferentialDetectorMapTask(name="fitDifferentialDetectorMap", config=config)
+        dataId = dict(visit=12345, arm=arm, spectrograph=1)
+        detMap = task.run(dataId, bbox, lines, self.base.visitInfo, base=self.base).detectorMap
+        self.assertFloatsEqual(detMap.model.getXCoefficients(), 0.0)
+        self.assertFloatsEqual(detMap.model.getYCoefficients(), 0.0)
+        self.assertFloatsEqual(detMap.model.getHighCcdCoefficients(), 0.0)
+        self.assertFloatsEqual(detMap.getSpatialOffsets(), 0.0)
+        self.assertFloatsEqual(detMap.getSpectralOffsets(), 0.0)
+
 
 class TestMemory(lsst.utils.tests.MemoryTestCase):
     pass
