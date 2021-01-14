@@ -63,8 +63,8 @@ tridi(ndarray::Array<T, 1, 1> &b,
 
 template<typename T>
 Spline<T>::Spline(
-    ndarray::Array<T const, 1, 1> const& x,
-    ndarray::Array<T const, 1, 1> const& y,
+    ndarray::Array<Spline<T>::InternalT const, 1, 1> const& x,
+    ndarray::Array<Spline<T>::InternalT const, 1, 1> const& y,
     InterpolationTypes interpolationType
 ) : _interpolationType(interpolationType) {
     std::size_t const n = x.size();
@@ -75,11 +75,11 @@ Spline<T>::Spline(
     // Check if x is sorted, and see if all the intervals are the same
     //
     {
-        T xOld = x[0];
-        T const dxOld = x[1] - x[0];
+        InternalT xOld = x[0];
+        InternalT const dxOld = x[1] - x[0];
         _xIsUniform = true;              // innocent until proven guilty
         for (std::size_t i = 1; i != n; ++i) {
-            T const dx = x[i] - xOld;
+            InternalT const dx = x[i] - xOld;
             if (dx <= 0) {
                 std::ostringstream os;
                 os << "Non-monotonic-increasing ordinates:  x[ " << i << "] == " << x[i] <<
@@ -131,11 +131,11 @@ Spline<T>::Spline(
     Array dp1 = ndarray::allocate(n);       // above diagonal; was c
     Array &rhs = _k;           // the rhs; shares storage with _k
 
-    T h_p =       x[1] - x[0];         // previous value of h
-    T delta_p =  (y[1] - y[0])/h_p;    // previous value of delta
+    InternalT h_p =       x[1] - x[0];         // previous value of h
+    InternalT delta_p =  (y[1] - y[0])/h_p;    // previous value of delta
     for (std::size_t i = 1; i != n - 1; ++i) { // n.b. no first or last column, we'll set them soon
-        T const h =      x[i + 1] - x[i];
-        T const delta = (y[i + 1] - y[i])/h;
+        InternalT const h =      x[i + 1] - x[i];
+        InternalT const delta = (y[i + 1] - y[i])/h;
         dm1[i] = h;
         dia[i] = 2*(h + h_p);
         dp1[i] = h_p;
@@ -148,10 +148,10 @@ Spline<T>::Spline(
    switch (interpolationType) {
      case CUBIC_NOTAKNOT:
        {
-           T h_p =      x[1] - x[0];
-           T delta_p = (y[1] - y[0])/h_p;
-           T h =        x[2] - x[1];
-           T delta =   (y[2] - y[1])/h;
+           InternalT h_p =      x[1] - x[0];
+           InternalT delta_p = (y[1] - y[0])/h_p;
+           InternalT h =        x[2] - x[1];
+           InternalT delta =   (y[2] - y[1])/h;
            
            dia[0] =   h;
            dp1[0] =   h + h_p;
@@ -169,8 +169,8 @@ Spline<T>::Spline(
        break;
      case CUBIC_NATURAL:
        {
-           T h_p =      x[1] - x[0];
-           T delta_p = (y[1] - y[0])/h_p;
+           InternalT h_p =      x[1] - x[0];
+           InternalT delta_p = (y[1] - y[0])/h_p;
            
            dia[0] = 2*h_p;
            dp1[0] =   h_p;
@@ -198,22 +198,22 @@ T Spline<T>::operator()(T const z) const
 {
     int const m = _findIndex(z);         // index of the next LARGEST point in _x; clipped in [1, n-1]
 
-    double const h =      _x[m] - _x[m-1];
-    double const delta = (_y[m] - _y[m-1])/h;
+    InternalT const h =      _x[m] - _x[m-1];
+    InternalT const delta = (_y[m] - _y[m-1])/h;
     
-    double const dx = z - _x[m-1];
-    double const t = dx/h;
-    double const a = (_k[m-1] - delta)*(1 - t);
-    double const b = (_k[m]   - delta)*t;
+    InternalT const dx = z - _x[m-1];
+    InternalT const t = dx/h;
+    InternalT const a = (_k[m-1] - delta)*(1 - t);
+    InternalT const b = (_k[m]   - delta)*t;
     
     return t*_y[m] + (1 - t)*_y[m-1] + h*t*(1 - t)*(a - b);
 }
 
 
 template<typename T>
-typename Spline<T>::Array Spline<T>::operator()(Array const array) const
+typename ndarray::Array<T, 1, 1> Spline<T>::operator()(ndarray::Array<T, 1, 1> const& array) const
 {
-    Array result = ndarray::allocate(array.getNumElements());
+    ndarray::Array<T, 1, 1> result = ndarray::allocate(array.getNumElements());
     std::transform(array.begin(), array.end(), result.begin(), *this);
     return result;
 }
@@ -257,7 +257,7 @@ namespace {
 // Singleton class that manages the persistence catalog's schema and keys
 template <typename T>
 class SplinePersistenceHelper {
-    using Array = lsst::afw::table::Array<T>;
+    using Array = lsst::afw::table::Array<typename Spline<T>::InternalT>;
   public:
     lsst::afw::table::Schema schema;
     lsst::afw::table::Key<Array> x;
@@ -287,8 +287,8 @@ void Spline<T>::write(lsst::afw::table::io::OutputArchiveHandle & handle) const 
     SplinePersistenceHelper<T> const &schema = SplinePersistenceHelper<T>::get();
     lsst::afw::table::BaseCatalog cat = handle.makeCatalog(schema.schema);
     PTR(lsst::afw::table::BaseRecord) record = cat.addNew();
-    ndarray::Array<T, 1, 1> const xx = ndarray::copy(_x);
-    ndarray::Array<T, 1, 1> const yy = ndarray::copy(_y);
+    Array const xx = ndarray::copy(_x);
+    Array const yy = ndarray::copy(_y);
     record->set(schema.x, xx);
     record->set(schema.y, yy);
     record->set(schema.interpolationType, _interpolationType);

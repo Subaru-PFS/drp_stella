@@ -36,10 +36,10 @@ class SplinedDetectorMap : public DetectorMap {
     SplinedDetectorMap(
         lsst::geom::Box2I bbox,
         FiberIds const& fiberId,
-        std::vector<ndarray::Array<float, 1, 1>> const& xCenterKnots,
-        std::vector<ndarray::Array<float, 1, 1>> const& xCenterValues,
-        std::vector<ndarray::Array<float, 1, 1>> const& wavelengthKnots,
-        std::vector<ndarray::Array<float, 1, 1>> const& wavelengthValues,
+        std::vector<ndarray::Array<double, 1, 1>> const& xCenterKnots,
+        std::vector<ndarray::Array<double, 1, 1>> const& xCenterValues,
+        std::vector<ndarray::Array<double, 1, 1>> const& wavelengthKnots,
+        std::vector<ndarray::Array<double, 1, 1>> const& wavelengthValues,
         Array1D const& spatialOffsets=Array1D(),
         Array1D const& spectralOffsets=Array1D(),
         VisitInfo const& visitInfo=VisitInfo(lsst::daf::base::PropertyList()),
@@ -94,10 +94,18 @@ class SplinedDetectorMap : public DetectorMap {
     math::Spline<float> const& getWavelengthSpline(int fiberId) const;
 
     /// Set the fiber center spline
-    void setXCenter(int fiberId, Array1D const& knots, Array1D const& xCenter);
+    void setXCenter(
+        int fiberId,
+        ndarray::Array<double, 1, 1> const& knots,
+        ndarray::Array<double, 1, 1> const& xCenter
+    );
 
     /// Set the wavelength spline
-    void setWavelength(int fiberId, Array1D const& knots, Array1D const& wavelength);
+    void setWavelength(
+        int fiberId,
+        ndarray::Array<double, 1, 1> const& knots,
+        ndarray::Array<double, 1, 1> const& wavelength
+    );
 
     /// Measure and apply slit offsets
     ///

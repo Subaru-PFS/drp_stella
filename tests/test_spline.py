@@ -32,8 +32,8 @@ class SplineTestCase(lsst.utils.tests.TestCase):
         """Create a spline to play with"""
         self.num = 100
         self.rng = np.random.RandomState(12345)
-        self.xx = np.arange(0.0, self.num, dtype=np.float32)
-        self.yy = self.rng.uniform(size=self.num).astype(np.float32)
+        self.xx = np.arange(0.0, self.num)
+        self.yy = self.rng.uniform(size=self.num)
         self.spline = SplineF(self.xx, self.yy)
 
     def testBasic(self):
@@ -41,7 +41,7 @@ class SplineTestCase(lsst.utils.tests.TestCase):
         self.assertFloatsEqual(self.spline.getX(), self.xx)
         self.assertFloatsEqual(self.spline.getY(), self.yy)
         values = np.array([self.spline(x) for x in self.xx])
-        self.assertFloatsEqual(values, self.yy)
+        self.assertFloatsAlmostEqual(values, self.yy, atol=1.0e-7)
 
     def testCompare(self):
         """Compare with alternate implementation"""

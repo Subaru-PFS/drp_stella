@@ -4,6 +4,8 @@
 #include "ndarray_fwd.h"
 #include "lsst/afw/table/io/Persistable.h"
 
+#include "pfs/drp/stella/utils/math.h"
+
 namespace pfs {
 namespace drp {
 namespace stella {
@@ -16,22 +18,33 @@ template<typename T>
 class Spline : public lsst::afw::table::io::Persistable {
 public:
     enum InterpolationTypes { CUBIC_NOTAKNOT, CUBIC_NATURAL };
-    using Array = ndarray::Array<T, 1, 1>;
-    using ConstArray = ndarray::Array<T const, 1, 1>;
+    using InternalT = double;
+    using Array = ndarray::Array<InternalT, 1, 1>;
+    using ConstArray = ndarray::Array<InternalT const, 1, 1>;
 
     Spline(ConstArray const& x,                            ///< positions of knots
            ConstArray const& y,                            ///< values of function at knots
            InterpolationTypes interpolationType=CUBIC_NOTAKNOT ///< spline boundary conditions
           );
     Spline(
+        ndarray::Array<T, 1, 1> const& x,
+        ndarray::Array<T, 1, 1> const& y,
+        InterpolationTypes interpolationType=CUBIC_NOTAKNOT ///< spline boundary conditions
+    ) : Spline(utils::convertArray<InternalT>(x), utils::convertArray<InternalT>(y),
+               interpolationType) {}
+    Spline(
+        std::vector<InternalT> const& x,
+        std::vector<InternalT> const& y,
+        InterpolationTypes interpolationType=CUBIC_NOTAKNOT
+    ) : Spline(ConstArray(utils::vectorToArray(x)), ConstArray(utils::vectorToArray(y)),
+                          interpolationType) {}
+    Spline(
         std::vector<T> const& x,
         std::vector<T> const& y,
         InterpolationTypes interpolationType=CUBIC_NOTAKNOT
-    ) : Spline(
-        ConstArray(ndarray::external(x.data(), ndarray::makeVector(x.size()))),
-        ConstArray(ndarray::external(y.data(), ndarray::makeVector(y.size()))),
-        interpolationType
-    ) {}
+    ) : Spline(utils::convertArray<InternalT>(utils::vectorToArray(x)),
+               utils::convertArray<InternalT>(utils::vectorToArray(y)),
+               interpolationType) {}
 
     // That ctor disables the move ctors
     Spline(Spline const&) = default;
@@ -40,7 +53,7 @@ public:
     Spline& operator=(Spline &&) = default;
 
     T operator() (T const x) const;
-    Array operator() (Array const array) const;
+    ndarray::Array<T, 1, 1> operator() (ndarray::Array<T, 1, 1> const& array) const;
 
     ConstArray const getX() const { return _x; }
     ConstArray const getY() const { return _y; }

@@ -216,12 +216,12 @@ def makeSyntheticDetectorMap(config, minWl=400.0, maxWl=950.0):
     """
     bbox = lsst.geom.Box2I(lsst.geom.Point2I(0, 0), config.dims)
     fiberId = config.fiberId
-    knots = np.arange(config.height, dtype=np.float32)
+    knots = np.arange(config.height, dtype=float)
     xCenter = []
     wavelength = []
     for ii in range(config.numFibers):
-        xCenter.append((config.traceCenters[ii] + config.traceOffset).astype(np.float32))
-        wavelength.append(np.linspace(minWl, maxWl, config.height, dtype=np.float32))
+        xCenter.append((config.traceCenters[ii] + config.traceOffset).astype(float))
+        wavelength.append(np.linspace(minWl, maxWl, config.height, dtype=float))
     return SplinedDetectorMap(bbox, fiberId, [knots]*config.numFibers, xCenter,
                               [knots]*config.numFibers, wavelength)
 

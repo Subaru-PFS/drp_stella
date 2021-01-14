@@ -14,10 +14,10 @@ namespace pfs { namespace drp { namespace stella {
 SplinedDetectorMap::SplinedDetectorMap(
     lsst::geom::Box2I bbox,
     FiberIds const& fiberId,
-    std::vector<ndarray::Array<float, 1, 1>> const& xCenterKnots,
-    std::vector<ndarray::Array<float, 1, 1>> const& xCenterValues,
-    std::vector<ndarray::Array<float, 1, 1>> const& wavelengthKnots,
-    std::vector<ndarray::Array<float, 1, 1>> const& wavelengthValues,
+    std::vector<ndarray::Array<double, 1, 1>> const& xCenterKnots,
+    std::vector<ndarray::Array<double, 1, 1>> const& xCenterValues,
+    std::vector<ndarray::Array<double, 1, 1>> const& wavelengthKnots,
+    std::vector<ndarray::Array<double, 1, 1>> const& wavelengthValues,
     Array1D const& spatialOffsets,
     Array1D const& spectralOffsets,
     VisitInfo const& visitInfo,
@@ -263,8 +263,8 @@ SplinedDetectorMap::getWavelengthSpline(
 
 void SplinedDetectorMap::setXCenter(
     int fiberId,
-    SplinedDetectorMap::Array1D const& knots,
-    SplinedDetectorMap::Array1D const& xCenter
+    ndarray::Array<double, 1, 1> const& knots,
+    ndarray::Array<double, 1, 1> const& xCenter
 ) {
     _xCenter[getFiberIndex(fiberId)] = math::Spline<float>(knots, xCenter);
 }
@@ -272,8 +272,8 @@ void SplinedDetectorMap::setXCenter(
 
 void SplinedDetectorMap::setWavelength(
     int fiberId,
-    Array1D const& knots,
-    Array1D const& wavelength
+    ndarray::Array<double, 1, 1> const& knots,
+    ndarray::Array<double, 1, 1> const& wavelength
 ) {
     _wavelength[getFiberIndex(fiberId)] = math::Spline<float>(knots, wavelength);
 }
