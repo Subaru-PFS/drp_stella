@@ -47,6 +47,7 @@ SplinedDetectorMap::SplinedDetectorMap(
     for (std::size_t ii = 0; ii < fiberId.size(); ++ii) {
         _xCenter.emplace_back(xCenterKnots[ii], xCenterValues[ii]);
         _wavelength.emplace_back(wavelengthKnots[ii], wavelengthValues[ii]);
+        _row.emplace_back(wavelengthValues[ii], wavelengthKnots[ii]);
     }
 
     _set_xToFiberId();
@@ -78,6 +79,10 @@ SplinedDetectorMap::SplinedDetectorMap(
                                   "fiberId array is not sorted");
             }
         }
+    }
+
+    for (std::size_t ii = 0; ii < fiberId.size(); ++ii) {
+        _row.emplace_back(_wavelength[ii].getY(), _wavelength[ii].getX());
     }
 
     _set_xToFiberId();
@@ -205,31 +210,14 @@ lsst::geom::PointD SplinedDetectorMap::findPointImpl(
     int fiberId,
     double wavelength
 ) const {
-    auto const fiberWavelength = getWavelength(fiberId);
-
-    auto const begin = fiberWavelength.begin();
-    auto const end = fiberWavelength.end();
-    auto const onePast = std::lower_bound(begin, end, wavelength);  // element just larger than wavelength
-
-    if (onePast == begin || onePast == end) {
+    std::size_t const index = getFiberIndex(fiberId);
+    double const y = _row[index](wavelength) + getSpectralOffset(fiberId);
+    if (y < 0 || y > getBBox().getHeight() - 1) {
         double const NaN = std::numeric_limits<double>::quiet_NaN();
         return lsst::geom::PointD(NaN, NaN);
     }
-
-    auto const fiberXCenter = getXCenter(fiberId);
-    auto const iy = onePast - begin;
-
-    double x = fiberXCenter[iy];
-    double y = iy;                      // just past the desired point
-
-    if (iy > 0) {                       // interpolate to get better accuracy
-        const double dy = -(fiberWavelength[iy] - wavelength)/(fiberWavelength[iy] - fiberWavelength[iy - 1]);
-        x += dy*(fiberXCenter[iy] - fiberXCenter[iy - 1]);
-        y += dy;
-    }
-
+    double const x = getXCenter(fiberId, y);
     return lsst::geom::PointD(x, y);
-
 }
 
 
