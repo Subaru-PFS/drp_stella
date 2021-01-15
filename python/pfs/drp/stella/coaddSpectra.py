@@ -103,35 +103,39 @@ class CoaddSpectraTask(CmdLineTask):
         # Split into visits, spectrographs
         visits = defaultdict(list)
         for dataRef in dataRefList:
-            visits[dataRef.dataId["visit"]].append(dataRef)
+            ident = (dataRef.dataId["visit"], dataRef.dataId["spectrograph"])
+            visits[ident].append(dataRef)
 
-        data = [self.readVisit(vv) for vv in visits.values()]
+        data = {vv: self.readVisit(dataRefs) for vv, dataRefs in visits.items()}
 
-        spectra = defaultdict(list)
-        for dd in data:
-            for ss in dd.spectra:
-                target = ss.target
-                spectra[(target.catId, target.tract, target.patch, target.objId)].append(ss)
+        visitsByTarget = defaultdict(list)
+        for vv, dd in data.items():
+            for target in dd.spectra:
+                visitsByTarget[target].append(vv)
 
-        pfsConfigList = [dataRef.get("pfsConfig") for dataRef in dataRefList]
         butler = dataRefList[0].getButler()
         for target in targetList:
+            pfsConfigList = [data[vv].pfsConfig for vv in visitsByTarget[target] for _ in visits[vv]]
             indices = [pfsConfig.selectTarget(target.catId, target.tract, target.patch, target.objId) for
                        pfsConfig in pfsConfigList]
             targetData = self.getTargetData(target, pfsConfigList, indices)
-            identityList = [dataRef.dataId for dataRef in dataRefList]
+            identityList = [dataRef.dataId for vv in visitsByTarget[target] for dataRef in visits[vv]]
             observations = self.getObservations(identityList, pfsConfigList, indices)
-            spectrumList = spectra[(target.catId, target.tract, target.patch, target.objId)]
-            flags = MaskHelper.fromMerge([ss.flags for ss in spectrumList])
-            combination = self.combine(spectrumList, flags)
-            fluxTable = self.fluxTable.run(identityList, spectrumList, flags)
+            spectrumList = [data[vv].spectra[target] for vv in visitsByTarget[target]]
+            skyList = [data[vv].sky1d for vv in visitsByTarget[target]]
+            fluxCalList = [data[vv].fluxCal for vv in visitsByTarget[target]]
+            lsfList = [data[vv].lsfList for vv in visitsByTarget[target]]
+            pfsConfigList = [data[vv].pfsConfig for vv in visitsByTarget[target]]
+            flags = MaskHelper.fromMerge([ss.flags for specList in spectrumList for ss in specList])
+            combination = self.combine(spectrumList, skyList, fluxCalList, lsfList, pfsConfigList, flags)
+            fluxTable = self.fluxTable.run(identityList, sum(spectrumList, []), flags)
             coadd = PfsObject(targetData, observations, combination.wavelength, combination.flux,
                               combination.mask, combination.sky, combination.covar, combination.covar2, flags,
                               getPfsVersions(), fluxTable)
             butler.put(coadd, "pfsObject", coadd.getIdentity())
 
     def readVisit(self, dataRefList):
-        """Read a single visit
+        """Read a single visit+spectrograph
 
         The input ``pfsArm`` files are read, and the 1D sky subtraction from
         ``sky1d`` is applied.
@@ -143,22 +147,31 @@ class CoaddSpectraTask(CmdLineTask):
 
         Returns
         -------
-        spectra : `list` of `pfs.datamodel.PfsSingle`
-            Sky-subtracted, flux-calibrated arm spectra.
+        spectra : `dict` mapping `pfs.datamodel.Target` to `list` of `pfs.datamodel.PfsSingle`
+            List of spectrum for each arm indexed by target
+        sky1d : `pfs.drp.stella.FocalPlaneFunction`
+            1D sky model.
+        fluxCal : `pfs.drp.stella.FocalPlaneFunction`
+            Flux calibration.
+        lsfList : `list` of LSF (type TBD)
+            Line-spread functions for each arm.
         pfsConfig : `pfs.datamodel.PfsConfig`
             Top-end configuration.
         """
-        pfsConfig = dataRefList[0].get("pfsConfig")
-        sky1d = dataRefList[0].get("sky1d")
-        fluxCal = dataRefList[0].get("fluxCal")
-        lsf = None
-        result = []
+        visitRef = dataRefList[0]  # Data reference for entire visit
+        pfsConfig = visitRef.get("pfsConfig")
+        sky1d = visitRef.get("sky1d")
+        fluxCal = visitRef.get("fluxCal")
+        spectra = defaultdict(list)
+        lsfList = []
         for dataRef in dataRefList:
-            spectra = dataRef.get("pfsArm")
-            self.subtractSky1d.subtractSkySpectra(spectra, lsf, pfsConfig, sky1d)
-            self.measureFluxCalibration.applySpectra(spectra, pfsConfig, fluxCal)
-            result += [spectra.extractFiber(PfsFiberArray, pfsConfig, fiberId) for fiberId in spectra.fiberId]
-        return Struct(spectra=result, pfsConfig=pfsConfig)
+            pfsArm = dataRef.get("pfsArm")
+            for fiberId in pfsArm.fiberId:
+                spectrum = pfsArm.extractFiber(PfsFiberArray, pfsConfig, fiberId)
+                spectra[spectrum.target].append(spectrum)
+            lsf = None
+            lsfList.append(lsf)
+        return Struct(spectra=spectra, sky1d=sky1d, fluxCal=fluxCal, lsfList=lsfList, pfsConfig=pfsConfig)
 
     def getTargetData(self, target, pfsConfigList, indices):
         """Generate a ``TargetData`` for this target
@@ -233,13 +246,21 @@ class CoaddSpectraTask(CmdLineTask):
         pfiCenter = np.array([pfsConfig.pfiCenter[ii] for pfsConfig, ii in zip(pfsConfigList, indices)])
         return Observations(visit, arm, spectrograph, pfsDesignId, fiberId, pfiNominal, pfiCenter)
 
-    def combine(self, spectra, flags):
+    def combine(self, spectraList, skyList, fluxCalList, lsfLists, pfsConfigList, flags):
         """Combine spectra
 
         Parameters
         ----------
-        spectra : iterable of `pfs.datamodel.PfsFiberArray`
-            List of spectra to combine.
+        spectraList : iterable of iterable of `pfs.datamodel.PfsFiberArray`
+            List of spectra to combine for each visit.
+        skyList : iterable of `pfs.drp.stella.FocalPlaneFunction`
+            List of sky models to apply for each visit.
+        fluxCalList : iterable of `pfs.drp.stella.FocalPlaneFunction`
+            List of flux calibrations to apply for each visit.
+        lsfLists : iterable of iterable of LSF (type TBD)
+            List of line-spread functions for each arm for each visit.
+        pfsConfigList : iterable of `pfs.datamodel.PfsConfig`
+            Top-end configurations for each visit.
         flags : `pfs.datamodel.MaskHelper`
             Mask interpreter, for identifying bad pixels.
 
@@ -256,10 +277,19 @@ class CoaddSpectraTask(CmdLineTask):
         """
         # First, resample to a common wavelength sampling
         wavelength = self.config.wavelength.wavelength
-        spectra = [ss.resample(wavelength) for ss in spectra]
+        resampled = []
+        for data in zip(spectraList, skyList, fluxCalList, lsfLists, pfsConfigList):
+            spectra, sky1d, fluxCal, lsfList, pfsConfig = data
+            spectra = [ss.resample(wavelength) for ss in spectra]
+            # Subtract the sky and flux-calibrate without merging
+            for spectrum, lsf in zip(spectra, lsfList):
+                fiberId = spectrum.observations.fiberId[0]
+                self.subtractSky1d.subtractSkySpectrum(spectrum, lsf, fiberId, pfsConfig, sky1d)
+                self.measureFluxCalibration.applySpectrum(spectrum, fiberId, pfsConfig, fluxCal)
+                resampled.append(spectrum)
 
         # Now do a weighted coaddition
-        archetype = spectra[0]
+        archetype = resampled[0]
         length = archetype.length
         mask = np.zeros(length, dtype=archetype.mask.dtype)
         flux = np.zeros(length, dtype=archetype.flux.dtype)
@@ -267,7 +297,7 @@ class CoaddSpectraTask(CmdLineTask):
         covar = np.zeros((3, length), dtype=archetype.covar.dtype)
         sumWeights = np.zeros(length, dtype=archetype.flux.dtype)
 
-        for ss in spectra:
+        for ss in resampled:
             weight = np.zeros_like(flux)
             with np.errstate(invalid="ignore", divide="ignore"):
                 good = ((ss.mask & ss.flags.get(*self.config.mask)) == 0) & (ss.covar[0] > 0)
