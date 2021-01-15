@@ -255,6 +255,7 @@ def makeSyntheticGlobalDetectorMap(config, minWl=400.0, maxWl=950.0):
 def makeSyntheticPfsConfig(config, pfsDesignId, visit, rng=None,
                            raBoresight=60.0*lsst.geom.degrees,
                            decBoresight=30.0*lsst.geom.degrees,
+                           posAng=0.0*lsst.geom.degrees,
                            arms='brn',
                            fracSky=0.1, fracFluxStd=0.1):
     """Make a PfsConfig with a specific configuration
@@ -273,6 +274,10 @@ def makeSyntheticPfsConfig(config, pfsDesignId, visit, rng=None,
         Right Ascension of boresight.
     decBoresight : `lsst.geom.Angle`, optional
         Declination of boresight.
+    posAng : `lsst.geom.Angle`, optional
+        Position Angle of PFI: the angle from the PFI_Y axis
+        to the NCP, measured clockwise in direction
+        of PFI_Z axis.
     arms : `str`, optional
         Arms exposed, eg 'brn'.
     fracSky : `float`, optional
@@ -348,6 +353,7 @@ def makeSyntheticPfsConfig(config, pfsDesignId, visit, rng=None,
                    for tt in targetType]
 
     return PfsConfig(pfsDesignId, visit, raBoresight.asDegrees(), decBoresight.asDegrees(),
+                     posAng.asDegrees(),
                      arms,
                      fiberId, tract, patch, ra, dec, catId, objId, targetType, fiberStatus,
                      fiberFlux, psfFlux, totalFlux,
