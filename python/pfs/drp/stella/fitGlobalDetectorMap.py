@@ -212,17 +212,33 @@ class FitGlobalDetectorMapTask(Task):
         -------
         detectorMap : `pfs.drp.stella.GlobalDetectorMap`
             Mapping of fiberId,wavelength to x,y.
+        model : `pfs.drp.stella.GlobalDetectorModel`
+            Model that was fit to the data.
+        xResid, yResid : `numpy.ndarray` of `float`
+            Fit residual in x,y for each of the ``lines`` (pixels).
+        xRms, yRms : `float`
+            Residual RMS in x,y (pixels)
+        chi2 : `float`
+            Fit chi^2.
+        soften : `float`
+            Systematic error that was applied to measured errors (pixels).
+        used : `numpy.ndarray` of `bool`
+            Array indicating which lines were used in the fit.
+        reserved : `numpy.ndarray` of `bool`
+            Array indicating which lines were reserved from the fit.
         """
         arm = dataId["arm"]
         spectrograph = dataId["spectrograph"]
         doFitHighCcd = (arm != "n") and not self.config.forceSingleCcd
         fiberCenter = self.config.fiberCenter[spectrograph] if doFitHighCcd else 0
-        model = self.fitGlobalDetectorModel(bbox, lines, doFitHighCcd, fiberCenter,
-                                            seed=visitInfo.getExposureId())
-        detMap = GlobalDetectorMap(bbox, model, visitInfo, metadata)
+        result = self.fitGlobalDetectorModel(bbox, lines, doFitHighCcd, fiberCenter,
+                                             seed=visitInfo.getExposureId())
+        result.detectorMap = GlobalDetectorMap(bbox, result.model, visitInfo, metadata)
         if self.debugInfo.lineQa:
-            self.lineQa(lines, detMap)
-        return detMap
+            self.lineQa(lines, result.detectorMap)
+        if self.debugInfo.wlResid:
+            self.plotWavelengthResiduals(result.detectorMap, lines, result.used, result.reserved)
+        return result
 
     def fitGlobalDetectorModel(self, bbox, lines, doFitHighCcd, fiberCenter=0, seed=0):
         """Fit a distortion model to the entire detector
@@ -243,48 +259,63 @@ class FitGlobalDetectorMapTask(Task):
         Returns
         -------
         model : `pfs.drp.stella.GlobalDetectorModel`
-            Distortion model for the entire detector.
+            Model that was fit to the data.
+        xResid, yResid : `numpy.ndarray` of `float`
+            Fit residual in x,y for each of the ``lines`` (pixels).
+        xRms, yRms : `float`
+            Residual RMS in x,y (pixels)
+        chi2 : `float`
+            Fit chi^2.
+        soften : `float`
+            Systematic error that was applied to measured errors (pixels).
+        used : `numpy.ndarray` of `bool`
+            Array indicating which lines were used in the fit.
+        reserved : `numpy.ndarray` of `bool`
+            Array indicating which lines were reserved from the fit.
         """
-        lines = type(lines)([ll for ll in lines if not ll.flag])  # Only good measurements
         numLines = len(lines)
 
-        good = np.isfinite(lines.x) & np.isfinite(lines.y)
+        good = lines.flag == 0
+        good &= np.isfinite(lines.x) & np.isfinite(lines.y)
         good &= np.isfinite(lines.xErr) & np.isfinite(lines.yErr)
+        numGood = good.sum()
+
         rng = np.random.RandomState(seed)
         numReserved = int(self.config.reserveFraction*numLines + 0.5)
-        reservedIndices = rng.choice(np.arange(numLines, dtype=int), replace=False, size=numReserved)
+        reservedIndices = rng.choice(np.arange(numGood, dtype=int), replace=False, size=numReserved)
         reserved = np.zeros_like(good)
-        reserved[reservedIndices] = True
+        select = np.zeros(numGood, dtype=bool)
+        select[reservedIndices] = True
+        reserved[good] = select
 
+        used = good & ~reserved
         result = None
         for ii in range(self.config.iterations):
-            select = good & ~reserved
-            result = self.fitModel(bbox, lines, select, doFitHighCcd, fiberCenter)
+            result = self.fitModel(bbox, lines, used, doFitHighCcd, fiberCenter)
             self.log.debug(
                 "Fit iteration %d: chi2=%f dof=%d xRMS=%f yRMS=%f (%f nm, %f km/s) from %d/%d lines",
                 ii, result.chi2, result.dof, result.xRms, result.yRms,
                 result.yRms*result.model.getScaling().dispersion,
-                rmsPixelsToVelocity(result.yRms, result.model), select.sum(),
+                rmsPixelsToVelocity(result.yRms, result.model), used.sum(),
                 numLines - numReserved
             )
             self.log.debug("Fit iteration %d: %s", ii, result.model)
             if self.debugInfo.plot:
-                self.plotModel(lines, good, result)
-            newGood = ((np.abs(result.xResid/lines.xErr) < self.config.rejection) &
+                self.plotModel(lines, used, result)
+            newUsed = (good & ~reserved & (np.abs(result.xResid/lines.xErr) < self.config.rejection) &
                        (np.abs(result.yResid/lines.yErr) < self.config.rejection))
-            self.log.debug("Rejecting %d/%d lines in iteration %d", good.sum() - newGood.sum(),
-                           good.sum(), ii)
-            if np.all(newGood == good):
+            self.log.debug("Rejecting %d/%d lines in iteration %d", used.sum() - newUsed.sum(),
+                           used.sum(), ii)
+            if np.all(newUsed == used):
                 # Converged
                 break
-            good = newGood
+            used = newUsed
 
-        select = good & ~reserved
-        result = self.fitModel(bbox, lines, select, doFitHighCcd, fiberCenter)
+        result = self.fitModel(bbox, lines, used, doFitHighCcd, fiberCenter)
         self.log.info("Final fit: chi2=%f dof=%d xRMS=%f yRMS=%f (%f nm, %f km/s) from %d/%d lines",
                       result.chi2, result.dof, result.xRms, result.yRms,
                       result.yRms*result.model.getScaling().dispersion,
-                      rmsPixelsToVelocity(result.yRms, result.model), select.sum(), numLines - numReserved)
+                      rmsPixelsToVelocity(result.yRms, result.model), used.sum(), numLines - numReserved)
         reservedStats = calculateFitStatistics(result.model, lines, reserved, self.config.soften)
         self.log.info("Fit quality from reserved lines: "
                       "chi2=%f xRMS=%f yRMS=%f (%f nm, %f km/s) from %d lines (%.1f%%)",
@@ -294,14 +325,16 @@ class FitGlobalDetectorMapTask(Task):
                       reserved.sum()/numLines*100)
         self.log.debug("    Final fit model: %s", result.model)
 
-        result = self.fitSoftenedModel(bbox, lines, select, reserved, result, doFitHighCcd, fiberCenter)
+        result = self.fitSoftenedModel(bbox, lines, used, reserved, result, doFitHighCcd, fiberCenter)
+        result.used = used
+        result.reserved = reserved
         if self.debugInfo.plot:
-            self.plotModel(lines, good, result)
+            self.plotModel(lines, used, result)
         if self.debugInfo.distortion:
-            self.plotDistortion(result.model, lines, good)
+            self.plotDistortion(result.model, lines, used)
         if self.debugInfo.residuals:
-            self.plotResiduals(result.model, lines, good, reserved)
-        return result.model
+            self.plotResiduals(result.model, lines, used, reserved)
+        return result
 
     def fitModel(self, bbox, lines, select, doFitHighCcd, fiberCenter=0, soften=None):
         """Fit a model to the arc lines
@@ -843,4 +876,71 @@ class FitGlobalDetectorMapTask(Task):
 
         fig.tight_layout()
         fig.suptitle("Residuals")
+        plt.show()
+
+    def plotWavelengthResiduals(self, detectorMap, lines, used, reserved):
+        """Plot wavelength residuals
+
+        We plot wavelength residuals as a function of row for a uniform
+        selection of fibers.
+
+        The number of rows and columns (and therefore the number of fibers) is
+        controlled by ``wlResidRows`` and ``wlResidCols`` debug parameters.
+
+        Parameters
+        ----------
+        detectorMap : `pfs.drp.stella.DetectorMap`
+            Mapping of fiberId,wavelength to x,y.
+        lines : `pfs.drp.stella.ArcLineSet`
+            Measured line positions.
+        used : `numpy.ndarray` of `bool`
+            Boolean array indicating which lines were used in the fit.
+        reserved : `numpy.ndarray` of `bool`
+            Boolean array indicating which lines were reserved from the fit.
+        """
+        import matplotlib.pyplot as plt
+        from matplotlib.font_manager import FontProperties
+
+        fiberId = np.array(list(sorted(set(lines.fiberId))))
+        numFibers = len(fiberId)
+
+        numCols = self.debugInfo.wlResidCols or 2
+        numRows = self.debugInfo.wlResidRows or 3
+        numPlots = min(numCols*numRows, numFibers)
+
+        indices = np.linspace(0, numFibers, numPlots, False, dtype=int)
+        rejected = ~used & ~reserved
+
+        fig, axes = plt.subplots(nrows=numRows, ncols=numCols, sharex=True, sharey=True,
+                                 gridspec_kw=dict(wspace=0.0, hspace=0.0))
+        for ax, index in zip(axes.flatten(), indices):
+            ff = fiberId[index]
+            select = lines.fiberId == ff
+
+            for group, color, label in zip((used, rejected, reserved),
+                                           ("k", "r", "b"),
+                                           ("Used", "Rejected", "Reserved")):
+                subset = select & group
+                if not np.any(subset):
+                    continue
+                wlActual = lines.wavelength[subset]
+                wlFit = detectorMap.findWavelength(ff, lines.y[subset])
+                residual = wlFit - wlActual
+
+                ax.scatter(lines.y[subset], residual, color=color, marker=".", label=label, alpha=0.5)
+            ax.text(0.05, 0.8, f"fiberId={ff}", ha="left", transform=ax.transAxes)
+            ax.axhline(0, ls=':', color='black')
+
+        font = FontProperties()
+        font.set_size('xx-small')
+
+        legend = axes.flatten()[0].legend(prop=font)
+        for lh in legend.legendHandles:
+            lh.set_alpha(1)
+        for ax in axes.flatten():
+            ax.set_xlabel("Row (pixels)")
+        for ax in axes[:, 0]:
+            ax.set_ylabel("Residual (nm)")
+
+        fig.suptitle("Wavelength residuals")
         plt.show()
