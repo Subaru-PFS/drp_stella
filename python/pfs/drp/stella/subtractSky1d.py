@@ -164,11 +164,11 @@ class SubtractSky1dTask(Task):
             1D sky model.
         """
         sky = self.fit.apply(sky1d, spectrum.wavelength, [fiberId], pfsConfig)
-        spectrum.flux -= sky.values
-        spectrum.sky += sky.values
+        spectrum.flux -= sky.values[0]
+        spectrum.sky += sky.values[0]
         bitmask = spectrum.flags.add("BAD_SKY")
-        spectrum.mask[np.array(sky.masks)] |= bitmask
-        spectrum.covariance[0] += sky.variance
+        spectrum.mask[np.array(sky.masks[0])] |= bitmask
+        spectrum.covar[0] += sky.variances[0]
 
     def estimateSkyFromMerged(self, merged, pfsConfig, lsfList):
         """Measure and subtract the sky from the merged 1D spectra
