@@ -390,10 +390,12 @@ class ReduceExposureTask(CmdLineTask):
     def calculateLsf(self, psf, fiberTraceSet, length):
         """Calculate the LSF for this exposure
 
+        Parameters
+        ----------
         psf : `pfs.drp.stella.SpectralPsf`
             Point-spread function for spectral data.
-        fiberTrace : `pfs.drp.stella.FiberTrace`
-            Fiber profile.
+        fiberTraceSet : `pfs.drp.stella.FiberTraceSet`
+            Traces for each fiber.
         length : `int`
             Array length.
 
