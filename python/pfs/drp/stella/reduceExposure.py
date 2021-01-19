@@ -23,7 +23,7 @@ from collections import defaultdict
 import numpy as np
 import lsstDebug
 
-from lsst.pex.config import Config, Field, ConfigurableField
+from lsst.pex.config import Config, Field, ConfigurableField, DictField
 from lsst.pipe.base import CmdLineTask, TaskRunner, Struct
 from lsst.ip.isr import IsrTask
 from lsst.pipe.tasks.repair import RepairTask
@@ -31,7 +31,7 @@ from .measurePsf import MeasurePsfTask
 from .extractSpectraTask import ExtractSpectraTask
 from .subtractSky2d import SubtractSky2dTask
 from .fitContinuum import FitContinuumTask
-from .lsf import ExtractionLsf
+from .lsf import ExtractionLsf, GaussianLsf
 from .measureSlitOffsets import MeasureSlitOffsetsTask
 
 __all__ = ["ReduceExposureConfig", "ReduceExposureTask"]
@@ -50,6 +50,9 @@ class ReduceExposureConfig(Config):
                              "This only works with Simulator files produced with the --allOutput flag")
     doMeasurePsf = Field(dtype=bool, default=False, doc="Measure PSF?")
     measurePsf = ConfigurableField(target=MeasurePsfTask, doc="Measure PSF")
+    gaussianLsfWidth = DictField(keytype=str, itemtype=float,
+                                 doc="Gaussian sigma (nm) for LSF as a function of the spectrograph arm",
+                                 default=dict(b=0.21, r=0.27, m=0.16, n=0.24))
     doSubtractSky2d = Field(dtype=bool, default=False, doc="Subtract sky on 2D image?")
     subtractSky2d = ConfigurableField(target=SubtractSky2dTask, doc="2D sky subtraction")
     doExtractSpectra = Field(dtype=bool, default=True, doc="Extract spectra from exposure?")
@@ -57,7 +60,7 @@ class ReduceExposureConfig(Config):
     doSubtractContinuum = Field(dtype=bool, default=False, doc="Subtract continuum as part of extraction?")
     fitContinuum = ConfigurableField(target=FitContinuumTask, doc="Fit continuum for subtraction")
     doWriteCalexp = Field(dtype=bool, default=False, doc="Write corrected frame?")
-    doWriteLsf = Field(dtype=bool, default=False, doc="Write line-spread function?")
+    doWriteLsf = Field(dtype=bool, default=True, doc="Write line-spread function?")
     doWriteArm = Field(dtype=bool, default=True, doc="Write PFS arm file?")
     usePostIsrCcd = Field(dtype=bool, default=False, doc="Use existing postISRCCD, if available?")
     useCalexp = Field(dtype=bool, default=False, doc="Use existing calexp, if available?")
@@ -194,6 +197,7 @@ class ReduceExposureTask(CmdLineTask):
                 detectorMapList = [cal.detectorMap for cal in calibs]
                 fiberTraceList = [cal.fiberTraces for cal in calibs]
                 psfList = [exp.getPsf() for exp in exposureList]
+                lsfList = [sensorRef.get("lsf") for sensorRef in sensorRefList]
             else:
                 self.log.warn("Not retrieving calexps, despite 'useCalexp' config, since some are missing")
 
@@ -215,7 +219,8 @@ class ReduceExposureTask(CmdLineTask):
                            psf, ft, exp in zip(psfList, fiberTraceList, exposureList)]
             else:
                 psfList = [None]*len(sensorRefList)
-                lsfList = [None]*len(sensorRefList)
+                lsfList = [self.defaultLsf(dataRef.dataId["arm"], ft.fiberId, detMap) for
+                           dataRef, ft, detMap in zip(sensorRefList, fiberTraceList, detectorMapList)]
 
             if self.config.doSubtractSky2d:
                 skyResults = self.subtractSky2d.run(exposureList, pfsConfig, psfList,
@@ -405,6 +410,27 @@ class ReduceExposureTask(CmdLineTask):
             Line-spread functions, indexed by fiber identifier.
         """
         return {ft.fiberId: ExtractionLsf(psf, ft, length) for ft in fiberTraceSet}
+
+    def defaultLsf(self, arm, fiberId, detectorMap):
+        """Generate a default LSF for this exposure
+
+        Parameters
+        ----------
+        arm : `str`
+            Name of the spectrograph arm (one of ``b``, ``r``, ``m``, ``n``).
+        fiberId : iterable of `int`
+            Fiber identifiers.
+        detectorMap : `pfs.drp.stella.DetectorMap`
+            Mapping of fiberId,wavelength to x,y.
+
+        Returns
+        -------
+        lsf : `dict` (`int`: `pfs.drp.stella.GaussianLsf`)
+            Line-spread functions, indexed by fiber identifier.
+        """
+        length = detectorMap.bbox.getHeight()
+        sigma = self.config.gaussianLsfWidth[arm]
+        return {ff: GaussianLsf(length, sigma/detectorMap.getDispersion(ff)) for ff in fiberId}
 
     def plotSpectra(self, spectraList):
         """Plot spectra
