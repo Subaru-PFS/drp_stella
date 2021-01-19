@@ -98,6 +98,15 @@ DetectorMap::Array2D DetectorMap::getWavelength() const {
 }
 
 
+float DetectorMap::getDispersion(int fiberId) const {
+    float const delta = 0.5;
+    int const center = 0.5*_bbox.getHeight();
+    double const wl0 = findWavelength(fiberId, center - delta);
+    double const wl1 = findWavelength(fiberId, center + delta);
+    return std::abs(wl1 - wl0)/(2*delta);
+}
+
+
 DetectorMap::Array2D DetectorMap::getXCenter() const {
     Array2D xCenter = ndarray::allocate(getNumFibers(), _bbox.getHeight());
     for (std::size_t ii = 0; ii < getNumFibers(); ++ii) {

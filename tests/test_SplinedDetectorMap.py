@@ -39,7 +39,9 @@ class SplinedDetectorMapTestCase(lsst.utils.tests.TestCase):
     def setUp(self):
         """Construct a ``SplinedDetectorMap`` to play with"""
         synthConfig = pfs.drp.stella.synthetic.SyntheticConfig()
-        detMap = pfs.drp.stella.synthetic.makeSyntheticDetectorMap(synthConfig)
+        self.wlMin = 600.0
+        self.wlMax = 900.0
+        detMap = pfs.drp.stella.synthetic.makeSyntheticDetectorMap(synthConfig, self.wlMin, self.wlMax)
         self.bbox = detMap.bbox
         self.fiberId = detMap.fiberId
         self.numFibers = len(self.fiberId)
@@ -317,6 +319,12 @@ class SplinedDetectorMapTestCase(lsst.utils.tests.TestCase):
         for wl in (wavelength.min() - 10, wavelength.max() + 10):
             point = detMap.findPoint(fiberId, wl)
             self.assertFalse(detMap.bbox.contains(lsst.geom.Point2I(point)))
+
+    def testDispersion(self):
+        detMap = self.makeSplinedDetectorMap()
+        expect = (self.wlMax - self.wlMin)/self.bbox.getHeight()  # nm/pixel
+        for ff in detMap.fiberId:
+            self.assertFloatsAlmostEqual(detMap.getDispersion(ff), expect, rtol=1.0e-3)
 
 
 class SplinedDetectorMapSlitOffsetsTestCase(lsst.utils.tests.TestCase):
