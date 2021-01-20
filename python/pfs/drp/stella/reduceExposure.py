@@ -197,7 +197,7 @@ class ReduceExposureTask(CmdLineTask):
                 detectorMapList = [cal.detectorMap for cal in calibs]
                 fiberTraceList = [cal.fiberTraces for cal in calibs]
                 psfList = [exp.getPsf() for exp in exposureList]
-                lsfList = [sensorRef.get("lsf") for sensorRef in sensorRefList]
+                lsfList = [sensorRef.get("pfsArmLsf") for sensorRef in sensorRefList]
             else:
                 self.log.warn("Not retrieving calexps, despite 'useCalexp' config, since some are missing")
 
@@ -321,7 +321,7 @@ class ReduceExposureTask(CmdLineTask):
                 if lsf is None:
                     self.log.warn("Can't write PSF for %s" % (sensorRef.dataId,))
                     continue
-                sensorRef.put(lsf, "lsf")
+                sensorRef.put(lsf, "pfsArmLsf")
         if self.config.doSubtractSky2d:
             sensorRefList[0].put(results.sky2d, "sky2d")
 
