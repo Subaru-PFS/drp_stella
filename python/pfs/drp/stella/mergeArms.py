@@ -9,6 +9,7 @@ from .datamodel import PfsMerged
 from pfs.datamodel import Identity
 from .subtractSky1d import SubtractSky1dTask
 from .utils import getPfsVersions
+from .lsf import warpLsf, coaddLsf
 
 
 class WavelengthSamplingConfig(Config):
@@ -88,21 +89,25 @@ class MergeArmsTask(CmdLineTask):
             Merged spectra.
         pfsConfig : `pfs.datamodel.PfsConfig`
             Top-end configuration, fiber targets.
+        lsf : `pfs.drp.stella.Lsf`
+            Merged line-spread function.
         """
         spectra = [[dataRef.get("pfsArm") for dataRef in specRefList] for
                    specRefList in expSpecRefList]
-        # XXX fix when we have LSF implemented
-        lsf = [[None for dataRef in specRefList] for specRefList in expSpecRefList]
+        lsfList = [[dataRef.get("pfsArmLsf") for dataRef in specRefList] for specRefList in expSpecRefList]
         pfsConfig = expSpecRefList[0][0].get("pfsConfig")
         if self.config.doSubtractSky1d:
             if self.config.doSubtractSky1dBeforeMerge:
-                sky1d = self.subtractSky1d.run(sum(spectra, []), pfsConfig, sum(lsf, []))
+                sky1d = self.subtractSky1d.run(sum(spectra, []), pfsConfig, sum(lsfList, []))
                 expSpecRefList[0][0].put(sky1d, "sky1d")
             else:
                 sky1d = None
 
         spectrographs = [self.mergeSpectra(ss) for ss in spectra]  # Merge in wavelength
         merged = PfsMerged.fromMerge(spectrographs, metadata=getPfsVersions())  # Merge across spectrographs
+
+        lsfList = [self.mergeLsfs(ll, ss) for ll, ss in zip(lsfList, spectra)]
+        mergedLsf = self.combineLsfs(lsfList)
 
         if self.config.doSubtractSky1d:
             if sky1d is None:
@@ -113,8 +118,9 @@ class MergeArmsTask(CmdLineTask):
                 expSpecRefList[0][0].put(sky1d, "sky1d")
 
         expSpecRefList[0][0].put(merged, "pfsMerged")
+        expSpecRefList[0][0].put(mergedLsf, "pfsMergedLsf")
 
-        return Struct(spectra=merged, pfsConfig=pfsConfig)
+        return Struct(spectra=merged, pfsConfig=pfsConfig, lsf=mergedLsf)
 
     def mergeSpectra(self, spectraList):
         """Combine all spectra from the same exposure
@@ -199,6 +205,56 @@ class MergeArmsTask(CmdLineTask):
         covar2 = np.zeros((1, 1), dtype=archetype.covar.dtype)
         return Struct(wavelength=archetype.wavelength, flux=flux, sky=sky, covar=covar,
                       mask=mask, covar2=covar2)
+
+    def mergeLsfs(self, lsfList, spectraList):
+        """Merge LSFs for different arms within a spectrograph
+
+        Parameters
+        ----------
+        lsfList : iterable of `dict` (`int`: `pfs.drp.stella.Lsf`)
+            Line-spread functions indexed by fiberId, for each arm.
+        spectraList : iterable of `pfs.datamodel.PfsFiberArraySet`
+            Spectra for each arm.
+
+        Returns
+        -------
+        lsf : `dict` (`int`: `pfs.drp.stella.Lsf`)
+            Merged line-spread functions indexed by fiberId.
+        """
+        fiberId = set(lsfList[0].keys())
+        for lsf in lsfList:
+            assert set(lsf.keys()) == fiberId
+        wavelength = self.config.wavelength.wavelength
+        warpedLsfList = []
+        for lsf, spectra in zip(lsfList, spectraList):
+            warpedLsf = {}
+            for ii in range(len(spectra)):
+                ff = spectra.fiberId[ii]
+                warpedLsf[ff] = warpLsf(lsf[ff], spectra.wavelength[ii], wavelength)
+            warpedLsfList.append(warpedLsf)
+
+        return {ff: coaddLsf([ww[ff] for ww in warpedLsfList]) for ff in fiberId}
+
+    def combineLsfs(self, lsfList):
+        """Combine LSFs for different spectrographs
+
+        The spectrographs have different fiberId values, so this is simply a
+        matter of stuffing everything into a single object.
+
+        Parameters
+        ----------
+        lsfList : iterable of `dict` (`int`: `pfs.drp.stella.Lsf`)
+            Line-spread functions indexed by fiberId, for each spectrograph.
+
+        Returns
+        -------
+        lsf : ``dict` (`int`: `pfs.drp.stella.Lsf`)
+            Combined line-spread functions indexed by fiberId.
+        """
+        lsf = {}
+        for ll in lsfList:
+            lsf.update(ll)
+        return lsf
 
     def _getMetadataName(self):
         return None

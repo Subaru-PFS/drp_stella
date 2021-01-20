@@ -54,6 +54,7 @@ class FluxCalibrateTask(CmdLineTask):
             Calibrated spectra for each fiber.
         """
         merged = dataRef.get("pfsMerged")
+        mergedLsf = dataRef.get("pfsMergedLsf")
         pfsConfig = dataRef.get("pfsConfig")
         butler = dataRef.getButler()
 
@@ -64,10 +65,11 @@ class FluxCalibrateTask(CmdLineTask):
 
         armRefList = list(butler.subset("raw", dataId=dataRef.dataId))
         armList = [ref.get("pfsArm") for ref in armRefList]
+        armLsfList = [ref.get("pfsArmLsf") for ref in armRefList]
         sky1d = dataRef.get("sky1d")
         fiberToArm = defaultdict(list)
         for ii, arm in enumerate(armList):
-            lsf = None
+            lsf = armLsfList[ii]
             self.subtractSky1d.subtractSkySpectra(arm, lsf, pfsConfig, sky1d)
             self.measureFluxCalibration.applySpectra(arm, pfsConfig, calib)
             for ff in arm.fiberId:
@@ -83,10 +85,11 @@ class FluxCalibrateTask(CmdLineTask):
 
         if self.config.doWrite:
             dataRef.put(calib, "fluxCal")
-            for spectrum in spectra:
+            for fiberId, spectrum in zip(merged.fiberId, spectra):
                 dataId = spectrum.getIdentity().copy()
                 dataId.update(dataRef.dataId)
                 butler.put(spectrum, "pfsSingle", dataId)
+                butler.put(mergedLsf[fiberId], "pfsSingleLsf", dataId)
         return Struct(calib=calib, spectra=spectra)
 
     def readReferences(self, butler, pfsConfig):
