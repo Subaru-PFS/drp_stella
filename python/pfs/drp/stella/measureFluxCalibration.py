@@ -104,7 +104,7 @@ class MeasureFluxCalibrationTask(Task):
         """
         cal = self.fit.apply(calib, spectrum.wavelength, [fiberId], pfsConfig)
         with np.errstate(divide="ignore", invalid="ignore"):
-            spectrum /= cal.values  # includes spectrum.variance /= cal.values**2
-            spectrum.covar[0] += cal.variances*spectrum.flux**2/cal.values**2
-        bad = np.array(cal.masks) | ~np.isfinite(cal.values) | (np.array(cal.values) == 0.0)
+            spectrum /= cal.values[0]  # includes spectrum.variance /= cal.values**2
+            spectrum.covar[0] += cal.variances[0]*spectrum.flux**2/cal.values[0]**2
+        bad = np.array(cal.masks[0]) | ~np.isfinite(cal.values[0]) | (np.array(cal.values[0]) == 0.0)
         spectrum.mask[bad] |= spectrum.flags.add("BAD_FLUXCAL")
