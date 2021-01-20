@@ -32,6 +32,8 @@ class MergeArmsConfig(Config):
     """Configuration for MergeArmsTask"""
     wavelength = ConfigField(dtype=WavelengthSamplingConfig, doc="Wavelength configuration")
     doSubtractSky1d = Field(dtype=bool, default=True, doc="Do 1D sky subtraction?")
+    doSubtractSky1dBeforeMerge = Field(dtype=bool, default=False,
+                                       doc="Do 1D sky subtraction before merging arms?")
     subtractSky1d = ConfigurableField(target=SubtractSky1dTask, doc="1d sky subtraction")
     doBarycentricCorr = Field(dtype=bool, default=True, doc="Do barycentric correction?")
     mask = ListField(dtype=str, default=["NO_DATA", "CR", "INTRP", "SAT"],
@@ -92,14 +94,23 @@ class MergeArmsTask(CmdLineTask):
         # XXX fix when we have LSF implemented
         lsf = [[None for dataRef in specRefList] for specRefList in expSpecRefList]
         pfsConfig = expSpecRefList[0][0].get("pfsConfig")
+        if self.config.doSubtractSky1d:
+            if self.config.doSubtractSky1dBeforeMerge:
+                sky1d = self.subtractSky1d.run(sum(spectra, []), pfsConfig, sum(lsf, []))
+                expSpecRefList[0][0].put(sky1d, "sky1d")
+            else:
+                sky1d = None
 
         spectrographs = [self.mergeSpectra(ss) for ss in spectra]  # Merge in wavelength
         merged = PfsMerged.fromMerge(spectrographs, metadata=getPfsVersions())  # Merge across spectrographs
 
         if self.config.doSubtractSky1d:
-            lsf = [None for _ in range(len(merged))]  # total hack!
-            sky1d = self.subtractSky1d.estimateSkyFromMerged(merged, pfsConfig, lsf)
-            expSpecRefList[0][0].put(sky1d, "sky1d")
+            if sky1d is None:
+                assert not self.config.doSubtractSky1dBeforeMerge
+
+                lsf = [None for _ in range(len(merged))]  # total hack!
+                sky1d = self.subtractSky1d.estimateSkyFromMerged(merged, pfsConfig, lsf)
+                expSpecRefList[0][0].put(sky1d, "sky1d")
 
         expSpecRefList[0][0].put(merged, "pfsMerged")
 
