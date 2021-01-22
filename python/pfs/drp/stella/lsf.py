@@ -14,7 +14,8 @@ from lsst.afw.geom.ellipses import Quadrupole
 
 from .FiberTraceSetContinued import FiberTraceSet
 
-__all__ = ("Kernel1D", "Lsf", "GaussianKernel1D", "GaussianLsf", "FixedEmpiricalLsf", "ExtractionLsf")
+__all__ = ("Kernel1D", "Lsf", "GaussianKernel1D", "GaussianLsf", "FixedEmpiricalLsf", "ExtractionLsf",
+           "warpLsf", "coaddLsf")
 
 # Default interpolator factory
 DEFAULT_INTERPOLATOR = partial(interp1d, kind="linear", bounds_error=False, fill_value=0, copy=True,
@@ -789,3 +790,92 @@ class ExtractionLsf(Lsf):
     def __reduce__(self):
         """Pickling"""
         return self.__class__, (self.psf, self.fiberTrace, self.length)
+
+
+def warpLsf(lsf, inWavelength, outWavelength):
+    """Warp a line-spread function
+
+    This is a placeholder implementation that generates a `GaussianLsf` with
+    the warped width of the input.
+
+    Parameters
+    ----------
+    lsf : `pfs.drp.stella.Lsf`
+        Line-spread function to warp.
+    inWavelength : `numpy.ndarray` of `float`
+        Wavelength array in the same frame as for ``lsf``.
+    outWavelength : `numpy.ndarray` of `float`
+        Wavelength array in the target frame. This may have a different length
+        than the ``inWavelength``.
+
+    Returns
+    -------
+    warpedLsf : `pfs.drp.stella.GaussianLsf`
+        Line-spread function in the warped frame.
+    """
+    inLength = len(inWavelength)
+    if lsf.length != inLength:
+        raise RuntimeError(f"Length mismatch between LSF ({lsf.length}) and wavelength ({inLength})")
+    outLength = len(outWavelength)
+    inPixels = np.arange(inLength, dtype=inWavelength.dtype)
+    outPixels = np.arange(outLength, dtype=outWavelength.dtype)
+
+    inToWavelength = interp1d(inPixels, inWavelength, kind="linear", assume_sorted=True)
+    wavelengthToOut = interp1d(outWavelength, outPixels, kind="linear", assume_sorted=True)
+
+    def transform(inRow):
+        """Transform input row value to output row value
+
+        Parameters
+        ----------
+        inRow : `float`
+            Input row value.
+
+        Returns
+        -------
+        outRow : `float`
+            Output row value.
+        """
+        return wavelengthToOut(inToWavelength(inRow))
+
+    inMiddle = 0.5*inLength
+    inWidth = lsf.computeShape1D(inMiddle)
+    outWidth = abs(transform(inMiddle + 0.5*inWidth) - transform(inMiddle - 0.5*inWidth))
+    return GaussianLsf(outLength, outWidth)
+
+
+def coaddLsf(lsfList, weights=None):
+    """Coadd line-spread functions
+
+    This is a placeholder implementation that returns a Gaussian LSF with
+    a width equal to the weighted mean of the widths of the input LSFs.
+
+    The input LSFs must have the same length (warped appropriately).
+
+    Parameters
+    ----------
+    lsfList : iterable of `pfs.drp.stella.Lsf`
+        List of input line-spread functions.
+    weights : array_like of `float`
+        Weight factors for each input.
+
+    Returns
+    -------
+    lsf : `pfs.drp.stella.GaussianLsf`
+        Coadded line-spread function.
+    """
+    # Verify common length
+    length = lsfList[0].length
+    for ii, lsf in enumerate(lsfList[1:]):
+        if lsf.length != length:
+            raise RuntimeError(f"LSF length mismatch for {ii}: {lsf.length} vs {length}")
+
+    if weights is None:
+        weights = np.ones(len(lsfList), dtype=float)
+
+    # Calculate average width
+    middle = 0.5*length
+    widths = np.array([lsf.computeShape1D(middle) for lsf in lsfList])
+    avgWidth = np.sum(widths*weights)/np.sum(weights)
+
+    return GaussianLsf(length, avgWidth)

@@ -83,6 +83,9 @@ class DetectorMap : public lsst::afw::table::io::Persistable {
     virtual float getWavelength(int fiberId, float row) const = 0;
     //@}
 
+    /// Return the dispersion (nm/pixel) at the center
+    float getDispersion(int fiberId) const;
+
     /// Return the fiberId given a position on the detector
     virtual int findFiberId(lsst::geom::PointD const& point) const = 0;
 

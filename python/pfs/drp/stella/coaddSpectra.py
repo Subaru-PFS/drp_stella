@@ -15,6 +15,7 @@ from .measureFluxCalibration import MeasureFluxCalibrationTask
 from .mergeArms import WavelengthSamplingConfig
 from .FluxTableTask import FluxTableTask
 from .utils import getPfsVersions
+from .lsf import warpLsf, coaddLsf
 
 
 class CoaddSpectraConfig(Config):
@@ -133,6 +134,7 @@ class CoaddSpectraTask(CmdLineTask):
                               combination.mask, combination.sky, combination.covar, combination.covar2, flags,
                               getPfsVersions(), fluxTable)
             butler.put(coadd, "pfsObject", coadd.getIdentity())
+            butler.put(combination.lsf, "pfsObjectLsf", coadd.getIdentity())
 
     def readVisit(self, dataRefList):
         """Read a single visit+spectrograph
@@ -169,7 +171,7 @@ class CoaddSpectraTask(CmdLineTask):
             for fiberId in pfsArm.fiberId:
                 spectrum = pfsArm.extractFiber(PfsFiberArray, pfsConfig, fiberId)
                 spectra[spectrum.target].append(spectrum)
-            lsf = None
+            lsf = dataRef.get("pfsArmLsf")
             lsfList.append(lsf)
         return Struct(spectra=spectra, sky1d=sky1d, fluxCal=fluxCal, lsfList=lsfList, pfsConfig=pfsConfig)
 
@@ -278,15 +280,18 @@ class CoaddSpectraTask(CmdLineTask):
         # First, resample to a common wavelength sampling
         wavelength = self.config.wavelength.wavelength
         resampled = []
+        resampledLsf = []
         for data in zip(spectraList, skyList, fluxCalList, lsfLists, pfsConfigList):
             spectra, sky1d, fluxCal, lsfList, pfsConfig = data
-            spectra = [ss.resample(wavelength) for ss in spectra]
             # Subtract the sky and flux-calibrate without merging
             for spectrum, lsf in zip(spectra, lsfList):
                 fiberId = spectrum.observations.fiberId[0]
+                origWavelength = spectrum.wavelength
+                spectrum = spectrum.resample(wavelength)
                 self.subtractSky1d.subtractSkySpectrum(spectrum, lsf, fiberId, pfsConfig, sky1d)
                 self.measureFluxCalibration.applySpectrum(spectrum, fiberId, pfsConfig, fluxCal)
                 resampled.append(spectrum)
+                resampledLsf.append(warpLsf(lsf[fiberId], origWavelength, wavelength))
 
         # Now do a weighted coaddition
         archetype = resampled[0]
@@ -315,9 +320,10 @@ class CoaddSpectraTask(CmdLineTask):
         covar[1:2] = np.where(good, 0.0, np.inf)
         mask[~good] = flags["NO_DATA"]
         covar2 = np.zeros((1, 1), dtype=archetype.covar.dtype)
+        lsf = coaddLsf(resampledLsf)
 
         return Struct(wavelength=archetype.wavelength, flux=flux, sky=sky, covar=covar,
-                      mask=mask, covar2=covar2)
+                      mask=mask, covar2=covar2, lsf=lsf)
 
     def _getMetadataName(self):
         return None
