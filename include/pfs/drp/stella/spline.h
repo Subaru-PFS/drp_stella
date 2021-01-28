@@ -22,25 +22,15 @@ public:
     using Array = ndarray::Array<InternalT, 1, 1>;
     using ConstArray = ndarray::Array<InternalT const, 1, 1>;
 
-    Spline(ConstArray const& x,                            ///< positions of knots
-           ConstArray const& y,                            ///< values of function at knots
+    Spline(Array const& x,                            ///< positions of knots
+           Array const& y,                            ///< values of function at knots
            InterpolationTypes interpolationType=CUBIC_NOTAKNOT ///< spline boundary conditions
           );
+
+    template <typename U>
     Spline(
-        ndarray::Array<T, 1, 1> const& x,
-        ndarray::Array<T, 1, 1> const& y,
-        InterpolationTypes interpolationType=CUBIC_NOTAKNOT ///< spline boundary conditions
-    ) : Spline(utils::convertArray<InternalT>(x), utils::convertArray<InternalT>(y),
-               interpolationType) {}
-    Spline(
-        std::vector<InternalT> const& x,
-        std::vector<InternalT> const& y,
-        InterpolationTypes interpolationType=CUBIC_NOTAKNOT
-    ) : Spline(ConstArray(utils::vectorToArray(x)), ConstArray(utils::vectorToArray(y)),
-                          interpolationType) {}
-    Spline(
-        std::vector<T> const& x,
-        std::vector<T> const& y,
+        std::vector<U> const& x,
+        std::vector<U> const& y,
         InterpolationTypes interpolationType=CUBIC_NOTAKNOT
     ) : Spline(utils::convertArray<InternalT>(utils::vectorToArray(x)),
                utils::convertArray<InternalT>(utils::vectorToArray(y)),

@@ -19,7 +19,7 @@ void declareSpectrum(py::module &mod) {
 
     cls.def(py::init<std::size_t, std::size_t>(), "length"_a, "fiberId"_a=0);
     cls.def(py::init<Spectrum::ImageArray const&, Spectrum::Mask const&, Spectrum::ImageArray const&,
-                     Spectrum::CovarianceMatrix const&, Spectrum::ImageArray const&,
+                     Spectrum::CovarianceMatrix const&, Spectrum::WavelengthArray const&,
                      Spectrum::ReferenceLineList const&, std::size_t>(),
             "flux"_a, "mask"_a, "background"_a, "covariance"_a, "wavelength"_a,
             "lines"_a=Spectrum::ReferenceLineList(), "fiberId"_a=0);
@@ -81,7 +81,7 @@ void declareSpectrum(py::module &mod) {
         [](py::tuple const& t) {
             return Spectrum(t[0].cast<Spectrum::ImageArray>(), t[1].cast<Spectrum::Mask>(),
                             t[2].cast<Spectrum::ImageArray>(), t[3].cast<Spectrum::CovarianceMatrix>(),
-                            t[4].cast<Spectrum::ImageArray>(), t[5].cast<Spectrum::ReferenceLineList>(),
+                            t[4].cast<Spectrum::WavelengthArray>(), t[5].cast<Spectrum::ReferenceLineList>(),
                             t[6].cast<std::size_t>());
         }
     ));

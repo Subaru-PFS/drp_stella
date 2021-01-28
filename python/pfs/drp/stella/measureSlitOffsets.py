@@ -116,11 +116,11 @@ class MeasureSlitOffsetsTask(Task):
         select &= np.isfinite(centroids.xErr) & np.isfinite(centroids.yErr)
 
         fiberId = centroids.fiberId.astype(np.int32)
-        wavelength = centroids.wavelength.astype(np.float32)
-        xx = centroids.x.astype(np.float32)
-        yy = centroids.y.astype(np.float32)
-        xErr = np.hypot(centroids.xErr.astype(np.float32), self.config.soften)
-        yErr = np.hypot(centroids.yErr.astype(np.float32), self.config.soften)
+        wavelength = centroids.wavelength
+        xx = centroids.x
+        yy = centroids.y
+        xErr = np.hypot(centroids.xErr, self.config.soften)
+        yErr = np.hypot(centroids.yErr, self.config.soften)
 
         for ii in range(self.config.rejIterations):
             detectorMap.measureSlitOffsets(fiberId[select], wavelength[select], xx[select], yy[select],
@@ -202,7 +202,7 @@ class MeasureSlitOffsetsTask(Task):
         good = result.select
         bad = ~good
         points = detectorMap.findPoint(centroids.fiberId.astype(np.int32),
-                                       centroids.wavelength.astype(np.float32))
+                                       centroids.wavelength)
         dx = centroids.x - points[:, 0]
         dy = centroids.y - points[:, 1]
 

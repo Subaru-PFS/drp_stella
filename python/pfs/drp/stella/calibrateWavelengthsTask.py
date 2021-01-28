@@ -237,14 +237,14 @@ class WavelengthFitData:
         """
         with astropy.io.fits.open(filename) as fits:
             hdu = fits[cls.fitsExtName]
-            fiberId = hdu.data["fiberId"]
-            measuredPosition = hdu.data["measuredPosition"]
-            measuredPositionErr = hdu.data["measuredPositionErr"]
-            xCenter = hdu.data["xCenter"]
-            refWavelength = hdu.data["refWavelength"]
-            fitWavelength = hdu.data["fitWavelength"]
-            correction = hdu.data["correction"]
-            status = hdu.data["status"]
+            fiberId = hdu.data["fiberId"].astype(np.int32)
+            measuredPosition = hdu.data["measuredPosition"].astype(float)
+            measuredPositionErr = hdu.data["measuredPositionErr"].astype(float)
+            xCenter = hdu.data["xCenter"].astype(float)
+            refWavelength = hdu.data["refWavelength"].astype(float)
+            fitWavelength = hdu.data["fitWavelength"].astype(float)
+            correction = hdu.data["correction"].astype(float)
+            status = hdu.data["status"].astype(np.int32)
             description = hdu.data["description"]
 
         return cls([LineData(*args) for args in zip(fiberId, measuredPosition, measuredPositionErr, xCenter,
@@ -261,12 +261,12 @@ class WavelengthFitData:
         """
         hdu = astropy.io.fits.BinTableHDU.from_columns([
             astropy.io.fits.Column(name="fiberId", format="J", array=self.fiberId),
-            astropy.io.fits.Column(name="measuredPosition", format="E", array=self.measuredPosition),
-            astropy.io.fits.Column(name="measuredPositionErr", format="E", array=self.measuredPositionErr),
-            astropy.io.fits.Column(name="xCenter", format="E", array=self.xCenter),
-            astropy.io.fits.Column(name="refWavelength", format="E", array=self.refWavelength),
-            astropy.io.fits.Column(name="fitWavelength", format="E", array=self.fitWavelength),
-            astropy.io.fits.Column(name="correction", format="E", array=self.correction),
+            astropy.io.fits.Column(name="measuredPosition", format="D", array=self.measuredPosition),
+            astropy.io.fits.Column(name="measuredPositionErr", format="D", array=self.measuredPositionErr),
+            astropy.io.fits.Column(name="xCenter", format="D", array=self.xCenter),
+            astropy.io.fits.Column(name="refWavelength", format="D", array=self.refWavelength),
+            astropy.io.fits.Column(name="fitWavelength", format="D", array=self.fitWavelength),
+            astropy.io.fits.Column(name="correction", format="D", array=self.correction),
             astropy.io.fits.Column(name="status", format="J", array=self.status),
             astropy.io.fits.Column(name="description", format="A", array=self.description),
         ], name=self.fitsExtName)
@@ -316,7 +316,7 @@ class CalibrateWavelengthsTask(pipeBase.Task):
             Non-linear fit solution.
         """
         numRows = detectorMap.bbox.getHeight()
-        rows = np.arange(numRows, dtype='float32')
+        rows = np.arange(numRows, dtype=float)
         lam = detectorMap.getWavelength(fiberId)
         nmPerPix = (lam[-1] - lam[0])/(rows[-1] - rows[0])
         self.log.trace("FiberId %d, dispersion (nm/pixel) = %.3f" % (fiberId, nmPerPix))
@@ -382,7 +382,7 @@ class CalibrateWavelengthsTask(pipeBase.Task):
         #
         # Correct the initial wavelength solution
         #
-        solution = wavelengthCorr(rows).astype('float32') + detectorMap.getWavelength(fiberId)
+        solution = wavelengthCorr(rows) + detectorMap.getWavelength(fiberId)
 
         rmsFit = np.sqrt(np.sum(((y - yfit)**2)[use])/(use.sum() - self.config.order))
         rmsReserved = (y[reserved] - yfit[reserved]).std()
@@ -427,7 +427,7 @@ class CalibrateWavelengthsTask(pipeBase.Task):
         wavelengthCorr : `np.polynomial.chebyshev.Chebyshev`
             Wavelength solution.
         """
-        rows = np.arange(detectorMap.bbox.getHeight(), dtype='float32')
+        rows = np.arange(detectorMap.bbox.getHeight(), dtype=float)
 
         if self.debugInfo.display:
             import matplotlib.pyplot as plt

@@ -19,8 +19,8 @@ namespace pfs { namespace drp { namespace stella {
 class DetectorMap : public lsst::afw::table::io::Persistable {
   public:
     using FiberIds = ndarray::Array<int, 1, 1>;
-    using Array2D = ndarray::Array<float, 2, 1>;
-    using Array1D = ndarray::Array<float, 1, 1>;
+    using Array2D = ndarray::Array<double, 2, 1>;
+    using Array1D = ndarray::Array<double, 1, 1>;
     using VisitInfo = lsst::afw::image::VisitInfo;
 
     /// Polymorphic copy
@@ -36,22 +36,22 @@ class DetectorMap : public lsst::afw::table::io::Persistable {
     std::size_t getNumFibers() const { return _fiberId.size(); }
 
     /// Apply an offset to the slit position
-    void applySlitOffset(float spatial, float spectral);
+    void applySlitOffset(double spatial, double spectral);
 
     //@{
     /// Return the slit offsets
     Array1D & getSpatialOffsets() { return _spatialOffsets; }
     Array1D const& getSpatialOffsets() const { return _spatialOffsets; }
-    float getSpatialOffset(int fiberId) const { return _spatialOffsets[getFiberIndex(fiberId)]; }
+    double getSpatialOffset(int fiberId) const { return _spatialOffsets[getFiberIndex(fiberId)]; }
     Array1D & getSpectralOffsets() { return _spectralOffsets; }
     Array1D const& getSpectralOffsets() const { return _spectralOffsets; }
-    float getSpectralOffset(int fiberId) const { return _spectralOffsets[getFiberIndex(fiberId)]; }
+    double getSpectralOffset(int fiberId) const { return _spectralOffsets[getFiberIndex(fiberId)]; }
     //@}
 
     //@{
     /// Set the slit positions
     void setSlitOffsets(Array1D const& spatial, Array1D const& spectral);
-    void setSlitOffsets(int fiberId, float spatial, float spectral);
+    void setSlitOffsets(int fiberId, double spatial, double spectral);
     //@}
 
     /// Measure and apply slit offsets
@@ -62,60 +62,61 @@ class DetectorMap : public lsst::afw::table::io::Persistable {
     /// @param xErr, yErr : Error in position of reference lines (pixels)
     virtual void measureSlitOffsets(
         ndarray::Array<int, 1, 1> const& fiberId,
-        ndarray::Array<float, 1, 1> const& wavelength,
-        ndarray::Array<float, 1, 1> const& x,
-        ndarray::Array<float, 1, 1> const& y,
-        ndarray::Array<float, 1, 1> const& xErr,
-        ndarray::Array<float, 1, 1> const& yErr
+        ndarray::Array<double, 1, 1> const& wavelength,
+        ndarray::Array<double, 1, 1> const& x,
+        ndarray::Array<double, 1, 1> const& y,
+        ndarray::Array<double, 1, 1> const& xErr,
+        ndarray::Array<double, 1, 1> const& yErr
     ) = 0;
 
     //@{
     /// Return the fiber centers
     Array2D getXCenter() const;
     virtual Array1D getXCenter(int fiberId) const = 0;
-    virtual float getXCenter(int fiberId, float row) const = 0;
+    virtual double getXCenter(int fiberId, double row) const = 0;
     //@}
 
     //@{
     /// Return the wavelength values for each row
     Array2D getWavelength() const;
     virtual Array1D getWavelength(int fiberId) const = 0;
-    virtual float getWavelength(int fiberId, float row) const = 0;
+
+    virtual double getWavelength(int fiberId, double row) const = 0;
     //@}
 
     /// Return the dispersion (nm/pixel) at the center
-    float getDispersion(int fiberId) const;
+    double getDispersion(int fiberId) const;
 
     /// Return the fiberId given a position on the detector
     virtual int findFiberId(lsst::geom::PointD const& point) const = 0;
 
     //@{
     /// Return the position of the fiber trace on the detector, given a fiberId and wavelength
-    lsst::geom::PointD findPoint(int fiberId, float wavelength) const {
+    lsst::geom::PointD findPoint(int fiberId, double wavelength) const {
         return findPointImpl(fiberId, wavelength);
     }
-    ndarray::Array<float, 2, 1> findPoint(
+    ndarray::Array<double, 2, 1> findPoint(
         int fiberId,
-        ndarray::Array<float, 1, 1> const& wavelength
+        ndarray::Array<double, 1, 1> const& wavelength
     ) const;
-    ndarray::Array<float, 2, 1> findPoint(
+    ndarray::Array<double, 2, 1> findPoint(
         ndarray::Array<int, 1, 1> const& fiberId,
-        ndarray::Array<float, 1, 1> const& wavelength
+        ndarray::Array<double, 1, 1> const& wavelength
     ) const;
     //@}
 
     //@{
     /// Return the wavelength of a point on the detector, given a fiberId and row
-    float findWavelength(int fiberId, float row) const {
+    double findWavelength(int fiberId, double row) const {
         return findWavelengthImpl(fiberId, row);
     }
-    ndarray::Array<float, 1, 1> findWavelength(
+    ndarray::Array<double, 1, 1> findWavelength(
         int fiberId,
-        ndarray::Array<float, 1, 1> const& row
+        ndarray::Array<double, 1, 1> const& row
     ) const;
-    ndarray::Array<float, 1, 1> findWavelength(
+    ndarray::Array<double, 1, 1> findWavelength(
         ndarray::Array<int, 1, 1> const& fiberId,
-        ndarray::Array<float, 1, 1> const& row
+        ndarray::Array<double, 1, 1> const& row
     ) const;
     //@}
 
@@ -155,12 +156,12 @@ class DetectorMap : public lsst::afw::table::io::Persistable {
     /// Return the position of the fiber trace on the detector, given a fiberId and wavelength
     ///
     /// Implementation of findPoint, for subclasses to define.
-    virtual lsst::geom::PointD findPointImpl(int fiberId, float wavelength) const = 0;
+    virtual lsst::geom::PointD findPointImpl(int fiberId, double wavelength) const = 0;
 
     /// Return the wavelength of a point on the detector, given a fiberId and row
     ///
     /// Implementation of findWavelength, for subclasses to define.
-    virtual float findWavelengthImpl(int fiberId, float row) const = 0;
+    virtual double findWavelengthImpl(int fiberId, double row) const = 0;
 
     /// Reset cached elements after setting slit offsets
     virtual void _resetSlitOffsets() {}

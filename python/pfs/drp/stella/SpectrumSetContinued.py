@@ -249,7 +249,7 @@ class SpectrumSet:
         for spectrum, cc in zip(self, colors):
             useWavelength = spectrum.getWavelength()
             if np.all(useWavelength == 0.0):
-                useWavelength = np.arange(len(spectrum), dtype=np.float32)
+                useWavelength = np.arange(len(spectrum), dtype=float)
             division = np.searchsorted(useWavelength,
                                        np.linspace(minWavelength, maxWavelength, numRows + 1)[1:-1])
             spectrum.plotDivided(axes, division, doBackground=False, doReferenceLines=False,

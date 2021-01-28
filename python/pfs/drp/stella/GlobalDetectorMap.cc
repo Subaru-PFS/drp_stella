@@ -59,8 +59,8 @@ void declareGlobalDetectorModel(py::module & mod) {
     cls.def(py::init<lsst::geom::Box2I const&, int, ndarray::Array<int, 1, 1> const&,
                      GlobalDetectorModelScaling const&,
                      ndarray::Array<double, 1, 1> const&, ndarray::Array<double, 1, 1> const&,
-                     ndarray::Array<double, 1, 1> const&, ndarray::Array<float, 1, 1> const&,
-                     ndarray::Array<float, 1, 1> const&>(),
+                     ndarray::Array<double, 1, 1> const&, ndarray::Array<double, 1, 1> const&,
+                     ndarray::Array<double, 1, 1> const&>(),
             "bbox"_a, "distortionOrder"_a, "fiberId"_a, "scaling"_a, "xDistortion"_a, "yDistortion"_a,
             "rightCcd"_a, "spatialOffsets"_a=nullptr, "spectralOffsets"_a=nullptr);
     cls.def("__call__", py::overload_cast<int, double>(&Class::operator(), py::const_),
@@ -183,8 +183,8 @@ void declareGlobalDetectorMap(py::module & mod) {
                 t[7].cast<ndarray::Array<double, 1, 1>>(),  // xCoeff
                 t[8].cast<ndarray::Array<double, 1, 1>>(),  // yCoeff
                 t[9].cast<ndarray::Array<double, 1, 1>>(),  // rightCcd
-                t[10].cast<ndarray::Array<float, 1, 1>>(),  // spatialOffsets
-                t[11].cast<ndarray::Array<float, 1, 1>>(),  // spectralOffsets
+                t[10].cast<ndarray::Array<double, 1, 1>>(),  // spatialOffsets
+                t[11].cast<ndarray::Array<double, 1, 1>>(),  // spectralOffsets
                 t[12].cast<lsst::afw::image::VisitInfo>(),  // visitInfo
                 t[13].cast<std::shared_ptr<lsst::daf::base::PropertySet>>()  // metadata
             );

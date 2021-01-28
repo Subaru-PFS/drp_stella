@@ -190,8 +190,8 @@ class GlobalDetectorModel {
         ndarray::Array<double, 1, 1> const& xDistortion,
         ndarray::Array<double, 1, 1> const& yDistortion,
         ndarray::Array<double, 1, 1> const& rightCcd,
-        ndarray::Array<float, 1, 1> const& spatialOffsets=ndarray::Array<float, 1, 1>(),
-        ndarray::Array<float, 1, 1> const& spectralOffsets=ndarray::Array<float, 1, 1>()
+        ndarray::Array<double, 1, 1> const& spatialOffsets=ndarray::Array<double, 1, 1>(),
+        ndarray::Array<double, 1, 1> const& spectralOffsets=ndarray::Array<double, 1, 1>()
     );
 
     virtual ~GlobalDetectorModel() {}
@@ -253,8 +253,8 @@ class GlobalDetectorModel {
         lsst::geom::Box2D const& xiEtaRange,
         ndarray::Array<double, 2, 1> const& xiEta,
         ndarray::Array<std::size_t, 1, 1> const& fiberIndex,
-        ndarray::Array<float, 1, 1> const& spatialOffsets=ndarray::Array<float, 1, 1>(),
-        ndarray::Array<float, 1, 1> const& spectralOffsets=ndarray::Array<float, 1, 1>()
+        ndarray::Array<double, 1, 1> const& spatialOffsets=ndarray::Array<double, 1, 1>(),
+        ndarray::Array<double, 1, 1> const& spectralOffsets=ndarray::Array<double, 1, 1>()
     );
 
     //@{
@@ -270,7 +270,7 @@ class GlobalDetectorModel {
     /// @param good : whether value should be used in the fit
     /// @param sysErr : systematic error to add in quadrature
     /// @return chi2 and number of degrees of freedom
-    std::pair<float, std::size_t> calculateChi2(
+    std::pair<double, std::size_t> calculateChi2(
         ndarray::Array<double, 2, 1> const& xiEta,
         ndarray::Array<std::size_t, 1, 1> const& fiberIndex,
         ndarray::Array<double, 1, 1> const& xx,
@@ -280,7 +280,7 @@ class GlobalDetectorModel {
         ndarray::Array<bool, 1, 1> const& good=ndarray::Array<bool, 1, 1>(),
         float sysErr=0.0
     ) const;
-    std::pair<float, std::size_t> calculateChi2(
+    std::pair<double, std::size_t> calculateChi2(
         ndarray::Array<int, 1, 1> const& fiberId,
         ndarray::Array<double, 1, 1> const& wavelength,
         ndarray::Array<double, 1, 1> const& xx,
@@ -361,8 +361,8 @@ class GlobalDetectorModel {
     lsst::geom::AffineTransform getRightCcd() const { return _rightCcd; }
     double getSpatialOffset(std::size_t index) const { return _spatialOffsets[index]; }
     double getSpectralOffset(std::size_t index) const { return _spectralOffsets[index]; }
-    ndarray::Array<float, 1, 1> const& getSpatialOffsets() const { return _spatialOffsets; }
-    ndarray::Array<float, 1, 1> const& getSpectralOffsets() const { return _spectralOffsets; }
+    ndarray::Array<double, 1, 1> const& getSpatialOffsets() const { return _spatialOffsets; }
+    ndarray::Array<double, 1, 1> const& getSpectralOffsets() const { return _spectralOffsets; }
     //@}
 
     //@{
@@ -436,8 +436,8 @@ class GlobalDetectorModel {
         ndarray::Array<double, 1, 1> const& xDistortion,
         ndarray::Array<double, 1, 1> const& yDistortion,
         ndarray::Array<double, 1, 1> const& rightCcd,
-        ndarray::Array<float, 1, 1> const& spatialOffsets,
-        ndarray::Array<float, 1, 1> const& spectralOffsets
+        ndarray::Array<double, 1, 1> const& spatialOffsets,
+        ndarray::Array<double, 1, 1> const& spectralOffsets
     );
 
     friend std::ostream& operator<<(std::ostream& os, GlobalDetectorModel const& model);
@@ -453,8 +453,8 @@ class GlobalDetectorModel {
     Polynomial _xDistortion;  // distortion polynomial in x
     Polynomial _yDistortion;  // distortion polynomial in y
     lsst::geom::AffineTransform _rightCcd;  // transformation for right CCD
-    ndarray::Array<float, 1, 1> _spatialOffsets;  // fiber offsets in the spatial dimension
-    ndarray::Array<float, 1, 1> _spectralOffsets;  // fiber offsets in the spectral dimension
+    ndarray::Array<double, 1, 1> _spatialOffsets;  // fiber offsets in the spatial dimension
+    ndarray::Array<double, 1, 1> _spectralOffsets;  // fiber offsets in the spectral dimension
 };
 
 

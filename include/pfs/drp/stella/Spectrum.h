@@ -15,8 +15,8 @@ namespace pfs { namespace drp { namespace stella {
  */
 class Spectrum {
   public:
-    using ImageT = float;
-    using VarianceT = float;
+    using ImageT = double;
+    using VarianceT = double;
     using Mask = lsst::afw::image::Mask<lsst::afw::image::MaskPixel>;
     using ImageArray = ndarray::Array<ImageT, 1, 1>;
     using ConstImageArray = ndarray::Array<const ImageT, 1, 1>;
@@ -24,6 +24,8 @@ class Spectrum {
     using ConstVarianceArray = ndarray::Array<VarianceT const, 1, 1>;
     using CovarianceMatrix = ndarray::Array<VarianceT, 2, 1>;
     using ConstCovarianceMatrix = ndarray::Array<VarianceT const, 2, 1>;
+    using WavelengthArray = ndarray::Array<double, 1, 1>;
+    using ConstWavelengthArray = ndarray::Array<double const, 1, 1>;
     using ReferenceLineList = std::vector<std::shared_ptr<ReferenceLine>>;
     using ConstReferenceLineList = std::vector<std::shared_ptr<const ReferenceLine>>;
 
@@ -48,7 +50,7 @@ class Spectrum {
         Mask const& mask,
         ImageArray const& background,
         CovarianceMatrix const& covariance,
-        ImageArray const& wavelength,
+        WavelengthArray const& wavelength,
         ReferenceLineList const& lines=ReferenceLineList(),
         std::size_t fiberId=0
     );
@@ -97,8 +99,8 @@ class Spectrum {
 
     //@{
     /// Return the pointer to the wavelength vector of this spectrum
-    ImageArray getWavelength() { return _wavelength; }
-    ConstImageArray const getWavelength() const { return _wavelength; }
+    WavelengthArray getWavelength() { return _wavelength; }
+    ConstWavelengthArray const getWavelength() const { return _wavelength; }
     //@}
 
     //@{
@@ -136,7 +138,7 @@ class Spectrum {
     void setCovariance(CovarianceMatrix const& covar);
 
     /// Set the wavelength vector of this spectrum (deep copy)
-    void setWavelength(ImageArray const& wavelength);
+    void setWavelength(WavelengthArray const& wavelength);
 
     /// Set the mask vector of this spectrum (deep copy)
     void setMask(Mask const& mask);
@@ -167,7 +169,7 @@ class Spectrum {
     Mask _mask;
     ImageArray _background;
     CovarianceMatrix _covariance;
-    ImageArray _wavelength;
+    WavelengthArray _wavelength;
     std::size_t _fiberId;
     ReferenceLineList _referenceLines;
     bool _isWavelengthSet;

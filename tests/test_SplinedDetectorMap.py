@@ -50,8 +50,8 @@ class SplinedDetectorMapTestCase(lsst.utils.tests.TestCase):
         self.wavelengthKnots = [detMap.getWavelengthSpline(ff).getX() for ff in self.fiberId]
         self.wavelength = [detMap.getWavelengthSpline(ff).getY() for ff in self.fiberId]
         self.rng = np.random.RandomState(54321)
-        self.spatialOffsets = self.rng.uniform(size=self.numFibers).astype(np.float32)
-        self.spectralOffsets = self.rng.uniform(size=self.numFibers).astype(np.float32)
+        self.spatialOffsets = self.rng.uniform(size=self.numFibers)
+        self.spectralOffsets = self.rng.uniform(size=self.numFibers)
         self.calculateExpectations(detMap)
         self.metadata = 123456
         self.darkTime = 12345.6
@@ -62,8 +62,8 @@ class SplinedDetectorMapTestCase(lsst.utils.tests.TestCase):
         Sets ``self.centerExpect`` and ``self.wavelengthExpect``.
         This accounts for the random slitOffsets.
         """
-        self.xCenterExpect = np.zeros((self.numFibers, self.bbox.getHeight()), dtype=np.float32)
-        self.wavelengthExpect = np.zeros((self.numFibers, self.bbox.getHeight()), dtype=np.float32)
+        self.xCenterExpect = np.zeros((self.numFibers, self.bbox.getHeight()), dtype=float)
+        self.wavelengthExpect = np.zeros((self.numFibers, self.bbox.getHeight()), dtype=float)
         for ii, ff in enumerate(self.fiberId):
             yOffset = self.spectralOffsets[ii]
             xOffset = self.spatialOffsets[ii]
@@ -343,8 +343,8 @@ class SplinedDetectorMapSlitOffsetsTestCase(lsst.utils.tests.TestCase):
         self.rows = np.arange(self.box.getMinY(), self.box.getMaxY() + 1, dtype=float)
         self.middle = 0.5*(self.box.getMinY() + self.box.getMaxY())
         self.wavelength = np.poly1d((0.0e-5, 0.1, 500.0))
-        self.spatialOffsets = np.zeros(2, dtype=np.float32)
-        self.spectralOffsets = np.zeros(2, dtype=np.float32)
+        self.spatialOffsets = np.zeros(2, dtype=float)
+        self.spectralOffsets = np.zeros(2, dtype=float)
 
         if False:
             import matplotlib.pyplot as plt

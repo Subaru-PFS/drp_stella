@@ -20,12 +20,11 @@ class ArcLineTestCase(lsst.utils.tests.TestCase):
         self.wlMax = 900.0  # nm
         scale = self.wlMax - self.wlMin
 
-        float32 = np.float32
-        self.x = np.random.uniform(size=self.fiberId.shape).astype(float32)*(self.length - 1)
-        self.xErr = 0.01*np.random.uniform(size=self.fiberId.shape).astype(float32)
-        self.y = np.random.uniform(size=self.fiberId.shape).astype(float32)*(self.length - 1)
-        self.yErr = 0.01*np.random.uniform(size=self.fiberId.shape).astype(float32)
-        self.wavelength = np.random.uniform(size=self.fiberId.shape).astype(float32)*scale + self.wlMin
+        self.x = np.random.uniform(size=self.fiberId.shape)*(self.length - 1)
+        self.xErr = 0.01*np.random.uniform(size=self.fiberId.shape)
+        self.y = np.random.uniform(size=self.fiberId.shape)*(self.length - 1)
+        self.yErr = 0.01*np.random.uniform(size=self.fiberId.shape)
+        self.wavelength = np.random.uniform(size=self.fiberId.shape)*scale + self.wlMin
         self.flag = np.random.uniform(0, 10, size=self.fiberId.shape).astype(int)
         self.status = np.full_like(self.fiberId, int(ReferenceLine.Status.FIT), dtype=int)
         self.description = np.array([chr(ord("A") + ii) for ii in range(len(self.fiberId))])

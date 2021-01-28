@@ -4,7 +4,7 @@ import scipy.interpolate
 import lsst.utils.tests
 
 from pfs.drp.stella.tests.utils import runTests
-from pfs.drp.stella import SplineF
+from pfs.drp.stella import SplineD
 
 display = None
 
@@ -34,7 +34,7 @@ class SplineTestCase(lsst.utils.tests.TestCase):
         self.rng = np.random.RandomState(12345)
         self.xx = np.arange(0.0, self.num)
         self.yy = self.rng.uniform(size=self.num)
-        self.spline = SplineF(self.xx, self.yy)
+        self.spline = SplineD(self.xx, self.yy)
 
     def testBasic(self):
         """Test basic properties"""

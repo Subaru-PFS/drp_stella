@@ -65,8 +65,8 @@ void declareSplinedDetectorMap(py::module & mod) {
                 t[3].cast<std::vector<ndarray::Array<double, 1, 1>>>(),
                 t[4].cast<std::vector<ndarray::Array<double, 1, 1>>>(),
                 t[5].cast<std::vector<ndarray::Array<double, 1, 1>>>(),
-                t[6].cast<ndarray::Array<float, 1, 1>>(),
-                t[7].cast<ndarray::Array<float, 1, 1>>(),
+                t[6].cast<ndarray::Array<double, 1, 1>>(),
+                t[7].cast<ndarray::Array<double, 1, 1>>(),
                 t[8].cast<Class::VisitInfo>(),
                 t[9].cast<std::shared_ptr<lsst::daf::base::PropertySet>>()
             );

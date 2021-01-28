@@ -63,8 +63,8 @@ tridi(ndarray::Array<T, 1, 1> &b,
 
 template<typename T>
 Spline<T>::Spline(
-    ndarray::Array<Spline<T>::InternalT const, 1, 1> const& x,
-    ndarray::Array<Spline<T>::InternalT const, 1, 1> const& y,
+    ndarray::Array<Spline<T>::InternalT, 1, 1> const& x,
+    ndarray::Array<Spline<T>::InternalT, 1, 1> const& y,
     InterpolationTypes interpolationType
 ) : _interpolationType(interpolationType) {
     std::size_t const n = x.size();
@@ -303,12 +303,14 @@ class Spline<T>::Factory : public lsst::afw::table::io::PersistableFactory {
         lsst::afw::table::io::InputArchive const& archive,
         lsst::afw::table::io::CatalogVector const& catalogs
     ) const override {
+        using InternalT = Spline<T>::InternalT;
         static auto const& schema = SplinePersistenceHelper<T>::get();
         LSST_ARCHIVE_ASSERT(catalogs.size() == 1u);
         LSST_ARCHIVE_ASSERT(catalogs.front().size() == 1u);
         lsst::afw::table::BaseRecord const& record = catalogs.front().front();
         LSST_ARCHIVE_ASSERT(record.getSchema() == schema.schema);
-        return std::make_shared<Spline<T>>(record.get(schema.x), record.get(schema.y),
+        return std::make_shared<Spline<T>>(utils::convertArray<InternalT>(record.get(schema.x)),
+                                           utils::convertArray<InternalT>(record.get(schema.y)),
                                            InterpolationTypes(record.get(schema.interpolationType)));
     }
 
@@ -318,7 +320,7 @@ class Spline<T>::Factory : public lsst::afw::table::io::PersistableFactory {
 
 /************************************************************************************************************/
 
-template class Spline<float>;
-typename Spline<float>::Factory registration("Spline");
+template class Spline<double>;
+typename Spline<double>::Factory registration("Spline");
 
 }}}}

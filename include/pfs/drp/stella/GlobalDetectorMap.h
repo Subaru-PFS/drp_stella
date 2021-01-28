@@ -19,7 +19,7 @@ namespace stella {
 /// DetectorMap implemented with a global detector model
 class GlobalDetectorMap : public DetectorMap {
   public:
-    using ParamType = float;
+    using ParamType = double;
 
     /// Ctor
     ///
@@ -63,8 +63,8 @@ class GlobalDetectorMap : public DetectorMap {
         ndarray::Array<double, 1, 1> const& xCoefficients,
         ndarray::Array<double, 1, 1> const& yCoefficients,
         ndarray::Array<double, 1, 1> const& rightCcd,
-        ndarray::Array<float, 1, 1> const& spatialOffsets,
-        ndarray::Array<float, 1, 1> const& spectralOffsets,
+        ndarray::Array<double, 1, 1> const& spatialOffsets,
+        ndarray::Array<double, 1, 1> const& spectralOffsets,
         VisitInfo const& visitInfo=VisitInfo(lsst::daf::base::PropertyList()),
         std::shared_ptr<lsst::daf::base::PropertySet> metadata=nullptr
     );
@@ -80,13 +80,13 @@ class GlobalDetectorMap : public DetectorMap {
     //@{
     /// Return the fiber centers
     virtual Array1D getXCenter(int fiberId) const override;
-    virtual float getXCenter(int fiberId, float row) const override;
+    virtual double getXCenter(int fiberId, double row) const override;
     //@}
 
     //@{
     /// Return the wavelength values
     virtual Array1D getWavelength(int fiberId) const override;
-    virtual float getWavelength(int fiberId, float row) const override;
+    virtual double getWavelength(int fiberId, double row) const override;
     //@}
 
     /// Return the fiberId given a position on the detector
@@ -110,11 +110,11 @@ class GlobalDetectorMap : public DetectorMap {
     /// @param xErr, yErr : Error in position of reference lines (pixels)
     virtual void measureSlitOffsets(
         ndarray::Array<int, 1, 1> const& fiberId,
-        ndarray::Array<float, 1, 1> const& wavelength,
-        ndarray::Array<float, 1, 1> const& x,
-        ndarray::Array<float, 1, 1> const& y,
-        ndarray::Array<float, 1, 1> const& xErr,
-        ndarray::Array<float, 1, 1> const& yErr
+        ndarray::Array<double, 1, 1> const& wavelength,
+        ndarray::Array<double, 1, 1> const& x,
+        ndarray::Array<double, 1, 1> const& y,
+        ndarray::Array<double, 1, 1> const& xErr,
+        ndarray::Array<double, 1, 1> const& yErr
     ) override;
 
     bool isPersistable() const noexcept { return true; }
@@ -123,10 +123,10 @@ class GlobalDetectorMap : public DetectorMap {
 
   protected:
     /// Return the position of the fiber trace on the detector, given a fiberId and wavelength
-    virtual lsst::geom::PointD findPointImpl(int fiberId, float wavelength) const override;
+    virtual lsst::geom::PointD findPointImpl(int fiberId, double wavelength) const override;
 
     /// Return the wavelength of a point on the detector, given a fiberId and row
-    virtual float findWavelengthImpl(int fiberId, float row) const override;
+    virtual double findWavelengthImpl(int fiberId, double row) const override;
 
     std::string getPersistenceName() const { return "GlobalDetectorMap"; }
     std::string getPythonModule() const { return "pfs.drp.stella"; }

@@ -456,7 +456,7 @@ class BootstrapTask(CmdLineTask):
         # Update the detectorMap
         if doUpdate:
             self.log.info("Updating detectorMap...")
-            rows = np.arange(detectorMap.bbox.getMaxY() + 1, dtype=np.float32)
+            rows = np.arange(detectorMap.bbox.getMaxY() + 1, dtype=float)
             for ff in detectorMap.fiberId:
                 if fiberId and ff not in fiberId:
                     continue
@@ -466,8 +466,8 @@ class BootstrapTask(CmdLineTask):
                 assert len(center) == len(rows)
                 spatial = fitSpatial(center, rows)
                 spectral = fitSpectral(center, rows)
-                detectorMap.setXCenter(ff, rows, spatial.astype(np.float32))
-                detectorMap.setWavelength(ff, spectral.astype(np.float32), wavelength.astype(np.float32))
+                detectorMap.setXCenter(ff, rows, spatial)
+                detectorMap.setWavelength(ff, spectral, wavelength)
 
     def visualize(self, image, fiberId, detectorMap, refLines, frame=1):
         """Visualize arc lines on an image

@@ -20,9 +20,10 @@ class SpectrumSet {
     using SpectrumPtr = std::shared_ptr<Spectrum>;
     using ConstSpectrumPtr = std::shared_ptr<Spectrum const>;
     using Collection = std::vector<SpectrumPtr>;
-    using ImageArray = ndarray::Array<float, 2, 1>;
-    using CovarianceArray = ndarray::Array<float, 3, 1>;
+    using ImageArray = ndarray::Array<double, 2, 1>;
+    using CovarianceArray = ndarray::Array<double, 3, 1>;
     using MaskArray = ndarray::Array<lsst::afw::image::MaskPixel, 2, 1>;
+    using WavelengthArray = ndarray::Array<double, 2, 1>;
     using iterator = Collection::iterator;
     using const_iterator = Collection::const_iterator;
 
@@ -96,7 +97,7 @@ class SpectrumSet {
     /**
      * @brief Return all wavelengths in an array [length x nFibers]
      */
-    ImageArray getAllWavelengths() const;
+    WavelengthArray getAllWavelengths() const;
 
     /**
      * @brief Return all masks in an array [length x nFibers]

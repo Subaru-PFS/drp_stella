@@ -58,8 +58,8 @@ GlobalDetectorMap::GlobalDetectorMap(
     ndarray::Array<double, 1, 1> const& xCoefficients,
     ndarray::Array<double, 1, 1> const& yCoefficients,
     ndarray::Array<double, 1, 1> const& rightCcd,
-    ndarray::Array<float, 1, 1> const& spatialOffsets,
-    ndarray::Array<float, 1, 1> const& spectralOffsets,
+    ndarray::Array<double, 1, 1> const& spatialOffsets,
+    ndarray::Array<double, 1, 1> const& spectralOffsets,
     VisitInfo const& visitInfo,
     std::shared_ptr<lsst::daf::base::PropertySet> metadata
 ) : GlobalDetectorMap(
@@ -161,9 +161,9 @@ DetectorMap::Array1D GlobalDetectorMap::getXCenter(
 }
 
 
-float GlobalDetectorMap::getXCenter(
+double GlobalDetectorMap::getXCenter(
     int fiberId,
-    float row
+    double row
 ) const {
     Spline const& spline = _rowToXCenter[getFiberIndex(fiberId)];
     return spline(row);
@@ -183,9 +183,9 @@ DetectorMap::Array1D GlobalDetectorMap::getWavelength(
 }
 
 
-float GlobalDetectorMap::getWavelength(
+double GlobalDetectorMap::getWavelength(
     int fiberId,
-    float row
+    double row
 ) const {
     Spline const& spline = _rowToWavelength[getFiberIndex(fiberId)];
     return spline(row);
@@ -236,13 +236,13 @@ int GlobalDetectorMap::findFiberId(lsst::geom::PointD const& point) const {
 
 lsst::geom::PointD GlobalDetectorMap::findPointImpl(
     int fiberId,
-    float wavelength
+    double wavelength
 ) const {
     return _model(fiberId, wavelength);
 }
 
 
-float GlobalDetectorMap::findWavelengthImpl(int fiberId, float row) const {
+double GlobalDetectorMap::findWavelengthImpl(int fiberId, double row) const {
     Spline const& spline = _rowToWavelength[getFiberIndex(fiberId)];
     return spline(row);
 }
@@ -266,11 +266,11 @@ class SlitOffsetMinimization : public ROOT::Minuit2::FCNBase {
     SlitOffsetMinimization(
         DetectorMap const& detectorMap,
         ndarray::Array<int, 1, 1> const& fiberId,
-        ndarray::Array<float, 1, 1> const& wavelength,
-        ndarray::Array<float, 1, 1> const& x,
-        ndarray::Array<float, 1, 1> const& y,
-        ndarray::Array<float, 1, 1> const& xErr,
-        ndarray::Array<float, 1, 1> const& yErr
+        ndarray::Array<double, 1, 1> const& wavelength,
+        ndarray::Array<double, 1, 1> const& x,
+        ndarray::Array<double, 1, 1> const& y,
+        ndarray::Array<double, 1, 1> const& xErr,
+        ndarray::Array<double, 1, 1> const& yErr
     ) : _detectorMap(detectorMap.clone()),
         _num(fiberId.size()),
         _fiberId(fiberId),
@@ -286,9 +286,9 @@ class SlitOffsetMinimization : public ROOT::Minuit2::FCNBase {
             assert(xErr.size() == _num);
             assert(yErr.size() == _num);
             std::transform(xErr.begin(), xErr.end(), _xErr2.begin(),
-                           [](float err) { return std::pow(err, 2); });
+                           [](double err) { return std::pow(err, 2); });
             std::transform(yErr.begin(), yErr.end(), _yErr2.begin(),
-                           [](float err) { return std::pow(err, 2); });
+                           [](double err) { return std::pow(err, 2); });
         }
 
     SlitOffsetMinimization(SlitOffsetMinimization const &) = default;
@@ -315,12 +315,12 @@ class SlitOffsetMinimization : public ROOT::Minuit2::FCNBase {
     std::shared_ptr<DetectorMap> _detectorMap;
     std::size_t _num;
     ndarray::Array<int, 1, 1> const _fiberId;
-    ndarray::Array<float, 1, 1> const _wavelength;
-    ndarray::Array<float, 1, 1> const _x;
-    ndarray::Array<float, 1, 1> const _y;
-    ndarray::Array<float, 1, 1> const _xErr2;
-    ndarray::Array<float, 1, 1> const _yErr2;
-    mutable lsst::utils::Cache<lsst::geom::Point2D, float> _cache;
+    ndarray::Array<double, 1, 1> const _wavelength;
+    ndarray::Array<double, 1, 1> const _x;
+    ndarray::Array<double, 1, 1> const _y;
+    ndarray::Array<double, 1, 1> const _xErr2;
+    ndarray::Array<double, 1, 1> const _yErr2;
+    mutable lsst::utils::Cache<lsst::geom::Point2D, double> _cache;
 };
 
 double SlitOffsetMinimization::calculateChi2(lsst::geom::Point2D const& offset) const {
@@ -356,16 +356,16 @@ double SlitOffsetMinimization::operator()(std::vector<double> const& parameters)
 
 
 lsst::geom::Point2D SlitOffsetMinimization::minimize() const {
-    std::vector<float> dx(_num);
-    std::vector<float> dy(_num);
+    std::vector<double> dx(_num);
+    std::vector<double> dy(_num);
     for (std::size_t ii = 0, jj = 0; ii < _num; ++ii) {
         lsst::geom::Point2D const point = _detectorMap->findPoint(_fiberId[ii], _wavelength[ii]);
         dx[jj] = _x[ii] - point.getX();
         dy[jj] = _y[ii] - point.getY();
         ++jj;
     }
-    float const dxMean = lsst::afw::math::makeStatistics(dx, lsst::afw::math::MEDIAN).getValue();
-    float const dyMean = lsst::afw::math::makeStatistics(dy, lsst::afw::math::MEDIAN).getValue();
+    double const dxMean = lsst::afw::math::makeStatistics(dx, lsst::afw::math::MEDIAN).getValue();
+    double const dyMean = lsst::afw::math::makeStatistics(dy, lsst::afw::math::MEDIAN).getValue();
 
     std::vector<double> parameters = {dxMean, dyMean};
     std::vector<double> steps = {0.1, 0.1};
@@ -383,11 +383,11 @@ lsst::geom::Point2D SlitOffsetMinimization::minimize() const {
 
 void GlobalDetectorMap::measureSlitOffsets(
     ndarray::Array<int, 1, 1> const& fiberId,
-    ndarray::Array<float, 1, 1> const& wavelength,
-    ndarray::Array<float, 1, 1> const& x,
-    ndarray::Array<float, 1, 1> const& y,
-    ndarray::Array<float, 1, 1> const& xErr,
-    ndarray::Array<float, 1, 1> const& yErr
+    ndarray::Array<double, 1, 1> const& wavelength,
+    ndarray::Array<double, 1, 1> const& x,
+    ndarray::Array<double, 1, 1> const& y,
+    ndarray::Array<double, 1, 1> const& xErr,
+    ndarray::Array<double, 1, 1> const& yErr
 ) {
     std::size_t const num = fiberId.size();
     utils::checkSize(wavelength.size(), num, "wavelength");
@@ -406,7 +406,6 @@ namespace {
 // Singleton class that manages the persistence catalog's schema and keys
 class GlobalDetectorMapSchema {
     using IntArray = lsst::afw::table::Array<int>;
-    using FloatArray = lsst::afw::table::Array<float>;
     using DoubleArray = lsst::afw::table::Array<double>;
   public:
     lsst::afw::table::Schema schema;
@@ -420,8 +419,8 @@ class GlobalDetectorMapSchema {
     lsst::afw::table::Key<DoubleArray> xCoefficients;
     lsst::afw::table::Key<DoubleArray> yCoefficients;
     lsst::afw::table::Key<DoubleArray> rightCcd;
-    lsst::afw::table::Key<FloatArray> spatialOffset;
-    lsst::afw::table::Key<FloatArray> spectralOffset;
+    lsst::afw::table::Key<DoubleArray> spatialOffset;
+    lsst::afw::table::Key<DoubleArray> spectralOffset;
     lsst::afw::table::Key<int> visitInfo;
 
     static GlobalDetectorMapSchema const &get() {
@@ -442,8 +441,8 @@ class GlobalDetectorMapSchema {
         xCoefficients(schema.addField<DoubleArray>("xCoefficients", "x distortion coefficients", "", 0)),
         yCoefficients(schema.addField<DoubleArray>("yCoefficients", "y distortion coefficients", "", 0)),
         rightCcd(schema.addField<DoubleArray>("rightCcd", "affine transform coefficients for RHS", "", 0)),
-        spatialOffset(schema.addField<FloatArray>("spatialOffset", "slit offsets in x", "micron", 0)),
-        spectralOffset(schema.addField<FloatArray>("spectralOffset", "slit offsets in y", "micron", 0)),
+        spatialOffset(schema.addField<DoubleArray>("spatialOffset", "slit offsets in x", "micron", 0)),
+        spectralOffset(schema.addField<DoubleArray>("spectralOffset", "slit offsets in y", "micron", 0)),
         visitInfo(schema.addField<int>("visitInfo", "visitInfo reference", "")) {
             schema.getCitizen().markPersistent();
     }
@@ -470,9 +469,9 @@ void GlobalDetectorMap::write(lsst::afw::table::io::OutputArchiveHandle & handle
     record->set(schema.yCoefficients, yCoeff);
     ndarray::Array<double, 1, 1> rightCcd = ndarray::copy(getModel().getRightCcdCoefficients());
     record->set(schema.rightCcd, rightCcd);
-    ndarray::Array<float, 1, 1> spatialOffset = ndarray::copy(getSpatialOffsets());
+    ndarray::Array<double, 1, 1> spatialOffset = ndarray::copy(getSpatialOffsets());
     record->set(schema.spatialOffset, spatialOffset);
-    ndarray::Array<float, 1, 1> spectralOffset = ndarray::copy(getSpectralOffsets());
+    ndarray::Array<double, 1, 1> spectralOffset = ndarray::copy(getSpectralOffsets());
     record->set(schema.spectralOffset, spectralOffset);
     record->set(schema.visitInfo, handle.put(getVisitInfo()));
     // XXX dropping metadata on the floor, since we can't write a header
@@ -501,8 +500,8 @@ class GlobalDetectorMap::Factory : public lsst::afw::table::io::PersistableFacto
         ndarray::Array<double, 1, 1> xCoeff = ndarray::copy(record.get(schema.xCoefficients));
         ndarray::Array<double, 1, 1> yCoeff = ndarray::copy(record.get(schema.yCoefficients));
         ndarray::Array<double, 1, 1> rightCcd = ndarray::copy(record.get(schema.rightCcd));
-        ndarray::Array<float, 1, 1> spatialOffset = ndarray::copy(record.get(schema.spatialOffset));
-        ndarray::Array<float, 1, 1> spectralOffset = ndarray::copy(record.get(schema.spectralOffset));        assert(spatialOffset.getNumElements() == fiberId.size());
+        ndarray::Array<double, 1, 1> spatialOffset = ndarray::copy(record.get(schema.spatialOffset));
+        ndarray::Array<double, 1, 1> spectralOffset = ndarray::copy(record.get(schema.spectralOffset));        assert(spatialOffset.getNumElements() == fiberId.size());
         assert(spectralOffset.getNumElements() == fiberId.size());
         auto visitInfo = archive.get<lsst::afw::image::VisitInfo>(record.get(schema.visitInfo));
 

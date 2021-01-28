@@ -187,7 +187,7 @@ class DetectorMap:
             minWl = min(self.getWavelength(ff).min() for ff in fiberId)
             maxWl = max(self.getWavelength(ff).max() for ff in fiberId)
             wavelengths = np.array([wl for wl in set(wavelengths) if wl > minWl and wl < maxWl],
-                                   dtype=np.float32)
+                                   dtype=float)
 
         with display.Buffering():
             for fiberId in set(fiberId):
@@ -199,7 +199,7 @@ class DetectorMap:
                     display.line((p1, p2), ctype=ctype)
 
                 if wavelengths is not None:
-                    points = self.findPoint(np.full_like(wavelengths, fiberId, dtype=np.int32), wavelengths)
+                    points = self.findPoint(fiberId, wavelengths)
                     for xx, yy in points:
                         display.dot("x", xx, yy, size=5, ctype=ctype)
 

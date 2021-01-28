@@ -23,9 +23,9 @@ class FluxTableTestCase(lsst.utils.tests.TestCase):
         rng = np.random.RandomState(12345)  # I have the same combination on my luggage
         wavelengthRange = self.maxWavelength - self.minWavelength
         self.wavelength = (self.minWavelength +
-                           np.sort(rng.uniform(size=self.length).astype(np.float32))*wavelengthRange)
-        self.flux = rng.uniform(size=self.length).astype(np.float32)
-        self.error = rng.uniform(size=self.length).astype(np.float32)
+                           np.sort(rng.uniform(size=self.length).astype(float))*wavelengthRange)
+        self.flux = rng.uniform(size=self.length)
+        self.error = rng.uniform(size=self.length)
         self.mask = np.zeros_like(self.flux, dtype=np.int32)
         self.flags = MaskHelper(missing=1)
 

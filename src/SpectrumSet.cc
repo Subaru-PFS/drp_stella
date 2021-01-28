@@ -51,8 +51,8 @@ SpectrumSet::ImageArray SpectrumSet::getAllFluxes() const {
 }
 
 
-SpectrumSet::ImageArray SpectrumSet::getAllWavelengths() const {
-    ImageArray lambda = ndarray::allocate(size(), _length);
+SpectrumSet::WavelengthArray SpectrumSet::getAllWavelengths() const {
+    WavelengthArray lambda = ndarray::allocate(size(), _length);
     for (std::size_t ii = 0; ii < size(); ++ii) {
         lambda[ii] = get(ii)->getWavelength();
     }

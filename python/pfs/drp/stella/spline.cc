@@ -24,7 +24,7 @@ void declareSpline(py::module &mod, std::string const& suffix) {
     type.value("NATURAL", Class::InterpolationTypes::CUBIC_NATURAL);
     type.export_values();
 
-    cls.def(py::init<typename Class::ConstArray const&, typename Class::ConstArray const&,
+    cls.def(py::init<typename Class::Array const&, typename Class::Array const&,
                      typename Class::InterpolationTypes>(),
                      "x"_a, "y"_a, "type"_a=Class::InterpolationTypes::CUBIC_NOTAKNOT);
     cls.def("__call__", py::overload_cast<T const>(&Class::operator(), py::const_));
@@ -39,7 +39,7 @@ void declareSpline(py::module &mod, std::string const& suffix) {
 PYBIND11_PLUGIN(spline) {
     py::module mod("spline");
 
-    declareSpline<float>(mod, "F");
+    declareSpline<double>(mod, "D");
 
     return mod.ptr();
 }

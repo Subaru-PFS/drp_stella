@@ -18,35 +18,35 @@ void declareSpectralPsf(py::module & mod) {
     py::class_<Class, std::shared_ptr<Class>, lsst::afw::detection::Psf> cls(mod, "SpectralPsf");
     cls.def("getDetectorMap", &Class::getDetectorMap);
     cls.def_property_readonly("detectorMap", &Class::getDetectorMap);
-    cls.def("computeImage", py::overload_cast<int, float>(&Class::computeImage, py::const_),
+    cls.def("computeImage", py::overload_cast<int, double>(&Class::computeImage, py::const_),
             "fiberId"_a, "wavelength"_a);
     cls.def("computeImage", py::overload_cast<lsst::geom::Point2D const&>(&Class::computeImage, py::const_),
             "position"_a);
-    cls.def("computeKernelImage", py::overload_cast<int, float>(&Class::computeKernelImage, py::const_),
+    cls.def("computeKernelImage", py::overload_cast<int, double>(&Class::computeKernelImage, py::const_),
             "fiberId"_a, "wavelength"_a);
     cls.def("computeKernelImage",
             py::overload_cast<lsst::geom::Point2D const&>(&Class::computeKernelImage, py::const_),
             "position"_a);
-    cls.def("computePeak", py::overload_cast<int, float>(&Class::computePeak, py::const_),
+    cls.def("computePeak", py::overload_cast<int, double>(&Class::computePeak, py::const_),
             "fiberId"_a, "wavelength"_a);
     cls.def("computePeak", py::overload_cast<lsst::geom::Point2D const&>(&Class::computePeak, py::const_),
             "position"_a);
     cls.def("computeApertureFlux",
-            py::overload_cast<double, int, float>(&Class::computeApertureFlux, py::const_),
+            py::overload_cast<double, int, double>(&Class::computeApertureFlux, py::const_),
             "radius"_a, "fiberId"_a, "wavelength"_a);
     cls.def("computeApertureFlux",
              py::overload_cast<double, lsst::geom::Point2D const&>(&Class::computeApertureFlux, py::const_),
             "radius"_a, "position"_a);
-    cls.def("computeShape", py::overload_cast<int, float>(&Class::computeShape, py::const_),
+    cls.def("computeShape", py::overload_cast<int, double>(&Class::computeShape, py::const_),
             "fiberId"_a, "wavelength"_a);
     cls.def("computeShape", py::overload_cast<lsst::geom::Point2D const&>(&Class::computeShape, py::const_),
             "position"_a);
-    cls.def("getLocalKernel", py::overload_cast<int, float>(&Class::getLocalKernel, py::const_),
+    cls.def("getLocalKernel", py::overload_cast<int, double>(&Class::getLocalKernel, py::const_),
             "fiberId"_a, "wavelength"_a);
     cls.def("getLocalKernel",
             py::overload_cast<lsst::geom::Point2D const&>(&Class::getLocalKernel, py::const_),
             "position"_a);
-    cls.def("computeBBox", py::overload_cast<int, float>(&Class::computeBBox, py::const_),
+    cls.def("computeBBox", py::overload_cast<int, double>(&Class::computeBBox, py::const_),
             "fiberId"_a, "wavelength"_a);
     cls.def("computeBBox", py::overload_cast<lsst::geom::Point2D const&>(&Class::computeBBox, py::const_),
             "position"_a);

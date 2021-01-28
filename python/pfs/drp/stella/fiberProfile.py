@@ -3,7 +3,7 @@ import scipy
 
 from lsst.geom import Box2I, Point2I
 from lsst.afw.image import MaskedImageF
-from pfs.drp.stella.spline import SplineF
+from pfs.drp.stella.spline import SplineD
 from pfs.drp.stella.FiberTraceContinued import FiberTrace
 from pfs.drp.stella.profile import calculateSwathProfile
 
@@ -217,9 +217,9 @@ class FiberProfile:
             A pixellated version of the profile, at a fixed trace position.
         """
         dimensions = detectorMap.bbox.getDimensions()
-        rows = np.arange(dimensions.getY(), dtype=np.float32)
+        rows = np.arange(dimensions.getY(), dtype=float)
         xCenter = detectorMap.getXCenter(fiberId)
-        centerFunc = SplineF(rows, xCenter)
+        centerFunc = SplineD(rows, xCenter)
         return self.makeFiberTrace(dimensions, centerFunc, fiberId)
 
     def makeFiberTrace(self, dimensions, centerFunc, fiberId):
@@ -244,10 +244,10 @@ class FiberProfile:
         """
         width, height = dimensions
         rows = np.arange(height, dtype=int)
-        xCen = centerFunc(rows.astype(np.float32)).astype(np.float32)
+        xCen = centerFunc(rows.astype(float))
         xMin = max(0, int(np.min(xCen)) - self.radius)
         xMax = min(width, int(np.ceil(np.max(xCen))) + self.radius)
-        xx = np.arange(xMin, xMax + 1, dtype=np.float32)
+        xx = np.arange(xMin, xMax + 1, dtype=float)
         xImg = (xx - xMin).astype(int)
         box = Box2I(Point2I(xMin, 0), Point2I(xMax, height - 1))
         image = MaskedImageF(box)
@@ -265,10 +265,10 @@ class FiberProfile:
         prevWeight = 1.0 - nextWeight
 
         # Interpolate in x: spline the profile for each swath, and combine with the appropriate weighting
-        xProf = self.index.astype(np.float32)
-        profiles = self.profiles.astype(np.float32)
+        xProf = self.index.astype(float)
+        profiles = self.profiles.astype(float)
         good = ~self.profiles.mask
-        splines = [SplineF(xProf[gg], prof.data[gg], SplineF.NATURAL) for
+        splines = [SplineD(xProf[gg], prof.data[gg], SplineD.NATURAL) for
                    prof, gg in zip(profiles, good)]
         xLow = np.array([xProf[gg][0] for gg in good])
         xHigh = np.array([xProf[gg][-1] for gg in good])

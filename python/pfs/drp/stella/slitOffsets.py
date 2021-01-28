@@ -1,5 +1,3 @@
-import numpy as np
-
 from lsst.pex.config import Config, ListField
 
 __all__ = ("SlitOffsetsConfig",)
@@ -70,4 +68,4 @@ class SlitOffsetsConfig(Config):
             spatial += self.spatial
         if self.spectral:
             spatial += self.spectral
-        detectorMap.setSlitOffsets(spatial.astype(np.float32), spectral.astype(np.float32))
+        detectorMap.setSlitOffsets(spatial, spectral)

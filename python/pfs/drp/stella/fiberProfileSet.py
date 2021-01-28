@@ -6,7 +6,7 @@ from lsst.daf.base import PropertyList
 from pfs.datamodel import PfsFiberProfiles
 from .fiberProfile import FiberProfile
 from .FiberTraceSetContinued import FiberTraceSet
-from .spline import SplineF
+from .spline import SplineD
 
 __all__ = ("FiberProfileSet",)
 
@@ -130,8 +130,8 @@ class FiberProfileSet:
         fiberTraces : `pfs.drp.stella.FiberTraceSet`
             Fiber traces.
         """
-        rows = np.arange(detectorMap.bbox.getHeight(), dtype=np.float32)
-        centers = {fiberId: SplineF(rows, detectorMap.getXCenter(fiberId)) for fiberId in self}
+        rows = np.arange(detectorMap.bbox.getHeight(), dtype=float)
+        centers = {fiberId: SplineD(rows, detectorMap.getXCenter(fiberId)) for fiberId in self}
         return self.makeFiberTraces(detectorMap.bbox.getDimensions(), centers)
 
     def makeFiberTraces(self, dimensions, centers):

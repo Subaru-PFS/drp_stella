@@ -97,11 +97,11 @@ DetectorMap::Array1D SplinedDetectorMap::getXCenter(
     int fiberId
 ) const {
     auto const& spline = getXCenterSpline(fiberId);
-    float const spatial = getSpatialOffset(fiberId);
-    float const spectral = getSpectralOffset(fiberId);
+    double const spatial = getSpatialOffset(fiberId);
+    double const spectral = getSpectralOffset(fiberId);
     std::size_t const height = getBBox().getHeight();
 
-    ndarray::Array<float, 1, 1> out = ndarray::allocate(height);
+    ndarray::Array<double, 1, 1> out = ndarray::allocate(height);
     for (std::size_t yy = 0; yy < height; ++yy) {
         out[yy] = spline(yy - spectral) + spatial;
     }
@@ -109,13 +109,13 @@ DetectorMap::Array1D SplinedDetectorMap::getXCenter(
 }
 
 
-float SplinedDetectorMap::getXCenter(
+double SplinedDetectorMap::getXCenter(
     int fiberId,
-    float row
+    double row
 ) const {
     auto const& spline = getXCenterSpline(fiberId);
-    float const spatial = getSpatialOffset(fiberId);
-    float const spectral = getSpectralOffset(fiberId);
+    double const spatial = getSpatialOffset(fiberId);
+    double const spectral = getSpectralOffset(fiberId);
     return spline(row - spectral) + spatial;
 }
 
@@ -125,10 +125,10 @@ DetectorMap::Array1D SplinedDetectorMap::getWavelength(
     int fiberId
 ) const {
     auto const& spline = getWavelengthSpline(fiberId);
-    float const offset = getSpectralOffset(fiberId);
+    double const offset = getSpectralOffset(fiberId);
     std::size_t const height = getBBox().getHeight();
 
-    ndarray::Array<float, 1, 1> out = ndarray::allocate(height);
+    ndarray::Array<double, 1, 1> out = ndarray::allocate(height);
     for (std::size_t yy = 0; yy < height; ++yy) {
         out[yy] = spline(yy - offset);
     }
@@ -136,12 +136,12 @@ DetectorMap::Array1D SplinedDetectorMap::getWavelength(
 }
 
 
-float SplinedDetectorMap::getWavelength(
+double SplinedDetectorMap::getWavelength(
     int fiberId,
-    float row
+    double row
 ) const {
     auto const& spline = getWavelengthSpline(fiberId);
-    float const offset = getSpectralOffset(fiberId);
+    double const offset = getSpectralOffset(fiberId);
     return spline(row - offset);
 }
 
@@ -149,7 +149,7 @@ float SplinedDetectorMap::getWavelength(
 int SplinedDetectorMap::findFiberId(
     lsst::geom::PointD const& point
 ) const {
-    float const x = point[0], y = point[1];
+    double const x = point[0], y = point[1];
     std::size_t const maxIter = 2*getNumFibers();  // maximum number of iterations
 
     if (!getBBox().contains(lsst::geom::PointI(x, y))) {
@@ -163,13 +163,13 @@ int SplinedDetectorMap::findFiberId(
     std::size_t iterations = 0;
     for (bool updatedIndex = true; updatedIndex; ++iterations) {
         auto const & spline0 = _xCenter[index];
-        float const xCenter0 = spline0(y - getSpectralOffsets()[index]) + getSpatialOffsets()[index];
+        double const xCenter0 = spline0(y - getSpectralOffsets()[index]) + getSpatialOffsets()[index];
 
         updatedIndex = false;
         if (index > 0) {
             int const prevFiberId = getFiberId()[index - 1];
             auto const & splineMinus = getXCenterSpline(prevFiberId);
-            float const xCenterMinus = splineMinus(y - getSpectralOffsets()[index - 1]) +
+            double const xCenterMinus = splineMinus(y - getSpectralOffsets()[index - 1]) +
                 getSpatialOffsets()[index - 1];
 
             if (std::fabs(x - xCenterMinus) < std::fabs(x - xCenter0)) {
@@ -181,7 +181,7 @@ int SplinedDetectorMap::findFiberId(
         if (index < _xCenter.size() - 1) {
             int nextFiberId = getFiberId()[index + 1];
             auto const & splinePlus = getXCenterSpline(nextFiberId);
-            float const xCenterPlus = splinePlus(y - getSpectralOffsets()[index]) +
+            double const xCenterPlus = splinePlus(y - getSpectralOffsets()[index]) +
                 getSpatialOffsets()[index + 1];
 
             if (std::fabs(x - xCenterPlus) < std::fabs(x - xCenter0)) {
@@ -201,7 +201,7 @@ int SplinedDetectorMap::findFiberId(
 
 lsst::geom::PointD SplinedDetectorMap::findPointImpl(
     int fiberId,
-    float wavelength
+    double wavelength
 ) const {
     auto const fiberWavelength = getWavelength(fiberId);
 
@@ -221,7 +221,7 @@ lsst::geom::PointD SplinedDetectorMap::findPointImpl(
     double y = iy;                      // just past the desired point
 
     if (iy > 0) {                       // interpolate to get better accuracy
-        const float dy = -(fiberWavelength[iy] - wavelength)/(fiberWavelength[iy] - fiberWavelength[iy - 1]);
+        const double dy = -(fiberWavelength[iy] - wavelength)/(fiberWavelength[iy] - fiberWavelength[iy - 1]);
         x += dy*(fiberXCenter[iy] - fiberXCenter[iy - 1]);
         y += dy;
     }
@@ -231,9 +231,9 @@ lsst::geom::PointD SplinedDetectorMap::findPointImpl(
 }
 
 
-float SplinedDetectorMap::findWavelengthImpl(
+double SplinedDetectorMap::findWavelengthImpl(
     int fiberId,
-    float row
+    double row
 ) const {
     if (row < 0 || row > getBBox().getHeight() - 1) {
         std::ostringstream os;
@@ -245,7 +245,7 @@ float SplinedDetectorMap::findWavelengthImpl(
 }
 
 
-math::Spline<float> const&
+math::Spline<double> const&
 SplinedDetectorMap::getXCenterSpline(
     int fiberId
 ) const {
@@ -253,7 +253,7 @@ SplinedDetectorMap::getXCenterSpline(
 }
 
 
-math::Spline<float> const&
+math::Spline<double> const&
 SplinedDetectorMap::getWavelengthSpline(
     int fiberId
 ) const {
@@ -266,7 +266,7 @@ void SplinedDetectorMap::setXCenter(
     ndarray::Array<double, 1, 1> const& knots,
     ndarray::Array<double, 1, 1> const& xCenter
 ) {
-    _xCenter[getFiberIndex(fiberId)] = math::Spline<float>(knots, xCenter);
+    _xCenter[getFiberIndex(fiberId)] = math::Spline<double>(knots, xCenter);
 }
 
 
@@ -275,17 +275,17 @@ void SplinedDetectorMap::setWavelength(
     ndarray::Array<double, 1, 1> const& knots,
     ndarray::Array<double, 1, 1> const& wavelength
 ) {
-    _wavelength[getFiberIndex(fiberId)] = math::Spline<float>(knots, wavelength);
+    _wavelength[getFiberIndex(fiberId)] = math::Spline<double>(knots, wavelength);
 }
 
 
 void SplinedDetectorMap::measureSlitOffsets(
     ndarray::Array<int, 1, 1> const& fiberId,
-    ndarray::Array<float, 1, 1> const& wavelength,
-    ndarray::Array<float, 1, 1> const& x,
-    ndarray::Array<float, 1, 1> const& y,
-    ndarray::Array<float, 1, 1> const& xErr,
-    ndarray::Array<float, 1, 1> const& yErr
+    ndarray::Array<double, 1, 1> const& wavelength,
+    ndarray::Array<double, 1, 1> const& x,
+    ndarray::Array<double, 1, 1> const& y,
+    ndarray::Array<double, 1, 1> const& xErr,
+    ndarray::Array<double, 1, 1> const& yErr
 ) {
     throw LSST_EXCEPT(lsst::pex::exceptions::RuntimeError, "Not implemented.");
 }
@@ -294,10 +294,10 @@ void SplinedDetectorMap::measureSlitOffsets(
 void SplinedDetectorMap::_set_xToFiberId() {
     int const iy = getBBox().getHeight()/2;
 
-    float lastCenter = -1e30;            // center of the last fibre we passed scanning to the right
+    double lastCenter = -1e30;            // center of the last fibre we passed scanning to the right
     std::size_t lastIndex = -1;          // index of the last fibre we passed.  Special case starting with 0
 
-    float nextCenter = _xCenter[0](iy); // center of the next fiber we're looking at
+    double nextCenter = _xCenter[0](iy); // center of the next fiber we're looking at
     for (std::size_t index = 0, x = 0; x != std::size_t(getBBox().getWidth()); ++x) {
         if (x - lastCenter > nextCenter - x) { // x is nearer to next_xc than last_xc
             lastCenter = nextCenter;
@@ -319,15 +319,15 @@ namespace {
 // Singleton class that manages the persistence catalog's schema and keys
 class SplinedDetectorMapSchema {
     using IntArray = lsst::afw::table::Array<int>;
-    using FloatArray = lsst::afw::table::Array<float>;
+    using DoubleArray = lsst::afw::table::Array<double>;
   public:
     lsst::afw::table::Schema schema;
     lsst::afw::table::Box2IKey bbox;
     lsst::afw::table::Key<IntArray> fiberId;
     lsst::afw::table::Key<IntArray> xCenter;
     lsst::afw::table::Key<IntArray> wavelength;
-    lsst::afw::table::Key<FloatArray> spatialOffset;
-    lsst::afw::table::Key<FloatArray> spectralOffset;
+    lsst::afw::table::Key<DoubleArray> spatialOffset;
+    lsst::afw::table::Key<DoubleArray> spectralOffset;
     lsst::afw::table::Key<int> visitInfo;
 
     static SplinedDetectorMapSchema const &get() {
@@ -342,8 +342,8 @@ class SplinedDetectorMapSchema {
         fiberId(schema.addField<IntArray>("fiberId", "fiber identifiers", "", 0)),
         xCenter(schema.addField<IntArray>("xCenter", "xCenter spline references", "", 0)),
         wavelength(schema.addField<IntArray>("wavelength", "wavelength spline references", "", 0)),
-        spatialOffset(schema.addField<FloatArray>("spatialOffset", "slit offsets in x", "micron", 0)),
-        spectralOffset(schema.addField<FloatArray>("spectralOffset", "slit offsets in y", "micron", 0)),
+        spatialOffset(schema.addField<DoubleArray>("spatialOffset", "slit offsets in x", "micron", 0)),
+        spectralOffset(schema.addField<DoubleArray>("spectralOffset", "slit offsets in y", "micron", 0)),
         visitInfo(schema.addField<int>("visitInfo", "visitInfo reference", "")) {
             schema.getCitizen().markPersistent();
     }
@@ -369,8 +369,8 @@ void SplinedDetectorMap::write(lsst::afw::table::io::OutputArchiveHandle & handl
 
     record->set(schema.xCenter, xCenter);
     record->set(schema.wavelength, wavelength);
-    ndarray::Array<float, 1, 1> spatialOffset = ndarray::copy(getSpatialOffsets());
-    ndarray::Array<float, 1, 1> spectralOffset = ndarray::copy(getSpectralOffsets());
+    ndarray::Array<double, 1, 1> spatialOffset = ndarray::copy(getSpatialOffsets());
+    ndarray::Array<double, 1, 1> spectralOffset = ndarray::copy(getSpectralOffsets());
     record->set(schema.spatialOffset, spatialOffset);
     record->set(schema.spectralOffset, spectralOffset);
     record->set(schema.visitInfo, handle.put(getVisitInfo()));
@@ -403,8 +403,8 @@ class SplinedDetectorMap::Factory : public lsst::afw::table::io::PersistableFact
             wavelength.emplace_back(*archive.get<Spline>(record.get(schema.wavelength)[ii]));
         }
 
-        ndarray::Array<float, 1, 1> spatialOffset = ndarray::copy(record.get(schema.spatialOffset));
-        ndarray::Array<float, 1, 1> spectralOffset = ndarray::copy(record.get(schema.spectralOffset));
+        ndarray::Array<double, 1, 1> spatialOffset = ndarray::copy(record.get(schema.spatialOffset));
+        ndarray::Array<double, 1, 1> spectralOffset = ndarray::copy(record.get(schema.spectralOffset));
         assert (wavelength.size() == numFibers);
         assert(spatialOffset.getNumElements() == numFibers);
         assert(spectralOffset.getNumElements() == numFibers);

@@ -261,7 +261,8 @@ calcProfileSwath(
     auto yVecMean = std::make_shared<std::vector<float>>(valOverSampled.size());
     std::transform(valOverSampled.begin(), valOverSampled.end(), yVecMean->begin(),
                    [](std::pair<float, float> const& values) { return values.second; });
-    math::Spline<float> spline(*xVecMean, *yVecMean, math::Spline<float>::CUBIC_NATURAL); // X must be sorted
+    math::Spline<double> spline(*xVecMean, *yVecMean,
+                                math::Spline<double>::CUBIC_NATURAL); // X must be sorted
     LOGLS_TRACE(_log, "_fiberId = " << fiberId << ": iSwath = " << iSwath <<
                 ": spline.x = " << spline.getX());
     LOGLS_TRACE(_log, "_fiberId = " << fiberId << ": iSwath = " << iSwath <<

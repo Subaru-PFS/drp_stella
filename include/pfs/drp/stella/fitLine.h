@@ -82,7 +82,7 @@ FitLineResult fitLine(
     lsst::afw::image::MaskPixel badBitMask,
     std::size_t fittingHalfSize=0
 ) {
-    return fitLine<float>(
+    return fitLine(
         spectrum.getFlux(), spectrum.getMask().getArray()[0].shallow(),
         peakPosition, rmsSize, badBitMask, fittingHalfSize
     );
