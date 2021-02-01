@@ -26,7 +26,6 @@ Spectrum::Spectrum(std::size_t length, std::size_t fiberId)
     _background.deep() = 0.;
     _covariance.deep() = 0.;
     _wavelength.deep() = 0.;
-    _mask.addMaskPlane("REJECTED_LINES");
     _mask.addMaskPlane("FIBERTRACE");
 }
 
