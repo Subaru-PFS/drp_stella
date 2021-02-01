@@ -21,13 +21,12 @@ class WavelengthFitDataTestCase(lsst.utils.tests.TestCase):
         self.wlMax = 900.0  # nm
         scale = self.wlMax - self.wlMin
 
-        float32 = np.float32
-        self.measuredPosition = np.random.uniform(size=self.fiberId.shape).astype(float32)*(self.length - 1)
-        self.measuredPositionErr = 0.01*np.random.uniform(size=self.fiberId.shape).astype(float32)
-        self.xCenter = np.random.uniform(size=self.fiberId.shape).astype(float32)*(self.length - 1)
-        self.refWavelength = np.random.uniform(size=self.fiberId.shape).astype(float32)*scale + self.wlMin
-        self.fitWavelength = np.random.uniform(size=self.fiberId.shape).astype(float32)*scale + self.wlMin
-        self.correction = 0.1*np.random.uniform(size=self.fiberId.shape).astype(float32)
+        self.measuredPosition = np.random.uniform(size=self.fiberId.shape)*(self.length - 1)
+        self.measuredPositionErr = 0.01*np.random.uniform(size=self.fiberId.shape)
+        self.xCenter = np.random.uniform(size=self.fiberId.shape)*(self.length - 1)
+        self.refWavelength = np.random.uniform(size=self.fiberId.shape)*scale + self.wlMin
+        self.fitWavelength = np.random.uniform(size=self.fiberId.shape)*scale + self.wlMin
+        self.correction = 0.1*np.random.uniform(size=self.fiberId.shape)
         self.status = int(ReferenceLine.Status.FIT)*np.ones_like(self.fiberId, dtype=int)
         self.description = np.array([chr(ord("A") + ii) for ii in range(len(self.fiberId))])
 
@@ -90,13 +89,13 @@ class WavelengthFitDataTestCase(lsst.utils.tests.TestCase):
             refLines[self.fiberId[ii]] = [line]
 
             knots = np.array([-1, 0, self.measuredPosition[ii], self.length, self.length + 1],
-                             dtype=np.float32)
+                             dtype=float)
             centerKnots.append(knots)
             wavelengthKnots.append(knots)
-            centerValues.append(np.array([self.xCenter[ii]]*len(knots), dtype=np.float32))
+            centerValues.append(np.array([self.xCenter[ii]]*len(knots), dtype=float))
             wavelengthValues.append(np.array([self.wlMin - 1, self.wlMin, self.fitWavelength[ii],
                                               self.wlMax, self.wlMax + 1],
-                                             dtype=np.float32))
+                                             dtype=float))
 
         bbox = lsst.geom.Box2I(lsst.geom.Point2I(0, 0),
                                lsst.geom.Extent2I(self.length, self.length))

@@ -98,7 +98,7 @@ class FitContinuumTask(Task):
             if np.all(good == oldGood):
                 break
             oldGood = good
-        return self._fitContinuumImpl(spectrum.spectrum, good).astype(np.float32)
+        return self._fitContinuumImpl(spectrum.spectrum, good)
 
     def _fitContinuumImpl(self, values, good):
         """Implementation of the business part of fitting
@@ -115,7 +115,7 @@ class FitContinuumTask(Task):
         fit : `numpy.ndarray`, floating-point
             Fit array.
         """
-        indices = np.arange(len(values), dtype=np.float)
+        indices = np.arange(len(values), dtype=float)
         knots, binned = binData(indices, values, good, self.config.numKnots)
         use = np.isfinite(knots) & np.isfinite(binned)
         interp = makeInterpolate(knots[use], binned[use], self.fitType)

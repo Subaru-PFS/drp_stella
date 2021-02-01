@@ -132,7 +132,7 @@ class Spectrum:
 
         useWavelength = self.getWavelength()
         if np.all(useWavelength == 0.0):
-            useWavelength = np.arange(len(self), dtype=np.float32)
+            useWavelength = np.arange(len(self), dtype=float)
         wavelength = np.split(useWavelength, division)
         flux = np.split(self.getSpectrum(), division)
         if doBackground:

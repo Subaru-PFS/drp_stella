@@ -52,16 +52,16 @@ DetectorMap::DetectorMap(
 
 
 void DetectorMap::applySlitOffset(
-    float spatial,
-    float spectral
+    double spatial,
+    double spectral
 ) {
     if (spatial != 0.0) {
         std::for_each(_spatialOffsets.begin(), _spatialOffsets.end(),
-                      [spatial](float& value) { value += spatial; });
+                      [spatial](double& value) { value += spatial; });
     }
     if (spectral != 0.0) {
         std::for_each(_spectralOffsets.begin(), _spectralOffsets.end(),
-                      [spectral](float& value) { value += spectral; });
+                      [spectral](double& value) { value += spectral; });
     }
     _resetSlitOffsets();
 }
@@ -79,8 +79,8 @@ void DetectorMap::setSlitOffsets(
 
 void DetectorMap::setSlitOffsets(
     int fiberId,
-    float spatial,
-    float spectral
+    double spatial,
+    double spectral
 ) {
     std::size_t const index = getFiberIndex(fiberId);
     _spatialOffsets[index] = spatial;
@@ -98,7 +98,7 @@ DetectorMap::Array2D DetectorMap::getWavelength() const {
 }
 
 
-float DetectorMap::getDispersion(int fiberId) const {
+double DetectorMap::getDispersion(int fiberId) const {
     float const delta = 0.5;
     int const center = 0.5*_bbox.getHeight();
     double const wl0 = findWavelength(fiberId, center - delta);
@@ -116,12 +116,12 @@ DetectorMap::Array2D DetectorMap::getXCenter() const {
 }
 
 
-ndarray::Array<float, 2, 1> DetectorMap::findPoint(
+ndarray::Array<double, 2, 1> DetectorMap::findPoint(
     int fiberId,
-    ndarray::Array<float, 1, 1> const& wavelength
+    ndarray::Array<double, 1, 1> const& wavelength
 ) const {
     std::size_t const length = wavelength.size();
-    ndarray::Array<float, 2, 1> out = ndarray::allocate(length, 2);
+    ndarray::Array<double, 2, 1> out = ndarray::allocate(length, 2);
     for (std::size_t ii = 0; ii < length; ++ii) {
         auto const point = findPointImpl(fiberId, wavelength[ii]);
         out[ii][0] = point.getX();
@@ -131,13 +131,13 @@ ndarray::Array<float, 2, 1> DetectorMap::findPoint(
 }
 
 
-ndarray::Array<float, 2, 1> DetectorMap::findPoint(
+ndarray::Array<double, 2, 1> DetectorMap::findPoint(
     ndarray::Array<int, 1, 1> const& fiberId,
-    ndarray::Array<float, 1, 1> const& wavelength
+    ndarray::Array<double, 1, 1> const& wavelength
 ) const {
     std::size_t const length = fiberId.size();
     utils::checkSize(length, wavelength.size(), "fiberId vs wavelength");
-    ndarray::Array<float, 2, 1> out = ndarray::allocate(length, 2);
+    ndarray::Array<double, 2, 1> out = ndarray::allocate(length, 2);
     for (std::size_t ii = 0; ii < length; ++ii) {
         auto const point = findPointImpl(fiberId[ii], wavelength[ii]);
         out[ii][0] = point.getX();
@@ -147,12 +147,12 @@ ndarray::Array<float, 2, 1> DetectorMap::findPoint(
 }
 
 
-ndarray::Array<float, 1, 1> DetectorMap::findWavelength(
+ndarray::Array<double, 1, 1> DetectorMap::findWavelength(
     int fiberId,
-    ndarray::Array<float, 1, 1> const& row
+    ndarray::Array<double, 1, 1> const& row
 ) const {
     std::size_t const length = row.size();
-    ndarray::Array<float, 1, 1> out = ndarray::allocate(length);
+    ndarray::Array<double, 1, 1> out = ndarray::allocate(length);
     for (std::size_t ii = 0; ii < length; ++ii) {
         out[ii] = findWavelengthImpl(fiberId, row[ii]);
     }
@@ -160,13 +160,13 @@ ndarray::Array<float, 1, 1> DetectorMap::findWavelength(
 }
 
 
-ndarray::Array<float, 1, 1> DetectorMap::findWavelength(
+ndarray::Array<double, 1, 1> DetectorMap::findWavelength(
     ndarray::Array<int, 1, 1> const& fiberId,
-    ndarray::Array<float, 1, 1> const& row
+    ndarray::Array<double, 1, 1> const& row
 ) const {
     std::size_t const length = fiberId.size();
     utils::checkSize(length, row.size(), "fiberId vs row");
-    ndarray::Array<float, 1, 1> out = ndarray::allocate(length);
+    ndarray::Array<double, 1, 1> out = ndarray::allocate(length);
     for (std::size_t ii = 0; ii < length; ++ii) {
         out[ii] = findWavelengthImpl(fiberId[ii], row[ii]);
     }

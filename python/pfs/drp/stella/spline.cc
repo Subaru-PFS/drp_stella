@@ -24,14 +24,14 @@ void declareSpline(py::module &mod, std::string const& suffix) {
     type.value("NATURAL", Class::InterpolationTypes::CUBIC_NATURAL);
     type.export_values();
 
-    cls.def(py::init<typename Class::ConstArray const&, typename Class::ConstArray const&,
+    cls.def(py::init<typename Class::Array const&, typename Class::Array const&,
                      typename Class::InterpolationTypes>(),
                      "x"_a, "y"_a, "type"_a=Class::InterpolationTypes::CUBIC_NOTAKNOT);
     cls.def("__call__", py::overload_cast<T const>(&Class::operator(), py::const_));
-    cls.def("__call__", py::overload_cast<typename Class::Array const>(&Class::operator(), py::const_));
+    cls.def("__call__", py::overload_cast<ndarray::Array<T, 1, 1> const&>(&Class::operator(), py::const_));
     // Copy arrays so that they are writable, and can be used freely elsewhere
-    cls.def("getX", [](Class const& self) { return ndarray::Array<T, 1, 1>(ndarray::copy(self.getX())); });
-    cls.def("getY", [](Class const& self) { return ndarray::Array<T, 1, 1>(ndarray::copy(self.getY())); });
+    cls.def("getX", [](Class const& self) { return typename Class::Array(ndarray::copy(self.getX())); });
+    cls.def("getY", [](Class const& self) { return typename Class::Array(ndarray::copy(self.getY())); });
     cls.def("getInterpolationType", &Class::getInterpolationType);
     cls.def_property_readonly("interpolationType", &Class::getInterpolationType);
 }
@@ -39,7 +39,7 @@ void declareSpline(py::module &mod, std::string const& suffix) {
 PYBIND11_PLUGIN(spline) {
     py::module mod("spline");
 
-    declareSpline<float>(mod, "F");
+    declareSpline<double>(mod, "D");
 
     return mod.ptr();
 }

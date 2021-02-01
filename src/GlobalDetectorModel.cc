@@ -119,8 +119,8 @@ GlobalDetectorModel::GlobalDetectorModel(
     ndarray::Array<double, 1, 1> const& xDistortion,
     ndarray::Array<double, 1, 1> const& yDistortion,
     ndarray::Array<double, 1, 1> const& rightCcd,
-    ndarray::Array<float, 1, 1> const& spatialOffsets,
-    ndarray::Array<float, 1, 1> const& spectralOffsets
+    ndarray::Array<double, 1, 1> const& spatialOffsets,
+    ndarray::Array<double, 1, 1> const& spectralOffsets
 ) : GlobalDetectorModel(
         distortionOrder, FiberMap(fiberId), scaling,
         0.5*(bbox.getMinX() + bbox.getMaxX()), bbox.getHeight(),
@@ -137,8 +137,8 @@ GlobalDetectorModel::GlobalDetectorModel(
     ndarray::Array<double, 1, 1> const& xDistortion,
     ndarray::Array<double, 1, 1> const& yDistortion,
     ndarray::Array<double, 1, 1> const& rightCcd,
-    ndarray::Array<float, 1, 1> const& spatialOffsets,
-    ndarray::Array<float, 1, 1> const& spectralOffsets
+    ndarray::Array<double, 1, 1> const& spatialOffsets,
+    ndarray::Array<double, 1, 1> const& spectralOffsets
 ) : _distortionOrder(distortionOrder),
     _fiberMap(fiberMap),
     _scaling(scaling),
@@ -273,8 +273,8 @@ ndarray::Array<double, 2, 1> GlobalDetectorModel::calculateDesignMatrix(
     lsst::geom::Box2D const& xiEtaRange,
     ndarray::Array<double, 2, 1> const& xiEta,
     ndarray::Array<std::size_t, 1, 1> const& fiberIndex,
-    ndarray::Array<float, 1, 1> const& spatialOffsets,
-    ndarray::Array<float, 1, 1> const& spectralOffsets
+    ndarray::Array<double, 1, 1> const& spatialOffsets,
+    ndarray::Array<double, 1, 1> const& spectralOffsets
 ) {
     std::size_t const length = xiEta.getShape()[0];
     utils::checkSize(xiEta.getShape()[1], 2UL, "xiEta");
@@ -308,7 +308,7 @@ ndarray::Array<double, 2, 1> GlobalDetectorModel::calculateDesignMatrix(
 }
 
 
-std::pair<float, std::size_t> GlobalDetectorModel::calculateChi2(
+std::pair<double, std::size_t> GlobalDetectorModel::calculateChi2(
     ndarray::Array<double, 2, 1> const& xiEta,
     ndarray::Array<std::size_t, 1, 1> const& fiberIndex,
     ndarray::Array<double, 1, 1> const& xx,
@@ -349,7 +349,7 @@ std::pair<float, std::size_t> GlobalDetectorModel::calculateChi2(
     }
     std::size_t const numFitParams = 2*getNumDistortion() + 2*getNumFibers() + 6;
     std::size_t const dof = num - numFitParams;
-    return std::make_pair(float(chi2), dof);
+    return std::make_pair(chi2, dof);
 }
 
 

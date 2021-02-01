@@ -58,12 +58,12 @@ class SpectrumTestCase(BaseTestCase):
         self.assertSpectrum(spectrum)
 
         # Change versions in self and ensure the values in spectrum DO NOT change (setters do a copy)
-        self.image[:] = self.rng.uniform(size=self.length).astype(np.float32)
+        self.image[:] = self.rng.uniform(size=self.length)
         self.mask[:] = lsst.afw.image.Mask(self.length, 1)
         self.mask.array[:] = self.rng.randint(0, 2**30, self.length).astype(np.int32)
-        self.background[:] = self.rng.uniform(size=self.length).astype(np.float32)
-        self.covariance[:] = self.rng.uniform(size=(3, self.length)).astype(np.float32)
-        self.wavelengthArray[:] = self.rng.uniform(size=self.length).astype(np.float32)
+        self.background[:] = self.rng.uniform(size=self.length)
+        self.covariance[:] = self.rng.uniform(size=(3, self.length))
+        self.wavelengthArray[:] = self.rng.uniform(size=self.length)
         self.assertFloatsNotEqual(spectrum.flux, self.image)
         self.assertFloatsNotEqual(spectrum.spectrum, self.image)
         self.assertFloatsNotEqual(spectrum.mask.array, self.mask.array)
@@ -94,12 +94,12 @@ class SpectrumTestCase(BaseTestCase):
         self.assertReferenceLine(spectrum.getReferenceLines()[0])
 
         # Change versions in self and ensure the values in spectrum change (pointers)
-        self.image[:] = self.rng.uniform(size=self.length).astype(np.float32)
+        self.image[:] = self.rng.uniform(size=self.length)
         self.mask[:] = lsst.afw.image.Mask(self.length, 1)
         self.mask.array[:] = self.rng.randint(0, 2**31, self.length).astype(np.int32)
-        self.background[:] = self.rng.uniform(size=self.length).astype(np.float32)
-        self.covariance[:] = self.rng.uniform(size=(3, self.length)).astype(np.float32)
-        self.wavelengthArray[:] = self.rng.uniform(size=self.length).astype(np.float32)
+        self.background[:] = self.rng.uniform(size=self.length)
+        self.covariance[:] = self.rng.uniform(size=(3, self.length))
+        self.wavelengthArray[:] = self.rng.uniform(size=self.length)
         self.assertFloatsEqual(spectrum.flux, self.image)
         self.assertFloatsEqual(spectrum.spectrum, self.image)
         self.assertFloatsEqual(spectrum.mask.array, self.mask.array)
@@ -111,7 +111,7 @@ class SpectrumTestCase(BaseTestCase):
         # Set the variance and ensure it changes the covariance
         spectrum.covariance[:] = self.covariance
         self.assertFloatsEqual(spectrum.covariance, self.covariance)
-        variance = self.rng.uniform(size=self.length).astype(np.float32)
+        variance = self.rng.uniform(size=self.length)
         spectrum.variance = variance
         self.covariance[0] = variance
         self.assertFloatsEqual(spectrum.covariance, self.covariance)
@@ -129,7 +129,7 @@ class SpectrumTestCase(BaseTestCase):
         sigma = 1.2345
         peak = 1000.0
         spectrum = drpStella.Spectrum(self.length, self.fiberId)
-        spectrum.wavelength = np.arange(self.length, dtype=np.float32)
+        spectrum.wavelength = np.arange(self.length, dtype=float)
         spectrum.flux[:] = peak*np.exp(-0.5*((spectrum.wavelength - center)/sigma)**2)
         spectrum.mask[:] = 0
         spectrum.variance[:] = 0.1
@@ -183,7 +183,7 @@ class SpectrumTestCase(BaseTestCase):
         indices = np.arange(self.length, dtype=float)
         wl0 = 500.0
         wlSlope = 3.21
-        spectrum.setWavelength((indices*wlSlope + wl0).astype(np.float32))
+        spectrum.setWavelength(indices*wlSlope + wl0)
 
         num = 50
         rng = np.random.RandomState(12345)

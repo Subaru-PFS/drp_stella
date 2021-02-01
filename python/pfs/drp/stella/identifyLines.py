@@ -384,7 +384,7 @@ class InteractiveIdentification:
         resid = yy - yFit
         print("Order %d fit RMS: %f from %d associations" % (self.order, resid.std(), len(self.associations)))
         newWavelength = self.detectorMap.getWavelength(self.spectrum.fiberId)
-        newWavelength += corr(np.arange(self.num, dtype=np.float32))
+        newWavelength += corr(np.arange(self.num, dtype=float))
         self.detectorMap.setWavelength(self.spectrum.fiberId, newWavelength)
 
     def calculatePositions(self):

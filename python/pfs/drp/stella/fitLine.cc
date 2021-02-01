@@ -33,9 +33,9 @@ PYBIND11_PLUGIN(fitLine) {
     cls.def_readonly("bg1Err", &FitLineResult::bg1Err);
 
     mod.def("fitLine",
-            py::overload_cast<ndarray::Array<float const, 1, 1> const&,
+            py::overload_cast<ndarray::Array<double const, 1, 1> const&,
                               ndarray::Array<lsst::afw::image::MaskPixel const, 1, 1> const&,
-                              float, float, lsst::afw::image::MaskPixel, std::size_t>(&fitLine<float>),
+                              float, float, lsst::afw::image::MaskPixel, std::size_t>(&fitLine<double>),
             "flux"_a, "mask"_a, "peakPosition"_a, "rmsSize"_a, "badBitMask"_a,
             "fittingHalfSize"_a=0);
 

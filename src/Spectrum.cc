@@ -36,7 +36,7 @@ Spectrum::Spectrum(
     Mask const& mask,
     ImageArray const& background,
     CovarianceMatrix const& covariance,
-    ImageArray const& wavelength,
+    WavelengthArray const& wavelength,
     ReferenceLineList const& lines,
     std::size_t fiberId
 ) : _length(flux.getNumElements()),
@@ -82,7 +82,7 @@ void Spectrum::setCovariance(Spectrum::CovarianceMatrix const& covariance) {
 }
 
 
-void Spectrum::setWavelength(Spectrum::ImageArray const& wavelength) {
+void Spectrum::setWavelength(Spectrum::WavelengthArray const& wavelength) {
     utils::checkSize(wavelength.getShape()[0], _length, "Spectrum::setWavelength");
     _wavelength.deep() = wavelength;
     _isWavelengthSet = true;

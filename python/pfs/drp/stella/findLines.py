@@ -122,7 +122,7 @@ class FindLinesTask(Task):
         """
         halfSize = int(self.config.kernelHalfSize*self.config.width + 0.5)
         size = 2*halfSize + 1
-        xx = np.arange(size, dtype=np.float32) - halfSize
+        xx = np.arange(size, dtype=float) - halfSize
         sigma = self.config.width
         kernel = np.exp(-0.5*xx**2/sigma**2)/sigma/np.sqrt(2.0*np.pi)
 

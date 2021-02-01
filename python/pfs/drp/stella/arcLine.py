@@ -164,14 +164,14 @@ class ArcLineSet:
         """
         with astropy.io.fits.open(filename) as fits:
             hdu = fits[cls.fitsExtName]
-            fiberId = hdu.data["fiberId"]
-            wavelength = hdu.data["wavelength"]
-            x = hdu.data["x"]
-            y = hdu.data["y"]
-            xErr = hdu.data["xErr"]
-            yErr = hdu.data["yErr"]
-            flag = hdu.data["flag"]
-            status = hdu.data["status"]
+            fiberId = hdu.data["fiberId"].astype(np.int32)
+            wavelength = hdu.data["wavelength"].astype(float)
+            x = hdu.data["x"].astype(float)
+            y = hdu.data["y"].astype(float)
+            xErr = hdu.data["xErr"].astype(float)
+            yErr = hdu.data["yErr"].astype(float)
+            flag = hdu.data["flag"].astype(np.int32)
+            status = hdu.data["status"].astype(np.int32)
             description = hdu.data["description"]
 
         return cls([ArcLine(*args) for args in zip(fiberId, wavelength, x, y, xErr, yErr, flag, status,
@@ -187,11 +187,11 @@ class ArcLineSet:
         """
         hdu = astropy.io.fits.BinTableHDU.from_columns([
             astropy.io.fits.Column(name="fiberId", format="J", array=self.fiberId),
-            astropy.io.fits.Column(name="wavelength", format="E", array=self.wavelength),
-            astropy.io.fits.Column(name="x", format="E", array=self.x),
-            astropy.io.fits.Column(name="y", format="E", array=self.y),
-            astropy.io.fits.Column(name="xErr", format="E", array=self.xErr),
-            astropy.io.fits.Column(name="yErr", format="E", array=self.yErr),
+            astropy.io.fits.Column(name="wavelength", format="D", array=self.wavelength),
+            astropy.io.fits.Column(name="x", format="D", array=self.x),
+            astropy.io.fits.Column(name="y", format="D", array=self.y),
+            astropy.io.fits.Column(name="xErr", format="D", array=self.xErr),
+            astropy.io.fits.Column(name="yErr", format="D", array=self.yErr),
             astropy.io.fits.Column(name="flag", format="J", array=self.flag),
             astropy.io.fits.Column(name="status", format="J", array=self.status),
             astropy.io.fits.Column(name="description", format="A", array=self.description),

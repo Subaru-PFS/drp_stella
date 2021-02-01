@@ -23,12 +23,12 @@ class BaseTestCase(lsst.utils.tests.TestCase):
         # Spectrum
         self.length = 123
         self.fiberId = 456
-        self.image = self.rng.uniform(size=self.length).astype(np.float32)
+        self.image = self.rng.uniform(size=self.length).astype(float)
         self.mask = lsst.afw.image.Mask(self.length, 1)
         self.mask.array[:] = self.rng.randint(0, 2**30, self.length).astype(np.int32)
-        self.background = self.rng.uniform(size=self.length).astype(np.float32)
-        self.covariance = self.rng.uniform(size=(3, self.length)).astype(np.float32)
-        self.wavelengthArray = np.arange(1, self.length + 1, dtype=np.float32)
+        self.background = self.rng.uniform(size=self.length).astype(float)
+        self.covariance = self.rng.uniform(size=(3, self.length)).astype(float)
+        self.wavelengthArray = np.arange(1, self.length + 1, dtype=float)
 
         # ReferenceLine
         self.description = "line"

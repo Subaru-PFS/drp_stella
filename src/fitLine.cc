@@ -153,7 +153,7 @@ template FitLineResult fitLine<TYPE>( \
 );
 
 
-INSTANTIATE(float);
+INSTANTIATE(double);
 
 
 }}}  // namespace pfs::drp::stella

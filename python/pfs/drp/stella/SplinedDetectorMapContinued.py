@@ -96,7 +96,7 @@ class SplinedDetectorMap:
         """
         for ff in set(fiberId):
             select = (fiberId == ff)
-            points = self.findPoint(ff, wavelength.astype(np.float32)[select])
+            points = self.findPoint(ff, wavelength[select])
             dx = x[select] - points[:, 0]
             dy = y[select] - points[:, 1]
             xWeight = 1.0/xErr[select]**2

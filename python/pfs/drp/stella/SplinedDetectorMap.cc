@@ -17,10 +17,10 @@ void declareSplinedDetectorMap(py::module & mod) {
     auto cls = python::wrapDetectorMap<Class>(mod, "SplinedDetectorMap");
     cls.def(py::init<lsst::geom::Box2I,
                      DetectorMap::FiberIds const&,
-                     std::vector<ndarray::Array<float, 1, 1>> const&,
-                     std::vector<ndarray::Array<float, 1, 1>> const&,
-                     std::vector<ndarray::Array<float, 1, 1>> const&,
-                     std::vector<ndarray::Array<float, 1, 1>> const&,
+                     std::vector<ndarray::Array<double, 1, 1>> const&,
+                     std::vector<ndarray::Array<double, 1, 1>> const&,
+                     std::vector<ndarray::Array<double, 1, 1>> const&,
+                     std::vector<ndarray::Array<double, 1, 1>> const&,
                      DetectorMap::Array1D const&,
                      DetectorMap::Array1D const&,
                      lsst::afw::image::VisitInfo const&,
@@ -39,10 +39,10 @@ void declareSplinedDetectorMap(py::module & mod) {
         [](Class const& self) {
             DetectorMap::FiberIds const& fiberId = self.getFiberId();
             std::size_t const numFibers = fiberId.getNumElements();
-            std::vector<Class::Array1D> xCenterKnots;
-            std::vector<Class::Array1D> xCenterValues;
-            std::vector<Class::Array1D> wavelengthKnots;
-            std::vector<Class::Array1D> wavelengthValues;
+            std::vector<ndarray::Array<double, 1, 1>> xCenterKnots;
+            std::vector<ndarray::Array<double, 1, 1>> xCenterValues;
+            std::vector<ndarray::Array<double, 1, 1>> wavelengthKnots;
+            std::vector<ndarray::Array<double, 1, 1>> wavelengthValues;
             xCenterKnots.reserve(numFibers);
             xCenterValues.reserve(numFibers);
             wavelengthKnots.reserve(numFibers);
@@ -61,12 +61,12 @@ void declareSplinedDetectorMap(py::module & mod) {
             return SplinedDetectorMap(
                 t[0].cast<lsst::geom::Box2I>(),
                 t[1].cast<DetectorMap::FiberIds>(),
-                t[2].cast<std::vector<ndarray::Array<float, 1, 1>>>(),
-                t[3].cast<std::vector<ndarray::Array<float, 1, 1>>>(),
-                t[4].cast<std::vector<ndarray::Array<float, 1, 1>>>(),
-                t[5].cast<std::vector<ndarray::Array<float, 1, 1>>>(),
-                t[6].cast<ndarray::Array<float, 1, 1>>(),
-                t[7].cast<ndarray::Array<float, 1, 1>>(),
+                t[2].cast<std::vector<ndarray::Array<double, 1, 1>>>(),
+                t[3].cast<std::vector<ndarray::Array<double, 1, 1>>>(),
+                t[4].cast<std::vector<ndarray::Array<double, 1, 1>>>(),
+                t[5].cast<std::vector<ndarray::Array<double, 1, 1>>>(),
+                t[6].cast<ndarray::Array<double, 1, 1>>(),
+                t[7].cast<ndarray::Array<double, 1, 1>>(),
                 t[8].cast<Class::VisitInfo>(),
                 t[9].cast<std::shared_ptr<lsst::daf::base::PropertySet>>()
             );

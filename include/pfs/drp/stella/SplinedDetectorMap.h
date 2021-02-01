@@ -19,7 +19,7 @@ namespace pfs { namespace drp { namespace stella {
 /// deflected up by slitOffset
 class SplinedDetectorMap : public DetectorMap {
   public:
-    using Spline = math::Spline<float>;
+    using Spline = math::Spline<double>;
 
     /// Ctor
     ///
@@ -36,10 +36,10 @@ class SplinedDetectorMap : public DetectorMap {
     SplinedDetectorMap(
         lsst::geom::Box2I bbox,
         FiberIds const& fiberId,
-        std::vector<ndarray::Array<float, 1, 1>> const& xCenterKnots,
-        std::vector<ndarray::Array<float, 1, 1>> const& xCenterValues,
-        std::vector<ndarray::Array<float, 1, 1>> const& wavelengthKnots,
-        std::vector<ndarray::Array<float, 1, 1>> const& wavelengthValues,
+        std::vector<ndarray::Array<double, 1, 1>> const& xCenterKnots,
+        std::vector<ndarray::Array<double, 1, 1>> const& xCenterValues,
+        std::vector<ndarray::Array<double, 1, 1>> const& wavelengthKnots,
+        std::vector<ndarray::Array<double, 1, 1>> const& wavelengthValues,
         Array1D const& spatialOffsets=Array1D(),
         Array1D const& spectralOffsets=Array1D(),
         VisitInfo const& visitInfo=VisitInfo(lsst::daf::base::PropertyList()),
@@ -78,26 +78,34 @@ class SplinedDetectorMap : public DetectorMap {
     //@{
     /// Return the fiber centers
     virtual Array1D getXCenter(int fiberId) const override;
-    virtual float getXCenter(int fiberId, float row) const override;
+    virtual double getXCenter(int fiberId, double row) const override;
     //@}
 
     //@{
     /// Return the wavelength values for each row
     virtual Array1D getWavelength(int fiberId) const override;
-    virtual float getWavelength(int fiberId, float row) const override;
+    virtual double getWavelength(int fiberId, double row) const override;
     //@}
 
     /// Return the fiberId given a position on the detector
     virtual int findFiberId(lsst::geom::PointD const& point) const override;
 
-    math::Spline<float> const& getXCenterSpline(int fiberId) const;
-    math::Spline<float> const& getWavelengthSpline(int fiberId) const;
+    Spline const& getXCenterSpline(int fiberId) const;
+    Spline const& getWavelengthSpline(int fiberId) const;
 
     /// Set the fiber center spline
-    void setXCenter(int fiberId, Array1D const& knots, Array1D const& xCenter);
+    void setXCenter(
+        int fiberId,
+        ndarray::Array<double, 1, 1> const& knots,
+        ndarray::Array<double, 1, 1> const& xCenter
+    );
 
     /// Set the wavelength spline
-    void setWavelength(int fiberId, Array1D const& knots, Array1D const& wavelength);
+    void setWavelength(
+        int fiberId,
+        ndarray::Array<double, 1, 1> const& knots,
+        ndarray::Array<double, 1, 1> const& wavelength
+    );
 
     /// Measure and apply slit offsets
     ///
@@ -111,11 +119,11 @@ class SplinedDetectorMap : public DetectorMap {
     /// @param xErr, yErr : Error in position of reference lines (pixels)
     virtual void measureSlitOffsets(
         ndarray::Array<int, 1, 1> const& fiberId,
-        ndarray::Array<float, 1, 1> const& wavelength,
-        ndarray::Array<float, 1, 1> const& x,
-        ndarray::Array<float, 1, 1> const& y,
-        ndarray::Array<float, 1, 1> const& xErr,
-        ndarray::Array<float, 1, 1> const& yErr
+        ndarray::Array<double, 1, 1> const& wavelength,
+        ndarray::Array<double, 1, 1> const& x,
+        ndarray::Array<double, 1, 1> const& y,
+        ndarray::Array<double, 1, 1> const& xErr,
+        ndarray::Array<double, 1, 1> const& yErr
     ) override;
 
     bool isPersistable() const noexcept { return true; }
@@ -124,10 +132,10 @@ class SplinedDetectorMap : public DetectorMap {
 
   protected:
     /// Return the position of the fiber trace on the detector, given a fiberId and wavelength
-    virtual lsst::geom::PointD findPointImpl(int fiberId, float wavelength) const override;
+    virtual lsst::geom::PointD findPointImpl(int fiberId, double wavelength) const override;
 
     /// Return the wavelength of a point on the detector, given a fiberId and row
-    virtual float findWavelengthImpl(int fiberId, float row) const override;
+    virtual double findWavelengthImpl(int fiberId, double row) const override;
 
     std::string getPersistenceName() const { return "SplinedDetectorMap"; }
     std::string getPythonModule() const { return "pfs.drp.stella"; }

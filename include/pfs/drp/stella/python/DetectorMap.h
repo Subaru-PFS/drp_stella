@@ -25,10 +25,10 @@ auto wrapDetectorMap(py::module & mod, char const* name) {
     py::class_<Class, std::shared_ptr<Class>, DetectorMap> cls(mod, name);
     cls.def("clone", py::overload_cast<>(&Class::clone, py::const_));
     cls.def("getXCenter", py::overload_cast<int>(&Class::getXCenter, py::const_), "fiberId"_a);
-    cls.def("getXCenter", py::overload_cast<int, float>(&Class::getXCenter, py::const_),
+    cls.def("getXCenter", py::overload_cast<int, double>(&Class::getXCenter, py::const_),
             "fiberId"_a, "row"_a);
     cls.def("getWavelength", py::overload_cast<int>(&Class::getWavelength, py::const_), "fiberId"_a);
-    cls.def("getWavelength", py::overload_cast<int, float>(&Class::getWavelength, py::const_),
+    cls.def("getWavelength", py::overload_cast<int, double>(&Class::getWavelength, py::const_),
             "fiberId"_a, "row"_a);
     cls.def("findFiberId", py::overload_cast<lsst::geom::PointD const&>(&Class::findFiberId, py::const_),
             "point"_a);

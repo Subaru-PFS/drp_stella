@@ -251,7 +251,7 @@ class FiberTraceTestCase(lsst.utils.tests.TestCase):
         badRow = 23
         self.subimage.mask.array[badRow, :] = self.bad
         spectrum = self.fiberTrace.extractSpectrum(self.image, False, 0, True)
-        expectImage = np.ones(self.height, dtype=np.float32)
+        expectImage = np.ones(self.height, dtype=float)
         expectImage[badRow] = 0.0
         expectVariance = self.optimalVariance
         expectVariance[badRow] = 0.0
