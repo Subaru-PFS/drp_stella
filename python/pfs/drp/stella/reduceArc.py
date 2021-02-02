@@ -235,7 +235,7 @@ class ReduceArcTask(CmdLineTask):
         calibId = detectorMap.metadata.get("CALIB_ID")
         calibId = re.sub(r"visit0=\d+", "visit0=%d" % (visit0,), calibId)
         calibId = re.sub(r"calibDate=\d\d\d\d-\d\d-\d\d", "calibDate=%s" % (dateObs,), calibId)
-        calibId = re.sub(r"calibTime=\S+", "calibDate=%s" % (taiObs,), calibId)
+        calibId = re.sub(r"calibTime=\S+", "calibTime=%s" % (taiObs,), calibId)
         detectorMap.metadata.set("CALIB_ID", calibId)
         dataRef.put(detectorMap, 'detectorMap', visit0=visit0)
 
