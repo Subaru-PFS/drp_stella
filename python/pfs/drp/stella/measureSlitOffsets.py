@@ -63,8 +63,8 @@ class MeasureSlitOffsetsTask(Task):
             chi^2/dof = 1.
         """
         before = detectorMap.clone()
-        indices = pfsConfig.selectByFiberStatus(FiberStatus.GOOD)
-        fiberId = pfsConfig.fiberId[indices]
+        indices = pfsConfig.selectByFiberStatus(FiberStatus.GOOD, detectorMap.fiberId)
+        fiberId = detectorMap.fiberId[indices]
         lines = self.readLineList.run(detectorMap=detectorMap, fiberId=fiberId,
                                       metadata=exposure.getMetadata())
         centroids = self.centroidLines.run(exposure, lines, detectorMap)

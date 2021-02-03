@@ -81,7 +81,7 @@ class MeasureFluxCalibrationTask(Task):
         results : `list` of `pfs.datamodel.PfsSingle`
             Flux-calibrated object spectra.
         """
-        cal = self.fit.apply(calib, spectra.wavelength, pfsConfig.fiberId, pfsConfig)
+        cal = self.fit.apply(calib, spectra.wavelength, spectra.fiberId, pfsConfig)
         with np.errstate(divide="ignore", invalid="ignore"):
             spectra /= cal.values  # includes spectra.variance /= cal.values**2
             spectra.covar[:, 0, :] += cal.variances*spectra.flux**2/np.array(cal.values)**2

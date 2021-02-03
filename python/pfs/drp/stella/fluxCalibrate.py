@@ -58,7 +58,7 @@ class FluxCalibrateTask(CmdLineTask):
         pfsConfig = dataRef.get("pfsConfig")
         butler = dataRef.getButler()
 
-        references = self.readReferences(butler, pfsConfig)
+        references = self.readReferences(butler, pfsConfig, merged.fiberId)
         calib = self.measureFluxCalibration.run(merged, references, pfsConfig)
         self.measureFluxCalibration.applySpectra(merged, pfsConfig, calib)
         spectra = [merged.extractFiber(PfsSingle, pfsConfig, fiberId) for fiberId in merged.fiberId]
@@ -92,7 +92,7 @@ class FluxCalibrateTask(CmdLineTask):
                 butler.put(mergedLsf[fiberId], "pfsSingleLsf", dataId)
         return Struct(calib=calib, spectra=spectra)
 
-    def readReferences(self, butler, pfsConfig):
+    def readReferences(self, butler, pfsConfig, fiberId):
         """Read the physical reference fluxes
 
         If you get a read error here, it's likely because you haven't got a
@@ -104,15 +104,17 @@ class FluxCalibrateTask(CmdLineTask):
             Data butler.
         pfsConfig : `pfs.datamodel.PfsConfig`
             Top-end configuration, for identifying flux standards.
+        fiberId : `numpy.ndarray` of `int`
+            Fiber identifiers for spectra.
 
         Returns
         -------
         references : `dict` mapping `int` to `pfs.datamodel.PfsSimpleSpectrum`
             Reference spectra, indexed by fiber identifier.
         """
-        indices = pfsConfig.selectByTargetType(TargetType.FLUXSTD)
-        return {pfsConfig.fiberId[ii]: butler.get("pfsReference", pfsConfig.getIdentityFromIndex(ii)) for
-                ii in indices}
+        indices = pfsConfig.selectByTargetType(TargetType.FLUXSTD, fiberId)
+        fiberId = fiberId[indices]
+        return {ff: butler.get("pfsReference", pfsConfig.getIdentity(ff)[0]) for ff in fiberId}
 
     def _getMetadataName(self):
         return None

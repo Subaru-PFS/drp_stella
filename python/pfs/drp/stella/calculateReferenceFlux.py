@@ -43,8 +43,8 @@ class CalculateReferenceFluxTask(CmdLineTask):
         merged = dataRef.get("pfsMerged")
         pfsConfig = dataRef.get("pfsConfig")
         butler = dataRef.getButler()
-        select = pfsConfig.targetType == int(TargetType.FLUXSTD)
-        for fiberId in pfsConfig.fiberId[select]:
+        indices = pfsConfig.selectByTargetType(TargetType.FLUXSTD, merged.fiberId)
+        for fiberId in merged.fiberId[indices]:
             spectrum = merged.extractFiber(PfsSingle, pfsConfig, fiberId)
             dataId = spectrum.getIdentity()
             if not self.config.doOverwrite and butler.datasetExists("pfsReference", dataId):

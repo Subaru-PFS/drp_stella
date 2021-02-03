@@ -140,7 +140,7 @@ class SubtractSky1dTask(Task):
         sky1d : `pfs.drp.stella.FocalPlaneFunction`
             1D sky model.
         """
-        sky = self.fit.apply(sky1d, spectra.wavelength, pfsConfig.fiberId, pfsConfig)
+        sky = self.fit.apply(sky1d, spectra.wavelength, spectra.fiberId, pfsConfig)
         spectra.flux -= sky.values
         spectra.sky += sky.values
         bitmask = spectra.flags.add("BAD_SKY")
@@ -195,7 +195,7 @@ class SubtractSky1dTask(Task):
             self.plotSkyFibers([merged], pfsConfig, "Sky flux")
 
         sky1d = self.measureSky([merged], pfsConfig, [lsfList],
-                                pfsConfig.selectByTargetType(TargetType.SKY))
+                                pfsConfig.selectByTargetType(TargetType.SKY, merged.fiberId))
 
         self.subtractSkySpectra(merged, lsfList, pfsConfig, sky1d)
 
