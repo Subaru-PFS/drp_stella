@@ -3,6 +3,7 @@ import numpy as np
 import scipy.integrate
 import scipy.interpolate
 import astropy.io.fits
+import astropy.wcs
 
 from lsst.pex.config import Config
 from lsst.pipe.base import Task
@@ -136,15 +137,15 @@ def readAmbre(target, wavelength):
     ambre : `pfs.datamodel.drp.PfsReference`
         AMBRE spectrum.
     """
-    SPEED_OF_LIGHT = 3.0e8*1.0e9  # nm/s
     filename = os.path.join(os.environ["OBS_PFS_DIR"], "pfs", "fluxCal", "ambre",
                             AMBRE_FILES[target.objId % len(AMBRE_FILES)])
     with astropy.io.fits.open(filename) as fits:
-        refWavelength = fits[1].data["wavelength"]  # Angstroms
-        refFlux = fits[1].data["flux"]  # erg/cm^2/s/A
-    refWavelength *= 0.1  # Convert to nm
-    refFlux *= 10*refWavelength*refWavelength/SPEED_OF_LIGHT  # Convert to Fnu in erg/cm^2/s/Hz
-    refFlux *= 1.0e23*1.0e9  # Convert to nJy
+        wcs = astropy.wcs.WCS(fits[1].header)
+        refFlux = fits[1].data["Flux"]  # nJy
+
+    # astropy treats the WCS as having two axes (because it's in a table with NAXIS=2).
+    # We just ignore the other axis.
+    refWavelength = wcs.pixel_to_world(np.arange(len(refFlux)), 0)[0].to("nm").value
 
     flux = scipy.interpolate.interp1d(refWavelength, refFlux, kind="linear", bounds_error=False,
                                       fill_value=np.nan, copy=True, assume_sorted=True)(wavelength)
