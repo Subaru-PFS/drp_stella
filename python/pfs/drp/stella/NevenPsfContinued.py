@@ -39,7 +39,7 @@ class NevenPsf:
         if directory is None:
             directory = os.path.join(getPackageDir("drp_pfs_data"), "nevenPsf")
         if version is None:
-            version = "Apr1520_v3"
+            version = "Jan2921_v1"
         if oversampleFactor is None:
             oversampleFactor = 9
         if targetSize is None:
