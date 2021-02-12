@@ -144,6 +144,7 @@ class SplinedDetectorMap : public DetectorMap {
   private:
     std::vector<Spline> _xCenter;  ///< convert y pixel value to trace position
     std::vector<Spline> _wavelength;  ///< convert a y pixel value to wavelength
+    std::vector<Spline> _row;  ///< convert wavelength to y pixel value
 
     void _set_xToFiberId();
     ndarray::Array<int, 1, 1> _xToFiberId;  ///< An array that gives the fiberId half way up the chip

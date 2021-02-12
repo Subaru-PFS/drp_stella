@@ -248,7 +248,7 @@ def makeSyntheticGlobalDetectorMap(config, minWl=400.0, maxWl=950.0):
             lines.append(ff, original.getWavelength(ff, yy), original.getXCenter(ff, yy), yy,
                          0.01, 0.01, 0, ReferenceLine.Status.FIT, "Fake")
     task = FitGlobalDetectorMapTask(name="fitGlobalDetectorMap")
-    model = task.fitModel("r", original.bbox, lines, np.ones(len(lines), dtype=bool)).model
+    model = task.fitModel(original.bbox, lines, np.ones(len(lines), dtype=bool), False).model
     return GlobalDetectorMap(original.bbox, model)
 
 

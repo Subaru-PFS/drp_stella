@@ -32,6 +32,12 @@ auto wrapDetectorMap(py::module & mod, char const* name) {
             "fiberId"_a, "row"_a);
     cls.def("findFiberId", py::overload_cast<lsst::geom::PointD const&>(&Class::findFiberId, py::const_),
             "point"_a);
+    cls.def("measureSlitOffsets",
+            py::overload_cast<ndarray::Array<int, 1, 1> const&, ndarray::Array<double, 1, 1> const&,
+                              ndarray::Array<double, 1, 1> const&, ndarray::Array<double, 1, 1> const&,
+                              ndarray::Array<double, 1, 1> const&, ndarray::Array<double, 1, 1> const&
+                              >(&Class::measureSlitOffsets),
+            "fiberId"_a, "wavelength"_a, "x"_a, "y"_a, "xErr"_a, "yErr"_a);
     return cls;
 }
 

@@ -63,8 +63,8 @@ tridi(ndarray::Array<T, 1, 1> &b,
 
 template<typename T>
 Spline<T>::Spline(
-    ndarray::Array<Spline<T>::InternalT, 1, 1> const& x,
-    ndarray::Array<Spline<T>::InternalT, 1, 1> const& y,
+    ndarray::Array<Spline<T>::InternalT const, 1, 1> const& x,
+    ndarray::Array<Spline<T>::InternalT const, 1, 1> const& y,
     InterpolationTypes interpolationType
 ) : _interpolationType(interpolationType) {
     std::size_t const n = x.size();

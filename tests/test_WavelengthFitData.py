@@ -6,7 +6,7 @@ import lsst.utils.tests
 import lsst.afw.geom
 
 from pfs.drp.stella.calibrateWavelengthsTask import WavelengthFitData, LineData
-from pfs.drp.stella import ReferenceLine, SplinedDetectorMap
+from pfs.drp.stella import ReferenceLine
 
 display = None
 
@@ -71,41 +71,6 @@ class WavelengthFitDataTestCase(lsst.utils.tests.TestCase):
         self.assertFloatsEqual(wlFitData.residuals(fiberId), residuals[index])
         self.assertEqual(wlFitData.mean(fiberId), residuals[index].mean())
         self.assertEqual(wlFitData.stdev(fiberId), residuals[index].std())
-
-    def testFromReferenceLines(self):
-        """Test creation from ReferenceLines"""
-        num = len(self.fiberId)
-        refLines = {}
-        centerKnots = []
-        centerValues = []
-        wavelengthKnots = []
-        wavelengthValues = []
-        for ii in range(num):
-            line = ReferenceLine(self.description[ii])
-            line.status = self.status[ii]
-            line.wavelength = self.refWavelength[ii]
-            line.fitPosition = self.measuredPosition[ii]
-            line.fitPositionErr = self.measuredPositionErr[ii]
-            refLines[self.fiberId[ii]] = [line]
-
-            knots = np.array([-1, 0, self.measuredPosition[ii], self.length, self.length + 1],
-                             dtype=float)
-            centerKnots.append(knots)
-            wavelengthKnots.append(knots)
-            centerValues.append(np.array([self.xCenter[ii]]*len(knots), dtype=float))
-            wavelengthValues.append(np.array([self.wlMin - 1, self.wlMin, self.fitWavelength[ii],
-                                              self.wlMax, self.wlMax + 1],
-                                             dtype=float))
-
-        bbox = lsst.geom.Box2I(lsst.geom.Point2I(0, 0),
-                               lsst.geom.Extent2I(self.length, self.length))
-        detMap = SplinedDetectorMap(bbox, self.fiberId, centerKnots, centerValues,
-                                    wavelengthKnots, wavelengthValues)
-
-        corrections = {fiberId: lambda xx: self.correction[self.measuredPosition == xx][0] for
-                       fiberId in self.fiberId}
-        wlFitData = WavelengthFitData.fromReferenceLines(refLines, detMap, corrections)
-        self.assertWavelengthFitData(wlFitData)
 
     def testPersistence(self):
         """Test persistence"""

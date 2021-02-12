@@ -292,7 +292,7 @@ class SplinedDetectorMapTestCase(lsst.utils.tests.TestCase):
             self.assertFloatsAlmostEqual(wavelength, wavelengthExpect, atol=2.0e-3)
 
             point = detMap.findPoint(fiberId, wavelength)
-            self.assertFloatsAlmostEqual(point.getY(), yy, atol=1.0e-3)
+            self.assertFloatsAlmostEqual(point.getY(), yy, atol=2.0e-4)
 
     def testReadWriteFits(self):
         """Test reading and writing to/from FITS"""

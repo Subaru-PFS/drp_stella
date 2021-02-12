@@ -8,7 +8,7 @@ import lsst.afw.display as afwDisplay
 from .reduceExposure import ReduceExposureTask
 from .identifyLines import IdentifyLinesTask
 from pfs.drp.stella.utils import plotReferenceLines
-from pfs.drp.stella.fitGlobalDetectorMap import FitGlobalDetectorMapTask
+from pfs.drp.stella.fitDifferentialDetectorMap import FitDifferentialDetectorMapTask
 from .centroidLines import CentroidLinesTask
 from .arcLine import ArcLineSet
 from .readLineList import ReadLineListTask
@@ -23,7 +23,7 @@ class ReduceArcConfig(pexConfig.Config):
     readLineList = pexConfig.ConfigurableField(target=ReadLineListTask, doc="Read linelist")
     identifyLines = pexConfig.ConfigurableField(target=IdentifyLinesTask, doc="Identify arc lines")
     centroidLines = pexConfig.ConfigurableField(target=CentroidLinesTask, doc="Centroid lines")
-    fitDetectorMap = pexConfig.ConfigurableField(target=FitGlobalDetectorMapTask, doc="Fit detectorMap")
+    fitDetectorMap = pexConfig.ConfigurableField(target=FitDifferentialDetectorMapTask, doc="Fit detectorMap")
 
     def setDefaults(self):
         super().setDefaults()
@@ -205,8 +205,8 @@ class ReduceArcTask(CmdLineTask):
         metadata = archetype.metadata  # All more or less identical
         oldDetMap = archetype.detectorMap  # All more or less identical
 
-        detectorMap = self.fitDetectorMap.run(dataRef.dataId["arm"], oldDetMap.bbox, lines,
-                                              visitInfo, oldDetMap.metadata)
+        detectorMap = self.fitDetectorMap.run(dataRef.dataId, oldDetMap.bbox, lines, visitInfo,
+                                              oldDetMap.metadata).detectorMap
 
         self.write(dataRef, detectorMap, metadata, visitInfo)
         if self.debugInfo.display and self.debugInfo.displayCalibrations:

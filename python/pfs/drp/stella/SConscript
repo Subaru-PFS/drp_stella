@@ -20,6 +20,7 @@ scripts.BasicSConscript.pybind11(
      'DetectorMap',
      'SplinedDetectorMap',
      'GlobalDetectorMap',
+     'DifferentialDetectorMap',
      ],
     addUnderscore=False
 )

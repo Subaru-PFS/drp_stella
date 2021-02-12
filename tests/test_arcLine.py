@@ -25,7 +25,7 @@ class ArcLineTestCase(lsst.utils.tests.TestCase):
         self.y = np.random.uniform(size=self.fiberId.shape)*(self.length - 1)
         self.yErr = 0.01*np.random.uniform(size=self.fiberId.shape)
         self.wavelength = np.random.uniform(size=self.fiberId.shape)*scale + self.wlMin
-        self.flag = np.random.uniform(0, 10, size=self.fiberId.shape).astype(int)
+        self.flag = np.random.choice((True, False), size=self.fiberId.shape)
         self.status = np.full_like(self.fiberId, int(ReferenceLine.Status.FIT), dtype=int)
         self.description = np.array([chr(ord("A") + ii) for ii in range(len(self.fiberId))])
 
@@ -50,7 +50,7 @@ class ArcLineTestCase(lsst.utils.tests.TestCase):
         self.assertFloatsAlmostEqual(lines.xErr, self.xErr, atol=atol)
         self.assertFloatsAlmostEqual(lines.y, self.y, atol=atol)
         self.assertFloatsAlmostEqual(lines.yErr, self.yErr, atol=atol)
-        self.assertFloatsEqual(lines.flag, self.flag)
+        self.assertTrue(np.all(lines.flag == self.flag))
         self.assertFloatsEqual(lines.status, self.status)
         self.assertListEqual(lines.description.tolist(), self.description.tolist())
 

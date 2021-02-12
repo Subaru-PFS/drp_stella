@@ -52,42 +52,42 @@ class ArcLineSet:
     @property
     def fiberId(self):
         """Array of fiber identifiers (`numpy.ndarray` of `int`)"""
-        return np.array([ll.fiberId for ll in self.lines])
+        return np.array([ll.fiberId for ll in self.lines], dtype=np.int32)
 
     @property
     def wavelength(self):
         """Array of reference wavelength, nm (`numpy.ndarray` of `float`)"""
-        return np.array([ll.wavelength for ll in self.lines])
+        return np.array([ll.wavelength for ll in self.lines], dtype=float)
 
     @property
     def x(self):
         """Array of x position (`numpy.ndarray` of `float`)"""
-        return np.array([ll.x for ll in self.lines])
+        return np.array([ll.x for ll in self.lines], dtype=float)
 
     @property
     def y(self):
-        """Array of error in measured position (`numpy.ndarray` of `float`)"""
-        return np.array([ll.y for ll in self.lines])
+        """Array of y position (`numpy.ndarray` of `float`)"""
+        return np.array([ll.y for ll in self.lines], dtype=float)
 
     @property
     def xErr(self):
-        """Array of x position (`numpy.ndarray` of `float`)"""
-        return np.array([ll.xErr for ll in self.lines])
+        """Array of error in x position (`numpy.ndarray` of `float`)"""
+        return np.array([ll.xErr for ll in self.lines], dtype=float)
 
     @property
     def yErr(self):
-        """Array of error in measured position (`numpy.ndarray` of `float`)"""
-        return np.array([ll.yErr for ll in self.lines])
+        """Array of error in y position (`numpy.ndarray` of `float`)"""
+        return np.array([ll.yErr for ll in self.lines], dtype=float)
 
     @property
     def flag(self):
-        """Array of status flags (`numpy.ndarray` of `int`)"""
-        return np.array([ll.flag for ll in self.lines])
+        """Array of measurement status flags (`numpy.ndarray` of `bool`)"""
+        return np.array([ll.flag for ll in self.lines], dtype=bool)
 
     @property
     def status(self):
-        """Array of status flags (`numpy.ndarray` of `int`)"""
-        return np.array([ll.status for ll in self.lines])
+        """Array of `ReferenceLine` status flags (`numpy.ndarray` of `int`)"""
+        return np.array([ll.status for ll in self.lines], dtype=np.int32)
 
     @property
     def description(self):

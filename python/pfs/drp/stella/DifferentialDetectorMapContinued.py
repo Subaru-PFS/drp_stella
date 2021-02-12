@@ -1,47 +1,48 @@
-import lsst.afw.fits
-import lsst.geom
-
 from lsst.utils import continueClass
+import lsst.afw.image
 
-import pfs.datamodel
-from .GlobalDetectorMap import GlobalDetectorMap, GlobalDetectorModel, GlobalDetectorModelScaling, FiberMap
+import pfs.datamodel.pfsDetectorMap
+
+from .DifferentialDetectorMap import DifferentialDetectorMap
 from .DetectorMapContinued import DetectorMap
+from .GlobalDetectorMapContinued import GlobalDetectorModel, GlobalDetectorModelScaling
+from .SplinedDetectorMapContinued import SplinedDetectorMap
 from .utils import headerToMetadata
 
-__all__ = ["GlobalDetectorMap", "GlobalDetectorModel", "GlobalDetectorModelScaling", "FiberMap"]
+__all__ = ("DifferentialDetectorMap",)
 
 
 @continueClass  # noqa: F811 (redefinition)
-class GlobalDetectorMap:
+class DifferentialDetectorMap:
     @classmethod
     def fromDatamodel(cls, detMap):
         """Construct from the pfs.datamodel representation
 
         Parameters
         ----------
-        detMap : `pfs.datamodel.GlobalDetectorMap`
-            datamodel representation of GlobalDetectorMap.
+        detMap : `pfs.datamodel.DifferentialDetectorMap`
+            datamodel representation of DifferentialDetectorMap.
 
         Returns
         -------
-        self : `pfs.drp.stella.GlobalDetectorMap`
-            drp_stella representation of GlobalDetectorMap.
+        self : `pfs.drp.stella.DifferentialDetectorMap`
+            drp_stella representation of DifferentialDetectorMap.
         """
-        if not isinstance(detMap, pfs.datamodel.GlobalDetectorMap):
+        if not isinstance(detMap, pfs.datamodel.DifferentialDetectorMap):
             raise RuntimeError(f"Wrong type: {detMap}")
         bbox = detMap.box.toLsst()
+        base = SplinedDetectorMap.fromDatamodel(detMap.base)
         scalingKwargs = {name: getattr(detMap.scaling, name) for name in
                          ("fiberPitch", "dispersion", "wavelengthCenter", "minFiberId", "maxFiberId",
                           "height", "buffer")}
         scaling = GlobalDetectorModelScaling(**scalingKwargs)
         model = GlobalDetectorModel(bbox, detMap.order, detMap.fiberId, scaling, detMap.fiberCenter,
-                                    detMap.xCoeff, detMap.yCoeff, detMap.highCcdCoeff,
-                                    detMap.spatialOffsets, detMap.spectralOffsets)
+                                    detMap.xCoeff, detMap.yCoeff, detMap.highCcdCoeff)
         metadata = headerToMetadata(detMap.metadata)
         visitInfo = lsst.afw.image.VisitInfo(metadata)
         lsst.afw.image.stripVisitInfoKeywords(metadata)
 
-        return cls(bbox, model, visitInfo, metadata)
+        return cls(base, model, visitInfo, metadata)
 
     def toDatamodel(self, identity=None):
         """Convert to the pfs.datamodel representation
@@ -56,9 +57,10 @@ class GlobalDetectorMap:
 
         Returns
         -------
-        detMap : `pfs.datamodel.GlobalDetectorMap`
-            datamodel representation of GlobalDetectorMap.
+        detMap : `pfs.datamodel.DifferentialDetectorMap`
+            Datamodel representation of DifferentialDetectorMap.
         """
+        base = self.getBase().toDatamodel()
         model = self.getModel()
         scaling = model.getScaling()
         scalingKwargs = {name: getattr(scaling, name) for name in
@@ -69,12 +71,12 @@ class GlobalDetectorMap:
         if self.visitInfo is not None:
             lsst.afw.image.setVisitInfoMetadata(metadata, self.visitInfo)
 
-        return pfs.datamodel.GlobalDetectorMap(
-            identity, pfs.datamodel.Box.fromLsst(self.bbox), self.getDistortionOrder(), self.fiberId,
+        return pfs.datamodel.DifferentialDetectorMap(
+            identity, pfs.datamodel.Box.fromLsst(self.bbox), base, model.getDistortionOrder(), self.fiberId,
             pfs.datamodel.GlobalDetectorMapScaling(**scalingKwargs), model.getFiberCenter(),
             model.getXCoefficients(), model.getYCoefficients(), model.getHighCcdCoefficients(),
-            self.getSpatialOffsets(), self.getSpectralOffsets(), metadata.toDict()
+            metadata.toDict()
         )
 
 
-DetectorMap.register(GlobalDetectorMap)
+DetectorMap.register(DifferentialDetectorMap)

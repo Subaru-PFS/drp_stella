@@ -42,7 +42,7 @@ class GlobalDetectorMapTestCase(lsst.utils.tests.TestCase):
                 lines.append(ff, original.getWavelength(ff, yy), original.getXCenter(ff, yy), yy,
                              0.01, 0.01, 0, ReferenceLine.Status.FIT, "Fake")
         task = FitGlobalDetectorMapTask(name="fitGlobalDetectorMap")
-        model = task.fitModel("r", original.bbox, lines, np.ones(len(lines), dtype=bool)).model
+        model = task.fitModel(original.bbox, lines, np.ones(len(lines), dtype=bool), False).model
 
         visitInfo = lsst.afw.image.VisitInfo(darkTime=self.darkTime)
         metadata = lsst.daf.base.PropertyList()
