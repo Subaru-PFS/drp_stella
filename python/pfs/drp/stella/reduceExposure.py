@@ -243,20 +243,21 @@ class ReduceExposureTask(CmdLineTask):
             spectraList = []
             for exposure, fiberTraces, detectorMap, skyImage in zip(exposureList, fiberTraceList,
                                                                     detectorMapList, skyImageList):
-                spectra = self.extractSpectra.run(exposure.maskedImage, fiberTraces, detectorMap).spectra
+                maskedImage = exposure.maskedImage
+                fiberId = np.array(sorted(set(pfsConfig.fiberId) & set(detectorMap.fiberId)))
+                spectra = self.extractSpectra.run(maskedImage, fiberTraces, detectorMap, fiberId).spectra
                 originalList.append(spectra)
 
                 if self.config.doSubtractContinuum:
                     continua = self.fitContinuum.run(spectra)
-                    exposure.maskedImage -= continua.makeImage(exposure.getBBox(), fiberTraces)
-                    spectra = self.extractSpectra.run(exposure.maskedImage, fiberTraces,
-                                                      detectorMap).spectra
+                    maskedImage -= continua.makeImage(exposure.getBBox(), fiberTraces)
+                    spectra = self.extractSpectra.run(maskedImage, fiberTraces, detectorMap, fiberId).spectra
                     # Set sky flux from continuum
                     for ss, cc in zip(spectra, continua):
                         ss.background += cc.spectrum
 
                 if skyImage is not None:
-                    skySpectra = self.extractSpectra.run(skyImage, fiberTraces, detectorMap).spectra
+                    skySpectra = self.extractSpectra.run(skyImage, fiberTraces, detectorMap, fiberId).spectra
                     for spec, skySpec in zip(spectra, skySpectra):
                         spec.background += skySpec.spectrum
 

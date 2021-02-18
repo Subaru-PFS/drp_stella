@@ -1,3 +1,5 @@
+import numpy as np
+
 import lsst.pex.config as pexConfig
 import lsst.pipe.base as pipeBase
 import lsst.afw.display as afwDisplay
@@ -20,7 +22,7 @@ class ExtractSpectraTask(pipeBase.Task):
         import lsstDebug
         self.debugInfo = lsstDebug.Info(__name__)
 
-    def run(self, maskedImage, fiberTraceSet, detectorMap=None):
+    def run(self, maskedImage, fiberTraceSet, detectorMap=None, fiberId=None):
         """Extract spectra from the image
 
         We extract the spectra using the profiles in the provided
@@ -36,6 +38,8 @@ class ExtractSpectraTask(pipeBase.Task):
             Map of expected detector coordinates to fiber, wavelength.
             If provided, they will be used to normalise the spectrum
             and provide a rough wavelength calibration.
+        fiberId : `numpy.ndarray` of `int`
+            Fiber identifiers to include in output.
 
         Returns
         -------
@@ -57,6 +61,8 @@ class ExtractSpectraTask(pipeBase.Task):
                     newTraces.add(ft)
             fiberTraceSet = newTraces
         spectra = self.extractAllSpectra(maskedImage, fiberTraceSet, detectorMap)
+        if fiberId is not None:
+            spectra = self.includeSpectra(spectra, fiberId)
         return pipeBase.Struct(spectra=spectra)
 
     def extractAllSpectra(self, maskedImage, fiberTraceSet, detectorMap=None):
@@ -107,3 +113,40 @@ class ExtractSpectraTask(pipeBase.Task):
         if detectorMap is not None:
             spectrum.setWavelength(detectorMap.getWavelength(fiberId))
         return spectrum
+
+    def includeSpectra(self, spectra, fiberId):
+        """Include in the output spectra for the provided fiberIds
+
+        If we haven't extracted spectra for a particular fiberId, it's added as
+        ``NaN``.
+
+        Parameters
+        ----------
+        spectra : `pfs.drp.stella.SpectrumSet`
+            Extracted spectra.
+        fiberId : `numpy.ndarray` of `int`
+            Fiber identifiers to include in output.
+
+        Returns
+        -------
+        new : `pfs.drp.stella.SpectrumSet`
+            Spectra for each of the provided fiberIds.
+        """
+        specFibers = spectra.getAllFiberIds()
+        if np.all(specFibers == fiberId):
+            return spectra
+        length = spectra.getLength()
+        new = drpStella.SpectrumSet(len(fiberId), length)
+        specFibers = {ff: ii for ii, ff in enumerate(specFibers)}
+        for ii, ff in enumerate(fiberId):
+            if ff in specFibers:
+                target = spectra[specFibers[ff]]
+            else:
+                target = drpStella.Spectrum(length, ff)
+                target.flux[:] = np.nan
+                target.mask.array[:] = target.mask.getPlaneBitMask("NO_DATA")
+                target.covariance[:] = np.nan
+                target.background[:] = np.nan
+                target.wavelength[:] = np.nan
+            new[ii] = target
+        return new
