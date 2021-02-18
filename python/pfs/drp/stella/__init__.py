@@ -22,3 +22,7 @@ from .fiberProfileSet import *
 from .fitPolynomial import *
 from .slitOffsets import *
 from .DifferentialDetectorMapContinued import *
+
+from lsst.afw.image import Mask
+for plane in ("BAD_FLAT", "FIBERTRACE", "BAD_SKY", "BAD_FLUXCAL"):
+    Mask.addMaskPlane(plane)
