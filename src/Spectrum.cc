@@ -23,10 +23,10 @@ Spectrum::Spectrum(std::size_t length, int fiberId)
     _isWavelengthSet(false)
 {
     _flux.deep() = 0.;
+    _mask.getArray().deep() = 0;
     _background.deep() = 0.;
     _covariance.deep() = 0.;
     _wavelength.deep() = 0.;
-    _mask.addMaskPlane("FIBERTRACE");
 }
 
 
