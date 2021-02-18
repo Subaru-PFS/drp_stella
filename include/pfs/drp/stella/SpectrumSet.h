@@ -87,7 +87,7 @@ class SpectrumSet {
     /**
      * @brief Return all fiberIds
      */
-    ndarray::Array<std::size_t, 1, 1> getAllFiberIds() const;
+    ndarray::Array<int, 1, 1> getAllFiberIds() const;
 
     /**
      * @brief Return all fluxes in an array [length x nFibers]

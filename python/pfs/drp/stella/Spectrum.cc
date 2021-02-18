@@ -17,10 +17,10 @@ void declareSpectrum(py::module &mod) {
     using Class = Spectrum;
     py::class_<Class, std::shared_ptr<Class>> cls(mod, "Spectrum");
 
-    cls.def(py::init<std::size_t, std::size_t>(), "length"_a, "fiberId"_a=0);
+    cls.def(py::init<std::size_t, int>(), "length"_a, "fiberId"_a=0);
     cls.def(py::init<Spectrum::ImageArray const&, Spectrum::Mask const&, Spectrum::ImageArray const&,
                      Spectrum::CovarianceMatrix const&, Spectrum::WavelengthArray const&,
-                     Spectrum::ReferenceLineList const&, std::size_t>(),
+                     Spectrum::ReferenceLineList const&, int>(),
             "flux"_a, "mask"_a, "background"_a, "covariance"_a, "wavelength"_a,
             "lines"_a=Spectrum::ReferenceLineList(), "fiberId"_a=0);
 

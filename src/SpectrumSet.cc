@@ -33,8 +33,8 @@ SpectrumSet::SpectrumSet(SpectrumSet::Collection const& spectra)
 }
 
 
-ndarray::Array<std::size_t, 1, 1> SpectrumSet::getAllFiberIds() const {
-    ndarray::Array<std::size_t, 1, 1> fiberId = ndarray::allocate(size());
+ndarray::Array<int, 1, 1> SpectrumSet::getAllFiberIds() const {
+    ndarray::Array<int, 1, 1> fiberId = ndarray::allocate(size());
     for (std::size_t ii = 0; ii < size(); ++ii) {
         fiberId[ii] = get(ii)->getFiberId();
     }

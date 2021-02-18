@@ -12,7 +12,7 @@
 
 namespace pfs { namespace drp { namespace stella {
 
-Spectrum::Spectrum(std::size_t length, std::size_t fiberId)
+Spectrum::Spectrum(std::size_t length, int fiberId)
   : _length(length),
     _flux(ndarray::allocate(length)),
     _mask(length, 1),
@@ -37,7 +37,7 @@ Spectrum::Spectrum(
     CovarianceMatrix const& covariance,
     WavelengthArray const& wavelength,
     ReferenceLineList const& lines,
-    std::size_t fiberId
+    int fiberId
 ) : _length(flux.getNumElements()),
     _flux(flux),
     _mask(mask),
