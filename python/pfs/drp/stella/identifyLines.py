@@ -46,7 +46,8 @@ class IdentifyLinesTask(Task):
             Reference lines.
         """
         for spec in spectra:
-            self.identifyLines(spec, detectorMap, lines)
+            if spec.isWavelengthSet():
+                self.identifyLines(spec, detectorMap, lines)
 
     def identifyLines(self, spectrum, detectorMap, lines):
         """Identify lines on the spectrum

@@ -201,6 +201,31 @@ class TasksTestCase(lsst.utils.tests.TestCase):
         self.assertMaskedImagesEqual(putted["calexp"].maskedImage, self.arc)
         self.assertSpectra(SpectrumSet.fromPfsArm(putted["pfsArm"]), False, checkReferenceLines=False)
 
+    def testExtractSpectraFiberInclusion(self):
+        """Test the feature of specifying fibers to include
+
+        Check that fibers that weren't specified aren't included, and that
+        fibers that were specified but weren't extracted are included with NANs.
+        """
+        numFibers = self.synthConfig.numFibers
+        index = numFibers//2  # Index with the new fiberId that's not in the profiles
+        newFiberId = 12345
+        fiberId = np.flip(self.synthConfig.fiberId)
+        fiberId[index] = newFiberId
+
+        profiles = self.makeFiberProfiles()
+        traces = profiles.makeFiberTracesFromDetectorMap(self.detMap)
+        task = ExtractSpectraTask()
+        spectra = task.run(self.flat, traces, self.detMap, fiberId).spectra
+        self.assertEqual(len(spectra), numFibers)
+        for ii, (ff, ss) in enumerate(zip(fiberId, spectra)):
+            self.assertEqual(ss.fiberId, ff)
+        self.assertTrue(np.all(np.isnan(spectra[index].flux)))
+        self.assertTrue(np.all(np.isnan(spectra[index].background)))
+        self.assertTrue(np.all(np.isnan(spectra[index].covariance)))
+        self.assertTrue(np.all(np.isnan(spectra[index].wavelength)))
+        self.assertFloatsEqual(spectra[index].mask.array, spectra[index].mask.getPlaneBitMask("NO_DATA"))
+
 
 class TestMemory(lsst.utils.tests.MemoryTestCase):
     pass

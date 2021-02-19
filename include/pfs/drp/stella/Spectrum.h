@@ -34,7 +34,7 @@ class Spectrum {
     /// @param length  Number of elements in spectrum
     /// @param fiberId  Fiber identifier
     explicit Spectrum(std::size_t length,
-                      std::size_t fiberId=0);
+                      int fiberId=0);
 
     /// Construct Spectrum from elements
     ///
@@ -52,7 +52,7 @@ class Spectrum {
         CovarianceMatrix const& covariance,
         WavelengthArray const& wavelength,
         ReferenceLineList const& lines=ReferenceLineList(),
-        std::size_t fiberId=0
+        int fiberId=0
     );
 
     Spectrum(Spectrum const&) = delete;
@@ -116,7 +116,7 @@ class Spectrum {
     //@}
 
     /// Return the fiber identifier for this spectrum
-    std::size_t getFiberId() const { return _fiberId; }
+    int getFiberId() const { return _fiberId; }
 
     /// Set the flux (deep copy)
     void setFlux(ndarray::Array<ImageT, 1, 1>  const& flux);
@@ -144,7 +144,7 @@ class Spectrum {
     void setMask(Mask const& mask);
 
     /// Set the fiber identifier of this spectrum
-    void setFiberId(std::size_t fiberId) { _fiberId = fiberId; }
+    void setFiberId(int fiberId) { _fiberId = fiberId; }
 
     /// Set the list of reference lines
     void setReferenceLines(ReferenceLineList const& lines) { _referenceLines = lines; }
@@ -170,7 +170,7 @@ class Spectrum {
     ImageArray _background;
     CovarianceMatrix _covariance;
     WavelengthArray _wavelength;
-    std::size_t _fiberId;
+    int _fiberId;
     ReferenceLineList _referenceLines;
     bool _isWavelengthSet;
 };

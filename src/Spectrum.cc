@@ -12,7 +12,7 @@
 
 namespace pfs { namespace drp { namespace stella {
 
-Spectrum::Spectrum(std::size_t length, std::size_t fiberId)
+Spectrum::Spectrum(std::size_t length, int fiberId)
   : _length(length),
     _flux(ndarray::allocate(length)),
     _mask(length, 1),
@@ -23,10 +23,10 @@ Spectrum::Spectrum(std::size_t length, std::size_t fiberId)
     _isWavelengthSet(false)
 {
     _flux.deep() = 0.;
+    _mask.getArray().deep() = 0;
     _background.deep() = 0.;
     _covariance.deep() = 0.;
     _wavelength.deep() = 0.;
-    _mask.addMaskPlane("FIBERTRACE");
 }
 
 
@@ -37,7 +37,7 @@ Spectrum::Spectrum(
     CovarianceMatrix const& covariance,
     WavelengthArray const& wavelength,
     ReferenceLineList const& lines,
-    std::size_t fiberId
+    int fiberId
 ) : _length(flux.getNumElements()),
     _flux(flux),
     _mask(mask),
