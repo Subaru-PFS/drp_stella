@@ -9,6 +9,7 @@ from .constructSpectralCalibs import SpectralCalibConfig, SpectralCalibTask
 from .buildFiberProfiles import BuildFiberProfilesTask
 from pfs.drp.stella import SlitOffsetsConfig
 from pfs.drp.stella.fitContinuum import FitContinuumTask
+from pfs.drp.stella.measureSlitOffsets import MeasureSpatialOffsetsTask
 
 
 class ConstructFiberProfilesTaskRunner(CalibTaskRunner):
@@ -24,6 +25,7 @@ class ConstructFiberProfilesTaskRunner(CalibTaskRunner):
 
 class ConstructFiberProfilesConfig(SpectralCalibConfig):
     """Configuration for FiberTrace construction"""
+    measureSlitOffsets = ConfigurableField(target=MeasureSpatialOffsetsTask, doc="Measure slit offsets")
     profiles = ConfigurableField(target=BuildFiberProfilesTask, doc="Build fiber profiles")
     requireZeroDither = Field(
         dtype=bool,
@@ -53,6 +55,7 @@ class ConstructFiberProfilesTask(SpectralCalibTask):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.makeSubtask("measureSlitOffsets")
         self.makeSubtask("profiles")
         self.makeSubtask("fitContinuum")
 
@@ -136,6 +139,7 @@ class ConstructFiberProfilesTask(SpectralCalibTask):
         pfsConfig = dataRefList[0].get("pfsConfig")
         self.config.slitOffsets.apply(detMap, self.log)
 
+        self.measureSlitOffsets.run(exposure, detMap, pfsConfig)
         results = self.profiles.run(exposure, detMap, pfsConfig)
         self.log.info('%d fiber profiles found on combined flat', len(results.profiles))
 

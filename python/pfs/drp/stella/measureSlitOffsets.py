@@ -2,13 +2,14 @@ import itertools
 import numpy as np
 import scipy.optimize
 
-from lsst.pex.config import Config, Field, ConfigurableField
+from lsst.pex.config import Config, Field, ConfigurableField, ListField
 from lsst.pipe.base import Task, Struct
 
 from pfs.datamodel.pfsConfig import FiberStatus
 from .readLineList import ReadLineListTask
 from .centroidLines import CentroidLinesTask
 from .GlobalDetectorMapContinued import GlobalDetectorMap
+from .fitLine import fitLine
 
 import lsstDebug
 
@@ -261,3 +262,105 @@ class MeasureSlitOffsetsTask(Task):
                 disp.dot("x", line.x, line.y, size=5, ctype="red")
         beforeDetectorMap.display(disp, fiberId, wavelength, "yellow")
         afterDetectorMap.display(disp, fiberId, wavelength, "green")
+
+
+class MeasureSpatialOffsetsConfig(Config):
+    """Configuration for MeasureSpatialOffsetsTask"""
+    rowCoadd = Field(dtype=int, default=5, doc="Number of rows to coadd for centroiding")
+    rowSamples = Field(dtype=int, default=50, doc="Number of row samples to centroid")
+    rmsSize = Field(dtype=float, default=1.5, doc="Estimated Gaussian sigma (pixels)")
+    centroidHalfSize = Field(dtype=int, default=3,
+                             doc="Number of pixels either side of peak to use in centroid")
+    mask = ListField(dtype=str, default=["BAD", "SAT", "CR", "BAD_FLAT", "NO_DATA"],
+                     doc="Mask planes for bad data")
+    rejIterations = Field(dtype=int, default=3, doc="Number of rejection iterations")
+    rejThreshold = Field(dtype=float, default=3.0, doc="Rejection threshold (sigma)")
+    soften = Field(dtype=float, default=0.01, doc="Softening to apply to centroid errors (pixels)")
+
+
+class MeasureSpatialOffsetsTask(Task):
+    """Measure spatial offsets from quartz images"""
+    ConfigClass = MeasureSpatialOffsetsConfig
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.debugInfo = lsstDebug.Info(__name__)
+
+    def run(self, exposure, detectorMap, pfsConfig):
+        """Measure spatial offsets from quartz images
+
+        Parameters
+        ----------
+        exposure : `lsst.afw.image.Exposure`
+            Exposure containing continuum spectra.
+        detectorMap : `pfs.drp.stella.DetectorMap`
+            Mapping between fiberId,wavelength and x,y.
+        pfsConfig : `pfs.datamodel.PfsConfig`
+            Top-end configuration.
+
+        Returns
+        -------
+        spatial, spectral : `ndarray.Array` of `float`
+            Spatial and spectral shifts for each fiber.
+        chi2 : `float`
+            chi^2 for the fit.
+        dof : `int`
+            Number of degrees of freedom.
+        num : `int`
+            Number of centroid measurements used.
+        select : `numpy.ndarray` of `bool`
+            Boolean array indicating which centroids were used.
+        soften : `float`
+            Systematic error in centroid (pixels) required to produce
+            chi^2/dof = 1.
+        """
+        data = self.centroidFibers(exposure.maskedImage, detectorMap, pfsConfig)
+        self.measureSlitOffsets(detectorMap, data)
+
+    def centroidFibers(self, image, detectorMap, pfsConfig):
+        indices = pfsConfig.selectByFiberStatus(FiberStatus.GOOD, detectorMap.fiberId)
+        numFibers = len(indices)
+        numCentroids = numFibers*self.config.rowSamples
+        fiberId = np.full(numCentroids, -1, dtype=int)
+        xCenter = np.full(numCentroids, np.nan, dtype=float)
+        xCenterErr = np.full(numCentroids, np.nan, dtype=float)
+        rows = np.full(numCentroids, np.nan, dtype=float)
+        isGood = np.zeros(numCentroids, dtype=bool)
+
+        badBitMask = image.mask.getPlaneBitMask(self.config.mask)
+
+        index = 0
+        for yMin in np.linspace(0, image.getHeight() - self.config.rowCoadd, self.config.rowSamples,
+                                endpoint=False, dtype=int):
+            yMax = yMin + self.config.rowSamples
+            yy = yMin + 0.5*self.config.rowSamples
+            array = image.image.array[yMin:yMax]
+            mask = image.mask.array[yMin:yMax]
+            for ff in detectorMap.fiberId[indices]:
+                peak = detectorMap.getXCenter(ff, yy)
+                centroid = fitLine(array, mask, peak, self.config.rmsSize,
+                                   badBitMask, self.config.centroidHalfSize)
+                fiberId[index] = ff
+                rows[index] = yy
+                xCenter[index] = centroid.center
+                xCenterErr[index] = centroid.centerErr
+                isGood[index] = centroid.isValid
+
+                index += 1
+
+        return Struct(fiberId=fiberId, xCenter=xCenter, xCenterErr=xCenterErr, rows=rows, isGood=isGood)
+
+    def measureSlitOffsets(self, detectorMap, data):
+        centroidHalfSize = self.config.centroidHalfSize
+        for ff in sorted(set(data.fiberId)):
+            select = data.isGood & (data.fiberId == ff)
+            spectralOffset = detectorMap.getSpectralOffset(ff)
+
+            def calculateChi2(spatialOffset):
+                detectorMap.setSlitOffsets(ff, spatialOffset, spectralOffset)
+                model = np.array([detectorMap.getXCenter(ff, yy) for yy in data.rows[select]])
+                return np.sum((data.xCenter[select] - model)/data.xCenterErr[select])
+
+            spatialOffset = scipy.optimize.bisect(calculateChi2, -centroidHalfSize, centroidHalfSize)
+            self.log.info("Fiber %d: %f", ff, spatialOffset)
+            detectorMap.setSlitOffsets(ff, spatialOffset, spectralOffset)
