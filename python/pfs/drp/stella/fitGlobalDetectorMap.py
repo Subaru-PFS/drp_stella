@@ -115,6 +115,10 @@ def calculateFitStatistics(model, lines, selection, soften=0.0):
     soften : `float`
         Systematic error that was applied to measured errors (pixels).
     """
+    modelFibers = set(model.getFiberId())
+    measuredFibers = set(lines.fiberId)
+    if modelFibers != measuredFibers:
+        raise RuntimeError("Model doesn't include fibers: %s", sorted(measuredFibers - modelFibers))
     fit = model(lines.fiberId.astype(np.int32), lines.wavelength.astype(float))
     xResid = (lines.x - fit[:, 0])
     yResid = (lines.y - fit[:, 1])
