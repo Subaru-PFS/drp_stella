@@ -302,6 +302,8 @@ class FitGlobalDetectorMapTask(Task):
             self.log.debug("Fit iteration %d: %s", ii, result.model)
             if self.debugInfo.plot:
                 self.plotModel(lines, used, result)
+            if self.debugInfo.residuals:
+                self.plotResiduals(result.model, lines, used, reserved)
             newUsed = (good & ~reserved & (np.abs(result.xResid/lines.xErr) < self.config.rejection) &
                        (np.abs(result.yResid/lines.yErr) < self.config.rejection))
             self.log.debug("Rejecting %d/%d lines in iteration %d", used.sum() - newUsed.sum(),
@@ -852,13 +854,15 @@ class FitGlobalDetectorMapTask(Task):
             return Normalize(median - nSigma*sigma, median + nSigma*sigma)
 
         cmap = matplotlib.cm.rainbow
-        fig, axes = plt.subplots(nrows=2, ncols=2)
+        fig, axes = plt.subplots(nrows=2, ncols=3, sharex=True, sharey=True)
 
         for ax, select, label in zip(
             axes.T,
-            [(good & ~reserved), reserved],
-            ["Used", "Reserved"],
+            [(good & ~reserved), reserved, (~good & ~reserved)],
+            ["Used", "Reserved", "Bad"],
         ):
+            if not np.any(select):
+                continue
             xNorm = calculateNormalization(dx[select])
             yNorm = calculateNormalization(dy[select])
             ax[0].scatter(lines.fiberId[select], lines.wavelength[select], marker=".", alpha=0.2,
