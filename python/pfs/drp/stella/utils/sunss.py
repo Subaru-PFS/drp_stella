@@ -6,7 +6,6 @@ from pfs.datamodel.pfsConfig import PfsConfig, PfsDesign, FiberStatus, TargetTyp
 
 import pfs.datamodel.fibpacking as fibpacking
 
-
 __all__ = ["findSuNSSId", "plotSuNSSFluxes"]
 
 def findSuNSSId(pfsDesign, fiberId):
@@ -47,6 +46,26 @@ def makeMappingToConnector():
     return lookupConnector
 
 
+def plotFerrule():
+    """Plot the layout of fibres in a SuNSS ferrule"""
+
+    for i in range(1, fibpacking.N_PER_FERRULE + 1):
+        xc, yc = fibpacking.fibxy(i)
+        plt.gcf().gca().add_artist(plt.Circle((xc, yc), fibpacking.FIBER_RADIUS,
+                                              color='blue', alpha=0.25))
+        plt.text(xc, yc, str(i), horizontalalignment='center', verticalalignment='center')
+
+    plt.xlim(1300*np.array([-1, 1]))
+    plt.ylim(plt.xlim())
+
+    plt.gca().set_aspect('equal')
+
+    plt.xlabel("x (microns)")
+    plt.ylabel("y (microns)")
+
+    plt.title("SuNSS fibre packing")
+
+
 def plotSuNSSFluxes(pfsConfig, pfsArm, lam0=None, lam1=None, statsOp=np.median, subtractSky=True, fluxMax=None,
                     starFibers=[], printFlux=False, md={}, showConnectors=False):
 
@@ -82,26 +101,12 @@ def plotSuNSSFluxes(pfsConfig, pfsArm, lam0=None, lam1=None, statsOp=np.median, 
         windowed = np.where(np.logical_and(pfsArm.wavelength >= lam0, pfsArm.wavelength <= lam1),
                             pfsFlux, np.NaN)
 
-        amed = nanStatsOp(windowed, axis=1)
-        if False:
-            sky = np.nanpercentile(windowed, [50])[0]
-            pfsArm.flux -= sky
+        with np.testing.suppress_warnings() as suppress: 
+            suppress.filter(RuntimeWarning, "All-NaN slice encountered")  # e.g. broken fibres
+            med = nanStatsOp(windowed, axis=1)
 
-        amean = np.mean(amed)
-        print(f"Mean flux = {amean:.3f}")
-
-        if fluxMax:
-            pass
-            #amed /= amean
-            #sky /= amean
-
-        med = np.empty(len(pfsConfig))
-        for i, fid in enumerate(pfsConfig.fiberId):
-            if fid in pfsArm.fiberId:
-                med[i] = amed[np.where(pfsArm.fiberId == fid)[0][0]]
-            else:
-                med[i] = np.NaN
-        ##
+        mean = np.mean(med)
+        #print(f"Mean flux = {mean:.3f}")
 
         if False:
             print(f"sky = {sky}")
@@ -147,7 +152,7 @@ def plotSuNSSFluxes(pfsConfig, pfsArm, lam0=None, lam1=None, statsOp=np.median, 
 
                 if printFlux:
                     x, y = pfsConfig.pfiNominal[ind]
-                    print(f"{visit} {x:8.1f} {y:8.1f}  {fid:3} {findSuNSSId(fid):3} {med[ind]:.3f}")
+                    print(f"{visit} {x:8.1f} {y:8.1f}  {fid:3} {findSuNSSId(pfsConfig, fid):3} {med[ind]:.3f}")
 
             broken_color = color
             textcolor = 'black'
@@ -170,7 +175,7 @@ def plotSuNSSFluxes(pfsConfig, pfsArm, lam0=None, lam1=None, statsOp=np.median, 
         ax.set_xlabel("x (microns)")
         if i == 0:
             ax.set_ylabel("y (microns)")
-            
+
         if showConnectors:
             plt.suptitle("Mapping to tower connectors", y=0.83);
         else:

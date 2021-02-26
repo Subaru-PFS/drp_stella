@@ -1,11 +1,14 @@
 import re
 import numpy as np
+import matplotlib.pyplot as plt
+
 from pfs.drp.stella import ReferenceLine
 
 __all__ = ["readLineListFile", "plotReferenceLines"]
 
 
-def readLineListFile(lineListFilename, lamps=["Ar", "Cd", "Hg", "Ne", "Xe"], minIntensity=0):
+def readLineListFile(lineListFilename, lamps=["Ar", "Cd", "Hg", "Ne", "Xe"], minIntensity=0,
+                     flagsToIgnoreMask=~0):
     """Read line list
 
     File consists of lines of
@@ -34,13 +37,13 @@ def readLineListFile(lineListFilename, lamps=["Ar", "Cd", "Hg", "Ne", "Xe"], min
                 continue
             fields = line.split()
             try:
-                lam, intensity, species, flag = fields
+                lam, intensity, species, status = fields
             except Exception as e:
                 print("%s: %s" % (e, fields))
                 raise
 
-            flag = int(flag)
-            if flag != 0:
+            status = int(status)
+            if (status & flagsToIgnoreMask) != 0:
                 continue
 
             try:
@@ -62,21 +65,22 @@ def readLineListFile(lineListFilename, lamps=["Ar", "Cd", "Hg", "Ne", "Xe"], min
                 if not np.isfinite(intensity) or intensity < minIntensity:
                     continue
 
-            referenceLines.append(ReferenceLine(species, wavelength=float(lam), guessedIntensity=intensity))
+            referenceLines.append(ReferenceLine(species, wavelength=float(lam),
+                                                guessedIntensity=intensity, status=ReferenceLine.Status(status)))
 
     if len(referenceLines) == 0:
         raise RuntimeError("You have not selected any lines from %s" % lineListFilename)
 
     return referenceLines
 
-
-def plotReferenceLines(referenceLines, what, ls=':', alpha=1, color=None, label=None, labelStatus=True,
-                       labelLines=False, wavelength=None, spectrum=None):
+def plotReferenceLines(referenceLines, what="wavelength", ls='-', alpha=1, color=None, label=None,
+                       labelStatus=True, labelLines=False, wavelength=None, spectrum=None,
+                       referenceFile=False):
     r"""Plot a set of reference lines using axvline
 
     \param referenceLines   List of ReferenceLine
     \param what   which field in ReferenceLine to plot
-    \param ls Linestyle (default: ':')
+    \param ls Linestyle (default: '-')
     \param alpha Transparency (default: 1)
     \param color Colour (default: None => let matplotlib choose)
     \param label Label for lines (default: None => use "what" or "what status")
@@ -84,14 +88,14 @@ def plotReferenceLines(referenceLines, what, ls=':', alpha=1, color=None, label=
     \param labelLines Label lines with their ion (default: False)
     \param wavelength Wavelengths array for underlying plot (default: None)
     \param spectrum   Intensity array for underlying plot (default: None)
+    \param referenceFile  The lines are from a reference file, so status
+                          should be interpreted in that light
 
     If labelLines is True the lines will be labelled at the top of the plot; if you provide the spectrum
     the labels will appear near the peaks of the lines
     """
     if label == '':
         label = None
-
-    import matplotlib.pyplot as plt
 
     def maybeSetLabel(status):
         if labelLines:
@@ -107,29 +111,43 @@ def plotReferenceLines(referenceLines, what, ls=':', alpha=1, color=None, label=
         else:
             return label
 
+    if len(plt.gca().get_lines()) > 0:  # they've plotted something already
+        xlim = plt.xlim()
+    else:
+        xlim = None
+
     labels = {}                         # labels that we've used if labelLines is True
     for rl in referenceLines:
-        if not (rl.status & rl.Status.FIT):
-            color = 'black'
-            label = maybeSetLabel("Bad fit")
-        elif (rl.status & rl.Status.RESERVED):
-            color = 'blue'
-            label = maybeSetLabel("Reserved")
-        elif (rl.status & rl.Status.SATURATED):
-            color = 'magenta'
-            label = maybeSetLabel("Saturated")
-        elif (rl.status & rl.Status.CR):
-            color = 'cyan'
-            label = maybeSetLabel("Cosmic ray")
-        elif (rl.status & rl.Status.MISIDENTIFIED):
-            color = 'brown'
-            label = maybeSetLabel("Misidentified")
-        elif (rl.status & rl.Status.CLIPPED):
-            color = 'red'
-            label = maybeSetLabel("Clipped")
+        if referenceFile:
+            color, label = {0: ('green', "isolated, good"),
+                            1: ('black', "not visible"),
+                            2: ('red',    "blended"),
+                            4: ('blue',   "unclassified"),
+                }.get(rl.status, ('cyan', "unknown"))
         else:
-            color = 'green'
-            label = maybeSetLabel("Fit")
+            if not (rl.status & rl.Status.FIT):
+                color = 'black'
+                label = "Bad fit"
+            elif (rl.status & rl.Status.RESERVED):
+                color = 'blue'
+                label = "Reserved"
+            elif (rl.status & rl.Status.SATURATED):
+                color = 'magenta'
+                label = "Saturated"
+            elif (rl.status & rl.Status.CR):
+                color = 'cyan'
+                label = "Cosmic ray"
+            elif (rl.status & rl.Status.MISIDENTIFIED):
+                color = 'brown'
+                label = "Misidentified"
+            elif (rl.status & rl.Status.CLIPPED):
+                color = 'red'
+                label = "Clipped"
+            else:
+                color = 'green'
+                label = "Fit"
+
+        label = maybeSetLabel(label)
 
         x = getattr(rl, what)
         if not np.isfinite(x):
@@ -138,6 +156,9 @@ def plotReferenceLines(referenceLines, what, ls=':', alpha=1, color=None, label=
         label = None
 
         if labelLines:
+            if xlim is not None and not (xlim[0] < x < xlim[1]):
+                continue
+
             if spectrum is None:
                 y = 0.95*plt.ylim()[1]
             else:
@@ -154,3 +175,6 @@ def plotReferenceLines(referenceLines, what, ls=':', alpha=1, color=None, label=
                 y = 1.05*spectrum[i0:i1].max()
 
             plt.text(x, y, rl.description, ha='center')
+
+
+    plt.xlim(xlim)
