@@ -92,21 +92,22 @@ def plotSuNSSFluxes(pfsConfig, pfsArm, lam0=None, lam1=None, statsOp=np.median, 
             np.mean: np.nanmean,
             np.median: np.nanmedian,
         }.get(statsOp)
+
         if nanStatsOp is None:
             print(f"I don't know how to make {statsOp} handle NaN; caveat emptor")
             nanStatsOp = statsOp
 
-        if subtractSky:
-            pfsFlux = pfsArm.flux + 0
-            pfsFlux -= np.nanmedian(np.where(pfsArm.mask == 0, pfsFlux, np.NaN), axis=0)
-        else:
-            pfsFlux = pfsArm.flux
-
-        windowed = np.where(np.logical_and(pfsArm.wavelength >= lam0, pfsArm.wavelength <= lam1),
-                            pfsFlux, np.NaN)
-
         with np.testing.suppress_warnings() as suppress:
             suppress.filter(RuntimeWarning, "All-NaN slice encountered")  # e.g. broken fibres
+            if subtractSky:
+                pfsFlux = pfsArm.flux + 0
+                pfsFlux -= np.nanmedian(np.where(pfsArm.mask == 0, pfsFlux, np.NaN), axis=0)
+            else:
+                pfsFlux = pfsArm.flux
+
+            windowed = np.where(np.logical_and(pfsArm.wavelength >= lam0, pfsArm.wavelength <= lam1),
+                                pfsFlux, np.NaN)
+
             med = nanStatsOp(windowed, axis=1)
 
     visit = md.get('W_VISIT', "[unknown]")
