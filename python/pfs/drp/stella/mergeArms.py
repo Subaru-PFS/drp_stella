@@ -230,7 +230,8 @@ class MergeArmsTask(CmdLineTask):
             warpedLsf = {}
             for ii in range(len(spectra)):
                 ff = spectra.fiberId[ii]
-                warpedLsf[ff] = warpLsf(lsf[ff], spectra.wavelength[ii], wavelength)
+                warpedLsf[ff] = warpLsf(lsf[ff], spectra.wavelength[ii], wavelength) if ff in lsf \
+                    else None
             warpedLsfList.append(warpedLsf)
 
         return {ff: coaddLsf([ww[ff] for ww in warpedLsfList]) for ff in fiberId}
