@@ -62,6 +62,8 @@ class FitContinuumTask(Task):
         """
         continua = SpectrumSet(spectra.getLength())
         for spec in spectra:
+            if not spec.isWavelengthSet():
+                continue
             continuum = self.wrapArray(self.fitContinuum(spec), spec.fiberId)
             continua.add(continuum)
         return continua
