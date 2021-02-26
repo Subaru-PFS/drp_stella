@@ -45,7 +45,7 @@ def get_norm(image, algorithm, minval, maxval, **kwargs):
     return norm
 
 
-def showAllSpectraAsImage(spec, vmin=None, vmax=None, **kwargs):
+def showAllSpectraAsImage(spec, vmin=None, vmax=None, lines=None, **kwargs):
     """Plot all the spectra in a pfsArm or pfsMerged object"""
 
     if kwargs:
@@ -65,11 +65,22 @@ def showAllSpectraAsImage(spec, vmin=None, vmax=None, **kwargs):
     else:
         kwargs = dict(norm=norm)
 
+    if lines is None:
+        lines = []
+
+    if lines:
+        fig, axs = plt.subplots(2, 1, sharex=True, gridspec_kw=dict(height_ratios=[1, 10], hspace=0.025))
+        plt.axes(axs[1])
+    else:
+        fig, axs = plt.subplots(1, 1)
+        axs = [axs]
+
     ibar = len(spec)//2
     lam0, lam1 = spec.wavelength[ibar][0], spec.wavelength[ibar][-1]
 
     imshown = plt.imshow(spec.flux, aspect='auto', origin='lower',
                          extent=(lam0, lam1, 0, len(spec) - 1), **kwargs)
+
     plt.colorbar(imshown)
 
     lambda_str = "\u03BB"  # used in cursor display string
@@ -86,12 +97,26 @@ def showAllSpectraAsImage(spec, vmin=None, vmax=None, **kwargs):
 
     if not isinstance(spec, PfsArm):
         xlabel = "wavelength (nm)"
-        plt.xlim(360, 1000)
+        # Only show wavelengths for which we have data; especially interesting
+        # if we only merged e.g. b and r
+        have_data = np.sum((spec.mask & spec.flags["NO_DATA"]) == 0, axis=0)
+        ll = np.where(have_data > 0, spec.wavelength[0], np.NaN)
+        plt.xlim(np.nanmin(ll), np.nanmax(ll))
     else:
-        xlabel = f"wavelength for fiber INDEX {ibar} (nm)"
+        xlabel = f"approximate wavelength for fiber {spec.fiberId[ibar]} (INDEX {ibar}) (nm)"
 
-    plt.xlabel(xlabel)
+    axs[-1].set_xlabel(xlabel)
     plt.ylabel("fiber INDEX")
+
+    if lines:
+        plt.axes(axs[0])
+        plt.colorbar().remove()  # resize window to match image by adding an invisible colorbar
+        plt.yticks(ticks=[], labels=[])
+
+        for l in lines:
+            lam = l.wavelength
+            if lam0 < lam < lam1:
+                plt.axvline(lam, color='gray')
 
 
 try:
