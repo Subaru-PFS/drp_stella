@@ -291,6 +291,8 @@ class FitGlobalDetectorMapTask(Task):
         select = np.zeros(numGood, dtype=bool)
         select[reservedIndices] = True
         reserved[good] = select
+        xErr = np.hypot(lines.xErr, self.config.soften)
+        yErr = np.hypot(lines.yErr, self.config.soften)
 
         used = good & ~reserved
         result = None
@@ -308,8 +310,8 @@ class FitGlobalDetectorMapTask(Task):
                 self.plotModel(lines, used, result)
             if self.debugInfo.residuals:
                 self.plotResiduals(result.model, lines, used, reserved)
-            newUsed = (good & ~reserved & (np.abs(result.xResid/lines.xErr) < self.config.rejection) &
-                       (np.abs(result.yResid/lines.yErr) < self.config.rejection))
+            newUsed = (good & ~reserved & (np.abs(result.xResid/xErr) < self.config.rejection) &
+                       (np.abs(result.yResid/yErr) < self.config.rejection))
             self.log.debug("Rejecting %d/%d lines in iteration %d", used.sum() - newUsed.sum(),
                            used.sum(), ii)
             if np.all(newUsed == used):
