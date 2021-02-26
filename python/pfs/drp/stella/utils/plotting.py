@@ -7,11 +7,11 @@ from pfs.datamodel.pfsConfig import FiberStatus, TargetType
 __all__ = ["plot2dSpectrumSlice"]
 
 
-def plot2dSpectrumSlice(exposure, pfsConfig, detectorMap, title="", r0=1980, r1=2020, 
-                       nrows=3, ncols=2, overlap=50):
-    """Plot a slice through all the columns of a 2-D spectrum in 
+def plot2dSpectrumSlice(exposure, pfsConfig, detectorMap, title="", r0=1980, r1=2020,
+                        nrows=3, ncols=2, overlap=50):
+    """Plot a slice through all the columns of a 2-D spectrum in
     nrows x ncols panels
-    
+
     exposure : `lsst.afw.image.Image` 2-D spectrum
     pfsConfig: FfsConfig for exposure
     detectorMap: DetectorMap for exposure
@@ -24,7 +24,7 @@ def plot2dSpectrumSlice(exposure, pfsConfig, detectorMap, title="", r0=1980, r1=
     axs = axs.flatten()
     n = len(axs)   # number of panels
     xlen = exposure.getWidth()//n + 1
-    
+
     for i in range(n):
         plt.axes(axs[i])
         axs[i].label_outer()
@@ -54,11 +54,10 @@ def plot2dSpectrumSlice(exposure, pfsConfig, detectorMap, title="", r0=1980, r1=
     ax = fig.add_subplot(111, frameon=False)
     # hide tick and tick label of the big axes
     plt.tick_params(labelcolor='none', top='off', bottom='off', left='off', right='off')
-    ax.set_xlabel('Column', labelpad=10) # Use argument `labelpad` to move label downwards.
+    ax.set_xlabel('Column', labelpad=10)  # Use argument `labelpad` to move label downwards.
     ax.set_ylabel('Mean flux', labelpad=20)
     plt.suptitle(title + f"  rows {r0}..{r1}", y=1.0)
 
-
     plt.tight_layout()
-    
+
     return fig

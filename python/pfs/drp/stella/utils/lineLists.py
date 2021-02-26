@@ -66,12 +66,14 @@ def readLineListFile(lineListFilename, lamps=["Ar", "Cd", "Hg", "Ne", "Xe"], min
                     continue
 
             referenceLines.append(ReferenceLine(species, wavelength=float(lam),
-                                                guessedIntensity=intensity, status=ReferenceLine.Status(status)))
+                                                guessedIntensity=intensity,
+                                                status=ReferenceLine.Status(status)))
 
     if len(referenceLines) == 0:
         raise RuntimeError("You have not selected any lines from %s" % lineListFilename)
 
     return referenceLines
+
 
 def plotReferenceLines(referenceLines, what="wavelength", ls='-', alpha=1, color=None, label=None,
                        labelStatus=True, labelLines=False, wavelength=None, spectrum=None,
@@ -121,9 +123,9 @@ def plotReferenceLines(referenceLines, what="wavelength", ls='-', alpha=1, color
         if referenceFile:
             color, label = {0: ('green', "isolated, good"),
                             1: ('black', "not visible"),
-                            2: ('red',    "blended"),
-                            4: ('blue',   "unclassified"),
-                }.get(rl.status, ('cyan', "unknown"))
+                            2: ('red', "blended"),
+                            4: ('blue', "unclassified"),
+                            }.get(rl.status, ('cyan', "unknown"))
         else:
             if not (rl.status & rl.Status.FIT):
                 color = 'black'
@@ -175,6 +177,5 @@ def plotReferenceLines(referenceLines, what="wavelength", ls='-', alpha=1, color
                 y = 1.05*spectrum[i0:i1].max()
 
             plt.text(x, y, rl.description, ha='center')
-
 
     plt.xlim(xlim)

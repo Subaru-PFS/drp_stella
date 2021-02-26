@@ -1,4 +1,4 @@
-import unicodedata
+import numpy as np
 import matplotlib.pyplot as plt
 
 import lsst.geom as geom
@@ -11,8 +11,9 @@ except ImportError:
 
     AsinhNormalize = None
 
-    
+
 __all__ = ["addPfsCursor", "showAllSpectraAsImage"]
+
 
 def get_norm(image, algorithm, minval, maxval, **kwargs):
     if minval == "minmax":
@@ -40,13 +41,13 @@ def get_norm(image, algorithm, minval, maxval, **kwargs):
             norm = plt.colors.Normalize(minval, maxval)
     else:
         raise RuntimeError("Unsupported stretch algorithm \"%s\"" % algorithm)
-        
+
     return norm
 
 
 def showAllSpectraAsImage(spec, vmin=None, vmax=None, **kwargs):
     """Plot all the spectra in a pfsArm or pfsMerged object"""
-    
+
     if kwargs:
         kwargs0 = kwargs
         kwargs = kwargs.copy()
@@ -63,10 +64,10 @@ def showAllSpectraAsImage(spec, vmin=None, vmax=None, **kwargs):
         kwargs = dict(vmin=vmin, vmax=vmax)
     else:
         kwargs = dict(norm=norm)
-        
+
     ibar = len(spec)//2
     lam0, lam1 = spec.wavelength[ibar][0], spec.wavelength[ibar][-1]
-        
+
     imshown = plt.imshow(spec.flux, aspect='auto', origin='lower',
                          extent=(lam0, lam1, 0, len(spec) - 1), **kwargs)
     plt.colorbar(imshown)
@@ -82,7 +83,7 @@ def showAllSpectraAsImage(spec, vmin=None, vmax=None, **kwargs):
     ax = plt.gca()
     ax.format_coord = format_coord
     ax.get_cursor_data = lambda ev: None  # disabled
-    
+
     if not isinstance(spec, PfsArm):
         xlabel = "wavelength (nm)"
         plt.xlim(360, 1000)
@@ -91,6 +92,7 @@ def showAllSpectraAsImage(spec, vmin=None, vmax=None, **kwargs):
 
     plt.xlabel(xlabel)
     plt.ylabel("fiber INDEX")
+
 
 try:
     from lsst.display.matplotlib import DisplayImpl
@@ -117,8 +119,7 @@ if not hasattr(DisplayImpl, "set_format_coord"):  # old version of display_matpl
         ax = axes[0]
 
         if ax.format_coord is None or \
-           ax.format_coord.__doc__ is None or \
-            "PFS" not in ax.format_coord.__doc__:
+           ax.format_coord.__doc__ is None or "PFS" not in ax.format_coord.__doc__:
 
             def pfs_format_coord(x, y, disp_impl=disp._impl,
                                  old_format_coord=ax.format_coord):
@@ -137,7 +138,7 @@ else:
     def addPfsCursor(disp, detectorMap=None):
         """Add PFS specific information to an afwDisplay.Display
 
-        You should call this function again if the detectorMap 
+        You should call this function again if the detectorMap
         changes (e.g. the arm that you're looking at), e.g.
                addPfsCursor(disp, butler.get("detectorMap", dataId))
         """

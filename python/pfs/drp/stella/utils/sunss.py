@@ -1,12 +1,12 @@
-import os
 import numpy as np
 import matplotlib.pyplot as plt
 
-from pfs.datamodel.pfsConfig import PfsConfig, PfsDesign, FiberStatus, TargetType
+from pfs.datamodel.pfsConfig import FiberStatus, TargetType
 
 import pfs.datamodel.fibpacking as fibpacking
 
 __all__ = ["findSuNSSId", "plotSuNSSFluxes"]
+
 
 def findSuNSSId(pfsDesign, fiberId):
     """Return the SuNSS ferrule fiber ID given a pfsDesign and fiberId"""
@@ -16,19 +16,23 @@ def findSuNSSId(pfsDesign, fiberId):
     y = np.empty_like(x)
     for i in range(len(x)):
         x[i], y[i] = fibpacking.fibxy(i + 1)
-        
+
     r = np.hypot(x0 - x, y0 - y)
-    
+
     return np.arange(len(r), dtype=int)[r < 1e-3][0] + 1
 
 
-def makeMappingToConnector():
+def guessConnectors():
+    pass
+
+
+def makeMappingToConnector(pfsConfig):
     """Return a dict mapping fiberId to connector number along the slit"""
     conns = guessConnectors()
 
     lookupConnector = {}
     for DI in "DI":
-        connId = np.empty(len(x), dtype=int)
+        connId = np.empty(fibpacking.N_PER_FERRULE, dtype=int)
         i0, j = 0, 0
         for tt, cset in conns:
             if tt != DI:
@@ -40,9 +44,9 @@ def makeMappingToConnector():
                 i0 += n
 
         lookupConnector.update(
-            zip(pfsDesign.fiberId[pfsDesign.targetType == (TargetType.SUNSS_DIFFUSE if DI == "D" else
-                                                     TargetType.SUNSS_IMAGING)], connId))
-        
+            zip(pfsConfig.fiberId[pfsConfig.targetType == (TargetType.SUNSS_DIFFUSE if DI == "D" else
+                                                           TargetType.SUNSS_IMAGING)], connId))
+
     return lookupConnector
 
 
@@ -66,13 +70,13 @@ def plotFerrule():
     plt.title("SuNSS fibre packing")
 
 
-def plotSuNSSFluxes(pfsConfig, pfsArm, lam0=None, lam1=None, statsOp=np.median, subtractSky=True, fluxMax=None,
-                    starFibers=[], printFlux=False, md={}, showConnectors=False):
+def plotSuNSSFluxes(pfsConfig, pfsArm, lam0=None, lam1=None, statsOp=np.median, subtractSky=True,
+                    fluxMax=None, starFibers=[], printFlux=False, md={}, showConnectors=False):
 
-    fig, axs =  plt.subplots(1, 2, sharey='row', gridspec_kw=dict(wspace=0))
+    fig, axs = plt.subplots(1, 2, sharey='row', gridspec_kw=dict(wspace=0))
 
     if showConnectors:
-        lookupConnector = makeMappingToConnector()
+        lookupConnector = makeMappingToConnector(pfsConfig)
         colors = [f"C{i%10}" for i in range(12)]
 
         printFlux = False
@@ -85,40 +89,32 @@ def plotSuNSSFluxes(pfsConfig, pfsArm, lam0=None, lam1=None, statsOp=np.median, 
             lam1 = np.max(lam)
 
         nanStatsOp = {
-            np.mean : np.nanmean,
-            np.median : np.nanmedian,
+            np.mean: np.nanmean,
+            np.median: np.nanmedian,
         }.get(statsOp)
         if nanStatsOp is None:
             print(f"I don't know how to make {statsOp} handle NaN; caveat emptor")
             nanStatsOp = statsOp
-            
+
         if subtractSky:
             pfsFlux = pfsArm.flux + 0
             pfsFlux -= np.nanmedian(np.where(pfsArm.mask == 0, pfsFlux, np.NaN), axis=0)
         else:
             pfsFlux = pfsArm.flux
-            
+
         windowed = np.where(np.logical_and(pfsArm.wavelength >= lam0, pfsArm.wavelength <= lam1),
                             pfsFlux, np.NaN)
 
-        with np.testing.suppress_warnings() as suppress: 
+        with np.testing.suppress_warnings() as suppress:
             suppress.filter(RuntimeWarning, "All-NaN slice encountered")  # e.g. broken fibres
             med = nanStatsOp(windowed, axis=1)
-
-        mean = np.mean(med)
-        #print(f"Mean flux = {mean:.3f}")
-
-        if False:
-            print(f"sky = {sky}")
-            if subtractSky:
-                med -= sky 
 
     visit = md.get('W_VISIT', "[unknown]")
 
     for i, DI in enumerate([TargetType.SUNSS_DIFFUSE, TargetType.SUNSS_IMAGING]):
         ax = axs[i]
         ax.text(0, 1200, str(DI), horizontalalignment='center')
-        
+
         if fluxMax is None:
             fluxMax = np.nanmax(med[pfsConfig.targetType == DI])
 
@@ -132,7 +128,7 @@ def plotSuNSSFluxes(pfsConfig, pfsArm, lam0=None, lam1=None, statsOp=np.median, 
 
             if showConnectors:
                 color = colors[lookupConnector[fid]]
-                alpha=0.5
+                alpha = 0.5
             else:
                 alpha = med[ind]/fluxMax
                 if alpha < 0 or not np.isfinite(alpha):
@@ -152,7 +148,8 @@ def plotSuNSSFluxes(pfsConfig, pfsArm, lam0=None, lam1=None, statsOp=np.median, 
 
                 if printFlux:
                     x, y = pfsConfig.pfiNominal[ind]
-                    print(f"{visit} {x:8.1f} {y:8.1f}  {fid:3} {findSuNSSId(pfsConfig, fid):3} {med[ind]:.3f}")
+                    print(f"{visit} {x:8.1f} {y:8.1f}  {fid:3}"
+                          f"{findSuNSSId(pfsConfig, fid):3} {med[ind]:.3f}")
 
             broken_color = color
             textcolor = 'black'
@@ -170,22 +167,22 @@ def plotSuNSSFluxes(pfsConfig, pfsArm, lam0=None, lam1=None, statsOp=np.median, 
         ax.set_xlim(1300*np.array([-1, 1]))
         ax.set_ylim(plt.xlim())
 
-        ax.set_aspect('equal');
+        ax.set_aspect('equal')
 
         ax.set_xlabel("x (microns)")
         if i == 0:
             ax.set_ylabel("y (microns)")
 
         if showConnectors:
-            plt.suptitle("Mapping to tower connectors", y=0.83);
+            plt.suptitle("Mapping to tower connectors", y=0.83)
         else:
             title = f"{visit} {'brnm'[md['W_ARM']]}{md['W_SPMOD']}  {md['EXPTIME']:.1f}s" if i == 0 else \
-                       r"$%.1f < \lambda < %.1f$" % (lam0, lam1)
+                r"$%.1f < \lambda < %.1f$" % (lam0, lam1)
             ax.set_title(title)
-            
+
             plt.text(0.03, 0.03, f"fluxMax = {fluxMax:.2f}", transform=ax.transAxes)
-            
+
         if md:
             plt.suptitle(f"{md['DATE-OBS']}Z{md['UT'][:-4]}", y=0.85)
 
-    plt.tight_layout();
+    plt.tight_layout()

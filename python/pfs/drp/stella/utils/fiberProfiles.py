@@ -1,5 +1,4 @@
 import lsst.afw.image as afwImage
-#import pfs.drp.stella.fiberTrace
 from pfs.drp.stella.FiberTrace import fiberMaskPlane
 
 __all__ = ["makeFiberTraceMaskedImage"]
