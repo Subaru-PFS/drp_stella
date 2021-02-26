@@ -1,7 +1,9 @@
+import os.path
 import re
 import numpy as np
 import matplotlib.pyplot as plt
 
+from lsst.utils import getPackageDir
 from pfs.drp.stella import ReferenceLine
 
 __all__ = ["readLineListFile", "plotReferenceLines"]
@@ -24,6 +26,12 @@ def readLineListFile(lineListFilename, lamps=["Ar", "Cd", "Hg", "Ne", "Xe"], min
     Return:
        list of drp::ReferenceLine
     """
+
+    if not os.path.isabs(lineListFilename):
+        full_lineListFilename = os.path.join(getPackageDir("obs_pfs"), "pfs",
+                                             "lineLists", lineListFilename)
+        if os.path.exists(full_lineListFilename):
+            lineListFilename = full_lineListFilename
     #
     # Pack into a list of ReferenceLines
     #
