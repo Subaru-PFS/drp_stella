@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 
 from pfs.datamodel.pfsConfig import FiberStatus, TargetType
 
-import pfs.datamodel.fibpacking as fibpacking
+import pfs.utils.fibpacking as fibpacking
 
 __all__ = ["findSuNSSId", "plotSuNSSFluxes"]
 
