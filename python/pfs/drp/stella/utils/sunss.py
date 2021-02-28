@@ -99,6 +99,7 @@ def plotSuNSSFluxes(pfsConfig, pfsArm, lam0=None, lam1=None, statsOp=np.median, 
 
         with np.testing.suppress_warnings() as suppress:
             suppress.filter(RuntimeWarning, "All-NaN slice encountered")  # e.g. broken fibres
+            suppress.filter(RuntimeWarning, "invalid value encountered in greater_equal")
             if subtractSky:
                 pfsFlux = pfsArm.flux + 0
                 pfsFlux -= np.nanmedian(np.where(pfsArm.mask == 0, pfsFlux, np.NaN), axis=0)
