@@ -45,7 +45,7 @@ def get_norm(image, algorithm, minval, maxval, **kwargs):
     return norm
 
 
-def showAllSpectraAsImage(spec, vmin=None, vmax=None, lines=None, **kwargs):
+def showAllSpectraAsImage(spec, vmin=None, vmax=None, lines=None, labelLines=False, **kwargs):
     """Plot all the spectra in a pfsArm or pfsMerged object"""
 
     if kwargs:
@@ -113,10 +113,17 @@ def showAllSpectraAsImage(spec, vmin=None, vmax=None, lines=None, **kwargs):
         plt.colorbar().remove()  # resize window to match image by adding an invisible colorbar
         plt.yticks(ticks=[], labels=[])
 
+        colors = {}
         for l in lines:
             lam = l.wavelength
             if lam0 < lam < lam1:
-                plt.axvline(lam, color='gray')
+                lab = l.description
+                color = colors.get(lab, f"C{len(colors)}" if labelLines else 'black')
+                plt.axvline(lam, color=color, label=None if lab in colors else lab, alpha=1)
+                colors[lab] = color
+
+        if labelLines:
+            plt.legend(fontsize=8, loc=(1.01, 0.0), ncol=2)
 
 
 try:
