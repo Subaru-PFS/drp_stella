@@ -2,6 +2,7 @@ import numpy as np
 import scipy.interpolate
 
 import lsst.utils.tests
+from lsst.pex.exceptions import LengthError
 
 from pfs.drp.stella.tests.utils import runTests
 from pfs.drp.stella import SplineD
@@ -50,6 +51,11 @@ class SplineTestCase(lsst.utils.tests.TestCase):
         ours = np.array([self.spline(x) for x in rand])
         theirs = alternate(rand)
         self.assertFloatsAlmostEqual(ours, theirs, atol=3.0e-6)
+
+    def testSizeMismatch(self):
+        """Test a mismatch of sizes in the ctor"""
+        with self.assertRaises(LengthError):
+            SplineD(np.arange(5, dtype=float), np.arange(7, dtype=float))
 
 
 class TestMemory(lsst.utils.tests.MemoryTestCase):

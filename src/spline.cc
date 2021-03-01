@@ -9,6 +9,7 @@
 #include "lsst/afw/table/io/CatalogVector.h"
 #include "lsst/afw/table/io/Persistable.cc"
 
+#include "pfs/drp/stella/utils/checkSize.h"
 #include "pfs/drp/stella/spline.h"
 
 namespace pfs {
@@ -67,6 +68,7 @@ Spline<T>::Spline(
     ndarray::Array<Spline<T>::InternalT const, 1, 1> const& y,
     InterpolationTypes interpolationType
 ) : _interpolationType(interpolationType) {
+    utils::checkSize(x.size(), y.size(), "x vs y");
     std::size_t const n = x.size();
     if (n < 3) {
         throw LSST_EXCEPT(lsst::pex::exceptions::LengthError, "At least 3 points are needed to fit a spline");
