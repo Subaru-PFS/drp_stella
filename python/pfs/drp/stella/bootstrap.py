@@ -1,6 +1,7 @@
 import os
 from types import SimpleNamespace
 from operator import attrgetter
+from datetime import datetime
 import numpy as np
 from astropy.modeling.models import Gaussian1D, Chebyshev2D
 from astropy.modeling.fitting import LinearLSQFitter, LevMarLSQFitter
@@ -530,6 +531,10 @@ class BootstrapTask(CmdLineTask):
         keywords = ("arm", "spectrograph", "ccd", "filter", "calibDate", "calibTime", "visit0")
         mapping = dict(visit0="visit", calibDate="dateObs", calibTime="taiObs")
         metadata.set("CALIB_ID", " ".join("%s=%s" % (key, dataId[mapping.get(key, key)]) for key in keywords))
+
+        date = datetime.now().isoformat()
+        history = f"bootstrap on {date} with arc={dataId['visit']}"
+        metadata.add("HISTORY", history)
 
     def _getMetadataName(self):
         return None
