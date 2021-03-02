@@ -265,7 +265,9 @@ void SplinedDetectorMap::setWavelength(
     ndarray::Array<double, 1, 1> const& knots,
     ndarray::Array<double, 1, 1> const& wavelength
 ) {
-    _wavelength[getFiberIndex(fiberId)] = math::Spline<double>(knots, wavelength);
+    std::size_t const index = getFiberIndex(fiberId);
+    _wavelength[index] = math::Spline<double>(knots, wavelength);
+    _row[index] = math::Spline<double>(wavelength, knots);
 }
 
 

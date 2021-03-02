@@ -1,6 +1,7 @@
 import os
 from types import SimpleNamespace
 from operator import attrgetter
+from datetime import datetime
 import numpy as np
 from astropy.modeling.models import Gaussian1D, Chebyshev2D
 from astropy.modeling.fitting import LinearLSQFitter, LevMarLSQFitter
@@ -15,6 +16,7 @@ from lsst.obs.pfs.utils import getLampElements
 from .findAndTraceAperturesTask import FindAndTraceAperturesTask
 from .findLines import FindLinesTask
 from .utils import readLineListFile
+from . import SplinedDetectorMap
 
 import lsstDebug
 
@@ -456,18 +458,25 @@ class BootstrapTask(CmdLineTask):
         # Update the detectorMap
         if doUpdate:
             self.log.info("Updating detectorMap...")
-            rows = np.arange(detectorMap.bbox.getMaxY() + 1, dtype=float)
+            if not isinstance(detectorMap, SplinedDetectorMap):
+                raise RuntimeError("Can only update a SplinedDetectorMap")
             for ff in detectorMap.fiberId:
                 if fiberId and ff not in fiberId:
                     continue
-                wavelength = detectorMap.getWavelength(ff)
-                assert len(wavelength) == len(rows)
-                center = detectorMap.getXCenter(ff)
-                assert len(center) == len(rows)
-                spatial = fitSpatial(center, rows)
-                spectral = fitSpectral(center, rows)
-                detectorMap.setXCenter(ff, rows, spatial)
-                detectorMap.setWavelength(ff, spectral, wavelength)
+                wavelengthFunc = detectorMap.getWavelengthSpline(ff)  # x=rows --> y=wavelength
+                centerFunc = detectorMap.getXCenterSpline(ff)  # x=rows --> y=xCenter
+
+                wavelength = wavelengthFunc.getY()
+                wlRows = wavelengthFunc.getX()
+                wlCols = centerFunc(wlRows)
+                wlRowsFixed = fitSpectral(wlCols, wlRows)
+                detectorMap.setWavelength(ff, wlRowsFixed, wavelength)
+
+                cenRows = centerFunc.getX()
+                cenCols = centerFunc.getY()
+                cenColsFixed = fitSpatial(cenCols, cenRows)
+                cenRowsFixed = fitSpectral(cenCols, cenRows)
+                detectorMap.setXCenter(ff, cenRowsFixed, cenColsFixed)
 
     def visualize(self, image, fiberId, detectorMap, refLines, frame=1):
         """Visualize arc lines on an image
@@ -498,8 +507,9 @@ class BootstrapTask(CmdLineTask):
         disp = Display(frame, backend)
         disp.mtv(image)
 
-        minWl = min(array.min() for array in detectorMap.getWavelength())
-        maxWl = max(array.max() for array in detectorMap.getWavelength())
+        wlArrays = np.array([detectorMap.getWavelength(ff) for ff in fiberId])
+        minWl = wlArrays.min()
+        maxWl = wlArrays.max()
         refLines = [rl for rl in refLines if rl.wavelength > minWl and rl.wavelength < maxWl]
         refLines = sorted(refLines, key=attrgetter("guessedIntensity"), reverse=True)[:top]  # Brightest
         wavelengths = [rl.wavelength for rl in refLines]
@@ -521,6 +531,10 @@ class BootstrapTask(CmdLineTask):
         keywords = ("arm", "spectrograph", "ccd", "filter", "calibDate", "calibTime", "visit0")
         mapping = dict(visit0="visit", calibDate="dateObs", calibTime="taiObs")
         metadata.set("CALIB_ID", " ".join("%s=%s" % (key, dataId[mapping.get(key, key)]) for key in keywords))
+
+        date = datetime.now().isoformat()
+        history = f"bootstrap on {date} with arc={dataId['visit']}"
+        metadata.add("HISTORY", history)
 
     def _getMetadataName(self):
         return None

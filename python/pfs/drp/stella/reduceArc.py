@@ -1,5 +1,7 @@
 import re
 from collections import defaultdict
+from datetime import datetime
+
 import numpy as np
 import lsstDebug
 import lsst.pex.config as pexConfig
@@ -208,12 +210,12 @@ class ReduceArcTask(CmdLineTask):
         detectorMap = self.fitDetectorMap.run(dataRef.dataId, oldDetMap.bbox, lines, visitInfo,
                                               oldDetMap.metadata).detectorMap
 
-        self.write(dataRef, detectorMap, metadata, visitInfo)
+        self.write(dataRef, detectorMap, metadata, visitInfo, [ref.dataId["visit"] for ref in dataRefList])
         if self.debugInfo.display and self.debugInfo.displayCalibrations:
             for rr in results:
                 self.plotCalibrations(rr.spectra, detectorMap)
 
-    def write(self, dataRef, detectorMap, metadata, visitInfo):
+    def write(self, dataRef, detectorMap, metadata, visitInfo, visits):
         """Write outputs
 
         Parameters
@@ -226,6 +228,8 @@ class ReduceArcTask(CmdLineTask):
             Exposure header.
         visitInfo : `lsst.afw.image.VisitInfo`
             Visit information for exposure.
+        visits : iterable of `int`
+            List of visits used to construct the detectorMap.
         """
         self.log.info("Writing output for %s", dataRef.dataId)
         detectorMap.setVisitInfo(visitInfo)
@@ -237,6 +241,11 @@ class ReduceArcTask(CmdLineTask):
         calibId = re.sub(r"calibDate=\d\d\d\d-\d\d-\d\d", "calibDate=%s" % (dateObs,), calibId)
         calibId = re.sub(r"calibTime=\S+", "calibTime=%s" % (taiObs,), calibId)
         detectorMap.metadata.set("CALIB_ID", calibId)
+
+        date = datetime.now().isoformat()
+        history = f"reduceArc on {date} with visit={','.join(str(vv) for vv in sorted(visits))}"
+        detectorMap.metadata.add("HISTORY", history)
+
         dataRef.put(detectorMap, 'detectorMap', visit0=visit0)
 
     def reduceDataRefs(self, dataRefList):
