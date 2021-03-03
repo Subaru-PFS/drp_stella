@@ -68,7 +68,9 @@ class MeasurePsfTask(Task):
         psf : `pfs.drp.stella.SpectralPsf`
             Point-spread function.
         """
-        return NevenPsf.build(detectorMap, version=self.config.version,
-                              oversampleFactor=self.config.oversampleFactor,
-                              targetSize=self.config.targetSize,
-                              directory=self.config.directory)
+        psf = NevenPsf.build(detectorMap, version=self.config.version,
+                             oversampleFactor=self.config.oversampleFactor,
+                             targetSize=self.config.targetSize,
+                             directory=self.config.directory)
+        exposure.setPsf(psf)
+        return psf
