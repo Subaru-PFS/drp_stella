@@ -285,7 +285,7 @@ class FitGlobalDetectorMapTask(Task):
         numGood = good.sum()
 
         rng = np.random.RandomState(seed)
-        numReserved = int(self.config.reserveFraction*numLines + 0.5)
+        numReserved = int(self.config.reserveFraction*numGood + 0.5)
         reservedIndices = rng.choice(np.arange(numGood, dtype=int), replace=False, size=numReserved)
         reserved = np.zeros_like(good)
         select = np.zeros(numGood, dtype=bool)
