@@ -234,7 +234,6 @@ class MeasureSlitOffsetsTask(Task):
 
         The following debug parameters are used:
         - ``frame`` (`int`): display frame to use (defaults to ``1``).
-        - ``backend`` (`str`): display backend to use (defaults to ``"ds9"``).
 
         Parameters
         ----------
@@ -254,7 +253,7 @@ class MeasureSlitOffsetsTask(Task):
             Wavelengths to mark.
         """
         from lsst.afw.display import Display
-        disp = Display(frame=self.debugInfo.frame or 1, backend=self.debugInfo.backend or "ds9")
+        disp = Display(frame=self.debugInfo.frame or 1)
         disp.mtv(exposure)
         with disp.Buffering():
             for line in centroids:

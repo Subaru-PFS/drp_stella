@@ -18,7 +18,6 @@ import lsstDebug
 
 __all__ = ("BuildFiberProfilesConfig", "BuildFiberProfilesTask")
 
-backend = "ds9"
 colors = ["red", "green", "blue", "cyan", "magenta", "yellow", "orange"]
 
 
@@ -151,10 +150,10 @@ class BuildFiberProfilesTask(Task):
             SpanSet.fromMask(mask, bitmask).dilated(grow).clippedTo(mask.getBBox()).setMask(mask, bitmask)
 
         if self.debugInfo.displayConvolved:
-            Display(backend=backend, frame=1).mtv(convolvedImage)
+            Display(frame=1).mtv(convolvedImage)
             sigNoise = convolvedImage.clone()
             sigNoise.image.array /= np.sqrt(convolvedImage.variance.array)
-            Display(backend=backend, frame=2).mtv(sigNoise)
+            Display(frame=2).mtv(sigNoise)
 
         return convolvedImage
 
@@ -179,7 +178,7 @@ class BuildFiberProfilesTask(Task):
         spans.setMask(mask, bitmask)
 
         if self.debugInfo.findPeaks:
-            display = Display(backend=self.debugInfo.backend, frame=self.debugInfo.frame or 1)
+            display = Display(frame=self.debugInfo.frame or 1)
             display.setMaskPlaneColor("FIBERTRACE", "blue")
             display.mtv(maskedImage)
             with display.Buffering():
@@ -287,7 +286,7 @@ class BuildFiberProfilesTask(Task):
                 association[pp.low:pp.high + 1, layer] = index
 
         if self.debugInfo.associatePeaks:
-            display = Display(backend=backend, frame=1)
+            display = Display(frame=1)
             for tt, cc in zip(traces, itertools.cycle(colors)):
                 with display.Buffering():
                     for pp in tt:
@@ -486,7 +485,7 @@ class BuildFiberProfilesTask(Task):
                 self.log.warn("Failed to identify %d fiberIds: %s", len(notFound), sorted(notFound))
 
         if self.debugInfo.identifyFibers:
-            display = Display(backend=backend, frame=1)
+            display = Display(frame=1)
             for fiberId in profiles:
                 display.dot(str(fiberId), centers[fiberId](middle), middle, ctype="green")
             for fiberId in detectorMap.fiberId:
