@@ -502,9 +502,8 @@ class BootstrapTask(CmdLineTask):
         if not lsstDebug.Info(__name__).visualize:
             return
         from lsst.afw.display import Display
-        backend = "ds9"
         top = 50
-        disp = Display(frame, backend)
+        disp = Display(frame)
         disp.mtv(image)
 
         wlArrays = np.array([detectorMap.getWavelength(ff) for ff in fiberId])

@@ -138,7 +138,6 @@ class ReduceArcTask(CmdLineTask):
         - ``display`` (`bool`): Activate displays and plotting (master switch)?
         - ``frame`` (`dict` mapping `int` to `int`): Display frame to use as a
             function of visit.
-        - ``backend`` (`str`): Display backend name.
         - ``displayIdentifications`` (`bool`): Display image with lines
             identified?
         - ``displayCalibrations`` (`bool`): Plot calibration results? See the
@@ -172,7 +171,7 @@ class ReduceArcTask(CmdLineTask):
         self.identifyLines.run(spectra, detectorMap, lines)
         if self.debugInfo.display and self.debugInfo.displayIdentifications:
             frame = self.debugInfo.frame[dataRef.dataId["visit"]] if self.debugInfo.frame is not None else 1
-            self.plotIdentifications(self.debugInfo.backend or "ds9", exposure, spectra, detectorMap, frame)
+            self.plotIdentifications(exposure, spectra, detectorMap, frame)
         referenceLines = self.centroidLines.getReferenceLines(spectra)
         lines = self.centroidLines.run(exposure, referenceLines, detectorMap)
         dataRef.put(lines, "arcLines")
@@ -268,7 +267,7 @@ class ReduceArcTask(CmdLineTask):
         """
         return sorted(dataRefList, key=lambda dataRef: dataRef.dataId["visit"])[0]
 
-    def plotIdentifications(self, backend, exposure, spectrumSet, detectorMap, frame=1):
+    def plotIdentifications(self, exposure, spectrumSet, detectorMap, frame=1):
         """Plot line identifications
 
         Parameters
@@ -280,7 +279,7 @@ class ReduceArcTask(CmdLineTask):
         detectorMap : `pfs.drp.stella.utils.DetectorMap`
             Mapping of wl,fiber to detector position.
         """
-        display = afwDisplay.Display(frame, backend=backend)
+        display = afwDisplay.Display(frame)
         display.mtv(exposure)
         for spec in spectrumSet:
             fiberId = spec.getFiberId()

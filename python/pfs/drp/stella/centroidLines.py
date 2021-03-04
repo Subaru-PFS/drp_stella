@@ -125,7 +125,7 @@ class CentroidLinesTask(Task):
 
         if self.debugInfo.displayConvolved:
             from lsst.afw.display import Display
-            Display(backend=self.debugInfo.backend or "ds9", frame=1).mtv(convolvedImage)
+            Display(frame=1).mtv(convolvedImage)
 
         return convolvedImage
 
@@ -273,8 +273,6 @@ class CentroidLinesTask(Task):
         The display is controlled by debug parameters:
         - ``display`` (`bool`): Enable display?
         - ``frame`` (`int`, optional): Frame to use for display (defaults to 1).
-        - ``backend`` (`str`, optional): Backend to use for display (defaults to
-          ``ds9``).
 
         Parameters
         ----------
@@ -286,7 +284,7 @@ class CentroidLinesTask(Task):
         if not self.debugInfo.display:
             return
         from lsst.afw.display import Display
-        disp = Display(frame=self.debugInfo.frame or 1, backend=self.debugInfo.backend or "ds9")
+        disp = Display(frame=self.debugInfo.frame or 1)
         disp.mtv(exposure)
         with disp.Buffering():
             for row in catalog:
