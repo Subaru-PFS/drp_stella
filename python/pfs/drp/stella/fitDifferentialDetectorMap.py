@@ -167,7 +167,8 @@ class FitDifferentialDetectorMapTask(FitGlobalDetectorMapTask):
         fiberCenter = self.config.fiberCenter[spectrograph] if doFitHighCcd else 0
         if base is None:
             base = self.getBaseDetectorMap(dataId)
-        self.measureSlitOffsets(base, lines)
+        if self.config.doSlitOffsets:
+            self.measureSlitOffsets(base, lines)
         residuals = self.calculateBaseResiduals(base, lines)
         results = self.fitGlobalDetectorModel(bbox, residuals, doFitHighCcd, fiberCenter,
                                               seed=visitInfo.getExposureId())
