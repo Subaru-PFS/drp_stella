@@ -9,8 +9,7 @@ from pfs.drp.stella import ReferenceLine
 __all__ = ["readLineListFile", "plotReferenceLines"]
 
 
-def readLineListFile(lineListFilename, lamps=["Ar", "Cd", "Hg", "Ne", "Xe"], minIntensity=0,
-                     flagsToIgnoreMask=~0):
+def readLineListFile(lineListFilename, lamps=None, minIntensity=0, flagsToIgnoreMask=~0):
     """Read line list
 
     File consists of lines of
