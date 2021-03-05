@@ -813,6 +813,9 @@ def warpLsf(lsf, inWavelength, outWavelength):
     warpedLsf : `pfs.drp.stella.GaussianLsf`
         Line-spread function in the warped frame.
     """
+    if lsf is None:
+        return lsf
+
     inLength = len(inWavelength)
     if lsf.length != inLength:
         raise RuntimeError(f"Length mismatch between LSF ({lsf.length}) and wavelength ({inLength})")
@@ -864,18 +867,31 @@ def coaddLsf(lsfList, weights=None):
     lsf : `pfs.drp.stella.GaussianLsf`
         Coadded line-spread function.
     """
-    # Verify common length
-    length = lsfList[0].length
-    for ii, lsf in enumerate(lsfList[1:]):
-        if lsf.length != length:
-            raise RuntimeError(f"LSF length mismatch for {ii}: {lsf.length} vs {length}")
-
     if weights is None:
         weights = np.ones(len(lsfList), dtype=float)
 
-    # Calculate average width
-    middle = 0.5*length
-    widths = np.array([lsf.computeShape1D(middle) for lsf in lsfList])
-    avgWidth = np.sum(widths*weights)/np.sum(weights)
+    # Calculate average width and verify common lsf.length
+    realWeights = []                    # i.e. lsf is not None
+    widths = []
 
-    return GaussianLsf(length, avgWidth)
+    length = -1
+    for ii, lsf in enumerate(lsfList):
+        if lsf is None:
+            continue
+
+        if length < 0:
+            length = lsf.length
+            middle = 0.5*length
+
+        if lsf.length != length:
+            raise RuntimeError(f"LSF length mismatch for {ii}: {lsf.length} vs {length}")
+
+        widths.append(lsfList[ii].computeShape1D(middle))
+        realWeights.append(weights[ii])
+
+    if len(widths) == 0:
+        return None
+    else:
+        avgWidth = np.average(widths, weights=realWeights)
+
+        return GaussianLsf(length, avgWidth)

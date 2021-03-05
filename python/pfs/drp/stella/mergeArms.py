@@ -95,7 +95,26 @@ class MergeArmsTask(CmdLineTask):
         spectra = [[dataRef.get("pfsArm") for dataRef in specRefList] for
                    specRefList in expSpecRefList]
         lsfList = [[dataRef.get("pfsArmLsf") for dataRef in specRefList] for specRefList in expSpecRefList]
+
         pfsConfig = expSpecRefList[0][0].get("pfsConfig")
+
+        for spec in spectra:
+            for armSpec in spec:
+                if len(armSpec) != len(pfsConfig):
+                    msg = "Number of spectra %d != number of fibres in pfsConfig == %d" % \
+                        (len(armSpec), len(pfsConfig))
+                    self.log.fatal(msg)
+                    raise RuntimeError(msg)
+
+        for lsf in lsfList:
+            for armLsf in lsf:
+                if len(armLsf) != len(pfsConfig):
+                    self.log.warn("Number of LSFs %d != number of fibres in pfsConfig == %d",
+                                  len(armLsf), len(pfsConfig))
+                    missingFiberId = set(pfsConfig.fiberId) - set(armLsf.keys())
+                    for fid in missingFiberId:
+                        armLsf[fid] = None
+
         if self.config.doSubtractSky1d:
             if self.config.doSubtractSky1dBeforeMerge:
                 sky1d = self.subtractSky1d.run(sum(spectra, []), pfsConfig, sum(lsfList, []))
@@ -230,8 +249,8 @@ class MergeArmsTask(CmdLineTask):
             warpedLsf = {}
             for ii in range(len(spectra)):
                 ff = spectra.fiberId[ii]
-                warpedLsf[ff] = warpLsf(lsf[ff], spectra.wavelength[ii], wavelength) if ff in lsf \
-                    else None
+                warpedLsf[ff] = warpLsf(lsf.get(ff), spectra.wavelength[ii], wavelength)
+
             warpedLsfList.append(warpedLsf)
 
         return {ff: coaddLsf([ww[ff] for ww in warpedLsfList]) for ff in fiberId}
