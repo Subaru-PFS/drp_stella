@@ -1,8 +1,10 @@
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib.colors as mplColors
 
 import lsst.geom as geom
 from pfs.drp.stella.datamodel.drp import PfsArm
+from pfs.datamodel.pfsConfig import FiberStatus, TargetType
 
 try:
     from lsst.display.matplotlib import AsinhNormalize, AsinhZScaleNormalize, ZScaleNormalize
@@ -12,7 +14,7 @@ except ImportError:
     AsinhNormalize = None
 
 
-__all__ = ["addPfsCursor", "showAllSpectraAsImage"]
+__all__ = ["addPfsCursor", "showAllSpectraAsImage", "showDetectorMap"]
 
 
 def get_norm(image, algorithm, minval, maxval, **kwargs):
@@ -38,7 +40,7 @@ def get_norm(image, algorithm, minval, maxval, **kwargs):
                                    nSamples=kwargs.get("nSamples", 1000),
                                    contrast=kwargs.get("contrast", 0.25))
         else:
-            norm = plt.colors.Normalize(minval, maxval)
+            norm = mplColors.Normalize(minval, maxval)
     else:
         raise RuntimeError("Unsupported stretch algorithm \"%s\"" % algorithm)
 
@@ -83,13 +85,12 @@ def showAllSpectraAsImage(spec, vmin=None, vmax=None, lines=None, labelLines=Fal
 
     plt.colorbar(imshown)
 
-    lambda_str = "\u03BB"  # used in cursor display string
-
     def format_coord(x, y):
         col = int(len(spec.wavelength[len(spec)//2])*(x - lam0)/(lam1 - lam0) + 0.5)
         row = int(y + 0.5)
 
-        return f"fiberId: {spec.fiberId[row]}  {lambda_str}: {spec.wavelength[row][col]:8.3f}nm"
+        # \u03BB is $\lambda$
+        return f"fiberId: {spec.fiberId[row]}  \u03BB: {spec.wavelength[row][col]:8.3f}nm"
 
     ax = plt.gca()
     ax.format_coord = format_coord
@@ -167,12 +168,16 @@ if not hasattr(DisplayImpl, "set_format_coord"):  # old version of display_matpl
 
             ax.format_coord = pfs_format_coord
 else:
-    def addPfsCursor(disp, detectorMap=None):
-        """Add PFS specific information to an afwDisplay.Display
+    def addPfsCursor(display, detectorMap=None):
+        """Add PFS specific information to an afwDisplay.Display display
+
+        Returns the callback function
+
+        display may be None to only return the callback
 
         You should call this function again if the detectorMap
         changes (e.g. the arm that you're looking at), e.g.
-               addPfsCursor(disp, butler.get("detectorMap", dataId))
+               addPfsCursor(display, butler.get("detectorMap", dataId))
         """
 
         def pfs_format_coord(x, y, detectorMap=detectorMap):
@@ -184,4 +189,86 @@ else:
                 fid = detectorMap.findFiberId(geom.PointD(x, y))
                 return f"FiberId {fid:3}    {detectorMap.findWavelength(fid, y):8.3f}nm"
 
-        disp.set_format_coord(pfs_format_coord)
+        if display is not None:
+            display.set_format_coord(pfs_format_coord)
+
+        return pfs_format_coord
+
+
+def showDetectorMap(display, pfsConfig, detMap, width=100, zoom=0, xc=None, fiberIds=None, lines=None):
+    """Plot the detectorMap on a display"""
+
+    plt.sca(display.frame.axes[0])
+
+    height = detMap.getBBox().getHeight()
+    y = np.arange(0, height)
+
+    SuNSS = TargetType.SUNSS_IMAGING in pfsConfig.targetType
+
+    showAll = False
+    if xc is None:
+        if fiberIds is None:
+            fiberIds = pfsConfig.fiberId
+            showAll = True
+    else:
+        pass  # xc is already set
+
+    nFiberShown = 0
+    for fid in detMap.fiberId:
+        alpha = 0.5 if showAll else 1.0
+        ls = '-'
+        if fid in pfsConfig.fiberId:
+            ind = pfsConfig.selectFiber(fid)[0]
+            imagingFiber = pfsConfig.targetType[ind] == TargetType.SUNSS_IMAGING
+            if pfsConfig.fiberStatus[ind] == FiberStatus.BROKENFIBER:
+                ls = ':'
+                color = 'cyan' if SuNSS and imagingFiber else 'magenta'
+            else:
+                color = 'green' if SuNSS and imagingFiber else 'red'
+        else:
+            if SuNSS:
+                continue
+
+            color = 'blue'
+            ls = '--'
+
+        fiberX = detMap.getXCenter(fid, height//2)
+        if showAll or np.abs(fiberX - xc) < width/2:
+            fiberX = detMap.getXCenter(fid)
+            plt.plot(fiberX[::20], y[::20], ls=ls, alpha=alpha, label=f"{fid}",
+                     color=color if showAll else None)
+            nFiberShown += 1
+    #
+    # Plot the position of a set of lines
+    #
+    if lines:
+        stride = 10
+
+        for l in lines:
+            if fiberId is None:
+                fiberIds = pfsConfig.fiberId
+            else:
+                fiberIds = [fiberId]
+
+            xy = np.empty((2, len(fiberIds)))
+            for i, fid in enumerate(fiberIds):
+                if i%stride != 0 and i != len(pfsConfig) - 1:
+                    continue
+
+                xc, yc = detMap.findPoint(fid, l.wavelength)
+                ctype = {0: 'GREEN', 1: 'BLACK', 2: 'RED'}.get(l.status, 'BLUE')
+
+                if len(fiberIds) == 1:
+                    display.dot('o', xc, yc, ctype=ctype)
+                else:
+                    xy[0, i] = xc
+                    xy[1, i] = yc
+
+            if len(fiberIds) > 1:
+                plt.plot(xy[0], xy[1], color=ctype)
+
+    if not showAll:
+        if nFiberShown > 0:
+            plt.legend()
+        if zoom > 0:
+            display.zoom(zoom, xc, np.mean(y))
