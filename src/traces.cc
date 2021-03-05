@@ -4,6 +4,14 @@ namespace pfs {
 namespace drp {
 namespace stella {
 
+
+std::ostream& operator<<(std::ostream& os, TracePeak const& tp) {
+    os << "TracePeak(" << tp.span.getY() << ", " << tp.span.getX0() << ", ";
+    os << tp.peak << ", " << tp.span.getX1() << ")";
+    return os;
+}
+
+
 namespace {
 
 // State of finding peaks

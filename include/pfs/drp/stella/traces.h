@@ -32,6 +32,9 @@ struct TracePeak {
 };
 
 
+std::ostream& operator<<(std::ostream& os, TracePeak const& tp);
+
+
 /// Find peaks on an image
 ///
 /// We find all peaks above threshold in each row, for later association.
