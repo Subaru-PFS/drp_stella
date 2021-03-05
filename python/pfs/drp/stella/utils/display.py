@@ -245,10 +245,8 @@ def showDetectorMap(display, pfsConfig, detMap, width=100, zoom=0, xc=None, fibe
         stride = 10
 
         for l in lines:
-            if fiberId is None:
+            if fiberIds is None:
                 fiberIds = pfsConfig.fiberId
-            else:
-                fiberIds = [fiberId]
 
             xy = np.empty((2, len(fiberIds)))
             for i, fid in enumerate(fiberIds):
