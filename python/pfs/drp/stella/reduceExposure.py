@@ -65,6 +65,11 @@ class ReduceExposureConfig(Config):
     usePostIsrCcd = Field(dtype=bool, default=False, doc="Use existing postISRCCD, if available?")
     useCalexp = Field(dtype=bool, default=False, doc="Use existing calexp, if available?")
 
+    def validate(self):
+        super().validate()
+        if not self.doExtractSpectra and self.doWriteArm:
+            raise ValueError("You may not specify doWriteArm if doExtractSpectra is False")
+
 
 class ReduceExposureRunner(TaskRunner):
     @classmethod
@@ -192,10 +197,11 @@ class ReduceExposureTask(CmdLineTask):
             if all(sensorRef.datasetExists("calexp") for sensorRef in sensorRefList):
                 self.log.info("Reading existing calexps")
                 exposureList = [sensorRef.get("calexp") for sensorRef in sensorRefList]
-                calibs = [self.getSpectralCalibs(ref, exp, pfsConfig) for
-                          ref, exp in zip(sensorRefList, exposureList)]
-                detectorMapList = [cal.detectorMap for cal in calibs]
-                fiberTraceList = [cal.fiberTraces for cal in calibs]
+                if self.config.doExtractSpectra:
+                    calibs = [self.getSpectralCalibs(ref, exp, pfsConfig) for
+                              ref, exp in zip(sensorRefList, exposureList)]
+                    detectorMapList = [cal.detectorMap for cal in calibs]
+                    fiberTraceList = [cal.fiberTraces for cal in calibs]
                 psfList = [exp.getPsf() for exp in exposureList]
                 lsfList = [sensorRef.get("pfsArmLsf") for sensorRef in sensorRefList]
             else:
@@ -208,10 +214,12 @@ class ReduceExposureTask(CmdLineTask):
                     self.repairExposure(exposure)
                 if self.config.doSkySwindle:
                     self.skySwindle(sensorRef, exposure.image)
-                calibs = self.getSpectralCalibs(sensorRef, exposure, pfsConfig)
+
                 exposureList.append(exposure)
-                detectorMapList.append(calibs.detectorMap)
-                fiberTraceList.append(calibs.fiberTraces)
+                if self.config.doExtractSpectra:
+                    calibs = self.getSpectralCalibs(sensorRef, exposure, pfsConfig)
+                    detectorMapList.append(calibs.detectorMap)
+                    fiberTraceList.append(calibs.fiberTraces)
 
             if self.config.doMeasurePsf:
                 psfList = self.measurePsf.run(sensorRefList, exposureList, detectorMapList)
