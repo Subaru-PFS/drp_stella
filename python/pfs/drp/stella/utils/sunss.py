@@ -70,9 +70,12 @@ def plotFerrule():
     plt.title("SuNSS fibre packing")
 
 
-def plotSuNSSFluxes(pfsConfig, pfsArm, lam0=None, lam1=None, statsOp=np.median, subtractSky=True,
+def plotSuNSSFluxes(pfsConfig, pfsSpec, lam0=None, lam1=None, statsOp=np.median, subtractSky=True,
                     fluxMax=None, starFibers=[], printFlux=False, md={}, showConnectors=False):
-
+    """Plot images of the SuNSS ferrule based on fluxes in extracted spectra
+    pfsConfig : `pfsConfig`
+    pfsSpec: pfsArm or pfsMerged
+    """
     fig, axs = plt.subplots(1, 2, sharey='row', gridspec_kw=dict(wspace=0))
 
     if showConnectors:
@@ -81,12 +84,16 @@ def plotSuNSSFluxes(pfsConfig, pfsArm, lam0=None, lam1=None, statsOp=np.median, 
 
         printFlux = False
     else:
-        i = len(pfsArm)//2
-        lam = pfsArm.wavelength[i]
+        i = len(pfsSpec)//2
+        lam = pfsSpec.wavelength[i]
+        # Is there  data in at least one fibre?
+        have_data = np.sum((pfsSpec.mask & pfsSpec.flags["NO_DATA"]) == 0, axis=0)
+        lam = np.where(have_data, lam, np.NaN)
+
         if lam0 is None:
-            lam0 = np.min(lam)
+            lam0 = np.nanmin(lam)
         if lam1 is None:
-            lam1 = np.max(lam)
+            lam1 = np.nanmax(lam)
 
         nanStatsOp = {
             np.mean: np.nanmean,
@@ -99,25 +106,27 @@ def plotSuNSSFluxes(pfsConfig, pfsArm, lam0=None, lam1=None, statsOp=np.median, 
 
         with np.testing.suppress_warnings() as suppress:
             suppress.filter(RuntimeWarning, "All-NaN slice encountered")  # e.g. broken fibres
+            suppress.filter(RuntimeWarning, "invalid value encountered in less_equal")
             suppress.filter(RuntimeWarning, "invalid value encountered in greater_equal")
             if subtractSky:
-                pfsFlux = pfsArm.flux + 0
-                pfsFlux -= np.nanmedian(np.where(pfsArm.mask == 0, pfsFlux, np.NaN), axis=0)
+                pfsFlux = pfsSpec.flux.copy()
+                pfsFlux -= np.nanmedian(np.where(pfsSpec.mask == 0, pfsFlux, np.NaN), axis=0)
             else:
-                pfsFlux = pfsArm.flux
+                pfsFlux = pfsSpec.flux
 
-            windowed = np.where(np.logical_and(pfsArm.wavelength >= lam0, pfsArm.wavelength <= lam1),
+            windowed = np.where(np.logical_and(pfsSpec.wavelength >= lam0, pfsSpec.wavelength <= lam1),
                                 pfsFlux, np.NaN)
 
             med = nanStatsOp(windowed, axis=1)
 
     visit = md.get('W_VISIT', "[unknown]")
 
+    estimateFluxMax = fluxMax is None
     for i, DI in enumerate([TargetType.SUNSS_DIFFUSE, TargetType.SUNSS_IMAGING]):
         ax = axs[i]
         ax.text(0, 1200, str(DI), horizontalalignment='center')
 
-        if fluxMax is None:
+        if estimateFluxMax:
             fluxMax = np.nanmax(med[pfsConfig.targetType == DI])
 
         color = 'red' if DI == TargetType.SUNSS_DIFFUSE else 'green'
@@ -178,8 +187,10 @@ def plotSuNSSFluxes(pfsConfig, pfsArm, lam0=None, lam1=None, statsOp=np.median, 
         if showConnectors:
             plt.suptitle("Mapping to tower connectors", y=0.83)
         else:
-            title = f"{visit} {'brnm'[md['W_ARM']]}{md['W_SPMOD']}  {md['EXPTIME']:.1f}s" if i == 0 else \
-                r"$%.1f < \lambda < %.1f$" % (lam0, lam1)
+            if i == 0:
+                title = f"{visit} {'brnm'[md['W_ARM']]}{md['W_SPMOD']}  {md['EXPTIME']:.1f}s" if md else ""
+            else:
+                title = r"$%.1f < \lambda < %.1f$" % (lam0, lam1)
             ax.set_title(title)
 
             plt.text(0.03, 0.03, f"fluxMax = {fluxMax:.2f}", transform=ax.transAxes)

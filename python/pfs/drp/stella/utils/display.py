@@ -47,8 +47,23 @@ def get_norm(image, algorithm, minval, maxval, **kwargs):
     return norm
 
 
-def showAllSpectraAsImage(spec, vmin=None, vmax=None, lines=None, labelLines=False, **kwargs):
-    """Plot all the spectra in a pfsArm or pfsMerged object"""
+def showAllSpectraAsImage(spec, vmin=None, vmax=None, lines=None, labelLines=True,
+                          fiberIndex=None, **kwargs):
+    """Plot all the spectra in a pfsArm or pfsMerged object
+
+    spec : `pfsArm` or `pfsMerged` or `pfsObject`
+       set of spectra
+    vmin : `float` or None
+       minimum value to display
+    vmax : `float` or None
+       maximum value to display
+    lines : `list` of `pfs.drp.stella.ReferenceLine`
+       list of lines to display, as returned by `pfs.drp.stella.readLineListFile`
+    labelLines : `bool`
+       Draw a panel identifying the species in lines
+    fiberIndex : `list` of `int`
+       Only show this set of fibres; these are indices into spec, _not_ fiberId
+    """
 
     if kwargs:
         kwargs0 = kwargs
@@ -80,8 +95,17 @@ def showAllSpectraAsImage(spec, vmin=None, vmax=None, lines=None, labelLines=Fal
     ibar = len(spec)//2
     lam0, lam1 = spec.wavelength[ibar][0], spec.wavelength[ibar][-1]
 
-    imshown = plt.imshow(spec.flux, aspect='auto', origin='lower',
-                         extent=(lam0, lam1, 0, len(spec) - 1), **kwargs)
+    flux = spec.flux
+    fiberId = spec.fiberId
+    wavelength = spec.wavelength
+
+    if fiberIndex is not None and len(fiberIndex) != 0:
+        flux = spec.flux[fiberIndex]
+        fiberId = spec.fiberId[fiberIndex]
+        wavelength = spec.wavelength[fiberIndex]
+
+    imshown = plt.imshow(flux, aspect='auto', origin='lower',
+                         extent=(lam0, lam1, 0, flux.shape[0] - 1), **kwargs)
 
     plt.colorbar(imshown)
 
@@ -90,7 +114,7 @@ def showAllSpectraAsImage(spec, vmin=None, vmax=None, lines=None, labelLines=Fal
         row = int(y + 0.5)
 
         # \u03BB is $\lambda$
-        return f"fiberId: {spec.fiberId[row]}  \u03BB: {spec.wavelength[row][col]:8.3f}nm"
+        return f"fiberId: {fiberId[row]}  \u03BB: {wavelength[row][col]:8.3f}nm"
 
     ax = plt.gca()
     ax.format_coord = format_coord
