@@ -33,6 +33,19 @@ class IdentifyLinesTask(Task):
         super().__init__(*args, **kwargs)
         self.makeSubtask("findLines")
 
+        if self.debugInfo.display:
+            from lsst.afw.display import Display
+            if isinstance(self.debugInfo.frame, Display):
+                self.debugInfo_display = self.debugInfo.frame
+            else:
+                self.debugInfo_display = Display(frame=self.debugInfo.frame or 1)
+        else:
+            self.debugInfo_display = None
+
+        self.debug_fiberIds = self.debugInfo.fiberIds  # don't load it in an inner loop
+        if not self.debug_fiberIds:
+            self.debug_fiberIds = None
+
     def run(self, spectra, detectorMap, lines):
         """Identify arc lines on the extracted spectra
 
@@ -102,6 +115,13 @@ class IdentifyLinesTask(Task):
         indices = sorted(list(range(len(obsLines.centroids))),
                          key=lambda ii: spectrum.spectrum[int(obsLines.centroids[ii] + 0.5)], reverse=True)
         candidates = [rl for rl in lines]
+
+        if self.debugInfo_display:
+            if self.debug_fiberIds is None or spectrum.fiberId in self.debug_fiberIds:
+                for yc in obsLines.centroids:
+                    xc = detectorMap.getXCenter(spectrum.fiberId, yc)
+                    self.debugInfo_display.dot('+', xc, yc)
+
         matches = []
         for ii in indices:
             if not candidates:
@@ -148,7 +168,7 @@ class OldIdentifyLinesTask(IdentifyLinesTask):
         reference line (e.g., the line is fainter than the detection limit),
         this will centroid on noise peaks, compromising the wavelength solution.
         It is possible to specify a non-zero ``minIntensity`` when reading the
-        line list with ``pfs.drp.stella.utils.readLineListFile``, but this
+        line list with ``pfs.drp.stella.utils.lineLists.readLineListFile``, but this
         requires changing the configuration according to the data (exposure
         time, lamp setup, etc.).
 
