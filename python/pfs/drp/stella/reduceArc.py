@@ -26,6 +26,8 @@ class ReduceArcConfig(pexConfig.Config):
     identifyLines = pexConfig.ConfigurableField(target=IdentifyLinesTask, doc="Identify arc lines")
     centroidLines = pexConfig.ConfigurableField(target=CentroidLinesTask, doc="Centroid lines")
     fitDetectorMap = pexConfig.ConfigurableField(target=FitDifferentialDetectorMapTask, doc="Fit detectorMap")
+    doUpdateDetectorMap = pexConfig.Field(dtype=bool, default=False,
+                                          doc="Write an updated detectorMap?")
 
     def setDefaults(self):
         super().setDefaults()
@@ -55,21 +57,26 @@ class ReduceArcRunner(TaskRunner):
             groupedResults[(spectrograph, arm)].append(Struct(dataRef=dataRef, result=rr))
 
         gatherResults = []
-        for results in groupedResults.values():
-            dataRefList = [rr.dataRef for rr in results]
-            task.verify(dataRefList)
-            dataRef = task.reduceDataRefs(dataRefList)
-            final = None
-            exitStatus = 0
-            if len(results) > 0:
-                exitStatus = max(rr.result.exitStatus for rr in results if rr is not None)
-            if len(results) == 0:
-                task.log.fatal("No results for %s." % (dataRef.dataId,))
-            elif exitStatus > 0:
-                task.log.fatal("Failed to process at least one of the components for %s" % (dataRef.dataId,))
-            else:
-                final = task.gather(dataRefList, [rr.result.result for rr in results])
-            gatherResults.append(Struct(result=final, exitStatus=exitStatus))
+        if self.config.doUpdateDetectorMap:
+            for results in groupedResults.values():
+                dataRefList = [rr.dataRef for rr in results]
+                task.verify(dataRefList)
+                dataRef = task.reduceDataRefs(dataRefList)
+                final = None
+                exitStatus = 0
+                if len(results) > 0:
+                    exitStatus = max(rr.result.exitStatus for rr in results if rr is not None)
+                if len(results) == 0:
+                    task.log.fatal("No results for %s." % (dataRef.dataId,))
+                elif exitStatus > 0:
+                    task.log.fatal("Failed to process at least one of the components for %s" %
+                                   (dataRef.dataId,))
+                else:
+                    final = task.gather(dataRefList, [rr.result.result for rr in results])
+                gatherResults.append(Struct(result=final, exitStatus=exitStatus))
+        else:
+            task.log.info("Not writing an updated DetectorMap")
+
         return gatherResults
 
     def __call__(self, args):
@@ -198,6 +205,9 @@ class ReduceArcTask(CmdLineTask):
         """
         if len(results) == 0:
             raise RuntimeError("No input spectra")
+
+        if not self.config.doUpdateDetectorMap:
+            self.log.fatal("you can't get here")
 
         dataRef = self.reduceDataRefs(dataRefList)
         lines = sum((rr.lines for rr in results), ArcLineSet.empty())
