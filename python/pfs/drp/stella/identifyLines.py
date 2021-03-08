@@ -45,9 +45,25 @@ class IdentifyLinesTask(Task):
         lines : `list` of `pfs.drp.stella.ReferenceLine`
             Reference lines.
         """
+        nMatched = []
+        nUnmatched = []
         for spec in spectra:
             if spec.isWavelengthSet():
                 self.identifyLines(spec, detectorMap, lines)
+
+                nMatched.append(sum((s.status & 0x1) for s in spec.referenceLines))
+                nUnmatched.append(sum((s.status & 0x1) == 0 for s in spec.referenceLines))
+
+        nMatched = np.array(nMatched, dtype=int)
+        nReference = nMatched + nUnmatched
+
+        # Different fibres see slightly slightly different numbers of reference lines,
+        # so the number of reference lines reported isn't an int
+        self.log.info("Matched %.1f +- %.1f (min %d, max %d) lines"
+                      " out of %.1f reference lines for %d fibers",
+                      np.mean(nMatched), np.std(nMatched, ddof=1),
+                      min(nMatched), max(nMatched), np.mean(nReference),
+                      len(nMatched))
 
     def identifyLines(self, spectrum, detectorMap, lines):
         """Identify lines on the spectrum
@@ -106,8 +122,7 @@ class IdentifyLinesTask(Task):
             new.fitIntensity = spectrum.spectrum[int(obs + 0.5)]
             new.status = ReferenceLine.Status.FIT
             matches.append(new)
-        self.log.info("Matched %d from %d observed and %d reference lines",
-                      len(matches), len(obsLines.centroids), len(lines))
+
         spectrum.setReferenceLines(matches + candidates)
 
 
