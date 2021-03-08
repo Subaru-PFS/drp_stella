@@ -273,6 +273,11 @@ class CentroidLinesTask(Task):
         The display is controlled by debug parameters:
         - ``display`` (`bool`): Enable display?
         - ``frame`` (`int`, optional): Frame to use for display (defaults to 1).
+           May be an afwDisplay.Display
+        - ``displayExposure'' : `bool`
+            Use display.mtv to show the exposure; if False
+            the caller is responsible for the mtv and maybe
+            an erase too
 
         Parameters
         ----------
@@ -284,11 +289,25 @@ class CentroidLinesTask(Task):
         if not self.debugInfo.display:
             return
         from lsst.afw.display import Display
-        disp = Display(frame=self.debugInfo.frame or 1)
-        disp.mtv(exposure)
+        if isinstance(self.debugInfo.frame, Display):
+            disp = self.debugInfo.frame
+        else:
+            disp = Display(frame=self.debugInfo.frame or 1)
+
+        if self.debugInfo.displayExposure:
+            disp.mtv(exposure)
+
         with disp.Buffering():
+            if self.debugInfo.fiberIds:
+                showPeak = np.zeros(len(catalog), dtype=bool)
+                fiberId = catalog["fiberId"]
+                for fid in self.debugInfo.fiberIds:
+                    showPeak = np.logical_or(showPeak, fiberId == fid)
+
+                catalog = catalog[showPeak]
+
             for row in catalog:
                 peak = row.getFootprint().getPeaks()[0]
-                disp.dot("+", peak.getFx(), peak.getFy(), size=5, ctype="red")
+                disp.dot("+", peak.getFx(), peak.getFy(), size=2, ctype="red")
                 ctype = "yellow" if row.get("centroid_flag") else "green"
                 disp.dot("x", row.get("centroid_x"), row.get("centroid_y"), size=5, ctype=ctype)

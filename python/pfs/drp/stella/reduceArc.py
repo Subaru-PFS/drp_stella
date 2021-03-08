@@ -14,6 +14,9 @@ from pfs.drp.stella.fitDifferentialDetectorMap import FitDifferentialDetectorMap
 from .centroidLines import CentroidLinesTask
 from .arcLine import ArcLineSet
 from .readLineList import ReadLineListTask
+from .utils import addPfsCursor
+from .ReferenceLine import ReferenceLine
+
 
 __all__ = ["ReduceArcConfig", "ReduceArcTask"]
 
@@ -178,7 +181,7 @@ class ReduceArcTask(CmdLineTask):
         self.identifyLines.run(spectra, detectorMap, lines)
         if self.debugInfo.display and self.debugInfo.displayIdentifications:
             frame = self.debugInfo.frame[dataRef.dataId["visit"]] if self.debugInfo.frame is not None else 1
-            self.plotIdentifications(exposure, spectra, detectorMap, frame)
+            self.plotIdentifications(display, exposure, spectra, detectorMap)
         referenceLines = self.centroidLines.getReferenceLines(spectra)
         lines = self.centroidLines.run(exposure, referenceLines, detectorMap)
         dataRef.put(lines, "arcLines")
@@ -277,36 +280,59 @@ class ReduceArcTask(CmdLineTask):
         """
         return sorted(dataRefList, key=lambda dataRef: dataRef.dataId["visit"])[0]
 
-    def plotIdentifications(self, exposure, spectrumSet, detectorMap, frame=1):
+    def plotIdentifications(self, display, exposure, spectrumSet, detectorMap, displayExposure=True):
         """Plot line identifications
 
         Parameters
         ----------
+        display : `lsst.afw.display.Display`
+            Display to use
         exposure : `lsst.afw.image.Exposure`
             Arc image.
         spectrum : `pfs.drp.stella.SpectrumSet`
             Set of extracted spectra.
         detectorMap : `pfs.drp.stella.utils.DetectorMap`
             Mapping of wl,fiber to detector position.
+        displayExposure : `bool`
+            Use display.mtv to show the exposure; if False
+            the caller is responsible for the mtv and maybe
+            an erase too
         """
-        display = afwDisplay.Display(frame)
-        display.mtv(exposure)
+
+        labelFibers = False             # write fiberId to the display?
+        if displayExposure:
+            display.mtv(exposure)
+            try:
+                addPfsCursor(display, detectorMap)  # mouseover provides fiberIds
+            except NameError:               # only supported by matplotlib at present
+                labelFibers = True
+
         for spec in spectrumSet:
             fiberId = spec.getFiberId()
-            refLines = spec.getGoodReferenceLines()
+            refLines = spec.referenceLines
             with display.Buffering():
-                # Label fibers
-                y = 0.5*len(spec)
-                x = detectorMap.getXCenter(fiberId, y)
-                display.dot(str(fiberId), x, y, ctype='green')
+                if labelFibers:         # Label fibers if addPfsCursor failed
+                    y = 0.5*len(spec)
+                    x = detectorMap.getXCenter(fiberId, y)
+                    display.dot(str(fiberId), x, y, ctype='green')
 
                 # Plot arc lines
                 for rl in refLines:
                     yActual = rl.fitPosition
                     xActual = detectorMap.getXCenter(fiberId, yActual)
-                    display.dot('o', xActual, yActual, ctype='blue')
+                    if (rl.status & ReferenceLine.Status.FIT) == 0:
+                        ctype = 'cyan'
+                    elif (rl.status & ReferenceLine.Status.CR) != 0:
+                        ctype = 'magenta'
+                    elif (rl.status & (ReferenceLine.Status.INTERPOLATED |
+                                       ReferenceLine.Status.SATURATED)) != 0:
+                        ctype = 'green'
+                    else:
+                        ctype = 'blue'
+
+                    display.dot('o', xActual, yActual, ctype=ctype)
                     xExpect, yExpect = detectorMap.findPoint(fiberId, rl.wavelength)
-                    display.dot('x', xExpect, yExpect, ctype='red')
+                    display.dot('x', xExpect, yExpect, ctype='red', size=0.5)
 
     def plotCalibrations(self, spectrumSet, detectorMap):
         """Plot wavelength calibration results
