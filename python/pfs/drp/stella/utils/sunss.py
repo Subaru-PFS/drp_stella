@@ -5,7 +5,7 @@ from pfs.datamodel.pfsConfig import FiberStatus, TargetType
 
 import pfs.utils.fibpacking as fibpacking
 
-__all__ = ["findSuNSSId", "plotSuNSSFluxes"]
+__all__ = ["findSuNSSId", "plotSuNSSFluxes", "Bphoton"]
 
 
 def findSuNSSId(pfsDesign, fiberId):
@@ -199,3 +199,24 @@ def plotSuNSSFluxes(pfsConfig, pfsSpec, lam0=None, lam1=None, statsOp=np.median,
             plt.suptitle(f"{md['DATE-OBS']}Z{md['UT'][:-4]}", y=0.85)
 
     plt.tight_layout()
+
+
+def Bphoton(lam, T):
+    """Calculate a black-body spectrum in photons/m^2/sr/pixel
+
+    lam : `np.array`
+       Wavelengths where you want the spectrum evaluated, nm
+    T : `float`
+       Desired temperature, in K
+    """
+    h = 6.62559e-34
+    c = 2.997e8
+    k = 1.38e-23
+
+    B = 2*c/lam**4/(np.exp(h*c/(lam*1e-9*k*T)) - 1)  # photons/s/m^2/m
+
+    dlam = np.empty_like(lam)   # pixel widths
+    dlam[1:] = lam[1:] - lam[:-1]
+    dlam[0] = dlam[1]
+
+    return B
