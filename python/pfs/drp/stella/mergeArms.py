@@ -75,6 +75,65 @@ class MergeArmsTask(CmdLineTask):
         super().__init__(*args, **kwargs)
         self.makeSubtask("subtractSky1d")
 
+    def run(self, spectra, pfsConfig, lsfList):
+        """Merge all extracted spectra from a single exposure
+
+        Parameters
+        ----------
+        spectra : iterable of `pfs.datamodel.PsfArm`
+            Extracted spectra from the different arms
+        pfsConfig : `pfs.datamodel.PfsConfig`
+            Top-end configuration, fiber targets.
+        lsfList : iterable of `pfs.drp.stella.Lsf`
+            Line-spread functions from the different arms
+
+        expSpecRefList : iterable of iterable of `lsst.daf.persistence.ButlerDataRef`
+            Data references for each sensor, grouped by spectrograph.
+
+        Returns
+        -------
+        spectra : `pfs.datamodel.PfsMerged`
+            Merged spectra.
+        lsf : `pfs.drp.stella.Lsf`
+            Merged line-spread function.
+        """
+        for spec in spectra:
+            for armSpec in spec:
+                if len(armSpec) != len(pfsConfig):
+                    msg = "Number of spectra %d != number of fibres in pfsConfig == %d" % \
+                        (len(armSpec), len(pfsConfig))
+                    self.log.fatal(msg)
+                    raise RuntimeError(msg)
+
+        for lsf in lsfList:
+            for armLsf in lsf:
+                if len(armLsf) != len(pfsConfig):
+                    self.log.warn("Number of LSFs %d != number of fibres in pfsConfig == %d",
+                                  len(armLsf), len(pfsConfig))
+                    missingFiberId = set(pfsConfig.fiberId) - set(armLsf.keys())
+                    for fid in missingFiberId:
+                        armLsf[fid] = None
+
+        sky1d = None
+        if self.config.doSubtractSky1d:
+            if self.config.doSubtractSky1dBeforeMerge:
+                sky1d = self.subtractSky1d.run(sum(spectra, []), pfsConfig, sum(lsfList, []))
+
+        spectrographs = [self.mergeSpectra(ss) for ss in spectra]  # Merge in wavelength
+        merged = PfsMerged.fromMerge(spectrographs, metadata=getPfsVersions())  # Merge across spectrographs
+
+        lsfList = [self.mergeLsfs(ll, ss) for ll, ss in zip(lsfList, spectra)]
+        mergedLsf = self.combineLsfs(lsfList)
+
+        if self.config.doSubtractSky1d:
+            if sky1d is None:
+                assert not self.config.doSubtractSky1dBeforeMerge
+
+                lsf = [None for _ in range(len(merged))]  # total hack!
+                sky1d = self.subtractSky1d.estimateSkyFromMerged(merged, pfsConfig, lsf)
+
+        return Struct(spectra=merged, lsf=mergedLsf, sky1d=sky1d)
+
     def runDataRef(self, expSpecRefList):
         """Merge all extracted spectra from a single exposure
 
@@ -95,51 +154,17 @@ class MergeArmsTask(CmdLineTask):
         spectra = [[dataRef.get("pfsArm") for dataRef in specRefList] for
                    specRefList in expSpecRefList]
         lsfList = [[dataRef.get("pfsArmLsf") for dataRef in specRefList] for specRefList in expSpecRefList]
-
         pfsConfig = expSpecRefList[0][0].get("pfsConfig")
 
-        for spec in spectra:
-            for armSpec in spec:
-                if len(armSpec) != len(pfsConfig):
-                    msg = "Number of spectra %d != number of fibres in pfsConfig == %d" % \
-                        (len(armSpec), len(pfsConfig))
-                    self.log.fatal(msg)
-                    raise RuntimeError(msg)
+        results = self.run(spectra, pfsConfig, lsfList)
 
-        for lsf in lsfList:
-            for armLsf in lsf:
-                if len(armLsf) != len(pfsConfig):
-                    self.log.warn("Number of LSFs %d != number of fibres in pfsConfig == %d",
-                                  len(armLsf), len(pfsConfig))
-                    missingFiberId = set(pfsConfig.fiberId) - set(armLsf.keys())
-                    for fid in missingFiberId:
-                        armLsf[fid] = None
+        expSpecRefList[0][0].put(results.spectra, "pfsMerged")
+        expSpecRefList[0][0].put(results.lsf, "pfsMergedLsf")
+        if results.sky1d is not None:
+            expSpecRefList[0][0].put(results.sky1d, "sky1d")
 
-        if self.config.doSubtractSky1d:
-            if self.config.doSubtractSky1dBeforeMerge:
-                sky1d = self.subtractSky1d.run(sum(spectra, []), pfsConfig, sum(lsfList, []))
-                expSpecRefList[0][0].put(sky1d, "sky1d")
-            else:
-                sky1d = None
-
-        spectrographs = [self.mergeSpectra(ss) for ss in spectra]  # Merge in wavelength
-        merged = PfsMerged.fromMerge(spectrographs, metadata=getPfsVersions())  # Merge across spectrographs
-
-        lsfList = [self.mergeLsfs(ll, ss) for ll, ss in zip(lsfList, spectra)]
-        mergedLsf = self.combineLsfs(lsfList)
-
-        if self.config.doSubtractSky1d:
-            if sky1d is None:
-                assert not self.config.doSubtractSky1dBeforeMerge
-
-                lsf = [None for _ in range(len(merged))]  # total hack!
-                sky1d = self.subtractSky1d.estimateSkyFromMerged(merged, pfsConfig, lsf)
-                expSpecRefList[0][0].put(sky1d, "sky1d")
-
-        expSpecRefList[0][0].put(merged, "pfsMerged")
-        expSpecRefList[0][0].put(mergedLsf, "pfsMergedLsf")
-
-        return Struct(spectra=merged, pfsConfig=pfsConfig, lsf=mergedLsf)
+        results.pfsConfig = pfsConfig
+        return results
 
     def mergeSpectra(self, spectraList):
         """Combine all spectra from the same exposure

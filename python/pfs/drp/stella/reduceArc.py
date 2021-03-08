@@ -137,6 +137,42 @@ class ReduceArcTask(CmdLineTask):
             if len(values) > 1:
                 raise RuntimeError("%s varies for inputs: %s" % (prop, [ref.dataId for ref in dataRefList]))
 
+    def run(self, exposure, spectra, detectorMap, lines):
+        """Entry point for scatter stage
+
+        Centroids and identifies lines in the spectra extracted from the exposure
+
+        Parameters
+        ----------
+        exposure : `lsst.afw.image.Exposure`
+            Image containing the spectra.
+        spectrumSet : `pfs.drp.stella.SpectrumSet`
+            Set of extracted spectra.
+        detectorMap : `pfs.drp.stella.utils.DetectorMap`
+            Mapping of wl,fiber to detector position.
+        lines : iterable of `pfs.drp.stella.ReferenceLine`
+            Reference lines to use
+
+        Returns
+        -------
+        lines : iterable of `pfs.drp.stella.ReferenceLine`
+            Set of reference lines matched to the data
+        """
+        self.identifyLines.run(spectra, detectorMap, lines)
+        if self.debugInfo.display and self.debugInfo.displayIdentifications:
+            frame = self.debugInfo.frame if self.debugInfo.frame is not None else 1
+            if isinstance(frame, afwDisplay.Display):
+                display = frame
+            else:
+                display = afwDisplay.Display(frame)
+            self.plotIdentifications(display, exposure, spectra, detectorMap)
+        referenceLines = self.centroidLines.getReferenceLines(spectra)
+        lines = self.centroidLines.run(exposure, referenceLines, detectorMap)
+
+        return Struct(
+            lines=lines
+        )
+
     def runDataRef(self, dataRef):
         """Entry point for scatter stage
 
@@ -190,13 +226,14 @@ class ReduceArcTask(CmdLineTask):
         lines = self.centroidLines.run(exposure, referenceLines, detectorMap)
         dataRef.put(lines, "arcLines")
 
-        return Struct(
-            spectra=spectra,
-            lines=lines,
-            detectorMap=detectorMap,
-            visitInfo=exposure.getInfo().getVisitInfo(),
-            metadata=metadata,
-        )
+        dataRef.put(results.lines, "arcLines")
+
+        results.spectra = spectra
+        results.detectorMap = detectorMap
+        results.visitInfo = exposure.getInfo().getVisitInfo()
+        results.metadata = metadata
+
+        return results
 
     def gather(self, dataRefList, results):
         """Entry point for gather stage
