@@ -30,13 +30,12 @@ class DifferentialDetectorMap:
         """
         if not isinstance(detMap, pfs.datamodel.DifferentialDetectorMap):
             raise RuntimeError(f"Wrong type: {detMap}")
-        bbox = detMap.box.toLsst()
         base = SplinedDetectorMap.fromDatamodel(detMap.base)
         scalingKwargs = {name: getattr(detMap.scaling, name) for name in
                          ("fiberPitch", "dispersion", "wavelengthCenter", "minFiberId", "maxFiberId",
                           "height", "buffer")}
         scaling = GlobalDetectorModelScaling(**scalingKwargs)
-        model = GlobalDetectorModel(bbox, detMap.order, detMap.fiberId, scaling, detMap.fiberCenter,
+        model = GlobalDetectorModel(detMap.order, detMap.fiberId, scaling, detMap.fiberCenter,
                                     detMap.xCoeff, detMap.yCoeff, detMap.highCcdCoeff)
         metadata = headerToMetadata(detMap.metadata)
         visitInfo = lsst.afw.image.VisitInfo(metadata)

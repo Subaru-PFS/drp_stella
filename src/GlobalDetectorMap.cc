@@ -61,7 +61,7 @@ GlobalDetectorMap::GlobalDetectorMap(
 ) : GlobalDetectorMap(
         bbox,
         GlobalDetectorModel(
-            bbox, distortionOrder, fiberId,
+            distortionOrder, fiberId,
             GlobalDetectorModelScaling(
                 fiberPitch, dispersion, wavelengthCenter, *std::min_element(fiberId.begin(), fiberId.end()),
                 *std::max_element(fiberId.begin(), fiberId.end()), buffer),
@@ -87,7 +87,7 @@ lsst::geom::PointD GlobalDetectorMap::findPointImpl(
 
 void GlobalDetectorMap::_resetSlitOffsets() {
     _model = GlobalDetectorModel(
-        getBBox(), _model.getDistortionOrder(), _model.getFiberId(),
+        _model.getDistortionOrder(), _model.getFiberId(),
         _model.getScaling(), _model.getFiberCenter(),
         _model.getXCoefficients(), _model.getYCoefficients(), _model.getHighCcdCoefficients(),
         getSpatialOffsets(), getSpectralOffsets()

@@ -128,7 +128,6 @@ std::ostream& operator<<(std::ostream& os, FiberMap const& fiberMap) {
 
 
 GlobalDetectorModel::GlobalDetectorModel(
-    lsst::geom::Box2I const& bbox,
     int distortionOrder,
     ndarray::Array<int, 1, 1> const& fiberId,
     GlobalDetectorModelScaling const& scaling,
@@ -139,7 +138,7 @@ GlobalDetectorModel::GlobalDetectorModel(
     ndarray::Array<double, 1, 1> const& spatialOffsets,
     ndarray::Array<double, 1, 1> const& spectralOffsets
 ) : GlobalDetectorModel(
-        distortionOrder, FiberMap(fiberId), scaling, fiberCenter, bbox.getHeight(),
+        distortionOrder, FiberMap(fiberId), scaling, fiberCenter,
         xDistortion, yDistortion, highCcd, spatialOffsets, spectralOffsets)
 {}
 
@@ -149,7 +148,6 @@ GlobalDetectorModel::GlobalDetectorModel(
     FiberMap const& fiberMap,
     GlobalDetectorModelScaling const& scaling,
     float fiberCenter,
-    std::size_t height,
     ndarray::Array<double, 1, 1> const& xDistortion,
     ndarray::Array<double, 1, 1> const& yDistortion,
     ndarray::Array<double, 1, 1> const& highCcd,
@@ -619,7 +617,7 @@ class GlobalDetectorModel::Factory : public lsst::afw::table::io::PersistableFac
                 *std::min_element(fiberId.begin(), fiberId.end()),
                 *std::max_element(fiberId.begin(), fiberId.end()),
                 height, buffer),
-            fiberCenter, height, xCoeff, yCoeff, highCcd, spatialOffset, spectralOffset
+            fiberCenter, xCoeff, yCoeff, highCcd, spatialOffset, spectralOffset
         );
     }
 
