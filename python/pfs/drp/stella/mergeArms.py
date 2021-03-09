@@ -86,8 +86,6 @@ class MergeArmsTask(CmdLineTask):
             Top-end configuration, fiber targets.
         lsfList : iterable of `pfs.drp.stella.Lsf`
             Line-spread functions from the different arms
-        sky1d : `pfs.drp.stella.FocalPlaneFunction`
-            1D sky model.
 
         Returns
         -------
@@ -98,12 +96,18 @@ class MergeArmsTask(CmdLineTask):
         """
         for spec, lsf in zip(spectra, lsfList):
             for armSpec, armLsf in zip(spec, lsf):
-                if len(armLsf) != len(armSpec):
-                    self.log.warn("Number of LSFs %d != number of spectra == %d",
-                                  len(armLsf), len(armSpec))
-                    missingFiberId = set(armSpec.fiberId) - set(armLsf.keys())
-                    for fid in missingFiberId:
-                        armLsf[fid] = None
+                if set(armSpec.fiberId) != set(armLsf):
+                    msg = "Set of fiberIds of LSFs != fiberIds for spectra: "
+                    onlyFiberId = set(armSpec.fiberId) - set(armLsf)
+                    onlyLsf = set(armLsf) - set(armSpec.fiberId)
+                    if onlyFiberId:
+                        msg += f" Only in fiberId: {onlyFiberId} (fixing)"
+
+                        for fid in onlyFiberId:
+                            armLsf[fid] = None
+                    if onlyLsf:
+                        msg += f" Only in armPsf: {onlyLsf}"
+                    self.log.warn(msg)
 
         sky1d = None
         if self.config.doSubtractSky1d:
