@@ -160,7 +160,9 @@ class ReduceArcTask(CmdLineTask):
         """
         self.identifyLines.run(spectra, detectorMap, lines)
         if self.debugInfo.display and self.debugInfo.displayIdentifications:
-            frame = self.debugInfo.frame if self.debugInfo.frame is not None else 1
+            exp_id = exposure.getMetadata().get("EXP-ID")
+            visit = int(re.sub(r"^[A-Z]+0*", "", exp_id))
+            frame = self.debugInfo.frame[visit] if self.debugInfo.frame is not None else 1
             if isinstance(frame, afwDisplay.Display):
                 display = frame
             else:

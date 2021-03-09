@@ -86,9 +86,8 @@ class MergeArmsTask(CmdLineTask):
             Top-end configuration, fiber targets.
         lsfList : iterable of `pfs.drp.stella.Lsf`
             Line-spread functions from the different arms
-
-        expSpecRefList : iterable of iterable of `lsst.daf.persistence.ButlerDataRef`
-            Data references for each sensor, grouped by spectrograph.
+        sky1d : `pfs.drp.stella.FocalPlaneFunction`
+            1D sky model.
 
         Returns
         -------
@@ -150,6 +149,8 @@ class MergeArmsTask(CmdLineTask):
             Top-end configuration, fiber targets.
         lsf : `pfs.drp.stella.Lsf`
             Merged line-spread function.
+        sky1d : `pfs.drp.stella.FocalPlaneFunction`
+            1D sky model.
         """
         spectra = [[dataRef.get("pfsArm") for dataRef in specRefList] for
                    specRefList in expSpecRefList]
