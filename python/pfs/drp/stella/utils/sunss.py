@@ -5,7 +5,7 @@ from pfs.datamodel.pfsConfig import FiberStatus, TargetType
 
 import pfs.utils.fibpacking as fibpacking
 
-__all__ = ["findSuNSSId", "plotSuNSSFluxes"]
+__all__ = ["findSuNSSId", "plotSuNSSFluxes", "Bphoton"]
 
 
 def findSuNSSId(pfsDesign, fiberId):
@@ -20,6 +20,22 @@ def findSuNSSId(pfsDesign, fiberId):
     r = np.hypot(x0 - x, y0 - y)
 
     return np.arange(len(r), dtype=int)[r < 1e-3][0] + 1
+
+
+def findNeigboringFiberIds(pfsConfig, fiberId):
+    """Find the fiberIds for the neighbours of a SuNSS fibre
+
+    In the middle of the ferrule you'll get 6 fibres returned,
+    but fewer at the edge.
+    """
+    targetType = pfsConfig.targetType[pfsConfig.fiberId == fiberId]
+    xy = pfsConfig.pfiNominal
+    xc, yc = xy[pfsConfig.fiberId == fiberId][0]
+
+    d = np.hypot(xy[:, 0] - xc, xy[:, 1] - yc)
+    ii = np.where(np.logical_and(d < 200, pfsConfig.targetType == targetType))[0]
+
+    return sorted(pfsConfig.fiberId[ii[np.argsort(d[ii])]][1:])
 
 
 def guessConnectors():
@@ -70,9 +86,16 @@ def plotFerrule():
     plt.title("SuNSS fibre packing")
 
 
-def plotSuNSSFluxes(pfsConfig, pfsArm, lam0=None, lam1=None, statsOp=np.median, subtractSky=True,
+def plotSuNSSFluxes(pfsConfig, pfsSpec, lam0=None, lam1=None, statsOp=np.median, subtractSky=True,
                     fluxMax=None, starFibers=[], printFlux=False, md={}, showConnectors=False):
+    """Plot images of the SuNSS ferrule based on fluxes in extracted spectra
+    pfsConfig : `pfsConfig`
+    pfsSpec: pfsArm or pfsMerged
 
+    Perform photometry for the fibreIds listed in starFibers; if it's
+    "brightest" or "brightest+6" use the brightest fibre and its neighbours,
+    usually 6.
+    """
     fig, axs = plt.subplots(1, 2, sharey='row', gridspec_kw=dict(wspace=0))
 
     if showConnectors:
@@ -81,12 +104,16 @@ def plotSuNSSFluxes(pfsConfig, pfsArm, lam0=None, lam1=None, statsOp=np.median, 
 
         printFlux = False
     else:
-        i = len(pfsArm)//2
-        lam = pfsArm.wavelength[i]
+        i = len(pfsSpec)//2
+        lam = pfsSpec.wavelength[i]
+        # Is there  data in at least one fibre?
+        have_data = np.sum((pfsSpec.mask & pfsSpec.flags["NO_DATA"]) == 0, axis=0)
+        lam = np.where(have_data, lam, np.NaN)
+
         if lam0 is None:
-            lam0 = np.min(lam)
+            lam0 = np.nanmin(lam)
         if lam1 is None:
-            lam1 = np.max(lam)
+            lam1 = np.nanmax(lam)
 
         nanStatsOp = {
             np.mean: np.nanmean,
@@ -99,24 +126,34 @@ def plotSuNSSFluxes(pfsConfig, pfsArm, lam0=None, lam1=None, statsOp=np.median, 
 
         with np.testing.suppress_warnings() as suppress:
             suppress.filter(RuntimeWarning, "All-NaN slice encountered")  # e.g. broken fibres
+            suppress.filter(RuntimeWarning, "invalid value encountered in less_equal")
+            suppress.filter(RuntimeWarning, "invalid value encountered in greater_equal")
             if subtractSky:
-                pfsFlux = pfsArm.flux + 0
-                pfsFlux -= np.nanmedian(np.where(pfsArm.mask == 0, pfsFlux, np.NaN), axis=0)
+                pfsFlux = pfsSpec.flux.copy()
+                pfsFlux -= np.nanmedian(np.where(pfsSpec.mask == 0, pfsFlux, np.NaN), axis=0)
             else:
-                pfsFlux = pfsArm.flux
+                pfsFlux = pfsSpec.flux
 
-            windowed = np.where(np.logical_and(pfsArm.wavelength >= lam0, pfsArm.wavelength <= lam1),
+            windowed = np.where(np.logical_and(pfsSpec.wavelength >= lam0, pfsSpec.wavelength <= lam1),
                                 pfsFlux, np.NaN)
 
             med = nanStatsOp(windowed, axis=1)
 
+    if starFibers in ("brightest", "brightest+6"):
+        brightestFiberId = pfsConfig.fiberId[np.nanargmax(med)]
+        if starFibers == "brightest":
+            starFibers = [brightestFiberId]
+        else:
+            starFibers = [brightestFiberId] + findNeigboringFiberIds(pfsConfig, brightestFiberId)
+
     visit = md.get('W_VISIT', "[unknown]")
 
+    estimateFluxMax = fluxMax is None
     for i, DI in enumerate([TargetType.SUNSS_DIFFUSE, TargetType.SUNSS_IMAGING]):
         ax = axs[i]
         ax.text(0, 1200, str(DI), horizontalalignment='center')
 
-        if fluxMax is None:
+        if estimateFluxMax:
             fluxMax = np.nanmax(med[pfsConfig.targetType == DI])
 
         color = 'red' if DI == TargetType.SUNSS_DIFFUSE else 'green'
@@ -150,7 +187,7 @@ def plotSuNSSFluxes(pfsConfig, pfsArm, lam0=None, lam1=None, statsOp=np.median, 
                 if printFlux:
                     x, y = pfsConfig.pfiNominal[ind]
                     print(f"{visit} {x:8.1f} {y:8.1f}  {fid:3}"
-                          f"{findSuNSSId(pfsConfig, fid):3} {med[ind]:.3f}")
+                          f"{findSuNSSId(pfsConfig, fid):3} {med[ind]:6.3f}")
 
             broken_color = color
             textcolor = 'black'
@@ -177,8 +214,10 @@ def plotSuNSSFluxes(pfsConfig, pfsArm, lam0=None, lam1=None, statsOp=np.median, 
         if showConnectors:
             plt.suptitle("Mapping to tower connectors", y=0.83)
         else:
-            title = f"{visit} {'brnm'[md['W_ARM']]}{md['W_SPMOD']}  {md['EXPTIME']:.1f}s" if i == 0 else \
-                r"$%.1f < \lambda < %.1f$" % (lam0, lam1)
+            if i == 0:
+                title = f"{visit} {'brnm'[md['W_ARM']]}{md['W_SPMOD']}  {md['EXPTIME']:.1f}s" if md else ""
+            else:
+                title = r"$%.1f < \lambda < %.1f$" % (lam0, lam1)
             ax.set_title(title)
 
             plt.text(0.03, 0.03, f"fluxMax = {fluxMax:.2f}", transform=ax.transAxes)
@@ -187,3 +226,24 @@ def plotSuNSSFluxes(pfsConfig, pfsArm, lam0=None, lam1=None, statsOp=np.median, 
             plt.suptitle(f"{md['DATE-OBS']}Z{md['UT'][:-4]}", y=0.85)
 
     plt.tight_layout()
+
+
+def Bphoton(lam, T):
+    """Calculate a black-body spectrum in photons/m^2/sr/pixel
+
+    lam : `np.array`
+       Wavelengths where you want the spectrum evaluated, nm
+    T : `float`
+       Desired temperature, in K
+    """
+    h = 6.62559e-34
+    c = 2.997e8
+    k = 1.38e-23
+
+    B = 2*c/lam**4/(np.exp(h*c/(lam*1e-9*k*T)) - 1)  # photons/s/m^2/m
+
+    dlam = np.empty_like(lam)   # pixel widths
+    dlam[1:] = lam[1:] - lam[:-1]
+    dlam[0] = dlam[1]
+
+    return B

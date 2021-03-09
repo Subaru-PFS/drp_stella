@@ -26,7 +26,7 @@ def plot2dSpectrumSlice(exposure, pfsConfig, detectorMap, title="", r0=1980, r1=
     xlen = exposure.getWidth()//n + 1
 
     for i in range(n):
-        plt.axes(axs[i])
+        plt.sca(axs[i])
         axs[i].label_outer()
 
         plt.plot(np.median(exposure.image.array[r0:r1 + 1, :], axis=0))
@@ -53,7 +53,7 @@ def plot2dSpectrumSlice(exposure, pfsConfig, detectorMap, title="", r0=1980, r1=
 
     ax = fig.add_subplot(111, frameon=False)
     # hide tick and tick label of the big axes
-    plt.tick_params(labelcolor='none', top='off', bottom='off', left='off', right='off')
+    plt.tick_params(labelcolor='none', top=False, bottom=False, left=False, right=False)
     ax.set_xlabel('Column', labelpad=10)  # Use argument `labelpad` to move label downwards.
     ax.set_ylabel('Mean flux', labelpad=20)
     plt.suptitle(title + f"  rows {r0}..{r1}", y=1.0)
