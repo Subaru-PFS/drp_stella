@@ -96,20 +96,12 @@ class MergeArmsTask(CmdLineTask):
         lsf : `pfs.drp.stella.Lsf`
             Merged line-spread function.
         """
-        for spec in spectra:
-            for armSpec in spec:
-                if len(armSpec) != len(pfsConfig):
-                    msg = "Number of spectra %d != number of fibres in pfsConfig == %d" % \
-                        (len(armSpec), len(pfsConfig))
-                    self.log.fatal(msg)
-                    raise RuntimeError(msg)
-
-        for lsf in lsfList:
-            for armLsf in lsf:
-                if len(armLsf) != len(pfsConfig):
-                    self.log.warn("Number of LSFs %d != number of fibres in pfsConfig == %d",
-                                  len(armLsf), len(pfsConfig))
-                    missingFiberId = set(pfsConfig.fiberId) - set(armLsf.keys())
+        for spec, lsf in zip(spectra, lsfList):
+            for armSpec, armLsf in zip(spec, lsf):
+                if len(armLsf) != len(armSpec):
+                    self.log.warn("Number of LSFs %d != number of spectra == %d",
+                                  len(armLsf), len(armSpec))
+                    missingFiberId = set(armSpec.fiberId) - set(armLsf.keys())
                     for fid in missingFiberId:
                         armLsf[fid] = None
 
