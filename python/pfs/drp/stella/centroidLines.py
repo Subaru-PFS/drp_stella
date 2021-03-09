@@ -272,12 +272,12 @@ class CentroidLinesTask(Task):
 
         The display is controlled by debug parameters:
         - ``display`` (`bool`): Enable display?
-        - ``frame`` (`int`, optional): Frame to use for display (defaults to 1).
-           May be an afwDisplay.Display
+        - ``frame`` (`int` or  afwDisplay.Display, optional): Frame to use for display (defaults to 1).
         - ``displayExposure'' : `bool`
             Use display.mtv to show the exposure; if False
             the caller is responsible for the mtv and maybe
             an erase too
+        - ```fiberIds`` (list of int): only show these fiberIds
 
         Parameters
         ----------

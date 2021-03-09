@@ -3,6 +3,7 @@ from types import SimpleNamespace
 import pickle
 import numpy as np
 
+import lsstDebug
 from lsst.pex.config import Config, Field, ConfigField, makeConfigClass, ConfigurableField, DictField
 from lsst.pipe.base import Task
 from pfs.drp.stella import DispersionCorrectionControl, ReferenceLine
@@ -32,6 +33,8 @@ class IdentifyLinesTask(Task):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.makeSubtask("findLines")
+
+        self.debugInfo = lsstDebug.Info(__name__)
 
         if self.debugInfo.display:
             from lsst.afw.display import Display
