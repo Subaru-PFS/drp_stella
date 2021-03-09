@@ -149,6 +149,8 @@ void declareGlobalDetectorModel(py::module & mod) {
     cls.def("getXDistortion", &Class::getXDistortion);
     cls.def("getYDistortion", &Class::getYDistortion);
     cls.def("getHighCcdCoefficients", &Class::getHighCcdCoefficients);
+    cls.def("getSpatialOffsets", py::overload_cast<>(&Class::getSpatialOffsets));
+    cls.def("getSpectralOffsets", py::overload_cast<>(&Class::getSpectralOffsets));
     lsst::utils::python::addOutputOp(cls, "__str__");
     lsst::utils::python::addOutputOp(cls, "__repr__");
 }

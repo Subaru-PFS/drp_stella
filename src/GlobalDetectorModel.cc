@@ -566,7 +566,7 @@ void GlobalDetectorModel::write(lsst::afw::table::io::OutputArchiveHandle & hand
     record->set(schema.wavelengthCenter, getWavelengthCenter());
     record->set(schema.height, getHeight());
     record->set(schema.buffer, getBuffer());
-    record->set(schema.buffer, _fiberCenter);
+    record->set(schema.fiberCenter, _fiberCenter);
     ndarray::Array<int, 1, 1> const fiberId = ndarray::copy(getFiberId());
     record->set(schema.fiberId, fiberId);
     ndarray::Array<double, 1, 1> xCoeff = ndarray::copy(getXCoefficients());
