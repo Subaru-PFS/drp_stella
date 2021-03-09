@@ -280,7 +280,9 @@ class SpectralPsf : public virtual lsst::afw::detection::Psf {
  * We compose an LSST Psf object with a SpectralPsf interface. This allows us
  * to use an imaging PSF for spectral work.
  */
-class ImagingSpectralPsf : public SpectralPsf {
+class ImagingSpectralPsf :
+    public lsst::afw::table::io::PersistableFacade<ImagingSpectralPsf>,
+    public SpectralPsf {
   public:
     /** Ctor
      *
@@ -305,7 +307,15 @@ class ImagingSpectralPsf : public SpectralPsf {
         return std::make_shared<ImagingSpectralPsf>(_base->resized(width, height), _detMap);
     }
 
-  protected:
+    /// Whether the Psf is persistable; always true.
+    bool isPersistable() const noexcept override { return true; }
+
+protected:
+    std::string getPersistenceName() const override { return "ImagingSpectralPsf"; }
+    std::string getPythonModule() const override { return "pfs.drp.stella"; }
+
+    void write(OutputArchiveHandle& handle) const override;
+
     //@{
     /// Implementations required for lsst::afw::detection::Psf
     virtual std::shared_ptr<Image> doComputeKernelImage(
