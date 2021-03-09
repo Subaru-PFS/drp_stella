@@ -26,7 +26,7 @@ class ReduceArcConfig(pexConfig.Config):
     identifyLines = pexConfig.ConfigurableField(target=IdentifyLinesTask, doc="Identify arc lines")
     centroidLines = pexConfig.ConfigurableField(target=CentroidLinesTask, doc="Centroid lines")
     fitDetectorMap = pexConfig.ConfigurableField(target=FitDifferentialDetectorMapTask, doc="Fit detectorMap")
-    doUpdateDetectorMap = pexConfig.Field(dtype=bool, default=False,
+    doUpdateDetectorMap = pexConfig.Field(dtype=bool, default=True,
                                           doc="Write an updated detectorMap?")
 
     def setDefaults(self):
