@@ -228,14 +228,13 @@ class ReduceArcTask(CmdLineTask):
         lines = self.centroidLines.run(exposure, referenceLines, detectorMap)
         dataRef.put(lines, "arcLines")
 
-        dataRef.put(results.lines, "arcLines")
-
-        results.spectra = spectra
-        results.detectorMap = detectorMap
-        results.visitInfo = exposure.getInfo().getVisitInfo()
-        results.metadata = metadata
-
-        return results
+        return Struct(
+            spectra=spectra,
+            lines=lines,
+            detectorMap=detectorMap,
+            visitInfo=exposure.getInfo().getVisitInfo(),
+            metadata=metadata,
+        )
 
     def gather(self, dataRefList, results):
         """Entry point for gather stage
