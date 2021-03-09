@@ -22,6 +22,22 @@ def findSuNSSId(pfsDesign, fiberId):
     return np.arange(len(r), dtype=int)[r < 1e-3][0] + 1
 
 
+def findNeigboringFiberIds(pfsConfig, fiberId):
+    """Find the fiberIds for the neighbours of a SuNSS fibre
+
+    In the middle of the ferrule you'll get 6 fibres returned,
+    but fewer at the edge.
+    """
+    targetType = pfsConfig.targetType[pfsConfig.fiberId == fiberId]
+    xy = pfsConfig.pfiNominal
+    xc, yc = xy[pfsConfig.fiberId == fiberId][0]
+
+    d = np.hypot(xy[:, 0] - xc, xy[:, 1] - yc)
+    ii = np.where(np.logical_and(d < 200, pfsConfig.targetType == targetType))[0]
+
+    return sorted(pfsConfig.fiberId[ii[np.argsort(d[ii])]][1:])
+
+
 def guessConnectors():
     pass
 
@@ -75,6 +91,10 @@ def plotSuNSSFluxes(pfsConfig, pfsSpec, lam0=None, lam1=None, statsOp=np.median,
     """Plot images of the SuNSS ferrule based on fluxes in extracted spectra
     pfsConfig : `pfsConfig`
     pfsSpec: pfsArm or pfsMerged
+
+    Perform photometry for the fibreIds listed in starFibers; if it's
+    "brightest" or "brightest+6" use the brightest fibre and its neighbours,
+    usually 6.
     """
     fig, axs = plt.subplots(1, 2, sharey='row', gridspec_kw=dict(wspace=0))
 
@@ -119,6 +139,13 @@ def plotSuNSSFluxes(pfsConfig, pfsSpec, lam0=None, lam1=None, statsOp=np.median,
 
             med = nanStatsOp(windowed, axis=1)
 
+    if starFibers in ("brightest", "brightest+6"):
+        brightestFiberId = pfsConfig.fiberId[np.nanargmax(med)]
+        if starFibers == "brightest":
+            starFibers = [brightestFiberId]
+        else:
+            starFibers = [brightestFiberId] + findNeigboringFiberIds(pfsConfig, brightestFiberId)
+
     visit = md.get('W_VISIT', "[unknown]")
 
     estimateFluxMax = fluxMax is None
@@ -160,7 +187,7 @@ def plotSuNSSFluxes(pfsConfig, pfsSpec, lam0=None, lam1=None, statsOp=np.median,
                 if printFlux:
                     x, y = pfsConfig.pfiNominal[ind]
                     print(f"{visit} {x:8.1f} {y:8.1f}  {fid:3}"
-                          f"{findSuNSSId(pfsConfig, fid):3} {med[ind]:.3f}")
+                          f"{findSuNSSId(pfsConfig, fid):3} {med[ind]:6.3f}")
 
             broken_color = color
             textcolor = 'black'
