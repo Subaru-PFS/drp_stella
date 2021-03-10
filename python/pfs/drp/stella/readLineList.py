@@ -14,16 +14,22 @@ class ReadLineListConfig(Config):
     lineListFiles = ListField(dtype=str, doc="list of names of linelist files", default=["ArCdHgKrNeXe.txt"])
     restrictByLamps = Field(dtype=bool, default=True,
                             doc="Restrict linelist by the list of active lamps? True is appropriate for arcs")
+    lampList = ListField(dtype=str, doc="list of species in lamps", default=[])
     minIntensity = Field(dtype=float, default=0.0, doc="Minimum linelist intensity")
 
     def validate(self):
         super().validate()
-        if len(self.lineListFiles) == 0: # should check if both are set.  Hard
+        if len(self.lineListFiles) == 0:  # should check if both are set.  Hard with defaults in one place
             self.lineListFiles = [self.lineList]
+
+        if len(self.lampList) > 0 and self.restrictByLamps:
+            raise ValueError("You may not specify both lampList and restrictByLamps")
+
 
 class ReadLineListTask(Task):
     """Read a linelist"""
     ConfigClass = ReadLineListConfig
+    _DefaultName = "ReadLineListTask"
 
     def run(self, detectorMap=None, fiberId=None, metadata=None):
         """Read a linelist
@@ -53,12 +59,13 @@ class ReadLineListTask(Task):
         lamps = self.getLamps(metadata)
         lines = []
         for lineListFile in self.config.lineListFiles:
-            lines += readLineListFile(lineListFile, lamps, minIntensity=self.config.minIntensity)
+            lines += readLineListFile(lineListFile, lamps, minIntensity=self.config.minIntensity,
+                                      checkForEmpty=False)
         if detectorMap is None:
             return lines
         return self.getFiberLines(lines, detectorMap, fiberId=fiberId)
 
-    def getLamps(self, metadata):
+    def getLamps(self, metadata=None):
         """Determine which lamps are active
 
         Parameters
@@ -70,13 +77,17 @@ class ReadLineListTask(Task):
         -------
         lamps : `list` of `str`, or `None`
             The list of lamps, if the ``restrictByLamps`` configuration option
-            is ``True``; otherwise, ``None``.
+            is ``True`` or ``lampList`` is set; otherwise, ``None``.
 
         Raises
         ------
         RuntimeError
-            If ``metadata`` is ``None`` and ``restrictByLamps`` is ``True``.
+            If ``metadata`` is ``None`` and ``restrictByLamps`` is ``True``, and
+            lampList is not set.
         """
+        if len(self.config.lampList) > 0:
+            return self.config.lampList
+
         if not self.config.restrictByLamps:
             return None
         if metadata is None:

@@ -9,7 +9,8 @@ from pfs.drp.stella import ReferenceLine
 __all__ = ["readLineListFile", "plotReferenceLines"]
 
 
-def readLineListFile(lineListFilename, lamps=None, minIntensity=0, flagsToIgnore=0x0):
+def readLineListFile(lineListFilename, lamps=None, minIntensity=0, flagsToIgnore=0x0,
+                     checkForEmpty=True):
     """Read line list
 
     File consists of lines of
@@ -76,7 +77,7 @@ def readLineListFile(lineListFilename, lamps=None, minIntensity=0, flagsToIgnore
                                                 guessedIntensity=intensity,
                                                 status=ReferenceLine.Status(flag)))
 
-    if len(referenceLines) == 0:
+    if len(referenceLines) == 0 and checkForEmpty:
         raise RuntimeError("You have not selected any lines from %s" % lineListFilename)
 
     return referenceLines
