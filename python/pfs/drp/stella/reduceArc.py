@@ -167,7 +167,9 @@ class ReduceArcTask(CmdLineTask):
                 display = frame
             else:
                 display = afwDisplay.Display(frame)
-            self.plotIdentifications(display, exposure, spectra, detectorMap)
+            self.plotIdentifications(display, exposure, spectra, detectorMap,
+                                     displayExposure=self.debugInfo.displayExposure,
+                                     fiberIds=self.debugInfo.fiberIds)
         referenceLines = self.centroidLines.getReferenceLines(spectra)
         lines = self.centroidLines.run(exposure, referenceLines, detectorMap)
 
@@ -314,7 +316,8 @@ class ReduceArcTask(CmdLineTask):
         """
         return sorted(dataRefList, key=lambda dataRef: dataRef.dataId["visit"])[0]
 
-    def plotIdentifications(self, display, exposure, spectrumSet, detectorMap, displayExposure=True):
+    def plotIdentifications(self, display, exposure, spectrumSet, detectorMap, displayExposure=True,
+                            showAllCandidates=False, fiberIds=False):
         """Plot line identifications
 
         Parameters
@@ -331,6 +334,9 @@ class ReduceArcTask(CmdLineTask):
             Use display.mtv to show the exposure; if False
             the caller is responsible for the mtv and maybe
             an erase too
+        showAllCandidates : `bool`
+            Show all candidates from the line list, not just
+            the ones that are matched
         """
 
         labelFibers = False             # write fiberId to the display?
@@ -343,6 +349,10 @@ class ReduceArcTask(CmdLineTask):
 
         for spec in spectrumSet:
             fiberId = spec.getFiberId()
+            # N.b. "fiberIds not in (False, None)" fails with ndarray
+            if fiberIds is not False and fiberIds is not None or fiberId not in self.fiberIds:
+                continue
+
             refLines = spec.referenceLines
             with display.Buffering():
                 if labelFibers:         # Label fibers if addPfsCursor failed
@@ -365,8 +375,10 @@ class ReduceArcTask(CmdLineTask):
                         ctype = 'blue'
 
                     display.dot('o', xActual, yActual, ctype=ctype)
-                    xExpect, yExpect = detectorMap.findPoint(fiberId, rl.wavelength)
-                    display.dot('x', xExpect, yExpect, ctype='red', size=0.5)
+
+                    if showAllCandidates or (rl.status & ReferenceLine.Status.FIT) != 0:
+                        xExpect, yExpect = detectorMap.findPoint(fiberId, rl.wavelength)
+                        display.dot('x', xExpect, yExpect, ctype='red', size=0.5)
 
     def plotCalibrations(self, spectrumSet, detectorMap):
         """Plot wavelength calibration results
