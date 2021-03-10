@@ -216,16 +216,8 @@ class ReduceArcTask(CmdLineTask):
         exposure = results.exposureList[0]
         detectorMap = results.detectorMapList[0]
 
-        self.identifyLines.run(spectra, detectorMap, lines)
-        if self.debugInfo.display and self.debugInfo.displayIdentifications:
-            frame = self.debugInfo.frame[dataRef.dataId["visit"]] if self.debugInfo.frame is not None else 1
-            if isinstance(frame, afwDisplay.Display):
-                display = frame
-            else:
-                display = afwDisplay.Display(frame)
-            self.plotIdentifications(display, exposure, spectra, detectorMap)
-        referenceLines = self.centroidLines.getReferenceLines(spectra)
-        lines = self.centroidLines.run(exposure, referenceLines, detectorMap)
+        lines = self.run(exposure, spectra, detectorMap, lines).lines
+
         dataRef.put(lines, "arcLines")
 
         return Struct(
