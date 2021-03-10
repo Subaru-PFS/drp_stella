@@ -6,14 +6,6 @@ import lsst.geom as geom
 from pfs.drp.stella.datamodel.drp import PfsArm
 from pfs.datamodel.pfsConfig import FiberStatus, TargetType
 
-try:
-    from lsst.display.matplotlib import AsinhNormalize, AsinhZScaleNormalize, ZScaleNormalize
-except ImportError:
-    print("Unable to use display_matplotlib stretch functionality")
-
-    AsinhNormalize = None
-
-
 __all__ = ["addPfsCursor", "showAllSpectraAsImage", "showDetectorMap"]
 
 
@@ -22,9 +14,15 @@ def get_norm(image, algorithm, minval, maxval, **kwargs):
         minval = np.nanmin(image)
         maxval = np.nanmax(image)
 
+    importError = None
+    try:
+        from lsst.display.matplotlib import AsinhNormalize, AsinhZScaleNormalize, ZScaleNormalize
+    except ImportError as exc:
+        importError = exc
+
     if algorithm == "asinh":
-        if AsinhNormalize is None:
-            raise NotImplementedError("asinh stretches use display_matplotlib")
+        if importError:
+            raise NotImplementedError("asinh stretches require display_matplotlib") from importError
 
         if minval == "zscale":
             norm = AsinhZScaleNormalize(image=image, Q=kwargs.get("Q", 8.0))
@@ -33,8 +31,8 @@ def get_norm(image, algorithm, minval, maxval, **kwargs):
                                   dataRange=maxval - minval, Q=kwargs.get("Q", 8.0))
     elif algorithm == "linear":
         if minval == "zscale":
-            if AsinhNormalize is None:
-                raise NotImplementedError("asinh stretches use display_matplotlib")
+            if importError:
+                raise NotImplementedError("zscale stretches require display_matplotlib") from importError
 
             norm = ZScaleNormalize(image=image,
                                    nSamples=kwargs.get("nSamples", 1000),
