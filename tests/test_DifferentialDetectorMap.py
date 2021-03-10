@@ -246,8 +246,6 @@ class DifferentialDetectorMapTestCase(lsst.utils.tests.TestCase):
             copy = ExposureF(filename).getPsf().getDetectorMap()
             copy.metadata.set("METADATA", self.metadata)  # Persistence doesn't preserve the metadata
             self.assertDifferentialDetectorMapsEqual(detMap, copy)
-            print(detMap.getModel().getScaling().buffer)
-            print(copy.getModel().getScaling().buffer)
 
     @methodParameters(arm=("r", "m"))
     def testFit(self, arm):
