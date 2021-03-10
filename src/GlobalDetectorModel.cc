@@ -128,7 +128,6 @@ std::ostream& operator<<(std::ostream& os, FiberMap const& fiberMap) {
 
 
 GlobalDetectorModel::GlobalDetectorModel(
-    lsst::geom::Box2I const& bbox,
     int distortionOrder,
     ndarray::Array<int, 1, 1> const& fiberId,
     GlobalDetectorModelScaling const& scaling,
@@ -139,7 +138,7 @@ GlobalDetectorModel::GlobalDetectorModel(
     ndarray::Array<double, 1, 1> const& spatialOffsets,
     ndarray::Array<double, 1, 1> const& spectralOffsets
 ) : GlobalDetectorModel(
-        distortionOrder, FiberMap(fiberId), scaling, fiberCenter, bbox.getHeight(),
+        distortionOrder, FiberMap(fiberId), scaling, fiberCenter,
         xDistortion, yDistortion, highCcd, spatialOffsets, spectralOffsets)
 {}
 
@@ -149,7 +148,6 @@ GlobalDetectorModel::GlobalDetectorModel(
     FiberMap const& fiberMap,
     GlobalDetectorModelScaling const& scaling,
     float fiberCenter,
-    std::size_t height,
     ndarray::Array<double, 1, 1> const& xDistortion,
     ndarray::Array<double, 1, 1> const& yDistortion,
     ndarray::Array<double, 1, 1> const& highCcd,
@@ -568,7 +566,7 @@ void GlobalDetectorModel::write(lsst::afw::table::io::OutputArchiveHandle & hand
     record->set(schema.wavelengthCenter, getWavelengthCenter());
     record->set(schema.height, getHeight());
     record->set(schema.buffer, getBuffer());
-    record->set(schema.buffer, _fiberCenter);
+    record->set(schema.fiberCenter, _fiberCenter);
     ndarray::Array<int, 1, 1> const fiberId = ndarray::copy(getFiberId());
     record->set(schema.fiberId, fiberId);
     ndarray::Array<double, 1, 1> xCoeff = ndarray::copy(getXCoefficients());
@@ -619,7 +617,7 @@ class GlobalDetectorModel::Factory : public lsst::afw::table::io::PersistableFac
                 *std::min_element(fiberId.begin(), fiberId.end()),
                 *std::max_element(fiberId.begin(), fiberId.end()),
                 height, buffer),
-            fiberCenter, height, xCoeff, yCoeff, highCcd, spatialOffset, spectralOffset
+            fiberCenter, xCoeff, yCoeff, highCcd, spatialOffset, spectralOffset
         );
     }
 

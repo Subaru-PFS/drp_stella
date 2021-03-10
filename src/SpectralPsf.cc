@@ -2,6 +2,11 @@
 #include <numeric>
 
 #include "lsst/pex/exceptions.h"
+#include "lsst/afw/table.h"
+#include "lsst/afw/table/io/OutputArchive.h"
+#include "lsst/afw/table/io/InputArchive.h"
+#include "lsst/afw/table/io/CatalogVector.h"
+#include "lsst/afw/table/io/Persistable.cc"
 #include "lsst/afw/math/offsetImage.h"
 #include "lsst/afw/image/ImageUtils.h"
 #include "lsst/afw/geom/ellipses.h"
@@ -214,5 +219,67 @@ lsst::geom::Box2I OversampledPsf::doComputeBBox(
 ) const {
     return lsst::geom::Box2I(lsst::geom::Point2I(-_targetSize.getX()/2, -_targetSize.getY()/2), _targetSize);
 }
+
+
+namespace {
+
+
+struct ImagingSpectralPsfPersistenceHelper {
+    lsst::afw::table::Schema schema;
+    lsst::afw::table::Key<int> base;
+    lsst::afw::table::Key<int> detectorMap;
+
+    static ImagingSpectralPsfPersistenceHelper const& get() {
+        static ImagingSpectralPsfPersistenceHelper instance;
+        return instance;
+    }
+
+    // No copying or moving
+    ImagingSpectralPsfPersistenceHelper(const ImagingSpectralPsfPersistenceHelper&) = delete;
+    ImagingSpectralPsfPersistenceHelper& operator=(const ImagingSpectralPsfPersistenceHelper&) = delete;
+    ImagingSpectralPsfPersistenceHelper(ImagingSpectralPsfPersistenceHelper&&) = delete;
+    ImagingSpectralPsfPersistenceHelper& operator=(ImagingSpectralPsfPersistenceHelper&&) = delete;
+
+private:
+    ImagingSpectralPsfPersistenceHelper()
+            : schema(),
+              base(schema.addField<int>("base", "base imaging PSF", "")),
+              detectorMap(schema.addField<int>("detectorMap", "detectorMap", "")) {
+        schema.getCitizen().markPersistent();
+    }
+};
+
+
+class ImagingSpectralPsfFactory : public lsst::afw::table::io::PersistableFactory {
+public:
+    std::shared_ptr<lsst::afw::table::io::Persistable> read(InputArchive const& archive,
+                                                            CatalogVector const& catalogs) const override {
+        static ImagingSpectralPsfPersistenceHelper const& keys = ImagingSpectralPsfPersistenceHelper::get();
+        LSST_ARCHIVE_ASSERT(catalogs.size() == 1u);
+        LSST_ARCHIVE_ASSERT(catalogs.front().size() == 1u);
+        lsst::afw::table::BaseRecord const& record = catalogs.front().front();
+        LSST_ARCHIVE_ASSERT(record.getSchema() == keys.schema);
+        auto psf = archive.get<lsst::afw::detection::Psf>(record.get(keys.base));
+        auto detMap = archive.get<DetectorMap>(record.get(keys.detectorMap));
+        return std::make_shared<ImagingSpectralPsf>(psf, detMap);
+    }
+
+    ImagingSpectralPsfFactory(std::string const& name) : lsst::afw::table::io::PersistableFactory(name) {}
+};
+
+}
+
+ImagingSpectralPsfFactory registration("ImagingSpectralPsf");
+
+
+void ImagingSpectralPsf::write(OutputArchiveHandle& handle) const {
+    static ImagingSpectralPsfPersistenceHelper const& keys = ImagingSpectralPsfPersistenceHelper::get();
+    lsst::afw::table::BaseCatalog catalog = handle.makeCatalog(keys.schema);
+    std::shared_ptr<lsst::afw::table::BaseRecord> record = catalog.addNew();
+    record->set(keys.base, handle.put(getBase()));
+    record->set(keys.detectorMap, handle.put(getDetectorMap()));
+    handle.saveCatalog(catalog);
+}
+
 
 }}}  // namespace pfs::drp::stella

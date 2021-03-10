@@ -173,7 +173,6 @@ class GlobalDetectorModel : public lsst::afw::table::io::Persistable {
 
     /// Ctor
     ///
-    /// @param bbox : detector bounding box
     /// @param distortionOrder : polynomial order for distortion
     /// @param fiberId : fiberId values for fibers
     /// @param scaling : scaling of fiberId,wavelength to xi,eta
@@ -184,7 +183,6 @@ class GlobalDetectorModel : public lsst::afw::table::io::Persistable {
     /// @param spatialOffsets : slit offsets in the spatial dimension
     /// @param spectralOffsets : slit offsets in the spectral dimension
     GlobalDetectorModel(
-        lsst::geom::Box2I const& bbox,
         int distortionOrder,
         ndarray::Array<int, 1, 1> const& fiberId,
         GlobalDetectorModelScaling const& scaling,
@@ -202,7 +200,6 @@ class GlobalDetectorModel : public lsst::afw::table::io::Persistable {
     /// @param fiberMap : mapping for fiberId to fiberIndex
     /// @param scaling : scaling of fiberId,wavelength to xi,eta
     /// @param fiberCenter : central fiberId value; for separating left and right CCDs
-    /// @param height : height of detector (spatial dimension; pixels)
     /// @param xDistortion : distortion field parameters for x
     /// @param yDistortion : distortion field parameters for y
     /// @param highCcd : affine transformation parameters for the high-fiberId CCD
@@ -213,7 +210,6 @@ class GlobalDetectorModel : public lsst::afw::table::io::Persistable {
         FiberMap const& fiberMap,
         GlobalDetectorModelScaling const& scaling,
         float fiberCenter,
-        std::size_t height,
         ndarray::Array<double, 1, 1> const& xDistortion,
         ndarray::Array<double, 1, 1> const& yDistortion,
         ndarray::Array<double, 1, 1> const& highCcd,

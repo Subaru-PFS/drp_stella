@@ -439,7 +439,7 @@ class FitGlobalDetectorMapTask(Task):
             yParams.xiRot, yParams.etaRot
         )
 
-        model = GlobalDetectorModel(bbox, self.config.order, fiberId, scaling, fiberCenter,
+        model = GlobalDetectorModel(self.config.order, fiberId, scaling, fiberCenter,
                                     xParams.distortion, yParams.distortion, highCcd)
         if self.config.doSlitOffsets:
             model.measureSlitOffsets(xiEta, fiberIndex, onHighCcd, xx, yy, xErr, yErr)

@@ -34,7 +34,7 @@ class GlobalDetectorMap:
                          ("fiberPitch", "dispersion", "wavelengthCenter", "minFiberId", "maxFiberId",
                           "height", "buffer")}
         scaling = GlobalDetectorModelScaling(**scalingKwargs)
-        model = GlobalDetectorModel(bbox, detMap.order, detMap.fiberId, scaling, detMap.fiberCenter,
+        model = GlobalDetectorModel(detMap.order, detMap.fiberId, scaling, detMap.fiberCenter,
                                     detMap.xCoeff, detMap.yCoeff, detMap.highCcdCoeff,
                                     detMap.spatialOffsets, detMap.spectralOffsets)
         metadata = headerToMetadata(detMap.metadata)

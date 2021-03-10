@@ -56,12 +56,12 @@ void declareFiberMap(py::module & mod) {
 void declareGlobalDetectorModel(py::module & mod) {
     using Class = GlobalDetectorModel;
     py::class_<Class> cls(mod, "GlobalDetectorModel");
-    cls.def(py::init<lsst::geom::Box2I const&, int, ndarray::Array<int, 1, 1> const&,
+    cls.def(py::init<int, ndarray::Array<int, 1, 1> const&,
                      GlobalDetectorModelScaling const&, float,
                      ndarray::Array<double, 1, 1> const&, ndarray::Array<double, 1, 1> const&,
                      ndarray::Array<double, 1, 1> const&, ndarray::Array<double, 1, 1> const&,
                      ndarray::Array<double, 1, 1> const&>(),
-            "bbox"_a, "distortionOrder"_a, "fiberId"_a, "scaling"_a, "fiberCenter"_a,
+            "distortionOrder"_a, "fiberId"_a, "scaling"_a, "fiberCenter"_a,
             "xDistortion"_a, "yDistortion"_a, "highCcd"_a,
             "spatialOffsets"_a=nullptr, "spectralOffsets"_a=nullptr);
     cls.def("__call__", py::overload_cast<int, double>(&Class::operator(), py::const_),
@@ -149,6 +149,8 @@ void declareGlobalDetectorModel(py::module & mod) {
     cls.def("getXDistortion", &Class::getXDistortion);
     cls.def("getYDistortion", &Class::getYDistortion);
     cls.def("getHighCcdCoefficients", &Class::getHighCcdCoefficients);
+    cls.def("getSpatialOffsets", py::overload_cast<>(&Class::getSpatialOffsets));
+    cls.def("getSpectralOffsets", py::overload_cast<>(&Class::getSpectralOffsets));
     lsst::utils::python::addOutputOp(cls, "__str__");
     lsst::utils::python::addOutputOp(cls, "__repr__");
 }
