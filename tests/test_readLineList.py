@@ -55,7 +55,7 @@ class ReadLineListTestCase(lsst.utils.tests.TestCase):
                 fd.write("# This is a fake line list\n")
                 for line in self.contents:
                     fd.write(f"{line.wavelength} {line.intensity} {line.description} {line.flag}\n")
-            self.config.lineList = filename
+            self.config.lineListFiles = [filename]
             task = ReadLineListTask(name="readLineList", config=self.config)
             return task.run(**kwargs)
 

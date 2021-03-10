@@ -57,7 +57,7 @@ class MeasureSlitOffsetsTestCase(lsst.utils.tests.TestCase):
                 for yy in self.arc.lines:
                     wl = self.splinedDetectorMap.findWavelength(fiberId, yy)
                     fd.write(f"{wl} 1000.0 ArI 0\n")
-            self.config.readLineList.lineList = filename
+            self.config.readLineList.lineListFiles = [filename]
             yield filename
 
     def assertOffsets(self, offsets, dx=0.0, dy=0.0, numRejected=0, numParams=2):
