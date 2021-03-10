@@ -1,7 +1,4 @@
-import os
-
-from lsst.utils import getPackageDir
-from lsst.pex.config import Config, Field
+from lsst.pex.config import Config, Field, ListField
 from lsst.pipe.base import Task
 
 from lsst.obs.pfs.utils import getLampElements
@@ -13,12 +10,16 @@ __all__ = ("ReadLineListConfig", "ReadLineListTask")
 
 class ReadLineListConfig(Config):
     """Configuration for ReadLineListTask"""
-    lineList = Field(dtype=str, doc="Filename of linelist",
-                     default=os.path.join(getPackageDir("obs_pfs"), "pfs", "lineLists", "ArCdHgKrNeXe.txt"))
+    lineList = Field(dtype=str, doc="Filename of linelist", default="ArCdHgKrNeXe.txt")
+    lineListFiles = ListField(dtype=str, doc="list of names of linelist files", default=["ArCdHgKrNeXe.txt"])
     restrictByLamps = Field(dtype=bool, default=True,
                             doc="Restrict linelist by the list of active lamps? True is appropriate for arcs")
     minIntensity = Field(dtype=float, default=0.0, doc="Minimum linelist intensity")
 
+    def validate(self):
+        super().validate()
+        if len(self.lineListFiles) == 0: # should check if both are set.  Hard
+            self.lineListFiles = [self.lineList]
 
 class ReadLineListTask(Task):
     """Read a linelist"""
@@ -50,7 +51,9 @@ class ReadLineListTask(Task):
             otherwise this is a `list` of reference lines.
         """
         lamps = self.getLamps(metadata)
-        lines = readLineListFile(self.config.lineList, lamps, minIntensity=self.config.minIntensity)
+        lines = []
+        for lineListFile in self.config.lineListFiles:
+            lines += readLineListFile(lineListFile, lamps, minIntensity=self.config.minIntensity)
         if detectorMap is None:
             return lines
         return self.getFiberLines(lines, detectorMap, fiberId=fiberId)
