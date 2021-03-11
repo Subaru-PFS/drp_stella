@@ -95,12 +95,14 @@ def showAllSpectraAsImage(spec, vmin=None, vmax=None, lines=None, labelLines=Tru
 
     flux = spec.flux
     fiberId = spec.fiberId
+    mask = spec.mask
     wavelength = spec.wavelength
 
     if fiberIndex is not None and len(fiberIndex) != 0:
-        flux = spec.flux[fiberIndex]
-        fiberId = spec.fiberId[fiberIndex]
-        wavelength = spec.wavelength[fiberIndex]
+        flux = flux[fiberIndex]
+        fiberId = fiberId[fiberIndex]
+        mask = mask[fiberIndex]
+        wavelength = wavelength[fiberIndex]
 
     imshown = plt.imshow(flux, aspect='auto', origin='lower',
                          extent=(lam0, lam1, 0, flux.shape[0] - 1), **kwargs)
@@ -112,7 +114,9 @@ def showAllSpectraAsImage(spec, vmin=None, vmax=None, lines=None, labelLines=Tru
         row = int(y + 0.5)
 
         # \u03BB is $\lambda$
-        return f"fiberId: {fiberId[row]}  \u03BB: {wavelength[row][col]:8.3f}nm"
+        maskVal = mask[row][col]
+        maskDescrip = f"[{' '.join(spec.flags.interpret(maskVal))}]" if maskVal != 0 else ""
+        return f"fiberId: {fiberId[row]}  \u03BB: {wavelength[row][col]:8.3f}nm {maskDescrip}"
 
     ax = plt.gca()
     ax.format_coord = format_coord
@@ -122,7 +126,7 @@ def showAllSpectraAsImage(spec, vmin=None, vmax=None, lines=None, labelLines=Tru
         xlabel = "wavelength (nm)"
         # Only show wavelengths for which we have data; especially interesting
         # if we only merged e.g. b and r
-        have_data = np.sum((spec.mask & spec.flags["NO_DATA"]) == 0, axis=0)
+        have_data = np.sum((mask & spec.flags["NO_DATA"]) == 0, axis=0)
         ll = np.where(have_data > 0, spec.wavelength[0], np.NaN)
         plt.xlim(np.nanmin(ll), np.nanmax(ll))
     else:
