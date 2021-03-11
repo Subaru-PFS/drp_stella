@@ -78,7 +78,7 @@ class ReduceExposureRunner(TaskRunner):
         for ref in parsedCmd.id.refList:
             visit = ref.dataId["visit"]
             arm = ref.dataId["arm"]
-            exposures[arm][visit].append(ref)
+            exposures[visit][arm].append(ref)
         return [(exps, kwargs) for arms in exposures.values() for exps in arms.values()]
 
 
