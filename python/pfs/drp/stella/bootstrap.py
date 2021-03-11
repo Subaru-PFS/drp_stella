@@ -10,6 +10,7 @@ from lsst.pipe.base import CmdLineTask, TaskRunner, ArgumentParser, Struct
 from lsst.pex.config import Config, Field, ConfigurableField
 from lsst.ip.isr import IsrTask
 
+from pfs.datamodel import FiberStatus
 from .findAndTraceAperturesTask import FindAndTraceAperturesTask
 from .findLines import FindLinesTask
 from .readLineList import ReadLineListTask
@@ -162,19 +163,21 @@ class BootstrapTask(CmdLineTask):
         exposure = self.isr.runDataRef(flatRef).exposure
         detMap = flatRef.get("detectorMap")
         traces = self.trace.run(exposure.maskedImage, detMap)
-        if len(traces) != len(pfsConfig.fiberId):
+        select = pfsConfig.fiberStatus == FiberStatus.GOOD
+        if len(traces) != select.sum():
             raise RuntimeError("Mismatch between number of traces (%d) and number of fibers (%d)" %
-                               (len(traces), len(pfsConfig.fiberId)))
+                               (len(traces), select.sum()))
         self.log.info("Found %d fibers on flat", len(traces))
+        fiberId = pfsConfig.fiberId[select]
         # Assign fiberId from pfsConfig to the fiberTraces, but we have to get the order right!
         # The fiber trace numbers from the left, but the pfsConfig may number from the right.
         middle = 0.5*exposure.getHeight()
-        centers = np.array([detMap.getXCenter(ff, middle) for ff in pfsConfig.fiberId])
+        centers = np.array([detMap.getXCenter(ff, middle) for ff in fiberId])
         increasing = np.all(centers[1:] - centers[:-1] > 0)
         decreasing = np.all(centers[1:] - centers[:-1] < 0)
         assert increasing or decreasing
-        for tt, fiberId in zip(traces, pfsConfig.fiberId if increasing else reversed(pfsConfig.fiberId)):
-            tt.fiberId = fiberId
+        for tt, ff in zip(traces, fiberId if increasing else reversed(fiberId)):
+            tt.fiberId = ff
         return traces
 
     def findArcLines(self, arcRef, traces):
