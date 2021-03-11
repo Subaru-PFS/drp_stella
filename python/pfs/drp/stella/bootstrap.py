@@ -2,6 +2,7 @@ import os
 from types import SimpleNamespace
 from operator import attrgetter
 from datetime import datetime
+from collections import defaultdict
 import numpy as np
 from astropy.modeling.models import Gaussian1D, Chebyshev2D
 from astropy.modeling.fitting import LinearLSQFitter, LevMarLSQFitter
@@ -45,13 +46,35 @@ class BootstrapRunner(TaskRunner):
 
         We only want to operate on a single flat and single arc, together.
         """
-        if len(parsedCmd.flatId.refList) != 1 or len(parsedCmd.arcId.refList) != 1:
-            raise RuntimeError("Did not specify a single flat (%d) and a single arc (%d)" %
-                               (len(parsedCmd.flatId.refList), len(parsedCmd.arcId.refList)))
-        args = parsedCmd.flatId.refList[0]
-        kwargs["arcRef"] = parsedCmd.arcId.refList[0]
-        kwargs["lineListFilename"] = parsedCmd.lineList
-        return [(args, kwargs)]
+        flatArms = defaultdict(dict)
+        for ref in parsedCmd.flatId.refList:
+            arm = ref.dataId["arm"]
+            spec = ref.dataId["spectrograph"]
+            if arm in flatArms[spec]:
+                raise RuntimeError(f"Multiple flat exposures specified for arm={arm} spectrograph={spec}")
+            flatArms[spec][arm] = ref
+
+        arcArms = defaultdict(dict)
+        for ref in parsedCmd.arcId.refList:
+            arm = ref.dataId["arm"]
+            spec = ref.dataId["spectrograph"]
+            if arm in arcArms[spec]:
+                raise RuntimeError(f"Multiple arc exposures specified for arm={arm} spectrograph={spec}")
+            arcArms[spec][arm] = ref
+
+        flats = set([(ss, aa) for ss in flatArms for aa in flatArms[ss]])
+        arcs = set([(ss, aa) for ss in arcArms for aa in arcArms[ss]])
+        missingArcs = flats - arcs
+        missingFlats = arcs - flats
+        if missingArcs:
+            missing = "; ".join(f"arm={aa} spectrograph={ss}" for ss, aa in missingArcs)
+            raise RuntimeError(f"No arcs provided for flats: {missing}")
+        if missingFlats:
+            missing = "; ".join(f"arm={aa} spectrograph={ss}" for ss, aa in missingFlats)
+            raise RuntimeError(f"No flats provided for arcs: {missing}")
+        assert flats == arcs
+
+        return [(flatArms[ss][aa], dict(arcRef=arcArms[ss][aa])) for ss, aa in flats]
 
 
 class BootstrapTask(CmdLineTask):
