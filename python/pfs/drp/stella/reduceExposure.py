@@ -186,6 +186,11 @@ class ReduceExposureTask(CmdLineTask):
         """
         self.log.info("Processing %s" % ([sensorRef.dataId for sensorRef in sensorRefList]))
 
+        # Check that we were provided data from the same visit
+        visits = set([ref.dataId["visit"] for ref in sensorRefList])
+        if len(visits) > 1:
+            raise RuntimeError(f"Data references from multiple visits provided: {list(visits)}")
+
         pfsConfig = sensorRefList[0].get("pfsConfig")
         exposureList = []
         fiberTraceList = []
