@@ -242,7 +242,9 @@ class MergeArmsTask(CmdLineTask):
         covar[:, 0][good] = 1.0/sumWeights[good]
         covar[:, 0][~good] = np.inf
         covar[:, 1:2] = np.where(good, 0.0, np.inf)[:, np.newaxis]
-        mask[~good] = flags["NO_DATA"]
+        for ss in spectra:
+            mask[~good] |= ss.mask[~good]
+        mask[~good] |= flags["NO_DATA"]
         covar2 = np.zeros((1, 1), dtype=archetype.covar.dtype)
         return Struct(wavelength=archetype.wavelength, flux=flux, sky=sky, covar=covar,
                       mask=mask, covar2=covar2)
