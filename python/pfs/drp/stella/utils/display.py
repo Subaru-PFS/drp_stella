@@ -136,14 +136,17 @@ def showAllSpectraAsImage(spec, vmin=None, vmax=None, lines=None, labelLines=Tru
         plt.colorbar().remove()  # resize window to match image by adding an invisible colorbar
         plt.yticks(ticks=[], labels=[])
 
-        colors = {}
+        colors = dict(ArI="cyan", HgI="blue", KrI="peachpuff", NeI="red", XeI="silver",
+                      OI="green", NaI="darkorange", OH="magenta")
+        labels = {}
         for ll in lines:
             lam = ll.wavelength
             if lam0 < lam < lam1:
                 lab = ll.description
                 color = colors.get(lab, f"C{len(colors)}" if labelLines else 'black')
-                plt.axvline(lam, color=color, label=None if lab in colors else lab, alpha=1)
+                plt.axvline(lam, color=color, label=None if lab in labels else lab, alpha=1)
                 colors[lab] = color
+                labels[lab] = True
 
         if labelLines:
             plt.legend(fontsize=8, loc=(1.01, 0.0), ncol=2)
