@@ -1,4 +1,3 @@
-import os
 from types import SimpleNamespace
 from operator import attrgetter
 from datetime import datetime
@@ -10,13 +9,10 @@ from astropy.modeling.fitting import LinearLSQFitter, LevMarLSQFitter
 from lsst.pipe.base import CmdLineTask, TaskRunner, ArgumentParser, Struct
 from lsst.pex.config import Config, Field, ConfigurableField
 from lsst.ip.isr import IsrTask
-from lsst.utils import getPackageDir
-
-from lsst.obs.pfs.utils import getLampElements
 
 from .findAndTraceAperturesTask import FindAndTraceAperturesTask
 from .findLines import FindLinesTask
-from .utils import readLineListFile
+from .readLineList import ReadLineListTask
 from . import SplinedDetectorMap
 
 import lsstDebug
@@ -26,6 +22,7 @@ class BootstrapConfig(Config):
     """Configuration for BootstrapTask"""
     isr = ConfigurableField(target=IsrTask, doc="Instrumental signature removal")
     trace = ConfigurableField(target=FindAndTraceAperturesTask, doc="Task to trace apertures")
+    readLineList = ConfigurableField(target=ReadLineListTask, doc="Read linelist")
     minArcLineIntensity = Field(dtype=float, default=0, doc="Minimum 'NIST' intensity to use emission lines")
     findLines = ConfigurableField(target=FindLinesTask, doc="Find arc lines")
     matchRadius = Field(dtype=float, default=1.0, doc="Line matching radius (nm)")
@@ -37,6 +34,10 @@ class BootstrapConfig(Config):
     rowForCenter = Field(dtype=float, default=2048, doc="Row for xCenter calculation; used if allowSplit")
     midLine = Field(dtype=float, default=2048,
                     doc="Column defining the division between left and right amps; used if allowSplit")
+
+    def setDefaults(self):
+        super().setDefaults()
+        self.readLineList.restrictByLamps = True
 
 
 class BootstrapRunner(TaskRunner):
@@ -94,6 +95,7 @@ class BootstrapTask(CmdLineTask):
         super().__init__(*args, **kwargs)
         self.makeSubtask("isr")
         self.makeSubtask("trace")
+        self.makeSubtask("readLineList")
         self.makeSubtask("findLines")
 
     @classmethod
@@ -102,12 +104,9 @@ class BootstrapTask(CmdLineTask):
         parser = ArgumentParser(name=cls._DefaultName)
         parser.add_id_argument("--flatId", "raw", help="data ID for flat, e.g., visit=12345")
         parser.add_id_argument("--arcId", "raw", help="data ID for arc, e.g., visit=54321")
-        parser.add_argument("--lineList", help="Reference line list",
-                            default=os.path.join(getPackageDir("obs_pfs"),
-                                                 "pfs", "lineLists", "ArCdHgKrNeXe.txt"))
         return parser
 
-    def runDataRef(self, flatRef, arcRef, lineListFilename):
+    def runDataRef(self, flatRef, arcRef):
         """Fit out differences between the expected and actual detectorMap
 
         We use a quartz flat to find and trace fibers. The resulting fiberTrace
@@ -121,8 +120,6 @@ class BootstrapTask(CmdLineTask):
             Data reference for a quartz flat.
         arcRef : `lsst.daf.persistence.ButlerDataRef`
             Data reference for an arc.
-        lineListFilename : `str`
-            Filename for a reference arc line list.
         """
         flatConfig = flatRef.get("pfsConfig")
         arcConfig = arcRef.get("pfsConfig")
@@ -130,19 +127,18 @@ class BootstrapTask(CmdLineTask):
             raise RuntimeError("Mismatch between fibers for flat (%s) and arc (%s)" %
                                (flatConfig.fiberId, arcConfig.fiberId))
         traces = self.traceFibers(flatRef, flatConfig)
-        refLines = self.readLines(arcRef, lineListFilename)
         lineResults = self.findArcLines(arcRef, traces)
 
         self.visualize(lineResults.exposure, [ss.fiberId for ss in lineResults.spectra],
-                       lineResults.detectorMap, refLines, frame=1)
+                       lineResults.detectorMap, lineResults.refLines, frame=1)
 
-        matches = self.matchArcLines(lineResults.lines, refLines, lineResults.detectorMap)
+        matches = self.matchArcLines(lineResults.lines, lineResults.refLines, lineResults.detectorMap)
         fiberIdLists = self.selectFiberIds(lineResults.detectorMap, arcRef.dataId["arm"])
         for fiberId in fiberIdLists:
             self.fitDetectorMap(matches, lineResults.detectorMap, fiberId)
 
         self.visualize(lineResults.exposure, [ss.fiberId for ss in lineResults.spectra],
-                       lineResults.detectorMap, refLines, frame=2)
+                       lineResults.detectorMap, lineResults.refLines, frame=2)
 
         self.setCalibId(lineResults.detectorMap.metadata, arcRef.dataId)
         arcRef.put(lineResults.detectorMap, "detectorMap", visit0=arcRef.dataId["visit"])
@@ -181,26 +177,6 @@ class BootstrapTask(CmdLineTask):
             tt.fiberId = fiberId
         return traces
 
-    def readLines(self, arcRef, lineListFilename):
-        """Read reference lines
-
-        Parameters
-        ----------
-        arcRef : `lsst.daf.persistence.ButlerDataRef`
-            Data reference for arc.
-
-        Returns
-        -------
-        lines : `list` of `pfs.drp.stella.ReferenceLine`
-            Reference lines.
-        """
-        metadata = arcRef.get("raw_md")
-        lamps = getLampElements(metadata)
-        self.log.info("Arc lamp elements are: %s", " ".join(lamps))
-        if not lamps:
-            raise RuntimeError("No lamps found from metadata")
-        return readLineListFile(lineListFilename, lamps, minIntensity=self.config.minArcLineIntensity)
-
     def findArcLines(self, arcRef, traces):
         """Find lines on the extracted arc spectra
 
@@ -210,7 +186,7 @@ class BootstrapTask(CmdLineTask):
 
         Parameters
         ----------
-        arcRef : `lsst.daf.persistence.ButlerDataRef`
+        arcExposure : `lsst.daf.persistence.ButlerDataRef`
             Data reference for arc.
         traces : `pfs.drp.stella.FiberTraceSet`
             Set of fiber traces.
@@ -236,6 +212,7 @@ class BootstrapTask(CmdLineTask):
         """
         exposure = self.isr.runDataRef(arcRef).exposure
         detMap = arcRef.get("detectorMap")
+        refLines = self.readLineList.run(metadata=exposure.getMetadata())
         spectra = traces.extractSpectra(exposure.maskedImage)
         yCenters = [self.findLines.runCentroids(ss).centroids for ss in spectra]
         xCenters = [self.centroidTrace(tt, yList) for tt, yList in zip(traces, yCenters)]
@@ -243,7 +220,7 @@ class BootstrapTask(CmdLineTask):
                   for xx, yy in zip(xList, yList)]
                  for xList, yList, spectrum in zip(xCenters, yCenters, spectra)]
         self.log.info("Found %d lines in %d traces", sum(len(ll) for ll in lines), len(lines))
-        return Struct(spectra=spectra, lines=lines, detectorMap=detMap, exposure=exposure)
+        return Struct(spectra=spectra, lines=lines, detectorMap=detMap, exposure=exposure, refLines=refLines)
 
     def centroidTrace(self, trace, rows):
         """Centroid the trace
