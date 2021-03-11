@@ -1,12 +1,24 @@
 import numpy as np
 import pfs.datamodel
 
+from pfs.utils.fibers import spectrographFromFiberId, fiberHoleFromFiberId
+
 from .interpolate import interpolateFlux, interpolateMask
 
 __all__ = ("PfsFiberArraySet",)
 
 
 class PfsFiberArraySet(pfs.datamodel.PfsFiberArraySet):
+    @property
+    def spectrograph(self):
+        """Return spectrograph number"""
+        return spectrographFromFiberId(self.fiberId)
+
+    @property
+    def fiberHole(self):
+        """Return fiber hole number"""
+        return fiberHoleFromFiberId(self.fiberId)
+
     def __imul__(self, rhs):
         """In-place multiplication"""
         with np.errstate(invalid="ignore"):

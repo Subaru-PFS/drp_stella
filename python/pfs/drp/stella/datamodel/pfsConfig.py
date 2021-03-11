@@ -2,6 +2,7 @@ import os
 import re
 
 from lsst.pipe.base import Struct
+from pfs.utils.fibers import spectrographFromFiberId, fiberHoleFromFiberId
 import pfs.datamodel.pfsConfig
 
 __all__ = ("PfsConfig",)
@@ -19,6 +20,16 @@ class PfsConfig(pfs.datamodel.PfsConfig):
     but necessary.
     """
     fileNameRegex = r"^pfsConfig-(0x[0-9a-f]+)-([0-9]+)\.fits.*"
+
+    @property
+    def spectrograph(self):
+        """Return spectrograph number"""
+        return spectrographFromFiberId(self.fiberId)
+
+    @property
+    def fiberHole(self):
+        """Return fiber hole number"""
+        return fiberHoleFromFiberId(self.fiberId)
 
     @classmethod
     def _parsePath(cls, path, hdu=None, flags=None):
