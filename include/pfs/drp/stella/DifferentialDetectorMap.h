@@ -49,8 +49,6 @@ class DifferentialDetectorMap : public ModelBasedDetectorMap {
 
     /// Measure and apply slit offsets
     ///
-    /// This implementation is pending...
-    ///
     /// @param fiberId : Fiber identifiers for reference lines
     /// @param wavelength : Wavelength of reference lines (nm)
     /// @param x, y : Position of reference lines (pixels)
@@ -62,9 +60,7 @@ class DifferentialDetectorMap : public ModelBasedDetectorMap {
         ndarray::Array<double, 1, 1> const& y,
         ndarray::Array<double, 1, 1> const& xErr,
         ndarray::Array<double, 1, 1> const& yErr
-    ) override {
-        _base->measureSlitOffsets(fiberId, wavelength, x, y, xErr, yErr);
-    }
+    ) override;
 
     bool isPersistable() const noexcept { return true; }
 

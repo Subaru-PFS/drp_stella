@@ -33,6 +33,7 @@ class IdentifyLinesTask(Task):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.makeSubtask("findLines")
+        self.debugInfo = lsstDebug.Info(__name__)
 
         self.debugInfo = lsstDebug.Info(__name__)
 
@@ -147,6 +148,8 @@ class IdentifyLinesTask(Task):
             matches.append(new)
 
         spectrum.setReferenceLines(matches + candidates)
+
+#        if self.debugInfo.plot:
 
 
 class OldIdentifyLinesConfig(Config):

@@ -115,6 +115,10 @@ def calculateFitStatistics(model, lines, selection, soften=0.0):
     soften : `float`
         Systematic error that was applied to measured errors (pixels).
     """
+    modelFibers = set(model.getFiberId())
+    measuredFibers = set(lines.fiberId)
+    if modelFibers != measuredFibers:
+        raise RuntimeError("Model doesn't include fibers: %s", sorted(measuredFibers - modelFibers))
     fit = model(lines.fiberId.astype(np.int32), lines.wavelength.astype(float))
     xResid = (lines.x - fit[:, 0])
     yResid = (lines.y - fit[:, 1])
@@ -281,12 +285,14 @@ class FitGlobalDetectorMapTask(Task):
         numGood = good.sum()
 
         rng = np.random.RandomState(seed)
-        numReserved = int(self.config.reserveFraction*numLines + 0.5)
+        numReserved = int(self.config.reserveFraction*numGood + 0.5)
         reservedIndices = rng.choice(np.arange(numGood, dtype=int), replace=False, size=numReserved)
         reserved = np.zeros_like(good)
         select = np.zeros(numGood, dtype=bool)
         select[reservedIndices] = True
         reserved[good] = select
+        xErr = np.hypot(lines.xErr, self.config.soften)
+        yErr = np.hypot(lines.yErr, self.config.soften)
 
         used = good & ~reserved
         result = None
@@ -302,8 +308,10 @@ class FitGlobalDetectorMapTask(Task):
             self.log.debug("Fit iteration %d: %s", ii, result.model)
             if self.debugInfo.plot:
                 self.plotModel(lines, used, result)
-            newUsed = (good & ~reserved & (np.abs(result.xResid/lines.xErr) < self.config.rejection) &
-                       (np.abs(result.yResid/lines.yErr) < self.config.rejection))
+            if self.debugInfo.residuals:
+                self.plotResiduals(result.model, lines, used, reserved)
+            newUsed = (good & ~reserved & (np.abs(result.xResid/xErr) < self.config.rejection) &
+                       (np.abs(result.yResid/yErr) < self.config.rejection))
             self.log.debug("Rejecting %d/%d lines in iteration %d", used.sum() - newUsed.sum(),
                            used.sum(), ii)
             if np.all(newUsed == used):
@@ -852,13 +860,15 @@ class FitGlobalDetectorMapTask(Task):
             return Normalize(median - nSigma*sigma, median + nSigma*sigma)
 
         cmap = matplotlib.cm.rainbow
-        fig, axes = plt.subplots(nrows=2, ncols=2)
+        fig, axes = plt.subplots(nrows=2, ncols=3, sharex=True, sharey=True)
 
         for ax, select, label in zip(
             axes.T,
-            [(good & ~reserved), reserved],
-            ["Used", "Reserved"],
+            [(good & ~reserved), reserved, (~good & ~reserved)],
+            ["Used", "Reserved", "Bad"],
         ):
+            if not np.any(select):
+                continue
             xNorm = calculateNormalization(dx[select])
             yNorm = calculateNormalization(dy[select])
             ax[0].scatter(lines.fiberId[select], lines.wavelength[select], marker=".", alpha=0.2,
