@@ -235,6 +235,13 @@ def showDetectorMap(display, pfsConfig, detMap, width=100, zoom=0, xc=None, fibe
         if fiberIds is None:
             fiberIds = pfsConfig.fiberId
             showAll = True
+        else:
+            try:
+                fiberIds[0]
+            except TypeError:
+                fiberIds = [fiberIds]
+
+            xc = detMap.getXCenter(fiberIds[len(fiberIds)//2], height/2)
     else:
         pass  # xc is already set
 
