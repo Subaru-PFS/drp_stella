@@ -157,6 +157,26 @@ class ReduceArcTask(CmdLineTask):
             Set of reference lines matched to the data
         """
         lines = self.centroidLines.run(exposure, lines, detectorMap, pfsConfig, fiberTraces)
+
+        if self.debugInfo.display and self.debugInfo.displayIdentifications:
+            exp_id = exposure.getMetadata().get("EXP-ID")
+            visit = int(re.sub(r"^[A-Z]+0*", "", exp_id))
+
+            frame = 1
+            try:
+                frame = self.debugInfo.frame.get(visit, frame)
+            except AttributeError:
+                if self.debugInfo.frame:
+                    frame = self.debugInfo.frame
+
+            if isinstance(frame, afwDisplay.Display):
+                display = frame
+            else:
+                display = afwDisplay.Display(frame)
+            self.plotIdentifications(display, exposure, spectra, detectorMap,
+                                     displayExposure=self.debugInfo.displayExposure,
+                                     fiberIds=self.debugInfo.fiberIds)
+
         return Struct(
             lines=lines
         )
@@ -170,13 +190,15 @@ class ReduceArcTask(CmdLineTask):
         Debug parameters include:
 
         - ``display`` (`bool`): Activate displays and plotting (master switch)?
-        - ``frame`` (`dict` mapping `int` to `int`): Display frame to use as a
-            function of visit.
+        - ``frame`` (`dict` mapping `int` to `int` or `int`; or `afwDisplay.Display` not `int`):
+            Display frame to use, possibly as a function of visit.
         - ``displayIdentifications`` (`bool`): Display image with lines
             identified?
-        - ``displayCalibrations`` (`bool`): Plot calibration results? See the
-            ``plotCalibrations`` method for additional debug parameters
-            controlling these plots.
+        - ``displayExposure`` (`bool`) Display the image before marking lines
+        - ``fiberIds`` (iterable of `int`) Only show these fibres
+        - ``displayCalibrations`` (`bool`): Plot calibration results? See also:
+        - ``plotCalibrationsRows`` (`bool`): plot spectrum as a function of rows?
+        - ``plotCalibrationsWavelength`` (`bool`): plot spectrum as a function of wavelength?
 
         Parameters
         ----------
@@ -253,8 +275,18 @@ class ReduceArcTask(CmdLineTask):
             for ss in rr.spectra:
                 ss.setWavelength(detectorMap.getWavelength(ss.fiberId))
             dataRef.put(rr.spectra.toPfsArm(dataRef.dataId), "pfsArm")
+
             if self.debugInfo.display and self.debugInfo.displayCalibrations:
-                self.plotCalibrations(rr.spectra, rr.lines, detectorMap)
+                if self.debugInfo.fiberId and not self.debugInfo.fiberIds:
+                    self.debugInfo.fiberIds = self.debugInfo.fiberId
+
+                fiberIds = self.debugInfo.fiberIds
+                if fiberIds is False:
+                    fiberIds = None
+
+                self.plotCalibrations(rr.spectra, detectorMap, fiberIds=fiberIds,
+                                      plotCalibrationsRows=self.debugInfo.plotCalibrationsRows,
+                                      plotCalibrationsWavelength=self.debugInfo.plotCalibrationsWavelength)
 
     def write(self, dataRef, detectorMap, metadata, visitInfo, visits):
         """Write outputs
@@ -374,16 +406,9 @@ class ReduceArcTask(CmdLineTask):
                         xExpect, yExpect = detectorMap.findPoint(fiberId, rl.wavelength)
                         display.dot('x', xExpect, yExpect, ctype='red', size=0.5)
 
-    def plotCalibrations(self, spectrumSet, lines, detectorMap):
+    def plotCalibrations(self, spectrumSet, detectorMap, fiberIds=None, plotCalibrationsRows=False,
+                         plotCalibrationsWavelength=True):
         """Plot wavelength calibration results
-
-        Important debug parameters:
-
-        - ``fiberId`` (iterable of `int`): fibers to plot, if set.
-        - ``plotCalibrationsRows`` (`bool`): plot spectrum as a function of
-          rows?
-        - ``plotCalibrationsWavelength`` (`bool`): plot spectrum as a function
-          of wavelength?
 
         Parameters
         ----------
@@ -393,14 +418,20 @@ class ReduceArcTask(CmdLineTask):
             Measured arc lines.
         detectorMap : `pfs.drp.stella.DetectorMap`
             Mapping of wl,fiber to detector position.
+        fiberIds : (iterable of `int`)
+            fibers to plot if not None
+        plotCalibrationsRows : (`bool`)
+            plot spectrum as a function of rows?
+        plotCalibrationsWavelength (`bool`)
+            plot spectrum as a function of wavelength?
         """
         import matplotlib.pyplot as plt
 
         for spectrum in spectrumSet:
             refLines = lines.extractReferenceLines(spectrum.fiberId)
-            if self.debugInfo.fiberId and spectrum.fiberId not in self.debugInfo.fiberId:
+            if fiberIds is not None and spectrum.fiberId not in fiberIds:
                 continue
-            if self.debugInfo.plotCalibrationsRows:
+            if plotCalibrationsRows:
                 rows = np.arange(detectorMap.bbox.getHeight(), dtype=float)
                 plt.plot(rows, spectrum.spectrum)
                 xlim = plt.xlim()
@@ -409,21 +440,25 @@ class ReduceArcTask(CmdLineTask):
                 refLines.plotReferenceLines(spectrum.referenceLines, "fitPosition", ls='-', alpha=0.5,
                                             labelLines=True, labelStatus=True)
                 plt.xlim(xlim)
-                plt.legend(loc='best')
+                if len(plt.gca().get_legend_handles_labels()[1]) > 0:
+                    plt.legend(loc='best')
                 plt.xlabel('row')
                 plt.title(f"FiberId {spectrum.fiberId}")
                 plt.show()
 
-            if self.debugInfo.plotCalibrationsWavelength:
-                plt.plot(spectrum.wavelength, spectrum.spectrum)
+            if plotCalibrationsWavelength:
+                plt.plot(spectrum.wavelength, spectrum.spectrum,
+                         label=None if fiberIds is None else spectrum.fiberId)
                 xlim = plt.xlim()
                 refLines.plotReferenceLines(spectrum.referenceLines, "wavelength", ls='-', alpha=0.5,
                                             labelLines=True, wavelength=spectrum.wavelength,
                                             spectrum=spectrum.spectrum)
                 plt.xlim(xlim)
-                plt.legend(loc='best')
+                if len(plt.gca().get_legend_handles_labels()[1]) > 0:
+                    plt.legend(loc='best')
                 plt.xlabel("Wavelength (vacuum nm)")
-                plt.title(f"FiberId {spectrum.fiberId}")
+                if fiberIds is not None and len(fiberIds) == 1:
+                    plt.title(f"FiberId {spectrum.fiberId}")
                 plt.show()
 
     def _getMetadataName(self):

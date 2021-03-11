@@ -41,7 +41,8 @@ class IdentifyLinesTask(Task):
             self.debugInfo_display = None
 
         self.debug_fiberIds = self.debugInfo.fiberIds  # don't load it in an inner loop
-        if not self.debug_fiberIds:
+        # N.b. "fiberIds not in (False, None)" fails with ndarray
+        if self.debugInfo.fiberIds is False:
             self.debug_fiberIds = None
 
     def run(self, spectra, detectorMap, lines):
