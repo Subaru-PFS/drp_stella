@@ -105,7 +105,7 @@ def showAllSpectraAsImage(spec, vmin=None, vmax=None, lines=None, labelLines=Tru
         wavelength = wavelength[fiberIndex]
 
     imshown = plt.imshow(flux, aspect='auto', origin='lower',
-                         extent=(lam0, lam1, 0, flux.shape[0] - 1), **kwargs)
+                         extent=(lam0, lam1, -0.5, flux.shape[0] - 1 + 0.5), **kwargs)
 
     plt.colorbar(imshown)
 
