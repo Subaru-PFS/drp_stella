@@ -178,10 +178,16 @@ class ConstructFiberProfilesTask(SpectralCalibTask):
         bitmask = exposure.mask.getPlaneBitMask(self.config.mask)
         traces = results.profiles.makeFiberTracesFromDetectorMap(detMap)
         spectra = traces.extractSpectra(exposure.maskedImage, bitmask)
-        for ss in spectra:
+        medianTransmission = np.empty(len(spectra))
+        for i, ss in enumerate(spectra):
             profiles[ss.fiberId].norm = np.where((ss.mask.array[0] & bitmask) == 0, ss.flux, np.nan)
-            self.log.info("Median relative transmission of fiber %d is %f",
-                          ss.fiberId, np.median(ss.flux[np.isfinite(ss.flux)]))
+            medianTransmission[i] = np.nanmedian(ss.flux)
+            self.log.debug("Median relative transmission of fiber %d is %f",
+                           ss.fiberId, medianTransmission[i])
+
+        self.log.info("Median relative transmission of fibers %.2f +- %.2f (min %.2f, max %.2f)",
+                      np.mean(medianTransmission), np.std(medianTransmission, ddof=1),
+                      np.min(medianTransmission), np.max(medianTransmission))
 
         profiles.metadata.set("OBSTYPE", "fiberProfiles")
         date = profiles.getVisitInfo().getDate()
