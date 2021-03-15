@@ -255,8 +255,8 @@ class ReduceExposureTask(CmdLineTask):
             originalList = []
             spectraList = []
             for exposure, fiberTraces, detectorMap, skyImage, sensorRef in zip(exposureList, fiberTraceList,
-                                                                    detectorMapList, skyImageList,
-                                                                    sensorRefList):
+                                                                               detectorMapList, skyImageList,
+                                                                               sensorRefList):
                 self.log.info("Extracting spectra from %(visit)d %(arm)s%(spectrograph)d" % sensorRef.dataId)
                 maskedImage = exposure.maskedImage
                 fiberId = np.array(sorted(set(pfsConfig.fiberId) & set(detectorMap.fiberId)))
