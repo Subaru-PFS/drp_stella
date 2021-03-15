@@ -19,7 +19,7 @@ class IdentifyLinesConfig(Config):
     """Configuration for IdentifyLinesTask"""
     findLines = ConfigurableField(target=FindLinesTask, doc="Find arc lines")
     matchRadius = Field(dtype=float, default=0.1, doc="Line matching radius (nm)")
-    refExclusionRadius = Field(dtype=float, default=0.0,
+    refExclusionRadius = Field(dtype=float, default=0.1,
                                doc="Minimum allowed wavelength difference between reference lines (nm)")
     refThreshold = DictField(keytype=str, itemtype=float,
                              doc="Lower limit to guessedIntensity for reference lines, by their description",
