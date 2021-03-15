@@ -185,6 +185,7 @@ class ArcLineSet:
         filename : `str`
             Name of file to which to write.
         """
+        longest = max(len(dd) for dd in self.description)
         hdu = astropy.io.fits.BinTableHDU.from_columns([
             astropy.io.fits.Column(name="fiberId", format="J", array=self.fiberId),
             astropy.io.fits.Column(name="wavelength", format="D", array=self.wavelength),
@@ -194,7 +195,7 @@ class ArcLineSet:
             astropy.io.fits.Column(name="yErr", format="D", array=self.yErr),
             astropy.io.fits.Column(name="flag", format="J", array=self.flag),
             astropy.io.fits.Column(name="status", format="J", array=self.status),
-            astropy.io.fits.Column(name="description", format="A", array=self.description),
+            astropy.io.fits.Column(name="description", format=f"{longest}A", array=self.description),
         ], name=self.fitsExtName)
         hdu.header["INHERIT"] = True
 
