@@ -1,7 +1,7 @@
-import os
 from types import SimpleNamespace
 from operator import attrgetter
 from datetime import datetime
+from collections import defaultdict
 import numpy as np
 from astropy.modeling.models import Gaussian1D, Chebyshev2D
 from astropy.modeling.fitting import LinearLSQFitter, LevMarLSQFitter
@@ -9,13 +9,11 @@ from astropy.modeling.fitting import LinearLSQFitter, LevMarLSQFitter
 from lsst.pipe.base import CmdLineTask, TaskRunner, ArgumentParser, Struct
 from lsst.pex.config import Config, Field, ConfigurableField
 from lsst.ip.isr import IsrTask
-from lsst.utils import getPackageDir
 
-from lsst.obs.pfs.utils import getLampElements
-
+from pfs.datamodel import FiberStatus
 from .findAndTraceAperturesTask import FindAndTraceAperturesTask
 from .findLines import FindLinesTask
-from .utils import readLineListFile
+from .readLineList import ReadLineListTask
 from . import SplinedDetectorMap
 
 import lsstDebug
@@ -25,10 +23,11 @@ class BootstrapConfig(Config):
     """Configuration for BootstrapTask"""
     isr = ConfigurableField(target=IsrTask, doc="Instrumental signature removal")
     trace = ConfigurableField(target=FindAndTraceAperturesTask, doc="Task to trace apertures")
+    readLineList = ConfigurableField(target=ReadLineListTask, doc="Read linelist")
     minArcLineIntensity = Field(dtype=float, default=0, doc="Minimum 'NIST' intensity to use emission lines")
     findLines = ConfigurableField(target=FindLinesTask, doc="Find arc lines")
     matchRadius = Field(dtype=float, default=1.0, doc="Line matching radius (nm)")
-    spatialOrder = Field(dtype=int, default=2, doc="Polynomial order in the spatial dimension")
+    spatialOrder = Field(dtype=int, default=1, doc="Polynomial order in the spatial dimension")
     spectralOrder = Field(dtype=int, default=1, doc="Polynomial order in the spectral dimension")
     rejIterations = Field(dtype=int, default=3, doc="Number of fitting iterations")
     rejThreshold = Field(dtype=float, default=3.0, doc="Rejection threshold (stdev)")
@@ -36,6 +35,10 @@ class BootstrapConfig(Config):
     rowForCenter = Field(dtype=float, default=2048, doc="Row for xCenter calculation; used if allowSplit")
     midLine = Field(dtype=float, default=2048,
                     doc="Column defining the division between left and right amps; used if allowSplit")
+
+    def setDefaults(self):
+        super().setDefaults()
+        self.readLineList.restrictByLamps = True
 
 
 class BootstrapRunner(TaskRunner):
@@ -45,13 +48,35 @@ class BootstrapRunner(TaskRunner):
 
         We only want to operate on a single flat and single arc, together.
         """
-        if len(parsedCmd.flatId.refList) != 1 or len(parsedCmd.arcId.refList) != 1:
-            raise RuntimeError("Did not specify a single flat (%d) and a single arc (%d)" %
-                               (len(parsedCmd.flatId.refList), len(parsedCmd.arcId.refList)))
-        args = parsedCmd.flatId.refList[0]
-        kwargs["arcRef"] = parsedCmd.arcId.refList[0]
-        kwargs["lineListFilename"] = parsedCmd.lineList
-        return [(args, kwargs)]
+        flatArms = defaultdict(dict)
+        for ref in parsedCmd.flatId.refList:
+            arm = ref.dataId["arm"]
+            spec = ref.dataId["spectrograph"]
+            if arm in flatArms[spec]:
+                raise RuntimeError(f"Multiple flat exposures specified for arm={arm} spectrograph={spec}")
+            flatArms[spec][arm] = ref
+
+        arcArms = defaultdict(dict)
+        for ref in parsedCmd.arcId.refList:
+            arm = ref.dataId["arm"]
+            spec = ref.dataId["spectrograph"]
+            if arm in arcArms[spec]:
+                raise RuntimeError(f"Multiple arc exposures specified for arm={arm} spectrograph={spec}")
+            arcArms[spec][arm] = ref
+
+        flats = set([(ss, aa) for ss in flatArms for aa in flatArms[ss]])
+        arcs = set([(ss, aa) for ss in arcArms for aa in arcArms[ss]])
+        missingArcs = flats - arcs
+        missingFlats = arcs - flats
+        if missingArcs:
+            missing = "; ".join(f"arm={aa} spectrograph={ss}" for ss, aa in missingArcs)
+            raise RuntimeError(f"No arcs provided for flats: {missing}")
+        if missingFlats:
+            missing = "; ".join(f"arm={aa} spectrograph={ss}" for ss, aa in missingFlats)
+            raise RuntimeError(f"No flats provided for arcs: {missing}")
+        assert flats == arcs
+
+        return [(flatArms[ss][aa], dict(arcRef=arcArms[ss][aa])) for ss, aa in flats]
 
 
 class BootstrapTask(CmdLineTask):
@@ -71,6 +96,7 @@ class BootstrapTask(CmdLineTask):
         super().__init__(*args, **kwargs)
         self.makeSubtask("isr")
         self.makeSubtask("trace")
+        self.makeSubtask("readLineList")
         self.makeSubtask("findLines")
 
     @classmethod
@@ -79,12 +105,9 @@ class BootstrapTask(CmdLineTask):
         parser = ArgumentParser(name=cls._DefaultName)
         parser.add_id_argument("--flatId", "raw", help="data ID for flat, e.g., visit=12345")
         parser.add_id_argument("--arcId", "raw", help="data ID for arc, e.g., visit=54321")
-        parser.add_argument("--lineList", help="Reference line list",
-                            default=os.path.join(getPackageDir("obs_pfs"),
-                                                 "pfs", "lineLists", "ArCdHgKrNeXe.txt"))
         return parser
 
-    def runDataRef(self, flatRef, arcRef, lineListFilename):
+    def runDataRef(self, flatRef, arcRef):
         """Fit out differences between the expected and actual detectorMap
 
         We use a quartz flat to find and trace fibers. The resulting fiberTrace
@@ -98,8 +121,6 @@ class BootstrapTask(CmdLineTask):
             Data reference for a quartz flat.
         arcRef : `lsst.daf.persistence.ButlerDataRef`
             Data reference for an arc.
-        lineListFilename : `str`
-            Filename for a reference arc line list.
         """
         flatConfig = flatRef.get("pfsConfig")
         arcConfig = arcRef.get("pfsConfig")
@@ -107,19 +128,18 @@ class BootstrapTask(CmdLineTask):
             raise RuntimeError("Mismatch between fibers for flat (%s) and arc (%s)" %
                                (flatConfig.fiberId, arcConfig.fiberId))
         traces = self.traceFibers(flatRef, flatConfig)
-        refLines = self.readLines(arcRef, lineListFilename)
         lineResults = self.findArcLines(arcRef, traces)
 
         self.visualize(lineResults.exposure, [ss.fiberId for ss in lineResults.spectra],
-                       lineResults.detectorMap, refLines, frame=1)
+                       lineResults.detectorMap, lineResults.refLines, frame=1)
 
-        matches = self.matchArcLines(lineResults.lines, refLines, lineResults.detectorMap)
+        matches = self.matchArcLines(lineResults.lines, lineResults.refLines, lineResults.detectorMap)
         fiberIdLists = self.selectFiberIds(lineResults.detectorMap, arcRef.dataId["arm"])
         for fiberId in fiberIdLists:
             self.fitDetectorMap(matches, lineResults.detectorMap, fiberId)
 
         self.visualize(lineResults.exposure, [ss.fiberId for ss in lineResults.spectra],
-                       lineResults.detectorMap, refLines, frame=2)
+                       lineResults.detectorMap, lineResults.refLines, frame=2)
 
         self.setCalibId(lineResults.detectorMap.metadata, arcRef.dataId)
         arcRef.put(lineResults.detectorMap, "detectorMap", visit0=arcRef.dataId["visit"])
@@ -143,40 +163,22 @@ class BootstrapTask(CmdLineTask):
         exposure = self.isr.runDataRef(flatRef).exposure
         detMap = flatRef.get("detectorMap")
         traces = self.trace.run(exposure.maskedImage, detMap)
-        if len(traces) != len(pfsConfig.fiberId):
+        select = pfsConfig.fiberStatus == FiberStatus.GOOD
+        if len(traces) != select.sum():
             raise RuntimeError("Mismatch between number of traces (%d) and number of fibers (%d)" %
-                               (len(traces), len(pfsConfig.fiberId)))
+                               (len(traces), select.sum()))
         self.log.info("Found %d fibers on flat", len(traces))
+        fiberId = pfsConfig.fiberId[select]
         # Assign fiberId from pfsConfig to the fiberTraces, but we have to get the order right!
         # The fiber trace numbers from the left, but the pfsConfig may number from the right.
         middle = 0.5*exposure.getHeight()
-        centers = np.array([detMap.getXCenter(ff, middle) for ff in pfsConfig.fiberId])
+        centers = np.array([detMap.getXCenter(ff, middle) for ff in fiberId])
         increasing = np.all(centers[1:] - centers[:-1] > 0)
         decreasing = np.all(centers[1:] - centers[:-1] < 0)
         assert increasing or decreasing
-        for tt, fiberId in zip(traces, pfsConfig.fiberId if increasing else reversed(pfsConfig.fiberId)):
-            tt.fiberId = fiberId
+        for tt, ff in zip(traces, fiberId if increasing else reversed(fiberId)):
+            tt.fiberId = ff
         return traces
-
-    def readLines(self, arcRef, lineListFilename):
-        """Read reference lines
-
-        Parameters
-        ----------
-        arcRef : `lsst.daf.persistence.ButlerDataRef`
-            Data reference for arc.
-
-        Returns
-        -------
-        lines : `list` of `pfs.drp.stella.ReferenceLine`
-            Reference lines.
-        """
-        metadata = arcRef.get("raw_md")
-        lamps = getLampElements(metadata)
-        self.log.info("Arc lamp elements are: %s", " ".join(lamps))
-        if not lamps:
-            raise RuntimeError("No lamps found from metadata")
-        return readLineListFile(lineListFilename, lamps, minIntensity=self.config.minArcLineIntensity)
 
     def findArcLines(self, arcRef, traces):
         """Find lines on the extracted arc spectra
@@ -187,7 +189,7 @@ class BootstrapTask(CmdLineTask):
 
         Parameters
         ----------
-        arcRef : `lsst.daf.persistence.ButlerDataRef`
+        arcExposure : `lsst.daf.persistence.ButlerDataRef`
             Data reference for arc.
         traces : `pfs.drp.stella.FiberTraceSet`
             Set of fiber traces.
@@ -213,6 +215,7 @@ class BootstrapTask(CmdLineTask):
         """
         exposure = self.isr.runDataRef(arcRef).exposure
         detMap = arcRef.get("detectorMap")
+        refLines = self.readLineList.run(metadata=exposure.getMetadata())
         spectra = traces.extractSpectra(exposure.maskedImage)
         yCenters = [self.findLines.runCentroids(ss).centroids for ss in spectra]
         xCenters = [self.centroidTrace(tt, yList) for tt, yList in zip(traces, yCenters)]
@@ -220,7 +223,7 @@ class BootstrapTask(CmdLineTask):
                   for xx, yy in zip(xList, yList)]
                  for xList, yList, spectrum in zip(xCenters, yCenters, spectra)]
         self.log.info("Found %d lines in %d traces", sum(len(ll) for ll in lines), len(lines))
-        return Struct(spectra=spectra, lines=lines, detectorMap=detMap, exposure=exposure)
+        return Struct(spectra=spectra, lines=lines, detectorMap=detMap, exposure=exposure, refLines=refLines)
 
     def centroidTrace(self, trace, rows):
         """Centroid the trace
