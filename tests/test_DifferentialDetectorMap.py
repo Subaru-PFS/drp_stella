@@ -7,6 +7,8 @@ import lsst.utils.tests
 import lsst.afw.image.testUtils
 from lsst.afw.detection import GaussianPsf
 from lsst.afw.image import ExposureF
+from lsst.geom import Point2D
+from lsst.pex.exceptions import OutOfRangeError
 
 from pfs.drp.stella.synthetic import SyntheticConfig, makeSyntheticDetectorMap
 from pfs.drp.stella import DifferentialDetectorMap, GlobalDetectorModel, GlobalDetectorModelScaling
@@ -296,6 +298,11 @@ class DifferentialDetectorMapTestCase(lsst.utils.tests.TestCase):
         for ff, wl in product(badFiberId, badWavelength):
             point = detMap.findPoint(ff, wl)
             self.assertFalse(np.any(np.isfinite(point)))
+
+    def testFindFiberIdOutOfRange(self):
+        """Test that findFiberId works with out-of-range input"""
+        detMap = self.makeDifferentialDetectorMap(True)
+        self.assertRaises(OutOfRangeError, detMap.findFiberId, Point2D(6000, -20000))
 
 
 class TestMemory(lsst.utils.tests.MemoryTestCase):
