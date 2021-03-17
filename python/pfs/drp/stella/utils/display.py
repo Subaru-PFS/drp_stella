@@ -3,10 +3,12 @@ import matplotlib.pyplot as plt
 import matplotlib.colors as mplColors
 
 import lsst.geom as geom
+import lsst.afw.detection as afwDetect
+import lsst.afw.display.utils as afwDisplayUtils
 from pfs.drp.stella.datamodel.drp import PfsArm
 from pfs.datamodel.pfsConfig import FiberStatus, TargetType
 
-__all__ = ["addPfsCursor", "showAllSpectraAsImage", "showDetectorMap"]
+__all__ = ["addPfsCursor", "makeCRMosaic", "showAllSpectraAsImage", "showDetectorMap"]
 
 
 def get_norm(image, algorithm, minval, maxval, **kwargs):
@@ -224,7 +226,8 @@ else:
         return pfs_format_coord
 
 
-def showDetectorMap(display, pfsConfig, detMap, width=100, zoom=0, xc=None, fiberIds=None, lines=None):
+def showDetectorMap(display, pfsConfig, detMap, width=100, zoom=0, xc=None, fiberIds=None, lines=None,
+                    alpha=1.0):
     """Plot the detectorMap on a display"""
 
     plt.sca(display.frame.axes[0])
@@ -251,7 +254,6 @@ def showDetectorMap(display, pfsConfig, detMap, width=100, zoom=0, xc=None, fibe
 
     nFiberShown = 0
     for fid in detMap.fiberId:
-        alpha = 0.5 if showAll else 1.0
         ls = '-'
         if fid in pfsConfig.fiberId:
             ind = pfsConfig.selectFiber(fid)[0]
@@ -284,7 +286,7 @@ def showDetectorMap(display, pfsConfig, detMap, width=100, zoom=0, xc=None, fibe
             if fiberIds is None:
                 fiberIds = pfsConfig.fiberId
 
-            xy = np.empty((2, len(fiberIds)))
+            xy = np.zeros((2, len(fiberIds))) + np.NaN
             for i, fid in enumerate(fiberIds):
                 if i%stride != 0 and i != len(pfsConfig) - 1:
                     continue
@@ -299,10 +301,123 @@ def showDetectorMap(display, pfsConfig, detMap, width=100, zoom=0, xc=None, fibe
                     xy[1, i] = yc
 
             if len(fiberIds) > 1:
-                plt.plot(xy[0], xy[1], color=ctype)
+                good = np.isfinite(xy[0])
+                if sum(good) > 0:
+                    plt.plot(xy[0][good], xy[1][good], color=ctype, alpha=alpha)
 
     if not showAll:
         if nFiberShown > 0:
             plt.legend()
         if zoom > 0:
             display.zoom(zoom, xc, np.mean(y))
+
+
+def getIndex(mos, x, y):                # should be a method of lsst.afw.display.utils.Mosaic
+    """Get the index for a panel
+
+    Parameters
+    ----------
+    x : `float`
+        The x coordinate of a point in the mosaic
+    y : `float`
+        The y coordinate of a point in the mosaic
+    """
+
+    ix = int(x + 0.5)//(mos.xsize + mos.gutter)
+    iy = int(y + 0.5)//(mos.ysize + mos.gutter)
+
+    return ix + iy*mos.nx
+
+
+def makeCRMosaic(exposure, raw=None, size=31, rGrow=3, maskPlaneName="CR", callback=None, display=None):
+    """Return a mosaic of all the cosmic rays found in exposure
+
+    This may be converted to an `lsst.afw.image.MaskedImage` with
+       mos.makeImage(display=display)
+
+    This is done for you if you provide ``display``, in which case
+    the cursor will also readback the
+
+    Parameters
+    ----------
+    exposure : `lsst.afw.image.Exposure`
+       Exposure containing cosmic rays
+    raw : `afw.image.Exposure` (optional)
+       If provided, also show the raw (but presumably bias-subtracted)
+       image of the same part of the frame
+    size : `int`
+       Size of the cutouts around each CR
+    rGrow : `int`
+       How much to grow each CR's Footprint, used to merge fragments
+    maskPlaneName : `str` or `list` of `str`
+       Mask plane[s] to search for objects (default: "CR")
+    callback : ``callable``
+       A function to call on each `lsst.afw.detection.Footprint`;
+       only include footprints for which ``callback`` returns True
+    display : `lsst.afw.display.Display` (optional)
+        Display to use
+
+    Returns
+    -------
+        mosaic : `lsst.afw.display.utils.Mosaic`
+
+    N.b. sets mosaic.xy0[] to the XY0 values for each cutout
+    """
+    fs = afwDetect.FootprintSet(exposure.mask,
+                                afwDetect.Threshold(exposure.mask.getPlaneBitMask(maskPlaneName),
+                                                    afwDetect.Threshold.BITMASK))
+    isotropic = True
+    fs = afwDetect.FootprintSet(fs, rGrow, isotropic)
+    footprints = fs.getFootprints()
+
+    mos = afwDisplayUtils.Mosaic(gutter=1 if raw is None else 2, background=np.NaN)
+    mos.xy0 = []
+    rawGutter = 1
+    for foot in footprints:
+        if callback is not None and not callback(foot):
+            continue
+
+        xc, yc = [int(z) for z in foot.getCentroid()]
+        crBBox = geom.BoxI(geom.PointI(xc - size//2, yc - size//2), geom.ExtentI(size, size))
+        crBBox.clip(exposure.getBBox())
+
+        if raw:
+            rmos = afwDisplayUtils.Mosaic(gutter=rawGutter, background=np.NaN, mode='x')
+            rmos.append(raw.maskedImage[crBBox])
+            rmos.append(exposure.maskedImage[crBBox])
+
+            mos.append(rmos.makeMosaic(display=None))
+        else:
+            mos.append(exposure.maskedImage[crBBox])
+
+        mos.xy0.append(crBBox.getBegin())
+
+    def cr_format_coord(x, y):
+        "Return coordinates in exposure of CR cutouts"
+
+        x, y = int(x + 0.5), int(y + 0.5)
+        ind = getIndex(mos, x, y)
+        xy0 = mos.getBBox(ind).getBegin()
+
+        x, y = geom.PointI(x, y) - xy0
+
+        x %= size + rawGutter  # in case raw was provided and we're in the right-hand subpanel
+
+        x += mos.xy0[ind][0]
+        y += mos.xy0[ind][1]
+
+        return f"({x:6.1f} {y:6.1f})"
+
+    if display is not None:
+        if mos.nImage > 0:
+            mos.makeMosaic(display=display)
+            display.set_format_coord(cr_format_coord)
+        else:
+            if callback is None:
+                msg = "No cosmic rays were detected"
+            else:
+                msg = "No CRs satisfy your criteria"
+
+            print(msg)
+
+    return mos
