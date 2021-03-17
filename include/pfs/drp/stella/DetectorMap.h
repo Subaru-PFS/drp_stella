@@ -92,9 +92,7 @@ class DetectorMap : public lsst::afw::table::io::Persistable {
 
     //@{
     /// Return the position of the fiber trace on the detector, given a fiberId and wavelength
-    lsst::geom::PointD findPoint(int fiberId, double wavelength) const {
-        return findPointImpl(fiberId, wavelength);
-    }
+    lsst::geom::PointD findPoint(int fiberId, double wavelength, bool throwOnError=false) const;
     ndarray::Array<double, 2, 1> findPoint(
         int fiberId,
         ndarray::Array<double, 1, 1> const& wavelength
@@ -107,9 +105,7 @@ class DetectorMap : public lsst::afw::table::io::Persistable {
 
     //@{
     /// Return the wavelength of a point on the detector, given a fiberId and row
-    double findWavelength(int fiberId, double row) const {
-        return findWavelengthImpl(fiberId, row);
-    }
+    double findWavelength(int fiberId, double row, bool throwOnError=false) const;
     ndarray::Array<double, 1, 1> findWavelength(
         int fiberId,
         ndarray::Array<double, 1, 1> const& row

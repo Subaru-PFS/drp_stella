@@ -1,4 +1,5 @@
 import pickle
+from itertools import product
 
 import numpy as np
 
@@ -273,6 +274,28 @@ class DifferentialDetectorMapTestCase(lsst.utils.tests.TestCase):
         self.assertFloatsEqual(detMap.model.getHighCcdCoefficients(), 0.0)
         self.assertFloatsEqual(detMap.getSpatialOffsets(), 0.0)
         self.assertFloatsEqual(detMap.getSpectralOffsets(), 0.0)
+
+    def testOutOfRange(self):
+        """Test that inputs that are out-of-range produce NaNs"""
+        detMap = self.makeDifferentialDetectorMap(True)
+
+        goodFiberId = (self.synthConfig.fiberId[0], self.synthConfig.fiberId[-1])
+        goodWavelength = (self.minWl + 0.1, 0.5*(self.minWl + self.maxWl), self.maxWl - 0.1)
+        badFiberId = (-1, 12345)
+        badWavelength = (self.minWl - 5, self.maxWl + 5)
+
+        for ff, wl in product(goodFiberId, goodWavelength):
+            point = detMap.findPoint(ff, wl)
+            self.assertTrue(np.all(np.isfinite(point)))
+        for ff, wl in product(goodFiberId, badWavelength):
+            point = detMap.findPoint(ff, wl)
+            self.assertFalse(np.any(np.isfinite(point)))
+        for ff, wl in product(badFiberId, goodWavelength):
+            point = detMap.findPoint(ff, wl)
+            self.assertFalse(np.any(np.isfinite(point)))
+        for ff, wl in product(badFiberId, badWavelength):
+            point = detMap.findPoint(ff, wl)
+            self.assertFalse(np.any(np.isfinite(point)))
 
 
 class TestMemory(lsst.utils.tests.MemoryTestCase):

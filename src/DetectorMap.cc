@@ -118,6 +118,25 @@ DetectorMap::Array2D DetectorMap::getXCenter() const {
 }
 
 
+lsst::geom::Point2D DetectorMap::findPoint(int fiberId, double wavelength, bool throwOnError) const {
+    double const NaN = std::numeric_limits<double>::quiet_NaN();
+    lsst::geom::Point2D point;
+    try {
+        point = findPointImpl(fiberId, wavelength);
+    } catch (...) {
+        if (throwOnError) {
+            throw;
+        }
+        return lsst::geom::PointD(NaN, NaN);
+    }
+    if (point.getX() < _bbox.getMinX() || point.getX() > _bbox.getMaxX() ||
+        point.getY() < _bbox.getMinY() || point.getY() > _bbox.getMaxY()) {
+            return lsst::geom::PointD(NaN, NaN);
+    }
+    return point;
+}
+
+
 ndarray::Array<double, 2, 1> DetectorMap::findPoint(
     int fiberId,
     ndarray::Array<double, 1, 1> const& wavelength
@@ -125,7 +144,7 @@ ndarray::Array<double, 2, 1> DetectorMap::findPoint(
     std::size_t const length = wavelength.size();
     ndarray::Array<double, 2, 1> out = ndarray::allocate(length, 2);
     for (std::size_t ii = 0; ii < length; ++ii) {
-        auto const point = findPointImpl(fiberId, wavelength[ii]);
+        auto const point = findPoint(fiberId, wavelength[ii]);
         out[ii][0] = point.getX();
         out[ii][1] = point.getY();
     }
@@ -141,11 +160,23 @@ ndarray::Array<double, 2, 1> DetectorMap::findPoint(
     utils::checkSize(length, wavelength.size(), "fiberId vs wavelength");
     ndarray::Array<double, 2, 1> out = ndarray::allocate(length, 2);
     for (std::size_t ii = 0; ii < length; ++ii) {
-        auto const point = findPointImpl(fiberId[ii], wavelength[ii]);
+        auto const point = findPoint(fiberId[ii], wavelength[ii]);
         out[ii][0] = point.getX();
         out[ii][1] = point.getY();
     }
     return out;
+}
+
+
+double DetectorMap::findWavelength(int fiberId, double row, bool throwOnError) const {
+    try {
+        return findWavelengthImpl(fiberId, row);
+    } catch (...) {
+        if (throwOnError) {
+            throw;
+        }
+        return std::numeric_limits<double>::quiet_NaN();
+    }
 }
 
 
@@ -156,7 +187,7 @@ ndarray::Array<double, 1, 1> DetectorMap::findWavelength(
     std::size_t const length = row.size();
     ndarray::Array<double, 1, 1> out = ndarray::allocate(length);
     for (std::size_t ii = 0; ii < length; ++ii) {
-        out[ii] = findWavelengthImpl(fiberId, row[ii]);
+        out[ii] = findWavelength(fiberId, row[ii]);
     }
     return out;
 }
@@ -170,7 +201,7 @@ ndarray::Array<double, 1, 1> DetectorMap::findWavelength(
     utils::checkSize(length, row.size(), "fiberId vs row");
     ndarray::Array<double, 1, 1> out = ndarray::allocate(length);
     for (std::size_t ii = 0; ii < length; ++ii) {
-        out[ii] = findWavelengthImpl(fiberId[ii], row[ii]);
+        out[ii] = findWavelength(fiberId[ii], row[ii]);
     }
     return out;
 }
