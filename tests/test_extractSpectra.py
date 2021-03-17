@@ -6,7 +6,7 @@ import lsst.afw.image.testUtils
 from lsst.geom import Box2I, Point2I, Extent2I
 
 from pfs.drp.stella.synthetic import makeSyntheticFlat, SyntheticConfig, makeSyntheticDetectorMap
-from pfs.drp.stella.findAndTraceAperturesTask import FindAndTraceAperturesTask
+from pfs.drp.stella.buildFiberProfiles import BuildFiberProfilesTask
 from pfs.drp.stella.tests import runTests
 
 display = None
@@ -30,12 +30,11 @@ class ExtractSpectraTestCase(lsst.utils.tests.TestCase):
         self.image.mask.array[:] = 0x0
         self.image.variance.array[:] = self.synthConfig.readnoise**2
 
-        config = FindAndTraceAperturesTask.ConfigClass()
-        config.finding.minLength = self.synthConfig.height//2
-        task = FindAndTraceAperturesTask(config=config)
-        self.fiberTraces = task.run(self.image, self.detMap)
-        for ft in self.fiberTraces:
-            ft.trace.image.array /= ft.trace.image.array.sum(axis=1)[:, np.newaxis]
+        config = BuildFiberProfilesTask.ConfigClass()
+        config.pruneMinLength = self.synthConfig.height//2
+        task = BuildFiberProfilesTask(config=config)
+        self.fiberProfiles = task.run(lsst.afw.image.makeExposure(self.image), self.detMap).profiles
+        self.fiberTraces = self.fiberProfiles.makeFiberTracesFromDetectorMap(self.detMap)
         self.assertEqual(len(self.fiberTraces), self.synthConfig.numFibers)
 
         if display:
