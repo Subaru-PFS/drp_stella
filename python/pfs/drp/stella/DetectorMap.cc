@@ -37,16 +37,16 @@ void declareDetectorMap(py::module & mod) {
     cls.def("getXCenter", py::overload_cast<>(&Class::getXCenter, py::const_));
     cls.def("getWavelength", py::overload_cast<>(&Class::getWavelength, py::const_));
     cls.def("getDispersion", &Class::getDispersion, "fiberId"_a);
-    cls.def("findPoint", py::overload_cast<int, double>(&Class::findPoint, py::const_),
-            "fiberId"_a, "wavelength"_a);
+    cls.def("findPoint", py::overload_cast<int, double, bool>(&Class::findPoint, py::const_),
+            "fiberId"_a, "wavelength"_a, "throwOnError"_a=false);
     cls.def("findPoint", py::overload_cast<int, Class::Array1D const&>(&Class::findPoint, py::const_),
             "fiberId"_a, "wavelength"_a);
     cls.def("findPoint",
             py::overload_cast<Class::FiberIds const&,
                               Class::Array1D const&>(&Class::findPoint, py::const_),
             "fiberId"_a, "wavelength"_a);
-    cls.def("findWavelength", py::overload_cast<int, double>(&Class::findWavelength, py::const_),
-            "fiberId"_a, "row"_a);
+    cls.def("findWavelength", py::overload_cast<int, double, bool>(&Class::findWavelength, py::const_),
+            "fiberId"_a, "row"_a, "throwOnError"_a=false);
     cls.def("findWavelength",
             py::overload_cast<int, Class::Array1D const&>(&Class::findWavelength, py::const_),
             "fiberId"_a, "row"_a);
