@@ -4,6 +4,14 @@ namespace pfs {
 namespace drp {
 namespace stella {
 
+
+std::ostream& operator<<(std::ostream& os, TracePeak const& tp) {
+    os << "TracePeak(" << tp.span.getY() << ", " << tp.span.getX0() << ", ";
+    os << tp.peak << ", " << tp.span.getX1() << ")";
+    return os;
+}
+
+
 namespace {
 
 // State of finding peaks
@@ -34,6 +42,7 @@ std::vector<std::vector<std::shared_ptr<TracePeak>>> findTracePeaks(
         int low = -1;
         int peak = -1;
         float lastValue = 0;
+        int xLast = -1;
         for (int xx = 0; xx < int(width); ++xx, ++iter) {
             if (iter.mask() & badBitMask) {
                 // Masked pixel means we don't change state
@@ -51,13 +60,13 @@ std::vector<std::vector<std::shared_ptr<TracePeak>>> findTracePeaks(
                     if (value < lastValue) {
                         // We found the peak
                         state = AFTER;
-                        peak = xx - 1;
+                        peak = xLast;
                     }
                     break;
                   case AFTER:
                     if (value > lastValue) {
                         // We found the end of this trace and the start of the next
-                        rowPeaks.push_back(std::make_shared<TracePeak>(yy, low, peak, xx - 1));
+                        rowPeaks.push_back(std::make_shared<TracePeak>(yy, low, peak, xLast));
                         state = BEFORE;
                         low = xx;
                         peak = -1;
@@ -68,14 +77,14 @@ std::vector<std::vector<std::shared_ptr<TracePeak>>> findTracePeaks(
                 switch (state) {
                   case BEFORE:
                     // The last pixel must be the peak
-                    rowPeaks.push_back(std::make_shared<TracePeak>(yy, low, xx - 1, xx - 1));
+                    rowPeaks.push_back(std::make_shared<TracePeak>(yy, low, xLast, xLast));
                     state = NONE;
                     low = -1;
                     peak = -1;
                     break;
                   case AFTER:
                     // We found the end of this trace
-                    rowPeaks.push_back(std::make_shared<TracePeak>(yy, low, peak, xx - 1));
+                    rowPeaks.push_back(std::make_shared<TracePeak>(yy, low, peak, xLast));
                     state = NONE;
                     low = -1;
                     peak = -1;
@@ -86,6 +95,7 @@ std::vector<std::vector<std::shared_ptr<TracePeak>>> findTracePeaks(
                 }
             }
             lastValue = value;
+            xLast = xx;
         }
         // Forcibly end the search
         switch (state) {

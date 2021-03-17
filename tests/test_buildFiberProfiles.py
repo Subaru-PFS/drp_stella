@@ -336,6 +336,48 @@ class FiberProfileSetTestCase(lsst.utils.tests.TestCase):
         # The CR damages the profile in this small image; so just care about the number of traces
         self.assertNumTraces(result)
 
+    def testSpottyMaskedCosmic(self):
+        """Test that a spotty-masked cosmic doesn't split a trace
+
+        This is based on a failure mode discovered in half fiber density sims.
+        A cosmic cuts across multiple traces, but is only masked between the
+        traces. The mask starts immediately after the peak, and extends to a
+        couple of pixels short of the next peak. The effect was that the trace
+        was cut short and a new trace started, rather than continuing a single
+        trace.
+
+        We're going to take the three middle traces, and put masked pixels
+        between them.
+        """
+        crValue = 1000  # Value to give CR pixels
+        maskHalfRows = 3  # Half the number of rows to have masks
+        leftOffset = 1  # Position of the left side of the CR mask relative to the trace
+        rightOffset = 2  # Position of the right side of the CR mask relative to the trace
+
+        middleTrace = self.synth.numFibers//2
+        leftTrace = middleTrace - 1
+        rightTrace = middleTrace + 1
+
+        middleRow = self.synth.height//2
+        rowSlice = slice(middleRow - maskHalfRows, middleRow + maskHalfRows)
+
+        leftTracePeak = int(self.synth.traceCenters[leftTrace] + 0.5)
+        middleTracePeak = int(self.synth.traceCenters[middleTrace] + 0.5)
+        rightTracePeak = int(self.synth.traceCenters[rightTrace] + 0.5)
+
+        leftSlice = slice(leftTracePeak + leftOffset, middleTracePeak - rightOffset)
+        rightSlice = slice(middleTracePeak + leftOffset, rightTracePeak - rightOffset)
+
+        for ss in (leftSlice, rightSlice):
+            self.image.image.array[rowSlice, ss] += crValue
+            self.image.mask.array[rowSlice, ss] |= self.image.mask.getPlaneBitMask("CR")
+
+        self.config.pruneMinLength = self.synth.height//3  # So a half a trace counts as a trace
+        self.config.doIdentifyFibers = True  # Fiber identification was how this was originally found
+        result = self.task.run(self.makeExposure(self.image), self.detMap)
+        # The CR damages the profile in this small image; so just care about the number of traces
+        self.assertNumTraces(result)
+
 
 class TestMemory(lsst.utils.tests.MemoryTestCase):
     pass
