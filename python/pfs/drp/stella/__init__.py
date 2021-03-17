@@ -24,5 +24,5 @@ from .slitOffsets import *
 from .DifferentialDetectorMapContinued import *
 
 from lsst.afw.image import Mask
-for plane in ("BAD_FLAT", "FIBERTRACE", "BAD_SKY", "BAD_FLUXCAL"):
+for plane in ("BAD_FLAT", "FIBERTRACE", "BAD_FIBERTRACE", "BAD_SKY", "BAD_FLUXCAL"):
     Mask.addMaskPlane(plane)

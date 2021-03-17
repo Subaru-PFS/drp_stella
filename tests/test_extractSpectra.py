@@ -134,6 +134,31 @@ class ExtractSpectraTestCase(lsst.utils.tests.TestCase):
         expectMask[middle:] = trace.trace.mask.getPlaneBitMask("NO_DATA")
         self.assertSpectra(spectra, flux={fiberId: expectFlux}, mask={fiberId: expectMask})
 
+    def testSingular(self):
+        """Test behaviour with a singular matrix inversion
+
+        We get a singular matrix when a trace has a row that is all zero and/or
+        no pixels have the FIBERTRACE mask plane set. In that case, we expect
+        to get good spectra for all the other fibers, and the mask planes
+        BAD_FIBERTRACE|NO_DATA set on the appropriate row of the bad fiber.
+        """
+        index = self.synthConfig.numFibers//2
+        row = self.synthConfig.height//2
+        fiberId = self.synthConfig.fiberId[index]
+        expectFlux = np.full(self.synthConfig.height, self.flux, dtype=float)
+        expectMask = np.zeros(self.synthConfig.height, dtype=np.int32)
+        expectFlux[row] = 0.0
+        expectMask[row] = self.image.mask.getPlaneBitMask(["BAD_FIBERTRACE", "NO_DATA"])
+
+        self.fiberTraces[index].trace.image.array[row, :] = 0.0
+        spectra = self.fiberTraces.extractSpectra(self.image)
+        self.assertSpectra(spectra, flux={fiberId: expectFlux}, mask={fiberId: expectMask})
+
+        self.fiberTraces[index].trace.image.array[row, :] = 1000.0
+        self.fiberTraces[index].trace.mask.array[row, :] = 0
+        spectra = self.fiberTraces.extractSpectra(self.image)
+        self.assertSpectra(spectra, flux={fiberId: expectFlux}, mask={fiberId: expectMask})
+
 
 class TestMemory(lsst.utils.tests.MemoryTestCase):
     pass

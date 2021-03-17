@@ -282,9 +282,9 @@ class FiberTraceSetTestCase(lsst.utils.tests.TestCase):
                 self.assertTrue(np.all(ss.covariance != 0))
 
         # Ditto, with a row entirely bad
-        # Flux should be zero in the bad row, and it should be masked NO_DATA
+        # Flux should be zero in the bad row, and it should be masked NO_DATA|BAD_FIBERTRACE
         bad = mask.getPlaneBitMask("BAD")
-        noData = mask.getPlaneBitMask("NO_DATA")
+        noData = mask.getPlaneBitMask(["NO_DATA", "BAD_FIBERTRACE"])
         badRow = 123
         isGood = np.arange(config.height) != badRow
         mask.array[badRow, :] |= bad

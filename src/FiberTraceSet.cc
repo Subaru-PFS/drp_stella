@@ -85,6 +85,7 @@ SpectrumSet FiberTraceSet<ImageT, MaskT, VarianceT>::extractSpectra(
     auto const& dataVariance = *image.getVariance();
 
     MaskT const noData = 1 << dataMask.addMaskPlane("NO_DATA");
+    MaskT const badFiberTrace = 1 << dataMask.addMaskPlane("BAD_FIBERTRACE");
 
     // Initialize results, in case we miss anything
     for (auto & spectrum : result) {
@@ -139,6 +140,19 @@ SpectrumSet FiberTraceSet<ImageT, MaskT, VarianceT>::extractSpectra(
                 model2Weighted += m2/dataVariance(xData, yData);
                 modelData += modelValue*dataImage(xData, yData);
             }
+
+            if (model2 == 0.0) {
+                diagonal[ii] = 1.0;  // to avoid making the matrix singular
+                diagonalWeighted[ii] = 1.0;
+                vector[ii] = 0.0;
+                if (ii < num - 1) {
+                    offDiag[ii] = 0.0;
+                    offDiagWeighted[ii] = 0.0;
+                }
+                maskResult[ii] |= noData | badFiberTrace;
+                continue;
+            }
+
             diagonal[ii] = model2;
             diagonalWeighted[ii] = model2Weighted;
             vector[ii] = modelData;
