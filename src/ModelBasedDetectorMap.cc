@@ -1,4 +1,5 @@
 #include "ndarray.h"
+#include "lsst/pex/exceptions.h"
 
 #include "pfs/drp/stella/ModelBasedDetectorMap.h"
 
@@ -154,6 +155,9 @@ double ModelBasedDetectorMap::getWavelength(
 
 
 int ModelBasedDetectorMap::findFiberId(lsst::geom::PointD const& point) const {
+    if (!getBBox().contains(lsst::geom::Point2I(point))) {
+        throw LSST_EXCEPT(lsst::pex::exceptions::OutOfRangeError, "Point is not on the image");
+    }
     if (getNumFibers() == 1) {
         return getFiberId()[0];
     }
@@ -174,7 +178,9 @@ int ModelBasedDetectorMap::findFiberId(lsst::geom::PointD const& point) const {
         std::size_t newIndex = lowIndex + (highIndex - lowIndex)/2;
         SplineCoeffT xNew = _rowToXCenter[newIndex](yy);
         if (increasing) {
-            assert(xNew > xLow && xNew < xHigh);
+            if (xNew < xLow || xNew > xHigh) {
+                throw LSST_EXCEPT(lsst::pex::exceptions::RuntimeError, "Bisection failed");
+            }
             if (xx > xNew) {
                 lowIndex = newIndex;
                 xLow = xNew;
@@ -183,7 +189,9 @@ int ModelBasedDetectorMap::findFiberId(lsst::geom::PointD const& point) const {
                 xHigh = xNew;
             }
         } else {
-            assert(xNew < xLow && xNew > xHigh);
+            if (xNew > xLow || xNew < xHigh) {
+                throw LSST_EXCEPT(lsst::pex::exceptions::RuntimeError, "Bisection failed");
+            }
             if (xx < xNew) {
                 lowIndex = newIndex;
                 xLow = xNew;
