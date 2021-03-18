@@ -308,10 +308,11 @@ class FiberProfile:
             image.image.array[yy, xImg] = nextProfile*nextWeight[yy] + prevProfile*prevWeight[yy]
 
         # Set normalisation to what is desired
+        scale = 1.0/image.image.array.sum(axis=1)
         if self.norm is not None:
-            scale = (self.norm/image.image.array.sum(axis=1))[:, np.newaxis]
-            image.image.array *= scale
-            image.variance.array *= scale**2
+            scale *= self.norm
+        image.image.array *= scale[:, np.newaxis]
+        image.variance.array *= scale[:, np.newaxis]**2
 
         # Deselect bad pixels and bad rows
         ftBitMask = 2**image.mask.addMaskPlane("FIBERTRACE")
