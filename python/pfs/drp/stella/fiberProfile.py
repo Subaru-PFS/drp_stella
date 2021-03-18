@@ -2,7 +2,7 @@ import numpy as np
 import scipy
 
 from lsst.geom import Box2I, Point2I
-from lsst.afw.image import MaskedImageF
+from lsst.afw.image import MaskedImageD
 from pfs.drp.stella.spline import SplineD
 from pfs.drp.stella.FiberTraceContinued import FiberTrace
 from pfs.drp.stella.profile import calculateSwathProfile
@@ -250,7 +250,7 @@ class FiberProfile:
         xx = np.arange(xMin, xMax + 1, dtype=float)
         xImg = (xx - xMin).astype(int)
         box = Box2I(Point2I(xMin, 0), Point2I(xMax, height - 1))
-        image = MaskedImageF(box)
+        image = MaskedImageD(box)
 
         # Interpolate in y: find the two closest swaths, and determine the weighting to do the interpolation
         indices = np.arange(len(self.rows), dtype=int)
@@ -319,7 +319,7 @@ class FiberProfile:
         good = (image.image.array > 0) | (norm[:, np.newaxis] > 0)
         image.mask.array[:] = np.where(good, ftBitMask, 0)
 
-        trace = FiberTrace(image)
+        trace = FiberTrace(image.convertF())
         trace.fiberId = fiberId
 
         return trace
