@@ -268,6 +268,7 @@ class DifferentialDetectorMapTestCase(lsst.utils.tests.TestCase):
                              0.01, 0.01, 0, ReferenceLine.Status.FIT, "Fake")
         config = FitDifferentialDetectorMapTask.ConfigClass()
         config.order = 1
+        config.doSlitOffsets = True
         task = FitDifferentialDetectorMapTask(name="fitDifferentialDetectorMap", config=config)
         dataId = dict(visit=12345, arm=arm, spectrograph=1)
         detMap = task.run(dataId, bbox, lines, self.base.visitInfo, base=self.base).detectorMap

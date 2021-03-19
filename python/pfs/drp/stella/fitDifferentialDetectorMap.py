@@ -284,7 +284,7 @@ class FitDifferentialDetectorMapConfig(Config):
                            doc="Force a single CCD? This might be useful for a sparse fiber density")
     fiberCenter = DictField(keytype=int, itemtype=float, doc="Central fiberId, separating CCDs",
                             default={1: 326, 2: 326, 3: 326, 4: 326})
-    doSlitOffsets = Field(dtype=bool, default=False, doc="Fit for slit offsets?")
+    doSlitOffsets = Field(dtype=bool, default=False, doc="Fit for new slit offsets?")
     base = Field(dtype=str,
                  doc="Template for base detectorMap; should include '%%(arm)s' and '%%(spectrograph)s'",
                  default=os.path.join(getPackageDir("drp_pfs_data"), "detectorMap",
@@ -299,7 +299,8 @@ class FitDifferentialDetectorMapTask(Task):
         Task.__init__(self, *args, **kwargs)
         self.debugInfo = lsstDebug.Info(__name__)
 
-    def run(self, dataId, bbox, lines, visitInfo, metadata=None, base=None):
+    def run(self, dataId, bbox, lines, visitInfo, metadata=None,
+            spatialOffsets=None, spectralOffsets=None, base=None):
         """Fit a DifferentialDetectorMap to arc line measurements
 
         Parameters
@@ -315,6 +316,8 @@ class FitDifferentialDetectorMapTask(Task):
             Visit information for exposure.
         metadata : `lsst.daf.base.PropertyList`, optional
             DetectorMap metadata (FITS header).
+        spatialOffsets, spectralOffsets : `numpy.ndarray` of `float`
+            Spatial and spectral offsets to use, if ``doSlitOffsets=False``.
         base : `pfs.drp.stella.SplinedDetectorMap`, optional
             Base detectorMap. If not provided, one pointed to in the config will
             be read in.
@@ -346,6 +349,8 @@ class FitDifferentialDetectorMapTask(Task):
             base = self.getBaseDetectorMap(dataId)
         if self.config.doSlitOffsets:
             self.measureSlitOffsets(base, lines)
+        else:
+            self.copySlitOffsets(base, spatialOffsets, spectralOffsets)
         residuals = self.calculateBaseResiduals(base, lines)
         results = self.fitGlobalDetectorModel(bbox, residuals, doFitHighCcd, fiberCenter,
                                               seed=visitInfo.getExposureId())
@@ -397,6 +402,23 @@ class FitDifferentialDetectorMapTask(Task):
             lines.x[good], lines.y[good],
             np.hypot(lines.xErr[good], sysErr), np.hypot(lines.yErr[good], sysErr)
         )
+
+    def copySlitOffsets(self, detectorMap, spatialOffsets, spectralOffsets):
+        """Set specified slit offsets
+
+        Parameters
+        ----------
+        base : `pfs.drp.stella.SplinedDetectorMap`, optional
+            Base detectorMap. If not provided, one pointed to in the config will
+            be read in.
+        spatialOffsets, spectralOffsets : `numpy.ndarray` of `float`
+            Spatial and spectral offsets to use.
+        """
+        if spatialOffsets is None or spectralOffsets is None:
+            raise RuntimeError("Slit offsets not provided")
+        if np.all(spatialOffsets == 0) or np.all(spectralOffsets == 0):
+            self.log.warn("All provided slit offsets are zero; consider using doSlitOffsets=True")
+        detectorMap.setSlitOffsets(spatialOffsets, spectralOffsets)
 
     def calculateBaseResiduals(self, detectorMap, lines):
         """Calculate position residuals w.r.t. base detectorMap

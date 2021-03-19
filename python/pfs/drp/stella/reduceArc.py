@@ -254,9 +254,11 @@ class ReduceArcTask(CmdLineTask):
         visitInfo = archetype.visitInfo  # All more or less identical
         metadata = archetype.metadata  # All more or less identical
         oldDetMap = archetype.detectorMap  # All more or less identical
+        spatialOffsets = oldDetMap.getSpatialOffsets()
+        spectralOffsets = oldDetMap.getSpectralOffsets()
 
         detectorMap = self.fitDetectorMap.run(dataRef.dataId, oldDetMap.bbox, lines, visitInfo,
-                                              oldDetMap.metadata).detectorMap
+                                              oldDetMap.metadata, spatialOffsets, spectralOffsets).detectorMap
 
         self.write(dataRef, detectorMap, metadata, visitInfo, [ref.dataId["visit"] for ref in dataRefList])
         if self.debugInfo.display and self.debugInfo.displayCalibrations:
