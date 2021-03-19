@@ -141,7 +141,7 @@ class ConstructFiberProfilesTask(SpectralCalibTask):
 
         # Set the normalisation of the FiberProfiles
         # The normalisation is the flat: we want extracted spectra to be relative to the flat.
-        traces = results.profiles.makeFiberTraces(exposure.getDimensions(), results.centers)
+        traces = results.profiles.makeFiberTracesFromDetectorMap(detMap)
         spectra = traces.extractSpectra(exposure.maskedImage)
         for ss in spectra:
             results.profiles[ss.fiberId].norm = ss.flux
@@ -154,7 +154,6 @@ class ConstructFiberProfilesTask(SpectralCalibTask):
 
         if self.debugInfo.display and self.debugInfo.combinedFrame >= 0:
             display = afwDisplay.Display(frame=self.debugInfo.combinedFrame)
-            traces = results.profiles.makeFiberTraces(detMap)
             traces.applyToMask(exposure.getMaskedImage().getMask())
             display.setMaskTransparency(50)
             display.mtv(exposure, "Traces")
