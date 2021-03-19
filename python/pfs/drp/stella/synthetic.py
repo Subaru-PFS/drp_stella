@@ -7,16 +7,13 @@ import lsst.afw.image
 from lsst.pex.config import Config, Field
 from lsst.pipe.base import Struct
 from pfs.datamodel import PfsConfig, TargetType, FiberStatus
-from pfs.drp.stella import SplinedDetectorMap, GlobalDetectorMap, ReferenceLine
-from pfs.drp.stella.arcLine import ArcLineSet
-from pfs.drp.stella.fitGlobalDetectorMap import FitGlobalDetectorMapTask
+from pfs.drp.stella import SplinedDetectorMap
 
 __all__ = ["makeSpectrumImage",
            "addNoiseToImage",
            "makeSyntheticFlat",
            "makeSyntheticArc",
            "makeSyntheticDetectorMap",
-           "makeSyntheticGlobalDetectorMap",
            "makeSyntheticPfsConfig",
            ]
 
@@ -224,32 +221,6 @@ def makeSyntheticDetectorMap(config, minWl=400.0, maxWl=950.0):
         wavelength.append(np.linspace(minWl, maxWl, config.height, dtype=float))
     return SplinedDetectorMap(bbox, fiberId, [knots]*config.numFibers, xCenter,
                               [knots]*config.numFibers, wavelength)
-
-
-def makeSyntheticGlobalDetectorMap(config, minWl=400.0, maxWl=950.0):
-    """Make a GlobalDetectorMap with a specific configuration
-
-    Parameters
-    ----------
-    config : `pfs.drp.stella.synthetic.SyntheticConfig`
-        Configuration for synthetic spectrograph.
-    minWl, maxWl : `float`, optional
-        Minimum and maximum wavelengths.
-
-    Returns
-    -------
-    detMap : `pfs.drp.stella.GlobalDetectorMap`
-        Detector map.
-    """
-    original = makeSyntheticDetectorMap(config, minWl, maxWl)
-    lines = ArcLineSet.empty()
-    for ff in original.fiberId:
-        for yy in range(original.bbox.getMinY(), original.bbox.getMaxY()):
-            lines.append(ff, original.getWavelength(ff, yy), original.getXCenter(ff, yy), yy,
-                         0.01, 0.01, 0, ReferenceLine.Status.FIT, "Fake")
-    task = FitGlobalDetectorMapTask(name="fitGlobalDetectorMap")
-    model = task.fitModel(original.bbox, lines, np.ones(len(lines), dtype=bool), False).model
-    return GlobalDetectorMap(original.bbox, model)
 
 
 def makeSyntheticPfsConfig(config, pfsDesignId, visit, rng=None,

@@ -8,7 +8,6 @@ from lsst.pipe.base import Task, Struct
 from pfs.datamodel.pfsConfig import FiberStatus
 from .readLineList import ReadLineListTask
 from .centroidLines import CentroidLinesTask
-from .GlobalDetectorMapContinued import GlobalDetectorMap
 
 import lsstDebug
 
@@ -148,7 +147,7 @@ class MeasureSlitOffsetsTask(Task):
         yErr2 = centroids.yErr[select]**2
         numGood = select.sum()
         chi2 = np.sum(dx2/xErr2 + dy2/yErr2)
-        dof = 2*numGood - (2 if isinstance(detectorMap, GlobalDetectorMap) else 2*len(set(fiberId[select])))
+        dof = 2*numGood - 2*len(set(fiberId[select]))
         self.log.debug("Final iteration: chi2/dof=%f/%d num=%d", chi2, dof, numGood)
 
         def softenChi2(soften):

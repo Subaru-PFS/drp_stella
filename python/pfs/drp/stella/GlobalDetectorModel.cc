@@ -3,8 +3,7 @@
 
 #include "ndarray/pybind11.h"
 #include "lsst/utils/python.h"
-#include "pfs/drp/stella/GlobalDetectorMap.h"
-#include "pfs/drp/stella/python/DetectorMap.h"
+#include "pfs/drp/stella/GlobalDetectorModel.h"
 
 namespace py = pybind11;
 using namespace pybind11::literals;
@@ -156,60 +155,11 @@ void declareGlobalDetectorModel(py::module & mod) {
 }
 
 
-void declareGlobalDetectorMap(py::module & mod) {
-    using Class = GlobalDetectorMap;
-    auto cls = python::wrapDetectorMap<Class>(mod, "GlobalDetectorMap");
-    cls.def(py::init<lsst::geom::Box2I, GlobalDetectorModel const&, DetectorMap::VisitInfo const&,
-                     std::shared_ptr<lsst::daf::base::PropertySet>>(),
-                     "bbox"_a, "model"_a,
-                     "visitInfo"_a=DetectorMap::VisitInfo(lsst::daf::base::PropertyList()),
-                     "metadata"_a=nullptr);
-    cls.def("getModel", &Class::getModel);
-    cls.def_property_readonly("model", &Class::getModel);
-    cls.def("getFiberId", &Class::getFiberId);
-    cls.def("getDistortionOrder", &Class::getDistortionOrder);
-
-    cls.def(py::pickle(
-        [](Class const& self) {
-            return py::make_tuple(
-                self.getBBox(), self.getDistortionOrder(), self.getFiberId(), self.getModel().getFiberPitch(),
-                self.getModel().getDispersion(), self.getModel().getWavelengthCenter(),
-                self.getModel().getBuffer(), self.getModel().getFiberCenter(),
-                self.getModel().getXCoefficients(), self.getModel().getYCoefficients(),
-                self.getModel().getHighCcdCoefficients(),
-                self.getModel().getSpatialOffsets(), self.getModel().getSpectralOffsets(),
-                self.getVisitInfo(), self.getMetadata());
-        },
-        [](py::tuple const& t){
-            return GlobalDetectorMap(
-                t[0].cast<lsst::geom::Box2I>(),  // bbox
-                t[1].cast<int>(),  // distortionOrder
-                t[2].cast<ndarray::Array<int, 1, 1>>(),  // fiberId
-                t[3].cast<double>(),  // fiberPitch
-                t[4].cast<double>(),  // dispersion
-                t[5].cast<double>(),  // wavelengthCenter
-                t[6].cast<float>(),  // buffer
-                t[7].cast<float>(),  // fiberCenter
-                t[8].cast<ndarray::Array<double, 1, 1>>(),  // xCoeff
-                t[9].cast<ndarray::Array<double, 1, 1>>(),  // yCoeff
-                t[10].cast<ndarray::Array<double, 1, 1>>(),  // highCcd
-                t[11].cast<ndarray::Array<double, 1, 1>>(),  // spatialOffsets
-                t[12].cast<ndarray::Array<double, 1, 1>>(),  // spectralOffsets
-                t[13].cast<lsst::afw::image::VisitInfo>(),  // visitInfo
-                t[14].cast<std::shared_ptr<lsst::daf::base::PropertySet>>()  // metadata
-            );
-        }
-    ));
-}
-
-
-PYBIND11_PLUGIN(GlobalDetectorMap) {
-    py::module mod("GlobalDetectorMap");
-    pybind11::module::import("pfs.drp.stella.DetectorMap");
+PYBIND11_PLUGIN(GlobalDetectorModel) {
+    py::module mod("GlobalDetectorModel");
     declareGlobalDetectorModelScaling(mod);
     declareFiberMap(mod);
     declareGlobalDetectorModel(mod);
-    declareGlobalDetectorMap(mod);
     return mod.ptr();
 }
 

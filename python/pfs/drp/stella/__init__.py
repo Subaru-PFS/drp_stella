@@ -9,7 +9,7 @@ from .FiberTraceContinued import *
 from .FiberTraceSet import *
 from .FiberTraceSetContinued import *
 from .DetectorMapContinued import *
-from .GlobalDetectorMapContinued import *
+from .GlobalDetectorModel import *
 from .SplinedDetectorMapContinued import *
 from .utils import *
 from .spline import *

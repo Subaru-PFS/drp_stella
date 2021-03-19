@@ -7,7 +7,6 @@ import lsst.afw.image
 import lsst.afw.image.testUtils
 
 import pfs.drp.stella.synthetic as synthetic
-from pfs.drp.stella import GlobalDetectorMap
 from pfs.drp.stella.measureSlitOffsets import MeasureSlitOffsetsTask
 from pfs.drp.stella.tests.utils import runTests, methodParameters
 
@@ -32,7 +31,6 @@ class MeasureSlitOffsetsTestCase(lsst.utils.tests.TestCase):
         self.exposure.setPsf(lsst.afw.detection.GaussianPsf(psfSize, psfSize, psfSigma))
 
         self.splinedDetectorMap = synthetic.makeSyntheticDetectorMap(self.synth)
-        self.globalDetectorMap = synthetic.makeSyntheticGlobalDetectorMap(self.synth)
         self.pfsConfig = synthetic.makeSyntheticPfsConfig(self.synth, 12345, 6789, rng=self.rng)
 
         self.config = MeasureSlitOffsetsTask.ConfigClass()
@@ -97,13 +95,12 @@ class MeasureSlitOffsetsTestCase(lsst.utils.tests.TestCase):
         dx, dy : `float`
             Offset to apply and retrieve.
         """
-        for detMap in (self.splinedDetectorMap, self.globalDetectorMap):
-            with self.makeLineList():
-                detMap.applySlitOffset(-dx, -dy)
-                task = MeasureSlitOffsetsTask(name="measureSlitOffsets", config=self.config)
-                offsets = task.run(self.exposure, detMap, self.pfsConfig)
-                numParams = 2 if isinstance(detMap, GlobalDetectorMap) else 2*detMap.getNumFibers()
-                self.assertOffsets(offsets, dx=dx, dy=dy, numParams=numParams)
+        with self.makeLineList():
+            self.splinedDetectorMap.applySlitOffset(-dx, -dy)
+            task = MeasureSlitOffsetsTask(name="measureSlitOffsets", config=self.config)
+            offsets = task.run(self.exposure, self.splinedDetectorMap, self.pfsConfig)
+            numParams = 2*self.splinedDetectorMap.getNumFibers()
+            self.assertOffsets(offsets, dx=dx, dy=dy, numParams=numParams)
 
     def testRejection(self):
         """Test that we can reject bad points
@@ -119,13 +116,12 @@ class MeasureSlitOffsetsTestCase(lsst.utils.tests.TestCase):
             self.exposure.image.array[yy:yy + 2, xx:xx + 2] += value
 
         self.config.rejIterations = 3
-        for detMap in (self.splinedDetectorMap, self.globalDetectorMap):
-            with self.makeLineList():
-                task = MeasureSlitOffsetsTask(name="measureSlitOffsets", config=self.config)
-                task.log.setLevel(task.log.DEBUG)
-                offsets = task.run(self.exposure, detMap, self.pfsConfig)
-                numParams = 2 if isinstance(detMap, GlobalDetectorMap) else 2*detMap.getNumFibers()
-                self.assertOffsets(offsets, numRejected=self.synth.numFibers, numParams=numParams)
+        with self.makeLineList():
+            task = MeasureSlitOffsetsTask(name="measureSlitOffsets", config=self.config)
+            task.log.setLevel(task.log.DEBUG)
+            offsets = task.run(self.exposure, self.splinedDetectorMap, self.pfsConfig)
+            numParams = 2*self.splinedDetectorMap.getNumFibers()
+            self.assertOffsets(offsets, numRejected=self.synth.numFibers, numParams=numParams)
 
 
 class TestMemory(lsst.utils.tests.MemoryTestCase):

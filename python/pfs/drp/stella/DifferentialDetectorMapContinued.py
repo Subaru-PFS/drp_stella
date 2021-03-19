@@ -5,7 +5,7 @@ import pfs.datamodel.pfsDetectorMap
 
 from .DifferentialDetectorMap import DifferentialDetectorMap
 from .DetectorMapContinued import DetectorMap
-from .GlobalDetectorMapContinued import GlobalDetectorModel, GlobalDetectorModelScaling
+from .GlobalDetectorModel import GlobalDetectorModel, GlobalDetectorModelScaling
 from .SplinedDetectorMapContinued import SplinedDetectorMap
 from .utils import headerToMetadata
 
@@ -72,7 +72,7 @@ class DifferentialDetectorMap:
 
         return pfs.datamodel.DifferentialDetectorMap(
             identity, pfs.datamodel.Box.fromLsst(self.bbox), base, model.getDistortionOrder(), self.fiberId,
-            pfs.datamodel.GlobalDetectorMapScaling(**scalingKwargs), model.getFiberCenter(),
+            pfs.datamodel.GlobalDetectorModelScaling(**scalingKwargs), model.getFiberCenter(),
             model.getXCoefficients(), model.getYCoefficients(), model.getHighCcdCoefficients(),
             metadata.toDict()
         )
