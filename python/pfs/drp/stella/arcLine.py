@@ -185,7 +185,8 @@ class ArcLineSet:
         filename : `str`
             Name of file to which to write.
         """
-        longest = max(len(dd) for dd in self.description)
+        lengths = [len(dd) for dd in self.description]
+        longest = 1 if len(lengths) == 0 else max(lengths)  # 1 not 0 to make astropy happy
         hdu = astropy.io.fits.BinTableHDU.from_columns([
             astropy.io.fits.Column(name="fiberId", format="J", array=self.fiberId),
             astropy.io.fits.Column(name="wavelength", format="D", array=self.wavelength),
