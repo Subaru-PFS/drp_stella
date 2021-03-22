@@ -80,7 +80,7 @@ class DifferentialDetectorMapTestCase(lsst.utils.tests.TestCase):
         scaling = GlobalDetectorModelScaling(fiberPitch, dispersion, wavelengthCenter,
                                              fiberId.min(), fiberId.max(), self.synthConfig.height, buffer)
 
-        model = GlobalDetectorModel(distortionOrder, fiberId, scaling, 0, xDistortion, yDistortion, rightCcd)
+        model = GlobalDetectorModel(distortionOrder, scaling, 0, xDistortion, yDistortion, rightCcd)
 
         visitInfo = lsst.afw.image.VisitInfo(darkTime=self.darkTime)
         metadata = lsst.daf.base.PropertyList()
@@ -127,8 +127,6 @@ class DifferentialDetectorMapTestCase(lsst.utils.tests.TestCase):
         self.assertFloatsEqual(lhs.model.getXCoefficients(), rhs.model.getXCoefficients())
         self.assertFloatsEqual(lhs.model.getYCoefficients(), rhs.model.getYCoefficients())
         self.assertFloatsEqual(lhs.model.getHighCcdCoefficients(), rhs.model.getHighCcdCoefficients())
-        self.assertFloatsEqual(lhs.model.getSpatialOffsets(), rhs.model.getSpatialOffsets())
-        self.assertFloatsEqual(lhs.model.getSpectralOffsets(), rhs.model.getSpectralOffsets())
 
         # Scaling
         self.assertEqual(lhs.model.getScaling().fiberPitch, rhs.model.getScaling().fiberPitch)

@@ -13,7 +13,7 @@ from lsst.pipe.base import Task, Struct
 from lsst.afw.math import LeastSquares
 
 from pfs.drp.stella import DetectorMap, DifferentialDetectorMap
-from .GlobalDetectorModel import GlobalDetectorModel, GlobalDetectorModelScaling, FiberMap
+from .GlobalDetectorModel import GlobalDetectorModel, GlobalDetectorModelScaling
 from .arcLine import ArcLineSet
 
 
@@ -215,10 +215,6 @@ def calculateFitStatistics(model, lines, selection, soften=0.0):
     soften : `float`
         Systematic error that was applied to measured errors (pixels).
     """
-    modelFibers = set(model.getFiberId())
-    measuredFibers = set(lines.fiberId)
-    if modelFibers != measuredFibers:
-        raise RuntimeError("Model doesn't include fibers: %s", sorted(measuredFibers - modelFibers))
     fit = model(lines.fiberId.astype(np.int32), lines.wavelength.astype(float))
     xResid = (lines.x - fit[:, 0])
     yResid = (lines.y - fit[:, 1])
@@ -237,7 +233,7 @@ def calculateFitStatistics(model, lines, selection, soften=0.0):
     yWeightedRms = np.sqrt(np.sum(yWeight*yResid2)/np.sum(yWeight))
 
     chi2 = np.sum(xResid2/xErr2 + yResid2/yErr2)
-    dof = 2*selection.sum() - model.getNumParameters(model.getDistortionOrder(), model.getNumFibers())
+    dof = 2*selection.sum() - model.getNumParameters(model.getDistortionOrder())
     return Struct(model=model, xResid=xResid, yResid=yResid, xRms=xWeightedRms, yRms=yWeightedRms,
                   xRobustRms=xRobustRms, yRobustRms=yRobustRms, chi2=chi2, dof=dof, soften=soften)
 
@@ -352,8 +348,9 @@ class FitDifferentialDetectorMapTask(Task):
         else:
             self.copySlitOffsets(base, spatialOffsets, spectralOffsets)
         residuals = self.calculateBaseResiduals(base, lines)
+        minMaxFiberId = (base.fiberId.min(), base.fiberId.max())
         results = self.fitGlobalDetectorModel(bbox, residuals, doFitHighCcd, fiberCenter,
-                                              seed=visitInfo.getExposureId())
+                                              seed=visitInfo.getExposureId(), minMaxFiberId=minMaxFiberId)
         results.detectorMap = DifferentialDetectorMap(base, results.model, visitInfo, metadata)
 
         if self.debugInfo.lineQa:
@@ -442,7 +439,7 @@ class FitDifferentialDetectorMapTask(Task):
                              ll.xErr, ll.yErr, ll.flag, ll.status, ll.description)
         return residuals
 
-    def fitScaling(self, bbox, lines, select):
+    def fitScaling(self, bbox, lines, select, minMaxFiberId=None):
         """Determine scaling for GlobalDetectorModel
 
         These are not fit parameters, but merely provides convenient scaling
@@ -457,25 +454,30 @@ class FitDifferentialDetectorMapTask(Task):
             Arc line measurements.
         select : `numpy.ndarray` of `bool`
             Flags indicating which of the ``lines`` are to be fit.
+        minMaxFiberId : `tuple` (`int`, `int`), optional
+            Minimum and maximum fiber identifiers to cover. If not provided, use
+            ``lines.fiberId``.
 
         Returns
         -------
         scaling : `pfs.drp.stella.GlobalDetectorModelScaling`
             Scaling for model.
         """
+        minFiberId = minMaxFiberId[0] if minMaxFiberId is not None else lines.fiberId.min()
+        maxFiberId = minMaxFiberId[1] if minMaxFiberId is not None else lines.fiberId.max()
         fiberFit = fitStraightLine(lines.fiberId[select], lines.xOrig[select])
         wlFit = fitStraightLine(lines.yOrig[select], lines.wavelength[select])
         return GlobalDetectorModelScaling(
             fiberPitch=np.abs(fiberFit.slope),  # pixels per fiber
             dispersion=wlFit.slope,  # nm per pixel,
             wavelengthCenter=wlFit.slope*bbox.getHeight()/2 + wlFit.intercept,
-            minFiberId=lines.fiberId.min(),
-            maxFiberId=lines.fiberId.max(),
+            minFiberId=minFiberId,
+            maxFiberId=maxFiberId,
             height=bbox.getHeight(),
             buffer=self.config.buffer,
         )
 
-    def fitGlobalDetectorModel(self, bbox, lines, doFitHighCcd, fiberCenter=0, seed=0):
+    def fitGlobalDetectorModel(self, bbox, lines, doFitHighCcd, fiberCenter=0, seed=0, minMaxFiberId=None):
         """Fit a distortion model to the entire detector
 
         Parameters
@@ -490,6 +492,9 @@ class FitDifferentialDetectorMapTask(Task):
             Central fiberId, separating low- and high-fiberId CCDs.
         seed : `int`
             Seed for random number generator used for selecting reserved lines.
+        minMaxFiberId : `tuple` (`int`, `int`), optional
+            Minimum and maximum fiber identifiers to cover. If not provided, use
+            ``lines.fiberId``.
 
         Returns
         -------
@@ -528,7 +533,7 @@ class FitDifferentialDetectorMapTask(Task):
         used = good & ~reserved
         result = None
         for ii in range(self.config.iterations):
-            result = self.fitModel(bbox, lines, used, doFitHighCcd, fiberCenter)
+            result = self.fitModel(bbox, lines, used, doFitHighCcd, fiberCenter, minMaxFiberId=minMaxFiberId)
             self.log.debug(
                 "Fit iteration %d: chi2=%f dof=%d xRMS=%f yRMS=%f (%f nm, %f km/s) from %d/%d lines",
                 ii, result.chi2, result.dof, result.xRms, result.yRms,
@@ -550,7 +555,7 @@ class FitDifferentialDetectorMapTask(Task):
                 break
             used = newUsed
 
-        result = self.fitModel(bbox, lines, used, doFitHighCcd, fiberCenter)
+        result = self.fitModel(bbox, lines, used, doFitHighCcd, fiberCenter, minMaxFiberId=minMaxFiberId)
         self.log.info("Final fit: chi2=%f dof=%d xRMS=%f yRMS=%f (%f nm, %f km/s) from %d/%d lines",
                       result.chi2, result.dof, result.xRms, result.yRms,
                       result.yRms*result.model.getScaling().dispersion,
@@ -564,7 +569,8 @@ class FitDifferentialDetectorMapTask(Task):
                       reserved.sum()/numLines*100)
         self.log.debug("    Final fit model: %s", result.model)
 
-        result = self.fitSoftenedModel(bbox, lines, used, reserved, result, doFitHighCcd, fiberCenter)
+        result = self.fitSoftenedModel(bbox, lines, used, reserved, result, doFitHighCcd, fiberCenter,
+                                       minMaxFiberId)
         result.used = used
         result.reserved = reserved
         if self.debugInfo.plot:
@@ -575,7 +581,7 @@ class FitDifferentialDetectorMapTask(Task):
             self.plotResiduals(result.model, lines, used, reserved)
         return result
 
-    def fitModel(self, bbox, lines, select, doFitHighCcd, fiberCenter=0, soften=None):
+    def fitModel(self, bbox, lines, select, doFitHighCcd, fiberCenter=0, soften=None, minMaxFiberId=None):
         """Fit a model to the arc lines
 
         Parameters
@@ -592,6 +598,9 @@ class FitDifferentialDetectorMapTask(Task):
             Central fiberId, separating low- and high-fiberId CCDs.
         soften : `float`, optional
             Systematic error to add in quadrature to measured errors (pixels).
+        minMaxFiberId : `tuple` (`int`, `int`), optional
+            Minimum and maximum fiber identifiers to cover. If not provided, use
+            ``lines.fiberId``.
 
         Returns
         -------
@@ -611,10 +620,9 @@ class FitDifferentialDetectorMapTask(Task):
         if soften is None:
             soften = self.config.soften
 
-        scaling = self.fitScaling(bbox, lines, select)
+        scaling = self.fitScaling(bbox, lines, select, minMaxFiberId)
 
-        fiberMap = FiberMap(lines.fiberId.astype(np.int32))  # use all fibers, not just unrejected fibers
-        fiberId = lines.fiberId[select].astype(np.int32)
+        fiberId = lines.fiberId[select].astype(np.int32)  # Overwrite fiberId variable
         wavelength = lines.wavelength[select].astype(float)
         xx = lines.x[select].astype(float)
         yy = lines.y[select].astype(float)
@@ -626,7 +634,6 @@ class FitDifferentialDetectorMapTask(Task):
         xiEta = scaling(fiberId, wavelength)
         xi = xiEta[:, 0]
         eta = xiEta[:, 1]
-        fiberIndex = fiberMap(fiberId)
         design = GlobalDetectorModel.calculateDesignMatrix(self.config.order, scaling.getRange(), xiEta)
 
         def fitDimension(values, errors):
@@ -678,14 +685,12 @@ class FitDifferentialDetectorMapTask(Task):
             yParams.xiRot, yParams.etaRot
         )
 
-        model = GlobalDetectorModel(self.config.order, fiberId, scaling, fiberCenter,
+        model = GlobalDetectorModel(self.config.order, scaling, fiberCenter,
                                     xParams.distortion, yParams.distortion, highCcd)
-        if self.config.doSlitOffsets:
-            model.measureSlitOffsets(xiEta, fiberIndex, onHighCcd, xx, yy, xErr, yErr)
-
         return calculateFitStatistics(model, lines, select, soften)
 
-    def fitSoftenedModel(self, bbox, lines, select, reserved, result, doFitHighCcd, fiberCenter=0):
+    def fitSoftenedModel(self, bbox, lines, select, reserved, result, doFitHighCcd, fiberCenter=0,
+                         minMaxFiberId=None):
         """Fit with errors adjusted so that chi^2/dof <= 1
 
         This provides a measure of the systematic error.
@@ -708,6 +713,9 @@ class FitDifferentialDetectorMapTask(Task):
             Fit affine transformation for high-fiberId CCD?
         fiberCenter : `float`
             Central fiberId, separating low- and high-fiberId CCDs.
+        minMaxFiberId : `tuple` (`int`, `int`), optional
+            Minimum and maximum fiber identifiers to cover. If not provided, use
+            ``lines.fiberId``.
 
         Returns
         -------
@@ -752,7 +760,7 @@ class FitDifferentialDetectorMapTask(Task):
                       soften*result.model.getScaling().dispersion,
                       rmsPixelsToVelocity(soften, result.model))
 
-        result = self.fitModel(bbox, lines, select, doFitHighCcd, fiberCenter, soften)
+        result = self.fitModel(bbox, lines, select, doFitHighCcd, fiberCenter, soften, minMaxFiberId)
         self.log.info("Softened fit: chi2=%f dof=%d xRMS=%f yRMS=%f (%f nm, %f km/s) from %d/%d lines",
                       result.chi2, result.dof, result.xRms, result.yRms,
                       result.yRms*result.model.getScaling().dispersion,
