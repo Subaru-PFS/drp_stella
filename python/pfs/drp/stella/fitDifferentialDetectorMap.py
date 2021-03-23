@@ -546,8 +546,9 @@ class FitDifferentialDetectorMapTask(Task):
                 self.plotModel(lines, used, result)
             if self.debugInfo.residuals:
                 self.plotResiduals(result.model, lines, used, reserved)
-            newUsed = (good & ~reserved & (np.abs(result.xResid/xErr) < self.config.rejection) &
-                       (np.abs(result.yResid/yErr) < self.config.rejection))
+            with np.errstate(invalid="ignore"):
+                newUsed = (good & ~reserved & (np.abs(result.xResid/xErr) < self.config.rejection) &
+                           (np.abs(result.yResid/yErr) < self.config.rejection))
             self.log.debug("Rejecting %d/%d lines in iteration %d", used.sum() - newUsed.sum(),
                            used.sum(), ii)
             if np.all(newUsed == used):
