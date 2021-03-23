@@ -5,7 +5,7 @@ import pfs.datamodel.pfsDetectorMap
 
 from .DifferentialDetectorMap import DifferentialDetectorMap
 from .DetectorMapContinued import DetectorMap
-from .GlobalDetectorMapContinued import GlobalDetectorModel, GlobalDetectorModelScaling
+from .GlobalDetectorModel import GlobalDetectorModel, GlobalDetectorModelScaling
 from .SplinedDetectorMapContinued import SplinedDetectorMap
 from .utils import headerToMetadata
 
@@ -35,7 +35,7 @@ class DifferentialDetectorMap:
                          ("fiberPitch", "dispersion", "wavelengthCenter", "minFiberId", "maxFiberId",
                           "height", "buffer")}
         scaling = GlobalDetectorModelScaling(**scalingKwargs)
-        model = GlobalDetectorModel(detMap.order, detMap.fiberId, scaling, detMap.fiberCenter,
+        model = GlobalDetectorModel(detMap.order, scaling, detMap.fiberCenter,
                                     detMap.xCoeff, detMap.yCoeff, detMap.highCcdCoeff)
         metadata = headerToMetadata(detMap.metadata)
         visitInfo = lsst.afw.image.VisitInfo(metadata)
@@ -71,8 +71,8 @@ class DifferentialDetectorMap:
             lsst.afw.image.setVisitInfoMetadata(metadata, self.visitInfo)
 
         return pfs.datamodel.DifferentialDetectorMap(
-            identity, pfs.datamodel.Box.fromLsst(self.bbox), base, model.getDistortionOrder(), self.fiberId,
-            pfs.datamodel.GlobalDetectorMapScaling(**scalingKwargs), model.getFiberCenter(),
+            identity, pfs.datamodel.Box.fromLsst(self.bbox), base, model.getDistortionOrder(),
+            pfs.datamodel.GlobalDetectorModelScaling(**scalingKwargs), model.getFiberCenter(),
             model.getXCoefficients(), model.getYCoefficients(), model.getHighCcdCoefficients(),
             metadata.toDict()
         )

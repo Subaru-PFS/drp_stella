@@ -20,13 +20,13 @@ class SplinedDetectorMap:
 
         Parameters
         ----------
-        detMap : `pfs.datamodel.GlobalDetectorMap`
-            datamodel representation of GlobalDetectorMap.
+        detMap : `pfs.datamodel.SplinedDetectorMap`
+            datamodel representation of SplinedDetectorMap.
 
         Returns
         -------
-        self : `pfs.drp.stella.GlobalDetectorMap`
-            drp_stella representation of GlobalDetectorMap.
+        self : `pfs.drp.stella.SplinedDetectorMap`
+            drp_stella representation of SplinedDetectorMap.
         """
         if not isinstance(detMap, pfs.datamodel.SplinedDetectorMap):
             raise RuntimeError(f"Wrong type: {detMap}")
@@ -56,8 +56,8 @@ class SplinedDetectorMap:
 
         Returns
         -------
-        detMap : `pfs.datamodel.GlobalDetectorMap`
-            datamodel representation of GlobalDetectorMap.
+        detMap : `pfs.datamodel.SplinedDetectorMap`
+            datamodel representation of SplinedDetectorMap.
         """
         metadata = self.metadata.deepCopy()
         if self.visitInfo is not None:

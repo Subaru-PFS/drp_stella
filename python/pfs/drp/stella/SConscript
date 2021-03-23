@@ -19,7 +19,7 @@ scripts.BasicSConscript.pybind11(
      'math',
      'DetectorMap',
      'SplinedDetectorMap',
-     'GlobalDetectorMap',
+     'GlobalDetectorModel',
      'DifferentialDetectorMap',
      ],
     addUnderscore=False

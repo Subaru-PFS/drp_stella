@@ -17,60 +17,17 @@ namespace drp {
 namespace stella {
 
 
-namespace {
-
-// Get fiber offsets defined in the base, using the fiberIds for the model
-template <typename Callable>
-ndarray::Array<double, 1, 1> extractFiberOffsets(
-    ndarray::Array<int, 1, 1> const& fiberId,
-    Callable getOffsetByFiber
-) {
-    std::size_t const num = fiberId.size();
-    ndarray::Array<double, 1, 1> out = ndarray::allocate(num);
-    for (std::size_t ii = 0; ii < num; ++ii) {
-        out[ii] = getOffsetByFiber(fiberId[ii]);
-    }
-    return out;
-}
-
-}  // anonymous namespace
-
-
 DifferentialDetectorMap::DifferentialDetectorMap(
     std::shared_ptr<SplinedDetectorMap> base,
     GlobalDetectorModel const& model,
     VisitInfo const& visitInfo,
     std::shared_ptr<lsst::daf::base::PropertySet> metadata
 ) : ModelBasedDetectorMap(base->getBBox(), model.getWavelengthCenter(), model.getDispersion(),
-                          model.getFiberId(),
-                          extractFiberOffsets(
-                              model.getFiberId(),
-                              [&base](int ff) { return base->getSpatialOffset(ff); }
-                              ),
-                          extractFiberOffsets(
-                              model.getFiberId(),
-                              [&base](int ff) { return base->getSpectralOffset(ff); }
-                              ),
+                          base->getFiberId(), base->getSpatialOffsets(), base->getSpectralOffsets(),
                           visitInfo, metadata),
     _base(base),
     _model(model)
-{
-    // Base detectorMap must carry at least the fibers in the model
-    auto const modelFiberId = model.getFiberId();
-    auto const baseFiberId = base->getFiberId();
-    std::unordered_set<int> present(baseFiberId.begin(), baseFiberId.end());
-    std::vector<int> missing;
-    for (auto fiberId : model.getFiberId()) {
-        if (present.find(fiberId) == present.end()) {
-            missing.emplace_back(fiberId);
-        }
-    }
-    if (missing.size() > 0) {
-        throw LSST_EXCEPT(lsst::pex::exceptions::RuntimeError,
-                          (boost::format("Fibers present in model but missing in base: %s") %
-                           utils::vectorToArray(missing)).str());
-    }
-}
+{}
 
 
 std::shared_ptr<DetectorMap> DifferentialDetectorMap::clone() const {
