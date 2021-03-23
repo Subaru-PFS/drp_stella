@@ -3,7 +3,7 @@ from lsst.pex.config import Config, Field, ConfigurableField
 from lsst.pipe.base import CmdLineTask, ArgumentParser, Struct
 
 from pfs.datamodel.pfsConfig import TargetType
-from pfs.datamodel import MaskHelper
+from pfs.datamodel import MaskHelper, FiberStatus
 
 from .datamodel import PfsSingle
 from .measureFluxCalibration import MeasureFluxCalibrationTask
@@ -61,7 +61,9 @@ class FluxCalibrateTask(CmdLineTask):
         references = self.readReferences(butler, pfsConfig, merged.fiberId)
         calib = self.measureFluxCalibration.run(merged, references, pfsConfig)
         self.measureFluxCalibration.applySpectra(merged, pfsConfig, calib)
-        spectra = [merged.extractFiber(PfsSingle, pfsConfig, fiberId) for fiberId in merged.fiberId]
+        indices = pfsConfig.selectByFiberStatus(FiberStatus.GOOD, merged.fiberId)
+        fiberId = merged.fiberId[indices]
+        spectra = [merged.extractFiber(PfsSingle, pfsConfig, ff) for ff in fiberId]
 
         armRefList = list(butler.subset("raw", dataId=dataRef.dataId))
         armList = [ref.get("pfsArm") for ref in armRefList]
@@ -76,7 +78,7 @@ class FluxCalibrateTask(CmdLineTask):
                 fiberToArm[ff].append(ii)
 
         # Add the fluxTable
-        for ss, ff in zip(spectra, merged.fiberId):
+        for ss, ff in zip(spectra, fiberId):
             ss.fluxTable = self.fluxTable.run([ref.dataId for ref in armRefList],
                                               [armList[ii].extractFiber(PfsSingle, pfsConfig, ff) for
                                                ii in fiberToArm[ff]],
@@ -85,11 +87,11 @@ class FluxCalibrateTask(CmdLineTask):
 
         if self.config.doWrite:
             dataRef.put(calib, "fluxCal")
-            for fiberId, spectrum in zip(merged.fiberId, spectra):
+            for ff, spectrum in zip(fiberId, spectra):
                 dataId = spectrum.getIdentity().copy()
                 dataId.update(dataRef.dataId)
                 butler.put(spectrum, "pfsSingle", dataId)
-                butler.put(mergedLsf[fiberId], "pfsSingleLsf", dataId)
+                butler.put(mergedLsf[ff], "pfsSingleLsf", dataId)
         return Struct(calib=calib, spectra=spectra)
 
     def readReferences(self, butler, pfsConfig, fiberId):
