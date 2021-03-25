@@ -123,31 +123,6 @@ class SpectrumTestCase(BaseTestCase):
         copy = pickle.loads(pickle.dumps(spectrum))
         self.assertSpectrum(copy)
 
-    def testIdentifyLines(self):
-        """Test ``Spectrum.identifyLines``"""
-        center = 0.5*self.length
-        sigma = 1.2345
-        peak = 1000.0
-        spectrum = drpStella.Spectrum(self.length, self.fiberId)
-        spectrum.wavelength = np.arange(self.length, dtype=float)
-        spectrum.flux[:] = peak*np.exp(-0.5*((spectrum.wavelength - center)/sigma)**2)
-        spectrum.mask[:] = 0
-        spectrum.variance[:] = 0.1
-        spectrum.referenceLines = []
-
-        referenceLines = [self.line]
-        referenceLines[0].guessedPosition = center
-
-        dispCtrl = drpStella.DispersionCorrectionControl()
-        spectrum.identify(referenceLines, dispCtrl, 0)
-        self.assertEqual(len(spectrum.referenceLines), 1)
-        line = spectrum.referenceLines[0]
-        self.assertEqual(line.guessedPosition, center)
-        self.assertEqual(line.status, drpStella.ReferenceLine.Status.FIT)
-        self.assertAlmostEqual(line.fitPosition, center)
-        self.assertAlmostEqual(line.fitIntensity, peak)
-        self.assertLess(line.fitPositionErr, sigma/5)
-
     def testPlot(self):
         """Test plotting of spectrum
 

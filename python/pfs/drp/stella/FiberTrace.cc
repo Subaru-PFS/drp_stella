@@ -3,7 +3,6 @@
 
 #include "ndarray/pybind11.h"
 
-#include "pfs/drp/stella/math/findAndTraceApertures.h"
 #include "pfs/drp/stella/FiberTrace.h"
 
 namespace py = pybind11;
@@ -30,9 +29,6 @@ void declareFiberTrace(py::module &mod)
     cls.def("getFiberId", &Class::getFiberId);
     cls.def_property_readonly("trace", [](Class const& self) { return self.getTrace(); });
     cls.def_property("fiberId", &Class::getFiberId, &Class::setFiberId);
-
-    cls.def("extractSpectrum", &Class::extractSpectrum, "image"_a,
-            "fitBackground"_a=false, "clipNSigma"_a=0.0, "useProfile"_a=true);
 
     cls.def("constructImage", py::overload_cast<Spectrum const&>(&Class::constructImage, py::const_),
             "spectrum"_a);

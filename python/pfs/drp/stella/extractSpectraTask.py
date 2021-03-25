@@ -7,9 +7,6 @@ import pfs.drp.stella as drpStella
 
 
 class ExtractSpectraConfig(pexConfig.Config):
-    useOptimal = pexConfig.Field(dtype=bool, default=True,
-                                 doc="Use optimal extraction? "
-                                     "Otherwise, use a simple sum of pixels within the trace.")
     fiberId = pexConfig.ListField(dtype=int, default=[], doc="If non-empty, only extract these fiberIds")
 
 
@@ -109,7 +106,7 @@ class ExtractSpectraTask(pipeBase.Task):
             Extracted spectra.
         """
         fiberId = fiberTrace.getFiberId()
-        spectrum = fiberTrace.extractSpectrum(maskedImage, self.config.useOptimal)
+        spectrum = fiberTrace.extractSpectrum(maskedImage)
         if detectorMap is not None:
             spectrum.setWavelength(detectorMap.getWavelength(fiberId))
         return spectrum

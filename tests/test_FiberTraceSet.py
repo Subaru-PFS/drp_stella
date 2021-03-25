@@ -14,7 +14,7 @@ import lsst.afw.image.testUtils
 
 import pfs.drp.stella as drpStella
 from pfs.drp.stella.synthetic import makeSpectrumImage, SyntheticConfig, makeSyntheticDetectorMap
-from pfs.drp.stella.findAndTraceAperturesTask import FindAndTraceAperturesTask
+from pfs.drp.stella.buildFiberProfiles import BuildFiberProfilesTask
 
 display = None
 
@@ -247,11 +247,17 @@ class FiberTraceSetTestCase(lsst.utils.tests.TestCase):
         variance = lsst.afw.image.ImageF(allFlat.getBBox())
         variance.set(10000.0)
 
-        task = FindAndTraceAperturesTask()
-        task.config.finding.minLength = 200
-        task.config.finding.signalThreshold = 10
-        evenTraces = task.run(lsst.afw.image.makeMaskedImage(evenFlat, mask, variance), detMap)
-        oddTraces = task.run(lsst.afw.image.makeMaskedImage(oddFlat, mask, variance), detMap)
+        evenExposure = lsst.afw.image.makeExposure(lsst.afw.image.makeMaskedImage(evenFlat, mask, variance))
+        oddExposure = lsst.afw.image.makeExposure(lsst.afw.image.makeMaskedImage(oddFlat, mask, variance))
+
+        task = BuildFiberProfilesTask()
+        task.config.pruneMinLength = 200
+        task.config.findThreshold = 10
+        task.config.profileOversample = 25
+        evenProfiles = task.run(evenExposure, detMap).profiles
+        oddProfiles = task.run(oddExposure, detMap).profiles
+        evenTraces = evenProfiles.makeFiberTracesFromDetectorMap(detMap)
+        oddTraces = oddProfiles.makeFiberTracesFromDetectorMap(detMap)
 
         self.assertEqual(len(evenTraces), len(config.traceCenters[0::2]))
         self.assertEqual(len(oddTraces), len(config.traceCenters[1::2]))

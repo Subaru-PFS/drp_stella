@@ -6,7 +6,6 @@
 
 #include "lsst/afw/image/MaskedImage.h"
 #include "pfs/drp/stella/ReferenceLine.h"
-#include "pfs/drp/stella/Controls.h"
 
 namespace pfs { namespace drp { namespace stella {
 
@@ -148,18 +147,6 @@ class Spectrum {
 
     /// Set the list of reference lines
     void setReferenceLines(ReferenceLineList const& lines) { _referenceLines = lines; }
-
-    /**
-      * @brief: Identifies calibration lines, given input linelist for the wavelength-calibration spectrum
-      * and fits Gaussians to each line
-      *
-      * Saves copy of lineList with as-observed values in _referenceLines
-      **/
-    void identify(
-        ConstReferenceLineList const& lineList, ///< List of arc lines
-        DispersionCorrectionControl const& dispCorControl, ///< configuration for wavelength calibration
-        int nLinesCheck=0 ///< number of lines to hold back from fitting procedure
-    );
 
     bool isWavelengthSet() const { return _isWavelengthSet; }
 

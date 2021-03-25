@@ -3,12 +3,7 @@
 #include "lsst/afw/math/LeastSquares.h"
 
 #include "pfs/drp/stella/FiberTraceSet.h"
-#include "pfs/drp/stella/math/Math.h"
 #include "pfs/drp/stella/math/symmetricTridiagonal.h"
-
-//#define __DEBUG_FINDANDTRACE__ 1
-
-namespace afwImage = lsst::afw::image;
 
 namespace pfs { namespace drp { namespace stella {
 
@@ -28,6 +23,38 @@ FiberTraceSet<ImageT, MaskT, VarianceT>::FiberTraceSet(
 }
 
 
+namespace {
+
+// Functor for comparing vector values by their indices
+template <typename T>
+struct IndicesComparator {
+    std::vector<T> const& data;
+    IndicesComparator(std::vector<T> const& data_) : data(data_) {}
+    bool operator()(std::size_t lhs, std::size_t rhs) const {
+        return data[lhs] < data[rhs];
+    }
+};
+
+
+/**
+ * Returns an integer array of the same size like <data>,
+ * containing the indixes of <data> in sorted order.
+ *
+ * @param[in] data       vector to sort
+ **/
+template<typename T>
+std::vector<std::size_t> sortIndices(std::vector<T> const& data) {
+    std::size_t const num = data.size();
+    std::vector<std::size_t> indices(num);
+    std::size_t index = 0;
+    std::generate_n(indices.begin(), num, [&index]() { return index++; });
+    std::sort(indices.begin(), indices.end(), IndicesComparator<T>(data));
+    return indices;
+}
+
+}  // anonymous namespace
+
+
 template<typename ImageT, typename MaskT, typename VarianceT>
 void FiberTraceSet<ImageT, MaskT, VarianceT >::sortTracesByXCenter()
 {
@@ -37,7 +64,7 @@ void FiberTraceSet<ImageT, MaskT, VarianceT >::sortTracesByXCenter()
                    [](std::shared_ptr<FiberTraceT> ft) {
                        auto const& box = ft->getTrace().getBBox();
                        return 0.5*(box.getMinX() + box.getMaxX()); });
-    std::vector<std::size_t> indices = math::sortIndices(xCenters);
+    std::vector<std::size_t> indices = sortIndices(xCenters);
 
     Collection sorted(num);
     std::transform(indices.begin(), indices.end(), sorted.begin(),
