@@ -169,6 +169,7 @@ SpectrumSet FiberTraceSet<ImageT, MaskT, VarianceT>::extractSpectra(
             }
 
             if (model2 == 0.0) {
+                useTrace[ii] = false;
                 diagonal[ii] = 1.0;  // to avoid making the matrix singular
                 diagonalWeighted[ii] = 1.0;
                 vector[ii] = 0.0;
