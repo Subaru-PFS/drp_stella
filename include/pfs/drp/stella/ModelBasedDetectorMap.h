@@ -69,7 +69,7 @@ class ModelBasedDetectorMap : public DetectorMap {
     /// Return the position of the fiber trace on the detector, given a fiberId and wavelength
     ///
     /// Implementation of findPoint, for subclasses to define.
-    virtual lsst::geom::PointD findPointImpl(int fiberId, double wavelength) const = 0;
+    virtual lsst::geom::PointD findPointImpl(int fiberId, double wavelength) const override = 0;
 
     /// Return the fiber center
     virtual double getXCenterImpl(int fiberId, double row) const override;
