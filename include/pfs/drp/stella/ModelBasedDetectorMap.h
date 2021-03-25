@@ -47,12 +47,6 @@ class ModelBasedDetectorMap : public DetectorMap {
     ModelBasedDetectorMap & operator=(ModelBasedDetectorMap &&) = default;
 
     //@{
-    /// Return the fiber centers
-    virtual Array1D getXCenter(int fiberId) const override;
-    virtual double getXCenter(int fiberId, double row) const override;
-    //@}
-
-    //@{
     /// Return the wavelength values
     virtual Array1D getWavelength(int fiberId) const override;
     virtual double getWavelength(int fiberId, double row) const override;
@@ -76,6 +70,9 @@ class ModelBasedDetectorMap : public DetectorMap {
     ///
     /// Implementation of findPoint, for subclasses to define.
     virtual lsst::geom::PointD findPointImpl(int fiberId, double wavelength) const = 0;
+
+    /// Return the fiber center
+    virtual double getXCenterImpl(int fiberId, double row) const override;
 
     /// Set splines
     void _setSplines() const;

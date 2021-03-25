@@ -100,23 +100,7 @@ std::shared_ptr<DetectorMap> SplinedDetectorMap::clone() const {
 }
 
 
-DetectorMap::Array1D SplinedDetectorMap::getXCenter(
-    int fiberId
-) const {
-    auto const& spline = getXCenterSpline(fiberId);
-    double const spatial = getSpatialOffset(fiberId);
-    double const spectral = getSpectralOffset(fiberId);
-    std::size_t const height = getBBox().getHeight();
-
-    ndarray::Array<double, 1, 1> out = ndarray::allocate(height);
-    for (std::size_t yy = 0; yy < height; ++yy) {
-        out[yy] = spline(yy - spectral) + spatial;
-    }
-    return out;
-}
-
-
-double SplinedDetectorMap::getXCenter(
+double SplinedDetectorMap::getXCenterImpl(
     int fiberId,
     double row
 ) const {

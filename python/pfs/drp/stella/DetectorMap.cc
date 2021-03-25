@@ -35,6 +35,13 @@ void declareDetectorMap(py::module & mod) {
     cls.def("setSlitOffsets", py::overload_cast<int, double, double>(&Class::setSlitOffsets),
             "fiberId"_a, "spatial"_a, "spectral"_a);
     cls.def("getXCenter", py::overload_cast<>(&Class::getXCenter, py::const_));
+    cls.def("getXCenter", py::overload_cast<int>(&Class::getXCenter, py::const_));
+    cls.def("getXCenter", py::overload_cast<int, double>(&Class::getXCenter, py::const_));
+    cls.def("getXCenter",
+            py::overload_cast<ndarray::Array<int, 1, 1> const&,
+                              ndarray::Array<double, 1, 1> const&>(&Class::getXCenter, py::const_));
+    cls.def("getXCenter",
+            py::overload_cast<int, ndarray::Array<double, 1, 1> const&>(&Class::getXCenter, py::const_));
     cls.def("getWavelength", py::overload_cast<>(&Class::getWavelength, py::const_));
     cls.def("getDispersion", &Class::getDispersion, "fiberId"_a);
     cls.def("findPoint", py::overload_cast<int, double, bool>(&Class::findPoint, py::const_),
