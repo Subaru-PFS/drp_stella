@@ -76,12 +76,6 @@ class SplinedDetectorMap : public DetectorMap {
     virtual std::shared_ptr<DetectorMap> clone() const override;
 
     //@{
-    /// Return the fiber centers
-    virtual Array1D getXCenter(int fiberId) const override;
-    virtual double getXCenter(int fiberId, double row) const override;
-    //@}
-
-    //@{
     /// Return the wavelength values for each row
     virtual Array1D getWavelength(int fiberId) const override;
     virtual double getWavelength(int fiberId, double row) const override;
@@ -136,6 +130,9 @@ class SplinedDetectorMap : public DetectorMap {
 
     /// Return the wavelength of a point on the detector, given a fiberId and row
     virtual double findWavelengthImpl(int fiberId, double row) const override;
+
+    /// Return the fiber center
+    virtual double getXCenterImpl(int fiberId, double row) const override;
 
     std::string getPersistenceName() const { return "SplinedDetectorMap"; }
     std::string getPythonModule() const { return "pfs.drp.stella"; }

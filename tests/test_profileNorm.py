@@ -59,7 +59,7 @@ class ProfileNormTestCase(lsst.utils.tests.TestCase):
         traces = fiberProfiles.makeFiberTracesFromDetectorMap(detMap)
         spectra = traces.extractSpectra(image)
         for ss in spectra:
-            self.assertFloatsAlmostEqual(ss.flux, 1.0, atol=5.0e-8)
+            self.assertFloatsAlmostEqual(ss.flux, 1.0, atol=1.0e-7)
 
 
 class TestMemory(lsst.utils.tests.MemoryTestCase):

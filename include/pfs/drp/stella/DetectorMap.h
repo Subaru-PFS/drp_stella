@@ -72,8 +72,13 @@ class DetectorMap : public lsst::afw::table::io::Persistable {
     //@{
     /// Return the fiber centers
     Array2D getXCenter() const;
-    virtual Array1D getXCenter(int fiberId) const = 0;
-    virtual double getXCenter(int fiberId, double row) const = 0;
+    Array1D getXCenter(int fiberId) const;
+    double getXCenter(int fiberId, double row) const { return getXCenterImpl(fiberId, row); }
+    Array1D getXCenter(int fiberId, ndarray::Array<double, 1, 1> const& row) const;
+    Array1D getXCenter(
+        ndarray::Array<int, 1, 1> const& fiberId,
+        ndarray::Array<double, 1, 1> const& row
+    ) const;
     //@}
 
     //@{
@@ -158,6 +163,11 @@ class DetectorMap : public lsst::afw::table::io::Persistable {
     ///
     /// Implementation of findWavelength, for subclasses to define.
     virtual double findWavelengthImpl(int fiberId, double row) const = 0;
+
+    /// Return the center of the fiber trace, given a fiberId and row
+    ///
+    /// Implementation of getXCenter, for subclasses to define.
+    virtual double getXCenterImpl(int fiberId, double row) const = 0;
 
     /// Reset cached elements after setting slit offsets
     virtual void _resetSlitOffsets() {}

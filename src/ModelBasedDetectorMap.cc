@@ -106,21 +106,7 @@ void ModelBasedDetectorMap::_setSplines() const {
 }
 
 
-DetectorMap::Array1D ModelBasedDetectorMap::getXCenter(
-    int fiberId
-) const {
-    _ensureSplinesInitialized();
-    Spline const& spline = _rowToXCenter[getFiberIndex(fiberId)];
-    std::size_t const height = getBBox().getHeight();
-    Array1D out = ndarray::allocate(height);
-    for (std::size_t yy = 0; yy < height; ++yy) {
-        out[yy] = spline(yy);
-    }
-    return out;
-}
-
-
-double ModelBasedDetectorMap::getXCenter(
+double ModelBasedDetectorMap::getXCenterImpl(
     int fiberId,
     double row
 ) const {

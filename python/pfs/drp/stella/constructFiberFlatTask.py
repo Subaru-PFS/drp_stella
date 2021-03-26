@@ -42,7 +42,6 @@ class ConstructFiberFlatTask(SpectralCalibTask):
         config.isr.doFlat = False
         config.isr.doFringe = False
         config.profiles.doBlindFind = True  # Because we've dithered the fiber positions
-        config.profiles.doIdentifyFibers = False  # Don't care which fiber is which
 
     def combine(self, cache, struct, outputId):
         """Combine multiple exposures of a particular CCD and write the output

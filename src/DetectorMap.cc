@@ -117,6 +117,40 @@ DetectorMap::Array2D DetectorMap::getXCenter() const {
     return xCenter;
 }
 
+DetectorMap::Array1D DetectorMap::getXCenter(int fiberId) const {
+    int const height = getBBox().getHeight();
+    Array1D xCenter = ndarray::allocate(height);
+    for (int yy = 0; yy < height; ++yy) {
+        xCenter[yy] = getXCenterImpl(fiberId, yy);
+    }
+    return xCenter;
+}
+
+
+DetectorMap::Array1D DetectorMap::getXCenter(
+    ndarray::Array<int, 1, 1> const& fiberId,
+    ndarray::Array<double, 1, 1> const& row
+) const {
+    utils::checkSize(fiberId.size(), row.size(), "fiberId vs row");
+    Array1D xCenter = ndarray::allocate(fiberId.size());
+    for (std::size_t ii = 0; ii < fiberId.size(); ++ii) {
+        xCenter[ii] = getXCenter(fiberId[ii], row[ii]);
+    }
+    return xCenter;
+}
+
+
+DetectorMap::Array1D DetectorMap::getXCenter(
+    int fiberId,
+    ndarray::Array<double, 1, 1> const& row
+) const {
+    Array1D xCenter = ndarray::allocate(row.size());
+    for (std::size_t ii = 0; ii < row.size(); ++ii) {
+        xCenter[ii] = getXCenter(fiberId, row[ii]);
+    }
+    return xCenter;
+}
+
 
 lsst::geom::Point2D DetectorMap::findPoint(int fiberId, double wavelength, bool throwOnError) const {
     double const NaN = std::numeric_limits<double>::quiet_NaN();
