@@ -59,8 +59,6 @@ void declareSpectrum(py::module &mod) {
     cls.def("setFiberId", &Class::setFiberId, "fiberId"_a);
     cls.def_property("fiberId", &Class::getFiberId, &Class::setFiberId);
 
-    cls.def("identify", &Class::identify, "lineList"_a, "dispCorControl"_a, "nLinesCheck"_a=0);
-
     cls.def("getReferenceLines", [](Class & self) { return self.getReferenceLines(); },
             py::return_value_policy::reference_internal);
     cls.def("setReferenceLines", &Class::setReferenceLines);

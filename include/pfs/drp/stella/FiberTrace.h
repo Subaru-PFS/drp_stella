@@ -62,16 +62,6 @@ class FiberTrace {
     //@}
 
     /**
-     * @brief Extract the spectrum of this fiber trace using the profile
-     */
-    std::shared_ptr<Spectrum> extractSpectrum(
-        MaskedImageT const& image, ///< image containing the spectrum
-        bool fitBackground=false, ///< should I fit the background level?
-        float clipNSigma=0, ///< clip data points at this many sigma (if > 0)
-        bool useProfile=true  ///< use profile to perform "optimal" extraction?
-    );
-
-    /**
      * @brief Return an image containing the reconstructed 2D spectrum of the FiberTrace
      *
      * @param spectrum : 1D spectrum to reconstruct the 2D image from

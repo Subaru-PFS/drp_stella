@@ -62,7 +62,7 @@ class DifferentialDetectorMap : public ModelBasedDetectorMap {
         ndarray::Array<double, 1, 1> const& yErr
     ) override;
 
-    bool isPersistable() const noexcept { return true; }
+    bool isPersistable() const noexcept override { return true; }
 
     class Factory;
 
@@ -70,9 +70,9 @@ class DifferentialDetectorMap : public ModelBasedDetectorMap {
     /// Return the position of the fiber trace on the detector, given a fiberId and wavelength
     virtual lsst::geom::PointD findPointImpl(int fiberId, double wavelength) const override;
 
-    std::string getPersistenceName() const { return "DifferentialDetectorMap"; }
-    std::string getPythonModule() const { return "pfs.drp.stella"; }
-    void write(lsst::afw::table::io::OutputArchiveHandle & handle) const;
+    std::string getPersistenceName() const override { return "DifferentialDetectorMap"; }
+    std::string getPythonModule() const override { return "pfs.drp.stella"; }
+    void write(lsst::afw::table::io::OutputArchiveHandle & handle) const override;
 
     /// Reset cached elements after setting slit offsets
     virtual void _resetSlitOffsets() override;

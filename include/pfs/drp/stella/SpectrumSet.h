@@ -116,7 +116,7 @@ class SpectrumSet {
     Collection const& getInternal() const { return _spectra; }
 
   private:
-    std::size_t const _length;  // length of each spectrum
+    std::size_t _length;  // length of each spectrum
     Collection _spectra; // spectra for each aperture
 };
 

@@ -28,7 +28,7 @@ struct TracePeak {
     TracePeak(TracePeak const&) = delete;
     TracePeak(TracePeak &&) = default;
     TracePeak & operator=(TracePeak const&) = delete;
-    TracePeak & operator=(TracePeak &&) = default;
+    TracePeak & operator=(TracePeak &&) = delete;
 };
 
 

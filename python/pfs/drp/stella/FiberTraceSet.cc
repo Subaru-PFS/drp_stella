@@ -3,7 +3,6 @@
 
 #include "ndarray/pybind11.h"
 
-#include "pfs/drp/stella/math/findAndTraceApertures.h"
 #include "pfs/drp/stella/FiberTraceSet.h"
 
 namespace py = pybind11;
@@ -49,32 +48,9 @@ void declareFiberTraceSet(py::module &mod)
 }
 
 
-template <typename ImageT>
-void declareFunctions(py::module &mod)
-{
-    mod.def("findAndTraceApertures", math::findAndTraceApertures<ImageT>,
-            "maskedImage"_a, "detectorMap"_a, "finding"_a, "function"_a, "fitting"_a);
-    mod.def("findCenterPositionsOneTrace", math::findCenterPositionsOneTrace<ImageT>,
-            "image"_a, "variance"_a, "control"_a, "nextSearchStart"_a);
-}
-
-
 PYBIND11_PLUGIN(FiberTraceSet) {
     py::module mod("FiberTraceSet");
     declareFiberTraceSet<float>(mod);
-    declareFunctions<float>(mod);
-
-    py::class_<math::FindCenterPositionsOneTraceResult, PTR(math::FindCenterPositionsOneTraceResult)>
-        findResult(mod, "FindCenterPositionsOneTraceResult");
-    findResult.def_readwrite("index",
-                             &math::FindCenterPositionsOneTraceResult::index);
-    findResult.def_readwrite("position",
-                             &math::FindCenterPositionsOneTraceResult::position);
-    findResult.def_readwrite("error",
-                             &math::FindCenterPositionsOneTraceResult::error);
-    findResult.def_readwrite("nextSearchStart",
-                             &math::FindCenterPositionsOneTraceResult::nextSearchStart);
-
     return mod.ptr();
 }
 

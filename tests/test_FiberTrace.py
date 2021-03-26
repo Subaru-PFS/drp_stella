@@ -162,30 +162,11 @@ class FiberTraceTestCase(lsst.utils.tests.TestCase):
             self.assertFloatsEqual(spectrum.background[beforeSlice], 0.0)
         self.assertEqual(spectrum.fiberId, self.fiberId)
 
-    def testExtractNonOptimal(self):
-        """Vanilla non-optimal extraction"""
-        spectrum = self.fiberTrace.extractSpectrum(self.image, False, 0, False)
-        self.assertSpectrumValues(spectrum, image=np.sum(self.subimage.image.array, axis=1),
-                                  variance=self.nonOptimalVariance, background=0.0, imageTol=1.0e-6)
-
     def testExtractOptimal(self):
         """Vanilla optimal extraction"""
-        spectrum = self.fiberTrace.extractSpectrum(self.image, False, 0, True)
+        spectrum = self.fiberTrace.extractSpectrum(self.image, self.bad)
         self.assertSpectrumValues(spectrum, image=1.0, variance=self.optimalVariance,
                                   background=0.0, varianceTol=1.0e-6)
-
-    def testExtractNonOptimalMissing(self):
-        """Non-optimal extraction with some pixels removed from the trace
-
-        Checks that the ``FIBERTRACE`` mask is being respected.
-        """
-        badCol = 5
-        self.fiberTrace.trace.mask.array[:, badCol] = 0
-        spectrum = self.fiberTrace.extractSpectrum(self.image, False, 0, False)
-        expectImage = np.sum(self.subimage.image.array, axis=1) - self.subimage.image.array[:, badCol]
-        expectVariance = self.nonOptimalVariance - self.variance
-        self.assertSpectrumValues(spectrum, image=expectImage, variance=expectVariance,
-                                  background=0.0, imageTol=1.0e-6)
 
     def testExtractOptimalMissing(self):
         """Optimal extraction with some pixels removed from the trace
@@ -194,24 +175,11 @@ class FiberTraceTestCase(lsst.utils.tests.TestCase):
         """
         badCol = 5
         self.fiberTrace.trace.mask.array[:, badCol] = 0
-        spectrum = self.fiberTrace.extractSpectrum(self.image, False, 0, True)
+        spectrum = self.fiberTrace.extractSpectrum(self.image, self.bad)
         expectVariance = 1.0/(np.sum(self.subimage.image.array**2/self.variance, axis=1) -
                               self.subimage.image.array[:, badCol]**2/self.variance)
         self.assertSpectrumValues(spectrum, image=1.0, variance=expectVariance, background=0.0,
                                   varianceTol=1.0e-6)
-
-    def testExtractNonOptimalMasked(self):
-        """Non-optimal extraction with some input pixels masked
-
-        Checks that the image mask is being respected.
-        """
-        badCol = 5
-        self.subimage.mask.array[:, badCol] = self.bad
-        spectrum = self.fiberTrace.extractSpectrum(self.image, False, 0, False)
-        expectImage = np.sum(self.subimage.image.array, axis=1) - self.subimage.image.array[:, badCol]
-        expectVariance = self.nonOptimalVariance - self.variance
-        self.assertSpectrumValues(spectrum, image=expectImage, variance=expectVariance, background=0.0,
-                                  imageTol=1.0e-6)
 
     def testExtractOptimalMasked(self):
         """Optimal extraction with some input pixels masked
@@ -220,28 +188,11 @@ class FiberTraceTestCase(lsst.utils.tests.TestCase):
         """
         badCol = 5
         self.subimage.mask.array[:, badCol] = self.bad
-        spectrum = self.fiberTrace.extractSpectrum(self.image, False, 0, True)
+        spectrum = self.fiberTrace.extractSpectrum(self.image, self.bad)
         expectVariance = 1.0/(np.sum(self.subimage.image.array**2/self.variance, axis=1) -
                               self.subimage.image.array[:, badCol]**2/self.variance)
         self.assertSpectrumValues(spectrum, image=1.0, variance=expectVariance, background=0.0,
                                   varianceTol=1.0e-6)
-
-    def testExtractNonOptimalBadRow(self):
-        """Non-optimal extraction with a bad row of pixels
-
-        Checks that bad spectral elements are masked.
-        """
-        badRow = 23
-        self.subimage.mask.array[badRow, :] = self.bad
-        spectrum = self.fiberTrace.extractSpectrum(self.image, False, 0, False)
-        expectImage = np.sum(self.subimage.image.array, axis=1)
-        expectImage[badRow] = 0.0
-        expectVariance = self.nonOptimalVariance*np.ones_like(expectImage)
-        expectVariance[badRow] = 0.0
-        expectMask = np.zeros(self.height, dtype=np.int32)
-        expectMask[badRow] = self.bad
-        self.assertSpectrumValues(spectrum, image=expectImage, variance=expectVariance,
-                                  mask=expectMask, background=0.0, imageTol=1.0e-6)
 
     def testExtractOptimalBadRow(self):
         """Optimal extraction with a bad row of pixels
@@ -250,33 +201,15 @@ class FiberTraceTestCase(lsst.utils.tests.TestCase):
         """
         badRow = 23
         self.subimage.mask.array[badRow, :] = self.bad
-        spectrum = self.fiberTrace.extractSpectrum(self.image, False, 0, True)
+        spectrum = self.fiberTrace.extractSpectrum(self.image, self.bad)
         expectImage = np.ones(self.height, dtype=float)
         expectImage[badRow] = 0.0
         expectVariance = self.optimalVariance
         expectVariance[badRow] = 0.0
         expectMask = np.zeros(self.height, dtype=np.int32)
-        expectMask[badRow] = self.bad
+        expectMask[badRow] = spectrum.mask.getPlaneBitMask(["NO_DATA", "BAD_FIBERTRACE"])
         self.assertSpectrumValues(spectrum, image=expectImage, variance=expectVariance,
                                   mask=expectMask, background=0.0, varianceTol=1.0e-6)
-
-    def testExtractOptimalBackground(self):
-        """Optimal extraction with background fitting"""
-        self.subimage += 1.0
-        spectrum = self.fiberTrace.extractSpectrum(self.image, True, 0, True)
-        sumWeights = self.width/self.variance
-        sumP = np.sum(self.trace.image.array/self.variance, axis=1)
-        sumPP = np.sum(self.trace.image.array**2/self.variance, axis=1)
-        expectVariance = sumWeights/(sumWeights*sumPP - sumP**2)
-        self.assertSpectrumValues(spectrum, image=1.0, variance=expectVariance, background=1.0,
-                                  imageTol=1.0e-6, varianceTol=2.0e-6, backgroundTol=1.0e-6)
-
-    def testExtractOptimalClipping(self):
-        """Optimal extraction with clipping"""
-        badCol = 5
-        self.subimage.image.array[:, badCol] = 12.345  # Not too high, not too low....
-        spectrum = self.fiberTrace.extractSpectrum(self.image, False, 3.0, True)
-        self.assertSpectrumValues(spectrum, image=1.0, variance=None, imageTol=1.0e-6, varianceTol=2.0e-6)
 
     def testConstructImage(self):
         """Test construction of image from the spectrum

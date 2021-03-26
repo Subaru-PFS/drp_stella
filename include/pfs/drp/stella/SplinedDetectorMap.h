@@ -120,7 +120,7 @@ class SplinedDetectorMap : public DetectorMap {
         ndarray::Array<double, 1, 1> const& yErr
     ) override;
 
-    bool isPersistable() const noexcept { return true; }
+    bool isPersistable() const noexcept override { return true; }
 
     class Factory;
 
@@ -134,9 +134,9 @@ class SplinedDetectorMap : public DetectorMap {
     /// Return the fiber center
     virtual double getXCenterImpl(int fiberId, double row) const override;
 
-    std::string getPersistenceName() const { return "SplinedDetectorMap"; }
-    std::string getPythonModule() const { return "pfs.drp.stella"; }
-    void write(lsst::afw::table::io::OutputArchiveHandle & handle) const;
+    std::string getPersistenceName() const override { return "SplinedDetectorMap"; }
+    std::string getPythonModule() const override { return "pfs.drp.stella"; }
+    void write(lsst::afw::table::io::OutputArchiveHandle & handle) const override;
 
   private:
     std::vector<Spline> _xCenter;  ///< convert y pixel value to trace position

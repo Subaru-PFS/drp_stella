@@ -3,7 +3,6 @@
 #include "lsst/log/Log.h"
 
 #include "pfs/drp/stella/FiberTrace.h"
-#include "pfs/drp/stella/math/CurveFitting.h"
 
 //#define __DEBUG_FINDANDTRACE__ 1
 
@@ -27,122 +26,6 @@ FiberTrace<ImageT, MaskT, VarianceT>::FiberTrace(
 ) : _trace(fiberTrace.getTrace(), deep),
     _fiberId(fiberTrace.getFiberId())
     {}
-
-
-template<typename ImageT, typename MaskT, typename VarianceT>
-PTR(Spectrum)
-FiberTrace<ImageT, MaskT, VarianceT>::extractSpectrum(
-    MaskedImageT const& spectrumImage,
-    bool fitBackground,
-    float clipNSigma,
-    bool useProfile
-) {
-    LOG_LOGGER _log = LOG_GET("pfs.drp.stella.FiberTrace.extractFromProfile");
-    lsst::geom::Box2I bbox = _trace.getBBox();
-    bbox.clip(spectrumImage.getBBox());
-    MaskedImageT const specImage(spectrumImage, bbox);
-    MaskedImageT const traceImage(_trace, bbox);
-    std::size_t const height = bbox.getHeight();
-    std::size_t const width = bbox.getWidth();
-
-    auto spectrum = std::make_shared<Spectrum>(spectrumImage.getHeight(), _fiberId);
-
-    MaskT const ftMask = traceImage.getMask()->getPlaneBitMask(fiberMaskPlane);
-    MaskT const noData = traceImage.getMask()->getPlaneBitMask("NO_DATA");
-    MaskT const badData = specImage.getMask()->getPlaneBitMask({"BAD", "SAT", "CR", "NO_DATA"});
-    MaskT const badSpectrum = spectrum->getMask().getPlaneBitMask("BAD");
-
-    // Select pixels for extraction
-    ndarray::Array<bool, 2, 1> select{height, width};  // select this pixel for extraction?
-    {
-        auto traceRow = traceImage.getMask()->getArray().begin();
-        auto imRow = specImage.getMask()->getArray().begin();
-        auto specRow = spectrum->getMask().begin(true);
-        for (auto selectRow = select.begin(); selectRow != select.end();
-             ++selectRow, ++traceRow, ++imRow, ++specRow) {
-            auto traceIter = traceRow->begin();
-            auto imIter = imRow->begin();
-            MaskT value = 0;
-            for (auto selectIter = selectRow->begin(); selectIter != selectRow->end();
-                 ++selectIter, ++traceIter, ++imIter) {
-                *selectIter = ((*traceIter & ftMask) > 0) && ((*imIter & badData) == 0);
-                if (*selectIter) {
-                    value |= *imIter;
-                }
-            }
-            *specRow = value;
-        }
-    }
-
-    // Extract
-    if (useProfile) {
-        auto const result = math::fitProfile2d(specImage, select, traceImage.getImage()->getArray(), fitBackground,
-                                               clipNSigma);
-        spectrum->getSpectrum()[ndarray::view(bbox.getMinY(), bbox.getMaxY() + 1)] = std::get<0>(result);
-        spectrum->getMask().getArray()[0][ndarray::view(bbox.getMinY(),
-                                                        bbox.getMaxY() + 1)] = std::get<1>(result);
-        // Non-finite values can result from attempting to extract a row which is mostly bad.
-        auto const extracted = spectrum->getSpectrum();
-        for (std::size_t y = bbox.getMinY(); y <= std::size_t(bbox.getMaxY()); ++y) {
-            if (!std::isfinite(extracted[y])) {
-                spectrum->getMask().getArray()[0][y] |= badSpectrum;
-            }
-        }
-        spectrum->getVariance()[ndarray::view(bbox.getMinY(), bbox.getMaxY() + 1)] = std::get<2>(result);
-        spectrum->getBackground()[ndarray::view(bbox.getMinY(), bbox.getMaxY() + 1)] = std::get<3>(result);
-    } else {                            // simple profile fit
-        auto specIt = spectrum->getSpectrum().begin() + bbox.getMinY();
-        auto maskIt = spectrum->getMask().begin() + bbox.getMinY();
-        auto varIt = spectrum->getVariance().begin() + bbox.getMinY();
-        auto itSelectRow = select.begin();
-        auto itTraceRow = specImage.getImage()->getArray().begin();
-        auto itVarRow = specImage.getVariance()->getArray().begin();
-        for (std::size_t y = 0; y < height;
-             ++y, ++specIt, ++maskIt, ++varIt, ++itSelectRow, ++itTraceRow, ++itVarRow) {
-            *specIt = 0.0;
-            *varIt = 0.0;
-            auto itTraceCol = itTraceRow->begin();
-            auto itVarCol = itVarRow->begin();
-            std::size_t num = 0;
-            for (auto itSelectCol = itSelectRow->begin(); itSelectCol != itSelectRow->end();
-                 ++itTraceCol, ++itVarCol, ++itSelectCol) {
-                if (*itSelectCol) {
-                    *specIt += *itTraceCol;
-                    *varIt += *itVarCol;
-                    ++num;
-                }
-            }
-            if (num == 0) {
-                *maskIt |= badSpectrum;
-            }
-        }
-    }
-
-    // Fix the ends of the spectrum
-    auto spec = spectrum->getSpectrum();
-    auto bg = spectrum->getBackground();
-    auto var = spectrum->getVariance();
-    auto & mask = spectrum->getMask();
-
-    int const yMin = bbox.getMinY();
-    int const yMax = bbox.getMaxY();
-
-    if (yMin > 0) {
-        spec[ndarray::view(0, yMin)] = 0.0;
-        bg[ndarray::view(0, yMin)] = 0.0;
-        var[ndarray::view(0, yMin)] = 0.0;
-        std::fill(mask.begin(true), mask.begin(true) + yMin, noData);
-    }
-
-    if (yMax < spectrumImage.getHeight()) {
-        spec[ndarray::view(yMax + 1, spectrumImage.getHeight())] = 0.0;
-        bg[ndarray::view(yMax + 1, spectrumImage.getHeight())] = 0.0;
-        var[ndarray::view(yMax + 1, spectrumImage.getHeight())] = 0.0;
-        std::fill(mask.begin(true) + yMax + 1, mask.end(true), noData);
-    }
-
-    return spectrum;
-}
 
 
 template<typename ImageT, typename MaskT, typename VarianceT>

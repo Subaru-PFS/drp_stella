@@ -65,6 +65,8 @@ class FitPolynomialTask(Task):
         for ii in range(self.config.rejIter):
             func = self.fit(xx, yy, good)
             fit = self.characterize(xx, yy, good, func)
+            if fit.rms == 0:
+                break
             if self.debugInfo.plot:
                 self.plot(xx, yy, good, fit)
             median = np.nanmedian(fit.residuals)

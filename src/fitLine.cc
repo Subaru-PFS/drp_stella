@@ -7,6 +7,7 @@
 #include "lsst/pex/exceptions.h"
 
 #include "pfs/drp/stella/fitLine.h"
+#include "pfs/drp/stella/utils/checkSize.h"
 
 namespace pfs {
 namespace drp {

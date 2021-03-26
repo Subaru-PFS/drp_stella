@@ -3,7 +3,6 @@ from .datamodel import *
 from .ReferenceLine import *
 from .SpectrumContinued import *
 from .SpectrumSetContinued import *
-from .controls import *
 from .FiberTrace import *
 from .FiberTraceContinued import *
 from .FiberTraceSet import *

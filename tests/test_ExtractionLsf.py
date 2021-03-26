@@ -8,7 +8,7 @@ import lsst.afw.image.testUtils
 import lsst.afw.display
 
 from pfs.drp.stella.lsf import ExtractionLsf
-from pfs.drp.stella.findAndTraceAperturesTask import FindAndTraceAperturesTask
+from pfs.drp.stella.buildFiberProfiles import BuildFiberProfilesTask
 from pfs.drp.stella.SpectralPsfContinued import ImagingSpectralPsf
 from pfs.drp.stella.tests.utils import runTests
 
@@ -38,10 +38,11 @@ class ExtractionLsfTestCase(lsst.utils.tests.TestCase):
         self.flat = lsst.afw.image.makeMaskedImage(flat, mask, variance)
         self.detMap = makeSyntheticDetectorMap(self.config)
 
-        task = FindAndTraceAperturesTask()
-        task.config.finding.minLength = 100
-        task.config.finding.signalThreshold = 10
-        self.traces = task.run(self.flat, self.detMap)
+        task = BuildFiberProfilesTask()
+        task.config.pruneMinLength = 100
+        task.config.findThreshold = 10
+        profiles = task.run(lsst.afw.image.makeExposure(self.flat), self.detMap).profiles
+        self.traces = profiles.makeFiberTracesFromDetectorMap(self.detMap)
         self.assertEqual(len(self.traces), self.config.numFibers)
 
         self.psfSigma = self.config.fwhm/(2.0*np.sqrt(2.0*np.log(2)))
