@@ -6,7 +6,7 @@ import lsst.geom
 import lsst.afw.image
 from lsst.pex.config import Config, Field
 from lsst.pipe.base import Struct
-from pfs.datamodel import PfsConfig, TargetType, FiberStatus
+from pfs.datamodel import PfsConfig, TargetType, FiberStatus, GuideStars
 from pfs.drp.stella import SplinedDetectorMap
 
 __all__ = ["makeSpectrumImage",
@@ -329,4 +329,4 @@ def makeSyntheticPfsConfig(config, pfsDesignId, visit, rng=None,
                      fiberId, tract, patch, ra, dec, catId, objId, targetType, fiberStatus,
                      fiberFlux, psfFlux, totalFlux,
                      fiberFluxErr, psfFluxErr, totalFluxErr,
-                     filterNames, pfiCenter, pfiNominal)
+                     filterNames, pfiCenter, pfiNominal, GuideStars.empty())
