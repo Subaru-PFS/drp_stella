@@ -187,7 +187,7 @@ def plotSuNSSFluxes(pfsConfig, pfsSpec, lam0=None, lam1=None, statsOp=np.median,
                 if printFlux:
                     x, y = pfsConfig.pfiNominal[ind]
                     print(f"{visit} {x:8.1f} {y:8.1f}  {fid:3}"
-                          f"{findSuNSSId(pfsConfig, fid):3} {med[ind]:6.3f}")
+                          f" {findSuNSSId(pfsConfig, fid):3} {med[ind]:6.3f}")
 
             broken_color = color
             textcolor = 'black'
