@@ -215,7 +215,7 @@ def plotSuNSSFluxes(pfsConfig, pfsSpec, lam0=None, lam1=None, statsOp=np.median,
             plt.suptitle("Mapping to tower connectors", y=0.83)
         else:
             if i == 0:
-                title = f"{visit} {'brnm'[md['W_ARM']]}{md['W_SPMOD']}  {md['EXPTIME']:.1f}s" if md else ""
+                title = f"{visit} {'?brnm'[md['W_ARM']]}{md['W_SPMOD']}  {md['EXPTIME']:.1f}s" if md else ""
             else:
                 title = r"$%.1f < \lambda < %.1f$" % (lam0, lam1)
             ax.set_title(title)
