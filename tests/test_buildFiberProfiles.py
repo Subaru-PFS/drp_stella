@@ -17,7 +17,7 @@ from pfs.drp.stella.tests.utils import runTests, methodParameters
 display = None
 
 
-class FiberProfileSetTestCase(lsst.utils.tests.TestCase):
+class BuildFiberProfilesTestCase(lsst.utils.tests.TestCase):
     def setUp(self):
         """Construct the basis for testing
 
