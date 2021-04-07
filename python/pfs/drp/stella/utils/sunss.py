@@ -128,11 +128,20 @@ def plotSuNSSFluxes(pfsConfig, pfsSpec, lam0=None, lam1=None, statsOp=np.median,
             suppress.filter(RuntimeWarning, "All-NaN slice encountered")  # e.g. broken fibres
             suppress.filter(RuntimeWarning, "invalid value encountered in less_equal")
             suppress.filter(RuntimeWarning, "invalid value encountered in greater_equal")
+            sky = {}
             if subtractSky:
                 pfsFlux = pfsSpec.flux.copy()
-                pfsFlux -= np.nanmedian(np.where(pfsSpec.mask == 0, pfsFlux, np.NaN), axis=0)
             else:
                 pfsFlux = pfsSpec.flux
+
+            for  DI in [TargetType.SUNSS_DIFFUSE, TargetType.SUNSS_IMAGING]:
+                if subtractSky:
+                    l = pfsConfig.selectByTargetType(DI)
+                    sky[DI] = np.nanmedian(np.where(pfsSpec.mask[l] == 0, pfsFlux[l], np.NaN), axis=0)
+                    pfsFlux[l] -= sky[DI]  # median per spectral element
+                    sky[DI] = np.nanmean(sky[DI])
+                else:
+                    sky[DI] = 0
 
             windowed = np.where(np.logical_and(pfsSpec.wavelength >= lam0, pfsSpec.wavelength <= lam1),
                                 pfsFlux, np.NaN)
@@ -220,7 +229,7 @@ def plotSuNSSFluxes(pfsConfig, pfsSpec, lam0=None, lam1=None, statsOp=np.median,
                 title = r"$%.1f < \lambda < %.1f$" % (lam0, lam1)
             ax.set_title(title)
 
-            plt.text(0.03, 0.03, f"fluxMax = {fluxMax:.2f}", transform=ax.transAxes)
+            plt.text(0.03, 0.03, f"sky = {sky[DI]:.3f}  fluxMax = sky + {fluxMax:.3f}", transform=ax.transAxes)
 
         if md:
             plt.suptitle(f"{md['DATE-OBS']}Z{md['UT'][:-4]}", y=0.85)
