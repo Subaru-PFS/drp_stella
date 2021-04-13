@@ -36,7 +36,7 @@ class ReadLineListTestCase(lsst.utils.tests.TestCase):
             Line(456.789, 1000, "NeI", 0),
             Line(567.890, 999, "ArI", 0),
             Line(678.901, 1001, "KrI", 0),
-            Line(789.012, 100000, "ArI", 1),  # Should be ignored, since flagged
+            Line(789.012, 100000, "ArI", 1),  # Flagged
             Line(1023.456, 1000, "NeI", 0),
         ]
         self.config = ReadLineListTask.ConfigClass()
@@ -69,11 +69,10 @@ class ReadLineListTestCase(lsst.utils.tests.TestCase):
         expect : iterable of `Line`
             Expected lines in the list.
         """
-        expect = [ex for ex in expect if ex.flag == 0]  # Don't allow anything that's flagged
         self.assertEqual(len(lineList), len(expect))
         for ll, ex in zip(lineList, expect):
             self.assertEqual(ll.wavelength, ex.wavelength)
-            self.assertEqual(ll.guessedIntensity, ex.intensity)
+            self.assertEqual(ll.intensity, ex.intensity)
             self.assertEqual(ll.description, ex.description)
 
     def testBasic(self):

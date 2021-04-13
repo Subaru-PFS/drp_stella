@@ -6,16 +6,14 @@ import numpy as np
 import lsstDebug
 import lsst.pex.config as pexConfig
 from lsst.pipe.base import TaskRunner, ArgumentParser, CmdLineTask, Struct
-import lsst.afw.display as afwDisplay
+from pfs.datamodel import FiberStatus
 from .reduceExposure import ReduceExposureTask
-from .identifyLines import IdentifyLinesTask
-from pfs.drp.stella.utils import plotReferenceLines
 from pfs.drp.stella.fitDifferentialDetectorMap import FitDifferentialDetectorMapTask
 from .centroidLines import CentroidLinesTask
 from .arcLine import ArcLineSet
 from .readLineList import ReadLineListTask
 from .utils import addPfsCursor
-from .ReferenceLine import ReferenceLine
+from .referenceLine import ReferenceLineStatus
 
 
 __all__ = ["ReduceArcConfig", "ReduceArcTask"]
@@ -26,7 +24,6 @@ class ReduceArcConfig(pexConfig.Config):
     reduceExposure = pexConfig.ConfigurableField(target=ReduceExposureTask,
                                                  doc="Extract spectra from exposure")
     readLineList = pexConfig.ConfigurableField(target=ReadLineListTask, doc="Read linelist")
-    identifyLines = pexConfig.ConfigurableField(target=IdentifyLinesTask, doc="Identify arc lines")
     centroidLines = pexConfig.ConfigurableField(target=CentroidLinesTask, doc="Centroid lines")
     fitDetectorMap = pexConfig.ConfigurableField(target=FitDifferentialDetectorMapTask, doc="Fit detectorMap")
     doUpdateDetectorMap = pexConfig.Field(dtype=bool, default=True,
@@ -105,7 +102,6 @@ class ReduceArcTask(CmdLineTask):
         super().__init__(*args, **kwargs)
         self.makeSubtask("reduceExposure")
         self.makeSubtask("readLineList")
-        self.makeSubtask("identifyLines")
         self.makeSubtask("fitDetectorMap")
         self.makeSubtask("centroidLines")
         self.debugInfo = lsstDebug.Info(__name__)
@@ -137,7 +133,7 @@ class ReduceArcTask(CmdLineTask):
             if len(values) > 1:
                 raise RuntimeError("%s varies for inputs: %s" % (prop, [ref.dataId for ref in dataRefList]))
 
-    def run(self, exposure, spectra, detectorMap, lines):
+    def run(self, exposure, detectorMap, lines):
         """Entry point for scatter stage
 
         Centroids and identifies lines in the spectra extracted from the exposure
@@ -146,33 +142,17 @@ class ReduceArcTask(CmdLineTask):
         ----------
         exposure : `lsst.afw.image.Exposure`
             Image containing the spectra.
-        spectrumSet : `pfs.drp.stella.SpectrumSet`
-            Set of extracted spectra.
         detectorMap : `pfs.drp.stella.utils.DetectorMap`
             Mapping of wl,fiber to detector position.
-        lines : iterable of `pfs.drp.stella.ReferenceLine`
+        lines : `pfs.drp.stella.ReferenceLineSet`
             Reference lines to use
 
         Returns
         -------
-        lines : iterable of `pfs.drp.stella.ReferenceLine`
+        lines : `pfs.drp.stella.ArcLineSet`
             Set of reference lines matched to the data
         """
-        self.identifyLines.run(spectra, detectorMap, lines)
-        if self.debugInfo.display and self.debugInfo.displayIdentifications:
-            exp_id = exposure.getMetadata().get("EXP-ID")
-            visit = int(re.sub(r"^[A-Z]+0*", "", exp_id))
-            frame = self.debugInfo.frame[visit] if self.debugInfo.frame is not None else 1
-            if isinstance(frame, afwDisplay.Display):
-                display = frame
-            else:
-                display = afwDisplay.Display(frame)
-            self.plotIdentifications(display, exposure, spectra, detectorMap,
-                                     displayExposure=self.debugInfo.displayExposure,
-                                     fiberIds=self.debugInfo.fiberIds)
-        referenceLines = self.centroidLines.getReferenceLines(spectra)
-        lines = self.centroidLines.run(exposure, referenceLines, detectorMap)
-
+        lines = self.centroidLines.run(exposure, lines, detectorMap)
         return Struct(
             lines=lines
         )
@@ -211,14 +191,16 @@ class ReduceArcTask(CmdLineTask):
             Exposure metadata (FITS header)
         """
         metadata = dataRef.get("raw_md")
-        lines = self.readLineList.run(metadata=metadata)
         results = self.reduceExposure.runDataRef([dataRef])
         assert len(results.spectraList) == 1, "Single in, single out"
         spectra = results.spectraList[0]
         exposure = results.exposureList[0]
         detectorMap = results.detectorMapList[0]
 
-        lines = self.run(exposure, spectra, detectorMap, lines).lines
+        indices = results.pfsConfig.selectByFiberStatus(FiberStatus.GOOD)
+        fiberId = results.pfsConfig.fiberId[indices]
+        lines = self.readLineList.run(detectorMap=detectorMap, fiberId=fiberId, metadata=metadata)
+        lines = self.run(exposure, detectorMap, lines).lines
 
         dataRef.put(lines, "arcLines")
 
@@ -263,7 +245,7 @@ class ReduceArcTask(CmdLineTask):
         self.write(dataRef, detectorMap, metadata, visitInfo, [ref.dataId["visit"] for ref in dataRefList])
         if self.debugInfo.display and self.debugInfo.displayCalibrations:
             for rr in results:
-                self.plotCalibrations(rr.spectra, detectorMap)
+                self.plotCalibrations(rr.spectra, rr.lines, detectorMap)
 
     def write(self, dataRef, detectorMap, metadata, visitInfo, visits):
         """Write outputs
@@ -366,23 +348,24 @@ class ReduceArcTask(CmdLineTask):
                 for rl in refLines:
                     yActual = rl.fitPosition
                     xActual = detectorMap.getXCenter(fiberId, yActual)
-                    if (rl.status & ReferenceLine.Status.FIT) == 0:
+                    if (rl.status & ReferenceLineStatus.GOOD) == 0:
                         ctype = 'cyan'
-                    elif (rl.status & ReferenceLine.Status.CR) != 0:
+                    elif (rl.status & ReferenceLineStatus.NOT_VISIBLE) != 0:
                         ctype = 'magenta'
-                    elif (rl.status & (ReferenceLine.Status.INTERPOLATED |
-                                       ReferenceLine.Status.SATURATED)) != 0:
+                    elif (rl.status & (ReferenceLineStatus.BLEND |
+                                       ReferenceLineStatus.SUSPECT |
+                                       ReferenceLineStatus.REJECTED)) != 0:
                         ctype = 'green'
                     else:
                         ctype = 'blue'
 
                     display.dot('o', xActual, yActual, ctype=ctype)
 
-                    if showAllCandidates or (rl.status & ReferenceLine.Status.FIT) != 0:
+                    if showAllCandidates or (rl.status & ReferenceLineStatus.GOOD) == 0:
                         xExpect, yExpect = detectorMap.findPoint(fiberId, rl.wavelength)
                         display.dot('x', xExpect, yExpect, ctype='red', size=0.5)
 
-    def plotCalibrations(self, spectrumSet, detectorMap):
+    def plotCalibrations(self, spectrumSet, lines, detectorMap):
         """Plot wavelength calibration results
 
         Important debug parameters:
@@ -397,21 +380,25 @@ class ReduceArcTask(CmdLineTask):
         ----------
         spectrumSet : `pfs.drp.stella.SpectrumSet`
             Spectra that have been wavelength-calibrated.
+        lines : `pfs.drp.stella.ArcLineSet`
+            Measured arc lines.
         detectorMap : `pfs.drp.stella.DetectorMap`
             Mapping of wl,fiber to detector position.
         """
         import matplotlib.pyplot as plt
+
         for spectrum in spectrumSet:
+            refLines = lines.extractReferenceLines(spectrum.fiberId)
             if self.debugInfo.fiberId and spectrum.fiberId not in self.debugInfo.fiberId:
                 continue
             if self.debugInfo.plotCalibrationsRows:
                 rows = np.arange(detectorMap.bbox.getHeight(), dtype=float)
                 plt.plot(rows, spectrum.spectrum)
                 xlim = plt.xlim()
-                plotReferenceLines(spectrum.referenceLines, "guessedPosition", alpha=0.1,
-                                   labelLines=True, labelStatus=False)
-                plotReferenceLines(spectrum.referenceLines, "fitPosition", ls='-', alpha=0.5,
-                                   labelLines=True, labelStatus=True)
+                refLines.plotReferenceLines(spectrum.referenceLines, "guessedPosition", alpha=0.1,
+                                            labelLines=True, labelStatus=False)
+                refLines.plotReferenceLines(spectrum.referenceLines, "fitPosition", ls='-', alpha=0.5,
+                                            labelLines=True, labelStatus=True)
                 plt.xlim(xlim)
                 plt.legend(loc='best')
                 plt.xlabel('row')
@@ -421,9 +408,9 @@ class ReduceArcTask(CmdLineTask):
             if self.debugInfo.plotCalibrationsWavelength:
                 plt.plot(spectrum.wavelength, spectrum.spectrum)
                 xlim = plt.xlim()
-                plotReferenceLines(spectrum.referenceLines, "wavelength", ls='-', alpha=0.5,
-                                   labelLines=True, wavelength=spectrum.wavelength,
-                                   spectrum=spectrum.spectrum)
+                refLines.plotReferenceLines(spectrum.referenceLines, "wavelength", ls='-', alpha=0.5,
+                                            labelLines=True, wavelength=spectrum.wavelength,
+                                            spectrum=spectrum.spectrum)
                 plt.xlim(xlim)
                 plt.legend(loc='best')
                 plt.xlabel("Wavelength (vacuum nm)")

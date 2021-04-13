@@ -5,7 +5,6 @@
 #include <vector>
 
 #include "lsst/afw/image/MaskedImage.h"
-#include "pfs/drp/stella/ReferenceLine.h"
 
 namespace pfs { namespace drp { namespace stella {
 
@@ -25,8 +24,6 @@ class Spectrum {
     using ConstCovarianceMatrix = ndarray::Array<VarianceT const, 2, 1>;
     using WavelengthArray = ndarray::Array<double, 1, 1>;
     using ConstWavelengthArray = ndarray::Array<double const, 1, 1>;
-    using ReferenceLineList = std::vector<std::shared_ptr<ReferenceLine>>;
-    using ConstReferenceLineList = std::vector<std::shared_ptr<const ReferenceLine>>;
 
     /// Construct an empty Spectrum
     ///
@@ -50,7 +47,6 @@ class Spectrum {
         ImageArray const& background,
         CovarianceMatrix const& covariance,
         WavelengthArray const& wavelength,
-        ReferenceLineList const& lines=ReferenceLineList(),
         int fiberId=0
     );
 
@@ -108,12 +104,6 @@ class Spectrum {
     Mask const& getMask() const { return _mask; }
     //@}
 
-    //@{
-    /// Return the list of reference lines
-    ReferenceLineList & getReferenceLines() { return _referenceLines; }
-    ReferenceLineList const& getReferenceLines() const { return _referenceLines; }
-    //@}
-
     /// Return the fiber identifier for this spectrum
     int getFiberId() const { return _fiberId; }
 
@@ -145,9 +135,6 @@ class Spectrum {
     /// Set the fiber identifier of this spectrum
     void setFiberId(int fiberId) { _fiberId = fiberId; }
 
-    /// Set the list of reference lines
-    void setReferenceLines(ReferenceLineList const& lines) { _referenceLines = lines; }
-
     bool isWavelengthSet() const { return _isWavelengthSet; }
 
   private:
@@ -158,7 +145,6 @@ class Spectrum {
     CovarianceMatrix _covariance;
     WavelengthArray _wavelength;
     int _fiberId;
-    ReferenceLineList _referenceLines;
     bool _isWavelengthSet;
 };
 

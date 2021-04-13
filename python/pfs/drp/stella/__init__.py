@@ -1,6 +1,5 @@
 import pfs.drp.stella.pickleUtils  # noqa: register pickle functions
 from .datamodel import *
-from .ReferenceLine import *
 from .SpectrumContinued import *
 from .SpectrumSetContinued import *
 from .FiberTrace import *
@@ -21,6 +20,8 @@ from .fiberProfileSet import *
 from .fitPolynomial import *
 from .slitOffsets import *
 from .DifferentialDetectorMapContinued import *
+from .referenceLine import *
+from .arcLine import *
 
 from lsst.afw.image import Mask
 for plane in ("BAD_FLAT", "FIBERTRACE", "BAD_FIBERTRACE", "BAD_SKY", "BAD_FLUXCAL"):

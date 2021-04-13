@@ -19,10 +19,8 @@ void declareSpectrum(py::module &mod) {
 
     cls.def(py::init<std::size_t, int>(), "length"_a, "fiberId"_a=0);
     cls.def(py::init<Spectrum::ImageArray const&, Spectrum::Mask const&, Spectrum::ImageArray const&,
-                     Spectrum::CovarianceMatrix const&, Spectrum::WavelengthArray const&,
-                     Spectrum::ReferenceLineList const&, int>(),
-            "flux"_a, "mask"_a, "background"_a, "covariance"_a, "wavelength"_a,
-            "lines"_a=Spectrum::ReferenceLineList(), "fiberId"_a=0);
+                     Spectrum::CovarianceMatrix const&, Spectrum::WavelengthArray const&, int>(),
+            "flux"_a, "mask"_a, "background"_a, "covariance"_a, "wavelength"_a, "fiberId"_a=0);
 
     cls.def("getFlux", py::overload_cast<>(&Class::getFlux));
     cls.def("setFlux", &Class::setFlux, "flux"_a);
@@ -59,12 +57,6 @@ void declareSpectrum(py::module &mod) {
     cls.def("setFiberId", &Class::setFiberId, "fiberId"_a);
     cls.def_property("fiberId", &Class::getFiberId, &Class::setFiberId);
 
-    cls.def("getReferenceLines", [](Class & self) { return self.getReferenceLines(); },
-            py::return_value_policy::reference_internal);
-    cls.def("setReferenceLines", &Class::setReferenceLines);
-    cls.def_property("referenceLines", [](Class & self) { return self.getReferenceLines(); },
-                     &Class::setReferenceLines, py::return_value_policy::reference_internal);
-
     cls.def("getNumPixels", &Class::getNumPixels);
     cls.def("__len__", &Class::getNumPixels);
 
@@ -73,14 +65,12 @@ void declareSpectrum(py::module &mod) {
     cls.def(py::pickle(
         [](Class const& self) {
             return py::make_tuple(self.getSpectrum(), self.getMask(), self.getBackground(),
-                                  self.getCovariance(), self.getWavelength(), self.getReferenceLines(),
-                                  self.getFiberId());
+                                  self.getCovariance(), self.getWavelength(), self.getFiberId());
         },
         [](py::tuple const& t) {
             return Spectrum(t[0].cast<Spectrum::ImageArray>(), t[1].cast<Spectrum::Mask>(),
                             t[2].cast<Spectrum::ImageArray>(), t[3].cast<Spectrum::CovarianceMatrix>(),
-                            t[4].cast<Spectrum::WavelengthArray>(), t[5].cast<Spectrum::ReferenceLineList>(),
-                            t[6].cast<std::size_t>());
+                            t[4].cast<Spectrum::WavelengthArray>(), t[5].cast<std::size_t>());
         }
     ));
 }

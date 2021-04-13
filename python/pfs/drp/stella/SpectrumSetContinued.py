@@ -137,10 +137,6 @@ class SpectrumSet:
         This is the output API for the ``FitsCatalogStorage`` storage type used
         by the LSST data butler.
 
-        Note that the fiberIds cannot be preserved without also persisting the
-        associated ``pfsConfig``, and the reference lines cannot be persisted
-        at all.
-
         Parameters
         ----------
         path : `str`
@@ -252,8 +248,7 @@ class SpectrumSet:
                 useWavelength = np.arange(len(spectrum), dtype=float)
             division = np.searchsorted(useWavelength,
                                        np.linspace(minWavelength, maxWavelength, numRows + 1)[1:-1])
-            spectrum.plotDivided(axes, division, doBackground=False, doReferenceLines=False,
-                                 fluxStyle=dict(ls="solid", color=cc))
+            spectrum.plotDivided(axes, division, doBackground=False, fluxStyle=dict(ls="solid", color=cc))
 
         if filename is not None:
             figure.savefig(filename, bbox_inches='tight')

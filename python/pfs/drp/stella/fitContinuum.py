@@ -45,7 +45,7 @@ class FitContinuumTask(Task):
         super().__init__(*args, **kwargs)
         self.fitType = stringToInterpStyle(self.config.fitType)
 
-    def run(self, spectra):
+    def run(self, spectra, lines=None):
         """Fit spectrum continua
 
         Fit the continuum for each spectrum.
@@ -54,6 +54,8 @@ class FitContinuumTask(Task):
         ----------
         spectra : `pfs.drp.stella.SpectrumSet`
             Set of spectra to which to fit continua.
+        lines : `pfs.drp.stella.ReferenceLineSet`, optional
+            Reference lines to mask.
 
         Returns
         -------
@@ -64,11 +66,12 @@ class FitContinuumTask(Task):
         for spec in spectra:
             if not spec.isWavelengthSet():
                 continue
-            continuum = self.wrapArray(self.fitContinuum(spec), spec.fiberId)
+            result = self.fitContinuum(spec, lines)
+            continuum = self.wrapArray(result, spec.fiberId)
             continua.add(continuum)
         return continua
 
-    def fitContinuum(self, spectrum):
+    def fitContinuum(self, spectrum, lines=None):
         """Fit continuum to the spectrum
 
         Uses ``lsst.afw.math.Interpolate`` to fit, and performs iterative
@@ -78,14 +81,16 @@ class FitContinuumTask(Task):
         ----------
         spectrum : `pfs.drp.stella.Spectrum`
             Spectrum to fit.
+        lines : `pfs.drp.stella.ReferenceLineSet`, optional
+            Reference lines to mask.
 
         Returns
         -------
         continuum : `numpy.ndarray`
             Array of continuum fit.
         """
-        if self.config.doMaskLines:
-            good = self.maskLines(spectrum)
+        if self.config.doMaskLines and lines is not None:
+            good = self.maskLines(spectrum, lines)
         else:
             good = np.isfinite(spectrum.spectrum)
         good &= (spectrum.mask.array[0] & spectrum.mask.getPlaneBitMask(self.config.mask)) == 0
@@ -169,16 +174,15 @@ class FitContinuumTask(Task):
         result.spectrum = array
         return result
 
-    def maskLines(self, spectrum):
+    def maskLines(self, spectrum, lines):
         """Mask reference lines in the spectrum
-
-        The list of reference lines that have already been identified
-        in the spectrum is used.
 
         Parameters
         ----------
         spectrum : `pfs.drp.stella.Spectrum`
             Spectrum to mask.
+        lines : `pfs.drp.stella.ReferenceLineSet`
+            Reference lines to mask.
 
         Returns
         -------
@@ -192,8 +196,8 @@ class FitContinuumTask(Task):
         del delta
         num = len(wavelength)
         good = np.isfinite(spectrum.spectrum, dtype=bool)
-        lines = [ref.wavelength for ref in spectrum.referenceLines]
-        indices = np.interp(lines, wavelength, np.arange(num, dtype=int), left=np.nan, right=np.nan)
+        indices = np.interp(lines.wavelength, wavelength, np.arange(num, dtype=int),
+                            left=np.nan, right=np.nan)
         for ii in indices:
             if np.isnan(ii):
                 continue

@@ -9,13 +9,41 @@ matplotlib.use("Agg")  # noqa
 import numpy as np
 
 import lsst.utils.tests
-from pfs.drp.stella import SpectrumSet
-from pfs.drp.stella.tests import BaseTestCase
+from pfs.drp.stella import Spectrum, SpectrumSet
 
 display = None
 
 
-class SpectrumSetTestCase(BaseTestCase):
+class SpectrumSetTestCase(lsst.utils.tests.TestCase):
+    def setUp(self):
+        self.rng = np.random.RandomState(54321)
+
+        # Spectrum
+        self.length = 123
+        self.fiberId = 456
+        self.image = self.rng.uniform(size=self.length).astype(float)
+        self.mask = lsst.afw.image.Mask(self.length, 1)
+        self.mask.array[:] = self.rng.randint(0, 2**30, self.length).astype(np.int32)
+        self.background = self.rng.uniform(size=self.length).astype(float)
+        self.covariance = self.rng.uniform(size=(3, self.length)).astype(float)
+        self.wavelengthArray = np.arange(1, self.length + 1, dtype=float)
+
+    def makeSpectrum(self):
+        """Make a ``Spectrum`` for testing"""
+        return Spectrum(self.image, self.mask, self.background, self.covariance,
+                        self.wavelengthArray, self.fiberId)
+
+    def assertSpectrum(self, spectrum):
+        """Assert that the ``Spectrum`` has the expected contents"""
+        self.assertEqual(len(spectrum), self.length)
+        self.assertEqual(spectrum.fiberId, self.fiberId)
+        self.assertFloatsEqual(spectrum.spectrum, self.image)
+        self.assertImagesEqual(spectrum.mask, self.mask)
+        self.assertFloatsEqual(spectrum.variance, self.covariance[0])
+        self.assertFloatsEqual(spectrum.background, self.background)
+        self.assertFloatsEqual(spectrum.covariance, self.covariance)
+        self.assertFloatsEqual(spectrum.wavelength, self.wavelengthArray)
+
     def testBasics(self):
         """Test basic APIs.
 

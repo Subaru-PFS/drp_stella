@@ -3,8 +3,8 @@ import numpy as np
 import lsstDebug
 from lsst.pex.config import Config, Field, ConfigurableField, DictField
 from lsst.pipe.base import Task
-from pfs.drp.stella import ReferenceLine
 from .findLines import FindLinesTask
+from .arcLine import ArcLineSet
 
 __all__ = ["IdentifyLinesConfig", "IdentifyLinesTask"]
 
@@ -53,17 +53,24 @@ class IdentifyLinesTask(Task):
             Set of extracted spectra.
         detectorMap : `pfs.drp.stella.utils.DetectorMap`
             Mapping of wl,fiber to detector position.
-        lines : `list` of `pfs.drp.stella.ReferenceLine`
+        lines : `pfs.drp.stella.ReferenceLineSet`
             Reference lines.
+
+        Returns
+        -------
+        matches : pfs.drp.stella.ArcLineSet`
+            Matched arc lines for all fiberIds.
         """
+        matches = ArcLineSet.empty()
         nMatched = []
         nUnmatched = []
         for spec in spectra:
             if spec.isWavelengthSet():
-                self.identifyLines(spec, detectorMap, lines)
+                identified = self.identifyLines(spec, detectorMap, lines)
 
-                nMatched.append(sum((s.status & 0x1) for s in spec.referenceLines))
-                nUnmatched.append(sum((s.status & 0x1) == 0 for s in spec.referenceLines))
+                nMatched.append(identified.flag.sum())
+                nUnmatched.append((~identified.flag).sum())
+                matches.extend(identified)
 
         nMatched = np.array(nMatched, dtype=int)
         nReference = nMatched + nUnmatched
@@ -75,6 +82,8 @@ class IdentifyLinesTask(Task):
                       np.mean(nMatched), np.std(nMatched, ddof=1),
                       min(nMatched), max(nMatched), np.mean(nReference),
                       len(nMatched))
+
+        return matches
 
     def identifyLines(self, spectrum, detectorMap, lines):
         """Identify lines on the spectrum
@@ -91,9 +100,15 @@ class IdentifyLinesTask(Task):
             Mapping of wl,fiber to detector position.
         lines : `list` of `pfs.drp.stella.ReferenceLine`
             Reference lines.
+
+        Returns
+        -------
+        matches : `pfs.drp.stella.ArcLineSet`
+            Matched arc lines.
         """
         minWl = spectrum.wavelength.min()
         maxWl = spectrum.wavelength.max()
+        fiberId = spectrum.fiberId
         lines = [rl for rl in lines if rl.wavelength > minWl and rl.wavelength < maxWl]
 
         if self.config.refExclusionRadius > 0.0:
@@ -107,7 +122,7 @@ class IdentifyLinesTask(Task):
 
         for descr, threshold in self.config.refThreshold.items():
             lines = [rl for rl in lines if
-                     not rl.description.startswith(descr) or rl.guessedIntensity > threshold]
+                     not rl.description.startswith(descr) or rl.intensity > threshold]
 
         obsLines = self.findLines.runCentroids(spectrum)
         indices = sorted(list(range(len(obsLines.centroids))),
@@ -120,7 +135,7 @@ class IdentifyLinesTask(Task):
                     xc = detectorMap.getXCenter(spectrum.fiberId, yc)
                     self.debugInfo_display.dot('+', xc, yc)
 
-        matches = []
+        matches = ArcLineSet.empty()
         for ii in indices:
             if not candidates:
                 break
@@ -131,14 +146,14 @@ class IdentifyLinesTask(Task):
             if np.abs(ref.wavelength - wl) > self.config.matchRadius:
                 continue
             candidates.remove(ref)
-            new = ReferenceLine(ref.description)
-            new.wavelength = ref.wavelength
-            new.guessedIntensity = ref.guessedIntensity
-            new.guessedPosition = detectorMap.findPoint(spectrum.fiberId, ref.wavelength)[1]
-            new.fitPosition = obs
-            new.fitPositionErr = obsErr
-            new.fitIntensity = spectrum.spectrum[int(obs + 0.5)]
-            new.status = ReferenceLine.Status.FIT
-            matches.append(new)
 
-        spectrum.setReferenceLines(matches + candidates)
+            matches.append(fiberId, ref.wavelength, detectorMap.getXCenter(fiberId, obs), obs, np.nan, obsErr,
+                           spectrum.spectrum[int(obs + 0.5)], False, ref.status, ref.description)
+
+        # Include unmatched reference lines
+        for ref in candidates:
+            point = detectorMap.findPoint(fiberId, ref.wavelength)
+            matches.append(fiberId, ref.wavelength, point.getX(), point.getY(), np.nan, np.nan,
+                           spectrum.spectrum[int(point.getY() + 0.5)], True, ref.status, ref.description)
+
+        return matches

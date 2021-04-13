@@ -5,7 +5,7 @@ import lsst.afw.geom
 
 from pfs.drp.stella.arcLine import ArcLine, ArcLineSet
 from pfs.drp.stella.tests import runTests
-from pfs.drp.stella.ReferenceLine import ReferenceLine
+from pfs.drp.stella.referenceLine import ReferenceLineStatus
 
 display = None
 
@@ -26,7 +26,7 @@ class ArcLineTestCase(lsst.utils.tests.TestCase):
         self.yErr = 0.01*np.random.uniform(size=self.fiberId.shape)
         self.wavelength = np.random.uniform(size=self.fiberId.shape)*scale + self.wlMin
         self.flag = np.random.choice((True, False), size=self.fiberId.shape)
-        self.status = np.full_like(self.fiberId, int(ReferenceLine.Status.FIT), dtype=int)
+        self.status = np.full_like(self.fiberId, int(ReferenceLineStatus.GOOD), dtype=int)
         self.description = np.array([chr(ord("A") + ii) for ii in range(len(self.fiberId))])
 
         self.lines = [ArcLine(*args) for args in zip(self.fiberId, self.wavelength,

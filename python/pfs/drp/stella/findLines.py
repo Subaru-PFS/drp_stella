@@ -141,8 +141,7 @@ class FindLinesTask(Task):
         mask.array[0, :halfSize] |= mask.getPlaneBitMask("NO_DATA")
         mask.array[0, len(spectrum) - halfSize:] |= mask.getPlaneBitMask("NO_DATA")
 
-        return Spectrum(flux, mask, background, covariance, spectrum.wavelength,
-                        spectrum.referenceLines, spectrum.fiberId)
+        return Spectrum(flux, mask, background, covariance, spectrum.wavelength, spectrum.fiberId)
 
     def findPeaks(self, spectrum):
         """Find positive peaks in the spectrum

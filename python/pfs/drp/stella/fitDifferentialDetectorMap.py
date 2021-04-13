@@ -8,13 +8,14 @@ import scipy.optimize
 import lsstDebug
 
 from lsst.utils import getPackageDir
-from lsst.pex.config import Config, Field, DictField
+from lsst.pex.config import Config, Field, DictField, ListField
 from lsst.pipe.base import Task, Struct
 from lsst.afw.math import LeastSquares
 
 from pfs.drp.stella import DetectorMap, DifferentialDetectorMap
 from .GlobalDetectorModel import GlobalDetectorModel, GlobalDetectorModelScaling
 from .arcLine import ArcLineSet
+from .referenceLine import ReferenceLineStatus
 
 
 __all__ = ("FitDifferentialDetectorMapConfig", "FitDifferentialDetectorMapTask")
@@ -270,6 +271,7 @@ def addColorbar(figure, axes, cmap, norm, label=None):
 
 class FitDifferentialDetectorMapConfig(Config):
     """Configuration for FitDifferentialDetectorMapTask"""
+    lineFlags = ListField(dtype=str, default=["BAD"], doc="ReferenceLineStatus flags for lines to ignore")
     iterations = Field(dtype=int, default=3, doc="Number of rejection iterations")
     rejection = Field(dtype=float, default=4.0, doc="Rejection threshold (stdev)")
     order = Field(dtype=int, default=4, doc="Distortion order")
@@ -516,6 +518,7 @@ class FitDifferentialDetectorMapTask(Task):
         numLines = len(lines)
 
         good = lines.flag == 0
+        good &= (lines.status & ReferenceLineStatus.fromNames(*self.config.lineFlags)) == 0
         good &= np.isfinite(lines.x) & np.isfinite(lines.y)
         good &= np.isfinite(lines.xErr) & np.isfinite(lines.yErr)
         numGood = good.sum()
@@ -560,14 +563,14 @@ class FitDifferentialDetectorMapTask(Task):
         self.log.info("Final fit: chi2=%f dof=%d xRMS=%f yRMS=%f (%f nm, %f km/s) from %d/%d lines",
                       result.chi2, result.dof, result.xRms, result.yRms,
                       result.yRms*result.model.getScaling().dispersion,
-                      rmsPixelsToVelocity(result.yRms, result.model), used.sum(), numLines - numReserved)
+                      rmsPixelsToVelocity(result.yRms, result.model), used.sum(), numGood - numReserved)
         reservedStats = calculateFitStatistics(result.model, lines, reserved, self.config.soften)
         self.log.info("Fit quality from reserved lines: "
                       "chi2=%f xRMS=%f yRMS=%f (%f nm, %f km/s) from %d lines (%.1f%%)",
                       reservedStats.chi2, reservedStats.xRobustRms, reservedStats.yRobustRms,
                       reservedStats.yRobustRms*result.model.getScaling().dispersion,
                       rmsPixelsToVelocity(reservedStats.yRobustRms, result.model), reserved.sum(),
-                      reserved.sum()/numLines*100)
+                      reserved.sum()/numGood*100)
         self.log.debug("    Final fit model: %s", result.model)
 
         result = self.fitSoftenedModel(bbox, lines, used, reserved, result, doFitHighCcd, fiberCenter,
@@ -769,11 +772,10 @@ class FitDifferentialDetectorMapTask(Task):
 
         reservedStats = calculateFitStatistics(result.model, lines, reserved, soften)
         self.log.info("Softened fit quality from reserved lines: "
-                      "chi2=%f xRMS=%f yRMS=%f (%f nm, %f km/s) from %d lines (%.1f%%)",
+                      "chi2=%f xRMS=%f yRMS=%f (%f nm, %f km/s) from %d lines",
                       reservedStats.chi2, reservedStats.xRobustRms, reservedStats.yRobustRms,
                       reservedStats.yRobustRms*result.model.getScaling().dispersion,
-                      rmsPixelsToVelocity(reservedStats.yRobustRms, result.model), reserved.sum(),
-                      reserved.sum()/len(reserved)*100)
+                      rmsPixelsToVelocity(reservedStats.yRobustRms, result.model), reserved.sum())
         self.log.debug("    Softened fit model: %s", result.model)
         return result
 

@@ -47,30 +47,12 @@ class CentroidLinesTask(Task):
         self.fiberId = self.schema.addField("fiberId", type=np.int32, doc="Fiber identifier")
         self.wavelength = self.schema.addField("wavelength", type=float, doc="Line wavelength")
         self.description = self.schema.addField("description", type=str, size=128, doc="Line description")
+        self.ignore = self.schema.addField("ignore", type="Flag", doc="Ignore line?")
         self.status = self.schema.addField("status", type=np.int32, doc="Line status flags")
         self.centroider = SdssCentroidAlgorithm(self.config.centroider.makeControl(), self.centroidName,
                                                 self.schema)
         self.schema.getAliasMap().set("slot_Centroid", self.centroidName)
         self.debugInfo = lsstDebug.Info(__name__)
-
-    def getReferenceLines(self, spectra):
-        """Get reference lines from spectra
-
-        This is a convenience method for generating the ``referenceLines`` input
-        for the ``run`` method.
-
-        Parameters
-        ----------
-        spectra: : `pfs.drp.stella.SpectrumSet`
-            Extracted spectra, with reference lines identified.
-
-        Returns
-        -------
-        referenceLines : `dict` (`int`: `list` of `pfs.drp.stella.ReferenceLine`)
-            List of reference lines for each fiberId.
-        """
-        return {ss.fiberId: [rl for rl in ss.referenceLines if (rl.status & rl.Status.FIT) != 0]
-                for ss in spectra}
 
     def run(self, exposure, referenceLines, detectorMap):
         """Centroid lines on an arc
@@ -82,7 +64,7 @@ class CentroidLinesTask(Task):
         ----------
         exposure : `lsst.afw.image.Exposure`
             Arc exposure on which to centroid lines.
-        referenceLines : `dict` (`int`: `list` of `pfs.drp.stella.ReferenceLine`)
+        referenceLines : `dict` (`int`: `pfs.drp.stella.ReferenceLineSet`)
             List of reference lines for each fiberId.
         detectorMap : `pfs.drp.stella.DetectorMap`
             Approximate mapping between fiberId,wavelength and x,y.
@@ -138,7 +120,7 @@ class CentroidLinesTask(Task):
 
         Parameters
         ----------
-        referenceLines : `dict` (`int`: `list` of `pfs.drp.stella.ReferenceLine`)
+        referenceLines : `dict` (`int`: `pfs.drp.stella.ReferenceLineSet`)
             List of reference lines for each fiberId.
         detectorMap : `pfs.drp.stella.DetectorMap`
             Approximate mapping between fiberId,wavelength and x,y.
@@ -164,17 +146,20 @@ class CentroidLinesTask(Task):
                 spans = SpanSet.fromShape(Ellipse(Axes(self.config.footprintSize, self.config.footprintSize),
                                                   point))
                 peak = self.findPeak(convolved.image, point)
-                if not bbox.contains(peak):
-                    continue
-                sn = convolved.image[peak]/np.sqrt(convolved.variance[peak])
-                if sn < self.config.threshold:
-                    continue
 
                 source = catalog.addNew()
                 source.set(self.fiberId, fiberId)
                 source.set(self.wavelength, rl.wavelength)
                 source.set(self.description, rl.description)
                 source.set(self.status, rl.status)
+
+                if bbox.contains(peak):
+                    sn = convolved.image[peak]/np.sqrt(convolved.variance[peak])
+                    ignore = sn < self.config.threshold
+                else:
+                    ignore = True
+
+                source.set(self.ignore, ignore)
 
                 footprint = Footprint(spans, detectorMap.bbox)
                 fpPeak = footprint.getPeaks().addNew()
@@ -218,7 +203,8 @@ class CentroidLinesTask(Task):
             Catalog of arc lines; modified with the measured positions.
         """
         for source in catalog:
-            self.measureLine(exposure, source)
+            if not source.get(self.ignore):
+                self.measureLine(exposure, source)
 
     def measureLine(self, exposure, source):
         """Measure a single line
