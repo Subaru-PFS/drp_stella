@@ -40,6 +40,10 @@ class ArcLineResiduals(SimpleNamespace):
         Measured position.
     xErr, yErr : `float`
         Error in measured position.
+    intensity : `float`
+        Measured intensity (arbitrary units).
+    intensityErr : `float`
+        Error in measured intensity (arbitrary units).
     flag : `bool`
         Measurement flag (``True`` indicates an error in measurement).
     status : `pfs.drp.stella.ReferenceLine.Status`
@@ -47,9 +51,11 @@ class ArcLineResiduals(SimpleNamespace):
     description : `str`
         Line description (e.g., ionic species)
     """
-    def __init__(self, fiberId, wavelength, x, y, xOrig, yOrig, xErr, yErr, flag, status, description):
+    def __init__(self, fiberId, wavelength, x, y, xOrig, yOrig, xErr, yErr, intensity, intensityErr,
+                 flag, status, description):
         return super().__init__(fiberId=fiberId, wavelength=wavelength, x=x, y=y, xOrig=xOrig, yOrig=yOrig,
-                                xErr=xErr, yErr=yErr, flag=flag, status=status, description=description)
+                                xErr=xErr, yErr=yErr, intensity=intensity, intensityErr=intensityErr,
+                                flag=flag, status=status, description=description)
 
 
 class ArcLineResidualsSet(ArcLineSet):
@@ -64,7 +70,8 @@ class ArcLineResidualsSet(ArcLineSet):
     lines : `list` of `ArcLineResiduals`
         List of lines in the spectra.
     """
-    def append(self, fiberId, wavelength, x, y, xOrig, yOrig, xErr, yErr, flag, status, description):
+    def append(self, fiberId, wavelength, x, y, xOrig, yOrig, xErr, yErr, intensity, intensityErr,
+               flag, status, description):
         """Append to the list of lines
 
         Parameters
@@ -79,6 +86,10 @@ class ArcLineResidualsSet(ArcLineSet):
             Measured position.
         xErr, yErr : `float`
             Error in measured position.
+        intensity : `float`
+            Measured intensity (arbitrary units).
+        intensityErr : `float`
+            Error in measured intensity (arbitrary units).
         flag : `bool`
             Measurement flag (``True`` indicates an error in measurement).
         status : `pfs.drp.stella.ReferenceLine.Status`
@@ -87,7 +98,7 @@ class ArcLineResidualsSet(ArcLineSet):
             Line description (e.g., ionic species)
         """
         self.lines.append(ArcLineResiduals(fiberId, wavelength, x, y, xOrig, yOrig, xErr, yErr,
-                                           flag, status, description))
+                                           intensity, intensityErr, flag, status, description))
 
     @property
     def xOrig(self):
@@ -438,7 +449,8 @@ class FitDifferentialDetectorMapTask(Task):
         residuals = ArcLineResidualsSet.empty()
         for ll, pp in zip(lines, points):
             residuals.append(ll.fiberId, ll.wavelength, ll.x - pp[0], ll.y - pp[1], ll.x, ll.y,
-                             ll.xErr, ll.yErr, ll.flag, ll.status, ll.description)
+                             ll.xErr, ll.yErr, ll.intensity, ll.intensityErr,
+                             ll.flag, ll.status, ll.description)
         return residuals
 
     def fitScaling(self, bbox, lines, select, minMaxFiberId=None):

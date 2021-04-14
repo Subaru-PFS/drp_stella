@@ -11,6 +11,7 @@ from lsst.afw.table import SourceCatalog, SourceTable
 from lsst.afw.math import GaussianFunction1D, SeparableKernel, convolve, ConvolutionControl
 from lsst.meas.base.exceptions import FatalAlgorithmError, MeasurementError
 from lsst.meas.base.sdssCentroid import SdssCentroidAlgorithm, SdssCentroidControl
+from lsst.meas.base.psfFlux import PsfFluxAlgorithm, PsfFluxControl
 from lsst.ip.isr.isrFunctions import createPsf
 
 from .arcLine import ArcLine, ArcLineSet
@@ -25,11 +26,13 @@ FATAL_EXCEPTIONS = (MemoryError, FatalAlgorithmError)
 
 
 CentroidConfig = makeConfigClass(SdssCentroidControl)
+PhotometryConfig = makeConfigClass(PsfFluxControl)
 
 
 class CentroidLinesConfig(Config):
     """Configuration for CentroidLinesTask"""
     centroider = ConfigField(dtype=CentroidConfig, doc="Centroider")
+    photometer = ConfigField(dtype=PhotometryConfig, doc="Photometer")
     footprintSize = Field(dtype=float, default=3, doc="Radius of footprint (pixels)")
     fwhm = Field(dtype=float, default=1.5, doc="FWHM of PSF (pixels)")
     kernelSize = Field(dtype=float, default=4.0, doc="Size of convolution kernel (sigma)")
@@ -43,6 +46,7 @@ class CentroidLinesTask(Task):
     def __init__(self, *args, **kwargs):
         Task.__init__(self, *args, **kwargs)
         self.centroidName = "centroid"
+        self.photometryName = "flux"
         self.schema = SourceTable.makeMinimalSchema()
         self.fiberId = self.schema.addField("fiberId", type=np.int32, doc="Fiber identifier")
         self.wavelength = self.schema.addField("wavelength", type=float, doc="Line wavelength")
@@ -52,6 +56,8 @@ class CentroidLinesTask(Task):
         self.centroider = SdssCentroidAlgorithm(self.config.centroider.makeControl(), self.centroidName,
                                                 self.schema)
         self.schema.getAliasMap().set("slot_Centroid", self.centroidName)
+        self.photometer = PsfFluxAlgorithm(self.config.photometer.makeControl(), self.photometryName,
+                                           self.schema)
         self.debugInfo = lsstDebug.Info(__name__)
 
     def run(self, exposure, referenceLines, detectorMap):
@@ -217,18 +223,19 @@ class CentroidLinesTask(Task):
             Row from the catalog of arc lines; modified with the measured
             position.
         """
-        try:
-            self.centroider.measure(source, exposure)
-        except FATAL_EXCEPTIONS:
-            raise
-        except MeasurementError as error:
-            self.log.debug("MeasurementError on source %d at (%f,%f): %s",
-                           source.getId(), source.get("centroid_x"), source.get("centroid_y"), error)
-            self.centroider.fail(source, error.cpp)
-        except Exception as error:
-            self.log.debug("Exception for source %s at (%f,%f): %s",
-                           source.getId(), source.get("centroid_x"), source.get("centroid_y"), error)
-            self.centroider.fail(source)
+        for measurement in (self.centroider, self.photometer):
+            try:
+                measurement.measure(source, exposure)
+            except FATAL_EXCEPTIONS:
+                raise
+            except MeasurementError as error:
+                self.log.debug("MeasurementError on source %d at (%f,%f): %s",
+                               source.getId(), source.get("centroid_x"), source.get("centroid_y"), error)
+                measurement.fail(source, error.cpp)
+            except Exception as error:
+                self.log.debug("Exception for source %s at (%f,%f): %s",
+                               source.getId(), source.get("centroid_x"), source.get("centroid_y"), error)
+                measurement.fail(source)
 
     def translate(self, catalog):
         """Translate the catalog of measured centroids to a simpler format
@@ -246,8 +253,11 @@ class CentroidLinesTask(Task):
         return ArcLineSet([
             ArcLine(source[self.fiberId], source[self.wavelength], source[self.centroidName + "_x"],
                     source[self.centroidName + "_y"], source[self.centroidName + "_xErr"],
-                    source[self.centroidName + "_yErr"], source["centroid_flag"], source[self.status],
-                    source[self.description]) for source in catalog])
+                    source[self.centroidName + "_yErr"], source[self.photometryName + "_instFlux"],
+                    source[self.photometryName + "_instFluxErr"],
+                    (source[self.centroidName + "_flag"] | source[self.photometryName + "_flag"] |
+                     source[self.ignore]),
+                    source[self.status], source[self.description]) for source in catalog])
 
     def display(self, exposure, catalog):
         """Display centroids
