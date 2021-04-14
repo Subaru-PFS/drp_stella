@@ -183,6 +183,8 @@ class ReduceExposureTask(CmdLineTask):
             Fiber traces.
         detectorMapList : `list` of `pfs.drp.stella.DetectorMap`
             Mappings of wl,fiber to detector position.
+        pfsConfig : `pfs.datamodel.PfsConfig`
+            Top-end configuration.
         """
         self.log.info("Processing %s" % ([sensorRef.dataId for sensorRef in sensorRefList]))
 
