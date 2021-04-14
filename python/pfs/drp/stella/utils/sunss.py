@@ -87,7 +87,7 @@ def plotFerrule():
 
 
 def plotSuNSSFluxes(pfsConfig, pfsSpec, lam0=None, lam1=None, statsOp=np.median, subtractSky=True,
-                    fluxMax=None, starFibers=[], printFlux=False, md={}, showConnectors=False):
+                    fluxMax=None, starFibers=[], printFlux=False, md={}, showConnectors=False, fig=None):
     """Plot images of the SuNSS ferrule based on fluxes in extracted spectra
     pfsConfig : `pfsConfig`
     pfsSpec: pfsArm or pfsMerged
@@ -96,7 +96,15 @@ def plotSuNSSFluxes(pfsConfig, pfsSpec, lam0=None, lam1=None, statsOp=np.median,
     "brightest" or "brightest+6" use the brightest fibre and its neighbours,
     usually 6.
     """
-    fig, axs = plt.subplots(1, 2, sharey='row', gridspec_kw=dict(wspace=0))
+
+    if fig is None:
+        fig = plt.figure()
+
+    gs = fig.add_gridspec(1, 2, wspace=0)
+    axs = []
+    axs.append(fig.add_subplot(gs[0, 0]))
+    axs.append(fig.add_subplot(gs[0, 1], sharey=axs[0]))
+    axs[1].tick_params(axis='y', which='both', left=False, labelleft=False)
 
     if showConnectors:
         lookupConnector = makeMappingToConnector(pfsConfig)
@@ -134,11 +142,11 @@ def plotSuNSSFluxes(pfsConfig, pfsSpec, lam0=None, lam1=None, statsOp=np.median,
             else:
                 pfsFlux = pfsSpec.flux
 
-            for  DI in [TargetType.SUNSS_DIFFUSE, TargetType.SUNSS_IMAGING]:
+            for DI in [TargetType.SUNSS_DIFFUSE, TargetType.SUNSS_IMAGING]:
                 if subtractSky:
-                    l = pfsConfig.selectByTargetType(DI)
-                    sky[DI] = np.nanmedian(np.where(pfsSpec.mask[l] == 0, pfsFlux[l], np.NaN), axis=0)
-                    pfsFlux[l] -= sky[DI]  # median per spectral element
+                    ll = pfsConfig.selectByTargetType(DI)
+                    sky[DI] = np.nanmedian(np.where(pfsSpec.mask[ll] == 0, pfsFlux[ll], np.NaN), axis=0)
+                    pfsFlux[ll] -= sky[DI]  # median per spectral element
                     sky[DI] = np.nanmean(sky[DI])
                 else:
                     sky[DI] = 0
@@ -229,7 +237,8 @@ def plotSuNSSFluxes(pfsConfig, pfsSpec, lam0=None, lam1=None, statsOp=np.median,
                 title = r"$%.1f < \lambda < %.1f$" % (lam0, lam1)
             ax.set_title(title)
 
-            plt.text(0.03, 0.03, f"sky = {sky[DI]:.3f}  fluxMax = sky + {fluxMax:.3f}", transform=ax.transAxes)
+            plt.text(0.03, 0.03, f"sky = {sky[DI]:.3f}  fluxMax = sky + {fluxMax:.3f}",
+                     transform=ax.transAxes)
 
         if md:
             plt.suptitle(f"{md['DATE-OBS']}Z{md['UT'][:-4]}", y=0.85)
