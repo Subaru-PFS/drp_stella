@@ -251,6 +251,8 @@ class ReduceExposureTask(CmdLineTask):
             skyImageList=skyImageList,
         )
 
+        updateDetectorMap = False
+
         if self.config.doExtractSpectra:
             originalList = []
             spectraList = []
@@ -261,7 +263,50 @@ class ReduceExposureTask(CmdLineTask):
                 maskedImage = exposure.maskedImage
                 fiberId = np.array(sorted(set(pfsConfig.fiberId) & set(detectorMap.fiberId)))
                 spectra = self.extractSpectra.run(maskedImage, fiberTraces, detectorMap, fiberId).spectra
+
+                if updateDetectorMap:
+                    from pfs.drp.stella.reduceArc import ReduceArcTask
+                    from pfs.drp.stella.fitDifferentialDetectorMap import FitDifferentialDetectorMapTask
+
+                    fdmConfig = FitDifferentialDetectorMapTask.ConfigClass()
+                    fdmConfig.order = 10
+                    fdmConfig.doSlitOffsets = True
+                    fitDetectorMapTask = FitDifferentialDetectorMapTask(fdmConfig,
+                                                                        name="fitDifferentialDetectorMap")
+
+                    visitInfo = exposure.getInfo().getVisitInfo()
+
+                    spatialOffsets = detectorMap.getSpatialOffsets()
+                    spectralOffsets = detectorMap.getSpectralOffsets()
+
+                    raConfig = ReduceArcTask.ConfigClass()
+                    raConfig.readLineList.lineListFiles = ["skyLines-rhl.txt"]
+                    raConfig.readLineList.restrictByLamps = False
+                    raConfig.readLineList.minIntensity = 0.4
+                    raConfig.identifyLines.findLines.width = 1
+                    raConfig.identifyLines.findLines.doSubtractContinuum = True
+                    raConfig.identifyLines.findLines.threshold = 10
+                    raConfig.validate()
+
+                    reduceArcTask = ReduceArcTask(raConfig)
+
+                    self.log.info("Tweaking DetectorMap")
+
+                    refLines = reduceArcTask.readLineList.run()
+                    self.log.info("Fitting arc lines")
+                    lines = reduceArcTask.run(exposure, spectra, detectorMap, refLines).lines
+
+                    self.log.info("Updating DetectorMap with order %d fit", fdmConfig.order)
+                    detectorMap = fitDetectorMapTask.run(sensorRef.dataId, detectorMap.bbox, lines, visitInfo,
+                                                         detectorMap.metadata,
+                                                         spatialOffsets, spectralOffsets).detectorMap
+
+                    self.log.info("Re-extracting spectra")
+                    spectra = self.extractSpectra.run(maskedImage, fiberTraces, detectorMap, fiberId).spectra
+
                 originalList.append(spectra)
+
+                # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
                 if self.config.doSubtractContinuum:
                     continua = self.fitContinuum.run(spectra)
