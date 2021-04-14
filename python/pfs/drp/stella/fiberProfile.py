@@ -136,7 +136,10 @@ class FiberProfile:
                 plt.show()
 
             allBad = np.logical_and.reduce(swath.mask, axis=1)
-            yAverage = np.mean(np.arange(yMin, yMax + 1, dtype=int)[~allBad])
+            if not np.all(allBad):
+                yAverage = np.mean(np.arange(yMin, yMax + 1, dtype=int)[~allBad])
+            else:
+                yAverage = np.nan
 
             if not np.all(allBad):
                 profileList.append(profile)
