@@ -1,11 +1,13 @@
 from collections import defaultdict
+import os.path
+import re
 import numpy as np
 from lsst.pex.config import Config, Field, ConfigurableField, ListField, ConfigField
 from lsst.pipe.base import CmdLineTask, ArgumentParser, TaskRunner, Struct
 
 from pfs.datamodel.masks import MaskHelper
 from pfs.datamodel.wavelengthArray import WavelengthArray
-from .datamodel import PfsMerged
+from .datamodel import PfsConfig, PfsMerged
 from pfs.datamodel import Identity
 from .subtractSky1d import SubtractSky1dTask
 from .utils import getPfsVersions
@@ -39,6 +41,8 @@ class MergeArmsConfig(Config):
     doBarycentricCorr = Field(dtype=bool, default=True, doc="Do barycentric correction?")
     mask = ListField(dtype=str, default=["NO_DATA", "CR", "INTRP", "SAT"],
                      doc="Mask values to reject when combining")
+    pfsConfigFile = Field(dtype=str, default="", doc="""Full pathname of pfsCalib file to use.
+    If of the form "pfsConfig-0x%x-%d.fits", the pfsDesignId and visit0 will be deduced from the filename""")
 
 
 class MergeArmsRunner(TaskRunner):
@@ -151,7 +155,21 @@ class MergeArmsTask(CmdLineTask):
         spectra = [[dataRef.get("pfsArm") for dataRef in specRefList] for
                    specRefList in expSpecRefList]
         lsfList = [[dataRef.get("pfsArmLsf") for dataRef in specRefList] for specRefList in expSpecRefList]
-        pfsConfig = expSpecRefList[0][0].get("pfsConfig")
+        if self.config.pfsConfigFile:
+            try:
+                pfsDesignId, visit0 = re.split(r"[-.]", os.path.split(self.config.pfsConfigFile)[1])[1:-1]
+
+                pfsDesignId = int(pfsDesignId, 16)
+                visit0 = int(visit0)
+            except ValueError:
+                pfsDesignId = 666
+                visit0 = 0
+
+            self.log.info("Reading pfsConfig for pfsDesignId=0x%x, visit0=%d", pfsDesignId, visit0)
+            pfsConfig = PfsConfig._readImpl(self.config.pfsConfigFile,
+                                            pfsDesignId=pfsDesignId, visit0=visit0)
+        else:
+            pfsConfig = expSpecRefList[0][0].get("pfsConfig")
 
         results = self.run(spectra, pfsConfig, lsfList)
 
