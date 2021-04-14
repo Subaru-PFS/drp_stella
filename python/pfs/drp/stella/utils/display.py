@@ -48,7 +48,7 @@ def get_norm(image, algorithm, minval, maxval, **kwargs):
 
 
 def showAllSpectraAsImage(spec, vmin=None, vmax=None, lines=None, labelLines=True,
-                          fiberIndex=None, **kwargs):
+                          fiberIndex=None, fig=None, **kwargs):
     """Plot all the spectra in a pfsArm or pfsMerged object
 
     spec : `pfsArm` or `pfsMerged` or `pfsObject`
@@ -63,6 +63,8 @@ def showAllSpectraAsImage(spec, vmin=None, vmax=None, lines=None, labelLines=Tru
        Draw a panel identifying the species in lines
     fiberIndex : `list` of `int`
        Only show this set of fibres; these are indices into spec, _not_ fiberId
+    fig : `matplotlib.Figure`
+       The figure to use; or ``None``
     """
 
     if kwargs:
@@ -85,12 +87,21 @@ def showAllSpectraAsImage(spec, vmin=None, vmax=None, lines=None, labelLines=Tru
     if lines is None:
         lines = []
 
+    if fig is None:
+        fig = plt.figure()
+    else:
+        fig.clf()
+
+    axs = []
     if lines:
-        fig, axs = plt.subplots(2, 1, sharex=True, gridspec_kw=dict(height_ratios=[1, 10], hspace=0.025))
+        gs = fig.add_gridspec(2, 1, height_ratios=[1, 10], hspace=0.025)
+        axs.append(fig.add_subplot(gs[0, 0]))
+        axs.append(fig.add_subplot(gs[1, 0], sharex=axs[0]))
+
         plt.axes(axs[1])
     else:
-        fig, axs = plt.subplots(1, 1)
-        axs = [axs]
+        gs = fig.add_gridspec(1, 1)
+        axs.append(fig.add_subplot(gs[0, 0]))
 
     ibar = len(spec)//2
     lam0, lam1 = spec.wavelength[ibar][0], spec.wavelength[ibar][-1]
