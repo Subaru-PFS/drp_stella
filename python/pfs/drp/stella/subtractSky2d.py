@@ -1,19 +1,16 @@
-import os
 from types import SimpleNamespace
 from collections import defaultdict
 
 import numpy as np
 import astropy.io.fits
 
-from lsst.pex.config import Config, Field, ListField
+from lsst.pex.config import Config, Field, ListField, ConfigurableField
 from lsst.pipe.base import Task, Struct
-from lsst.utils import getPackageDir
 from lsst.afw.image import MaskedImageF
 
 from pfs.datamodel.pfsConfig import TargetType
 
-from lsst.obs.pfs.utils import getLampElements
-from .utils import readLineListFile
+from .readLineList import ReadLineListTask
 
 
 class SkyModel(SimpleNamespace):
@@ -115,6 +112,7 @@ def computePsfImage(psf, fiberTrace, wavelength, bbox):
 
 class SubtractSky2dConfig(Config):
     """Configuration for SubtractSky2dTask"""
+    readLineList = ConfigurableField(target=ReadLineListTask, doc="Read line list")
     mask = ListField(dtype=str, default=["BAD", "SAT", "NO_DATA"],
                      doc="Mask planes to ignore when measuring line fluxes")
     useAllFibers = Field(dtype=bool, default=False, doc="Use all fibers to measure sky?")
@@ -124,6 +122,10 @@ class SubtractSky2dTask(Task):
     """Subtract sky from 2D spectra image"""
     ConfigClass = SubtractSky2dConfig
     _DefaultName = "subtractSky2d"
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.makeSubtask("readLineList")
 
     def run(self, exposureList, pfsConfig, psfList, fiberTraceList, detectorMapList):
         """Measure and subtract sky from 2D spectra image
@@ -178,7 +180,8 @@ class SubtractSky2dTask(Task):
             2D sky subtraction solution.
         """
         skyFibers = set(pfsConfig.fiberId[pfsConfig.targetType == int(TargetType.SKY)])
-        lines = self.readLineList(exposureList[0].getMetadata())
+        refLines = self.readLineList(exposureList[0].getMetadata())
+        lines = [ref.wavelength for ref in refLines]
         measurements = defaultdict(list)  # List of fit results for each line, by wavelength
         # Fit lines one by one for now
         # Might do a simultaneous fit later
@@ -219,30 +222,6 @@ class SubtractSky2dTask(Task):
         self.log.debug("Line flux model: %s", model)
 
         return SkyModel(np.array(list(model.keys())), np.array(list(model.values())))
-
-    def readLineList(self, metadata):
-        """Read the line list
-
-        This will provide a list of lines to subtract from the image.
-
-        This is currently hardwired to our arc line list, since we don't have
-        any sky data (or a sky line list) so we're subtracting arc lines.
-
-        Parameters
-        ----------
-        metadata : `metadata`
-            Exposure metadata, identifying which arc lamps are in use.
-
-        Returns
-        --------
-        lines : `list` of `float`
-            Wavelengths of lines (nm).
-        """
-        filename = os.path.join(getPackageDir("obs_pfs"), "pfs", "lineLists", "ArCdHgKrNeXe.txt")
-        lamps = getLampElements(metadata)
-        lines = readLineListFile(filename, lamps)
-        self.log.info("Read %d lines for lamps %s", len(lines), lamps)
-        return [ref.wavelength for ref in lines]
 
     def measureLineFlux(self, exposure, psf, fiberTrace, wavelength):
         """Measure the flux of a single line
