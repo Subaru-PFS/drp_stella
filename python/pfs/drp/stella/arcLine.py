@@ -3,6 +3,8 @@ from types import SimpleNamespace
 import numpy as np
 import astropy.io.fits
 
+from .referenceLine import ReferenceLineSet
+
 __all__ = ("ArcLine", "ArcLineSet")
 
 
@@ -169,6 +171,36 @@ class ArcLineSet:
     def empty(cls):
         """Construct an empty ArcLineSet"""
         return cls([])
+
+    def extractReferenceLines(self, fiberId=None):
+        """Generate a list of reference lines
+
+        Parameters
+        ----------
+        fiberId : `int`, optional
+            Use lines from this fiber exclusively. Otherwise, we'll average the
+            intensities of lines with the same wavelength and description.
+
+        Returns
+        -------
+        refLines : `pfs.drp.stella.ReferenceLineSet`
+            Reference lines.
+        """
+        refLines = ReferenceLineSet.empty()
+        if fiberId is not None:
+            select = self.fiberId == fiberId
+            for args in zip(self.description[select], self.wavelength[select], self.intensity[select],
+                            self.status[select]):
+                refLines.append(*args)
+        else:
+            unique = set(zip(self.wavelength, self.description, self.status))
+            for wavelength, description, status in sorted(unique):
+                select = ((self.description == description) & (self.wavelength == wavelength) &
+                          (self.status == status) & np.isfinite(self.intensity))
+
+                intensity = np.average(self.intensity[select]) if np.any(select) else np.nan
+                refLines.append(description, wavelength, intensity, status)
+        return refLines
 
     @classmethod
     def readFits(cls, filename):
