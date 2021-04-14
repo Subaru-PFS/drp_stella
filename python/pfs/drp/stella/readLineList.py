@@ -9,8 +9,8 @@ __all__ = ("ReadLineListConfig", "ReadLineListTask")
 
 class ReadLineListConfig(Config):
     """Configuration for ReadLineListTask"""
-    lineList = Field(dtype=str, doc="Filename of linelist", default="ArCdHgKrNeXe.txt")
-    lineListFiles = ListField(dtype=str, doc="list of names of linelist files", default=["ArCdHgKrNeXe.txt"])
+    lineListFiles = ListField(dtype=str, doc="list of names of linelist files",
+                              default=["Ar.txt", "Hg.txt", "Kr.txt", "Ne.txt", "Xe.txt"])
     restrictByLamps = Field(dtype=bool, default=True,
                             doc="Restrict linelist by the list of active lamps? True is appropriate for arcs")
     lampList = ListField(dtype=str, doc="list of species in lamps", default=[])
@@ -18,9 +18,6 @@ class ReadLineListConfig(Config):
 
     def validate(self):
         super().validate()
-        if len(self.lineListFiles) == 0:  # should check if both are set.  Hard with defaults in one place
-            self.lineListFiles = [self.lineList]
-
         if len(self.lampList) > 0 and self.restrictByLamps:
             raise ValueError("You may not specify both lampList and restrictByLamps")
 
