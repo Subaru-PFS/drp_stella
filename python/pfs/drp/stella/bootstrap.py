@@ -11,7 +11,7 @@ from lsst.pex.config import Config, Field, ConfigurableField
 from lsst.ip.isr import IsrTask
 
 from pfs.datamodel import FiberStatus
-from .findAndTraceAperturesTask import FindAndTraceAperturesTask
+from .buildFiberProfiles import BuildFiberProfilesTask
 from .findLines import FindLinesTask
 from .readLineList import ReadLineListTask
 from . import SplinedDetectorMap
@@ -22,7 +22,7 @@ import lsstDebug
 class BootstrapConfig(Config):
     """Configuration for BootstrapTask"""
     isr = ConfigurableField(target=IsrTask, doc="Instrumental signature removal")
-    trace = ConfigurableField(target=FindAndTraceAperturesTask, doc="Task to trace apertures")
+    profiles = ConfigurableField(target=BuildFiberProfilesTask, doc="Fiber profiles")
     readLineList = ConfigurableField(target=ReadLineListTask, doc="Read linelist")
     minArcLineIntensity = Field(dtype=float, default=0, doc="Minimum 'NIST' intensity to use emission lines")
     findLines = ConfigurableField(target=FindLinesTask, doc="Find arc lines")
@@ -39,6 +39,7 @@ class BootstrapConfig(Config):
     def setDefaults(self):
         super().setDefaults()
         self.readLineList.restrictByLamps = True
+        self.profiles.doBlindFind = True  # We can't trust the detectorMap
 
 
 class BootstrapRunner(TaskRunner):
@@ -95,7 +96,7 @@ class BootstrapTask(CmdLineTask):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.makeSubtask("isr")
-        self.makeSubtask("trace")
+        self.makeSubtask("profiles")
         self.makeSubtask("readLineList")
         self.makeSubtask("findLines")
 
@@ -162,13 +163,15 @@ class BootstrapTask(CmdLineTask):
         """
         exposure = self.isr.runDataRef(flatRef).exposure
         detMap = flatRef.get("detectorMap")
-        traces = self.trace.run(exposure.maskedImage, detMap)
-        select = pfsConfig.fiberStatus == FiberStatus.GOOD
-        if len(traces) != select.sum():
+        result = self.profiles.run(exposure, detMap, pfsConfig)
+        traces = result.profiles.makeFiberTraces(exposure.getDimensions(), result.centers)
+        traces.sortTracesByXCenter()  # Organised left to right
+        indices = pfsConfig.selectByFiberStatus(FiberStatus.GOOD, detMap.fiberId)
+        if len(traces) != len(indices):
             raise RuntimeError("Mismatch between number of traces (%d) and number of fibers (%d)" %
-                               (len(traces), select.sum()))
+                               (len(traces), len(indices)))
         self.log.info("Found %d fibers on flat", len(traces))
-        fiberId = pfsConfig.fiberId[select]
+        fiberId = detMap.fiberId[indices]
         # Assign fiberId from pfsConfig to the fiberTraces, but we have to get the order right!
         # The fiber trace numbers from the left, but the pfsConfig may number from the right.
         middle = 0.5*exposure.getHeight()
