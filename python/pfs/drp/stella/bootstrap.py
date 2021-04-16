@@ -165,12 +165,12 @@ class BootstrapTask(CmdLineTask):
         detMap = flatRef.get("detectorMap")
         result = self.profiles.run(exposure, detMap, pfsConfig)
         traces = result.profiles.makeFiberTraces(exposure.getDimensions(), result.centers)
-        select = pfsConfig.fiberStatus == FiberStatus.GOOD
-        if len(traces) != select.sum():
+        indices = pfsConfig.selectByFiberStatus(FiberStatus.GOOD, detMap.fiberId)
+        if len(traces) != len(indices):
             raise RuntimeError("Mismatch between number of traces (%d) and number of fibers (%d)" %
-                               (len(traces), select.sum()))
+                               (len(traces), len(indices)))
         self.log.info("Found %d fibers on flat", len(traces))
-        fiberId = pfsConfig.fiberId[select]
+        fiberId = detMap.fiberId[indices]
         # Assign fiberId from pfsConfig to the fiberTraces, but we have to get the order right!
         # The fiber trace numbers from the left, but the pfsConfig may number from the right.
         middle = 0.5*exposure.getHeight()
