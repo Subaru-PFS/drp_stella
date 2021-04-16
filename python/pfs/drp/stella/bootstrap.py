@@ -165,6 +165,7 @@ class BootstrapTask(CmdLineTask):
         detMap = flatRef.get("detectorMap")
         result = self.profiles.run(exposure, detMap, pfsConfig)
         traces = result.profiles.makeFiberTraces(exposure.getDimensions(), result.centers)
+        traces.sortTracesByXCenter()  # Organised left to right
         indices = pfsConfig.selectByFiberStatus(FiberStatus.GOOD, detMap.fiberId)
         if len(traces) != len(indices):
             raise RuntimeError("Mismatch between number of traces (%d) and number of fibers (%d)" %
