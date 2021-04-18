@@ -42,7 +42,8 @@ class MergeArmsConfig(Config):
     mask = ListField(dtype=str, default=["NO_DATA", "CR", "INTRP", "SAT"],
                      doc="Mask values to reject when combining")
     pfsConfigFile = Field(dtype=str, default="", doc="""Full pathname of pfsCalib file to use.
-    If of the form "pfsConfig-0x%x-%d.fits", the pfsDesignId and visit0 will be deduced from the filename""")
+    If of the form "pfsConfig-0x%x-%d.fits", the pfsDesignId and visit0 will be deduced from the filename;
+    if not, the values 0x666 and 0 are used.""")
 
 
 class MergeArmsRunner(TaskRunner):
