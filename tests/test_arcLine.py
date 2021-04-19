@@ -5,7 +5,7 @@ import lsst.afw.geom
 
 from pfs.drp.stella.arcLine import ArcLine, ArcLineSet
 from pfs.drp.stella.tests import runTests
-from pfs.drp.stella.ReferenceLine import ReferenceLine
+from pfs.drp.stella.referenceLine import ReferenceLineStatus
 
 display = None
 
@@ -25,12 +25,15 @@ class ArcLineTestCase(lsst.utils.tests.TestCase):
         self.y = np.random.uniform(size=self.fiberId.shape)*(self.length - 1)
         self.yErr = 0.01*np.random.uniform(size=self.fiberId.shape)
         self.wavelength = np.random.uniform(size=self.fiberId.shape)*scale + self.wlMin
+        self.intensity = 1000.0*np.random.uniform(size=self.fiberId.shape)
+        self.intensityErr = 10.0*np.random.uniform(size=self.fiberId.shape)
         self.flag = np.random.choice((True, False), size=self.fiberId.shape)
-        self.status = np.full_like(self.fiberId, int(ReferenceLine.Status.FIT), dtype=int)
+        self.status = np.full_like(self.fiberId, int(ReferenceLineStatus.GOOD), dtype=int)
         self.description = np.array([chr(ord("A") + ii) for ii in range(len(self.fiberId))])
 
         self.lines = [ArcLine(*args) for args in zip(self.fiberId, self.wavelength,
                                                      self.x, self.y, self.xErr, self.yErr,
+                                                     self.intensity, self.intensityErr,
                                                      self.flag, self.status, self.description)]
 
     def assertArcLineSet(self, lines, atol=0.0):
@@ -50,6 +53,8 @@ class ArcLineTestCase(lsst.utils.tests.TestCase):
         self.assertFloatsAlmostEqual(lines.xErr, self.xErr, atol=atol)
         self.assertFloatsAlmostEqual(lines.y, self.y, atol=atol)
         self.assertFloatsAlmostEqual(lines.yErr, self.yErr, atol=atol)
+        self.assertFloatsAlmostEqual(lines.intensity, self.intensity, atol=atol)
+        self.assertFloatsAlmostEqual(lines.intensityErr, self.intensityErr, atol=atol)
         self.assertTrue(np.all(lines.flag == self.flag))
         self.assertFloatsEqual(lines.status, self.status)
         self.assertListEqual(lines.description.tolist(), self.description.tolist())
@@ -77,7 +82,8 @@ class ArcLineTestCase(lsst.utils.tests.TestCase):
         lines = ArcLineSet.empty()
         for ii, ll in enumerate(self.lines):
             lines.append(self.fiberId[ii], self.wavelength[ii], self.x[ii], self.y[ii],
-                         self.xErr[ii], self.yErr[ii], self.flag[ii], self.status[ii], self.description[ii])
+                         self.xErr[ii], self.yErr[ii], self.intensity[ii], self.intensityErr[ii],
+                         self.flag[ii], self.status[ii], self.description[ii])
         self.assertArcLineSet(lines)
 
     def testIteration(self):
@@ -90,6 +96,8 @@ class ArcLineTestCase(lsst.utils.tests.TestCase):
             self.assertEqual(ll.xErr, self.xErr[ii])
             self.assertEqual(ll.y, self.y[ii])
             self.assertEqual(ll.yErr, self.yErr[ii])
+            self.assertEqual(ll.intensity, self.intensity[ii])
+            self.assertEqual(ll.intensityErr, self.intensityErr[ii])
             self.assertEqual(ll.flag, self.flag[ii])
             self.assertEqual(ll.status, self.status[ii])
             self.assertEqual(ll.description, self.description[ii])

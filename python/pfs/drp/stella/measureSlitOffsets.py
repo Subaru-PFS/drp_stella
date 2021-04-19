@@ -2,12 +2,13 @@ import itertools
 import numpy as np
 import scipy.optimize
 
-from lsst.pex.config import Config, Field, ConfigurableField
+from lsst.pex.config import Config, Field, ConfigurableField, ListField
 from lsst.pipe.base import Task, Struct
 
 from pfs.datamodel.pfsConfig import FiberStatus
 from .readLineList import ReadLineListTask
 from .centroidLines import CentroidLinesTask
+from .referenceLine import ReferenceLineStatus
 
 import lsstDebug
 
@@ -18,6 +19,7 @@ class MeasureSlitOffsetsConfig(Config):
     """Configuration for MeasureSlitOffsetsTask"""
     readLineList = ConfigurableField(target=ReadLineListTask, doc="Read line list")
     centroidLines = ConfigurableField(target=CentroidLinesTask, doc="Centroid lines")
+    lineFlags = ListField(dtype=str, default=["BAD"], doc="ReferenceLineStatus flags for lines to ignore")
     rejIterations = Field(dtype=int, default=3, doc="Number of rejection iterations")
     rejThreshold = Field(dtype=float, default=3.0, doc="Rejection threshold (sigma)")
     soften = Field(dtype=float, default=0.01, doc="Softening to apply to centroid errors (pixels)")
@@ -113,6 +115,7 @@ class MeasureSlitOffsetsTask(Task):
         select = ~centroids.flag
         select &= np.isfinite(centroids.x) & np.isfinite(centroids.y)
         select &= np.isfinite(centroids.xErr) & np.isfinite(centroids.yErr)
+        select &= (centroids.status & ReferenceLineStatus.fromNames(*self.config.lineFlags)) == 0
 
         fiberId = centroids.fiberId.astype(np.int32)
         wavelength = centroids.wavelength

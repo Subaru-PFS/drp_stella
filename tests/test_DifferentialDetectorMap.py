@@ -12,7 +12,7 @@ from lsst.pex.exceptions import OutOfRangeError
 
 from pfs.drp.stella.synthetic import SyntheticConfig, makeSyntheticDetectorMap
 from pfs.drp.stella import DifferentialDetectorMap, GlobalDetectorModel, GlobalDetectorModelScaling
-from pfs.drp.stella import DetectorMap, ReferenceLine, ImagingSpectralPsf
+from pfs.drp.stella import DetectorMap, ReferenceLineStatus, ImagingSpectralPsf
 from pfs.drp.stella.arcLine import ArcLineSet
 from pfs.drp.stella.fitDifferentialDetectorMap import FitDifferentialDetectorMapTask
 from pfs.drp.stella.tests.utils import runTests, methodParameters
@@ -258,12 +258,14 @@ class DifferentialDetectorMapTestCase(lsst.utils.tests.TestCase):
             Spectrograph arm; affects behaviour of
             `FitDifferentialDetectorMapTask`.
         """
+        flux = 1000.0
+        fluxErr = 1.0
         bbox = self.base.bbox
         lines = ArcLineSet.empty()
         for ff in self.synthConfig.fiberId:
             for yy in range(bbox.getMinY(), bbox.getMaxY()):
                 lines.append(ff, self.base.getWavelength(ff, yy), self.base.getXCenter(ff, yy), float(yy),
-                             0.01, 0.01, 0, ReferenceLine.Status.FIT, "Fake")
+                             0.01, 0.01, flux, fluxErr, False, ReferenceLineStatus.GOOD, "Fake")
         config = FitDifferentialDetectorMapTask.ConfigClass()
         config.order = 1
         config.doSlitOffsets = True

@@ -2,16 +2,15 @@ from lsst.pex.config import Config, Field, ListField
 from lsst.pipe.base import Task
 
 from lsst.obs.pfs.utils import getLampElements
-
-from .utils import readLineListFile
+from .referenceLine import ReferenceLineSet
 
 __all__ = ("ReadLineListConfig", "ReadLineListTask")
 
 
 class ReadLineListConfig(Config):
     """Configuration for ReadLineListTask"""
-    lineList = Field(dtype=str, doc="Filename of linelist", default="ArCdHgKrNeXe.txt")
-    lineListFiles = ListField(dtype=str, doc="list of names of linelist files", default=["ArCdHgKrNeXe.txt"])
+    lineListFiles = ListField(dtype=str, doc="list of names of linelist files",
+                              default=["Ar.txt", "Hg.txt", "Kr.txt", "Ne.txt", "Xe.txt"])
     restrictByLamps = Field(dtype=bool, default=True,
                             doc="Restrict linelist by the list of active lamps? True is appropriate for arcs")
     lampList = ListField(dtype=str, doc="list of species in lamps", default=[])
@@ -19,9 +18,6 @@ class ReadLineListConfig(Config):
 
     def validate(self):
         super().validate()
-        if len(self.lineListFiles) == 0:  # should check if both are set.  Hard with defaults in one place
-            self.lineListFiles = [self.lineList]
-
         if len(self.lampList) > 0 and self.restrictByLamps:
             raise ValueError("You may not specify both lampList and restrictByLamps")
 
@@ -51,21 +47,60 @@ class ReadLineListTask(Task):
 
         Returns
         -------
-        lines : `list` or `dict` of `list` of `pfs.drp.stella.ReferenceLine`
+        lines : `pfs.drp.stella.ReferenceLineSet` or `dict` of `pfs.drp.stella.ReferenceLineSet`
             Lines from the linelist. If ``detectorMap`` was provided, this is a
             `dict` mapping ``fiberId`` to the `list` of reference lines;
-            otherwise this is a `list` of reference lines.
+            otherwise this is a list of reference lines.
         """
         lamps = self.getLamps(metadata)
-        lines = []
-        for lineListFile in self.config.lineListFiles:
-            lines += readLineListFile(lineListFile, lamps, minIntensity=self.config.minIntensity,
-                                      checkForEmpty=False)
+        lines = ReferenceLineSet.empty()
+        for filename in self.config.lineListFiles:
+            lines.extend(ReferenceLineSet.fromLineList(filename))
+        lines = self.filterByLamps(lines, lamps)
+        lines = self.filterByIntensity(lines)
         if detectorMap is None:
             return lines
         return self.getFiberLines(lines, detectorMap, fiberId=fiberId)
 
-    def getLamps(self, metadata=None):
+    def filterByLamps(self, lines, lamps):
+        """Filter the line list by which lamps are active
+
+        Parameters
+        ----------
+        lines : `pfs.drp.stella.ReferenceLineSet`
+            List of reference lines.
+        lamps : ``list` of `str`
+            The list of lamps.
+
+        Returns
+        -------
+        filtered : `pfs.drp.stella.ReferenceLineSet`
+            Filtered list of reference lines.
+        """
+        if not self.config.restrictByLamps:
+            return lines
+        keep = []
+        for desc in lamps:
+            keep += [ll for ll in lines if ll.description.startswith(desc)]
+        return ReferenceLineSet(keep)
+
+    def filterByIntensity(self, lines):
+        """Filter the line list by intensity level
+
+        Parameters
+        ----------
+        lines : `pfs.drp.stella.ReferenceLineSet`
+            List of reference lines.
+
+        Returns
+        -------
+        filtered : `pfs.drp.stella.ReferenceLineSet`
+            Filtered list of reference lines.
+        """
+        keep = [ll for ll in lines if ll.intensity >= self.config.minIntensity]
+        return ReferenceLineSet(keep)
+
+    def getLamps(self, metadata):
         """Determine which lamps are active
 
         Parameters
@@ -99,7 +134,7 @@ class ReadLineListTask(Task):
 
         Parameters
         ----------
-        lines : `list` of `pfs.drp.stella.ReferenceLine`
+        lines : `pfs.drp.stella.ReferenceLineSet`
             Lines from the linelist.
         detectorMap : `pfs.drp.stella.DetectorMap`
             Mapping from x,y to fiberId,wavelength.
@@ -109,7 +144,7 @@ class ReadLineListTask(Task):
 
         Returns
         -------
-        refLines : `dict` of `list` of `pfs.drp.stella.ReferenceLine`
+        refLines : `dict` of `pfs.drp.stella.ReferenceLineSet`
             List of lines for each fiber, indexed by ``fiberId``.
         """
         if fiberId is None:
@@ -119,5 +154,6 @@ class ReadLineListTask(Task):
             wavelength = detectorMap.getWavelength(ff)
             minWl = wavelength.min()
             maxWl = wavelength.max()
-            refLines[ff] = [rl for rl in lines if rl.wavelength >= minWl and rl.wavelength <= maxWl]
+            refLines[ff] = ReferenceLineSet([rl for rl in lines if rl.wavelength >= minWl and
+                                             rl.wavelength <= maxWl])
         return refLines

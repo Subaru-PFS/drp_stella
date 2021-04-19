@@ -3,6 +3,8 @@ from types import SimpleNamespace
 import numpy as np
 import astropy.io.fits
 
+from .referenceLine import ReferenceLineSet
+
 __all__ = ("ArcLine", "ArcLineSet")
 
 
@@ -19,21 +21,27 @@ class ArcLine(SimpleNamespace):
         Measured position.
     xErr, yErr : `float`
         Error in measured position.
+    intensity : `float`
+        Measured intensity (arbitrary units).
+    intensityErr : `float`
+        Error in measured intensity (arbitrary units).
     flag : `bool`
         Measurement flag (``True`` indicates an error in measurement).
-    status : `pfs.drp.stella.ReferenceLine.Status`
-        Flags whether the lines are fitted, clipped or reserved etc.
+    status : `int`
+        Bitmask indicating the quality of the reference line.
     description : `str`
         Line description (e.g., ionic species)
     """
-    def __init__(self, fiberId, wavelength, x, y, xErr, yErr, flag, status, description):
+    def __init__(self, fiberId, wavelength, x, y, xErr, yErr, intensity, intensityErr,
+                 flag, status, description):
         return super().__init__(fiberId=fiberId, wavelength=wavelength, x=x, y=y, xErr=xErr, yErr=yErr,
-                                flag=flag, status=status, description=description)
+                                intensity=intensity, intensityErr=intensityErr, flag=flag,
+                                status=status, description=description)
 
     def __reduce__(self):
         """Pickling"""
         return type(self), (self.fiberId, self.wavelength, self.x, self.y, self.xErr, self.yErr,
-                            self.flag, self.status, self.description)
+                            self.intensity, self.intensityErr, self.flag, self.status, self.description)
 
 
 class ArcLineSet:
@@ -80,6 +88,16 @@ class ArcLineSet:
         return np.array([ll.yErr for ll in self.lines], dtype=float)
 
     @property
+    def intensity(self):
+        """Array of intensity (`numpy.ndarray` of `float`)"""
+        return np.array([ll.intensity for ll in self.lines], dtype=float)
+
+    @property
+    def intensityErr(self):
+        """Array of intensity error (`numpy.ndarray` of `float`)"""
+        return np.array([ll.intensityErr for ll in self.lines], dtype=float)
+
+    @property
     def flag(self):
         """Array of measurement status flags (`numpy.ndarray` of `bool`)"""
         return np.array([ll.flag for ll in self.lines], dtype=bool)
@@ -121,7 +139,8 @@ class ArcLineSet:
         self.extend(rhs.lines)
         return self
 
-    def append(self, fiberId, wavelength, x, y, xErr, yErr, flag, status, description):
+    def append(self, fiberId, wavelength, x, y, xErr, yErr, intensity, intensityErr,
+               flag, status, description):
         """Append to the list of lines
 
         Parameters
@@ -134,6 +153,10 @@ class ArcLineSet:
             Measured position.
         xErr, yErr : `float`
             Error in measured position.
+        intensity : `float`
+            Measured intensity (arbitrary units).
+        intensityErr : `float`
+            Error in measured intensity (arbitrary units).
         flag : `bool`
             Measurement flag (``True`` indicates an error in measurement).
         status : `pfs.drp.stella.ReferenceLine.Status`
@@ -141,12 +164,43 @@ class ArcLineSet:
         description : `str`
             Line description (e.g., ionic species)
         """
-        self.lines.append(ArcLine(fiberId, wavelength, x, y, xErr, yErr, flag, status, description))
+        self.lines.append(ArcLine(fiberId, wavelength, x, y, xErr, yErr, intensity, intensityErr,
+                                  flag, status, description))
 
     @classmethod
     def empty(cls):
         """Construct an empty ArcLineSet"""
         return cls([])
+
+    def extractReferenceLines(self, fiberId=None):
+        """Generate a list of reference lines
+
+        Parameters
+        ----------
+        fiberId : `int`, optional
+            Use lines from this fiber exclusively. Otherwise, we'll average the
+            intensities of lines with the same wavelength and description.
+
+        Returns
+        -------
+        refLines : `pfs.drp.stella.ReferenceLineSet`
+            Reference lines.
+        """
+        refLines = ReferenceLineSet.empty()
+        if fiberId is not None:
+            select = self.fiberId == fiberId
+            for args in zip(self.description[select], self.wavelength[select], self.intensity[select],
+                            self.status[select]):
+                refLines.append(*args)
+        else:
+            unique = set(zip(self.wavelength, self.description, self.status))
+            for wavelength, description, status in sorted(unique):
+                select = ((self.description == description) & (self.wavelength == wavelength) &
+                          (self.status == status) & np.isfinite(self.intensity))
+
+                intensity = np.average(self.intensity[select]) if np.any(select) else np.nan
+                refLines.append(description, wavelength, intensity, status)
+        return refLines
 
     @classmethod
     def readFits(cls, filename):
@@ -170,12 +224,18 @@ class ArcLineSet:
             y = hdu.data["y"].astype(float)
             xErr = hdu.data["xErr"].astype(float)
             yErr = hdu.data["yErr"].astype(float)
+            if "DAMD_VER" in hdu.header and hdu.header["DAMD_VER"] >= 1:
+                intensity = hdu.data["intensity"].astype(float)
+                intensityErr = hdu.data["intensityErr"].astype(float)
+            else:
+                intensity = np.full(len)(fiberId, np.nan, dtype=float)
+                intensityErr = np.full(len)(fiberId, np.nan, dtype=float)
             flag = hdu.data["flag"].astype(np.int32)
             status = hdu.data["status"].astype(np.int32)
             description = hdu.data["description"]
 
-        return cls([ArcLine(*args) for args in zip(fiberId, wavelength, x, y, xErr, yErr, flag, status,
-                                                   description)])
+        return cls([ArcLine(*args) for args in zip(fiberId, wavelength, x, y, xErr, yErr,
+                                                   intensity, intensityErr, flag, status, description)])
 
     def writeFits(self, filename):
         """Write to file
@@ -185,6 +245,9 @@ class ArcLineSet:
         filename : `str`
             Name of file to which to write.
         """
+        # NOTE: When making any changes to this method that modify the output
+        # format, increment the DAMD_VER header value.
+
         lengths = [len(dd) for dd in self.description]
         longest = 1 if len(lengths) == 0 else max(lengths)  # 1 not 0 to make astropy happy
         hdu = astropy.io.fits.BinTableHDU.from_columns([
@@ -194,11 +257,14 @@ class ArcLineSet:
             astropy.io.fits.Column(name="y", format="D", array=self.y),
             astropy.io.fits.Column(name="xErr", format="D", array=self.xErr),
             astropy.io.fits.Column(name="yErr", format="D", array=self.yErr),
+            astropy.io.fits.Column(name="intensity", format="D", array=self.intensity),
+            astropy.io.fits.Column(name="intensityErr", format="D", array=self.intensityErr),
             astropy.io.fits.Column(name="flag", format="J", array=self.flag),
             astropy.io.fits.Column(name="status", format="J", array=self.status),
             astropy.io.fits.Column(name="description", format=f"{longest}A", array=self.description),
         ], name=self.fitsExtName)
         hdu.header["INHERIT"] = True
+        hdu.header["DAMD_VER"] = (1, "ArcLineSet datamodel version")
 
         fits = astropy.io.fits.HDUList([astropy.io.fits.PrimaryHDU(), hdu])
         with open(filename, "wb") as fd:

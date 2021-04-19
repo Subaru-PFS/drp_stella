@@ -549,7 +549,7 @@ class BuildFiberProfilesTask(Task):
                 raise RuntimeError("Failed to fit trace transformation")
             params = result.x
             residuals = calculateResiduals(params)
-            lower, upper = np.percentile(residuals, (25.0, 75.0))
+            lower, upper = np.percentile(residuals[use], (25.0, 75.0))
             rms = 0.741*(upper - lower)
             self.log.debug("Trace fit: x' = %f + %f x + %f y", params[0], params[1], params[2])
             self.log.debug("Trace fit: y' = %f + %f x + %f y", params[3], params[4], params[5])
@@ -560,7 +560,8 @@ class BuildFiberProfilesTask(Task):
         keep = np.ones(numPeaks, dtype=bool)
         for ii in range(self.config.adjustTraceIter):
             params, residuals, rms = fit(params, isGood & keep)
-            keep = np.abs(residuals) < self.config.adjustTraceThresh*rms
+            with np.errstate(invalid="ignore"):
+                keep = np.abs(residuals) < self.config.adjustTraceThresh*rms
 
         # Final fit
         params, _, _ = fit(params, isGood & keep)

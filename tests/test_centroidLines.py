@@ -6,7 +6,7 @@ import lsst.afw.image.testUtils
 
 import pfs.drp.stella.synthetic
 from pfs.drp.stella.centroidLines import CentroidLinesTask, CentroidLinesConfig
-from pfs.drp.stella import ReferenceLine
+from pfs.drp.stella import ReferenceLine, ReferenceLineStatus
 from pfs.drp.stella.tests.utils import runTests, methodParameters
 
 display = None
@@ -17,10 +17,12 @@ class CentroidLinesTestCase(lsst.utils.tests.TestCase):
     def testCentroiding(self, fwhm):
         """Test centroiding on an arc"""
         description = "Simulated"
-        centroidErr = 0.05
+        intensity = 123456.789
         synthConfig = pfs.drp.stella.synthetic.SyntheticConfig()
+        synthConfig.fwhm = fwhm
         rng = np.random.RandomState(12345)
-        arc = pfs.drp.stella.synthetic.makeSyntheticArc(synthConfig, fwhm=fwhm, rng=rng)
+        arc = pfs.drp.stella.synthetic.makeSyntheticArc(synthConfig, fwhm=fwhm, flux=intensity, rng=rng,
+                                                        addNoise=False)
         detMap = pfs.drp.stella.synthetic.makeSyntheticDetectorMap(synthConfig)
 
         referenceLines = {}
@@ -28,9 +30,7 @@ class CentroidLinesTestCase(lsst.utils.tests.TestCase):
             fiberLines = []
             for yy in arc.lines:
                 wavelength = detMap.getWavelength(fiberId, yy)
-                line = ReferenceLine(description, status=ReferenceLine.FIT, wavelength=wavelength)
-                line.fitPosition = yy + rng.normal(0.0, centroidErr)
-                line.fitPositionErr = centroidErr
+                line = ReferenceLine(description, wavelength, intensity, ReferenceLineStatus.GOOD)
                 fiberLines.append(line)
             referenceLines[fiberId] = fiberLines
 
@@ -49,8 +49,10 @@ class CentroidLinesTestCase(lsst.utils.tests.TestCase):
         self.assertFloatsAlmostEqual(lines.y, xyExpect[:, 1], atol=2.0e-2)
         self.assertTrue(np.all((lines.xErr > 0) & (lines.xErr < 0.1)))
         self.assertTrue(np.all((lines.yErr > 0) & (lines.yErr < 0.1)))
+        self.assertFloatsAlmostEqual(lines.intensity, intensity, rtol=1.0e-2)
+        self.assertTrue(np.all(lines.intensityErr > 0))
         self.assertFloatsEqual(lines.flag, 0)
-        self.assertFloatsEqual(lines.status, int(ReferenceLine.FIT))
+        self.assertFloatsEqual(lines.status, int(ReferenceLineStatus.GOOD))
         self.assertListEqual(lines.description.tolist(), [description]*len(lines))
 
 

@@ -33,7 +33,6 @@ Spectrum::Spectrum(
     ImageArray const& background,
     CovarianceMatrix const& covariance,
     WavelengthArray const& wavelength,
-    ReferenceLineList const& lines,
     int fiberId
 ) : _length(flux.getNumElements()),
     _flux(flux),
@@ -42,7 +41,6 @@ Spectrum::Spectrum(
     _covariance(covariance),
     _wavelength(wavelength),
     _fiberId(fiberId),
-    _referenceLines(lines),
     _isWavelengthSet(!wavelength.empty())
 {}
 

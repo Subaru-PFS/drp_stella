@@ -8,13 +8,14 @@ import scipy.optimize
 import lsstDebug
 
 from lsst.utils import getPackageDir
-from lsst.pex.config import Config, Field, DictField
+from lsst.pex.config import Config, Field, DictField, ListField
 from lsst.pipe.base import Task, Struct
 from lsst.afw.math import LeastSquares
 
 from pfs.drp.stella import DetectorMap, DifferentialDetectorMap
 from .GlobalDetectorModel import GlobalDetectorModel, GlobalDetectorModelScaling
 from .arcLine import ArcLineSet
+from .referenceLine import ReferenceLineStatus
 
 
 __all__ = ("FitDifferentialDetectorMapConfig", "FitDifferentialDetectorMapTask")
@@ -39,6 +40,10 @@ class ArcLineResiduals(SimpleNamespace):
         Measured position.
     xErr, yErr : `float`
         Error in measured position.
+    intensity : `float`
+        Measured intensity (arbitrary units).
+    intensityErr : `float`
+        Error in measured intensity (arbitrary units).
     flag : `bool`
         Measurement flag (``True`` indicates an error in measurement).
     status : `pfs.drp.stella.ReferenceLine.Status`
@@ -46,9 +51,11 @@ class ArcLineResiduals(SimpleNamespace):
     description : `str`
         Line description (e.g., ionic species)
     """
-    def __init__(self, fiberId, wavelength, x, y, xOrig, yOrig, xErr, yErr, flag, status, description):
+    def __init__(self, fiberId, wavelength, x, y, xOrig, yOrig, xErr, yErr, intensity, intensityErr,
+                 flag, status, description):
         return super().__init__(fiberId=fiberId, wavelength=wavelength, x=x, y=y, xOrig=xOrig, yOrig=yOrig,
-                                xErr=xErr, yErr=yErr, flag=flag, status=status, description=description)
+                                xErr=xErr, yErr=yErr, intensity=intensity, intensityErr=intensityErr,
+                                flag=flag, status=status, description=description)
 
 
 class ArcLineResidualsSet(ArcLineSet):
@@ -63,7 +70,8 @@ class ArcLineResidualsSet(ArcLineSet):
     lines : `list` of `ArcLineResiduals`
         List of lines in the spectra.
     """
-    def append(self, fiberId, wavelength, x, y, xOrig, yOrig, xErr, yErr, flag, status, description):
+    def append(self, fiberId, wavelength, x, y, xOrig, yOrig, xErr, yErr, intensity, intensityErr,
+               flag, status, description):
         """Append to the list of lines
 
         Parameters
@@ -78,6 +86,10 @@ class ArcLineResidualsSet(ArcLineSet):
             Measured position.
         xErr, yErr : `float`
             Error in measured position.
+        intensity : `float`
+            Measured intensity (arbitrary units).
+        intensityErr : `float`
+            Error in measured intensity (arbitrary units).
         flag : `bool`
             Measurement flag (``True`` indicates an error in measurement).
         status : `pfs.drp.stella.ReferenceLine.Status`
@@ -86,7 +98,7 @@ class ArcLineResidualsSet(ArcLineSet):
             Line description (e.g., ionic species)
         """
         self.lines.append(ArcLineResiduals(fiberId, wavelength, x, y, xOrig, yOrig, xErr, yErr,
-                                           flag, status, description))
+                                           intensity, intensityErr, flag, status, description))
 
     @property
     def xOrig(self):
@@ -270,6 +282,7 @@ def addColorbar(figure, axes, cmap, norm, label=None):
 
 class FitDifferentialDetectorMapConfig(Config):
     """Configuration for FitDifferentialDetectorMapTask"""
+    lineFlags = ListField(dtype=str, default=["BAD"], doc="ReferenceLineStatus flags for lines to ignore")
     iterations = Field(dtype=int, default=3, doc="Number of rejection iterations")
     rejection = Field(dtype=float, default=4.0, doc="Rejection threshold (stdev)")
     order = Field(dtype=int, default=4, doc="Distortion order")
@@ -436,7 +449,8 @@ class FitDifferentialDetectorMapTask(Task):
         residuals = ArcLineResidualsSet.empty()
         for ll, pp in zip(lines, points):
             residuals.append(ll.fiberId, ll.wavelength, ll.x - pp[0], ll.y - pp[1], ll.x, ll.y,
-                             ll.xErr, ll.yErr, ll.flag, ll.status, ll.description)
+                             ll.xErr, ll.yErr, ll.intensity, ll.intensityErr,
+                             ll.flag, ll.status, ll.description)
         return residuals
 
     def fitScaling(self, bbox, lines, select, minMaxFiberId=None):
@@ -516,6 +530,7 @@ class FitDifferentialDetectorMapTask(Task):
         numLines = len(lines)
 
         good = lines.flag == 0
+        good &= (lines.status & ReferenceLineStatus.fromNames(*self.config.lineFlags)) == 0
         good &= np.isfinite(lines.x) & np.isfinite(lines.y)
         good &= np.isfinite(lines.xErr) & np.isfinite(lines.yErr)
         numGood = good.sum()
@@ -560,14 +575,14 @@ class FitDifferentialDetectorMapTask(Task):
         self.log.info("Final fit: chi2=%f dof=%d xRMS=%f yRMS=%f (%f nm, %f km/s) from %d/%d lines",
                       result.chi2, result.dof, result.xRms, result.yRms,
                       result.yRms*result.model.getScaling().dispersion,
-                      rmsPixelsToVelocity(result.yRms, result.model), used.sum(), numLines - numReserved)
+                      rmsPixelsToVelocity(result.yRms, result.model), used.sum(), numGood - numReserved)
         reservedStats = calculateFitStatistics(result.model, lines, reserved, self.config.soften)
         self.log.info("Fit quality from reserved lines: "
                       "chi2=%f xRMS=%f yRMS=%f (%f nm, %f km/s) from %d lines (%.1f%%)",
                       reservedStats.chi2, reservedStats.xRobustRms, reservedStats.yRobustRms,
                       reservedStats.yRobustRms*result.model.getScaling().dispersion,
                       rmsPixelsToVelocity(reservedStats.yRobustRms, result.model), reserved.sum(),
-                      reserved.sum()/numLines*100)
+                      reserved.sum()/numGood*100)
         self.log.debug("    Final fit model: %s", result.model)
 
         result = self.fitSoftenedModel(bbox, lines, used, reserved, result, doFitHighCcd, fiberCenter,
@@ -769,11 +784,10 @@ class FitDifferentialDetectorMapTask(Task):
 
         reservedStats = calculateFitStatistics(result.model, lines, reserved, soften)
         self.log.info("Softened fit quality from reserved lines: "
-                      "chi2=%f xRMS=%f yRMS=%f (%f nm, %f km/s) from %d lines (%.1f%%)",
+                      "chi2=%f xRMS=%f yRMS=%f (%f nm, %f km/s) from %d lines",
                       reservedStats.chi2, reservedStats.xRobustRms, reservedStats.yRobustRms,
                       reservedStats.yRobustRms*result.model.getScaling().dispersion,
-                      rmsPixelsToVelocity(reservedStats.yRobustRms, result.model), reserved.sum(),
-                      reserved.sum()/len(reserved)*100)
+                      rmsPixelsToVelocity(reservedStats.yRobustRms, result.model), reserved.sum())
         self.log.debug("    Softened fit model: %s", result.model)
         return result
 
