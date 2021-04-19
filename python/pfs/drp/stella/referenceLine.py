@@ -200,7 +200,8 @@ class ReferenceLineSet:
             print("#", file=fd)
             print("# Status bitmask elements:", file=fd)
             for flag in ReferenceLineStatus:
-                print(f"# {flag.name}={flag.value}: {flag.__doc__}", file=fd)
+                if flag != ReferenceLineStatus.BAD:
+                    print(f"# {flag.name}={flag.value}: {flag.__doc__}", file=fd)
             print("#", file=fd)
             for line in self.lines:
                 print(f"{line.wavelength:<12.5f} {line.intensity:12.2f}    "
