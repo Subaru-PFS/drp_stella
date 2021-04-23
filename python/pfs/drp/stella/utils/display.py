@@ -7,6 +7,8 @@ import lsst.afw.detection as afwDetect
 import lsst.afw.display.utils as afwDisplayUtils
 from pfs.drp.stella.datamodel.drp import PfsArm
 from pfs.datamodel.pfsConfig import FiberStatus, TargetType
+from pfs.drp.stella.referenceLine import ReferenceLineStatus
+
 
 __all__ = ["addPfsCursor", "makeCRMosaic", "showAllSpectraAsImage", "showDetectorMap"]
 
@@ -237,9 +239,66 @@ else:
         return pfs_format_coord
 
 
+def getCtypeFromReferenceLineDefault(line):
+    """Return a colour name given a pfs.drp.stella.ReferenceLine
+
+    line.status == NOT_VISIBLE: GRAY
+                   BLEND: BLUE
+                   SUSPECT: YELLOW
+                   REJECTED: RED
+                   BROAD: CYAN
+    else: GREEN
+
+    N.b. returning "IGNORE" causes the line to be skipped
+    """
+
+    status = line.status
+    if status & ReferenceLineStatus.NOT_VISIBLE:
+        ctype = 'GRAY'
+    elif status & ReferenceLineStatus.BLEND:
+        ctype = 'BLUE'
+    elif status & ReferenceLineStatus.SUSPECT:
+        ctype = 'YELLOW'
+    elif status & ReferenceLineStatus.REJECTED:
+        ctype = 'RED'
+    elif status & ReferenceLineStatus.BROAD:
+        ctype = 'CYAN'
+    else:
+        ctype = 'GREEN'
+
+    return ctype
+
+
 def showDetectorMap(display, pfsConfig, detMap, width=100, zoom=0, xc=None, fiberIds=None, lines=None,
-                    alpha=1.0):
-    """Plot the detectorMap on a display"""
+                    alpha=1.0, getCtypeFromReferenceLine=getCtypeFromReferenceLineDefault):
+    """Plot the detectorMap on a display
+
+    Parameters:
+      display: `lsst.afw.display.Display`
+         the Display to use
+      pfsConfig: `pfs.drp.stella.datamodel.PfsConfig`
+         describe the fibers in use
+      detMap: `pfs.drp.stella.DetectorMap`
+         The layout and wavelength solutions
+      width: `int`
+         The width (in pixels) of the fibres to label, centered on fiberLines
+      zoom: `int`
+         Zoom the display by this amount about fiberLines
+      xc: `int`
+         Label fibres near this x-value
+      fiberIds: `list` of `int`
+         Label fibres near this set of fiberIds
+      lines: `pfs.drp.stella.referenceLine.ReferenceLineSet`
+         Lines to show on the display
+      alpha: `float`
+         The transparency to use when plotting traces/lines
+      getCtypeFromStatus: function returning `str`
+        Function called to return the name of a colour, given a
+        `pfs.drp.stella.referenceLine.ReferenceLineStatus`.  Return "IGNORE" to ignore the line;
+        default pfs.drp.utils.display.getCtypeFromStatusDefault
+
+    If xc and fiberId are omitted, show all fibres in the pfsConfig
+    """
 
     plt.sca(display.frame.axes[0])
 
@@ -278,8 +337,13 @@ def showDetectorMap(display, pfsConfig, detMap, width=100, zoom=0, xc=None, fibe
             if SuNSS:
                 continue
 
-            color = 'blue'
-            ls = '--'
+        ind = pfsConfig.selectFiber(fid)[0]
+        imagingFiber = pfsConfig.targetType[ind] == TargetType.SUNSS_IMAGING
+        if pfsConfig.fiberStatus[ind] == FiberStatus.BROKENFIBER:
+            ls = ':'
+            color = 'cyan' if SuNSS and imagingFiber else 'magenta'
+        else:
+            color = 'green' if SuNSS and imagingFiber else 'red'
 
         fiberX = detMap.getXCenter(fid, height//2)
         if showAll or np.abs(fiberX - xc) < width/2:
@@ -291,7 +355,7 @@ def showDetectorMap(display, pfsConfig, detMap, width=100, zoom=0, xc=None, fibe
     # Plot the position of a set of lines
     #
     if lines:
-        stride = 10
+        stride = len(pfsConfig)//25 + 1
 
         for l in lines:
             if fiberIds is None:
@@ -303,7 +367,10 @@ def showDetectorMap(display, pfsConfig, detMap, width=100, zoom=0, xc=None, fibe
                     continue
 
                 xc, yc = detMap.findPoint(fid, l.wavelength)
-                ctype = {0: 'GREEN', 1: 'BLACK', 2: 'RED'}.get(l.status, 'BLUE')
+
+                ctype = getCtypeFromReferenceLine(l)
+                if ctype == "IGNORE":
+                    continue
 
                 if len(fiberIds) == 1:
                     display.dot('o', xc, yc, ctype=ctype)
