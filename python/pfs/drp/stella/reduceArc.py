@@ -185,10 +185,6 @@ class ReduceArcTask(CmdLineTask):
         Debug parameters include:
 
         - ``display`` (`bool`): Activate displays and plotting (master switch)?
-        - ``frame`` (`dict` mapping `int` to `int` or `int`; or `afwDisplay.Display` not `int`):
-            Display frame to use, possibly as a function of visit.
-        - ``displayIdentifications`` (`bool`): Display image with lines
-            identified?
         - ``displayExposure`` (`bool`) Display the image before marking lines
         - ``fiberIds`` (iterable of `int`) Only show these fibres
         - ``displayCalibrations`` (`bool`): Plot calibration results? See also:
@@ -274,7 +270,7 @@ class ReduceArcTask(CmdLineTask):
                 if fiberIds is False:
                     fiberIds = None
 
-                self.plotCalibrations(rr.spectra, detectorMap, fiberIds=fiberIds,
+                self.plotCalibrations(rr.spectra, rr.lines, detectorMap, fiberIds=fiberIds,
                                       plotCalibrationsRows=self.debugInfo.plotCalibrationsRows,
                                       plotCalibrationsWavelength=self.debugInfo.plotCalibrationsWavelength)
 
@@ -345,7 +341,7 @@ class ReduceArcTask(CmdLineTask):
             Display to use
         exposure : `lsst.afw.image.Exposure`
             Arc image.
-        spectrum : `pfs.drp.stella.SpectrumSet`
+        spectrumSet : `pfs.drp.stella.SpectrumSet`
             Set of extracted spectra.
         detectorMap : `pfs.drp.stella.utils.DetectorMap`
             Mapping of wl,fiber to detector position.
@@ -356,6 +352,8 @@ class ReduceArcTask(CmdLineTask):
         showAllCandidates : `bool`
             Show all candidates from the line list, not just
             the ones that are matched
+        fiberIds : `list` of `int`
+            Show detected lines for these fiberIds; ignore if None or False
         """
 
         labelFibers = False             # write fiberId to the display?
@@ -400,7 +398,7 @@ class ReduceArcTask(CmdLineTask):
                         xExpect, yExpect = detectorMap.findPoint(fiberId, rl.wavelength)
                         display.dot('x', xExpect, yExpect, ctype='red', size=0.5)
 
-    def plotCalibrations(self, spectrumSet, detectorMap, fiberIds=None, plotCalibrationsRows=False,
+    def plotCalibrations(self, spectrumSet, lines, detectorMap, fiberIds=None, plotCalibrationsRows=False,
                          plotCalibrationsWavelength=True):
         """Plot wavelength calibration results
 
