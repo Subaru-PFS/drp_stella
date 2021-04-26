@@ -205,10 +205,14 @@ class SpectrumSet:
         """
         image = afwImage.ImageF(box)
         image.set(0.0)
-        assert len(self) == len(self), "Number of spectra and fiberTraces don't match"
-        for spec, ft in zip(self, fiberTraces):
+        assert len(self) == len(fiberTraces), "Number of spectra and fiberTraces don't match"
+
+        fiberIds = list(self.getAllFiberIds())
+        for ft in fiberTraces:
+            spec = self[fiberIds.index(ft.fiberId)]
             fiberImage = ft.constructImage(spec)
             image[fiberImage.getBBox(), afwImage.PARENT] += fiberImage
+
         return image
 
     def plot(self, numRows=3, filename=None):
