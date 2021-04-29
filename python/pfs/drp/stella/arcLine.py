@@ -228,8 +228,8 @@ class ArcLineSet:
                 intensity = hdu.data["intensity"].astype(float)
                 intensityErr = hdu.data["intensityErr"].astype(float)
             else:
-                intensity = np.full(len)(fiberId, np.nan, dtype=float)
-                intensityErr = np.full(len)(fiberId, np.nan, dtype=float)
+                intensity = np.full(len(fiberId), np.nan, dtype=float)
+                intensityErr = np.full(len(fiberId), np.nan, dtype=float)
             flag = hdu.data["flag"].astype(np.int32)
             status = hdu.data["status"].astype(np.int32)
             description = hdu.data["description"]
