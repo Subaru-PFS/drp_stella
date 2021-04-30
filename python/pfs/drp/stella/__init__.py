@@ -20,6 +20,8 @@ from .fiberProfileSet import *
 from .fitPolynomial import *
 from .slitOffsets import *
 from .DifferentialDetectorMapContinued import *
+from .DistortedDetectorMapContinued import *
+from .DetectorDistortion import *
 from .referenceLine import *
 from .arcLine import *
 

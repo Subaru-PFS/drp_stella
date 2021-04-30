@@ -1,53 +1,52 @@
-#ifndef PFS_DRP_STELLA_DIFFERENTIALDETECTORMAP_H
-#define PFS_DRP_STELLA_DIFFERENTIALDETECTORMAP_H
+#ifndef PFS_DRP_STELLA_DISTORTEDDETECTORMAP_H
+#define PFS_DRP_STELLA_DISTORTEDDETECTORMAP_H
 
 #include "ndarray_fwd.h"
 
 #include "lsst/afw/table/io/Persistable.h"
 
 #include "pfs/drp/stella/SplinedDetectorMap.h"
-#include "pfs/drp/stella/GlobalDetectorModel.h"
+#include "pfs/drp/stella/DetectorDistortion.h"
 #include "pfs/drp/stella/ModelBasedDetectorMap.h"
 
-// This module is now deprecated in favor of DistortedDetectorMap.
 
 namespace pfs {
 namespace drp {
 namespace stella {
 
 
-/// DetectorMap referenced to a base detectorMap and a correction via a global detector model
+/// DetectorMap referenced to a base detectorMap and a distortion
 ///
 /// Base detectorMap is a SplinedDetectorMap (in theory, we could use any kind of detectorMap,
 /// but that would make it difficult to describe the datamodel of persisted data).
-/// The GlobalDetectorModel maps fiberId,wavelength --> dx,dy.
-class DifferentialDetectorMap : public ModelBasedDetectorMap {
+/// The DetectorDistortion maps x,y --> dx,dy.
+class DistortedDetectorMap : public ModelBasedDetectorMap {
   public:
 
     /// Ctor
     ///
-    /// @param bbox : detector bounding box
-    /// @param model : spectrograph model
+    /// @param base : foundational detectorMap
+    /// @param distortion : distortion applied to base
     /// @param visitInfo : visit information
     /// @param metadata : FITS header
-    DifferentialDetectorMap(
-        std::shared_ptr<SplinedDetectorMap> base,
-        GlobalDetectorModel const& model,
+    DistortedDetectorMap(
+        SplinedDetectorMap const& base,
+        DetectorDistortion const& distortion,
         VisitInfo const& visitInfo=VisitInfo(lsst::daf::base::PropertyList()),
         std::shared_ptr<lsst::daf::base::PropertySet> metadata=nullptr,
         float samplingFactor=50.0
     );
 
-    virtual ~DifferentialDetectorMap() {}
-    DifferentialDetectorMap(DifferentialDetectorMap const&) = default;
-    DifferentialDetectorMap(DifferentialDetectorMap &&) = default;
-    DifferentialDetectorMap & operator=(DifferentialDetectorMap const&) = default;
-    DifferentialDetectorMap & operator=(DifferentialDetectorMap &&) = default;
+    virtual ~DistortedDetectorMap() {}
+    DistortedDetectorMap(DistortedDetectorMap const&) = default;
+    DistortedDetectorMap(DistortedDetectorMap &&) = default;
+    DistortedDetectorMap & operator=(DistortedDetectorMap const&) = default;
+    DistortedDetectorMap & operator=(DistortedDetectorMap &&) = default;
 
     virtual std::shared_ptr<DetectorMap> clone() const override;
 
-    std::shared_ptr<SplinedDetectorMap> getBase() const { return _base; }
-    GlobalDetectorModel getModel() const { return _model; }
+    SplinedDetectorMap const& getBase() const { return _base; }
+    DetectorDistortion const& getDistortion() const { return _distortion; }
 
     /// Measure and apply slit offsets
     ///
@@ -72,7 +71,7 @@ class DifferentialDetectorMap : public ModelBasedDetectorMap {
     /// Return the position of the fiber trace on the detector, given a fiberId and wavelength
     virtual lsst::geom::PointD findPointImpl(int fiberId, double wavelength) const override;
 
-    std::string getPersistenceName() const override { return "DifferentialDetectorMap"; }
+    std::string getPersistenceName() const override { return "DistortedDetectorMap"; }
     std::string getPythonModule() const override { return "pfs.drp.stella"; }
     void write(lsst::afw::table::io::OutputArchiveHandle & handle) const override;
 
@@ -80,8 +79,8 @@ class DifferentialDetectorMap : public ModelBasedDetectorMap {
     virtual void _resetSlitOffsets() override;
 
   private:
-    std::shared_ptr<SplinedDetectorMap> _base;
-    GlobalDetectorModel _model;
+    SplinedDetectorMap _base;
+    DetectorDistortion _distortion;
 };
 
 

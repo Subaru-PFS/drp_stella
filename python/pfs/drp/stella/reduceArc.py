@@ -7,7 +7,7 @@ import lsstDebug
 import lsst.pex.config as pexConfig
 from lsst.pipe.base import TaskRunner, ArgumentParser, CmdLineTask, Struct
 from .reduceExposure import ReduceExposureTask
-from pfs.drp.stella.fitDifferentialDetectorMap import FitDifferentialDetectorMapTask
+from pfs.drp.stella.fitDistortedDetectorMap import FitDistortedDetectorMapTask
 from .centroidLines import CentroidLinesTask
 from .arcLine import ArcLineSet
 from .readLineList import ReadLineListTask
@@ -24,7 +24,7 @@ class ReduceArcConfig(pexConfig.Config):
                                                  doc="Extract spectra from exposure")
     readLineList = pexConfig.ConfigurableField(target=ReadLineListTask, doc="Read linelist")
     centroidLines = pexConfig.ConfigurableField(target=CentroidLinesTask, doc="Centroid lines")
-    fitDetectorMap = pexConfig.ConfigurableField(target=FitDifferentialDetectorMapTask, doc="Fit detectorMap")
+    fitDetectorMap = pexConfig.ConfigurableField(target=FitDistortedDetectorMapTask, doc="Fit detectorMap")
     doUpdateDetectorMap = pexConfig.Field(dtype=bool, default=True,
                                           doc="Write an updated detectorMap?")
 
