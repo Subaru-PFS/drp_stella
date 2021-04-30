@@ -36,6 +36,7 @@ class MeasureSlitOffsetsTestCase(lsst.utils.tests.TestCase):
         self.config = MeasureSlitOffsetsTask.ConfigClass()
         self.config.readLineList.restrictByLamps = False  # We're not bothering with lamps
         self.config.rejIterations = 0  # So the number of points in the fit is known
+        self.config.centroidLines.doSubtractContinuum = False  # No continuum
 
     @contextmanager
     def makeLineList(self):

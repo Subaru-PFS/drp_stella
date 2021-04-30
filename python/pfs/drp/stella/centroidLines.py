@@ -16,6 +16,7 @@ from lsst.ip.isr.isrFunctions import createPsf
 from pfs.datamodel import FiberStatus
 from .arcLine import ArcLine, ArcLineSet
 from .images import convolveImage
+from .fitContinuum import FitContinuumTask
 
 import lsstDebug
 
@@ -32,6 +33,8 @@ PhotometryConfig = makeConfigClass(PsfFluxControl)
 
 class CentroidLinesConfig(Config):
     """Configuration for CentroidLinesTask"""
+    doSubtractContinuum = Field(dtype=bool, default=True, doc="Subtract continuum before centroiding lines?")
+    continuum = ConfigurableField(target=FitContinuumTask, doc="Continuum subtraction")
     centroider = ConfigField(dtype=CentroidConfig, doc="Centroider")
     photometer = ConfigField(dtype=PhotometryConfig, doc="Photometer")
     footprintSize = Field(dtype=float, default=3, doc="Radius of footprint (pixels)")
@@ -60,8 +63,45 @@ class CentroidLinesTask(Task):
         self.photometer = PsfFluxAlgorithm(self.config.photometer.makeControl(), self.photometryName,
                                            self.schema)
         self.debugInfo = lsstDebug.Info(__name__)
+        self.makeSubtask("continuum")
 
-    def run(self, exposure, referenceLines, detectorMap, pfsConfig=None):
+    def run(self, exposure, referenceLines, detectorMap, pfsConfig=None, fiberTraces=None):
+        """Centroid lines on an arc
+
+        We use the LSST stack's ``SdssCentroid`` measurement at the position
+        of known arc lines.
+
+        This method optionally performs continuum subtraction before handing
+        off to the ``centroidLines`` method to do the actual centroiding.
+
+        Parameters
+        ----------
+        exposure : `lsst.afw.image.Exposure`
+            Arc exposure on which to centroid lines.
+        referenceLines : `pfs.drp.stella.ReferenceLineSet`
+            List of reference lines.
+        detectorMap : `pfs.drp.stella.DetectorMap`
+            Approximate mapping between fiberId,wavelength and x,y.
+        pfsConfig : `pfs.datamodel.PfsConfig`, optional
+            Top-end configuration, for specifying good fibers. If not provided,
+            will use all fibers in the detectorMap.
+        fiberTraces : `pfs.drp.stella.FiberTraceSet`, optional
+            Position and profile of fiber traces. Required only for continuum
+            subtraction.
+
+        Returns
+        -------
+        lines : `pfs.drp.stella.ArcLineSet`
+            Centroided lines.
+        """
+        if self.config.doSubtractContinuum:
+            if fiberTraces is None:
+                raise RuntimeError("No fiberTraces provided for continuum subtraction")
+            with self.continuum.subtractionContext(exposure.maskedImage, fiberTraces, referenceLines):
+                return self.centroidLines(exposure, referenceLines, detectorMap, pfsConfig)
+        return self.centroidLines(exposure, referenceLines, detectorMap, pfsConfig)
+
+    def centroidLines(self, exposure, referenceLines, detectorMap, pfsConfig=None):
         """Centroid lines on an arc
 
         We use the LSST stack's ``SdssCentroid`` measurement at the position

@@ -132,7 +132,7 @@ class ReduceArcTask(CmdLineTask):
             if len(values) > 1:
                 raise RuntimeError("%s varies for inputs: %s" % (prop, [ref.dataId for ref in dataRefList]))
 
-    def run(self, exposure, detectorMap, lines, pfsConfig=None):
+    def run(self, exposure, detectorMap, lines, pfsConfig=None, fiberTraces=None):
         """Entry point for scatter stage
 
         Centroids and identifies lines in the spectra extracted from the exposure
@@ -147,13 +147,15 @@ class ReduceArcTask(CmdLineTask):
             Reference lines to use.
         pfsConfig : `pfs.datamodel.PfsConfig`
             Top-end configuration.
+        fiberTraces : `pfs.drp.stella.FiberTraceSet`
+            Position and profile of traces.
 
         Returns
         -------
         lines : `pfs.drp.stella.ArcLineSet`
             Set of reference lines matched to the data
         """
-        lines = self.centroidLines.run(exposure, lines, detectorMap, pfsConfig)
+        lines = self.centroidLines.run(exposure, lines, detectorMap, pfsConfig, fiberTraces)
         return Struct(
             lines=lines
         )
@@ -197,10 +199,11 @@ class ReduceArcTask(CmdLineTask):
         spectra = results.spectraList[0]
         exposure = results.exposureList[0]
         detectorMap = results.detectorMapList[0]
+        fiberTraces = results.fiberTraceList[0]
         pfsConfig = results.pfsConfig
 
         lines = self.readLineList.run(detectorMap=detectorMap, metadata=metadata)
-        lines = self.run(exposure, detectorMap, lines, pfsConfig).lines
+        lines = self.run(exposure, detectorMap, lines, pfsConfig, fiberTraces).lines
 
         dataRef.put(lines, "arcLines")
 
