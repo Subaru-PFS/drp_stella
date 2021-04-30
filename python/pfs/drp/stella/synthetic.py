@@ -162,21 +162,21 @@ def makeSyntheticArc(config, numLines=50, fwhm=4.321, flux=3.0e5, addNoise=True,
     ----------
     config : `pfs.drp.stella.synthetic.SyntheticConfig`
         Configuration for synthetic spectrograph.
-    lines : `numpy.ndarray`, optional
-        Centers for each line.
-    fwhm : `float`
+    numLines : `int`, optional
+        Number of lines to generate.
+    fwhm : `float`, optional
         Spectral full width at half maximum of lines.
-    flux : `float`
+    flux : `float`, optional
         Flux of each line.
-    addNoise : `bool`
+    addNoise : `bool`, optional
         Add noise to the image?
-    rng : `numpy.random.RandomState`
+    rng : `numpy.random.RandomState`, optional
         Random number generator.
 
     Returns
     -------
     lines : `numpy.array`
-        Line centers.
+        Line centers (pixels).
     spectrum : `numpy.array`
         Spectrum used in creation of image.
     image : `lsst.afw.image.Image`
