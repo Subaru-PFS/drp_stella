@@ -120,6 +120,10 @@ class ArcLineSet:
         """Iterator"""
         return iter(self.lines)
 
+    def __getitem__(self, index):
+        """Retrieve by index"""
+        return self.lines[index]
+
     def extend(self, lines):
         """Extend the list of lines
 
