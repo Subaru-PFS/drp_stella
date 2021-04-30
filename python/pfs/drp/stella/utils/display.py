@@ -188,7 +188,7 @@ if not hasattr(DisplayImpl, "set_format_coord"):  # old version of display_matpl
         """
         disp._impl._detMap = detectorMap
 
-        axes = disp._impl.display.frame.axes
+        axes = disp._impl._figure.axes
         if len(axes) < 1:
             print("addPfsCursor must be called after display.mtv()")
             return
@@ -300,8 +300,7 @@ def showDetectorMap(display, pfsConfig, detMap, width=100, zoom=0, xcen=None, fi
     If xcen and fiberId are omitted, show all fibres in the pfsConfig
     """
 
-    plt.sca(display.frame.axes[0])
-
+    plt.sca(display._impl._figure.axes[0])
     height = detMap.getBBox().getHeight()
     y = np.arange(0, height)
 
