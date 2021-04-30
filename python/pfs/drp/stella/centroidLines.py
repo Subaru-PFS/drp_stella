@@ -1,6 +1,6 @@
 import numpy as np
 
-from lsst.pex.config import Config, Field, ConfigField, makeConfigClass
+from lsst.pex.config import Config, Field, ConfigurableField, ConfigField, makeConfigClass
 from lsst.pipe.base import Task
 
 from lsst.geom import Point2D, Point2I, Box2I, Extent2I
@@ -8,13 +8,13 @@ from lsst.afw.geom.ellipses import Ellipse, Axes
 from lsst.afw.geom import SpanSet
 from lsst.afw.detection import Footprint
 from lsst.afw.table import SourceCatalog, SourceTable
-from lsst.afw.math import GaussianFunction1D, SeparableKernel, convolve, ConvolutionControl
 from lsst.meas.base.exceptions import FatalAlgorithmError, MeasurementError
 from lsst.meas.base.sdssCentroid import SdssCentroidAlgorithm, SdssCentroidControl
 from lsst.meas.base.psfFlux import PsfFluxAlgorithm, PsfFluxControl
 from lsst.ip.isr.isrFunctions import createPsf
 
 from .arcLine import ArcLine, ArcLineSet
+from .images import convolveImage
 
 import lsstDebug
 
@@ -80,18 +80,36 @@ class CentroidLinesTask(Task):
         lines : `pfs.drp.stella.ArcLineSet`
             Centroided lines.
         """
-        if not exposure.getPsf():
-            exposure.setPsf(createPsf(self.config.fwhm))
+        self.checkPsf(exposure)
         convolved = self.convolveImage(exposure)
         catalog = self.makeCatalog(referenceLines, detectorMap, convolved)
         self.measure(exposure, catalog)
         self.display(exposure, catalog)
         return self.translate(catalog)
 
-    def convolveImage(self, exposure):
-        """Convolve image by Gaussian kernel set by the PSF
+    def checkPsf(self, exposure):
+        """Check that the PSF is present in the ``exposure``
 
-        The boundary is unconvolved, and is set to ``NaN``.
+        If the PSF isn't present in the ``exposure``, then we use the ``fwhm``
+        from the config.
+
+        Parameters
+        ----------
+        exposure : `lsst.afw.image.Exposure`
+            Image to convolve. The PSF must be set.
+
+        Returns
+        -------
+        psf : `lsst.afw.detection.Psf`
+            Two-dimensional point-spread function.
+        """
+        psf = exposure.getPsf()
+        if psf is not None:
+            return
+        exposure.setPsf(createPsf(self.config.fwhm))
+
+    def convolveImage(self, exposure):
+        """Convolve image by Gaussian kernel
 
         Parameters
         ----------
@@ -103,14 +121,9 @@ class CentroidLinesTask(Task):
         convolved : `lsst.afw.image.MaskedImage`
             Convolved image.
         """
-        psfSigma = exposure.getPsf().computeShape().getTraceRadius()
-        psfSize = 2*int(self.config.kernelSize*psfSigma) + 1
-        kernel = SeparableKernel(psfSize, psfSize, GaussianFunction1D(psfSigma), GaussianFunction1D(psfSigma))
-        maskedImage = exposure.maskedImage
-
-        convolvedImage = maskedImage.Factory(maskedImage.getBBox())
-        convolve(convolvedImage, maskedImage, kernel, ConvolutionControl())
-
+        psf = exposure.getPsf()
+        sigma = psf.computeShape().getTraceRadius()
+        convolvedImage = convolveImage(exposure.maskedImage, sigma, sigma, sigmaNotFwhm=True)
         if self.debugInfo.displayConvolved:
             from lsst.afw.display import Display
             Display(frame=1).mtv(convolvedImage)

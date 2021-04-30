@@ -9,13 +9,13 @@ from lsst.pex.config import Config, Field, ListField, ConfigurableField
 from lsst.pipe.base import Task, Struct
 from lsst.afw.geom import SpanSet
 from lsst.afw.display import Display
-from lsst.afw.math import GaussianFunction1D, SeparableKernel, convolve, ConvolutionControl
 
 from pfs.datamodel import FiberStatus
 from pfs.drp.stella.traces import findTracePeaks, centroidTrace, TracePeak
 from pfs.drp.stella.fitPolynomial import FitPolynomialTask
 from pfs.drp.stella.fiberProfile import FiberProfile
 from pfs.drp.stella.fiberProfileSet import FiberProfileSet
+from pfs.drp.stella.images import convolveImage
 
 import lsstDebug
 
@@ -139,30 +139,8 @@ class BuildFiberProfilesTask(Task):
         convolved : `lsst.afw.image.MaskedImage`
             Convolved image.
         """
-        def fwhmToSigma(fwhm):
-            """Convert FWHM to sigma for a Gaussian"""
-            return fwhm/(2*np.sqrt(2*np.log(2)))
-
-        def sigmaToSize(sigma):
-            """Determine kernel size from Gaussian sigma"""
-            return 2*int(self.config.kernelSize*sigma) + 1
-
-        xSigma = fwhmToSigma(self.config.columnFwhm)
-        ySigma = fwhmToSigma(self.config.rowFwhm)
-
-        kernel = SeparableKernel(sigmaToSize(xSigma), sigmaToSize(ySigma),
-                                 GaussianFunction1D(xSigma), GaussianFunction1D(ySigma))
-
-        convolvedImage = maskedImage.Factory(maskedImage.getBBox())
-        convolve(convolvedImage, maskedImage, kernel, ConvolutionControl())
-
-        # Redo the convolution of the mask plane, using a smaller kernel
-        mask = convolvedImage.mask
-        mask.array[:] = maskedImage.mask.array
-        grow = self.config.convolveGrowMask
-        for name in convolvedImage.mask.getMaskPlaneDict():
-            bitmask = convolvedImage.mask.getPlaneBitMask(name)
-            SpanSet.fromMask(mask, bitmask).dilated(grow).clippedTo(mask.getBBox()).setMask(mask, bitmask)
+        convolvedImage = convolveImage(maskedImage, self.config.columnFwhm, self.config.rowFwhm,
+                                       self.config.convolveGrowMask, self.config.kernelSize)
 
         if self.debugInfo.displayConvolved:
             Display(frame=1).mtv(convolvedImage)
