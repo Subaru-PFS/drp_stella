@@ -10,10 +10,12 @@ __all__ = ("ReadLineListConfig", "ReadLineListTask")
 class ReadLineListConfig(Config):
     """Configuration for ReadLineListTask"""
     lineListFiles = ListField(dtype=str, doc="list of names of linelist files",
-                              default=["Ar.txt", "Hg.txt", "Kr.txt", "Ne.txt", "Xe.txt"])
+                              default=["Ar.txt", "Hg.txt", "Kr.txt", "Ne.txt", "Xe.txt", "skyLines.txt"])
     restrictByLamps = Field(dtype=bool, default=True,
                             doc="Restrict linelist by the list of active lamps? True is appropriate for arcs")
     lampList = ListField(dtype=str, doc="list of species in lamps", default=[])
+    assumeSkyIfNoLamps = Field(dtype=bool, default=True,
+                               doc="Assume that we're looking at sky if no lamps are active?")
     minIntensity = Field(dtype=float, default=0.0, doc="Minimum linelist intensity")
 
     def validate(self):
@@ -121,7 +123,10 @@ class ReadLineListTask(Task):
             return None
         if metadata is None:
             raise RuntimeError("Cannot determine lamps because metadata was not provided")
-        return getLampElements(metadata)
+        lamps = getLampElements(metadata)
+        if not lamps and self.config.assumeSkyIfNoLamps:
+            lamps = ["OI", "NaI", "OH"]
+        return lamps
 
     def filterByWavelength(self, lines, detectorMap=None):
         """Filter the line list by wavelength
