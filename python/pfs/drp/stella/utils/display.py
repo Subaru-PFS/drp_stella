@@ -397,7 +397,7 @@ def getCtypeFromReferenceLineDefault(line):
     return ctype
 
 
-def showDetectorMap(display, pfsConfig, detMap, width=100, zoom=0, xc=None, fiberIds=None, lines=None,
+def showDetectorMap(display, pfsConfig, detMap, width=100, zoom=0, xcen=None, fiberIds=None, lines=None,
                     alpha=1.0, getCtypeFromReferenceLine=getCtypeFromReferenceLineDefault):
     """Plot the detectorMap on a display
 
@@ -412,7 +412,7 @@ def showDetectorMap(display, pfsConfig, detMap, width=100, zoom=0, xc=None, fibe
          The width (in pixels) of the fibres to label, centered on fiberLines
       zoom: `int`
          Zoom the display by this amount about fiberLines
-      xc: `int`
+      xcen: `int`
          Label fibres near this x-value
       fiberIds: `list` of `int`
          Label fibres near this set of fiberIds
@@ -425,7 +425,7 @@ def showDetectorMap(display, pfsConfig, detMap, width=100, zoom=0, xc=None, fibe
         `pfs.drp.stella.referenceLine.ReferenceLineStatus`.  Return "IGNORE" to ignore the line;
         default pfs.drp.utils.display.getCtypeFromStatusDefault
 
-    If xc and fiberId are omitted, show all fibres in the pfsConfig
+    If xcen and fiberId are omitted, show all fibres in the pfsConfig
     """
 
     line.status == NOT_VISIBLE: GRAY
@@ -562,15 +562,11 @@ def showDetectorMap(display, pfsConfig, detMap, width=100, zoom=0, xcen=None, fi
     # Plot the position of a set of lines
     #
     if lines:
-<<<<<<< HEAD
         if fiberIds is None or len(fiberIds) == 0:
-            fiberIds = detMap.fiberId
+            fiberIds = detMap.fibe
             stride = len(fiberIds)//25 + 1
         else:
             stride = 1
-=======
-        stride = len(pfsConfig)//25 + 1
->>>>>>> baf344e8 (Support pfs.drp.stella.referenceLine.ReferenceLineSet)
 
         # find the first and last valid fibres
         firstGood, lastGood = None, None
@@ -596,15 +592,11 @@ def showDetectorMap(display, pfsConfig, detMap, width=100, zoom=0, xcen=None, fi
                 if i%stride != 0 and i not in (firstGood, lastGood):
                     continue
 
-<<<<<<< HEAD
-                xc, yc = detMap.findPoint(fid, ll.wavelength)
-=======
                 xc, yc = detMap.findPoint(fid, l.wavelength)
 
                 ctype = getCtypeFromReferenceLine(l)
                 if ctype == "IGNORE":
                     continue
->>>>>>> baf344e8 (Support pfs.drp.stella.referenceLine.ReferenceLineSet)
 
                 if len(fiberIds) == 1:
                     display.dot('o', xc, yc, ctype=ctype)
