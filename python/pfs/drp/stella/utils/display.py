@@ -324,7 +324,6 @@ def getCtypeFromReferenceLineDefault(line):
 
     return ctype
 
-
 def showDetectorMap(display, pfsConfig, detMap, width=100, zoom=0, xcen=None, fiberIds=None, lines=None,
                     alpha=1.0, getCtypeFromReferenceLine=getCtypeFromReferenceLineDefault):
     """Plot the detectorMap on a display
