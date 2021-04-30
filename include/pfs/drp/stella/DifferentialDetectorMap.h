@@ -33,7 +33,8 @@ class DifferentialDetectorMap : public ModelBasedDetectorMap {
         std::shared_ptr<SplinedDetectorMap> base,
         GlobalDetectorModel const& model,
         VisitInfo const& visitInfo=VisitInfo(lsst::daf::base::PropertyList()),
-        std::shared_ptr<lsst::daf::base::PropertySet> metadata=nullptr
+        std::shared_ptr<lsst::daf::base::PropertySet> metadata=nullptr,
+        float samplingFactor=50.0
     );
 
     virtual ~DifferentialDetectorMap() {}

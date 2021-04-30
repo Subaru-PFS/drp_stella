@@ -21,8 +21,9 @@ DifferentialDetectorMap::DifferentialDetectorMap(
     std::shared_ptr<SplinedDetectorMap> base,
     GlobalDetectorModel const& model,
     VisitInfo const& visitInfo,
-    std::shared_ptr<lsst::daf::base::PropertySet> metadata
-) : ModelBasedDetectorMap(base->getBBox(), model.getWavelengthCenter(), model.getDispersion(),
+    std::shared_ptr<lsst::daf::base::PropertySet> metadata,
+    float samplingFactor
+) : ModelBasedDetectorMap(base->getBBox(), model.getWavelengthCenter(), samplingFactor*model.getDispersion(),
                           base->getFiberId(), base->getSpatialOffsets(), base->getSpectralOffsets(),
                           visitInfo, metadata),
     _base(base),
