@@ -243,8 +243,13 @@ class ReduceArcTask(CmdLineTask):
                                               oldDetMap.metadata, spatialOffsets, spectralOffsets).detectorMap
 
         self.write(dataRef, detectorMap, metadata, visitInfo, [ref.dataId["visit"] for ref in dataRefList])
-        if self.debugInfo.display and self.debugInfo.displayCalibrations:
-            for rr in results:
+
+        # Update wavelength calibrations on extracted spectra, and write
+        for dataRef, rr in zip(dataRefList, results):
+            for ss in rr.spectra:
+                ss.setWavelength(detectorMap.getWavelength(ss.fiberId))
+            dataRef.put(rr.spectra.toPfsArm(dataRef.dataId), "pfsArm")
+            if self.debugInfo.display and self.debugInfo.displayCalibrations:
                 self.plotCalibrations(rr.spectra, rr.lines, detectorMap)
 
     def write(self, dataRef, detectorMap, metadata, visitInfo, visits):
