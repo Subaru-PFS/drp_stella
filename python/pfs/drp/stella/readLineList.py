@@ -1,3 +1,4 @@
+import numpy as np
 from lsst.pex.config import Config, Field, ListField
 from lsst.pipe.base import Task
 
@@ -17,6 +18,7 @@ class ReadLineListConfig(Config):
     assumeSkyIfNoLamps = Field(dtype=bool, default=True,
                                doc="Assume that we're looking at sky if no lamps are active?")
     minIntensity = Field(dtype=float, default=0.0, doc="Minimum linelist intensity")
+    exclusionRadius = Field(dtype=float, default=0.0, doc="Exclusion radius around lines (nm)")
 
     def validate(self):
         super().validate()
@@ -56,6 +58,7 @@ class ReadLineListTask(Task):
         lines = self.filterByLamps(lines, lamps)
         lines = self.filterByIntensity(lines)
         lines = self.filterByWavelength(lines, detectorMap)
+        lines = self.filterByExclusionZone(lines)
         return lines
 
     def filterByLamps(self, lines, lamps):
@@ -151,3 +154,29 @@ class ReadLineListTask(Task):
         maxWl = wavelength.max()
         return ReferenceLineSet([rl for rl in lines if rl.wavelength >= minWl and
                                  rl.wavelength <= maxWl])
+
+    def filterByExclusionZone(self, lines):
+        """Filter the line list by applying an exclusion zone around each line
+
+        A line cannot have another brighter line within ``exclusionRadius``.
+
+        Parameters
+        ----------
+        lines : `pfs.drp.stella.ReferenceLineSet`
+            Lines from the linelist.
+
+        Returns
+        -------
+        filtered : `pfs.drp.stella.ReferenceLineSet`
+            Filtered list of reference lines.
+        """
+        exclusionRadius = self.config.exclusionRadius
+        if exclusionRadius <= 0:
+            return lines
+        wavelength = lines.wavelength
+        intensity = lines.intensity
+        reject = np.zeros(len(lines), dtype=bool)
+        for rl in lines:
+            distance = wavelength - rl.wavelength
+            reject |= (np.abs(distance) < exclusionRadius) & (distance != 0) & (intensity < rl.intensity)
+        return ReferenceLineSet([rl for rl, keep in zip(lines, ~reject) if keep])
