@@ -269,7 +269,7 @@ def getCtypeFromReferenceLineDefault(line):
     return ctype
 
 
-def showDetectorMap(display, pfsConfig, detMap, width=100, zoom=0, xc=None, fiberIds=None, lines=None,
+def showDetectorMap(display, pfsConfig, detMap, width=100, zoom=0, xcen=None, fiberIds=None, lines=None,
                     alpha=1.0, getCtypeFromReferenceLine=getCtypeFromReferenceLineDefault):
     """Plot the detectorMap on a display
 
@@ -284,7 +284,7 @@ def showDetectorMap(display, pfsConfig, detMap, width=100, zoom=0, xc=None, fibe
          The width (in pixels) of the fibres to label, centered on fiberLines
       zoom: `int`
          Zoom the display by this amount about fiberLines
-      xc: `int`
+      xcen: `int`
          Label fibres near this x-value
       fiberIds: `list` of `int`
          Label fibres near this set of fiberIds
@@ -297,7 +297,7 @@ def showDetectorMap(display, pfsConfig, detMap, width=100, zoom=0, xc=None, fibe
         `pfs.drp.stella.referenceLine.ReferenceLineStatus`.  Return "IGNORE" to ignore the line;
         default pfs.drp.utils.display.getCtypeFromStatusDefault
 
-    If xc and fiberId are omitted, show all fibres in the pfsConfig
+    If xcen and fiberId are omitted, show all fibres in the pfsConfig
     """
 
     plt.sca(display.frame.axes[0])
@@ -308,7 +308,7 @@ def showDetectorMap(display, pfsConfig, detMap, width=100, zoom=0, xc=None, fibe
     SuNSS = TargetType.SUNSS_IMAGING in pfsConfig.targetType
 
     showAll = False
-    if xc is None:
+    if xcen is None:
         if fiberIds is None:
             fiberIds = pfsConfig.fiberId
             showAll = True
@@ -318,9 +318,9 @@ def showDetectorMap(display, pfsConfig, detMap, width=100, zoom=0, xc=None, fibe
             except TypeError:
                 fiberIds = [fiberIds]
 
-            xc = detMap.getXCenter(fiberIds[len(fiberIds)//2], height/2)
+            xcen = detMap.getXCenter(fiberIds[len(fiberIds)//2], height/2)
     else:
-        pass  # xc is already set
+        pass  # xcen is already set
 
     nFiberShown = 0
     for fid in detMap.fiberId:
@@ -346,7 +346,7 @@ def showDetectorMap(display, pfsConfig, detMap, width=100, zoom=0, xc=None, fibe
             color = 'green' if SuNSS and imagingFiber else 'red'
 
         fiberX = detMap.getXCenter(fid, height//2)
-        if showAll or np.abs(fiberX - xc) < width/2:
+        if showAll or np.abs(fiberX - xcen) < width/2:
             fiberX = detMap.getXCenter(fid)
             plt.plot(fiberX[::20], y[::20], ls=ls, alpha=alpha, label=f"{fid}",
                      color=color if showAll else None)
@@ -355,7 +355,7 @@ def showDetectorMap(display, pfsConfig, detMap, width=100, zoom=0, xc=None, fibe
     # Plot the position of a set of lines
     #
     if lines:
-        stride = len(pfsConfig)//25 + 1
+        stride = len(pfsConfig)//25 + 1 if fiberIds is None else 1
 
         for ll in lines:
             if fiberIds is None:
@@ -387,7 +387,7 @@ def showDetectorMap(display, pfsConfig, detMap, width=100, zoom=0, xc=None, fibe
         if nFiberShown > 0:
             plt.legend()
         if zoom > 0:
-            display.zoom(zoom, xc, np.mean(y))
+            display.zoom(zoom, xcen, np.mean(y))
 
 
 def getIndex(mos, x, y):                # should be a method of lsst.afw.display.utils.Mosaic
