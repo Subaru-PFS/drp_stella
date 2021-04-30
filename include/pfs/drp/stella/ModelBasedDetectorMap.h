@@ -46,12 +46,6 @@ class ModelBasedDetectorMap : public DetectorMap {
     ModelBasedDetectorMap & operator=(ModelBasedDetectorMap const&) = default;
     ModelBasedDetectorMap & operator=(ModelBasedDetectorMap &&) = default;
 
-    //@{
-    /// Return the wavelength values
-    virtual Array1D getWavelength(int fiberId) const override;
-    virtual double getWavelength(int fiberId, double row) const override;
-    //@}
-
     /// Return the fiberId given a position on the detector
     virtual int findFiberId(lsst::geom::PointD const& point) const override;
 

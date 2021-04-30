@@ -81,12 +81,13 @@ class DetectorMap : public lsst::afw::table::io::Persistable {
     ) const;
     //@}
 
-    //@{
-    /// Return the wavelength values for each row
-    Array2D getWavelength() const;
-    virtual Array1D getWavelength(int fiberId) const = 0;
+    /// Return the wavelength values for each row for all fibers
 
-    virtual double getWavelength(int fiberId, double row) const = 0;
+    //@{
+    /// Return the wavelength values
+    Array2D getWavelength() const;
+    Array1D getWavelength(int fiberId) const;
+    double getWavelength(int fiberId, double row) const { return findWavelengthImpl(fiberId, row); }
     //@}
 
     /// Return the dispersion (nm/pixel) at the center
