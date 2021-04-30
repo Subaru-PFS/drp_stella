@@ -6,7 +6,6 @@ import numpy as np
 import lsstDebug
 import lsst.pex.config as pexConfig
 from lsst.pipe.base import TaskRunner, ArgumentParser, CmdLineTask, Struct
-from pfs.datamodel import FiberStatus
 from .reduceExposure import ReduceExposureTask
 from pfs.drp.stella.fitDifferentialDetectorMap import FitDifferentialDetectorMapTask
 from .centroidLines import CentroidLinesTask
@@ -133,7 +132,7 @@ class ReduceArcTask(CmdLineTask):
             if len(values) > 1:
                 raise RuntimeError("%s varies for inputs: %s" % (prop, [ref.dataId for ref in dataRefList]))
 
-    def run(self, exposure, detectorMap, lines):
+    def run(self, exposure, detectorMap, lines, pfsConfig=None):
         """Entry point for scatter stage
 
         Centroids and identifies lines in the spectra extracted from the exposure
@@ -145,14 +144,16 @@ class ReduceArcTask(CmdLineTask):
         detectorMap : `pfs.drp.stella.utils.DetectorMap`
             Mapping of wl,fiber to detector position.
         lines : `pfs.drp.stella.ReferenceLineSet`
-            Reference lines to use
+            Reference lines to use.
+        pfsConfig : `pfs.datamodel.PfsConfig`
+            Top-end configuration.
 
         Returns
         -------
         lines : `pfs.drp.stella.ArcLineSet`
             Set of reference lines matched to the data
         """
-        lines = self.centroidLines.run(exposure, lines, detectorMap)
+        lines = self.centroidLines.run(exposure, lines, detectorMap, pfsConfig)
         return Struct(
             lines=lines
         )
@@ -196,11 +197,10 @@ class ReduceArcTask(CmdLineTask):
         spectra = results.spectraList[0]
         exposure = results.exposureList[0]
         detectorMap = results.detectorMapList[0]
+        pfsConfig = results.pfsConfig
 
-        indices = results.pfsConfig.selectByFiberStatus(FiberStatus.GOOD)
-        fiberId = results.pfsConfig.fiberId[indices]
-        lines = self.readLineList.run(detectorMap=detectorMap, fiberId=fiberId, metadata=metadata)
-        lines = self.run(exposure, detectorMap, lines).lines
+        lines = self.readLineList.run(detectorMap=detectorMap, metadata=metadata)
+        lines = self.run(exposure, detectorMap, lines, pfsConfig).lines
 
         dataRef.put(lines, "arcLines")
 

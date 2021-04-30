@@ -66,8 +66,7 @@ class MeasureSlitOffsetsTask(Task):
         before = detectorMap.clone()
         indices = pfsConfig.selectByFiberStatus(FiberStatus.GOOD, detectorMap.fiberId)
         fiberId = detectorMap.fiberId[indices]
-        lines = self.readLineList.run(detectorMap=detectorMap, fiberId=fiberId,
-                                      metadata=exposure.getMetadata())
+        lines = self.readLineList.run(detectorMap=detectorMap, metadata=exposure.getMetadata())
         centroids = self.centroidLines.run(exposure, lines, detectorMap)
 
         result = self.measureSlitOffsets(detectorMap, centroids)

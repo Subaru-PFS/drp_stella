@@ -13,6 +13,7 @@ from lsst.meas.base.sdssCentroid import SdssCentroidAlgorithm, SdssCentroidContr
 from lsst.meas.base.psfFlux import PsfFluxAlgorithm, PsfFluxControl
 from lsst.ip.isr.isrFunctions import createPsf
 
+from pfs.datamodel import FiberStatus
 from .arcLine import ArcLine, ArcLineSet
 from .images import convolveImage
 
@@ -60,7 +61,7 @@ class CentroidLinesTask(Task):
                                            self.schema)
         self.debugInfo = lsstDebug.Info(__name__)
 
-    def run(self, exposure, referenceLines, detectorMap):
+    def run(self, exposure, referenceLines, detectorMap, pfsConfig=None):
         """Centroid lines on an arc
 
         We use the LSST stack's ``SdssCentroid`` measurement at the position
@@ -70,10 +71,13 @@ class CentroidLinesTask(Task):
         ----------
         exposure : `lsst.afw.image.Exposure`
             Arc exposure on which to centroid lines.
-        referenceLines : `dict` (`int`: `pfs.drp.stella.ReferenceLineSet`)
-            List of reference lines for each fiberId.
+        referenceLines : `pfs.drp.stella.ReferenceLineSet`
+            List of reference lines.
         detectorMap : `pfs.drp.stella.DetectorMap`
             Approximate mapping between fiberId,wavelength and x,y.
+        pfsConfig : `pfs.datamodel.PfsConfig`, optional
+            Top-end configuration, for specifying good fibers. If not provided,
+            will use all fibers in the detectorMap.
 
         Returns
         -------
@@ -82,7 +86,7 @@ class CentroidLinesTask(Task):
         """
         self.checkPsf(exposure)
         convolved = self.convolveImage(exposure)
-        catalog = self.makeCatalog(referenceLines, detectorMap, convolved)
+        catalog = self.makeCatalog(referenceLines, detectorMap, convolved, pfsConfig)
         self.measure(exposure, catalog)
         self.display(exposure, catalog)
         return self.translate(catalog)
@@ -130,7 +134,7 @@ class CentroidLinesTask(Task):
 
         return convolvedImage
 
-    def makeCatalog(self, referenceLines, detectorMap, convolved):
+    def makeCatalog(self, referenceLines, detectorMap, convolved, pfsConfig=None):
         """Make a catalog of arc lines
 
         We plug in the rough position of all the arc lines, from the identified
@@ -139,26 +143,35 @@ class CentroidLinesTask(Task):
 
         Parameters
         ----------
-        referenceLines : `dict` (`int`: `pfs.drp.stella.ReferenceLineSet`)
-            List of reference lines for each fiberId.
+        referenceLines : `pfs.drp.stella.ReferenceLineSet`
+            List of reference lines.
         detectorMap : `pfs.drp.stella.DetectorMap`
             Approximate mapping between fiberId,wavelength and x,y.
         convolved : `lsst.afw.image.MaskedImage`
             PSF-convolved image.
+        pfsConfig : `pfs.datamodel.PfsConfig`, optional
+            Top-end configuration, for specifying good fibers. If not provided,
+            will use all fibers in the detectorMap.
 
         Returns
         -------
         catalog : `lsst.afw.table.SourceCatalog`
             Catalog of arc lines.
         """
-        num = sum(len(rl) for rl in referenceLines.values())
+        num = detectorMap.getNumFibers()*len(referenceLines)
         catalog = SourceCatalog(self.schema)
         catalog.reserve(num)
         bbox = convolved.getBBox()
 
-        for fiberId in referenceLines:
-            for rl in referenceLines[fiberId]:
-                xx, yy = detectorMap.findPoint(fiberId, rl.wavelength)
+        if pfsConfig is not None:
+            indices = pfsConfig.selectByFiberStatus(FiberStatus.GOOD, detectorMap.fiberId)
+            fiberId = detectorMap.fiberId[indices]
+        else:
+            fiberId = detectorMap.fiberId
+
+        for ff in fiberId:
+            for rl in referenceLines:
+                xx, yy = detectorMap.findPoint(ff, rl.wavelength)
                 if not np.isfinite(xx) or not np.isfinite(yy):
                     continue
                 point = Point2D(xx, yy)
@@ -167,7 +180,7 @@ class CentroidLinesTask(Task):
                 peak = self.findPeak(convolved.image, point)
 
                 source = catalog.addNew()
-                source.set(self.fiberId, fiberId)
+                source.set(self.fiberId, ff)
                 source.set(self.wavelength, rl.wavelength)
                 source.set(self.description, rl.description)
                 source.set(self.status, rl.status)
