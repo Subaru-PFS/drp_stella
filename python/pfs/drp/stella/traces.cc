@@ -31,7 +31,15 @@ void declareTracePeak(py::module &mod) {
 PYBIND11_PLUGIN(traces) {
     py::module mod("traces");
     declareTracePeak(mod);
-    mod.def("findTracePeaks", &findTracePeaks, "image"_a, "threshold"_a, "badBitMask"_a=0);
+    mod.def("findTracePeaks",
+            py::overload_cast<lsst::afw::image::MaskedImage<float> const&, float,
+                              lsst::afw::image::MaskPixel>(&findTracePeaks),
+            "image"_a, "threshold"_a, "badBitMask"_a=0);
+    mod.def("findTracePeaks",
+            py::overload_cast<lsst::afw::image::MaskedImage<float> const&, DetectorMap const&,
+                              float, float, lsst::afw::image::MaskPixel,
+                              ndarray::Array<int, 1, 1> const&>(&findTracePeaks),
+            "image"_a, "detectorMap"_a, "threshold"_a, "radius"_a, "badBitMask"_a=0, "fiberId"_a=nullptr);
     mod.def("centroidTrace", &centroidTrace, "peaks"_a, "image"_a, "radius"_a, "badBitMask"_a=0);
     return mod.ptr();
 }
