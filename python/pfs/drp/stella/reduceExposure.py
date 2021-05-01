@@ -32,7 +32,8 @@ from .extractSpectraTask import ExtractSpectraTask
 from .subtractSky2d import SubtractSky2dTask
 from .fitContinuum import FitContinuumTask
 from .lsf import ExtractionLsf, GaussianLsf
-from .measureSlitOffsets import MeasureSlitOffsetsTask
+from .readLineList import ReadLineListTask
+from .adjustDetectorMap import AdjustDetectorMapTask
 
 __all__ = ["ReduceExposureConfig", "ReduceExposureTask"]
 
@@ -42,9 +43,11 @@ class ReduceExposureConfig(Config):
     isr = ConfigurableField(target=IsrTask, doc="Instrumental signature removal")
     doRepair = Field(dtype=bool, default=True, doc="Repair artifacts?")
     repair = ConfigurableField(target=RepairTask, doc="Task to repair artifacts")
-    doOffsetDetectorMap = Field(dtype=bool, default=False,
-                                doc="Measure and apply an offset to the detectorMap?")
-    measureSlitOffsets = ConfigurableField(target=MeasureSlitOffsetsTask, doc="Measure slit offsets")
+    doAdjustDetectorMap = Field(dtype=bool, default=False,
+                                doc="Apply a low-order correction to the detectorMap?")
+    readLineList = ConfigurableField(target=ReadLineListTask,
+                                     doc="Read line lists for detectorMap adjustment")
+    adjustDetectorMap = ConfigurableField(target=AdjustDetectorMapTask, doc="Measure slit offsets")
     doSkySwindle = Field(dtype=bool, default=False,
                          doc="Do the Sky Swindle (subtract the exact sky)? "
                              "This only works with Simulator files produced with the --allOutput flag")
@@ -141,7 +144,8 @@ class ReduceExposureTask(CmdLineTask):
         super().__init__(*args, **kwargs)
         self.makeSubtask("isr")
         self.makeSubtask("repair")
-        self.makeSubtask("measureSlitOffsets")
+        self.makeSubtask("readLineList")
+        self.makeSubtask("adjustDetectorMap")
         self.makeSubtask("measurePsf")
         self.makeSubtask("subtractSky2d")
         self.makeSubtask("extractSpectra")
@@ -402,10 +406,13 @@ class ReduceExposureTask(CmdLineTask):
             Trace for each fiber.
         """
         detectorMap = sensorRef.get("detectorMap")
-        if self.config.doOffsetDetectorMap:
-            self.measureSlitOffsets.run(exposure, detectorMap, pfsConfig)
         fiberProfiles = sensorRef.get("fiberProfiles")
         fiberTraces = fiberProfiles.makeFiberTracesFromDetectorMap(detectorMap)
+        if self.config.doAdjustDetectorMap:
+            lines = self.readLineList.run(detectorMap, exposure.getMetadata())
+            results = self.adjustDetectorMap.run(exposure, detectorMap, lines, pfsConfig, fiberTraces)
+            detectorMap = results.detectorMap
+            sensorRef.put(detectorMap, "detectorMap")
         return Struct(detectorMap=detectorMap, fiberProfiles=fiberProfiles, fiberTraces=fiberTraces)
 
     def calculateLsf(self, psf, fiberTraceSet, length):
