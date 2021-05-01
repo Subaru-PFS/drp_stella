@@ -12,7 +12,8 @@ namespace stella {
 /// A peak found in the trace
 struct TracePeak {
     lsst::afw::geom::Span const span;  ///< Span containing the peak
-    float peak;  ///< Peak position in the spatial dimension
+    double peak;  ///< Peak position in the spatial dimension
+    double peakErr;  ///< Error in peak position
 
     /// Constructor
     ///
@@ -20,9 +21,12 @@ struct TracePeak {
     /// @param low : Column at the low-end of the span containing the peak
     /// @param peak_ : Peak position in the spatial dimension
     /// @param high : Column at the high-end of the span containing the peak
-    TracePeak(int row, int low, float peak_, int high) :
+    /// @param peakErr_ : Error in peak position
+    TracePeak(int row, int low, double peak_, int high,
+              double peakErr_=std::numeric_limits<double>::quiet_NaN()) :
       span(row, low, high),
-      peak(peak_)
+      peak(peak_),
+      peakErr(peakErr_)
       {}
 
     TracePeak(TracePeak const&) = delete;
