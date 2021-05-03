@@ -9,6 +9,8 @@ from .constructSpectralCalibs import SpectralCalibConfig, SpectralCalibTask
 from .buildFiberProfiles import BuildFiberProfilesTask
 from pfs.drp.stella import SlitOffsetsConfig
 from pfs.drp.stella.fitContinuum import FitContinuumTask
+from pfs.drp.stella.adjustDetectorMap import AdjustDetectorMapTask
+from . import ReferenceLineSet
 
 
 class ConstructFiberProfilesTaskRunner(CalibTaskRunner):
@@ -35,6 +37,7 @@ class ConstructFiberProfilesConfig(SpectralCalibConfig):
     )
     slitOffsets = ConfigField(dtype=SlitOffsetsConfig, doc="Manual slit offsets to apply to detectorMap")
     fitContinuum = ConfigurableField(target=FitContinuumTask, doc="Fit continuum")
+    adjustDetectorMap = ConfigurableField(target=AdjustDetectorMapTask, doc="Adjust detectorMap")
     mask = ListField(dtype=str, default=["BAD_FLAT", "CR", "SAT", "NO_DATA"],
                      doc="Mask planes to exclude from fiberTrace")
     forceFiberIds = Field(dtype=bool, default=False, doc="Force identified fiberIds to match pfsConfig?")
@@ -55,6 +58,7 @@ class ConstructFiberProfilesTask(SpectralCalibTask):
         super().__init__(*args, **kwargs)
         self.makeSubtask("profiles")
         self.makeSubtask("fitContinuum")
+        self.makeSubtask("adjustDetectorMap")
 
     def run(self, expRefList, butler, calibId):
         """Construct the ``fiberProfiles`` calib
@@ -135,6 +139,8 @@ class ConstructFiberProfilesTask(SpectralCalibTask):
         detMap = dataRefList[0].get('detectorMap')
         pfsConfig = dataRefList[0].get("pfsConfig")
         self.config.slitOffsets.apply(detMap, self.log)
+
+        detMap = self.adjustDetectorMap.run(exposure, detMap, ReferenceLineSet.empty(), pfsConfig).detectorMap
 
         results = self.profiles.run(exposure, detMap, pfsConfig)
         self.log.info('%d fiber profiles found on combined flat', len(results.profiles))
