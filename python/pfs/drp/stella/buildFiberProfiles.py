@@ -524,7 +524,7 @@ class BuildFiberProfilesTask(Task):
             """
             result = scipy.optimize.minimize(partial(calculateChi2, select=use), params, method='Nelder-Mead')
             if not result.success:
-                raise RuntimeError("Failed to fit trace transformation")
+                raise RuntimeError(f"Failed to fit trace transformation: {result}")
             params = result.x
             residuals = calculateResiduals(params)
             lower, upper = np.percentile(residuals[use], (25.0, 75.0))
