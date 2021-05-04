@@ -13,6 +13,7 @@
 #include "pfs/drp/stella/math/NormalizedPolynomial.h"
 #include "pfs/drp/stella/DetectorMap.h"
 
+// This module is now deprecated in favor of DetectorDistortion.
 
 namespace pfs {
 namespace drp {

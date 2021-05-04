@@ -111,32 +111,6 @@ double SplinedDetectorMap::getXCenterImpl(
 }
 
 
-
-DetectorMap::Array1D SplinedDetectorMap::getWavelength(
-    int fiberId
-) const {
-    auto const& spline = getWavelengthSpline(fiberId);
-    double const offset = getSpectralOffset(fiberId);
-    std::size_t const height = getBBox().getHeight();
-
-    ndarray::Array<double, 1, 1> out = ndarray::allocate(height);
-    for (std::size_t yy = 0; yy < height; ++yy) {
-        out[yy] = spline(yy - offset);
-    }
-    return out;
-}
-
-
-double SplinedDetectorMap::getWavelength(
-    int fiberId,
-    double row
-) const {
-    auto const& spline = getWavelengthSpline(fiberId);
-    double const offset = getSpectralOffset(fiberId);
-    return spline(row - offset);
-}
-
-
 int SplinedDetectorMap::findFiberId(
     lsst::geom::PointD const& point
 ) const {

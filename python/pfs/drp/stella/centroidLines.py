@@ -1,6 +1,6 @@
 import numpy as np
 
-from lsst.pex.config import Config, Field, ConfigField, makeConfigClass
+from lsst.pex.config import Config, Field, ConfigurableField, ConfigField, makeConfigClass
 from lsst.pipe.base import Task
 
 from lsst.geom import Point2D, Point2I, Box2I, Extent2I
@@ -8,13 +8,15 @@ from lsst.afw.geom.ellipses import Ellipse, Axes
 from lsst.afw.geom import SpanSet
 from lsst.afw.detection import Footprint
 from lsst.afw.table import SourceCatalog, SourceTable
-from lsst.afw.math import GaussianFunction1D, SeparableKernel, convolve, ConvolutionControl
 from lsst.meas.base.exceptions import FatalAlgorithmError, MeasurementError
 from lsst.meas.base.sdssCentroid import SdssCentroidAlgorithm, SdssCentroidControl
 from lsst.meas.base.psfFlux import PsfFluxAlgorithm, PsfFluxControl
 from lsst.ip.isr.isrFunctions import createPsf
 
+from pfs.datamodel import FiberStatus
 from .arcLine import ArcLine, ArcLineSet
+from .images import convolveImage
+from .fitContinuum import FitContinuumTask
 
 import lsstDebug
 
@@ -31,6 +33,8 @@ PhotometryConfig = makeConfigClass(PsfFluxControl)
 
 class CentroidLinesConfig(Config):
     """Configuration for CentroidLinesTask"""
+    doSubtractContinuum = Field(dtype=bool, default=True, doc="Subtract continuum before centroiding lines?")
+    continuum = ConfigurableField(target=FitContinuumTask, doc="Continuum subtraction")
     centroider = ConfigField(dtype=CentroidConfig, doc="Centroider")
     photometer = ConfigField(dtype=PhotometryConfig, doc="Photometer")
     footprintSize = Field(dtype=float, default=3, doc="Radius of footprint (pixels)")
@@ -59,8 +63,45 @@ class CentroidLinesTask(Task):
         self.photometer = PsfFluxAlgorithm(self.config.photometer.makeControl(), self.photometryName,
                                            self.schema)
         self.debugInfo = lsstDebug.Info(__name__)
+        self.makeSubtask("continuum")
 
-    def run(self, exposure, referenceLines, detectorMap):
+    def run(self, exposure, referenceLines, detectorMap, pfsConfig=None, fiberTraces=None):
+        """Centroid lines on an arc
+
+        We use the LSST stack's ``SdssCentroid`` measurement at the position
+        of known arc lines.
+
+        This method optionally performs continuum subtraction before handing
+        off to the ``centroidLines`` method to do the actual centroiding.
+
+        Parameters
+        ----------
+        exposure : `lsst.afw.image.Exposure`
+            Arc exposure on which to centroid lines.
+        referenceLines : `pfs.drp.stella.ReferenceLineSet`
+            List of reference lines.
+        detectorMap : `pfs.drp.stella.DetectorMap`
+            Approximate mapping between fiberId,wavelength and x,y.
+        pfsConfig : `pfs.datamodel.PfsConfig`, optional
+            Top-end configuration, for specifying good fibers. If not provided,
+            will use all fibers in the detectorMap.
+        fiberTraces : `pfs.drp.stella.FiberTraceSet`, optional
+            Position and profile of fiber traces. Required only for continuum
+            subtraction.
+
+        Returns
+        -------
+        lines : `pfs.drp.stella.ArcLineSet`
+            Centroided lines.
+        """
+        if self.config.doSubtractContinuum:
+            if fiberTraces is None:
+                raise RuntimeError("No fiberTraces provided for continuum subtraction")
+            with self.continuum.subtractionContext(exposure.maskedImage, fiberTraces, referenceLines):
+                return self.centroidLines(exposure, referenceLines, detectorMap, pfsConfig)
+        return self.centroidLines(exposure, referenceLines, detectorMap, pfsConfig)
+
+    def centroidLines(self, exposure, referenceLines, detectorMap, pfsConfig=None):
         """Centroid lines on an arc
 
         We use the LSST stack's ``SdssCentroid`` measurement at the position
@@ -70,28 +111,49 @@ class CentroidLinesTask(Task):
         ----------
         exposure : `lsst.afw.image.Exposure`
             Arc exposure on which to centroid lines.
-        referenceLines : `dict` (`int`: `pfs.drp.stella.ReferenceLineSet`)
-            List of reference lines for each fiberId.
+        referenceLines : `pfs.drp.stella.ReferenceLineSet`
+            List of reference lines.
         detectorMap : `pfs.drp.stella.DetectorMap`
             Approximate mapping between fiberId,wavelength and x,y.
+        pfsConfig : `pfs.datamodel.PfsConfig`, optional
+            Top-end configuration, for specifying good fibers. If not provided,
+            will use all fibers in the detectorMap.
 
         Returns
         -------
         lines : `pfs.drp.stella.ArcLineSet`
             Centroided lines.
         """
-        if not exposure.getPsf():
-            exposure.setPsf(createPsf(self.config.fwhm))
+        self.checkPsf(exposure)
         convolved = self.convolveImage(exposure)
-        catalog = self.makeCatalog(referenceLines, detectorMap, convolved)
+        catalog = self.makeCatalog(referenceLines, detectorMap, convolved, pfsConfig)
         self.measure(exposure, catalog)
         self.display(exposure, catalog)
         return self.translate(catalog)
 
-    def convolveImage(self, exposure):
-        """Convolve image by Gaussian kernel set by the PSF
+    def checkPsf(self, exposure):
+        """Check that the PSF is present in the ``exposure``
 
-        The boundary is unconvolved, and is set to ``NaN``.
+        If the PSF isn't present in the ``exposure``, then we use the ``fwhm``
+        from the config.
+
+        Parameters
+        ----------
+        exposure : `lsst.afw.image.Exposure`
+            Image to convolve. The PSF must be set.
+
+        Returns
+        -------
+        psf : `lsst.afw.detection.Psf`
+            Two-dimensional point-spread function.
+        """
+        psf = exposure.getPsf()
+        if psf is not None:
+            return
+        exposure.setPsf(createPsf(self.config.fwhm))
+
+    def convolveImage(self, exposure):
+        """Convolve image by Gaussian kernel
 
         Parameters
         ----------
@@ -103,21 +165,16 @@ class CentroidLinesTask(Task):
         convolved : `lsst.afw.image.MaskedImage`
             Convolved image.
         """
-        psfSigma = exposure.getPsf().computeShape().getTraceRadius()
-        psfSize = 2*int(self.config.kernelSize*psfSigma) + 1
-        kernel = SeparableKernel(psfSize, psfSize, GaussianFunction1D(psfSigma), GaussianFunction1D(psfSigma))
-        maskedImage = exposure.maskedImage
-
-        convolvedImage = maskedImage.Factory(maskedImage.getBBox())
-        convolve(convolvedImage, maskedImage, kernel, ConvolutionControl())
-
+        psf = exposure.getPsf()
+        sigma = psf.computeShape().getTraceRadius()
+        convolvedImage = convolveImage(exposure.maskedImage, sigma, sigma, sigmaNotFwhm=True)
         if self.debugInfo.displayConvolved:
             from lsst.afw.display import Display
             Display(frame=1).mtv(convolvedImage)
 
         return convolvedImage
 
-    def makeCatalog(self, referenceLines, detectorMap, convolved):
+    def makeCatalog(self, referenceLines, detectorMap, convolved, pfsConfig=None):
         """Make a catalog of arc lines
 
         We plug in the rough position of all the arc lines, from the identified
@@ -126,26 +183,35 @@ class CentroidLinesTask(Task):
 
         Parameters
         ----------
-        referenceLines : `dict` (`int`: `pfs.drp.stella.ReferenceLineSet`)
-            List of reference lines for each fiberId.
+        referenceLines : `pfs.drp.stella.ReferenceLineSet`
+            List of reference lines.
         detectorMap : `pfs.drp.stella.DetectorMap`
             Approximate mapping between fiberId,wavelength and x,y.
         convolved : `lsst.afw.image.MaskedImage`
             PSF-convolved image.
+        pfsConfig : `pfs.datamodel.PfsConfig`, optional
+            Top-end configuration, for specifying good fibers. If not provided,
+            will use all fibers in the detectorMap.
 
         Returns
         -------
         catalog : `lsst.afw.table.SourceCatalog`
             Catalog of arc lines.
         """
-        num = sum(len(rl) for rl in referenceLines.values())
+        num = detectorMap.getNumFibers()*len(referenceLines)
         catalog = SourceCatalog(self.schema)
         catalog.reserve(num)
         bbox = convolved.getBBox()
 
-        for fiberId in referenceLines:
-            for rl in referenceLines[fiberId]:
-                xx, yy = detectorMap.findPoint(fiberId, rl.wavelength)
+        if pfsConfig is not None:
+            indices = pfsConfig.selectByFiberStatus(FiberStatus.GOOD, detectorMap.fiberId)
+            fiberId = detectorMap.fiberId[indices]
+        else:
+            fiberId = detectorMap.fiberId
+
+        for ff in fiberId:
+            for rl in referenceLines:
+                xx, yy = detectorMap.findPoint(ff, rl.wavelength)
                 if not np.isfinite(xx) or not np.isfinite(yy):
                     continue
                 point = Point2D(xx, yy)
@@ -154,7 +220,7 @@ class CentroidLinesTask(Task):
                 peak = self.findPeak(convolved.image, point)
 
                 source = catalog.addNew()
-                source.set(self.fiberId, fiberId)
+                source.set(self.fiberId, ff)
                 source.set(self.wavelength, rl.wavelength)
                 source.set(self.description, rl.description)
                 source.set(self.status, rl.status)

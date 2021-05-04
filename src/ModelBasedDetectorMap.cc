@@ -116,30 +116,6 @@ double ModelBasedDetectorMap::getXCenterImpl(
 }
 
 
-DetectorMap::Array1D ModelBasedDetectorMap::getWavelength(
-    int fiberId
-) const {
-    _ensureSplinesInitialized();
-    Spline const& spline = _rowToWavelength[getFiberIndex(fiberId)];
-    std::size_t const height = getBBox().getHeight();
-    Array1D out = ndarray::allocate(height);
-    for (std::size_t yy = 0; yy < height; ++yy) {
-        out[yy] = spline(yy);
-    }
-    return out;
-}
-
-
-double ModelBasedDetectorMap::getWavelength(
-    int fiberId,
-    double row
-) const {
-    _ensureSplinesInitialized();
-    Spline const& spline = _rowToWavelength[getFiberIndex(fiberId)];
-    return spline(row);
-}
-
-
 int ModelBasedDetectorMap::findFiberId(lsst::geom::PointD const& point) const {
     if (!getBBox().contains(lsst::geom::Point2I(point))) {
         throw LSST_EXCEPT(lsst::pex::exceptions::OutOfRangeError, "Point is not on the image");

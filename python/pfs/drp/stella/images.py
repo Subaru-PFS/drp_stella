@@ -1,7 +1,10 @@
 from types import SimpleNamespace
 import numpy as np
 
-__all__ = ["getIndices", "calculateCentroid", "calculateSecondMoments"]
+from lsst.afw.geom import SpanSet
+from lsst.afw.math import GaussianFunction1D, SeparableKernel, convolve, ConvolutionControl
+
+__all__ = ["getIndices", "calculateCentroid", "calculateSecondMoments", "convolveImage"]
 
 
 def getIndices(bbox, dtype=float):
@@ -66,3 +69,63 @@ def calculateSecondMoments(image, centroid=None):
     yWidth = np.sum(np.sum(image.array.astype(float), axis=1)*(yy.T - centroid.y)**2)/norm
     xyWidth = np.sum(image.array.astype(float)*(xx - centroid.x)*(yy - centroid.y))/norm
     return SimpleNamespace(xx=xWidth, yy=yWidth, xy=xyWidth)
+
+
+def convolveImage(maskedImage, colFwhm, rowFwhm=None, growMask=1, kernelSize=4.0, sigmaNotFwhm=False):
+    """Convolve image by Gaussian kernels in x and y
+
+    The convolution kernel size can be specified separately for the columns
+    and rows in the config.
+
+    The boundary is unconvolved, and is set to ``NaN``.
+
+    Parameters
+    ----------
+    maskedImage : `lsst.afw.image.MaskedImage`
+        Image to convolve.
+    colFwhm : `float`
+        FWHM (pixels) of kernel across columns (spatial dimension).
+    rowFwhm : `float`, optional
+        FWHM (pixels) of kernel across rows (spectral dimension). If not
+        provided, will be identical to ``colFwhm``.
+    growMask : `int`, optional
+        Number of pixels to grow mask.
+    kernelSize : `float`, optional
+        Half-size of convolution kernel, relative to sigma.
+    sigmaNotFwhm : `bool`
+        ``colFwhm`` and ``rowFwhm`` are actually Gaussian sigma, not FWHM.
+
+    Returns
+    -------
+    convolved : `lsst.afw.image.MaskedImage`
+        Convolved image.
+    """
+    if rowFwhm is None:
+        rowFwhm = colFwhm
+
+    def fwhmToSigma(fwhm):
+        """Convert FWHM to sigma for a Gaussian"""
+        return fwhm/(2*np.sqrt(2*np.log(2)))
+
+    def sigmaToSize(sigma):
+        """Determine kernel size from Gaussian sigma"""
+        return 2*int(kernelSize*sigma) + 1
+
+    xSigma = colFwhm if sigmaNotFwhm else fwhmToSigma(colFwhm)
+    ySigma = rowFwhm if sigmaNotFwhm else fwhmToSigma(rowFwhm)
+
+    kernel = SeparableKernel(sigmaToSize(xSigma), sigmaToSize(ySigma),
+                             GaussianFunction1D(xSigma), GaussianFunction1D(ySigma))
+
+    convolvedImage = maskedImage.Factory(maskedImage.getBBox())
+    convolve(convolvedImage, maskedImage, kernel, ConvolutionControl())
+
+    # Redo the convolution of the mask plane, using a smaller kernel
+    mask = convolvedImage.mask
+    mask.array[:] = maskedImage.mask.array
+    if growMask > 0:
+        for name in convolvedImage.mask.getMaskPlaneDict():
+            bitmask = convolvedImage.mask.getPlaneBitMask(name)
+            SpanSet.fromMask(mask, bitmask).dilated(growMask).clippedTo(mask.getBBox()).setMask(mask, bitmask)
+
+    return convolvedImage

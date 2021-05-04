@@ -100,6 +100,18 @@ DetectorMap::Array2D DetectorMap::getWavelength() const {
 }
 
 
+DetectorMap::Array1D DetectorMap::getWavelength(
+    int fiberId
+) const {
+    std::size_t const height = getBBox().getHeight();
+    ndarray::Array<double, 1, 1> out = ndarray::allocate(height);
+    for (std::size_t yy = 0; yy < height; ++yy) {
+        out[yy] = findWavelengthImpl(fiberId, yy);
+    }
+    return out;
+}
+
+
 double DetectorMap::getDispersion(int fiberId) const {
     float const delta = 0.5;
     int const center = 0.5*_bbox.getHeight();

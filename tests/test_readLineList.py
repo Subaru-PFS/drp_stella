@@ -101,28 +101,15 @@ class ReadLineListTestCase(lsst.utils.tests.TestCase):
         self.assertLineList(lineList, expect)
 
     def testDetectorMap(self):
-        """Test that we can get individual fiber lineLists with a detectorMap"""
+        """Test that we can get a wavelength-filtered lineList"""
         minWl = 400.0
         maxWl = 950.0
         synth = SyntheticConfig()
         detMap = makeSyntheticDetectorMap(synth, minWl, maxWl)
         lineList = self.makeLineList(detectorMap=detMap)
         expect = [ll for ll in self.contents if ll.wavelength > minWl and ll.wavelength < maxWl]
-        self.assertListEqual(sorted(lineList.keys()), sorted(synth.fiberId))
         for ff in synth.fiberId:
-            self.assertLineList(lineList[ff], expect)
-
-    def testFiberId(self):
-        """Test that we can get a set of fiber lineLists"""
-        minWl = 400.0
-        maxWl = 950.0
-        synth = SyntheticConfig()
-        detMap = makeSyntheticDetectorMap(synth, minWl, maxWl)
-        fiberId = detMap.fiberId[1:-1]
-        lineList = self.makeLineList(detectorMap=detMap, fiberId=fiberId)
-        expect = [ll for ll in self.contents if ll.wavelength > minWl and ll.wavelength < maxWl]
-        for ff in fiberId:
-            self.assertLineList(lineList[ff], expect)
+            self.assertLineList(lineList, expect)
 
 
 class TestMemory(lsst.utils.tests.MemoryTestCase):

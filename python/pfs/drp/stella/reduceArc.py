@@ -6,9 +6,8 @@ import numpy as np
 import lsstDebug
 import lsst.pex.config as pexConfig
 from lsst.pipe.base import TaskRunner, ArgumentParser, CmdLineTask, Struct
-from pfs.datamodel import FiberStatus
 from .reduceExposure import ReduceExposureTask
-from pfs.drp.stella.fitDifferentialDetectorMap import FitDifferentialDetectorMapTask
+from pfs.drp.stella.fitDistortedDetectorMap import FitDistortedDetectorMapTask
 from .centroidLines import CentroidLinesTask
 from .arcLine import ArcLineSet
 from .readLineList import ReadLineListTask
@@ -25,12 +24,13 @@ class ReduceArcConfig(pexConfig.Config):
                                                  doc="Extract spectra from exposure")
     readLineList = pexConfig.ConfigurableField(target=ReadLineListTask, doc="Read linelist")
     centroidLines = pexConfig.ConfigurableField(target=CentroidLinesTask, doc="Centroid lines")
-    fitDetectorMap = pexConfig.ConfigurableField(target=FitDifferentialDetectorMapTask, doc="Fit detectorMap")
+    fitDetectorMap = pexConfig.ConfigurableField(target=FitDistortedDetectorMapTask, doc="Fit detectorMap")
     doUpdateDetectorMap = pexConfig.Field(dtype=bool, default=True,
                                           doc="Write an updated detectorMap?")
 
     def setDefaults(self):
         super().setDefaults()
+        self.reduceExposure.doAdjustDetectorMap = False  # We'll do a full-order fit
         self.reduceExposure.doSubtractSky2d = False
         self.reduceExposure.doWriteArm = False  # We'll do this ourselves, after wavelength calibration
         self.readLineList.restrictByLamps = True
@@ -133,7 +133,7 @@ class ReduceArcTask(CmdLineTask):
             if len(values) > 1:
                 raise RuntimeError("%s varies for inputs: %s" % (prop, [ref.dataId for ref in dataRefList]))
 
-    def run(self, exposure, detectorMap, lines):
+    def run(self, exposure, detectorMap, lines, pfsConfig=None, fiberTraces=None):
         """Entry point for scatter stage
 
         Centroids and identifies lines in the spectra extracted from the exposure
@@ -145,14 +145,18 @@ class ReduceArcTask(CmdLineTask):
         detectorMap : `pfs.drp.stella.utils.DetectorMap`
             Mapping of wl,fiber to detector position.
         lines : `pfs.drp.stella.ReferenceLineSet`
-            Reference lines to use
+            Reference lines to use.
+        pfsConfig : `pfs.datamodel.PfsConfig`
+            Top-end configuration.
+        fiberTraces : `pfs.drp.stella.FiberTraceSet`
+            Position and profile of traces.
 
         Returns
         -------
         lines : `pfs.drp.stella.ArcLineSet`
             Set of reference lines matched to the data
         """
-        lines = self.centroidLines.run(exposure, lines, detectorMap)
+        lines = self.centroidLines.run(exposure, lines, detectorMap, pfsConfig, fiberTraces)
         return Struct(
             lines=lines
         )
@@ -196,11 +200,11 @@ class ReduceArcTask(CmdLineTask):
         spectra = results.spectraList[0]
         exposure = results.exposureList[0]
         detectorMap = results.detectorMapList[0]
+        fiberTraces = results.fiberTraceList[0]
+        pfsConfig = results.pfsConfig
 
-        indices = results.pfsConfig.selectByFiberStatus(FiberStatus.GOOD)
-        fiberId = results.pfsConfig.fiberId[indices]
-        lines = self.readLineList.run(detectorMap=detectorMap, fiberId=fiberId, metadata=metadata)
-        lines = self.run(exposure, detectorMap, lines).lines
+        lines = self.readLineList.run(detectorMap=detectorMap, metadata=metadata)
+        lines = self.run(exposure, detectorMap, lines, pfsConfig, fiberTraces).lines
 
         dataRef.put(lines, "arcLines")
 
@@ -243,8 +247,13 @@ class ReduceArcTask(CmdLineTask):
                                               oldDetMap.metadata, spatialOffsets, spectralOffsets).detectorMap
 
         self.write(dataRef, detectorMap, metadata, visitInfo, [ref.dataId["visit"] for ref in dataRefList])
-        if self.debugInfo.display and self.debugInfo.displayCalibrations:
-            for rr in results:
+
+        # Update wavelength calibrations on extracted spectra, and write
+        for dataRef, rr in zip(dataRefList, results):
+            for ss in rr.spectra:
+                ss.setWavelength(detectorMap.getWavelength(ss.fiberId))
+            dataRef.put(rr.spectra.toPfsArm(dataRef.dataId), "pfsArm")
+            if self.debugInfo.display and self.debugInfo.displayCalibrations:
                 self.plotCalibrations(rr.spectra, rr.lines, detectorMap)
 
     def write(self, dataRef, detectorMap, metadata, visitInfo, visits):

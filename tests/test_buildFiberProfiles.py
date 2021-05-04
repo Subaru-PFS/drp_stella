@@ -246,8 +246,6 @@ class BuildFiberProfilesTestCase(lsst.utils.tests.TestCase):
 
     def testShort(self):
         """Test that short traces are pruned"""
-        self.config.doAdjustTraces = False  # Traces are too short for a good fit.
-
         rng = np.random.RandomState(12345)
         start = 50
         stop = 200
@@ -333,7 +331,6 @@ class BuildFiberProfilesTestCase(lsst.utils.tests.TestCase):
         self.image.mask.array[select] |= self.image.mask.getPlaneBitMask("CR")
 
         self.config.pruneMinLength = self.synth.height//3  # So a half a trace counts as a trace
-        self.config.doAdjustTraces = False
         result = self.task.run(self.makeExposure(self.image), self.detMap)
         # The CR damages the profile in this small image; so just care about the number of traces
         self.assertNumTraces(result)

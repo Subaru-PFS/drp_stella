@@ -3,19 +3,18 @@ from collections import Counter, defaultdict
 from functools import partial
 
 import numpy as np
-import scipy.optimize
 
 from lsst.pex.config import Config, Field, ListField, ConfigurableField
 from lsst.pipe.base import Task, Struct
 from lsst.afw.geom import SpanSet
 from lsst.afw.display import Display
-from lsst.afw.math import GaussianFunction1D, SeparableKernel, convolve, ConvolutionControl
 
 from pfs.datamodel import FiberStatus
 from pfs.drp.stella.traces import findTracePeaks, centroidTrace, TracePeak
 from pfs.drp.stella.fitPolynomial import FitPolynomialTask
 from pfs.drp.stella.fiberProfile import FiberProfile
 from pfs.drp.stella.fiberProfileSet import FiberProfileSet
+from pfs.drp.stella.images import convolveImage
 
 import lsstDebug
 
@@ -39,9 +38,6 @@ class BuildFiberProfilesConfig(Config):
     pruneMinFrac = Field(dtype=float, default=0.7, doc="Minimum detection fraction of trace to avoid pruning")
     centroidRadius = Field(dtype=int, default=5, doc="Radius about the peak for centroiding")
     centerFit = ConfigurableField(target=FitPolynomialTask, doc="Fit polynomial to trace centroids")
-    doAdjustTraces = Field(dtype=bool, default=True, doc="Adjust traces from detectorMap?")
-    adjustTraceIter = Field(dtype=int, default=3, doc="Rejection iterations for trace adjustment")
-    adjustTraceThresh = Field(dtype=float, default=3, doc="Rejection threshold (sigma) for trace adjustment")
     profileSwath = Field(dtype=float, default=300, doc="Length of swaths to use for calculating profile")
     profileRadius = Field(dtype=int, default=5, doc="Radius about the peak for profile")
     profileOversample = Field(dtype=int, default=10, doc="Oversample factor for profile")
@@ -96,23 +92,37 @@ class BuildFiberProfilesTask(Task):
         else:
             traces = self.generateTraces(detectorMap, pfsConfig)
 
-        # Centroid the traces.
-        # If we don't have a detectorMap, we will fit a functional form to get the centers for the profiles.
-        # If we do have a detectorMap, this will be used to adjust the detectorMap's centers; this yields
-        # more accurate centers for the profiles.
-        for ff, tt in traces.items():
-            self.centroidTrace(exposure.maskedImage, tt)
-
         if self.config.doBlindFind:
+            # Centroid the traces.
+            # If we don't have a detectorMap, we will fit a functional form to get the centers for the
+            # profiles. If we do have a detectorMap, this will be used for identifying fibers.
+            for ff, tt in traces.items():
+                self.centroidTrace(exposure.maskedImage, tt)
             centers = {ff: self.fitTraceCenters(tt, exposure.getHeight()).func for ff, tt in traces.items()}
             if detectorMap is not None:
                 identifications = self.identifyFibers(centers, detectorMap, pfsConfig)
                 traces = {identifications[ff]: tt for ff, tt in traces.items()}
                 centers = {identifications[ff]: cc for ff, cc in centers.items()}
+        else:
+            # Use centers directly from detectorMap. This yields more accurate centers for the profiles.
+            def centerFunc(fiberId, yy):
+                """Return xCenter from the detectorMap
 
-        # Use detectorMap centers, if available
-        if self.config.doAdjustTraces and detectorMap is not None and traces:
-            centers = self.adjustTraceFromDetectorMap(traces, detectorMap)
+                Parameters
+                ----------
+                fiberId : `int`
+                    Fiber identifier.
+                yy : `numpy.ndarray`
+                    Row values.
+
+                Returns
+                -------
+                xCenter : `numpy.ndarray` of `float`
+                    xCenter values.
+                """
+                return detectorMap.getXCenter(fiberId, yy.astype(np.float64))
+
+            centers = {ff: partial(centerFunc, ff) for ff in traces}
 
         profiles = FiberProfileSet.makeEmpty(exposure.getInfo().getVisitInfo(), exposure.getMetadata())
         for ff in centers:
@@ -139,30 +149,8 @@ class BuildFiberProfilesTask(Task):
         convolved : `lsst.afw.image.MaskedImage`
             Convolved image.
         """
-        def fwhmToSigma(fwhm):
-            """Convert FWHM to sigma for a Gaussian"""
-            return fwhm/(2*np.sqrt(2*np.log(2)))
-
-        def sigmaToSize(sigma):
-            """Determine kernel size from Gaussian sigma"""
-            return 2*int(self.config.kernelSize*sigma) + 1
-
-        xSigma = fwhmToSigma(self.config.columnFwhm)
-        ySigma = fwhmToSigma(self.config.rowFwhm)
-
-        kernel = SeparableKernel(sigmaToSize(xSigma), sigmaToSize(ySigma),
-                                 GaussianFunction1D(xSigma), GaussianFunction1D(ySigma))
-
-        convolvedImage = maskedImage.Factory(maskedImage.getBBox())
-        convolve(convolvedImage, maskedImage, kernel, ConvolutionControl())
-
-        # Redo the convolution of the mask plane, using a smaller kernel
-        mask = convolvedImage.mask
-        mask.array[:] = maskedImage.mask.array
-        grow = self.config.convolveGrowMask
-        for name in convolvedImage.mask.getMaskPlaneDict():
-            bitmask = convolvedImage.mask.getPlaneBitMask(name)
-            SpanSet.fromMask(mask, bitmask).dilated(grow).clippedTo(mask.getBBox()).setMask(mask, bitmask)
+        convolvedImage = convolveImage(maskedImage, self.config.columnFwhm, self.config.rowFwhm,
+                                       self.config.convolveGrowMask, self.config.kernelSize)
 
         if self.debugInfo.displayConvolved:
             Display(frame=1).mtv(convolvedImage)
@@ -362,8 +350,8 @@ class BuildFiberProfilesTask(Task):
 
         Returns
         -------
-        traces : `list` of `list` of `pfs.drp.stella.TracePeak`
-            List of peaks for each trace.
+        traces : `dict` of `list` of `pfs.drp.stella.TracePeak`
+            Peaks for each trace, indexed by fiberId.
         """
         if pfsConfig is not None:
             indices = pfsConfig.selectByFiberStatus(FiberStatus.GOOD, detectorMap.fiberId)
@@ -416,158 +404,6 @@ class BuildFiberProfilesTask(Task):
         row = np.array([pp.row for pp in peakList])
         peak = np.array([pp.peak for pp in peakList])
         return self.centerFit.run(row, peak, xMin=0, xMax=height)
-
-    def adjustTraceFromDetectorMap(self, traces, detectorMap):
-        """Fit an affine transformation to trace positions from the detectorMap
-
-        This provides a more accurate functional form, and therefore a better
-        fit to the trace positions and consequently more accurate centroids to
-        use for the profiles. This is especially important in the low S/N
-        regions affected by the dichroic.
-
-        We fit for and apply a low-order (affine) transformation to the trace
-        positions.
-
-        Parameters
-        ----------
-        traces : `dict` mapping `int` to `list` of `pfs.drp.stella.TracePeak`
-            Measured peak positions for each row, indexed by (identified)
-            fiberId.
-        detectorMap : `pfs.drp.stella.DetectorMap`
-            Mapping from fiberId,wavelength --> x,y.
-
-        Returns
-        -------
-        xCenters : `dict` mapping `int` to callable
-            Function providing center for each row, indexed by (identified) fiberId.
-        """
-        # Extract data into convenient representation
-        numPeaks = sum(len(pp) for pp in traces.values())
-        fiberId = np.full(numPeaks, 0, dtype=np.int32)
-        yy = np.full(numPeaks, np.nan, dtype=float)
-        xMeasured = np.full(numPeaks, np.nan, dtype=float)
-        xModel = np.full(numPeaks, np.nan, dtype=float)
-        offset = 0
-        for ff in traces:
-            num = len(traces[ff])
-            row = np.array([pp.row for pp in traces[ff]], dtype=float)
-            select = slice(offset, offset + num)
-            fiberId[select] = ff
-            yy[select] = row
-            xMeasured[select] = [pp.peak for pp in traces[ff]]
-            xModel[select] = detectorMap.getXCenter(fiberId[select], row)
-            offset += num
-
-        isGood = np.isfinite(xMeasured) & np.isfinite(xModel)
-
-        def calculateCenters(params, fiberId, yy, xx=None):
-            """Calculate transformed trace positions
-
-            Parameters
-            ----------
-            params : `numpy.ndarray` of `float`, size 6
-                Transformation parameters
-            fiberId : array_like of `int`
-                Fiber identifier.
-            yy : array_like of `float`
-                Row values at which to supply adjusted xCenter.
-            xx : array_like of `float`, optional
-                Column values for non-adjusted xCenter. If not supplied, these
-                will be calculated from the detectorMap.
-
-            Returns
-            -------
-            xCenter : array_like of `float`
-                Adjusted xCenter.
-            """
-            if xx is None:
-                try:
-                    yy = yy.astype(float)
-                except Exception:
-                    yy = float(yy)
-                xx = detectorMap.getXCenter(fiberId, yy)
-            dx = params[0] + params[1]*xx + params[2]*yy
-            dy = params[3] + params[4]*xx + params[5]*yy
-            return detectorMap.getXCenter(fiberId, yy + dy) + dx
-
-        def calculateResiduals(params, select=slice(None)):
-            """Calculate residuals given transformation parameters
-
-            Parameters
-            ----------
-            params : `numpy.ndarray` of `float`, size 6
-                Transformation parameters
-            select : `numpy.ndarray` of `bool`, optional
-                Boolean array indicating which points to use.
-
-            Returns
-            -------
-            residuals : `float`
-                Residuals.
-            """
-            return xMeasured[select] - calculateCenters(params, fiberId[select], yy[select], xModel[select])
-
-        def calculateChi2(params, select):
-            """Calculate chi^2 given transformation parameters
-
-            Parameters
-            ----------
-            params : `numpy.ndarray` of `float`, size 6
-                Transformation parameters
-            select : `numpy.ndarray` of `bool`
-                Boolean array indicating which points to use.
-
-            Returns
-            -------
-            chi2 : `float`
-                Sum of the squared residuals. Not really chi^2, since we're not
-                dividing by the errors, because we have no errors.
-            """
-            return np.sum(calculateResiduals(params, select)**2)
-
-        def fit(params, use):
-            """Fit transformation parameters to our sample
-
-            Parameters
-            ----------
-            params : `numpy.ndarray` of `float`, size 6
-                Starting transformation parameters.
-            select : `numpy.ndarray` of `bool`
-                Boolean array indicating which measurements to use.
-
-            Returns
-            -------
-            params : `numpy.ndarray` of `float`, size 6
-                Fit parameters.
-            residuals : `numpy.ndarray` of `float`
-                Residual values for each measurement.
-            rms : `float`
-                Measured RMS.
-            """
-            result = scipy.optimize.minimize(partial(calculateChi2, select=use), params, method='Nelder-Mead')
-            if not result.success:
-                raise RuntimeError("Failed to fit trace transformation")
-            params = result.x
-            residuals = calculateResiduals(params)
-            lower, upper = np.percentile(residuals[use], (25.0, 75.0))
-            rms = 0.741*(upper - lower)
-            self.log.debug("Trace fit: x' = %f + %f x + %f y", params[0], params[1], params[2])
-            self.log.debug("Trace fit: y' = %f + %f x + %f y", params[3], params[4], params[5])
-            self.log.debug("Trace fit RMS = %f", rms)
-            return params, residuals, rms
-
-        params = np.zeros(6, dtype=float)
-        keep = np.ones(numPeaks, dtype=bool)
-        for ii in range(self.config.adjustTraceIter):
-            params, residuals, rms = fit(params, isGood & keep)
-            with np.errstate(invalid="ignore"):
-                keep = np.abs(residuals) < self.config.adjustTraceThresh*rms
-
-        # Final fit
-        params, _, _ = fit(params, isGood & keep)
-
-        xCenters = {ff: partial(calculateCenters, params, ff) for ff in traces}
-        return xCenters
 
     def calculateProfile(self, maskedImage, centerFunc):
         """Measure the fiber profile

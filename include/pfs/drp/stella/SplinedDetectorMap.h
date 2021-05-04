@@ -75,12 +75,6 @@ class SplinedDetectorMap : public DetectorMap {
 
     virtual std::shared_ptr<DetectorMap> clone() const override;
 
-    //@{
-    /// Return the wavelength values for each row
-    virtual Array1D getWavelength(int fiberId) const override;
-    virtual double getWavelength(int fiberId, double row) const override;
-    //@}
-
     /// Return the fiberId given a position on the detector
     virtual int findFiberId(lsst::geom::PointD const& point) const override;
 

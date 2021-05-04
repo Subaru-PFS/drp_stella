@@ -7,7 +7,7 @@ namespace stella {
 
 std::ostream& operator<<(std::ostream& os, TracePeak const& tp) {
     os << "TracePeak(" << tp.span.getY() << ", " << tp.span.getX0() << ", ";
-    os << tp.peak << ", " << tp.span.getX1() << ")";
+    os << tp.peak << ", " << tp.span.getX1() << ", " << tp.peakErr << ")";
     return os;
 }
 
@@ -116,6 +116,52 @@ std::vector<std::vector<std::shared_ptr<TracePeak>>> findTracePeaks(
 }
 
 
+std::map<int, std::vector<std::shared_ptr<TracePeak>>> findTracePeaks(
+    lsst::afw::image::MaskedImage<float> const& image,
+    DetectorMap const& detectorMap,
+    float threshold,
+    float radius,
+    lsst::afw::image::MaskPixel badBitMask,
+    ndarray::Array<int, 1, 1> const& fiberId_
+) {
+    std::size_t const height = image.getHeight();
+    std::size_t const width = image.getWidth();
+    ndarray::Array<int, 1, 1> const& fiberId = fiberId_.isEmpty() ? detectorMap.getFiberId() : fiberId_;
+    std::map<int, std::vector<std::shared_ptr<TracePeak>>> peaks;
+    for (int ff : fiberId) {
+        ndarray::Array<double, 1, 1> expectedCenter = detectorMap.getXCenter(ff);
+        if (expectedCenter.size() != height) {
+            throw LSST_EXCEPT(lsst::pex::exceptions::LengthError, "Mismatch between detectorMap and image");
+        }
+        std::vector<std::shared_ptr<TracePeak>> fiberPeaks;
+        for (std::size_t yy = 0; yy < height; ++yy) {
+            double const xCenter = expectedCenter[yy];
+            std::ptrdiff_t const xStart = std::max(0L, std::ptrdiff_t(xCenter - radius));
+            std::ptrdiff_t const xStop = std::min(width - 1, std::size_t(xCenter + radius + 0.5));
+            float valuePeak = -std::numeric_limits<float>::infinity();
+            std::ptrdiff_t xPeak = std::numeric_limits<std::ptrdiff_t>::lowest();
+            auto iter = image.row_begin(yy) + xStart;
+            for (std::ptrdiff_t xx = xStart; xx <= xStop; ++xx, ++iter) {
+                if (iter.mask() & badBitMask) {
+                    continue;
+                }
+                if (iter.image() > valuePeak) {
+                    valuePeak = iter.image();
+                    xPeak = xx;
+                }
+            }
+            if (valuePeak > threshold) {
+                int const low = xPeak - radius;
+                int const high = xPeak + radius + 0.5;
+                fiberPeaks.emplace_back(std::make_shared<TracePeak>(yy, low, xPeak, high));
+            }
+        }
+        peaks[ff] = std::move(fiberPeaks);
+    }
+    return peaks;
+}
+
+
 void centroidTrace(
     std::vector<std::shared_ptr<TracePeak>> & peaks,
     lsst::afw::image::MaskedImage<float> const& image,
@@ -135,7 +181,20 @@ void centroidTrace(
             sum += iter.image();
             xSum += xx*iter.image();
         }
-        pp->peak = xSum/sum;
+        double const xMean = xSum/sum;
+
+        // Variance in centroid = sum(variance*(x - xMean)^2)/sum(image)^2
+        double dx2Var = 0.0;
+        iter = image.row_begin(pp->span.getY()) + xMin;
+        for (int xx = xMin; xx <= xMax; ++xx, ++iter) {
+            if (iter.mask() & badBitMask) continue;
+            double const dx = xx - xMean;
+            dx2Var += std::pow(dx, 2)*iter.variance();
+        }
+        double const xErr = std::sqrt(dx2Var)/sum;
+
+        pp->peak = xMean;
+        pp->peakErr = xErr;
     }
 }
 

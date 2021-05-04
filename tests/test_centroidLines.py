@@ -6,7 +6,7 @@ import lsst.afw.image.testUtils
 
 import pfs.drp.stella.synthetic
 from pfs.drp.stella.centroidLines import CentroidLinesTask, CentroidLinesConfig
-from pfs.drp.stella import ReferenceLine, ReferenceLineStatus
+from pfs.drp.stella import ReferenceLineSet, ReferenceLineStatus
 from pfs.drp.stella.tests.utils import runTests, methodParameters
 
 display = None
@@ -25,14 +25,11 @@ class CentroidLinesTestCase(lsst.utils.tests.TestCase):
                                                         addNoise=False)
         detMap = pfs.drp.stella.synthetic.makeSyntheticDetectorMap(synthConfig)
 
-        referenceLines = {}
-        for fiberId in synthConfig.fiberId:
-            fiberLines = []
-            for yy in arc.lines:
-                wavelength = detMap.getWavelength(fiberId, yy)
-                line = ReferenceLine(description, wavelength, intensity, ReferenceLineStatus.GOOD)
-                fiberLines.append(line)
-            referenceLines[fiberId] = fiberLines
+        referenceLines = ReferenceLineSet.empty()
+        fiberId = detMap.fiberId[detMap.getNumFibers()//2]
+        for yy in arc.lines:
+            wavelength = detMap.getWavelength(fiberId, yy)
+            referenceLines.append(description, wavelength, intensity, ReferenceLineStatus.GOOD)
 
         exposure = lsst.afw.image.makeExposure(lsst.afw.image.makeMaskedImage(arc.image))
         exposure.mask.set(0)
@@ -40,10 +37,11 @@ class CentroidLinesTestCase(lsst.utils.tests.TestCase):
 
         config = CentroidLinesConfig()
         config.fwhm = fwhm
+        config.doSubtractContinuum = False  # No continuum, don't want to bother with fiberProfile creation
         task = CentroidLinesTask(name="centroiding", config=config)
         lines = task.run(exposure, referenceLines, detMap)
 
-        self.assertEqual(len(lines), sum(len(fiberLines) for fiberLines in referenceLines.values()))
+        self.assertEqual(len(lines), detMap.getNumFibers()*len(referenceLines))
         xyExpect = np.array([detMap.findPoint(ff, wl) for ff, wl in zip(lines.fiberId, lines.wavelength)])
         self.assertFloatsAlmostEqual(lines.x, xyExpect[:, 0], atol=2.0e-2)
         self.assertFloatsAlmostEqual(lines.y, xyExpect[:, 1], atol=2.0e-2)

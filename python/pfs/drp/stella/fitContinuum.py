@@ -1,9 +1,10 @@
+from contextlib import contextmanager
 import numpy as np
 
 import lsstDebug
 
 from lsst.pex.config import Config, Field, ChoiceField, ListField
-from lsst.pipe.base import Task
+from lsst.pipe.base import Task, Struct
 from lsst.afw.math import stringToInterpStyle, makeInterpolate
 from pfs.drp.stella import Spectrum, SpectrumSet
 
@@ -64,8 +65,6 @@ class FitContinuumTask(Task):
         """
         continua = SpectrumSet(spectra.getLength())
         for spec in spectra:
-            if not spec.isWavelengthSet():
-                continue
             result = self.fitContinuum(spec, lines)
             continuum = self.wrapArray(result, spec.fiberId)
             continua.add(continuum)
@@ -89,7 +88,7 @@ class FitContinuumTask(Task):
         continuum : `numpy.ndarray`
             Array of continuum fit.
         """
-        if self.config.doMaskLines and lines is not None:
+        if self.config.doMaskLines and lines is not None and spectrum.isWavelengthSet():
             good = self.maskLines(spectrum, lines)
         else:
             good = np.isfinite(spectrum.spectrum)
@@ -206,6 +205,61 @@ class FitContinuumTask(Task):
             high = min(num - 1, index + self.config.maskLineRadius)
             good[low:high] = False
         return good
+
+    def subtractContinuum(self, maskedImage, fiberTraces, lines=None):
+        """Subtract continuum from an image
+
+        Parameters
+        ----------
+        maskedImage : `lsst.afw.image.MaskedImage`
+            Image containing 2D spectra.
+        fiberTraces : `pfs.drp.stella.FiberTraceSet`
+            Location and profile of the 2D spectra.
+        lines : `pfs.drp.stella.ReferenceLineSet`, optional
+            Reference lines to mask.
+
+        Returns
+        -------
+        spectra : `pfs.drp.stella.SpectrumSet`
+            Extracted spectra.
+        continua : `pfs.drp.stella.SpectrumSet`
+            Continuum fit for each input spectrum.
+        continuumImage : `lsst.afw.image.Image`
+            Image containing continua.
+        """
+        spectra = fiberTraces.extractSpectra(maskedImage)
+        continua = self.run(spectra, lines)
+        continuumImage = continua.makeImage(maskedImage.getBBox(), fiberTraces)
+        maskedImage -= continuumImage
+        return Struct(spectra=spectra, continua=continua, continuumImage=continuumImage)
+
+    @contextmanager
+    def subtractionContext(self, maskedImage, fiberTraces, lines=None):
+        """Context manager for temporarily subtracting continuum
+
+        Parameters
+        ----------
+        maskedImage : `lsst.afw.image.MaskedImage`
+            Image containing 2D spectra.
+        fiberTraces : `pfs.drp.stella.FiberTraceSet`
+            Location and profile of the 2D spectra.
+        lines : `pfs.drp.stella.ReferenceLineSet`, optional
+            Reference lines to mask.
+
+        Yields
+        ------
+        spectra : `pfs.drp.stella.SpectrumSet`
+            Extracted spectra.
+        continua : `pfs.drp.stella.SpectrumSet`
+            Continuum fit for each input spectrum.
+        continuumImage : `lsst.afw.image.Image`
+            Image containing continua.
+        """
+        results = self.subtractContinuum(maskedImage, fiberTraces, lines)
+        try:
+            yield results
+        finally:
+            maskedImage += results.continuumImage
 
 
 def binData(xx, yy, good, numBins):

@@ -1,5 +1,6 @@
 import os
 import pickle
+from functools import lru_cache
 
 import numpy as np
 
@@ -18,11 +19,33 @@ import pfs.drp.stella.tests.nevenPsf
 display = None
 
 
+@lru_cache(None)
+def getDetectorMap(filename):
+    """Read the detectorMap
+
+    The detectorMap gets cached, since reading some of the old detectorMaps can
+    take a long time.
+
+    Parameters
+    ----------
+    filename : `str`
+        Filename for the detectorMap.
+
+    Returns
+    -------
+    detectorMap : `pfs.drp.stella.DetectorMap`
+        DetectorMap read from file.
+    """
+    detMap = pfs.drp.stella.DetectorMap.readFits(filename)
+    detMap.metadata.markPersistent()
+    return detMap
+
+
 class NevenPsfTestCase(lsst.utils.tests.TestCase):
     def setUp(self):
         drpPfsData = getPackageDir("drp_pfs_data")
         detMapFilename = os.path.join(drpPfsData, "detectorMap", "detectorMap-2019Apr-r1.fits")
-        self.detMap = pfs.drp.stella.DetectorMap.readFits(detMapFilename)
+        self.detMap = getDetectorMap(detMapFilename)
         self.psf = pfs.drp.stella.NevenPsf.build(self.detMap, version="Apr1520_v3")
         self.fiberId = 339  # Needs to be a fiber for which we have a PSF
 

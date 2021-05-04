@@ -1,8 +1,12 @@
 #ifndef PFS_DRP_STELLA_TRACES_H
 #define PFS_DRP_STELLA_TRACES_H
 
+#include <map>
 #include <vector>
+#include "ndarray_fwd.h"
 #include "lsst/afw/geom/SpanSet.h"
+
+#include "pfs/drp/stella/DetectorMap.h"
 
 namespace pfs {
 namespace drp {
@@ -12,7 +16,8 @@ namespace stella {
 /// A peak found in the trace
 struct TracePeak {
     lsst::afw::geom::Span const span;  ///< Span containing the peak
-    float peak;  ///< Peak position in the spatial dimension
+    double peak;  ///< Peak position in the spatial dimension
+    double peakErr;  ///< Error in peak position
 
     /// Constructor
     ///
@@ -20,9 +25,12 @@ struct TracePeak {
     /// @param low : Column at the low-end of the span containing the peak
     /// @param peak_ : Peak position in the spatial dimension
     /// @param high : Column at the high-end of the span containing the peak
-    TracePeak(int row, int low, float peak_, int high) :
+    /// @param peakErr_ : Error in peak position
+    TracePeak(int row, int low, double peak_, int high,
+              double peakErr_=std::numeric_limits<double>::quiet_NaN()) :
       span(row, low, high),
-      peak(peak_)
+      peak(peak_),
+      peakErr(peakErr_)
       {}
 
     TracePeak(TracePeak const&) = delete;
@@ -47,6 +55,25 @@ std::vector<std::vector<std::shared_ptr<TracePeak>>> findTracePeaks(
     lsst::afw::image::MaskedImage<float> const& image,
     float threshold,
     lsst::afw::image::MaskPixel badBitMask=0
+);
+
+
+/// Find peaks on an image around a detectorMap
+///
+/// @param image : Image to search for peaks
+/// @param detectorMap : Mapping of fiberId,wavelength --> x,y
+/// @param threshold : Threshold value for peaks
+/// @param radius : Radius around expected peak to search
+/// @param badBitMask : Bitmask to apply to identify bad pixels. Bad pixels count as a pixel below threshold.
+/// @param fiberId : Fiber identifiers of interest
+/// @return a list of peaks indexed by fiber identifier
+std::map<int, std::vector<std::shared_ptr<TracePeak>>> findTracePeaks(
+    lsst::afw::image::MaskedImage<float> const& image,
+    DetectorMap const& detectorMap,
+    float threshold,
+    float radius,
+    lsst::afw::image::MaskPixel badBitMask=0,
+    ndarray::Array<int, 1, 1> const& fiberId=ndarray::Array<int, 1, 1>()
 );
 
 
