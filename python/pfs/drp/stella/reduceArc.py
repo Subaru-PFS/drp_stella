@@ -4,6 +4,7 @@ from datetime import datetime
 import numpy as np
 import lsstDebug
 import lsst.pex.config as pexConfig
+import lsst.afw.display as afwDisplay
 from lsst.pipe.base import TaskRunner, ArgumentParser, CmdLineTask, Struct
 from .reduceExposure import ReduceExposureTask
 from pfs.drp.stella.fitDistortedDetectorMap import FitDistortedDetectorMapTask
@@ -168,7 +169,7 @@ class ReduceArcTask(CmdLineTask):
                 display = frame
             else:
                 display = afwDisplay.Display(frame)
-            self.plotIdentifications(display, exposure, spectra, detectorMap,
+            self.plotIdentifications(display, exposure, lines, detectorMap,
                                      displayExposure=self.debugInfo.displayExposure,
                                      fiberIds=self.debugInfo.fiberIds)
 
@@ -331,7 +332,7 @@ class ReduceArcTask(CmdLineTask):
         """
         return sorted(dataRefList, key=lambda dataRef: dataRef.dataId["visit"])[0]
 
-    def plotIdentifications(self, display, exposure, spectrumSet, detectorMap, displayExposure=True,
+    def plotIdentifications(self, display, exposure, lines, detectorMap, displayExposure=True,
                             showAllCandidates=False, fiberIds=False):
         """Plot line identifications
 
@@ -341,8 +342,8 @@ class ReduceArcTask(CmdLineTask):
             Display to use
         exposure : `lsst.afw.image.Exposure`
             Arc image.
-        spectrumSet : `pfs.drp.stella.SpectrumSet`
-            Set of extracted spectra.
+        lines : `pfs.drp.stella.ArcLineSet`
+            Set of reference lines matched to the data
         detectorMap : `pfs.drp.stella.utils.DetectorMap`
             Mapping of wl,fiber to detector position.
         displayExposure : `bool`
@@ -364,21 +365,19 @@ class ReduceArcTask(CmdLineTask):
             except NameError:               # only supported by matplotlib at present
                 labelFibers = True
 
-        for spec in spectrumSet:
-            fiberId = spec.getFiberId()
+        for fiberId in lines:
             # N.b. "fiberIds not in (False, None)" fails with ndarray
             if fiberIds is not False and fiberIds is not None or fiberId not in self.fiberIds:
                 continue
 
-            refLines = spec.referenceLines
             with display.Buffering():
                 if labelFibers:         # Label fibers if addPfsCursor failed
-                    y = 0.5*len(spec)
+                    y = 0.5*exposure.getHeight()
                     x = detectorMap.getXCenter(fiberId, y)
                     display.dot(str(fiberId), x, y, ctype='green')
 
                 # Plot arc lines
-                for rl in refLines:
+                for rl in lines[fiberId]:
                     yActual = rl.fitPosition
                     xActual = detectorMap.getXCenter(fiberId, yActual)
                     if (rl.status & ReferenceLineStatus.GOOD) == 0:
