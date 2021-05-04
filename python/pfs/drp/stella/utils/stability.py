@@ -137,11 +137,11 @@ def plotArcResiduals(als,
         xlim = plt.xlim(0.95*x[ll].min(), 1.05*x[ll].max())
 
         if usePixels and not showChi:
-            ylim = plt.ylim(0.3*(np.array([-1, 1])) + np.median(y))
+            ylim = plt.ylim(0.3*(np.array([-1, 1])) + np.nanmedian(y))
         elif plotWavelength:
-            ylim = plt.ylim((4 if showChi else 0.03)*(np.array([-1, 1])) + np.median(y))
+            ylim = plt.ylim((4 if showChi else 0.03)*(np.array([-1, 1])) + np.nanmedian(y))
         else:
-            ylim = (np.min(y), np.max(y))
+            ylim = (np.nanmin(y), np.nanmax(y))
 
         if hexBin:
             plt.hexbin(x[ll], y[ll], extent=(xlim[0], xlim[1], ylim[0], ylim[1]), bins='log',
