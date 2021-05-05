@@ -27,6 +27,7 @@ from lsst.pex.config import Config, Field, ConfigurableField, DictField
 from lsst.pipe.base import CmdLineTask, TaskRunner, Struct
 from lsst.ip.isr import IsrTask
 from lsst.pipe.tasks.repair import RepairTask
+from pfs.datamodel import FiberStatus
 from .measurePsf import MeasurePsfTask
 from .extractSpectraTask import ExtractSpectraTask
 from .subtractSky2d import SubtractSky2dTask
@@ -407,6 +408,23 @@ class ReduceExposureTask(CmdLineTask):
         """
         detectorMap = sensorRef.get("detectorMap")
         fiberProfiles = sensorRef.get("fiberProfiles")
+
+        # Check that the calibs have the expected number of fibers
+        indices = pfsConfig.selectByFiberStatus(FiberStatus.GOOD)
+        need = set(pfsConfig.fiberId[indices])
+        haveDetMap = set(detectorMap.fiberId)
+        haveProfiles = set(fiberProfiles.fiberId)
+        missingDetMap = need - haveDetMap
+        missingProfiles = need - haveProfiles
+        if missingDetMap:
+            uri = sensorRef.getUri("detectorMap")
+            raise RuntimeError(f"detectorMap ({uri}) does not include fibers: {list(sorted(missingDetMap))}")
+        if need - haveProfiles:
+            uri = sensorRef.getUri("fiberProfiles")
+            raise RuntimeError(
+                f"fiberProfiles ({uri}) does not include fibers: {list(sorted(missingProfiles))}"
+            )
+
         fiberTraces = fiberProfiles.makeFiberTracesFromDetectorMap(detectorMap)
         if self.config.doAdjustDetectorMap:
             lines = self.readLineList.run(detectorMap, exposure.getMetadata())
