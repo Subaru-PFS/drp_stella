@@ -147,9 +147,11 @@ class ConstructFiberProfilesTask(SpectralCalibTask):
 
         # Set the normalisation of the FiberProfiles
         # The normalisation is the flat: we want extracted spectra to be relative to the flat.
+        # We smooth the flat to reduce pixel-to-pixel fluctuations
         traces = results.profiles.makeFiberTracesFromDetectorMap(detMap)
         spectra = traces.extractSpectra(exposure.maskedImage)
-        for ss in spectra:
+        continuum = self.fitContinuum.run(spectra)
+        for ss in continuum:
             results.profiles[ss.fiberId].norm = ss.flux
             self.log.info("Median relative transmission of fiber %d is %f",
                           ss.fiberId, np.median(ss.flux[np.isfinite(ss.flux)]))
