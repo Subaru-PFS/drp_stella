@@ -9,6 +9,7 @@ import lsst.afw.image.testUtils
 import pfs.drp.stella.synthetic as synthetic
 from pfs.drp.stella.measureSlitOffsets import MeasureSlitOffsetsTask
 from pfs.drp.stella.tests.utils import runTests, methodParameters
+from pfs.drp.stella.utils.psf import fwhmToSigma
 
 display = None
 
@@ -26,7 +27,7 @@ class MeasureSlitOffsetsTestCase(lsst.utils.tests.TestCase):
         self.arc = synthetic.makeSyntheticArc(self.synth, fwhm=self.fwhm, rng=self.rng)
         self.exposure = lsst.afw.image.makeExposure(lsst.afw.image.makeMaskedImage(self.arc.image))
         self.exposure.variance.set(self.synth.readnoise)
-        psfSigma = self.fwhm/(2*np.sqrt(2*np.log(2)))
+        psfSigma = fwhmToSigma(self.fwhm)
         psfSize = 2*int(psfSigma + 0.5) + 1
         self.exposure.setPsf(lsst.afw.detection.GaussianPsf(psfSize, psfSize, psfSigma))
 

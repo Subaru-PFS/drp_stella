@@ -11,6 +11,7 @@ from pfs.drp.stella.lsf import ExtractionLsf
 from pfs.drp.stella.buildFiberProfiles import BuildFiberProfilesTask
 from pfs.drp.stella.SpectralPsfContinued import ImagingSpectralPsf
 from pfs.drp.stella.tests.utils import runTests
+from pfs.drp.stella.utils.psf import fwhmToSigma
 
 from pfs.drp.stella.synthetic import makeSpectrumImage, SyntheticConfig, makeSyntheticDetectorMap
 
@@ -45,7 +46,7 @@ class ExtractionLsfTestCase(lsst.utils.tests.TestCase):
         self.traces = profiles.makeFiberTracesFromDetectorMap(self.detMap)
         self.assertEqual(len(self.traces), self.config.numFibers)
 
-        self.psfSigma = self.config.fwhm/(2.0*np.sqrt(2.0*np.log(2)))
+        self.psfSigma = fwhmToSigma(self.config.fwhm)
         self.psfSize = 2*int(4*self.psfSigma) + 1
         imagePsf = lsst.afw.detection.GaussianPsf(self.psfSize, self.psfSize, self.psfSigma)
 

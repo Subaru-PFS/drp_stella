@@ -1,4 +1,3 @@
-import math
 import collections
 
 from lsst.pex.config import Field, ConfigurableField
@@ -12,6 +11,7 @@ from lsst.ctrl.pool.pool import NODE
 import lsst.pipe.drivers.constructCalibs
 from lsst.pipe.drivers.utils import getDataRef
 from lsst.pipe.tasks.repair import RepairTask
+from pfs.drp.stella.utils.psf import fwhmToSigma
 
 __all__ = ["SpectralCalibConfig", "SpectralCalibTask"]
 
@@ -239,7 +239,7 @@ class SpectralCalibTask(lsst.pipe.drivers.constructCalibs.CalibTask):
 
         if self.config.doRepair:
             psf = DoubleGaussianPsf(self.config.psfSize, self.config.psfSize,
-                                    self.config.psfFwhm/(2*math.sqrt(2*math.log(2))))
+                                    fwhmToSigma(self.config.psfFwhm))
             exposure.setPsf(psf)
             self.repair.run(exposure, keepCRs=False)
             if self.config.crGrow > 0:
