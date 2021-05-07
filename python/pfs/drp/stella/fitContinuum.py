@@ -8,7 +8,12 @@ from lsst.pipe.base import Task, Struct
 from lsst.afw.math import stringToInterpStyle, makeInterpolate
 from pfs.drp.stella import Spectrum, SpectrumSet
 
-__all__ = ["FitContinuumConfig", "FitContinuumTask"]
+__all__ = ("FitContinuumConfig", "FitContinuumTask", "FitContinuumError")
+
+
+class FitContinuumError(RuntimeError):
+    """Error when fitting continuum"""
+    pass
 
 
 class FitContinuumConfig(Config):
@@ -65,7 +70,10 @@ class FitContinuumTask(Task):
         """
         continua = SpectrumSet(spectra.getLength())
         for spec in spectra:
-            result = self.fitContinuum(spec, lines)
+            try:
+                result = self.fitContinuum(spec, lines)
+            except FitContinuumError:
+                continue
             continuum = self.wrapArray(result, spec.fiberId)
             continua.add(continuum)
         return continua
@@ -83,6 +91,11 @@ class FitContinuumTask(Task):
         lines : `pfs.drp.stella.ReferenceLineSet`, optional
             Reference lines to mask.
 
+        Raises
+        ------
+        FitContinuumError
+            If we had no good values.
+
         Returns
         -------
         continuum : `numpy.ndarray`
@@ -93,6 +106,8 @@ class FitContinuumTask(Task):
         else:
             good = np.isfinite(spectrum.spectrum)
         good &= (spectrum.mask.array[0] & spectrum.mask.getPlaneBitMask(self.config.mask)) == 0
+        if not np.any(good):
+            raise FitContinuumError("No good values when fitting continuum")
         oldGood = good
         for ii in range(self.config.iterations):
             fit = self._fitContinuumImpl(spectrum.spectrum, good)
@@ -116,6 +131,11 @@ class FitContinuumTask(Task):
         good : `numpy.ndarray`, boolean
             Boolean array indicating which points are good.
 
+        Raises
+        ------
+        FitContinuumError
+            If we had no good knots.
+
         Returns
         -------
         fit : `numpy.ndarray`, floating-point
@@ -124,6 +144,8 @@ class FitContinuumTask(Task):
         indices = np.arange(len(values), dtype=float)
         knots, binned = binData(indices, values, good, self.config.numKnots)
         use = np.isfinite(knots) & np.isfinite(binned)
+        if not np.any(use):
+            raise FitContinuumError("No finite knots when fitting continuum")
         interp = makeInterpolate(knots[use], binned[use], self.fitType)
         fit = np.array(interp.interpolate(indices))
 
