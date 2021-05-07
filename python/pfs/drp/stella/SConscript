@@ -21,6 +21,7 @@ scripts.BasicSConscript.pybind11(
      'DifferentialDetectorMap',
      'DetectorDistortion',
      'DistortedDetectorMap',
+     'photometry',
      ],
     addUnderscore=False
 )
