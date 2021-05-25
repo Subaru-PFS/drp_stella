@@ -430,8 +430,7 @@ class ReduceExposureTask(CmdLineTask):
             lines = self.readLineList.run(detectorMap, exposure.getMetadata())
             results = self.adjustDetectorMap.run(exposure, detectorMap, lines, pfsConfig, fiberTraces)
             detectorMap = results.detectorMap
-            visit0 = sensorRef.dataId["visit"]
-            sensorRef.put(detectorMap, "detectorMap", visit0=visit0)
+            sensorRef.put(detectorMap, "detectorMap_used")
         return Struct(detectorMap=detectorMap, fiberProfiles=fiberProfiles, fiberTraces=fiberTraces)
 
     def calculateLsf(self, psf, fiberTraceSet, length):
