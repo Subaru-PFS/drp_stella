@@ -35,6 +35,7 @@ from .fitContinuum import FitContinuumTask
 from .lsf import ExtractionLsf, GaussianLsf
 from .readLineList import ReadLineListTask
 from .adjustDetectorMap import AdjustDetectorMapTask
+from pfs.utils.fibers import spectrographFromFiberId
 
 __all__ = ["ReduceExposureConfig", "ReduceExposureTask"]
 
@@ -411,7 +412,9 @@ class ReduceExposureTask(CmdLineTask):
 
         # Check that the calibs have the expected number of fibers
         indices = pfsConfig.selectByFiberStatus(FiberStatus.GOOD)
-        need = set(pfsConfig.fiberId[indices])
+        fiberId = pfsConfig.fiberId[indices]
+        select = spectrographFromFiberId(fiberId) == sensorRef.dataId["spectrograph"]
+        need = set(fiberId[select])
         haveDetMap = set(detectorMap.fiberId)
         haveProfiles = set(fiberProfiles.fiberId)
         missingDetMap = need - haveDetMap

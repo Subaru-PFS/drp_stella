@@ -36,7 +36,7 @@ class DummyDataRef:
     def __init__(self, **kwargs):
         self._inputs = kwargs
         self._outputs = {}
-        self.dataId = dict(visit=12345, arm="r")
+        self.dataId = dict(visit=12345, arm="r", spectrograph=1)
 
     def get(self, name, **kwargs):
         """Get dataset from storage"""
