@@ -1,6 +1,5 @@
 import os
 import pickle
-from functools import lru_cache
 
 import numpy as np
 
@@ -19,34 +18,12 @@ import pfs.drp.stella.tests.nevenPsf
 display = None
 
 
-@lru_cache(None)
-def getDetectorMap(filename):
-    """Read the detectorMap
-
-    The detectorMap gets cached, since reading some of the old detectorMaps can
-    take a long time.
-
-    Parameters
-    ----------
-    filename : `str`
-        Filename for the detectorMap.
-
-    Returns
-    -------
-    detectorMap : `pfs.drp.stella.DetectorMap`
-        DetectorMap read from file.
-    """
-    detMap = pfs.drp.stella.DetectorMap.readFits(filename)
-    detMap.metadata.markPersistent()
-    return detMap
-
-
 class NevenPsfTestCase(lsst.utils.tests.TestCase):
     def setUp(self):
         drpPfsData = getPackageDir("drp_pfs_data")
-        detMapFilename = os.path.join(drpPfsData, "detectorMap", "detectorMap-2019Apr-r1.fits")
-        self.detMap = getDetectorMap(detMapFilename)
-        self.psf = pfs.drp.stella.NevenPsf.build(self.detMap, version="Apr1520_v3")
+        detMapFilename = os.path.join(drpPfsData, "nevenPsf", "pfsDetectorMap-034444-r1.fits")
+        self.detMap = pfs.drp.stella.DetectorMap.readFits(detMapFilename)
+        self.psf = pfs.drp.stella.NevenPsf.build(self.detMap, version="Jan0821_v3")
         self.fiberId = 339  # Needs to be a fiber for which we have a PSF
 
     def testBasic(self):
@@ -56,14 +33,12 @@ class NevenPsfTestCase(lsst.utils.tests.TestCase):
         but testing the existence and functionality of the properties and
         getters.
         """
-        self.assertFloatsEqual(self.psf.x, self.psf.getX())
-        self.assertFloatsEqual(self.psf.y, self.psf.getY())
-        self.assertEqual(len(self.psf.images), len(self.psf.getImages()))
-        for image1, image2 in zip(self.psf.images, self.psf.getImages()):
-            self.assertFloatsEqual(image1, image2)
+        self.assertEqual(len(self.psf), self.psf.size())
+        self.assertEqual(len(self.psf.getFiberId()), len(self.psf))
+        self.assertEqual(len(self.psf.getWavelength()), len(self.psf))
+        self.assertEqual(len(self.psf.getImages()), len(self.psf))
         self.assertEqual(self.psf.oversampleFactor, self.psf.getOversampleFactor())
         self.assertEqual(self.psf.targetSize, self.psf.getTargetSize())
-        self.assertEqual(self.psf.xMaxDistance, self.psf.getXMaxDistance())
 
     @methodParameters(wavelength=np.random.RandomState(12345).uniform(700, 900, size=10))
     def testPsf(self, wavelength):
@@ -86,14 +61,13 @@ class NevenPsfTestCase(lsst.utils.tests.TestCase):
         """Test that the provided PSF is what is expected"""
         self.assertIsNotNone(psf)
         self.assertIsInstance(psf, pfs.drp.stella.NevenPsf)
-        self.assertFloatsEqual(psf.x, self.psf.x)
-        self.assertFloatsEqual(psf.y, self.psf.y)
-        self.assertEqual(len(psf.images), len(self.psf.images))
-        for image1, image2 in zip(psf.images, self.psf.images):
+        self.assertFloatsEqual(psf.getFiberId(), self.psf.getFiberId())
+        self.assertFloatsEqual(psf.getWavelength(), self.psf.getWavelength())
+        self.assertEqual(len(psf.getImages()), len(self.psf.getImages()))
+        for image1, image2 in zip(psf.getImages(), self.psf.getImages()):
             self.assertFloatsEqual(image1, image2)
         self.assertEqual(psf.oversampleFactor, self.psf.oversampleFactor)
         self.assertEqual(psf.targetSize, self.psf.targetSize)
-        self.assertEqual(psf.xMaxDistance, self.psf.xMaxDistance)
 
     def testPersistence(self):
         """Test persistence of the PSF"""
@@ -120,11 +94,10 @@ class NevenPsfTestCase(lsst.utils.tests.TestCase):
         """
         directory = os.path.join(getPackageDir("drp_pfs_data"), "nevenPsf")
         positions = np.load(os.path.join(directory, "test_arrays_from_Neven_from_Python_positions.npy"))
-        images = np.load(os.path.join(directory, "test_arrays_from_Neven_from_Python.npy"))
+        images = np.load(os.path.join(directory, "test_arrays_from_Neven_from_Python.npy")).astype(float)
         psf = pfs.drp.stella.tests.nevenPsf.NevenPsf(self.psf)  # Expose the interpolation
-        for pos, img in zip(positions, images):
-            ours = psf.computeOversampledKernelImage(lsst.geom.Point2D(pos))
-            self.assertFloatsAlmostEqual(ours.array/ours.array.max(), img/img.max(), atol=1.0e-8)
+        for (fiberId, wavelength), img in zip(positions, images):
+            ours = psf.computeOversampledKernelImage(fiberId, wavelength)
 
             if display is not None:
                 diff = ours.array - img
@@ -132,6 +105,8 @@ class NevenPsfTestCase(lsst.utils.tests.TestCase):
                 Display(backend=display, frame=2).mtv(lsst.afw.image.ImageD(img))
                 Display(backend=display, frame=3).mtv(lsst.afw.image.ImageD(diff))
                 input("Press ENTER to continue")
+
+            self.assertFloatsAlmostEqual(ours.array/ours.array.sum(), img/img.sum(), atol=1.0e-9)
 
 
 class TestMemory(lsst.utils.tests.MemoryTestCase):

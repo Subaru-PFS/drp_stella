@@ -19,6 +19,12 @@ class NevenPsf : public pfs::drp::stella::NevenPsf {
 
     // Expose protected method
     std::shared_ptr<OversampledPsf::Image> computeOversampledKernelImage(
+        int fiberId,
+        double wavelength
+    ) const {
+        return computeOversampledKernelImage(getDetectorMap()->findPoint(fiberId, wavelength));
+    }
+    std::shared_ptr<OversampledPsf::Image> computeOversampledKernelImage(
         lsst::geom::Point2D const& position
     ) const {
         return doComputeOversampledKernelImage(position);
@@ -36,7 +42,11 @@ PYBIND11_PLUGIN(nevenPsf) {
                pfs::drp::stella::NevenPsf, SpectralPsf, OversampledPsf> cls(mod, "NevenPsf");
     cls.def(py::init<pfs::drp::stella::NevenPsf const&>());
 
-    cls.def("computeOversampledKernelImage", &NevenPsf::computeOversampledKernelImage);
+    cls.def("computeOversampledKernelImage",
+            py::overload_cast<int, double>(&NevenPsf::computeOversampledKernelImage, py::const_));
+    cls.def("computeOversampledKernelImage",
+            py::overload_cast<lsst::geom::Point2D const&>(
+                &NevenPsf::computeOversampledKernelImage, py::const_));
 
     return mod.ptr();
 }
