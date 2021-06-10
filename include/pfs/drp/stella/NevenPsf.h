@@ -18,26 +18,25 @@ class NevenPsf
     public OversampledPsf
 {
   public:
+    using OversampledImage = ndarray::Array<float, 2, 1>;
+
     /** Ctor
      *
      * @param detMap : mapping between x,y and fiberId,wavelength
-     * @param xx : x positions of the oversampled images
-     * @param yy : y positions of the oversampled images
+     * @param fiberId : fiberIds of the oversampled images
+     * @param wavelength : wavelength of the oversampled images
      * @param images : the oversampled images
      * @param oversampleFactor : integer factor by which the PSF is oversampled
      * @param targetSize : desired size of the PSF kernel image after
      *            resampling
-     * @param xMaxDistance : maximum distance in x for selecting images for
-     *            interpolation
      */
     NevenPsf(
         std::shared_ptr<DetectorMap> detMap,
-        ndarray::Array<float const, 1, 1> const& xx,
-        ndarray::Array<float const, 1, 1> const& yy,
-        std::vector<ndarray::Array<double const, 2, 1>> const& images,
+        ndarray::Array<int, 1, 1> const& fiberId,
+        ndarray::Array<double, 1, 1> const& wavelength,
+        std::vector<OversampledImage> const& images,
         int oversampleFactor,
-        lsst::geom::Extent2I const& targetSize,
-        float xMaxDistance=20
+        lsst::geom::Extent2I const& targetSize
     );
 
     virtual ~NevenPsf() = default;
@@ -46,10 +45,10 @@ class NevenPsf
     NevenPsf& operator=(NevenPsf const&) = delete;
     NevenPsf& operator=(NevenPsf&&) = delete;
 
-    ndarray::Array<float const, 1, 1> getX() const { return _xx; }
-    ndarray::Array<float const, 1, 1> getY() const { return _yy; }
-    std::vector<ndarray::Array<double const, 2, 1>> getImages() const { return _images; }
-    float getXMaxDistance() const { return _xMaxDistance; }
+    std::size_t size() const;
+    ndarray::Array<int, 1, 1> getFiberId() const;
+    ndarray::Array<double, 1, 1> getWavelength() const;
+    std::vector<OversampledImage> getImages() const;
 
     virtual std::shared_ptr<Psf> clone() const override;
     virtual std::shared_ptr<lsst::afw::detection::Psf> resized(int width, int height) const override;
@@ -79,10 +78,13 @@ class NevenPsf
     ) const override;
 
   private:
-    ndarray::Array<float const, 1, 1> const _xx;  ///< x positions of the oversampled images
-    ndarray::Array<float const, 1, 1> const _yy;  ///< y positions of the oversampled images
-    std::vector<ndarray::Array<double const, 2, 1>> const _images;  ///< oversampled images
-    float const _xMaxDistance;  ///< maximum distance in x for selecting images for interpolation
+    struct Data {
+        double wavelength;
+        double y;
+        OversampledImage image;
+    };
+    using DataArray = std::vector<Data>;
+    std::map<int, DataArray> _data;  ///< oversampled images for each fiber
 };
 
 }}}  // namespace pfs::drp::stella

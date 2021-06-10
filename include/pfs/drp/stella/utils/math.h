@@ -2,7 +2,7 @@
 #define PFS_DRP_STELLA_UTILS_MATH_H
 
 #include <ndarray_fwd.h>
-
+#include "lsst/pex/exceptions.h"
 #include "pfs/drp/stella/utils/checkSize.h"
 
 namespace pfs {
@@ -114,6 +114,45 @@ ndarray::Array<T, N, C> arrayFilled(
     ndarray::Array<T, N, C> out = ndarray::allocate(shape);
     out.deep() = value;
     return out;
+}
+
+
+/// Return an array with regular steps
+///
+/// @param start : starting value (inclusive)
+/// @param stop : stopping value (exclusive)
+/// @param step : increment
+/// @return array filled with regular steps
+template <typename T>
+ndarray::Array<T, 1, 1> arange(
+    T start,
+    T stop,
+    T step=1
+) {
+    T const diff = stop - start;
+    if ((diff < 0 && step > 0) || (diff > 0 && step < 0)) {
+        throw LSST_EXCEPT(lsst::pex::exceptions::InvalidParameterError, "Step inconsistent with start,stop");
+    }
+    std::size_t const size = diff/step;
+    ndarray::Array<T, 1, 1> array = ndarray::allocate(size);
+    std::size_t ii = 0;
+    for (T xx = start; xx < stop; xx += step, ++ii) {
+        array[ii] = xx;
+    }
+    return array;
+}
+
+
+/// Return indices that sort array
+///
+/// @param array : array to sort
+/// @return indices that sort the array
+template <typename T>
+ndarray::Array<std::size_t, 1, 1> argsort(ndarray::Array<T, 1, 1> const& array) {
+    ndarray::Array<std::size_t, 1, 1> indices = arange<std::size_t>(0, array.size(), 1);
+    std::sort(indices.begin(), indices.end(),
+              [&array](std::size_t ii, std::size_t jj) { return array[ii] < array[jj]; });
+    return indices;
 }
 
 
