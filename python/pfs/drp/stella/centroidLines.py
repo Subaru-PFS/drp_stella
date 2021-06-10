@@ -49,6 +49,7 @@ class CentroidLinesConfig(Config):
 class CentroidLinesTask(Task):
     """Centroid lines on an arc"""
     ConfigClass = CentroidLinesConfig
+    _DefaultName = "centroidLines"
 
     def __init__(self, *args, **kwargs):
         Task.__init__(self, *args, **kwargs)
@@ -133,7 +134,9 @@ class CentroidLinesTask(Task):
         catalog = self.makeCatalog(referenceLines, detectorMap, convolved, pfsConfig)
         self.measure(exposure, catalog)
         self.display(exposure, catalog)
-        return self.translate(catalog)
+        lines = self.translate(catalog)
+        self.log.info("Measured %d line centroids", len(lines))
+        return lines
 
     def convolveImage(self, exposure):
         """Convolve image by Gaussian kernel
