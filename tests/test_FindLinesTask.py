@@ -7,6 +7,7 @@ import lsst.utils.tests
 
 from pfs.drp.stella.findLines import FindLinesTask, FindLinesConfig, FittingError
 from pfs.drp.stella import Spectrum
+from pfs.drp.stella.utils.psf import sigmaToFwhm
 
 display = None
 
@@ -120,7 +121,7 @@ class FindLinesTestCase(lsst.utils.tests.TestCase):
         self.assertFloatsAlmostEqual(np.array([ll.width for ll in lines]), widths, atol=1.0e-5)
         self.assertFloatsAlmostEqual(np.array([ll.flux for ll in lines]), widths*amplitudes*np.sqrt(2*np.pi),
                                      rtol=1.0e-5)
-        self.assertFloatsAlmostEqual(np.array([ll.fwhm for ll in lines]), 2*np.sqrt(2*np.log(2))*widths,
+        self.assertFloatsAlmostEqual(np.array([ll.fwhm for ll in lines]), sigmaToFwhm(widths),
                                      atol=1.0e-4)
         self.assertFloatsAlmostEqual(np.array([ll.backgroundSlope for ll in lines]), 0.0, atol=1.0e-4)
         self.assertFloatsAlmostEqual(np.array([ll.backgroundIntercept/ll.center for ll in lines]), 0.0,
@@ -156,7 +157,7 @@ class FindLinesTestCase(lsst.utils.tests.TestCase):
         self.assertFloatsAlmostEqual(np.array([ll.width for ll in lines]), widths, atol=1.0e-2)
         self.assertFloatsAlmostEqual(np.array([ll.flux for ll in lines]), widths*amplitudes*np.sqrt(2*np.pi),
                                      rtol=1.0e-2)
-        self.assertFloatsAlmostEqual(np.array([ll.fwhm for ll in lines]), 2*np.sqrt(2*np.log(2))*widths,
+        self.assertFloatsAlmostEqual(np.array([ll.fwhm for ll in lines]), sigmaToFwhm(widths),
                                      atol=2.0e-2)
         self.assertFloatsAlmostEqual(np.array([ll.backgroundSlope for ll in lines]), 0.0, atol=0.1)
         self.assertFloatsAlmostEqual(np.array([ll.backgroundIntercept/ll.center for ll in lines]), 0.0,

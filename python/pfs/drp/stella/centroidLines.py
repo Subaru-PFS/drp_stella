@@ -11,12 +11,12 @@ from lsst.afw.table import SourceCatalog, SourceTable
 from lsst.meas.base.exceptions import FatalAlgorithmError, MeasurementError
 from lsst.meas.base.sdssCentroid import SdssCentroidAlgorithm, SdssCentroidControl
 from lsst.meas.base.psfFlux import PsfFluxAlgorithm, PsfFluxControl
-from lsst.ip.isr.isrFunctions import createPsf
 
 from pfs.datamodel import FiberStatus
 from .arcLine import ArcLine, ArcLineSet
 from .images import convolveImage
 from .fitContinuum import FitContinuumTask
+from .utils.psf import checkPsf
 
 import lsstDebug
 
@@ -127,33 +127,12 @@ class CentroidLinesTask(Task):
         lines : `pfs.drp.stella.ArcLineSet`
             Centroided lines.
         """
-        self.checkPsf(exposure)
+        checkPsf(exposure, fwhm=self.config.fwhm)
         convolved = self.convolveImage(exposure)
         catalog = self.makeCatalog(referenceLines, detectorMap, convolved, pfsConfig)
         self.measure(exposure, catalog)
         self.display(exposure, catalog)
         return self.translate(catalog)
-
-    def checkPsf(self, exposure):
-        """Check that the PSF is present in the ``exposure``
-
-        If the PSF isn't present in the ``exposure``, then we use the ``fwhm``
-        from the config.
-
-        Parameters
-        ----------
-        exposure : `lsst.afw.image.Exposure`
-            Image to convolve. The PSF must be set.
-
-        Returns
-        -------
-        psf : `lsst.afw.detection.Psf`
-            Two-dimensional point-spread function.
-        """
-        psf = exposure.getPsf()
-        if psf is not None:
-            return
-        exposure.setPsf(createPsf(self.config.fwhm))
 
     def convolveImage(self, exposure):
         """Convolve image by Gaussian kernel
