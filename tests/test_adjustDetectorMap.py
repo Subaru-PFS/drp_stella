@@ -10,6 +10,8 @@ from pfs.drp.stella.buildFiberProfiles import BuildFiberProfilesTask
 from pfs.drp.stella.referenceLine import ReferenceLineSet, ReferenceLineStatus
 from pfs.drp.stella.synthetic import SyntheticConfig, makeSyntheticDetectorMap, makeSyntheticPfsConfig
 from pfs.drp.stella.synthetic import makeSyntheticArc, makeSyntheticFlat
+from pfs.drp.stella.centroidLines import CentroidLinesTask
+from pfs.drp.stella.centroidTraces import CentroidTracesTask
 from pfs.drp.stella import DistortedDetectorMap, DetectorDistortion
 from pfs.drp.stella.tests.utils import runTests, methodParameters
 
@@ -129,10 +131,10 @@ class AdjustDetectorMapTestCase(lsst.utils.tests.TestCase):
         gain = self.synthConfig.gain
         exposure.variance.array = readnoise**2/gain + image.array*gain
 
-        lines = ReferenceLineSet.empty()
+        refLines = ReferenceLineSet.empty()
         fiberId = self.synthConfig.fiberId[self.synthConfig.numFibers//2]
         for yy in arc.lines:
-            lines.append("Fake", self.base.findWavelength(fiberId, yy), arcFlux, ReferenceLineStatus.GOOD)
+            refLines.append("Fake", self.base.findWavelength(fiberId, yy), arcFlux, ReferenceLineStatus.GOOD)
 
         profilesConfig = BuildFiberProfilesTask.ConfigClass()
         profilesConfig.pruneMinLength = self.synthConfig.height//2
@@ -146,16 +148,21 @@ class AdjustDetectorMapTestCase(lsst.utils.tests.TestCase):
         if display is not None:
             disp = Display(frame=1, backend=display)
             disp.mtv(exposure)
-            self.distorted.display(disp, ctype="red", wavelengths=lines.wavelength)
+            self.distorted.display(disp, ctype="red", wavelengths=refLines.wavelength)
+
+        centroidLines = CentroidLinesTask()
+        centroidTraces = CentroidTracesTask()
+        centroidLines.config.fwhm = self.synthConfig.fwhm
+        centroidTraces.config.fwhm = self.synthConfig.fwhm
+        lines = centroidLines.run(exposure, refLines, self.distorted, pfsConfig, fiberTraces)
+        traces = centroidTraces.run(exposure, self.distorted, pfsConfig)
 
         config = AdjustDetectorMapConfig()
         config.order = 1
-        config.centroidLines.fwhm = self.synthConfig.fwhm
-        config.centroidTraces.fwhm = self.synthConfig.fwhm
         task = AdjustDetectorMapTask(config=config)
         task.log.setLevel(task.log.DEBUG)
 
-        adjusted = task.run(exposure, self.distorted, lines, pfsConfig, fiberTraces)
+        adjusted = task.run(self.distorted, lines, traces)
         self.assertExpected(adjusted.detectorMap, checkWavelengths=(numLines > 0))
 
         if display is not None:

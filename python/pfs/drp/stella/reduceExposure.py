@@ -34,6 +34,8 @@ from .subtractSky2d import SubtractSky2dTask
 from .fitContinuum import FitContinuumTask
 from .lsf import ExtractionLsf, GaussianLsf
 from .readLineList import ReadLineListTask
+from .centroidLines import CentroidLinesTask
+from .centroidTraces import CentroidTracesTask
 from .adjustDetectorMap import AdjustDetectorMapTask
 from pfs.utils.fibers import spectrographFromFiberId
 
@@ -50,6 +52,8 @@ class ReduceExposureConfig(Config):
     readLineList = ConfigurableField(target=ReadLineListTask,
                                      doc="Read line lists for detectorMap adjustment")
     adjustDetectorMap = ConfigurableField(target=AdjustDetectorMapTask, doc="Measure slit offsets")
+    centroidLines = ConfigurableField(target=CentroidLinesTask, doc="Centroid lines")
+    centroidTraces = ConfigurableField(target=CentroidTracesTask, doc="Centroid traces")
     doSkySwindle = Field(dtype=bool, default=False,
                          doc="Do the Sky Swindle (subtract the exact sky)? "
                              "This only works with Simulator files produced with the --allOutput flag")
@@ -147,6 +151,8 @@ class ReduceExposureTask(CmdLineTask):
         self.makeSubtask("isr")
         self.makeSubtask("repair")
         self.makeSubtask("readLineList")
+        self.makeSubtask("centroidLines")
+        self.makeSubtask("centroidTraces")
         self.makeSubtask("adjustDetectorMap")
         self.makeSubtask("measurePsf")
         self.makeSubtask("subtractSky2d")
@@ -203,6 +209,7 @@ class ReduceExposureTask(CmdLineTask):
         exposureList = []
         fiberTraceList = []
         detectorMapList = []
+        linesList = []
         psfList = []
         lsfList = []
         skyResults = None
@@ -217,6 +224,7 @@ class ReduceExposureTask(CmdLineTask):
                     fiberTraceList = [cal.fiberTraces for cal in calibs]
                 psfList = [exp.getPsf() for exp in exposureList]
                 lsfList = [sensorRef.get("pfsArmLsf") for sensorRef in sensorRefList]
+                linesList = [sensorRef.get("arcLines") for sensorRef in sensorRefList]
             else:
                 self.log.warn("Not retrieving calexps, despite 'useCalexp' config, since some are missing")
 
@@ -229,10 +237,10 @@ class ReduceExposureTask(CmdLineTask):
                     self.skySwindle(sensorRef, exposure.image)
 
                 exposureList.append(exposure)
-                if self.config.doExtractSpectra:
-                    calibs = self.getSpectralCalibs(sensorRef, exposure, pfsConfig)
-                    detectorMapList.append(calibs.detectorMap)
-                    fiberTraceList.append(calibs.fiberTraces)
+                calibs = self.getSpectralCalibs(sensorRef, exposure, pfsConfig)
+                detectorMapList.append(calibs.detectorMap)
+                fiberTraceList.append(calibs.fiberTraces)
+                linesList.append(calibs.lines)
 
             if self.config.doMeasurePsf:
                 psfList = self.measurePsf.run(sensorRefList, exposureList, detectorMapList)
@@ -254,6 +262,7 @@ class ReduceExposureTask(CmdLineTask):
             detectorMapList=detectorMapList,
             psfList=psfList,
             lsfList=lsfList,
+            linesList=linesList,
             pfsConfig=pfsConfig,
             sky2d=skyResults.sky2d if skyResults is not None else None,
             skyImageList=skyImageList,
@@ -348,8 +357,9 @@ class ReduceExposureTask(CmdLineTask):
             sensorRefList[0].put(results.sky2d, "sky2d")
 
         if self.config.doWriteArm:
-            for sensorRef, spectra in zip(sensorRefList, results.spectraList):
+            for sensorRef, spectra, lines in zip(sensorRefList, results.spectraList, results.linesList):
                 sensorRef.put(spectra.toPfsArm(sensorRef.dataId), "pfsArm")
+                sensorRef.put(lines, "arcLines")
 
         return results
 
@@ -406,6 +416,12 @@ class ReduceExposureTask(CmdLineTask):
             Profile for each fiber.
         fiberTraces : `pfs.drp.stella.FiberTraceSet`
             Trace for each fiber.
+        refLines : `pfs.drp.stella.ReferenceLineSet`
+            Reference lines.
+        lines : `pfs.drp.stella.ArcLineSet`
+            Measured lines.
+        traces : `dict` [`int`: `list` of `pfs.drp.stella.TracePeak`]
+            Peaks for each trace, indexed by fiberId.
         """
         detectorMap = sensorRef.get("detectorMap")
         fiberProfiles = sensorRef.get("fiberProfiles")
@@ -429,12 +445,19 @@ class ReduceExposureTask(CmdLineTask):
             )
 
         fiberTraces = fiberProfiles.makeFiberTracesFromDetectorMap(detectorMap)
+
+        refLines = self.readLineList.run(detectorMap, exposure.getMetadata())
+        lines = self.centroidLines.run(exposure, refLines, detectorMap, pfsConfig, fiberTraces)
         if self.config.doAdjustDetectorMap:
-            lines = self.readLineList.run(detectorMap, exposure.getMetadata())
-            results = self.adjustDetectorMap.run(exposure, detectorMap, lines, pfsConfig, fiberTraces)
-            detectorMap = results.detectorMap
+            traces = self.centroidTraces.run(exposure, detectorMap, pfsConfig)
+            detectorMap = self.adjustDetectorMap.run(detectorMap, lines, traces).detectorMap
             sensorRef.put(detectorMap, "detectorMap_used")
-        return Struct(detectorMap=detectorMap, fiberProfiles=fiberProfiles, fiberTraces=fiberTraces)
+            fiberTraces = fiberProfiles.makeFiberTracesFromDetectorMap(detectorMap)  # use new detectorMap
+        else:
+            traces = None
+
+        return Struct(detectorMap=detectorMap, fiberProfiles=fiberProfiles, fiberTraces=fiberTraces,
+                      refLines=refLines, lines=lines, traces=traces)
 
     def calculateLsf(self, psf, fiberTraceSet, length):
         """Calculate the LSF for this exposure
