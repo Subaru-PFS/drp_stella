@@ -151,6 +151,17 @@ class ConstructFiberProfilesTask(SpectralCalibTask):
         profiles = results.profiles
         self.log.info('%d fiber profiles found on combined flat', len(profiles))
 
+        if self.config.forceFiberIds:
+            indices = pfsConfig.selectByFiberStatus(FiberStatus.GOOD, detMap.fiberId)
+            fiberId = detMap.fiberId[indices].copy()
+            fiberId.sort()  # The profiles.fiberId is sorted too, so this gets us the same order
+            if len(fiberId) != len(profiles):
+                raise RuntimeError(f"Found {len(profiles)} fibers but expected {len(fiberId)}")
+            newProfiles = FiberProfileSet.makeEmpty(profiles.visitInfo, profiles.metadata)
+            for old, new in zip(profiles.fiberId, fiberId):
+                newProfiles[new] = profiles[old]
+            profiles = newProfiles
+
         # Set the normalisation of the FiberProfiles
         # The normalisation is the flat: we want extracted spectra to be relative to the flat.
         traces = results.profiles.makeFiberTracesFromDetectorMap(detMap)
