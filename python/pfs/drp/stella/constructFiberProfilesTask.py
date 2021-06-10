@@ -5,11 +5,14 @@ import lsst.afw.display as afwDisplay
 import lsst.afw.image as afwImage
 from lsst.pex.config import Field, ConfigurableField, ConfigField, ListField
 from lsst.pipe.drivers.constructCalibs import CalibTaskRunner
+
+from pfs.datamodel import FiberStatus
 from .constructSpectralCalibs import SpectralCalibConfig, SpectralCalibTask
 from .buildFiberProfiles import BuildFiberProfilesTask
 from pfs.drp.stella import SlitOffsetsConfig
+from pfs.drp.stella.centroidTraces import CentroidTracesTask
 from pfs.drp.stella.adjustDetectorMap import AdjustDetectorMapTask
-from . import ReferenceLineSet
+from . import ArcLineSet, FiberProfileSet
 
 
 class ConstructFiberProfilesTaskRunner(CalibTaskRunner):
@@ -35,6 +38,8 @@ class ConstructFiberProfilesConfig(SpectralCalibConfig):
         """,
     )
     slitOffsets = ConfigField(dtype=SlitOffsetsConfig, doc="Manual slit offsets to apply to detectorMap")
+    centroidTraces = ConfigurableField(target=CentroidTracesTask, doc="Centroid traces")
+    doAdjustDetectorMap = Field(dtype=bool, default=True, doc="Adjust detectorMap using trace positions?")
     adjustDetectorMap = ConfigurableField(target=AdjustDetectorMapTask, doc="Adjust detectorMap")
     mask = ListField(dtype=str, default=["BAD_FLAT", "CR", "SAT", "NO_DATA"],
                      doc="Mask planes to exclude from fiberTrace")
@@ -55,6 +60,7 @@ class ConstructFiberProfilesTask(SpectralCalibTask):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.makeSubtask("profiles")
+        self.makeSubtask("centroidTraces")
         self.makeSubtask("adjustDetectorMap")
 
     def run(self, expRefList, butler, calibId):
@@ -137,23 +143,26 @@ class ConstructFiberProfilesTask(SpectralCalibTask):
         pfsConfig = dataRefList[0].get("pfsConfig")
         self.config.slitOffsets.apply(detMap, self.log)
 
-        detMap = self.adjustDetectorMap.run(exposure, detMap, ReferenceLineSet.empty(), pfsConfig).detectorMap
+        if self.config.doAdjustDetectorMap:
+            traces = self.centroidTraces.run(exposure, detMap, pfsConfig)
+            detMap = self.adjustDetectorMap.run(detMap, ArcLineSet.empty(), traces).detectorMap
 
         results = self.profiles.run(exposure, detMap, pfsConfig)
-        self.log.info('%d fiber profiles found on combined flat', len(results.profiles))
+        profiles = results.profiles
+        self.log.info('%d fiber profiles found on combined flat', len(profiles))
 
         # Set the normalisation of the FiberProfiles
         # The normalisation is the flat: we want extracted spectra to be relative to the flat.
         traces = results.profiles.makeFiberTracesFromDetectorMap(detMap)
         spectra = traces.extractSpectra(exposure.maskedImage)
         for ss in spectra:
-            results.profiles[ss.fiberId].norm = ss.flux
+            profiles[ss.fiberId].norm = ss.flux
             self.log.info("Median relative transmission of fiber %d is %f",
                           ss.fiberId, np.median(ss.flux[np.isfinite(ss.flux)]))
 
-        results.profiles.metadata.set("OBSTYPE", "fiberProfiles")
-        date = results.profiles.getVisitInfo().getDate()
-        results.profiles.metadata.set("calibDate", date.toPython(date.UTC).strftime("%Y-%m-%d"))
+        profiles.metadata.set("OBSTYPE", "fiberProfiles")
+        date = profiles.getVisitInfo().getDate()
+        profiles.metadata.set("calibDate", date.toPython(date.UTC).strftime("%Y-%m-%d"))
 
         if self.debugInfo.display and self.debugInfo.combinedFrame >= 0:
             display = afwDisplay.Display(frame=self.debugInfo.combinedFrame)
@@ -163,5 +172,5 @@ class ConstructFiberProfilesTask(SpectralCalibTask):
         #
         # And write it
         #
-        self.recordCalibInputs(cache.butler, results.profiles, struct.ccdIdList, outputId)
-        self.write(cache.butler, results.profiles, outputId)
+        self.recordCalibInputs(cache.butler, profiles, struct.ccdIdList, outputId)
+        self.write(cache.butler, profiles, outputId)
