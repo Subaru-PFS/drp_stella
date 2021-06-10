@@ -100,7 +100,8 @@ class CentroidLinesTask(Task):
         if self.config.doSubtractContinuum:
             if fiberTraces is None:
                 raise RuntimeError("No fiberTraces provided for continuum subtraction")
-            with self.continuum.subtractionContext(exposure.maskedImage, fiberTraces, referenceLines):
+            with self.continuum.subtractionContext(exposure.maskedImage, fiberTraces, detectorMap,
+                                                   referenceLines):
                 return self.centroidLines(exposure, referenceLines, detectorMap, pfsConfig)
         return self.centroidLines(exposure, referenceLines, detectorMap, pfsConfig)
 

@@ -228,7 +228,7 @@ class FitContinuumTask(Task):
             good[low:high] = False
         return good
 
-    def subtractContinuum(self, maskedImage, fiberTraces, lines=None):
+    def subtractContinuum(self, maskedImage, fiberTraces, detectorMap=None, lines=None):
         """Subtract continuum from an image
 
         Parameters
@@ -237,6 +237,8 @@ class FitContinuumTask(Task):
             Image containing 2D spectra.
         fiberTraces : `pfs.drp.stella.FiberTraceSet`
             Location and profile of the 2D spectra.
+        detectorMap : `pfs.drp.stella.DetectorMap`, optional.
+            Mapping of fiberId,wavelength to x,y.
         lines : `pfs.drp.stella.ReferenceLineSet`, optional
             Reference lines to mask.
 
@@ -250,13 +252,16 @@ class FitContinuumTask(Task):
             Image containing continua.
         """
         spectra = fiberTraces.extractSpectra(maskedImage)
+        if detectorMap is not None:
+            for ss in spectra:
+                ss.setWavelength(detectorMap.getWavelength(ss.fiberId))
         continua = self.run(spectra, lines)
         continuumImage = continua.makeImage(maskedImage.getBBox(), fiberTraces)
         maskedImage -= continuumImage
         return Struct(spectra=spectra, continua=continua, continuumImage=continuumImage)
 
     @contextmanager
-    def subtractionContext(self, maskedImage, fiberTraces, lines=None):
+    def subtractionContext(self, maskedImage, fiberTraces, detectorMap=None, lines=None):
         """Context manager for temporarily subtracting continuum
 
         Parameters
@@ -265,6 +270,8 @@ class FitContinuumTask(Task):
             Image containing 2D spectra.
         fiberTraces : `pfs.drp.stella.FiberTraceSet`
             Location and profile of the 2D spectra.
+        detectorMap : `pfs.drp.stella.DetectorMap`, optional.
+            Mapping of fiberId,wavelength to x,y.
         lines : `pfs.drp.stella.ReferenceLineSet`, optional
             Reference lines to mask.
 
@@ -277,7 +284,7 @@ class FitContinuumTask(Task):
         continuumImage : `lsst.afw.image.Image`
             Image containing continua.
         """
-        results = self.subtractContinuum(maskedImage, fiberTraces, lines)
+        results = self.subtractContinuum(maskedImage, fiberTraces, detectorMap, lines)
         try:
             yield results
         finally:
