@@ -42,6 +42,9 @@ class CentroidLinesConfig(Config):
     kernelSize = Field(dtype=float, default=4.0, doc="Size of convolution kernel (sigma)")
     threshold = Field(dtype=float, default=5.0, doc="Signal-to-noise threshold for lines")
 
+    def setDefaults(self):
+        self.photometer.badMaskPlanes = ["BAD", "SAT", "CR", "NO_DATA"]
+
 
 class CentroidLinesTask(Task):
     """Centroid lines on an arc"""
