@@ -460,11 +460,12 @@ class BuildFiberProfilesTask(Task):
         assignments = {}
         used = {}
         for index in centers:
-            best = detectorMap.fiberId[np.argmin(np.abs(expectCenters - centers[index](middle)))]
-            if best in used:
-                raise RuntimeError("Matched fiber to a used fiberId")
+            bestIndex = np.argmin(np.abs(expectCenters - centers[index](middle)))
+            best = detectorMap.fiberId[bestIndex]
+            assert best not in used, "Matched fiber to a used fiberId"
             assignments[index] = best
             used[best] = index
+            expectCenters[bestIndex] = np.inf  # Prevent reuse
         self.log.debug("Identified %d fiberIds: %s", len(used), assignments)
 
         if pfsConfig is not None:
