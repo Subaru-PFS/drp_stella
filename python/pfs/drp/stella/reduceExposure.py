@@ -35,6 +35,7 @@ from .fitContinuum import FitContinuumTask
 from .lsf import ExtractionLsf, GaussianLsf
 from .readLineList import ReadLineListTask
 from .centroidLines import CentroidLinesTask
+from .photometerLines import PhotometerLinesTask
 from .centroidTraces import CentroidTracesTask
 from .adjustDetectorMap import AdjustDetectorMapTask
 from pfs.utils.fibers import spectrographFromFiberId
@@ -54,6 +55,7 @@ class ReduceExposureConfig(Config):
     adjustDetectorMap = ConfigurableField(target=AdjustDetectorMapTask, doc="Measure slit offsets")
     centroidLines = ConfigurableField(target=CentroidLinesTask, doc="Centroid lines")
     centroidTraces = ConfigurableField(target=CentroidTracesTask, doc="Centroid traces")
+    photometerLines = ConfigurableField(target=PhotometerLinesTask, doc="Photometer lines")
     doSkySwindle = Field(dtype=bool, default=False,
                          doc="Do the Sky Swindle (subtract the exact sky)? "
                              "This only works with Simulator files produced with the --allOutput flag")
@@ -153,6 +155,7 @@ class ReduceExposureTask(CmdLineTask):
         self.makeSubtask("readLineList")
         self.makeSubtask("centroidLines")
         self.makeSubtask("centroidTraces")
+        self.makeSubtask("photometerLines")
         self.makeSubtask("adjustDetectorMap")
         self.makeSubtask("measurePsf")
         self.makeSubtask("subtractSky2d")
@@ -253,7 +256,7 @@ class ReduceExposureTask(CmdLineTask):
 
             if self.config.doSubtractSky2d:
                 skyResults = self.subtractSky2d.run(exposureList, pfsConfig, psfList,
-                                                    fiberTraceList, detectorMapList)
+                                                    fiberTraceList, detectorMapList, linesList)
 
         skyImageList = skyResults.imageList if skyResults is not None else [None]*len(exposureList)
         results = Struct(
@@ -455,6 +458,9 @@ class ReduceExposureTask(CmdLineTask):
             fiberTraces = fiberProfiles.makeFiberTracesFromDetectorMap(detectorMap)  # use new detectorMap
         else:
             traces = None
+
+        # Update photometry using adjusted detectorMap
+        lines = self.photometerLines.run(exposure, lines, detectorMap, pfsConfig, fiberTraces)
 
         return Struct(detectorMap=detectorMap, fiberProfiles=fiberProfiles, fiberTraces=fiberTraces,
                       refLines=refLines, lines=lines, traces=traces)

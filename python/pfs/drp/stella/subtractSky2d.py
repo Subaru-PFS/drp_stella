@@ -4,13 +4,11 @@ from collections import defaultdict
 import numpy as np
 import astropy.io.fits
 
-from lsst.pex.config import Config, Field, ListField, ConfigurableField
+from lsst.pex.config import Config, Field
 from lsst.pipe.base import Task, Struct
 from lsst.afw.image import MaskedImageF
 
 from pfs.datamodel.pfsConfig import TargetType
-
-from .readLineList import ReadLineListTask
 
 
 class SkyModel(SimpleNamespace):
@@ -112,9 +110,6 @@ def computePsfImage(psf, fiberTrace, wavelength, bbox):
 
 class SubtractSky2dConfig(Config):
     """Configuration for SubtractSky2dTask"""
-    readLineList = ConfigurableField(target=ReadLineListTask, doc="Read line list")
-    mask = ListField(dtype=str, default=["BAD", "SAT", "NO_DATA"],
-                     doc="Mask planes to ignore when measuring line fluxes")
     useAllFibers = Field(dtype=bool, default=False, doc="Use all fibers to measure sky?")
 
 
@@ -125,7 +120,6 @@ class SubtractSky2dTask(Task):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.makeSubtask("readLineList")
 
     def run(self, exposureList, pfsConfig, psfList, fiberTraceList, detectorMapList):
         """Measure and subtract sky from 2D spectra image
@@ -158,7 +152,7 @@ class SubtractSky2dTask(Task):
             imageList.append(image)
         return Struct(sky2d=sky2d, imageList=imageList)
 
-    def measureSky(self, exposureList, pfsConfig, psfList, fiberTraceList, detectorMapList):
+    def measureSky(self, exposureList, pfsConfig, psfList, fiberTraceList, detectorMapList, linesList):
         """Measure the 2D sky model
 
         Parameters
@@ -173,6 +167,8 @@ class SubtractSky2dTask(Task):
             Fiber traces.
         detectorMapList : iterable of `pfs.drp.stella.DetectorMap`
             Mapping of fiber,wavelength to x,y.
+        linesList : iterable of `pfs.drp.stella.ArcLineSet`
+            Measured sky lines.
 
         Returns
         -------
@@ -180,33 +176,25 @@ class SubtractSky2dTask(Task):
             2D sky subtraction solution.
         """
         skyFibers = set(pfsConfig.fiberId[pfsConfig.targetType == int(TargetType.SKY)])
-        refLines = self.readLineList(exposureList[0].getMetadata())
-        lines = [ref.wavelength for ref in refLines]
-        measurements = defaultdict(list)  # List of fit results for each line, by wavelength
+
+        measurements = defaultdict(list)  # List of flux for each line, by wavelength
         # Fit lines one by one for now
         # Might do a simultaneous fit later
-        for exp, psf, fiberTraces, detMap in zip(exposureList, psfList, fiberTraceList, detectorMapList):
+        for exp, psf, fiberTraces, detMap, lines in zip(exposureList, psfList, fiberTraceList,
+                                                        detectorMapList, linesList):
             if psf is None:
                 raise RuntimeError("Unable to measure 2D sky model: PSF is None")
-            for ft in fiberTraces:
-                fiberId = ft.fiberId
-                if not self.config.useAllFibers and fiberId not in skyFibers:
-                    continue
+            exp.setPsf(psf)
+            if self.config.useAllFibers:
+                select = np.ones(len(lines), dtype=bool)
+            else:
+                select = np.zeros(len(lines), dtype=bool)
+                for ff in skyFibers:
+                    select |= lines.fiberId == ff
 
-                wavelength = detMap.getWavelength(fiberId)
-                wlMin = wavelength.min()
-                wlMax = wavelength.max()
-                for wl in lines:
-                    if wl < wlMin or wl > wlMax:
-                        self.log.debug("Skipping line %f for fiber %d (min=%f, max=%f)",
-                                       wl, fiberId, wlMin, wlMax)
-                        continue
-                    try:
-                        meas = self.measureLineFlux(exp, psf, ft, wl)
-                    except Exception as exc:
-                        self.log.debug("Failed to measure fiber %d at %f: %s", fiberId, wl, exc)
-                        continue
-                    measurements[wl].append(meas)
+            for wl in set(lines.wavelength[select]):
+                choose = select & (lines.wavelength == wl)
+                measurements[wl] = lines.flux[choose]
 
         self.log.debug("Line flux measurements: %s", measurements)
 
@@ -222,32 +210,6 @@ class SubtractSky2dTask(Task):
         self.log.debug("Line flux model: %s", model)
 
         return SkyModel(np.array(list(model.keys())), np.array(list(model.values())))
-
-    def measureLineFlux(self, exposure, psf, fiberTrace, wavelength):
-        """Measure the flux of a single line
-
-        Parameters
-        ----------
-        exposure : `lsst.afw.image.Exposure`
-            Image containing the line to fit.
-        psf : `pfs.drp.stella.SpectralPsf`
-            Point-spread function model.
-        fiberTrace : `pfs.drp.stella.FiberTrace`
-            Profile of the fiber.
-        wavelength : `float`
-            Wavelength (nm) of line to fit.
-        """
-        psfImage = computePsfImage(psf, fiberTrace, wavelength, exposure.getBBox())
-        image = exposure[psfImage.getBBox()]
-
-        select = (image.mask.array & image.mask.getPlaneBitMask(self.config.mask)) == 0
-        modelDotModel = np.sum(psfImage.array[select]**2)
-        modelDotData = np.sum(psfImage.array[select]*image.image.array[select])
-        modelDotModelVariance = np.sum(psfImage.array[select]**2*image.variance.array[select])
-        flux = modelDotData/modelDotModel
-        fluxErr = np.sqrt(modelDotModelVariance)/modelDotModel
-
-        return Struct(flux=flux, fluxErr=fluxErr)
 
     def makeSkyImage(self, bbox, psf, fiberTraces, pfsConfig, sky2d):
         """Construct a 2D image of the sky model
