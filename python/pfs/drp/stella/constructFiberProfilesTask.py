@@ -8,7 +8,6 @@ from lsst.pipe.drivers.constructCalibs import CalibTaskRunner
 from .constructSpectralCalibs import SpectralCalibConfig, SpectralCalibTask
 from .buildFiberProfiles import BuildFiberProfilesTask
 from pfs.drp.stella import SlitOffsetsConfig
-from pfs.drp.stella.fitContinuum import FitContinuumTask
 from pfs.drp.stella.adjustDetectorMap import AdjustDetectorMapTask
 from . import ReferenceLineSet
 
@@ -36,7 +35,6 @@ class ConstructFiberProfilesConfig(SpectralCalibConfig):
         """,
     )
     slitOffsets = ConfigField(dtype=SlitOffsetsConfig, doc="Manual slit offsets to apply to detectorMap")
-    fitContinuum = ConfigurableField(target=FitContinuumTask, doc="Fit continuum")
     adjustDetectorMap = ConfigurableField(target=AdjustDetectorMapTask, doc="Adjust detectorMap")
     mask = ListField(dtype=str, default=["BAD_FLAT", "CR", "SAT", "NO_DATA"],
                      doc="Mask planes to exclude from fiberTrace")
@@ -57,7 +55,6 @@ class ConstructFiberProfilesTask(SpectralCalibTask):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.makeSubtask("profiles")
-        self.makeSubtask("fitContinuum")
         self.makeSubtask("adjustDetectorMap")
 
     def run(self, expRefList, butler, calibId):
