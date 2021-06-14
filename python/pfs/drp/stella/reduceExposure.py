@@ -48,7 +48,7 @@ class ReduceExposureConfig(Config):
     isr = ConfigurableField(target=IsrTask, doc="Instrumental signature removal")
     doRepair = Field(dtype=bool, default=True, doc="Repair artifacts?")
     repair = ConfigurableField(target=RepairTask, doc="Task to repair artifacts")
-    doAdjustDetectorMap = Field(dtype=bool, default=False,
+    doAdjustDetectorMap = Field(dtype=bool, default=True,
                                 doc="Apply a low-order correction to the detectorMap?")
     readLineList = ConfigurableField(target=ReadLineListTask,
                                      doc="Read line lists for detectorMap adjustment")
