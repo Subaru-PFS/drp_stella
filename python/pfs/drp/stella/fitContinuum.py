@@ -101,25 +101,22 @@ class FitContinuumTask(Task):
         continuum : `numpy.ndarray`
             Array of continuum fit.
         """
+        good = np.isfinite(spectrum.spectrum)
         if self.config.doMaskLines and lines is not None and spectrum.isWavelengthSet():
-            good = self.maskLines(spectrum, lines)
-        else:
-            good = np.isfinite(spectrum.spectrum)
+            good &= self.maskLines(spectrum, lines)
         good &= (spectrum.mask.array[0] & spectrum.mask.getPlaneBitMask(self.config.mask)) == 0
         if not np.any(good):
             raise FitContinuumError("No good values when fitting continuum")
-        oldGood = good
+        keep = np.ones_like(good, dtype=bool)
         for ii in range(self.config.iterations):
-            fit = self._fitContinuumImpl(spectrum.spectrum, good)
+            use = good & keep
+            fit = self._fitContinuumImpl(spectrum.spectrum, use)
             diff = spectrum.spectrum - fit
-            lq, uq = np.percentile(diff[good], [25.0, 75.0])
+            lq, uq = np.percentile(diff[use], [25.0, 75.0])
             stdev = 0.741*(uq - lq)
             with np.errstate(invalid='ignore'):
-                good = np.isfinite(diff) & (np.abs(diff) <= self.config.rejection*stdev)
-            if np.all(good == oldGood):
-                break
-            oldGood = good
-        return self._fitContinuumImpl(spectrum.spectrum, good)
+                keep = np.isfinite(diff) & (np.abs(diff) <= self.config.rejection*stdev)
+        return self._fitContinuumImpl(spectrum.spectrum, good & keep)
 
     def _fitContinuumImpl(self, values, good):
         """Implementation of the business part of fitting
@@ -216,7 +213,7 @@ class FitContinuumTask(Task):
         assert np.all(delta >= 0) or np.all(delta <= 0), "Monotonic"
         del delta
         num = len(wavelength)
-        good = np.isfinite(spectrum.spectrum, dtype=bool)
+        good = np.ones(num, dtype=bool)
         indices = np.interp(lines.wavelength, wavelength, np.arange(num, dtype=int),
                             left=np.nan, right=np.nan)
         for ii in indices:
@@ -228,7 +225,7 @@ class FitContinuumTask(Task):
             good[low:high] = False
         return good
 
-    def subtractContinuum(self, maskedImage, fiberTraces, lines=None):
+    def subtractContinuum(self, maskedImage, fiberTraces, detectorMap=None, lines=None):
         """Subtract continuum from an image
 
         Parameters
@@ -237,6 +234,8 @@ class FitContinuumTask(Task):
             Image containing 2D spectra.
         fiberTraces : `pfs.drp.stella.FiberTraceSet`
             Location and profile of the 2D spectra.
+        detectorMap : `pfs.drp.stella.DetectorMap`, optional.
+            Mapping of fiberId,wavelength to x,y.
         lines : `pfs.drp.stella.ReferenceLineSet`, optional
             Reference lines to mask.
 
@@ -250,13 +249,16 @@ class FitContinuumTask(Task):
             Image containing continua.
         """
         spectra = fiberTraces.extractSpectra(maskedImage)
+        if detectorMap is not None:
+            for ss in spectra:
+                ss.setWavelength(detectorMap.getWavelength(ss.fiberId))
         continua = self.run(spectra, lines)
         continuumImage = continua.makeImage(maskedImage.getBBox(), fiberTraces)
         maskedImage -= continuumImage
         return Struct(spectra=spectra, continua=continua, continuumImage=continuumImage)
 
     @contextmanager
-    def subtractionContext(self, maskedImage, fiberTraces, lines=None):
+    def subtractionContext(self, maskedImage, fiberTraces, detectorMap=None, lines=None):
         """Context manager for temporarily subtracting continuum
 
         Parameters
@@ -265,6 +267,8 @@ class FitContinuumTask(Task):
             Image containing 2D spectra.
         fiberTraces : `pfs.drp.stella.FiberTraceSet`
             Location and profile of the 2D spectra.
+        detectorMap : `pfs.drp.stella.DetectorMap`, optional.
+            Mapping of fiberId,wavelength to x,y.
         lines : `pfs.drp.stella.ReferenceLineSet`, optional
             Reference lines to mask.
 
@@ -277,7 +281,7 @@ class FitContinuumTask(Task):
         continuumImage : `lsst.afw.image.Image`
             Image containing continua.
         """
-        results = self.subtractContinuum(maskedImage, fiberTraces, lines)
+        results = self.subtractContinuum(maskedImage, fiberTraces, detectorMap, lines)
         try:
             yield results
         finally:

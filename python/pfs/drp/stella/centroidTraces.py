@@ -28,6 +28,7 @@ class CentroidTracesConfig(Config):
 class CentroidTracesTask(Task):
     """Centroid traces on an exposure"""
     ConfigClass = CentroidTracesConfig
+    _DefaultName = "centroidTraces"
 
     def __init__(self, *args, **kwargs):
         Task.__init__(self, *args, **kwargs)
@@ -57,6 +58,8 @@ class CentroidTracesTask(Task):
         convolved.image.array /= np.sqrt(convolved.variance.array)
         traces = self.findTracePeaks(convolved, detectorMap, pfsConfig)
         self.centroidTraces(exposure.maskedImage, traces)
+        self.log.info("Measured %d centroids for %d traces",
+                      sum((len(tt)) for tt in traces.values()), len(traces))
         return traces
 
     def convolveImage(self, exposure, psf):

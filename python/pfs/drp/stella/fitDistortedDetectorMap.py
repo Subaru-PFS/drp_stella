@@ -483,8 +483,6 @@ class FitDistortedDetectorMapTask(Task):
         reserved : `numpy.ndarray` of `bool`
             Array indicating which lines were reserved from the fit.
         """
-        numLines = len(lines)
-
         good = lines.flag == 0
         good &= (lines.status & ReferenceLineStatus.fromNames(*self.config.lineFlags)) == 0
         good &= np.isfinite(lines.x) & np.isfinite(lines.y)
@@ -508,7 +506,7 @@ class FitDistortedDetectorMapTask(Task):
             self.log.debug(
                 "Fit iteration %d: chi2=%f dof=%d xRMS=%f yRMS=%f (%f nm) from %d/%d lines",
                 ii, result.chi2, result.dof, result.xRms, result.yRms, result.yRms*dispersion, used.sum(),
-                numLines - numReserved
+                numGood - numReserved
             )
             self.log.debug("Fit iteration %d: %s", ii, result.distortion)
             if self.debugInfo.plot:
@@ -1006,7 +1004,7 @@ class FitDistortedDetectorMapTask(Task):
 
         for ax, select, label in zip(
             axes.T,
-            [(good & ~reserved), reserved, (~good & ~reserved)],
+            [(good & ~reserved), reserved, (~good & ~reserved & np.isfinite(dx) & np.isfinite(dy))],
             ["Used", "Reserved", "Bad"],
         ):
             if not np.any(select):

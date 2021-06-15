@@ -5,7 +5,7 @@ import scipy.optimize
 
 import lsstDebug
 
-from lsst.pex.config import Config, Field, ListField, ConfigurableField
+from lsst.pex.config import Config, Field, ListField
 from lsst.pipe.base import Task, Struct
 from lsst.geom import Box2D
 
@@ -13,9 +13,6 @@ from . import SplinedDetectorMap
 from . import DifferentialDetectorMap, GlobalDetectorModel
 from . import DistortedDetectorMap, DetectorDistortion
 from . import ReferenceLineStatus
-from .arcLine import ArcLineSet
-from .centroidLines import CentroidLinesTask
-from .centroidTraces import CentroidTracesTask
 
 __all__ = ("AdjustDetectorMapConfig", "AdjustDetectorMapTask")
 
@@ -25,8 +22,6 @@ class AdjustDetectorMapConfig(Config):
     iterations = Field(dtype=int, default=3, doc="Number of rejection iterations")
     rejection = Field(dtype=float, default=4.0, doc="Rejection threshold (stdev)")
     order = Field(dtype=int, default=1, doc="Distortion order")
-    centroidLines = ConfigurableField(target=CentroidLinesTask, doc="Centroid lines")
-    centroidTraces = ConfigurableField(target=CentroidTracesTask, doc="Centroid traces")
     lineFlags = ListField(dtype=str, default=["BAD"], doc="ReferenceLineStatus flags for lines to ignore")
     tracesSoften = Field(dtype=float, default=0.05, doc="Systematic error to apply to traces (pixels)")
     linesSoften = Field(dtype=float, default=0.05, doc="Systematic error to apply to lines (pixels)")
@@ -38,51 +33,7 @@ class AdjustDetectorMapTask(Task):
 
     def __init__(self, *args, **kwargs):
         Task.__init__(self, *args, **kwargs)
-        self.makeSubtask("centroidLines")
-        self.makeSubtask("centroidTraces")
         self.debugInfo = lsstDebug.Info(__name__)
-
-    def run(self, exposure, detectorMap, referenceLines, pfsConfig, fiberTraces=None):
-        """Adjust the detectorMap to match the exposure
-
-        We fit for a low-order correction to the detectorMap in order to match
-        the positions of reference lines and/or the continuum.
-
-        Parameters
-        ----------
-        exposure : `lsst.afw.image.Exposure`
-            Image with arc lines and/or continuum to fit.
-        detectorMap : `pfs.drp.stella.DetectorMap`
-            Mapping of fiberId,wavelength to x,y.
-        referenceLines : `pfs.drp.stella.ReferenceLineSet`
-            Arc lines to use as wavelength reference.
-        pfsConfig : `pfs.datamodel.PfsConfig`, optional
-            Top-end fiber configuration.
-        fiberTraces : `pfs.drp.stella.FiberTraceSet`, optional
-            Position and profile of fiber traces. Required only for continuum
-            subtraction during line centroiding.
-
-        Returns
-        -------
-        detectorMap : `pfs.drp.stella.DetectorMap`
-            An adjusted detectorMap.
-        traces : `dict` mapping `int` to `list` of `pfs.drp.stella.TracePeak`
-            Measured peak positions for each row, indexed by (identified)
-            fiberId.
-        lines : `pfs.drp.stella.ArcLineSet`
-            Measured reference lines.
-        """
-        traces = self.centroidTraces.run(exposure, detectorMap, pfsConfig)
-        self.log.info("Measured %d centroids for %d traces",
-                      sum((len(tt)) for tt in traces.values()), len(traces))
-        if len(referenceLines) > 0:
-            lines = self.centroidLines.run(exposure, referenceLines, detectorMap, pfsConfig, fiberTraces)
-            self.log.info("Measured %d line centroids", len(lines))
-        else:
-            lines = ArcLineSet.empty()
-
-        results = self.adjustDetectorMap(detectorMap, lines, traces)
-        return Struct(detectorMap=results.detectorMap, lines=lines, traces=traces)
 
     def getDetectorMap(self, detectorMap):
         """Return a suitable detectorMap for adjusting
@@ -111,7 +62,7 @@ class AdjustDetectorMapTask(Task):
         distortion = DetectorDistortion(self.config.order, Box2D(detectorMap.bbox), coeff, coeff, rightCcd)
         return DistortedDetectorMap(detectorMap, distortion, detectorMap.visitInfo, detectorMap.metadata)
 
-    def adjustDetectorMap(self, detectorMap, lines, traces):
+    def run(self, detectorMap, lines, traces):
         """Fit for low-order terms in the detectorMap to trace positions from the detectorMap
 
         This provides a more accurate functional form, and therefore a better
@@ -119,8 +70,8 @@ class AdjustDetectorMapTask(Task):
         use for the profiles. This is especially important in the low S/N
         regions affected by the dichroic.
 
-        We fit for and apply a low-order (affine) transformation to the trace
-        positions.
+        We fit for a low-order correction to the detectorMap in order to match
+        the positions of reference lines and/or the continuum.
 
         Parameters
         ----------
@@ -136,6 +87,32 @@ class AdjustDetectorMapTask(Task):
         -------
         detectorMap : `pfs.drp.stella.DetectorMap`
             An adjusted detectorMap.
+        params : `numpy.ndarray` of `float`
+            Fit parameters.
+        traceResid : `numpy.ndarray` of `float`
+            Residual values for traces.
+        traceRobustRms : `float`
+            Measured robust RMS from ``traceResid``.
+        traceWeightedRms : `float`
+            Measured weighted RMS from ``traceResid``.
+        traceChi2 : `float`
+            chi2 value for traces.
+        xResid : `numpy.ndarray` of `float`
+            Residual values for line x positions.
+        xRobustRms : `float`
+            Measured robust RMS from ``xChi``.
+        xWeightedRms : `float`
+            Measured weighted RMS from ``xChi``.
+        xChi2 : `float`
+            chi2 value for line x positions.
+        yResid : `numpy.ndarray` of `float`
+            Residual values for line y positions.
+        yRobustRms : `float`
+            Measured robust RMS from ``yChi``.
+        yWeightedRms : `float`
+            Measured weighted RMS from ``yChi``.
+        yChi2 : `float`
+            chi2 value for line y positions.
         """
         # Extract traces into convenient representation
         fiberIdTraces = np.array(sum(([ff]*len(traces[ff]) for ff in traces), []), dtype=np.int32)

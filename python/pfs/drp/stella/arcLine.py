@@ -273,3 +273,10 @@ class ArcLineSet:
         fits = astropy.io.fits.HDUList([astropy.io.fits.PrimaryHDU(), hdu])
         with open(filename, "wb") as fd:
             fits.writeto(fd)
+
+    def toDataFrame(self):
+        """Convert to a `pandas.DataFrame`"""
+        from pandas import DataFrame
+        return DataFrame({nn: getattr(self, nn) for nn in ("fiberId", "wavelength", "x", "y", "xErr", "yErr",
+                                                           "intensity", "intensityErr", "flag", "status",
+                                                           "description")})

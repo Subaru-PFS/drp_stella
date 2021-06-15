@@ -41,6 +41,7 @@ void declareSpectralPsf(py::module & mod) {
             "fiberId"_a, "wavelength"_a);
     cls.def("computeShape", py::overload_cast<lsst::geom::Point2D const&>(&Class::computeShape, py::const_),
             "position"_a);
+    cls.def("computeShape", py::overload_cast<>(&Class::computeShape, py::const_));
     cls.def("getLocalKernel", py::overload_cast<int, double>(&Class::getLocalKernel, py::const_),
             "fiberId"_a, "wavelength"_a);
     cls.def("getLocalKernel",

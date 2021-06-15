@@ -7,6 +7,7 @@ from lsst.afw.geom import SpanSet
 from .fitContinuum import FitContinuumTask
 from .fitLine import fitLine
 from . import Spectrum
+from .utils.psf import sigmaToFwhm
 
 import lsstDebug
 
@@ -352,7 +353,7 @@ class FindLinesTask(Task):
             amplitude=result.amplitude,
             amplitudeErr=result.amplitudeErr,
             width=result.rmsSize,
-            fwhm=2.0*np.sqrt(2.0*np.log(2))*result.rmsSize,
+            fwhm=sigmaToFwhm(result.rmsSize),
             flux=result.amplitude*result.rmsSize*np.sqrt(2*np.pi),
             backgroundIntercept=result.bg0,
             backgroundSlope=result.bg1,

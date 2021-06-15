@@ -310,7 +310,7 @@ class BootstrapTask(CmdLineTask):
                               abs(ref.wavelength - wl) < self.config.matchRadius]
                 if not candidates:
                     continue
-                ref = max(candidates, key=attrgetter("guessedIntensity"))
+                ref = max(candidates, key=attrgetter("intensity"))
                 matches.append(SimpleNamespace(obs=line, ref=ref))
                 used.add(ref.wavelength)
         self.log.info("Matched %d lines", len(matches))

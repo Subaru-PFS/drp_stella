@@ -4,6 +4,8 @@ import numpy as np
 from lsst.afw.geom import SpanSet
 from lsst.afw.math import GaussianFunction1D, SeparableKernel, convolve, ConvolutionControl
 
+from .utils.psf import fwhmToSigma
+
 __all__ = ["getIndices", "calculateCentroid", "calculateSecondMoments", "convolveImage"]
 
 
@@ -102,10 +104,6 @@ def convolveImage(maskedImage, colFwhm, rowFwhm=None, growMask=1, kernelSize=4.0
     """
     if rowFwhm is None:
         rowFwhm = colFwhm
-
-    def fwhmToSigma(fwhm):
-        """Convert FWHM to sigma for a Gaussian"""
-        return fwhm/(2*np.sqrt(2*np.log(2)))
 
     def sigmaToSize(sigma):
         """Determine kernel size from Gaussian sigma"""
