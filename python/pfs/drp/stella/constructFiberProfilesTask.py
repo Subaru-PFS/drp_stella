@@ -146,6 +146,7 @@ class ConstructFiberProfilesTask(SpectralCalibTask):
         if self.config.doAdjustDetectorMap:
             traces = self.centroidTraces.run(exposure, detMap, pfsConfig)
             detMap = self.adjustDetectorMap.run(detMap, ArcLineSet.empty(), traces).detectorMap
+            dataRefList[0].put(detMap, "detectorMap_used")
 
         results = self.profiles.run(exposure, detMap, pfsConfig)
         profiles = results.profiles
