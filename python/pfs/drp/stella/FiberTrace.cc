@@ -39,6 +39,9 @@ void declareFiberTrace(py::module &mod)
             py::overload_cast<typename Class::Image &, Spectrum const&>(&Class::constructImage, py::const_),
             "image"_a, "spectrum"_a);
 
+    cls.def_static("fromProfile", &Class::fromProfile, "fiberId"_a, "dims"_a, "radius"_a, "oversample"_a,
+                   "rows"_a, "profiles"_a, "good"_a, "centers"_a, "norm"_a=nullptr);
+
     cls.def(py::pickle(
         [](Class const& self) { return py::make_tuple(self.getTrace(), self.getFiberId()); },
         [](py::tuple const& t) {

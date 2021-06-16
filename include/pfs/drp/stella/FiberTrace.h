@@ -103,6 +103,33 @@ class FiberTrace {
      */
     std::size_t getFiberId() const { return _fiberId; }
 
+    /**
+     * @brief Construct from a fiber profile
+     *
+     * @param fiberId : fiber identifier.
+     * @param dims : dimensions of image (not just this fiber trace).
+     * @param radius : distance either side (i.e., a half-width) of the center
+     *     the profile is measured for.
+     * @param oversample : oversample factor for the profile.
+     * @param rows : average row value for each swath, of length Nswath.
+     * @param profiles : profiles for each swath, each of length Nswath and
+     *     width = 2*(radius + 1)*oversample + 1.
+     * @param good : indicates which values in the profiles may be used.
+     * @param centers : center of profile for each row in the image.
+     * @param norm : normalisation to apply
+     */
+    static FiberTrace fromProfile(
+        int fiberId,
+        lsst::geom::Extent2I const& dims,
+        int radius,
+        double oversample,
+        ndarray::Array<double, 1, 1> const& rows,
+        ndarray::Array<double, 2, 1> const& profiles,
+        ndarray::Array<bool, 2, 1> const& good,
+        ndarray::Array<double, 1, 1> const& centers,
+        ndarray::Array<double, 1, 1> const& norm=ndarray::Array<double, 1, 1>()
+    );
+
   private:
     lsst::afw::image::MaskedImage<ImageT, MaskT, VarianceT> _trace;
     std::size_t _fiberId;
