@@ -5,11 +5,9 @@
 #include "pfs/drp/stella/utils/checkSize.h"
 #include "pfs/drp/stella/utils/math.h"
 #include "pfs/drp/stella/spline.h"
-#include "lsst/log/Log.h"
 
 #include "pfs/drp/stella/FiberTrace.h"
 
-//#define __DEBUG_FINDANDTRACE__ 1
 
 namespace afwImage = lsst::afw::image;
 
@@ -53,11 +51,6 @@ void FiberTrace<ImageT, MaskT, VarianceT>::constructImage(
 ) const {
     auto box = image.getBBox(lsst::afw::image::PARENT);
     box.clip(_trace.getBBox(lsst::afw::image::PARENT));
-
-    // std::size_t const height = box.getHeight();
-    // std::size_t const width  = box.getWidth();
-    // std::size_t const x0 = max(image.getBBox().getMinX(), _trace.getBBox().getMinX());
-    // std::size_t const y0 = max(image.getBBox().getMinY(), _trace.getBBox().getMinY());
 
     auto const maskVal = _trace.getMask()->getPlaneBitMask(fiberMaskPlane);
     auto spec = spectrum.getSpectrum().begin() + box.getMinY();
