@@ -1,9 +1,5 @@
 import numpy as np
-import scipy
 
-from lsst.geom import Box2I, Point2I
-from lsst.afw.image import MaskedImageD
-from pfs.drp.stella.spline import SplineD
 from pfs.drp.stella.FiberTraceContinued import FiberTrace
 from pfs.drp.stella.profile import calculateSwathProfile
 
@@ -39,8 +35,8 @@ class FiberProfile:
         self.oversample = oversample
         self.rows = rows
         self.profiles = profiles
-        profileSize = 2*(radius + 1)*oversample + 1
-        profileCenter = (radius + 1)*oversample
+        profileSize = 2*int((radius + 1)*oversample + 0.5) + 1
+        profileCenter = int((radius + 1)*oversample + 0.5)
         self.index = (np.arange(profileSize, dtype=int) - profileCenter)/self.oversample
         self.norm = norm
 
@@ -219,11 +215,9 @@ class FiberProfile:
         fiberTrace : `pfs.drp.stella.FiberTrace`
             A pixellated version of the profile, at a fixed trace position.
         """
-        dimensions = detectorMap.bbox.getDimensions()
-        rows = np.arange(dimensions.getY(), dtype=float)
-        xCenter = detectorMap.getXCenter(fiberId)
-        centerFunc = SplineD(rows, xCenter)
-        return self.makeFiberTrace(dimensions, centerFunc, fiberId)
+        return FiberTrace.fromProfile(fiberId, detectorMap.bbox.getDimensions(), self.radius,
+                                      self.oversample, self.rows, self.profiles, ~self.profiles.mask,
+                                      detectorMap.getXCenter(fiberId), self.norm)
 
     def makeFiberTrace(self, dimensions, centerFunc, fiberId):
         """Make a FiberTrace object
@@ -245,88 +239,9 @@ class FiberProfile:
         fiberTrace : `pfs.drp.stella.FiberTrace`
             A pixellated version of the profile, at a fixed trace position.
         """
-        width, height = dimensions
-        rows = np.arange(height, dtype=int)
-        xCen = centerFunc(rows.astype(float))
-        xMin = max(0, int(np.min(xCen)) - self.radius)
-        xMax = min(width, int(np.ceil(np.max(xCen))) + self.radius)
-        xx = np.arange(xMin, xMax + 1, dtype=float)
-        xImg = (xx - xMin).astype(int)
-        box = Box2I(Point2I(xMin, 0), Point2I(xMax, height - 1))
-        image = MaskedImageD(box)
-
-        # Interpolate in y: find the two closest swaths, and determine the weighting to do the interpolation
-        indices = np.arange(len(self.rows), dtype=int)
-        nextIndex = scipy.interpolate.interp1d(self.rows, indices, kind="next",
-                                               fill_value="extrapolate")(rows).astype(int)
-        prevIndex = scipy.interpolate.interp1d(self.rows, indices, kind="previous",
-                                               fill_value="extrapolate")(rows).astype(int)
-        with np.errstate(divide="ignore", invalid="ignore"):
-            # nextIndex == prevIndex if we're extrapolating
-            nextWeight = np.where(nextIndex == prevIndex, 0.5,
-                                  (rows - self.rows[prevIndex])/(self.rows[nextIndex] - self.rows[prevIndex]))
-        prevWeight = 1.0 - nextWeight
-
-        # Interpolate in x: spline the profile for each swath, and combine with the appropriate weighting
-        xProf = self.index.astype(float)
-        profiles = self.profiles.astype(float)
-        good = ~self.profiles.mask
-        splines = [SplineD(xProf[gg], prof.data[gg], SplineD.NATURAL) for
-                   prof, gg in zip(profiles, good)]
-        xLow = np.array([xProf[gg][0] for gg in good])
-        xHigh = np.array([xProf[gg][-1] for gg in good])
-
-        def getProfile(xx, index, result=None):
-            """Generate a profile, interpolating in the spatial dimension
-
-            Parameters
-            ----------
-            xx : array_like, shape ``(N,)``
-                Positions in the spatial dimension.
-            index : `int`
-                Index of the profile to use (depends on position in the spectral
-                dimension).
-            result : `numpy.ndarray`, shape ``(N,)``, optional
-                Output array to re-use.
-
-            Returns
-            -------
-            values : `numpy.ndarray`, shape ``(N,)``
-                Interpolated values of ``profile[index]`` at positions ``xx``.
-            """
-            inBounds = (xx >= xLow[index]) & (xx <= xHigh[index])
-            if result is None:
-                result = np.zeros_like(xx)
-            else:
-                result[~inBounds] = 0.0
-            result[inBounds] = splines[index](xx[inBounds])
-            return result
-
-        nextProfile = np.zeros_like(xx)
-        prevProfile = np.zeros_like(xx)
-        for yy in rows:
-            xRel = (xx - xCen[yy])  # x position on image relative to center of trace
-            nextProfile = getProfile(xRel, nextIndex[yy], nextProfile)
-            prevProfile = getProfile(xRel, prevIndex[yy], prevProfile)
-            image.image.array[yy, xImg] = nextProfile*nextWeight[yy] + prevProfile*prevWeight[yy]
-
-        # Set normalisation to what is desired
-        scale = 1.0/image.image.array.sum(axis=1)
-        if self.norm is not None:
-            scale *= self.norm
-        image.image.array *= scale[:, np.newaxis]
-        image.variance.array *= scale[:, np.newaxis]**2
-
-        # Deselect bad pixels and bad rows
-        ftBitMask = 2**image.mask.addMaskPlane("FIBERTRACE")
-        norm = image.image.array.sum(axis=1)
-        good = (image.image.array > 0) | (norm[:, np.newaxis] > 0)
-        image.mask.array[:] = np.where(good, ftBitMask, 0)
-
-        trace = FiberTrace(image.convertF())
-        trace.fiberId = fiberId
-
-        return trace
+        rows = np.arange(dimensions.getY(), dtype=float)
+        return FiberTrace.fromProfile(fiberId, dimensions, self.radius, self.oversample, self.rows,
+                                      self.profiles, ~self.profiles.mask, centerFunc(rows), self.norm)
 
     def extractSpectrum(self, maskedImage, detectorMap, fiberId):
         """Extract a single spectrum from an image
