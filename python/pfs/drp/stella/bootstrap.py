@@ -7,7 +7,7 @@ from astropy.modeling.models import Gaussian1D, Chebyshev2D
 from astropy.modeling.fitting import LinearLSQFitter, LevMarLSQFitter
 
 from lsst.pipe.base import CmdLineTask, TaskRunner, ArgumentParser, Struct
-from lsst.pex.config import Config, Field, ConfigurableField
+from lsst.pex.config import Config, Field, ConfigurableField, ListField
 from lsst.ip.isr import IsrTask
 
 from pfs.datamodel import FiberStatus
@@ -35,6 +35,8 @@ class BootstrapConfig(Config):
     rowForCenter = Field(dtype=float, default=2048, doc="Row for xCenter calculation; used if allowSplit")
     midLine = Field(dtype=float, default=2048,
                     doc="Column defining the division between left and right amps; used if allowSplit")
+    fiberStatus = ListField(dtype=int, default=[FiberStatus.GOOD, FiberStatus.BROKENFIBER],
+                            doc="Fiber statuses to allow")
 
     def setDefaults(self):
         super().setDefaults()
@@ -166,12 +168,13 @@ class BootstrapTask(CmdLineTask):
         result = self.profiles.run(exposure, detMap, pfsConfig)
         traces = result.profiles.makeFiberTraces(exposure.getDimensions(), result.centers)
         traces.sortTracesByXCenter()  # Organised left to right
-        indices = pfsConfig.selectByFiberStatus(FiberStatus.GOOD, detMap.fiberId)
-        if len(traces) != len(indices):
-            raise RuntimeError("Mismatch between number of traces (%d) and number of fibers (%d)" %
-                               (len(traces), len(indices)))
         self.log.info("Found %d fibers on flat", len(traces))
-        fiberId = detMap.fiberId[indices]
+        select = pfsConfig.getSelection(fiberId=detMap.fiberId, fiberStatus=self.config.fiberStatus)
+        numSelected = select.sum()
+        if len(traces) != numSelected:
+            raise RuntimeError("Insufficient traces (%d) found vs expected number of fibers (%d)" %
+                               (len(traces), numSelected))
+        fiberId = pfsConfig.fiberId[select]
         # Assign fiberId from pfsConfig to the fiberTraces, but we have to get the order right!
         # The fiber trace numbers from the left, but the pfsConfig may number from the right.
         middle = 0.5*exposure.getHeight()
