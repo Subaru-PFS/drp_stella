@@ -225,6 +225,7 @@ class DetectorMap:
 class DisplayDetectorMapConfig(Config):
     """Configuration for DisplayDetectorMapTask"""
     frame = Field(dtype=int, default=1, doc="Frame to use for display")
+    backend = Field(dtype=str, doc="Display backend to use")
     doPlotLines = Field(dtype=bool, default=True, doc="Plot the location of lines from line list?")
     readLineList = ConfigurableField(target=ReadLineListTask, doc="Read line list")
 
@@ -276,7 +277,7 @@ class DisplayDetectorMapTask(CmdLineTask):
             lines = self.readLineList.run(metadata=exposure.getMetadata())
             wavelengths = [rl.wavelength for rl in lines]
 
-        display = Display(frame=self.config.frame)
+        display = Display(frame=self.config.frame, backend=self.config.backend)
         display.mtv(exposure)
 
         goodFibers = detectorMap.fiberId[pfsConfig.selectByFiberStatus(pfs.datamodel.FiberStatus.GOOD,
