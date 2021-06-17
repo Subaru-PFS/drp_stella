@@ -116,7 +116,7 @@ class FluxCalibrateTask(CmdLineTask):
         """
         indices = pfsConfig.selectByTargetType(TargetType.FLUXSTD, fiberId)
         fiberId = fiberId[indices]
-        return {ff: butler.get("pfsReference", pfsConfig.getIdentity(ff)[0]) for ff in fiberId}
+        return {ff: butler.get("pfsReference", pfsConfig.getIdentity(ff)) for ff in fiberId}
 
     def _getMetadataName(self):
         return None
