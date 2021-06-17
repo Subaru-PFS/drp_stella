@@ -106,7 +106,7 @@ class CentroidTracesTask(Task):
         """
         fiberId = None
         if pfsConfig is not None:
-            select = pfsConfig.selectByFiberStatus(FiberStatus.GOOD)
+            select = pfsConfig.getSelection(fiberId=detectorMap.fiberId, fiberStatus=FiberStatus.GOOD)
             fiberId = pfsConfig.fiberId[select]
         badBitMask = maskedImage.mask.getPlaneBitMask(self.config.mask)
         return findTracePeaks(maskedImage, detectorMap, self.config.threshold, self.config.searchRadius,
