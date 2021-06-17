@@ -516,7 +516,7 @@ class BootstrapTask(CmdLineTask):
         minWl = wlArrays.min()
         maxWl = wlArrays.max()
         refLines = [rl for rl in refLines if rl.wavelength > minWl and rl.wavelength < maxWl]
-        refLines = sorted(refLines, key=attrgetter("guessedIntensity"), reverse=True)[:top]  # Brightest
+        refLines = sorted(refLines, key=attrgetter("intensity"), reverse=True)[:top]  # Brightest
         wavelengths = [rl.wavelength for rl in refLines]
         detectorMap.display(disp, fiberId, wavelengths)
 

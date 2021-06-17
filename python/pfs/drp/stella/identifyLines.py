@@ -16,7 +16,7 @@ class IdentifyLinesConfig(Config):
     refExclusionRadius = Field(dtype=float, default=0.1,
                                doc="Minimum allowed wavelength difference between reference lines (nm)")
     refThreshold = DictField(keytype=str, itemtype=float,
-                             doc="Lower limit to guessedIntensity for reference lines, by their description",
+                             doc="Lower limit to intensity for reference lines, by their description",
                              default={"HgI": 5.0})
 
 
