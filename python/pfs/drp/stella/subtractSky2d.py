@@ -121,7 +121,7 @@ class SubtractSky2dTask(Task):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-    def run(self, exposureList, pfsConfig, psfList, fiberTraceList, detectorMapList):
+    def run(self, exposureList, pfsConfig, psfList, fiberTraceList, detectorMapList, linesList):
         """Measure and subtract sky from 2D spectra image
 
         Parameters
@@ -136,6 +136,8 @@ class SubtractSky2dTask(Task):
             Fiber traces.
         detectorMapList : iterable of `pfs.drp.stella.DetectorMap`
             Mapping of fiber,wavelength to x,y.
+        linesList : iterable of `pfs.drp.stella.ArcLineSet`
+            Measured sky lines.
 
         Returns
         -------
@@ -144,7 +146,7 @@ class SubtractSky2dTask(Task):
         imageList : `list` of `lsst.afw.image.MaskedImage`
             List of images of the sky model.
         """
-        sky2d = self.measureSky(exposureList, pfsConfig, psfList, fiberTraceList, detectorMapList)
+        sky2d = self.measureSky(exposureList, pfsConfig, psfList, fiberTraceList, detectorMapList, linesList)
         imageList = []
         for exposure, psf, fiberTrace, detectorMap in zip(exposureList, psfList,
                                                           fiberTraceList, detectorMapList):
@@ -177,7 +179,7 @@ class SubtractSky2dTask(Task):
         """
         skyFibers = set(pfsConfig.fiberId[pfsConfig.targetType == int(TargetType.SKY)])
 
-        measurements = defaultdict(list)  # List of flux for each line, by wavelength
+        intensities = defaultdict(list)  # List of flux for each line, by wavelength
         # Fit lines one by one for now
         # Might do a simultaneous fit later
         for exp, psf, fiberTraces, detMap, lines in zip(exposureList, psfList, fiberTraceList,
@@ -194,18 +196,16 @@ class SubtractSky2dTask(Task):
 
             for wl in set(lines.wavelength[select]):
                 choose = select & (lines.wavelength == wl)
-                measurements[wl] = lines.flux[choose]
+                inten = lines.intensity[choose]
+                if np.isfinite(inten).any():
+                    intensities[wl] = inten
 
-        self.log.debug("Line flux measurements: %s", measurements)
+        self.log.debug("Line flux intensities: %s", intensities)
 
-        # Combine the line measurements into a model
+        # Combine the line intensities into a model
         model = {}
-        for wl, meas in measurements.items():
-            flux = np.array([mm.flux for mm in meas])
-            select = np.isfinite(flux)
-            if not np.any(select):
-                continue
-            model[wl] = flux[select].mean()  # Ignore flux errors to avoid bias
+        for wl, inten in intensities.items():
+            model[wl] = np.nanmean(inten)  # Ignore flux errors to avoid bias
 
         self.log.debug("Line flux model: %s", model)
 
