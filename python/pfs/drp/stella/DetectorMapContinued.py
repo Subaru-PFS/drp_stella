@@ -165,7 +165,7 @@ class DetectorMap:
         with open(pathName, "wb") as fd:
             hdus.writeto(fd)
 
-    def display(self, display, fiberId=None, wavelengths=None, ctype="green"):
+    def display(self, display, fiberId=None, wavelengths=None, ctype="green", plotTraces=True):
         """Plot wavelengths on an image
 
         Useful for visually inspecting the detectorMap on an arc image.
@@ -180,6 +180,9 @@ class DetectorMap:
             Wavelengths to plot.
         ctype : `str`
             Color for `lsst.afw.display.Display` commands.
+        plotTraces : `bool`
+            Plot the traces? This is slow, but shows the position of xCenter
+            as a function of row for all fibers.
         """
         if fiberId is None:
             fiberId = self.fiberId
@@ -191,12 +194,13 @@ class DetectorMap:
 
         with display.Buffering():
             for fiberId in set(fiberId):
-                xCenter = self.getXCenter(fiberId)
-                points = list(zip(xCenter, np.arange(len(xCenter))))
+                if plotTraces:
+                    xCenter = self.getXCenter(fiberId)
+                    points = list(zip(xCenter, np.arange(len(xCenter))))
 
-                # Work around extremely long ds9 commands from display.line getting truncated
-                for p1, p2 in zip(points[:-1], points[1:]):
-                    display.line((p1, p2), ctype=ctype)
+                    # Work around extremely long ds9 commands from display.line getting truncated
+                    for p1, p2 in zip(points[:-1], points[1:]):
+                        display.line((p1, p2), ctype=ctype)
 
                 if wavelengths is not None:
                     points = self.findPoint(fiberId, wavelengths)
