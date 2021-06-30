@@ -37,6 +37,8 @@ class BootstrapConfig(Config):
                     doc="Column defining the division between left and right amps; used if allowSplit")
     fiberStatus = ListField(dtype=int, default=[FiberStatus.GOOD, FiberStatus.BROKENFIBER],
                             doc="Fiber statuses to allow")
+    spatialOffset = Field(dtype=float, default=0.0, doc="Offset to apply to spatial dimension")
+    spectralOffset = Field(dtype=float, default=0.0, doc="Offset to apply to spectral dimension")
 
     def setDefaults(self):
         super().setDefaults()
@@ -221,6 +223,7 @@ class BootstrapTask(CmdLineTask):
         """
         exposure = self.isr.runDataRef(arcRef).exposure
         detMap = arcRef.get("detectorMap")
+        detMap.applySlitOffset(self.config.spatialOffset, self.config.spectralOffset)
         refLines = self.readLineList.run(metadata=exposure.getMetadata())
         spectra = traces.extractSpectra(exposure.maskedImage)
         yCenters = [self.findLines.runCentroids(ss).centroids for ss in spectra]
