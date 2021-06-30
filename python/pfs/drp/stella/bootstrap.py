@@ -425,25 +425,25 @@ class BootstrapTask(CmdLineTask):
             dSpatial = yy[0] - fitSpatial(xx[0], xx[1])
             dSpectral = yy[1] - fitSpectral(xx[0], xx[1])
 
-            axes[0, 0].scatter(yy[0][good], dSpatial[good], color="k")
-            axes[0, 0].scatter(yy[0][~good], dSpatial[~good], color="r")
+            axes[0, 0].scatter(yy[0][good], dSpatial[good], color="k", marker=".")
+            axes[0, 0].scatter(yy[0][~good], dSpatial[~good], color="r", marker=".")
             axes[0, 0].set_xlabel("Spatial")
-            axes[0, 0].set_ylabel(r"\Delta Spatial")
+            axes[0, 0].set_ylabel(r"$\Delta$ Spatial")
 
-            axes[0, 1].scatter(yy[0][good], dSpectral[good], color="k")
-            axes[0, 1].scatter(yy[0][~good], dSpectral[~good], color="r")
+            axes[0, 1].scatter(yy[0][good], dSpectral[good], color="k", marker=".")
+            axes[0, 1].scatter(yy[0][~good], dSpectral[~good], color="r", marker=".")
             axes[0, 1].set_xlabel("Spatial")
-            axes[0, 1].set_ylabel(r"\Delta Spectral")
+            axes[0, 1].set_ylabel(r"$\Delta$ Spectral")
 
-            axes[1, 0].scatter(yy[1][good], dSpatial[good], color="k")
-            axes[1, 0].scatter(yy[1][~good], dSpatial[~good], color="r")
+            axes[1, 0].scatter(yy[1][good], dSpatial[good], color="k", marker=".")
+            axes[1, 0].scatter(yy[1][~good], dSpatial[~good], color="r", marker=".")
             axes[1, 0].set_xlabel("Spectral")
-            axes[1, 0].set_ylabel(r"\Delta Spatial")
+            axes[1, 0].set_ylabel(r"$\Delta$ Spatial")
 
-            axes[1, 1].scatter(yy[1][good], dSpectral[good], color="k")
-            axes[1, 1].scatter(yy[1][~good], dSpectral[~good], color="r")
+            axes[1, 1].scatter(yy[1][good], dSpectral[good], color="k", marker=".")
+            axes[1, 1].scatter(yy[1][~good], dSpectral[~good], color="r", marker=".")
             axes[1, 1].set_xlabel("Spectral")
-            axes[1, 0].set_ylabel(r"\Delta Spectral")
+            axes[1, 1].set_ylabel(r"$\Delta$ Spectral")
 
             plt.subplots_adjust()
             plt.show()
@@ -524,7 +524,7 @@ class BootstrapTask(CmdLineTask):
         refLines = [rl for rl in refLines if rl.wavelength > minWl and rl.wavelength < maxWl]
         refLines = sorted(refLines, key=attrgetter("intensity"), reverse=True)[:top]  # Brightest
         wavelengths = [rl.wavelength for rl in refLines]
-        detectorMap.display(disp, fiberId, wavelengths)
+        detectorMap.display(disp, fiberId, wavelengths, plotTraces=False)
 
     def setCalibId(self, metadata, dataId):
         """Set the ``CALIB_ID`` header
