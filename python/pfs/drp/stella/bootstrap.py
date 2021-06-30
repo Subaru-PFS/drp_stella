@@ -176,7 +176,7 @@ class BootstrapTask(CmdLineTask):
         if len(traces) != numSelected:
             raise RuntimeError("Insufficient traces (%d) found vs expected number of fibers (%d)" %
                                (len(traces), numSelected))
-        fiberId = pfsConfig.fiberId[select]
+        fiberId = np.sort(pfsConfig.fiberId[select])
         # Assign fiberId from pfsConfig to the fiberTraces, but we have to get the order right!
         # The fiber trace numbers from the left, but the pfsConfig may number from the right.
         middle = 0.5*exposure.getHeight()
