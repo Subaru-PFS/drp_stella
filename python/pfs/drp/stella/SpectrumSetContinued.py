@@ -205,7 +205,6 @@ class SpectrumSet:
         """
         image = afwImage.ImageF(box)
         image.set(0.0)
-        assert len(self) == len(fiberTraces), "Number of spectra and fiberTraces don't match"
 
         fiberIds = list(self.getAllFiberIds())
         for ft in fiberTraces:
