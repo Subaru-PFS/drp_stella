@@ -10,7 +10,7 @@ __all__ = ["findSuNSSId", "plotSuNSSFluxes", "Bphoton"]
 
 def findSuNSSId(pfsDesign, fiberId):
     """Return the SuNSS ferrule fiber ID given a pfsDesign and fiberId"""
-    x0, y0 = pfsDesign.pfiNominal[pfsDesign.selectFiber(fiberId)][0]
+    x0, y0 = pfsDesign.pfiNominal[pfsDesign.selectFiber(fiberId)]
 
     x = np.empty(127)
     y = np.empty_like(x)
@@ -179,7 +179,7 @@ def plotSuNSSFluxes(pfsConfig, pfsSpec, lam0=None, lam1=None, statsOp=np.median,
             if tt != DI:
                 continue
 
-            ind = pfsConfig.selectFiber(fid)[0]
+            ind = pfsConfig.selectFiber(fid)
 
             if showConnectors:
                 color = colors[lookupConnector[fid]]
