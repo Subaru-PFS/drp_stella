@@ -8,6 +8,7 @@ import lsst.afw.display.utils as afwDisplayUtils
 from pfs.drp.stella.datamodel.drp import PfsArm
 from pfs.datamodel.pfsConfig import FiberStatus, TargetType
 from pfs.drp.stella.referenceLine import ReferenceLineStatus
+import pfs.utils.fiberids as fiberids
 
 
 __all__ = ["addPfsCursor", "makeCRMosaic", "showAllSpectraAsImage", "showDetectorMap"]
@@ -177,11 +178,22 @@ except ImportError:
     DisplayImpl = None
 
 if not hasattr(DisplayImpl, "set_format_coord"):  # old version of display_matplotlib
-    def addPfsCursor(disp, detectorMap=None):
+    def addPfsCursor(disp, detectorMap=None, pfsConfig=None, mtpDetails=(True, False, True)):
         """Add PFS specific information to an afwDisplay.Display
 
         Requires that the detectorMap be provided, and must be
         called _after_ mtv (so that the display is actually created).
+
+        display may be None to only return the callback
+
+        if detectorMap is None this function does nothing useful;
+        otherwise it adds fiberId and wavelength to the display.
+
+        If pfsConfig is also provided, include MTP information.  The
+        fields included are set by mtpDetails (`bool`[3]):
+            [0]: Show MTPID
+            [1]: Show holes for A, BA, BC, and C connectors
+            [2]: Show cobraId (or -SuNSSId)
 
         Assumes matplotlib.  N.b. this will be easier in the next
         release of display_matplotlib
@@ -190,13 +202,16 @@ if not hasattr(DisplayImpl, "set_format_coord"):  # old version of display_matpl
 
         axes = disp._impl._figure.axes
         if len(axes) < 1:
-            print("addPfsCursor must be called after display.mtv()")
+            print("addPfsCursor must be called after display.mtv(); or upgrade display_matplotlib")
             return
 
         ax = axes[0]
 
         if ax.format_coord is None or \
            ax.format_coord.__doc__ is None or "PFS" not in ax.format_coord.__doc__:
+
+            if pfsConfig:
+                fiberIds = fiberids.FiberIds()
 
             def pfs_format_coord(x, y, disp_impl=disp._impl,
                                  old_format_coord=ax.format_coord):
@@ -206,23 +221,43 @@ if not hasattr(DisplayImpl, "set_format_coord"):  # old version of display_matpl
                 detMap = disp._impl._detMap
                 if detMap is not None:
                     fid = detMap.findFiberId(geom.PointD(x, y))
-                    msg += f"FiberId {fid:3}    {detMap.findWavelength(fid, y):8.3f}nm" + " "
+                    fidStr = f"{fid:3}"
+                    if pfsConfig:
+                        try:
+                            mtpInfo = fiberIds.fiberIdToMTP([fid], pfsConfig)[0]
+                            fidStr += f" {', '.join([str(i) for i, l in zip(mtpInfo, mtpDetails) if l])}"
+                        except RuntimeError as e:
+                            pass            # fiber isn't in pfsConfig
+
+                    msg += f"FiberId {fidStr}    {detMap.findWavelength(fid, y):8.3f}nm" + " "
 
                 return msg + old_format_coord(x, y)
 
             ax.format_coord = pfs_format_coord
 else:
-    def addPfsCursor(display, detectorMap=None):
+    def addPfsCursor(display, detectorMap=None, pfsConfig=None, mtpDetails=(True, False, True)):
         """Add PFS specific information to an afwDisplay.Display display
 
         Returns the callback function
 
         display may be None to only return the callback
 
+        if detectorMap is None this function does nothing useful;
+        otherwise it adds fiberId and wavelength to the display.
+
+        If pfsConfig is also provided, include MTP information.  The
+        fields included are set by mtpDetails (`bool`[3]):
+            [0]: Show MTPID
+            [1]: Show holes for A, BA, BC, and C connectors
+            [2]: Show cobraId (or -SuNSSId)
+
         You should call this function again if the detectorMap
         changes (e.g. the arm that you're looking at), e.g.
                addPfsCursor(display, butler.get("detectorMap", dataId))
         """
+
+        if pfsConfig:
+            fiberIds = fiberids.FiberIds()
 
         def pfs_format_coord(x, y, detectorMap=detectorMap):
             "PFS addition to display_matplotlib's cursor display"
@@ -231,7 +266,15 @@ else:
                 return ""
             else:
                 fid = detectorMap.findFiberId(geom.PointD(x, y))
-                return f"FiberId {fid:3}    {detectorMap.findWavelength(fid, y):8.3f}nm"
+                fidStr = f"{fid:3}"
+                if pfsConfig:
+                    try:
+                        mtpInfo = fiberIds.fiberIdToMTP([fid], pfsConfig)[0]
+                        fidStr += f" {', '.join([str(i) for i, l in zip(mtpInfo, mtpDetails) if l])}"
+                    except RuntimeError as e:
+                        pass            # fiber isn't in pfsConfig
+
+                return f"FiberId {fidStr}    {detectorMap.findWavelength(fid, y):8.3f}nm"
 
         if display is not None:
             display.set_format_coord(pfs_format_coord)
