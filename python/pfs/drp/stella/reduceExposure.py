@@ -244,15 +244,8 @@ class ReduceExposureTask(CmdLineTask):
                 detectorMapList.append(calibs.detectorMap)
                 fiberTraceList.append(calibs.fiberTraces)
                 linesList.append(calibs.lines)
-
-            if self.config.doMeasurePsf:
-                psfList = self.measurePsf.run(sensorRefList, exposureList, detectorMapList)
-                lsfList = [self.calculateLsf(psf, ft, exp.getHeight()) for
-                           psf, ft, exp in zip(psfList, fiberTraceList, exposureList)]
-            else:
-                psfList = [None]*len(sensorRefList)
-                lsfList = [self.defaultLsf(dataRef.dataId["arm"], ft.fiberId, detMap) for
-                           dataRef, ft, detMap in zip(sensorRefList, fiberTraceList, detectorMapList)]
+                psfList.append(calibs.psf)
+                lsfList.append(calibs.lsf)
 
             if self.config.doSubtractSky2d:
                 skyResults = self.subtractSky2d.run(exposureList, pfsConfig, psfList,
@@ -425,6 +418,10 @@ class ReduceExposureTask(CmdLineTask):
             Measured lines.
         traces : `dict` [`int`: `list` of `pfs.drp.stella.TracePeak`]
             Peaks for each trace, indexed by fiberId.
+        psf : `pfs.drp.stella.SpectralPsf`
+            Two-dimensional point-spread function.
+        lsf : `pfs.drp.stella.Lsf`
+            One-dimensional line-spread function.
         """
         detectorMap = sensorRef.get("detectorMap")
         fiberProfiles = sensorRef.get("fiberProfiles")
@@ -459,11 +456,18 @@ class ReduceExposureTask(CmdLineTask):
         else:
             traces = None
 
-        # Update photometry using adjusted detectorMap
+        if self.config.doMeasurePsf:
+            psf = self.measurePsf.runSingle(sensorRef, exposure, detectorMap)
+            lsf = self.calculateLsf(psf, fiberTraces, exposure.getHeight())
+        else:
+            psf = None
+            lsf = self.defaultLsf(sensorRef.dataId["arm"], fiberTraces.fiberId, detectorMap)
+
+        # Update photometry using best detectorMap, PSF
         lines = self.photometerLines.run(exposure, lines, detectorMap, pfsConfig, fiberTraces)
 
         return Struct(detectorMap=detectorMap, fiberProfiles=fiberProfiles, fiberTraces=fiberTraces,
-                      refLines=refLines, lines=lines, traces=traces)
+                      refLines=refLines, lines=lines, traces=traces, psf=psf, lsf=lsf)
 
     def calculateLsf(self, psf, fiberTraceSet, length):
         """Calculate the LSF for this exposure
