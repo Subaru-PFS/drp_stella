@@ -195,7 +195,7 @@ class SubtractSky2dTask(Task):
                     select |= lines.fiberId == ff
 
             for wl in set(lines.wavelength[select]):
-                choose = select & (lines.wavelength == wl)
+                choose = select & (lines.wavelength == wl) & ~lines.flag
                 inten = lines.intensity[choose]
                 if np.isfinite(inten).any():
                     intensities[wl] = inten

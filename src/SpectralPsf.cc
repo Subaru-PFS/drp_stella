@@ -221,6 +221,25 @@ lsst::geom::Box2I OversampledPsf::doComputeBBox(
 }
 
 
+lsst::geom::Point2D SpectralPsf::getPosition(
+    int fiberId,
+    double wavelength
+) const {
+    lsst::geom::Point2D position = _detMap->findPoint(fiberId, wavelength);
+    if (!std::isfinite(position.getX()) || !std::isfinite(position.getY())) {
+        throw LSST_EXCEPT(lsst::pex::exceptions::DomainError,
+                          (boost::format("Non-finite position: %f,%f") %
+                           position.getX() % position.getY()).str());
+    }
+    if (!lsst::geom::Box2D(_detMap->getBBox()).contains(position)) {
+        throw LSST_EXCEPT(lsst::pex::exceptions::OutOfRangeError,
+                          (boost::format("Position is off detector: %f,%f") %
+                           position.getX() % position.getY()).str());
+    }
+    return position;
+}
+
+
 namespace {
 
 

@@ -31,7 +31,12 @@ std::shared_ptr<lsst::afw::detection::Psf::Image> getPsfImage(
     double wavelength,
     lsst::geom::Box2I const& bbox
 ) {
-    auto psfImage = psf.computeImage(fiberId, wavelength);
+    std::shared_ptr<pfs::drp::stella::SpectralPsf::Image> psfImage;
+    try {
+        psfImage = psf.computeImage(fiberId, wavelength);
+    } catch (lsst::pex::exceptions::Exception const&) {
+        return nullptr;
+    }
     if (!psfImage) return nullptr;
     lsst::geom::Box2I psfBox = psfImage->getBBox();
     psfBox.clip(bbox);
@@ -133,7 +138,13 @@ lsst::afw::table::BaseCatalog photometer(
         std::size_t blendIndex = 1;  // 0 in the blendImage means no blend, so start at 1
         for (std::size_t ii = 0; ii < num; ++ii) {
             lsst::geom::Point2D const point{positions[ii][0], positions[ii][1]};
-            lsst::geom::Box2D box{psf.computeBBox(point)};
+            lsst::geom::Box2D box;
+            try {
+                box = lsst::geom::Box2D(psf.computeBBox(point));
+            } catch (lsst::pex::exceptions::Exception const&) {
+                // Bad PSF: not even a blend.
+                continue;
+            }
             box.shift(lsst::geom::Extent2D(point) - 0.5*box.getDimensions());  // put the center on the point
             box.grow(1);  // for good measure
             box.clip(lsst::geom::Box2D(blendImage.getBBox()));
