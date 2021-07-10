@@ -14,7 +14,7 @@ class FitBroadbandSEDTestCase(lsst.utils.tests.TestCase):
     def testRun(self):
         """Test run() method
         """
-        random = numpy.random.default_rng(0xfeeda900d5eed)
+        random = numpy.random.RandomState(0xfeed5eed)
         filters = ["g", "r", "i", "z", "y"]
         filters = [self.fitBroadbandSED.config.filterMappings.get(f, f) for f in filters]
 
@@ -25,7 +25,7 @@ class FitBroadbandSEDTestCase(lsst.utils.tests.TestCase):
         fiberFlux = []
         fiberFluxErr = []
         for record in self.fitBroadbandSED.fluxLibrary[trueSEDIndices]:
-            numFilters = random.integers(len(filters))
+            numFilters = random.randint(len(filters))
             amplitude = random.uniform(0.1, 10)
 
             random.shuffle(filters)
@@ -54,12 +54,12 @@ class FitBroadbandSEDTestCase(lsst.utils.tests.TestCase):
             posAng=1.0,
             arms="brn",
             fiberId=numpy.arange(nFibers, dtype=numpy.int32),
-            tract=random.integers(20000, size=(nFibers,), dtype=numpy.int32),
+            tract=random.randint(20000, size=(nFibers,), dtype=numpy.int32),
             patch=random.choice(allPatches, size=(nFibers,)),
             ra=random.uniform(360, size=(nFibers,)),
             dec=random.uniform(-90, 90, size=(nFibers,)),
-            catId=random.integers(0x8000_0000, size=(nFibers,), dtype=numpy.int32),
-            objId=random.integers(0x8000_0000_0000_0000, size=(nFibers,), dtype=numpy.int64),
+            catId=random.randint(0x8000_0000, size=(nFibers,), dtype=numpy.int32),
+            objId=random.randint(0x8000_0000_0000_0000, size=(nFibers,), dtype=numpy.int64),
             targetType=random.choice(allTargetTypes, size=(nFibers,)),
             fiberStatus=random.choice(allFiberStatuses, size=(nFibers,)),
             fiberFlux=fiberFlux,
