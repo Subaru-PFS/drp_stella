@@ -14,16 +14,11 @@ class ReadLineListConfig(Config):
                               default=["Ar.txt", "Hg.txt", "Kr.txt", "Ne.txt", "Xe.txt", "skyLines.txt"])
     restrictByLamps = Field(dtype=bool, default=True,
                             doc="Restrict linelist by the list of active lamps? True is appropriate for arcs")
-    lampList = ListField(dtype=str, doc="list of species in lamps", default=[])
+    lampList = ListField(dtype=str, doc="list of species in lamps; overrides the header", default=[])
     assumeSkyIfNoLamps = Field(dtype=bool, default=True,
                                doc="Assume that we're looking at sky if no lamps are active?")
     minIntensity = Field(dtype=float, default=0.0, doc="Minimum linelist intensity")
     exclusionRadius = Field(dtype=float, default=0.0, doc="Exclusion radius around lines (nm)")
-
-    def validate(self):
-        super().validate()
-        if len(self.lampList) > 0 and self.restrictByLamps:
-            raise ValueError("You may not specify both lampList and restrictByLamps")
 
 
 class ReadLineListTask(Task):
@@ -51,11 +46,12 @@ class ReadLineListTask(Task):
         lines : `pfs.drp.stella.ReferenceLineSet`
             Lines from the linelist.
         """
-        lamps = self.getLamps(metadata)
         lines = ReferenceLineSet.empty()
         for filename in self.config.lineListFiles:
             lines.extend(ReferenceLineSet.fromLineList(filename))
-        lines = self.filterByLamps(lines, lamps)
+        if self.config.restrictByLamps:
+            lamps = self.getLamps(metadata)
+            lines = self.filterByLamps(lines, lamps)
         lines = self.filterByIntensity(lines)
         lines = self.filterByWavelength(lines, detectorMap)
         lines = self.filterByExclusionZone(lines)
@@ -76,11 +72,10 @@ class ReadLineListTask(Task):
         filtered : `pfs.drp.stella.ReferenceLineSet`
             Filtered list of reference lines.
         """
-        if not self.config.restrictByLamps:
-            return lines
         keep = []
         for desc in lamps:
             keep += [ll for ll in lines if ll.description.startswith(desc)]
+        self.log.info("Filtered line lists for lamps: %s", ",".join(sorted(lamps)))
         return ReferenceLineSet(keep)
 
     def filterByIntensity(self, lines):
@@ -121,13 +116,11 @@ class ReadLineListTask(Task):
         """
         if len(self.config.lampList) > 0:
             return self.config.lampList
-
-        if not self.config.restrictByLamps:
-            return None
         if metadata is None:
             raise RuntimeError("Cannot determine lamps because metadata was not provided")
         lamps = getLampElements(metadata)
         if not lamps and self.config.assumeSkyIfNoLamps:
+            self.log.info("No lamps on; assuming sky.")
             lamps = ["OI", "NaI", "OH"]
         return lamps
 

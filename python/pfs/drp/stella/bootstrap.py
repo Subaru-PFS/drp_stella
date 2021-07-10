@@ -37,6 +37,8 @@ class BootstrapConfig(Config):
                     doc="Column defining the division between left and right amps; used if allowSplit")
     fiberStatus = ListField(dtype=int, default=[FiberStatus.GOOD, FiberStatus.BROKENFIBER],
                             doc="Fiber statuses to allow")
+    spatialOffset = Field(dtype=float, default=0.0, doc="Offset to apply to spatial dimension")
+    spectralOffset = Field(dtype=float, default=0.0, doc="Offset to apply to spectral dimension")
 
     def setDefaults(self):
         super().setDefaults()
@@ -174,7 +176,7 @@ class BootstrapTask(CmdLineTask):
         if len(traces) != numSelected:
             raise RuntimeError("Insufficient traces (%d) found vs expected number of fibers (%d)" %
                                (len(traces), numSelected))
-        fiberId = pfsConfig.fiberId[select]
+        fiberId = np.sort(pfsConfig.fiberId[select])
         # Assign fiberId from pfsConfig to the fiberTraces, but we have to get the order right!
         # The fiber trace numbers from the left, but the pfsConfig may number from the right.
         middle = 0.5*exposure.getHeight()
@@ -221,6 +223,7 @@ class BootstrapTask(CmdLineTask):
         """
         exposure = self.isr.runDataRef(arcRef).exposure
         detMap = arcRef.get("detectorMap")
+        detMap.applySlitOffset(self.config.spatialOffset, self.config.spectralOffset)
         refLines = self.readLineList.run(metadata=exposure.getMetadata())
         spectra = traces.extractSpectra(exposure.maskedImage)
         yCenters = [self.findLines.runCentroids(ss).centroids for ss in spectra]
@@ -422,25 +425,25 @@ class BootstrapTask(CmdLineTask):
             dSpatial = yy[0] - fitSpatial(xx[0], xx[1])
             dSpectral = yy[1] - fitSpectral(xx[0], xx[1])
 
-            axes[0, 0].scatter(yy[0][good], dSpatial[good], color="k")
-            axes[0, 0].scatter(yy[0][~good], dSpatial[~good], color="r")
+            axes[0, 0].scatter(yy[0][good], dSpatial[good], color="k", marker=".")
+            axes[0, 0].scatter(yy[0][~good], dSpatial[~good], color="r", marker=".")
             axes[0, 0].set_xlabel("Spatial")
-            axes[0, 0].set_ylabel(r"\Delta Spatial")
+            axes[0, 0].set_ylabel(r"$\Delta$ Spatial")
 
-            axes[0, 1].scatter(yy[0][good], dSpectral[good], color="k")
-            axes[0, 1].scatter(yy[0][~good], dSpectral[~good], color="r")
+            axes[0, 1].scatter(yy[0][good], dSpectral[good], color="k", marker=".")
+            axes[0, 1].scatter(yy[0][~good], dSpectral[~good], color="r", marker=".")
             axes[0, 1].set_xlabel("Spatial")
-            axes[0, 1].set_ylabel(r"\Delta Spectral")
+            axes[0, 1].set_ylabel(r"$\Delta$ Spectral")
 
-            axes[1, 0].scatter(yy[1][good], dSpatial[good], color="k")
-            axes[1, 0].scatter(yy[1][~good], dSpatial[~good], color="r")
+            axes[1, 0].scatter(yy[1][good], dSpatial[good], color="k", marker=".")
+            axes[1, 0].scatter(yy[1][~good], dSpatial[~good], color="r", marker=".")
             axes[1, 0].set_xlabel("Spectral")
-            axes[1, 0].set_ylabel(r"\Delta Spatial")
+            axes[1, 0].set_ylabel(r"$\Delta$ Spatial")
 
-            axes[1, 1].scatter(yy[1][good], dSpectral[good], color="k")
-            axes[1, 1].scatter(yy[1][~good], dSpectral[~good], color="r")
+            axes[1, 1].scatter(yy[1][good], dSpectral[good], color="k", marker=".")
+            axes[1, 1].scatter(yy[1][~good], dSpectral[~good], color="r", marker=".")
             axes[1, 1].set_xlabel("Spectral")
-            axes[1, 0].set_ylabel(r"\Delta Spectral")
+            axes[1, 1].set_ylabel(r"$\Delta$ Spectral")
 
             plt.subplots_adjust()
             plt.show()
@@ -521,7 +524,7 @@ class BootstrapTask(CmdLineTask):
         refLines = [rl for rl in refLines if rl.wavelength > minWl and rl.wavelength < maxWl]
         refLines = sorted(refLines, key=attrgetter("intensity"), reverse=True)[:top]  # Brightest
         wavelengths = [rl.wavelength for rl in refLines]
-        detectorMap.display(disp, fiberId, wavelengths)
+        detectorMap.display(disp, fiberId, wavelengths, plotTraces=False)
 
     def setCalibId(self, metadata, dataId):
         """Set the ``CALIB_ID`` header
