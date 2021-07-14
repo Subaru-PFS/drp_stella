@@ -161,7 +161,6 @@ class FitBroadbandSEDTask(Task):
         if table is None:
             # We convert FITS_rec back to numpy's structured array
             # because FITS_rec cannot be indexed with multiple column names.
-            table = self._fluxLibrary = numpy.asarray(
-                astropy.io.fits.open(self.config.fluxLibraryPath)[1].data
-            )
+            with astropy.io.fits.open(self.config.fluxLibraryPath) as fits:
+                table = self._fluxLibrary = numpy.asarray(fits[1].data)
         return table
