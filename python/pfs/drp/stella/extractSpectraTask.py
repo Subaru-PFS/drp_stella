@@ -59,7 +59,7 @@ class ExtractSpectraTask(pipeBase.Task):
             fiberTraceSet = newTraces
         spectra = self.extractAllSpectra(maskedImage, fiberTraceSet, detectorMap)
         if fiberId is not None:
-            spectra = self.includeSpectra(spectra, fiberId)
+            spectra = self.includeSpectra(spectra, fiberId, detectorMap)
         return pipeBase.Struct(spectra=spectra)
 
     def extractAllSpectra(self, maskedImage, fiberTraceSet, detectorMap=None):
@@ -111,7 +111,7 @@ class ExtractSpectraTask(pipeBase.Task):
             spectrum.setWavelength(detectorMap.getWavelength(fiberId))
         return spectrum
 
-    def includeSpectra(self, spectra, fiberId):
+    def includeSpectra(self, spectra, fiberId, detectorMap=None):
         """Include in the output spectra for the provided fiberIds
 
         If we haven't extracted spectra for a particular fiberId, it's added as
@@ -123,6 +123,8 @@ class ExtractSpectraTask(pipeBase.Task):
             Extracted spectra.
         fiberId : `numpy.ndarray` of `int`
             Fiber identifiers to include in output.
+        detectorMap : `pfs.drp.stella.DetectorMap`, optional
+            Map of expected detector coordinates to fiber, wavelength.
 
         Returns
         -------
@@ -144,6 +146,9 @@ class ExtractSpectraTask(pipeBase.Task):
                 target.mask.array[:] = target.mask.getPlaneBitMask("NO_DATA")
                 target.covariance[:] = np.nan
                 target.background[:] = np.nan
-                target.wavelength[:] = np.nan
+                wavelength = np.nan
+                if detectorMap is not None and ff in detectorMap:
+                    wavelength = detectorMap.getWavelength(ff)
+                target.wavelength[:] = wavelength
             new[ii] = target
         return new
