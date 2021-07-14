@@ -35,6 +35,9 @@ class DetectorMap : public lsst::afw::table::io::Persistable {
     /// Return the number of fibers
     std::size_t getNumFibers() const { return _fiberId.size(); }
 
+    /// Does this include a particular fiberId?
+    bool contains(int fiberId) const { return _fiberMap.find(fiberId) != _fiberMap.end(); }
+
     /// Apply an offset to the slit position
     void applySlitOffset(double spatial, double spectral);
 

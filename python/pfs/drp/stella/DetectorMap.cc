@@ -22,6 +22,7 @@ void declareDetectorMap(py::module & mod) {
     cls.def_property_readonly("fiberId", &Class::getFiberId);
     cls.def("getNumFibers", &Class::getNumFibers);
     cls.def("__len__", &Class::getNumFibers);
+    cls.def("__contains__", &Class::contains);
     cls.def("applySlitOffset", &Class::applySlitOffset, "spatial"_a, "spectral"_a);
     cls.def("getSpatialOffsets", py::overload_cast<>(&Class::getSpatialOffsets, py::const_),
             py::return_value_policy::reference);
