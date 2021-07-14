@@ -25,12 +25,13 @@ class SpectrumSetTestCase(lsst.utils.tests.TestCase):
         self.mask = lsst.afw.image.Mask(self.length, 1)
         self.mask.array[:] = self.rng.randint(0, 2**30, self.length).astype(np.int32)
         self.background = self.rng.uniform(size=self.length).astype(float)
+        self.norm = self.rng.uniform(size=self.length).astype(float)
         self.covariance = self.rng.uniform(size=(3, self.length)).astype(float)
         self.wavelengthArray = np.arange(1, self.length + 1, dtype=float)
 
     def makeSpectrum(self):
         """Make a ``Spectrum`` for testing"""
-        return Spectrum(self.image, self.mask, self.background, self.covariance,
+        return Spectrum(self.image, self.mask, self.background, self.norm, self.covariance,
                         self.wavelengthArray, self.fiberId)
 
     def assertSpectrum(self, spectrum):
@@ -41,6 +42,7 @@ class SpectrumSetTestCase(lsst.utils.tests.TestCase):
         self.assertImagesEqual(spectrum.mask, self.mask)
         self.assertFloatsEqual(spectrum.variance, self.covariance[0])
         self.assertFloatsEqual(spectrum.background, self.background)
+        self.assertFloatsEqual(spectrum.norm, self.norm)
         self.assertFloatsEqual(spectrum.covariance, self.covariance)
         self.assertFloatsEqual(spectrum.wavelength, self.wavelengthArray)
 
@@ -93,6 +95,7 @@ class SpectrumSetTestCase(lsst.utils.tests.TestCase):
             ss.mask.array[0, :] = ii
             ss.covariance = self.covariance*multiplier
             ss.background = self.background*multiplier
+            ss.norm = self.norm*multiplier
             spectra[ii] = ss
         self.assertSpectrumSet(spectra, num)
         return spectra
@@ -116,6 +119,7 @@ class SpectrumSetTestCase(lsst.utils.tests.TestCase):
             self.assertFloatsEqual(spectrum.mask.array[0, :], ii)
             self.assertFloatsEqual(spectrum.covariance, self.covariance*multiplier)
             self.assertFloatsEqual(spectrum.background, self.background*multiplier)
+            self.assertFloatsEqual(spectrum.norm, self.norm*multiplier)
 
     def testGetAll(self):
         """Test the ``getAll*`` methods"""
@@ -126,6 +130,7 @@ class SpectrumSetTestCase(lsst.utils.tests.TestCase):
         wavelength = np.concatenate([self.wavelengthArray[np.newaxis, :]*(ii + 1) for ii in range(num)])
         mask = np.concatenate([np.ones((1, self.length), dtype=np.int32)*ii for ii in range(num)])
         background = np.concatenate([self.background[np.newaxis, :]*(ii + 1) for ii in range(num)])
+        norm = np.concatenate([self.norm[np.newaxis, :]*(ii + 1) for ii in range(num)])
         covariance = np.concatenate([self.covariance[np.newaxis, :, :]*(ii + 1) for ii in range(num)])
 
         self.assertFloatsEqual(spectra.getAllFluxes(), image)
@@ -133,6 +138,7 @@ class SpectrumSetTestCase(lsst.utils.tests.TestCase):
         self.assertFloatsEqual(spectra.getAllMasks(), mask)
         self.assertFloatsEqual(spectra.getAllCovariances(), covariance)
         self.assertFloatsEqual(spectra.getAllBackgrounds(), background)
+        self.assertFloatsEqual(spectra.getAllNormalizations(), norm)
 
     def testPickle(self):
         """Test pickling of ``SpectrumSet``"""

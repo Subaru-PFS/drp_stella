@@ -82,10 +82,12 @@ class MeasureFluxCalibrationTask(Task):
             Flux-calibrated object spectra.
         """
         cal = self.fit.apply(calib, spectra.wavelength, spectra.fiberId, pfsConfig)
+        calValues = cal.values*spectra.norm
         with np.errstate(divide="ignore", invalid="ignore"):
-            spectra /= cal.values  # includes spectra.variance /= cal.values**2
-            spectra.covar[:, 0, :] += cal.variances*spectra.flux**2/np.array(cal.values)**2
-        bad = np.array(cal.masks) | ~np.isfinite(cal.values) | (np.array(cal.values) == 0.0)
+            spectra /= calValues  # includes spectra.variance /= calValues**2
+            spectra.covar[:, 0, :] += cal.variances*spectra.flux**2/np.array(calValues)**2
+        spectra.norm[:] = 1.0  # Reset normalisation: we're no longer relative to a quartz
+        bad = np.array(cal.masks) | ~np.isfinite(calValues) | (np.array(calValues) == 0.0)
         spectra.mask[bad] |= spectra.flags.add("BAD_FLUXCAL")
 
     def applySpectrum(self, spectrum, fiberId, pfsConfig, calib):

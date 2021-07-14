@@ -83,7 +83,7 @@ FitLineResult fitLine(
     std::size_t fittingHalfSize=0
 ) {
     return fitLine(
-        spectrum.getFlux(), spectrum.getMask().getArray()[0].shallow(),
+        Spectrum::ConstImageArray(spectrum.getNormFlux()), spectrum.getMask().getArray()[0].shallow(),
         peakPosition, rmsSize, badBitMask, fittingHalfSize
     );
 }

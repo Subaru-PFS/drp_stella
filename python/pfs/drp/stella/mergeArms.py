@@ -115,12 +115,14 @@ class MergeArmsTask(CmdLineTask):
                         msg += f" Only in armPsf: {onlyLsf}"
                     self.log.warn(msg)
 
+        norm = self.normalizeSpectra(spectra)
+
         sky1d = None
         if self.config.doSubtractSky1d:
             if self.config.doSubtractSky1dBeforeMerge:
                 sky1d = self.subtractSky1d.run(sum(spectra, []), pfsConfig, sum(lsfList, []))
 
-        spectrographs = [self.mergeSpectra(ss) for ss in spectra]  # Merge in wavelength
+        spectrographs = [self.mergeSpectra(ss, norm) for ss in spectra]  # Merge in wavelength
         merged = PfsMerged.fromMerge(spectrographs, metadata=getPfsVersions())  # Merge across spectrographs
 
         lsfList = [self.mergeLsfs(ll, ss) for ll, ss in zip(lsfList, spectra)]
@@ -183,7 +185,32 @@ class MergeArmsTask(CmdLineTask):
         results.pfsConfig = pfsConfig
         return results
 
-    def mergeSpectra(self, spectraList):
+    def normalizeSpectra(self, spectra):
+        """Apply normalisation to spectra
+
+        We apply the recorded normalisations, and then remove the median
+        normalisation, so the resultant spectral normalisation is something
+        close-ish to counts.
+
+        Parameters
+        ----------
+        spectra : iterable of iterable of `pfs.datamodel.PsfArm`
+            Extracted spectra from the different arms, for each spectrograph.
+            Modified in-place.
+
+        Returns
+        -------
+        norm : `float`
+            Median normalisation.
+        """
+        allSpectra = sum(spectra, [])
+        norm = np.nanmedian([np.nanmedian(ss.norm[(ss.mask & ss.flags.get(*self.config.mask)) == 0]) for
+                             ss in allSpectra])
+        for ss in allSpectra:
+            ss /= ss.norm/norm
+        return norm
+
+    def mergeSpectra(self, spectraList, norm):
         """Combine all spectra from the same exposure
 
         All spectra should have the same fibers, so we simply iterate over the
@@ -193,6 +220,8 @@ class MergeArmsTask(CmdLineTask):
         ----------
         spectraList : iterable of `pfs.datamodel.PfsFiberArraySet`
             List of spectra to coadd.
+        norm : `float`
+            Normalisation.
 
         Returns
         -------
@@ -207,14 +236,14 @@ class MergeArmsTask(CmdLineTask):
         wavelength = self.config.wavelength.wavelength
         resampled = [ss.resample(wavelength) for ss in spectraList]
         flags = MaskHelper.fromMerge([ss.flags for ss in spectraList])
-        combination = self.combine(resampled, flags)
+        combination = self.combine(resampled, flags, norm)
         if self.config.doBarycentricCorr:
             self.log.warn("Barycentric correction is not yet implemented.")
 
         return PfsMerged(identity, fiberId, combination.wavelength, combination.flux, combination.mask,
-                         combination.sky, combination.covar, flags, archetype.metadata)
+                         combination.sky, combination.norm, combination.covar, flags, archetype.metadata)
 
-    def combine(self, spectra, flags):
+    def combine(self, spectra, flags, norm):
         """Combine spectra
 
         Parameters
@@ -224,6 +253,8 @@ class MergeArmsTask(CmdLineTask):
             resampled to a common wavelength representation.
         flags : `pfs.datamodel.MaskHelper`
             Mask interpreter, for identifying bad pixels.
+        norm : `float`
+            Normalisation.
 
         Returns
         -------
@@ -233,6 +264,8 @@ class MergeArmsTask(CmdLineTask):
             Flux measurements for combined spectrum.
         sky : `numpy.ndarray` of `float`
             Sky measurements for combined spectrum.
+        norm : `numpy.ndarray` of `float`
+            Normalisation for combined spectrum.
         covar : `numpy.ndarray` of `float`
             Covariance matrix for combined spectrum.
         mask : `numpy.ndarray` of `int`
@@ -242,6 +275,7 @@ class MergeArmsTask(CmdLineTask):
         mask = np.zeros_like(archetype.mask)
         flux = np.zeros_like(archetype.flux)
         sky = np.zeros_like(archetype.sky)
+        norm = np.full_like(archetype.norm, norm)
         covar = np.zeros_like(archetype.covar)
         sumWeights = np.zeros_like(archetype.flux)
 
@@ -266,7 +300,7 @@ class MergeArmsTask(CmdLineTask):
             mask[~good] |= ss.mask[~good]
         mask[~good] |= flags["NO_DATA"]
         covar2 = np.zeros((1, 1), dtype=archetype.covar.dtype)
-        return Struct(wavelength=archetype.wavelength, flux=flux, sky=sky, covar=covar,
+        return Struct(wavelength=archetype.wavelength, flux=flux, sky=sky, norm=norm, covar=covar,
                       mask=mask, covar2=covar2)
 
     def mergeLsfs(self, lsfList, spectraList):

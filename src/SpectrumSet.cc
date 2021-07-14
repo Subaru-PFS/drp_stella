@@ -87,6 +87,15 @@ SpectrumSet::ImageArray SpectrumSet::getAllBackgrounds() const {
 }
 
 
+SpectrumSet::ImageArray SpectrumSet::getAllNormalizations() const {
+    ImageArray norms = ndarray::allocate(size(), _length);
+    for (std::size_t ii = 0; ii < size(); ++ii) {
+        norms[ii] = get(ii)->getNorm();
+    }
+    return norms;
+}
+
+
 void SpectrumSet::set(std::size_t ii, SpectrumSet::SpectrumPtr spectrum) {
     utils::checkSize(spectrum->getNumPixels(), _length, "SpectrumSet::set");
     _spectra[ii] = spectrum;

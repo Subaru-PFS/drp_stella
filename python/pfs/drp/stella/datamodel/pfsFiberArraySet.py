@@ -24,6 +24,7 @@ class PfsFiberArraySet(pfs.datamodel.PfsFiberArraySet):
         with np.errstate(invalid="ignore"):
             self.flux *= rhs
             self.sky *= rhs
+            self.norm *= rhs
             for ii in range(3):
                 self.covar[:, ii, :] *= np.array(rhs)**2
         return self
@@ -33,11 +34,12 @@ class PfsFiberArraySet(pfs.datamodel.PfsFiberArraySet):
         with np.errstate(invalid="ignore", divide="ignore"):
             self.flux /= rhs
             self.sky /= rhs
+            self.norm /= rhs
             for ii in range(3):
                 self.covar[:, ii, :] /= np.array(rhs)**2
         return self
 
-    def plot(self, fiberId=None, usePixels=False, ignorePixelMask=0x0, show=True):
+    def plot(self, fiberId=None, usePixels=False, ignorePixelMask=0x0, normalized=False, show=True):
         """Plot the spectra
 
         Parameters
@@ -48,6 +50,8 @@ class PfsFiberArraySet(pfs.datamodel.PfsFiberArraySet):
             Plot as a function of pixel index, rather than wavelength?
         ignorePixelMask : `int`, optional
             Mask to apply to flux pixels.
+        normalized : `bool`, optional
+            Plot normalised flux?
         show : `bool`, optional
             Show the plot?
 
@@ -77,7 +81,10 @@ class PfsFiberArraySet(pfs.datamodel.PfsFiberArraySet):
             index = np.where(self.fiberId == ff)[0][0]
             good = ((self.mask[index] & ignorePixelMask) == 0)
             lam = wavelength if usePixels else wavelength[index]
-            axes.plot(lam[good], self.flux[index][good], ls="solid", color=cc, label=str(ff))
+            flux = self.flux[index][good]
+            if normalized:
+                flux /= self.norm[index][good]
+            axes.plot(lam[good], flux, ls="solid", color=cc, label=str(ff))
 
         axes.set_xlabel(xLabel)
         axes.set_ylabel("Flux")
@@ -109,16 +116,22 @@ class PfsFiberArraySet(pfs.datamodel.PfsFiberArraySet):
         flux = np.empty((numSpectra, numSamples), dtype=self.flux.dtype)
         mask = np.empty((numSpectra, numSamples), dtype=self.mask.dtype)
         sky = np.empty((numSpectra, numSamples), dtype=self.sky.dtype)
+        norm = np.empty((numSpectra, numSamples), dtype=self.norm.dtype)
         covar = np.zeros((numSpectra, 3, numSamples), dtype=self.covar.dtype)
 
         for ii, ff in enumerate(fiberId):
             jj = np.argwhere(self.fiberId == ff)[0][0]
-            flux[ii] = interpolateFlux(self.wavelength[jj], self.flux[jj], wavelength)
-            sky[ii] = interpolateFlux(self.wavelength[jj], self.sky[jj], wavelength)
-            # XXX dropping covariance on the floor: just doing the variance for now
-            covar[ii][0] = interpolateFlux(self.wavelength[jj], self.covar[jj][0], wavelength, fill=np.inf)
+            norm[ii] = interpolateFlux(self.wavelength[jj], self.norm[jj], wavelength)
+            with np.errstate(invalid="ignore"):
+                flux[ii] = interpolateFlux(self.wavelength[jj], self.flux[jj]/self.norm[jj],
+                                           wavelength)*norm[ii]
+                sky[ii] = interpolateFlux(self.wavelength[jj], self.sky[jj]/self.norm[jj],
+                                          wavelength)*norm[ii]
+                # XXX dropping covariance on the floor: just doing the variance for now
+                covar[ii][0] = interpolateFlux(self.wavelength[jj], self.covar[jj][0]/self.norm[jj]**2,
+                                               wavelength, fill=np.inf)*norm[ii]**2
             mask[ii] = interpolateMask(self.wavelength[jj], self.mask[jj], wavelength,
                                        fill=self.flags["NO_DATA"]).astype(self.mask.dtype)
 
         return type(self)(self.identity, fiberId, np.concatenate([[wavelength]]*numSpectra),
-                          flux, mask, sky, covar, self.flags, self.metadata)
+                          flux, mask, sky, norm, covar, self.flags, self.metadata)

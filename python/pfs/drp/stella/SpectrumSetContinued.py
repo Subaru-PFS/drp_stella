@@ -59,7 +59,7 @@ class SpectrumSet:
         metadata = getPfsVersions()
         identity = Identity.fromDict(dataId)
         return PfsArm(identity, fiberIds, wavelength, self.getAllFluxes(), self.getAllMasks(),
-                      self.getAllBackgrounds(), covar, flags, metadata)
+                      self.getAllBackgrounds(), self.getAllNormalizations(), covar, flags, metadata)
 
     @classmethod
     def fromPfsArm(cls, pfsArm):
@@ -87,6 +87,7 @@ class SpectrumSet:
             spectrum.spectrum[:] = pfsArm.flux[ii]
             spectrum.mask.array[:] = pfsArm.mask[ii]
             spectrum.background[:] = pfsArm.sky[ii]
+            spectrum.norm[:] = pfsArm.norm[ii]
             spectrum.covariance[:] = pfsArm.covar[ii]
             spectrum.wavelength[:] = pfsArm.wavelength[ii]
             self.add(spectrum)
