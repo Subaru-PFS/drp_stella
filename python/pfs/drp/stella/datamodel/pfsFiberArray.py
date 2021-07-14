@@ -67,6 +67,7 @@ class PfsFiberArray(pfs.datamodel.PfsFiberArray, PfsSimpleSpectrum):
     def __imul__(self, rhs):
         """Flux multiplication, in-place"""
         PfsSimpleSpectrum.__imul__(self, rhs)
+        self.sky *= rhs
         for ii in range(3):
             self.covar[ii] *= rhs**2
         return self
@@ -74,6 +75,7 @@ class PfsFiberArray(pfs.datamodel.PfsFiberArray, PfsSimpleSpectrum):
     def __itruediv__(self, rhs):
         """Flux division, in-place"""
         PfsSimpleSpectrum.__itruediv__(self, rhs)
+        self.sky /= rhs
         for ii in range(3):
             self.covar[ii] /= rhs**2
         return self
