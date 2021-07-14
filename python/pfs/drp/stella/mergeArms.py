@@ -39,7 +39,7 @@ class MergeArmsConfig(Config):
                                        doc="Do 1D sky subtraction before merging arms?")
     subtractSky1d = ConfigurableField(target=SubtractSky1dTask, doc="1d sky subtraction")
     doBarycentricCorr = Field(dtype=bool, default=True, doc="Do barycentric correction?")
-    mask = ListField(dtype=str, default=["NO_DATA", "CR", "INTRP", "SAT"],
+    mask = ListField(dtype=str, default=["NO_DATA", "CR", "INTRP", "SAT", "BAD_FLAT"],
                      doc="Mask values to reject when combining")
     pfsConfigFile = Field(dtype=str, default="", doc="""Full pathname of pfsCalib file to use.
     If of the form "pfsConfig-0x%x-%d.fits", the pfsDesignId and visit0 will be deduced from the filename;
