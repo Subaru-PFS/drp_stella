@@ -85,12 +85,13 @@ class MergeArmsTask(CmdLineTask):
 
         Parameters
         ----------
-        spectra : iterable of `pfs.datamodel.PsfArm`
-            Extracted spectra from the different arms
+        spectra : iterable of iterable of `pfs.datamodel.PsfArm`
+            Extracted spectra from the different arms, for each spectrograph.
         pfsConfig : `pfs.datamodel.PfsConfig`
             Top-end configuration, fiber targets.
-        lsfList : iterable of `pfs.drp.stella.Lsf`
-            Line-spread functions from the different arms
+        lsfList : iterable of iterable of `pfs.drp.stella.Lsf`
+            Line-spread functions from the different arms, for each
+            spectrograph.
 
         Returns
         -------
