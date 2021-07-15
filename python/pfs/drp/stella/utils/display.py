@@ -226,7 +226,7 @@ if not hasattr(DisplayImpl, "set_format_coord"):  # old version of display_matpl
                         try:
                             mtpInfo = fiberIds.fiberIdToMTP([fid], pfsConfig)[0]
                             fidStr += f" {', '.join([str(i) for i, l in zip(mtpInfo, mtpDetails) if l])}"
-                        except RuntimeError as e:
+                        except RuntimeError:
                             pass            # fiber isn't in pfsConfig
 
                     msg += f"FiberId {fidStr}    {detMap.findWavelength(fid, y):8.3f}nm" + " "
@@ -271,7 +271,7 @@ else:
                     try:
                         mtpInfo = fiberIds.fiberIdToMTP([fid], pfsConfig)[0]
                         fidStr += f" {', '.join([str(i) for i, l in zip(mtpInfo, mtpDetails) if l])}"
-                    except RuntimeError as e:
+                    except RuntimeError:
                         pass            # fiber isn't in pfsConfig
 
                 return f"FiberId {fidStr}    {detectorMap.findWavelength(fid, y):8.3f}nm"
@@ -449,7 +449,8 @@ def getIndex(mos, x, y):                # should be a method of lsst.afw.display
     return ix + iy*mos.nx
 
 
-def makeCRMosaic(exposure, raw=None, size=31, rGrow=3, maskPlaneName="CR", callback=None, display=None):
+def makeCRMosaic(exposure, raw=None, size=31, rGrow=3, maskPlaneName=None, threshold=None,
+                 callback=None, display=None):
     """Return a mosaic of all the cosmic rays found in exposure
 
     This may be converted to an `lsst.afw.image.MaskedImage` with
@@ -471,6 +472,10 @@ def makeCRMosaic(exposure, raw=None, size=31, rGrow=3, maskPlaneName="CR", callb
        How much to grow each CR's Footprint, used to merge fragments
     maskPlaneName : `str` or `list` of `str`
        Mask plane[s] to search for objects (default: "CR")
+       May not be specified along with threshold
+    threshold: `afw.detection.Threshold`
+       The threshold used to find CRs
+       May not be specified along with maskPlaneName
     callback : ``callable``
        A function to call on each `lsst.afw.detection.Footprint`;
        only include footprints for which ``callback`` returns True
@@ -483,9 +488,21 @@ def makeCRMosaic(exposure, raw=None, size=31, rGrow=3, maskPlaneName="CR", callb
 
     N.b. sets mosaic.xy0[] to the XY0 values for each cutout
     """
-    fs = afwDetect.FootprintSet(exposure.mask,
-                                afwDetect.Threshold(exposure.mask.getPlaneBitMask(maskPlaneName),
-                                                    afwDetect.Threshold.BITMASK))
+    if threshold is None:
+        if maskPlaneName is None:
+            maskPlaneName = "CR"
+
+        threshold = afwDetect.Threshold(exposure.mask.getPlaneBitMask(maskPlaneName),
+                                        afwDetect.Threshold.BITMASK)
+    else:
+        if maskPlaneName is not None:
+            raise RuntimeError("You may not specify both a threshold and maskPlaneName")
+
+    if threshold.getType() == afwDetect.Threshold.ThresholdType.BITMASK:
+        fs = afwDetect.FootprintSet(exposure.mask, threshold)
+    else:
+        fs = afwDetect.FootprintSet(exposure.maskedImage, threshold, "DETECTED", setPeaks=True)
+
     isotropic = True
     fs = afwDetect.FootprintSet(fs, rGrow, isotropic)
     footprints = fs.getFootprints()
