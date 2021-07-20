@@ -3,6 +3,7 @@ import numpy as np
 import scipy.integrate
 import scipy.interpolate
 import astropy.io.fits
+import astropy.wcs
 
 from lsst.pex.config import Config
 from lsst.pipe.base import Task
@@ -109,12 +110,12 @@ class FilterCurve(TransmissionCurve):
         super().__init__(wavelength, transmission)
 
 
-AMBRE_FILES = ["p6500_g+4.0_m0.0_t01_z+0.00_a+0.00.AMBRE.fits",
-               "p6500_g+4.0_m0.0_t01_z-1.00_a+0.00.AMBRE.fits",
-               "p7000_g+4.0_m0.0_t01_z+0.00_a+0.00.AMBRE.fits",
-               "p7000_g+4.0_m0.0_t01_z-1.00_a+0.00.AMBRE.fits",
-               "p7500_g+4.0_m0.0_t01_z+0.00_a+0.00.AMBRE.fits",
-               "p7500_g+4.0_m0.0_t01_z-1.00_a+0.00.AMBRE.fits",
+AMBRE_FILES = ["p6500_g+4.0_m0.0_t01_z+0.00_a+0.00.AMBRE_Extp.fits",
+               "p6500_g+4.0_m0.0_t01_z-1.00_a+0.00.AMBRE_Extp.fits",
+               "p7000_g+4.0_m0.0_t01_z+0.00_a+0.00.AMBRE_Extp.fits",
+               "p7000_g+4.0_m0.0_t01_z-1.00_a+0.00.AMBRE_Extp.fits",
+               "p7500_g+4.0_m0.0_t01_z+0.00_a+0.00.AMBRE_Extp.fits",
+               "p7500_g+4.0_m0.0_t01_z-1.00_a+0.00.AMBRE_Extp.fits",
                ]
 
 
@@ -136,15 +137,15 @@ def readAmbre(target, wavelength):
     ambre : `pfs.datamodel.drp.PfsReference`
         AMBRE spectrum.
     """
-    SPEED_OF_LIGHT = 3.0e8*1.0e9  # nm/s
-    filename = os.path.join(os.environ["OBS_PFS_DIR"], "pfs", "fluxCal", "ambre",
+    filename = os.path.join(os.environ["DRP_PFS_DATA_DIR"], "fluxCalSim",
                             AMBRE_FILES[target.objId % len(AMBRE_FILES)])
     with astropy.io.fits.open(filename) as fits:
-        refWavelength = fits[1].data["wavelength"]  # Angstroms
-        refFlux = fits[1].data["flux"]  # erg/cm^2/s/A
-    refWavelength *= 0.1  # Convert to nm
-    refFlux *= 10*refWavelength*refWavelength/SPEED_OF_LIGHT  # Convert to Fnu in erg/cm^2/s/Hz
-    refFlux *= 1.0e23*1.0e9  # Convert to nJy
+        wcs = astropy.wcs.WCS(fits[1].header)
+        refFlux = fits[1].data["Flux"]  # nJy
+
+    # astropy treats the WCS as having two axes (because it's in a table with NAXIS=2).
+    # We just ignore the other axis.
+    refWavelength = wcs.pixel_to_world(np.arange(len(refFlux)), 0)[0].to("nm").value
 
     flux = scipy.interpolate.interp1d(refWavelength, refFlux, kind="linear", bounds_error=False,
                                       fill_value=np.nan, copy=True, assume_sorted=True)(wavelength)
