@@ -18,17 +18,20 @@ namespace pfs {
 namespace drp {
 namespace stella {
 
-
-std::shared_ptr<OversampledPsf::Image>
-OversampledPsf::resampleKernelImage(
-    OversampledPsf::Image const& image,
+template <typename T>
+std::shared_ptr<lsst::afw::image::Image<T>>
+resampleKernelImage(
+    lsst::afw::image::Image<T> const& image,
+    int binning,
+    lsst::geom::Box2I const& bbox,
     lsst::geom::Point2D const& center
-) const {
+) {
+    using Image = lsst::afw::image::Image<T>;
     auto const xPosition = lsst::afw::image::positionToIndex(center.getX(), true);
     auto const yPosition = lsst::afw::image::positionToIndex(center.getY(), true);
-    lsst::geom::Box2I targetBox = computeBBox();
+    lsst::geom::Box2I targetBox = bbox;
     targetBox.shift(lsst::geom::Extent2I(xPosition.first, yPosition.first));
-    std::shared_ptr<Image> resampled = std::make_shared<Image>(targetBox);
+    auto resampled = std::make_shared<Image>(targetBox);
     auto array = resampled->getArray();
     array.deep() = 0.0;
 
@@ -39,12 +42,12 @@ OversampledPsf::resampleKernelImage(
 
     double sum = 0.0;
     for (std::ptrdiff_t yy = 0; yy < targetBox.getHeight(); ++yy) {
-        std::ptrdiff_t jLow = (yy - 0.5 + targetBox.getMinY())*_oversampleFactor - y0 + 1;
-        std::ptrdiff_t jHigh = (yy + 0.5 + targetBox.getMinY())*_oversampleFactor - y0 + 1;
+        std::ptrdiff_t jLow = (yy - 0.5 + targetBox.getMinY())*binning - y0 + 1;
+        std::ptrdiff_t jHigh = (yy + 0.5 + targetBox.getMinY())*binning - y0 + 1;
         for (std::ptrdiff_t jj = std::max(0L, jLow); jj < std::min(jHigh, height); ++jj) {
             for (std::ptrdiff_t xx = 0; xx < targetBox.getWidth(); ++xx) {
-                std::ptrdiff_t iLow = (xx - 0.5 + targetBox.getMinX())*_oversampleFactor - x0 + 1;
-                std::ptrdiff_t iHigh = (xx + 0.5 + targetBox.getMinX())*_oversampleFactor - x0 + 1;
+                std::ptrdiff_t iLow = (xx - 0.5 + targetBox.getMinX())*binning - x0 + 1;
+                std::ptrdiff_t iHigh = (xx + 0.5 + targetBox.getMinX())*binning - x0 + 1;
                 for (std::ptrdiff_t ii = std::max(0L, iLow); ii < std::min(iHigh, width); ++ii) {
                     auto const value = image.get(lsst::geom::Point2I(ii, jj), lsst::afw::image::LOCAL);
                     array[yy][xx] += value;
@@ -57,18 +60,19 @@ OversampledPsf::resampleKernelImage(
     // Divide through by kernel sum
     for (int yy = 0; yy < targetBox.getHeight(); ++yy) {
         std::transform(array[yy].begin(), array[yy].end(), array[yy].begin(),
-                       [sum](Image::Pixel const& value) { return value/sum; });
+                       [sum](T const& value) { return value/sum; });
     }
 
     return resampled;
 }
 
-
-std::shared_ptr<OversampledPsf::Image>
-OversampledPsf::recenterKernelImage(
-    OversampledPsf::Image const& image,
+template<typename T>
+std::shared_ptr<lsst::afw::image::Image<T>>
+recenterOversampledKernelImage(
+    lsst::afw::image::Image<T> const& image,
+    int binning,
     lsst::geom::Point2D const& center
-) const {
+) {
     std::size_t const width = image.getWidth();
     std::size_t const height = image.getHeight();
     auto const& array = image.getArray();
@@ -90,21 +94,21 @@ OversampledPsf::recenterKernelImage(
 
     // Binning by an odd factor requires the centroid at the center of a pixel.
     // Binning by an even factor requires the centroid on the edge of a pixel.
-    if (_oversampleFactor % 2 == 0) {
+    if (binning % 2 == 0) {
         xSum -= 0.5;
         ySum -= 0.5;
     }
 
     auto const xPosition = lsst::afw::image::positionToIndex(center.getX(), true);
     auto const yPosition = lsst::afw::image::positionToIndex(center.getY(), true);
-    double const xOffset = xPosition.second*_oversampleFactor - xSum;
-    double const yOffset = yPosition.second*_oversampleFactor - ySum;
+    double const xOffset = xPosition.second*binning - xSum;
+    double const yOffset = yPosition.second*binning - ySum;
 
     std::string const warpAlgorithm = "lanczos5";
     unsigned int const warpBuffer = 5;
     auto recentered = lsst::afw::math::offsetImage(image, xOffset, yOffset, warpAlgorithm, warpBuffer);
-    recentered->setXY0(recentered->getX0() + xPosition.first*_oversampleFactor,
-                       recentered->getY0() + yPosition.first*_oversampleFactor);
+    recentered->setXY0(recentered->getX0() + xPosition.first*binning,
+                       recentered->getY0() + yPosition.first*binning);
 
     return recentered;
 }
@@ -115,7 +119,9 @@ OversampledPsf::doComputeKernelImage(
     lsst::geom::Point2D const& position,
     lsst::afw::image::Color const& color
 ) const {
-    return resampleKernelImage(*recenterKernelImage(*doComputeOversampledKernelImage(position)));
+    return resampleKernelImage(
+        *recenterOversampledKernelImage(*doComputeOversampledKernelImage(position), _oversampleFactor),
+        _oversampleFactor, computeBBox());
 }
 
 
@@ -124,8 +130,10 @@ OversampledPsf::doComputeImage(
     lsst::geom::Point2D const& position,
     lsst::afw::image::Color const& color
 ) const {
-    return resampleKernelImage(*recenterKernelImage(*doComputeOversampledKernelImage(position), position),
-                               position);
+    return resampleKernelImage(
+        *recenterOversampledKernelImage(*doComputeOversampledKernelImage(position), _oversampleFactor,
+                                        position),
+        _oversampleFactor, computeBBox(), position);
 }
 
 
@@ -299,6 +307,25 @@ void ImagingSpectralPsf::write(OutputArchiveHandle& handle) const {
     record->set(keys.detectorMap, handle.put(getDetectorMap()));
     handle.saveCatalog(catalog);
 }
+
+
+// Explicit instantiation
+#define INSTANTIATE(TYPE) \
+std::shared_ptr<lsst::afw::image::Image<TYPE>> \
+resampleKernelImage( \
+    lsst::afw::image::Image<TYPE> const& image, \
+    int binning, \
+    lsst::geom::Box2I const& bbox, \
+    lsst::geom::Point2D const& center \
+); \
+std::shared_ptr<lsst::afw::image::Image<TYPE>> \
+recenterOversampledKernelImage( \
+    lsst::afw::image::Image<TYPE> const& image, \
+    int binning, \
+    lsst::geom::Point2D const& center \
+);
+
+INSTANTIATE(lsst::afw::detection::Psf::Pixel);
 
 
 }}}  // namespace pfs::drp::stella

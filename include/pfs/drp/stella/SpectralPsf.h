@@ -1,11 +1,60 @@
 #include "lsst/pex/exceptions.h"
 #include "lsst/afw/detection/Psf.h"
+#include "lsst/afw/image.h"
 
 #include "pfs/drp/stella/DetectorMap.h"
 
 namespace pfs {
 namespace drp {
 namespace stella {
+
+
+/// Resample the kernel image
+///
+/// The kernel image is resampled by the appropriate factor, with the center
+/// placed at the nominated position, and normalised to unit sum (as required
+/// by LSST afw's Psf class).
+///
+/// The input image must have xy0 set.
+///
+/// @param image : kernel image to resample
+/// @param binning : binning factor to apply
+/// @param bbox : desired bounding box
+/// @param center : desired center (in native pixel frame)
+/// @return resampled kernel image
+template <typename T>
+std::shared_ptr<lsst::afw::image::Image<T>> resampleKernelImage(
+    lsst::afw::image::Image<T> const& image,
+    int binning,
+    lsst::geom::Box2I const& bbox,
+    lsst::geom::Point2D const& center=lsst::geom::Point2D(0, 0)
+);
+
+
+/// Recenter an oversampled kernel image
+///
+/// The centroid is measured, and the image is shifted so that the centroid
+/// sits at the nominated position (when xy0 is respected and a subsequent
+/// resampling is performed).
+///
+/// This is a version of lsst::afw::detection::Psf::recenterKernelImage that
+/// works on oversampled images. In particular, it puts the center in the proper
+/// position for a subsequent resampling: when oversampled by an odd factor,
+/// we place the centroid at the center of a pixel; when oversampled by an even
+/// factor, we place the centroid on the corner of a pixel.
+///
+/// @param image : image to recenter.
+/// @param binning : binning factor to be applied (important for putting the
+///     center in the right place
+/// @param center : desired center (in native pixel frame)
+/// @return recentered image.
+template<typename T>
+std::shared_ptr<lsst::afw::image::Image<T>> recenterOversampledKernelImage(
+    lsst::afw::image::Image<T> const& image,
+    int binning=1,
+    lsst::geom::Point2D const& center=lsst::geom::Point2D(0, 0)
+);
+
 
 /** A PSF constructed from over-sampled images
  *
@@ -59,32 +108,6 @@ class OversampledPsf : public virtual lsst::afw::detection::Psf {
         _oversampleFactor(oversampleFactor),
         _targetSize(targetSize)
         {}
-
-    /** Resample the kernel image
-     *
-     * The image is resampled by the appropriate factor and normalised to unit
-     * sum (as required by LSST afw's Psf class).
-     *
-     * The input image must have xy0 set.
-     */
-    std::shared_ptr<Image> resampleKernelImage(
-        Image const& image,
-        lsst::geom::Point2D const& center=lsst::geom::Point2D(0, 0)
-    ) const;
-
-    /** Recenter the kernel image
-     *
-     * The centroid is measured, and the image is shifted so that the centroid
-     * sits at the nominated position (when xy0 is respected).
-     *
-     * @param image : Image to recenter.
-     * @param center : Center to put.
-     * @return recentered image.
-     */
-    std::shared_ptr<Image> recenterKernelImage(
-        Image const& image,
-        lsst::geom::Point2D const& center=lsst::geom::Point2D(0, 0)
-    ) const;
 
 private:
     //@{
